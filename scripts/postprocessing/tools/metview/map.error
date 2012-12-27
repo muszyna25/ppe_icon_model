@@ -409,7 +409,7 @@ for k=k1 to k2 by k3 do
   rms = sqrt(integrate(var_data_k*var_data_k))
   if stat = 'diff' then 
     statistic = statistic&'   RMS:  '&rms
-    append (plotdir&"/scores_exp"&expnum&".txt", 
+    append (plotdir&"/scores_"&expnum&".txt", 
       varname, tab, levtype,' level: ', k, tab, 'inidatetime: ', firstinidate, initime, 
       '   step: ', step, '   ndays: ', ndays, tab, statistic, newline)
   end if

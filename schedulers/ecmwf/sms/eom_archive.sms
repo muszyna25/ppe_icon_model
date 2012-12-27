@@ -37,6 +37,18 @@ cd ${gatedir}
 ecfsdir=ec:icon/experiments/%SUITE%/%EXPNUM%/$YYYYMM
 ECFSPATH=/usr/local/ecfs/new
 ${ECFSPATH}/emkdir .p-p $ecfsdir
+METDIR=%ECPERM%/icon-dev/scripts/postprocessing/tools/metview
+
+
+#-----------------------------------------------------------------------------
+# scores: plot comparison between this experiment and a reference experiment
+
+cp ${METDIR}/scores.pro ${METDIR}/batch_scores.pro .
+idl=/usr/local/share/apps/rsi/idl_6.4/idl64/bin/idl
+$idl batch_scores -args %ECTEMP%/%SUITE%/%EXPNUM%/$YYYYMM/metplots %ECTEMP%/%SUITE2%/%EXPNUM2%/$YYYYMM/metplots \
+  %SUITE%_%EXPNUM% %EXPNAME2% ${YYYYMM} 24 1
+#$idl batch_scores -args %ECTEMP%/%SUITE%/%EXPNUM%/$YYYYMM/metplots %ECTEMP%/%SUITE2%/%EXPNUM2%/$YYYYMM/metplots \
+#  %SUITE%_%EXPNUM% %EXPNAME2% ${YYYYMM} 240 1
 
 
 #-----------------------------------------------------------------------------
