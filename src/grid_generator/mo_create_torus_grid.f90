@@ -561,6 +561,12 @@ CONTAINS
         torus_grid%edges%primal_normal(index_no)%v2 = 0.5_wp
         torus_grid%edges%dual_normal(index_no)%v1   = 0.5_wp
         torus_grid%edges%dual_normal(index_no)%v2   = -sin60
+        torus_grid%edges%cartesian_primal_normal(index_no)%x(1) = torus_grid%edges%primal_normal(index_no)%v1
+        torus_grid%edges%cartesian_primal_normal(index_no)%x(2) = torus_grid%edges%primal_normal(index_no)%v2
+        torus_grid%edges%cartesian_primal_normal(index_no)%x(3) = 0.0_wp        
+        torus_grid%edges%cartesian_dual_normal(index_no)%x(1) = torus_grid%edges%dual_normal(index_no)%v1
+        torus_grid%edges%cartesian_dual_normal(index_no)%x(2) = torus_grid%edges%dual_normal(index_no)%v2
+        torus_grid%edges%cartesian_dual_normal(index_no)%x(3) = 0.0_wp
 
         ! right_diagonal edges
         index_no=edge_index_right_diagonal(x,y)
@@ -573,6 +579,12 @@ CONTAINS
         torus_grid%edges%primal_normal(index_no)%v2 = -0.5_wp
         torus_grid%edges%dual_normal(index_no)%v1   = -0.5_wp
         torus_grid%edges%dual_normal(index_no)%v2   = -sin60
+        torus_grid%edges%cartesian_primal_normal(index_no)%x(1) = torus_grid%edges%primal_normal(index_no)%v1
+        torus_grid%edges%cartesian_primal_normal(index_no)%x(2) = torus_grid%edges%primal_normal(index_no)%v2
+        torus_grid%edges%cartesian_primal_normal(index_no)%x(3) = 0.0_wp        
+        torus_grid%edges%cartesian_dual_normal(index_no)%x(1) = torus_grid%edges%dual_normal(index_no)%v1
+        torus_grid%edges%cartesian_dual_normal(index_no)%x(2) = torus_grid%edges%dual_normal(index_no)%v2
+        torus_grid%edges%cartesian_dual_normal(index_no)%x(3) = 0.0_wp
 
         ! horizontal edges
         index_no=edge_index_horizontal(x,y)
@@ -585,6 +597,13 @@ CONTAINS
         torus_grid%edges%primal_normal(index_no)%v2 = 1.0_wp
         torus_grid%edges%dual_normal(index_no)%v1   = 1.0_wp
         torus_grid%edges%dual_normal(index_no)%v2   = 0.0_wp
+        torus_grid%edges%cartesian_primal_normal(index_no)%x(1) = torus_grid%edges%primal_normal(index_no)%v1
+        torus_grid%edges%cartesian_primal_normal(index_no)%x(2) = torus_grid%edges%primal_normal(index_no)%v2
+        torus_grid%edges%cartesian_primal_normal(index_no)%x(3) = 0.0_wp        
+        torus_grid%edges%cartesian_dual_normal(index_no)%x(1) = torus_grid%edges%dual_normal(index_no)%v1
+        torus_grid%edges%cartesian_dual_normal(index_no)%x(2) = torus_grid%edges%dual_normal(index_no)%v2
+        torus_grid%edges%cartesian_dual_normal(index_no)%x(3) = 0.0_wp
+      
       ENDDO
     ENDDO
 

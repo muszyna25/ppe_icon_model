@@ -103,7 +103,8 @@ MODULE mo_math_utilities
   USE mo_parallel_config,     ONLY: nproma
   USE mo_lonlat_grid,         ONLY: t_lon_lat_grid
   USE mo_grid_config,         ONLY: grid_sphere_radius
-  
+  USE mo_grid_geometry_info,  ONLY: t_grid_geometry_info
+  USE mo_math_types
   IMPLICIT NONE
   
   PRIVATE
@@ -164,31 +165,7 @@ MODULE mo_math_utilities
   
   PUBLIC :: OPERATOR(+)
   PUBLIC :: OPERATOR(-)
-  PUBLIC :: OPERATOR(*)
-  
-  ! cartesian coordinate class
-  TYPE t_cartesian_coordinates
-    REAL(wp) :: x(3)
-  END TYPE t_cartesian_coordinates
-  
-  ! geographical coordinate class
-  TYPE t_geographical_coordinates
-    REAL(wp) :: lon
-    REAL(wp) :: lat
-  END TYPE t_geographical_coordinates
-
-  ! the two coordinates on the tangent plane
-  TYPE t_tangent_vectors
-    REAL(wp) :: v1
-    REAL(wp) :: v2
-  END TYPE t_tangent_vectors
-  
-  ! line class
-  TYPE t_line
-    TYPE(t_geographical_coordinates) :: p1
-    TYPE(t_geographical_coordinates) :: p2
-  END TYPE t_line
-  
+  PUBLIC :: OPERATOR(*)    
   
   INTERFACE OPERATOR(+)
     MODULE PROCEDURE cartesian_coordinates_plus
@@ -616,13 +593,16 @@ CONTAINS
   ! returns the torus modulo coordinates of v1 that are
   ! closest to v0
   FUNCTION plane_torus_closest_coordinates(v0, v1, &
-    & length_of_torus, height_of_torus) result(new_v1_coord)
+    & geometry_info) result(new_v1_coord)
     
     REAL(wp), INTENT(in) :: v0(3), v1(3)
-    REAL(wp), INTENT(in) :: length_of_torus, height_of_torus
+    TYPE(t_grid_geometry_info), INTENT(in) :: geometry_info
     
+    REAL(wp) :: length_of_torus, height_of_torus
     TYPE(t_cartesian_coordinates) :: new_v1_coord
 
+    length_of_torus = geometry_info%domain_length
+    height_of_torus = geometry_info%domain_height
     ! check the x coordinate
     IF ( ABS(v0(1) - v1(1)) >  length_of_torus * 0.5_wp) THEN
       ! we will wrap around + or -  length_of_torus       
@@ -657,13 +637,13 @@ CONTAINS
 
   !--------------------------------------------------------------------
   REAL(wp) FUNCTION plane_torus_distance(v0, v1, &
-    & length_of_torus, height_of_torus)
+    & geometry_info)
     REAL(wp), INTENT(in) :: v0(3), v1(3)
-    REAL(wp), INTENT(in) :: length_of_torus, height_of_torus
+    TYPE(t_grid_geometry_info), INTENT(in) :: geometry_info
 
     TYPE(t_cartesian_coordinates) :: dv
 
-    dv = plane_torus_closest_coordinates(v0, v1, length_of_torus, height_of_torus)
+    dv = plane_torus_closest_coordinates(v0, v1, geometry_info)
     dv%x = dv%x - v0
     plane_torus_distance = d_norma_3d(dv)
     

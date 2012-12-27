@@ -110,14 +110,13 @@ MODULE mo_model_domimp_setup
   USE mo_model_domain,       ONLY: t_patch
 !   USE mo_physical_constants, ONLY: earth_angular_velocity
   USE mo_parallel_config,    ONLY: nproma
-  USE mo_math_utilities,     ONLY: gvec2cvec, t_cartesian_coordinates
-  USE mo_math_constants,     ONLY: pi_2
   USE mo_loopindices,        ONLY: get_indices_e
   USE mo_grid_config,        ONLY: corio_lat, grid_angular_velocity
   USE mo_sync,               ONLY: sync_c, sync_e, sync_patch_array, sync_idx
   USE mo_grid_subset,        ONLY: fill_subset,t_subset_range, get_index_range
   USE mo_mpi,                ONLY: work_mpi_barrier, get_my_mpi_work_id, my_process_is_mpi_seq
   USE mo_impl_constants,     ONLY: halo_levels_ceiling
+  USE mo_grid_geometry_info, ONLY: planar_torus_geometry
   
   IMPLICIT NONE
   
@@ -125,7 +124,6 @@ MODULE mo_model_domimp_setup
   
   PUBLIC :: reshape_int
   PUBLIC :: reshape_real
-  PUBLIC :: calculate_cart_normal
   PUBLIC :: init_quad_twoadjcells
   PUBLIC :: init_coriolis
   PUBLIC :: set_verts_phys_id
@@ -170,102 +168,7 @@ CONTAINS
 
   END SUBROUTINE calculate_edge_area
   !-------------------------------------------------------------------------
-  
-  !-------------------------------------------------------------------------
-  !>
-  !! This routine calculates the Cartesian components of the edge primal normals.
-  !!
-  !! Therefore the given zonal and meridional
-  !! components of the edge primal normals are used.
-  !! This information should be provided by the grid generator and
-  !! read in the routine read_patch.
-  !!
-  !! @par Revision History
-  !! Initial release by Jochen Foerstner (2008-05-19)
-  !! Modifiaction by A. Gassmann(2010-09-05)
-  !! - added also tangential normal, and generalize to lplane
-  !!
-  SUBROUTINE calculate_cart_normal( lplane, p_patch )
-    !
-    LOGICAL,INTENT(in) :: lplane
-    TYPE(t_patch), TARGET, INTENT(inout) :: p_patch  ! patch on a specific level
     
-    TYPE(t_cartesian_coordinates) :: z_vec
-    REAL(wp) :: z_lon, z_lat, z_u, z_v  ! location and components of normal
-    REAL(wp) :: z_norm                  ! norm of Cartesian normal
-    
-    INTEGER :: nlen, nblks_e, npromz_e
-    INTEGER :: jb, je                   ! loop indices
-    
-    !-----------------------------------------------------------------------
-    
-    ! values for the blocking
-    nblks_e  = p_patch%nblks_e
-    npromz_e = p_patch%npromz_e
-    
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,je,nlen,z_lon,z_lat,z_u,z_v,z_norm,z_vec) ICON_OMP_DEFAULT_SCHEDULE
-    DO jb = 1, nblks_e
-      
-      IF (jb /= nblks_e) THEN
-        nlen = nproma
-      ELSE
-        nlen = npromz_e
-      ENDIF
-      
-      ! loop over edges
-      DO je = 1, nlen
-        
-        ! location of edge midpoint
-        IF (.NOT.lplane) THEN
-          z_lon = p_patch%edges%center(je,jb)%lon
-          z_lat = p_patch%edges%center(je,jb)%lat
-        ELSE
-          z_lon = -pi_2 !-90
-          z_lat =  pi_2 !+90
-        ENDIF
-        
-        ! zonal and meridional component of primal normal
-        z_u = p_patch%edges%primal_normal(je,jb)%v1
-        z_v = p_patch%edges%primal_normal(je,jb)%v2
-        
-        ! calculate Cartesian components of primal normal
-        CALL gvec2cvec( z_u, z_v, z_lon, z_lat, z_vec%x(1), z_vec%x(2), z_vec%x(3) )
-        
-        ! compute unit normal to edge je
-        z_norm = SQRT( DOT_PRODUCT(z_vec%x(1:3),z_vec%x(1:3)) )
-        z_vec%x(1:3) = 1._wp / z_norm * z_vec%x(1:3)
-        
-        ! save the values in the according type structure of the patch
-        p_patch%edges%primal_cart_normal(je,jb)%x(1) = z_vec%x(1)
-        p_patch%edges%primal_cart_normal(je,jb)%x(2) = z_vec%x(2)
-        p_patch%edges%primal_cart_normal(je,jb)%x(3) = z_vec%x(3)
-        
-        ! zonal and meridional component of dual normal
-        z_u = p_patch%edges%dual_normal(je,jb)%v1
-        z_v = p_patch%edges%dual_normal(je,jb)%v2
-        
-        ! calculate Cartesian components of primal normal
-        CALL gvec2cvec( z_u, z_v, z_lon, z_lat, z_vec%x(1), z_vec%x(2), z_vec%x(3) )
-        
-        ! compute unit normal to edge je
-        z_norm = SQRT( DOT_PRODUCT(z_vec%x(1:3),z_vec%x(1:3)) )
-        z_vec%x(1:3) = 1._wp / z_norm * z_vec%x(1:3)
-        
-        ! save the values in the according type structure of the patch
-        p_patch%edges%dual_cart_normal(je,jb)%x(1) = z_vec%x(1)
-        p_patch%edges%dual_cart_normal(je,jb)%x(2) = z_vec%x(2)
-        p_patch%edges%dual_cart_normal(je,jb)%x(3) = z_vec%x(3)
-        
-      END DO
-      
-    END DO
-!$OMP END DO NOWAIT
-!$OMP END PARALLEL
-    
-  END SUBROUTINE calculate_cart_normal
-  !-------------------------------------------------------------------------
-  
   !-------------------------------------------------------------------------
   !>
   !! This routine initializes the data for the quadrilateral cells.
@@ -702,6 +605,7 @@ CONTAINS
       & npromz_c, npromz_e, npromz_v
     INTEGER :: jc, je, jv, jb
     
+    LOGICAL :: is_plane
     REAL(wp) :: zlat
     
     !-----------------------------------------------------------------------
@@ -713,8 +617,11 @@ CONTAINS
     npromz_e = p_patch%npromz_e
     nblks_v  = p_patch%nblks_v
     npromz_v = p_patch%npromz_v
+
+    is_plane = lplane .OR. &
+      &        (p_patch%geometry_info%geometry_type == planar_torus_geometry)
     
-    IF (lcorio .AND. .NOT. lplane) THEN
+    IF (lcorio .AND. .NOT. is_plane) THEN
       
       DO jb = 1, nblks_c
         IF (jb /= nblks_c) THEN
@@ -752,7 +659,7 @@ CONTAINS
         END DO
       END DO
       
-    ELSEIF (lcorio .AND. lplane) THEN
+    ELSEIF (lcorio .AND. is_plane) THEN
       
       p_patch%cells%f_c(:,:) = 2._wp*grid_angular_velocity*SIN(corio_lat)
       p_patch%edges%f_e(:,:) = 2._wp*grid_angular_velocity*SIN(corio_lat)

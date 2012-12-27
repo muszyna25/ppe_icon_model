@@ -35,7 +35,7 @@
 MODULE mo_grid_geometry_info
 
   USE mo_kind, ONLY: wp
-  USE mo_math_utilities,  ONLY: t_geographical_coordinates, t_cartesian_coordinates, &
+  USE mo_math_types,  ONLY: t_geographical_coordinates, t_cartesian_coordinates, &
     & t_tangent_vectors
   USE mo_physical_constants, ONLY: earth_radius
   USE mo_math_constants,     ONLY: pi

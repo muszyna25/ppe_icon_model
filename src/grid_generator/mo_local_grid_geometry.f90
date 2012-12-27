@@ -387,13 +387,19 @@ CONTAINS
 
       !      write(*,*) " : edge_normal_vector=",edge_normal_vector%x, d_norma_3d(edge_normal_vector)
       !      call flush(6)
-
+      edges%cartesian_dual_normal(edge_index)%x = -edge_vector%x / &
+        & d_norma_3d(edge_vector)
+      
       ! set the correct orientation from cartesian_c1 to cartesian_c2
       ! ie. from the center of the first element to the center of the second
       real_tmp = DOT_PRODUCT(edge_normal_vector%x,circumcenters_vector%x)
-      IF (real_tmp < 0.0_wp) edge_normal_vector%x = -1.0_wp * edge_normal_vector%x
-
+      IF (real_tmp < 0.0_wp) THEN
+        edges%cartesian_dual_normal(edge_index)%x = -edges%cartesian_dual_normal(edge_index)%x
+        edge_normal_vector%x = - edge_normal_vector%x
+      ENDIF
+      
       ! get the components of normal in the local coordinates x,y
+      edges%cartesian_primal_normal(edge_index)%x = edge_normal_vector%x
       edges%primal_normal(edge_index)%v1 = DOT_PRODUCT(edge_normal_vector%x,x%x)
       edges%primal_normal(edge_index)%v2 = DOT_PRODUCT(edge_normal_vector%x,y%x)
 

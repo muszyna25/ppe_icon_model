@@ -185,7 +185,7 @@ USE mo_intp_coeffs,         ONLY: lsq_stencil_create, lsq_compute_coeff_cell,   
   &                               compute_heli_bra_coeff_idx, init_cellavg_wgt,        &
   &                               init_geo_factors, complete_patchinfo, init_tplane_e, &
   &                               init_tplane_c, init_geo_factors_oce,                 &
-  &                               init_scalar_product_oce, init_nudgecoeffs,           &
+  &                               init_nudgecoeffs,                                    &
   &                               tri_quadrature_pts, par_init_scalar_product_oce
 USE mo_sync,                ONLY: SYNC_C, SYNC_E, SYNC_V
 USE mo_communication,       ONLY: t_comm_pattern, blk_no, idx_no, idx_1d, &
