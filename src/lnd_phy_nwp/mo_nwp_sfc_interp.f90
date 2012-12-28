@@ -143,7 +143,9 @@ CONTAINS
         ELSE
           prepicon%sfc%seaice(jc,jb)  = -999.9_wp 
         ENDIF
-        IF (prepicon%sfc_in%sst(jc,jb) > 10._wp) THEN
+        ! Remark (GZ): the second condition is a workaround until a proper treatment of missing values
+        !              becomes available in prep_icon
+        IF (prepicon%sfc_in%sst(jc,jb) > 10._wp .AND. prepicon%sfc_in%sst(jc,jb) < 305._wp) THEN
           prepicon%sfc%sst(jc,jb)  = prepicon%sfc_in%sst(jc,jb) 
         ELSE
           prepicon%sfc%sst(jc,jb)  = -999.9_wp 

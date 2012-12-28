@@ -57,7 +57,7 @@ MODULE mo_nh_vert_interp
   USE mo_run_config,          ONLY: iforcing, iqv, iqc, iqr, iqi, iqs
   USE mo_io_config,           ONLY: itype_pres_msl
   USE mo_impl_constants,      ONLY: icc, inwp, SUCCESS
-  USE mo_exception,           ONLY: finish
+  USE mo_exception,           ONLY: finish, message, message_text
   USE mo_prepicon_config,     ONLY: nlev_in, zpbl1, zpbl2, &
                                     l_w_in, l_coarse2fine_mode
   USE mo_prepicon_types,      ONLY: t_prepicon_state
@@ -130,8 +130,12 @@ CONTAINS
 
     DO jg = 1, n_dom
 
-      IF (p_patch(jg)%n_patch_cells==0) CYCLE ! skip empty patches
       IF (.NOT. p_patch(jg)%ldom_active) CYCLE ! skip model domains not active at initial time
+
+      WRITE(message_text,'(a,i4)') 'Vertical interpolation of analysis data, domain ',jg
+      CALL message('vert_interp_atm', TRIM(message_text))
+
+      IF (p_patch(jg)%n_patch_cells==0) CYCLE ! skip empty patches
 
       CALL vert_interp(p_patch(jg), p_int(jg), prepicon(jg))
 

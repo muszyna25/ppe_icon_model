@@ -76,8 +76,6 @@ MODULE mo_prepicon_utils
   USE mo_nh_init_utils,       ONLY: nflat, nflatlev, compute_smooth_topo, init_vert_coord,  &
     &                               hydro_adjust, virtual_temp, convert_thdvars, &
     &                               interp_uv_2_vn
-  USE mo_nh_init_nest_utils,  ONLY: topography_blending, topography_feedback
-  USE mo_grid_config,         ONLY: lfeedback
   USE mo_ifs_coord,           ONLY: alloc_vct, init_vct, vct, vct_a, vct_b
   USE mo_lnd_nwp_config,      ONLY: nlev_soil, ntiles_total
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
@@ -154,29 +152,17 @@ MODULE mo_prepicon_utils
     !
     ! topography blending and feedback
     !
-    ! Copy the already smoothed ext_data topography fields to prepicon
+    ! Copy the topography fields to prepicon
     DO jg = 1, n_dom
       prepicon(jg)%topography_c(:,:) = ext_data(jg)%atm%topography_c(:,:)
       prepicon(jg)%topography_v(:,:) = ext_data(jg)%atm%topography_v(:,:)
     ENDDO
 
-    IF (n_dom > 1) CALL topo_blending_and_fbk(p_patch, p_int_state, p_grf_state, &
-      &                                       prepicon, 1)
-
-    ! Copy blended topography fields back to the external parameter state
-    IF (PRESENT(ext_data)) THEN
-      DO jg = 1, n_dom
-        ext_data(jg)%atm%topography_c(:,:) = prepicon(jg)%topography_c(:,:)
-        ext_data(jg)%atm%topography_v(:,:) = prepicon(jg)%topography_v(:,:)
-      ENDDO
-    ENDIF
-
-
-
+    ! GZ: having shifted the call of the prep_icon setup after the initialization of the NH state,
+    ! the following (re)computation should be replaced by copying the required fields from the NH metrics state
     ! Compute the 3D coordinate fields
     !
     CALL compute_coord_fields(p_patch, p_int_state(1:), prepicon)
-
 
 
     ! init ICON prognostic fields
@@ -1384,55 +1370,6 @@ MODULE mo_prepicon_utils
     ENDDO  ! jg
 
   END SUBROUTINE create_dwdana_atm
-
-
-
-
-  RECURSIVE SUBROUTINE topo_blending_and_fbk(p_patch, p_int, p_grf, prepicon, jg)
-
-    TYPE(t_patch),                 INTENT(IN) :: p_patch(:)
-    TYPE(t_int_state),     TARGET, INTENT(IN) :: p_int(:)
-    TYPE(t_gridref_state), TARGET, INTENT(IN) :: p_grf(:)
-
-    TYPE(t_prepicon_state), INTENT(INOUT) :: prepicon(:)
-
-    INTEGER, INTENT(IN) :: jg
-
-    INTEGER :: jgc, jn
-
-
-    ! Loop over nested domains
-    DO jn = 1, p_patch(jg)%n_childdom
-
-      jgc = p_patch(jg)%child_id(jn)
-
-
-      CALL topography_blending(p_patch(jg), p_patch(jgc), p_int(jg),  &
-               p_int(jgc), p_grf(jg)%p_dom(jn), jn,                   &
-               prepicon(jg)%topography_c, prepicon(jgc)%topography_c, &
-               prepicon(jgc)%topography_v                             )
-
-      IF (p_patch(jgc)%n_childdom > 0) &
-        CALL topo_blending_and_fbk(p_patch, p_int, p_grf, prepicon, jgc)
-
-    ENDDO
-
-    DO jn = 1, p_patch(jg)%n_childdom
-
-      jgc = p_patch(jg)%child_id(jn)
-
-      IF (lfeedback(jgc)) THEN
-        CALL topography_feedback(p_patch(jg), p_int(jg), p_grf(jg), jn, &
-          prepicon(jg)%topography_c, prepicon(jgc)%topography_c,        &
-          prepicon(jg)%topography_v                                     )
-      ENDIF
-
-    ENDDO
-
-
-  END SUBROUTINE topo_blending_and_fbk
-
-
 
 
   !-------------

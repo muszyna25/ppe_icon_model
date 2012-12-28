@@ -55,6 +55,7 @@ MODULE mo_nh_init_nest_utils
                                       min_rlvert, min_rlvert_int, MAX_CHAR_LENGTH
   USE mo_grf_nudgintp,          ONLY: interpol_scal_nudging, interpol_vec_nudging
   USE mo_grf_bdyintp,           ONLY: interpol_scal_grf, interpol2_vec_grf
+  USE mo_grid_config,           ONLY: lfeedback
   USE mo_exception,             ONLY: message, message_text, finish
   USE mo_mpi,                   ONLY: my_process_is_mpi_parallel
   USE mo_communication,         ONLY: exchange_data, exchange_data_mult
@@ -67,7 +68,7 @@ MODULE mo_nh_init_nest_utils
   USE mo_impl_constants_grf,    ONLY: grf_bdywidth_c, grf_bdywidth_e, grf_fbk_start_c, &
                                       grf_nudgintp_start_c, grf_nudgintp_start_e
   USE mo_nwp_lnd_types,         ONLY: t_lnd_prog, t_lnd_diag, t_wtr_prog
-  USE mo_lnd_nwp_config,        ONLY: ntiles_total, ntiles_water, lmulti_snow, nlev_snow, nlev_soil, lseaice
+  USE mo_lnd_nwp_config,        ONLY: ntiles_total, ntiles_water, nlev_soil, lseaice
   USE mo_nwp_lnd_state,         ONLY: p_lnd_state
   USE mo_atm_phy_nwp_config,    ONLY: atm_phy_nwp_config
   USE mo_interpol_config,       ONLY: nudge_zone_width
@@ -75,6 +76,7 @@ MODULE mo_nh_init_nest_utils
   USE mo_ext_data_state,        ONLY: ext_data
   USE mo_nh_diagnose_pres_temp, ONLY: diagnose_pres_temp
   USE mo_intp_rbf,              ONLY: rbf_vec_interpol_cell
+  USE mo_seaice_nwp,            ONLY: frsi_min
 
   IMPLICIT NONE
 
@@ -83,7 +85,7 @@ MODULE mo_nh_init_nest_utils
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
   REAL(wp), PARAMETER :: rd_o_cvd = 1._wp / cvd_o_rd
 
-  PUBLIC :: initialize_nest, topography_blending, topography_feedback
+  PUBLIC :: initialize_nest, topo_blending_and_fbk
 
   CONTAINS
   !-------------
@@ -141,18 +143,17 @@ MODULE mo_nh_init_nest_utils
     INTEGER :: nshift      ! difference between upper boundary of parent or feedback-parent 
                            ! domain and upper boundary of child domain (in terms 
                            ! of vertical levels) 
-    INTEGER :: num_lndvars, num_snowvars, num_wtrvars, num_phdiagvars
+    INTEGER :: num_lndvars, num_wtrvars, num_phdiagvars
 
     ! Local arrays for variables living on the local parent grid in the MPI case. These have
     ! to be allocatable because their dimensions differ between MPI and non-MPI runs
     REAL(wp), ALLOCATABLE, DIMENSION(:,:,:)   :: vn_lp, w_lp, thv_pr_lp, rho_pr_lp, phdiag_lp, &
-                                                 lndvars_lp, snowvars_lp, wtrvars_lp
+                                                 lndvars_lp, wtrvars_lp
     REAL(wp), ALLOCATABLE, DIMENSION(:,:,:,:) :: tracer_lp
 
     ! Local arrays on the parent or child grid. These would not have to be allocatable,
     ! but the computational overhead does not matter for an initialization routine
-    REAL(wp), ALLOCATABLE, DIMENSION(:,:,:)   :: thv_pr_par, rho_pr_par, lndvars_par,     &
-                                                 snowvars_par, lndvars_chi, snowvars_chi, &
+    REAL(wp), ALLOCATABLE, DIMENSION(:,:,:)   :: thv_pr_par, rho_pr_par, lndvars_par, lndvars_chi, &
                                                  wtrvars_par, wtrvars_chi, phdiag_par, phdiag_chi
     REAL(wp), ALLOCATABLE :: tsfc_ref_p(:,:), tsfc_ref_c(:,:) ! Reference temperature at lowest level
 
@@ -214,21 +215,21 @@ MODULE mo_nh_init_nest_utils
     ! shift between upper model boundaries
     nshift = p_pc%nshift
 
-    ! number of land and snow variables to be interpolated
-    num_lndvars = 3*nlev_soil+1+ &     ! multi-layer soil variables
+    ! number of land and water variables to be interpolated
+    ! Remark (GZ): the multi-layer snow variables are initialized afterwards in terra_multlay_init. This 
+    ! turned out to cause occasional conflicts with directly interpolating those variables here; thus
+    ! the interpolation of the multi-layer snow fields has been completely removed from this routine
+    num_lndvars = 2*nlev_soil+1+ &     ! multi-layer soil variables t_so and w_so (w_so_ice is initialized in terra_multlay_init)
                   5+5                  ! single-layer prognostic variables + t_g, freshsnow, t_skin, t_seasfc and qv_s
-    num_snowvars = 5*nlev_snow+1       ! snow fields
     num_wtrvars  = 5                   ! water state fields + fr_seaice
     num_phdiagvars = 21                ! number of physics diagnostic variables (copied from interpol_phys_grf)
     
     ALLOCATE(thv_pr_par  (nproma, nlev_p,      p_patch(jg)%nblks_c), &
              rho_pr_par  (nproma, nlev_p,      p_patch(jg)%nblks_c), &
              lndvars_par (nproma, num_lndvars, p_patch(jg)%nblks_c), &
-             snowvars_par(nproma, num_snowvars,p_patch(jg)%nblks_c), &
              wtrvars_par (nproma, num_wtrvars, p_patch(jg)%nblks_c), &
              phdiag_par  (nproma, num_phdiagvars, p_patch(jg)%nblks_c), &
              lndvars_chi (nproma, num_lndvars, p_patch(jgc)%nblks_c),&
-             snowvars_chi(nproma, num_snowvars,p_patch(jgc)%nblks_c),&
              wtrvars_chi (nproma, num_wtrvars, p_patch(jgc)%nblks_c),&
              phdiag_chi  (nproma, num_phdiagvars, p_patch(jgc)%nblks_c),&
              tsfc_ref_p  (nproma,              p_patch(jg)%nblks_c), &
@@ -242,16 +243,13 @@ MODULE mo_nh_init_nest_utils
              phdiag_lp  (nproma, num_phdiagvars,p_pp%nblks_c),        &
              tracer_lp  (nproma, nlev_p,      p_pp%nblks_c, ntracer), &
              lndvars_lp (nproma, num_lndvars, p_pp%nblks_c),          &
-             snowvars_lp(nproma, num_snowvars,p_pp%nblks_c),          &
              wtrvars_lp (nproma, num_wtrvars ,p_pp%nblks_c)           )
 
     IF (p_test_run) THEN
       lndvars_par  = 0._wp
-      snowvars_par = 0._wp
       wtrvars_par  = 0._wp
       phdiag_par   = 0._wp
       lndvars_chi  = 0._wp
-      snowvars_chi = 0._wp
       wtrvars_chi  = 0._wp
       phdiag_chi   = 0._wp
     ENDIF
@@ -327,19 +325,22 @@ MODULE mo_nh_init_nest_utils
       IF (atm_phy_nwp_config(jg)%inwp_surface == 1) THEN
         ! Collect soil variables
         DO jk = 1, nlev_soil
-          jk1 = 3*(jk-1) + 1
+          jk1 = 2*(jk-1) + 1
           DO jc = i_startidx, i_endidx
             lndvars_par(jc,jk1,jb)   = p_parent_ldiag%t_so(jc,jk,jb) - tsfc_ref_p(jc,jb)
             lndvars_par(jc,jk1+1,jb) = p_parent_ldiag%w_so(jc,jk,jb)
-            lndvars_par(jc,jk1+2,jb) = p_parent_ldiag%w_so_ice(jc,jk,jb)
           ENDDO
         ENDDO
 
-        jk1 = 3*nlev_soil + 1
+        jk1 = 2*nlev_soil + 1
         DO jc = i_startidx, i_endidx
           lndvars_par(jc,jk1,jb)   = p_parent_ldiag%t_so(jc,nlev_soil+1,jb)-tsfc_ref_p(jc,jb)
           lndvars_par(jc,jk1+1,jb) = p_parent_lprog%t_g(jc,jb)    - tsfc_ref_p(jc,jb)
-          lndvars_par(jc,jk1+2,jb) = p_parent_ldiag%t_s(jc,jb)    - tsfc_ref_p(jc,jb)
+          IF (p_parent_ldiag%t_s(jc,jb) > 10._wp) THEN
+            lndvars_par(jc,jk1+2,jb) = p_parent_ldiag%t_s(jc,jb)  - tsfc_ref_p(jc,jb)
+          ELSE ! t_s has missing values over water - use t_g instead
+            lndvars_par(jc,jk1+2,jb) = lndvars_par(jc,jk1+1,jb)
+          ENDIF
           lndvars_par(jc,jk1+3,jb) = p_parent_ldiag%t_snow(jc,jb) - tsfc_ref_p(jc,jb)
           lndvars_par(jc,jk1+4,jb) = p_parent_ldiag%w_snow(jc,jb)
           lndvars_par(jc,jk1+5,jb) = p_parent_ldiag%rho_snow(jc,jb)
@@ -351,26 +352,13 @@ MODULE mo_nh_init_nest_utils
         ENDDO
       ENDIF
 
-      IF (atm_phy_nwp_config(jg)%inwp_surface == 1 .AND. lmulti_snow) THEN
-        DO jk = 1, nlev_snow
-          jk1 = 5*(jk-1) + 1
-          DO jc = i_startidx, i_endidx
-            snowvars_par(jc,jk1,jb)   = p_parent_ldiag%t_snow_mult(jc,jk,jb)-tsfc_ref_p(jc,jb)
-            snowvars_par(jc,jk1+1,jb) = p_parent_ldiag%rho_snow_mult(jc,jk,jb)
-            snowvars_par(jc,jk1+2,jb) = p_parent_ldiag%wliq_snow(jc,jk,jb)
-            snowvars_par(jc,jk1+3,jb) = p_parent_ldiag%wtot_snow(jc,jk,jb)
-            snowvars_par(jc,jk1+4,jb) = p_parent_ldiag%dzh_snow(jc,jk,jb)
-          ENDDO
-        ENDDO
-        DO jc = i_startidx, i_endidx
-          snowvars_par(jc,jk1+5,jb) = p_parent_ldiag%t_snow_mult(jc,nlev_snow+1,jb) - &
-                                      tsfc_ref_p(jc,jb)
-        ENDDO
-      ENDIF
-
       IF (atm_phy_nwp_config(jg)%inwp_surface == 1 .AND. lseaice) THEN
         DO jc = i_startidx, i_endidx
-          wtrvars_par(jc,1,jb) = p_parent_wprog%t_ice(jc,jb)
+          IF (p_parent_wprog%t_ice(jc,jb) > 10._wp) THEN
+            wtrvars_par(jc,1,jb) = p_parent_wprog%t_ice(jc,jb)
+          ELSE
+            wtrvars_par(jc,1,jb) = p_parent_lprog%t_g(jc,jb)
+          ENDIF
           wtrvars_par(jc,2,jb) = p_parent_wprog%h_ice(jc,jb) 
           wtrvars_par(jc,3,jb) = p_parent_wprog%t_snow_si(jc,jb) 
           wtrvars_par(jc,4,jb) = p_parent_wprog%h_snow_si(jc,jb)
@@ -410,17 +398,13 @@ MODULE mo_nh_init_nest_utils
         phdiag_par, phdiag_chi, lnoshift=.TRUE.                 )
     ENDIF
 
-    IF (atm_phy_nwp_config(jg)%inwp_surface == 1 .AND. lmulti_snow) THEN
-      CALL sync_patch_array_mult(SYNC_C,p_patch(jg),2,lndvars_par,snowvars_par)
-      CALL interpol_scal_grf (p_patch(jg), p_pc, p_int_state(jg),            &
-        p_grf_state(jg)%p_dom(i_chidx), i_chidx, 2,                          &
-        lndvars_par, lndvars_chi, snowvars_par, snowvars_chi, lnoshift=.TRUE.)
-    ELSE IF (atm_phy_nwp_config(jg)%inwp_surface == 1) THEN
+    IF (atm_phy_nwp_config(jg)%inwp_surface == 1) THEN
       CALL sync_patch_array(SYNC_C,p_patch(jg),lndvars_par)
       CALL interpol_scal_grf (p_patch(jg), p_pc, p_int_state(jg), &
         p_grf_state(jg)%p_dom(i_chidx), i_chidx, 1,               &
         lndvars_par, lndvars_chi, lnoshift=.TRUE.                 )
     ENDIF
+
     IF (atm_phy_nwp_config(jg)%inwp_surface == 1 .AND. lseaice) THEN
       CALL sync_patch_array(SYNC_C,p_patch(jg),wtrvars_par)
       CALL interpol_scal_grf (p_patch(jg), p_pc, p_int_state(jg), &
@@ -450,9 +434,6 @@ MODULE mo_nh_init_nest_utils
 
       IF (atm_phy_nwp_config(jg)%inwp_surface == 1) &
         CALL exchange_data(p_pp%comm_pat_glb_to_loc_c, RECV=lndvars_lp, SEND=lndvars_par)
-
-      IF (atm_phy_nwp_config(jg)%inwp_surface == 1 .AND. lmulti_snow) &
-        CALL exchange_data(p_pp%comm_pat_glb_to_loc_c, RECV=snowvars_lp, SEND=snowvars_par)
 
       IF (atm_phy_nwp_config(jg)%inwp_surface == 1 .AND. lseaice) &
         CALL exchange_data(p_pp%comm_pat_glb_to_loc_c, RECV=wtrvars_lp, SEND=wtrvars_par)
@@ -504,14 +485,6 @@ MODULE mo_nh_init_nest_utils
           DO jk = 1, num_lndvars
             DO jc = i_startidx, i_endidx
               lndvars_lp(jc,jk,jb) = lndvars_par(jc,jk,jb)
-            ENDDO
-          ENDDO
-        ENDIF
-
-        IF (atm_phy_nwp_config(jg)%inwp_surface == 1 .AND. lmulti_snow) THEN
-          DO jk = 1, num_snowvars
-            DO jc = i_startidx, i_endidx
-              snowvars_lp(jc,jk,jb) = snowvars_par(jc,jk,jb)
             ENDDO
           ENDDO
         ENDIF
@@ -570,37 +543,31 @@ MODULE mo_nh_init_nest_utils
     IF (ltransport) THEN
       IF(l_parallel) CALL exchange_data_mult(p_pp%comm_pat_c, ntracer, ntracer*nlev_p, &
                                              recv4d=tracer_lp)
+      l_limit(:) = .TRUE. ! apply positive definite limiter
       CALL interpol_scal_nudging (p_pp, p_int, p_grf%p_dom(i_chidx), i_chidx, &
                                   nshift, ntracer, 1, f4din=tracer_lp,        &
-                                  f4dout=p_child_prog_rcf%tracer              )
+                                  f4dout=p_child_prog_rcf%tracer, llimit_nneg=l_limit)
       CALL sync_patch_array_mult(SYNC_C,p_pc,ntracer,f4din=p_child_prog_rcf%tracer)
     ENDIF
 
     IF (iforcing == 3) THEN
       IF(l_parallel) CALL exchange_data(p_pp%comm_pat_c, phdiag_lp)
       CALL interpol_scal_nudging (p_pp, p_int, p_grf%p_dom(i_chidx), i_chidx, 0, &
-                                  1, 1, f3din1=phdiag_lp, f3dout1=phdiag_chi )
+                                  1, 1, f3din1=phdiag_lp, f3dout1=phdiag_chi, overshoot_fac=1.005_wp )
       CALL sync_patch_array(SYNC_C,p_pc,phdiag_chi)
     ENDIF
 
     IF (atm_phy_nwp_config(jg)%inwp_surface == 1) THEN
       IF(l_parallel) CALL exchange_data(p_pp%comm_pat_c, lndvars_lp)
       CALL interpol_scal_nudging (p_pp, p_int, p_grf%p_dom(i_chidx), i_chidx, 0, &
-                                  1, 1, f3din1=lndvars_lp, f3dout1=lndvars_chi )
+                                  1, 1, f3din1=lndvars_lp, f3dout1=lndvars_chi, overshoot_fac=1.005_wp )
       CALL sync_patch_array(SYNC_C,p_pc,lndvars_chi)
-    ENDIF
-
-    IF (atm_phy_nwp_config(jg)%inwp_surface == 1 .AND. lmulti_snow) THEN
-      IF(l_parallel) CALL exchange_data(p_pp%comm_pat_c, snowvars_lp)
-      CALL interpol_scal_nudging (p_pp, p_int, p_grf%p_dom(i_chidx), i_chidx, 0, &
-                                  1, 1, f3din1=snowvars_lp, f3dout1=snowvars_chi )
-      CALL sync_patch_array(SYNC_C,p_pc,snowvars_chi)
     ENDIF
 
     IF (atm_phy_nwp_config(jg)%inwp_surface == 1 .AND. lseaice) THEN
       IF(l_parallel) CALL exchange_data(p_pp%comm_pat_c, wtrvars_lp)
       CALL interpol_scal_nudging (p_pp, p_int, p_grf%p_dom(i_chidx), i_chidx, 0, &
-                                  1, 1, f3din1=wtrvars_lp, f3dout1=wtrvars_chi )
+                                  1, 1, f3din1=wtrvars_lp, f3dout1=wtrvars_chi, overshoot_fac=1.005_wp )
       CALL sync_patch_array(SYNC_C,p_pc,wtrvars_chi)
     ENDIF
 
@@ -653,11 +620,11 @@ MODULE mo_nh_init_nest_utils
 
       IF (iforcing == 3) THEN
         DO jc = i_startidx, i_endidx
-          prm_diag(jgc)%tot_prec(jc,jb)       = phdiag_chi(jc,1,jb)
-          prm_diag(jgc)%rain_gsp(jc,jb)       = phdiag_chi(jc,2,jb)
-          prm_diag(jgc)%snow_gsp(jc,jb)       = phdiag_chi(jc,3,jb)
-          prm_diag(jgc)%rain_con(jc,jb)       = phdiag_chi(jc,4,jb)
-          prm_diag(jgc)%snow_con(jc,jb)       = phdiag_chi(jc,5,jb)
+          prm_diag(jgc)%tot_prec(jc,jb)       = MAX(0._wp,phdiag_chi(jc,1,jb))
+          prm_diag(jgc)%rain_gsp(jc,jb)       = MAX(0._wp,phdiag_chi(jc,2,jb))
+          prm_diag(jgc)%snow_gsp(jc,jb)       = MAX(0._wp,phdiag_chi(jc,3,jb))
+          prm_diag(jgc)%rain_con(jc,jb)       = MAX(0._wp,phdiag_chi(jc,4,jb))
+          prm_diag(jgc)%snow_con(jc,jb)       = MAX(0._wp,phdiag_chi(jc,5,jb))
           prm_diag(jgc)%rain_gsp_rate(jc,jb)  = phdiag_chi(jc,6,jb)
           prm_diag(jgc)%snow_gsp_rate(jc,jb)  = phdiag_chi(jc,7,jb)
           prm_diag(jgc)%rain_con_rate(jc,jb)  = phdiag_chi(jc,8,jb)
@@ -681,7 +648,7 @@ MODULE mo_nh_init_nest_utils
         ! Distribute soil variables
         DO jt = 1, ntiles_total
           DO jk = 1, nlev_soil
-            jk1 = 3*(jk-1) + 1
+            jk1 = 2*(jk-1) + 1
             DO jc = i_startidx, i_endidx
               p_child_lprog%t_so_t(jc,jk,jb,jt) = lndvars_chi(jc,jk1,jb) + tsfc_ref_c(jc,jb)
               p_child_lprog2%t_so_t(jc,jk,jb,jt) = p_child_lprog%t_so_t(jc,jk,jb,jt)
@@ -707,13 +674,11 @@ MODULE mo_nh_init_nest_utils
                   MIN(dzsoil(jk)*0.863_wp,p_child_lprog%w_so_t(jc,jk,jb,jt)))
               ENDIF
               p_child_lprog2%w_so_t(jc,jk,jb,jt) = p_child_lprog%w_so_t(jc,jk,jb,jt)
-              p_child_lprog%w_so_ice_t(jc,jk,jb,jt) = MAX(0._wp,lndvars_chi(jc,jk1+2,jb))
-              p_child_lprog2%w_so_ice_t(jc,jk,jb,jt) = p_child_lprog%w_so_ice_t(jc,jk,jb,jt)
             ENDDO
           ENDDO
         ENDDO
 
-        jk1 = 3*nlev_soil + 1
+        jk1 = 2*nlev_soil + 1
         DO jt = 1, ntiles_total
           DO jc = i_startidx, i_endidx
             p_child_lprog%t_so_t(jc,nlev_soil+1,jb,jt) = lndvars_chi(jc,jk1,jb) + &
@@ -746,25 +711,6 @@ MODULE mo_nh_init_nest_utils
 
       ENDIF
 
-      IF (atm_phy_nwp_config(jgc)%inwp_surface == 1 .AND. lmulti_snow) THEN
-        DO jt = 1, ntiles_total
-          DO jk = 1, nlev_snow
-            jk1 = 5*(jk-1) + 1
-            DO jc = i_startidx, i_endidx
-              p_child_lprog%t_snow_mult_t(jc,jk,jb,jt) = snowvars_chi(jc,jk1,jb) + &
-                tsfc_ref_c(jc,jb)
-              p_child_lprog%rho_snow_mult_t(jc,jk,jb,jt) = snowvars_chi(jc,jk1+1,jb)
-              p_child_lprog%wliq_snow_t(jc,jk,jb,jt)     = MAX(0._wp,snowvars_chi(jc,jk1+2,jb))
-              p_child_lprog%wtot_snow_t(jc,jk,jb,jt)     = MAX(0._wp,snowvars_chi(jc,jk1+3,jb))
-              p_child_lprog%dzh_snow_t(jc,jk,jb,jt)      = MAX(0._wp,snowvars_chi(jc,jk1+4,jb))
-            ENDDO
-          ENDDO
-          DO jc = i_startidx, i_endidx
-            p_child_lprog%t_snow_mult_t(jc,nlev_snow+1,jb,jt) = snowvars_chi(jc,jk1+5,jb)+ &
-              tsfc_ref_c(jc,jb)
-          ENDDO
-        ENDDO
-      ENDIF
 
       IF (atm_phy_nwp_config(jgc)%inwp_surface == 1 .AND. lseaice) THEN
         DO jc = i_startidx, i_endidx
@@ -772,7 +718,9 @@ MODULE mo_nh_init_nest_utils
           p_child_wprog%h_ice(jc,jb)     = wtrvars_chi(jc,2,jb)
           p_child_wprog%t_snow_si(jc,jb) = wtrvars_chi(jc,3,jb)
           p_child_wprog%h_snow_si(jc,jb) = wtrvars_chi(jc,4,jb)
-          p_child_ldiag%fr_seaice(jc,jb) = wtrvars_chi(jc,5,jb)
+          p_child_ldiag%fr_seaice(jc,jb) = MAX(0._wp,MIN(1._wp,wtrvars_chi(jc,5,jb)))
+          IF (p_child_ldiag%fr_seaice(jc,jb) < frsi_min )         p_child_ldiag%fr_seaice(jc,jb) = 0._wp
+          IF (p_child_ldiag%fr_seaice(jc,jb) > (1._wp-frsi_min) ) p_child_ldiag%fr_seaice(jc,jb) = 1._wp
         ENDDO
       ENDIF
 
@@ -787,12 +735,48 @@ MODULE mo_nh_init_nest_utils
                             p_patch(jgc), opt_calc_temp=.TRUE., opt_calc_pres=.TRUE.,      &
                             lnd_prog=p_child_lprog)
 
-    DEALLOCATE(thv_pr_par, rho_pr_par, lndvars_par, snowvars_par, lndvars_chi , snowvars_chi,    &
-               tsfc_ref_p, tsfc_ref_c, vn_lp, w_lp, thv_pr_lp, rho_pr_lp, tracer_lp, lndvars_lp, &
-               snowvars_lp, wtrvars_par, wtrvars_chi, wtrvars_lp)
+    DEALLOCATE(thv_pr_par, rho_pr_par, lndvars_par, lndvars_chi, tsfc_ref_p, tsfc_ref_c, vn_lp, w_lp, &
+               thv_pr_lp, rho_pr_lp, tracer_lp, lndvars_lp, wtrvars_par, wtrvars_chi, wtrvars_lp)
 
   END SUBROUTINE initialize_nest
 
+
+
+  RECURSIVE SUBROUTINE topo_blending_and_fbk(jg)
+
+    INTEGER, INTENT(IN) :: jg
+
+    INTEGER :: jgc, jn
+
+
+    ! Loop over nested domains
+    DO jn = 1, p_patch(jg)%n_childdom
+
+      jgc = p_patch(jg)%child_id(jn)
+
+      CALL topography_blending(p_patch(jg), p_patch(jgc), p_int_state(jg),    &
+               p_int_state(jgc), p_grf_state(jg)%p_dom(jn), jn,               &
+               ext_data(jg)%atm%topography_c, ext_data(jgc)%atm%topography_c, &
+               ext_data(jgc)%atm%topography_v                                 )
+
+      IF (p_patch(jgc)%n_childdom > 0) &
+        CALL topo_blending_and_fbk(jgc)
+
+    ENDDO
+
+    DO jn = 1, p_patch(jg)%n_childdom
+
+      jgc = p_patch(jg)%child_id(jn)
+
+      IF (lfeedback(jgc)) THEN
+        CALL topography_feedback(p_patch(jg), p_int_state(jg), p_grf_state(jg), jn, &
+          ext_data(jg)%atm%topography_c, ext_data(jgc)%atm%topography_c,            &
+          ext_data(jg)%atm%topography_v                                             )
+      ENDIF
+
+    ENDDO
+
+  END SUBROUTINE topo_blending_and_fbk
 
   !---------------------------------------------------------------------------
   !>

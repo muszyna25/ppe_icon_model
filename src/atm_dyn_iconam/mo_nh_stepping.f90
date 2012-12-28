@@ -139,7 +139,7 @@ MODULE mo_nh_stepping
   USE mo_art_emission_interface,  ONLY:art_emission_interface
   USE mo_art_config,          ONLY:art_config
   USE mo_nwp_sfc_utils,       ONLY: aggregate_landvars, update_sstice
-  USE mo_nh_init_nest_utils,  ONLY: initialize_nest
+  USE mo_nh_init_nest_utils,  ONLY: initialize_nest, topo_blending_and_fbk
   USE mo_td_ext_data,         ONLY: set_actual_td_ext_data,  &
                                   & read_td_ext_data_file
 
@@ -249,6 +249,8 @@ MODULE mo_nh_stepping
   IF (ltestcase) THEN
     CALL init_nh_testtopo(p_patch(1:), ext_data)   ! set analytic topography
   ENDIF
+
+  IF (n_dom > 1) CALL topo_blending_and_fbk(1)
 
   CALL set_nh_metrics(p_patch(1:), p_nh_state, p_int_state(1:), ext_data)
 
