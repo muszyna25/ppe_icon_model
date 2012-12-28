@@ -227,7 +227,7 @@ cat > ${atmo_namelist} << EOF
  inwp_convection              = 1
  inwp_radiation               = 1
  inwp_cldcover                = 1   ! 0: no cld, 1: new diagnostic, 3: COSMO, 5: grid scale
- inwp_turb                    = 2   ! 1: Raschendorfer, 2: GME, 3: EDMF-DUALM (ntracer+1,ntiles=8)
+ inwp_turb                    = 1   ! 1: Raschendorfer, 2: GME, 3: EDMF-DUALM (ntracer+1,ntiles=8)
  inwp_satad                   = 1
  inwp_sso                     = 1
  inwp_gwd                     = 1

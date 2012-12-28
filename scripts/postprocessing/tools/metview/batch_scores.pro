@@ -27,8 +27,21 @@
  print,'                 nfor=      ',nfor
 
  .run scores
- scores, direxp, dirref, expnum, expref, inidate, step, nfor
 
-;spawn,'\cp -f plot.ps '+plotdir+"/nwp.exp"+expnum+"/scores_exp"+expnum+".ps"
+ scores, direxp, dirref, expnum, expref, inidate, step, nfor, 'ml'
+ spawn,'\cp -f plot.ps metplots/scores_'+expnum+'_vs_'+expref+'_'+ $
+   inidate+'+'+step+'_ml.ps'
+
+ scores, direxp, dirref, expnum, expref, inidate, step, nfor, 'pl'
+ spawn,'\cp -f plot.ps metplots/scores_'+expnum+'_vs_'+expref+'_'+ $
+   inidate+'+'+step+'_pl.ps'
+
+ scores, direxp, dirref, expnum, expref, inidate, step, nfor, 'zl'
+ spawn,'\cp -f plot.ps metplots/scores_'+expnum+'_vs_'+expref+'_'+ $
+   inidate+'+'+step+'_zl.ps'
+
+ scores, direxp, dirref, expnum, expref, inidate, step, nfor, 'sfc'
+ spawn,'\cp -f plot.ps metplots/scores_'+expnum+'_vs_'+expref+'_'+ $
+   inidate+'+'+step+'_sfc.ps'
 
  exit

@@ -27,11 +27,11 @@ setenv -i HOST
 setenv -i TMPDIR
 
 # global definitions:
-set EXPNUM        "013"                #---experiment number---
+set EXPNUM        "012"                #---experiment number---
 set EXPNUM2       "004"                #---experiment number used for score comparison---
 set SUITE2        "dei2"               #---suite             used for score comparison---
 set FIRST_DATE    20120101
-set LAST_DATE     20120731
+set LAST_DATE     20120131
 set ICON_HOME     /home/ms/de/deia 
 set ICON_ID       deia 
 

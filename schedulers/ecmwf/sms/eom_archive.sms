@@ -36,28 +36,34 @@ gatedir=%ECTEMP%/%SUITE%/%EXPNUM%/$YYYYMM
 cd ${gatedir}
 ecfsdir=ec:icon/experiments/%SUITE%/%EXPNUM%/$YYYYMM
 ECFSPATH=/usr/local/ecfs/new
-${ECFSPATH}/emkdir .p-p $ecfsdir
+${ECFSPATH}/emkdir.p -p $ecfsdir
 METDIR=%ECPERM%/icon-dev/scripts/postprocessing/tools/metview
 
 
 #-----------------------------------------------------------------------------
 # scores: plot comparison between this experiment and a reference experiment
 
-cp ${METDIR}/scores.pro ${METDIR}/batch_scores.pro .
+cp ${METDIR}/scores.pro ${METDIR}/batch_scores.pro   ${METDIR}/paperopenl.pro ${METDIR}/paperclose.pro .
 idl=/usr/local/share/apps/rsi/idl_6.4/idl64/bin/idl
 $idl batch_scores -args %ECTEMP%/%SUITE%/%EXPNUM%/$YYYYMM/metplots %ECTEMP%/%SUITE2%/%EXPNUM2%/$YYYYMM/metplots \
-  %SUITE%_%EXPNUM% %EXPNAME2% ${YYYYMM} 24 1
-#$idl batch_scores -args %ECTEMP%/%SUITE%/%EXPNUM%/$YYYYMM/metplots %ECTEMP%/%SUITE2%/%EXPNUM2%/$YYYYMM/metplots \
-#  %SUITE%_%EXPNUM% %EXPNAME2% ${YYYYMM} 240 1
+  %SUITE%_%EXPNUM% %SUITE2%_%EXPNUM2% ${YYYYMM} 24 1
+$idl batch_scores -args %ECTEMP%/%SUITE%/%EXPNUM%/$YYYYMM/metplots %ECTEMP%/%SUITE2%/%EXPNUM2%/$YYYYMM/metplots \
+  %SUITE%_%EXPNUM% %SUITE2%_%EXPNUM2% ${YYYYMM} 240 1
 
 
 #-----------------------------------------------------------------------------
 # convert metview plots from ps to png 
 
 cd metplots
-for metfile in `ls *.ps` ; do
+for metfile in `ls map*.ps zon*.ps` ; do
   metfile2=`echo $metfile | sed 's/\.ps//'`
-  convert -rotate 90 ${metfile2}.ps ${metfile2}.png || true
+  convert -rotate 90                           ${metfile2}.ps ${metfile2}.png || true
+done 
+for metfile in `ls scores*.ps` ; do
+  metfile2=`echo $metfile | sed 's/\.ps//'`
+%nopp
+  convert -rotate 270 -density 250 -resize 45% ${metfile2}.ps ${metfile2}.png || true
+%end
 done 
 cd -
 
@@ -84,7 +90,6 @@ if [[ $ldeldata = 1 ]] ; then
   \rm -rf met.job.*
   \rm -rf grb_data
 fi
-
 
 
 # -------------------------------------------------

@@ -184,7 +184,7 @@ end case
 for nd=1 to ndays do 
 
 
-# --- data files
+# --- setup: data files
 
 # source_ini_icon = '/uwork1/mkoehler/icon/experiments/exp'&expnum&
 #   '/NWP_icon'&exphres&inidate&initime&'_DOM01_0001_'&varfile&'_'&levtype&'.grb'
@@ -285,7 +285,7 @@ for nd=1 to ndays do
        #ddays = date(verdate)+vertime1[1]/24.0  - date(inidate)-initime1[1]/24.0
         param = varname
         case varname of
-          'CLCT':            param = 'TCC'  end
+         #'CLCT':            param = 'TCC'  end
           'TQV':             param = 'TCWV' end
           'TQC':             param = 'TCLW' end
           'TQI':             param = 'TCIW' end
@@ -379,18 +379,19 @@ temp   =0
 
 var_data = avgtime_met(var_data,nlev,ndays)
 
-if mode = 'visualize' or mode = 'prepare' then  
-  nlev=1
-end if
-
 if nlev=1 then
   k1=1
   k2=1
   k3=1
 else
-  k1=2
-  k2=nlev
-  k3=4
+  if levtype='ml' and lmonth=0 then
+    k1=2
+    k2=nlev
+    k3=4
+  else
+    k1=1
+    k2=nlev
+    k3=1
 end if
 
 #k1=10
@@ -398,15 +399,9 @@ end if
 
 for k=k1 to k2 by k3 do
 
-  if mode = 'visualize' or mode = 'prepare' then  
-    var_data_k = var_data
-  else
-    var_data_k = var_data[k]
-  end if
-  
-  statistic   = 'Min:  ' &minvalue(var_data_k)&'   Max:  '&maxvalue(var_data_k)&
-             '   Mean:  '&integrate(mean(var_data_k))
-  rms = sqrt(integrate(var_data_k*var_data_k))
+  statistic   = 'Min:  ' &minvalue(var_data[k])&'   Max:  '&maxvalue(var_data[k])&
+             '   Mean:  '&integrate(mean(var_data[k]))
+  rms = sqrt(integrate(var_data[k]*var_data[k]))
   if stat = 'diff' then 
     statistic = statistic&'   RMS:  '&rms
     append (plotdir&"/scores_"&expnum&".txt", 
@@ -427,7 +422,7 @@ for k=k1 to k2 by k3 do
   level_type = 'level_list'    #exponential
   level_count= 12
 
-  diff_level = max(-minvalue(var_data_k),maxvalue(var_data_k))
+  diff_level = max(-minvalue(var_data[k]),maxvalue(var_data[k]))
   diff_level = min(diff_level,10.0*rms)   # limit diff scale for noisy plot  
   if diff_level > 0.0 then
     diff_level  = 4*round( diff_level/4, -round(log10(diff_level/4),0)+1 )
@@ -454,7 +449,6 @@ for k=k1 to k2 by k3 do
         text_font_size  :   0.6,
         TEXT_COLOUR     :   'BLACK' 
     )
-
   all = mcont(  
                 LEGEND                         : 'ON',
 		CONTOUR                        : 'OFF', 
@@ -496,8 +490,7 @@ for k=k1 to k2 by k3 do
 #		contour_shade_colour_list      : ["red","orange","yellow","white","white","green","blue_green","blue"]
                 contour_shade_colour_list      : ["RGB(0.0,0.2,0.7)", "RGB(0.3,0.5,0.8)", "RGB(0.6,0.7,0.9)", "RGB(0.9,0.95,1.0)", "white", 
                                                   "RGB(1.0,0.9,0.7)", "RGB(0.9,0.6,0.4)", "RGB(0.8,0.3,0.2)", "RGB(0.7,0.0 ,0.0)" ]                   # 9
-    )  
-
+    )
   legend = mlegend(
         legend_text_colour      :    "black",
         legend_text_font_size   :    0.4
@@ -526,9 +519,9 @@ for k=k1 to k2 by k3 do
   display_window = build_layout()
 
   if stat = 'diff' then
-    plot ( display_window[1], text, var_data_k, cont, legend ) 
+    plot ( display_window[1], text, var_data[k], cont, legend ) 
   else
-    plot ( display_window[1], text, var_data_k, all,  legend )
+    plot ( display_window[1], text, var_data[k], all,  legend )
   end if
 
 end for

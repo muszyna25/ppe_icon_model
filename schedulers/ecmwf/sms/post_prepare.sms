@@ -126,7 +126,7 @@ done
 if [[ $lsplitdata = 1 ]] ; then
 
 # export the DWD GRIB short names:
-  export GRIB_DEFINITION_PATH="%SCSOFT%/software/usr/local/grib_api/release/share-1.9.9/definitions.edzw:/usr/local/lib/metaps/lib/grib_api/current/share/definitions"
+  export GRIB_DEFINITION_PATH="%SCSOFT%/software/grib_api/release/share-1.9.9/definitions.edzw:/usr/local/lib/metaps/lib/grib_api/current/share/definitions"
 
   mkdir -p grb_data
   for levtype1 in PL HL ML; do

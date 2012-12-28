@@ -1,4 +1,4 @@
-pro scores, direxp, dirref, expnum, expref, inidate, step, nfor
+pro scores, direxp, dirref, expnum, expref, inidate, step, nfor, levtype
 ;------------------------------------------------------------
 ; Plot scores from ICON experiments.
 ;
@@ -10,7 +10,8 @@ pro scores, direxp, dirref, expnum, expref, inidate, step, nfor
 ; Martin Koehler, Sep 2012
 ;------------------------------------------------------------
 
-print, 'Arguments: ', direxp, ' ', dirref, ' ', expnum, ' ', expref, ' ', inidate, step, nfor
+print, 'Arguments: ', direxp, ' ', dirref, ' ', expnum, ' ', expref, ' ', $
+  inidate, ' ', step, ' ', nfor, ' ', levtype
 
 nlev=90
 nlevpl=25
@@ -25,7 +26,6 @@ amp_sfc_rms = 100.0  ;30.0
 
 title = 'Comparison of '+expnum+' to '+expref+ $
   '   forecast hours: '+step+'   number of forecasts: '+nfor+ ' from '+inidate
-
 
 file1 = direxp+"/scores_"+expnum+".txt"
 file2 = dirref+"/scores_"+expref+".txt"
@@ -67,29 +67,12 @@ nvar3zl= n_elements(var3zl)
 paperopenl
 loadct,13
 
-;--------------------------------------------------------------------------------------------
-
-for nt=1,1 do begin
-
-;  CASE nt OF
-;    1: BEGIN
-;      step='24'
-;      nfor='10'
-;    END
-;    2: BEGIN
-;      step='120'
-;      nfor='6'
-;    END 
-;    3: BEGIN
-;      step='24'
-;      nfor='1'
-;    END 
-;  ENDCASE
-
 
 ;--------------------------------------------------------------------------------------------
 
-  levtype='ml'
+CASE levtype OF
+
+ 'ml': BEGIN
 
   xyouts, 0.15, 0.97, /normal, charsize=1.0, title+'   '+levtype
 
@@ -99,6 +82,8 @@ for nt=1,1 do begin
    ;print,'searching for variable ', var3d(nn-1)
     ind1 = where(var1(0,*) eq var3d(nn-1) and var1(2-1,*) eq levtype and var1(8-1,*) eq step and var1(10-1,*) eq nfor and var1(4-1,*) eq nk)
     ind2 = where(var2(0,*) eq var3d(nn-1) and var2(2-1,*) eq levtype and var2(8-1,*) eq step and var2(10-1,*) eq nfor and var2(4-1,*) eq nk)
+    ind1=ind1(n_elements(ind1)-1)
+    ind2=ind2(n_elements(ind1)-1)
     if ind1 eq -1 or ind2 eq -1 then continue
     mean1= float(var1(16-1,ind1))
     mean2= float(var2(16-1,ind2))
@@ -141,11 +126,12 @@ for nt=1,1 do begin
    end
   end
   
-  erase
-  
+ END
+
+
 ;--------------------------------------------------------------------------------------------
 
-  levtype='pl'
+ 'pl': BEGIN
 
   xyouts, 0.15, 0.97, /normal, charsize=1.0, title+'   '+levtype
 
@@ -155,6 +141,8 @@ for nt=1,1 do begin
    ;print,'searching for variable ', var3pl(nn-1)
     ind1 = where(var1(0,*) eq var3pl(nn-1) and var1(2-1,*) eq levtype and var1(8-1,*) eq step and var1(10-1,*) eq nfor and var1(4-1,*) eq nk)
     ind2 = where(var2(0,*) eq var3pl(nn-1) and var2(2-1,*) eq levtype and var2(8-1,*) eq step and var2(10-1,*) eq nfor and var2(4-1,*) eq nk)
+    ind1=ind1(n_elements(ind1)-1)
+    ind2=ind2(n_elements(ind1)-1)
     if ind1 eq -1 or ind2 eq -1 then continue
     mean1= float(var1(16-1,ind1))
     mean2= float(var2(16-1,ind2))
@@ -197,11 +185,12 @@ for nt=1,1 do begin
    end
   end
   
-  erase
-  
+ END
+
+
 ;--------------------------------------------------------------------------------------------
 
-  levtype='zl'
+ 'zl': BEGIN
 
   xyouts, 0.15, 0.97, /normal, charsize=1.0, title+'   '+levtype
 
@@ -211,6 +200,8 @@ for nt=1,1 do begin
    ;print,'searching for variable ', var3zl(nn-1)
     ind1 = where(var1(0,*) eq var3zl(nn-1) and var1(2-1,*) eq levtype and var1(8-1,*) eq step and var1(10-1,*) eq nfor and var1(4-1,*) eq nk)
     ind2 = where(var2(0,*) eq var3zl(nn-1) and var2(2-1,*) eq levtype and var2(8-1,*) eq step and var2(10-1,*) eq nfor and var2(4-1,*) eq nk)
+    ind1=ind1(n_elements(ind1)-1)
+    ind2=ind2(n_elements(ind1)-1)
     if ind1 eq -1 or ind2 eq -1 then continue
     mean1= float(var1(16-1,ind1))
     mean2= float(var2(16-1,ind2))
@@ -253,11 +244,12 @@ for nt=1,1 do begin
    end
   end
   
-  erase
-  
+ END
+
+
 ;--------------------------------------------------------------------------------------------
 
-  levtype='sfc'
+ 'sfc': BEGIN
 
   xyouts, 0.15, 0.97, /normal, charsize=1.0, title+'   '+levtype
   
@@ -266,6 +258,9 @@ for nt=1,1 do begin
    ;print,'searching for variable ', var2d(nn-1)
     ind1 = where(var1(0,*) eq var2d(nn-1) and var1(2-1,*) eq levtype and var1(8-1,*) eq step and var1(10-1,*) eq nfor)
     ind2 = where(var2(0,*) eq var2d(nn-1) and var2(2-1,*) eq levtype and var2(8-1,*) eq step and var2(10-1,*) eq nfor)
+    ind1=ind1(n_elements(ind1)-1)
+    ind2=ind2(n_elements(ind1)-1)
+    if ind1 eq -1 or ind2 eq -1 then continue
     mean1= float(var1(16-1,ind1))
     mean2= float(var2(16-1,ind2))
     rms1 = float(var1(18-1,ind1))
@@ -314,9 +309,10 @@ for nt=1,1 do begin
    
   end
 
-  erase
+ END
 
-end
+ENDCASE
+
 
 paperclose
 
