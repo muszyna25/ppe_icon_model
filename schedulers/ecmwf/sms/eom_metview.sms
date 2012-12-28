@@ -46,7 +46,7 @@ basename=%SUITE%_%EXPNUM%_$YYYYMM
 #-----------------------------------------------------------------------------
 # quick plots (find standard output on oflws144:/uwork1/mkoehler/wq)
 
-ndiff=3                     #number of processes (e.g. 4, synchronize with icon.def "work")
+ndiff=5                     #number of processes (e.g. 4, synchronize with icon.def "work")
 nstart=%metproc%            #index of process    (e.g. 1,2,3 or 4)
 nstart=`awk -v var="$nstart" 'BEGIN{ print (var-1) }'` #awk requires indices [0,4-1]
 export nstart
