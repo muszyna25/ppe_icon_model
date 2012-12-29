@@ -179,6 +179,7 @@ USE mo_loopindices,         ONLY: get_indices_c, get_indices_e, get_indices_v
 USE mo_advection_config,    ONLY: advection_config
 USE mo_sync,                ONLY: SYNC_C, SYNC_E, SYNC_V, sync_patch_array, sync_idx
 USE mo_grid_config,         ONLY: grid_sphere_radius
+USE mo_grid_geometry_info,  ONLY: planar_torus_geometry, sphere_geometry
 
 USE mo_intp_data_strc
 
@@ -1489,6 +1490,39 @@ REAL(wp) :: z_sum
   ENDIF
 
 END SUBROUTINE scalar_int_coeff
+!-------------------------------------------------------------------------
+
+
+!-------------------------------------------------------------------------
+!>
+!! Calls routines to calculate the weighting coefficients for bilinear 
+!! edge-to-cell interpolation depending on grid geometry.
+!!
+SUBROUTINE bln_int_coeff_e2c( ptr_patch, ptr_int_state )
+  TYPE(t_patch),     INTENT(inout) :: ptr_patch
+  TYPE(t_int_state), INTENT(inout) :: ptr_int_state
+    
+  CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_intp_coeffs_lsq_bln:bln_int_coeff_e2c'
+     
+  !
+  SELECT CASE(ptr_patch%geometry_info%geometry_type)
+   
+  CASE (planar_torus_geometry)
+    CALL calculate_flat_scalar_coeffs( ptr_patch, ptr_int_state )
+    CALL calculate_vector_coeffs(ptr_patch, ptr_int_state)
+
+  CASE (sphere_geometry)
+    CALL calculate_spherical_scalar_coeffs( ptr_patch, ptr_int_state )
+    CALL calculate_vector_coeffs(ptr_patch, ptr_int_state)
+    
+  CASE DEFAULT    
+    CALL finish(method_name, "Undefined geometry type")
+      
+  END SELECT
+
+END SUBROUTINE bln_int_coeff_e2c
+!-------------------------------------------------------------------------
+
 
 !-------------------------------------------------------------------------
 !
@@ -1501,9 +1535,8 @@ END SUBROUTINE scalar_int_coeff
 !! @par Revision History
 !!  developed by Guenther Zaengl, 2009-01-06
 !!
-SUBROUTINE bln_int_coeff_e2c( ptr_patch, ptr_int_state )
+SUBROUTINE calculate_spherical_scalar_coeffs ( ptr_patch, ptr_int_state )
 !
-
 !
 !  patch on which computation is performed
 !
@@ -1524,7 +1557,6 @@ REAL(wp) :: xtemp,ytemp,wgt(3),xloc,yloc,x(3),y(3), &
 
 !-----------------------------------------------------------------------
 
-!$OMP PARALLEL PRIVATE(rl_start, rl_end,i_nchdom,i_startblk,i_endblk)
 rl_start = 1
 rl_end = min_rlcell
 
@@ -1535,6 +1567,7 @@ i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
 !
 ! loop through all patch cells (and blocks)
 !
+!$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,yloc,xloc,pollat,pollon,ile1,ibe1,&
 !$OMP            ile2,ibe2,ile3,ibe3,xtemp,ytemp,wgt,x,y) ICON_OMP_DEFAULT_SCHEDULE
 DO jb = i_startblk, i_endblk
@@ -1624,17 +1657,56 @@ DO jb = i_startblk, i_endblk
   ENDDO !cell loop
 
 END DO !block loop
-!$OMP END DO
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+
+CALL sync_patch_array(SYNC_C,ptr_patch,ptr_int_state%e_bln_c_s)
+
+
+END SUBROUTINE calculate_spherical_scalar_coeffs
+!-------------------------------------------------------------------------
+
+
+!-------------------------------------------------------------------------
+!
+!
+!>
+!! Computes the vector weighting coefficients using the scalar part computed earlier
+!!
+!! @par Revision History
+!!  developed by Guenther Zaengl, 2009-01-06
+!!
+SUBROUTINE calculate_vector_coeffs ( ptr_patch, ptr_int_state )
+!
+!
+!  patch on which computation is performed
+!
+TYPE(t_patch), TARGET, INTENT(in) :: ptr_patch
+
+! Interpolation coefficients
+TYPE(t_int_state), TARGET, INTENT(inout) :: ptr_int_state
+!
+
+INTEGER :: jc, jb
+INTEGER :: rl_start, rl_end
+INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
+
+INTEGER :: ile1, ibe1, ile2, ibe2, ile3, ibe3
+
+!-----------------------------------------------------------------------
 
 ! Now compute vector interpolation weights: These take the normal and tangential
 ! wind components at the edges and reconstruct u and v at the cell midpoints
 
 rl_start = 2
+rl_end = min_rlcell
 
 ! values for the blocking
+i_nchdom   = MAX(1,ptr_patch%n_childdom)
 i_startblk = ptr_patch%cells%start_blk(rl_start,1)
 i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
 
+!$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,ile1,ibe1,ile2,ibe2,&
 !$OMP ile3,ibe3) ICON_OMP_DEFAULT_SCHEDULE
 DO jb = i_startblk, i_endblk
@@ -1742,13 +1814,70 @@ END DO !block loop
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
-CALL sync_patch_array(SYNC_C,ptr_patch,ptr_int_state%e_bln_c_s)
 CALL sync_patch_array(SYNC_C,ptr_patch,ptr_int_state%e_bln_c_u)
 CALL sync_patch_array(SYNC_C,ptr_patch,ptr_int_state%e_bln_c_v)
 
-END SUBROUTINE bln_int_coeff_e2c
+END SUBROUTINE calculate_vector_coeffs
+!-------------------------------------------------------------------------
+
+!-------------------------------------------------------------------------
+!
+!
+!>
+!! Computes the weighting coefficients for bilinear edge-to-cell interpolation for
+!! flat geometry with uniform cells
+!!
+!! @par Revision History
+!!  developed by Anurag Dipankar, 2012-28-12 (taken from calculate_spherical_scalar_intp_coeffs)
+!!
+SUBROUTINE calculate_flat_scalar_coeffs ( ptr_patch, ptr_int_state )
+!
+!
+!  patch on which computation is performed
+!
+TYPE(t_patch), TARGET, INTENT(in) :: ptr_patch
+
+! Interpolation coefficients
+TYPE(t_int_state), TARGET, INTENT(inout) :: ptr_int_state
+!
+
+INTEGER :: jc, jb
+INTEGER :: rl_start, rl_end
+INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
+
+!-----------------------------------------------------------------------
+
+rl_start = 1
+rl_end = min_rlcell
+
+! values for the blocking
+i_nchdom   = MAX(1,ptr_patch%n_childdom)
+i_startblk = ptr_patch%cells%start_blk(rl_start,1)
+i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
+!
+! loop through all patch cells (and blocks)
+!
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
+  DO jb = i_startblk, i_endblk
+  
+    CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
+                       i_startidx, i_endidx, rl_start, rl_end)
+    DO jc = i_startidx, i_endidx
+
+      ! Simple for torus
+      ptr_int_state%e_bln_c_s(jc,1:3,jb) = 1._wp / 3._wp
+
+    ENDDO !cell loop
+  END DO !block loop
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+
+CALL sync_patch_array(SYNC_C,ptr_patch,ptr_int_state%e_bln_c_s)
 
 
+END SUBROUTINE calculate_flat_scalar_coeffs
+!-------------------------------------------------------------------------
 
 
 END MODULE mo_intp_coeffs_lsq_bln
