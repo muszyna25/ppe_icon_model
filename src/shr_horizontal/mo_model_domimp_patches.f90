@@ -117,8 +117,9 @@ MODULE mo_model_domimp_patches
   USE mo_exception,          ONLY: message_text, message, warning, finish, em_warn
   USE mo_model_domain,       ONLY: t_patch, t_grid_cells, t_grid_edges, p_patch_local_parent
   USE mo_parallel_config,    ONLY: nproma
-  USE mo_model_domimp_setup, ONLY: reshape_int, reshape_real,&
-    & init_quad_twoadjcells, init_coriolis, set_verts_phys_id, init_butterfly_idx
+  USE mo_model_domimp_setup, ONLY: reshape_int, reshape_real,  &
+    & init_quad_twoadjcells, init_coriolis, set_verts_phys_id, &
+    & init_butterfly_idx, calculate_patch_cartesian_positions
   USE mo_grid_config,        ONLY: start_lev, nroot, n_dom, n_dom_start,    &
     & lfeedback, l_limited_area, max_childdom, &
     & dynamics_grid_filename,   dynamics_parent_grid_id,  &
@@ -141,8 +142,8 @@ MODULE mo_model_domimp_patches
   USE mo_model_domimp_setup, ONLY: fill_grid_subsets
   USE mo_alloc_patches,      ONLY: set_patches_grid_filename, allocate_basic_patch, &
     & allocate_remaining_patch
-  USE mo_math_utilities,     ONLY: gvec2cvec, t_cartesian_coordinates
   USE mo_math_constants,     ONLY: pi, pi_2
+  USE mo_grid_subset,        ONLY: t_subset_range, get_index_range
   
 #ifndef NOMPI
   ! The USE statement below lets this module use the routines from
@@ -498,6 +499,19 @@ CONTAINS
         CALL allocate_remaining_patch(p_patch(jg),1)
       ENDIF
     ENDDO
+    
+    !--------------------
+    ! Fill the subsets information
+    DO jg = n_dom_start, n_dom
+      CALL fill_grid_subsets(p_patch(jg))
+    ENDDO
+    IF(my_process_is_mpi_parallel() ) THEN
+      DO jg = n_dom_start+1, n_dom
+        CALL fill_grid_subsets( p_patch_local_parent(jg) )
+      ENDDO
+    ENDIF
+    !--------------------
+    
       
     DO jg = n_dom_start, n_dom
       n_lp = 0 ! Number of local parents on the same level
@@ -510,16 +524,11 @@ CONTAINS
           ENDIF
         ENDDO
       ENDIF
-      
+   
       ! Get all patch information not read by read_basic_patch
       CALL read_remaining_patch( jg, p_patch(jg), n_lp, id_lp )
     ENDDO
     
-    ! Fill the subsets information
-    DO jg = n_dom_start, n_dom
-      CALL fill_grid_subsets(p_patch(jg))
-    ENDDO
-
     ! rescale grids
     DO jg = n_dom_start, n_dom
       CALL rescale_grid( p_patch(jg) )      
@@ -2347,121 +2356,11 @@ CONTAINS
 
       ! calculate Cartesian components of primal normal
       ! (these are old grids)
-      CALL calculate_cart_normal( p_p )
+      CALL calculate_patch_cartesian_positions( p_p )
 
     ENDDO  
 
   END SUBROUTINE calculate_cartesian_positions
-  !-------------------------------------------------------------------------
-  
-  !-------------------------------------------------------------------------
-  
-  !-------------------------------------------------------------------------
-  !>
-  !! This method_name calculates the Cartesian components of the edge primal normals.
-  !!
-  !! Therefore the given zonal and meridional
-  !! components of the edge primal normals are used.
-  !! This information should be provided by the grid generator and
-  !! read in the method_name read_patch.
-  !!
-  !! @par Revision History
-  !! Initial release by Jochen Foerstner (2008-05-19)
-  !! Modifiaction by A. Gassmann(2010-09-05)
-  !! - added also tangential normal, and generalize to lplane
-  !!
-  SUBROUTINE calculate_cart_normal( patch )
-    !
-    TYPE(t_patch), TARGET, INTENT(inout) :: patch  ! patch on a specific level
-    
-    TYPE(t_cartesian_coordinates) :: z_vec
-    REAL(wp) :: z_lon, z_lat, z_u, z_v  ! location and components of normal
-    REAL(wp) :: z_norm                  ! norm of Cartesian normal
-    
-    INTEGER :: nlen, nblks_e, npromz_e
-    INTEGER :: jb, je                   ! loop indices
-    
-    !-----------------------------------------------------------------------
-    
-    ! values for the blocking
-    nblks_e  = patch%nblks_e
-    npromz_e = patch%npromz_e
-    
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,je,nlen,z_lon,z_lat,z_u,z_v,z_norm,z_vec) ICON_OMP_DEFAULT_SCHEDULE
-    DO jb = 1, nblks_e
-      
-      IF (jb /= nblks_e) THEN
-        nlen = nproma
-      ELSE
-        nlen = npromz_e
-      ENDIF
-      
-      ! loop over edges
-      DO je = 1, nlen
-        
-        ! location of edge midpoint
-        IF (.NOT.lplane) THEN
-          z_lon = patch%edges%center(je,jb)%lon
-          z_lat = patch%edges%center(je,jb)%lat
-        ELSE
-          z_lon = -pi_2 !-90
-          z_lat =  pi_2 !+90
-        ENDIF
-        
-        ! zonal and meridional component of primal normal
-        z_u = patch%edges%primal_normal(je,jb)%v1
-        z_v = patch%edges%primal_normal(je,jb)%v2
-        
-        ! calculate Cartesian components of primal normal
-        CALL gvec2cvec( z_u, z_v, z_lon, z_lat, z_vec%x(1), z_vec%x(2), z_vec%x(3) )
-        
-        ! compute unit normal to edge je
-        z_norm = SQRT( DOT_PRODUCT(z_vec%x(1:3),z_vec%x(1:3)) )
-        z_vec%x(1:3) = 1._wp / z_norm * z_vec%x(1:3)
-        
-        ! save the values in the according type structure of the patch
-!         WRITE(*,*) "----------------------------------"
-!         write(*,*) "primal_cart_normal:", patch%edges%primal_cart_normal(je,jb)%x(:)
-!         write(*,*) "z_vec:", z_vec%x
-!         WRITE(*,*) "----------------------------------"
-!         IF ( MAXVAL(ABS(patch%edges%primal_cart_normal(je,jb)%x - z_vec%x)) > 0.0001_wp) &
-!           CALL finish("","primal_cart_normal(je,jb)%x /=  z_vec%x")
-               
-        patch%edges%primal_cart_normal(je,jb)%x(1) = z_vec%x(1)
-        patch%edges%primal_cart_normal(je,jb)%x(2) = z_vec%x(2)
-        patch%edges%primal_cart_normal(je,jb)%x(3) = z_vec%x(3)
-        
-        ! zonal and meridional component of dual normal
-        z_u = patch%edges%dual_normal(je,jb)%v1
-        z_v = patch%edges%dual_normal(je,jb)%v2
-        
-        ! calculate Cartesian components of primal normal
-        CALL gvec2cvec( z_u, z_v, z_lon, z_lat, z_vec%x(1), z_vec%x(2), z_vec%x(3) )
-        
-        ! compute unit normal to edge je
-        z_norm = SQRT( DOT_PRODUCT(z_vec%x(1:3),z_vec%x(1:3)) )
-        z_vec%x(1:3) = 1._wp / z_norm * z_vec%x(1:3)
-        
-!         WRITE(*,*) "----------------------------------"
-!         write(*,*) "dual_cart_normal:", patch%edges%dual_cart_normal(je,jb)%x(:)
-!         write(*,*) "z_vec:", z_vec%x
-!         WRITE(*,*) "----------------------------------"
-!         IF ( MAXVAL(ABS(patch%edges%dual_cart_normal(je,jb)%x - z_vec%x)) > 0.0001_wp) &
-!           CALL finish("","dual_cart_normal(je,jb)%x /=  z_vec%x")
-        
-        ! save the values in the according type structure of the patch
-        patch%edges%dual_cart_normal(je,jb)%x(1) = z_vec%x(1)
-        patch%edges%dual_cart_normal(je,jb)%x(2) = z_vec%x(2)
-        patch%edges%dual_cart_normal(je,jb)%x(3) = z_vec%x(3)
-        
-      END DO
-      
-    END DO
-!$OMP END DO NOWAIT
-!$OMP END PARALLEL
-    
-  END SUBROUTINE calculate_cart_normal
   !-------------------------------------------------------------------------
     
   !-------------------------------------------------------------------------

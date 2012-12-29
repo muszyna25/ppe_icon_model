@@ -116,12 +116,16 @@ MODULE mo_model_domimp_setup
   USE mo_grid_subset,        ONLY: fill_subset,t_subset_range, get_index_range
   USE mo_mpi,                ONLY: work_mpi_barrier, get_my_mpi_work_id, my_process_is_mpi_seq
   USE mo_impl_constants,     ONLY: halo_levels_ceiling
+  USE mo_math_utilities,     ONLY: gvec2cvec, gc2cc
+  USE mo_math_types
+  
   USE mo_grid_geometry_info, ONLY: planar_torus_geometry
   
   IMPLICIT NONE
   
   PRIVATE
   
+  PUBLIC :: calculate_patch_cartesian_positions
   PUBLIC :: reshape_int
   PUBLIC :: reshape_real
   PUBLIC :: init_quad_twoadjcells
@@ -168,6 +172,123 @@ CONTAINS
 
   END SUBROUTINE calculate_edge_area
   !-------------------------------------------------------------------------
+  
+  !-------------------------------------------------------------------------
+  !>
+  !! This method_name calculates the cartesian positions stored in patch.
+  !!
+  !! These values normally are read from the grid files,
+  !! this routine is used only for old grids
+  !!
+  !! Note: cartesian_dual_middle is used only from the ocean,
+  !!   which is using only new grids, therefor it is NOT calculated here
+  !!
+  !! @par Revision History
+  !! Initial release by Jochen Foerstner (2008-05-19)
+  !! Modifiaction by A. Gassmann(2010-09-05)
+  !! - added also tangential normal, and generalize to lplane
+  !!
+  SUBROUTINE calculate_patch_cartesian_positions ( patch )
+    !
+    TYPE(t_patch), TARGET, INTENT(inout) :: patch  ! patch on a specific level
+    
+    TYPE(t_cartesian_coordinates) :: z_vec
+    REAL(wp) :: z_lon, z_lat, z_u, z_v  ! location and components of normal
+    REAL(wp) :: z_norm                  ! norm of Cartesian normal
+    
+    INTEGER :: start_index, end_index
+    INTEGER :: jb, je                   ! loop indices    
+    !-----------------------------------------------------------------------
+                
+!$OMP PARALLEL    
+    ! calculate cells cartesian positions
+!$OMP DO PRIVATE(jb,je, start_index, end_index) ICON_OMP_DEFAULT_SCHEDULE
+    DO jb = patch%cells%all%start_block, patch%cells%all%end_block
+      CALL get_index_range(patch%cells%all, jb, start_index, end_index)
+      DO je = start_index, end_index            
+        ! location of cell center
+        patch%cells%cartesian_center(je,jb) = gc2cc(patch%cells%center(je,jb))
+      ENDDO
+    ENDDO
+!$OMP END DO NOWAIT
+    
+    ! calculate verts cartesian positions
+!$OMP DO PRIVATE(jb,je, start_index, end_index) ICON_OMP_DEFAULT_SCHEDULE
+    DO jb = patch%verts%all%start_block, patch%verts%all%end_block
+      CALL get_index_range(patch%verts%all, jb, start_index, end_index)
+      DO je = start_index, end_index            
+        ! location of cell center
+        patch%verts%cartesian(je,jb) = gc2cc(patch%verts%vertex(je,jb))
+      ENDDO
+    ENDDO
+!$OMP END DO NOWAIT
+
+    ! calculate edges positions
+!$OMP DO PRIVATE(jb,je,z_lon,z_lat,z_u,z_v,z_norm,z_vec, start_index, end_index) ICON_OMP_DEFAULT_SCHEDULE
+    DO jb = patch%edges%all%start_block, patch%edges%all%end_block
+      CALL get_index_range(patch%edges%all, jb, start_index, end_index)
+      DO je = start_index, end_index
+            
+        ! location of edge midpoint
+        patch%edges%cartesian_center(je,jb) = gc2cc(patch%edges%center(je,jb))
+        z_lon = patch%edges%center(je,jb)%lon
+        z_lat = patch%edges%center(je,jb)%lat
+        
+        ! zonal and meridional component of primal normal
+        z_u = patch%edges%primal_normal(je,jb)%v1
+        z_v = patch%edges%primal_normal(je,jb)%v2
+        
+        ! calculate Cartesian components of primal normal
+        CALL gvec2cvec( z_u, z_v, z_lon, z_lat, z_vec%x(1), z_vec%x(2), z_vec%x(3) )
+        
+        ! compute unit normal to edge je
+        z_norm = SQRT( DOT_PRODUCT(z_vec%x(1:3),z_vec%x(1:3)) )
+        z_vec%x(1:3) = 1._wp / z_norm * z_vec%x(1:3)
+        
+        ! save the values in the according type structure of the patch
+!         WRITE(*,*) "----------------------------------"
+!         write(*,*) "primal_cart_normal:", patch%edges%primal_cart_normal(je,jb)%x(:)
+!         write(*,*) "z_vec:", z_vec%x
+!         WRITE(*,*) "----------------------------------"
+!         IF ( MAXVAL(ABS(patch%edges%primal_cart_normal(je,jb)%x - z_vec%x)) > 0.0001_wp) &
+!           CALL finish("","primal_cart_normal(je,jb)%x /=  z_vec%x")
+               
+        patch%edges%primal_cart_normal(je,jb)%x(1) = z_vec%x(1)
+        patch%edges%primal_cart_normal(je,jb)%x(2) = z_vec%x(2)
+        patch%edges%primal_cart_normal(je,jb)%x(3) = z_vec%x(3)
+        
+        ! zonal and meridional component of dual normal
+        z_u = patch%edges%dual_normal(je,jb)%v1
+        z_v = patch%edges%dual_normal(je,jb)%v2
+        
+        ! calculate Cartesian components of primal normal
+        CALL gvec2cvec( z_u, z_v, z_lon, z_lat, z_vec%x(1), z_vec%x(2), z_vec%x(3) )
+        
+        ! compute unit normal to edge je
+        z_norm = SQRT( DOT_PRODUCT(z_vec%x(1:3),z_vec%x(1:3)) )
+        z_vec%x(1:3) = 1._wp / z_norm * z_vec%x(1:3)
+        
+!         WRITE(*,*) "----------------------------------"
+!         write(*,*) "dual_cart_normal:", patch%edges%dual_cart_normal(je,jb)%x(:)
+!         write(*,*) "z_vec:", z_vec%x
+!         WRITE(*,*) "----------------------------------"
+!         IF ( MAXVAL(ABS(patch%edges%dual_cart_normal(je,jb)%x - z_vec%x)) > 0.0001_wp) &
+!           CALL finish("","dual_cart_normal(je,jb)%x /=  z_vec%x")
+        
+        ! save the values in the according type structure of the patch
+        patch%edges%dual_cart_normal(je,jb)%x(1) = z_vec%x(1)
+        patch%edges%dual_cart_normal(je,jb)%x(2) = z_vec%x(2)
+        patch%edges%dual_cart_normal(je,jb)%x(3) = z_vec%x(3)
+        
+      END DO
+      
+    END DO
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+    
+  END SUBROUTINE calculate_patch_cartesian_positions
+  !-------------------------------------------------------------------------
+    
     
   !-------------------------------------------------------------------------
   !>

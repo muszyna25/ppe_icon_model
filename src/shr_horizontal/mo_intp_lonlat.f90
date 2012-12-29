@@ -11,6 +11,9 @@
   !!
   !! @par Revision History
   !! Moved from mo_intp_rbf_coeffs : 2012-03-20, F. Prill (DWD)
+  !! Modified by Anurag Dipankar, MPIM, 2012-12-28
+  !!-Replaced usage of ptr_int%cart_edge%coord with ptr_patch%edges%cartesian_center which is now calculated
+  !! within the grid_generator. The ptr_int variable is not calculated anymore. 
   !!
   !! @par Copyright
   !! 2002-2007 by DWD and MPI-M
@@ -759,8 +762,8 @@
               ibe2 = ptr_int_lonlat%rbf_vec_blk(je2,jc,jb)
 
               ! get Cartesian coordinates and orientation vectors
-              cc_e1(:) = ptr_int%cart_edge_coord(ile1,ibe1,:)
-              cc_e2(:) = ptr_int%cart_edge_coord(ile2,ibe2,:)
+              cc_e1(:) = ptr_patch%edges%cartesian_center(ile1,ibe1)%x(:)
+              cc_e2(:) = ptr_patch%edges%cartesian_center(ile2,ibe2)%x(:)
               !
               z_nx1(jc,:) = ptr_patch%edges%primal_cart_normal(ile1,ibe1)%x(:)
               z_nx2(jc,:) = ptr_patch%edges%primal_cart_normal(ile2,ibe2)%x(:)
@@ -834,8 +837,8 @@
             ! to cell center
             ile2   = ptr_int_lonlat%rbf_vec_idx(je2,jc,jb)
             ibe2   = ptr_int_lonlat%rbf_vec_blk(je2,jc,jb)
-
-            cc_e2(:)  = ptr_int%cart_edge_coord(ile2,ibe2,:)
+                        
+            cc_e2(:)  = ptr_patch%edges%cartesian_center(ile2,ibe2)%x(:)
 
             z_dist = arc_length_v(cc_c(jc,:), cc_e2)
 

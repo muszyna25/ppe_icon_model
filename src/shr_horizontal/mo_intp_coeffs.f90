@@ -180,7 +180,7 @@ MODULE mo_intp_coeffs
     & gvec2cvec, cvec2gvec,                      &
     & t_cartesian_coordinates,                   &
     & rotate_latlon, arc_length,                 &
-    & t_geographical_coordinates, vector_product
+    & t_geographical_coordinates, vector_product, plane_torus_closest_coordinates
   USE mo_dynamics_config,     ONLY: divavg_cntrwgt
   USE mo_parallel_config,     ONLY: nproma
   USE mo_loopindices,         ONLY: get_indices_c, get_indices_e, get_indices_v
@@ -957,16 +957,21 @@ CONTAINS
     TYPE(t_patch), TARGET, INTENT(inout) :: ptr_patch
     TYPE(t_int_state), INTENT(inout):: ptr_int
     
+    INTEGER                     :: max_iter !max no. of iterations for forcing 
+                                            !mass conservation
     CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_intp_coeffs:init_cellavg_wgt'
-    
+     
     SELECT CASE(ptr_patch%geometry_info%geometry_type)
     
     CASE (planar_torus_geometry)
+      max_iter = 1
       CALL calculate_uniform_bilinear_cellavg_wgt( ptr_patch, ptr_int )
+      CALL force_mass_conservation_to_cellavg_wgt( ptr_patch, ptr_int, max_iter)
 
     CASE (sphere_geometry)
+      max_iter = 1000
       CALL calculate_bilinear_cellavg_wgt( ptr_patch, ptr_int )
-      CALL force_mass_conservation_to_cellavg_wgt( ptr_patch, ptr_int )
+      CALL force_mass_conservation_to_cellavg_wgt( ptr_patch, ptr_int, max_iter )
     
     CASE default    
       CALL finish(method_name, "Undefined geometry type")
@@ -1178,12 +1183,14 @@ CONTAINS
   ! in order to obtain mass conservation.
   ! The criterion for conservation is that the three-point divergence
   ! calculated for any given grid point is used with a total factor of 1
-  SUBROUTINE force_mass_conservation_to_cellavg_wgt( ptr_patch, ptr_int )
+  SUBROUTINE force_mass_conservation_to_cellavg_wgt( ptr_patch, ptr_int, niter )
     !  patch on which computation is performed
     TYPE(t_patch), TARGET, INTENT(inout) :: ptr_patch
     ! Interpolation state
-    TYPE(t_int_state), INTENT(inout):: ptr_int
-    
+    TYPE(t_int_state), INTENT(inout)     :: ptr_int
+    ! max number of iterations   
+    INTEGER, INTENT(in)                  ::  niter
+
     INTEGER :: jc, je, jb
     INTEGER :: rl_start, rl_end
     INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
@@ -1195,7 +1202,7 @@ CONTAINS
     REAL(wp) :: checksum(nproma,ptr_patch%nblks_e)
     
     REAL(wp) :: relax_coeff
-    INTEGER ::  iter, niter
+    INTEGER ::  iter
       
     REAL(wp) :: maxwgt_loc,minwgt_loc
     
@@ -1214,7 +1221,8 @@ CONTAINS
     ! calculated for any given grid point is used with a total factor of 1
     ! Number of iterations for computation of bilinear weights
     i_nchdom   = MAX(1,ptr_patch%n_childdom)
-    niter = 1000
+
+    !niter = 1000 !now this value is passed as an arguement
     
     ! Relaxation coefficient for adaptation of local weight (empirically determined)
     relax_coeff = 0.46_wp
@@ -2723,7 +2731,10 @@ CONTAINS
   !!
   !! @par Revision History
   !!  developed by Guenther Zaengl, 2009-03-31
-  !!
+  !! Modification by Anurag Dipankar, MPIM, 2012-12-28
+  !! -Removed the calculation of ptr_int%cart_edge/cell_coord as this
+  !!  information is now stored in patch. Also adapted some calculations
+  !!  for geometry based info
   SUBROUTINE complete_patchinfo( ptr_patch, ptr_int )
     !
     
@@ -2745,7 +2756,7 @@ CONTAINS
     
     REAL(wp) :: z_nu, z_nv, z_lon, z_lat, z_nx1(3), z_nx2(3), z_norm
     
-    TYPE(t_cartesian_coordinates) :: cc_edge, cc_cell, cc_ev3, cc_ev4, cc_v1, cc_v2, cc_v3, &
+    TYPE(t_cartesian_coordinates) :: cc_cell, cc_ev3, cc_ev4, cc_v1, cc_v2, cc_v3, &
       & cc_dis1, cc_dis2, cc_dis3
     
     !-----------------------------------------------------------------------
@@ -2754,51 +2765,16 @@ CONTAINS
     
 !$OMP PARALLEL  PRIVATE(rl_start,rl_end,i_startblk,i_endblk)
     rl_start = 1
-    rl_end = min_rlcell
-    
-    ! values for the blocking
-    i_startblk = ptr_patch%cells%start_blk(rl_start,1)
-    i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
-    !
-    ! First step: compute Cartesian coordinates of cell centers on full domain
-    ! this is needed for least squares gradient reconstruction;
-    !
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,cc_cell) ICON_OMP_DEFAULT_SCHEDULE
-    DO jb = i_startblk, i_endblk
-      
-      CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
-        & i_startidx, i_endidx, rl_start, rl_end)
-      
-      DO jc =  i_startidx, i_endidx
-        
-        IF(.NOT.ptr_patch%cells%owner_mask(jc,jb)) CYCLE
-        
-        ! compute Cartesian coordinates (needed for RBF initialization)
-        
-        cc_cell = gc2cc(ptr_patch%cells%center(jc,jb))
-        ptr_int%cart_cell_coord(jc,jb,1:3)= cc_cell%x(1:3)
-        
-      ENDDO
-      
-    END DO !block loop
-!$OMP END DO
-    
-    
-    rl_start = 1
     rl_end = min_rledge
     
     ! values for the blocking
     i_startblk = ptr_patch%edges%start_blk(rl_start,1)
     i_endblk   = ptr_patch%edges%end_blk(rl_end,i_nchdom)
     !
-    ! First step: compute Cartesian coordinates and Cartesian vectors on full domain
-    ! this is needed to vectorize RBF initialization; the existing field carrying
-    ! the Cartesian orientation vectors (primal_cart_normal) did not work for that
-    ! because it is a derived data type
-    ! In addition, the fields for the inverse primal and dual edge lengths are
+    ! The fields for the inverse primal and dual edge lengths are
     ! initialized here.
     !
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,je,cc_edge) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,je) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
       
       CALL get_indices_e(ptr_patch, jb, i_startblk, i_endblk, &
@@ -2808,12 +2784,7 @@ CONTAINS
         
         IF(.NOT.ptr_patch%edges%owner_mask(je,jb)) CYCLE
         
-        ! compute Cartesian coordinates (needed for RBF initialization)
-        
-        cc_edge = gc2cc(ptr_patch%edges%center(je,jb))
-        ptr_int%cart_edge_coord(je,jb,1:3)= cc_edge%x(1:3)
-        
-        ! finally, compute inverse primal edge length
+        ! compute inverse primal edge length
         ! (dual follows below in the rl_start=2 section)
         
         ptr_patch%edges%inv_primal_edge_length(je,jb) = &
@@ -2965,8 +2936,8 @@ CONTAINS
         ilv4 = ptr_patch%edges%vertex_idx(je,jb,4)
         ibv4 = ptr_patch%edges%vertex_blk(je,jb,4)
         
-        cc_ev3 = gc2cc(ptr_patch%verts%vertex(ilv3,ibv3))
-        cc_ev4 = gc2cc(ptr_patch%verts%vertex(ilv4,ibv4))
+        cc_ev3 = ptr_patch%verts%cartesian(ilv3,ibv3)
+        cc_ev4 = ptr_patch%verts%cartesian(ilv4,ibv4)
         
         ! inverse length bewtween vertices 3 and 4
         IF (ptr_patch%cell_type == 3 ) THEN
@@ -2994,13 +2965,13 @@ CONTAINS
         
         ! compute local primal and dual normals at cell 1
         
-        CALL cvec2gvec(z_nx1(1),z_nx1(2),z_nx1(3),z_lon,z_lat,z_nu,z_nv)
+        CALL cvec2gvec(z_nx1(1),z_nx1(2),z_nx1(3),z_lon,z_lat,z_nu,z_nv,ptr_patch%geometry_info)
         z_norm = SQRT(z_nu*z_nu+z_nv*z_nv)
         
         ptr_patch%edges%primal_normal_cell(je,jb,1)%v1 = z_nu/z_norm
         ptr_patch%edges%primal_normal_cell(je,jb,1)%v2 = z_nv/z_norm
         
-        CALL cvec2gvec(z_nx2(1),z_nx2(2),z_nx2(3),z_lon,z_lat,z_nu,z_nv)
+        CALL cvec2gvec(z_nx2(1),z_nx2(2),z_nx2(3),z_lon,z_lat,z_nu,z_nv,ptr_patch%geometry_info)
         z_norm = SQRT(z_nu*z_nu+z_nv*z_nv)
         
         ptr_patch%edges%dual_normal_cell(je,jb,1)%v1 = z_nu/z_norm
@@ -3013,13 +2984,13 @@ CONTAINS
         
         ! compute local primal and dual normals at cell 2
         
-        CALL cvec2gvec(z_nx1(1),z_nx1(2),z_nx1(3),z_lon,z_lat,z_nu,z_nv)
+        CALL cvec2gvec(z_nx1(1),z_nx1(2),z_nx1(3),z_lon,z_lat,z_nu,z_nv,ptr_patch%geometry_info)
         z_norm = SQRT(z_nu*z_nu+z_nv*z_nv)
         
         ptr_patch%edges%primal_normal_cell(je,jb,2)%v1 = z_nu/z_norm
         ptr_patch%edges%primal_normal_cell(je,jb,2)%v2 = z_nv/z_norm
         
-        CALL cvec2gvec(z_nx2(1),z_nx2(2),z_nx2(3),z_lon,z_lat,z_nu,z_nv)
+        CALL cvec2gvec(z_nx2(1),z_nx2(2),z_nx2(3),z_lon,z_lat,z_nu,z_nv,ptr_patch%geometry_info)
         z_norm = SQRT(z_nu*z_nu+z_nv*z_nv)
         
         ptr_patch%edges%dual_normal_cell(je,jb,2)%v1 = z_nu/z_norm
@@ -3032,13 +3003,13 @@ CONTAINS
         
         ! compute local primal and dual normals at vertex 1
         
-        CALL cvec2gvec(z_nx1(1),z_nx1(2),z_nx1(3),z_lon,z_lat,z_nu,z_nv)
+        CALL cvec2gvec(z_nx1(1),z_nx1(2),z_nx1(3),z_lon,z_lat,z_nu,z_nv,ptr_patch%geometry_info)
         z_norm = SQRT(z_nu*z_nu+z_nv*z_nv)
         
         ptr_patch%edges%primal_normal_vert(je,jb,1)%v1 = z_nu/z_norm
         ptr_patch%edges%primal_normal_vert(je,jb,1)%v2 = z_nv/z_norm
         
-        CALL cvec2gvec(z_nx2(1),z_nx2(2),z_nx2(3),z_lon,z_lat,z_nu,z_nv)
+        CALL cvec2gvec(z_nx2(1),z_nx2(2),z_nx2(3),z_lon,z_lat,z_nu,z_nv,ptr_patch%geometry_info)
         z_norm = SQRT(z_nu*z_nu+z_nv*z_nv)
         
         ptr_patch%edges%dual_normal_vert(je,jb,1)%v1 = z_nu/z_norm
@@ -3051,13 +3022,13 @@ CONTAINS
         
         ! compute local primal and dual normals at vertex 2
         
-        CALL cvec2gvec(z_nx1(1),z_nx1(2),z_nx1(3),z_lon,z_lat,z_nu,z_nv)
+        CALL cvec2gvec(z_nx1(1),z_nx1(2),z_nx1(3),z_lon,z_lat,z_nu,z_nv,ptr_patch%geometry_info)
         z_norm = SQRT(z_nu*z_nu+z_nv*z_nv)
         
         ptr_patch%edges%primal_normal_vert(je,jb,2)%v1 = z_nu/z_norm
         ptr_patch%edges%primal_normal_vert(je,jb,2)%v2 = z_nv/z_norm
         
-        CALL cvec2gvec(z_nx2(1),z_nx2(2),z_nx2(3),z_lon,z_lat,z_nu,z_nv)
+        CALL cvec2gvec(z_nx2(1),z_nx2(2),z_nx2(3),z_lon,z_lat,z_nu,z_nv,ptr_patch%geometry_info)
         z_norm = SQRT(z_nu*z_nu+z_nv*z_nv)
         
         ptr_patch%edges%dual_normal_vert(je,jb,2)%v1 = z_nu/z_norm
@@ -3070,13 +3041,13 @@ CONTAINS
         
         ! compute local primal and dual normals at vertex 3
         
-        CALL cvec2gvec(z_nx1(1),z_nx1(2),z_nx1(3),z_lon,z_lat,z_nu,z_nv)
+        CALL cvec2gvec(z_nx1(1),z_nx1(2),z_nx1(3),z_lon,z_lat,z_nu,z_nv,ptr_patch%geometry_info)
         z_norm = SQRT(z_nu*z_nu+z_nv*z_nv)
         
         ptr_patch%edges%primal_normal_vert(je,jb,3)%v1 = z_nu/z_norm
         ptr_patch%edges%primal_normal_vert(je,jb,3)%v2 = z_nv/z_norm
         
-        CALL cvec2gvec(z_nx2(1),z_nx2(2),z_nx2(3),z_lon,z_lat,z_nu,z_nv)
+        CALL cvec2gvec(z_nx2(1),z_nx2(2),z_nx2(3),z_lon,z_lat,z_nu,z_nv,ptr_patch%geometry_info)
         z_norm = SQRT(z_nu*z_nu+z_nv*z_nv)
         
         ptr_patch%edges%dual_normal_vert(je,jb,3)%v1 = z_nu/z_norm
@@ -3089,13 +3060,13 @@ CONTAINS
         
         ! compute local primal and dual normals at vertex 2
         
-        CALL cvec2gvec(z_nx1(1),z_nx1(2),z_nx1(3),z_lon,z_lat,z_nu,z_nv)
+        CALL cvec2gvec(z_nx1(1),z_nx1(2),z_nx1(3),z_lon,z_lat,z_nu,z_nv,ptr_patch%geometry_info)
         z_norm = SQRT(z_nu*z_nu+z_nv*z_nv)
         
         ptr_patch%edges%primal_normal_vert(je,jb,4)%v1 = z_nu/z_norm
         ptr_patch%edges%primal_normal_vert(je,jb,4)%v2 = z_nv/z_norm
         
-        CALL cvec2gvec(z_nx2(1),z_nx2(2),z_nx2(3),z_lon,z_lat,z_nu,z_nv)
+        CALL cvec2gvec(z_nx2(1),z_nx2(2),z_nx2(3),z_lon,z_lat,z_nu,z_nv,ptr_patch%geometry_info)
         z_norm = SQRT(z_nu*z_nu+z_nv*z_nv)
         
         ptr_patch%edges%dual_normal_vert(je,jb,4)%v1 = z_nu/z_norm
@@ -3111,12 +3082,6 @@ CONTAINS
     ! primal_normal_cell must be sync'd before next loop,
     ! so do a sync for all above calculated quantities
     
-    CALL sync_patch_array(sync_c,ptr_patch,ptr_int%cart_cell_coord(:,:,1))
-    CALL sync_patch_array(sync_c,ptr_patch,ptr_int%cart_cell_coord(:,:,2))
-    CALL sync_patch_array(sync_c,ptr_patch,ptr_int%cart_cell_coord(:,:,3))
-    CALL sync_patch_array(sync_e,ptr_patch,ptr_int%cart_edge_coord(:,:,1))
-    CALL sync_patch_array(sync_e,ptr_patch,ptr_int%cart_edge_coord(:,:,2))
-    CALL sync_patch_array(sync_e,ptr_patch,ptr_int%cart_edge_coord(:,:,3))
     CALL sync_patch_array(sync_e,ptr_patch,ptr_patch%edges%inv_primal_edge_length)
     
     CALL sync_idx(sync_e,sync_v,ptr_patch,ptr_patch%edges%vertex_idx(:,:,3), &
@@ -3229,15 +3194,15 @@ CONTAINS
       
       DO jc =  i_startidx, i_endidx
         
-        cc_cell = gc2cc(ptr_patch%cells%center(jc,jb))
+        cc_cell = ptr_patch%cells%cartesian_center(jc,jb)
         z_lon   = ptr_patch%cells%center(jc,jb)%lon
         z_lat   = ptr_patch%cells%center(jc,jb)%lat
         
-        CALL gvec2cvec(1._wp,0._wp,z_lon,z_lat,z_nx1(1),z_nx1(2),z_nx1(3))
+        CALL gvec2cvec(1._wp,0._wp,z_lon,z_lat,z_nx1(1),z_nx1(2),z_nx1(3),ptr_patch%geometry_info)
         z_norm = SQRT( DOT_PRODUCT(z_nx1(1:3),z_nx1(1:3)) )
         z_nx1(1:3)  = 1._wp/z_norm * z_nx1(1:3)
         
-        CALL gvec2cvec(0._wp,1._wp,z_lon,z_lat,z_nx2(1),z_nx2(2),z_nx2(3))
+        CALL gvec2cvec(0._wp,1._wp,z_lon,z_lat,z_nx2(1),z_nx2(2),z_nx2(3),ptr_patch%geometry_info)
         z_norm = SQRT( DOT_PRODUCT(z_nx2(1:3),z_nx2(1:3)) )
         z_nx2(1:3)  = 1._wp/z_norm * z_nx2(1:3)
         
@@ -3248,10 +3213,18 @@ CONTAINS
         ilv3 = ptr_patch%cells%vertex_idx(jc,jb,3)
         ibv3 = ptr_patch%cells%vertex_blk(jc,jb,3)
         
-        cc_v1 = gc2cc(ptr_patch%verts%vertex(ilv1,ibv1))
-        cc_v2 = gc2cc(ptr_patch%verts%vertex(ilv2,ibv2))
-        cc_v3 = gc2cc(ptr_patch%verts%vertex(ilv3,ibv3))
-        
+        cc_v1  =  ptr_patch%verts%cartesian(ilv1,ibv1)
+        cc_v2  =  ptr_patch%verts%cartesian(ilv2,ibv2)
+        cc_v3  =  ptr_patch%verts%cartesian(ilv3,ibv3)
+
+        !Find closest coordinate for flat torus case: no need as 
+        !these points belong to 1 triangle so they can not be cyclic
+        !IF(ptr_patch%geometry_info%geometry_type==planar_torus_geometry)THEN
+        !  cc_v1  = plane_torus_closest_coordinates(cc_cell%x(1:3),cc_v1%x(1:3),ptr_patch%geometry_info)
+        !  cc_v2  = plane_torus_closest_coordinates(cc_cell%x(1:3),cc_v2%x(1:3),ptr_patch%geometry_info)
+        !  cc_v3  = plane_torus_closest_coordinates(cc_cell%x(1:3),cc_v3%x(1:3),ptr_patch%geometry_info)
+        !END IF
+
         cc_dis1%x(1:3) = cc_v1%x(1:3) - cc_cell%x(1:3)
         z_norm = SQRT( DOT_PRODUCT(cc_dis1%x(1:3),cc_dis1%x(1:3)) )
         cc_dis1%x(1:3) = cc_dis1%x(1:3)/z_norm
@@ -3265,18 +3238,18 @@ CONTAINS
         cc_dis3%x(1:3) = cc_dis3%x(1:3)/z_norm
         
         ptr_int%cell_vert_dist(jc,1,1,jb) = grid_sphere_radius* &
-          & arc_length(cc_cell,cc_v1)*DOT_PRODUCT(z_nx1(1:3),cc_dis1%x(1:3))
+          & arc_length(cc_cell,cc_v1,ptr_patch%geometry_info)*DOT_PRODUCT(z_nx1(1:3),cc_dis1%x(1:3))
         ptr_int%cell_vert_dist(jc,2,1,jb) = grid_sphere_radius* &
-          & arc_length(cc_cell,cc_v2)*DOT_PRODUCT(z_nx1(1:3),cc_dis2%x(1:3))
+          & arc_length(cc_cell,cc_v2,ptr_patch%geometry_info)*DOT_PRODUCT(z_nx1(1:3),cc_dis2%x(1:3))
         ptr_int%cell_vert_dist(jc,3,1,jb) = grid_sphere_radius* &
-          & arc_length(cc_cell,cc_v3)*DOT_PRODUCT(z_nx1(1:3),cc_dis3%x(1:3))
+          & arc_length(cc_cell,cc_v3,ptr_patch%geometry_info)*DOT_PRODUCT(z_nx1(1:3),cc_dis3%x(1:3))
         
         ptr_int%cell_vert_dist(jc,1,2,jb) = grid_sphere_radius* &
-          & arc_length(cc_cell,cc_v1)*DOT_PRODUCT(z_nx2(1:3),cc_dis1%x(1:3))
+          & arc_length(cc_cell,cc_v1,ptr_patch%geometry_info)*DOT_PRODUCT(z_nx2(1:3),cc_dis1%x(1:3))
         ptr_int%cell_vert_dist(jc,2,2,jb) = grid_sphere_radius* &
-          & arc_length(cc_cell,cc_v2)*DOT_PRODUCT(z_nx2(1:3),cc_dis2%x(1:3))
+          & arc_length(cc_cell,cc_v2,ptr_patch%geometry_info)*DOT_PRODUCT(z_nx2(1:3),cc_dis2%x(1:3))
         ptr_int%cell_vert_dist(jc,3,2,jb) = grid_sphere_radius* &
-          & arc_length(cc_cell,cc_v3)*DOT_PRODUCT(z_nx2(1:3),cc_dis3%x(1:3))
+          & arc_length(cc_cell,cc_v3,ptr_patch%geometry_info)*DOT_PRODUCT(z_nx2(1:3),cc_dis3%x(1:3))
         
       ENDDO
       
@@ -3293,7 +3266,37 @@ CONTAINS
     
   END SUBROUTINE complete_patchinfo
   !----------------------------------------------------------------------------
-  
+
+  !-------------------------------------------------------------------------
+  !>
+  !! Calls routines to calculate coefficients "ptr_int%pos_on_tplane_e" for backward tracjectory
+  !! calculations depending on grid geometry.
+  !!
+  SUBROUTINE init_tplane_e( ptr_patch, ptr_int )
+    TYPE(t_patch),     INTENT(inout) :: ptr_patch
+    TYPE(t_int_state), INTENT(inout) :: ptr_int
+    
+    CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_intp_coeffs:init_tplane_e'
+     
+    !
+    SELECT CASE(ptr_patch%geometry_info%geometry_type)
+    
+    CASE (planar_torus_geometry)
+      CALL calculate_planar_distance_at_edge( ptr_patch, ptr_int )
+      CALL calculate_dotproduct_at_edge(ptr_patch, ptr_int)
+
+    CASE (sphere_geometry)
+      CALL calculate_tangent_plane_at_edge( ptr_patch, ptr_int )
+      CALL calculate_dotproduct_at_edge(ptr_patch, ptr_int)
+    
+    CASE DEFAULT    
+      CALL finish(method_name, "Undefined geometry type")
+      
+    END SELECT
+
+  END SUBROUTINE init_tplane_e
+  !-------------------------------------------------------------------------
+ 
   !----------------------------------------------------------------------------
   !>
   !! Initializes a tangential plane at each edge midpoint. Necessary  for efficient
@@ -3324,7 +3327,7 @@ CONTAINS
   !! Modification by Daniel Reinert, DWD (2010-05-12)
   !! - added projection of edge vertices onto tangential plane
   !!
-  SUBROUTINE init_tplane_e (ptr_patch, ptr_int)
+  SUBROUTINE calculate_tangent_plane_at_edge (ptr_patch, ptr_int)
     
     TYPE(t_patch), INTENT(in) :: ptr_patch  !< patch
     
@@ -3351,12 +3354,6 @@ CONTAINS
     REAL(wp) ::                  &    !< coordinates of edge vertices on plane
       & xyloc_plane_ve(2,2)
     
-    REAL(wp) ::                  &    !< primal/dual normal in cartesian coordinates
-      & z_nx(3), z_ny(3)
-    
-    REAL(wp) :: z_nx_quad(3),    &    !< primal/dual normal at quadrilateral
-      & z_ny_quad(3)          !< edges in cartesian coordinates
-    
     INTEGER :: ilc1, ilc2, ibc1, ibc2 !< line and block indices of neighbour
     !< cell centers
     INTEGER :: ilq, ibq               !< line and block indices of quadrilateral edges
@@ -3368,7 +3365,7 @@ CONTAINS
     !< edge vertices
     !-------------------------------------------------------------------------
     
-    CALL message('mo_interpolation:init_tplane_e', '')
+    CALL message('mo_intp_coeffs:calculate_tangent_plane_at_edge', '')
     
     i_rcstartlev = 2
     
@@ -3525,16 +3522,55 @@ CONTAINS
         
       ENDDO ! edges
     ENDDO  ! blocks
-!$OMP END DO
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
     
-        
-    !
-    ! For each of the 4 rhomboidal edges transform normal and tangential
-    ! unit vectors into cartesian system. Then compute dot product
-    ! between these unit vectors and the unit vectors of the inner edge.
-    ! normalization not necessary fo cartesian vectors since these are
-    ! exactly =1.
-    !
+    DO ne=1,8
+      CALL sync_patch_array(sync_e, ptr_patch, ptr_int%pos_on_tplane_e(:,:,ne,1))
+      CALL sync_patch_array(sync_e, ptr_patch, ptr_int%pos_on_tplane_e(:,:,ne,2))
+    ENDDO
+
+  END SUBROUTINE calculate_tangent_plane_at_edge
+  !----------------------------------------------------------------------------
+
+  !----------------------------------------------------------------------------
+  ! @AD: This part was initially in the init_tplane_e but now separated into two
+  !
+  ! For each of the 4 rhomboidal edges transform normal and tangential
+  ! unit vectors into cartesian system. Then compute dot product
+  ! between these unit vectors and the unit vectors of the inner edge.
+  ! normalization not necessary fo cartesian vectors since these are
+  ! exactly =1.
+  !
+  SUBROUTINE calculate_dotproduct_at_edge (ptr_patch, ptr_int)
+    
+    TYPE(t_patch), INTENT(in) :: ptr_patch  !< patch
+    
+    TYPE(t_int_state), INTENT(inout) :: ptr_int  !< interpolation state
+    
+    REAL(wp) ::                  &    !< primal/dual normal in cartesian coordinates
+      & z_nx(3), z_ny(3)
+    
+    REAL(wp) :: z_nx_quad(3),    &    !< primal/dual normal at quadrilateral
+      & z_ny_quad(3)          !< edges in cartesian coordinates
+    
+    !< cell centers
+    INTEGER :: ilq, ibq               !< line and block indices of quadrilateral edges
+    INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
+    INTEGER :: i_rcstartlev
+    INTEGER :: jb, je                 !< loop indices for block and edges
+    INTEGER :: ne                     !< loop index for quadrilateral edges 
+    !-------------------------------------------------------------------------
+    
+    CALL message('mo_intp_coeffs:calculate_dotproduct_at_edge', '')
+
+    i_rcstartlev = 2
+    
+    ! start and end block
+    i_startblk = ptr_patch%edges%start_blk(i_rcstartlev,1)
+    i_endblk   = ptr_patch%nblks_int_e
+
+!$OMP PARALLEL
 !$OMP DO PRIVATE(je,jb,ne,ilq,ibq,i_startidx,i_endidx,z_nx,z_ny,&
 !$OMP z_nx_quad,z_ny_quad) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
@@ -3581,10 +3617,6 @@ CONTAINS
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
     
-    DO ne=1,8
-      CALL sync_patch_array(sync_e, ptr_patch, ptr_int%pos_on_tplane_e(:,:,ne,1))
-      CALL sync_patch_array(sync_e, ptr_patch, ptr_int%pos_on_tplane_e(:,:,ne,2))
-    ENDDO
     DO ne=1,4
       CALL sync_patch_array(sync_e, ptr_patch, ptr_int%tplane_e_dotprod(:,:,ne,1))
       CALL sync_patch_array(sync_e, ptr_patch, ptr_int%tplane_e_dotprod(:,:,ne,2))
@@ -3593,11 +3625,173 @@ CONTAINS
     ENDDO
     
     
-  END SUBROUTINE init_tplane_e
+  END SUBROUTINE calculate_dotproduct_at_edge
   !----------------------------------------------------------------------------
   
+  !----------------------------------------------------------------------------
+  !>
+  !! @par Revision History
+  !! Taken from "calculate_tangent_plane_at_edge" for flat torus case
+  !!
+  SUBROUTINE calculate_planar_distance_at_edge (ptr_patch, ptr_int)
+    
+    TYPE(t_patch), INTENT(in) :: ptr_patch  !< patch
+    
+    TYPE(t_int_state), INTENT(inout) :: ptr_int  !< interpolation state
+    
+    !CC of points on the plane torus grid
+    TYPE(t_cartesian_coordinates) :: cc_n1, cc_n2, cc_quad(4), cc_ve(2), cc_edge
+
+    !relative location of those points w.r.t cc_edge
+    TYPE(t_cartesian_coordinates) :: cc_plane_n1, cc_plane_n2, cc_plane_quad(4), &
+                                     cc_plane_ve(2)
   
-  
+    INTEGER :: ilc1, ilc2, ibc1, ibc2 !< line and block indices of neighbour
+    !< cell centers
+    INTEGER :: ilq, ibq               !< line and block indices of quadrilateral edges
+    INTEGER :: ilv, ibv               !< line and block indices of edge vertices
+    INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
+    INTEGER :: i_rcstartlev
+    INTEGER :: jb, je                 !< loop indices for block and edges
+    INTEGER :: ne, nv                 !< loop index for quadrilateral edges and
+    !< edge vertices
+    !-------------------------------------------------------------------------
+    
+    CALL message('mo_intp_coeffs:calculate_planar_distance_at_edge', '')
+ 
+    i_rcstartlev = 2
+
+    ! start and end block
+    i_startblk = ptr_patch%edges%start_blk(i_rcstartlev,1)
+    i_endblk   = ptr_patch%nblks_int_e
+
+    !<< AD
+    ! Modification for is_plane_torus for HDCP2: the planar distance between any two
+    ! points is same as the Gnomonic projected distance
+    ! AD >>
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,je,ne,nv,ilc1,ibc1,ilc2,ibc2,ilq,ibq,ilv,ibv,i_startidx, &
+!$OMP            i_endidx,cc_edge,cc_n1,cc_n2,cc_plane_n1,       &
+!$OMP            cc_plane_n2,cc_quad,cc_plane_quad,cc_ve,        &
+!$OMP            cc_plane_ve) ICON_OMP_DEFAULT_SCHEDULE
+    DO jb = i_startblk, i_endblk
+
+      CALL get_indices_e(ptr_patch, jb, i_startblk, i_endblk, &
+                        i_startidx, i_endidx, i_rcstartlev)
+
+      DO je = i_startidx, i_endidx
+
+        IF(.NOT.ptr_patch%edges%owner_mask(je,jb)) CYCLE
+
+        ! 1. CC of neighboring cell centers; z index is 0
+        cc_edge = ptr_patch%edges%cartesian_center(je,jb)
+
+        ! get line and block indices of neighbour cells
+        ilc1 = ptr_patch%edges%cell_idx(je,jb,1)
+        ibc1 = ptr_patch%edges%cell_blk(je,jb,1)
+        ilc2 = ptr_patch%edges%cell_idx(je,jb,2)
+        ibc2 = ptr_patch%edges%cell_blk(je,jb,2)
+
+        ! get CC of the cell centers
+        cc_n1 = ptr_patch%cells%cartesian_center(ilc1,ibc1)
+        cc_n2 = ptr_patch%cells%cartesian_center(ilc2,ibc2)
+
+        !now calculate the separation vector between the edge and cell centers
+        cc_n1 =  plane_torus_closest_coordinates(cc_edge%x,cc_n1%x,ptr_patch%geometry_info)
+        cc_plane_n1%x(:) = cc_n1%x(:) - cc_edge%x(:) 
+ 
+        cc_n2 =  plane_torus_closest_coordinates(cc_edge%x,cc_n2%x,ptr_patch%geometry_info)
+        cc_plane_n2%x(:) = cc_n2%x(:) - cc_edge%x(:) 
+    
+        ! 2. Edge midpoints of the quadrilateral
+        DO ne = 1,4
+
+          ! get line and block indices of edge midpoints
+          ilq = ptr_patch%edges%quad_idx(je,jb,ne)
+          ibq = ptr_patch%edges%quad_blk(je,jb,ne)
+
+          ! get CC coordinates of edge midpoints
+          cc_quad(ne) = ptr_patch%edges%cartesian_center(ilq,ibq)
+
+          !now calculate the separation vector between the edge and cell centers
+          cc_quad(ne) =  plane_torus_closest_coordinates(cc_edge%x,cc_quad(ne)%x,ptr_patch%geometry_info)
+          cc_plane_quad(ne)%x(:) = cc_quad(ne)%x(:) - cc_edge%x(:) 
+
+        END DO
+        !
+        ! 3. Edge vertices
+        !
+        DO nv = 1,2
+
+          ! get line and block indices of edge vertices
+          ilv = ptr_patch%edges%vertex_idx(je,jb,nv)
+          ibv = ptr_patch%edges%vertex_blk(je,jb,nv)
+
+          ! get CC coordinates of edge vertices
+          cc_ve(nv) = ptr_patch%verts%cartesian(ilv,ibv)
+
+          !now calculate the separation vector between the edge and cell centers
+          cc_ve(nv) =  plane_torus_closest_coordinates(cc_edge%x,cc_ve(nv)%x,ptr_patch%geometry_info)
+          cc_plane_ve(nv)%x(:) = cc_ve(nv)%x(:) - cc_edge%x(:) 
+
+        END DO
+
+        !
+        ! 4. rotate these vectors into a new local cartesian system. In this rotated
+        !    system the coordinate axes point into the local normal and tangential
+        !    direction at each edge. All these vectors are 2D so no point using the
+        !    z coordinate
+        !
+
+        ! centers
+        !
+        ptr_int%pos_on_tplane_e(je,jb,1,1) = SUM(      &
+          &  cc_plane_n1%x(1:2)  * ptr_patch%edges%primal_cart_normal(je,jb)%x(1:2) )
+
+        ptr_int%pos_on_tplane_e(je,jb,1,2) = SUM(      &
+          &  cc_plane_n1%x(1:2)  * ptr_patch%edges%dual_cart_normal(je,jb)%x(1:2) )
+
+        ptr_int%pos_on_tplane_e(je,jb,2,1) = SUM(      &
+          &  cc_plane_n2%x(1:2)  * ptr_patch%edges%primal_cart_normal(je,jb)%x(1:2) )
+
+        ptr_int%pos_on_tplane_e(je,jb,2,2) = SUM(      &
+          &  cc_plane_n2%x(1:2)  * ptr_patch%edges%dual_cart_normal(je,jb)%x(1:2) )
+        
+        ! edges
+        !
+        DO ne = 1,4
+          ptr_int%pos_on_tplane_e(je,jb,2+ne,1) = SUM(      &
+            &  cc_plane_quad(ne)%x(1:2)  * ptr_patch%edges%primal_cart_normal(je,jb)%x(1:2) )
+
+          ptr_int%pos_on_tplane_e(je,jb,2+ne,2) = SUM(      &
+            &  cc_plane_quad(ne)%x(1:2)  * ptr_patch%edges%dual_cart_normal(je,jb)%x(1:2) )
+        END DO
+
+        ! vertices
+        !
+        DO nv = 1,2
+          ptr_int%pos_on_tplane_e(je,jb,6+nv,1) = SUM(      &
+            &  cc_plane_ve(nv)%x(1:2)  * ptr_patch%edges%primal_cart_normal(je,jb)%x(1:2) )
+
+          ptr_int%pos_on_tplane_e(je,jb,6+nv,2) = SUM(      &
+            &  cc_plane_ve(nv)%x(1:2)  * ptr_patch%edges%dual_cart_normal(je,jb)%x(1:2) )
+        END DO
+
+      ENDDO ! edges
+    ENDDO  ! blocks
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+
+    DO ne=1,8
+      call sync_patch_array(SYNC_E, ptr_patch, ptr_int%pos_on_tplane_e(:,:,ne,1))
+      call sync_patch_array(SYNC_E, ptr_patch, ptr_int%pos_on_tplane_e(:,:,ne,2))
+    ENDDO
+
+
+  END SUBROUTINE calculate_planar_distance_at_edge
+  !----------------------------------------------------------------------------
+
   !----------------------------------------------------------------------------
   !>
   !! Initializes a tangential plane at each cell circumcenter. Necessary for efficient

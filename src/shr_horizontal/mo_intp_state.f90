@@ -1072,18 +1072,6 @@ SUBROUTINE allocate_int_state( ptr_patch, ptr_int)
       &             'allocation for geofac_grg failed')
   ENDIF
 
-  ALLOCATE (ptr_int%cart_edge_coord(nproma, nblks_e, 3), STAT=ist )
-  IF (ist /= SUCCESS) THEN
-    CALL finish ('mo_interpolation:construct_int_state',                       &
-      &             'allocation for cart_edge_coord failed')
-  ENDIF
-
-  ALLOCATE (ptr_int%cart_cell_coord(nproma, nblks_c, 3), STAT=ist )
-  IF (ist /= SUCCESS) THEN
-    CALL finish ('mo_interpolation:construct_int_state',                       &
-      &             'allocation for cart_cell_coord failed')
-  ENDIF
-
   ALLOCATE (ptr_int%primal_normal_ec(nproma, nblks_c,ptr_patch%cell_type, 2), STAT=ist)
   IF (ist /= SUCCESS) THEN
     CALL finish ('mo_interpolation:construct_int_state',                       &
@@ -1399,8 +1387,6 @@ SUBROUTINE allocate_int_state( ptr_patch, ptr_int)
   ptr_int%geofac_rot = 0._wp
   ptr_int%geofac_n2s = 0._wp
   ptr_int%geofac_grg = 0._wp
-  ptr_int%cart_edge_coord = 0._wp
-  ptr_int%cart_cell_coord = 0._wp
   ptr_int%primal_normal_ec = 0._wp
   ptr_int%edge_cell_length = 0._wp
   ptr_int%cell_vert_dist = 0._wp
@@ -1975,8 +1961,6 @@ SUBROUTINE transfer_interpol_state(p_p, p_lp, pi, po)
   CALL xfer_var(SYNC_V,1,3,p_p,p_lp,pi%geofac_rot,po%geofac_rot)
   CALL xfer_var(SYNC_C,1,3,p_p,p_lp,pi%geofac_n2s,po%geofac_n2s)
   CALL xfer_var(SYNC_C,1,3,p_p,p_lp,pi%geofac_grg,po%geofac_grg)
-  CALL xfer_var(SYNC_E,1,2,p_p,p_lp,pi%cart_edge_coord,po%cart_edge_coord)
-  CALL xfer_var(SYNC_C,1,2,p_p,p_lp,pi%cart_cell_coord,po%cart_cell_coord)
   CALL xfer_var(SYNC_C,1,2,p_p,p_lp,pi%primal_normal_ec,po%primal_normal_ec)
   CALL xfer_var(SYNC_C,1,2,p_p,p_lp,pi%edge_cell_length,po%edge_cell_length)
   CALL xfer_var(SYNC_C,1,4,p_p,p_lp,pi%cell_vert_dist,po%cell_vert_dist)
@@ -2626,18 +2610,6 @@ INTEGER :: ist
   IF (ist /= SUCCESS) THEN
     CALL finish ('mo_interpolation:destruct_int_state',                      &
       &             'deallocation for geofac_grg failed')
-  ENDIF
-
-  DEALLOCATE (ptr_int%cart_edge_coord, STAT=ist )
-  IF (ist /= SUCCESS) THEN
-    CALL finish ('mo_interpolation:destruct_int_state',                       &
-      &             'deallocation for cart_edge_coord failed')
-  ENDIF
-
-  DEALLOCATE (ptr_int%cart_cell_coord, STAT=ist )
-  IF (ist /= SUCCESS) THEN
-    CALL finish ('mo_interpolation:destruct_int_state',                       &
-      &             'deallocation for cart_cell_coord failed')
   ENDIF
 
   DEALLOCATE (ptr_int%primal_normal_ec, STAT=ist )

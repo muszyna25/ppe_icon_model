@@ -1895,8 +1895,6 @@ CONTAINS
     CALL def_var('int.geofac_rot',        nf_double, dim_nverts, dim_nedges_per_vert) ! nproma,9-p%cell_type,nblks_v
     CALL def_var('int.geofac_n2s',        nf_double, dim_ncells, dim_nverts_per_cell_p1) ! nproma,p%cell_type+1,nblks_c
     CALL def_var('int.geofac_grg',        nf_double, dim_ncells, dim_nverts_per_cell_p1, dim_2) ! nproma,p%cell_type+1,nblks_c,2
-    CALL def_var('int.cart_edge_coord',   nf_double, dim_nedges, dim_3) ! nproma,nblks_e,3
-    CALL def_var('int.cart_cell_coord',   nf_double, dim_ncells, dim_3) ! nproma,nblks_c,3
     CALL def_var('int.primal_normal_ec',  nf_double, dim_ncells, dim_nverts_per_cell, dim_2) ! nproma,nblks_c,p%cell_type,2
     CALL def_var('int.edge_cell_length',  nf_double, dim_ncells, dim_nverts_per_cell) ! nproma,nblks_c,p%cell_type
     CALL def_var('int.cell_vert_dist',    nf_double, dim_ncells, dim_3, dim_2) ! nproma,3,2,nblks_c
@@ -2026,8 +2024,6 @@ CONTAINS
     CALL bvar_io(1,3,'int.geofac_rot',        pi%geofac_rot      ) ! nproma,9-p%cell_type,nblks_v
     CALL bvar_io(1,3,'int.geofac_n2s',        pi%geofac_n2s      ) ! nproma,p%cell_type+1,nblks_c
     CALL bvar_io(1,3,'int.geofac_grg',        pi%geofac_grg      ) ! nproma,p%cell_type+1,nblks_c,2
-    CALL bvar_io(1,2,'int.cart_edge_coord',   pi%cart_edge_coord ) ! nproma,nblks_e,3
-    CALL bvar_io(1,2,'int.cart_cell_coord',   pi%cart_cell_coord ) ! nproma,nblks_c,3
     CALL bvar_io(1,2,'int.primal_normal_ec',  pi%primal_normal_ec) ! nproma,nblks_c,p%cell_type,2
     CALL bvar_io(1,2,'int.edge_cell_length',  pi%edge_cell_length) ! nproma,nblks_c,p%cell_type
     CALL bvar_io(1,4,'int.cell_vert_dist',    pi%cell_vert_dist  ) ! nproma,3,2,nblks_c
