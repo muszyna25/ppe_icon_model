@@ -148,14 +148,14 @@ case varname of
  'ttendlw': varfile = '192.162.101' end
 end case
 
-varfile = lowercase(varfile)
+#varfile = lowercase(varfile)
 
 #verify QV,QC,QI against Q1,Q2,Q3 at initial condition (IFS)
 varfile2 = varfile
 case varname of
- 'QV':      varfile2 = 'q1'          end
- 'QC':      varfile2 = 'q2'          end
- 'QI':      varfile2 = 'q3'          end
+ 'QV':      varfile2 = 'QV'          end
+ 'QC':      varfile2 = 'QC'          end
+ 'QI':      varfile2 = 'QI'          end
 end case
 
 
