@@ -1003,23 +1003,22 @@ CONTAINS
     
     TYPE(t_subset_range), POINTER :: all_cells         ! these are the owned entities    
     INTEGER :: cell_block, cell_index, start_index, end_index
-    REAL(wp) :: wgt_loc
+    REAL(wp) :: local_weight, neigbor_weight
            
     !-----------------------------------------------------------------------        
     ! Initial weighting factor of the local grid point
-    wgt_loc = divavg_cntrwgt
-            
-    all_cells => patch%cells%all
+    local_weight = divavg_cntrwgt
+    neigbor_weight = (1.0_wp - local_weight) / 3.0_wp
             
 !$OMP PARALLEL
 !$OMP DO PRIVATE(cell_block, cell_index, start_index, end_index) ICON_OMP_DEFAULT_SCHEDULE
-    DO cell_block = all_cells%start_block, all_cells%end_block
-      CALL get_index_range(all_cells, cell_block, start_index, end_index)
+    DO cell_block = patch%cells%all%start_block, patch%cells%all%end_block
+      CALL get_index_range(patch%cells%all, cell_block, start_index, end_index)
       DO cell_index = start_index, end_index
     
         ! Simple for plane torus
-        interpolation_state%c_bln_avg(cell_index,1,  cell_block) = wgt_loc
-        interpolation_state%c_bln_avg(cell_index,2:4,cell_block) = (1._wp - wgt_loc) / 3._wp
+        interpolation_state%c_bln_avg(cell_index,1,  cell_block) = local_weight
+        interpolation_state%c_bln_avg(cell_index,2:4,cell_block) = neigbor_weight
         
       ENDDO !cell loop
   END DO !block loop
