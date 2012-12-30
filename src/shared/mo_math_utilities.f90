@@ -177,6 +177,15 @@ MODULE mo_math_utilities
     MODULE PROCEDURE cartesian_coordinates_prod
   END INTERFACE
 
+  INTERFACE arc_length
+    MODULE PROCEDURE arc_length_sphere
+    MODULE PROCEDURE arc_length_generic
+  END INTERFACE
+  INTERFACE arc_length_v
+    MODULE PROCEDURE arc_length_v_sphere
+    MODULE PROCEDURE arc_length_v_generic
+  END INTERFACE
+
 !-----------------------------------------------------------------------
 ! Basic geometry functions definitions
 #define d_norma_3d(v) SQRT(DOT_PRODUCT(v%x,v%x))
@@ -242,7 +251,11 @@ CONTAINS
       p_cv = z_cln * p_gu - z_slt * z_sln * p_gv
       p_cw = z_clt * p_gv
    CASE DEFAULT
-      CALL finish(method_name, "Undefined geometry type")
+  ! Commented by GZ because this destroys vectorization
+  !    CALL finish(method_name, "Undefined geometry type")
+      p_cu  = p_gu
+      p_cv  = p_gv
+      p_cw  = 0._wp
    END SELECT
 
   END SUBROUTINE gvec2cvec
@@ -301,7 +314,10 @@ CONTAINS
       p_gv = z_slt * p_gv
       p_gv = z_clt * p_cw - p_gv
     CASE DEFAULT
-      CALL finish(method_name, "Undefined geometry type")
+  ! Commented by GZ because this destroys vectorization
+  !    CALL finish(method_name, "Undefined geometry type")
+       p_gu = p_cu
+       p_gv = p_cv
     END SELECT
     
   END SUBROUTINE cvec2gvec
@@ -508,12 +524,44 @@ CONTAINS
   !! @par Revision History
   !! Developed by Th.Heinze (2006-09-19).
   !! Previous version by Luis Kornblueh (2004) discarded.
-  !! Modified by Anurag Dipankar, MPIM (2012-12-27)
-  !! -Elemental form of the function wasn't allowing call to another routines
-  FUNCTION arc_length (p_x, p_y, geometry_info)  result (p_arc)
+  !!
+  ELEMENTAL FUNCTION arc_length_sphere (p_x, p_y)  result (p_arc)
   
     TYPE(t_cartesian_coordinates), INTENT(in) :: p_x, p_y  ! endpoints
-    TYPE(t_grid_geometry_info), INTENT(in), OPTIONAL :: geometry_info
+    
+    REAL(wp)            :: p_arc          ! length of geodesic arc
+    
+    REAL(wp)            :: z_lx,  z_ly    ! length of vector p_x and p_y
+    REAL(wp)            :: z_cc           ! cos of angle between endpoints
+    
+    !-----------------------------------------------------------------------
+    
+    z_lx = d_norma_3d(p_x)
+    z_ly = d_norma_3d(p_y)
+    
+    z_cc = DOT_PRODUCT(p_x%x, p_y%x)/(z_lx*z_ly)
+    
+    ! in case we get numerically incorrect solutions    
+    IF (z_cc > 1._wp )  z_cc =  1._wp
+    IF (z_cc < -1._wp ) z_cc = -1._wp
+    
+    p_arc = ACOS(z_cc)
+    
+  END FUNCTION arc_length_sphere
+
+  !-------------------------------------------------------------------------
+  !>
+  !! Computes length of geodesic arc with endpoints @f$p\_x, p\_y@f$.
+  !!
+  !! @par Revision History
+  !! Developed by Th.Heinze (2006-09-19).
+  !! Previous version by Luis Kornblueh (2004) discarded.
+  !! Modified by Anurag Dipankar, MPIM (2012-12-27)
+  !! -Elemental form of the function wasn't allowing call to another routines
+  FUNCTION arc_length_generic (p_x, p_y, geometry_info)  result (p_arc)
+  
+    TYPE(t_cartesian_coordinates), INTENT(in) :: p_x, p_y  ! endpoints
+    TYPE(t_grid_geometry_info), INTENT(in) :: geometry_info
     
     REAL(wp)            :: p_arc          ! length of geodesic arc
     
@@ -523,9 +571,7 @@ CONTAINS
     CHARACTER(LEN=*), PARAMETER :: method_name='mo_math_utils:arc_length'
     !-----------------------------------------------------------------------
     
-    geometry_type = sphere_geometry
-    IF (PRESENT(geometry_info)) &
-      geometry_type = geometry_info%geometry_type
+    geometry_type = geometry_info%geometry_type
     
     SELECT CASE(geometry_type)
     
@@ -535,23 +581,14 @@ CONTAINS
       p_arc = plane_torus_distance(p_x%x,p_y%x,geometry_info) / &
               grid_sphere_radius     
     CASE (sphere_geometry)
-      !
-      z_lx = d_norma_3d(p_x)
-      z_ly = d_norma_3d(p_y)
-    
-      z_cc = DOT_PRODUCT(p_x%x, p_y%x)/(z_lx*z_ly)
-    
-      ! in case we get numerically incorrect solutions    
-      IF (z_cc > 1._wp )  z_cc =  1._wp
-      IF (z_cc < -1._wp ) z_cc = -1._wp
-    
-      p_arc = ACOS(z_cc)
+      !    
+      p_arc = arc_length_sphere (p_x, p_y)
     CASE DEFAULT    
       !
       CALL finish(method_name, "Undefined geometry type")
     END SELECT
 
-  END FUNCTION arc_length
+  END FUNCTION arc_length_generic
   !-------------------------------------------------------------------------
   
   !-------------------------------------------------------------------------
@@ -589,11 +626,46 @@ CONTAINS
   !! Developed by Th.Heinze (2006-09-19).
   !! Previous version by Luis Kornblueh (2004) discarded.
   !! Vectorizable version developed by Guenther Zaengl, DWD (2009-04-20)
+  !!
+  PURE FUNCTION arc_length_v_sphere (p_x, p_y)  result (p_arc)
+    REAL(wp), INTENT(in) :: p_x(3), p_y(3)  ! endpoints
+    
+    REAL(wp)            :: p_arc          ! length of geodesic arc
+    
+    REAL(wp)            :: z_lx,  z_ly    ! length of vector p_x and p_y
+    REAL(wp)            :: z_cc           ! cos of angle between endpoints
+    
+    !-----------------------------------------------------------------------
+    
+    z_lx = SQRT(DOT_PRODUCT(p_x,p_x))
+    z_ly = SQRT(DOT_PRODUCT(p_y,p_y))
+    
+    z_cc = DOT_PRODUCT(p_x, p_y)/(z_lx*z_ly)
+    
+    ! in case we get numerically incorrect solutions
+    
+    IF (z_cc > 1._wp )  z_cc =  1._wp
+    IF (z_cc < -1._wp ) z_cc = -1._wp
+    
+    p_arc = ACOS(z_cc)
+    
+  END FUNCTION arc_length_v_sphere
+
+  !-------------------------------------------------------------------------
+  !>
+  !! Computes length of geodesic arc with endpoints @f$p\_x, p\_y@f$.
+  !!
+  !! Vectorizable version
+  !!
+  !! @par Revision History
+  !! Developed by Th.Heinze (2006-09-19).
+  !! Previous version by Luis Kornblueh (2004) discarded.
+  !! Vectorizable version developed by Guenther Zaengl, DWD (2009-04-20)
   !! Modified by Anurag Dipankar, MPIM (2012-12-27)
   !! -Elemental form of the function wasn't allowing call to another routines
-  FUNCTION arc_length_v (p_x, p_y, geometry_info)  result (p_arc)
+  FUNCTION arc_length_v_generic (p_x, p_y, geometry_info)  result (p_arc)
     REAL(wp), INTENT(in) :: p_x(3), p_y(3)  ! endpoints
-    TYPE(t_grid_geometry_info), INTENT(in), OPTIONAL :: geometry_info
+    TYPE(t_grid_geometry_info), INTENT(in) :: geometry_info
     
     REAL(wp)            :: p_arc          ! length of geodesic arc
     
@@ -603,9 +675,7 @@ CONTAINS
     CHARACTER(LEN=*), PARAMETER :: method_name='mo_math_utils:arc_length'
     !-----------------------------------------------------------------------
     
-    geometry_type = sphere_geometry
-    IF (PRESENT(geometry_info)) &
-      geometry_type = geometry_info%geometry_type
+    geometry_type = geometry_info%geometry_type
     
     SELECT CASE(geometry_type)
     
@@ -616,23 +686,13 @@ CONTAINS
               grid_sphere_radius     
     CASE (sphere_geometry)
       !
-      z_lx = SQRT(DOT_PRODUCT(p_x,p_x))
-      z_ly = SQRT(DOT_PRODUCT(p_y,p_y))
-    
-      z_cc = DOT_PRODUCT(p_x, p_y)/(z_lx*z_ly)
-    
-      ! in case we get numerically incorrect solutions
-    
-      IF (z_cc > 1._wp )  z_cc =  1._wp
-      IF (z_cc < -1._wp ) z_cc = -1._wp
-    
-      p_arc = ACOS(z_cc)
+      p_arc = arc_length_v_sphere (p_x, p_y)
     CASE DEFAULT    
       !
       CALL finish(method_name, "Undefined geometry type")
     END SELECT
     
-  END FUNCTION arc_length_v
+  END FUNCTION arc_length_v_generic
   !-------------------------------------------------------------------------
   
   !-----------------------------------------------------------------------
