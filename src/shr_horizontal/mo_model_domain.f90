@@ -142,6 +142,8 @@ MODULE mo_model_domain
     INTEGER :: no_of_holes ! the number of holes in the subset
     LOGICAL :: is_in_domain
     
+    CHARACTER(len=32) :: name
+    
   END TYPE
   !----------------------------------------------------
   

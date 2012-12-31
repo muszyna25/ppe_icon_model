@@ -34,16 +34,18 @@
 !!
 MODULE mo_grid_subset
 
-  USE mo_exception,    ONLY: warning
+  USE mo_exception,    ONLY: warning, finish
   USE mo_model_domain, ONLY: t_patch, t_subset_range, t_subset_range_index
+  
   IMPLICIT NONE
+  INCLUDE 'netcdf.inc'
 
   CHARACTER(len=*), PARAMETER, PRIVATE :: version = '$Id$'
 
   PUBLIC :: t_subset_range, t_subset_range_index
 
   PUBLIC :: fill_subset, get_index_range
-
+  PUBLIC :: read_subset, write_subset
 
 CONTAINS
 
@@ -56,9 +58,10 @@ CONTAINS
   ! start_level - end_level
   !
   ! Assumes that level is of the shape (1:,1:)
-  SUBROUTINE fill_subset(subset_range, patch, level, start_level, end_level)
+  SUBROUTINE fill_subset(subset_range, patch, level, start_level, end_level, subset_name)
     TYPE(t_subset_range), INTENT(inout) :: subset_range
     TYPE(t_patch), TARGET, INTENT(in) :: patch  ! nag does not return the values in subset_range
+    CHARACTER(len=32), OPTIONAL :: subset_name
                                                 ! unless the patch is declared INTENT(in)!
     INTEGER, INTENT(in) :: level(:,:), start_level, end_level
 
@@ -121,14 +124,15 @@ CONTAINS
     ENDIF
 
     subset_range%patch => patch
+    IF (PRESENT(subset_name)) &
+      & subset_range%name = TRIM(subset_name)
     
 !     IF (subset_range%no_of_holes > 0) THEN
 !       CALL warning(method_name, "We have holes in the range subset")      
 !     ENDIF
         
   END SUBROUTINE fill_subset
-  !----------------------------------------------------
-    
+  !----------------------------------------------------    
   
   !----------------------------------------------------
   SUBROUTINE get_index_range(subset_range, current_block, start_index, end_index)
@@ -146,6 +150,95 @@ CONTAINS
 
   END SUBROUTINE get_index_range
   !----------------------------------------------------
+  
+  !-------------------------------------------------------------------------
+  SUBROUTINE read_subset(ncid, subset_range, patch)
+    INTEGER, INTENT(in) :: ncid
+    TYPE(t_subset_range), INTENT(inout) :: subset_range
+    TYPE(t_patch), TARGET, INTENT(in) :: patch  ! nag does not return the values in subset_range
+    
+    INTEGER :: netcd_status
+    CHARACTER(*), PARAMETER :: method_name = "read_subset_range"
+            
+    netcd_status = nf_get_att_int(ncid, nf_global,TRIM(subset_range%name)//'.start_block', subset_range%start_block)
+    IF (netcd_status /= nf_noerr) &
+      & CALL finish(method_name, "Could not read start_block")
+    netcd_status = nf_get_att_int(ncid, nf_global,TRIM(subset_range%name)//'.start_index', subset_range%start_index)
+    IF (netcd_status /= nf_noerr) &
+      & CALL finish(method_name, "Could not read start_index")
+    
+    netcd_status = nf_get_att_int(ncid, nf_global,TRIM(subset_range%name)//'.end_block', subset_range%end_block)
+    IF (netcd_status /= nf_noerr) &
+      & CALL finish(method_name, "Could not read end_block")
+    netcd_status = nf_get_att_int(ncid, nf_global,TRIM(subset_range%name)//'.end_index', subset_range%end_index)
+    IF (netcd_status /= nf_noerr) &
+      & CALL finish(method_name, "Could not read end_index")
+        
+    netcd_status = nf_get_att_int(ncid, nf_global,TRIM(subset_range%name)//'.block_size', subset_range%block_size)
+    IF (netcd_status /= nf_noerr) &
+      & CALL finish(method_name, "Could not read block_size")
+    
+    netcd_status = nf_get_att_int(ncid, nf_global,TRIM(subset_range%name)//'.entity_type', subset_range%entity_type)
+    IF (netcd_status /= nf_noerr) &
+      & CALL finish(method_name, "Could not read entity_type")
+    
+    netcd_status = nf_get_att_int(ncid, nf_global,TRIM(subset_range%name)//'.no_of_holes', subset_range%no_of_holes)
+    IF (netcd_status /= nf_noerr) &
+      & CALL finish(method_name, "Could not read no_of_holes")
+    
+    netcd_status = nf_get_att_int(ncid, nf_global,TRIM(subset_range%name)//'.is_in_domain', subset_range%is_in_domain)
+    IF (netcd_status /= nf_noerr) &
+      & CALL finish(method_name, "Could not read is_in_domain")
+    
+    subset_range%patch => patch
+    
+    
+  END SUBROUTINE read_subset
+  !-------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------
+  SUBROUTINE write_subset(ncid, subset_range)
+    INTEGER, INTENT(in) :: ncid
+    TYPE(t_subset_range), INTENT(inout) :: subset_range
+    
+    INTEGER :: netcd_status
+    CHARACTER(*), PARAMETER :: method_name = "write_subset_range"
+                    
+    CALL nf(nf_put_att_int(ncid, nf_global,TRIM(subset_range%name)//'.start_block', nf_int, 1,     &
+      &  subset_range%start_block))
+    CALL nf(nf_put_att_int(ncid, nf_global,TRIM(subset_range%name)//'.start_index', nf_int, 1,     &
+      &  subset_range%start_index))
+    
+    CALL nf(nf_put_att_int(ncid, nf_global,TRIM(subset_range%name)//'.end_block',   nf_int, 1,     &
+      & subset_range%end_block))
+    CALL nf(nf_put_att_int(ncid, nf_global,TRIM(subset_range%name)//'.end_index',   nf_int, 1,     &
+      & subset_range%end_index))
+        
+    CALL nf(nf_put_att_int(ncid, nf_global,TRIM(subset_range%name)//'.block_size',  nf_int, 1,     &
+      & subset_range%block_size))
+    
+    CALL nf(nf_put_att_int(ncid, nf_global,TRIM(subset_range%name)//'.entity_type', nf_int, 1,     &
+      & subset_range%entity_type))
+    
+    CALL nf(nf_put_att_int(ncid, nf_global,TRIM(subset_range%name)//'.no_of_holes', nf_int, 1,     &
+      & subset_range%no_of_holes))
+    
+    CALL nf(nf_put_att_int(ncid, nf_global,TRIM(subset_range%name)//'.is_in_domain',nf_int, 1,     &
+      & subset_range%is_in_domain))
+            
+  END SUBROUTINE write_subset
+  !-------------------------------------------------------------------------
+  
+  !--------------------------------------------------------------------
+  SUBROUTINE nf(return_status)
+    INTEGER, INTENT(in) :: return_status
+
+    IF (return_status /= nf_noerr) THEN
+      CALL finish('mo_io_grid netCDF error', nf_strerror(return_status))
+    ENDIF
+
+  END SUBROUTINE nf
+  !-------------------------------------------------------------------------
 
 END MODULE mo_grid_subset
 

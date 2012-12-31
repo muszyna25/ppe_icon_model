@@ -200,6 +200,7 @@ MODULE mo_dump_restore
     &                              int2string
   USE mo_master_nml,         ONLY: model_base_dir
   USE mo_grid_geometry_info, ONLY: read_geometry_info, write_geometry_info
+  USE mo_model_domimp_setup, ONLY: read_grid_subsets, write_grid_subsets
 
   IMPLICIT NONE
 
@@ -1565,6 +1566,8 @@ CONTAINS
     LOGICAL, INTENT(IN)          :: lfull
 
     INTEGER :: varid, return_status
+    
+    CHARACTER(*), PARAMETER :: method_name = "mo_dump_restore:patch_io"
 
     CALL store_proc_dependent_dimensions(p)
 
@@ -1578,11 +1581,6 @@ CONTAINS
       CALL nf(nf_put_var1_int(ncid, varid, my_record, p%n_patch_verts))
     ENDIF
 
-    IF (netcdf_read) THEN
-      return_status = read_geometry_info(ncid, p%geometry_info)
-    ELSE
-      return_status = write_geometry_info(ncid, p%geometry_info)
-    ENDIF 
 
     IF(p%n_patch_cells>0) THEN
       CALL bvar_io(1,2,'patch.cells.num_edges',        p%cells%num_edges)
@@ -1726,6 +1724,18 @@ CONTAINS
       CALL comm_pat_io('comm_pat_loc_to_glb_e_fbk',    p%comm_pat_loc_to_glb_e_fbk)
     ENDIF
 
+    IF (netcdf_read) THEN
+      return_status = read_geometry_info(ncid, p%geometry_info)
+      IF (return_status /= 0) &
+        CALL finish(method_name, "Cannot read geometry_info")
+      CALL read_grid_subsets(ncid, p)
+    ELSE
+      return_status = write_geometry_info(ncid, p%geometry_info)
+      IF (return_status /= 0) &
+        CALL finish(method_name, "Cannot write geometry_info")
+      CALL write_grid_subsets(ncid, p)
+    ENDIF 
+  
   END SUBROUTINE patch_io
 
   !-------------------------------------------------------------------------
