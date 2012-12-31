@@ -1565,7 +1565,7 @@ CONTAINS
     TYPE(t_patch), INTENT(INOUT) :: p
     LOGICAL, INTENT(IN)          :: lfull
 
-    INTEGER :: varid, return_status
+    INTEGER :: varid
     
     CHARACTER(*), PARAMETER :: method_name = "mo_dump_restore:patch_io"
 
@@ -1724,17 +1724,6 @@ CONTAINS
       CALL comm_pat_io('comm_pat_loc_to_glb_e_fbk',    p%comm_pat_loc_to_glb_e_fbk)
     ENDIF
 
-    IF (netcdf_read) THEN
-      return_status = read_geometry_info(ncid, p%geometry_info)
-      IF (return_status /= 0) &
-        CALL finish(method_name, "Cannot read geometry_info")
-      CALL read_grid_subsets(ncid, p)
-    ELSE
-      return_status = write_geometry_info(ncid, p%geometry_info)
-      IF (return_status /= 0) &
-        CALL finish(method_name, "Cannot write geometry_info")
-      CALL write_grid_subsets(ncid, p)
-    ENDIF 
   
   END SUBROUTINE patch_io
 
@@ -2443,10 +2432,10 @@ CONTAINS
 
   SUBROUTINE set_atts_and_dims(p, nprocs)
 
-    TYPE(t_patch), INTENT(IN) :: p
+    TYPE(t_patch), INTENT(INOUT) :: p
     INTEGER, INTENT(IN) :: nprocs
 
-    INTEGER :: i
+    INTEGER :: i, return_status
     CHARACTER (LEN=80) :: child_id_name, child_idl_name
 
     ! Output all values relevant for grid as attributes
@@ -2476,6 +2465,11 @@ CONTAINS
     ENDDO
     CALL nf(nf_put_att_int(ncid, nf_global, 'patch.n_proc', nf_int, 1, p%n_proc))
     CALL nf(nf_put_att_int(ncid, nf_global, 'patch.proc0', nf_int, 1, p%proc0))
+
+    return_status = write_geometry_info(ncid, p%geometry_info)
+    IF (return_status /= 0) &
+      CALL finish('set_atts_and_dims', "Cannot write geometry_info")
+    CALL write_grid_subsets(ncid, p)
 
     ! Set common dimensions which do not depend on the actual PE or patch.
 
@@ -2942,6 +2936,7 @@ CONTAINS
     LOGICAL, INTENT(IN) :: lfull ! TRUE: restore all, FALSE: restore domain decomposition
 
     INTEGER :: jg, jg1, jgp, i, n_chd, n_chdc
+    INTEGER :: return_status
     CHARACTER (LEN=80) :: child_id_name, child_idl_name
 
     CALL message ('restore_patches_netcdf','start to restore patches')
@@ -3166,6 +3161,12 @@ CONTAINS
 
       CALL nf(nf_get_att_int(ncid, nf_global, 'patch.n_proc', p_patch(jg)%n_proc))
       CALL nf(nf_get_att_int(ncid, nf_global, 'patch.proc0', p_patch(jg)%proc0))
+
+      return_status = read_geometry_info(ncid, p_patch(jg)%geometry_info)
+      IF (return_status /= 0) &
+        CALL finish('restore_patches_netcdf', "Cannot read geometry_info")
+      p_patch(jg)%geometry_info%mean_characteristic_length = SQRT(p_patch(jg)%geometry_info%mean_cell_area)
+      CALL read_grid_subsets(ncid, p_patch(jg))
 
       CALL restore_patch_netcdf(p_patch(jg), lfull)
 
@@ -3413,6 +3414,7 @@ CONTAINS
       IF (l_intp_c2l) THEN
         CALL def_var('int.lonlat.rbf_c2l_coeff', nf_double, dim_lonlat, dim_rbf_c2l_dim)
         CALL def_var('int.lonlat.rbf_c2l_idx', nf_int, dim_ncells, dim_rbf_c2l_dim)
+        CALL def_var('int.lonlat.rbf_c2lr_idx', nf_int, dim_lonlat, dim_rbf_c2l_dim)
         CALL def_var('int.lonlat.rbf_c2l_stencil', nf_int, dim_ncells)
       END IF
     END IF
@@ -3460,6 +3462,7 @@ CONTAINS
     IF (l_intp_c2l) THEN
       CALL bvar_io(2,3, 'int.lonlat.rbf_c2l_coeff', intp%rbf_c2l_coeff)
       CALL bidx_io(2,3, 'int.lonlat.rbf_c2l_idx', intp%rbf_c2l_idx, intp%rbf_c2l_blk)
+      CALL bidx_io(2,3, 'int.lonlat.rbf_c2lr_idx', intp%rbf_c2lr_idx, intp%rbf_c2lr_blk)
       CALL bvar_io(1,2, 'int.lonlat.rbf_c2l_stencil', intp%rbf_c2l_stencil)
     END IF
 

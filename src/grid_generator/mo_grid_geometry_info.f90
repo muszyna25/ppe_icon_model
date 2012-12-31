@@ -322,13 +322,10 @@ CONTAINS
     TYPE(t_grid_geometry_info) :: geometry_info
 
     write_geometry_info = -1
-    
+
     CALL nf(nf_put_att_int      (ncid, nf_global, 'grid_geometry', nf_int, 1,     &
       & geometry_info%geometry_type))
     
-    CALL nf(nf_put_att_int   (ncid, nf_global, 'mean_edge_length' , nf_double, 1, &
-      & geometry_info%mean_edge_length))
-
     CALL nf(nf_put_att_double(ncid, nf_global, 'mean_edge_length' , nf_double, 1, &
       & geometry_info%mean_edge_length))
       
