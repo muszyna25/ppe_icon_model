@@ -1260,6 +1260,7 @@ src/grid_generator/partitioner.f90 -text
 src/include/dsl_definitions.inc -text
 src/include/omp_definitions.inc -text
 src/io/mo_cf_convention.f90 -text
+src/io/mo_dump_restore.f90 -text
 src/io/mo_grib1.f90 -text
 src/io/mo_grib2.f90 -text
 src/io/mo_io_async.f90 -text
@@ -1268,6 +1269,7 @@ src/io/mo_io_vlist.f90 -text
 src/io/mo_mtgrm_output.f90 -text
 src/io/mo_name_list_output.f90 -text
 src/io/mo_output.f90 -text
+src/io/mo_read_netcdf_parallel.f90 -text
 src/lnd_phy_nwp/mo_nwp_lnd_state.f90 -text
 src/lnd_phy_nwp/mo_nwp_lnd_types.f90 -text
 src/lnd_phy_nwp/mo_nwp_sfc_interface.f90 -text
@@ -1357,7 +1359,6 @@ src/prep_icon/mo_remap_sync.f90 -text
 src/prep_icon/mo_remap_weights.f90 -text
 src/shared/mo_cdi_constants.f90 -text
 src/shared/mo_datetime.f90 -text
-src/shared/mo_dump_restore.f90 -text
 src/shared/mo_exception.f90 -text
 src/shared/mo_exception.f90_luis -text
 src/shared/mo_fast_math_lib.f90 svneol=native#text/plain
@@ -1384,7 +1385,6 @@ src/shared/mo_namelist.f90 -text
 src/shared/mo_orbit.f90 -text
 src/shared/mo_physical_constants.f90 -text
 src/shared/mo_profile.f90 -text
-src/shared/mo_read_netcdf_parallel.f90 -text
 src/shared/mo_real_timer.f90 -text
 src/shared/mo_time_base.f90 -text
 src/shared/mo_timer.f90 -text

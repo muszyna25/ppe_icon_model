@@ -199,6 +199,7 @@ MODULE mo_dump_restore
     &                              associate_keyword, with_keywords, &
     &                              int2string
   USE mo_master_nml,         ONLY: model_base_dir
+  USE mo_grid_geometry_info, ONLY: read_geometry_info, write_geometry_info
 
   IMPLICIT NONE
 
@@ -1563,7 +1564,7 @@ CONTAINS
     TYPE(t_patch), INTENT(INOUT) :: p
     LOGICAL, INTENT(IN)          :: lfull
 
-    INTEGER :: varid
+    INTEGER :: varid, return_status
 
     CALL store_proc_dependent_dimensions(p)
 
@@ -1576,6 +1577,12 @@ CONTAINS
       CALL nf(nf_inq_varid(ncid, TRIM(prefix)//'n_patch_verts', varid))
       CALL nf(nf_put_var1_int(ncid, varid, my_record, p%n_patch_verts))
     ENDIF
+
+    IF (netcdf_read) THEN
+      return_status = read_geometry_info(ncid, p%geometry_info)
+    ELSE
+      return_status = write_geometry_info(ncid, p%geometry_info)
+    ENDIF 
 
     IF(p%n_patch_cells>0) THEN
       CALL bvar_io(1,2,'patch.cells.num_edges',        p%cells%num_edges)

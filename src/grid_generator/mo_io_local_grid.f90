@@ -86,7 +86,7 @@ MODULE mo_io_local_grid
 !   USE mo_physical_constants, ONLY: re
   USE mo_local_grid
   USE mo_grid_geometry_info, ONLY: sphere_geometry, planar_torus_geometry, t_grid_geometry_info, &
-    & read_geometry_info
+    & read_geometry_info, write_geometry_info
   USE mo_impl_constants,     ONLY: min_rlcell, max_rlcell, &
     & min_rlvert, max_rlvert, min_rledge, max_rledge
   USE mo_math_utilities,     ONLY: t_cartesian_coordinates, t_geographical_coordinates
@@ -1951,42 +1951,6 @@ CONTAINS
   END SUBROUTINE write_netcdf_grid
   !-------------------------------------------------------------------------
   
-  !-------------------------------------------------------------------------
-  INTEGER FUNCTION write_geometry_info(ncid, geometry_info)
-    INTEGER, INTENT(in) :: ncid
-    TYPE(t_grid_geometry_info) :: geometry_info
-
-    write_geometry_info = -1
-    
-    CALL nf(nf_put_att_int      (ncid, nf_global, 'grid_geometry', nf_int, 1,     &
-      & geometry_info%geometry_type))
-    
-    CALL nf(nf_put_att_int   (ncid, nf_global, 'mean_edge_length' , nf_double, 1, &
-      & geometry_info%mean_edge_length))
-
-    CALL nf(nf_put_att_double(ncid, nf_global, 'mean_edge_length' , nf_double, 1, &
-      & geometry_info%mean_edge_length))
-      
-    CALL nf(nf_put_att_double  (ncid, nf_global, 'mean_cell_area' , nf_double, 1, &
-      & geometry_info%mean_cell_area))
-      
-    CALL nf(nf_put_att_double   (ncid, nf_global, 'domain_length' , nf_double, 1, &
-      & geometry_info%domain_length))
-    
-    CALL nf(nf_put_att_double   (ncid, nf_global, 'domain_height' , nf_double, 1, &
-      & geometry_info%domain_height))
-    
-    CALL nf(nf_put_att_double   (ncid, nf_global, 'sphere_radius' , nf_double, 1, &
-      & geometry_info%sphere_radius))
-    
-    CALL nf(nf_put_att_double  (ncid, nf_global, 'domain_cartesian_center', nf_double, 3, &
-      & geometry_info%center%x))
-      
-    write_geometry_info = 0
-
-  END FUNCTION write_geometry_info
-  !-------------------------------------------------------------------------
-
   !-------------------------------------------------------------------------
   INTEGER FUNCTION check_orientation (lonc, lon, lat, n)
     INTEGER, INTENT(in) :: n

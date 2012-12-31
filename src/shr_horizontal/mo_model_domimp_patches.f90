@@ -138,7 +138,7 @@ MODULE mo_model_domimp_patches
   USE mo_master_nml,         ONLY: model_base_dir
 
   USE mo_grid_geometry_info, ONLY: planar_torus_geometry, sphere_geometry, &
-    &  set_grid_geometry_derived_info, copy_grid_geometry_info, read_geometry_info
+    &  set_grid_geometry_derived_info, copy_grid_geometry_info, parallel_read_geometry_info
   USE mo_model_domimp_setup, ONLY: fill_grid_subsets
   USE mo_alloc_patches,      ONLY: set_patches_grid_filename, allocate_basic_patch, &
     & allocate_remaining_patch
@@ -2043,7 +2043,7 @@ CONTAINS
     !-------------------------------------------------
     ! read geometry parameters
     patch0 => get_patch_ptr(p_patch, id_lp, 0)
-    return_status = read_geometry_info(ncid, patch0%geometry_info)
+    return_status = parallel_read_geometry_info(ncid, patch0%geometry_info)
     IF (return_status /= 0 ) THEN
       ! the information was missing from the file (ie old grids)
       ! calclulate basic settings
