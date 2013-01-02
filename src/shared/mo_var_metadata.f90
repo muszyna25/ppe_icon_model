@@ -10,13 +10,13 @@ MODULE mo_var_metadata
   PRIVATE
 
   ! maximum string length for variable names
-  INTEGER, PARAMETER :: varname_len = 32
+  INTEGER, PARAMETER :: VARNAME_LEN = 32
 
   ! list of variable groups
   ! 
   ! A variable can have any combination of this which means that it is
   ! part of each of these different variable sets.
-  CHARACTER(len=varname_len), PARAMETER :: var_groups(16) = &
+  CHARACTER(len=VARNAME_LEN), PARAMETER :: var_groups(16) = &
     (/ "ALL                   ",  &
     &  "ATMO_ML_VARS          ",  &
     &  "ATMO_PL_VARS          ",  &
@@ -63,7 +63,7 @@ MODULE mo_var_metadata
   ! 
   ! A variable can have any combination of this which means that it
   ! can be interpolated vertically in these different ways.
-  CHARACTER(len=varname_len), PARAMETER :: VINTP_TYPE_LIST(3) = &
+  CHARACTER(len=VARNAME_LEN), PARAMETER :: VINTP_TYPE_LIST(3) = &
     (/ "Z                     ",  &
     &  "P                     ",  &
     &  "I                     " /)
@@ -89,7 +89,7 @@ MODULE mo_var_metadata
   TYPE t_var_metadata
     !
     INTEGER                    :: key                   ! hash value of name
-    CHARACTER(len=varname_len) :: name                  ! variable name  
+    CHARACTER(len=VARNAME_LEN) :: name                  ! variable name  
     !
     TYPE(t_cf_var)             :: cf                    ! CF convention information 
     TYPE(t_grib1_var)          :: grib1                 ! GRIB1 related information
@@ -157,7 +157,7 @@ MODULE mo_var_metadata
   PUBLIC :: VINTP_TYPE_LIST
   PUBLIC :: t_vert_interp_meta
   PUBLIC :: t_hor_interp_meta
-  PUBLIC :: varname_len
+  PUBLIC :: VARNAME_LEN
   PUBLIC :: var_groups
 
 END MODULE mo_var_metadata
