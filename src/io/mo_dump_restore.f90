@@ -1414,6 +1414,9 @@ CONTAINS
       CALL def_var('patch.cells.refin_ctrl',       nf_int   , dim_ncells)
       CALL def_var('patch.cells.decomp_domain',    nf_int   , dim_ncells)
       CALL def_var('patch.cells.glb_index',        nf_int   , dim_ncells)
+      CALL def_var('patch.cells.cart_center.x1',   nf_double, dim_ncells)
+      CALL def_var('patch.cells.cart_center.x2',   nf_double, dim_ncells)
+      CALL def_var('patch.cells.cart_center.x3',   nf_double, dim_ncells)
 
      IF(lfull) THEN
       CALL def_var('patch.cells.phys_id',          nf_int   , dim_ncells)
@@ -1439,6 +1442,9 @@ CONTAINS
       CALL def_var('patch.edges.refin_ctrl',             nf_int   , dim_nedges)
       CALL def_var('patch.edges.decomp_domain',          nf_int   , dim_nedges)
       CALL def_var('patch.edges.glb_index',              nf_int   , dim_nedges)
+      CALL def_var('patch.edges.cart_center.x1',         nf_double, dim_nedges)
+      CALL def_var('patch.edges.cart_center.x2',         nf_double, dim_nedges)
+      CALL def_var('patch.edges.cart_center.x3',         nf_double, dim_nedges)
 
      IF(lfull) THEN
       CALL def_var('patch.edges.phys_id',                nf_int   , dim_nedges)
@@ -1495,6 +1501,10 @@ CONTAINS
       CALL def_var('patch.verts.refin_ctrl',       nf_int   , dim_nverts)
       CALL def_var('patch.verts.decomp_domain',    nf_int   , dim_nverts)
       CALL def_var('patch.verts.glb_index',        nf_int   , dim_nverts)
+      !cartesian coordinates of the verts
+      CALL def_var('patch.verts.cartesian.x1',     nf_double, dim_nverts)
+      CALL def_var('patch.verts.cartesian.x2',     nf_double, dim_nverts)
+      CALL def_var('patch.verts.cartesian.x3',     nf_double, dim_nverts)
 
      IF(lfull) THEN
       CALL def_var('patch.verts.phys_id',          nf_int   , dim_nverts)
@@ -1596,6 +1606,9 @@ CONTAINS
       CALL bvar_io(1,2,'patch.cells.refin_ctrl',       p%cells%refin_ctrl)
       CALL bvar_io(1,2,'patch.cells.decomp_domain',    p%cells%decomp_domain)
       CALL uvar_io(    'patch.cells.glb_index',        p%cells%glb_index)
+      CALL bvar_io(1,2,'patch.cells.cart_center.x1',   p%cells%cartesian_center(:,:)%x(1))
+      CALL bvar_io(1,2,'patch.cells.cart_center.x2',   p%cells%cartesian_center(:,:)%x(2))
+      CALL bvar_io(1,2,'patch.cells.cart_center.x3',   p%cells%cartesian_center(:,:)%x(3))
 
      IF(lfull) THEN
       CALL bvar_io(1,2,'patch.cells.phys_id',          p%cells%phys_id)
@@ -1620,6 +1633,9 @@ CONTAINS
       CALL bvar_io(1,2,'patch.edges.refin_ctrl',             p%edges%refin_ctrl)
       CALL bvar_io(1,2,'patch.edges.decomp_domain',          p%edges%decomp_domain)
       CALL uvar_io(    'patch.edges.glb_index',              p%edges%glb_index)
+      CALL bvar_io(1,2,'patch.edges.cart_center.x1',   p%edges%cartesian_center(:,:)%x(1))
+      CALL bvar_io(1,2,'patch.edges.cart_center.x2',   p%edges%cartesian_center(:,:)%x(2))
+      CALL bvar_io(1,2,'patch.edges.cart_center.x3',   p%edges%cartesian_center(:,:)%x(3))
 
      IF(lfull) THEN
       CALL bvar_io(1,2,'patch.edges.phys_id',          p%edges%phys_id)
@@ -1674,6 +1690,9 @@ CONTAINS
       CALL bvar_io(1,2,'patch.verts.refin_ctrl',       p%verts%refin_ctrl)
       CALL bvar_io(1,2,'patch.verts.decomp_domain',    p%verts%decomp_domain)
       CALL uvar_io(    'patch.verts.glb_index',        p%verts%glb_index)
+      CALL bvar_io(1,2,'patch.verts.cartesian.x1',     p%verts%cartesian(:,:)%x(1))
+      CALL bvar_io(1,2,'patch.verts.cartesian.x2',     p%verts%cartesian(:,:)%x(2))
+      CALL bvar_io(1,2,'patch.verts.cartesian.x3',     p%verts%cartesian(:,:)%x(3))
 
      IF(lfull) THEN
       CALL bvar_io(1,2,'patch.verts.phys_id',          p%verts%phys_id)
