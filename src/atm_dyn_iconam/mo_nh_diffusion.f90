@@ -228,15 +228,17 @@ MODULE mo_nh_diffusion
       ! properly damp breaking gravity waves
       enh_smag_fac(1:nlev) = MIN(1._wp,MAX(0._wp,(0.5_wp*(vct_a(1:nlev)+vct_a(2:nlev+1))-50000._wp)/40000._wp)**2)
 
-      ! Smagorinsky coefficient is also enhanced in the three model levels beneath a vertical nest interface
+      ! Smagorinsky coefficient is also enhanced in the six model levels beneath a vertical nest interface
       IF ((lvert_nest) .AND. (p_patch%nshift > 0)) THEN
-        enh_smag_fac(1) = MAX(0.25_wp, enh_smag_fac(1))
-        enh_smag_fac(2) = MAX(0.175_wp,enh_smag_fac(2))
-        enh_smag_fac(3) = MAX(0.10_wp, enh_smag_fac(3))
+        enh_smag_fac(1) = MAX(0.333_wp, enh_smag_fac(1))
+        enh_smag_fac(2) = MAX(0.25_wp, enh_smag_fac(2))
+        enh_smag_fac(3) = MAX(0.20_wp, enh_smag_fac(3))
+        enh_smag_fac(4) = MAX(0.16_wp, enh_smag_fac(4))
+        enh_smag_fac(5) = MAX(0.12_wp, enh_smag_fac(5))
+        enh_smag_fac(6) = MAX(0.08_wp, enh_smag_fac(6))
       ENDIF
 
-      ! empirically determined scaling factor (default of 0.15 for hdiff_smag_fac is somewhat
-      ! larger than suggested in the literature)
+      ! empirically determined scaling factor
       diff_multfac_smag(:) = MAX(diffusion_config(jg)%hdiff_smag_fac,enh_smag_fac(:))*dtime
 
       IF (lhdiff_rcf) diff_multfac_smag(:) = diff_multfac_smag(:)*REAL(iadv_rcf,wp)

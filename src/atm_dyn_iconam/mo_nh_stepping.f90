@@ -140,6 +140,7 @@ MODULE mo_nh_stepping
   USE mo_art_config,          ONLY:art_config
   USE mo_nwp_sfc_utils,       ONLY: aggregate_landvars, update_sstice
   USE mo_nh_init_nest_utils,  ONLY: initialize_nest, topo_blending_and_fbk
+  USE mo_nh_init_utils,       ONLY: hydro_adjust_downward
   USE mo_td_ext_data,         ONLY: set_actual_td_ext_data,  &
                                   & read_td_ext_data_file
 
@@ -1474,6 +1475,11 @@ MODULE mo_nh_stepping
             ENDIF
 
             CALL initialize_nest(jg, jgc)
+
+            ! Apply hydrostatic adjustment, using downward integration
+            CALL hydro_adjust_downward(p_patch(jgc), p_nh_state(jgc)%metrics,                     &
+              p_nh_state(jgc)%prog(nnow(jgc))%rho, p_nh_state(jgc)%prog(nnow(jgc))%exner,         &
+              p_nh_state(jgc)%prog(nnow(jgc))%theta_v, p_nh_state(jgc)%prog(nnow(jgc))%rhotheta_v )
 
             CALL init_nwp_phy( dtime                    ,&
               & p_patch(jgc)                            ,&
