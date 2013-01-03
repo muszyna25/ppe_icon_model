@@ -1240,6 +1240,12 @@ CONTAINS
   !---------------------------------------------------------------
   !> @return .TRUE. if given post-processing task is in active state.
   !
+  ! @todo Many post-processing tasks are performed for multiple time
+  !       levels of the same variable, though only one of these time
+  !       levels is later used for output purposes. To avoid this 
+  !       unnecessary computation: Provide "nnow" as an additional
+  !       simulation_status argument [FP].
+  ! 
   ! Tasks may be inactive, e.g. outside the output intervals.
   FUNCTION pp_task_is_active(ptr_task, simulation_status)
     LOGICAL :: pp_task_is_active
