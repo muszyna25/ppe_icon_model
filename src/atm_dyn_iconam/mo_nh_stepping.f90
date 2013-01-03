@@ -223,7 +223,7 @@ MODULE mo_nh_stepping
   LOGICAL :: map_phyproc(iphysproc,iphysproc_short) !< mapping matrix
   INTEGER :: iproclist(iphysproc)  !< x-axis of mapping matrix
 
-  PUBLIC :: prepare_nh_integration, perform_nh_stepping
+  PUBLIC :: prepare_nh_integration, perform_nh_stepping, diag_for_output
 
   CONTAINS
 

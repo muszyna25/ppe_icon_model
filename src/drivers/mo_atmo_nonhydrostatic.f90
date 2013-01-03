@@ -41,8 +41,7 @@ USE mo_timer,                ONLY: print_timer, timers_level, timer_start, &
 USE mo_master_control,       ONLY: is_restart_run
 USE mo_output,               ONLY: init_output_files, close_output_files,&
   &                                write_output
-USE mo_intp_rbf,             ONLY: rbf_vec_interpol_cell
-USE mo_intp,                 ONLY: edges2cells_scalar
+USE mo_math_divrot,          ONLY: rot_vertex
 USE mo_time_config,          ONLY: time_config      ! variable
 USE mo_io_restart,           ONLY: read_restart_files
 USE mo_io_restart_attributes,ONLY: get_restart_attribute
@@ -81,7 +80,7 @@ USE mo_nwp_lnd_state,        ONLY: p_lnd_state, construct_nwp_lnd_state,       &
   &                                destruct_nwp_lnd_state
 USE mo_nh_diagnose_pres_temp,ONLY: diagnose_pres_temp
 ! Time integration
-USE mo_nh_stepping,          ONLY: prepare_nh_integration, perform_nh_stepping
+USE mo_nh_stepping,          ONLY: prepare_nh_integration, perform_nh_stepping, diag_for_output
 ! Initialization with real data
 USE mo_prepicon_utils,       ONLY: init_icon
 USE mo_ext_data_state,      ONLY: ext_data, init_index_lists
@@ -387,36 +386,17 @@ CONTAINS
     !------------------------------------------------------------------
     IF (.NOT.is_restart_run()) THEN
 
-      ! diagnose u and v to have meaningful initial output
-      ! For real-case runs, also diagnose pressure and temperature
-      ! because these variables are needed for initializing the physics parameterizations
+      ! Compute diagnostic fields for initial output
+      CALL diag_for_output ()
 
+      ! Vorticity needs to be diagnosed in addition - it is computed during runtime otherwise
       DO jg = 1, n_dom
 
         IF (.NOT. p_patch(jg)%ldom_active) CYCLE
 
-        ! time levels
         ntl  = nnow(jg)
-        ntlr = nnow_rcf(jg)
-
-        SELECT CASE (p_patch(jg)%cell_type)
-          CASE (3)
-          CALL rbf_vec_interpol_cell(p_nh_state(jg)%prog(ntl)%vn,p_patch(jg),&
-            & p_int_state(jg),p_nh_state(jg)%diag%u,p_nh_state(jg)%diag%v)
-          CASE (6)
-          CALL edges2cells_scalar(p_nh_state(jg)%prog(ntl)%vn,p_patch(jg), &
-            & p_int_state(jg)%hex_east,p_nh_state(jg)%diag%u)
-          CALL edges2cells_scalar(p_nh_state(jg)%prog(ntl)%vn,p_patch(jg), &
-            & p_int_state(jg)%hex_north,p_nh_state(jg)%diag%v)
-        END SELECT
-
-        IF (l_realcase) THEN ! for test cases, diagnose_pres_temp is currently 
-                             ! called in nh_testcases
-          CALL diagnose_pres_temp(p_nh_state(jg)%metrics, p_nh_state(jg)%prog(ntl),     &
-            &                  p_nh_state(jg)%prog(ntlr), p_nh_state(jg)%diag,          &
-            &                  p_patch(jg), opt_calc_temp=.TRUE., opt_calc_pres=.TRUE., &
-            &                  lnd_prog=p_lnd_state(jg)%prog_lnd(ntlr) )
-        ENDIF
+        CALL rot_vertex (p_nh_state(jg)%prog(ntl)%vn, p_patch(jg), p_int_state(jg), &
+          p_nh_state(jg)%diag%omega_z)
 
       ENDDO
 
