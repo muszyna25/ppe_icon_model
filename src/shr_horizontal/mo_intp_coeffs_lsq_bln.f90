@@ -1821,11 +1821,9 @@ END SUBROUTINE calculate_vector_coeffs
 !-------------------------------------------------------------------------
 
 !-------------------------------------------------------------------------
-!
-!
 !>
 !! Computes the weighting coefficients for bilinear edge-to-cell interpolation for
-!! flat geometry with uniform cells
+!! flat geometry with equilateral triangular cells
 !!
 !! @par Revision History
 !!  developed by Anurag Dipankar, 2012-28-12 (taken from calculate_spherical_scalar_intp_coeffs)
@@ -1841,9 +1839,10 @@ TYPE(t_patch), TARGET, INTENT(in) :: ptr_patch
 TYPE(t_int_state), TARGET, INTENT(inout) :: ptr_int_state
 !
 
-INTEGER :: jc, jb
-INTEGER :: rl_start, rl_end
-INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
+INTEGER  :: jc, jb
+INTEGER  :: rl_start, rl_end
+INTEGER  :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
+REAL(wp) :: wgt
 
 !-----------------------------------------------------------------------
 
@@ -1854,6 +1853,9 @@ rl_end = min_rlcell
 i_nchdom   = MAX(1,ptr_patch%n_childdom)
 i_startblk = ptr_patch%cells%start_blk(rl_start,1)
 i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
+
+wgt = 1._wp/3._wp
+
 !
 ! loop through all patch cells (and blocks)
 !
@@ -1866,7 +1868,7 @@ i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
     DO jc = i_startidx, i_endidx
 
       ! Simple for torus
-      ptr_int_state%e_bln_c_s(jc,1:3,jb) = 1._wp / 3._wp
+      ptr_int_state%e_bln_c_s(jc,1:3,jb) = wgt
 
     ENDDO !cell loop
   END DO !block loop

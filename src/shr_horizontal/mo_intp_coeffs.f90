@@ -2941,7 +2941,7 @@ CONTAINS
         ! inverse length bewtween vertices 3 and 4
         IF (ptr_patch%cell_type == 3 ) THEN
           ptr_patch%edges%inv_vert_vert_length(je,jb) = 1._wp/&
-            & (grid_sphere_radius*arc_length(cc_ev3,cc_ev4))
+            & (grid_sphere_radius*arc_length(cc_ev3,cc_ev4,ptr_patch%geometry_info))
         ENDIF
         
         ! next step: compute projected orientation vectors for cells and vertices
