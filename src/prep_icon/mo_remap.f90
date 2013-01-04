@@ -29,7 +29,9 @@ MODULE mo_remap
 
   USE mo_kind,              ONLY: wp
   USE mo_parallel_config,   ONLY: nproma
+  USE mo_impl_constants,    ONLY: SUCCESS
   USE mo_communication,     ONLY: blk_no
+  USE mo_exception,         ONLY: finish
   USE mo_timer,             ONLY: tic, toc
   USE mo_mpi,               ONLY: get_my_mpi_work_id, p_n_work
   USE mo_gnat_gridsearch,   ONLY: gnat_init_grid
@@ -41,11 +43,13 @@ MODULE mo_remap
   USE mo_remap_grid,        ONLY: load_grid, finalize_grid
   USE mo_remap_shared,      ONLY: t_grid, GRID_TYPE_ICON
   USE mo_remap_intp,        ONLY: t_intp_data, allocate_intp_data,          &
-    &                             deallocate_intp_data
+    &                             deallocate_intp_data, mask_intp_coeffs,   &
+    &                             copy_intp_data_sthreaded
   USE mo_remap_input,       ONLY: load_metadata_input, read_input_namelist, &
     &                             n_input_fields, input_field, n_zaxis,     &
     &                             zaxis_metadata, global_metadata,          &
-    &                             input_import_data, close_input
+    &                             input_import_data, close_input,           &
+    &                             generate_missval_mask, CONST_FALSE
   USE mo_remap_hydcorr,     ONLY: input_remap_horz
   USE mo_remap_subdivision, ONLY: decompose_grid, create_grid_covering,     &
     &                             IMAX, IMIN, get_latitude_range
@@ -82,11 +86,13 @@ CONTAINS
     CHARACTER (LEN=*), INTENT(IN), OPTIONAL :: opt_input_cfg_filename
     ! local variables:
     CHARACTER (len=MAX_NAME_LENGTH) :: input_cfg_filename
+    CHARACTER(LEN=*), PARAMETER :: routine = TRIM(modname)//'::remap_main'
+
     TYPE (t_file_metadata) :: in_data, out_data, in_grid, out_grid
     TYPE (t_grid), TARGET  :: gridA_global, gridB_global,        &
       &                       gridA,        gridB,               &
       &                       gridA_cov,    gridB_cov
-    TYPE (t_intp_data)     :: intp_data_A, intp_data_B
+    TYPE (t_intp_data)     :: intp_data_A, intp_data_B, tmp_intp_data
     TYPE(t_gather_c)       :: comm_data_c_A_cov, comm_data_c_B
     TYPE (t_output_grid)   :: output_grid
 
@@ -100,12 +106,13 @@ CONTAINS
       &                       time_comm_tot, time_read_tot,      &
       &                       time_intp_tot, time_write_tot
 
-    INTEGER                :: ilev, maxblk, maxblks, fac,        &
+    INTEGER                :: ilev, maxblks, fac,        &
       &                       max_nforeignA, max_nforeignB,      &
-      &                       max_nforeign
+      &                       max_nforeign, ierrstat
     REAL                   :: time_intp
     REAL(wp), ALLOCATABLE  :: tmp_rfield3D(:,:,:)
-    CHARACTER(LEN=*), PARAMETER :: routine = TRIM(modname)//'::remap_main'
+    LOGICAL, ALLOCATABLE   :: missval_mask2D(:,:),               &
+      &                       clear_mask2D(:,:)
 
     WRITE (0,*) "# Conservative Remapping"
 
@@ -202,12 +209,12 @@ CONTAINS
     END IF
 
     ! allocate interpolation weights
-    CALL allocate_intp_data(intp_data_A, gridA)
-    CALL allocate_intp_data(intp_data_B, gridB)
+    CALL allocate_intp_data(intp_data_A, gridA%p_patch%nblks_c)
+    CALL allocate_intp_data(intp_data_B, gridB%p_patch%nblks_c)
 
     ! compute interpolation weights
-    CALL prepare_interpolation(gridA, gridB, gridA_cov, gridB_cov, &
-      &                        intp_data_A, intp_data_B, max_nforeign)
+!    CALL prepare_interpolation(gridA, gridB, gridA_cov, gridB_cov, &
+!      &                        intp_data_A, intp_data_B, max_nforeign)
 
     ! performance measurement: stop
     IF (dbg_level >= 2)  WRITE (0,*) "# > weight computation: elapsed time: ", toc(time_s), " sec."
@@ -234,7 +241,7 @@ CONTAINS
     ALLOCATE(fieldB_loc(nproma, max_nlev, gridB%p_patch%nblks_c), &
       &      fieldB_glb(nproma, glb_max_nlev, blk_no(gridB%p_patch%n_patch_cells_g)))
 
-    maxblks = max (gridA_cov% p_patch% nblks_c, gridB%     p_patch% nblks_c)
+    maxblks = MAX (gridA_cov% p_patch% nblks_c, gridB%p_patch% nblks_c)
     ALLOCATE(tmp_rfield3D(nproma, max_nlev, maxblks))
 
     time_comm_tot  = 0.
@@ -252,22 +259,58 @@ CONTAINS
       CALL input_import_data(in_data, ivar, comm_data_c_A_cov, &
         &                    tmp_rfield3D, gridA_cov,          &
         &                    time_comm_tot, time_read_tot      )
+
       !----------------------------------------
       ! interpolate onto other (e.g. ICON) grid
       !----------------------------------------
 
       ! perform horizontal interpolation
       CALL tic(time_intp)  ! performance measurement: start
-      DO ilev=1,input_field(ivar)%nlev
+      IF (input_field(ivar)%has_missvals == CONST_FALSE) THEN
+        
+        DO ilev=1,input_field(ivar)%nlev
+          CALL input_remap_horz(in_data,            &
+            tmp_rfield3D(:,ilev,:),                 &
+            fieldB_loc  (:,ilev,:),                 &
+            gridA_cov, gridB, input_field(ivar)%fa, &
+            intp_data_B, comm_data_c_A_cov)
+        END DO ! ilev
 
-        maxblk = size (fieldB_loc, dim=3)
-        CALL input_remap_horz(in_data,                &
-                              tmp_rfield3D(:,ilev,:), &
-                              fieldB_loc  (:,ilev,:), &
-                              gridA_cov, gridB, input_field(ivar)%fa, &
-                              intp_data_B, comm_data_c_A_cov)
+      ELSE ! missing values present:
 
-      END DO ! ilev
+        ! generate a LOGICAL-array mask for missing values based on
+        ! the value on level 1:
+        ALLOCATE(missval_mask2D(nproma,maxblks), &
+          &      clear_mask2D(nproma,gridB%p_patch%nblks_c), STAT=ierrstat)
+        clear_mask2D(:,:) = .FALSE.
+        IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
+        CALL generate_missval_mask(tmp_rfield3D(:,1,:), input_field(ivar)%missval, &
+          &                        missval_mask2D)
+
+        ! copy data structure containing the interpolation
+        ! coefficients:
+        CALL copy_intp_data_sthreaded(intp_data_B, tmp_intp_data)
+        ! modify the interpolation coefficients according to the
+        ! missing value mask:
+        CALL mask_intp_coeffs(missval_mask2D, gridB, clear_mask2D, tmp_intp_data)
+
+        DO ilev=1,input_field(ivar)%nlev
+          CALL input_remap_horz(in_data,            &
+            tmp_rfield3D(:,ilev,:),                 &
+            fieldB_loc  (:,ilev,:),                 &
+            gridA_cov, gridB, input_field(ivar)%fa, &
+            tmp_intp_data, comm_data_c_A_cov)
+          ! clear entries without contributing, non-missing values:
+          WHERE (clear_mask2D(:,:)) fieldB_loc(:,ilev,:) = input_field(ivar)%missval
+        END DO ! ilev
+
+        ! clean up
+        DEALLOCATE(missval_mask2D, clear_mask2D, STAT=ierrstat)
+        IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")
+        CALL deallocate_intp_data(tmp_intp_data)
+
+      END IF
+
       time_intp_tot = time_intp_tot + toc(time_intp)
 
       !------------------------------------------------------------------------

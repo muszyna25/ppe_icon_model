@@ -50,7 +50,7 @@ MODULE mo_remap_weights
     &                              reduce_mthreaded_weights,                  &
     &                              allocate_intp_data,  deallocate_intp_data, &
     &                              merge_heaps, sync_foreign_wgts,            &
-    &                              resize_intp_data_mthreaded
+    &                              resize_intp_data_mthreaded, divide_by_area
  
   IMPLICIT NONE
 
@@ -616,8 +616,7 @@ CONTAINS
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = TRIM(TRIM(modname)//'::prepare_interpolation')
     TYPE (t_intp_data_mt) :: intp_data1_mt, intp_data2_mt
-    TYPE (t_heap_data) :: t
-    INTEGER  :: nthreads, i, ierrstat, ithrd
+    INTEGER  :: nthreads, ierrstat, ithrd
     REAL(wp) :: thresh
 
     nthreads = 1
@@ -707,26 +706,8 @@ CONTAINS
 !$OMP END  PARALLEL
 
     ! divide by area of destination grid cell:
-    DO i=1,intp_data1%nstencil
-     intp_data1%wgt(i,:,:) = intp_data1%wgt(i,:,:)/intp_data1%area(:,:)
-    END DO
-    DO i=1,intp_data2%nstencil
-      intp_data2%wgt(i,:,:) = intp_data2%wgt(i,:,:)/intp_data2%area(:,:)
-    END DO
-!$OMP PARALLEL 
-!$OMP DO PRIVATE(i,t)
-    DO i=1,intp_data1%s_nlist
-      t = intp_data1%sl(i)
-      intp_data1%sl(i)%wgt  = t%wgt/intp_data1%area(t%didx,t%dblk)
-    END DO
-!$OMP END DO
-!$OMP DO PRIVATE(i,t)
-    DO i=1,intp_data2%s_nlist
-      t = intp_data2%sl(i)
-      intp_data2%sl(i)%wgt  = t%wgt/intp_data2%area(t%didx,t%dblk)
-    END DO
-!$OMP END DO
-!$OMP END PARALLEL
+    CALL divide_by_area(intp_data1)
+    CALL divide_by_area(intp_data2)
 
     CALL node_storage_finalize(1)
     DEALLOCATE(node_storage, nnode, STAT=ierrstat)

@@ -35,11 +35,15 @@ MODULE mo_remap_intp
   ! subroutines
   PUBLIC :: allocate_intp_data
   PUBLIC :: deallocate_intp_data
+  PUBLIC :: copy_intp_data_sthreaded
   PUBLIC :: resize_intp_data_mthreaded
   PUBLIC :: interpolate_c
   PUBLIC :: merge_heaps
   PUBLIC :: sync_foreign_wgts
   PUBLIC :: reduce_mthreaded_weights
+  PUBLIC :: multiply_by_area
+  PUBLIC :: divide_by_area
+  PUBLIC :: mask_intp_coeffs
   ! variables and data types
   PUBLIC :: t_intp_data
   PUBLIC :: t_intp_data_mt
@@ -116,9 +120,9 @@ CONTAINS
 
   !> Allocate data structure for interpolation coefficients.
   !
-  SUBROUTINE allocate_intp_data_sthreaded(intp_data, grid)
+  SUBROUTINE allocate_intp_data_sthreaded(intp_data, nblks_c)
     TYPE(t_intp_data),    INTENT(INOUT) :: intp_data   !< data structure with intp. weights
-    TYPE (t_grid),        INTENT(IN)    :: grid        !< output grid 
+    INTEGER,              INTENT(IN)    :: nblks_c     !< block size of output grid 
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = TRIM(TRIM(modname)//'::allocate_intp_data')
     INTEGER :: ierrstat, nstencil
@@ -126,13 +130,13 @@ CONTAINS
     nstencil = MAX_NSTENCIL
     intp_data%nstencil       = nstencil
     intp_data%max_totstencil = 0
-    ALLOCATE(intp_data%wgt (nstencil, nproma, grid%p_patch%nblks_c), &
-      &      intp_data%area(nproma, grid%p_patch%nblks_c),           &
-      &      intp_data%iidx(nstencil, nproma, grid%p_patch%nblks_c), &
-      &      intp_data%iblk(nstencil, nproma, grid%p_patch%nblks_c), &
-      &      intp_data%nidx(nproma, grid%p_patch%nblks_c),           &
-      &      intp_data%smin(nproma, grid%p_patch%nblks_c),           &
-      &      intp_data%smax(nproma, grid%p_patch%nblks_c),           &
+    ALLOCATE(intp_data%wgt (nstencil, nproma, nblks_c), &
+      &      intp_data%area(nproma, nblks_c),           &
+      &      intp_data%iidx(nstencil, nproma, nblks_c), &
+      &      intp_data%iblk(nstencil, nproma, nblks_c), &
+      &      intp_data%nidx(nproma, nblks_c),           &
+      &      intp_data%smin(nproma, nblks_c),           &
+      &      intp_data%smax(nproma, nblks_c),           &
       &      STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
     intp_data%wgt(:,:,:)  =  0._wp
@@ -204,6 +208,35 @@ CONTAINS
       &        intp_data%foreign_pe, STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")
   END SUBROUTINE deallocate_intp_data_mthreaded
+
+
+  !> Allocate data structure for interpolation coefficients.
+  !
+  SUBROUTINE copy_intp_data_sthreaded(src_intp_data, dst_intp_data)
+    TYPE(t_intp_data),    INTENT(IN)    :: src_intp_data   !< data structure with intp. weights
+    TYPE(t_intp_data),    INTENT(INOUT) :: dst_intp_data   !< data structure with intp. weights
+    ! local variables
+    CHARACTER(LEN=*), PARAMETER :: routine = TRIM(TRIM(modname)//'::copy_intp_data')
+    INTEGER :: nblks_c
+
+    IF (dbg_level >= 1) WRITE (0,*) "# copy interpolation coefficients."
+
+    nblks_c = SIZE(src_intp_data%wgt,3)
+    CALL allocate_intp_data_sthreaded(dst_intp_data, nblks_c)
+    ! copy coefficients:
+    dst_intp_data%nstencil       = src_intp_data%nstencil
+    dst_intp_data%max_totstencil = src_intp_data%max_totstencil
+    dst_intp_data%s_nlist        = src_intp_data%s_nlist
+
+    dst_intp_data%wgt(:,:,:)     = src_intp_data%wgt(:,:,:)
+    dst_intp_data%area(:,:)      = src_intp_data%area(:,:)
+    dst_intp_data%iidx(:,:,:)    = src_intp_data%iidx(:,:,:)
+    dst_intp_data%iblk(:,:,:)    = src_intp_data%iblk(:,:,:)
+    dst_intp_data%nidx(:,:)      = src_intp_data%nidx(:,:)
+    dst_intp_data%sl(:)          = src_intp_data%sl(:)
+    dst_intp_data%smin(:,:)      = src_intp_data%smin(:,:)
+    dst_intp_data%smax(:,:)      = src_intp_data%smax(:,:)
+  END SUBROUTINE copy_intp_data_sthreaded
 
 
   !> Resize foreign weight lists for  MULTI-THREADED data structure.
@@ -546,6 +579,7 @@ CONTAINS
       END DO
 #endif
       ! add sequential weight list:
+      ! (we implicity assume that the sequential list is ordered)
       DO jc=i_startidx, i_endidx
         IF (intp_data%smax(jc,jb) > 0) THEN
           val = 0._wp
@@ -566,5 +600,145 @@ CONTAINS
       WRITE (0,*) "# minmax loc: ", MINLOC(field2(:,:)), MAXLOC(field2(:,:))
     END IF
   END SUBROUTINE interpolate_c_2D
+
+
+  ! ---------------------------------------------------------------------------
+
+
+  !> Multiply all coefficients by corresponding area
+  !
+  SUBROUTINE multiply_by_area(intp_data)
+    TYPE (t_intp_data), INTENT(INOUT)  :: intp_data
+    ! local variables
+    INTEGER            :: i
+    TYPE (t_heap_data) :: t
+
+    DO i=1,intp_data%nstencil
+     intp_data%wgt(i,:,:) = intp_data%wgt(i,:,:) * intp_data%area(:,:)
+    END DO
+
+!$OMP PARALLEL 
+!$OMP DO PRIVATE(i,t)
+    DO i=1,intp_data%s_nlist
+      t = intp_data%sl(i)
+      intp_data%sl(i)%wgt  = t%wgt * intp_data%area(t%didx,t%dblk)
+    END DO
+!$OMP END DO
+!$OMP END PARALLEL
+  END SUBROUTINE multiply_by_area
+
+
+  !> Divide all coefficients by corresponding area
+  !
+  SUBROUTINE divide_by_area(intp_data)
+    TYPE (t_intp_data), INTENT(INOUT)  :: intp_data
+    ! local variables
+    REAL(wp), PARAMETER :: ZERO_THRESH = 1.e-12
+    INTEGER            :: i
+    TYPE (t_heap_data) :: t
+    REAL(wp)           :: area
+
+    DO i=1,intp_data%nstencil
+      WHERE (intp_data%area(:,:) > ZERO_THRESH) 
+        intp_data%wgt(i,:,:) = intp_data%wgt(i,:,:) / intp_data%area(:,:)
+      END WHERE
+    END DO
+
+!$OMP PARALLEL 
+!$OMP DO PRIVATE(i,t,area)
+    DO i=1,intp_data%s_nlist
+      t    = intp_data%sl(i)
+      area = intp_data%area(t%didx,t%dblk)
+      IF (area > ZERO_THRESH) &
+        intp_data%sl(i)%wgt  = t%wgt / area
+    END DO
+!$OMP END DO
+!$OMP END PARALLEL
+  END SUBROUTINE divide_by_area
+
+
+  ! ---------------------------------------------------------------------------
+
+
+  !> Loop over interpolation coefficients and modify it according to a
+  !  masked data field.
+  !
+  !  @note This masking is implemented for (1st order) area weighted
+  !        remapping only!
+  !
+  SUBROUTINE mask_intp_coeffs(in_mask2D, out_grid, out_mask2D, intp_data)
+    LOGICAL,            INTENT(IN)    :: in_mask2D(:,:)
+    TYPE (t_grid),      INTENT(IN)    :: out_grid
+    LOGICAL,            INTENT(INOUT) :: out_mask2D(:,:)
+    TYPE (t_intp_data), INTENT(INOUT) :: intp_data
+    ! local variables
+    INTEGER  :: i, jc,jb, nblks, npromz,  &
+      &         i_startidx, i_endidx
+    INTEGER  :: nmiss(nproma, out_grid%p_patch%nblks_c)
+
+    IF (dbg_level >= 1) WRITE (0,*) "# modifying interpolation coefficients for missing values."
+
+    !-- multiply all interpolation weights A_jk by the area A_k
+    CALL multiply_by_area(intp_data)
+
+    ! clear output mask
+    out_mask2D(:,:) = .FALSE.
+
+    !-- loop over all interpolation weights and subtract A_jk from
+    !   area_k for missing values j:
+
+    nblks    = out_grid%p_patch%nblks_c
+    npromz   = out_grid%p_patch%npromz_c
+
+    nmiss(:,:) = 0
+
+!$OMP PARALLEL PRIVATE(i_startidx, i_endidx,jc,jb)
+!$OMP DO
+    DO jb=1,nblks
+      i_startidx = 1
+      i_endidx   = nproma
+      IF (jb == nblks) i_endidx = npromz
+
+!CDIR UNROLL=MAX_NSTENCIL
+      DO i=1,MAX_NSTENCIL
+        DO jc=i_startidx, i_endidx
+          IF (in_mask2D(intp_data%iidx(i,jc,jb),intp_data%iblk(i,jc,jb)) .AND. &
+            & (i <= intp_data%nidx(jc,jb))) THEN
+            intp_data%area(jc,jb) = intp_data%area(jc,jb) - intp_data%wgt(i,jc,jb)
+            intp_data%wgt(i,jc,jb) = 0._wp
+            nmiss(jc,jb) = nmiss(jc,jb) + 1
+          END IF
+        END DO
+      END DO
+
+      ! take care of sequential weight list:
+      ! (we implicity assume that the sequential list is ordered)
+      DO jc=i_startidx, i_endidx
+        IF (intp_data%smax(jc,jb) > 0) THEN
+          DO i=intp_data%smin(jc,jb),intp_data%smax(jc,jb)
+            IF (in_mask2D(intp_data%sl(i)%sidx,intp_data%sl(i)%sblk)) THEN
+              intp_data%area(jc,jb) = intp_data%area(jc,jb) - intp_data%sl(i)%wgt
+              intp_data%sl(i)%wgt = 0._wp
+              nmiss(jc,jb) = nmiss(jc,jb) + 1
+            END IF
+          END DO
+        ENDIF
+
+        ! flag "out_mask2D", if there are no contributing source cells
+        ! left after subtracting the missing values:
+        IF (nmiss(jc,jb) == &
+          &  (intp_data%nidx(jc,jb) + intp_data%smax(jc,jb) - intp_data%smin(jc,jb) + 1)) THEN
+          out_mask2D(jc,jb) = .TRUE.
+        END IF
+      END DO ! jc
+
+    END DO ! jb
+!$OMP END DO
+!$OMP END PARALLEL
+
+    !-- divide all interpolation weights A_jk by the new area A_k
+    CALL divide_by_area(intp_data)
+
+  END SUBROUTINE mask_intp_coeffs
 
 END MODULE mo_remap_intp

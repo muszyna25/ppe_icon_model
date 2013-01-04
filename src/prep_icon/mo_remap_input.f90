@@ -30,6 +30,7 @@ MODULE mo_remap_input
   PUBLIC :: load_metadata_input
   PUBLIC :: close_input
   PUBLIC :: input_import_data
+  PUBLIC :: generate_missval_mask
   ! types and variables:
   PUBLIC :: n_input_fields, input_field
   PUBLIC :: global_metadata
@@ -38,9 +39,15 @@ MODULE mo_remap_input
   PUBLIC :: t_global_metadata
   PUBLIC :: t_zaxis_metadata
   PUBLIC :: t_field_adjustment
-  PUBLIC :: MAX_INPUT_FIELDS, MAX_NZAXIS
+  PUBLIC :: MAX_INPUT_FIELDS, MAX_NZAXIS, CONST_FALSE
 
   CHARACTER(LEN=*), PARAMETER :: modname = TRIM('mo_remap_input')
+
+  ! some constants (for better readability):
+  INTEGER, PARAMETER :: CONST_UNINITIALIZED = -1
+  INTEGER, PARAMETER :: CONST_FALSE         =  0
+  INTEGER, PARAMETER :: CONST_TRUE          =  1
+
 
   !> Data structure containing global meta data
   TYPE t_global_metadata
@@ -85,7 +92,10 @@ MODULE mo_remap_input
     INTEGER                          :: steptype
     INTEGER                          :: idim(2)               !< horizontal field dimensions
     INTEGER                          :: nlev                  !< no. of vertical levels
-    ! Meta-data for field adjustment
+    ! meta-data on missing values
+    INTEGER                          :: has_missvals          !< Flag: miss vals present? (-1: uninitialized,0:no,1:yes)
+    REAL(wp)                         :: missval               !< missing value
+    ! meta-data for field adjustment
     TYPE (t_field_adjustment)        :: fa
     ! internal IDs for CDI
     INTEGER :: varID, gridID, zaxisID
@@ -303,9 +313,13 @@ CONTAINS
             &                        input_field(i)%grib2%category,  &
             &                        input_field(i)%grib2%discipline)
           input_field(i)%grib2%bits = vlistInqVarDatatype(vlistID, input_field(i)%varID)
+          ! get missing value information on variable:
+          input_field(i)%missval = vlistInqVarMissval(vlistID, input_field(i)%varID)
         END IF ! rank0
         ! distributed computation: broadcast to other worker PEs:
         CALL p_bcast(input_field(i)%nlev,rank0,p_comm_work)
+        CALL p_bcast(input_field(i)%missval,rank0,p_comm_work)
+        input_field(i)%has_missvals = CONST_UNINITIALIZED ! unitialized
       END IF ! (varID /= -1)
     END DO
 
@@ -358,6 +372,46 @@ CONTAINS
   END SUBROUTINE load_metadata_input
 
 
+  !> Utility routine: Generate LOGICAL-array mask from a given field
+  !  variable, corresponding to the missing value pattern.  The value
+  !  .TRUE. means: missing value exists.
+  !
+  SUBROUTINE generate_missval_mask(in_field, missval, out_mask2D)
+    REAL(wp),           INTENT(IN)    :: in_field(:,:)
+    REAL(wp),           intent(IN)    :: missval
+    LOGICAL,            INTENT(INOUT) :: out_mask2D(:,:)
+    ! local variables
+    CHARACTER(LEN=*), PARAMETER :: routine = &
+      &  TRIM(TRIM(modname)//':generate_missval_mask')
+    INTEGER :: i,j, size1, size2, nmiss
+
+    IF (dbg_level >= 1) WRITE (0,*) "# generate mask for missing values."
+
+    size1 = SIZE(in_field,1)
+    size2 = SIZE(in_field,2)
+    IF ((size1 /= SIZE(out_mask2D,1)) .OR. &
+      & (size2 /= SIZE(out_mask2D,2))) THEN
+      CALL finish(routine, "Invalid array dimension!")
+    END IF
+
+!$OMP PARALLEL 
+!$OMP DO PRIVATE(i,j)
+    DO i=1,size1
+      DO j=1,size2
+        out_mask2D(i,j) = (in_field(i,j) == missval) ! Attention: Comparison of REALs
+      END DO
+    END DO
+!$OMP END DO
+!$OMP END PARALLEL
+
+    IF (dbg_level >= 1) THEN
+      nmiss = COUNT(out_mask2D)
+      WRITE (0,*) "# masking ", nmiss, " values."
+    END IF
+
+  END SUBROUTINE generate_missval_mask
+
+
   !> Main subroutine: Reads data fields.
   !
   !  Requires a pre-allocated variable list ("varlist") as output.
@@ -377,10 +431,12 @@ CONTAINS
     REAL, INTENT(INOUT), OPTIONAL    :: opt_time_comm, opt_time_read
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = TRIM(modname)//':input_import_data'
-    INTEGER :: streamID, ierrstat, nmiss, nsize, &
-      &        shape2D_glb(2), shape2D_loc(2), ilev, maxblk
+    INTEGER :: streamID, ierrstat, nmiss, nsize, i, j, &
+      &        shape2D_glb(2), shape2D_loc(2), ilev, maxblk, has_missvals
     REAL(wp), ALLOCATABLE :: rfield1D(:), rfield2D(:,:), rfield2D_loc(:,:)
     REAL    :: time_comm, time_read
+
+    has_missvals = CONST_UNINITIALIZED
 
     streamID = file_metadata%streamID
     IF (dbg_level >= 2)  CALL message(routine, "Start")
@@ -427,7 +483,26 @@ CONTAINS
           IF (PRESENT(opt_time_read)) opt_time_read = opt_time_read + toc(time_read)
           ! reshape record into (nproma, nblks) field
           rfield2D(:,:) = RESHAPE(rfield1D(:), shape2D_glb, (/ 0._wp /))
+
+          ! check if missing values are present, set flag "has_missvals"
+          !
+          ! note: probably we could use a cdi internal function for this, but
+          !       which one?
+          IF (has_missvals == CONST_UNINITIALIZED) THEN
+            IF (dbg_level >= 2) &
+              &  WRITE (0,*) "# testing for missing values (missval = ", input_field(ivar)%missval, ")"
+            has_missvals = CONST_FALSE
+            ! Attention: Comparison of REALs:
+            IF (ANY(rfield2D(:,:) ==  input_field(ivar)%missval)) THEN
+              has_missvals = CONST_TRUE
+            END IF
+          END IF
         END IF ! if rank0
+        IF (input_field(ivar)%has_missvals == CONST_UNINITIALIZED) THEN
+          IF (get_my_mpi_work_id() == gather_c%rank0) input_field(ivar)%has_missvals = has_missvals
+          CALL p_bcast(input_field(ivar)%has_missvals,gather_c%rank0,p_comm_work)
+        END IF
+
         ! for distributed computation: scatter interpolation input to work PEs
         CALL tic(time_comm)  ! performance measurement: start
         CALL scatter_field2D_c(gather_c, rfield2D, rfield2D_loc)
@@ -462,13 +537,17 @@ CONTAINS
     INTEGER :: ierrstat, i
 
     DO i=1,n_zaxis
-      IF (ALLOCATED(zaxis_metadata(i)%vct))    DEALLOCATE(zaxis_metadata(i)%vct,    STAT=ierrstat)
-      IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")
-      IF (ALLOCATED(zaxis_metadata(i)%levels)) DEALLOCATE(zaxis_metadata(i)%levels, STAT=ierrstat)
-      IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")
+      IF (ALLOCATED(zaxis_metadata(i)%vct)) THEN
+        DEALLOCATE(zaxis_metadata(i)%vct,    STAT=ierrstat)
+        IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed 1!")
+      END IF
+      IF (ALLOCATED(zaxis_metadata(i)%levels)) THEN
+        DEALLOCATE(zaxis_metadata(i)%levels, STAT=ierrstat)
+        IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed 2!")
+      END IF
     END DO
     DEALLOCATE(input_field, STAT=ierrstat)
-    IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")
+    IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed 3!")
   END SUBROUTINE close_input
 
 END MODULE mo_remap_input
