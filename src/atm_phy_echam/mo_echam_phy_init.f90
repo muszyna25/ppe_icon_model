@@ -99,6 +99,7 @@ MODULE mo_echam_phy_init
   USE mo_icon_cpl_def_field,   ONLY: ICON_cpl_get_nbr_fields, ICON_cpl_get_field_ids
   USE mo_timer,                ONLY: ltimer, timers_level, timer_start, timer_stop, &
     & timer_prep_echam_phy
+  USE mo_physical_constants,   ONLY: tmelt, Tf
 
   IMPLICIT NONE
   PRIVATE
@@ -448,6 +449,40 @@ CONTAINS
              DEALLOCATE(buffer)
 
           ENDIF
+
+        CASE('APEi') 
+          ! The same as APE, except we don't allow JSBACH and whenever SST reaches tmelt we put 1 m
+          ! thick ice with concentration of 0.9 on top
+
+!$OMP PARALLEL DO PRIVATE(jb,jc,jcs,jce,zlat) ICON_OMP_DEFAULT_SCHEDULE
+          DO jb = jbs,nblks_c
+            CALL get_indices_c( p_patch(jg), jb,jbs,nblks_c, jcs,jce, 2)
+            DO jc = jcs,jce
+              zlat = p_patch(jg)%cells%center(jc,jb)%lat
+              ! SST must reach Tf where there's ice. It may be better to modify ape_sst it self.
+              field% tsfc_tile(jc,jb,iwtr) = ape_sst(ape_sst_case,zlat) - Tf
+              ! Initialise the ice - Tsurf, T1 & T2 must be in degC
+              field% tsfc_tile  (jc,jb,iice) = tmelt - Tf
+              field% Tsurf      (jc,1, jb  ) = Tf
+              field% T1         (jc,1, jb  ) = Tf
+              field% T2         (jc,1, jb  ) = Tf
+              field% hs         (jc,1, jb  ) = 0._wp
+              IF ( field%tsfc_tile(jc,jb,iwtr) <= tmelt - Tf ) THEN
+                field%conc   (jc,1,jb) = 0.9_wp
+                field%hi     (jc,1,jb) = 1.0_wp
+                field% seaice(jc,  jb) = field%conc(jc,1,jb)
+              ELSE
+                field%conc   (jc,1,jb) = 0._wp
+                field%hi     (jc,1,jb) = 0._wp
+                field% seaice(jc,  jb) = field%conc(jc,1,jb)
+              ENDIF
+              field% tsfc     (jc,     jb) = field%seaice(jc,jb)*field%tsfc_tile(jc,jb,iice) &
+                &       + ( 1._wp - field%seaice(jc,jb) )*field% tsfc_tile(jc,jb,iwtr)
+            END DO
+            field% lsmask(jcs:jce,jb) = 0._wp   ! zero land fraction
+            field% glac  (jcs:jce,jb) = 0._wp   ! zero glacier fraction
+          END DO
+!$OMP END PARALLEL DO
 
         CASE('JWw-Moist','LDF-Moist')
 
