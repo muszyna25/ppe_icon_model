@@ -493,6 +493,9 @@ MODULE mo_nonhydro_state
     grib2_desc = t_grib2_var(0, 2, 34, ibits, GRID_REFERENCE, GRID_EDGE)
     CALL add_var( p_prog_list, TRIM(vname_prefix)//'vn'//suffix, p_prog%vn,     &
       &           GRID_UNSTRUCTURED_EDGE, ZA_HYBRID, cf_desc, grib2_desc,       &
+      &           vert_interp=create_vert_interp_metadata(                      &
+      &             vert_intp_method=VINTP_METHOD_UV,                           &
+      &             l_hires_intp=.FALSE., l_restore_fricred=.FALSE.),           &
       &           ldims=shape3d_e, in_group=groups("nh_prog_vars") )
 
     ! w            p_prog%w(nproma,nlevp1,nblks_c)
@@ -917,9 +920,7 @@ MODULE mo_nonhydro_state
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,       &
                 & ldims=shape3d_c, lrestart=.FALSE.,                            &
                 & vert_interp=create_vert_interp_metadata(                      &
-                &   vert_intp_type=vintp_types("P","Z","I"),                    &
-                &   vert_intp_method=VINTP_METHOD_UV,                           &
-                &   l_hires_intp=.FALSE., l_restore_fricred=.FALSE.),           &
+                &   vert_intp_type=vintp_types("P","Z","I") ),                  &
                 & in_group=groups("atmo_ml_vars", "atmo_pl_vars", "atmo_zl_vars") )
 
     ! v           p_diag%v(nproma,nlev,nblks_c)
@@ -930,9 +931,7 @@ MODULE mo_nonhydro_state
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,       &
                 & ldims=shape3d_c, lrestart=.FALSE.,                            &
                 & vert_interp=create_vert_interp_metadata(                      &
-                &   vert_intp_type=vintp_types("P","Z","I"),                    &
-                &   vert_intp_method=VINTP_METHOD_UV,                           &
-                &   l_hires_intp=.FALSE., l_restore_fricred=.FALSE.),           &
+                &   vert_intp_type=vintp_types("P","Z","I") ),                  &
                 & in_group=groups("atmo_ml_vars", "atmo_pl_vars", "atmo_zl_vars") )
 
     ! vt           p_diag%vt(nproma,nlev,nblks_e)

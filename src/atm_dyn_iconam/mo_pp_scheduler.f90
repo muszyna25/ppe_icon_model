@@ -688,6 +688,7 @@ CONTAINS
         !-- create a new z/p/i-variable "vn":
         CALL add_var( dst_varlist, TRIM(info%name), p_opt_field_r3d, element%field%info%hgrid,    &
           &           dst_axis, element%field%info%cf, element%field%info%grib2, ldims=shape3d_e, &
+          &           vert_interp=element%field%info%vert_interp,                                 &
           &           new_element=vn_element )
          
         !-- create a post-processing task for vertical interpolation of "vn"
