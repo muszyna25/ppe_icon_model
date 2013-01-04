@@ -67,7 +67,8 @@ MODULE mo_nh_stepping
     &                               timer_integrate_nh, timer_nh_diagnostics
   USE mo_atm_phy_nwp_config,  ONLY: dt_phy, atm_phy_nwp_config
   USE mo_nwp_phy_init,        ONLY: init_nwp_phy
-  USE mo_nwp_phy_state,       ONLY: prm_diag, prm_nwp_tend, phy_params
+  USE mo_nwp_phy_state,       ONLY: prm_diag, prm_nwp_tend, phy_params, prm_nwp_diag_list, &
+                                    prm_nwp_tend_list
   USE mo_lnd_nwp_config,      ONLY: nlev_soil, nlev_snow, sstice_mode, lseaice
   USE mo_nwp_lnd_state,       ONLY: p_lnd_state
   USE mo_ext_data_state,      ONLY: ext_data
@@ -104,7 +105,7 @@ MODULE mo_nh_stepping
     &                               itupdate, itturb, itgscp, itsfc, min_rlcell_int, &
                                     min_rledge_int
   USE mo_divergent_modes,     ONLY: divergent_modes_5band
-  USE mo_math_divrot,         ONLY: div
+  USE mo_math_divrot,         ONLY: div, rot_vertex
   USE mo_solve_nonhydro,      ONLY: solve_nh
   USE mo_advection_stepping,  ONLY: step_advection
   USE mo_integrate_density_pa,ONLY: integrate_density_pa
@@ -136,6 +137,7 @@ MODULE mo_nh_stepping
   USE mo_name_list_output,    ONLY: write_name_list_output, istime4name_list_output
   USE mo_pp_scheduler,        ONLY: new_simulation_status, pp_scheduler_process
   USE mo_pp_tasks,            ONLY: t_simulation_status
+  USE mo_var_list,            ONLY: print_var_list
   USE mo_art_emission_interface,  ONLY:art_emission_interface
   USE mo_art_config,          ONLY:art_config
   USE mo_nwp_sfc_utils,       ONLY: aggregate_landvars, update_sstice
@@ -223,7 +225,7 @@ MODULE mo_nh_stepping
   LOGICAL :: map_phyproc(iphysproc,iphysproc_short) !< mapping matrix
   INTEGER :: iproclist(iphysproc)  !< x-axis of mapping matrix
 
-  PUBLIC :: prepare_nh_integration, perform_nh_stepping, diag_for_output
+  PUBLIC :: prepare_nh_integration, perform_nh_stepping
 
   CONTAINS
 
@@ -284,7 +286,10 @@ MODULE mo_nh_stepping
   INTEGER, INTENT(INOUT)                       :: jfile
   LOGICAL, INTENT(INOUT) :: l_have_output
 
-  TYPE(t_datetime), INTENT(INOUT)            :: datetime
+  TYPE(t_datetime), INTENT(INOUT)      :: datetime
+  TYPE(t_simulation_status)            :: simulation_status
+
+  CHARACTER(*), PARAMETER :: routine = "perform_nh_stepping"
 
   INTEGER                              :: jg
 
@@ -297,12 +302,15 @@ MODULE mo_nh_stepping
 
   CALL allocate_nh_stepping ()
 
-    IF (sstice_mode > 1 ) THEN
-      ! t_seasfc and fr_seaice have to be set again from the ext_td_data files
-      !  the values from the analysis have to be overwritten
-      CALL set_actual_td_ext_data (.TRUE.,datetime,datetime,sstice_mode,  &
-                                  &  p_patch(1:), ext_data, p_lnd_state)
-    END IF
+  ! Compute diagnostic dynamics fields for initial output and physics initialization
+  IF (.NOT.is_restart_run()) CALL diag_for_output_dyn (linit=.TRUE.)
+
+  IF (sstice_mode > 1 ) THEN
+    ! t_seasfc and fr_seaice have to be set again from the ext_td_data files
+    !  the values from the analysis have to be overwritten
+    CALL set_actual_td_ext_data (.TRUE.,datetime,datetime,sstice_mode,  &
+                                &  p_patch(1:), ext_data, p_lnd_state)
+  END IF
 
   IF (iforcing == inwp .AND. is_restart_run()) THEN
     DO jg=1, n_dom
@@ -342,7 +350,49 @@ MODULE mo_nh_stepping
            & ext_data(jg)                          ,&
            & phy_params(jg)                         )
     ENDDO
+    ! Compute diagnostic physics fields
+    CALL diag_for_output_phys
+    ! Initial call of slow physics schemes
+    CALL init_slowphysics (datetime, 1, dtime, dtime_adv, sim_time)
   ENDIF
+
+  !------------------------------------------------------------------
+  !  get and write out some of the inital values
+  !------------------------------------------------------------------
+  IF (.NOT.is_restart_run()) THEN
+
+    !--------------------------------------------------------------------------
+    ! loop over the list of internal post-processing tasks, e.g.
+    ! interpolate selected fields to p- and/or z-levels
+    simulation_status = new_simulation_status(l_first_step =.TRUE., l_output_step=.TRUE., &
+      &                                       l_dom_active=p_patch(1:)%ldom_active)
+    CALL pp_scheduler_process(simulation_status)
+
+    IF (output_mode%l_vlist) THEN
+      CALL write_output( datetime )
+      CALL message(TRIM(routine),'Initial Output')
+      l_have_output = .TRUE.
+    END IF
+
+    IF (output_mode%l_nml) THEN
+      CALL write_name_list_output( datetime, 0._wp, .FALSE. )
+    END IF
+
+  END IF ! not is_restart_run()
+
+  ! for debug purpose: print var lists
+  IF ( msg_level >=20 .AND. my_process_is_stdio() .AND. .NOT. ltestcase) THEN
+    CALL print_var_list (p_nh_state(1)%prog_list(1))
+    CALL print_var_list (p_nh_state(1)%diag_list)
+    CALL print_var_list (p_nh_state(1)%metrics_list)
+    CALL print_var_list (prm_nwp_diag_list(1))
+    CALL print_var_list (prm_nwp_tend_list(1))
+    CALL print_var_list (p_lnd_state(1)%lnd_prog_nwp_list(1))
+    CALL print_var_list (p_lnd_state(1)%lnd_diag_nwp_list)
+    CALL print_var_list (ext_data(1)%atm_list)
+    CALL print_var_list (ext_data(1)%atm_td_list)
+  ENDIF
+
 
   IF (timers_level > 3) CALL timer_stop(timer_model_init)
 
@@ -603,7 +653,8 @@ MODULE mo_nh_stepping
 
     ! Compute diagnostics for output if necessary
     IF (l_compute_diagnostic_quants) THEN
-      CALL diag_for_output ( )
+      CALL diag_for_output_dyn ( linit=.FALSE. )
+      CALL diag_for_output_phys
     ENDIF
 
     !--------------------------------------------------------------------------
@@ -1015,71 +1066,6 @@ MODULE mo_nh_stepping
                                          p_nh_state(jg)%diag)
         ENDIF
 
-
-        IF ( linit_slowphy(jg) .AND. iforcing == inwp ) THEN
-
-          CALL time_ctrl_physics ( dt_phy, lstep_adv, dt_loc, jg,  &! in
-            &                      .TRUE.,                         &! in
-            &                      t_elapsed_phy,                  &! inout
-            &                      lcall_phy )                      ! out
-
-          IF (msg_level >= 12) THEN
-            WRITE(message_text,'(a,i2,a,5l2,a,6l2)') 'initial call of slow physics:', &
-              &  jg ,'   SP:', lcall_phy(jg,1:5), '   FP:',lcall_phy(jg,6:11)
-            CALL message(TRIM(routine), TRIM(message_text))
-          ENDIF
-
-          ! NOTE (DR): To me it is not clear yet, which timestep should be
-          ! used for the first call of the slow_physics part dtadv_loc, dt_loc,
-          ! dt_phy(jg,:) ...?
-          CALL nwp_nh_interface(lcall_phy(jg,:),                   & !in
-            &                  lredgrid_phys(jg),                  & !in
-            &                  dt_loc,                             & !in
-            &                  dtadv_loc,                          & !in
-            &                  nstep_global,                       & !in
-            &                  dt_phy(jg,:),                       & !in
-            &                  sim_time(jg),                       & !in
-            &                  datetime,                           & !in
-            &                  p_patch(jg)  ,                      & !in
-            &                  p_int_state(jg),                    & !in
-            &                  p_nh_state(jg)%metrics ,            & !in
-            &                  p_patch(jgp),                       & !in
-            &                  p_int_state(jgp),                   & !in
-            &                  p_grf_state(jgp),                   & !in
-            &                  ext_data(jg)           ,            & !in
-            &                  p_nh_state(jg)%prog(n_now) ,        & !inout
-            &                  p_nh_state(jg)%prog(n_now_rcf) ,    & !inout
-            &                  p_nh_state(jg)%prog(n_now_rcf) ,    & !inout
-            &                  p_nh_state(jg)%diag,                & !inout
-            &                  prm_diag  (jg),                     & !inout
-            &                  prm_nwp_tend(jg)                ,   &
-            &                  p_lnd_state(jg)%diag_lnd,           &
-            &                  p_lnd_state(jg)%prog_lnd(n_now_rcf),& !inout
-            &                  p_lnd_state(jg)%prog_lnd(n_now_rcf),& !inout
-            &                  p_lnd_state(jg)%prog_wtr(n_now_rcf),& !inout
-            &                  p_lnd_state(jg)%prog_wtr(n_now_rcf),& !inout
-            &                  p_nh_state(jg)%prog_list(n_now_rcf) ) 
-
-          linit_slowphy(jg) = .FALSE. ! no further initialization calls needed
-
-          IF (ltimer)            CALL timer_start(timer_nesting)
-          IF (timers_level >= 2) CALL timer_start(timer_bdy_interp)
-          ! Boundary interpolation of land state variables entering into radiation computation
-          ! if a reduced grid is used in the child domain(s)
-          DO jn = 1, p_patch(jg)%n_childdom
-
-            jgc = p_patch(jg)%child_id(jn)
-
-            IF ( lredgrid_phys(jgc) ) THEN
-              CALL interpol_rrg_grf(jg, jgc, jn, nnow_rcf(jg))
-            ENDIF
-          ENDDO
-          IF (timers_level >= 2) CALL timer_stop(timer_bdy_interp)
-          IF (ltimer)            CALL timer_stop(timer_nesting)
-
-        ENDIF
-
-
         ! Determine which physics packages must be called/not called at the current
         ! time step
         IF ( iforcing == inwp ) THEN
@@ -1249,7 +1235,6 @@ MODULE mo_nh_stepping
             &                  lredgrid_phys(jg),                  & !in
             &                  dt_loc,                             & !in
             &                  dtadv_loc,                          & !in
-            &                  nstep_global,                       & !in
             &                  t_elapsed_phy(jg,:),                & !in
             &                  sim_time(jg),                       & !in
             &                  datetime,                           & !in
@@ -1511,11 +1496,130 @@ MODULE mo_nh_stepping
     IF (jg == 1 .AND. ltimer) CALL timer_stop(timer_integrate_nh)
 
   END SUBROUTINE integrate_nh
-  !-----------------------------------------------------------------------------
-  
+
   !-------------------------------------------------------------------------
   !>
-  !! Diagnostic computations for output
+  !! Driver routine for initial call of slow physics routines
+  !! This had to be moved ahead of the initial output for the physics fields to be more complete
+  !!
+  !! @par Revision History
+  !! Developed by Guenther Zaengl, DWD (2013-01-04)
+  !!
+  RECURSIVE SUBROUTINE init_slowphysics (datetime, jg, dt_loc, dtadv_loc, sim_time)
+
+    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+      &  routine = 'mo_nh_stepping:init_slowphysics'
+
+    TYPE(t_datetime), INTENT(in)         :: datetime
+
+    INTEGER , INTENT(IN)    :: jg           !< current grid level
+    REAL(wp), INTENT(IN)    :: dt_loc       !< time step applicable to local grid level
+    REAL(wp), INTENT(IN)    :: dtadv_loc    !< advective time step applicable to 
+                                            !< local grid level
+    REAL(wp), INTENT(INOUT) :: sim_time(n_dom) !< elapsed simulation time on each
+                                               !< grid level
+
+    ! Local variables
+
+    ! Time levels
+    INTEGER :: n_now, n_new, n_now_rcf, n_new_rcf
+
+    INTEGER :: jgp, jgc, jn
+
+    REAL(wp):: dt_sub, dtadv_sub ! (advective) timestep for next finer grid level
+
+    ! Determine parent domain ID
+    IF ( jg > 1) THEN
+      jgp = p_patch(jg)%parent_id
+    ELSE IF (n_dom_start == 0) THEN
+      jgp = 0
+    ELSE
+      jgp = 1
+    ENDIF
+
+    ! Set local variables for time levels
+    n_now  = nnow(jg)
+    n_new  = nnew(jg)
+
+    ! Set local variable for rcf-time levels
+    n_now_rcf = nnow_rcf(jg)
+    n_new_rcf = nnew_rcf(jg)
+
+    CALL time_ctrl_physics ( dt_phy, lstep_adv, dt_loc, jg,  &! in
+      &                      .TRUE.,                         &! in
+      &                      t_elapsed_phy,                  &! inout
+      &                      lcall_phy )                      ! out
+
+    IF (msg_level >= 7) THEN
+      WRITE(message_text,'(a,i2)') 'initial call of slow physics, domain ', jg
+      CALL message(TRIM(routine), TRIM(message_text))
+    ENDIF
+
+    CALL nwp_nh_interface(lcall_phy(jg,:),                   & !in
+      &                  lredgrid_phys(jg),                  & !in
+      &                  dt_loc,                             & !in
+      &                  dtadv_loc,                          & !in
+      &                  dt_phy(jg,:),                       & !in
+      &                  sim_time(jg),                       & !in
+      &                  datetime,                           & !in
+      &                  p_patch(jg)  ,                      & !in
+      &                  p_int_state(jg),                    & !in
+      &                  p_nh_state(jg)%metrics ,            & !in
+      &                  p_patch(jgp),                       & !in
+      &                  p_int_state(jgp),                   & !in
+      &                  p_grf_state(jgp),                   & !in
+      &                  ext_data(jg)           ,            & !in
+      &                  p_nh_state(jg)%prog(n_now) ,        & !inout
+      &                  p_nh_state(jg)%prog(n_now_rcf) ,    & !inout
+      &                  p_nh_state(jg)%prog(n_now_rcf) ,    & !inout
+      &                  p_nh_state(jg)%diag,                & !inout
+      &                  prm_diag  (jg),                     & !inout
+      &                  prm_nwp_tend(jg)                ,   &
+      &                  p_lnd_state(jg)%diag_lnd,           &
+      &                  p_lnd_state(jg)%prog_lnd(n_now_rcf),& !inout
+      &                  p_lnd_state(jg)%prog_lnd(n_now_rcf),& !inout
+      &                  p_lnd_state(jg)%prog_wtr(n_now_rcf),& !inout
+      &                  p_lnd_state(jg)%prog_wtr(n_now_rcf),& !inout
+      &                  p_nh_state(jg)%prog_list(n_now_rcf) ) 
+
+
+    ! Boundary interpolation of land state variables entering into radiation computation
+    ! if a reduced grid is used in the child domain(s)
+    DO jn = 1, p_patch(jg)%n_childdom
+
+      jgc = p_patch(jg)%child_id(jn)
+      IF (.NOT. p_patch(jgc)%ldom_active) CYCLE
+
+      IF ( lredgrid_phys(jgc) .AND. atm_phy_nwp_config(jgc)%inwp_surface >= 1) THEN
+        CALL interpol_rrg_grf(jg, jgc, jn, nnow_rcf(jg))
+      ENDIF
+    ENDDO
+
+    IF (p_patch(jg)%n_childdom > 0) THEN
+
+      dt_sub     = dt_loc/2._wp    ! dyn. time step on next refinement level
+      dtadv_sub  = dtadv_loc/2._wp ! adv. time step on next refinement level
+
+      DO jn = 1, p_patch(jg)%n_childdom
+
+        jgc = p_patch(jg)%child_id(jn)
+        IF (.NOT. p_patch(jgc)%ldom_active) CYCLE
+
+        IF(p_patch(jgc)%n_patch_cells > 0) THEN
+          IF(proc_split) CALL push_glob_comm(p_patch(jgc)%comm, p_patch(jgc)%proc0)
+          CALL init_slowphysics( datetime, jgc, dt_sub, dtadv_sub, sim_time)
+          IF(proc_split) CALL pop_glob_comm()
+        ENDIF
+
+      ENDDO
+
+    ENDIF
+
+  END SUBROUTINE init_slowphysics
+
+  !-------------------------------------------------------------------------
+  !>
+  !! Diagnostic computations for output - dynamics fields
   !!
   !! This routine encapsulates calls to diagnostic computations required at output
   !! times only
@@ -1523,10 +1627,12 @@ MODULE mo_nh_stepping
   !! @par Revision History
   !! Developed by Guenther Zaengl, DWD (2012-05-09)
   !!
-  SUBROUTINE diag_for_output
+  SUBROUTINE diag_for_output_dyn (linit)
+
+    LOGICAL, INTENT(IN) :: linit ! switch for computing additional diagnostics for initial output
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
-      &  routine = 'mo_nh_stepping:diag_for_output'
+      &  routine = 'mo_nh_stepping:diag_for_output_dyn'
 
     ! Local variables
     INTEGER :: jg, jgc, jn ! loop indices
@@ -1550,9 +1656,8 @@ MODULE mo_nh_stepping
 
         CALL div(p_vn, p_patch(jg), p_int_state(jg), p_nh_state(jg)%diag%div)
 
-        IF (  atm_phy_nwp_config(jg)%inwp_surface == 1 ) THEN
-          CALL aggregate_landvars( p_patch(jg), ext_data(jg),                 &
-               p_lnd_state(jg)%prog_lnd(nnow_rcf(jg)), p_lnd_state(jg)%diag_lnd)
+        IF (linit) THEN
+          CALL rot_vertex (p_vn, p_patch(jg), p_int_state(jg), p_nh_state(jg)%diag%omega_z)
         ENDIF
 
       CASE (6)
@@ -1589,40 +1694,83 @@ MODULE mo_nh_stepping
       CALL sync_patch_array_mult(SYNC_C, p_patch(jg), 3, p_nh_state(jg)%diag%u,      &
         p_nh_state(jg)%diag%v, p_nh_state(jg)%diag%div)
 
-      IF ( iforcing == inwp ) THEN
-        CALL sync_patch_array(SYNC_C, p_patch(jg), p_nh_state(jg)%prog(nnow_rcf(jg))%tke)
-      ENDIF
 
       DO jn = 1, p_patch(jg)%n_childdom
         jgc = p_patch(jg)%child_id(jn)
         IF (.NOT. p_patch(jgc)%ldom_active) CYCLE
 
-        CALL interpol_scal_grf (p_patch(jg), p_patch(jgc), p_int_state(jg),       &
-             p_grf_state(jg)%p_dom(jn), jn, 2, p_nh_state(jg)%diag%u,             &
-             p_nh_state(jgc)%diag%u, p_nh_state(jg)%diag%v, p_nh_state(jgc)%diag%v)
+        CALL interpol_scal_grf (p_patch(jg), p_patch(jgc), p_int_state(jg),         &
+             p_grf_state(jg)%p_dom(jn), jn, 3, p_nh_state(jg)%diag%u,               &
+             p_nh_state(jgc)%diag%u, p_nh_state(jg)%diag%v, p_nh_state(jgc)%diag%v, &
+             p_nh_state(jg)%diag%div, p_nh_state(jgc)%diag%div                      )
 
-        CALL interpol_scal_grf (p_patch(jg), p_patch(jgc), p_int_state(jg),       &
-             p_grf_state(jg)%p_dom(jn), jn, 1, p_nh_state(jg)%diag%div,           &
-             p_nh_state(jgc)%diag%div)
-
-        IF ( iforcing == inwp ) THEN
-
-            CALL interpol_phys_grf(jg, jgc, jn) 
-
-          IF (lfeedback(jgc)) CALL feedback_phys_diag(jgc, jg)
-
-          CALL interpol_scal_grf (p_patch(jg), p_patch(jgc), p_int_state(jg),        &
-             p_grf_state(jg)%p_dom(jn), jn, 1, p_nh_state(jg)%prog(nnow_rcf(jg))%tke,&
-             p_nh_state(jgc)%prog(nnow_rcf(jgc))%tke)
-
-        ENDIF
       ENDDO
 
     ENDDO ! jg-loop
 
     IF (ltimer) CALL timer_stop(timer_nh_diagnostics)
 
-  END SUBROUTINE diag_for_output
+  END SUBROUTINE diag_for_output_dyn
+
+  !-------------------------------------------------------------------------
+  !>
+  !! Diagnostic computations for output - physics fields
+  !!
+  !! This routine encapsulates calls to diagnostic computations required at output
+  !! times only
+  !!
+  !! @par Revision History
+  !! Developed by Guenther Zaengl, DWD (2013-01-04)
+  !!
+  SUBROUTINE diag_for_output_phys
+
+    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+      &  routine = 'mo_nh_stepping:diag_for_output_phys'
+
+    ! Local variables
+    INTEGER :: jg, jgc, jn ! loop indices
+
+    IF (ltimer) CALL timer_start(timer_nh_diagnostics)
+
+    DO jg = 1, n_dom
+
+      IF(p_patch(jg)%n_patch_cells == 0) CYCLE
+      IF (.NOT. p_patch(jg)%ldom_active) CYCLE
+
+      IF (  atm_phy_nwp_config(jg)%inwp_surface == 1 ) THEN
+        CALL aggregate_landvars( p_patch(jg), ext_data(jg),                 &
+             p_lnd_state(jg)%prog_lnd(nnow_rcf(jg)), p_lnd_state(jg)%diag_lnd)
+      ENDIF
+
+    ENDDO ! jg-loop
+
+    ! Fill boundaries of nested domains
+    DO jg = n_dom, 1, -1
+
+      IF(p_patch(jg)%n_patch_cells == 0 .OR. p_patch(jg)%n_childdom == 0) CYCLE
+      IF (.NOT. p_patch(jg)%ldom_active) CYCLE
+
+      CALL sync_patch_array(SYNC_C, p_patch(jg), p_nh_state(jg)%prog(nnow_rcf(jg))%tke)
+
+      DO jn = 1, p_patch(jg)%n_childdom
+        jgc = p_patch(jg)%child_id(jn)
+        IF (.NOT. p_patch(jgc)%ldom_active) CYCLE
+
+        CALL interpol_phys_grf(jg, jgc, jn) 
+
+        IF (lfeedback(jgc)) CALL feedback_phys_diag(jgc, jg)
+
+        CALL interpol_scal_grf (p_patch(jg), p_patch(jgc), p_int_state(jg),        &
+           p_grf_state(jg)%p_dom(jn), jn, 1, p_nh_state(jg)%prog(nnow_rcf(jg))%tke,&
+           p_nh_state(jgc)%prog(nnow_rcf(jgc))%tke)
+
+      ENDDO
+
+    ENDDO ! jg-loop
+
+    IF (ltimer) CALL timer_stop(timer_nh_diagnostics)
+
+  END SUBROUTINE diag_for_output_phys
 
   !-------------------------------------------------------------------------
   !>

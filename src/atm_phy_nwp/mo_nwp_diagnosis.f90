@@ -92,7 +92,7 @@ CONTAINS
   !! @par Revision History
   !! <Description of activity> by <name, affiliation> (<YYYY-MM-DD>)
   !!
-  SUBROUTINE nwp_diagnosis(lcall_phy_jg,lredgrid,jstep,   & !input
+  SUBROUTINE nwp_diagnosis(lcall_phy_jg,lredgrid,         & !input
                             & dt_phy_jg,p_sim_time,       & !input
                             & kstart_moist,               & !input
                             & pt_patch, p_metrics,        & !input
@@ -107,7 +107,6 @@ CONTAINS
     LOGICAL, INTENT(IN)          ::   &             !< physics package time control (switches)
          &                          lcall_phy_jg(:) !< for domain jg
     LOGICAL, INTENT(IN)          :: lredgrid        !< use reduced grid for radiation
-    INTEGER ,INTENT(in)          :: jstep
     REAL(wp),INTENT(in)          :: dt_phy_jg(:)    !< time interval for all physics
                                                     !< packages on domain jg
     REAL(wp),INTENT(in)          :: p_sim_time
@@ -136,7 +135,7 @@ CONTAINS
     INTEGER :: i_startidx, i_endidx    !< slices
     INTEGER :: i_nchdom                !< domain index
 
-    REAL(wp):: z_help, p_sim_time_s6
+    REAL(wp):: z_help, p_sim_time_s6, r_sim_time
 
     INTEGER :: jc,jk,jb,jg      !block index
     INTEGER :: kstart_moist
@@ -153,8 +152,10 @@ CONTAINS
     nlev   = pt_patch%nlev
     nlevp1 = pt_patch%nlevp1    
 
+    ! Inverse of simulation time
+    r_sim_time = 1._wp/MAX(1.e-6_wp, p_sim_time)
 
-   !in order to account for mesh refinement
+    ! exclude nest boundary interpolation zone
     rl_start = grf_bdywidth_c+1
     rl_end   = min_rlcell_int
 
@@ -220,7 +221,7 @@ CONTAINS
 ! from the model start
 
 
-    IF ( p_sim_time > 1.e-1_wp ) THEN
+    IF ( p_sim_time > 1.e-6_wp ) THEN
 
 !$OMP DO PRIVATE(jb, i_startidx,i_endidx,jc) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk, i_endblk
@@ -233,7 +234,7 @@ CONTAINS
                                &  * (p_sim_time - dt_phy_jg(itfastphy))       &
                                &  + prm_diag%tot_cld_vi(jc,jb,1:4)            &
                                &  * dt_phy_jg(itfastphy) )                    &
-                               & / p_sim_time 
+                               &  * r_sim_time 
         ENDDO
       ENDDO ! nblks     
 !$OMP END DO
@@ -259,14 +260,15 @@ CONTAINS
 
         ENDDO
       ENDDO
-      IF ( p_sim_time > 1.e-1_wp ) THEN
+
+      IF ( p_sim_time > 1.e-6_wp ) THEN
         DO jc = i_startidx, i_endidx 
 
           pt_diag%tracer_vi_avg(jc,jb,1:5) = ( pt_diag%tracer_vi_avg(jc,jb,1:5) &
                             &  * (p_sim_time - dt_phy_jg(itfastphy))      &
                             &  + pt_diag%tracer_vi(jc,jb,1:5)             &
                             &  * dt_phy_jg(itfastphy) )                   &
-                            & / p_sim_time
+                            &  * r_sim_time
         ENDDO
       END IF
     ENDDO ! nblks   
@@ -277,7 +279,7 @@ CONTAINS
 !         convective precipitation rate and grid-scale precipitation rate
 
 
-    IF ( p_sim_time > 1.e-1_wp ) THEN
+    IF ( p_sim_time > 1.e-6_wp ) THEN
 
 !$OMP DO PRIVATE(jb, i_startidx,i_endidx,jc) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk, i_endblk
@@ -287,13 +289,13 @@ CONTAINS
         DO jc = i_startidx, i_endidx
 
           prm_diag%tot_prec_rate_avg(jc,jb) =  prm_diag%tot_prec(jc,jb) &
-                               & / p_sim_time  
+                               & * r_sim_time
           prm_diag%con_prec_rate_avg(jc,jb) =  (prm_diag%rain_con(jc,jb) & 
                                & + prm_diag%snow_con(jc,jb))             &
-                               & / p_sim_time 
+                               & * r_sim_time
           prm_diag%gsp_prec_rate_avg(jc,jb) =  (prm_diag%rain_gsp(jc,jb) &
                                & + prm_diag%snow_gsp(jc,jb)) &
-                               & / p_sim_time
+                               & * r_sim_time
 
         ENDDO
       ENDDO ! nblks     
@@ -304,53 +306,43 @@ CONTAINS
 ! latent heat and  sensible heat at surface. Calculation of 
 ! average/accumulated values since model start
 
-    IF ( p_sim_time > 1.e-1_wp .AND. lflux_avg) THEN
+    IF ( p_sim_time > 1.e-6_wp .AND. lflux_avg) THEN
 
 !$OMP DO PRIVATE(jb, i_startidx,i_endidx,jc) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk, i_endblk
         !
         CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
           & i_startidx, i_endidx, rl_start, rl_end)
-        DO jc = i_startidx, i_endidx
 
-          IF (atm_phy_nwp_config(jg)%inwp_turb == 1) THEN
+        SELECT CASE (atm_phy_nwp_config(jg)%inwp_turb)
+        CASE (1, 2, 3)
+          DO jc = i_startidx, i_endidx
             prm_diag%lhfl_s_a(jc,jb) = ( prm_diag%lhfl_s_a(jc,jb)       &
                                &  * (p_sim_time - dt_phy_jg(itfastphy)) &
                                &  + prm_diag%lhfl_s(jc,jb)              &!attention to the sign, in the output all fluxes 
                                &  * dt_phy_jg(itfastphy) )              &!must be positive downwards 
-                               & / p_sim_time 
+                               & * r_sim_time
             prm_diag%shfl_s_a(jc,jb) = ( prm_diag%shfl_s_a(jc,jb)       &
                                &  * (p_sim_time - dt_phy_jg(itfastphy)) &
                                &  + prm_diag%shfl_s(jc,jb)              &!attention to the sign, in the output all fluxes
                                &  * dt_phy_jg(itfastphy) )              &!must be positive downwards 
-                               & / p_sim_time 
-
-          ELSEIF (atm_phy_nwp_config(jg)%inwp_turb == 4) THEN
+                               & * r_sim_time
+          ENDDO
+        CASE (4)
+          DO jc = i_startidx, i_endidx
             prm_diag%lhfl_s_a(jc,jb) = ( prm_diag%lhfl_s_a(jc,jb)       &
                                &  * (p_sim_time - dt_phy_jg(itfastphy)) &
                                &  + prm_diag%qhfl_s(jc,jb)*lh_v         &
                                &  * dt_phy_jg(itfastphy) )              &
-                               & / p_sim_time 
+                               & * r_sim_time
             prm_diag%shfl_s_a(jc,jb) = ( prm_diag%shfl_s_a(jc,jb)       &
                                &  * (p_sim_time - dt_phy_jg(itfastphy)) &
                                &  + prm_diag%shfl_s(jc,jb)              &! it is 0 at the moment, with turb2 the
                                &  * dt_phy_jg(itfastphy) )              &! sensible heat is not output
-                               & / p_sim_time 
+                               & * r_sim_time
+          ENDDO
+        END SELECT
 
-          ELSEIF (atm_phy_nwp_config(jg)%inwp_turb == 2 .OR. atm_phy_nwp_config(jg)%inwp_turb == 3) THEN
-            prm_diag%lhfl_s_a(jc,jb) = ( prm_diag%lhfl_s_a(jc,jb)       &
-                               &  * (p_sim_time - dt_phy_jg(itfastphy)) &
-                               &  + prm_diag%lhfl_s(jc,jb)              &
-                               &  * dt_phy_jg(itfastphy) )              &
-                               & / p_sim_time 
-            prm_diag%shfl_s_a(jc,jb) = ( prm_diag%shfl_s_a(jc,jb)       &
-                               &  * (p_sim_time - dt_phy_jg(itfastphy)) &
-                               &  + prm_diag%shfl_s(jc,jb)              &! it is 0 at the moment, with turb2 the
-                               &  * dt_phy_jg(itfastphy) )              &! sensible heat is not output
-                               & / p_sim_time 
-          ENDIF
-
-        ENDDO
       ENDDO ! nblks     
 !$OMP END DO
 
@@ -360,34 +352,28 @@ CONTAINS
 
         CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
           & i_startidx, i_endidx, rl_start, rl_end)
-        DO jc = i_startidx, i_endidx
 
-          IF (atm_phy_nwp_config(jg)%inwp_turb == 1) THEN
+        SELECT CASE (atm_phy_nwp_config(jg)%inwp_turb)
+        CASE (1, 2, 3)
+          DO jc = i_startidx, i_endidx
             prm_diag%lhfl_s_a(jc,jb) =  prm_diag%lhfl_s_a(jc,jb)     &
                                &  + prm_diag%lhfl_s(jc,jb)           &!attention to the sign, in the output all fluxes 
                                &  * dt_phy_jg(itfastphy)              !must be positive downwards 
             prm_diag%shfl_s_a(jc,jb) =  prm_diag%shfl_s_a(jc,jb)     &
                                &  + prm_diag%shfl_s(jc,jb)           &!attention to the sign, in the output all fluxes 
                                &  * dt_phy_jg(itfastphy)              !must be positive downwards 
-
-          ELSEIF (atm_phy_nwp_config(jg)%inwp_turb == 4) THEN
+          ENDDO
+        CASE (4)
+          DO jc = i_startidx, i_endidx
             prm_diag%lhfl_s_a(jc,jb) =  prm_diag%lhfl_s_a(jc,jb)     &
                                &  + prm_diag%qhfl_s(jc,jb)*lh_v      &
                                &  * dt_phy_jg(itfastphy)
             prm_diag%shfl_s_a(jc,jb) =  prm_diag%shfl_s_a(jc,jb)     &
                                &  + prm_diag%shfl_s(jc,jb)           &! it is 0 at the moment, with turb2 the
                                &  * dt_phy_jg(itfastphy)              ! sensible heat is not output
+          ENDDO
+        END SELECT
 
-          ELSEIF (atm_phy_nwp_config(jg)%inwp_turb == 2 .OR. atm_phy_nwp_config(jg)%inwp_turb == 3) THEN
-            prm_diag%lhfl_s_a(jc,jb) =  prm_diag%lhfl_s_a(jc,jb)     &
-                               &  + prm_diag%lhfl_s(jc,jb)           &
-                               &  * dt_phy_jg(itfastphy)
-            prm_diag%shfl_s_a(jc,jb) =  prm_diag%shfl_s_a(jc,jb)     &
-                               &  + prm_diag%shfl_s(jc,jb)           &! it is 0 at the moment, with turb2 the
-                               &  * dt_phy_jg(itfastphy)              ! sensible heat is not output
-
-          ENDIF
-        ENDDO
       ENDDO ! nblks     
 !$OMP END DO    
 
@@ -397,36 +383,32 @@ CONTAINS
 ! average values since model start
 
 
-    IF ( p_sim_time > 1.e-1_wp ) THEN
+    IF ( p_sim_time > 1.e-6_wp ) THEN
 !$OMP DO PRIVATE(jb, i_startidx,i_endidx,jc) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk, i_endblk
         !
         CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
           & i_startidx, i_endidx, rl_start, rl_end)
-        DO jc = i_startidx, i_endidx
 
-          IF (atm_phy_nwp_config(jg)%inwp_turb == 1) THEN
+        SELECT CASE (atm_phy_nwp_config(jg)%inwp_turb)
+        CASE (1, 2, 3)
+          DO jc = i_startidx, i_endidx
             prm_diag%qhfl_s_avg(jc,jb) = ( prm_diag%qhfl_s_avg(jc,jb)  &
                                &  * (p_sim_time - dt_phy_jg(itfastphy)) &
                                &  + prm_diag%lhfl_s(jc,jb)/lh_v         & !attention to the sign, in the output all fluxes  
                                &  * dt_phy_jg(itfastphy) )              & !must be positive downwards 
-                               & / p_sim_time
-
-          ELSEIF (atm_phy_nwp_config(jg)%inwp_turb == 4) THEN
+                               & * r_sim_time
+          ENDDO
+        CASE (4)
+          DO jc = i_startidx, i_endidx
              prm_diag%qhfl_s_avg(jc,jb) = ( prm_diag%qhfl_s_avg(jc,jb)  &
                                &  * (p_sim_time - dt_phy_jg(itfastphy)) &
                                &  + prm_diag%qhfl_s(jc,jb)              &
                                &  * dt_phy_jg(itfastphy) )              &
-                               & / p_sim_time
+                               & * r_sim_time
+          ENDDO
+        END SELECT
 
-          ELSEIF (atm_phy_nwp_config(jg)%inwp_turb == 2 .OR. atm_phy_nwp_config(jg)%inwp_turb == 3) THEN
-             prm_diag%qhfl_s_avg(jc,jb) = ( prm_diag%qhfl_s_avg(jc,jb)  &
-                               &  * (p_sim_time - dt_phy_jg(itfastphy)) &
-                               &  + prm_diag%lhfl_s(jc,jb)/lh_v         &
-                               &  * dt_phy_jg(itfastphy) )              &
-                               & / p_sim_time
-          ENDIF
-        ENDDO
       ENDDO ! nblks     
 !$OMP END DO
     END IF
@@ -437,7 +419,7 @@ CONTAINS
 !    dt_s6avg average variables 
 
     IF (MOD(p_sim_time + time_config%ini_datetime%daysec, dt_s6avg) == 0._wp &
-      & .AND. p_sim_time > 0.1_wp) THEN
+      & .AND. p_sim_time > 0.01_wp) THEN
       l_s6avg = .TRUE.
       p_sim_time_s6 = REAL(INT( (p_sim_time+time_config%ini_datetime%daysec)/dt_s6avg),wp) &
          &             * dt_s6avg

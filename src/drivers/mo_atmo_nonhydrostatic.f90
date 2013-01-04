@@ -41,7 +41,7 @@ USE mo_timer,                ONLY: print_timer, timers_level, timer_start, &
 USE mo_master_control,       ONLY: is_restart_run
 USE mo_output,               ONLY: init_output_files, close_output_files,&
   &                                write_output
-USE mo_math_divrot,          ONLY: rot_vertex
+
 USE mo_time_config,          ONLY: time_config      ! variable
 USE mo_io_restart,           ONLY: read_restart_files
 USE mo_io_restart_attributes,ONLY: get_restart_attribute
@@ -80,7 +80,7 @@ USE mo_nwp_lnd_state,        ONLY: p_lnd_state, construct_nwp_lnd_state,       &
   &                                destruct_nwp_lnd_state
 USE mo_nh_diagnose_pres_temp,ONLY: diagnose_pres_temp
 ! Time integration
-USE mo_nh_stepping,          ONLY: prepare_nh_integration, perform_nh_stepping, diag_for_output
+USE mo_nh_stepping,          ONLY: prepare_nh_integration, perform_nh_stepping
 ! Initialization with real data
 USE mo_prepicon_utils,       ONLY: init_icon
 USE mo_ext_data_state,      ONLY: ext_data, init_index_lists
@@ -97,7 +97,6 @@ USE mo_name_list_output,    ONLY: init_name_list_output,  &
 USE mo_pp_scheduler,        ONLY: new_simulation_status, pp_scheduler_init, &
   &                               pp_scheduler_process, pp_scheduler_finalize
 USE mo_pp_tasks,            ONLY: t_simulation_status
-USE mo_var_list,            ONLY: print_var_list
 USE mo_intp_lonlat,         ONLY: compute_lonlat_area_weights
 
 !-------------------------------------------------------------------------
@@ -148,7 +147,7 @@ CONTAINS
     CHARACTER(*), PARAMETER :: routine = "construct_atmo_nonhydrostatic"
     
 
-    INTEGER :: jg, ist, ntl, ntlr
+    INTEGER :: jg, ist
     LOGICAL :: l_realcase
     INTEGER :: pat_level(n_dom)
     TYPE(t_simulation_status) :: simulation_status
@@ -380,61 +379,6 @@ CONTAINS
     IF (output_mode%l_nml) THEN
       CALL init_name_list_output(isample=iadv_rcf)
     END IF
-
-    !------------------------------------------------------------------
-    !  get and write out some of the inital values
-    !------------------------------------------------------------------
-    IF (.NOT.is_restart_run()) THEN
-
-      ! Compute diagnostic fields for initial output
-      CALL diag_for_output ()
-
-      ! Vorticity needs to be diagnosed in addition - it is computed during runtime otherwise
-      DO jg = 1, n_dom
-
-        IF (.NOT. p_patch(jg)%ldom_active) CYCLE
-
-        ntl  = nnow(jg)
-        CALL rot_vertex (p_nh_state(jg)%prog(ntl)%vn, p_patch(jg), p_int_state(jg), &
-          p_nh_state(jg)%diag%omega_z)
-
-      ENDDO
-
-      !--------------------------------------------------------------------------
-      ! loop over the list of internal post-processing tasks, e.g.
-      ! interpolate selected fields to p- and/or z-levels
-      simulation_status = new_simulation_status(l_first_step =.TRUE., l_output_step=.TRUE., &
-        &                                       l_dom_active=p_patch(1:)%ldom_active)
-      CALL pp_scheduler_process(simulation_status)
-
-      ! Note: here the derived output variables are not yet available
-      ! (divergence, vorticity)
-      !
-      IF (output_mode%l_vlist) THEN
-        CALL write_output( time_config%cur_datetime )
-        CALL message(TRIM(routine),'Initial Output')
-        l_have_output = .TRUE.
-      END IF
-
-      IF (output_mode%l_nml) THEN
-        CALL write_name_list_output( time_config%cur_datetime, 0._wp, .FALSE. )
-      END IF
-
-    END IF ! not is_restart_run()
-
-    ! for debug purpose: print var lists
-    IF ( msg_level >=20 .AND. my_process_is_stdio() .AND. .NOT. ltestcase) THEN
-      CALL print_var_list (p_nh_state(1)%prog_list(1))
-      CALL print_var_list (p_nh_state(1)%diag_list)
-      CALL print_var_list (p_nh_state(1)%metrics_list)
-      CALL print_var_list (prm_nwp_diag_list(1))
-      CALL print_var_list (prm_nwp_tend_list(1))
-      CALL print_var_list (p_lnd_state(1)%lnd_prog_nwp_list(1))
-      CALL print_var_list (p_lnd_state(1)%lnd_diag_nwp_list)
-      CALL print_var_list (ext_data(1)%atm_list)
-      CALL print_var_list (ext_data(1)%atm_td_list)
-    ENDIF
-
 
     IF (timers_level > 3) CALL timer_stop(timer_model_init)
 

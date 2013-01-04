@@ -124,7 +124,7 @@ CONTAINS
   !-----------------------------------------------------------------------
   !
   SUBROUTINE nwp_nh_interface(lcall_phy_jg, lredgrid, dt_loc,      & !input
-                            & dtadv_loc, jstep, dt_phy_jg,         & !input
+                            & dtadv_loc, dt_phy_jg,                & !input
                             & p_sim_time, datetime,                & !input
                             & pt_patch, pt_int_state, p_metrics,   & !input
                             & pt_par_patch, pt_par_int_state,      & !input
@@ -144,7 +144,6 @@ CONTAINS
     LOGICAL, INTENT(IN)          ::   &             !< physics package time control (switches)
          &                          lcall_phy_jg(:) !< for domain jg
     LOGICAL, INTENT(IN)          :: lredgrid        !< use reduced grid for radiation
-    INTEGER ,INTENT(in)          :: jstep
     REAL(wp),INTENT(in)          :: dt_loc          !< time step applicable to local grid level
     REAL(wp),INTENT(in)          :: dtadv_loc       !< same for advective time step
     REAL(wp),INTENT(in)          :: dt_phy_jg(:)    !< time interval for all physics
@@ -208,6 +207,7 @@ CONTAINS
     REAL(wp) :: zcosmu0 (nproma,pt_patch%nblks_c)
 
     REAL(wp) :: rd_o_cvd
+    REAL(wp) :: r_sim_time
 
     REAL(wp) :: z_qsum       !< summand of virtual increment
     REAL(wp) :: z_ddt_qsum   !< summand of tendency of virtual increment
@@ -255,6 +255,9 @@ CONTAINS
 
     ! factor for sound speed computation
     csfac = rd*cpd*rcvd
+
+    ! Inverse of simulation time
+    r_sim_time = 1._wp/MAX(1.e-6_wp, p_sim_time)
 
     IF (lcall_phy_jg(itsatad) .OR. lcall_phy_jg(itgscp) .OR. &
         lcall_phy_jg(itturb)  .OR. lcall_phy_jg(itsfc)) THEN
@@ -839,7 +842,7 @@ CONTAINS
 
       IF (ltimer) CALL timer_start(timer_nwp_radiation)
       CALL nwp_radiation (lredgrid,              & ! in
-           &              p_sim_time-dt_loc,     & ! in
+           &              p_sim_time,            & ! in
            &              datetime,              & ! in
            &              pt_patch,pt_par_patch, & ! in
            &              pt_par_int_state,      & ! in
@@ -866,7 +869,7 @@ CONTAINS
       CALL pre_radiation_nwp (                      &
         & kbdim      = nproma,                      &
         & p_inc_rad  = dt_phy_jg(itfastphy),        &
-        & p_sim_time = p_sim_time-dt_loc,           &
+        & p_sim_time = p_sim_time,                  &
         & pt_patch   = pt_patch,                    &
         & zsmu0      = zcosmu0,                     &
         & zsct       = zsct )
@@ -991,7 +994,7 @@ CONTAINS
 
         ENDIF
 
-        IF ( p_sim_time > 1.e-1_wp .AND. lflux_avg) THEN
+        IF ( p_sim_time > 1.e-6_wp .AND. lflux_avg) THEN
 
          !sum up for averaged fluxes
           !T.R.: this is not correct for output after 1st timestep,
@@ -1002,19 +1005,19 @@ CONTAINS
           prm_diag%swflxsfc_a(jc,jb) = ( prm_diag%swflxsfc_a(jc,jb)                     &
                                  &  * (p_sim_time - dt_phy_jg(itfastphy))               &
                                  &  + dt_phy_jg(itfastphy) * prm_diag%swflxsfc(jc,jb))  &
-                                 &  / p_sim_time
+                                 &  * r_sim_time
           prm_diag%lwflxsfc_a(jc,jb) = ( prm_diag%lwflxsfc_a(jc,jb)                     &
                                  &  * (p_sim_time - dt_phy_jg(itfastphy))               &
                                  &  + dt_phy_jg(itfastphy) * prm_diag%lwflxsfc(jc,jb))  &
-                                 &  / p_sim_time
+                                 &  * r_sim_time
           prm_diag%swflxtoa_a(jc,jb) = ( prm_diag%swflxtoa_a(jc,jb)                     &
                                  &  * (p_sim_time - dt_phy_jg(itfastphy))               &
                                  &  + dt_phy_jg(itfastphy) * prm_diag%swflxtoa(jc,jb))  &
-                                 &  / p_sim_time
+                                 &  * r_sim_time
           prm_diag%lwflxtoa_a(jc,jb) = ( prm_diag%lwflxtoa_a(jc,jb)                     &
                                  &  * (p_sim_time - dt_phy_jg(itfastphy))               &
-                                &  + dt_phy_jg(itfastphy) * prm_diag%lwflxall(jc,1,jb)) &
-                                &  / p_sim_time
+                                 & + dt_phy_jg(itfastphy) * prm_diag%lwflxall(jc,1,jb)) &
+                                 &  * r_sim_time
          ENDDO
 
         ELSEIF ( .NOT. lflux_avg ) THEN
@@ -1616,17 +1619,14 @@ CONTAINS
         CALL message('', TRIM(message_text))
       ENDIF
 
-    
-
-    IF (jstep > 1 .OR. (jstep == 1 .AND. lcall_phy_jg(itupdate))) THEN
-     CALL nwp_diagnosis(lcall_phy_jg,lredgrid,jstep,         & !input
+   
+     CALL nwp_diagnosis(lcall_phy_jg,lredgrid,               & !input
                             & dt_phy_jg,p_sim_time,          & !input
                             & kstart_moist(jg),              & !input
                             & pt_patch, p_metrics,           & !input
                             & pt_prog, pt_prog_rcf,          & !in
                             & pt_diag,                       & !inout
-                            & prm_diag,prm_nwp_tend)   
-    END IF
+                            & prm_diag,prm_nwp_tend)
 
 
     IF (ltimer) CALL timer_stop(timer_physics)

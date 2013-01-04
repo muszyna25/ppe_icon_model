@@ -840,7 +840,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
 !
          &  t_2m=prm_diag%t_2m(:,jb), qv_2m=prm_diag%qv_2m(:,jb), td_2m=prm_diag%td_2m (:,jb), &
          &  rh_2m=prm_diag%rh_2m(:,jb), u_10m=prm_diag%u_10m(:,jb), v_10m=prm_diag%v_10m (:,jb), &
-!
+         &  shfl_s=prm_diag%shfl_s(:,jb), lhfl_s=prm_diag%lhfl_s(:,jb),                         &
          &  ierrstat=ierrstat, errormsg=errormsg, eroutine=eroutine )
 
 
