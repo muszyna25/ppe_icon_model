@@ -542,7 +542,7 @@ MODULE mo_solve_nonhydro
     ! Local variables
     INTEGER  :: jb, jk, jc, je
     INTEGER  :: nlev, nlevp1              !< number of full levels
-    INTEGER  :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
+    INTEGER  :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom, ishift
     INTEGER  :: rl_start, rl_end, istep, ntl1, ntl2, nvar, nshift
     INTEGER  :: ic, ie, ilc0, ibc0, ikp1, ikp2
 
@@ -1203,17 +1203,17 @@ MODULE mo_solve_nonhydro
 
     IF (istep == 1 .AND. (igradp_method == 3 .OR. igradp_method == 5)) THEN
 
-!$OMP DO PRIVATE(jb,je,ie,nlen_gradp) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,je,ie,nlen_gradp,ishift) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = 1, nblks_gradp
         IF (jb == nblks_gradp) THEN
           nlen_gradp = npromz_gradp
         ELSE
           nlen_gradp = nproma_gradp
         ENDIF
-
+        ishift = (jb-1)*nproma_gradp
 !CDIR NODEP,VOVERTAKE,VOB
         DO je = 1, nlen_gradp
-          ie = (jb-1)*nproma_gradp+je
+          ie = ishift+je
 
           z_gradh_exner(ipeidx(ie),iplev(ie),ipeblk(ie))  =              &
             z_gradh_exner(ipeidx(ie),iplev(ie),ipeblk(ie)) +             &

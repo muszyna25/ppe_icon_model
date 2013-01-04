@@ -111,7 +111,7 @@ MODULE mo_nh_diffusion
     REAL(wp):: diff_multfac_vn(p_patch%nlev)
     INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
     INTEGER :: rl_start, rl_end
-    INTEGER :: jk, jb, jc, je, ic
+    INTEGER :: jk, jb, jc, je, ic, ishift
 
     ! start index levels and diffusion coefficient for boundary diffusion
     INTEGER :: start_bdydiff_e
@@ -844,16 +844,17 @@ MODULE mo_nh_diffusion
 
       IF (l_zdiffu_t) THEN ! Compute temperature diffusion truly horizontally over steep slopes
                            ! A conservative discretization is not possible here
-!$OMP DO PRIVATE(jb,jc,ic,nlen_zdiffu) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,jc,ic,nlen_zdiffu,ishift) ICON_OMP_DEFAULT_SCHEDULE
         DO jb = 1, nblks_zdiffu
           IF (jb == nblks_zdiffu) THEN
             nlen_zdiffu = npromz_zdiffu
           ELSE
             nlen_zdiffu = nproma_zdiffu
           ENDIF
+          ishift = (jb-1)*nproma_zdiffu
 !CDIR NODEP,VOVERTAKE,VOB
           DO jc = 1, nlen_zdiffu
-            ic = (jb-1)*nproma_zdiffu+jc
+            ic = ishift+jc
             z_temp(icell(1,ic),ilev(1,ic),iblk(1,ic)) =                                          &
               z_temp(icell(1,ic),ilev(1,ic),iblk(1,ic)) + p_nh_metrics%zd_diffcoef(ic)*          &
 !              MAX(p_nh_metrics%zd_diffcoef(ic),        &
