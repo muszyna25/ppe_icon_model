@@ -213,8 +213,8 @@ CONTAINS
     CALL allocate_intp_data(intp_data_B, gridB%p_patch%nblks_c)
 
     ! compute interpolation weights
-!    CALL prepare_interpolation(gridA, gridB, gridA_cov, gridB_cov, &
-!      &                        intp_data_A, intp_data_B, max_nforeign)
+    CALL prepare_interpolation(gridA, gridB, gridA_cov, gridB_cov, &
+      &                        intp_data_A, intp_data_B, max_nforeign)
 
     ! performance measurement: stop
     IF (dbg_level >= 2)  WRITE (0,*) "# > weight computation: elapsed time: ", toc(time_s), " sec."
