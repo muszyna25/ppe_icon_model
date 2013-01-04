@@ -59,7 +59,7 @@ MODULE mo_echam_phy_memory
   USE mo_exception,           ONLY: message, finish
   USE mo_parallel_config,     ONLY: nproma
   USE mo_advection_config,    ONLY: advection_config
-  USE mo_icoham_sfc_indices,  ONLY: nsfc_type
+  USE mo_icoham_sfc_indices,  ONLY: nsfc_type, iice
 !   USE mo_echam_phy_nml,       ONLY: lvdiff
    USE mo_echam_phy_config,   ONLY: get_lvdiff, get_ljsbach
 !   USE mo_echam_phy_config,    ONLY: echam_phy_config
@@ -273,6 +273,20 @@ MODULE mo_echam_phy_memory
       & glacier_runoff_acc(:,  :),  &!< 
       & runoff_acc        (:,  :),  &!<
       & drainage_acc      (:,  :)    !<
+
+    ! Sea ice.
+    ! See also atm_oce_lnd_interface/mo_sea_ice_types.f90
+    INTEGER              :: kice = 1    ! Number of ice-thickness classes
+    LOGICAL,POINTER      :: isice(:,:,:)! Logical field that marks ice-covered grid cells
+    REAL(wp),POINTER     ::     &
+      & Tsurf   (:,:,:),        & ! Ice surface temperature [degC]
+      & T1      (:,:,:),        & ! Temperature of upper ice layer [degC]
+      & T2      (:,:,:),        & ! Temperature of lower ice layer [degC]
+      & hi      (:,:,:),        & ! Ice thickness [m]
+      & hs      (:,:,:),        & ! Snow thickness on ice [m]
+      & Qtop    (:,:,:),        & ! Energy flux available for surface melting [W/m^2]
+      & Qbot    (:,:,:),        & ! Energy flux at ice-ocean interface [W/m^2]
+      & conc    (:,:,:)           ! Ice concentration [0,1]
 
     ! Turbulence
 
@@ -599,9 +613,9 @@ CONTAINS
     TYPE(t_cf_var)    ::    cf_desc
     TYPE(t_grib2_var) :: grib2_desc
 
-    INTEGER :: shape2d(2), shape3d(3), shapesfc(3)
+    INTEGER :: shape2d(2), shape3d(3), shapesfc(3), shapeice(3)
 !0!    INTEGER :: shape4d(4)
-    INTEGER :: ibits, iextbits, jsfc, jtrc
+    INTEGER :: ibits, iextbits, jsfc, jtrc, ist
 
     CHARACTER(LEN=1) :: csfc
 
@@ -1105,6 +1119,67 @@ CONTAINS
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
 
     END IF ! ljsbach
+
+    !-------------------------
+    ! Sea ice
+    !-------------------------
+
+    IF ( iice <= nsfc_type ) THEN
+
+      field%kice = 1 ! TODO: Number of thickness classes - should be a name-list variable
+      shapeice = (/kproma, field%kice, kblks/)
+
+      ALLOCATE(field%isice(kproma,field%kice,kblks), STAT=ist)
+      IF (ist/=SUCCESS) THEN
+        CALL finish(TRIM(thismodule),'allocation for isice failed')
+      END IF
+
+      CALL add_var( field_list, 'Tsurf', field%Tsurf ,                          &
+        &          GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE,                      &
+        &          t_cf_var('Tsurf', 'C', 'surface temperature', DATATYPE_FLT32),&
+        &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
+        &          ldims=shapeice)
+      CALL add_var( field_list, 'T1', field%T1 ,                                &
+        &          GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE,                      &
+        &          t_cf_var('T1', 'C', 'Temperature upper layer', DATATYPE_FLT32),&
+        &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
+        &          ldims=shapeice)
+      CALL add_var( field_list, 'T2', field%T2 ,                                &
+        &          GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE,                      &
+        &          t_cf_var('T2', 'C', 'Temperature lower layer', DATATYPE_FLT32),&
+        &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
+        &          ldims=shapeice)
+      CALL add_var( field_list, 'hi', field%hi ,                                &
+        &          GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE,                      &
+        &          t_cf_var('hi', 'm', 'ice thickness', DATATYPE_FLT32),        &
+        &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
+        &          ldims=shapeice)
+      CALL add_var( field_list, 'hs', field%hs ,                                &
+        &          GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE,                      &
+        &          t_cf_var('hs', 'm', 'snow thickness', DATATYPE_FLT32),       &
+        &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
+        &          ldims=shapeice)
+      CALL add_var( field_list, 'Qtop', field%Qtop ,                            &
+        &          GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE,                      &
+        &          t_cf_var('Qtop', 'W/m^2', 'Energy flux available for surface melting', &
+        &                   DATATYPE_FLT32),                                    &
+        &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
+        &          ldims=shapeice)
+      CALL add_var( field_list, 'Qbot', field%Qbot ,                            &
+        &          GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE,                      &
+        &          t_cf_var('Qbot', 'W/m^2', 'Energy flux at ice-ocean interface', DATATYPE_FLT32),&
+        &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
+        &          ldims=shapeice)
+
+
+      CALL add_var( field_list, 'conc', field%conc ,                            &
+        &          GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE,                      &
+        &          t_cf_var('conc', '', 'ice concentration in each ice class', DATATYPE_FLT32),&
+        &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
+        &          ldims=shapeice)
+
+    ENDIF ! iice <= nfsc_type
+
 
     !---- 3D variables defined at layer interfaces ----
 
