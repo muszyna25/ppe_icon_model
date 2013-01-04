@@ -107,7 +107,9 @@ MODULE mo_nh_testcases
 
   USE mo_nh_prog_util,         ONLY: nh_prog_add_random
   USE mo_nh_init_utils,        ONLY: n_flat_level, layer_thickness
-
+  USE mo_grid_geometry_info,   ONLY: planar_torus_geometry
+  USE mo_nh_torus_exp,         ONLY: waveno_x, waveno_y, u0, v0, &
+                                     init_nh_state_prog_advtest 
   
   IMPLICIT NONE  
   
@@ -161,7 +163,7 @@ MODULE mo_nh_testcases
                             m_height, m_width_x, m_width_y, itype_atmo_ana,  &
                             nlayers_poly, p_base_poly, h_poly, t_poly,       &
                             tgr_poly, rh_poly, rhgr_poly, lshear_dcmip,      &
-                            lcoupled_rho  
+                            lcoupled_rho, waveno_x, waveno_y, u0, v0  
 
   PUBLIC :: read_nh_testcase_namelist, layer_thickness, init_nh_testtopo,    &
     &       init_nh_testcase, n_flat_level, nh_test_name,                    &
@@ -316,6 +318,11 @@ MODULE mo_nh_testcases
     ! for PA test cases:
     lcoupled_rho   = .FALSE.
 
+   ! for 2D wave testcase for flat torus
+    waveno_x   = 1._wp
+    waveno_y   = 1._wp
+    u0         = 0._wp
+    v0         = 0._wp
 
     CALL open_nml(TRIM(filename))
     CALL position_nml ('nh_testcase_nml', status=i_status)
@@ -379,7 +386,7 @@ MODULE mo_nh_testcases
 
   CASE ('schaer')
  
-    IF(.NOT.lplane) CALL finish(TRIM(routine),'Schaer test case only for lplane=True')
+    !IF(.NOT.lplane) CALL finish(TRIM(routine),'Schaer test case only for lplane=True')
 
     ! At present the mountain is at position lat=0,lon=0 (given in meters)
     z_x2_geo%lon = 0.0_wp
@@ -393,7 +400,11 @@ MODULE mo_nh_testcases
           nlen =  p_patch(jg)%npromz_c
         ENDIF
         DO jc = 1, nlen
-          z_lon  = p_patch(jg)%cells%center(jc,jb)%lon*torus_domain_length/pi*0.5_wp
+          IF(p_patch(jg)%geometry_info%geometry_type==planar_torus_geometry)THEN
+            z_lon = p_patch(jg)%cells%cartesian_center(jc,jb)%x(1)
+          ELSE
+            z_lon = p_patch(jg)%cells%center(jc,jb)%lon*torus_domain_length/pi*0.5_wp
+          END IF
           z_dist = z_lon-z_x2_geo%lon
           ext_data(jg)%atm%topography_c(jc,jb) = 250.0_wp &
           & * EXP(-(z_dist/5000.0_wp)**2)*((COS(pi*z_dist/4000.0_wp))**2)
@@ -408,7 +419,11 @@ MODULE mo_nh_testcases
           nlen =  p_patch(jg)%npromz_v
         ENDIF
         DO jv = 1, nlen
-          z_lon  = p_patch(jg)%verts%vertex(jv,jb)%lon*torus_domain_length/pi*0.5_wp
+          IF(p_patch(jg)%geometry_info%geometry_type==planar_torus_geometry)THEN
+            z_lon = p_patch(jg)%verts%cartesian(jv,jb)%x(1)
+          ELSE
+            z_lon  = p_patch(jg)%verts%vertex(jv,jb)%lon*torus_domain_length/pi*0.5_wp
+          END IF
           z_dist = z_lon-z_x2_geo%lon
           ext_data(jg)%atm%topography_v(jv,jb) = 250.0_wp &
           & * EXP(-(z_dist/5000.0_wp)**2)*((COS(pi*z_dist/4000.0_wp))**2)
@@ -601,6 +616,14 @@ MODULE mo_nh_testcases
   CASE ('dcmip_tc_52')
     ! itopo == 0 --> The topography is initialized to 0 at the begining of this subroutine
     CALL message(TRIM(routine),'running DCMIP tropical cyclone testcase 52')
+
+  CASE ('CBL')
+
+    IF(p_patch(1)%geometry_info%geometry_type/=planar_torus_geometry)&
+        CALL finish(TRIM(routine),'CBL case is only for plane torus!')
+
+   ! The topography has been initialized to 0 at the begining of this SUB
+    CALL message(TRIM(routine),'running Convective Boundary Layer Experiment')
 
   CASE DEFAULT
 
@@ -829,6 +852,10 @@ MODULE mo_nh_testcases
             p_nh_state(jg)%prog(jt)%vn(je,jk,jb) = nh_u0 &
             !(p_nhdom%metrics%geopot(1,jk,1)/grav/1000.0_wp+5.0_wp)& !shear
             *p_patch(jg)%edges%primal_normal(je,jb)%v1
+
+            ! copy vn to reference state vector (needed by Rayleigh damping mechanism)
+            p_nh_state(jg)%ref%vn_ref(je,jk,jb)  &
+                      = p_nh_state(jg)%prog(jt)%vn(je,jk,jb)
           ENDDO
         ENDDO
       ENDDO
@@ -903,6 +930,10 @@ MODULE mo_nh_testcases
         ENDDO
         DO jk = 1, nlevp1
           p_nh_state(jg)%prog(jt)%w(1:nlen,jk,jb) = 0.0_wp
+
+          ! copy w to reference state vector (needed by Rayleigh damping mechanism)
+          p_nh_state(jg)%ref%w_ref(je,jk,jb) = &
+              p_nh_state(jg)%prog(jt)%w(je,jk,jb)
         ENDDO
       ENDDO
     ENDDO
@@ -1178,6 +1209,23 @@ MODULE mo_nh_testcases
     END DO !jg
 
     CALL message(TRIM(routine),'End setup dcmip_tc_51/52')
+
+  CASE ('CBL')
+
+    IF(p_patch(1)%geometry_info%geometry_type/=planar_torus_geometry)&
+        CALL finish(TRIM(routine),'CBL case is only for plane torus!')
+
+    DO jg = 1, n_dom
+      CALL init_nh_state_prog_advtest ( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)),  &
+                      & p_nh_state(jg)%diag, p_int(jg), ext_data(jg), p_nh_state(jg)%metrics )
+
+     ! CALL nh_prog_add_random( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)),   & ! in and out
+     !                         & 0.01_wp, nproma, nlev ) ! input
+
+      CALL duplicate_prog_state(p_nh_state(jg)%prog(nnow(jg)),p_nh_state(jg)%prog(nnew(jg)))
+    END DO !jg
+
+    CALL message(TRIM(routine),'End setup CBL test')
 
   END SELECT
 

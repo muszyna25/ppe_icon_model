@@ -134,7 +134,7 @@ MODULE mo_create_torus_grid
   USE mo_math_constants,  ONLY: pi
   USE mo_local_grid_geometry,  ONLY: order_cell_connectivity
   USE mo_math_utilities,  ONLY: plane_torus_distance, plane_torus_closest_coordinates
-
+  USE mo_physical_constants, ONLY: earth_radius
   IMPLICIT NONE
 
   PRIVATE
@@ -289,9 +289,9 @@ CONTAINS
 
     !--------------------------------------------------------------
     ! create unfolded grid
-    CALL create_unfolded_torus()
+    !CALL create_unfolded_torus()
     !  write netcdf file
-    CALL write_netcdf_grid(unfolded_grid_id, unfolded_torus_file_name)
+    !CALL write_netcdf_grid(unfolded_grid_id, unfolded_torus_file_name)
 !almut    !  write unfolded_grid to ascii file
 !     CALL write_grid_ascii(torus_grid_id, ascii_filename)
     
@@ -462,7 +462,7 @@ CONTAINS
 
 !     REAL(wp), PARAMETER :: max_lat = pi / 2.0_wp !/ 18.0_wp
     ! the pi / 2 will not work for the decomposition, it needs to be near the equator
-    REAL(wp), PARAMETER :: max_lat = pi / 18.0_wp !/ 18.0_wp
+    REAL(wp), PARAMETER :: max_lat = pi / 18.0_wp 
 
     sin60 = SQRT(0.75_wp) 
     !--------------------------------------------------------------
@@ -494,7 +494,9 @@ CONTAINS
     torus_grid%geometry_info%mean_cell_area     = triangle_area
     torus_grid%geometry_info%domain_length      = x_step * REAL(x_no_of_columns,wp)
     torus_grid%geometry_info%domain_height      = y_step * REAL(y_no_of_rows,wp)
-    torus_grid%geometry_info%sphere_radius      = 0.0_wp
+    !AD:Zero value was causing trouble and I think it's better to treat this flat
+    !geometry as a small arc on Earth: Any non-zero value is good for the calculations
+    torus_grid%geometry_info%sphere_radius      = earth_radius 
    
    !--------------------------------------------------------------
     !  get  coordinates
