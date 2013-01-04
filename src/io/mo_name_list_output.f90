@@ -279,7 +279,7 @@ CONTAINS
     INTEGER  :: taxis_tunit
     INTEGER  :: dom(max_phys_dom)
     INTEGER  :: output_time_unit
-    REAL(wp) :: output_bounds(3,max_bounds)
+    REAL(wp) :: output_bounds(3,max_bounds), output_bounds_sec(3,max_bounds)
     INTEGER  :: steps_per_file
     LOGICAL  :: include_last
     LOGICAL  :: output_grid
@@ -413,24 +413,41 @@ CONTAINS
       IF(dtime<=0._wp) CALL finish(routine, 'dtime must be set before reading output namelists')
 
       ! Output bounds
-      IF(output_bounds(1,1) < 0._wp .OR. &
-         output_bounds(2,1) <= output_bounds(1,1) .OR. &
-         output_bounds(3,1) <= dtime * grid_rescale_factor ) THEN
+      ! output_bounds is always in seconds - the question is what to do with months or years
+      ! output_time_unit: 1 = second, 2=minute, 3=hour, 4=day, 5=month, 6=year
+      SELECT CASE(output_time_unit)
+        CASE(1); output_bounds_sec(:,:) = output_bounds(:,:)
+        CASE(2); output_bounds_sec(:,:) = output_bounds(:,:)*60._wp
+        CASE(3); output_bounds_sec(:,:) = output_bounds(:,:)*3600._wp
+        CASE(4); output_bounds_sec(:,:) = output_bounds(:,:)*86400._wp
+        CASE(5); output_bounds_sec(:,:) = output_bounds(:,:)*86400._wp*30._wp  ! Not a real calender month
+        CASE(6); output_bounds_sec(:,:) = output_bounds(:,:)*86400._wp*365._wp ! Not a real calender year
+        CASE DEFAULT
+          CALL finish(routine,'Illegal output_time_unit')
+      END SELECT
+
+      !Consistency check on output bounds
+      IF(output_bounds_sec(1,1) < 0._wp .OR. &
+         output_bounds_sec(2,1) <= output_bounds_sec(1,1) .OR. &
+         output_bounds_sec(3,1) <= dtime * grid_rescale_factor ) THEN
         CALL finish(routine,'Illegal output_bounds(:,1)')
       ENDIF
 
       DO i = 2, max_bounds-1
-        IF(output_bounds(3,i) <= 0._wp) EXIT ! The last one
-        IF(output_bounds(1,i) <= output_bounds(2,i-1)) &
+        IF(output_bounds_sec(3,i) <= 0._wp) EXIT ! The last one
+
+        IF(output_bounds_sec(1,i) <= output_bounds_sec(2,i-1)) &
           CALL finish(routine,'output_bounds not increasing')
-        IF(output_bounds(2,i) <= output_bounds(1,i)) &
+
+        IF(output_bounds_sec(2,i) <= output_bounds_sec(1,i)) &
           CALL finish(routine,'output_bounds end <= start')
-        IF(output_bounds(3,i) <  dtime * grid_rescale_factor ) &
+
+        IF(output_bounds_sec(3,i) <  dtime * grid_rescale_factor ) &
           CALL finish(routine,'output_bounds inc < dtime')
       ENDDO
 
       ! For safety, at least last bounds triple must always be 0
-      output_bounds(:,i:) = 0._wp
+      output_bounds_sec(:,i:) = 0._wp
 
       ! Allocate next output_name_list
 
@@ -462,20 +479,7 @@ CONTAINS
       p_onl%taxis_tunit      = taxis_tunit
       p_onl%dom(:)           = dom(:)
       p_onl%output_time_unit = output_time_unit
-
-      ! output_bounds is always in seconds - the question is what to do with months or years
-      ! output_time_unit: 1 = second, 2=minute, 3=hour, 4=day, 5=month, 6=year
-      SELECT CASE(output_time_unit)
-        CASE(1); p_onl%output_bounds(:,:) = output_bounds(:,:)
-        CASE(2); p_onl%output_bounds(:,:) = output_bounds(:,:)*60._wp
-        CASE(3); p_onl%output_bounds(:,:) = output_bounds(:,:)*3600._wp
-        CASE(4); p_onl%output_bounds(:,:) = output_bounds(:,:)*86400._wp
-        CASE(5); p_onl%output_bounds(:,:) = output_bounds(:,:)*86400._wp*30._wp  ! Not a real calender month
-        CASE(6); p_onl%output_bounds(:,:) = output_bounds(:,:)*86400._wp*365._wp ! Not a real calender year
-        CASE DEFAULT
-          CALL finish(routine,'Illegal output_time_unit')
-      END SELECT
-
+      p_onl%output_bounds(:,:) = output_bounds_sec(:,:)
       p_onl%steps_per_file   = steps_per_file
       p_onl%include_last     = include_last
       p_onl%output_grid      = output_grid
