@@ -679,6 +679,7 @@ CONTAINS
     IF (dbg_level >= 1) WRITE (0,*) "# modifying interpolation coefficients for missing values."
 
     !-- multiply all interpolation weights A_jk by the area A_k
+!CDIR NOIEXPAND
     CALL multiply_by_area(intp_data)
 
     ! clear output mask
@@ -737,6 +738,7 @@ CONTAINS
 !$OMP END PARALLEL
 
     !-- divide all interpolation weights A_jk by the new area A_k
+!CDIR NOIEXPAND
     CALL divide_by_area(intp_data)
 
   END SUBROUTINE mask_intp_coeffs
