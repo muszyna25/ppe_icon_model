@@ -613,11 +613,13 @@ CONTAINS
     INTEGER            :: i
     TYPE (t_heap_data) :: t
 
+!$OMP PARALLEL 
+!$OMP DO 
     DO i=1,intp_data%nstencil
      intp_data%wgt(i,:,:) = intp_data%wgt(i,:,:) * intp_data%area(:,:)
     END DO
+!$OMP END DO
 
-!$OMP PARALLEL 
 !$OMP DO PRIVATE(i,t)
     DO i=1,intp_data%s_nlist
       t = intp_data%sl(i)
@@ -638,13 +640,15 @@ CONTAINS
     TYPE (t_heap_data) :: t
     REAL(wp)           :: area
 
+!$OMP PARALLEL 
+!$OMP DO
     DO i=1,intp_data%nstencil
       WHERE (intp_data%area(:,:) > ZERO_THRESH) 
         intp_data%wgt(i,:,:) = intp_data%wgt(i,:,:) / intp_data%area(:,:)
       END WHERE
     END DO
+!$OMP END DO
 
-!$OMP PARALLEL 
 !$OMP DO PRIVATE(i,t,area)
     DO i=1,intp_data%s_nlist
       t    = intp_data%sl(i)
@@ -679,6 +683,11 @@ CONTAINS
     IF (dbg_level >= 1) WRITE (0,*) "# modifying interpolation coefficients for missing values."
 
     !-- multiply all interpolation weights A_jk by the area A_k
+
+    ! (Likely) NEC-SX9 compiler bug (r451) for "mpidebug" binary, causing the
+    ! abort with message "f90
+    ! fatal: Internal error in optimization phase" during compilation,
+    ! cf. also the similar call below.
 !CDIR NOIEXPAND
     CALL multiply_by_area(intp_data)
 
