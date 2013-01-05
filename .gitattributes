@@ -641,6 +641,7 @@ run/exp.nh_dcmip_gw_31_R2B4L10 -text
 run/exp.nh_dcmip_gw_32_R2B4L10 -text
 run/exp.nh_dcmip_tc_52_r2b4 -text
 run/exp.nh_dcmip_tc_52_r5b4 -text
+run/exp.nh_schaer -text
 run/exp.oce_4dwd -text
 run/exp.oce_aqpl -text
 run/exp.oce_base -text
@@ -860,6 +861,8 @@ scripts/postprocessing/testcases/RH4_postpro.ncl -text
 scripts/postprocessing/testcases/RH4_postpro_driver.bash -text
 scripts/postprocessing/testcases/SBR_postpro_driver.bash -text
 scripts/postprocessing/testcases/SBR_postpro_scripts/solid_body_init.ncl -text
+scripts/postprocessing/testcases/TORUS_GEOMETRY/plot_torus_section.ncl -text
+scripts/postprocessing/testcases/TORUS_GEOMETRY/plot_torus_section_driver.bash -text
 scripts/postprocessing/testcases/echam_ape_postpro.ksh -text
 scripts/postprocessing/testcases/error_postpro_driver.bash -text
 scripts/postprocessing/testcases/error_postpro_scripts/norm_err_std.ncl -text

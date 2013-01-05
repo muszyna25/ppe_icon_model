@@ -1,0 +1,146 @@
+#=============================================================================
+#
+# This section of the run script containes the specifications of the experiment.
+# The specifications are passed by namelist to the program.
+# For a complete list see Namelist_overview.pdf
+#
+# EXPNAME and NPROMA must be defined in as environment variables or must 
+# they must be substituted with appropriate values.
+#
+# DWD, 2010-08-31
+#
+#-----------------------------------------------------------------------------
+#
+# Basic specifications of the simulation
+# --------------------------------------
+#
+# These variables are set in the header section of the completed run script:
+#
+# EXPNAME = experiment name
+# NPROMA  = array blocking length / inner loop length
+#-----------------------------------------------------------------------------
+#
+#-----------------------------------------------------------------------------
+# The following information is included to present some information on the buildbot-html main page
+#
+# _bb_table_Description_  Jablonowski Williamson steady-state test
+# _bb_table_Model_        non-hydrost. atmosph.
+# _bb_table_Grid_         triangle
+#-----------------------------------------------------------------------------
+# The following values must be set here as shell variables so that they can be used
+# also in the executing section of the completed run script
+#
+#-----------------------------------------------------------------------------
+# the namelist filename
+atmo_namelist=NAMELIST_${EXPNAME}
+#
+#-----------------------------------------------------------------------------
+# global timing
+start_date="2008-09-01T00:00:00Z"
+end_date="2008-09-05T01:00:00Z"
+ndays_restart=60
+dt_restart=`expr ${ndays_restart} \* 86400`
+#
+#-----------------------------------------------------------------------------
+# model timing
+dtime=1
+dt_diag=`expr 6 \* 3600 `    #  output each 4 hours
+dt_file=`expr 30 \* 86400 `  # 30 days per file
+dt_data=`expr 1 \* 86400 `   # output daily
+dt_checkpoint=`expr 5 \* 86400 `  # write restart file every 6 days
+#
+#-----------------------------------------------------------------------------
+# model parameters
+atmo_model_equations=3 # equation system
+#                     1=hydrost. atm. (T dynamics)
+#                     2=hydrost. atm. (theta dynamics)
+#                     3=non-hydrost. atm.,
+#                    -1=shallow water model
+#                    -2=hydrost. ocean
+nlev=65           # nlev = number of full levels
+iforcing=0        # adiabatic forcing
+#
+#-----------------------------------------------------------------------------
+# the grid files
+atmo_dyn_grids='torus_grid_200x20.nc'
+#
+#-----------------------------------------------------------------------------
+
+
+#-----------------------------------------------------------------------------
+#
+# write ICON namelist parameters
+# ------------------------
+# For a complete list see Namelist_overview and Namelist_overview.pdf
+#
+cat > ${atmo_namelist} << EOF
+!
+&parallel_nml
+ nproma         = ${nproma}
+ p_test_run     = .false.
+ l_test_openmp  = .false.
+ l_log_checks   = .false.
+/
+&grid_nml
+ cell_type = 3            ! triangular cells
+ dynamics_grid_filename = "${atmo_dyn_grids}",
+ corio_lat      = 0.0
+/ 
+&run_nml
+ num_lev     = ${nlev},      ! number of full levels of vertical grid
+ dtime       = ${dtime}     ! [s] timestep in seconds
+ ltestcase   = .TRUE.       ! run testcase                 --> testcase_ctl
+ ldynamics   = .TRUE.       ! dynamics
+ ltransport  = .FALSE.      ! transport
+ iforcing    = ${iforcing}  !
+ ntracer     = 0            ! number of tracers - default 0
+ ltimer      = .true.       ! 
+ timers_level = 100         !
+ msg_level   = 100          ! detailed report during integration
+/
+&dynamics_nml
+ iequations  = ${atmo_model_equations}       ! 1: hydrost. atmosphere
+ lcoriolis   = .FALSE.
+ idiv_method     = 1
+ divavg_cntrwgt  = 0.50
+/
+&nh_testcase_nml
+ nh_test_name      = 'schaer'     !test case identifier
+ nh_brunt_vais     = 0.01       !typical troposheric value
+ nh_u0             = 10.0        !u-wind 
+ nh_t0             = 288.0      !surface temp
+/
+&diffusion_nml
+ lhdiff_temp  = .FALSE.
+ lhdiff_vn    = .FALSE.
+/
+&nonhydrostatic_nml
+ iadv_rhotheta = 2
+ igradp_method = 2  !new default
+ ivctype       = 2  !1=Gal-Chen; 2=SLEVE
+ rayleigh_coeff  = 0.10     ! Rayleigh coefficient for damping in upper levels
+ vwind_offctr    = 0.4      ! off-centering for time differencing (like alpha in turb)
+ l_open_ubc      = .false.  ! top open upper boundary condition. might help to go higher
+ damp_height     = 10000    ! damping height (set about 10km below top)
+/
+&sleve_nml                   ! vertical grid standard output for message level >= 15
+ min_lay_thckn   = 0.        ! lowest level thickness (between half-levels), set 0 to do equal spacing
+ top_height      = 20000
+ flat_height     = 5000
+ stretch_fac     = 0.9      ! stretching towards model top (1.0 default; smaller - bigger top level thickness)
+ decay_scale_1   = 4000.    ! decay scales for topography
+ decay_scale_2   = 2500.
+ decay_exp       = 1.2
+/
+&io_nml
+ out_expname      = '${EXPNAME}'     ! file name base
+ dt_data          = ${dt_data}       ! write output every 96 hours
+ dt_diag          = ${dt_diag}
+ dt_checkpoint    = ${dt_checkpoint} ! [s] trigger new restart file
+ lwrite_vorticity = .TRUE.
+ lwrite_pres      = .TRUE.
+ lwrite_z3        = .TRUE.
+ lwrite_omega     = .TRUE.
+/
+EOF
+#-----------------------------------------------------------------------------
