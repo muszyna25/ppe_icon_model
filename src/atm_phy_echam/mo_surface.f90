@@ -261,15 +261,15 @@ CONTAINS
     REAL(wp),OPTIONAL,INTENT(OUT)   :: surface_temperature_rad(kbdim)
     REAL(wp),OPTIONAL,INTENT(OUT)   :: surface_temperature_eff(kbdim)
     !! Sea ice
-    LOGICAL, OPTIONAL,INTENT(INOUT) :: isice(:,:)
+    LOGICAL, OPTIONAL,INTENT(IN) :: isice(:,:)
     REAL(wp),OPTIONAL,INTENT(INOUT) :: Tsurf(:,:)
     REAL(wp),OPTIONAL,INTENT(INOUT) :: T1   (:,:)
     REAL(wp),OPTIONAL,INTENT(INOUT) :: T2   (:,:)
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: hi   (:,:)
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: hs   (:,:)
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: Qtop (:,:)
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: Qbot (:,:)
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: conc (:,:)
+    REAL(wp),OPTIONAL,INTENT(IN) :: hi   (:,:)
+    REAL(wp),OPTIONAL,INTENT(IN) :: hs   (:,:)
+    REAL(wp),OPTIONAL,INTENT(OUT) :: Qtop (:,:)
+    REAL(wp),OPTIONAL,INTENT(OUT) :: Qbot (:,:)
+    REAL(wp),OPTIONAL,INTENT(IN) :: conc (:,:)
                                                
 ! locals
 
