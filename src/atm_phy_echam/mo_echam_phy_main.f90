@@ -947,7 +947,16 @@ CONTAINS
                        & field% shflx_tile    (:,jb,:),   &! out
                        & field% dshflx_dT_tile(:,jb,:),   &! out for Sea ice
                        & field%  evap_tile    (:,jb,:),   &! out
-                       & zqhflx                          )! out, for "cucall"
+                       & zqhflx,                         &! out, for "cucall"
+                       & isice = field% isice(:,:,jb),  &! inout, for sea ice
+                       & Tsurf = field% Tsurf(:,:,jb),  &! inout, for sea ice
+                       & T1    = field% T1   (:,:,jb),  &! inout, for sea ice
+                       & T2    = field% T2   (:,:,jb),  &! inout, for sea ice
+                       & hi    = field% hi   (:,:,jb),  &! inout, for sea ice
+                       & hs    = field% hs   (:,:,jb),  &! inout, for sea ice
+                       & conc  = field% conc (:,:,jb),  &! inout, for sea ice
+                       & Qtop  = field% Qtop (:,:,jb),  &! inout, for sea ice
+                       & Qbot  = field% Qbot (:,:,jb) )  ! inout, for sea ice
     ENDIF ! ljsbach
     ! 5.5 Turbulent mixing, part II:
     !     - Elimination for the lowest model level using boundary conditions
