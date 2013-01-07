@@ -117,6 +117,10 @@ CONTAINS
     
    !-------------------------------------------------------------------------------
 
+    ! initialization of output variables
+    ice%Qbot(:,:,:) = 0._wp
+    ice%Qtop(:,:,:) = 0._wp
+
     ! initialization
     idt2   =  1.0_wp / (2.0_wp*dtime)
     
