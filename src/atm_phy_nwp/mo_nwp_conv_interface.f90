@@ -170,20 +170,20 @@ CONTAINS
         !!       negative upward. 
         !! Thus pass fluxes to cumastrn that are negative when upwards!!!
 
-        IF(atm_phy_nwp_config(jg)%inwp_turb == 0 ) THEN
+        SELECT CASE (atm_phy_nwp_config(jg)%inwp_turb)
+        CASE (0)
 
           z_qhfl(i_startidx:i_endidx,nlevp1) = - 4.79846_wp*1.e-5_wp !> moisture flux kg/m2/s
           z_shfl(i_startidx:i_endidx,nlevp1) = - 17._wp              !! sens. heat fl W/m**2
 
-        ELSEIF (atm_phy_nwp_config(jg)%inwp_turb == 1 ) THEN
+        CASE (1,2)
 
-          ! In turb1, the flux is positive upwards.
-          prm_diag%qhfl_s(i_startidx:i_endidx,jb) = prm_diag%lhfl_s(i_startidx:i_endidx,jb) & 
-             &                                   / alv
-          z_qhfl(i_startidx:i_endidx,nlevp1) = - prm_diag%qhfl_s(i_startidx:i_endidx,jb)
-          z_shfl(i_startidx:i_endidx,nlevp1) = - prm_diag%shfl_s(i_startidx:i_endidx,jb)
+          ! In turb1 and turb2, the flux is positive downwards / negative upwards
+          prm_diag%qhfl_s(i_startidx:i_endidx,jb) = prm_diag%lhfl_s(i_startidx:i_endidx,jb) / alv
+          z_qhfl(i_startidx:i_endidx,nlevp1) = prm_diag%qhfl_s(i_startidx:i_endidx,jb)
+          z_shfl(i_startidx:i_endidx,nlevp1) = prm_diag%shfl_s(i_startidx:i_endidx,jb)
 
-        ELSEIF (atm_phy_nwp_config(jg)%inwp_turb == 4 ) THEN
+        CASE (4)
 
           ! In turb2, the flux is negative upwards.
           z_qhfl(i_startidx:i_endidx,nlevp1) = prm_diag%qhfl_s(i_startidx:i_endidx,jb)
@@ -198,13 +198,13 @@ CONTAINS
             z_shfl( i_startidx:i_endidx,nlevp1) = - 17._wp !! sens. heat fl W/m**2 not yet implemented
           ENDIF
 
-        ELSEIF (atm_phy_nwp_config(jg)%inwp_turb == 2 .OR. atm_phy_nwp_config(jg)%inwp_turb == 3 ) THEN
+        CASE (3)
 
           ! In turb3, the flux is negative upwards.
           z_qhfl(i_startidx:i_endidx,nlevp1) = prm_diag%lhfl_s(i_startidx:i_endidx,jb) / alv ! moisture flux kg/m2/s
           z_shfl(i_startidx:i_endidx,nlevp1) = prm_diag%shfl_s(i_startidx:i_endidx,jb)       ! sens. heat fl W/m**2
 
-        ENDIF
+        END SELECT
 
         z_omega_p (:,1:kstart_moist(jg)-1) = 0._wp
         z_dtdqv   (:,1:kstart_moist(jg)-1) = 0._wp

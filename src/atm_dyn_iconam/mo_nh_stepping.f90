@@ -654,7 +654,7 @@ MODULE mo_nh_stepping
     ! Compute diagnostics for output if necessary
     IF (l_compute_diagnostic_quants) THEN
       CALL diag_for_output_dyn ( linit=.FALSE. )
-      CALL diag_for_output_phys
+      IF (iforcing == inwp) CALL diag_for_output_phys
     ENDIF
 
     !--------------------------------------------------------------------------
@@ -1590,7 +1590,7 @@ MODULE mo_nh_stepping
       jgc = p_patch(jg)%child_id(jn)
       IF (.NOT. p_patch(jgc)%ldom_active) CYCLE
 
-      IF ( lredgrid_phys(jgc) .AND. atm_phy_nwp_config(jgc)%inwp_surface >= 1) THEN
+      IF ( lredgrid_phys(jgc) ) THEN
         CALL interpol_rrg_grf(jg, jgc, jn, nnow_rcf(jg))
       ENDIF
     ENDDO
