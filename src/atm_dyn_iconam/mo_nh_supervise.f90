@@ -33,27 +33,32 @@
 !! software.
 !!
 !!
+!----------------------------
+#include "omp_definitions.inc"
+!----------------------------
+
 MODULE mo_nh_supervise
 
   USE mo_kind,                ONLY: wp
-  USE mo_exception,           ONLY: finish
+  USE mo_exception,           ONLY: message, message_text, finish
   USE mo_nonhydro_types,      ONLY: t_nh_state, t_nh_prog, t_nh_diag
   USE mo_model_domain,        ONLY: t_patch
   USE mo_grid_config,         ONLY: n_dom
   USE mo_parallel_config,     ONLY: nproma
-  USE mo_run_config,          ONLY: dtime, nsteps,  &
+  USE mo_run_config,          ONLY: dtime, nsteps, msg_level, &
     &                               ltransport, ntracer, lforcing, iforcing
-  USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, inwp
+  USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, inwp, min_rlcell_int, &
+                                    min_rledge_int
   USE mo_physical_constants,  ONLY: cvd
-  USE mo_mpi,                 ONLY: my_process_is_stdio
+  USE mo_mpi,                 ONLY: my_process_is_stdio, get_my_mpi_all_id
   USE mo_io_units,            ONLY: find_next_free_unit
-  USE mo_sync,                ONLY: global_sum_array
+  USE mo_sync,                ONLY: global_sum_array, global_max
  
   IMPLICIT NONE
 
   PRIVATE
 
-  PUBLIC :: supervise_total_integrals_nh
+  PUBLIC :: supervise_total_integrals_nh, print_maxwinds
   
   ! Needed by supervise_total_integrals_nh to keep data between steps
   REAL(wp), ALLOCATABLE, SAVE :: z_total_tracer_old(:)
@@ -423,6 +428,114 @@ MODULE mo_nh_supervise
 
   END SUBROUTINE supervise_total_integrals_nh
 
+
+  !-------------------------------------------------------------------------
+  !>
+  !! Computation of maximum horizontal and vertical wind speed for runtime diagnostics
+  !! Was included in mo_nh_stepping before
+  !!
+  !! @par Revision History
+  !! Developed by Guenther Zaengl, DWD (2013-01-07)
+  !!
+  SUBROUTINE print_maxwinds(p_patch, vn, w)
+
+  TYPE(t_patch), INTENT(IN) :: p_patch    ! Patch
+  REAL(wp),      INTENT(IN) :: vn(:,:,:), w(:,:,:) ! horizontal and vertical wind speed
+
+  ! local variables
+  REAL(wp) :: vn_aux(p_patch%edges%end_blk(min_rledge_int,MAX(1,p_patch%n_childdom)),p_patch%nlev)
+  REAL(wp) :: w_aux (p_patch%cells%end_blk(min_rlcell_int,MAX(1,p_patch%n_childdom)),p_patch%nlevp1)
+  REAL(wp) :: vn_aux_lev(p_patch%nlev), w_aux_lev(p_patch%nlevp1), vmax(2)
+
+  INTEGER  :: i_nchdom
+  INTEGER  :: jb, jk, nlen, iendblk_c, iendblk_e, jg
+  INTEGER  :: proc_id(2), keyval(2)
+
+
+!-----------------------------------------------------------------------
+
+    i_nchdom = MAX(1,p_patch%n_childdom)
+    iendblk_c = p_patch%cells%end_blk(min_rlcell_int,i_nchdom)
+    iendblk_e = p_patch%edges%end_blk(min_rledge_int,i_nchdom)
+    jg        = p_patch%id
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb, jk, nlen) ICON_OMP_DEFAULT_SCHEDULE
+    DO jb = 1, iendblk_e
+      IF (jb /= iendblk_e) THEN
+        nlen = nproma
+      ELSE
+        nlen = p_patch%edges%end_idx(min_rledge_int,i_nchdom)
+      ENDIF
+      DO jk = 1, p_patch%nlev
+        vn_aux(jb,jk) = MAXVAL(ABS(vn(1:nlen,jk,jb)))
+      ENDDO
+    END DO
+!$OMP END DO
+
+!$OMP DO PRIVATE(jb, jk, nlen) ICON_OMP_DEFAULT_SCHEDULE
+    DO jb = 1, iendblk_c
+      IF (jb /=  iendblk_c) THEN
+        nlen = nproma
+      ELSE
+        nlen = p_patch%cells%end_idx(min_rlcell_int,i_nchdom)
+      ENDIF
+      DO jk = 1, p_patch%nlevp1
+        w_aux(jb,jk) = MAXVAL(ABS(w(1:nlen,jk,jb)))
+      ENDDO
+    END DO
+!$OMP END DO
+
+!$OMP DO PRIVATE(jk) ICON_OMP_DEFAULT_SCHEDULE
+    DO jk = 1, p_patch%nlev
+      vn_aux_lev(jk) = MAXVAL(vn_aux(:,jk))
+      w_aux_lev (jk) = MAXVAL(w_aux(:,jk))
+    END DO
+!$OMP END DO
+
+!$OMP END PARALLEL
+
+    ! Add surface level for w
+    jk = p_patch%nlevp1
+    w_aux_lev (jk) = MAXVAL(w_aux(:,jk))
+
+    !--- Get max over all PEs
+    IF (msg_level >= 8) THEN
+
+      ! print a detailed information on global maxima:
+      ! containing the process ID and the level where the
+      ! maximum occurred.
+      vmax(1)   = MAXVAL(vn_aux_lev(:))
+      keyval(1) = MAXLOC(vn_aux_lev(:),1)
+      vmax(2)   = MAXVAL(w_aux_lev(:))
+      keyval(2) = MAXLOC(w_aux_lev(:),1)
+
+      IF (msg_level >= 13) THEN
+        proc_id(:) = get_my_mpi_all_id()
+        vmax       = global_max(vmax, proc_id=proc_id, keyval=keyval)
+        WRITE(message_text,'(a,i3,a,2(e18.10,a,i5,a,i3,a))') 'MAXABS VN, W in domain', jg, ':', &
+          & vmax(1), " (on proc #", proc_id(1), ", level ", keyval(1), "), ", &
+          & vmax(2), " (on proc #", proc_id(2), ", level ", keyval(2), "), "
+      ELSE
+        vmax = global_max(vmax, keyval=keyval)
+        WRITE(message_text,'(a,i3,a,2(e18.10,a,i3,a))') 'MAXABS VN, W in domain', jg, ':', &
+          & vmax(1), " at level ", keyval(1), ", ", &
+          & vmax(2), " at level ", keyval(2), ", "
+      END IF
+
+    ELSE
+
+      ! print a short information on global maxima:
+      vmax(1) = MAXVAL(vn_aux_lev)
+      vmax(2) = MAXVAL(w_aux_lev)
+      vmax       = global_max(vmax)
+      WRITE(message_text,'(a,2e18.10)') 'MAXABS VN, W ', vmax(1), vmax(2)
+
+    END IF
+
+    CALL message('',message_text)
+
+  END SUBROUTINE print_maxwinds
 
 
 END MODULE mo_nh_supervise

@@ -81,7 +81,7 @@ MODULE mo_nh_stepping
   USE mo_nh_pa_test,          ONLY: set_nh_w_rho
   USE mo_nh_df_test,          ONLY: get_nh_df_velocity
   USE mo_nh_hex_util,         ONLY: forcing_straka, momentum_adv
-  USE mo_nh_supervise,        ONLY: supervise_total_integrals_nh
+  USE mo_nh_supervise,        ONLY: supervise_total_integrals_nh, print_maxwinds
   USE mo_intp_data_strc,      ONLY: t_int_state, t_lon_lat_intp, p_int_state
   USE mo_intp_rbf,            ONLY: rbf_vec_interpol_cell
   USE mo_intp,                ONLY: edges2cells_scalar, verts2edges_scalar, edges2verts_scalar, &
@@ -455,19 +455,12 @@ MODULE mo_nh_stepping
   TYPE(t_datetime), INTENT(INOUT)      :: datetime
 
   INTEGER                              :: jstep, jb, nlen, jg, kstep
-  REAL(wp)                             :: vmax(2)
-  REAL(wp) :: vn_aux(p_patch(1)%edges%end_blk(min_rledge_int,MAX(1,p_patch(1)%n_childdom)), &
-    &                p_patch(1)%nlev)
-  REAL(wp) :: w_aux (p_patch(1)%cells%end_blk(min_rlcell_int,MAX(1,p_patch(1)%n_childdom)), &
-    &                p_patch(1)%nlevp1)
-  REAL(wp), DIMENSION(:,:,:), POINTER  :: p_vn, p_w
   INTEGER                              :: ierr, i_nchdom, jk
   LOGICAL                              :: l_compute_diagnostic_quants,  &
     &                                     l_vlist_output, l_nml_output, &
     &                                     l_supervise_total_integrals,  &
     &                                     lwrite_checkpoint, ldom_active(n_dom)
   TYPE(t_simulation_status)            :: simulation_status
-  INTEGER                              :: proc_id(2), keyval(2)
 
   TYPE(t_datetime)                     :: datetime_old
 
@@ -512,92 +505,16 @@ MODULE mo_nh_stepping
     END IF !sstice_mode>1
 ! end SST and sea ice fraction update
 
+    ! Print control output for maximum horizontal and vertical wind speed
     IF (msg_level >= 5 .AND. MOD(jstep,iadv_rcf) == 1 .OR. msg_level >= 8) THEN 
-
-      ! print maximum velocities in global domain
-      p_vn => p_nh_state(1)%prog(nnow(1))%vn
-      p_w  => p_nh_state(1)%prog(nnow(1))%w
-
-      i_nchdom = MAX(1,p_patch(1)%n_childdom)
-
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb, nlen) ICON_OMP_DEFAULT_SCHEDULE
-      DO jk=1,p_patch(1)%nlev
-        DO jb = 1, p_patch(1)%edges%end_blk(min_rledge_int,i_nchdom)
-          IF (jb /= p_patch(1)%edges%end_blk(min_rledge_int,i_nchdom)) THEN
-            nlen = nproma
-          ELSE
-            nlen = p_patch(1)%edges%end_idx(min_rledge_int,i_nchdom)
-          ENDIF
-          vn_aux(jb,jk) = MAXVAL(ABS(p_vn(1:nlen,jk,jb)))
-        ENDDO
-      END DO
-!$OMP END DO
-
-!$OMP DO PRIVATE(jb, nlen) ICON_OMP_DEFAULT_SCHEDULE
-      DO jk=1,p_patch(1)%nlevp1
-        DO jb = 1, p_patch(1)%cells%end_blk(min_rlcell_int,i_nchdom)
-          IF (jb /=  p_patch(1)%cells%end_blk(min_rlcell_int,i_nchdom)) THEN
-            nlen = nproma
-          ELSE
-            nlen = p_patch(1)%cells%end_idx(min_rlcell_int,i_nchdom)
-          ENDIF
-          w_aux(jb,jk) = MAXVAL(ABS(p_w(1:nlen,jk,jb)))
-        ENDDO
-      END DO
-!$OMP END DO NOWAIT
-!$OMP END PARALLEL
-
-      !--- Get max over all PEs
-      IF (msg_level >= 8) THEN
-
-        ! print a detailed information on global maxima:
-        ! containing the process ID and the level where the
-        ! maximum occurred.
-        DO jk=1,p_patch(1)%nlev
-          vn_aux(1,jk) = MAXVAL(vn_aux(:,jk))
-        END DO
-        DO jk=1,p_patch(1)%nlevp1
-          w_aux(1,jk)  = MAXVAL(w_aux(:,jk))
-        END DO
-        vmax(1)   = MAXVAL(vn_aux(1,:))
-        keyval(1) = MAXLOC(vn_aux(1,:),1)
-        vmax(2)   = MAXVAL(w_aux(1,:))
-        keyval(2) = MAXLOC(w_aux(1,:),1)
-        proc_id(:) = get_my_mpi_all_id()
-        vmax       = global_max(vmax, proc_id=proc_id, keyval=keyval)
-
-        IF (my_process_is_stdio()) THEN
-          IF (msg_level >= 13) THEN
-            WRITE(0,'(a,2(e18.10,a,i5,a,i5,a))') 'MAXABS VN, W ',      &
-              & vmax(1), " (on proc #", proc_id(1), ", level ", keyval(1), "), ", &
-              & vmax(2), " (on proc #", proc_id(2), ", level ", keyval(2), "), "
-          ELSE
-            WRITE(0,'(a,2(e18.10,a,i5,a))') 'MAXABS VN, W ',      &
-              & vmax(1), ", at level ", keyval(1), ", ", &
-              & vmax(2), ", at level ", keyval(2), ", "
-          ENDIF
-        END IF
-
-      ELSE
-
-        ! print a short information on global maxima:
-        vmax(1) = MAXVAL(vn_aux)
-        vmax(2) = MAXVAL(w_aux)
-        vmax       = global_max(vmax)
-        WRITE(message_text,'(a,2e18.10)') 'MAXABS VN, W ', vmax(1), vmax(2)
-        CALL message(TRIM(routine),message_text)
-
-      END IF
-
-    ENDIF ! msg_level >= 5
+      CALL print_maxwinds(p_patch(1), p_nh_state(1)%prog(nnow(1))%vn, p_nh_state(1)%prog(nnow(1))%w)
+    ENDIF
 
     ! Store first old exner pressure
     ! (to prepare some kind of divergence damping, or to account for
     ! physically based 'implicit weights' in forward backward time stepping)
     IF (jstep == 1 .AND. .NOT. is_restart_run()) THEN
 !$OMP PARALLEL PRIVATE(jg)
-!   write(0,*) 'Entering perform_nh_timeloop, threads=',omp_get_num_threads()
       DO jg = 1, n_dom
 !$OMP WORKSHARE
         p_nh_state(jg)%diag%exner_old(:,:,:)=&
@@ -881,6 +798,13 @@ MODULE mo_nh_stepping
     ! This executes one time step for the global domain and two steps for nested domains
     DO jstep = 1, num_steps
 
+      ! Print control output for maximum horizontal and vertical wind speed
+      ! (remark: the output for the global domain is called from perform_nh_timeloop)
+      IF (jg > 1 .AND. msg_level >= 12) THEN 
+        CALL print_maxwinds(p_patch(jg), p_nh_state(jg)%prog(nnow(jg))%vn, &
+          p_nh_state(jg)%prog(nnow(jg))%w)
+      ENDIF
+
       IF (ifeedback_type == 1 .AND. jstep == 1 .AND. jg > 1 ) THEN
         ! Save prognostic variables at current timestep to compute
         ! feedback increments (not needed in global domain)
@@ -1074,7 +998,7 @@ MODULE mo_nh_stepping
             &                      t_elapsed_phy,                  &! inout
             &                      lcall_phy )                      ! out
 
-          IF (msg_level >= 12) THEN
+          IF (msg_level >= 13) THEN
             WRITE(message_text,'(a,i2,a,5l2,a,6l2)') 'call phys. proc DOM:', &
               &  jg ,'   SP:', lcall_phy(jg,1:5), '   FP:',lcall_phy(jg,6:11)
 

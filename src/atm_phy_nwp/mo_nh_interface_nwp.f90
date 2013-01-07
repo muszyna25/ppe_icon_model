@@ -99,7 +99,7 @@ MODULE mo_nh_interface_nwp
   USE mo_sync,               ONLY: sync_patch_array, sync_patch_array_mult, SYNC_E, &
                                    SYNC_C, SYNC_C1, global_max, global_min, global_sum_array
   USE mo_mpi,                ONLY: my_process_is_mpi_all_parallel, work_mpi_barrier
-  USE mo_nwp_diagnosis,      ONLY: nwp_diagnosis
+  USE mo_nwp_diagnosis,      ONLY: nwp_diagnosis, nwp_diag_output_1, nwp_diag_output_2
   USE mo_icon_comm_lib,     ONLY: new_icon_comm_variable, delete_icon_comm_variable, &
      & icon_comm_var_is_ready, icon_comm_sync, icon_comm_sync_all, is_ready, until_sync
 !  USE mo_communication,      ONLY: time_sync
@@ -216,18 +216,9 @@ CONTAINS
     ! auxiliaries for Rayleigh friction computation
     REAL(wp) :: vabs, rfric_fac, ustart, uoffset_q, ustart_q, max_relax
 
-    ! variables for CFL diagnostic
-    REAL(wp) :: maxcfl(pt_patch%nblks_c), cflmax, avg_invedgelen(nproma), csfac
     ! Variables for dpsdt diagnostic
     REAL(wp) :: dps_blk(pt_patch%nblks_c), dpsdt_avg
     INTEGER  :: npoints_blk(pt_patch%nblks_c), npoints
-
-    ! variables for extended debug output
-    REAL(wp) :: maxtke(pt_patch%nblks_c,pt_patch%nlevp1),tkemax(pt_patch%nlevp1)
-    REAL(wp), DIMENSION(pt_patch%nblks_c,pt_patch%nlev) :: maxabs_u, maxabs_v, &
-      maxtemp, mintemp, maxqv, minqv, maxqc, minqc, maxtturb, maxuturb, maxvturb
-    REAL(wp), DIMENSION(pt_patch%nlev) :: umax, vmax, tmax, tmin, qvmax, qvmin, qcmax, &
-      qcmin, tturbmax, uturbmax, vturbmax
 
     ! communication ids, these do not need to be different variables,
     ! since they are not treated individualy
@@ -252,9 +243,6 @@ CONTAINS
     ieblk => pt_patch%cells%edge_blk
 
     rd_o_cvd  = 1._wp / cvd_o_rd
-
-    ! factor for sound speed computation
-    csfac = rd*cpd*rcvd
 
     ! Inverse of simulation time
     r_sim_time = 1._wp/MAX(1.e-6_wp, p_sim_time)
@@ -336,81 +324,9 @@ CONTAINS
            &                              opt_calc_pres=.FALSE.,   &
            &                              opt_rlend=min_rlcell_int )
 
-      IF (msg_level >= 20) THEN ! Initial debug output
-
-        CALL message('mo_nh_interface_nwp:','Initial debug output')
-
-        maxabs_u(:,:) = 0._wp
-        maxabs_v(:,:) = 0._wp
-        maxtemp(:,:)  = 0._wp
-        mintemp(:,:)  = 1.e20_wp
-        maxqv(:,:)    = 0._wp
-        minqv(:,:)    = 1.e20_wp
-        maxqc(:,:)    = 0._wp
-        minqc(:,:)    = 1.e20_wp
-
-        rl_start = grf_bdywidth_c+1
-        rl_end   = min_rlcell_int
-
-        i_startblk = pt_patch%cells%start_blk(rl_start,1)
-        i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
-
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
-        DO jb = i_startblk, i_endblk
-
-          CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
-                             i_startidx, i_endidx, rl_start, rl_end)
-
-            DO jk = 1, nlev
-              DO jc = i_startidx, i_endidx
-                maxabs_u(jb,jk) = MAX(maxabs_u(jb,jk),ABS(pt_diag%u(jc,jk,jb)))
-                maxabs_v(jb,jk) = MAX(maxabs_v(jb,jk),ABS(pt_diag%v(jc,jk,jb)))
-                maxtemp(jb,jk)  = MAX(maxtemp(jb,jk),pt_diag%temp(jc,jk,jb))
-                mintemp(jb,jk)  = MIN(mintemp(jb,jk),pt_diag%temp(jc,jk,jb))
-                maxqv(jb,jk)    = MAX(maxqv(jb,jk),pt_prog_rcf%tracer(jc,jk,jb,iqv))
-                minqv(jb,jk)    = MIN(minqv(jb,jk),pt_prog_rcf%tracer(jc,jk,jb,iqv))
-                maxqc(jb,jk)    = MAX(maxqc(jb,jk),pt_prog_rcf%tracer(jc,jk,jb,iqc))
-                minqc(jb,jk)    = MIN(minqc(jb,jk),pt_prog_rcf%tracer(jc,jk,jb,iqc))
-              ENDDO
-            ENDDO
-
-        ENDDO
-!$OMP END DO NOWAIT
-!$OMP END PARALLEL
-
-        DO jk = 1, nlev
-          umax(jk)  = MAXVAL(maxabs_u(:,jk))
-          vmax(jk)  = MAXVAL(maxabs_v(:,jk))
-          tmax(jk)  = MAXVAL(maxtemp(:,jk))
-          tmin(jk)  = MINVAL(mintemp(:,jk))
-          qvmax(jk) = MAXVAL(maxqv(:,jk))
-          qvmin(jk) = MINVAL(minqv(:,jk))
-          qcmax(jk) = MAXVAL(maxqc(:,jk))
-          qcmin(jk) = MINVAL(minqc(:,jk))
-        ENDDO
-
-        ! Finally take maximum/minimum over all PEs
-        umax  = global_max(umax)
-        vmax  = global_max(vmax)
-        tmax  = global_max(tmax)
-        tmin  = global_min(tmin)
-        qvmax = global_max(qvmax)
-        qvmin = global_min(qvmin)
-        qcmax = global_max(qcmax)
-        qcmin = global_min(qcmin)
-
-        WRITE(message_text,'(a,i2)') 'max |U|, max |V|, min/max T, min/max QV,&
-          & max QC per level in domain ',jg
-        CALL message('', TRIM(message_text))
-        DO jk = 1, nlev
-          WRITE(message_text,'(a,i3,7(a,e12.5))') 'level ',jk,': u =',umax(jk),', v =',vmax(jk), &
-            ', t =', tmin(jk),' ', tmax(jk),', qv =', qvmin(jk),' ', qvmax(jk), &
-            ', qc =', qcmax(jk)   !,' ',qcmin(jk)
-          CALL message('', TRIM(message_text))
-        ENDDO
-
-      ENDIF ! debug output for msg_level >= 20
+      IF (msg_level >= 20) THEN ! Initial diagnostic output
+        CALL nwp_diag_output_1(pt_patch, pt_diag, pt_prog_rcf)
+      ENDIF
 
     ENDIF ! fast physics activated
 
@@ -1348,22 +1264,9 @@ CONTAINS
 
     ! Initialize fields for runtime diagnostics
     ! In case that average ABS(dpsdt) is diagnosed
-    IF (msg_level >= 12) THEN
+    IF (msg_level >= 11) THEN
       dps_blk(:)   = 0._wp
       npoints_blk(:) = 0
-    ENDIF
-
-    ! In case that maximum CFL is diagnosed
-    IF (msg_level >= 13) THEN
-      maxcfl(:) = 0._wp
-    ENDIF
-
-    ! In case that turbulence diagnostics are computed
-    IF (msg_level >= 18) THEN
-      maxtke(:,:)   = 0._wp
-      maxtturb(:,:) = 0._wp
-      maxuturb(:,:) = 0._wp
-      maxvturb(:,:) = 0._wp
     ENDIF
 
     !-------------------------------------------------------------------------
@@ -1459,8 +1362,8 @@ CONTAINS
 !$OMP END DO
 
 
-      ! Diagnosis of ABS(dpsdt) if msg_level >= 12
-      IF (msg_level >= 12) THEN
+      ! Diagnosis of ABS(dpsdt) if msg_level >= 11
+      IF (msg_level >= 11) THEN
 
         rl_start = grf_bdywidth_c+1
         rl_end   = min_rlcell_int
@@ -1482,78 +1385,7 @@ CONTAINS
             pt_diag%pres_sfc_old(jc,jb) = pt_diag%pres_sfc(jc,jb)
           ENDDO
         ENDDO
-!$OMP END DO
-      ENDIF
-
-      ! CFL-diagnostic if msg_level >= 13
-      IF (msg_level >= 13) THEN
-
-        rl_start = grf_bdywidth_c+1
-        rl_end   = min_rlcell_int
-
-        i_startblk = pt_patch%cells%start_blk(rl_start,1)
-        i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
-
-!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,avg_invedgelen) ICON_OMP_DEFAULT_SCHEDULE
-        DO jb = i_startblk, i_endblk
-
-          CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
-                             i_startidx, i_endidx, rl_start, rl_end)
-
-
-          DO jc = i_startidx, i_endidx
-            avg_invedgelen(jc) = 3._wp/                                       &
-              (pt_patch%edges%dual_edge_length(ieidx(jc,jb,1),ieblk(jc,jb,1))+&
-               pt_patch%edges%dual_edge_length(ieidx(jc,jb,2),ieblk(jc,jb,2))+&
-               pt_patch%edges%dual_edge_length(ieidx(jc,jb,3),ieblk(jc,jb,3)) )
-          ENDDO
-
-          DO jk = 1, nlev
-            DO jc = i_startidx, i_endidx
-              maxcfl(jb) = MAX(maxcfl(jb),dt_loc*avg_invedgelen(jc)*( &
-                SQRT(pt_diag%u(jc,jk,jb)**2+pt_diag%v(jc,jk,jb)**2)+  &
-                SQRT(csfac*pt_diag%temp(jc,jk,jb)) ))
-            ENDDO
-          ENDDO
-
-        ENDDO
-!$OMP END DO
-
-      ENDIF
-
-      ! Extended turbulence diagnostics if msg_level >= 18
-      IF (lcall_phy_jg(itturb) .AND. msg_level >= 18) THEN
-
-        rl_start = grf_bdywidth_c+1
-        rl_end   = min_rlcell_int
-
-        i_startblk = pt_patch%cells%start_blk(rl_start,1)
-        i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
-
-!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,avg_invedgelen) ICON_OMP_DEFAULT_SCHEDULE
-        DO jb = i_startblk, i_endblk
-
-          CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
-                             i_startidx, i_endidx, rl_start, rl_end)
-
-
-          DO jk = 1, nlevp1
-            DO jc = i_startidx, i_endidx
-              maxtke(jb,jk) = MAX(maxtke(jb,jk),pt_prog_rcf%tke(jc,jk,jb))
-            ENDDO
-          ENDDO
-
-          DO jk = 1, nlev
-            DO jc = i_startidx, i_endidx
-              maxtturb(jb,jk) = MAX(maxtturb(jb,jk),ABS(prm_nwp_tend%ddt_temp_turb(jc,jk,jb)))
-              maxuturb(jb,jk) = MAX(maxuturb(jb,jk),ABS(prm_nwp_tend%ddt_u_turb(jc,jk,jb)))
-              maxvturb(jb,jk) = MAX(maxvturb(jb,jk),ABS(prm_nwp_tend%ddt_v_turb(jc,jk,jb)))
-            ENDDO
-          ENDDO
-
-        ENDDO
 !$OMP END DO NOWAIT
-
       ENDIF
 
 !$OMP END PARALLEL
@@ -1567,7 +1399,7 @@ CONTAINS
       ! dpsdt diagnostic - omitted in the case of a parallization test (p_test_run) because this
       ! is a purely diagnostic quantitiy, for which it does not make sense to implement an order-invariant
       ! summation
-      IF (.NOT. p_test_run .AND. msg_level >= 12) THEN
+      IF (.NOT. p_test_run .AND. msg_level >= 11) THEN
         dpsdt_avg = SUM(dps_blk)
         npoints   = SUM(npoints_blk)
         dpsdt_avg = global_sum_array(dpsdt_avg)
@@ -1580,45 +1412,9 @@ CONTAINS
         ENDIF
       ENDIF
 
-      IF (msg_level >= 13) THEN ! CFL diagnostic
-        cflmax = MAXVAL(maxcfl)
-        cflmax = global_max(cflmax) ! maximum over all PEs
-        WRITE(message_text,'(a,f12.8,a,i2)') 'maximum horizontal CFL = ', cflmax, ' in domain ',jg
-        CALL message('nwp_nh_interface: ', TRIM(message_text))
-
+      IF (msg_level >= 13) THEN ! extended diagnostic
+        CALL nwp_diag_output_2(pt_patch, pt_diag, pt_prog_rcf, prm_nwp_tend, dt_loc, lcall_phy_jg(itturb))
       ENDIF
-
-      IF (msg_level >= 18 .AND. lcall_phy_jg(itturb)) THEN ! extended turbulence diagnostic
-        DO jk = 1, nlevp1
-          tkemax(jk) = MAXVAL(maxtke(:,jk))
-        ENDDO
-        DO jk = 1, nlev
-          tturbmax(jk) = MAXVAL(maxtturb(:,jk))
-          uturbmax(jk) = MAXVAL(maxuturb(:,jk))
-          vturbmax(jk) = MAXVAL(maxvturb(:,jk))
-        ENDDO
-
-        ! Take maximum over all PEs
-        tkemax   = global_max(tkemax)
-        tturbmax = global_max(tturbmax)
-        uturbmax = global_max(uturbmax)
-        vturbmax = global_max(vturbmax)
-
-        WRITE(message_text,'(a,i2)') 'Extended turbulence diagnostic for domain ',jg
-        CALL message('nwp_nh_interface: ', TRIM(message_text))
-        WRITE(message_text,'(a)') 'maximum TKE [m**2/s**2] and U,V,T-tendencies/s per level'
-        CALL message('', TRIM(message_text))
-
-        DO jk = 1, nlev
-          WRITE(message_text,'(a,i3,4(a,e13.5))') 'level ',jk,': TKE =',tkemax(jk), &
-            ', utend =',uturbmax(jk),', vtend =',vturbmax(jk),', ttend =',tturbmax(jk)
-          CALL message('', TRIM(message_text))
-        ENDDO
-        jk = nlevp1
-        WRITE(message_text,'(a,i3,a,e13.5)') 'level ',jk,': TKE =',tkemax(jk)
-        CALL message('', TRIM(message_text))
-      ENDIF
-
    
      CALL nwp_diagnosis(lcall_phy_jg,lredgrid,               & !input
                             & dt_phy_jg,p_sim_time,          & !input
