@@ -327,7 +327,8 @@ CONTAINS
     ! 5. Construct interpolation state, compute interpolation coefficients.
     !--------------------------------------------------------------------------------
 
-    CALL configure_interpolation( global_cell_type, n_dom, p_patch(1:)%level )
+    CALL configure_interpolation( global_cell_type, n_dom, p_patch(1:)%level, &
+                                  p_patch(1)%geometry_info )
 
     ! Allocate array for interpolation state
 
