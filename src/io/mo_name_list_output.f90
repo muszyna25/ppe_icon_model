@@ -218,8 +218,6 @@ MODULE mo_name_list_output
   ! "loutput=.TRUE."
   INTEGER :: n_allvars
 
-  CHARACTER(LEN=vname_len) :: all_varlist(MAX_NVARS)
-
   !------------------------------------------------------------------------------------------------
   ! Currently, we use only 1 MPI window for all output files
   INTEGER mpi_win
@@ -1022,51 +1020,15 @@ CONTAINS
 
           ENDDO
 
-          ! build a total varlist of variables tagged with
-          ! "loutput=.TRUE."
-          IF (p_of%remap == 1) THEN
-            CALL get_all_var_names(all_varlist, n_allvars, opt_loutput=.TRUE.,    &
-              &       opt_vlevel_type=ilev_type, opt_hor_intp_type=HINTP_TYPE_LONLAT,  &
-              &       opt_patch_id=patch_info(idom)%log_patch_id)
-          ELSE
-            CALL get_all_var_names(all_varlist, n_allvars, opt_loutput=.TRUE.,    &
-              &       opt_vlevel_type=ilev_type, opt_patch_id=patch_info(idom)%log_patch_id)
-          END IF
-
-
           SELECT CASE(i_typ)
             CASE(1)
-              IF (toupper(TRIM(p_onl%ml_varlist(1))) == "ALL") THEN
-                IF (n_allvars > 0) &
-                  CALL add_varlist_to_output_file(p_of,vl_list(1:nvl), &
-                  &                               all_varlist(1:n_allvars))
-              ELSE
-                CALL add_varlist_to_output_file(p_of,vl_list(1:nvl),p_onl%ml_varlist)
-              END IF
+              CALL add_varlist_to_output_file(p_of,vl_list(1:nvl),p_onl%ml_varlist)
             CASE(2)
-              IF (toupper(TRIM(p_onl%pl_varlist(1))) == "ALL") THEN
-                IF (n_allvars > 0) &
-                  CALL add_varlist_to_output_file(p_of,vl_list(1:nvl), &
-                  &                               all_varlist(1:n_allvars))
-              ELSE
-                CALL add_varlist_to_output_file(p_of,vl_list(1:nvl),p_onl%pl_varlist)
-              END IF
+              CALL add_varlist_to_output_file(p_of,vl_list(1:nvl),p_onl%pl_varlist)
             CASE(3)
-              IF (toupper(TRIM(p_onl%hl_varlist(1))) == "ALL") THEN
-                IF (n_allvars > 0) &
-                  CALL add_varlist_to_output_file(p_of,vl_list(1:nvl), &
-                  &                               all_varlist(1:n_allvars))
-              ELSE
-                CALL add_varlist_to_output_file(p_of,vl_list(1:nvl),p_onl%hl_varlist)
-              END IF
+              CALL add_varlist_to_output_file(p_of,vl_list(1:nvl),p_onl%hl_varlist)
             CASE(4)
-              IF (toupper(TRIM(p_onl%il_varlist(1))) == "ALL") THEN
-                IF (n_allvars > 0) &
-                  CALL add_varlist_to_output_file(p_of,vl_list(1:nvl), &
-                  &                               all_varlist(1:n_allvars))
-              ELSE
-                CALL add_varlist_to_output_file(p_of,vl_list(1:nvl),p_onl%il_varlist)
-              END IF
+              CALL add_varlist_to_output_file(p_of,vl_list(1:nvl),p_onl%il_varlist)
           END SELECT
 
         ENDDO
@@ -1110,10 +1072,10 @@ CONTAINS
     INTEGER, INTENT(IN) :: vl_list(:)
     CHARACTER(LEN=*), INTENT(IN) :: varlist(:)
 
-    INTEGER :: ivar, i, iv, idx, idx_t, idx_x, idx_y, tl, grid_of, grid_var
-    LOGICAL :: found, found_1, found_2
+    INTEGER :: ivar, i, iv, idx, idx_t, tl, grid_of, grid_var
+    LOGICAL :: found
     TYPE(t_list_element), POINTER :: element
-    TYPE(t_var_desc), TARGET  ::  var_desc_1, var_desc_2   !< variable descriptor
+    TYPE(t_var_desc), TARGET  ::  var_desc   !< variable descriptor
     TYPE(t_var_desc), POINTER ::  p_var_desc               !< variable descriptor (pointer)
 
     CHARACTER(LEN=*), PARAMETER :: routine = 'mo_name_list_output/add_varlist_to_output_file'
@@ -1138,14 +1100,11 @@ CONTAINS
     ! Allocate array of variable descriptions
     DO ivar = 1,(ivar-1)
 
-      found_1 = .FALSE.
-      found_2 = .FALSE.
+      found = .FALSE.
       ! Nullify pointers
-      var_desc_1%r_ptr => NULL()
-      var_desc_2%r_ptr => NULL()
+      var_desc%r_ptr => NULL()
       DO i = 1, max_time_levels
-        var_desc_1%tlev_ptr(i)%p => NULL()
-        var_desc_2%tlev_ptr(i)%p => NULL()
+        var_desc%tlev_ptr(i)%p => NULL()
       ENDDO
 
       ! Loop over all var_lists listed in vl_list to find the variable
@@ -1173,9 +1132,9 @@ CONTAINS
           IF (p_of%name_list%remap==1) THEN
             ! If lon-lat variable is requested, skip variable if it
             ! does not correspond to the same lon-lat grid:
+            IF (element%field%info%hgrid /= GRID_REGULAR_LONLAT) CYCLE
             grid_of  = p_of%name_list%lonlat_id
             grid_var = element%field%info%hor_interp%lonlat_id
-
             IF (grid_of /= grid_var) CYCLE
           ELSE
             ! On the other hand: If no lon-lat interpolation is
@@ -1188,14 +1147,10 @@ CONTAINS
           IF(element%field%info%lcontainer) CYCLE
 
           ! find suffix position for component and time level indices:
-          idx_x = INDEX(element%field%info%name,'.X')
-          idx_y = INDEX(element%field%info%name,'.Y')
           idx_t = INDEX(element%field%info%name,'.TL')
 
           idx = vname_len
           IF (idx_t > 0) idx=MIN(idx, idx_t)
-          IF (idx_x > 0) idx=MIN(idx, idx_x)
-          IF (idx_y > 0) idx=MIN(idx, idx_y)
           IF (idx==vname_len) idx=0
 
           ! Check for matching name
@@ -1206,16 +1161,7 @@ CONTAINS
           ENDIF
 
           ! Found it, add it to the variable list of output file
-          
-          ! If we are dealing with an edge-based variable: look for
-          ! both, the x and y component
-          IF ((p_of%name_list%remap/=1) .OR. (idx_y == 0)) THEN
-            p_var_desc => var_desc_1
-            found      =  found_1
-          ELSE
-            p_var_desc => var_desc_2
-            found      =  found_2
-          END IF
+          p_var_desc => var_desc
 
           IF(idx_t == 0) THEN
             ! Not time level dependent
@@ -1249,19 +1195,14 @@ CONTAINS
             p_var_desc%tlev_ptr(tl)%p => element%field%r_ptr
           ENDIF
 
-          IF ((p_of%name_list%remap/=1) .OR. (idx_y == 0)) THEN
-            found_1 = .TRUE.
-          ELSE
-            found_2 = .TRUE.
-          END IF
-
+          found = .TRUE.
         ENDDO
 
       ENDDO ! i = 1, SIZE(vl_list)
 
       ! Check that at least one element with this name has been found
 
-      IF (.NOT. found_1) THEN
+      IF (.NOT. found) THEN
 
         DO i = 1, nvar_lists
           IF (my_process_is_stdio()) THEN
@@ -1285,18 +1226,9 @@ CONTAINS
         CALL finish(routine,'Output name list variable not found: '//TRIM(varlist(ivar)))
       ENDIF
 
-      ! append variable descriptor to list; append two different
-      ! variables (X and Y) if we have a lon-lat interpolated variable
-      ! defined on edges:
-      IF (found_2) THEN
-        var_desc_1%info%name = TRIM(var_desc_1%info%name)//".X"
-        CALL add_var_desc(p_of, var_desc_1)
-        var_desc_2%info%name = TRIM(var_desc_2%info%name)//".Y"
-        CALL add_var_desc(p_of, var_desc_2)
-      ELSE
-        CALL add_var_desc(p_of, var_desc_1)
-      END IF
-
+      ! append variable descriptor to list
+      CALL add_var_desc(p_of, var_desc)
+      
     ENDDO ! ivar = 1,(ivar-1)
 
   END SUBROUTINE add_varlist_to_output_file
