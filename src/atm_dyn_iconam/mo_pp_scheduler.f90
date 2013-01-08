@@ -252,6 +252,7 @@ CONTAINS
     TYPE(t_grib2_var)             :: grib2
     TYPE(t_var_list), POINTER     :: dst_varlist     !< destination variable list
     TYPE (t_lon_lat_intp), POINTER:: ptr_int_lonlat
+    CHARACTER(LEN=1)              :: prefix
 
     IF (dbg_level > 5)  CALL message(routine, "Enter")
     
@@ -264,18 +265,22 @@ CONTAINS
       SELECT CASE(lev_type)
       CASE (level_type_ml)
         dst_varlist => p_nh_opt_diag(jg)%opt_diag_list         
+        prefix = "m"
       CASE (level_type_pl)
         dst_varlist => p_nh_opt_diag(jg)%opt_diag_list_p
+        prefix = "p"
       CASE (level_type_hl)
         dst_varlist => p_nh_opt_diag(jg)%opt_diag_list_z
+        prefix = "z"
       CASE (level_type_il)
         dst_varlist => p_nh_opt_diag(jg)%opt_diag_list_i
+        prefix = "i"
       END SELECT
 
       ! Do not inspect lists which are disabled for output
       IF (.NOT. var_lists(i)%p%loutput) CYCLE
       ! loop only over model level variables
-      IF (var_lists(i)%p%vlevel_type /= level_type_ml) CYCLE         
+      IF (var_lists(i)%p%vlevel_type /= lev_type) CYCLE         
       ! loop only over variables of where domain was requested
       IF (.NOT. lonlat_grid_list(ll_grid_id)%l_dom(jg)) CYCLE
 
@@ -325,7 +330,7 @@ CONTAINS
         cf      = element_u%field%info%cf
         grib2   = element_u%field%info%grib2
         CALL add_var( dst_varlist, TRIM(name), p_opt_field_r3d,                           &
-          & GRID_REGULAR_LONLAT, element_u%field%info%vgrid, cf, grib2,                   &
+          & GRID_REGULAR_LONLAT, info%vgrid, cf, grib2,                                   &
           & ldims=shape3d_ll, lrestart=.FALSE., in_group=element_u%field%info%in_group,   &
           & new_element=new_element, loutput=.TRUE. )
 
@@ -333,7 +338,7 @@ CONTAINS
         cf      = element_v%field%info%cf
         grib2   = element_v%field%info%grib2
         CALL add_var( dst_varlist, TRIM(name), p_opt_field_r3d,                           &
-          & GRID_REGULAR_LONLAT, element_v%field%info%vgrid, cf, grib2,                   &
+          & GRID_REGULAR_LONLAT, info%vgrid, cf, grib2,                                   &
           & ldims=shape3d_ll, lrestart=.FALSE., in_group=element_v%field%info%in_group,   &
           & new_element=new_element_2, loutput=.TRUE. )
 
@@ -343,7 +348,7 @@ CONTAINS
 
         !-- create and add post-processing task
         task => pp_task_insert(DEFAULT_PRIORITY3)
-        WRITE (task%job_name, *) "horizontal interp. ",TRIM(info%name),", DOM ",jg
+        WRITE (task%job_name, *) "horizontal interp. ",TRIM(info%name),", ",prefix//"-levels", ", DOM ",jg
         IF (dbg_level > 8) CALL message(routine, task%job_name)
         task%data_input%p_nh_state      => NULL()
         task%data_input%prm_diag        => NULL()
