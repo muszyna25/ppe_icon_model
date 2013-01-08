@@ -2761,16 +2761,20 @@ CONTAINS
       ! Currently only real valued variables are allowed, so we can always use info%missval%rval
       IF (info%lmiss) CALL vlistDefVarMissval(vlistID, varID, info%missval%rval)
 
-      IF ( of%output_type == FILETYPE_GRB2 ) THEN
-        ! Set GRIB2 Triplet
-        CALL vlistDefVarParam(vlistID, varID,                                              &
-          &  cdiEncodeParam(info%grib2%number, info%grib2%category, info%grib2%discipline) )
-        CALL vlistDefVarDatatype(vlistID, varID, info%grib2%bits)
-      ELSE
-        ! Set GRIB2 Triplet
-        CALL vlistDefVarParam(vlistID, varID,                                              &
-          &  cdiEncodeParam(info%grib2%number, info%grib2%category, info%grib2%discipline) )
+      ! Set GRIB2 Triplet
+      CALL vlistDefVarParam(vlistID, varID,                                              &
+           &  cdiEncodeParam(info%grib2%number, info%grib2%category, info%grib2%discipline) )
 
+      IF ( of%output_type == FILETYPE_GRB2 ) THEN
+        CALL vlistDefVarDatatype(vlistID, varID, info%grib2%bits)
+
+        IF (tolower(TRIM(info%name)) == "z_ifc" ) THEN
+          !   For HHL/z_ifc, set "typeOfSecondFixedSurface = 101 (mean sea level)"
+          !   that is, a Fortran equivalent of:
+          !   GRIB_CHECK(grib_set_long(gh, "typeOfSecondFixedSurface", 101), 0);
+          CALL vlistDefVarTypeOfSfs(vlistID, varID, 101)
+        ENDIF
+      ELSE ! NetCDF
         CALL vlistDefVarDatatype(vlistID, varID, info%cf%datatype)
       ENDIF
 

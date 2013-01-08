@@ -949,6 +949,12 @@
 !                                     INTEGER         instID)
       EXTERNAL        vlistDefVarInstitut
 
+!                     vlistDefVarTypeOfSfs
+!                                    (INTEGER         vlistID,
+!                                     INTEGER         varID,
+!                                     INTEGER         sfs)
+      EXTERNAL        vlistDefVarTypeOfSfs
+
       INTEGER         vlistInqVarInstitut
 !                                    (INTEGER         vlistID,
 !                                     INTEGER         varID)

@@ -156,6 +156,9 @@ MODULE mo_prepicon_utils
     DO jg = 1, n_dom
       prepicon(jg)%topography_c(:,:) = ext_data(jg)%atm%topography_c(:,:)
       prepicon(jg)%topography_v(:,:) = ext_data(jg)%atm%topography_v(:,:)
+!DR copy coordinate surfaces
+!      prepicon(jg)%z_ifc(:,:) = p_nh_state(jg)%metrics%z_ifc
+!      prepicon(jg)%z_mc(:,:)  = p_nh_state(jg)%metrics%z_ifc
     ENDDO
 
     ! GZ: having shifted the call of the prep_icon setup after the initialization of the NH state,
