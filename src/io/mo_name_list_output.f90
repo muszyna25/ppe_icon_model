@@ -2074,6 +2074,21 @@ CONTAINS
       DEALLOCATE(levels)
       CALL zaxisDefVct(of%cdiZaxisID(ZA_hybrid_half), 2*nlevp1, vct(1:2*nlevp1))
 
+      ! HYBRID (special version for HHL)
+      !
+      of%cdiZaxisID(ZA_hybrid_half_hhl) = zaxisCreate(ZAXIS_HYBRID_HALF, nlevp1)
+      ALLOCATE(lbounds(nlevp1), ubounds(nlevp1), levels(nlevp1))
+      DO k = 1, nlevp1
+        lbounds(k) = REAL(k,wp)
+        levels(k)  = REAL(k,wp)
+      END DO
+      ubounds(1:nlevp1) = nlevp1
+      CALL zaxisDefLbounds(of%cdiZaxisID(ZA_hybrid_half_hhl), lbounds) !necessary for GRIB2
+      CALL zaxisDefUbounds(of%cdiZaxisID(ZA_hybrid_half_hhl), ubounds) !necessary for GRIB2
+      CALL zaxisDefLevels(of%cdiZaxisID(ZA_hybrid_half_hhl), levels)  !necessary for NetCDF
+      DEALLOCATE(lbounds, ubounds, levels)
+      CALL zaxisDefVct(of%cdiZaxisID(ZA_hybrid_half_hhl), 2*nlevp1, vct(1:2*nlevp1))
+
       !
       ! Define axis for output on mean sea level
       !
@@ -2772,6 +2787,7 @@ CONTAINS
           !   For HHL/z_ifc, set "typeOfSecondFixedSurface = 101 (mean sea level)"
           !   that is, a Fortran equivalent of:
           !   GRIB_CHECK(grib_set_long(gh, "typeOfSecondFixedSurface", 101), 0);
+
           CALL vlistDefVarTypeOfSfs(vlistID, varID, 101)
         ENDIF
       ELSE ! NetCDF

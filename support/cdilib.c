@@ -32940,10 +32940,11 @@ size_t gribapiEncode(int varID, int levelID, int vlistID, int gridID, int zaxisI
   /* Local change: 2013-01-08, DR,FP (DWD) */
   vlist_t *vlistptr;
   vlistptr = vlist_to_pointer(vlistID);
+  if (!gc->init) {
   if (vlistptr->vars[varID].grib_typeOfSecondFixedSurface != CDI_UNDEFID) {
       GRIB_CHECK(grib_set_long(gh, "typeOfSecondFixedSurface", 
 			       vlistptr->vars[varID].grib_typeOfSecondFixedSurface), 0);
-  }
+  }}
 
   if ( nmiss > 0 )
     {
