@@ -180,8 +180,8 @@ CONTAINS
 
           A1a = rhoi*hi(jc,k)*idt2*ci + K2*( 4.0_wp*dtime*K2 + rhoi*hi(jc,k)*ci )*D     ! Eq. 16
           A1  = A1a + K1*B*iK1B
-          ! I*SWin is wrong, should include albedo
-          B1a = -rhoi*hi(jc,k)*( ci*T1(jc,k) - alf*muS/T1(jc,k) )*idt2 - I*SUM(SWin(jc,:)) &
+          B1a = -rhoi*hi(jc,k)*( ci*T1(jc,k) - alf*muS/T1(jc,k) )*idt2                  &
+            &           - SUM( ( 1.0_wp - alb(jc,k,:) )*SWin(jc,:) )*I                  &
             &          - K2*( 4.0_wp*dtime*K2*Tfw(jc,k) + rhoi*hi(jc,k)*ci*T2(jc,k) )*D ! Eq. 17
           B1 = B1a + A*K1*iK1B                                                          ! Eq. 18
           C1 = -rhoi*hi(jc,k)*alf*muS*idt2                                              ! Eq. 21
