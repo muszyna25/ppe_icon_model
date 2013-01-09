@@ -179,15 +179,15 @@ cat > NAMELIST_PREPICON << EOF
 /
 &input_field_nml  ! geopotential
  inputname      = "Z"
- outputname     = "GEOSP" 
+ outputname     = "GEOP_SFC"
  code           = 129
- type_of_layer  = "surface" 
+ type_of_layer  = "surface"
 /
 &input_field_nml  ! geopotential
  inputname      = "FI"
- outputname     = "GEOP_H" 
+ outputname     = "GEOP_ML"
  code           = 129
- type_of_layer  = "hybridLayer" 
+ type_of_layer  = "hybridLayer"
 /
 &input_field_nml  ! specific humidity
  inputname      = "QV"
