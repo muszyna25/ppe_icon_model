@@ -497,8 +497,6 @@ MODULE mo_nh_stepping
 
       CALL update_sstice( p_patch(1:),           &
                         & ext_data, p_lnd_state, p_nh_state )
-      ! Do for all the domains
-      !!CALL init_sea_lists(p_patch, ext_data, p_lnd_state%diag_lnd, lseaice)
 
       datetime_old = datetime  
      END IF  ! newday

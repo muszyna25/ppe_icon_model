@@ -600,47 +600,16 @@ CONTAINS
     ENDDO  ! jb loop
 !$OMP END DO
 !$OMP END PARALLEL
-
-
+                          
     ! Aggregate t_g and qv_s 
-    ! Loop over all points (land AND water points) 
-    ! Aggregation has been moved to the end of the subroutine (PR)
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jc,isubs,i_startidx,i_endidx,t_g_s,qv_s_s)
-    DO jb = i_startblk, i_endblk
+    ! Loop over all points (land AND water points)
+    ! Aggregation has been moved to the end of the subroutine (PR) 
+    !  
 
-      CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-        & i_startidx, i_endidx, rl_start, rl_end)
+    CALL aggregate_t_g_q_v( p_patch, ext_data, p_prog_lnd_now , &
+     &                           p_lnd_diag )
+    p_prog_lnd_new%t_g(:,:)  = p_prog_lnd_now%t_g(:,:)
 
-
-       IF (ntiles_total == 1) THEN 
-         DO jc = i_startidx, i_endidx
-           p_prog_lnd_now%t_g(jc,jb)  = p_prog_lnd_now%t_g_t(jc,jb,1)
-           p_lnd_diag%qv_s(jc,jb)     = p_lnd_diag%qv_s_t(jc,jb,1) 
-           p_prog_lnd_new%t_g(jc,jb)  = p_prog_lnd_now%t_g(jc,jb)
-         ENDDO
-       ELSE ! aggregate fields over tiles
-         t_g_s(:)  =  0._wp
-         qv_s_s(:) =  0._wp
-         DO isubs = 1,ntiles_total+ntiles_water
-           DO jc = i_startidx, i_endidx
-             t_g_s(jc) = t_g_s(jc) + ext_data%atm%frac_t(jc,jb,isubs)  &
-               &       * p_prog_lnd_now%t_g_t(jc,jb,isubs)**4
-             qv_s_s(jc) = qv_s_s(jc) + ext_data%atm%frac_t(jc,jb,isubs) &
-               &       * p_lnd_diag%qv_s_t(jc,jb,isubs)
-           ENDDO
-         ENDDO
-         DO jc = i_startidx, i_endidx
-           p_prog_lnd_now%t_g(jc,jb)  = SQRT(SQRT(t_g_s(jc)))
-           p_lnd_diag%qv_s(jc,jb)     = qv_s_s(jc)
-           p_prog_lnd_new%t_g(jc,jb)  = p_prog_lnd_now%t_g(jc,jb)
-         ENDDO
-
-       ENDIF    ! with or without tiles
-
-    ENDDO  ! jb
-!$OMP END DO
-!$OMP END PARALLEL
 
   END SUBROUTINE nwp_surface_init
 
@@ -2051,7 +2020,7 @@ CONTAINS
     INTEGER :: jb, ic, jc
     INTEGER :: jg
     INTEGER :: count_sea, count_ice, count_water
-    INTEGER :: npoints_ice, npoints_wtr
+    INTEGER :: npoints_ice, npoints_wtr, npoints_sea
     INTEGER :: n_now, n_new
     INTEGER :: lc_water, lc_snow_ice
     REAL(wp):: fracwater_old, fracice_old
@@ -2080,7 +2049,10 @@ CONTAINS
 
     i_startblk = p_patch(jg)%cells%start_blk(rl_start,1)
     i_endblk   = p_patch(jg)%cells%end_blk(rl_end,i_nchdom)
-
+    
+       WRITE(message_text,'(a,3i10)') 'start end  blocks, number of cells', &
+        &  i_startblk, i_endblk,  p_patch(jg)%n_patch_cells_g
+      CALL message('', TRIM(message_text))   
 
     IF (lseaice) THEN
 
@@ -2100,9 +2072,8 @@ CONTAINS
       count_sea   = ext_data(jg)%atm%sp_count(jb)
       count_ice   = 0
       count_water = 0
-
+    
       IF (count_sea == 0) CYCLE ! skip loop if the index list for the given block is empty
-
 
 
       IF ( ntiles_total == 1 ) THEN  ! no tile approach
@@ -2134,11 +2105,12 @@ CONTAINS
              p_lnd_state(jg)%prog_lnd(n_now)%t_g_t(jc,jb,isub_seaice)= tf_salt
              p_lnd_state(jg)%prog_wtr(n_now)%t_ice(jc,jb) = tf_salt
              p_lnd_state(jg)%prog_wtr(n_now)%h_ice(jc,jb) = hice_ini
-             ext_data(jg)%atm%frac_t(jc,jb,isub_seaice) = 1._wp
-             ext_data(jg)%atm%frac_t(jc,jb,isub_water)  = 0._wp
             ELSE
              ! before was also ice. 
             END IF
+
+             ext_data(jg)%atm%frac_t(jc,jb,isub_seaice) = 1._wp
+             ext_data(jg)%atm%frac_t(jc,jb,isub_water)  = 0._wp
           ELSE
             !
             ! water point: all sea points with fr_seaice < 0.5
@@ -2149,6 +2121,10 @@ CONTAINS
 
             ext_data(jg)%atm%lc_class_t(jc,jb,isub_water)= lc_water
             p_lnd_state(jg)%prog_lnd(n_now)%t_g_t(jc,jb,isub_water)= p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb)
+
+            p_lnd_state(jg)%diag_lnd%qv_s_t(jc,jb,isub_water)    =                    &
+             &   spec_humi( sat_pres_water(p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) ),&
+             &                                  p_nh_state(jg)%diag%pres_sfc(jc,jb) ) 
             ext_data(jg)%atm%frac_t(jc,jb,isub_water) = 1._wp
             ext_data(jg)%atm%frac_t(jc,jb,isub_seaice) = 0._wp
              
@@ -2188,10 +2164,11 @@ CONTAINS
                         & / ext_data(jg)%atm%lc_frac_t(jc,jb,isub_seaice) 
             IF (fracice_old <frsi_min  ) THEN
             ! before was not ice
-      WRITE(message_text,'(a,5g12.5)') 'before was no ice',ext_data(jg)%atm%frac_t(jc,jb,isub_seaice) , &
-        &   ext_data(jg)%atm%lc_frac_t(jc,jb,isub_seaice), fracice_old, &
-        & p_lnd_state(jg)%prog_lnd(n_now)%t_g_t(jc,jb,isub_seaice), p_lnd_state(jg)%diag_lnd%qv_s_t(jc,jb,isub_seaice)
-      CALL message('', TRIM(message_text))
+      !WRITE(0,'(a,5g12.5)') 'before was no ice',ext_data(jg)%atm%frac_t(jc,jb,isub_seaice) , &
+      !  &   ext_data(jg)%atm%lc_frac_t(jc,jb,isub_seaice), fracice_old, &
+      !  & p_lnd_state(jg)%prog_lnd(n_now)%t_g_t(jc,jb,isub_seaice), p_lnd_state(jg)%diag_lnd%qv_s_t(jc,jb,isub_seaice)
+
+      !CALL message('', TRIM(message_text))
              ext_data(jg)%atm%lc_class_t(jc,jb,isub_seaice)= lc_snow_ice
              p_lnd_state(jg)%prog_lnd(n_now)%t_g_t(jc,jb,isub_seaice)= tf_salt
 
@@ -2199,11 +2176,15 @@ CONTAINS
               &                                     spec_humi( sat_pres_ice(tf_salt ),  &
               &                                  p_nh_state(jg)%diag%pres_sfc(jc,jb) )  
              p_lnd_state(jg)%prog_wtr(n_now)%t_ice(jc,jb) = tf_salt
-             p_lnd_state(jg)%prog_wtr(n_now)%h_ice(jc,jb) = 0.5_wp
+             p_lnd_state(jg)%prog_wtr(n_now)%h_ice(jc,jb) = hice_ini
             ELSE
 
-    !  WRITE(message_text,'(a,3g12.5)') 'before was also ice',ext_data(jg)%atm%frac_t(jc,jb,isub_seaice) , &
-     !   &   ext_data(jg)%atm%lc_frac_t(jc,jb,isub_seaice), fracice_old, 
+      !WRITE(0,'(a,2i, 5g12.5)') 'before was also ice',jc, jb, &
+      !  &   ext_data(jg)%atm%frac_t(jc,jb,isub_seaice) , &
+      !  &   ext_data(jg)%atm%lc_frac_t(jc,jb,isub_seaice), fracice_old, &
+      !  &   p_lnd_state(jg)%prog_wtr(n_now)%t_ice(jc,jb), p_lnd_state(jg)%prog_wtr(n_now)%h_ice(jc,jb) 
+
+      !CALL message('', TRIM(message_text))
 
             END IF
             ! set new frac_t for isub_seaice
@@ -2227,13 +2208,30 @@ CONTAINS
             ext_data(jg)%atm%lc_class_t(jc,jb,isub_water)= lc_water
             p_lnd_state(jg)%prog_lnd(n_now)%t_g_t(jc,jb,isub_water)= p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb)
             p_lnd_state(jg)%diag_lnd%qv_s_t(jc,jb,isub_water)    =                    &
-             &   spec_humi( sat_pres_water(p_lnd_state(jg)%diag_lnd%t_seasfc(jb,jb) ),&
+             &   spec_humi( sat_pres_water(p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) ),&
              &                                  p_nh_state(jg)%diag%pres_sfc(jc,jb) ) 
 
-            fracice_old = ext_data(jg)%atm%frac_t(jc,jb,isub_seaice)              &
-                        & / ext_data(jg)%atm%lc_frac_t(jc,jb,isub_seaice) 
-            IF (fracice_old >= 1._wp-frsi_min  ) THEN  !before was ice, no water tile
-             p_lnd_state(jg)%prog_wtr(n_now)%h_ice(jc,jb) = 0._wp             
+            fracwater_old = ext_data(jg)%atm%frac_t(jc,jb,isub_water)              &
+                        & / ext_data(jg)%atm%lc_frac_t(jc,jb,isub_water) 
+            IF (fracwater_old < frsi_min  ) THEN  !before was ice, no water tile
+             p_lnd_state(jg)%prog_wtr(n_now)%h_ice(jc,jb) = 0._wp  
+!!$      WRITE(0,'(a,2i,6g12.5)') 'before was only ice ',jc, jb, &
+!!$        & ext_data(jg)%atm%frac_t(jc,jb,isub_water) , &
+!!$        &   ext_data(jg)%atm%lc_frac_t(jc,jb,isub_water), fracwater_old, &
+!!$        & p_lnd_state(jg)%prog_lnd(n_now)%t_g_t(jc,jb,isub_water), &
+!!$        & p_lnd_state(jg)%diag_lnd%qv_s_t(jc,jb,isub_water), &
+!!$        &   sat_pres_water(p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) ) !,&
+!!$        !& p_nh_state(jg)%diag%pres_sfc(jc,jb)
+      !CALL message('', TRIM(message_text))   
+            ELSE
+!!$      WRITE(0,'(a,2i,6g12.5)') 'before was also water tile',jc, jb, &
+!!$        & ext_data(jg)%atm%frac_t(jc,jb,isub_water) , &
+!!$        &   ext_data(jg)%atm%lc_frac_t(jc,jb,isub_seaice), fracwater_old, &
+!!$        & p_lnd_state(jg)%prog_lnd(n_now)%t_g_t(jc,jb,isub_water), &
+!!$        & p_lnd_state(jg)%diag_lnd%qv_s_t(jc,jb,isub_water), &
+!!$        &   sat_pres_water(p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) ) !,&
+!!$        !& p_nh_state(jg)%diag%pres_sfc(jc,jb)
+        
             END IF
            ! Update frac_t for water tile
             ext_data(jg)%atm%frac_t(jc,jb,isub_water)  = ext_data(jg)%atm%lc_frac_t(jc,jb,isub_water)  &
@@ -2243,21 +2241,31 @@ CONTAINS
             ext_data(jg)%atm%frac_t(jc,jb,isub_water)  = 0._wp
           ENDIF
 
-!DR DEBUG
-         IF (ext_data(jg)%atm%frac_t(jc,jb,isub_water) &
-           & + ext_data(jg)%atm%frac_t(jc,jb,isub_seaice) /= ext_data(jg)%atm%lc_frac_t(jc,jb,isub_water)) THEN
-           write(0,*) "WARNING: fractions differ: frac_t_i+frac_t_w, lc_frac_t: ", &
-             & ext_data(jg)%atm%frac_t(jc,jb,isub_water) + ext_data(jg)%atm%frac_t(jc,jb,isub_seaice), &
-             & ext_data(jg)%atm%lc_frac_t(jc,jb,isub_water), jc, jb
-         ENDIF
-!DR END DEBUG
+!!$!DR DEBUG
+!!$         IF (ext_data(jg)%atm%frac_t(jc,jb,isub_water) &
+!!$           & + ext_data(jg)%atm%frac_t(jc,jb,isub_seaice) /= ext_data(jg)%atm%lc_frac_t(jc,jb,isub_water)) THEN
+!!$           write(0,*) "WARNING: fractions differ: frac_t_i+frac_t_w, lc_frac_t: ", &
+!!$             & ext_data(jg)%atm%frac_t(jc,jb,isub_water) + ext_data(jg)%atm%frac_t(jc,jb,isub_seaice), &
+!!$             & ext_data(jg)%atm%lc_frac_t(jc,jb,isub_water), jc, jb
+!!$         ENDIF
+!!$!DR END DEBUG
 
         ENDDO  ! ic
 
       ENDIF   ! IF (ntiles_total == 1) 
 
+!!$      WRITE(message_text,'(a,i3,a,i10)') 'Number of sea-ice points in block',jb, &
+!!$        &  ':', ext_data(jg)%atm%spi_count(jb) 
+!!$      CALL message('', TRIM(message_text))
+!!$      WRITE(message_text,'(a,i3,a,i10)') 'Number of water points in block',jb, &
+!!$        &  ':', ext_data(jg)%atm%spw_count(jb) 
+!!$      CALL message('', TRIM(message_text))
+!!$      WRITE(message_text,'(a,i3,a,i10)') 'Number of sea  points in block',jb, &
+!!$        &  ':', ext_data(jg)%atm%sp_count(jb) 
+!!$      CALL message('', TRIM(message_text))
     ENDDO  ! jb    
-!$OMP END DO
+
+!$OMP END DO 
 !$OMP END PARALLEL
 
 
@@ -2266,11 +2274,16 @@ CONTAINS
       npoints_ice = global_sum_array(npoints_ice)
       npoints_wtr = SUM(ext_data(jg)%atm%spw_count(i_startblk:i_endblk))
       npoints_wtr = global_sum_array(npoints_wtr)
+      npoints_sea = SUM(ext_data(jg)%atm%sp_count(i_startblk:i_endblk))
+      npoints_sea = global_sum_array(npoints_sea)
       WRITE(message_text,'(a,i3,a,i10)') 'Number of sea-ice points in domain',jg, &
         &  ':',npoints_ice
       CALL message('', TRIM(message_text))
       WRITE(message_text,'(a,i3,a,i10)') 'Number of water points in domain',jg, &
         &  ':',npoints_wtr
+      CALL message('', TRIM(message_text))
+      WRITE(message_text,'(a,i3,a,i10)') 'Number of sea points in domain',jg, &
+        &  ':',npoints_sea
       CALL message('', TRIM(message_text))
 
 
@@ -2292,13 +2305,13 @@ CONTAINS
         DO ic = 1, count_sea
 
           jc = ext_data(jg)%atm%idx_lst_sp(ic,jb)
-          ! only if the dominant tile is waterm t_g_t is set to t_seasfc
+          ! only if the dominant tile is water t_g_t is set to t_seasfc
           IF (p_lnd_state(jg)%diag_lnd%fr_seaice(jc,jb) < 0.5_wp ) THEN
            p_lnd_state(jg)%prog_lnd(n_now)%t_g_t(jc,jb,isub_water)=   &
-                                p_lnd_state(jg)%diag_lnd%t_seasfc(jb,jb)
+                                p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb)
 
            p_lnd_state(jg)%diag_lnd%qv_s_t(jc,jb,isub_water)    =                    &
-            &   spec_humi( sat_pres_water(p_lnd_state(jg)%diag_lnd%t_seasfc(jb,jb) ),&
+            &   spec_humi( sat_pres_water(p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) ),&
             &                                  p_nh_state(jg)%diag%pres_sfc(jc,jb) )  
           END IF
         ENDDO  ! ic 
@@ -2308,7 +2321,7 @@ CONTAINS
     ENDIF  ! lseaice
 
 
-    !Still have to aggrgate t_g_t and qv_s_t
+    !Still have to aggregate t_g_t and qv_s_t
     CALL aggregate_t_g_q_v( p_patch(jg), ext_data(jg), p_lnd_state(jg)%prog_lnd(n_now) , &
      &                           p_lnd_state(jg)%diag_lnd )
 
