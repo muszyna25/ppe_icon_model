@@ -237,7 +237,7 @@ cat > ${atmo_namelist} << EOF
  dt_sso                       = ${dtconv}
  dt_gwd                       = ${dtconv}
  dt_rad                       = ${dtrad}
- latm_above_top               = .TRUE.
+ latm_above_top               = .FALSE.
  efdt_min_raylfric            = 7200.
 /
 &turbdiff_nml
@@ -251,7 +251,7 @@ cat > ${atmo_namelist} << EOF
  ntiles                       = 3
  nlev_snow                    = 2
  lmulti_snow                  = .true.
- idiag_snowfrac               = 2
+ idiag_snowfrac               = 3
  lsnowtile                    = .false.
  lseaice                      = .true.
 /

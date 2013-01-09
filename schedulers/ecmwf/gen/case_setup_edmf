@@ -237,7 +237,7 @@ cat > ${atmo_namelist} << EOF
  dt_sso                       = ${dtconv}
  dt_gwd                       = ${dtconv}
  dt_rad                       = ${dtrad}
- latm_above_top               = .TRUE.
+ latm_above_top               = .FALSE.
  efdt_min_raylfric            = 7200.
 /
 &lnd_nml
@@ -245,7 +245,7 @@ cat > ${atmo_namelist} << EOF
  lana_rho_snow                = .TRUE.  ! true: initialization of rho_snow and depth_snow, false: set rho_snow to default value 
  nlev_snow                    = 2       ! 2 for multi-level snow
  lmulti_snow                  = .FALSE. ! true: multi-level snow, false: single-level snow
- idiag_snowfrac               = 2
+ idiag_snowfrac               = 3
  lsnowtile                    = .FALSE. ! true: allow separate snow and snow-free tiles
  lseaice                      = .true.
 /
