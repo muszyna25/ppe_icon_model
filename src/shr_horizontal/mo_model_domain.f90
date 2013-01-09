@@ -850,7 +850,7 @@ MODULE mo_model_domain
     
   END TYPE t_phys_patch
   
-  TYPE(t_patch), PUBLIC, TARGET, ALLOCATABLE :: p_patch(:), p_patch_local_parent(:)
+  TYPE(t_patch), PUBLIC, POINTER :: p_patch(:), p_patch_local_parent(:)
   
   ! Please note: There is currently no means of determining the number
   ! of physical patches until they are actually assembled

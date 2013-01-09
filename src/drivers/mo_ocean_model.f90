@@ -274,9 +274,9 @@ CONTAINS
     IF (my_process_is_io()) CALL vlist_io_main_proc
 
     ! Check patch allocation status
-    IF ( ALLOCATED(p_patch)) THEN
-      CALL finish(TRIM(routine), 'patch already allocated')
-    END IF
+    !IF ( ALLOCATED(p_patch)) THEN
+    !  CALL finish(TRIM(routine), 'patch already allocated')
+    !END IF
     ! Allocate patch array to start patch construction
     !ALLOCATE(p_patch(n_dom_start:n_dom), stat=error_status)
     !IF (error_status/=success) THEN
@@ -425,7 +425,7 @@ CONTAINS
       !CALL finalize_decomposition()
       !The 3D-ocean version of previous calls 
       CALL finalize_decomposition_oce(p_patch_3D%p_patch_2D)
-      p_patch = p_patch_3D%p_patch_2D
+      p_patch => p_patch_3D%p_patch_2D
 
     ENDIF
 

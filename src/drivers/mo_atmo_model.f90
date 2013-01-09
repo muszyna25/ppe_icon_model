@@ -401,7 +401,7 @@ CONTAINS
 
     ! Check patch allocation status
 
-    IF ( ALLOCATED(p_patch)) THEN
+    IF ( ASSOCIATED(p_patch)) THEN
       CALL finish(TRIM(routine), 'patch already allocated')
     END IF
 
