@@ -50,7 +50,7 @@ MODULE mo_interpol_config
   USE mo_parallel_config,     ONLY: nproma
   USE mo_grid_config,         ONLY: grid_sphere_radius
   USE mo_math_constants,      ONLY: pi, pi2
-  USE mo_grid_geometry_info,  ONLY: t_grid_geometry_info, planar_torus_geometry
+  USE mo_grid_geometry_info,  ONLY: t_grid_geometry_info, planar_torus_geometry, sphere_geometry
 
 
   IMPLICIT NONE
@@ -162,7 +162,7 @@ CONTAINS
     TYPE(t_grid_geometry_info), OPTIONAL, INTENT(in) :: geometry_info
     
     REAL(wp):: torus_grid_fac
-    INTEGER :: jg, jlev
+    INTEGER :: jg, jlev, geometry_type
     CHARACTER(len=*),PARAMETER :: routine = 'mo_interpol_config:configure_interpol'
 
     !-----------------------------------------------------------------------
@@ -187,8 +187,12 @@ CONTAINS
 
     !Modification required for planar torus grid: the scale factor
     !is scaled up based on torus length
-    IF( PRESENT(geometry_info) .AND.  &
-        geometry_info%geometry_type==planar_torus_geometry ) THEN
+
+    geometry_type = sphere_geometry
+    IF (PRESENT(geometry_info)) &
+      geometry_type = geometry_info%geometry_type
+
+    IF( geometry_type==planar_torus_geometry ) THEN
        torus_grid_fac = geometry_info%domain_length/(pi2*grid_sphere_radius)   
        CALL message( TRIM(routine),'Modifying rbf_vec_scale for torus grid: ignore warnings!')
     ELSE
