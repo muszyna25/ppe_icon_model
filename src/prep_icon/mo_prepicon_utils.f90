@@ -49,8 +49,6 @@ MODULE mo_prepicon_utils
   USE mo_extpar_config,       ONLY: extpar_filename,     &
     &                               generate_extpar_filename => generate_filename
   USE mo_dynamics_config,     ONLY: nnow, nnow_rcf, nnew, nnew_rcf
-  USE mo_nonhydrostatic_config,ONLY: ivctype
-  USE mo_sleve_config,        ONLY: lread_smt
   USE mo_model_domain,        ONLY: t_patch
   USE mo_nonhydro_types,      ONLY: t_nh_state
   USE mo_nwp_lnd_types,       ONLY: t_lnd_state
@@ -66,15 +64,13 @@ MODULE mo_prepicon_utils
     &                               MODE_IFSANA, MODE_COMBINED
   USE mo_physical_constants,  ONLY: tf_salt
   USE mo_exception,           ONLY: message, finish, message_text
-  USE mo_grid_config,         ONLY: n_dom, nroot, global_cell_type
+  USE mo_grid_config,         ONLY: n_dom, nroot
   USE mo_mpi,                 ONLY: p_pe, p_io, p_bcast, p_comm_work_test, p_comm_work
-  USE mo_smooth_topo,         ONLY: smooth_topography
   USE mo_util_netcdf,         ONLY: read_netcdf_data, read_netcdf_data_single, nf
   USE mo_io_config,           ONLY: lkeep_in_sync
   USE mo_io_util,             ONLY: gather_array1, gather_array2, outvar_desc,    &
     &                               GATHER_C, GATHER_E, GATHER_V, num_output_vars
-  USE mo_nh_init_utils,       ONLY: nflat, nflatlev, compute_smooth_topo, init_vert_coord,  &
-    &                               hydro_adjust, virtual_temp, convert_thdvars, &
+  USE mo_nh_init_utils,       ONLY: hydro_adjust, virtual_temp, convert_thdvars, &
     &                               interp_uv_2_vn
   USE mo_ifs_coord,           ONLY: alloc_vct, init_vct, vct, vct_a, vct_b
   USE mo_lnd_nwp_config,      ONLY: nlev_soil, ntiles_total
@@ -114,8 +110,7 @@ MODULE mo_prepicon_utils
   !>
   !! SUBROUTINE init_icon
   !! Initialization routine of prep_icon:
-  !! Reads in either DWD or IFS analysis and processes topography blending 
-  !! and feedback in the presence of nested domains
+  !! Reads in either DWD or IFS analysis
   !!
   !! @par Revision History
   !! Initial version by Guenther Zaengl, DWD(2011-07-14)
@@ -149,23 +144,15 @@ MODULE mo_prepicon_utils
     CALL allocate_prepicon (p_patch, prepicon)
 
 
+    ! Copy the topography fields and coordinate surfaces to prepicon
     !
-    ! topography blending and feedback
-    !
-    ! Copy the topography fields to prepicon
     DO jg = 1, n_dom
       prepicon(jg)%topography_c(:,:) = ext_data(jg)%atm%topography_c(:,:)
       prepicon(jg)%topography_v(:,:) = ext_data(jg)%atm%topography_v(:,:)
-!DR copy coordinate surfaces
-!      prepicon(jg)%z_ifc(:,:) = p_nh_state(jg)%metrics%z_ifc
-!      prepicon(jg)%z_mc(:,:)  = p_nh_state(jg)%metrics%z_ifc
-    ENDDO
 
-    ! GZ: having shifted the call of the prep_icon setup after the initialization of the NH state,
-    ! the following (re)computation should be replaced by copying the required fields from the NH metrics state
-    ! Compute the 3D coordinate fields
-    !
-    CALL compute_coord_fields(p_patch, p_int_state(1:), prepicon)
+      prepicon(jg)%z_ifc(:,:,:) = p_nh_state(jg)%metrics%z_ifc(:,:,:)
+      prepicon(jg)%z_mc(:,:,:)  = p_nh_state(jg)%metrics%z_mc(:,:,:)
+    ENDDO
 
 
     ! init ICON prognostic fields
@@ -1667,76 +1654,6 @@ MODULE mo_prepicon_utils
 
 
 
-  SUBROUTINE compute_coord_fields(p_patch, p_int, prepicon)
-
-    TYPE(t_patch),          INTENT(IN)   :: p_patch(:)
-    TYPE(t_int_state),      INTENT(IN)   :: p_int(:)
-    TYPE(t_prepicon_state), INTENT(INOUT):: prepicon(:)
-
-    INTEGER :: jg, jgp, nblks_c, npromz_c, nlev
-    INTEGER :: i_nchdom
-    INTEGER :: nshift_total(n_dom)       !< Total shift of model top w.r.t. global domain
-    LOGICAL :: l_half_lev_centr
-
-    !------------------------------------------------------------------------
-
-    SELECT CASE (global_cell_type)
-    CASE (6)
-      l_half_lev_centr = .TRUE.
-      ! The HALF LEVEL where the model layer are flat, moves one layer upward.
-      ! there could also be a zero there
-      nflat = nflat-1
-    CASE DEFAULT
-      l_half_lev_centr = .FALSE.
-    END SELECT
-
-    nshift_total(1) = 0
-
-    DO jg = 1,n_dom
-
-      nblks_c   = p_patch(jg)%nblks_c
-      npromz_c  = p_patch(jg)%npromz_c
-
-      i_nchdom   = MAX(1,p_patch(jg)%n_childdom)
-
-      ! number of vertical levels
-      nlev   = p_patch(jg)%nlev
-
-      ! total shift of model top with respect to global domain
-      IF (jg > 1) THEN
-        jgp = p_patch(jg)%parent_id
-        nshift_total(jg) = nshift_total(jgp) + p_patch(jg)%nshift
-        nflatlev(jg)     = nflatlev(1) - nshift_total(jg)
-      ENDIF
-      IF (global_cell_type == 6) nflatlev(jg) = nflat
-      IF (jg > 1 .AND. nshift_total(jg) > 0 .AND. nflatlev(jg) < 1) THEN
-        CALL finish ('mo_prepicon_utils:compute_coord_fields', &
-                     'nflat must be higher than the top of the innermost nested domain')
-      ENDIF
-
-      ! Compute smooth topography when SLEVE coordinate is used
-      IF (ivctype == 2  .AND. .NOT. lread_smt ) THEN
-        CALL compute_smooth_topo(p_patch(jg), p_int(jg),            &
-          prepicon(jg)%topography_c, prepicon(jg)%topography_c_smt, &
-          prepicon(jg)%topography_v, prepicon(jg)%topography_v_smt  )
-      ENDIF
-
-      ! Compute 3D coordinate fields for cell points (for vertex points needed
-      ! only temporarily in set_nh_metrics)
-      CALL init_vert_coord(prepicon(jg)%topography_c, prepicon(jg)%topography_c_smt, &
-                           prepicon(jg)%z_ifc, prepicon(jg)%z_mc,                    &
-                           nlev, nblks_c, npromz_c, nshift_total(jg), nflatlev(jg),  &
-                           l_half_lev_centr)
-
-
-    ENDDO
-
-
-  END SUBROUTINE compute_coord_fields
-
-
-
-
   !-------------
   !>
   !! SUBROUTINE allocate_prepicon
@@ -1768,9 +1685,7 @@ MODULE mo_prepicon_utils
 
       ! basic prep_icon data
       ALLOCATE(prepicon(jg)%topography_c    (nproma,nblks_c),        &
-               prepicon(jg)%topography_c_smt(nproma,nblks_c) ,       &
                prepicon(jg)%topography_v    (nproma,nblks_v),        &
-               prepicon(jg)%topography_v_smt(nproma,nblks_v) ,       &
                prepicon(jg)%z_ifc           (nproma,nlevp1,nblks_c), &
                prepicon(jg)%z_mc            (nproma,nlev  ,nblks_c) )
 
@@ -1862,9 +1777,7 @@ MODULE mo_prepicon_utils
 
       ! basic prep_icon data
       DEALLOCATE(prepicon(jg)%topography_c,     &
-                 prepicon(jg)%topography_c_smt, &
                  prepicon(jg)%topography_v,     &
-                 prepicon(jg)%topography_v_smt, &
                  prepicon(jg)%z_ifc,            &
                  prepicon(jg)%z_mc              )
 
