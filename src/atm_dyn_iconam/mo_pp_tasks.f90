@@ -53,9 +53,11 @@ MODULE mo_pp_tasks
   USE mo_var_list_element,        ONLY: t_var_list_element, level_type_ml,  &
     &                                   level_type_pl, level_type_hl
   USE mo_var_metadata,            ONLY: t_var_metadata, t_vert_interp_meta
-  USE mo_intp,                    ONLY: verts2cells_scalar, cell_avg
+  USE mo_intp,                    ONLY: verts2cells_scalar, cell_avg,       &
+    &                                   cells2edges_scalar
   USE mo_intp_data_strc,          ONLY: t_int_state, lonlat_grid_list,      &
     &                                   t_lon_lat_intp, p_int_state
+  USE mo_intp_rbf,                ONLY: rbf_vec_interpol_cell
   USE mo_nh_vert_interp,          ONLY: prepare_vert_interp_z,              &
     &                                   prepare_vert_interp_p,              &
     &                                   prepare_vert_interp_i,              &
@@ -67,7 +69,8 @@ MODULE mo_pp_tasks
   USE mo_nonhydro_state,          ONLY: p_nh_state
   USE mo_opt_diagnostics,         ONLY: t_nh_diag_pz, t_nh_opt_diag, t_vcoeff, &
     &                                   vcoeff_allocate, vcoeff_deallocate,    &
-    &                                   p_nh_opt_diag
+    &                                   p_nh_opt_diag, t_vcoeff_lin,           &
+    &                                   t_vcoeff_cub
   USE mo_nwp_phy_types,           ONLY: t_nwp_phy_diag
   USE mo_nwp_phy_state,           ONLY: prm_diag
   USE mo_nh_pzlev_config,         ONLY: t_nh_pzlev_config, nh_pzlev_config
@@ -102,6 +105,7 @@ MODULE mo_pp_tasks
   INTEGER, PARAMETER, PUBLIC  :: DEFAULT_PRIORITY0 =    8  
   INTEGER, PARAMETER, PUBLIC  :: DEFAULT_PRIORITY1 =    9   
   INTEGER, PARAMETER, PUBLIC  :: DEFAULT_PRIORITY2 =   10  
+  INTEGER, PARAMETER, PUBLIC  :: DEFAULT_PRIORITY3 =   11  
   INTEGER, PARAMETER, PUBLIC  :: LOW_PRIORITY      =  100  
 
   ! level of output verbosity
@@ -114,6 +118,7 @@ MODULE mo_pp_tasks
   PUBLIC :: pp_task_ipzlev
   PUBLIC :: pp_task_intp_msl
   PUBLIC :: pp_task_compute_field
+  PUBLIC :: pp_task_edge2cell
   ! variables
   PUBLIC :: job_queue
   ! data types
@@ -504,8 +509,7 @@ CONTAINS
     INTEGER                            :: &
       &  vert_intp_method, jg,                    &
       &  in_var_idx, out_var_idx, nlev, nlevp1,   &
-      &  nzlev, nplev, nilev, n_ipzlev, npromz,   &
-      &  nblks, dim2, ierrstat
+      &  n_ipzlev, npromz, nblks, dim2, ierrstat
     TYPE(t_patch),             POINTER :: p_patch
     TYPE(t_nh_metrics),        POINTER :: p_metrics    
     TYPE(t_nh_prog),           POINTER :: p_prog
@@ -520,6 +524,9 @@ CONTAINS
     TYPE(t_nh_pzlev_config),   POINTER :: nh_pzlev_config
     REAL(wp),                  POINTER :: p_z3d(:,:,:), p_pres(:,:,:), p_temp(:,:,:)
     REAL(wp), ALLOCATABLE              :: tmp_var(:,:,:)
+    REAL(wp), ALLOCATABLE, TARGET      :: z_me(:,:,:), p_z3d_edge(:,:,:)
+    REAL(wp),                  POINTER :: in_z3d(:,:,:), in_z_mc(:,:,:)
+    TYPE(t_int_state),         POINTER :: intp_hrz
 
     LOGICAL                            :: &
       &  l_hires_intp, l_restore_fricred, l_loglin, &
@@ -527,6 +534,10 @@ CONTAINS
       &  l_pd_limit, l_restore_sfcinv, l_hires_corr
     REAL(wp)                           :: &
       &  lower_limit, extrapol_dist
+    TYPE (t_vcoeff_lin), POINTER       :: &
+      &  vcoeff_lin, vcoeff_lin_nlevp1
+    TYPE (t_vcoeff_cub), POINTER       :: &
+      &  vcoeff_cub
 
     ! input/output field for this task
     p_info            => ptr_task%data_input%var%info
@@ -551,33 +562,31 @@ CONTAINS
     p_diag            => ptr_task%data_input%p_nh_state%diag
     p_diag_pz         => ptr_task%data_input%p_nh_opt_diag%diag_pz
     prm_diag          => ptr_task%data_input%prm_diag
+    intp_hrz          => ptr_task%data_input%p_int_state
 
     nh_pzlev_config   => ptr_task%data_input%nh_pzlev_config
     nlev              = p_patch%nlev
     nlevp1            = p_patch%nlevp1
-    nzlev             = nh_pzlev_config%nzlev
-    nplev             = nh_pzlev_config%nplev
-    nilev             = nh_pzlev_config%nilev
 
     ! pz-level interpolation data
     SELECT CASE ( ptr_task%job_type )
     CASE ( TASK_INTP_VER_ZLEV )
       ! vertical levels for z-level interpolation
-      n_ipzlev  =   nzlev
+      n_ipzlev  =  nh_pzlev_config%nzlev
       vcoeff  =>  p_diag_pz%vcoeff_z
       p_z3d   =>  nh_pzlev_config%z3d
       p_pres  =>  p_diag_pz%z_pres
       p_temp  =>  p_diag_pz%z_temp
     CASE ( TASK_INTP_VER_PLEV )
       ! vertical levels for p-level interpolation
-      n_ipzlev  =   nplev
+      n_ipzlev  =  nh_pzlev_config%nplev
       vcoeff  =>  p_diag_pz%vcoeff_p
       p_z3d   =>  p_diag_pz%p_geopot
       p_pres  =>  nh_pzlev_config%p3d
       p_temp  =>  p_diag_pz%p_temp
     CASE ( TASK_INTP_VER_ILEV )
       ! vertical levels for isentropic-level interpolation
-      n_ipzlev  =   nilev
+      n_ipzlev  =   nh_pzlev_config%nilev
       vcoeff  =>  p_diag_pz%vcoeff_i
       p_z3d   =>  p_diag_pz%i_geopot
       p_pres  =>  nh_pzlev_config%p3d ! ** this still needs to be fixed! we either need i_pres here
@@ -609,15 +618,53 @@ CONTAINS
     IF (.NOT. vcoeff%l_initialized) &
       CALL finish(routine, "Interpolation coefficients not yet initialized!")
 
-    nblks  = p_patch%nblks_c
-    npromz = p_patch%npromz_c
+    SELECT CASE ( p_info%hgrid )
+    CASE (GRID_UNSTRUCTURED_CELL) 
+      nblks  = p_patch%nblks_c
+      npromz = p_patch%npromz_c
+      ! 
+      vcoeff_lin        => vcoeff%lin_cell
+      vcoeff_lin_nlevp1 => vcoeff%lin_cell_nlevp1
+      vcoeff_cub        => vcoeff%cub_cell
+      in_z3d            => p_z3d
+      in_z_mc           => p_metrics%z_mc
+
+    CASE (GRID_UNSTRUCTURED_VERT) 
+      nblks  = p_patch%nblks_c
+      npromz = p_patch%npromz_c
+      !
+      vcoeff_lin        => vcoeff%lin_cell
+      vcoeff_lin_nlevp1 => vcoeff%lin_cell_nlevp1
+      vcoeff_cub        => vcoeff%cub_cell
+      in_z3d            => p_z3d
+      in_z_mc           => p_metrics%z_mc
+      
+    CASE (GRID_UNSTRUCTURED_EDGE) 
+      nblks  = p_patch%nblks_e
+      npromz = p_patch%npromz_e
+      !
+      vcoeff_lin        => vcoeff%lin_edge
+      vcoeff_lin_nlevp1 => NULL()
+      vcoeff_cub        => vcoeff%cub_edge
+
+      ! Compute geometric height at edge points (temporary variable)
+      ALLOCATE(p_z3d_edge(nproma,n_ipzlev,nblks), z_me(nproma,p_patch%nlev,nblks), STAT=ierrstat)
+      IF (ierrstat /= SUCCESS)  CALL finish (routine, 'ALLOCATE failed')
+
+      CALL cells2edges_scalar(p_metrics%z_mc, p_patch, intp_hrz%c_lin_e,    &
+        &                     z_me, opt_fill_latbc=.TRUE.)
+      CALL cells2edges_scalar(p_z3d, p_patch, intp_hrz%c_lin_e, p_z3d_edge, &
+        &                     opt_fill_latbc=.TRUE.)
+      in_z3d            => p_z3d_edge
+      in_z_mc           => z_me
+    END SELECT
 
     dim2 = UBOUND(in_var%r_ptr, 2)
     ALLOCATE(tmp_var(nproma, dim2, nblks), STAT=ierrstat)
     IF (ierrstat /= SUCCESS)  CALL finish (routine, 'allocation failed')
 
     SELECT CASE ( p_info%hgrid )
-    CASE (GRID_UNSTRUCTURED_CELL) 
+    CASE (GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE) 
       ! consistency check:
       IF ((UBOUND(in_var%r_ptr,1) > nproma) .OR.  &
         & (UBOUND(in_var%r_ptr,2) > dim2)   .OR.  &
@@ -626,11 +673,13 @@ CONTAINS
       END IF
       tmp_var(:,:,:) = in_var%r_ptr(:,:,:,in_var_idx,1)
     CASE (GRID_UNSTRUCTURED_VERT) 
+      ! Even vertex-based variables are interpolated onto a cell-based
+      ! variable, since we interpolate the vertex-based vars to
+      ! cell-based vars first:
       CALL verts2cells_scalar( in_var%r_ptr(:,:,:,in_var_idx,1), p_patch,      &
         &                      ptr_task%data_input%p_int_state%verts_aw_cells, &
         &                      tmp_var(:,:,:), 1, dim2 )
     END SELECT
-
 
     !--- actually perform vertical interpolation task
     IF (.NOT. ((nblks == 0) .OR. ((nblks == 1) .AND. (npromz == 0)))) THEN
@@ -638,60 +687,66 @@ CONTAINS
       SELECT CASE ( vert_intp_method )
       CASE ( VINTP_METHOD_UV )
         IF (dbg_level > 15)  CALL message(routine, "VINTP_METHOD_UV")
+        IF (.NOT. ASSOCIATED(vcoeff_lin)) CALL finish(routine, "Internal error!")
+        IF (.NOT. ASSOCIATED(vcoeff_cub)) CALL finish(routine, "Internal error!")
         CALL uv_intp(tmp_var(:,:,:),                                                & !in
           &          out_var%r_ptr(:,:,:,out_var_idx,1),                            & !out
-          &          p_metrics%z_mc, p_z3d,                                         & !in
+          &          in_z_mc, in_z3d,                                               & !in
           &          nblks, npromz, nlev, n_ipzlev,                                 & !in
-          &          vcoeff%cub_cell%coef1, vcoeff%cub_cell%coef2,                  & !in
-          &          vcoeff%cub_cell%coef3, vcoeff%lin_cell%wfac_lin,               & !in
-          &          vcoeff%cub_cell%idx0_cub, vcoeff%lin_cell%idx0_lin,            & !in
-          &          vcoeff%cub_cell%bot_idx_cub, vcoeff%lin_cell%bot_idx_lin,      & !in
-          &          vcoeff%lin_cell%wfacpbl1, vcoeff%lin_cell%kpbl1,               & !in
-          &          vcoeff%lin_cell%wfacpbl2, vcoeff%lin_cell%kpbl2,               & !in
+          &          vcoeff_cub%coef1, vcoeff_cub%coef2,                            & !in
+          &          vcoeff_cub%coef3, vcoeff_lin%wfac_lin,                         & !in
+          &          vcoeff_cub%idx0_cub, vcoeff_lin%idx0_lin,                      & !in
+          &          vcoeff_cub%bot_idx_cub, vcoeff_lin%bot_idx_lin,                & !in
+          &          vcoeff_lin%wfacpbl1, vcoeff_lin%kpbl1,                         & !in
+          &          vcoeff_lin%wfacpbl2, vcoeff_lin%kpbl2,                         & !in
           &          l_hires_intp=l_hires_intp,                                     & !in
           &          l_restore_fricred=l_restore_fricred )                            !in
         !
       CASE ( VINTP_METHOD_LIN )        
         IF (dbg_level > 15)  CALL message(routine, "VINTP_METHOD_LIN")
+        IF (.NOT. ASSOCIATED(vcoeff_lin)) CALL finish(routine, "Internal error!")
         CALL lin_intp(tmp_var(:,:,:),                                               & !inout
           &           out_var%r_ptr(:,:,:,out_var_idx,1),                           & !out
           &           nblks, npromz, nlev, n_ipzlev,                                & !in
-          &           vcoeff%lin_cell%wfac_lin, vcoeff%lin_cell%idx0_lin,           & !in
-          &           vcoeff%lin_cell%bot_idx_lin,                                  & !in
-          &           vcoeff%lin_cell%wfacpbl1, vcoeff%lin_cell%kpbl1,              & !in
-          &           vcoeff%lin_cell%wfacpbl2, vcoeff%lin_cell%kpbl2,              & !in
+          &           vcoeff_lin%wfac_lin, vcoeff_lin%idx0_lin,                     & !in
+          &           vcoeff_lin%bot_idx_lin,                                       & !in
+          &           vcoeff_lin%wfacpbl1, vcoeff_lin%kpbl1,                        & !in
+          &           vcoeff_lin%wfacpbl2, vcoeff_lin%kpbl2,                        & !in
           &           l_loglin=l_loglin,                                            & !in
           &           l_extrapol=l_extrapol, l_pd_limit=l_pd_limit,                 & !in
           &           lower_limit=lower_limit )                                       !in
         !
       CASE ( VINTP_METHOD_LIN_NLEVP1 )        
         IF (dbg_level > 15)  CALL message(routine, "VINTP_METHOD_LIN_NLEVP1")
+        IF (.NOT. ASSOCIATED(vcoeff_lin_nlevp1)) CALL finish(routine, "Internal error!")
         CALL lin_intp(tmp_var(:,:,:),                                               & !inout
           &           out_var%r_ptr(:,:,:,out_var_idx,1),                           & !out
           &           nblks, npromz, nlevp1, n_ipzlev,                              & !in
-          &           vcoeff%lin_cell_nlevp1%wfac_lin,                              & !in
-          &           vcoeff%lin_cell_nlevp1%idx0_lin,                              & !in
-          &           vcoeff%lin_cell_nlevp1%bot_idx_lin,                           & !in
-          &           vcoeff%lin_cell_nlevp1%wfacpbl1, vcoeff%lin_cell_nlevp1%kpbl1,& !in
-          &           vcoeff%lin_cell_nlevp1%wfacpbl2, vcoeff%lin_cell_nlevp1%kpbl2,& !in
+          &           vcoeff_lin_nlevp1%wfac_lin,                                   & !in
+          &           vcoeff_lin_nlevp1%idx0_lin,                                   & !in
+          &           vcoeff_lin_nlevp1%bot_idx_lin,                                & !in
+          &           vcoeff_lin_nlevp1%wfacpbl1, vcoeff_lin_nlevp1%kpbl1,          & !in
+          &           vcoeff_lin_nlevp1%wfacpbl2, vcoeff_lin_nlevp1%kpbl2,          & !in
           &           l_loglin=l_loglin,                                            & !in
           &           l_extrapol=l_extrapol, l_pd_limit=l_pd_limit,                 & !in
           &           lower_limit=lower_limit )                                       !in
         !
       CASE (VINTP_METHOD_QV )
         IF (dbg_level > 15)  CALL message(routine, "VINTP_METHOD_QV")
+        IF (.NOT. ASSOCIATED(vcoeff_lin)) CALL finish(routine, "Internal error!")
+        IF (.NOT. ASSOCIATED(vcoeff_cub)) CALL finish(routine, "Internal error!")
         CALL qv_intp(tmp_var(:,:,:),                                                & !in
           &          out_var%r_ptr(:,:,:,out_var_idx,1),                            & !out
-          &          p_metrics%z_mc, p_z3d, p_diag%temp,                            & !in
+          &          in_z_mc, in_z3d, p_diag%temp,                                  & !in
           &          p_diag%pres, p_temp, p_pres,                                   & !in
           &          nblks, npromz, nlev, n_ipzlev,                                 & !in
-          &          vcoeff%cub_cell%coef1, vcoeff%cub_cell%coef2,                  & !in
-          &          vcoeff%cub_cell%coef3,                                         & !in
-          &          vcoeff%lin_cell%wfac_lin, vcoeff%cub_cell%idx0_cub,            & !in
-          &          vcoeff%lin_cell%idx0_lin,                                      & !in
-          &          vcoeff%cub_cell%bot_idx_cub, vcoeff%lin_cell%bot_idx_lin,      & !in
-          &          vcoeff%lin_cell%wfacpbl1, vcoeff%lin_cell%kpbl1,               & !in
-          &          vcoeff%lin_cell%wfacpbl2, vcoeff%lin_cell%kpbl2,               & !in
+          &          vcoeff_cub%coef1, vcoeff_cub%coef2,                            & !in
+          &          vcoeff_cub%coef3,                                              & !in
+          &          vcoeff_lin%wfac_lin, vcoeff_cub%idx0_cub,                      & !in
+          &          vcoeff_lin%idx0_lin,                                           & !in
+          &          vcoeff_cub%bot_idx_cub, vcoeff_lin%bot_idx_lin,                & !in
+          &          vcoeff_lin%wfacpbl1, vcoeff_lin%kpbl1,                         & !in
+          &          vcoeff_lin%wfacpbl2, vcoeff_lin%kpbl2,                         & !in
           &          l_satlimit=l_satlimit, lower_limit=lower_limit,                & !in
           &          l_restore_pbldev=l_restore_pbldev )                              !in
       END SELECT ! vert_intp_method
@@ -701,6 +756,10 @@ CONTAINS
     ! clean up
     DEALLOCATE(tmp_var, STAT=ierrstat)
     IF (ierrstat /= SUCCESS)  CALL finish (routine, 'deallocation failed')
+    IF (p_info%hgrid == GRID_UNSTRUCTURED_EDGE) THEN
+      DEALLOCATE(p_z3d_edge, z_me, STAT=ierrstat)
+      IF (ierrstat /= SUCCESS)  CALL finish (routine, 'DEALLOCATE failed')
+    END IF
 
   END SUBROUTINE pp_task_ipzlev
 
@@ -847,5 +906,53 @@ CONTAINS
     END SELECT
 
   END SUBROUTINE pp_task_compute_field
+
+
+  !---------------------------------------------------------------
+  !> Performs interpolation of a edge-based variable onto cell centers.
+  !
+  !  This is only a wrapper for the corresponding routines from the
+  !  interpolation module.
+  SUBROUTINE pp_task_edge2cell(ptr_task)
+    TYPE(t_job_queue), POINTER :: ptr_task
+    ! local variables
+    CHARACTER(*), PARAMETER :: routine = TRIM("mo_pp_tasks:pp_task_edge2cell")
+    INTEGER :: &
+      &  in_var_idx, out_var_idx_1, out_var_idx_2
+    TYPE (t_var_list_element), POINTER :: in_var, out_var_1, out_var_2
+    TYPE (t_var_metadata),     POINTER :: p_info
+    TYPE(t_patch),             POINTER :: p_patch
+    TYPE(t_int_state),         POINTER :: intp_hrz
+
+    p_patch        => ptr_task%data_input%p_patch      ! patch
+    intp_hrz       => ptr_task%data_input%p_int_state
+    in_var         => ptr_task%data_input%var
+    p_info         => ptr_task%data_input%var%info
+
+    ! Consistency check: We make the following assumptions:
+    ! - This is a 3D variable
+    IF (is_2d_field(p_info%vgrid))  CALL finish(routine, "Internal error!")
+    ! - We have two output components:
+    IF (.NOT. ASSOCIATED(ptr_task%data_output%var) .OR.  &
+      & .NOT. ASSOCIATED(ptr_task%data_output%var_2)) THEN
+      CALL finish(routine, "Internal error!")
+    END IF
+
+    in_var_idx        = 1
+    IF (in_var%info%lcontained)  in_var_idx  = in_var%info%ncontained
+
+    out_var_1      => ptr_task%data_output%var
+    out_var_idx_1  = 1
+    IF (out_var_1%info%lcontained) out_var_idx_1 = out_var_1%info%ncontained
+    out_var_2      => ptr_task%data_output%var_2
+    out_var_idx_2  =  1
+    IF (out_var_2%info%lcontained) out_var_idx_2 = out_var_2%info%ncontained
+
+    CALL rbf_vec_interpol_cell(in_var%r_ptr(:,:,:,in_var_idx,1),        &   !< normal wind comp.
+      &                        p_patch, intp_hrz,                       &   !< patch, interpolation state
+      &                        out_var_1%r_ptr(:,:,:,out_var_idx_1,1),  &
+      &                        out_var_2%r_ptr(:,:,:,out_var_idx_2,1) )     !< reconstr. u,v wind
+
+  END SUBROUTINE pp_task_edge2cell
 
 END MODULE mo_pp_tasks

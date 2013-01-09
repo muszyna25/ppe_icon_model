@@ -29,7 +29,15 @@ echo "POST_PREPARE.SMS"
 ## module load grib_api
 ## module load cdo/1.5.4  # to get specific version
 module load cdo
-#CDOBIN=%SCSOFT%/software/cdo-1.5.4_build/bin/cdo
+
+
+lsplitdata=1
+case %SIMMODE% in
+  1) lcpdata=1        # pre-operations     
+     ldeldata=1  ;;
+  2) lcpdata=0        # monthly mean 10day forecasts
+     ldeldata=0  ;;
+esac
 
 
 #-----------------------------------------------------------------------------
@@ -115,38 +123,34 @@ done
 #-----------------------------------------------------------------------------
 # fix and copy data to ecgate for metview processing
 
-lsplitdata=1
-lcpdata=1
-ldeldata=1
-
 if [[ $lsplitdata = 1 ]] ; then
 
 # export the DWD GRIB short names:
-  export GRIB_DEFINITION_PATH="%SCSOFT%/software/usr/local/grib_api/release/share-1.9.9/definitions.edzw:/usr/local/lib/metaps/lib/grib_api/current/share/definitions"
+  export GRIB_DEFINITION_PATH="%SCSOFT%/software/grib_api/release/share-1.9.9/definitions.edzw:/usr/local/lib/metaps/lib/grib_api/current/share/definitions"
 
- #smsevent cpdata
   mkdir -p grb_data
-  for levtype in ML PL ; do
-#    grib_set -s centre=98 ${EXPNAME}_icon${res}_DOM01_${inidate}_${levtype}_0001.grb      \
-#                          ${EXPNAME}_icon${res}_DOM01_${inidate}_${levtype}_0001.temp.grb
-#    \mv                   ${EXPNAME}_icon${res}_DOM01_${inidate}_${levtype}_0001.temp.grb \
-#                          ${EXPNAME}_icon${res}_DOM01_${inidate}_${levtype}_0001.grb
-    grib_copy  ${basename}_DOM01_${levtype}_0001.grb  \
-      grb_data/${basename}_DOM01_0001_[shortName]_[typeOfFirstFixedSurface].grb
+  for levtype1 in PL HL ML; do
+    if [[ ${levtype1} = 'HL' ]] ; then
+      grib_copy  ${basename}_DOM01_HL_0001.grb  \
+        grb_data/${basename}_DOM01_0001_[shortName]_zl.grb
+    else
+      grib_copy  ${basename}_DOM01_${levtype1}_0001.grb  \
+        grb_data/${basename}_DOM01_0001_[shortName]_[typeOfFirstFixedSurface].grb
+    fi
   done
-  grib_copy  ${basename}_DOM01_HL_0001.grb  \
-    grb_data/${basename}_DOM01_0001_[shortName]_zl.grb
 
 # fixes
-  for levtype in sfc ml pl zl ; do
+  for levtype2 in sfc ml pl zl ; do
     for bad in unknown '~' ; do
-      grib_copy grb_data/${basename}_DOM01_0001_${bad}_${levtype}.grb \
-                grb_data/${basename}_DOM01_0001_[discipline].[parameterCategory].[parameterNumber]_${levtype}.grb || true
-      \rm -rf   grb_data/${basename}_DOM01_0001_${bad}_${levtype}.grb
+      grib_copy grb_data/${basename}_DOM01_0001_${bad}_${levtype2}.grb \
+                grb_data/${basename}_DOM01_0001_[discipline].[parameterCategory].[parameterNumber]_${levtype2}.grb || true
+      \rm -rf   grb_data/${basename}_DOM01_0001_${bad}_${levtype2}.grb
     done
   done
 
 fi
+
+ls -l grb_data
 
 
 #-----------------------------------------------------------------------------

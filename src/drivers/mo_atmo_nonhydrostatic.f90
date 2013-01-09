@@ -41,8 +41,7 @@ USE mo_timer,                ONLY: print_timer, timers_level, timer_start, &
 USE mo_master_control,       ONLY: is_restart_run
 USE mo_output,               ONLY: init_output_files, close_output_files,&
   &                                write_output
-USE mo_intp_rbf,             ONLY: rbf_vec_interpol_cell
-USE mo_intp,                 ONLY: edges2cells_scalar
+
 USE mo_time_config,          ONLY: time_config      ! variable
 USE mo_io_restart,           ONLY: read_restart_files
 USE mo_io_restart_attributes,ONLY: get_restart_attribute
@@ -98,7 +97,6 @@ USE mo_name_list_output,    ONLY: init_name_list_output,  &
 USE mo_pp_scheduler,        ONLY: new_simulation_status, pp_scheduler_init, &
   &                               pp_scheduler_process, pp_scheduler_finalize
 USE mo_pp_tasks,            ONLY: t_simulation_status
-USE mo_var_list,            ONLY: print_var_list
 USE mo_intp_lonlat,         ONLY: compute_lonlat_area_weights
 
 !-------------------------------------------------------------------------
@@ -149,7 +147,7 @@ CONTAINS
     CHARACTER(*), PARAMETER :: routine = "construct_atmo_nonhydrostatic"
     
 
-    INTEGER :: jg, ist, ntl, ntlr
+    INTEGER :: jg, ist
     LOGICAL :: l_realcase
     INTEGER :: pat_level(n_dom)
     TYPE(t_simulation_status) :: simulation_status
@@ -381,80 +379,6 @@ CONTAINS
     IF (output_mode%l_nml) THEN
       CALL init_name_list_output(isample=iadv_rcf)
     END IF
-
-    !------------------------------------------------------------------
-    !  get and write out some of the inital values
-    !------------------------------------------------------------------
-    IF (.NOT.is_restart_run()) THEN
-
-      ! diagnose u and v to have meaningful initial output
-      ! For real-case runs, also diagnose pressure and temperature
-      ! because these variables are needed for initializing the physics parameterizations
-
-      DO jg = 1, n_dom
-
-        IF (.NOT. p_patch(jg)%ldom_active) CYCLE
-
-        ! time levels
-        ntl  = nnow(jg)
-        ntlr = nnow_rcf(jg)
-
-        SELECT CASE (p_patch(jg)%cell_type)
-          CASE (3)
-          CALL rbf_vec_interpol_cell(p_nh_state(jg)%prog(ntl)%vn,p_patch(jg),&
-            & p_int_state(jg),p_nh_state(jg)%diag%u,p_nh_state(jg)%diag%v)
-          CASE (6)
-          CALL edges2cells_scalar(p_nh_state(jg)%prog(ntl)%vn,p_patch(jg), &
-            & p_int_state(jg)%hex_east,p_nh_state(jg)%diag%u)
-          CALL edges2cells_scalar(p_nh_state(jg)%prog(ntl)%vn,p_patch(jg), &
-            & p_int_state(jg)%hex_north,p_nh_state(jg)%diag%v)
-        END SELECT
-
-        IF (l_realcase) THEN ! for test cases, diagnose_pres_temp is currently 
-                             ! called in nh_testcases
-          CALL diagnose_pres_temp(p_nh_state(jg)%metrics, p_nh_state(jg)%prog(ntl),     &
-            &                  p_nh_state(jg)%prog(ntlr), p_nh_state(jg)%diag,          &
-            &                  p_patch(jg), opt_calc_temp=.TRUE., opt_calc_pres=.TRUE., &
-            &                  lnd_prog=p_lnd_state(jg)%prog_lnd(ntlr) )
-        ENDIF
-
-      ENDDO
-
-      !--------------------------------------------------------------------------
-      ! loop over the list of internal post-processing tasks, e.g.
-      ! interpolate selected fields to p- and/or z-levels
-      simulation_status = new_simulation_status(l_first_step =.TRUE., l_output_step=.TRUE., &
-        &                                       l_dom_active=p_patch(1:)%ldom_active)
-      CALL pp_scheduler_process(simulation_status)
-
-      ! Note: here the derived output variables are not yet available
-      ! (divergence, vorticity)
-      !
-      IF (output_mode%l_vlist) THEN
-        CALL write_output( time_config%cur_datetime )
-        CALL message(TRIM(routine),'Initial Output')
-        l_have_output = .TRUE.
-      END IF
-
-      IF (output_mode%l_nml) THEN
-        CALL write_name_list_output( time_config%cur_datetime, 0._wp, .FALSE. )
-      END IF
-
-    END IF ! not is_restart_run()
-
-    ! for debug purpose: print var lists
-    IF ( msg_level >=20 .AND. my_process_is_stdio() .AND. .NOT. ltestcase) THEN
-      CALL print_var_list (p_nh_state(1)%prog_list(1))
-      CALL print_var_list (p_nh_state(1)%diag_list)
-      CALL print_var_list (p_nh_state(1)%metrics_list)
-      CALL print_var_list (prm_nwp_diag_list(1))
-      CALL print_var_list (prm_nwp_tend_list(1))
-      CALL print_var_list (p_lnd_state(1)%lnd_prog_nwp_list(1))
-      CALL print_var_list (p_lnd_state(1)%lnd_diag_nwp_list)
-      CALL print_var_list (ext_data(1)%atm_list)
-      CALL print_var_list (ext_data(1)%atm_td_list)
-    ENDIF
-
 
     IF (timers_level > 3) CALL timer_stop(timer_model_init)
 

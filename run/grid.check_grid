@@ -3,13 +3,28 @@
 # Checks the consistency of a triangular grid and returns some statistics
 # Leonidas Linardakis, MPI-M, 2009-11
 #-----------------------------------------------------------------------------
-level=$1
+run_commmand="$bindir/grid_command"
+commandFile=command.grid
+#-----------------------------------------------------------------------------
+
 #-----------------------------------------------------------------------------
 command=check_grid
+cd ${basedir}/grids
+# pwd
+# ls
+# 
+# echo "$command  $1" > $commandFile
+# ${run_commmand}
+# exit
+
+
+#-----------------------------------------------------------------------------
+level=$1
+#-----------------------------------------------------------------------------
 command=grid_statistics
 commandFile=command.grid
 run_commmand="$bindir/grid_command"
-latex_name=grid_table_0$level
+latex_name=grid_table_$level
 latex_file=$thisdir/$latex_name
 #-----------------------------------------------------------------------------
 
@@ -21,11 +36,11 @@ cat > "${latex_file}_verts.tex" << EOF
 \begin{document}
 \begin{sidewaystable}
 \begin{center}
-\begin{tabular}{|l|c|c|c|}
+\begin{tabular}{|l|c|c|c|c|}
 \hline
-grid & dual bary-   & dual cell & dual area \\\\
-     & center max   & max edge  & max ratio \\\\
-     & distance(km) &  ratio    &           \\\\
+grid & dual bary-   & dual area  & dual cell & dual cell \\\\
+     & center max   & max ratio  & dual edge &   edge    \\\\
+     & distance(km) &            & max ratio & max ratio \\\\
 \hline
 EOF
 #-----------------------------------------------------------------------------
@@ -37,11 +52,11 @@ cat > "${latex_file}_edges.tex" << EOF
 \begin{document}
 \begin{sidewaystable}
 \begin{center}
-\begin{tabular}{|l|c|c|c|c|c|}
+\begin{tabular}{|l|c|c|c|c|c|c|c|c|}
 \hline
-grid &  adj.cell  & dual adj.  &  edge & dual edge & max       \\\\
-     &  max area  & cell max   & max   & max ratio & cell-edge \\\\
-     &    ratio   & area ratio & ratio &           & ratio     \\\\
+grid & mean dual & adj.cell  & dual adj.  & edge  & min dual & max dual  & dual edge & max       \\\\
+     &  edge     & max area  & cell max   & max   &  edge    &  edge     & max ratio & cell-edge \\\\
+     &           &   ratio   & area ratio & ratio &          &           &           & ratio     \\\\
 \hline
 EOF
 #-----------------------------------------------------------------------------
@@ -53,22 +68,166 @@ cat > "${latex_file}_cells.tex" << EOF
 \begin{document}
 \begin{sidewaystable}
 \begin{center}
-\begin{tabular}{|l|c|c|c|c|c|c|}
+\begin{tabular}{|l|c|c|c|c|c|c|c|c|}
 \hline
-grid  & max  & max cell & max cell & max cell   & max bary-    & max bary-   \\\\
-      & area & edge     & dual edge& cell edge  & center       & center diff \\\\
-      &ratio &  ratio   & ratio    & ratio      & distance(km) & ratio       \\\\
+grid  & cells &   area     & max   & max cell & max cell & max cell   & max bary-    & max bary-   \\\\
+      &       & resolution & area  & edge     & dual edge& cell edge  & center       & center diff \\\\
+      &       &   (km)     & ratio &  ratio   & ratio    & ratio      & distance(km) & ratio       \\\\
 \hline
 EOF
+
 #-----------------------------------------------------------------------------
 cd ${basedir}/grids
-echo $command  iconR2B0${level}-base.nc \"$latex_file\" > $commandFile
-#${run_commmand}
-#-----------------------------------------------------------------------------
-cd ${basedir}/grids
-echo $command  iconR2B0${level}-grid.nc \"$latex_file\" > $commandFile
+echo $command  iconR2B04_DOM01.nc \"$latex_file\" > $commandFile
 ${run_commmand}
+
+# echo $command  iconR2B03-grid.nc \"$latex_file\" > $commandFile
+# ${run_commmand}
+# echo $command  iconR2B03-rotated.nc \"$latex_file\" > $commandFile
+# ${run_commmand}
+# echo $command  iconR2B04-grid.nc \"$latex_file\" > $commandFile
+# ${run_commmand}
+# echo $command  iconR2B04-rotated.nc \"$latex_file\" > $commandFile
+# ${run_commmand}
+# echo $command  iconR2B04-smooth.nc \"$latex_file\" > $commandFile
+# ${run_commmand}
+# echo $command  iconR2B05-grid.nc \"$latex_file\" > $commandFile
+# ${run_commmand}
+# echo $command  iconR2B05-smooth.nc \"$latex_file\" > $commandFile
+# ${run_commmand}
+
+# echo $command  iconR2B03_R-ref-NAtlantic.nc \"$latex_file\" > $commandFile
+# ${run_commmand}
+# echo $command  iconR2B04_R-ref-NAtlantic.nc \"$latex_file\" > $commandFile
+# ${run_commmand}
+# 
+# echo $command  iconR2B03_R-ref-NAtlantic_smooth.nc \"$latex_file\" > $commandFile
+# ${run_commmand}
+# echo $command  iconR2B04_R-ref-NAtlantic_smooth.nc \"$latex_file\" > $commandFile
+# ${run_commmand}
+# echo $command  iconR2B03-grid.nc \"$latex_file\" > $commandFile
+# ${run_commmand}
+ 
+# #-----------------------------------------------------------------------------
+# echo $command  iconR2B04-grid.nc \"$latex_file\" > $commandFile
+# ${run_commmand}
+# echo $command  iconR2B05-grid_dec-1082.nc \"$latex_file\" > $commandFile
+# ${run_commmand}
+# echo $command  iconR2B05-grid_dec-362.nc \"$latex_file\" > $commandFile
+# ${run_commmand}
+# echo $command  iconR2B05-grid_dec-1922.nc \"$latex_file\" > $commandFile
+# ${run_commmand}
+# echo $command  iconR2B06-grid_dec-2432.nc \"$latex_file\" > $commandFile
+# ${run_commmand}
+# echo $command  iconR2B05-grid_dec-642.nc \"$latex_file\" > $commandFile
+# ${run_commmand}
+# echo $command  iconR2B05-grid.nc     \"$latex_file\" > $commandFile
+# ${run_commmand}
+# echo $command  iconR2B06-grid_dec-1082.nc \"$latex_file\" > $commandFile
+# ${run_commmand}
+# echo $command  iconR2B06-grid_dec-1442.nc \"$latex_file\" > $commandFile
+# ${run_commmand}
+# echo $command  iconR2B06-grid_dec-1922.nc \"$latex_file\" > $commandFile
+# ${run_commmand}
+# echo $command  iconR2B07-grid_dec-2432.nc \"$latex_file\" > $commandFile
+# ${run_commmand}
+# echo $command  \"iconR2B06-grid.nc\" \"$latex_file\" > $commandFile
+# ${run_commmand}
+# 
+# echo $command  iconR2B06-grid_dec-4322.nc \"$latex_file\" > $commandFile
+# ${run_commmand}
+# echo $command  iconR2B07-grid_dec-4322.nc \"$latex_file\" > $commandFile
+# ${run_commmand}
+# # echo $command  \"iconR2B07-grid.nc\" \"$latex_file\" > $commandFile
+# # ${run_commmand}
+# #-----------------------------------------------------------------------------
+
+
+
+# echo $command  iconR2B0${level}-std.nc \"$latex_file\" > $commandFile
+# ${run_commmand}
+# echo $command  iconR2B0${level}-spr.nc \"$latex_file\" > $commandFile
+# ${run_commmand}
+# echo $command  iconR2B0${level}-sprloc.nc \"$latex_file\" > $commandFile
+# ${run_commmand}
+# echo $command  iconR2B0${level}-grid.nc \"$latex_file\" > $commandFile
+# ${run_commmand}
+
 #-----------------------------------------------------------------------------
+# cd ${basedir}/grids
+# echo $command  iconR2B0${level}-spring.nc \"$latex_file\" > $commandFile
+# ${run_commmand}
+# #-----------------------------------------------------------------------------
+# # cd ${basedir}/grids
+# # echo $command  iconR2B0${level}-spring-sl.nc \"$latex_file\" > $commandFile
+# # ${run_commmand}
+# # #-----------------------------------------------------------------------------
+# # cd ${basedir}/grids
+# # echo $command  iconR2B0${level}-spring-sym.nc \"$latex_file\" > $commandFile
+# # ${run_commmand}
+# # #-----------------------------------------------------------------------------
+# cd ${basedir}/grids
+# echo $command  iconR2B0${level}-spring-adaptref.nc \"$latex_file\" > $commandFile
+# ${run_commmand}
+# #-----------------------------------------------------------------------------
+# cd ${basedir}/grids
+# echo $command  iconR2B0${level}-spring-localref.nc \"$latex_file\" > $commandFile
+# ${run_commmand}
+# #-----------------------------------------------------------------------------
+# cd ${basedir}/grids
+# echo $command  iconR2B0${level}-spring-centers.nc \"$latex_file\" > $commandFile
+# ${run_commmand}
+# #-----------------------------------------------------------------------------
+# cd ${basedir}/grids
+# echo $command  iconR2B0${level}-spring-centers-local.nc \"$latex_file\" > $commandFile
+# ${run_commmand}
+# #-----------------------------------------------------------------------------
+# cd ${basedir}/grids
+# echo $command  iconR2B0${level}-spring-sym.nc \"$latex_file\" > $commandFile
+# ${run_commmand}
+# #-----------------------------------------------------------------------------
+# ${basedir}/grids
+# echo $command  iconR2B0${level}-spring-primecenter.nc \"$latex_file\" > $commandFile
+# ${run_commmand}
+# #-----------------------------------------------------------------------------
+# ${basedir}/grids
+# echo $command  iconR2B0${level}-sym.nc \"$latex_file\" > $commandFile
+# ${run_commmand}
+# #-----------------------------------------------------------------------------
+# 
+# 
+# #-----------------------------------------------------------------------------
+# #-----------------------------------------------------------------------------
+# cd ${basedir}/new_grids
+# echo $command  iconR2B0${level}-newgrid.nc \"$latex_file\" > $commandFile
+# ${run_commmand}
+# #-----------------------------------------------------------------------------
+# cd ${basedir}/new_grids
+# echo $command  iconR2B0${level}-newsym.nc \"$latex_file\" > $commandFile
+# ${run_commmand}
+# #-----------------------------------------------------------------------------
+# 
+# 
+# #-----------------------------------------------------------------------------
+# ${basedir}/grids
+# echo $command  iconR2B0${level}-comb.nc \"$latex_file\" > $commandFile
+# ${run_commmand}
+# #-----------------------------------------------------------------------------
+# ${basedir}/grids
+# echo $command  iconR2B0${level}-comb2.nc \"$latex_file\" > $commandFile
+# ${run_commmand}
+# #-----------------------------------------------------------------------------
+# ${basedir}/grids
+# echo $command  iconR2B0${level}-comb-new.nc \"$latex_file\" > $commandFile
+# ${run_commmand}
+# #-----------------------------------------------------------------------------
+
+
+# #-----------------------------------------------------------------------------
+# cd ${basedir}/grids
+# echo $command  iconR2B0${level}-base.nc \"$latex_file\" > $commandFile
+# ${run_commmand}
+# #-----------------------------------------------------------------------------
 # cd ${basedir}/grids
 # echo $command  iconR2B0${level}-spring_local.nc \"$latex_file\" > $commandFile
 # ${run_commmand}
@@ -89,14 +248,14 @@ ${run_commmand}
 # echo $command  iconR2B0${level}-grid_opt_new.nc \"$latex_file\" > $commandFile
 # ${run_commmand}
 # #-----------------------------------------------------------------------------
-# # cd ${basedir}/grids
-# # echo $command  iconR2B0${level}-grid_spr0.90.nc  > $commandFile
-# # ${run_commmand}
+# cd ${basedir}/grids
+# echo $command  iconR2B0${level}-grid_spr0.90.nc  > $commandFile
+# ${run_commmand}
 # #-----------------------------------------------------------------------------
 # cd ${basedir}/grids
 # echo $command  iconR2B0${level}-r_ref.nc \"$latex_file\" > $commandFile
 # ${run_commmand}
-#-----------------------------------------------------------------------------
+# #-----------------------------------------------------------------------------
 # cd ${basedir}/grids_local
 # echo $command  iconR2B0${level}-opt_spring.nc \"$latex_file\" > $commandFile
 # ${run_commmand}

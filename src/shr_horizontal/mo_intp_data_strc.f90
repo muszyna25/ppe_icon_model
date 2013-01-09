@@ -115,8 +115,7 @@
 !!  - generalize p_int%primal_normal_ec and p_int%edge_cell_length to hexagons
 !!  Modification by Constantin Junk, MPI-M (2011-05-05)
 !!  - moved interpol_ctl namelist variables to namelists/mo_interpol_ctl
-!!  Modification by Anurag Dipankar, MPI-M(2012-12-12) 
-!! - added array for cart_vert_coord for efficiency
+!!  
 !!
 !! @par Copyright
 !! 2002-2007 by DWD and MPI-M
@@ -396,12 +395,10 @@ TYPE t_int_state
   REAL(wp), ALLOCATABLE :: geofac_n2s(:,:,:)    ! factor for nabla2-scalar (nproma,cell_type+1,nblks_c)
   REAL(wp), ALLOCATABLE :: geofac_grg(:,:,:,:)  ! factor for Green-Gauss gradient (nproma,4,nblks_c,2)
 
-  ! f) precomputed Cartesian orientation and location vectors of edge midpoints,
-  !    location of cell centers and vertices(for efficiency)
+  ! f) precomputed Cartesian orientation and location vectors of edge midpoints
+  !    and location of cell centers(for efficiency) : it is now computed in grid genrator stored 
+  !    in p_patch
   !------------------------------------------------------------------------------
-  REAL(wp), ALLOCATABLE :: cart_edge_coord(:,:,:)    ! Cartesian edge coordinates (nproma,nblks_e)
-  REAL(wp), ALLOCATABLE :: cart_cell_coord(:,:,:)    ! Cartesian cell coordinates (nproma,nblks_c)
-  REAL(wp), ALLOCATABLE :: cart_vert_coord(:,:,:)  ! Cartesian cell coordinates (nproma,nblks_c)
 
   ! g) patch elements restored from edges to cells to reduce frequency of indirect addressing
   !------------------------------------------------------------------------------

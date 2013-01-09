@@ -114,6 +114,10 @@ CONTAINS
 
     
 
+    ! initialization of output variables
+    ice%Qbot(:,:,:) = 0._wp
+    ice%Qtop(:,:,:) = 0._wp
+
     ! --- initialization
     all_cells => p_patch%cells%all 
     k_effective(:,:,:) = 0.0_wp

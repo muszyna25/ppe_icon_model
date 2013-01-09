@@ -46,8 +46,8 @@ basename=%SUITE%_%EXPNUM%_$YYYYMM
 #-----------------------------------------------------------------------------
 # quick plots (find standard output on oflws144:/uwork1/mkoehler/wq)
 
-ndiff=4                     #number of processes (e.g. 4, synchronize with icon.def "work")
-nstart=%metproc%            #index of process    (e.g. 1 or 4)
+ndiff=5                     #number of processes (e.g. 4, synchronize with icon.def "work")
+nstart=%metproc%            #index of process    (e.g. 1,2,3 or 4)
 nstart=`awk -v var="$nstart" 'BEGIN{ print (var-1) }'` #awk requires indices [0,4-1]
 export nstart
 
@@ -56,7 +56,6 @@ if [[ $lmetview = 1 ]] ; then
   cp ${METDIR}/many.error.s ${METDIR}/map.error ${METDIR}/zonal.error .
   export PLOTDIR='metplots'
   export DATAFILE='grb_data/%SUITE%_%EXPNUM%_'
- #export TAILFILE='_0_24_240.grb'
   export LMONTH=1
   export YYYYMM
   mkdir -p ${PLOTDIR}
@@ -88,16 +87,6 @@ if [[ $lmetview = 1 ]] ; then
   done
 
 fi
-
-
-#if [[ $lmetview = 1 ]] ; then
-#    2011010100) ssh -n -f oflws144 ". /opt/grib_api/.grib_api_environment ; /fe1-daten/mkoehler/metview/ICON/many.error.s 20110101 00 20110101 00  1 ${res} ${EXPNUM} > /uwork1/mkoehler/wq/o.icon.metview.1 2>&1 &" ;;
-#    2011010200) ssh -n -f oflws144 ". /opt/grib_api/.grib_api_environment ; /fe1-daten/mkoehler/metview/ICON/many.error.s 20110101 00 20110102 00  1 ${res} ${EXPNUM} > /uwork1/mkoehler/wq/o.icon.metview.2 2>&1 &" ;;
-#    2011010300) ssh -n -f oflws144 ". /opt/grib_api/.grib_api_environment ; /fe1-daten/mkoehler/metview/ICON/many.error.s 20110101 00 20110103 00  1 ${res} ${EXPNUM} > /uwork1/mkoehler/wq/o.icon.metview.3 2>&1 &" ;;
-#    2011010600) ssh -n -f oflws144 ". /opt/grib_api/.grib_api_environment ; /fe1-daten/mkoehler/metview/ICON/many.error.s 20110101 00 20110106 00  1 ${res} ${EXPNUM} > /uwork1/mkoehler/wq/o.icon.metview.6 2>&1 &" ;;
-#  ssh oflws144 '. /opt/grib_api/.grib_api_environment ; /fe1-daten/mkoehler/metview/ICON/many.error.s 20110101 00 20110102 00 10 ${res} ${EXPNUM}'
-#  ssh oflws144 '. /opt/grib_api/.grib_api_environment ; /fe1-daten/mkoehler/metview/ICON/many.error.s 20110101 00 20110106 00  6 ${res} ${EXPNUM}'
-#fi
 
 
 # -------------------------------------------------

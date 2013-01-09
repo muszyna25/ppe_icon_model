@@ -185,7 +185,7 @@ USE mo_intp_coeffs,         ONLY: lsq_stencil_create, lsq_compute_coeff_cell,   
   &                               compute_heli_bra_coeff_idx, init_cellavg_wgt,        &
   &                               init_geo_factors, complete_patchinfo, init_tplane_e, &
   &                               init_tplane_c, init_geo_factors_oce,                 &
-  &                               init_scalar_product_oce, init_nudgecoeffs,           &
+  &                               init_nudgecoeffs,                                    &
   &                               tri_quadrature_pts, par_init_scalar_product_oce
 USE mo_sync,                ONLY: SYNC_C, SYNC_E, SYNC_V
 USE mo_communication,       ONLY: t_comm_pattern, blk_no, idx_no, idx_1d, &
@@ -1072,18 +1072,6 @@ SUBROUTINE allocate_int_state( ptr_patch, ptr_int)
       &             'allocation for geofac_grg failed')
   ENDIF
 
-  ALLOCATE (ptr_int%cart_edge_coord(nproma, nblks_e, 3), STAT=ist )
-  IF (ist /= SUCCESS) THEN
-    CALL finish ('mo_interpolation:construct_int_state',                       &
-      &             'allocation for cart_edge_coord failed')
-  ENDIF
-
-  ALLOCATE (ptr_int%cart_cell_coord(nproma, nblks_c, 3), STAT=ist )
-  IF (ist /= SUCCESS) THEN
-    CALL finish ('mo_interpolation:construct_int_state',                       &
-      &             'allocation for cart_cell_coord failed')
-  ENDIF
-
   ALLOCATE (ptr_int%primal_normal_ec(nproma, nblks_c,ptr_patch%cell_type, 2), STAT=ist)
   IF (ist /= SUCCESS) THEN
     CALL finish ('mo_interpolation:construct_int_state',                       &
@@ -1399,8 +1387,6 @@ SUBROUTINE allocate_int_state( ptr_patch, ptr_int)
   ptr_int%geofac_rot = 0._wp
   ptr_int%geofac_n2s = 0._wp
   ptr_int%geofac_grg = 0._wp
-  ptr_int%cart_edge_coord = 0._wp
-  ptr_int%cart_cell_coord = 0._wp
   ptr_int%primal_normal_ec = 0._wp
   ptr_int%edge_cell_length = 0._wp
   ptr_int%cell_vert_dist = 0._wp
@@ -1479,7 +1465,6 @@ DO jg = n_dom_start, n_dom
 
   CALL complete_patchinfo( ptr_patch(jg), ptr_int_state(jg))
   CALL init_geo_factors(ptr_patch(jg), ptr_int_state(jg))
-
   IF (ptr_patch(jg)%cell_type==3)THEN
     CALL init_cellavg_wgt(ptr_patch(jg), ptr_int_state(jg))
     CALL bln_int_coeff_e2c( ptr_patch(jg), ptr_int_state(jg) )
@@ -1976,8 +1961,6 @@ SUBROUTINE transfer_interpol_state(p_p, p_lp, pi, po)
   CALL xfer_var(SYNC_V,1,3,p_p,p_lp,pi%geofac_rot,po%geofac_rot)
   CALL xfer_var(SYNC_C,1,3,p_p,p_lp,pi%geofac_n2s,po%geofac_n2s)
   CALL xfer_var(SYNC_C,1,3,p_p,p_lp,pi%geofac_grg,po%geofac_grg)
-  CALL xfer_var(SYNC_E,1,2,p_p,p_lp,pi%cart_edge_coord,po%cart_edge_coord)
-  CALL xfer_var(SYNC_C,1,2,p_p,p_lp,pi%cart_cell_coord,po%cart_cell_coord)
   CALL xfer_var(SYNC_C,1,2,p_p,p_lp,pi%primal_normal_ec,po%primal_normal_ec)
   CALL xfer_var(SYNC_C,1,2,p_p,p_lp,pi%edge_cell_length,po%edge_cell_length)
   CALL xfer_var(SYNC_C,1,4,p_p,p_lp,pi%cell_vert_dist,po%cell_vert_dist)
@@ -2627,18 +2610,6 @@ INTEGER :: ist
   IF (ist /= SUCCESS) THEN
     CALL finish ('mo_interpolation:destruct_int_state',                      &
       &             'deallocation for geofac_grg failed')
-  ENDIF
-
-  DEALLOCATE (ptr_int%cart_edge_coord, STAT=ist )
-  IF (ist /= SUCCESS) THEN
-    CALL finish ('mo_interpolation:destruct_int_state',                       &
-      &             'deallocation for cart_edge_coord failed')
-  ENDIF
-
-  DEALLOCATE (ptr_int%cart_cell_coord, STAT=ist )
-  IF (ist /= SUCCESS) THEN
-    CALL finish ('mo_interpolation:destruct_int_state',                       &
-      &             'deallocation for cart_cell_coord failed')
   ENDIF
 
   DEALLOCATE (ptr_int%primal_normal_ec, STAT=ist )

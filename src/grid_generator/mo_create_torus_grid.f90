@@ -124,7 +124,7 @@ MODULE mo_create_torus_grid
   USE mo_io_units,        ONLY: nnml, filename_max
   USE mo_namelist,        ONLY: position_nml, open_nml, positioned
   USE mo_exception,       ONLY: message, message_text, finish
-  USE mo_grid_geometry_info,  ONLY: planar_torus_geometry
+  USE mo_grid_geometry_info, ONLY: planar_torus_geometry, triangular_cell
   USE mo_local_grid,      ONLY: t_grid, &
     & new_grid, delete_grid,get_grid, allocate_grid_object,        &
     & undefined, set_grid_creation, grid_set_exist_eq_allocated,   &
@@ -134,7 +134,7 @@ MODULE mo_create_torus_grid
   USE mo_math_constants,  ONLY: pi
   USE mo_local_grid_geometry,  ONLY: order_cell_connectivity
   USE mo_math_utilities,  ONLY: plane_torus_distance, plane_torus_closest_coordinates
-
+  USE mo_physical_constants, ONLY: earth_radius
   IMPLICIT NONE
 
   PRIVATE
@@ -266,11 +266,8 @@ CONTAINS
     torus_grid%cells%max_no_of_vertices = max_cell_vertices
     torus_grid%verts%max_connectivity   = max_vertex_connect
     
-    torus_grid%geometry_type = planar_torus_geometry
-
     CALL allocate_grid_object(torus_grid_id)
     CALL grid_set_exist_eq_allocated(torus_grid_id)
-    CALL set_grid_creation(torus_grid_id, undefined)
     !--------------------------------------------------------------
 
     CALL create_torus_topology()
@@ -292,9 +289,9 @@ CONTAINS
 
     !--------------------------------------------------------------
     ! create unfolded grid
-    CALL create_unfolded_torus()
+    !CALL create_unfolded_torus()
     !  write netcdf file
-    CALL write_netcdf_grid(unfolded_grid_id, unfolded_torus_file_name)
+    !CALL write_netcdf_grid(unfolded_grid_id, unfolded_torus_file_name)
 !almut    !  write unfolded_grid to ascii file
 !     CALL write_grid_ascii(torus_grid_id, ascii_filename)
     
@@ -463,7 +460,9 @@ CONTAINS
     REAL(wp) :: dual_edge_length,triangle_area,hexagon_area
     REAL(wp) :: sin60
 
-    REAL(wp), PARAMETER :: max_lat = pi /2 !/ 18.0_wp
+!     REAL(wp), PARAMETER :: max_lat = pi / 2.0_wp !/ 18.0_wp
+    ! the pi / 2 will not work for the decomposition, it needs to be near the equator
+    REAL(wp), PARAMETER :: max_lat = pi / 18.0_wp 
 
     sin60 = SQRT(0.75_wp) 
     !--------------------------------------------------------------
@@ -486,13 +485,19 @@ CONTAINS
     
     !--------------------------------------------------------------
     ! write planar torus geometry properties
-    torus_grid%planar_torus_info%center%x(1)  = x_center
-    torus_grid%planar_torus_info%center%x(2)  = y_center
-    torus_grid%planar_torus_info%center%x(3)  = 0.0_wp
-    torus_grid%planar_torus_info%cell_edge_length  = edge_length
-    torus_grid%planar_torus_info%length  = x_step * REAL(x_no_of_columns,wp)
-    torus_grid%planar_torus_info%height  = y_step * REAL(y_no_of_rows,wp)
-    
+    torus_grid%geometry_info%cell_type          = triangular_cell
+    torus_grid%geometry_info%geometry_type      = planar_torus_geometry
+    torus_grid%geometry_info%center%x(1)        = x_center
+    torus_grid%geometry_info%center%x(2)        = y_center
+    torus_grid%geometry_info%center%x(3)        = 0.0_wp
+    torus_grid%geometry_info%mean_edge_length   = edge_length
+    torus_grid%geometry_info%mean_cell_area     = triangle_area
+    torus_grid%geometry_info%domain_length      = x_step * REAL(x_no_of_columns,wp)
+    torus_grid%geometry_info%domain_height      = y_step * REAL(y_no_of_rows,wp)
+    !AD:Zero value was causing trouble and I think it's better to treat this flat
+    !geometry as a small arc on Earth: Any non-zero value is good for the calculations
+    torus_grid%geometry_info%sphere_radius      = earth_radius 
+   
    !--------------------------------------------------------------
     !  get  coordinates
     DO y=0, y_no_of_rows-1
@@ -558,6 +563,12 @@ CONTAINS
         torus_grid%edges%primal_normal(index_no)%v2 = 0.5_wp
         torus_grid%edges%dual_normal(index_no)%v1   = 0.5_wp
         torus_grid%edges%dual_normal(index_no)%v2   = -sin60
+        torus_grid%edges%cartesian_primal_normal(index_no)%x(1) = torus_grid%edges%primal_normal(index_no)%v1
+        torus_grid%edges%cartesian_primal_normal(index_no)%x(2) = torus_grid%edges%primal_normal(index_no)%v2
+        torus_grid%edges%cartesian_primal_normal(index_no)%x(3) = 0.0_wp        
+        torus_grid%edges%cartesian_dual_normal(index_no)%x(1) = torus_grid%edges%dual_normal(index_no)%v1
+        torus_grid%edges%cartesian_dual_normal(index_no)%x(2) = torus_grid%edges%dual_normal(index_no)%v2
+        torus_grid%edges%cartesian_dual_normal(index_no)%x(3) = 0.0_wp
 
         ! right_diagonal edges
         index_no=edge_index_right_diagonal(x,y)
@@ -570,6 +581,12 @@ CONTAINS
         torus_grid%edges%primal_normal(index_no)%v2 = -0.5_wp
         torus_grid%edges%dual_normal(index_no)%v1   = -0.5_wp
         torus_grid%edges%dual_normal(index_no)%v2   = -sin60
+        torus_grid%edges%cartesian_primal_normal(index_no)%x(1) = torus_grid%edges%primal_normal(index_no)%v1
+        torus_grid%edges%cartesian_primal_normal(index_no)%x(2) = torus_grid%edges%primal_normal(index_no)%v2
+        torus_grid%edges%cartesian_primal_normal(index_no)%x(3) = 0.0_wp        
+        torus_grid%edges%cartesian_dual_normal(index_no)%x(1) = torus_grid%edges%dual_normal(index_no)%v1
+        torus_grid%edges%cartesian_dual_normal(index_no)%x(2) = torus_grid%edges%dual_normal(index_no)%v2
+        torus_grid%edges%cartesian_dual_normal(index_no)%x(3) = 0.0_wp
 
         ! horizontal edges
         index_no=edge_index_horizontal(x,y)
@@ -582,6 +599,13 @@ CONTAINS
         torus_grid%edges%primal_normal(index_no)%v2 = 1.0_wp
         torus_grid%edges%dual_normal(index_no)%v1   = 1.0_wp
         torus_grid%edges%dual_normal(index_no)%v2   = 0.0_wp
+        torus_grid%edges%cartesian_primal_normal(index_no)%x(1) = torus_grid%edges%primal_normal(index_no)%v1
+        torus_grid%edges%cartesian_primal_normal(index_no)%x(2) = torus_grid%edges%primal_normal(index_no)%v2
+        torus_grid%edges%cartesian_primal_normal(index_no)%x(3) = 0.0_wp        
+        torus_grid%edges%cartesian_dual_normal(index_no)%x(1) = torus_grid%edges%dual_normal(index_no)%v1
+        torus_grid%edges%cartesian_dual_normal(index_no)%x(2) = torus_grid%edges%dual_normal(index_no)%v2
+        torus_grid%edges%cartesian_dual_normal(index_no)%x(3) = 0.0_wp
+      
       ENDDO
     ENDDO
 
@@ -620,7 +644,7 @@ CONTAINS
     WRITE(*,*) TRIM(message_text)
     WRITE(message_text,*) '    ==  TORUS GRID  ==='
     WRITE(*,*) TRIM(message_text)
-    write(*,*) " Center:", torus_grid%planar_torus_info%center%x 
+    write(*,*) " Center:", torus_grid%geometry_info%center%x
     WRITE(message_text,*) '-------------------------------'
     WRITE(*,*) TRIM(message_text)
     ! print vertices

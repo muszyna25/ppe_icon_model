@@ -365,48 +365,6 @@ CONTAINS
     !--------------------------------------------------------------------------------
     ! 5. Construct interpolation state, compute interpolation coefficients.
     !--------------------------------------------------------------------------------
-!  !   CALL configure_interpolation( global_cell_type, n_dom, p_patch(1:)%level )
-!     ! Allocate array for interpolation state
-!     !ALLOCATE( p_int_state(n_dom_start:n_dom))!, &
-!             !& p_grf_state(n_dom_start:n_dom),STAT=error_status)
-!     ALLOCATE( p_int_state(n_dom_start:n_dom),STAT=error_status)
-!     IF (error_status /= SUCCESS) THEN
-!       CALL finish(TRIM(routine),'allocation for p_int_state failed')
-!     ENDIF
-!     IF(my_process_is_mpi_parallel()) THEN
-!       ALLOCATE( p_int_state_local_parent(n_dom_start+1:n_dom), &
-!               & p_grf_state_local_parent(n_dom_start+1:n_dom), &
-!               & STAT=error_status)
-!       IF (error_status /= SUCCESS) &
-!         CALL finish(TRIM(routine),'allocation for local parents failed')
-!     ENDIF
-!     IF(lrestore_states) THEN !TODOram
-!       ! Interpolation state is read from NetCDF
-!       ! On the test PE it is constructed at the same time to be able to check
-!       ! the state read in with the constructed state
-!       IF( .NOT. my_process_is_mpi_test()) THEN
-!         CALL restore_interpol_state_netcdf(p_patch, p_int_state)
-!       ELSE
-!         ! construct_2d_interpol_state makes sync calls for checking the
-!         ! results on the parallel PEs to the results on the test PE.
-!         ! These checks must be disabled here!
-!         CALL disable_sync_checks
-!          CALL construct_2d_interpol_state(p_patch, p_int_state)
-!         CALL enable_sync_checks
-!       ENDIF
-!     ELSE
-!       ! Construct interpolation state
-!       ! Please note that for pararllel runs the divided state is constructed here
-!        CALL construct_2d_interpol_state(p_patch, p_int_state)
-! !       IF(my_process_is_mpi_parallel()) THEN
-! !         ! Transfer interpolation state to local parent
-!          !DO jg = n_dom_start+1, n_dom
-!          !  jgp = p_patch(jg)%parent_id
-! !           CALL transfer_interpol_state(p_patch(jgp),p_patch_local_parent(jg), &
-! !                                     &  p_int_state(jgp), p_int_state_local_parent(jg))
-! !         ENDDO
-! !       ENDIF
-!      ENDIF
 
 
     !------------------------------------------------------------------

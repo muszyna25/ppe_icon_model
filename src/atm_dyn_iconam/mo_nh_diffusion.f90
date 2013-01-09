@@ -46,7 +46,7 @@ MODULE mo_nh_diffusion
   USE mo_kind,                ONLY: wp
   USE mo_nonhydro_types,      ONLY: t_nh_prog, t_nh_diag, t_nh_metrics, t_buffer_memory
   USE mo_model_domain,        ONLY: t_patch
-  USE mo_grid_config,         ONLY: nroot, l_limited_area, lfeedback, grid_sphere_radius
+  USE mo_grid_config,         ONLY: l_limited_area, lfeedback, grid_sphere_radius
   USE mo_intp_data_strc,      ONLY: t_int_state
   USE mo_intp_rbf,            ONLY: rbf_vec_interpol_vertex, rbf_vec_interpol_cell
   USE mo_interpol_config,     ONLY: nudge_max_coeff
@@ -111,7 +111,7 @@ MODULE mo_nh_diffusion
     REAL(wp):: diff_multfac_vn(p_patch%nlev)
     INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
     INTEGER :: rl_start, rl_end
-    INTEGER :: jk, jb, jc, je, ic
+    INTEGER :: jk, jb, jc, je, ic, ishift
 
     ! start index levels and diffusion coefficient for boundary diffusion
     INTEGER :: start_bdydiff_e
@@ -228,15 +228,17 @@ MODULE mo_nh_diffusion
       ! properly damp breaking gravity waves
       enh_smag_fac(1:nlev) = MIN(1._wp,MAX(0._wp,(0.5_wp*(vct_a(1:nlev)+vct_a(2:nlev+1))-50000._wp)/40000._wp)**2)
 
-      ! Smagorinsky coefficient is also enhanced in the three model levels beneath a vertical nest interface
+      ! Smagorinsky coefficient is also enhanced in the six model levels beneath a vertical nest interface
       IF ((lvert_nest) .AND. (p_patch%nshift > 0)) THEN
-        enh_smag_fac(1) = MAX(0.25_wp, enh_smag_fac(1))
-        enh_smag_fac(2) = MAX(0.175_wp,enh_smag_fac(2))
-        enh_smag_fac(3) = MAX(0.10_wp, enh_smag_fac(3))
+        enh_smag_fac(1) = MAX(0.333_wp, enh_smag_fac(1))
+        enh_smag_fac(2) = MAX(0.25_wp, enh_smag_fac(2))
+        enh_smag_fac(3) = MAX(0.20_wp, enh_smag_fac(3))
+        enh_smag_fac(4) = MAX(0.16_wp, enh_smag_fac(4))
+        enh_smag_fac(5) = MAX(0.12_wp, enh_smag_fac(5))
+        enh_smag_fac(6) = MAX(0.08_wp, enh_smag_fac(6))
       ENDIF
 
-      ! empirically determined scaling factor (default of 0.15 for hdiff_smag_fac is somewhat
-      ! larger than suggested in the literature)
+      ! empirically determined scaling factor
       diff_multfac_smag(:) = MAX(diffusion_config(jg)%hdiff_smag_fac,enh_smag_fac(:))*dtime
 
       IF (lhdiff_rcf) diff_multfac_smag(:) = diff_multfac_smag(:)*REAL(iadv_rcf,wp)
@@ -842,16 +844,17 @@ MODULE mo_nh_diffusion
 
       IF (l_zdiffu_t) THEN ! Compute temperature diffusion truly horizontally over steep slopes
                            ! A conservative discretization is not possible here
-!$OMP DO PRIVATE(jb,jc,ic,nlen_zdiffu) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,jc,ic,nlen_zdiffu,ishift) ICON_OMP_DEFAULT_SCHEDULE
         DO jb = 1, nblks_zdiffu
           IF (jb == nblks_zdiffu) THEN
             nlen_zdiffu = npromz_zdiffu
           ELSE
             nlen_zdiffu = nproma_zdiffu
           ENDIF
+          ishift = (jb-1)*nproma_zdiffu
 !CDIR NODEP,VOVERTAKE,VOB
           DO jc = 1, nlen_zdiffu
-            ic = (jb-1)*nproma_zdiffu+jc
+            ic = ishift+jc
             z_temp(icell(1,ic),ilev(1,ic),iblk(1,ic)) =                                          &
               z_temp(icell(1,ic),ilev(1,ic),iblk(1,ic)) + p_nh_metrics%zd_diffcoef(ic)*          &
 !              MAX(p_nh_metrics%zd_diffcoef(ic),        &

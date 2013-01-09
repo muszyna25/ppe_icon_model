@@ -199,6 +199,8 @@ MODULE mo_dump_restore
     &                              associate_keyword, with_keywords, &
     &                              int2string
   USE mo_master_nml,         ONLY: model_base_dir
+  USE mo_grid_geometry_info, ONLY: read_geometry_info, write_geometry_info
+  USE mo_model_domimp_setup, ONLY: read_grid_subsets, write_grid_subsets
 
   IMPLICIT NONE
 
@@ -211,7 +213,6 @@ MODULE mo_dump_restore
   !modules interface-------------------------------------------
   !subroutines
   PUBLIC :: dump_patch_state_netcdf
-  PUBLIC :: dump_patch_state_netcdf_oce
   PUBLIC :: dump_domain_decomposition
   PUBLIC :: dump_all_domain_decompositions
   PUBLIC :: restore_patches_netcdf
@@ -1413,6 +1414,9 @@ CONTAINS
       CALL def_var('patch.cells.refin_ctrl',       nf_int   , dim_ncells)
       CALL def_var('patch.cells.decomp_domain',    nf_int   , dim_ncells)
       CALL def_var('patch.cells.glb_index',        nf_int   , dim_ncells)
+      CALL def_var('patch.cells.cart_center.x1',   nf_double, dim_ncells)
+      CALL def_var('patch.cells.cart_center.x2',   nf_double, dim_ncells)
+      CALL def_var('patch.cells.cart_center.x3',   nf_double, dim_ncells)
 
      IF(lfull) THEN
       CALL def_var('patch.cells.phys_id',          nf_int   , dim_ncells)
@@ -1438,6 +1442,9 @@ CONTAINS
       CALL def_var('patch.edges.refin_ctrl',             nf_int   , dim_nedges)
       CALL def_var('patch.edges.decomp_domain',          nf_int   , dim_nedges)
       CALL def_var('patch.edges.glb_index',              nf_int   , dim_nedges)
+      CALL def_var('patch.edges.cart_center.x1',         nf_double, dim_nedges)
+      CALL def_var('patch.edges.cart_center.x2',         nf_double, dim_nedges)
+      CALL def_var('patch.edges.cart_center.x3',         nf_double, dim_nedges)
 
      IF(lfull) THEN
       CALL def_var('patch.edges.phys_id',                nf_int   , dim_nedges)
@@ -1494,6 +1501,10 @@ CONTAINS
       CALL def_var('patch.verts.refin_ctrl',       nf_int   , dim_nverts)
       CALL def_var('patch.verts.decomp_domain',    nf_int   , dim_nverts)
       CALL def_var('patch.verts.glb_index',        nf_int   , dim_nverts)
+      !cartesian coordinates of the verts
+      CALL def_var('patch.verts.cartesian.x1',     nf_double, dim_nverts)
+      CALL def_var('patch.verts.cartesian.x2',     nf_double, dim_nverts)
+      CALL def_var('patch.verts.cartesian.x3',     nf_double, dim_nverts)
 
      IF(lfull) THEN
       CALL def_var('patch.verts.phys_id',          nf_int   , dim_nverts)
@@ -1565,6 +1576,8 @@ CONTAINS
     LOGICAL, INTENT(IN)          :: lfull
 
     INTEGER :: varid
+    
+    CHARACTER(*), PARAMETER :: method_name = "mo_dump_restore:patch_io"
 
     CALL store_proc_dependent_dimensions(p)
 
@@ -1577,6 +1590,7 @@ CONTAINS
       CALL nf(nf_inq_varid(ncid, TRIM(prefix)//'n_patch_verts', varid))
       CALL nf(nf_put_var1_int(ncid, varid, my_record, p%n_patch_verts))
     ENDIF
+
 
     IF(p%n_patch_cells>0) THEN
       CALL bvar_io(1,2,'patch.cells.num_edges',        p%cells%num_edges)
@@ -1592,6 +1606,9 @@ CONTAINS
       CALL bvar_io(1,2,'patch.cells.refin_ctrl',       p%cells%refin_ctrl)
       CALL bvar_io(1,2,'patch.cells.decomp_domain',    p%cells%decomp_domain)
       CALL uvar_io(    'patch.cells.glb_index',        p%cells%glb_index)
+      CALL bvar_io(1,2,'patch.cells.cart_center.x1',   p%cells%cartesian_center(:,:)%x(1))
+      CALL bvar_io(1,2,'patch.cells.cart_center.x2',   p%cells%cartesian_center(:,:)%x(2))
+      CALL bvar_io(1,2,'patch.cells.cart_center.x3',   p%cells%cartesian_center(:,:)%x(3))
 
      IF(lfull) THEN
       CALL bvar_io(1,2,'patch.cells.phys_id',          p%cells%phys_id)
@@ -1616,6 +1633,9 @@ CONTAINS
       CALL bvar_io(1,2,'patch.edges.refin_ctrl',             p%edges%refin_ctrl)
       CALL bvar_io(1,2,'patch.edges.decomp_domain',          p%edges%decomp_domain)
       CALL uvar_io(    'patch.edges.glb_index',              p%edges%glb_index)
+      CALL bvar_io(1,2,'patch.edges.cart_center.x1',   p%edges%cartesian_center(:,:)%x(1))
+      CALL bvar_io(1,2,'patch.edges.cart_center.x2',   p%edges%cartesian_center(:,:)%x(2))
+      CALL bvar_io(1,2,'patch.edges.cart_center.x3',   p%edges%cartesian_center(:,:)%x(3))
 
      IF(lfull) THEN
       CALL bvar_io(1,2,'patch.edges.phys_id',          p%edges%phys_id)
@@ -1670,6 +1690,9 @@ CONTAINS
       CALL bvar_io(1,2,'patch.verts.refin_ctrl',       p%verts%refin_ctrl)
       CALL bvar_io(1,2,'patch.verts.decomp_domain',    p%verts%decomp_domain)
       CALL uvar_io(    'patch.verts.glb_index',        p%verts%glb_index)
+      CALL bvar_io(1,2,'patch.verts.cartesian.x1',     p%verts%cartesian(:,:)%x(1))
+      CALL bvar_io(1,2,'patch.verts.cartesian.x2',     p%verts%cartesian(:,:)%x(2))
+      CALL bvar_io(1,2,'patch.verts.cartesian.x3',     p%verts%cartesian(:,:)%x(3))
 
      IF(lfull) THEN
       CALL bvar_io(1,2,'patch.verts.phys_id',          p%verts%phys_id)
@@ -1720,6 +1743,7 @@ CONTAINS
       CALL comm_pat_io('comm_pat_loc_to_glb_e_fbk',    p%comm_pat_loc_to_glb_e_fbk)
     ENDIF
 
+  
   END SUBROUTINE patch_io
 
   !-------------------------------------------------------------------------
@@ -1896,8 +1920,6 @@ CONTAINS
     CALL def_var('int.geofac_rot',        nf_double, dim_nverts, dim_nedges_per_vert) ! nproma,9-p%cell_type,nblks_v
     CALL def_var('int.geofac_n2s',        nf_double, dim_ncells, dim_nverts_per_cell_p1) ! nproma,p%cell_type+1,nblks_c
     CALL def_var('int.geofac_grg',        nf_double, dim_ncells, dim_nverts_per_cell_p1, dim_2) ! nproma,p%cell_type+1,nblks_c,2
-    CALL def_var('int.cart_edge_coord',   nf_double, dim_nedges, dim_3) ! nproma,nblks_e,3
-    CALL def_var('int.cart_cell_coord',   nf_double, dim_ncells, dim_3) ! nproma,nblks_c,3
     CALL def_var('int.primal_normal_ec',  nf_double, dim_ncells, dim_nverts_per_cell, dim_2) ! nproma,nblks_c,p%cell_type,2
     CALL def_var('int.edge_cell_length',  nf_double, dim_ncells, dim_nverts_per_cell) ! nproma,nblks_c,p%cell_type
     CALL def_var('int.cell_vert_dist',    nf_double, dim_ncells, dim_3, dim_2) ! nproma,3,2,nblks_c
@@ -2027,8 +2049,6 @@ CONTAINS
     CALL bvar_io(1,3,'int.geofac_rot',        pi%geofac_rot      ) ! nproma,9-p%cell_type,nblks_v
     CALL bvar_io(1,3,'int.geofac_n2s',        pi%geofac_n2s      ) ! nproma,p%cell_type+1,nblks_c
     CALL bvar_io(1,3,'int.geofac_grg',        pi%geofac_grg      ) ! nproma,p%cell_type+1,nblks_c,2
-    CALL bvar_io(1,2,'int.cart_edge_coord',   pi%cart_edge_coord ) ! nproma,nblks_e,3
-    CALL bvar_io(1,2,'int.cart_cell_coord',   pi%cart_cell_coord ) ! nproma,nblks_c,3
     CALL bvar_io(1,2,'int.primal_normal_ec',  pi%primal_normal_ec) ! nproma,nblks_c,p%cell_type,2
     CALL bvar_io(1,2,'int.edge_cell_length',  pi%edge_cell_length) ! nproma,nblks_c,p%cell_type
     CALL bvar_io(1,4,'int.cell_vert_dist',    pi%cell_vert_dist  ) ! nproma,3,2,nblks_c
@@ -2431,10 +2451,10 @@ CONTAINS
 
   SUBROUTINE set_atts_and_dims(p, nprocs)
 
-    TYPE(t_patch), INTENT(IN) :: p
+    TYPE(t_patch), INTENT(INOUT) :: p
     INTEGER, INTENT(IN) :: nprocs
 
-    INTEGER :: i
+    INTEGER :: i, return_status
     CHARACTER (LEN=80) :: child_id_name, child_idl_name
 
     ! Output all values relevant for grid as attributes
@@ -2464,6 +2484,11 @@ CONTAINS
     ENDDO
     CALL nf(nf_put_att_int(ncid, nf_global, 'patch.n_proc', nf_int, 1, p%n_proc))
     CALL nf(nf_put_att_int(ncid, nf_global, 'patch.proc0', nf_int, 1, p%proc0))
+
+    return_status = write_geometry_info(ncid, p%geometry_info)
+    IF (return_status /= 0) &
+      CALL finish('set_atts_and_dims', "Cannot write geometry_info")
+    CALL write_grid_subsets(ncid, p)
 
     ! Set common dimensions which do not depend on the actual PE or patch.
 
@@ -2620,120 +2645,6 @@ CONTAINS
 
   END SUBROUTINE dump_patch_state_netcdf
 
-
-  !-------------------------------------------------------------------------
-  ! Public interface routines
-  !-------------------------------------------------------------------------
-  !
-  !> Dumps state of one patch to NetCDF, including interpolation and
-  !! grid refinement variables
-
-  SUBROUTINE dump_patch_state_netcdf_oce(p)
-
-    TYPE(t_patch), INTENT(INOUT)                   :: p
-
-    !---local variables
-    INTEGER :: old_mode, ip
-    TYPE(t_patch), POINTER :: lp ! pointer to local parent
-
-    !-------------------------------------------------------------------------
-
-    ! use_one_file is set according to l_one_file_per_patch
-    use_one_file = l_one_file_per_patch
-
-    netcdf_read = .FALSE. ! Set I/O routines to write mode
-
-    CALL set_dump_restore_filename(p%grid_filename, model_base_dir)
-
-    WRITE(message_text,'(a,a)') 'Write NetCDF file: ', TRIM(filename)
-    CALL message ('', TRIM(message_text))
-
-    ! Set pointer to local parent
-    IF(my_process_is_mpi_all_parallel() .AND. p%id>n_dom_start) THEN
-      lp => p_patch_local_parent(p%id)
-    ELSE
-      lp => NULL()
-    ENDIF
-
-    IF(use_one_file) THEN
-      ! Only the first PE defines common dimensions and attributes, all others check
-      output_defines = (get_my_mpi_work_id()==0)
-    ELSE
-      ! Every PE defines common dimensions and attributes
-      output_defines = .TRUE.
-    ENDIF
-
-    prefix = ' '
-
-    IF(output_defines) THEN
-      ! Open new output file
-      CALL nf(nf_set_default_format(nf_format_64bit, old_mode))
-      CALL nf(nf_create(TRIM(filename), nf_clobber, ncid))
-    ELSE
-      ncid = -1
-    ENDIF
-
-    IF(output_defines) CALL set_atts_and_dims(p, num_work_procs)
- 
-    ! Emit additional dimensions and variable definitions for patch/int state/grf state
-
-    ! Output attributes and dimensions
-    CALL set_max_patch_dims(p)
-    CALL def_patch(p, .TRUE.)
-    CALL def_comm_patterns(p)
-
-    ! Definitions for local parent
-
-    IF(my_process_is_mpi_all_parallel() .AND. p%id>n_dom_start) THEN
-      prefix = 'lp.'
-      CALL set_max_patch_dims(lp)
-      CALL def_patch(lp, .TRUE.)
-      CALL def_comm_patterns(lp)
-    ENDIF
-
-    !-------------------------------------------------------------------------
-
-    ! End of definition mode
-
-    IF(output_defines) THEN
-      CALL nf(nf_enddef(ncid))
-      CALL nf(nf_close(ncid))
-    ENDIF
-
-
-    IF(use_one_file) THEN
-      my_record = get_my_mpi_work_id()+1
-    ELSE
-      my_record = 1
-    ENDIF
-
-    ! Output all variables
-
-    DO ip = 0, num_work_procs-1
-
-      IF(use_one_file) CALL p_barrier(comm=p_comm_work)
-
-      IF(ip /= get_my_mpi_work_id()) CYCLE
-
-      CALL nf(nf_open(TRIM(filename), NF_WRITE, ncid))
-      prefix = ' '
-
-      CALL patch_io(p, .TRUE.)
-
- 
-      IF(my_process_is_mpi_all_parallel() .AND. p%id>n_dom_start) THEN ! Output for local parent
-        prefix = 'lp.'
-        CALL patch_io(lp, .TRUE.)
-      ENDIF
-
-      ! Close NetCDF file
-      CALL nf(nf_close(ncid))
-
-    ENDDO
-
-    IF(use_one_file) CALL p_barrier(comm=p_comm_work)
-
-  END SUBROUTINE dump_patch_state_netcdf_oce
 
   !-------------------------------------------------------------------------
   !
@@ -3044,6 +2955,7 @@ CONTAINS
     LOGICAL, INTENT(IN) :: lfull ! TRUE: restore all, FALSE: restore domain decomposition
 
     INTEGER :: jg, jg1, jgp, i, n_chd, n_chdc
+    INTEGER :: return_status
     CHARACTER (LEN=80) :: child_id_name, child_idl_name
 
     CALL message ('restore_patches_netcdf','start to restore patches')
@@ -3268,6 +3180,12 @@ CONTAINS
 
       CALL nf(nf_get_att_int(ncid, nf_global, 'patch.n_proc', p_patch(jg)%n_proc))
       CALL nf(nf_get_att_int(ncid, nf_global, 'patch.proc0', p_patch(jg)%proc0))
+
+      return_status = read_geometry_info(ncid, p_patch(jg)%geometry_info)
+      IF (return_status /= 0) &
+        CALL finish('restore_patches_netcdf', "Cannot read geometry_info")
+      p_patch(jg)%geometry_info%mean_characteristic_length = SQRT(p_patch(jg)%geometry_info%mean_cell_area)
+      CALL read_grid_subsets(ncid, p_patch(jg))
 
       CALL restore_patch_netcdf(p_patch(jg), lfull)
 
@@ -3515,6 +3433,7 @@ CONTAINS
       IF (l_intp_c2l) THEN
         CALL def_var('int.lonlat.rbf_c2l_coeff', nf_double, dim_lonlat, dim_rbf_c2l_dim)
         CALL def_var('int.lonlat.rbf_c2l_idx', nf_int, dim_ncells, dim_rbf_c2l_dim)
+        CALL def_var('int.lonlat.rbf_c2lr_idx', nf_int, dim_lonlat, dim_rbf_c2l_dim)
         CALL def_var('int.lonlat.rbf_c2l_stencil', nf_int, dim_ncells)
       END IF
     END IF
@@ -3562,6 +3481,7 @@ CONTAINS
     IF (l_intp_c2l) THEN
       CALL bvar_io(2,3, 'int.lonlat.rbf_c2l_coeff', intp%rbf_c2l_coeff)
       CALL bidx_io(2,3, 'int.lonlat.rbf_c2l_idx', intp%rbf_c2l_idx, intp%rbf_c2l_blk)
+      CALL bidx_io(2,3, 'int.lonlat.rbf_c2lr_idx', intp%rbf_c2lr_idx, intp%rbf_c2lr_blk)
       CALL bvar_io(1,2, 'int.lonlat.rbf_c2l_stencil', intp%rbf_c2l_stencil)
     END IF
 

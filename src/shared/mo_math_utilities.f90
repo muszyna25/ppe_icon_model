@@ -103,7 +103,8 @@ MODULE mo_math_utilities
   USE mo_parallel_config,     ONLY: nproma
   USE mo_lonlat_grid,         ONLY: t_lon_lat_grid
   USE mo_grid_config,         ONLY: grid_sphere_radius
-  
+  USE mo_grid_geometry_info,  ONLY: t_grid_geometry_info, planar_torus_geometry, sphere_geometry
+  USE mo_math_types
   IMPLICIT NONE
   
   PRIVATE
@@ -157,38 +158,14 @@ MODULE mo_math_utilities
   PUBLIC :: orthogr_proj
   PUBLIC :: az_eqdist_proj
   PUBLIC :: gamma_fct
-  PUBLIC :: sphere_cell_mean_char_length
+!   PUBLIC :: sphere_cell_mean_char_length
   PUBLIC :: ccw
   PUBLIC :: line_intersect
   PUBLIC :: lintersect
   
   PUBLIC :: OPERATOR(+)
   PUBLIC :: OPERATOR(-)
-  PUBLIC :: OPERATOR(*)
-  
-  ! cartesian coordinate class
-  TYPE t_cartesian_coordinates
-    REAL(wp) :: x(3)
-  END TYPE t_cartesian_coordinates
-  
-  ! geographical coordinate class
-  TYPE t_geographical_coordinates
-    REAL(wp) :: lon
-    REAL(wp) :: lat
-  END TYPE t_geographical_coordinates
-
-  ! the two coordinates on the tangent plane
-  TYPE t_tangent_vectors
-    REAL(wp) :: v1
-    REAL(wp) :: v2
-  END TYPE t_tangent_vectors
-  
-  ! line class
-  TYPE t_line
-    TYPE(t_geographical_coordinates) :: p1
-    TYPE(t_geographical_coordinates) :: p2
-  END TYPE t_line
-  
+  PUBLIC :: OPERATOR(*)    
   
   INTERFACE OPERATOR(+)
     MODULE PROCEDURE cartesian_coordinates_plus
@@ -198,6 +175,15 @@ MODULE mo_math_utilities
   END INTERFACE
   INTERFACE OPERATOR(*)
     MODULE PROCEDURE cartesian_coordinates_prod
+  END INTERFACE
+
+  INTERFACE arc_length
+    MODULE PROCEDURE arc_length_sphere
+    MODULE PROCEDURE arc_length_generic
+  END INTERFACE
+  INTERFACE arc_length_v
+    MODULE PROCEDURE arc_length_v_sphere
+    MODULE PROCEDURE arc_length_v_generic
   END INTERFACE
 
 !-----------------------------------------------------------------------
@@ -231,27 +217,47 @@ CONTAINS
   !! @par Revision History
   !! Original version by Tobias Ruppert and Thomas Heinze, DWD (2006-11-14)
   !!
-  PURE SUBROUTINE gvec2cvec (p_gu, p_gv, p_long, p_lat, p_cu, p_cv, p_cw)
+  SUBROUTINE gvec2cvec (p_gu, p_gv, p_long, p_lat, p_cu, p_cv, p_cw, geometry_info)
     !
     REAL(wp), INTENT(in)  :: p_gu, p_gv     ! zonal and meridional vec. component
     REAL(wp), INTENT(in)  :: p_long, p_lat  ! geo. coord. of data point
+    TYPE(t_grid_geometry_info), INTENT(in), OPTIONAL :: geometry_info
     
     REAL(wp), INTENT(out) :: p_cu, p_cv, p_cw            ! Cart. vector
     
     REAL(wp)              :: z_cln, z_sln, z_clt, z_slt  ! sin and cos of
-    ! p_long and p_lat
-    
+    INTEGER               :: geometry_type
+    CHARACTER(LEN=*), PARAMETER :: method_name='mo_math_utils:gvec2cvec'
     !-------------------------------------------------------------------------
+
+    geometry_type = sphere_geometry
+    IF (PRESENT(geometry_info)) &
+      geometry_type = geometry_info%geometry_type
     
-    z_sln = SIN(p_long)
-    z_cln = COS(p_long)
-    z_slt = SIN(p_lat)
-    z_clt = COS(p_lat)
+    SELECT CASE(geometry_type)
     
-    p_cu = z_sln * p_gu + z_slt * z_cln * p_gv
-    p_cu = -1._wp * p_cu
-    p_cv = z_cln * p_gu - z_slt * z_sln * p_gv
-    p_cw = z_clt * p_gv
+    CASE (planar_torus_geometry)
+      p_cu  = p_gu
+      p_cv  = p_gv
+      p_cw  = 0._wp
+    CASE (sphere_geometry)
+      z_sln = SIN(p_long)
+      z_cln = COS(p_long)
+      z_slt = SIN(p_lat)
+      z_clt = COS(p_lat)
+    
+      p_cu = z_sln * p_gu + z_slt * z_cln * p_gv
+      p_cu = -1._wp * p_cu
+      p_cv = z_cln * p_gu - z_slt * z_sln * p_gv
+      p_cw = z_clt * p_gv
+   CASE DEFAULT
+  ! Commented by GZ because this destroys vectorization
+  !    CALL finish(method_name, "Undefined geometry type")
+      p_cu  = p_gu
+      p_cv  = p_gv
+      p_cw  = 0._wp
+   END SELECT
+
   END SUBROUTINE gvec2cvec
   !-------------------------------------------------------------------------
   
@@ -274,26 +280,45 @@ CONTAINS
   !! @par Revision History
   !! Original version by Thomas Heinze, DWD (2006-11-16)
   !!
-  PURE SUBROUTINE cvec2gvec (p_cu, p_cv, p_cw, p_long, p_lat, p_gu, p_gv)
+  SUBROUTINE cvec2gvec (p_cu, p_cv, p_cw, p_long, p_lat, p_gu, p_gv, geometry_info)
     !
     REAL(wp), INTENT(in)  :: p_cu, p_cv, p_cw  ! Cart. vector
     REAL(wp), INTENT(in)  :: p_long, p_lat     ! geo. coord. of data point
-    
+    TYPE(t_grid_geometry_info), INTENT(in), OPTIONAL :: geometry_info
+
     REAL(wp), INTENT(out) :: p_gu, p_gv        ! zonal and meridional vec. comp.
     
     REAL(wp)              :: z_cln, z_clt, z_sln, z_slt  ! sin and cos of
-    ! p_long and p_lat
+    INTEGER               :: geometry_type
+    CHARACTER(LEN=*), PARAMETER :: method_name='mo_math_utils:cvec2gvec'
+    !-------------------------------------------------------------------------
+
+    geometry_type = sphere_geometry
+    IF (PRESENT(geometry_info)) &
+      geometry_type = geometry_info%geometry_type
     
-    !-------------------------------------------------------------------------    
-    z_sln = SIN(p_long)
-    z_cln = COS(p_long)
-    z_slt = SIN(p_lat)
-    z_clt = COS(p_lat)
+    SELECT CASE(geometry_type)
     
-    p_gu = z_cln * p_cv - z_sln * p_cu
-    p_gv = z_cln * p_cu + z_sln * p_cv
-    p_gv = z_slt * p_gv
-    p_gv = z_clt * p_cw - p_gv
+    CASE (planar_torus_geometry)
+       p_gu = p_cu
+       p_gv = p_cv
+    CASE (sphere_geometry)
+      ! p_long and p_lat
+      z_sln = SIN(p_long)
+      z_cln = COS(p_long)
+      z_slt = SIN(p_lat)
+      z_clt = COS(p_lat)
+      
+      p_gu = z_cln * p_cv - z_sln * p_cu
+      p_gv = z_cln * p_cu + z_sln * p_cv
+      p_gv = z_slt * p_gv
+      p_gv = z_clt * p_cw - p_gv
+    CASE DEFAULT
+  ! Commented by GZ because this destroys vectorization
+  !    CALL finish(method_name, "Undefined geometry type")
+       p_gu = p_cu
+       p_gv = p_cv
+    END SELECT
     
   END SUBROUTINE cvec2gvec
   !-------------------------------------------------------------------------
@@ -500,7 +525,7 @@ CONTAINS
   !! Developed by Th.Heinze (2006-09-19).
   !! Previous version by Luis Kornblueh (2004) discarded.
   !!
-  ELEMENTAL FUNCTION arc_length (p_x, p_y)  result (p_arc)
+  ELEMENTAL FUNCTION arc_length_sphere (p_x, p_y)  result (p_arc)
   
     TYPE(t_cartesian_coordinates), INTENT(in) :: p_x, p_y  ! endpoints
     
@@ -522,7 +547,48 @@ CONTAINS
     
     p_arc = ACOS(z_cc)
     
-  END FUNCTION arc_length
+  END FUNCTION arc_length_sphere
+
+  !-------------------------------------------------------------------------
+  !>
+  !! Computes length of geodesic arc with endpoints @f$p\_x, p\_y@f$.
+  !!
+  !! @par Revision History
+  !! Developed by Th.Heinze (2006-09-19).
+  !! Previous version by Luis Kornblueh (2004) discarded.
+  !! Modified by Anurag Dipankar, MPIM (2012-12-27)
+  !! -Elemental form of the function wasn't allowing call to another routines
+  FUNCTION arc_length_generic (p_x, p_y, geometry_info)  result (p_arc)
+  
+    TYPE(t_cartesian_coordinates), INTENT(in) :: p_x, p_y  ! endpoints
+    TYPE(t_grid_geometry_info), INTENT(in) :: geometry_info
+    
+    REAL(wp)            :: p_arc          ! length of geodesic arc
+    
+    REAL(wp)            :: z_lx,  z_ly    ! length of vector p_x and p_y
+    REAL(wp)            :: z_cc           ! cos of angle between endpoints
+    INTEGER             :: geometry_type
+    CHARACTER(LEN=*), PARAMETER :: method_name='mo_math_utils:arc_length'
+    !-----------------------------------------------------------------------
+    
+    geometry_type = geometry_info%geometry_type
+    
+    SELECT CASE(geometry_type)
+    
+    CASE (planar_torus_geometry)
+      !Assuming that the flat geometry is nothing but a small arc 
+      !over sphere. This assumption doesn't really affect any calculation
+      p_arc = plane_torus_distance(p_x%x,p_y%x,geometry_info) / &
+              grid_sphere_radius     
+    CASE (sphere_geometry)
+      !    
+      p_arc = arc_length_sphere (p_x, p_y)
+    CASE DEFAULT    
+      !
+      CALL finish(method_name, "Undefined geometry type")
+    END SELECT
+
+  END FUNCTION arc_length_generic
   !-------------------------------------------------------------------------
   
   !-------------------------------------------------------------------------
@@ -561,7 +627,7 @@ CONTAINS
   !! Previous version by Luis Kornblueh (2004) discarded.
   !! Vectorizable version developed by Guenther Zaengl, DWD (2009-04-20)
   !!
-  PURE FUNCTION arc_length_v (p_x, p_y)  result (p_arc)
+  PURE FUNCTION arc_length_v_sphere (p_x, p_y)  result (p_arc)
     REAL(wp), INTENT(in) :: p_x(3), p_y(3)  ! endpoints
     
     REAL(wp)            :: p_arc          ! length of geodesic arc
@@ -583,7 +649,50 @@ CONTAINS
     
     p_arc = ACOS(z_cc)
     
-  END FUNCTION arc_length_v
+  END FUNCTION arc_length_v_sphere
+
+  !-------------------------------------------------------------------------
+  !>
+  !! Computes length of geodesic arc with endpoints @f$p\_x, p\_y@f$.
+  !!
+  !! Vectorizable version
+  !!
+  !! @par Revision History
+  !! Developed by Th.Heinze (2006-09-19).
+  !! Previous version by Luis Kornblueh (2004) discarded.
+  !! Vectorizable version developed by Guenther Zaengl, DWD (2009-04-20)
+  !! Modified by Anurag Dipankar, MPIM (2012-12-27)
+  !! -Elemental form of the function wasn't allowing call to another routines
+  FUNCTION arc_length_v_generic (p_x, p_y, geometry_info)  result (p_arc)
+    REAL(wp), INTENT(in) :: p_x(3), p_y(3)  ! endpoints
+    TYPE(t_grid_geometry_info), INTENT(in) :: geometry_info
+    
+    REAL(wp)            :: p_arc          ! length of geodesic arc
+    
+    REAL(wp)            :: z_lx,  z_ly    ! length of vector p_x and p_y
+    REAL(wp)            :: z_cc           ! cos of angle between endpoints
+    INTEGER             :: geometry_type
+    CHARACTER(LEN=*), PARAMETER :: method_name='mo_math_utils:arc_length'
+    !-----------------------------------------------------------------------
+    
+    geometry_type = geometry_info%geometry_type
+    
+    SELECT CASE(geometry_type)
+    
+    CASE (planar_torus_geometry)
+      !Assuming that the flat geometry is nothing but a small arc 
+      !over sphere. This assumption doesn't really affect any calculation
+      p_arc = plane_torus_distance(p_x,p_y,geometry_info) / &
+              grid_sphere_radius     
+    CASE (sphere_geometry)
+      !
+      p_arc = arc_length_v_sphere (p_x, p_y)
+    CASE DEFAULT    
+      !
+      CALL finish(method_name, "Undefined geometry type")
+    END SELECT
+    
+  END FUNCTION arc_length_v_generic
   !-------------------------------------------------------------------------
   
   !-----------------------------------------------------------------------
@@ -616,13 +725,16 @@ CONTAINS
   ! returns the torus modulo coordinates of v1 that are
   ! closest to v0
   FUNCTION plane_torus_closest_coordinates(v0, v1, &
-    & length_of_torus, height_of_torus) result(new_v1_coord)
+    & geometry_info) result(new_v1_coord)
     
     REAL(wp), INTENT(in) :: v0(3), v1(3)
-    REAL(wp), INTENT(in) :: length_of_torus, height_of_torus
+    TYPE(t_grid_geometry_info), INTENT(in) :: geometry_info
     
+    REAL(wp) :: length_of_torus, height_of_torus
     TYPE(t_cartesian_coordinates) :: new_v1_coord
 
+    length_of_torus = geometry_info%domain_length
+    height_of_torus = geometry_info%domain_height
     ! check the x coordinate
     IF ( ABS(v0(1) - v1(1)) >  length_of_torus * 0.5_wp) THEN
       ! we will wrap around + or -  length_of_torus       
@@ -657,13 +769,13 @@ CONTAINS
 
   !--------------------------------------------------------------------
   REAL(wp) FUNCTION plane_torus_distance(v0, v1, &
-    & length_of_torus, height_of_torus)
+    & geometry_info)
     REAL(wp), INTENT(in) :: v0(3), v1(3)
-    REAL(wp), INTENT(in) :: length_of_torus, height_of_torus
+    TYPE(t_grid_geometry_info), INTENT(in) :: geometry_info
 
     TYPE(t_cartesian_coordinates) :: dv
 
-    dv = plane_torus_closest_coordinates(v0, v1, length_of_torus, height_of_torus)
+    dv = plane_torus_closest_coordinates(v0, v1, geometry_info)
     dv%x = dv%x - v0
     plane_torus_distance = d_norma_3d(dv)
     
@@ -1230,7 +1342,7 @@ CONTAINS
   !! @par Revision History
   !! Developed by Marco Restelli (2008-03-04)
   !!
-  PURE SUBROUTINE disp_new_vect(p_gu,p_gv,lon,lat,barlon,barlat, &
+  SUBROUTINE disp_new_vect(p_gu,p_gv,lon,lat,barlon,barlat, &
     & new_lon,new_lat,new_p_gu,new_p_gv)
     
     REAL(wp), INTENT(in) :: &
@@ -2047,15 +2159,16 @@ CONTAINS
   !! @par Revision History
   !! Implemented by Kristina Froehlich, DWD (2010-10-29).
   !! moved to a more general place, Kristina Froehlich, MPI-M (2011-10-06)
-  !!
-  SUBROUTINE sphere_cell_mean_char_length( total_number_of_cells, mean_charlen ) ! output
-    
-    INTEGER , INTENT(in)  :: total_number_of_cells 
-    REAL(wp), INTENT(out) :: mean_charlen
-    
-    mean_charlen = SQRT (4._wp*pi*grid_sphere_radius**2 /REAL(total_number_of_cells,wp))
-    
-  END SUBROUTINE sphere_cell_mean_char_length
+  !! Changed to use total number odf cells insted of root/level by LL, MPI-M (2012-12)
+  !! Not used since the charecteristic lenntgh os now part of the grid_geometry_info. LL, MPI-M (2012-12)
+!   SUBROUTINE sphere_cell_mean_char_length( total_number_of_cells, mean_charlen ) ! output
+!     
+!     INTEGER , INTENT(in)  :: total_number_of_cells 
+!     REAL(wp), INTENT(out) :: mean_charlen
+!     
+!     mean_charlen = SQRT (4._wp*pi*grid_sphere_radius**2 /REAL(total_number_of_cells,wp))
+!     
+!   END SUBROUTINE sphere_cell_mean_char_length
   !-------------------------------------------------------------------------
   
   

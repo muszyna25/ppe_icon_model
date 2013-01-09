@@ -995,7 +995,6 @@ CONTAINS
 
     !------------------------------------------------------------------------- 
     !CALL get_atmos_fluxes (p_patch, p_os,p_as,ice, Qatm)
-    CALL ice_zero       (ice)
     CALL set_ice_albedo(p_patch,ice)
     
     ! #achim
@@ -1033,6 +1032,7 @@ CONTAINS
     !-------------------------------------------------------------------------------
 
     !CALL ave_fluxes     (ice, QatmAve)
+    CALL ice_zero       (ice)
     !CALL ice_dynamics   (ice, QatmAve)
     !! At the moment we just pretend the ice movement is zero and modify the oceanic stress
     !! accordingly
@@ -1205,8 +1205,8 @@ CONTAINS
 !    QatmAve % rpreci      (:,:)   = 0._wp
 !    QatmAve % counter             = 0 
 
-    ice     % Qbot        (:,:,:) = 0._wp
-    ice     % Qtop        (:,:,:) = 0._wp
+!    ice     % Qbot        (:,:,:) = 0._wp
+!    ice     % Qtop        (:,:,:) = 0._wp
     ice     % surfmelt    (:,:,:) = 0._wp
     ice     % surfmeltT   (:,:,:) = 0._wp
     ice     % evapwi      (:,:,:) = 0._wp

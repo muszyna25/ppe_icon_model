@@ -17,7 +17,7 @@
 %end
 
 # include the header file for remote jobs
-%include <init_icon_job.h> 
+%include <init_job.h> 
 
 # -------------------------------------------------
 
@@ -52,9 +52,13 @@ cd ${ifsdir}
 export GRIB_DEFINITION_PATH="%SCSOFT%/software/grib_api/release/share-1.9.9/definitions.edzw:/usr/local/lib/metaps/lib/grib_api/current/share/definitions"
 # =============================================
 
-IFS_FILENAME="ifs_oper_*_%YMD%%INIHOUR%.grb"
-res=`ls ${IFS_FILENAME} | cut -c 10-13`
-IFS_FILENAME="${ifsdir}/ifs_oper_${res}_%YMD%%INIHOUR%.grb"
+IFS_FILENAME_GRB="ifs_oper_*_%YMD%%INIHOUR%.grb"
+ifs_res=`ls ${IFS_FILENAME_GRB} | cut -c 10-13`
+IFS_FILENAME_GRB="${ifsdir}/ifs_oper_${ifs_res}_%YMD%%INIHOUR%.grb"
+
+icon_res="R2B06"
+IFS_FILENAME_NC="ifs2icon_${icon_res}_DOM01.nc"
+ICON_GRIDFILE="icon${icon_res}_DOM01.nc"
 
 ln -sf $GRIDDIR/icon*DOM*.nc .
 
@@ -131,11 +135,11 @@ cat > NAMELIST_PREPICON << EOF
 /
 ! interpolation regular grid-> ICON
 &remap_nml
- in_grid_filename             = "${IFS_FILENAME}"
- in_filename                  = "${IFS_FILENAME}"
+ in_grid_filename             = "${IFS_FILENAME_GRB}"
+ in_filename                  = "${IFS_FILENAME_GRB}"
  in_type                      = 1
- out_grid_filename            = "iconR2B06_DOM01.nc"
- out_filename                 = "ifs2icon_R2B06_DOM01.nc"	
+ out_grid_filename            = "${ICON_GRIDFILE}"
+ out_filename                 = "${IFS_FILENAME_NC}"	
  out_type                     = 2
  s_maxsize                    = 500000
  l_have3dbuffer               = .false.
@@ -342,6 +346,8 @@ export USE_SIGNAL_HANDLING=yes
 ./prep_icon
 echo "job::end"
 date
+
+ls -l ${IFS_FILENAME_NC}
 
 # -------------------------------------------------
 

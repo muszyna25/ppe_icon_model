@@ -177,7 +177,7 @@ MODULE mo_io_vlist
   USE mo_nwp_phy_state,         ONLY: prm_diag, prm_nwp_tend !, t_nwp_phy_diag
   USE mo_ext_data_state,        ONLY: ext_data
   USE mo_echam_phy_memory,      ONLY: prm_field, prm_tend
-  USE mo_icoham_sfc_indices,    ONLY: nsfc_type
+  USE mo_icoham_sfc_indices,    ONLY: nsfc_type, iice
   USE mo_radiation_config,      ONLY: izenith, irad_h2o,                          &
     &                                 irad_co2, irad_ch4, irad_n2o, irad_o3,      &
     &                                 irad_o2, irad_cfc11, irad_cfc12,  irad_aero
@@ -678,8 +678,9 @@ CONTAINS
       CALL zaxisDefLevels(zaxisID_halfdepth(k_jg), levels_i)
       DEALLOCATE(levels_i)
       DEALLOCATE(levels_m)
-      zaxisID_generic_ice(k_jg) = zaxisCreate(ZAXIS_GENERIC, 1) !TOOE v_ice%kice
     ENDIF
+    ! The ice axis must exist for atmosphere and ocean
+    zaxisID_generic_ice(k_jg) = zaxisCreate(ZAXIS_GENERIC, 1) !TOOE v_ice%kice
     !
     !
     !=========================================================================
@@ -2106,6 +2107,25 @@ CONTAINS
 
       ENDIF
 
+      ! Sea ice - mostly for debuging purposes
+      IF ( iice <= nsfc_type ) THEN
+        CALL addVar(TimeVar('ice_Tsurf','surface temperature of snow/ice','C',&
+        &         100,128,                    &
+        &         vlistID(k_jg),gridCellID(k_jg),zaxisID_generic_ice(k_jg)),k_jg)
+        CALL addVar(TimeVar('ice_T1','temperature of the upper ice layer','C',&
+        &         100,128,                    &
+        &         vlistID(k_jg),gridCellID(k_jg),zaxisID_generic_ice(k_jg)),k_jg)
+        CALL addVar(TimeVar('ice_T2','temperature of the lower ice layer','C',&
+        &         100,128,                    &
+        &         vlistID(k_jg),gridCellID(k_jg),zaxisID_generic_ice(k_jg)),k_jg)
+       CALL addVar(TimeVar('ice_hi','ice thickness','m',&
+        &         100,128,                    &
+        &         vlistID(k_jg),gridCellID(k_jg),zaxisID_generic_ice(k_jg)),k_jg)
+        CALL addVar(TimeVar('ice_conc','ice concentration in each ice class','',&
+        &         100,128,                    &
+        &         vlistID(k_jg),gridCellID(k_jg),zaxisID_generic_ice(k_jg)),k_jg)
+      ENDIF
+
     ELSE 
       ! ocean
       ! 3-dim lsm-masks
@@ -2888,6 +2908,14 @@ CONTAINS
 !!$      CASE ('debug_3d_6');      ptr3 => prm_field(jg)%debug_3d_6
 !!$      CASE ('debug_3d_7');      ptr3 => prm_field(jg)%debug_3d_7
 !!$      CASE ('debug_3d_8');      ptr3 => prm_field(jg)%debug_3d_8
+
+      ! Sea ice - mostly for debuging purposes
+      CASE ('ice_Tsurf');       ptr3 => prm_field(jg)%Tsurf
+      CASE ('ice_T1');          ptr3 => prm_field(jg)%T1
+      CASE ('ice_T2');          ptr3 => prm_field(jg)%T2
+      CASE ('ice_hi');          ptr3 => prm_field(jg)%hi
+      CASE ('ice_conc');        ptr3 => prm_field(jg)%conc
+
       !
       CASE DEFAULT;             not_found = .TRUE.
     END SELECT

@@ -319,9 +319,9 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
 
 
         ! copy
-        prm_diag%tcm(:,jb) = prm_diag%tcm_t(:,jb,1)
-        prm_diag%tch(:,jb) = prm_diag%tch_t(:,jb,1)
-        prm_diag%tfv(:,jb) = prm_diag%tfv_t(:,jb,1)
+        prm_diag%tcm(i_startidx:i_endidx,jb) = prm_diag%tcm_t(i_startidx:i_endidx,jb,1)
+        prm_diag%tch(i_startidx:i_endidx,jb) = prm_diag%tch_t(i_startidx:i_endidx,jb,1)
+        prm_diag%tfv(i_startidx:i_endidx,jb) = prm_diag%tfv_t(i_startidx:i_endidx,jb,1)
 
       ELSE ! tile approach used
 
@@ -610,6 +610,14 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
         DO jc = i_startidx, i_endidx
           p_prog_rcf%tracer(jc,jk,jb,iqc) =MAX(0._wp, p_prog_rcf%tracer(jc,jk,jb,iqc) &
                &           + tcall_turb_jg*prm_nwp_tend%ddt_tracer_turb(jc,jk,jb,iqc))
+        ENDDO
+      ENDDO
+      ! Copy transfer coefficients to tile-based variables, which are used in TERRA
+      DO jt = 1, ntiles_total+ntiles_water
+        DO jc = i_startidx, i_endidx
+          prm_diag%tcm_t(jc,jb,jt) = prm_diag%tcm(jc,jb)
+          prm_diag%tch_t(jc,jb,jt) = prm_diag%tch(jc,jb)
+          prm_diag%tfv_t(jc,jb,jt) = prm_diag%tfv(jc,jb)
         ENDDO
       ENDDO
 

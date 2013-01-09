@@ -1237,6 +1237,8 @@ int     vlistInqVarNumber(int vlistID, int varID);
 
 void    vlistDefVarInstitut(int vlistID, int varID, int instID);
 int     vlistInqVarInstitut(int vlistID, int varID);
+    /* Local change: 2013-01-08, DR,FP (DWD) */
+void    vlistDefVarTypeOfSfs(int vlistID, int varID, int sfs);
 void    vlistDefVarModel(int vlistID, int varID, int modelID);
 int     vlistInqVarModel(int vlistID, int varID);
 void    vlistDefVarTable(int vlistID, int varID, int tableID);
@@ -3982,6 +3984,9 @@ typedef struct
   int         iorank;
   int         decoSize;
   deco_t     *deco;
+
+    /* Local change: 2013-01-08, DR,FP (DWD) */
+    int         grib_typeOfSecondFixedSurface;
 
 }
 var_t;
@@ -13125,6 +13130,8 @@ void vlistvarInitEntry(int vlistID, int varID)
   vlistptr->vars[varID].iorank       = CDI_UNDEFID;
   vlistptr->vars[varID].decoSize     = 0;
   vlistptr->vars[varID].deco         = NULL;
+  /* Local change: 2013-01-08, DR,FP (DWD) */
+  vlistptr->vars[varID].grib_typeOfSecondFixedSurface = CDI_UNDEFID;
 }
 
 static
@@ -13938,6 +13945,16 @@ int vlistInqVarInstitut(int vlistID, int varID)
   vlistptr = vlist_to_pointer(vlistID);
 
   return (vlistptr->vars[varID].instID);
+}
+
+
+/* Local change: 2013-01-08, DR,FP (DWD) */
+void vlistDefVarTypeOfSfs(int vlistID, int varID, int sfs) {
+
+  vlist_t *vlistptr;
+  vlistptr = vlist_to_pointer(vlistID);
+
+  vlistptr->vars[varID].grib_typeOfSecondFixedSurface = sfs;
 }
 
 
@@ -32919,6 +32936,15 @@ size_t gribapiEncode(int varID, int levelID, int vlistID, int gridID, int zaxisI
   gribapiDefGrid(editionNumber, gh, gridID, ljpeg, lieee, datatype, nmiss, gc->init);
 
   gribapiDefLevel(editionNumber, gh, param, zaxisID, levelID, gc->init);
+
+  /* Local change: 2013-01-08, DR,FP (DWD) */
+  vlist_t *vlistptr;
+  vlistptr = vlist_to_pointer(vlistID);
+  if (!gc->init) {
+  if (vlistptr->vars[varID].grib_typeOfSecondFixedSurface != CDI_UNDEFID) {
+      GRIB_CHECK(grib_set_long(gh, "typeOfSecondFixedSurface", 
+			       vlistptr->vars[varID].grib_typeOfSecondFixedSurface), 0);
+  }}
 
   if ( nmiss > 0 )
     {
@@ -64217,6 +64243,7 @@ FCALLSCSUB3 (vlistDefVarXYZ, VLISTDEFVARXYZ, vlistdefvarxyz, INT, INT, INT)
 FCALLSCFUN2 (INT, vlistInqVarXYZ, VLISTINQVARXYZ, vlistinqvarxyz, INT, INT)
 FCALLSCFUN2 (INT, vlistInqVarNumber, VLISTINQVARNUMBER, vlistinqvarnumber, INT, INT)
 FCALLSCSUB3 (vlistDefVarInstitut, VLISTDEFVARINSTITUT, vlistdefvarinstitut, INT, INT, INT)
+FCALLSCSUB3 (vlistDefVarTypeOfSfs, VLISTDEFVARTYPEOFSFS, vlistdefvartypeofsfs, INT, INT, INT)
 FCALLSCFUN2 (INT, vlistInqVarInstitut, VLISTINQVARINSTITUT, vlistinqvarinstitut, INT, INT)
 FCALLSCSUB3 (vlistDefVarModel, VLISTDEFVARMODEL, vlistdefvarmodel, INT, INT, INT)
 FCALLSCFUN2 (INT, vlistInqVarModel, VLISTINQVARMODEL, vlistinqvarmodel, INT, INT)

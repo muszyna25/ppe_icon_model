@@ -71,7 +71,7 @@ MODULE mo_nh_torus_exp
   REAL(wp), PARAMETER :: zp0     = 100000._wp !< surface pressure
   REAL(wp), PARAMETER :: zt0     = 300._wp    !< temperature 
 
-  REAL(wp):: waveno_x, waveno_y, decay_rate, u0, v0
+  REAL(wp):: waveno_x, waveno_y, u0, v0
 
   PUBLIC :: init_nh_state_prog_advtest, waveno_x, waveno_y, u0, v0
 
@@ -133,14 +133,9 @@ MODULE mo_nh_torus_exp
     i_rcstartlev = 2
     i_startblk   = ptr_patch%edges%start_blk(i_rcstartlev,1)
 
-    IF(is_plane_torus)THEN
-      torus_len = ptr_patch%planar_torus_info%length
-      torus_ht  = ptr_patch%planar_torus_info%height
-      !decay width
-      decay_width = min(torus_len,torus_ht)/10._wp
-    ELSE
-      decay_width = pi2 / 10._wp
-    END IF      
+    torus_len = ptr_patch%geometry_info%domain_length
+    torus_ht  = ptr_patch%geometry_info%domain_height
+    decay_width = min(torus_len,torus_ht)/10._wp
 
     zscale_h = rd*zt0/grav
 
@@ -187,13 +182,13 @@ MODULE mo_nh_torus_exp
 
         END DO !jk
     ENDDO !jb
-!$OMP END DO
+!$OMP END DO 
 !$OMP END PARALLEL
 
  !First model level
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,je,i_startidx,i_endidx, &
-!$OMP            u_wind,v_wind)
+!$OMP DO PRIVATE(jb,je,i_startidx,i_endidx,jcn,jbn,cc_cell,z_dist, &
+!$OMP            u_wind,v_wind,zvn1,zvn2) 
      DO jb = i_startblk, nblks_e
 
         CALL get_indices_e(ptr_patch, jb, i_startblk, nblks_e,  &
@@ -206,13 +201,8 @@ MODULE mo_nh_torus_exp
           jbn  = ptr_patch%edges%cell_blk(je,jb,1)
 
           cc_center%x(:) = 0._wp
-          IF(is_plane_torus)THEN
-             cc_cell = ptr_patch%cells%cartesian_center(jcn,jbn) 
-             z_dist  =  plane_torus_distance(cc_center%x,cc_cell%x,torus_len,torus_ht)
-          ELSE
-             cc_cell = gc2cc(ptr_patch%cells%center(jcn,jbn))
-             z_dist  = arc_length(cc_cell,cc_center) 
-          END IF
+          cc_cell = ptr_patch%cells%cartesian_center(jcn,jbn) 
+          z_dist  = plane_torus_distance(cc_center%x,cc_cell%x,ptr_patch%geometry_info)
 
           u_wind = u0 * (1._wp+exp(-(z_dist/decay_width)**2)) !* sin(waveno_x*cc_cell%x(1))**2)
           v_wind = v0 * (1._wp+exp(-(z_dist/decay_width)**2)) !* sin(waveno_y*cc_cell%x(2))**2)
@@ -225,13 +215,8 @@ MODULE mo_nh_torus_exp
           jbn  = ptr_patch%edges%cell_blk(je,jb,2)
 
           cc_center%x(:) = 0._wp
-          IF(is_plane_torus)THEN
-             cc_cell = ptr_patch%cells%cartesian_center(jcn,jbn) 
-             z_dist  =  plane_torus_distance(cc_center%x,cc_cell%x,torus_len,torus_ht)
-          ELSE
-             cc_cell = gc2cc(ptr_patch%cells%center(jcn,jbn))
-             z_dist  = arc_length(cc_cell,cc_center)
-          END IF
+          cc_cell = ptr_patch%cells%cartesian_center(jcn,jbn) 
+          z_dist  = plane_torus_distance(cc_center%x,cc_cell%x,ptr_patch%geometry_info)
 
           u_wind = u0 * (1._wp+exp(-(z_dist/decay_width)**2)) !* sin(waveno_x*cc_cell%x(1))**2)
           v_wind = v0 * (1._wp+exp(-(z_dist/decay_width)**2)) !* sin(waveno_y*cc_cell%x(2))**2)

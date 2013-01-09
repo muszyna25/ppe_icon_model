@@ -50,7 +50,7 @@ MODULE mo_remap_weights
     &                              reduce_mthreaded_weights,                  &
     &                              allocate_intp_data,  deallocate_intp_data, &
     &                              merge_heaps, sync_foreign_wgts,            &
-    &                              resize_intp_data_mthreaded
+    &                              resize_intp_data_mthreaded, divide_by_area
  
   IMPLICIT NONE
 
@@ -241,6 +241,44 @@ CONTAINS
   END SUBROUTINE intersect_segment
 
 
+  SUBROUTINE transform_if_required(thresh, coord_transform, s, s_beg)
+    REAL(wp),                          INTENT(IN)    :: thresh
+    INTEGER,                           INTENT(INOUT) :: coord_transform
+    TYPE (t_line),                     INTENT(INOUT) :: s
+    TYPE (t_geographical_coordinates), INTENT(OUT)   :: s_beg
+    ! local variables
+    INTEGER   :: ilist
+    REAL(wp)  :: distn, dists
+
+    ! decide, if we should use the Lambert transformed coords for this
+    ! segment:
+    s_beg = s%p(1)
+    IF (coord_transform /= LIST_DEFAULT) THEN
+        s_beg = backtransform_lambert_azimuthal(s_beg, coord_transform)
+      END IF
+
+      distn = ABS(npole%lat - s_beg%lat)
+      dists = ABS(spole%lat - s_beg%lat)
+      IF (distn < thresh) THEN
+        ilist = LIST_NPOLE
+      ELSE IF (dists < thresh) THEN
+        ilist = LIST_SPOLE
+      ELSE
+        ilist = LIST_DEFAULT
+      END IF
+
+      IF ((ilist /= LIST_DEFAULT) .AND. (coord_transform == LIST_DEFAULT)) THEN
+        s%p(1) = transform_lambert_azimuthal(s%p(1), ilist)
+        s%p(2) = transform_lambert_azimuthal(s%p(2), ilist)
+        coord_transform = ilist
+      ELSE IF ((ilist == LIST_DEFAULT) .AND. (coord_transform /= LIST_DEFAULT)) THEN
+        s%p(1) = s_beg
+        s%p(2) = backtransform_lambert_azimuthal(s%p(2), coord_transform)
+        coord_transform = ilist
+      END IF
+  END SUBROUTINE transform_if_required
+
+
   !> Computes all intersection of a given line @l1 with edges of a grid
   !
   SUBROUTINE intersect_line(edge_v_idx, edge_v_blk, l1_in, grid, coord_transform, &
@@ -261,11 +299,12 @@ CONTAINS
     INTEGER                     :: cc_idx, cc_blk, ee_idx, ee_blk,    &
       &                            out_c_k_idx, out_c_k_blk,          &
       &                            out_e_k_idx, out_e_k_blk,          &
-      &                            nmax, ne, global_idx, ilist, ithrd
+      &                            nmax, ne, global_idx, ithrd,       &
+      &                            initial_coord_transform
     LOGICAL                     :: istat, lthresh, l_determine_cell, l_lookup, &
       &                            l_firstsubsegment, lskip_segment
     TYPE (t_geographical_coordinates) ::  s_beg, l_beg
-    REAL(wp)                    :: distn, dists, fct
+    REAL(wp)                    :: fct
 
     ithrd = 1
 !$  ithrd = OMP_GET_THREAD_NUM() + 1
@@ -293,32 +332,8 @@ CONTAINS
     ! loop: successively "eat away" the segments to the next
     ! intersection point:
     LOOP : DO 
-      ! decide, if we should use the Lambert transformed coords for
-      ! this segment:
-      s_beg = s%p(1)
-      IF (coord_transform /= LIST_DEFAULT) THEN
-        s_beg = backtransform_lambert_azimuthal(s_beg, coord_transform)
-      END IF
-
-      distn = ABS(npole%lat - s_beg%lat)
-      dists = ABS(spole%lat - s_beg%lat)
-      IF (distn < thresh) THEN
-        ilist = LIST_NPOLE
-      ELSE IF (dists < thresh) THEN
-        ilist = LIST_SPOLE
-      ELSE
-        ilist = LIST_DEFAULT
-      END IF
-
-      IF ((ilist /= LIST_DEFAULT) .AND. (coord_transform == LIST_DEFAULT)) THEN
-        s%p(1) = transform_lambert_azimuthal(s%p(1), ilist)
-        s%p(2) = transform_lambert_azimuthal(s%p(2), ilist)
-        coord_transform = ilist
-      ELSE IF ((ilist == LIST_DEFAULT) .AND. (coord_transform /= LIST_DEFAULT)) THEN
-        s%p(1) = s_beg
-        s%p(2) = backtransform_lambert_azimuthal(s%p(2), coord_transform)
-        coord_transform = ilist
-      END IF
+      initial_coord_transform = coord_transform
+      CALL transform_if_required(thresh, coord_transform, s, s_beg)
 
       ! determine containing cell
       IF (l_determine_cell) THEN
@@ -348,6 +363,8 @@ CONTAINS
             edge_v_blk(1:2) = (/ edge_v_blk(2), edge_v_blk(1) /)
             l1%p(1:2)       = (/ l1%p(2),       l1%p(1)       /)
             s   = l1
+            coord_transform = initial_coord_transform
+            CALL transform_if_required(thresh, coord_transform, s, s_beg)
             fct = -1.0_wp
             CYCLE LOOP
           END IF
@@ -599,8 +616,7 @@ CONTAINS
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = TRIM(TRIM(modname)//'::prepare_interpolation')
     TYPE (t_intp_data_mt) :: intp_data1_mt, intp_data2_mt
-    TYPE (t_heap_data) :: t
-    INTEGER  :: nthreads, i, ierrstat, ithrd
+    INTEGER  :: nthreads, ierrstat, ithrd
     REAL(wp) :: thresh
 
     nthreads = 1
@@ -690,26 +706,8 @@ CONTAINS
 !$OMP END  PARALLEL
 
     ! divide by area of destination grid cell:
-    DO i=1,intp_data1%nstencil
-     intp_data1%wgt(i,:,:) = intp_data1%wgt(i,:,:)/intp_data1%area(:,:)
-    END DO
-    DO i=1,intp_data2%nstencil
-      intp_data2%wgt(i,:,:) = intp_data2%wgt(i,:,:)/intp_data2%area(:,:)
-    END DO
-!$OMP PARALLEL 
-!$OMP DO PRIVATE(i,t)
-    DO i=1,intp_data1%s_nlist
-      t = intp_data1%sl(i)
-      intp_data1%sl(i)%wgt  = t%wgt/intp_data1%area(t%didx,t%dblk)
-    END DO
-!$OMP END DO
-!$OMP DO PRIVATE(i,t)
-    DO i=1,intp_data2%s_nlist
-      t = intp_data2%sl(i)
-      intp_data2%sl(i)%wgt  = t%wgt/intp_data2%area(t%didx,t%dblk)
-    END DO
-!$OMP END DO
-!$OMP END PARALLEL
+    CALL divide_by_area(intp_data1)
+    CALL divide_by_area(intp_data2)
 
     CALL node_storage_finalize(1)
     DEALLOCATE(node_storage, nnode, STAT=ierrstat)

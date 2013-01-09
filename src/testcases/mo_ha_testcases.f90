@@ -565,7 +565,7 @@ DO jg = 1,n_dom
              & .FALSE.,     &! copy temp rather than theta
              & ltransport )  ! copy tracer field if transport is on.
 
-     CASE ('APE')
+     CASE ('APE','APEi')
         ! Initial conditions are the same as for the 'JWw-Moist' case
 
         SELECT CASE (ihs_init_type)

@@ -27,9 +27,11 @@ setenv -i HOST
 setenv -i TMPDIR
 
 # global definitions:
-set EXPNUM        "002"                #---experiment number---
-set FIRST_DATE    20120101
-set LAST_DATE     20120131
+set EXPNUM        "004"                #---experiment number---
+set EXPNUM2       "004"                #---experiment number used for score comparison---
+set SUITE2        "dei2"               #---suite             used for score comparison---
+set FIRST_DATE    20120701
+set LAST_DATE     20120731
 set ICON_HOME     /home/ms/de/deia 
 set ICON_ID       deia 
 
@@ -67,6 +69,9 @@ set SMSOUT      "$ICON_HOME/sms"
 set NSTEPS       12000
 #set NSTEPS       2880
 
+# simulation modes: 1:oper, 2:monthly 10day forecasts
+set SIMMODE      2
+
 # no. of ensemble members (dummies here)
 #set NENS         10
 set NENS         0   # default for no ensemble run
@@ -94,6 +99,13 @@ define on_ecgate_submit {
   edit SMSCMD       "/home/ma/emos/bin/smssubmit $ICON_ID $HOST %SMSJOB% %SMSJOBOUT%"
   edit SMSKILL      "/home/ma/emos/bin/smskill   $ICON_ID $HOST %SMSRID% %SMSJOB% %SMSJOBOUT%"
   edit SMSSTATUSCMD "/home/ma/emos/bin/smsstatus $ICON_ID $HOST %SMSRID% %SMSJOB%"
+}
+
+define on_ecgate_submit_old {
+  label host "$HOST submit"
+  edit SMSCMD       "/usr/local/share/sms_submit $ICON_ID $HOST %SMSJOB%"
+  edit SMSKILL      "/usr/local/share/sms_kill   $ICON_ID $HOST %SMSRID% %SMSJOB%"
+  edit SMSSTATUSCMD "/usr/local/share/sms_status $ICON_ID $HOST %SMSRID% %SMSJOB%"
 }
 
 define on_hpc_parallel {
@@ -147,6 +159,9 @@ suite $USER
     set     ENABLE_DUMPSTATE      0
     set     ENABLE_MODEL          1
     set ENABLE_POST               1
+    set     ENABLE_METEOGRAM      0
+    set     ENABLE_POST_METVIEW   0
+    set     ENABLE_POST_ARCHIVE   0
 
     # enable this flag, if we do not perform a complete "svn export"
     # but simply an "svn update" and "gmake distclean":
@@ -160,7 +175,10 @@ suite $USER
     edit SMSOUT     $SMSOUT
 
     edit EXPNUM     $EXPNUM
+    edit EXPNUM2    $EXPNUM2
+    edit SUITE2     $SUITE2
     edit NSTEPS     $NSTEPS
+    edit SIMMODE    $SIMMODE
     edit NENS       $NENS
     edit NMEM       $NMEM
     edit WAITINTVL  $WAITINTVL
@@ -224,8 +242,8 @@ suite $USER
                 trigger (init_svn == complete)
                 complete ($ENABLE_INIT == 0) or ($ENABLE_BUILD == 0) or not (../setup:enable_build)
                 on_hpc_parallel
-                edit SCJOBTYPE parallel
-                edit SCJOBCLASS np
+                edit SCJOBTYPE    parallel
+                edit SCJOBCLASS   np
                 edit SCTOTALTASKS 8
                 edit SCCPUS       8
                 edit SCMEM        6200MB
@@ -244,7 +262,11 @@ suite $USER
         task get_data
             trigger (setup == complete) and (../once == complete)
             complete ($ENABLE_GET_DATA == 0)
-            on_hpc_serial
+            on_hpc_parallel
+            edit SCJOBTYPE    parallel
+            edit SCJOBCLASS   np
+            edit SCTOTALTASKS 4
+            edit SCCPUS       4
             edit SCMEM        3000MB
             edit SCWALLCLOCKLIMIT 02:00:00
 
@@ -252,9 +274,10 @@ suite $USER
             trigger (get_data == complete) and (build == complete)
             complete ($ENABLE_INIT_DATA == 0)
             on_hpc_parallel
-            edit ICONNODES         4
-            edit ICONTASKSPERNODE  4
-            edit ICONTHREADS       1
+            edit SCJOBTYPE    parallel
+            edit SCJOBCLASS   np
+            edit SCTOTALTASKS 32
+            edit SCCPUS       4
             edit SCWALLCLOCKLIMIT 00:60:00
 
     endfamily
@@ -304,47 +327,48 @@ suite $USER
 
     # POST-PROCESS---------------------------------
 
-    if ($ENABLE_POST == 1) then
-       family post
-           repeat date YMD ${FIRST_DATE} ${LAST_DATE}      # cycle over dates
-           trigger (forecast:YMD gt post:YMD)
-           #trigger (($ENABLE_FORECAST==0) or (../forecast/model:run_model  and ((../forecast/check_progress:progress ge post:VALUE) or (../forecast/model:model_complete))))
-           #trigger (../forecast/model:model_complete)
+    family post
+        repeat date YMD ${FIRST_DATE} ${LAST_DATE}      # cycle over dates
+        trigger (forecast:YMD gt post:YMD)
+        #trigger (($ENABLE_FORECAST==0) or (../forecast/model:run_model  and ((../forecast/check_progress:progress ge post:VALUE) or (../forecast/model:model_complete))))
+        #trigger (../forecast/model:model_complete)
+        complete ($ENABLE_POST == 0)
 
-           task post_prepare   
-               on_hpc_serial
-               edit SCWALLCLOCKLIMIT 00:40:00
-               event meteogram_data
+        task post_prepare   
+            on_hpc_serial
+            edit SCWALLCLOCKLIMIT 00:40:00
+            event meteogram_data
    
-           task meteogram
-               trigger (post_prepare:meteogram_data)
-               on_ecgate_submit
+        task meteogram
+            trigger (post_prepare:meteogram_data)
+            complete ($ENABLE_METEOGRAM == 0)
+            on_ecgate_submit_old
    
-           family metview_all 
-             trigger (post_prepare == complete)
-             for set 1 4 ; do
-               set tsk `printf %3.3i $set`
-               family $tsk
-                 task metview
-                   on_ecgate_submit
-                   edit metproc $set
-               endfamily
-             endfor  
-           endfamily
+        family metview_all 
+          trigger (post_prepare == complete)
+          complete ($ENABLE_POST_METVIEW == 0)
+          for set 1 4 ; do
+            set tsk `printf %3.3i $set`
+            family $tsk
+              task metview
+                on_ecgate_submit
+                edit metproc $set
+            endfamily
+          endfor  
+        endfamily
 
-           task post_archive
-               trigger meteogram==complete and metview_all==complete 
-               on_ecgate_submit
-   
-       endfamily
-    endif
+        task post_archive
+            trigger meteogram==complete and metview_all==complete 
+            complete ($ENABLE_POST_ARCHIVE == 0)
+            on_ecgate_submit
+    endfamily
 
 
     # END OF MONTH---------------------------------
 
     family endofmonth
         repeat date YMD ${FIRST_DATE} ${LAST_DATE}      # cycle over dates
-        trigger (post:YMD gt endofmonth:YMD)
+        trigger (post:YMD gt endofmonth:YMD) and (forecast:YMD gt endofmonth:YMD)
 
         task testday
             on_ecgate
@@ -377,7 +401,7 @@ suite $USER
         family eom_metview_all 
             trigger (eom_prepare == complete) and (eom_getmars == complete)
             complete (testday==complete) and not (testday:time_eom)
-            for set 1 4 ; do
+            for set 1 5 ; do
                set tsk `printf %3.3i $set`
                family $tsk
                  task eom_metview

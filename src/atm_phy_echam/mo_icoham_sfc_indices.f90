@@ -97,6 +97,15 @@ CONTAINS
 
         END IF
 
+      CASE('APEi')
+      ! Aqua-planet simulation with ice, but no land;
+
+        iwtr      = 1
+        iice      = 2
+        nsfc_type = 2
+        igbm      = 0
+        ilnd      = 999
+
       CASE('JWw-Moist','LDF-Moist')
       ! Baroclinic wave test, no land, no ice.
 

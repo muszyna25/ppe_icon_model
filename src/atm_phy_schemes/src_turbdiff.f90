@@ -1902,11 +1902,12 @@ REAL (KIND=ireals) :: &
 
       END DO !Iteration
 
-      IF (iini.EQ.1) THEN !only for separate initialization before the time loop
+   ! Commented in order to have surface diagnostics available for initial time output
+   !   IF (iini.EQ.1) THEN !only for separate initialization before the time loop
 
-         RETURN !finish this subroutine
+   !      RETURN !finish this subroutine
 
-      END IF
+   !   END IF
 
 !     Berechnung der Enthalpieflussdichten:
       

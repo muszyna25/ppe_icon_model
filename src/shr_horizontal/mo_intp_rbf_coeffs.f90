@@ -122,19 +122,7 @@
 !!    reconstruction.
 !!  Modification by Almut Gassmann, MPI-M (2010-01-12)
 !!  - generalize p_int%primal_normal_ec and p_int%edge_cell_length to hexagons
-!!  Modification by Anurag Dipankar, MPIM (2012-12-07)
-!! - added some IF conditions with the argument "is_plane_torus"
-!!   to compute the RBF coeffs for planar torus to be used in HD(CP)2.
-!!   It is costly to introduce conditional statements in the middle of loops
-!!   but it is done only once in the begining.
-!!   IF REQUIRED, THESE CONDITIONAL STATEMENTS CAN BE REMOVED BY CREATING
-!!   AN ENTIRELY NEW FOR MODULE FOR HDCP2. SUGGESTIONS?
-!!  - Note that we currently use cells%cartesian_center, edge%cartesian_center, and 
-!!    verts%cartesian to get cartesian coord but these variables don't adjust
-!!    according to the decomposition. So this should change once plane_torus is ready
-!!    for parallel decomposition
-!!  - also used "ptr_int%cart_cell_coord" directly instead of gc2cc(ptr_patch%cells%center(jc,jb))
-!!   
+!!
 !! @par Copyright
 !! 2002-2007 by DWD and MPI-M
 !! This software is provided for non-commercial use only.
@@ -196,9 +184,7 @@ USE mo_interpol_config,     ONLY: rbf_vec_dim_c, rbf_vec_dim_e, rbf_vec_dim_v,  
   &                               rbf_vec_kern_v, rbf_vec_scale_c, rbf_vec_scale_e,&
   &                               rbf_vec_scale_v
 USE mo_sync,                ONLY: SYNC_C, SYNC_E, SYNC_V, sync_patch_array, sync_idx
-USE mo_math_utilities,      ONLY: plane_torus_distance
-USE mo_grid_config,         ONLY: is_plane_torus
-USE mo_math_constants,      ONLY: pi2, pi_2, deg2rad
+USE mo_grid_geometry_info,  ONLY: sphere_geometry
 
 IMPLICIT NONE
 
@@ -316,8 +302,8 @@ REAL(wp) :: z_stencil(UBOUND(ptr_int%rbf_vec_stencil_c,1),UBOUND(ptr_int%rbf_vec
 
       ! take care of cells at patch boundaries, then the value of 
       ! ptr_int%rbf_vec_stencil_c might be smaller than rbf_vec_dim_c:
-      ptr_int%rbf_vec_stencil_c(jc,jb) = &
-        & COUNT(ptr_int%rbf_vec_idx_c(:,jc,jb) /= 0)
+!CDIR EXPAND=9
+      ptr_int%rbf_vec_stencil_c(jc,jb) = COUNT(ptr_int%rbf_vec_idx_c(1:9,jc,jb) /= 0)
 
     END DO
 
@@ -711,19 +697,14 @@ END SUBROUTINE rbf_vec_index_edge
 !
 !>
 !! This routine computes the coefficients needed for vector RBF interpolation,.
-!! 
+!!
 !! This routine computes the coefficients needed for vector RBF interpolation,
 !! which are then stored in the arrays <i>rbf_vec_coeff</i>.
 !! This computation involves the inversion of the interpolation
 !! matrix, which is performed by a Cholesky decomposition.
 !! The Cholesky decomposition is currently implemented by a home made routine
 !! which can be substituted by a call to a numerical library, if available.
-!! <<
-!!    The interpolation algo requires solving A_kj c_j = vn_k. Where A is a
-!!    matrix dependent on the distance, |x_k-x_j| between the points "k" and "j",
-!!    c_j are the coefficients, and vn_k are the normal velocities at "k" points.
-!!    To avoid computational cost [A_kj^{-1}]^T \times A_0j is stored here. 
-!! >>
+!!
 !! @par Revision History
 !! Developed and tested by Will Sawyer, ETHZ, adjusted and tested  for
 !! vector rbf by Luca Bonaventura (2005)
@@ -743,6 +724,10 @@ END SUBROUTINE rbf_vec_index_edge
 !! Modification by Guenther Zaengl, DWD (2009-04-20)
 !! - vector optimization and removal of unused options (polynomial
 !!   component in RBF kernel, multiquadric and thin-plate-spline kernel)
+!! Modification by Anurag Dipankar, MPIM (2012-12-28)
+!! - introduced geometry_info in calls to arc_lenth and gvec2cvec to handle
+!!   any geometry type and started using cartesian coord from the patch istead 
+!!   of interpolations state
 SUBROUTINE rbf_vec_compute_coeff_cell( ptr_patch, ptr_int )
 !
 
@@ -752,8 +737,6 @@ TYPE(t_patch), INTENT(in) :: ptr_patch
 TYPE(t_int_state), INTENT(inout) :: ptr_int
 
 REAL(wp) :: cc_e1(3), cc_e2(3), cc_c(nproma,3)  ! coordinates of edge midpoints
-
-TYPE(t_cartesian_coordinates) :: cc_center    ! coordinates of cell centers
 
 REAL(wp) :: z_lon, z_lat          ! longitude and latitude
 
@@ -791,7 +774,7 @@ INTEGER :: jg
 
 
 REAL(wp) ::  checksum_u,checksum_v ! to check if sum of interpolation coefficients is correct
-REAL(wp) ::  torus_len, torus_ht, maxlen
+
 !--------------------------------------------------------------------
 
   CALL message('mo_interpolation:rbf_vec_compute_coeff_cell', '')
@@ -805,13 +788,6 @@ REAL(wp) ::  torus_len, torus_ht, maxlen
 
   ! The start block depends on the width of the stencil
   i_startblk = ptr_patch%cells%start_blk(i_rcstartlev,1)
-
-  !plane torus info
-  IF(is_plane_torus)THEN
-    torus_len = ptr_patch%planar_torus_info%length
-    torus_ht  = ptr_patch%planar_torus_info%height
-    maxlen    = max(torus_len,torus_ht)
-  END IF
 
 !$OMP PARALLEL PRIVATE (z_rbfmat,z_diag,z_rbfval,z_rhs1,z_rhs2, ist)
   ALLOCATE( z_rbfmat(nproma,rbf_vec_dim_c,rbf_vec_dim_c),  &
@@ -827,7 +803,7 @@ REAL(wp) ::  torus_len, torus_ht, maxlen
 !$OMP DO PRIVATE (jb,jc,i_startidx,i_endidx,je1,je2,istencil,      &
 !$OMP             ist,ile1,ibe1,cc_e1,z_lon,z_lat,z_norm,      &
 !$OMP             z_nx1,ile2,ibe2,cc_e2,cc_c,z_nx2,z_nxprod,z_dist,      &
-!$OMP             cc_center,z_nx3,checksum_u,checksum_v) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP             z_nx3,checksum_u,checksum_v) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, nblks_c
 
     CALL get_indices_c(ptr_patch, jb, i_startblk, nblks_c, &
@@ -840,59 +816,95 @@ REAL(wp) ::  torus_len, torus_ht, maxlen
 
       DO je2 = 1, je1
 
-        DO jc = i_startidx, i_endidx
+        IF (ptr_patch%geometry_info%geometry_type == sphere_geometry) THEN ! use vectorizable version
+          DO jc = i_startidx, i_endidx
 
-          IF(.NOT. ptr_patch%cells%owner_mask(jc,jb)) THEN
-            ! Avoid the matrix decomposition for boundary cells since the matrix might get singular
-            istencil(jc) = 0
-            CYCLE
-          ENDIF
+            IF(.NOT. ptr_patch%cells%owner_mask(jc,jb)) THEN
+              ! Avoid the matrix decomposition for boundary cells since the matrix might get singular
+              istencil(jc) = 0
+              CYCLE
+            ENDIF
 
-          ! Get actual number of stencil points
-          istencil(jc) = ptr_int%rbf_vec_stencil_c(jc,jb)
-          !
-          IF ( (je1 > istencil(jc)) .OR. (je2 > istencil(jc)) ) CYCLE
-          !
-          ! line and block indices for each edge je1 and je2 of RBF stencil
-          !
-          ile1 = ptr_int%rbf_vec_idx_c(je1,jc,jb)
-          ibe1 = ptr_int%rbf_vec_blk_c(je1,jc,jb)
-          ile2 = ptr_int%rbf_vec_idx_c(je2,jc,jb)
-          ibe2 = ptr_int%rbf_vec_blk_c(je2,jc,jb)
-          !
-          ! get Cartesian coordinates and orientation vectors
-          !
-          cc_e1(:) = ptr_int%cart_edge_coord(ile1,ibe1,:)
-          cc_e2(:) = ptr_int%cart_edge_coord(ile2,ibe2,:)
-          !
-          z_nx1(jc,:) = ptr_patch%edges%primal_cart_normal(ile1,ibe1)%x(:)
-          z_nx2(jc,:) = ptr_patch%edges%primal_cart_normal(ile2,ibe2)%x(:)
-          !
-          ! compute dot product of normal vectors and distance between edge midpoints
-          !
-          z_nxprod = DOT_PRODUCT(z_nx1(jc,:),z_nx2(jc,:))          
+            ! Get actual number of stencil points
+            istencil(jc) = ptr_int%rbf_vec_stencil_c(jc,jb)
+            !
+            IF ( (je1 > istencil(jc)) .OR. (je2 > istencil(jc)) ) CYCLE
+            !
+            ! line and block indices for each edge je1 and je2 of RBF stencil
+            !
+            ile1 = ptr_int%rbf_vec_idx_c(je1,jc,jb)
+            ibe1 = ptr_int%rbf_vec_blk_c(je1,jc,jb)
+            ile2 = ptr_int%rbf_vec_idx_c(je2,jc,jb)
+            ibe2 = ptr_int%rbf_vec_blk_c(je2,jc,jb)
+            !
+            ! get Cartesian coordinates and orientation vectors
+            !
+            cc_e1(:) = ptr_patch%edges%cartesian_center(ile1,ibe1)%x(:)
+            cc_e2(:) = ptr_patch%edges%cartesian_center(ile2,ibe2)%x(:)
+            !
+            z_nx1(jc,:) = ptr_patch%edges%primal_cart_normal(ile1,ibe1)%x(:)
+            z_nx2(jc,:) = ptr_patch%edges%primal_cart_normal(ile2,ibe2)%x(:)
+            !
+            ! compute dot product of normal vectors and distance between edge midpoints
+            !
+            z_nxprod = DOT_PRODUCT(z_nx1(jc,:),z_nx2(jc,:))
+            z_dist   = arc_length_v(cc_e1,cc_e2)
+            !
+            ! set up interpolation matrix
+            !
+            IF      (rbf_vec_kern_c == 1) THEN
+              z_rbfmat(jc,je1,je2) = z_nxprod * gaussi(z_dist,rbf_vec_scale_c(MAX(jg,1)))
+            ELSE IF (rbf_vec_kern_c == 3) THEN
+              z_rbfmat(jc,je1,je2) = z_nxprod * inv_multiq(z_dist,rbf_vec_scale_c(MAX(jg,1)))
+            ENDIF
+  
+            IF (je1 > je2) z_rbfmat(jc,je2,je1) = z_rbfmat(jc,je1,je2)
+          END DO
+        ELSE ! use generic, unvectorizable version of arc_length_v
+          DO jc = i_startidx, i_endidx
 
-          IF(is_plane_torus)THEN
-            !plane_torus_distance computes the cartesian distance between two "plane" torus points 
-            !which is then normalized to get the distance in radians--note it uses the maximum
-            !of torus ht and len to be on safer side-it doesn't affect the answer. It is same
-            !is altering the "beta" factor in the gaussian kernel used in RBF
-            z_dist = plane_torus_distance(cc_e1,cc_e2,torus_len,torus_ht) * pi2 / maxlen
-          ELSE
-            z_dist = arc_length_v(cc_e1,cc_e2)
-          END IF
-          !
-          ! set up interpolation matrix
-          !
-          IF      (rbf_vec_kern_c == 1) THEN
-            z_rbfmat(jc,je1,je2) = z_nxprod * gaussi(z_dist,rbf_vec_scale_c(MAX(jg,1)))
-          ELSE IF (rbf_vec_kern_c == 3) THEN
-            z_rbfmat(jc,je1,je2) = z_nxprod * inv_multiq(z_dist,rbf_vec_scale_c(MAX(jg,1)))
-          ENDIF
+            IF(.NOT. ptr_patch%cells%owner_mask(jc,jb)) THEN
+              ! Avoid the matrix decomposition for boundary cells since the matrix might get singular
+              istencil(jc) = 0
+              CYCLE
+            ENDIF
 
-          IF (je1 > je2) z_rbfmat(jc,je2,je1) = z_rbfmat(jc,je1,je2)
-        END DO
-
+            ! Get actual number of stencil points
+            istencil(jc) = ptr_int%rbf_vec_stencil_c(jc,jb)
+            !
+            IF ( (je1 > istencil(jc)) .OR. (je2 > istencil(jc)) ) CYCLE
+            !
+            ! line and block indices for each edge je1 and je2 of RBF stencil
+            !
+            ile1 = ptr_int%rbf_vec_idx_c(je1,jc,jb)
+            ibe1 = ptr_int%rbf_vec_blk_c(je1,jc,jb)
+            ile2 = ptr_int%rbf_vec_idx_c(je2,jc,jb)
+            ibe2 = ptr_int%rbf_vec_blk_c(je2,jc,jb)
+            !
+            ! get Cartesian coordinates and orientation vectors
+            !
+            cc_e1(:) = ptr_patch%edges%cartesian_center(ile1,ibe1)%x(:)
+            cc_e2(:) = ptr_patch%edges%cartesian_center(ile2,ibe2)%x(:)
+            !
+            z_nx1(jc,:) = ptr_patch%edges%primal_cart_normal(ile1,ibe1)%x(:)
+            z_nx2(jc,:) = ptr_patch%edges%primal_cart_normal(ile2,ibe2)%x(:)
+            !
+            ! compute dot product of normal vectors and distance between edge midpoints
+            !
+            z_nxprod = DOT_PRODUCT(z_nx1(jc,:),z_nx2(jc,:))
+            z_dist   = arc_length_v(cc_e1,cc_e2,ptr_patch%geometry_info)
+            !
+            ! set up interpolation matrix
+            !
+            IF      (rbf_vec_kern_c == 1) THEN
+              z_rbfmat(jc,je1,je2) = z_nxprod * gaussi(z_dist,rbf_vec_scale_c(MAX(jg,1)))
+            ELSE IF (rbf_vec_kern_c == 3) THEN
+              z_rbfmat(jc,je1,je2) = z_nxprod * inv_multiq(z_dist,rbf_vec_scale_c(MAX(jg,1)))
+            ENDIF
+  
+            IF (je1 > je2) z_rbfmat(jc,je2,je1) = z_rbfmat(jc,je1,je2)
+          END DO
+        ENDIF
       END DO
 
     END DO
@@ -912,28 +924,21 @@ REAL(wp) ::  torus_len, torus_ht, maxlen
       !
       ! Solve immediately for coefficients
       !
-
       !Get cartesian coordinate of the cell center
-      cc_c(jc,1:3) = ptr_int%cart_cell_coord(jc,jb,1:3)
+      cc_c(jc,1:3) = ptr_patch%cells%cartesian_center(jc,jb)%x(1:3)
 
-      ! Get unit vectors in Zonal and Meridional direction at the cell center
-      ! (For is_plane_torus lon/lat is set to get the cartesian unit vectors back. 
-      !  This way the flow of the code is maintained at an extra cost)
-      IF(is_plane_torus)THEN
-        z_lon  =  -pi_2 !-90 
-        z_lat  =   pi_2 !+90
-      ELSE
-        z_lon = ptr_patch%cells%center(jc,jb)%lon
-        z_lat = ptr_patch%cells%center(jc,jb)%lat
-      END IF
+      z_lon  = ptr_patch%cells%center(jc,jb)%lon
+      z_lat  = ptr_patch%cells%center(jc,jb)%lat
 
       ! Zonal wind component
-      CALL gvec2cvec(1._wp,0._wp,z_lon,z_lat,z_nx1(jc,1),z_nx1(jc,2),z_nx1(jc,3))
+      CALL gvec2cvec(1._wp,0._wp,z_lon,z_lat,z_nx1(jc,1),z_nx1(jc,2),z_nx1(jc,3),ptr_patch%geometry_info)
+
       z_norm = SQRT( DOT_PRODUCT(z_nx1(jc,:),z_nx1(jc,:)) )
       z_nx1(jc,:)  = 1._wp/z_norm * z_nx1(jc,:)
 
       ! Meridional wind component
-      CALL gvec2cvec(0._wp,1._wp,z_lon,z_lat,z_nx2(jc,1),z_nx2(jc,2),z_nx2(jc,3))
+      CALL gvec2cvec(0._wp,1._wp,z_lon,z_lat,z_nx2(jc,1),z_nx2(jc,2),z_nx2(jc,3),ptr_patch%geometry_info)
+
       z_norm = SQRT( DOT_PRODUCT(z_nx2(jc,:),z_nx2(jc,:)) )
       z_nx2(jc,:)  = 1._wp/z_norm * z_nx2(jc,:)
 
@@ -943,47 +948,73 @@ REAL(wp) ::  torus_len, torus_ht, maxlen
     ! set up right hand side for interpolation system
     !
     DO je2 = 1, rbf_vec_dim_c
+      IF (ptr_patch%geometry_info%geometry_type == sphere_geometry) THEN ! use vectorizable version
+        DO jc = i_startidx, i_endidx
 
-      DO jc = i_startidx, i_endidx
+          IF(.NOT. ptr_patch%cells%owner_mask(jc,jb)) CYCLE
 
-        IF(.NOT. ptr_patch%cells%owner_mask(jc,jb)) CYCLE
+          IF (je2 > istencil(jc)) CYCLE
+          !
+          ! get indices and coordinates of edge midpoints and compute distance
+          ! to cell center
+          !
+          ile2   = ptr_int%rbf_vec_idx_c(je2,jc,jb)
+          ibe2   = ptr_int%rbf_vec_blk_c(je2,jc,jb)
+          !
+          cc_e2(:)  = ptr_patch%edges%cartesian_center(ile2,ibe2)%x(:)
 
-        IF (je2 > istencil(jc)) CYCLE
-        !
-        ! get indices and coordinates of edge midpoints and compute distance
-        ! to cell center
-        !
-        ile2   = ptr_int%rbf_vec_idx_c(je2,jc,jb)
-        ibe2   = ptr_int%rbf_vec_blk_c(je2,jc,jb)
-        !
-        cc_e2(:)  = ptr_int%cart_edge_coord(ile2,ibe2,:)
+          z_dist = arc_length_v(cc_c(jc,:), cc_e2)
 
-        IF(is_plane_torus)THEN
-           !plane_torus_distance computes the cartesian distance between two "plane" torus points 
-           !which is then normalized to get the distance in radians--note it uses the maximum
-           !of torus ht and len to be on safer side-it doesn't affect the answer. It is same
-           !is altering the "beta" factor in the gaussian kernel used in RBF
-           z_dist = plane_torus_distance(cc_c(jc,:),cc_e2,torus_len,torus_ht) * pi2 / maxlen
-        ELSE
-           z_dist = arc_length_v(cc_c(jc,:), cc_e2)
-        END IF
-        !
-        ! get Cartesian orientation vector
-        z_nx3(jc,:) = ptr_patch%edges%primal_cart_normal(ile2,ibe2)%x(:)
+          !
+          ! get Cartesian orientation vector
+          z_nx3(jc,:) = ptr_patch%edges%primal_cart_normal(ile2,ibe2)%x(:)
 
-        IF (rbf_vec_kern_c == 1) THEN
-          z_rbfval(jc,je2) = gaussi(z_dist,rbf_vec_scale_c(MAX(jg,1)))
-        ELSE IF (rbf_vec_kern_c == 3) THEN
-          z_rbfval(jc,je2) = inv_multiq(z_dist,rbf_vec_scale_c(MAX(jg,1)))
-        ENDIF
-        !
-        ! compute projection on target vector orientation
-        !
-        z_rhs1(jc,je2) = z_rbfval(jc,je2) * DOT_PRODUCT(z_nx1(jc,:),z_nx3(jc,:))
-        z_rhs2(jc,je2) = z_rbfval(jc,je2) * DOT_PRODUCT(z_nx2(jc,:),z_nx3(jc,:))
+          IF (rbf_vec_kern_c == 1) THEN
+            z_rbfval(jc,je2) = gaussi(z_dist,rbf_vec_scale_c(MAX(jg,1)))
+          ELSE IF (rbf_vec_kern_c == 3) THEN
+            z_rbfval(jc,je2) = inv_multiq(z_dist,rbf_vec_scale_c(MAX(jg,1)))
+          ENDIF
+          !
+          ! compute projection on target vector orientation
+          !
+          z_rhs1(jc,je2) = z_rbfval(jc,je2) * DOT_PRODUCT(z_nx1(jc,:),z_nx3(jc,:))
+          z_rhs2(jc,je2) = z_rbfval(jc,je2) * DOT_PRODUCT(z_nx2(jc,:),z_nx3(jc,:))
 
-      END DO
+        END DO
+      ELSE ! use generic, unvectorizable version of arc_length_v
+        DO jc = i_startidx, i_endidx
 
+          IF(.NOT. ptr_patch%cells%owner_mask(jc,jb)) CYCLE
+
+          IF (je2 > istencil(jc)) CYCLE
+          !
+          ! get indices and coordinates of edge midpoints and compute distance
+          ! to cell center
+          !
+          ile2   = ptr_int%rbf_vec_idx_c(je2,jc,jb)
+          ibe2   = ptr_int%rbf_vec_blk_c(je2,jc,jb)
+          !
+          cc_e2(:)  = ptr_patch%edges%cartesian_center(ile2,ibe2)%x(:)
+
+          z_dist = arc_length_v(cc_c(jc,:), cc_e2, ptr_patch%geometry_info)
+
+          !
+          ! get Cartesian orientation vector
+          z_nx3(jc,:) = ptr_patch%edges%primal_cart_normal(ile2,ibe2)%x(:)
+
+          IF (rbf_vec_kern_c == 1) THEN
+            z_rbfval(jc,je2) = gaussi(z_dist,rbf_vec_scale_c(MAX(jg,1)))
+          ELSE IF (rbf_vec_kern_c == 3) THEN
+            z_rbfval(jc,je2) = inv_multiq(z_dist,rbf_vec_scale_c(MAX(jg,1)))
+          ENDIF
+          !
+          ! compute projection on target vector orientation
+          !
+          z_rhs1(jc,je2) = z_rbfval(jc,je2) * DOT_PRODUCT(z_nx1(jc,:),z_nx3(jc,:))
+          z_rhs2(jc,je2) = z_rbfval(jc,je2) * DOT_PRODUCT(z_nx2(jc,:),z_nx3(jc,:))
+
+        END DO
+      ENDIF
     END DO
 
     !
@@ -1209,6 +1240,10 @@ END SUBROUTINE rbf_compute_coeff_c2grad
 !! - combine routines for normals and tangentials to avoid code duplication
 !! Modification by Almut Gassmann, MPI-M (2010-05-04)
 !! - we need only reconstruction from given normal components
+!! Modification by Anurag Dipankar, MPIM (2012-12-28)
+!! - introduced geometry_info in calls to arc_lenth and gvec2cvec to handle
+!!   any geometry type and started using cartesian coord from the patch istead 
+!!   of interpolations state
 SUBROUTINE rbf_vec_compute_coeff_vertex( ptr_patch, ptr_int )
 !
 
@@ -1218,8 +1253,6 @@ TYPE(t_patch), TARGET, INTENT(in) :: ptr_patch
 TYPE(t_int_state), TARGET, INTENT(inout) :: ptr_int
 
 REAL(wp) :: cc_e1(3), cc_e2(3), cc_v(nproma,3) ! coordinates of edge midpoints
-
-TYPE(t_cartesian_coordinates) :: cc_vertex    ! coordinates of vertex
 
 REAL(wp)           :: z_lon, z_lat          ! longitude and latitude
 
@@ -1262,7 +1295,6 @@ REAL(wp) ::  checksum_u,checksum_v   ! to check if sum of interpolation coeffici
 TYPE(t_cartesian_coordinates), DIMENSION(:,:),   POINTER :: ptr_orient ! pointer to orientation vectors
 REAL(wp), DIMENSION(:,:,:,:), POINTER :: ptr_coeff  ! pointer to output coefficients
 
-REAL(wp) :: torus_len, torus_ht, maxlen
 !--------------------------------------------------------------------
 
   CALL message('mo_interpolation:rbf_vec_compute_coeff_vertex', '')
@@ -1286,12 +1318,6 @@ REAL(wp) :: torus_len, torus_ht, maxlen
   ! base unit for optional debug output
   i_outunit  = 520
 
-  !plane torus info
-  IF(is_plane_torus)THEN
-    torus_len = ptr_patch%planar_torus_info%length
-    torus_ht  = ptr_patch%planar_torus_info%height 
-    maxlen    = max(torus_len, torus_ht)
-  END IF
 
 !$OMP PARALLEL PRIVATE (z_rbfmat,z_diag,z_rbfval,z_rhs1,z_rhs2, ist)
   ALLOCATE( z_rbfmat(nproma,rbf_vec_dim_v,rbf_vec_dim_v),  &
@@ -1306,7 +1332,7 @@ REAL(wp) :: torus_len, torus_ht, maxlen
 
 !$OMP DO PRIVATE (jb,jv,i_startidx,i_endidx,je1,je2,istencil,ist,ile1,ibe1, &
 !$OMP             cc_e1,z_lon,z_lat,z_norm,z_nx1,ile2,ibe2,cc_e2,cc_v,      &
-!$OMP             z_nx2,z_nxprod,z_dist,cc_vertex,z_nx3,checksum_u,&
+!$OMP             z_nx2,z_nxprod,z_dist,z_nx3,checksum_u,&
 !$OMP checksum_v) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, nblks_v
 
@@ -1319,64 +1345,101 @@ REAL(wp) :: torus_len, torus_ht, maxlen
     DO je1 = 1, rbf_vec_dim_v
 
       DO je2 = 1, je1
+        IF (ptr_patch%geometry_info%geometry_type == sphere_geometry) THEN ! use vectorizable version
+          DO jv = i_startidx, i_endidx
 
-        DO jv = i_startidx, i_endidx
+            IF(.NOT. ptr_patch%verts%owner_mask(jv,jb)) THEN
+              ! Avoid the matrix decomposition for boundary cells since the matrix might get singular
+              istencil(jv) = 0
+              CYCLE
+            ENDIF
 
-          IF(.NOT. ptr_patch%verts%owner_mask(jv,jb)) THEN
-            ! Avoid the matrix decomposition for boundary cells since the matrix might get singular
-            istencil(jv) = 0
-            CYCLE
-          ENDIF
+            ! Get actual number of stencil points
+            istencil(jv) = ptr_int%rbf_vec_stencil_v(jv,jb)
+            !
+            IF ( (je1 > istencil(jv)) .OR. (je2 > istencil(jv)) ) CYCLE
+            !
+            ! line and block indices for each edge je1 and je2 of RBF stencil
+            !
+            ile1 = ptr_int%rbf_vec_idx_v(je1,jv,jb)
+            ibe1 = ptr_int%rbf_vec_blk_v(je1,jv,jb)
+            ile2 = ptr_int%rbf_vec_idx_v(je2,jv,jb)
+            ibe2 = ptr_int%rbf_vec_blk_v(je2,jv,jb)
+            !
+            ! get Cartesian coordinates and orientation vectors
+            !
+            cc_e1(:) = ptr_patch%edges%cartesian_center(ile1,ibe1)%x(:)
+            cc_e2(:) = ptr_patch%edges%cartesian_center(ile2,ibe2)%x(:)
+            !
+            z_nx1(jv,:) = ptr_orient(ile1,ibe1)%x(:)
+            z_nx2(jv,:) = ptr_orient(ile2,ibe2)%x(:)
+            !
+            ! compute dot product of normal vectors and distance between edge midpoints
+            !
+            z_nxprod = DOT_PRODUCT(z_nx1(jv,:),z_nx2(jv,:))
+            z_dist   = arc_length_v(cc_e1,cc_e2)
+            !
+            ! set up interpolation matrix
+            !
+            ! up to now only Gaussian or Inverse multiquadric kernel
+            ! (without polynomial correction) are implemented
+            IF      (rbf_vec_kern_v == 1) THEN
+              z_rbfmat(jv,je1,je2) = z_nxprod * gaussi(z_dist,rbf_vec_scale_v(MAX(jg,1)))
+            ELSE IF (rbf_vec_kern_v == 3) THEN
+              z_rbfmat(jv,je1,je2) = z_nxprod * inv_multiq(z_dist,rbf_vec_scale_v(MAX(jg,1)))
+            ENDIF
 
-          ! Get actual number of stencil points
-          istencil(jv) = ptr_int%rbf_vec_stencil_v(jv,jb)
-          !
-          IF ( (je1 > istencil(jv)) .OR. (je2 > istencil(jv)) ) CYCLE
-          !
-          ! line and block indices for each edge je1 and je2 of RBF stencil
-          !
-          ile1 = ptr_int%rbf_vec_idx_v(je1,jv,jb)
-          ibe1 = ptr_int%rbf_vec_blk_v(je1,jv,jb)
-          ile2 = ptr_int%rbf_vec_idx_v(je2,jv,jb)
-          ibe2 = ptr_int%rbf_vec_blk_v(je2,jv,jb)
-          !
-          ! get Cartesian coordinates and orientation vectors
-          !
-          cc_e1(:) = ptr_int%cart_edge_coord(ile1,ibe1,:)
-          cc_e2(:) = ptr_int%cart_edge_coord(ile2,ibe2,:)
-          !
-          z_nx1(jv,:) = ptr_orient(ile1,ibe1)%x(:)
-          z_nx2(jv,:) = ptr_orient(ile2,ibe2)%x(:)
-          !
-          ! compute dot product of normal vectors and distance between edge midpoints
-          !
-          z_nxprod = DOT_PRODUCT(z_nx1(jv,:),z_nx2(jv,:))
+            IF (je1 > je2) z_rbfmat(jv,je2,je1) = z_rbfmat(jv,je1,je2)
 
-          IF(is_plane_torus)THEN
-            !plane_torus_distance computes the cartesian distance between two "plane" torus points 
-            !which is then normalized to get the distance in radians--note it uses the maximum
-            !of torus ht and len to be on safer side-it doesn't affect the answer. It is same
-            !is altering the "beta" factor in the gaussian kernel used in RBF
-            z_dist = plane_torus_distance(cc_e1,cc_e2,torus_len,torus_ht) * pi2 / maxlen
-          ELSE
-            z_dist = arc_length_v(cc_e1,cc_e2)
-          END IF
+          END DO
+        ELSE ! use generic, unvectorizable version of arc_length_v
+          DO jv = i_startidx, i_endidx
 
-          !
-          ! set up interpolation matrix
-          !
-          ! up to now only Gaussian or Inverse multiquadric kernel
-          ! (without polynomial correction) are implemented
-          IF      (rbf_vec_kern_v == 1) THEN
-            z_rbfmat(jv,je1,je2) = z_nxprod * gaussi(z_dist,rbf_vec_scale_v(MAX(jg,1)))
-          ELSE IF (rbf_vec_kern_v == 3) THEN
-            z_rbfmat(jv,je1,je2) = z_nxprod * inv_multiq(z_dist,rbf_vec_scale_v(MAX(jg,1)))
-          ENDIF
+            IF(.NOT. ptr_patch%verts%owner_mask(jv,jb)) THEN
+              ! Avoid the matrix decomposition for boundary cells since the matrix might get singular
+              istencil(jv) = 0
+              CYCLE
+            ENDIF
 
-          IF (je1 > je2) z_rbfmat(jv,je2,je1) = z_rbfmat(jv,je1,je2)
+            ! Get actual number of stencil points
+            istencil(jv) = ptr_int%rbf_vec_stencil_v(jv,jb)
+            !
+            IF ( (je1 > istencil(jv)) .OR. (je2 > istencil(jv)) ) CYCLE
+            !
+            ! line and block indices for each edge je1 and je2 of RBF stencil
+            !
+            ile1 = ptr_int%rbf_vec_idx_v(je1,jv,jb)
+            ibe1 = ptr_int%rbf_vec_blk_v(je1,jv,jb)
+            ile2 = ptr_int%rbf_vec_idx_v(je2,jv,jb)
+            ibe2 = ptr_int%rbf_vec_blk_v(je2,jv,jb)
+            !
+            ! get Cartesian coordinates and orientation vectors
+            !
+            cc_e1(:) = ptr_patch%edges%cartesian_center(ile1,ibe1)%x(:)
+            cc_e2(:) = ptr_patch%edges%cartesian_center(ile2,ibe2)%x(:)
+            !
+            z_nx1(jv,:) = ptr_orient(ile1,ibe1)%x(:)
+            z_nx2(jv,:) = ptr_orient(ile2,ibe2)%x(:)
+            !
+            ! compute dot product of normal vectors and distance between edge midpoints
+            !
+            z_nxprod = DOT_PRODUCT(z_nx1(jv,:),z_nx2(jv,:))
+            z_dist   = arc_length_v(cc_e1,cc_e2,ptr_patch%geometry_info)
+            !
+            ! set up interpolation matrix
+            !
+            ! up to now only Gaussian or Inverse multiquadric kernel
+            ! (without polynomial correction) are implemented
+            IF      (rbf_vec_kern_v == 1) THEN
+              z_rbfmat(jv,je1,je2) = z_nxprod * gaussi(z_dist,rbf_vec_scale_v(MAX(jg,1)))
+            ELSE IF (rbf_vec_kern_v == 3) THEN
+              z_rbfmat(jv,je1,je2) = z_nxprod * inv_multiq(z_dist,rbf_vec_scale_v(MAX(jg,1)))
+            ENDIF
 
-        END DO
+            IF (je1 > je2) z_rbfmat(jv,je2,je1) = z_rbfmat(jv,je1,je2)
 
+          END DO
+        ENDIF
       END DO
 
     END DO
@@ -1397,33 +1460,21 @@ REAL(wp) :: torus_len, torus_ht, maxlen
       !
       ! Solve immediately for coefficients
       !
+      ! convert coordinates of vertex to cartesian vector
+      !
+      cc_v(jv,1:3) = ptr_patch%verts%cartesian(jv,jb)%x(1:3)
 
-      ! Get cartesian coordinate of the cell center
-      !    And
-      ! Get unit vectors in Zonal and Meridional direction at the cell center
-      ! (For is_plane_torus lon/lat is set to get the cartesian unit vectors back. 
-      !  This way the flow of the code is maintained at an extra cost)
-      IF(is_plane_torus)THEN
-        cc_v(jv,1:3)  = ptr_patch%verts%cartesian(jv,jb)%x(1:3)
-
-        z_lon  =  -pi_2 !-90 
-        z_lat  =   pi_2 !+90
-      ELSE
-        cc_vertex = gc2cc(ptr_patch%verts%vertex(jv,jb))
-        cc_v(jv,1:3) = cc_vertex%x(1:3)
-
-        z_lon = ptr_patch%verts%vertex(jv,jb)%lon
-        z_lat = ptr_patch%verts%vertex(jv,jb)%lat
-      END IF
+      z_lon = ptr_patch%verts%vertex(jv,jb)%lon
+      z_lat = ptr_patch%verts%vertex(jv,jb)%lat
 
       ! Zonal wind component
-      CALL gvec2cvec(1._wp,0._wp,z_lon,z_lat,z_nx1(jv,1),z_nx1(jv,2),z_nx1(jv,3))
+      CALL gvec2cvec(1._wp,0._wp,z_lon,z_lat,z_nx1(jv,1),z_nx1(jv,2),z_nx1(jv,3),ptr_patch%geometry_info)
 
       z_norm = SQRT( DOT_PRODUCT(z_nx1(jv,:),z_nx1(jv,:)) )
       z_nx1(jv,:)  = 1._wp/z_norm * z_nx1(jv,:)
 
       ! Meridional wind component
-      CALL gvec2cvec(0._wp,1._wp,z_lon,z_lat,z_nx2(jv,1),z_nx2(jv,2),z_nx2(jv,3))
+      CALL gvec2cvec(0._wp,1._wp,z_lon,z_lat,z_nx2(jv,1),z_nx2(jv,2),z_nx2(jv,3),ptr_patch%geometry_info)
 
       z_norm = SQRT( DOT_PRODUCT(z_nx2(jv,:),z_nx2(jv,:)) )
       z_nx2(jv,:)  = 1._wp/z_norm * z_nx2(jv,:)
@@ -1434,50 +1485,75 @@ REAL(wp) :: torus_len, torus_ht, maxlen
     ! set up right hand side for interpolation system
     !
     DO je2 = 1, rbf_vec_dim_v
+      IF (ptr_patch%geometry_info%geometry_type == sphere_geometry) THEN ! use vectorizable version
+        DO jv = i_startidx, i_endidx
 
-      DO jv = i_startidx, i_endidx
+          IF(.NOT. ptr_patch%verts%owner_mask(jv,jb)) CYCLE
 
-        IF(.NOT. ptr_patch%verts%owner_mask(jv,jb)) CYCLE
+          IF (je2 > istencil(jv)) CYCLE
 
-        IF (je2 > istencil(jv)) CYCLE
-
-        !
-        ! get indices and coordinates of edge midpoints and compute distance
-        ! to vertex
-        !
-        ile2   = ptr_int%rbf_vec_idx_v(je2,jv,jb)
-        ibe2   = ptr_int%rbf_vec_blk_v(je2,jv,jb)
-        !
-        cc_e2(:)  = ptr_int%cart_edge_coord(ile2,ibe2,:)
-
-        IF(is_plane_torus)THEN
-          !plane_torus_distance computes the cartesian distance between two "plane" torus points 
-          !which is then normalized to get the distance in radians--note it uses the maximum
-          !of torus ht and len to be on safer side-it doesn't affect the answer. It is same
-          !is altering the "beta" factor in the gaussian kernel used in RBF
-          z_dist = plane_torus_distance(cc_v(jv,:), cc_e2, torus_len, torus_ht) * pi2 / maxlen
-        ELSE
+          !
+          ! get indices and coordinates of edge midpoints and compute distance
+          ! to vertex
+          !
+          ile2   = ptr_int%rbf_vec_idx_v(je2,jv,jb)
+          ibe2   = ptr_int%rbf_vec_blk_v(je2,jv,jb)
+          !
+          cc_e2(:)  = ptr_patch%edges%cartesian_center(ile2,ibe2)%x(:)
           z_dist = arc_length_v(cc_v(jv,:), cc_e2)
-        END IF
-        !
-        ! get Cartesian orientation vector
-        z_nx3(jv,:) = ptr_orient(ile2,ibe2)%x(:)
+          !
+          ! get Cartesian orientation vector
+          z_nx3(jv,:) = ptr_orient(ile2,ibe2)%x(:)
 
-        ! up to now only Gaussian or Inverse multiquadric kernel
-        ! (without polynomial correction) are implemented
-        IF      (rbf_vec_kern_v == 1) THEN
-          z_rbfval(jv,je2) = gaussi(z_dist,rbf_vec_scale_v(MAX(jg,1)))
-        ELSE IF (rbf_vec_kern_v == 3) THEN
-          z_rbfval(jv,je2) = inv_multiq(z_dist,rbf_vec_scale_v(MAX(jg,1)))
-        ENDIF
-        !
-        ! compute projection on target vector orientation
-        !
-        z_rhs1(jv,je2) = z_rbfval(jv,je2) * DOT_PRODUCT(z_nx1(jv,:),z_nx3(jv,:))
-        z_rhs2(jv,je2) = z_rbfval(jv,je2) * DOT_PRODUCT(z_nx2(jv,:),z_nx3(jv,:))
+          ! up to now only Gaussian or Inverse multiquadric kernel
+          ! (without polynomial correction) are implemented
+          IF      (rbf_vec_kern_v == 1) THEN
+            z_rbfval(jv,je2) = gaussi(z_dist,rbf_vec_scale_v(MAX(jg,1)))
+          ELSE IF (rbf_vec_kern_v == 3) THEN
+            z_rbfval(jv,je2) = inv_multiq(z_dist,rbf_vec_scale_v(MAX(jg,1)))
+          ENDIF
+          !
+          ! compute projection on target vector orientation
+          !
+          z_rhs1(jv,je2) = z_rbfval(jv,je2) * DOT_PRODUCT(z_nx1(jv,:),z_nx3(jv,:))
+          z_rhs2(jv,je2) = z_rbfval(jv,je2) * DOT_PRODUCT(z_nx2(jv,:),z_nx3(jv,:))
 
-      END DO
+        END DO
+      ELSE  ! use generic, unvectorizable version of arc_length_v
+        DO jv = i_startidx, i_endidx
 
+          IF(.NOT. ptr_patch%verts%owner_mask(jv,jb)) CYCLE
+
+          IF (je2 > istencil(jv)) CYCLE
+
+          !
+          ! get indices and coordinates of edge midpoints and compute distance
+          ! to vertex
+          !
+          ile2   = ptr_int%rbf_vec_idx_v(je2,jv,jb)
+          ibe2   = ptr_int%rbf_vec_blk_v(je2,jv,jb)
+          !
+          cc_e2(:)  = ptr_patch%edges%cartesian_center(ile2,ibe2)%x(:)
+          z_dist = arc_length_v(cc_v(jv,:), cc_e2, ptr_patch%geometry_info)
+          !
+          ! get Cartesian orientation vector
+          z_nx3(jv,:) = ptr_orient(ile2,ibe2)%x(:)
+
+          ! up to now only Gaussian or Inverse multiquadric kernel
+          ! (without polynomial correction) are implemented
+          IF      (rbf_vec_kern_v == 1) THEN
+            z_rbfval(jv,je2) = gaussi(z_dist,rbf_vec_scale_v(MAX(jg,1)))
+          ELSE IF (rbf_vec_kern_v == 3) THEN
+            z_rbfval(jv,je2) = inv_multiq(z_dist,rbf_vec_scale_v(MAX(jg,1)))
+          ENDIF
+          !
+          ! compute projection on target vector orientation
+          !
+          z_rhs1(jv,je2) = z_rbfval(jv,je2) * DOT_PRODUCT(z_nx1(jv,:),z_nx3(jv,:))
+          z_rhs2(jv,je2) = z_rbfval(jv,je2) * DOT_PRODUCT(z_nx2(jv,:),z_nx3(jv,:))
+
+        END DO
+      ENDIF
     END DO
 
     !
@@ -1588,6 +1664,10 @@ END SUBROUTINE rbf_vec_compute_coeff_vertex
 !! - combine routines for normals and tangentials to avoid code duplication
 !! Modification by Almut Gassmann, MPI-M (2010-05-04)
 !! - we need only reconstruction from given normal components
+!! Modification by Anurag Dipankar, MPIM (2012-12-28)
+!! - introduced geometry_info in calls to arc_lenth and gvec2cvec to handle
+!!   any geometry type and started using cartesian coord from the patch istead 
+!!   of interpolations state
 SUBROUTINE rbf_vec_compute_coeff_edge( ptr_patch, ptr_int )
 !
 
@@ -1597,8 +1677,6 @@ TYPE(t_patch), TARGET, INTENT(in) :: ptr_patch
 TYPE(t_int_state), TARGET, INTENT(inout) :: ptr_int
 
 REAL(wp) :: cc_e1(3), cc_e2(3), cc_e(nproma,3) ! coordinates of edge midpoints
-
-TYPE(t_cartesian_coordinates) :: cc_edge      ! coordinates of edge
 
 REAL(wp)           :: z_lon, z_lat          ! longitude and latitude
 REAL(wp)           :: z_nu, z_nv            ! zonal and meridional component
@@ -1644,7 +1722,7 @@ REAL(wp), DIMENSION(:,:,:), POINTER :: ptr_coeff  ! pointer to output coefficien
 
 ! pointer to orientation of output vectors
 TYPE(t_tangent_vectors), DIMENSION(:,:), POINTER :: ptr_orient_out
-REAL(wp) :: torus_len, torus_ht, maxlen
+
 !--------------------------------------------------------------------
 
   CALL message('mo_interpolation:rbf_vec_compute_coeff_edge', '')
@@ -1672,13 +1750,6 @@ REAL(wp) :: torus_len, torus_ht, maxlen
   ! base unit for optional debug output
   i_outunit  = 530
 
-  !plane torus info
-  IF(is_plane_torus)THEN
-    torus_len = ptr_patch%planar_torus_info%length
-    torus_ht  = ptr_patch%planar_torus_info%height
-    maxlen    = max(torus_len, torus_ht)
-  END IF
-
 !$OMP PARALLEL PRIVATE (z_rbfmat,z_diag,z_rbfval, ist)
   ALLOCATE( z_rbfmat(nproma,rbf_vec_dim_e,rbf_vec_dim_e),  &
             z_diag(nproma,rbf_vec_dim_e),                  &
@@ -1690,7 +1761,7 @@ REAL(wp) :: torus_len, torus_ht, maxlen
 
 !$OMP DO PRIVATE (jb,je,i_startidx,i_endidx,je1,je2,istencil,        &
 !$OMP    ist,ile1,ibe1,cc_e1,z_nu,z_nv,z_lon,z_lat,z_norm,z_nx1,     &
-!$OMP    ile2,ibe2,cc_e2,cc_e,z_nx2,z_nxprod,z_dist,cc_edge,&
+!$OMP    ile2,ibe2,cc_e2,cc_e,z_nx2,z_nxprod,z_dist,&
 !$OMP checksum_vt) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, nblks_e
 
@@ -1703,61 +1774,99 @@ REAL(wp) :: torus_len, torus_ht, maxlen
     DO je1 = 1, rbf_vec_dim_e
 
       DO je2 = 1, je1
+        IF (ptr_patch%geometry_info%geometry_type == sphere_geometry) THEN ! use vectorizable version
+          DO je = i_startidx, i_endidx
 
-        DO je = i_startidx, i_endidx
+            IF(.NOT. ptr_patch%edges%owner_mask(je,jb)) THEN
+              ! Avoid the matrix decomposition for boundary cells since the matrix might get singular
+              istencil(je) = 0
+              CYCLE
+            ENDIF
 
-          IF(.NOT. ptr_patch%edges%owner_mask(je,jb)) THEN
-            ! Avoid the matrix decomposition for boundary cells since the matrix might get singular
-            istencil(je) = 0
-            CYCLE
-          ENDIF
+            istencil(je) = ptr_int%rbf_vec_stencil_e(je,jb)
+            !
+            IF ( (je1 > istencil(je)) .OR. (je2 > istencil(je)) ) CYCLE
+            !
+            ! line and block indices for each edge je1 and je2 of RBF stencil
+            !
+            ile1 = ptr_int%rbf_vec_idx_e(je1,je,jb)
+            ibe1 = ptr_int%rbf_vec_blk_e(je1,je,jb)
+            ile2 = ptr_int%rbf_vec_idx_e(je2,je,jb)
+            ibe2 = ptr_int%rbf_vec_blk_e(je2,je,jb)
+            !
+            ! get Cartesian coordinates and orientation vectors
+            !
+            cc_e1(:) = ptr_patch%edges%cartesian_center(ile1,ibe1)%x(:)
+            cc_e2(:) = ptr_patch%edges%cartesian_center(ile2,ibe2)%x(:)
+            !
+            z_nx1(je,:) = ptr_orient(ile1,ibe1)%x(:)
+            z_nx2(je,:) = ptr_orient(ile2,ibe2)%x(:)
+            !
+            ! compute dot product of normal vectors and distance between edge midpoints
+            !
+            z_nxprod = DOT_PRODUCT(z_nx1(je,:),z_nx2(je,:))
+            z_dist   = arc_length_v(cc_e1,cc_e2)
 
-          istencil(je) = ptr_int%rbf_vec_stencil_e(je,jb)
-          !
-          IF ( (je1 > istencil(je)) .OR. (je2 > istencil(je)) ) CYCLE
-          !
-          ! line and block indices for each edge je1 and je2 of RBF stencil
-          !
-          ile1 = ptr_int%rbf_vec_idx_e(je1,je,jb)
-          ibe1 = ptr_int%rbf_vec_blk_e(je1,je,jb)
-          ile2 = ptr_int%rbf_vec_idx_e(je2,je,jb)
-          ibe2 = ptr_int%rbf_vec_blk_e(je2,je,jb)
-          !
-          ! get Cartesian coordinates and orientation vectors
-          !
-          cc_e1(:) = ptr_int%cart_edge_coord(ile1,ibe1,:)
-          cc_e2(:) = ptr_int%cart_edge_coord(ile2,ibe2,:)
-          !
-          z_nx1(je,:) = ptr_orient(ile1,ibe1)%x(:)
-          z_nx2(je,:) = ptr_orient(ile2,ibe2)%x(:)
-          !
-          ! compute dot product of normal vectors and distance between edge midpoints
-          !
-          z_nxprod = DOT_PRODUCT(z_nx1(je,:),z_nx2(je,:))
-          IF(is_plane_torus)THEN
-            !plane_torus_distance computes the cartesian distance between two "plane" torus points 
-            !which is then normalized to get the distance in radians--note it uses the maximum
-            !of torus ht and len to be on safer side-it doesn't affect the answer. It is same
-            !is altering the "beta" factor in the gaussian kernel used in RBF
-            z_dist = plane_torus_distance(cc_e1, cc_e2, torus_len, torus_ht) * pi2 / maxlen
-          ELSE
-            z_dist = arc_length_v(cc_e1,cc_e2)
-          END IF
+            ! set up interpolation matrix
+            !
+            ! up to now only Gaussian or Inverse multiquadric kernel
+            ! (without polynomial correction) are implemented
+            IF      (rbf_vec_kern_e == 1) THEN
+              z_rbfmat(je,je1,je2) = z_nxprod * gaussi(z_dist,rbf_vec_scale_e(MAX(jg,1)))
+            ELSE IF (rbf_vec_kern_e == 3) THEN
+              z_rbfmat(je,je1,je2) = z_nxprod * inv_multiq(z_dist,rbf_vec_scale_e(MAX(jg,1)))
+            ENDIF
 
-          ! set up interpolation matrix
-          !
-          ! up to now only Gaussian or Inverse multiquadric kernel
-          ! (without polynomial correction) are implemented
-          IF      (rbf_vec_kern_e == 1) THEN
-            z_rbfmat(je,je1,je2) = z_nxprod * gaussi(z_dist,rbf_vec_scale_e(MAX(jg,1)))
-          ELSE IF (rbf_vec_kern_e == 3) THEN
-            z_rbfmat(je,je1,je2) = z_nxprod * inv_multiq(z_dist,rbf_vec_scale_e(MAX(jg,1)))
-          ENDIF
+            IF (je1 > je2) z_rbfmat(je,je2,je1) = z_rbfmat(je,je1,je2)
 
-          IF (je1 > je2) z_rbfmat(je,je2,je1) = z_rbfmat(je,je1,je2)
+          END DO
+        ELSE ! use generic, unvectorizable version of arc_length_v
+          DO je = i_startidx, i_endidx
 
-        END DO
+            IF(.NOT. ptr_patch%edges%owner_mask(je,jb)) THEN
+              ! Avoid the matrix decomposition for boundary cells since the matrix might get singular
+              istencil(je) = 0
+              CYCLE
+            ENDIF
 
+            istencil(je) = ptr_int%rbf_vec_stencil_e(je,jb)
+            !
+            IF ( (je1 > istencil(je)) .OR. (je2 > istencil(je)) ) CYCLE
+            !
+            ! line and block indices for each edge je1 and je2 of RBF stencil
+            !
+            ile1 = ptr_int%rbf_vec_idx_e(je1,je,jb)
+            ibe1 = ptr_int%rbf_vec_blk_e(je1,je,jb)
+            ile2 = ptr_int%rbf_vec_idx_e(je2,je,jb)
+            ibe2 = ptr_int%rbf_vec_blk_e(je2,je,jb)
+            !
+            ! get Cartesian coordinates and orientation vectors
+            !
+            cc_e1(:) = ptr_patch%edges%cartesian_center(ile1,ibe1)%x(:)
+            cc_e2(:) = ptr_patch%edges%cartesian_center(ile2,ibe2)%x(:)
+            !
+            z_nx1(je,:) = ptr_orient(ile1,ibe1)%x(:)
+            z_nx2(je,:) = ptr_orient(ile2,ibe2)%x(:)
+            !
+            ! compute dot product of normal vectors and distance between edge midpoints
+            !
+            z_nxprod = DOT_PRODUCT(z_nx1(je,:),z_nx2(je,:))
+            z_dist   = arc_length_v(cc_e1,cc_e2,ptr_patch%geometry_info)
+
+            ! set up interpolation matrix
+            !
+            ! up to now only Gaussian or Inverse multiquadric kernel
+            ! (without polynomial correction) are implemented
+            IF      (rbf_vec_kern_e == 1) THEN
+              z_rbfmat(je,je1,je2) = z_nxprod * gaussi(z_dist,rbf_vec_scale_e(MAX(jg,1)))
+            ELSE IF (rbf_vec_kern_e == 3) THEN
+              z_rbfmat(je,je1,je2) = z_nxprod * inv_multiq(z_dist,rbf_vec_scale_e(MAX(jg,1)))
+            ENDIF
+
+            IF (je1 > je2) z_rbfmat(je,je2,je1) = z_rbfmat(je,je1,je2)
+
+          END DO
+        ENDIF
       END DO
 
     END DO
@@ -1781,17 +1890,14 @@ REAL(wp) :: torus_len, torus_ht, maxlen
       !
       ! convert coordinates of edge midpoint to cartesian vector
       !
-      cc_e(je,1:3)  = ptr_int%cart_edge_coord(je,jb,:)
-      IF(is_plane_torus)THEN
-        z_nx1(je,1:3) = ptr_patch%edges%dual_cart_normal(je,jb)%x(1:3)
-      ELSE
-        z_nu  = ptr_orient_out(je,jb)%v1
-        z_nv  = ptr_orient_out(je,jb)%v2
-        z_lon = ptr_patch%edges%center(je,jb)%lon
-        z_lat = ptr_patch%edges%center(je,jb)%lat
+      cc_e(je,1:3) = ptr_patch%edges%cartesian_center(je,jb)%x(1:3)
 
-        CALL gvec2cvec(z_nu,z_nv,z_lon,z_lat,z_nx1(je,1),z_nx1(je,2),z_nx1(je,3))
-      END IF
+      z_nu  = ptr_orient_out(je,jb)%v1
+      z_nv  = ptr_orient_out(je,jb)%v2
+      z_lon = ptr_patch%edges%center(je,jb)%lon
+      z_lat = ptr_patch%edges%center(je,jb)%lat
+
+      CALL gvec2cvec(z_nu,z_nv,z_lon,z_lat,z_nx1(je,1),z_nx1(je,2),z_nx1(je,3),ptr_patch%geometry_info)
 
       z_norm = SQRT( DOT_PRODUCT(z_nx1(je,:),z_nx1(je,:)) )
       z_nx1(je,:)  = 1._wp/z_norm * z_nx1(je,:)
@@ -1802,46 +1908,67 @@ REAL(wp) :: torus_len, torus_ht, maxlen
     ! set up right hand side for interpolation system
     !
     DO je2 = 1, rbf_vec_dim_e
+      IF (ptr_patch%geometry_info%geometry_type == sphere_geometry) THEN ! use vectorizable version
+        DO je = i_startidx, i_endidx
 
-      DO je = i_startidx, i_endidx
+          IF(.NOT. ptr_patch%edges%owner_mask(je,jb)) CYCLE
 
-        IF(.NOT. ptr_patch%edges%owner_mask(je,jb)) CYCLE
+          IF (je2 > istencil(je)) CYCLE
+          !
+          ! get indices and coordinates of edge midpoints and compute distance
+          ! to the edge where the vector is reconstructed
+          !
+          ile2   = ptr_int%rbf_vec_idx_e(je2,je,jb)
+          ibe2   = ptr_int%rbf_vec_blk_e(je2,je,jb)
 
-        IF (je2 > istencil(je)) CYCLE
-        !
-        ! get indices and coordinates of edge midpoints and compute distance
-        ! to the edge where the vector is reconstructed
-        !
-        ile2   = ptr_int%rbf_vec_idx_e(je2,je,jb)
-        ibe2   = ptr_int%rbf_vec_blk_e(je2,je,jb)
-
-        cc_e2(:)  = ptr_int%cart_edge_coord(ile2,ibe2,:)
-     
-        IF(is_plane_torus)THEN
-          !plane_torus_distance computes the cartesian distance between two "plane" torus points 
-          !which is then normalized to get the distance in radians--note it uses the maximum
-          !of torus ht and len to be on safer side-it doesn't affect the answer. It is same
-          !is altering the "beta" factor in the gaussian kernel used in RBF
-          z_dist = plane_torus_distance(cc_e(je,:), cc_e2, torus_len, torus_ht) * pi2 / maxlen
-        ELSE 
+          cc_e2(:)  = ptr_patch%edges%cartesian_center(ile2,ibe2)%x(:)
           z_dist = arc_length_v(cc_e(je,:), cc_e2)
-        END IF
-        !
-        ! get Cartesian orientation vector
-        z_nx2(je,:) = ptr_orient(ile2,ibe2)%x(:)
+          !
+          ! get Cartesian orientation vector
+          z_nx2(je,:) = ptr_orient(ile2,ibe2)%x(:)
 
-        z_nxprod = DOT_PRODUCT(z_nx1(je,:),z_nx2(je,:))
+          z_nxprod = DOT_PRODUCT(z_nx1(je,:),z_nx2(je,:))
 
-        ! up to now only Gaussian or Inverse multiquadric kernel
-        ! (without polynomial correction) are implemented
-        IF      (rbf_vec_kern_e == 1) THEN
-          z_rbfval(je,je2) = gaussi(z_dist,rbf_vec_scale_e(MAX(jg,1))) * z_nxprod
-        ELSE IF (rbf_vec_kern_e == 3) THEN
-          z_rbfval(je,je2) = inv_multiq(z_dist,rbf_vec_scale_e(MAX(jg,1))) * z_nxprod
-        ENDIF
+          ! up to now only Gaussian or Inverse multiquadric kernel
+          ! (without polynomial correction) are implemented
+          IF      (rbf_vec_kern_e == 1) THEN
+            z_rbfval(je,je2) = gaussi(z_dist,rbf_vec_scale_e(MAX(jg,1))) * z_nxprod
+          ELSE IF (rbf_vec_kern_e == 3) THEN
+            z_rbfval(je,je2) = inv_multiq(z_dist,rbf_vec_scale_e(MAX(jg,1))) * z_nxprod
+          ENDIF
 
-      END DO
+        END DO
+      ELSE ! use generic, unvectorizable version of arc_length_v
+        DO je = i_startidx, i_endidx
 
+          IF(.NOT. ptr_patch%edges%owner_mask(je,jb)) CYCLE
+
+          IF (je2 > istencil(je)) CYCLE
+          !
+          ! get indices and coordinates of edge midpoints and compute distance
+          ! to the edge where the vector is reconstructed
+          !
+          ile2   = ptr_int%rbf_vec_idx_e(je2,je,jb)
+          ibe2   = ptr_int%rbf_vec_blk_e(je2,je,jb)
+
+          cc_e2(:)  = ptr_patch%edges%cartesian_center(ile2,ibe2)%x(:)
+          z_dist = arc_length_v(cc_e(je,:), cc_e2, ptr_patch%geometry_info)
+          !
+          ! get Cartesian orientation vector
+          z_nx2(je,:) = ptr_orient(ile2,ibe2)%x(:)
+
+          z_nxprod = DOT_PRODUCT(z_nx1(je,:),z_nx2(je,:))
+
+          ! up to now only Gaussian or Inverse multiquadric kernel
+          ! (without polynomial correction) are implemented
+          IF      (rbf_vec_kern_e == 1) THEN
+            z_rbfval(je,je2) = gaussi(z_dist,rbf_vec_scale_e(MAX(jg,1))) * z_nxprod
+          ELSE IF (rbf_vec_kern_e == 3) THEN
+            z_rbfval(je,je2) = inv_multiq(z_dist,rbf_vec_scale_e(MAX(jg,1))) * z_nxprod
+          ENDIF
+
+        END DO
+      ENDIF
     END DO
 
     !

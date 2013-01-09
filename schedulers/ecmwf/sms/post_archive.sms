@@ -25,7 +25,10 @@
 echo "POST_ARCHIVE.SMS" 
 
 
-ldeldata=1
+case %SIMMODE% in
+  1) ldeldata=1  ;;    # pre-operations
+  2) ldeldata=0  ;;    # monthly mean 10day forecasts
+esac
 
 
 #-----------------------------------------------------------------------------

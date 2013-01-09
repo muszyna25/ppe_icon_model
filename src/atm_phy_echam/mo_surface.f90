@@ -43,6 +43,8 @@ MODULE mo_surface
                                 & nmatrix, nvar_vdiff,              &
                                 & matrix_to_richtmyer_coeff
   USE mo_jsbach_interface_icon,ONLY: jsbach_inter_1d
+  USE mo_sea_ice_types,     ONLY: t_sea_ice, t_atmos_fluxes
+  USE mo_icoham_sfc_indices,ONLY: nsfc_type, iice
   IMPLICIT NONE
   PRIVATE
   PUBLIC :: update_surface
@@ -140,7 +142,17 @@ CONTAINS
                            & albnirdif,                         &! inout
                            & evapotranspiration,                &! out
                            & surface_temperature_rad,           &! out
-                           & surface_temperature_eff            &! out
+                           & surface_temperature_eff,           &! out
+                           !! Sea ice
+                           & isice,                             &! in
+                           & Tsurf,                             &! inout
+                           & T1,                                &! inout
+                           & T2,                                &! inout
+                           & hi,                                &! inout
+                           & hs,                                &! inout
+                           & Qtop,                              &! inout
+                           & Qbot,                              &! inout
+                           & conc                               &! inout
                            )
 
     LOGICAL, INTENT(IN) :: lsfc_heat_flux, lsfc_mom_flux
@@ -158,7 +170,7 @@ CONTAINS
     REAL(wp),INTENT(INOUT) :: aa_btm (kbdim,3,ksfc_type,imh:imqv)
     REAL(wp),INTENT(INOUT) :: bb     (kbdim,klev,nvar_vdiff)
     REAL(wp),INTENT(INOUT) :: bb_btm (kbdim,ksfc_type,ih:iqv)
-    REAL(wp),INTENT(INOUT) :: pcpt_tile (kbdim,ksfc_type)
+    REAL(wp),INTENT(IN) :: pcpt_tile (kbdim,ksfc_type)
     REAL(wp),INTENT(INOUT) :: pqsat_tile(kbdim,ksfc_type)
     REAL(wp),INTENT(INOUT) :: ptsfc_tile (kbdim,ksfc_type)
     REAL(wp),INTENT(INOUT) :: pu_stress_gbm_ac (kbdim)
@@ -248,7 +260,17 @@ CONTAINS
     REAL(wp),OPTIONAL,INTENT(OUT)   :: evapotranspiration(kbdim)
     REAL(wp),OPTIONAL,INTENT(OUT)   :: surface_temperature_rad(kbdim)
     REAL(wp),OPTIONAL,INTENT(OUT)   :: surface_temperature_eff(kbdim)
-
+    !! Sea ice
+    LOGICAL, OPTIONAL,INTENT(IN) :: isice(:,:)
+    REAL(wp),OPTIONAL,INTENT(INOUT) :: Tsurf(:,:)
+    REAL(wp),OPTIONAL,INTENT(INOUT) :: T1   (:,:)
+    REAL(wp),OPTIONAL,INTENT(INOUT) :: T2   (:,:)
+    REAL(wp),OPTIONAL,INTENT(IN) :: hi   (:,:)
+    REAL(wp),OPTIONAL,INTENT(IN) :: hs   (:,:)
+    REAL(wp),OPTIONAL,INTENT(OUT) :: Qtop (:,:)
+    REAL(wp),OPTIONAL,INTENT(OUT) :: Qbot (:,:)
+    REAL(wp),OPTIONAL,INTENT(IN) :: conc (:,:)
+                                               
 ! locals
 
     LOGICAL  :: lfland(kbdim)
@@ -264,6 +286,9 @@ CONTAINS
     REAL(wp) :: zfn_qv(kbdim,ksfc_type)
 
     REAL(wp) :: lwup(kbdim)
+
+    TYPE(t_sea_ice) :: ice
+    TYPE(t_atmos_fluxes) :: Qatm
 
     !===================================================================
     ! BEFORE CALLING land/ocean/ice model
@@ -530,6 +555,11 @@ CONTAINS
 !   CALL set_ice_temp_winton(p_patch, ice, Tfw, Qatm)
 ! Caclulate the dry static energy from ice%Tsurf and copy ice%Tsurf to the appropriate atmospheric
 ! variable.
+    IF ( iice <= nsfc_type ) THEN
+      ptsfc_tile(1:kproma,idx_ice) = 260._wp
+      Tsurf(1:kproma,1) = ptsfc_tile(1:kproma,idx_ice) - 273.15_wp
+    ENDIF
+
 
 
   END SUBROUTINE update_surface

@@ -98,7 +98,7 @@ CONTAINS
     IF (ltestcase) THEN
 
       SELECT CASE (TRIM(ctest_name))
-      CASE('APE','JWw-Moist','LDF-Moist')
+      CASE('APE','APEi','JWw-Moist','LDF-Moist')
 
         echam_phy_config% llandsurf = .FALSE.
         echam_phy_config% lssodrag  = .FALSE.

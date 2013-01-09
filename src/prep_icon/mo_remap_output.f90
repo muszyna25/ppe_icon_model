@@ -235,6 +235,8 @@ CONTAINS
       CALL vlistDefVarTsteptype(file_metadata%vlistID, varID(i), field_metadata(i)%steptype              )
       CALL vlistDefVarDatatype (file_metadata%vlistID, varID(i), field_metadata(i)%cf%datatype           )
 
+      ! set missing value information on variable:
+      CALL vlistDefVarMissval(file_metadata%vlistID, varID(i), field_metadata(i)%missval)
     END DO
 
     CALL streamDefVlist(file_metadata%streamID, file_metadata%vlistID)

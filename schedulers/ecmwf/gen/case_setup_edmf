@@ -149,7 +149,7 @@ cat > ${atmo_namelist} << EOF
  ifeedback_type               = 2
 /
 &prepicon_nml
- i_oper_mode                 = 3           ! operation mode
+ i_oper_mode                 = 2           ! operation mode (2 for model, 4 for prepicon)
  nlev_in                     = 91          ! number of levels of input data
  zpbl1                       = 500. 
  zpbl2                       = 1000. 
