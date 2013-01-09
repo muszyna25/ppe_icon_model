@@ -69,7 +69,7 @@ MODULE mo_nh_vert_interp
   USE mo_loopindices,         ONLY: get_indices_e, get_indices_c
   USE mo_grf_intp_data_strc,  ONLY: t_gridref_state
   USE mo_grf_bdyintp,         ONLY: interpol_scal_grf, interpol2_vec_grf
-  USE mo_sync,                ONLY: sync_patch_array, SYNC_C, SYNC_E
+  USE mo_sync,                ONLY: sync_patch_array, SYNC_C, SYNC_E, sync_patch_array_mult
   USE mo_satad,               ONLY: sat_pres_water
   USE mo_nwp_sfc_interp,      ONLY: process_sfcfields
 
@@ -580,6 +580,7 @@ CONTAINS
     ! Compute geometric height at edge points
     CALL cells2edges_scalar(p_metrics%z_mc, p_patch, intp_hrz%c_lin_e, z_me, opt_fill_latbc=.TRUE.)
     CALL cells2edges_scalar(p_z3d_out, p_patch, intp_hrz%c_lin_e, p_z3d_edge, opt_fill_latbc=.TRUE.)
+    CALL sync_patch_array_mult(SYNC_E,p_patch,2,z_me,p_z3d_edge)
 
     CALL prepare_lin_intp(z_me, p_z3d_edge, nblks_e, npromz_e, nlev, nzlev,                 & !in
       &                   vcoeff_z%lin_edge%wfac_lin, vcoeff_z%lin_edge%idx0_lin,           & !out
@@ -710,6 +711,7 @@ CONTAINS
 
     CALL cells2edges_scalar(p_metrics%z_mc, p_patch, intp_hrz%c_lin_e, z_me, opt_fill_latbc=.TRUE.)
     CALL cells2edges_scalar(geopot_p_out, p_patch, intp_hrz%c_lin_e, geopot_p_edge, opt_fill_latbc=.TRUE.)
+    CALL sync_patch_array_mult(SYNC_E,p_patch,2,z_me,geopot_p_edge)
 
     CALL prepare_lin_intp(z_me, geopot_p_edge, nblks_e, npromz_e, nlev, nplev,               & !in
       &                   vcoeff_p%lin_edge%wfac_lin, vcoeff_p%lin_edge%idx0_lin,            & !out
@@ -821,6 +823,7 @@ CONTAINS
 
     CALL cells2edges_scalar(p_metrics%z_mc, p_patch, intp_hrz%c_lin_e, z_me, opt_fill_latbc=.TRUE.)
     CALL cells2edges_scalar(geopot_i_out, p_patch, intp_hrz%c_lin_e, geopot_i_edge, opt_fill_latbc=.TRUE.)
+    CALL sync_patch_array_mult(SYNC_E,p_patch,2,z_me,geopot_i_edge)
 
     CALL prepare_lin_intp(z_me, geopot_i_edge, nblks_e, npromz_e, nlev, nilev,               & !in
       &                   vcoeff_i%lin_edge%wfac_lin, vcoeff_i%lin_edge%idx0_lin,            & !out
