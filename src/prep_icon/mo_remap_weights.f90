@@ -7,9 +7,25 @@
 !!
 !! @author F. Prill, DWD
 !!
-!! @note We do not check for a pole correction where the pole is inside an element!
+!! @note This implementation makes several assumptions which make the algorithm
+!!       slightly inaccurate:
+!!       
+!!  General grids:
+!!    - We do not check for a pole correction where the pole is inside an element!
+!!  Nest grids (locally bounded):
+!!    1. We do not detect edge intersections between an edge of gridA and an edge of gridB 
+!!       where the start point and end points of edgeA lie outside of gridB.
+!!    2. The edge intersection algorithm stops traversing edgeA as soon as it leaves gridB.
 !!
-
+!!                            b                   b-------b         
+!!                           / \                   \     / \        
+!!                  out   a-/---\-a   out           \ a-/---a----?   
+!!                         / in  \                   \ /     \      
+!!                        b-------b                   b-------b     
+!!
+!!                          (case 1)                  (case 2)
+!!
+!!
 !! Possible compiler bug: The following option directive line has proven to be necessary
 !! when compiling with "-Chopt" on the NEC SX9, Rev.451 2012/06/20 [F. Prill, DWD]:
 !option! -O nodarg
@@ -44,7 +60,8 @@ MODULE mo_remap_weights
     &                              compute_length, ccw_orientation,           &
     &                              pole_thresh, compute_index_lists,          &
     &                              finalize_index_lists, LIST_NAME,           &
-    &                              finalize_vertex_coords, npole, spole
+    &                              finalize_vertex_coords, npole, spole,      &
+    &                              GRID_TYPE_ICON
   USE mo_remap_grid,         ONLY: get_containing_cell
   USE mo_remap_intp,         ONLY: t_intp_data, t_intp_data_mt,               &
     &                              reduce_mthreaded_weights,                  &
@@ -574,10 +591,10 @@ CONTAINS
           CALL intersect_line(edge_v_idx, edge_v_blk, l1, grid1, coord_transform, &
             &                 out_s, out_c, out_fct, nsegments, thresh)
 
+          ! adjust start/end point (this avoids most pole intersection problems)
+          out_s(nsegments0)%p(1) = grid2%p_patch%verts%vertex(edge_v_idx(1),edge_v_blk(1))
+          out_s(nsegments)%p(2)  = grid2%p_patch%verts%vertex(edge_v_idx(2),edge_v_blk(2))
           DO i=nsegments0,nsegments
-            ! adjust start/end point (this avoids most pole intersection problems)
-            out_s(nsegments0)%p(1) = grid2%p_patch%verts%vertex(edge_v_idx(1),edge_v_blk(1))
-            out_s(nsegments)%p(2)  = grid2%p_patch%verts%vertex(edge_v_idx(2),edge_v_blk(2))
             in_e(i,1:2) = (/ jc,jb /)
           END DO
 
@@ -672,11 +689,6 @@ CONTAINS
     ! clear index lists
     CALL finalize_index_lists(grid1)
     CALL finalize_index_lists(grid2)
-    ! clear "working copy" with vertex coordinates
-    CALL finalize_vertex_coords(grid1)
-    CALL finalize_vertex_coords(grid2)
-    CALL finalize_vertex_coords(grid1_cov)
-    CALL finalize_vertex_coords(grid2_cov)
     ! merge multi-threaded weight lists into a single one
     CALL merge_heaps(intp_data1_mt, intp_data2_mt, nthreads)
 
@@ -708,6 +720,19 @@ CONTAINS
     ! divide by area of destination grid cell:
     CALL divide_by_area(intp_data1)
     CALL divide_by_area(intp_data2)
+
+    ! fix all those entries which have NO source grid contributions by
+    ! setting a nearest-neighbor "interpolation"
+    IF (grid1%structure == GRID_TYPE_ICON) &
+      CALL correct_weights_at_nest_boundary(grid2_cov, grid1, intp_data1, thresh)
+    IF (grid2%structure == GRID_TYPE_ICON) &
+      CALL correct_weights_at_nest_boundary(grid1_cov, grid2, intp_data2, thresh)
+
+    ! clear "working copy" with vertex coordinates
+    CALL finalize_vertex_coords(grid1)
+    CALL finalize_vertex_coords(grid2)
+    CALL finalize_vertex_coords(grid1_cov)
+    CALL finalize_vertex_coords(grid2_cov)
 
     CALL node_storage_finalize(1)
     DEALLOCATE(node_storage, nnode, STAT=ierrstat)
@@ -754,5 +779,57 @@ CONTAINS
 !$OMP END PARALLEL
     WRITE (0,*) "# ", nfail, " cells did not pass consistency check."
   END SUBROUTINE consistency_check
+
+
+  !> The algorithm makes several assumptions which make the algorithm
+  !  inaccurate at local nest boundarys (see module comment, above).
+  !
+  !  We fix all those entries which have NO source grid contributions by
+  !  setting a nearest-neighbor "interpolation"
+  !
+  SUBROUTINE correct_weights_at_nest_boundary(src_grid, dst_grid, intp_data, pole_thresh)
+    TYPE (t_grid),     INTENT(INOUT) :: src_grid, dst_grid      !< source and destination grid
+    TYPE(t_intp_data), INTENT(INOUT) :: intp_data               !< interpolation coefficients (result)  
+    REAL(wp),          INTENT(IN)    :: pole_thresh             !< pole threshold
+    ! local variables
+    INTEGER  :: icount, start_blk, end_blk, start_idx, end_idx, &
+      &         jc, jb, global_idx, i
+    TYPE (t_geographical_coordinates) :: p
+
+
+    icount    = 0
+    start_blk = 1
+    end_blk   = dst_grid%p_patch%nblks_c
+!$OMP PARALLEL PRIVATE(start_idx, end_idx,jc,icount,p,global_idx)
+!$OMP DO
+    BLOCKLOOP : DO jb=start_blk,end_blk
+      start_idx = 1
+      end_idx   = nproma
+      IF (jb == end_blk) end_idx = dst_grid%p_patch%npromz_c
+      CELLLOOP : DO jc=start_idx,end_idx
+
+        ! skip all cells where the standard algorithm has provided proper
+        ! interpolation weights:
+        IF (intp_data%nidx(jc,jb) > 0) CYCLE CELLLOOP
+
+        icount = icount + 1
+
+        ! determine nearest cell in source grid:
+        p = dst_grid%p_patch%cells%center(jc,jb)
+        global_idx = get_containing_cell(src_grid, p, LIST_DEFAULT)
+        ! set nearest neighbor "interpolation":
+        intp_data%nidx(jc,jb)   = 1
+        intp_data%wgt(1,jc,jb)  = 1._wp
+        intp_data%iidx(1,jc,jb) = idx_no(global_idx)
+        intp_data%iblk(1,jc,jb) = blk_no(global_idx)
+        
+      END DO CELLLOOP
+    END DO BLOCKLOOP
+!$OMP END DO
+    IF (dbg_level >= 1)  &
+      WRITE (0,*) "Nearest-neighbor interpolation fix needed for ", icount, " cells."
+!$OMP END PARALLEL
+
+  END SUBROUTINE correct_weights_at_nest_boundary
 
 END MODULE mo_remap_weights

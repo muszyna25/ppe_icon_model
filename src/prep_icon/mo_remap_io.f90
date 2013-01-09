@@ -140,7 +140,7 @@ CONTAINS
         ! set file gridID to cell-grid:
         ngrids = vlistNgrids(file_metadata%vlistID)
         LOOP : DO i=1,ngrids
-          gridID = vlistGrid(file_metadata%vlistID, 0)
+          gridID = vlistGrid(file_metadata%vlistID, i-1)
           CALL gridInqXname(gridID, zname)
           IF (tolower(TRIM(zname)) == "clon") file_metadata%c_gridID = gridID
           IF (tolower(TRIM(zname)) == "elon") file_metadata%e_gridID = gridID

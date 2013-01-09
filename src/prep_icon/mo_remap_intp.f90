@@ -492,6 +492,7 @@ CONTAINS
     DO
       IF (heap_empty(intp_data_mt%wgt_heap(thrd0))) EXIT
       wgt_data = heap_take_accumulated(intp_data_mt%wgt_heap(thrd0), thrd0)
+      ! remove negative weights (i.e. incorrect sub-areas)
       IF (wgt_data%wgt < W_THRESHOLD) CYCLE
 
       didx = wgt_data%didx
