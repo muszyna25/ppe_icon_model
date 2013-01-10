@@ -66,6 +66,7 @@ for levtype1 in PL HL ML; do
     dd=`echo ${ymdh} | cut -c 7-8`
     outdir=%SCTEMP%/%SUITE%/%EXPNUM%/output/${ymdh}/
     gatedir=%ECTEMP%/%SUITE%/%EXPNUM%/${ymdh}
+    mkdir -p ${outdir}
     rsh ecgate mkdir -p ${gatedir}
     cd ${outdir}
 
