@@ -86,14 +86,13 @@ CONTAINS
   !! Dirk Notz, following MPI-OM. Code transfered to ICON.
   !!
 
-  SUBROUTINE set_ice_temp_winton(i_startidx_c, i_endidx_c, nbdim, kice, SWdim, i_therm_model, &
+  SUBROUTINE set_ice_temp_winton(i_startidx_c, i_endidx_c, nbdim, kice, SWdim, &
             &   isice,          & ! Mask                                                         
             &   Tsurf,          & ! Surface temperature [degC]                                   
             &   T1,             & ! Temperature of upper layer [degC]                            
             &   T2,             & ! Temperature of lower layer [degC]                            
             &   hi,             & ! Ice thickness                                                
             &   hs,             & ! Snow thickness                                               
-            &   conc,           & ! Ice concentration                                            
             &   Qtop,           & ! Energy flux available for surface melting [W/m2]             
             &   Qbot,           & ! Energy flux available for bottom melting [W/m2]              
             &   SWin,           & ! Downwelling shortwave flux [W/m^2]                           
@@ -102,7 +101,7 @@ CONTAINS
             &   dnonsolardT,    & ! Derivative of non-solar fluxes w.r.t. temperature [W/m^2/K]  
             &   Tfw)              ! Freezing temperature of the ocean
 
-    INTEGER, INTENT(IN)    :: i_startidx_c, i_endidx_c, nbdim, kice, i_therm_model, SWdim
+    INTEGER, INTENT(IN)    :: i_startidx_c, i_endidx_c, nbdim, kice, SWdim
     LOGICAL, INTENT(IN)    :: isice      (nbdim,kice)
     REAL(wp),INTENT(INOUT) :: Tsurf      (nbdim,kice)
     REAL(wp),INTENT(INOUT) :: T1         (nbdim,kice)
@@ -111,7 +110,6 @@ CONTAINS
     REAL(wp),INTENT(IN)    :: hs         (nbdim,kice)
     REAL(wp),INTENT(OUT)   :: Qtop       (nbdim,kice)
     REAL(wp),INTENT(OUT)   :: Qbot       (nbdim,kice)
-    REAL(wp),INTENT(IN)    :: conc       (nbdim,kice)
     REAL(wp),INTENT(IN)    :: SWin       (nbdim,SWdim)
     REAL(wp),INTENT(IN)    :: alb        (nbdim,kice,SWdim)
     REAL(wp),INTENT(IN)    :: nonsolar   (nbdim,kice)

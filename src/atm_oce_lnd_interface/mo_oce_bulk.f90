@@ -531,7 +531,6 @@ CONTAINS
             &   p_ice% T2   (:,:,jb),   &
             &   p_ice% hi   (:,:,jb),   &
             &   p_ice% hs   (:,:,jb),   &
-            &   p_ice% conc (:,:,jb),   &
             &   p_ice% Qtop (:,:,jb),   &
             &   p_ice% Qbot (:,:,jb),   & 
             &   Qatm%SWin   (:,  jb),   &
@@ -811,7 +810,6 @@ CONTAINS
             &   p_ice% T2   (:,:,jb),   &
             &   p_ice% hi   (:,:,jb),   &
             &   p_ice% hs   (:,:,jb),   &
-            &   p_ice% conc (:,:,jb),   &
             &   p_ice% Qtop (:,:,jb),   &
             &   p_ice% Qbot (:,:,jb),   & 
             &   Qatm%SWin   (:,  jb),   &

@@ -991,7 +991,6 @@ CONTAINS
             &   T2,             & ! Temperature of lower layer [degC]
             &   hi,             & ! Ice thickness
             &   hs,             & ! Snow thickness
-            &   conc,           & ! Ice concentration
             &   Qtop,           & ! Energy flux available for surface melting [W/m2] 
             &   Qbot,           & ! Energy flux available for bottom melting [W/m2] 
             &   SWin,           & ! Downwelling shortwave flux [W/m^2]
@@ -1010,7 +1009,6 @@ CONTAINS
     REAL(wp),INTENT(IN)    :: hs         (nbdim,kice)
     REAL(wp),INTENT(OUT)   :: Qtop       (nbdim,kice)
     REAL(wp),INTENT(OUT)   :: Qbot       (nbdim,kice)
-    REAL(wp),INTENT(IN)    :: conc       (nbdim,kice)
     REAL(wp),INTENT(IN)    :: SWin       (nbdim,SWdim)
     REAL(wp),INTENT(IN)    :: nonsolar   (nbdim,kice)
     REAL(wp),INTENT(IN)    :: dnonsolardT(nbdim,kice)
@@ -1031,14 +1029,13 @@ CONTAINS
     
     ! #achim
     IF ( i_therm_model == 1 ) THEN
-      CALL set_ice_temp_winton(i_startidx_c, i_endidx_c, nbdim, kice, SWdim, i_therm_model, &
+      CALL set_ice_temp_winton(i_startidx_c, i_endidx_c, nbdim, kice, SWdim, &
             &   isice,          & 
             &   Tsurf,          & 
             &   T1,             & 
             &   T2,             & 
             &   hi,             & 
             &   hs,             & 
-            &   conc,           & 
             &   Qtop,           & 
             &   Qbot,           & 
             &   SWin,           & 
@@ -1047,7 +1044,19 @@ CONTAINS
             &   dnonsolardT,    &
             &   Tfw)
 !    ELSE IF ( i_therm_model == 2 .OR. i_therm_model == 3 ) THEN
-!      CALL set_ice_temp_zerolayer  (p_patch,ice, Tfw, Qatm,doy)
+!      CALL set_ice_temp_zerolayer(i_startidx_c, i_endidx_c, nbdim, kice, SWdim, i_therm_model, &
+!            &   isice,          & 
+!            &   Tsurf,          & 
+!            &   hi,             & 
+!            &   hs,             & 
+!            &   Qtop,           & 
+!            &   Qbot,           & 
+!            &   SWin,           & 
+!            &   alb,            & 
+!            &   nonsolar,       & 
+!            &   dnonsolardT,    &
+!            &   Tfw,            &
+!            &   doy)
     END IF
 
    END SUBROUTINE ice_fast
