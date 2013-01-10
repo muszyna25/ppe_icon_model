@@ -42,7 +42,7 @@ MODULE mo_prepicon_nml
   USE mo_kind,               ONLY: wp
   USE mo_exception,          ONLY: finish
   USE mo_impl_constants,     ONLY: max_char_length, max_dom, &
-    &                              MODE_IFSANA, MODE_REMAP
+    &                              MODE_IFSANA, MODE_DWDANA, MODE_REMAP
   USE mo_io_units,           ONLY: nnml, nnml_output, filename_max
   USE mo_namelist,           ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_mpi,                ONLY: my_process_is_stdio 
@@ -172,6 +172,7 @@ CONTAINS
   !------------------------------------------------------------
   !
   IF ( (i_oper_mode /= MODE_IFSANA) .AND. &
+    &  (i_oper_mode /= MODE_DWDANA) .AND. &
     &  (i_oper_mode /= MODE_REMAP )) THEN
     CALL finish( TRIM(routine),                         &
       &  'Invalid operation mode. Must be i_oper_mode=2 or 4')

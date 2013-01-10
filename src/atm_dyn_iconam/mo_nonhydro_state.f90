@@ -502,13 +502,14 @@ MODULE mo_nonhydro_state
     ! w            p_prog%w(nproma,nlevp1,nblks_c)
     cf_desc    = t_cf_var('upward_air_velocity', 'm s-1', 'Vertical velocity', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(0, 2, 9, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( p_prog_list, TRIM(vname_prefix)//'w'//suffix, p_prog%w,     &
-      &          GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc, &
-      &          ldims=shape3d_chalf,                                       & 
-      &          vert_interp=create_vert_interp_metadata(                   &
-      &             vert_intp_type=vintp_types("P","Z","I"),                &
-      &             vert_intp_method=VINTP_METHOD_LIN_NLEVP1 ),             &
-      &          in_group=groups("atmo_ml_vars", "atmo_pl_vars", "atmo_zl_vars") )
+    CALL add_var( p_prog_list, TRIM(vname_prefix)//'w'//suffix, p_prog%w,      &
+      &          GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc,  &
+      &          ldims=shape3d_chalf,                                          & 
+      &          vert_interp=create_vert_interp_metadata(                      &
+      &             vert_intp_type=vintp_types("P","Z","I"),                   &
+      &             vert_intp_method=VINTP_METHOD_LIN_NLEVP1 ),                &
+      &          in_group=groups("atmo_ml_vars","atmo_pl_vars","atmo_zl_vars", &
+      &                          "dwd_ana_vars") )
 
     ! rho          p_prog%rho(nproma,nlev,nblks_c)
     cf_desc    = t_cf_var('air_density', 'kg m-3', 'density', DATATYPE_FLT32)
@@ -585,7 +586,8 @@ MODULE mo_nonhydro_state
                     &             vert_intp_method=VINTP_METHOD_QV,                  &
                     &             l_satlimit=.FALSE.,                                &
                     &             lower_limit=2.5e-6_wp, l_restore_pbldev=.FALSE. ), &
-                    & in_group=groups("atmo_ml_vars", "atmo_pl_vars", "atmo_zl_vars") )
+                    & in_group=groups("atmo_ml_vars","atmo_pl_vars","atmo_zl_vars",  &
+                    &                 "dwd_ana_vars") )
         !QC
         CALL add_ref( p_prog_list, 'tracer',&
                     & TRIM(vname_prefix)//'qc'//suffix, p_prog%tracer_ptr(iqc)%p_3d, &
@@ -605,7 +607,8 @@ MODULE mo_nonhydro_state
                     &             l_loglin=.FALSE.,                                  &
                     &             l_extrapol=.TRUE., l_pd_limit=.FALSE.,             &
                     &             lower_limit=0._wp  ),                              & 
-                    & in_group=groups("atmo_ml_vars", "atmo_pl_vars", "atmo_zl_vars") )
+                    & in_group=groups("atmo_ml_vars","atmo_pl_vars","atmo_zl_vars",  &
+                    &                 "dwd_ana_vars") )
         !QI
         CALL add_ref( p_prog_list, 'tracer',                                         &
                     & TRIM(vname_prefix)//'qi'//suffix, p_prog%tracer_ptr(iqi)%p_3d, &
@@ -624,7 +627,8 @@ MODULE mo_nonhydro_state
                     &             l_loglin=.FALSE.,                                  &
                     &             l_extrapol=.TRUE., l_pd_limit=.FALSE.,             &
                     &             lower_limit=0._wp  ),                              & 
-                    & in_group=groups("atmo_ml_vars", "atmo_pl_vars", "atmo_zl_vars")  )
+                    & in_group=groups("atmo_ml_vars","atmo_pl_vars","atmo_zl_vars",  &
+                    &                 "dwd_ana_vars")  )
         !QR
         CALL add_ref( p_prog_list, 'tracer',                                         &
                     & TRIM(vname_prefix)//'qr'//suffix, p_prog%tracer_ptr(iqr)%p_3d, &
@@ -644,7 +648,8 @@ MODULE mo_nonhydro_state
                     &             l_loglin=.FALSE.,                                  &
                     &             l_extrapol=.TRUE., l_pd_limit=.FALSE.,             &
                     &             lower_limit=0._wp  ),                              & 
-                    & in_group=groups("atmo_ml_vars", "atmo_pl_vars", "atmo_zl_vars")  )
+                    & in_group=groups("atmo_ml_vars","atmo_pl_vars","atmo_zl_vars",  &
+                    &                 "dwd_ana_vars")  )
         !QS
         CALL add_ref( p_prog_list, 'tracer',                                         &
                     & TRIM(vname_prefix)//'qs'//suffix, p_prog%tracer_ptr(iqs)%p_3d, &
@@ -664,7 +669,8 @@ MODULE mo_nonhydro_state
                     &             l_loglin=.FALSE.,                                  &
                     &             l_extrapol=.TRUE., l_pd_limit=.FALSE.,             &
                     &             lower_limit=0._wp  ),                              & 
-                    & in_group=groups("atmo_ml_vars", "atmo_pl_vars", "atmo_zl_vars")  )
+                    & in_group=groups("atmo_ml_vars","atmo_pl_vars","atmo_zl_vars",  &
+                    &                 "dwd_ana_vars")  )
         ! EDMF: total water variance
         IF (atm_phy_nwp_config(p_patch%id)%inwp_turb == 3) THEN
           CALL add_ref( p_prog_list, 'tracer',                                       &
@@ -801,7 +807,7 @@ MODULE mo_nonhydro_state
       IF (from_info%tracer%lis_tracer .AND. .NOT. from_info%lcontainer ) THEN
 
         CALL add_var_list_reference(p_tracer_list, from_info%name, &
-          &                         from_var_list%p%name           )
+          &                         from_var_list%p%name, in_group=groups() )
 
       ENDIF
 
@@ -922,7 +928,8 @@ MODULE mo_nonhydro_state
                 & ldims=shape3d_c, lrestart=.FALSE.,                            &
                 & vert_interp=create_vert_interp_metadata(                      &
                 &   vert_intp_type=vintp_types("P","Z","I") ),                  &
-                & in_group=groups("atmo_ml_vars", "atmo_pl_vars", "atmo_zl_vars") )
+                & in_group=groups("atmo_ml_vars","atmo_pl_vars","atmo_zl_vars", &
+                &                 "dwd_ana_vars") )
 
     ! v           p_diag%v(nproma,nlev,nblks_c)
     !
@@ -933,7 +940,8 @@ MODULE mo_nonhydro_state
                 & ldims=shape3d_c, lrestart=.FALSE.,                            &
                 & vert_interp=create_vert_interp_metadata(                      &
                 &   vert_intp_type=vintp_types("P","Z","I") ),                  &
-                & in_group=groups("atmo_ml_vars", "atmo_pl_vars", "atmo_zl_vars") )
+                & in_group=groups("atmo_ml_vars","atmo_pl_vars","atmo_zl_vars", &
+                &                 "dwd_ana_vars") )
 
     ! vt           p_diag%vt(nproma,nlev,nblks_e)
     ! *** needs to be saved for restart ***
@@ -1061,7 +1069,8 @@ MODULE mo_nonhydro_state
     CALL add_var( p_diag_list, 'temp', p_diag%temp,                             &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,       &
                 & ldims=shape3d_c, lrestart=.FALSE.,                            &
-                & in_group=groups("atmo_ml_vars", "atmo_pl_vars", "atmo_zl_vars") )
+                & in_group=groups("atmo_ml_vars","atmo_pl_vars","atmo_zl_vars", &
+                &                 "dwd_ana_vars") )
 
     ! tempv        p_diag%tempv(nproma,nlev,nblks_c)
     !
@@ -1091,7 +1100,7 @@ MODULE mo_nonhydro_state
                 & vert_interp=create_vert_interp_metadata(                      &
                 &             vert_intp_type=vintp_types("Z","I"),              &
                 &             vert_intp_method=VINTP_METHOD_PRES ),             &
-                &             in_group=groups("atmo_ml_vars", "atmo_zl_vars") )
+                & in_group=groups("atmo_ml_vars","atmo_zl_vars","dwd_ana_vars") )
 
     ! pres_ifc     p_diag%pres_ifc(nproma,nlevp1,nblks_c)
     !

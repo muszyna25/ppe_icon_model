@@ -16,7 +16,7 @@ MODULE mo_var_metadata
   ! 
   ! A variable can have any combination of this which means that it is
   ! part of each of these different variable sets.
-  CHARACTER(len=VARNAME_LEN), PARAMETER :: var_groups(16) = &
+  CHARACTER(len=VARNAME_LEN), PARAMETER :: var_groups(17) = &
     (/ "ALL                   ",  &
     &  "ATMO_ML_VARS          ",  &
     &  "ATMO_PL_VARS          ",  &
@@ -32,7 +32,8 @@ MODULE mo_var_metadata
     &  "LAND_TILE_VARS        ",  &
     &  "MULTISNOW_VARS        ",  &
     &  "ADDITIONAL_PRECIP_VARS",  &
-    &  "SNOW_VARS             "/)
+    &  "SNOW_VARS             ",  &
+    &  "DWD_ANA_VARS          "/)
 
   TYPE t_union_vals
     REAL(dp) :: rval

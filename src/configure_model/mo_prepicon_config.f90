@@ -95,7 +95,7 @@ CONTAINS
     CALL associate_keyword("<idom>",   TRIM(int2string(idom, "(i2.2)")), keywords)
     ! replace keywords in "input_filename", which is by default
     ! ifs2icon_filename = "<path>ifs2icon_R<nroot>B<jlev>_DOM<idom>.nc"
-    result_str = TRIM(with_keywords(keywords, TRIM(ifs2icon_filename)))
+    result_str = TRIM(with_keywords(keywords, TRIM(input_filename)))
 
   END FUNCTION generate_filename
 

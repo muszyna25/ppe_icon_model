@@ -307,8 +307,6 @@ CONTAINS
     !
     IF (l_realcase .AND. .NOT. is_restart_run()) THEN
 
-      CALL message(TRIM(routine),'Real-data mode: perform initialization with IFS2ICON data')
-
       CALL init_icon (p_patch(1:), p_nh_state(1:), p_lnd_state(1:), &
         &             p_int_state(1:), p_grf_state(1:), ext_data(1:))
 

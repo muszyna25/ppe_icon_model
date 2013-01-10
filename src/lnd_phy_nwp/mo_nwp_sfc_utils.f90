@@ -1196,7 +1196,7 @@ CONTAINS
           ENDIF
 
           !
-          ! water point: all sea points with fr_ice < (1-frsi_min)
+          ! water point: all sea points with fr_seaice < (1-frsi_min)
           !
           IF ( p_lnd_diag%fr_seaice(jc,jb) <= (1._wp-frsi_min) ) THEN
             i_count_water = i_count_water + 1
@@ -2198,7 +2198,7 @@ CONTAINS
           ENDIF
 
           !
-          ! water point: all sea points with fr_ice < (1-frsi_min)
+          ! water point: all sea points with fr_seaice < (1-frsi_min)
           !
           IF ( p_lnd_state(jg)%diag_lnd%fr_seaice(jc,jb) <= (1._wp-frsi_min) ) THEN
             count_water = count_water + 1
