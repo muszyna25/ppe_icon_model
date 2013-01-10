@@ -134,12 +134,10 @@ CONTAINS
     
 
     ! initialization of output variables
-    ice%Qbot(:,:,:) = 0._wp
-    ice%Qtop(:,:,:) = 0._wp
-
-    ! --- initialization
     Qbot(:,:) = 0._wp
     Qtop(:,:) = 0._wp
+
+    ! --- initialization
     one_minus_I_0 = 1.0_wp
 
     DO k=1,kice
