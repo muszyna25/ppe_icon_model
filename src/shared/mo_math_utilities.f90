@@ -162,7 +162,8 @@ MODULE mo_math_utilities
   PUBLIC :: ccw
   PUBLIC :: line_intersect
   PUBLIC :: lintersect
-  
+  PUBLIC :: tdma_solver
+ 
   PUBLIC :: OPERATOR(+)
   PUBLIC :: OPERATOR(-)
   PUBLIC :: OPERATOR(*)    
@@ -2305,6 +2306,46 @@ CONTAINS
     
   END FUNCTION line_intersect
   !-------------------------------------------------------------------------
-  
+ 
+  !-------------------------------------------------------------------------
+  !>
+  !! TDMA tridiagonal matrix solver
+  !!
+  !! @par Revision History
+  !! Initial revision by Anurag Dipankar(2013, Jan)
+  !!
+  !!       a - sub-diagonal (means it is the diagonal below the main diagonal)
+  !!       b - the main diagonal
+  !!       c - sup-diagonal (means it is the diagonal above the main diagonal)
+  !!       d - right part
+  !!       x - the answer
+  !!       n - number of equations
+  PURE FUNCTION tdma_solver(a,b,c,d,n) RESULT(varout)
+       INTEGER, INTENT(in) :: n
+       REAL(wp),DIMENSION(n),INTENT(in)  :: a,b,c,d
+
+       REAL(wp):: m, varout(n), cp(n), dp(n)
+       INTEGER :: i
+ 
+! initialize c-prime and d-prime
+        cp(1) = c(1)/b(1)
+        dp(1) = d(1)/b(1)
+! solve for vectors c-prime and d-prime
+         do i = 2,n
+           m = b(i)-cp(i-1)*a(i)
+           cp(i) = c(i)/m
+           dp(i) = (d(i)-dp(i-1)*a(i))/m
+         enddo
+! initialize varout
+         varout(n) = dp(n)
+! solve for varout from the vectors c-prime and d-prime
+        do i = n-1, 1, -1
+          varout(i) = dp(i)-cp(i)*varout(i+1)
+        end do
+ 
+    END FUNCTION tdma_solver
+  !-------------------------------------------------------------------------
+
+
 END MODULE mo_math_utilities
 

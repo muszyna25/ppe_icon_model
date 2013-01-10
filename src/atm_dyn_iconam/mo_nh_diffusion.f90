@@ -72,6 +72,7 @@ MODULE mo_nh_diffusion
                                     sync_patch_array_mult, sync_patch_array_gm
   USE mo_physical_constants,  ONLY: cvd_o_rd, cpd, rd, p0ref
   USE mo_timer,               ONLY: timer_nh_hdiffusion, timer_start, timer_stop
+  USE mo_math_utilities,      ONLY: tdma_solver
 
   IMPLICIT NONE
 
@@ -79,7 +80,7 @@ MODULE mo_nh_diffusion
 
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
-  PUBLIC :: diffusion_tria, diffusion_hex
+  PUBLIC :: diffusion_tria, diffusion_hex, vertical_diffusion_e
 
   CONTAINS
 
@@ -1322,6 +1323,69 @@ MODULE mo_nh_diffusion
     ENDIF
 
   END SUBROUTINE diffusion_hex
+!-------------------------------------------------------------------------------------------------
+
+!-------------------------------------------------------------------------------------------------
+  !>
+  !! vertical molecuar diffusion: implicit solver
+  !!
+  !! @par Revision History
+  !! Initial release by Anurag Dipankar, MPIM (2013,Jan)
+  SUBROUTINE  vertical_diffusion_e(p_var,p_metrics,p_patch,dtime,diff_coeff,tendency)
+
+    TYPE(t_patch), TARGET, INTENT(in) :: p_patch      !< single patch
+    REAL(wp),        INTENT(in)       :: p_var(:,:,:) !< input variable
+    TYPE(t_nh_metrics),INTENT(in),TARGET :: p_metrics !< single nh metric state
+    REAL(wp), INTENT(in)             :: dtime      !< time step
+    REAL(wp), INTENT(in)             :: diff_coeff !< constant diffusion coefficient
+    REAL(wp), INTENT(out)            :: tendency(:,:,:)
+
+    !Local variables
+    REAL(wp) :: tdma_coeff(4,p_patch%nlev)
+    INTEGER  :: jb, je, jk, rl_start, rl_end, i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
+
+    i_nchdom   = MAX(1,p_patch%n_childdom)
+
+!$OMP PARALLEL PRIVATE(rl_start, rl_end, i_startblk, i_endblk)
+    rl_start = grf_bdywidth_e+1
+    rl_end = min_rledge_int
+
+    i_startblk = p_patch%edges%start_blk(rl_start,1)
+    i_endblk   = p_patch%edges%end_blk(rl_end,i_nchdom)
+
+ !$OMP DO PRIVATE(jb, jk, je, i_startidx, i_endidx) ICON_OMP_DEFAULT_SCHEDULE
+    DO jb = i_startblk, i_endblk
+
+      CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
+                         i_startidx, i_endidx, rl_start, rl_end)
+       DO je = i_startidx, i_endidx 
+
+        DO jk = 1, p_patch%nlev
+          !k-1
+          tdma_coeff(1,jk) = - diff_coeff * dtime  /      &
+              ( p_metrics%ddqz_z_full_e(je,jk,jb) * p_metrics%ddqz_z_half(je,jk,jb) )
+
+          !k+1
+          tdma_coeff(3,jk) = - diff_coeff * dtime  /      &
+              ( p_metrics%ddqz_z_full_e(je,jk,jb) * p_metrics%ddqz_z_half(je,jk+1,jb) )
+
+          !k
+          tdma_coeff(2,jk) = 1._wp - tdma_coeff(1,jk) - tdma_coeff(3,jk)
+
+          tdma_coeff(4,jk) = p_var(je,jk,jb)
+        END DO 
+
+        !TDMA solver
+        tendency(je,:,jb) = ( tdma_solver(tdma_coeff(1,:), tdma_coeff(2,:), tdma_coeff(3,:),  &
+                                          tdma_coeff(4,:), p_patch%nlev) - p_var(je,:,jb) ) / dtime
+       END DO
+    END DO  
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+
+  END SUBROUTINE vertical_diffusion_e
+!-------------------------------------------------------------------------------------------------
+
 
 END MODULE mo_nh_diffusion
 
