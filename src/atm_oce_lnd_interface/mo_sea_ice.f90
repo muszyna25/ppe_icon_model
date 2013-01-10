@@ -1043,20 +1043,20 @@ CONTAINS
             &   nonsolar,       & 
             &   dnonsolardT,    &
             &   Tfw)
-!    ELSE IF ( i_therm_model == 2 .OR. i_therm_model == 3 ) THEN
-!      CALL set_ice_temp_zerolayer(i_startidx_c, i_endidx_c, nbdim, kice, SWdim, i_therm_model, &
-!            &   isice,          & 
-!            &   Tsurf,          & 
-!            &   hi,             & 
-!            &   hs,             & 
-!            &   Qtop,           & 
-!            &   Qbot,           & 
-!            &   SWin,           & 
-!            &   alb,            & 
-!            &   nonsolar,       & 
-!            &   dnonsolardT,    &
-!            &   Tfw,            &
-!            &   doy)
+    ELSE IF ( i_therm_model == 2 .OR. i_therm_model == 3 ) THEN
+      CALL set_ice_temp_zerolayer(i_startidx_c, i_endidx_c, nbdim, kice, SWdim, i_therm_model, &
+            &   isice,          & 
+            &   Tsurf,          & 
+            &   hi,             & 
+            &   hs,             & 
+            &   Qtop,           & 
+            &   Qbot,           & 
+            &   SWin,           & 
+            &   alb,            & 
+            &   nonsolar,       & 
+            &   dnonsolardT,    &
+            &   Tfw,            &
+            &   doy)
     END IF
 
    END SUBROUTINE ice_fast

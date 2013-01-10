@@ -90,15 +90,36 @@ CONTAINS
   !! @par Revision History
   !! Initial release by Achim Randelhoff
 
-  SUBROUTINE set_ice_temp_zerolayer(p_patch,ice, Tfw, Qatm, doy) 
-    TYPE(t_patch),        INTENT(IN),TARGET    :: p_patch 
-    TYPE(t_sea_ice),      INTENT(INOUT)        :: ice
-    REAL(wp),             INTENT(IN)           :: Tfw(:,:,:)
-    TYPE(t_atmos_fluxes), INTENT(IN)           :: Qatm
-    INTEGER,              INTENT(IN)           :: doy
+  SUBROUTINE set_ice_temp_zerolayer(i_startidx_c, i_endidx_c, nbdim, kice, SWdim, i_therm_model, &
+            &   isice,          & 
+            &   Tsurf,          & 
+            &   hi,             & 
+            &   hs,             & 
+            &   Qtop,           & 
+            &   Qbot,           & 
+            &   SWin,           & 
+            &   alb,            & 
+            &   nonsolar,       & 
+            &   dnonsolardT,    &
+            &   Tfw,            &
+            &   doy)
+
+    INTEGER, INTENT(IN)    :: i_startidx_c, i_endidx_c, nbdim, kice, SWdim, i_therm_model
+    LOGICAL, INTENT(IN)    :: isice      (nbdim,kice)
+    REAL(wp),INTENT(INOUT) :: Tsurf      (nbdim,kice)
+    REAL(wp),INTENT(IN)    :: hi         (nbdim,kice)
+    REAL(wp),INTENT(IN)    :: hs         (nbdim,kice)
+    REAL(wp),INTENT(OUT)   :: Qtop       (nbdim,kice)
+    REAL(wp),INTENT(OUT)   :: Qbot       (nbdim,kice)
+    REAL(wp),INTENT(IN)    :: SWin       (nbdim,SWdim)
+    REAL(wp),INTENT(IN)    :: alb        (nbdim,kice,SWdim)
+    REAL(wp),INTENT(IN)    :: nonsolar   (nbdim,kice)
+    REAL(wp),INTENT(IN)    :: dnonsolardT(nbdim,kice)
+    REAL(wp),INTENT(IN)    :: Tfw        (nbdim,kice)
+    INTEGER, INTENT(IN)    :: doy
 
     ! Local variables
-    REAL(wp), DIMENSION (nproma,ice%kice, p_patch%nblks_c) ::          &
+    REAL(wp) ::        &
       & k_effective ,  &  ! total heat conductivity of ice/snow
       & deltaT      ,  &  ! temperature increment 
       & F_A         ,  &  ! atmospheric net flux, positive=upward
@@ -106,11 +127,9 @@ CONTAINS
       & deltaTdenominator     ! prefactor of deltaT in sfc. flux
                               ! balance
     
-    TYPE(t_subset_range), POINTER :: all_cells
-
     REAL(wp) :: one_minus_I_0 ! 1.0 - I_0 for use with SWin
 
-    INTEGER :: k, jb, jc, i_startidx_c, i_endidx_c    ! loop indices
+    INTEGER :: k, jc ! loop indices
 
     
 
@@ -119,101 +138,86 @@ CONTAINS
     ice%Qtop(:,:,:) = 0._wp
 
     ! --- initialization
-    all_cells => p_patch%cells%all 
-    k_effective(:,:,:) = 0.0_wp
-    deltaT     (:,:,:) = 0.0_wp
-    F_A        (:,:,:) = 0.0_wp
-    F_S        (:,:,:) = 0.0_wp   
-    deltaTdenominator (:,:,:) = 1.0_wp
+    Qbot(:,:) = 0._wp
+    Qtop(:,:) = 0._wp
     one_minus_I_0 = 1.0_wp
 
-    DO jb = 1,p_patch%nblks_c
-      CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c) 
-      DO k=1,ice%kice
-        DO jc = i_startidx_c,i_endidx_c
-          IF (ice%isice(jc,k,jb)) THEN
-            
-            ! --- total heat conductivity for the ice-snow system
-            k_effective(jc,k,jb) = ki*ks/(ks*ice%hi(jc,k,jb) + ki*ice%hs(jc,k,jb))
+    DO k=1,kice
+      DO jc = i_startidx_c,i_endidx_c
+        IF (isice(jc,k)) THEN
+          
+          ! --- total heat conductivity for the ice-snow system
+          k_effective = ki*ks/(ks*hi(jc,k) + ki*hs(jc,k))
 
 ! --- calculate (1-I_0)
-            IF (ice%hs(jc,k,jb) > 0.0_wp ) THEN
-              one_minus_I_0=1.0_wp
-            ELSE
-              one_minus_I_0=1.0_wp-I_0
-            END IF
-                    
-            ! --- F_A, F_S : pos=upward flux
-
-            ! F_A: flux ice-atmosphere
-            IF (i_sea_ice == 2) THEN
-              F_A(jc,k,jb) = - Qatm%LWnet(jc,k,jb) &
-                &            - (1.0_wp - ice%alb(jc,k,jb))* one_minus_I_0 * Qatm%SWin(jc,jb) &
-                &            - Qatm%sens(jc,k,jb) - Qatm%lat(jc,k,jb)
-            ELSE IF (i_sea_ice ==3) THEN
-              ! #achim: first draft: hard-coding simpler form of
-              ! atmospheric fluxes (from Dirk's thesis, p.193)
-              !
-              ! atm. flx = LWout - (LWin, sens, lat) - SWin
-              F_A(:,:,:) =   zemiss_def * StBo * (ice%Tsurf(:,:,:) +tmelt)**4   &
-                &            - ( 118.0_wp * EXP(-0.5_wp*((doy-206)/53.1_wp)**2) + 179.0_wp ) &
-                &            - 314.0_wp * EXP(-0.5_wp*((doy-164)/47.9_wp)**2)  & !SW, NO 1-I_0 factor
-                &                * ( 0.431_wp / (1.0_wp+((doy-207)/44.5_wp)**2) - 0.086_wp)!1-albedo
-            END IF
-
-            ! F_S conductive heat flux through the ice
-            F_S(jc,k,jb) = k_effective(jc,k,jb) * (Tfw(jc,k,jb) - ice%Tsurf(jc,k,jb))  
-
-
-
-            IF (i_sea_ice == 2 ) THEN
-              deltaTdenominator(jc,k,jb) = k_effective (jc,k,jb) &
-                &                        - Qatm%  dLWdT(jc,k,jb) &
-                &                        - Qatm%dsensdT(jc,k,jb) &
-                &                        - Qatm% dlatdT(jc,k,jb)
-            ELSE IF (i_sea_ice == 3) THEN
-              ! dLWdT is missing!
-              deltaTdenominator(jc,k,jb) =   k_effective(jc,k,jb) &
-                &              + 4.0_wp*zemiss_def*StBo*(ice%Tsurf(jc,k,jb)+tmelt)**3
-            END IF
-
-            ! --- temperature increment
-            deltaT(jc,k,jb) = (F_S(jc,k,jb) - F_A(jc,k,jb))&
-              &               / deltaTdenominator(jc,k,jb)
-
-
-            ! --- ice temperatures over 0 deg C impossible:
-            IF (ice%Tsurf(jc,k,jb) + deltaT(jc,k,jb) > 0.0_wp) THEN  ! if new temperature would be over 0 deg C
-              deltaT(jc,k,jb) = -ice%Tsurf(jc,k,jb) 
-              ice% Tsurf(jc,k,jb) = 0.0_wp
-              
-              ! pos. flux means into uppermost ice layer
-              ice%Qtop(jc,k,jb) = - F_A(jc,k,jb) + F_S(jc,k,jb) &
-                &               - deltaT(jc,k,jb) * deltaTdenominator(jc,k,jb)
-
-              ! pos. flux means into lowest ice layer
-              ice%Qbot(jc,k,jb) = - F_S(jc,k,jb) -  deltaT(jc,k,jb) * k_effective(jc,k,jb)
-              ! NB: flux from ocean to ice still missing, this is done in
-              !                       ice_growth_zerolayer
-
-
-            ELSE   ! if new temperature is less than 0 deg C, then we can achieve F_A=F_S just as we wanted
-              ! new surface temperature
-              ice%Tsurf(jc,k,jb) = ice%Tsurf(jc,k,jb) + deltaT(jc,k,jb)
-              
-              ! surface flux balanced:
-              ice%Qtop(jc,k,jb) = 0.0_wp
-              
-              ! pos. flux means into lowest ice layer
-              ice%Qbot(jc,k,jb) =  k_effective(jc,k,jb) * (ice%Tsurf(jc,k,jb) - Tfw(jc,k,jb))
-              !!! ice%Qbot = - new F_S
-              ! NB: flux from ocean to ice still missing, this is done in
-              !                       ice_growth_zerolayer
-              
-            END IF
-
+          IF (hs(jc,k) > 0.0_wp ) THEN
+            one_minus_I_0=1.0_wp
+          ELSE
+            one_minus_I_0=1.0_wp-I_0
           END IF
-        END DO
+                  
+          ! --- F_A, F_S : pos=upward flux
+
+          ! F_A: flux ice-atmosphere
+          IF (i_therm_model == 2) THEN
+            F_A = - nonsolar(jc,k) - SUM( (1.0_wp - alb(jc,k,:)) * SWin(jc,:) )* one_minus_I_0
+          ELSE IF (i_therm_model ==3) THEN
+            ! #achim: first draft: hard-coding simpler form of
+            ! atmospheric fluxes (from Dirk's thesis, p.193)
+            !
+            ! atm. flx = LWout - (LWin, sens, lat) - SWin
+            F_A =   zemiss_def * StBo * (Tsurf(jc,k) +tmelt)**4   &
+              &            - ( 118.0_wp * EXP(-0.5_wp*((doy-206)/53.1_wp)**2) + 179.0_wp ) &
+              &            - 314.0_wp * EXP(-0.5_wp*((doy-164)/47.9_wp)**2)  & !SW, NO 1-I_0 factor
+              &                * ( 0.431_wp / (1.0_wp+((doy-207)/44.5_wp)**2) - 0.086_wp)!1-albedo
+          END IF
+
+          ! F_S conductive heat flux through the ice
+          F_S = k_effective * (Tfw(jc,k) - Tsurf(jc,k))  
+
+
+
+          IF (i_therm_model == 2 ) THEN
+            deltaTdenominator = k_effective  - dnonsolardT(jc,k)
+          ELSE IF (i_therm_model == 3) THEN
+            ! dLWdT is missing!
+            deltaTdenominator = k_effective + 4.0_wp*zemiss_def*StBo*(Tsurf(jc,k)+tmelt)**3
+          END IF
+
+          ! --- temperature increment
+          deltaT = (F_S - F_A) / deltaTdenominator
+
+
+          ! --- ice temperatures over 0 deg C impossible:
+          IF (Tsurf(jc,k) + deltaT > 0.0_wp) THEN  ! if new temperature would be over 0 deg C
+            deltaT = -Tsurf(jc,k) 
+             Tsurf(jc,k) = 0.0_wp
+            
+            ! pos. flux means into uppermost ice layer
+            Qtop(jc,k) = - F_A + F_S - deltaT * deltaTdenominator
+
+            ! pos. flux means into lowest ice layer
+            Qbot(jc,k) = - F_S -  deltaT * k_effective
+            ! NB: flux from ocean to ice still missing, this is done in
+            !                       ice_growth_zerolayer
+
+
+          ELSE   ! if new temperature is less than 0 deg C, then we can achieve F_A=F_S just as we wanted
+            ! new surface temperature
+            Tsurf(jc,k) = Tsurf(jc,k) + deltaT
+            
+            ! surface flux balanced:
+            Qtop(jc,k) = 0.0_wp
+            
+            ! pos. flux means into lowest ice layer
+            Qbot(jc,k) =  k_effective * (Tsurf(jc,k) - Tfw(jc,k))
+            !!! ice%Qbot = - new F_S
+            ! NB: flux from ocean to ice still missing, this is done in
+            !                       ice_growth_zerolayer
+            
+          END IF
+
+        END IF
       END DO
     END DO
 
