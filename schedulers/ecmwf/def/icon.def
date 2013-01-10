@@ -27,11 +27,12 @@ setenv -i HOST
 setenv -i TMPDIR
 
 # global definitions:
-set EXPNUM        "004"                #---experiment number---
+set EXPNUM        "013"                #---experiment number---
 set EXPNUM2       "004"                #---experiment number used for score comparison---
 set SUITE2        "dei2"               #---suite             used for score comparison---
-set FIRST_DATE    20120701
+set FIRST_DATE    20120101
 set LAST_DATE     20120731
+set MONTHS        201201_201207        #---months to be run e.g. 201201_201207
 set ICON_HOME     /home/ms/de/deia 
 set ICON_ID       deia 
 
@@ -194,6 +195,7 @@ suite $USER
     edit SCTEMP     $SCTEMP
     edit ECTEMP     $ECTEMP
     edit SCSOFT     $SCSOFT
+    edit MONTHS     $MONTHS
 
     edit ICONNODES        $ICONNODES        
     edit ICONTASKSPERNODE $ICONTASKSPERNODE 
@@ -217,15 +219,23 @@ suite $USER
 
         extern /ifs_trigger/fct_ifs
 
+        task testday
+            on_ecgate
+            event time_eom
+            event time_domonth
+
         task setup
            #time 06:00                                  # use this for tasks running daily (not catch-up mode)
-            trigger  /ifs_trigger/fct_ifs == complete
+           #trigger  (/ifs_trigger/fct_ifs == complete)
+            trigger   testday:time_domonth
+            complete (testday==complete) and not (testday:time_domonth)
             on_ecgate
             event enable_build
             event enable_dumpstate
 
         family build
             trigger (setup == complete) and (../once == complete)
+            complete (testday==complete) and not (testday:time_domonth)
 
             task init_svn
                 complete ($ENABLE_INIT_SVN == 0) or ($ENABLE_INIT == 0) or \
@@ -261,7 +271,7 @@ suite $USER
 
         task get_data
             trigger (setup == complete) and (../once == complete)
-            complete ($ENABLE_GET_DATA == 0)
+            complete ($ENABLE_GET_DATA == 0) or (testday==complete) and not (testday:time_domonth)
             on_hpc_parallel
             edit SCJOBTYPE    parallel
             edit SCJOBCLASS   np
@@ -272,7 +282,7 @@ suite $USER
 
         task init_data
             trigger (get_data == complete) and (build == complete)
-            complete ($ENABLE_INIT_DATA == 0)
+            complete ($ENABLE_INIT_DATA == 0) or (testday==complete) and not (testday:time_domonth)
             on_hpc_parallel
             edit SCJOBTYPE    parallel
             edit SCJOBCLASS   np
@@ -290,7 +300,14 @@ suite $USER
         trigger (init:YMD gt forecast:YMD) and (forecast:YMD le ( post:YMD + 2 ))
         complete ($ENABLE_FORECAST == 0)
 
+        task testday
+            on_ecgate
+            event time_eom
+            event time_domonth
+
         family prepare
+            trigger  (testday==complete)
+            complete (testday==complete) and not (testday:time_domonth)
             task pre_clean
                 on_hpc_serial
                 edit SCWALLCLOCKLIMIT 00:20:00
@@ -307,7 +324,7 @@ suite $USER
 
         task model
             trigger (prepare == complete)
-            complete ($ENABLE_MODEL == 0)
+            complete ($ENABLE_MODEL == 0) or (testday==complete) and not (testday:time_domonth)
             on_hpc_parallel
             edit SCWALLCLOCKLIMIT 02:00:00
             event model_complete
@@ -317,7 +334,7 @@ suite $USER
 
         task check_progress
             trigger (model == active)
-            complete (model == complete)
+            complete (model == complete) or (testday==complete) and not (testday:time_domonth)
             on_hpc_serial
             edit SCWALLCLOCKLIMIT 02:00:00
             meter timesteps 0 $NSTEPS $NSTEPS
@@ -334,19 +351,26 @@ suite $USER
         #trigger (../forecast/model:model_complete)
         complete ($ENABLE_POST == 0)
 
+        task testday
+            on_ecgate
+            event time_eom
+            event time_domonth
+
         task post_prepare   
+            trigger  (testday==complete)
+            complete (testday==complete) and not (testday:time_domonth)
             on_hpc_serial
             edit SCWALLCLOCKLIMIT 00:40:00
             event meteogram_data
    
         task meteogram
             trigger (post_prepare:meteogram_data)
-            complete ($ENABLE_METEOGRAM == 0)
+            complete ($ENABLE_METEOGRAM == 0) or (testday==complete) and not (testday:time_domonth)
             on_ecgate_submit_old
    
         family metview_all 
           trigger (post_prepare == complete)
-          complete ($ENABLE_POST_METVIEW == 0)
+          complete ($ENABLE_POST_METVIEW == 0) or (testday==complete) and not (testday:time_domonth)
           for set 1 4 ; do
             set tsk `printf %3.3i $set`
             family $tsk
@@ -359,7 +383,7 @@ suite $USER
 
         task post_archive
             trigger meteogram==complete and metview_all==complete 
-            complete ($ENABLE_POST_ARCHIVE == 0)
+            complete ($ENABLE_POST_ARCHIVE == 0) or (testday==complete) and not (testday:time_domonth)
             on_ecgate_submit
     endfamily
 
@@ -373,15 +397,16 @@ suite $USER
         task testday
             on_ecgate
             event time_eom
+            event time_domonth
 
         task eom_data2dwd
-            trigger testday:time_eom
-            complete (testday==complete) and not (testday:time_eom)
+            trigger   testday==complete
+            complete (testday==complete) and (not (testday:time_eom) or not (testday:time_domonth))
             on_ecgate_submit
 
         task eom_prepare  
-            trigger testday:time_eom
-            complete (testday==complete) and not (testday:time_eom)
+            trigger   testday==complete
+            complete (testday==complete) and (not (testday:time_eom) or not (testday:time_domonth))
             on_hpc_serial
             edit SCWALLCLOCKLIMIT 24:00:00
             meter ecget     0 31 31
@@ -394,13 +419,13 @@ suite $USER
             event cpdata
 
         task eom_getmars
-            trigger testday:time_eom
-            complete (testday==complete) and not (testday:time_eom)
+            trigger   testday==complete
+            complete (testday==complete) and (not (testday:time_eom) or not (testday:time_domonth))
             on_ecgate_submit
 
         family eom_metview_all 
             trigger (eom_prepare == complete) and (eom_getmars == complete)
-            complete (testday==complete) and not (testday:time_eom)
+            complete (testday==complete) and (not (testday:time_eom) or not (testday:time_domonth))
             for set 1 5 ; do
                set tsk `printf %3.3i $set`
                family $tsk
@@ -413,7 +438,7 @@ suite $USER
 
         task eom_archive
             trigger eom_metview_all==complete
-            complete (testday==complete) and not (testday:time_eom)
+            complete (testday==complete) and (not (testday:time_eom) or not (testday:time_domonth))
             on_ecgate_submit
    
     endfamily
