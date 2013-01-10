@@ -3907,7 +3907,7 @@ Defined and used in: src/namelists/mo\_radiation\_nml.f90
 %------------------------------------------------------------------------------
 % nwp_lnd_nml:
 %------------------------------------------------------------------------------
-\subsection{nwp\_lnd\_nml}
+\subsection{lnd\_nml}
 
 \begin{longtab}
 
@@ -4006,9 +4006,43 @@ L&
 .TRUE. for use of lake model&
 \tabularnewline
 \hline
+sstice\_mode &
+I&
+1&
+&
+1: SST and sea ice fraction are read from the analysis and kept constant. The 
+sea ice fraction can be modified by the seaice model.\\
+2: SST and sea ice fraction are updated daily, based on climatological monthly 
+means\\
+3: SST and sea ice fraction are updated daily, based on actual monthly means\\
+4: SST and sea ice fraction are updated daily, based on actual daily means, 
+not yet implemented&
+iequations=3\\
+iforcing=3
+\tabularnewline
+\hline
+sst\_td\_filename &
+C&
+&
+&
+Filename of SST input files for time dependent SST. 
+Default is "<path>SST\_<year>\_<month>\_<gridfile>". May contain the 
+keyword <path> which will be substituted by model\_base\_dir&
+sstice\_mode=2,3
+\tabularnewline
+\hline
+ci\_td\_filename &
+C&
+&
+&
+Filename of sea ice fraction input files for time dependent sea ice fraction. 
+Default is "<path>CI\_<year>\_<month>\_<gridfile>". May contain 
+the keyword <path> which will be substituted by model\_base\_dir&
+sstice\_mode=2,3
+\tabularnewline
 \end{longtab}
 
-Defined and used in: src/namelists/mo\_nwp\_lnd\_nml.f90
+Defined and used in: src/namelists/mo\_lnd\_nwp\_nml.f90
 
 
 %------------------------------ switches for ECHAM physics 
