@@ -2320,11 +2320,12 @@ CONTAINS
   !!       d - right part
   !!       x - the answer
   !!       n - number of equations
-  PURE FUNCTION tdma_solver(a,b,c,d,n) RESULT(varout)
+  SUBROUTINE tdma_solver(a,b,c,d,n,varout) 
        INTEGER, INTENT(in) :: n
        REAL(wp),DIMENSION(n),INTENT(in)  :: a,b,c,d
+       REAL(wp),DIMENSION(n),INTENT(out) :: varout
 
-       REAL(wp):: m, varout(n), cp(n), dp(n)
+       REAL(wp):: m, cp(n), dp(n)
        INTEGER :: i
  
 ! initialize c-prime and d-prime
@@ -2343,7 +2344,7 @@ CONTAINS
           varout(i) = dp(i)-cp(i)*varout(i+1)
         end do
  
-    END FUNCTION tdma_solver
+    END SUBROUTINE tdma_solver
   !-------------------------------------------------------------------------
 
 

@@ -1327,61 +1327,111 @@ MODULE mo_nh_diffusion
 
 !-------------------------------------------------------------------------------------------------
   !>
-  !! vertical molecuar diffusion: implicit solver
+  !! vertical molecuar diffusion: implicit solver of following format
+  !! a*x(i-1) + b*x(i) + c*x(i+1) = d
   !!
   !! @par Revision History
   !! Initial release by Anurag Dipankar, MPIM (2013,Jan)
-  SUBROUTINE  vertical_diffusion_e(p_var,p_metrics,p_patch,dtime,diff_coeff,tendency)
+  SUBROUTINE  vertical_diffusion_e(p_var,p_metrics,p_patch,dtime,diff_coeff,   &
+                                   surface_flux, surface_value, top_flux, top_value) !optional
 
     TYPE(t_patch), TARGET, INTENT(in) :: p_patch      !< single patch
-    REAL(wp),        INTENT(in)       :: p_var(:,:,:) !< input variable
+    REAL(wp),        INTENT(inout)    :: p_var(:,:,:) !< input variable
     TYPE(t_nh_metrics),INTENT(in),TARGET :: p_metrics !< single nh metric state
     REAL(wp), INTENT(in)             :: dtime      !< time step
     REAL(wp), INTENT(in)             :: diff_coeff !< constant diffusion coefficient
-    REAL(wp), INTENT(out)            :: tendency(:,:,:)
+    REAL(wp), OPTIONAL, INTENT(in)   :: surface_flux(:,:), surface_value(:,:)
+    REAL(wp), OPTIONAL, INTENT(in)   :: top_flux(:,:), top_value(:,:)
 
     !Local variables
-    REAL(wp) :: tdma_coeff(4,p_patch%nlev)
-    INTEGER  :: jb, je, jk, rl_start, rl_end, i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
+    REAL(wp), DIMENSION(nproma,p_patch%nlev) :: a, b, c, d
+    REAL(wp), DIMENSION(nproma) :: vart, vars
+    INTEGER  :: jb, je, jk, rl_start, rl_end, i_startblk, i_endblk, &
+                i_startidx, i_endidx, i_nchdom, nlev
 
+    nlev       = p_patch%nlev
     i_nchdom   = MAX(1,p_patch%n_childdom)
 
-!$OMP PARALLEL PRIVATE(rl_start, rl_end, i_startblk, i_endblk)
     rl_start = grf_bdywidth_e+1
-    rl_end = min_rledge_int
+    rl_end   = min_rledge
 
     i_startblk = p_patch%edges%start_blk(rl_start,1)
     i_endblk   = p_patch%edges%end_blk(rl_end,i_nchdom)
 
- !$OMP DO PRIVATE(jb, jk, je, i_startidx, i_endidx) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
                          i_startidx, i_endidx, rl_start, rl_end)
-       DO je = i_startidx, i_endidx 
 
-        DO jk = 1, p_patch%nlev
-          !k-1
-          tdma_coeff(1,jk) = - diff_coeff * dtime  /      &
-              ( p_metrics%ddqz_z_full_e(je,jk,jb) * p_metrics%ddqz_z_half(je,jk,jb) )
+        !Boundary conditions: top
+        jk = 1
+        IF(present(top_flux)) &
+           vart(i_startidx:i_endidx) = p_var(i_startidx:i_endidx,jk,jb) + &
+                        top_flux(i_startidx:i_endidx,jb) *  &
+                        p_metrics%ddqz_z_half_e(i_startidx:i_endidx,jk,jb) * 0.5_wp / diff_coeff              
 
-          !k+1
-          tdma_coeff(3,jk) = - diff_coeff * dtime  /      &
-              ( p_metrics%ddqz_z_full_e(je,jk,jb) * p_metrics%ddqz_z_half(je,jk+1,jb) )
+        IF(present(top_value)) &
+           vart(i_startidx:i_endidx) = top_value(i_startidx:i_endidx,jb)
 
-          !k
-          tdma_coeff(2,jk) = 1._wp - tdma_coeff(1,jk) - tdma_coeff(3,jk)
+        !tdma coeffs         
+        a(i_startidx:i_endidx,jk) = - 2._wp * diff_coeff * dtime  /       &
+               ( p_metrics%ddqz_z_full_e(i_startidx:i_endidx,jk,jb) *     &
+                 p_metrics%ddqz_z_half(i_startidx:i_endidx,jk,jb) )
 
-          tdma_coeff(4,jk) = p_var(je,jk,jb)
+        c(i_startidx:i_endidx,jk) = - diff_coeff * dtime  / &
+              ( p_metrics%ddqz_z_full_e(i_startidx:i_endidx,jk,jb) *      &
+                p_metrics%ddqz_z_half_e(i_startidx:i_endidx,jk+1,jb) )
+
+        b(i_startidx:i_endidx,jk) = 1._wp - a(i_startidx:i_endidx,jk) - c(i_startidx:i_endidx,jk)
+        d(i_startidx:i_endidx,jk) = p_var(i_startidx:i_endidx,jk,jb) - a(i_startidx:i_endidx,jk) * &
+                                    vart(i_startidx:i_endidx)
+        a(i_startidx:i_endidx,jk) = 0._wp
+
+        DO jk = 2 , nlev-1
+          a(i_startidx:i_endidx,jk) = - diff_coeff * dtime  /        &
+              ( p_metrics%ddqz_z_full_e(i_startidx:i_endidx,jk,jb) * &
+               p_metrics%ddqz_z_half(i_startidx:i_endidx,jk,jb) )
+
+          c(i_startidx:i_endidx,jk) = - diff_coeff * dtime  /        &
+              ( p_metrics%ddqz_z_full_e(i_startidx:i_endidx,jk,jb) * &
+                p_metrics%ddqz_z_half_e(i_startidx:i_endidx,jk+1,jb) )
+
+          b(i_startidx:i_endidx,jk) = 1._wp - a(i_startidx:i_endidx,jk) - c(i_startidx:i_endidx,jk)
+
+          d(i_startidx:i_endidx,jk) = p_var(i_startidx:i_endidx,jk,jb)
         END DO 
 
+        !Boundary conditions: surface
+        jk = nlev
+        IF(present(surface_flux)) &
+           vars(i_startidx:i_endidx) = p_var(i_startidx:i_endidx,jk,jb) -      &
+                                       surface_flux(i_startidx:i_endidx,jb) *  &
+                                       p_metrics%ddqz_z_half_e(i_startidx:i_endidx,jk+1,jb) * &
+                                       0.5_wp / diff_coeff              
+
+        IF(present(surface_value)) &
+           vars(i_startidx:i_endidx) = surface_value(i_startidx:i_endidx,jb)
+
+        !modify tdma coeffs
+        a(i_startidx:i_endidx,jk) = - diff_coeff * dtime  /        &
+            ( p_metrics%ddqz_z_full_e(i_startidx:i_endidx,jk,jb) * &
+              p_metrics%ddqz_z_half(i_startidx:i_endidx,jk,jb) )
+
+        c(i_startidx:i_endidx,jk) = - 2._wp * diff_coeff * dtime  /      &
+            ( p_metrics%ddqz_z_full_e(i_startidx:i_endidx,jk,jb) *       &
+              p_metrics%ddqz_z_half_e(i_startidx:i_endidx,jk+1,jb) )
+
+        b(i_startidx:i_endidx,jk) = 1._wp - a(i_startidx:i_endidx,jk) - c(i_startidx:i_endidx,jk)
+        d(i_startidx:i_endidx,jk) = p_var(i_startidx:i_endidx,jk,jb) - c(i_startidx:i_endidx,jk) * &
+                                    vars(i_startidx:i_endidx)
+        c(i_startidx:i_endidx,jk) = 0._wp
+       
         !TDMA solver
-        tendency(je,:,jb) = ( tdma_solver(tdma_coeff(1,:), tdma_coeff(2,:), tdma_coeff(3,:),  &
-                                          tdma_coeff(4,:), p_patch%nlev) - p_var(je,:,jb) ) / dtime
-       END DO
+        DO je = i_startidx, i_endidx 
+            CALL tdma_solver( a(je,:),b(je,:),c(je,:),d(je,:),nlev,p_var(je,:,jb) )
+        END DO
+
     END DO  
-!$OMP END DO NOWAIT
-!$OMP END PARALLEL
 
   END SUBROUTINE vertical_diffusion_e
 !-------------------------------------------------------------------------------------------------
