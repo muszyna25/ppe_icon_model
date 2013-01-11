@@ -20,7 +20,7 @@
 
 # -------------------------------------------------
 
-#module swap fortran fortran/xlf/14.1.0.0
+module swap fortran fortran/xlf/14.1.0.2
 
 echo "INIT_BUILD.SMS"
 
