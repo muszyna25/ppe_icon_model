@@ -474,13 +474,13 @@ CONTAINS
     CASE ( TASK_INIT_VER_P )
       IF (dbg_level >= 10)  CALL message(routine, "TASK_INIT_VER_P")
       CALL prepare_vert_interp_p(p_patch, p_diag, p_metrics, intp_hrz, nplev,          &
-        &                        p_diag_pz%p_geopot, p_diag_pz%p_temp,                 &
+        &                        p_diag_pz%p_gh, p_diag_pz%p_temp,                     &
         &                        nh_pzlev_config%p3d, p_diag_pz%vcoeff_p)
       !
     CASE ( TASK_INIT_VER_I )
       IF (dbg_level >= 10)  CALL message(routine, "TASK_INIT_VER_I")
       CALL prepare_vert_interp_i(p_patch, p_prog, p_diag, p_metrics, intp_hrz, nilev,  &
-        &                        p_diag_pz%i_geopot, p_diag_pz%i_temp,                 &
+        &                        p_diag_pz%i_gh, p_diag_pz%i_temp,                     &
         &                        nh_pzlev_config%i3d, p_diag_pz%vcoeff_i)
       !
     CASE ( TASK_FINALIZE_IPZ )
@@ -581,14 +581,14 @@ CONTAINS
       ! vertical levels for p-level interpolation
       n_ipzlev  =  nh_pzlev_config%nplev
       vcoeff  =>  p_diag_pz%vcoeff_p
-      p_z3d   =>  p_diag_pz%p_geopot
+      p_z3d   =>  p_diag_pz%p_gh
       p_pres  =>  nh_pzlev_config%p3d
       p_temp  =>  p_diag_pz%p_temp
     CASE ( TASK_INTP_VER_ILEV )
       ! vertical levels for isentropic-level interpolation
       n_ipzlev  =   nh_pzlev_config%nilev
       vcoeff  =>  p_diag_pz%vcoeff_i
-      p_z3d   =>  p_diag_pz%i_geopot
+      p_z3d   =>  p_diag_pz%i_gh
       p_pres  =>  nh_pzlev_config%p3d ! ** this still needs to be fixed! we either need i_pres here
       p_temp  =>  p_diag_pz%i_temp    !    or have to turn off the saturation adjustment for theta levels
                                       !    or have to use log-linear interpolation in this case **
