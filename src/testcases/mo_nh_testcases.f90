@@ -108,8 +108,7 @@ MODULE mo_nh_testcases
   USE mo_nh_prog_util,         ONLY: nh_prog_add_random
   USE mo_nh_init_utils,        ONLY: n_flat_level, layer_thickness
   USE mo_grid_geometry_info,   ONLY: planar_torus_geometry
-  USE mo_nh_torus_exp,         ONLY: waveno_x, waveno_y, u0, v0, &
-                                     init_nh_state_prog_advtest 
+  USE mo_nh_torus_exp,         ONLY: sst_cbl, is_dry_cbl, init_nh_state_cbl
   
   IMPLICIT NONE  
   
@@ -163,7 +162,7 @@ MODULE mo_nh_testcases
                             m_height, m_width_x, m_width_y, itype_atmo_ana,  &
                             nlayers_poly, p_base_poly, h_poly, t_poly,       &
                             tgr_poly, rh_poly, rhgr_poly, lshear_dcmip,      &
-                            lcoupled_rho, waveno_x, waveno_y, u0, v0  
+                            lcoupled_rho, sst_cbl, is_dry_cbl
 
   PUBLIC :: read_nh_testcase_namelist, layer_thickness, init_nh_testtopo,    &
     &       init_nh_testcase, n_flat_level, nh_test_name,                    &
@@ -318,11 +317,9 @@ MODULE mo_nh_testcases
     ! for PA test cases:
     lcoupled_rho   = .FALSE.
 
-   ! for 2D wave testcase for flat torus
-    waveno_x   = 1._wp
-    waveno_y   = 1._wp
-    u0         = 0._wp
-    v0         = 0._wp
+    ! for CBL testcase
+    sst_cbl = 300._wp
+    is_dry_cbl = .TRUE.
 
     CALL open_nml(TRIM(filename))
     CALL position_nml ('nh_testcase_nml', status=i_status)
@@ -1216,11 +1213,11 @@ MODULE mo_nh_testcases
         CALL finish(TRIM(routine),'CBL case is only for plane torus!')
 
     DO jg = 1, n_dom
-      CALL init_nh_state_prog_advtest ( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)),  &
+      CALL init_nh_state_cbl ( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)),  &
                       & p_nh_state(jg)%diag, p_int(jg), ext_data(jg), p_nh_state(jg)%metrics )
 
-     ! CALL nh_prog_add_random( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)),   & ! in and out
-     !                         & 0.01_wp, nproma, nlev ) ! input
+      CALL nh_prog_add_random( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)),   & ! in and out
+                              & 0.01_wp, nproma, nlev ) ! input
 
       CALL duplicate_prog_state(p_nh_state(jg)%prog(nnow(jg)),p_nh_state(jg)%prog(nnew(jg)))
     END DO !jg

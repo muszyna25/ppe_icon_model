@@ -69,11 +69,13 @@ MODULE mo_nh_torus_exp
 
   !DEFINED PARAMETERS:
   REAL(wp), PARAMETER :: zp0     = 100000._wp !< surface pressure
-  REAL(wp), PARAMETER :: zt0     = 300._wp    !< temperature 
+  REAL(wp), PARAMETER :: zh0     = 1000._wp   !< height (m) above which temperature increases
+  REAL(wp), PARAMETER :: dtdz    = 0.003_wp   !< lapse rate
 
-  REAL(wp):: waveno_x, waveno_y, u0, v0
+  REAL(wp):: sst_cbl
+  LOGICAL :: is_dry_cbl
 
-  PUBLIC :: init_nh_state_prog_advtest, waveno_x, waveno_y, u0, v0
+  PUBLIC :: init_nh_state_cbl, sst_cbl, is_dry_cbl
 
 !--------------------------------------------------------------------
 
@@ -88,8 +90,8 @@ MODULE mo_nh_torus_exp
   !! @par Revision History
   !!
   !!
-  SUBROUTINE init_nh_state_prog_advtest( ptr_patch, ptr_nh_prog, ptr_nh_diag,  &
-    &                                   ptr_int, ptr_ext_data, p_metrics )
+  SUBROUTINE init_nh_state_cbl( ptr_patch, ptr_nh_prog, ptr_nh_diag,  &
+    &                           ptr_int, ptr_ext_data, p_metrics )
 
     ! INPUT PARAMETERS:
     TYPE(t_patch),TARGET,INTENT(IN) :: &  !< patch on which computation is performed
@@ -104,17 +106,11 @@ MODULE mo_nh_torus_exp
       &  ptr_ext_data
     TYPE(t_nh_metrics), INTENT(IN)      :: p_metrics !< NH metrics state
 
-    TYPE(t_cartesian_coordinates) :: cc_cell, cc_center
-  
-    REAL(wp) :: z_dist, torus_len, torus_ht, rovcp, u_wind, v_wind, decay_width, &
-                zvn1, zvn2, zscale_h
-
-    REAL(wp), ALLOCATABLE :: z_sfc(:,:,:)
-
+    REAL(wp) :: rho_sfc
     INTEGER  :: jc,je,jk,jb,jt,i_startblk,i_startidx,i_endidx   !< loop indices
     INTEGER  :: nblks_c,npromz_c,nblks_e,npromz_e
     INTEGER  :: nlev, nlevp1                   !< number of full and half levels
-    INTEGER  :: nlen, i_rcstartlev, jcn, jbn
+    INTEGER  :: nlen, i_rcstartlev
 
   !-------------------------------------------------------------------------
 
@@ -128,16 +124,8 @@ MODULE mo_nh_torus_exp
     nlev   = ptr_patch%nlev
     nlevp1 = ptr_patch%nlevp1
 
-    ALLOCATE (z_sfc(nproma, 1, nblks_c))
-
     i_rcstartlev = 2
     i_startblk   = ptr_patch%edges%start_blk(i_rcstartlev,1)
-
-    torus_len = ptr_patch%geometry_info%domain_length
-    torus_ht  = ptr_patch%geometry_info%domain_height
-    decay_width = min(torus_len,torus_ht)/10._wp
-
-    zscale_h = rd*zt0/grav
 
     ! topography
     ptr_ext_data%atm%topography_c(:,:) = 0.0_wp
@@ -145,11 +133,8 @@ MODULE mo_nh_torus_exp
     ! init surface pressure
     ptr_nh_diag%pres_sfc(:,:) = zp0
 
-    ! init temperature
-    ptr_nh_diag%temp(:,:,:)   = zt0
+    rho_sfc = zp0 / (rd * sst_cbl)
 
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,nlen)
     DO jb = 1, nblks_c
 
       IF (jb /= nblks_c) THEN
@@ -160,19 +145,17 @@ MODULE mo_nh_torus_exp
  
         DO jk = 1, nlev
 
-         ! compute full level pressure
-         z_sfc(1:nlen,1,jb) = ptr_ext_data%atm%topography_c(1:nlen,jb)
-         ptr_nh_diag%pres(1:nlen,jk,jb) = zp0                                     &
-           &                  * exp(-(p_metrics%z_mc(1:nlen,jk,jb)-z_sfc(1:nlen,1,jb))/zscale_h)
-
-         ! init virtual potential temperature
-         ptr_nh_prog%theta_v(1:nlen,jk,jb) = zt0                                   &
-           & * (p0ref/ptr_nh_diag%pres(1:nlen,jk,jb))**rd_o_cpd
+         ! init virtual potential temperature: keep it lower than sst
+         ! to have upward heat flux for CBL
+         ptr_nh_prog%theta_v(1:nlen,jk,jb) = sst_cbl - 2._wp + &
+                     max(0._wp, (p_metrics%z_mc(1:nlen,jk,jb)-zh0)*dtdz)
 
          ! init density field rho
-         ptr_nh_prog%rho(1:nlen,jk,jb) = ptr_nh_diag%pres(1:nlen,jk,jb)            &
-           &                           / (rd * zt0)
+         ptr_nh_prog%rho(1:nlen,jk,jb) = rho_sfc
 
+         ! compute full level pressure
+         ptr_nh_diag%pres(1:nlen,jk,jb) = ptr_nh_prog%rho(1:nlen,jk,jb) * rd * &
+                                          ptr_nh_prog%theta_v(1:nlen,jk,jb) 
          ! init rhotheta_v
          ptr_nh_prog%rhotheta_v(1:nlen,jk,jb) = ptr_nh_prog%rho(1:nlen,jk,jb)      &
            &                                  * ptr_nh_prog%theta_v(1:nlen,jk,jb)
@@ -182,69 +165,20 @@ MODULE mo_nh_torus_exp
 
         END DO !jk
     ENDDO !jb
-!$OMP END DO 
-!$OMP END PARALLEL
 
- !First model level
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,je,i_startidx,i_endidx,jcn,jbn,cc_cell,z_dist, &
-!$OMP            u_wind,v_wind,zvn1,zvn2) 
-     DO jb = i_startblk, nblks_e
+    !Zero mean wind to avoid Croiolis force and hence mean pressure gradient
+    ptr_nh_prog%vn = 0._wp
+    ptr_nh_prog%w = 0._wp
 
-        CALL get_indices_e(ptr_patch, jb, i_startblk, nblks_e,  &
-                           i_startidx, i_endidx, i_rcstartlev)
+    IF(is_dry_cbl)THEN 
+      ! Tracers set to 0 for DRY case
+      ptr_nh_prog%tracer =  0._wp
+    ELSE
+      CALL finish('mo_nh_torus_exp: init_nh_state_cbl:',  &
+        &      '   moist CBL not implemented yet- Stopping!')
+    END IF 
 
-        DO je = i_startidx, i_endidx
- 
-          !First neighbour
-          jcn  = ptr_patch%edges%cell_idx(je,jb,1)
-          jbn  = ptr_patch%edges%cell_blk(je,jb,1)
-
-          cc_center%x(:) = 0._wp
-          cc_cell = ptr_patch%cells%cartesian_center(jcn,jbn) 
-          z_dist  = plane_torus_distance(cc_center%x,cc_cell%x,ptr_patch%geometry_info)
-
-          u_wind = u0 * (1._wp+exp(-(z_dist/decay_width)**2)) !* sin(waveno_x*cc_cell%x(1))**2)
-          v_wind = v0 * (1._wp+exp(-(z_dist/decay_width)**2)) !* sin(waveno_y*cc_cell%x(2))**2)
-                    
-          zvn1   = u_wind * ptr_patch%edges%primal_normal_cell(je,jb,1)%v1 + &
-                   v_wind * ptr_patch%edges%primal_normal_cell(je,jb,1)%v2
-
-          !Second neighbour
-          jcn  = ptr_patch%edges%cell_idx(je,jb,2)
-          jbn  = ptr_patch%edges%cell_blk(je,jb,2)
-
-          cc_center%x(:) = 0._wp
-          cc_cell = ptr_patch%cells%cartesian_center(jcn,jbn) 
-          z_dist  = plane_torus_distance(cc_center%x,cc_cell%x,ptr_patch%geometry_info)
-
-          u_wind = u0 * (1._wp+exp(-(z_dist/decay_width)**2)) !* sin(waveno_x*cc_cell%x(1))**2)
-          v_wind = v0 * (1._wp+exp(-(z_dist/decay_width)**2)) !* sin(waveno_y*cc_cell%x(2))**2)
-                    
-          zvn2   = u_wind * ptr_patch%edges%primal_normal_cell(je,jb,2)%v1 + &
-                   v_wind * ptr_patch%edges%primal_normal_cell(je,jb,2)%v2
-
-          ! compute normal wind component
-          ptr_nh_prog%vn(je,nlev,jb) = ptr_int%c_lin_e(je,1,jb) * zvn1 + &
-                                       ptr_int%c_lin_e(je,2,jb) * zvn2
-        ENDDO
-      ENDDO
-!$OMP END DO
-!$OMP END PARALLEL
-
-    ! copy to all vertical levels
-    DO jk = nlev-1, 1, -1
-      ptr_nh_prog%vn(:,jk,:) =  ptr_nh_prog%vn(:,nlev,:) !* real(max((jk-20)/10,0))
-    END DO
-
-    !
-    ! initialize vertical velocity field
-    !
-    CALL init_w(ptr_patch, ptr_int, ptr_nh_prog%vn, p_metrics%z_ifc, ptr_nh_prog%w)
-    CALL sync_patch_array(SYNC_C, ptr_patch, ptr_nh_prog%w)
-
-
-  END SUBROUTINE init_nh_state_prog_advtest
+  END SUBROUTINE init_nh_state_cbl
 
 
 !-------------------------------------------------------------------------

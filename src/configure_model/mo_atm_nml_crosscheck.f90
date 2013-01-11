@@ -424,6 +424,21 @@ CONTAINS
         & 'surface scheme must be switched off, when running the APE test')
     ENDIF     
 
+    IF (TRIM(nh_test_name)=='CBL') THEN
+       IF( atm_phy_nwp_config(1)%inwp_gscp       /=0 .OR. & 
+           atm_phy_nwp_config(1)%inwp_convection /=0 .OR. & 
+           atm_phy_nwp_config(1)%inwp_radiation  /=0 .OR. &
+           atm_phy_nwp_config(1)%inwp_cldcover   /=0 .OR. &
+           atm_phy_nwp_config(1)%inwp_satad      /=0 .OR. &
+           atm_phy_nwp_config(1)%inwp_surface    /=0)     &
+            CALL finish(TRIM(routine), 'all physics processes must be turned off for CBL test')
+
+       IF(atm_phy_nwp_config(1)%inwp_turb==0 .OR. atm_phy_nwp_config(1)%inwp_turb>2) &
+            CALL message(TRIM(routine),'WARNING!! inwp_turb is either off or > 2!')
+
+       IF(.NOT.turbdiff_config(jg)%lconst_z0)  &
+            CALL message(TRIM(routine),'WARNING!! roughness length is not homogeneous!')
+    ENDIF     
 
     !--------------------------------------------------------------------
     ! Shallow water
