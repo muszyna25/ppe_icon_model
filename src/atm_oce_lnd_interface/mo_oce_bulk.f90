@@ -143,7 +143,8 @@ CONTAINS
     REAL(wp) :: z_tmin, z_relax, rday1, rday2, dtm1, dsec
     !REAL(wp) :: z_c(nproma,n_zlev,p_patch%nblks_c)
     REAL(wp) :: z_c2(nproma,p_patch%nblks_c)
-    REAL(wp) :: Tfw(nproma,p_ice%kice,p_patch%nblks_c)
+    REAL(wp) :: Tfw(nproma,p_patch%nblks_c)
+    REAL(wp) :: SWnet(nproma,p_ice%kice,p_patch%nblks_c)
 
     ! Local declarations for coupling:
     LOGICAL               :: write_coupler_restart
@@ -515,12 +516,13 @@ CONTAINS
         ENDIF
         
         IF ( no_tracer >= 2 ) THEN
-          DO k=1,p_ice%kice
-            Tfw(:,k,:) = -mu*p_os%p_prog(nold(1))%tracer(:,1,:,2)
-          ENDDO
+          Tfw(:,:) = -mu*p_os%p_prog(nold(1))%tracer(:,1,:,2)
         ELSE
           Tfw = Tf
         ENDIF
+        DO k=1,p_ice%kice
+          SWnet(:,k,:) = Qatm%SWin(:,:)*( 1._wp - p_ice%alb(:,k,:) )
+        ENDDO
 
         DO jb = all_cells%start_block, all_cells%end_block
           CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
@@ -533,10 +535,11 @@ CONTAINS
             &   p_ice% hs   (:,:,jb),   &
             &   p_ice% Qtop (:,:,jb),   &
             &   p_ice% Qbot (:,:,jb),   & 
-            &   Qatm%SWin   (:,  jb),   &
+            &   SWnet       (:,:,jb),   &
             &   Qatm%lat(:,:,jb) + Qatm%sens(:,:,jb) + Qatm%LWnet(:,:,jb),   & 
             &   Qatm%dlatdT(:,:,jb) + Qatm%dsensdT(:,:,jb) + Qatm%dLWdT(:,:,jb),   & 
-            &   Tfw         (:,:,jb),   &
+            &   p_ice%alb   (:,:,jb),   &
+            &   Tfw         (:  ,jb),   &
             &   doy=datetime%yeaday)
         ENDDO
 
@@ -794,12 +797,13 @@ CONTAINS
           Qatm%dLWdT  (:,:,:) = -4.0_wp * zemiss_def*StBo * (p_ice%Tsurf(:,:,:) + tmelt)**3
 
           IF ( no_tracer >= 2 ) THEN
-            DO k=1,p_ice%kice
-              Tfw(:,k,:) = -mu*p_os%p_prog(nold(1))%tracer(:,1,:,2)
-            ENDDO
+            Tfw(:,:) = -mu*p_os%p_prog(nold(1))%tracer(:,1,:,2)
           ELSE
             Tfw = Tf
           ENDIF
+          DO k=1,p_ice%kice
+            SWnet(:,k,:) = Qatm%SWin(:,:)*( 1._wp - p_ice%alb(:,k,:) )
+          ENDDO
 
           ! ice mask can is converted from real to logical here
           CALL prepareAfterRestart(p_ice)
@@ -812,10 +816,11 @@ CONTAINS
             &   p_ice% hs   (:,:,jb),   &
             &   p_ice% Qtop (:,:,jb),   &
             &   p_ice% Qbot (:,:,jb),   & 
-            &   Qatm%SWin   (:,  jb),   &
+            &   SWnet       (:,:,jb),   &
             &   Qatm%lat(:,:,jb) + Qatm%sens(:,:,jb) + Qatm%LWnet(:,:,jb),              & 
             &   Qatm%dlatdT (:,:,jb) + Qatm%dsensdT(:,:,jb) + Qatm%dLWdT  (:,:,jb),     & 
-            &   Tfw         (:,:,jb),   &
+            &   p_ice%alb   (:,:,jb),   &
+            &   Tfw         (:,  jb),   &
             &   doy=datetime%yeaday)
           CALL ice_slow(p_patch, p_os, p_ice, Qatm, p_sfc_flx)
           ! transform ice mask from logical to real for saving it to the restart file

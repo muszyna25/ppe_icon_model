@@ -945,6 +945,7 @@ CONTAINS
           &     .and. v_base%lsm_oce_c(:,1,:) <= sea_boundary )
         ice%hi(:,1,:) = 2._wp
         ice%conc(:,1,:) = 1._wp
+        ice%alb (:,1,:) = albi
       ENDWHERE
       IF ( no_tracer < 2 ) THEN
         WHERE (p_os%p_prog(nold(1))%tracer(:,:,:,1) <= -1.0_wp    &
@@ -984,7 +985,7 @@ CONTAINS
   !! Initial release by Peter Korn, MPI-M (2010-07). Originally code written by
   !! Dirk Notz, following MPI-OM. Code transfered to ICON.
   !!
-  SUBROUTINE ice_fast(i_startidx_c, i_endidx_c, nbdim, kice, SWdim, i_therm_model, &
+  SUBROUTINE ice_fast(i_startidx_c, i_endidx_c, nbdim, kice, albDim, i_therm_model, &
             &   isice,          & ! Mask
             &   Tsurf,          & ! Surface temperature [degC]
             &   T1,             & ! Temperature of upper layer [degC]
@@ -993,14 +994,14 @@ CONTAINS
             &   hs,             & ! Snow thickness
             &   Qtop,           & ! Energy flux available for surface melting [W/m2] 
             &   Qbot,           & ! Energy flux available for bottom melting [W/m2] 
-            &   SWin,           & ! Downwelling shortwave flux [W/m^2]
+            &   SWnet,          & ! Net shortwave flux [W/m^2]
             &   nonsolar,       & ! Latent and sensible heat flux and longwave radiation [W/m^2]
             &   dnonsolardT,    & ! Derivative of non-solar fluxes w.r.t. temperature [W/m^2/K]
-            &   Tfw,            & ! Freezing temperature of the ocean
             &   albedo,         & ! Albedo
+            &   Tfw,            & ! Freezing temperature of the ocean
             &   doy)              ! Day of the year
 
-    INTEGER, INTENT(IN)    :: i_startidx_c, i_endidx_c, nbdim, kice, i_therm_model, SWdim
+    INTEGER, INTENT(IN)    :: i_startidx_c, i_endidx_c, nbdim, kice, i_therm_model, albDim
     LOGICAL, INTENT(IN)    :: isice      (nbdim,kice)
     REAL(wp),INTENT(INOUT) :: Tsurf      (nbdim,kice)
     REAL(wp),INTENT(INOUT) :: T1         (nbdim,kice)
@@ -1009,27 +1010,19 @@ CONTAINS
     REAL(wp),INTENT(IN)    :: hs         (nbdim,kice)
     REAL(wp),INTENT(OUT)   :: Qtop       (nbdim,kice)
     REAL(wp),INTENT(OUT)   :: Qbot       (nbdim,kice)
-    REAL(wp),INTENT(IN)    :: SWin       (nbdim,SWdim)
+    REAL(wp),INTENT(IN)    :: SWnet      (nbdim,kice)
     REAL(wp),INTENT(IN)    :: nonsolar   (nbdim,kice)
     REAL(wp),INTENT(IN)    :: dnonsolardT(nbdim,kice)
-    REAL(wp),INTENT(IN)    :: Tfw        (nbdim,kice)
+    REAL(wp),INTENT(OUT)   :: albedo(nbdim,kice,albDim)
+    REAL(wp),INTENT(IN)    :: Tfw        (nbdim)
 
-    REAL(wp),OPTIONAL,INTENT(OUT) :: albedo(nbdim,kice,SWdim)
     INTEGER, OPTIONAL,INTENT(IN)  :: doy
 
-    ! Local variables
-    REAL(wp) :: alb(nbdim,kice,SWdim)
-
-
     !------------------------------------------------------------------------- 
-    CALL set_ice_albedo(i_startidx_c, i_endidx_c, nbdim, kice, SWdim, isice, Tsurf, hs, alb)
-    IF ( PRESENT(albedo) ) THEN
-      albedo(:,:,:) = alb(:,:,:)
-    ENDIF
     
     ! #achim
     IF ( i_therm_model == 1 ) THEN
-      CALL set_ice_temp_winton(i_startidx_c, i_endidx_c, nbdim, kice, SWdim, &
+      CALL set_ice_temp_winton(i_startidx_c, i_endidx_c, nbdim, kice, &
             &   isice,          & 
             &   Tsurf,          & 
             &   T1,             & 
@@ -1038,26 +1031,26 @@ CONTAINS
             &   hs,             & 
             &   Qtop,           & 
             &   Qbot,           & 
-            &   SWin,           & 
-            &   alb,            & 
+            &   SWnet,          & 
             &   nonsolar,       & 
             &   dnonsolardT,    &
             &   Tfw)
     ELSE IF ( i_therm_model == 2 .OR. i_therm_model == 3 ) THEN
-      CALL set_ice_temp_zerolayer(i_startidx_c, i_endidx_c, nbdim, kice, SWdim, i_therm_model, &
+      CALL set_ice_temp_zerolayer(i_startidx_c, i_endidx_c, nbdim, kice, i_therm_model, &
             &   isice,          & 
             &   Tsurf,          & 
             &   hi,             & 
             &   hs,             & 
             &   Qtop,           & 
             &   Qbot,           & 
-            &   SWin,           & 
-            &   alb,            & 
+            &   SWnet,          & 
             &   nonsolar,       & 
             &   dnonsolardT,    &
             &   Tfw,            &
             &   doy)
     END IF
+
+    CALL set_ice_albedo(i_startidx_c, i_endidx_c, nbdim, kice, albDim, isice, Tsurf, hs, albedo)
 
    END SUBROUTINE ice_fast
   !-------------------------------------------------------------------------------
@@ -1284,22 +1277,23 @@ CONTAINS
   !! Initial release by Peter Korn, MPI-M (2010-07). Originally code written by
   !! Dirk Notz, following MPI-OM. Code transfered to ICON.
   !!
-  SUBROUTINE set_ice_albedo(i_startidx_c, i_endidx_c, nbdim, kice, SWdim, isice, Tsurf, hs, albedo)
-    INTEGER, INTENT(IN)  :: i_startidx_c, i_endidx_c, nbdim, kice, SWdim
+  SUBROUTINE set_ice_albedo(i_startidx_c, i_endidx_c, nbdim, kice, albDim, isice, Tsurf, hs, albedo)
+    INTEGER, INTENT(IN)  :: i_startidx_c, i_endidx_c, nbdim, kice, albDim
     LOGICAL, INTENT(IN)  :: isice(nbdim,kice)
     REAL(wp),INTENT(IN)  :: Tsurf(nbdim,kice)
     REAL(wp),INTENT(IN)  :: hs   (nbdim,kice)
-    REAL(wp),INTENT(OUT) :: albedo(nbdim,kice,SWdim)
+    REAL(wp),INTENT(OUT) :: albedo(nbdim,kice,albDim)
     
     
     !Local variables
     REAL(wp), PARAMETER :: albtrans   = 0.5_wp
-    REAL(wp)            :: albflag(nbdim,kice,SWdim)
+    REAL(wp)            :: albflag(nbdim,kice,albDim)
     INTEGER             :: i,jc,k
     !-------------------------------------------------------------------------------
 
     ! This is Uwe's albedo expression from the old budget function
-    DO i=1,SWdim
+    ! All albedos are the same
+    DO i=1,albDim
       DO k=1,kice
         DO jc = i_startidx_c,i_endidx_c
 
