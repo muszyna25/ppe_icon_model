@@ -38,6 +38,7 @@ set ICON_ID       deia
 
 # HPC environment:
 set SCHOST      c2a
+set WSHOST      ecgate
 set SCTEMP      /scratch/ms/de/$ICON_ID/icon
 set ECTEMP      /scratch/ms/de/$ICON_ID/icon_data
 set SCPERM      /perm/ms/de/$USER
@@ -92,21 +93,21 @@ set ICONTHREADS       2
 
 
 define on_ecgate {
-  label host "$HOST"
+  label host "$WSHOST"
 }
 
 define on_ecgate_submit {
-  label host "$HOST submit"
-  edit SMSCMD       "/home/ma/emos/bin/smssubmit $ICON_ID $HOST %SMSJOB% %SMSJOBOUT%"
-  edit SMSKILL      "/home/ma/emos/bin/smskill   $ICON_ID $HOST %SMSRID% %SMSJOB% %SMSJOBOUT%"
-  edit SMSSTATUSCMD "/home/ma/emos/bin/smsstatus $ICON_ID $HOST %SMSRID% %SMSJOB%"
+  label host "$WSHOST submit"
+  edit SMSCMD       "/home/ma/emos/bin/smssubmit $ICON_ID $WSHOST %SMSJOB% %SMSJOBOUT%"
+  edit SMSKILL      "/home/ma/emos/bin/smskill   $ICON_ID $WSHOST %SMSRID% %SMSJOB% %SMSJOBOUT%"
+  edit SMSSTATUSCMD "/home/ma/emos/bin/smsstatus $ICON_ID $WSHOST %SMSRID% %SMSJOB%"
 }
 
 define on_ecgate_submit_old {
-  label host "$HOST submit"
-  edit SMSCMD       "/usr/local/share/sms_submit $ICON_ID $HOST %SMSJOB%"
-  edit SMSKILL      "/usr/local/share/sms_kill   $ICON_ID $HOST %SMSRID% %SMSJOB%"
-  edit SMSSTATUSCMD "/usr/local/share/sms_status $ICON_ID $HOST %SMSRID% %SMSJOB%"
+  label host "$WSHOST submit"
+  edit SMSCMD       "/usr/local/share/sms_submit $ICON_ID $WSHOST %SMSJOB%"
+  edit SMSKILL      "/usr/local/share/sms_kill   $ICON_ID $WSHOST %SMSRID% %SMSJOB%"
+  edit SMSSTATUSCMD "/usr/local/share/sms_status $ICON_ID $WSHOST %SMSRID% %SMSJOB%"
 }
 
 define on_hpc_parallel {
@@ -190,6 +191,7 @@ suite $USER
     edit ECPERMIII  $ECPERMIII
     edit TMPDIR     $TMPDIR
     edit SCHOST     $SCHOST
+    edit WSHOST     $WSHOST
     edit SCBASEDIR  $SCBASEDIR
     edit ECBASEDIR  $ECBASEDIR
     edit SCTEMP     $SCTEMP
