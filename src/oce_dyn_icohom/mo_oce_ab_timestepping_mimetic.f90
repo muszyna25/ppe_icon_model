@@ -774,7 +774,7 @@ SUBROUTINE calculate_explicit_term_ab( p_patch_3D, p_os, p_phys_param,&
       idt_src = 5  ! output print level (1-5, fix)
       CALL dbg_print('Bef fin term: vn_pred'      ,p_os%p_diag%vn_pred       ,str_module,idt_src)
       CALL dbg_print('Bef fin term: g_nimd'       ,p_os%p_aux%g_nimd         ,str_module,idt_src)
-      !CALL dbg_print('Bef fin term: gradh_e'      ,z_gradh_e                 ,str_module,idt_src)
+      CALL dbg_print('Bef fin term: gradh_e'      ,z_gradh_e                 ,str_module,idt_src)
       !---------------------------------------------------------------------
 
         DO jb = all_edges%start_block, all_edges%end_block

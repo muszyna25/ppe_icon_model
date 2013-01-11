@@ -131,7 +131,7 @@ CONTAINS
       IF( PRESENT(p_patch_2D) )THEN        
          DO jg = 1, n_dom
          CALL setup_vlist( TRIM(p_patch_2D(jg)%grid_filename), jg, &
-                          & .NOT.use_async_vlist_io .AND. p_pe==p_io)
+                          & .NOT.use_async_vlist_io .AND. p_pe==p_io,mypatch=p_patch_2D)
          END DO
       ELSE
         DO jg = 1, n_dom

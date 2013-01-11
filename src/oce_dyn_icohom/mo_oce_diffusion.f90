@@ -1503,7 +1503,7 @@ SUBROUTINE veloc_diffusion_vert_impl_hom( p_patch_3D,    &
   slev = 1
   dt_inv=1.0_wp/dtime
 
-  !diff_column(1:nproma,1:n_zlev,1:p_patch_3D%p_patch_2D(1)%nblks_e)= 0.0_wp
+  diff_column(1:nproma,1:n_zlev,1:p_patch%nblks_e)= 0.0_wp
 
   field_column(1:nproma,1:n_zlev,1:p_patch_3D%p_patch_2D(1)%nblks_e)&
   &=field_column(1:nproma,1:n_zlev,1:p_patch_3D%p_patch_2D(1)%nblks_e)*dt_inv
@@ -1512,7 +1512,6 @@ SUBROUTINE veloc_diffusion_vert_impl_hom( p_patch_3D,    &
   !---------DEBUG DIAGNOSTICS-------------------------------------------
   idt_src=5  ! output print level (1-5, fix)
   CALL dbg_print('VelDifImplHomIn:field_col' ,field_column             ,str_module,idt_src)
-  CALL dbg_print('VelDifImplHomIn: diff_col' ,diff_column              ,str_module,idt_src)
   !---------------------------------------------------------------------
 
   DO jb = all_edges%start_block, all_edges%end_block

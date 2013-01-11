@@ -231,7 +231,8 @@ CONTAINS
 
    TYPE(t_patch), POINTER :: p_patch
     !-------------------------------------------------------------------------
-    p_patch => p_patch_3D%p_patch_2D(1)
+pupflux_i(:,1,:)=0.0_wp
+return
 
     CALL sync_patch_array(SYNC_C, p_patch, pvar_c)
     CALL sync_patch_array(SYNC_C, p_patch, pw_c)

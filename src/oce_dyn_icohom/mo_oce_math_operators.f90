@@ -1612,14 +1612,9 @@ CONTAINS
 !              p_os%p_diag%h_e(je,jb)=&
 !              &min(p_os%p_prog(nold(1))%h(il_c1,ib_c1),p_os%p_prog(nold(1))%h(il_c2,ib_c2))
 
-            p_os%p_diag%thick_e(je,jb)=&
-            &min(p_os%p_diag%thick_c(il_c1,ib_c1),p_os%p_diag%thick_c(il_c2,ib_c2))
+              p_os%p_diag%thick_e(je,jb) = p_os%p_diag%h_e(je,jb)&
+              & + p_patch_3D%p_patch_1D(1)%zlev_i(p_patch_3D%p_patch_1D(1)%dolic_e(je,jb)+1)
 
-            p_os%p_diag%h_e(je,jb)=&
-            &min(p_os%p_prog(nold(1))%h(il_c1,ib_c1),p_os%p_prog(nold(1))%h(il_c2,ib_c2))
-
-
-              !write(*,*)'height_e',je,jb, p_os%p_diag%h_e(je,jb), p_os%p_prog(nold(1))%h(il_c1,ib_c1),p_os%p_prog(nold(1))%h(il_c2,ib_c2)
             ELSE
               p_os%p_diag%h_e(je,jb)    = 0.0_wp
               p_os%p_diag%thick_e(je,jb)= 0.0_wp
@@ -1648,10 +1643,9 @@ CONTAINS
             IF(p_patch_3D%lsm_oce_e(je,1,jb) <= sea_boundary)THEN
               IF(p_os%p_prog(nold(1))%vn(je,1,jb)>0.0_wp)THEN
                 p_os%p_diag%thick_e(je,jb) = p_os%p_diag%thick_c(il_c1,ib_c1)
+                p_os%p_diag%h_e(je,jb) = p_os%p_prog(nold(1))%h(il_c1,ib_c1)
               ELSEIF(p_os%p_prog(nold(1))%vn(je,1,jb)<=0.0_wp)THEN
-
-                !  P.K.: Actually h_e is just surface elevation at edges without depth of first layer.
-                !It might make sense to include depth of first layer.
+                p_os%p_diag%thick_e(je,jb) = p_os%p_diag%thick_c(il_c2,ib_c2)
                 p_os%p_diag%h_e(je,jb) = p_os%p_prog(nold(1))%h(il_c2,ib_c2)
               ENDIF
               !write(*,*)'height_e',je,jb, p_os%p_diag%h_e(je,jb), p_os%p_prog(nold(1))%h(il_c1,ib_c1),p_os%p_prog(nold(1))%h(il_c2,ib_c2)
