@@ -782,7 +782,7 @@ SUBROUTINE hydci_pp (             &
     zmi ,              & ! mass of a cloud ice crystal
     zsvidep, zsvisub,  & ! deposition, sublimation of cloud ice
     zsimax , zsisum , zsvmax,   & ! terms for limiting total
-    zqvsi, zqvsw,      & ! sat. specitic humidity at ice and water saturation
+    zqvsw,             & ! sat. specitic humidity at ice and water saturation
     zztau, zxfac, zx1, zx2, ztt, &   ! some help variables
     ztau, zphi, zhi, zdvtp, ztc
 
@@ -824,6 +824,7 @@ SUBROUTINE hydci_pp (             &
 #endif
 
   REAL    (KIND=ireals   ) ::  &
+    zqvsi       (nvec),     & !> sat. specitic humidity at ice and water saturation
     zvzr        (nvec),     & !
     zvzs        (nvec),     & !
     zpkr        (nvec),     & !
@@ -1230,6 +1231,8 @@ SUBROUTINE hydci_pp (             &
         ppg  =  p(iv,k)
         rhog = rho(iv,k)
 
+        zqvsi(iv) = sat_pres_ice(tg)/(rhog * r_v * tg)
+
         llqr = zqrk(iv) > zqmin
         llqs = zqsk(iv) > zqmin
 
@@ -1344,9 +1347,8 @@ SUBROUTINE hydci_pp (             &
       ppg  =   p(iv,k)
       rhog = rho(iv,k)
       llqs = zqsk(iv) > zqmin
-      zqvsi  = fqvs( fpvsi(tg), ppg )
       zdvtp  = ccdvtp * EXP(1.94_ireals * LOG(tg)) / ppg          
-      zhi    = ccshi1*zdvtp*rhog*zqvsi/(tg*tg)
+      zhi    = ccshi1*zdvtp*rhog*zqvsi(iv)/(tg*tg)
       hlp    = zdvtp / (1.0_ireals + zhi)
       zcidep(iv) = ccidep * hlp
       IF (llqs) THEN
@@ -1373,11 +1375,9 @@ SUBROUTINE hydci_pp (             &
 
       qvg  =  qv(iv,k)
       tg   =   t(iv,k)
-      ppg  =   p(iv,k)
       rhog = rho(iv,k)
 
-      zqvsi   = fqvs( fpvsi(tg), ppg )
-      IF( qvg > zqvsi ) THEN
+      IF( qvg > zqvsi(iv) ) THEN
         znin  = MIN( fxna(tg), znimax )
         zsnuc = zmi0 * z1orhog(iv) * znin * zdtr
         snuc(iv) = zsnuc
@@ -1486,11 +1486,10 @@ SUBROUTINE hydci_pp (             &
       llqi =  qig > zqmin
 
       IF (tg<=t0) THEN
-        zqvsi   = fqvs( fpvsi(tg), ppg )
         znin    = MIN( fxna(tg), znimax )
         zmi     = MIN( rhog*qig/znin, zmimax )
         zmi     = MAX( zmi0, zmi )
-        zsvmax  = (qvg - zqvsi) * zdtr
+        zsvmax  = (qvg - zqvsi(iv)) * zdtr
         zsagg   = zcagg(iv) * EXP(ccsaxp*LOG(zcslam(iv))) * qig
         zsagg   = MAX( zsagg, 0.0_ireals ) & !* zrho1o2(iv) &
           * MAX(0.2_ireals,MIN(EXP(0.09_ireals*(tg-t0)),1.0_ireals))
@@ -1498,7 +1497,7 @@ SUBROUTINE hydci_pp (             &
         IF (llqi) THEN
           zlnlogmi= LOG (zmi)
           zsidep    = zcidep(iv) * znid * EXP(0.33_ireals * zlnlogmi)   &
-                        * ( qvg - zqvsi )
+                        * ( qvg - zqvsi(iv) )
         ELSE
           zsidep = 0.0_ireals
         ENDIF
@@ -1522,7 +1521,7 @@ SUBROUTINE hydci_pp (             &
         zsicri    = zcicri * qig * zeln7o8qrk(iv)
         zsrcri    = zcrcri * (qig/zmi) * zeln13o8qrk(iv)
         zxfac     = 1.0_ireals + zbsdep(iv) * EXP(ccsdxp*LOG(zcslam(iv)))
-        zssdep    = zcsdep(iv) * zxfac * ( qvg - zqvsi ) / (zcslam(iv)+zeps)**2
+        zssdep    = zcsdep(iv) * zxfac * ( qvg - zqvsi(iv) ) / (zcslam(iv)+zeps)**2
 
         ! Check for maximal depletion of vapor by sdep
         IF (zssdep > 0.0_ireals) zssdep = MIN(zssdep, zsvmax-zsvidep)
@@ -1548,7 +1547,7 @@ SUBROUTINE hydci_pp (             &
 
       ELSE ! tg > 0
         simelt(iv) = qig*zdtr
-        zqvsw0      = fqvs( zpvsw0, ppg)
+        zqvsw0      = zpvsw0 / (rhog * r_v * tg)
         zx1         = (tg - t0) + zasmel*(qvg - zqvsw0)
         zx2         = 1.0_ireals + zbsmel * zeln5o24qsk(iv)
         zssmelt     = zcsmel * zx1 * zx2 * zeln2o3qsk(iv)
@@ -1569,10 +1568,10 @@ SUBROUTINE hydci_pp (             &
 
       qvg = qv(iv,k)
       tg  =  t(iv,k)
-      ppg =  p(iv,k)
+      rhog = rho(iv,k)
+      zqvsw    = sat_pres_water(tg)/(rhog * r_v *tg)
 
       zlnqrk      = LOG (zqrk(iv))
-      zqvsw       = fqvs( fpvsw(tg), ppg )
       zx1         = 1.0_ireals + zbev * EXP (zbevxp  * zlnqrk)
       sev(iv)    = zcev*zx1*(zqvsw - qvg) * EXP (zcevxp  * zlnqrk)
 !      zqvsw    = fqvs( fpvsw(tg), ppg )
@@ -1624,7 +1623,7 @@ SUBROUTINE hydci_pp (             &
         zqrt = scau(iv)  + sshed(iv) + scac(iv)   + ssmelt(iv) - sev(iv) - srcri(iv) - srfrz(iv) 
         zqst = siau(iv)  + sdau(iv)  + sagg(iv)   - ssmelt(iv) + sicri(iv) + srcri(iv)           &
                                                                + srim(iv) + ssdep(iv) + srfrz(iv)
-        ztt = cpdr*( lh_v*(zqct+zqrt) + lh_s*(zqit+zqst) )
+        ztt = z_heat_cap_r*( lh_v*(zqct+zqrt) + lh_s*(zqit+zqst) )
 
         ! Update variables and add qi to qrs for water loading 
         qig = MAX ( 0.0_ireals, qig + zqit*zdt)
@@ -1723,7 +1722,7 @@ SUBROUTINE hydci_pp (             &
                zdummy(:,4),zdummy(:,5),zdummy(:,6), &
                zdummy(:,7),zdummy(:,8),               &
                b1, b2w, b3, b4w, b234w, rdv, o_m_rdv,     &
-               rvd_m_o, lh_v, cpdr, cp_d,                 &
+               rvd_m_o, lh_v, z_heat_cap_r, cp_d,                 &
                nvec, 1, iv_start, iv_end, 1 , 1 )
 
   IF ( ldiabf_lh ) THEN
