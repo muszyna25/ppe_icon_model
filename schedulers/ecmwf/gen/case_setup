@@ -248,7 +248,7 @@ cat > ${atmo_namelist} << EOF
  rat_sea                      =  10.0
 /
 &lnd_nml
- ntiles                       = 1
+ ntiles                       = 3
  nlev_snow                    = 2
  lmulti_snow                  = .true.
  idiag_snowfrac               = 3
