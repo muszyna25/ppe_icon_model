@@ -137,7 +137,7 @@ CONTAINS
 SUBROUTINE solve_free_sfc_ab_mimetic(p_patch_3D, p_os, p_ext_data, p_sfc_flx, &
     &                                  p_phys_param, timestep, p_op_coeff)
   
-  TYPE(t_patch_3D_oce ),TARGET, INTENT(IN)      :: p_patch_3D
+  TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT)   :: p_patch_3D
   TYPE(t_hydro_ocean_state), TARGET             :: p_os
   TYPE(t_external_data), TARGET, INTENT(in)     :: p_ext_data
   TYPE(t_sfc_flx), INTENT(INOUT)                :: p_sfc_flx
