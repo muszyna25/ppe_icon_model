@@ -29,7 +29,7 @@
  .run scores
 
  outdate   = inidate + step/24
- plotfile1 = plot.ps metplots/scores.NWP.r2B06L90.'+expnum+'_vs_'+expref
+ plotfile1 = 'metplots/scores.NWP.r2B06L90.'+expnum+'_vs_'+expref
  plotfile2 = outdate+'00.L1.ps'
 
  scores, direxp, dirref, expnum, expref, inidate, step, nfor, 'ml'
