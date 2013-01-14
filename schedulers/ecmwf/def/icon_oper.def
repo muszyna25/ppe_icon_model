@@ -32,7 +32,7 @@ setenv -i TMPDIR
 
 # global definitions:
 set EXPNUM        "001"                #---experiment number---
-set FIRST_DATE    20121220
+set FIRST_DATE    20130114
 set LAST_DATE     20130630
 set ICON_HOME     /home/ms/de/deia 
 set ICON_ID       deia 
@@ -76,7 +76,7 @@ set NSTEPS       12000
 #set NSTEPS       2880
 
 # simulation modes: 1:oper, 2:monthly 10day forecasts
-set SIMMODE      2
+set SIMMODE      1
 
 # no. of ensemble members (dummies here)
 #set NENS         10
