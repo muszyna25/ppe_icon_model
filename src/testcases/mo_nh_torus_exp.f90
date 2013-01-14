@@ -49,20 +49,21 @@ MODULE mo_nh_torus_exp
   USE mo_kind,                ONLY: wp
   USE mo_exception,           ONLY: message, finish, message_text
   USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, min_rledge, min_rlcell
-  USE mo_physical_constants,  ONLY: rd, cpd, p0ref, rd_o_cpd, grav
+  USE mo_physical_constants,  ONLY: rd, cpd, p0ref, cvd_o_rd, rd_o_cpd, grav
   USE mo_model_domain,        ONLY: t_patch
   USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_math_constants,      ONLY: pi, pi2
   USE mo_math_utilities,      ONLY: gnomonic_proj, t_geographical_coordinates, &
      &                              t_cartesian_coordinates, gc2cc, az_eqdist_proj
   USE mo_loopindices,         ONLY: get_indices_c, get_indices_e, get_indices_v
-  USE mo_nonhydro_types,      ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
+  USE mo_nonhydro_types,      ONLY: t_nh_prog, t_nh_diag, t_nh_metrics, t_nh_ref
   USE mo_intp_data_strc,      ONLY: t_int_state
   USE mo_parallel_config,     ONLY: nproma
   USE mo_math_utilities,      ONLY: plane_torus_distance, arc_length
   USE mo_grid_config,         ONLY: grid_sphere_radius, is_plane_torus
   USE mo_sync,                ONLY: global_sum_array, sync_patch_array, SYNC_C, SYNC_E
   USE mo_nh_init_utils,       ONLY: init_w
+  USE mo_run_config,          ONLY: iqv, iqc
 
    IMPLICIT NONE
 
@@ -90,8 +91,8 @@ MODULE mo_nh_torus_exp
   !! @par Revision History
   !!
   !!
-  SUBROUTINE init_nh_state_cbl( ptr_patch, ptr_nh_prog, ptr_nh_diag,  &
-    &                           ptr_int, ptr_ext_data, p_metrics )
+  SUBROUTINE init_nh_state_cbl( ptr_patch, ptr_nh_prog,  ptr_nh_ref, ptr_nh_diag,  &
+    &                           ptr_int, ptr_ext_data, ptr_metrics )
 
     ! INPUT PARAMETERS:
     TYPE(t_patch),TARGET,INTENT(IN) :: &  !< patch on which computation is performed
@@ -104,9 +105,12 @@ MODULE mo_nh_torus_exp
       &  ptr_nh_diag
     TYPE(t_external_data), INTENT(INOUT) :: & !< external data
       &  ptr_ext_data
-    TYPE(t_nh_metrics), INTENT(IN)      :: p_metrics !< NH metrics state
+    TYPE(t_nh_metrics), INTENT(IN)      :: ptr_metrics !< NH metrics state
 
-    REAL(wp) :: rho_sfc
+    TYPE(t_nh_ref),       INTENT(INOUT) :: &  !< reference state vector
+      &  ptr_nh_ref
+
+    REAL(wp) :: rho_sfc, z_help(1:nproma)
     INTEGER  :: jc,je,jk,jb,jt,i_startblk,i_startidx,i_endidx   !< loop indices
     INTEGER  :: nblks_c,npromz_c,nblks_e,npromz_e
     INTEGER  :: nlev, nlevp1                   !< number of full and half levels
@@ -127,9 +131,6 @@ MODULE mo_nh_torus_exp
     i_rcstartlev = 2
     i_startblk   = ptr_patch%edges%start_blk(i_rcstartlev,1)
 
-    ! topography
-    ptr_ext_data%atm%topography_c(:,:) = 0.0_wp
-
     ! init surface pressure
     ptr_nh_diag%pres_sfc(:,:) = zp0
 
@@ -144,35 +145,46 @@ MODULE mo_nh_torus_exp
       ENDIF
  
         DO jk = 1, nlev
-
          ! init virtual potential temperature: keep it lower than sst
          ! to have upward heat flux for CBL
          ptr_nh_prog%theta_v(1:nlen,jk,jb) = sst_cbl - 2._wp + &
-                     max(0._wp, (p_metrics%z_mc(1:nlen,jk,jb)-zh0)*dtdz)
+                        max(0._wp, (ptr_metrics%z_mc(1:nlen,jk,jb)-zh0)*dtdz)
+        END DO
 
-         ! init density field rho
-         ptr_nh_prog%rho(1:nlen,jk,jb) = rho_sfc
+        !Get hydrostatic pressure and exner at lowest level
+        ptr_nh_diag%pres(1:nlen,nlev,jb) = zp0 - rho_sfc * ptr_metrics%geopot(1:nlen,nlev,jb)
+        ptr_nh_prog%exner(1:nlen,nlev,jb) = (ptr_nh_diag%pres(1:nlen,nlev,jb)/p0ref)**rd_o_cpd 
 
-         ! compute full level pressure
-         ptr_nh_diag%pres(1:nlen,jk,jb) = ptr_nh_prog%rho(1:nlen,jk,jb) * rd * &
-                                          ptr_nh_prog%theta_v(1:nlen,jk,jb) 
-         ! init rhotheta_v
-         ptr_nh_prog%rhotheta_v(1:nlen,jk,jb) = ptr_nh_prog%rho(1:nlen,jk,jb)      &
-           &                                  * ptr_nh_prog%theta_v(1:nlen,jk,jb)
+        !Get exner at other levels
+        DO jk = nlev-1, 1, -1
+           z_help(1:nlen) = 0.5_wp * ( ptr_nh_prog%theta_v(1:nlen,jk,jb) +  &
+                                       ptr_nh_prog%theta_v(1:nlen,jk+1,jb) )
+   
+           ptr_nh_prog%exner(1:nlen,jk,jb) = ptr_nh_prog%exner(1:nlen,jk+1,jb) &
+              &  -grav/cpd*ptr_metrics%ddqz_z_half(1:nlen,jk+1,jb)/z_help(1:nlen)
+        END DO
 
-         ! init exner pressure
-         ptr_nh_prog%exner(1:nlen,jk,jb) = (ptr_nh_diag%pres(1:nlen,jk,jb)/p0ref)**rd_o_cpd
+        DO jk = 1 , nlev
+           ! rhotheta has to have the same meaning as exner
+           ptr_nh_prog%rhotheta_v(1:nlen,jk,jb) = &
+                (ptr_nh_prog%exner(1:nlen,jk,jb)**cvd_o_rd)*p0ref/rd
 
+           ptr_nh_prog%rho(1:nlen,jk,jb) = ptr_nh_prog%rhotheta_v(1:nlen,jk,jb) / &
+                                           ptr_nh_prog%theta_v(1:nlen,jk,jb)
+     
         END DO !jk
+
     ENDDO !jb
 
     !Zero mean wind to avoid Croiolis force and hence mean pressure gradient
-    ptr_nh_prog%vn = 0._wp
-    ptr_nh_prog%w = 0._wp
+    ptr_nh_prog%vn = 0._wp; ptr_nh_ref%vn_ref = ptr_nh_prog%vn
+    ptr_nh_prog%w = 0._wp; ptr_nh_ref%w_ref = ptr_nh_prog%w
 
+   ! Tracers set to 0 for DRY case
+   !fix specific humidity as it was causing trouble in src_turdiff in calculating T_dewpoint
     IF(is_dry_cbl)THEN 
-      ! Tracers set to 0 for DRY case
-      ptr_nh_prog%tracer =  0._wp
+      ptr_nh_prog%tracer(:,:,:,iqv)  =  0.0_wp 
+      ptr_nh_prog%tracer(:,:,:,iqc:) =  0.0_wp
     ELSE
       CALL finish('mo_nh_torus_exp: init_nh_state_cbl:',  &
         &      '   moist CBL not implemented yet- Stopping!')

@@ -262,7 +262,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
           p_prog_lnd_now%t_g(jc,jb)  = sst_cbl
           p_prog_lnd_new%t_g(jc,jb)  = sst_cbl
           IF(is_dry_cbl)THEN
-            p_diag_lnd%qv_s(jc,jb)  = 0._wp
+            p_diag_lnd%qv_s(jc,jb)  =  p_prog%tracer(jc,nlev,jb,iqv)
           ELSE
             p_diag_lnd%qv_s(jc,jb)  = &
                 spec_humi(sat_pres_water(p_prog_lnd_now%t_g (jc,jb)),p_diag%pres_sfc(jc,jb))

@@ -987,9 +987,9 @@ MODULE mo_nh_testcases
 
 
       IF (lhs_nh_vn_ptb) THEN
-          CALL nh_prog_add_random( p_patch(jg), & ! input
-               & p_nh_state(jg)%prog(nnow(jg)), & ! in and out
-               & hs_nh_vn_ptb_scale, nproma, nlev ) ! input
+          CALL nh_prog_add_random( p_patch(jg),           & ! input
+               & p_nh_state(jg)%prog(nnow(jg))%vn(:,:,:), & ! in and out
+               & "edge", hs_nh_vn_ptb_scale, 1, nlev ) ! input
           !
           CALL message(TRIM(routine),'Initial state used in the &
                & Held-Suarez test: random noised added to the normal wind')
@@ -1213,11 +1213,14 @@ MODULE mo_nh_testcases
         CALL finish(TRIM(routine),'CBL case is only for plane torus!')
 
     DO jg = 1, n_dom
-      CALL init_nh_state_cbl ( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)),  &
+      nlev   = p_patch(1)%nlev
+      CALL init_nh_state_cbl ( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), p_nh_state(jg)%ref,  &
                       & p_nh_state(jg)%diag, p_int(jg), ext_data(jg), p_nh_state(jg)%metrics )
 
-      CALL nh_prog_add_random( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)),   & ! in and out
-                              & 0.01_wp, nproma, nlev ) ! input
+      CALL nh_prog_add_random( p_patch(jg), p_nh_state(jg)%prog(nnow(jg))%vn(:,:,:),       &
+                               "edge", 0.01_wp, nlev-5, nlev ) 
+      CALL nh_prog_add_random( p_patch(jg), p_nh_state(jg)%prog(nnow(jg))%theta_v(:,:,:),  & 
+                               "cell", 0.05_wp,  nlev-5, nlev ) 
 
       CALL duplicate_prog_state(p_nh_state(jg)%prog(nnow(jg)),p_nh_state(jg)%prog(nnew(jg)))
     END DO !jg

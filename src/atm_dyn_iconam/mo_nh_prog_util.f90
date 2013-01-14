@@ -65,22 +65,23 @@ CONTAINS
   !!
   !!
   SUBROUTINE nh_prog_add_random(p_patch, & ! in
-                                         p_nh_prog,  & ! inout
-                                         pscale, nproma, nlev) ! input
+                                pvar,    & ! inout
+                                ctype, pscale, jk_start, jk_end) ! input
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
       &  routine = 'mo_nh_prog_util:nh_prog_add_random'
 
     TYPE(t_patch)   :: p_patch
-    TYPE(t_nh_prog) :: p_nh_prog
 
-    REAL(wp), INTENT(IN) :: pscale ! magnitude of the perturbation
-    INTEGER,  INTENT(IN) :: nlev   ! number of vertical layers
+    REAL(wp), INTENT(INOUT) :: pvar(:,:,:) ! variable to perturb
+    REAL(wp), INTENT(IN)    :: pscale ! magnitude of the perturbation
+    CHARACTER(len=*), INTENT(IN)   :: ctype !var type, edge or cell based
+    INTEGER,  INTENT(IN)    :: jk_start, jk_end  ! levels between which perturbation is added
 
     ! LOCAL VARIABLES
 
     INTEGER :: jk
-    INTEGER :: nproma, npromz, nblks
+    INTEGER :: npromz, nblks
 
     INTEGER :: DateTimeArray(8)    ! Holds the date and time
 
@@ -88,7 +89,7 @@ CONTAINS
 
     INTEGER, ALLOCATABLE :: seed_array(:)
 
-    REAL(wp) :: zrand(nproma,p_patch%nblks_e)
+    REAL(wp), ALLOCATABLE :: zrand(:,:)
 
     CHARACTER(len=MAX_CHAR_LENGTH) :: string
     !-----
@@ -137,21 +138,33 @@ CONTAINS
     CALL message('','Seed generated')
 
     !-----------------------------------------------------------
-    ! 3. generate random numbers and perturb the normal wind
+    ! 3. generate random numbers and perturb the variable
     !-----------------------------------------------------------
+
+    IF(TRIM(ctype)=="cell")THEN
+      nblks  = p_patch%nblks_c
+      npromz = p_patch%npromz_c
+    ELSEIF(TRIM(ctype)=="edge")THEN
+      nblks  = p_patch%nblks_e
+      npromz = p_patch%npromz_e
+    ELSE
+      CALL finish(TRIM(routine),'Wrong ctype for the input variable!')
+    END IF
+
+    ALLOCATE(zrand(SIZE(pvar,1),nblks), STAT=ist)
+    IF(ist/=SUCCESS)THEN
+      CALL finish(TRIM(routine),'allocation of zrand failed')
+    ENDIF
 
     CALL RANDOM_SEED( PUT=seed_array )
     CALL RANDOM_NUMBER( zrand )
 
     zrand = (zrand - 0.5_wp)*pscale
 
-    nblks = p_patch%nblks_e
-    npromz = p_patch%npromz_e
-
     ! add the same random noise to all vertical layers
-    DO jk=1,nlev
-       p_nh_prog%vn(:,jk,1:nblks-1)    = p_nh_prog%vn(:,jk,1:nblks-1)    + zrand(:,1:nblks-1)
-       p_nh_prog%vn(1:npromz,jk,nblks) = p_nh_prog%vn(1:npromz,jk,nblks) + zrand(1:npromz,nblks)
+    DO jk=jk_start,jk_end
+       pvar(:,jk,1:nblks-1)    = pvar(:,jk,1:nblks-1)    + zrand(:,1:nblks-1)
+       pvar(1:npromz,jk,nblks) = pvar(1:npromz,jk,nblks) + zrand(1:npromz,nblks)
     ENDDO
 
     !-----------------------------------------------------------

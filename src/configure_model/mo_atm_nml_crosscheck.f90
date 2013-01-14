@@ -436,7 +436,7 @@ CONTAINS
        IF(atm_phy_nwp_config(1)%inwp_turb==0 .OR. atm_phy_nwp_config(1)%inwp_turb>2) &
             CALL message(TRIM(routine),'WARNING!! inwp_turb is either off or > 2!')
 
-       IF(.NOT.turbdiff_config(jg)%lconst_z0)  &
+       IF(.NOT.turbdiff_config(1)%lconst_z0)  &
             CALL message(TRIM(routine),'WARNING!! roughness length is not homogeneous!')
     ENDIF     
 
