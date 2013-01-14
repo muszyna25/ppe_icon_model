@@ -658,6 +658,13 @@ CONTAINS
         &                      opt_calc_temp_ifc = ltemp_ifc,     &
         &                      opt_rlend         = min_rlcell_int )
 
+    ELSE
+      ! diagnose pressure only for radheat
+      CALL diagnose_pres_temp (p_metrics, pt_prog, pt_prog_rcf,   &
+        &                      pt_diag, pt_patch,                 &
+        &                      opt_calc_temp     = .FALSE.,       &
+        &                      opt_calc_pres     = .TRUE.,        &
+        &                      opt_rlend         = min_rlcell_int )
     ENDIF
 
     IF ( lcall_phy_jg(itconv)  ) THEN

@@ -1578,6 +1578,10 @@ MODULE mo_nh_stepping
 
         CALL div(p_vn, p_patch(jg), p_int_state(jg), p_nh_state(jg)%diag%div)
 
+        ! Diagnose relative vorticity on cells
+        CALL verts2cells_scalar(p_nh_state(jg)%diag%omega_z, p_patch(jg), &
+          p_int_state(jg)%verts_aw_cells, p_nh_state(jg)%diag%vor)
+
         IF (linit) THEN
           CALL rot_vertex (p_vn, p_patch(jg), p_int_state(jg), p_nh_state(jg)%diag%omega_z)
         ENDIF
@@ -1603,7 +1607,7 @@ MODULE mo_nh_stepping
           &                      p_nh_state(jg)%prog(nnow_rcf(jg)),                     &
           &                      p_nh_state(jg)%diag,p_patch(jg),                       &
           &                      opt_calc_temp=.TRUE.,                                  &
-          &                      opt_calc_pres=.TRUE.                                 )
+          &                      opt_calc_pres=.TRUE.                                   )
 
     ENDDO ! jg-loop
 

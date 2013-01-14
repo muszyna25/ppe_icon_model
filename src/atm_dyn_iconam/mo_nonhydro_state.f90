@@ -956,16 +956,12 @@ MODULE mo_nonhydro_state
 
     ! omega_z      p_diag%omega_z(nproma,nlev,nblks_v)
     !
-    cf_desc    = t_cf_var('atmosphere_relative_vorticity', 'm s-1', 'vertical vorticity', &
+    cf_desc    = t_cf_var('atmospheric_relative_vorticity', 'm s-1', 'vertical vorticity', &
       &          DATATYPE_FLT32)
     grib2_desc = t_grib2_var(0, 2, 10, ibits, GRID_REFERENCE, GRID_VERTEX)
     CALL add_var( p_diag_list, 'omega_z', p_diag%omega_z,                       &
                 & GRID_UNSTRUCTURED_VERT, ZA_HYBRID, cf_desc, grib2_desc,       &
-                & ldims=shape3d_v, lrestart=.FALSE.,       &
-                & vert_interp=create_vert_interp_metadata( &
-                &   vert_intp_type=vintp_types("P","Z","I"),  &
-                &   vert_intp_method=VINTP_METHOD_LIN ),   &
-                &   in_group=groups("atmo_derived_vars") )
+                & ldims=shape3d_v, lrestart=.FALSE., in_group=groups("atmo_derived_vars") )
 
     ! ddt_vn_phy   p_diag%ddt_vn_phy(nproma,nlev,nblks_e)
     ! *** needs to be saved for restart ***
@@ -1127,6 +1123,19 @@ MODULE mo_nonhydro_state
     CALL add_var( p_diag_list, 'div', p_diag%div,                               &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,       &
                 & ldims=shape3d_c, lrestart=.FALSE., in_group=groups("atmo_derived_vars") )
+
+
+    ! vor          p_diag%vor(nproma,nlev,nblks_c)
+    !
+    cf_desc    = t_cf_var('relative_vorticity_on_cells', 's-1', 'Vorticity', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var( 0, 2, 10, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( p_diag_list, 'vor', p_diag%vor,                               &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,       &
+                & ldims=shape3d_c, lrestart=.FALSE.,                            &
+                & vert_interp=create_vert_interp_metadata( &
+                &   vert_intp_type=vintp_types("P","Z","I"),  &
+                &   vert_intp_method=VINTP_METHOD_LIN ),   &
+                &   in_group=groups("atmo_derived_vars")  )
 
 
     ! mass_fl_e    p_diag%mass_fl_e(nproma,nlev,nblks_e)
