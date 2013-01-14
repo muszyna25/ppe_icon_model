@@ -497,8 +497,6 @@ MODULE mo_nh_stepping
 
       CALL update_sstice( p_patch(1:),           &
                         & ext_data, p_lnd_state, p_nh_state )
-      ! Do for all the domains
-      !!CALL init_sea_lists(p_patch, ext_data, p_lnd_state%diag_lnd, lseaice)
 
       datetime_old = datetime  
      END IF  ! newday
@@ -1580,6 +1578,10 @@ MODULE mo_nh_stepping
 
         CALL div(p_vn, p_patch(jg), p_int_state(jg), p_nh_state(jg)%diag%div)
 
+        ! Diagnose relative vorticity on cells
+        CALL verts2cells_scalar(p_nh_state(jg)%diag%omega_z, p_patch(jg), &
+          p_int_state(jg)%verts_aw_cells, p_nh_state(jg)%diag%vor)
+
         IF (linit) THEN
           CALL rot_vertex (p_vn, p_patch(jg), p_int_state(jg), p_nh_state(jg)%diag%omega_z)
         ENDIF
@@ -1605,7 +1607,7 @@ MODULE mo_nh_stepping
           &                      p_nh_state(jg)%prog(nnow_rcf(jg)),                     &
           &                      p_nh_state(jg)%diag,p_patch(jg),                       &
           &                      opt_calc_temp=.TRUE.,                                  &
-          &                      opt_calc_pres=.TRUE.                                 )
+          &                      opt_calc_pres=.TRUE.                                   )
 
     ENDDO ! jg-loop
 
@@ -1995,7 +1997,7 @@ MODULE mo_nh_stepping
       &  prep_adv(jg)%rhodz_mc_now(nproma,p_patch(jg)%nlev  ,p_patch(jg)%nblks_c), &
       &  prep_adv(jg)%rhodz_mc_new(nproma,p_patch(jg)%nlev  ,p_patch(jg)%nblks_c), &
       &  prep_adv(jg)%rho_ic      (nproma,p_patch(jg)%nlevp1,p_patch(jg)%nblks_c), &
-      &  prep_adv(jg)%topflx_tra  (nproma,p_patch(jg)%nblks_c,ntracer),            &
+      &  prep_adv(jg)%topflx_tra  (nproma,p_patch(jg)%nblks_c,MAX(1,ntracer)),     &
       &       STAT=ist )
     IF (ist /= SUCCESS) THEN
       CALL finish ( 'mo_nh_stepping: perform_nh_stepping',           &

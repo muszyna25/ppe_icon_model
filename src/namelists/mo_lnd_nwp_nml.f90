@@ -44,7 +44,7 @@ MODULE mo_lnd_nwp_nml
   USE mo_impl_constants,      ONLY: max_dom
   USE mo_namelist,            ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_mpi,                 ONLY: my_process_is_stdio
-  USE mo_io_units,            ONLY: nnml, nnml_output
+  USE mo_io_units,            ONLY: nnml, nnml_output, filename_max
   USE mo_master_control,      ONLY: is_restart_run
   USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist,  &
     &                               open_and_restore_namelist, close_tmpfile
@@ -73,7 +73,9 @@ MODULE mo_lnd_nwp_nml
     &                            config_itype_hydbound => itype_hydbound, &
     &                            config_lana_rho_snow  => lana_rho_snow , &
     &                            config_lsnowtile      => lsnowtile     , &
-    &                            config_sstice_mode  => sstice_mode
+    &                            config_sstice_mode  => sstice_mode     , &
+    &                            config_sst_td_filename => sst_td_filename,&
+    &                            config_ci_td_filename => ci_td_filename
 
   IMPLICIT NONE
 
@@ -99,6 +101,7 @@ MODULE mo_lnd_nwp_nml
   INTEGER ::  itype_subs        !< type of subscale surface treatment =1 MOSAIC, =2 TILE       
   INTEGER ::  idiag_snowfrac    !< method for diagnosis of snow-cover fraction       
 
+  CHARACTER(LEN=filename_max) :: sst_td_filename, ci_td_filename
 
 
   LOGICAL ::       &
@@ -130,7 +133,9 @@ MODULE mo_lnd_nwp_nml
     &               lana_rho_snow                             , & 
     &               itype_subs                                , &
     &               lsnowtile                                 , &
-    &               sstice_mode
+    &               sstice_mode                               , &
+    &               sst_td_filename                           , &
+    &               ci_td_filename
    
   PUBLIC :: read_nwp_lnd_namelist
 
@@ -171,6 +176,11 @@ MODULE mo_lnd_nwp_nml
     sstice_mode  = 1       ! forecast mode, sst and sea ice fraction is read from 
                              !  the analysis, sst ist kept constant, sea ice fraction
                              !  is modified by the sea ice model
+                            ! default names for the time dependent SST and CI ext param files
+                            ! if sstice=2, <year> is substituted by "CLIM"
+    sst_td_filename = "<path>SST_<year>_<month>_<gridfile>"
+    ci_td_filename = "<path>CI_<year>_<month>_<gridfile>"
+
 
     nlev_snow      = 1       ! 0 = default value for number of snow layers
     ntiles         = 1       ! 1 = default value for number of static surface types
@@ -269,6 +279,9 @@ MODULE mo_lnd_nwp_nml
       config_lana_rho_snow  = lana_rho_snow
       config_lsnowtile   = lsnowtile
       config_sstice_mode   = sstice_mode
+      config_sst_td_filename = sst_td_filename
+      config_ci_td_filename = ci_td_filename
+
     ENDDO
 
     !-----------------------------------------------------

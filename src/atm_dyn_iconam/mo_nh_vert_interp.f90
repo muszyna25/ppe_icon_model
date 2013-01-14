@@ -69,7 +69,7 @@ MODULE mo_nh_vert_interp
   USE mo_loopindices,         ONLY: get_indices_e, get_indices_c
   USE mo_grf_intp_data_strc,  ONLY: t_gridref_state
   USE mo_grf_bdyintp,         ONLY: interpol_scal_grf, interpol2_vec_grf
-  USE mo_sync,                ONLY: sync_patch_array, SYNC_C, SYNC_E
+  USE mo_sync,                ONLY: sync_patch_array, SYNC_C, SYNC_E, sync_patch_array_mult
   USE mo_satad,               ONLY: sat_pres_water
   USE mo_nwp_sfc_interp,      ONLY: process_sfcfields
 
@@ -580,6 +580,7 @@ CONTAINS
     ! Compute geometric height at edge points
     CALL cells2edges_scalar(p_metrics%z_mc, p_patch, intp_hrz%c_lin_e, z_me, opt_fill_latbc=.TRUE.)
     CALL cells2edges_scalar(p_z3d_out, p_patch, intp_hrz%c_lin_e, p_z3d_edge, opt_fill_latbc=.TRUE.)
+    CALL sync_patch_array_mult(SYNC_E,p_patch,2,z_me,p_z3d_edge)
 
     CALL prepare_lin_intp(z_me, p_z3d_edge, nblks_e, npromz_e, nlev, nzlev,                 & !in
       &                   vcoeff_z%lin_edge%wfac_lin, vcoeff_z%lin_edge%idx0_lin,           & !out
@@ -604,14 +605,14 @@ CONTAINS
   !! Initial version: see SR prepare_vert_interp_z
   !!
   SUBROUTINE prepare_vert_interp_p(p_patch, p_diag, p_metrics, intp_hrz, nplev,     &
-    &                              geopot_p_out, temp_p_out, p_p3d_out, vcoeff_p)
+    &                              gh_p_out, temp_p_out, p_p3d_out, vcoeff_p)
 
     TYPE(t_patch),        TARGET,      INTENT(IN)    :: p_patch
     TYPE(t_nh_diag),      POINTER                    :: p_diag
     TYPE(t_nh_metrics),                INTENT(IN)    :: p_metrics
     TYPE(t_int_state),                 INTENT(IN)    :: intp_hrz          !< pointer to data structure for interpolation
     INTEGER,                           INTENT(IN)    :: nplev             !< number of output levels (pres)
-    REAL(wp),                          INTENT(INOUT) :: geopot_p_out(:,:,:), &
+    REAL(wp),                          INTENT(INOUT) :: gh_p_out(:,:,:), &
       &                                                 temp_p_out(:,:,:)
     REAL(wp),             POINTER                    :: p_p3d_out(:,:,:)  !< pressure field
     TYPE(t_vcoeff),                    INTENT(INOUT) :: vcoeff_p          !< out
@@ -622,7 +623,7 @@ CONTAINS
     INTEGER :: nlev, nlevp1, jg, i_endblk, nblks_c,nblks_e, npromz_c,npromz_e !< blocking parameters
     ! Auxiliary field for smoothing temperature and geopotential on pressure levels
     REAL(wp), DIMENSION(nproma,nplev,p_patch%nblks_c)        :: z_auxp
-    REAL(wp), DIMENSION(nproma,nplev,p_patch%nblks_e)        :: geopot_p_edge
+    REAL(wp), DIMENSION(nproma,nplev,p_patch%nblks_e)        :: gh_p_edge
     REAL(wp), DIMENSION(nproma,p_patch%nlev,p_patch%nblks_e) :: z_me
     ! Pointer to virtual temperature / temperature, depending on whether the run is moist or dry
     REAL(wp), POINTER, DIMENSION(:,:,:) :: ptr_tempv
@@ -662,25 +663,25 @@ CONTAINS
 
     IF (jg > 1) THEN ! copy outermost nest boundary row in order to avoid missing values
       i_endblk = p_patch%cells%end_blk(1,1)
-      geopot_p_out(:,:,1:i_endblk) = z_auxp(:,:,1:i_endblk)
+      gh_p_out(:,:,1:i_endblk) = z_auxp(:,:,1:i_endblk)
     ENDIF
-    CALL cell_avg(z_auxp, p_patch, p_int_state(jg)%c_bln_avg, geopot_p_out)
+    CALL cell_avg(z_auxp, p_patch, p_int_state(jg)%c_bln_avg, gh_p_out)
 
     ! Prepare again interpolation coefficients (now for pressure levels)
     ! Note: the coefficients are partly identical to the z-level
     !       setup, but they are computed independently to avoid some
     !       complicated code.
-    CALL prepare_lin_intp(p_metrics%z_mc, geopot_p_out, nblks_c, npromz_c, nlev, nplev,     & !in
+    CALL prepare_lin_intp(p_metrics%z_mc, gh_p_out, nblks_c, npromz_c, nlev, nplev,         & !in
       &                   vcoeff_p%lin_cell%wfac_lin, vcoeff_p%lin_cell%idx0_lin,           & !out
       &                   vcoeff_p%lin_cell%bot_idx_lin )                                     !out
-    CALL prepare_cubic_intp(p_metrics%z_mc, geopot_p_out, nblks_c, npromz_c, nlev, nplev,   & !in
+    CALL prepare_cubic_intp(p_metrics%z_mc, gh_p_out, nblks_c, npromz_c, nlev, nplev,       & !in
       &                     vcoeff_p%cub_cell%coef1, vcoeff_p%cub_cell%coef2,               & !out
       &                     vcoeff_p%cub_cell%coef3,                                        & !out
       &                     vcoeff_p%cub_cell%idx0_cub, vcoeff_p%cub_cell%bot_idx_cub )       !out
 
     ! Perform vertical interpolation
     CALL temperature_intp(p_diag%temp, z_auxp,                                              & !in,out
-      &                   p_metrics%z_mc, geopot_p_out, nblks_c, npromz_c, nlev, nplev,     & !in
+      &                   p_metrics%z_mc, gh_p_out, nblks_c, npromz_c, nlev, nplev,         & !in
       &                   vcoeff_p%cub_cell%coef1, vcoeff_p%cub_cell%coef2,                 & !in
       &                   vcoeff_p%cub_cell%coef3,                                          & !in
       &                   vcoeff_p%lin_cell%wfac_lin, vcoeff_p%cub_cell%idx0_cub,           & !in
@@ -698,7 +699,7 @@ CONTAINS
 
     !--- Interpolation data for the vertical interface of cells, "nlevp1"
 
-    CALL prepare_lin_intp(p_metrics%z_ifc, geopot_p_out, nblks_c, npromz_c, nlevp1, nplev,  & !in
+    CALL prepare_lin_intp(p_metrics%z_ifc, gh_p_out, nblks_c, npromz_c, nlevp1, nplev,      & !in
       &                   vcoeff_p%lin_cell_nlevp1%wfac_lin,                                & !out
       &                   vcoeff_p%lin_cell_nlevp1%idx0_lin,                                & !out
       &                   vcoeff_p%lin_cell_nlevp1%bot_idx_lin  )                             !out
@@ -709,15 +710,16 @@ CONTAINS
     !--- Compute data for interpolation of edge-based fields
 
     CALL cells2edges_scalar(p_metrics%z_mc, p_patch, intp_hrz%c_lin_e, z_me, opt_fill_latbc=.TRUE.)
-    CALL cells2edges_scalar(geopot_p_out, p_patch, intp_hrz%c_lin_e, geopot_p_edge, opt_fill_latbc=.TRUE.)
+    CALL cells2edges_scalar(gh_p_out, p_patch, intp_hrz%c_lin_e, gh_p_edge, opt_fill_latbc=.TRUE.)
+    CALL sync_patch_array_mult(SYNC_E,p_patch,2,z_me,gh_p_edge)
 
-    CALL prepare_lin_intp(z_me, geopot_p_edge, nblks_e, npromz_e, nlev, nplev,               & !in
+    CALL prepare_lin_intp(z_me, gh_p_edge, nblks_e, npromz_e, nlev, nplev,                   & !in
       &                   vcoeff_p%lin_edge%wfac_lin, vcoeff_p%lin_edge%idx0_lin,            & !out
       &                   vcoeff_p%lin_edge%bot_idx_lin )                                      !out
     CALL prepare_extrap(z_me, nblks_e, npromz_e, nlev,                                       & !in
       &                 vcoeff_p%lin_edge%kpbl1, vcoeff_p%lin_edge%wfacpbl1,                 & !out
       &                 vcoeff_p%lin_edge%kpbl2, vcoeff_p%lin_edge%wfacpbl2 )                  !out
-    CALL prepare_cubic_intp(z_me, geopot_p_edge, nblks_e, npromz_e, nlev, nplev,             & !in
+    CALL prepare_cubic_intp(z_me, gh_p_edge, nblks_e, npromz_e, nlev, nplev,                 & !in
       &                     vcoeff_p%cub_edge%coef1, vcoeff_p%cub_edge%coef2,                & !out
       &                     vcoeff_p%cub_edge%coef3,                                         & !out
       &                     vcoeff_p%cub_edge%idx0_cub, vcoeff_p%cub_edge%bot_idx_cub )        !out
@@ -734,7 +736,7 @@ CONTAINS
   !! Initial version: see SR prepare_vert_interp_i
   !!
   SUBROUTINE prepare_vert_interp_i(p_patch, p_prog, p_diag, p_metrics, intp_hrz, nilev,     &
-    &                              geopot_i_out, temp_i_out, p_i3d_out, vcoeff_i)
+    &                              gh_i_out, temp_i_out, p_i3d_out, vcoeff_i)
 
     TYPE(t_patch),        TARGET,      INTENT(IN)    :: p_patch
     TYPE(t_nh_prog),      POINTER                    :: p_prog
@@ -742,7 +744,7 @@ CONTAINS
     TYPE(t_nh_metrics),                INTENT(IN)    :: p_metrics
     TYPE(t_int_state),                 INTENT(IN)    :: intp_hrz          !< pointer to data structure for interpolation
     INTEGER,                           INTENT(IN)    :: nilev             !< number of output levels (isentropes)
-    REAL(wp),                          INTENT(INOUT) :: geopot_i_out(:,:,:), &
+    REAL(wp),                          INTENT(INOUT) :: gh_i_out(:,:,:), &
       &                                                 temp_i_out(:,:,:)
     REAL(wp),             POINTER                    :: p_i3d_out(:,:,:)  !< theta field
     TYPE(t_vcoeff),                    INTENT(INOUT) :: vcoeff_i          !< out
@@ -750,7 +752,7 @@ CONTAINS
     ! LOCAL VARIABLES
     CHARACTER(*), PARAMETER :: routine = TRIM("mo_nh_vert_interp:prepare_vert_interp_i")
     INTEGER :: nlev, nlevp1, nblks_c, nblks_e, npromz_c,npromz_e !< blocking parameters
-    REAL(wp), DIMENSION(nproma,nilev,p_patch%nblks_e)        :: geopot_i_edge
+    REAL(wp), DIMENSION(nproma,nilev,p_patch%nblks_e)        :: gh_i_edge
     REAL(wp), DIMENSION(nproma,p_patch%nlev,p_patch%nblks_e) :: z_me
 
     vcoeff_i%l_initialized = .TRUE.
@@ -779,24 +781,24 @@ CONTAINS
       &                 vcoeff_i%lin_cell%kpbl2, vcoeff_i%lin_cell%wfacpbl2 )                 !out
 
     CALL z_at_theta_levels(p_prog%theta_v, p_metrics%z_mc,                                  & !in
-      &                    p_i3d_out, geopot_i_out,                                         & !out
+      &                    p_i3d_out, gh_i_out,                                             & !out
       &                    vcoeff_i%lin_cell%wfacpbl1, vcoeff_i%lin_cell%kpbl1,             & !in
       &                    vcoeff_i%lin_cell%wfacpbl2, vcoeff_i%lin_cell%kpbl2, nblks_c,    & !in
       &                    npromz_c, nlev, nilev)
 
     ! Prepare again interpolation coefficients (now for isentropic levels)
-    CALL prepare_lin_intp(p_metrics%z_mc, geopot_i_out, nblks_c, npromz_c, nlev, nilev,     & !in
+    CALL prepare_lin_intp(p_metrics%z_mc, gh_i_out, nblks_c, npromz_c, nlev, nilev,         & !in
       &                   vcoeff_i%lin_cell%wfac_lin, vcoeff_i%lin_cell%idx0_lin,           & !out
       &                   vcoeff_i%lin_cell%bot_idx_lin )                                     !out
 
-    CALL prepare_cubic_intp(p_metrics%z_mc, geopot_i_out, nblks_c, npromz_c, nlev, nilev,   & !in
+    CALL prepare_cubic_intp(p_metrics%z_mc, gh_i_out, nblks_c, npromz_c, nlev, nilev,       & !in
       &                     vcoeff_i%cub_cell%coef1, vcoeff_i%cub_cell%coef2,               & !out
       &                     vcoeff_i%cub_cell%coef3,                                        & !out
       &                     vcoeff_i%cub_cell%idx0_cub, vcoeff_i%cub_cell%bot_idx_cub )       !out
 
     ! Perform vertical interpolation
     CALL temperature_intp(p_diag%temp, temp_i_out,                                          & !in,out
-      &                   p_metrics%z_mc, geopot_i_out, nblks_c, npromz_c, nlev, nilev,     & !in
+      &                   p_metrics%z_mc, gh_i_out, nblks_c, npromz_c, nlev, nilev,         & !in
       &                   vcoeff_i%cub_cell%coef1, vcoeff_i%cub_cell%coef2,                 & !in
       &                   vcoeff_i%cub_cell%coef3,                                          & !in
       &                   vcoeff_i%lin_cell%wfac_lin, vcoeff_i%cub_cell%idx0_cub,           & !in
@@ -808,7 +810,7 @@ CONTAINS
 
     !--- Interpolation data for the vertical interface of cells, "nlevp1"
 
-    CALL prepare_lin_intp(p_metrics%z_ifc, geopot_i_out,                                    & !in
+    CALL prepare_lin_intp(p_metrics%z_ifc, gh_i_out,                                        & !in
       &                   nblks_c, npromz_c, nlevp1, nilev,                                 & !in
       &                   vcoeff_i%lin_cell_nlevp1%wfac_lin,                                & !out
       &                   vcoeff_i%lin_cell_nlevp1%idx0_lin,                                & !out
@@ -820,15 +822,16 @@ CONTAINS
     !--- Compute data for interpolation of edge-based fields
 
     CALL cells2edges_scalar(p_metrics%z_mc, p_patch, intp_hrz%c_lin_e, z_me, opt_fill_latbc=.TRUE.)
-    CALL cells2edges_scalar(geopot_i_out, p_patch, intp_hrz%c_lin_e, geopot_i_edge, opt_fill_latbc=.TRUE.)
+    CALL cells2edges_scalar(gh_i_out, p_patch, intp_hrz%c_lin_e, gh_i_edge, opt_fill_latbc=.TRUE.)
+    CALL sync_patch_array_mult(SYNC_E,p_patch,2,z_me,gh_i_edge)
 
-    CALL prepare_lin_intp(z_me, geopot_i_edge, nblks_e, npromz_e, nlev, nilev,               & !in
+    CALL prepare_lin_intp(z_me, gh_i_edge, nblks_e, npromz_e, nlev, nilev,                   & !in
       &                   vcoeff_i%lin_edge%wfac_lin, vcoeff_i%lin_edge%idx0_lin,            & !out
       &                   vcoeff_i%lin_edge%bot_idx_lin )                                      !out
     CALL prepare_extrap(z_me, nblks_e, npromz_e, nlev,                                       & !in
       &                 vcoeff_i%lin_edge%kpbl1, vcoeff_i%lin_edge%wfacpbl1,                 & !out
       &                 vcoeff_i%lin_edge%kpbl2, vcoeff_i%lin_edge%wfacpbl2 )                  !out
-    CALL prepare_cubic_intp(z_me, geopot_i_edge, nblks_e, npromz_e, nlev, nilev,             & !in
+    CALL prepare_cubic_intp(z_me, gh_i_edge, nblks_e, npromz_e, nlev, nilev,                 & !in
       &                     vcoeff_i%cub_edge%coef1, vcoeff_i%cub_edge%coef2,                & !out
       &                     vcoeff_i%cub_edge%coef3,                                         & !out
       &                     vcoeff_i%cub_edge%idx0_cub, vcoeff_i%cub_edge%bot_idx_cub )        !out

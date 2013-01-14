@@ -227,7 +227,7 @@ cat > ${atmo_namelist} << EOF
  inwp_convection              = 1
  inwp_radiation               = 1
  inwp_cldcover                = 1   ! 0: no cld, 1: new diagnostic, 3: COSMO, 5: grid scale
- inwp_turb                    = 3   ! 1: Raschendorfer, 2: ECHAM, 3: EDMF-DUALM (ntracer+1,ntiles=8)
+ inwp_turb                    = 3   ! 1: Raschendorfer, 2: GME, 3: EDMF-DUALM (ntracer+1,ntiles=8)
  inwp_satad                   = 1
  inwp_sso                     = 1
  inwp_gwd                     = 1
@@ -237,15 +237,15 @@ cat > ${atmo_namelist} << EOF
  dt_sso                       = ${dtconv}
  dt_gwd                       = ${dtconv}
  dt_rad                       = ${dtrad}
- latm_above_top               = .TRUE.
+ latm_above_top               = .FALSE.
  efdt_min_raylfric            = 7200.
 /
 &lnd_nml
  ntiles                       = 8       ! number of tiles
  lana_rho_snow                = .TRUE.  ! true: initialization of rho_snow and depth_snow, false: set rho_snow to default value 
  nlev_snow                    = 2       ! 2 for multi-level snow
- lmulti_snow                  = .FALSE. ! true: multi-level snow, false: single-level snow
- idiag_snowfrac               = 2
+ lmulti_snow                  = .TRUE.  ! true: multi-level snow, false: single-level snow
+ idiag_snowfrac               = 3
  lsnowtile                    = .FALSE. ! true: allow separate snow and snow-free tiles
  lseaice                      = .true.
 /

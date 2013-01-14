@@ -117,7 +117,7 @@ MODULE mo_pp_scheduler
   USE mo_cdi_constants,           ONLY: GRID_CELL, GRID_REFERENCE,                      &
     &                                   GRID_UNSTRUCTURED_CELL, ZA_ALTITUDE,            &
     &                                   ZA_PRESSURE, GRID_REGULAR_LONLAT,               &
-    &                                   GRID_UNSTRUCTURED_EDGE, GRID_UNSTRUCTURED_VERT, &
+    &                                   GRID_UNSTRUCTURED_EDGE,                         &
     &                                   DATATYPE_FLT32, DATATYPE_PACK16, ZA_ISENTROPIC, &
     &                                   is_2d_field
   USE mo_linked_list,             ONLY: t_var_list, t_list_element, find_list_element
@@ -132,6 +132,9 @@ MODULE mo_pp_scheduler
     &                                   DEFAULT_PRIORITY2, DEFAULT_PRIORITY3,               &
     &                                   LOW_PRIORITY, dbg_level
   USE mo_fortran_tools,           ONLY: assign_if_present
+  USE mo_cf_convention,           ONLY: t_cf_var
+  USE mo_grib2,                   ONLY: t_grib2_var
+
 
   IMPLICIT NONE
 
@@ -544,9 +547,7 @@ CONTAINS
             IF (TRIM(vname) /= TRIM(info%name(1:idx-1))) CYCLE VAR_LOOP
           ENDIF
 
-          IF ((info%hgrid /= GRID_UNSTRUCTURED_CELL) .AND.  &
-            & (info%hgrid /= GRID_UNSTRUCTURED_VERT)) &
-            CYCLE VAR_LOOP
+          IF (info%hgrid /= GRID_UNSTRUCTURED_CELL)  CYCLE VAR_LOOP
 
           ! Found it, add it to the variable list of optional
           ! diagnostics       
@@ -575,7 +576,7 @@ CONTAINS
           END IF
 
           SELECT CASE (info%hgrid)
-          CASE (GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_VERT)
+          CASE (GRID_UNSTRUCTURED_CELL)
             CALL add_var( p_opt_diag_list, info%name, p_opt_field_r3d,          &
               &           GRID_REGULAR_LONLAT, info%vgrid, info%cf, info%grib2, &
               &           ldims=var_shape, lrestart=.FALSE.,                    &
@@ -913,6 +914,9 @@ CONTAINS
     CHARACTER(LEN=vname_len),  POINTER :: varlist(:)
     CHARACTER(LEN=10)                  :: prefix
     TYPE(t_var_metadata),      POINTER :: info
+    TYPE(t_cf_var)                     :: cf_desc
+    TYPE(t_grib2_var)                  :: grib2_desc
+
 
     if (dbg_level > 5)  CALL message(routine, "Enter")
     ndom = SIZE(p_nh_opt_diag)
@@ -1005,15 +1009,21 @@ CONTAINS
       END IF
       IF (l_intp_p) THEN
         shape3d = (/ nproma, nh_pzlev_config(jg)%nplev, nblks_c /)
-        CALL copy_variable("geopot", p_nh_state(jg)%metrics_list, ZA_PRESSURE, shape3d, &
-          &                p_diag_pz%p_geopot, p_opt_diag_list_p)
+        cf_desc    = t_cf_var('gh', 'm', 'geopotential height', DATATYPE_FLT32)
+        grib2_desc = t_grib2_var(0, 3, 5, ibits, GRID_REFERENCE, GRID_CELL)
+        CALL add_var( p_opt_diag_list_p, 'gh', p_diag_pz%p_gh,                  &
+          & GRID_UNSTRUCTURED_CELL, ZA_PRESSURE, cf_desc, grib2_desc,           &
+          & ldims=shape3d )
         CALL copy_variable("temp",   p_nh_state(jg)%diag_list,    ZA_PRESSURE, shape3d, &
           &                p_diag_pz%p_temp, p_opt_diag_list_p)
       END IF
       IF (l_intp_i) THEN
         shape3d = (/ nproma, nh_pzlev_config(jg)%nilev, nblks_c /)
-        CALL copy_variable("geopot", p_nh_state(jg)%metrics_list, ZA_ISENTROPIC, shape3d, &
-          &                p_diag_pz%i_geopot, p_opt_diag_list_i)
+        cf_desc    = t_cf_var('gh', 'm', 'geopotential height', DATATYPE_FLT32)
+        grib2_desc = t_grib2_var(0, 3, 5, ibits, GRID_REFERENCE, GRID_CELL)
+        CALL add_var( p_opt_diag_list_i, 'gh', p_diag_pz%i_gh,                  &
+          & GRID_UNSTRUCTURED_CELL, ZA_ISENTROPIC, cf_desc, grib2_desc,         &
+          & ldims=shape3d )
         CALL copy_variable("temp",   p_nh_state(jg)%diag_list,    ZA_ISENTROPIC, shape3d, &
           &                p_diag_pz%i_temp, p_opt_diag_list_i)
       END IF
@@ -1061,9 +1071,9 @@ CONTAINS
       IF (l_intp_z) CALL difference(hl_varlist, nvars_hl, &
         &                           (/ "temp  ", "pres  ", "u     ", "v     " /), 4)
       IF (l_intp_p) CALL difference(pl_varlist, nvars_pl, &
-        &                           (/ "geopot", "temp  ", "u     ", "v     " /), 4)
+        &                           (/ "gh    ", "temp  ", "u     ", "v     " /), 4)
       IF (l_intp_i) CALL difference(il_varlist, nvars_il, &
-        &                           (/ "geopot", "temp  ", "u     ", "v     " /), 4)
+        &                           (/ "gh    ", "temp  ", "u     ", "v     " /), 4)
 
       !-- loop over requested p-, z-, and i-level variables, add variables
       !-- ("add_var") and register interpolation tasks:

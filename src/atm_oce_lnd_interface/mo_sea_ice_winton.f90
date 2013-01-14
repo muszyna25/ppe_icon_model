@@ -86,11 +86,33 @@ CONTAINS
   !! Dirk Notz, following MPI-OM. Code transfered to ICON.
   !!
 
-  SUBROUTINE set_ice_temp_winton(p_patch,ice, Tfw, Qatm) 
-    TYPE(t_patch),        INTENT(IN), TARGET    :: p_patch 
-    TYPE(t_sea_ice),      INTENT(INOUT)         :: ice
-    REAL(wp),             INTENT(IN)            :: Tfw(:,:,:)
-    TYPE(t_atmos_fluxes), INTENT(IN)            :: Qatm
+  SUBROUTINE set_ice_temp_winton(i_startidx_c, i_endidx_c, nbdim, kice, &
+            &   isice,          & ! Mask                                                         
+            &   Tsurf,          & ! Surface temperature [degC]                                   
+            &   T1,             & ! Temperature of upper layer [degC]                            
+            &   T2,             & ! Temperature of lower layer [degC]                            
+            &   hi,             & ! Ice thickness                                                
+            &   hs,             & ! Snow thickness                                               
+            &   Qtop,           & ! Energy flux available for surface melting [W/m2]             
+            &   Qbot,           & ! Energy flux available for bottom melting [W/m2]              
+            &   SWnet,          & ! Net shortwave flux [W/m^2]                           
+            &   nonsolar,       & ! Latent and sensible heat flux and longwave radiation [W/m^2] 
+            &   dnonsolardT,    & ! Derivative of non-solar fluxes w.r.t. temperature [W/m^2/K]  
+            &   Tfw)              ! Freezing temperature of the ocean
+
+    INTEGER, INTENT(IN)    :: i_startidx_c, i_endidx_c, nbdim, kice
+    LOGICAL, INTENT(IN)    :: isice      (nbdim,kice)
+    REAL(wp),INTENT(INOUT) :: Tsurf      (nbdim,kice)
+    REAL(wp),INTENT(INOUT) :: T1         (nbdim,kice)
+    REAL(wp),INTENT(INOUT) :: T2         (nbdim,kice)
+    REAL(wp),INTENT(IN)    :: hi         (nbdim,kice)
+    REAL(wp),INTENT(IN)    :: hs         (nbdim,kice)
+    REAL(wp),INTENT(OUT)   :: Qtop       (nbdim,kice)
+    REAL(wp),INTENT(OUT)   :: Qbot       (nbdim,kice)
+    REAL(wp),INTENT(IN)    :: SWnet      (nbdim,kice)
+    REAL(wp),INTENT(IN)    :: nonsolar   (nbdim,kice)
+    REAL(wp),INTENT(IN)    :: dnonsolardT(nbdim,kice)
+    REAL(wp),INTENT(IN)    :: Tfw        (nbdim)
 
     !!Local variables
     REAL(wp) ::      &
@@ -110,91 +132,74 @@ CONTAINS
     
     REAL(wp) :: idt2 ! 1 / (2*dt)
 
-    TYPE(t_subset_range), POINTER :: all_cells
-
-    INTEGER :: k, jb, jc, i_startidx_c, i_endidx_c     ! loop indices
+    INTEGER :: k, jc ! loop indices
     
     
    !-------------------------------------------------------------------------------
 
-    ! initialization of output variables
-    ice%Qbot(:,:,:) = 0._wp
-    ice%Qtop(:,:,:) = 0._wp
-
     ! initialization
+    Qbot(:,:) = 0._wp
+    Qtop(:,:) = 0._wp
     idt2   =  1.0_wp / (2.0_wp*dtime)
     
-    all_cells => p_patch%cells%all 
-    
-    DO jb = 1,p_patch%nblks_c
-      CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c) 
-      DO k=1,ice%kice
-        DO jc = i_startidx_c,i_endidx_c
-          IF (ice%isice(jc,k,jb)) THEN
+    DO k=1,kice
+      DO jc = i_startidx_c,i_endidx_c
+        IF ( isice(jc,k) ) THEN
 
-            ! No surface penetrating shortwave if there's snow on top
-            IF ( ice%hs(jc,k,jb) > 0.0_wp ) THEN
-              I = 0._wp
-            ELSE
-              I = I_0
-            END IF
-            
-            ! Calculate new ice temperature wherever there is ice 
-            ! lat > 0, sens > 0, LWnet >0 , SWin > 0  for downward flux 
-            ! dlatdT, dsensdT, dLWdT >0 for downward flux increasing with increasing Tsurf
-            
-            B = -Qatm%dlatdT(jc,k,jb) - Qatm%dsensdT(jc,k,jb) - Qatm%dLWdT(jc,k,jb)        ! Eq.  8
-            A = -Qatm%lat(jc,k,jb) - Qatm%sens(jc,k,jb) - Qatm%LWnet(jc,k,jb)     &
-              &   - ( 1.0_wp - ice%alb(jc,k,jb) )*( 1._wp - I )*Qatm%SWin(jc,jb)  &
-              &   - ice%Tsurf(jc,k,jb)*B                                                   ! Eq.  7
-
-            K1 =  4.0_wp*ki*ks/( ks*ice%hi(jc,k,jb) + 4.0_wp*ki*ice%hs(jc,k,jb) )          ! Eq.  5
-            K2 =  2.0_wp*ki/ice%hi(jc,k,jb)                                                ! Eq. 10
-            D  =  1.0_wp/( 6.0_wp*dtime*K2 + rhoi*ice%hi(jc,k,jb)*ci )                 
-            iK1B =  1.0_wp/( K1 + B )
-
-            ! Set temperature at which surface is fully liquid
-            IF ( ice%hs(jc,k,jb) > 1e-6_wp ) THEN
-              Tsurfm =  0.0_wp
-            ELSE
-              Tsurfm =  - muS
-            END IF
-
-            A1a = rhoi*ice%hi(jc,k,jb)*idt2*ci + K2*( 4.0_wp*dtime*K2 + rhoi*ice%hi(jc,k,jb)*ci )*D
-            ! Eq. 16
-            A1  = A1a + K1*B*iK1B
-            !
-            B1a = -rhoi*ice%hi(jc,k,jb)*( ci*ice%T1(jc,k,jb) - alf*muS/ice%T1(jc,k,jb) )*idt2 &
-              &                 - I*Qatm%SWin(jc,jb)                                          &
-              &                 - K2*( 4.0_wp*dtime*K2*Tfw(jc,k,jb)                           &
-              &                         + rhoi*ice%hi(jc,k,jb)*ci*ice%T2(jc,k,jb) )*D      ! Eq. 17
-            B1 = B1a + A*K1*iK1B                                                           ! Eq. 18
-            C1 = -rhoi*ice%hi(jc,k,jb)*alf*muS*idt2                                        ! Eq. 21
-
-            ice%T1(jc,k,jb) = -( B1 + SQRT( B1*B1 - 4.0_wp*A1*C1 ) )/( 2.0_wp*A1 )         ! Eq.  6
-            ice%Tsurf(jc,k,jb) = ( K1*ice%T1(jc,k,jb) - A )*iK1B
-            
-            IF ( ice%Tsurf(jc,k,jb) > Tsurfm ) THEN
-              A1 =  A1a + K1                                                               ! Eq. 19
-              B1 =  B1a - K1*Tsurfm                                                        ! Eq. 20
-
-              ice%T1(jc,k,jb) = -( B1 + SQRT( B1*B1 - 4.0_wp*A1*C1 ) )/( 2.0_wp*A1 )       ! Eq. 21
-              ice%Tsurf(jc,k,jb) = Tsurfm
-
-              ! Heatfluxes available for melting at ice surface for each atmopheric time step.
-              ice%Qtop(jc,k,jb) = + K1*( ice%T1(jc,k,jb) - ice%Tsurf(jc,k,jb) ) &
-                &                                       - ( A + B*ice%Tsurf(jc,k,jb) )     ! Eq. 22
-            END IF
-     
-            ice%T2(jc,k,jb) = ( 2.0_wp*dtime*K2*( ice%T1(jc,k,jb) + 2.0_wp*Tfw(jc,k,jb) ) &
-              &                              + rhoi*ice%hi(jc,k,jb)*ci*ice%T2(jc,k,jb) )*D ! Eq. 15
-
-            ! Conductive heatflux at ice-ocean interface for each atmospheric time step.
-            ! The ocean heat flux is calculated at the beginning of ice_growth
-            ice%Qbot(jc,k,jb) = -4.0_wp*Ki*( Tfw(jc,k,jb) - ice%T2(jc,k,jb) ) &
-              &                                                         /ice%hi(jc,k,jb)   ! Eq. 23
+          ! No surface penetrating shortwave if there's snow on top
+          IF ( hs(jc,k) > 0.0_wp ) THEN
+            I = 0._wp
+          ELSE
+            I = I_0
           END IF
-        END DO
+          
+          ! Calculate new ice temperature wherever there is ice 
+          ! nonsolar >0 and SWnet > 0  for downward flux 
+          ! dnonsolardT >0 for downward flux increasing with increasing Tsurf
+          
+          B = -dnonsolardT(jc,k)                                                        ! Eq.  8
+          A = -nonsolar(jc,k) - SWnet(jc,k)*( 1._wp - I ) - Tsurf(jc,k)*B                 ! Eq.  7
+
+          K1 =  4.0_wp*ki*ks/( ks*hi(jc,k) + 4.0_wp*ki*hs(jc,k) )                       ! Eq.  5
+          K2 =  2.0_wp*ki/hi(jc,k)                                                      ! Eq. 10
+          D  =  1.0_wp/( 6.0_wp*dtime*K2 + rhoi*hi(jc,k)*ci )                 
+          iK1B =  1.0_wp/( K1 + B )
+
+          ! Set temperature at which surface is fully liquid
+          IF ( hs(jc,k) > 1e-6_wp ) THEN
+            Tsurfm =  0.0_wp
+          ELSE
+            Tsurfm =  - muS
+          END IF
+
+          A1a = rhoi*hi(jc,k)*idt2*ci + K2*( 4.0_wp*dtime*K2 + rhoi*hi(jc,k)*ci )*D     ! Eq. 16
+          A1  = A1a + K1*B*iK1B
+          B1a = -rhoi*hi(jc,k)*( ci*T1(jc,k) - alf*muS/T1(jc,k) )*idt2 - SWnet(jc,k)*I &
+            &          - K2*( 4.0_wp*dtime*K2*Tfw(jc) + rhoi*hi(jc,k)*ci*T2(jc,k) )*D   ! Eq. 17
+          B1 = B1a + A*K1*iK1B                                                          ! Eq. 18
+          C1 = -rhoi*hi(jc,k)*alf*muS*idt2                                              ! Eq. 21
+
+          T1(jc,k) = -( B1 + SQRT( B1*B1 - 4.0_wp*A1*C1 ) )/( 2.0_wp*A1 )               ! Eq.  6
+          Tsurf(jc,k) = ( K1*T1(jc,k) - A )*iK1B
+          
+          IF ( Tsurf(jc,k) > Tsurfm ) THEN
+            A1 =  A1a + K1                                                              ! Eq. 19
+            B1 =  B1a - K1*Tsurfm                                                       ! Eq. 20
+
+            T1(jc,k) = -( B1 + SQRT( B1*B1 - 4.0_wp*A1*C1 ) )/( 2.0_wp*A1 )             ! Eq. 21
+            Tsurf(jc,k) = Tsurfm
+
+            ! Heatfluxes available for melting at ice surface for each atmopheric time step.
+            Qtop(jc,k) = + K1*( T1(jc,k) - Tsurf(jc,k) ) - ( A + B*Tsurf(jc,k) )        ! Eq. 22
+          END IF
+   
+          T2(jc,k) = ( 2.0_wp*dtime*K2*( T1(jc,k) + 2.0_wp*Tfw(jc) ) &
+            &                                           + rhoi*hi(jc,k)*ci*T2(jc,k) )*D ! Eq. 15
+
+          ! Conductive heatflux at ice-ocean interface for each atmospheric time step.
+          ! The ocean heat flux is calculated at the beginning of ice_growth
+          Qbot(jc,k) = -4.0_wp*Ki*( Tfw(jc) - T2(jc,k) ) / hi(jc,k)                   ! Eq. 23
+        END IF
       END DO
     END DO
 

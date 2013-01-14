@@ -943,6 +943,7 @@ CONTAINS
           &     .and. v_base%lsm_oce_c(:,1,:) <= sea_boundary )
         ice%hi(:,1,:) = 2._wp
         ice%conc(:,1,:) = 1._wp
+        ice%alb (:,1,:) = albi
       ENDWHERE
       IF ( no_tracer < 2 ) THEN
         WHERE (p_os%p_prog(nold(1))%tracer(:,:,:,1) <= -1.0_wp    &
@@ -982,29 +983,72 @@ CONTAINS
   !! Initial release by Peter Korn, MPI-M (2010-07). Originally code written by
   !! Dirk Notz, following MPI-OM. Code transfered to ICON.
   !!
-  SUBROUTINE ice_fast(p_patch, ice,Tfw,Qatm,doy)
+  SUBROUTINE ice_fast(i_startidx_c, i_endidx_c, nbdim, kice, albDim, i_therm_model, &
+            &   isice,          & ! Mask
+            &   Tsurf,          & ! Surface temperature [degC]
+            &   T1,             & ! Temperature of upper layer [degC]
+            &   T2,             & ! Temperature of lower layer [degC]
+            &   hi,             & ! Ice thickness
+            &   hs,             & ! Snow thickness
+            &   Qtop,           & ! Energy flux available for surface melting [W/m2] 
+            &   Qbot,           & ! Energy flux available for bottom melting [W/m2] 
+            &   SWnet,          & ! Net shortwave flux [W/m^2]
+            &   nonsolar,       & ! Latent and sensible heat flux and longwave radiation [W/m^2]
+            &   dnonsolardT,    & ! Derivative of non-solar fluxes w.r.t. temperature [W/m^2/K]
+            &   albedo,         & ! Albedo
+            &   Tfw,            & ! Freezing temperature of the ocean
+            &   doy)              ! Day of the year
 
-    TYPE(t_patch),            INTENT(IN)     :: p_patch 
-    !TYPE(t_hydro_ocean_state),INTENT(IN)     :: p_os
-    !TYPE(t_atmos_for_ocean),  INTENT(IN)     :: p_as
-    REAL(wp),                 INTENT(IN)     :: Tfw(:,:,:)
-    TYPE (t_sea_ice),         INTENT (INOUT) :: ice
-    TYPE (t_atmos_fluxes),    INTENT (IN)    :: Qatm
-    !TYPE (t_atmos_fluxes),    INTENT (INOUT) :: QatmAve
-    INTEGER,                  INTENT(IN)     :: doy
+    INTEGER, INTENT(IN)    :: i_startidx_c, i_endidx_c, nbdim, kice, i_therm_model, albDim
+    LOGICAL, INTENT(IN)    :: isice      (nbdim,kice)
+    REAL(wp),INTENT(INOUT) :: Tsurf      (nbdim,kice)
+    REAL(wp),INTENT(INOUT) :: T1         (nbdim,kice)
+    REAL(wp),INTENT(INOUT) :: T2         (nbdim,kice)
+    REAL(wp),INTENT(IN)    :: hi         (nbdim,kice)
+    REAL(wp),INTENT(IN)    :: hs         (nbdim,kice)
+    REAL(wp),INTENT(OUT)   :: Qtop       (nbdim,kice)
+    REAL(wp),INTENT(OUT)   :: Qbot       (nbdim,kice)
+    REAL(wp),INTENT(IN)    :: SWnet      (nbdim,kice)
+    REAL(wp),INTENT(IN)    :: nonsolar   (nbdim,kice)
+    REAL(wp),INTENT(IN)    :: dnonsolardT(nbdim,kice)
+    REAL(wp),INTENT(OUT)   :: albedo(nbdim,kice,albDim)
+    REAL(wp),INTENT(IN)    :: Tfw        (nbdim)
+
+    INTEGER, OPTIONAL,INTENT(IN)  :: doy
 
     !------------------------------------------------------------------------- 
-    !CALL get_atmos_fluxes (p_patch, p_os,p_as,ice, Qatm)
-    CALL set_ice_albedo(p_patch,ice)
     
     ! #achim
-    IF      ( i_sea_ice == 1 ) THEN
-      CALL set_ice_temp_winton  (p_patch,ice, Tfw, Qatm)
-    ELSE IF ( i_sea_ice == 2 .OR. i_sea_ice == 3 ) THEN
-      CALL set_ice_temp_zerolayer  (p_patch,ice, Tfw, Qatm,doy)
+    IF ( i_therm_model == 1 ) THEN
+      CALL set_ice_temp_winton(i_startidx_c, i_endidx_c, nbdim, kice, &
+            &   isice,          & 
+            &   Tsurf,          & 
+            &   T1,             & 
+            &   T2,             & 
+            &   hi,             & 
+            &   hs,             & 
+            &   Qtop,           & 
+            &   Qbot,           & 
+            &   SWnet,          & 
+            &   nonsolar,       & 
+            &   dnonsolardT,    &
+            &   Tfw)
+    ELSE IF ( i_therm_model == 2 .OR. i_therm_model == 3 ) THEN
+      CALL set_ice_temp_zerolayer(i_startidx_c, i_endidx_c, nbdim, kice, i_therm_model, &
+            &   isice,          & 
+            &   Tsurf,          & 
+            &   hi,             & 
+            &   hs,             & 
+            &   Qtop,           & 
+            &   Qbot,           & 
+            &   SWnet,          & 
+            &   nonsolar,       & 
+            &   dnonsolardT,    &
+            &   Tfw,            &
+            &   doy)
     END IF
 
-    !CALL sum_fluxes    (Qatm, QatmAve)
+    CALL set_ice_albedo(i_startidx_c, i_endidx_c, nbdim, kice, albDim, isice, Tsurf, hs, albedo)
 
    END SUBROUTINE ice_fast
   !-------------------------------------------------------------------------------
@@ -1231,25 +1275,39 @@ CONTAINS
   !! Initial release by Peter Korn, MPI-M (2010-07). Originally code written by
   !! Dirk Notz, following MPI-OM. Code transfered to ICON.
   !!
-  SUBROUTINE set_ice_albedo(p_patch, ice) 
-    TYPE(t_patch),    INTENT(IN)    :: p_patch 
-    TYPE (t_sea_ice), INTENT(INOUT) :: ice
-    !
+  SUBROUTINE set_ice_albedo(i_startidx_c, i_endidx_c, nbdim, kice, albDim, isice, Tsurf, hs, albedo)
+    INTEGER, INTENT(IN)  :: i_startidx_c, i_endidx_c, nbdim, kice, albDim
+    LOGICAL, INTENT(IN)  :: isice(nbdim,kice)
+    REAL(wp),INTENT(IN)  :: Tsurf(nbdim,kice)
+    REAL(wp),INTENT(IN)  :: hs   (nbdim,kice)
+    REAL(wp),INTENT(OUT) :: albedo(nbdim,kice,albDim)
+    
+    
     !Local variables
     REAL(wp), PARAMETER :: albtrans   = 0.5_wp
-    REAL(wp)            :: albflag(nproma,ice%kice, p_patch%nblks_c)
+    REAL(wp)            :: albflag(nbdim,kice,albDim)
+    INTEGER             :: i,jc,k
     !-------------------------------------------------------------------------------
 
     ! This is Uwe's albedo expression from the old budget function
-    albflag (:,:,:) =  1.0_wp/ ( 1.0_wp+albtrans * (ice%tsurf(:,:,:))**2 )
-    
-    WHERE (ice  % isice(:,:,:))
-      WHERE (ice % hs(:,:,:) > 1.e-2_wp)
-        ice% alb(:,:,:) =  albflag(:,:,:) * albsm + (1.0_wp-albflag(:,:,:)) * albs
-      ELSEWHERE
-        ice% alb(:,:,:) =  albflag(:,:,:) * albim + (1.0_wp-albflag(:,:,:)) * albi
-      END WHERE
-    END WHERE
+    ! All albedos are the same
+    DO i=1,albDim
+      DO k=1,kice
+        DO jc = i_startidx_c,i_endidx_c
+
+          albflag (jc,k,i) =  1.0_wp/ ( 1.0_wp+albtrans * (Tsurf(jc,k))**2 )
+      
+          IF ( isice(jc,k) ) THEN
+            IF ( hs(jc,k) > 1.e-2_wp ) THEN
+              albedo(jc,k,i) =  albflag(jc,k,i) * albsm + (1.0_wp-albflag(jc,k,i)) * albs
+            ELSE
+              albedo(jc,k,i) =  albflag(jc,k,i) * albim + (1.0_wp-albflag(jc,k,i)) * albi
+            ENDIF
+          ENDIF
+
+        ENDDO
+      ENDDO
+    ENDDO
 
   END SUBROUTINE set_ice_albedo
   

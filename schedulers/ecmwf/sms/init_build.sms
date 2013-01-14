@@ -20,7 +20,9 @@
 
 # -------------------------------------------------
 
-#module swap fortran fortran/xlf/14.1.0.0
+module swap fortran fortran/xlf/14.1.0.2
+
+arch=rs6000-ibm-aix
 
 echo "INIT_BUILD.SMS"
 
@@ -56,6 +58,11 @@ smsevent configure
 export LDR_CNTRL=MAXDAT=0xD000000DSA
 gmake -j%SCTOTALTASKS%
 smsevent make
+
+# Store revision number of successful compilation 
+revision=`rsh $WSHOST svn info %ECPERMIII%/icon-dev | grep Revision | awk '{print $2}'`
+echo $revision > %SCPERMIII%/icon-dev/build/${arch}/bin/icon_rev.txt
+
 
 # -------------------------------------------------
 

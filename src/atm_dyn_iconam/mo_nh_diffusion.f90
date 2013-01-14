@@ -884,7 +884,7 @@ MODULE mo_nh_diffusion
             DO jc = i_startidx, i_endidx
               p_nh_prog%theta_v(jc,jk,jb) = p_nh_prog%theta_v(jc,jk,jb) + &
                 p_patch%cells%area(jc,jb)*z_temp(jc,jk,jb)
-
+             
               p_nh_prog%exner(jc,jk,jb) = EXP(rd_o_cvd*LOG(rd_o_p0ref* &
                 p_nh_prog%rho(jc,jk,jb)*p_nh_prog%theta_v(jc,jk,jb)))
             ENDDO

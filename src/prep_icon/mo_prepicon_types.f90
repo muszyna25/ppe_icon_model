@@ -109,8 +109,7 @@ MODULE mo_prepicon_types
   !
   TYPE :: t_prepicon_state
 
-    REAL(wp), ALLOCATABLE, DIMENSION (:,:) :: topography_c, topography_c_smt, &
-      topography_v, topography_v_smt
+    REAL(wp), ALLOCATABLE, DIMENSION (:,:) :: topography_c, topography_v
 
     REAL(wp), ALLOCATABLE, DIMENSION(:,:,:) :: z_ifc, z_mc
 

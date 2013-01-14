@@ -48,6 +48,7 @@ MODULE mo_prepicon_config
   PUBLIC :: l_coarse2fine_mode
   PUBLIC :: ifs2icon_filename
   PUBLIC :: dwdfg_filename
+  PUBLIC :: dwdinc_filename
   PUBLIC :: generate_filename
 
 
@@ -79,6 +80,10 @@ MODULE mo_prepicon_config
   ! dwdfg_filename = "<path>dwdFG_R<nroot>B<jlev>_DOM<idom>.nc"
   CHARACTER(LEN=filename_max) :: dwdfg_filename
 
+  ! DWD-inc input filename, may contain keywords, by default
+  ! dwdinc_filename = "<path>dwdinc_R<nroot>B<jlev>_DOM<idom>.nc"
+  CHARACTER(LEN=filename_max) :: dwdinc_filename
+
 CONTAINS
   
   FUNCTION generate_filename(input_filename, model_base_dir, &
@@ -95,7 +100,7 @@ CONTAINS
     CALL associate_keyword("<idom>",   TRIM(int2string(idom, "(i2.2)")), keywords)
     ! replace keywords in "input_filename", which is by default
     ! ifs2icon_filename = "<path>ifs2icon_R<nroot>B<jlev>_DOM<idom>.nc"
-    result_str = TRIM(with_keywords(keywords, TRIM(ifs2icon_filename)))
+    result_str = TRIM(with_keywords(keywords, TRIM(input_filename)))
 
   END FUNCTION generate_filename
 

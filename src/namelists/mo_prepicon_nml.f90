@@ -42,7 +42,7 @@ MODULE mo_prepicon_nml
   USE mo_kind,               ONLY: wp
   USE mo_exception,          ONLY: finish
   USE mo_impl_constants,     ONLY: max_char_length, max_dom, &
-    &                              MODE_IFSANA, MODE_REMAP
+    &                              MODE_IFSANA, MODE_DWDANA, MODE_REMAP
   USE mo_io_units,           ONLY: nnml, nnml_output, filename_max
   USE mo_namelist,           ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_mpi,                ONLY: my_process_is_stdio 
@@ -58,6 +58,7 @@ MODULE mo_prepicon_nml
     & config_l_sst_in           => l_sst_in,     &
     & config_ifs2icon_filename  => ifs2icon_filename, &
     & config_dwdfg_filename     => dwdfg_filename, &
+    & config_dwdinc_filename    => dwdinc_filename, &
     & config_l_coarse2fine_mode => l_coarse2fine_mode
 
   IMPLICIT NONE
@@ -92,6 +93,10 @@ MODULE mo_prepicon_nml
   ! DWD-FG input filename, may contain keywords, by default
   ! dwdfg_filename = "<path>dwdFG_R<nroot>B<jlev>_DOM<idom>.nc"
   CHARACTER(LEN=filename_max) :: dwdfg_filename
+
+  ! DWD-inc input filename, may contain keywords, by default
+  ! dwdinc_filename = "<path>dwdinc_R<nroot>B<jlev>_DOM<idom>.nc"
+  CHARACTER(LEN=filename_max) :: dwdinc_filename
 
   NAMELIST /prepicon_nml/ i_oper_mode, nlev_in, zpbl1, zpbl2, l_coarse2fine_mode, &
                           l_w_in, nlevsoil_in, l_sfc_in, l_hice_in, l_sst_in
@@ -135,6 +140,7 @@ CONTAINS
   l_sst_in    = .FALSE.     ! true: sea surface temperature field provided as input
   ifs2icon_filename = "<path>ifs2icon_R<nroot>B<jlev>_DOM<idom>.nc"
   dwdfg_filename    = "<path>dwdFG_R<nroot>B<jlev>_DOM<idom>.nc"
+  dwdinc_filename   = "<path>dwdinc_R<nroot>B<jlev>_DOM<idom>.nc"
   l_coarse2fine_mode(:) = .FALSE. ! true: apply corrections for coarse-to-fine-mesh interpolation
 
   !------------------------------------------------------------
@@ -165,13 +171,15 @@ CONTAINS
   config_l_sst_in          = l_sst_in
   config_ifs2icon_filename = ifs2icon_filename
   config_dwdfg_filename    = dwdfg_filename
-  config_l_coarse2fine_mode = l_coarse2fine_mode
+  config_dwdinc_filename   = dwdinc_filename
+  config_l_coarse2fine_mode= l_coarse2fine_mode
 
   !------------------------------------------------------------
   ! 5.0 check the consistency of the parameters
   !------------------------------------------------------------
   !
   IF ( (i_oper_mode /= MODE_IFSANA) .AND. &
+    &  (i_oper_mode /= MODE_DWDANA) .AND. &
     &  (i_oper_mode /= MODE_REMAP )) THEN
     CALL finish( TRIM(routine),                         &
       &  'Invalid operation mode. Must be i_oper_mode=2 or 4')

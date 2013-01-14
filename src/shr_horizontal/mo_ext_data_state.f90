@@ -67,8 +67,9 @@ MODULE mo_ext_data_state
   USE mo_impl_constants_grf, ONLY: grf_bdywidth_c
   USE mo_lnd_nwp_config,     ONLY: ntiles_total, ntiles_lnd, ntiles_water, lsnowtile, frlnd_thrhld, &
                                    frlndtile_thrhld, frlake_thrhld, frsea_thrhld, isub_water,       &
-                                   sstice_mode
-  USE mo_extpar_config,      ONLY: itopo, l_emiss, extpar_filename, generate_filename
+                                   sstice_mode, sst_td_filename, ci_td_filename
+  USE mo_extpar_config,      ONLY: itopo, l_emiss, extpar_filename, generate_filename, & 
+    &                              generate_td_filename
   USE mo_time_config,        ONLY: time_config
   USE mo_dynamics_config,    ONLY: iequations
   USE mo_radiation_config,   ONLY: irad_o3, irad_aero
@@ -1900,7 +1901,10 @@ CONTAINS
     CHARACTER(filename_max) :: ozone_file  !< file name for reading in
     CHARACTER(len=max_char_length) :: rawdata_attr
 
-    INTEGER :: jg, jc, jb, i, mpi_comm, ilu
+    CHARACTER(filename_max) :: sst_td_file !< file name for reading in
+    CHARACTER(filename_max) :: ci_td_file !< file name for reading in
+
+    INTEGER :: jg, jc, jb, i, mpi_comm, ilu,im
     INTEGER :: i_lev,jk
     INTEGER :: ncid, varid
 
@@ -2521,7 +2525,43 @@ CONTAINS
       DO jg = 1,n_dom
        !Read the climatological values for SST and ice cover
 
-        CALL finish(TRIM(routine),'sstice_mode == 2 not yet implemented .')
+        DO im=1,12
+
+         IF(my_process_is_stdio()) THEN
+
+          sst_td_file= generate_td_filename(sst_td_filename,                &
+            &                             model_base_dir,                   &
+            &                             TRIM(p_patch(jg)%grid_filename),  &
+            &                             im,clim=.TRUE.                   )
+          CALL message  (routine, TRIM(sst_td_file))
+          CALL nf(nf_open(TRIM(sst_td_file), NF_NOWRITE, ncid), routine)
+
+         ENDIF    
+         CALL read_netcdf_data (ncid, 'SST', p_patch(jg)%n_patch_cells_g, &
+          &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+          &                     ext_data(jg)%atm_td%sst_m(:,:,im)) 
+
+         IF( my_process_is_stdio()) CALL nf(nf_close(ncid), routine)
+
+         IF(my_process_is_stdio()) THEN
+
+          ci_td_file= generate_td_filename(ci_td_filename,                  &
+            &                             model_base_dir,                   &
+            &                             TRIM(p_patch(jg)%grid_filename),  &
+            &                             im,clim=.TRUE.                   )
+          CALL message  (routine, TRIM(ci_td_file))
+          CALL nf(nf_open(TRIM(ci_td_file), NF_NOWRITE, ncid), routine)
+
+         ENDIF    
+         CALL read_netcdf_data (ncid, 'CI', p_patch(jg)%n_patch_cells_g, &
+          &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+          &                     ext_data(jg)%atm_td%fr_ice_m(:,:,im)) 
+
+         IF( my_process_is_stdio()) CALL nf(nf_close(ncid), routine)
+
+        END DO 
+ 
+       ! CALL finish(TRIM(routine),'sstice_mode == 2 not yet implemented .')
       END DO ! ndom
 
    END IF ! sstice_mode

@@ -48,6 +48,7 @@ MODULE mo_lnd_nwp_config
   USE mo_impl_constants,  ONLY: MAX_NTRACER, SUCCESS, MAX_CHAR_LENGTH, &
     &                           max_dom, zml_soil
   USE mo_model_domain,    ONLY: t_patch
+  USE mo_io_units,        ONLY: filename_max
 
   IMPLICIT NONE
 
@@ -60,7 +61,7 @@ MODULE mo_lnd_nwp_config
   PUBLIC :: itype_root, itype_heatcond, itype_hydbound, idiag_snowfrac
   PUBLIC :: lstomata,   l2tls, lana_rho_snow, itype_subs 
   PUBLIC :: isub_water, isub_seaice
-  PUBLIC :: sstice_mode
+  PUBLIC :: sstice_mode, sst_td_filename, ci_td_filename
 
   PUBLIC :: configure_lnd_nwp
 
@@ -106,7 +107,7 @@ MODULE mo_lnd_nwp_config
   INTEGER ::  sstice_mode      !< set if SST and sea ice cover are read from the analysis
                                  !< and kept constant or read from external data files 
                                  !< and updated regularly in run time
-
+  CHARACTER(LEN=filename_max) :: sst_td_filename, ci_td_filename
   ! derived variables
   INTEGER ::  nlev_soil   !< number of soil layers (based on zml_soil in impl_constants)
   INTEGER ::  isub_water  !< (open) water points tile number

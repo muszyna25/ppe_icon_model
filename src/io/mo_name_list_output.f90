@@ -2082,7 +2082,7 @@ CONTAINS
         lbounds(k) = REAL(k,wp)
         levels(k)  = REAL(k,wp)
       END DO
-      ubounds(1:nlevp1) = nlevp1
+      ubounds(1:nlevp1) = 0
       CALL zaxisDefLbounds(of%cdiZaxisID(ZA_hybrid_half_hhl), lbounds) !necessary for GRIB2
       CALL zaxisDefUbounds(of%cdiZaxisID(ZA_hybrid_half_hhl), ubounds) !necessary for GRIB2
       CALL zaxisDefLevels(of%cdiZaxisID(ZA_hybrid_half_hhl), levels)  !necessary for NetCDF

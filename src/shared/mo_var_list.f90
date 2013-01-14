@@ -3208,12 +3208,13 @@ CONTAINS
   !
   ! add supplementary fields to a different var list (eg. geopotential, surface pressure, ...)
   !
-  SUBROUTINE add_var_list_reference (to_var_list, name, from_var_list, loutput, bit_precision)
+  SUBROUTINE add_var_list_reference (to_var_list, name, from_var_list, loutput, bit_precision, in_group)
     TYPE(t_var_list), INTENT(inout)          :: to_var_list
     CHARACTER(len=*), INTENT(in)             :: name
     CHARACTER(len=*), INTENT(in)             :: from_var_list
     LOGICAL,          INTENT(in),   OPTIONAL :: loutput
     INTEGER,          INTENT(in),   OPTIONAL :: bit_precision
+    LOGICAL,          INTENT(in),   OPTIONAL :: in_group(SIZE(VAR_GROUPS))  ! groups to which a variable belongs
     !
     TYPE(t_var_list_element), POINTER :: source
     TYPE(t_list_element),     POINTER :: new_list_element
@@ -3226,6 +3227,9 @@ CONTAINS
       new_list_element%field%info%lrestart  = .FALSE.
       CALL assign_if_present(new_list_element%field%info%loutput, loutput)
       CALL assign_if_present(new_list_element%field%info%grib2%bits, bit_precision)
+      if (present(in_group)) then
+        new_list_element%field%info%in_group(:)=in_group(:)
+      end if
     ENDIF
     !
   CONTAINS
