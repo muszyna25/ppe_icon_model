@@ -55,7 +55,7 @@ basename=%SUITE%_%EXPNUM%_%YMD%%INIHOUR%
 
 
 #-----------------------------------------------------------------------------
-# namelist: copy to ecgate
+# namelist and icon_rev.txt: copy to ecfs
 
 #rcp   NAMELIST_${basename} ecgate:${gatedir}
 if [ %NENS% -gt 0 ] ; then
@@ -66,6 +66,8 @@ if [ %NENS% -gt 0 ] ; then
 else
   ecp -o NAMELIST_${basename} $ecfsdir
 fi
+bindir=%SCTEMP%/%SUITE%/%EXPNUM%/output/bin
+ecp -o ${bindir}/icon_rev.txt $ecfsdir
 
 
 #-----------------------------------------------------------------------------

@@ -32,6 +32,7 @@ mkdir -p ${SETDIRTMP}
 # Copy executable to experiment temporary directory
 cp %SCPERMIII%/icon-dev/build/${arch}/bin/control_model ${SETDIRTMP}
 cp %SCPERMIII%/icon-dev/build/${arch}/bin/prep_icon     ${SETDIRTMP}
+cp %SCPERMIII%/icon-dev/build/${arch}/bin/icon_rev.txt  ${SETDIRTMP}
 
 # Use executable from $USER
 #cp %SCPERM%/icon-dev/build/${arch}/bin/control_model ${SETDIRTMP}
