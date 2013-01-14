@@ -57,7 +57,7 @@ basedir=${dir%/*}
 # determine architecture
 #arch=$(${basedir}/config/config.guess)
 arch=sx9-nec-superux-sx9mpidebug
-arch=x86_64-unknown-linux-gnu
+#arch=x86_64-unknown-linux-gnu
 #
 #-----------------------------------------------------------------------------
 #
@@ -225,11 +225,10 @@ cat > ${atmo_namelist} << EOF
  lfeedback               = .true.
 /
 &prepicon_nml
-  i_oper_mode = 3           ! operation mode
+  i_oper_mode = 2           ! operation mode
   nlev_in     = 91          ! number of levels of input data
   zpbl1       = 500. 
   zpbl2       = 1000. 
-  l_zp_out    = .true.
   l_w_in      = .true.
   l_sfc_in    = .true.
 /
