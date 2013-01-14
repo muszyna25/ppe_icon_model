@@ -637,6 +637,7 @@ run/exp.nh35_heldsuarez -text
 run/exp.nh35_tri_jws -text
 run/exp.nh35_tri_jws_efdt4 -text
 run/exp.nh3_tri_tracer_solid_body -text
+run/exp.nh_cbl -text
 run/exp.nh_dcmip_gw_31_R2B4L10 -text
 run/exp.nh_dcmip_gw_32_R2B4L10 -text
 run/exp.nh_dcmip_tc_52_r2b4 -text
