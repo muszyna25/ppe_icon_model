@@ -50,7 +50,7 @@ MODULE mo_prepicon_utils
     &                               generate_extpar_filename => generate_filename
   USE mo_dynamics_config,     ONLY: nnow, nnow_rcf, nnew, nnew_rcf
   USE mo_model_domain,        ONLY: t_patch
-  USE mo_nonhydro_types,      ONLY: t_nh_state
+  USE mo_nonhydro_types,      ONLY: t_nh_state, t_nh_prog, t_nh_diag
   USE mo_nwp_lnd_types,       ONLY: t_lnd_state
   USE mo_intp_data_strc,      ONLY: t_int_state
   USE mo_ext_data_types,      ONLY: t_external_data
@@ -59,10 +59,13 @@ MODULE mo_prepicon_utils
     &                               t_pi_atm, t_pi_sfc
   USE mo_prepicon_config,     ONLY: i_oper_mode, nlev_in, l_w_in, nlevsoil_in, &
     &                               l_sfc_in, l_hice_in, l_sst_in,             &
-    &                               ifs2icon_filename, dwdfg_filename, generate_filename
+    &                               ifs2icon_filename, dwdfg_filename, dwdinc_filename, &
+    &                               generate_filename
   USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, max_dom, MODE_DWDANA, &
-    &                               MODE_IFSANA, MODE_COMBINED
-  USE mo_physical_constants,  ONLY: tf_salt
+    &                               MODE_IFSANA, MODE_COMBINED, min_rlcell,         &
+    &                               min_rledge
+  USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c, grf_bdywidth_e
+  USE mo_physical_constants,  ONLY: tf_salt, rd, cpd, cvd, p0ref, vtmpc1
   USE mo_exception,           ONLY: message, finish, message_text
   USE mo_grid_config,         ONLY: n_dom, nroot
   USE mo_mpi,                 ONLY: p_pe, p_io, p_bcast, p_comm_work_test, p_comm_work
@@ -79,6 +82,7 @@ MODULE mo_prepicon_utils
   USE mo_phyparam_soil,       ONLY: csalb_snow_min, csalb_snow_max,crhosmin_ml,crhosmax_ml
   USE mo_seaice_nwp,          ONLY: frsi_min
   USE mo_nh_vert_interp,      ONLY: vert_interp_atm, vert_interp_sfc
+  USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
   USE mo_sync,                ONLY: sync_patch_array, SYNC_E
 
   IMPLICIT NONE
@@ -232,11 +236,11 @@ MODULE mo_prepicon_utils
 
 
     ! read DWD first guess and DA increments for atmosphere
-    ! and add increments to first guess
     ! 
     CALL read_dwdana_atm(p_patch, p_nh_state)
 
 
+    ! merge first guess with DA increments and 
     ! convert variables to the NH set of prognostic variables
     CALL create_dwdana_atm(p_patch, p_nh_state, p_int_state)
 
@@ -889,6 +893,9 @@ MODULE mo_prepicon_utils
   !! Read DWD first guess and DA increments (atmosphere only)
   !!
   !! Read DWD first guess and DA increments (atmosphere only)
+  !! First guess (FG) is read for theta_v, rho, vn, w, qv, qc, 
+  !! qi, qr, qs, whereas DA increments are read for T, p, u, v, 
+  !! qv, qc, qi, qr, qs.
   !!
   !! @par Revision History
   !! Initial version by Daniel Reinert, DWD(2012-12-18)
@@ -902,7 +909,7 @@ MODULE mo_prepicon_utils
     INTEGER :: nlev, nlevp1
     LOGICAL :: l_exist
 
-    INTEGER :: no_cells, no_levels, no_levels_2
+    INTEGER :: no_cells, no_cells_2, no_levels, no_levels_2
     INTEGER :: ncid, dimid
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
@@ -953,8 +960,10 @@ MODULE mo_prepicon_utils
         !
         ! get number of cells
         !
-        CALL nf(nf_inq_dimid(ncid, 'cell', dimid), routine)
+        CALL nf(nf_inq_dimid(ncid, 'ncells', dimid), routine)
         CALL nf(nf_inq_dimlen(ncid, dimid, no_cells), routine)
+        CALL nf(nf_inq_dimid(ncid, 'ncells_2', dimid), routine)
+        CALL nf(nf_inq_dimlen(ncid, dimid, no_cells_2), routine)
 
         !
         ! get number of vertical levels
@@ -966,7 +975,8 @@ MODULE mo_prepicon_utils
         !
         ! check the number of cells and vertical levels
         !
-        IF(p_patch(jg)%n_patch_cells_g /= no_cells) THEN
+        IF( p_patch(jg)%n_patch_cells_g /= no_cells .AND. &
+          & p_patch(jg)%n_patch_cells_g /= no_cells_2) THEN
           CALL finish(TRIM(ROUTINE),&
           & 'Number of patch cells and cells in DWD FG file do not match.')
         ENDIF
@@ -982,21 +992,17 @@ MODULE mo_prepicon_utils
 
       ! start reading first guess (atmosphere only)
       !
-      CALL read_netcdf_data_single (ncid, 'temp', p_patch(jg)%n_patch_cells_g,        &
+      CALL read_netcdf_data_single (ncid, 'theta_v', p_patch(jg)%n_patch_cells_g,     &
         &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,    &
-        &                  nlev, p_nh_state(jg)%diag%temp)
+        &                  nlev, p_nh_state(jg)%prog(nnow(jg))%theta_v)
 
-      CALL read_netcdf_data_single (ncid, 'pres', p_patch(jg)%n_patch_cells_g,        &
+      CALL read_netcdf_data_single (ncid, 'rho', p_patch(jg)%n_patch_cells_g,         &
         &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,    &
-        &                  nlev, p_nh_state(jg)%diag%pres)
+        &                  nlev, p_nh_state(jg)%prog(nnow(jg))%rho)
 
-      CALL read_netcdf_data_single (ncid, 'u', p_patch(jg)%n_patch_cells_g,           &
-        &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,    &
-        &                  nlev, p_nh_state(jg)%diag%u)
-
-      CALL read_netcdf_data_single (ncid, 'v', p_patch(jg)%n_patch_cells_g,           &
-        &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,    &
-        &                  nlev, p_nh_state(jg)%diag%v)
+      CALL read_netcdf_data_single (ncid, 'vn', p_patch(jg)%n_patch_edges_g,          &
+        &                  p_patch(jg)%n_patch_edges, p_patch(jg)%edges%glb_index,    &
+        &                  nlev, p_nh_state(jg)%prog(nnow(jg))%vn)
 
       CALL read_netcdf_data_single (ncid, 'w', p_patch(jg)%n_patch_cells_g,           &
         &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,    &
@@ -1028,117 +1034,107 @@ MODULE mo_prepicon_utils
       IF(p_pe == p_io) CALL nf(nf_close(ncid), routine)
 
 
-
-
-      !-------------------------------!
-      ! read in and add DA increments !
-      !-------------------------------!
-! TODO:  dwdinc_filename does not yet exist
-
-!!$      IF(p_pe == p_io ) THEN 
-!!$        !
-!!$        ! generate file name
-!!$        !
-!!$        dwdinc_file(jg) = generate_filename(dwdinc_filename, model_base_dir, &
-!!$          &                                   nroot, jlev, jg)
-!!$        INQUIRE (FILE=dwdinc_file(jg), EXIST=l_exist)
-!!$        IF (.NOT.l_exist) THEN
-!!$          CALL finish(TRIM(routine),'DWD INC file not found: '//TRIM(dwdinc_file(jg)))
-!!$        ENDIF
-!!$
-!!$        !
-!!$        ! open file
-!!$        !
-!!$        CALL nf(nf_open(TRIM(dwdinc_file(jg)), NF_NOWRITE, ncid), routine)
-!!$
-!!$        !
-!!$        ! get number of cells
-!!$        !
-!!$        CALL nf(nf_inq_dimid(ncid, 'cell', dimid), routine)
-!!$        CALL nf(nf_inq_dimlen(ncid, dimid, no_cells), routine)
-!!$
-!!$        !
-!!$        ! get number of vertical levels
-!!$        !
-!!$        CALL nf(nf_inq_dimid(ncid, 'lev', dimid), routine)
-!!$        CALL nf(nf_inq_dimlen(ncid, dimid, no_levels), routine)
-!!$
-!!$        !
-!!$        ! check the number of cells and vertical levels
-!!$        !
-!!$        IF(p_patch(jg)%n_patch_cells_g /= no_cells) THEN
-!!$          CALL finish(TRIM(ROUTINE),&
-!!$          & 'Number of patch cells and cells in DWD FG file do not match.')
-!!$        ENDIF
-!!$
-!!$        IF(p_patch(jg)%nlev /= no_levels) THEN
-!!$          CALL finish(TRIM(ROUTINE),&
-!!$          & 'nlev does not match the number of levels in DWD FG file.')
-!!$        ENDIF
-!!$
-!!$      ENDIF  ! p_io
-!!$
-!!$
-!!$      ! start reading DA increments (atmosphere only)
-!!$      ! Increments are immediately added to the first guess (opt_lvalue_add=.TRUE.)
-!!$      !
-!!$      CALL read_netcdf_data_single (ncid, 'temp', p_patch(jg)%n_patch_cells_g,        &
-!!$        &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,    &
-!!$        &                  nlev, p_nh_state(jg)%diag%temp,                            &
-!!$        &                  opt_lvalue_add=.TRUE.)
-!!$
-!!$      CALL read_netcdf_data_single (ncid, 'pres', p_patch(jg)%n_patch_cells_g,        &
-!!$        &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,    &
-!!$        &                  nlev, p_nh_state(jg)%diag%pres,                            &
-!!$        &                  opt_lvalue_add=.TRUE.)
-!!$
-!!$      CALL read_netcdf_data_single (ncid, 'u', p_patch(jg)%n_patch_cells_g,           &
-!!$        &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,    &
-!!$        &                  nlev, p_nh_state(jg)%diag%u,                               &
-!!$        &                  opt_lvalue_add=.TRUE.)
-!!$
-!!$      CALL read_netcdf_data_single (ncid, 'v', p_patch(jg)%n_patch_cells_g,           &
-!!$        &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,    &
-!!$        &                  nlev, p_nh_state(jg)%diag%v,                               &
-!!$        &                  opt_lvalue_add=.TRUE.)
-!!$
-!!$      CALL read_netcdf_data_single (ncid, 'w', p_patch(jg)%n_patch_cells_g,           &
-!!$        &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,    &
-!!$        &                  nlevp1, p_nh_state(jg)%prog(nnow(jg))%w,                   &
-!!$        &                  opt_lvalue_add=.TRUE.)
-!!$
-!!$      CALL read_netcdf_data_single (ncid, 'qv', p_patch(jg)%n_patch_cells_g,          &
-!!$        &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,    &
-!!$        &                  nlev, p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqv),     &
-!!$        &                  opt_lvalue_add=.TRUE.)
-!!$
-!!$      CALL read_netcdf_data_single (ncid, 'qc', p_patch(jg)%n_patch_cells_g,          &
-!!$        &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,    &
-!!$        &                  nlev, p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqc))
-!!$
-!!$      CALL read_netcdf_data_single (ncid, 'qi', p_patch(jg)%n_patch_cells_g,          &
-!!$        &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,    &
-!!$        &                  nlev, p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqi),     &
-!!$        &                  opt_lvalue_add=.TRUE.)
-!!$
-!!$      CALL read_netcdf_data_single (ncid, 'qr', p_patch(jg)%n_patch_cells_g,          &
-!!$        &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,    &
-!!$        &                  nlev, p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqr),     &
-!!$        &                  opt_lvalue_add=.TRUE.)
-!!$
-!!$      CALL read_netcdf_data_single (ncid, 'qs', p_patch(jg)%n_patch_cells_g,          &
-!!$        &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,    &
-!!$        &                  nlev, p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqs),     &
-!!$        &                  opt_lvalue_add=.TRUE.)
-!!$
-!!$
-!!$
-!!$      ! close file (increments)
-!!$      !
-!!$      IF(p_pe == p_io) CALL nf(nf_close(ncid), routine)
-
-
     ENDDO ! loop over model domains
+
+
+    !-----------------------!
+    ! read in DA increments !
+    !-----------------------!
+
+    ! DA increments are only read for the global domain
+
+    jg = 1
+
+    IF(p_pe == p_io ) THEN 
+      !
+      ! generate file name
+      !
+      dwdinc_file(jg) = generate_filename(dwdinc_filename, model_base_dir, &
+        &                                   nroot, jlev, jg)
+      INQUIRE (FILE=dwdinc_file(jg), EXIST=l_exist)
+      IF (.NOT.l_exist) THEN
+        CALL finish(TRIM(routine),'DWD INC file not found: '//TRIM(dwdinc_file(jg)))
+      ELSE
+        CALL message (TRIM(routine), 'read atm_inc fields from '//TRIM(dwdinc_file(jg)))
+      ENDIF
+
+      !
+      ! open file
+      !
+      CALL nf(nf_open(TRIM(dwdinc_file(jg)), NF_NOWRITE, ncid), routine)
+
+      !
+      ! get number of cells
+      !
+      CALL nf(nf_inq_dimid(ncid, 'ncells', dimid), routine)
+      CALL nf(nf_inq_dimlen(ncid, dimid, no_cells), routine)
+
+      !
+      ! get number of vertical levels
+      !
+      CALL nf(nf_inq_dimid(ncid, 'lev', dimid), routine)
+      CALL nf(nf_inq_dimlen(ncid, dimid, no_levels), routine)
+
+      !
+      ! check the number of cells and vertical levels
+      !
+      IF( p_patch(jg)%n_patch_cells_g /= no_cells) THEN
+        CALL finish(TRIM(ROUTINE),&
+        & 'Number of patch cells and cells in DWD inc file do not match.')
+      ENDIF
+
+      IF(p_patch(jg)%nlev /= no_levels) THEN
+        CALL finish(TRIM(ROUTINE),&
+        & 'nlev does not match the number of levels in DWD inc file.')
+      ENDIF
+
+    ENDIF  ! p_io
+
+
+    ! start reading DA increments (atmosphere only)
+    ! For simplicity, increments are stored in prepicon(jg)%atm
+    !
+    CALL read_netcdf_data_single (ncid, 'temp', p_patch(jg)%n_patch_cells_g,        &
+      &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,    &
+      &                  nlev, prepicon(jg)%atm%temp )
+
+    CALL read_netcdf_data_single (ncid, 'pres', p_patch(jg)%n_patch_cells_g,        &
+      &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,    &
+      &                  nlev, prepicon(jg)%atm%pres )
+
+    CALL read_netcdf_data_single (ncid, 'u', p_patch(jg)%n_patch_cells_g,           &
+      &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,    &
+      &                  nlev, prepicon(jg)%atm%u )
+
+    CALL read_netcdf_data_single (ncid, 'v', p_patch(jg)%n_patch_cells_g,           &
+      &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,    &
+      &                  nlev, prepicon(jg)%atm%v )
+
+    CALL read_netcdf_data_single (ncid, 'qv', p_patch(jg)%n_patch_cells_g,          &
+      &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,    &
+      &                  nlev, prepicon(jg)%atm%qv )
+
+    CALL read_netcdf_data_single (ncid, 'qc', p_patch(jg)%n_patch_cells_g,          &
+      &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,    &
+      &                  nlev, prepicon(jg)%atm%qc )
+
+    CALL read_netcdf_data_single (ncid, 'qi', p_patch(jg)%n_patch_cells_g,          &
+      &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,    &
+      &                  nlev, prepicon(jg)%atm%qi )
+
+    CALL read_netcdf_data_single (ncid, 'qr', p_patch(jg)%n_patch_cells_g,          &
+      &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,    &
+      &                  nlev, prepicon(jg)%atm%qr )
+
+    CALL read_netcdf_data_single (ncid, 'qs', p_patch(jg)%n_patch_cells_g,          &
+      &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,    &
+      &                  nlev, prepicon(jg)%atm%qs )
+
+
+
+    ! close file (increments)
+    !
+    IF(p_pe == p_io) CALL nf(nf_close(ncid), routine)
 
 
   END SUBROUTINE read_dwdana_atm
@@ -1162,7 +1158,7 @@ MODULE mo_prepicon_utils
     INTEGER :: jg, jt, jlev
     LOGICAL :: l_exist
 
-    INTEGER :: no_cells, no_levels, no_levels_2
+    INTEGER :: no_cells, no_cells_2,no_levels, no_levels_2
     INTEGER :: ncid, dimid
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
@@ -1207,8 +1203,10 @@ MODULE mo_prepicon_utils
         !
         ! get number of cells
         !
-        CALL nf(nf_inq_dimid(ncid, 'cell', dimid), routine)
+        CALL nf(nf_inq_dimid(ncid, 'ncells', dimid), routine)
         CALL nf(nf_inq_dimlen(ncid, dimid, no_cells), routine)
+        CALL nf(nf_inq_dimid(ncid, 'ncells_2', dimid), routine)
+        CALL nf(nf_inq_dimlen(ncid, dimid, no_cells_2), routine)
 
         !
         ! get number of vertical levels
@@ -1221,7 +1219,8 @@ MODULE mo_prepicon_utils
         !
         ! check the number of cells and vertical levels
         !
-        IF(p_patch(jg)%n_patch_cells_g /= no_cells) THEN
+        IF( p_patch(jg)%n_patch_cells_g /= no_cells .AND. &
+          & p_patch(jg)%n_patch_cells_g /= no_cells_2) THEN
           CALL finish(TRIM(ROUTINE),&
           & 'Number of patch cells and cells in DWD FG file do not match.')
         ENDIF
@@ -1315,22 +1314,39 @@ MODULE mo_prepicon_utils
 
 
   !>
-  !! Analysis is converted to the NH set of prognostic variables 
+  !! Analysis is created, by addin the DA increments 
   !!
   !!
-  !! Analysis is converted to the NH set of prognostic variables 
-  !! (atmosphere only)
+  !! Analysis is created, by addin the DA increments 
+  !! (atmosphere only).
+  !! First the FG in terms of the NH prognostic set of variables
+  !! is converted into p, T, q_v, q_c, q_i, q_r, q_s.
+  !! Then the DA increments are added and the fields are transformed 
+  !! back to the NH prognostic set of variables. 
   !!
   !! @par Revision History
   !! Initial version by Daniel Reinert, DWD(2012-12-18)
   !!
   SUBROUTINE create_dwdana_atm (p_patch, p_nh_state, p_int_state)
 
-    TYPE(t_patch),          INTENT(IN)    :: p_patch(:)
-    TYPE(t_nh_state),       INTENT(INOUT) :: p_nh_state(:)
-    TYPE(t_int_state),      INTENT(IN)    :: p_int_state(:)
+    TYPE(t_patch),    TARGET, INTENT(IN)    :: p_patch(:)
+    TYPE(t_nh_state), TARGET, INTENT(INOUT) :: p_nh_state(:)
+    TYPE(t_int_state),        INTENT(IN)    :: p_int_state(:)
 
-    INTEGER :: jg
+    INTEGER :: jc,je,jk,jb,jg             ! loop indices
+    INTEGER :: ist
+    INTEGER :: nlev                       ! number of vertical levels
+    INTEGER :: nblks_c, nblks_e           ! number of blocks
+    INTEGER :: i_nchdom
+    INTEGER :: rl_start, rl_end 
+    INTEGER :: i_startblk, i_endblk
+    INTEGER :: i_startidx, i_endidx
+    TYPE(t_nh_prog), POINTER :: p_prog_now    
+    TYPE(t_nh_diag), POINTER :: p_diag
+    INTEGER,         POINTER :: iidx(:,:,:), iblk(:,:,:)
+
+    REAL(wp) :: vn_incr                   ! DA increment for vn
+    REAL(wp), ALLOCATABLE :: zpres_nh(:,:,:)
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
       routine = 'mo_prepicon_utils:create_dwdana_atm'
@@ -1338,49 +1354,203 @@ MODULE mo_prepicon_utils
 
     !-------------------------------------------------------------------------
 
-    DO jg = 1, n_dom
+    ! for the time being, the generation of DWD analysis fields is implemented 
+    ! for the global domain, only.
+    jg = 1
 
-      ! Skip if model domain is not active at initial time
-      IF (.NOT. p_patch(jg)%ldom_active) CYCLE
+    ! number of vertical levels 
+    nlev      = p_patch(jg)%nlev
+
+    nblks_c   = p_patch(jg)%nblks_c
+    nblks_e   = p_patch(jg)%nblks_e
+    i_nchdom  = MAX(1,p_patch(jg)%n_childdom)
 
 
-      ! Convert fields to the NH set of prognostic variables
+    ! allocate temporary array for nonhydrostatic pressure
+    ALLOCATE(zpres_nh(nproma,nlev,nblks_c), STAT=ist)
+    IF (ist /= SUCCESS) THEN
+      CALL finish ( TRIM(routine), 'allocation for zpres_nh failed')
+    ENDIF
+
+
+    ! define some pointers
+    p_prog_now => p_nh_state(jg)%prog(nnow(jg))
+    p_diag     => p_nh_state(jg)%diag
+    iidx       => p_patch(jg)%edges%cell_idx
+    iblk       => p_patch(jg)%edges%cell_blk
+
+
+
+    ! 1) first guess in terms of rho, theta_v, q_i is converted to 
+    ! T, p, q_i. Note, that p is the full (nonhydrostatic) pressure field.
+    !
+!!$OMP PARALLEL PRIVATE(rl_start,rl_end,i_startblk,i_endblk)
+
+    ! exclude boundary interpolation zone of nested domains
+    rl_start = grf_bdywidth_c+1
+    rl_end   = min_rlcell
+
+    i_startblk = p_patch(jg)%cells%start_blk(rl_start,1)
+    i_endblk   = p_patch(jg)%cells%end_blk(rl_end,i_nchdom)
+
+!!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx)
+    DO jb = i_startblk, i_endblk
+
+      CALL get_indices_c(p_patch(jg), jb, i_startblk, i_endblk, &
+        & i_startidx, i_endidx, rl_start, rl_end)
+
+      DO jk = 1, nlev
+        DO jc = i_startidx, i_endidx
+
+          ! compute exner function
+          p_prog_now%exner(jc,jk,jb) = (rd/p0ref * p_prog_now%rho(jc,jk,jb)  &
+            &                        * p_prog_now%theta_v(jc,jk,jb))**(rd/cvd)
+
+          ! compute full nonhydrostatic pressure
+          zpres_nh(jc,jk,jb) = p_prog_now%exner(jc,jk,jb)**(cpd/rd) * p0ref
+
+          ! compute virtual temperature
+          p_diag%tempv(jc,jk,jb) = p_prog_now%theta_v(jc,jk,jb) &
+            &                    * p_prog_now%exner(jc,jk,jb)
+
+          ! compute temperature
+          p_diag%temp(jc,jk,jb) = p_diag%tempv(jc,jk,jb)  &
+            &                   / (1._wp + vtmpc1*p_prog_now%tracer(jc,jk,jb,iqv) &
+            &                   - (p_prog_now%tracer(jc,jk,jb,iqc)                &
+            &                   +  p_prog_now%tracer(jc,jk,jb,iqi)                &
+            &                   +  p_prog_now%tracer(jc,jk,jb,iqr)                &
+            &                   +  p_prog_now%tracer(jc,jk,jb,iqs)) )
+
+        ENDDO  ! jc
+      ENDDO  ! jk
+
+
+      ! 2) add DA increments to first guess
       !
+      DO jk = 1, nlev
+        DO jc = i_startidx, i_endidx
 
-      ! Compute virtual temperature
-      CALL virtual_temp(p_patch(jg), p_nh_state(jg)%diag%temp,           & !in
-        &               p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqv), & !in
-        &               p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqc), & !in
-        &               p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqi), & !in
-        &               p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqr), & !in
-        &               p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqs), & !in
-        &               p_nh_state(jg)%diag%tempv                        ) !out  
+          p_diag%temp(jc,jk,jb) = p_diag%temp(jc,jk,jb)          &
+            &                   + prepicon(jg)%atm%temp(jc,jk,jb)
 
-      ! Convert thermodynamic variables into set of NH prognostic variables
-      CALL convert_thdvars(p_patch(jg), p_nh_state(jg)%diag%pres,& !in
-        &                  p_nh_state(jg)%diag%tempv,            & !in
-        &                  p_nh_state(jg)%prog(nnow(jg))%rho,    & !out
-        &                  p_nh_state(jg)%prog(nnow(jg))%exner,  & !out
-        &                  p_nh_state(jg)%prog(nnow(jg))%theta_v ) !out
+          zpres_nh(jc,jk,jb)    = zpres_nh(jc,jk,jb)             &
+            &                   + prepicon(jg)%atm%pres(jc,jk,jb)
 
-      ! Convert u and v on cell points to vn at edge points
-      CALL interp_uv_2_vn(p_patch(jg), p_int_state(jg),      & !in
-        &                 p_nh_state(jg)%diag%u,             & !in
-        &                 p_nh_state(jg)%diag%v,             & !in
-        &                 p_nh_state(jg)%prog(nnow(jg))%vn   ) !out
+          p_prog_now%tracer(jc,jk,jb,iqv) = p_prog_now%tracer(jc,jk,jb,iqv) &
+            &                             + prepicon(jg)%atm%qv(jc,jk,jb)
 
-      CALL sync_patch_array(SYNC_E,p_patch(jg),p_nh_state(jg)%prog(nnow(jg))%vn)
+          p_prog_now%tracer(jc,jk,jb,iqc) = p_prog_now%tracer(jc,jk,jb,iqc) &
+            &                             + prepicon(jg)%atm%qc(jc,jk,jb)
+
+          p_prog_now%tracer(jc,jk,jb,iqi) = p_prog_now%tracer(jc,jk,jb,iqi) &
+            &                             + prepicon(jg)%atm%qi(jc,jk,jb)
+
+          p_prog_now%tracer(jc,jk,jb,iqr) = p_prog_now%tracer(jc,jk,jb,iqr) &
+            &                             + prepicon(jg)%atm%qr(jc,jk,jb)
+
+          p_prog_now%tracer(jc,jk,jb,iqs) = p_prog_now%tracer(jc,jk,jb,iqs) &
+            &                             + prepicon(jg)%atm%qs(jc,jk,jb)
+        ENDDO  ! jc
+      ENDDO  ! jk
+
+!!$write(0,*) "MINVAL(prepicon(jg)%atm%temp(jc,jk,jb)), jb: ",MINVAL(prepicon(jg)%atm%temp(:,:,jb)), jb 
+!!$write(0,*) "MAXVAL(prepicon(jg)%atm%temp(jc,jk,jb)), jb: ",MAXVAL(prepicon(jg)%atm%temp(:,:,jb)), jb 
+!!$write(0,*) "MINVAL(prepicon(jg)%atm%pres(jc,jk,jb)), jb: ",MINVAL(prepicon(jg)%atm%pres(:,:,jb)), jb 
+!!$write(0,*) "MAXVAL(prepicon(jg)%atm%pres(jc,jk,jb)), jb: ",MAXVAL(prepicon(jg)%atm%pres(:,:,jb)), jb
+!!$write(0,*) "MINVAL(prepicon(jg)%atm%qv(jc,jk,jb)), jb: ",MINVAL(prepicon(jg)%atm%qv(:,:,jb)), jb 
+!!$write(0,*) "MAXVAL(prepicon(jg)%atm%qv(jc,jk,jb)), jb: ",MAXVAL(prepicon(jg)%atm%qv(:,:,jb)), jb 
+!!$write(0,*) "MINVAL(prepicon(jg)%atm%qc(jc,jk,jb)), jb: ",MINVAL(prepicon(jg)%atm%qc(:,:,jb)), jb 
+!!$write(0,*) "MAXVAL(prepicon(jg)%atm%qc(jc,jk,jb)), jb: ",MAXVAL(prepicon(jg)%atm%qc(:,:,jb)), jb 
+!!$write(0,*) "MINVAL(prepicon(jg)%atm%qi(jc,jk,jb)), jb: ",MINVAL(prepicon(jg)%atm%qi(:,:,jb)), jb
+!!$write(0,*) "MAXVAL(prepicon(jg)%atm%qi(jc,jk,jb)), jb: ",MAXVAL(prepicon(jg)%atm%qi(:,:,jb)), jb
+!!$write(0,*) "MINVAL(prepicon(jg)%atm%qr(jc,jk,jb)), jb: ",MINVAL(prepicon(jg)%atm%qr(:,:,jb)), jb 
+!!$write(0,*) "MAXVAL(prepicon(jg)%atm%qr(jc,jk,jb)), jb: ",MAXVAL(prepicon(jg)%atm%qr(:,:,jb)), jb 
+!!$write(0,*) "MINVAL(prepicon(jg)%atm%qs(jc,jk,jb)), jb: ",MINVAL(prepicon(jg)%atm%qs(:,:,jb)), jb 
+!!$write(0,*) "MAXVAL(prepicon(jg)%atm%qs(jc,jk,jb)), jb: ",MAXVAL(prepicon(jg)%atm%qs(:,:,jb)), jb 
+    ENDDO  ! jb
+!!$OMP END DO
+
+
+    ! exclude boundary interpolation zone of nested domains
+    rl_start = grf_bdywidth_e+1
+    rl_end   = min_rledge
+
+    i_startblk = p_patch(jg)%edges%start_blk(rl_start,1)
+    i_endblk   = p_patch(jg)%edges%end_blk(rl_end,i_nchdom)
+
+!!$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx,vn_incr)
+    DO jb = i_startblk, i_endblk
+
+      CALL get_indices_e(p_patch(jg), jb, i_startblk, i_endblk, &
+                         i_startidx, i_endidx, rl_start, rl_end)
+
+      DO jk = 1, nlev
+        DO je = i_startidx, i_endidx
+          ! at cell centers the increment \vec(v_inc) is projected into the 
+          ! direction of vn and then linearly interpolated to the edge 
+          ! midpoint 
+          vn_incr = p_int_state(jg)%c_lin_e(je,1,jb)                   &
+            &     *(prepicon(jg)%atm%u(iidx(je,jb,1),jk,iblk(je,jb,1)) &
+            &     * p_patch(jg)%edges%primal_normal_cell(je,jb,1)%v1   &
+            &     + prepicon(jg)%atm%v(iidx(je,jb,1),jk,iblk(je,jb,1)) &
+            &     * p_patch(jg)%edges%primal_normal_cell(je,jb,1)%v2 ) &
+            &     + p_int_state(jg)%c_lin_e(je,2,jb)                   &
+            &     *(prepicon(jg)%atm%u(iidx(je,jb,2),jk,iblk(je,jb,2)) &
+            &     * p_patch(jg)%edges%primal_normal_cell(je,jb,2)%v1   &
+            &     + prepicon(jg)%atm%v(iidx(je,jb,2),jk,iblk(je,jb,2)) &
+            &     * p_patch(jg)%edges%primal_normal_cell(je,jb,2)%v2 )
+
+          ! add vn_incr to first guess
+          p_prog_now%vn(je,jk,jb) = p_prog_now%vn(je,jk,jb) + vn_incr
+
+        ENDDO  ! je
+      ENDDO  ! jk
+!!$write(0,*) "MINVAL(p_prog_now%vn(je,jk,jb)), jb: ",MINVAL(p_prog_now%vn(:,:,jb)), jb 
+!!$write(0,*) "MAXVAL(p_prog_now%vn(je,jk,jb)), jb: ",MAXVAL(p_prog_now%vn(:,:,jb)), jb 
+    ENDDO  ! jb
+!!$OMP ENDDO
+!!$OMP END PARALLEL
+
+
+
+
+
+    ! 3) Convert analysis back to the NH set of prognostic variables
+    !
+
+    ! Compute virtual temperature
+    CALL virtual_temp(p_patch(jg), p_diag%temp,           & !in
+      &               p_prog_now%tracer(:,:,:,iqv),       & !in
+      &               p_prog_now%tracer(:,:,:,iqc),       & !in
+      &               p_prog_now%tracer(:,:,:,iqi),       & !in
+      &               p_prog_now%tracer(:,:,:,iqr),       & !in
+      &               p_prog_now%tracer(:,:,:,iqs),       & !in
+      &               p_diag%tempv                        ) !out  
+
+    ! Convert thermodynamic variables into set of NH prognostic variables
+    CALL convert_thdvars(p_patch(jg), zpres_nh,  & !in
+      &                  p_diag%tempv,           & !in
+      &                  p_prog_now%rho,         & !out
+      &                  p_prog_now%exner,       & !out
+      &                  p_prog_now%theta_v      ) !out
+
+
+    CALL sync_patch_array(SYNC_E,p_patch(jg),p_nh_state(jg)%prog(nnow(jg))%vn)
 
 
 !$OMP PARALLEL
 !$OMP WORKSHARE
-      ! compute prognostic variable rho*theta_v
-      p_nh_state(jg)%prog(nnow(jg))%rhotheta_v(:,:,:) =                         &
-        &                            p_nh_state(jg)%prog(nnow(jg))%rho(:,:,:)   &
-        &                          * p_nh_state(jg)%prog(nnow(jg))%theta_v(:,:,:)
+    ! compute prognostic variable rho*theta_v
+    p_prog_now%rhotheta_v(:,:,:) = p_prog_now%rho(:,:,:)   &
+      &                          * p_prog_now%theta_v(:,:,:)
 !$OMP END WORKSHARE
 !$OMP END PARALLEL
-    ENDDO  ! jg
+
+    ! deallocate temporary array for nonhydrostatic pressure
+    DEALLOCATE( zpres_nh, STAT=ist )
+    IF (ist /= SUCCESS) THEN
+      CALL finish ( TRIM(routine), 'deallocation for zpres_nh failed' )
+    ENDIF
 
   END SUBROUTINE create_dwdana_atm
 

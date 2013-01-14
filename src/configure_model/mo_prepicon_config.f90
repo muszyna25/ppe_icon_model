@@ -48,6 +48,7 @@ MODULE mo_prepicon_config
   PUBLIC :: l_coarse2fine_mode
   PUBLIC :: ifs2icon_filename
   PUBLIC :: dwdfg_filename
+  PUBLIC :: dwdinc_filename
   PUBLIC :: generate_filename
 
 
@@ -78,6 +79,10 @@ MODULE mo_prepicon_config
   ! DWD-FG input filename, may contain keywords, by default
   ! dwdfg_filename = "<path>dwdFG_R<nroot>B<jlev>_DOM<idom>.nc"
   CHARACTER(LEN=filename_max) :: dwdfg_filename
+
+  ! DWD-inc input filename, may contain keywords, by default
+  ! dwdinc_filename = "<path>dwdinc_R<nroot>B<jlev>_DOM<idom>.nc"
+  CHARACTER(LEN=filename_max) :: dwdinc_filename
 
 CONTAINS
   
