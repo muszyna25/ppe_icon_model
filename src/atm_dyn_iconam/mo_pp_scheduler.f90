@@ -117,7 +117,7 @@ MODULE mo_pp_scheduler
   USE mo_cdi_constants,           ONLY: GRID_CELL, GRID_REFERENCE,                      &
     &                                   GRID_UNSTRUCTURED_CELL, ZA_ALTITUDE,            &
     &                                   ZA_PRESSURE, GRID_REGULAR_LONLAT,               &
-    &                                   GRID_UNSTRUCTURED_EDGE, GRID_UNSTRUCTURED_VERT, &
+    &                                   GRID_UNSTRUCTURED_EDGE,                         &
     &                                   DATATYPE_FLT32, DATATYPE_PACK16, ZA_ISENTROPIC, &
     &                                   is_2d_field
   USE mo_linked_list,             ONLY: t_var_list, t_list_element, find_list_element
@@ -547,9 +547,7 @@ CONTAINS
             IF (TRIM(vname) /= TRIM(info%name(1:idx-1))) CYCLE VAR_LOOP
           ENDIF
 
-          IF ((info%hgrid /= GRID_UNSTRUCTURED_CELL) .AND.  &
-            & (info%hgrid /= GRID_UNSTRUCTURED_VERT)) &
-            CYCLE VAR_LOOP
+          IF (info%hgrid /= GRID_UNSTRUCTURED_CELL)  CYCLE VAR_LOOP
 
           ! Found it, add it to the variable list of optional
           ! diagnostics       
@@ -578,7 +576,7 @@ CONTAINS
           END IF
 
           SELECT CASE (info%hgrid)
-          CASE (GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_VERT)
+          CASE (GRID_UNSTRUCTURED_CELL)
             CALL add_var( p_opt_diag_list, info%name, p_opt_field_r3d,          &
               &           GRID_REGULAR_LONLAT, info%vgrid, info%cf, info%grib2, &
               &           ldims=var_shape, lrestart=.FALSE.,                    &

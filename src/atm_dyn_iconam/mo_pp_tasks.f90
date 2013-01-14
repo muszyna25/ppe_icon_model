@@ -81,7 +81,7 @@ MODULE mo_pp_tasks
   USE mo_cdi_constants,           ONLY: GRID_CELL, GRID_REFERENCE,               &
     &                                   GRID_UNSTRUCTURED_CELL, GRID_REGULAR_LONLAT, &
     &                                   GRID_UNSTRUCTURED_EDGE,                  &
-    &                                   GRID_UNSTRUCTURED_VERT, DATATYPE_FLT32,  &
+    &                                   DATATYPE_FLT32,                          &
     &                                   DATATYPE_PACK16, is_2d_field
   USE mo_linked_list,             ONLY: t_var_list, t_list_element
   USE mo_lonlat_grid,             ONLY: t_lon_lat_grid
@@ -322,32 +322,6 @@ CONTAINS
           &   out_var_2%r_ptr(:,:,:,out_var_idx_2,1), &
           &   nblks_ll, npromz_ll)
       END IF ! 2D
-      ! --------------------------------------------------------------
-      !
-    CASE (GRID_UNSTRUCTURED_VERT)
-      ! vertex-based variables (e.g. vorticity "VOR") are treated in a
-      ! special way: They are first interpolated onto the cell centers
-      ! and afterwards treated as scalar variables of type
-      ! "GRID_UNSTRUCTURED_CELL"
-
-      ! Note: The whole process is overly expensive! For the case that
-      ! there are other vertex-based variables for output, this
-      ! routine must be optimized!
-
-      ! this requires a temporary variable:
-      dim1 = p_info%used_dimensions(1)
-      dim2 = p_info%used_dimensions(2)
-      ALLOCATE(tmp_var(dim1, dim2, p_patch%nblks_c), STAT=ierrstat)
-      IF (ierrstat /= SUCCESS)  CALL finish (routine, 'allocation failed')
-      CALL verts2cells_scalar( in_var%r_ptr(:,:,:,in_var_idx,1), p_patch,      &
-        &                      ptr_task%data_input%p_int_state%verts_aw_cells, &
-        &                      tmp_var(:,:,:), 1, dim2 )
-      CALL rbf_interpol_lonlat_nl( tmp_var(:,:,:), ptr_int_lonlat,     &
-        &                          out_var%r_ptr(:,:,:,out_var_idx,1), &
-        &                          nblks_ll, npromz_ll )
-      ! clean up:
-      DEALLOCATE(tmp_var, STAT=ierrstat)
-      IF (ierrstat /= SUCCESS)  CALL finish (routine, 'deallocation failed')
     CASE DEFAULT
       CALL finish(routine, 'Unknown grid type.')
     END SELECT
@@ -412,8 +386,6 @@ CONTAINS
           ELSE
             CALL sync_patch_array(SYNC_E, p_patch, in_var%r_ptr(:,:,:,in_var_idx,1) )
           END IF
-        CASE (GRID_UNSTRUCTURED_VERT)
-          CALL sync_patch_array(SYNC_V, p_patch, in_var%r_ptr(:,:,:,in_var_idx,1) )
         CASE DEFAULT
           CALL finish(routine, 'Unknown grid type.')
         END SELECT
@@ -629,16 +601,6 @@ CONTAINS
       in_z3d            => p_z3d
       in_z_mc           => p_metrics%z_mc
 
-    CASE (GRID_UNSTRUCTURED_VERT) 
-      nblks  = p_patch%nblks_c
-      npromz = p_patch%npromz_c
-      !
-      vcoeff_lin        => vcoeff%lin_cell
-      vcoeff_lin_nlevp1 => vcoeff%lin_cell_nlevp1
-      vcoeff_cub        => vcoeff%cub_cell
-      in_z3d            => p_z3d
-      in_z_mc           => p_metrics%z_mc
-      
     CASE (GRID_UNSTRUCTURED_EDGE) 
       nblks  = p_patch%nblks_e
       npromz = p_patch%npromz_e
@@ -672,13 +634,8 @@ CONTAINS
         CALL finish(routine, "Inconsistent array dimensions")
       END IF
       tmp_var(:,:,:) = in_var%r_ptr(:,:,:,in_var_idx,1)
-    CASE (GRID_UNSTRUCTURED_VERT) 
-      ! Even vertex-based variables are interpolated onto a cell-based
-      ! variable, since we interpolate the vertex-based vars to
-      ! cell-based vars first:
-      CALL verts2cells_scalar( in_var%r_ptr(:,:,:,in_var_idx,1), p_patch,      &
-        &                      ptr_task%data_input%p_int_state%verts_aw_cells, &
-        &                      tmp_var(:,:,:), 1, dim2 )
+    CASE DEFAULT
+      CALL finish(routine, "Internal error!")
     END SELECT
 
     !--- actually perform vertical interpolation task
