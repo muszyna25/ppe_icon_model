@@ -261,7 +261,7 @@ CONTAINS
         z_u = patch%edges%dual_normal(je,jb)%v1
         z_v = patch%edges%dual_normal(je,jb)%v2
         
-        ! calculate Cartesian components of primal normal
+        ! calculate Cartesian components of dual normal
         CALL gvec2cvec( z_u, z_v, z_lon, z_lat, z_vec%x(1), z_vec%x(2), z_vec%x(3) )
         
         ! compute unit normal to edge je
