@@ -92,7 +92,7 @@ MODULE mo_ocean_model
 !     & restore_interpol_state_netcdf
 
   USE mo_icoham_dyn_memory,   ONLY: p_hydro_state
-  USE mo_model_domain,        ONLY: t_patch,  t_patch_3D_oce, p_patch
+  USE mo_model_domain,        ONLY: t_patch,  t_patch_3D_oce!, p_patch
   !USE mo_intp_data_strc,      ONLY: t_int_state, p_int_state_local_parent,p_int_state, p_int_state_local_parent
   !USE mo_grf_intp_data_strc,  ONLY: p_grf_state, p_grf_state_local_parent
 
@@ -383,7 +383,7 @@ CONTAINS
       !CALL finalize_decomposition()
       !The 3D-ocean version of previous calls 
       CALL finalize_decomposition_oce(p_patch_3D%p_patch_2D)
-      p_patch => p_patch_3D%p_patch_2D
+      !p_patch => p_patch_3D%p_patch_2D
 
     ENDIF
 
