@@ -1,4 +1,4 @@
-||# -------------------------------------------------
+# -------------------------------------------------
 # ICON.DEF
 # -------------------------------------------------
 #
@@ -32,8 +32,11 @@ setenv -i TMPDIR
 
 # global definitions:
 set EXPNUM        "001"                #---experiment number---
-set FIRST_DATE    20130114
+set EXPNUM2       "001"                #---experiment number used for score comparison---
+set SUITE2        "deia"               #---suite             used for score comparison---
+set FIRST_DATE    20130115
 set LAST_DATE     20130630
+set MONTHS        000000               #---months to be run (not for oper)
 set ICON_HOME     /home/ms/de/deia 
 set ICON_ID       deia 
 
@@ -181,6 +184,8 @@ suite $USER
     edit SMSOUT     $SMSOUT
 
     edit EXPNUM     $EXPNUM
+    edit EXPNUM2    $EXPNUM2
+    edit SUITE2     $SUITE2
     edit NSTEPS     $NSTEPS
     edit SIMMODE    $SIMMODE
     edit NENS       $NENS
@@ -199,6 +204,7 @@ suite $USER
     edit SCTEMP     $SCTEMP
     edit ECTEMP     $ECTEMP
     edit SCSOFT     $SCSOFT
+    edit MONTHS     $MONTHS
 
     edit ICONNODES        $ICONNODES        
     edit ICONTASKSPERNODE $ICONTASKSPERNODE 
@@ -379,14 +385,15 @@ suite $USER
         task testday
             on_ecgate
             event time_eom
+            event time_domonth
 
         task eom_data2dwd
-            trigger testday:time_eom
+            trigger   testday==complete
             complete (testday==complete) and not (testday:time_eom)
             on_ecgate_submit
 
         task eom_prepare  
-            trigger testday:time_eom
+            trigger   testday==complete
             complete (testday==complete) and not (testday:time_eom)
             on_hpc_serial
             edit SCWALLCLOCKLIMIT 24:00:00
@@ -400,7 +407,7 @@ suite $USER
             event cpdata
 
         task eom_getmars
-            trigger testday:time_eom
+            trigger   testday==complete
             complete (testday==complete) and not (testday:time_eom)
             on_ecgate_submit
 
