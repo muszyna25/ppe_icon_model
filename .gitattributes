@@ -1320,7 +1320,6 @@ src/namelists/mo_vdiff_nml.f90 -text
 src/oce_dyn_icohom/mo_hydro_ocean_run.f90 -text
 src/oce_dyn_icohom/mo_oce_ab_timestepping.f90 -text
 src/oce_dyn_icohom/mo_oce_ab_timestepping_mimetic.f90 -text
-src/oce_dyn_icohom/mo_oce_ab_timestepping_rbf.f90 -text
 src/oce_dyn_icohom/mo_oce_boundcond.f90 -text
 src/oce_dyn_icohom/mo_oce_diagnostics.f90 -text
 src/oce_dyn_icohom/mo_oce_diffusion.f90 -text

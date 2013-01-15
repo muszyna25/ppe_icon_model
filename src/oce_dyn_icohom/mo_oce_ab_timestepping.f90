@@ -50,19 +50,16 @@ USE mo_ocean_nml,                      ONLY: idisc_scheme
 USE mo_dynamics_config,                ONLY: nold, nnew
 USE mo_oce_state,                      ONLY: t_hydro_ocean_state!, t_hydro_ocean_diag
 USE mo_sea_ice_types,                  ONLY: t_sfc_flx
-USE mo_intp_data_strc,                 ONLY: t_int_state
-USE mo_model_domain,                   ONLY: t_patch
+!USE mo_intp_data_strc,                 ONLY: t_int_state
+USE mo_model_domain,                   ONLY: t_patch, t_patch_3D_oce
 USE mo_ext_data_types,                 ONLY: t_external_data
 USE mo_oce_ab_timestepping_mimetic,    ONLY: solve_free_sfc_ab_mimetic,       &
   &                                          calc_normal_velocity_ab_mimetic, &
   !&                                          calc_vert_velocity_mimetic,      &
   &                                          calc_vert_velocity_mim_topdown,calc_vert_velocity_mim_bottomup
-USE mo_oce_ab_timestepping_rbf,        ONLY: solve_free_sfc_ab_RBF,           &
-  &                                          calc_normal_velocity_ab_RBF,     &
-  &                                          calc_vert_velocity_RBF
 USE mo_oce_physics,                    ONLY: t_ho_params
 USE mo_operator_ocean_coeff_3d,        ONLY: t_operator_coeff
-
+USE mo_exception,                      ONLY: finish!, message_text
 IMPLICIT NONE
 
 PRIVATE
@@ -89,27 +86,24 @@ CONTAINS
   !! @par Revision History
   !! Developed  by  Peter Korn, MPI-M (2010).
   !!
-  SUBROUTINE solve_free_surface_eq_ab(p_patch, p_os, p_ext_data, p_sfc_flx, &
-    &                                 p_phys_param, timestep, p_op_coeff, p_int)
-    TYPE(t_patch), TARGET, INTENT(in)             :: p_patch
+  SUBROUTINE solve_free_surface_eq_ab(p_patch_3D, p_os, p_ext_data, p_sfc_flx, &
+    &                                 p_phys_param, timestep, p_op_coeff)!, p_int)
+    TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT)   :: p_patch_3D
     TYPE(t_hydro_ocean_state), TARGET             :: p_os
     TYPE(t_external_data), TARGET                 :: p_ext_data
     TYPE(t_sfc_flx), INTENT(INOUT)                :: p_sfc_flx
     TYPE (t_ho_params)                            :: p_phys_param
     INTEGER                                       :: timestep
     TYPE(t_operator_coeff)                        :: p_op_coeff
-    TYPE(t_int_state),TARGET,INTENT(IN), OPTIONAL :: p_int
+    !TYPE(t_int_state),TARGET,INTENT(IN), OPTIONAL :: p_int
 
     IF(idisc_scheme==MIMETIC_TYPE)THEN
 
-      CALL solve_free_sfc_ab_mimetic(p_patch, p_os, p_ext_data, p_sfc_flx, &
-        &                            p_phys_param, timestep, p_op_coeff, p_int)
+      CALL solve_free_sfc_ab_mimetic( p_patch_3D, p_os, p_ext_data, p_sfc_flx, &
+        &                            p_phys_param, timestep, p_op_coeff)!, p_int)
 
-    ELSEIF(idisc_scheme==RBF_TYPE)THEN
-
-      CALL solve_free_sfc_ab_RBF(p_patch, p_os, p_ext_data, p_sfc_flx, &
-        &                        p_phys_param, timestep, p_int)
-
+    ELSE
+      CALL finish ('calc_vert_velocity: ',' Discretization type not supported !!')
     ENDIF
 
   END SUBROUTINE solve_free_surface_eq_ab
@@ -122,12 +116,12 @@ CONTAINS
   !! @par Revision History
   !! Developed  by  Peter Korn, MPI-M (2010).
   !!
-  SUBROUTINE calc_normal_velocity_ab(p_patch, p_os, p_op_coeff, p_ext_data, p_phys_param)
-    TYPE(t_patch), TARGET, INTENT(in) :: p_patch
-    TYPE(t_hydro_ocean_state), TARGET :: p_os
-    TYPE(t_operator_coeff)            :: p_op_coeff
-    TYPE(t_external_data), TARGET     :: p_ext_data
-    TYPE (t_ho_params)                :: p_phys_param
+  SUBROUTINE calc_normal_velocity_ab(p_patch_3D, p_os, p_op_coeff, p_ext_data, p_phys_param)
+    TYPE(t_patch_3D_oce ),TARGET, INTENT(IN)    :: p_patch_3D
+    TYPE(t_hydro_ocean_state), TARGET           :: p_os
+    TYPE(t_operator_coeff)                      :: p_op_coeff
+    TYPE(t_external_data), TARGET               :: p_ext_data
+    TYPE (t_ho_params)                          :: p_phys_param
 
     !  local variables
     ! CHARACTER(len=max_char_length), PARAMETER ::     &
@@ -135,12 +129,10 @@ CONTAINS
     !-----------------------------------------------------------------------
     IF(idisc_scheme==MIMETIC_TYPE)THEN
 
-      CALL calc_normal_velocity_ab_mimetic(p_patch, p_os, p_op_coeff, p_ext_data)
+      CALL calc_normal_velocity_ab_mimetic(p_patch_3D, p_os, p_op_coeff, p_ext_data)
 
-    ELSEIF(idisc_scheme==RBF_TYPE)THEN
-
-      CALL calc_normal_velocity_ab_RBF(p_patch, p_os, p_ext_data)
-
+    ELSE
+      CALL finish ('calc_vert_velocity: ',' Discreization type not supported !!')
     ENDIF
 
   END SUBROUTINE calc_normal_velocity_ab
@@ -158,10 +150,10 @@ CONTAINS
   !! @par Revision History
   !! Developed  by  Peter Korn,   MPI-M (2006).
   !!
-  SUBROUTINE calc_vert_velocity( p_patch, p_os, p_op_coeff)
-    TYPE(t_patch), TARGET, INTENT(IN) :: p_patch       ! patch on which computation is performed
-    TYPE(t_hydro_ocean_state)         :: p_os
-    TYPE(t_operator_coeff)            :: p_op_coeff
+  SUBROUTINE calc_vert_velocity(p_patch_3D, p_os, p_op_coeff)
+    TYPE(t_patch_3D_oce ),TARGET, INTENT(IN)      :: p_patch_3D
+    TYPE(t_hydro_ocean_state)                     :: p_os
+    TYPE(t_operator_coeff)                        :: p_op_coeff
     !
     !
     ! Local variables
@@ -175,7 +167,7 @@ CONTAINS
     IF(idisc_scheme==MIMETIC_TYPE)THEN
 
 !IF (l_edge_based) THEN
-!       CALL calc_vert_velocity_mimetic( p_patch,            &
+!       CALL calc_vert_velocity_mimetic( p_patch_3D,         &
 !                                  & p_os,                   &
 !                                  & p_os%p_diag,            &
 !                                  & p_op_coeff,             &
@@ -185,7 +177,7 @@ CONTAINS
 !                                  & p_os%p_aux%bc_bot_w,    &
 !                                  & p_os%p_diag%w )
 ! !ELSE
-      CALL calc_vert_velocity_mim_bottomup( p_patch,         &
+      CALL calc_vert_velocity_mim_bottomup( p_patch_3D,     &
                                   & p_os,                   &
                                   & p_os%p_diag,            &
                                   & p_op_coeff,             &
@@ -206,17 +198,8 @@ CONTAINS
 !                                   & p_os%p_diag%w )
 !ENDIF
 
-    ELSEIF(idisc_scheme==RBF_TYPE)THEN
-
-      CALL calc_vert_velocity_RBF( p_patch,&
-                                 & p_os%p_prog(nnew(1))%vn,&
-                                 & p_os%p_prog(nold(1))%vn,&
-                                 & p_os%p_prog(nnew(1))%h, &
-                                 & p_os%p_diag%w(:,1,:),    &
-                                 & p_os%p_aux%bc_bot_w,    &
-    !                              & p_os%p_aux%bc_top_w,    &
-    !                              & p_os%p_aux%bc_bot_w,    &
-                                 & p_os%p_diag%w )
+    ELSE
+      CALL finish ('calc_vert_velocity: ',' Discreization type not supported !!')
     ENDIF
   END SUBROUTINE calc_vert_velocity
   !-------------------------------------------------------------------------

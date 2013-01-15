@@ -59,11 +59,11 @@ USE mo_ocean_nml,           ONLY: n_zlev, bottom_drag_coeff, k_veloc_h, k_veloc_
   &                               richardson_factor_tracer, richardson_factor_veloc,      &
   &                               l_constant_mixing, l_smooth_veloc_diffusion
 USE mo_parallel_config,     ONLY: nproma
-USE mo_model_domain,        ONLY: t_patch
+USE mo_model_domain,        ONLY: t_patch, t_patch_3D_oce
 USE mo_impl_constants,      ONLY: success, max_char_length, MIN_DOLIC, SEA
 USE mo_exception,           ONLY: message, finish
 USE mo_util_dbg_prnt,       ONLY: dbg_print
-USE mo_oce_state,           ONLY: t_hydro_ocean_state, v_base, oce_config
+USE mo_oce_state,           ONLY: t_hydro_ocean_state, oce_config!, v_base
 USE mo_physical_constants,  ONLY: grav, rho_ref, SItodBar
 USE mo_math_constants,      ONLY: dbl_eps
 USE mo_dynamics_config,     ONLY: nold!, nnew
@@ -149,9 +149,9 @@ CONTAINS
   !! Initial release by Peter Korn, MPI-M (2010-07)
   !
   !! mpi parallelized, syncs p_phys_param%K_tracer_h, p_phys_param%K_veloc_h
-  SUBROUTINE init_ho_params(  ppatch, p_phys_param )
-    TYPE(t_patch),TARGET, INTENT(IN)  :: ppatch
-    TYPE (t_ho_params)         :: p_phys_param
+  SUBROUTINE init_ho_params(  p_patch_3D, p_phys_param )
+    TYPE(t_patch_3D_oce ),TARGET, INTENT(IN) :: p_patch_3D
+    TYPE (t_ho_params)                          :: p_phys_param
 
     ! Local variables
     INTEGER  :: i, i_no_trac 
@@ -161,8 +161,11 @@ CONTAINS
     REAL(wp) :: z_largest_edge_length ,z_diff_multfac, z_diff_efdt_ratio
     REAL(wp), PARAMETER :: N_POINTS_IN_MUNK_LAYER = 1.0_wp
     TYPE(t_subset_range), POINTER :: all_edges
+    TYPE(t_patch), POINTER        :: p_patch 
+    !-----------------------------------------------------------------------
+    p_patch   => p_patch_3D%p_patch_2D(1)
     !-------------------------------------------------------------------------
-    all_edges => ppatch%edges%all
+    all_edges => p_patch%edges%all
     !-------------------------------------------------------------------------
     !Init from namelist
     p_phys_param%K_veloc_h_back = k_veloc_h
@@ -170,7 +173,7 @@ CONTAINS
     p_phys_param%K_veloc_h      = k_veloc_h
     p_phys_param%A_veloc_v      = k_veloc_v
 
-    z_largest_edge_length = global_max(MAXVAL(ppatch%edges%primal_edge_length))
+    z_largest_edge_length = global_max(MAXVAL(p_patch%edges%primal_edge_length))
 
 
     !Distinghuish between harmonic and biharmonic laplacian
@@ -181,7 +184,7 @@ CONTAINS
         p_phys_param%K_veloc_h(:,:,:) = 0.0_wp
 
       CASE(1)!use uniform viscosity coefficient from namelist
-        CALL calc_lower_bound_veloc_diff(  ppatch, z_lower_bound_diff )
+        CALL calc_lower_bound_veloc_diff(  p_patch, z_lower_bound_diff )
         IF(z_lower_bound_diff>p_phys_param%K_veloc_h_back)THEN
           ! SX9 cannot handle messages of that size -> split
           CALL message ('init_ho_params','WARNING: Specified diffusivity&
@@ -205,7 +208,7 @@ CONTAINS
             !calculate lower bound for diffusivity
             !The factor cos(lat) is omitted here, because of equatorial reference (cf. Griffies, eq. (18.29)) 
             p_phys_param%K_veloc_h(je,:,jb) = 3.82E-12_wp&
-            &*(N_POINTS_IN_MUNK_LAYER*ppatch%edges%primal_edge_length(je,jb))**3
+            &*(N_POINTS_IN_MUNK_LAYER*p_patch%edges%primal_edge_length(je,jb))**3
           END DO
         END DO
       END SELECT
@@ -222,8 +225,7 @@ CONTAINS
           CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
           DO je = i_startidx_e, i_endidx_e
              p_phys_param%K_veloc_h(je,:,jb) = &
-              &ppatch%edges%area_edge(je,jb)*ppatch%edges%area_edge(je,jb)*z_diff_multfac
-!             &maxval(ppatch%edges%area_edge)*maxval(ppatch%edges%area_edge)*z_diff_multfac
+              &p_patch%edges%area_edge(je,jb)*p_patch%edges%area_edge(je,jb)*z_diff_multfac
           END DO
         END DO
 
@@ -231,8 +233,8 @@ CONTAINS
 !         DO jb = all_edges%start_block, all_edges%end_block
 !            CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
 !            DO je = i_startidx_e, i_endidx_e
-!              p_phys_param%K_veloc_h(je,:,jb) = &
-!              &(ppatch%edges%primal_edge_length(je,jb)**4)*z_diff_multfac
+!              p_phys_param%K_veloc_h(je,:,jb) = z_diff_multfac*&
+!              &maxval(p_patch%edges%primal_edge_length)**4
 !            END DO
 !          END DO
 
@@ -241,7 +243,7 @@ write(*,*)'max-min coeff',z_diff_multfac, maxval(p_phys_param%K_veloc_h(:,1,:)),
 
 
     ENDIF
-    IF ( l_smooth_veloc_diffusion ) CALL smooth_lapl_diff( ppatch, p_phys_param%K_veloc_h )
+    IF ( l_smooth_veloc_diffusion ) CALL smooth_lapl_diff( p_patch, p_patch_3D, p_phys_param%K_veloc_h )
 
 
     DO i=1,no_tracer
@@ -265,9 +267,9 @@ write(*,*)'max-min coeff',z_diff_multfac, maxval(p_phys_param%K_veloc_h(:,1,:)),
     p_phys_param%bottom_drag_coeff = bottom_drag_coeff
 
     DO i_no_trac=1, no_tracer
-      CALL sync_patch_array(SYNC_C,ppatch,p_phys_param%K_tracer_h(:,:,:,i_no_trac))
+      CALL sync_patch_array(SYNC_C,p_patch,p_phys_param%K_tracer_h(:,:,:,i_no_trac))
     END DO
-    CALL sync_patch_array(SYNC_E,ppatch,p_phys_param%K_veloc_h(:,:,:))
+    CALL sync_patch_array(SYNC_E,p_patch,p_phys_param%K_veloc_h(:,:,:))
 
   END SUBROUTINE init_ho_params
 
@@ -312,8 +314,9 @@ write(*,*)'max-min coeff',z_diff_multfac, maxval(p_phys_param%K_veloc_h(:,1,:)),
   !! Initial release by Peter Korn, MPI-M (2011-08)
   !
   !! mpi parallelized, no sync required
-  SUBROUTINE smooth_lapl_diff( p_patch, K_h )
+  SUBROUTINE smooth_lapl_diff( p_patch,p_patch_3D, K_h )
    TYPE(t_patch), TARGET, INTENT(IN)  :: p_patch
+   TYPE(t_patch_3D_oce ),TARGET, INTENT(IN)   :: p_patch_3D
    REAL(wp), INTENT(INOUT)    :: K_h(:,:,:)
     ! Local variables
     INTEGER  :: je,jv,jb,jk, jev, ile, ibe, i_edge_ctr
@@ -338,7 +341,7 @@ write(*,*)'max-min coeff',z_diff_multfac, maxval(p_phys_param%K_veloc_h(:,1,:)),
           DO jev = 1, p_patch%verts%num_edges(jv,jb)
             ile = p_patch%verts%edge_idx(jv,jb,jev)
             ibe = p_patch%verts%edge_blk(jv,jb,jev)
-            IF ( v_base%lsm_oce_e(ile,jk,ibe) == sea) THEN
+            IF ( p_patch_3D%lsm_oce_e(ile,jk,ibe) == sea) THEN
               z_K_ave_v(jv,jk,jb)= z_K_ave_v(jv,jk,jb) + K_h(ile,jk,ibe)
               i_edge_ctr=i_edge_ctr+1
               IF(K_h(ile,jk,ibe)>z_K_max)THEN
@@ -369,7 +372,7 @@ write(*,*)'max-min coeff',z_diff_multfac, maxval(p_phys_param%K_veloc_h(:,1,:)),
           il_v2 = p_patch%edges%vertex_idx(je,jb,2)
           ib_v2 = p_patch%edges%vertex_blk(je,jb,2)
 
-          IF ( v_base%lsm_oce_e(je,jk,jb) == sea) THEN
+          IF ( p_patch_3D%lsm_oce_e(je,jk,jb) == sea) THEN
             K_h(je,jk,jb)= 0.5_wp*(z_K_ave_v(il_v1,jk,ib_v1) + z_K_ave_v(il_v2,jk,ib_v2))
           ELSE
             K_h(je,jk,jb)=0.0_wp
@@ -400,9 +403,9 @@ write(*,*)'max-min coeff',z_diff_multfac, maxval(p_phys_param%K_veloc_h(:,1,:)),
   !! Initial release by Peter Korn, MPI-M (2010-07)
   !
   !
-  SUBROUTINE construct_ho_params(ppatch, params_oce)
+  SUBROUTINE construct_ho_params(p_patch, params_oce)
 
-    TYPE(t_patch), INTENT(IN)         :: ppatch
+    TYPE(t_patch), INTENT(IN)         :: p_patch
     TYPE (t_ho_params), INTENT(INOUT) :: params_oce
 
     ! Local variables
@@ -414,15 +417,15 @@ write(*,*)'max-min coeff',z_diff_multfac, maxval(p_phys_param%K_veloc_h(:,1,:)),
     !-------------------------------------------------------------------------
     CALL message(TRIM(routine), 'construct hydro ocean physics')
 
-    CALL new_var_list(ocean_params_list, 'ocean_params_list', patch_id=ppatch%id)
+    CALL new_var_list(ocean_params_list, 'ocean_params_list', patch_id=p_patch%id)
     CALL default_var_list_settings( ocean_params_list,         &
       &                             lrestart=.TRUE.,           &
       &                             restart_type=FILETYPE_NC2, &
       &                             model_type='oce' )
 
     ! determine size of arrays
-    nblks_c = ppatch%nblks_c
-    nblks_e = ppatch%nblks_e
+    nblks_c = p_patch%nblks_c
+    nblks_e = p_patch%nblks_e
 
     CALL add_var(ocean_params_list, 'K_veloc_h', params_oce%K_veloc_h , GRID_UNSTRUCTURED_EDGE,&
     &            ZA_DEPTH_BELOW_SEA, &
@@ -566,11 +569,12 @@ write(*,*)'max-min coeff',z_diff_multfac, maxval(p_phys_param%K_veloc_h(:,1,:)),
   !
   !! mpi parallelized, sync required:
   !!                   params_oce%A_tracer_v, params_oce%A_veloc_v
-  SUBROUTINE update_ho_params(p_patch, p_os, p_sfc_flx, params_oce, calc_density)
-    TYPE(t_patch), TARGET, INTENT(IN) :: p_patch
-    TYPE(t_hydro_ocean_state), TARGET :: p_os
-    TYPE(t_sfc_flx),   INTENT(IN)     :: p_sfc_flx
-    TYPE(t_ho_params), INTENT(INOUT)  :: params_oce
+  SUBROUTINE update_ho_params(p_patch_3D, p_os, p_sfc_flx, params_oce, calc_density)
+
+    TYPE(t_patch_3D_oce ),TARGET, INTENT(IN) :: p_patch_3D
+    TYPE(t_hydro_ocean_state), TARGET           :: p_os
+    TYPE(t_sfc_flx),   INTENT(IN)               :: p_sfc_flx
+    TYPE(t_ho_params), INTENT(INOUT)            :: params_oce
     INTERFACE !This contains the function version of the actual EOS as chosen in namelist
       FUNCTION calc_density(tpot, sal, press) RESULT(rho)
         USE mo_kind, ONLY: wp
@@ -587,16 +591,17 @@ write(*,*)'max-min coeff',z_diff_multfac, maxval(p_phys_param%K_veloc_h(:,1,:)),
     INTEGER  :: ilc1, ibc1, ilc2,ibc2!, jj, ible,idxe
     INTEGER  :: i_startidx_c, i_endidx_c
     INTEGER  :: i_startidx_e, i_endidx_e
-    REAL(wp) :: z_vert_density_grad_c(nproma,n_zlev,p_patch%nblks_c)
-    REAL(wp) :: z_vert_density_grad_e(nproma,n_zlev,p_patch%nblks_e)
-    REAL(wp) :: z_stabio(nproma,n_zlev,p_patch%nblks_c)
-!   REAL(wp) :: buoyance_frequence
-    REAL(wp) :: z_shear_c(nproma,n_zlev,p_patch%nblks_c)
-    REAL(wp) :: z_rho_up(nproma,n_zlev,p_patch%nblks_c)
-    REAL(wp) :: z_rho_down(nproma,n_zlev,p_patch%nblks_c)
-    REAL(wp) :: z_Ri_c(nproma,n_zlev,p_patch%nblks_c)
-    REAL(wp) :: z_Ri_e(nproma,n_zlev,p_patch%nblks_e)
-    REAL(wp) :: dz_inv
+    REAL(wp) :: z_vert_density_grad_c(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)
+    REAL(wp) :: z_vert_density_grad_e(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
+    REAL(wp) :: z_stabio             (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)
+    REAL(wp) :: z_shear_c            (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)
+    REAL(wp) :: z_rho_up             (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)
+    REAL(wp) :: z_rho_down           (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)
+    REAL(wp) :: z_Ri_c               (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)
+    REAL(wp) :: z_Ri_e               (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
+    REAL(wp) :: z_c                  (nproma,n_zlev+1,p_patch_3D%p_patch_2D(1)%nblks_c)
+
+!    REAL(wp) :: dz_inv
 !    REAL(wp) :: z_rho_up_c1, z_rho_down_c1,z_rho_up_c2, z_rho_down_c2
 !   REAL(wp) :: z_lambda_frac 
 !   REAL(wp) :: z_A_tracer_v_old!, z_A_veloc_v_old
@@ -616,14 +621,15 @@ write(*,*)'max-min coeff',z_diff_multfac, maxval(p_phys_param%K_veloc_h(:,1,:)),
     REAL(wp) :: z_press!, z_frac
     REAL(wp) :: A_T_tmp!, A_v_tmp
     REAL(wp) :: z_s1, z_s2, density_grad_e, mean_z_r
-    REAL(wp) :: z_c(nproma,n_zlev+1,p_patch%nblks_c)
     ! REAL(wp) :: tmp_communicate_c(nproma,p_patch%nblks_c)
     !-------------------------------------------------------------------------
     TYPE(t_subset_range), POINTER :: edges_in_domain,cells_in_domain,all_cells
+    TYPE(t_patch), POINTER        :: p_patch 
     !-------------------------------------------------------------------------
     z_av0 = richardson_factor_veloc
     z_dv0 = richardson_factor_tracer
     !-------------------------------------------------------------------------
+    p_patch         => p_patch_3D%p_patch_2D(1)
     edges_in_domain => p_patch%edges%in_domain
     cells_in_domain => p_patch%cells%in_domain
     all_cells       => p_patch%cells%all
@@ -700,17 +706,18 @@ write(*,*)'max-min coeff',z_diff_multfac, maxval(p_phys_param%K_veloc_h(:,1,:)),
         CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
 
         DO jc = i_startidx_c, i_endidx_c
-          z_dolic = v_base%dolic_c(jc,jb)
+          z_dolic = p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)
           IF ( z_dolic >= MIN_DOLIC ) THEN        
             DO jk = 2, z_dolic 
-              dz_inv = 1.0_wp/v_base%del_zlev_i(jk)
 
+              !dz_inv = p_os%p_diag%inv_prism_center_dist_c(jc,jk,jb) !1.0_wp/v_base%del_zlev_i(jk)
+              !dz_inv = p_patch_3D%p_patch_1D(1)%inv_prism_center_dist_c(jc,jk,jb)
               !This calculates the localshear at cells
               ! - add small epsilon to avoid division by zero
               z_shear_c(jc,jk,jb) = dbl_eps + &
                 & sum((p_os%p_diag%p_vn(jc,jk-1,jb)%x-p_os%p_diag%p_vn(jc,jk,jb)%x)**2)
 
-              z_press = v_base%zlev_i(jk)*rho_ref*SItodBar
+              z_press = p_patch_3D%p_patch_1D(1)%zlev_i(jk)*rho_ref*SItodBar
 
               !salinity at upper and lower cell
               IF(no_tracer >= 2) THEN
@@ -752,7 +759,7 @@ write(*,*)'max-min coeff',z_diff_multfac, maxval(p_phys_param%K_veloc_h(:,1,:)),
               !buoyance_frequence = z_grav_rho*z_vert_density_grad_c/z_shear_c
 !   buoyance_frequence            = z_grav_rho*z_vert_density_grad_c(jc,jk,jb)/z_shear_c(jc,jk,jb)
 !z_Ri_c(jc,jk,jb)=v_base%zlev_i(jk)*buoyance_frequence !TODO this created a difference in results!!
- z_Ri_c(jc,jk,jb)=v_base%zlev_i(jk)*z_grav_rho*z_vert_density_grad_c(jc,jk,jb)/z_shear_c(jc,jk,jb)
+ z_Ri_c(jc,jk,jb)=p_patch_3D%p_patch_1D(1)%zlev_i(jk)*z_grav_rho*z_vert_density_grad_c(jc,jk,jb)/z_shear_c(jc,jk,jb)
             END DO
           ENDIF
         END DO
@@ -763,11 +770,12 @@ write(*,*)'max-min coeff',z_diff_multfac, maxval(p_phys_param%K_veloc_h(:,1,:)),
         CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
         DO jc = i_startidx_c, i_endidx_c
 
-          z_dolic = v_base%dolic_c(jc,jb)
+          z_dolic = p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)
           IF ( z_dolic >= MIN_DOLIC ) THEN
             DO jk = 2, z_dolic
 
-             dz_inv = 1.0_wp/v_base%del_zlev_i(jk)
+             !dz_inv = p_patch_3D%p_patch_1D(1)%inv_prism_center_dist_c(jc,jk,jb)
+               ! p_os%p_diag%inv_prism_center_dist_c(jc,jk,jb) !1.0_wp/v_base%del_zlev_i(jk)
 
               !calculate vertical tracer mixing based on local Richardson number
               DO itracer = 1, no_tracer
@@ -835,10 +843,10 @@ write(*,*)'max-min coeff',z_diff_multfac, maxval(p_phys_param%K_veloc_h(:,1,:)),
           ilc2 = p_patch%edges%cell_idx(je,jb,2)
           ibc2 = p_patch%edges%cell_blk(je,jb,2)
 
-          z_dolic = v_base%dolic_e(je, jb)
+          z_dolic = p_patch_3D%p_patch_1D(1)%dolic_e(je, jb)
           DO jk = 2, z_dolic
             ! Set to zero for land + boundary locations edges
-            IF (v_base%lsm_oce_e(je,jk,jb) > SEA) THEN
+            IF (p_patch_3D%lsm_oce_e(je,jk,jb) > SEA) THEN
                params_oce%A_veloc_v(je,jk,jb) = 0.0_wp
             ELSE
               ! TODO: the following expect equally sized cells

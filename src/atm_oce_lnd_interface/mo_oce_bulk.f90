@@ -74,10 +74,10 @@ USE mo_ocean_nml,           ONLY: iforc_oce, iforc_type, iforc_len, itestcase_oc
   &                               FORCING_FROM_FILE_FIELD, FORCING_FROM_COUPLED_FLUX,      &
   &                               FORCING_FROM_COUPLED_FIELD, i_sea_ice
 USE mo_dynamics_config,     ONLY: nold
-USE mo_model_domain,        ONLY: t_patch
+USE mo_model_domain,        ONLY: t_patch, t_patch_3D_oce
 USE mo_util_dbg_prnt,       ONLY: dbg_print
 USE mo_dbg_nml,             ONLY: idbg_mxmn
-USE mo_oce_state,           ONLY: t_hydro_ocean_state, v_base
+USE mo_oce_state,           ONLY: t_hydro_ocean_state
 USE mo_exception,           ONLY: finish, message, message_text
 USE mo_math_constants,      ONLY: pi, deg2rad, rad2deg
 USE mo_physical_constants,  ONLY: rho_ref, sal_ref, als, alv, zemiss_def, stbo, tmelt, tf, &
@@ -123,16 +123,16 @@ CONTAINS
   !! @par Revision History
   !! Initial release by Stephan Lorenz, MPI-M (2010-07)
   !
-  SUBROUTINE update_sfcflx(p_patch, p_os, p_as, p_ice, Qatm, p_sfc_flx, jstep, datetime)
+  SUBROUTINE update_sfcflx(p_patch_3D, p_os, p_as, p_ice, Qatm, p_sfc_flx, jstep, datetime)
 
-    TYPE(t_patch), TARGET, INTENT(IN)   :: p_patch
-    TYPE(t_hydro_ocean_state)           :: p_os
-    TYPE(t_atmos_for_ocean)             :: p_as
-    TYPE(t_atmos_fluxes)                :: Qatm
-    TYPE(t_sea_ice)                     :: p_ice
-    TYPE(t_sfc_flx)                     :: p_sfc_flx
-    INTEGER, INTENT(IN)                 :: jstep
-    TYPE(t_datetime), INTENT(INOUT)     :: datetime
+    TYPE(t_patch_3D_oce ),TARGET, INTENT(IN)    :: p_patch_3D
+    TYPE(t_hydro_ocean_state)                   :: p_os
+    TYPE(t_atmos_for_ocean)                     :: p_as
+    TYPE(t_atmos_fluxes)                        :: Qatm
+    TYPE(t_sea_ice)                             :: p_ice
+    TYPE(t_sfc_flx)                             :: p_sfc_flx
+    INTEGER, INTENT(IN)                         :: jstep
+    TYPE(t_datetime), INTENT(INOUT)             :: datetime
     !
     ! local variables
     CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_oce_bulk:update_sfcflx'
@@ -142,9 +142,9 @@ CONTAINS
     INTEGER  :: i_startidx_c, i_endidx_c
     REAL(wp) :: z_tmin, z_relax, rday1, rday2, dtm1, dsec
     !REAL(wp) :: z_c(nproma,n_zlev,p_patch%nblks_c)
-    REAL(wp) :: z_c2(nproma,p_patch%nblks_c)
-    REAL(wp) :: Tfw(nproma,p_patch%nblks_c)
-    REAL(wp) :: SWnet(nproma,p_ice%kice,p_patch%nblks_c)
+    REAL(wp) ::  z_c2(nproma,p_patch_3D%p_patch_2D(1)%nblks_c)
+    REAL(wp) ::   Tfw(nproma,p_patch_3D%p_patch_2D(1)%nblks_c)
+    REAL(wp) :: SWnet(nproma,p_ice%kice,p_patch_3D%p_patch_2D(1)%nblks_c)
 
     ! Local declarations for coupling:
     LOGICAL               :: write_coupler_restart
@@ -155,9 +155,11 @@ CONTAINS
     INTEGER, ALLOCATABLE  :: field_id(:)
     INTEGER               :: field_shape(3)
     REAL(wp), ALLOCATABLE :: buffer(:,:)
-
-    !-------------------------------------------------------------------------
+    REAL(wp), PARAMETER   :: seconds_per_month = 2.592e6_wp !TODO: use real month lenght
+    TYPE(t_patch), POINTER:: p_patch 
     TYPE(t_subset_range), POINTER :: all_cells
+    !-----------------------------------------------------------------------
+    p_patch   => p_patch_3D%p_patch_2D(1)
     !-------------------------------------------------------------------------
     all_cells => p_patch%cells%all
 
@@ -170,7 +172,7 @@ CONTAINS
 
     CASE (ANALYT_FORC)               !  11
 
-      CALL update_sfcflx_analytical(p_patch, p_os, p_sfc_flx)
+      CALL update_sfcflx_analytical(p_patch_3D, p_os, p_sfc_flx)
 
     CASE (FORCING_FROM_FILE_FLUX)    !  12
 
@@ -576,7 +578,7 @@ CONTAINS
             CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
             DO jc = i_startidx_c, i_endidx_c
 
-              IF (v_base%lsm_oce_c(jc,1,jb) <= sea_boundary) THEN
+              IF (p_patch_3D%lsm_oce_c(jc,1,jb) <= sea_boundary) THEN
                 p_sfc_flx%forc_swflx(jc,jb) = Qatm%SWin  (jc,jb) * (1.0_wp-albedoW) ! Incoming SW radiation flux
                 p_sfc_flx%forc_lwflx(jc,jb) = Qatm%LWnetw(jc,jb)                    ! net LW radiation flux over water
                 p_sfc_flx%forc_ssflx(jc,jb) = Qatm%sensw (jc,jb)                    ! Sensible heat flux over water
@@ -855,7 +857,7 @@ CONTAINS
       DO jb = all_cells%start_block, all_cells%end_block
         CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
         DO jc = i_startidx_c, i_endidx_c
-          IF(v_base%lsm_oce_c(jc,1,jb) <= sea_boundary)THEN
+          IF(p_patch_3D%lsm_oce_c(jc,1,jb) <= sea_boundary)THEN
             CALL gvec2cvec(  p_sfc_flx%forc_wind_u(jc,jb),&
                            & p_sfc_flx%forc_wind_v(jc,jb),&
                            & p_patch%cells%center(jc,jb)%lon,&
@@ -897,7 +899,7 @@ CONTAINS
       DO jb = all_cells%start_block, all_cells%end_block
         CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
         DO jc = i_startidx_c, i_endidx_c
-          IF (v_base%lsm_oce_c(jc,1,jb) <= sea_boundary) THEN
+          IF (p_patch_3D%lsm_oce_c(jc,1,jb) <= sea_boundary) THEN
             p_sfc_flx%forc_tracer_relax(jc,jb,1) &
               & = max(p_sfc_flx%forc_tracer_relax(jc,jb,1), z_tmin)
           ELSE
@@ -923,23 +925,22 @@ CONTAINS
       ! 
       ! Extended boundary condition (relaxation term plus heat flux) is not yet implemented
 
-  ! write(*,*)'EFFECTIVE RESTORING PARAMETER',1.0_wp/(relaxation_param*2.592e6_wp)
+      ! EFFECTIVE RESTORING PARAMETER: 1.0_wp/(relaxation_param*seconds_per_month)
 
       DO jb = all_cells%start_block, all_cells%end_block
         CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
         DO jc = i_startidx_c, i_endidx_c
-         z_relax = (v_base%del_zlev_m(1)+p_os%p_prog(nold(1))%h(jc,jb)) / &
-           &       (relaxation_param*2.592e6_wp)
-  !        z_relax = (v_base%del_zlev_m(1)) / &
-  !          &       (relaxation_param*2.592e6_wp)
 
 
-          IF ( v_base%lsm_oce_c(jc,1,jb) <= sea_boundary ) THEN
-              p_sfc_flx%forc_tracer(jc,jb, 1) =                             &
-             &          - z_relax*(p_os%p_prog(nold(1))%tracer(jc,1,jb,1)  &
-             &                    -p_sfc_flx%forc_tracer_relax(jc,jb,1))
+          IF ( p_patch_3D%lsm_oce_c(jc,1,jb) <= sea_boundary ) THEN
+
+            z_relax = (p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,1,jb) + p_os%p_prog(nold(1))%h(jc,jb)) / &
+              &       (relaxation_param*seconds_per_month)
+
+            p_sfc_flx%forc_tracer(jc,jb, 1) =                             &
+              &          - z_relax*(p_os%p_prog(nold(1))%tracer(jc,1,jb,1)  &
+              &                    -p_sfc_flx%forc_tracer_relax(jc,jb,1))
           ELSE
-            !p_sfc_flx%forc_tracer_relax(jc,jb,1) = 0.0_wp
             p_sfc_flx%forc_tracer(jc,jb,1) = 0.0_wp
           ENDIF
         END DO
@@ -985,12 +986,15 @@ CONTAINS
       DO jb = all_cells%start_block, all_cells%end_block
         CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
         DO jc = i_startidx_c, i_endidx_c
+          IF ( p_patch_3D%lsm_oce_c(jc,1,jb) <= sea_boundary ) THEN
+
+          !z_relax = p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,1,jb)&
+          !          &/(relaxation_param*seconds_per_month)
 
 
-        z_relax = (v_base%del_zlev_m(1)+p_os%p_prog(nold(1))%h(jc,jb)) / &
-             &       (relax_2d_mon_S*2.592e6_wp)
+          z_relax = (p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,1,jb)+p_os%p_prog(nold(1))%h(jc,jb)) / &
+            &       (relax_2d_mon_S*seconds_per_month)
 
-          IF ( v_base%lsm_oce_c(jc,1,jb) <= sea_boundary ) THEN
               p_sfc_flx%forc_tracer(jc,jb,2) =                             &
              &          - z_relax*(p_os%p_prog(nold(1))%tracer(jc,1,jb,2)  &
              &                    -p_sfc_flx%forc_tracer_relax(jc,jb,2))
@@ -1115,8 +1119,9 @@ CONTAINS
   !! @par Revision History
   !! Initial release by Peter Korn, MPI-M (2011). Originally written by D. Notz.
   !
-  SUBROUTINE update_sfcflx_from_atm_flx(ppatch, p_as, p_os, p_ice, Qatm, p_sfc_flx)
-    TYPE(t_patch),TARGET,         INTENT(IN)    :: ppatch
+  SUBROUTINE update_sfcflx_from_atm_flx(p_patch_3D, p_as, p_os, p_ice, Qatm, p_sfc_flx)
+
+    TYPE(t_patch_3D_oce ),TARGET, INTENT(IN)    :: p_patch_3D
     TYPE(t_atmos_for_ocean),      INTENT(IN)    :: p_as
     TYPE(t_hydro_ocean_state),    INTENT(IN)    :: p_os
     TYPE (t_sea_ice),             INTENT (IN)   :: p_ice
@@ -1130,15 +1135,17 @@ CONTAINS
 
     INTEGER :: jc, jb, i
     INTEGER :: i_startidx_c, i_endidx_c
-    REAL(wp):: z_evap(nproma,ppatch%nblks_c)
-    REAL(wp):: z_Q_freshwater(nproma,ppatch%nblks_c)
+    REAL(wp):: z_evap        (nproma,p_patch_3D%p_patch_2D(1)%nblks_c)
+    REAL(wp):: z_Q_freshwater(nproma,p_patch_3D%p_patch_2D(1)%nblks_c)
     CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_oce_bulk:update_sfcflx_from_atm_flx'
-    !-------------------------------------------------------------------------
+    TYPE(t_patch), POINTER :: p_patch
     TYPE(t_subset_range), POINTER :: all_cells
+    !-----------------------------------------------------------------------  
+    p_patch         => p_patch_3D%p_patch_2D(1)
     !-------------------------------------------------------------------------
     CALL message(TRIM(routine), 'start' )
 
-    all_cells => ppatch%cells%all
+    all_cells => p_patch%cells%all
 
     !Relaxation parameter from namelist for salinity.
     z_relax = relaxation_param/(30.0_wp*24.0_wp*3600.0_wp)
@@ -1197,8 +1204,8 @@ CONTAINS
         !   - has to be checked and merged with salinity boundary condition in update_sfcflx
         !
         p_sfc_flx%forc_tracer(jc,jb,2) =                 &
-          & (v_base%del_zlev_m(1)+z_Q_freshwater(jc,jb)) &
-          & /v_base%del_zlev_m(1)                        &  !  * tracer(jc,1,jb,2)
+          & (p_patch_3D%p_patch_1D(1)%del_zlev_m(1)+z_Q_freshwater(jc,jb)) &
+          & /p_patch_3D%p_patch_1D(1)%del_zlev_m(1)                        &  !  * tracer(jc,1,jb,2)
           & +z_relax*(p_os%p_prog(nold(1))%tracer(jc,1,jb,2)-p_sfc_flx%forc_tracer_relax(jc,jb,2))
 
 
@@ -1242,11 +1249,11 @@ CONTAINS
   !! @par Revision History
   !! Initial release by Stephan Lorenz, MPI-M (2010-07)
   !
-  SUBROUTINE update_sfcflx_analytical(p_patch, p_os, p_sfc_flx)
+  SUBROUTINE update_sfcflx_analytical(p_patch_3D, p_os, p_sfc_flx)
 
-  TYPE(t_patch), TARGET, INTENT(IN)     :: p_patch
-  TYPE(t_hydro_ocean_state)             :: p_os
-  TYPE(t_sfc_flx)                       :: p_sfc_flx
+  TYPE(t_patch_3D_oce ),TARGET, INTENT(IN)    :: p_patch_3D
+  TYPE(t_hydro_ocean_state)                   :: p_os
+  TYPE(t_sfc_flx)                             :: p_sfc_flx
   !
   ! local variables
   INTEGER :: jc, jb
@@ -1260,13 +1267,16 @@ CONTAINS
                                      !=2.0: double gyre
                                      !=n.0: n-gyre
   REAL(wp) :: y_length               !basin extension in y direction in degrees
-  REAL(wp) :: z_T_init(nproma,p_patch%nblks_c)
+  REAL(wp) :: z_T_init(nproma,p_patch_3D%p_patch_2D(1)%nblks_c)
   REAL(wp) :: z_perlat, z_perlon, z_permax, z_perwid, z_relax, z_dst
   INTEGER  :: z_dolic
   REAL(wp) :: z_temp_max, z_temp_min, z_temp_incr
   CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_oce_bulk:update_ho_sfcflx'
   !-------------------------------------------------------------------------
   TYPE(t_subset_range), POINTER :: all_cells
+  TYPE(t_patch), POINTER :: p_patch
+  !-----------------------------------------------------------------------  
+  p_patch         => p_patch_3D%p_patch_2D(1)
   !-------------------------------------------------------------------------
   all_cells => p_patch%cells%all
 
@@ -1285,7 +1295,7 @@ CONTAINS
         CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
         DO jc = i_startidx_c, i_endidx_c
 
-          IF(v_base%lsm_oce_c(jc,1,jb)<=sea_boundary)THEN
+          IF(p_patch_3D%lsm_oce_c(jc,1,jb)<=sea_boundary)THEN
 
              ! #slo# Warning: s.th. more missing?
              z_lat = p_patch%cells%center(jc,jb)%lat
@@ -1318,9 +1328,9 @@ CONTAINS
           CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
           DO jc = i_startidx_c, i_endidx_c
 
-            IF(v_base%lsm_oce_c(jc,1,jb)<=sea_boundary)THEN
+            IF(p_patch_3D%lsm_oce_c(jc,1,jb)<=sea_boundary)THEN
 
-              z_T_init(jc,jb) = 20.0_wp- v_base%zlev_m(1)*15.0_wp/4000.0_wp
+              z_T_init(jc,jb) = 20.0_wp- p_patch_3D%p_patch_1D(1)%zlev_m(1)*15.0_wp/4000.0_wp
 
               z_lat = p_patch%cells%center(jc,jb)%lat
               z_lon = p_patch%cells%center(jc,jb)%lon
@@ -1333,7 +1343,7 @@ CONTAINS
 
               z_relax = relaxation_param/(30.0_wp*24.0_wp*3600.0_wp)
 
-             z_dolic = v_base%dolic_c(jc,jb)
+             z_dolic = p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)
              IF (z_dolic > MIN_DOLIC) THEN
 
                z_dst=sqrt((z_lat-z_perlat*deg2rad)**2+(z_lon-z_perlon*deg2rad)**2)
@@ -1341,7 +1351,7 @@ CONTAINS
                IF(z_dst<=5.0_wp*deg2rad)THEN
                  z_T_init = z_T_init &
                  &        + z_permax*exp(-(z_dst/(z_perwid*deg2rad))**2) &
-                 &        * sin(pi*v_base%zlev_m(1)/4000.0_wp)
+                 &        * sin(pi*p_patch_3D%p_patch_1D(1)%zlev_m(1)/4000.0_wp)
                  !   write(*,*)'z init',jc,jb,p_os%p_prog(nold(1))%tracer(jc,1,jb,1),&
                  !   &z_permax*exp(-(z_dst/(z_perwid*deg2rad))**2) &
                  !   & * sin(pi*v_base%zlev_m(1)/4000.0_wp)
@@ -1454,7 +1464,7 @@ CONTAINS
         CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
         DO jc = i_startidx_c, i_endidx_c
 
-          IF(v_base%lsm_oce_c(jc,1,jb)<=sea_boundary)THEN
+          IF(p_patch_3D%lsm_oce_c(jc,1,jb)<=sea_boundary)THEN
 
              ! #slo# Warning: s.th. more missing?
              z_lat = p_patch%cells%center(jc,jb)%lat
@@ -1508,7 +1518,7 @@ CONTAINS
         CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
         DO jc = i_startidx_c, i_endidx_c
 
-          IF(v_base%lsm_oce_c(jc,1,jb)<=sea_boundary)THEN
+          IF(p_patch_3D%lsm_oce_c(jc,1,jb)<=sea_boundary)THEN
 
              ! #slo# Warning: s.th. more missing?
              z_lat = p_patch%cells%center(jc,jb)%lat
@@ -1552,7 +1562,7 @@ CONTAINS
           z_lat = p_patch%cells%center(jc,jb)%lat
           z_lat_deg = z_lat*rad2deg
 
-            IF ( v_base%lsm_oce_c(jc,1,jb) <= sea_boundary ) THEN
+            IF ( p_patch_3D%lsm_oce_c(jc,1,jb) <= sea_boundary ) THEN
 
               z_temp_max     =0.01_wp*(z_lat_deg-basin_center_lat)*(z_lat_deg-basin_center_lat)
               z_T_init(jc,jb)=30.5_wp

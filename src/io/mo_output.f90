@@ -65,7 +65,7 @@ MODULE mo_output
     &                               set_restart_depth_lnd, &  !DRset_restart_height, &
     &                               set_restart_height_snow
   USE mo_io_restart_attributes,ONLY: set_restart_attribute
-  USE mo_model_domain,        ONLY: t_patch, p_patch
+  USE mo_model_domain,        ONLY: t_patch,t_patch_3D_oce, p_patch
   USE mo_intp_data_strc,      ONLY: t_lon_lat_intp
   USE mo_run_config,          ONLY: ltimer, output_mode
   USE mo_timer,               ONLY: timer_start, timer_stop,&
@@ -73,7 +73,7 @@ MODULE mo_output
   USE mo_meteogram_output,    ONLY: meteogram_flush_file
   USE mo_meteogram_config,    ONLY: meteogram_output_config
 
-  USE mo_oce_state,           ONLY: set_zlev
+  USE mo_oce_state,           ONLY: set_zlev, t_hydro_ocean_state
   IMPLICIT NONE
 
   PRIVATE
@@ -86,7 +86,7 @@ MODULE mo_output
   !
   ! Public routines:
 
-  PUBLIC :: init_output_files, close_output_files, write_output
+  PUBLIC :: init_output_files, close_output_files, write_output, write_output_oce
   PUBLIC :: create_restart_file
 
 CONTAINS
@@ -101,10 +101,11 @@ CONTAINS
   !! * Create data variable definitions
   !! For jfile=1 some additional refinement initializations are done.
 
-  SUBROUTINE init_output_files(jfile, lclose)
+  SUBROUTINE init_output_files(jfile, lclose, p_patch_2D)
 
     INTEGER, INTENT(IN) :: jfile !> Number of fileset to open
     LOGICAL, INTENT(IN) :: lclose !> lclose old file
+    TYPE(t_patch),OPTIONAL :: p_patch_2D(:)
 
     INTEGER :: jg, jlev
     INTEGER :: nlev              !< number of full levels
@@ -127,8 +128,13 @@ CONTAINS
 !       ELSE
 !         gridtype='icon'
 !       END IF
-
-      DO jg = 1, n_dom
+      IF( PRESENT(p_patch_2D) )THEN        
+         DO jg = 1, n_dom
+         CALL setup_vlist( TRIM(p_patch_2D(jg)%grid_filename), jg, &
+                          & .NOT.use_async_vlist_io .AND. p_pe==p_io,mypatch=p_patch_2D)
+         END DO
+      ELSE
+        DO jg = 1, n_dom
 
 !         jlev = p_patch(jg)%level
 
@@ -156,11 +162,11 @@ CONTAINS
         ! task actually does I/O for the patch in question.
         ! Compare to the call of open_output_vlist below!
 
-        CALL setup_vlist( TRIM(p_patch(jg)%grid_filename), jg, &
-                        & .NOT.use_async_vlist_io .AND. p_pe==p_io)
+          CALL setup_vlist( TRIM(p_patch(jg)%grid_filename), jg, &
+                          & .NOT.use_async_vlist_io .AND. p_pe==p_io)
 
-      ENDDO
-
+        ENDDO
+      ENDIF
     ELSE
 
       ! If not called for the first time, close previous output files
@@ -172,6 +178,22 @@ CONTAINS
       ENDIF
 
     ENDIF
+    IF ( PRESENT(p_patch_2D) ) THEN 
+      DO jg = 1, n_dom 
+        jlev = p_patch_2D(jg)%level
+        nlev = p_patch_2D(jg)%nlev
+        grid_filename = get_filename_noext(p_patch_2D(jg)%grid_filename)
+        ! Raw data file name(s) for output
+        !
+        WRITE (outputfile,'(a,a,a,a,i4.4,a)')  &
+        &  TRIM(out_expname),"_",TRIM(grid_filename),'_', jfile, '.nc'
+        IF(.NOT.use_async_vlist_io) THEN
+          IF(p_pe == p_io) CALL open_output_vlist(TRIM(outputfile), jg)
+        ELSE
+          CALL set_output_file(outputfile, jg)
+        ENDIF
+      END DO
+    ELSEIF(.NOT. (PRESENT(p_patch_2D)))THEN
 
     DO jg = 1, n_dom
 
@@ -226,7 +248,8 @@ CONTAINS
         ENDIF
      !ENDIF
 
-    ENDDO
+      ENDDO
+    ENDIF
 
     ! Setup I/O PEs if this is the initial call and I/O PEs are enabled
     ! Note that this has to be done AFTER the output files are set!
@@ -258,11 +281,12 @@ CONTAINS
 
   !------------------------------------------------------------------------------------------------
   !>
-  SUBROUTINE write_output(datetime, z_sim_time)
+  SUBROUTINE write_output(datetime, z_sim_time, p_patch_3D)
 
-    TYPE(t_datetime),      INTENT(in) :: datetime
+    TYPE(t_datetime),   INTENT(in) :: datetime
     REAL(wp), OPTIONAL, INTENT(in) :: z_sim_time(n_dom)
-
+    TYPE(t_patch_3D_oce ),OPTIONAL, INTENT(IN)  :: p_patch_3D
+   ! TYPE(t_patch),OPTIONAL,INTENT(IN):: p_patch_2D(:)
     ! Local variables
     INTEGER :: jg
 
@@ -288,7 +312,12 @@ CONTAINS
 
     IF ( PRESENT(z_sim_time) ) THEN  
       IF(.NOT.use_async_vlist_io) THEN
-        CALL write_vlist(datetime, z_sim_time(1))
+
+        IF(PRESENT(p_patch_3D))THEN
+          CALL write_vlist(datetime, z_sim_time(1), p_patch_3D)
+        ELSE
+          CALL write_vlist(datetime, z_sim_time(1))
+        ENDIF
         ! write recent samples of meteogram output
         DO jg = 1, n_dom
           IF (meteogram_output_config(jg)%lenabled) THEN
@@ -299,8 +328,13 @@ CONTAINS
         CALL output_async(datetime,z_sim_time(1))
       ENDIF
     ELSE
-      IF(.NOT.use_async_vlist_io) THEN
-        CALL write_vlist(datetime)
+      IF(.NOT.use_async_vlist_io) THEN       
+        IF(PRESENT(p_patch_3D))THEN
+          CALL write_vlist(datetime, z_sim_time(1), p_patch_3D)
+        ELSE
+
+          CALL write_vlist(datetime)
+        ENDIF
         ! write recent samples of meteogram output
         DO jg = 1, n_dom
           IF (meteogram_output_config(jg)%lenabled) THEN
@@ -314,6 +348,68 @@ CONTAINS
 
     IF (ltimer) CALL timer_stop(timer_write_output)
   END SUBROUTINE write_output
+
+  !------------------------------------------------------------------------------------------------
+  !>
+  SUBROUTINE write_output_oce(datetime, z_sim_time, p_patch_3D, p_os)
+
+    TYPE(t_datetime),   INTENT(in) :: datetime
+    REAL(wp), OPTIONAL, INTENT(in) :: z_sim_time(n_dom)
+    TYPE(t_patch_3D_oce ),OPTIONAL, INTENT(IN)  :: p_patch_3D
+    TYPE(t_hydro_ocean_state), OPTIONAL, INTENT(IN) :: p_os(n_dom)
+   ! TYPE(t_patch),OPTIONAL,INTENT(IN):: p_patch_2D(:)
+    ! Local variables
+    INTEGER :: jg
+
+!    Proposal by Matthias Raschendorfer for correct output
+!
+!    INTEGER sec
+!
+!    sec=NINT(datetime%second)-INT(datetime%second)
+!    outptime=datetime
+!    IF (sec.NE.0) THEN
+!       CALL add_time(REAL(sec,wp),0,0,0,outptime)
+!    END IF
+!
+!    IF(.NOT.use_async_vlist_io) THEN
+!      CALL write_vlist(outptime)
+!    ELSE
+!      CALL output_async(outptime)
+!    ENDIF
+!
+    IF (.NOT. output_mode%l_vlist) RETURN
+
+    IF (ltimer) CALL timer_start(timer_write_output)
+
+    IF ( PRESENT(z_sim_time) ) THEN  
+      IF(.NOT.use_async_vlist_io) THEN
+
+          CALL write_vlist(datetime, z_sim_time(1), p_patch_3D,p_os)
+        ! write recent samples of meteogram output
+        DO jg = 1, n_dom
+          IF (meteogram_output_config(jg)%lenabled) THEN
+            CALL meteogram_flush_file(jg)
+          END IF
+        END DO
+      ELSE
+        CALL output_async(datetime,z_sim_time(1))
+      ENDIF
+    ELSE
+      IF(.NOT.use_async_vlist_io) THEN       
+          CALL write_vlist(datetime, z_sim_time(1), p_patch_3D,p_os )
+        ! write recent samples of meteogram output
+        DO jg = 1, n_dom
+          IF (meteogram_output_config(jg)%lenabled) THEN
+            CALL meteogram_flush_file(jg)
+          END IF
+        END DO
+      ELSE
+        CALL output_async(datetime)
+      ENDIF
+    ENDIF
+
+    IF (ltimer) CALL timer_stop(timer_write_output)
+  END SUBROUTINE write_output_oce
 
   !-------------
   !>
@@ -489,7 +585,7 @@ CONTAINS
     CALL set_restart_time( iso8601(datetime) )  ! Time tag
 
     ! Open new file, write data, close and then clean-up.
-    message_text = TRIM(get_filename_noext(patch%grid_filename))
+    message_text = get_filename_noext(patch%grid_filename)
     WRITE(string,'(a,a)') 'restart.',TRIM(message_text)
 
     CALL open_writing_restart_files( TRIM(string) )

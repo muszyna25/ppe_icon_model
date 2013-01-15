@@ -123,6 +123,8 @@ MODULE mo_model_domain
   PUBLIC :: t_subset_range, t_subset_range_index
   
   !PUBLIC :: t_patch_ocean
+  PUBLIC :: t_patch_3D_oce
+  PUBLIC :: t_patch_vert
   
   PUBLIC :: t_tangent_vectors
   
@@ -862,5 +864,111 @@ MODULE mo_model_domain
   
   !--------------------------------------------------------------------
   
+  TYPE t_patch_vert
+
+    !! The ocean uses z-coordinates in meters in the vertical.
+    !! The following data are required:
+    !!
+    !! n_zlev: number of z-coordinate surfaces
+    !! n_zlvp: number of intermediate levels (+1)
+    !! n_zlvm: number of z-coordinate distances (-1)
+    INTEGER :: n_zlev, n_zlvp, n_zlvm
+
+    !! del_zlev_m: thickness (height) of elemental prism, defined as the 
+    !!             distance between top and bottom of elemental prism, 
+    !!             i.e. the distance between two intermediate z-coordinate 
+    !!             surfaces. These data are provided by the user, all other 
+    !!             vertical information is calculated from this array of 
+    !!             thicknesses.  Dimension: n_zlev
+    REAL(wp), ALLOCATABLE :: del_zlev_m(:)
+
+    !! zlev_m    : position of the vertical cell centers, i.e. below zero surface;
+    !!             Numbering starts from surface and increases downwards to bottom.
+    !!             Dimension: n_zlev
+    !!             At these surfaces the horizontal velocities, vorticity, divergence
+    !!             and scalar variables are evaluated.
+    REAL(wp), ALLOCATABLE :: zlev_m(:)
+
+    !! zlev_i    : vertical position of the UPPER BORDER of the vertical cell
+    !!             i.e. the position of the top of elemental prisms.
+    !!             Position of first surface is 0.
+    !!             Dimension: n_zlvp = n_zlev + 1
+    !!             The vertical velocities are evaluated at such surfaces.
+    REAL(wp), ALLOCATABLE :: zlev_i(:)
+
+    !! del_zlev_i: distance between two z-coordinate surfaces. The first is 
+    !!             the distance from the ocean surface = zlev_m(1)
+    !!             Dimension: n_zlev
+    REAL(wp), ALLOCATABLE :: del_zlev_i(:)
+
+    ! To simplify the acess to the required information within these loops 
+    ! we store an cell and edge based version of the deepest ocean layer 
+    ! in column. dolic_e(edge1) and dolic_c(cell1) are identical if 'edge1' 
+    ! is one of the edges of 'cell1'.
+    ! If the ocean bottom is flat dolic_c and dolic_e are identical and equal 
+    ! to the number of z-coodinate surfaces.
+    !
+    INTEGER, ALLOCATABLE :: dolic_c(:,:)    ! index1=1,nproma, index2=1,nblks_c
+    INTEGER, ALLOCATABLE :: dolic_e(:,:)    ! index1=1,nproma, index2=1,nblks_e
+
+    REAL(wp), POINTER ::                &
+      &  prism_thick_c(:,:,:),          & ! individual prism thickness at cells. Unit [m]. This array
+                                          ! includes the free surface. dimension: (nproma,n_zlev, nblks_c)
+      &  prism_thick_e(:,:,:),          & ! individual prism thickness at edges. Unit [m]. This array 
+                                          ! includes the free surface. dimension: (nproma,n_zlev, nblks_e)
+      &  prism_thick_flat_sfc_c(:,:,:) ,& ! individual fluid column thickness at cells. Unit [m].This array
+                                          !  assumes a flat surface. dimension: (nproma,n_zlev, nblks_c)
+      &  prism_thick_flat_sfc_e(:,:,:) ,& ! individual fluid column thickness at edges. Unit [m].This array
+                                          !  assumes a flat surface. dimension: (nproma,n_zlev, nblks_c)
+      &  prism_center_dist_c(:,:,:),    & ! distance between prism centers at cells. Unit [m].
+                                          ! dimension: (nproma,n_zlev, nblks_c)
+      &  inv_prism_thick_c(:,:,:) ,     & ! inverse individual fluid column thickness at cells. Unit [m].
+                                          ! This array assumes a flat surface dimension: (nproma,n_zlev, nblks_c)
+      &  inv_prism_thick_e(:,:,:) ,     & ! inverse individual fluid column thickness at edges. Unit [m].
+                                          ! This array assumes a flat surface. dimension: (nproma,n_zlev, nblks_e)
+      &  inv_prism_center_dist_c(:,:,:),& ! inverse vertical distance between prism centers at cells. Unit [m].This  
+                                           !array assumes a flat surface  dimension: (nproma,n_zlev, nblks_c)
+      &  inv_prism_center_dist_e(:,:,:)    ! inverse vertical distance between prism centers at edges. Unit [m]. 
+                                           !This array assumes a flat surface dimension: (nproma,n_zlev, nblks_e)   
+
+  END TYPE t_patch_vert
+
+
+
+  TYPE t_patch_3D_oce
+    
+    TYPE(t_patch),     ALLOCATABLE :: p_patch_2D(:)
+    TYPE(t_patch_vert),ALLOCATABLE :: p_patch_1D(:)
+
+    ! land-sea-mask for ocean has 3 dimensions (the 2nd is the number of 
+    ! vertical levels)
+    ! sea=-2, sea_boundary=-1, boundary (edges only)=0, land_boundary=1, land=2
+    !
+    ! land-sea-mask for cell centers
+    ! index1=1,nproma, index2=1,n_zlev, index3=1,nblks_c
+    INTEGER, ALLOCATABLE :: lsm_oce_c(:,:,:)
+    ! land-sea-mask for cell edges
+    ! index1=1,nproma, index2=1,n_zlev, index3=1,nblks_e
+    INTEGER, ALLOCATABLE :: lsm_oce_e(:,:,:)
+    ! land-sea-mask for cell vertices
+    ! index1=1,nproma, index2=1,n_zlev, index3=1,nblks_v
+    ! INTEGER, ALLOCATABLE :: lsm_oce_v(:,:,:)
+
+    ! To simply set land points to zero we store additional 3-dim wet points
+    ! dimensions as in lsm_oce:
+    REAL(wp), ALLOCATABLE :: wet_c(:,:,:)  ! cell centers
+    REAL(wp), ALLOCATABLE :: wet_e(:,:,:)  ! cell edges
+
+
+    ! For diagnosis like stream functions and area calculations we add surface arrays
+    ! index1=1,nproma, index2=1,nblks_c
+    INTEGER,  ALLOCATABLE :: basin_c(:,:)  ! basin information Atlantic/Indian/Pacific
+    INTEGER,  ALLOCATABLE :: regio_c(:,:)  ! area information like tropical Atlantic etc.
+    REAL(wp), ALLOCATABLE :: rbasin_c(:,:) ! real for output
+    REAL(wp), ALLOCATABLE :: rregio_c(:,:) ! real for output
+    
+  END TYPE t_patch_3D_oce
+  !--------------------------------------------------------------------
+
 END MODULE mo_model_domain
 
