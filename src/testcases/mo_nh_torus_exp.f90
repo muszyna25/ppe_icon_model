@@ -70,7 +70,7 @@ MODULE mo_nh_torus_exp
 
   !DEFINED PARAMETERS:
   REAL(wp), PARAMETER :: zp0     = 100000._wp !< surface pressure
-  REAL(wp), PARAMETER :: zh0     = 1000._wp   !< height (m) above which temperature increases
+  REAL(wp), PARAMETER :: zh0     = 1200._wp   !< height (m) above which temperature increases
   REAL(wp), PARAMETER :: dtdz    = 0.003_wp   !< lapse rate
 
   REAL(wp):: sst_cbl

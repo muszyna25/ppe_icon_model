@@ -1217,10 +1217,10 @@ MODULE mo_nh_testcases
       CALL init_nh_state_cbl ( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), p_nh_state(jg)%ref,  &
                       & p_nh_state(jg)%diag, p_int(jg), ext_data(jg), p_nh_state(jg)%metrics )
 
-      CALL nh_prog_add_random( p_patch(jg), p_nh_state(jg)%prog(nnow(jg))%vn(:,:,:),       &
-                               "edge", 0.1_wp, nlev-5, nlev ) 
+      CALL nh_prog_add_random( p_patch(jg), p_nh_state(jg)%prog(nnow(jg))%w(:,:,:),       &
+                               "cell", 0.05_wp, nlev-3, nlev ) 
       CALL nh_prog_add_random( p_patch(jg), p_nh_state(jg)%prog(nnow(jg))%theta_v(:,:,:),  & 
-                               "cell", 0.1_wp, nlev-5, nlev ) 
+                               "cell", 0.2_wp, nlev-3, nlev ) 
 
       CALL duplicate_prog_state(p_nh_state(jg)%prog(nnow(jg)),p_nh_state(jg)%prog(nnew(jg)))
     END DO !jg

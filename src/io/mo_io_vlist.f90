@@ -1699,7 +1699,7 @@ CONTAINS
             &           k_jg)
 
           ENDDO
-          END IF  ! inwp_surface
+        END IF  ! inwp_surface TERRA
 
           !--- Specific Humidity at Surface---
           CALL addVar(TimeVar('QV_S',&
