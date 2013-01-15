@@ -29,13 +29,13 @@ atmo_namelist=NAMELIST_${EXPNAME}
 #-----------------------------------------------------------------------------
 # global timing
 start_date="2000-07-01T00:00:00Z"
+  end_date="2004-01-01T00:00:00Z"
 ndays_restart=10                            # restart every 10 days
 dt_restart=`expr ${ndays_restart} \* 86400`
 #
 #-----------------------------------------------------------------------------
 # model timing
-dtime=600
-ndays=1280
+dtime=400
 nsteps=`expr ${ndays} \* 86400 / ${dtime}`
 dt_diag=`expr 6 \* 3600  `   # global integral output each 6 hours
 dt_file=`expr 1 \* 86400 `   # 1 day per file
