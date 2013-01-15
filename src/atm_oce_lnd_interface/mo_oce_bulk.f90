@@ -87,7 +87,6 @@ USE mo_math_utilities,      ONLY: gvec2cvec, cvec2gvec
 USE mo_sea_ice_types,       ONLY: t_sea_ice, t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean
 USE mo_sea_ice,             ONLY: calc_bulk_flux_ice, calc_bulk_flux_oce,     &
   &                               ice_slow, ice_fast, prepareAfterRestart, prepare4restart
-USE mo_sea_ice_winton,      ONLY: set_ice_temp_winton
 USE mo_coupling_config,     ONLY: is_coupled_run
 USE mo_icon_cpl_restart,    ONLY: icon_cpl_write_restart
 USE mo_icon_cpl_exchg,      ONLY: ICON_cpl_put, ICON_cpl_get
@@ -144,7 +143,6 @@ CONTAINS
     !REAL(wp) :: z_c(nproma,n_zlev,p_patch%nblks_c)
     REAL(wp) ::  z_c2(nproma,p_patch_3D%p_patch_2D(1)%nblks_c)
     REAL(wp) ::   Tfw(nproma,p_patch_3D%p_patch_2D(1)%nblks_c)
-    REAL(wp) :: SWnet(nproma,p_ice%kice,p_patch_3D%p_patch_2D(1)%nblks_c)
 
     ! Local declarations for coupling:
     LOGICAL               :: write_coupler_restart
@@ -522,9 +520,6 @@ CONTAINS
         ELSE
           Tfw = Tf
         ENDIF
-        DO k=1,p_ice%kice
-          SWnet(:,k,:) = Qatm%SWin(:,:)*( 1._wp - p_ice%alb(:,k,:) )
-        ENDDO
 
         DO jb = all_cells%start_block, all_cells%end_block
           CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
@@ -537,11 +532,10 @@ CONTAINS
             &   p_ice% hs   (:,:,jb),   &
             &   p_ice% Qtop (:,:,jb),   &
             &   p_ice% Qbot (:,:,jb),   & 
-            &   SWnet       (:,:,jb),   &
+            &   Qatm%SWin   (:,  jb),   &
             &   Qatm%lat(:,:,jb) + Qatm%sens(:,:,jb) + Qatm%LWnet(:,:,jb),   & 
             &   Qatm%dlatdT(:,:,jb) + Qatm%dsensdT(:,:,jb) + Qatm%dLWdT(:,:,jb),   & 
-            &   p_ice%alb   (:,:,jb),   &
-            &   Tfw         (:  ,jb),   &
+            &   Tfw         (:,  jb),   &
             &   doy=datetime%yeaday)
         ENDDO
 
@@ -803,9 +797,6 @@ CONTAINS
           ELSE
             Tfw = Tf
           ENDIF
-          DO k=1,p_ice%kice
-            SWnet(:,k,:) = Qatm%SWin(:,:)*( 1._wp - p_ice%alb(:,k,:) )
-          ENDDO
 
           ! ice mask can is converted from real to logical here
           CALL prepareAfterRestart(p_ice)
@@ -818,10 +809,9 @@ CONTAINS
             &   p_ice% hs   (:,:,jb),   &
             &   p_ice% Qtop (:,:,jb),   &
             &   p_ice% Qbot (:,:,jb),   & 
-            &   SWnet       (:,:,jb),   &
+            &   Qatm%SWin   (:,  jb),   &
             &   Qatm%lat(:,:,jb) + Qatm%sens(:,:,jb) + Qatm%LWnet(:,:,jb),              & 
             &   Qatm%dlatdT (:,:,jb) + Qatm%dsensdT(:,:,jb) + Qatm%dLWdT  (:,:,jb),     & 
-            &   p_ice%alb   (:,:,jb),   &
             &   Tfw         (:,  jb),   &
             &   doy=datetime%yeaday)
           CALL ice_slow(p_patch, p_os, p_ice, Qatm, p_sfc_flx)

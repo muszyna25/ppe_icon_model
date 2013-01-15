@@ -86,7 +86,7 @@ CONTAINS
   !! Dirk Notz, following MPI-OM. Code transfered to ICON.
   !!
 
-  SUBROUTINE set_ice_temp_winton(i_startidx_c, i_endidx_c, nbdim, kice, &
+  SUBROUTINE set_ice_temp_winton(i_startidx_c, i_endidx_c, nbdim, kice, SWdim, &
             &   isice,          & ! Mask                                                         
             &   Tsurf,          & ! Surface temperature [degC]                                   
             &   T1,             & ! Temperature of upper layer [degC]                            
@@ -95,12 +95,13 @@ CONTAINS
             &   hs,             & ! Snow thickness                                               
             &   Qtop,           & ! Energy flux available for surface melting [W/m2]             
             &   Qbot,           & ! Energy flux available for bottom melting [W/m2]              
-            &   SWnet,          & ! Net shortwave flux [W/m^2]                           
+            &   SWin,           & ! Downwelling shortwave flux [W/m^2]                           
+            &   alb,            & ! Albedo
             &   nonsolar,       & ! Latent and sensible heat flux and longwave radiation [W/m^2] 
             &   dnonsolardT,    & ! Derivative of non-solar fluxes w.r.t. temperature [W/m^2/K]  
             &   Tfw)              ! Freezing temperature of the ocean
 
-    INTEGER, INTENT(IN)    :: i_startidx_c, i_endidx_c, nbdim, kice
+    INTEGER, INTENT(IN)    :: i_startidx_c, i_endidx_c, nbdim, kice, SWdim
     LOGICAL, INTENT(IN)    :: isice      (nbdim,kice)
     REAL(wp),INTENT(INOUT) :: Tsurf      (nbdim,kice)
     REAL(wp),INTENT(INOUT) :: T1         (nbdim,kice)
@@ -109,7 +110,8 @@ CONTAINS
     REAL(wp),INTENT(IN)    :: hs         (nbdim,kice)
     REAL(wp),INTENT(OUT)   :: Qtop       (nbdim,kice)
     REAL(wp),INTENT(OUT)   :: Qbot       (nbdim,kice)
-    REAL(wp),INTENT(IN)    :: SWnet      (nbdim,kice)
+    REAL(wp),INTENT(IN)    :: SWin       (nbdim,SWdim)
+    REAL(wp),INTENT(IN)    :: alb        (nbdim,kice,SWdim)
     REAL(wp),INTENT(IN)    :: nonsolar   (nbdim,kice)
     REAL(wp),INTENT(IN)    :: dnonsolardT(nbdim,kice)
     REAL(wp),INTENT(IN)    :: Tfw        (nbdim)
@@ -154,11 +156,13 @@ CONTAINS
           END IF
           
           ! Calculate new ice temperature wherever there is ice 
-          ! nonsolar >0 and SWnet > 0  for downward flux 
+          ! nonsolar >0 and SWin > 0  for downward flux 
           ! dnonsolardT >0 for downward flux increasing with increasing Tsurf
           
           B = -dnonsolardT(jc,k)                                                        ! Eq.  8
-          A = -nonsolar(jc,k) - SWnet(jc,k)*( 1._wp - I ) - Tsurf(jc,k)*B                 ! Eq.  7
+          A = -nonsolar(jc,k)                                                   &
+            &   - SUM( ( 1.0_wp - alb(jc,k,:) )*SWin(jc,:) )*( 1._wp - I )      &
+            &   - Tsurf(jc,k)*B                                                         ! Eq.  7
 
           K1 =  4.0_wp*ki*ks/( ks*hi(jc,k) + 4.0_wp*ki*hs(jc,k) )                       ! Eq.  5
           K2 =  2.0_wp*ki/hi(jc,k)                                                      ! Eq. 10
@@ -174,8 +178,9 @@ CONTAINS
 
           A1a = rhoi*hi(jc,k)*idt2*ci + K2*( 4.0_wp*dtime*K2 + rhoi*hi(jc,k)*ci )*D     ! Eq. 16
           A1  = A1a + K1*B*iK1B
-          B1a = -rhoi*hi(jc,k)*( ci*T1(jc,k) - alf*muS/T1(jc,k) )*idt2 - SWnet(jc,k)*I &
-            &          - K2*( 4.0_wp*dtime*K2*Tfw(jc) + rhoi*hi(jc,k)*ci*T2(jc,k) )*D   ! Eq. 17
+          B1a = -rhoi*hi(jc,k)*( ci*T1(jc,k) - alf*muS/T1(jc,k) )*idt2                  &
+            &           - SUM( ( 1.0_wp - alb(jc,k,:) )*SWin(jc,:) )*I                  &
+            &          - K2*( 4.0_wp*dtime*K2*Tfw(jc) + rhoi*hi(jc,k)*ci*T2(jc,k) )*D ! Eq. 17
           B1 = B1a + A*K1*iK1B                                                          ! Eq. 18
           C1 = -rhoi*hi(jc,k)*alf*muS*idt2                                              ! Eq. 21
 
