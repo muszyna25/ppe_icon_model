@@ -43,6 +43,9 @@
 !! software.
 !!
 !!
+!----------------------------
+#include "omp_definitions.inc"
+!----------------------------
 MODULE mo_oce_state
 !-------------------------------------------------------------------------
 !
@@ -3376,10 +3379,10 @@ END DO !block loop
   CALL sync_patch_array(SYNC_E,ptr_patch,ptr_patch%edges%dual_normal_vert(:,:,4)%v2)
 
 
-!$OMP PARALLEL  PRIVATE(rl_start,rl_end,i_startblk,i_endblk)
+!!$OMP PARALLEL  PRIVATE(rl_start,rl_end,i_startblk,i_endblk)
 
 
-!$OMP END PARALLEL
+!!$OMP END PARALLEL
 
 END SUBROUTINE complete_patchinfo_oce
 !-------------------------------------------------------------------------  
