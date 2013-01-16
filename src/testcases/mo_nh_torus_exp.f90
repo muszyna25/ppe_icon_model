@@ -195,13 +195,13 @@ MODULE mo_nh_torus_exp
 
          jcn  = ptr_patch%edges%cell_idx(je,jb,1)     
          jbn  = ptr_patch%edges%cell_blk(je,jb,1)
-         zvn1 = ugeo(jk) * ptr_patch%edges%dual_normal_cell(jc,jb,1)%v1 + &
-                vgeo(jk) * ptr_patch%edges%dual_normal_cell(jc,jb,1)%v2      
+         zvn1 = ugeo(jk) * ptr_patch%edges%dual_normal_cell(je,jb,1)%v1 + &
+                vgeo(jk) * ptr_patch%edges%dual_normal_cell(je,jb,1)%v2      
         
          jcn  = ptr_patch%edges%cell_idx(je,jb,2)     
          jbn  = ptr_patch%edges%cell_blk(je,jb,2)
-         zvn2 = ugeo(jk) * ptr_patch%edges%dual_normal_cell(jc,jb,2)%v1 + &
-                vgeo(jk) * ptr_patch%edges%dual_normal_cell(jc,jb,2)%v2      
+         zvn2 = ugeo(jk) * ptr_patch%edges%dual_normal_cell(je,jb,2)%v1 + &
+                vgeo(jk) * ptr_patch%edges%dual_normal_cell(je,jb,2)%v2      
 
          ptr_nh_diag%vt_geostrophic(je,jk,jb) = ptr_int%c_lin_e(je,1,jb)*zvn1 + &
                                                 ptr_int%c_lin_e(je,2,jb)*zvn2
@@ -219,13 +219,13 @@ MODULE mo_nh_torus_exp
 
          jcn  = ptr_patch%edges%cell_idx(je,jb,1)     
          jbn  = ptr_patch%edges%cell_blk(je,jb,1)
-         zvn1 = MAX(ugeo(jk),-8._wp) * ptr_patch%edges%primal_normal_cell(jc,jb,1)%v1 + &
-                            vgeo(jk) * ptr_patch%edges%primal_normal_cell(jc,jb,1)%v2      
+         zvn1 = MAX(ugeo(jk),-8._wp) * ptr_patch%edges%primal_normal_cell(je,jb,1)%v1 + &
+                            vgeo(jk) * ptr_patch%edges%primal_normal_cell(je,jb,1)%v2      
         
          jcn  = ptr_patch%edges%cell_idx(je,jb,2)     
          jbn  = ptr_patch%edges%cell_blk(je,jb,2)
-         zvn2 = MAX(ugeo(jk),-8._wp) * ptr_patch%edges%dual_normal_cell(jc,jb,2)%v1 + &
-                            vgeo(jk) * ptr_patch%edges%dual_normal_cell(jc,jb,2)%v2      
+         zvn2 = MAX(ugeo(jk),-8._wp) * ptr_patch%edges%dual_normal_cell(je,jb,2)%v1 + &
+                            vgeo(jk) * ptr_patch%edges%dual_normal_cell(je,jb,2)%v2      
 
          ptr_nh_prog%vn(je,jk,jb) = ptr_int%c_lin_e(je,1,jb)*zvn1 + &
                                     ptr_int%c_lin_e(je,2,jb)*zvn2
