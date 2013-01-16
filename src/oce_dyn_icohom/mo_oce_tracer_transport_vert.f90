@@ -157,7 +157,7 @@ CONTAINS
       !                        & p_patch_3D%p_patch_1D(1)%prism_thick_c, &
       !                        & z_adv_flux_v)
     CASE(MIMETIC_MIURA)
-
+#ifndef __SX__
       !TODO review: here p_patch_3D%p_patch_1D(1)%prism_thick_c is used as a
       !data variable, whereas it should only contain geometrics constant in
       !time
@@ -168,6 +168,7 @@ CONTAINS
                            & p_patch_3D%p_patch_1D(1)%prism_thick_c,  &
 !                            & p_os%p_diag%prism_thick_c,  &
                            & z_adv_flux_v, tracer_id)
+#endif
     CASE DEFAULT
       CALL finish('TRIM(advect_diffuse_flux_vert)',"This flux option is not supported")
 
@@ -304,6 +305,7 @@ return
     !-------------------------------------------------------------------------
     TYPE(t_subset_range), POINTER :: cells_in_domain
     !-------------------------------------------------------------------------
+#ifndef __SX__
     p_patch         => p_patch_3D%p_patch_2D(1)
     cells_in_domain => p_patch%cells%in_domain
 
@@ -329,7 +331,7 @@ return
     END DO 
 
     CALL apply_tracer_flux_top_layer_oce(p_patch_3D, pvar_c, pw_c, pupflux_i, tracer_id )
-
+#endif
   END SUBROUTINE upwind_vflux_oce
   !-------------------------------------------------------------------------
 !   !>
@@ -462,6 +464,7 @@ return
     !-------------------------------------------------------------------------
     TYPE(t_subset_range), POINTER :: cells_in_domain
     !-------------------------------------------------------------------------
+#ifndef __SX__
     p_patch         => p_patch_3D%p_patch_2D(1)
     cells_in_domain => p_patch%cells%in_domain
 
@@ -493,7 +496,7 @@ return
     END DO
 
     CALL apply_tracer_flux_top_layer_oce( p_patch_3D,pvar_c, pw_c, c_flux_i, tracer_id )
-
+#endif
   END SUBROUTINE central_vflux_oce
   !------------------------------------------------------------------------
   !! The third order PPM scheme
@@ -562,6 +565,7 @@ return
     !-----------------------------------------------------------------------
     TYPE(t_subset_range), POINTER :: cells_in_domain
     !-----------------------------------------------------------------------
+#ifndef __SX__
     p_patch         => p_patch_3D%p_patch_2D(1)
     cells_in_domain => p_patch%cells%in_domain
 
@@ -883,7 +887,7 @@ return
       !   ENDIF
 
     CALL sync_patch_array(SYNC_C, p_patch, p_upflux)
-
+#endif
   END SUBROUTINE upwind_vflux_ppm
  !-------------------------------------------------------------------------
   !>
