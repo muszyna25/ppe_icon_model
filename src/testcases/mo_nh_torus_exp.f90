@@ -48,7 +48,7 @@ MODULE mo_nh_torus_exp
 
   USE mo_kind,                ONLY: wp
   USE mo_exception,           ONLY: message, finish, message_text
-  USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, min_rledge, min_rlcell
+  USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, min_rledge, min_rlcell, success
   USE mo_physical_constants,  ONLY: rd, cpd, p0ref, cvd_o_rd, rd_o_cpd, grav
   USE mo_model_domain,        ONLY: t_patch
   USE mo_ext_data_types,      ONLY: t_external_data
@@ -74,10 +74,10 @@ MODULE mo_nh_torus_exp
   REAL(wp), PARAMETER :: zh0     = 1200._wp   !< height (m) above which temperature increases
   REAL(wp), PARAMETER :: dtdz    = 0.003_wp   !< lapse rate
 
-  REAL(wp):: sst_cbl
+  REAL(wp) :: sst_cbl, ugeo(2), vgeo(2)   !u/vgeo(1) = constant, u/vgeo(2) = gradient
   LOGICAL :: is_dry_cbl
 
-  PUBLIC :: init_nh_state_cbl, sst_cbl, is_dry_cbl
+  PUBLIC :: init_nh_state_cbl, sst_cbl, is_dry_cbl, ugeo, vgeo
 
 !--------------------------------------------------------------------
 
@@ -111,12 +111,12 @@ MODULE mo_nh_torus_exp
     TYPE(t_nh_ref),       INTENT(INOUT) :: &  !< reference state vector
       &  ptr_nh_ref
 
-    REAL(wp) :: rho_sfc, z_help(1:nproma), zvn1, zvn2, &
-                ugeo(ptr_patch%nlev), vgeo(ptr_patch%nlev)
+    REAL(wp) :: rho_sfc, z_help(1:nproma), zvn1, zvn2, zu(ptr_patch%nlev), &
+                zv(ptr_patch%nlev)
     INTEGER  :: jc,je,jk,jb,jt,i_startblk,i_startidx,i_endidx   !< loop indices
     INTEGER  :: nblks_c,npromz_c,nblks_e,npromz_e
     INTEGER  :: nlev, nlevp1                   !< number of full and half levels
-    INTEGER  :: nlen, i_rcstartlev, jcn, jbn
+    INTEGER  :: nlen, i_rcstartlev
 
   !-------------------------------------------------------------------------
 
@@ -178,54 +178,32 @@ MODULE mo_nh_torus_exp
     ENDDO !jb
 
     !Set geostrophic wind at cell center and then interpolate to edges in terms of 
-    !tangential velocity components
+    !tangential velocity components in mo_solve_nonhydro
 
-    !At cell center: took values from Siebsma etal. 2003
+    !Design mean wind based on geostrophic wind: took values from Siebsma etal. 2003
     DO jk = 1 , nlev
-       ugeo(jk) = -10._wp + 0.002_wp * ptr_metrics%z_mc(1,jk,1)
-       vgeo(jk) =  0._wp
+      zu(jk) = ugeo(1) + ugeo(2) * ptr_metrics%z_mc(1,jk,1)
+      zv(jk) = vgeo(1) + vgeo(2) * ptr_metrics%z_mc(1,jk,1)
+      IF(ptr_metrics%z_mc(1,jk,1)<zh0)THEN
+        zu(jk) = -8._wp
+        zv(jk) = 0._wp
+      END IF
     END DO
 
-    i_rcstartlev = 2
-    i_startblk   = ptr_patch%edges%start_blk(i_rcstartlev,1)
-    DO jb = 1 , nblks_e
-      CALL get_indices_e( ptr_patch, jb, 1, nblks_e, i_startidx, i_endidx, grf_bdywidth_e+1)
-     DO jk = 1 , nlev 
-      DO je = i_startidx, i_endidx
-
-         jcn  = ptr_patch%edges%cell_idx(je,jb,1)     
-         jbn  = ptr_patch%edges%cell_blk(je,jb,1)
-         zvn1 = ugeo(jk) * ptr_patch%edges%dual_normal_cell(je,jb,1)%v1 + &
-                vgeo(jk) * ptr_patch%edges%dual_normal_cell(je,jb,1)%v2      
-        
-         jcn  = ptr_patch%edges%cell_idx(je,jb,2)     
-         jbn  = ptr_patch%edges%cell_blk(je,jb,2)
-         zvn2 = ugeo(jk) * ptr_patch%edges%dual_normal_cell(je,jb,2)%v1 + &
-                vgeo(jk) * ptr_patch%edges%dual_normal_cell(je,jb,2)%v2      
-
-         ptr_nh_diag%vt_geostrophic(je,jk,jb) = ptr_int%c_lin_e(je,1,jb)*zvn1 + &
-                                                ptr_int%c_lin_e(je,2,jb)*zvn2
-      END DO
-     END DO
-    END DO
 
     !Mean wind 
     i_rcstartlev = 2
     i_startblk   = ptr_patch%edges%start_blk(i_rcstartlev,1)
     DO jb = 1 , nblks_e
-      CALL get_indices_e( ptr_patch, jb, 1, nblks_e, i_startidx, i_endidx, grf_bdywidth_e+1)
+     CALL get_indices_e( ptr_patch, jb, 1, nblks_e, i_startidx, i_endidx, grf_bdywidth_e+1)
      DO jk = 1 , nlev 
       DO je = i_startidx, i_endidx
 
-         jcn  = ptr_patch%edges%cell_idx(je,jb,1)     
-         jbn  = ptr_patch%edges%cell_blk(je,jb,1)
-         zvn1 = MAX(ugeo(jk),-8._wp) * ptr_patch%edges%primal_normal_cell(je,jb,1)%v1 + &
-                            vgeo(jk) * ptr_patch%edges%primal_normal_cell(je,jb,1)%v2      
+         zvn1 =  zu(jk) * ptr_patch%edges%primal_normal_cell(je,jb,1)%v1 + &
+                 zv(jk) * ptr_patch%edges%primal_normal_cell(je,jb,1)%v2      
         
-         jcn  = ptr_patch%edges%cell_idx(je,jb,2)     
-         jbn  = ptr_patch%edges%cell_blk(je,jb,2)
-         zvn2 = MAX(ugeo(jk),-8._wp) * ptr_patch%edges%dual_normal_cell(je,jb,2)%v1 + &
-                            vgeo(jk) * ptr_patch%edges%dual_normal_cell(je,jb,2)%v2      
+         zvn2 =  zu(jk) * ptr_patch%edges%dual_normal_cell(je,jb,2)%v1 + &
+                 zv(jk) * ptr_patch%edges%dual_normal_cell(je,jb,2)%v2      
 
          ptr_nh_prog%vn(je,jk,jb) = ptr_int%c_lin_e(je,1,jb)*zvn1 + &
                                     ptr_int%c_lin_e(je,2,jb)*zvn2

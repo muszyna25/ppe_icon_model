@@ -128,8 +128,6 @@ MODULE mo_nonhydro_types
     &  w_concorr_c(:,:,:),  & ! contravariant vert correction (nproma,nlevp1,nblks_c)[m/s]
     &  e_kinh(:,:,:),       & ! horizontal spec. kinetic energy
                               ! (nproma,nlev,nblks_c)                            [m^2/s^2]
-    &  vt_geostrophic(:,:,:), & !geostrophic wind along the tangnent (nproma,nlev,nblks_e)          [m/s]
-                              ! needed for testcase on torus geometry 
    
     ! b) variables needed for the triangular grid only
     &  vn_ie(:,:,:),        & ! normal wind at half levels (nproma,nlevp1,nblks_e)   [m/s]
