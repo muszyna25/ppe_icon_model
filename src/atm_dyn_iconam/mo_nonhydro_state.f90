@@ -961,7 +961,7 @@ MODULE mo_nonhydro_state
     CALL add_var( p_diag_list, 'vt_geostrophic', p_diag%vt_geostrophic,                       &
                 & GRID_UNSTRUCTURED_EDGE, ZA_HYBRID, cf_desc, grib2_desc,       &
                 & ldims=shape3d_e, lrestart=.TRUE. )
-                                        &
+                                        
     ! omega_z      p_diag%omega_z(nproma,nlev,nblks_v)
     !
     cf_desc    = t_cf_var('atmospheric_relative_vorticity', 'm s-1', 'vertical vorticity', &
