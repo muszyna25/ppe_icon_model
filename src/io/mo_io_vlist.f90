@@ -1855,6 +1855,28 @@ CONTAINS
 
           END DO
 
+          ! Sea ice - mostly for debuging purposes
+          IF ( iice <= nsfc_type ) THEN
+            CALL addVar(TimeVar('ice_Tsurf','surface temperature of snow/ice','C',&
+            &         100,128,                    &
+            &         vlistID(k_jg),gridCellID(k_jg),zaxisID_generic_ice(k_jg)),k_jg)
+            CALL addVar(TimeVar('ice_T1','temperature of the upper ice layer','C',&
+            &         100,128,                    &
+            &         vlistID(k_jg),gridCellID(k_jg),zaxisID_generic_ice(k_jg)),k_jg)
+            CALL addVar(TimeVar('ice_T2','temperature of the lower ice layer','C',&
+            &         100,128,                    &
+            &         vlistID(k_jg),gridCellID(k_jg),zaxisID_generic_ice(k_jg)),k_jg)
+           CALL addVar(TimeVar('ice_hi','ice thickness','m',&
+            &         100,128,                    &
+            &         vlistID(k_jg),gridCellID(k_jg),zaxisID_generic_ice(k_jg)),k_jg)
+           CALL addVar(TimeVar('ice_hs','ice thickness','m',&
+            &         100,128,                    &
+            &         vlistID(k_jg),gridCellID(k_jg),zaxisID_generic_ice(k_jg)),k_jg)
+            CALL addVar(TimeVar('ice_conc','ice concentration in each ice class','',&
+            &         100,128,                    &
+            &         vlistID(k_jg),gridCellID(k_jg),zaxisID_generic_ice(k_jg)),k_jg)
+          ENDIF
+
         END SELECT !iforcing
       ENDIF !lwrite_surface
 
@@ -2105,25 +2127,6 @@ CONTAINS
         &                   vlistID(k_jg),gridCellID(k_jg),zaxisID_hybrid(k_jg)), &
         &           k_jg)
 
-      ENDIF
-
-      ! Sea ice - mostly for debuging purposes
-      IF ( iice <= nsfc_type ) THEN
-        CALL addVar(TimeVar('ice_Tsurf','surface temperature of snow/ice','C',&
-        &         100,128,                    &
-        &         vlistID(k_jg),gridCellID(k_jg),zaxisID_generic_ice(k_jg)),k_jg)
-        CALL addVar(TimeVar('ice_T1','temperature of the upper ice layer','C',&
-        &         100,128,                    &
-        &         vlistID(k_jg),gridCellID(k_jg),zaxisID_generic_ice(k_jg)),k_jg)
-        CALL addVar(TimeVar('ice_T2','temperature of the lower ice layer','C',&
-        &         100,128,                    &
-        &         vlistID(k_jg),gridCellID(k_jg),zaxisID_generic_ice(k_jg)),k_jg)
-       CALL addVar(TimeVar('ice_hi','ice thickness','m',&
-        &         100,128,                    &
-        &         vlistID(k_jg),gridCellID(k_jg),zaxisID_generic_ice(k_jg)),k_jg)
-        CALL addVar(TimeVar('ice_conc','ice concentration in each ice class','',&
-        &         100,128,                    &
-        &         vlistID(k_jg),gridCellID(k_jg),zaxisID_generic_ice(k_jg)),k_jg)
       ENDIF
 
     ELSE 
@@ -2914,6 +2917,7 @@ CONTAINS
       CASE ('ice_T1');          ptr3 => prm_field(jg)%T1
       CASE ('ice_T2');          ptr3 => prm_field(jg)%T2
       CASE ('ice_hi');          ptr3 => prm_field(jg)%hi
+      CASE ('ice_hs');          ptr3 => prm_field(jg)%hs
       CASE ('ice_conc');        ptr3 => prm_field(jg)%conc
 
       !

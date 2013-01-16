@@ -58,6 +58,7 @@ MODULE mo_echam_phy_init
   ! test cases
   USE mo_ha_testcases,         ONLY: ape_sst_case
   USE mo_ape_params,           ONLY: ape_sst
+  USE mo_physical_constants,   ONLY: tmelt, Tf
 
 !   USE mo_math_utilities,      ONLY: sphere_cell_mean_char_length
 
@@ -99,7 +100,7 @@ MODULE mo_echam_phy_init
   USE mo_icon_cpl_def_field,   ONLY: ICON_cpl_get_nbr_fields, ICON_cpl_get_field_ids
   USE mo_timer,                ONLY: ltimer, timers_level, timer_start, timer_stop, &
     & timer_prep_echam_phy
-  USE mo_physical_constants,   ONLY: tmelt, Tf
+
 
   IMPLICIT NONE
   PRIVATE
@@ -460,24 +461,32 @@ CONTAINS
             DO jc = jcs,jce
               zlat = p_patch(jg)%cells%center(jc,jb)%lat
               ! SST must reach Tf where there's ice. It may be better to modify ape_sst it self.
-              field% tsfc_tile(jc,jb,iwtr) = ape_sst(ape_sst_case,zlat) - Tf
+              field% tsfc_tile(jc,jb,iwtr) = ape_sst(ape_sst_case,zlat) + Tf
               ! Initialise the ice - Tsurf, T1 & T2 must be in degC
-              field% tsfc_tile  (jc,jb,iice) = tmelt - Tf
+              field% tsfc_tile  (jc,jb,iice) = Tf + tmelt
               field% Tsurf      (jc,1, jb  ) = Tf
               field% T1         (jc,1, jb  ) = Tf
               field% T2         (jc,1, jb  ) = Tf
               field% hs         (jc,1, jb  ) = 0._wp
-              IF ( field%tsfc_tile(jc,jb,iwtr) <= tmelt - Tf ) THEN
-                field%conc   (jc,1,jb) = 0.9_wp
-                field%hi     (jc,1,jb) = 1.0_wp
-                field% seaice(jc,  jb) = field%conc(jc,1,jb)
+              IF ( field%tsfc_tile(jc,jb,iwtr) <= Tf + tmelt ) THEN
+                ! Set the ice surface temperature to the same value as the lowest model level above
+                ! surface. This is copied from the JWw and LDF cases.
+                field%tsfc_tile(jc,jb,iice) = &
+                  &     p_hydro_state(jg)%prog(nnow(jg))%temp(jc,nlev,jb)
+
+                field%Tsurf (jc,1,jb) = field% tsfc_tile(jc,jb,iice) - tmelt
+                field%conc  (jc,1,jb) = 0.9_wp
+                field%hi    (jc,1,jb) = 1.0_wp
+                field%seaice(jc,  jb) = field%conc(jc,1,jb)
+                field%isice (jc,1,jb) = .true.
               ELSE
-                field%conc   (jc,1,jb) = 0._wp
-                field%hi     (jc,1,jb) = 0._wp
-                field% seaice(jc,  jb) = field%conc(jc,1,jb)
+                field%conc  (jc,1,jb) = 0._wp
+                field%hi    (jc,1,jb) = 0._wp
+                field%seaice(jc,  jb) = field%conc(jc,1,jb)
+                field%isice (jc,1,jb) = .false.
               ENDIF
-              field% tsfc     (jc,     jb) = field%seaice(jc,jb)*field%tsfc_tile(jc,jb,iice) &
-                &       + ( 1._wp - field%seaice(jc,jb) )*field% tsfc_tile(jc,jb,iwtr)
+              field% tsfc(jc,jb) = field%seaice(jc,jb)*field%tsfc_tile(jc,jb,iice) &
+                &       + ( 1._wp - field%seaice(jc,jb) )*field%tsfc_tile(jc,jb,iwtr)
             END DO
             field% lsmask(jcs:jce,jb) = 0._wp   ! zero land fraction
             field% glac  (jcs:jce,jb) = 0._wp   ! zero glacier fraction

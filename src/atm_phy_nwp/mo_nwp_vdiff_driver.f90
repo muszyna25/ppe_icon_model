@@ -374,7 +374,9 @@ CONTAINS
 
   CALL update_surface( lsfc_heat_flux, lsfc_mom_flux,      &! in
                      & pdtime, pstep_len,                  &! in
-                     & kproma, kbdim, klev, ksfc_type,     &! in 
+                     & kproma, kbdim,                      &
+                     & 1,                                  &! in No of sea ice thickness classes
+                     & klev, ksfc_type,                    &! in 
                      & idx_wtr, idx_ice, idx_lnd,          &! in
                      & pfrc, pcfh_tile, pcfm_tile,         &! in
                      & zprfac(:,klev), pocu, pocv,         &! in
