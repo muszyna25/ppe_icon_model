@@ -2,10 +2,9 @@ pro scores, direxp, dirref, expnum, expref, inidate, step, nfor, levtype
 ;------------------------------------------------------------
 ; Plot scores from ICON experiments.
 ;
-; run as: scores, '/fe1-daten/mkoehler/plots/icon', '82', '81', '20110101'
-;         scores,'/scratch/ms/de/deia/icon_data/dei2/008/201201/metplots',
+; run as: scores,'/scratch/ms/de/deia/icon_data/dei2/008/201201/metplots',
 ;                '/scratch/ms/de/deia/icon_data/dei2/006/201201/metplots',
-;                'expdei2_008','expdei2_006','201201','24','1'
+;                'dei2_008','dei2_006','201201','24','1','ml'
 ;
 ; Martin Koehler, Sep 2012
 ;------------------------------------------------------------
@@ -39,6 +38,7 @@ spawn,'wc -l '+file1, nlines1
 spawn,'wc -l '+file2, nlines2
 nlines1=strsplit(nlines1,/extract)
 nlines2=strsplit(nlines2,/extract)
+
 var1=make_array(nword,nlines1(0),/string)
 var2=make_array(nword,nlines2(0),/string)
 tmp=''

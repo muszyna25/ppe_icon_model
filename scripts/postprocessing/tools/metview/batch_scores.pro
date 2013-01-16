@@ -28,21 +28,21 @@
 
  .run scores
 
- outdate   = inidate + step/24
- plotfile1 = 'metplots/scores.NWP.r2B06L90.'+expnum+'_vs_'+expref
- plotfile2 = outdate+'00.L1.ps'
+ outdate   = long(inidate) + step/24
+ plotfile1 = direxp+'/scores.NWP.r2B06L90.'+expnum+'_vs_'+expref
+ plotfile2 = strcompress(string(outdate),/remove_all)+'00.L1.ps'
 
  scores, direxp, dirref, expnum, expref, inidate, step, nfor, 'ml'
- spawn,'\cp -f plot.ps ' + plotfile1 + '.ml.'+plotfile2
-
+ spawn,'\cp -f plot.ps ' + plotfile1 + '.ml.'  + plotfile2
+ 
  scores, direxp, dirref, expnum, expref, inidate, step, nfor, 'pl'
- spawn,'\cp -f plot.ps ' + plotfile1 + '.pl.'+plotfile2
+ spawn,'\cp -f plot.ps ' + plotfile1 + '.pl.'  + plotfile2
 
  scores, direxp, dirref, expnum, expref, inidate, step, nfor, 'zl'
- spawn,'\cp -f plot.ps ' + plotfile1 + '.zl.'+plotfile2
+ spawn,'\cp -f plot.ps ' + plotfile1 + '.zl.'  + plotfile2
 
  scores, direxp, dirref, expnum, expref, inidate, step, nfor, 'sfc'
- spawn,'\cp -f plot.ps ' + plotfile1 + '.sfc.'+plotfile2
+ spawn,'\cp -f plot.ps ' + plotfile1 + '.sfc.' + plotfile2
 
  exit
 
