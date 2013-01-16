@@ -954,7 +954,14 @@ MODULE mo_nonhydro_state
                 & ldims=shape3d_e,                                              &
                 & hor_interp=create_hor_interp_metadata(hor_intp_type=HINTP_TYPE_NONE ))
 
-
+    ! vt_geostrophic   p_diag%vt_geostrophic(nproma,nlev,nblks_e)
+    cf_desc    = t_cf_var('geostrophic_wind', 'm s-1', 'geostrophic wind along the tangent', &
+         &                DATATYPE_FLT32)
+    grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_EDGE)
+    CALL add_var( p_diag_list, 'vt_geostrophic', p_diag%vt_geostrophic,                       &
+                & GRID_UNSTRUCTURED_EDGE, ZA_HYBRID, cf_desc, grib2_desc,       &
+                & ldims=shape3d_e, lrestart=.TRUE. )
+                                        &
     ! omega_z      p_diag%omega_z(nproma,nlev,nblks_v)
     !
     cf_desc    = t_cf_var('atmospheric_relative_vorticity', 'm s-1', 'vertical vorticity', &

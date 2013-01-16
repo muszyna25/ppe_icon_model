@@ -152,7 +152,7 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
 
   ! SQRT(2*TKE)
   REAL(wp) :: tvs_t(nproma,3,1,ntiles_total+nlists_water)
-
+   
   INTEGER, POINTER :: ilist(:)  ! pointer to tile index list
 
 !--------------------------------------------------------------

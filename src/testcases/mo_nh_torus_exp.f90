@@ -64,6 +64,7 @@ MODULE mo_nh_torus_exp
   USE mo_sync,                ONLY: global_sum_array, sync_patch_array, SYNC_C, SYNC_E
   USE mo_nh_init_utils,       ONLY: init_w
   USE mo_run_config,          ONLY: iqv, iqc
+  USE mo_impl_constants_grf,  ONLY: grf_bdywidth_e, grf_bdywidth_c
 
    IMPLICIT NONE
 
@@ -110,11 +111,12 @@ MODULE mo_nh_torus_exp
     TYPE(t_nh_ref),       INTENT(INOUT) :: &  !< reference state vector
       &  ptr_nh_ref
 
-    REAL(wp) :: rho_sfc, z_help(1:nproma)
+    REAL(wp) :: rho_sfc, z_help(1:nproma), zvn1, zvn2, &
+                ugeo(ptr_patch%nlev), vgeo(ptr_patch%nlev)
     INTEGER  :: jc,je,jk,jb,jt,i_startblk,i_startidx,i_endidx   !< loop indices
     INTEGER  :: nblks_c,npromz_c,nblks_e,npromz_e
     INTEGER  :: nlev, nlevp1                   !< number of full and half levels
-    INTEGER  :: nlen, i_rcstartlev
+    INTEGER  :: nlen, i_rcstartlev, jcn, jbn
 
   !-------------------------------------------------------------------------
 
@@ -129,7 +131,7 @@ MODULE mo_nh_torus_exp
     nlevp1 = ptr_patch%nlevp1
 
     i_rcstartlev = 2
-    i_startblk   = ptr_patch%edges%start_blk(i_rcstartlev,1)
+    i_startblk   = ptr_patch%cells%start_blk(i_rcstartlev,1)
 
     ! init surface pressure
     ptr_nh_diag%pres_sfc(:,:) = zp0
@@ -170,18 +172,74 @@ MODULE mo_nh_torus_exp
                 (ptr_nh_prog%exner(1:nlen,jk,jb)**cvd_o_rd)*p0ref/rd
 
            ptr_nh_prog%rho(1:nlen,jk,jb) = ptr_nh_prog%rhotheta_v(1:nlen,jk,jb) / &
-                                           ptr_nh_prog%theta_v(1:nlen,jk,jb)
-     
+                                           ptr_nh_prog%theta_v(1:nlen,jk,jb)     
         END DO !jk
 
     ENDDO !jb
 
-    !Zero mean wind to avoid Croiolis force and hence mean pressure gradient
-    ptr_nh_prog%vn = 0._wp; ptr_nh_ref%vn_ref = ptr_nh_prog%vn
-    ptr_nh_prog%w = 0._wp; ptr_nh_ref%w_ref = ptr_nh_prog%w
+    !Set geostrophic wind at cell center and then interpolate to edges in terms of 
+    !tangential velocity components
 
-   ! Tracers set to 0 for DRY case
-   !fix specific humidity as it was causing trouble in src_turdiff in calculating T_dewpoint
+    !At cell center: took values from Siebsma etal. 2003
+    DO jk = 1 , nlev
+       ugeo(jk) = -10._wp + 0.002_wp * ptr_metrics%z_mc(1,jk,1)
+       vgeo(jk) =  0._wp
+    END DO
+
+    i_rcstartlev = 2
+    i_startblk   = ptr_patch%edges%start_blk(i_rcstartlev,1)
+    DO jb = 1 , nblks_e
+      CALL get_indices_e( ptr_patch, jb, 1, nblks_e, i_startidx, i_endidx, grf_bdywidth_e+1)
+     DO jk = 1 , nlev 
+      DO je = i_startidx, i_endidx
+
+         jcn  = ptr_patch%edges%cell_idx(je,jb,1)     
+         jbn  = ptr_patch%edges%cell_blk(je,jb,1)
+         zvn1 = ugeo(jk) * ptr_patch%edges%dual_normal_cell(jc,jb,1)%v1 + &
+                vgeo(jk) * ptr_patch%edges%dual_normal_cell(jc,jb,1)%v2      
+        
+         jcn  = ptr_patch%edges%cell_idx(je,jb,2)     
+         jbn  = ptr_patch%edges%cell_blk(je,jb,2)
+         zvn2 = ugeo(jk) * ptr_patch%edges%dual_normal_cell(jc,jb,2)%v1 + &
+                vgeo(jk) * ptr_patch%edges%dual_normal_cell(jc,jb,2)%v2      
+
+         ptr_nh_diag%vt_geostrophic(je,jk,jb) = ptr_int%c_lin_e(je,1,jb)*zvn1 + &
+                                                ptr_int%c_lin_e(je,2,jb)*zvn2
+      END DO
+     END DO
+    END DO
+
+    !Mean wind 
+    i_rcstartlev = 2
+    i_startblk   = ptr_patch%edges%start_blk(i_rcstartlev,1)
+    DO jb = 1 , nblks_e
+      CALL get_indices_e( ptr_patch, jb, 1, nblks_e, i_startidx, i_endidx, grf_bdywidth_e+1)
+     DO jk = 1 , nlev 
+      DO je = i_startidx, i_endidx
+
+         jcn  = ptr_patch%edges%cell_idx(je,jb,1)     
+         jbn  = ptr_patch%edges%cell_blk(je,jb,1)
+         zvn1 = MAX(ugeo(jk),-8._wp) * ptr_patch%edges%primal_normal_cell(jc,jb,1)%v1 + &
+                            vgeo(jk) * ptr_patch%edges%primal_normal_cell(jc,jb,1)%v2      
+        
+         jcn  = ptr_patch%edges%cell_idx(je,jb,2)     
+         jbn  = ptr_patch%edges%cell_blk(je,jb,2)
+         zvn2 = MAX(ugeo(jk),-8._wp) * ptr_patch%edges%dual_normal_cell(jc,jb,2)%v1 + &
+                            vgeo(jk) * ptr_patch%edges%dual_normal_cell(jc,jb,2)%v2      
+
+         ptr_nh_prog%vn(je,jk,jb) = ptr_int%c_lin_e(je,1,jb)*zvn1 + &
+                                    ptr_int%c_lin_e(je,2,jb)*zvn2
+      END DO
+     END DO
+    END DO     
+    ptr_nh_ref%vn_ref = ptr_nh_prog%vn
+    
+    !W wind and reference
+    ptr_nh_prog%w  = 0._wp; ptr_nh_ref%w_ref  = ptr_nh_prog%w
+
+
+    ! Tracers set to 0 for DRY case
+    !fix specific humidity as it was causing trouble in src_turdiff in calculating T_dewpoint
     IF(is_dry_cbl)THEN 
       ptr_nh_prog%tracer(:,:,:,iqv)  =  0.0_wp 
       ptr_nh_prog%tracer(:,:,:,iqc:) =  0.0_wp
