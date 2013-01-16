@@ -71,7 +71,7 @@ MODULE mo_nh_stepping
                                     prm_nwp_tend_list
   USE mo_lnd_nwp_config,      ONLY: nlev_soil, nlev_snow, sstice_mode, lseaice
   USE mo_nwp_lnd_state,       ONLY: p_lnd_state
-  USE mo_ext_data_state,      ONLY: ext_data
+  USE mo_ext_data_state,      ONLY: ext_data, interpol_ndvi_time
   USE mo_model_domain,        ONLY: p_patch
   USE mo_grid_config,         ONLY: n_dom, lfeedback, ifeedback_type, l_limited_area, &
     &                               n_dom_start, lredgrid_phys, start_time, end_time, &
@@ -305,7 +305,7 @@ MODULE mo_nh_stepping
   ! Compute diagnostic dynamics fields for initial output and physics initialization
   IF (.NOT.is_restart_run()) CALL diag_for_output_dyn (linit=.TRUE.)
 
-  IF (sstice_mode > 1 ) THEN
+  IF (sstice_mode > 1 .AND. iforcing == inwp) THEN
     ! t_seasfc and fr_seaice have to be set again from the ext_td_data files
     !  the values from the analysis have to be overwritten
     CALL set_actual_td_ext_data (.TRUE.,datetime,datetime,sstice_mode,  &
@@ -484,13 +484,17 @@ MODULE mo_nh_stepping
     WRITE(message_text,'(a,i10)') 'TIME STEP n: ', jstep
     CALL message(TRIM(routine),message_text)
 
-!Check if the the SST and Sea ice fraction have to be updated (sstice_mode 2,3,4)
-    IF (sstice_mode > 1 ) THEN
-     IF ( check_newday(datetime_old,datetime) ) THEN
+    IF ( check_newday(datetime_old,datetime) ) THEN
 
       WRITE(message_text,'(a,i10,a,i10)') 'New day  day_old: ', datetime_old%day, &
                 &                 'day: ', datetime%day
       CALL message(TRIM(routine),message_text)
+
+     !Update ndvi normalized differential vegetation index
+     IF (iforcing == inwp) CALL interpol_ndvi_time (p_patch(1:), ext_data, datetime) 
+
+     !Check if the the SST and Sea ice fraction have to be updated (sstice_mode 2,3,4)
+     IF (sstice_mode > 1 .AND. iforcing == inwp  ) THEN
 
       CALL set_actual_td_ext_data (.FALSE., datetime,datetime_old,sstice_mode,  &
                                   &  p_patch(1:), ext_data, p_lnd_state)
@@ -499,8 +503,8 @@ MODULE mo_nh_stepping
                         & ext_data, p_lnd_state, p_nh_state )
 
       datetime_old = datetime  
-     END IF  ! newday
-    END IF !sstice_mode>1
+     END IF  !sstice_mode>1
+    END IF !newday 
 ! end SST and sea ice fraction update
 
     ! Print control output for maximum horizontal and vertical wind speed

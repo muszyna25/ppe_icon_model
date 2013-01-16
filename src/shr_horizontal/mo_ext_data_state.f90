@@ -140,7 +140,7 @@ MODULE mo_ext_data_state
   PUBLIC :: init_ext_data_oce
   PUBLIC :: init_index_lists
   PUBLIC :: destruct_ext_data
-
+  PUBLIC :: interpol_ndvi_time
 
   TYPE(t_external_data),TARGET, ALLOCATABLE :: &
     &  ext_data(:)  ! n_dom
@@ -260,7 +260,8 @@ CONTAINS
       CALL message( TRIM(routine),'Running with analytical topography' )
 
       ! call read_ext_data_atm to read land-sea mask for JSBACH and to read O3
-      IF (echam_phy_config%ljsbach .OR. irad_o3 == io3_clim .OR. irad_o3 == io3_ape) THEN
+      IF (echam_phy_config%ljsbach .OR. irad_o3 == io3_clim .OR. irad_o3 == io3_ape &
+        & .OR. sstice_mode == 2) THEN
         CALL read_ext_data_atm (p_patch, ext_data, nlev_o3)
       END IF 
     CASE(1) ! read external data from netcdf dataset
@@ -1921,6 +1922,8 @@ CONTAINS
     REAL(wp), DIMENSION(num_lcc*n_param_lcc):: lu_glc2000   ! < lookup table landuse class GLC2000
     REAL(wp), DIMENSION(num_lcc*n_param_lcc):: lu_gcv2009   ! < lookup table landuse class GlobCover2009
 
+    LOGICAL :: l_exist
+
 !                    z0         pcmx      laimx rd      rsmin      snowalb snowtile
 !
  DATA lu_glc2000 /   1.00_wp,  0.8_wp,  5.0_wp, 1.0_wp, 250.0_wp,  0.38_wp,-1._wp, & ! evergreen broadleaf forest   
@@ -2511,10 +2514,10 @@ CONTAINS
       ENDDO ! ndom
     END IF ! irad_o3
 
-!
+!------------------------------------------
 ! Read time dependent SST and ICE Fraction  
-!
-   IF (sstice_mode == 2) THEN
+!------------------------------------------
+   IF (sstice_mode == 2 .AND. iforcing == inwp) THEN
 
       IF(p_test_run) THEN
         mpi_comm = p_comm_work_test
@@ -2534,6 +2537,12 @@ CONTAINS
             &                             TRIM(p_patch(jg)%grid_filename),  &
             &                             im,clim=.TRUE.                   )
           CALL message  (routine, TRIM(sst_td_file))
+
+          INQUIRE (FILE=sst_td_file, EXIST=l_exist)
+          IF (.NOT.l_exist) THEN
+            CALL finish(TRIM(routine),'td sst external data file is not found.')
+          ENDIF
+
           CALL nf(nf_open(TRIM(sst_td_file), NF_NOWRITE, ncid), routine)
 
          ENDIF    
@@ -2550,6 +2559,12 @@ CONTAINS
             &                             TRIM(p_patch(jg)%grid_filename),  &
             &                             im,clim=.TRUE.                   )
           CALL message  (routine, TRIM(ci_td_file))
+
+          INQUIRE (FILE=ci_td_file, EXIST=l_exist)
+          IF (.NOT.l_exist) THEN
+            CALL finish(TRIM(routine),'td ci external data file is not found.')
+          ENDIF
+
           CALL nf(nf_open(TRIM(ci_td_file), NF_NOWRITE, ncid), routine)
 
          ENDIF    
