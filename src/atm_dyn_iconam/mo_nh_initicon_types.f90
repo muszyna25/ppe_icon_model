@@ -2,9 +2,9 @@
 #define HAVE_F95
 #endif
 !>
-!!  !MODULE:  mo_nwp_lnd_types\\
+!!  !MODULE:  mo_nh_initicon_types\\
 !!
-!! Description:  Data type definition for prepicon
+!! Description:  Data type definition for initicon
 !
 !!
 !! @author Daniel Reinert, DWD
@@ -43,7 +43,7 @@
 !! liability or responsibility for the use, acquisition or application of this
 !! software.
 !!
-MODULE mo_prepicon_types
+MODULE mo_nh_initicon_types
 
   USE mo_kind,                 ONLY: wp
 
@@ -56,7 +56,7 @@ MODULE mo_prepicon_types
 
   !
   !variables
-  PUBLIC :: t_prepicon_state  !> state vector for prepicon
+  PUBLIC :: t_initicon_state  !> state vector for initicon
   PUBLIC :: t_pi_atm_in
   PUBLIC :: t_pi_sfc_in
   PUBLIC :: t_pi_atm
@@ -107,7 +107,7 @@ MODULE mo_prepicon_types
 
   ! complete state vector type
   !
-  TYPE :: t_prepicon_state
+  TYPE :: t_initicon_state
 
     REAL(wp), ALLOCATABLE, DIMENSION (:,:) :: topography_c, topography_v
 
@@ -118,7 +118,7 @@ MODULE mo_prepicon_types
     TYPE (t_pi_atm)    :: atm
     TYPE (t_pi_sfc)    :: sfc
 
-  END TYPE t_prepicon_state
+  END TYPE t_initicon_state
  
 
-END MODULE mo_prepicon_types
+END MODULE mo_nh_initicon_types

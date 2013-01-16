@@ -44,8 +44,8 @@ MODULE mo_nwp_sfc_interp
   USE mo_kind,                ONLY: wp
   USE mo_model_domain,        ONLY: t_patch
   USE mo_parallel_config,     ONLY: nproma 
-  USE mo_prepicon_config,     ONLY: nlevsoil_in, nlev_in
-  USE mo_prepicon_types,      ONLY: t_prepicon_state
+  USE mo_initicon_config,     ONLY: nlevsoil_in, nlev_in
+  USE mo_nh_initicon_types,   ONLY: t_initicon_state
   USE mo_lnd_nwp_config,      ONLY: nlev_soil
   USE mo_impl_constants,      ONLY: zml_soil
   USE mo_physical_constants,  ONLY: grav
@@ -78,11 +78,11 @@ CONTAINS
   !! - And, the most complicated problem, lakes/islands not present at all in the
   !!   source data, is not yet addressed at all here!
 
-   SUBROUTINE process_sfcfields(p_patch, prepicon)
+   SUBROUTINE process_sfcfields(p_patch, initicon)
 
 
     TYPE(t_patch),          INTENT(IN)       :: p_patch
-    TYPE(t_prepicon_state), INTENT(INOUT)    :: prepicon
+    TYPE(t_initicon_state), INTENT(INOUT)    :: initicon
 
     ! LOCAL VARIABLES
 
@@ -136,19 +136,19 @@ CONTAINS
       ! these fields are simply copied
       ! Note: land-sea-mask is currently unused
       DO jc = 1, nlen
-        prepicon%sfc%skinres(jc,jb) = prepicon%sfc_in%skinres(jc,jb)
-        prepicon%sfc%ls_mask(jc,jb) = prepicon%sfc_in%ls_mask(jc,jb)
-        IF (prepicon%sfc_in%seaice(jc,jb) >= 0._wp) THEN
-          prepicon%sfc%seaice(jc,jb)  = prepicon%sfc_in%seaice(jc,jb) 
+        initicon%sfc%skinres(jc,jb) = initicon%sfc_in%skinres(jc,jb)
+        initicon%sfc%ls_mask(jc,jb) = initicon%sfc_in%ls_mask(jc,jb)
+        IF (initicon%sfc_in%seaice(jc,jb) >= 0._wp) THEN
+          initicon%sfc%seaice(jc,jb)  = initicon%sfc_in%seaice(jc,jb) 
         ELSE
-          prepicon%sfc%seaice(jc,jb)  = -999.9_wp 
+          initicon%sfc%seaice(jc,jb)  = -999.9_wp 
         ENDIF
         ! Remark (GZ): the second condition is a workaround until a proper treatment of missing values
         !              becomes available in prep_icon
-        IF (prepicon%sfc_in%sst(jc,jb) > 10._wp .AND. prepicon%sfc_in%sst(jc,jb) < 305._wp) THEN
-          prepicon%sfc%sst(jc,jb)  = prepicon%sfc_in%sst(jc,jb) 
+        IF (initicon%sfc_in%sst(jc,jb) > 10._wp .AND. initicon%sfc_in%sst(jc,jb) < 305._wp) THEN
+          initicon%sfc%sst(jc,jb)  = initicon%sfc_in%sst(jc,jb) 
         ELSE
-          prepicon%sfc%sst(jc,jb)  = -999.9_wp 
+          initicon%sfc%sst(jc,jb)  = -999.9_wp 
         ENDIF
       ENDDO
 
@@ -158,28 +158,28 @@ CONTAINS
       DO jc = 1, nlen
         ! Adjust skin temperature with the difference between the atmospheric
         ! temperatures at the lowest model level
-        prepicon%sfc%tskin(jc,jb)      = prepicon%sfc_in%tskin(jc,jb) +       &
-          (prepicon%atm%temp(jc,nlev,jb) - prepicon%atm_in%temp(jc,nlev_in,jb))
+        initicon%sfc%tskin(jc,jb)      = initicon%sfc_in%tskin(jc,jb) +       &
+          (initicon%atm%temp(jc,nlev,jb) - initicon%atm_in%temp(jc,nlev_in,jb))
 
         ! Height adjustment for snow variables is not yet implemented
-        prepicon%sfc%tsnow(jc,jb)    = prepicon%sfc_in%tsnow(jc,jb) 
-        prepicon%sfc%snowweq(jc,jb)  = prepicon%sfc_in%snowweq(jc,jb) 
-        prepicon%sfc%snowdens(jc,jb) = prepicon%sfc_in%snowdens(jc,jb) 
-        prepicon%sfc%snowalb(jc,jb)  = prepicon%sfc_in%snowalb(jc,jb) 
+        initicon%sfc%tsnow(jc,jb)    = initicon%sfc_in%tsnow(jc,jb) 
+        initicon%sfc%snowweq(jc,jb)  = initicon%sfc_in%snowweq(jc,jb) 
+        initicon%sfc%snowdens(jc,jb) = initicon%sfc_in%snowdens(jc,jb) 
+        initicon%sfc%snowalb(jc,jb)  = initicon%sfc_in%snowalb(jc,jb) 
       ENDDO
 
       ! Height adjustment of soil temperatures
       DO jc = 1, nlen
         ! correction for ground level
-        tcorr1(jc) = prepicon%atm%temp(jc,nlev,jb) - prepicon%atm_in%temp(jc,nlev_in,jb)
+        tcorr1(jc) = initicon%atm%temp(jc,nlev,jb) - initicon%atm_in%temp(jc,nlev_in,jb)
         ! climatological correction for deep soil levels
-        tcorr2(jc) = dtdz_clim*(prepicon%topography_c(jc,jb)-prepicon%sfc_in%phi(jc,jb)/grav)
+        tcorr2(jc) = dtdz_clim*(initicon%topography_c(jc,jb)-initicon%sfc_in%phi(jc,jb)/grav)
       ENDDO
 
       DO jk = 1, nlevsoil_in
         wfac = REAL(jk,wp)/REAL(nlevsoil_in,wp) ! weight for climatological correction
         DO jc = 1, nlen
-          prepicon%sfc_in%tsoil(jc,jb,jk) = prepicon%sfc_in%tsoil(jc,jb,jk) + &
+          initicon%sfc_in%tsoil(jc,jb,jk) = initicon%sfc_in%tsoil(jc,jb,jk) + &
             wfac*tcorr2(jc) + (1._wp-wfac)*tcorr1(jc)
         ENDDO
       ENDDO
@@ -190,29 +190,29 @@ CONTAINS
         ! between skin temperature and soil level 1 temperature
         ! For a snow depth of more than 25 cm, it is assumed that the soil top temperature
         ! is the same as the soil level 1 temperature
-        snowdep = 1000._wp*prepicon%sfc_in%snowweq(jc,jb) / & ! snow depth in m
-                  MAX(25._wp,prepicon%sfc_in%snowdens(jc,jb))
+        snowdep = 1000._wp*initicon%sfc_in%snowweq(jc,jb) / & ! snow depth in m
+                  MAX(25._wp,initicon%sfc_in%snowdens(jc,jb))
         wfac_snow = SQRT(MIN(1._wp,4._wp*snowdep))
-        prepicon%sfc_in%tsoil(jc,jb,0) = (1._wp-wfac_snow)*prepicon%sfc%tskin(jc,jb) + &
-                                          wfac_snow*prepicon%sfc_in%tsoil(jc,jb,1) ! already height-adjusted
+        initicon%sfc_in%tsoil(jc,jb,0) = (1._wp-wfac_snow)*initicon%sfc%tskin(jc,jb) + &
+                                          wfac_snow*initicon%sfc_in%tsoil(jc,jb,1) ! already height-adjusted
 
-        prepicon%sfc%tsoil(jc,jb,0)    = prepicon%sfc_in%tsoil(jc,jb,0) ! copy soil-top temperature
+        initicon%sfc%tsoil(jc,jb,0)    = initicon%sfc_in%tsoil(jc,jb,0) ! copy soil-top temperature
 
-        prepicon%sfc_in%wsoil(jc,jb,0) = prepicon%sfc_in%wsoil(jc,jb,1) ! no-gradient condition for moisture
+        initicon%sfc_in%wsoil(jc,jb,0) = initicon%sfc_in%wsoil(jc,jb,1) ! no-gradient condition for moisture
 
         ! outgoing tsoil(nlev_soil) has been initialized with the external parameter field t_cl before
-        prepicon%sfc_in%tsoil(jc,jb,nlevsoil_in+1) = prepicon%sfc%tsoil(jc,jb,nlev_soil)
+        initicon%sfc_in%tsoil(jc,jb,nlevsoil_in+1) = initicon%sfc%tsoil(jc,jb,nlev_soil)
         ! assume no-gradient condition for soil moisture
-        prepicon%sfc_in%wsoil(jc,jb,nlevsoil_in+1) = prepicon%sfc_in%wsoil(jc,jb,nlevsoil_in)
+        initicon%sfc_in%wsoil(jc,jb,nlevsoil_in+1) = initicon%sfc_in%wsoil(jc,jb,nlevsoil_in)
       ENDDO
 
       ! Vertical interpolation of multi-layer soil fields from IFS levels to TERRA levels
       DO jk = 1, nlev_soil-1
         DO jc = 1, nlen
-          prepicon%sfc%tsoil(jc,jb,jk) = wfac_vintp(jk) *prepicon%sfc_in%tsoil(jc,jb,idx0(jk))+ &
-                                  (1._wp-wfac_vintp(jk))*prepicon%sfc_in%tsoil(jc,jb,idx0(jk)+1)
-          prepicon%sfc%wsoil(jc,jb,jk) = wfac_vintp(jk) *prepicon%sfc_in%wsoil(jc,jb,idx0(jk))+ &
-                                  (1._wp-wfac_vintp(jk))*prepicon%sfc_in%wsoil(jc,jb,idx0(jk)+1)
+          initicon%sfc%tsoil(jc,jb,jk) = wfac_vintp(jk) *initicon%sfc_in%tsoil(jc,jb,idx0(jk))+ &
+                                  (1._wp-wfac_vintp(jk))*initicon%sfc_in%tsoil(jc,jb,idx0(jk)+1)
+          initicon%sfc%wsoil(jc,jb,jk) = wfac_vintp(jk) *initicon%sfc_in%wsoil(jc,jb,idx0(jk))+ &
+                                  (1._wp-wfac_vintp(jk))*initicon%sfc_in%wsoil(jc,jb,idx0(jk)+1)
         ENDDO
       ENDDO
 
@@ -222,46 +222,46 @@ CONTAINS
       !   safety: min=air dryness point, max=pore volume
       DO jk = 1, nlev_soil-1
         DO jc = 1, nlen
-          IF(ext_data(jg)%atm%soiltyp(jc,jb) == 3) prepicon%sfc%wsoil(jc,jb,jk) = &
+          IF(ext_data(jg)%atm%soiltyp(jc,jb) == 3) initicon%sfc%wsoil(jc,jb,jk) = &
             & dzsoil_icon(jk) * &
             & MIN(0.364_wp,&
-            & MAX((prepicon%sfc%wsoil(jc,jb,jk)*(0.196_wp - 0.042_wp) + 0.042_wp),0.012_wp))
+            & MAX((initicon%sfc%wsoil(jc,jb,jk)*(0.196_wp - 0.042_wp) + 0.042_wp),0.012_wp))
 
-          IF(ext_data(jg)%atm%soiltyp(jc,jb) == 4) prepicon%sfc%wsoil(jc,jb,jk) = &
+          IF(ext_data(jg)%atm%soiltyp(jc,jb) == 4) initicon%sfc%wsoil(jc,jb,jk) = &
             & dzsoil_icon(jk) * &
             & MIN(0.445_wp,&
-            & MAX((prepicon%sfc%wsoil(jc,jb,jk)*(0.26_wp  - 0.1_wp  ) + 0.1_wp)  ,0.03_wp ))
+            & MAX((initicon%sfc%wsoil(jc,jb,jk)*(0.26_wp  - 0.1_wp  ) + 0.1_wp)  ,0.03_wp ))
 
-          IF(ext_data(jg)%atm%soiltyp(jc,jb) == 5) prepicon%sfc%wsoil(jc,jb,jk) = &
+          IF(ext_data(jg)%atm%soiltyp(jc,jb) == 5) initicon%sfc%wsoil(jc,jb,jk) = &
             & dzsoil_icon(jk) * &
             & MIN(0.455_wp,&
-            & MAX((prepicon%sfc%wsoil(jc,jb,jk)*(0.34_wp  - 0.11_wp ) + 0.11_wp) ,0.035_wp))
+            & MAX((initicon%sfc%wsoil(jc,jb,jk)*(0.34_wp  - 0.11_wp ) + 0.11_wp) ,0.035_wp))
 
-          IF(ext_data(jg)%atm%soiltyp(jc,jb) == 6) prepicon%sfc%wsoil(jc,jb,jk) = &
+          IF(ext_data(jg)%atm%soiltyp(jc,jb) == 6) initicon%sfc%wsoil(jc,jb,jk) = &
             & dzsoil_icon(jk) * &
             & MIN(0.475_wp,&
-            & MAX((prepicon%sfc%wsoil(jc,jb,jk)*(0.37_wp  - 0.185_wp) + 0.185_wp),0.06_wp ))
+            & MAX((initicon%sfc%wsoil(jc,jb,jk)*(0.37_wp  - 0.185_wp) + 0.185_wp),0.06_wp ))
 
-          IF(ext_data(jg)%atm%soiltyp(jc,jb) == 7) prepicon%sfc%wsoil(jc,jb,jk) = &
+          IF(ext_data(jg)%atm%soiltyp(jc,jb) == 7) initicon%sfc%wsoil(jc,jb,jk) = &
             & dzsoil_icon(jk) * &
             & MIN(0.507_wp,&
-            & MAX((prepicon%sfc%wsoil(jc,jb,jk)*(0.463_wp - 0.257_wp) + 0.257_wp),0.065_wp))
+            & MAX((initicon%sfc%wsoil(jc,jb,jk)*(0.463_wp - 0.257_wp) + 0.257_wp),0.065_wp))
 
-          IF(ext_data(jg)%atm%soiltyp(jc,jb) == 8) prepicon%sfc%wsoil(jc,jb,jk) = &
+          IF(ext_data(jg)%atm%soiltyp(jc,jb) == 8) initicon%sfc%wsoil(jc,jb,jk) = &
             & dzsoil_icon(jk) * &
             & MIN(0.863_wp,&
-            & MAX((prepicon%sfc%wsoil(jc,jb,jk)*(0.763_wp - 0.265_wp) + 0.265_wp),0.098_wp))
+            & MAX((initicon%sfc%wsoil(jc,jb,jk)*(0.763_wp - 0.265_wp) + 0.265_wp),0.098_wp))
 
           ! We need to catch problematic coast cases: IFS-ocean, ICON-land - &
           ! for moisture and temperature 
-          prepicon%sfc%wsoil(jc,jb,jk) =  &
-            &               MIN(dzsoil_icon(jk), MAX(0.0_wp, prepicon%sfc%wsoil(jc,jb,jk)))
+          initicon%sfc%wsoil(jc,jb,jk) =  &
+            &               MIN(dzsoil_icon(jk), MAX(0.0_wp, initicon%sfc%wsoil(jc,jb,jk)))
         ENDDO
       ENDDO
 
       ! assume no-gradient condition for soil moisture reservoir layer
       DO jc = 1, nlen
-        prepicon%sfc%wsoil(jc,jb,nlev_soil) = prepicon%sfc%wsoil(jc,jb,nlev_soil-1)*          &
+        initicon%sfc%wsoil(jc,jb,nlev_soil) = initicon%sfc%wsoil(jc,jb,nlev_soil-1)*          &
                                                 dzsoil_icon(nlev_soil)/dzsoil_icon(nlev_soil-1)
       ENDDO
 

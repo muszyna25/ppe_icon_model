@@ -995,6 +995,8 @@ src/atm_dyn_iconam/mo_nh_held_suarez_interface.f90 -text
 src/atm_dyn_iconam/mo_nh_hex_util.f90 -text
 src/atm_dyn_iconam/mo_nh_init_nest_utils.f90 -text
 src/atm_dyn_iconam/mo_nh_init_utils.f90 -text
+src/atm_dyn_iconam/mo_nh_initicon.f90 -text
+src/atm_dyn_iconam/mo_nh_initicon_types.f90 -text
 src/atm_dyn_iconam/mo_nh_nest_utilities.f90 -text
 src/atm_dyn_iconam/mo_nh_prog_util.f90 -text
 src/atm_dyn_iconam/mo_nh_stepping.f90 -text
@@ -1185,6 +1187,7 @@ src/configure_model/mo_gridref_config.f90 -text
 src/configure_model/mo_gw_hines_config.f90 -text
 src/configure_model/mo_ha_dyn_config.f90 -text
 src/configure_model/mo_icon_testbed_config.f90 -text
+src/configure_model/mo_initicon_config.f90 -text
 src/configure_model/mo_interpol_config.f90 -text
 src/configure_model/mo_io_config.f90 -text
 src/configure_model/mo_lnd_jsbach_config.f90 -text
@@ -1298,6 +1301,7 @@ src/namelists/mo_gridref_nml.f90 -text
 src/namelists/mo_gw_hines_nml.f90 -text
 src/namelists/mo_ha_dyn_nml.f90 -text
 src/namelists/mo_icon_testbed_nml.f90 -text
+src/namelists/mo_initicon_nml.f90 -text
 src/namelists/mo_interpol_nml.f90 -text
 src/namelists/mo_io_nml.f90 -text
 src/namelists/mo_lnd_jsbach_nml.f90 -text
@@ -1344,8 +1348,6 @@ src/parallel_infrastructure/mo_mpi.f90 -text
 src/parallel_infrastructure/mo_ompthreads.f90 -text
 src/parallel_infrastructure/mo_setup_subdivision.f90 -text
 src/parallel_infrastructure/mo_sync.f90 -text
-src/prep_icon/mo_prepicon_types.f90 -text
-src/prep_icon/mo_prepicon_utils.f90 -text
 src/prep_icon/mo_remap.f90 -text
 src/prep_icon/mo_remap_config.f90 -text
 src/prep_icon/mo_remap_grid.f90 -text

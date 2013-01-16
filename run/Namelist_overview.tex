@@ -1690,6 +1690,26 @@ Operating mode if the prep\_icon executable is run: \\
 4: grid remapping &
 \tabularnewline
 
+\end{longtab}
+
+Defined and used in: src/namelists/mo\_prepicon\_nml.f90
+
+
+
+%------------------------------------------------------------------------------
+% initicon_nml
+%------------------------------------------------------------------------------
+\subsection{initicon\_nml}
+
+\begin{longtab}
+
+\hline 
+init\_mode&
+I & 1& &
+1: start from DWD analysis \\
+2: start from IFS analysis &
+\tabularnewline
+
 \hline 
 nlev\_in&
 I & 91 & &
@@ -1715,18 +1735,6 @@ top height (AGL) of layer used for gradient computation&
 \tabularnewline
 
 \hline 
-l\_w\_in&
-L & .FALSE.& &
-Logical switch if vertical wind is provided as input &
-\tabularnewline
-
-\hline 
-l\_sfc\_in&
-L & .TRUE.& &
-Logical switch if surface fields are provided as input (mandatory when inwp\_surface $>$0) &
-\tabularnewline
-
-\hline 
 l\_sst\_in&
 L & .FALSE.& &
 Logical switch. If true, the surface temperature of the water sea points is initialized 
@@ -1749,12 +1757,37 @@ Filename of IFS2ICON input file, default
 ''\texttt{<path>ifs2icon\_R<nroot>B<jlev>\_DOM<idom>.nc}''.
 May contain the keywords \texttt{<path>} which will be substituted by
 \texttt{model\_base\_dir}, as well as \texttt{nroot}, \texttt{jlev},
-and \texttt{idom} defining the current patch. &
+and \texttt{idom} defining the current patch. & init\_mode=2
+\tabularnewline
+
+\hline 
+dwdfg\_filename&
+C &
+&
+&
+Filename of DWD first-guess input file, default
+''\texttt{<path>dwdFG\_R<nroot>B<jlev>\_DOM<idom>.nc}''.
+May contain the keywords \texttt{<path>} which will be substituted by
+\texttt{model\_base\_dir}, as well as \texttt{nroot}, \texttt{jlev},
+and \texttt{idom} defining the current patch. & init\_mode=1
+\tabularnewline
+
+\hline 
+dwdinc\_filename&
+C &
+&
+&
+Filename of DWD analysis increments input file, default
+''\texttt{<path>dwdinc\_R<nroot>B<jlev>\_DOM<idom>.nc}''.
+May contain the keywords \texttt{<path>} which will be substituted by
+\texttt{model\_base\_dir}, as well as \texttt{nroot}, \texttt{jlev},
+and \texttt{idom} defining the current patch. & init\_mode=1
 \tabularnewline
 
 \end{longtab}
 
-Defined and used in: src/namelists/mo\_prepicon\_nml.f90
+Defined and used in: src/namelists/mo\_initicon\_nml.f90
+
 
 
 %------------------------------------------------------------------------------

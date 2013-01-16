@@ -7,7 +7,7 @@ MODULE mo_remap_hydcorr
   USE mo_kind,               ONLY: wp
   USE mo_parallel_config,    ONLY: nproma
   USE mo_physical_constants, ONLY: rd, grav, vtmpc1
-  USE mo_nh_init_utils,      ONLY: virtual_temp
+  USE mo_util_phys,          ONLY: virtual_temp
   USE mo_exception,          ONLY: message, finish
   USE mo_impl_constants,     ONLY: SUCCESS
   USE mo_remap_config,       ONLY: dbg_level, MAX_NAME_LENGTH

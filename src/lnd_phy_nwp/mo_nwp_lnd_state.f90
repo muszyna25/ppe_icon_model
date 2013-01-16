@@ -823,14 +823,18 @@ MODULE mo_nwp_lnd_state
     cf_desc    = t_cf_var('t_ice', 'K', 'sea ice temperature', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(10, 2, 8, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( prog_list, vname_prefix//'t_ice'//suffix, p_prog_wtr%t_ice,  &
-         & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d)
+         & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,            &
+         & ldims=shape2d,                                                      &
+         & in_group=groups("dwd_ana_vars") )   
 
 
     ! & p_prog_wtr%h_ice(nproma,nblks_c)
     cf_desc    = t_cf_var('h_ice', 'm', 'sea ice depth', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(10, 2, 1, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( prog_list, vname_prefix//'h_ice'//suffix, p_prog_wtr%h_ice,  &
-         & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d)
+         & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,            &
+         & ldims=shape2d,                                                      &
+         & in_group=groups("dwd_ana_vars") )   
 
 
     ! & p_prog_wtr%t_snow_si(nproma,nblks_c)

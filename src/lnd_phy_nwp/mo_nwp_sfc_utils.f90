@@ -51,7 +51,7 @@ MODULE mo_nwp_sfc_utils
   USE mo_lnd_nwp_config,      ONLY: nlev_soil, nlev_snow, ntiles_total, ntiles_water, &
     &                               lseaice, llake, lmulti_snow, idiag_snowfrac, ntiles_lnd, &
     &                               lsnowtile, isub_water, isub_seaice
-  USE mo_prepicon_config,     ONLY: l_hice_in
+  USE mo_initicon_config,     ONLY: l_hice_in
   USE mo_soil_ml,             ONLY: terra_multlay_init
   USE mo_seaice_nwp,          ONLY: seaice_init_nwp, hice_min, frsi_min, hice_ini
   USE mo_phyparam_soil,       ONLY: cf_snow     ! soil and vegetation parameters for TILES
@@ -1172,7 +1172,7 @@ CONTAINS
           ext_data%atm%lc_frac_t(jc,jb,isub_seaice)= ext_data%atm%lc_frac_t(jc,jb,isub_water)
 
           ! NOTE:
-          ! Note that in copy_prepicon2prog
+          ! Note that in copy_initicon2prog
           ! - for fr_seaice in ]0,frsi_min[, we have set fr_seaice to 0
           ! - for fr_seaice in ]1-frsi_min,1[, we have set fr_seaice to 1
           ! This ensures that frac_t for sea-ice and open water at a given point 
@@ -2144,7 +2144,7 @@ CONTAINS
 
  
           ! NOTE:
-          ! Note that in copy_prepicon2prog
+          ! Note that in copy_initicon2prog
           ! - for fr_seaice in ]0,frsi_min[, we have set fr_seaice to 0
           ! - for fr_seaice in ]1-frsi_min,1[, we have set fr_seaice to 1
           ! This ensures that frac_t for sea-ice and open water at a given point 

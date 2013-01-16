@@ -71,6 +71,7 @@ MODULE mo_read_namelists
   USE mo_lnd_jsbach_nml      ,ONLY: read_lnd_jsbach_namelist
   USE mo_art_nml             ,ONLY: read_art_namelist
 
+  USE mo_initicon_nml        ,ONLY: read_initicon_namelist
   USE mo_prepicon_nml        ,ONLY: read_prepicon_namelist
   USE mo_ha_testcases        ,ONLY: read_ha_testcase_namelist 
   USE mo_nh_testcases        ,ONLY: read_nh_testcase_namelist
@@ -165,7 +166,8 @@ CONTAINS
 
     ! Initial conditions
     !
-    CALL read_prepicon_namelist       (TRIM(atm_namelist_filename))
+    CALL read_initicon_namelist       (TRIM(atm_namelist_filename))
+    CALL read_prepicon_namelist       (TRIM(atm_namelist_filename)) ! obsolete !?
     CALL read_ha_testcase_namelist    (TRIM(atm_namelist_filename))
     CALL read_nh_testcase_namelist    (TRIM(atm_namelist_filename))
 
@@ -327,7 +329,7 @@ CONTAINS
 
     ! Initial conditions
     !
-    CALL read_prepicon_namelist       (TRIM(cpl_dummy_namelist))
+    CALL read_initicon_namelist       (TRIM(cpl_dummy_namelist))
     CALL read_ha_testcase_namelist    (TRIM(cpl_dummy_namelist))
     CALL read_nh_testcase_namelist    (TRIM(cpl_dummy_namelist))
 

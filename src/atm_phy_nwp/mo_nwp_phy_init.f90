@@ -119,7 +119,6 @@ MODULE mo_nwp_phy_init
 
   USE mo_datetime,            ONLY: iso8601
   USE mo_time_config,         ONLY: time_config
-  USE mo_prepicon_config,     ONLY: l_sst_in
   USE mo_nh_torus_exp,        ONLY: sst_cbl, is_dry_cbl
 
   IMPLICIT NONE

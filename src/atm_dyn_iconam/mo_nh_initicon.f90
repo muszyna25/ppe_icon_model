@@ -1,6 +1,5 @@
 !>
-!! This module contains the I/O routines for prep_icon and the driver
-!! routines for topography preprocessing
+!! This module contains the I/O routines for initicon
 !!
 !! @author Guenther Zaengl, DWD
 !!
@@ -40,7 +39,7 @@
 #include "omp_definitions.inc"
 !----------------------------
 
-MODULE mo_prepicon_utils
+MODULE mo_nh_initicon
 
   USE mo_kind,                ONLY: wp
   USE mo_io_units,            ONLY: filename_max
@@ -55,10 +54,9 @@ MODULE mo_prepicon_utils
   USE mo_intp_data_strc,      ONLY: t_int_state
   USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_grf_intp_data_strc,  ONLY: t_gridref_state
-  USE mo_prepicon_types,      ONLY: t_prepicon_state, t_pi_atm_in, t_pi_sfc_in, &
-    &                               t_pi_atm, t_pi_sfc
-  USE mo_prepicon_config,     ONLY: i_oper_mode, nlev_in, l_w_in, nlevsoil_in, &
-    &                               l_sfc_in, l_hice_in, l_sst_in,             &
+  USE mo_nh_initicon_types,   ONLY: t_initicon_state
+  USE mo_initicon_config,     ONLY: init_mode, nlev_in, nlevsoil_in, &
+    &                               l_hice_in, l_sst_in,             &
     &                               ifs2icon_filename, dwdfg_filename, dwdinc_filename, &
     &                               generate_filename
   USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, max_dom, MODE_DWDANA, &
@@ -73,8 +71,8 @@ MODULE mo_prepicon_utils
   USE mo_io_config,           ONLY: lkeep_in_sync
   USE mo_io_util,             ONLY: gather_array1, gather_array2, outvar_desc,    &
     &                               GATHER_C, GATHER_E, GATHER_V, num_output_vars
-  USE mo_nh_init_utils,       ONLY: hydro_adjust, virtual_temp, convert_thdvars, &
-    &                               interp_uv_2_vn
+  USE mo_nh_init_utils,       ONLY: hydro_adjust, convert_thdvars, interp_uv_2_vn
+  USE mo_util_phys,           ONLY: virtual_temp
   USE mo_ifs_coord,           ONLY: alloc_vct, init_vct, vct, vct_a, vct_b
   USE mo_lnd_nwp_config,      ONLY: nlev_soil, ntiles_total
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
@@ -94,7 +92,7 @@ MODULE mo_prepicon_utils
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
 
-  TYPE(t_prepicon_state), ALLOCATABLE, TARGET :: prepicon(:) 
+  TYPE(t_initicon_state), ALLOCATABLE, TARGET :: initicon(:) 
 
 
   CHARACTER(LEN=10) :: psvar 
@@ -103,7 +101,6 @@ MODULE mo_prepicon_utils
   CHARACTER(LEN=10) :: alb_snow_var ! snow albedo
 
 
-  PUBLIC :: prepicon
   PUBLIC :: init_icon
 
 
@@ -133,34 +130,34 @@ MODULE mo_prepicon_utils
     INTEGER :: jg, ist
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
-      routine = 'mo_prepicon_utils:init_icon'
+      routine = 'mo_nh_initicon:init_icon'
 
 !-------------------------------------------------------------------------
 
-    ! Allocate prepicon data type
-    ALLOCATE (prepicon(n_dom), stat=ist)
+    ! Allocate initicon data type
+    ALLOCATE (initicon(n_dom), stat=ist)
     IF (ist /= SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for prepicon failed')
+      CALL finish(TRIM(routine),'allocation for initicon failed')
     ENDIF
     !
     ! Allocate memory for prep_icon state
-    CALL allocate_prepicon (p_patch, prepicon)
+    CALL allocate_initicon (p_patch, initicon)
 
 
-    ! Copy the topography fields and coordinate surfaces to prepicon
+    ! Copy the topography fields and coordinate surfaces to initicon
     !
     DO jg = 1, n_dom
-      prepicon(jg)%topography_c(:,:) = ext_data(jg)%atm%topography_c(:,:)
-      prepicon(jg)%topography_v(:,:) = ext_data(jg)%atm%topography_v(:,:)
+      initicon(jg)%topography_c(:,:) = ext_data(jg)%atm%topography_c(:,:)
+      initicon(jg)%topography_v(:,:) = ext_data(jg)%atm%topography_v(:,:)
 
-      prepicon(jg)%z_ifc(:,:,:) = p_nh_state(jg)%metrics%z_ifc(:,:,:)
-      prepicon(jg)%z_mc (:,:,:) = p_nh_state(jg)%metrics%z_mc (:,:,:)
+      initicon(jg)%z_ifc(:,:,:) = p_nh_state(jg)%metrics%z_ifc(:,:,:)
+      initicon(jg)%z_mc (:,:,:) = p_nh_state(jg)%metrics%z_mc (:,:,:)
     ENDDO
 
 
     ! init ICON prognostic fields
     !
-    SELECT CASE(i_oper_mode)
+    SELECT CASE(init_mode)
     CASE(MODE_DWDANA)   ! read in DWD analysis
 
       CALL message(TRIM(routine),'Real-data mode: perform initialization with DWD analysis')
@@ -176,21 +173,19 @@ MODULE mo_prepicon_utils
       CALL message(TRIM(routine),'Real-data mode: perform initialization with IFS2ICON data')
 
       ! process IFS atmosphere analysis data
-      CALL process_ifsana_atm (p_patch, p_nh_state, p_int_state, p_grf_state, prepicon)
+      CALL process_ifsana_atm (p_patch, p_nh_state, p_int_state, p_grf_state, initicon)
 
       ! process IFS land/surface analysis data
-      IF ( l_sfc_in ) THEN
-        CALL process_ifsana_sfc (p_patch, p_lnd_state, prepicon, ext_data)
-      ENDIF
+      CALL process_ifsana_sfc (p_patch, p_lnd_state, initicon, ext_data)
 
     CASE(MODE_COMBINED)
       CALL finish(TRIM(routine), "Invalid operation mode!")
 
       ! process IFS atmosphere analysis data
-!      CALL process_ifsana_atm (p_patch, p_nh_state, p_int_state, p_grf_state, prepicon)
+      CALL process_ifsana_atm (p_patch, p_nh_state, p_int_state, p_grf_state, initicon)
 
       ! process DWD land/surface analysis
-!      CALL process_dwdana_sfc (p_patch, p_lnd_state)
+      CALL process_dwdana_sfc (p_patch, p_lnd_state)
 
     CASE DEFAULT
       CALL finish(TRIM(routine), "Invalid operation mode!")
@@ -198,11 +193,11 @@ MODULE mo_prepicon_utils
 
 
 
-    ! Deallocate prepicon data type
-    CALL deallocate_prepicon(prepicon)
-    DEALLOCATE (prepicon, stat=ist)
+    ! Deallocate initicon data type
+    CALL deallocate_initicon(initicon)
+    DEALLOCATE (initicon, stat=ist)
     IF (ist /= success) THEN
-      CALL finish(TRIM(routine),'deallocation for prepicon failed')
+      CALL finish(TRIM(routine),'deallocation for initicon failed')
     ENDIF
 
   END SUBROUTINE init_icon
@@ -230,7 +225,7 @@ MODULE mo_prepicon_utils
     TYPE(t_int_state),      INTENT(IN)    :: p_int_state(:)
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
-      routine = 'mo_prepicon_utils:process_dwdana_atm'
+      routine = 'mo_nh_initicon:process_dwdana_atm'
 
 !-------------------------------------------------------------------------
 
@@ -255,7 +250,7 @@ MODULE mo_prepicon_utils
   !! - Reads DWD first guess (land/surface only). Data are directly
   !!   written to the prognostic model variables
   !! - reads DWD DA inrements (land/surface only). Data are written 
-  !!   to intermediate prepicon variables
+  !!   to intermediate initicon variables
   !! - first guess and increments are added and resulting fields are 
   !!   converted to the NH set of prognostic variables
   !!
@@ -270,7 +265,7 @@ MODULE mo_prepicon_utils
 
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
-      routine = 'mo_prepicon_utils:process_dwdana_sfc'
+      routine = 'mo_nh_initicon:process_dwdana_sfc'
 
 !-------------------------------------------------------------------------
 
@@ -305,36 +300,36 @@ MODULE mo_prepicon_utils
   !!
   !!
   SUBROUTINE process_ifsana_atm (p_patch, p_nh_state, p_int_state, p_grf_state, &
-    &                            prepicon)
+    &                            initicon)
 
     TYPE(t_patch),          INTENT(IN)    :: p_patch(:)
     TYPE(t_nh_state),       INTENT(INOUT) :: p_nh_state(:)
     TYPE(t_int_state),      INTENT(IN)    :: p_int_state(:)
     TYPE(t_gridref_state),  INTENT(IN)    :: p_grf_state(:)
 
-    TYPE(t_prepicon_state), INTENT(INOUT) :: prepicon(:)
+    TYPE(t_initicon_state), INTENT(INOUT) :: initicon(:)
 
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
-      routine = 'mo_prepicon_utils:process_ifsana_atm'
+      routine = 'mo_nh_initicons:process_ifsana_atm'
 
 !-------------------------------------------------------------------------
 
 
     ! read horizontally interpolated IFS analysis for atmosphere
     ! 
-    CALL read_ifs_atm(p_patch, prepicon)
+    CALL read_ifs_atm(p_patch, initicon)
 
 
     ! Perform vertical interpolation from intermediate IFS2ICON grid to ICON grid
     ! and convert variables to the NH set of prognostic variables
     !
-    CALL vert_interp_atm(p_patch, p_int_state, p_grf_state, prepicon)
+    CALL vert_interp_atm(p_patch, p_int_state, p_grf_state, initicon)
 
     
     ! Finally copy the results to the prognostic model variables
     !
-    CALL copy_prepicon2prog_atm(p_patch, prepicon, p_nh_state)
+    CALL copy_initicon2prog_atm(p_patch, initicon, p_nh_state)
 
 
   END SUBROUTINE process_ifsana_atm
@@ -355,35 +350,35 @@ MODULE mo_prepicon_utils
   !! Initial version by Daniel Reinert, DWD(2012-12-19)
   !!
   !!
-  SUBROUTINE process_ifsana_sfc (p_patch, p_lnd_state, prepicon, ext_data)
+  SUBROUTINE process_ifsana_sfc (p_patch, p_lnd_state, initicon, ext_data)
 
     TYPE(t_patch),          INTENT(IN)    :: p_patch(:)
     TYPE(t_lnd_state),      INTENT(INOUT) :: p_lnd_state(:)
 
-    TYPE(t_prepicon_state), INTENT(INOUT) :: prepicon(:)
+    TYPE(t_initicon_state), INTENT(INOUT) :: initicon(:)
     TYPE(t_external_data),  INTENT(INOUT) :: ext_data(:)
 
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
-      routine = 'mo_prepicon_utils:process_ifsana_sfc'
+      routine = 'mo_nh_initicon:process_ifsana_sfc'
 
 !-------------------------------------------------------------------------
 
 
     ! read horizontally interpolated IFS analysis for surface/land
     ! 
-    CALL read_ifs_sfc(p_patch, prepicon, ext_data)
+    CALL read_ifs_sfc(p_patch, initicon, ext_data)
 
 
     ! Perform vertical interpolation from intermediate IFS2ICON grid to ICON grid
     ! and convert variables to the NH set of prognostic variables
     !
-    CALL vert_interp_sfc(p_patch, prepicon)
+    CALL vert_interp_sfc(p_patch, initicon)
 
     
     ! Finally copy the results to the prognostic model variables
     !
-    CALL copy_prepicon2prog_sfc(p_patch, prepicon, p_lnd_state, ext_data)
+    CALL copy_initicon2prog_sfc(p_patch, initicon, p_lnd_state, ext_data)
 
 
   END SUBROUTINE process_ifsana_sfc
@@ -402,10 +397,10 @@ MODULE mo_prepicon_utils
   !! Modification by Daniel Reinert, DWD (2012-12-18)
   !! - encapsulate reading of IFS analysis
   !!
-  SUBROUTINE read_ifs_atm (p_patch, prepicon)
+  SUBROUTINE read_ifs_atm (p_patch, initicon)
 
     TYPE(t_patch),          INTENT(IN)    :: p_patch(:)
-    TYPE(t_prepicon_state), INTENT(INOUT) :: prepicon(:)
+    TYPE(t_initicon_state), INTENT(INOUT) :: initicon(:)
 
     INTEGER :: jg, jlev, jk
     LOGICAL :: l_exist
@@ -414,7 +409,7 @@ MODULE mo_prepicon_utils
     INTEGER :: ncid, dimid, varid, mpi_comm
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
-      routine = 'mo_prepicon_utils:read_ifs_atm'
+      routine = 'mo_nh_initicon:read_ifs_atm'
 
     CHARACTER(LEN=filename_max) :: ifs2icon_file(max_dom)
 
@@ -509,49 +504,48 @@ MODULE mo_prepicon_utils
       !
       CALL read_netcdf_data_single (ncid, 'T', p_patch(jg)%n_patch_cells_g,           &
         &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-        &                     nlev_in,prepicon(jg)%atm_in%temp)
+        &                     nlev_in,initicon(jg)%atm_in%temp)
 
       CALL read_netcdf_data_single (ncid, 'U', p_patch(jg)%n_patch_cells_g,           &
         &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-        &                     nlev_in,prepicon(jg)%atm_in%u)
+        &                     nlev_in,initicon(jg)%atm_in%u)
 
       CALL read_netcdf_data_single (ncid, 'V', p_patch(jg)%n_patch_cells_g,           &
         &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-        &                     nlev_in,prepicon(jg)%atm_in%v)
+        &                     nlev_in,initicon(jg)%atm_in%v)
 
-      IF (l_w_in) THEN ! note: input vertical velocity is in fact omega (Pa/s)
-        CALL read_netcdf_data_single (ncid, 'W', p_patch(jg)%n_patch_cells_g,           &
-          &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-          &                     nlev_in,prepicon(jg)%atm_in%omega)
-      ENDIF
+      ! Note: input vertical velocity is in fact omega (Pa/s)
+      CALL read_netcdf_data_single (ncid, 'W', p_patch(jg)%n_patch_cells_g,           &
+        &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+        &                     nlev_in,initicon(jg)%atm_in%omega)
 
       CALL read_netcdf_data_single (ncid, 'QV', p_patch(jg)%n_patch_cells_g,          &
         &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-        &                     nlev_in,prepicon(jg)%atm_in%qv)
+        &                     nlev_in,initicon(jg)%atm_in%qv)
 
       CALL read_netcdf_data_single (ncid, 'QC', p_patch(jg)%n_patch_cells_g,          &
         &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-        &                     nlev_in,prepicon(jg)%atm_in%qc)
+        &                     nlev_in,initicon(jg)%atm_in%qc)
 
       CALL read_netcdf_data_single (ncid, 'QI', p_patch(jg)%n_patch_cells_g,          &
         &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-        &                     nlev_in,prepicon(jg)%atm_in%qi)
+        &                     nlev_in,initicon(jg)%atm_in%qi)
 
       CALL read_netcdf_data_single (ncid, 'QR', p_patch(jg)%n_patch_cells_g,          &
         &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-        &                     nlev_in,prepicon(jg)%atm_in%qr)
+        &                     nlev_in,initicon(jg)%atm_in%qr)
 
       CALL read_netcdf_data_single (ncid, 'QS', p_patch(jg)%n_patch_cells_g,          &
         &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-        &                     nlev_in,prepicon(jg)%atm_in%qs)
+        &                     nlev_in,initicon(jg)%atm_in%qs)
 
       CALL read_netcdf_data (ncid, TRIM(psvar), p_patch(jg)%n_patch_cells_g,          &
         &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-        &                     prepicon(jg)%atm_in%psfc)
+        &                     initicon(jg)%atm_in%psfc)
 
       CALL read_netcdf_data (ncid, TRIM(geop_ml_var), p_patch(jg)%n_patch_cells_g,    &
         &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-        &                     prepicon(jg)%atm_in%phi_sfc)
+        &                     initicon(jg)%atm_in%phi_sfc)
 
 
 
@@ -625,10 +619,10 @@ MODULE mo_prepicon_utils
   !! Modification by Daniel Reinert, DWD (2012-12-18)
   !! - encapsulate reading of IFS analysis
   !!
-  SUBROUTINE read_ifs_sfc (p_patch, prepicon, ext_data)
+  SUBROUTINE read_ifs_sfc (p_patch, initicon, ext_data)
 
     TYPE(t_patch),          INTENT(IN)    :: p_patch(:)
-    TYPE(t_prepicon_state), INTENT(INOUT) :: prepicon(:)
+    TYPE(t_initicon_state), INTENT(INOUT) :: initicon(:)
     TYPE(t_external_data),  INTENT(IN)    :: ext_data(:)
 
     INTEGER :: jg, jlev
@@ -638,7 +632,7 @@ MODULE mo_prepicon_utils
     INTEGER :: ncid, dimid, varid, mpi_comm
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
-      routine = 'mo_prepicon_utils:read_ifs_sfc'
+      routine = 'mo_nh_initicon:read_ifs_sfc'
 
     CHARACTER(LEN=filename_max) :: ifs2icon_file(max_dom)
     LOGICAL :: l_sst_present = .FALSE.     !TRUE if SST is present in the IFS input file
@@ -794,78 +788,78 @@ MODULE mo_prepicon_utils
       !
       CALL read_netcdf_data (ncid, TRIM(geop_sfc_var), p_patch(jg)%n_patch_cells_g,   &
         &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-        &                     prepicon(jg)%sfc_in%phi)
+        &                     initicon(jg)%sfc_in%phi)
 
       CALL read_netcdf_data (ncid, 'SKT', p_patch(jg)%n_patch_cells_g,                &
         &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-        &                     prepicon(jg)%sfc_in%tskin)
+        &                     initicon(jg)%sfc_in%tskin)
       IF ( l_sst_present) THEN
        CALL read_netcdf_data (ncid, 'SST', p_patch(jg)%n_patch_cells_g,                &
          &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-         &                     prepicon(jg)%sfc_in%sst)
+         &                     initicon(jg)%sfc_in%sst)
       ELSE 
-       prepicon(jg)%sfc_in%sst(:,:)=0.0_wp
+       initicon(jg)%sfc_in%sst(:,:)=0.0_wp
       END IF
 
       CALL read_netcdf_data (ncid, 'T_SNOW', p_patch(jg)%n_patch_cells_g,             &
         &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-        &                     prepicon(jg)%sfc_in%tsnow)
+        &                     initicon(jg)%sfc_in%tsnow)
 
       CALL read_netcdf_data (ncid,TRIM(alb_snow_var), p_patch(jg)%n_patch_cells_g,    &
         &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-        &                     prepicon(jg)%sfc_in%snowalb)
+        &                     initicon(jg)%sfc_in%snowalb)
  
       CALL read_netcdf_data (ncid, 'W_SNOW', p_patch(jg)%n_patch_cells_g,             &
         &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-        &                     prepicon(jg)%sfc_in%snowweq)
+        &                     initicon(jg)%sfc_in%snowweq)
 
       CALL read_netcdf_data (ncid,'RHO_SNOW', p_patch(jg)%n_patch_cells_g,            &
         &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-        &                     prepicon(jg)%sfc_in%snowdens)
+        &                     initicon(jg)%sfc_in%snowdens)
 
       CALL read_netcdf_data (ncid, 'W_I', p_patch(jg)%n_patch_cells_g,                &
         &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-        &                     prepicon(jg)%sfc_in%skinres)
+        &                     initicon(jg)%sfc_in%skinres)
 
       CALL read_netcdf_data (ncid, 'LSM', p_patch(jg)%n_patch_cells_g,                &
         &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-        &                     prepicon(jg)%sfc_in%ls_mask)
+        &                     initicon(jg)%sfc_in%ls_mask)
 
       CALL read_netcdf_data (ncid, 'CI', p_patch(jg)%n_patch_cells_g,                 &
         &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-        &                     prepicon(jg)%sfc_in%seaice)
+        &                     initicon(jg)%sfc_in%seaice)
 
       CALL read_netcdf_data (ncid, 'STL1', p_patch(jg)%n_patch_cells_g,               &
         &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-        &                     prepicon(jg)%sfc_in%tsoil(:,:,1))
+        &                     initicon(jg)%sfc_in%tsoil(:,:,1))
 
       CALL read_netcdf_data (ncid, 'STL2', p_patch(jg)%n_patch_cells_g,               &
         &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-        &                     prepicon(jg)%sfc_in%tsoil(:,:,2))
+        &                     initicon(jg)%sfc_in%tsoil(:,:,2))
 
       CALL read_netcdf_data (ncid, 'STL3', p_patch(jg)%n_patch_cells_g,               &
         &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-        &                     prepicon(jg)%sfc_in%tsoil(:,:,3))
+        &                     initicon(jg)%sfc_in%tsoil(:,:,3))
 
       CALL read_netcdf_data (ncid, 'STL4', p_patch(jg)%n_patch_cells_g,               &
         &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-        &                     prepicon(jg)%sfc_in%tsoil(:,:,4))
+        &                     initicon(jg)%sfc_in%tsoil(:,:,4))
 
       CALL read_netcdf_data (ncid, 'SMIL1', p_patch(jg)%n_patch_cells_g,              &
         &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-        &                     prepicon(jg)%sfc_in%wsoil(:,:,1))
+        &                     initicon(jg)%sfc_in%wsoil(:,:,1))
 
       CALL read_netcdf_data (ncid, 'SMIL2', p_patch(jg)%n_patch_cells_g,              &
         &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-        &                     prepicon(jg)%sfc_in%wsoil(:,:,2))
+        &                     initicon(jg)%sfc_in%wsoil(:,:,2))
 
       CALL read_netcdf_data (ncid, 'SMIL3', p_patch(jg)%n_patch_cells_g,              &
         &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-        &                     prepicon(jg)%sfc_in%wsoil(:,:,3))
+        &                     initicon(jg)%sfc_in%wsoil(:,:,3))
 
       CALL read_netcdf_data (ncid, 'SMIL4', p_patch(jg)%n_patch_cells_g,              &
         &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-        &                     prepicon(jg)%sfc_in%wsoil(:,:,4))
+        &                     initicon(jg)%sfc_in%wsoil(:,:,4))
 
 
 
@@ -877,7 +871,7 @@ MODULE mo_prepicon_utils
 
       ! In addition, copy climatological deep-soil temperature to soil level nlev_soil
       ! These are limited to -60 deg C because less is definitely nonsense
-      prepicon(jg)%sfc%tsoil(:,:,nlev_soil) = MAX(213.15_wp,ext_data(jg)%atm%t_cl(:,:))
+      initicon(jg)%sfc%tsoil(:,:,nlev_soil) = MAX(213.15_wp,ext_data(jg)%atm%t_cl(:,:))
 
     ENDDO ! loop over model domains
 
@@ -913,7 +907,7 @@ MODULE mo_prepicon_utils
     INTEGER :: ncid, dimid
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
-      routine = 'mo_prepicon_utils:read_dwdana_atm'
+      routine = 'mo_nh_initicon:read_dwdana_atm'
 
     CHARACTER(LEN=filename_max) :: dwdfg_file(max_dom)  ! first guess
     CHARACTER(LEN=filename_max) :: dwdinc_file(max_dom) ! increments
@@ -1092,43 +1086,43 @@ MODULE mo_prepicon_utils
 
 
     ! start reading DA increments (atmosphere only)
-    ! For simplicity, increments are stored in prepicon(jg)%atm
+    ! For simplicity, increments are stored in initicon(jg)%atm
     !
     CALL read_netcdf_data_single (ncid, 'temp', p_patch(jg)%n_patch_cells_g,        &
       &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,    &
-      &                  nlev, prepicon(jg)%atm%temp )
+      &                  nlev, initicon(jg)%atm%temp )
 
     CALL read_netcdf_data_single (ncid, 'pres', p_patch(jg)%n_patch_cells_g,        &
       &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,    &
-      &                  nlev, prepicon(jg)%atm%pres )
+      &                  nlev, initicon(jg)%atm%pres )
 
     CALL read_netcdf_data_single (ncid, 'u', p_patch(jg)%n_patch_cells_g,           &
       &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,    &
-      &                  nlev, prepicon(jg)%atm%u )
+      &                  nlev, initicon(jg)%atm%u )
 
     CALL read_netcdf_data_single (ncid, 'v', p_patch(jg)%n_patch_cells_g,           &
       &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,    &
-      &                  nlev, prepicon(jg)%atm%v )
+      &                  nlev, initicon(jg)%atm%v )
 
     CALL read_netcdf_data_single (ncid, 'qv', p_patch(jg)%n_patch_cells_g,          &
       &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,    &
-      &                  nlev, prepicon(jg)%atm%qv )
+      &                  nlev, initicon(jg)%atm%qv )
 
     CALL read_netcdf_data_single (ncid, 'qc', p_patch(jg)%n_patch_cells_g,          &
       &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,    &
-      &                  nlev, prepicon(jg)%atm%qc )
+      &                  nlev, initicon(jg)%atm%qc )
 
     CALL read_netcdf_data_single (ncid, 'qi', p_patch(jg)%n_patch_cells_g,          &
       &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,    &
-      &                  nlev, prepicon(jg)%atm%qi )
+      &                  nlev, initicon(jg)%atm%qi )
 
     CALL read_netcdf_data_single (ncid, 'qr', p_patch(jg)%n_patch_cells_g,          &
       &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,    &
-      &                  nlev, prepicon(jg)%atm%qr )
+      &                  nlev, initicon(jg)%atm%qr )
 
     CALL read_netcdf_data_single (ncid, 'qs', p_patch(jg)%n_patch_cells_g,          &
       &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,    &
-      &                  nlev, prepicon(jg)%atm%qs )
+      &                  nlev, initicon(jg)%atm%qs )
 
 
 
@@ -1159,10 +1153,10 @@ MODULE mo_prepicon_utils
     LOGICAL :: l_exist
 
     INTEGER :: no_cells, no_cells_2,no_levels, no_levels_2
-    INTEGER :: ncid, dimid
+    INTEGER :: ncid, dimid, varid, mpi_comm
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
-      routine = 'mo_prepicon_utils:read_dwdfg_sfc'
+      routine = 'mo_nh_initicon:read_dwdfg_sfc'
 
     CHARACTER(LEN=filename_max) :: dwdfg_file(max_dom)
     CHARACTER(LEN=2)            :: ct
@@ -1230,8 +1224,32 @@ MODULE mo_prepicon_utils
           & 'nlev does not match the number of levels in DWD FG file.')
         ENDIF
 
+        ! Check, if sea-ice thickness field is provided as input
+        ! IF H_ICE is missing, set l_hice_in=.FALSE.
+        IF (nf_inq_varid(ncid, 'h_ice', varid) == nf_noerr) THEN
+          WRITE (message_text,'(a,a)')                            &
+            &  'sea-ice thickness available'
+          l_hice_in = .TRUE.
+        ELSE
+
+          WRITE (message_text,'(a,a)')                            &
+            &  'sea-ice thickness not available. ', &
+            &  'initialize with constant value (0.5 m), instead.'
+          CALL message(TRIM(routine),TRIM(message_text))
+
+          l_hice_in = .FALSE.
+        ENDIF
+
       ENDIF  ! p_io
 
+
+      IF(p_test_run) THEN
+        mpi_comm = p_comm_work_test 
+      ELSE
+        mpi_comm = p_comm_work
+      ENDIF
+
+      CALL p_bcast(l_hice_in, p_io, mpi_comm)
 
 
       
@@ -1253,6 +1271,18 @@ MODULE mo_prepicon_utils
       CALL read_netcdf_data (ncid, 'fr_seaice', p_patch(jg)%n_patch_cells_g,          &
         &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
         &                     p_lnd_state(jg)%diag_lnd%fr_seaice)
+
+
+      ! sea-ice related fields
+      CALL read_netcdf_data (ncid, 't_ice', p_patch(jg)%n_patch_cells_g,              &
+        &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+        &                     p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_ice)
+
+      IF (l_hice_in) THEN
+        CALL read_netcdf_data (ncid, 'h_ice', p_patch(jg)%n_patch_cells_g,              &
+          &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+          &                     p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%h_ice)
+      ENDIF
 
 
       ! tile based fields
@@ -1296,6 +1326,7 @@ MODULE mo_prepicon_utils
           &                  nlev_soil, p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_so_t(:,:,:,jt))
 
         ! DR: how about w_so_ice_t ??
+        ! w_so_ice is initialized in terra_multlay_init
       ENDDO 
 
 
@@ -1349,7 +1380,7 @@ MODULE mo_prepicon_utils
     REAL(wp), ALLOCATABLE :: zpres_nh(:,:,:)
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
-      routine = 'mo_prepicon_utils:create_dwdana_atm'
+      routine = 'mo_nh_initicon:create_dwdana_atm'
 
 
     !-------------------------------------------------------------------------
@@ -1384,7 +1415,7 @@ MODULE mo_prepicon_utils
     ! 1) first guess in terms of rho, theta_v, q_i is converted to 
     ! T, p, q_i. Note, that p is the full (nonhydrostatic) pressure field.
     !
-!!$OMP PARALLEL PRIVATE(rl_start,rl_end,i_startblk,i_endblk)
+!$OMP PARALLEL PRIVATE(rl_start,rl_end,i_startblk,i_endblk)
 
     ! exclude boundary interpolation zone of nested domains
     rl_start = grf_bdywidth_c+1
@@ -1393,7 +1424,7 @@ MODULE mo_prepicon_utils
     i_startblk = p_patch(jg)%cells%start_blk(rl_start,1)
     i_endblk   = p_patch(jg)%cells%end_blk(rl_end,i_nchdom)
 
-!!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx)
+!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx)
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_patch(jg), jb, i_startblk, i_endblk, &
@@ -1431,44 +1462,44 @@ MODULE mo_prepicon_utils
         DO jc = i_startidx, i_endidx
 
           p_diag%temp(jc,jk,jb) = p_diag%temp(jc,jk,jb)          &
-            &                   + prepicon(jg)%atm%temp(jc,jk,jb)
+            &                   + initicon(jg)%atm%temp(jc,jk,jb)
 
           zpres_nh(jc,jk,jb)    = zpres_nh(jc,jk,jb)             &
-            &                   + prepicon(jg)%atm%pres(jc,jk,jb)
+            &                   + initicon(jg)%atm%pres(jc,jk,jb)
 
           p_prog_now%tracer(jc,jk,jb,iqv) = p_prog_now%tracer(jc,jk,jb,iqv) &
-            &                             + prepicon(jg)%atm%qv(jc,jk,jb)
+            &                             + initicon(jg)%atm%qv(jc,jk,jb)
 
           p_prog_now%tracer(jc,jk,jb,iqc) = p_prog_now%tracer(jc,jk,jb,iqc) &
-            &                             + prepicon(jg)%atm%qc(jc,jk,jb)
+            &                             + initicon(jg)%atm%qc(jc,jk,jb)
 
           p_prog_now%tracer(jc,jk,jb,iqi) = p_prog_now%tracer(jc,jk,jb,iqi) &
-            &                             + prepicon(jg)%atm%qi(jc,jk,jb)
+            &                             + initicon(jg)%atm%qi(jc,jk,jb)
 
           p_prog_now%tracer(jc,jk,jb,iqr) = p_prog_now%tracer(jc,jk,jb,iqr) &
-            &                             + prepicon(jg)%atm%qr(jc,jk,jb)
+            &                             + initicon(jg)%atm%qr(jc,jk,jb)
 
           p_prog_now%tracer(jc,jk,jb,iqs) = p_prog_now%tracer(jc,jk,jb,iqs) &
-            &                             + prepicon(jg)%atm%qs(jc,jk,jb)
+            &                             + initicon(jg)%atm%qs(jc,jk,jb)
         ENDDO  ! jc
       ENDDO  ! jk
 
-!!$write(0,*) "MINVAL(prepicon(jg)%atm%temp(jc,jk,jb)), jb: ",MINVAL(prepicon(jg)%atm%temp(:,:,jb)), jb 
-!!$write(0,*) "MAXVAL(prepicon(jg)%atm%temp(jc,jk,jb)), jb: ",MAXVAL(prepicon(jg)%atm%temp(:,:,jb)), jb 
-!!$write(0,*) "MINVAL(prepicon(jg)%atm%pres(jc,jk,jb)), jb: ",MINVAL(prepicon(jg)%atm%pres(:,:,jb)), jb 
-!!$write(0,*) "MAXVAL(prepicon(jg)%atm%pres(jc,jk,jb)), jb: ",MAXVAL(prepicon(jg)%atm%pres(:,:,jb)), jb
-!!$write(0,*) "MINVAL(prepicon(jg)%atm%qv(jc,jk,jb)), jb: ",MINVAL(prepicon(jg)%atm%qv(:,:,jb)), jb 
-!!$write(0,*) "MAXVAL(prepicon(jg)%atm%qv(jc,jk,jb)), jb: ",MAXVAL(prepicon(jg)%atm%qv(:,:,jb)), jb 
-!!$write(0,*) "MINVAL(prepicon(jg)%atm%qc(jc,jk,jb)), jb: ",MINVAL(prepicon(jg)%atm%qc(:,:,jb)), jb 
-!!$write(0,*) "MAXVAL(prepicon(jg)%atm%qc(jc,jk,jb)), jb: ",MAXVAL(prepicon(jg)%atm%qc(:,:,jb)), jb 
-!!$write(0,*) "MINVAL(prepicon(jg)%atm%qi(jc,jk,jb)), jb: ",MINVAL(prepicon(jg)%atm%qi(:,:,jb)), jb
-!!$write(0,*) "MAXVAL(prepicon(jg)%atm%qi(jc,jk,jb)), jb: ",MAXVAL(prepicon(jg)%atm%qi(:,:,jb)), jb
-!!$write(0,*) "MINVAL(prepicon(jg)%atm%qr(jc,jk,jb)), jb: ",MINVAL(prepicon(jg)%atm%qr(:,:,jb)), jb 
-!!$write(0,*) "MAXVAL(prepicon(jg)%atm%qr(jc,jk,jb)), jb: ",MAXVAL(prepicon(jg)%atm%qr(:,:,jb)), jb 
-!!$write(0,*) "MINVAL(prepicon(jg)%atm%qs(jc,jk,jb)), jb: ",MINVAL(prepicon(jg)%atm%qs(:,:,jb)), jb 
-!!$write(0,*) "MAXVAL(prepicon(jg)%atm%qs(jc,jk,jb)), jb: ",MAXVAL(prepicon(jg)%atm%qs(:,:,jb)), jb 
+!!$write(0,*) "MINVAL(initicon(jg)%atm%temp(jc,jk,jb)), jb: ",MINVAL(initicon(jg)%atm%temp(:,:,jb)), jb 
+!!$write(0,*) "MAXVAL(initicon(jg)%atm%temp(jc,jk,jb)), jb: ",MAXVAL(initicon(jg)%atm%temp(:,:,jb)), jb 
+!!$write(0,*) "MINVAL(initicon(jg)%atm%pres(jc,jk,jb)), jb: ",MINVAL(initicon(jg)%atm%pres(:,:,jb)), jb 
+!!$write(0,*) "MAXVAL(initicon(jg)%atm%pres(jc,jk,jb)), jb: ",MAXVAL(initicon(jg)%atm%pres(:,:,jb)), jb
+!!$write(0,*) "MINVAL(initicon(jg)%atm%qv(jc,jk,jb)), jb: ",MINVAL(initicon(jg)%atm%qv(:,:,jb)), jb 
+!!$write(0,*) "MAXVAL(initicon(jg)%atm%qv(jc,jk,jb)), jb: ",MAXVAL(initicon(jg)%atm%qv(:,:,jb)), jb 
+!!$write(0,*) "MINVAL(initicon(jg)%atm%qc(jc,jk,jb)), jb: ",MINVAL(initicon(jg)%atm%qc(:,:,jb)), jb 
+!!$write(0,*) "MAXVAL(initicon(jg)%atm%qc(jc,jk,jb)), jb: ",MAXVAL(initicon(jg)%atm%qc(:,:,jb)), jb 
+!!$write(0,*) "MINVAL(initicon(jg)%atm%qi(jc,jk,jb)), jb: ",MINVAL(initicon(jg)%atm%qi(:,:,jb)), jb
+!!$write(0,*) "MAXVAL(initicon(jg)%atm%qi(jc,jk,jb)), jb: ",MAXVAL(initicon(jg)%atm%qi(:,:,jb)), jb
+!!$write(0,*) "MINVAL(initicon(jg)%atm%qr(jc,jk,jb)), jb: ",MINVAL(initicon(jg)%atm%qr(:,:,jb)), jb 
+!!$write(0,*) "MAXVAL(initicon(jg)%atm%qr(jc,jk,jb)), jb: ",MAXVAL(initicon(jg)%atm%qr(:,:,jb)), jb 
+!!$write(0,*) "MINVAL(initicon(jg)%atm%qs(jc,jk,jb)), jb: ",MINVAL(initicon(jg)%atm%qs(:,:,jb)), jb 
+!!$write(0,*) "MAXVAL(initicon(jg)%atm%qs(jc,jk,jb)), jb: ",MAXVAL(initicon(jg)%atm%qs(:,:,jb)), jb 
     ENDDO  ! jb
-!!$OMP END DO
+!$OMP END DO
 
 
     ! exclude boundary interpolation zone of nested domains
@@ -1478,7 +1509,7 @@ MODULE mo_prepicon_utils
     i_startblk = p_patch(jg)%edges%start_blk(rl_start,1)
     i_endblk   = p_patch(jg)%edges%end_blk(rl_end,i_nchdom)
 
-!!$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx,vn_incr)
+!$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx,vn_incr)
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_e(p_patch(jg), jb, i_startblk, i_endblk, &
@@ -1490,14 +1521,14 @@ MODULE mo_prepicon_utils
           ! direction of vn and then linearly interpolated to the edge 
           ! midpoint 
           vn_incr = p_int_state(jg)%c_lin_e(je,1,jb)                   &
-            &     *(prepicon(jg)%atm%u(iidx(je,jb,1),jk,iblk(je,jb,1)) &
+            &     *(initicon(jg)%atm%u(iidx(je,jb,1),jk,iblk(je,jb,1)) &
             &     * p_patch(jg)%edges%primal_normal_cell(je,jb,1)%v1   &
-            &     + prepicon(jg)%atm%v(iidx(je,jb,1),jk,iblk(je,jb,1)) &
+            &     + initicon(jg)%atm%v(iidx(je,jb,1),jk,iblk(je,jb,1)) &
             &     * p_patch(jg)%edges%primal_normal_cell(je,jb,1)%v2 ) &
             &     + p_int_state(jg)%c_lin_e(je,2,jb)                   &
-            &     *(prepicon(jg)%atm%u(iidx(je,jb,2),jk,iblk(je,jb,2)) &
+            &     *(initicon(jg)%atm%u(iidx(je,jb,2),jk,iblk(je,jb,2)) &
             &     * p_patch(jg)%edges%primal_normal_cell(je,jb,2)%v1   &
-            &     + prepicon(jg)%atm%v(iidx(je,jb,2),jk,iblk(je,jb,2)) &
+            &     + initicon(jg)%atm%v(iidx(je,jb,2),jk,iblk(je,jb,2)) &
             &     * p_patch(jg)%edges%primal_normal_cell(je,jb,2)%v2 )
 
           ! add vn_incr to first guess
@@ -1508,11 +1539,11 @@ MODULE mo_prepicon_utils
 !!$write(0,*) "MINVAL(p_prog_now%vn(je,jk,jb)), jb: ",MINVAL(p_prog_now%vn(:,:,jb)), jb 
 !!$write(0,*) "MAXVAL(p_prog_now%vn(je,jk,jb)), jb: ",MAXVAL(p_prog_now%vn(:,:,jb)), jb 
     ENDDO  ! jb
-!!$OMP ENDDO
-!!$OMP END PARALLEL
+!$OMP ENDDO
+!$OMP END PARALLEL
 
 
-
+    ! TO DO: remove qc, where rh<90%
 
 
     ! 3) Convert analysis back to the NH set of prognostic variables
@@ -1558,11 +1589,11 @@ MODULE mo_prepicon_utils
 
 
   !>
-  !! SUBROUTINE copy_prepicon2prog_atm
+  !! SUBROUTINE copy_initicon2prog_atm
   !! Copies atmospheric fields interpolated by prep_icon to the
   !! prognostic model state variables 
   !!
-  !! Required input: prepicon state
+  !! Required input: initicon state
   !! Output is written on fields of NH state
   !!
   !! @par Revision History
@@ -1571,10 +1602,10 @@ MODULE mo_prepicon_utils
   !! - encapsulated surface specific part
   !!
   !!
-  SUBROUTINE copy_prepicon2prog_atm(p_patch, prepicon, p_nh_state)
+  SUBROUTINE copy_initicon2prog_atm(p_patch, initicon, p_nh_state)
 
     TYPE(t_patch),          INTENT(IN) :: p_patch(:)
-    TYPE(t_prepicon_state), INTENT(IN) :: prepicon(:)
+    TYPE(t_initicon_state), INTENT(IN) :: initicon(:)
 
     TYPE(t_nh_state),      INTENT(INOUT) :: p_nh_state(:)
 
@@ -1607,7 +1638,7 @@ MODULE mo_prepicon_utils
         ! Wind speed
         DO jk = 1, nlev
           DO je = 1, nlen
-            p_nh_state(jg)%prog(ntl)%vn(je,jk,jb) = prepicon(jg)%atm%vn(je,jk,jb)
+            p_nh_state(jg)%prog(ntl)%vn(je,jk,jb) = initicon(jg)%atm%vn(je,jk,jb)
           ENDDO
         ENDDO
 
@@ -1627,27 +1658,27 @@ MODULE mo_prepicon_utils
         DO jk = 1, nlev
           DO jc = 1, nlen
             ! Dynamic prognostic variables on cell points
-            p_nh_state(jg)%prog(ntl)%w(jc,jk,jb)       = prepicon(jg)%atm%w(jc,jk,jb)
-            p_nh_state(jg)%prog(ntl)%theta_v(jc,jk,jb) = prepicon(jg)%atm%theta_v(jc,jk,jb)
-            p_nh_state(jg)%prog(ntl)%exner(jc,jk,jb)   = prepicon(jg)%atm%exner(jc,jk,jb)
-            p_nh_state(jg)%prog(ntl)%rho(jc,jk,jb)     = prepicon(jg)%atm%rho(jc,jk,jb)
+            p_nh_state(jg)%prog(ntl)%w(jc,jk,jb)       = initicon(jg)%atm%w(jc,jk,jb)
+            p_nh_state(jg)%prog(ntl)%theta_v(jc,jk,jb) = initicon(jg)%atm%theta_v(jc,jk,jb)
+            p_nh_state(jg)%prog(ntl)%exner(jc,jk,jb)   = initicon(jg)%atm%exner(jc,jk,jb)
+            p_nh_state(jg)%prog(ntl)%rho(jc,jk,jb)     = initicon(jg)%atm%rho(jc,jk,jb)
 
             p_nh_state(jg)%prog(ntl)%rhotheta_v(jc,jk,jb) = &
               p_nh_state(jg)%prog(ntl)%rho(jc,jk,jb) * p_nh_state(jg)%prog(ntl)%theta_v(jc,jk,jb)
 
             ! Moisture variables
-            p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqv) = prepicon(jg)%atm%qv(jc,jk,jb)
-            p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqc) = prepicon(jg)%atm%qc(jc,jk,jb)
-            p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqi) = prepicon(jg)%atm%qi(jc,jk,jb)
-            p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqr) = prepicon(jg)%atm%qr(jc,jk,jb)
-            p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqs) = prepicon(jg)%atm%qs(jc,jk,jb)
+            p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqv) = initicon(jg)%atm%qv(jc,jk,jb)
+            p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqc) = initicon(jg)%atm%qc(jc,jk,jb)
+            p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqi) = initicon(jg)%atm%qi(jc,jk,jb)
+            p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqr) = initicon(jg)%atm%qr(jc,jk,jb)
+            p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqs) = initicon(jg)%atm%qs(jc,jk,jb)
           ENDDO
         ENDDO
 
         ! w at surface level
         DO jc = 1, nlen
-          p_nh_state(jg)%prog(ntl)%w(jc,nlevp1,jb)      = prepicon(jg)%atm%w(jc,nlevp1,jb)
-          p_nh_state(jg)%prog(nnew(jg))%w(jc,nlevp1,jb) = prepicon(jg)%atm%w(jc,nlevp1,jb)
+          p_nh_state(jg)%prog(ntl)%w(jc,nlevp1,jb)      = initicon(jg)%atm%w(jc,nlevp1,jb)
+          p_nh_state(jg)%prog(nnew(jg))%w(jc,nlevp1,jb) = initicon(jg)%atm%w(jc,nlevp1,jb)
         ENDDO
 
       ENDDO  ! jb
@@ -1668,18 +1699,18 @@ MODULE mo_prepicon_utils
 
     ENDDO
 
-  END SUBROUTINE copy_prepicon2prog_atm
+  END SUBROUTINE copy_initicon2prog_atm
 
 
 
 
   !-------------
   !>
-  !! SUBROUTINE copy_prepicon2prog_sfc
+  !! SUBROUTINE copy_initicon2prog_sfc
   !! Copies surface fields interpolated by prep_icon to the prognostic model 
   !! state variables. 
   !!
-  !! Required input: prepicon state
+  !! Required input: initicon state
   !! Output is written on fields of land state
   !!
   !! @par Revision History
@@ -1688,10 +1719,10 @@ MODULE mo_prepicon_utils
   !! - encapsulated surface specific part
   !!
   !!
-  SUBROUTINE copy_prepicon2prog_sfc(p_patch, prepicon, p_lnd_state, ext_data)
+  SUBROUTINE copy_initicon2prog_sfc(p_patch, initicon, p_lnd_state, ext_data)
 
     TYPE(t_patch),          INTENT(IN) :: p_patch(:)
-    TYPE(t_prepicon_state), INTENT(IN) :: prepicon(:)
+    TYPE(t_initicon_state), INTENT(IN) :: initicon(:)
 
     TYPE(t_lnd_state),     INTENT(INOUT) :: p_lnd_state(:)
     TYPE(t_external_data), INTENT(   IN) :: ext_data(:)
@@ -1722,9 +1753,9 @@ MODULE mo_prepicon_utils
 
         ! ground temperature
         DO jc = 1, nlen
-          p_lnd_state(jg)%prog_lnd(ntlr)%t_g(jc,jb)         = prepicon(jg)%sfc%tskin(jc,jb)
-          p_lnd_state(jg)%prog_lnd(nnew_rcf(jg))%t_g(jc,jb) = prepicon(jg)%sfc%tskin(jc,jb)
-          p_lnd_state(jg)%diag_lnd%t_skin(jc,jb)            = prepicon(jg)%sfc%tskin(jc,jb)
+          p_lnd_state(jg)%prog_lnd(ntlr)%t_g(jc,jb)         = initicon(jg)%sfc%tskin(jc,jb)
+          p_lnd_state(jg)%prog_lnd(nnew_rcf(jg))%t_g(jc,jb) = initicon(jg)%sfc%tskin(jc,jb)
+          p_lnd_state(jg)%diag_lnd%t_skin(jc,jb)            = initicon(jg)%sfc%tskin(jc,jb)
         ENDDO
 
         ! Fill also SST and sea ice fraction fields over ocean points; SST is limited to 30 deg C
@@ -1733,10 +1764,10 @@ MODULE mo_prepicon_utils
 !CDIR NODEP,VOVERTAKE,VOB
         DO ic = 1, ext_data(jg)%atm%sp_count(jb)
           jc = ext_data(jg)%atm%idx_lst_sp(ic,jb)
-          IF ( l_sst_in .AND. prepicon(jg)%sfc%sst(jc,jb) > 10._wp  ) THEN
-            p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) = prepicon(jg)%sfc%sst(jc,jb)              
+          IF ( l_sst_in .AND. initicon(jg)%sfc%sst(jc,jb) > 10._wp  ) THEN
+            p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) = initicon(jg)%sfc%sst(jc,jb)              
           ELSE
-           p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) = MIN(303.15_wp,prepicon(jg)%sfc%tskin(jc,jb))
+           p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) = MIN(303.15_wp,initicon(jg)%sfc%tskin(jc,jb))
           ENDIF
           !
           ! In case of missing sea ice fraction values, we make use of the sea 
@@ -1744,10 +1775,10 @@ MODULE mo_prepicon_utils
           ! we set the sea ice fraction to one. For tskin>tf_salt, we set it to 0.
           ! Note: tf_salt=271.45K is the salt-water freezing point
           !
-          IF ( prepicon(jg)%sfc%seaice(jc,jb) > -999.0_wp ) THEN
-            p_lnd_state(jg)%diag_lnd%fr_seaice(jc,jb) = prepicon(jg)%sfc%seaice(jc,jb) 
+          IF ( initicon(jg)%sfc%seaice(jc,jb) > -999.0_wp ) THEN
+            p_lnd_state(jg)%diag_lnd%fr_seaice(jc,jb) = initicon(jg)%sfc%seaice(jc,jb) 
           ELSE    ! missing value
-            IF ( prepicon(jg)%sfc%tskin(jc,jb) <= tf_salt ) THEN
+            IF ( initicon(jg)%sfc%tskin(jc,jb) <= tf_salt ) THEN
               p_lnd_state(jg)%diag_lnd%fr_seaice(jc,jb) = 1._wp     ! sea ice point
             ELSE
               p_lnd_state(jg)%diag_lnd%fr_seaice(jc,jb) = 0._wp     ! water point
@@ -1771,43 +1802,43 @@ MODULE mo_prepicon_utils
 !CDIR NODEP,VOVERTAKE,VOB
         DO ic = 1, ext_data(jg)%atm%fp_count(jb)
           jc = ext_data(jg)%atm%idx_lst_fp(ic,jb)
-          p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) = MIN(306.15_wp,prepicon(jg)%sfc%tskin(jc,jb))
+          p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) = MIN(306.15_wp,initicon(jg)%sfc%tskin(jc,jb))
         ENDDO
 
         IF ( atm_phy_nwp_config(jg)%inwp_surface > 0 ) THEN
           DO jt = 1, ntiles_total
             DO jc = 1, nlen
                p_lnd_state(jg)%prog_lnd(ntlr)%t_snow_t(jc,jb,jt)           = &
-                &                                                prepicon(jg)%sfc%tsnow   (jc,jb)
+                &                                                initicon(jg)%sfc%tsnow   (jc,jb)
 
                ! Initialize freshsnow
                ! for seapoints, freshsnow is set to 0
                IF(alb_snow_var == 'ALB_SNOW') THEN
               p_lnd_state(jg)%diag_lnd%freshsnow_t(jc,jb,jt)    =  MAX(0._wp,MIN(1._wp,   &
-            &                           (prepicon(jg)%sfc%snowalb (jc,jb)-csalb_snow_min) &
+            &                           (initicon(jg)%sfc%snowalb (jc,jb)-csalb_snow_min) &
             &                          /(csalb_snow_max-csalb_snow_min)))                 &
             &                          * REAL(NINT(ext_data(jg)%atm%fr_land(jc,jb)),wp) 
               ELSE
               p_lnd_state(jg)%diag_lnd%freshsnow_t(jc,jb,jt)    =  MAX(0._wp,MIN(1._wp,   &
-            &                     1._wp - ((prepicon(jg)%sfc%snowalb (jc,jb)-crhosmin_ml) &
+            &                     1._wp - ((initicon(jg)%sfc%snowalb (jc,jb)-crhosmin_ml) &
             &                    /(crhosmax_ml-crhosmin_ml))))                            &
             &                    * REAL(NINT(ext_data(jg)%atm%fr_land(jc,jb)),wp)
                END IF
 
               p_lnd_state(jg)%prog_lnd(ntlr)%w_snow_t(jc,jb,jt)           = &
-                &                                                prepicon(jg)%sfc%snowweq (jc,jb)
+                &                                                initicon(jg)%sfc%snowweq (jc,jb)
               p_lnd_state(jg)%prog_lnd(ntlr)%rho_snow_t(jc,jb,jt)         = &
-                &                                                prepicon(jg)%sfc%snowdens(jc,jb) 
+                &                                                initicon(jg)%sfc%snowdens(jc,jb) 
               p_lnd_state(jg)%prog_lnd(ntlr)%w_i_t(jc,jb,jt)              = &
-                &                                                prepicon(jg)%sfc%skinres (jc,jb)
+                &                                                initicon(jg)%sfc%skinres (jc,jb)
               p_lnd_state(jg)%prog_lnd(nnew_rcf(jg))%t_snow_t(jc,jb,jt)   = &
-                &                                                prepicon(jg)%sfc%tsnow   (jc,jb)
+                &                                                initicon(jg)%sfc%tsnow   (jc,jb)
               p_lnd_state(jg)%prog_lnd(nnew_rcf(jg))%w_snow_t(jc,jb,jt)   = &
-                &                                                prepicon(jg)%sfc%snowweq (jc,jb)
+                &                                                initicon(jg)%sfc%snowweq (jc,jb)
               p_lnd_state(jg)%prog_lnd(nnew_rcf(jg))%rho_snow_t(jc,jb,jt) = &
-                &                                                prepicon(jg)%sfc%snowdens(jc,jb)
+                &                                                initicon(jg)%sfc%snowdens(jc,jb)
               p_lnd_state(jg)%prog_lnd(nnew_rcf(jg))%w_i_t(jc,jb,jt)      = &
-                &                                                prepicon(jg)%sfc%skinres (jc,jb)
+                &                                                initicon(jg)%sfc%skinres (jc,jb)
             ENDDO
           ENDDO
 
@@ -1818,9 +1849,9 @@ MODULE mo_prepicon_utils
               jp = js+1 ! indexing for the ICON state field starts at 1
               DO jc = 1, nlen
                 p_lnd_state(jg)%prog_lnd(ntlr)%t_so_t(jc,jp,jb,jt)        = &
-                  &                                              prepicon(jg)%sfc%tsoil(jc,jb,js)
+                  &                                              initicon(jg)%sfc%tsoil(jc,jb,js)
                 p_lnd_state(jg)%prog_lnd(nnew_rcf(jg))%t_so_t(jc,jp,jb,jt)= &
-                  &                                              prepicon(jg)%sfc%tsoil(jc,jb,js)
+                  &                                              initicon(jg)%sfc%tsoil(jc,jb,js)
               ENDDO
             ENDDO
 
@@ -1828,9 +1859,9 @@ MODULE mo_prepicon_utils
             DO js = 1, nlev_soil
               DO jc = 1, nlen
                 p_lnd_state(jg)%prog_lnd(ntlr)%w_so_t(jc,js,jb,jt) = &
-                  &                                              prepicon(jg)%sfc%wsoil(jc,jb,js)
+                  &                                              initicon(jg)%sfc%wsoil(jc,jb,js)
                 p_lnd_state(jg)%prog_lnd(nnew_rcf(jg))%w_so_t(jc,js,jb,jt)= &
-                  &                                              prepicon(jg)%sfc%wsoil(jc,jb,js)
+                  &                                              initicon(jg)%sfc%wsoil(jc,jb,js)
               ENDDO
             ENDDO
 
@@ -1843,24 +1874,24 @@ MODULE mo_prepicon_utils
     ENDDO
 !$OMP END PARALLEL
 
-  END SUBROUTINE copy_prepicon2prog_sfc
+  END SUBROUTINE copy_initicon2prog_sfc
 
 
 
 
   !-------------
   !>
-  !! SUBROUTINE allocate_prepicon
-  !! Allocates the components of the prepicon data type
+  !! SUBROUTINE allocate_initicon
+  !! Allocates the components of the initicon data type
   !!
   !! @par Revision History
   !! Initial version by Guenther Zaengl, DWD(2011-07-14)
   !!
   !!
-  SUBROUTINE allocate_prepicon (p_patch, prepicon)
+  SUBROUTINE allocate_initicon (p_patch, initicon)
 
     TYPE(t_patch),          INTENT(IN)    :: p_patch(:)
-    TYPE(t_prepicon_state), INTENT(INOUT) :: prepicon(:)
+    TYPE(t_initicon_state), INTENT(INOUT) :: initicon(:)
 
     ! Local variables: loop control and dimensions
     INTEGER :: jg, nlev, nlevp1, nblks_c, nblks_v, nblks_e
@@ -1878,88 +1909,88 @@ MODULE mo_prepicon_utils
 
 
       ! basic prep_icon data
-      ALLOCATE(prepicon(jg)%topography_c    (nproma,nblks_c),        &
-               prepicon(jg)%topography_v    (nproma,nblks_v),        &
-               prepicon(jg)%z_ifc           (nproma,nlevp1,nblks_c), &
-               prepicon(jg)%z_mc            (nproma,nlev  ,nblks_c) )
+      ALLOCATE(initicon(jg)%topography_c    (nproma,nblks_c),        &
+               initicon(jg)%topography_v    (nproma,nblks_v),        &
+               initicon(jg)%z_ifc           (nproma,nlevp1,nblks_c), &
+               initicon(jg)%z_mc            (nproma,nlev  ,nblks_c) )
 
       ! Allocate atmospheric input data
-      ALLOCATE(prepicon(jg)%atm_in%psfc(nproma,         nblks_c), &
-               prepicon(jg)%atm_in%phi_sfc(nproma,      nblks_c), &
-               prepicon(jg)%atm_in%pres (nproma,nlev_in,nblks_c), &
-               prepicon(jg)%atm_in%z3d  (nproma,nlev_in,nblks_c), &
-               prepicon(jg)%atm_in%temp (nproma,nlev_in,nblks_c), &
-               prepicon(jg)%atm_in%u    (nproma,nlev_in,nblks_c), &
-               prepicon(jg)%atm_in%v    (nproma,nlev_in,nblks_c), &
-               prepicon(jg)%atm_in%w    (nproma,nlev_in,nblks_c), &
-               prepicon(jg)%atm_in%omega(nproma,nlev_in,nblks_c), &
-               prepicon(jg)%atm_in%qv   (nproma,nlev_in,nblks_c), &
-               prepicon(jg)%atm_in%qc   (nproma,nlev_in,nblks_c), &
-               prepicon(jg)%atm_in%qi   (nproma,nlev_in,nblks_c), &
-               prepicon(jg)%atm_in%qr   (nproma,nlev_in,nblks_c), &
-               prepicon(jg)%atm_in%qs   (nproma,nlev_in,nblks_c)  )
+      ALLOCATE(initicon(jg)%atm_in%psfc(nproma,         nblks_c), &
+               initicon(jg)%atm_in%phi_sfc(nproma,      nblks_c), &
+               initicon(jg)%atm_in%pres (nproma,nlev_in,nblks_c), &
+               initicon(jg)%atm_in%z3d  (nproma,nlev_in,nblks_c), &
+               initicon(jg)%atm_in%temp (nproma,nlev_in,nblks_c), &
+               initicon(jg)%atm_in%u    (nproma,nlev_in,nblks_c), &
+               initicon(jg)%atm_in%v    (nproma,nlev_in,nblks_c), &
+               initicon(jg)%atm_in%w    (nproma,nlev_in,nblks_c), &
+               initicon(jg)%atm_in%omega(nproma,nlev_in,nblks_c), &
+               initicon(jg)%atm_in%qv   (nproma,nlev_in,nblks_c), &
+               initicon(jg)%atm_in%qc   (nproma,nlev_in,nblks_c), &
+               initicon(jg)%atm_in%qi   (nproma,nlev_in,nblks_c), &
+               initicon(jg)%atm_in%qr   (nproma,nlev_in,nblks_c), &
+               initicon(jg)%atm_in%qs   (nproma,nlev_in,nblks_c)  )
 
       ! Allocate surface input data
       ! The extra soil temperature levels are not read in; they are only used to simplify vertical interpolation
-      ALLOCATE(prepicon(jg)%sfc_in%phi      (nproma,nblks_c                ), &
-               prepicon(jg)%sfc_in%tskin    (nproma,nblks_c                ), &
-               prepicon(jg)%sfc_in%sst      (nproma,nblks_c                ), &
-               prepicon(jg)%sfc_in%tsnow    (nproma,nblks_c                ), &
-               prepicon(jg)%sfc_in%snowalb  (nproma,nblks_c                ), &
-               prepicon(jg)%sfc_in%snowweq  (nproma,nblks_c                ), &
-               prepicon(jg)%sfc_in%snowdens (nproma,nblks_c                ), &
-               prepicon(jg)%sfc_in%skinres  (nproma,nblks_c                ), &
-               prepicon(jg)%sfc_in%ls_mask  (nproma,nblks_c                ), &
-               prepicon(jg)%sfc_in%seaice   (nproma,nblks_c                ), &
-               prepicon(jg)%sfc_in%tsoil    (nproma,nblks_c,0:nlevsoil_in+1), &
-               prepicon(jg)%sfc_in%wsoil    (nproma,nblks_c,0:nlevsoil_in+1)  )
+      ALLOCATE(initicon(jg)%sfc_in%phi      (nproma,nblks_c                ), &
+               initicon(jg)%sfc_in%tskin    (nproma,nblks_c                ), &
+               initicon(jg)%sfc_in%sst      (nproma,nblks_c                ), &
+               initicon(jg)%sfc_in%tsnow    (nproma,nblks_c                ), &
+               initicon(jg)%sfc_in%snowalb  (nproma,nblks_c                ), &
+               initicon(jg)%sfc_in%snowweq  (nproma,nblks_c                ), &
+               initicon(jg)%sfc_in%snowdens (nproma,nblks_c                ), &
+               initicon(jg)%sfc_in%skinres  (nproma,nblks_c                ), &
+               initicon(jg)%sfc_in%ls_mask  (nproma,nblks_c                ), &
+               initicon(jg)%sfc_in%seaice   (nproma,nblks_c                ), &
+               initicon(jg)%sfc_in%tsoil    (nproma,nblks_c,0:nlevsoil_in+1), &
+               initicon(jg)%sfc_in%wsoil    (nproma,nblks_c,0:nlevsoil_in+1)  )
 
       ! Allocate atmospheric output data
-      ALLOCATE(prepicon(jg)%atm%vn        (nproma,nlev  ,nblks_e), &
-               prepicon(jg)%atm%u         (nproma,nlev  ,nblks_c), &
-               prepicon(jg)%atm%v         (nproma,nlev  ,nblks_c), &
-               prepicon(jg)%atm%w         (nproma,nlevp1,nblks_c), &
-               prepicon(jg)%atm%temp      (nproma,nlev  ,nblks_c), &
-               prepicon(jg)%atm%exner     (nproma,nlev  ,nblks_c), &
-               prepicon(jg)%atm%pres      (nproma,nlev  ,nblks_c), &
-               prepicon(jg)%atm%rho       (nproma,nlev  ,nblks_c), &
-               prepicon(jg)%atm%theta_v   (nproma,nlev  ,nblks_c), &
-               prepicon(jg)%atm%qv        (nproma,nlev  ,nblks_c), &
-               prepicon(jg)%atm%qc        (nproma,nlev  ,nblks_c), &
-               prepicon(jg)%atm%qi        (nproma,nlev  ,nblks_c), &
-               prepicon(jg)%atm%qr        (nproma,nlev  ,nblks_c), &
-               prepicon(jg)%atm%qs        (nproma,nlev  ,nblks_c)  )
+      ALLOCATE(initicon(jg)%atm%vn        (nproma,nlev  ,nblks_e), &
+               initicon(jg)%atm%u         (nproma,nlev  ,nblks_c), &
+               initicon(jg)%atm%v         (nproma,nlev  ,nblks_c), &
+               initicon(jg)%atm%w         (nproma,nlevp1,nblks_c), &
+               initicon(jg)%atm%temp      (nproma,nlev  ,nblks_c), &
+               initicon(jg)%atm%exner     (nproma,nlev  ,nblks_c), &
+               initicon(jg)%atm%pres      (nproma,nlev  ,nblks_c), &
+               initicon(jg)%atm%rho       (nproma,nlev  ,nblks_c), &
+               initicon(jg)%atm%theta_v   (nproma,nlev  ,nblks_c), &
+               initicon(jg)%atm%qv        (nproma,nlev  ,nblks_c), &
+               initicon(jg)%atm%qc        (nproma,nlev  ,nblks_c), &
+               initicon(jg)%atm%qi        (nproma,nlev  ,nblks_c), &
+               initicon(jg)%atm%qr        (nproma,nlev  ,nblks_c), &
+               initicon(jg)%atm%qs        (nproma,nlev  ,nblks_c)  )
 
       ! Allocate surface output data
-      ALLOCATE(prepicon(jg)%sfc%tskin    (nproma,nblks_c             ), &
-               prepicon(jg)%sfc%sst      (nproma,nblks_c             ), &
-               prepicon(jg)%sfc%tsnow    (nproma,nblks_c             ), &
-               prepicon(jg)%sfc%snowalb  (nproma,nblks_c             ), &
-               prepicon(jg)%sfc%snowweq  (nproma,nblks_c             ), &
-               prepicon(jg)%sfc%snowdens (nproma,nblks_c             ), &
-               prepicon(jg)%sfc%skinres  (nproma,nblks_c             ), &
-               prepicon(jg)%sfc%ls_mask  (nproma,nblks_c             ), &
-               prepicon(jg)%sfc%seaice   (nproma,nblks_c             ), &
-               prepicon(jg)%sfc%tsoil    (nproma,nblks_c,0:nlev_soil ), &
-               prepicon(jg)%sfc%wsoil    (nproma,nblks_c,nlev_soil)     )
+      ALLOCATE(initicon(jg)%sfc%tskin    (nproma,nblks_c             ), &
+               initicon(jg)%sfc%sst      (nproma,nblks_c             ), &
+               initicon(jg)%sfc%tsnow    (nproma,nblks_c             ), &
+               initicon(jg)%sfc%snowalb  (nproma,nblks_c             ), &
+               initicon(jg)%sfc%snowweq  (nproma,nblks_c             ), &
+               initicon(jg)%sfc%snowdens (nproma,nblks_c             ), &
+               initicon(jg)%sfc%skinres  (nproma,nblks_c             ), &
+               initicon(jg)%sfc%ls_mask  (nproma,nblks_c             ), &
+               initicon(jg)%sfc%seaice   (nproma,nblks_c             ), &
+               initicon(jg)%sfc%tsoil    (nproma,nblks_c,0:nlev_soil ), &
+               initicon(jg)%sfc%wsoil    (nproma,nblks_c,nlev_soil)     )
 
 
     ENDDO ! loop over model domains
 
-  END SUBROUTINE allocate_prepicon
+  END SUBROUTINE allocate_initicon
 
   !-------------
   !>
-  !! SUBROUTINE deallocate_prepicon
-  !! Deallocates the components of the prepicon data type
+  !! SUBROUTINE deallocate_initicon
+  !! Deallocates the components of the initicon data type
   !!
   !! @par Revision History
   !! Initial version by Guenther Zaengl, DWD(2011-07-14)
   !!
   !!
-  SUBROUTINE deallocate_prepicon (prepicon)
+  SUBROUTINE deallocate_initicon (initicon)
 
-    TYPE(t_prepicon_state), INTENT(INOUT) :: prepicon(:)
+    TYPE(t_initicon_state), INTENT(INOUT) :: initicon(:)
 
     ! Local variables: loop control
     INTEGER :: jg
@@ -1970,75 +2001,75 @@ MODULE mo_prepicon_utils
     DO jg = 1, n_dom
 
       ! basic prep_icon data
-      DEALLOCATE(prepicon(jg)%topography_c,     &
-                 prepicon(jg)%topography_v,     &
-                 prepicon(jg)%z_ifc,            &
-                 prepicon(jg)%z_mc              )
+      DEALLOCATE(initicon(jg)%topography_c,     &
+                 initicon(jg)%topography_v,     &
+                 initicon(jg)%z_ifc,            &
+                 initicon(jg)%z_mc              )
 
       ! atmospheric input data
-      DEALLOCATE(prepicon(jg)%atm_in%psfc,    &
-                 prepicon(jg)%atm_in%phi_sfc, &
-                 prepicon(jg)%atm_in%pres,    &
-                 prepicon(jg)%atm_in%z3d,     &
-                 prepicon(jg)%atm_in%temp,    &
-                 prepicon(jg)%atm_in%u,       &
-                 prepicon(jg)%atm_in%v,       &
-                 prepicon(jg)%atm_in%w,       &
-                 prepicon(jg)%atm_in%omega,   &
-                 prepicon(jg)%atm_in%qv,      &
-                 prepicon(jg)%atm_in%qc,      &
-                 prepicon(jg)%atm_in%qi,      &
-                 prepicon(jg)%atm_in%qr,      &
-                 prepicon(jg)%atm_in%qs )
+      DEALLOCATE(initicon(jg)%atm_in%psfc,    &
+                 initicon(jg)%atm_in%phi_sfc, &
+                 initicon(jg)%atm_in%pres,    &
+                 initicon(jg)%atm_in%z3d,     &
+                 initicon(jg)%atm_in%temp,    &
+                 initicon(jg)%atm_in%u,       &
+                 initicon(jg)%atm_in%v,       &
+                 initicon(jg)%atm_in%w,       &
+                 initicon(jg)%atm_in%omega,   &
+                 initicon(jg)%atm_in%qv,      &
+                 initicon(jg)%atm_in%qc,      &
+                 initicon(jg)%atm_in%qi,      &
+                 initicon(jg)%atm_in%qr,      &
+                 initicon(jg)%atm_in%qs )
 
       ! surface input data
-      DEALLOCATE(prepicon(jg)%sfc_in%phi,      &
-                 prepicon(jg)%sfc_in%tskin,    &
-                 prepicon(jg)%sfc_in%sst,    &
-                 prepicon(jg)%sfc_in%tsnow,    &
-                 prepicon(jg)%sfc_in%snowalb,  &
-                 prepicon(jg)%sfc_in%snowweq,  &
-                 prepicon(jg)%sfc_in%snowdens, &
-                 prepicon(jg)%sfc_in%skinres,  &
-                 prepicon(jg)%sfc_in%ls_mask,  &
-                 prepicon(jg)%sfc_in%seaice,   &
-                 prepicon(jg)%sfc_in%tsoil,    &
-                 prepicon(jg)%sfc_in%wsoil     )
+      DEALLOCATE(initicon(jg)%sfc_in%phi,      &
+                 initicon(jg)%sfc_in%tskin,    &
+                 initicon(jg)%sfc_in%sst,    &
+                 initicon(jg)%sfc_in%tsnow,    &
+                 initicon(jg)%sfc_in%snowalb,  &
+                 initicon(jg)%sfc_in%snowweq,  &
+                 initicon(jg)%sfc_in%snowdens, &
+                 initicon(jg)%sfc_in%skinres,  &
+                 initicon(jg)%sfc_in%ls_mask,  &
+                 initicon(jg)%sfc_in%seaice,   &
+                 initicon(jg)%sfc_in%tsoil,    &
+                 initicon(jg)%sfc_in%wsoil     )
 
 
 
       ! atmospheric output data
-      DEALLOCATE(prepicon(jg)%atm%vn,      &
-                 prepicon(jg)%atm%u,       &
-                 prepicon(jg)%atm%v,       &
-                 prepicon(jg)%atm%w,       &
-                 prepicon(jg)%atm%temp,    &
-                 prepicon(jg)%atm%exner,   &
-                 prepicon(jg)%atm%pres,    &  
-                 prepicon(jg)%atm%rho,     &
-                 prepicon(jg)%atm%theta_v, &
-                 prepicon(jg)%atm%qv,      &
-                 prepicon(jg)%atm%qc,      &
-                 prepicon(jg)%atm%qi,      &
-                 prepicon(jg)%atm%qr,      &
-                 prepicon(jg)%atm%qs       )
+      DEALLOCATE(initicon(jg)%atm%vn,      &
+                 initicon(jg)%atm%u,       &
+                 initicon(jg)%atm%v,       &
+                 initicon(jg)%atm%w,       &
+                 initicon(jg)%atm%temp,    &
+                 initicon(jg)%atm%exner,   &
+                 initicon(jg)%atm%pres,    &  
+                 initicon(jg)%atm%rho,     &
+                 initicon(jg)%atm%theta_v, &
+                 initicon(jg)%atm%qv,      &
+                 initicon(jg)%atm%qc,      &
+                 initicon(jg)%atm%qi,      &
+                 initicon(jg)%atm%qr,      &
+                 initicon(jg)%atm%qs       )
 
       ! surface output data
-      DEALLOCATE(prepicon(jg)%sfc%tskin,    &
-                 prepicon(jg)%sfc%sst,      &
-                 prepicon(jg)%sfc%tsnow,    &
-                 prepicon(jg)%sfc%snowalb,  &
-                 prepicon(jg)%sfc%snowweq,  &
-                 prepicon(jg)%sfc%snowdens, &
-                 prepicon(jg)%sfc%skinres,  &
-                 prepicon(jg)%sfc%ls_mask,  &
-                 prepicon(jg)%sfc%seaice,   &
-                 prepicon(jg)%sfc%tsoil,    &
-                 prepicon(jg)%sfc%wsoil     )
+      DEALLOCATE(initicon(jg)%sfc%tskin,    &
+                 initicon(jg)%sfc%sst,      &
+                 initicon(jg)%sfc%tsnow,    &
+                 initicon(jg)%sfc%snowalb,  &
+                 initicon(jg)%sfc%snowweq,  &
+                 initicon(jg)%sfc%snowdens, &
+                 initicon(jg)%sfc%skinres,  &
+                 initicon(jg)%sfc%ls_mask,  &
+                 initicon(jg)%sfc%seaice,   &
+                 initicon(jg)%sfc%tsoil,    &
+                 initicon(jg)%sfc%wsoil     )
 
     ENDDO ! loop over model domains
 
-  END SUBROUTINE deallocate_prepicon
+  END SUBROUTINE deallocate_initicon
 
-END MODULE mo_prepicon_utils
+END MODULE mo_nh_initicon
 

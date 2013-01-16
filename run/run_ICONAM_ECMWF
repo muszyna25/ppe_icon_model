@@ -195,14 +195,11 @@ cat > ${EXPDIR}/${atmo_namelist} << EOF
  lredgrid_phys           = .false.
  lfeedback               = .false.
 /
-&prepicon_nml
-  i_oper_mode = 3           ! operation mode
+&initicon_nml
+  init_mode   = 2           ! initialization mode
   nlev_in     = 91          ! number of levels of input data
   zpbl1       = 500.        ! stable BL shifting when interpolated
   zpbl2       = 1000.       ! -"-
-  l_zp_out    = .false.
-  l_w_in      = .true.      ! omega input (still tested)
-  l_sfc_in    = .true.      ! needed for surface model
 /
 &nh_testcase_nml
 /
