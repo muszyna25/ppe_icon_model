@@ -183,8 +183,8 @@ CONTAINS
       DO jk = slev, elev
         DO jc =  i_startidx_c, i_endidx_c
 
-          !IF ( v_base%lsm_oce_c(jc,jk,jb) > sea_boundary ) THEN
-          IF(p_patch_3D%lsm_oce_c(jc,jk,jb) > sea_boundary)THEN
+          !IF ( v_base%lsm_c(jc,jk,jb) > sea_boundary ) THEN
+          IF(p_patch_3D%lsm_c(jc,jk,jb) > sea_boundary)THEN
             p_diag%kin(jc,jk,jb) = 0.0_wp
           ELSE
             p_diag%kin(jc,jk,jb) = 0.5_wp * &
@@ -278,8 +278,8 @@ CONTAINS
 
         edge_idx_loop: DO je =  i_startidx_e, i_endidx_e
 
-          !IF (v_base%lsm_oce_e(je,jk,jb) <= sea_boundary) THEN
-          IF (p_patch_3D%lsm_oce_e(je,jk,jb) <= sea_boundary) THEN
+          !IF (v_base%lsm_e(je,jk,jb) <= sea_boundary) THEN
+          IF (p_patch_3D%lsm_e(je,jk,jb) <= sea_boundary) THEN
             !Get indices of two adjacent vertices
             il_v1 = p_patch%edges%vertex_idx(je,jb,1)
             ib_v1 = p_patch%edges%vertex_blk(je,jb,1)
@@ -300,7 +300,7 @@ CONTAINS
 
           ELSE
             vort_flux(je,jk,jb)= 0.0_wp
-          ENDIF ! (v_base%lsm_oce_e(je,jk,jb) <= sea_boundary)
+          ENDIF ! (v_base%lsm_e(je,jk,jb) <= sea_boundary)
         END DO edge_idx_loop
       END DO level_loop
     END DO ! jb = all_edges%start_block, all_edges%end_block
@@ -358,7 +358,7 @@ CONTAINS
 
         edge_idx_loop: DO je =  i_startidx_e, i_endidx_e
 
-          IF (p_patch_3D%lsm_oce_e(je,jk,jb) <= sea_boundary) THEN
+          IF (p_patch_3D%lsm_e(je,jk,jb) <= sea_boundary) THEN
 
           ictr                = 0
           vort_flux(je,jk,jb) = 0.0_wp 
@@ -387,7 +387,7 @@ CONTAINS
           END DO
           ELSE
             vort_flux(je,jk,jb)= 0.0_wp
-          ENDIF ! (v_base%lsm_oce_e(je,jk,jb) <= sea_boundary)
+          ENDIF ! (v_base%lsm_e(je,jk,jb) <= sea_boundary)
 
         END DO edge_idx_loop
       END DO level_loop
@@ -949,8 +949,8 @@ CONTAINS
       level_loop_e: DO jk = slev, elev
         edge_idx_loop: DO je =  i_startidx_e, i_endidx_e
           
-          !IF(v_base%lsm_oce_e(je,jk,jb) <= sea_boundary)THEN
-          IF(p_patch_3D%lsm_oce_e(je,jk,jb) <= sea_boundary)THEN
+          !IF(v_base%lsm_e(je,jk,jb) <= sea_boundary)THEN
+          IF(p_patch_3D%lsm_e(je,jk,jb) <= sea_boundary)THEN
 
             !Get indices of two adjacent triangles
             il_c1 = p_patch%edges%cell_idx(je,jb,1)
@@ -1021,8 +1021,8 @@ CONTAINS
       CALL get_index_range(edges_in_domain, jb, i_startidx_e, i_endidx_e)          
       edge_idx_loop: DO je =  i_startidx_e, i_endidx_e
 
-        !IF(v_base%lsm_oce_e(je,level,jb) <= sea_boundary)THEN
-        IF(p_patch_3D%lsm_oce_e(je,level,jb) <= sea_boundary)THEN
+        !IF(v_base%lsm_e(je,level,jb) <= sea_boundary)THEN
+        IF(p_patch_3D%lsm_e(je,level,jb) <= sea_boundary)THEN
           !Get indices of two adjacent triangles
           il_c1 = p_patch%edges%cell_idx(je,jb,1)
           ib_c1 = p_patch%edges%cell_blk(je,jb,1)
@@ -1087,8 +1087,8 @@ CONTAINS
       
       edge_idx_loop: DO je =  i_startidx_e, i_endidx_e
         
-        !IF(v_base%lsm_oce_e(je,1,jb) < sea_boundary)THEN
-        IF(p_patch_3D%lsm_oce_e(je,1,jb) <= sea_boundary)THEN          
+        !IF(v_base%lsm_e(je,1,jb) < sea_boundary)THEN
+        IF(p_patch_3D%lsm_e(je,1,jb) <= sea_boundary)THEN          
           !Get indices of two adjacent triangles
           il_c1 = p_patch%edges%cell_idx(je,jb,1)
           ib_c1 = p_patch%edges%cell_blk(je,jb,1)
@@ -1310,7 +1310,7 @@ CONTAINS
 !       level_loop_e: DO jk = slev, elev
 !         edge_idx_loop: DO je =  i_startidx_e, i_endidx_e
 !           
-!           IF(v_base%lsm_oce_e(je,jk,jb) <= sea_boundary)THEN
+!           IF(v_base%lsm_e(je,jk,jb) <= sea_boundary)THEN
 !             
 !             !Get indices of two adjacent triangles
 !             il_c1 = p_patch%edges%cell_idx(je,jb,1)
@@ -1379,7 +1379,7 @@ CONTAINS
 !       CALL get_index_range(edges_in_domain, jb, i_startidx_e, i_endidx_e)          
 !       edge_idx_loop: DO je =  i_startidx_e, i_endidx_e
 ! 
-!         IF(v_base%lsm_oce_e(je,level,jb) <= sea_boundary)THEN
+!         IF(v_base%lsm_e(je,level,jb) <= sea_boundary)THEN
 ! 
 !           !Get indices of two adjacent triangles
 !           il_c1 = p_patch%edges%cell_idx(je,jb,1)
@@ -1477,7 +1477,7 @@ CONTAINS
 !               
 !               il_e = p_patch%cells%edge_idx(jc,jb,ie)
 !               ib_e = p_patch%cells%edge_blk(jc,jb,ie)
-!               !IF(v_base%lsm_oce_e(il_e,jk,ib_e) <= sea_boundary)THEN
+!               !IF(v_base%lsm_e(il_e,jk,ib_e) <= sea_boundary)THEN
 !               z_thick_e = v_base%del_zlev_m(slev) + h_e(il_e,ib_e)
 !               z_weight = z_weight + p_int_state(1)%variable_vol_norm(jc,jb,ie) * z_thick_e
 !               !ENDIF
@@ -1485,7 +1485,7 @@ CONTAINS
 !                 & + p_int_state(1)%edge2cell_coeff_cc(jc,jb,ie)%x &
 !                 & * vn_e(il_e,jk,ib_e)* z_thick_e
 !             END DO
-!             IF ( z_weight/=0.0_wp) THEN!v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary)THEN
+!             IF ( z_weight/=0.0_wp) THEN!v_base%lsm_c(jc,jk,jb) <= sea_boundary)THEN
 !               p_vn_c(jc,jk,jb)%x = p_vn_c(jc,jk,jb)%x / z_weight
 !             ELSE
 !               p_vn_c(jc,jk,jb)%x=0.0_wp
@@ -1507,7 +1507,7 @@ CONTAINS
 !             
 !             il_e = p_patch%cells%edge_idx(jc,jb,ie)
 !             ib_e = p_patch%cells%edge_blk(jc,jb,ie)
-!             !IF(v_base%lsm_oce_e(il_e,jk,ib_e) <= sea_boundary)THEN
+!             !IF(v_base%lsm_e(il_e,jk,ib_e) <= sea_boundary)THEN
 !             z_thick_e = v_base%del_zlev_m(slev) + h_e(il_e,ib_e)
 !             z_weight = z_weight + p_int_state(1)%variable_vol_norm(jc,jb,ie) * z_thick_e
 !             !ENDIF
@@ -1607,7 +1607,7 @@ CONTAINS
 ! 
 !             il_e = p_patch%cells%edge_idx(jc,jb,ie)
 !             ib_e = p_patch%cells%edge_blk(jc,jb,ie)
-!             !IF(v_base%lsm_oce_e(il_e,jk,ib_e) <= sea_boundary)THEN
+!             !IF(v_base%lsm_e(il_e,jk,ib_e) <= sea_boundary)THEN
 !             z_thick_e = v_base%del_zlev_m(level) + h_e(il_e,ib_e)
 !             z_weight = z_weight + p_int_state(1)%variable_vol_norm(jc,jb,ie) * z_thick_e
 !             !ENDIF
@@ -1617,7 +1617,7 @@ CONTAINS
 ! 
 !           END DO ! ie=1, no_cell_edges
 ! 
-!           IF ( z_weight/=0.0_wp) THEN!v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary)THEN
+!           IF ( z_weight/=0.0_wp) THEN!v_base%lsm_c(jc,jk,jb) <= sea_boundary)THEN
 !             p_vn_c(jc,jb)%x = p_vn_c(jc,jb)%x / z_weight
 !           ELSE
 !             p_vn_c(jc,jb)%x=0.0_wp
@@ -1639,7 +1639,7 @@ CONTAINS
 !             
 !             il_e = p_patch%cells%edge_idx(jc,jb,ie)
 !             ib_e = p_patch%cells%edge_blk(jc,jb,ie)
-!             !IF(v_base%lsm_oce_e(il_e,jk,ib_e) <= sea_boundary)THEN
+!             !IF(v_base%lsm_e(il_e,jk,ib_e) <= sea_boundary)THEN
 !             z_thick_e = v_base%del_zlev_m(level) + h_e(il_e,ib_e)
 !             z_weight = z_weight + p_int_state(1)%variable_vol_norm(jc,jb,ie) * z_thick_e
 !             !ENDIF
@@ -1921,7 +1921,7 @@ CONTAINS
 !               zu_cc2(il_c1,ib_c1)%x = zu_cc(il_c1,ib_c1)%x * h_c(il_c1,ib_c1)
 !               zu_cc2(il_c2,ib_c2)%x = zu_cc(il_c2,ib_c2)%x * h_c(il_c2,ib_c2)
 !               
-!               IF (v_base%lsm_oce_e(je,jk,jb) <= sea_boundary)THEN
+!               IF (v_base%lsm_e(je,jk,jb) <= sea_boundary)THEN
 !                 vn_e(je,jk,jb) = &
 !                   &   DOT_PRODUCT(zu_cc2(il_c1,ib_c1)%x, &
 !                   &               p_int_state(1)%edge2cell_coeff_cc_t(je,jb,1)%x) &
@@ -1940,7 +1940,7 @@ CONTAINS
 !               ! ENDIF
 !             ELSEIF (.NOT.PRESENT(h_c)) THEN
 !               
-!               IF (v_base%lsm_oce_e(je,jk,jb) <= sea_boundary) THEN
+!               IF (v_base%lsm_e(je,jk,jb) <= sea_boundary) THEN
 !                 vn_e(je,jk,jb) = &
 !                   & DOT_PRODUCT(zu_cc(il_c1,ib_c1)%x,&
 !                   & p_int_state(1)%edge2cell_coeff_cc_t(je,jb,1)%x)&
@@ -1957,7 +1957,7 @@ CONTAINS
 !               ! ENDIF
 !             ENDIF
 !           ELSEIF ( jk > 1 ) THEN
-!             IF(v_base%lsm_oce_e(je,jk,jb) <= sea_boundary)THEN
+!             IF(v_base%lsm_e(je,jk,jb) <= sea_boundary)THEN
 !               vn_e(je,jk,jb) =&
 !                 &   DOT_PRODUCT(zu_cc(il_c1,ib_c1)%x, &
 !                 &               p_int_state(1)%edge2cell_coeff_cc_t(je,jb,1)%x) &
@@ -2041,7 +2041,7 @@ CONTAINS
 !   ! !   LEVEL_LOOP_E: DO jk = slev, elev
 !   ! !     EDGE_IDX_LOOP: DO je =  i_startidx_e, i_endidx_e
 !   ! !
-!   ! !       IF(v_base%lsm_oce_e(je,jk,jb) <= sea_boundary)THEN
+!   ! !       IF(v_base%lsm_e(je,jk,jb) <= sea_boundary)THEN
 !   ! !
 !   ! !         !Get indices of two adjacent triangles
 !   ! !         il_c1 = p_patch%edges%cell_idx(je,jb,1)
@@ -2150,7 +2150,7 @@ CONTAINS
 !   ! !   LEVEL_LOOP_E: DO jk = slev, elev
 !   ! !     EDGE_IDX_LOOP: DO je =  i_startidx_e, i_endidx_e
 !   ! !
-!   ! !       IF(v_base%lsm_oce_e(je,jk,jb) <= sea_boundary)THEN
+!   ! !       IF(v_base%lsm_e(je,jk,jb) <= sea_boundary)THEN
 !   ! !
 !   ! !         !Get indices of two adjacent triangles
 !   ! !         il_c1 = p_patch%edges%cell_idx(je,jb,1)
@@ -2285,7 +2285,7 @@ CONTAINS
 !   !              ENDIF
 !   !            ENDIF
 !   !
-!   !            IF ( v_base%lsm_oce_e(il_e,jk,ib_e) <= sea_boundary ) THEN
+!   !            IF ( v_base%lsm_e(il_e,jk,ib_e) <= sea_boundary ) THEN
 !   !              z_weight = z_weight + p_int_state(1)%variable_dual_vol_norm(jv,jb,ie)*z_thick
 !   !              u_v_cc(jv,jb)%x = u_v_cc(jv,jb)%x +                                  &
 !   !              &                 p_int_state(1)%edge2vert_coeff_cc(jv,jb,ie)%x * &
@@ -2331,7 +2331,7 @@ CONTAINS
 !   !         il_v2 = p_patch%edges%vertex_idx(je,jb,2)
 !   !         ib_v2 = p_patch%edges%vertex_blk(je,jb,2)
 !   !
-!   ! !        IF(v_base%lsm_oce_e(je,jk,jb) <= sea_boundary)THEN
+!   ! !        IF(v_base%lsm_e(je,jk,jb) <= sea_boundary)THEN
 !   !           vn_out_e(je,jk,jb) = &
 !   !    &- DOT_PRODUCT(u_v_cc(il_v2,ib_v2)%x,p_int_state(1)%edge2vert_coeff_cc_t(je,jb,2)%x)&
 !   !    &+ DOT_PRODUCT(u_v_cc(il_v1,ib_v1)%x,p_int_state(1)%edge2vert_coeff_cc_t(je,jb,1)%x)
@@ -2429,7 +2429,7 @@ CONTAINS
 ! !         
 ! !         edge_idx_loop: DO je =  i_startidx_e, i_endidx_e
 ! !           
-! !           IF(v_base%lsm_oce_e(je,jk,jb) <= sea_boundary)THEN
+! !           IF(v_base%lsm_e(je,jk,jb) <= sea_boundary)THEN
 ! !             
 ! !             !Get indices of two adjacent vertices
 ! !             il_v1 = p_patch%edges%vertex_idx(je,jb,1)
@@ -2455,7 +2455,7 @@ CONTAINS
 ! !                 ENDIF
 ! !               ENDIF
 ! !               
-! !               IF ( v_base%lsm_oce_e(il_e,jk,ib_e) < sea_boundary ) THEN
+! !               IF ( v_base%lsm_e(il_e,jk,ib_e) < sea_boundary ) THEN
 ! !                 i_v1_ctr=i_v1_ctr+1
 ! !                 !              z_weight = z_weight + p_int_state(1)%variable_dual_vol_norm(il_v1,ib_v1,ie)!*z_thick
 ! !                 !            ELSE
@@ -2490,7 +2490,7 @@ CONTAINS
 ! !                 ENDIF
 ! !               ENDIF
 ! !               
-! !               IF ( v_base%lsm_oce_e(il_e,jk,ib_e)  < sea_boundary ) THEN
+! !               IF ( v_base%lsm_e(il_e,jk,ib_e)  < sea_boundary ) THEN
 ! !                 i_v2_ctr=i_v2_ctr+1
 ! !                 !              z_weight = z_weight + p_int_state(1)%variable_dual_vol_norm(il_v2,ib_v2,ie)!*z_thick
 ! !                 !            ELSE
@@ -2902,7 +2902,7 @@ CONTAINS
 ! !         
 ! !         edge_idx_loop: DO je =  i_startidx_e, i_endidx_e
 ! !           
-! !           IF(v_base%lsm_oce_e(je,jk,jb) <= sea_boundary)THEN
+! !           IF(v_base%lsm_e(je,jk,jb) <= sea_boundary)THEN
 ! !             
 ! !             !Get indices of two adjacent vertices
 ! !             il_v1 = p_patch%edges%vertex_idx(je,jb,1)
@@ -2928,7 +2928,7 @@ CONTAINS
 ! !                 !ENDIF
 ! !               ENDIF
 ! !               
-! !               IF ( v_base%lsm_oce_e(il_e,jk,ib_e) < sea_boundary ) THEN
+! !               IF ( v_base%lsm_e(il_e,jk,ib_e) < sea_boundary ) THEN
 ! !                 i_v1_ctr=i_v1_ctr+1
 ! !                 !              z_weight = z_weight + p_int_state(1)%variable_dual_vol_norm(il_v1,ib_v1,ie)!*z_thick
 ! !                 !            ELSE
@@ -2968,7 +2968,7 @@ CONTAINS
 ! !                 !ENDIF
 ! !               ENDIF
 ! !               
-! !               IF ( v_base%lsm_oce_e(il_e,jk,ib_e)  < sea_boundary ) THEN
+! !               IF ( v_base%lsm_e(il_e,jk,ib_e)  < sea_boundary ) THEN
 ! !                 i_v2_ctr=i_v2_ctr+1
 ! !                 !              z_weight = z_weight + p_int_state(1)%variable_dual_vol_norm(il_v2,ib_v2,ie)!*z_thick
 ! !                 !            ELSE
@@ -3388,7 +3388,7 @@ CONTAINS
 !   ! !
 !   ! !         !Check, if edge is sea or boundary edge and take care of dummy edge
 !   ! !         ! edge with indices ile, ibe is sea edge
-!   ! !         IF ( v_base%lsm_oce_e(ile,jk,ibe) <= sea_boundary ) THEN
+!   ! !         IF ( v_base%lsm_e(ile,jk,ibe) <= sea_boundary ) THEN
 !   ! !
 !   ! !           !Distinguish the following cases
 !   ! !           ! edge ie_k is
@@ -3417,7 +3417,7 @@ CONTAINS
 !   ! !           i_v_ctr(jv,jk,jb)=i_v_ctr(jv,jk,jb)+1
 !   ! !
 !   ! ! !         ! edge with indices ile, ibe is boundary edge
-!   ! !          ELSE IF ( v_base%lsm_oce_e(ile,jk,ibe) == boundary ) THEN
+!   ! !          ELSE IF ( v_base%lsm_e(ile,jk,ibe) == boundary ) THEN
 !   ! !
 !   ! !            !increase boundary edge counter
 !   ! !            i_bdr_ctr=i_bdr_ctr+1
@@ -3472,13 +3472,13 @@ CONTAINS
 !   ! !           !Check, if edge is sea or boundary edge and take care of dummy edge
 !   ! !           ! edge with indices ile, ibe is sea edge
 !   ! !           !Add up for wet dual area.
-!   ! !           IF ( v_base%lsm_oce_e(ile,jk,ibe) <= sea_boundary ) THEN
+!   ! !           IF ( v_base%lsm_e(ile,jk,ibe) <= sea_boundary ) THEN
 !   ! !
 !   ! !            zarea_fraction = zarea_fraction  &
 !   ! !               &     + re*re*triangle_area(cell1_cc, vertex_cc, cell2_cc)
 !   ! !
 !   ! !           ! edge with indices ile, ibe is boundary edge
-!   ! !           ELSE IF ( v_base%lsm_oce_e(ile,jk,ibe) == boundary ) THEN
+!   ! !           ELSE IF ( v_base%lsm_e(ile,jk,ibe) == boundary ) THEN
 !   ! !
 !   ! !            zarea_fraction = zarea_fraction  &
 !   ! !               &  + 0.5_wp*re*re*triangle_area(cell1_cc, vertex_cc, cell2_cc)
@@ -3512,7 +3512,7 @@ CONTAINS
 !   ! !
 !   ! !       EDGE_IDX_LOOP: DO je =  i_startidx_e, i_endidx_e
 !   ! !
-!   ! !         IF(v_base%lsm_oce_e(je,jk,jb) <= sea_boundary)THEN
+!   ! !         IF(v_base%lsm_e(je,jk,jb) <= sea_boundary)THEN
 !   ! !
 !   ! !           !Get indices of two adjacent vertices
 !   ! !           il_v1 = p_patch%edges%vertex_idx(je,jb,1)

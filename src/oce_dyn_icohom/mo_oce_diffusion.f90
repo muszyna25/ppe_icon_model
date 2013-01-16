@@ -237,8 +237,8 @@ SUBROUTINE veloc_diff_harmonic_div_grad( p_patch_3D, p_param, p_diag,&
 
     DO jk = slev, elev
       DO je = i_startidx_e, i_endidx_e
-        !IF ( v_base%lsm_oce_e(je,jk,jb) <= sea_boundary ) THEN
-        IF (p_patch_3D%lsm_oce_e(je,jk,jb) <= sea_boundary) THEN
+        !IF ( v_base%lsm_e(je,jk,jb) <= sea_boundary ) THEN
+        IF (p_patch_3D%lsm_e(je,jk,jb) <= sea_boundary) THEN
           !Get indices of two adjacent triangles
           il_c1 = p_patch%edges%cell_idx(je,jb,1)
           ib_c1 = p_patch%edges%cell_blk(je,jb,1)
@@ -270,8 +270,8 @@ SUBROUTINE veloc_diff_harmonic_div_grad( p_patch_3D, p_param, p_diag,&
     DO jk = slev, elev
       DO jc = i_startidx_c, i_endidx_c
 
-         !IF ( v_base%lsm_oce_c(jc,jk,jb) >= boundary ) THEN
-         IF (p_patch_3D%lsm_oce_c(jc,jk,jb) >= boundary) THEN
+         !IF ( v_base%lsm_c(jc,jk,jb) >= boundary ) THEN
+         IF (p_patch_3D%lsm_c(jc,jk,jb) >= boundary) THEN
            z_div_grad_u(jc,jk,jb)%x = 0.0_wp
          ELSE
           z_div_grad_u(jc,jk,jb)%x =  &
@@ -378,8 +378,8 @@ SUBROUTINE veloc_diff_biharmonic_div_grad( p_patch_3D, p_param, p_diag,&
     DO jk = slev, elev
       DO je = i_startidx_e, i_endidx_e
 
-      !IF ( v_base%lsm_oce_e(je,jk,jb) <= sea_boundary ) THEN
-      IF (p_patch_3D%lsm_oce_e(je,jk,jb) <= sea_boundary) THEN
+      !IF ( v_base%lsm_e(je,jk,jb) <= sea_boundary ) THEN
+      IF (p_patch_3D%lsm_e(je,jk,jb) <= sea_boundary) THEN
         !Get indices of two adjacent triangles
         il_c1 = p_patch%edges%cell_idx(je,jb,1)
         ib_c1 = p_patch%edges%cell_blk(je,jb,1)
@@ -410,8 +410,8 @@ SUBROUTINE veloc_diff_biharmonic_div_grad( p_patch_3D, p_param, p_diag,&
     DO jk = slev, elev
       DO jc = i_startidx_c, i_endidx_c
 
-         !IF ( v_base%lsm_oce_c(jc,jk,jb) >= boundary ) THEN
-         IF (p_patch_3D%lsm_oce_c(jc,jk,jb) >= boundary) THEN
+         !IF ( v_base%lsm_c(jc,jk,jb) >= boundary ) THEN
+         IF (p_patch_3D%lsm_c(jc,jk,jb) >= boundary) THEN
            z_div_grad_u(jc,jk,jb)%x = 0.0_wp
          ELSE
           z_div_grad_u(jc,jk,jb)%x =  &
@@ -437,8 +437,8 @@ SUBROUTINE veloc_diff_biharmonic_div_grad( p_patch_3D, p_param, p_diag,&
     DO jk = slev, elev
       DO je = i_startidx_e, i_endidx_e
 
-      !IF ( v_base%lsm_oce_e(je,jk,jb) <= sea_boundary ) THEN
-      IF (p_patch_3D%lsm_oce_e(je,jk,jb) <= sea_boundary) THEN
+      !IF ( v_base%lsm_e(je,jk,jb) <= sea_boundary ) THEN
+      IF (p_patch_3D%lsm_e(je,jk,jb) <= sea_boundary) THEN
         !Get indices of two adjacent triangles
         il_c1 = p_patch%edges%cell_idx(je,jb,1)
         ib_c1 = p_patch%edges%cell_blk(je,jb,1)
@@ -470,8 +470,8 @@ SUBROUTINE veloc_diff_biharmonic_div_grad( p_patch_3D, p_param, p_diag,&
     DO jk = slev, elev
       DO jc = i_startidx_c, i_endidx_c
 
-         !IF ( v_base%lsm_oce_c(jc,jk,jb) >= boundary ) THEN
-         IF (p_patch_3D%lsm_oce_c(jc,jk,jb) >= boundary) THEN
+         !IF ( v_base%lsm_c(jc,jk,jb) >= boundary ) THEN
+         IF (p_patch_3D%lsm_c(jc,jk,jb) >= boundary) THEN
            z_div_grad_u(jc,jk,jb)%x = 0.0_wp
          ELSE
           z_div_grad_u(jc,jk,jb)%x =  &
@@ -564,7 +564,7 @@ END SUBROUTINE veloc_diff_biharmonic_div_grad
       DO je = i_startidx, i_endidx
         DO jk = slev, elev
 
-          !IF(v_base%lsm_oce_e(je,jk,jb) < land_boundary)THEN
+          !IF(v_base%lsm_e(je,jk,jb) < land_boundary)THEN
           nabla2_vec_e(je,jk,jb) = p_patch_3D%wet_e(je,jk,jb)*&    !v_base%wet_e(je,jk,jb)*&
             &k_h(je,jk,jb)*(   &
             & p_patch%edges%system_orientation(je,jb) *     &
@@ -670,7 +670,7 @@ END SUBROUTINE veloc_diff_biharmonic_div_grad
 !       DO je = i_startidx, i_endidx
 !         DO jk = slev, elev
 !           !DO je = i_startidx, i_endidx
-!           !IF(v_base%lsm_oce_e(je,jk,jb) < land_boundary)THEN
+!           !IF(v_base%lsm_e(je,jk,jb) < land_boundary)THEN
 !           z_nabla2_e(je,jk,jb) =  &
 !             & v_base%wet_e(je,jk,jb)*     &
 !             & (p_patch%edges%system_orientation(je,jb) *  &
@@ -768,7 +768,7 @@ END SUBROUTINE veloc_diff_biharmonic_div_grad
 ! !         il_c2 = p_patch%edges%cell_idx(je,jb,2)
 ! !         ib_c2 = p_patch%edges%cell_blk(je,jb,2)
 ! ! 
-! !         IF ( v_base%lsm_oce_e(je,jk,jb) <= sea_boundary ) THEN
+! !         IF ( v_base%lsm_e(je,jk,jb) <= sea_boundary ) THEN
 ! ! 
 ! !           laplacian_vn_out(je,jk,jb) = p_param%K_veloc_h(je,jk,jb)*laplacian_vn_out(je,jk,jb)
 ! !         ENDIF
@@ -949,8 +949,8 @@ END SUBROUTINE velocity_diffusion_vert_mimetic
 ! !     DO jb = all_cells%start_block, all_cells%end_block
 ! !       CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
 ! !       DO jc = i_startidx_c, i_endidx_c
-! !       !IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
-! !       IF (p_patch_3D%lsm_oce_c(jc,jk,jb) <= sea_boundary) THEN
+! !       !IF ( v_base%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
+! !       IF (p_patch_3D%lsm_c(jc,jk,jb) <= sea_boundary) THEN
 ! !         !1a) 0cean surface
 ! !         !check if we have at least two layers of water
 ! !        !IF (v_base%dolic_c(jc,jb) >= 2) THEN
@@ -1065,8 +1065,8 @@ SUBROUTINE tracer_diffusion_horz(p_patch_3D, trac_in, p_os, K_T, diff_flx, subse
       jk=1
       DO je = i_startidx_e, i_endidx_e
 
-        !IF ( v_base%lsm_oce_e(je,jk,jb) <= sea_boundary ) THEN
-        IF (p_patch_3D%lsm_oce_e(je,jk,jb) <= sea_boundary) THEN
+        !IF ( v_base%lsm_e(je,jk,jb) <= sea_boundary ) THEN
+        IF (p_patch_3D%lsm_e(je,jk,jb) <= sea_boundary) THEN
           !Get indices of two adjacent triangles
           il_c1 = p_patch%edges%cell_idx(je,jb,1)
           ib_c1 = p_patch%edges%cell_blk(je,jb,1)
@@ -1087,8 +1087,8 @@ SUBROUTINE tracer_diffusion_horz(p_patch_3D, trac_in, p_os, K_T, diff_flx, subse
 
         DO je = i_startidx_e, i_endidx_e
 
-          !IF ( v_base%lsm_oce_e(je,jk,jb) <= sea_boundary ) THEN
-          IF (p_patch_3D%lsm_oce_e(je,jk,jb) <= sea_boundary) THEN
+          !IF ( v_base%lsm_e(je,jk,jb) <= sea_boundary ) THEN
+          IF (p_patch_3D%lsm_e(je,jk,jb) <= sea_boundary) THEN
             !Get indices of two adjacent triangles
             il_c1 = p_patch%edges%cell_idx(je,jb,1)
             ib_c1 = p_patch%edges%cell_blk(je,jb,1)
@@ -1108,8 +1108,8 @@ SUBROUTINE tracer_diffusion_horz(p_patch_3D, trac_in, p_os, K_T, diff_flx, subse
       CALL get_index_range(edges_in_domain, jb, i_startidx_e, i_endidx_e)
       DO jk = slev, elev
         DO je = i_startidx_e, i_endidx_e
-          !IF ( v_base%lsm_oce_e(je,jk,jb) <= sea_boundary ) THEN
-          IF (p_patch_3D%lsm_oce_e(je,jk,jb) <= sea_boundary) THEN
+          !IF ( v_base%lsm_e(je,jk,jb) <= sea_boundary ) THEN
+          IF (p_patch_3D%lsm_e(je,jk,jb) <= sea_boundary) THEN
 
           !Get indices of two adjacent triangles
           il_c1 = p_patch%edges%cell_idx(je,jb,1)
@@ -1275,7 +1275,7 @@ END SUBROUTINE tracer_diffusion_vert_expl
 !     DO jc = i_startidx_c, i_endidx_c
 !       z_dolic = v_base%dolic_c(jc,jb)
 ! 
-!       IF ( v_base%lsm_oce_c(jc,1,jb) <= sea_boundary ) THEN 
+!       IF ( v_base%lsm_c(jc,1,jb) <= sea_boundary ) THEN 
 !         IF ( z_dolic >=MIN_DOLIC ) THEN
 ! 
 !           inv_zinv_i(:) = 1.0_wp/v_base%del_zlev_i(:)
@@ -1336,7 +1336,7 @@ END SUBROUTINE tracer_diffusion_vert_expl
 !           diff_column(jc,:,jb) = 0.0_wp
 !           field_column(jc,:,jb)= 0.0_wp
 !         ENDIF
-!       ELSEIF( v_base%lsm_oce_c(jc,1,jb) > sea_boundary ) THEN
+!       ELSEIF( v_base%lsm_c(jc,1,jb) > sea_boundary ) THEN
 !         diff_column(jc,:,jb) = field_column(jc,:,jb)
 !       ENDIF
 ! 
@@ -1404,8 +1404,8 @@ SUBROUTINE tracer_diffusion_vert_impl_hom( p_patch_3D,   &
     DO jc = i_startidx_c, i_endidx_c
       z_dolic = p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)  !v_base%dolic_c(jc,jb)
 
-      !IF ( v_base%lsm_oce_c(jc,1,jb) <= sea_boundary ) THEN 
-      IF (p_patch_3D%lsm_oce_c(jc,1,jb) <= sea_boundary) THEN
+      !IF ( v_base%lsm_c(jc,1,jb) <= sea_boundary ) THEN 
+      IF (p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary) THEN
         IF ( z_dolic >=MIN_DOLIC ) THEN
 
           !field_column(jc,1:z_dolic,jb)=field_column(jc,1:z_dolic,jb)*dt_inv
@@ -1447,7 +1447,7 @@ SUBROUTINE tracer_diffusion_vert_impl_hom( p_patch_3D,   &
         !  diff_column(jc,:,jb) = 0.0_wp
         !  field_column(jc,:,jb)= 0.0_wp
         ENDIF
-      !ELSEIF( v_base%lsm_oce_c(jc,1,jb) > sea_boundary ) THEN
+      !ELSEIF( v_base%lsm_c(jc,1,jb) > sea_boundary ) THEN
       !  diff_column(jc,1:z_dolic,jb) = field_column(jc,1:z_dolic,jb)
       ENDIF
     END DO
@@ -1519,8 +1519,8 @@ SUBROUTINE veloc_diffusion_vert_impl_hom( p_patch_3D,    &
     DO je = i_startidx, i_endidx
       z_dolic = p_patch_3D%p_patch_1D(1)%dolic_e(je,jb)!!v_base%dolic_e(je,jb)
 
-      !IF ( v_base%lsm_oce_e(je,1,jb) <= sea_boundary ) THEN
-      IF (p_patch_3D%lsm_oce_e(je,1,jb) <= sea_boundary) THEN
+      !IF ( v_base%lsm_e(je,1,jb) <= sea_boundary ) THEN
+      IF (p_patch_3D%lsm_e(je,1,jb) <= sea_boundary) THEN
         IF ( z_dolic >= MIN_DOLIC ) THEN
 
 
@@ -1562,7 +1562,7 @@ SUBROUTINE veloc_diffusion_vert_impl_hom( p_patch_3D,    &
         !  diff_column(je,1:z_dolic,jb) = 0.0_wp
         !  field_column(je,1:z_dolic,jb)= 0.0_wp
         ENDIF
-      !ELSEIF( v_base%lsm_oce_e(je,1,jb) > sea_boundary ) THEN
+      !ELSEIF( v_base%lsm_e(je,1,jb) > sea_boundary ) THEN
       !  diff_column(je,1:z_dolic,jb) = field_column(je,1:z_dolic,jb)
        !diff_column(je,:,jb) = 0.0_wp
        !field_column(je,:,jb)= 0.0_wp

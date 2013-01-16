@@ -1867,7 +1867,7 @@ REAL(wp) :: sum_aux(subset_range%end_block)
      ENDDO
 !$OMP END DO
 ! #slo# - 2011-03-02 - to be checked lsm_oce vs. owner_mask in this module
-!     WHERE(v_base%lsm_oce_e(:,1,:)>sea_boundary) z(:,:) = 0.0_wp
+!     WHERE(v_base%lsm_e(:,1,:)>sea_boundary) z(:,:) = 0.0_wp
 
    rn2_aux = SQRT(omp_global_sum_array(z))
 #endif
@@ -1946,7 +1946,7 @@ REAL(wp) :: sum_aux(subset_range%end_block)
        WHERE(.NOT.curr_patch%edges%owner_mask(:,jb)) z(:,jb) = 0.0_wp
      ENDDO
 !$OMP END DO
-     !WHERE(v_base%lsm_oce_e(:,1,:)>sea_boundary) z(:,:) = 0.0_wp
+     !WHERE(v_base%lsm_e(:,1,:)>sea_boundary) z(:,:) = 0.0_wp
 
      h_aux = omp_global_sum_array(z)
 #endif
@@ -1993,7 +1993,7 @@ REAL(wp) :: sum_aux(subset_range%end_block)
        WHERE(.NOT.curr_patch%edges%owner_mask(:,jb)) z(:,jb) = 0.0_wp
      ENDDO
 !$OMP END DO
-     !WHERE(v_base%lsm_oce_e(:,1,:)>sea_boundary) z(:,:) = 0.0_wp
+     !WHERE(v_base%lsm_e(:,1,:)>sea_boundary) z(:,:) = 0.0_wp
 
      h_aux = SQRT(omp_global_sum_array(z))
 #endif

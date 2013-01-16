@@ -341,7 +341,7 @@ write(*,*)'max-min coeff',z_diff_multfac, maxval(p_phys_param%K_veloc_h(:,1,:)),
           DO jev = 1, p_patch%verts%num_edges(jv,jb)
             ile = p_patch%verts%edge_idx(jv,jb,jev)
             ibe = p_patch%verts%edge_blk(jv,jb,jev)
-            IF ( p_patch_3D%lsm_oce_e(ile,jk,ibe) == sea) THEN
+            IF ( p_patch_3D%lsm_e(ile,jk,ibe) == sea) THEN
               z_K_ave_v(jv,jk,jb)= z_K_ave_v(jv,jk,jb) + K_h(ile,jk,ibe)
               i_edge_ctr=i_edge_ctr+1
               IF(K_h(ile,jk,ibe)>z_K_max)THEN
@@ -372,7 +372,7 @@ write(*,*)'max-min coeff',z_diff_multfac, maxval(p_phys_param%K_veloc_h(:,1,:)),
           il_v2 = p_patch%edges%vertex_idx(je,jb,2)
           ib_v2 = p_patch%edges%vertex_blk(je,jb,2)
 
-          IF ( p_patch_3D%lsm_oce_e(je,jk,jb) == sea) THEN
+          IF ( p_patch_3D%lsm_e(je,jk,jb) == sea) THEN
             K_h(je,jk,jb)= 0.5_wp*(z_K_ave_v(il_v1,jk,ib_v1) + z_K_ave_v(il_v2,jk,ib_v2))
           ELSE
             K_h(je,jk,jb)=0.0_wp
@@ -670,7 +670,7 @@ write(*,*)'max-min coeff',z_diff_multfac, maxval(p_phys_param%K_veloc_h(:,1,:)),
     !   CALL get_indices_e( p_patch, jb, i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e, &
     !   &                   rl_start_e, rl_end_e)
     !   DO je = i_startidx_e, i_endidx_e 
-    !     IF ( v_base%lsm_oce_e(je,1,jb) <= sea_boundary ) THEN
+    !     IF ( v_base%lsm_e(je,1,jb) <= sea_boundary ) THEN
     ! 
     !      ilc1 = p_patch%edges%cell_idx(je,jb,1)
     !      ibc1 = p_patch%edges%cell_blk(je,jb,1)
@@ -692,7 +692,7 @@ write(*,*)'max-min coeff',z_diff_multfac, maxval(p_phys_param%K_veloc_h(:,1,:)),
     !   CALL get_indices_c( p_patch, jb, i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c, &
     !   &                   rl_start_c, rl_end_c)
     !   DO jc = i_startidx_c, i_endidx_c 
-    !     IF ( v_base%lsm_oce_c(jc,1,jb) <= sea_boundary ) THEN
+    !     IF ( v_base%lsm_c(jc,1,jb) <= sea_boundary ) THEN
     !       !This is (15) in Marsland et al. 
     !       z_10m_wind_c(jc,1,jb)= SQRT(DOT_PRODUCT(p_sfc_flx%forc_wind_cc(jc,jb)%x,&
     !                                              &p_sfc_flx%forc_wind_cc(jc,jb)%x))**3
@@ -846,7 +846,7 @@ write(*,*)'max-min coeff',z_diff_multfac, maxval(p_phys_param%K_veloc_h(:,1,:)),
           z_dolic = p_patch_3D%p_patch_1D(1)%dolic_e(je, jb)
           DO jk = 2, z_dolic
             ! Set to zero for land + boundary locations edges
-            IF (p_patch_3D%lsm_oce_e(je,jk,jb) > SEA) THEN
+            IF (p_patch_3D%lsm_e(je,jk,jb) > SEA) THEN
                params_oce%A_veloc_v(je,jk,jb) = 0.0_wp
             ELSE
               ! TODO: the following expect equally sized cells

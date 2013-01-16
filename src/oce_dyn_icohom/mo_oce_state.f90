@@ -186,13 +186,13 @@ USE mo_loopindices,         ONLY: get_indices_c, get_indices_e, get_indices_v
     !
     ! land-sea-mask for cell centers
     ! index1=1,nproma, index2=1,n_zlev, index3=1,nblks_c
-    INTEGER, ALLOCATABLE :: lsm_oce_c(:,:,:)
+    INTEGER, ALLOCATABLE :: lsm_c(:,:,:)
     ! land-sea-mask for cell edges
     ! index1=1,nproma, index2=1,n_zlev, index3=1,nblks_e
-    INTEGER, ALLOCATABLE :: lsm_oce_e(:,:,:)
+    INTEGER, ALLOCATABLE :: lsm_e(:,:,:)
     ! land-sea-mask for cell vertices
     ! index1=1,nproma, index2=1,n_zlev, index3=1,nblks_v
-    ! INTEGER, ALLOCATABLE :: lsm_oce_v(:,:,:)
+    ! INTEGER, ALLOCATABLE :: lsm_v(:,:,:)
 
 
     ! To simplify the acess to the required information within these loops 
@@ -680,14 +680,14 @@ CONTAINS
     !! 3-dim land-sea-mask at cells, edges and vertices
     !
     ! cells
-    ALLOCATE(v_base%lsm_oce_c(nproma,n_zlev,nblks_c),STAT=ist)
+    ALLOCATE(v_base%lsm_c(nproma,n_zlev,nblks_c),STAT=ist)
     IF (ist /= SUCCESS) THEN
-      CALL finish (routine,'allocating lsm_oce_c failed')
+      CALL finish (routine,'allocating lsm_c failed')
     ENDIF
     ! edges
-    ALLOCATE(v_base%lsm_oce_e(nproma,n_zlev,nblks_e),STAT=ist)
+    ALLOCATE(v_base%lsm_e(nproma,n_zlev,nblks_e),STAT=ist)
     IF (ist /= SUCCESS) THEN
-      CALL finish (routine,'allocating lsm_oce_e failed')
+      CALL finish (routine,'allocating lsm_e failed')
     ENDIF
     ! deepest ocean layer in column
     ALLOCATE(v_base%dolic_c(nproma,nblks_c),STAT=ist)
@@ -732,8 +732,8 @@ CONTAINS
     v_base%zlev_m     = 0._wp
     v_base%zlev_i     = 0._wp
 
-    v_base%lsm_oce_c = 0
-    v_base%lsm_oce_e = 0
+    v_base%lsm_c = 0
+    v_base%lsm_e = 0
     v_base%dolic_c = 0
     v_base%dolic_e = 0
     v_base%basin_c = 0
@@ -1280,7 +1280,7 @@ CONTAINS
 ! !       CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
 ! !       DO jc = i_startidx_c, i_endidx_c
 ! !         DO jk=1,n_zlev
-! !           IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+! !           IF ( v_base%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
 ! !             p_os_diag%prism_thick_flat_sfc_c(jc,jk,jb) = v_base%del_zlev_m(jk)
 ! !             p_os_diag%prism_thick_c(jc,jk,jb)          = v_base%del_zlev_m(jk)
 ! !             p_os_diag%prism_center_dist_c(jc,jk,jb)    = v_base%del_zlev_i(jk)
@@ -1322,7 +1322,7 @@ CONTAINS
 ! !       CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
 ! !       DO je = i_startidx_e, i_endidx_e
 ! !         DO jk=1,n_zlev
-! !           IF ( v_base%lsm_oce_e(je,jk,jb) <= sea_boundary ) THEN
+! !           IF ( v_base%lsm_e(je,jk,jb) <= sea_boundary ) THEN
 ! !             p_os_diag%prism_thick_flat_sfc_e(je,jk,jb) = v_base%del_zlev_m(jk)
 ! !             p_os_diag%prism_thick_e(je,jk,jb)          = v_base%del_zlev_m(jk)
 ! ! 
@@ -1736,7 +1736,7 @@ CONTAINS
     CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
     DO jk = slev, elev
       DO je= i_startidx_e, i_endidx_e
-        IF ( v_base%lsm_oce_e(je,jk,jb) >= BOUNDARY ) THEN
+        IF ( v_base%lsm_e(je,jk,jb) >= BOUNDARY ) THEN
           vn(je,jk,jb) = 0.0_wp
         ENDIF
 
@@ -1748,7 +1748,7 @@ CONTAINS
 !           il_e = p_patch%verts%edge_idx(il_v,ib_v,ie)
 !           ib_e = p_patch%verts%edge_blk(il_v,ib_v,ie)
 ! 
-!           IF ( v_base%lsm_oce_e(il_e,jk,ib_e) /=sea ) THEN
+!           IF ( v_base%lsm_e(il_e,jk,ib_e) /=sea ) THEN
 !             iv_ctr = iv_ctr+1
 !           ENDIF
 !         END DO
@@ -1902,8 +1902,8 @@ CONTAINS
       &           v_base%zlev_i    , v_base%zlev_m)
 
     ! surface level: as read in ext_data:
-    v_base%lsm_oce_c(:,1,:) = p_ext_data%oce%lsm_ctr_c(:,:)
-    v_base%lsm_oce_e(:,1,:) = p_ext_data%oce%lsm_ctr_e(:,:)
+    v_base%lsm_c(:,1,:) = p_ext_data%oce%lsm_ctr_c(:,:)
+    v_base%lsm_e(:,1,:) = p_ext_data%oce%lsm_ctr_e(:,:)
 
     nogllnd_c = 0
     noglsea_c = 0
@@ -1915,9 +1915,9 @@ CONTAINS
     noct1_c = 0
     noct1_e = 0
 
-    !  surface level and second level of lsm_oce_c defined by gridgenerator, not the current bathymetry
-    v_base%lsm_oce_c(:,1,:) = p_ext_data%oce%lsm_ctr_c(:,:)
-    IF(n_zlev>=2) v_base%lsm_oce_c(:,2,:) = p_ext_data%oce%lsm_ctr_c(:,:)
+    !  surface level and second level of lsm_c defined by gridgenerator, not the current bathymetry
+    v_base%lsm_c(:,1,:) = p_ext_data%oce%lsm_ctr_c(:,:)
+    IF(n_zlev>=2) v_base%lsm_c(:,2,:) = p_ext_data%oce%lsm_ctr_c(:,:)
 
     !  first and second level of dolic_c defined by gridgenerator
     WHERE (p_ext_data%oce%lsm_ctr_c(:,:) <= SEA_BOUNDARY) v_base%dolic_c(:,:) = 2
@@ -1943,10 +1943,10 @@ CONTAINS
           DO jc = i_startidx, i_endidx
       
             IF (p_ext_data%oce%bathymetry_c(jc,jb) <= -v_base%zlev_i(jk)) THEN
-              v_base%lsm_oce_c(jc,jk,jb) = SEA
+              v_base%lsm_c(jc,jk,jb) = SEA
               v_base%dolic_c(jc,jb)      = jk
             ELSE
-              v_base%lsm_oce_c(jc,jk,jb) = LAND
+              v_base%lsm_c(jc,jk,jb) = LAND
             END IF
       
           END DO
@@ -1959,10 +1959,10 @@ CONTAINS
           DO jc = i_startidx, i_endidx
        
             IF (p_ext_data%oce%bathymetry_c(jc,jb) <= -v_base%zlev_m(jk)) THEN
-              v_base%lsm_oce_c(jc,jk,jb) = SEA
+              v_base%lsm_c(jc,jk,jb) = SEA
               v_base%dolic_c(jc,jb)      = jk
             ELSE
-              v_base%lsm_oce_c(jc,jk,jb) = LAND
+              v_base%lsm_c(jc,jk,jb) = LAND
             END IF
        
           END DO
@@ -1994,7 +1994,7 @@ CONTAINS
     
               !If latitude of cell is above 80 N or below 80 S set triangle to land
               IF(z_lat_deg>z_north.OR.z_lat_deg<z_south)THEN
-                v_base%lsm_oce_c(jc,:,jb)          = LAND
+                v_base%lsm_c(jc,:,jb)          = LAND
                 p_ext_data%oce%bathymetry_c(jc,jb) = 100.0_wp
                 v_base%dolic_c(jc,jb)              = 0
                 v_base%wet_c(jc,:,jb)              = 0.0_wp
@@ -2003,7 +2003,7 @@ CONTAINS
                   ! Get indices/blks of edges 1 to 3 adjacent to cell (jc,jb)
                   idxe                                   = p_patch%cells%edge_idx(jc,jb,ji)
                   ible                                   = p_patch%cells%edge_blk(jc,jb,ji)
-                  v_base%lsm_oce_e(idxe,:,ible)          = LAND
+                  v_base%lsm_e(idxe,:,ible)          = LAND
                   p_ext_data%oce%bathymetry_e(idxe,ible) = 100.0_wp
                   v_base%dolic_e(idxe,ible)              = 0
                   v_base%wet_e(idxe,:,ible)              = 0.0_wp
@@ -2028,7 +2028,7 @@ CONTAINS
       ctr_jk = 0
 
       ! working on 2D lsm_c inside the loop
-      lsm_c(:,:) = v_base%lsm_oce_c(:,jk,:)
+      lsm_c(:,:) = v_base%lsm_c(:,jk,:)
 
       ! LL: disable checks here, the changes in halos will differ from seq run
       !     as the access patterns differ
@@ -2098,7 +2098,7 @@ CONTAINS
       END DO   ! jiter
 
       ! get back into 3D the slm
-      v_base%lsm_oce_c(:,jk,:) = lsm_c(:,:)
+      v_base%lsm_c(:,jk,:) = lsm_c(:,:)
 
       IF (is_p_test_run) THEN
         ! check if we have the correct slm
@@ -2129,7 +2129,7 @@ CONTAINS
     v_base%dolic_e = 0
 
     ! Main loop for edges, dolic, boundaries, diagnosis and output
-    !  - using lsm_oce_c after complete correction in jk>2 as input
+    !  - using lsm_c after complete correction in jk>2 as input
     !  - (1) set land and sea values at cells <0 (sea) and >0 (land) - no boundaries
     !  - (2) set land and sea values at edges including boundaries
     !  - (3) set land and sea boundary values (-1 = SEA_BOUNDARY, 1=LAND_BOUNDARY)
@@ -2144,14 +2144,14 @@ CONTAINS
       nosea_c(jk)=0
 
       
-      lsm_c(:,:) =  v_base%lsm_oce_c(:,jk,:)
+      lsm_c(:,:) =  v_base%lsm_c(:,jk,:)
 
       DO jb = owned_cells%start_block, owned_cells%end_block
         CALL get_index_range(owned_cells, jb, i_startidx, i_endidx)
         DO jc = i_startidx, i_endidx
 
         ! IF (.NOT.p_patch%cells%owner_mask(jc,jb)) CYCLE  ! access inner domain only
-          IF (v_base%lsm_oce_c(jc,jk,jb) <= SEA_BOUNDARY) THEN
+          IF (v_base%lsm_c(jc,jk,jb) <= SEA_BOUNDARY) THEN
             nosea_c(jk)=nosea_c(jk)+1
             v_base%dolic_c(jc,jb) = jk
           ELSE
@@ -2175,11 +2175,11 @@ CONTAINS
       CALL sync_patch_array(SYNC_C, p_patch, z_sync_c(:,:))
       v_base%dolic_c(:,:) = INT(z_sync_c(:,:))
 
-      ! now synchronize auxiliary lsm_c and set to lsm_oce_c
+      ! now synchronize auxiliary lsm_c and set to lsm_c
       z_sync_c(:,:) =  REAL(lsm_c(:,:),wp)
       CALL sync_patch_array(SYNC_C, p_patch, z_sync_c(:,:))
       lsm_c(:,:) = INT(z_sync_c(:,:))
-      v_base%lsm_oce_c(:,jk,:) = lsm_c(:,:)
+      v_base%lsm_c(:,jk,:) = lsm_c(:,:)
 
       !  percentage of land area per level and global value 
       !   - here: nosea/nolnd include boundaries
@@ -2223,35 +2223,35 @@ CONTAINS
           !
 
           ! set land/sea for all edges
-          IF ( (v_base%lsm_oce_c(iic1,jk,ibc1) < 0)  .and.   &
-            &  (v_base%lsm_oce_c(iic2,jk,ibc2) < 0) )        &
-            &   v_base%lsm_oce_e(je,jk,jb) = SEA
-          IF ( (v_base%lsm_oce_c(iic1,jk,ibc1) > 0)  .and.   &
-            &  (v_base%lsm_oce_c(iic2,jk,ibc2) > 0) )        &
-            &   v_base%lsm_oce_e(je,jk,jb) = LAND
+          IF ( (v_base%lsm_c(iic1,jk,ibc1) < 0)  .and.   &
+            &  (v_base%lsm_c(iic2,jk,ibc2) < 0) )        &
+            &   v_base%lsm_e(je,jk,jb) = SEA
+          IF ( (v_base%lsm_c(iic1,jk,ibc1) > 0)  .and.   &
+            &  (v_base%lsm_c(iic2,jk,ibc2) > 0) )        &
+            &   v_base%lsm_e(je,jk,jb) = LAND
 
           ! set boundary values at edges
-          IF ( (v_base%lsm_oce_c(iic1,jk,ibc1) < 0)  .and.   &
-            &  (v_base%lsm_oce_c(iic2,jk,ibc2) > 0) )        &
-            &   v_base%lsm_oce_e(je,jk,jb) = BOUNDARY
-          IF ( (v_base%lsm_oce_c(iic1,jk,ibc1) > 0)  .and.   &
-            &  (v_base%lsm_oce_c(iic2,jk,ibc2) < 0) )        &
-            &   v_base%lsm_oce_e(je,jk,jb) = BOUNDARY
+          IF ( (v_base%lsm_c(iic1,jk,ibc1) < 0)  .and.   &
+            &  (v_base%lsm_c(iic2,jk,ibc2) > 0) )        &
+            &   v_base%lsm_e(je,jk,jb) = BOUNDARY
+          IF ( (v_base%lsm_c(iic1,jk,ibc1) > 0)  .and.   &
+            &  (v_base%lsm_c(iic2,jk,ibc2) < 0) )        &
+            &   v_base%lsm_e(je,jk,jb) = BOUNDARY
 
           ! count land/sea/boundary values (sum of nosea_e no_lnd_e nobnd_e is global value)
-          IF ( v_base%lsm_oce_e(je,jk,jb) <  BOUNDARY )      &
+          IF ( v_base%lsm_e(je,jk,jb) <  BOUNDARY )      &
             &  nosea_e(jk)=nosea_e(jk)+1
-          IF ( v_base%lsm_oce_e(je,jk,jb) >  BOUNDARY )      &
+          IF ( v_base%lsm_e(je,jk,jb) >  BOUNDARY )      &
             &  nolnd_e(jk)=nolnd_e(jk)+1
-          IF ( v_base%lsm_oce_e(je,jk,jb) == BOUNDARY )      &
+          IF ( v_base%lsm_e(je,jk,jb) == BOUNDARY )      &
             &  nobnd_e(jk)=nobnd_e(jk)+1
 
-      !    ! set dolic to jk if lsm_oce_e is wet or boundary (maximum depth of 2 neighboring cells)
-      !    IF ( v_base%lsm_oce_e(je,jk,jb) <= BOUNDARY )      &
+      !    ! set dolic to jk if lsm_e is wet or boundary (maximum depth of 2 neighboring cells)
+      !    IF ( v_base%lsm_e(je,jk,jb) <= BOUNDARY )      &
       !      &  v_base%dolic_e(je,jb) = jk
 
-          ! correction: set dolic to jk if lsm_oce_e is wet (minimum depth of 2 neighboring cells)
-          IF ( v_base%lsm_oce_e(je,jk,jb) < BOUNDARY )      &
+          ! correction: set dolic to jk if lsm_e is wet (minimum depth of 2 neighboring cells)
+          IF ( v_base%lsm_e(je,jk,jb) < BOUNDARY )      &
             &  v_base%dolic_e(je,jb) = jk
 
           ! counting surface conditions as read from bathymetry - all wet edges, boundary edges
@@ -2264,9 +2264,9 @@ CONTAINS
       END DO
 
       ! synchronize lsm on edges
-      z_sync_e(:,:) =  REAL(v_base%lsm_oce_e(:,jk,:),wp)
+      z_sync_e(:,:) =  REAL(v_base%lsm_e(:,jk,:),wp)
       CALL sync_patch_array(SYNC_E, p_patch, z_sync_e(:,:))
-      v_base%lsm_oce_e(:,jk,:) = INT(z_sync_e(:,:))
+      v_base%lsm_e(:,jk,:) = INT(z_sync_e(:,:))
 
       ! synchronize dolic_e
       z_sync_e(:,:) =  REAL(v_base%dolic_e(:,:),wp)
@@ -2303,35 +2303,35 @@ CONTAINS
         DO jc =  i_startidx, i_endidx
 
           ! sea points
-          IF (v_base%lsm_oce_c(jc,jk,jb) < 0) THEN
+          IF (v_base%lsm_c(jc,jk,jb) < 0) THEN
 
             DO ji = 1, 3
               ! Get indices/blks of edges 1 to 3 adjacent to cell (jc,jb)
               idxe = p_patch%cells%edge_idx(jc,jb,ji)
               ible = p_patch%cells%edge_blk(jc,jb,ji)
               ! if one of lsm_e is boundary then lsm_c is sea_boundary
-              IF ( v_base%lsm_oce_e(idxe,jk,ible) == BOUNDARY ) &
-                &  v_base%lsm_oce_c(jc,jk,jb) = SEA_BOUNDARY
+              IF ( v_base%lsm_e(idxe,jk,ible) == BOUNDARY ) &
+                &  v_base%lsm_c(jc,jk,jb) = SEA_BOUNDARY
             END DO
 
             ! count sea boundary for all levels
-            IF ( v_base%lsm_oce_c(jc,jk,jb) == SEA_BOUNDARY )  &
+            IF ( v_base%lsm_c(jc,jk,jb) == SEA_BOUNDARY )  &
               &  nosbd_c(jk)=nosbd_c(jk)+1
           END IF  !  lsm_c < 0
 
           ! land points
-          IF (v_base%lsm_oce_c(jc,jk,jb) > BOUNDARY) THEN
+          IF (v_base%lsm_c(jc,jk,jb) > BOUNDARY) THEN
 
             DO ji = 1, 3
               ! Get indices/blks of edges 1 to 3 adjacent to cell (jc,jb)
               idxe = p_patch%cells%edge_idx(jc,jb,ji)
               ible = p_patch%cells%edge_blk(jc,jb,ji)
               ! if one of lsm_e is boundary then lsm_c is land_boundary
-              IF ( v_base%lsm_oce_e(idxe,jk,ible) == BOUNDARY ) &
-                &  v_base%lsm_oce_c(jc,jk,jb) = LAND_BOUNDARY
+              IF ( v_base%lsm_e(idxe,jk,ible) == BOUNDARY ) &
+                &  v_base%lsm_c(jc,jk,jb) = LAND_BOUNDARY
             END DO
 
-            IF ( v_base%lsm_oce_c(jc,jk,jb) == LAND_BOUNDARY )   &
+            IF ( v_base%lsm_c(jc,jk,jb) == LAND_BOUNDARY )   &
               &  nolbd_c(jk)=nolbd_c(jk)+1
 
           END IF  !  lsm_c > 0
@@ -2353,9 +2353,9 @@ CONTAINS
       nogllbd_c = nogllbd_c + all_nolbd_c
 
       ! synchronize lsm on cells
-      z_sync_c(:,:) =  REAL(v_base%lsm_oce_c(:,jk,:),wp)
+      z_sync_c(:,:) =  REAL(v_base%lsm_c(:,jk,:),wp)
       CALL sync_patch_array(SYNC_C, p_patch, z_sync_c(:,:))
-      v_base%lsm_oce_c(:,jk,:) = INT(z_sync_c(:,:))
+      v_base%lsm_c(:,jk,:) = INT(z_sync_c(:,:))
 
     END DO ZLEVEL_LOOP
 
@@ -2432,7 +2432,7 @@ CONTAINS
 
         IF (dol_e > 1 .AND. dol_e < n_zlev) THEN
 
-          lsm_e = v_base%lsm_oce_e(je,dol_e+1,jb)
+          lsm_e = v_base%lsm_e(je,dol_e+1,jb)
 
           ! get indices/blks of cells 1 and 2 adjacent to edge (je,jb)
           iic1 = p_patch%edges%cell_idx(je,jb,1)
@@ -2648,7 +2648,7 @@ CONTAINS
            & ) iarea(jc,jb) = -33
 
          ! Land points
-         IF (v_base%lsm_oce_c(jc,1,jb) >= BOUNDARY) iarea(jc,jb) = 0
+         IF (v_base%lsm_c(jc,1,jb) >= BOUNDARY) iarea(jc,jb) = 0
   
       END DO
     END DO
@@ -2763,21 +2763,21 @@ CONTAINS
     ! set wet_c and wet_e to 1 at sea points including boundaries
 
     ! cells
-    WHERE ( v_base%lsm_oce_c(:,:,:) <= SEA_BOUNDARY )
+    WHERE ( v_base%lsm_c(:,:,:) <= SEA_BOUNDARY )
       v_base%wet_c(:,:,:) = 1.0_wp
     END WHERE
 
     ! edges
-    WHERE ( v_base%lsm_oce_e(:,:,:) <= SEA_BOUNDARY )
+    WHERE ( v_base%lsm_e(:,:,:) <= SEA_BOUNDARY )
       v_base%wet_e(:,:,:) = 1.0_wp
     END WHERE
 
     ! #slo# for test:
-    !v_base%wet_c(:,:,:) = real(v_base%lsm_oce_c(:,:,:),wp)
-    !v_base%wet_e(:,:,:) = real(v_base%lsm_oce_e(:,:,:),wp)
+    !v_base%wet_c(:,:,:) = real(v_base%lsm_c(:,:,:),wp)
+    !v_base%wet_e(:,:,:) = real(v_base%lsm_e(:,:,:),wp)
 
     ! intermediate levels: same as wet_c
-    !WHERE ( v_base%lsm_oce_c(:,:,:) <= SEA_BOUNDARY )
+    !WHERE ( v_base%lsm_c(:,:,:) <= SEA_BOUNDARY )
     !  v_base%wet_i(:,:,:) = 1.0_wp
     !END WHERE
 
@@ -3444,14 +3444,14 @@ END SUBROUTINE complete_patchinfo_oce
     !! 3-dim land-sea-mask at cells, edges and vertices
     !
     ! cells
-    ALLOCATE(p_patch_3D%lsm_oce_c(nproma,n_zlev,nblks_c),STAT=ist)
+    ALLOCATE(p_patch_3D%lsm_c(nproma,n_zlev,nblks_c),STAT=ist)
     IF (ist /= SUCCESS) THEN
-      CALL finish (routine,'allocating lsm_oce_c failed')
+      CALL finish (routine,'allocating lsm_c failed')
     ENDIF
     ! edges
-    ALLOCATE(p_patch_3D%lsm_oce_e(nproma,n_zlev,nblks_e),STAT=ist)
+    ALLOCATE(p_patch_3D%lsm_e(nproma,n_zlev,nblks_e),STAT=ist)
     IF (ist /= SUCCESS) THEN
-      CALL finish (routine,'allocating lsm_oce_e failed')
+      CALL finish (routine,'allocating lsm_e failed')
     ENDIF
     ! deepest ocean layer in column
     ALLOCATE(p_patch_3D%p_patch_1D(n_dom)%dolic_c(nproma,nblks_c),STAT=ist)
@@ -3503,8 +3503,8 @@ END SUBROUTINE complete_patchinfo_oce
     p_patch_3D%wet_e = 0.0_wp
 
 
-    p_patch_3D%lsm_oce_c = 0
-    p_patch_3D%lsm_oce_e = 0
+    p_patch_3D%lsm_c = 0
+    p_patch_3D%lsm_e = 0
 
     p_patch_3D%basin_c = 0
     p_patch_3D%regio_c = 0
@@ -3663,8 +3663,8 @@ END SUBROUTINE complete_patchinfo_oce
    p_patch_3D%wet_e = v_base%wet_e    
    p_patch_3D%wet_c = v_base%wet_c
 
-   p_patch_3D%lsm_oce_e = v_base%lsm_oce_e    
-   p_patch_3D%lsm_oce_c = v_base%lsm_oce_c
+   p_patch_3D%lsm_e = v_base%lsm_e    
+   p_patch_3D%lsm_c = v_base%lsm_c
 
    p_patch_3D%basin_c  = v_base%basin_c 
    p_patch_3D%regio_c  = v_base%regio_c
@@ -3678,7 +3678,7 @@ END SUBROUTINE complete_patchinfo_oce
       CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
       DO jc = i_startidx_c, i_endidx_c
         DO jk=1,n_zlev
-          IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+          IF ( v_base%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
             p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,jk,jb) = v_base%del_zlev_m(jk)
             p_patch_3D%p_patch_1D(1)%prism_thick_c(jc,jk,jb)          = v_base%del_zlev_m(jk)
             p_patch_3D%p_patch_1D(1)%prism_center_dist_c(jc,jk,jb)    = v_base%del_zlev_i(jk)
@@ -3720,7 +3720,7 @@ END SUBROUTINE complete_patchinfo_oce
       CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
       DO je = i_startidx_e, i_endidx_e
         DO jk=1,n_zlev
-          IF ( v_base%lsm_oce_e(je,jk,jb) <= sea_boundary ) THEN
+          IF ( v_base%lsm_e(je,jk,jb) <= sea_boundary ) THEN
             p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_e(je,jk,jb) = v_base%del_zlev_m(jk)
             p_patch_3D%p_patch_1D(1)%prism_thick_e(je,jk,jb)          = v_base%del_zlev_m(jk)
 

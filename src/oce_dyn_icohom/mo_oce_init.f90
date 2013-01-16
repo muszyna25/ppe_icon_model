@@ -246,7 +246,7 @@ CONTAINS
           DO jc = i_startidx_c, i_endidx_c
 
             ! set values on land to zero/reference
-            IF ( p_patch_3D%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+            IF ( p_patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
 
               p_os%p_prog(nold(1))%tracer(jc,jk,jb,1)=&
               &convert_insitu2pot_temp_func(p_os%p_diag%temp_insitu(jc,jk,jb),&
@@ -271,7 +271,7 @@ CONTAINS
         DO jc = i_startidx_c, i_endidx_c
 
           ! set values on land to zero/reference
-          IF ( p_patch_3D%lsm_oce_c(jc,jk,jb) > sea_boundary ) THEN
+          IF ( p_patch_3D%lsm_c(jc,jk,jb) > sea_boundary ) THEN
             p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = 0.0_wp
             IF (no_tracer>=2) p_os%p_prog(nold(1))%tracer(jc,jk,jb,2) = 0.0_wp!sal_ref
           ENDIF
@@ -423,7 +423,7 @@ CONTAINS
     DO jb = all_cells%start_block, all_cells%end_block
       CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
       DO jc = i_startidx_c, i_endidx_c
-        IF ( p_patch_3D%lsm_oce_c(jc,1,jb) > sea_boundary ) THEN
+        IF ( p_patch_3D%lsm_c(jc,1,jb) > sea_boundary ) THEN
           p_sfc_flx%forc_tracer_relax(jc,jb,1) = 0.0_wp
           IF (no_tracer>1) p_sfc_flx%forc_tracer_relax(jc,jb,2) = 0.0_wp
         ENDIF
@@ -657,7 +657,7 @@ CONTAINS
     !------------------------------------------------------------------
    
     ! slm and coordinates of this point:
-    islmval = p_patch_3D%lsm_oce_c(c_i,c_k,c_b)
+    islmval = p_patch_3D%lsm_c(c_i,c_k,c_b)
     idolic  = p_patch_3D%p_patch_1D(1)%dolic_c  (c_i,    c_b)
     bathy   = p_ext_data(jg)%oce%bathymetry_c (c_i,c_b)
     zlat = p_patch(jg)%cells%center(c_i,c_b)%lat * 180.0_wp / pi
@@ -695,7 +695,7 @@ CONTAINS
       ! slm and coordinates of edges
       ne_b(i)=p_patch(jg)%cells%edge_blk(c_i,c_b,i)
       ne_i(i)=p_patch(jg)%cells%edge_idx(c_i,c_b,i)
-      islmval = p_patch_3D%lsm_oce_e  (ne_i(i),c_k,ne_b(i))
+      islmval = p_patch_3D%lsm_e  (ne_i(i),c_k,ne_b(i))
       idolic  = p_patch_3D%p_patch_1D(1)%dolic_e    (ne_i(i),ne_b(i))
       bathy   = p_ext_data(jg)%oce%bathymetry_e (ne_i(i),ne_b(i))
       zlat    = p_patch(jg)%edges%center         (ne_i(i),ne_b(i))%lat * 180.0_wp / pi
@@ -711,7 +711,7 @@ CONTAINS
       ! slm and coordinates of vertices
       nv_b(i)=p_patch(jg)%cells%vertex_blk(c_i,c_b,i)
       nv_i(i)=p_patch(jg)%cells%vertex_idx(c_i,c_b,i)
-      islmval = p_patch_3D%lsm_oce_c(c_i,c_k,c_b)
+      islmval = p_patch_3D%lsm_c(c_i,c_k,c_b)
       idolic  = p_patch_3D%p_patch_1D(1)%dolic_c  (c_i,    c_b)
       bathy   = p_ext_data(jg)%oce%bathymetry_c (c_i,c_b)
       zlat    = p_patch(jg)%edges%center         (nv_i(i),nv_b(i))%lat * 180.0_wp / pi
@@ -733,7 +733,7 @@ CONTAINS
         nc_b(i) = c_b
         WRITE(message_text,'(a)') ' Neighbor Cell is on LAND - NOT DEFINED'
       ELSE
-        islmval = p_patch_3D%lsm_oce_c  (nc_i(i),c_k,nc_b(i))
+        islmval = p_patch_3D%lsm_c  (nc_i(i),c_k,nc_b(i))
         idolic  = p_patch_3D%p_patch_1D(1)%dolic_c    (nc_i(i),    nc_b(i))
         bathy   = p_ext_data(jg)%oce%bathymetry_c (nc_i(i),nc_b(i))
         zlat    = p_patch(jg)%cells%center         (nc_i(i),nc_b(i))%lat * 180.0_wp / pi
@@ -930,7 +930,7 @@ CONTAINS
             CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
             DO jc = i_startidx_c, i_endidx_c
 
-            IF ( p_patch_3D%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+            IF ( p_patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
                 IF(no_tracer==1)THEN
                  !Temperature
                   p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = tprof_4layerStommel(jk)
@@ -950,7 +950,7 @@ CONTAINS
           DO jb = all_cells%start_block, all_cells%end_block
             CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
             DO jc = i_startidx_c, i_endidx_c
-              IF ( p_patch_3D%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+              IF ( p_patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
                 IF(no_tracer==1)THEN
                  !Temperature
                   p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = tprof(jk)
@@ -984,7 +984,7 @@ CONTAINS
             z_lon = p_patch%cells%center(jc,jb)%lon
 
             ! #slo#: simple elevation between 30W and 30E (pi/3.)
-            IF ( p_patch_3D%lsm_oce_c(jc,1,jb) <= sea_boundary ) THEN
+            IF ( p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary ) THEN
               p_os%p_prog(nold(1))%h(jc,jb) = 10.0_wp * &
                 &    sin(z_lon*6.0_wp) * cos(z_lat*3.0_wp)
             ENDIF
@@ -1010,7 +1010,7 @@ CONTAINS
           !depends on latitude only and is uniform across
           !all vertical layers
           DO jk=1,n_zlev
-           IF ( p_patch_3D%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+           IF ( p_patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
              ! #slo# 2011-09-02: testcase now with warm water in first layer only
              !IF ( jk == 1 ) THEN
 !p_os%p_diag%temp_insitu = 30.0_wp
@@ -1074,7 +1074,7 @@ CONTAINS
       DO jb = all_cells%start_block, all_cells%end_block
         CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
         DO jc = i_startidx_c, i_endidx_c
-          IF(p_patch_3D%lsm_oce_c(jc,1,jb)<=sea_boundary)THEN
+          IF(p_patch_3D%lsm_c(jc,1,jb)<=sea_boundary)THEN
             !latitude given in radians
             !transer to latitude in degrees
             z_lon_deg = p_patch%cells%center(jc,jb)%lon*rad2deg
@@ -1340,9 +1340,9 @@ CONTAINS
 ! !            DO jk=1,n_zlev
 ! !              !IF position of z-coordinate surface is above seamount: cell ist wet
 ! !              IF(v_base%zlev_m(jk)<= p_ext_data%oce%bathymetry_c(jc,jb))THEN
-! !                v_base%lsm_oce_c(jc,jk,jb) = -2
+! !                v_base%lsm_c(jc,jk,jb) = -2
 ! !              ELSE
-! !                v_base%lsm_oce_c(jc,jk,jb) = 2
+! !                v_base%lsm_c(jc,jk,jb) = 2
 ! !              ENDIF
 ! !            END DO
 ! !          END DO
@@ -1359,16 +1359,16 @@ CONTAINS
 ! !            DO jk=1,n_zlev
 ! !              !get neighbor cells: if both have different type, the edge is boundary, if they are
 ! !              !of the same type, this type is assigned to the edge
-! ! !               IF(   v_base%lsm_oce_c(ic1,jk,ib1)&
-! ! !                  &==v_base%lsm_oce_c(ic2,jk,ib2) )THEN
-! ! !                 v_base%lsm_oce_e(je,jk,jb) = v_base%lsm_oce_c(ic1,jk,ib1)
+! ! !               IF(   v_base%lsm_c(ic1,jk,ib1)&
+! ! !                  &==v_base%lsm_c(ic2,jk,ib2) )THEN
+! ! !                 v_base%lsm_e(je,jk,jb) = v_base%lsm_c(ic1,jk,ib1)
 ! ! !               ELSE
-! ! !                 v_base%lsm_oce_e(je,jk,jb) = boundary
+! ! !                 v_base%lsm_e(je,jk,jb) = boundary
 ! ! !               ENDIF
 ! !              IF(v_base%zlev_m(jk)<= p_ext_data%oce%bathymetry_e(je,jb))THEN
-! !                v_base%lsm_oce_e(je,jk,jb) = -2
+! !                v_base%lsm_e(je,jk,jb) = -2
 ! !              ELSE
-! !                v_base%lsm_oce_e(je,jk,jb) = 2
+! !                v_base%lsm_e(je,jk,jb) = 2
 ! !              ENDIF
 ! !            END DO
 ! !           END DO
@@ -1388,39 +1388,39 @@ CONTAINS
 ! !            DO jk=1,n_zlev
 ! !              i_ctr=0
 ! !              !CALL finish(TRIM(routine), 'CHOSEN FORCING OPTION NOT SUPPORTED - TERMINATE')
-! !              IF(v_base%lsm_oce_c(jc,jk,jb) == -2)THEN
-! !                IF(v_base%lsm_oce_e(ile1,jk,ibe1) == 2)i_ctr=i_ctr+1
-! !                IF(v_base%lsm_oce_e(ile2,jk,ibe2) == 2)i_ctr=i_ctr+1
-! !                IF(v_base%lsm_oce_e(ile3,jk,ibe3) == 2)i_ctr=i_ctr+1
+! !              IF(v_base%lsm_c(jc,jk,jb) == -2)THEN
+! !                IF(v_base%lsm_e(ile1,jk,ibe1) == 2)i_ctr=i_ctr+1
+! !                IF(v_base%lsm_e(ile2,jk,ibe2) == 2)i_ctr=i_ctr+1
+! !                IF(v_base%lsm_e(ile3,jk,ibe3) == 2)i_ctr=i_ctr+1
 ! !                SELECT CASE(i_ctr)
 ! !                  CASE(0)
 ! !                   !do nothing
 ! !                  CASE(1)
 ! !                    !cell is a boundary cell
-! !                    v_base%lsm_oce_c(jc,jk,jb) = -1
+! !                    v_base%lsm_c(jc,jk,jb) = -1
 ! !                  CASE(2)
 ! !                    !cell becomes a land cell
-! !                    v_base%lsm_oce_c(jc,jk,jb) = 2
+! !                    v_base%lsm_c(jc,jk,jb) = 2
 ! !                  CASE(3)
 ! !                    !cell becomes a land cell
-! !                    v_base%lsm_oce_c(jc,jk,jb) = 2
+! !                    v_base%lsm_c(jc,jk,jb) = 2
 ! !                END SELECT
-! !              ELSEIF(v_base%lsm_oce_c(jc,jk,jb) == 2)THEN
-! !                IF(v_base%lsm_oce_e(ile1,jk,ibe1) == -2)i_ctr=i_ctr+1
-! !                IF(v_base%lsm_oce_e(ile2,jk,ibe2) == -2)i_ctr=i_ctr+1
-! !                IF(v_base%lsm_oce_e(ile3,jk,ibe3) == -2)i_ctr=i_ctr+1
+! !              ELSEIF(v_base%lsm_c(jc,jk,jb) == 2)THEN
+! !                IF(v_base%lsm_e(ile1,jk,ibe1) == -2)i_ctr=i_ctr+1
+! !                IF(v_base%lsm_e(ile2,jk,ibe2) == -2)i_ctr=i_ctr+1
+! !                IF(v_base%lsm_e(ile3,jk,ibe3) == -2)i_ctr=i_ctr+1
 ! !                SELECT CASE(i_ctr)
 ! !                  CASE(0)
 ! !                   !do nothing
 ! !                  CASE(1)
 ! !                    !cell is a boundary cell
-! !                    v_base%lsm_oce_c(jc,jk,jb) = 1
+! !                    v_base%lsm_c(jc,jk,jb) = 1
 ! !                  CASE(2)
 ! !                    !cell becomes a wet cell
-! !                    v_base%lsm_oce_c(jc,jk,jb) = -2
+! !                    v_base%lsm_c(jc,jk,jb) = -2
 ! !                  CASE(3)
 ! !                    !cell becomes a wet cell
-! !                    v_base%lsm_oce_c(jc,jk,jb) = -2
+! !                    v_base%lsm_c(jc,jk,jb) = -2
 ! !                END SELECT
 ! !              ENDIF
 ! !            END DO
@@ -1438,11 +1438,11 @@ CONTAINS
 ! !            DO jk=1,n_zlev
 ! !              !get neighbor cells: if both have different type, the edge is boundary, if they are
 ! !              !of the same type, this type is assigned to the edge
-! !                IF(   v_base%lsm_oce_c(ic1,jk,ib1)&
-! !                   &==v_base%lsm_oce_c(ic2,jk,ib2) )THEN
-! !                  v_base%lsm_oce_e(je,jk,jb) = v_base%lsm_oce_c(ic1,jk,ib1)
+! !                IF(   v_base%lsm_c(ic1,jk,ib1)&
+! !                   &==v_base%lsm_c(ic2,jk,ib2) )THEN
+! !                  v_base%lsm_e(je,jk,jb) = v_base%lsm_c(ic1,jk,ib1)
 ! !                ELSE
-! !                  v_base%lsm_oce_e(je,jk,jb) = -1
+! !                  v_base%lsm_e(je,jk,jb) = -1
 ! !                ENDIF
 ! !            END DO
 ! !           END DO
@@ -1473,7 +1473,7 @@ CONTAINS
 ! !         DO je = i_startidx_e, i_endidx_e
 ! !           z_lat = p_patch%edges%center(je,jb)%lat
 ! !           z_lon = p_patch%edges%center(je,jb)%lon
-! !           IF(v_base%lsm_oce_e(je,1,jb)<=sea_boundary)THEN
+! !           IF(v_base%lsm_e(je,1,jb)<=sea_boundary)THEN
 ! !             p_os%p_prog(nold(1))%vn(je,1,jb) = &
 ! !             &   (test5_u(z_lon, z_lat,0.0_wp)*p_patch%edges%primal_normal(je,jb)%v1  &
 ! !             & + test5_v(z_lon, z_lat,0.0_wp)*p_patch%edges%primal_normal(je,jb)%v2)/30.0_wp
@@ -1516,7 +1516,7 @@ CONTAINS
           !         does not effect 4 levels
           z_tpols = z_tpol
           DO jk=1,n_zlev
-          IF ( p_patch_3D%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+          IF ( p_patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
 
             ! set maximum tropical temperature from profile above
             !IF(n_zlev<=10)THEN
@@ -1581,7 +1581,7 @@ CONTAINS
           z_lat_deg = z_lat*rad2deg
 
           DO jk=1,n_zlev
-          IF ( p_patch_3D%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+          IF ( p_patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
 
             ! set maximum tropical temperature from profile above
             z_ttrop = tprof_var(jk)
@@ -1647,7 +1647,7 @@ CONTAINS
           z_lat_deg = z_lat*rad2deg
 
           DO jk=1,n_zlev
-          IF ( p_patch_3D%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+          IF ( p_patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
             IF ( jk == 1 ) THEN
 
               !constant salinity
@@ -1706,7 +1706,7 @@ CONTAINS
             p_os%p_prog(nold(1))%tracer(:,n_zlev,:,1)=0.5_wp
           !ENDIF
           DO jk=2,n_zlev-1
-            IF ( p_patch_3D%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+            IF ( p_patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
             p_os%p_prog(nold(1))%tracer(jc,jk,jb,1)&
             &=p_os%p_prog(nold(1))%tracer(jc,jk-1,jb,1)-z_temp_incr
 
@@ -1726,7 +1726,7 @@ CONTAINS
         DO jc = i_startidx_c, i_endidx_c
           DO jk=1,n_zlev
 
-            IF ( p_patch_3D%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+            IF ( p_patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
               p_os%p_prog(nold(1))%tracer(jc,jk,jb,1)=tprof_var(jk)
               IF (no_tracer == 2) THEN
                 p_os%p_prog(nold(1))%tracer(jc,jk,jb,2) = sprof_var(jk)
@@ -1750,7 +1750,7 @@ CONTAINS
         DO jc = i_startidx_c, i_endidx_c
           DO jk=1,n_zlev
 
-            IF ( p_patch_3D%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+            IF ( p_patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
               ! #slo# 2011-11-17 - for MPIOM comparison - set T/S to 5C/35psu
               ! #slo# 2012-05-02 - for MPIOM comparison - set T/S to 1C/34.8psu
               ! #slo# 2012-06-21 - for Debug            - set T/S to 0C/35.0psu
@@ -1799,7 +1799,7 @@ CONTAINS
           z_lat_deg = z_lat*rad2deg
           z_lon_deg = z_lon*rad2deg
 
-            IF ( p_patch_3D%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+            IF ( p_patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
 
               p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = 5.0_wp
               IF (no_tracer == 2) THEN
@@ -1837,7 +1837,7 @@ CONTAINS
         CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
         DO jc = i_startidx_c, i_endidx_c
           z_lat = p_patch%cells%center(jc,jb)%lat
-          IF ( p_patch_3D%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+          IF ( p_patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
             p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = ape_sst(sst_case,z_lat)-tmelt   ! SST in Celsius
           END IF
         END DO
@@ -1856,7 +1856,7 @@ CONTAINS
         DO jb = all_cells%start_block, all_cells%end_block
           CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
           DO jc = i_startidx_c, i_endidx_c
-            IF ( p_patch_3D%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+            IF ( p_patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
               p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) &
                 &  = MAX(p_os%p_prog(nold(1))%tracer(jc,jk-1,jb,1)-z_temp_incr, z_temp_min)
             ELSE
@@ -1872,7 +1872,7 @@ CONTAINS
           DO jb = all_cells%start_block, all_cells%end_block
             CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
             DO jc = i_startidx_c, i_endidx_c
-              IF ( p_patch_3D%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+              IF ( p_patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
                 p_os%p_prog(nold(1))%tracer(jc,jk,jb,2) = sprof_var(jk)
               ! p_os%p_prog(nold(1))%tracer(jc,jk,jb,2) = 35.0_wp
               ENDIF
@@ -1903,7 +1903,7 @@ CONTAINS
         CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
         DO jc = i_startidx_c, i_endidx_c
           z_lat = p_patch%cells%center(jc,jb)%lat
-          IF ( p_patch_3D%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+          IF ( p_patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
             p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = MAX(ape_sst(sst_case,z_lat)-tmelt,z_temp_min)
           END IF
         END DO
@@ -1918,7 +1918,7 @@ CONTAINS
         DO jb = all_cells%start_block, all_cells%end_block
           CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
           DO jc = i_startidx_c, i_endidx_c
-            IF ( p_patch_3D%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+            IF ( p_patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
               p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) &
                 &  = MAX(p_os%p_prog(nold(1))%tracer(jc,jk-1,jb,1)-z_temp_incr, z_temp_min)
             ELSE
@@ -1934,7 +1934,7 @@ CONTAINS
           DO jb = all_cells%start_block, all_cells%end_block
             CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
             DO jc = i_startidx_c, i_endidx_c
-              IF ( p_patch_3D%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+              IF ( p_patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
                 p_os%p_prog(nold(1))%tracer(jc,jk,jb,2) = sprof_var(jk)
               ! p_os%p_prog(nold(1))%tracer(jc,jk,jb,2) = 35.0_wp
               ENDIF
@@ -1961,14 +1961,14 @@ CONTAINS
           !IF(p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)>=MIN_DOLIC)THEN
           !ENDIF
 
-          IF ( p_patch_3D%lsm_oce_c(jc,1,jb) <= sea_boundary ) THEN
+          IF ( p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary ) THEN
             p_os%p_prog(nold(1))%tracer(jc,1,jb,1)=30.5_wp
           ENDIF
-          IF ( p_patch_3D%lsm_oce_c(jc,n_zlev,jb) <= sea_boundary ) THEN
+          IF ( p_patch_3D%lsm_c(jc,n_zlev,jb) <= sea_boundary ) THEN
             p_os%p_prog(nold(1))%tracer(jc,n_zlev,jb,1)=0.5_wp
           ENDIF
           DO jk=2,n_zlev-1
-            IF ( p_patch_3D%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+            IF ( p_patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
 
             p_os%p_prog(nold(1))%tracer(jc,jk,jb,1)&
             &=p_os%p_prog(nold(1))%tracer(jc,jk-1,jb,1)-z_temp_incr
@@ -1986,7 +1986,7 @@ CONTAINS
           z_lat_deg = z_lat*rad2deg
 
           DO jk=1,n_zlev
-            IF ( p_patch_3D%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+            IF ( p_patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
 
             z_temp_max=0.01_wp*(z_lat_deg-basin_center_lat)*(z_lat_deg-basin_center_lat)
 
@@ -2008,7 +2008,7 @@ CONTAINS
           z_lon_deg = z_lon*rad2deg
 
           DO jk=1,n_zlev
-            IF ( p_patch_3D%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+            IF ( p_patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
 
               IF(abs(z_lon_deg)<2.5_wp&
            &.AND.abs(z_lat_deg-basin_center_lat)<0.25_wp*basin_height_deg)THEN
@@ -2053,8 +2053,8 @@ ELSEIF( iswm_oce == 1 )THEN
       CALL message(TRIM(routine), 'Shallow-Water-Testcase (25)')
       CALL message(TRIM(routine), ' - here: h and bathy for solid body rotation (Laeuter Test)')
 
-      p_patch_3D%lsm_oce_c(:,:,:) = sea
-      p_patch_3D%lsm_oce_e(:,:,:) = sea
+      p_patch_3D%lsm_c(:,:,:) = sea
+      p_patch_3D%lsm_e(:,:,:) = sea
       !init height
       DO jb = all_cells%start_block, all_cells%end_block
         CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
@@ -2092,8 +2092,8 @@ ELSEIF( iswm_oce == 1 )THEN
       CALL message(TRIM(routine), 'Shallow-Water-Testcase (26)')
       CALL message(TRIM(routine), ' - here: h and bathy of Williamson Test 5')
 
-      p_patch_3D%lsm_oce_c(:,:,:) = sea
-      p_patch_3D%lsm_oce_e(:,:,:) = sea
+      p_patch_3D%lsm_c(:,:,:) = sea
+      p_patch_3D%lsm_e(:,:,:) = sea
       !init height
       DO jb = all_cells%start_block, all_cells%end_block
         CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
@@ -2167,7 +2167,7 @@ ELSEIF( iswm_oce == 1 )THEN
         DO je = i_startidx_e, i_endidx_e
           z_lat = p_patch%edges%center(je,jb)%lat
           z_lon = p_patch%edges%center(je,jb)%lon
-          IF(p_patch_3D%lsm_oce_e(je,1,jb)<=sea_boundary)THEN
+          IF(p_patch_3D%lsm_e(je,1,jb)<=sea_boundary)THEN
             p_os%p_prog(nold(1))%vn(je,1,jb) = &
             &   (test5_u(z_lon, z_lat,0.0_wp)*p_patch%edges%primal_normal(je,jb)%v1  &
             & + test5_v(z_lon, z_lat,0.0_wp)*p_patch%edges%primal_normal(je,jb)%v2) !/30.0_wp
@@ -2189,7 +2189,7 @@ ELSEIF( iswm_oce == 1 )THEN
           z_lat = p_patch%cells%center(jc,jb)%lat
           z_lon = p_patch%cells%center(jc,jb)%lon
 
-          IF(p_patch_3D%lsm_oce_c(jc,1,jb)<=sea_boundary)THEN
+          IF(p_patch_3D%lsm_c(jc,1,jb)<=sea_boundary)THEN
             p_os%p_prog(nold(1))%tracer(jc,1,jb,1) = 0.0_wp
             p_os%p_prog(nnew(1))%tracer(jc,1,jb,1) = 0.0_wp
 

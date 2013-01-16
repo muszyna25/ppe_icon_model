@@ -216,7 +216,7 @@ SUBROUTINE advect_diffuse_flux_horz( p_patch_3D,          &
 !     DO jb = edges_in_domain%start_block, edges_in_domain%end_block
 !       CALL get_index_range(edges_in_domain, jb, i_startidx_e, i_endidx_e)
 !       DO je = i_startidx_e, i_endidx_e
-!         !IF ( v_base%lsm_oce_e(je,1,jb) == sea ) THEN
+!         !IF ( v_base%lsm_e(je,1,jb) == sea ) THEN
 !         !delta_z=v_base%del_zlev_m(1) + p_os%p_diag%h_e(je,jb)
 !         !write(129,*)'depth at edges',je,1,jb,delta_z, p_os%p_diag%prism_thick_e(je,1,jb)
 !         z_adv_flux_h(je,1,jb) = z_adv_flux_h(je,1,jb)*p_os%p_diag%prism_thick_e(je,1,jb)
@@ -229,7 +229,7 @@ SUBROUTINE advect_diffuse_flux_horz( p_patch_3D,          &
       !DO jk = 2, n_zlev
       DO jk = 1, n_zlev
         DO je = i_startidx_e, i_endidx_e
-          !IF ( v_base%lsm_oce_e(je,jk,jb) == sea ) THEN
+          !IF ( v_base%lsm_e(je,jk,jb) == sea ) THEN
           !write(129,*)'depth at edges',je,jk,jb,delta_z, p_os%p_diag%prism_thick_e(je,jk,jb)
           !z_adv_flux_h(je,jk,jb) = z_adv_flux_h(je,jk,jb)*p_os%p_diag%prism_thick_e(je,jk,jb)
           z_adv_flux_h(je,jk,jb) = z_adv_flux_h(je,jk,jb)*p_patch_3D%p_patch_1D(1)%prism_thick_e(je,jk,jb)
@@ -253,7 +253,7 @@ SUBROUTINE advect_diffuse_flux_horz( p_patch_3D,          &
         DO jk = 1, n_zlev
           !delta_z = v_base%del_zlev_m(jk)
           DO je = i_startidx_e, i_endidx_e
-           ! IF ( v_base%lsm_oce_e(je,jk,jb) == sea ) THEN
+           ! IF ( v_base%lsm_e(je,jk,jb) == sea ) THEN
            !write(129,*)'depth at edges',je,jk,jb,delta_z, p_os%p_diag%prism_thick_flat_sfc_e(je,jk,jb)
            !z_adv_flux_h(je,jk,jb) = z_adv_flux_h(je,jk,jb)*p_os%p_diag%prism_thick_flat_sfc_e(je,jk,jb)!delta_z
            z_adv_flux_h(je,jk,jb) = z_adv_flux_h(je,jk,jb)*p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_e(je,jk,jb)!delta_z
@@ -265,7 +265,7 @@ SUBROUTINE advect_diffuse_flux_horz( p_patch_3D,          &
       DO jb = cells_in_domain%start_block, cells_in_domain%end_block
         CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
         DO jc = i_startidx_c, i_endidx_c
-          !IF ( v_base%lsm_oce_c(jc,1,jb) <= sea_boundary ) THEN
+          !IF ( v_base%lsm_c(jc,1,jb) <= sea_boundary ) THEN
           !delta_z=p_os%p_prog(nold(1))%h(jc,jb)
           !write(129,*)'depth at sfc cells',jc,1,jb,delta_z, p_os%p_diag%prism_thick_c(jc,1,jb)
           !Mass flux is already multiplied by thickness
@@ -291,8 +291,8 @@ SUBROUTINE advect_diffuse_flux_horz( p_patch_3D,          &
       DO jb = edges_in_domain%start_block, edges_in_domain%end_block
         CALL get_index_range(edges_in_domain, jb, i_startidx_e, i_endidx_e)
         DO je = i_startidx_e, i_endidx_e
-!          IF ( v_base%lsm_oce_e(je,1,jb) <= sea_boundary ) THEN
-          IF ( p_patch_3D%lsm_oce_e(je,1,jb) <= sea_boundary ) THEN
+!          IF ( v_base%lsm_e(je,1,jb) <= sea_boundary ) THEN
+          IF ( p_patch_3D%lsm_e(je,1,jb) <= sea_boundary ) THEN
              z_adv_flux_h(je,1,jb) =  z_adv_flux_h(je,1,jb) + z_flux_2D(je,jb)
           ENDIF
         END DO
@@ -308,8 +308,8 @@ SUBROUTINE advect_diffuse_flux_horz( p_patch_3D,          &
 #endif
         DO jk = 1, n_zlev
           DO je = i_startidx_e, i_endidx_e
-            !IF ( v_base%lsm_oce_e(je,jk,jb) <= sea_boundary ) THEN
-            IF ( p_patch_3D%lsm_oce_e(je,jk,jb) <= sea_boundary ) THEN
+            !IF ( v_base%lsm_e(je,jk,jb) <= sea_boundary ) THEN
+            IF ( p_patch_3D%lsm_e(je,jk,jb) <= sea_boundary ) THEN
               z_vn(je,jk,jb) &
               &= ab_gam*p_os%p_prog(nnew(1))%vn(je,jk,jb) &
               &+ (1.0_wp -ab_gam)*p_os%p_prog(nold(1))%vn(je,jk,jb)
@@ -332,7 +332,7 @@ SUBROUTINE advect_diffuse_flux_horz( p_patch_3D,          &
         CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
         DO jc = i_startidx_c, i_endidx_c
           DO jk = 1, n_zlev 
-            !IF (v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+            !IF (v_base%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
             !delta_z = p_os%p_diag%prism_thick_flat_sfc_c(jc,jk,jb)
             delta_z = p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,jk,jb)
             IF(jk==1)THEN
@@ -437,8 +437,8 @@ SUBROUTINE advect_diffuse_flux_horz( p_patch_3D,          &
       delta_z = p_patch_3D%p_patch_1D(1)%del_zlev_m(jk) !v_base%del_zlev_m(jk)
 
       DO jc = i_startidx_c, i_endidx_c
-        !IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
-        IF ( p_patch_3D%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+        !IF ( v_base%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
+        IF ( p_patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
           flux_horz(jc,jk,jb) = z_div_diff_h(jc,jk,jb)-z_div_adv_h(jc,jk,jb)
         ENDIF
       END DO
@@ -525,8 +525,8 @@ END SUBROUTINE advect_diffuse_flux_horz
           ! that multiplication by edge length is avoided to
           ! compute final conservative update using the discrete
           ! div operator
-          !IF ( v_base%lsm_oce_e(je,jk,jb) <= sea_boundary ) THEN
-          IF ( p_patch_3D%lsm_oce_e(je,jk,jb) <= sea_boundary ) THEN
+          !IF ( v_base%lsm_e(je,jk,jb) <= sea_boundary ) THEN
+          IF ( p_patch_3D%lsm_e(je,jk,jb) <= sea_boundary ) THEN
 
             il_c=p_op_coeff%upwind_cell_idx(je,jk,jb)
             ib_c=p_op_coeff%upwind_cell_blk(je,jk,jb)
@@ -607,8 +607,8 @@ END SUBROUTINE advect_diffuse_flux_horz
           ! that multiplication by edge length is avoided to
           ! compute final conservative update using the discrete
           ! div operator
-          !IF ( v_base%lsm_oce_e(je,jk,jb) <= sea_boundary ) THEN
-          IF ( p_patch_3D%lsm_oce_e(je,jk,jb) <= sea_boundary ) THEN
+          !IF ( v_base%lsm_e(je,jk,jb) <= sea_boundary ) THEN
+          IF ( p_patch_3D%lsm_e(je,jk,jb) <= sea_boundary ) THEN
             flux_mean_e%x=0.5_wp*(flux_cc(iilc(je,jb,1),jk,iibc(je,jb,1))%x&
                              &+flux_cc(iilc(je,jb,2),jk,iibc(je,jb,2))%x)
 
@@ -693,8 +693,8 @@ END SUBROUTINE advect_diffuse_flux_horz
           ! that multiplication by edge length is avoided to
           ! compute final conservative update using the discrete
           ! div operator
-          !IF ( v_base%lsm_oce_e(je,jk,jb) <= sea_boundary ) THEN
-          IF ( p_patch_3D%lsm_oce_e(je,jk,jb) <= sea_boundary ) THEN
+          !IF ( v_base%lsm_e(je,jk,jb) <= sea_boundary ) THEN
+          IF ( p_patch_3D%lsm_e(je,jk,jb) <= sea_boundary ) THEN
             pupflux_e(je,jk,jb) =  &
             &  laxfr_upflux( pvn_e(je,jk,jb), pvar_c(iilc(je,jb,1),jk,iibc(je,jb,1)), &
             &                                 pvar_c(iilc(je,jb,2),jk,iibc(je,jb,2)) )
@@ -753,8 +753,8 @@ END SUBROUTINE advect_diffuse_flux_horz
           ! that multiplication by edge length is avoided to
           ! compute final conservative update using the discrete
           ! div operator
-          !IF ( v_base%lsm_oce_e(je,jk,jb) <= sea_boundary ) THEN
-          IF ( p_patch_3D%lsm_oce_e(je,jk,jb) <= sea_boundary ) THEN
+          !IF ( v_base%lsm_e(je,jk,jb) <= sea_boundary ) THEN
+          IF ( p_patch_3D%lsm_e(je,jk,jb) <= sea_boundary ) THEN
             pupflux_e(je,jk,jb) =  0.5_wp*pvn_e(je,jk,jb)             &
               &        *( pvar_c(iilc(je,jb,1),jk,iibc(je,jb,1))      &
               &          +pvar_c(iilc(je,jb,2),jk,iibc(je,jb,2)))     !&
@@ -828,7 +828,7 @@ END SUBROUTINE advect_diffuse_flux_horz
 ! !
 ! !       DO jk = slev, elev
 ! !         DO je = i_startidx_e, i_endidx_e          !
-! !           IF ( v_base%lsm_oce_e(je,jk,jb) <= sea_boundary ) THEN
+! !           IF ( v_base%lsm_e(je,jk,jb) <= sea_boundary ) THEN
 ! !              pupflux_e(je,jk,jb) =  &
 ! !              &  laxfr_upflux( pvn_e(je,jk,jb), pvar_c(iilc(je,jb,1),jk,iibc(je,jb,1)), &
 ! !              &                                 pvar_c(iilc(je,jb,2),jk,iibc(je,jb,2)) )
@@ -868,7 +868,7 @@ END SUBROUTINE advect_diffuse_flux_horz
       CALL get_index_range(edges_in_domain, jb, i_startidx_e, i_endidx_e)
       DO jk = slev, elev
         DO je =  i_startidx_e, i_endidx_e
-          IF ( p_patch_3D%lsm_oce_e(je,jk,jb) <= sea_boundary ) THEN
+          IF ( p_patch_3D%lsm_e(je,jk,jb) <= sea_boundary ) THEN
             il_c=p_op_coeff%upwind_cell_idx(je,jk,jb)
             ib_c=p_op_coeff%upwind_cell_blk(je,jk,jb)
 
@@ -1012,8 +1012,8 @@ END SUBROUTINE advect_diffuse_flux_horz
       DO jk = slev, elev
         DO je = i_startidx, i_endidx
 #endif
-          !IF( v_base%lsm_oce_e(je,jk,jb) <= sea_boundary ) THEN
-          IF( p_patch_3D%lsm_oce_e(je,jk,jb) <= sea_boundary ) THEN
+          !IF( v_base%lsm_e(je,jk,jb) <= sea_boundary ) THEN
+          IF( p_patch_3D%lsm_e(je,jk,jb) <= sea_boundary ) THEN
 !             z_mflx_low(je,jk,jb) = v_base%wet_e(je,jk,jb)* &
 !             & laxfr_upflux( vn_time_weighted(je,jk,jb), &
 !             & p_cc(cell_of_edge_idx(je,jb,1),jk,cell_of_edge_blk(je,jb,1)), &
@@ -1053,8 +1053,8 @@ END SUBROUTINE advect_diffuse_flux_horz
           !    - positive for outgoing fluxes
           !    - negative for incoming fluxes
           !    this sign convention is related to the definition of the divergence operator.
-         !IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
-         IF( p_patch_3D%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+         !IF ( v_base%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
+         IF( p_patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
            z_mflx_anti(jc,jk,jb,1) =                                                    &
              &     dtime * p_op_coeff%div_coeff(jc,jk,jb,1) *inv_prism_thick_c(jc,jk,jb)&!p_thick_new(jc,jk,jb)  &
              &   * z_anti(edge_of_cell_idx(jc,jb,1),jk,edge_of_cell_blk(jc,jb,1))
@@ -1082,8 +1082,8 @@ END SUBROUTINE advect_diffuse_flux_horz
       ! 3. Compute the updated low order solution z_tracer_new_low
       DO jk = slev, elev
         DO jc = i_startidx, i_endidx
-          !IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
-          IF( p_patch_3D%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+          !IF ( v_base%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
+          IF( p_patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
             z_tracer_new_low(jc,jk,jb) = p_cc(jc,jk,jb)&
             & - dtime * z_fluxdiv_c(jc,jk,jb)*inv_prism_thick_c(jc,jk,jb)!v_base%del_zlev_m(jk)!p_thick_new(jc,jk,jb)
 
@@ -1119,8 +1119,8 @@ END SUBROUTINE advect_diffuse_flux_horz
       DO jk = slev, elev
         DO jc = i_startidx, i_endidx
 #endif
-          !IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
-          IF( p_patch_3D%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+          !IF ( v_base%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
+          IF( p_patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
           ! max value of cell and its neighbors
           ! also look back to previous time step
           z_max(jc,jk) = MAX( z_tracer_max(jc,jk,jb),                          &
@@ -1139,8 +1139,8 @@ END SUBROUTINE advect_diffuse_flux_horz
 
       DO jk = slev, elev
         DO jc = i_startidx, i_endidx
-          !IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
-          IF( p_patch_3D%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+          !IF ( v_base%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
+          IF( p_patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
           ! Sum of all incoming antidiffusive fluxes into cell jc
           p_p =  -1._wp * (MIN(0._wp,z_mflx_anti(jc,jk,jb,1))   &
                          + MIN(0._wp,z_mflx_anti(jc,jk,jb,2))   &
@@ -1183,8 +1183,8 @@ END SUBROUTINE advect_diffuse_flux_horz
       DO jk = slev, elev
         DO je = i_startidx, i_endidx
 #endif
-        !IF ( v_base%lsm_oce_e(je,jk,jb) <= sea_boundary ) THEN
-        IF( p_patch_3D%lsm_oce_e(je,jk,jb) <= sea_boundary ) THEN
+        !IF ( v_base%lsm_e(je,jk,jb) <= sea_boundary ) THEN
+        IF( p_patch_3D%lsm_e(je,jk,jb) <= sea_boundary ) THEN
           z_signum = SIGN(1._wp,z_anti(je,jk,jb))
 
           ! This does the same as an IF (z_signum > 0) THEN ... ELSE ... ENDIF,
@@ -1333,8 +1333,8 @@ END SUBROUTINE advect_diffuse_flux_horz
       DO jk = slev, elev
         DO je = i_startidx, i_endidx
 #endif
-          !IF( v_base%lsm_oce_e(je,jk,jb) <= sea_boundary ) THEN
-          IF( p_patch_3D%lsm_oce_e(je,jk,jb) <= sea_boundary ) THEN
+          !IF( v_base%lsm_e(je,jk,jb) <= sea_boundary ) THEN
+          IF( p_patch_3D%lsm_e(je,jk,jb) <= sea_boundary ) THEN
             !il_c=p_op_coeff%upwind_cell_idx(je,jk,jb)
             !ib_c=p_op_coeff%upwind_cell_blk(je,jk,jb)
 
@@ -1375,8 +1375,8 @@ END SUBROUTINE advect_diffuse_flux_horz
           !    - positive for outgoing fluxes
           !    - negative for incoming fluxes
           !    this sign convention is related to the definition of the divergence operator.
-         !IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
-         IF( p_patch_3D%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+         !IF ( v_base%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
+         IF( p_patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
            z_mflx_anti(jc,jk,jb,1) =                                                    &
              &     dtime * p_op_coeff%div_coeff(jc,jk,jb,1) *inv_prism_thick_c(jc,jk,jb)&!p_thick_new(jc,jk,jb)  &
              &   * z_anti(edge_of_cell_idx(jc,jb,1),jk,edge_of_cell_blk(jc,jb,1))
@@ -1404,8 +1404,8 @@ END SUBROUTINE advect_diffuse_flux_horz
       ! 3. Compute the updated low order solution z_tracer_new_low
       DO jk = slev, elev
         DO jc = i_startidx, i_endidx
-          !IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
-          IF( p_patch_3D%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+          !IF ( v_base%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
+          IF( p_patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
             z_tracer_new_low(jc,jk,jb) = p_cc(jc,jk,jb)&
             & - dtime * z_fluxdiv_c(jc,jk,jb)*inv_prism_thick_c(jc,jk,jb)!/v_base%del_zlev_m(jk)!p_thick_new(jc,jk,jb)
 
@@ -1440,8 +1440,8 @@ END SUBROUTINE advect_diffuse_flux_horz
       DO jk = slev, elev
         DO jc = i_startidx, i_endidx
 #endif
-          !IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
-          IF( p_patch_3D%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+          !IF ( v_base%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
+          IF( p_patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
           ! max value of cell and its neighbors
           ! also look back to previous time step
           z_max(jc,jk) = MAX( z_tracer_max(jc,jk,jb),                          &
@@ -1460,8 +1460,8 @@ END SUBROUTINE advect_diffuse_flux_horz
 
       DO jk = slev, elev
         DO jc = i_startidx, i_endidx
-          !IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
-          IF( p_patch_3D%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+          !IF ( v_base%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
+          IF( p_patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
           ! Sum of all incoming antidiffusive fluxes into cell jc
           p_p =  -1._wp * (MIN(0._wp,z_mflx_anti(jc,jk,jb,1))   &
                          + MIN(0._wp,z_mflx_anti(jc,jk,jb,2))   &
@@ -1504,8 +1504,8 @@ END SUBROUTINE advect_diffuse_flux_horz
       DO jk = slev, elev
         DO je = i_startidx, i_endidx
 #endif
-        !IF ( v_base%lsm_oce_e(je,jk,jb) <= sea_boundary ) THEN
-        IF( p_patch_3D%lsm_oce_e(je,jk,jb) <= sea_boundary ) THEN
+        !IF ( v_base%lsm_e(je,jk,jb) <= sea_boundary ) THEN
+        IF( p_patch_3D%lsm_e(je,jk,jb) <= sea_boundary ) THEN
           z_signum = SIGN(1._wp,z_anti(je,jk,jb))
 
           ! This does the same as an IF (z_signum > 0) THEN ... ELSE ... ENDIF,
@@ -1658,7 +1658,7 @@ END SUBROUTINE advect_diffuse_flux_horz
 ! !                 z_up(jc,jk,jb,ie) = trac_old(il_c2,jk,ib_c2)
 ! !               ENDIF
 ! !          END DO
-! !          IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+! !          IF ( v_base%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
 ! !            z_max(jc,jk,jb) = maxval(z_up(jc,jk,jb,1:no_cell_edges))
 ! !            z_min(jc,jk,jb) = minval(z_up(jc,jk,jb,1:no_cell_edges))
 ! !          ELSE
@@ -1692,7 +1692,7 @@ END SUBROUTINE advect_diffuse_flux_horz
 ! !       z_dolic = v_base%dolic_c(jc,jb)
 ! !       IF(z_dolic>MIN_DOLIC)THEN
 ! !         DO jk = 1, z_dolic
-! !          IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+! !          IF ( v_base%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
 ! !            z_excess(jc,jk,jb) = max(z_pred(jc,jk,jb)-z_max(jc,jk,jb),0.0_wp)&
 ! !                               &+min(z_pred(jc,jk,jb)-z_min(jc,jk,jb),0.0_wp)
 ! !           ELSE
@@ -1737,7 +1737,7 @@ END SUBROUTINE advect_diffuse_flux_horz
 ! !       z_dolic = v_base%dolic_c(jc,jb)
 ! !       IF(z_dolic>=MIN_DOLIC)THEN
 ! !         DO jk = 1, z_dolic
-! !           IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+! !           IF ( v_base%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
 ! !             z_out(jc,jk,jb) = z_pred(jc,jk,jb) - z_excess(jc,jk,jb)+ z_diff_excess(jc,jk,jb)
 ! ! 
 ! ! !  IF(z_excess(jc,jk,jb)/=0.0)THEN
@@ -1785,7 +1785,7 @@ END SUBROUTINE advect_diffuse_flux_horz
 ! !         z_dolic = v_base%dolic_c(jc,jb)
 ! !         IF(z_dolic>=MIN_DOLIC)THEN
 ! !           DO jk = 1, z_dolic
-! !            IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+! !            IF ( v_base%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
 ! !            trac_new(jc,jk,jb) = z_out(jc,jk,jb)
 ! !            ENDIF
 ! ! !            write(1230,*)'before-after',jc,jk,jb,&

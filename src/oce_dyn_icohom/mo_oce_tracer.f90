@@ -349,8 +349,8 @@ SUBROUTINE prepare_tracer_transport(p_patch_3D, p_os, p_op_coeff,z_cellthick_int
       DO jb = edges_in_domain%start_block, edges_in_domain%end_block
         CALL get_index_range(edges_in_domain, jb, i_startidx_e, i_endidx_e)
         DO je = i_startidx_e, i_endidx_e
-          !IF(v_base%lsm_oce_e(je,jk,jb) == sea)THEN
-          IF (p_patch_3D%lsm_oce_e(je,jk,jb) == sea) THEN
+          !IF(v_base%lsm_e(je,jk,jb) == sea)THEN
+          IF (p_patch_3D%lsm_e(je,jk,jb) == sea) THEN
 
             !Get indices of two adjacent vertices
 !             il_v1 = p_patch%edges%vertex_idx(je,jb,1)
@@ -406,7 +406,7 @@ SUBROUTINE prepare_tracer_transport(p_patch_3D, p_os, p_op_coeff,z_cellthick_int
 ! DO jb = cells_in_domain%start_block, cells_in_domain%end_block
 !   CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
 !   DO jc = i_startidx_c, i_endidx_c
-!     IF ( p_patch_3D%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+!     IF ( p_patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
 !       delta_z = p_patch_3D%p_patch_1D(1)%del_zlev_m(jk)+p_os%p_prog(nold(1))%h(jc,jb)&
 !               &*p_patch_3D%wet_c(jc,jk,jb)
 !
@@ -427,7 +427,7 @@ SUBROUTINE prepare_tracer_transport(p_patch_3D, p_os, p_op_coeff,z_cellthick_int
 !   DO jk = 2, n_zlev
 !     delta_z = p_patch_3D%p_patch_1D(1)%del_zlev_m(jk)
 !     DO jc = i_startidx_c, i_endidx_c
-!       IF ( p_patch_3D%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+!       IF ( p_patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
 !         p_os%p_diag%depth_c(jc,jk,jb)= delta_z
 !         z_cellthick_intmed(jc,jk,jb) = delta_z
 !         !z_cellthick_intmed(jc,jk,jb)= &
@@ -529,8 +529,8 @@ SUBROUTINE advect_individual_tracer_ab(p_patch_3D, trac_old,                  &
     DO jb = cells_in_domain%start_block, cells_in_domain%end_block
       CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
       DO jc = i_startidx_c, i_endidx_c
-          !IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
-          IF ( p_patch_3D%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+          !IF ( v_base%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
+          IF ( p_patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
             delta_z =  p_patch_3D%p_patch_1D(1)%del_zlev_m(1)!v_base%del_zlev_m(1)
             trac_new(jc,jk,jb)= trac_old(jc,jk,jb)&
             & +(delta_t/delta_z)*flux_horz(jc,jk,jb)
@@ -570,7 +570,7 @@ SUBROUTINE advect_individual_tracer_ab(p_patch_3D, trac_old,                  &
             z_dolic = p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)!v_base%dolic_c(jc,jb)
             !IF(z_dolic>=MIN_DOLIC)THEN
 !TODO check algorithm: inv_prism_thick_c vs. del_zlev_m | * vs. /
-            IF ( p_patch_3D%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+            IF ( p_patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
               delta_z     = p_patch_3D%p_patch_1D(1)%del_zlev_m(jk)+p_os%p_prog(nold(1))%h(jc,jb)
               delta_z_new = p_patch_3D%p_patch_1D(1)%del_zlev_m(jk)+p_os%p_prog(nnew(1))%h(jc,jb)
 
@@ -595,7 +595,7 @@ SUBROUTINE advect_individual_tracer_ab(p_patch_3D, trac_old,                  &
             z_dolic = p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)! v_base%dolic_c(jc,jb)
             !IF(z_dolic>=MIN_DOLIC)THEN
             DO jk = 2, z_dolic
-              IF ( p_patch_3D%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+              IF ( p_patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
                 delta_z = p_patch_3D%p_patch_1D(1)%del_zlev_m(jk)
                 z_temp(jc,jk,jb)= trac_old(jc,jk,jb)&
                 & -(delta_t/delta_z)*(flux_vert(jc,jk,jb)-flux_horz(jc,jk,jb))
@@ -658,7 +658,7 @@ SUBROUTINE advect_individual_tracer_ab(p_patch_3D, trac_old,                  &
           DO jc = i_startidx_c, i_endidx_c
             z_dolic = p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)
             !IF(z_dolic>=MIN_DOLIC)THEN
-            IF ( p_patch_3D%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+            IF ( p_patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
               delta_z     = p_patch_3D%p_patch_1D(1)%del_zlev_m(jk)+p_os%p_prog(nold(1))%h(jc,jb)
               delta_z_new = p_patch_3D%p_patch_1D(1)%del_zlev_m(jk)+p_os%p_prog(nnew(1))%h(jc,jb)
 
@@ -679,7 +679,7 @@ SUBROUTINE advect_individual_tracer_ab(p_patch_3D, trac_old,                  &
             z_dolic = p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)
             !IF(z_dolic>=MIN_DOLIC)THEN
             DO jk = 2, z_dolic
-              IF ( p_patch_3D%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+              IF ( p_patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
                 delta_z = p_patch_3D%p_patch_1D(1)%del_zlev_m(jk)
 
                 trac_new(jc,jk,jb)= trac_old(jc,jk,jb)&
@@ -734,7 +734,7 @@ function tracer_content(p_patch, tracer, height) RESULT(content)
     CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
     DO jc = i_startidx_c, i_endidx_c
       DO jk = 1, n_zlev
-!        IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+!        IF ( v_base%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
 !         delta_z =v_base%del_zlev_m(jk)
 !         IF(jk==1)delta_z =v_base%del_zlev_m(jk)+height(jc,jb)
 !         content=content + tracer(jc,jk,jb)*p_patch%cells%area(jc,jb)*delta_z

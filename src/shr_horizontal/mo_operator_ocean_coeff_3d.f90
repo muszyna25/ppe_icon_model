@@ -579,8 +579,8 @@ CONTAINS
         DO jc = i_startidx_c, i_endidx_c
           z_dolic = p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)!v_base%dolic_c(jc,jb)
 
-          !IF ( v_base%lsm_oce_c(jc,1,jb) <= sea_boundary ) THEN 
-          IF ( p_patch_3D%lsm_oce_c(jc,1,jb) <= SEA_BOUNDARY ) THEN 
+          !IF ( v_base%lsm_c(jc,1,jb) <= sea_boundary ) THEN 
+          IF ( p_patch_3D%lsm_c(jc,1,jb) <= SEA_BOUNDARY ) THEN 
             IF ( z_dolic >=MIN_DOLIC ) THEN
 
               !inv_zinv_i(:) = 1.0_wp/v_base%del_zlev_i(:)
@@ -639,8 +639,8 @@ CONTAINS
     DO je = i_startidx_e, i_endidx_e
       z_dolic = p_patch_3D%p_patch_1D(1)%dolic_e(je,jb)!v_base%dolic_e(je,jb)
 
-      !IF ( v_base%lsm_oce_e(je,1,jb) <= sea_boundary ) THEN
-      IF (  p_patch_3D%lsm_oce_e(je,1,jb) <= SEA_BOUNDARY ) THEN
+      !IF ( v_base%lsm_e(je,1,jb) <= sea_boundary ) THEN
+      IF (  p_patch_3D%lsm_e(je,1,jb) <= SEA_BOUNDARY ) THEN
         IF ( z_dolic >= MIN_DOLIC ) THEN
 
           !inv_zinv_i(:)=1.0_wp/v_base%del_zlev_i(:)
@@ -2936,8 +2936,8 @@ CONTAINS
       DO jk = 1, n_zlev
         DO je = i_startidx_e, i_endidx_e
 
-          !IF(v_base%lsm_oce_e(je,jk,jb) /= sea) THEN
-          IF ( p_patch_3D%lsm_oce_e(je,jk,jb) /= sea ) THEN
+          !IF(v_base%lsm_e(je,jk,jb) /= sea) THEN
+          IF ( p_patch_3D%lsm_e(je,jk,jb) /= sea ) THEN
             ocean_coeff%grad_coeff          (je,jk,jb) = 0.0_wp
             ocean_coeff%edge2cell_coeff_cc_t(je,jk,jb,1)%x(1:3) = 0.0_wp
             ocean_coeff%edge2cell_coeff_cc_t(je,jk,jb,2)%x(1:3) = 0.0_wp
@@ -2962,7 +2962,7 @@ CONTAINS
 !               edge_index_cell = patch%cells%edge_idx(cell_index,cell_block,cell_edge)
 !               edge_block_cell = patch%cells%edge_idx(cell_index,cell_block,cell_edge)
 ! 
-!                IF ( p_patch_3D%lsm_oce_e(edge_index_cell,jk,edge_block_cell) /= sea ) THEN
+!                IF ( p_patch_3D%lsm_e(edge_index_cell,jk,edge_block_cell) /= sea ) THEN
 !                  ocean_coeff%edge2edge_viacell_coeff(je,jk,jb,ictr)=0.0_wp
 !                ENDIF
 !             ENDDO
@@ -2984,8 +2984,8 @@ CONTAINS
 
             ile = patch%cells%edge_idx(jc,jb,je)
             ibe = patch%cells%edge_blk(jc,jb,je)
-            !IF ( v_base%lsm_oce_e(ile,jk,ibe) /= sea) THEN
-            IF ( p_patch_3D%lsm_oce_e(ile,jk,ibe) /= sea ) THEN
+            !IF ( v_base%lsm_e(ile,jk,ibe) /= sea) THEN
+            IF ( p_patch_3D%lsm_e(ile,jk,ibe) /= sea ) THEN
               ocean_coeff%div_coeff(jc,jk,jb,je) = 0.0_wp
               ocean_coeff%edge2cell_coeff_cc(jc,jk,jb,je)%x(1:3) = 0.0_wp
             ENDIF
@@ -3016,9 +3016,9 @@ CONTAINS
             ! edge with indices ile, ibe is sea edge
             ! edge with indices ile, ibe is boundary edge
 
-            IF ( p_patch_3D%lsm_oce_e(ile,jk,ibe) == SEA ) THEN
+            IF ( p_patch_3D%lsm_e(ile,jk,ibe) == SEA ) THEN
               i_v_ctr(jv,jk,jb) = i_v_ctr(jv,jk,jb)+1
-            ELSEIF ( p_patch_3D%lsm_oce_e(ile,jk,ibe) == BOUNDARY ) THEN
+            ELSEIF ( p_patch_3D%lsm_e(ile,jk,ibe) == BOUNDARY ) THEN
 
               !increase boundary edge counter
               boundary_counter = boundary_counter + 1
@@ -3068,11 +3068,11 @@ CONTAINS
               !Check, if edge is sea or boundary edge and take care of dummy edge
               !edge with indices ile, ibe is sea edge
               !Add up for wet dual area.
-              !IF ( v_base%lsm_oce_e(ile,jk,ibe) <= sea_boundary ) THEN
-              IF ( p_patch_3D%lsm_oce_e(ile,jk,ibe) <= sea_boundary ) THEN
+              !IF ( v_base%lsm_e(ile,jk,ibe) <= sea_boundary ) THEN
+              IF ( p_patch_3D%lsm_e(ile,jk,ibe) <= sea_boundary ) THEN
                 ocean_coeff%variable_dual_vol_norm(jv,jk,jb,jev)= triangle_area(cell1_cc, vertex_cc, cell2_cc)
                 ! edge with indices ile, ibe is boundary edge
-              ELSE IF ( p_patch_3D%lsm_oce_e(ile,jk,ibe) == boundary ) THEN
+              ELSE IF ( p_patch_3D%lsm_e(ile,jk,ibe) == boundary ) THEN
                 ocean_coeff%variable_dual_vol_norm(jv,jk,jb,jev)=0.0_wp!0.5_wp*triangle_area(cell1_cc, vertex_cc, cell2_cc)
               END IF
             END DO
@@ -3126,7 +3126,7 @@ CONTAINS
             ile = patch%verts%edge_idx(jv,jb,je)
             ibe = patch%verts%edge_blk(jv,jb,je)
 
-             IF ( p_patch_3D%lsm_oce_e(ile,jk,ibe) /= sea) THEN
+             IF ( p_patch_3D%lsm_e(ile,jk,ibe) /= sea) THEN
               ocean_coeff%edge2vert_coeff_cc(jv,jk,jb,je)%x(1:3) = 0.0_wp
               ocean_coeff%variable_dual_vol_norm(jv,jk,jb,je)    = 0.0_wp
             ENDIF
@@ -3182,11 +3182,11 @@ CONTAINS
               ! Note that this should be modified.
               !   sea_boundary means an open boundary
               !   boundary means that only the sea cell are should be added
-              IF ( p_patch_3D%lsm_oce_e(ile,jk,ibe) <= sea_boundary ) THEN
+              IF ( p_patch_3D%lsm_e(ile,jk,ibe) <= sea_boundary ) THEN
                 zarea_fraction(jv,jk,jb) = zarea_fraction(jv,jk,jb)  &
                   & + triangle_area(cell1_cc, vertex_cc, cell2_cc)
                 ! edge with indices ile, ibe is boundary edge                
-              ELSE IF ( p_patch_3D%lsm_oce_e(ile,jk,ibe) == boundary ) THEN
+              ELSE IF ( p_patch_3D%lsm_e(ile,jk,ibe) == boundary ) THEN
                 zarea_fraction(jv,jk,jb) = zarea_fraction(jv,jk,jb)  &
                   & + 0.5_wp*triangle_area(cell1_cc, vertex_cc, cell2_cc)
               END IF

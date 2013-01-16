@@ -159,8 +159,8 @@ CONTAINS
       DO jb = all_cells%start_block, all_cells%end_block
         CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
         DO jc = i_startidx_c, i_endidx_c
-          !IF(v_base%lsm_oce_c(jc,1,jb) <= sea_boundary)THEN
-          IF(p_patch_3D%lsm_oce_c(jc,1,jb) <= sea_boundary)THEN
+          !IF(v_base%lsm_c(jc,1,jb) <= sea_boundary)THEN
+          IF(p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary)THEN
             top_bc_u_c(jc,jb)    = p_sfc_flx%forc_wind_u(jc,jb)/z_scale(jc,jb)
             top_bc_v_c(jc,jb)    = p_sfc_flx%forc_wind_v(jc,jb)/z_scale(jc,jb)
             top_bc_u_cc(jc,jb)%x = p_sfc_flx%forc_wind_cc(jc,jb)%x/z_scale(jc,jb)
@@ -178,8 +178,8 @@ CONTAINS
       DO jb = all_cells%start_block, all_cells%end_block
         CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
         DO jc = i_startidx_c, i_endidx_c
-          !IF(v_base%lsm_oce_c(jc,1,jb) <= sea_boundary)THEN
-          IF(p_patch_3D%lsm_oce_c(jc,1,jb) <= sea_boundary)THEN
+          !IF(v_base%lsm_c(jc,1,jb) <= sea_boundary)THEN
+          IF(p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary)THEN
           top_bc_u_c(jc,jb)    = ( p_sfc_flx%forc_wind_u(jc,jb)   &
             & - p_os%p_diag%u(jc,1,jb) ) / z_scale(jc,jb)
           top_bc_v_c(jc,jb)    = ( p_sfc_flx%forc_wind_u(jc,jb)   &
@@ -431,8 +431,8 @@ CONTAINS
       
         !i_dolic = v_base%dolic_e(je,jb)
         i_dolic =p_patch_3D%p_patch_1D(1)%dolic_e(je,jb)
-        !IF ( v_base%lsm_oce_e(je,i_dolic,jb) <= sea ) THEN
-        IF(p_patch_3D%lsm_oce_e(je,i_dolic,jb) <= sea_boundary)THEN    
+        !IF ( v_base%lsm_e(je,i_dolic,jb) <= sea ) THEN
+        IF(p_patch_3D%lsm_e(je,i_dolic,jb) <= sea_boundary)THEN    
           z_grad_h(je,1,jb) =  &
             & ( p_bathy(iidx(je,jb,2),i_dolic,iblk(je,jb,2)) &
             & -  p_bathy(iidx(je,jb,1),i_dolic,iblk(je,jb,1))) &

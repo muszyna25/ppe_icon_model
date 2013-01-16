@@ -241,7 +241,7 @@ END INTERFACE
 !  &press_hyd(jc,jk,jb), z_rho_up, z_rho_down,z_press
       END DO 
 ! DO jk = slev, end_lev
-!  IF(v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN 
+!  IF(v_base%lsm_c(jc,jk,jb) <= sea_boundary ) THEN 
 ! ! IF(jk==1)THEN
 !  write(*,*)'pressure',jk,jc,jb,press_hyd(jc,jk,jb),p_hyd(jk)
 ! ! ENDIF
@@ -315,7 +315,7 @@ END INTERFACE
 
       IF(end_lev>=min_dolic)THEN
         DO jk = slev, end_lev
-          IF(p_patch_3D%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+          IF(p_patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
             del_zlev_m => prism_thick_c(jc,:,jb)
             z_box      = del_zlev_m(jk)*rho(jc,jk,jb)      !-rho_ref!&!     pressure in single box at layer jk
 
@@ -410,7 +410,7 @@ END INTERFACE
       !  tracer 2: salinity
       DO jk=1, n_zlev
         DO jc = i_startidx, i_endidx
-        IF(p_patch_3D%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN   
+        IF(p_patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN   
             rho(jc,jk,jb) = rho_ref                      &
                &            - a_T * tracer(jc,jk,jb,1)   &
                &            + b_S * tracer(jc,jk,jb,2)
@@ -431,7 +431,7 @@ END INTERFACE
       !  tracer 1: potential temperature
       DO jk=1, n_zlev
         DO jc = i_startidx, i_endidx
-          IF(p_patch_3D%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+          IF(p_patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
             rho(jc,jk,jb) = rho_ref - a_T * tracer(jc,jk,jb,1) +b_S*SAL_REF
            !write(123,*)'density',jk,jc,jb,rho(jc,jk,jb), tracer(jc,jk,jb,1),a_T
            ELSE
@@ -520,7 +520,7 @@ END INTERFACE
      DO jk=1, n_zlev
        DO jc = i_startidx, i_endidx
          ! operate on wet ocean points only
-         IF(p_patch_3D%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+         IF(p_patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
              z_p=sfc_press_bar ! rho_ref*v_base%zlev_m(jk)*SItodBar
              rho(jc,jk,jb) = calc_density_JMDWFG06_EOS_func(tracer(jc,jk,jb,1),&
                                                           & tracer(jc,jk,jb,2),&
@@ -536,7 +536,7 @@ END INTERFACE
      DO jk=1, n_zlev
        DO jc = i_startidx, i_endidx
          ! operate on wet ocean points only
-         IF(p_patch_3D%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+         IF(p_patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
            z_p=sfc_press_bar ! rho_ref*v_base%zlev_m(jk)*SItodBar
            rho(jc,jk,jb) = calc_density_JMDWFG06_EOS_func(tracer(jc,jk,jb,1),&
                                                         & SAL_REF,      &
@@ -674,7 +674,7 @@ END INTERFACE
 
     DO jk=1, n_zlev
       DO jc = i_startidx, i_endidx
-      IF ( p_patch_3D%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+      IF ( p_patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
 
         pz  = p_patch_3D%p_patch_1D(1)%zlev_m(jk)
 
@@ -769,7 +769,7 @@ END SUBROUTINE calc_density_JM_EOS
        z_p = p_patch_3D%p_patch_1D(1)%zlev_m(jk)*rho_ref*SItodBar
        DO jc = i_startidx, i_endidx
          ! operate on wet ocean points only
-         IF(p_patch_3D%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+         IF(p_patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
            rho(jc,jk,jb) = calc_density_MPIOM_func( tracer(jc,jk,jb,1), tracer(jc,jk,jb,2), z_p)
          END IF
        END DO
@@ -784,7 +784,7 @@ END SUBROUTINE calc_density_JM_EOS
        z_p = p_patch_3D%p_patch_1D(1)%zlev_m(jk)*rho_ref*SItodBar
        DO jc = i_startidx, i_endidx
          ! operate on wet ocean points only
-         IF(p_patch_3D%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+         IF(p_patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
 
            rho(jc,jk,jb) = calc_density_MPIOM_func( tracer(jc,jk,jb,1), SAL_REF, z_p)
 !write(123,*)'rho',jc,jk,jb,rho(jc,jk,jb)
@@ -891,7 +891,7 @@ FUNCTION calc_density_MPIOM_func(tpot, sal, p) RESULT(rho)
        z_press=sfc_press_bar ! rho_ref*grav*v_base%zlev_m(jk)
        DO jc = i_startidx, i_endidx
          ! operate on wet ocean points only
-         IF(p_patch_3D%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+         IF(p_patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
 
             temp_pot(jc,jk,jb) = convert_insitu2pot_temp_func(temp_insitu(jc,jk,jb),&
                                                             & sal(jc,jk,jb),&
@@ -968,7 +968,7 @@ FUNCTION convert_insitu2pot_temp_func(t, s, p) RESULT(temp_pot)
        z_press=rho_ref*p_patch_3D%p_patch_1D(1)%zlev_m(jk)*SItodBar ! grav
        DO jc = i_startidx, i_endidx
          ! operate on wet ocean points only
-         IF(p_patch_3D%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+         IF(p_patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
 
             temp_insitu(jc,jk,jb) = adisit(trac_t(jc,jk,jb), trac_s(jc,jk,jb), z_press)
          END IF

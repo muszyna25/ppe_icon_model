@@ -212,7 +212,7 @@ CONTAINS
 !             ibe = p_patch%verts%edge_blk(jv,jb,jev)
 !             !Check, if edge is sea or boundary edge and take care of dummy edge
 !             ! edge with indices ile, ibe is sea edge
-!             IF ( v_base%lsm_oce_e(ile,jk,ibe) == sea) THEN
+!             IF ( v_base%lsm_e(ile,jk,ibe) == sea) THEN
 ! 
 !               p_vn_dual(jv,jk,jb)%x = p_vn_dual(jv,jk,jb)%x        &
 !                 & +p_int_state(1)%edge2vert_coeff_cc(jv,jb,jev)%x &
@@ -254,11 +254,11 @@ CONTAINS
 !               !Check, if edge is sea or boundary edge and take care of dummy edge
 !               ! edge with indices ile, ibe is sea edge
 !               !Add up for wet dual area.
-!               IF ( v_base%lsm_oce_e(ile,jk,ibe) <= sea_boundary ) THEN
+!               IF ( v_base%lsm_e(ile,jk,ibe) <= sea_boundary ) THEN
 !                 zarea_fraction = zarea_fraction  &
 !                   & + triangle_area(cell1_cc, vertex_cc, cell2_cc)
 !                 ! edge with indices ile, ibe is boundary edge
-!               ELSE IF ( v_base%lsm_oce_e(ile,jk,ibe) == boundary ) THEN
+!               ELSE IF ( v_base%lsm_e(ile,jk,ibe) == boundary ) THEN
 !                 zarea_fraction = zarea_fraction  &
 !                   & + 0.5_wp*triangle_area(cell1_cc, vertex_cc, cell2_cc)
 !               END IF
@@ -357,8 +357,8 @@ CONTAINS
 #endif
         DO jk = slev, elev
           DO je = i_startidx, i_endidx
-            !IF ( v_base%lsm_oce_e(je,jk,jb) <= sea_boundary) THEN
-            IF (p_patch_3D%lsm_oce_e(je,jk,jb) <= sea_boundary) THEN
+            !IF ( v_base%lsm_e(je,jk,jb) <= sea_boundary) THEN
+            IF (p_patch_3D%lsm_e(je,jk,jb) <= sea_boundary) THEN
               grad_norm_psi_e(je,jk,jb) = grad_coeff(je,jk,jb)* &
               & ( psi_c(iidx(je,jb,2),jk,iblk(je,jb,2))-        &
               & psi_c(iidx(je,jb,1),jk,iblk(je,jb,1)) )
@@ -378,8 +378,8 @@ CONTAINS
 #endif
         DO jk = slev, elev
           DO je = i_startidx, i_endidx
-            !IF ( v_base%lsm_oce_e(je,jk,jb) <= sea_boundary) THEN
-            IF (p_patch_3D%lsm_oce_e(je,jk,jb) <= sea_boundary) THEN
+            !IF ( v_base%lsm_e(je,jk,jb) <= sea_boundary) THEN
+            IF (p_patch_3D%lsm_e(je,jk,jb) <= sea_boundary) THEN
               grad_norm_psi_e(je,jk,jb) = grad_coeff(je,jk,jb)* &
                 & ( psi_c(iidx(je,jb,2),jk,iblk(je,jb,2)) -     &
                 & psi_c(iidx(je,jb,1),jk,iblk(je,jb,1)) )
@@ -764,8 +764,8 @@ CONTAINS
             ile = p_patch%verts%edge_idx(jv,jb,jev)
             ibe = p_patch%verts%edge_blk(jv,jb,jev)
 
-            !IF ( v_base%lsm_oce_e(ile,jk,ibe) == boundary ) THEN
-            IF(p_patch_3D%lsm_oce_e(ile,jk,ibe) == boundary)THEN
+            !IF ( v_base%lsm_e(ile,jk,ibe) == boundary ) THEN
+            IF(p_patch_3D%lsm_e(ile,jk,ibe) == boundary)THEN
               !calculate tangential velocity
               il_v1 = p_patch%edges%vertex_idx(ile,ibe,1)
               ib_v1 = p_patch%edges%vertex_blk(ile,ibe,1)
@@ -804,7 +804,7 @@ CONTAINS
             ile = p_patch%verts%edge_idx(jv,jb,jev)
             ibe = p_patch%verts%edge_blk(jv,jb,jev)
             !add contribution of normal velocity at edge (ile,ibe) to rotation
-            !IF ( v_base%lsm_oce_e(ile,jk,ibe) == sea) THEN
+            !IF ( v_base%lsm_e(ile,jk,ibe) == sea) THEN
             ! sea, sea_boundary, boundary (edges only), land_boundary, land =
             !  -2,      -1,         0,                  1,             2
             !Distinction between sea-lean-boundary is taken into account by coeffcients.
@@ -954,7 +954,7 @@ CONTAINS
 !             !Check, if edge is sea or boundary edge and take care of dummy edge
 !             ! edge with indices ile, ibe is sea edge
 ! 
-!             IF ( v_base%lsm_oce_e(ile,jk,ibe) == sea) THEN
+!             IF ( v_base%lsm_e(ile,jk,ibe) == sea) THEN
 !               !Distinguish the following cases
 !               ! edge ie_k is
 !               !a) ocean edge: compute as usual,
@@ -973,7 +973,7 @@ CONTAINS
 !               i_v_ctr(jv,jk,jb)=i_v_ctr(jv,jk,jb)+1
 ! 
 !               ! edge with indices ile, ibe is boundary edge
-!             ELSE IF ( v_base%lsm_oce_e(ile,jk,ibe) == boundary ) THEN
+!             ELSE IF ( v_base%lsm_e(ile,jk,ibe) == boundary ) THEN
 ! 
 !               !calculate tangential velocity
 !               il_v1 = p_patch%edges%vertex_idx(ile,ibe,1)
@@ -1174,8 +1174,8 @@ CONTAINS
             ibe = p_patch%verts%edge_blk(jv,jb,jev)
             !Check, if edge is sea or boundary edge and take care of dummy edge
             ! edge with indices ile, ibe is sea edge
-            !IF ( v_base%lsm_oce_e(ile,jk,ibe) == sea) THEN
-            IF(p_patch_3D%lsm_oce_e(ile,jk,ibe) == sea)THEN
+            !IF ( v_base%lsm_e(ile,jk,ibe) == sea) THEN
+            IF(p_patch_3D%lsm_e(ile,jk,ibe) == sea)THEN
               !Distinguish the following cases
               ! edge ie_k is
               !a) ocean edge: compute as usual,
@@ -1199,8 +1199,8 @@ CONTAINS
               i_v_ctr(jv,jk,jb)=i_v_ctr(jv,jk,jb)+1
 
               ! edge with indices ile, ibe is boundary edge
-            !ELSE IF ( v_base%lsm_oce_e(ile,jk,ibe) == boundary ) THEN
-            ELSE IF ( p_patch_3D%lsm_oce_e(ile,jk,ibe) == boundary ) THEN
+            !ELSE IF ( v_base%lsm_e(ile,jk,ibe) == boundary ) THEN
+            ELSE IF ( p_patch_3D%lsm_e(ile,jk,ibe) == boundary ) THEN
               !increase boundary edge counter
               i_v_bnd_edge_ctr(jv,jk,jb) = i_v_bnd_edge_ctr(jv,jk,jb)+1
 
@@ -1262,11 +1262,11 @@ CONTAINS
             ! !           !Check, if edge is sea or boundary edge and take care of dummy edge
             ! !           ! edge with indices ile, ibe is sea edge
             ! !           !Add up for wet dual area.
-            ! !           IF ( v_base%lsm_oce_e(ile,jk,ibe) <= sea_boundary ) THEN
+            ! !           IF ( v_base%lsm_e(ile,jk,ibe) <= sea_boundary ) THEN
             ! !            zarea_fraction = zarea_fraction  &
             ! !               &     + triangle_area(cell1_cc, vertex_cc, cell2_cc)
             ! !           ! edge with indices ile, ibe is boundary edge
-            ! !           ELSE IF ( v_base%lsm_oce_e(ile,jk,ibe) == boundary ) THEN
+            ! !           ELSE IF ( v_base%lsm_e(ile,jk,ibe) == boundary ) THEN
             ! !            zarea_fraction = zarea_fraction  &
             ! !               &  + 0.5_wp*triangle_area(cell1_cc, vertex_cc, cell2_cc)
             ! !           END IF
@@ -1455,8 +1455,8 @@ CONTAINS
         !calculate for each fluid colum the total depth, i.e.
         !from bottom boundary to surface height, i.e. using individual bathymetry for SWM
         DO jc = i_startidx_c, i_endidx_c
-          !IF(v_base%lsm_oce_c(jc,1,jb) <= sea_boundary ) THEN
-          IF(p_patch_3D%lsm_oce_c(jc,1,jb) <= sea_boundary)THEN
+          !IF(v_base%lsm_c(jc,1,jb) <= sea_boundary ) THEN
+          IF(p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary)THEN
 
             !p_os%p_diag%thick_c(jc,jb) = p_os%p_prog(nold(1))%h(jc,jb)&
             !  &  + v_base%zlev_i(v_base%dolic_c(jc,jb)+1)
@@ -1482,8 +1482,8 @@ CONTAINS
         !from bottom boundary to surface height
         !the bottom boundary is zlev_i(dolic+1) since zlev_i(1)=0 (air-sea-boundary at h=0
         DO jc = i_startidx_c, i_endidx_c
-          !IF ( v_base%lsm_oce_c(jc,1,jb) <= sea_boundary ) THEN
-          IF(p_patch_3D%lsm_oce_c(jc,1,jb) <= sea_boundary)THEN
+          !IF ( v_base%lsm_c(jc,1,jb) <= sea_boundary ) THEN
+          IF(p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary)THEN
            ! p_os%p_diag%thick_c(jc,jb) = p_os%p_prog(nold(1))%h(jc,jb)&
            !   & + v_base%zlev_i(v_base%dolic_c(jc,jb)+1)
            p_os%p_diag%thick_c(jc,jb) = p_os%p_prog(nold(1))%h(jc,jb)&
@@ -1522,8 +1522,8 @@ CONTAINS
             !z_dist_e_c1=p_patch%edges%edge_cell_length(je,jb,1)
             !z_dist_e_c2=p_patch%edges%edge_cell_length(je,jb,2)
 
-            !IF ( v_base%lsm_oce_e(je,1,jb) <= sea_boundary ) THEN
-            IF(p_patch_3D%lsm_oce_e(je,1,jb) <= sea_boundary)THEN
+            !IF ( v_base%lsm_e(je,1,jb) <= sea_boundary ) THEN
+            IF(p_patch_3D%lsm_e(je,1,jb) <= sea_boundary)THEN
               p_os%p_diag%thick_e(je,jb) = ( z_dist_e_c1*p_os%p_diag%thick_c(il_c1,ib_c1)&
                 & +   z_dist_e_c2*p_os%p_diag%thick_c(il_c2,ib_c2) )&
                 & /(z_dist_e_c1+z_dist_e_c2)
@@ -1556,8 +1556,8 @@ CONTAINS
             ib_c2 = p_patch%edges%cell_blk(je,jb,2)
 
 
-            !IF( v_base%lsm_oce_e(je,1,jb) <= sea_boundary ) THEN
-            IF(p_patch_3D%lsm_oce_e(je,1,jb) <= sea_boundary)THEN
+            !IF( v_base%lsm_e(je,1,jb) <= sea_boundary ) THEN
+            IF(p_patch_3D%lsm_e(je,1,jb) <= sea_boundary)THEN
               IF(p_os%p_prog(nold(1))%vn(je,1,jb)>0.0_wp)THEN
                 p_os%p_diag%thick_e(je,jb) = p_os%p_diag%thick_c(il_c1,ib_c1)
                 p_os%p_diag%h_e(je,jb)     = p_os%p_prog(nold(1))%h(il_c1,ib_c1)
@@ -1603,8 +1603,8 @@ CONTAINS
             !z_dist_e_c1 = p_patch%edges%edge_cell_length(je,jb,1)
             !z_dist_e_c2 = p_patch%edges%edge_cell_length(je,jb,2)
 
-            !IF( v_base%lsm_oce_e(je,1,jb) <= sea_boundary ) THEN
-            IF(p_patch_3D%lsm_oce_e(je,1,jb) <= sea_boundary)THEN
+            !IF( v_base%lsm_e(je,1,jb) <= sea_boundary ) THEN
+            IF(p_patch_3D%lsm_e(je,1,jb) <= sea_boundary)THEN
 !TODO review
                 p_os%p_diag%h_e(je,jb) = ( z_dist_e_c1*p_os%p_prog(nold(1))%h(il_c1,ib_c1)&
                  & +   z_dist_e_c2*p_os%p_prog(nold(1))%h(il_c2,ib_c2) )&
@@ -1639,8 +1639,8 @@ CONTAINS
             ib_c2 = p_patch%edges%cell_blk(je,jb,2)
 
 
-            !IF( v_base%lsm_oce_e(je,1,jb) <= sea_boundary ) THEN
-            IF(p_patch_3D%lsm_oce_e(je,1,jb) <= sea_boundary)THEN
+            !IF( v_base%lsm_e(je,1,jb) <= sea_boundary ) THEN
+            IF(p_patch_3D%lsm_e(je,1,jb) <= sea_boundary)THEN
               IF(p_os%p_prog(nold(1))%vn(je,1,jb)>0.0_wp)THEN
                 p_os%p_diag%thick_e(je,jb) = p_os%p_diag%thick_c(il_c1,ib_c1)
                 p_os%p_diag%h_e(je,jb) = p_os%p_prog(nold(1))%h(il_c1,ib_c1)
@@ -1796,7 +1796,7 @@ CONTAINS
   ! !         ibe = p_patch%verts%edge_blk(jv,jb,jev)
   ! !
   ! !
-  ! !         IF ( v_base%lsm_oce_e(ile,jk,ibe) == sea) THEN
+  ! !         IF ( v_base%lsm_e(ile,jk,ibe) == sea) THEN
   ! !           !Distinguish the following cases
   ! !           ! edge ie_k is
   ! !           !a) ocean edge: compute as usual,
@@ -1814,7 +1814,7 @@ CONTAINS
   ! !           !increase wet edge ctri_v_ctr(jv,jk,jb)=i_v_ctr(jv,jk,jb)+1
   ! !
   ! !          ! edge with indices ile, ibe is boundary edge
-  ! !          ELSE IF ( v_base%lsm_oce_e(ile,jk,ibe) == boundary ) THEN
+  ! !          ELSE IF ( v_base%lsm_e(ile,jk,ibe) == boundary ) THEN
   ! !
   ! !           !calculate tangential velocity
   ! !           il_v1 = p_patch%edges%vertex_idx(ile,ibe,1)

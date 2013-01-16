@@ -317,7 +317,7 @@ CONTAINS
 ! !         DO jk = slev, elev
 ! !           DO je=i_startidx_e, i_endidx_e
 ! ! 
-! !             IF ( v_base%lsm_oce_e(je,jk,jb) == sea ) THEN  !  #slo# <= sea_boundary?
+! !             IF ( v_base%lsm_e(je,jk,jb) == sea ) THEN  !  #slo# <= sea_boundary?
 ! !               z_vort_flx_rbf(je,jk,jb) = &
 ! !                 & p_diag%vt(je,jk,jb)*(z_vort_e(je,jk,jb)+ p_patch%edges%f_e(je,jb))
 ! !             ENDIF
@@ -344,7 +344,7 @@ CONTAINS
 ! !         CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
 ! !         DO jk = slev, elev
 ! !           DO jc = i_startidx_c, i_endidx_c
-! !             IF ( v_base%lsm_oce_c(jc,jk,jb) > sea_boundary ) THEN
+! !             IF ( v_base%lsm_c(jc,jk,jb) > sea_boundary ) THEN
 ! !               z_kin_rbf_c(jc,jk,jb) = 0.0_wp
 ! !             ELSE
 ! ! 
@@ -357,13 +357,13 @@ CONTAINS
 ! !               z_weight_e1 = 0.0_wp
 ! !               z_weight_e2 = 0.0_wp
 ! !               z_weight_e3 = 0.0_wp
-! !               IF(v_base%lsm_oce_e(ile1,jk,ibe1)<= boundary)THEN
+! !               IF(v_base%lsm_e(ile1,jk,ibe1)<= boundary)THEN
 ! !                 z_weight_e1 = p_patch%edges%area_edge(ile1,ibe1)
 ! !               ENDIF
-! !               IF(v_base%lsm_oce_e(ile2,jk,ibe2)<= boundary)THEN
+! !               IF(v_base%lsm_e(ile2,jk,ibe2)<= boundary)THEN
 ! !                 z_weight_e2 = p_patch%edges%area_edge(ile2,ibe2)
 ! !               ENDIF
-! !               IF(v_base%lsm_oce_e(ile3,jk,ibe3)<= boundary)THEN
+! !               IF(v_base%lsm_e(ile3,jk,ibe3)<= boundary)THEN
 ! !                 z_weight_e3 = p_patch%edges%area_edge(ile3,ibe3)
 ! !               ENDIF
 ! ! 
@@ -399,8 +399,8 @@ CONTAINS
       CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
       DO jk = slev, elev
         DO je = i_startidx_e, i_endidx_e
-         !IF(v_base%lsm_oce_e(je,jk,jb)<= boundary)THEN
-         IF(p_patch_3D%lsm_oce_e(je,jk,jb)<= boundary)THEN
+         !IF(v_base%lsm_e(je,jk,jb)<= boundary)THEN
+         IF(p_patch_3D%lsm_e(je,jk,jb)<= boundary)THEN
           !veloc_adv_horz_e(je,jk,jb)  = z_vort_flx_RBF(je,jk,jb) + z_grad_ekin_RBF(je,jk,jb)
           !veloc_adv_horz_e(je,jk,jb)= z_vort_flx(je,jk,jb) + z_grad_ekin_RBF(je,jk,jb)
           !veloc_adv_horz_e(je,jk,jb)    = z_vort_flx_RBF(je,jk,jb)+ p_diag%grad(je,jk,jb)
@@ -415,7 +415,7 @@ CONTAINS
           !        ENDIF
           !      write(*,*)'horz adv:grad ekin:vort-flx:',je,jk,jb, vn(je,1,jb),z_vort_flx(je,1,jb), &
           !        &        veloc_adv_horz_e(je,1,jb) !, p_diag%grad(je,1,jb)
-          ! IF ( v_base%lsm_oce_e(je,jk,jb) == boundary ) THEN
+          ! IF ( v_base%lsm_e(je,jk,jb) == boundary ) THEN
           ! write(*,*)'vt ',je,jk,jb, p_diag%vt(je,jk,jb)
           ENDIF
         END DO
@@ -478,8 +478,8 @@ CONTAINS
       CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
       DO jk = slev, elev
         DO je = i_startidx_e, i_endidx_e
-          !IF ( v_base%lsm_oce_e(je,jk,jb) <= sea_boundary ) THEN
-          IF(p_patch_3D%lsm_oce_e(je,jk,jb)<= boundary)THEN
+          !IF ( v_base%lsm_e(je,jk,jb) <= sea_boundary ) THEN
+          IF(p_patch_3D%lsm_e(je,jk,jb)<= boundary)THEN
             !Neighbouring cells
             il_c1 = p_patch%edges%vertex_idx(je,jb,1)
             ib_c1 = p_patch%edges%vertex_blk(je,jb,1)
@@ -627,7 +627,7 @@ CONTAINS
   ! !       il_c2 = p_patch%edges%cell_idx(je,jb,2)
   ! !       ib_c2 = p_patch%edges%cell_blk(je,jb,2)
   ! !
-  ! !     IF ( v_base%lsm_oce_e(je,jk,jb) <= sea_boundary ) THEN
+  ! !     IF ( v_base%lsm_e(je,jk,jb) <= sea_boundary ) THEN
   ! !       z_grad_u(je,jk,jb)%x = &
   ! !         &                  (z_pv_cc(il_c2,jk,ib_c2)%x &
   ! !         &                  - z_pv_cc(il_c1,jk,ib_c1)%x)              &
@@ -650,7 +650,7 @@ CONTAINS
   ! !     DO jk = slev, elev
   ! !       DO jc = i_startidx_c, i_endidx_c
   ! !
-  ! !          IF ( v_base%lsm_oce_c(jc,jk,jb) >= boundary ) THEN
+  ! !          IF ( v_base%lsm_c(jc,jk,jb) >= boundary ) THEN
   ! !            z_div_grad_u(jc,jk,jb)%x = 0.0_wp
   ! !          ELSE
   ! !           z_div_grad_u(jc,jk,jb)%x =  &
@@ -1324,7 +1324,7 @@ CONTAINS
 !       CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
 !       DO jk = slev, elev
 !         DO je=i_startidx_e, i_endidx_e
-!           IF ( v_base%lsm_oce_e(je,jk,jb) == boundary ) THEN
+!           IF ( v_base%lsm_e(je,jk,jb) == boundary ) THEN
 !             p_diag%vt(je,jk,jb) = 0.0_wp
 !             vn(je,jk,jb) = 0.0_wp
 !           ENDIF
@@ -1351,7 +1351,7 @@ CONTAINS
 !           DO jev = 1, p_patch%verts%num_edges(i_v1_idx,i_v1_blk)
 !             ile = p_patch%verts%edge_idx(i_v1_idx,i_v1_blk,jev)
 !             ibe = p_patch%verts%edge_blk(i_v1_idx,i_v1_blk,jev)
-!             IF ( v_base%lsm_oce_e(ile,jk,ibe) == sea ) THEN
+!             IF ( v_base%lsm_e(ile,jk,ibe) == sea ) THEN
 !               i_v1_ctr = i_v1_ctr +1
 !             ENDIF
 !           END DO
@@ -1360,7 +1360,7 @@ CONTAINS
 !           DO jev = 1, p_patch%verts%num_edges(i_v2_idx,i_v2_blk)
 !             ile = p_patch%verts%edge_idx(i_v2_idx,i_v2_blk,jev)
 !             ibe = p_patch%verts%edge_blk(i_v2_idx,i_v2_blk,jev)
-!             IF ( v_base%lsm_oce_e(ile,jk,ibe) == sea ) THEN
+!             IF ( v_base%lsm_e(ile,jk,ibe) == sea ) THEN
 !               i_v2_ctr = i_v2_ctr +1
 !             ENDIF
 !           END DO
@@ -1392,11 +1392,11 @@ CONTAINS
 !             z_vort_e(je,jk,jb) = 0.0_wp
 !           ENDIF
 !           !  IF(jk==1)THEN
-!           !  IF(v_base%lsm_oce_e(je,jk,jb)/=2)THEN
-!           ! ! IF(v_base%lsm_oce_e(je,jk,jb)==0)THEN
-!           ! IF(i_v1_ctr==6.and.i_v2_ctr==6.and.v_base%lsm_oce_e(je,jk,jb)==sea)THEN
+!           !  IF(v_base%lsm_e(je,jk,jb)/=2)THEN
+!           ! ! IF(v_base%lsm_e(je,jk,jb)==0)THEN
+!           ! IF(i_v1_ctr==6.and.i_v2_ctr==6.and.v_base%lsm_e(je,jk,jb)==sea)THEN
 !           ! ELSE
-!           !  write(101,*)'vert ctr', jk,je,jb, i_v1_ctr, i_v2_ctr, v_base%lsm_oce_e(je,jk,jb)!,&
+!           !  write(101,*)'vert ctr', jk,je,jb, i_v1_ctr, i_v2_ctr, v_base%lsm_e(je,jk,jb)!,&
 !           ! ENDIF
 !           ! ! ENDIF
 !           !  ENDIF
@@ -1411,7 +1411,7 @@ CONTAINS
 !       CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
 !       DO jk = slev, elev
 !         DO je=i_startidx_e, i_endidx_e
-!           IF ( v_base%lsm_oce_e(je,jk,jb) == sea ) THEN
+!           IF ( v_base%lsm_e(je,jk,jb) == sea ) THEN
 !             z_vort_flx_rbf(je,jk,jb) =&
 !               & p_diag%vt(je,jk,jb)*(p_patch%edges%f_e(je,jb)+z_vort_e(je,jk,jb))
 !             !          & p_diag%vt(je,jk,jb)*p_patch%edges%f_e(je,jb)
@@ -1450,7 +1450,7 @@ CONTAINS
 !       CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
 !       DO jk = slev, elev
 !         DO jc = i_startidx_c, i_endidx_c
-!           IF ( v_base%lsm_oce_c(jc,jk,jb) > sea_boundary ) THEN
+!           IF ( v_base%lsm_c(jc,jk,jb) > sea_boundary ) THEN
 !             p_diag%kin(jc,jk,jb) = 0.0_wp
 !           ELSE
 ! 
@@ -1463,13 +1463,13 @@ CONTAINS
 !             z_weight_e1 = 0.0_wp
 !             z_weight_e2 = 0.0_wp
 !             z_weight_e3 = 0.0_wp
-!             IF(v_base%lsm_oce_e(ile1,jk,ibe1)<= boundary)THEN
+!             IF(v_base%lsm_e(ile1,jk,ibe1)<= boundary)THEN
 !               z_weight_e1 = p_patch%edges%area_edge(ile1,ibe1)
 !             ENDIF
-!             IF(v_base%lsm_oce_e(ile2,jk,ibe2)<= boundary)THEN
+!             IF(v_base%lsm_e(ile2,jk,ibe2)<= boundary)THEN
 !               z_weight_e2 = p_patch%edges%area_edge(ile2,ibe2)
 !             ENDIF
-!             IF(v_base%lsm_oce_e(ile3,jk,ibe3)<= boundary)THEN
+!             IF(v_base%lsm_e(ile3,jk,ibe3)<= boundary)THEN
 !               z_weight_e3 = p_patch%edges%area_edge(ile3,ibe3)
 !             ENDIF
 ! 
@@ -1501,7 +1501,7 @@ CONTAINS
 !       CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
 !       DO jk = slev, elev
 !         DO je = i_startidx_e, i_endidx_e
-!           IF ( v_base%lsm_oce_e(je,jk,jb) <= sea_boundary ) THEN
+!           IF ( v_base%lsm_e(je,jk,jb) <= sea_boundary ) THEN
 !             veloc_adv_horz_e(je,jk,jb) =&
 !               & z_vort_flx_rbf(je,jk,jb) + z_grad_ekin_rbf(je,jk,jb)
 !           ELSE
@@ -1648,7 +1648,7 @@ CONTAINS
 !         DO jc = i_startidx, i_endidx
 !           !check if we are on land: To be replaced by 3D lsm
 !           ! #slo# 2011-05-11 - replace by consistent formulation: vertical loop down to dolic
-!           IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+!           IF ( v_base%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
 ! 
 !             z_adv_u_m(jc,jk,jb) &
 !               & = (v_base%del_zlev_i(jk+1)*z_adv_u_i(jc,jk+1,jb)&

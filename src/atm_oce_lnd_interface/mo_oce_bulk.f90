@@ -572,7 +572,7 @@ CONTAINS
             CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
             DO jc = i_startidx_c, i_endidx_c
 
-              IF (p_patch_3D%lsm_oce_c(jc,1,jb) <= sea_boundary) THEN
+              IF (p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary) THEN
                 p_sfc_flx%forc_swflx(jc,jb) = Qatm%SWin  (jc,jb) * (1.0_wp-albedoW) ! Incoming SW radiation flux
                 p_sfc_flx%forc_lwflx(jc,jb) = Qatm%LWnetw(jc,jb)                    ! net LW radiation flux over water
                 p_sfc_flx%forc_ssflx(jc,jb) = Qatm%sensw (jc,jb)                    ! Sensible heat flux over water
@@ -847,7 +847,7 @@ CONTAINS
       DO jb = all_cells%start_block, all_cells%end_block
         CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
         DO jc = i_startidx_c, i_endidx_c
-          IF(p_patch_3D%lsm_oce_c(jc,1,jb) <= sea_boundary)THEN
+          IF(p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary)THEN
             CALL gvec2cvec(  p_sfc_flx%forc_wind_u(jc,jb),&
                            & p_sfc_flx%forc_wind_v(jc,jb),&
                            & p_patch%cells%center(jc,jb)%lon,&
@@ -889,7 +889,7 @@ CONTAINS
       DO jb = all_cells%start_block, all_cells%end_block
         CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
         DO jc = i_startidx_c, i_endidx_c
-          IF (p_patch_3D%lsm_oce_c(jc,1,jb) <= sea_boundary) THEN
+          IF (p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary) THEN
             p_sfc_flx%forc_tracer_relax(jc,jb,1) &
               & = max(p_sfc_flx%forc_tracer_relax(jc,jb,1), z_tmin)
           ELSE
@@ -922,7 +922,7 @@ CONTAINS
         DO jc = i_startidx_c, i_endidx_c
 
 
-          IF ( p_patch_3D%lsm_oce_c(jc,1,jb) <= sea_boundary ) THEN
+          IF ( p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary ) THEN
 
             z_relax = (p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,1,jb) + p_os%p_prog(nold(1))%h(jc,jb)) / &
               &       (relaxation_param*seconds_per_month)
@@ -976,7 +976,7 @@ CONTAINS
       DO jb = all_cells%start_block, all_cells%end_block
         CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
         DO jc = i_startidx_c, i_endidx_c
-          IF ( p_patch_3D%lsm_oce_c(jc,1,jb) <= sea_boundary ) THEN
+          IF ( p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary ) THEN
 
           !z_relax = p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,1,jb)&
           !          &/(relaxation_param*seconds_per_month)
@@ -1285,7 +1285,7 @@ CONTAINS
         CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
         DO jc = i_startidx_c, i_endidx_c
 
-          IF(p_patch_3D%lsm_oce_c(jc,1,jb)<=sea_boundary)THEN
+          IF(p_patch_3D%lsm_c(jc,1,jb)<=sea_boundary)THEN
 
              ! #slo# Warning: s.th. more missing?
              z_lat = p_patch%cells%center(jc,jb)%lat
@@ -1318,7 +1318,7 @@ CONTAINS
           CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
           DO jc = i_startidx_c, i_endidx_c
 
-            IF(p_patch_3D%lsm_oce_c(jc,1,jb)<=sea_boundary)THEN
+            IF(p_patch_3D%lsm_c(jc,1,jb)<=sea_boundary)THEN
 
               z_T_init(jc,jb) = 20.0_wp- p_patch_3D%p_patch_1D(1)%zlev_m(1)*15.0_wp/4000.0_wp
 
@@ -1391,7 +1391,7 @@ CONTAINS
 ! !         DO jc = i_startidx_c, i_endidx_c
 ! !           z_lat = p_patch%cells%center(jc,jb)%lat
 ! !           z_lon = p_patch%cells%center(jc,jb)%lon
-! !           IF(v_base%lsm_oce_c(jc,1,jb)<=sea_boundary)THEN
+! !           IF(v_base%lsm_c(jc,1,jb)<=sea_boundary)THEN
 ! !             zonal_str = wstress_coeff*cos(z_forc_period*pi*z_lat-y_length/y_length)
 ! !             p_sfc_flx%forc_wind_cc(jc,jb)%x(1) = wstress_coeff*zonal_str*sin(z_lon)
 ! !             p_sfc_flx%forc_wind_cc(jc,jb)%x(2) = wstress_coeff*zonal_str*cos(z_lon)
@@ -1454,7 +1454,7 @@ CONTAINS
         CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
         DO jc = i_startidx_c, i_endidx_c
 
-          IF(p_patch_3D%lsm_oce_c(jc,1,jb)<=sea_boundary)THEN
+          IF(p_patch_3D%lsm_c(jc,1,jb)<=sea_boundary)THEN
 
              ! #slo# Warning: s.th. more missing?
              z_lat = p_patch%cells%center(jc,jb)%lat
@@ -1508,7 +1508,7 @@ CONTAINS
         CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
         DO jc = i_startidx_c, i_endidx_c
 
-          IF(p_patch_3D%lsm_oce_c(jc,1,jb)<=sea_boundary)THEN
+          IF(p_patch_3D%lsm_c(jc,1,jb)<=sea_boundary)THEN
 
              ! #slo# Warning: s.th. more missing?
              z_lat = p_patch%cells%center(jc,jb)%lat
@@ -1552,7 +1552,7 @@ CONTAINS
           z_lat = p_patch%cells%center(jc,jb)%lat
           z_lat_deg = z_lat*rad2deg
 
-            IF ( p_patch_3D%lsm_oce_c(jc,1,jb) <= sea_boundary ) THEN
+            IF ( p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary ) THEN
 
               z_temp_max     =0.01_wp*(z_lat_deg-basin_center_lat)*(z_lat_deg-basin_center_lat)
               z_T_init(jc,jb)=30.5_wp

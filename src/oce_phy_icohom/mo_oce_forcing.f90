@@ -128,7 +128,7 @@ CONTAINS
 
         DO jc = i_startidx_c, i_endidx_c
 
-          IF(p_patch_3D%lsm_oce_c(jc,1,jb)<=sea_boundary)THEN
+          IF(p_patch_3D%lsm_c(jc,1,jb)<=sea_boundary)THEN
 
             z_lat = p_patch%cells%center(jc,jb)%lat
             z_lon = p_patch%cells%center(jc,jb)%lon
@@ -164,7 +164,7 @@ CONTAINS
         DO jc = i_startidx_c, i_endidx_c
           z_lat = p_patch%cells%center(jc,jb)%lat
           z_lon = p_patch%cells%center(jc,jb)%lon
-          IF (p_patch_3D%lsm_oce_c(jc,1,jb)<=sea_boundary) THEN
+          IF (p_patch_3D%lsm_c(jc,1,jb)<=sea_boundary) THEN
             p_sfc_flx%forc_wind_u(jc,jb) =  wstress_coeff * cos(z_forc_period*pi*(z_lat-y_length)&
               &                                / y_length) 
           ELSE
@@ -174,7 +174,7 @@ CONTAINS
           p_sfc_flx%forc_wind_v(jc,jb) = 0.0_wp
 
           !Init cartesian wind
-          IF(p_patch_3D%lsm_oce_c(jc,1,jb)<=sea_boundary)THEN
+          IF(p_patch_3D%lsm_c(jc,1,jb)<=sea_boundary)THEN
             CALL gvec2cvec(  p_sfc_flx%forc_wind_u(jc,jb),      &
                            & p_sfc_flx%forc_wind_v(jc,jb),      &
                            & p_patch%cells%center(jc,jb)%lon,   &
@@ -204,7 +204,7 @@ CONTAINS
         DO jc = i_startidx_c, i_endidx_c
           z_lat = p_patch%cells%center(jc,jb)%lat
           z_lon = p_patch%cells%center(jc,jb)%lon
-          IF (p_patch_3D%lsm_oce_c(jc,1,jb)<=sea_boundary) THEN
+          IF (p_patch_3D%lsm_c(jc,1,jb)<=sea_boundary) THEN
             p_sfc_flx%forc_wind_u(jc,jb) =  wstress_coeff * cos(z_forc_period*pi*(z_lat-y_center)&
               &                                / y_length) 
           ELSE
@@ -213,7 +213,7 @@ CONTAINS
           p_sfc_flx%forc_wind_v(jc,jb) = 0.0_wp
 
           !Init cartesian wind
-          IF(p_patch_3D%lsm_oce_c(jc,1,jb)<=sea_boundary)THEN
+          IF(p_patch_3D%lsm_c(jc,1,jb)<=sea_boundary)THEN
             CALL gvec2cvec(  p_sfc_flx%forc_wind_u(jc,jb),      &
                            & p_sfc_flx%forc_wind_v(jc,jb),      &
                            & p_patch%cells%center(jc,jb)%lon,   &

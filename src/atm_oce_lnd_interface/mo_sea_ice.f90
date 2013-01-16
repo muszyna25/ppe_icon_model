@@ -940,13 +940,13 @@ CONTAINS
     ! Stupid initialisation trick for Levitus initialisation
     IF (init_oce_prog == 1) THEN
       WHERE (p_os%p_prog(nold(1))%tracer(:,1,:,1) <= -1.0_wp &
-          &     .and. v_base%lsm_oce_c(:,1,:) <= sea_boundary )
+          &     .and. v_base%lsm_c(:,1,:) <= sea_boundary )
         ice%hi(:,1,:) = 2._wp
         ice%conc(:,1,:) = 1._wp
       ENDWHERE
       IF ( no_tracer < 2 ) THEN
         WHERE (p_os%p_prog(nold(1))%tracer(:,:,:,1) <= -1.0_wp    &
-          &     .and. v_base%lsm_oce_c(:,:,:) <= sea_boundary )   &
+          &     .and. v_base%lsm_c(:,:,:) <= sea_boundary )   &
           &             p_os%p_prog(nold(1))%tracer(:,:,:,1) = Tf
       ENDIF
     ENDIF
@@ -1432,7 +1432,7 @@ CONTAINS
     !heatabs         (:,:)   = swsum * QatmAve% SWin(:,:) * (1 - ice%concsum)
 
     ! set to zero on land points
-    WHERE (v_base%lsm_oce_c(:,1,:) > sea_boundary )
+    WHERE (v_base%lsm_c(:,1,:) > sea_boundary )
       p_sfc_flx%forc_hflx (:,:) = 0.0_wp
       p_sfc_flx%forc_swflx(:,:) = 0.0_wp
       p_sfc_flx%forc_lwflx(:,:) = 0.0_wp
@@ -1478,7 +1478,7 @@ CONTAINS
 
     ice % newice(:,:) = 0.0_wp
     ! This is where new ice forms
-    WHERE (sst < Tfw(:,:) .and. v_base%lsm_oce_c(:,1,:) <= sea_boundary )
+    WHERE (sst < Tfw(:,:) .and. v_base%lsm_c(:,1,:) <= sea_boundary )
       ice%newice(:,:) = - (sst - Tfw(:,:)) * ice%zUnderIce(:,:) * clw*rho_ref / (alf*rhoi)
       ! Add energy for new-ice formation due to supercooled ocean to  ocean temperature
       p_sfc_flx%forc_hflx(:,:) = ( Tfw(:,:) - p_os%p_prog(nold(1))%tracer(:,1,:,1) ) &

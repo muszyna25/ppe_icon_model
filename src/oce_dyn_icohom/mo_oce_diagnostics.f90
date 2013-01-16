@@ -179,7 +179,7 @@ CONTAINS
 !       !IF ( z_dolic>=MIN_DOLIC)THEN 
 !         DO jk=1,n_zlev!z_dolic
 ! 
-!           IF ( p_patch_3D%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+!           IF ( p_patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
 ! 
 !              delta_z = p_patch_vert(1)%del_zlev_m(jk)! 
 !              IF (jk == 1) THEN
@@ -246,7 +246,7 @@ CONTAINS
 !     CALL get_indices_c(p_patch, jb, i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c, &
 !        &                             rl_start_c, rl_end_c)
 !     DO jc = i_startidx_c, i_endidx_c
-!       IF ( p_patch_3D%lsm_oce_c(jc,1,jb) <= sea_boundary ) THEN
+!       IF ( p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary ) THEN
 !         prism_vol = p_patch%cells%area(jc,jb)*p_os%p_prog(nold(1))%h(jc,jb)
 !         ptr_monitor%volume = ptr_monitor%volume + prism_vol
 ! 
@@ -419,7 +419,7 @@ i_endblk_c   = p_patch%cells%end_blk(rl_end_c,1)
 
         DO jc = i_startidx_c, i_endidx_c
 
-          IF ( p_patch_3D%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+          IF ( p_patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
 
             delta_z = p_patch_3D%p_patch_1D(1)%del_zlev_m(jk)
             IF (jk == 1) THEN
@@ -555,7 +555,7 @@ END SUBROUTINE construct_oce_diagnostics
 !       CALL get_index_range(all_cells, jb, istart, iend)
 !       DO jc = istart, iend
 ! 
-!       IF ( p_patch_3D%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+!       IF ( p_patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
 ! 
 !           delta_z = p_patch_3D%del_zlev_m(jk)
 !           IF (jk == 1) THEN
@@ -692,7 +692,7 @@ SUBROUTINE calc_moc (p_patch,p_patch_3D, w, datetime)
     DO jb = dom_cells%start_block, dom_cells%end_block
       CALL get_index_range(dom_cells, jb, i_startidx, i_endidx)
       DO jc = i_startidx, i_endidx
-        IF ( p_patch_3D%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+        IF ( p_patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
    
           ! lbrei: corresponding latitude row of 1 deg extension
           !       1 south pole
@@ -925,12 +925,12 @@ SUBROUTINE calc_psi (p_patch,p_patch_3D, u, h, u_vint, datetime)
  ! 98 format(' lat=',f8.2,' lon=',f8.2,' jlat=',i4,' jlon=',i4,' lsm=',i3, &
  !      &    ' uint=',1p10e12.3)
  !    if ((jlat==101 .and. jlon==270) &
- !      & write(82,99) z_lat_deg,z_lon_deg,jlat,jlon,v_base%lsm_oce_c(jc,1,jb), &
+ !      & write(82,99) z_lat_deg,z_lon_deg,jlat,jlon,v_base%lsm_c(jc,1,jb), &
  !      &              jlt,jln,z_uint_reg(jln,jlt)
 
         END DO
       END DO
- !    write(82,98) z_lat_deg,z_lon_deg,jlat,jlon,v_base%lsm_oce_c(jc,1,jb),z_uint_reg(jlon,jlat)
+ !    write(82,98) z_lat_deg,z_lon_deg,jlat,jlon,v_base%lsm_c(jc,1,jb),z_uint_reg(jlon,jlat)
 
     END DO
   END DO
