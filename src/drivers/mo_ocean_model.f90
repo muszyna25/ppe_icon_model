@@ -92,7 +92,7 @@ MODULE mo_ocean_model
 !     & restore_interpol_state_netcdf
 
   USE mo_icoham_dyn_memory,   ONLY: p_hydro_state
-  USE mo_model_domain,        ONLY: t_patch,  t_patch_3D!, p_patch
+  USE mo_model_domain,        ONLY: t_patch,  t_patch_3D
   !USE mo_intp_data_strc,      ONLY: t_int_state, p_int_state_local_parent,p_int_state, p_int_state_local_parent
   !USE mo_grf_intp_data_strc,  ONLY: p_grf_state, p_grf_state_local_parent
 
@@ -174,8 +174,8 @@ CONTAINS
 
     INTEGER :: n_io, jg, jgp, jfile, ist
 
-    TYPE(t_patch), ALLOCATABLE   :: p_patch_global(:)
-    TYPE(t_patch_3D),POINTER :: p_patch_3D
+    TYPE(t_patch)   , ALLOCATABLE :: p_patch_global(:)
+    TYPE(t_patch_3D), POINTER     :: p_patch_3D
     ! For the coupling
 
     INTEGER, PARAMETER :: no_of_fields = 9
@@ -273,17 +273,6 @@ CONTAINS
 
     IF (my_process_is_io()) CALL vlist_io_main_proc
 
-    ! Check patch allocation status
-    !IF ( ALLOCATED(p_patch)) THEN
-    !  CALL finish(TRIM(routine), 'patch already allocated')
-    !END IF
-    ! Allocate patch array to start patch construction
-    !ALLOCATE(p_patch(n_dom_start:n_dom), stat=error_status)
-    !IF (error_status/=success) THEN
-    !  CALL finish(TRIM(routine), 'allocation of patch failed')
-    !ENDIF
-
-
     ALLOCATE(p_patch_3D, stat=error_status)
     IF (error_status/=success) THEN
       CALL finish(TRIM(routine), 'allocation of patch_3D failed')
@@ -326,12 +315,6 @@ CONTAINS
 
       ! Please note: ldump_dd/lread_dd not (yet?) implemented
       IF(my_process_is_mpi_parallel()) THEN
-        !ALLOCATE(p_patch_global(n_dom_start:n_dom))
-        !CALL import_basic_patches(p_patch_global,nlev,nlevp1,num_lev,num_levp1,nshift)      
-        !CALL decompose_domain(p_patch_global)
-        !DEALLOCATE(p_patch_global)
-        !CALL complete_parallel_setup()
-
         !The 3D-ocean version of previous calls
         ALLOCATE(p_patch_global(n_dom_start:n_dom))
         CALL import_basic_patches(p_patch_global,nlev,nlevp1,num_lev,num_levp1,nshift)      
@@ -340,14 +323,11 @@ CONTAINS
         CALL complete_parallel_setup_oce(p_patch_3D%p_patch_2D)
 
       ELSE
-        !CALL import_basic_patches(p_patch,nlev,nlevp1,num_lev,num_levp1,nshift) 
         !The 3D-ocean version of previous calls 
         CALL import_basic_patches(p_patch_3D%p_patch_2D,nlev,nlevp1,num_lev,num_levp1,nshift) 
       ENDIF
 
       ! Complete information which is not yet read or calculated
-      !CALL complete_patches(p_patch)
-      !The 3D-ocean version of previous calls 
       CALL complete_patches(p_patch_3D%p_patch_2D)
 
     ENDIF
