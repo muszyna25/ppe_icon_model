@@ -50,7 +50,8 @@ MODULE mo_nh_supervise
   USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, inwp, min_rlcell_int, &
                                     min_rledge_int
   USE mo_physical_constants,  ONLY: cvd
-  USE mo_mpi,                 ONLY: my_process_is_stdio, get_my_mpi_all_id
+  USE mo_mpi,                 ONLY: my_process_is_stdio, get_my_mpi_all_id, &
+    &                               process_mpi_stdio_id
   USE mo_io_units,            ONLY: find_next_free_unit
   USE mo_sync,                ONLY: global_sum_array, global_max
  
@@ -525,10 +526,10 @@ MODULE mo_nh_supervise
 
     ELSE
 
-      ! print a short information on global maxima:
+      ! on PE0 print a short information on global maxima:
       vmax(1) = MAXVAL(vn_aux_lev)
       vmax(2) = MAXVAL(w_aux_lev)
-      vmax       = global_max(vmax)
+      vmax = global_max(vmax, iroot=process_mpi_stdio_id)
       WRITE(message_text,'(a,2e18.10)') 'MAXABS VN, W ', vmax(1), vmax(2)
 
     END IF

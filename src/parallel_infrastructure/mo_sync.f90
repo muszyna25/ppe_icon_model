@@ -55,12 +55,12 @@ USE mo_math_constants,     ONLY: pi
 USE mo_impl_constants,     ONLY: min_rlcell_int, min_rledge_int, min_rlvert_int
 USE mo_impl_constants_grf, ONLY: grf_bdywidth_c, grf_bdywidth_e
 USE mo_io_units,           ONLY: find_next_free_unit, filename_max
-USE mo_mpi,                ONLY: p_pe, p_bcast, p_sum, p_max, p_min, &
-  & p_send, p_recv, p_comm_work_test,  p_comm_work, p_n_work,        &
-  & my_process_is_mpi_test, get_my_mpi_all_id, process_mpi_all_test_id, &
-  & my_process_is_mpi_parallel,       &
-  & p_work_pe0,p_pe_work, push_glob_comm, pop_glob_comm, get_glob_proc0, &
-  & comm_lev, glob_comm, comm_proc0, p_gather, p_gatherv
+USE mo_mpi,                ONLY: p_pe, p_bcast, p_sum, p_max, p_min, p_send, p_recv,               &
+  &                              p_comm_work_test,  p_comm_work, p_n_work, my_process_is_mpi_test, &
+  &                              get_my_mpi_all_id, process_mpi_all_test_id,                       &
+  &                              my_process_is_mpi_parallel, p_work_pe0,p_pe_work, push_glob_comm, &
+  &                              pop_glob_comm, get_glob_proc0, comm_lev, glob_comm, comm_proc0,   &
+  &                              p_gather, p_gatherv
 USE mo_parallel_config, ONLY:p_test_run,   &
   & n_ghost_rows, l_log_checks, l_fast_sum
 USE mo_communication,      ONLY: exchange_data, exchange_data_4de3,            &
@@ -1560,22 +1560,27 @@ END FUNCTION global_min_1d
 !
 ! @param[out]   proc_id  (Optional:) PE number of maximum value
 ! @param[inout] keyval   (Optional:) additional meta information
+! @param[in]    iroot    (Optional:) root PE, otherwise we perform an
+!                                    ALL-TO-ALL operation
 !
 ! The parameter @p keyval can be used to communicate
 ! additional data on the maximum value, e.g., the level
 ! index where the maximum occurred.
 !
-FUNCTION global_max_0d(zfield, proc_id, keyval) RESULT(global_max)
+FUNCTION global_max_0d(zfield, proc_id, keyval, iroot) RESULT(global_max)
 
   REAL(wp), INTENT(IN) :: zfield
   INTEGER, OPTIONAL, INTENT(inout) :: proc_id
   INTEGER, OPTIONAL, INTENT(inout) :: keyval
+  INTEGER, OPTIONAL, INTENT(in)    :: iroot
   REAL(wp) :: global_max
 
   IF(comm_lev==0) THEN
-    global_max = p_max(zfield, proc_id=proc_id, keyval=keyval, comm=p_comm_work)
+    global_max = p_max(zfield, proc_id=proc_id, keyval=keyval, &
+      &                comm=p_comm_work, root=iroot)
   ELSE
-    global_max = p_max(zfield, proc_id=proc_id, keyval=keyval, comm=glob_comm(comm_lev))
+    global_max = p_max(zfield, proc_id=proc_id, keyval=keyval, &
+      &                comm=glob_comm(comm_lev), root=iroot)
   ENDIF
 
   IF(p_test_run .AND. do_sync_checks) CALL check_result( (/ global_max /), 'global_max' )
@@ -1587,22 +1592,27 @@ END FUNCTION global_max_0d
 !
 ! @param[out]   proc_id  (Optional:) PE number of maximum value
 ! @param[inout] keyval   (Optional:) additional meta information
+! @param[in]    iroot    (Optional:) root PE, otherwise we perform an
+!                                    ALL-TO-ALL operation
 !
 ! The parameter @p keyval can be used to communicate
 ! additional data on the maximum value, e.g., the level
 ! index where the maximum occurred.
 !
-FUNCTION global_max_1d(zfield, proc_id, keyval) RESULT(global_max)
+FUNCTION global_max_1d(zfield, proc_id, keyval, iroot) RESULT(global_max)
 
   REAL(wp), INTENT(IN) :: zfield(:)
   INTEGER, OPTIONAL, INTENT(inout) :: proc_id(SIZE(zfield))
   INTEGER, OPTIONAL, INTENT(inout) :: keyval(SIZE(zfield))
+  INTEGER, OPTIONAL, INTENT(in)    :: iroot
   REAL(wp) :: global_max(SIZE(zfield))
 
   IF(comm_lev==0) THEN
-    global_max = p_max(zfield, proc_id=proc_id, keyval=keyval, comm=p_comm_work)
+    global_max = p_max(zfield, proc_id=proc_id, keyval=keyval, &
+      &                comm=p_comm_work, root=iroot)
   ELSE
-    global_max = p_max(zfield, proc_id=proc_id, keyval=keyval, comm=glob_comm(comm_lev))
+    global_max = p_max(zfield, proc_id=proc_id, keyval=keyval, &
+      &                comm=glob_comm(comm_lev), root=iroot)
   ENDIF
 
   IF(p_test_run .AND. do_sync_checks) CALL check_result( global_max, 'global_max' )
