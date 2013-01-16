@@ -51,7 +51,7 @@ USE mo_dynamics_config,                ONLY: nold, nnew
 USE mo_oce_state,                      ONLY: t_hydro_ocean_state!, t_hydro_ocean_diag
 USE mo_sea_ice_types,                  ONLY: t_sfc_flx
 !USE mo_intp_data_strc,                 ONLY: t_int_state
-USE mo_model_domain,                   ONLY: t_patch, t_patch_3D_oce
+USE mo_model_domain,                   ONLY: t_patch, t_patch_3D
 USE mo_ext_data_types,                 ONLY: t_external_data
 USE mo_oce_ab_timestepping_mimetic,    ONLY: solve_free_sfc_ab_mimetic,       &
   &                                          calc_normal_velocity_ab_mimetic, &
@@ -88,7 +88,7 @@ CONTAINS
   !!
   SUBROUTINE solve_free_surface_eq_ab(p_patch_3D, p_os, p_ext_data, p_sfc_flx, &
     &                                 p_phys_param, timestep, p_op_coeff)!, p_int)
-    TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT)   :: p_patch_3D
+    TYPE(t_patch_3D ),TARGET, INTENT(INOUT)   :: p_patch_3D
     TYPE(t_hydro_ocean_state), TARGET             :: p_os
     TYPE(t_external_data), TARGET                 :: p_ext_data
     TYPE(t_sfc_flx), INTENT(INOUT)                :: p_sfc_flx
@@ -117,7 +117,7 @@ CONTAINS
   !! Developed  by  Peter Korn, MPI-M (2010).
   !!
   SUBROUTINE calc_normal_velocity_ab(p_patch_3D, p_os, p_op_coeff, p_ext_data, p_phys_param)
-    TYPE(t_patch_3D_oce ),TARGET, INTENT(IN)    :: p_patch_3D
+    TYPE(t_patch_3D ),TARGET, INTENT(IN)    :: p_patch_3D
     TYPE(t_hydro_ocean_state), TARGET           :: p_os
     TYPE(t_operator_coeff)                      :: p_op_coeff
     TYPE(t_external_data), TARGET               :: p_ext_data
@@ -151,7 +151,7 @@ CONTAINS
   !! Developed  by  Peter Korn,   MPI-M (2006).
   !!
   SUBROUTINE calc_vert_velocity(p_patch_3D, p_os, p_op_coeff)
-    TYPE(t_patch_3D_oce ),TARGET, INTENT(IN)      :: p_patch_3D
+    TYPE(t_patch_3D ),TARGET, INTENT(IN)      :: p_patch_3D
     TYPE(t_hydro_ocean_state)                     :: p_os
     TYPE(t_operator_coeff)                        :: p_op_coeff
     !

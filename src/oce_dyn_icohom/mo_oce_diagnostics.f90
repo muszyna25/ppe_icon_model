@@ -51,7 +51,7 @@ MODULE mo_oce_diagnostics
   USE mo_physical_constants, ONLY: grav, rho_ref
   USE mo_oce_state,          ONLY: t_hydro_ocean_state, t_hydro_ocean_diag,&! v_base, &
     &                              set_lateral_boundary_values, t_ocean_diagnostics
-  USE mo_model_domain,       ONLY: t_patch, t_patch_3D_oce,t_patch_vert
+  USE mo_model_domain,       ONLY: t_patch, t_patch_3D,t_patch_vert
   USE mo_ext_data_types,     ONLY: t_external_data
   USE mo_exception,          ONLY: message, finish, message_text
   USE mo_loopindices,        ONLY: get_indices_c!, get_indices_e
@@ -120,7 +120,7 @@ CONTAINS
 !! 
 ! SUBROUTINE calculate_oce_diagnostics(p_patch_3D, p_os, p_sfc_flx, p_phys_param, timestep, oce_ts)
 ! !
-! TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT)    :: p_patch_3D
+! TYPE(t_patch_3D ),TARGET, INTENT(INOUT)    :: p_patch_3D
 ! TYPE(t_hydro_ocean_state), TARGET             :: p_os
 ! TYPE(t_sfc_flx), INTENT(INOUT)                :: p_sfc_flx
 ! TYPE (t_ho_params)                            :: p_phys_param
@@ -360,7 +360,7 @@ CONTAINS
 SUBROUTINE construct_oce_diagnostics(p_patch, p_patch_3D, p_os, oce_ts)
 !
 TYPE(t_patch), TARGET, INTENT(in)             :: p_patch
-TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT)   :: p_patch_3D
+TYPE(t_patch_3D ),TARGET, INTENT(INOUT)   :: p_patch_3D
 TYPE(t_hydro_ocean_state), TARGET             :: p_os
 TYPE(t_oce_timeseries),POINTER                :: oce_ts
 !
@@ -541,7 +541,7 @@ END SUBROUTINE construct_oce_diagnostics
 !   TYPE(t_ocean_diagnostics), POINTER :: ocean_diagnostics
 !   TYPE(t_hydro_ocean_state), TARGET             :: p_os
 !   TYPE(t_patch), TARGET, INTENT(in)  :: p_patch
-!   TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT)   :: p_patch_3D
+!   TYPE(t_patch_3D ),TARGET, INTENT(INOUT)   :: p_patch_3D
 ! 
 !   TYPE(t_subset_range), POINTER      :: all_cells
 !   INTEGER                            :: jb,jc,jk,istart,iend,i
@@ -646,7 +646,7 @@ END SUBROUTINE destruct_oce_diagnostics
 SUBROUTINE calc_moc (p_patch,p_patch_3D, w, datetime)
 
   TYPE(t_patch), TARGET, INTENT(IN)  :: p_patch
-  TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT)  :: p_patch_3D
+  TYPE(t_patch_3D ),TARGET, INTENT(INOUT)  :: p_patch_3D
   REAL(wp), INTENT(in)               :: w(:,:,:)   ! vertical velocity at cell centers
                                                    ! dims: (nproma,nlev+1,nblks_c)
   TYPE(t_datetime), INTENT(IN)       :: datetime
@@ -823,7 +823,7 @@ END SUBROUTINE calc_moc
 SUBROUTINE calc_psi (p_patch,p_patch_3D, u, h, u_vint, datetime)
 
   TYPE(t_patch), TARGET, INTENT(IN)  :: p_patch
-  TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT)  :: p_patch_3D
+  TYPE(t_patch_3D ),TARGET, INTENT(INOUT)  :: p_patch_3D
   REAL(wp), INTENT(IN)               :: u(:,:,:)     ! zonal velocity at cell centers
   REAL(wp), INTENT(IN)               :: h(:,:)       ! elevation on cell centers
                                                      ! dims: (nproma,nlev,nblks_c)

@@ -92,7 +92,7 @@ MODULE mo_ocean_model
 !     & restore_interpol_state_netcdf
 
   USE mo_icoham_dyn_memory,   ONLY: p_hydro_state
-  USE mo_model_domain,        ONLY: t_patch,  t_patch_3D_oce!, p_patch
+  USE mo_model_domain,        ONLY: t_patch,  t_patch_3D!, p_patch
   !USE mo_intp_data_strc,      ONLY: t_int_state, p_int_state_local_parent,p_int_state, p_int_state_local_parent
   !USE mo_grf_intp_data_strc,  ONLY: p_grf_state, p_grf_state_local_parent
 
@@ -175,7 +175,7 @@ CONTAINS
     INTEGER :: n_io, jg, jgp, jfile, ist
 
     TYPE(t_patch), ALLOCATABLE   :: p_patch_global(:)
-    TYPE(t_patch_3D_oce),POINTER :: p_patch_3D
+    TYPE(t_patch_3D),POINTER :: p_patch_3D
     ! For the coupling
 
     INTEGER, PARAMETER :: no_of_fields = 9

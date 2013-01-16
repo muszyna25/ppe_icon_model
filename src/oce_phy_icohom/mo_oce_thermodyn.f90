@@ -52,7 +52,7 @@ MODULE mo_oce_thermodyn
 !
 USE mo_kind,                ONLY: wp
 USE mo_ocean_nml,           ONLY: n_zlev, EOS_TYPE, no_tracer
-USE mo_model_domain,        ONLY: t_patch, t_patch_3D_oce
+USE mo_model_domain,        ONLY: t_patch, t_patch_3D
 USE mo_impl_constants,      ONLY: sea_boundary, sea_boundary, min_dolic !, &
 !USE mo_exception,           ONLY: message, finish
 USE mo_loopindices,         ONLY: get_indices_c!, get_indices_e, get_indices_v
@@ -165,7 +165,7 @@ CONTAINS
 
   SUBROUTINE calc_internal_press_new(p_patch_3D, trac_t, trac_s, h, calc_density, press_hyd)
   !
-  TYPE(t_patch_3D_oce ),TARGET, INTENT(IN):: p_patch_3D
+  TYPE(t_patch_3D ),TARGET, INTENT(IN):: p_patch_3D
   REAL(wp),    INTENT(IN)       :: trac_t   (:,:,:)  !temperature
   REAL(wp),    INTENT(IN)       :: trac_s   (:,:,:)  !salinity
   REAL(wp),    INTENT(IN)       :: h        (:,:)    !< surface elevation at cells
@@ -268,7 +268,7 @@ END INTERFACE
   !!  mpi parallelized LL (no sync required)
   SUBROUTINE calc_internal_press(p_patch_3D, rho, prism_thick_c, h, press_hyd)
   !
-  TYPE(t_patch_3D_oce ),TARGET, INTENT(IN)   :: p_patch_3D
+  TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: p_patch_3D
   REAL(wp), INTENT(IN)              :: rho          (1:nproma,1:n_zlev, p_patch_3D%p_patch_2D(1)%nblks_c)  !< density
   REAL(wp), INTENT(IN), TARGET      :: prism_thick_c(1:nproma,1:n_zlev, p_patch_3D%p_patch_2D(1)%nblks_c)
   REAL(wp), INTENT(IN)              :: h            (1:nproma, p_patch_3D%p_patch_2D(1)%nblks_c)           !< surface elevation at cells
@@ -346,7 +346,7 @@ END INTERFACE
   SUBROUTINE calc_density(p_patch_3D,tracer, rho)
   !
   !!
-  TYPE(t_patch_3D_oce ),TARGET, INTENT(IN) :: p_patch_3D
+  TYPE(t_patch_3D ),TARGET, INTENT(IN) :: p_patch_3D
   REAL(wp),    INTENT(IN), TARGET             :: tracer(:,:,:,:)     !< input of S and T
   REAL(wp), INTENT(INOUT), TARGET             :: rho   (:,:,:)       !< density
 
@@ -388,7 +388,7 @@ END INTERFACE
   SUBROUTINE  calc_density_lin_EOS(p_patch_3D, tracer, rho)
   !
   !!
-  TYPE(t_patch_3D_oce ),TARGET, INTENT(IN)   :: p_patch_3D
+  TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: p_patch_3D
   REAL(wp),    INTENT(IN)       :: tracer(:,:,:,:)     !< input of S and T
   REAL(wp), INTENT(INOUT)       :: rho   (:,:,:)       !< density
 
@@ -495,7 +495,7 @@ END INTERFACE
 ! !REVISION HISTORY:
 ! implemented by Peter Herrmann (2009)
 !
-    TYPE(t_patch_3D_oce ),TARGET, INTENT(IN):: p_patch_3D
+    TYPE(t_patch_3D ),TARGET, INTENT(IN):: p_patch_3D
     REAL(wp),    INTENT(IN)                    :: tracer(:,:,:,:)
     REAL(wp), INTENT(INOUT)                    :: rho(:,:,:)       !< density
 
@@ -651,7 +651,7 @@ END INTERFACE
   !!  mpi parallelized LL (no sync required)
   SUBROUTINE calc_density_JM_EOS(p_patch_3D, tracer, rho)
   !
-  TYPE(t_patch_3D_oce ),TARGET, INTENT(IN) :: p_patch_3D
+  TYPE(t_patch_3D ),TARGET, INTENT(IN) :: p_patch_3D
   REAL(wp),    INTENT(IN)                     :: tracer(:,:,:,:)  
   REAL(wp), INTENT(OUT)                       :: rho(:,:,:) 
 
@@ -741,7 +741,7 @@ END SUBROUTINE calc_density_JM_EOS
   !! Initial version by Peter Korn, MPI-M (2011)
   !!
 !
-    TYPE(t_patch_3D_oce ),TARGET, INTENT(IN)   :: p_patch_3D
+    TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: p_patch_3D
     REAL(wp), INTENT(IN)                          :: tracer(:,:,:,:)
     REAL(wp), INTENT(INOUT)                       :: rho(:,:,:)       !< density
 
@@ -867,7 +867,7 @@ FUNCTION calc_density_MPIOM_func(tpot, sal, p) RESULT(rho)
   !! Initial version by Peter Korn, MPI-M (2011)
   !!
 !
-    TYPE(t_patch_3D_oce ),TARGET, INTENT(IN)   :: p_patch_3D
+    TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: p_patch_3D
     REAL(wp)                      :: rho_ref
     REAL(wp)                      :: temp_insitu(:,:,:)
     REAL(wp)                      :: sal(:,:,:)
@@ -945,7 +945,7 @@ FUNCTION convert_insitu2pot_temp_func(t, s, p) RESULT(temp_pot)
   !! Initial version by Peter Korn, MPI-M (2011)
   !!
 
-    TYPE(t_patch_3D_oce ),TARGET, INTENT(IN) :: p_patch_3D
+    TYPE(t_patch_3D ),TARGET, INTENT(IN) :: p_patch_3D
     REAL(wp)                                    :: trac_t(:,:,:)
     REAL(wp)                                    :: trac_s(:,:,:)
     REAL(wp)                                    :: temp_insitu(:,:,:)

@@ -68,7 +68,7 @@ USE mo_dynamics_config,           ONLY: nold, nnew
 USE mo_physical_constants,        ONLY: grav
 USE mo_oce_state,                 ONLY: t_hydro_ocean_state, t_hydro_ocean_diag,&! v_base,  &
   &                                     set_lateral_boundary_values, is_initial_timestep
-USE mo_model_domain,              ONLY: t_patch, t_patch_3D_oce
+USE mo_model_domain,              ONLY: t_patch, t_patch_3D
 USE mo_ext_data_types,            ONLY: t_external_data
 USE mo_gmres,                     ONLY: gmres
 USE mo_exception,                 ONLY: message, finish!, message_text
@@ -137,7 +137,7 @@ CONTAINS
 SUBROUTINE solve_free_sfc_ab_mimetic(p_patch_3D, p_os, p_ext_data, p_sfc_flx, &
     &                                  p_phys_param, timestep, p_op_coeff)
   
-  TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT)   :: p_patch_3D
+  TYPE(t_patch_3D ),TARGET, INTENT(INOUT)   :: p_patch_3D
   TYPE(t_hydro_ocean_state), TARGET             :: p_os
   TYPE(t_external_data), TARGET, INTENT(in)     :: p_ext_data
   TYPE(t_sfc_flx), INTENT(INOUT)                :: p_sfc_flx
@@ -417,7 +417,7 @@ END SUBROUTINE solve_free_sfc_ab_mimetic
 !-------------------------------------------------------------------------  
 SUBROUTINE Jacobi_precon( p_jp, p_patch_3D, p_op_coeff,thick_e) !RESULT(p_jp)
 !
-TYPE(t_patch_3D_oce ),TARGET, INTENT(IN)   :: p_patch_3D
+TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: p_patch_3D
 REAL(wp),INTENT(INOUT)                        :: p_jp(:,:)    ! inout for sync, dimension: (nproma,p_patch%nblks_c)
 TYPE(t_operator_coeff),INTENT(in)             :: p_op_coeff
 REAL(wp),INTENT(in)                           :: thick_e(:,:)   
@@ -537,7 +537,7 @@ SUBROUTINE calculate_explicit_term_ab( p_patch_3D, p_os, p_phys_param,&
                                      & l_initial_timestep, p_op_coeff)
 
   !TYPE(t_patch), TARGET, INTENT(in)             :: p_patch
-  TYPE(t_patch_3D_oce ),TARGET, INTENT(IN)   :: p_patch_3D
+  TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: p_patch_3D
   TYPE(t_hydro_ocean_state), TARGET             :: p_os
   TYPE (t_ho_params)                            :: p_phys_param
   !TYPE(t_int_state),TARGET,INTENT(IN), OPTIONAL :: p_int
@@ -959,7 +959,7 @@ END SUBROUTINE calculate_explicit_term_ab
 SUBROUTINE fill_rhs4surface_eq_ab( p_patch_3D, p_os, p_sfc_flx, p_op_coeff)
 !
 ! Patch on which computation is performed
-TYPE(t_patch_3D_oce ),TARGET, INTENT(IN)   :: p_patch_3D
+TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: p_patch_3D
 !
 ! Type containing ocean state
 TYPE(t_hydro_ocean_state), TARGET :: p_os
@@ -1396,7 +1396,7 @@ END SUBROUTINE fill_rhs4surface_eq_ab
 FUNCTION lhs_surface_height_ab_mim( p_x, h_old, p_patch_3D,coeff, h_e,&
                                   & thickness_c,p_op_coeff) RESULT(p_lhs)
 
-TYPE(t_patch_3D_oce ),TARGET, INTENT(IN)   :: p_patch_3D
+TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: p_patch_3D
 REAL(wp),    INTENT(INOUT)       :: p_x(:,:)    ! inout for sync, dimension: (nproma,p_patch%nblks_c)
 REAL(wp),    INTENT(IN)          :: h_old(:,:)
 REAL(wp),    INTENT(in)          :: coeff
@@ -1601,7 +1601,7 @@ END FUNCTION lhs_surface_height_ab_mim
   !!  mpi parallelized LL
 SUBROUTINE calc_normal_velocity_ab_mimetic(p_patch_3D,p_os, p_op_coeff, p_ext_data)
 !
-  TYPE(t_patch_3D_oce ),TARGET, INTENT(IN)   :: p_patch_3D
+  TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: p_patch_3D
   TYPE(t_hydro_ocean_state), TARGET             :: p_os
   TYPE(t_operator_coeff),INTENT(IN)             :: p_op_coeff
   TYPE(t_external_data), TARGET                 :: p_ext_data
@@ -1771,7 +1771,7 @@ END SUBROUTINE calc_normal_velocity_ab_mimetic
 SUBROUTINE calc_vert_velocity_mim_bottomup( p_patch_3D, p_os, p_diag,p_op_coeff, &
                                           &ph_e, top_bc_w, bot_bc_w, pw_c )
 !
-TYPE(t_patch_3D_oce), TARGET, INTENT(IN) :: p_patch_3D       ! patch on which computation is performed
+TYPE(t_patch_3D), TARGET, INTENT(IN) :: p_patch_3D       ! patch on which computation is performed
 TYPE(t_hydro_ocean_state)         :: p_os
 TYPE(t_hydro_ocean_diag)          :: p_diag
 TYPE(t_operator_coeff),INTENT(IN) :: p_op_coeff
@@ -1998,7 +1998,7 @@ END SUBROUTINE calc_vert_velocity_mim_bottomup
 SUBROUTINE calc_vert_velocity_mim_topdown( p_patch_3D,p_os, p_diag,p_op_coeff, &
                                           &ph_e, top_bc_w, bot_bc_w, pw_c )
 !
-TYPE(t_patch_3D_oce ),TARGET, INTENT(IN)   :: p_patch_3D
+TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: p_patch_3D
 TYPE(t_hydro_ocean_state)         :: p_os
 TYPE(t_hydro_ocean_diag)          :: p_diag
 TYPE(t_operator_coeff),INTENT(IN) :: p_op_coeff
@@ -2225,7 +2225,7 @@ END SUBROUTINE calc_vert_velocity_mim_topdown
 FUNCTION inverse_primal_flip_flop(p_patch, p_patch_3D, p_op_coeff, rhs_e, h_e) result(inv_flip_flop_e)
    !
    TYPE(t_patch), TARGET :: p_patch 
-   TYPE(t_patch_3D_oce ),TARGET, INTENT(IN)   :: p_patch_3D
+   TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: p_patch_3D
    TYPE(t_operator_coeff),INTENT(IN)             :: p_op_coeff
    REAL(wp)      :: rhs_e(:,:,:)!(nproma,n_zlev,p_patch%nblks_e)
    REAL(wp)      :: h_e(:,:)  !(nproma,p_patch%nblks_e)
@@ -2317,7 +2317,7 @@ write(*,*)'sol', maxvaL(inv_flip_flop_e(:,jk,:)),minvaL(inv_flip_flop_e(:,jk,:))
    FUNCTION lhs_primal_flip_flop( x, p_patch, p_patch_3D, p_op_coeff,jk,coeff, h_e) RESULT(llhs)
     !
     TYPE(t_patch), TARGET, INTENT(in)             :: p_patch
-    TYPE(t_patch_3D_oce ),TARGET, INTENT(IN)      :: p_patch_3D
+    TYPE(t_patch_3D ),TARGET, INTENT(IN)      :: p_patch_3D
     REAL(wp),INTENT(inout)                        :: x(:,:)
     TYPE(t_operator_coeff),INTENT(IN)             :: p_op_coeff
     INTEGER ,INTENT(in)                           :: jk

@@ -88,7 +88,7 @@ MODULE mo_io_async
   !------------------------------------------------------------------------------------------------
   ! Needed only for compute PEs, patches are NOT set on I/O PEs
 
-  USE mo_model_domain,        ONLY: p_patch,t_patch_3D_oce 
+  USE mo_model_domain,        ONLY: p_patch,t_patch_3D 
   USE mo_vertical_coord_table,ONLY: vct
 
   ! End of needed only for compute PEs
@@ -1189,7 +1189,7 @@ CONTAINS
 
     TYPE(t_datetime),   INTENT(in) :: datetime
     REAL(wp), OPTIONAL, INTENT(in) :: z_sim_time(n_dom)
-    TYPE(t_patch_3D_oce ),OPTIONAL,TARGET, INTENT(IN)  :: p_patch_3D
+    TYPE(t_patch_3D ),OPTIONAL,TARGET, INTENT(IN)  :: p_patch_3D
     TYPE(t_hydro_ocean_state), OPTIONAL,TARGET, INTENT(IN) :: p_os(n_dom)
 
     INTEGER jg, jk, n, i, mpierr, n_own, n_tot, nlev_ptr, nblk_ptr

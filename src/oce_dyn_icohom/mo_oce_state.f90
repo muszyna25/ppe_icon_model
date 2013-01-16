@@ -67,7 +67,7 @@ MODULE mo_oce_state
     &                               CORIOLIS_TYPE, basin_center_lat, basin_height_deg
   USE mo_util_dbg_prnt,       ONLY: c_i, c_b, nc_i, nc_b
   USE mo_exception,           ONLY: message_text, message, finish
-  USE mo_model_domain,        ONLY: t_patch,t_patch_3D_oce
+  USE mo_model_domain,        ONLY: t_patch,t_patch_3D
   USE mo_grid_config,         ONLY: n_dom, n_dom_start, grid_sphere_radius, grid_angular_velocity
   USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_dynamics_config,     ONLY: nnew,nnow
@@ -3398,7 +3398,7 @@ END SUBROUTINE complete_patchinfo_oce
 
   SUBROUTINE construct_patch_3D(p_patch_3D)
 
-    TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT)    :: p_patch_3D
+    TYPE(t_patch_3D ),TARGET, INTENT(INOUT)    :: p_patch_3D
  
     ! local variables
     INTEGER :: ist
@@ -3621,7 +3621,7 @@ END SUBROUTINE complete_patchinfo_oce
 
   SUBROUTINE init_patch_3D(p_patch_3D,v_base)
 
-    TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT) :: p_patch_3D
+    TYPE(t_patch_3D ),TARGET, INTENT(INOUT) :: p_patch_3D
     TYPE(t_hydro_ocean_base), INTENT(INOUT)    :: v_base
     ! local variables
     INTEGER :: ist

@@ -54,7 +54,7 @@ MODULE mo_operator_ocean_coeff_3d
   USE mo_ocean_nml,           ONLY: n_zlev, dzlev_m, no_tracer, t_ref, s_ref, &
     &                               coriolis_type, basin_center_lat, basin_height_deg
   USE mo_exception,           ONLY: message, finish
-  USE mo_model_domain,        ONLY: t_patch, t_patch_3D_oce
+  USE mo_model_domain,        ONLY: t_patch, t_patch_3D
   USE mo_parallel_config,     ONLY: nproma, p_test_run
   USE mo_sync,                ONLY: sync_c, sync_e, sync_v, sync_patch_array, sync_idx, global_max
   USE mo_loopindices,         ONLY: get_indices_c, get_indices_e, get_indices_v
@@ -467,7 +467,7 @@ CONTAINS
   SUBROUTINE par_init_operator_coeff2( patch, p_patch_3D, p_os, p_phys_param, ocean_coeff)
     !
     TYPE(t_patch),            INTENT(inout)     :: patch
-    TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT) :: p_patch_3D
+    TYPE(t_patch_3D ),TARGET, INTENT(INOUT) :: p_patch_3D
     TYPE(t_hydro_ocean_state),INTENT(IN)        :: p_os
     TYPE (t_ho_params),       INTENT(IN)        :: p_phys_param
     TYPE(t_operator_coeff),   INTENT(inout)     :: ocean_coeff
@@ -545,7 +545,7 @@ CONTAINS
                                          & matrix_vert_diff_c)
  
      TYPE(t_patch), TARGET, INTENT(INOUT)  :: patch
-     TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT)   :: p_patch_3D
+     TYPE(t_patch_3D ),TARGET, INTENT(INOUT)   :: p_patch_3D
      TYPE(t_hydro_ocean_state),INTENT(IN) :: p_os
      TYPE (t_ho_params),       INTENT(IN) :: p_phys_param
      REAL(wp), INTENT(INOUT) :: matrix_vert_diff_e(1:nproma,1:n_zlev,1:patch%nblks_e,1:3)
@@ -2885,7 +2885,7 @@ CONTAINS
   SUBROUTINE par_apply_boundary2coeffs( patch, p_patch_3D, ocean_coeff)
     ! !
     TYPE(t_patch), TARGET,  INTENT(INOUT)       :: patch
-    TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT) :: p_patch_3D
+    TYPE(t_patch_3D ),TARGET, INTENT(INOUT) :: p_patch_3D
     TYPE(t_operator_coeff), INTENT(INOUT)       :: ocean_coeff
 
     !Local variables

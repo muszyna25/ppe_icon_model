@@ -70,7 +70,7 @@ USE mo_math_utilities,     ONLY: t_cartesian_coordinates
 !USE mo_loopindices,        ONLY: get_indices_c, get_indices_e
 USE mo_exception,          ONLY: finish, message, message_text
 USE mo_util_dbg_prnt,      ONLY: dbg_print, c_i, c_b
-USE mo_model_domain,       ONLY: t_patch, t_patch_3D_oce
+USE mo_model_domain,       ONLY: t_patch, t_patch_3D
 USE mo_ext_data_types,     ONLY: t_external_data
 USE mo_util_netcdf,        ONLY: read_netcdf_data
 USE mo_sea_ice_types,      ONLY: t_sfc_flx
@@ -121,7 +121,7 @@ CONTAINS
   !
   SUBROUTINE init_ho_prog(p_patch, p_patch_3D, p_os, p_sfc_flx)
     TYPE(t_patch),TARGET, INTENT(IN)  :: p_patch
-    TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT) :: p_patch_3D
+    TYPE(t_patch_3D ),TARGET, INTENT(INOUT) :: p_patch_3D
     TYPE(t_hydro_ocean_state), TARGET :: p_os
     !TYPE(t_external_data)             :: p_ext_data 
     TYPE(t_sfc_flx)                   :: p_sfc_flx
@@ -307,7 +307,7 @@ CONTAINS
   SUBROUTINE init_ho_relaxation(p_patch, p_patch_3D, p_os, p_sfc_flx)
 
     TYPE(t_patch),TARGET, INTENT(IN)  :: p_patch
-    TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT) :: p_patch_3D
+    TYPE(t_patch_3D ),TARGET, INTENT(INOUT) :: p_patch_3D
     TYPE(t_hydro_ocean_state), TARGET :: p_os
     TYPE(t_sfc_flx)                   :: p_sfc_flx
 
@@ -491,7 +491,7 @@ CONTAINS
 
   SUBROUTINE init_ho_recon_fields( p_patch,p_patch_3D, p_os, p_op_coeff)
     TYPE(t_patch), TARGET, INTENT(in)             :: p_patch
-    TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT)   :: p_patch_3D
+    TYPE(t_patch_3D ),TARGET, INTENT(INOUT)   :: p_patch_3D
     TYPE(t_hydro_ocean_state), TARGET             :: p_os
     TYPE(t_operator_coeff)                        :: p_op_coeff
 
@@ -543,7 +543,7 @@ CONTAINS
   SUBROUTINE init_oce_index (p_patch, p_patch_3D, pstate_oce, p_ext_data)
 
     TYPE(t_patch),             TARGET, INTENT(IN)     :: p_patch(n_dom)
-    TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT)       :: p_patch_3D
+    TYPE(t_patch_3D ),TARGET, INTENT(INOUT)       :: p_patch_3D
     TYPE(t_hydro_ocean_state), TARGET, INTENT(INOUT)  :: pstate_oce(n_dom)
     TYPE(t_external_data),     TARGET, INTENT(IN)     :: p_ext_data(n_dom)
    
@@ -838,7 +838,7 @@ CONTAINS
   !
   SUBROUTINE init_ho_testcases(p_patch, p_patch_3D,p_os, p_ext_data, p_op_coeff,p_sfc_flx)
   TYPE(t_patch),TARGET,INTENT(IN)   :: p_patch
-  TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT) :: p_patch_3D
+  TYPE(t_patch_3D ),TARGET, INTENT(INOUT) :: p_patch_3D
   TYPE(t_hydro_ocean_state), TARGET :: p_os
   TYPE(t_external_data)             :: p_ext_data
   TYPE(t_operator_coeff)            :: p_op_coeff
@@ -2311,7 +2311,7 @@ FUNCTION geo_balance_mim(p_patch, h_e,grad_coeff, rhs_e) result(vn_e)
    !--------------------------------------------------------------------
    FUNCTION lhs_geo_balance_mim( x, p_patch, p_patch_3D, lev,p_coeff,grad_coeff, h_e) RESULT(llhs)
      TYPE(t_patch),TARGET,INTENT(IN) :: p_patch
-     TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT)   :: p_patch_3D
+     TYPE(t_patch_3D ),TARGET, INTENT(INOUT)   :: p_patch_3D
      INTEGER                         :: lev
      REAL(wp),INTENT(inout)          :: x(nproma,p_patch%nblks_e)!(:,:)
      REAL(wp),INTENT(in)             :: p_coeff

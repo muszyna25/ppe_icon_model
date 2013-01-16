@@ -74,7 +74,7 @@ USE mo_ocean_nml,           ONLY: iforc_oce, iforc_type, iforc_len, itestcase_oc
   &                               FORCING_FROM_FILE_FIELD, FORCING_FROM_COUPLED_FLUX,      &
   &                               FORCING_FROM_COUPLED_FIELD, i_sea_ice
 USE mo_dynamics_config,     ONLY: nold
-USE mo_model_domain,        ONLY: t_patch, t_patch_3D_oce
+USE mo_model_domain,        ONLY: t_patch, t_patch_3D
 USE mo_util_dbg_prnt,       ONLY: dbg_print
 USE mo_dbg_nml,             ONLY: idbg_mxmn
 USE mo_oce_state,           ONLY: t_hydro_ocean_state
@@ -124,7 +124,7 @@ CONTAINS
   !
   SUBROUTINE update_sfcflx(p_patch_3D, p_os, p_as, p_ice, Qatm, p_sfc_flx, jstep, datetime)
 
-    TYPE(t_patch_3D_oce ),TARGET, INTENT(IN)    :: p_patch_3D
+    TYPE(t_patch_3D ),TARGET, INTENT(IN)    :: p_patch_3D
     TYPE(t_hydro_ocean_state)                   :: p_os
     TYPE(t_atmos_for_ocean)                     :: p_as
     TYPE(t_atmos_fluxes)                        :: Qatm
@@ -1111,7 +1111,7 @@ CONTAINS
   !
   SUBROUTINE update_sfcflx_from_atm_flx(p_patch_3D, p_as, p_os, p_ice, Qatm, p_sfc_flx)
 
-    TYPE(t_patch_3D_oce ),TARGET, INTENT(IN)    :: p_patch_3D
+    TYPE(t_patch_3D ),TARGET, INTENT(IN)    :: p_patch_3D
     TYPE(t_atmos_for_ocean),      INTENT(IN)    :: p_as
     TYPE(t_hydro_ocean_state),    INTENT(IN)    :: p_os
     TYPE (t_sea_ice),             INTENT (IN)   :: p_ice
@@ -1241,7 +1241,7 @@ CONTAINS
   !
   SUBROUTINE update_sfcflx_analytical(p_patch_3D, p_os, p_sfc_flx)
 
-  TYPE(t_patch_3D_oce ),TARGET, INTENT(IN)    :: p_patch_3D
+  TYPE(t_patch_3D ),TARGET, INTENT(IN)    :: p_patch_3D
   TYPE(t_hydro_ocean_state)                   :: p_os
   TYPE(t_sfc_flx)                             :: p_sfc_flx
   !

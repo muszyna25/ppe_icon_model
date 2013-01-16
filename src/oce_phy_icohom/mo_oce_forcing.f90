@@ -52,7 +52,7 @@ MODULE mo_oce_forcing
 USE mo_kind,                ONLY: wp
 USE mo_ocean_nml,           ONLY: itestcase_oce, iforc_oce, analyt_forc, &
   &                               wstress_coeff, iforc_stat_oce, basin_height_deg
-USE mo_model_domain,        ONLY: t_patch, t_patch_3D_oce
+USE mo_model_domain,        ONLY: t_patch, t_patch_3D
 USE mo_util_dbg_prnt,       ONLY: dbg_print
 USE mo_exception,           ONLY: finish, message
 USE mo_math_constants,      ONLY: pi, deg2rad
@@ -85,7 +85,7 @@ CONTAINS
   !
   SUBROUTINE init_sfcflx(p_patch_3D, p_sfc_flx)
   !
-  TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT) :: p_patch_3D
+  TYPE(t_patch_3D ),TARGET, INTENT(INOUT) :: p_patch_3D
   TYPE(t_sfc_flx)                             :: p_sfc_flx
 
   ! Local variables

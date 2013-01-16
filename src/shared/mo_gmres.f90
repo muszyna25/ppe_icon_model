@@ -66,7 +66,7 @@ MODULE mo_gmres
   USE mo_kind,                ONLY: wp
   USE mo_parallel_config, ONLY: nproma
   USE mo_run_config,          ONLY: ltimer
-  USE mo_model_domain,        ONLY: t_patch, t_patch_3D_oce
+  USE mo_model_domain,        ONLY: t_patch, t_patch_3D
   USE mo_timer,               ONLY: timer_start, timer_stop, timer_gmres
   USE mo_intp_data_strc,      ONLY: t_int_state
   USE mo_nonhydro_types,      ONLY: t_nh_metrics
@@ -913,7 +913,7 @@ REAL(wp), INTENT(IN) :: thickness_c(:,:)
 REAL(wp), INTENT(IN) :: old_h(:,:)
 ! patch info needed for calculating lhs
 !TYPE(t_patch), INTENT(IN) :: curr_patch
-TYPE(t_patch_3D_oce ),TARGET, INTENT(IN)   :: p_patch_3D
+TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: p_patch_3D
 ! index defining the "active" region of the arrays
 ! parameter used in calculating the lhs
 REAL(wp), INTENT(IN) :: coeff  
@@ -938,12 +938,12 @@ REAL(wp), INTENT(INOUT) :: res(:) ! (m)
 INTERFACE   ! left-hand-side: A*x
   FUNCTION lhs(x,old_h, p_patch_3D, coeff, h_e, thickness_c, p_op_coeff) RESULT(ax)
     USE mo_kind, ONLY: wp
-    USE mo_model_domain, ONLY: t_patch, t_patch_3D_oce
+    USE mo_model_domain, ONLY: t_patch, t_patch_3D
     USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff
     REAL(wp),    INTENT(inout) :: x(:,:)  ! inout for sync
     REAL(wp), INTENT(IN) :: old_h(:,:)
     !TYPE(t_patch), TARGET, INTENT(in) :: curr_patch
-    TYPE(t_patch_3D_oce ),TARGET, INTENT(IN)   :: p_patch_3D
+    TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: p_patch_3D
     REAL(wp),    INTENT(in) :: coeff  
     REAL(wp),    INTENT(in) :: h_e(:,:)
     REAL(wp),    INTENT(in) :: thickness_c(:,:)
@@ -955,11 +955,11 @@ END INTERFACE
 INTERFACE   ! preconditioner
   SUBROUTINE preconditioner(r, p_patch_3D, p_op_coeff,h_e)
     USE mo_kind, ONLY: wp
-    USE mo_model_domain, ONLY: t_patch, t_patch_3D_oce
+    USE mo_model_domain, ONLY: t_patch, t_patch_3D
     USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff 
     REAL(wp), INTENT(inout)           :: r(:,:)
     !TYPE(t_patch), TARGET, INTENT(in) :: curr_patch
-    TYPE(t_patch_3D_oce ),TARGET, INTENT(IN)   :: p_patch_3D
+    TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: p_patch_3D
     TYPE(t_operator_coeff),INTENT(IN) :: p_op_coeff
     REAL(wp),    INTENT(in)           :: h_e(:,:)
   END SUBROUTINE preconditioner
@@ -1313,7 +1313,7 @@ INTEGER,     INTENT(IN) :: lev
 ! REAL(wp), INTENT(IN) :: old_h(:,:)
 ! patch info needed for calculating lhs
 TYPE(t_patch), INTENT(IN) :: curr_patch
-TYPE(t_patch_3D_oce ),TARGET, INTENT(IN)   :: p_patch_3D
+TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: p_patch_3D
 ! index defining the "active" region of the arrays
 ! parameter used in calculating the lhs
 REAL(wp), INTENT(IN) :: coeff  
@@ -1339,12 +1339,12 @@ INTERFACE   ! left-hand-side: A*x
 
 ! !   FUNCTION lhs(x,old_h, curr_patch,p_patch_3D,coeff, h_e, thickness_c, p_op_coeff) RESULT(ax)
 ! !     USE mo_kind, ONLY: wp
-! !     USE mo_model_domain, ONLY: t_patch, t_patch_3D_oce
+! !     USE mo_model_domain, ONLY: t_patch, t_patch_3D
 ! !     USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff
 ! !     REAL(wp),    INTENT(inout) :: x(:,:)  ! inout for sync
 ! !     REAL(wp), INTENT(IN) :: old_h(:,:)
 ! !     TYPE(t_patch), TARGET, INTENT(in) :: curr_patch
-! !     TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT)   :: p_patch_3D
+! !     TYPE(t_patch_3D ),TARGET, INTENT(INOUT)   :: p_patch_3D
 ! !     REAL(wp),    INTENT(in) :: coeff  
 ! !     REAL(wp),    INTENT(in) :: h_e(:,:)
 ! !     REAL(wp),    INTENT(in) :: thickness_c(:,:)
@@ -1353,10 +1353,10 @@ INTERFACE   ! left-hand-side: A*x
 ! !   ENDFUNCTION lhs
   FUNCTION lhs(x, curr_patch, p_patch_3D, p_op_coeff, lev,coeff, h_e) RESULT(ax)
     USE mo_kind, ONLY: wp
-    USE mo_model_domain, ONLY: t_patch, t_patch_3D_oce
+    USE mo_model_domain, ONLY: t_patch, t_patch_3D
     USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff
     TYPE(t_patch),TARGET, INTENT(in):: curr_patch
-    TYPE(t_patch_3D_oce ),TARGET, INTENT(IN) :: p_patch_3D
+    TYPE(t_patch_3D ),TARGET, INTENT(IN) :: p_patch_3D
     TYPE(t_operator_coeff),INTENT(IN)  :: p_op_coeff
 
     REAL(wp),    INTENT(inout) :: x(:,:)!(nproma,curr_patch%nblks_e)
@@ -1372,11 +1372,11 @@ END INTERFACE
 INTERFACE   ! preconditioner
   SUBROUTINE preconditioner(r,curr_patch, p_patch_3D, p_op_coeff,h_e)
     USE mo_kind, ONLY: wp
-    USE mo_model_domain, ONLY: t_patch, t_patch_3D_oce
+    USE mo_model_domain, ONLY: t_patch, t_patch_3D
     USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff 
     REAL(wp), INTENT(inout)           :: r(:,:)
     TYPE(t_patch), TARGET, INTENT(in) :: curr_patch
-    TYPE(t_patch_3D_oce ),TARGET, INTENT(IN)   :: p_patch_3D
+    TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: p_patch_3D
     TYPE(t_operator_coeff),INTENT(IN) :: p_op_coeff
     REAL(wp),    INTENT(in)           :: h_e(:,:)
   END SUBROUTINE preconditioner

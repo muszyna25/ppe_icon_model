@@ -55,7 +55,7 @@ USE mo_run_config,                ONLY: dtime, ltimer
 USE mo_timer,                     ONLY: timer_start, timer_stop, timer_adv_vert, timer_ppm_slim!, &
   !&                                     timer_dif_vert
 USE mo_oce_state,                 ONLY: t_hydro_ocean_state!,v_base
-USE mo_model_domain,              ONLY: t_patch,t_patch_3D_oce
+USE mo_model_domain,              ONLY: t_patch,t_patch_3D
 USE mo_exception,                 ONLY: finish !, message_text, message
 USE mo_util_dbg_prnt,             ONLY: dbg_print
 USE mo_oce_physics
@@ -103,7 +103,7 @@ CONTAINS
                                  & tracer_id)
 
     !TYPE(t_patch), TARGET, INTENT(IN) :: p_patch
-    TYPE(t_patch_3D_oce ),TARGET               :: p_patch_3D
+    TYPE(t_patch_3D ),TARGET               :: p_patch_3D
     REAL(wp), INTENT(INOUT)           :: trac_old(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)
     TYPE(t_hydro_ocean_state), TARGET :: p_os
     REAL(wp)                          :: bc_top_tracer(nproma, p_patch_3D%p_patch_2D(1)%nblks_c)
@@ -224,7 +224,7 @@ CONTAINS
   !! mpi parallelized, no sync
   SUBROUTINE apply_tracer_flux_top_layer_oce( p_patch_3D, pvar_c, pw_c,pupflux_i, tracer_id )
 
-    TYPE(t_patch_3D_oce ),TARGET, INTENT(IN)   :: p_patch_3D
+    TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: p_patch_3D
     REAL(wp), INTENT(INOUT)           :: pvar_c(nproma,n_zlev, p_patch_3D%p_patch_2D(1)%nblks_c)     !< advected cell centered variable
     REAL(wp), INTENT(INOUT)           :: pw_c(nproma,n_zlev+1, p_patch_3D%p_patch_2D(1)%nblks_c)     !< vertical velocity on cells 
     REAL(wp), INTENT(INOUT)           :: pupflux_i(nproma,n_zlev+1, p_patch_3D%p_patch_2D(1)%nblks_c)!< flux dim: (nproma,n_zlev+1,nblks_c)
@@ -287,7 +287,7 @@ return
   !! mpi parallelized, no sync
   SUBROUTINE upwind_vflux_oce( p_patch_3D, pvar_c, pw_c,top_bc_t, pupflux_i, tracer_id )
 
-    TYPE(t_patch_3D_oce ),TARGET, INTENT(IN)   :: p_patch_3D
+    TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: p_patch_3D
     REAL(wp), INTENT(INOUT)           :: pvar_c(nproma,n_zlev, p_patch_3D%p_patch_2D(1)%nblks_c)     !< advected cell centered variable
     REAL(wp), INTENT(INOUT)           :: pw_c(nproma,n_zlev+1, p_patch_3D%p_patch_2D(1)%nblks_c)     !< vertical velocity on cells 
     REAL(wp), INTENT(INOUT)           :: top_bc_t(nproma,      p_patch_3D%p_patch_2D(1)%nblks_c)           !< top boundary condition traver
@@ -450,7 +450,7 @@ return
   !! mpi parallelized, no sync
   SUBROUTINE central_vflux_oce( p_patch_3D, pvar_c, pw_c, c_flux_i, tracer_id )
 
-    TYPE(t_patch_3D_oce ),TARGET, INTENT(IN)   :: p_patch_3D
+    TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: p_patch_3D
     REAL(wp), INTENT(INOUT)  :: pvar_c(nproma,n_zlev, p_patch_3D%p_patch_2D(1)%nblks_c)     !< advected cell centered variable
     REAL(wp), INTENT(INOUT)  :: pw_c(nproma,n_zlev+1, p_patch_3D%p_patch_2D(1)%nblks_c)     !< vertical velocity on cells
     REAL(wp), INTENT(INOUT)  :: c_flux_i(nproma,n_zlev+1, p_patch_3D%p_patch_2D(1)%nblks_c) !< variable in which the central flux is stored
@@ -529,7 +529,7 @@ return
 !!$    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
 !!$      &  routine = 'mo_advection_vflux: upwind_vflux_ppm'
 
-    TYPE(t_patch_3D_oce ),TARGET, INTENT(IN)   :: p_patch_3D
+    TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: p_patch_3D
     REAL(wp), INTENT(INOUT)           :: p_cc(nproma,n_zlev, p_patch_3D%p_patch_2D(1)%nblks_c)            !< advected cell centered variable
     REAL(wp), INTENT(INOUT)           :: p_w(nproma,n_zlev+1, p_patch_3D%p_patch_2D(1)%nblks_c)           !< vertical velocity
     REAL(wp), INTENT(IN)              :: p_dtime  !< time step
@@ -912,7 +912,7 @@ return
   !! mpi parallelized, only cells_in_domain are computed, no sync
   SUBROUTINE v_ppm_slimiter_mo( p_patch_3D, p_cc, p_face, p_slope, p_face_up, p_face_low )
 
-    TYPE(t_patch_3D_oce ),TARGET, INTENT(IN)   :: p_patch_3D
+    TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: p_patch_3D
     REAL(wp), INTENT(INOUT)           :: p_cc(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)      !< advected cell centered variable
     REAL(wp), INTENT(INOUT)           :: p_face(nproma,n_zlev+1,p_patch_3D%p_patch_2D(1)%nblks_c)  !< reconstructed face values of the advected field
     REAL(wp), INTENT(INOUT)           :: p_slope(nproma,n_zlev+1,p_patch_3D%p_patch_2D(1)%nblks_c) !< monotonized slope
@@ -1005,7 +1005,7 @@ return
   SUBROUTINE vflx_limiter_pd_oce( p_patch_3D, p_dtime, p_cc, p_cellhgt_mc_now, p_flx_tracer_v, &
     &                            opt_slev, opt_elev )
 
-    TYPE(t_patch_3D_oce ),TARGET, INTENT(IN)   :: p_patch_3D
+    TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: p_patch_3D
     REAL(wp), INTENT(INOUT)          :: p_cc(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)           !< advected cell centered variable at time (n)
     REAL(wp), INTENT(INOUT)          :: p_cellhgt_mc_now(nproma,n_zlev, p_patch_3D%p_patch_2D(1)%nblks_c)
     REAL(wp), INTENT(IN)             :: p_dtime

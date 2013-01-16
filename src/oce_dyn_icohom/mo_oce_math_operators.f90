@@ -47,7 +47,7 @@ MODULE mo_oce_math_operators
   USE mo_math_constants
   USE mo_physical_constants
   USE mo_impl_constants,     ONLY: boundary, sea, sea_boundary !,land, land_boundary, sea, max_char_length, &
-  USE mo_model_domain,       ONLY: t_patch, t_patch_3D_oce
+  USE mo_model_domain,       ONLY: t_patch, t_patch_3D
   USE mo_ext_data_types,     ONLY: t_external_data
   USE mo_ocean_nml,          ONLY: n_zlev, iswm_oce
   USE mo_dynamics_config,    ONLY: nold
@@ -313,7 +313,7 @@ CONTAINS
 
     !  patch on which computation is performed
     !
-    TYPE(t_patch_3D_oce ),TARGET, INTENT(IN)   :: p_patch_3D
+    TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: p_patch_3D
     REAL(wp), INTENT(IN)                          :: grad_coeff(:,:,:)!(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
     REAL(wp), INTENT(IN)                          :: psi_c          (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)
     REAL(wp), INTENT(INOUT)                       :: grad_norm_psi_e(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
@@ -710,7 +710,7 @@ CONTAINS
   SUBROUTINE rot_vertex_ocean_3d( p_patch_3D, vn, p_vn_dual, p_op_coeff, rot_vec_v)
     !>
     !!
-    TYPE(t_patch_3D_oce ),TARGET, INTENT(IN)  :: p_patch_3D
+    TYPE(t_patch_3D ),TARGET, INTENT(IN)  :: p_patch_3D
     REAL(wp), INTENT(in)                      :: vn(:,:,:)
     TYPE(t_cartesian_coordinates), INTENT(in) :: p_vn_dual(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_v)
     TYPE(t_operator_coeff),TARGET, INTENT(in) :: p_op_coeff
@@ -1108,7 +1108,7 @@ CONTAINS
     !>
     !!
     TYPE(t_patch), TARGET, INTENT(in) :: p_patch
-    TYPE(t_patch_3D_oce ),TARGET, INTENT(IN)   :: p_patch_3D
+    TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: p_patch_3D
     REAL(wp), INTENT(in)           :: vn(:,:,:)
     REAL(wp), INTENT(in)           :: vt(:,:,:)
     REAL(wp), INTENT(inout)        :: rot_vec_v(:,:,:)
@@ -1404,7 +1404,7 @@ CONTAINS
   SUBROUTINE height_related_quantities( p_patch_3D, p_os, p_ext_data)
     !
     ! Patch on which computation is performed
-    TYPE(t_patch_3D_oce ),TARGET, INTENT(IN)   :: p_patch_3D
+    TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: p_patch_3D
     !
     ! Type containing ocean state
     TYPE(t_hydro_ocean_state), TARGET :: p_os

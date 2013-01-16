@@ -156,7 +156,7 @@ MODULE mo_io_vlist
   USE mo_vertical_coord_table,  ONLY: vct
   USE mo_grid_config,           ONLY: start_lev, nroot, n_dom, lfeedback, lplane, &
     &                                 n_dom_start
-  USE mo_model_domain,          ONLY: t_patch, p_patch, t_patch_3D_oce
+  USE mo_model_domain,          ONLY: t_patch, p_patch, t_patch_3D
   USE mo_physical_constants,    ONLY: grav
   USE mo_mpi,                   ONLY: my_process_is_stdio, p_recv, p_send, &
     &                                 num_work_procs, get_my_mpi_all_id
@@ -3343,7 +3343,7 @@ CONTAINS
     INTEGER, INTENT(IN) :: jg
     REAL(wp), POINTER :: ptr2d(:,:)
     REAL(wp), POINTER :: ptr3d(:,:,:)
-    TYPE(t_patch_3D_oce ),TARGET, INTENT(IN)  :: p_patch_3D
+    TYPE(t_patch_3D ),TARGET, INTENT(IN)  :: p_patch_3D
     TYPE(t_hydro_ocean_state), TARGET, INTENT(IN) :: p_os(n_dom)
 
     LOGICAL, INTENT(OUT) :: reset, delete
@@ -3528,7 +3528,7 @@ CONTAINS
     TYPE(t_datetime),            INTENT(in) :: datetime
     REAL(wp), OPTIONAL,          INTENT(in) :: z_sim_time(n_dom)
     !TYPE(t_patch), OPTIONAL,     INTENT(IN) ::  p_patch_2D(:) 
-    TYPE(t_patch_3D_oce ), OPTIONAL, INTENT(IN)  :: p_patch_3D
+    TYPE(t_patch_3D ), OPTIONAL, INTENT(IN)  :: p_patch_3D
     TYPE(t_hydro_ocean_state), OPTIONAL, INTENT(IN) :: p_state_oce(n_dom)
     INTEGER :: idate, itime
     INTEGER :: istatus, ierrstat

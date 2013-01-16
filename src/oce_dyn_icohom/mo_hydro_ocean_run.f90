@@ -48,7 +48,7 @@ MODULE mo_hydro_ocean_run
 !
 USE mo_kind,                   ONLY: wp
 USE mo_impl_constants,         ONLY: max_char_length
-USE mo_model_domain,           ONLY: t_patch, t_patch_3D_oce
+USE mo_model_domain,           ONLY: t_patch, t_patch_3D
 USE mo_grid_config,            ONLY: n_dom
 USE mo_sync,                   ONLY: sync_e, sync_c, sync_v, sync_patch_array
 USE mo_ocean_nml,              ONLY: iswm_oce, n_zlev, no_tracer, &
@@ -148,7 +148,7 @@ CONTAINS
                                 & p_as, p_atm_f, p_ice,p_op_coeff,            &
                                 & l_have_output)
 
-  TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT)      :: p_patch_3D
+  TYPE(t_patch_3D ),TARGET, INTENT(INOUT)      :: p_patch_3D
   TYPE(t_hydro_ocean_state), TARGET, INTENT(INOUT) :: p_os(n_dom)
   TYPE(t_external_data), TARGET, INTENT(IN)        :: p_ext_data(n_dom)
   TYPE(t_datetime), INTENT(INOUT)                  :: datetime
@@ -398,7 +398,7 @@ CONTAINS
                                   & p_phys_param, p_as,&
                                   & p_atm_f, p_ice, p_op_coeff)!, p_int)
 
-    TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT)  :: p_patch_3D
+    TYPE(t_patch_3D ),TARGET, INTENT(INOUT)  :: p_patch_3D
     TYPE(t_hydro_ocean_state),    INTENT(INOUT)  :: p_os(n_dom)
     TYPE(t_external_data),        INTENT(INOUT)  :: p_ext_data(n_dom)
     TYPE(t_sfc_flx),              INTENT(INOUT)  :: p_sfc_flx

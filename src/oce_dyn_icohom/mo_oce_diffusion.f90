@@ -52,7 +52,7 @@ USE mo_run_config,          ONLY: dtime
 USE mo_util_dbg_prnt,       ONLY: dbg_print
 USE mo_oce_state,           ONLY: t_hydro_ocean_state, t_hydro_ocean_diag, &
   &                               t_hydro_ocean_aux!, v_base
-USE mo_model_domain,        ONLY: t_patch, t_patch_3D_oce
+USE mo_model_domain,        ONLY: t_patch, t_patch_3D
 !USE mo_exception,           ONLY: message, finish!, message_text
 USE mo_oce_physics,         ONLY: t_ho_params
 USE mo_scalar_product,      ONLY: map_cell2edges_3D
@@ -101,7 +101,7 @@ CONTAINS
 !! mpi parallelized, sync required
 SUBROUTINE velocity_diffusion( p_patch_3D, vn_in, p_param, p_diag,p_op_coeff, laplacian_vn_out)
 
- TYPE(t_patch_3D_oce ),TARGET, INTENT(IN)   :: p_patch_3D
+ TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: p_patch_3D
   REAL(wp), INTENT(in)                :: vn_in(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
   TYPE(t_ho_params), INTENT(in)       :: p_param !mixing parameters
   TYPE(t_hydro_ocean_diag),INTENT(in) :: p_diag
@@ -176,7 +176,7 @@ END SUBROUTINE velocity_diffusion
 SUBROUTINE veloc_diff_harmonic_div_grad( p_patch_3D, p_param, p_diag,&
                                        & p_op_coeff, laplacian_vn_out)
  
-  TYPE(t_patch_3D_oce ),TARGET, INTENT(IN)   :: p_patch_3D
+  TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: p_patch_3D
   TYPE(t_ho_params), INTENT(in)     :: p_param !mixing parameters
   TYPE(t_hydro_ocean_diag)          :: p_diag
   TYPE(t_operator_coeff),INTENT(in) :: p_op_coeff
@@ -312,7 +312,7 @@ END SUBROUTINE veloc_diff_harmonic_div_grad
 SUBROUTINE veloc_diff_biharmonic_div_grad( p_patch_3D, p_param, p_diag,&
                                          & p_op_coeff, laplacian_vn_out)
 
- TYPE(t_patch_3D_oce ),TARGET, INTENT(IN)   :: p_patch_3D
+ TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: p_patch_3D
   !REAL(wp), INTENT(in)              :: vn_in(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
   TYPE(t_ho_params), INTENT(in)     :: p_param !mixing parameters
   TYPE(t_hydro_ocean_diag)          :: p_diag
@@ -515,7 +515,7 @@ END SUBROUTINE veloc_diff_biharmonic_div_grad
     !
     !  patch on which computation is performed
     !
-    TYPE(t_patch_3D_oce ),TARGET, INTENT(IN)  :: p_patch_3D
+    TYPE(t_patch_3D ),TARGET, INTENT(IN)  :: p_patch_3D
     REAL(wp), INTENT(in)                      :: u_vec_e(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e) 
     REAL(wp), INTENT(in)                      :: vort   (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_v)
     TYPE(t_operator_coeff), INTENT(in)        :: p_op_coeff
@@ -616,7 +616,7 @@ END SUBROUTINE veloc_diff_biharmonic_div_grad
     !
     !  patch on which computation is performed
     !
-    TYPE(t_patch_3D_oce ),TARGET, INTENT(IN)  :: p_patch_3D
+    TYPE(t_patch_3D ),TARGET, INTENT(IN)  :: p_patch_3D
     REAL(wp), INTENT(in)                      :: u_vec_e(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e) 
     REAL(wp), INTENT(in)                      :: vort   (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_v)
     REAL(wp), INTENT(in)                      :: k_h(:,:,:)
@@ -794,7 +794,7 @@ END SUBROUTINE veloc_diff_biharmonic_div_grad
 SUBROUTINE velocity_diffusion_vert_mimetic( p_patch_3D, p_diag, p_aux,p_op_coeff,&
                                            &p_param, laplacian_vn_out)
 
- TYPE(t_patch_3D_oce ),TARGET, INTENT(IN)   :: p_patch_3D
+ TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: p_patch_3D
   TYPE(t_hydro_ocean_diag)          :: p_diag
   TYPE(t_hydro_ocean_aux)           :: p_aux
   TYPE(t_operator_coeff), INTENT(in):: p_op_coeff
@@ -907,7 +907,7 @@ END SUBROUTINE velocity_diffusion_vert_mimetic
 ! ! SUBROUTINE velocity_diffusion_vert_rbf( p_patch,p_patch_3D, u_c, v_c, top_bc_u_c, top_bc_v_c,&
 ! !                           &  bot_bc_u_c,  bot_bc_v_c,p_param,p_op_coeff, laplacian_vn_out)
 ! !   TYPE(t_patch), TARGET, INTENT(in) :: p_patch
-! !   TYPE(t_patch_3D_oce ),TARGET, INTENT(INOUT)   :: p_patch_3D
+! !   TYPE(t_patch_3D ),TARGET, INTENT(INOUT)   :: p_patch_3D
 ! !   ! Components of cell based variable which is vertically diffused
 ! !   REAL(wp), INTENT(inout)           :: u_c(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)
 ! !   REAL(wp), INTENT(inout)           :: v_c(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)
@@ -1035,7 +1035,7 @@ SUBROUTINE tracer_diffusion_horz(p_patch_3D, trac_in, p_os, K_T, diff_flx, subse
   !Subroutine computes the horizontal diffusive flux of an arbitrary tracer.
   !
   ! Patch on which computation is performed
-  TYPE(t_patch_3D_oce ),TARGET, INTENT(IN)   :: p_patch_3D
+  TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: p_patch_3D
   REAL(wp), INTENT(in)              :: trac_in(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)
   TYPE(t_hydro_ocean_state), TARGET :: p_os
   REAL(wp), INTENT(in)              :: K_T(:,:,:) !mixing coefficient for tracer
@@ -1153,7 +1153,7 @@ SUBROUTINE tracer_diffusion_vert_expl(p_patch_3D,        &
                                     & A_v,             &
                                     & div_diff_flx)
 
-  TYPE(t_patch_3D_oce ),TARGET, INTENT(IN) :: p_patch_3D
+  TYPE(t_patch_3D ),TARGET, INTENT(IN) :: p_patch_3D
   REAL(wp), INTENT(in)              :: trac_c       (nproma, n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)
   REAL(wp), INTENT(in)              :: top_bc_tracer(nproma, p_patch_3D%p_patch_2D(1)%nblks_c)
   REAL(wp), INTENT(in)              :: A_v(:,:,:) 
@@ -1362,7 +1362,7 @@ SUBROUTINE tracer_diffusion_vert_impl_hom( p_patch_3D,   &
                                          & p_op_coeff,  &
                                          & diff_column)
 
-  TYPE(t_patch_3D_oce ),TARGET, INTENT(IN)   :: p_patch_3D
+  TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: p_patch_3D
   REAL(wp), INTENT(inout)           :: field_column(1:nproma,1:n_zlev,1:p_patch_3D%p_patch_2D(1)%nblks_c)
   REAL(wp), INTENT(IN)              :: h_c         (1:nproma,1:p_patch_3D%p_patch_2D(1)%nblks_c)  !surface height, relevant for thickness of first cell 
   REAL(wp), INTENT(in)              :: A_v(:,:,:)  
@@ -1472,7 +1472,7 @@ SUBROUTINE veloc_diffusion_vert_impl_hom( p_patch_3D,    &
                                         & A_v,           &
                                         & p_op_coeff,    &
                                         & diff_column)
-  TYPE(t_patch_3D_oce ),TARGET, INTENT(IN)   :: p_patch_3D
+  TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: p_patch_3D
   REAL(wp), INTENT(inout)           :: field_column(1:nproma,1:n_zlev,1:p_patch_3D%p_patch_2D(1)%nblks_e)
   !surface height at edges, relevant for thickness of first cell 
   REAL(wp), INTENT(IN)              :: h_e(1:nproma,1:p_patch_3D%p_patch_2D(1)%nblks_e)

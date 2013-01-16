@@ -59,7 +59,7 @@ USE mo_run_config,                ONLY: dtime, ltimer
 USE mo_timer,                     ONLY: timer_start, timer_stop, timer_adv_horz, timer_hflx_lim, &
   &                                     timer_dif_horz
 USE mo_oce_state,                 ONLY: t_hydro_ocean_state!, v_base
-USE mo_model_domain,              ONLY: t_patch, t_patch_3D_oce
+USE mo_model_domain,              ONLY: t_patch, t_patch_3D
 USE mo_exception,                 ONLY: finish !, message_text, message
 USE mo_oce_physics
 USE mo_scalar_product,            ONLY:  map_cell2edges_3D,map_edges2cell_3D
@@ -115,7 +115,7 @@ SUBROUTINE advect_diffuse_flux_horz( p_patch_3D,          &
                                    & K_h,                 &
                                    & flux_horz)
  
-  TYPE(t_patch_3D_oce ),TARGET, INTENT(IN)   :: p_patch_3D
+  TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: p_patch_3D
   REAL(wp)                                   :: trac_old(1:nproma,1:n_zlev,1:p_patch_3D%p_patch_2D(1)%nblks_c)
   TYPE(t_hydro_ocean_state), TARGET          :: p_os
   TYPE(t_operator_coeff), INTENT(IN)         :: p_op_coeff
@@ -471,7 +471,7 @@ END SUBROUTINE advect_diffuse_flux_horz
   SUBROUTINE upwind_hflux_oce_mimetic( p_patch_3D, flux_cc,p_op_coeff,&
                                      & pupflux_e, opt_slev, opt_elev )
 
-    TYPE(t_patch_3D_oce ),TARGET, INTENT(IN)   :: p_patch_3D
+    TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: p_patch_3D
     TYPE(t_cartesian_coordinates)      :: flux_cc(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)
     TYPE(t_operator_coeff), INTENT(in) :: p_op_coeff
     !EAL(wp), INTENT(INOUT), OPTIONAL :: ph_e (:,:)                                  !< surface elevation on edges
@@ -558,7 +558,7 @@ END SUBROUTINE advect_diffuse_flux_horz
   SUBROUTINE central_hflux_oce_mimetic( p_patch_3D, flux_cc,&
                                      & pupflux_e, opt_slev, opt_elev )
 
-    TYPE(t_patch_3D_oce ),TARGET, INTENT(IN)   :: p_patch_3D                                  !< patch on which computation is performed
+    TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: p_patch_3D                                  !< patch on which computation is performed
     TYPE(t_cartesian_coordinates)     :: flux_cc  (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)
     REAL(wp), INTENT(INOUT)           :: pupflux_e(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)   !< variable in which the upwind flux is stored
     INTEGER, INTENT(in), OPTIONAL     :: opt_slev    ! optional vertical start level
@@ -640,7 +640,7 @@ END SUBROUTINE advect_diffuse_flux_horz
   !!  mpi note: the result is not synced. Should be done in the calling method if required
   SUBROUTINE upwind_hflux_oce( p_patch_3D, pvar_c, pvn_e, pupflux_e, opt_slev, opt_elev )
 
-    TYPE(t_patch_3D_oce ),TARGET, INTENT(IN)   :: p_patch_3D
+    TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: p_patch_3D
     REAL(wp), INTENT(IN)              :: pvar_c   (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)      !< advected cell centered variable
     REAL(wp), INTENT(IN)              :: pvn_e    (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)       !< normal velocity on edges
     REAL(wp), INTENT(OUT)             :: pupflux_e(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)   !< variable in which the upwind flux is stored
@@ -721,7 +721,7 @@ END SUBROUTINE advect_diffuse_flux_horz
   !!  mpi note: the result is not synced. Should be done in the calling method if required
   SUBROUTINE central_hflux_oce( p_patch_3D, pvar_c, pvn_e, pupflux_e )
 
-    TYPE(t_patch_3D_oce ),TARGET, INTENT(IN)   :: p_patch_3D
+    TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: p_patch_3D
     REAL(wp), INTENT(INOUT)           :: pvar_c   (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)    !< advected cell centered variable
     REAL(wp), INTENT(INOUT)           :: pvn_e    (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)     !< normal velocity on edges
     REAL(wp), INTENT(INOUT)           :: pupflux_e(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e) !< variable in which the upwind flux is stored
@@ -785,7 +785,7 @@ END SUBROUTINE advect_diffuse_flux_horz
                                     & p_op_coeff, pflux_e,&
                                     & opt_slev, opt_elev )
 
-    TYPE(t_patch_3D_oce ),TARGET, INTENT(IN)   :: p_patch_3D
+    TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: p_patch_3D
     REAL(wp), INTENT(INOUT)           :: pvar_c(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)!< advected cell centered variable
     REAL(wp), INTENT(INOUT)           :: pvn_e (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e) !< normal velocity on edges
     TYPE(t_operator_coeff)            :: p_op_coeff
@@ -916,7 +916,7 @@ END SUBROUTINE advect_diffuse_flux_horz
                                 & p_op_coeff,        &
                                 & opt_slev, opt_elev )
 
-    TYPE(t_patch_3D_oce ),TARGET, INTENT(IN)   :: p_patch_3D
+    TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: p_patch_3D
     REAL(wp), INTENT(INOUT)           :: p_cc             (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c) !< advected cell centered variable
     REAL(wp), INTENT(inout)           :: p_mass_flx_e     (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e) !< horizontal mass flux
     REAL(wp), INTENT(INOUT)           :: p_mflx_tracer_h  (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e) !< calculated horizontal tracer mass flux
@@ -1234,7 +1234,7 @@ END SUBROUTINE advect_diffuse_flux_horz
     &                         adv_tracer_flux_h, inv_prism_thick_c, p_op_coeff,&
     &                         opt_slev, opt_elev )
 
-    TYPE(t_patch_3D_oce ),TARGET, INTENT(IN)   :: p_patch_3D
+    TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: p_patch_3D
     REAL(wp), INTENT(INOUT)           :: p_cc             (1:nproma,1:n_zlev,1:p_patch_3D%p_patch_2D(1)%nblks_c) !< advected cell centered variable
     REAL(wp), INTENT(inout)           :: p_mass_flx_e     (1:nproma,1:n_zlev,1:p_patch_3D%p_patch_2D(1)%nblks_e) !horizontal mass flux(from dy core)
     REAL(wp), INTENT(INOUT)           :: adv_tracer_flux_h(1:nproma,1:n_zlev,1:p_patch_3D%p_patch_2D(1)%nblks_e) !< calculated horizontal tracer flux

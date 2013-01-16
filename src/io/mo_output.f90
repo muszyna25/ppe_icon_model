@@ -65,7 +65,7 @@ MODULE mo_output
     &                               set_restart_depth_lnd, &  !DRset_restart_height, &
     &                               set_restart_height_snow
   USE mo_io_restart_attributes,ONLY: set_restart_attribute
-  USE mo_model_domain,        ONLY: t_patch,t_patch_3D_oce, p_patch
+  USE mo_model_domain,        ONLY: t_patch,t_patch_3D, p_patch
   USE mo_intp_data_strc,      ONLY: t_lon_lat_intp
   USE mo_run_config,          ONLY: ltimer, output_mode
   USE mo_timer,               ONLY: timer_start, timer_stop,&
@@ -285,7 +285,7 @@ CONTAINS
 
     TYPE(t_datetime),   INTENT(in) :: datetime
     REAL(wp), OPTIONAL, INTENT(in) :: z_sim_time(n_dom)
-    TYPE(t_patch_3D_oce ),OPTIONAL, INTENT(IN)  :: p_patch_3D
+    TYPE(t_patch_3D ),OPTIONAL, INTENT(IN)  :: p_patch_3D
    ! TYPE(t_patch),OPTIONAL,INTENT(IN):: p_patch_2D(:)
     ! Local variables
     INTEGER :: jg
@@ -355,7 +355,7 @@ CONTAINS
 
     TYPE(t_datetime),   INTENT(in) :: datetime
     REAL(wp), OPTIONAL, INTENT(in) :: z_sim_time(n_dom)
-    TYPE(t_patch_3D_oce ),OPTIONAL, INTENT(IN)  :: p_patch_3D
+    TYPE(t_patch_3D ),OPTIONAL, INTENT(IN)  :: p_patch_3D
     TYPE(t_hydro_ocean_state), OPTIONAL, INTENT(IN) :: p_os(n_dom)
    ! TYPE(t_patch),OPTIONAL,INTENT(IN):: p_patch_2D(:)
     ! Local variables

@@ -59,7 +59,7 @@ USE mo_ocean_nml,           ONLY: n_zlev, bottom_drag_coeff, k_veloc_h, k_veloc_
   &                               richardson_factor_tracer, richardson_factor_veloc,      &
   &                               l_constant_mixing, l_smooth_veloc_diffusion
 USE mo_parallel_config,     ONLY: nproma
-USE mo_model_domain,        ONLY: t_patch, t_patch_3D_oce
+USE mo_model_domain,        ONLY: t_patch, t_patch_3D
 USE mo_impl_constants,      ONLY: success, max_char_length, MIN_DOLIC, SEA
 USE mo_exception,           ONLY: message, finish
 USE mo_util_dbg_prnt,       ONLY: dbg_print
@@ -150,7 +150,7 @@ CONTAINS
   !
   !! mpi parallelized, syncs p_phys_param%K_tracer_h, p_phys_param%K_veloc_h
   SUBROUTINE init_ho_params(  p_patch_3D, p_phys_param )
-    TYPE(t_patch_3D_oce ),TARGET, INTENT(IN) :: p_patch_3D
+    TYPE(t_patch_3D ),TARGET, INTENT(IN) :: p_patch_3D
     TYPE (t_ho_params)                          :: p_phys_param
 
     ! Local variables
@@ -316,7 +316,7 @@ write(*,*)'max-min coeff',z_diff_multfac, maxval(p_phys_param%K_veloc_h(:,1,:)),
   !! mpi parallelized, no sync required
   SUBROUTINE smooth_lapl_diff( p_patch,p_patch_3D, K_h )
    TYPE(t_patch), TARGET, INTENT(IN)  :: p_patch
-   TYPE(t_patch_3D_oce ),TARGET, INTENT(IN)   :: p_patch_3D
+   TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: p_patch_3D
    REAL(wp), INTENT(INOUT)    :: K_h(:,:,:)
     ! Local variables
     INTEGER  :: je,jv,jb,jk, jev, ile, ibe, i_edge_ctr
@@ -571,7 +571,7 @@ write(*,*)'max-min coeff',z_diff_multfac, maxval(p_phys_param%K_veloc_h(:,1,:)),
   !!                   params_oce%A_tracer_v, params_oce%A_veloc_v
   SUBROUTINE update_ho_params(p_patch_3D, p_os, p_sfc_flx, params_oce, calc_density)
 
-    TYPE(t_patch_3D_oce ),TARGET, INTENT(IN) :: p_patch_3D
+    TYPE(t_patch_3D ),TARGET, INTENT(IN) :: p_patch_3D
     TYPE(t_hydro_ocean_state), TARGET           :: p_os
     TYPE(t_sfc_flx),   INTENT(IN)               :: p_sfc_flx
     TYPE(t_ho_params), INTENT(INOUT)            :: params_oce

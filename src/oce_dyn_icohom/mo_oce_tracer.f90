@@ -57,7 +57,7 @@ USE mo_parallel_config,           ONLY: nproma
 USE mo_dynamics_config,           ONLY: nold, nnew
 USE mo_run_config,                ONLY: dtime, ltimer
 USE mo_oce_state,                 ONLY: t_hydro_ocean_state!, v_base
-USE mo_model_domain,              ONLY: t_patch, t_patch_3D_oce
+USE mo_model_domain,              ONLY: t_patch, t_patch_3D
 USE mo_exception,                 ONLY: finish !, message_text, message
 !USE mo_oce_index,                 ONLY: print_mxmn, jkc, jkdim, ipl_src
 !USE mo_loopindices,               ONLY: get_indices_c, get_indices_e !, get_indices_v
@@ -102,7 +102,7 @@ CONTAINS
 !! Developed  by  Peter Korn, MPI-M (2010).
 !!
 SUBROUTINE advect_tracer_ab(p_patch_3D, p_os, p_param, p_sfc_flx,p_op_coeff, timestep)
-  TYPE(t_patch_3D_oce ),TARGET, INTENT(IN)      :: p_patch_3D
+  TYPE(t_patch_3D ),TARGET, INTENT(IN)      :: p_patch_3D
   TYPE(t_hydro_ocean_state), TARGET                :: p_os
   TYPE(t_ho_params),                 INTENT(INOUT) :: p_param
   TYPE(t_sfc_flx),                   INTENT(INOUT) :: p_sfc_flx
@@ -307,7 +307,7 @@ END SUBROUTINE advect_tracer_ab
 !! mpi parallelized, sync required
 SUBROUTINE prepare_tracer_transport(p_patch_3D, p_os, p_op_coeff,z_cellthick_intmed)
 
-  TYPE(t_patch_3D_oce ),TARGET, INTENT(IN)   :: p_patch_3D
+  TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: p_patch_3D
   TYPE(t_hydro_ocean_state), TARGET    :: p_os
   TYPE(t_operator_coeff),INTENT(INOUT) :: p_op_coeff
   REAL(wp),INTENT(INOUT)               :: z_cellthick_intmed(nproma,n_zlev, p_patch_3D%p_patch_2D(1)%nblks_c)
@@ -465,7 +465,7 @@ SUBROUTINE advect_individual_tracer_ab(p_patch_3D, trac_old,                  &
                                      & K_h, A_v,                           &
                                      & trac_new, tracer_id)
 
-  TYPE(t_patch_3D_oce ),TARGET, INTENT(IN)   :: p_patch_3D
+  TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: p_patch_3D
   REAL(wp), INTENT(INOUT)              :: trac_old(nproma,n_zlev, p_patch_3D%p_patch_2D(1)%nblks_c)
   TYPE(t_hydro_ocean_state), TARGET    :: p_os
   TYPE(t_operator_coeff),INTENT(INOUT) :: p_op_coeff

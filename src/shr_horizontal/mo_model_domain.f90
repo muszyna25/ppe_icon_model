@@ -123,7 +123,7 @@ MODULE mo_model_domain
   PUBLIC :: t_subset_range, t_subset_range_index
   
   !PUBLIC :: t_patch_ocean
-  PUBLIC :: t_patch_3D_oce
+  PUBLIC :: t_patch_3D
   PUBLIC :: t_patch_vert
   
   PUBLIC :: t_tangent_vectors
@@ -935,7 +935,7 @@ MODULE mo_model_domain
 
 
 
-  TYPE t_patch_3D_oce
+  TYPE t_patch_3D
     
     TYPE(t_patch),     ALLOCATABLE :: p_patch_2D(:)
     TYPE(t_patch_vert),ALLOCATABLE :: p_patch_1D(:)
@@ -967,7 +967,7 @@ MODULE mo_model_domain
     REAL(wp), ALLOCATABLE :: rbasin_c(:,:) ! real for output
     REAL(wp), ALLOCATABLE :: rregio_c(:,:) ! real for output
     
-  END TYPE t_patch_3D_oce
+  END TYPE t_patch_3D
   !--------------------------------------------------------------------
 
 END MODULE mo_model_domain
