@@ -139,14 +139,11 @@ cat > ${atmo_namelist} << EOF
  lfeedback                    = .TRUE.
  ifeedback_type               = 2
 /
-&prepicon_nml
- i_oper_mode                 = 3           ! operation mode
+&initicon_nml
+ init_mode                   = 2           ! initialization mode
  nlev_in                     = 91          ! number of levels of input data
  zpbl1                       = 500. 
  zpbl2                       = 1000. 
- l_zp_out                    = .TRUE.
- l_w_in                      = .TRUE.
- l_sfc_in                    = .TRUE.
 /
 &run_nml
  num_lev                      = 90

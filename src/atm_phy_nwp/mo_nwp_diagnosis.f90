@@ -317,12 +317,12 @@ CONTAINS
         SELECT CASE (atm_phy_nwp_config(jg)%inwp_turb)
         CASE (1, 2, 3)
           DO jc = i_startidx, i_endidx
-            prm_diag%lhfl_s_a(jc,jb) = ( prm_diag%lhfl_s_a(jc,jb)       &
+            prm_diag%alhfl_s(jc,jb) = ( prm_diag%alhfl_s(jc,jb)         &
                                &  * (p_sim_time - dt_phy_jg(itfastphy)) &
                                &  + prm_diag%lhfl_s(jc,jb)              &!attention to the sign, in the output all fluxes 
                                &  * dt_phy_jg(itfastphy) )              &!must be positive downwards 
                                & * r_sim_time
-            prm_diag%shfl_s_a(jc,jb) = ( prm_diag%shfl_s_a(jc,jb)       &
+            prm_diag%ashfl_s(jc,jb) = ( prm_diag%ashfl_s(jc,jb)         &
                                &  * (p_sim_time - dt_phy_jg(itfastphy)) &
                                &  + prm_diag%shfl_s(jc,jb)              &!attention to the sign, in the output all fluxes
                                &  * dt_phy_jg(itfastphy) )              &!must be positive downwards 
@@ -330,12 +330,12 @@ CONTAINS
           ENDDO
         CASE (4)
           DO jc = i_startidx, i_endidx
-            prm_diag%lhfl_s_a(jc,jb) = ( prm_diag%lhfl_s_a(jc,jb)       &
+            prm_diag%alhfl_s(jc,jb) = ( prm_diag%alhfl_s(jc,jb)         &
                                &  * (p_sim_time - dt_phy_jg(itfastphy)) &
                                &  + prm_diag%qhfl_s(jc,jb)*lh_v         &
                                &  * dt_phy_jg(itfastphy) )              &
                                & * r_sim_time
-            prm_diag%shfl_s_a(jc,jb) = ( prm_diag%shfl_s_a(jc,jb)       &
+            prm_diag%ashfl_s(jc,jb) = ( prm_diag%ashfl_s(jc,jb)         &
                                &  * (p_sim_time - dt_phy_jg(itfastphy)) &
                                &  + prm_diag%shfl_s(jc,jb)              &! it is 0 at the moment, with turb2 the
                                &  * dt_phy_jg(itfastphy) )              &! sensible heat is not output
@@ -356,19 +356,19 @@ CONTAINS
         SELECT CASE (atm_phy_nwp_config(jg)%inwp_turb)
         CASE (1, 2, 3)
           DO jc = i_startidx, i_endidx
-            prm_diag%lhfl_s_a(jc,jb) =  prm_diag%lhfl_s_a(jc,jb)     &
+            prm_diag%alhfl_s(jc,jb) =  prm_diag%alhfl_s(jc,jb)       &
                                &  + prm_diag%lhfl_s(jc,jb)           &!attention to the sign, in the output all fluxes 
                                &  * dt_phy_jg(itfastphy)              !must be positive downwards 
-            prm_diag%shfl_s_a(jc,jb) =  prm_diag%shfl_s_a(jc,jb)     &
+            prm_diag%ashfl_s(jc,jb) =  prm_diag%ashfl_s(jc,jb)       &
                                &  + prm_diag%shfl_s(jc,jb)           &!attention to the sign, in the output all fluxes 
                                &  * dt_phy_jg(itfastphy)              !must be positive downwards 
           ENDDO
         CASE (4)
           DO jc = i_startidx, i_endidx
-            prm_diag%lhfl_s_a(jc,jb) =  prm_diag%lhfl_s_a(jc,jb)     &
+            prm_diag%alhfl_s(jc,jb) =  prm_diag%alhfl_s(jc,jb)       &
                                &  + prm_diag%qhfl_s(jc,jb)*lh_v      &
                                &  * dt_phy_jg(itfastphy)
-            prm_diag%shfl_s_a(jc,jb) =  prm_diag%shfl_s_a(jc,jb)     &
+            prm_diag%ashfl_s(jc,jb) =  prm_diag%ashfl_s(jc,jb)       &
                                &  + prm_diag%shfl_s(jc,jb)           &! it is 0 at the moment, with turb2 the
                                &  * dt_phy_jg(itfastphy)              ! sensible heat is not output
           ENDDO
@@ -393,7 +393,7 @@ CONTAINS
         SELECT CASE (atm_phy_nwp_config(jg)%inwp_turb)
         CASE (1, 2, 3)
           DO jc = i_startidx, i_endidx
-            prm_diag%qhfl_s_avg(jc,jb) = ( prm_diag%qhfl_s_avg(jc,jb)  &
+            prm_diag%aqhfl_s(jc,jb) = ( prm_diag%aqhfl_s(jc,jb)         &
                                &  * (p_sim_time - dt_phy_jg(itfastphy)) &
                                &  + prm_diag%lhfl_s(jc,jb)/lh_v         & !attention to the sign, in the output all fluxes  
                                &  * dt_phy_jg(itfastphy) )              & !must be positive downwards 
@@ -401,7 +401,7 @@ CONTAINS
           ENDDO
         CASE (4)
           DO jc = i_startidx, i_endidx
-             prm_diag%qhfl_s_avg(jc,jb) = ( prm_diag%qhfl_s_avg(jc,jb)  &
+             prm_diag%aqhfl_s(jc,jb) = ( prm_diag%aqhfl_s(jc,jb)        &
                                &  * (p_sim_time - dt_phy_jg(itfastphy)) &
                                &  + prm_diag%qhfl_s(jc,jb)              &
                                &  * dt_phy_jg(itfastphy) )              &

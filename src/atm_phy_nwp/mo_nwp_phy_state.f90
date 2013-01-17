@@ -984,7 +984,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
                                       & " since model start"
         cf_desc    = t_cf_var(TRIM(name),  TRIM(varunits), TRIM(long_name), DATATYPE_FLT32)
         grib2_desc = t_grib2_var(0, 0, 11, ibits, GRID_REFERENCE, GRID_CELL)
-        CALL add_var( diag_list, TRIM(name), diag%shfl_s_a,                   &
+        CALL add_var( diag_list, TRIM(name), diag%ashfl_s,                    &
           & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,          &
           & ldims=shape2d,                                                    &
           & isteptype=a_steptype )
@@ -1004,7 +1004,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
                                       & " since model start"
         cf_desc    = t_cf_var(TRIM(name), TRIM(varunits), TRIM(long_name), DATATYPE_FLT32)
         grib2_desc = t_grib2_var(0, 0, 10, ibits, GRID_REFERENCE, GRID_CELL)
-        CALL add_var( diag_list, TRIM(name), diag%lhfl_s_a,                   &
+        CALL add_var( diag_list, TRIM(name), diag%alhfl_s,                    &
           & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,          &
           & ldims=shape2d,                                                    &
           & isteptype=a_steptype )
@@ -1019,11 +1019,13 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
           & in_group=groups("pbl_vars"))
 
 
-        cf_desc    = t_cf_var('qhfl_s_avg', 'Kg m-2 s-1', 'surface moisture flux', DATATYPE_FLT32)
+        cf_desc    = t_cf_var('aqhfl_s', 'Kg m-2 s-1', 'surface moisture flux ' &
+          &//'average since model start', DATATYPE_FLT32)
         grib2_desc = t_grib2_var(2, 0, 6, ibits, GRID_REFERENCE, GRID_CELL)
-        CALL add_var( diag_list, 'qhfl_s_avg', diag%qhfl_s_avg,               &
+        CALL add_var( diag_list, 'aqhfl_s', diag%aqhfl_s  ,                   &
           & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,          &
-          & ldims=shape2d )
+          & ldims=shape2d,                                                    &
+          & isteptype=TSTEP_AVG )
 
 
         ! &      diag%tcm(nproma,nblks_c)

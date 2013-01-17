@@ -150,9 +150,9 @@ MODULE mo_nwp_phy_types
       &  lhfl_s_t(:,:,:),      & !! latent   heat flux (surface) ( W/m2)
       &  qhfl_s(:,:),          & !!      moisture flux (surface) ( Kg/m2/s)
                                 !!      = evaporation rate at surface
-      &  shfl_s_a(:,:),        & !! average or accumulated since model start of shfl_s [W/m2]
-      &  lhfl_s_a(:,:),        & !! average or accumulated since model start of lhfl_s [W/m2]
-      &  qhfl_s_avg(:,:),      & !! average since model start of qhfl_s ( Kg/m2/s) 
+      &  ashfl_s(:,:),         & !! average or accumulated since model start of shfl_s [W/m2]
+      &  alhfl_s(:,:),         & !! average or accumulated since model start of lhfl_s [W/m2]
+      &  aqhfl_s(:,:),         & !! average since model start of qhfl_s ( Kg/m2/s) 
                                 !! = average of evaporation rate at surface
       &  tot_cld(:,:,:,:),     & !! total cloud variables (cc,qv,qc,qi)
       &  tot_cld_vi(:,:,:),    & !! vertically integrated tot_cld (cc,qv,qc,qi) 

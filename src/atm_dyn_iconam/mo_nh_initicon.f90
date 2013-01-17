@@ -1281,7 +1281,7 @@ MODULE mo_nh_initicon
 
       
 
-      ! start reading surface fields
+      ! start reading surface fields from First Guess
       !
       CALL read_netcdf_data (ncid, 't_g', p_patch(jg)%n_patch_cells_g,                &
         &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &

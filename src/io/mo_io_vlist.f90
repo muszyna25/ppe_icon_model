@@ -3097,10 +3097,10 @@ CONTAINS
       CASE ('ACCTHB_T');        ptr2 => prm_diag(jg)%lwflxtoa_a(:,:)
       CASE ('T_G');             ptr2 => p_prog_lnd%t_g
       CASE ('QV_S');            ptr2 => p_diag_lnd%qv_s
-      CASE ('ASHFL_S');         ptr2 => prm_diag(jg)%shfl_s_a 
-      CASE ('ALHFL_S');         ptr2 => prm_diag(jg)%lhfl_s_a
-      CASE ('ACCSHFL_S');       ptr2 => prm_diag(jg)%shfl_s_a 
-      CASE ('ACCLHFL_S');       ptr2 => prm_diag(jg)%lhfl_s_a
+      CASE ('ASHFL_S');         ptr2 => prm_diag(jg)%ashfl_s 
+      CASE ('ALHFL_S');         ptr2 => prm_diag(jg)%alhfl_s
+      CASE ('ACCSHFL_S');       ptr2 => prm_diag(jg)%ashfl_s 
+      CASE ('ACCLHFL_S');       ptr2 => prm_diag(jg)%alhfl_s
       CASE ('SHFL_S')
        IF   (atm_phy_nwp_config(jg)%inwp_turb.EQ.1) THEN  
          ptr2 => dup2(-1.*prm_diag(jg)%shfl_s(:,:)); delete = .TRUE.
@@ -3117,7 +3117,7 @@ CONTAINS
        ELSE
          ptr2 => prm_diag(jg)%lhfl_s
        ENDIF
-      CASE ('EVAP_RATE_avg');   ptr2 => prm_diag(jg)%qhfl_s_avg     
+      CASE ('EVAP_RATE_avg');   ptr2 => prm_diag(jg)%aqhfl_s     
       CASE ('VOR');             ptr3 => p_diag%omega_z
       CASE ('DIV');             ptr3 => p_diag%div
       CASE ('THETA_V');         ptr3 => p_prog%theta_v

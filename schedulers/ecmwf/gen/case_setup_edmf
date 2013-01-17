@@ -148,13 +148,14 @@ cat > ${atmo_namelist} << EOF
  lfeedback                    = .TRUE.
  ifeedback_type               = 2
 /
-&prepicon_nml
- i_oper_mode                 = 2           ! operation mode (2 for model, 4 for prepicon)
+&initicon_nml
+ init_mode                   = 2           ! initialization mode (2 for IFS ana, 1 for DWD ana)
  nlev_in                     = 91          ! number of levels of input data
  zpbl1                       = 500. 
  zpbl2                       = 1000. 
- l_w_in                      = .TRUE.
- l_sfc_in                    = .TRUE.
+/
+&io_nml
+ lflux_avg                   = .FALSE.    
 /
 &run_nml
  num_lev                      = 90
