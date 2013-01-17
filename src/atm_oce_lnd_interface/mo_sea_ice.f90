@@ -101,8 +101,6 @@ MODULE mo_sea_ice
   PUBLIC :: upper_ocean_TS
   PUBLIC :: calc_bulk_flux_ice
   PUBLIC :: calc_bulk_flux_oce
-  PUBLIC :: prepareAfterRestart
-  PUBLIC :: prepare4restart
 
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
@@ -142,17 +140,6 @@ CONTAINS
 
     p_ice%kice = i_no_ice_thick_class
 
-    ALLOCATE(p_ice%isice(nproma,i_no_ice_thick_class,nblks_c), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for isice failed')
-    END IF
-
-    CALL add_var(ocean_restart_list, 'isice', p_ice%restart_isice ,&
-      &          GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE, &
-      &          t_cf_var('isice', '', 'ice mask', DATATYPE_FLT32),&
-      &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
-      &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/),&
-      &          lrestart_cont=.TRUE.)
     CALL add_var(ocean_restart_list, 'alb', p_ice%alb ,&
       &          GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE, &
       &          t_cf_var('alb', '', 'albedo of snow-ice system', DATATYPE_FLT32),&
@@ -934,7 +921,6 @@ CONTAINS
     ice% T1   (:,:,:)  = Tf
     ice% T2   (:,:,:)  = Tf
     ice% conc (:,:,:)  = 0.0_wp
-    ice% isice(:,:,:)  = .FALSE.
     draft     (:,:,:)  = 0.0_wp
 
     ! Stupid initialisation trick for Levitus initialisation
@@ -958,7 +944,6 @@ CONTAINS
       Tinterface (:,:,:) = (Tfw(:,:,:) * (ki/ks * ice%hs(:,:,:)/ice%hi(:,:,:))+&
         &                    ice%Tsurf(:,:,:)) / (1.0_wp+ki/ks * ice%hs(:,:,:)/ice%hi(:,:,:))
       ice% conc  (:,:,:) = 1.0_wp/REAL(ice%kice,wp)
-      ice% isice (:,:,:) = .TRUE.
       ice% T1    (:,:,:) = Tfw(:,:,:) + 2._wp/3._wp*(Tinterface(:,:,:)-Tfw(:,:,:))
       ice% T2    (:,:,:) = Tfw(:,:,:) + 1._wp/3._wp*(Tinterface(:,:,:)-Tfw(:,:,:))
       draft      (:,:,:) = (rhos * ice%hs(:,:,:) + rhoi * ice%hi(:,:,:)) / rho_ref
@@ -983,7 +968,6 @@ CONTAINS
   !! Dirk Notz, following MPI-OM. Code transfered to ICON.
   !!
   SUBROUTINE ice_fast(i_startidx_c, i_endidx_c, nbdim, kice, SWdim, i_therm_model, &
-            &   isice,          & ! Mask
             &   Tsurf,          & ! Surface temperature [degC]
             &   T1,             & ! Temperature of upper layer [degC]
             &   T2,             & ! Temperature of lower layer [degC]
@@ -999,7 +983,6 @@ CONTAINS
             &   doy)              ! Day of the year
 
     INTEGER, INTENT(IN)    :: i_startidx_c, i_endidx_c, nbdim, kice, i_therm_model, SWdim
-    LOGICAL, INTENT(IN)    :: isice      (nbdim,kice)
     REAL(wp),INTENT(INOUT) :: Tsurf      (nbdim,kice)
     REAL(wp),INTENT(INOUT) :: T1         (nbdim,kice)
     REAL(wp),INTENT(INOUT) :: T2         (nbdim,kice)
@@ -1020,7 +1003,7 @@ CONTAINS
 
 
     !------------------------------------------------------------------------- 
-    CALL set_ice_albedo(i_startidx_c, i_endidx_c, nbdim, kice, SWdim, isice, Tsurf, hs, alb)
+    CALL set_ice_albedo(i_startidx_c, i_endidx_c, nbdim, kice, SWdim, Tsurf, hi, hs, alb)
     IF ( PRESENT(albedo) ) THEN
       albedo(:,:,:) = alb(:,:,:)
     ENDIF
@@ -1028,7 +1011,6 @@ CONTAINS
     ! #achim
     IF ( i_therm_model == 1 ) THEN
       CALL set_ice_temp_winton(i_startidx_c, i_endidx_c, nbdim, kice, SWdim, &
-            &   isice,          & 
             &   Tsurf,          & 
             &   T1,             & 
             &   T2,             & 
@@ -1043,7 +1025,6 @@ CONTAINS
             &   Tfw)
     ELSE IF ( i_therm_model == 2 .OR. i_therm_model == 3 ) THEN
       CALL set_ice_temp_zerolayer(i_startidx_c, i_endidx_c, nbdim, kice, SWdim, i_therm_model, &
-            &   isice,          & 
             &   Tsurf,          & 
             &   hi,             & 
             &   hs,             & 
@@ -1282,10 +1263,10 @@ CONTAINS
   !! Initial release by Peter Korn, MPI-M (2010-07). Originally code written by
   !! Dirk Notz, following MPI-OM. Code transfered to ICON.
   !!
-  SUBROUTINE set_ice_albedo(i_startidx_c, i_endidx_c, nbdim, kice, SWdim, isice, Tsurf, hs, albedo)
+  SUBROUTINE set_ice_albedo(i_startidx_c, i_endidx_c, nbdim, kice, SWdim, Tsurf, hi, hs, albedo)
     INTEGER, INTENT(IN)  :: i_startidx_c, i_endidx_c, nbdim, kice, SWdim
-    LOGICAL, INTENT(IN)  :: isice(nbdim,kice)
     REAL(wp),INTENT(IN)  :: Tsurf(nbdim,kice)
+    REAL(wp),INTENT(IN)  :: hi   (nbdim,kice)
     REAL(wp),INTENT(IN)  :: hs   (nbdim,kice)
     REAL(wp),INTENT(OUT) :: albedo(nbdim,kice,SWdim)
     
@@ -1303,7 +1284,7 @@ CONTAINS
 
           albflag (jc,k,i) =  1.0_wp/ ( 1.0_wp+albtrans * (Tsurf(jc,k))**2 )
       
-          IF ( isice(jc,k) ) THEN
+          IF ( hi(jc,k) > 0._wp ) THEN
             IF ( hs(jc,k) > 1.e-2_wp ) THEN
               albedo(jc,k,i) =  albflag(jc,k,i) * albsm + (1.0_wp-albflag(jc,k,i)) * albs
             ELSE
@@ -1485,13 +1466,12 @@ CONTAINS
         &     *ice%zUnderIce(:,:)*clw*rho_ref/dtime
 
       ! New ice forms over open water - set temperature to Tfw
-      WHERE(.NOT.ice%isice(:,1,:))
+      WHERE(ice%hi(:,1,:)<=0._wp)
         ice%Tsurf(:,1,:) = Tfw(:,:)
         ice%T2   (:,1,:) = Tfw(:,:)
         ice%T1   (:,1,:) = Tfw(:,:)
       ENDWHERE
 
-      ice%isice(:,1,:) = .TRUE.
       old_conc (:,:)   = ice%conc(:,1,:)
       ice%conc (:,1,:) = min( 1._wp, & 
         &               ice%conc(:,1,:) + ice%newice(:,:)*( 1._wp - ice%conc(:,1,:) )/hnull )
@@ -1632,7 +1612,7 @@ CONTAINS
       &               - 0.0009_wp*fu10lim(:,:)*fu10lim(:,:))
 
     DO i = 1, p_ice%kice
-      WHERE (p_ice%isice(:,i,:))
+      WHERE (p_ice%hi(:,i,:)>0._wp)
         Tsurf(:,:)    = p_ice%Tsurf(:,i,:)
         fi(:,:)       = 1.0_wp+AAi+p_as%pao(:,:)*(BBi+CCi*Tsurf(:,:) **2)
         esti(:,:)     = fi(:,:)*ai*EXP((bi-Tsurf(:,:) /di)*Tsurf(:,:) /(Tsurf(:,:) +ci))
@@ -1846,28 +1826,4 @@ CONTAINS
 
   END SUBROUTINE calc_bulk_flux_oce
  
-  !-------------------------------------------------------------------------
-
-  SUBROUTINE prepare4restart(p_ice)
-    TYPE (t_sea_ice),  INTENT(INOUT) :: p_ice
-
-    WHERE (p_ice%isice(:,:,:))
-      p_ice%restart_isice(:,:,:) = 1.0_wp
-    ELSEWHERE
-      p_ice%restart_isice(:,:,:) = 0.0_wp
-    ENDWHERE
-  END SUBROUTINE prepare4restart
-
-  SUBROUTINE prepareAfterRestart(p_ice)
-    TYPE (t_sea_ice),  INTENT(INOUT) :: p_ice
-
-    IF (is_restart_run()) THEN
-      WHERE (p_ice%restart_isice(:,:,:) < 0.5_wp)
-        p_ice%isice(:,:,:) = .FALSE.
-      ELSEWHERE
-        p_ice%isice(:,:,:) = .TRUE.
-      ENDWHERE
-    END IF
-  END SUBROUTINE prepareAfterRestart
-
 END MODULE mo_sea_ice

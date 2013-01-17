@@ -2415,9 +2415,6 @@ CONTAINS
 
    ! sea ice
      IF (i_sea_ice >= 1 ) THEN
-!       CALL addVar(TimeVar('p_ice_isice','','',&
-!       &         100,128,                    &
-!       &         vlistID(k_jg),gridCellID(k_jg),zaxisID_generic_ice(k_jg)),k_jg)
 !      CALL addVar(TimeVar('p_ice_alb','albedo of the snow/ice system','',&
 !      &         100,128,                    &
 !      &         vlistID(k_jg),gridCellID(k_jg),zaxisID_generic_ice(k_jg)),k_jg)
@@ -3356,9 +3353,8 @@ CONTAINS
     TYPE(t_sfc_flx),          POINTER :: forcing
     TYPE(t_ho_params),        POINTER :: p_params
     TYPE(t_sea_ice),          POINTER :: p_ice
-    REAL(wp),                 POINTER :: r_isice(:,:,:)
     REAL(wp),                 POINTER :: r_dolic_c(:,:), r_dolic_e(:,:)
-    INTEGER                           :: s_isice(3), shp_dolic(2)
+    INTEGER                           :: shp_dolic(2)
 
 !     p_prog  => v_ocean_state(jg)%p_prog(nold(jg))
 !     p_diag  => v_ocean_state(jg)%p_diag
@@ -3442,15 +3438,6 @@ CONTAINS
       CASE('Horz_Mixing_V'); ptr3d => p_params%K_veloc_h
       CASE ('cell_owner');   ptr2d => cell_owner
       ! sea ice variables
-      CASE('p_ice_isice')
-        s_isice = SHAPE(p_ice%isice)
-        ALLOCATE(r_isice(s_isice(1),s_isice(2),s_isice(3)))
-        WHERE(p_ice%isice)
-          r_isice = 1.0_wp
-        ELSEWHERE
-          r_isice = 0.0_wp
-        ENDWHERE
-        ptr3d => r_isice
       CASE('p_ice_alb');         ptr3d => p_ice%alb
       CASE('p_ice_Tsurf');       ptr3d => p_ice%Tsurf
       CASE('p_ice_T1');          ptr3d => p_ice%T1

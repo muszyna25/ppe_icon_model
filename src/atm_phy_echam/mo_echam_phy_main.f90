@@ -962,7 +962,6 @@ CONTAINS
                        & albnirdir = field% albnirdir(:,jb),                    &! inout
                        & albvisdif = field% albvisdif(:,jb),                    &! inout
                        & albnirdif = field% albnirdif(:,jb),                    &! inout
-                       & isice = field% isice(:,:,jb),  &! in, for sea ice
                        & Tsurf = field% Tsurf(:,:,jb),  &! inout, for sea ice
                        & T1    = field% T1   (:,:,jb),  &! inout, for sea ice
                        & T2    = field% T2   (:,:,jb),  &! inout, for sea ice

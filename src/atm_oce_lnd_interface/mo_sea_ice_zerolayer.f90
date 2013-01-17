@@ -91,7 +91,6 @@ CONTAINS
   !! Initial release by Achim Randelhoff
 
   SUBROUTINE set_ice_temp_zerolayer(i_startidx_c, i_endidx_c, nbdim, kice, SWdim, i_therm_model, &
-            &   isice,          & 
             &   Tsurf,          & 
             &   hi,             & 
             &   hs,             & 
@@ -105,7 +104,6 @@ CONTAINS
             &   doy)
 
     INTEGER, INTENT(IN)    :: i_startidx_c, i_endidx_c, nbdim, kice, SWdim, i_therm_model
-    LOGICAL, INTENT(IN)    :: isice      (nbdim,kice)
     REAL(wp),INTENT(INOUT) :: Tsurf      (nbdim,kice)
     REAL(wp),INTENT(IN)    :: hi         (nbdim,kice)
     REAL(wp),INTENT(IN)    :: hs         (nbdim,kice)
@@ -142,7 +140,7 @@ CONTAINS
 
     DO k=1,kice
       DO jc = i_startidx_c,i_endidx_c
-        IF (isice(jc,k)) THEN
+        IF (hi(jc,k) > 0._wp) THEN
           
           ! --- total heat conductivity for the ice-snow system
           k_effective = ki*ks/(ks*hi(jc,k) + ki*hs(jc,k))
@@ -299,7 +297,7 @@ CONTAINS
       CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c) 
       DO k=1,ice%kice
         DO jc = i_startidx_c,i_endidx_c
-          IF (ice%isice(jc,k,jb)) THEN
+          IF (ice%hi(jc,k,jb) > 0._wp) THEN
 
             ! Add oceanic heat flux to energy available at the bottom of the ice.
             ice%Qbot(jc,k,jb) = ice%Qbot(jc,k,jb) + zHeatOceI(jc,k,jb)
@@ -336,7 +334,6 @@ CONTAINS
               
               ! 
               ice%Tsurf(jc,k,jb) =  Tfw(jc,k,jb)
-              ice%isice(jc,k,jb) =  .FALSE.
               ice%conc (jc,k,jb) = 0.0_wp
               ice%hi   (jc,k,jb) = 0.0_wp
               ice%hs   (jc,k,jb) = 0.0_wp

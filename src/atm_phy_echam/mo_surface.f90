@@ -45,7 +45,7 @@ MODULE mo_surface
   USE mo_jsbach_interface_icon,ONLY: jsbach_inter_1d
   USE mo_icoham_sfc_indices,ONLY: nsfc_type
   USE mo_sea_ice,           ONLY: ice_fast
-  USE mo_physical_constants,ONLY: rhos, Tf, alf, albedoW, zemiss_def, stbo, tmelt
+  USE mo_physical_constants,ONLY: rhos, rhoi, Tf, alf, albedoW, zemiss_def, stbo, tmelt
   IMPLICIT NONE
   PRIVATE
   PUBLIC :: update_surface
@@ -146,7 +146,6 @@ CONTAINS
                            & surface_temperature_rad,           &! out
                            & surface_temperature_eff,           &! out
                            !! Sea ice
-                           & isice,                             &! in
                            & Tsurf,                             &! inout
                            & T1,                                &! inout
                            & T2,                                &! inout
@@ -264,11 +263,10 @@ CONTAINS
     REAL(wp),OPTIONAL,INTENT(OUT)   :: surface_temperature_eff(kbdim)
     !! Sea ice
     INTEGER,          INTENT(IN)    :: kice ! Number of ice thickness classes
-    LOGICAL, OPTIONAL,INTENT(IN)    :: isice(kbdim,kice)
     REAL(wp),OPTIONAL,INTENT(INOUT) :: Tsurf(kbdim,kice)
     REAL(wp),OPTIONAL,INTENT(INOUT) :: T1   (kbdim,kice)
     REAL(wp),OPTIONAL,INTENT(INOUT) :: T2   (kbdim,kice)
-    REAL(wp),OPTIONAL,INTENT(IN)    :: hi   (kbdim,kice)
+    REAL(wp),OPTIONAL,INTENT(INOUT) :: hi   (kbdim,kice)
     REAL(wp),OPTIONAL,INTENT(INOUT) :: hs   (kbdim,kice)
     REAL(wp),OPTIONAL,INTENT(OUT)   :: Qtop (kbdim,kice)
     REAL(wp),OPTIONAL,INTENT(OUT)   :: Qbot (kbdim,kice)
@@ -570,7 +568,6 @@ CONTAINS
       ENDDO
       lwup(1:kproma) = zemiss_def*stbo*ptsfc_tile(1:kproma,idx_ice)**4
       CALL ice_fast(1, kproma, kbdim, kice, 4, 1, &
-        &   isice,      &
         &   Tsurf,      &
         &   T1,         &
         &   T2,         &
@@ -583,13 +580,18 @@ CONTAINS
         &   -4._wp*zemiss_def* stbo*ptsfc_tile(:,idx_ice)**3,&
         &   Tfw,        &
         &   albedo_ice)
-! Let it snow and melt
-      DO k=1,kice
-        WHERE ( isice(:,1) )
-          hs(:,k) = hs(:,k) + (pssfl + pssfc)*pdtime/rhos &
-            &   - MIN( Qtop(:,k)*pdtime/( alf*rhos ), hs(:,k) )
-        ENDWHERE
-      ENDDO
+! Let it snow and melt and grow
+!      DO k=1,kice
+!        WHERE ( hi(:,1) > 0._wp )
+!          hs(:,k) = hs(:,k) + (pssfl + pssfc)*pdtime/rhos &
+!            &   - MIN( Qtop(:,k)*pdtime/( alf*rhos ), hs(:,k) )
+!        ENDWHERE
+!        hi(:,k) = hi(:,k) - MIN( Qbot(:,k)*pdtime/( alf*rhoi ), hi(:,k) )
+!        WHERE ( hs(:,1) <= 0._wp )
+!          hi(:,k) = hi(:,k) - MIN( Qtop(:,k)*pdtime/( alf*rhoi ), hi(:,k) )
+!        ENDWHERE
+!      ENDDO
+!      hi(:,:) = max( hi(:,:), 0._wp )
 ! Average the albedo.
       IF ( idx_lnd <= nsfc_type ) THEN
         WHERE ( pfrc(:,idx_lnd) < 1 )

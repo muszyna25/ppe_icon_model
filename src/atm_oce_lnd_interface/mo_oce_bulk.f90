@@ -86,7 +86,7 @@ USE mo_impl_constants,      ONLY: max_char_length, sea_boundary, MIN_DOLIC
 USE mo_math_utilities,      ONLY: gvec2cvec, cvec2gvec
 USE mo_sea_ice_types,       ONLY: t_sea_ice, t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean
 USE mo_sea_ice,             ONLY: calc_bulk_flux_ice, calc_bulk_flux_oce,     &
-  &                               ice_slow, ice_fast, prepareAfterRestart, prepare4restart
+  &                               ice_slow, ice_fast
 USE mo_coupling_config,     ONLY: is_coupled_run
 USE mo_icon_cpl_restart,    ONLY: icon_cpl_write_restart
 USE mo_icon_cpl_exchg,      ONLY: ICON_cpl_put, ICON_cpl_get
@@ -508,8 +508,6 @@ CONTAINS
       IF (i_sea_ice >= 1) THEN
 
         IF (iforc_type == 2 .OR. iforc_type == 5) THEN
-          ! ice mask can is converted from real to logical here
-          CALL prepareAfterRestart(p_ice)
 
           CALL calc_bulk_flux_oce(p_patch, p_as, p_os , Qatm)
           CALL calc_bulk_flux_ice(p_patch, p_as, p_ice, Qatm)
@@ -524,7 +522,6 @@ CONTAINS
         DO jb = all_cells%start_block, all_cells%end_block
           CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
           CALL ice_fast(i_startidx_c, i_endidx_c, nproma, p_ice%kice, 1, i_sea_ice, &
-            &   p_ice% isice(:,:,jb),   &
             &   p_ice% Tsurf(:,:,jb),   &
             &   p_ice% T1   (:,:,jb),   &
             &   p_ice% T2   (:,:,jb),   &
@@ -552,8 +549,6 @@ CONTAINS
         !   this should be done by the coupler if ice_fast is moved to the atmosphere
 
         CALL ice_slow(p_patch, p_os, p_ice, Qatm, p_sfc_flx)
-        ! transform ice mask from logical to real for saving it to the restart file
-        CALL prepare4restart(p_ice)
 
       ELSE   !  no sea ice
 
@@ -798,10 +793,7 @@ CONTAINS
             Tfw = Tf
           ENDIF
 
-          ! ice mask can is converted from real to logical here
-          CALL prepareAfterRestart(p_ice)
           CALL ice_fast(i_startidx_c, i_endidx_c, nproma, p_ice%kice, 1, i_sea_ice, &
-            &   p_ice% isice(:,:,jb),   &
             &   p_ice% Tsurf(:,:,jb),   &
             &   p_ice% T1   (:,:,jb),   &
             &   p_ice% T2   (:,:,jb),   &
@@ -815,8 +807,6 @@ CONTAINS
             &   Tfw         (:,  jb),   &
             &   doy=datetime%yeaday)
           CALL ice_slow(p_patch, p_os, p_ice, Qatm, p_sfc_flx)
-          ! transform ice mask from logical to real for saving it to the restart file
-          CALL prepare4restart(p_ice)
 
           ! sum of flux from sea ice to the ocean is stored in p_sfc_flx%forc_hflx
           !  done in mo_sea_ice:upper_ocean_TS
@@ -1145,7 +1135,7 @@ CONTAINS
       DO jc = i_startidx_c, i_endidx_c
         DO i = 1, p_ice%kice
           !surface heat forcing as sum of sensible, latent, longwave and shortwave heat fluxes
-          IF (p_ice% isice(jc,jb,i))THEN
+          IF (p_ice% hi(jc,jb,i) > 0._wp)THEN
 
     !  ATTENTION - forc_tracer is INCORRECT here
     !   - forc_tracer is boundary condition in vertical diffusion equation [K*m/s]
@@ -1162,7 +1152,7 @@ CONTAINS
             !This prepares freshwater flux calculation below; eq. (64) in Marsland et al.
             z_evap(jc,jb) = Qatm%lat(jc,jb,i)/(als*z_rho_w)
 
-          ELSEIF(.NOT.p_ice% isice(jc,jb,i))THEN
+          ELSE
 
     !       p_sfc_flx%forc_tracer(jc,jb,1)             &
             p_sfc_flx%forc_hflx(jc,jb)                 &

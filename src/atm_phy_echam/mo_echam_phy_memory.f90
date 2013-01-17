@@ -277,7 +277,6 @@ MODULE mo_echam_phy_memory
     ! Sea ice.
     ! See also atm_oce_lnd_interface/mo_sea_ice_types.f90
     INTEGER              :: kice = 1    ! Number of ice-thickness classes
-    LOGICAL,POINTER      :: isice(:,:,:)! Logical field that marks ice-covered grid cells
     REAL(wp),POINTER     ::     &
       & Tsurf   (:,:,:),        & ! Ice surface temperature [degC]
       & T1      (:,:,:),        & ! Temperature of upper ice layer [degC]
@@ -1128,11 +1127,6 @@ CONTAINS
 
       field%kice = 1 ! TODO: Number of thickness classes - should be a name-list variable
       shapeice = (/kproma, field%kice, kblks/)
-
-      ALLOCATE(field%isice(kproma,field%kice,kblks), STAT=ist)
-      IF (ist/=SUCCESS) THEN
-        CALL finish(TRIM(thismodule),'allocation for isice failed')
-      END IF
 
       CALL add_var( field_list, 'Tsurf', field%Tsurf ,                          &
         &          GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE,                      &

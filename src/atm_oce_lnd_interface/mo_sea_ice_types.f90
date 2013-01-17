@@ -150,9 +150,6 @@ MODULE mo_sea_ice_types
   ! The description of the sea-ice state, defined on cell-centers
   ! dimension: (nproma, nblks_c)
 
-    LOGICAL, POINTER :: &
-      &  isice(:,:,:)    ! Logical field that marks ice-covered grid cells
-    
     REAL(wp), POINTER :: &
       & alb        (:,:,:)       ,   & ! Albedo of snow-ice system
       & Tsurf      (:,:,:)       ,   & ! Surface temperature                           [C]
@@ -171,8 +168,7 @@ MODULE mo_sea_ice_types
       & surfmelt   (:,:,:)       ,   & ! surface melt water running into ocean         [m]
       & surfmeltT  (:,:,:)       ,   & ! Mean temperature of surface melt water        [C]
       & evapwi     (:,:,:)       ,   & ! amount of evaporated water if no ice left     [kg/m2]
-      & conc       (:,:,:)       ,   & ! ice concentration in each ice class
-      & restart_isice(:,:,:)           ! ice mask as a real field for getting it into restart
+      & conc       (:,:,:)             ! ice concentration in each ice class
 
     REAL(wp), POINTER :: &
       & u(:,:)          ,      & ! Zonal velocity                                [m/s]
