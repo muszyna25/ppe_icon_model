@@ -5,7 +5,8 @@ MODULE mo_var_list
        &                         DATATYPE_INT32, &
        &                         DATATYPE_INT8,  &
        &                         TIME_VARIABLE,  &
-       &                         TSTEP_INSTANT
+       &                         TSTEP_INSTANT,  &
+       &                         GRID_UNSTRUCTURED_CELL
   USE mo_cf_convention,    ONLY: t_cf_var
   USE mo_grib2,            ONLY: t_grib2_var
   USE mo_var_metadata,     ONLY: t_var_metadata, t_union_vals, &
@@ -3650,13 +3651,18 @@ CONTAINS
   !> Loops over all variables and collects the variables names
   !  corresponding to the group @p grp_name
   !
-  SUBROUTINE collect_group(grp_name, var_name, nvars, loutputvars_only)
+  SUBROUTINE collect_group(grp_name, var_name, nvars, &
+    &                      loutputvars_only, lremap_lonlat)
     CHARACTER(LEN=*),           INTENT(IN)    :: grp_name
     CHARACTER(LEN=VARNAME_LEN), INTENT(INOUT) :: var_name(:)
     INTEGER,                    INTENT(OUT)   :: nvars
     ! loutputvars_only: If set to .TRUE. all variables in the group
     ! which have the the loutput flag equal to .FALSE. are skipped.
     LOGICAL,                    INTENT(IN)    :: loutputvars_only
+    ! lremap_lonlat: If set to .TRUE. only variables in the group
+    ! which can be interpolated onto lon-lat grids are considered.
+    LOGICAL,                    INTENT(IN)    :: lremap_lonlat
+
     ! local variables
     CHARACTER(*), PARAMETER :: routine = TRIM("mo_var_list:collect_group")
     INTEGER :: i, ivar, grp_id, idx, idx_x, idx_y, idx_t
@@ -3703,6 +3709,12 @@ CONTAINS
           IF (loutputvars_only .AND. &
             & (.NOT. info%loutput) .OR. (.NOT. var_lists(i)%p%loutput)) THEN
             CALL message(routine, "Skipping variable "//TRIM(name)//" for output.")
+            CYCLE LOOPVAR
+          END IF
+
+          IF (lremap_lonlat .AND. &
+            & (info%hgrid /= GRID_UNSTRUCTURED_CELL)) THEN
+            CALL message(routine, "Skipping variable "//TRIM(name)//" for lon-lat output.")
             CYCLE LOOPVAR
           END IF
 

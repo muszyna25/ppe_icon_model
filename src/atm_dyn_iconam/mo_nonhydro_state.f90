@@ -1329,7 +1329,7 @@ MODULE mo_nonhydro_state
       grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_diag_list, 'mflx_ic_int', p_diag%mflx_ic_int,             &
                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
-                  & ldims=shape3d_ubcp, lrestart=.FALSE. )
+                  & ldims=shape3d_ubcp, lrestart=.FALSE., loutput=.FALSE. )
 
 
       ! mflx_ic_ubc  p_diag%mflx_ic_ubc(nproma,nblks_c,2)
@@ -1339,7 +1339,7 @@ MODULE mo_nonhydro_state
       grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_diag_list, 'mflx_ic_ubc', p_diag%mflx_ic_ubc,             &
                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
-                  & ldims=shape3d_ubcc, lrestart=.FALSE. )
+                  & ldims=shape3d_ubcc, lrestart=.FALSE., loutput=.FALSE. )
 
 
       ! dtheta_v_ic_int    p_diag%dtheta_v_ic_int(nproma,nblks_c,iadv_rcf+1)
@@ -1349,7 +1349,7 @@ MODULE mo_nonhydro_state
       grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_diag_list, 'dtheta_v_ic_int', p_diag%dtheta_v_ic_int,     &
                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
-                  & ldims=shape3d_ubcp1, lrestart=.FALSE. )
+                  & ldims=shape3d_ubcp1, lrestart=.FALSE., loutput=.FALSE. )
 
 
       ! dtheta_v_ic_ubc    p_diag%dtheta_v_ic_ubc(nproma,nblks_c)
@@ -1369,7 +1369,7 @@ MODULE mo_nonhydro_state
       grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_diag_list, 'dw_int', p_diag%dw_int,                       &
                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
-                  & ldims=shape3d_ubcp1, lrestart=.FALSE. )
+                  & ldims=shape3d_ubcp1, lrestart=.FALSE., loutput=.FALSE. )
 
 
       ! dw_ubc       p_diag%dw_ubc(nproma,nblks_c)
