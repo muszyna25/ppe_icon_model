@@ -413,6 +413,8 @@ MODULE mo_nh_initicon
 
     CHARACTER(LEN=filename_max) :: ifs2icon_file(max_dom)
 
+    LOGICAL :: lreadqr, lreadqs
+
     !-------------------------------------------------------------------------
 
 
@@ -429,6 +431,7 @@ MODULE mo_nh_initicon
       ! Read in data from IFS2ICON
       !
       IF(p_pe == p_io ) THEN 
+
         !
         ! generate file name
         !
@@ -469,7 +472,6 @@ MODULE mo_nh_initicon
           & 'nlev_in does not match the number of levels in IFS2ICON file.')
         ENDIF
 
-
         !
         ! Check if surface pressure (PS) or its logarithm (LNPS) is provided as input
         !
@@ -478,6 +480,7 @@ MODULE mo_nh_initicon
         ELSE IF (nf_inq_varid(ncid, 'LNPS', varid) == nf_noerr) THEN
           psvar = 'LNPS'
         ENDIF
+
         !
         ! Check if model-level surface Geopotential is provided as GEOSP or GEOP_ML
         !
@@ -489,7 +492,27 @@ MODULE mo_nh_initicon
           CALL finish(TRIM(routine),'Could not find model-level sfc geopotential')
         ENDIF
 
-      ENDIF
+        !
+        ! Check if rain water (QR) is provided as input
+        !
+        IF (nf_inq_varid(ncid, 'QR', varid) == nf_noerr) THEN
+          lreadqr = .false.
+          CALL message(TRIM(routine),'Rain water (QR) not available in input data')
+        ELSE
+          lreadqr = .true.
+        ENDIF
+
+        !
+        ! Check if snow water (QS) is provided as input
+        !
+        IF (nf_inq_varid(ncid, 'QS', varid) == nf_noerr) THEN
+          lreadqs = .false.
+          CALL message(TRIM(routine),'Snow water (QS) not available in input data')
+        ELSE
+          lreadqs = .true.
+        ENDIF
+
+     ENDIF
 
       IF (msg_level >= 10) THEN
         WRITE(message_text,'(a)') 'surface pressure variable: '//TRIM(psvar)
@@ -531,13 +554,17 @@ MODULE mo_nh_initicon
         &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
         &                     nlev_in,initicon(jg)%atm_in%qi)
 
-      CALL read_netcdf_data_single (ncid, 'QR', p_patch(jg)%n_patch_cells_g,          &
+      IF (lreadqr) THEN
+        CALL read_netcdf_data_single (ncid, 'QR', p_patch(jg)%n_patch_cells_g,          &
         &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
         &                     nlev_in,initicon(jg)%atm_in%qr)
+      ENDIF
 
-      CALL read_netcdf_data_single (ncid, 'QS', p_patch(jg)%n_patch_cells_g,          &
+      IF (lreadqs) THEN
+        CALL read_netcdf_data_single (ncid, 'QS', p_patch(jg)%n_patch_cells_g,          &
         &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
         &                     nlev_in,initicon(jg)%atm_in%qs)
+      ENDIF
 
       CALL read_netcdf_data (ncid, TRIM(psvar), p_patch(jg)%n_patch_cells_g,          &
         &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
