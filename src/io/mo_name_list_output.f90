@@ -258,6 +258,13 @@ MODULE mo_name_list_output
   INTEGER, PARAMETER :: REMAP_NONE           = 0
   INTEGER, PARAMETER :: REMAP_REGULAR_LATLON = 1
 
+  INTEGER, PARAMETER :: IRLON                 = 1
+  INTEGER, PARAMETER :: IRLAT                 = 2
+  INTEGER, PARAMETER :: ILATLON               = 1
+  INTEGER, PARAMETER :: ICELL                 = 1
+  INTEGER, PARAMETER :: IEDGE                 = 2
+  INTEGER, PARAMETER :: IVERT                 = 3
+
 CONTAINS
 
   SUBROUTINE read_name_list_output_namelists( filename )
@@ -2520,33 +2527,48 @@ CONTAINS
       &                    GRID_CELL )  &  ! subgridtype
       /)
 
-    INTEGER :: i,varID(2),vlistID,gridID,zaxisID
+    INTEGER :: igrid,i,vlistID,idx(3),gridID(3),zaxisID
 
     vlistID = of%cdiVlistID
     zaxisID = of%cdiZaxisID(ZA_surface)
 
-    IF (of%name_list%remap == REMAP_REGULAR_LATLON) THEN
-      gridID = of%cdiLonLatGridID
-    ELSE
-      gridID  = of%cdiCellGridID
-    END IF
+    SELECT CASE(of%name_list%remap)
+    CASE (REMAP_NONE)
+      idx(:)    = (/ ICELL, IEDGE, IVERT /)
+      gridID(:) = (/ of%cdiCellGridID, of%cdiEdgeGridID, of%cdiVertGridID /)
+      DO igrid=1,3
+        DO i=1,2 ! for longitude, latitude:
+          of%cdi_grb2(idx(igrid),i) = vlistDefVar(vlistID, gridID(igrid), zaxisID, TSTEP_CONSTANT)
+          CALL vlistDefVarDatatype(vlistID,  of%cdi_grb2(idx(igrid),i), grid_coord_grib2(i)%bits)
+          CALL vlistDefVarTsteptype(vlistID, of%cdi_grb2(idx(igrid),i), TSTEP_CONSTANT)
+          CALL vlistDefVarName(vlistID,      of%cdi_grb2(idx(igrid),i), TRIM(grid_coord_name(i)))
+          
+          ! Set GRIB2 Triplet
+          CALL vlistDefVarParam( vlistID, of%cdi_grb2(idx(igrid),i),  &
+            &  cdiEncodeParam(grid_coord_grib2(i)%number,             &
+            &                 grid_coord_grib2(i)%category,           &
+            &                 grid_coord_grib2(i)%discipline) )
+        END DO
+      END DO
 
-    ! for longitude, latitude:
-    DO i=1,2
-      varID(i) = vlistDefVar(vlistID, gridID, zaxisID, TSTEP_CONSTANT)
-      CALL vlistDefVarDatatype(vlistID,  varID(i), grid_coord_grib2(i)%bits)
-      CALL vlistDefVarTsteptype(vlistID, varID(i), TSTEP_CONSTANT)
-      CALL vlistDefVarName(vlistID,      varID(i), TRIM(grid_coord_name(i)))
+    CASE (REMAP_REGULAR_LATLON)
+      ! for longitude, latitude:
+      DO i=1,2
+        of%cdi_grb2(ILATLON,i) = vlistDefVar(vlistID, of%cdiLonLatGridID, zaxisID, TSTEP_CONSTANT)
+        CALL vlistDefVarDatatype(vlistID,  of%cdi_grb2(ILATLON,i), grid_coord_grib2(i)%bits)
+        CALL vlistDefVarTsteptype(vlistID, of%cdi_grb2(ILATLON,i), TSTEP_CONSTANT)
+        CALL vlistDefVarName(vlistID,      of%cdi_grb2(ILATLON,i), TRIM(grid_coord_name(i)))
+        ! Set GRIB2 Triplet
+        CALL vlistDefVarParam( vlistID, of%cdi_grb2(ILATLON,i),   &
+          &  cdiEncodeParam(grid_coord_grib2(i)%number,            &
+          &                 grid_coord_grib2(i)%category,          &
+          &                 grid_coord_grib2(i)%discipline) )
+      END DO
 
-      ! Set GRIB2 Triplet
-      CALL vlistDefVarParam( vlistID, varID(i),         &
-        &  cdiEncodeParam(grid_coord_grib2(i)%number,   &
-        &                 grid_coord_grib2(i)%category, &
-        &                 grid_coord_grib2(i)%discipline) )
-    END DO
+    CASE DEFAULT
+      CALL finish(routine, "Unsupported grid type.")
+    END SELECT
 
-    of%cdi_grb2_rlon = varID(1)
-    of%cdi_grb2_rlat = varID(2)
   END SUBROUTINE set_grid_info_grb2
 
 
@@ -2558,24 +2580,39 @@ CONTAINS
     TYPE (t_output_file), INTENT(INOUT) :: of
     ! local variables:
     CHARACTER(LEN=*), PARAMETER :: routine = TRIM('mo_name_list_output/write_grid_info_grb')
-    INTEGER                        :: errstat, idom
+
+    TYPE t_grid_info_ptr
+      TYPE (t_grid_info), POINTER :: ptr
+    END TYPE t_grid_info_ptr
+
+    INTEGER                        :: errstat, idom, igrid, idx(3), isize(3)
     TYPE (t_lon_lat_grid), POINTER :: grid
     REAL(wp), ALLOCATABLE          :: rotated_pts(:,:,:), r_out_dp(:,:), r_out_dp_1D(:)
+    TYPE(t_grid_info_ptr)          :: gptr(3)
 
     SELECT CASE(of%name_list%remap)
     CASE (REMAP_NONE)
-      ! allocate data buffer:
       idom = of%phys_patch_id
-      ALLOCATE(r_out_dp_1D(patch_info(idom)%cells%n_glb), stat=errstat)
-      IF (errstat /= SUCCESS) CALL finish(routine, 'ALLOCATE failed!')
-      ! write RLON, RLAT
-      r_out_dp_1D(:) = patch_info(idom)%grid_c%lon(:) / pi_180
-      CALL streamWriteVar(of%cdiFileID, of%cdi_grb2_rlon, r_out_dp_1D, 0)
-      r_out_dp_1D(:) = patch_info(idom)%grid_c%lat(:) / pi_180
-      CALL streamWriteVar(of%cdiFileID, of%cdi_grb2_rlat, r_out_dp_1D, 0)
-      ! clean up
-      DEALLOCATE(r_out_dp_1D, stat=errstat)
-      IF (errstat /= SUCCESS) CALL finish(routine, 'DEALLOCATE failed!')
+      idx(:)    = (/ ICELL, IEDGE, IVERT /)
+      isize(:)  = (/ patch_info(idom)%cells%n_glb, &
+        &            patch_info(idom)%edges%n_glb, &
+        &            patch_info(idom)%verts%n_glb /)
+      gptr(1)%ptr => patch_info(idom)%grid_c
+      gptr(2)%ptr => patch_info(idom)%grid_e
+      gptr(3)%ptr => patch_info(idom)%grid_v
+      DO igrid=1,3
+        ! allocate data buffer:
+        ALLOCATE(r_out_dp_1D(isize(igrid)), stat=errstat)
+        IF (errstat /= SUCCESS) CALL finish(routine, 'ALLOCATE failed!')
+        ! write RLON, RLAT
+        r_out_dp_1D(:) = gptr(igrid)%ptr%lon(1:isize(igrid)) / pi_180
+        CALL streamWriteVar(of%cdiFileID, of%cdi_grb2(idx(igrid),IRLON), r_out_dp_1D, 0)
+        r_out_dp_1D(:) = gptr(igrid)%ptr%lat(1:isize(igrid)) / pi_180
+        CALL streamWriteVar(of%cdiFileID, of%cdi_grb2(idx(igrid),IRLAT), r_out_dp_1D, 0)
+        ! clean up
+        DEALLOCATE(r_out_dp_1D, stat=errstat)
+        IF (errstat /= SUCCESS) CALL finish(routine, 'DEALLOCATE failed!')
+      END DO
 
     CASE (REMAP_REGULAR_LATLON)
       ! allocate data buffer:
@@ -2589,9 +2626,9 @@ CONTAINS
       CALL rotate_latlon_grid(grid, rotated_pts)
       ! write RLON, RLAT
       r_out_dp(:,:) = rotated_pts(:,:,1) / pi_180
-      CALL streamWriteVar(of%cdiFileID, of%cdi_grb2_rlon, r_out_dp, 0)
+      CALL streamWriteVar(of%cdiFileID, of%cdi_grb2(ILATLON,IRLON), r_out_dp, 0)
       r_out_dp(:,:) = rotated_pts(:,:,2) / pi_180
-      CALL streamWriteVar(of%cdiFileID, of%cdi_grb2_rlat, r_out_dp, 0)
+      CALL streamWriteVar(of%cdiFileID, of%cdi_grb2(ILATLON,IRLAT), r_out_dp, 0)
       ! clean up
       DEALLOCATE(rotated_pts, r_out_dp, stat=errstat)
       IF (errstat /= SUCCESS) CALL finish(routine, 'DEALLOCATE failed!')

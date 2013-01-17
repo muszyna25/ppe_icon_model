@@ -183,8 +183,7 @@ MODULE mo_name_list_output_config
     INTEGER                     :: cdiTaxisID
     INTEGER                     :: cdiTimeIndex
     INTEGER                     :: cdiInstID      ! output generating institute
-    INTEGER                     :: cdi_grb2_rlat  !< geographical latitude
-    INTEGER                     :: cdi_grb2_rlon  !< geographical longitude
+    INTEGER                     :: cdi_grb2(3,2)  !< geographical position: (GRID, latitude/longitude)
 
   END TYPE t_output_file
 
