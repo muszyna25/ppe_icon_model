@@ -108,7 +108,8 @@ MODULE mo_nh_testcases
   USE mo_nh_prog_util,         ONLY: nh_prog_add_random
   USE mo_nh_init_utils,        ONLY: n_flat_level, layer_thickness
   USE mo_grid_geometry_info,   ONLY: planar_torus_geometry
-  USE mo_nh_torus_exp,         ONLY: sst_cbl, is_dry_cbl, init_nh_state_cbl, ugeo, vgeo
+  USE mo_nh_torus_exp,         ONLY: sst_cbl, is_dry_cbl, init_nh_state_cbl, &
+                                     ugeo, vgeo, umean, vmean
   
   IMPLICIT NONE  
   
@@ -162,7 +163,8 @@ MODULE mo_nh_testcases
                             m_height, m_width_x, m_width_y, itype_atmo_ana,  &
                             nlayers_poly, p_base_poly, h_poly, t_poly,       &
                             tgr_poly, rh_poly, rhgr_poly, lshear_dcmip,      &
-                            lcoupled_rho, sst_cbl, is_dry_cbl, ugeo, vgeo
+                            lcoupled_rho, sst_cbl, is_dry_cbl, ugeo, vgeo,   &
+                            umean, vmean
 
   PUBLIC :: read_nh_testcase_namelist, layer_thickness, init_nh_testtopo,    &
     &       init_nh_testcase, n_flat_level, nh_test_name,                    &
@@ -322,6 +324,8 @@ MODULE mo_nh_testcases
     is_dry_cbl = .TRUE.
     ugeo(1:2)  = 0._wp  !ugeo(1) = constant, ugeo(2) = gradient
     vgeo(1:2)  = 0._wp  !vgeo(1) = constant, vgeo(2) = gradient
+    umean(1:2) = 0._wp
+    vmean(1:2) = 0._wp
 
     CALL open_nml(TRIM(filename))
     CALL position_nml ('nh_testcase_nml', status=i_status)

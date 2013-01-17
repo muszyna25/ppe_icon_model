@@ -54,7 +54,7 @@ MODULE mo_solve_nonhydro
     & use_icon_comm
   USE mo_run_config,        ONLY: ltimer, timers_level, lvert_nest
   USE mo_model_domain,      ONLY: t_patch
-  USE mo_grid_config,       ONLY: l_limited_area
+  USE mo_grid_config,       ONLY: l_limited_area, is_plane_torus
   USE mo_gridref_config,    ONLY: grf_intmethod_e
   USE mo_interpol_config,   ONLY: nudge_max_coeff
   USE mo_intp_data_strc,    ONLY: t_int_state
@@ -80,6 +80,8 @@ MODULE mo_solve_nonhydro
   USE mo_timer,             ONLY: timer_solve_nh, timer_barrier, timer_start, timer_stop, &
                                   timer_solve_nh_p1, timer_solve_nh_p2, timer_solve_nh_exch
   USE mo_icon_comm_lib,     ONLY: icon_comm_sync
+  USE mo_nh_testcases,      ONLY: nh_test_name
+  USE mo_nh_torus_exp,      ONLY: vt_geostrophic
 
   IMPLICIT NONE
 
@@ -124,7 +126,7 @@ MODULE mo_solve_nonhydro
     LOGICAL, INTENT(IN)  :: lvn_only ! true: compute only vn tendency
 
     ! Local variables
-    INTEGER :: jb, jk, jc, je
+    INTEGER :: jb, jk, jc, je, jcn, jbn
     INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
     INTEGER :: rl_start, rl_end
     REAL(wp):: z_w_concorr_me(nproma,p_patch%nlev,p_patch%nblks_e)
@@ -135,13 +137,14 @@ MODULE mo_solve_nonhydro
     REAL(wp):: z_ddxn_ekin_e(nproma,p_patch%nlev,p_patch%nblks_e)
     REAL(wp):: z_vnw(nproma,p_patch%nlevp1,p_patch%nblks_e)
     REAL(wp):: z_hadv_w(nproma,p_patch%nlevp1,p_patch%nblks_c)
+    REAL(wp):: zvn1, zvn2, zugeo, zvgeo
 
     INTEGER,  DIMENSION(:,:,:), POINTER :: icidx, icblk, ieidx, ieblk, &
                                            ividx, ivblk, incidx, incblk
     INTEGER  :: nlev, nlevp1          !< number of full and half levels
     ! Local control variable for vertical nesting
     LOGICAL :: l_vert_nested
-
+      
     !--------------------------------------------------------------------------
 
     IF ((lvert_nest) .AND. (p_patch%nshift > 0)) THEN  
@@ -496,10 +499,22 @@ MODULE mo_solve_nonhydro
             p_metrics%ddqz_z_full_e(je,jk,jb) )
         ENDDO
       ENDDO
+
+      !Add geostrophic wind for torus geometry
+      IF(is_plane_torus .AND. nh_test_name=='CBL')THEN  
+        DO jk = 1 , nlev
+          DO je = i_startidx, i_endidx                   
+            p_diag%ddt_vn_adv(je,jk,jb,ntnd) = p_diag%ddt_vn_adv(je,jk,jb,ntnd) + &
+                    p_patch%edges%f_e(je,jb) * vt_geostrophic(je,jk,jb) 
+          END DO
+        END DO
+      END IF
+
     ENDDO
 !$OMP END DO NOWAIT
 
 !$OMP END PARALLEL
+
 
   END SUBROUTINE velocity_tendencies
 
