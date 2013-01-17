@@ -46,6 +46,7 @@ PROGRAM prep_icon
   USE mo_nml_crosscheck,        ONLY: atm_crosscheck
   USE mo_run_config,            ONLY: configure_run
   USE mo_remap,                 ONLY: remap_main
+  USE mo_prepicon_nml,          ONLY: read_prepicon_namelist
 !$  USE mo_exception,         ONLY: message_text     ! use only if compiled with OpenMP
 
 #ifdef __INTEL_COMPILER
@@ -104,6 +105,8 @@ PROGRAM prep_icon
     lrestart = .FALSE. ! restarting is not available for prep_icon
     error_status = read_master_namelist("icon_master.namelist")
     CALL read_atmo_namelists(TRIM(namelist_filename),"icon_master.namelist")
+
+    CALL read_prepicon_namelist(TRIM(namelist_filename))
 
 
     !---------------------------------------------------------------------

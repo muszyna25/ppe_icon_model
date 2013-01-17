@@ -80,8 +80,8 @@ USE mo_run_config,           ONLY: configure_run, &
   & num_lev,num_levp1,    &
   & ntracer, msg_level,   &
   & dtime, output_mode
-
-USE mo_impl_constants, ONLY:&
+USE mo_prepicon_config,      ONLY: i_oper_mode 
+USE mo_impl_constants,       ONLY:&
   & ihs_atm_temp,         & !    :
   & ihs_atm_theta,        & !    :
   & inh_atmosphere,       & !    :
@@ -330,7 +330,9 @@ CONTAINS
     !---------------------------------------------------------------------
     ! 1.2 Cross-check namelist setups
     !---------------------------------------------------------------------
-
+    !! DR temporary hack!!
+    i_oper_mode = 2
+    !! DR end temporary hack !!
     CALL atm_crosscheck
 
     !---------------------------------------------------------------------

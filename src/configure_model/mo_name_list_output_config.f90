@@ -179,7 +179,7 @@ MODULE mo_name_list_output_config
     INTEGER                     :: cdiVertGridID
     INTEGER                     :: cdiEdgeGridID
     INTEGER                     :: cdiLonLatGridID
-    INTEGER                     :: cdiZaxisID(19) ! All types of possible Zaxis ID's
+    INTEGER                     :: cdiZaxisID(22) ! All types of possible Zaxis ID's
     INTEGER                     :: cdiTaxisID
     INTEGER                     :: cdiTimeIndex
     INTEGER                     :: cdiInstID      ! output generating institute

@@ -2172,7 +2172,45 @@ CONTAINS
       levels(1) = 1._wp
       CALL zaxisDefLevels(of%cdiZaxisID(ZA_toa), levels)
       DEALLOCATE(levels)
-
+      !
+      ! Isobaric surface 800 hPa (layer)
+      !
+      of%cdiZaxisID(ZA_pressure_800)  = zaxisCreate(ZAXIS_PRESSURE, 1)
+      ALLOCATE(lbounds(1), ubounds(1), levels(1))
+      lbounds(1)= 0._wp     ! hPa
+      ubounds(1)= 800._wp   ! hPa
+      levels(1) = 800._wp   ! hPa
+      CALL zaxisDefLbounds(of%cdiZaxisID(ZA_pressure_800), lbounds) !necessary for GRIB2
+      CALL zaxisDefUbounds(of%cdiZaxisID(ZA_pressure_800), ubounds) !necessary for GRIB2
+      CALL zaxisDefLevels (of%cdiZaxisID(ZA_pressure_800), levels)
+      CALL zaxisDefUnits  (of%cdiZaxisID(ZA_pressure_800), "hPa")
+      DEALLOCATE(lbounds, ubounds, levels)
+      !
+      ! Isobaric surface 400 hPa (layer)
+      !
+      of%cdiZaxisID(ZA_pressure_400)  = zaxisCreate(ZAXIS_PRESSURE, 1)
+      ALLOCATE(lbounds(1), ubounds(1), levels(1))
+      lbounds(1)= 800._wp   ! hPa
+      ubounds(1)= 400._wp   ! hPa
+      levels(1) = 400._wp   ! hPa
+      CALL zaxisDefLbounds(of%cdiZaxisID(ZA_pressure_400), lbounds) !necessary for GRIB2
+      CALL zaxisDefUbounds(of%cdiZaxisID(ZA_pressure_400), ubounds) !necessary for GRIB2
+      CALL zaxisDefLevels (of%cdiZaxisID(ZA_pressure_400), levels)
+      CALL zaxisDefUnits  (of%cdiZaxisID(ZA_pressure_400), "hPa")
+      DEALLOCATE(lbounds, ubounds, levels)
+      !
+      ! Isobaric surface 0 hPa (layer)
+      !
+      of%cdiZaxisID(ZA_pressure_0)  = zaxisCreate(ZAXIS_PRESSURE, 1)
+      ALLOCATE(lbounds(1), ubounds(1), levels(1))
+      lbounds(1)= 400._wp ! hPa
+      ubounds(1)= 0._wp   ! hPa
+      levels(1) = 0._wp   ! hPa
+      CALL zaxisDefLbounds(of%cdiZaxisID(ZA_pressure_0), lbounds) !necessary for GRIB2
+      CALL zaxisDefUbounds(of%cdiZaxisID(ZA_pressure_0), ubounds) !necessary for GRIB2
+      CALL zaxisDefLevels (of%cdiZaxisID(ZA_pressure_0), levels)
+      CALL zaxisDefUnits  (of%cdiZaxisID(ZA_pressure_0), "hPa")
+      DEALLOCATE(lbounds, ubounds, levels)
 
 
       ! Define axes for output on p-, i- and z-levels
@@ -2789,6 +2827,10 @@ CONTAINS
           !   GRIB_CHECK(grib_set_long(gh, "typeOfSecondFixedSurface", 101), 0);
 
           CALL vlistDefVarTypeOfSfs(vlistID, varID, 101)
+          ! additional special treatment needed for
+          ! HBAS_CON: typeOfSecondFixedSurface = 101
+          ! HTOP_CON: typeOfSecondFixedSurface = 101
+          ! CLCL    : typeOfSecondFixedSurface = 1
         ENDIF
       ELSE ! NetCDF
         CALL vlistDefVarDatatype(vlistID, varID, info%cf%datatype)
@@ -2798,9 +2840,7 @@ CONTAINS
       !Set typeOfStatisticalProcessing
       !Note: instead of calling vlistDefVarTsteptype, one should probably replace 
       !info%cdiTimeID in the call of vlistDefVar by info%isteptype
-      ! So far, passing typeOfStatisticalProcessing only works, when choosing TAXIS_RELATIVE. 
-      ! Otherwise, passing info%isteptype has no effect.
-      CALL vlistDefVarTsteptype(vlistID, varID, info%isteptype);
+      CALL vlistDefVarTsteptype(vlistID, varID, info%isteptype)
         
     ENDDO
     !
