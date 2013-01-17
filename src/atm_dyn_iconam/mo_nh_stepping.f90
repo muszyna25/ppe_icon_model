@@ -490,21 +490,23 @@ MODULE mo_nh_stepping
                 &                 'day: ', datetime%day
       CALL message(TRIM(routine),message_text)
 
-     !Update ndvi normalized differential vegetation index
-     IF (iforcing == inwp .AND. ALL(atm_phy_nwp_config(1:n_dom)%inwp_surface >= 1)) &
-       CALL interpol_ndvi_time (p_patch(1:), ext_data, datetime) 
+      !Update ndvi normalized differential vegetation index
+      IF (iforcing == inwp .AND. ALL(atm_phy_nwp_config(1:n_dom)%inwp_surface >= 1)) &
+        CALL interpol_ndvi_time (p_patch(1:), ext_data, datetime) 
 
-     !Check if the the SST and Sea ice fraction have to be updated (sstice_mode 2,3,4)
-     IF (sstice_mode > 1 .AND. iforcing == inwp  ) THEN
+      !Check if the the SST and Sea ice fraction have to be updated (sstice_mode 2,3,4)
+      IF (sstice_mode > 1 .AND. iforcing == inwp  ) THEN
 
-      CALL set_actual_td_ext_data (.FALSE., datetime,datetime_old,sstice_mode,  &
+        CALL set_actual_td_ext_data (.FALSE., datetime,datetime_old,sstice_mode,  &
                                   &  p_patch(1:), ext_data, p_lnd_state)
 
-      CALL update_sstice( p_patch(1:),           &
+        CALL update_sstice( p_patch(1:),           &
                         & ext_data, p_lnd_state, p_nh_state )
 
-      datetime_old = datetime  
-     END IF  !sstice_mode>1
+      END IF  !sstice_mode>1
+
+      datetime_old = datetime
+
     END IF !newday 
 ! end SST and sea ice fraction update
 
