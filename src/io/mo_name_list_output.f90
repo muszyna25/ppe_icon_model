@@ -36,6 +36,7 @@ MODULE mo_name_list_output
   USE mo_grid_config,           ONLY: n_dom, n_phys_dom, global_cell_type, &
     &                                 grid_rescale_factor, start_time, end_time
   USE mo_grid_levels,           ONLY: check_orientation
+  USE mo_grib2,                 ONLY: t_grib2_var
   USE mo_cdi_constants          ! We need all
   USE mo_io_units,              ONLY: filename_max, nnml, nnml_output, find_next_free_unit
   USE mo_exception,             ONLY: finish, message, message_text
@@ -78,7 +79,7 @@ MODULE mo_name_list_output
   USE mo_lnd_nwp_config,        ONLY: nlev_snow
   USE mo_datetime,              ONLY: t_datetime
   USE mo_time_config,           ONLY: time_config
-  USE mo_lonlat_grid,           ONLY: t_lon_lat_grid
+  USE mo_lonlat_grid,           ONLY: t_lon_lat_grid, compute_lonlat_specs
   USE mo_intp_data_strc,        ONLY: t_lon_lat_intp,                         &
     &                                 t_lon_lat_data, get_free_lonlat_grid,   &
     &                                 lonlat_grid_list, n_lonlat_grids
@@ -91,8 +92,8 @@ MODULE mo_name_list_output
     &                                 tocompact, tolower
   USE mo_loopindices,           ONLY: get_indices_c, get_indices_e, get_indices_v
   USE mo_communication,         ONLY: exchange_data, t_comm_pattern, idx_no, blk_no
-  USE mo_math_utilities,        ONLY: t_geographical_coordinates
-  USE mo_math_constants,        ONLY: pi
+  USE mo_math_utilities,        ONLY: t_geographical_coordinates, rotate_latlon_grid
+  USE mo_math_constants,        ONLY: pi, pi_180
   USE mo_name_list_output_config, ONLY: name_list_output_active, &
   &                                     use_async_name_list_io,  &
   &                                     l_output_phys_patch,     &
@@ -175,6 +176,7 @@ MODULE mo_name_list_output
     REAL(wp), ALLOCATABLE :: lonv(:,:), latv(:,:)
   END TYPE t_grid_info
 
+
   ! TYPE t_patch_info contains the reordering info for cells, edges and verts
   TYPE t_patch_info
     TYPE(t_reorder_info) :: cells
@@ -252,6 +254,10 @@ MODULE mo_name_list_output
 
   CHARACTER(LEN=*), PARAMETER :: modname = 'mo_name_list_output'
 
+  ! constants for better readability:
+  INTEGER, PARAMETER :: REMAP_NONE           = 0
+  INTEGER, PARAMETER :: REMAP_REGULAR_LATLON = 1
+
 CONTAINS
 
   SUBROUTINE read_name_list_output_namelists( filename )
@@ -292,7 +298,6 @@ CONTAINS
     REAL(wp) :: h_levels(max_levels)
     REAL(wp) :: i_levels(max_levels)
     INTEGER  :: remap
-    LOGICAL  :: remap_internal
     REAL(wp) :: reg_lon_def(3)
     REAL(wp) :: reg_lat_def(3)
     INTEGER  :: gauss_tgrid_def
@@ -323,7 +328,6 @@ CONTAINS
       h_levels,           &
       i_levels,           &
       remap,              &
-      remap_internal,     &
       reg_lon_def,        &
       reg_lat_def,        &
       gauss_tgrid_def,    &
@@ -375,8 +379,7 @@ CONTAINS
       p_levels(:)        = 0._wp
       h_levels(:)        = 0._wp
       i_levels(:)        = 0._wp
-      remap              = 0
-      remap_internal     = .FALSE.
+      remap              = REMAP_NONE
       reg_lon_def(:)     = 0._wp
       reg_lat_def(:)     = 0._wp
       gauss_tgrid_def    = 0
@@ -460,14 +463,6 @@ CONTAINS
         p_onl => p_onl%next
       ENDIF
 
-      ! consistency check
-      IF (output_grid .AND. (filetype == FILETYPE_GRB2)) THEN
-        WRITE(message_text,*) &
-          & 'WARNING: Output file type does not support grid output! => output_grid := .FALSE.'
-        CALL message(TRIM(routine), TRIM(message_text))
-        output_grid = .FALSE.
-      END IF
-
       ! Set next output_name_list from values read
 
       p_onl%filetype         = filetype
@@ -492,7 +487,6 @@ CONTAINS
       p_onl%h_levels         = h_levels
       p_onl%i_levels         = i_levels
       p_onl%remap            = remap
-      p_onl%remap_internal   = remap_internal
       p_onl%lonlat_id        = -1
 
       ! allow case-insensitive variable names:
@@ -510,9 +504,9 @@ CONTAINS
       END DO
 
       ! If "remap=1": lon-lat interpolation requested
-      IF(remap/=0 .AND. remap/=1) &
+      IF(remap/=REMAP_NONE .AND. remap/=REMAP_REGULAR_LATLON) &
         CALL finish(routine,'Unsupported value for remap')
-      IF (remap == 1) THEN
+      IF (remap == REMAP_REGULAR_LATLON) THEN
         ! Register a lon-lat grid data structure in global list
         p_onl%lonlat_id = get_free_lonlat_grid()
         lonlat => lonlat_grid_list(p_onl%lonlat_id)
@@ -1129,7 +1123,7 @@ CONTAINS
           ! Do not inspect element if output is disabled
           IF(.NOT.element%field%info%loutput) CYCLE
 
-          IF (p_of%name_list%remap==1) THEN
+          IF (p_of%name_list%remap==REMAP_REGULAR_LATLON) THEN
             ! If lon-lat variable is requested, skip variable if it
             ! does not correspond to the same lon-lat grid:
             IF (element%field%info%hgrid /= GRID_REGULAR_LONLAT) CYCLE
@@ -1141,7 +1135,7 @@ CONTAINS
             ! requested for this output file, skip all variables of
             ! this kind:
             IF (element%field%info%hgrid == GRID_REGULAR_LONLAT) CYCLE
-          END IF ! (remap/=1)
+          END IF ! (remap/=REMAP_REGULAR_LATLON)
 
           ! Do not inspect element if it is a container
           IF(element%field%info%lcontainer) CYCLE
@@ -1892,7 +1886,7 @@ CONTAINS
 
     ! 3. add horizontal grid descriptions
 
-    IF(of%name_list%remap == 1) THEN
+    IF(of%name_list%remap == REMAP_REGULAR_LATLON) THEN
 
       ! Lon/Lat Interpolation requested
 
@@ -2014,13 +2008,21 @@ CONTAINS
 
       ! If wanted, set grid info
       IF(of%name_list%output_grid) THEN
-        IF (l_grid_info_from_file) THEN
-          CALL copy_grid_info(of)
-        ELSE IF (.NOT. my_process_is_mpi_test()) THEN
-          CALL set_grid_info(of)
-        END IF
+        SELECT CASE(of%name_list%filetype)
+        CASE (FILETYPE_NC2, FILETYPE_NC4)
+          ! encode grid info in NetCDF format:
+          IF (l_grid_info_from_file) THEN
+            CALL copy_grid_info(of)
+          ELSE IF (.NOT. my_process_is_mpi_test()) THEN
+            CALL set_grid_info_netcdf(of)
+          END IF
+        CASE (FILETYPE_GRB2) 
+          ! handled later...
+        CASE DEFAULT
+          CALL finish(routine, "Unknown grid type")
+        END SELECT
       END IF
-
+        
     ENDIF
 
     !
@@ -2082,7 +2084,7 @@ CONTAINS
         lbounds(k) = REAL(k,wp)
         levels(k)  = REAL(k,wp)
       END DO
-      ubounds(1:nlevp1) = 0
+      ubounds(1:nlevp1) = 0._wp
       CALL zaxisDefLbounds(of%cdiZaxisID(ZA_hybrid_half_hhl), lbounds) !necessary for GRIB2
       CALL zaxisDefUbounds(of%cdiZaxisID(ZA_hybrid_half_hhl), ubounds) !necessary for GRIB2
       CALL zaxisDefLevels(of%cdiZaxisID(ZA_hybrid_half_hhl), levels)  !necessary for NetCDF
@@ -2315,6 +2317,13 @@ CONTAINS
     !
     CALL add_variables_to_vlist(of)
 
+    ! GRB2 format: define geographical longitude, latitude as special
+    ! variables "RLON", "RLAT":
+    IF (of%name_list%output_grid .AND. &
+      & (of%name_list%filetype == FILETYPE_GRB2)) THEN
+      CALL set_grid_info_grb2(of)
+    END IF
+
   END SUBROUTINE setup_output_vlist
 
   !------------------------------------------------------------------------------------------------
@@ -2448,15 +2457,16 @@ CONTAINS
 
   END SUBROUTINE parse_line
 
+
   !------------------------------------------------------------------------------------------------
   !
   ! Sets the grid information in output file
   !
-  SUBROUTINE set_grid_info(of)
+  SUBROUTINE set_grid_info_netcdf(of)
 
     TYPE (t_output_file), INTENT(IN) :: of
 
-    CHARACTER(LEN=*), PARAMETER :: routine = 'mo_name_list_output/set_grid_info'
+    CHARACTER(LEN=*), PARAMETER :: routine = 'mo_name_list_output/set_grid_info_netcdf'
     INTEGER :: idom
 
     idom  = of%phys_patch_id
@@ -2479,14 +2489,123 @@ CONTAINS
     CALL gridDefXbounds(of%cdiVertGridID, patch_info(idom)%grid_v%lonv)
     CALL gridDefYbounds(of%cdiVertGridID, patch_info(idom)%grid_v%latv)
 
-  END SUBROUTINE set_grid_info
+  END SUBROUTINE set_grid_info_netcdf
+
+
+  !------------------------------------------------------------------------------------------------
+  !
+  ! Declaration of the grid information (RLAT/RLON) in output file, GRIB2 format.
+  !
+  SUBROUTINE set_grid_info_grb2(of)
+    TYPE (t_output_file), INTENT(INOUT) :: of
+    ! local variables:
+    CHARACTER(LEN=*), PARAMETER :: routine = 'mo_name_list_output/set_grid_info_grb'
+    CHARACTER(LEN=4), PARAMETER :: grid_coord_name(2) = (/ "RLON", "RLAT" /)
+    TYPE (t_grib2_var), PARAMETER :: grid_coord_grib2(2) = (/  &
+      ! geographical longitude RLON
+      & t_grib2_var(               0,   &  ! discipline
+      &                          191,   &  ! category
+      &                            2,   &  ! number
+      &              DATATYPE_PACK16,   &  ! bits
+      &               GRID_REFERENCE,   &  ! gridtype
+      &                    GRID_CELL ), &  ! subgridtype
+      ! geographical latitude RLAT
+      & t_grib2_var(               0,   &  ! discipline
+      &                          191,   &  ! category
+      &                            1,   &  ! number
+      &              DATATYPE_PACK16,   &  ! bits
+      &               GRID_REFERENCE,   &  ! gridtype
+      &                    GRID_CELL )  &  ! subgridtype
+      /)
+
+    INTEGER :: i,varID(2),vlistID,gridID,zaxisID
+
+    vlistID = of%cdiVlistID
+    zaxisID = of%cdiZaxisID(ZA_surface)
+
+    IF (of%name_list%remap == REMAP_REGULAR_LATLON) THEN
+      gridID = of%cdiLonLatGridID
+    ELSE
+      gridID  = of%cdiCellGridID
+    END IF
+
+    ! for longitude, latitude:
+    DO i=1,2
+      varID(i) = vlistDefVar(vlistID, gridID, zaxisID, TSTEP_CONSTANT)
+      CALL vlistDefVarDatatype(vlistID,  varID(i), grid_coord_grib2(i)%bits)
+      CALL vlistDefVarTsteptype(vlistID, varID(i), TSTEP_CONSTANT)
+      CALL vlistDefVarName(vlistID,      varID(i), TRIM(grid_coord_name(i)))
+
+      ! Set GRIB2 Triplet
+      CALL vlistDefVarParam( vlistID, varID(i),         &
+        &  cdiEncodeParam(grid_coord_grib2(i)%number,   &
+        &                 grid_coord_grib2(i)%category, &
+        &                 grid_coord_grib2(i)%discipline) )
+    END DO
+
+    of%cdi_grb2_rlon = varID(1)
+    of%cdi_grb2_rlat = varID(2)
+  END SUBROUTINE set_grid_info_grb2
+
+
+  !------------------------------------------------------------------------------------------------
+  !
+  ! Writes the grid information in output file, GRIB2 format.
+  !
+  SUBROUTINE write_grid_info_grb2(of)
+    TYPE (t_output_file), INTENT(INOUT) :: of
+    ! local variables:
+    CHARACTER(LEN=*), PARAMETER :: routine = TRIM('mo_name_list_output/write_grid_info_grb')
+    INTEGER                        :: errstat, idom
+    TYPE (t_lon_lat_grid), POINTER :: grid
+    REAL(wp), ALLOCATABLE          :: rotated_pts(:,:,:), r_out_dp(:,:), r_out_dp_1D(:)
+
+    SELECT CASE(of%name_list%remap)
+    CASE (REMAP_NONE)
+      ! allocate data buffer:
+      idom = of%phys_patch_id
+      ALLOCATE(r_out_dp_1D(patch_info(idom)%cells%n_glb), stat=errstat)
+      IF (errstat /= SUCCESS) CALL finish(routine, 'ALLOCATE failed!')
+      ! write RLON, RLAT
+      r_out_dp_1D(:) = patch_info(idom)%grid_c%lon(:) / pi_180
+      CALL streamWriteVar(of%cdiFileID, of%cdi_grb2_rlon, r_out_dp_1D, 0)
+      r_out_dp_1D(:) = patch_info(idom)%grid_c%lat(:) / pi_180
+      CALL streamWriteVar(of%cdiFileID, of%cdi_grb2_rlat, r_out_dp_1D, 0)
+      ! clean up
+      DEALLOCATE(r_out_dp_1D, stat=errstat)
+      IF (errstat /= SUCCESS) CALL finish(routine, 'DEALLOCATE failed!')
+
+    CASE (REMAP_REGULAR_LATLON)
+      ! allocate data buffer:
+      grid => lonlat_grid_list(of%name_list%lonlat_id)%grid
+      ALLOCATE(rotated_pts(grid%lon_dim, grid%lat_dim, 2), &
+        &      r_out_dp(grid%lon_dim,grid%lat_dim), stat=errstat)
+      IF (errstat /= SUCCESS) CALL finish(routine, 'ALLOCATE failed!')
+      ! compute some entries of lon-lat grid specification:
+      CALL compute_lonlat_specs(grid)
+      ! compute grid points of rotated lon/lat grid
+      CALL rotate_latlon_grid(grid, rotated_pts)
+      ! write RLON, RLAT
+      r_out_dp(:,:) = rotated_pts(:,:,1) / pi_180
+      CALL streamWriteVar(of%cdiFileID, of%cdi_grb2_rlon, r_out_dp, 0)
+      r_out_dp(:,:) = rotated_pts(:,:,2) / pi_180
+      CALL streamWriteVar(of%cdiFileID, of%cdi_grb2_rlat, r_out_dp, 0)
+      ! clean up
+      DEALLOCATE(rotated_pts, r_out_dp, stat=errstat)
+      IF (errstat /= SUCCESS) CALL finish(routine, 'DEALLOCATE failed!')
+
+    CASE DEFAULT
+      CALL finish(routine, "Unsupported grid type.")
+    END SELECT
+
+  END SUBROUTINE write_grid_info_grb2
 
 
   !------------------------------------------------------------------------------------------------
   !
   ! Copies the grid information from grid file to output file
   !
-    SUBROUTINE copy_grid_info(of)
+  SUBROUTINE copy_grid_info(of)
 
     TYPE (t_output_file), INTENT(IN) :: of
 
@@ -2910,16 +3029,16 @@ CONTAINS
   END SUBROUTINE open_output_file
 
   !------------------------------------------------------------------------------------------------
+  !> Close all name_list files
   !
-  SUBROUTINE close_name_list_output
-    !
-    ! Close all name_list files
-    !
+  SUBROUTINE close_name_list_output()
     INTEGER :: i, jg
 
-
 #ifndef NOMPI
-    IF(use_async_name_list_io.AND..NOT.my_process_is_io().AND..NOT.my_process_is_mpi_test()) THEN
+    IF (use_async_name_list_io    .AND.  &
+      & .NOT. my_process_is_io()  .AND.  &
+      & .NOT. my_process_is_mpi_test()) THEN
+      !-- compute PEs (senders):
 
       ! write recent samples of meteogram output
       DO jg = 1, n_dom
@@ -2933,6 +3052,7 @@ CONTAINS
 
     ELSE
 #endif
+      !-- asynchronous I/O PEs (receiver):
       DO i = 1, SIZE(output_file)
         CALL close_output_file(output_file(i))
         CALL destroy_output_vlist(output_file(i))
@@ -2956,6 +3076,17 @@ CONTAINS
 
     CHARACTER(LEN=*), PARAMETER :: routine = &
       & TRIM('mo_name_list_output/close_output_file')
+    LOGICAL :: is_output_process
+
+    ! GRB2 format: define geographical longitude, latitude as special
+    ! variables "RLON", "RLAT"
+    is_output_process = my_process_is_io() .OR. &
+      &                 ((.NOT. use_async_name_list_io) .AND. my_process_is_stdio())
+    IF (of%name_list%output_grid .AND. &
+      & is_output_process        .AND. &
+      & (of%name_list%filetype == FILETYPE_GRB2)) THEN
+      CALL write_grid_info_grb2(of)
+    END IF
 
     IF(of%cdiFileID /= CDI_UNDEFID) CALL streamClose(of%cdiFileID)
 
@@ -3056,7 +3187,8 @@ CONTAINS
           ENDIF
         ENDIF
 
-        IF (lnewly_initialized .OR. MOD(p_onl%n_output_steps,p_onl%steps_per_file) == 0) THEN
+        IF (lnewly_initialized .OR. &
+          & MOD(p_onl%n_output_steps,p_onl%steps_per_file) == 0) THEN
           IF (output_file(i)%io_proc_id == p_pe) THEN
             IF(.NOT. lnewly_initialized) THEN
               CALL close_output_file(output_file(i))
@@ -3082,15 +3214,7 @@ CONTAINS
         IF (output_file(i)%io_proc_id == p_pe) THEN
           CALL taxisDefVdate(output_file(i)%cdiTaxisID, idate)
           CALL taxisDefVtime(output_file(i)%cdiTaxisID, itime)
-!PR
-    !WRITE(6,'(a,i,a,i)')'idate forc and ref',idate,' ',taxisInqRdate(output_file(i)%cdiTaxisID)
-    !WRITE(6,'(a,i,a,i)')'itime forc and ref',itime,' ',taxisInqRtime(output_file(i)%cdiTaxisID)
-    !WRITE(6,'(a,i,i)')'validation date and time ',taxisInqVdate(output_file(i)%cdiTaxisID), &
-    !             & taxisInqVtime(output_file(i)%cdiTaxisID)
- 
-    !WRITE(6,'(a,i)') 'taxisTunit writing ',taxisInqTunit(output_file(i)%cdiTaxisID)
 
-!PR
           iret = streamDefTimestep(output_file(i)%cdiFileId, output_file(i)%cdiTimeIndex)
           output_file(i)%cdiTimeIndex = output_file(i)%cdiTimeIndex + 1
 
@@ -4147,7 +4271,7 @@ CONTAINS
 
         nval = p_ri%pe_own(np)*nlevs ! Number of words to transfer
 
-        t_0 = p_mpi_wtime()
+        t_0 = REAL(p_mpi_wtime(),wp)
         CALL MPI_Win_lock(MPI_LOCK_SHARED, np, MPI_MODE_NOCHECK, mpi_win, mpierr)
 
         IF(use_sp_output) THEN
@@ -4159,7 +4283,7 @@ CONTAINS
         ENDIF
 
         CALL MPI_Win_unlock(np, mpi_win, mpierr)
-        t_get  = t_get  + p_mpi_wtime()-t_0
+        t_get  = t_get  + REAL(p_mpi_wtime(),wp)-t_0
         mb_get = mb_get + nval
 
         ! Update the offset in var1
@@ -4181,7 +4305,7 @@ CONTAINS
       ! var1 is stored in the order in which the variable was stored on compute PEs,
       ! get it back into the global storage order
 
-      t_0 = p_mpi_wtime()
+      t_0 = REAL(p_mpi_wtime(),wp)
       IF(use_sp_output) THEN
         ALLOCATE(var3_sp(p_ri%n_glb,nlevs), STAT=ierrstat) ! Must be allocated to exact size
       ELSE
@@ -4212,17 +4336,17 @@ CONTAINS
           ENDDO
         ENDIF
       ENDDO ! Loop over levels
-      t_copy = t_copy + p_mpi_wtime()-t_0
+      t_copy = t_copy + REAL(p_mpi_wtime(),wp)-t_0
 
-      t_0 = p_mpi_wtime()
+      t_0 = REAL(p_mpi_wtime(),wp)
       IF(use_sp_output) THEN
         CALL streamWriteVarF(of%cdiFileID, info%cdiVarID, var3_sp, 0)
-        mb_wr = mb_wr + SIZE(var3_sp)
+        mb_wr = mb_wr + REAL(SIZE(var3_sp),wp)
       ELSE
         CALL streamWriteVar(of%cdiFileID, info%cdiVarID, var3_dp, 0)
-        mb_wr = mb_wr + SIZE(var3_dp)
+        mb_wr = mb_wr + REAL(SIZE(var3_dp), wp)
       ENDIF
-      t_write = t_write + p_mpi_wtime()-t_0
+      t_write = t_write + REAL(p_mpi_wtime(),wp)-t_0
 
       IF(use_sp_output) THEN
         DEALLOCATE(var3_sp, STAT=ierrstat)
