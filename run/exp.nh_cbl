@@ -44,10 +44,10 @@ dt_restart=`expr ${ndays_restart} \* 86400`
 #-----------------------------------------------------------------------------
 # model timing
 dtime=0.15
-dt_diag=`expr 1 \* 3600 `    #  output each 4 hours
-dt_file=`expr 1 \* 3600 `  # 30 days per file
-dt_data=`expr 1 \* 1800 `   # output daily
-dt_checkpoint=`expr 6 \* 3600 `  # write restart file every 6 days
+dt_diag=`expr 1 \* 3600 `    # output each 1 hours
+dt_file=`expr 1 \* 3600 `    # 1 hour per file
+dt_data=`expr 1 \* 1800 `    # output every half hour
+dt_checkpoint=`expr 6 \* 3600 `  # write restart file every 6 hours
 #
 #-----------------------------------------------------------------------------
 # model parameters
@@ -84,7 +84,7 @@ cat > ${atmo_namelist} << EOF
 &grid_nml
  cell_type = 3            ! triangular cells
  dynamics_grid_filename = "${atmo_dyn_grids}",
- corio_lat = 0.0
+ corio_lat = 10.0
 / 
 &run_nml
  num_lev     = ${nlev},      ! number of full levels of vertical grid
@@ -100,7 +100,7 @@ cat > ${atmo_namelist} << EOF
 /
 &dynamics_nml
  iequations  = ${atmo_model_equations}       ! 1: hydrost. atmosphere
- lcoriolis   = .FALSE.
+ lcoriolis   = .TRUE.
  idiv_method     = 1
  divavg_cntrwgt  = 0.50
 /
@@ -108,6 +108,10 @@ cat > ${atmo_namelist} << EOF
  nh_test_name      = 'CBL'     !test case identifier
  sst_cbl           = 300.0     !SST
  is_dry_cbl        = .TRUE. 
+ ugeo              =  4.0, 0.0  !ugeo(1) = constant, ugeo(2)=gradient
+ vgeo              =  0.0, 0.0
+ umean             =  4.0, 0.0
+ vmean             =  0.0, 0.0
 /
 &diffusion_nml
  lhdiff_temp  = .TRUE.
