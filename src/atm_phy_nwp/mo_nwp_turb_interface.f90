@@ -410,25 +410,25 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
 
         ! Aggregate tile-based output fields of turbtran over tiles
         ! i) initialize fields to zero before starting the summation
-        prm_diag%gz0  (:,jb) = 0._wp
-        prm_diag%tcm  (:,jb) = 0._wp
-        prm_diag%tch  (:,jb) = 0._wp
-        prm_diag%tfm  (:,jb) = 0._wp
-        prm_diag%tfh  (:,jb) = 0._wp
-        prm_diag%tfv  (:,jb) = 0._wp
-        prm_diag%t_2m (:,jb) = 0._wp
-        prm_diag%qv_2m(:,jb) = 0._wp
-        prm_diag%td_2m(:,jb) = 0._wp
-        prm_diag%rh_2m(:,jb) = 0._wp
-        prm_diag%u_10m(:,jb) = 0._wp
-        prm_diag%v_10m(:,jb) = 0._wp
-        prm_diag%shfl_s(:,jb) = 0._wp
-        prm_diag%lhfl_s(:,jb) = 0._wp
+        prm_diag%gz0  (i_startidx:i_endidx,jb) = 0._wp
+        prm_diag%tcm  (i_startidx:i_endidx,jb) = 0._wp
+        prm_diag%tch  (i_startidx:i_endidx,jb) = 0._wp
+        prm_diag%tfm  (i_startidx:i_endidx,jb) = 0._wp
+        prm_diag%tfh  (i_startidx:i_endidx,jb) = 0._wp
+        prm_diag%tfv  (i_startidx:i_endidx,jb) = 0._wp
+        prm_diag%t_2m (i_startidx:i_endidx,jb) = 0._wp
+        prm_diag%qv_2m(i_startidx:i_endidx,jb) = 0._wp
+        prm_diag%td_2m(i_startidx:i_endidx,jb) = 0._wp
+        prm_diag%rh_2m(i_startidx:i_endidx,jb) = 0._wp
+        prm_diag%u_10m(i_startidx:i_endidx,jb) = 0._wp
+        prm_diag%v_10m(i_startidx:i_endidx,jb) = 0._wp
+        prm_diag%shfl_s(i_startidx:i_endidx,jb) = 0._wp
+        prm_diag%lhfl_s(i_startidx:i_endidx,jb) = 0._wp
 
-        z_tvs        (:,nlevp1, 1) = 0._wp
-        prm_diag%tkvm(:,nlevp1,jb) = 0._wp
-        prm_diag%tkvh(:,nlevp1,jb) = 0._wp
-        prm_diag%rcld(:,nlevp1,jb) = 0._wp
+        z_tvs        (i_startidx:i_endidx,nlevp1, 1) = 0._wp
+        prm_diag%tkvm(i_startidx:i_endidx,nlevp1,jb) = 0._wp
+        prm_diag%tkvh(i_startidx:i_endidx,nlevp1,jb) = 0._wp
+        prm_diag%rcld(i_startidx:i_endidx,nlevp1,jb) = 0._wp
 
         ! ii) loop over index lists
         DO  jt = 1, ntiles_total + nlists_water
