@@ -126,7 +126,7 @@ MODULE mo_solve_nonhydro
     LOGICAL, INTENT(IN)  :: lvn_only ! true: compute only vn tendency
 
     ! Local variables
-    INTEGER :: jb, jk, jc, je, jcn, jbn
+    INTEGER :: jb, jk, jc, je
     INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
     INTEGER :: rl_start, rl_end
     REAL(wp):: z_w_concorr_me(nproma,p_patch%nlev,p_patch%nblks_e)
@@ -137,7 +137,6 @@ MODULE mo_solve_nonhydro
     REAL(wp):: z_ddxn_ekin_e(nproma,p_patch%nlev,p_patch%nblks_e)
     REAL(wp):: z_vnw(nproma,p_patch%nlevp1,p_patch%nblks_e)
     REAL(wp):: z_hadv_w(nproma,p_patch%nlevp1,p_patch%nblks_c)
-    REAL(wp):: zvn1, zvn2, zugeo, zvgeo
 
     INTEGER,  DIMENSION(:,:,:), POINTER :: icidx, icblk, ieidx, ieblk, &
                                            ividx, ivblk, incidx, incblk
