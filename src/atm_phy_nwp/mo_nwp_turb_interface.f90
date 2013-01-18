@@ -228,10 +228,10 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
           END DO
           lnd_diag%qv_s (:,jb) = 0._wp
        ELSEIF(ltestcase .AND. nh_test_name == 'CBL'.AND. &
-           atm_phy_nwp_config(jg)%inwp_turb == 1) THEN 
-          !based on personal communication with Matthias (over email)
-           DO jc = i_startidx, i_endidx
-            lnd_prog_now%t_g(jc,jb) = p_prog%theta_v(jc,nlev,jb) + shflx_cbl /    &
+          atm_phy_nwp_config(jg)%inwp_turb == 1) THEN 
+          !based on personal communication with Matthias (over email): still doesn't work!
+          DO jc = i_startidx, i_endidx
+            lnd_prog_now%t_g(jc,jb) = p_prog%theta_v(jc,nlev,jb) - shflx_cbl /    &
             ( MAX(vel_min,SQRT(p_diag%u(jc,nlev,jb)**2 + p_diag%v(jc,nlev,jb)**2) *  &
                   prm_diag%tch(jc,jb)) )
           END DO
