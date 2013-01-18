@@ -214,7 +214,7 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
       ! check dry case
       IF( atm_phy_nwp_config(jg)%inwp_satad == 0) THEN
 
-       !Fix surface fluxes for CBL testcases
+       !Fix surface fluxes for CBL testcases: shfl_s has opposite sign in nwp_turb=1 and 2
        IF(ltestcase .AND. nh_test_name == 'CBL'.AND.  &
           atm_phy_nwp_config(jg)%inwp_turb == 2) THEN
           !based on shfl_s calculation in mo_gme_turbdiff:progimp_turb, line 1035

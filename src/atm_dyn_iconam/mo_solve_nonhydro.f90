@@ -52,7 +52,7 @@ MODULE mo_solve_nonhydro
   USE mo_dynamics_config,   ONLY: idiv_method
   USE mo_parallel_config,   ONLY: nproma, p_test_run, itype_comm, use_dycore_barrier, &
     & use_icon_comm
-  USE mo_run_config,        ONLY: ltimer, timers_level, lvert_nest
+  USE mo_run_config,        ONLY: ltimer, timers_level, lvert_nest, ltestcase
   USE mo_model_domain,      ONLY: t_patch
   USE mo_grid_config,       ONLY: l_limited_area, is_plane_torus
   USE mo_gridref_config,    ONLY: grf_intmethod_e
@@ -500,7 +500,7 @@ MODULE mo_solve_nonhydro
       ENDDO
 
       !Add geostrophic wind for torus geometry
-      IF(is_plane_torus .AND. nh_test_name=='CBL')THEN  
+      IF(ltestcase .AND. nh_test_name=='CBL')THEN  
         DO jk = 1 , nlev
           DO je = i_startidx, i_endidx                   
             p_diag%ddt_vn_adv(je,jk,jb,ntnd) = p_diag%ddt_vn_adv(je,jk,jb,ntnd) + &
