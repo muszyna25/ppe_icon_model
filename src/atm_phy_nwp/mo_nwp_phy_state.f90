@@ -1022,10 +1022,9 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
 
 
                     
-        WRITE(name,'(A,A8)') TRIM(prefix),"lhfl_bs"
+        WRITE(name,'(A,A7)') TRIM(prefix),"lhfl_bs"
         WRITE(long_name,'(A27,A4,A18)') "latent heat flux from bare soil", meaning, &
                                       & " since model start"
-write(0,*) "alhfls_name: ",name 
         cf_desc    = t_cf_var(TRIM(name), TRIM(varunits), TRIM(long_name), DATATYPE_FLT32)
         grib2_desc = t_grib2_var(2, 0, 193, ibits, GRID_REFERENCE, GRID_CELL)
         CALL add_var( diag_list, TRIM(name), diag%alhfl_bs,                   &
