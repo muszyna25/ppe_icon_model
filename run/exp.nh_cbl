@@ -37,7 +37,7 @@ atmo_namelist=NAMELIST_${EXPNAME}
 #-----------------------------------------------------------------------------
 # global timing
 start_date="2008-09-01T00:00:00Z"
-end_date="2008-09-01T06:00:00Z"
+end_date="2008-09-01T04:00:00Z"
 ndays_restart=60
 dt_restart=`expr ${ndays_restart} \* 86400`
 #
@@ -84,7 +84,7 @@ cat > ${atmo_namelist} << EOF
 &grid_nml
  cell_type = 3            ! triangular cells
  dynamics_grid_filename = "${atmo_dyn_grids}",
- corio_lat = 10.0
+ corio_lat = 0.0
 / 
 &run_nml
  num_lev     = ${nlev},      ! number of full levels of vertical grid
@@ -100,7 +100,7 @@ cat > ${atmo_namelist} << EOF
 /
 &dynamics_nml
  iequations  = ${atmo_model_equations}       ! 1: hydrost. atmosphere
- lcoriolis   = .TRUE.
+ lcoriolis   = .FALSE.
  idiv_method     = 1
  divavg_cntrwgt  = 0.50
 /
@@ -108,10 +108,11 @@ cat > ${atmo_namelist} << EOF
  nh_test_name      = 'CBL'     !test case identifier
  sst_cbl           = 300.0     !SST
  is_dry_cbl        = .TRUE. 
- ugeo              =  4.0, 0.0  !ugeo(1) = constant, ugeo(2)=gradient
+ ugeo              =  0.0, 0.0  !ugeo(1) = constant, ugeo(2)=gradient
  vgeo              =  0.0, 0.0
- umean             =  4.0, 0.0
+ umean             =  0.0, 0.0
  vmean             =  0.0, 0.0
+ shflx_cbl         =  0.06
 /
 &diffusion_nml
  lhdiff_temp  = .TRUE.
@@ -122,17 +123,17 @@ inwp_gscp       = 0
 inwp_convection = 0
 inwp_radiation  = 0
 inwp_cldcover   = 0
-inwp_turb       = 1
+inwp_turb       = 2
 inwp_satad      = 0
 inwp_surface    = 0
+/
+&turbdiff_nml
+lconst_z0 = .TRUE.
+const_z0  = 0.1
 /
 &transport_nml
  ihadv_tracer = 0,0,0,0,0,0,0
  ivadv_tracer = 0,0,0,0,0,0,0
-/
-&turbdiff_nml
-lconst_z0    = .TRUE.
-const_z0     = 0.1
 /
 &nonhydrostatic_nml
  iadv_rhotheta = 2
