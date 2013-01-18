@@ -73,14 +73,17 @@ MODULE mo_nh_torus_exp
   REAL(wp), PARAMETER :: zp0     = 100000._wp !< surface pressure
   REAL(wp), PARAMETER :: zh0     = 1200._wp   !< height (m) above which temperature increases
   REAL(wp), PARAMETER :: dtdz    = 0.003_wp   !< lapse rate
+  REAL(wp), PARAMETER :: zt0     = 300._wp
 
   REAL(wp) :: sst_cbl, ugeo(2), vgeo(2)   !u/vgeo(1) = constant, u/vgeo(2) = gradient
   REAL(wp) :: umean(2), vmean(2)          !u/vmean(1) = constant, u/vmean(2) = gradient
-  REAL(wp),ALLOCATABLE :: vt_geostrophic(:,:,:)
+  REAL(wp),ALLOCATABLE :: vt_geostrophic(:,:,:) !geostrophic wind along the tangent of triangle
+  REAL(wp) :: shflx_cbl                   !sensible heat flux
+
   LOGICAL  :: is_dry_cbl
 
   PUBLIC :: init_nh_state_cbl, sst_cbl, is_dry_cbl, ugeo, &
-            vgeo, umean, vmean, vt_geostrophic
+            vgeo, umean, vmean, vt_geostrophic, shflx_cbl
 
 !--------------------------------------------------------------------
 
@@ -143,10 +146,15 @@ MODULE mo_nh_torus_exp
     i_rcstartlev = 2
     i_startblk   = ptr_patch%cells%start_blk(i_rcstartlev,1)
 
+    !Set some reference density
+    IF(shflx_cbl<0._wp)THEN
+      rho_sfc = zp0 / (rd * sst_cbl)
+    ELSE
+      rho_sfc = zp0 / (rd * zt0 )
+    END IF
+
     ! init surface pressure
     ptr_nh_diag%pres_sfc(:,:) = zp0
-
-    rho_sfc = zp0 / (rd * sst_cbl)
 
     DO jb = 1, nblks_c
 
@@ -157,9 +165,8 @@ MODULE mo_nh_torus_exp
       ENDIF
  
         DO jk = 1, nlev
-         ! init virtual potential temperature: keep it lower than sst
-         ! to have upward heat flux for CBL
-         ptr_nh_prog%theta_v(1:nlen,jk,jb) = sst_cbl - 2._wp + &
+         ! init virtual potential temperature
+         ptr_nh_prog%theta_v(1:nlen,jk,jb) = zt0 + &
                         max(0._wp, (ptr_metrics%z_mc(1:nlen,jk,jb)-zh0)*dtdz)
         END DO
 

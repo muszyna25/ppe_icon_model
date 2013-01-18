@@ -51,7 +51,7 @@ MODULE mo_nwp_turb_interface
   USE mo_impl_constants,       ONLY: min_rlcell_int
   USE mo_impl_constants_grf,   ONLY: grf_bdywidth_c
   USE mo_loopindices,          ONLY: get_indices_c
-  USE mo_physical_constants,   ONLY: rd_o_cpd, grav
+  USE mo_physical_constants,   ONLY: rd_o_cpd, grav,rcpd
   USE mo_ext_data_types,       ONLY: t_external_data
   USE mo_nonhydro_types,       ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_nwp_phy_types,        ONLY: t_nwp_phy_diag, t_nwp_phy_tend
@@ -61,7 +61,7 @@ MODULE mo_nwp_turb_interface
   USE mo_run_config,           ONLY: msg_level, iqv, iqc
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
   USE mo_nonhydrostatic_config,ONLY: kstart_moist
-  USE mo_data_turbdiff,        ONLY: get_turbdiff_param
+  USE mo_data_turbdiff,        ONLY: get_turbdiff_param, vel_min
   USE src_turbdiff,            ONLY: turbtran, turbdiff
   USE mo_satad,                ONLY: sat_pres_water, spec_humi  
   USE mo_gme_turbdiff,         ONLY: partura, parturs, progimp_turb, nearsfc
@@ -70,6 +70,7 @@ MODULE mo_nwp_turb_interface
   USE mo_nh_wk_exp,            ONLY: qv_max_wk
   USE mo_lnd_nwp_config,       ONLY: ntiles_total, nlists_water, ntiles_water, &
     &                                isub_water, isub_seaice
+  USE mo_nh_torus_exp,         ONLY: shflx_cbl
 
   IMPLICIT NONE
 
@@ -152,7 +153,7 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
 
   ! SQRT(2*TKE)
   REAL(wp) :: tvs_t(nproma,3,1,ntiles_total+nlists_water)
-   
+
   INTEGER, POINTER :: ilist(:)  ! pointer to tile index list
 
 !--------------------------------------------------------------
@@ -209,11 +210,39 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
 
 
     IF( atm_phy_nwp_config(jg)%inwp_surface == 0) THEN
+
       ! check dry case
       IF( atm_phy_nwp_config(jg)%inwp_satad == 0) THEN
-        lnd_diag%qv_s (:,jb) = 0._wp
+
+       !Fix surface fluxes for CBL testcases
+       IF(ltestcase .AND. nh_test_name == 'CBL'.AND.  &
+          atm_phy_nwp_config(jg)%inwp_turb == 2) THEN
+          !based on shfl_s calculation in mo_gme_turbdiff:progimp_turb, line 1035
+          DO jc = i_startidx, i_endidx
+            lnd_prog_now%t_g(jc,jb) = p_prog%theta_v(jc,nlev,jb)    +     &
+               prm_nwp_tend%ddt_temp_turb(jc,nlev, jb) * tcall_turb_jg -  &
+               grav * rcpd * ( p_metrics%z_ifc(jc,nlevp1,jb)        -     &
+                               p_metrics%z_mc(jc,nlev,jb) ) + shflx_cbl / &
+               ( MAX(1.e-4_wp, SQRT(p_diag%u(jc,nlev,jb)**2 + p_diag%v(jc,nlev,jb)**2) *  &
+                      prm_diag%tch(jc,jb)) )
+          END DO
+          lnd_diag%qv_s (:,jb) = 0._wp
+       ELSEIF(ltestcase .AND. nh_test_name == 'CBL'.AND. &
+           atm_phy_nwp_config(jg)%inwp_turb == 1) THEN 
+          !based on personal communication with Matthias (over email)
+           DO jc = i_startidx, i_endidx
+            lnd_prog_now%t_g(jc,jb) = p_prog%theta_v(jc,nlev,jb) + shflx_cbl /    &
+            ( MAX(vel_min,SQRT(p_diag%u(jc,nlev,jb)**2 + p_diag%v(jc,nlev,jb)**2) *  &
+                  prm_diag%tch(jc,jb)) )
+          END DO
+          lnd_diag%qv_s (:,jb) = 0._wp       
+       ELSE
+          lnd_diag%qv_s (:,jb) = 0._wp
+       END IF !nh_test_name
+
       ELSE IF ( atm_phy_nwp_config(jg)%inwp_turb == 1 .OR.   &
         &       atm_phy_nwp_config(jg)%inwp_turb == 2) THEN
+
         IF ( ltestcase .AND. nh_test_name == 'wk82') THEN   
          DO jc = i_startidx, i_endidx
           lnd_prog_now%t_g(jc,jb) = p_diag%temp(jc,nlev,jb)*  &
