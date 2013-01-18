@@ -496,23 +496,33 @@ MODULE mo_nh_initicon
         ! Check if rain water (QR) is provided as input
         !
         IF (nf_inq_varid(ncid, 'QR', varid) == nf_noerr) THEN
+          lreadqr = .true.
+        ELSE
           lreadqr = .false.
           CALL message(TRIM(routine),'Rain water (QR) not available in input data')
-        ELSE
-          lreadqr = .true.
         ENDIF
 
         !
         ! Check if snow water (QS) is provided as input
         !
         IF (nf_inq_varid(ncid, 'QS', varid) == nf_noerr) THEN
+          lreadqs = .true.
+        ELSE
           lreadqs = .false.
           CALL message(TRIM(routine),'Snow water (QS) not available in input data')
-        ELSE
-          lreadqs = .true.
         ENDIF
 
-     ENDIF
+      ENDIF ! pe_io
+
+      IF(p_test_run) THEN
+        mpi_comm = p_comm_work_test 
+      ELSE
+        mpi_comm = p_comm_work
+      ENDIF
+
+      CALL p_bcast(lreadqs, p_io, mpi_comm)
+      CALL p_bcast(lreadqr, p_io, mpi_comm)
+
 
       IF (msg_level >= 10) THEN
         WRITE(message_text,'(a)') 'surface pressure variable: '//TRIM(psvar)

@@ -221,9 +221,10 @@ CONTAINS
     REAL(wp) :: snow_con_rate(nproma, p_patch%nblks_c, ntiles_total)
     REAL(wp), PARAMETER :: small = 1.E-06_wp
 
-    REAL(wp) :: t_g_s(nproma), qv_s_s(nproma)
+    REAL(wp) :: t_g_s(nproma), qv_s_s(nproma), lhfl_bs_s(nproma)
     REAL(wp) :: shfl_s_t    (nproma, p_patch%nblks_c, ntiles_total)
     REAL(wp) :: lhfl_s_t    (nproma, p_patch%nblks_c, ntiles_total)
+    REAL(wp) :: lhfl_bs_t   (nproma, p_patch%nblks_c, ntiles_total)
     REAL(wp) :: shfl_snow_t (nproma, p_patch%nblks_c, ntiles_total)
     REAL(wp) :: lhfl_snow_t (nproma, p_patch%nblks_c, ntiles_total)
 !--------------------------------------------------------------
@@ -537,8 +538,9 @@ CONTAINS
         &  zshfl_s       = shfl_s_t   (:,jb,isubs)           , & ! sensible heat flux soil/air interface         (W/m2) 
         &  zlhfl_s       = lhfl_s_t   (:,jb,isubs)           , & ! latent   heat flux soil/air interface         (W/m2) 
         &  zshfl_snow    = shfl_snow_t(:,jb,isubs)           , & ! sensible heat flux snow/air interface         (W/m2) 
-        &  zlhfl_snow    = lhfl_snow_t(:,jb,isubs)             & ! latent   heat flux snow/air interface         (W/m2) 
-        &                                                    )
+        &  zlhfl_snow    = lhfl_snow_t(:,jb,isubs)           , & ! latent   heat flux snow/air interface         (W/m2) 
+        &  lhfl_bs       = lhfl_bs_t  (:,jb,isubs)             & ! out: latent heat flux from bare soil evap.    (W/m2)
+        &                                                      )
 
 !DR NOTE that LHFL_S_T MUST BE STORED!!!!
 
@@ -578,6 +580,8 @@ CONTAINS
           lnd_diag%runoff_g_t    (jc,jb,isubs) = runoff_g_t    (ic,jb,isubs)  
 
           lnd_prog_new%t_so_t(jc,nlev_soil+1,jb,isubs) = t_so_new_t(ic,nlev_soil+1,jb,isubs)
+
+          prm_diag%lhfl_bs_t     (jc,jb,isubs) = lhfl_bs_t     (ic,jb,isubs)
 
           IF(lmulti_snow) THEN
             lnd_prog_new%t_snow_mult_t(jc,nlev_snow+1,jb,isubs) = &
@@ -856,7 +860,7 @@ CONTAINS
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jc,isubs,i_startidx,i_endidx,t_g_s,qv_s_s)
+!$OMP DO PRIVATE(jb,jc,isubs,i_startidx,i_endidx,t_g_s,qv_s_s,lhfl_bs_s)
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -866,11 +870,13 @@ CONTAINS
        IF (ntiles_total == 1) THEN 
          DO jc = i_startidx, i_endidx
            lnd_prog_new%t_g(jc,jb)  = lnd_prog_new%t_g_t(jc,jb,1)
-           lnd_diag%qv_s(jc,jb)     = lnd_diag%qv_s_t(jc,jb,1) 
+           lnd_diag%qv_s(jc,jb)     = lnd_diag%qv_s_t(jc,jb,1)
+           prm_diag%lhfl_bs(jc,jb)  = prm_diag%lhfl_bs_t(jc,jb,1) 
          ENDDO
        ELSE ! aggregate fields over tiles
-         t_g_s(:)  =  0._wp
-         qv_s_s(:) =  0._wp
+         t_g_s(:)     = 0._wp
+         qv_s_s(:)    = 0._wp
+         lhfl_bs_s(:) = 0._wp
          DO isubs = 1,ntiles_total+ntiles_water
            DO jc = i_startidx, i_endidx
              t_g_s(jc) = t_g_s(jc) + ext_data%atm%frac_t(jc,jb,isubs)  &
@@ -879,9 +885,16 @@ CONTAINS
                &       * lnd_diag%qv_s_t(jc,jb,isubs)
            ENDDO
          ENDDO
+         DO isubs = 1,ntiles_total
+           DO jc = i_startidx, i_endidx
+             lhfl_bs_s(jc) = lhfl_bs_s(jc) + ext_data%atm%frac_t(jc,jb,isubs) &
+               &       * prm_diag%lhfl_bs_t(jc,jb,isubs)
+           ENDDO
+         ENDDO
          DO jc = i_startidx, i_endidx
            lnd_prog_new%t_g(jc,jb)  = SQRT(SQRT(t_g_s(jc)))
            lnd_diag%qv_s(jc,jb)     = qv_s_s(jc)
+           prm_diag%lhfl_bs(jc,jb)  = lhfl_bs_s(jc)
          ENDDO
 
        ENDIF    ! with or without tiles

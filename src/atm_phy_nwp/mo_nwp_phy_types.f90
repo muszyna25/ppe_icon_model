@@ -112,6 +112,7 @@ MODULE mo_nwp_phy_types
     TYPE(t_ptr_2d3d),ALLOCATABLE :: v_10m_t_ptr(:) !< pointer array: meridional wind at 2m
     TYPE(t_ptr_2d3d),ALLOCATABLE :: shfl_s_t_ptr(:) !< pointer array: surface sensible heat flux 
     TYPE(t_ptr_2d3d),ALLOCATABLE :: lhfl_s_t_ptr(:) !< pointer array: surface latent heat flux
+    TYPE(t_ptr_2d3d),ALLOCATABLE :: lhfl_bs_t_ptr(:)!< pointer array: lhf from bare soil
 
     REAL(wp), POINTER ::  &
       &   rain_gsp_rate(:,:),  & !! grid-scale surface rain rate                         [kg/m2/s]
@@ -148,12 +149,15 @@ MODULE mo_nwp_phy_types
       &  shfl_s_t(:,:,:),      & !! sensible heat flux (surface) ( W/m2)
       &  lhfl_s(:,:),          & !! latent   heat flux (surface) ( W/m2)
       &  lhfl_s_t(:,:,:),      & !! latent   heat flux (surface) ( W/m2)
+      &  lhfl_bs(:,:),         & !! latent heat flux from bare soil evap. (surface) ( W/m2)
+      &  lhfl_bs_t(:,:,:),     & !! latent heat flux from bare soil evap. (surface) ( W/m2)
       &  qhfl_s(:,:),          & !!      moisture flux (surface) ( Kg/m2/s)
                                 !!      = evaporation rate at surface
       &  ashfl_s(:,:),         & !! average or accumulated since model start of shfl_s [W/m2]
       &  alhfl_s(:,:),         & !! average or accumulated since model start of lhfl_s [W/m2]
       &  aqhfl_s(:,:),         & !! average since model start of qhfl_s ( Kg/m2/s) 
                                 !! = average of evaporation rate at surface
+      &  alhfl_bs(:,:),        & !! average or accumulated since model start of lhfl_bs [W/m2]
       &  tot_cld(:,:,:,:),     & !! total cloud variables (cc,qv,qc,qi)
       &  tot_cld_vi(:,:,:),    & !! vertically integrated tot_cld (cc,qv,qc,qi) 
                                 !! for cc, instead of the vertically integrated value, 

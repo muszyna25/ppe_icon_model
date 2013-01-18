@@ -303,9 +303,9 @@ CONTAINS
     END IF
 
 
-! latent heat and  sensible heat at surface. Calculation of 
-! average/accumulated values since model start
-
+    ! latent heat, latent heat from bare soil and sensible heat at surface. 
+    ! Calculation of average/accumulated values since model start
+    !
     IF ( p_sim_time > 1.e-6_wp .AND. lflux_avg) THEN
 
 !$OMP DO PRIVATE(jb, i_startidx,i_endidx,jc) ICON_OMP_DEFAULT_SCHEDULE
@@ -320,6 +320,11 @@ CONTAINS
             prm_diag%alhfl_s(jc,jb) = ( prm_diag%alhfl_s(jc,jb)         &
                                &  * (p_sim_time - dt_phy_jg(itfastphy)) &
                                &  + prm_diag%lhfl_s(jc,jb)              &!attention to the sign, in the output all fluxes 
+                               &  * dt_phy_jg(itfastphy) )              &!must be positive downwards 
+                               & * r_sim_time
+            prm_diag%alhfl_bs(jc,jb) = ( prm_diag%alhfl_bs(jc,jb)       &
+                               &  * (p_sim_time - dt_phy_jg(itfastphy)) &
+                               &  + prm_diag%lhfl_bs(jc,jb)             &!attention to the sign, in the output all fluxes
                                &  * dt_phy_jg(itfastphy) )              &!must be positive downwards 
                                & * r_sim_time
             prm_diag%ashfl_s(jc,jb) = ( prm_diag%ashfl_s(jc,jb)         &
@@ -358,6 +363,9 @@ CONTAINS
           DO jc = i_startidx, i_endidx
             prm_diag%alhfl_s(jc,jb) =  prm_diag%alhfl_s(jc,jb)       &
                                &  + prm_diag%lhfl_s(jc,jb)           &!attention to the sign, in the output all fluxes 
+                               &  * dt_phy_jg(itfastphy)              !must be positive downwards 
+            prm_diag%alhfl_bs(jc,jb) =  prm_diag%alhfl_bs(jc,jb)     &
+                               &  + prm_diag%lhfl_bs(jc,jb)          &!attention to the sign, in the output all fluxes 
                                &  * dt_phy_jg(itfastphy)              !must be positive downwards 
             prm_diag%ashfl_s(jc,jb) =  prm_diag%ashfl_s(jc,jb)       &
                                &  + prm_diag%shfl_s(jc,jb)           &!attention to the sign, in the output all fluxes 

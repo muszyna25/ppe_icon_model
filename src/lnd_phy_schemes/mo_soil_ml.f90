@@ -574,7 +574,9 @@ END SUBROUTINE message
                   zshfl_s          , & ! sensible heat flux soil/air interface         (W/m2) 
                   zlhfl_s          , & ! latent   heat flux soil/air interface         (W/m2) 
                   zshfl_snow       , & ! sensible heat flux snow/air interface         (W/m2) 
-                  zlhfl_snow         ) ! latent   heat flux snow/air interface         (W/m2) 
+                  zlhfl_snow       , & ! latent   heat flux snow/air interface         (W/m2)  
+                  lhfl_bs            & ! latent heat flux from bare soil evap.         (W/m2)
+                                     )  
 
 
 !-------------------------------------------------------------------------------
@@ -706,8 +708,9 @@ END SUBROUTINE message
 
 !!$  REAL    (KIND = ireals), DIMENSION(ie), INTENT(INOUT) :: &
 !!$                  rstom            ! stomata resistance                           ( s/m )
-!!$  REAL    (KIND = ireals), DIMENSION(ie), INTENT(INOUT) :: &
-!!$                  lhfl_bs          ! average latent heat flux from bare soil evap.( W/m2)
+  REAL    (KIND = ireals), DIMENSION(ie), INTENT(OUT) :: &
+                  lhfl_bs          ! latent heat flux from bare soil evap.( W/m2)
+
 !!$  REAL    (KIND = ireals), DIMENSION(ie,ke_soil), INTENT(INOUT) :: &
 !!$                  lhfl_pl          ! average latent heat flux from plants         ( W/m2)
 
@@ -1989,7 +1992,7 @@ END SUBROUTINE message
                           *(1.0_ireals - zf_snow(i)) & ! not snow covered
                           * eai(i)/sai(i) ! relative source surface
                                               ! of the bare soil
-!            lhfl_bs(i) = lh_v * zesoil(i)
+            lhfl_bs(i) = lh_v * zesoil(i)
           END IF  ! upwards directed potential evaporation
 !        END IF    ! land points
       END DO
@@ -2034,7 +2037,8 @@ END SUBROUTINE message
                           *(1.0_ireals - zf_wi  (i)) & ! not water covered
                           *(1.0_ireals - zf_snow(i)) & ! not snow covered
                           * eai(i)/sai(i) ! relative source surface of the bare soil
-            
+
+            lhfl_bs(i) = lh_v * zesoil(i)
           END IF  ! upwards directed potential evaporation
 !        END IF    ! land points
       END DO

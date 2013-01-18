@@ -1010,6 +1010,30 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
           & isteptype=a_steptype )
 
 
+
+        ! &      diag%lhfl_bs(nproma,nblks_c)
+        cf_desc    = t_cf_var('lhfl_bs', 'W m-2 ', 'latent heat flux from bare soil', &
+          &          DATATYPE_FLT32)
+        grib2_desc = t_grib2_var(2, 0, 193, ibits, GRID_REFERENCE, GRID_CELL)
+        CALL add_var( diag_list, 'lhfl_bs', diag%lhfl_bs,                     &
+          & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,          &
+          & ldims=shape2d, lrestart=.FALSE.,                                  &
+          & in_group=groups("pbl_vars"))
+
+
+                    
+        WRITE(name,'(A,A8)') TRIM(prefix),"lhfl_bs"
+        WRITE(long_name,'(A27,A4,A18)') "latent heat flux from bare soil", meaning, &
+                                      & " since model start"
+write(0,*) "alhfls_name: ",name 
+        cf_desc    = t_cf_var(TRIM(name), TRIM(varunits), TRIM(long_name), DATATYPE_FLT32)
+        grib2_desc = t_grib2_var(2, 0, 193, ibits, GRID_REFERENCE, GRID_CELL)
+        CALL add_var( diag_list, TRIM(name), diag%alhfl_bs,                   &
+          & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,          &
+          & ldims=shape2d, lrestart=.TRUE.,                                   &
+          & isteptype=a_steptype )
+
+
         ! &      diag%qhfl_s(nproma,nblks_c)
         cf_desc    = t_cf_var('qhfl_s', 'Kg m-2 s-1', 'surface moisture flux', DATATYPE_FLT32)
         grib2_desc = t_grib2_var(2, 0, 6, ibits, GRID_REFERENCE, GRID_CELL)
@@ -1244,6 +1268,29 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
              & t_grib2_var(0, 0, 10, ibits, GRID_REFERENCE, GRID_CELL),   & 
              & ldims=shape2d, lrestart=.TRUE., loutput=.TRUE.)
         ENDDO
+
+
+        ! &      diag%lhfl_bs_t(nproma,nblks_c,ntiles_total)
+        cf_desc    = t_cf_var('lhfl_bs_t', 'W m-2 ', 'tile-based latent heat flux from bare soil', &
+          &                   DATATYPE_FLT32)
+        grib2_desc = t_grib2_var(2, 0, 193, ibits, GRID_REFERENCE, GRID_CELL)
+        CALL add_var( diag_list, 'lhfl_bs_t', diag%lhfl_bs_t,                              &
+          & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape3dsubs,    &
+          & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
+
+        ! fill the separate variables belonging to the container lhfl_bs_t
+        ALLOCATE(diag%lhfl_bs_t_ptr(ntiles_total))
+        DO jsfc = 1,ntiles_total
+          WRITE(csfc,'(i1)') jsfc
+          CALL add_ref( diag_list, 'lhfl_bs_t',                           &
+             & 'lhfl_bs_t_'//TRIM(ADJUSTL(csfc)),                         &
+             & diag%lhfl_bs_t_ptr(jsfc)%p_2d,                             &
+             & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                        & 
+             & t_cf_var('lhfl_bs_t_'//TRIM(csfc), '', '', DATATYPE_FLT32),&
+             & t_grib2_var(2, 0, 193, ibits, GRID_REFERENCE, GRID_CELL),  & 
+             & ldims=shape2d, lrestart=.FALSE., loutput=.TRUE.)
+        ENDDO
+
 
         ! &      diag%tcm_t(nproma,nblks_c,ntiles_total+ntiles_water)
         cf_desc    = t_cf_var('tcm_t', ' ', &
