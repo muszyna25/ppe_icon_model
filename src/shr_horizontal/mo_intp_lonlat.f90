@@ -365,6 +365,7 @@
             ! link this new variable to the lon-lat grid:
             new_element%field%info%hor_interp%lonlat_id = i
             ! compute area weights:
+!CDIR NOIEXPAND
             CALL latlon_compute_area_weights(grid, area_weights)
             ! for each local lon-lat point on this PE:
             DO j=1, ptr_int_lonlat%nthis_local_pts
