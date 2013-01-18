@@ -3093,10 +3093,7 @@ CONTAINS
 
       END DO ! jk = 1, n_zlev
     END DO ! jb = owned_verts%start_block, owned_verts%end_block
-    ! sync the results, can be done at the end
-    DO je=1,patch%cell_type
-      CALL sync_patch_array(SYNC_V, patch, ocean_coeff%rot_coeff(:,:,:, je))
-    ENDDO
+    ! sync rot_coeff is done after area normalization at the end
     !-------------------------------------------------------------
 
 
@@ -3223,6 +3220,9 @@ CONTAINS
         CALL sync_patch_array(SYNC_V, patch, ocean_coeff%edge2vert_coeff_cc(:,jk,:, jev)%x(2))
         CALL sync_patch_array(SYNC_V, patch, ocean_coeff%edge2vert_coeff_cc(:,jk,:, jev)%x(3))
       ENDDO
+    ENDDO
+    DO je=1,patch%cell_type
+      CALL sync_patch_array(SYNC_V, patch, ocean_coeff%rot_coeff(:,:,:, je))
     ENDDO
 
 
