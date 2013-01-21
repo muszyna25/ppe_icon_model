@@ -567,7 +567,7 @@ CONTAINS
         LWin(:) = LWin(:) + zemiss_def*stbo*pfrc(:,jsfc)*ptsfc_tile(:,jsfc)**4
       ENDDO
       lwup(1:kproma) = zemiss_def*stbo*ptsfc_tile(1:kproma,idx_ice)**4
-      CALL ice_fast(1, kproma, kbdim, kice, 4, 1, &
+      CALL ice_fast(1, kproma, kbdim, kice, 4, 2, &
         &   Tsurf,      &
         &   T1,         &
         &   T2,         &
