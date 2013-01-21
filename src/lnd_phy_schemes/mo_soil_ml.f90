@@ -1948,6 +1948,7 @@ END SUBROUTINE message
   ! Section I.4.2b: Bare soil evaporation, BATS version
   !----------------------------------------------------------------------------
 
+  lhfl_bs(:) = 0.
   IF (itype_evsl.EQ.2) THEN
     ! Calculation of bare soil evaporation after Dickinson (1984)
     ! Determination of mean water content relative to volume of voids

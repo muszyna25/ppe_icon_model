@@ -561,6 +561,10 @@ CONTAINS
 
 !---------- Copy index list fields back to state fields
 
+        ! we need to initialize also non-land points for latent heat flux,
+        ! bare soil:
+        prm_diag%lhfl_bs_t(:,jb,isubs) = 0._wp
+        
 !CDIR NODEP,VOVERTAKE,VOB
         DO ic = 1, i_count
           jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
