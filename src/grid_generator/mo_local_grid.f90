@@ -974,7 +974,7 @@ CONTAINS
       start_no_of_cells = 0
       to_grid%nverts = no_of_copy_verts
       to_grid%nedges = no_of_copy_edges
-      to_grid%ncells = no_of_copy_cells
+      to_grid%ncells = no_of_copy_cells + 1  ! one additonal allocated cell as buffer for other uses
       no_of_out_verts = no_of_copy_verts + start_no_of_verts
       no_of_out_edges = no_of_copy_edges + start_no_of_edges
       no_of_out_cells = no_of_copy_cells + start_no_of_cells

@@ -479,10 +479,9 @@ CONTAINS
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
-  !  SUBROUTINE get_boundary_edges(grid_id, boundary_edge_list)
   !>
   ! Returns the boundary edges in boundary_edge_list
-  SUBROUTINE get_boundary_edges(grid_id, boundary_edge_list)
+  FUNCTION get_boundary_edges(grid_id) result(boundary_edge_list)
     INTEGER, INTENT(in) :: grid_id
     TYPE(t_integer_list)  :: boundary_edge_list
 
@@ -492,6 +491,7 @@ CONTAINS
     INTEGER :: no_of_edges, edge_index, no_of_boundary_edges
     INTEGER :: i_status
 
+    CHARACTER(*), PARAMETER :: method_name = "mo_grid_toolbox:get_boundary_edges"
 
     current_grid    => get_grid(grid_id)
     edges           => current_grid%edges
@@ -499,12 +499,12 @@ CONTAINS
 
     ALLOCATE(boundary_edge_list%value(no_of_edges),stat=i_status)
     IF (i_status > 0) &
-      & CALL finish ('get_boundary_edges', 'ALLOCATE(boundary_edge_list(noOfEdges))')
-    no_of_boundary_edges    = 0
+      & CALL finish (method_name, 'ALLOCATE(boundary_edge_list(noOfEdges))')
 
     ! mark boundary edges
+    no_of_boundary_edges    = 0
     DO edge_index = 1, no_of_edges
-      IF (edges%get_cell_index(edge_index,1) == 0 .or. edges%get_cell_index(edge_index,2) == 0 ) THEN
+      IF (edges%get_cell_index(edge_index,1) == 0 .OR. edges%get_cell_index(edge_index,2) == 0 ) THEN
         ! add edge to boundary list
         no_of_boundary_edges = no_of_boundary_edges + 1
         boundary_edge_list%value(no_of_boundary_edges) = edge_index
@@ -514,10 +514,10 @@ CONTAINS
     boundary_edge_list%list_size = no_of_boundary_edges
     WRITE(message_text,'(a,i9,a,i9)') "Total no of edges=",no_of_edges,&
       & " Boundary edges=", no_of_boundary_edges
-    CALL message ('', TRIM(message_text))
+    CALL message (method_name, TRIM(message_text))
 
 
-  END SUBROUTINE get_boundary_edges
+  END FUNCTION get_boundary_edges
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------

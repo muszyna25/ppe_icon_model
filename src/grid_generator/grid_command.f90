@@ -5,7 +5,7 @@ PROGRAM grid_command
   USE mo_exception, ONLY: finish
 
   USE mo_create_torus_grid,     ONLY: create_torus_grid
-  USE mo_create_ocean_grid,     ONLY: create_ocean_grid
+  USE mo_create_ocean_grid,     ONLY: create_ocean_grid, remove_land_points
   USE mo_local_patch_hierarchy, ONLY: create_patches
   USE mo_local_grid_refinement, ONLY: grid_refine, coarsen_grid_file
   USE mo_grid_toolbox,          ONLY: concatenate_grid_files,create_dual, &
@@ -37,6 +37,7 @@ PROGRAM grid_command
   CHARACTER(len=32), PARAMETER :: create_dual_c ='create_dual'
   CHARACTER(len=32), PARAMETER :: create_torus_c ='create_torus'
   CHARACTER(len=32), PARAMETER :: create_ocean_c ='create_ocean'
+  CHARACTER(len=32), PARAMETER :: remove_land_points_c ='remove_land_points'
   CHARACTER(len=32), PARAMETER :: refine_grid_c ='refine_grid'
   CHARACTER(len=32), PARAMETER :: cut_local_grid_c ='cut_local_grid'
   CHARACTER(len=32), PARAMETER :: cut_local_grid_ascii_c ='cut_local_grid_ascii'
@@ -116,6 +117,12 @@ PROGRAM grid_command
 
     CASE (flag_conditional_grid_c)
       CALL flag_conditional_grid(param_1)
+    
+    CASE (remove_land_points_c)
+      OPEN (500, FILE = command_file,STATUS = 'OLD')
+      READ (500, *) command, param_1, param_2
+      CLOSE(500)
+      CALL remove_land_points(in_file_name=param_1, out_file_name=param_2)
     
     CASE (concatenate_grids_c)
       OPEN (500, FILE = command_file,STATUS = 'OLD')
