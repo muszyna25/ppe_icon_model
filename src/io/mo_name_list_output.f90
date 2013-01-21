@@ -2579,27 +2579,31 @@ CONTAINS
   SUBROUTINE write_grid_info_grb2(of)
     TYPE (t_output_file), INTENT(INOUT) :: of
     ! local variables:
-    CHARACTER(LEN=*), PARAMETER :: routine = TRIM('mo_name_list_output/write_grid_info_grb')
+    CHARACTER(LEN=*), PARAMETER :: routine = TRIM('mo_name_list_output/write_grid_info_grb2')
 
     TYPE t_grid_info_ptr
       TYPE (t_grid_info), POINTER :: ptr
     END TYPE t_grid_info_ptr
 
-    INTEGER                        :: errstat, idom, igrid, idx(3), isize(3)
+    INTEGER                        :: errstat, idom, igrid, idx(3), isize(3), idom_log
     TYPE (t_lon_lat_grid), POINTER :: grid
     REAL(wp), ALLOCATABLE          :: rotated_pts(:,:,:), r_out_dp(:,:), r_out_dp_1D(:)
     TYPE(t_grid_info_ptr)          :: gptr(3)
 
+    ! skip this on test PE...
+    IF (my_process_is_mpi_test()) RETURN
+
     SELECT CASE(of%name_list%remap)
     CASE (REMAP_NONE)
-      idom = of%phys_patch_id
+      idom     = of%phys_patch_id
+      idom_log = patch_info(idom)%log_patch_id
       idx(:)    = (/ ICELL, IEDGE, IVERT /)
-      isize(:)  = (/ patch_info(idom)%cells%n_glb, &
-        &            patch_info(idom)%edges%n_glb, &
-        &            patch_info(idom)%verts%n_glb /)
-      gptr(1)%ptr => patch_info(idom)%grid_c
-      gptr(2)%ptr => patch_info(idom)%grid_e
-      gptr(3)%ptr => patch_info(idom)%grid_v
+      isize(:)  = (/ patch_info(idom_log)%cells%n_glb, &
+        &            patch_info(idom_log)%edges%n_glb, &
+        &            patch_info(idom_log)%verts%n_glb /)
+      gptr(1)%ptr => patch_info(idom_log)%grid_c
+      gptr(2)%ptr => patch_info(idom_log)%grid_e
+      gptr(3)%ptr => patch_info(idom_log)%grid_v
       DO igrid=1,3
         ! allocate data buffer:
         ALLOCATE(r_out_dp_1D(isize(igrid)), stat=errstat)
