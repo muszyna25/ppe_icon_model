@@ -2853,6 +2853,44 @@ Specifies method for computation of mean sea level pressure. \\
 &
 \tabularnewline
 
+\hline
+ varnames\_map\_file &
+C&' '& &
+ File containing the mapping of variable names to the internal ICON names. 
+ May contain the keyword \texttt{<path>} which will be substituted by
+ \texttt{model\_base\_dir}.\\
+ The format of this file: \\
+ One mapping per line, first the name as given in the \texttt{ml\_varlist},
+ \texttt{hl\_varlist}, \texttt{pl\_varlist} or \texttt{il\_varlist}
+ of the \texttt{output\_nml} namelists, then the internal ICON name,
+ separated by an arbitrary number of blanks.
+ The line may also start and end with an arbitrary number of blanks.
+ Empty lines or lines starting with \# are treated as comments. \\
+ Names not covered by the mapping are used as they are.
+&
+\texttt{output\_nml} namelists
+\tabularnewline
+
+\hline
+ out\_varnames\_map\_file &
+C&' '& &
+ File containing the mapping from internal names to names written to NetCDF. 
+ May contain the keyword \texttt{<path>} which will be substituted by
+ \texttt{model\_base\_dir}.\\
+ The format of this file: \\
+ One mapping per line, first the internal name, then the name written to NetCDF,
+ separated by an arbitrary number of blanks.
+ The line may also start and end with an arbitrary number of blanks.
+ Empty lines or lines starting with \# are treated as comments. \\
+ Names not covered by the mapping are output as they are. \\
+ Note that the specification of output variables, e.\,g.\ in
+ \texttt{ml\_varlist}, is independent from this renaming, see
+ the namelist parameter \texttt{varnames\_map\_file} for this.
+& 
+\texttt{output\_nml} namelists, 
+NetCDF output
+\tabularnewline
+
 \hline 
 \end{longtab}
 
@@ -2884,23 +2922,6 @@ C&'ECMWF'& &
  'DWD' - DWD short names (or 'MPIMET', 'CMIP', 'ECMWF') \\
  {\color{red} Currently used for setting GRIB2 centre/subcentre information.} \\
  RJ: For what exactly should that be used?
-&
-\tabularnewline
-
-\hline
- map\_file &
-C&' '& &
- File containig the mapping from internal names to names written to NetCDF. 
- May contain the keyword \texttt{<path>} which will be substituted by
- \texttt{model\_base\_dir}.\\
- The format of this file: \\
- One mapping per line, first the internal name, then the name written to NetCDF,
- separated by an arbitrary number of blanks.
- The line may also start and end with an arbitrary number of blanks.
- Empty lines or lines starting with \# are treated as comments. \\
- Names not covered by the mapping are output as they are. \\
- Note that the specification of output variables, e.\,g.\ in
- \texttt{ml\_varlist}, is independent from this renaming.
 &
 \tabularnewline
 

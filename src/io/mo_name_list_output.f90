@@ -39,6 +39,7 @@ MODULE mo_name_list_output
   USE mo_grib2,                 ONLY: t_grib2_var
   USE mo_cdi_constants          ! We need all
   USE mo_io_units,              ONLY: filename_max, nnml, nnml_output, find_next_free_unit
+  USE mo_io_config,             ONLY: out_varnames_map_file, varnames_map_file
   USE mo_exception,             ONLY: finish, message, message_text
   USE mo_namelist,              ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_var_metadata,          ONLY: t_var_metadata, VARNAME_LEN
@@ -112,12 +113,18 @@ MODULE mo_name_list_output
   USE mo_meteogram_output,    ONLY: meteogram_init, meteogram_finalize, meteogram_flush_file
   USE mo_meteogram_config,    ONLY: meteogram_output_config
   USE mo_timer,               ONLY: timer_start, timer_stop, timer_write_output, ltimer
+  USE mo_dictionary,          ONLY: t_dictionary, dict_init, dict_finalize, &
+    &                               dict_loadfile, dict_get
 
 
   IMPLICIT NONE
 
   PRIVATE
 
+  !-----------------------------------------------------------------
+  ! include NetCDF headers (direct NetCDF library calls are required
+  ! for output of grid information).
+  !-----------------------------------------------------------------
   INCLUDE 'netcdf.inc'
 
   PUBLIC :: read_name_list_output_namelists
@@ -252,6 +259,13 @@ MODULE mo_name_list_output
   INTEGER :: i_sample
   !------------------------------------------------------------------------------------------------
 
+  !------------------------------------------------------------------------------------------------
+  ! dictionaries for variable names:
+  TYPE (t_dictionary) ::     &
+    &   varnames_dict      , & !< maps variable names onto the internal ICON names.
+    &   out_varnames_dict      !< maps internal variable names onto names in output file (NetCDF only).
+  !------------------------------------------------------------------------------------------------
+
   CHARACTER(LEN=*), PARAMETER :: modname = 'mo_name_list_output'
 
   ! constants for better readability:
@@ -266,14 +280,17 @@ MODULE mo_name_list_output
   INTEGER, PARAMETER :: IVERT                 = 3
 
 CONTAINS
-
+  
+  !------------------------------------------------------------------------------------------------
+  !> Read configuration for namelist controlled output module.
+  !
+  !  The name is a bit strange, but if follows the convention to read
+  !  namelists with a routine called read_XXX_namelist (plural is
+  !  used here since several namelists are read).
+  ! 
+  !  Please note the difference between name_list and namelist!
+  !
   SUBROUTINE read_name_list_output_namelists( filename )
-
-    ! The name is a bit strange, but if follows the convention to read namelists
-    ! with a routine called read_XXX_namelist (plural is used here since several
-    ! namelists are read).
-    ! Please note the difference between name_list and namelist!
-
     CHARACTER(LEN=*), INTENT(IN)   :: filename
 
     INTEGER :: istat, i
@@ -285,7 +302,6 @@ CONTAINS
     ! Local variables corresponding to members of output_name_list
     INTEGER  :: filetype
     CHARACTER(LEN=8) :: namespace
-    CHARACTER(LEN=filename_max) :: map_file
     INTEGER  :: mode
     INTEGER  :: taxis_tunit
     INTEGER  :: dom(max_phys_dom)
@@ -310,12 +326,14 @@ CONTAINS
     INTEGER  :: gauss_tgrid_def
     REAL(wp) :: north_pole(2)
     TYPE(t_lon_lat_data), POINTER :: lonlat
+    TYPE (t_keyword_list), POINTER :: keywords => NULL()
+    CHARACTER(len=MAX_STRING_LEN)  :: cfilename
+
 
     ! The namelist containing all variables above
     NAMELIST /output_nml/ &
       filetype,           &
       namespace,          &
-      map_file,           &
       mode,               &
       taxis_tunit,        &
       dom,                &
@@ -367,7 +385,6 @@ CONTAINS
 
       filetype           = FILETYPE_NC2 ! NetCDF
       namespace          = 'ECMWF'
-      map_file           = ' '
       mode               = 2
       taxis_tunit        = TUNIT_HOUR
       dom(:)             = -1
@@ -474,7 +491,6 @@ CONTAINS
 
       p_onl%filetype         = filetype
       p_onl%namespace        = namespace
-      p_onl%map_file         = map_file
       p_onl%mode             = mode
       p_onl%taxis_tunit      = taxis_tunit
       p_onl%dom(:)           = dom(:)
@@ -496,6 +512,42 @@ CONTAINS
       p_onl%remap            = remap
       p_onl%lonlat_id        = -1
 
+      ! read the map files into dictionary data structures
+      CALL dict_init(varnames_dict,     lcase_sensitive=.FALSE.)
+      CALL dict_init(out_varnames_dict, lcase_sensitive=.FALSE.)
+
+      IF(varnames_map_file     /= ' ') THEN
+        CALL associate_keyword("<path>", TRIM(model_base_dir), keywords)
+        cfilename = TRIM(with_keywords(keywords, varnames_map_file))
+        CALL message(routine, "load dictionary file.")
+        CALL dict_loadfile(varnames_dict, cfilename)
+      END IF
+      IF(out_varnames_map_file /= ' ') THEN
+        CALL associate_keyword("<path>", TRIM(model_base_dir), keywords)
+        cfilename = TRIM(with_keywords(keywords, out_varnames_map_file))
+        CALL message(routine, "load dictionary file (output names).")
+        CALL dict_loadfile(out_varnames_dict, cfilename)
+      END IF
+
+      ! translate variables names according to variable name
+      ! dictionary:
+      DO i=1,max_var_ml
+        p_onl%ml_varlist(i) = dict_get(varnames_dict, p_onl%ml_varlist(i), &
+          &                            default=p_onl%ml_varlist(i))
+      END DO
+      DO i=1,max_var_pl
+        p_onl%pl_varlist(i) = dict_get(varnames_dict, p_onl%pl_varlist(i), &
+          &                            default=p_onl%pl_varlist(i))
+      END DO
+      DO i=1,max_var_hl
+        p_onl%hl_varlist(i) = dict_get(varnames_dict, p_onl%hl_varlist(i), &
+          &                            default=p_onl%hl_varlist(i))
+      END DO
+      DO i=1,max_var_il
+        p_onl%il_varlist(i) = dict_get(varnames_dict, p_onl%il_varlist(i), &
+          &                            default=p_onl%il_varlist(i))
+      END DO
+      
       ! allow case-insensitive variable names:
       DO i=1,max_var_ml
         p_onl%ml_varlist(i) = tolower(p_onl%ml_varlist(i))
@@ -509,7 +561,7 @@ CONTAINS
       DO i=1,max_var_il
         p_onl%il_varlist(i) = tolower(p_onl%il_varlist(i))
       END DO
-
+      
       ! If "remap=1": lon-lat interpolation requested
       IF(remap/=REMAP_NONE .AND. remap/=REMAP_REGULAR_LATLON) &
         CALL finish(routine,'Unsupported value for remap')
@@ -574,7 +626,6 @@ CONTAINS
 
 
   !------------------------------------------------------------------------------------------------
- 
   !> Looks for variable groups ("group:xyz") and replaces them
   !
   SUBROUTINE parse_variable_groups()
@@ -666,8 +717,7 @@ CONTAINS
 
 
   !------------------------------------------------------------------------------------------------
-
-
+  !
   SUBROUTINE init_name_list_output(lprintlist, isample)
 
 #ifndef NOMPI
@@ -722,6 +772,12 @@ CONTAINS
                  &            element%field%info%loutput, '  ',     &
                  &            trim(element%field%info%cf%long_name)
             CALL message('',message_text)
+            ! WRITE (message_text,'(a,a,i4,i4,i4)') &
+            !      &     '    ',element%field%info%name,              &
+            !      &            element%field%info%grib2%number,      &
+            !      &            element%field%info%grib2%category,    &
+            !      &            element%field%info%grib2%discipline
+            ! CALL message('',message_text)
             element => element%next_list_element
           ENDDO
         ENDIF
@@ -1067,8 +1123,9 @@ CONTAINS
 
   END SUBROUTINE init_name_list_output
 
-  !------------------------------------------------------------------------------------------------
 
+  !------------------------------------------------------------------------------------------------
+  !
   SUBROUTINE add_varlist_to_output_file(p_of, vl_list, varlist)
 
     TYPE (t_output_file), INTENT(INOUT) :: p_of
@@ -1238,7 +1295,7 @@ CONTAINS
 
 
   !------------------------------------------------------------------------------------------------
-
+  !
   SUBROUTINE set_patch_info
 
     INTEGER :: jp, jl, ierrstat, jg
@@ -1597,11 +1654,10 @@ CONTAINS
 
 
   !------------------------------------------------------------------------------------------------
-  !>
-  !! Sets the reorder_info for cells/edges/verts
-  !! ATTENTION: This routine must only be called on work and test PE (i.e. not on IO PEs)
-  !!            The arguments don't make sense on the IO PEs anyways
-
+  !> Sets the reorder_info for cells/edges/verts
+  !  ATTENTION: This routine must only be called on work and test PE (i.e. not on IO PEs)
+  !             The arguments don't make sense on the IO PEs anyways
+  !
   SUBROUTINE set_reorder_info(phys_patch_id, n_points_g, n_points, owner_mask, phys_id, &
                               glb_index, p_ri)
 
@@ -1837,30 +1893,19 @@ CONTAINS
 
 
   !------------------------------------------------------------------------------------------------
-  !> setup_output_vlist:
-  !! Sets up the vlist for a t_output_file structure
-
+  !> Sets up the vlist for a t_output_file structure
+  !
   SUBROUTINE setup_output_vlist(of)
-
     TYPE(t_output_file), INTENT(INOUT) :: of
-
-    INTEGER :: k, nlev, nlevp1, nplev, nzlev, nilev, nzlevp1, znlev_soil, i_dom
-    INTEGER :: ll_dim(2)
-    INTEGER :: gridtype
-    REAL(wp), ALLOCATABLE :: levels(:), levels_i(:), levels_m(:), p_lonlat(:)
-    REAL(wp), ALLOCATABLE :: lbounds(:), ubounds(:)
-
-    CHARACTER(LEN=*), PARAMETER :: routine = 'mo_name_list_output/setup_output_vlist'
+    ! local variables
+    CHARACTER(LEN=*), PARAMETER   :: routine = TRIM('mo_name_list_output/setup_output_vlist')
+    INTEGER                       :: k, nlev, nlevp1, nplev, nzlev, nilev, nzlevp1, znlev_soil, &
+      &                              i_dom, ll_dim(2), gridtype, idate, itime
+    REAL(wp), ALLOCATABLE         :: levels(:), levels_i(:), levels_m(:), p_lonlat(:)
+    REAL(wp), ALLOCATABLE         :: lbounds(:), ubounds(:)
     TYPE(t_lon_lat_data), POINTER :: lonlat
-    LOGICAL :: lwrite_pzlev
-    INTEGER :: idate, itime
-    TYPE(t_datetime) :: ini_datetime
-
-    ! Read map_file - we do it here and not during initialization
-    ! since it is enough if only the output PE does the read (and not all)
-
-    IF(of%name_list%map_file /= ' ') CALL read_map_file(of, of%name_list%map_file)
-
+    LOGICAL                       :: lwrite_pzlev
+    TYPE(t_datetime)              :: ini_datetime
 
     IF (of%output_type == FILETYPE_GRB2) THEN
       ! since the current CDI-version does not fully support "GRID_UNSTRUCTURED", the 
@@ -2335,141 +2380,9 @@ CONTAINS
 
   END SUBROUTINE setup_output_vlist
 
-  !------------------------------------------------------------------------------------------------
-
-  SUBROUTINE read_map_file(p_of, map_file)
-
-    TYPE (t_output_file), INTENT(INOUT) :: p_of
-    CHARACTER(LEN=*) :: map_file
-
-    INTEGER :: iunit, ist, nvars
-    CHARACTER(LEN=256) :: line
-    CHARACTER(LEN=vname_len) :: key, val
-    LOGICAL :: valid
-
-    CHARACTER(LEN=*), PARAMETER :: routine = 'mo_name_list_output/read_map_file'
-    TYPE (t_keyword_list), POINTER :: keywords => NULL()
-    CHARACTER(len=MAX_STRING_LEN)  :: filename
-
-    CALL associate_keyword("<path>", TRIM(model_base_dir), keywords)
-    filename = TRIM(with_keywords(keywords, map_file))
-
-    iunit = find_next_free_unit(10,99)
-    OPEN (unit=iunit,file=filename,access='SEQUENTIAL', &
-      &  form='FORMATTED', action='READ', status='OLD', IOSTAT=ist)
-
-    IF(ist/=0)THEN
-      CALL finish (routine, 'Open of map_file '//TRIM(map_file)//' failed')
-    ENDIF
-
-    nvars = 0
-
-    DO
-      line = ' '
-      READ(iunit,'(a)',iostat=ist) line
-      IF(ist < 0) EXIT ! No more lines
-      IF(ist > 0) CALL finish(routine, 'Read error in map_file '//TRIM(map_file))
-      CALL parse_line(line,key,val,valid)
-      IF(valid) nvars = nvars+1
-    ENDDO
-
-    REWIND(iunit)
-    ALLOCATE(p_of%name_map(2,nvars))
-
-    nvars = 0
-
-    DO
-      line = ' '
-      READ(iunit,'(a)',iostat=ist) line
-      IF(ist < 0) EXIT ! No more lines
-      IF(ist > 0) CALL finish(routine, 'Read error in map_file '//TRIM(map_file))
-      CALL parse_line(line,key,val,valid)
-      IF(valid) THEN
-        nvars = nvars+1
-        ! Safety only
-        IF(nvars > UBOUND(p_of%name_map,2)) &
-          CALL finish(routine,'INTERNAL: Length of name_map calculated wrong')
-        p_of%name_map(1,nvars) = key
-        p_of%name_map(2,nvars) = val
-      ENDIF
-    ENDDO
-
-    CLOSE(unit=iunit)
-
-  END SUBROUTINE read_map_file
 
   !------------------------------------------------------------------------------------------------
-  ! parse_line:
-  ! Parses a line from map_file and returns key and value part
-  ! (first two nonblank words separated by blanks or tabs)
-
-  SUBROUTINE parse_line(line, key, val, valid)
-
-    CHARACTER(LEN=*), INTENT(IN)  :: line
-    CHARACTER(LEN=*), INTENT(OUT) :: key, val
-    LOGICAL, INTENT(OUT)          :: valid
-
-    INTEGER :: ipos1, ipos2
-
-    valid = .FALSE.
-    key = ' '
-    val = ' '
-
-    ! Search first nonblank character
-    DO ipos1 = 1, LEN(line)
-      IF(.NOT.isblank(line(ipos1:ipos1))) EXIT
-    ENDDO
-
-    IF(ipos1 > LEN(line)) RETURN ! completely empty line
-
-    IF(line(ipos1:ipos1) == '#') RETURN ! comment line
-
-    ! Search end of key
-    DO ipos2 = ipos1, LEN(line)
-      IF(isblank(line(ipos2:ipos2))) EXIT
-    ENDDO
-
-    key = line(ipos1:ipos2-1)
-
-    ! Search next nonblank character
-    DO ipos1 = ipos2, LEN(line)
-      IF(.NOT.isblank(line(ipos1:ipos1))) EXIT
-    ENDDO
-
-    IF(ipos1 > LEN(line)) THEN ! line contains no value part
-      CALL message('mo_name_list_output','Illegal line in name_map:')
-      CALL message('mo_name_list_output',TRIM(line))
-      RETURN
-    ENDIF
-
-    ! Search end of val
-    DO ipos2 = ipos1, LEN(line)
-      IF(isblank(line(ipos2:ipos2))) EXIT
-    ENDDO
-
-    val = line(ipos1:ipos2-1)
-
-    valid = .TRUE.
-
-    CONTAINS
-
-    ! Fortran equivalent to C isblank function
-    LOGICAL FUNCTION isblank(c)
-      CHARACTER(LEN=1) :: c
-      IF(c==' ' .OR. ICHAR(c)==9) THEN
-        ! Blank or Tab
-        isblank = .TRUE.
-      ELSE
-        isblank = .FALSE.
-      ENDIF
-    END FUNCTION isblank
-
-  END SUBROUTINE parse_line
-
-
-  !------------------------------------------------------------------------------------------------
-  !
-  ! Sets the grid information in output file
+  !> Sets the grid information in output file
   !
   SUBROUTINE set_grid_info_netcdf(of)
 
@@ -2502,8 +2415,7 @@ CONTAINS
 
 
   !------------------------------------------------------------------------------------------------
-  !
-  ! Declaration of the grid information (RLAT/RLON) in output file, GRIB2 format.
+  !> Declaration of the grid information (RLAT/RLON) in output file, GRIB2 format.
   !
   SUBROUTINE set_grid_info_grb2(of)
     TYPE (t_output_file), INTENT(INOUT) :: of
@@ -2573,8 +2485,7 @@ CONTAINS
 
 
   !------------------------------------------------------------------------------------------------
-  !
-  ! Writes the grid information in output file, GRIB2 format.
+  !> Writes the grid information in output file, GRIB2 format.
   !
   SUBROUTINE write_grid_info_grb2(of)
     TYPE (t_output_file), INTENT(INOUT) :: of
@@ -2896,8 +2807,7 @@ CONTAINS
 
 
   !------------------------------------------------------------------------------------------------
-  !
-  ! define variables and attributes
+  !> define variables and attributes
   !
   SUBROUTINE add_variables_to_vlist(of)
 
@@ -2949,23 +2859,10 @@ CONTAINS
         CALL finish(routine, message_text)
       ENDIF
 
-
-
       ! Search name mapping for name in NetCDF file
-      !
-      mapped_name = info%name
-      IF(ALLOCATED(of%name_map)) THEN
-        DO i = 1, UBOUND(of%name_map, 2)
-          IF(TRIM(info%name) == TRIM(of%name_map(1,i))) THEN
-            mapped_name = of%name_map(2,i)
-            EXIT
-          ENDIF
-        ENDDO
-      ENDIF
-
+      mapped_name = dict_get(out_varnames_dict, mapped_name, default=info%name)
 
       varID = vlistDefVar(vlistID, gridID, zaxisID, info%isteptype)
-
       info%cdiVarID   = varID
 
       CALL vlistDefVarName(vlistID, varID, TRIM(mapped_name))
@@ -3008,10 +2905,11 @@ CONTAINS
     !
   END SUBROUTINE add_variables_to_vlist
 
+
   !------------------------------------------------------------------------------------------------
   !> open_output_file:
-  !! Opens a output file and sets its vlist
-
+  !  Opens a output file and sets its vlist
+  !
   SUBROUTINE open_output_file(of, jfile)
 
     TYPE(t_output_file), INTENT(INOUT) :: of
@@ -3071,6 +2969,7 @@ CONTAINS
 
   END SUBROUTINE open_output_file
 
+
   !------------------------------------------------------------------------------------------------
   !> Close all name_list files
   !
@@ -3106,12 +3005,16 @@ CONTAINS
 
     DEALLOCATE(output_file)
 
+    ! destroy variable name dictionaries:
+    CALL dict_finalize(varnames_dict)
+    CALL dict_finalize(out_varnames_dict)
+
   END SUBROUTINE close_name_list_output
 
+
   !------------------------------------------------------------------------------------------------
-  !
-  ! Close output stream and the associated file,
-  ! destroy all vlist related data for this file
+  !> Close output stream and the associated file,
+  !  destroy all vlist related data for this file
   !
   SUBROUTINE close_output_file(of)
 
@@ -3137,10 +3040,10 @@ CONTAINS
 
   END SUBROUTINE close_output_file
 
+
   !------------------------------------------------------------------------------------------------
-  !
-  ! Close output stream and the associated file,
-  ! destroy all vlist related data for this file
+  !> Close output stream and the associated file,
+  !  destroy all vlist related data for this file
   !
   SUBROUTINE destroy_output_vlist(of)
 
@@ -3172,11 +3075,11 @@ CONTAINS
 
   END SUBROUTINE destroy_output_vlist
 
+
   !------------------------------------------------------------------------------------------------
-  !
-  ! Loop over all output_name_list's, write the ones for which output is due
-  ! This routine also cares about opening the output files the first time
-  ! and reopening the files after a certain number of steps.
+  !> Loop over all output_name_list's, write the ones for which output is due
+  !  This routine also cares about opening the output files the first time
+  !  and reopening the files after a certain number of steps.
   !
   SUBROUTINE write_name_list_output(datetime, sim_time, last_step)
 
@@ -3343,10 +3246,10 @@ CONTAINS
 
   END SUBROUTINE write_name_list_output
 
+
   !------------------------------------------------------------------------------------------------
-  !
-  ! Write a output name list
-  !
+  !> Write a output name list
+  ! 
   SUBROUTINE write_name_list(of, l_first_write)
 
 #ifndef NOMPI
@@ -3626,14 +3529,15 @@ CONTAINS
 
   END SUBROUTINE write_name_list
 
+
   !------------------------------------------------------------------------------------------------
   !> Returns if it is time for the next output step
-  !! Please note:
-  !! This function returns .TRUE. whenever the next output time of any name list
-  !! is less or equal (sim_time+i_sample*dtime/2._wp).
-  !! It DOES NOT check if the step indicated at sim_time is an advection step.
-  !! THIS CHECK MUST BE DONE BY THE CALLER !!!!
-
+  !  Please note:
+  !  This function returns .TRUE. whenever the next output time of any name list
+  !  is less or equal (sim_time+i_sample*dtime/2._wp).
+  !  It DOES NOT check if the step indicated at sim_time is an advection step.
+  !  THIS CHECK MUST BE DONE BY THE CALLER !!!!
+  !
   FUNCTION istime4name_list_output(sim_time) RESULT(retval)
 
     REAL(wp), INTENT(IN)  :: sim_time            ! simulation time [s]
@@ -3671,11 +3575,11 @@ CONTAINS
 
 #else
 
-  !-------------------------------------------------------------------------------------------------
-  !>
-  !! Main routine for I/O PEs.
-  !! Please note that this routine never returns.
 
+  !-------------------------------------------------------------------------------------------------
+  !> Main routine for I/O PEs.
+  !  Please note that this routine never returns.
+  !
   SUBROUTINE name_list_io_main_proc(isample)
 
     INTEGER, INTENT(in) :: isample
@@ -3759,10 +3663,10 @@ CONTAINS
 
   END SUBROUTINE name_list_io_main_proc
 
-  !------------------------------------------------------------------------------------------------
-  !>
-  !! Transfers reorder_info to IO PEs
 
+  !------------------------------------------------------------------------------------------------
+  !> Transfers reorder_info to IO PEs
+  !
   SUBROUTINE transfer_reorder_info(p_ri)
 
     TYPE(t_reorder_info), INTENT(INOUT) :: p_ri ! Result: reorder info
@@ -3799,13 +3703,13 @@ CONTAINS
 
   END SUBROUTINE transfer_reorder_info
 
-  !-------------------------------------------------------------------------------------------------
-  !>
-  !! Replicates data (mainly the variable lists) needed for async I/O on the I/O procs.
-  !! ATTENTION: The data is not completely replicated, only as far as needed for I/O.
-  !!
-  !! This routine has to be called by all PEs (work and I/O)
 
+  !-------------------------------------------------------------------------------------------------
+  !> Replicates data (mainly the variable lists) needed for async I/O on the I/O procs.
+  !  ATTENTION: The data is not completely replicated, only as far as needed for I/O.
+  !
+  !  This routine has to be called by all PEs (work and I/O)
+  !
   SUBROUTINE replicate_data_on_io_procs
 
     INTEGER :: ivct_len
@@ -4005,10 +3909,10 @@ CONTAINS
 
   END SUBROUTINE replicate_data_on_io_procs
 
-  !------------------------------------------------------------------------------------------------
-  !>
-  !! Initializes the memory window for asynchronous IO
 
+  !------------------------------------------------------------------------------------------------
+  !> Initializes the memory window for asynchronous IO
+  !
   SUBROUTINE init_memory_window
 
 #ifdef __SUNPRO_F95
@@ -4177,6 +4081,7 @@ CONTAINS
 
   END SUBROUTINE init_memory_window
 
+
 #ifdef USE_CRAY_POINTER
   !------------------------------------------------------------------------------------------------
   ! Helper routines for setting mem_ptr with the correct size information
@@ -4196,9 +4101,8 @@ CONTAINS
 
 
   !------------------------------------------------------------------------------------------------
-  !>
-  !! Output routine on the IO PE
-
+  !> Output routine on the IO PE
+  !
   SUBROUTINE io_proc_write_name_list(of, l_first_write)
 
 #ifdef __SUNPRO_F95
@@ -4436,6 +4340,7 @@ CONTAINS
 
   END SUBROUTINE io_proc_write_name_list
 
+
   !-------------------------------------------------------------------------------------------------
   !-------------------------------------------------------------------------------------------------
   !-------------------------------------------------------------------------------------------------
@@ -4446,11 +4351,11 @@ CONTAINS
 
   !-------------------------------------------------------------------------------------------------
   ! ... called on IO procs:
-  !-------------------------------------------------------------------------------------------------
-  !>
-  !! async_io_send_ready_message: Send a message to the compute PEs that the I/O is ready
-  !! The counterpart on the compute side is compute_wait_for_async_io
 
+  !-------------------------------------------------------------------------------------------------
+  !> async_io_send_ready_message: Send a message to the compute PEs that the I/O is ready
+  !  The counterpart on the compute side is compute_wait_for_async_io
+  !
   SUBROUTINE async_io_send_ready_message
 
     REAL(wp) :: msg
@@ -4466,11 +4371,11 @@ CONTAINS
 
   END SUBROUTINE async_io_send_ready_message
 
-  !-------------------------------------------------------------------------------------------------
-  !>
-  !! async_io_wait_for_start: Wait for a message from I/O PEs that we should start I/O or finish
-  !! The counterpart on the compute side is compute_start_io/compute_shutdown_io
 
+  !-------------------------------------------------------------------------------------------------
+  !> async_io_wait_for_start: Wait for a message from I/O PEs that we should start I/O or finish
+  !  The counterpart on the compute side is compute_start_io/compute_shutdown_io
+  !
   SUBROUTINE async_io_wait_for_start(done, datetime, sim_time, last_step)
 
     LOGICAL, INTENT(OUT)          :: done ! flag if we should shut down
@@ -4518,13 +4423,14 @@ CONTAINS
 
   END SUBROUTINE async_io_wait_for_start
 
+
   !-------------------------------------------------------------------------------------------------
   ! ... called on compute procs:
-  !-------------------------------------------------------------------------------------------------
-  !>
-  !! compute_wait_for_async_io: Wait for a message that the I/O is ready
-  !! The counterpart on the I/O side is io_send_ready_message
 
+  !-------------------------------------------------------------------------------------------------
+  !> compute_wait_for_async_io: Wait for a message that the I/O is ready
+  !  The counterpart on the I/O side is io_send_ready_message
+  !
   SUBROUTINE compute_wait_for_async_io
 
     REAL(wp) :: msg
@@ -4541,11 +4447,11 @@ CONTAINS
 
   END SUBROUTINE compute_wait_for_async_io
 
-  !-------------------------------------------------------------------------------------------------
-  !>
-  !! compute_start_async_io: Send a message to I/O PEs that they should start I/O
-  !! The counterpart on the I/O side is io_wait_for_start_message
 
+  !-------------------------------------------------------------------------------------------------
+  !> compute_start_async_io: Send a message to I/O PEs that they should start I/O
+  !  The counterpart on the I/O side is io_wait_for_start_message
+  !
   SUBROUTINE compute_start_async_io(datetime, sim_time, last_step)
 
     TYPE(t_datetime), INTENT(IN) :: datetime
@@ -4570,11 +4476,11 @@ CONTAINS
 
   END SUBROUTINE compute_start_async_io
 
-  !-------------------------------------------------------------------------------------------------
-  !>
-  !! compute_shutdown_async_io: Send a message to I/O PEs that they should shut down
-  !! The counterpart on the I/O side is io_wait_for_start_message
 
+  !-------------------------------------------------------------------------------------------------
+  !> compute_shutdown_async_io: Send a message to I/O PEs that they should shut down
+  !  The counterpart on the I/O side is io_wait_for_start_message
+  !
   SUBROUTINE compute_shutdown_async_io
 
     REAL(wp) :: msg(9)

@@ -89,7 +89,6 @@ MODULE mo_name_list_output_config
 
     INTEGER  :: filetype            ! One of CDI's FILETYPE_XXX constants
     CHARACTER(LEN=8) :: namespace   ! 'DWD' - DWD short names (or 'MPIM', 'CMIP', 'ECMWF')
-    CHARACTER(LEN=filename_max) :: map_file ! File containig mapping internal names -> names in NetCDF
     INTEGER  :: mode                ! 1 = forecast mode, 2 = climate mode
     INTEGER  :: taxis_tunit         ! 1 = TUNIT_SECOND, 2 = TUNIT_MINUTE, 3 TUNIT_HOUR ...  
                                     ! (see cdi.inc)

@@ -359,18 +359,12 @@ CONTAINS
     IF (ltimer) CALL init_timer
     IF (timers_level > 3) CALL timer_start(timer_model_init)
 
-    !------------------
-    ! Next, define the horizontal and vertical grids since they are aready
-    ! needed for some derived control parameters. This includes
-    ! - patch import
-    ! - domain decompistion
-    ! - vertical coordinates
     !-------------------------------------------------------------------
-    ! 4. Import patches
+    ! 3.3 I/O initialization
     !-------------------------------------------------------------------
-    ! If we belong to the I/O PEs just call xxx_io_main_proc before reading patches.
-    ! This routine will never return
 
+    ! If we belong to the I/O PEs just call xxx_io_main_proc before
+    ! reading patches.  This routine will never return
     IF (process_mpi_io_size > 0) THEN
       ! Decide whether async vlist or name_list IO is to be used,
       ! only one of both may be enabled!
@@ -400,6 +394,16 @@ CONTAINS
         CALL message('','synchronous vlist I/O scheme is enabled.')
       ENDIF
     ENDIF
+
+    !------------------
+    ! Next, define the horizontal and vertical grids since they are aready
+    ! needed for some derived control parameters. This includes
+    ! - patch import
+    ! - domain decompistion
+    ! - vertical coordinates
+    !-------------------------------------------------------------------
+    ! 4. Import patches
+    !-------------------------------------------------------------------
 
     ! Check patch allocation status
 

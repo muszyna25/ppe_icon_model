@@ -1366,6 +1366,7 @@ src/prep_icon/mo_remap_sync.f90 -text
 src/prep_icon/mo_remap_weights.f90 -text
 src/shared/mo_cdi_constants.f90 -text
 src/shared/mo_datetime.f90 -text
+src/shared/mo_dictionary.f90 -text
 src/shared/mo_exception.f90 -text
 src/shared/mo_exception.f90_luis -text
 src/shared/mo_fast_math_lib.f90 svneol=native#text/plain

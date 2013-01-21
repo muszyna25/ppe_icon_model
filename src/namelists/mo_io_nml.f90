@@ -45,40 +45,43 @@ MODULE mo_io_nml
   USE mo_kind,               ONLY: wp
   USE mo_impl_constants,     ONLY: max_char_length, max_ntracer, max_dom, &
     &                              PRES_MSL_METHOD_GME
-  USE mo_io_units,           ONLY: nnml, nnml_output
+  USE mo_io_units,           ONLY: nnml, nnml_output, filename_max
   USE mo_namelist,           ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_mpi,                ONLY: my_process_is_stdio, p_n_work
   USE mo_master_control,     ONLY: is_restart_run
   USE mo_io_restart_namelist,ONLY: open_tmpfile, store_and_close_namelist,   &
                                  & open_and_restore_namelist, close_tmpfile
-  USE mo_io_config,          ONLY: config_out_expname             => out_expname      , &
-                                 & config_out_filetype            => out_filetype     , &
-                                 & config_lkeep_in_sync           => lkeep_in_sync    , &
-                                 & config_dt_data                 => dt_data          , &
-                                 & config_dt_diag                 => dt_diag          , &
-                                 & config_dt_file                 => dt_file          , &
-                                 & config_dt_checkpoint           => dt_checkpoint    , &
-                                 & config_lwrite_initial          => lwrite_initial   , &
+  USE mo_io_config,          ONLY: config_out_expname             => out_expname            , &
+                                 & config_out_filetype            => out_filetype           , &
+                                 & config_lkeep_in_sync           => lkeep_in_sync          , &
+                                 & config_dt_data                 => dt_data                , &
+                                 & config_dt_diag                 => dt_diag                , &
+                                 & config_dt_file                 => dt_file                , &
+                                 & config_dt_checkpoint           => dt_checkpoint          , &
+                                 & config_lwrite_initial          => lwrite_initial         , &
                                  & config_lwrite_oce_timestepping => lwrite_oce_timestepping, &
-                                 & config_lwrite_vorticity        => lwrite_vorticity , &
-                                 & config_lwrite_divergence       => lwrite_divergence, &
-                                 & config_lwrite_omega            => lwrite_omega     , &
-                                 & config_lwrite_pres             => lwrite_pres      , &
-                                 & config_lwrite_z3               => lwrite_z3        , &
-                                 & config_lwrite_tracer           => lwrite_tracer    , &
-                                 & config_lwrite_tend_phy         => lwrite_tend_phy  , &
-                                 & config_lwrite_radiation        => lwrite_radiation , &
-                                 & config_lwrite_precip           => lwrite_precip    , &
-                                 & config_lwrite_cloud            => lwrite_cloud     , &
-                                 & config_lwrite_tke              => lwrite_tke       , &
-                                 & config_lwrite_surface          => lwrite_surface   , &
-                                 & config_lwrite_extra            => lwrite_extra     , &
-                                 & config_inextra_2d              => inextra_2d       , &
-                                 & config_inextra_3d              => inextra_3d       , &
-                                 & config_lflux_avg               => lflux_avg        , &
-                                 & config_lwrite_dblprec          => lwrite_dblprec   , &
-                                 & config_lwrite_decomposition    => lwrite_decomposition, &
-                                 & config_itype_pres_msl          => itype_pres_msl
+                                 & config_lwrite_vorticity        => lwrite_vorticity       , &
+                                 & config_lwrite_divergence       => lwrite_divergence      , &
+                                 & config_lwrite_omega            => lwrite_omega           , &
+                                 & config_lwrite_pres             => lwrite_pres            , &
+                                 & config_lwrite_z3               => lwrite_z3              , &
+                                 & config_lwrite_tracer           => lwrite_tracer          , &
+                                 & config_lwrite_tend_phy         => lwrite_tend_phy        , &
+                                 & config_lwrite_radiation        => lwrite_radiation       , &
+                                 & config_lwrite_precip           => lwrite_precip          , &
+                                 & config_lwrite_cloud            => lwrite_cloud           , &
+                                 & config_lwrite_tke              => lwrite_tke             , &
+                                 & config_lwrite_surface          => lwrite_surface         , &
+                                 & config_lwrite_extra            => lwrite_extra           , &
+                                 & config_inextra_2d              => inextra_2d             , &
+                                 & config_inextra_3d              => inextra_3d             , &
+                                 & config_lflux_avg               => lflux_avg              , &
+                                 & config_lwrite_dblprec          => lwrite_dblprec         , &
+                                 & config_lwrite_decomposition    => lwrite_decomposition   , &
+                                 & config_itype_pres_msl          => itype_pres_msl         , &
+                                 & config_varnames_map_file       => varnames_map_file      , &
+                                 & config_out_varnames_map_file   => out_varnames_map_file
+
   USE mo_exception,        ONLY: message, message_text, finish
   USE mo_parallel_config,  ONLY: nproma
 
@@ -126,6 +129,10 @@ MODULE mo_io_nml
                                         !  TOT_PREC that would be accumulated
   INTEGER :: itype_pres_msl             ! Specifies method for computation of mean sea level pressure
 
+  CHARACTER(LEN=filename_max) :: &
+    &        varnames_map_file,   &     !< maps variable names onto the internal ICON names.
+    &        out_varnames_map_file      !< maps internal variable names onto names in output file (NetCDF only).
+
   NAMELIST/io_nml/ out_expname, out_filetype, lkeep_in_sync,             &
     &              dt_data, dt_diag, dt_file, dt_checkpoint,             &
     &              lwrite_initial, lwrite_dblprec, lwrite_decomposition, &
@@ -134,7 +141,8 @@ MODULE mo_io_nml
     &              lwrite_tend_phy, lwrite_radiation, lwrite_precip,     &
     &              lwrite_cloud, lwrite_tke, lwrite_surface,             &
     &              lwrite_extra, inextra_2d, inextra_3d,                 &
-    &              lflux_avg, lwrite_oce_timestepping, itype_pres_msl
+    &              lflux_avg, lwrite_oce_timestepping, itype_pres_msl,   &
+    &              varnames_map_file, out_varnames_map_file
   
 CONTAINS
   !>
@@ -191,6 +199,8 @@ CONTAINS
     lflux_avg               = .TRUE.
     lwrite_oce_timestepping = .FALSE.
     itype_pres_msl          = PRES_MSL_METHOD_GME
+    varnames_map_file       = ' '
+    out_varnames_map_file   = ' '
 
     !------------------------------------------------------------------
     ! 2. If this is a resumed integration, overwrite the defaults above
@@ -217,29 +227,6 @@ CONTAINS
     ! 4. Fill the configuration state
     !----------------------------------------------------
 
-!    DO jg= 1,max_dom
-!      io_config(jg)%out_expname      = out_expname
-!      io_config(jg)%out_filetype     = out_filetype
-!      io_config(jg)%lkeep_in_sync    = lkeep_in_sync
-!      io_config(jg)%dt_data          = dt_data
-!      io_config(jg)%dt_diag          = dt_diag
-!      io_config(jg)%dt_file          = dt_file
-!      io_config(jg)%dt_checkpoint    = dt_checkpoint
-!      io_config(jg)%lwrite_vorticity = lwrite_vorticity
-!      io_config(jg)%lwrite_divergence= lwrite_divergence
-!      io_config(jg)%lwrite_omega     = lwrite_omega
-!      io_config(jg)%lwrite_pres      = lwrite_pres
-!      io_config(jg)%lwrite_z3        = lwrite_z3
-!      io_config(jg)%lwrite_tracer    = lwrite_tracer
-!      io_config(jg)%lwrite_tend_phy  = lwrite_tend_phy
-!      io_config(jg)%lwrite_radiation = lwrite_radiation
-!      io_config(jg)%lwrite_precip    = lwrite_precip
-!      io_config(jg)%lwrite_cloud     = lwrite_cloud
-!      io_config(jg)%lwrite_tke       = lwrite_tke
-!      io_config(jg)%lwrite_surface   = lwrite_surface
-!      io_config(jg)%lwrite_extra     = lwrite_extra
-!    ENDDO
-!
     config_out_expname             = out_expname
     config_out_filetype            = out_filetype
     config_lkeep_in_sync           = lkeep_in_sync
@@ -268,6 +255,8 @@ CONTAINS
     config_lwrite_decomposition    = lwrite_decomposition
     config_lwrite_oce_timestepping = lwrite_oce_timestepping
     config_itype_pres_msl          = itype_pres_msl
+    config_varnames_map_file       = varnames_map_file
+    config_out_varnames_map_file   = out_varnames_map_file
 
     !-----------------------------------------------------
     ! 5. Store the namelist for restart
