@@ -61,7 +61,7 @@ MODULE mo_nh_initicon
     &                               generate_filename
   USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, max_dom, MODE_DWDANA, &
     &                               MODE_IFSANA, MODE_COMBINED, min_rlcell,         &
-    &                               min_rledge
+    &                               min_rledge, min_rledge_int, min_rlcell_int
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c, grf_bdywidth_e
   USE mo_physical_constants,  ONLY: tf_salt, rd, cpd, cvd, p0ref, vtmpc1
   USE mo_exception,           ONLY: message, finish, message_text
@@ -71,7 +71,7 @@ MODULE mo_nh_initicon
   USE mo_io_config,           ONLY: lkeep_in_sync
   USE mo_io_util,             ONLY: gather_array1, gather_array2, outvar_desc,    &
     &                               GATHER_C, GATHER_E, GATHER_V, num_output_vars
-  USE mo_nh_init_utils,       ONLY: hydro_adjust, convert_thdvars, interp_uv_2_vn
+  USE mo_nh_init_utils,       ONLY: hydro_adjust, convert_thdvars, interp_uv_2_vn, init_w
   USE mo_util_phys,           ONLY: virtual_temp
   USE mo_ifs_coord,           ONLY: alloc_vct, init_vct, vct, vct_a, vct_b
   USE mo_lnd_nwp_config,      ONLY: nlev_soil, ntiles_total
@@ -81,7 +81,8 @@ MODULE mo_nh_initicon
   USE mo_seaice_nwp,          ONLY: frsi_min
   USE mo_nh_vert_interp,      ONLY: vert_interp_atm, vert_interp_sfc
   USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
-  USE mo_sync,                ONLY: sync_patch_array, SYNC_E
+  USE mo_sync,                ONLY: sync_patch_array, SYNC_E, SYNC_C
+  USE mo_math_laplace,        ONLY: nabla4_vec
 
   IMPLICIT NONE
 
@@ -1039,6 +1040,10 @@ MODULE mo_nh_initicon
         &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,    &
         &                  nlevp1, p_nh_state(jg)%prog(nnow(jg))%w)
 
+      CALL read_netcdf_data_single (ncid, 'tke', p_patch(jg)%n_patch_cells_g,         &
+        &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,    &
+        &                  nlevp1, p_nh_state(jg)%prog(nnow(jg))%tke)
+
       CALL read_netcdf_data_single (ncid, 'qv', p_patch(jg)%n_patch_cells_g,          &
         &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,    &
         &                  nlev, p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqv))
@@ -1160,7 +1165,6 @@ MODULE mo_nh_initicon
     CALL read_netcdf_data_single (ncid, 'qs', p_patch(jg)%n_patch_cells_g,          &
       &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,    &
       &                  nlev, initicon(jg)%atm%qs )
-
 
 
     ! close file (increments)
@@ -1403,7 +1407,7 @@ MODULE mo_nh_initicon
 
     INTEGER :: jc,je,jk,jb,jg             ! loop indices
     INTEGER :: ist
-    INTEGER :: nlev                       ! number of vertical levels
+    INTEGER :: nlev, nlevp1               ! number of vertical levels
     INTEGER :: nblks_c, nblks_e           ! number of blocks
     INTEGER :: i_nchdom
     INTEGER :: rl_start, rl_end 
@@ -1413,8 +1417,8 @@ MODULE mo_nh_initicon
     TYPE(t_nh_diag), POINTER :: p_diag
     INTEGER,         POINTER :: iidx(:,:,:), iblk(:,:,:)
 
-    REAL(wp) :: vn_incr                   ! DA increment for vn
-    REAL(wp), ALLOCATABLE :: zpres_nh(:,:,:)
+    REAL(wp), ALLOCATABLE :: zpres_nh(:,:,:), vn_incr(:,:,:), nabla4_vn_incr(:,:,:), w_incr(:,:,:)
+    REAL(wp) :: vn_incr_smt, smtfac
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
       routine = 'mo_nh_initicon:create_dwdana_atm'
@@ -1428,18 +1432,23 @@ MODULE mo_nh_initicon
 
     ! number of vertical levels 
     nlev      = p_patch(jg)%nlev
+    nlevp1    = p_patch(jg)%nlevp1
 
     nblks_c   = p_patch(jg)%nblks_c
     nblks_e   = p_patch(jg)%nblks_e
     i_nchdom  = MAX(1,p_patch(jg)%n_childdom)
 
+    ! nondimensional diffusion coefficient for interpolated velocity increment
+    smtfac    = 0.015_wp
 
-    ! allocate temporary array for nonhydrostatic pressure
-    ALLOCATE(zpres_nh(nproma,nlev,nblks_c), STAT=ist)
+    ! allocate temporary array for nonhydrostatic pressure, interpolated DA increment for vn and its second derivative
+    ALLOCATE(zpres_nh(nproma,nlev,nblks_c),vn_incr(nproma,nlev,nblks_e),                &
+             nabla4_vn_incr(nproma,nlev,nblks_e),w_incr(nproma,nlevp1,nblks_c), STAT=ist)
     IF (ist /= SUCCESS) THEN
-      CALL finish ( TRIM(routine), 'allocation for zpres_nh failed')
+      CALL finish ( TRIM(routine), 'allocation of auxiliary arrays failed')
     ENDIF
 
+    nabla4_vn_incr(:,:,:) = 0._wp
 
     ! define some pointers
     p_prog_now => p_nh_state(jg)%prog(nnow(jg))
@@ -1454,8 +1463,8 @@ MODULE mo_nh_initicon
     !
 !$OMP PARALLEL PRIVATE(rl_start,rl_end,i_startblk,i_endblk)
 
-    ! exclude boundary interpolation zone of nested domains
-    rl_start = grf_bdywidth_c+1
+    ! include boundary interpolation zone of nested domains and halo points
+    rl_start = 1
     rl_end   = min_rlcell
 
     i_startblk = p_patch(jg)%cells%start_blk(rl_start,1)
@@ -1521,32 +1530,18 @@ MODULE mo_nh_initicon
         ENDDO  ! jc
       ENDDO  ! jk
 
-!!$write(0,*) "MINVAL(initicon(jg)%atm%temp(jc,jk,jb)), jb: ",MINVAL(initicon(jg)%atm%temp(:,:,jb)), jb 
-!!$write(0,*) "MAXVAL(initicon(jg)%atm%temp(jc,jk,jb)), jb: ",MAXVAL(initicon(jg)%atm%temp(:,:,jb)), jb 
-!!$write(0,*) "MINVAL(initicon(jg)%atm%pres(jc,jk,jb)), jb: ",MINVAL(initicon(jg)%atm%pres(:,:,jb)), jb 
-!!$write(0,*) "MAXVAL(initicon(jg)%atm%pres(jc,jk,jb)), jb: ",MAXVAL(initicon(jg)%atm%pres(:,:,jb)), jb
-!!$write(0,*) "MINVAL(initicon(jg)%atm%qv(jc,jk,jb)), jb: ",MINVAL(initicon(jg)%atm%qv(:,:,jb)), jb 
-!!$write(0,*) "MAXVAL(initicon(jg)%atm%qv(jc,jk,jb)), jb: ",MAXVAL(initicon(jg)%atm%qv(:,:,jb)), jb 
-!!$write(0,*) "MINVAL(initicon(jg)%atm%qc(jc,jk,jb)), jb: ",MINVAL(initicon(jg)%atm%qc(:,:,jb)), jb 
-!!$write(0,*) "MAXVAL(initicon(jg)%atm%qc(jc,jk,jb)), jb: ",MAXVAL(initicon(jg)%atm%qc(:,:,jb)), jb 
-!!$write(0,*) "MINVAL(initicon(jg)%atm%qi(jc,jk,jb)), jb: ",MINVAL(initicon(jg)%atm%qi(:,:,jb)), jb
-!!$write(0,*) "MAXVAL(initicon(jg)%atm%qi(jc,jk,jb)), jb: ",MAXVAL(initicon(jg)%atm%qi(:,:,jb)), jb
-!!$write(0,*) "MINVAL(initicon(jg)%atm%qr(jc,jk,jb)), jb: ",MINVAL(initicon(jg)%atm%qr(:,:,jb)), jb 
-!!$write(0,*) "MAXVAL(initicon(jg)%atm%qr(jc,jk,jb)), jb: ",MAXVAL(initicon(jg)%atm%qr(:,:,jb)), jb 
-!!$write(0,*) "MINVAL(initicon(jg)%atm%qs(jc,jk,jb)), jb: ",MINVAL(initicon(jg)%atm%qs(:,:,jb)), jb 
-!!$write(0,*) "MAXVAL(initicon(jg)%atm%qs(jc,jk,jb)), jb: ",MAXVAL(initicon(jg)%atm%qs(:,:,jb)), jb 
     ENDDO  ! jb
 !$OMP END DO
 
 
-    ! exclude boundary interpolation zone of nested domains
-    rl_start = grf_bdywidth_e+1
-    rl_end   = min_rledge
+    ! include boundary interpolation zone of nested domains the halo edges as far as possible
+    rl_start = 2
+    rl_end   = min_rledge_int - 2
 
     i_startblk = p_patch(jg)%edges%start_blk(rl_start,1)
     i_endblk   = p_patch(jg)%edges%end_blk(rl_end,i_nchdom)
 
-!$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx,vn_incr)
+!$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx)
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_e(p_patch(jg), jb, i_startblk, i_endblk, &
@@ -1557,27 +1552,89 @@ MODULE mo_nh_initicon
           ! at cell centers the increment \vec(v_inc) is projected into the 
           ! direction of vn and then linearly interpolated to the edge 
           ! midpoint 
-          vn_incr = p_int_state(jg)%c_lin_e(je,1,jb)                   &
-            &     *(initicon(jg)%atm%u(iidx(je,jb,1),jk,iblk(je,jb,1)) &
-            &     * p_patch(jg)%edges%primal_normal_cell(je,jb,1)%v1   &
-            &     + initicon(jg)%atm%v(iidx(je,jb,1),jk,iblk(je,jb,1)) &
-            &     * p_patch(jg)%edges%primal_normal_cell(je,jb,1)%v2 ) &
-            &     + p_int_state(jg)%c_lin_e(je,2,jb)                   &
-            &     *(initicon(jg)%atm%u(iidx(je,jb,2),jk,iblk(je,jb,2)) &
-            &     * p_patch(jg)%edges%primal_normal_cell(je,jb,2)%v1   &
-            &     + initicon(jg)%atm%v(iidx(je,jb,2),jk,iblk(je,jb,2)) &
-            &     * p_patch(jg)%edges%primal_normal_cell(je,jb,2)%v2 )
+          vn_incr(je,jk,jb) = p_int_state(jg)%c_lin_e(je,1,jb)                   &
+            &               *(initicon(jg)%atm%u(iidx(je,jb,1),jk,iblk(je,jb,1)) &
+            &               * p_patch(jg)%edges%primal_normal_cell(je,jb,1)%v1   &
+            &               + initicon(jg)%atm%v(iidx(je,jb,1),jk,iblk(je,jb,1)) &
+            &               * p_patch(jg)%edges%primal_normal_cell(je,jb,1)%v2 ) &
+            &               + p_int_state(jg)%c_lin_e(je,2,jb)                   &
+            &               *(initicon(jg)%atm%u(iidx(je,jb,2),jk,iblk(je,jb,2)) &
+            &               * p_patch(jg)%edges%primal_normal_cell(je,jb,2)%v1   &
+            &               + initicon(jg)%atm%v(iidx(je,jb,2),jk,iblk(je,jb,2)) &
+            &               * p_patch(jg)%edges%primal_normal_cell(je,jb,2)%v2 )
 
-          ! add vn_incr to first guess
-          p_prog_now%vn(je,jk,jb) = p_prog_now%vn(je,jk,jb) + vn_incr
 
         ENDDO  ! je
       ENDDO  ! jk
-!!$write(0,*) "MINVAL(p_prog_now%vn(je,jk,jb)), jb: ",MINVAL(p_prog_now%vn(:,:,jb)), jb 
-!!$write(0,*) "MAXVAL(p_prog_now%vn(je,jk,jb)), jb: ",MAXVAL(p_prog_now%vn(:,:,jb)), jb 
+
     ENDDO  ! jb
 !$OMP ENDDO
 !$OMP END PARALLEL
+
+    ! Compute diffusion term 
+    CALL nabla4_vec(vn_incr, p_patch(jg), p_int_state(jg), nabla4_vn_incr, opt_rlstart=5)
+
+    ! Compute vertical wind increment consistent with the vn increment
+    ! (strictly spoken, this should be done after the filtering step, but the difference is negligible)
+    CALL init_w(p_patch(jg), p_int_state(jg), vn_incr, p_nh_state(jg)%metrics%z_ifc, w_incr)
+
+!$OMP PARALLEL PRIVATE(rl_start,rl_end,i_startblk,i_endblk)
+
+    ! include boundary interpolation zone of nested domains but no halo points (sync follows below)
+    rl_start = 2
+    rl_end   = min_rledge_int
+
+    i_startblk = p_patch(jg)%edges%start_blk(rl_start,1)
+    i_endblk   = p_patch(jg)%edges%end_blk(rl_end,i_nchdom)
+
+!$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx,vn_incr_smt)
+    DO jb = i_startblk, i_endblk
+
+      CALL get_indices_e(p_patch(jg), jb, i_startblk, i_endblk, &
+                         i_startidx, i_endidx, rl_start, rl_end)
+
+      DO jk = 1, nlev
+        DO je = i_startidx, i_endidx
+          ! computed filtered velocity increment 
+          vn_incr_smt = vn_incr(je,jk,jb) - smtfac*nabla4_vn_incr(je,jk,jb)*p_patch(jg)%edges%area_edge(je,jb)**2
+
+          ! add vn_incr_smt to first guess
+          p_prog_now%vn(je,jk,jb) = p_prog_now%vn(je,jk,jb) + vn_incr_smt
+
+        ENDDO  ! je
+      ENDDO  ! jk
+
+    ENDDO  ! jb
+!$OMP ENDDO
+
+    ! include boundary interpolation zone of nested domains but no halo points (sync follows below)
+    rl_start = 2
+    rl_end   = min_rlcell_int
+
+    i_startblk = p_patch(jg)%cells%start_blk(rl_start,1)
+    i_endblk   = p_patch(jg)%cells%end_blk(rl_end,i_nchdom)
+
+!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx)
+    DO jb = i_startblk, i_endblk
+
+      CALL get_indices_c(p_patch(jg), jb, i_startblk, i_endblk, &
+                         i_startidx, i_endidx, rl_start, rl_end)
+
+      DO jk = 1, nlevp1
+        DO jc = i_startidx, i_endidx
+
+          ! add w_incr to first guess
+          p_prog_now%w(jc,jk,jb) = p_prog_now%w(jc,jk,jb) + w_incr(jc,jk,jb) 
+
+        ENDDO  ! jc
+      ENDDO  ! jk
+
+    ENDDO  ! jb
+!$OMP ENDDO
+!$OMP END PARALLEL
+
+    CALL sync_patch_array(SYNC_E,p_patch(jg),p_prog_now%vn)
+    CALL sync_patch_array(SYNC_C,p_patch(jg),p_prog_now%w)
 
 
     ! TO DO: remove qc, where rh<90%
@@ -1603,9 +1660,6 @@ MODULE mo_nh_initicon
       &                  p_prog_now%theta_v      ) !out
 
 
-    CALL sync_patch_array(SYNC_E,p_patch(jg),p_nh_state(jg)%prog(nnow(jg))%vn)
-
-
 !$OMP PARALLEL
 !$OMP WORKSHARE
     ! compute prognostic variable rho*theta_v
@@ -1614,14 +1668,13 @@ MODULE mo_nh_initicon
 !$OMP END WORKSHARE
 !$OMP END PARALLEL
 
-    ! deallocate temporary array for nonhydrostatic pressure
-    DEALLOCATE( zpres_nh, STAT=ist )
+    ! deallocate temporary arrays
+    DEALLOCATE( zpres_nh, vn_incr, nabla4_vn_incr, w_incr, STAT=ist )
     IF (ist /= SUCCESS) THEN
-      CALL finish ( TRIM(routine), 'deallocation for zpres_nh failed' )
+      CALL finish ( TRIM(routine), 'deallocation of auxiliary arrays failed' )
     ENDIF
 
   END SUBROUTINE create_dwdana_atm
-
 
 
 

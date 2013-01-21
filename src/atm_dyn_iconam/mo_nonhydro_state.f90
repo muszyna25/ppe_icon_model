@@ -712,7 +712,7 @@ MODULE mo_nonhydro_state
           &           vert_interp=create_vert_interp_metadata(                    &
           &             vert_intp_type=vintp_types("P","Z","I"),                  &
           &             vert_intp_method=VINTP_METHOD_LIN_NLEVP1 ),               &
-          &           in_group=groups("atmo_ml_vars", "atmo_pl_vars", "atmo_zl_vars") )
+          &           in_group=groups("atmo_ml_vars", "atmo_pl_vars", "atmo_zl_vars", "dwd_ana_vars") )
         
       ELSE
 

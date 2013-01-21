@@ -54,7 +54,7 @@ MODULE mo_nwp_phy_init
   USE mo_exception,           ONLY: message, finish,message_text
   USE mo_vertical_coord_table,ONLY: vct_a, vct
   USE mo_model_domain,        ONLY: t_patch
-  USE mo_impl_constants,      ONLY: min_rlcell, min_rlcell_int, zml_soil,io3_ape
+  USE mo_impl_constants,      ONLY: min_rlcell, min_rlcell_int, zml_soil, io3_ape
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c
   USE mo_loopindices,         ONLY: get_indices_c
   USE mo_parallel_config,     ONLY: nproma
@@ -920,9 +920,9 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
     ENDDO
 !$OMP END DO
 
-!$OMP PARALLEL WORKSHARE
+!$OMP WORKSHARE
         p_prog %tke (:,:,:) =  p_prog_now%tke (:,:,:)
-!$OMP END PARALLEL WORKSHARE
+!$OMP END WORKSHARE
 
 !$OMP END PARALLEL
 
@@ -1061,13 +1061,11 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
       !KF special setting for ICONAM
     tke_min = 1.e-4_wp
         
-!$OMP PARALLEL
 !$OMP PARALLEL WORKSHARE
     prm_diag% ustar (:,:)   = 1._wp
     prm_diag% kedisp(:,:)   = 0._wp
     prm_diag% thvvar(:,:,:) = 1.e-4_wp
 !$OMP END PARALLEL WORKSHARE
-!$OMP END PARALLEL
 
     IF (iwtr<=nsfc_type) prm_diag%z0m_tile(:,:,iwtr) = 1.e-3_wp !see init_surf in echam (or z0m_oce?)
     IF (iice<=nsfc_type) prm_diag%z0m_tile(:,:,iice) = 1.e-3_wp !see init_surf in echam (or z0m_ice?)

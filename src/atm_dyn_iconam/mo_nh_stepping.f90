@@ -103,7 +103,7 @@ MODULE mo_nh_stepping
     &                               iphysproc_short, itconv, itccov, itrad, &
     &                               itradheat, itsso, itsatad, itgwd, inwp, &
     &                               itupdate, itturb, itgscp, itsfc, min_rlcell_int, &
-                                    min_rledge_int
+                                    min_rledge_int, MODE_DWDANA
   USE mo_divergent_modes,     ONLY: divergent_modes_5band
   USE mo_math_divrot,         ONLY: div, rot_vertex
   USE mo_solve_nonhydro,      ONLY: solve_nh
@@ -145,6 +145,7 @@ MODULE mo_nh_stepping
   USE mo_nh_init_utils,       ONLY: hydro_adjust_downward
   USE mo_td_ext_data,         ONLY: set_actual_td_ext_data,  &
                                   & read_td_ext_data_file
+  USE mo_initicon_config,     ONLY: init_mode
 
   IMPLICIT NONE
 
@@ -1052,7 +1053,8 @@ MODULE mo_nh_stepping
 
           ! For real-data runs, perform an extra diffusion call before the first time
           ! step because no other filtering of the interpolated velocity field is done
-          IF (.NOT.ltestcase .AND. linit_dyn(jg) .AND. diffusion_config(jg)%lhdiff_vn) THEN
+          IF (.NOT.ltestcase .AND. linit_dyn(jg) .AND. diffusion_config(jg)%lhdiff_vn .AND. &
+              init_mode /= MODE_DWDANA) THEN
             CALL diffusion_tria(p_nh_state(jg)%prog(n_now), p_nh_state(jg)%diag,            &
               p_nh_state(jg)%metrics, p_patch(jg), p_int_state(jg), bufr(jg), dt_loc, .TRUE.)
           ENDIF
