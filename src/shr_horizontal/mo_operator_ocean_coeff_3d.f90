@@ -404,7 +404,7 @@ CONTAINS
         CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
         DO je =  i_startidx_e, i_endidx_e
 !           p_coeff%edge_position_cc(je,jk,jb)             = gc2cc(p_patch%edges%center(je,jb))
-          p_coeff%edge_position_cc(je,jk,jb)             = p_patch%edges%cartesian_center(je,jb))
+          p_coeff%edge_position_cc(je,jk,jb)             = p_patch%edges%cartesian_center(je,jb)
           p_coeff%moved_edge_position_cc(je,jk,jb)%x(:)  = 0._wp
           p_coeff%upwind_cell_position_cc(je,jk,jb)%x(:) = 0._wp
         END DO
