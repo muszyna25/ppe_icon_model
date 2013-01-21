@@ -709,6 +709,7 @@ run/run_ICON_R2B4_real_mpi_ref -text
 run/test_local_patch_refinement -text
 run/variations.rb -text
 schedulers/ecmwf/def/icon.def -text
+schedulers/ecmwf/def/icon_clim.def -text
 schedulers/ecmwf/def/icon_eps.def -text
 schedulers/ecmwf/def/icon_oper.def -text
 schedulers/ecmwf/def/ifs_trigger.def -text
@@ -716,6 +717,7 @@ schedulers/ecmwf/doc/doc.html -text
 schedulers/ecmwf/gen/cancel_check_progress -text
 schedulers/ecmwf/gen/case_setup -text
 schedulers/ecmwf/gen/case_setup.B-matrix -text
+schedulers/ecmwf/gen/case_setup_clim -text
 schedulers/ecmwf/gen/case_setup_default -text
 schedulers/ecmwf/gen/case_setup_edmf -text
 schedulers/ecmwf/gen/case_setup_eps -text

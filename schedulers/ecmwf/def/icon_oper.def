@@ -39,6 +39,8 @@ set LAST_DATE     20130630
 set MONTHS        000000               #---months to be run (not for oper)
 set ICON_HOME     /home/ms/de/deia 
 set ICON_ID       deia 
+set RES           "R2B06"              #---ICON resolution dynamics
+set RESRAD        "R2B05"              #---ICON resolution radiation (requires namelist)
 
 # HPC environment:
 set SCHOST      c2a
@@ -78,7 +80,7 @@ set compday     1  # 1=Monday, 7=Sunday, 0=never
 set NSTEPS       12000
 #set NSTEPS       2880
 
-# simulation modes: 1:oper, 2:monthly 10day forecasts
+# simulation modes: 1:oper, 2:monthly 10day forecasts, 3:climate (1year)
 set SIMMODE      1
 
 # no. of ensemble members (dummies here)
@@ -187,6 +189,8 @@ suite $USER
     edit EXPNUM2    $EXPNUM2
     edit SUITE2     $SUITE2
     edit NSTEPS     $NSTEPS
+    edit RES        $RES
+    edit RESRAD     $RESRAD
     edit SIMMODE    $SIMMODE
     edit NENS       $NENS
     edit NMEM       $NMEM

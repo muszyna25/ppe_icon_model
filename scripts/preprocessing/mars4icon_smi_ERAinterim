@@ -1,7 +1,7 @@
 #!/bin/ksh
 # -------------------------------------------------------
 # MARS request to read data used in the ifs2icon utility.
-# run as: mars4icon_smi_ERAinterim 2010123100 255 1/to/60
+# run as: mars4icon_smi_ERAinterim 2010123100 0 255 1/to/60 /c2a/perm/ms/de/deia/icon_input/slt-data
 #
 # versions:
 #   mars4icon_smi_32r3+:      conversion of SWVL to soil moisture index SMI
@@ -34,24 +34,38 @@
 
 # --- argument list ---
 
-pdatin=${1:-g12}          # or "${1: 2010070100 2010070200}"
-res="${2:-255}"
-levelist=${3:-1/to/91}
+set -x
+
+pdatin=${1:-g12}          # initial time (or "${1: 2010070100 2010070200}")
+step=${2:-0}              # forecast step (in hours)
+res="${3:-255}"           # resolution
+levelist=${4:-1/to/91}    # levels
+sltdir=${5}               # slt data directory
 
 #expver=fiv7              # land model forced by ERA-Interim
 expver=fiv8               # land model forced by ERA-Interim + GPCP corrected precip
 
+
 # --- data output ---
 
-datadir=/e/uwork/${USER}/icon/ifs.data
+# define data directory (if not set otherwise)
+datadir=${IFSDATADIR:-/e/uwork/${USER}/icon/ifs.data}
 mkdir -p $datadir
 tempdir=${TMPDIR}
 
 # --- date processing ---
 
-cymdg=$(datconv -Cy ${pdatin})
+datconv=${DATCONVCMD:-datconv}
+cymdg=$(${datconv} -Cy ${pdatin})
 typeset -L8 cymd=${cymdg}
 typeset -R2 hh=${cymdg}
+cymdg_fc=$(${datconv} -Cy ${pdatin} -d ${step})
+
+if [ ${step} -eq 0 ]; then
+  type=an
+else
+  type=fc
+fi
 
 # --- read ---
 
@@ -60,7 +74,7 @@ case ${res} in
     799) grd=400 ;;
    1279) grd=640 ;;
 esac
-grib_file=${datadir}/ifs_ERAinterim_T${res}_${cymdg}.grb
+grib_file=${datadir}/ifs_oper_T${res}_${cymdg_fc}.grb
 
 cat > ${tempdir}/MARS_IN.$$ << MARS_IFS2ICON_EOF.$$
 # MARS request for ifs2icon
@@ -71,33 +85,43 @@ retrieve,
         expver   = 1,
         domain   = g,
         stream   = oper,
-        type     = an,
+        type     = ${type},
         date     = ${cymd},
         time     = ${hh},
-        step     = 0,
+        step     = ${step},
         target   = "${grib_file}",
-        param    = u/v/w/t/q/clwc/ciwc/o3, # /crwc/cswc/ rain,snow on/off
-        repres   = sh,                     # spherical harmonics,
+        param    = u/v/w/t/q/clwc/ciwc/o3,              # /crwc/cswc/ rain,snow on/off
+        repres   = sh,                                  # spherical harmonics,
         resol    = ${res},
         grid     = ${grd},
         gaussian = regular,
-        levtype  = ml,                     # model levels,
+        levtype  = ml,                                  # model levels,
         levelist = ${levelist}
 retrieve,
         param    = lnsp/z,
         levelist = 1
 retrieve,
-        param    = src/ci,
+        param    = sst/src/z,
         repres   = gg, 
         resol    = off, 
         levtype  = surface
 retrieve,
+        param    = ci,
+        fieldset = ci0
+compute,
+        formula  = "nobitmap(ci0,0)",                   # missing value -> 0
+        fieldset = ci
+write,  
+        fieldset = ci, 
+        target   = "${grib_file}"
+retrieve,
         class    = rd,
         expver   = ${expver},
-        param    = tsn/skt/stl1/stl2/stl3/stl4/sd/rsn,
+        param    = tsn/skt/stl1/stl2/stl3/stl4/sd/rsn/asn,
         repres   = gg, 
         resol    = off, 
-        levtype  = surface
+        levtype  = surface,
+        fieldset = off
 
 # Retrieve the soil type to fieldset slt
 retrieve,
@@ -105,7 +129,7 @@ retrieve,
         gaussian = reduced,
         target   = "${datadir}/slt-swvl.grb"
 read,
-        source   = "slt-data/slt_t255.grb",
+        source   = "${sltdir}/slt_t255.grb",
         param    = SLT,
         fieldset = slt
 # Retrieve the Volumetric Soil Water Layer 1 to fieldset swvl
@@ -243,5 +267,6 @@ print "Retrieved operational analysis for ${cymdg}. resol=${res} grid=${grd} lev
 
 ls -al ${grib_file}
 rm -f ${tempdir}/MARS_IN.$$
+
 
 exit 0

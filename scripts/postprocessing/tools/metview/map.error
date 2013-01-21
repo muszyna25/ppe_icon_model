@@ -394,8 +394,8 @@ else
     k3=1
 end if
 
-#k1=10
-#k2=10
+#k1=56
+#k2=57
 
 for k=k1 to k2 by k3 do
 
@@ -514,7 +514,7 @@ for k=k1 to k2 by k3 do
    #setoutput(file_pdf)  
    #setoutput(file_eps)  
    #setoutput(file_svg)  
-    setoutput(file_ps)  
+    setoutput(file_ps)
   end if  
   display_window = build_layout()
 

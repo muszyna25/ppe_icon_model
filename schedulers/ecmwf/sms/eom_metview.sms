@@ -74,8 +74,8 @@ if [[ $lmetview = 1 ]] ; then
     STEP=`expr ${DAYS_FC} \* 24`
     DAYS_FC_P1=`expr ${DAYS_FC} + 1`
     export TAILFILE='_0_'${STEP}'_mn'${DAYS_FC_P1}'-'${DAYS_MONTH}'.grb'
-   #./many.error.s ${YYYYMM}01 %INIHOUR% $VERDATE $VERHOUR $DAYS_ENS r2B06 %SUITE%_%EXPNUM%
-    ./many.error.s ${YYYYMM}01 %INIHOUR% $VERDATE $VERHOUR 1         r2B06 %SUITE%_%EXPNUM%
+   #./many.error.s ${YYYYMM}01 %INIHOUR% $VERDATE $VERHOUR $DAYS_ENS %RES% %SUITE%_%EXPNUM%
+    ./many.error.s ${YYYYMM}01 %INIHOUR% $VERDATE $VERHOUR 1         %RES% %SUITE%_%EXPNUM%
 %nopp
     awk 'NR%'${ndiff}'=='${nstart} met.job.all.${nstart} > met.job.${nstart}
 %end
@@ -83,6 +83,11 @@ if [[ $lmetview = 1 ]] ; then
     cat met.job.${nstart}
     chmod u+x ./met.job.${nstart}
     ./met.job.${nstart}
+
+   #echo "/usr/local/apps/Metview/metview4_expt -b ./map.error dei2_013 T ml diff 20120701 00 20120702 00 1 r2B06" > met.job.test
+   #chmod u+x ./met.job.test
+   #./met.job.test
+
     \rm -rf met.job.all.${nstart} met.job.${nstart}
   done
 

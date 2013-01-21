@@ -40,14 +40,14 @@ cp ${dir_mtgrm}/mtgrm_plot.s ${dir_mtgrm}/mtgrm_plot.ncl ${dir_mtgrm}/mtgrm_plot
 # ncl plotting
 PATH=$PATH:/usr/local/apps/ncl/5.2.1/LP64/bin
 export NCARG_ROOT=/usr/local/apps/ncl/5.2.1/LP64
-#./mtgrm_plot.s %YMD%%INIHOUR% R2B06 %EXPNUM% ${outdir_mtg} ${outfile_mtg}
+#./mtgrm_plot.s %YMD%%INIHOUR% %RES% %EXPNUM% ${outdir_mtg} ${outfile_mtg}
 
 
 # -------------------------------------------------
 # meteogram plots
 
 dates=%YMD%%INIHOUR%
-res=R2B06
+res=%RES%
 expnum=%EXPNUM%
 echo "mtgrm_plot.s --- Arguments: dates="${dates}" res="${res}" expnum="${expnum}
 
@@ -102,14 +102,6 @@ do
   done	
 done
 
-#PATH=/usr/local/apps/ncl/5.0.0/LP64/bin:$PATH
-#export NCARG_ROOT=/usr/local/apps/ncl/5.0.0/LP64
-#echo $?
-#ncl -n -p 'iFile="deia_002_2012010300_meteogram.nc"' \
-#  'oFile="/scratch/ms/de/deia/icon_data/deia/002/2012010300/meteo/NWP_iconR2B06_DOM01_2012010300_0001_meteogram.loc1.T2M"' \
-#  'oType="eps"' 'varName="T2M"' 'iStation=1' 'expnum="002"' mtgrm_plot_sfc.ncl || true
-#ncl -h 
-#echo $?
 
 # -------------------------------------------------
 

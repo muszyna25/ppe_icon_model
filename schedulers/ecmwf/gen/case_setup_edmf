@@ -63,8 +63,8 @@ atmo_namelist=NAMELIST_${basename}
 model_equations=3      #  3=non-hydrost. atm.,
 
 # grid parameters
-atmo_dyn_grids="iconR2B06_DOM01.nc"
-atmo_rad_grids="iconR2B05_DOM00.nc"
+atmo_dyn_grids="icon"${res}"_DOM01.nc"
+atmo_rad_grids="icon"${resrad}"_DOM00.nc"
 
 
 # ---------------------------

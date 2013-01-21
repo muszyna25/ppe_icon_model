@@ -27,14 +27,14 @@ setenv -i HOST
 setenv -i TMPDIR
 
 # global definitions:
-set EXPNUM        "015"                #---experiment number---
-set EXPNUM2       "004"                #---experiment number used for score comparison---
+set EXPNUM        "020"                #---experiment number---
+set EXPNUM2       "020"                #---experiment number used for score comparison---
 set SUITE2        "dei2"               #---suite             used for score comparison---
-set FIRST_DATE    20120101
-set LAST_DATE     20120731
-set MONTHS        201201_201207        #---months to be run e.g. 201201_201207
+set FIRST_DATE    20001126
+set LAST_DATE     20001127
+set MONTHS        200011               #---months to be run e.g. 201201_201207
 set ICON_HOME     /home/ms/de/deia 
-set ICON_ID       deia 
+set ICON_ID       deia
 set RES           "R2B06"              #---ICON resolution dynamics
 set RESRAD        "R2B05"              #---ICON resolution radiation (requires namelist)
 
@@ -74,7 +74,7 @@ set NSTEPS       12000
 #set NSTEPS       2880
 
 # simulation modes: 1:oper, 2:monthly 10day forecasts, 3:climate (1year)
-set SIMMODE      2
+set SIMMODE      3
 
 # no. of ensemble members (dummies here)
 #set NENS         10
@@ -220,7 +220,7 @@ suite $USER
 
     family init
         repeat date YMD ${FIRST_DATE} ${LAST_DATE}      # cycle over dates
-        trigger (init:YMD le ( forecast:YMD + 2 )) and (once == complete)
+        trigger  (once == complete)
         complete ($ENABLE_INIT == 0)
 
         extern /ifs_trigger/fct_ifs
@@ -302,48 +302,43 @@ suite $USER
     # FORECAST ----------------------------------------
 
     family forecast
-        repeat date YMD ${FIRST_DATE} ${LAST_DATE}      # cycle over dates
-        trigger (init:YMD gt forecast:YMD) and (forecast:YMD le ( post:YMD + 2 ))
+       #repeat date YMD ${FIRST_DATE} ${LAST_DATE}      # cycle over dates
+        trigger init==complete
         complete ($ENABLE_FORECAST == 0)
 
-        task testday
-            on_ecgate
-            event time_eom
-            event time_domonth
+        loop DATE ( 20001126 20001127 ) do
+            family $DATE
+              edit YMD $DATE
 
-        family prepare
-            trigger  (testday==complete)
-            complete (testday==complete) and not (testday:time_domonth)
-            task pre_clean
-                on_hpc_serial
-                edit SCWALLCLOCKLIMIT 00:20:00
-
-            task dumpstate
-                trigger (pre_clean == complete)
-                complete ($ENABLE_DUMPSTATE == 0) or not (/${USER}/${EXPNUM}/init/setup:enable_dumpstate)
+              family prepare
+                task pre_clean
+                  on_hpc_serial
+                  edit SCWALLCLOCKLIMIT 00:20:00
+	      
+                task dumpstate
+                  trigger (pre_clean == complete)
+                  complete ($ENABLE_DUMPSTATE == 0)
+                  on_hpc_parallel
+                  event prepare
+                  event create_dumpstate
+              endfamily
+	      
+              task model
+                trigger (prepare == complete)
+                complete ($ENABLE_MODEL == 0)
                 on_hpc_parallel
-                edit SCWALLCLOCKLIMIT 00:20:00
-                event prepare
-                event create_dumpstate
+                edit SCWALLCLOCKLIMIT 02:00:00
+                event model_complete
+	      
+              task check_progress
+                trigger  (model == active)
+                complete (model == complete)
+                on_hpc_serial
+                edit SCWALLCLOCKLIMIT 02:00:00
+                meter timesteps 0 $NSTEPS $NSTEPS
 
-        endfamily
-
-        task model
-            trigger (prepare == complete)
-            complete ($ENABLE_MODEL == 0) or (testday==complete) and not (testday:time_domonth)
-            on_hpc_parallel
-            edit SCWALLCLOCKLIMIT 02:00:00
-            event model_complete
-            # auto-shutdown of "check_progress" subtask:
-            #action abort    $SMSFILES/cancel_check_progress
-            #action complete $SMSFILES/cancel_check_progress
-
-        task check_progress
-            trigger (model == active)
-            complete (model == complete) or (testday==complete) and not (testday:time_domonth)
-            on_hpc_serial
-            edit SCWALLCLOCKLIMIT 02:00:00
-            meter timesteps 0 $NSTEPS $NSTEPS
+            endfamily
+        endloop
 
     endfamily
 
@@ -352,7 +347,7 @@ suite $USER
 
     family post
         repeat date YMD ${FIRST_DATE} ${LAST_DATE}      # cycle over dates
-        trigger (forecast:YMD gt post:YMD)
+        trigger forecast==complete
         #trigger (($ENABLE_FORECAST==0) or (../forecast/model:run_model  and ((../forecast/check_progress:progress ge post:VALUE) or (../forecast/model:model_complete))))
         #trigger (../forecast/model:model_complete)
         complete ($ENABLE_POST == 0)
@@ -398,7 +393,7 @@ suite $USER
 
     family endofmonth
         repeat date YMD ${FIRST_DATE} ${LAST_DATE}      # cycle over dates
-        trigger (post:YMD gt endofmonth:YMD) and (forecast:YMD gt endofmonth:YMD)
+        trigger (post:YMD gt endofmonth:YMD) and (forecast==complete)
 
         task testday
             on_ecgate

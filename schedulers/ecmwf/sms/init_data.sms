@@ -34,6 +34,13 @@ if [ %NENS% -gt 0 ]
   else TXTENS=''
 fi
 
+if [ %SIMMODE% -eq 3 ]
+  then in_file_gribedition=1
+  else in_file_gribedition=2
+fi
+
+
+
 # grid directory
 GRIDDIR=%SCPERM%/icon_input/grids
 # ifsdir for IFS initial condition
@@ -56,9 +63,8 @@ IFS_FILENAME_GRB="ifs_oper_*_%YMD%%INIHOUR%.grb"
 ifs_res=`ls ${IFS_FILENAME_GRB} | cut -c 10-13`
 IFS_FILENAME_GRB="${ifsdir}/ifs_oper_${ifs_res}_%YMD%%INIHOUR%.grb"
 
-icon_res="R2B06"
-IFS_FILENAME_NC="ifs2icon_${icon_res}_DOM01.nc"
-ICON_GRIDFILE="icon${icon_res}_DOM01.nc"
+IFS_FILENAME_NC="ifs2icon_%RES%_DOM01.nc"
+ICON_GRIDFILE="icon%RES%_DOM01.nc"
 
 ln -sf $GRIDDIR/icon*DOM*.nc .
 
@@ -143,7 +149,7 @@ cat > NAMELIST_PREPICON << EOF
  out_type                     = 2
  s_maxsize                    = 500000
  l_have3dbuffer               = .false.
- in_file_gribedition          = 2
+ in_file_gribedition          = ${in_file_gribedition}
 /
 ! DEFINITIONS FOR IFS INPUT DATA
 !
@@ -205,18 +211,6 @@ cat > NAMELIST_PREPICON << EOF
  inputname      = "CIWC"
  outputname     = "QI" 
  code           = 247 
- type_of_layer  = "hybridLayer" 
-/
-&input_field_nml  ! rain water content
- inputname      = "CRWC"
- outputname     = "QR" 
- code           = 75 
- type_of_layer  = "hybridLayer" 
-/
-&input_field_nml  ! snow water content
- inputname      = "CSWC"
- outputname     = "QS" 
- code           = 76
  type_of_layer  = "hybridLayer" 
 /
 &input_field_nml  ! ozone mixing ratio
@@ -312,29 +306,50 @@ cat > NAMELIST_PREPICON << EOF
 &input_field_nml  ! soil moisture index layer 1
  inputname      = "SWVL1"
  outputname     = "SMIL1" 
- code           = 80
+ code           = 39
  type_of_layer  = "surface" 
 /
 &input_field_nml  ! soil moisture index layer 2
  inputname      = "SWVL2"
  outputname     = "SMIL2" 
- code           = 81
+ code           = 40
  type_of_layer  = "surface" 
 /
 &input_field_nml  ! soil moisture index layer 3
  inputname      = "SWVL3"
  outputname     = "SMIL3" 
- code           = 82
+ code           = 41
  type_of_layer  = "surface" 
 /
 &input_field_nml  ! soil moisture index layer 4
  inputname      = "SWVL4"
  outputname     = "SMIL4" 
- code           = 83
+ code           = 42
  type_of_layer  = "surface" 
 /
 EOF
+
+# 80-83 changed to 39-42!!!
  
+if [ %SIMMODE% -ne 3 ] ; then
+
+cat >> NAMELIST_PREPICON << EOF
+&input_field_nml  ! rain water content
+ inputname      = "CRWC"
+ outputname     = "QR" 
+ code           = 75 
+ type_of_layer  = "hybridLayer" 
+/
+&input_field_nml  ! snow water content
+ inputname      = "CSWC"
+ outputname     = "QS" 
+ code           = 76
+ type_of_layer  = "hybridLayer" 
+/
+EOF
+
+fi
+
 # -------------------------------------------------
 
 

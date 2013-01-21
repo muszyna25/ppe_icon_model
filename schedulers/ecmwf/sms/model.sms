@@ -55,6 +55,9 @@ outbasedir=%SCTEMP%/%SUITE%/%EXPNUM%/output
 # base name for output and namelist files
 basename=%SUITE%_%EXPNUM%_%YMD%%INIHOUR%${TXTENS}
 
+res=%RES%
+resrad=%RESRAD%
+
 
 # -------------------------------------------------
 

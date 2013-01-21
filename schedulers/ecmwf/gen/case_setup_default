@@ -38,9 +38,10 @@ if [ ! -d $EXPDIR ]; then
 fi
 cd $EXPDIR
 
-ln -sf $INDIR/icon*DOM*.nc .
-ln -sf $EXTPARDIR/extpar*DOM*.nc .
-ln -sf $IFS2ICONDIR/ifs2icon*DOM*.nc .
+ln -sf $INDIR/icon${res}_DOM01.nc .
+ln -sf $INDIR/icon${resrad}_DOM00.nc .
+ln -sf $EXTPARDIR/extpar_icon${res}_DOM01.nc .
+ln -sf $IFS2ICONDIR/ifs2icon_${res}_DOM01.nc .
 
 ln -sf ${RADDIR}/ECHAM6_CldOptProps.nc .
 ln -sf ${RADDIR}/rrtmg_lw.nc .
@@ -63,8 +64,8 @@ atmo_namelist=NAMELIST_${basename}
 model_equations=3      #  3=non-hydrost. atm.,
 
 # grid parameters
-atmo_dyn_grids="iconR2B06_DOM01.nc"
-atmo_rad_grids="iconR2B05_DOM00.nc"
+atmo_dyn_grids="icon"${res}"_DOM01.nc"
+atmo_rad_grids="icon"${resrad}"_DOM00.nc"
 
 
 # ---------------------------
@@ -149,13 +150,13 @@ cat > ${atmo_namelist} << EOF
  ifeedback_type               = 2
 /
 &initicon_nml
- init_mode                   = 2           ! initialization mode (2 for IFS ana, 1 for DWD ana)
- nlev_in                     = 91          ! number of levels of input data
- zpbl1                       = 500. 
- zpbl2                       = 1000. 
+ init_mode                    = 2           ! initialization mode (2 for IFS ana, 1 for DWD ana)
+ nlev_in                      = 91          ! number of levels of input data
+ zpbl1                        = 500. 
+ zpbl2                        = 1000. 
 /
 &io_nml
- lflux_avg                   = .FALSE.    
+ lflux_avg                    = .FALSE.    
 /
 &run_nml
  num_lev                      = 90
@@ -244,9 +245,9 @@ cat > ${atmo_namelist} << EOF
 &turbdiff_nml
  tkhmin                       = 0.2
  tkmmin                       = 0.2
- pat_len                      =  100.
- c_diff                       =  0.2
- rat_sea                      =  10.0
+ pat_len                      = 100.
+ c_diff                       = 0.2
+ rat_sea                      = 10.0
 /
 &lnd_nml
  ntiles                       = 3
