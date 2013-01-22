@@ -279,6 +279,12 @@ MODULE mo_name_list_output
   INTEGER, PARAMETER :: IEDGE                 = 2
   INTEGER, PARAMETER :: IVERT                 = 3
 
+
+  ! fields for which typeOfSecondFixedSurface must be re-set
+  CHARACTER(LEN=12), PARAMETER :: sfs_name_list(2) =(/"z_ifc       ", "topography_c"/)
+  ! typeOfSecondFixedSurface to be used
+  INTEGER          , PARAMETER :: second_tos(2)    =(/101, 101/)
+
 CONTAINS
   
   !------------------------------------------------------------------------------------------------
@@ -2820,6 +2826,7 @@ CONTAINS
 
     CHARACTER(LEN=*), PARAMETER :: routine = 'mo_name_list_output/add_variables_to_vlist'
 
+
     vlistID = of%cdiVlistID
 
     nlev   = num_lev(of%log_patch_id)
@@ -2880,16 +2887,15 @@ CONTAINS
       IF ( of%output_type == FILETYPE_GRB2 ) THEN
         CALL vlistDefVarDatatype(vlistID, varID, info%grib2%bits)
 
-        IF (tolower(TRIM(info%name)) == "z_ifc" ) THEN
-          !   For HHL/z_ifc, set "typeOfSecondFixedSurface = 101 (mean sea level)"
-          !   that is, a Fortran equivalent of:
-          !   GRIB_CHECK(grib_set_long(gh, "typeOfSecondFixedSurface", 101), 0);
-
-          CALL vlistDefVarTypeOfSfs(vlistID, varID, 101)
-          ! additional special treatment needed for
-          ! HBAS_CON: typeOfSecondFixedSurface = 101
-          ! HTOP_CON: typeOfSecondFixedSurface = 101
-          ! CLCL    : typeOfSecondFixedSurface = 1
+        ! For HHL/z_ifc, HSURF/topography_c set "typeOfSecondFixedSurface = 101 (mean sea level)"
+        ! that is, a Fortran equivalent of:
+        ! GRIB_CHECK(grib_set_long(gh, "typeOfSecondFixedSurface", 101), 0);
+        ! additional special treatment needed for
+        ! HBAS_CON: typeOfSecondFixedSurface = 101
+        ! HTOP_CON: typeOfSecondFixedSurface = 101
+        ! CLCL    : typeOfSecondFixedSurface = 1
+        IF ( get_id(TRIM(info%name)) /= -1 ) THEN
+          CALL vlistDefVarTypeOfSfs(vlistID, varID, second_tos(get_id(TRIM(info%name))))
         ENDIF
       ELSE ! NetCDF
         CALL vlistDefVarDatatype(vlistID, varID, info%cf%datatype)
@@ -2904,6 +2910,31 @@ CONTAINS
     ENDDO
     !
   END SUBROUTINE add_variables_to_vlist
+
+
+
+  !------------------------------------------------------------------------------------------------
+  !> FUNCTION get_id:
+  !  Search for name in String-Array sfs_name_list containing all variables for which 
+  !  typeOfSecondFixedSurface must be re-set. Returns variable-ID which is used to determine 
+  !  the proper typeOfSecondFixedSurface from second_tos. 
+  !  If no match is found, get_id is set to -1.
+  ! 
+  !
+  FUNCTION get_id(in_str)
+    INTEGER                      :: get_id, iname
+    CHARACTER(LEN=*), INTENT(IN) :: in_str
+    CHARACTER(*), PARAMETER :: routine = TRIM("mo_name_list_output:get_id")
+
+    get_id = -1
+    LOOP_GROUPS : DO iname=1,SIZE(sfs_name_list)
+      IF (toupper(TRIM(in_str)) == toupper(TRIM(sfs_name_list(iname)))) THEN
+        get_id = iname
+        EXIT LOOP_GROUPS
+      END IF
+    END DO LOOP_GROUPS 
+  END FUNCTION get_id
+
 
 
   !------------------------------------------------------------------------------------------------
