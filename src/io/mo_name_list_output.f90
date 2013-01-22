@@ -3059,13 +3059,16 @@ CONTAINS
     ! variables "RLON", "RLAT"
     is_output_process = my_process_is_io() .OR. &
       &                 ((.NOT. use_async_name_list_io) .AND. my_process_is_stdio())
-    IF (of%name_list%output_grid .AND. &
-      & is_output_process        .AND. &
-      & (of%name_list%filetype == FILETYPE_GRB2)) THEN
-      CALL write_grid_info_grb2(of)
-    END IF
 
-    IF(of%cdiFileID /= CDI_UNDEFID) CALL streamClose(of%cdiFileID)
+    IF(of%cdiFileID /= CDI_UNDEFID) THEN
+      IF (of%name_list%output_grid .AND. &
+        & is_output_process        .AND. &
+        & (of%name_list%filetype == FILETYPE_GRB2)) THEN
+        CALL write_grid_info_grb2(of)
+      END IF
+      
+      CALL streamClose(of%cdiFileID)
+    END IF
 
     of%cdiFileID = CDI_UNDEFID
 
