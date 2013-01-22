@@ -71,7 +71,7 @@ MODULE mo_nh_torus_exp
 
   !DEFINED PARAMETERS:
   REAL(wp), PARAMETER :: zp0     = 100000._wp !< surface pressure
-  REAL(wp), PARAMETER :: zh0     = 1200._wp   !< height (m) above which temperature increases
+  REAL(wp), PARAMETER :: zh0     = 0._wp   !< height (m) above which temperature increases
   REAL(wp), PARAMETER :: dtdz    = 0.003_wp   !< lapse rate
   REAL(wp), PARAMETER :: zt0     = 300._wp
 
@@ -80,9 +80,9 @@ MODULE mo_nh_torus_exp
   REAL(wp),ALLOCATABLE :: vt_geostrophic(:,:,:) !geostrophic wind along the tangent of triangle
   REAL(wp) :: shflx_cbl                   !sensible heat flux
 
-  LOGICAL  :: is_dry_cbl
+  LOGICAL  :: is_dry_cbl, set_sst_cbl
 
-  PUBLIC :: init_nh_state_cbl, sst_cbl, is_dry_cbl, ugeo, &
+  PUBLIC :: init_nh_state_cbl, sst_cbl, is_dry_cbl, ugeo, set_sst_cbl, &
             vgeo, umean, vmean, vt_geostrophic, shflx_cbl
 
 !--------------------------------------------------------------------
@@ -147,7 +147,7 @@ MODULE mo_nh_torus_exp
     i_startblk   = ptr_patch%cells%start_blk(i_rcstartlev,1)
 
     !Set some reference density
-    IF(shflx_cbl<0._wp)THEN
+    IF(set_sst_cbl)THEN
       rho_sfc = zp0 / (rd * sst_cbl)
     ELSE
       rho_sfc = zp0 / (rd * zt0 )

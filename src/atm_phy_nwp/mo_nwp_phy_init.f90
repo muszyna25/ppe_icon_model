@@ -119,7 +119,7 @@ MODULE mo_nwp_phy_init
 
   USE mo_datetime,            ONLY: iso8601
   USE mo_time_config,         ONLY: time_config
-  USE mo_nh_torus_exp,        ONLY: sst_cbl, is_dry_cbl, shflx_cbl
+  USE mo_nh_torus_exp,        ONLY: sst_cbl, is_dry_cbl, set_sst_cbl
 
   IMPLICIT NONE
 
@@ -257,7 +257,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
  
       ELSE IF (ltestcase .AND. nh_test_name == 'CBL' ) THEN !
         
-        IF(shflx_cbl<0._wp)THEN !prescribe SST
+        IF(set_sst_cbl)THEN !prescribe SST
           p_prog_lnd_now%t_g(i_startidx:i_endidx,jb)  = sst_cbl
           p_prog_lnd_new%t_g(i_startidx:i_endidx,jb)  = sst_cbl
         ELSE !prescribes flux to just assign nlev values temporarily
