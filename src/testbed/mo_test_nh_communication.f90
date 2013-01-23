@@ -54,7 +54,6 @@ MODULE mo_test_nh_communication
   ! for the nh run
   USE mo_kind,                ONLY: wp
   USE mo_nonhydro_types,      ONLY: t_nh_state, t_nh_prog, t_nh_diag, t_nh_metrics
-  USE mo_nonhydro_state,      ONLY: bufr
   USE mo_nonhydrostatic_config,ONLY: iadv_rcf, lhdiff_rcf, l_nest_rcf, itime_scheme
   USE mo_diffusion_config,     ONLY: diffusion_config
   USE mo_dynamics_config,      ONLY: nnow,nnew, nnow_rcf, nnew_rcf, nsav1, nsav2

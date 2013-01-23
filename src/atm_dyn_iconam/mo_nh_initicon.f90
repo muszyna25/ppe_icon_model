@@ -677,7 +677,7 @@ MODULE mo_nh_initicon
       routine = 'mo_nh_initicon:read_ifs_sfc'
 
     CHARACTER(LEN=filename_max) :: ifs2icon_file(max_dom)
-    LOGICAL :: l_sst_present = .FALSE.     !TRUE if SST is present in the IFS input file
+    LOGICAL :: l_sst_present     !TRUE if SST is present in the IFS input file
 
 
     !-------------------------------------------------------------------------
@@ -1390,10 +1390,10 @@ MODULE mo_nh_initicon
 
 
   !>
-  !! Analysis is created, by addin the DA increments 
+  !! Analysis is created, by adding the DA increments 
   !!
   !!
-  !! Analysis is created, by addin the DA increments 
+  !! Analysis is created, by adding the DA increments 
   !! (atmosphere only).
   !! First the FG in terms of the NH prognostic set of variables
   !! is converted into p, T, q_v, q_c, q_i, q_r, q_s.
@@ -1422,11 +1422,13 @@ MODULE mo_nh_initicon
     INTEGER,         POINTER :: iidx(:,:,:), iblk(:,:,:)
 
     REAL(wp), ALLOCATABLE :: zpres_nh(:,:,:), vn_incr(:,:,:), nabla4_vn_incr(:,:,:), w_incr(:,:,:)
-    REAL(wp) :: vn_incr_smt, smtfac
+    REAL(wp) :: vn_incr_smt
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
       routine = 'mo_nh_initicon:create_dwdana_atm'
 
+    ! nondimensional diffusion coefficient for interpolated velocity increment
+    REAL(wp), PARAMETER :: smtfac=0.015_wp
 
     !-------------------------------------------------------------------------
 
@@ -1442,8 +1444,6 @@ MODULE mo_nh_initicon
     nblks_e   = p_patch(jg)%nblks_e
     i_nchdom  = MAX(1,p_patch(jg)%n_childdom)
 
-    ! nondimensional diffusion coefficient for interpolated velocity increment
-    smtfac    = 0.015_wp
 
     ! allocate temporary array for nonhydrostatic pressure, interpolated DA increment for vn and its second derivative
     ALLOCATE(zpres_nh(nproma,nlev,nblks_c),vn_incr(nproma,nlev,nblks_e),                &

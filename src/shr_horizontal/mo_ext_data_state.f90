@@ -103,7 +103,8 @@ MODULE mo_ext_data_state
     &                              GRID_UNSTRUCTURED_VERT, GRID_REFERENCE,         &
     &                              GRID_CELL, GRID_EDGE, GRID_VERTEX, ZA_SURFACE,  &
     &                              ZA_HYBRID, ZA_PRESSURE, DATATYPE_FLT32,         &
-    &                              DATATYPE_PACK16, FILETYPE_NC2, TSTEP_CONSTANT
+    &                              DATATYPE_PACK16, FILETYPE_NC2, TSTEP_CONSTANT,  &
+    &                              TSTEP_MAX
 
   IMPLICIT NONE
 
@@ -473,7 +474,7 @@ CONTAINS
     INTEGER :: ibits         !< "entropy" of horizontal slice
 
     INTEGER          :: jsfc
-    CHARACTER(LEN=1) :: csfc
+    CHARACTER(LEN=2) :: csfc
 
     !--------------------------------------------------------------
 
@@ -867,15 +868,30 @@ CONTAINS
       grib2_desc = t_grib2_var( 2, 0, 4, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'plcov_mx', p_ext_atm%plcov_mx, &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
-        &           grib2_desc, ldims=shape2d_c, loutput=.FALSE. )
+        &           grib2_desc, ldims=shape2d_c, loutput=.FALSE.,   &
+        &           isteptype=TSTEP_MAX )
 
       ! plcov_t     p_ext_atm%plcov_t(nproma,nblks_c,ntiles_total)
       cf_desc    = t_cf_var('vegetation_area_fraction_vegetation_period', '-',&
         &                   'Plant covering degree in the vegetation phase', DATATYPE_FLT32)
       grib2_desc = t_grib2_var( 2, 0, 4, ibits, GRID_REFERENCE, GRID_CELL)
-      CALL add_var( p_ext_atm_list, 'plcov_t', p_ext_atm%plcov_t, &
-        &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,  &
-        &           grib2_desc, ldims=shape3d_nt, loutput=.FALSE. )
+      CALL add_var( p_ext_atm_list, 'plcov_t', p_ext_atm%plcov_t,    &
+        &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,     &
+        &           grib2_desc, ldims=shape3d_nt, lcontainer=.TRUE., &
+        &           loutput=.FALSE. )
+
+      ALLOCATE(p_ext_atm%plcov_t_ptr(ntiles_total))
+      DO jsfc = 1,ntiles_total
+        WRITE(csfc,'(i2)') jsfc 
+        CALL add_ref( p_ext_atm_list, 'plcov_t',                         &
+               & 'plcov_t_'//ADJUSTL(TRIM(csfc)),                        &
+               & p_ext_atm%plcov_t_ptr(jsfc)%p_2d,                       &
+               & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                     &
+               & t_cf_var('plcov_t_'//csfc, '', '', DATATYPE_FLT32),     &
+               & t_grib2_var(2, 0, 4, ibits, GRID_REFERENCE, GRID_CELL), &
+               & ldims=shape2d_c, loutput=.TRUE.)
+      ENDDO
+
 
 
       ! Max Leaf area index
@@ -886,7 +902,8 @@ CONTAINS
       grib2_desc = t_grib2_var( 2, 0, 28, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'lai_mx', p_ext_atm%lai_mx,     &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
-        &           grib2_desc, ldims=shape2d_c, loutput=.FALSE. )
+        &           grib2_desc, ldims=shape2d_c, loutput=.FALSE.,   &
+        &           isteptype=TSTEP_MAX )
 
       ! sai_t       p_ext_atm%sai_t(nproma,nblks_c,ntiles_total+ntiles_water)
       cf_desc    = t_cf_var('surface_area_index_vegetation_period', '-',&
@@ -921,7 +938,7 @@ CONTAINS
       grib2_desc = t_grib2_var( 2, 0, 32, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'rootdp', p_ext_atm%rootdp,     &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
-        &           grib2_desc, ldims=shape2d_c, loutput=.FALSE. )
+        &           grib2_desc, ldims=shape2d_c, loutput=.TRUE. )
 
       ! rootdp_t      p_ext_atm%rootdp_t(nproma,nblks_c,ntiles_total)
       cf_desc    = t_cf_var('root_depth_of_vegetation', 'm',&
@@ -1111,7 +1128,7 @@ CONTAINS
       ! fill the separate variables belonging to the container frac_t
       ALLOCATE(p_ext_atm%frac_t_ptr(ntiles_total+ntiles_water))
       DO jsfc = 1,ntiles_total + ntiles_water
-      WRITE(csfc,'(i1)') jsfc
+      WRITE(csfc,'(i2)') jsfc
       CALL add_ref( p_ext_atm_list, 'frac_t', 'frac_t_'//TRIM(ADJUSTL(csfc)),  &
         &           p_ext_atm%frac_t_ptr(jsfc)%p_2d,                           &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,   &
@@ -1139,14 +1156,14 @@ CONTAINS
       !
       ! soiltyp      p_ext_atm%soiltyp(nproma,nblks_c)
       cf_desc    = t_cf_var('soil_type', '-','soil type', DATATYPE_FLT32)
-      grib2_desc = t_grib2_var( 2, 3, 0, ibits, GRID_REFERENCE, GRID_CELL)
+      grib2_desc = t_grib2_var( 2, 3, 196, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'soiltyp', p_ext_atm%soiltyp,   &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
         &           grib2_desc, ldims=shape2d_c, loutput=.FALSE. )
 
       ! soiltyp_t      p_ext_atm%soiltyp_t(nproma,nblks_c,ntiles_total)
       cf_desc    = t_cf_var('soil_type', '-','soil type', DATATYPE_FLT32)
-      grib2_desc = t_grib2_var( 2, 3, 0, ibits, GRID_REFERENCE, GRID_CELL)
+      grib2_desc = t_grib2_var( 2, 3, 196, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'soiltyp_t', p_ext_atm%soiltyp_t,   &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,        &
         &           grib2_desc, ldims=shape3d_nt, loutput=.FALSE. )

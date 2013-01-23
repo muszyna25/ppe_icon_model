@@ -323,7 +323,8 @@ MODULE mo_ext_data_types
 
 
     ! for output purposes.
-    TYPE(t_ptr_2d3d),ALLOCATABLE :: frac_t_ptr(:)
+    TYPE(t_ptr_2d3d), ALLOCATABLE :: frac_t_ptr(:)
+    TYPE(t_ptr_2d3d), ALLOCATABLE :: plcov_t_ptr(:)
 
   END TYPE t_external_atmos
 
