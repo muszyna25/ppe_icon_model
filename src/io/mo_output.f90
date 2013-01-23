@@ -465,7 +465,7 @@ CONTAINS
 
     CALL set_restart_attribute( 'current_caltime', datetime%caltime )
     CALL set_restart_attribute( 'current_calday' , datetime%calday )
-!PR
+
     CALL set_restart_attribute( 'current_daysec' , datetime%daysec )
 
     CALL set_restart_attribute( 'nold'    , nold    (jg))
@@ -512,7 +512,6 @@ CONTAINS
         CALL set_restart_attribute( TRIM(attname), opt_lcall_phy(jg,jp) )
       ENDDO
     ENDIF
-
 
     IF (l_have_output) THEN
       CALL set_restart_attribute( 'next_output_file', jfile+1 )

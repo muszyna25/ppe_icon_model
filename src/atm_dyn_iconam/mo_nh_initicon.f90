@@ -569,12 +569,16 @@ MODULE mo_nh_initicon
         CALL read_netcdf_data_single (ncid, 'QR', p_patch(jg)%n_patch_cells_g,          &
         &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
         &                     nlev_in,initicon(jg)%atm_in%qr)
+      ELSE
+        initicon(jg)%atm_in%qr(:,:,:)=0._wp
       ENDIF
 
       IF (lreadqs) THEN
         CALL read_netcdf_data_single (ncid, 'QS', p_patch(jg)%n_patch_cells_g,          &
         &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
         &                     nlev_in,initicon(jg)%atm_in%qs)
+      ELSE
+        initicon(jg)%atm_in%qs(:,:,:)=0._wp
       ENDIF
 
       CALL read_netcdf_data (ncid, TRIM(psvar), p_patch(jg)%n_patch_cells_g,          &
