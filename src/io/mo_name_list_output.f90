@@ -1221,9 +1221,9 @@ CONTAINS
 
           ! Check for matching name
           IF(idx == 0) THEN
-            IF(varlist(ivar) /= element%field%info%name) CYCLE
+            IF(TRIM(varlist(ivar)) /= TRIM(tolower(element%field%info%name))) CYCLE
           ELSE
-            IF(varlist(ivar) /= element%field%info%name(1:idx-1)) CYCLE
+            IF(TRIM(varlist(ivar)) /= TRIM(tolower(element%field%info%name(1:idx-1)))) CYCLE
           ENDIF
 
           ! Found it, add it to the variable list of output file

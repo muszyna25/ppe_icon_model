@@ -921,7 +921,8 @@
     END SUBROUTINE rbf_vec_compute_coeff_lonlat
 
 
-    !> Computed combined coefficient/finite difference matrix for lon-lat interpolation.
+    !> Computes combined coefficient/finite difference matrix for lon-lat interpolation.
+    !!
     !! This routine computes the coefficients needed for reconstructing the gradient
     !! of a cell-based variable at the cell center. The operations performed here
     !! combine taking the centered-difference gradient (like in grad_fd_norm) at
