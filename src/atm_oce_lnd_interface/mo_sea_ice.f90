@@ -53,7 +53,7 @@ MODULE mo_sea_ice
   USE mo_exception,           ONLY: finish, message
   USE mo_impl_constants,      ONLY: success, max_char_length, sea_boundary 
   USE mo_physical_constants,  ONLY: rhoi, rhos, rho_ref,ki,ks,Tf,albi,albim,albsm,albs, mu, &
-    &                               alf, alv, albedoW, clw, cpd, zemiss_def,rd, stbo,tmelt
+    &                               alf, alv, albedoW, clw, cpd, zemiss_def,rd, stbo,tmelt, ci
   USE mo_math_constants,      ONLY: rad2deg
   USE mo_ocean_nml,           ONLY: no_tracer, init_oce_prog, iforc_oce, &
     &                               FORCING_FROM_FILE_FLUX, i_sea_ice
@@ -1036,6 +1036,14 @@ CONTAINS
             &   dnonsolardT,    &
             &   Tfw,            &
             &   doy)
+    ELSE IF ( i_therm_model == 4 )  THEN
+      WHERE ( hi(:,:) > 0._wp )
+      Tsurf=min(0._wp, Tsurf+ & 
+        &       (SUM(SPREAD(SWin,2,kice)*alb, 3)+nonsolar + ki/hi*(Tf-Tsurf)) &
+        &               /(ci*rhoi*0.05_wp/dtime-dnonsolardT+ki/hi))
+      ELSEWHERE
+        Tsurf(:,:) = Tf
+      ENDWHERE
     END IF
 
    END SUBROUTINE ice_fast

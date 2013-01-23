@@ -156,8 +156,9 @@ CONTAINS
           ! Calculate new ice temperature wherever there is ice 
           ! nonsolar >0 and SWin > 0  for downward flux 
           ! dnonsolardT >0 for downward flux increasing with increasing Tsurf
+          ! We add constant heat capacity to B to stabilize the atmosphere
           
-          B = -dnonsolardT(jc,k)                                                        ! Eq.  8
+          B = -dnonsolardT(jc,k) + rhoi*0.10_wp*idt2*ci                                 ! Eq.  8
           A = -nonsolar(jc,k)                                                   &
             &   - SUM( ( 1.0_wp - alb(jc,k,:) )*SWin(jc,:) )*( 1._wp - I )      &
             &   - Tsurf(jc,k)*B                                                         ! Eq.  7

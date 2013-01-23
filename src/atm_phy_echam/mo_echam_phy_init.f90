@@ -469,20 +469,21 @@ CONTAINS
               field% T2         (jc,1, jb  ) = Tf
               field% hs         (jc,1, jb  ) = 0._wp
               IF ( field%tsfc_tile(jc,jb,iwtr) <= Tf + tmelt ) THEN
-                ! Set the ice surface temperature to the same value as the lowest model level above
-                ! surface. This is copied from the JWw and LDF cases.
+!                ! Set the ice surface temperature to the same value as the lowest model level above
+!                ! surface. This is copied from the JWw and LDF cases.
 !                field%tsfc_tile(jc,jb,iice) = &
 !                  &     p_hydro_state(jg)%prog(nnow(jg))%temp(jc,nlev,jb)
-                field%tsfc_tile(jc,jb,iice) = Tf + tmelt
 
                 field%Tsurf (jc,1,jb) = field% tsfc_tile(jc,jb,iice) - tmelt
                 field%conc  (jc,1,jb) = 0.9_wp
                 field%hi    (jc,1,jb) = 1.0_wp
                 field%seaice(jc,  jb) = field%conc(jc,1,jb)
+                field%isice (jc,1,jb) = .true.
               ELSE
                 field%conc  (jc,1,jb) = 0._wp
                 field%hi    (jc,1,jb) = 0._wp
                 field%seaice(jc,  jb) = field%conc(jc,1,jb)
+                field%isice (jc,1,jb) = .false.
               ENDIF
               field% tsfc(jc,jb) = field%seaice(jc,jb)*field%tsfc_tile(jc,jb,iice) &
                 &       + ( 1._wp - field%seaice(jc,jb) )*field%tsfc_tile(jc,jb,iwtr)

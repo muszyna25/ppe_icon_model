@@ -169,11 +169,12 @@ CONTAINS
           END IF
 
           ! F_S conductive heat flux through the ice
-          F_S = k_effective * (Tfw(jc) - Tsurf(jc,k))  
+          F_S = k_effective * (Tfw(jc) - Tsurf(jc,k))
 
 
           IF (i_therm_model == 2 ) THEN
-            deltaTdenominator = k_effective  - dnonsolardT(jc,k)
+          ! We add constant heat capacity to deltaTdenominator to stabilize the atmosphere
+            deltaTdenominator = k_effective  - dnonsolardT(jc,k) + rhoi*0.05_wp*ci/dtime
           ELSE IF (i_therm_model == 3) THEN
             ! dLWdT is missing!
             deltaTdenominator = k_effective + 4.0_wp*zemiss_def*StBo*(Tsurf(jc,k)+tmelt)**3
