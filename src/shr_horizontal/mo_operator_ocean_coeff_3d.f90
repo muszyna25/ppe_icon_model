@@ -3186,8 +3186,25 @@ CONTAINS
                   & + triangle_area(cell1_cc, vertex_cc, cell2_cc)
                 ! edge with indices ile, ibe is boundary edge                
               ELSE IF ( p_patch_3D%lsm_e(ile,jk,ibe) == boundary ) THEN
+!                 zarea_fraction(jv,jk,jb) = zarea_fraction(jv,jk,jb)  &
+!                   & + 0.5_wp*triangle_area(cell1_cc, vertex_cc, cell2_cc)
+                ! add only the sea dual area, ie the trinalge are between
+                ! the vertex, edge centre, and sea cell center
+                ! use cell1_cc%x for the center of the sea cell
+                IF (p_patch_3D%lsm_c(icell_idx_1,jk,icell_blk_1) <= sea_boundary) THEN
+                  ! just a consistence check
+                  IF (p_patch_3D%lsm_c(icell_idx_2,jk,icell_blk_2) <= sea_boundary) &
+                     CALL finish(routine, "Incosistent cell and edge lsm")
+                ELSE
+                  ! the idx_2 cell is the sea cell
+                  cell1_cc%x  = patch%cells%cartesian_center(icell_idx_2,icell_blk_2)%x
+                  IF (p_patch_3D%lsm_c(icell_idx_1,jk,icell_blk_1) <= sea_boundary) &
+                     CALL finish(routine, "Incosistent cell and edge lsm")
+                ENDIF  
+                  
                 zarea_fraction(jv,jk,jb) = zarea_fraction(jv,jk,jb)  &
-                  & + 0.5_wp*triangle_area(cell1_cc, vertex_cc, cell2_cc)
+                  & + triangle_area(cell1_cc, vertex_cc, patch%edges%cartesian_center(ile,ibe))
+              
               END IF
             END DO
           ENDIF !( i_v_ctr(jv,jk,jb) == patch%verts%num_edges(jv,jb) )
