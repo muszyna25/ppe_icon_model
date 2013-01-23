@@ -32,7 +32,6 @@ then
 
   SETDIR=%SCBASEDIR%/gen
   cp ${SETDIR}/case_setup        ${SETDIRTMP}
-  cp ${SETDIR}/mapfile_vlist.txt ${SETDIRTMP}
 
 else
 
@@ -43,7 +42,6 @@ else
 
     SETDIR=%SCBASEDIR%/gen
     cp ${SETDIR}/case_setup_eps    ${SETDIRTMP}/case_setup
-    cp ${SETDIR}/mapfile_vlist.txt ${SETDIRTMP}
 
   done
 
