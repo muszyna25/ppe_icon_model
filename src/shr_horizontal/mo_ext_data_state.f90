@@ -61,6 +61,7 @@ MODULE mo_ext_data_state
     &                              ihs_ocean, ihs_atm_temp, ihs_atm_theta, inh_atmosphere, &
     &                              max_char_length, min_rlcell_int,                        &
     &                              VINTP_METHOD_LIN
+  USE mo_math_constants,     ONLY: dbl_eps
   USE mo_physical_constants, ONLY: ppmv2gg, zemiss_def
   USE mo_run_config,         ONLY: iforcing
   USE mo_ocean_nml,          ONLY: iforc_oce, iforc_type, iforc_len
@@ -871,6 +872,15 @@ CONTAINS
         &           grib2_desc, ldims=shape2d_c, loutput=.FALSE.,   &
         &           isteptype=TSTEP_MAX )
 
+      ! plcov     p_ext_atm%plcov(nproma,nblks_c)
+      cf_desc    = t_cf_var('vegetation_area_fraction_vegetation_period', '-',&
+        &                   'Plant covering degree in the vegetation phase', DATATYPE_FLT32)
+      grib2_desc = t_grib2_var( 2, 0, 4, ibits, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( p_ext_atm_list, 'plcov', p_ext_atm%plcov,       &
+        &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
+        &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,    &
+        &           isteptype=TSTEP_CONSTANT )
+
       ! plcov_t     p_ext_atm%plcov_t(nproma,nblks_c,ntiles_total)
       cf_desc    = t_cf_var('vegetation_area_fraction_vegetation_period', '-',&
         &                   'Plant covering degree in the vegetation phase', DATATYPE_FLT32)
@@ -880,17 +890,17 @@ CONTAINS
         &           grib2_desc, ldims=shape3d_nt, lcontainer=.TRUE., &
         &           loutput=.FALSE. )
 
-      ALLOCATE(p_ext_atm%plcov_t_ptr(ntiles_total))
-      DO jsfc = 1,ntiles_total
-        WRITE(csfc,'(i2)') jsfc 
-        CALL add_ref( p_ext_atm_list, 'plcov_t',                         &
-               & 'plcov_t_'//ADJUSTL(TRIM(csfc)),                        &
-               & p_ext_atm%plcov_t_ptr(jsfc)%p_2d,                       &
-               & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                     &
-               & t_cf_var('plcov_t_'//csfc, '', '', DATATYPE_FLT32),     &
-               & t_grib2_var(2, 0, 4, ibits, GRID_REFERENCE, GRID_CELL), &
-               & ldims=shape2d_c, loutput=.TRUE.)
-      ENDDO
+!!$      ALLOCATE(p_ext_atm%plcov_t_ptr(ntiles_total))
+!!$      DO jsfc = 1,ntiles_total
+!!$        WRITE(csfc,'(i2)') jsfc 
+!!$        CALL add_ref( p_ext_atm_list, 'plcov_t',                         &
+!!$               & 'plcov_t_'//ADJUSTL(TRIM(csfc)),                        &
+!!$               & p_ext_atm%plcov_t_ptr(jsfc)%p_2d,                       &
+!!$               & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                     &
+!!$               & t_cf_var('plcov_t_'//csfc, '', '', DATATYPE_FLT32),     &
+!!$               & t_grib2_var(2, 0, 4, ibits, GRID_REFERENCE, GRID_CELL), &
+!!$               & ldims=shape2d_c, loutput=.TRUE.)
+!!$      ENDDO
 
 
 
@@ -904,6 +914,17 @@ CONTAINS
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
         &           grib2_desc, ldims=shape2d_c, loutput=.FALSE.,   &
         &           isteptype=TSTEP_MAX )
+
+      ! Leaf area index
+      !
+      ! lai       p_ext_atm%lai(nproma,nblks_c)
+      cf_desc    = t_cf_var('leaf_area_index_vegetation_period', '-',&
+        &                   'Leaf Area Index', DATATYPE_FLT32)
+      grib2_desc = t_grib2_var( 2, 0, 28, ibits, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( p_ext_atm_list, 'lai', p_ext_atm%lai,           &
+        &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
+        &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,   &
+        &           isteptype=TSTEP_CONSTANT )
 
       ! sai_t       p_ext_atm%sai_t(nproma,nblks_c,ntiles_total+ntiles_water)
       cf_desc    = t_cf_var('surface_area_index_vegetation_period', '-',&
@@ -3312,10 +3333,96 @@ CONTAINS
 
     END DO  !jg
 
-  
+
+
+    ! Diagnose aggregated external parameter fields
+    ! (mainly for output putposes)
+    !
+    CALL diagnose_ext_aggr (p_patch, ext_data)
+
 
   END SUBROUTINE init_index_lists
 
+
+
+  !-------------------------------------------------------------------------
+  !>
+  !! Diagnose aggregated external fields
+  !!
+  !! Aggregated external fields are diagnosed based on tile based external 
+  !! fields. This is mostly done for output and visualization purposes 
+  !! i.e. meteograms.
+  !!
+  !! @par Revision History
+  !! Initial revision by Daniel Reinert, DWD (2013-01-23)
+  !!
+  SUBROUTINE diagnose_ext_aggr (p_patch, ext_data)
+
+    TYPE(t_patch), INTENT(IN)            :: p_patch(:)
+    TYPE(t_external_data), INTENT(INOUT) :: ext_data(:)
+
+    INTEGER  :: jg,jb,jt,ic,jc
+    INTEGER  :: rl_start, rl_end
+    INTEGER  :: i_startblk, i_endblk    !> blocks
+    INTEGER  :: i_nchdom                !< domain index
+    INTEGER  :: i_count
+    REAL(wp) :: area_frac
+
+    CHARACTER(len=max_char_length), PARAMETER :: &
+      routine = 'mo_ext_data:diagnose_ext_aggr'
+    !-------------------------------------------------------------------------
+
+    DO jg = 1, n_dom 
+
+      i_nchdom  = MAX(1,p_patch(jg)%n_childdom)
+
+      ! exclude the boundary interpolation zone of nested domains
+      rl_start = grf_bdywidth_c+1
+      rl_end   = min_rlcell_int
+
+      i_startblk = p_patch(jg)%cells%start_blk(rl_start,1)
+      i_endblk   = p_patch(jg)%cells%end_blk(rl_end,i_nchdom)
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,jt,ic,i_count,jc,area_frac)
+      DO jb = i_startblk, i_endblk
+
+        IF (ext_data(jg)%atm%lp_count(jb) == 0) CYCLE ! skip loop if there is no land point
+
+        ext_data(jg)%atm%plcov (:,jb) = 0._wp
+        ext_data(jg)%atm%rootdp(:,jb) = 0._wp
+        ext_data(jg)%atm%lai   (:,jb) = 0._wp
+
+        DO jt = 1, ntiles_total
+          i_count = ext_data(jg)%atm%gp_count_t(jb,jt)
+          IF (i_count == 0) CYCLE ! skip loop if the index list for the given tile is empty
+
+          DO ic = 1, i_count
+            jc = ext_data(jg)%atm%idx_lst_t(ic,jb,jt)
+
+            area_frac = ext_data(jg)%atm%frac_t(jc,jb,jt)
+
+            ext_data(jg)%atm%plcov(jc,jb) = ext_data(jg)%atm%plcov(jc,jb)       &
+              &              + ext_data(jg)%atm%plcov_t(jc,jb,jt) * area_frac
+
+            ext_data(jg)%atm%rootdp(jc,jb) = ext_data(jg)%atm%rootdp(jc,jb)     &
+              &             + ext_data(jg)%atm%rootdp_t(jc,jb,jt) * area_frac
+
+            ext_data(jg)%atm%lai(jc,jb) = ext_data(jg)%atm%lai(jc,jb)           &
+              &             + ( ext_data(jg)%atm%tai_t(jc,jb,jt)                &
+              &             /(ext_data(jg)%atm%plcov_t(jc,jb,jt)+dbl_eps) * area_frac )
+
+          ENDDO  !ic
+
+        ENDDO  !jt
+
+      ENDDO  !jb
+!$OMP END DO
+!$OMP END PARALLEL
+
+    ENDDO  !jg
+
+  END SUBROUTINE diagnose_ext_aggr
 
 
   !-------------------------------------------------------------------------

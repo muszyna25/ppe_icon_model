@@ -459,9 +459,9 @@ CONTAINS
         &               "ice content", jg, p_lnd_diag%w_so_ice(:,:,:))
 
       CALL add_sfc_var(VAR_GROUP_SURFACE,  "PL_Cov", "-", "ground fraction covered by plants", &
-        &              jg, ext_data%atm%plcov_mx(:,:))
+        &              jg, ext_data%atm%plcov(:,:))
       CALL add_sfc_var(VAR_GROUP_SURFACE,  "LA_Ind", "-", "leaf area index (vegetation period)", &
-        &              jg, ext_data%atm%lai_mx(:,:))
+        &              jg, ext_data%atm%lai(:,:))
       CALL add_sfc_var(VAR_GROUP_SURFACE,  "RO_Dept", "-", "root depth", jg, &
         &              ext_data%atm%rootdp(:,:))
       CALL add_sfc_var(VAR_GROUP_SURFACE,  "Z0", "m", "roughness length*g", jg, prm_diag%gz0(:,:))
