@@ -113,7 +113,7 @@ MODULE mo_pp_scheduler
   USE mo_cf_convention,           ONLY: t_cf_var
   USE mo_grib2,                   ONLY: t_grib2_var
   USE mo_util_string,             ONLY: int2string, remove_duplicates, &
-    &                                   difference, toupper
+    &                                   difference, toupper, tolower
   USE mo_cdi_constants,           ONLY: GRID_CELL, GRID_REFERENCE,                      &
     &                                   GRID_UNSTRUCTURED_CELL, ZA_ALTITUDE,            &
     &                                   ZA_PRESSURE, GRID_REGULAR_LONLAT,               &
@@ -542,9 +542,9 @@ CONTAINS
           ! Check for suffix of time-dependent variables:
           idx = INDEX(info%name,'.TL')
           IF(idx == 0) THEN
-            IF (TRIM(vname) /= TRIM(info%name)) CYCLE VAR_LOOP
+            IF (TRIM(vname) /= TRIM(tolower(info%name))) CYCLE VAR_LOOP
           ELSE
-            IF (TRIM(vname) /= TRIM(info%name(1:idx-1))) CYCLE VAR_LOOP
+            IF (TRIM(vname) /= TRIM(tolower(info%name(1:idx-1)))) CYCLE VAR_LOOP
           ENDIF
 
           IF (info%hgrid /= GRID_UNSTRUCTURED_CELL)  CYCLE VAR_LOOP
