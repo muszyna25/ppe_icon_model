@@ -3010,14 +3010,14 @@ CONTAINS
           !z_orientation(1:4)      = 0.0_wp
           boundary_counter        = 0
 
-          write(0,*) "-----------------------------"
+!           write(0,*) "-----------------------------"
           DO jev = 1, patch%verts%num_edges(jv,jb)
 
             ! get line and block indices of edge jev around vertex jv
             ile = patch%verts%edge_idx(jv,jb,jev)
             ibe = patch%verts%edge_blk(jv,jb,jev)
 
-            write(0,*) jb, jv, patch%verts%num_edges(jv,jb), jk, ":", ile, ibe, p_patch_3D%lsm_e(ile,jk,ibe)
+!             write(0,*) jb, jv, patch%verts%num_edges(jv,jb), jk, ":", ile, ibe, p_patch_3D%lsm_e(ile,jk,ibe)
             
             !Check, if edge is sea or boundary edge and take care of dummy edge
             ! edge with indices ile, ibe is sea edge
