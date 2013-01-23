@@ -935,6 +935,7 @@ CONTAINS
     INTEGER :: no_of_out_verts,no_of_out_edges,no_of_out_cells
     INTEGER :: i,j,to_index
     INTEGER :: add_subgrid_id
+    INTEGER :: k
 
     reindex = PRESENT(opt_new_vertindex)
     IF (reindex .AND. .NOT. &
@@ -1067,7 +1068,7 @@ CONTAINS
 !$OMP PARALLEL
     !-----------------------------------------------------------------------
     ! copy vertices
-!$OMP DO PRIVATE(i,to_index,j)
+!$OMP DO PRIVATE(i,to_index,j,k)
     DO i=1,no_of_verts
 
       IF (reindex) THEN
@@ -1076,19 +1077,36 @@ CONTAINS
 
         to_index = to_index + start_no_of_verts
 
-        DO j=1,max_vertex_connectivity
-          to_verts%get_neighbor_index(to_index,j) = &
-            & opt_new_vertindex(from_verts%get_neighbor_index(i,j))
-          to_verts%get_edge_index    (to_index,j) = &
-            & opt_new_edgeindex(from_verts%get_edge_index    (i,j))
-          to_verts%get_cell_index    (to_index,j) =  &
-            & opt_new_cellindex(from_verts%get_cell_index    (i,j))
+        k = 0
+        DO j = 1,max_vertex_connectivity
+          IF (opt_new_edgeindex(from_verts%get_edge_index(i,j)) > 0) THEN
+            k = k + 1
+            to_verts%get_edge_index    (to_index,k) = &
+              & opt_new_edgeindex(from_verts%get_edge_index    (i,j))
+          ENDIF
         ENDDO
+        
+        k = 0
+        DO j = 1,max_vertex_connectivity
+          IF (opt_new_vertindex(from_verts%get_neighbor_index(i,j)) > 0) THEN
+            k = k + 1
+            to_verts%get_neighbor_index    (to_index,k) = &
+              & opt_new_vertindex(from_verts%get_neighbor_index(i,j))
+          ENDIF
+        ENDDO
+        k = 0
+        DO j = 1,max_vertex_connectivity
+          IF (opt_new_cellindex(from_verts%get_cell_index   (i,j)) > 0) THEN
+            k = k + 1
+            to_verts%get_cell_index    (to_index,j) =  &
+              & opt_new_cellindex(from_verts%get_cell_index(i,j))
+          ENDIF
+        ENDDO
+         
 
       ELSE
 
         to_index = i + start_no_of_verts
-
         DO j=1,max_vertex_connectivity
           to_verts%get_neighbor_index(to_index,j) = &
             & from_verts%get_neighbor_index(i,j)
@@ -1114,7 +1132,6 @@ CONTAINS
 
     ENDDO ! i=1,no_of_verts
 !$OMP END DO
-
     !-----------------------------------------------------------------------
 
     !-----------------------------------------------------------------------
@@ -1288,10 +1305,40 @@ CONTAINS
      ENDIF !(start_no_of_verts > 0)
 !$OMP END PARALLEL
 
-
   END SUBROUTINE copy_grid
   !-----------------------------------------------------------------------
 
+  !-----------------------------------------------------------------------
+  !> 
+  !! Under construction!
+  SUBROUTINE move_null_connecitvity_to_end(grid_id)
+    INTEGER, INTENT(in)      :: grid_id
+
+    TYPE(t_grid), POINTER          :: grid
+    TYPE(t_grid_vertices), POINTER :: verts
+    TYPE(t_grid_edges), POINTER    :: edges
+    TYPE(t_grid_cells), POINTER    :: cells
+
+    INTEGER :: max_vertex_connectivity, max_no_of_cell_vertices
+    INTEGER :: no_of_verts,no_of_edges,no_of_cells
+    INTEGER :: i,j,to_index
+
+
+    CALL check_active_grid_id(grid_id)
+    grid  => get_grid_object(grid_id)
+    verts => grid%verts
+    edges => grid%edges
+    cells => grid%cells
+    no_of_verts = verts%no_of_existvertices
+    no_of_edges = edges%no_of_existedges
+    no_of_cells = cells%no_of_existcells
+    max_vertex_connectivity = verts%max_connectivity
+    max_no_of_cell_vertices = cells%max_no_of_vertices
+
+
+  END SUBROUTINE move_null_connecitvity_to_end
+  !-----------------------------------------------------------------------
+  
   !-------------------------------------------------------------------------
   !   grid_get_parent_pointers(parent_grid_id, parent_cell, parent_edge, parent_vertex)
   !>
@@ -2103,9 +2150,7 @@ CONTAINS
     of_grid%cells%start_idx(min_rlcell:0, 1) = no_of_input_cells + 1
     of_grid%cells%end_idx(1:max_rlcell ,  1) = 0
     of_grid%cells%end_idx(min_rlcell:0 ,  1) = no_of_input_cells
-     of_grid%cells%refin_ctrl          (:  ) = min_rlcell_int
-
-    
+    of_grid%cells%refin_ctrl           (:  ) = min_rlcell_int
 
   END SUBROUTINE set_nest_defaultindexes
   !-------------------------------------------------------------------------

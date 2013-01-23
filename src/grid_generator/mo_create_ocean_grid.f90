@@ -45,6 +45,7 @@ MODULE mo_create_ocean_grid
   USE mo_exception,            ONLY: message_text, message, finish, warning
   USE mo_io_units,             ONLY: filename_max, nnml
   USE mo_namelist,             ONLY: position_nml, open_nml, positioned
+  USE mo_math_constants,       ONLY: pi_2
   USE mo_local_grid
   USE mo_grid_conditions,      ONLY: read_grid_conditions, get_conditional_cells
   USE mo_io_local_grid,        ONLY: read_new_netcdf_grid, write_netcdf_grid, &
@@ -113,6 +114,7 @@ CONTAINS
     CALL grid_set_parents_from(in_grid_id, parents_from_parentpointers)
     out_grid_id = get_grid_from_cell_list(in_grid_id, sea_cell_list)
     CALL delete_grid(in_grid_id)
+    CALL create_grid_hierarchy(out_grid_id) ! define the lateral entities to avoid meaningless calculations
     CALL close_grid_connectivity(out_grid_id)
     CALL set_grid_parent_id(out_grid_id, 0)
     CALL write_netcdf_grid(out_grid_id, out_file_name)
@@ -133,30 +135,72 @@ CONTAINS
     
     TYPE(t_integer_list)  :: boundary_edges_list
 
-    INTEGER :: no_of_cells, no_of_edges
+    INTEGER :: no_of_cells, no_of_edges, max_no_of_cell_vertices, edge_no
+    INTEGER :: ghost_cell, no_of_boundary_edges
+    INTEGER :: land_cell_index, sea_cell_index, i, sea_cell
     CHARACTER(*), PARAMETER :: method_name = "mo_create_ocean_grid:close_grid_connectivity"
 
     ! first get boundary edges
-    boundary_edges_list = get_boundary_edges(grid_id)
-    IF (boundary_edges_list%list_size == 0) THEN
-      CALL warning(method_name, "No boundary edges found")
-      RETURN
-    ENDIF
+!     boundary_edges_list = get_boundary_edges(grid_id)
+!     IF (boundary_edges_list%list_size == 0) THEN
+!       CALL warning(method_name, "No boundary edges found")
+!       RETURN
+!     ENDIF
     
     grid  => get_grid(grid_id)
     cells => grid%cells
     edges => grid%edges
     no_of_cells = cells%no_of_existcells
     no_of_edges = edges%no_of_existedges
+    max_no_of_cell_vertices = cells%max_no_of_vertices
 
     IF (cells%no_of_allocatedcells <= no_of_cells) &
       CALL finish(method_name, "Not enough space to insert additional cell")
       
     ! create an artificial cell
-    ! This obviously works only for Earth
-!     ghost_cell = no_of_cells + 1
+    ghost_cell = no_of_cells + 1
+    cells%center(ghost_cell)%lon    = -pi_2
+    cells%sea_land_mask(ghost_cell) = land_inner
+    cells%elevation(ghost_cell)     = 999999.0_wp
+
+    ! go through the edges and fill the ghost connectivity
+    ! for edges and cells
+    no_of_boundary_edges = 0
+    DO edge_no = 1, no_of_edges
+      IF (edges%get_cell_index(edge_no, 1) == 0) THEN
+        land_cell_index = 1
+        sea_cell_index = 2
+      ELSEIF (edges%get_cell_index(edge_no, 2) == 0) THEN
+        land_cell_index = 2
+        sea_cell_index = 1
+      ELSE
+        CYCLE
+      ENDIF
+      no_of_boundary_edges = no_of_boundary_edges + 1      
+      edges%get_cell_index(edge_no, land_cell_index) = ghost_cell
+
+      ! fill the cell connectivity with tge ghost cell
+      sea_cell = edges%get_cell_index(edge_no, sea_cell_index)
+      DO i=1, cells%max_no_of_vertices
+        ! by convention the neigbor cell is located t the same index as the edge
+        IF (cells%get_edge_index(sea_cell, i) == edge_no) THEN
+          IF (cells%get_neighbor_index(sea_cell, i) /= 0) &
+            CALL finish(method_name, "Incosistent boundary neigbor at cell")
+          cells%get_neighbor_index(sea_cell, i) = ghost_cell
+          EXIT
+        ENDIF        
+      ENDDO
+      
+    ENDDO
     
-    
+    IF (no_of_boundary_edges == 0) THEN
+      CALL warning(method_name, "No boundary edges found")
+      RETURN
+    ENDIF
+
+    ! finaly add the ghost cell to the cells
+    cells%no_of_existcells = cells%no_of_existcells + 1
+  
   END SUBROUTINE close_grid_connectivity
   !-------------------------------------------------------------------------
   

@@ -1395,11 +1395,11 @@ CONTAINS
     !
     ! Set p_patch%cells%num_edges
     !
-    IF (global_cell_type == 3) THEN ! triangular grid
-      
-      p_patch%cells%num_edges(:,:) = 3
-      
-    ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
+!     IF (global_cell_type == 3) THEN ! triangular grid
+!       
+!       p_patch%cells%num_edges(:,:) = 3
+!       
+    IF (global_cell_type == 6) THEN ! hexagonal grid
       p_patch%cells%num_edges(:,:) = 6
       !
       ! account for dummy edges arising in case of a pentagon
@@ -1422,6 +1422,18 @@ CONTAINS
             ! set num_edges to 5
             p_patch%cells%num_edges(ilc,ibc) = 5
           END IF
+        END DO
+      END DO
+    
+    ELSE 
+      ! general unstructured grid
+      DO jc = 1, p_patch%n_patch_cells
+        ibc = ( jc - 1 ) / nproma + 1
+        ilc = jc - ( ibc - 1 )*nproma
+        p_patch%cells%num_edges(ilc,ibc) = 0        
+        DO jce = 1, global_cell_type 
+          IF ( array_c_int(jc,jce) > 0 ) &
+            p_patch%cells%num_edges(ilc,ibc) = p_patch%cells%num_edges(ilc,ibc) + 1        
         END DO
       END DO
     ENDIF
@@ -1960,12 +1972,15 @@ CONTAINS
       !
       ! Set verts%num_edges (in array_v_real(:,1))
       DO jv = 1, p_p%n_patch_verts_g
-        IF(ANY(array_v_int(jv,:) == 0)) THEN
-          array_v_real(jv,1) = 5._wp
-        ELSE
-          array_v_real(jv,1) = 6._wp
-        ENDIF
+        array_v_real(jv,1) = 0.0
+        DO ji=1, 6
+          IF (array_v_int(jv,ji) /= 0) &
+            array_v_real(jv,1) = array_v_real(jv,1) + 1.0_wp
+        END DO
+!         IF (array_v_real(jv,1) < 6.0) &
+!           write(0,*) jv, array_v_real(jv,1), ":", array_v_int(jv,:)
       END DO
+      
       ! account for dummy cells arising in case of a pentagon
       ! Fill dummy cell with existing index to simplify do loops
       ! Note, however, that related multiplication factors must be zero
@@ -2097,7 +2112,7 @@ CONTAINS
         
         
     !
-    ! deallocate temporary arrays to read in data form the grid/patch generator
+    ! deallocate temporary arrays to read in data from the grid/patch generator
     !
     ! integer arrays
     DEALLOCATE( array_c_int, array_e_int, array_v_int,  &

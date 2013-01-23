@@ -1722,12 +1722,17 @@ CONTAINS
         DO i = 1, no_of_cells
           pole_index=0
           DO j = 1, max_cell_vertices
-            zv2dy(j,i) = verts%vertex(cells%get_vertex_index(i,j))%lat
-            zv2dx(j,i) = verts%vertex(cells%get_vertex_index(i,j))%lon
-            !check if we have a pole
-            IF (lat_is_pole(zv2dy(j,i))) &               
-               pole_index=j
+            IF (cells%get_vertex_index(i,j) == 0) THEN
+              zv2dx(j,i) = fildoub
+              zv2dy(j,i) = fildoub
+            ELSE               
+              zv2dy(j,i) = verts%vertex(cells%get_vertex_index(i,j))%lat
+              zv2dx(j,i) = verts%vertex(cells%get_vertex_index(i,j))%lon
+              !check if we have a pole
+              IF (lat_is_pole(zv2dy(j,i))) &               
+                pole_index=j
 !                zv2dy(j,i) = SIGN(pi_2,zv2dy(j,i))
+            ENDIF
           ENDDO
 
           IF (pole_index > 0) THEN

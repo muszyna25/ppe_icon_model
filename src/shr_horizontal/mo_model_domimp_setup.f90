@@ -119,6 +119,7 @@ MODULE mo_model_domimp_setup
   USE mo_math_utilities,     ONLY: gvec2cvec, gc2cc
   USE mo_math_types
   
+  USE mo_master_control,     ONLY: get_my_process_type, ocean_process
   USE mo_grid_geometry_info, ONLY: planar_torus_geometry
   
   IMPLICIT NONE
@@ -945,6 +946,8 @@ CONTAINS
   !! Fills the grid's subsets
   SUBROUTINE fill_grid_subsets(patch)
     TYPE(t_patch), INTENT(inout) :: patch
+
+    INTEGER :: idx, block, block_size
     
     !--------------------------------------------------------------------------------
     ! aliasing the halo_level to decomp_domain
@@ -961,6 +964,21 @@ CONTAINS
       patch%verts%halo_level(:,:) = 0
       patch%verts%halo_level(patch%npromz_v + 1 :nproma, patch%nblks_v) = -1
     ENDIF
+    !--------------------------------------------------------------------------------
+    ! exclude ghost cells, identify them if area=0
+    DO block = 1, patch%nblks_c
+      IF (block /= patch%nblks_c) THEN
+        block_size = nproma
+      ELSE
+        block_size = patch%npromz_c
+      ENDIF
+      DO idx = 1, block_size
+        IF (patch%cells%num_edges(idx, block) <= 0) THEN
+          patch%cells%halo_level(idx, block) = -1 !halo_levels_ceiling+1
+          write(*,*) "Found ghost cell at ", idx, block
+        ENDIF
+      ENDDO
+    ENDDO
 
     !--------------------------------------------------------------------------------
     CALL fill_grid_subset_names(patch)

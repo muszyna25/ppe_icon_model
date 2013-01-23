@@ -478,12 +478,12 @@ CONTAINS
                 field%conc  (jc,1,jb) = 0.9_wp
                 field%hi    (jc,1,jb) = 1.0_wp
                 field%seaice(jc,  jb) = field%conc(jc,1,jb)
-                field%isice (jc,1,jb) = .true.
+!                 field%isice (jc,1,jb) = .true.
               ELSE
                 field%conc  (jc,1,jb) = 0._wp
                 field%hi    (jc,1,jb) = 0._wp
                 field%seaice(jc,  jb) = field%conc(jc,1,jb)
-                field%isice (jc,1,jb) = .false.
+!                 field%isice (jc,1,jb) = .false.
               ENDIF
               field% tsfc(jc,jb) = field%seaice(jc,jb)*field%tsfc_tile(jc,jb,iice) &
                 &       + ( 1._wp - field%seaice(jc,jb) )*field%tsfc_tile(jc,jb,iwtr)

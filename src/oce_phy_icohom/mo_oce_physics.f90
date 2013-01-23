@@ -341,6 +341,7 @@ write(*,*)'max-min coeff',z_diff_multfac, maxval(p_phys_param%K_veloc_h(:,1,:)),
           DO jev = 1, p_patch%verts%num_edges(jv,jb)
             ile = p_patch%verts%edge_idx(jv,jb,jev)
             ibe = p_patch%verts%edge_blk(jv,jb,jev)
+!             write(0,*) jv,jb, p_patch%verts%num_edges(jv,jb), ":", ile, ibe
             IF ( p_patch_3D%lsm_e(ile,jk,ibe) == sea) THEN
               z_K_ave_v(jv,jk,jb)= z_K_ave_v(jv,jk,jb) + K_h(ile,jk,ibe)
               i_edge_ctr=i_edge_ctr+1
