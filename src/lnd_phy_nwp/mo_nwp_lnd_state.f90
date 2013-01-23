@@ -1248,7 +1248,7 @@ MODULE mo_nwp_lnd_state
                  & p_diag_lnd%runoff_s_ptr(jsfc)%p_2d,                             &
                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                             &
                  & t_cf_var('runoff_s_t_'//csfc, '', '', DATATYPE_FLT32),          &
-                 & t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),   &
+                 & t_grib2_var(2, 0, 5, ibits, GRID_REFERENCE, GRID_CELL),         &
                  & ldims=shape2d )
       END DO
 
@@ -1271,13 +1271,30 @@ MODULE mo_nwp_lnd_state
                  & p_diag_lnd%runoff_g_ptr(jsfc)%p_2d,                             &
                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                             &
                  & t_cf_var('runoff_g_t_'//csfc, '', '', DATATYPE_FLT32),          &
-                 & t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),   &
+                 & t_grib2_var(2, 0, 5, ibits, GRID_REFERENCE, GRID_CELL),         &
                  & ldims=shape2d )
       END DO
 
 
 
-    
+    ! & p_diag_lnd%rstom(nproma,nblks_c)
+    cf_desc    = t_cf_var('rstom', 's/m','stomatal resistance', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var(2, 0, 195, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( diag_list, vname_prefix//'rstom', p_diag_lnd%rstom,             &
+           & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,             &
+           & ldims=shape2d, lrestart=.FALSE.,                                     &
+           & loutput=.TRUE. )
+
+
+    ! & p_diag_lnd%rstom_t(nproma,nblks_c,ntiles_total)
+    cf_desc    = t_cf_var('rstom_t', 's/m','tile based stomatal resistance', &
+      &          DATATYPE_FLT32)
+    grib2_desc = t_grib2_var(2, 0, 195, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( diag_list, vname_prefix//'rstom_t', p_diag_lnd%rstom_t,    &
+           & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,        &
+           & ldims=shape3d_subs, lcontainer=.TRUE., lrestart=.FALSE.,        &
+           & loutput=.FALSE. )
+
 
     ENDIF
 

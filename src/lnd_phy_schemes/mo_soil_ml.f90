@@ -575,7 +575,8 @@ END SUBROUTINE message
                   zlhfl_s          , & ! latent   heat flux soil/air interface         (W/m2) 
                   zshfl_snow       , & ! sensible heat flux snow/air interface         (W/m2) 
                   zlhfl_snow       , & ! latent   heat flux snow/air interface         (W/m2)  
-                  lhfl_bs            & ! latent heat flux from bare soil evap.         (W/m2)
+                  lhfl_bs          , & ! latent heat flux from bare soil evap.         (W/m2)
+                  rstom              & ! stomatal resistance                           ( s/m )
                                      )  
 
 
@@ -706,8 +707,8 @@ END SUBROUTINE message
                   zshfl_snow       , & ! sensible heat flux snow/air interface         (W/m2) 
                   zlhfl_snow           ! latent   heat flux snow/air interface         (W/m2) 
 
-!!$  REAL    (KIND = ireals), DIMENSION(ie), INTENT(INOUT) :: &
-!!$                  rstom            ! stomata resistance                           ( s/m )
+  REAL    (KIND = ireals), DIMENSION(ie), INTENT(OUT) :: &
+                  rstom            ! stomata resistance                                ( s/m )
   REAL    (KIND = ireals), DIMENSION(ie), INTENT(OUT) :: &
                   lhfl_bs          ! latent heat flux from bare soil evap.( W/m2)
 
@@ -1406,6 +1407,7 @@ END SUBROUTINE message
       zrs    (i)      = 0.0_ireals         ! in first part formation of rime
       zw_fr(i,ke_soil+1)  = w_so_now(i,ke_soil+1)/zdzhs(ke_soil+1)
       lhfl_bs(i)      = 0.0_ireals
+      rstom  (i)      = 0.0_ireals
   END DO
 
   DO kso   = 1, ke_soil
@@ -2175,7 +2177,7 @@ END SUBROUTINE message
               END IF
 
               zrstom     = 1.0_ireals/zedrstom              ! stomatal resistance
-!              rstom(i) = zrstom
+              rstom(i) = zrstom
               zrveg      = zrla + zrstom
               ! Transpiration rate of dry leaves:
               ztraleav(i)=zep_s(i)*tai(i)/(sai(i)+zrveg*zcatm)

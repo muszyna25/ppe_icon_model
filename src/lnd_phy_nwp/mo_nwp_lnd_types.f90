@@ -156,7 +156,9 @@ MODULE mo_nwp_lnd_types
     &  snowfrac_lc_t(:,:,:) , & ! snow-cover fraction per land-cover class      (  -  )
     &  snowfrac_t   (:,:,:) , & ! snow-cover fraction                           (  -  )
     &  runoff_s_t   (:,:,:) , & ! surface water runoff; sum over forecast       (kg/m2)
-    &  runoff_g_t   (:,:,:)     ! soil water runoff; sum over forecast          (kg/m2)
+    &  runoff_g_t   (:,:,:) , & ! soil water runoff; sum over forecast          (kg/m2)
+    &  rstom        (:,:)   , & ! stomatal resistance                           ( s/m )
+    &  rstom_t      (:,:,:)     ! tile based stomatal resistance                ( s/m )
 
     TYPE(t_ptr_2d3d), ALLOCATABLE :: qv_st_ptr(:)
     TYPE(t_ptr_2d3d), ALLOCATABLE :: h_snow_ptr(:)
