@@ -1123,7 +1123,7 @@ CONTAINS
     ! Sea ice
     !-------------------------
 
-    IF ( iice <= nsfc_type ) THEN
+    !IF ( iice <= nsfc_type ) THEN
 
       field%kice = 1 ! TODO: Number of thickness classes - should be a name-list variable
       shapeice = (/kproma, field%kice, kblks/)
@@ -1172,7 +1172,7 @@ CONTAINS
         &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
         &          ldims=shapeice)
 
-    ENDIF ! iice <= nfsc_type
+    !ENDIF ! iice <= nfsc_type
 
 
     !---- 3D variables defined at layer interfaces ----

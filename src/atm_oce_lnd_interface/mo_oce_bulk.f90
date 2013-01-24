@@ -793,19 +793,22 @@ CONTAINS
             Tfw = Tf
           ENDIF
 
-          CALL ice_fast(i_startidx_c, i_endidx_c, nproma, p_ice%kice, 1, i_sea_ice, &
-            &   p_ice% Tsurf(:,:,jb),   &
-            &   p_ice% T1   (:,:,jb),   &
-            &   p_ice% T2   (:,:,jb),   &
-            &   p_ice% hi   (:,:,jb),   &
-            &   p_ice% hs   (:,:,jb),   &
-            &   p_ice% Qtop (:,:,jb),   &
-            &   p_ice% Qbot (:,:,jb),   & 
-            &   Qatm%SWin   (:,  jb),   &
-            &   Qatm%lat(:,:,jb) + Qatm%sens(:,:,jb) + Qatm%LWnet(:,:,jb),              & 
-            &   Qatm%dlatdT (:,:,jb) + Qatm%dsensdT(:,:,jb) + Qatm%dLWdT  (:,:,jb),     & 
-            &   Tfw         (:,  jb),   &
-            &   doy=datetime%yeaday)
+          DO jb = all_cells%start_block, all_cells%end_block
+            CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+            CALL ice_fast(i_startidx_c, i_endidx_c, nproma, p_ice%kice, 1, i_sea_ice, &
+              &   p_ice% Tsurf(:,:,jb),   &
+              &   p_ice% T1   (:,:,jb),   &
+              &   p_ice% T2   (:,:,jb),   &
+              &   p_ice% hi   (:,:,jb),   &
+              &   p_ice% hs   (:,:,jb),   &
+              &   p_ice% Qtop (:,:,jb),   &
+              &   p_ice% Qbot (:,:,jb),   & 
+              &   Qatm%SWin   (:,  jb),   &
+              &   Qatm%lat(:,:,jb) + Qatm%sens(:,:,jb) + Qatm%LWnet(:,:,jb),              & 
+              &   Qatm%dlatdT (:,:,jb) + Qatm%dsensdT(:,:,jb) + Qatm%dLWdT  (:,:,jb),     & 
+              &   Tfw         (:,  jb),   &
+              &   doy=datetime%yeaday)
+          ENDDO
           CALL ice_slow(p_patch, p_os, p_ice, Qatm, p_sfc_flx)
 
           ! sum of flux from sea ice to the ocean is stored in p_sfc_flx%forc_hflx
