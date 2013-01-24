@@ -3025,16 +3025,12 @@ CONTAINS
             !Check, if edge is sea or boundary edge and take care of dummy edge
             ! edge with indices ile, ibe is sea edge
             ! edge with indices ile, ibe is boundary edge
-
             IF ( p_patch_3D%lsm_e(ile,jk,ibe) == SEA ) THEN
               i_v_ctr(jv,jk,jb) = i_v_ctr(jv,jk,jb)+1
             ELSEIF ( p_patch_3D%lsm_e(ile,jk,ibe) == BOUNDARY ) THEN
 
               !increase boundary edge counter
               boundary_counter = boundary_counter + 1
-
-              ocean_coeff%bnd_edges_per_vertex(jv,jk,jb) &
-                & = ocean_coeff%bnd_edges_per_vertex(jv,jk,jb) +1
 
               IF (boundary_counter > 4) THEN
                 !maximal 4 boundary edges per dual loop are allowed: somethings wrong with the grid
@@ -3059,6 +3055,12 @@ CONTAINS
           IF( MOD(boundary_counter,2) /= 0 ) THEN
             CALL finish (routine,'MOD(boundary_counter,2) /= 0 !!')
           ENDIF
+              
+          ocean_coeff%bnd_edges_per_vertex(jv,jk,jb) = boundary_counter
+!           IF (boundary_counter > 0) THEN
+!             write(*,*) "lon:", patch%verts%vertex(jv,jb)%lon, " lat:", patch%verts%vertex(jv,jb)%lat, &
+!               & " level:", jk, " bnd_edges:", boundary_counter
+!           ENDIF
 !---------------------------------------------------------------------------------
             !Modified area calculation
             vertex_cc = patch%verts%cartesian(jv,jb)
@@ -3294,7 +3296,7 @@ CONTAINS
     !-------------------------------------------------------------
 
     CALL message (TRIM(routine), 'end')
-
+    
   END SUBROUTINE par_apply_boundary2coeffs
   !--------------------------------------------------------------------------------------
 !-------------------------------------------------------------------------

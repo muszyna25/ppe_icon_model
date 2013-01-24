@@ -564,6 +564,17 @@ END SUBROUTINE veloc_diff_biharmonic_div_grad
       DO je = i_startidx, i_endidx
         DO jk = slev, elev
 
+!              write(0, *) "==============================="
+!              write(0, *) "0",  je,jk,jb
+!              write(0, *) "1",  p_patch_3D%wet_e(je,jk,jb)
+!              write(0,*)  "2",  k_h(je,jk,jb)
+!              write(0,*)  "3",  p_patch%edges%system_orientation(je,jb)
+!              write(0,*)  "4",  vort(ividx(je,jb,2),jk,ivblk(je,jb,2))
+!              write(0,*)  "5",  vort(ividx(je,jb,1),jk,ivblk(je,jb,1))
+!              write(0,*)  "6",  p_patch%edges%inv_primal_edge_length(je,jb)
+!              write(0,*)  "7",  z_div_c(icidx(je,jb,2),jk,icblk(je,jb,2))
+!              write(0,*)  "8",  z_div_c(icidx(je,jb,1),jk,icblk(je,jb,1))
+!              write(0,*)  "9",  p_patch%edges%inv_dual_edge_length(je,jb)
           !IF(v_base%lsm_e(je,jk,jb) < land_boundary)THEN
           nabla2_vec_e(je,jk,jb) = p_patch_3D%wet_e(je,jk,jb)*&    !v_base%wet_e(je,jk,jb)*&
             &k_h(je,jk,jb)*(   &

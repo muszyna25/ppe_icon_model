@@ -467,11 +467,14 @@ CONTAINS
     ELSE
       elev = n_zlev
     END IF
-
+            
 #ifndef __SX__
     IF (ltimer) CALL timer_start(timer_div)
 #endif
-!$OMP PARALLEL
+
+    div_vec_c(:,:,all_cells%end_block) = 0.0_wp ! 0 the ghost land cells 
+
+!$OMP PARALLEL PRIVATE(iidx, iblk)
 
     iidx => p_patch%cells%edge_idx
     iblk => p_patch%cells%edge_blk
@@ -576,7 +579,10 @@ CONTAINS
 #ifndef __SX__
     IF (ltimer) CALL timer_start(timer_div)
 #endif
-!$OMP PARALLEL
+
+    div_vec_c(:,all_cells%end_block) = 0.0_wp ! 0 the ghost land cells
+
+!$OMP PARALLEL PRIVATE(iidx, iblk)
 
     iidx => p_patch%cells%edge_idx
     iblk => p_patch%cells%edge_blk
@@ -1442,9 +1448,10 @@ CONTAINS
     ! #endif
     all_cells => p_patch%cells%all
     edges_in_domain => p_patch%edges%in_domain
-
+    
     !Step 1: calculate cell-located variables for 2D and 3D case
     !For 3D and for SWE thick_c contains thickness of fluid column
+    p_os%p_diag%thick_c(:,all_cells%end_block) = 0.0_wp  ! 0 the ghost land cells
     IF ( iswm_oce == 1 ) THEN  !  SWM
 
       DO jb = all_cells%start_block, all_cells%end_block
