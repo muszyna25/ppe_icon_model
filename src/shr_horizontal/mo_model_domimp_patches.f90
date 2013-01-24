@@ -884,7 +884,7 @@ CONTAINS
     INTEGER :: ji
     INTEGER :: jc, je, jcv, jce, ilc, ibc
     INTEGER :: icheck, ilev, igrid_level, igrid_id, iparent_id, i_max_childdom, ipar_id
-    
+    INTEGER :: block_size    
     !-----------------------------------------------------------------------
     
     ! set dummy values to zero
@@ -975,24 +975,20 @@ CONTAINS
      
     !--------------------------------------
     ! get number of cells, edges and vertices
-    !
-    CALL nf(nf_inq_dimid(ncid, 'cell', dimid))
-    IF (global_cell_type == 3) THEN ! triangular grid
-      CALL nf(nf_inq_dimlen(ncid, dimid, p_patch%n_patch_cells))
-    ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
-      CALL nf(nf_inq_dimlen(ncid, dimid, p_patch%n_patch_verts))
-    ENDIF
-    
     CALL nf(nf_inq_dimid(ncid, 'edge', dimid))
     CALL nf(nf_inq_dimlen(ncid, dimid, p_patch%n_patch_edges))
-    
-    CALL nf(nf_inq_dimid(ncid, 'vertex', dimid))
     IF (global_cell_type == 3) THEN ! triangular grid
+      CALL nf(nf_inq_dimid(ncid, 'cell', dimid))
+      CALL nf(nf_inq_dimlen(ncid, dimid, p_patch%n_patch_cells))
+      CALL nf(nf_inq_dimid(ncid, 'vertex', dimid))
       CALL nf(nf_inq_dimlen(ncid, dimid, p_patch%n_patch_verts))
-    ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
+    ELSE
+      CALL nf(nf_inq_dimid(ncid, 'cell', dimid))
+      CALL nf(nf_inq_dimlen(ncid, dimid, p_patch%n_patch_verts))
+      CALL nf(nf_inq_dimid(ncid, 'vertex', dimid))
       CALL nf(nf_inq_dimlen(ncid, dimid, p_patch%n_patch_cells))
     ENDIF
-    
+        
     !
     ! calculate and save values for the blocking
     !
@@ -1371,7 +1367,7 @@ CONTAINS
               p_patch%cells%vertex_blk(ilc,ibc,jcv) =  &
                 & p_patch%cells%vertex_blk(ilc,ibc,6)
             END IF
-            ! Fill dummy edge with existing index to simplify do loops
+            ! Fill dummy edge with existing index to simplifyells%num_edges do loops
             ! Note, however, that related multiplication factors must be zero
             p_patch%cells%vertex_idx(ilc,ibc,6) = p_patch%cells%vertex_idx(ilc,ibc,5)
             p_patch%cells%vertex_blk(ilc,ibc,6) = p_patch%cells%vertex_blk(ilc,ibc,5)
@@ -1392,51 +1388,51 @@ CONTAINS
       END DO
     ENDIF
     
-    !
-    ! Set p_patch%cells%num_edges
-    !
-!     IF (global_cell_type == 3) THEN ! triangular grid
-!       
-!       p_patch%cells%num_edges(:,:) = 3
-!       
-    IF (global_cell_type == 6) THEN ! hexagonal grid
-      p_patch%cells%num_edges(:,:) = 6
-      !
-      ! account for dummy edges arising in case of a pentagon
-      !
-      DO jc = 1, p_patch%n_patch_cells
-        DO jce = 1, 6
-          IF ( array_c_int(jc,jce) == 0 ) THEN
-            ibc = ( jc - 1 ) / nproma + 1
-            ilc = jc - ( ibc - 1 )*nproma
-            IF ( jce /= 6 ) THEN
-              p_patch%cells%edge_idx(ilc,ibc,jce) =  &
-                & p_patch%cells%edge_idx(ilc,ibc,6)
-              p_patch%cells%edge_blk(ilc,ibc,jce) =  &
-                & p_patch%cells%edge_blk(ilc,ibc,6)
-            END IF
-            ! Fill dummy edge with existing index to simplify do loops
-            ! Note, however, that related multiplication factors must be zero
-            p_patch%cells%edge_idx(ilc,ibc,6) = p_patch%cells%edge_idx(ilc,ibc,5)
-            p_patch%cells%edge_blk(ilc,ibc,6) = p_patch%cells%edge_blk(ilc,ibc,5)
-            ! set num_edges to 5
-            p_patch%cells%num_edges(ilc,ibc) = 5
-          END IF
-        END DO
-      END DO
-    
-    ELSE 
-      ! general unstructured grid
-      DO jc = 1, p_patch%n_patch_cells
-        ibc = ( jc - 1 ) / nproma + 1
-        ilc = jc - ( ibc - 1 )*nproma
-        p_patch%cells%num_edges(ilc,ibc) = 0        
-        DO jce = 1, global_cell_type 
-          IF ( array_c_int(jc,jce) > 0 ) &
-            p_patch%cells%num_edges(ilc,ibc) = p_patch%cells%num_edges(ilc,ibc) + 1        
-        END DO
-      END DO
-    ENDIF
+!     !
+!     ! Set p_patch%cells%num_edges
+!     !
+! !     IF (global_cell_type == 3) THEN ! triangular grid
+! !       
+! !       p_patch%cells%num_edges(:,:) = 3
+! !       
+!     IF (global_cell_type == 6) THEN ! hexagonal grid
+!       p_patch%cells%num_edges(:,:) = 6
+!       !
+!       ! account for dummy edges arising in case of a pentagon
+!       !
+!       DO jc = 1, p_patch%n_patch_cells
+!         DO jce = 1, 6
+!           IF ( array_c_int(jc,jce) == 0 ) THEN
+!             ibc = ( jc - 1 ) / nproma + 1
+!             ilc = jc - ( ibc - 1 )*nproma
+!             IF ( jce /= 6 ) THEN
+!               p_patch%cells%edge_idx(ilc,ibc,jce) =  &
+!                 & p_patch%cells%edge_idx(ilc,ibc,6)
+!               p_patch%cells%edge_blk(ilc,ibc,jce) =  &
+!                 & p_patch%cells%edge_blk(ilc,ibc,6)
+!             END IF
+!             ! Fill dummy edge with existing index to simplify do loops
+!             ! Note, however, that related multiplication factors must be zero
+!             p_patch%cells%edge_idx(ilc,ibc,6) = p_patch%cells%edge_idx(ilc,ibc,5)
+!             p_patch%cells%edge_blk(ilc,ibc,6) = p_patch%cells%edge_blk(ilc,ibc,5)
+!             ! set num_edges to 5
+!             p_patch%cells%num_edges(ilc,ibc) = 5
+!           END IF
+!         END DO
+!       END DO
+!     
+!     ELSE 
+!       ! general unstructured grid
+!       DO jc = 1, p_patch%n_patch_cells
+!         ibc = ( jc - 1 ) / nproma + 1
+!         ilc = jc - ( ibc - 1 )*nproma
+!         p_patch%cells%num_edges(ilc,ibc) = 0        
+!         DO jce = 1, global_cell_type 
+!           IF ( array_c_int(jc,jce) > 0 ) &
+!             p_patch%cells%num_edges(ilc,ibc) = p_patch%cells%num_edges(ilc,ibc) + 1        
+!         END DO
+!       END DO
+!     ENDIF
     
     ! p_patch%verts%vertex(:,:)%lon
     CALL nf(nf_inq_varid(ncid, 'longitude_vertices', varid))
@@ -1498,7 +1494,56 @@ CONTAINS
     IF (ist /= success) THEN
       CALL finish (TRIM(method_name), 'deallocation for array_[cev]_indlist failed')
     ENDIF
+
+    !----------------------------------------------------------------------------------
+    ! compute cells%num_edges
+    IF (global_cell_type == 6) THEN ! hexagonal grid
+      p_patch%cells%num_edges(:,:) = 6
+      !
+      ! account for dummy edges arising in case of a pentagon
+      !
+      DO ibc = 1, p_patch%nblks_c
+        block_size = nproma
+        IF (ibc == p_patch%nblks_c) block_size = p_patch%npromz_c
+        DO ilc=1, block_size
+        
+          DO jce = 1, 6
+            IF ( p_patch%cells%edge_idx(ilc,ibc,jce) == 0 ) THEN
+              IF ( jce /= 6 ) THEN
+                p_patch%cells%edge_idx(ilc,ibc,jce) =  &
+                  & p_patch%cells%edge_idx(ilc,ibc,6)
+                p_patch%cells%edge_blk(ilc,ibc,jce) =  &
+                  & p_patch%cells%edge_blk(ilc,ibc,6)
+              END IF
+              ! Fill dummy edge with existing index to simplify do loops
+              ! Note, however, that related multiplication factors must be zero
+              p_patch%cells%edge_idx(ilc,ibc,6) = p_patch%cells%edge_idx(ilc,ibc,5)
+              p_patch%cells%edge_blk(ilc,ibc,6) = p_patch%cells%edge_blk(ilc,ibc,5)
+              ! set num_edges to 5
+              p_patch%cells%num_edges(ilc,ibc) = 5
+            END IF
+          END DO
+        END DO
+      END DO
     
+    ELSE 
+      ! general unstructured grid
+      DO ibc = 1, p_patch%nblks_c
+        block_size = nproma
+        IF (ibc == p_patch%nblks_c) block_size = p_patch%npromz_c
+        DO ilc=1, block_size
+        
+          p_patch%cells%num_edges(ilc,ibc) = 0        
+          DO jce = 1, global_cell_type
+            IF ( p_patch%cells%edge_idx(ilc,ibc,jce) > 0 ) &
+              & p_patch%cells%num_edges(ilc,ibc) = p_patch%cells%num_edges(ilc,ibc) + 1        
+          END DO
+          
+        END DO        
+      END DO
+      
+    ENDIF
+
     !
     ! Set values which are needed for parallel runs
     ! to the correct values for a single patch owner
@@ -1513,7 +1558,7 @@ CONTAINS
   END SUBROUTINE read_basic_patch
   !-------------------------------------------------------------------------
    
-
+    
   !-------------------------------------------------------------------------
   !> Reads the remaining patch information into the divided patch
   SUBROUTINE read_remaining_patch( ig, p_patch, n_lp, id_lp )
