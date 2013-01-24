@@ -1475,6 +1475,20 @@ CONTAINS
           &                   'm^2/s^2', 152, 201,&
           &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_hybrid_half(k_jg)),&
           &           k_jg)
+          IF(ltestcase .AND. nh_test_name=='CBL')THEN
+            !--- turbulent viscosity-----
+            CALL addVar(TimeVar('TKVM',&
+            &                   'sub-grid turbulent viscosity',&
+            &                   'm^2/s', 255, 255,&
+            &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_hybrid_half(k_jg)),&
+            &           k_jg)
+            !--- turbulent diffusivity-----
+            CALL addVar(TimeVar('TKVH',&
+            &                   'sub-grid turbulent diffusivity',&
+            &                   'm^2/s', 255, 255,&
+            &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_hybrid_half(k_jg)),&
+            &           k_jg)
+          END IF
 !DR to be implemented
 !!$          !--- TKE-tendency ---
 !!$          CALL addVar(TimeVar('tend_tke',&
@@ -3126,6 +3140,10 @@ CONTAINS
       CASE ('TKE');             ptr3 => p_prog_rcf%tke
       CASE ('TCM');             ptr2 => prm_diag(jg)%tcm
       CASE ('TCH');             ptr2 => prm_diag(jg)%tch
+      !<AD: Added for torus testcases
+      CASE ('TKVM');            ptr3 => prm_diag(jg)%tkvm
+      CASE ('TKVH');            ptr3 => prm_diag(jg)%tkvh      
+      !AD> 
       CASE ('Z0')
         IF (atm_phy_nwp_config(jg)%inwp_turb.EQ.1 .OR.  &
          &  atm_phy_nwp_config(jg)%inwp_turb.EQ.2) THEN

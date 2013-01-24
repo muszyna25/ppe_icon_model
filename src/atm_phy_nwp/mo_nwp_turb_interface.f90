@@ -219,7 +219,7 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
           atm_phy_nwp_config(jg)%inwp_turb == 2) THEN
           !based on shfl_s calculation in mo_gme_turbdiff:progimp_turb, line 1035
           DO jc = i_startidx, i_endidx
-            lnd_prog_now%t_g(jc,jb) = p_prog%theta_v(jc,nlev,jb)    +     &
+            lnd_prog_now%t_g(jc,jb) = p_diag%temp(jc,nlev,jb)       +     &
                prm_nwp_tend%ddt_temp_turb(jc,nlev, jb) * tcall_turb_jg -  &
                grav * rcpd * ( p_metrics%z_ifc(jc,nlevp1,jb)        -     &
                                p_metrics%z_mc(jc,nlev,jb) ) + shflx_cbl / &
@@ -231,7 +231,7 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
           atm_phy_nwp_config(jg)%inwp_turb == 1) THEN 
           !based on personal communication with Matthias (over email): still doesn't work!
           DO jc = i_startidx, i_endidx
-            lnd_prog_now%t_g(jc,jb) = p_prog%theta_v(jc,nlev,jb) - shflx_cbl /    &
+            lnd_prog_now%t_g(jc,jb) = p_diag%temp(jc,nlev,jb) - shflx_cbl /    &
             ( MAX(vel_min,SQRT(p_diag%u(jc,nlev,jb)**2 + p_diag%v(jc,nlev,jb)**2) *  &
                   prm_diag%tch(jc,jb)) )
           END DO
