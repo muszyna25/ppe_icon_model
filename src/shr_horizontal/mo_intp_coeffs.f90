@@ -1984,10 +1984,10 @@ CONTAINS
       DO je = 1, ptr_patch%cell_type
         DO jc = i_startidx, i_endidx
           
-          IF (je > ptr_patch%cells%num_edges(jc,jb)) THEN !CYCLE ! relevant for hexagons
-            write(0,*) jc, jb, ":", ptr_patch%cells%num_edges(jc,jb)
-            STOP
-          ENDIF
+          IF (je > ptr_patch%cells%num_edges(jc,jb)) CYCLE ! relevant for hexagons
+!             write(0,*) jc, jb, ":", ptr_patch%cells%num_edges(jc,jb)
+!             STOP
+!           ENDIF
           
           ile = ptr_patch%cells%edge_idx(jc,jb,je)
           ibe = ptr_patch%cells%edge_blk(jc,jb,je)
