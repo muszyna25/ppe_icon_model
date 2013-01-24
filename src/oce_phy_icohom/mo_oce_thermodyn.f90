@@ -282,7 +282,7 @@ END INTERFACE
   INTEGER :: rl_start, rl_end
   INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
   REAL(wp) :: z_full, z_box
-  REAL(wp), POINTER :: del_zlev_m(:)
+!   REAL(wp), POINTER :: del_zlev_m(:)
   REAL(wp),PARAMETER :: z_grav_rho_inv=rho_inv*grav
   TYPE(t_subset_range), POINTER :: all_cells
   TYPE(t_patch), POINTER        :: p_patch 
@@ -293,6 +293,7 @@ END INTERFACE
   ! #slo# due to nag -nan compiler-option set intent(out) variables to zero
   !press_hyd(:,:,:) = 0.0_wp
   all_cells => p_patch%cells%all
+  press_hyd(:,:,:) = 0.0_wp
 
   slev = 1
   !
@@ -316,15 +317,16 @@ END INTERFACE
       IF(end_lev>=min_dolic)THEN
         DO jk = slev, end_lev
           IF(p_patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
-            del_zlev_m => prism_thick_c(jc,:,jb)
-            z_box      = del_zlev_m(jk)*rho(jc,jk,jb)      !-rho_ref!&!     pressure in single box at layer jk
+!             del_zlev_m => prism_thick_c(jc,:,jb)
+!             z_box      = del_zlev_m(jk)*rho(jc,jk,jb)      !-rho_ref!&!     pressure in single box at layer jk
+            z_box = prism_thick_c(jc,jk,jb) * rho(jc,jk,jb)      !-rho_ref!&!     pressure in single box at layer jk
 
             press_hyd(jc,jk,jb) = ( z_full + 0.5_wp*z_box ) * z_grav_rho_inv
             ! rho_inv*grav  !hydrostatic press at level jk
             ! =half of pressure at actual box+ sum of all boxes above
             z_full              = z_full + z_box
-          ELSE
-            press_hyd(jc,jk,jb) = 0.0_wp
+!           ELSE
+!             press_hyd(jc,jk,jb) = 0.0_wp
           ENDIF
         END DO
       ENDIF

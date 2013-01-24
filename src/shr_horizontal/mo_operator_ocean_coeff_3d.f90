@@ -196,7 +196,7 @@ CONTAINS
 
     TYPE(t_subset_range), POINTER :: all_edges
     TYPE(t_subset_range), POINTER :: all_cells
-    TYPE(t_subset_range), POINTER :: all_verts
+!     TYPE(t_subset_range), POINTER :: all_verts
     !-----------------------------------------------------------------------
     !
     ! determine size of arrays, i.e.
@@ -400,7 +400,7 @@ CONTAINS
 
     all_cells => p_patch%cells%all
     all_edges => p_patch%edges%all
-    all_verts => p_patch%verts%all
+!     all_verts => p_patch%verts%all
 
     DO jk = 1, nz_lev
       DO jb = all_edges%start_block, all_edges%end_block
