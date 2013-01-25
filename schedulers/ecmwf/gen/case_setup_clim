@@ -52,10 +52,10 @@ ndays_restart=60
 dt_restart=`expr ${ndays_restart} \* 86400`
 
 # model timing
-dtime=72
-dtconv=720             # convection, SSO, GWD. See iadv_rcf for TURB frequency
+dtime=100
+dtconv=1200            # convection, SSO, GWD. See iadv_rcf for TURB frequency
 dtrad=3600             # radiation time step
-ndays=10               # number of days to run
+ndays=405              # number of days to run
 nsteps=`expr ${ndays} \* 86400 / ${dtime}`
 ninc_mtgrm=50          # output interval 3600s
 
@@ -269,7 +269,7 @@ cat > ${atmo_namelist} << EOF
  vwind_offctr                 = 0.2
  damp_height                  = 50000.
  rayleigh_coeff               = 0.10
- iadv_rcf                     = 5
+ iadv_rcf                     = 4
  lhdiff_rcf                   = .true.
  divdamp_fac                  = 0.004
  divdamp_order                = 4
