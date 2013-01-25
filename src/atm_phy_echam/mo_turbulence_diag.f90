@@ -638,8 +638,7 @@ CONTAINS
 
         zdqt     = zqtl - zqts                                    ! d qt
         zdthetal = pthetal_b(jl) - ztheta                         ! d theta_l
-!! TR ATTENTION!
-!! TR From here on idx_wtr and idx_lnd are exchanged for testing
+
         IF ( jsfc == idx_wtr .OR. jsfc == idx_ice ) THEN          ! over water or ice
           zdu2(jl,jsfc) = MAX(zepdu2,(pum1_b(jl)-pocu(jl))**2 &   ! (d u)^2
                                     +(pvm1_b(jl)-pocv(jl))**2)    ! (d v)^2
