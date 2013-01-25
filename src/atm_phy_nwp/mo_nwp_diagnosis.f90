@@ -64,6 +64,7 @@ MODULE mo_nwp_diagnosis
   USE mo_nwp_phy_types,      ONLY: t_nwp_phy_diag, t_nwp_phy_tend
   USE mo_parallel_config,    ONLY: nproma
   USE mo_time_config,        ONLY: time_config
+  USE mo_lnd_nwp_config,     ONLY: nlev_soil
   USE mo_physical_constants, ONLY: lh_v     => alv, &      !! latent heat of vapourization
                                    rd, cpd, rcvd
   USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config
@@ -308,7 +309,7 @@ CONTAINS
     !
     IF ( p_sim_time > 1.e-6_wp .AND. lflux_avg) THEN
 
-!$OMP DO PRIVATE(jb, i_startidx,i_endidx,jc) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk, i_endblk
         !
         CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
@@ -332,7 +333,16 @@ CONTAINS
                                &  + prm_diag%shfl_s(jc,jb)              &!attention to the sign, in the output all fluxes
                                &  * dt_phy_jg(itfastphy) )              &!must be positive downwards 
                                & * r_sim_time
-          ENDDO
+          ENDDO  ! jc
+          DO jk = 1, nlev_soil
+            DO jc = i_startidx, i_endidx
+            prm_diag%alhfl_pl(jc,jk,jb) = ( prm_diag%alhfl_pl(jc,jk,jb)       &
+                               &  * (p_sim_time - dt_phy_jg(itfastphy)) &
+                               &  + prm_diag%lhfl_pl(jc,jk,jb)          &!attention to the sign, in the output all fluxes
+                               &  * dt_phy_jg(itfastphy) )              &!must be positive downwards 
+                               & * r_sim_time
+            ENDDO  ! jc
+          ENDDO  ! jk
         CASE (4)
           DO jc = i_startidx, i_endidx
             prm_diag%alhfl_s(jc,jb) = ( prm_diag%alhfl_s(jc,jb)         &
@@ -352,7 +362,7 @@ CONTAINS
 !$OMP END DO
 
     ELSEIF (.NOT. lflux_avg) THEN
-!$OMP DO PRIVATE(jb, i_startidx,i_endidx,jc) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
@@ -371,6 +381,13 @@ CONTAINS
                                &  + prm_diag%shfl_s(jc,jb)           &!attention to the sign, in the output all fluxes 
                                &  * dt_phy_jg(itfastphy)              !must be positive downwards 
           ENDDO
+          DO jk = 1, nlev_soil
+            DO jc = i_startidx, i_endidx
+              prm_diag%alhfl_pl(jc,jk,jb) =  prm_diag%alhfl_pl(jc,jk,jb)&
+                               &  + prm_diag%lhfl_pl(jc,jk,jb)          &!attention to the sign, in the output all fluxes 
+                               &  * dt_phy_jg(itfastphy)                 !must be positive downwards 
+            ENDDO  ! jc
+          ENDDO  ! jk
         CASE (4)
           DO jc = i_startidx, i_endidx
             prm_diag%alhfl_s(jc,jb) =  prm_diag%alhfl_s(jc,jb)       &

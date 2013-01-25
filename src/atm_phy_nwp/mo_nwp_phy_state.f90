@@ -78,7 +78,7 @@ USE mo_grid_config,         ONLY: n_dom
 USE mo_icoham_sfc_indices,  ONLY: nsfc_type
 USE mo_linked_list,         ONLY: t_list_element, t_var_list
 USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
-USE mo_lnd_nwp_config,      ONLY: ntiles_total, ntiles_water
+USE mo_lnd_nwp_config,      ONLY: ntiles_total, ntiles_water, nlev_soil
 USE mo_var_list,            ONLY: default_var_list_settings, &
   &                               add_var, add_ref, new_var_list, delete_var_list, &
   &                               create_vert_interp_metadata, groups, vintp_types
@@ -90,9 +90,9 @@ USE mo_var_list_element,    ONLY: t_var_list_element
 USE mo_cdi_constants,       ONLY: GRID_UNSTRUCTURED_CELL, GRID_REFERENCE,       &
   &                               GRID_CELL, ZA_HYBRID, ZA_HYBRID_HALF,         &
   &                               ZA_SURFACE, ZA_HEIGHT_2M, ZA_HEIGHT_10M,      &
-  &                               ZA_TOA, DATATYPE_FLT32, DATATYPE_PACK16,      &
-  &                               FILETYPE_NC2, TSTEP_INSTANT, TSTEP_ACCUM,     &
-  &                               TSTEP_AVG, TSTEP_MAX, TSTEP_MIN
+  &                               ZA_TOA, ZA_DEPTH_BELOW_LAND, DATATYPE_FLT32,  &
+  &                               DATATYPE_PACK16, FILETYPE_NC2, TSTEP_INSTANT, &
+  &                               TSTEP_ACCUM, TSTEP_AVG, TSTEP_MAX, TSTEP_MIN
 
 IMPLICIT NONE
 PRIVATE
@@ -1033,6 +1033,29 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
           & isteptype=a_steptype )
 
 
+
+        ! &      diag%lhfl_pl(nproma,nlev_soil,nblks_c)
+        cf_desc    = t_cf_var('lhfl_pl', 'W m-2 ', 'latent heat flux from plants', &
+          &          DATATYPE_FLT32)
+        grib2_desc = t_grib2_var(2, 0, 194, ibits, GRID_REFERENCE, GRID_CELL)
+        CALL add_var( diag_list, 'lhfl_pl', diag%lhfl_pl,                     &
+          & GRID_UNSTRUCTURED_CELL, ZA_DEPTH_BELOW_LAND, cf_desc, grib2_desc, &
+          & ldims=(/nproma,nlev_soil,kblks/), lrestart=.FALSE.,               &
+          & in_group=groups("pbl_vars"))
+
+
+                    
+        WRITE(name,'(A,A7)') TRIM(prefix),"lhfl_pl"
+        WRITE(long_name,'(A27,A4,A18)') "latent heat flux from plants", meaning, &
+                                      & " since model start"
+        cf_desc    = t_cf_var(TRIM(name), TRIM(varunits), TRIM(long_name), DATATYPE_FLT32)
+        grib2_desc = t_grib2_var(2, 0, 194, ibits, GRID_REFERENCE, GRID_CELL)
+        CALL add_var( diag_list, TRIM(name), diag%alhfl_pl,                   &
+          & GRID_UNSTRUCTURED_CELL, ZA_DEPTH_BELOW_LAND, cf_desc, grib2_desc, &
+          & ldims=(/nproma,nlev_soil,kblks/), lrestart=.TRUE.,                &
+          & isteptype=a_steptype )
+
+
         ! &      diag%qhfl_s(nproma,nblks_c)
         cf_desc    = t_cf_var('qhfl_s', 'Kg m-2 s-1', 'surface moisture flux', DATATYPE_FLT32)
         grib2_desc = t_grib2_var(2, 0, 6, ibits, GRID_REFERENCE, GRID_CELL)
@@ -1288,6 +1311,30 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
              & t_cf_var('lhfl_bs_t_'//TRIM(csfc), '', '', DATATYPE_FLT32),&
              & t_grib2_var(2, 0, 193, ibits, GRID_REFERENCE, GRID_CELL),  & 
              & ldims=shape2d, lrestart=.FALSE., loutput=.TRUE.)
+        ENDDO
+
+
+        ! &      diag%lhfl_pl_t(nproma,nlev_soil,nblks_c,ntiles_total)
+        cf_desc    = t_cf_var('lhfl_pl_t', 'W m-2 ', 'tile-based latent heat flux from plants', &
+          &                   DATATYPE_FLT32)
+        grib2_desc = t_grib2_var(2, 0, 194, ibits, GRID_REFERENCE, GRID_CELL)
+        CALL add_var( diag_list, 'lhfl_pl_t', diag%lhfl_pl_t,                 &
+          & GRID_UNSTRUCTURED_CELL, ZA_DEPTH_BELOW_LAND, cf_desc, grib2_desc, &
+          & ldims=(/nproma,nlev_soil,kblks,ntiles_total/), lcontainer=.TRUE., &
+          & lrestart=.FALSE., loutput=.FALSE.)
+
+        ! fill the separate variables belonging to the container lhfl_pl_t
+        ALLOCATE(diag%lhfl_pl_t_ptr(ntiles_total))
+        DO jsfc = 1,ntiles_total
+          WRITE(csfc,'(i1)') jsfc
+          CALL add_ref( diag_list, 'lhfl_pl_t',                           &
+             & 'lhfl_pl_t_'//TRIM(ADJUSTL(csfc)),                         &
+             & diag%lhfl_pl_t_ptr(jsfc)%p_3d,                             &
+             & GRID_UNSTRUCTURED_CELL, ZA_DEPTH_BELOW_LAND,               & 
+             & t_cf_var('lhfl_pl_t_'//TRIM(csfc), '', '', DATATYPE_FLT32),&
+             & t_grib2_var(2, 0, 194, ibits, GRID_REFERENCE, GRID_CELL),  & 
+             & ldims=(/nproma,nlev_soil,kblks/), lrestart=.FALSE.,        &
+             & loutput=.TRUE.)
         ENDDO
 
 

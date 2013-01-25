@@ -222,9 +222,11 @@ CONTAINS
     REAL(wp), PARAMETER :: small = 1.E-06_wp
 
     REAL(wp) :: t_g_s(nproma), qv_s_s(nproma), lhfl_bs_s(nproma), rstom_s(nproma)
+    REAL(wp) :: lhfl_pl_s(nproma, nlev_soil)
     REAL(wp) :: shfl_s_t    (nproma, p_patch%nblks_c, ntiles_total)
     REAL(wp) :: lhfl_s_t    (nproma, p_patch%nblks_c, ntiles_total)
     REAL(wp) :: lhfl_bs_t   (nproma, p_patch%nblks_c, ntiles_total)
+    REAL(wp) :: lhfl_pl_t   (nproma, nlev_soil, p_patch%nblks_c, ntiles_total)
     REAL(wp) :: rstom_t     (nproma, p_patch%nblks_c, ntiles_total)
     REAL(wp) :: shfl_snow_t (nproma, p_patch%nblks_c, ntiles_total)
     REAL(wp) :: lhfl_snow_t (nproma, p_patch%nblks_c, ntiles_total)
@@ -541,6 +543,7 @@ CONTAINS
         &  zshfl_snow    = shfl_snow_t(:,jb,isubs)           , & ! sensible heat flux snow/air interface         (W/m2) 
         &  zlhfl_snow    = lhfl_snow_t(:,jb,isubs)           , & ! latent   heat flux snow/air interface         (W/m2) 
         &  lhfl_bs       = lhfl_bs_t  (:,jb,isubs)           , & ! out: latent heat flux from bare soil evap.    (W/m2)
+        &  lhfl_pl       = lhfl_pl_t  (:,:,jb,isubs)         , & ! out: latent heat flux from bare soil evap.    (W/m2)
         &  rstom         = rstom_t    (:,jb,isubs)             ) ! out: stomatal resistance                      ( s/m )
 
 !DR NOTE that LHFL_S_T MUST BE STORED!!!!
@@ -562,10 +565,6 @@ CONTAINS
 
 !---------- Copy index list fields back to state fields
 
-        ! we need to initialize also non-land points for latent heat flux,
-        ! bare soil:
-        prm_diag%lhfl_bs_t(:,jb,isubs) = 0._wp
-        
 !CDIR NODEP,VOVERTAKE,VOB
         DO ic = 1, i_count
           jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
@@ -641,7 +640,10 @@ CONTAINS
 #endif
             lnd_prog_new%t_so_t    (jc,jk,jb,isubs) = t_so_new_t    (ic,jk,jb,isubs)          
             lnd_prog_new%w_so_t    (jc,jk,jb,isubs) = w_so_new_t    (ic,jk,jb,isubs)          
-            lnd_prog_new%w_so_ice_t(jc,jk,jb,isubs) = w_so_ice_new_t(ic,jk,jb,isubs)     
+            lnd_prog_new%w_so_ice_t(jc,jk,jb,isubs) = w_so_ice_new_t(ic,jk,jb,isubs)
+
+            ! diagnostic field
+            prm_diag%lhfl_pl_t     (jc,jk,jb,isubs) = lhfl_pl_t     (ic,jk,jb,isubs)     
           ENDDO
         ENDDO
 
@@ -866,7 +868,7 @@ CONTAINS
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jc,isubs,i_startidx,i_endidx,t_g_s,qv_s_s,lhfl_bs_s,rstom_s)
+!$OMP DO PRIVATE(jb,jc,isubs,i_startidx,i_endidx,t_g_s,qv_s_s,lhfl_bs_s,lhfl_pl_s,rstom_s)
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -880,11 +882,17 @@ CONTAINS
            prm_diag%lhfl_bs(jc,jb)  = prm_diag%lhfl_bs_t(jc,jb,1) 
            lnd_diag%rstom(jc,jb)    = lnd_diag%rstom_t(jc,jb,1)
          ENDDO
+         DO jk=1,nlev_soil
+           DO jc = i_startidx, i_endidx
+             prm_diag%lhfl_pl(jc,jk,jb)= prm_diag%lhfl_pl_t(jc,jk,jb,1)
+           ENDDO  ! jc
+         ENDDO  ! jk
        ELSE ! aggregate fields over tiles
-         t_g_s(:)     = 0._wp
-         qv_s_s(:)    = 0._wp
-         lhfl_bs_s(:) = 0._wp
-         rstom_s(:)   = 0._wp
+         t_g_s(:)      = 0._wp
+         qv_s_s(:)     = 0._wp
+         lhfl_bs_s(:)  = 0._wp
+         lhfl_pl_s(:,:)= 0._wp
+         rstom_s(:)    = 0._wp
          DO isubs = 1,ntiles_total+ntiles_water
            DO jc = i_startidx, i_endidx
              t_g_s(jc) = t_g_s(jc) + ext_data%atm%frac_t(jc,jb,isubs)  &
@@ -893,20 +901,33 @@ CONTAINS
                &       * lnd_diag%qv_s_t(jc,jb,isubs)
            ENDDO
          ENDDO
+
          DO isubs = 1,ntiles_total
            DO jc = i_startidx, i_endidx
              lhfl_bs_s(jc) = lhfl_bs_s(jc) + ext_data%atm%frac_t(jc,jb,isubs) &
                &       * prm_diag%lhfl_bs_t(jc,jb,isubs)
              rstom_s(jc)   = rstom_s(jc) + ext_data%atm%frac_t(jc,jb,isubs) &
                &       * lnd_diag%rstom_t(jc,jb,isubs)
-           ENDDO
-         ENDDO
+           ENDDO  ! jc
+           DO jk=1,nlev_soil
+             DO jc = i_startidx, i_endidx
+               lhfl_pl_s(jc,jk) = lhfl_pl_s(jc,jk) + ext_data%atm%frac_t(jc,jb,isubs) &
+                 &       * prm_diag%lhfl_pl_t(jc,jk,jb,isubs)
+             ENDDO  ! jc
+           ENDDO  ! jk
+         ENDDO  ! isubs
+
          DO jc = i_startidx, i_endidx
            lnd_prog_new%t_g(jc,jb)  = SQRT(SQRT(t_g_s(jc)))
            lnd_diag%qv_s(jc,jb)     = qv_s_s(jc)
            prm_diag%lhfl_bs(jc,jb)  = lhfl_bs_s(jc)
            lnd_diag%rstom(jc,jb)    = rstom_s(jc)
-         ENDDO
+         ENDDO  ! jc
+         DO jk=1,nlev_soil
+           DO jc = i_startidx, i_endidx
+             prm_diag%lhfl_pl(jc,jk,jb)= lhfl_pl_s(jc,jk)
+           ENDDO  ! jc
+         ENDDO  ! jk
 
        ENDIF    ! with or without tiles
 

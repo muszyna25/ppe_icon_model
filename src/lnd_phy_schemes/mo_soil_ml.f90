@@ -576,6 +576,7 @@ END SUBROUTINE message
                   zshfl_snow       , & ! sensible heat flux snow/air interface         (W/m2) 
                   zlhfl_snow       , & ! latent   heat flux snow/air interface         (W/m2)  
                   lhfl_bs          , & ! latent heat flux from bare soil evap.         (W/m2)
+                  lhfl_pl          , & ! latent heat flux from plants                  (W/m2)
                   rstom              & ! stomatal resistance                           ( s/m )
                                      )  
 
@@ -710,10 +711,9 @@ END SUBROUTINE message
   REAL    (KIND = ireals), DIMENSION(ie), INTENT(OUT) :: &
                   rstom            ! stomata resistance                                ( s/m )
   REAL    (KIND = ireals), DIMENSION(ie), INTENT(OUT) :: &
-                  lhfl_bs          ! latent heat flux from bare soil evap.( W/m2)
-!!$  REAL    (KIND = ireals), DIMENSION(ie,ke_soil), INTENT(INOUT) :: &
-!!$                  lhfl_pl          ! average latent heat flux from plants         ( W/m2)
-
+                  lhfl_bs          ! latent heat flux from bare soil evap.             ( W/m2)
+  REAL    (KIND = ireals), DIMENSION(ie,ke_soil+1), INTENT(OUT) :: &
+                  lhfl_pl          ! average latent heat flux from plants              ( W/m2)
 
 !--------------------------------------------------------------------------------
 ! TERRA Declarations
@@ -1407,6 +1407,7 @@ END SUBROUTINE message
       zrs    (i)      = 0.0_ireals         ! in first part formation of rime
       zw_fr(i,ke_soil+1)  = w_so_now(i,ke_soil+1)/zdzhs(ke_soil+1)
       lhfl_bs(i)      = 0.0_ireals
+      lhfl_pl(i,:)    = 0.0_ireals
       rstom  (i)      = 0.0_ireals
   END DO
 
@@ -2208,7 +2209,7 @@ END SUBROUTINE message
                   IF(zw_fr(i,kso)+ztrang(i,kso)*zdtdrhw/zdzhs(kso) &
                                     .LT.zpwp(i)) ztrang(i,kso) = 0._ireals
                 ENDIF
-!                lhfl_pl(i,kso)= lh_v * ztrang(i,kso)
+                lhfl_pl(i,kso)= lh_v * ztrang(i,kso)
                 ztrangs(i)    = ztrangs(i) + ztrang(i,kso)
               END IF  ! upwards directed potential evaporation only
             END IF    ! m_styp > 2

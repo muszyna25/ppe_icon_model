@@ -1377,7 +1377,7 @@ grid because the send buffer may then be empty on some PEs) & iequations = 3
 
 \hline 
 output &
-C(:)& ``vlist'',''totint'' & &
+C(:)& ``nml'',''totint'' & &
 Main switch for enabling/disabling components of the model output. One or more choices can be set (as an array of string constants). Possible choices are:
 \begin{itemize}
 \item ``none'': switch off all output;
@@ -1385,7 +1385,7 @@ Main switch for enabling/disabling components of the model output. One or more c
 \item``nml'': new output mode (cf.\ \texttt{output\_nml});
 \item``totint'': computation of total integrals.
 \end{itemize}
-If the \texttt{output} namelist parameter is not set explicitly, the default setting ``vlist'',''totint'' is assumed.
+If the \texttt{output} namelist parameter is not set explicitly, the default setting ``nml'',''totint'' is assumed.
  &
 \tabularnewline
 

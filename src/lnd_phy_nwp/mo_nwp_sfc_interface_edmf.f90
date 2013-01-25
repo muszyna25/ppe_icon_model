@@ -339,6 +339,7 @@ CONTAINS
     REAL(wp) :: shfl_s_t    (nproma, ntiles_total)
     REAL(wp) :: lhfl_s_t    (nproma, ntiles_total)
     REAL(wp) :: lhfl_bs_t   (nproma, ntiles_total)
+    REAL(wp) :: lhfl_pl_t   (nproma, nlev_soil, ntiles_total)
     REAL(wp) :: rstom_t     (nproma, ntiles_total)
     REAL(wp) :: shfl_snow_t (nproma, ntiles_total)
     REAL(wp) :: lhfl_snow_t (nproma, ntiles_total)
@@ -641,10 +642,12 @@ IF ( .true. ) THEN
         &  zshfl_snow    = shfl_snow_t(:,isubs)              , & ! sensible heat flux snow/air interface         (W/m2) 
         &  zlhfl_snow    = lhfl_snow_t(:,isubs)              , & ! latent   heat flux snow/air interface         (W/m2) 
         &  lhfl_bs       = lhfl_bs_t  (:,isubs)              , & ! out: latent heat flux from bare soil evap.    (W/m2)
+        &  lhfl_pl       = lhfl_pl_t  (:,:,isubs)            , & ! out: latent heat flux from bare soil evap.    (W/m2)
         &  rstom         = rstom_t    (:,isubs)                & ! out: stomatal resistance                     ( s/m )
         &                                                      )
 
 !DR aggregation of lhfl_bs_t is missing
+!DR aggregation of lhfl_pl_t is missing
 !DR aggregation of rstom_t is missing
 endif
 
