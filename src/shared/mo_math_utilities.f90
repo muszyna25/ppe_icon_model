@@ -1692,6 +1692,8 @@ CONTAINS
     REAL(wp),              INTENT(inout) :: rotated_pts(:,:,:)
     
     ! Local parameters
+    REAL(wp), PARAMETER :: ZERO_TOL = 1.e-15
+
     REAL(wp) :: sincos_pole(2,2) ! (lon/lat, sin/cos)
     REAL(wp) :: sincos_lon(lon_lat_grid%lon_dim,2), &
       & sincos_lat(lon_lat_grid%lat_dim,2)
@@ -1716,15 +1718,14 @@ CONTAINS
       sincos_lat(k,:) = (/ SIN(rlon_lat), COS(rlon_lat) /)
     END DO
     
-    
     DO j = 1, lon_lat_grid%lat_dim
       DO k = 1, lon_lat_grid%lon_dim
         
         ! ATAN2(COS(phi)*SIN(lambda), SIN(poleY)*COS(phi)*COS(lambda) - SIN(phi)*COS(poleY)) + poleX
         arg1 = sincos_lat(j,2)*sincos_lon(k,1)
         arg2 = sincos_pole(2,1)*sincos_lat(j,2)*sincos_lon(k,2) - sincos_lat(j,1)*sincos_pole(2,2)
-        
-        IF (arg1 /= 0.0_wp .OR. arg2 /= 0.0_wp) THEN
+
+        IF ((ABS(arg1) > ZERO_TOL) .OR. (ABS(arg2) > ZERO_TOL)) THEN
           rotated_pts(k,j,1) = ATAN2( arg1, arg2 ) + npole_rad(1)
         ELSE
           rotated_pts(k,j,1) = 0.0_wp ! ATAN2(0,0) is undefined, so we just have to set something
