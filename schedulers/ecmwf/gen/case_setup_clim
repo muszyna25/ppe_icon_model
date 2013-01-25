@@ -189,7 +189,7 @@ cat > ${atmo_namelist} << EOF
  filetype                     =  2                        ! output format: 2=GRIB2, 4=NETCDFv2
  dom                          = -1                        ! write all domains
  output_time_unit             =  1                        ! 1: seconds
- output_bounds                =  0., 10000000., 43200.    ! start, end, increment
+ output_bounds                =  0., 10000000., 86400.    ! start, end, increment
  steps_per_file               =  40
  mode                         =  1  ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
  include_last                 = .TRUE.
@@ -199,8 +199,8 @@ cat > ${atmo_namelist} << EOF
  hl_varlist                   = ${hl_varlist}
  output_grid                  = .FALSE.
  remap                        = 1
- reg_lon_def                  = 0.,1.,359.
- reg_lat_def                  = 90.,-1., -90.
+ reg_lon_def                  = 0.,2.,358.
+ reg_lat_def                  = 90.,-2., -90.
 !namespace                    = "DWD"                 ! may give problems with metview - leave default ecmwf"
 /
 &meteogram_output_nml

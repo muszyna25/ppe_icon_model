@@ -34,11 +34,11 @@ setenv -i TMPDIR
 set EXPNUM        "001"                #---experiment number---
 set EXPNUM2       "001"                #---experiment number used for score comparison---
 set SUITE2        "deia"               #---suite             used for score comparison---
-set FIRST_DATE    20130115
+set FIRST_DATE    20130124
 set LAST_DATE     20130630
 set MONTHS        000000               #---months to be run (not for oper)
 set ICON_HOME     /home/ms/de/deia 
-set ICON_ID       deia 
+set ICON_ID       deia
 set RES           "R2B06"              #---ICON resolution dynamics
 set RESRAD        "R2B05"              #---ICON resolution radiation (requires namelist)
 
