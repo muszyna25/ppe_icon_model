@@ -97,6 +97,7 @@ cat > ${atmo_namelist} << EOF
  ltimer      = .true.       ! 
  timers_level = 100         !
  msg_level   = 12          ! detailed report during integration
+ output      = 'vlist'       
 /
 &dynamics_nml
  iequations  = ${atmo_model_equations}       ! 1: hydrost. atmosphere
@@ -112,7 +113,8 @@ cat > ${atmo_namelist} << EOF
  vgeo              =  0.0, 0.0
  umean             =  0.0, 0.0
  vmean             =  0.0, 0.0
- shflx_cbl         =  0.1
+ shflx_cbl         =  120.5     !surface heat flux in W/m2 (1.2*1004.64*<w'\theta'>)
+ lhflx_cbl         =  0.0
 /
 &diffusion_nml
  lhdiff_temp  = .TRUE.

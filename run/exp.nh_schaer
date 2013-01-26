@@ -97,6 +97,7 @@ cat > ${atmo_namelist} << EOF
  ltimer      = .true.       ! 
  timers_level = 100         !
  msg_level   = 100          ! detailed report during integration
+ output      = 'vlist'
 /
 &dynamics_nml
  iequations  = ${atmo_model_equations}       ! 1: hydrost. atmosphere
