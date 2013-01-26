@@ -66,8 +66,10 @@ MODULE mo_nh_torus_exp
   USE mo_run_config,          ONLY: iqv, iqc
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_e, grf_bdywidth_c
 
-   IMPLICIT NONE
-
+  IMPLICIT NONE
+  
+  PUBLIC :: init_nh_state_cbl, sst_cbl, is_dry_cbl, ugeo, set_sst_cbl, &
+            vgeo, umean, vmean, vt_geostrophic, shflx_cbl, lhflx_cbl, lhflx_cbl
 
   !DEFINED PARAMETERS:
   REAL(wp), PARAMETER :: zp0     = 100000._wp !< surface pressure
@@ -82,8 +84,6 @@ MODULE mo_nh_torus_exp
 
   LOGICAL  :: is_dry_cbl, set_sst_cbl
 
-  PUBLIC :: init_nh_state_cbl, sst_cbl, is_dry_cbl, ugeo, set_sst_cbl, &
-            vgeo, umean, vmean, vt_geostrophic, shflx_cbl, lhflx_cbl
 
 !--------------------------------------------------------------------
 
