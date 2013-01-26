@@ -69,7 +69,7 @@ USE mo_read_netcdf_parallel, ONLY:                &
   PUBLIC :: grid_rescale_factor, grid_length_rescale_factor, &
      & grid_area_rescale_factor, grid_sphere_radius, grid_angular_velocity
 
-  PUBLIC :: namelst_grid_angular_velocity
+  PUBLIC :: namelist_grid_angular_velocity
 
   PUBLIC :: dynamics_grid_filename,  dynamics_parent_grid_id,     &
     &       radiation_grid_filename, dynamics_radiation_grid_link
@@ -124,7 +124,7 @@ INCLUDE 'netcdf.inc'
   REAL(wp) :: grid_area_rescale_factor = 1.0_wp
   REAL(wp) :: grid_sphere_radius  = earth_radius
   REAL(wp) :: grid_angular_velocity  = earth_angular_velocity
-  REAL(wp) :: namelst_grid_angular_velocity  = earth_angular_velocity
+  REAL(wp) :: namelist_grid_angular_velocity  = earth_angular_velocity
 
   CHARACTER(LEN=filename_max) :: dynamics_grid_filename(max_dom)
   INTEGER                     :: dynamics_parent_grid_id(max_dom)
@@ -148,7 +148,7 @@ CONTAINS
   SUBROUTINE init_grid_configuration
                                                
     !local variables
-    INTEGER  :: jg
+    INTEGER  :: jg, ncid, cell_type
 !    INTEGER  :: funit
     LOGICAL  :: file_exists
     CHARACTER(*), PARAMETER :: method_name = "mo_grid_config:init_grid_configuration"
@@ -196,8 +196,13 @@ CONTAINS
       
     ! get here the nroot, eventually it should be moved into the patch info
 !     nroot = get_grid_root(dynamics_grid_filename(1))
-    CALL get_gridfile_root_level(dynamics_grid_filename(1), nroot, start_lev)
+    CALL nf(nf_open(dynamics_grid_filename(1), nf_nowrite, ncid))
+    CALL get_gridfile_root_level(ncid, nroot, start_lev)
+    CALL get_gridfile_cell_type(ncid, cell_type)
+    CALL nf(nf_close(ncid))
 
+    IF (global_cell_type /= cell_type) &
+      CALL finish(method_name, "global_cell_type /= cell_type")
 
     ! domain geometric properties
 !    CALL get_gridfile_rescale_factor(dynamics_grid_filename(1), grid_rescale_factor)
@@ -206,7 +211,7 @@ CONTAINS
     grid_sphere_radius = grid_sphere_radius * grid_rescale_factor
     grid_length_rescale_factor = grid_rescale_factor
     grid_area_rescale_factor   = grid_rescale_factor * grid_rescale_factor
-    grid_angular_velocity      = namelst_grid_angular_velocity / grid_rescale_factor
+    grid_angular_velocity      = namelist_grid_angular_velocity / grid_rescale_factor
 !     write(0,*) "   nroot = ", nroot
     
 !     write(0,*) "grid_sphere_radius=",grid_sphere_radius
@@ -257,18 +262,29 @@ CONTAINS
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
-  SUBROUTINE get_gridfile_root_level( patch_file, grid_root, grid_level )
-    CHARACTER(len=*),    INTENT(in)  ::  patch_file   ! name of grid file
-    INTEGER,    INTENT(inout)  ::  grid_root, grid_level
+  SUBROUTINE get_gridfile_root_level( ncid, grid_root, grid_level )
+!     CHARACTER(len=*),    INTENT(in)  ::  patch_file   ! name of grid file
+    INTEGER,    INTENT(in)     :: ncid
+    INTEGER,    INTENT(inout)  :: grid_root, grid_level
 
-    INTEGER :: ncid
-
-    CALL nf(nf_open(TRIM(patch_file), nf_nowrite, ncid))
     CALL nf(nf_get_att_int(ncid, nf_global, 'grid_root', grid_root))
     CALL nf(nf_get_att_int(ncid, nf_global, 'grid_level', grid_level))
-    CALL nf(nf_close(ncid))
 
   END SUBROUTINE get_gridfile_root_level
+  !-------------------------------------------------------------------------
+  
+  !-------------------------------------------------------------------------
+  SUBROUTINE get_gridfile_cell_type( ncid, cell_type )
+    INTEGER,    INTENT(in)     :: ncid
+    INTEGER,    INTENT(inout)  :: cell_type
+
+    INTEGER :: netcd_status
+    
+    netcd_status = nf_get_att_int(ncid, nf_global,'grid_cell_type', cell_type)
+    IF (netcd_status /= nf_noerr) & ! old grid 
+      cell_type = global_cell_type
+
+  END SUBROUTINE get_gridfile_cell_type
   !-------------------------------------------------------------------------
   
   !-------------------------------------------------------------------------

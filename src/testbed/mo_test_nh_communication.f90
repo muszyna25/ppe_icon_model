@@ -67,7 +67,6 @@ MODULE mo_test_nh_communication
     &                               timer_model_init, timer_nudging,                 &
     &                               timer_bdy_interp, timer_feedback, timer_nesting, &
     &                               timer_integrate_nh, timer_nh_diagnostics
-  USE mo_grid_config,         ONLY: global_cell_type
   USE mo_atm_phy_nwp_config,  ONLY: dt_phy, atm_phy_nwp_config
   USE mo_nwp_phy_state,       ONLY: prm_diag, prm_nwp_tend, phy_params
   USE mo_model_domain,        ONLY: t_patch

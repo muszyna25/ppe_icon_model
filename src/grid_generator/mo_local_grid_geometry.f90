@@ -537,8 +537,12 @@ CONTAINS
     compute_grid%geometry_info%center%x(:)      = 0.0_wp
     compute_grid%geometry_info%mean_edge_length = &
       & SUM(edges%primal_edge_length(1:no_of_edges)) / REAL(no_of_edges,wp)
+    compute_grid%geometry_info%mean_dual_edge_length = &
+      & SUM(edges%dual_edge_length(1:no_of_edges)) / REAL(no_of_edges,wp)
     compute_grid%geometry_info%mean_cell_area   = &
       & SUM(cells%area(1:no_of_cells)) / REAL(no_of_cells,wp)      
+    compute_grid%geometry_info%mean_dual_cell_area   = &
+      & SUM(verts%dual_area(1:no_of_verts)) / REAL(no_of_verts,wp)
     compute_grid%geometry_info%domain_length    = 2.0_wp * pi * compute_grid%geometry_info%sphere_radius
     compute_grid%geometry_info%domain_height    = compute_grid%geometry_info%domain_length
     ! compute_grid%geometry_info%sphere_radius is already filled

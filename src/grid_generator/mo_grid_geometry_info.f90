@@ -109,10 +109,12 @@ MODULE mo_grid_geometry_info
     INTEGER :: grid_optimization_process
         
     TYPE(t_cartesian_coordinates) :: center
-    REAL(wp) :: mean_edge_length  ! (meters)
-    REAL(wp) :: mean_cell_area    ! (meters^2)
-    REAL(wp) :: domain_length     ! (meters)
-    REAL(wp) :: domain_height     ! (meters)
+    REAL(wp) :: mean_edge_length       ! (meters)
+    REAL(wp) :: mean_dual_edge_length  ! (meters)
+    REAL(wp) :: mean_cell_area         ! (meters^2)
+    REAL(wp) :: mean_dual_cell_area    ! (meters^2)
+    REAL(wp) :: domain_length          ! (meters)
+    REAL(wp) :: domain_height          ! (meters)
 
     !> Sphere parameters 
     REAL(wp) :: sphere_radius
@@ -138,7 +140,9 @@ CONTAINS
     to_geometry_info%grid_optimization_process  = undefined
     to_geometry_info%center %x(:)               = 0.0_wp
     to_geometry_info%mean_edge_length           = 0.0_wp
+    to_geometry_info%mean_dual_edge_length      = 0.0_wp
     to_geometry_info%mean_cell_area             = 0.0_wp
+    to_geometry_info%mean_dual_cell_area        = 0.0_wp
     to_geometry_info%domain_length              = 2.0_wp * pi * earth_radius
     to_geometry_info%domain_height              = 2.0_wp * pi * earth_radius
     to_geometry_info%sphere_radius              = earth_radius
@@ -158,7 +162,9 @@ CONTAINS
     to_geometry_info%grid_optimization_process  = from_geometry_info%grid_optimization_process
     to_geometry_info%center                     = from_geometry_info%center
     to_geometry_info%mean_edge_length           = from_geometry_info%mean_edge_length
+    to_geometry_info%mean_dual_edge_length      = from_geometry_info%mean_dual_edge_length
     to_geometry_info%mean_cell_area             = from_geometry_info%mean_cell_area
+    to_geometry_info%mean_dual_cell_area        = from_geometry_info%mean_dual_cell_area
     to_geometry_info%domain_length              = from_geometry_info%domain_length
     to_geometry_info%domain_height              = from_geometry_info%domain_height
     to_geometry_info%sphere_radius              = from_geometry_info%sphere_radius
@@ -202,6 +208,12 @@ CONTAINS
 !       CALL finish("Cannot read","grid_geometry")
       RETURN
     ENDIF
+    
+    netcd_status = p_nf_get_att_int(ncid, nf_global,'grid_cell_type', geometry_info%cell_type)
+    IF (netcd_status /= nf_noerr) THEN
+!       CALL finish("Cannot read","grid_geometry")
+      RETURN
+    ENDIF
         
     netcd_status = p_nf_get_att_double(ncid, nf_global,'mean_edge_length', &
       & geometry_info%mean_edge_length)
@@ -210,10 +222,24 @@ CONTAINS
       RETURN
     ENDIF
     
+    netcd_status = p_nf_get_att_double(ncid, nf_global,'mean_dual_edge_length', &
+      & geometry_info%mean_dual_edge_length)
+    IF (netcd_status /= nf_noerr) THEN
+!       CALL finish("Cannot read","mean_dual_edge_length")
+      RETURN
+    ENDIF
+    
     netcd_status = p_nf_get_att_double(ncid, nf_global,'mean_cell_area', &
       & geometry_info%mean_cell_area)
     IF (netcd_status /= nf_noerr) THEN
 !       CALL finish("Cannot read","mean_cell_area")
+      RETURN
+    ENDIF
+    
+    netcd_status = p_nf_get_att_double(ncid, nf_global,'mean_dual_cell_area', &
+      & geometry_info%mean_dual_cell_area)
+    IF (netcd_status /= nf_noerr) THEN
+!       CALL finish("Cannot read","mean_dual_cell_area")
       RETURN
     ENDIF
     
@@ -268,7 +294,13 @@ CONTAINS
 !       CALL finish("Cannot read","grid_geometry")
       RETURN
     ENDIF
-        
+    
+    netcd_status = nf_get_att_int(ncid, nf_global,'grid_cell_type', geometry_info%cell_type)
+    IF (netcd_status /= nf_noerr) THEN
+!       CALL finish("Cannot read","grid_geometry")
+      RETURN
+    ENDIF
+                
     netcd_status = nf_get_att_double(ncid, nf_global,'mean_edge_length', &
       & geometry_info%mean_edge_length)
     IF (netcd_status /= nf_noerr) THEN
@@ -276,10 +308,24 @@ CONTAINS
       RETURN
     ENDIF
     
+    netcd_status = nf_get_att_double(ncid, nf_global,'mean_dual_edge_length', &
+      & geometry_info%mean_dual_edge_length)
+    IF (netcd_status /= nf_noerr) THEN
+!       CALL finish("Cannot read","mean_dual_edge_length")
+      RETURN
+    ENDIF
+    
     netcd_status = nf_get_att_double(ncid, nf_global,'mean_cell_area', &
       & geometry_info%mean_cell_area)
     IF (netcd_status /= nf_noerr) THEN
 !       CALL finish("Cannot read","mean_cell_area")
+      RETURN
+    ENDIF
+    
+    netcd_status = nf_get_att_double(ncid, nf_global,'mean_dual_cell_area', &
+      & geometry_info%mean_dual_cell_area)
+    IF (netcd_status /= nf_noerr) THEN
+!       CALL finish("Cannot read","mean_dual_cell_area")
       RETURN
     ENDIF
     
@@ -326,11 +372,20 @@ CONTAINS
     CALL nf(nf_put_att_int      (ncid, nf_global, 'grid_geometry', nf_int, 1,     &
       & geometry_info%geometry_type))
     
+    CALL nf(nf_put_att_int      (ncid, nf_global, 'grid_cell_type', nf_int, 1,     &
+      & geometry_info%cell_type))
+    
     CALL nf(nf_put_att_double(ncid, nf_global, 'mean_edge_length' , nf_double, 1, &
       & geometry_info%mean_edge_length))
       
+    CALL nf(nf_put_att_double(ncid, nf_global, 'mean_dual_edge_length' , nf_double, 1, &
+      & geometry_info%mean_dual_edge_length))
+      
     CALL nf(nf_put_att_double  (ncid, nf_global, 'mean_cell_area' , nf_double, 1, &
       & geometry_info%mean_cell_area))
+      
+    CALL nf(nf_put_att_double  (ncid, nf_global, 'mean_dual_cell_area' , nf_double, 1, &
+      & geometry_info%mean_dual_cell_area))
       
     CALL nf(nf_put_att_double   (ncid, nf_global, 'domain_length' , nf_double, 1, &
       & geometry_info%domain_length))

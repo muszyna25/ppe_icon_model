@@ -491,7 +491,9 @@ CONTAINS
     torus_grid%geometry_info%center%x(2)        = y_center
     torus_grid%geometry_info%center%x(3)        = 0.0_wp
     torus_grid%geometry_info%mean_edge_length   = edge_length
+    torus_grid%geometry_info%mean_dual_edge_length  = dual_edge_length
     torus_grid%geometry_info%mean_cell_area     = triangle_area
+    torus_grid%geometry_info%mean_dual_cell_area    = hexagon_area
     torus_grid%geometry_info%domain_length      = x_step * REAL(x_no_of_columns,wp)
     torus_grid%geometry_info%domain_height      = y_step * REAL(y_no_of_rows,wp)
     !AD:Zero value was causing trouble and I think it's better to treat this flat

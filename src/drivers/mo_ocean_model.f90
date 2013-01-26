@@ -50,8 +50,7 @@ MODULE mo_ocean_model
   USE mo_name_list_output,        ONLY: init_name_list_output,  &
     &                                   write_name_list_output, &
     &                                   close_name_list_output
-  USE mo_grid_config,         ONLY: n_dom, n_dom_start, global_cell_type !, &
-!                                  dynamics_parent_grid_id
+  USE mo_grid_config,         ONLY: n_dom, n_dom_start
   USE mo_dynamics_config,     ONLY: iequations
 
   USE mo_io_async,            ONLY: vlist_io_main_proc            ! main procedure for I/O PEs
