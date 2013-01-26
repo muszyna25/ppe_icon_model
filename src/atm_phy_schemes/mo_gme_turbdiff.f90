@@ -9,6 +9,9 @@ MODULE mo_gme_turbdiff
 
   USE mo_exception,          ONLY: message
   USE mo_run_config,         ONLY: msg_level
+  USE mo_nh_torus_exp,       ONLY: shflx_cbl, lhflx_cbl, set_sst_cbl
+  USE mo_run_config,         ONLY: ltestcase
+  USE mo_nh_testcases,       ONLY: nh_test_name
 
   IMPLICIT NONE
 
@@ -984,32 +987,59 @@ SUBROUTINE parturs( zsurf, z1 , u1   , v1     , t1   ,           &
 !
 !       Lowest model layer (j3 = ke)
 !
-      DO j1 = i_startidx, i_endidx
-!
-        rdzrho      = 1._wp/( rho(j1,ke)*( zh(j1,ke1)-zh(j1,ke)) )
-        zagat       = ztmkv(j1,ke)*rdzrho
-        zagct       = ztmcm (j1)  *rdzrho
-        zaga        = -zagat*a1t(ke)
-        zagb        = rdt - zaga - zagct*a1t(ke1)           
-        zag1(j1,ke) =  zagat*( t (j1,ke-1) - t(j1,ke) + g_o_cp*( zf(j1,ke-1)-zf(j1,ke)) ) &
-          &          - zagct*( t_g(j1    ) - t(j1,ke) + g_o_cp*( zh(j1,ke1 )-zf(j1,ke)) )
-        zag2(j1,ke) =  zagat*( qv(j1,ke-1) - qv(j1,ke)) &
-          &          - zagct*( qv_s(j1   ) - qv(j1,ke)) 
-        zag3(j1,ke) =  zagat*( qc(j1,ke-1) - qc(j1,ke)) &
-          &          - zagct*  qc(j1,ke)
-!       zag4(j1,ke) =  zagat*( qi(j1,ke-1) - qi(j1,ke)) &
-!         &          - zagct*  qi(j1,ke)
 
-        dt_turb (j1,ke) = ( zag1(j1,ke) - zaga*zag1(j1,ke-1))/  &
-          &               ( zagb        - zaga*zagc(j1,ke-1))
-        dqv_turb(j1,ke) = ( zag2(j1,ke) - zaga*zag2(j1,ke-1))/  &
-          &               ( zagb        - zaga*zagc(j1,ke-1))
-        dqc_turb(j1,ke) = ( zag3(j1,ke) - zaga*zag3(j1,ke-1))/  &
-          &               ( zagb        - zaga*zagc(j1,ke-1))
-!       dqi_turb(j1,ke) = ( zag4(j1,ke) - zaga*zag4(j1,ke-1))/  &
-!         &               ( zagb        - zaga*zagc(j1,ke-1))
+!     Modifications allowing for fixing surface fluxes for HDCP2 testcases       
+!     By: Anurag Dipankar, MPIM 26-01-2013
+
+      IF(ltestcase.AND.nh_test_name == 'CBL'.AND..NOT.set_sst_cbl)THEN 
+        DO j1 = i_startidx, i_endidx
+          rdzrho      = 1._wp/( rho(j1,ke)*( zh(j1,ke1)-zh(j1,ke)) )
+          zagat       = ztmkv(j1,ke)*rdzrho
+          zagct       = ztmcm (j1)  *rdzrho
+          zaga        = -zagat*a1t(ke)
+          zagb        = rdt - zaga - zagct*a1t(ke1)           
+          zag1(j1,ke) =  zagat*( t (j1,ke-1) - t(j1,ke) + g_o_cp*( zf(j1,ke-1)-zf(j1,ke)) ) &
+            &          - rdzrho * shflx_cbl * rcpd
+          zag2(j1,ke) =  zagat*( qv(j1,ke-1) - qv(j1,ke)) &
+            &          - rdzrho * lhflx_cbl * rcpd
+          zag3(j1,ke) =  zagat*( qc(j1,ke-1) - qc(j1,ke)) &
+            &          - zagct*  qc(j1,ke)
+
+          dt_turb (j1,ke) = ( zag1(j1,ke) - zaga*zag1(j1,ke-1))/  &
+            &               ( zagb        - zaga*zagc(j1,ke-1))
+          dqv_turb(j1,ke) = ( zag2(j1,ke) - zaga*zag2(j1,ke-1))/  &
+            &               ( zagb        - zaga*zagc(j1,ke-1))
+          dqc_turb(j1,ke) = ( zag3(j1,ke) - zaga*zag3(j1,ke-1))/  &
+            &               ( zagb        - zaga*zagc(j1,ke-1))
+        ENDDO
+      ELSE
+        DO j1 = i_startidx, i_endidx
 !
-      ENDDO
+          rdzrho      = 1._wp/( rho(j1,ke)*( zh(j1,ke1)-zh(j1,ke)) )
+          zagat       = ztmkv(j1,ke)*rdzrho
+          zagct       = ztmcm (j1)  *rdzrho
+          zaga        = -zagat*a1t(ke)
+          zagb        = rdt - zaga - zagct*a1t(ke1)           
+          zag1(j1,ke) =  zagat*( t (j1,ke-1) - t(j1,ke) + g_o_cp*( zf(j1,ke-1)-zf(j1,ke)) ) &
+            &          - zagct*( t_g(j1    ) - t(j1,ke) + g_o_cp*( zh(j1,ke1 )-zf(j1,ke)) )
+          zag2(j1,ke) =  zagat*( qv(j1,ke-1) - qv(j1,ke)) &
+            &          - zagct*( qv_s(j1   ) - qv(j1,ke)) 
+          zag3(j1,ke) =  zagat*( qc(j1,ke-1) - qc(j1,ke)) &
+            &          - zagct*  qc(j1,ke)
+!         zag4(j1,ke) =  zagat*( qi(j1,ke-1) - qi(j1,ke)) &
+!           &          - zagct*  qi(j1,ke)
+
+          dt_turb (j1,ke) = ( zag1(j1,ke) - zaga*zag1(j1,ke-1))/  &
+            &               ( zagb        - zaga*zagc(j1,ke-1))
+          dqv_turb(j1,ke) = ( zag2(j1,ke) - zaga*zag2(j1,ke-1))/  &
+            &               ( zagb        - zaga*zagc(j1,ke-1))
+          dqc_turb(j1,ke) = ( zag3(j1,ke) - zaga*zag3(j1,ke-1))/  &
+            &               ( zagb        - zaga*zagc(j1,ke-1))
+!         dqi_turb(j1,ke) = ( zag4(j1,ke) - zaga*zag4(j1,ke-1))/  &
+!           &               ( zagb        - zaga*zagc(j1,ke-1))
+!
+        ENDDO
+      END IF
 !
 !=======================================================================
 !

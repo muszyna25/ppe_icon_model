@@ -78,12 +78,12 @@ MODULE mo_nh_torus_exp
   REAL(wp) :: sst_cbl, ugeo(2), vgeo(2)   !u/vgeo(1) = constant, u/vgeo(2) = gradient
   REAL(wp) :: umean(2), vmean(2)          !u/vmean(1) = constant, u/vmean(2) = gradient
   REAL(wp),ALLOCATABLE :: vt_geostrophic(:,:,:) !geostrophic wind along the tangent of triangle
-  REAL(wp) :: shflx_cbl                   !sensible heat flux
+  REAL(wp) :: shflx_cbl, lhflx_cbl        !sensible and latent heat flux
 
   LOGICAL  :: is_dry_cbl, set_sst_cbl
 
   PUBLIC :: init_nh_state_cbl, sst_cbl, is_dry_cbl, ugeo, set_sst_cbl, &
-            vgeo, umean, vmean, vt_geostrophic, shflx_cbl
+            vgeo, umean, vmean, vt_geostrophic, shflx_cbl, lhflx_cbl
 
 !--------------------------------------------------------------------
 
