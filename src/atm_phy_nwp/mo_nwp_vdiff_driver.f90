@@ -299,7 +299,7 @@ CONTAINS
                          & ptkem1(:,klev),  ptkem0(:,klev),       &! inout
 #endif
                          & pqsat_tile(:,:), zcpt_tile(:,:),       &! out
-                         & pri    (:,klev),                       &! out
+                         !& pri    (:,klev),                       &! out
                          & pcfm   (:,klev), pcfm_tile(:,:),       &! out
                          & pcfh   (:,klev), pcfh_tile(:,:),       &! out
                          & pcfv   (:,klev),                       &! out

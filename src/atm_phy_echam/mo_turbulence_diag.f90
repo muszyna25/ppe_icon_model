@@ -461,7 +461,7 @@ CONTAINS
 #else
                                & ptkem1_sfc, ptkem0_sfc,                 &! inout
 #endif
-                               & pqsat_sfc, pcpt_sfc, pri_sfc,           &! out
+                               & pqsat_sfc, pcpt_sfc, &!pri_sfc,           &! out
                                & pcfm_gbm, pcfm_sfc, pcfh_gbm, pcfh_sfc, &! out
                                & pcfv_sfc, pcftke_sfc, pcfthv_sfc,       &! out
                                & pprfac_sfc, prho_sfc,                   &! out
@@ -511,7 +511,7 @@ CONTAINS
 
     REAL(wp),INTENT(OUT) :: pqsat_sfc (kbdim,ksfc_type) !< saturation specific humidity at surface
     REAL(wp),INTENT(OUT) :: pcpt_sfc  (kbdim,ksfc_type) !< dry static energy
-    REAL(wp),INTENT(OUT) :: pri_sfc   (kbdim,ksfc_type) !< moist Richardson number
+    !REAL(wp),INTENT(OUT) :: pri_sfc   (kbdim,ksfc_type) !< moist Richardson number
 
     REAL(wp),INTENT(OUT) :: pcfm_gbm  (kbdim)           !< exchange coeff. of momentum
     REAL(wp),INTENT(OUT) :: pcfm_sfc  (kbdim,ksfc_type) !< exchange coeff. of momentum, 
@@ -543,6 +543,7 @@ CONTAINS
 
     ! Local variables
 
+    REAL(wp) :: pri_sfc(kbdim,ksfc_type) !< moist Richardson number
     REAL(wp) :: zdu2   (kbdim,ksfc_type) !<
     REAL(wp) :: zchn   (kbdim,ksfc_type) !<
     REAL(wp) :: zcfnch (kbdim,ksfc_type) !<
