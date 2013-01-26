@@ -68,8 +68,10 @@ MODULE mo_nh_torus_exp
 
   IMPLICIT NONE
   
+  PRIVATE
+  
   PUBLIC :: init_nh_state_cbl, sst_cbl, is_dry_cbl, ugeo, set_sst_cbl, &
-            vgeo, umean, vmean, vt_geostrophic, shflx_cbl, lhflx_cbl, lhflx_cbl
+            vgeo, umean, vmean, vt_geostrophic, shflx_cbl, lhflx_cbl
 
   !DEFINED PARAMETERS:
   REAL(wp), PARAMETER :: zp0     = 100000._wp !< surface pressure
