@@ -58,7 +58,7 @@ MODULE mo_echam_phy_init
   ! test cases
   USE mo_ha_testcases,         ONLY: ape_sst_case
   USE mo_ape_params,           ONLY: ape_sst
-  USE mo_physical_constants,   ONLY: tmelt, Tf
+  USE mo_physical_constants,   ONLY: tmelt, Tf, albi, albedoW
 
 !   USE mo_math_utilities,      ONLY: sphere_cell_mean_char_length
 
@@ -490,6 +490,14 @@ CONTAINS
             field% glac  (jcs:jce,jb) = 0._wp   ! zero glacier fraction
           END DO
 !$OMP END PARALLEL DO
+          field% albvisdir_ice(:,:,:) = albi ! albedo in the visible range for direct radiation
+          field% albnirdir_ice(:,:,:) = albi ! albedo in the NIR range for direct radiation 
+          field% albvisdif_ice(:,:,:) = albi ! albedo in the visible range for diffuse radiation
+          field% albnirdif_ice(:,:,:) = albi ! albedo in the NIR range for diffuse radiation
+          field% albvisdir_wtr(:,:) = albedoW ! albedo in the visible range for direct radiation
+          field% albnirdir_wtr(:,:) = albedoW ! albedo in the NIR range for direct radiation 
+          field% albvisdif_wtr(:,:) = albedoW ! ! albedo in the visible range for diffuse radiation
+          field% albnirdif_wtr(:,:) = albedoW ! albedo in the NIR range for diffuse radiation
 
         CASE('JWw-Moist','LDF-Moist')
 

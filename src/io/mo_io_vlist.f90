@@ -2848,6 +2848,8 @@ CONTAINS
       CASE ('snow');   ptr2 => prm_field(jg)%snow
       CASE ('albvisdir');   ptr2 => prm_field(jg)%albvisdir
       CASE ('albnirdir');   ptr2 => prm_field(jg)%albnirdir
+      CASE ('albvisdif');   ptr2 => prm_field(jg)%albvisdif
+      CASE ('albnirdif');   ptr2 => prm_field(jg)%albnirdif
         !KF  the reset command can only be used for 'plain' fields
       CASE ('swflxsfc_avg')
                                 ptr2 => dup2(prm_field(jg)% swflxsfc_avg(:,:)/dt_data)

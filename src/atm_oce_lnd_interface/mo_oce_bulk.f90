@@ -372,7 +372,7 @@ CONTAINS
 
         ! #slo# This is a first try for "simple flux coupling"
         IF (i_sea_ice >= 1) THEN
-          Qatm%SWin   (:,:)   = 0.0_wp  ! not available - very hot shot
+          Qatm%SWnet  (:,i,:)   = 0.0_wp  ! not available - very hot shot
           DO i = 1, p_ice%kice
             Qatm%LWnet  (:,i,:)   = p_sfc_flx%forc_hflx(:,:)
           ENDDO
@@ -383,6 +383,7 @@ CONTAINS
           Qatm%dLWdT  (:,:,:) = -4.0_wp * zemiss_def*StBo * (p_ice%Tsurf(:,:,:) + tmelt)**3
 
           ! Fluxes into the water are the same as into the ice
+          Qatm%SWnetw (:,:)   = 0.0_wp  ! not available - very hot shot
           Qatm%LWnetw (:,:)   = p_sfc_flx%forc_hflx(:,:)
           Qatm%sensw  (:,:)   = 0.0_wp
           Qatm%latw   (:,:)   = 0.0_wp
@@ -439,10 +440,11 @@ CONTAINS
         ! call of sea ice model
         IF (i_sea_ice >= 1) THEN
 
-          Qatm%SWin   (:,:)   = p_sfc_flx%forc_swflx(:,:)
+          Qatm%SWnet  (:,1,:) = p_sfc_flx%forc_swflx(:,:)
           Qatm%LWnet  (:,1,:) = p_sfc_flx%forc_lwflx(:,:)
           Qatm%sens   (:,1,:) = p_sfc_flx%forc_ssflx(:,:)
           Qatm%lat    (:,1,:) = p_sfc_flx%forc_slflx(:,:)
+          Qatm%SWnetw (:,:)   = p_sfc_flx%forc_swflx(:,:)
           Qatm%LWnetw (:,:)   = p_sfc_flx%forc_lwflx(:,:)
           Qatm%sensw  (:,:)   = p_sfc_flx%forc_ssflx(:,:)
           Qatm%latw   (:,:)   = p_sfc_flx%forc_slflx(:,:)
@@ -508,7 +510,6 @@ CONTAINS
       IF (i_sea_ice >= 1) THEN
 
         IF (iforc_type == 2 .OR. iforc_type == 5) THEN
-
           CALL calc_bulk_flux_oce(p_patch, p_as, p_os , Qatm)
           CALL calc_bulk_flux_ice(p_patch, p_as, p_ice, Qatm)
         ENDIF
@@ -521,7 +522,7 @@ CONTAINS
 
         DO jb = all_cells%start_block, all_cells%end_block
           CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
-          CALL ice_fast(i_startidx_c, i_endidx_c, nproma, p_ice%kice, 1, i_sea_ice, &
+          CALL ice_fast(i_startidx_c, i_endidx_c, nproma, p_ice%kice, i_sea_ice, &
             &   p_ice% Tsurf(:,:,jb),   &
             &   p_ice% T1   (:,:,jb),   &
             &   p_ice% T2   (:,:,jb),   &
@@ -529,12 +530,22 @@ CONTAINS
             &   p_ice% hs   (:,:,jb),   &
             &   p_ice% Qtop (:,:,jb),   &
             &   p_ice% Qbot (:,:,jb),   & 
-            &   Qatm%SWin   (:,  jb),   &
+            &   Qatm%SWnet  (:,:,jb),   &
             &   Qatm%lat(:,:,jb) + Qatm%sens(:,:,jb) + Qatm%LWnet(:,:,jb),   & 
             &   Qatm%dlatdT(:,:,jb) + Qatm%dsensdT(:,:,jb) + Qatm%dLWdT(:,:,jb),   & 
             &   Tfw         (:,  jb),   &
+            &   Qatm%albvisdir(:,:,jb), &
+            &   Qatm%albvisdif(:,:,jb), &
+            &   Qatm%albnirdir(:,:,jb), &
+            &   Qatm%albnirdif(:,:,jb), &
             &   doy=datetime%yeaday)
         ENDDO
+
+        ! Ocean albedo model
+        Qatm%albvisdirw = albedoW
+        Qatm%albvisdifw = albedoW
+        Qatm%albnirdirw = albedoW
+        Qatm%albnirdifw = albedoW
 
         ! (#slo# 2012-12):
         ! sum of flux from sea ice to the ocean is stored in p_sfc_flx%forc_hflx
@@ -568,10 +579,10 @@ CONTAINS
             DO jc = i_startidx_c, i_endidx_c
 
               IF (p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary) THEN
-                p_sfc_flx%forc_swflx(jc,jb) = Qatm%SWin  (jc,jb) * (1.0_wp-albedoW) ! Incoming SW radiation flux
-                p_sfc_flx%forc_lwflx(jc,jb) = Qatm%LWnetw(jc,jb)                    ! net LW radiation flux over water
-                p_sfc_flx%forc_ssflx(jc,jb) = Qatm%sensw (jc,jb)                    ! Sensible heat flux over water
-                p_sfc_flx%forc_slflx(jc,jb) = Qatm%latw  (jc,jb)                    ! Latent heat flux over water
+                p_sfc_flx%forc_swflx(jc,jb) = Qatm%SWnetw(jc,jb) ! net SW radiation flux over water
+                p_sfc_flx%forc_lwflx(jc,jb) = Qatm%LWnetw(jc,jb) ! net LW radiation flux over water
+                p_sfc_flx%forc_ssflx(jc,jb) = Qatm%sensw (jc,jb) ! Sensible heat flux over water
+                p_sfc_flx%forc_slflx(jc,jb) = Qatm%latw  (jc,jb) ! Latent heat flux over water
               ELSE
                 p_sfc_flx%forc_swflx(jc,jb) = 0.0_wp
                 p_sfc_flx%forc_lwflx(jc,jb) = 0.0_wp
@@ -680,8 +691,8 @@ CONTAINS
         IF ( info == 2 ) write_coupler_restart = .TRUE.
       !
       ! ocean & ice albedo
-        buffer(:,1) = RESHAPE(p_ice%alb(:,1,:)*p_ice%concSum(:,:) +   &
-          &     albedoW*(1._wp-p_ice%concSum(:,:)), (/nbr_points /) )
+        buffer(:,1) = RESHAPE(Qatm%albvisdir(:,1,:)*p_ice%concSum(:,:) +   &
+          &     Qatm%albvisdirw*(1._wp-p_ice%concSum(:,:)), (/nbr_points /) )
         CALL ICON_cpl_put ( field_id(9), field_shape, buffer(1:nbr_hor_points,1:1), info, ierror )
         IF ( info == 2 ) write_coupler_restart = .TRUE.
 
@@ -776,10 +787,11 @@ CONTAINS
         ! call of sea ice model
         IF (i_sea_ice >= 1) THEN
 
-          Qatm%SWin   (:,:)   = p_sfc_flx%forc_swflx(:,:)
+          Qatm%SWnet  (:,1,:) = p_sfc_flx%forc_swflx(:,:)
           Qatm%LWnet  (:,1,:) = p_sfc_flx%forc_lwflx(:,:)
           Qatm%sens   (:,1,:) = p_sfc_flx%forc_ssflx(:,:)
           Qatm%lat    (:,1,:) = p_sfc_flx%forc_slflx(:,:)
+          Qatm%SWnetw (:,:)   = p_sfc_flx%forc_swflx(:,:)
           Qatm%LWnetw (:,:)   = p_sfc_flx%forc_lwflx(:,:)
           Qatm%sensw  (:,:)   = p_sfc_flx%forc_ssflx(:,:)
           Qatm%latw   (:,:)   = p_sfc_flx%forc_slflx(:,:)
@@ -795,7 +807,7 @@ CONTAINS
 
           DO jb = all_cells%start_block, all_cells%end_block
             CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
-            CALL ice_fast(i_startidx_c, i_endidx_c, nproma, p_ice%kice, 1, i_sea_ice, &
+            CALL ice_fast(i_startidx_c, i_endidx_c, nproma, p_ice%kice, i_sea_ice, &
               &   p_ice% Tsurf(:,:,jb),   &
               &   p_ice% T1   (:,:,jb),   &
               &   p_ice% T2   (:,:,jb),   &
@@ -803,13 +815,23 @@ CONTAINS
               &   p_ice% hs   (:,:,jb),   &
               &   p_ice% Qtop (:,:,jb),   &
               &   p_ice% Qbot (:,:,jb),   & 
-              &   Qatm%SWin   (:,  jb),   &
+              &   Qatm%SWnet  (:,:,jb),   &
               &   Qatm%lat(:,:,jb) + Qatm%sens(:,:,jb) + Qatm%LWnet(:,:,jb),              & 
               &   Qatm%dlatdT (:,:,jb) + Qatm%dsensdT(:,:,jb) + Qatm%dLWdT  (:,:,jb),     & 
               &   Tfw         (:,  jb),   &
+              &   Qatm%albvisdir(:,:,jb), &
+              &   Qatm%albvisdif(:,:,jb), &
+              &   Qatm%albnirdir(:,:,jb), &
+              &   Qatm%albnirdif(:,:,jb), &
               &   doy=datetime%yeaday)
           ENDDO
           CALL ice_slow(p_patch, p_os, p_ice, Qatm, p_sfc_flx)
+
+          ! Ocean albedo model
+          Qatm%albvisdirw = albedoW
+          Qatm%albvisdifw = albedoW
+          Qatm%albnirdirw = albedoW
+          Qatm%albnirdifw = albedoW
 
           ! sum of flux from sea ice to the ocean is stored in p_sfc_flx%forc_hflx
           !  done in mo_sea_ice:upper_ocean_TS
@@ -1161,7 +1183,7 @@ CONTAINS
             p_sfc_flx%forc_hflx(jc,jb)                 &
             & =  Qatm%sensw(jc,jb) + Qatm%latw(jc,jb)  & ! Sensible + latent heat flux over water
             & +  Qatm%LWnetw(jc,jb)                    & ! net LW radiation flux over water
-            & +  Qatm%SWin(jc,jb)                        ! incoming SW radiation flux
+            & +  Qatm%SWnetw(jc,jb)                      ! net SW radiation flux ove water
                                                          ! liquid/solid  precipitation rate are zero
 
            !This prepares freshwater flux calculation below; eq. (64) in Marsland et al.

@@ -109,6 +109,7 @@ MODULE mo_sea_ice_types
       & lat     (:,:,:),           & ! Latent heat flux at ice surface             [W/m2]
       & LWout   (:,:,:),           & ! outgoing LW radiation flux at ice surface   [W/m2]
       & LWnet   (:,:,:),           & ! net LW radiation flux at ice surface        [W/m2]
+      & SWnet   (:,:,:),           & ! net SW radiation flux over ice              [W/m2]
       & bot     (:,:,:),           & ! Ocean heat flux at ice bottom               [W/m2]
       & dsensdT (:,:,:),           & ! d sensible Flux / d T_surf                  [W/m2/K]
       & dlatdT  (:,:,:),           & ! d latent Flux / d T_surf                    [W/m2/K]
@@ -121,8 +122,19 @@ MODULE mo_sea_ice_types
       & latw   (:,:),             & ! Latent heat flux over water                 [W/m2]
       & LWoutw (:,:),             & ! outgoing LW radiation flux over water       [W/m2]
       & LWnetw (:,:),             & ! net LW radiation flux over water            [W/m2]
-      & SWin   (:,:),             & ! incoming SW radiation flux                  [W/m2]
-      & LWin   (:,:)                  ! incoming LW radiation flux                  [W/m2]
+      & SWnetw (:,:),             & ! net SW radiation flux over water            [W/m2]
+      & LWin   (:,:)                ! incoming LW radiation flux                  [W/m2]
+
+! Albedos
+    REAL(wp), ALLOCATABLE::     &
+      & albvisdir (:,:,:),      & ! VIS direct/paralell (ice)
+      & albvisdif (:,:,:),      & ! VIS diffuse (ice)
+      & albnirdir (:,:,:),      & ! NIR direct/paralell (ice)
+      & albnirdif (:,:,:),      & ! NIR diffuse (ice)
+      & albvisdirw(:,:),        & ! VIS direct/paralell (ocean)
+      & albvisdifw(:,:),        & ! VIS diffuse (ocean)
+      & albnirdirw(:,:),        & ! NIR direct/paralell (ocean)
+      & albnirdifw(:,:)           ! NIR diffuse (ocean)
                                                                             
     INTEGER ::     counter                                                  
 

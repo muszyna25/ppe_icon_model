@@ -90,27 +90,25 @@ CONTAINS
   !! @par Revision History
   !! Initial release by Achim Randelhoff
 
-  SUBROUTINE set_ice_temp_zerolayer(i_startidx_c, i_endidx_c, nbdim, kice, SWdim, i_therm_model, &
+  SUBROUTINE set_ice_temp_zerolayer(i_startidx_c, i_endidx_c, nbdim, kice, i_therm_model, &
             &   Tsurf,          & 
             &   hi,             & 
             &   hs,             & 
             &   Qtop,           & 
             &   Qbot,           & 
-            &   SWin,           & 
-            &   alb,            & 
+            &   SWnet,          & 
             &   nonsolar,       & 
             &   dnonsolardT,    &
             &   Tfw,            &
             &   doy)
 
-    INTEGER, INTENT(IN)    :: i_startidx_c, i_endidx_c, nbdim, kice, SWdim, i_therm_model
+    INTEGER, INTENT(IN)    :: i_startidx_c, i_endidx_c, nbdim, kice, i_therm_model
     REAL(wp),INTENT(INOUT) :: Tsurf      (nbdim,kice)
     REAL(wp),INTENT(IN)    :: hi         (nbdim,kice)
     REAL(wp),INTENT(IN)    :: hs         (nbdim,kice)
     REAL(wp),INTENT(OUT)   :: Qtop       (nbdim,kice)
     REAL(wp),INTENT(OUT)   :: Qbot       (nbdim,kice)
-    REAL(wp),INTENT(IN)    :: SWin       (nbdim,SWdim)
-    REAL(wp),INTENT(IN)    :: alb        (nbdim,kice,SWdim)
+    REAL(wp),INTENT(IN)    :: SWnet      (nbdim,kice)
     REAL(wp),INTENT(IN)    :: nonsolar   (nbdim,kice)
     REAL(wp),INTENT(IN)    :: dnonsolardT(nbdim,kice)
     REAL(wp),INTENT(IN)    :: Tfw        (nbdim)
@@ -156,7 +154,7 @@ CONTAINS
 
           ! F_A: flux ice-atmosphere
           IF (i_therm_model == 2) THEN
-            F_A = - nonsolar(jc,k) - SUM( (1.0_wp - alb(jc,k,:)) * SWin(jc,:) )* one_minus_I_0
+            F_A = - nonsolar(jc,k) - SWnet(jc,k) * one_minus_I_0
           ELSE IF (i_therm_model ==3) THEN
             ! #achim: first draft: hard-coding simpler form of
             ! atmospheric fluxes (from Dirk's thesis, p.193)
@@ -213,6 +211,8 @@ CONTAINS
             
           END IF
 
+        ELSE
+          Tsurf(jc,k) = Tfw(jc)
         END IF
       END DO
     END DO

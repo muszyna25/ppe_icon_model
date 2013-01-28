@@ -969,7 +969,17 @@ CONTAINS
                        & hs    = field% hs   (:,:,jb),  &! in, for sea ice
                        & conc  = field% conc (:,:,jb),  &! in, for sea ice
                        & Qtop  = field% Qtop (:,:,jb),  &! out, for sea ice
-                       & Qbot  = field% Qbot (:,:,jb) )  ! out, for sea ice
+                       & Qbot  = field% Qbot (:,:,jb),  &! out, for sea ice
+                       & albvisdir_ice = field% albvisdir_ice(:,:,jb), &! inout ice albedos
+                       & albnirdir_ice = field% albnirdir_ice(:,:,jb), &! inout
+                       & albvisdif_ice = field% albvisdif_ice(:,:,jb), &! inout
+                       & albnirdif_ice = field% albnirdif_ice(:,:,jb), &! inout
+                       & albvisdir_wtr = field% albvisdir_wtr(:  ,jb), &! inout ocean albedos
+                       & albnirdir_wtr = field% albnirdir_wtr(:  ,jb), &! inout
+                       & albvisdif_wtr = field% albvisdif_wtr(:  ,jb), &! inout
+                       & albnirdif_wtr = field% albnirdif_wtr(:  ,jb), &! inout
+                       & plwflx_wtr = field%lwflxsfc_tile(:,jb,iwtr),  &! out (for coupling)
+                       & pswflx_wtr = field%swflxsfc_tile(:,jb,iwtr))  ! out (for coupling)
 ! Merge surface temperatures
        field%tsfc(:,jb) = zfrc(:,1)*field%tsfc_tile(:,jb,1)
        DO jsfc=2,nsfc_type
