@@ -2895,7 +2895,9 @@ CONTAINS
         ! HTOP_CON: typeOfSecondFixedSurface = 101
         ! CLCL    : typeOfSecondFixedSurface = 1
         IF ( get_id(TRIM(info%name)) /= -1 ) THEN
-          CALL vlistDefVarTypeOfSfs(vlistID, varID, second_tos(get_id(TRIM(info%name))))
+!DR          CALL vlistDefVarTypeOfSfs(vlistID, varID, second_tos(get_id(TRIM(info%name))))
+          CALL vlistDefVarIntKey(vlistID, varID, "typeOfSecondFixedSurface", &
+            &                    second_tos(get_id(TRIM(info%name)))) 
         ENDIF
       ELSE ! NetCDF
         CALL vlistDefVarDatatype(vlistID, varID, info%cf%datatype)
