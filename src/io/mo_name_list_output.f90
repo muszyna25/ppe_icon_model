@@ -1907,8 +1907,8 @@ CONTAINS
     CHARACTER(LEN=*), PARAMETER   :: routine = TRIM('mo_name_list_output/setup_output_vlist')
     INTEGER                       :: k, nlev, nlevp1, nplev, nzlev, nilev, nzlevp1, znlev_soil, &
       &                              i_dom, ll_dim(2), gridtype, idate, itime
-    REAL(wp), ALLOCATABLE         :: levels(:), levels_i(:), levels_m(:), p_lonlat(:)
-    REAL(wp), ALLOCATABLE         :: lbounds(:), ubounds(:)
+    REAL(wp), ALLOCATABLE         :: levels_i(:), levels_m(:), p_lonlat(:)
+    REAL(dp), ALLOCATABLE         :: levels(:), lbounds(:), ubounds(:)
     TYPE(t_lon_lat_data), POINTER :: lonlat
     LOGICAL                       :: lwrite_pzlev
     TYPE(t_datetime)              :: ini_datetime
@@ -2094,7 +2094,7 @@ CONTAINS
     ! surface level
     of%cdiZaxisID(ZA_surface) = zaxisCreate(ZAXIS_SURFACE, 1)
     ALLOCATE(levels(1))
-    levels(1) = 0.0_wp
+    levels(1) = 0.0_dp
     CALL zaxisDefLevels(of%cdiZaxisID(ZA_surface), levels)
     DEALLOCATE(levels)
 
@@ -2113,11 +2113,11 @@ CONTAINS
       of%cdiZaxisID(ZA_hybrid)      = zaxisCreate(ZAXIS_HYBRID, nlev)
       ALLOCATE(lbounds(nlev), ubounds(nlev), levels(nlev))
       DO k = 1, nlev
-        lbounds(k) = REAL(k,wp)
-        levels(k)  = REAL(k,wp)
+        lbounds(k) = REAL(k,dp)
+        levels(k)  = REAL(k,dp)
       END DO
       DO k = 2, nlevp1
-        ubounds(k-1) = REAL(k,wp)
+        ubounds(k-1) = REAL(k,dp)
       END DO
       CALL zaxisDefLbounds(of%cdiZaxisID(ZA_hybrid), lbounds) !necessary for GRIB2
       CALL zaxisDefUbounds(of%cdiZaxisID(ZA_hybrid), ubounds) !necessary for GRIB2
@@ -2130,7 +2130,7 @@ CONTAINS
       of%cdiZaxisID(ZA_hybrid_half) = zaxisCreate(ZAXIS_HYBRID_HALF, nlevp1)
       ALLOCATE(levels(nlevp1))
       DO k = 1, nlevp1
-        levels(k) = REAL(k,wp)
+        levels(k) = REAL(k,dp)
       END DO
       CALL zaxisDefLevels(of%cdiZaxisID(ZA_hybrid_half), levels)
       DEALLOCATE(levels)
@@ -2141,10 +2141,10 @@ CONTAINS
       of%cdiZaxisID(ZA_hybrid_half_hhl) = zaxisCreate(ZAXIS_HYBRID_HALF, nlevp1)
       ALLOCATE(lbounds(nlevp1), ubounds(nlevp1), levels(nlevp1))
       DO k = 1, nlevp1
-        lbounds(k) = REAL(k,wp)
-        levels(k)  = REAL(k,wp)
+        lbounds(k) = REAL(k,dp)
+        levels(k)  = REAL(k,dp)
       END DO
-      ubounds(1:nlevp1) = 0._wp
+      ubounds(1:nlevp1) = 0._dp
       CALL zaxisDefLbounds(of%cdiZaxisID(ZA_hybrid_half_hhl), lbounds) !necessary for GRIB2
       CALL zaxisDefUbounds(of%cdiZaxisID(ZA_hybrid_half_hhl), ubounds) !necessary for GRIB2
       CALL zaxisDefLevels(of%cdiZaxisID(ZA_hybrid_half_hhl), levels)  !necessary for NetCDF
@@ -2156,7 +2156,7 @@ CONTAINS
       !
       of%cdiZaxisID(ZA_meansea) = zaxisCreate(ZAXIS_MEANSEA, 1)
       ALLOCATE(levels(1))
-      levels(1) = 0.0_wp
+      levels(1) = 0.0_dp
       CALL zaxisDefLevels(of%cdiZaxisID(ZA_meansea), levels)
       DEALLOCATE(levels)
 
@@ -2166,9 +2166,9 @@ CONTAINS
       of%cdiZaxisID(ZA_depth_below_land_p1) = &
         & zaxisCreate(ZAXIS_DEPTH_BELOW_LAND, znlev_soil+1)
       ALLOCATE(levels(znlev_soil+1))
-      levels(1) = 0._wp
+      levels(1) = 0._dp
       DO k = 1, znlev_soil
-        levels(k+1) = zml_soil(k)*1000._wp  ! in mm
+        levels(k+1) = REAL(zml_soil(k)*1000._wp,dp)  ! in mm
       END DO
       CALL zaxisDefLevels(of%cdiZaxisID(ZA_depth_below_land_p1), levels)
       CALL zaxisDefUnits(of%cdiZaxisID(ZA_depth_below_land_p1), "mm")
@@ -2178,16 +2178,16 @@ CONTAINS
       !
       of%cdiZaxisID(ZA_depth_below_land) = zaxisCreate(ZAXIS_DEPTH_BELOW_LAND, znlev_soil)
       ALLOCATE(lbounds(znlev_soil), ubounds(znlev_soil), levels(znlev_soil))
-      lbounds(1) = 0._wp   ! surface
+      lbounds(1) = 0._dp   ! surface
       DO k = 2, znlev_soil
-        lbounds(k)   = (zml_soil(k-1) + (zml_soil(k-1) - lbounds(k-1)))
+        lbounds(k)   = REAL((zml_soil(k-1) + (zml_soil(k-1) - lbounds(k-1))),dp)
       ENDDO
       DO k = 1, znlev_soil
-        ubounds(k) = (zml_soil(k) + (zml_soil(k) - lbounds(k)))
-        levels(k)  = zml_soil(k)*1000._wp
+        ubounds(k) = REAL((zml_soil(k) + (zml_soil(k) - lbounds(k))),dp)
+        levels(k)  = REAL(zml_soil(k)*1000._wp,dp)
       ENDDO
-      ubounds(:) = ubounds(:) * 1000._wp        ! in mm
-      lbounds(:) = lbounds(:) * 1000._wp        ! in mm
+      ubounds(:) = ubounds(:) * 1000._dp        ! in mm
+      lbounds(:) = lbounds(:) * 1000._dp        ! in mm
       CALL zaxisDefLbounds(of%cdiZaxisID(ZA_depth_below_land), lbounds) !necessary for GRIB2
       CALL zaxisDefUbounds(of%cdiZaxisID(ZA_depth_below_land), ubounds) !necessary for GRIB2
       CALL zaxisDefLevels (of%cdiZaxisID(ZA_depth_below_land), levels)  !necessary for NetCDF
@@ -2198,7 +2198,7 @@ CONTAINS
       of%cdiZaxisID(ZA_generic_snow_p1) = zaxisCreate(ZAXIS_GENERIC, nlev_snow+1)
       ALLOCATE(levels(nlev_snow+1))
       DO k = 1, nlev_snow+1
-        levels(k) = REAL(k,wp)
+        levels(k) = REAL(k,dp)
       END DO
       CALL zaxisDefLevels(of%cdiZaxisID(ZA_generic_snow_p1), levels)
       DEALLOCATE(levels)
@@ -2206,7 +2206,7 @@ CONTAINS
       of%cdiZaxisID(ZA_generic_snow) = zaxisCreate(ZAXIS_GENERIC, nlev_snow)
       ALLOCATE(levels(nlev_snow))
       DO k = 1, nlev_snow
-        levels(k) = REAL(k,wp)
+        levels(k) = REAL(k,dp)
       END DO
       CALL zaxisDefLevels(of%cdiZaxisID(ZA_generic_snow), levels)
       DEALLOCATE(levels)
@@ -2215,7 +2215,7 @@ CONTAINS
       !
       of%cdiZaxisID(ZA_height_2m)  = zaxisCreate(ZAXIS_HEIGHT, 1)
       ALLOCATE(levels(1))
-      levels(1) = 2._wp
+      levels(1) = 2._dp
       CALL zaxisDefLevels(of%cdiZaxisID(ZA_height_2m), levels)
       DEALLOCATE(levels)
       !
@@ -2223,7 +2223,7 @@ CONTAINS
       !
       of%cdiZaxisID(ZA_height_10m)  = zaxisCreate(ZAXIS_HEIGHT, 1)
       ALLOCATE(levels(1))
-      levels(1) = 10._wp
+      levels(1) = 10._dp
       CALL zaxisDefLevels(of%cdiZaxisID(ZA_height_10m), levels)
       DEALLOCATE(levels)
       !
@@ -2231,7 +2231,7 @@ CONTAINS
       !
       of%cdiZaxisID(ZA_toa)  = zaxisCreate(ZAXIS_TOA, 1)
       ALLOCATE(levels(1))
-      levels(1) = 1._wp
+      levels(1) = 1._dp
       CALL zaxisDefLevels(of%cdiZaxisID(ZA_toa), levels)
       DEALLOCATE(levels)
       !
@@ -2239,9 +2239,9 @@ CONTAINS
       !
       of%cdiZaxisID(ZA_pressure_800)  = zaxisCreate(ZAXIS_PRESSURE, 1)
       ALLOCATE(lbounds(1), ubounds(1), levels(1))
-      lbounds(1)= 0._wp     ! hPa
-      ubounds(1)= 800._wp   ! hPa
-      levels(1) = 800._wp   ! hPa
+      lbounds(1)= 0._dp     ! hPa
+      ubounds(1)= 800._dp   ! hPa
+      levels(1) = 800._dp   ! hPa
       CALL zaxisDefLbounds(of%cdiZaxisID(ZA_pressure_800), lbounds) !necessary for GRIB2
       CALL zaxisDefUbounds(of%cdiZaxisID(ZA_pressure_800), ubounds) !necessary for GRIB2
       CALL zaxisDefLevels (of%cdiZaxisID(ZA_pressure_800), levels)
@@ -2252,9 +2252,9 @@ CONTAINS
       !
       of%cdiZaxisID(ZA_pressure_400)  = zaxisCreate(ZAXIS_PRESSURE, 1)
       ALLOCATE(lbounds(1), ubounds(1), levels(1))
-      lbounds(1)= 800._wp   ! hPa
-      ubounds(1)= 400._wp   ! hPa
-      levels(1) = 400._wp   ! hPa
+      lbounds(1)= 800._dp   ! hPa
+      ubounds(1)= 400._dp   ! hPa
+      levels(1) = 400._dp   ! hPa
       CALL zaxisDefLbounds(of%cdiZaxisID(ZA_pressure_400), lbounds) !necessary for GRIB2
       CALL zaxisDefUbounds(of%cdiZaxisID(ZA_pressure_400), ubounds) !necessary for GRIB2
       CALL zaxisDefLevels (of%cdiZaxisID(ZA_pressure_400), levels)
@@ -2265,9 +2265,9 @@ CONTAINS
       !
       of%cdiZaxisID(ZA_pressure_0)  = zaxisCreate(ZAXIS_PRESSURE, 1)
       ALLOCATE(lbounds(1), ubounds(1), levels(1))
-      lbounds(1)= 400._wp ! hPa
-      ubounds(1)= 0._wp   ! hPa
-      levels(1) = 0._wp   ! hPa
+      lbounds(1)= 400._dp ! hPa
+      ubounds(1)= 0._dp   ! hPa
+      levels(1) = 0._dp   ! hPa
       CALL zaxisDefLbounds(of%cdiZaxisID(ZA_pressure_0), lbounds) !necessary for GRIB2
       CALL zaxisDefUbounds(of%cdiZaxisID(ZA_pressure_0), ubounds) !necessary for GRIB2
       CALL zaxisDefLevels (of%cdiZaxisID(ZA_pressure_0), levels)
@@ -2288,7 +2288,7 @@ CONTAINS
         of%cdiZaxisID(ZA_pressure) = zaxisCreate(ZAXIS_PRESSURE, nplev)
         ALLOCATE(levels(nplev))
         DO k = 1, nplev
-          levels(k) = nh_pzlev_config(of%log_patch_id)%plevels(k)
+          levels(k) = REAL(nh_pzlev_config(of%log_patch_id)%plevels(k),dp)
         END DO
         CALL zaxisDefLevels(of%cdiZaxisID(ZA_pressure), levels)
         CALL zaxisDefVct(of%cdiZaxisID(ZA_pressure), nplev, levels)
@@ -2301,7 +2301,7 @@ CONTAINS
         of%cdiZaxisID(ZA_altitude)  = zaxisCreate(ZAXIS_ALTITUDE, nzlev)
         ALLOCATE(levels(nzlev))
         DO k = 1, nzlev
-          levels(k) = nh_pzlev_config(of%log_patch_id)%zlevels(k)
+          levels(k) = REAL(nh_pzlev_config(of%log_patch_id)%zlevels(k),dp)
         END DO
         CALL zaxisDefLevels(of%cdiZaxisID(ZA_altitude), levels)
         CALL zaxisDefVct(of%cdiZaxisID(ZA_altitude), nzlev, levels)
@@ -2314,7 +2314,7 @@ CONTAINS
         of%cdiZaxisID(ZA_isentropic) = zaxisCreate(ZAXIS_ISENTROPIC, nilev)
         ALLOCATE(levels(nilev))
         DO k = 1, nilev
-          levels(k) = nh_pzlev_config(of%log_patch_id)%ilevels(k)
+          levels(k) = REAL(nh_pzlev_config(of%log_patch_id)%ilevels(k),dp)
         END DO
         CALL zaxisDefLevels(of%cdiZaxisID(ZA_isentropic), levels)
         CALL zaxisDefVct(of%cdiZaxisID(ZA_isentropic), nilev, levels)
@@ -2329,8 +2329,8 @@ CONTAINS
       ALLOCATE(levels_i(nzlevp1))
       ALLOCATE(levels_m(n_zlev))
       CALL set_zlev(levels_i, levels_m)
-      CALL zaxisDefLevels(of%cdiZaxisID(ZA_depth_below_sea), levels_m)
-      CALL zaxisDefLevels(of%cdiZaxisID(ZA_depth_below_sea_half), levels_i)
+      CALL zaxisDefLevels(of%cdiZaxisID(ZA_depth_below_sea), REAL(levels_m,dp))
+      CALL zaxisDefLevels(of%cdiZaxisID(ZA_depth_below_sea_half), REAL(levels_i,dp))
       DEALLOCATE(levels_i)
       DEALLOCATE(levels_m)
       of%cdiZaxisID(ZA_generic_ice) = zaxisCreate(ZAXIS_GENERIC, 1)
