@@ -48,16 +48,17 @@ ln -sf ${RADDIR}/rrtmg_lw.nc .
 
 # global timing
 start_date="${INITIME_FMT}"
-ndays_restart=60
+ndays_restart=500
 dt_restart=`expr ${ndays_restart} \* 86400`
 
 # model timing
 dtime=100
 dtconv=1200            # convection, SSO, GWD. See iadv_rcf for TURB frequency
 dtrad=3600             # radiation time step
-ndays=405              # number of days to run
+ndays=405              # number of days to runo
+
 nsteps=`expr ${ndays} \* 86400 / ${dtime}`
-ninc_mtgrm=50          # output interval 3600s
+ninc_mtgrm=72 #216     # output interval 3600s
 
 # model parameters
 atmo_namelist=NAMELIST_${basename}
@@ -189,8 +190,8 @@ cat > ${atmo_namelist} << EOF
  filetype                     =  2                        ! output format: 2=GRIB2, 4=NETCDFv2
  dom                          = -1                        ! write all domains
  output_time_unit             =  1                        ! 1: seconds
- output_bounds                =  0., 10000000., 86400.    ! start, end, increment
- steps_per_file               =  40
+ output_bounds                =  0., 100000000., 172800.  ! start, end, increment
+ steps_per_file               =  500
  mode                         =  1  ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
  include_last                 = .TRUE.
  output_filename              = '${basename}'             ! file name base
@@ -199,8 +200,8 @@ cat > ${atmo_namelist} << EOF
  hl_varlist                   = ${hl_varlist}
  output_grid                  = .FALSE.
  remap                        = 1
- reg_lon_def                  = 0.,2.,358.
- reg_lat_def                  = 90.,-2., -90.
+ reg_lon_def                  = 0.,3.,357.
+ reg_lat_def                  = 90.,-3., -90.
 !namespace                    = "DWD"                 ! may give problems with metview - leave default ecmwf"
 /
 &meteogram_output_nml
