@@ -724,9 +724,9 @@ CONTAINS
     ! fix all those entries which have NO source grid contributions by
     ! setting a nearest-neighbor "interpolation"
     IF (grid1%structure == GRID_TYPE_ICON) &
-      CALL correct_weights_at_nest_boundary(grid2_cov, grid1, intp_data1, thresh)
+      CALL correct_wgts_at_nest_boundary(grid2_cov, grid1, intp_data1)
     IF (grid2%structure == GRID_TYPE_ICON) &
-      CALL correct_weights_at_nest_boundary(grid1_cov, grid2, intp_data2, thresh)
+      CALL correct_wgts_at_nest_boundary(grid1_cov, grid2, intp_data2)
 
     ! clear "working copy" with vertex coordinates
     CALL finalize_vertex_coords(grid1)
@@ -787,20 +787,19 @@ CONTAINS
   !  We fix all those entries which have NO source grid contributions by
   !  setting a nearest-neighbor "interpolation"
   !
-  SUBROUTINE correct_weights_at_nest_boundary(src_grid, dst_grid, intp_data, pole_thresh)
+  SUBROUTINE correct_wgts_at_nest_boundary(src_grid, dst_grid, intp_data)
     TYPE (t_grid),     INTENT(INOUT) :: src_grid, dst_grid      !< source and destination grid
     TYPE(t_intp_data), INTENT(INOUT) :: intp_data               !< interpolation coefficients (result)  
-    REAL(wp),          INTENT(IN)    :: pole_thresh             !< pole threshold
     ! local variables
     INTEGER  :: icount, start_blk, end_blk, start_idx, end_idx, &
-      &         jc, jb, global_idx, i
+      &         jc, jb, global_idx
     TYPE (t_geographical_coordinates) :: p
 
 
     icount    = 0
     start_blk = 1
     end_blk   = dst_grid%p_patch%nblks_c
-!$OMP PARALLEL PRIVATE(start_idx, end_idx,jc,icount,p,global_idx)
+!$OMP PARALLEL PRIVATE(start_idx, end_idx,jc,jb,icount,p,global_idx)
 !$OMP DO
     BLOCKLOOP : DO jb=start_blk,end_blk
       start_idx = 1
@@ -830,6 +829,6 @@ CONTAINS
       WRITE (0,*) "Nearest-neighbor interpolation fix needed for ", icount, " cells."
 !$OMP END PARALLEL
 
-  END SUBROUTINE correct_weights_at_nest_boundary
+  END SUBROUTINE correct_wgts_at_nest_boundary
 
 END MODULE mo_remap_weights
