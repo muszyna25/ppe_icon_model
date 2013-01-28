@@ -1694,50 +1694,69 @@ CONTAINS
     ! Local parameters
     REAL(wp), PARAMETER :: ZERO_TOL = 1.e-15
 
-    REAL(wp) :: sincos_pole(2,2) ! (lon/lat, sin/cos)
-    REAL(wp) :: sincos_lon(lon_lat_grid%lon_dim,2), &
-      & sincos_lat(lon_lat_grid%lat_dim,2)
-    INTEGER :: k, j
-    REAL(wp) :: rlon_lat, pi_180, npole_rad(2), arg1, arg2
+    REAL(wp) :: sincos_pole(2,2),                   &  ! (lon/lat, sin/cos)
+      &         sincos_lon(lon_lat_grid%lon_dim,2), &
+      &         sincos_lat(lon_lat_grid%lat_dim,2), &
+      &         pi_180, npole_rad(2), arg1, arg2,   &
+      &         rlon(lon_lat_grid%lon_dim),         &
+      &         rlat(lon_lat_grid%lat_dim)
+    INTEGER  :: k, j
+    LOGICAL  :: ltrivial_rotation
     
     !-----------------------------------------------------------------------
     
-    ! convert north pole: degree -> rad:
-    pi_180 = ATAN(1._wp)/45._wp
-    npole_rad(:) = lon_lat_grid%north_pole(:)*pi_180
-    
-    sincos_pole(:,1) = SIN(npole_rad(:))
-    sincos_pole(:,2) = COS(npole_rad(:))
-    
+    ltrivial_rotation = ((ABS(90._wp - lon_lat_grid%north_pole(2)) < ZERO_TOL) .AND.  &
+      &                   ABS( 0._wp - lon_lat_grid%north_pole(1)) < ZERO_TOL)
     DO k=1,lon_lat_grid%lon_dim
-      rlon_lat        = lon_lat_grid%start_corner(1) + REAL(k-1,wp)*lon_lat_grid%delta(1)
-      sincos_lon(k,:) = (/ SIN(rlon_lat), COS(rlon_lat) /)
+      rlon(k)         = lon_lat_grid%start_corner(1) + REAL(k-1,wp)*lon_lat_grid%delta(1)
+      sincos_lon(k,:) = (/ SIN(rlon(k)), COS(rlon(k)) /)
     END DO
     DO k=1,lon_lat_grid%lat_dim
-      rlon_lat        = lon_lat_grid%start_corner(2) + REAL(k-1,wp)*lon_lat_grid%delta(2)
-      sincos_lat(k,:) = (/ SIN(rlon_lat), COS(rlon_lat) /)
+      rlat(k)         = lon_lat_grid%start_corner(2) + REAL(k-1,wp)*lon_lat_grid%delta(2)
+      sincos_lat(k,:) = (/ SIN(rlat(k)), COS(rlat(k)) /)
     END DO
-    
-    DO j = 1, lon_lat_grid%lat_dim
-      DO k = 1, lon_lat_grid%lon_dim
-        
-        ! ATAN2(COS(phi)*SIN(lambda), SIN(poleY)*COS(phi)*COS(lambda) - SIN(phi)*COS(poleY)) + poleX
-        arg1 = sincos_lat(j,2)*sincos_lon(k,1)
-        arg2 = sincos_pole(2,1)*sincos_lat(j,2)*sincos_lon(k,2) - sincos_lat(j,1)*sincos_pole(2,2)
 
-        IF ((ABS(arg1) > ZERO_TOL) .OR. (ABS(arg2) > ZERO_TOL)) THEN
-          rotated_pts(k,j,1) = ATAN2( arg1, arg2 ) + npole_rad(1)
-        ELSE
-          rotated_pts(k,j,1) = 0.0_wp ! ATAN2(0,0) is undefined, so we just have to set something
-        ENDIF
-        
-        ! ASIN( SIN(phi)*SIN(poleY) + COS(phi)*COS(lambda)*COS(poleY) )
-        rotated_pts(k,j,2) = &
-          & ASIN( sincos_lat(j,1)*sincos_pole(2,1) + &
-          & sincos_lat(j,2)*sincos_lon(k,2)*sincos_pole(2,2) )
-        
+    ! special treatment for "trivial rotation" (no.pole at +90,0):
+    IF (ltrivial_rotation) THEN
+
+      DO j = 1, lon_lat_grid%lat_dim
+        DO k = 1, lon_lat_grid%lon_dim
+          rotated_pts(k,j,1) = rlon(k)
+          rotated_pts(k,j,2) = rlat(j)
+        END DO
+      END DO
+
+    ELSE
+
+      ! convert north pole: degree -> rad:
+      pi_180 = ATAN(1._wp)/45._wp
+      npole_rad(:) = lon_lat_grid%north_pole(:)*pi_180
+
+      sincos_pole(:,1) = SIN(npole_rad(:))
+      sincos_pole(:,2) = COS(npole_rad(:))  
+
+      DO j = 1, lon_lat_grid%lat_dim
+        DO k = 1, lon_lat_grid%lon_dim
+
+          ! ATAN2(COS(phi)*SIN(lambda), SIN(poleY)*COS(phi)*COS(lambda) - SIN(phi)*COS(poleY)) + poleX
+          arg1 = sincos_lat(j,2)*sincos_lon(k,1)
+          arg2 = sincos_pole(2,1)*sincos_lat(j,2)*sincos_lon(k,2) - sincos_lat(j,1)*sincos_pole(2,2)
+
+          IF ((ABS(arg1) > ZERO_TOL) .OR. (ABS(arg2) > ZERO_TOL)) THEN
+            rotated_pts(k,j,1) = ATAN2( arg1, arg2 ) + npole_rad(1)
+          ELSE
+            rotated_pts(k,j,1) = 0.0_wp ! ATAN2(0,0) is undefined, so we just have to set something
+          ENDIF
+
+          ! ASIN( SIN(phi)*SIN(poleY) + COS(phi)*COS(lambda)*COS(poleY) )
+          rotated_pts(k,j,2) = &
+            & ASIN( sincos_lat(j,1)*sincos_pole(2,1) + &
+            & sincos_lat(j,2)*sincos_lon(k,2)*sincos_pole(2,2) )
+
+        ENDDO
       ENDDO
-    ENDDO
+
+    END IF
     
   END SUBROUTINE rotate_latlon_grid
   !-------------------------------------------------------------------------
