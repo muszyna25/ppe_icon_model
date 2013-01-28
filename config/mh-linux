@@ -70,11 +70,11 @@ case "$fortran_compiler" in
         FCHECK      = -finit-real=nan -finit-integer=-2147483648 -finit-character=127
         FOPTIONS    = "$FCPP" "$FLANG" "$FWARN" "$FDEBUG" "$FCHECK"
         FOTPTIM     = -march=native -O3 -ffast-math -D__LOOP_EXCHANGE
-      
+
         DEBUG_FLAGS = -g -fbacktrace -fbounds-check -fstack-protector-all "$FCHECK"
         STD_FLAGS   = -march=native -O0 -ffast-math -D__LOOP_EXCHANGE "$DEBUG_FLAGS"
         HIOPT_FLAGS = -march=native -O3 -ffast-math -D__LOOP_EXCHANGE
-        
+
         FC          = gfortran
         FFLAGS      = "$FCPP" "$FLANG" "$FWARN"
         F77         = gfortran
@@ -90,7 +90,8 @@ case "$fortran_compiler" in
         config_compiler=nag
         CFLAGS      = "$CFLAGS" -DNAGf90Fortran
         FC          = nagfor
-        GEN_FLAGS   = -float-store -colour -nan -maxcontin=99 -fpp
+#        GEN_FLAGS   = -float-store -colour -nan -maxcontin=99 -fpp
+        GEN_FLAGS   = -float-store -colour -nan -fpp
         FDEBUG      =  -gline -g -C=all -mtrace=all
         FDEBUG      =  -gline -g -C=all 
 	MISMATCHS   = -wmismatch=mpi_get,mpi_win_create,mpi_send,mpi_isend,mpi_recv,mpi_irecv,mpi_bcast,mpi_alltoall,mpi_allreduce,mpi_reduce,mpi_gather,mpi_gatherv,mpi_scatterv,mpi_allgather,mpi_pack,mpi_unpack,mpi_type_extent,mpi_type_struct,mpi_type_commit,mpi_op_create,nf_get_att_double,nf_put_att_double,nf_def_var,nf_get_att_int,nf_put_att_int,nf_put_vara_int,nf_get_vara_int,nf_put_vara_double,psmile_bsend -w=uep
@@ -232,7 +233,7 @@ case "$ac_sitename" in
                CC = cc
                 FC = ftn
                 F77= ftn
-                
+
                 case "$fortran_compiler" in
                     default|gcc)
                       load_modules="PrgEnv-gnu" "netcdf" "${load_modules}"
@@ -284,7 +285,7 @@ case "$ac_sitename" in
                 NETCDFROOT  = /sw/sles10-x64/netcdf-4.0.1-without-hdf5
              #   FFLAGS  = "$FFLAGS" "$DEFOPT""__HAS_METIS__"
              #   METIS_LIB = -L/zmaw/home/m300056/lib/tornado -lmetis
-                
+
                 case "$fortran_compiler" in
                     default|gcc)
                         IB_LIBS    = -lrdmacm -libverbs -lnuma -ldl -Wl,--export-dynamic -lnsl -lutil -lm -ldl
@@ -324,7 +325,7 @@ case "$ac_sitename" in
         esac
         ;;
 #===============================================
-    
+
 
 #===============================================
     dwd.de)
@@ -355,140 +356,175 @@ case "$ac_sitename" in
 
 #===============================================
     zmaw.de)
-	case "$host" in
-	    i686-*-linux-*)           # 32 bit MPI/ZMAW workstation
-		config_target=mpipc
-		load_modules="ncl/5.2.0-bin" "cdo/default" "jdk" "${load_modules}"
-		load_profile="." "/client/etc/profile.zmaw"
-		submit=""
-		make_command="make" "-j" "2"
-		NETCDFROOT  = /sw/etch-ia32/netcdf-3.6.3
-		
-		case "$fortran_compiler" in
-		    default|gcc)
-			MPIROOT  = /sw/etch-ia32/mpich2-1.2.1-gcc43
-			MPI_LIB  = -lmpichf90 -lmpich -lpthread -lrt
-			load_modules="GCC/4.3.3" "${load_modules}"
-			;;
-		    nag)
-			MPIROOT  = /sw/etch-ia32/mpich2-1.2.1-nag52
-			MPI_LIB  = -lmpichf90 -lmpich -lpthread -lrt
-			load_modules="GCC/4.3.3" "NAG/5.2.721" "${load_modules}"
-			;;
-		    pgi)
-			MPIROOT  = /sw/etch-ia32/mpich2-1.2.1-pgi9
-			MPI_LIB  = -lmpichf90 -lmpich -lpthread -lrt
-			load_modules="GCC/4.3.3" "PGI/9.0-4" "${load_modules}"
+        dist_codename = $(lsb_release -c | awk '{print $2}')
+        software_tree = /sw/$dist_codename-x64
+        case $ac_hostname in
+            thunder*)
+                NETCDFROOT  = $software_tree/netcdf-4.1.3-static-gcc46
+                HDF5ROOT    = $software_tree/hdf5-1.8.8-static
+                SZIPROOT    = $software_tree/szip-2.1-static
+                ZLIBROOT    = /usr
+                SYS_LIBS = -lnuma -lrt -lnsl -lutil -lm -lpthread -ldl -Wl,--export-dynamic -lrt -lnsl -lutil -lm -lpthread -ldl
+                IB_LIBS  = -lrdmacm -libverbs
+                MPI_LIB  = -lmpi_f90 -lmpi_f77 -lmpi $IB_LIBS $SYS_LIBS
+                load_profile="." "/client/etc/profile.zmaw"
+                make_command="make" "-j" "4"
+                case $fortran_compiler in
+                    default|gcc)
+                      MPIROOT = $software_tree/mpi/openmpi_ib-1.6.2-static-gcc46
+                      load_modules="gcc/4.6.3" "openmpi_ib/1.6.2-static-gcc46" "${load_modules}"
+                      ;;
+                    pgi)
+                      MPIROOT = $software_tree/mpi/openmpi_ib-1.6.2-static-pgi12
+                      load_modules="gcc/4.6.3" "pgi/12.10" "openmpi_ib/1.6.2-static-pgi12" "${load_modules}"
+                      ;;
+                    intel)
+                      MPIROOT = $software_tree/mpi/openmpi_ib-1.6.2-static-intel13
+                      load_modules="gcc/4.6.3" "intel/13.0.0" "openmpi_ib/1.6.2-static-intel13" "${load_modules}"
+                      ;;
+                    nag)
+                      MPIROOT = $software_tree/mpi/openmpi_ib-1.6.2-static-nag53
+                      load_modules="gcc/4.6.3" "nag/5.3.907" "openmpi_ib/1.6.2-static-nag53" "${load_modules}"
+                      ;;
+                esac
+                ;;
+        *)
+          case "$host" in
+              i686-*-linux-*)           # 32 bit MPI/ZMAW workstation
+                  config_target=mpipc
+                  load_modules="ncl/5.2.0-bin" "cdo/default" "jdk" "${load_modules}"
+                  load_profile="." "/client/etc/profile.zmaw"
+                  submit=""
+                  make_command="make" "-j" "2"
+                  NETCDFROOT  = /sw/etch-ia32/netcdf-3.6.3
 
-			;;
-		    intel)
-			MPIROOT  = /sw/etch-ia32/mpich2-1.2.1-intel11
-			MPI_LIB  = -lmpichf90 -lmpich -lpthread -lrt
-			load_modules="GCC/4.3.3" "jdk" "Intel/11.1.072" "${load_modules}"
-			;;
-		    sun)
-			echo
-			echo
-			echo SunStudio12 update 1 patch level 3 is not supported with DEBIAN etch
-			echo
-			exit
-                      #
-			;;
-		esac
-		;;
-               #-------------------------------------
-	    x86_64-*-linux-*)        # 64 bit lenny or squeeze MPI/ZMAW workstation
-                dist_codename=$(lsb_release -c)
-		case "$dist_codename" in
-		    *lenny*)
-			SOFTWARE_TREE=/sw/lenny-x64
-		        HDF5ROOT     = $SOFTWARE_TREE/hdf5-1.8.5-p1-static
-			NETCDFVERS   = $SOFTWARE_TREE/netcdf-4.1.1-static
-                        FFLAGS  = "$FFLAGS" "$DEFOPT""__HAS_METIS__"
-                        METIS_LIB = -L/zmaw/home/m300056/lib/mpipc -lmetis
-                        ;;		   
-		    *squeeze*)
-			SOFTWARE_TREE=/sw/squeeze-x64
-		        HDF5ROOT     = $SOFTWARE_TREE/hdf5-1.8.7-static
-			NETCDFVERS   = $SOFTWARE_TREE/netcdf-4.1.3-static
-                        ;;
-		    *)
-			echo
-			echo WARNING:
-			echo No default setup for you Linux distribution , codename: $dist_codename
-			echo
-			echo
-			;;			
-		esac		   
-		SZIPROOT = $SOFTWARE_TREE/szip-2.1-static
-		ZLIBROOT = /usr
-		load_modules = "ncl/6.0.0-gccsys" "cdo/1.5.6.1" "python/2.7-ve0" "${load_modules}"
-		load_profile = "." "/client/etc/profile.zmaw"
-		case "$(hostname)" in
-		    squall?)
-			config_target=squall
-			make_command="make" "-j" "8"
-			submit="qsub"
-                        sync_submit=qsub -sync y
-			;;
-		    *)
-			config_target=mpipc
-			make_command="make" "-j" "2"
-			submit=""
-			;;
-		esac
-		
-		case "$fortran_compiler" in
-		    default|gcc)
-			NETCDFROOT         = "${NETCDFVERS}-gcc45"
-			MPIROOT            = $SOFTWARE_TREE/mpi/mpich2-1.3.1-static-gcc45
-			MPI_LIB            = -lmpichf90 -lmpich -lopa -lmpl -lpthread -lrt
-			load_mpi_modules   = "mpich2/1.3.1-static-gcc45"
-#                        load_modules="gcc/4.6.0" "${load_modules}"
-                        load_modules       = "gcc/4.5.2" "${load_modules}"
-			;;
-		    nag)
-			NETCDFROOT         = "${NETCDFVERS}-nag52"
-			MPIROOT            = $SOFTWARE_TREE/mpi/mpich2-1.3.1-static-nag52
-			MPI_LIB            = -lmpichf90 -lmpich -lopa -lmpl -lpthread -lrt
-			load_mpi_modules   = "mpich2/1.2.1p1-static-nag52"
-			load_modules       = "nag/5.2.747" "gcc/4.5.2" "${load_modules}"
-			;;
-		    pgi)
-			NETCDFROOT         = "${NETCDFVERS}-pgi12"
-			MPIROOT            = $SOFTWARE_TREE/mpi/mpich2-1.3.1-static-pgi12
-			MPI_LIB            = -lmpichf90 -lmpich -lopa -lmpl -lpthread -lrt
-                        FC          = pgfortran
-			load_mpi_modules   = "mpich2/1.3.1-static-pgi12"
-#			load_modules       = "pgi/11.10" "gcc/4.6.0" "${load_modules}"
-                        load_modules       = "pgi/12.3" "gcc/4.6.0" "${load_modules}"
-			;;
-		    intel)
-			NETCDFROOT         = "${NETCDFVERS}-intel12"
-			MPIROOT            = $SOFTWARE_TREE/mpi/mpich2-1.3.1-static-intel12
-			MPI_LIB            = -lmpichf90 -lmpich -lopa -lmpl -lpthread -lrt
-			load_mpi_modules   = "mpich2/1.3.1-static-intel12"
-                        # load_modules       = "intel/12.0.084" "gcc/4.5.2" "${load_modules}"
-                        load_modules      = "intel/12.4.191" "gcc/4.5.2" "${load_modules}"
-			;;
-		    sun)
-			NETCDFROOT         = "${NETCDFVERS}-sun12"
-			MPIROOT            = $SOFTWARE_TREE/mpi/mpich2-1.3.1-static-sun12
-			MPI_LIB            = -lmpichf90 -lmpich -lopa -lmpl -lpthread -lrt
-			load_mpi_modules   = "mpich2/1.3.1-static-sun12"
-			load_modules       = "sun/Studio12.1-3" "gcc/4.5.2" "${load_modules}"
-			;;
-		esac
-		;;
-	    *)  # unknown ...
-		echo
-		echo
-		echo Unknown Linux system type - currently not supported ...
-		echo
-		exit
-		;;        
-	esac
-	;;
+                  case "$fortran_compiler" in
+                      default|gcc)
+                          MPIROOT  = /sw/etch-ia32/mpich2-1.2.1-gcc43
+                          MPI_LIB  = -lmpichf90 -lmpich -lpthread -lrt
+                          load_modules="GCC/4.3.3" "${load_modules}"
+                          ;;
+                      nag)
+                          MPIROOT  = /sw/etch-ia32/mpich2-1.2.1-nag52
+                          MPI_LIB  = -lmpichf90 -lmpich -lpthread -lrt
+                          load_modules="GCC/4.3.3" "NAG/5.2.721" "${load_modules}"
+                          ;;
+                      pgi)
+                          MPIROOT  = /sw/etch-ia32/mpich2-1.2.1-pgi9
+                          MPI_LIB  = -lmpichf90 -lmpich -lpthread -lrt
+                          load_modules="GCC/4.3.3" "PGI/9.0-4" "${load_modules}"
+
+                          ;;
+                      intel)
+                          MPIROOT  = /sw/etch-ia32/mpich2-1.2.1-intel11
+                          MPI_LIB  = -lmpichf90 -lmpich -lpthread -lrt
+                          load_modules="GCC/4.3.3" "jdk" "Intel/11.1.072" "${load_modules}"
+                          ;;
+                      sun)
+                          echo
+                          echo
+                          echo SunStudio12 update 1 patch level 3 is not supported with DEBIAN etch
+                          echo
+                          exit
+                        #
+                          ;;
+                  esac
+                  ;;
+              #-------------------------------------
+              x86_64-*-linux-*)        # 64 bit lenny or squeeze MPI/ZMAW workstation
+                  dist_codename=$(lsb_release -c)
+                  case "$dist_codename" in
+                      *lenny*)
+                          SOFTWARE_TREE=/sw/lenny-x64
+                          HDF5ROOT     = $SOFTWARE_TREE/hdf5-1.8.5-p1-static
+                          NETCDFVERS   = $SOFTWARE_TREE/netcdf-4.1.1-static
+                          FFLAGS  = "$FFLAGS" "$DEFOPT""__HAS_METIS__"
+                          METIS_LIB = -L/zmaw/home/m300056/lib/mpipc -lmetis
+                          ;;
+                      *squeeze*)
+                          SOFTWARE_TREE=/sw/squeeze-x64
+                          HDF5ROOT     = $SOFTWARE_TREE/hdf5-1.8.7-static
+                          NETCDFVERS   = $SOFTWARE_TREE/netcdf-4.1.3-static
+                          ;;
+                      *)
+                          echo
+                          echo WARNING:
+                          echo No default setup for you Linux distribution , codename: $dist_codename
+                          echo
+                          echo
+                          ;;
+                  esac
+                  SZIPROOT = $SOFTWARE_TREE/szip-2.1-static
+                  ZLIBROOT = /usr
+                  load_modules = "ncl/6.0.0-gccsys" "cdo/1.5.6.1" "python/2.7-ve0" "${load_modules}"
+                  load_profile = "." "/client/etc/profile.zmaw"
+                  case "$(hostname)" in
+                      squall?)
+                          config_target=squall
+                          make_command="make" "-j" "8"
+                          submit="qsub"
+                          sync_submit=qsub -sync y
+                          ;;
+                      *)
+                          config_target=mpipc
+                          make_command="make" "-j" "2"
+                          submit=""
+                          ;;
+                  esac
+
+                  case "$fortran_compiler" in
+                      default|gcc)
+                          NETCDFROOT         = "${NETCDFVERS}-gcc45"
+                          MPIROOT            = $SOFTWARE_TREE/mpi/mpich2-1.3.1-static-gcc45
+                          MPI_LIB            = -lmpichf90 -lmpich -lopa -lmpl -lpthread -lrt
+                          load_mpi_modules   = "mpich2/1.3.1-static-gcc45"
+  #                        load_modules="gcc/4.6.0" "${load_modules}"
+                          load_modules       = "gcc/4.5.2" "${load_modules}"
+                          ;;
+                      nag)
+                          NETCDFROOT         = "${NETCDFVERS}-nag52"
+                          MPIROOT            = $SOFTWARE_TREE/mpi/mpich2-1.3.1-static-nag52
+                          MPI_LIB            = -lmpichf90 -lmpich -lopa -lmpl -lpthread -lrt
+                          load_mpi_modules   = "mpich2/1.2.1p1-static-nag52"
+                          load_modules       = "nag/5.2.747" "gcc/4.5.2" "${load_modules}"
+                          ;;
+                      pgi)
+                          NETCDFROOT         = "${NETCDFVERS}-pgi12"
+                          MPIROOT            = $SOFTWARE_TREE/mpi/mpich2-1.3.1-static-pgi12
+                          MPI_LIB            = -lmpichf90 -lmpich -lopa -lmpl -lpthread -lrt
+                          FC          = pgfortran
+                          load_mpi_modules   = "mpich2/1.3.1-static-pgi12"
+  #			load_modules       = "pgi/11.10" "gcc/4.6.0" "${load_modules}"
+                          load_modules       = "pgi/12.3" "gcc/4.6.0" "${load_modules}"
+                          ;;
+                      intel)
+                          NETCDFROOT         = "${NETCDFVERS}-intel12"
+                          MPIROOT            = $SOFTWARE_TREE/mpi/mpich2-1.3.1-static-intel12
+                          MPI_LIB            = -lmpichf90 -lmpich -lopa -lmpl -lpthread -lrt
+                          load_mpi_modules   = "mpich2/1.3.1-static-intel12"
+                          # load_modules       = "intel/12.0.084" "gcc/4.5.2" "${load_modules}"
+                          load_modules      = "intel/12.4.191" "gcc/4.5.2" "${load_modules}"
+                          ;;
+                      sun)
+                          NETCDFROOT         = "${NETCDFVERS}-sun12"
+                          MPIROOT            = $SOFTWARE_TREE/mpi/mpich2-1.3.1-static-sun12
+                          MPI_LIB            = -lmpichf90 -lmpich -lopa -lmpl -lpthread -lrt
+                          load_mpi_modules   = "mpich2/1.3.1-static-sun12"
+                          load_modules       = "sun/Studio12.1-3" "gcc/4.5.2" "${load_modules}"
+                          ;;
+                  esac
+                  ;;
+              *)  # unknown ...
+                  echo
+                  echo
+                  echo Unknown Linux system type - currently not supported ...
+                  echo
+                  exit
+                  ;;
+          esac
+          ;;
+        esac
+        ;;
         #-------------------------------------------------------------------
 esac
 #===============================================
