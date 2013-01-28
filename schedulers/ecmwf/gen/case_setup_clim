@@ -157,7 +157,8 @@ cat > ${atmo_namelist} << EOF
  zpbl2                        = 1000. 
 /
 &io_nml
- lflux_avg                    = .FALSE.    
+ lflux_avg                    = .FALSE.
+ dt_checkpoint                = ${dt_restart}   
 /
 &run_nml
  num_lev                      = 90
