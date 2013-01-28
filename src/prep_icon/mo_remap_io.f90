@@ -127,6 +127,23 @@ CONTAINS
     INTEGER                     :: ngrids, i, gridID
     CHARACTER(len=MAX_NAME_LENGTH) :: zname
 
+
+    ! Remark on usage of "cdiDefMissval"
+
+    ! Inside the GRIB_API (v.1.9.18) the missing value is converted
+    ! into LONG INT for a test, but the default CDI missing value is
+    ! outside of the valid range for LONG INT (U. Schulzweida, bug
+    ! report SUP-277). This causes a crash with INVALID OPERATION.
+
+    ! As a workaround we can choose a different missing value in the
+    ! calling subroutine (here). For the SX-9 this must lie within 53
+    ! bits, because "the SX compiler generates codes using HW
+    ! instructions for floating-point data instead of instructions for
+    ! integers. Therefore, the operation result is not guaranteed if
+    ! the value cannot be represented as integer within 53 bits."
+    DOUBLE PRECISION ::  cdimissval = -9.E+15
+    CALL cdiDefMissval(cdimissval) 
+
     file_metadata%structure = istructure
 
     IF (get_my_mpi_work_id() == rank0) THEN
