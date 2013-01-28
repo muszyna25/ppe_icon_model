@@ -41,7 +41,7 @@ USE mo_timer,                ONLY: print_timer, timers_level, timer_start, &
 USE mo_master_control,       ONLY: is_restart_run
 USE mo_output,               ONLY: init_output_files, close_output_files,&
   &                                write_output
-
+USE mo_var_list,             ONLY: print_var_list
 USE mo_time_config,          ONLY: time_config      ! variable
 USE mo_io_restart,           ONLY: read_restart_files
 USE mo_io_restart_attributes,ONLY: get_restart_attribute
@@ -377,6 +377,21 @@ CONTAINS
     IF (output_mode%l_nml) THEN
       CALL init_name_list_output(isample=iadv_rcf)
     END IF
+
+
+    ! for debug purpose: print var lists
+    IF ( msg_level >=20 .AND. my_process_is_stdio() .AND. .NOT. ltestcase) THEN
+      CALL print_var_list (p_nh_state(1)%prog_list(1))
+      CALL print_var_list (p_nh_state(1)%diag_list)
+      CALL print_var_list (p_nh_state(1)%metrics_list)
+      CALL print_var_list (prm_nwp_diag_list(1))
+      CALL print_var_list (prm_nwp_tend_list(1))
+      CALL print_var_list (p_lnd_state(1)%lnd_prog_nwp_list(1))
+      CALL print_var_list (p_lnd_state(1)%lnd_diag_nwp_list)
+      CALL print_var_list (ext_data(1)%atm_list)
+      CALL print_var_list (ext_data(1)%atm_td_list)
+    ENDIF
+
 
     IF (timers_level > 3) CALL timer_stop(timer_model_init)
 

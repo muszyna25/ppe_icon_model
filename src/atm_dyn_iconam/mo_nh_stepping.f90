@@ -137,7 +137,6 @@ MODULE mo_nh_stepping
   USE mo_name_list_output,    ONLY: write_name_list_output, istime4name_list_output
   USE mo_pp_scheduler,        ONLY: new_simulation_status, pp_scheduler_process
   USE mo_pp_tasks,            ONLY: t_simulation_status
-  USE mo_var_list,            ONLY: print_var_list
   USE mo_art_emission_interface,  ONLY:art_emission_interface
   USE mo_art_config,          ONLY:art_config
   USE mo_nwp_sfc_utils,       ONLY: aggregate_landvars, update_sstice
@@ -380,19 +379,6 @@ MODULE mo_nh_stepping
     END IF
 
   END IF ! not is_restart_run()
-
-  ! for debug purpose: print var lists
-  IF ( msg_level >=20 .AND. my_process_is_stdio() .AND. .NOT. ltestcase) THEN
-    CALL print_var_list (p_nh_state(1)%prog_list(1))
-    CALL print_var_list (p_nh_state(1)%diag_list)
-    CALL print_var_list (p_nh_state(1)%metrics_list)
-    CALL print_var_list (prm_nwp_diag_list(1))
-    CALL print_var_list (prm_nwp_tend_list(1))
-    CALL print_var_list (p_lnd_state(1)%lnd_prog_nwp_list(1))
-    CALL print_var_list (p_lnd_state(1)%lnd_diag_nwp_list)
-    CALL print_var_list (ext_data(1)%atm_list)
-    CALL print_var_list (ext_data(1)%atm_td_list)
-  ENDIF
 
 
   IF (timers_level > 3) CALL timer_stop(timer_model_init)
