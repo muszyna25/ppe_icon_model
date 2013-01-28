@@ -384,8 +384,9 @@ case "$ac_sitename" in
                       load_modules="gcc/4.6.3" "intel/13.0.0" "openmpi_ib/1.6.2-static-intel13" "${load_modules}"
                       ;;
                     nag)
-                      MPIROOT = $software_tree/mpi/openmpi_ib-1.6.2-static-nag53
-                      load_modules="gcc/4.6.3" "nag/5.3.907" "openmpi_ib/1.6.2-static-nag53" "${load_modules}"
+                      MPIROOT = $software_tree/mpi/openmpi_ib-1.6.2-static-nag52
+                      ## load_modules="gcc/4.6.3" "nag/5.3.907" "openmpi_ib/1.6.2-static-nag53" "${load_modules}"
+                      load_modules="gcc/4.6.3" "nag/5.2.721" "openmpi_ib/1.6.2-static-nag52" "${load_modules}"
                       ;;
                 esac
                 ;;
