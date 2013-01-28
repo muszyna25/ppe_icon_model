@@ -368,6 +368,7 @@ case "$ac_sitename" in
                 IB_LIBS  = -lrdmacm -libverbs
                 MPI_LIB  = -lmpi_f90 -lmpi_f77 -lmpi $IB_LIBS $SYS_LIBS
                 load_profile="." "/client/etc/profile.zmaw"
+                load_modules="ncl/6.0.0-gccsys" "cdo/default" "jdk" "${load_modules}"
                 make_command="make" "-j" "4"
                 case $fortran_compiler in
                     default|gcc)
