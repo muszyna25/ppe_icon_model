@@ -478,8 +478,11 @@ MODULE mo_nh_stepping
       CALL message(TRIM(routine),message_text)
 
       !Update ndvi normalized differential vegetation index
-      IF (iforcing == inwp .AND. ALL(atm_phy_nwp_config(1:n_dom)%inwp_surface >= 1)) &
-        CALL interpol_ndvi_time (p_patch(1:), ext_data, datetime) 
+      IF (iforcing == inwp .AND. ALL(atm_phy_nwp_config(1:n_dom)%inwp_surface >= 1)) THEN
+        !CALL interpol_ndvi_time (p_patch(1:), ext_data, datetime)
+        ! after updating ndvi_mrat, probably plcov_t and tai_t have to be updated also.
+        ! So it is better not to update ndvi_mrat till this is clarified 
+      END IF
 
       !Check if the the SST and Sea ice fraction have to be updated (sstice_mode 2,3,4)
       IF (sstice_mode > 1 .AND. iforcing == inwp  ) THEN
