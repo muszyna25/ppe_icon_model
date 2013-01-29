@@ -40,6 +40,7 @@ MODULE mo_name_list_output
   USE mo_cdi_constants          ! We need all
   USE mo_io_units,              ONLY: filename_max, nnml, nnml_output, find_next_free_unit
   USE mo_io_config,             ONLY: out_varnames_map_file, varnames_map_file
+  USE mo_gribout_config,        ONLY: gribout_config, t_gribout_config
   USE mo_exception,             ONLY: finish, message, message_text
   USE mo_namelist,              ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_var_metadata,          ONLY: t_var_metadata, VARNAME_LEN
@@ -1944,6 +1945,9 @@ CONTAINS
     CALL vlistDefInstitut(of%cdiVlistID,of%cdiInstID)
 
 
+    CALL vlistDefTable(of%cdiVlistID,5)
+
+
     ! 3. add horizontal grid descriptions
 
     IF(of%name_list%remap == REMAP_REGULAR_LATLON) THEN
@@ -2336,11 +2340,10 @@ CONTAINS
       of%cdiZaxisID(ZA_generic_ice) = zaxisCreate(ZAXIS_GENERIC, 1)
     ENDIF
 
+
     !
     ! 5. output does contain absolute time 
-
-!PR    !
-    !WRITE(6,'(a,i)') 'mode ',of%name_list%mode
+    !
     SELECT CASE (of%name_list%mode)
     CASE (1)  ! forecast mode
      of%cdiTaxisID = taxisCreate(TAXIS_RELATIVE)
@@ -2820,11 +2823,17 @@ CONTAINS
     TYPE (t_output_file), INTENT(IN), TARGET :: of
 
     TYPE (t_var_metadata), POINTER :: info
+
+    TYPE(t_gribout_config), POINTER:: grib_conf
     !
     INTEGER :: iv, vlistID, varID, gridID, zaxisID, nlev, nlevp1, i
     CHARACTER(LEN=vname_len) :: mapped_name
 
     CHARACTER(LEN=*), PARAMETER :: routine = 'mo_name_list_output/add_variables_to_vlist'
+
+
+    ! save some paperwork
+    grib_conf => gribout_config(of%phys_patch_id)
 
 
     vlistID = of%cdiVlistID
@@ -2869,6 +2878,9 @@ CONTAINS
       ! Search name mapping for name in NetCDF file
       mapped_name = dict_get(out_varnames_dict, mapped_name, default=info%name)
 
+
+      ! note that an explicit call of vlistDefVarTsteptype is obsolete, since 
+      ! isteptype is already defined via vlistDefVar
       varID = vlistDefVar(vlistID, gridID, zaxisID, info%isteptype)
       info%cdiVarID   = varID
 
@@ -2895,20 +2907,57 @@ CONTAINS
         ! HTOP_CON: typeOfSecondFixedSurface = 101
         ! CLCL    : typeOfSecondFixedSurface = 1
         IF ( get_id(TRIM(info%name)) /= -1 ) THEN
-!DR          CALL vlistDefVarTypeOfSfs(vlistID, varID, second_tos(get_id(TRIM(info%name))))
           CALL vlistDefVarIntKey(vlistID, varID, "typeOfSecondFixedSurface", &
             &                    second_tos(get_id(TRIM(info%name)))) 
         ENDIF
+
+        ! Quick hack: shortName.def should be revised, instead
+        IF ( TRIM(info%name)=='qv_s' ) THEN
+          CALL vlistDefVarIntKey(vlistID, varID, "scaleFactorOfFirstFixedSurface", 0) 
+        ENDIF        
+
       ELSE ! NetCDF
         CALL vlistDefVarDatatype(vlistID, varID, info%cf%datatype)
       ENDIF
 
 
+      ! Quick hack
+      ! Set additional GRIB2 keys. These are added to each single variable, even though 
+      ! adding it to the vertical or horizontal grid description may be more elegant.
+      !
+      ! Do not know, why this has to be set manually.
+      ! Otherwise: tablesVersion=4
+      CALL vlistDefVarIntKey(vlistID, varID, "tablesVersion", 5)
+!DR      CALL vlistDefVarIntKey(vlistID, varID, "localTablesVersion", 1)
+      !
+      ! Product definition
+      CALL vlistDefVarIntKey(vlistID, varID, "significanceOfReferenceTime",     &
+        &                    grib_conf%significanceOfReferenceTime)
+      CALL vlistDefVarIntKey(vlistID, varID, "productionStatusOfProcessedData", &
+        &                    grib_conf%productionStatusOfProcessedData)
+      CALL vlistDefVarIntKey(vlistID, varID, "typeOfProcessedData",             &
+        &                    grib_conf%typeOfProcessedData)
+      CALL vlistDefVarIntKey(vlistID, varID, "typeOfGeneratingProcess",         &
+        &                    grib_conf%typeOfGeneratingProcess)
+      CALL vlistDefVarIntKey(vlistID, varID, "backgroundProcess",               &
+        &                    grib_conf%backgroundProcess)
+      ! in case of lon-lat output, "1" has to be added to generatingProcessIdentifier
+      CALL vlistDefVarIntKey(vlistID, varID, "generatingProcessIdentifier",     &
+        &                    grib_conf%generatingProcessIdentifier)
+      !
+      ! Product Generation (local) !!!!!!! DOES NOT WORK, YET !!!!!!!!!!
+!      CALL vlistDefVarIntKey(vlistID, varID, "localDefinitionNumber", 254)
+!      CALL vlistDefVarIntKey(vlistID, varID, "localCreationDateYear", 8)
+!      CALL vlistDefVarIntKey(vlistID, varID, "localValidityDate", 254)
+!      CALL vlistDefVarIntKey(vlistID, varID, "localNumberOfExperiment", 25)
+
+
+      !!!!!!! OBSOLETE !!!!!!!!
       !Set typeOfStatisticalProcessing
       !Note: instead of calling vlistDefVarTsteptype, one should probably replace 
       !info%cdiTimeID in the call of vlistDefVar by info%isteptype
-      CALL vlistDefVarTsteptype(vlistID, varID, info%isteptype)
-        
+      !CALL vlistDefVarTsteptype(vlistID, varID, info%isteptype)
+
     ENDDO
     !
   END SUBROUTINE add_variables_to_vlist
