@@ -44,7 +44,7 @@ dt_restart=`expr ${ndays_restart} \* 86400`
 #-----------------------------------------------------------------------------
 # model timing
 dtime=0.05
-dt_diag=`expr 1 \* 3600 `    # output each 1 hours
+dt_diag=`expr 1 \* 60 `    # output each 1 min
 dt_file=`expr 1 \* 3600 `    # 1 hour per file
 dt_data=`expr 1 \* 900 `     # output every 15 mins
 dt_checkpoint=`expr 1 \* 1800 `  # write restart file every 1/2 hours
@@ -97,7 +97,7 @@ cat > ${atmo_namelist} << EOF
  ltimer      = .true.       ! 
  timers_level = 100         !
  msg_level   = 12          ! detailed report during integration
- output      = 'vlist'       
+ output      = 'vlist','totint'      
 /
 &dynamics_nml
  iequations  = ${atmo_model_equations}       ! 1: hydrost. atmosphere
@@ -113,8 +113,9 @@ cat > ${atmo_namelist} << EOF
  vgeo              =  0.0, 0.0
  umean             =  0.0, 0.0
  vmean             =  0.0, 0.0
- shflx_cbl         =  120.5     !surface heat flux in W/m2 (1.2*1004.64*<w'\theta'>)
- lhflx_cbl         =  0.0
+ shflx_cbl         =  0.112   !surface heat flux as rho_s*(<w'\theta'>), rho_s = 1.2
+ lhflx_cbl         =  0.0     !latent heat flux as rho_s*(<w'q'>), rho_s = 1.2
+ ufric_cbl         =  0.28    
 /
 &diffusion_nml
  lhdiff_temp  = .TRUE.
@@ -157,6 +158,7 @@ const_z0  = 0.1
  dt_diag          = ${dt_diag}
  dt_file          = ${dt_file}
  dt_checkpoint    = ${dt_checkpoint} ! [s] trigger new restart file
+ lkeep_in_sync    = .TRUE.           ! sync stream after each timestep
  lwrite_surface   = .TRUE.
  lwrite_tke       = .TRUE.
 /
