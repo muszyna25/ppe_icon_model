@@ -71,7 +71,7 @@ MODULE mo_nh_torus_exp
   PRIVATE
   
   PUBLIC :: init_nh_state_cbl, sst_cbl, is_dry_cbl, ugeo, set_sst_cbl, &
-            vgeo, umean, vmean, vt_geostrophic, shflx_cbl, lhflx_cbl
+            vgeo, umean, vmean, vt_geostrophic, shflx_cbl, lhflx_cbl, ufric_cbl
 
   !DEFINED PARAMETERS:
   REAL(wp), PARAMETER :: zp0     = 100000._wp !< surface pressure
@@ -83,6 +83,7 @@ MODULE mo_nh_torus_exp
   REAL(wp) :: umean(2), vmean(2)          !u/vmean(1) = constant, u/vmean(2) = gradient
   REAL(wp),ALLOCATABLE :: vt_geostrophic(:,:,:) !geostrophic wind along the tangent of triangle
   REAL(wp) :: shflx_cbl, lhflx_cbl        !sensible and latent heat flux
+  REAL(wp) :: ufric_cbl                   !friction velocity at surface 
 
   LOGICAL  :: is_dry_cbl, set_sst_cbl
 

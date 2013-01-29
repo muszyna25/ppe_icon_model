@@ -109,7 +109,8 @@ MODULE mo_nh_testcases
   USE mo_nh_init_utils,        ONLY: n_flat_level, layer_thickness
   USE mo_grid_geometry_info,   ONLY: planar_torus_geometry
   USE mo_nh_torus_exp,         ONLY: sst_cbl, is_dry_cbl, init_nh_state_cbl, ugeo,  &
-                                     vgeo, umean, vmean, shflx_cbl, set_sst_cbl, lhflx_cbl
+                                     vgeo, umean, vmean, shflx_cbl, set_sst_cbl,    &
+                                     lhflx_cbl, ufric_cbl
   
   IMPLICIT NONE  
   
@@ -164,7 +165,8 @@ MODULE mo_nh_testcases
                             nlayers_poly, p_base_poly, h_poly, t_poly,       &
                             tgr_poly, rh_poly, rhgr_poly, lshear_dcmip,      &
                             lcoupled_rho, sst_cbl, is_dry_cbl, ugeo, vgeo,   &
-                            umean, vmean, shflx_cbl, set_sst_cbl, lhflx_cbl
+                            umean, vmean, shflx_cbl, set_sst_cbl, lhflx_cbl, &
+                            ufric_cbl
 
   PUBLIC :: read_nh_testcase_namelist, layer_thickness, init_nh_testtopo,    &
     &       init_nh_testcase, n_flat_level, nh_test_name,                    &
@@ -329,6 +331,7 @@ MODULE mo_nh_testcases
     shflx_cbl  = 0._wp 
     lhflx_cbl  = 0._wp 
     set_sst_cbl = .FALSE.
+    ufric_cbl  = 0.28_wp
 
     CALL open_nml(TRIM(filename))
     CALL position_nml ('nh_testcase_nml', status=i_status)
