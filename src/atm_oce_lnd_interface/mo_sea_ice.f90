@@ -176,6 +176,12 @@ CONTAINS
       &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
       &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/),&
       &          lrestart_cont=.TRUE.)
+    CALL add_var(ocean_restart_list, 'vol', p_ice%vol ,&
+      &          GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE, &
+      &          t_cf_var('vol', 'm^3', 'ice volume', DATATYPE_FLT32),&
+      &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
+      &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/),&
+      &          lrestart_cont=.TRUE.)
     CALL add_var(ocean_restart_list, 'hi', p_ice%hi ,&
       &          GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE, &
       &          t_cf_var('hi', 'm', 'ice thickness', DATATYPE_FLT32),&
@@ -1169,7 +1175,8 @@ CONTAINS
     TYPE (t_atmos_fluxes),    INTENT (INOUT) :: QatmAve
     TYPE(t_sfc_flx),          INTENT (INOUT) :: p_sfc_flx
 
-    REAL(wp), PARAMETER :: C_iw = 5.5e-3_wp ! Drag coefficient for ice/ocean drag
+    REAL(wp),PARAMETER :: C_iw = 5.5e-3_wp ! Drag coefficient for ice/ocean drag
+    INTEGER :: k
     
     !-------------------------------------------------------------------------------
 
@@ -1558,6 +1565,7 @@ CONTAINS
     !TYPE (t_atmos_fluxes),     INTENT(IN)    :: QatmAve
     TYPE(t_sfc_flx),           INTENT(INOUT) :: p_sfc_flx
 
+    INTEGER  :: k
     REAL(wp) :: sst(nproma,p_patch%nblks_c)
     REAL(wp) :: Tfw(nproma,p_patch%nblks_c) ! Ocean freezing temperature [C]
     REAL(wp) :: old_conc(nproma,p_patch%nblks_c)
@@ -1569,6 +1577,10 @@ CONTAINS
     else
       Tfw(:,:) = Tf
     endif
+
+    DO k=1,ice%kice
+      ice%vol(:,k,:) = ice%hi(:,k,:)*ice%conc(:,k,:)*p_patch%cells%area(:,:)
+    ENDDO
     
     ! Calculate possible super-cooling of the surface layer
     sst = p_os%p_prog(nold(1))%tracer(:,1,:,1) + &
@@ -1582,25 +1594,29 @@ CONTAINS
       p_sfc_flx%forc_hflx(:,:) = ( Tfw(:,:) - p_os%p_prog(nold(1))%tracer(:,1,:,1) ) &
         &     *ice%zUnderIce(:,:)*clw*rho_ref/dtime
 
-      ! New ice forms over open water - set temperature to Tfw
-      WHERE(ice%hi(:,1,:)<=0._wp)
-        ice%Tsurf(:,1,:) = Tfw(:,:)
-        ice%T2   (:,1,:) = Tfw(:,:)
-        ice%T1   (:,1,:) = Tfw(:,:)
-      ENDWHERE
-
       old_conc (:,:)   = ice%conc(:,1,:)
       ice%conc (:,1,:) = min( 1._wp, & 
         &               ice%conc(:,1,:) + ice%newice(:,:)*( 1._wp - ice%conc(:,1,:) )/hnull )
       ! New thickness: We just preserve volume, so: New_Volume = newice_volume + hi*old_conc 
       !  => hi <- newice/conc + hi*old_conc/conc
       ice%hi   (:,1,:) = ( ice%newice(:,:)+ice%hi(:,1,:)*old_conc(:,:) )/ice%conc(:,1,:)
+      ice%vol  (:,1,:) = ice%hi(:,1,:)*ice%conc(:,1,:)*p_patch%cells%area(:,:)
+      !TODO: Re-calculate temperatures to conserve energy when we change the ice thickness
+
+      ! New ice forms over open water - set temperature to Tfw
+      WHERE(ice%hi(:,1,:)<=0._wp)
+        ice%Tsurf(:,1,:) = Tfw(:,:)
+        ice%T2   (:,1,:) = Tfw(:,:)
+        ice%T1   (:,1,:) = Tfw(:,:)
+      ENDWHERE
     ENDWHERE
 
-    ! This is where concentration changes due to ice melt
-    WHERE (ice%hiold(:,1,:)-ice%hi(:,1,:) > 0._wp )
+    ! This is where concentration, and thickness change due to ice melt (we must conserve volme)
+    WHERE (ice%hiold(:,1,:) > ice%hi(:,1,:))
       ice%conc(:,1,:) = max( 0._wp, ice%conc(:,1,:) - &
         &        ( ice%hiold(:,1,:)-ice%hi(:,1,:) )*ice%conc(:,1,:)*0.5_wp/ice%hiold(:,1,:) )
+      ice%hi   (:,1,:) = ice%vol(:,1,:)/( ice%conc(:,1,:)*p_patch%cells%area(:,:) )
+      !TODO: Re-calculate temperatures to conserve energy when we change the ice thickness
     ENDWHERE
 
     ice% concSum(:,:)  = SUM(ice% conc(:,:,:),2)

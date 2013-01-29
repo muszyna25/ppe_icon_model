@@ -169,6 +169,7 @@ MODULE mo_sea_ice_types
       & T2         (:,:,:)       ,   & ! Temperature lower layer                       [C]
       & E1         (:,:,:)       ,   & ! Energy content upper layer                    [Jm/kg]
       & E2         (:,:,:)       ,   & ! Energy content lower layer                    [Jm/kg]
+      & vol        (:,:,:)       ,   & ! Ice volume                                    [m^3]
       & hi         (:,:,:)       ,   & ! Ice thickness                                 [m]
       & hs         (:,:,:)       ,   & ! Snow thickness                                [m]
       & hiold      (:,:,:)       ,   & ! Ice thickness at previous time step           [m]
