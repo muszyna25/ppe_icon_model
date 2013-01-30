@@ -302,7 +302,7 @@ CONTAINS
         DO jc = i_startidx, i_endidx
           IF ( prm_diag%locum(jc,jb)) THEN
             prm_diag%hbas_con(jc,jb) = p_metrics%z_ifc( jc, prm_diag%mbas_con(jc,jb), jb)
-            prm_diag%htop_con(jc,jb) = p_metrics%z_ifc( jc, prm_diag%mtop_con(jc,jb), jb)
+            prm_diag%htop_con(jc,jb) = p_metrics%z_mc ( jc, prm_diag%mtop_con(jc,jb), jb)
           ELSE
             prm_diag%hbas_con(jc,jb) = 0._wp
             prm_diag%htop_con(jc,jb) = 0._wp

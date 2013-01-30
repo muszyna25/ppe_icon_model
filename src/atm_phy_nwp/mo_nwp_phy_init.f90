@@ -1088,6 +1088,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
 
     END DO
 !$OMP END DO
+!$OMP END PARALLEL
 
   ELSE IF (  atm_phy_nwp_config(jg)%inwp_turb == 4) THEN  !ECHAM vdiff
 
