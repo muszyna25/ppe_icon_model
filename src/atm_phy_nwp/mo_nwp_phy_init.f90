@@ -960,12 +960,71 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
 
   ELSE IF (  atm_phy_nwp_config(jg)%inwp_turb == 2) THEN
 
+    IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'init GME turbulence')
+
+    ! initialize gz0 (roughness length * g)
+    !
+    IF (turbdiff_config(jg)%lconst_z0) THEN
+      ! for idealized tests
+      prm_diag%gz0(:,:) = grav * turbdiff_config(jg)%const_z0
+    ELSE 
+      ! default
+      prm_diag%gz0(:,:) = grav * ext_data%atm%z0(:,:)
+    ENDIF
+
+!$OMP PARALLEL PRIVATE(rl_start,rl_end,i_startblk,i_endblk)
+
+    rl_start = grf_bdywidth_c + 1 ! land-cover classes are not set for nest-boundary points
+    rl_end   = min_rlcell_int
+
+    i_startblk = p_patch%cells%start_blk(rl_start,1)
+    i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
+
+!$OMP DO PRIVATE(jb,jc,ic,jt,i_startidx,i_endidx,lc_class,gz0) ICON_OMP_DEFAULT_SCHEDULE
+    DO jb = i_startblk, i_endblk
+
+      CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+&                       i_startidx, i_endidx, rl_start, rl_end)
+
+      IF (atm_phy_nwp_config(jg)%itype_z0 == 2) THEN
+        ! specify land-cover-related roughness length over land points
+        ! note:  water points are set in turbdiff
+        gz0(:) = 0._wp
+        
+        DO jt = 1, ntiles_total
+!CDIR NODEP,VOVERTAKE,VOB
+          DO ic = 1, ext_data%atm%lp_count(jb)
+            jc = ext_data%atm%idx_lst_lp(ic,jb)
+            lc_class = MAX(1,ext_data%atm%lc_class_t(jc,jb,jt)) ! to avoid segfaults
+            gz0(jc) = gz0(jc) + ext_data%atm%frac_t(jc,jb,jt) * grav * (             &
+             (1._wp-p_diag_lnd%snowfrac_t(jc,jb,jt))*ext_data%atm%z0_lcc(lc_class)+  &
+              p_diag_lnd%snowfrac_t(jc,jb,jt)*0.5_wp*ext_data%atm%z0_lcc(i_lc_si) ) ! i_lc_si = snow/ice class
+          ENDDO
+        ENDDO
+        DO jt = ntiles_total+1, ntiles_total+ntiles_water ! required if there are mixed land-water points
+!CDIR NODEP,VOVERTAKE,VOB
+          DO ic = 1, ext_data%atm%lp_count(jb)
+            jc = ext_data%atm%idx_lst_lp(ic,jb)
+            lc_class = MAX(1,ext_data%atm%lc_class_t(jc,jb,jt)) ! to avoid segfaults
+            gz0(jc) = gz0(jc) + ext_data%atm%frac_t(jc,jb,jt) * grav*ext_data%atm%z0_lcc(lc_class)
+          ENDDO
+        ENDDO        
+!CDIR NODEP,VOVERTAKE,VOB
+        DO ic = 1, ext_data%atm%lp_count(jb)
+          jc = ext_data%atm%idx_lst_lp(ic,jb)
+          prm_diag%gz0(jc,jb) = gz0(jc)
+        ENDDO
+      ENDIF
+    ENDDO
+!$OMP END DO
+
     rl_start = 1 ! Initialization is done also for nest boundary points
     rl_end   = min_rlcell_int
 
     i_startblk = p_patch%cells%start_blk(rl_start,1)
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -1028,6 +1087,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
         &           u_10m=prm_diag%u_10m(:,jb), v_10m=prm_diag%v_10m(:,jb) )
 
     END DO
+!$OMP END DO
 
   ELSE IF (  atm_phy_nwp_config(jg)%inwp_turb == 4) THEN  !ECHAM vdiff
 

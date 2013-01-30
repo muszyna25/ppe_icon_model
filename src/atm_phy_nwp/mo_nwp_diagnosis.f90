@@ -91,11 +91,14 @@ CONTAINS
   !! <Don't forget references to literature.>
   !!
   !! @par Revision History
-  !! <Description of activity> by <name, affiliation> (<YYYY-MM-DD>)
+  !! Add calculation of high-, mid-, and low-level cloud cover, height
+  !! of base and top of convection  by Helmut Frank, DWD (2013-01-17)
+  !!
   !!
   SUBROUTINE nwp_diagnosis(lcall_phy_jg,lredgrid,         & !input
                             & dt_phy_jg,p_sim_time,       & !input
                             & kstart_moist,               & !input
+                            & ih_clch, ih_clcm,           & !in
                             & pt_patch, p_metrics,        & !input
                             & pt_prog, pt_prog_rcf,       & !in
                             & pt_diag,                    & !inout
@@ -140,10 +143,12 @@ CONTAINS
 
     INTEGER :: jc,jk,jb,jg      !block index
     INTEGER :: kstart_moist
+    INTEGER :: ih_clch, ih_clcm
 
-    INTEGER :: ioverlap(nproma)
-    REAL(wp):: cld_cov(nproma)
-
+!h  INTEGER :: ioverlap(nproma)
+!h  REAL(wp):: cld_cov(nproma)
+    REAL(wp):: clearsky(nproma)
+    REAL(wp), PARAMETER:: eps_clc = 1.e-7_wp
 
     ! local variables related to the blocking
 
@@ -190,31 +195,122 @@ CONTAINS
 
 ! Calculation of cloud cover (Maximum-Random Overlap) (icc)
 
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk, ioverlap, cld_cov) ICON_OMP_DEFAULT_SCHEDULE
+!!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk, ioverlap, cld_cov) ICON_OMP_DEFAULT_SCHEDULE
+!h     DO jb = i_startblk, i_endblk
+!h       !
+!h       CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
+!h         & i_startidx, i_endidx, rl_start, rl_end)
+!h       ioverlap(:) = 1
+!h       cld_cov(:)  = 0.0_wp
+!h       DO jk = kstart_moist, nlev
+!h         DO jc = i_startidx, i_endidx
+!h           IF (ioverlap(jc) == 1) THEN
+!h             cld_cov(jc) = MAX(prm_diag%tot_cld(jc,jk,jb,icc), cld_cov(jc))
+!h           ELSE
+!h             cld_cov(jc) = 1._wp - (1._wp-cld_cov(jc)) * &
+!h                        & (1._wp - prm_diag%tot_cld(jc,jk,jb,icc) )
+!h           END IF
+!h           IF (prm_diag%tot_cld(jc,jk,jb,icc) <= 1.e-6_wp) THEN
+!h             ioverlap(jc)=0
+!h           ELSE
+!h             ioverlap(jc)=1
+!h           ENDIF
+!h         ENDDO
+!h       ENDDO
+!h       prm_diag%tot_cld_vi(:,jb,icc) = cld_cov(:)
+!h     ENDDO ! nblks  
+!!$OMP END DO
+
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk, clearsky, message_text) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk, i_endblk
         !
         CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
           & i_startidx, i_endidx, rl_start, rl_end)
-        ioverlap(:) = 1
-        cld_cov(:)  = 0.0_wp
-        DO jk = kstart_moist, nlev
+
+        ! cloud cover
+        DO jc = i_startidx, i_endidx
+          clearsky(jc) = 1._wp - prm_diag%tot_cld(jc,kstart_moist,jb,icc)
+        ENDDO
+
+        DO jk = kstart_moist+1, ih_clch
           DO jc = i_startidx, i_endidx
-            IF (ioverlap(jc) == 1) THEN
-              cld_cov(jc) = MAX(prm_diag%tot_cld(jc,jk,jb,icc), cld_cov(jc))
-            ELSE
-              cld_cov(jc) = 1._wp - (1._wp-cld_cov(jc)) * &
-                         & (1._wp - prm_diag%tot_cld(jc,jk,jb,icc) )
-            END IF
-            IF (prm_diag%tot_cld(jc,jk,jb,icc) <= 1.e-6_wp) THEN
-              ioverlap(jc)=0
-            ELSE
-              ioverlap(jc)=1
-            ENDIF
+            clearsky(jc) = clearsky(jc)*    &
+            &  ( 1._wp - MAX( prm_diag%tot_cld(jc,jk  ,jb,icc), prm_diag%tot_cld(jc,jk-1,jb,icc))) &
+            & /( 1._wp - MIN( prm_diag%tot_cld(jc,jk-1,jb,icc), 1._wp - eps_clc) )
           ENDDO
         ENDDO
-        prm_diag%tot_cld_vi(:,jb,icc) = cld_cov(:)
-      ENDDO ! nblks  
+
+        ! store high-level clouds
+        DO jc = i_startidx, i_endidx
+          prm_diag%clch(jc,jb) = 100._wp*MAX( 0._wp, 1._wp - clearsky(jc) - eps_clc)
+        ENDDO
+
+        ! continue downward for total cloud cover
+        DO jk = ih_clch+1, nlev
+          DO jc = i_startidx, i_endidx
+            clearsky(jc) = clearsky(jc)*    &
+            &  ( 1._wp - MAX( prm_diag%tot_cld(jc,jk,jb,icc), prm_diag%tot_cld(jc,jk-1,jb,icc))) &
+            & /( 1._wp - MIN( prm_diag%tot_cld(jc,jk-1,jb,icc), 1._wp - eps_clc) )
+          ENDDO
+        ENDDO
+
+        ! store total cloud cover (in %), start for mid-level clouds
+        DO jc = i_startidx, i_endidx
+          prm_diag%tot_cld_vi(jc,jb,icc) = 100._wp*MAX( 0._wp, 1._wp - clearsky(jc) - eps_clc)
+          clearsky(jc) = 1._wp - prm_diag%tot_cld(jc,ih_clch+1,jb,icc)
+        ENDDO
+
+        ! mid-level clouds
+        DO jk = ih_clch+2, ih_clcm
+          DO jc = i_startidx, i_endidx
+            clearsky(jc) = clearsky(jc)*    &
+            &  ( 1._wp - MAX( prm_diag%tot_cld(jc,jk,jb,icc), prm_diag%tot_cld(jc,jk-1,jb,icc))) &
+            & /( 1._wp - MIN( prm_diag%tot_cld(jc,jk-1,jb,icc), 1._wp - eps_clc) )
+          ENDDO
+        ENDDO
+
+        ! store mid-level cloud cover, start for low-level clouds
+        DO jc = i_startidx, i_endidx
+          prm_diag%clcm(jc,jb) = 100._wp*MAX( 0._wp, 1._wp - clearsky(jc) - eps_clc)
+          clearsky(jc) = 1._wp - prm_diag%tot_cld(jc,ih_clcm+1,jb,icc)
+        ENDDO
+
+        ! continue downward for mid-level clouds
+        DO jk = ih_clcm+2, nlev
+          DO jc = i_startidx, i_endidx
+            clearsky(jc) = clearsky(jc)*    &
+            &  ( 1._wp - MAX( prm_diag%tot_cld(jc,jk,jb,icc), prm_diag%tot_cld(jc,jk-1,jb,icc))) &
+            & /( 1._wp - MIN( prm_diag%tot_cld(jc,jk-1,jb,icc), 1._wp - eps_clc) )
+          ENDDO
+        ENDDO
+
+        ! store low-level clouds
+        DO jc = i_startidx, i_endidx
+          prm_diag%clcl(jc,jb) = 100._wp*MAX( 0._wp, 1._wp - clearsky(jc) - eps_clc)
+        ENDDO
+
+      ENDDO ! nblks
 !$OMP END DO
+
+! height of convection base and top, hbas_con, htop_con
+
+!$OMP DO PRIVATE(jb, i_startidx,i_endidx,jc) ICON_OMP_DEFAULT_SCHEDULE
+      DO jb = i_startblk, i_endblk
+        !
+        CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
+          & i_startidx, i_endidx, rl_start, rl_end)
+        DO jc = i_startidx, i_endidx
+          IF ( prm_diag%locum(jc,jb)) THEN
+            prm_diag%hbas_con(jc,jb) = p_metrics%z_ifc( jc, prm_diag%mbas_con(jc,jb), jb)
+            prm_diag%htop_con(jc,jb) = p_metrics%z_ifc( jc, prm_diag%mtop_con(jc,jb), jb)
+          ELSE
+            prm_diag%hbas_con(jc,jb) = 0._wp
+            prm_diag%htop_con(jc,jb) = 0._wp
+          END IF
+        ENDDO
+      ENDDO
+!$OMP END DO
+
 
     END IF !cloud cover
 

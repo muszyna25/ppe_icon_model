@@ -591,7 +591,7 @@ SUBROUTINE parturs( zsurf, z1 , u1   , v1     , t1   ,           &
             ztcm(j1) = zy*zvpb(j1)*(1._wp - 10.0_wp*zris(j1)/                      &
              & (1._wp + 75.0_wp*zy*(zxi**z1d3-1.0_wp)**1.5_wp*SQRT( -zris(j1) ) ))
             ztch(j1) = Rkarman**2/(LOG(zxi)*LOG(zxih))*zvpb(j1)*                   &
-             & (1 - 15.0_wp*zris(j1)/(1 + 75.0_wp*SQRT(zy)*Rkarman/LOG(zxih)*      &
+             & (1._wp-15.0_wp*zris(j1)/(1._wp+75.0_wp*SQRT(zy)*Rkarman/LOG(zxih)*  &
              &  (zxih**z1d3-1.0_wp)**1.5_wp*SQRT( -zris(j1) ) ))
  
 !       Sea points (transfer coefficients and z0)
@@ -1256,7 +1256,7 @@ SUBROUTINE parturs( zsurf, z1 , u1   , v1     , t1   ,           &
 !_dm<
 
 !
-      INTEGER ::  j1, j3    ! DO loop variables
+      INTEGER ::  j1        ! DO loop variables
 !
 
 !_dm>

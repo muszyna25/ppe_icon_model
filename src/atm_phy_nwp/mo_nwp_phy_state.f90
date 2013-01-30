@@ -33,6 +33,7 @@ MODULE mo_nwp_phy_state
 !! Initial  by Kristina Froehlich (2009-06-10)
 !! Memory allocation method changed from explicit allocation to Luis' 
 !! infrastructure by Kristina Froehlich (MPI-M, 2011-04-27)
+!! Added clch, clcm, clcl, hbas_con, htop_con by Helmut Frank (DWD, 2013-01-17)
 !!
 !! @par Copyright
 !! 2002-2009 by DWD and MPI-M
@@ -92,7 +93,8 @@ USE mo_cdi_constants,       ONLY: GRID_UNSTRUCTURED_CELL, GRID_REFERENCE,       
   &                               ZA_SURFACE, ZA_HEIGHT_2M, ZA_HEIGHT_10M,      &
   &                               ZA_TOA, ZA_DEPTH_BELOW_LAND, DATATYPE_FLT32,  &
   &                               DATATYPE_PACK16, FILETYPE_NC2, TSTEP_INSTANT, &
-  &                               TSTEP_ACCUM, TSTEP_AVG, TSTEP_MAX, TSTEP_MIN
+  &                               TSTEP_ACCUM, TSTEP_AVG, TSTEP_MAX, TSTEP_MIN, &
+  &                               ZA_PRESSURE_0, ZA_PRESSURE_400, ZA_PRESSURE_800
 
 IMPLICIT NONE
 PRIVATE
@@ -687,6 +689,40 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
           & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,                 &
           & ldims=shape3d, lrestart=.FALSE. )
 
+        ! &      diag%clch(nproma,nblks_c)
+        cf_desc    = t_cf_var('clch', '', 'high_level_clouds', DATATYPE_FLT32)
+        grib2_desc = t_grib2_var(0, 6, 22, ibits, GRID_REFERENCE, GRID_CELL)
+        CALL add_var( diag_list, 'clch', diag%clch,                               &
+          & GRID_UNSTRUCTURED_CELL, ZA_PRESSURE_0, cf_desc, grib2_desc,           &
+          & ldims=shape2d, lrestart=.FALSE. )
+
+        ! &      diag%clcm(nproma,nblks_c)
+        cf_desc    = t_cf_var('clcm', '', 'mid_level_clouds', DATATYPE_FLT32)
+        grib2_desc = t_grib2_var(0, 6, 22, ibits, GRID_REFERENCE, GRID_CELL)
+        CALL add_var( diag_list, 'clcm', diag%clcm,                               &
+          & GRID_UNSTRUCTURED_CELL, ZA_PRESSURE_400, cf_desc, grib2_desc,         &
+          & ldims=shape2d, lrestart=.FALSE. )
+
+        ! &      diag%clcl(nproma,nblks_c)
+        cf_desc    = t_cf_var('clcl', '', 'low_level_clouds', DATATYPE_FLT32)
+        grib2_desc = t_grib2_var(0, 6, 22, ibits, GRID_REFERENCE, GRID_CELL)
+        CALL add_var( diag_list, 'clcl', diag%clcl,                               &
+          & GRID_UNSTRUCTURED_CELL, ZA_PRESSURE_800, cf_desc, grib2_desc,         &
+          & ldims=shape2d, lrestart=.FALSE. )
+
+        ! &      diag%hbas_con(nproma,nblks_c)
+        cf_desc    = t_cf_var('hbas_con', '', 'height_of_convective_cloud_base', DATATYPE_FLT32)
+        grib2_desc = t_grib2_var(0, 6, 26, ibits, GRID_REFERENCE, GRID_CELL)
+        CALL add_var( diag_list, 'hbas_con', diag%hbas_con,                       &
+          & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,              &
+          & ldims=shape2d, lrestart=.FALSE. )
+
+        ! &      diag%htop_con(nproma,nblks_c)
+        cf_desc    = t_cf_var('htop_con', '', 'height_of_convective_cloud_top', DATATYPE_FLT32)
+        grib2_desc = t_grib2_var(0, 6, 27, ibits, GRID_REFERENCE, GRID_CELL)
+        CALL add_var( diag_list, 'htop_con', diag%htop_con,                       &
+          & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,              &
+          & ldims=shape2d, lrestart=.FALSE. )
 
     !------------------
     ! Radiation

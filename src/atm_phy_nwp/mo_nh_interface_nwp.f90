@@ -15,6 +15,7 @@
 !!
 !! @par Revision History
 !!  first implementation by Kristina Froehlich, DWD (2009-06-12)
+!!  Call nwp_diagnosis with ih_clch, ih_clcm by Helmut Frank, DWD (2013-01-18)
 !!
 !! $Id: n/a$
 !!
@@ -70,7 +71,7 @@ MODULE mo_nh_interface_nwp
   USE mo_model_domain,       ONLY: t_patch
   USE mo_intp_data_strc,     ONLY: t_int_state
   USE mo_nonhydro_types,     ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
-  USE mo_nonhydrostatic_config, ONLY: kstart_moist, l_open_ubc, lhdiff_rcf
+  USE mo_nonhydrostatic_config, ONLY: kstart_moist, l_open_ubc, lhdiff_rcf, ih_clch, ih_clcm
   USE mo_nwp_lnd_types,      ONLY: t_lnd_prog, t_wtr_prog, t_lnd_diag
   USE mo_ext_data_types,     ONLY: t_external_data
   USE mo_nwp_phy_types,      ONLY: t_nwp_phy_diag, t_nwp_phy_tend
@@ -1426,6 +1427,7 @@ CONTAINS
      CALL nwp_diagnosis(lcall_phy_jg,lredgrid,               & !input
                             & dt_phy_jg,p_sim_time,          & !input
                             & kstart_moist(jg),              & !input
+                            & ih_clch(jg), ih_clcm(jg),      & !input
                             & pt_patch, p_metrics,           & !input
                             & pt_prog, pt_prog_rcf,          & !in
                             & pt_diag,                       & !inout

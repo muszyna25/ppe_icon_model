@@ -55,11 +55,14 @@ CONTAINS
     LOGICAL :: is_2d_field
     INTEGER, INTENT(IN) :: izaxis
 
-    is_2d_field = (izaxis == ZA_surface)    .OR.  &
-      &           (izaxis == ZA_height_2m)  .OR.  &
-      &           (izaxis == ZA_height_10m) .OR.  &
-      &           (izaxis == ZA_meansea)    .OR.  &
-      &           (izaxis == ZA_TOA)
+    is_2d_field = (izaxis == ZA_surface)     .OR.  &
+      &           (izaxis == ZA_height_2m)   .OR.  &
+      &           (izaxis == ZA_height_10m)  .OR.  &
+      &           (izaxis == ZA_meansea)     .OR.  &
+      &           (izaxis == ZA_TOA)         .OR.  &
+      &           (izaxis == ZA_PRESSURE_800).OR.  &
+      &           (izaxis == ZA_PRESSURE_400).OR.  &
+      &           (izaxis == ZA_PRESSURE_0)
   END FUNCTION is_2d_field
 
 END MODULE mo_cdi_constants
