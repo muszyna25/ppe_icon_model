@@ -250,14 +250,14 @@ CONTAINS
     ! compute interpolation weights: RBF remapping
     IF (ANY(input_field(:)%intp_method == INTP_RBF)) THEN
       IF (lcompute_vn) THEN
-        CALL allocate_intp_data(intp_data_rbf_vn_u_B, gridB%p_patch%nblks_e, MAX_NSTENCIL_RBF)
-        CALL allocate_intp_data(intp_data_rbf_vn_v_B, gridB%p_patch%nblks_e, MAX_NSTENCIL_RBF)
+        CALL allocate_intp_data(intp_data_rbf_vn_u_B, gridB%p_patch%nblks_e, MAX_NSTENCIL_RBF, opt_smaxsize=1)
+        CALL allocate_intp_data(intp_data_rbf_vn_v_B, gridB%p_patch%nblks_e, MAX_NSTENCIL_RBF, opt_smaxsize=1)
         CALL prepare_interpolation_rbf_vec(gridA_cov, gridB, intp_data_rbf_vn_u_B, intp_data_rbf_vn_v_B, &
           &                                .FALSE., rbf_vec_scale)
       END IF
       IF (lcompute_vt) THEN
-        CALL allocate_intp_data(intp_data_rbf_vt_u_B, gridB%p_patch%nblks_e, MAX_NSTENCIL_RBF)
-        CALL allocate_intp_data(intp_data_rbf_vt_v_B, gridB%p_patch%nblks_e, MAX_NSTENCIL_RBF)
+        CALL allocate_intp_data(intp_data_rbf_vt_u_B, gridB%p_patch%nblks_e, MAX_NSTENCIL_RBF, opt_smaxsize=1)
+        CALL allocate_intp_data(intp_data_rbf_vt_v_B, gridB%p_patch%nblks_e, MAX_NSTENCIL_RBF, opt_smaxsize=1)
         CALL prepare_interpolation_rbf_vec(gridA_cov, gridB, intp_data_rbf_vt_u_B, intp_data_rbf_vt_v_B, &
           &                                .TRUE., rbf_vec_scale)
       END IF
@@ -538,7 +538,8 @@ CONTAINS
       &      clear_mask2D(nproma,gridB%p_patch%nblks_c), STAT=ierrstat)
     clear_mask2D(:,:) = .FALSE.
     IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
-    CALL generate_missval_mask(tmp_rfield3D(:,1,:), missval, missval_mask2D)
+    CALL generate_missval_mask(tmp_rfield3D(:,1,:), missval, missval_mask2D, &
+      &                        gridA_cov%p_patch%nblks_c, gridA_cov%p_patch%npromz_c)
 
     ! copy data structure containing the interpolation
     ! coefficients:

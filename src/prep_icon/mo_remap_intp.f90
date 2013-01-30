@@ -117,13 +117,14 @@ CONTAINS
 
   !> Allocate data structure for interpolation coefficients.
   !
-  SUBROUTINE allocate_intp_data_sthreaded(intp_data, nblks_c, istencilsize)
+  SUBROUTINE allocate_intp_data_sthreaded(intp_data, nblks_c, istencilsize, opt_smaxsize)
     TYPE(t_intp_data),    INTENT(INOUT) :: intp_data     !< data structure with intp. weights
     INTEGER,              INTENT(IN)    :: nblks_c       !< block size of output grid 
     INTEGER,              INTENT(IN)    :: istencilsize  !< stencil size
+    INTEGER, INTENT(IN), OPTIONAL :: opt_smaxsize !< (optional) sequential stencil list size for allocation
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = TRIM(TRIM(modname)//'::allocate_intp_data')
-    INTEGER :: ierrstat
+    INTEGER :: ierrstat, init_ssize
 
     intp_data%nstencil       = istencilsize
     intp_data%max_totstencil = 0
@@ -144,7 +145,10 @@ CONTAINS
     intp_data%smin(:,:)   =  1
     intp_data%smax(:,:)   =  0
 
-    ALLOCATE(intp_data%sl(s_maxsize), STAT=ierrstat)
+    init_ssize = s_maxsize
+    IF (PRESENT(opt_smaxsize)) init_ssize = opt_smaxsize
+
+    ALLOCATE(intp_data%sl(init_ssize), STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
     intp_data%s_nlist = 0
 
@@ -816,6 +820,7 @@ CONTAINS
         IF (nmiss(jc,jb) == &
           &  (intp_data%nidx(jc,jb) + intp_data%smax(jc,jb) - intp_data%smin(jc,jb) + 1)) THEN
           out_mask2D(jc,jb) = .TRUE.
+          intp_data%area(jc,jb) = 1._wp ! avoids zero-divide
         END IF
       END DO ! jc
 

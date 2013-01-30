@@ -417,28 +417,33 @@ CONTAINS
   !  variable, corresponding to the missing value pattern.  The value
   !  .TRUE. means: missing value exists.
   !
-  SUBROUTINE generate_missval_mask(in_field, missval, out_mask2D)
+  SUBROUTINE generate_missval_mask(in_field, missval, out_mask2D, nblks, npromz)
     REAL(wp),           INTENT(IN)    :: in_field(:,:)
-    REAL(wp),           intent(IN)    :: missval
+    REAL(wp),           INTENT(IN)    :: missval
     LOGICAL,            INTENT(INOUT) :: out_mask2D(:,:)
+    INTEGER,            INTENT(IN)    :: nblks, npromz
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = &
       &  TRIM(TRIM(modname)//':generate_missval_mask')
-    INTEGER :: i,j, size1, size2, nmiss
+    INTEGER :: i,j, size1, size2, nmiss, i_endidx
 
     IF (dbg_level >= 1) WRITE (0,*) "# generate mask for missing values."
 
     size1 = SIZE(in_field,1)
     size2 = SIZE(in_field,2)
     IF ((size1 /= SIZE(out_mask2D,1)) .OR. &
-      & (size2 /= SIZE(out_mask2D,2))) THEN
+      & (size2 /= SIZE(out_mask2D,2)) .OR. &
+      & (size1 /= nproma)             .OR. &
+      & (size2 > nblks)) THEN
       CALL finish(routine, "Invalid array dimension!")
     END IF
 
 !$OMP PARALLEL 
-!$OMP DO PRIVATE(i,j)
-    DO i=1,size1
-      DO j=1,size2
+!$OMP DO PRIVATE(i,j,i_endidx)
+    DO j=1,nblks
+      i_endidx = nproma
+      IF (j==nblks) i_endidx=npromz
+      DO i=1,i_endidx
         out_mask2D(i,j) = (in_field(i,j) == missval) ! Attention: Comparison of REALs
       END DO
     END DO
