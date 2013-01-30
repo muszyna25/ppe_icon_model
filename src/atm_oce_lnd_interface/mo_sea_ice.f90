@@ -56,7 +56,8 @@ MODULE mo_sea_ice
     &                               alf, alv, albedoW, clw, cpd, zemiss_def,rd, stbo,tmelt, ci
   USE mo_math_constants,      ONLY: rad2deg
   USE mo_ocean_nml,           ONLY: no_tracer, init_oce_prog, iforc_oce, &
-    &                               FORCING_FROM_FILE_FLUX, i_sea_ice
+    &                               FORCING_FROM_FILE_FLUX
+  USE mo_sea_ice_nml,         ONLY: i_ice_therm
   USE mo_oce_state,           ONLY: t_hydro_ocean_state, v_base, ocean_restart_list
   USE mo_var_list,            ONLY: add_var
   USE mo_master_control,      ONLY: is_restart_run
@@ -1076,7 +1077,7 @@ CONTAINS
   !! Initial release by Peter Korn, MPI-M (2010-07). Originally code written by
   !! Dirk Notz, following MPI-OM. Code transfered to ICON.
   !!
-  SUBROUTINE ice_fast(i_startidx_c, i_endidx_c, nbdim, kice, i_therm_model, &
+  SUBROUTINE ice_fast(i_startidx_c, i_endidx_c, nbdim, kice, &
             &   Tsurf,          & ! Surface temperature [degC]
             &   T1,             & ! Temperature of upper layer [degC]
             &   T2,             & ! Temperature of lower layer [degC]
@@ -1094,7 +1095,7 @@ CONTAINS
             &   albnirdif,      & ! Albedo NIR, diffuse
             &   doy)              ! Day of the year
 
-    INTEGER, INTENT(IN)    :: i_startidx_c, i_endidx_c, nbdim, kice, i_therm_model
+    INTEGER, INTENT(IN)    :: i_startidx_c, i_endidx_c, nbdim, kice
     REAL(wp),INTENT(INOUT) :: Tsurf      (nbdim,kice)
     REAL(wp),INTENT(INOUT) :: T1         (nbdim,kice)
     REAL(wp),INTENT(INOUT) :: T2         (nbdim,kice)
@@ -1116,7 +1117,19 @@ CONTAINS
     !------------------------------------------------------------------------- 
     
     ! #achim
-    IF ( i_therm_model == 1 ) THEN
+    IF ( i_ice_therm == 1 .OR. i_ice_therm == 3 ) THEN
+      CALL set_ice_temp_zerolayer(i_startidx_c, i_endidx_c, nbdim, kice, i_ice_therm, &
+            &   Tsurf,          & 
+            &   hi,             & 
+            &   hs,             & 
+            &   Qtop,           & 
+            &   Qbot,           & 
+            &   SWnet,          & 
+            &   nonsolar,       & 
+            &   dnonsolardT,    &
+            &   Tfw,            &
+            &   doy)
+    ELSE IF ( i_ice_therm == 2 ) THEN
       CALL set_ice_temp_winton(i_startidx_c, i_endidx_c, nbdim, kice, &
             &   Tsurf,          & 
             &   T1,             & 
@@ -1129,19 +1142,7 @@ CONTAINS
             &   nonsolar,       & 
             &   dnonsolardT,    &
             &   Tfw)
-    ELSE IF ( i_therm_model == 2 .OR. i_therm_model == 3 ) THEN
-      CALL set_ice_temp_zerolayer(i_startidx_c, i_endidx_c, nbdim, kice, i_therm_model, &
-            &   Tsurf,          & 
-            &   hi,             & 
-            &   hs,             & 
-            &   Qtop,           & 
-            &   Qbot,           & 
-            &   SWnet,          & 
-            &   nonsolar,       & 
-            &   dnonsolardT,    &
-            &   Tfw,            &
-            &   doy)
-    ELSE IF ( i_therm_model == 4 )  THEN
+    ELSE IF ( i_ice_therm == 4 )  THEN
       WHERE ( hi(:,:) > 0._wp )
       Tsurf=min(0._wp, Tsurf + (SWnet+nonsolar + ki/hi*(Tf-Tsurf)) &
         &               / (ci*rhoi*0.05_wp/dtime-dnonsolardT+ki/hi))
@@ -1198,9 +1199,9 @@ CONTAINS
     ice%hiold(:,:,:) = ice%hi(:,:,:)
     ice%hsold(:,:,:) = ice%hs(:,:,:)
     ! #achim
-    IF      ( i_sea_ice == 1 ) THEN
+    IF      ( i_ice_therm == 1 ) THEN
       CALL ice_growth_winton    (p_patch,p_os,ice, QatmAve%rpreci)!, QatmAve%lat)
-    ELSE IF ( i_sea_ice == 2 .OR. i_sea_ice == 3 ) THEN !2=zerolayer, 3=simple fluxes from dirk's thesis
+    ELSE IF ( i_ice_therm == 2 .OR. i_ice_therm == 3 ) THEN !2=zerolayer, 3=simple fluxes from dirk's thesis
       CALL ice_growth_zerolayer (p_patch,p_os,ice, QatmAve%rpreci)
     END IF
 
@@ -1559,6 +1560,9 @@ CONTAINS
   !! Einar Olason, renamed and added support for changing concentration
   !!
   SUBROUTINE ice_conc_change(p_patch,ice, p_os,p_sfc_flx)
+
+    USE mo_sea_ice_nml,         ONLY: hnull
+
     TYPE(t_patch),             INTENT(IN)    :: p_patch 
     TYPE (t_sea_ice),          INTENT(INOUT) :: ice  
     TYPE(t_hydro_ocean_state), INTENT(INOUT) :: p_os
@@ -1570,7 +1574,7 @@ CONTAINS
     REAL(wp) :: Tfw(nproma,p_patch%nblks_c) ! Ocean freezing temperature [C]
     REAL(wp) :: old_conc(nproma,p_patch%nblks_c)
     ! h_0 from Hibler (1979)
-    REAL(wp), PARAMETER :: hnull = 0.5_wp
+!    REAL(wp), PARAMETER :: hnull = 0.5_wp
 
     if ( no_tracer >= 2 ) then
       Tfw(:,:) = -mu*p_os%p_prog(nold(1))%tracer(:,1,:,2)

@@ -258,7 +258,7 @@ MODULE mo_ocean_nml
                                                  !   offset of half timestep between dynamic and thermodynamic variables;
                                                  !   thermodynamic and dynamic variables are colocated in time
   INTEGER  :: i_apply_bulk          = 0          ! 0=no bulk formula; 1=apply bulk formula without sea ice
-  INTEGER  :: i_sea_ice             = 1          ! 0=no sea ice; 1=sea ice (Winton) !, 2=sea ice (Zero-Layer)
+  INTEGER  :: i_sea_ice             = 1          ! 0=no sea ice; 1=sea ice
 
   NAMELIST/ocean_dynamics_nml/ n_zlev, dzlev_m, idisc_scheme,              &
     &                 iswm_oce, l_staggered_timestep,                      &

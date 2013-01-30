@@ -1324,6 +1324,7 @@ src/namelists/mo_prepicon_nml.f90 -text
 src/namelists/mo_radiation_nml.f90 -text
 src/namelists/mo_read_namelists.f90 -text
 src/namelists/mo_run_nml.f90 -text
+src/namelists/mo_sea_ice_nml.f90 -text
 src/namelists/mo_sleve_nml.f90 -text
 src/namelists/mo_time_nml.f90 -text
 src/namelists/mo_turbdiff_nml.f90 -text

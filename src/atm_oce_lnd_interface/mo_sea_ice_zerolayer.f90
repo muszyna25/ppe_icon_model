@@ -46,7 +46,8 @@ MODULE mo_sea_ice_zerolayer
   USE mo_physical_constants,  ONLY: rhoi, rhos, rho_ref,ki,ks,Tf,albi,albim,albsm,albs,&
     &                               mu,mus,ci, alf, I_0, alv, albedoW, clw,            &
     &                               cpd, zemiss_def,rd, stbo,tmelt   
-  USE mo_ocean_nml,           ONLY: no_tracer, i_sea_ice
+  USE mo_ocean_nml,           ONLY: no_tracer
+  USE mo_sea_ice_nml,         ONLY: i_ice_therm
   USE mo_util_dbg_prnt,       ONLY: dbg_print
   USE mo_oce_state,           ONLY: t_hydro_ocean_state 
   USE mo_sea_ice_types,       ONLY: t_sea_ice, t_sfc_flx, t_atmos_fluxes, &
@@ -153,7 +154,7 @@ CONTAINS
           ! --- F_A, F_S : pos=upward flux
 
           ! F_A: flux ice-atmosphere
-          IF (i_therm_model == 2) THEN
+          IF (i_therm_model == 1) THEN
             F_A = - nonsolar(jc,k) - SWnet(jc,k) * one_minus_I_0
           ELSE IF (i_therm_model ==3) THEN
             ! #achim: first draft: hard-coding simpler form of
@@ -170,7 +171,7 @@ CONTAINS
           F_S = k_effective * (Tfw(jc) - Tsurf(jc,k))
 
 
-          IF (i_therm_model == 2 ) THEN
+          IF (i_therm_model == 1 ) THEN
           ! We add constant heat capacity to deltaTdenominator to stabilize the atmosphere
             deltaTdenominator = k_effective  - dnonsolardT(jc,k) + rhoi*0.05_wp*ci/dtime
           ELSE IF (i_therm_model == 3) THEN
@@ -287,11 +288,11 @@ CONTAINS
       Tfw(:,:,:) = Tf
     ENDIF
     
-    IF (i_sea_ice == 2 ) THEN
+    IF (i_ice_therm == 3 ) THEN
       ! Heat flux from ocean into ice
       CALL oce_ice_heatflx (p_os,ice,Tfw,zHeatOceI)
-!!$    ELSE IF ( i_sea_ice == 3) THEN
-      ! for i_sea_ice == 3, no ocean-ice heatflx is included!
+!!$    ELSE IF ( i_ice_therm == 3) THEN
+      ! for i_ice_therm == 3, no ocean-ice heatflx is included!
     END IF
     
     DO jb = 1,p_patch%nblks_c

@@ -190,7 +190,7 @@ MODULE mo_sea_ice_types
       & newice(:,:)     ,      & ! New ice growth in open water                  [m]
       & zUnderIce(:,:)           ! water in upper ocean grid cell below ice      [m]
 
-     INTEGER ::  kice = 1   ! Number of ice-thickness classes
+     INTEGER ::  kice           ! Number of ice-thickness classes
 
     REAL(wp), ALLOCATABLE ::  hi_lim(:)   ! Thickness limits 
 

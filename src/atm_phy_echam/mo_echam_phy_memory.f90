@@ -73,6 +73,7 @@ MODULE mo_echam_phy_memory
   USE mo_cf_convention,       ONLY: t_cf_var
   USE mo_grib2,               ONLY: t_grib2_var
   USE mo_cdi_constants 
+  USE mo_sea_ice_nml,         ONLY: kice
 
 
   IMPLICIT NONE
@@ -276,7 +277,7 @@ MODULE mo_echam_phy_memory
 
     ! Sea ice.
     ! See also atm_oce_lnd_interface/mo_sea_ice_types.f90
-    INTEGER              :: kice = 1    ! Number of ice-thickness classes
+    INTEGER              :: kice  ! Number of ice-thickness classes
     REAL(wp),POINTER     ::     &
       & Tsurf   (:,:,:),        & ! Ice surface temperature [degC]
       & T1      (:,:,:),        & ! Temperature of upper ice layer [degC]
@@ -1135,7 +1136,7 @@ CONTAINS
 
     !IF ( iice <= nsfc_type ) THEN
 
-      field%kice = 1 ! TODO: Number of thickness classes - should be a name-list variable
+      field%kice = kice ! Number of thickness classes - always 1, as of yet
       shapeice = (/kproma, field%kice, kblks/)
 
       CALL add_var( field_list, 'Tsurf', field%Tsurf ,                          &

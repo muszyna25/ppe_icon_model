@@ -107,6 +107,7 @@ USE mo_output,                 ONLY: init_output_files, write_output, &
 USE mo_name_list_output_config,ONLY: is_any_output_file_active, use_async_name_list_io
 USE mo_name_list_output,       ONLY: write_name_list_output, istime4name_list_output, &
   &                                  output_file
+USE mo_sea_ice_nml,            ONLY: kice
 USE mo_oce_diagnostics,        ONLY: &!calculate_oce_diagnostics,&
   &                                  construct_oce_diagnostics,&
   &                                  destruct_oce_diagnostics, t_oce_timeseries, &
@@ -115,7 +116,6 @@ USE mo_mpi,                    ONLY: my_process_is_mpi_all_parallel
 IMPLICIT NONE
 
 PRIVATE
-INTEGER, PARAMETER :: kice = 1
 
 !VERSION CONTROL:
 CHARACTER(LEN=*), PARAMETER :: version = '$Id$'

@@ -82,6 +82,8 @@ MODULE mo_read_namelists
 
   USE mo_ocean_nml           ,ONLY: setup_ocean_nml
 
+  USE mo_sea_ice_nml         ,ONLY: read_sea_ice_namelist
+
   USE mo_meteogram_nml       ,ONLY: read_meteogram_namelist
   USE mo_name_list_output    ,ONLY: read_name_list_output_namelists
 
@@ -162,6 +164,7 @@ CONTAINS
     CALL read_gw_hines_namelist       (TRIM(atm_namelist_filename))
     CALL read_nwp_lnd_namelist        (TRIM(atm_namelist_filename))
     CALL read_lnd_jsbach_namelist     (TRIM(atm_namelist_filename))
+    CALL read_sea_ice_namelist        (TRIM(atm_namelist_filename))
     CALL read_art_namelist            (TRIM(atm_namelist_filename))
 
     ! Initial conditions
@@ -256,6 +259,10 @@ CONTAINS
     ! More namelists from the old setup
     !
     CALL setup_ocean_nml              (TRIM(oce_namelist_filename))
+    
+    ! Sea ice namelist
+    !
+    CALL read_sea_ice_namelist        (TRIM(oce_namelist_filename))
 
     !-----------------------------------------------------------------
     ! Close the file in which all the namelist variables and their
@@ -333,6 +340,7 @@ CONTAINS
     CALL read_gw_hines_namelist       (TRIM(cpl_dummy_namelist))
     CALL read_nwp_lnd_namelist        (TRIM(cpl_dummy_namelist))
     CALL read_lnd_jsbach_namelist     (TRIM(cpl_dummy_namelist))
+    CALL read_sea_ice_namelist        (TRIM(cpl_dummy_namelist))
 
     ! Initial conditions
     !
