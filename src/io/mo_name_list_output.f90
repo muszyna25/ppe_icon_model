@@ -2469,6 +2469,10 @@ CONTAINS
             &  cdiEncodeParam(grid_coord_grib2(i)%number,             &
             &                 grid_coord_grib2(i)%category,           &
             &                 grid_coord_grib2(i)%discipline) )
+
+          ! GRIB2 Quick hack: Set additional GRIB2 keys      
+          CALL set_additional_GRIB2_keys(vlistID, of%cdi_grb2(idx(igrid),i), &
+            &                            gribout_config(of%phys_patch_id))
         END DO
       END DO
 
@@ -2484,6 +2488,10 @@ CONTAINS
           &  cdiEncodeParam(grid_coord_grib2(i)%number,            &
           &                 grid_coord_grib2(i)%category,          &
           &                 grid_coord_grib2(i)%discipline) )
+
+        ! GRIB2 Quick hack: Set additional GRIB2 keys      
+        CALL set_additional_GRIB2_keys(vlistID, of%cdi_grb2(ILATLON,i), &
+          &                            gribout_config(of%phys_patch_id))
       END DO
 
     CASE DEFAULT
@@ -2816,28 +2824,67 @@ CONTAINS
 
 
   !------------------------------------------------------------------------------------------------
+  !> Set additional GRIB2 keys
+  !
+  ! GRIB2 Quick hack
+  ! ----------------
+  !
+  ! Set additional GRIB2 keys. These are added to each single variable, even though 
+  ! adding it to the vertical or horizontal grid description may be more elegant.
+  ! 
+  SUBROUTINE set_additional_GRIB2_keys(vlistID, varID, grib_conf)
+    INTEGER,                INTENT(IN) :: vlistID, varID
+    TYPE(t_gribout_config), INTENT(IN) :: grib_conf
+
+    ! Do not know, why this has to be set manually.
+    ! Otherwise: tablesVersion=4
+    CALL vlistDefVarIntKey(vlistID, varID, "tablesVersion", 5)
+!DR      CALL vlistDefVarIntKey(vlistID, varID, "localTablesVersion", 1)
+    !
+    ! Product definition
+    CALL vlistDefVarIntKey(vlistID, varID, "significanceOfReferenceTime",     &
+      &                    grib_conf%significanceOfReferenceTime)
+    CALL vlistDefVarIntKey(vlistID, varID, "productionStatusOfProcessedData", &
+      &                    grib_conf%productionStatusOfProcessedData)
+    CALL vlistDefVarIntKey(vlistID, varID, "typeOfProcessedData",             &
+      &                    grib_conf%typeOfProcessedData)
+    CALL vlistDefVarIntKey(vlistID, varID, "typeOfGeneratingProcess",         &
+      &                    grib_conf%typeOfGeneratingProcess)
+    CALL vlistDefVarIntKey(vlistID, varID, "backgroundProcess",               &
+      &                    grib_conf%backgroundProcess)
+    ! in case of lon-lat output, "1" has to be added to generatingProcessIdentifier
+    CALL vlistDefVarIntKey(vlistID, varID, "generatingProcessIdentifier",     &
+      &                    grib_conf%generatingProcessIdentifier)
+    !
+    ! Product Generation (local) !!!!!!! DOES NOT WORK, YET !!!!!!!!!!
+!      CALL vlistDefVarIntKey(vlistID, varID, "localDefinitionNumber", 254)
+!      CALL vlistDefVarIntKey(vlistID, varID, "localCreationDateYear", 8)
+!      CALL vlistDefVarIntKey(vlistID, varID, "localValidityDate", 254)
+!      CALL vlistDefVarIntKey(vlistID, varID, "localNumberOfExperiment", 25)
+
+
+    !!!!!!! OBSOLETE !!!!!!!!
+    !Set typeOfStatisticalProcessing
+    !Note: instead of calling vlistDefVarTsteptype, one should probably replace 
+    !info%cdiTimeID in the call of vlistDefVar by info%isteptype
+    !CALL vlistDefVarTsteptype(vlistID, varID, info%isteptype)
+  END SUBROUTINE set_additional_GRIB2_keys
+
+
+  !------------------------------------------------------------------------------------------------
   !> define variables and attributes
   !
   SUBROUTINE add_variables_to_vlist(of)
 
     TYPE (t_output_file), INTENT(IN), TARGET :: of
 
+    ! local variables:
+    CHARACTER(LEN=*), PARAMETER :: routine = 'mo_name_list_output/add_variables_to_vlist'
     TYPE (t_var_metadata), POINTER :: info
-
-    TYPE(t_gribout_config), POINTER:: grib_conf
-    !
     INTEGER :: iv, vlistID, varID, gridID, zaxisID, nlev, nlevp1, i
     CHARACTER(LEN=vname_len) :: mapped_name
 
-    CHARACTER(LEN=*), PARAMETER :: routine = 'mo_name_list_output/add_variables_to_vlist'
-
-
-    ! save some paperwork
-    grib_conf => gribout_config(of%phys_patch_id)
-
-
     vlistID = of%cdiVlistID
-
     nlev   = num_lev(of%log_patch_id)
     nlevp1 = num_levp1(of%log_patch_id)
 
@@ -2920,43 +2967,8 @@ CONTAINS
         CALL vlistDefVarDatatype(vlistID, varID, info%cf%datatype)
       ENDIF
 
-
-      ! Quick hack
-      ! Set additional GRIB2 keys. These are added to each single variable, even though 
-      ! adding it to the vertical or horizontal grid description may be more elegant.
-      !
-      ! Do not know, why this has to be set manually.
-      ! Otherwise: tablesVersion=4
-      CALL vlistDefVarIntKey(vlistID, varID, "tablesVersion", 5)
-!DR      CALL vlistDefVarIntKey(vlistID, varID, "localTablesVersion", 1)
-      !
-      ! Product definition
-      CALL vlistDefVarIntKey(vlistID, varID, "significanceOfReferenceTime",     &
-        &                    grib_conf%significanceOfReferenceTime)
-      CALL vlistDefVarIntKey(vlistID, varID, "productionStatusOfProcessedData", &
-        &                    grib_conf%productionStatusOfProcessedData)
-      CALL vlistDefVarIntKey(vlistID, varID, "typeOfProcessedData",             &
-        &                    grib_conf%typeOfProcessedData)
-      CALL vlistDefVarIntKey(vlistID, varID, "typeOfGeneratingProcess",         &
-        &                    grib_conf%typeOfGeneratingProcess)
-      CALL vlistDefVarIntKey(vlistID, varID, "backgroundProcess",               &
-        &                    grib_conf%backgroundProcess)
-      ! in case of lon-lat output, "1" has to be added to generatingProcessIdentifier
-      CALL vlistDefVarIntKey(vlistID, varID, "generatingProcessIdentifier",     &
-        &                    grib_conf%generatingProcessIdentifier)
-      !
-      ! Product Generation (local) !!!!!!! DOES NOT WORK, YET !!!!!!!!!!
-!      CALL vlistDefVarIntKey(vlistID, varID, "localDefinitionNumber", 254)
-!      CALL vlistDefVarIntKey(vlistID, varID, "localCreationDateYear", 8)
-!      CALL vlistDefVarIntKey(vlistID, varID, "localValidityDate", 254)
-!      CALL vlistDefVarIntKey(vlistID, varID, "localNumberOfExperiment", 25)
-
-
-      !!!!!!! OBSOLETE !!!!!!!!
-      !Set typeOfStatisticalProcessing
-      !Note: instead of calling vlistDefVarTsteptype, one should probably replace 
-      !info%cdiTimeID in the call of vlistDefVar by info%isteptype
-      !CALL vlistDefVarTsteptype(vlistID, varID, info%isteptype)
+      ! GRIB2 Quick hack: Set additional GRIB2 keys      
+      CALL set_additional_GRIB2_keys(vlistID, varID, gribout_config(of%phys_patch_id))
 
     ENDDO
     !
