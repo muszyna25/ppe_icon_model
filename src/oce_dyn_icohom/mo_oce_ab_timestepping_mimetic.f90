@@ -52,7 +52,7 @@ USE mo_parallel_config,           ONLY: nproma
 USE mo_math_utilities,            ONLY: t_cartesian_coordinates
 USE mo_sync,                      ONLY: sync_e, sync_c, sync_patch_array
 !USE mo_mpi,                       ONLY: my_process_is_mpi_parallel
-USE mo_impl_constants,            ONLY: sea_boundary,                                     &
+USE mo_impl_constants,            ONLY: sea_boundary,sea,                                 &
 ! &                                     min_rlcell, min_rledge, min_rlcell,               &
   &                                     max_char_length, MIN_DOLIC
 USE mo_dbg_nml,                   ONLY: idbg_mxmn
@@ -167,6 +167,8 @@ SUBROUTINE solve_free_sfc_ab_mimetic(p_patch_3D, p_os, p_ext_data, p_sfc_flx, &
 TYPE(t_cartesian_coordinates):: z_vn_c(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)
 REAL(wp)                     :: z_vn1 (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
 REAL(wp)                     :: z_vn2 (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
+REAL(wp)                     ::div_z_c(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)
+REAL(wp)                     ::trac_c(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)
   !CHARACTER(len=max_char_length), PARAMETER :: &
   !       & routine = ('mo_oce_ab_timestepping_mimetic:solve_free_sfc_ab_mimetic')
   !-------------------------------------------------------------------------------
@@ -178,6 +180,99 @@ REAL(wp)                     :: z_vn2 (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nb
   tolerance                         = solver_tolerance
   z_h_c(1:nproma,1:p_patch_horz%nblks_c) = 0.0_wp
   z_h_e(1:nproma,1:p_patch_horz%nblks_e) = 0.0_wp
+! ! ! ! !testing
+! !   DO jb = all_edges%start_block, all_edges%end_block
+! !         CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
+! !         DO je = i_startidx_e, i_endidx_e
+! !         IF ( p_patch_3D%lsm_e(je,1,jb) == sea) THEN
+! !         p_os%p_prog(nold(1))%vn(je,1,jb)=REAL(jb+je,wp)
+! !         ENDIF
+! !         END DO
+! !       END DO
+! !  trac_c= 5.0_wp
+! ! z_vn1= 0.0_wp
+! ! z_vn2= 0.0_wp
+! ! div_z_c=0.0_wp
+! ! CALL map_edges2cell_3D( p_patch_3D,p_os%p_prog(nold(1))%vn, p_op_coeff, z_vn_c)
+! ! 
+! ! ! DO jb = all_cells%start_block, all_cells%end_block
+! ! !       CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+! ! !       DO jc = i_startidx_c, i_endidx_c
+! ! !         IF ( p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary ) THEN
+! ! !         z_vn_c(jc,1,jb)%x(1:3)=z_vn_c(jc,1,jb)%x(1:3)*trac_c(jc,1,jb)
+! ! !         ENDIF
+! ! !       END DO
+! ! !     END DO
+! ! 
+! ! CALL map_cell2edges_3D( p_patch_3D,z_vn_c, z_vn1,p_op_coeff)
+! ! 
+! ! CALL map_edges2edges_viacell_3d( p_patch_3D, p_os%p_prog(nold(1))%vn(:,1,:), p_op_coeff,z_vn2(:,1,:))!,trac_c(:,1,:))
+! ! 
+! !     DO jb = all_edges%start_block, all_edges%end_block
+! !       CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
+! !       DO je = i_startidx_e, i_endidx_e
+! !       IF( z_vn1(je,1,jb)/=0.0_wp.OR.z_vn2(je,1,jb)/=0.0_wp)THEN
+! !       !IF ( p_patch_3D%lsm_e(je,1,jb) <= sea_boundary ) THEN
+! ! !write(123,*)'indices',je,jb,p_patch_3D%lsm_e(je,1,jb)
+! !       write(123,*)'result 1',je,jb, z_vn1(je,1,jb),&!& z_vn_c(p_patch_horz%edges%cell_idx(je,jb,1),1,p_patch_horz%edges%cell_blk(je,jb,1))%x    
+! ! &z_vn2(je,1,jb), abs(z_vn1(je,1,jb)-z_vn2(je,1,jb)),&
+! !       &p_patch_3D%lsm_e(je,1,jb)!,& !SUM(p_op_coeff%edge2edge_viacell_coeff(je,1,jb,:))
+! !       ENDIF
+! !       !ENDIF
+! !       END DO
+! !     END DO
+! ! write(*,*)'done 1'
+! ! !stop
+! ! 
+! ! z_vn1= 0.0_wp
+! ! z_vn2= 0.0_wp
+! ! ! CALL calc_scalar_product_veloc_3D( p_patch_3D,&
+! ! !                                       & p_os%p_prog(nold(1))%vn,&
+! ! !                                       & p_os%p_prog(nold(1))%vn,&
+! ! !                                       !& p_os%p_diag%h_e,        &
+! ! !                                       & p_os%p_diag,            &
+! ! !                                       & p_op_coeff)
+! !    CALL nonlinear_coriolis_3d( p_patch_3D, &
+! !       & p_os%p_prog(nold(1))%vn,          &
+! !       & p_os%p_diag%p_vn_dual,&
+! !       & p_os%p_diag%thick_e,  &
+! !       & p_os%p_diag%vort,     &
+! !       & p_op_coeff,      &
+! !       & z_vn1)
+! ! 
+! !     CALL nonlinear_coriolis_3d_2( p_patch_3D, &
+! !       & p_os%p_prog(nold(1))%vn,          &
+! !       & p_os%p_diag%p_vn_dual,&
+! !       & p_os%p_diag%thick_e,  &
+! !       & p_os%p_diag%vort,     &
+! !       & p_op_coeff,      &
+! !       &z_vn2)
+! ! 
+! !     DO jb = all_edges%start_block, all_edges%end_block
+! !       CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
+! !       DO je = i_startidx_e, i_endidx_e
+! !       IF( z_vn1(je,1,jb)/=0.0_wp.OR.z_vn2(je,1,jb)/=0.0_wp)THEN
+! !       write(123,*)'result 2',je,jb, z_vn1(je,1,jb),z_vn2(je,1,jb), abs(z_vn1(je,1,jb)-z_vn2(je,1,jb)),&
+! !       &p_patch_3D%lsm_e(je,1,jb)
+! !       ENDIF
+! !       END DO
+! !     END DO
+! ! write(*,*)'done 2'
+! ! stop
+! ! ! ! CALL div_oce_3d(p_os%p_prog(nold(1))%vn, p_patch_horz,p_op_coeff%div_coeff, div_z_c)
+! ! ! ! 
+! ! ! !     DO jb = all_cells%start_block, all_cells%end_block
+! ! ! !       CALL get_index_range(all_cells, jb, i_startidx_e, i_endidx_e)
+! ! ! !       DO je = i_startidx_e, i_endidx_e
+! ! ! !       IF( div_z_c(je,1,jb)/=0.0_wp)THEN
+! ! ! !       write(123,*)'result div',je,jb, div_z_c(je,1,jb)
+! ! ! !       ENDIF
+! ! ! !       END DO
+! ! ! !     END DO
+! ! ! ! write(*,*)'done 2'
+! ! ! ! 
+! ! ! ! stop
+! ! ! !-------------------
 
 
   CALL sync_patch_array(sync_c, p_patch_horz, p_os%p_prog(nold(1))%h)

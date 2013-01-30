@@ -247,7 +247,7 @@ CONTAINS
 
     !
     ! GRIB output
-    CALL read_gribout_namelist        (TRIM(oce_namelist_filename))
+    !CALL read_gribout_namelist        (TRIM(oce_namelist_filename))
 
     ! Coupling
     !

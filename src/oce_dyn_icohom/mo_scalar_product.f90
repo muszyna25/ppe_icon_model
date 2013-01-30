@@ -109,8 +109,6 @@ MODULE mo_scalar_product
     
   END INTERFACE
 
-
-
 !-----------private interfaces------------------
 !   INTERFACE map_cell2edges
 !     MODULE PROCEDURE map_cell2edges_1level
@@ -239,7 +237,7 @@ CONTAINS
 
     TYPE(t_patch_3D ),TARGET,INTENT(IN):: p_patch_3D
     REAL(wp), INTENT(inout)                   :: vn       (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
-    TYPE(t_cartesian_coordinates), INTENT(in) :: p_vn_dual(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_v)
+    TYPE(t_cartesian_coordinates), INTENT(inout) :: p_vn_dual(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_v)
     REAL(wp), INTENT(in)                      :: h_e      (nproma,p_patch_3D%p_patch_2D(1)%nblks_e)
     REAL(wp), INTENT(inout)                   :: vort_v   (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_v)
     TYPE(t_operator_coeff),INTENT(in)         :: p_op_coeff
@@ -264,6 +262,8 @@ CONTAINS
     !-----------------------------------------------------------------------
     slev         = 1
     elev         = n_zlev
+ CALL map_edges2vert_3d(p_patch_3D%p_patch_2D(1), vn, p_op_coeff%edge2vert_coeff_cc, &
+      & p_vn_dual)
 
     CALL rot_vertex_ocean_3d( p_patch_3D, vn, p_vn_dual, p_op_coeff, vort_v)
     CALL sync_patch_array(SYNC_V, p_patch, vort_v)
@@ -288,16 +288,20 @@ CONTAINS
 
             !Multiply velocity reconstruction at vertex by vorticity
             u_v1_cc%x = p_vn_dual(il_v1,jk,ib_v1)%x &
-             & *(vort_v(il_v1,jk,ib_v1) + p_patch%verts%f_v(il_v1,ib_v1))
+            & *(vort_v(il_v1,jk,ib_v1) + p_patch%verts%f_v(il_v1,ib_v1))
             u_v2_cc%x = p_vn_dual(il_v2,jk,ib_v2)%x &
-              & *(vort_v(il_v2,jk,ib_v2) + p_patch%verts%f_v(il_v2,ib_v2))
+            & *(vort_v(il_v2,jk,ib_v2) + p_patch%verts%f_v(il_v2,ib_v2))
 
             !calculate finall vortex flux by mapping the vorticity-velocity-product
             !from vertices back to edges
-            vort_flux(je,jk,jb) =1.0_wp*( &
+            vort_flux(je,jk,jb) =( &
                & - DOT_PRODUCT(u_v2_cc%x, p_op_coeff%edge2vert_coeff_cc_t(je,jk,jb,2)%x)&
                & + DOT_PRODUCT(u_v1_cc%x, p_op_coeff%edge2vert_coeff_cc_t(je,jk,jb,1)%x))
-
+!   IF( vort_flux(je,jk,jb)/=0.0_wp)THEN
+ IF( je==1.and.jb==1.and.jk==1)THEN
+  write(123,*)'coriolis_1',je,jk,jb,il_v1,ib_v1,il_v2,ib_v2,vort_flux(je,jk,jb),u_v2_cc%x(1:3),u_v1_cc%x(1:3) ,&
+  &vn(je,jk,jb)
+  ENDIF
           ELSE
             vort_flux(je,jk,jb)= 0.0_wp
           ENDIF ! (v_base%lsm_e(je,jk,jb) <= sea_boundary)
@@ -320,7 +324,7 @@ CONTAINS
     & p_op_coeff, vort_flux)
     TYPE(t_patch_3D ),TARGET,INTENT(IN) :: p_patch_3D
     REAL(wp), INTENT(INOUT)                    :: vn(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
-    TYPE(t_cartesian_coordinates), INTENT(IN)  :: p_vn_dual(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_v)
+    TYPE(t_cartesian_coordinates), INTENT(INout)  :: p_vn_dual(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_v)
     REAL(wp), INTENT(IN)                       :: h_e      (nproma,p_patch_3D%p_patch_2D(1)%nblks_e)
     REAL(wp), INTENT(INOUT)                    :: vort_v   (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_v)
     TYPE(t_operator_coeff),INTENT(IN)          :: p_op_coeff
@@ -344,6 +348,8 @@ CONTAINS
     !-----------------------------------------------------------------------
     slev    = 1
     elev    = n_zlev
+CALL map_edges2vert_3d(p_patch_3D%p_patch_2D(1), vn, p_op_coeff%edge2vert_coeff_cc, &
+      & p_vn_dual)
 
     CALL rot_vertex_ocean_3d( p_patch_3D, vn, p_vn_dual, p_op_coeff, vort_v)
     CALL sync_patch_array(SYNC_V, p_patch, vort_v)
@@ -368,8 +374,8 @@ CONTAINS
             il_v = p_patch%edges%vertex_idx(je,jb,neighbor)
             ib_v = p_patch%edges%vertex_blk(je,jb,neighbor) 
 
-            vort_global = vort_v(il_v,jk,ib_v) + p_patch%verts%f_v(il_v,ib_v)
- 
+            vort_global = (vort_v(il_v,jk,ib_v) + p_patch%verts%f_v(il_v,ib_v))
+
             DO vertex_edge=1, no_dual_cell_edges
 
               ictr =ictr+1 
@@ -377,13 +383,14 @@ CONTAINS
               il_e = p_patch%verts%edge_idx(il_v,ib_v,vertex_edge)
               ib_e = p_patch%verts%edge_blk(il_v,ib_v,vertex_edge)
 
-              vort_flux(je,jk,jb) =  vort_flux(je,jk,jb)+vn(il_e,jk,ib_e)*(vort_global&
-                                  &*p_op_coeff%edge2edge_viavert_coeff(je,jk,jb,ictr))
-  !IF(vn(je,jk,jb)/=0.0_wp)THEN
-  !write(123,*)'idx',je,jb,ictr,il_e,ib_e,vort_flux(je,jk,jb),&
-  !&vn(il_e,jk,ib_e),p_op_coeff%edge2edge_viavert_coeff(je,jk,jb,ictr),il_v,ib_v, vort_global
-  !ENDIF
+              vort_flux(je,jk,jb) =  vort_flux(je,jk,jb)+vn(il_e,jk,ib_e)*vort_global&
+                                  &*p_op_coeff%edge2edge_viavert_coeff(je,jk,jb,ictr)
             END DO
+!  IF( vort_flux(je,jk,jb)/=0.0_wp)THEN
+ IF( je==1.and.jb==1.and.jk==1)THEN
+  write(123,*)'coriolis_2',je,jk,jb,ictr,il_e,ib_e,il_v,ib_v,vort_flux(je,jk,jb),&
+  &vn(il_e,jk,ib_e),p_op_coeff%edge2edge_viavert_coeff(je,jk,jb,ictr)!,il_v,ib_v, vort_global
+  ENDIF
           END DO
           ELSE
             vort_flux(je,jk,jb)= 0.0_wp
@@ -398,7 +405,6 @@ CONTAINS
 
   END SUBROUTINE nonlinear_coriolis_3d_2
   !-------------------------------------------------------------------------
-
 
   !-----------------------------------------------------------------------------
   !>
@@ -627,14 +633,14 @@ CONTAINS
   END SUBROUTINE map_edges2cell_no_height_3d
   !-----------------------------------------------------------------------------
   
-  SUBROUTINE map_edges2edges_viacell_3d_mlev( p_patch_3D, vn_e, p_op_coeff, scalar, p_vn_e, opt_slev, opt_elev, &
+  SUBROUTINE map_edges2edges_viacell_3d_mlev( p_patch_3D, vn_e, p_op_coeff, p_vn_e,scalar, opt_slev, opt_elev, &
     &                                     subset_range)
     
     TYPE(t_patch_3D ),TARGET, INTENT(IN):: p_patch_3D
     REAL(wp), INTENT(in)                       :: vn_e(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
     TYPE(t_operator_coeff), INTENT(in)         :: p_op_coeff
-    REAL(wp), INTENT(IN), OPTIONAL             :: scalar(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)  
     REAL(wp), INTENT(INOUT)                    :: p_vn_e(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
+    REAL(wp), INTENT(IN), OPTIONAL             :: scalar(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)  
     INTEGER, INTENT(in), OPTIONAL              :: opt_slev       ! optional vertical start level
     INTEGER, INTENT(in), OPTIONAL              :: opt_elev       ! optional vertical end level
     TYPE(t_subset_range), TARGET,  OPTIONAL    :: subset_range
@@ -644,7 +650,7 @@ CONTAINS
     INTEGER :: i_startidx_e, i_endidx_e
     INTEGER :: il_e, ib_e, il_c, ib_c, ictr, neighbor
     INTEGER :: je, jb, jk, ie
-    REAL(wp) :: area, scalar_cell
+    REAL(wp) :: scalar_cell
      TYPE(t_subset_range), POINTER :: all_edges
     !CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
     !  & routine = ('mo_scalar_product:primal_map_e2c')
@@ -673,27 +679,28 @@ CONTAINS
 
       DO jb = all_edges%start_block, all_edges%end_block
         CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
-          
+ 
         level_loop_e: DO jk = slev, elev
           edge_idx_loop: DO je =  i_startidx_e, i_endidx_e
-          
-            ictr            = 0
+
+            !ictr            = 0
             p_vn_e(je,jk,jb)= 0.0_wp
+            !IF(p_patch_3D%lsm_e(je,jk,jb) == sea)THEN
             DO neighbor=1,2
               il_c = p_patch%edges%cell_idx(je,jb,neighbor)
               ib_c = p_patch%edges%cell_blk(je,jb,neighbor)
-              area = p_op_coeff%fixed_vol_norm(il_c,jk,ib_c)
- 
+
               DO ie=1, no_cell_edges
-                ictr =ictr+1 
+                !ictr =ictr+1 
                 il_e = p_patch%cells%edge_idx(il_c,ib_c,ie)
                 ib_e = p_patch%cells%edge_blk(il_c,ib_c,ie)
 
                 p_vn_e(je,jk,jb) = p_vn_e(je,jk,jb) &
-                &+(vn_e(il_e,jk,ib_e)*p_op_coeff%edge2edge_viacell_coeff(je,jk,jb,ictr)/area)
+                &+vn_e(il_e,jk,ib_e)*(p_op_coeff%edge2edge_viacell_coeff(je,jk,jb,ictr))
 
               END DO
             END DO
+            !ENDIF
           END DO edge_idx_loop
         END DO level_loop_e
       END DO ! jb = edges_in_domain%start_block, edges_in_domain%end_block
@@ -702,17 +709,16 @@ CONTAINS
 
       DO jb = all_edges%start_block, all_edges%end_block
         CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
-          
+
         level_loop_e2: DO jk = slev, elev
           edge_idx_loop2: DO je =  i_startidx_e, i_endidx_e
-          
+
             ictr            = 0
             p_vn_e(je,jk,jb)= 0.0_wp
-
+            !IF(p_patch_3D%lsm_e(je,jk,jb) == sea)THEN
             DO neighbor=1,2
               il_c        = p_patch%edges%cell_idx(je,jb,neighbor)
               ib_c        = p_patch%edges%cell_blk(je,jb,neighbor)
-              area        = p_op_coeff%fixed_vol_norm(il_c,jk,ib_c)
               scalar_cell = scalar(il_c,jk,ib_c)
 
               DO ie=1, no_cell_edges
@@ -721,11 +727,12 @@ CONTAINS
                 ib_e = p_patch%cells%edge_blk(il_c,ib_c,ie)
 
                 p_vn_e(je,jk,jb) = p_vn_e(je,jk,jb) &
-                &+(vn_e(il_e,jk,ib_e)*scalar_cell   &
-                &*p_op_coeff%edge2edge_viacell_coeff(je,jk,jb,ictr)/area)
+                &+vn_e(il_e,jk,ib_e)*scalar_cell   &
+                &*(p_op_coeff%edge2edge_viacell_coeff(je,jk,jb,ictr))
 
               END DO
             END DO
+            !ENDIF
           END DO edge_idx_loop2
         END DO level_loop_e2
       END DO ! jb = edges_in_domain%start_block, edges_in_domain%end_block
@@ -733,14 +740,14 @@ CONTAINS
   END SUBROUTINE map_edges2edges_viacell_3D_mlev
   !-----------------------------------------------------------------------------
 
-  SUBROUTINE map_edges2edges_viacell_3d_1lev( p_patch_3D, vn_e, p_op_coeff, scalar, p_vn_e, level, &
+  SUBROUTINE map_edges2edges_viacell_3d_1lev( p_patch_3D, vn_e, p_op_coeff, p_vn_e,scalar, level, &
     &                                     subset_range)
    
     TYPE(t_patch_3D ),TARGET, INTENT(IN):: p_patch_3D
     REAL(wp), INTENT(in)                       :: vn_e(nproma,p_patch_3D%p_patch_2D(1)%nblks_e)
     TYPE(t_operator_coeff), INTENT(in)         :: p_op_coeff
-    REAL(wp), INTENT(IN), OPTIONAL             :: scalar(nproma,p_patch_3D%p_patch_2D(1)%nblks_c)  
     REAL(wp), INTENT(INOUT)                    :: p_vn_e(nproma,p_patch_3D%p_patch_2D(1)%nblks_e)
+    REAL(wp), INTENT(IN), OPTIONAL             :: scalar(nproma,p_patch_3D%p_patch_2D(1)%nblks_c)  
     INTEGER, INTENT(in), OPTIONAL              :: level       ! optional vertical start level
     TYPE(t_subset_range), TARGET,  OPTIONAL    :: subset_range
     !Local variables
@@ -749,7 +756,7 @@ CONTAINS
     INTEGER :: i_startidx_e, i_endidx_e
     INTEGER :: il_e, ib_e, il_c, ib_c, ictr, neighbor
     INTEGER :: je, jb, ie, lev
-    REAL(wp) :: area, scalar_cell
+    REAL(wp) :: scalar_cell
      TYPE(t_subset_range), POINTER :: all_edges
     !CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
     !  & routine = ('mo_scalar_product:primal_map_e2c')
@@ -773,14 +780,14 @@ CONTAINS
 
       DO jb = all_edges%start_block, all_edges%end_block
         CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
-          
+
           edge_idx_loop: DO je =  i_startidx_e, i_endidx_e
-          
-            ictr = 0
+
+            ictr          = 0
+            p_vn_e(je,jb) = 0.0_wp
             DO neighbor=1,2
               il_c = p_patch%edges%cell_idx(je,jb,neighbor)
               ib_c = p_patch%edges%cell_blk(je,jb,neighbor)
-              area = p_op_coeff%fixed_vol_norm(il_c,lev,ib_c)
  
               DO ie=1, no_cell_edges
                 ictr =ictr+1 
@@ -788,9 +795,10 @@ CONTAINS
                 ib_e = p_patch%cells%edge_blk(il_c,ib_c,ie)
 
                 p_vn_e(je,jb) = p_vn_e(je,jb) &
-                &+(vn_e(il_e,ib_e)*p_op_coeff%edge2edge_viacell_coeff(je,lev,jb,ictr)/area)
+                &+vn_e(il_e,ib_e)*(p_op_coeff%edge2edge_viacell_coeff(je,lev,jb,ictr))
 
               END DO
+
             END DO
           END DO edge_idx_loop
       END DO ! jb = edges_in_domain%start_block, edges_in_domain%end_block
@@ -799,14 +807,14 @@ CONTAINS
 
       DO jb = all_edges%start_block, all_edges%end_block
         CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
-          
+
           edge_idx_loop2: DO je =  i_startidx_e, i_endidx_e
-          
+
             ictr = 0
+            p_vn_e(je,jb) = 0.0_wp
             DO neighbor=1,2
               il_c        = p_patch%edges%cell_idx(je,jb,neighbor)
               ib_c        = p_patch%edges%cell_blk(je,jb,neighbor)
-              area        = p_op_coeff%fixed_vol_norm(il_c,lev,ib_c)
               scalar_cell = scalar(il_c,ib_c)
 
               DO ie=1, no_cell_edges
@@ -815,10 +823,11 @@ CONTAINS
                 ib_e = p_patch%cells%edge_blk(il_c,ib_c,ie)
 
                 p_vn_e(je,jb) = p_vn_e(je,jb) &
-                &+(vn_e(il_e,ib_e)*scalar_cell&
-                &  *p_op_coeff%edge2edge_viacell_coeff(je,lev,jb,ictr)/area)
+                &+vn_e(il_e,ib_e)*scalar_cell&
+                &  *(p_op_coeff%edge2edge_viacell_coeff(je,lev,jb,ictr))
 
               END DO
+
             END DO
           END DO edge_idx_loop2
       END DO
