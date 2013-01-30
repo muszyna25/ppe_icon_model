@@ -124,7 +124,7 @@ CONTAINS
       & deltaTdenominator     ! prefactor of deltaT in sfc. flux
                               ! balance
     
-    REAL(wp) :: one_minus_I_0 ! 1.0 - I_0 for use with SWin
+!    REAL(wp) :: one_minus_I_0 ! 1.0 - I_0 for use with SWin
 
     INTEGER :: k, jc ! loop indices
 
@@ -135,7 +135,7 @@ CONTAINS
     Qtop(:,:) = 0._wp
 
     ! --- initialization
-    one_minus_I_0 = 1.0_wp
+!    one_minus_I_0 = 1.0_wp
 
     DO k=1,kice
       DO jc = i_startidx_c,i_endidx_c
@@ -145,17 +145,17 @@ CONTAINS
           k_effective = ki*ks/(ks*hi(jc,k) + ki*hs(jc,k))
 
 ! --- calculate (1-I_0)
-          IF (hs(jc,k) > 0.0_wp ) THEN
-            one_minus_I_0=1.0_wp
-          ELSE
-            one_minus_I_0=1.0_wp-I_0
-          END IF
+!          IF (hs(jc,k) > 0.0_wp ) THEN
+!            one_minus_I_0=1.0_wp
+!          ELSE
+!            one_minus_I_0=1.0_wp-I_0
+!          END IF
                   
           ! --- F_A, F_S : pos=upward flux
 
           ! F_A: flux ice-atmosphere
           IF (i_therm_model == 1) THEN
-            F_A = - nonsolar(jc,k) - SWnet(jc,k) * one_minus_I_0
+            F_A = - nonsolar(jc,k) - SWnet(jc,k) !* one_minus_I_0
           ELSE IF (i_therm_model ==3) THEN
             ! #achim: first draft: hard-coding simpler form of
             ! atmospheric fluxes (from Dirk's thesis, p.193)
