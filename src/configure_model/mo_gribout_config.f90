@@ -93,7 +93,7 @@ MODULE mo_gribout_config
                                           ! 3: ... 
 
     INTEGER :: &                          ! Table: generatingProcessIdentifier
-      & generatingProcessIdentifier(max_dom) ! 1: icogl
+      & generatingProcessIdentifier(0:max_dom) ! 1: icogl
                                           ! 2: icrgl
                                           ! 3: icoeu
                                           ! 4: ...
