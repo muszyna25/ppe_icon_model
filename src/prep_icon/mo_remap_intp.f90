@@ -25,7 +25,8 @@ MODULE mo_remap_intp
     &                              INVALID_NODE, heap_add_offset,              &
     &                              resize_node_storage, node_storage_finalize, &
     &                              get_free_node, heap_node_init, heap_insert
-  USE mo_remap_config,       ONLY: dbg_level, MAX_NSTENCIL
+  USE mo_remap_config,       ONLY: dbg_level, MAX_NSTENCIL_CONS,               &
+    &                               MAX_NSTENCIL_RBF
   USE mo_remap_shared,       ONLY: t_grid
   USE mo_remap_io,           ONLY: s_maxsize
 
@@ -34,10 +35,11 @@ MODULE mo_remap_intp
   PRIVATE
   ! subroutines
   PUBLIC :: allocate_intp_data
-  PUBLIC :: deallocate_intp_data
+  PUBLIC :: finalize_intp_data
   PUBLIC :: copy_intp_data_sthreaded
   PUBLIC :: resize_intp_data_mthreaded
-  PUBLIC :: interpolate_c
+  PUBLIC :: interpolate_c_2D_cons
+  PUBLIC :: interpolate_e_2D_rbf
   PUBLIC :: merge_heaps
   PUBLIC :: sync_foreign_wgts
   PUBLIC :: reduce_mthreaded_weights
@@ -106,37 +108,32 @@ MODULE mo_remap_intp
   END INTERFACE
 
   ! generic interface
-  INTERFACE deallocate_intp_data
-    MODULE PROCEDURE deallocate_intp_data_sthreaded
-    MODULE PROCEDURE deallocate_intp_data_mthreaded
+  INTERFACE finalize_intp_data
+    MODULE PROCEDURE finalize_intp_data_sthreaded
+    MODULE PROCEDURE finalize_intp_data_mthreaded
   END INTERFACE
 
-  ! generic interface
-  INTERFACE interpolate_c
-    MODULE PROCEDURE interpolate_c_2D
-  END INTERFACE
-  
 CONTAINS
 
   !> Allocate data structure for interpolation coefficients.
   !
-  SUBROUTINE allocate_intp_data_sthreaded(intp_data, nblks_c)
-    TYPE(t_intp_data),    INTENT(INOUT) :: intp_data   !< data structure with intp. weights
-    INTEGER,              INTENT(IN)    :: nblks_c     !< block size of output grid 
+  SUBROUTINE allocate_intp_data_sthreaded(intp_data, nblks_c, istencilsize)
+    TYPE(t_intp_data),    INTENT(INOUT) :: intp_data     !< data structure with intp. weights
+    INTEGER,              INTENT(IN)    :: nblks_c       !< block size of output grid 
+    INTEGER,              INTENT(IN)    :: istencilsize  !< stencil size
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = TRIM(TRIM(modname)//'::allocate_intp_data')
-    INTEGER :: ierrstat, nstencil
+    INTEGER :: ierrstat
 
-    nstencil = MAX_NSTENCIL
-    intp_data%nstencil       = nstencil
+    intp_data%nstencil       = istencilsize
     intp_data%max_totstencil = 0
-    ALLOCATE(intp_data%wgt (nstencil, nproma, nblks_c), &
-      &      intp_data%area(nproma, nblks_c),           &
-      &      intp_data%iidx(nstencil, nproma, nblks_c), &
-      &      intp_data%iblk(nstencil, nproma, nblks_c), &
-      &      intp_data%nidx(nproma, nblks_c),           &
-      &      intp_data%smin(nproma, nblks_c),           &
-      &      intp_data%smax(nproma, nblks_c),           &
+    ALLOCATE(intp_data%wgt (istencilsize, nproma, nblks_c), &
+      &      intp_data%area(nproma, nblks_c),               &
+      &      intp_data%iidx(istencilsize, nproma, nblks_c), &
+      &      intp_data%iblk(istencilsize, nproma, nblks_c), &
+      &      intp_data%nidx(nproma, nblks_c),               &
+      &      intp_data%smin(nproma, nblks_c),               &
+      &      intp_data%smax(nproma, nblks_c),               &
       &      STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
     intp_data%wgt(:,:,:)  =  0._wp
@@ -179,35 +176,53 @@ CONTAINS
 
   !> Clear data structure for interpolation coefficients.
   !
-  SUBROUTINE deallocate_intp_data_sthreaded(intp_data)
+  RECURSIVE SUBROUTINE finalize_intp_data_sthreaded(intp_data, &
+    &                                               opt_intp_data2,opt_intp_data3,opt_intp_data4)
+
     TYPE(t_intp_data), INTENT(INOUT) :: intp_data
+    TYPE(t_intp_data), INTENT(INOUT), OPTIONAL :: opt_intp_data2,opt_intp_data3,opt_intp_data4
     ! local variables
-    CHARACTER(LEN=*), PARAMETER :: routine = TRIM(TRIM(modname)//'::deallocate_intp_data')
+    CHARACTER(LEN=*), PARAMETER :: routine = TRIM(TRIM(modname)//'::finalize_intp_data')
     INTEGER :: ierrstat
 
-    intp_data%nstencil = 0
-    DEALLOCATE(intp_data%wgt, intp_data%area, intp_data%iidx, intp_data%iblk, &
-      &        intp_data%nidx, STAT=ierrstat)
-    IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")
-    DEALLOCATE(intp_data%sl, intp_data%smin, intp_data%smax, STAT=ierrstat)
-    IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")
-  END SUBROUTINE deallocate_intp_data_sthreaded
+    ! the following recursion makes this more readable on the caller
+    ! side (we can call this SR with more than one object as an
+    ! argument):
+    IF (PRESENT(opt_intp_data4)) THEN
+      CALL finalize_intp_data_sthreaded(opt_intp_data4)
+      CALL finalize_intp_data_sthreaded(intp_data, opt_intp_data2, opt_intp_data3)
+    ELSE IF (PRESENT(opt_intp_data3)) THEN
+      CALL finalize_intp_data_sthreaded(opt_intp_data3, opt_intp_data4)
+      CALL finalize_intp_data_sthreaded(intp_data, opt_intp_data2)
+    ELSE IF (PRESENT(opt_intp_data2)) THEN
+      CALL finalize_intp_data_sthreaded(opt_intp_data2)
+      CALL finalize_intp_data_sthreaded(intp_data)
+    ELSE
+      ! clean up:
+      intp_data%nstencil = 0
+      DEALLOCATE(intp_data%wgt, intp_data%area, intp_data%iidx, intp_data%iblk, &
+        &        intp_data%nidx, STAT=ierrstat)
+      IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")
+      DEALLOCATE(intp_data%sl, intp_data%smin, intp_data%smax, STAT=ierrstat)
+      IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")
+    END IF
+  END SUBROUTINE finalize_intp_data_sthreaded
 
 
   !> Clear data structure for interpolation coefficients.
   !
-  SUBROUTINE deallocate_intp_data_mthreaded(intp_data)
+  SUBROUTINE finalize_intp_data_mthreaded(intp_data)
     TYPE(t_intp_data_mt), INTENT(INOUT) :: intp_data
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = &
-      &      TRIM(TRIM(modname)//'::deallocate_intp_data_mthreaded')
+      &      TRIM(TRIM(modname)//'::finalize_intp_data_mthreaded')
     INTEGER :: ierrstat
 
     intp_data%nforeign = 0
     DEALLOCATE(intp_data%wgt_heap, intp_data%foreign_wgt, &
       &        intp_data%foreign_pe, STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")
-  END SUBROUTINE deallocate_intp_data_mthreaded
+  END SUBROUTINE finalize_intp_data_mthreaded
 
 
   !> Allocate data structure for interpolation coefficients.
@@ -222,7 +237,7 @@ CONTAINS
     IF (dbg_level >= 1) WRITE (0,*) "# copy interpolation coefficients."
 
     nblks_c = SIZE(src_intp_data%wgt,3)
-    CALL allocate_intp_data_sthreaded(dst_intp_data, nblks_c)
+    CALL allocate_intp_data_sthreaded(dst_intp_data, nblks_c, src_intp_data%nstencil)
     ! copy coefficients:
     dst_intp_data%nstencil       = src_intp_data%nstencil
     dst_intp_data%max_totstencil = src_intp_data%max_totstencil
@@ -536,16 +551,16 @@ CONTAINS
   ! ---------------------------------------------------------------------------
 
 
-  !> Perform interpolation operation: 2D case.
+  !> Perform interpolation operation: 2D case, cell-based grids,
+  !  conservative interpolation stencil.
   !
-  SUBROUTINE interpolate_c_2D(field1, field2, out_grid, intp_data)
+  SUBROUTINE interpolate_c_2D_cons(field1, field2, out_grid, intp_data)
     REAL(wp),           INTENT(IN)    :: field1(:,:)
     REAL(wp),           INTENT(INOUT) :: field2(:,:)
     TYPE (t_grid),      INTENT(IN)    :: out_grid
     TYPE (t_intp_data), INTENT(IN)    :: intp_data
     ! local variables
-    INTEGER  :: i, jc,jb, nblks, npromz, &
-      &         i_startidx, i_endidx
+    INTEGER  :: i, jc,jb, nblks, npromz, i_startidx, i_endidx
     REAL(wp) :: val
 
     IF (dbg_level >= 11)  WRITE (0,*) "# perform horizontal interpolation."
@@ -562,8 +577,8 @@ CONTAINS
 
 #ifdef __SX__
       field2(:,jb) = 0._wp
-!CDIR UNROLL=MAX_NSTENCIL
-      DO i=1,MAX_NSTENCIL
+!CDIR UNROLL=MAX_NSTENCIL_CONS
+      DO i=1,MAX_NSTENCIL_CONS
         DO jc=i_startidx, i_endidx
           field2(jc,jb) = field2(jc,jb) + intp_data%wgt(i,jc,jb) *              &
             &             field1(intp_data%iidx(i,jc,jb),intp_data%iblk(i,jc,jb))
@@ -572,7 +587,7 @@ CONTAINS
 #else
       DO jc=i_startidx, i_endidx
         val = 0._wp
-        DO i=1,MAX_NSTENCIL
+        DO i=1,MAX_NSTENCIL_CONS
           val = val + intp_data%wgt(i,jc,jb) * &
             &         field1(intp_data%iidx(i,jc,jb),intp_data%iblk(i,jc,jb))
         END DO
@@ -595,12 +610,73 @@ CONTAINS
 !$OMP END DO
 !$OMP END PARALLEL
 
-
     IF (dbg_level >= 11) THEN
-      WRITE (0,*) "# minmax: ", MINVAL(field2(:,:)), MAXVAL(field2(:,:))
+      WRITE (0,*) "# minmax: ",     MINVAL(field2(:,:)), MAXVAL(field2(:,:))
       WRITE (0,*) "# minmax loc: ", MINLOC(field2(:,:)), MAXLOC(field2(:,:))
     END IF
-  END SUBROUTINE interpolate_c_2D
+  END SUBROUTINE interpolate_c_2D_cons
+
+
+  ! ---------------------------------------------------------------------------
+
+
+  !> Perform interpolation operation: 2D case, edge-based grids,
+  !  RBF interpolation stencil.
+  !
+  !  @note For the RBF stencil the additional, sequential list of
+  !        interpolation weights is not taken into account!
+  !
+  SUBROUTINE interpolate_e_2D_rbf(field1_u, field1_v, field2, out_grid, &
+    &                             intp_data_u, intp_data_v)
+    REAL(wp),           INTENT(IN)    :: field1_u(:,:), field1_v(:,:)
+    REAL(wp),           INTENT(INOUT) :: field2(:,:)
+    TYPE (t_grid),      INTENT(IN)    :: out_grid
+    TYPE (t_intp_data), INTENT(IN)    :: intp_data_u, intp_data_v
+    ! local variables
+    INTEGER  :: i, je,jb, nblks, npromz, i_startidx, i_endidx, jc1, jb1
+    REAL(wp) :: val
+
+    IF (dbg_level >= 11)  WRITE (0,*) "# perform horizontal interpolation."
+
+    nblks    = out_grid%p_patch%nblks_e
+    npromz   = out_grid%p_patch%npromz_e
+
+!$OMP PARALLEL PRIVATE(i_startidx, i_endidx,je,jb,val,jc1,jb1)
+!$OMP DO
+    DO jb=1,nblks
+      i_startidx = 1
+      i_endidx   = nproma
+      IF (jb == nblks) i_endidx = npromz
+
+#ifdef __SX__
+      field2(:,jb) = 0._wp
+!CDIR UNROLL=MAX_NSTENCIL_RBF
+      DO i=1,MAX_NSTENCIL_RBF
+        DO je=i_startidx, i_endidx
+          jc1 = intp_data_u%iidx(i,je,jb)
+          jb1 = intp_data_u%iblk(i,je,jb)
+          field2(je,jb) = field2(je,jb)                                  + &
+            &             intp_data_u%wgt(i,je,jb) * field1_u(jc1,jb1)   + &
+            &             intp_data_v%wgt(i,je,jb) * field1_v(jc1,jb1)
+        END DO
+      END DO
+#else
+      DO je=i_startidx, i_endidx
+        val = 0._wp
+        DO i=1,MAX_NSTENCIL_RBF
+          jc1 = intp_data_u%iidx(i,je,jb)
+          jb1 = intp_data_u%iblk(i,je,jb)
+          val = val + intp_data_u%wgt(i,je,jb) * field1_u(jc1,jb1)   + &
+            &         intp_data_v%wgt(i,je,jb) * field1_v(jc1,jb1)
+        END DO
+        field2(je,jb) = val
+      END DO
+#endif
+    END DO
+!$OMP END DO
+!$OMP END PARALLEL
+
+  END SUBROUTINE interpolate_e_2D_rbf
 
 
   ! ---------------------------------------------------------------------------
@@ -710,8 +786,8 @@ CONTAINS
       i_endidx   = nproma
       IF (jb == nblks) i_endidx = npromz
 
-!CDIR UNROLL=MAX_NSTENCIL
-      DO i=1,MAX_NSTENCIL
+!CDIR UNROLL=MAX_NSTENCIL_CONS
+      DO i=1,MAX_NSTENCIL_CONS
         DO jc=i_startidx, i_endidx
           IF (in_mask2D(intp_data%iidx(i,jc,jb),intp_data%iblk(i,jc,jb)) .AND. &
             & (i <= intp_data%nidx(jc,jb))) THEN
@@ -750,7 +826,6 @@ CONTAINS
     !-- divide all interpolation weights A_jk by the new area A_k
 !CDIR NOIEXPAND
     CALL divide_by_area(intp_data)
-
   END SUBROUTINE mask_intp_coeffs
 
 END MODULE mo_remap_intp

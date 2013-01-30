@@ -8,8 +8,8 @@ MODULE mo_remap_io
   USE mo_exception,          ONLY: finish
   USE mo_util_string,        ONLY: tolower
   USE mo_util_netcdf,        ONLY: nf
-  USE mo_remap_config,       ONLY: dbg_level, MAX_NAME_LENGTH, MAX_NSTENCIL
-  USE mo_remap_sync,         ONLY: t_gather_c, scatter_field2D_c
+  USE mo_remap_config,       ONLY: dbg_level, MAX_NAME_LENGTH, MAX_NSTENCIL_CONS
+  USE mo_remap_sync,         ONLY: t_gather, scatter_field2D
   USE mo_remap_shared,       ONLY: GRID_TYPE_REGULAR, GRID_TYPE_ICON    
   IMPLICIT NONE
 
@@ -29,6 +29,9 @@ MODULE mo_remap_io
   PUBLIC :: l_have3dbuffer
   PUBLIC :: s_maxsize
   PUBLIC :: in_file_gribedition
+  PUBLIC :: lcompute_vt, lcompute_vn
+  PUBLIC :: rbf_vec_scale
+
 
   CHARACTER(LEN=*), PARAMETER :: modname = 'mo_remap_io'
 
@@ -49,11 +52,20 @@ MODULE mo_remap_io
   ! Maximum size of sequential list for very large stencils
   INTEGER  :: s_maxsize
 
+  ! RBF interpolation for "u","v" (REGULAR) -> "vn"/"vt" (ICON)
+  LOGICAL  :: lcompute_vn               !< Flag: .TRUE., if the normal wind shall be computed
+  LOGICAL  :: lcompute_vt               !< Flag: .TRUE., if the tangential wind shall be computed
+
+  REAL(wp)           :: rbf_vec_scale = 0.05_wp   !< RBF scaling factor
+
   ! namelist definition: main namelist
   NAMELIST/remap_nml/   in_grid_filename,  in_filename,  in_type,  &
     &                   out_grid_filename, out_filename, out_type, &
     &                   l_have3dbuffer, s_maxsize,                 &
-    &                   in_file_gribedition
+    &                   in_file_gribedition,                       &
+    &                   lcompute_vt, lcompute_vn, rbf_vec_scale
+
+
 
   ! Derived type containing IDs for opened grid/data files.
   !
@@ -69,7 +81,6 @@ MODULE mo_remap_io
 
     ! CDI internal ID for the gaussian grid or the cells/edges/verts
     ! grids (unstructured case):
-    INTEGER :: gridID   = -1
     INTEGER :: c_gridID = -1
     INTEGER :: e_gridID = -1
     INTEGER :: v_gridID = -1
@@ -96,6 +107,9 @@ CONTAINS
     l_have3dbuffer    = .FALSE.
     s_maxsize         = 500000
     in_file_gribedition = 2
+    lcompute_vn       = .FALSE.
+    lcompute_vt       = .FALSE.
+    rbf_vec_scale     = 0.05_wp
 
     ! read user's (new) specifications
     CALL open_nml(TRIM(filename))
@@ -107,7 +121,12 @@ CONTAINS
     END IF
     CALL close_nml
     ! status output
-    IF (dbg_level >= 2)  WRITE (0,*) "# stencil size: ", MAX_NSTENCIL, "/", s_maxsize
+    IF (dbg_level >= 2)  THEN
+      WRITE (0,*) "# stencil size (cons. remapping): ", &
+        &         MAX_NSTENCIL_CONS, "/", s_maxsize
+      WRITE (0,*) "# RBF vec scale (RBF remapping): ", &
+        &         rbf_vec_scale
+    END IF
   END SUBROUTINE read_remap_namelist
 
 
@@ -169,7 +188,7 @@ CONTAINS
         file_metadata%streamID  = streamOpenRead(TRIM(filename))
         file_metadata%vlistID   = streamInqVlist(file_metadata%streamID)
         ! set file gridID to regular grid:
-        file_metadata%gridID    = vlistGrid(file_metadata%vlistID, 0)
+        file_metadata%c_gridID  = vlistGrid(file_metadata%vlistID, 0)
       CASE DEFAULT
         CALL finish(routine, "Unknown grid type")
       END SELECT
@@ -179,23 +198,40 @@ CONTAINS
 
   !> Open grid/data file for input
   !
-  SUBROUTINE close_file(file_metadata)
+  RECURSIVE SUBROUTINE close_file(file_metadata, &
+    &                             opt_file_metadata2,opt_file_metadata3,opt_file_metadata4)
+
     TYPE (t_file_metadata), INTENT(INOUT) :: file_metadata
+    TYPE (t_file_metadata), INTENT(INOUT), OPTIONAL :: opt_file_metadata2,opt_file_metadata3,opt_file_metadata4
     ! local variables:
     CHARACTER(LEN=*), PARAMETER :: routine = TRIM(modname)//'::close_file'
     TYPE (t_file_metadata)      :: empty
 
-    SELECT CASE(file_metadata%structure)
-    CASE (GRID_TYPE_ICON)
-      CALL nf(nf_close(file_metadata%ncfileID), routine)
-      CALL streamClose(file_metadata%streamID)
-    CASE (GRID_TYPE_REGULAR)
-      CALL streamClose(file_metadata%streamID)
-    CASE DEFAULT
-      CALL finish(routine, "Unknown grid type")
-    END SELECT
-
-    file_metadata = empty
+    ! the following recursion makes this more readable on the caller
+    ! side (we can call this SR with more than one object as an
+    ! argument):
+    IF (PRESENT(opt_file_metadata4)) THEN
+      CALL close_file(opt_file_metadata4)
+      CALL close_file(file_metadata, opt_file_metadata2, opt_file_metadata3)
+    ELSE IF (PRESENT(opt_file_metadata3)) THEN
+      CALL close_file(opt_file_metadata3)
+      CALL close_file(file_metadata, opt_file_metadata2)
+    ELSE IF (PRESENT(opt_file_metadata2)) THEN
+      CALL close_file(opt_file_metadata2)
+      CALL close_file(file_metadata)
+    ELSE
+      ! close file
+      SELECT CASE(file_metadata%structure)
+      CASE (GRID_TYPE_ICON)
+        CALL nf(nf_close(file_metadata%ncfileID), routine)
+        CALL streamClose(file_metadata%streamID)
+      CASE (GRID_TYPE_REGULAR)
+        CALL streamClose(file_metadata%streamID)
+      CASE DEFAULT
+        CALL finish(routine, "Unknown grid type")
+      END SELECT
+      file_metadata = empty
+    END IF
   END SUBROUTINE close_file
 
 
@@ -207,7 +243,7 @@ CONTAINS
     CHARACTER(LEN=*),       INTENT(IN)    :: var_name           !< variable name string
     INTEGER,                INTENT(IN)    :: var_code           !< GRIB variable code
     INTEGER,                INTENT(IN)    :: nlev               !< no. of levels to read
-    TYPE(t_gather_c),       INTENT(IN)    :: gather_c           !< communication pattern
+    TYPE(t_gather),         INTENT(IN)    :: gather_c           !< communication pattern
     REAL(wp),               INTENT(INOUT) :: rfield1D(:),   &   !< global 1D field (on rank0)
       &                                      rfield2D(:,:), &   !< global 2D field (on rank0)
       &                                      rfield3D_loc(:,:,:)!< local 2D field
@@ -239,7 +275,7 @@ CONTAINS
         rfield2D(:,:) = RESHAPE(rfield1D(:), shape2d, (/ 0._wp /))
       END IF ! if rank0
       ! for distributed computation: scatter interpolation input to work PEs
-      CALL scatter_field2D_c(gather_c, rfield2D, rfield3D_loc(:,ilev,:))
+      CALL scatter_field2D(gather_c, rfield2D, rfield3D_loc(:,ilev,:))
     END DO ! ilev
   END SUBROUTINE read_field3D
 
@@ -251,7 +287,7 @@ CONTAINS
     TYPE (t_file_metadata), INTENT(IN)    :: file_metadata      !< input file meta-data
     CHARACTER(LEN=*),       INTENT(IN)    :: var_name           !< variable name string
     INTEGER,                INTENT(IN)    :: var_code           !< GRIB variable code
-    TYPE(t_gather_c),       INTENT(IN)    :: gather_c           !< communication pattern
+    TYPE(t_gather),         INTENT(IN)    :: gather_c           !< communication pattern
     REAL(wp),               INTENT(INOUT) :: rfield1D(:),   &   !< global 1D field (on rank0)
       &                                      rfield2D(:,:), &   !< global 2D field (on rank0)
       &                                      rfield2D_loc(:,:)  !< local 2D field
@@ -280,7 +316,7 @@ CONTAINS
       rfield2D(:,:) = RESHAPE(rfield1D(:), shape2d, (/ 0._wp /))
     END IF ! if rank0
     ! for distributed computation: scatter interpolation input to work PEs
-    CALL scatter_field2D_c(gather_c, rfield2D, rfield2D_loc)
+    CALL scatter_field2D(gather_c, rfield2D, rfield2D_loc)
   END SUBROUTINE read_field2D
 
 
@@ -353,7 +389,6 @@ CONTAINS
        print *, "streamID  =", m% streamID
        print *, "vlistID   =", m% vlistID
        print *, "ncfileID  =", m% ncfileID
-       print *, "gridID    =", m% gridID
        print *, "c_gridID  =", m% c_gridID
        print *, "e_gridID  =", m% e_gridID
        print *, "v_gridID  =", m% v_gridID

@@ -1,5 +1,9 @@
-!! subdivision of grids for MPI parallel runs,
-!! partly a mock-up for ICON's module.
+!! Subdivision of grids for MPI parallel runs,
+!!
+!! The subdivision algorithm is trivial (latitude-based distribution
+!! of points) and not identical to ICON's module.
+!!
+!! @author F. Prill, DWD
 !!
 MODULE mo_remap_subdivision
 
@@ -8,7 +12,8 @@ MODULE mo_remap_subdivision
   USE mo_exception,          ONLY: finish
   USE mo_impl_constants,     ONLY: SUCCESS
   USE mo_communication,      ONLY: idx_no, blk_no, idx_1d
-  USE mo_math_utilities,     ONLY: t_geographical_coordinates
+  USE mo_math_utilities,     ONLY: t_geographical_coordinates, t_cartesian_coordinates
+  USE mo_model_domain,       ONLY: t_tangent_vectors
   USE mo_remap_config,       ONLY: dbg_level
   USE mo_util_sort,          ONLY: quicksort
   USE mo_remap_shared,       ONLY: t_grid, GRID_TYPE_REGULAR, GRID_TYPE_ICON
@@ -34,6 +39,8 @@ MODULE mo_remap_subdivision
     MODULE PROCEDURE translate_g2l_2Dreal
     MODULE PROCEDURE translate_g2l_2Dint
     MODULE PROCEDURE translate_g2l_coord
+    MODULE PROCEDURE translate_g2l_ccoord
+    MODULE PROCEDURE translate_g2l_tvec
   END INTERFACE
 
   !> constants for better readability:
@@ -133,6 +140,44 @@ CONTAINS
       out_field(jc_local,jb_local) = in_field(jc_global,jb_global)
     END DO
   END SUBROUTINE translate_g2l_coord
+
+
+  SUBROUTINE translate_g2l_ccoord(nlocal, l2g_idx1,l2g_blk1, &
+    &                             in_field,out_field)
+    INTEGER, INTENT(IN)    :: nlocal
+    INTEGER, INTENT(IN)    :: l2g_idx1(:,:), l2g_blk1(:,:)
+    TYPE(t_cartesian_coordinates), INTENT(IN)    :: in_field(:,:)
+    TYPE(t_cartesian_coordinates), INTENT(INOUT) :: out_field(:,:)
+    ! local variables
+    INTEGER :: jc_local,  jb_local,  jc_global,  jb_global, ilocal_idx
+
+    DO ilocal_idx=1,nlocal
+      jc_local  = idx_no(ilocal_idx)
+      jb_local  = blk_no(ilocal_idx)
+      jc_global = l2g_idx1(jc_local,jb_local)
+      jb_global = l2g_blk1(jc_local,jb_local)
+      out_field(jc_local,jb_local) = in_field(jc_global,jb_global)
+    END DO
+  END SUBROUTINE translate_g2l_ccoord
+
+
+  SUBROUTINE translate_g2l_tvec(nlocal, l2g_idx1,l2g_blk1, &
+    &                           in_field,out_field)
+    INTEGER, INTENT(IN)    :: nlocal
+    INTEGER, INTENT(IN)    :: l2g_idx1(:,:), l2g_blk1(:,:)
+    TYPE(t_tangent_vectors), INTENT(IN)    :: in_field(:,:)
+    TYPE(t_tangent_vectors), INTENT(INOUT) :: out_field(:,:)
+    ! local variables
+    INTEGER :: jc_local,  jb_local,  jc_global,  jb_global, ilocal_idx
+
+    DO ilocal_idx=1,nlocal
+      jc_local  = idx_no(ilocal_idx)
+      jb_local  = blk_no(ilocal_idx)
+      jc_global = l2g_idx1(jc_local,jb_local)
+      jb_global = l2g_blk1(jc_local,jb_local)
+      out_field(jc_local,jb_local) = in_field(jc_global,jb_global)
+    END DO
+  END SUBROUTINE translate_g2l_tvec
 
 
   !> Partition grid, return a different subset for each MPI task.
@@ -382,12 +427,21 @@ CONTAINS
         &                grid_out%p_patch%cells%neighbor_blk)
       grid_out%vertex_nb_idx(:,:,:) = -1
       grid_out%vertex_nb_blk(:,:,:) = -1
-      CALL translate_g2l(nlocal_c, l2g_cells_idx, l2g_cells_blk,       &
-        &                g2l_cells_idx, g2l_cells_blk,                 &
-        &                grid_in%vertex_nb_idx, grid_in%vertex_nb_blk, &
+      CALL translate_g2l(nlocal_c, l2g_cells_idx, l2g_cells_blk,        &
+        &                g2l_cells_idx, g2l_cells_blk,                  &
+        &                grid_in%vertex_nb_idx, grid_in%vertex_nb_blk,  &
         &                grid_out%vertex_nb_idx,grid_out%vertex_nb_blk)
-      CALL translate_g2l(nlocal_c, l2g_cells_idx, l2g_cells_blk,       &
+      CALL translate_g2l(nlocal_c, l2g_cells_idx, l2g_cells_blk,        &
         &                grid_in%vertex_nb_stencil, grid_out%vertex_nb_stencil)
+      CALL translate_g2l(nlocal_e, l2g_edges_idx, l2g_edges_blk,        &
+        &                grid_in%p_patch%edges%center,                  &
+        &                grid_out%p_patch%edges%center)
+      CALL translate_g2l(nlocal_e, l2g_edges_idx, l2g_edges_blk,        &
+        &                 grid_in%p_patch%edges%primal_cart_normal,     &
+        &                 grid_out%p_patch%edges%primal_cart_normal)
+      CALL translate_g2l(nlocal_e, l2g_edges_idx, l2g_edges_blk,        &
+        &                grid_in%p_patch%edges%primal_normal,           &
+        &                grid_out%p_patch%edges%primal_normal)      
     CASE (GRID_TYPE_REGULAR)
       IF (PRESENT(opt_name)) THEN
         CALL allocate_gaussian_grid(grid_out, opt_name, n_patch_cells, &
@@ -479,6 +533,13 @@ CONTAINS
       jb_global = l2g_cells_blk(jc_local,jb_local)
       grid_out%p_patch%cells%glb_index(ilocal_idx) = idx_1d(jc_global,jb_global)
     END DO
+    DO ilocal_idx=1,nlocal_e
+      jc_local  = idx_no(ilocal_idx)
+      jb_local  = blk_no(ilocal_idx)
+      jc_global = l2g_edges_idx(jc_local,jb_local)
+      jb_global = l2g_edges_blk(jc_local,jb_local)
+      grid_out%p_patch%edges%glb_index(ilocal_idx) = idx_1d(jc_global,jb_global)
+    END DO
 
     ! copy local grid sizes:
     grid_out%p_patch%n_patch_cells_g = grid_in%p_patch%n_patch_cells_g
@@ -537,13 +598,16 @@ CONTAINS
         CALL allocate_icon_grid(grid_cov, "local ICON covering", n_patch_cells, &
           &                     n_patch_edges, n_patch_verts)
         ! simply copy the data:
-        grid_cov%p_patch%verts%cell_idx(:,:,:)     = grid_in%p_patch%verts%cell_idx(:,:,:)    
-        grid_cov%p_patch%verts%cell_blk(:,:,:)     = grid_in%p_patch%verts%cell_blk(:,:,:)    
-        grid_cov%p_patch%cells%neighbor_idx(:,:,:) = grid_in%p_patch%cells%neighbor_idx(:,:,:)
-        grid_cov%p_patch%cells%neighbor_blk(:,:,:) = grid_in%p_patch%cells%neighbor_blk(:,:,:)
-        grid_cov%vertex_nb_idx(:,:,:)              = grid_in%vertex_nb_idx(:,:,:)
-        grid_cov%vertex_nb_blk(:,:,:)              = grid_in%vertex_nb_blk(:,:,:)
-        grid_cov%vertex_nb_stencil(:,:)            = grid_in%vertex_nb_stencil(:,:)
+        grid_cov%p_patch%verts%cell_idx(:,:,:)         = grid_in%p_patch%verts%cell_idx(:,:,:)    
+        grid_cov%p_patch%verts%cell_blk(:,:,:)         = grid_in%p_patch%verts%cell_blk(:,:,:)    
+        grid_cov%p_patch%cells%neighbor_idx(:,:,:)     = grid_in%p_patch%cells%neighbor_idx(:,:,:)
+        grid_cov%p_patch%cells%neighbor_blk(:,:,:)     = grid_in%p_patch%cells%neighbor_blk(:,:,:)
+        grid_cov%p_patch%edges%center(:,:)             = grid_in%p_patch%edges%center(:,:)             
+        grid_cov%p_patch%edges%primal_cart_normal(:,:) = grid_in%p_patch%edges%primal_cart_normal(:,:) 
+        grid_cov%p_patch%edges%primal_normal(:,:)      = grid_in%p_patch%edges%primal_normal(:,:)      
+        grid_cov%vertex_nb_idx(:,:,:)                  = grid_in%vertex_nb_idx(:,:,:)
+        grid_cov%vertex_nb_blk(:,:,:)                  = grid_in%vertex_nb_blk(:,:,:)
+        grid_cov%vertex_nb_stencil(:,:)                = grid_in%vertex_nb_stencil(:,:)
       CASE (GRID_TYPE_REGULAR)
         CALL allocate_gaussian_grid(grid_cov, "local Gaussian covering", n_patch_cells, &
           &                         n_patch_edges, n_patch_verts)
@@ -580,6 +644,7 @@ CONTAINS
       grid_cov%p_patch%edges%cell_idx(:,:,:)    = grid_in%p_patch%edges%cell_idx(:,:,:)    
       grid_cov%p_patch%edges%cell_blk(:,:,:)    = grid_in%p_patch%edges%cell_blk(:,:,:)    
       grid_cov%p_patch%cells%glb_index(:)       = grid_in%p_patch%cells%glb_index(:)       
+      grid_cov%p_patch%edges%glb_index(:)       = grid_in%p_patch%edges%glb_index(:)       
       grid_cov%p_patch%n_patch_cells_g          = grid_in%p_patch%n_patch_cells_g
       grid_cov%p_patch%n_patch_edges_g          = grid_in%p_patch%n_patch_edges_g
       grid_cov%p_patch%n_patch_verts_g          = grid_in%p_patch%n_patch_verts_g

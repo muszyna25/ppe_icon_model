@@ -15,9 +15,9 @@ MODULE mo_remap_hydcorr
     &                              p_bcast
   USE mo_remap_io,           ONLY: t_file_metadata, get_varID,       &
     &                              read_field2D, read_field3D
-  USE mo_remap_sync,         ONLY: t_gather_c
+  USE mo_remap_sync,         ONLY: t_gather
   USE mo_util_binheap,       ONLY: t_heap_data
-  USE mo_remap_intp,         ONLY: t_intp_data, interpolate_c
+  USE mo_remap_intp,         ONLY: t_intp_data, interpolate_c_2D_cons
   USE mo_remap_shared,       ONLY: t_grid
   USE mo_ifs_coord,          ONLY: alloc_vct, auxhyb, geopot,        &
     &                              half_level_pressure, init_vct, vct
@@ -27,7 +27,7 @@ MODULE mo_remap_hydcorr
   INCLUDE 'cdi.inc'
 
   PUBLIC :: hydrostatic_correction
-  PUBLIC :: input_remap_horz
+  PUBLIC :: remap_horz
 
   CHARACTER(LEN=*), PARAMETER :: modname = TRIM('mo_remap_hydcorr')
 
@@ -147,7 +147,7 @@ CONTAINS
     TYPE (t_file_metadata),    INTENT(IN)    :: file_metadata  !< input file meta-data
     TYPE (t_field_adjustment), INTENT(IN)    :: fa             !< meta-data for hydrostatic correction
     TYPE (t_grid)  ,           INTENT(IN)    :: grid           !< source grid
-    TYPE (t_gather_c),         INTENT(IN)    :: gather_c       !< communication pattern
+    TYPE (t_gather),           INTENT(IN)    :: gather_c       !< communication pattern
     REAL(wp),                  INTENT(IN)    :: psfc(:,:)      !< surface orography height of input data [m]
     REAL(wp),                  INTENT(IN)    :: geosp(:,:)     !< surface geopotential
     REAL(wp),                  INTENT(INOUT) :: temp_v(:,:,:)  !< virtual temperature (result)
@@ -165,7 +165,7 @@ CONTAINS
     ! allocate temporary fields
     nlev = NLEV_IFS
     IF (get_my_mpi_work_id() == gather_c%rank0) THEN
-      shape2D_glb = (/ nproma,gather_c%nblks_c /)
+      shape2D_glb = (/ nproma,gather_c%nblks /)
     ELSE
       shape2D_glb = (/ 0,0 /)
     END IF
@@ -338,7 +338,7 @@ CONTAINS
     TYPE (t_grid),             INTENT(IN)    :: src_grid        !< source grid
     TYPE (t_grid),             INTENT(IN)    :: dst_grid        !< destination grid
     TYPE (t_file_metadata),    INTENT(IN)    :: file_metadata   !< input file meta-data
-    TYPE (t_gather_c),         INTENT(IN)    :: gather_c        !< communication pattern
+    TYPE (t_gather),           INTENT(IN)    :: gather_c        !< communication pattern
     TYPE (t_field_adjustment), INTENT(IN)    :: fa              !< meta-data for hydrostatic correction
     REAL(wp),                  INTENT(INOUT) :: psfc_in(:,:)    !< logarithmic surface pressure (in)
     REAL(wp),                  INTENT(INOUT) :: psfc_out(:,:)   !< output surface pressure (result)
@@ -388,7 +388,7 @@ CONTAINS
     IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
     ! allocate global input field only on PE rank0
     IF (get_my_mpi_work_id() == gather_c%rank0) THEN
-      shape2D_glb = (/ nproma,gather_c%nblks_c /)
+      shape2D_glb = (/ nproma,gather_c%nblks /)
     ELSE
       shape2D_glb = (/ 0,0 /)
     END IF
@@ -432,7 +432,7 @@ CONTAINS
     ! --- horizontal interpolation of surface orography height
     IF (dbg_level >= 5) &
       & WRITE (0,*) "horizontal interpolation of surface orography height"
-    CALL interpolate_c(zsfc_in, zsfc_out, dst_grid, intp_data)
+    CALL interpolate_c_2D_cons(zsfc_in, zsfc_out, dst_grid, intp_data)
 
     ! --- loop over grid points in 2D field:
 
@@ -550,13 +550,14 @@ CONTAINS
     END DO
   END FUNCTION get_nearest_vlevel
 
+
   !============================================================================
   !> Performs horizontal remapping of a single data field.
   !
   !  Requires pre-computed interpolation weights.
   !
-  SUBROUTINE input_remap_horz(file_metadata, field_src, field_dst, src_grid, dst_grid, &
-    &                         fa, dst_intp_data, gather_c)
+  SUBROUTINE remap_horz(file_metadata, field_src, field_dst, src_grid, dst_grid, &
+    &                   fa, dst_intp_data, gather_c)
     TYPE (t_file_metadata),    INTENT(IN)    :: file_metadata    !< input file meta-data
     REAL(wp),                  INTENT(INOUT) :: field_src(:,:)   !< input field (may be modified)
     REAL(wp),                  INTENT(INOUT) :: field_dst(:,:)   !< output field
@@ -564,18 +565,18 @@ CONTAINS
     TYPE (t_grid),             INTENT(IN)    :: dst_grid         !< destination grid
     TYPE (t_field_adjustment), INTENT(IN)    :: fa               !< meta-data for hydrostatic correction
     TYPE(t_intp_data),         INTENT(IN)    :: dst_intp_data    !< input file meta-data
-    TYPE(t_gather_c),          INTENT(IN)    :: gather_c         !< communication pattern
+    TYPE(t_gather),            INTENT(IN)    :: gather_c         !< communication pattern
 
-    IF (dbg_level >= 5) &
-      & WRITE (0,*) "horizontal remapping..."
+    IF (dbg_level >= 5)  WRITE (0,*) "horizontal remapping..."
+
     IF (.NOT. fa%lhydrostatic_correction) THEN
-      CALL interpolate_c(field_src, field_dst, dst_grid, dst_intp_data)
+      CALL interpolate_c_2D_cons(field_src, field_dst, dst_grid, dst_intp_data)
     ELSE
       CALL hydrostatic_correction(dst_intp_data, src_grid, dst_grid, file_metadata, &
         &                         gather_c, fa, field_src, field_dst)
     END IF
 
-  END SUBROUTINE input_remap_horz
+  END SUBROUTINE remap_horz
 
 
 END MODULE mo_remap_hydcorr

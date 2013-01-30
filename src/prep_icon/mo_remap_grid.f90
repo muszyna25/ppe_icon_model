@@ -15,7 +15,8 @@ MODULE mo_remap_grid
     &                              LIST_DEFAULT
   USE mo_remap_grid_icon,    ONLY: load_icon_grid
   USE mo_remap_grid_regular, ONLY: load_gaussian_grid,                      &
-    &                              get_containing_cell_gauss => get_containing_cell
+    &                              get_containing_cell_gauss => get_containing_primal_cell
+  USE mo_gnat_gridsearch,    ONLY: gnat_tree, UNASSOCIATED
   USE mo_remap_io,           ONLY: t_file_metadata
   IMPLICIT NONE
 
@@ -58,13 +59,13 @@ CONTAINS
     INTEGER :: ierrstat
 
     ! the following recursion makes this more readable on the caller
-    ! side:
+    ! side, since it allows the destruction of multiple grids at once:
     IF (PRESENT(opt_grid4)) THEN
       CALL finalize_grid(opt_grid4)
       CALL finalize_grid(grid, opt_grid2, opt_grid3)
       RETURN
     ELSE IF (PRESENT(opt_grid3)) THEN
-      CALL finalize_grid(opt_grid3, opt_grid4)
+      CALL finalize_grid(opt_grid3)
       CALL finalize_grid(grid, opt_grid2)
       RETURN
     ELSE IF (PRESENT(opt_grid2)) THEN
@@ -88,7 +89,12 @@ CONTAINS
       DEALLOCATE(grid%p_patch%verts%cell_idx,   grid%p_patch%verts%cell_blk,       &
         &        grid%p_patch%cells%neighbor_idx, grid%p_patch%cells%neighbor_blk, &
         &        grid%vertex_nb_idx, grid%vertex_nb_blk,                           &
-        &        grid%vertex_nb_stencil, STAT=ierrstat)
+        &        grid%vertex_nb_stencil,                                           &
+        &        grid%p_patch%edges%center, grid%p_patch%edges%primal_cart_normal, &
+        &        grid%p_patch%edges%primal_normal,                                 &
+        &        grid%p_patch%verts%neighbor_idx,                                  &
+        &        grid%p_patch%verts%neighbor_blk,                                  &
+        &        STAT=ierrstat)
       IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed (ICON)!")
     END IF
 
@@ -99,6 +105,7 @@ CONTAINS
       &        grid%p_patch%edges%vertex_idx, grid%p_patch%edges%vertex_blk, &
       &        grid%p_patch%edges%cell_idx,   grid%p_patch%edges%cell_blk,   &
       &        grid%p_patch%cells%glb_index,                                 &
+      &        grid%p_patch%edges%glb_index,                                 &
       &        STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed (common)!")
 

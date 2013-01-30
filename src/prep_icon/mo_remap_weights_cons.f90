@@ -29,7 +29,7 @@
 !! Possible compiler bug: The following option directive line has proven to be necessary
 !! when compiling with "-Chopt" on the NEC SX9, Rev.451 2012/06/20 [F. Prill, DWD]:
 !option! -O nodarg
-MODULE mo_remap_weights
+MODULE mo_remap_weights_cons
 
 !$  USE OMP_LIB
 
@@ -65,17 +65,17 @@ MODULE mo_remap_weights
   USE mo_remap_grid,         ONLY: get_containing_cell
   USE mo_remap_intp,         ONLY: t_intp_data, t_intp_data_mt,               &
     &                              reduce_mthreaded_weights,                  &
-    &                              allocate_intp_data,  deallocate_intp_data, &
+    &                              allocate_intp_data,  finalize_intp_data,   &
     &                              merge_heaps, sync_foreign_wgts,            &
     &                              resize_intp_data_mthreaded, divide_by_area
  
   IMPLICIT NONE
 
   PRIVATE
-  PUBLIC :: prepare_interpolation
+  PUBLIC :: prepare_interpolation_cons
   PUBLIC :: consistency_check
 
-  CHARACTER(LEN=*), PARAMETER :: modname = TRIM('mo_remap_weights')
+  CHARACTER(LEN=*), PARAMETER :: modname = TRIM('mo_remap_weights_cons')
  
 CONTAINS
 
@@ -624,14 +624,14 @@ CONTAINS
 
   !> Computes interpolation weights.
   !
-  SUBROUTINE prepare_interpolation(grid1, grid2, grid1_cov, grid2_cov, intp_data1, intp_data2, &
-    &                              max_nforeign)
+  SUBROUTINE prepare_interpolation_cons(grid1, grid2, grid1_cov, grid2_cov, &
+    &                                   intp_data1, intp_data2, max_nforeign)
     TYPE (t_grid),     INTENT(INOUT) :: grid1, grid2            !< local grid partition
     TYPE (t_grid),     INTENT(INOUT) :: grid1_cov, grid2_cov    !< local grid partition coverings
     TYPE(t_intp_data), INTENT(INOUT) :: intp_data1, intp_data2  !< interpolation coefficients (result)
     INTEGER,           INTENT(IN)    :: max_nforeign            !< upper bounds for size of weight storage for other PEs
     ! local variables
-    CHARACTER(LEN=*), PARAMETER :: routine = TRIM(TRIM(modname)//'::prepare_interpolation')
+    CHARACTER(LEN=*), PARAMETER :: routine = TRIM(TRIM(modname)//'::prepare_interpolation_cons')
     TYPE (t_intp_data_mt) :: intp_data1_mt, intp_data2_mt
     INTEGER  :: nthreads, ierrstat, ithrd
     REAL(wp) :: thresh
@@ -705,13 +705,13 @@ CONTAINS
         IF (dbg_level >= 10) &
           &   WRITE (0,*) "# list length 1: ", intp_data1%s_nlist
         ! clean up
-        CALL deallocate_intp_data(intp_data1_mt)
+        CALL finalize_intp_data(intp_data1_mt)
       CASE(2)
         CALL reduce_mthreaded_weights(intp_data2_mt, intp_data2)
         IF (dbg_level >= 10) &
           &   WRITE (0,*) "# list length 2: ", intp_data2%s_nlist
         ! clean up
-        CALL deallocate_intp_data(intp_data2_mt)
+        CALL finalize_intp_data(intp_data2_mt)
       END SELECT
     END DO
 !$OMP END DO
@@ -737,7 +737,7 @@ CONTAINS
     CALL node_storage_finalize(1)
     DEALLOCATE(node_storage, nnode, STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")
-  END SUBROUTINE prepare_interpolation
+  END SUBROUTINE prepare_interpolation_cons
 
 
   !> Perform some consistency checks: Check for negative weights and
@@ -826,9 +826,9 @@ CONTAINS
     END DO BLOCKLOOP
 !$OMP END DO
     IF (dbg_level >= 1)  &
-      WRITE (0,*) "Nearest-neighbor interpolation fix needed for ", icount, " cells."
+      WRITE (0,*) "# Nearest-neighbor interpolation fix needed for ", icount, " cells."
 !$OMP END PARALLEL
 
   END SUBROUTINE correct_wgts_at_nest_boundary
 
-END MODULE mo_remap_weights
+END MODULE mo_remap_weights_cons

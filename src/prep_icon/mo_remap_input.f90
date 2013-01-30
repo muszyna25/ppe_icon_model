@@ -1,5 +1,7 @@
 !> Defines, loads input data.
 !
+!  @author F. Prill, DWD
+!
 MODULE mo_remap_input
 
   USE mo_kind,               ONLY: wp
@@ -13,11 +15,11 @@ MODULE mo_remap_input
   USE mo_io_units,           ONLY: nnml
   USE mo_namelist,           ONLY: POSITIONED, position_nml, open_nml, close_nml
   USE mo_util_sort,          ONLY: quicksort
+  USE mo_util_string,        ONLY: tolower
   USE mo_mpi,                ONLY: get_my_mpi_work_id, p_comm_work, p_int, p_bcast
-  USE mo_remap_config,       ONLY: dbg_level, MAX_NAME_LENGTH
+  USE mo_remap_config,       ONLY: dbg_level, MAX_NAME_LENGTH, MAX_NZAXIS, MAX_INPUT_FIELDS
   USE mo_remap_shared,       ONLY: t_grid, GRID_TYPE_REGULAR
-  USE mo_remap_intp,         ONLY: t_intp_data, interpolate_c
-  USE mo_remap_sync,         ONLY: t_gather_c, scatter_field2D_c
+  USE mo_remap_sync,         ONLY: t_gather, scatter_field2D
   USE mo_remap_io,           ONLY: t_file_metadata, get_varID, &
     &                              in_file_gribedition
 
@@ -35,11 +37,14 @@ MODULE mo_remap_input
   PUBLIC :: n_input_fields, input_field
   PUBLIC :: global_metadata
   PUBLIC :: n_zaxis, zaxis_metadata
+  PUBLIC :: field_id_u, field_id_v
   PUBLIC :: t_field_metadata
   PUBLIC :: t_global_metadata
   PUBLIC :: t_zaxis_metadata
   PUBLIC :: t_field_adjustment
-  PUBLIC :: MAX_INPUT_FIELDS, MAX_NZAXIS, CONST_FALSE
+  PUBLIC :: CONST_UNINITIALIZED, CONST_FALSE, CONST_TRUE
+  PUBLIC :: INTP_CONS, INTP_RBF, INTP_NONE
+  PUBLIC :: CELL_GRID, EDGE_GRID
 
   CHARACTER(LEN=*), PARAMETER :: modname = TRIM('mo_remap_input')
 
@@ -47,6 +52,18 @@ MODULE mo_remap_input
   INTEGER, PARAMETER :: CONST_UNINITIALIZED = -1
   INTEGER, PARAMETER :: CONST_FALSE         =  0
   INTEGER, PARAMETER :: CONST_TRUE          =  1
+
+  ! interpolation method:
+  INTEGER, PARAMETER :: INTP_NONE           =  1 !< no interpolation
+  INTEGER, PARAMETER :: INTP_CONS           =  2 !< conservative interpolation weights
+  INTEGER, PARAMETER :: INTP_RBF            =  3 !< RBF interpolation weights
+
+  ! important for unstructured grid: grid type CELL/EDGE
+  INTEGER, PARAMETER :: CELL_GRID           =  1 !< unstructured cell grid or structured grid
+  INTEGER, PARAMETER :: EDGE_GRID           =  2 !< unstructured cell grid or structured grid
+  
+  CHARACTER(LEN=13), PARAMETER :: INTP_NAME_STR(3) = &
+    & (/ "none/indirect", "conservative ", "rbf          " /)
 
 
   !> Data structure containing global meta data
@@ -84,21 +101,24 @@ MODULE mo_remap_input
   TYPE t_field_metadata
     ! user-defined (by namelist):
     CHARACTER (len=MAX_NAME_LENGTH)  :: inputname, outputname !< variable name
-    INTEGER                          :: code, table
+    INTEGER                          :: code
     CHARACTER (len=MAX_NAME_LENGTH)  :: type_of_layer         !< level type
+    ! important for unstructured grid: grid type CELL/EDGE
+    INTEGER                          :: grid_type             !< CELL / EDGE
     ! meta-data (from input file):
     TYPE (t_cf_var)                  :: cf                    !< CF convention information
     TYPE(t_grib2_var)                :: grib2                 !< GRIB2 related information
     INTEGER                          :: steptype
-    INTEGER                          :: idim(2)               !< horizontal field dimensions
     INTEGER                          :: nlev                  !< no. of vertical levels
     ! meta-data on missing values
     INTEGER                          :: has_missvals          !< Flag: miss vals present? (-1: uninitialized,0:no,1:yes)
     REAL(wp)                         :: missval               !< missing value
     ! meta-data for field adjustment
     TYPE (t_field_adjustment)        :: fa
-    ! internal IDs for CDI
-    INTEGER :: varID, gridID, zaxisID
+    ! internal IDs for CDI (IDs correspond to input data file)
+    INTEGER                          :: varID, zaxisID
+    ! meta-data for interpolation method
+    INTEGER                          :: intp_method           !< INTP_CONS / INTP_RBF / INTP_NONE
   END TYPE t_field_metadata
 
   !> Data structure containing meta data for a single z-axis object
@@ -113,15 +133,12 @@ MODULE mo_remap_input
     INTEGER                       :: zaxisID
   END TYPE t_zaxis_metadata
 
-  ! meta data ("config state")
-  INTEGER, PARAMETER              :: MAX_INPUT_FIELDS = 50 !< maximum number of INPUT fields
-  INTEGER, PARAMETER              :: MAX_NZAXIS     = 15   !< maximum number of z-axis objects
-
   TYPE(t_global_metadata)         :: global_metadata       !< global meta-data
   INTEGER                         :: n_input_fields        !< no. of INPUT fields
   TYPE (t_field_metadata), ALLOCATABLE :: input_field(:)   !< list of INPUT fields
   INTEGER                         :: n_zaxis               !< no. of z-axis objects
   TYPE(t_zaxis_metadata)          :: zaxis_metadata(MAX_NZAXIS) !< z-axis meta-data
+  INTEGER                         :: field_id_u, field_id_v !< field indices for "u", "v" component (if available)
 
   ! input variables for the *current* field namelist (there's more than one!)
   CHARACTER (len=MAX_NAME_LENGTH) :: inputname, outputname
@@ -138,6 +155,8 @@ MODULE mo_remap_input
   REAL(wp)                        :: hpbl1                     !< height above ground of surface inversion top
   REAL(wp)                        :: hpbl2                     !< top of layer used to estimate the vertical
                                                                !  temperature gradient above the inversion
+
+
   ! namelist definition: namelist for a single field
   NAMELIST/input_field_nml/ inputname, outputname, code, type_of_layer,   &
     &                       lhydrostatic_correction, var_temp, code_temp, &
@@ -149,15 +168,20 @@ CONTAINS
 
   !> Opens input namelist file and loads meta data.
   !
-  SUBROUTINE read_input_namelist(input_cfg_filename, rank0)
+  SUBROUTINE read_input_namelist(input_cfg_filename, rank0, lcompute_vn, lcompute_vt)
     CHARACTER(LEN=*), INTENT(IN) :: input_cfg_filename !< field config namelist file
-    INTEGER,                INTENT(IN)    :: rank0
+    INTEGER,          INTENT(IN) :: rank0
+    LOGICAL,          INTENT(IN) :: lcompute_vn   !< Flag: .TRUE., if normal wind shall be computed (instead of u,v)
+    LOGICAL,          INTENT(IN) :: lcompute_vt   !< Flag: .TRUE., if tangential wind shall be computed
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = TRIM(TRIM(modname)//'::read_input_namelist')
     INTEGER :: istat, ierrstat
     LOGICAL :: lrewind
 
     n_input_fields = 0
+    field_id_u = CONST_UNINITIALIZED
+    field_id_v = CONST_UNINITIALIZED
+
     ALLOCATE(input_field(MAX_INPUT_FIELDS), STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
 
@@ -200,24 +224,55 @@ CONTAINS
       input_field(n_input_fields)%outputname      = TRIM(outputname)
       input_field(n_input_fields)%code            = code
       input_field(n_input_fields)%type_of_layer   = TRIM(type_of_layer)
+      input_field(n_input_fields)%grid_type       = CELL_GRID
+
+      ! default interpolation method: INTP_CONS, only "u", "v" are
+      ! treated with RBF interpolation weights:
+      IF ((lcompute_vt) .OR. (lcompute_vn)) THEN
+        IF (TRIM(tolower(inputname)) == "u") THEN
+          input_field(n_input_fields)%intp_method = INTP_NONE  
+          field_id_u = n_input_fields
+        ELSE IF (TRIM(tolower(inputname)) == "v") THEN
+          input_field(n_input_fields)%intp_method = INTP_NONE 
+          field_id_v = n_input_fields
+        ELSE
+          input_field(n_input_fields)%intp_method = INTP_CONS        
+        END IF
+      ELSE
+        input_field(n_input_fields)%intp_method = INTP_CONS        
+      END IF
 
       input_field(n_input_fields)%fa%lhydrostatic_correction  = lhydrostatic_correction
-      input_field(n_input_fields)%fa%var_temp                 = var_temp
-      input_field(n_input_fields)%fa%code_temp                = code_temp
-      input_field(n_input_fields)%fa%var_geosp                = var_geosp
-      input_field(n_input_fields)%fa%code_geosp               = code_geosp
-      input_field(n_input_fields)%fa%var_qv                   = var_qv
-      input_field(n_input_fields)%fa%code_qv                  = code_qv
-      input_field(n_input_fields)%fa%hpbl1                    = hpbl1
-      input_field(n_input_fields)%fa%hpbl2                    = hpbl2
+      input_field(n_input_fields)%fa%var_temp   = var_temp
+      input_field(n_input_fields)%fa%code_temp  = code_temp
+      input_field(n_input_fields)%fa%var_geosp  = var_geosp
+      input_field(n_input_fields)%fa%code_geosp = code_geosp
+      input_field(n_input_fields)%fa%var_qv     = var_qv
+      input_field(n_input_fields)%fa%code_qv    = code_qv
+      input_field(n_input_fields)%fa%hpbl1      = hpbl1
+      input_field(n_input_fields)%fa%hpbl2      = hpbl2
+
+      ! not yet initialized:
+      input_field(n_input_fields)%steptype      = -1
+      input_field(n_input_fields)%varID         = CDI_UNDEFID
+      input_field(n_input_fields)%zaxisID       = CDI_UNDEFID
 
       IF (get_my_mpi_work_id() == rank0) &
         &  CALL input_print_metadata(input_field(n_input_fields))
     END DO CFG_LOOP
 
+    ! ------------------
+    ! consistency checks
+    ! ------------------
+
     ! error message if 0 input fields were configured:
     IF (n_input_fields == 0) &
       &  CALL finish(routine, "No input fields found in configuration namelist!")
+
+    IF (ANY((input_field(:)%fa%lhydrostatic_correction) .AND.   &
+      &     (input_field(:)%intp_method  == INTP_RBF))) THEN
+      CALL finish(routine, "No hydrostatic correction with RBF interpolated fields!")
+    END IF
 
   END SUBROUTINE read_input_namelist
 
@@ -230,6 +285,7 @@ CONTAINS
     WRITE (0,*)        "# input field '"//TRIM(field%inputname)//"' -> '"//TRIM(field%outputname)//"'"
     WRITE (0,'(a,i3)') " #     code          : ", field%code
     WRITE (0,'(a,a)')  " #     type_of_layer : ", TRIM(field%type_of_layer)
+    WRITE (0,'(a,a)')  " #     interpolation : ", TRIM(INTP_NAME_STR(field%intp_method))
   END SUBROUTINE input_print_metadata
 
 
@@ -237,7 +293,7 @@ CONTAINS
   !
   !  Uses cdilib for file access. Checks for consistency of meta data.
   !
-  ! @todo Consistency checks of variable metadata still missing!
+  !  @todo Consistency checks of variable metadata still missing!
   !
   FUNCTION get_field_varID(vlistID, field_info) RESULT(result_varID)
     INTEGER                             :: result_varID
@@ -290,18 +346,14 @@ CONTAINS
       IF (input_field(i)%varID /= -1) THEN
         IF (get_my_mpi_work_id() == rank0) THEN
           ! get the corresponding grid ID
-          input_field(i)%gridID  = vlistInqVarGrid( vlistID, input_field(i)%varID)
           input_field(i)%zaxisID = vlistInqVarZaxis(vlistID, input_field(i)%varID)
           ! get the field dimensions:
-          input_field(i)%idim(:)  = (/ gridInqXsize(input_field(i)%gridID), &
-            &                          gridInqYsize(input_field(i)%gridID) /)
           input_field(i)%nlev     = zaxisInqSize(input_field(i)%zaxisID)
           IF ((input_field(i)%type_of_layer == "surface") .AND.  &
             & (input_field(i)%nlev /= 1)) THEN
             CALL finish(routine, TRIM(input_field(i)%inputname)//": Inconsistent input data (level no.)")
           END IF
           input_field(i)%steptype = vlistInqVarTsteptype(vlistID, input_field(i)%varID)
-          input_field(i)%table    = vlistInqVarTable(vlistID, input_field(i)%varID)
           ! get CF information on variable:
           CALL vlistInqVarLongname(vlistID, input_field(i)%varID, input_field(i)%cf%long_name    )
           CALL vlistInqVarStdName( vlistID, input_field(i)%varID, input_field(i)%cf%standard_name)
@@ -322,17 +374,6 @@ CONTAINS
         input_field(i)%has_missvals = CONST_UNINITIALIZED ! unitialized
       END IF ! (varID /= -1)
     END DO
-
-    IF (get_my_mpi_work_id() == rank0) THEN
-      ! make sure that there is only one grid definition for regular
-      ! grids:
-      IF (file%structure == GRID_TYPE_REGULAR) THEN
-        DO i=2,n_input_fields
-          IF (input_field(1)%gridID /= input_field(2)%gridID) &
-            &   CALL finish(routine, "Only single-grid source file supported!")
-        END DO
-      END IF
-    END IF
 
     ! create a unique list of z-axes which are in use:
     IF (dbg_level >= 10)  WRITE (0,*) "# read z-axis meta-data"
@@ -425,13 +466,13 @@ CONTAINS
 
     TYPE (t_file_metadata), INTENT(IN) :: file_metadata
     INTEGER,           INTENT(IN)    :: ivar
-    TYPE(t_gather_c),  INTENT(IN)    :: gather_c         !< communication pattern
+    TYPE(t_gather),    INTENT(IN)    :: gather_c         !< communication pattern
     REAL(wp),          INTENT(INOUT) :: dst_field(:,:,:)
     TYPE (t_grid),     INTENT(IN)    :: src_grid
     REAL, INTENT(INOUT), OPTIONAL    :: opt_time_comm, opt_time_read
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = TRIM(modname)//':input_import_data'
-    INTEGER :: streamID, ierrstat, nmiss, nsize, i, j, &
+    INTEGER :: streamID, ierrstat, nmiss, nsize,  &
       &        shape2D_glb(2), shape2D_loc(2), ilev, maxblk, has_missvals
     REAL(wp), ALLOCATABLE :: rfield1D(:), rfield2D(:,:), rfield2D_loc(:,:)
     REAL    :: time_comm, time_read
@@ -456,12 +497,7 @@ CONTAINS
     IF (input_field(ivar)%varID /= -1) THEN
       IF (get_my_mpi_work_id() == gather_c%rank0) THEN
         ! get the 1D input field size
-        nsize = gridInqSize(input_field(ivar)%gridID)
-        IF (file_metadata%structure == GRID_TYPE_REGULAR) THEN
-          IF (nsize /= (input_field(ivar)%idim(1)*input_field(ivar)%idim(2))) &
-            &   CALL finish(routine, "Internal error!") ! paranoia
-        END IF
-
+        nsize = gridInqSize(file_metadata%c_gridID)
         IF (.NOT. ALLOCATED(rfield1D)) THEN
           ! allocate a temporary field to hold the GRIB data
           ALLOCATE(rfield1D(nsize), STAT=ierrstat)
@@ -505,7 +541,7 @@ CONTAINS
 
         ! for distributed computation: scatter interpolation input to work PEs
         CALL tic(time_comm)  ! performance measurement: start
-        CALL scatter_field2D_c(gather_c, rfield2D, rfield2D_loc)
+        CALL scatter_field2D(gather_c, rfield2D, rfield2D_loc)
         IF (PRESENT(opt_time_comm)) opt_time_comm = opt_time_comm + toc(time_comm)
 
         !-----------------------

@@ -1368,7 +1368,7 @@ src/prep_icon/mo_remap_output.f90 -text
 src/prep_icon/mo_remap_shared.f90 -text
 src/prep_icon/mo_remap_subdivision.f90 -text
 src/prep_icon/mo_remap_sync.f90 -text
-src/prep_icon/mo_remap_weights.f90 -text
+src/prep_icon/mo_remap_weights_cons.f90 -text
 src/shared/mo_cdi_constants.f90 -text
 src/shared/mo_datetime.f90 -text
 src/shared/mo_dictionary.f90 -text

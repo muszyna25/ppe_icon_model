@@ -1,6 +1,6 @@
+! Loads a regular grid into patch variables.
 !
-! @todo cell centers are only necessary for debugging purposes and can
-! be removed later.
+! @author F. Prill, DWD
 !
 MODULE mo_remap_grid_regular
 
@@ -24,7 +24,8 @@ MODULE mo_remap_grid_regular
   PRIVATE
   PUBLIC :: load_gaussian_grid
   PUBLIC :: allocate_gaussian_grid
-  PUBLIC :: get_containing_cell
+  PUBLIC :: get_containing_primal_cell
+  PUBLIC :: get_containing_dual_cell
   PUBLIC :: latlon_compute_area
 
   CHARACTER(LEN=*), PARAMETER :: modname = TRIM('mo_remap_grid_regular')  
@@ -160,17 +161,52 @@ CONTAINS
 
 
   ! --------------------------------------------------------------------
-  !> @return global index of containing cell.
+  !> Search for an index in a pre-sorted array
+  !  such that gx(i) <= xin <= gx(i+1)
   !
-  ! @todo enhance performance by
-  !       - assuming an equidistant grid, or
-  !       - using a bisection method
+  PURE SUBROUTINE binary_search(xin, gx, ix)
+    REAL(wp), INTENT(IN)  :: xin    !< search point
+    REAL(wp), INTENT(IN)  :: gx(:)  !< pre-sorted array
+    INTEGER,  INTENT(OUT) :: ix     !< resulting index
+    ! local variables
+    INTEGER :: i, ih, nx
+
+    nx    = SIZE(gx)
+    i     = 1
+    ih    = nx/2
+    ix    = -1
+
+    ! perform binary search
+    DO
+      IF (i >= nx) EXIT ! abort, not found...
+      IF ((xin >= gx(i)) .AND. (xin <= gx(i+1))) THEN
+        ! found what we want
+        ix = i
+        RETURN
+      ENDIF
+      IF (i >= ih) EXIT ! abort, not found...
+      IF (xin >= gx(ih)) THEN
+        ! xin is in second half of array
+        i  = ih
+        ih = nx-(nx-ih)/2
+      ELSE
+        ! xin is in first half of array
+        i  = i+1
+        ih = i+(ih-i)/2
+      ENDIF
+    END DO
+  END SUBROUTINE binary_search
+
+
+  ! --------------------------------------------------------------------
+  !> @return global index of containing (primal) cell.
   !
-  ELEMENTAL FUNCTION get_containing_cell(grid, p_in) RESULT(global_idx)
+  ELEMENTAL FUNCTION get_containing_primal_cell(grid, p_in) RESULT(global_idx)
     INTEGER :: global_idx 
     TYPE (t_regular_grid),             INTENT(IN) :: grid
     TYPE (t_geographical_coordinates), INTENT(IN) :: p_in
     ! local variables
+    LOGICAL, PARAMETER :: l_use_binsearch = .TRUE.
     TYPE (t_geographical_coordinates) :: p
     INTEGER :: cell_row, cell_col, i, k1
 
@@ -178,44 +214,122 @@ CONTAINS
     cell_row = 1
     cell_col = 1
 
-    k1 = -1
-    DO i=1,(grid%nxpoints-1)
-      IF ((p%lon >= grid%xvals1D(i)) .AND. &
-        & (p%lon <= grid%xvals1D(i+1))) THEN
-        k1=i
+    IF (.NOT. l_use_binsearch) THEN
+      ! search longitude direction
+      k1 = -1
+      DO i=1,(grid%nxpoints-1)
+        IF ((p%lon >= grid%xvals1D(i)) .AND. &
+          & (p%lon <= grid%xvals1D(i+1))) THEN
+          k1=i
+          IF (ABS(p%lon - grid%xvals1D(i)) < ABS(p%lon - grid%xvals1D(i+1))) THEN
+            cell_col=i
+          ELSE
+            cell_col=i+1
+          END IF
+        END IF
+      END DO
+      IF (k1 == -1) THEN
+        IF (ABS(p%lon - grid%xvals1D(1)) < ABS(p%lon+360. - grid%xvals1D(grid%nxpoints))) THEN
+          cell_col=1
+        ELSE
+          cell_col=grid%nxpoints
+        END IF
+      END IF
+      ! search latitude direction
+      IF (grid%yvals1D(1) > p%lat) THEN
+        cell_row = 1
+      ELSE IF (grid%yvals1D(grid%nypoints) < p%lat) THEN
+        cell_row = grid%nypoints
+      ELSE
+        DO i=1,(grid%nypoints-1)
+          IF ((p%lat >= grid%yvals1D(i)) .AND. &
+            & (p%lat <= grid%yvals1D(i+1))) THEN
+            IF (ABS(p%lat - grid%yvals1D(i)) < ABS(p%lat - grid%yvals1D(i+1))) THEN
+              cell_row=i
+            ELSE
+              cell_row=i+1
+            END IF
+          END IF
+        END DO
+      END IF
+    ELSE
+      ! search longitude direction
+      CALL binary_search(p%lon, grid%xvals1D, i)    
+      IF (i /= -1) THEN
         IF (ABS(p%lon - grid%xvals1D(i)) < ABS(p%lon - grid%xvals1D(i+1))) THEN
           cell_col=i
         ELSE
           cell_col=i+1
         END IF
-      END IF
-    END DO
-    IF (k1 == -1) THEN
-      IF (ABS(p%lon - grid%xvals1D(1)) < ABS(p%lon+360. - grid%xvals1D(grid%nxpoints))) THEN
-        cell_col=1
       ELSE
-        cell_col=grid%nxpoints
-      END IF
-    END IF
-
-    IF (grid%yvals1D(1) > p%lat) THEN
-      cell_row = 1
-    ELSE IF (grid%yvals1D(grid%nypoints) < p%lat) THEN
-      cell_row = grid%nypoints
-    ELSE
-      DO i=1,(grid%nypoints-1)
-        IF ((p%lat >= grid%yvals1D(i)) .AND. &
-          & (p%lat <= grid%yvals1D(i+1))) THEN
-          IF (ABS(p%lat - grid%yvals1D(i)) < ABS(p%lat - grid%yvals1D(i+1))) THEN
-            cell_row=i
-          ELSE
-            cell_row=i+1
-          END IF
+        IF (ABS(p%lon - grid%xvals1D(1)) < ABS(p%lon+360. - grid%xvals1D(grid%nxpoints))) THEN
+          cell_col=1
+        ELSE
+          cell_col=grid%nxpoints
         END IF
-      END DO
+      END IF
+      ! search latitude direction
+      IF (grid%yvals1D(1) > p%lat) THEN
+        cell_row = 1
+      ELSE IF (grid%yvals1D(grid%nypoints) < p%lat) THEN
+        cell_row = grid%nypoints
+      ELSE
+        CALL binary_search(p%lat, grid%yvals1D, i)
+        IF (ABS(p%lat - grid%yvals1D(i)) < ABS(p%lat - grid%yvals1D(i+1))) THEN
+          cell_row=i
+        ELSE
+          cell_row=i+1
+        END IF
+      END IF
     END IF
     global_idx = (grid%yperm1D(cell_row)-1)*grid%nxpoints + grid%xperm1D(cell_col)
-  END FUNCTION get_containing_cell
+  END FUNCTION get_containing_primal_cell
+
+
+  ! --------------------------------------------------------------------
+  !> @return Returns the four global indices of the primal cells whose
+  !          centers form the DUAL cell which contains the given
+  !          point @p_in.
+  !
+  FUNCTION get_containing_dual_cell(grid, p_in) RESULT(global_idx)
+    INTEGER :: global_idx(4)
+    TYPE (t_regular_grid),             INTENT(IN) :: grid
+    TYPE (t_geographical_coordinates), INTENT(IN) :: p_in
+    ! local variables
+    CHARACTER(LEN=*), PARAMETER :: routine    = TRIM(TRIM(modname)//'::get_containing_dual_cell')
+    TYPE (t_geographical_coordinates) :: p
+    INTEGER :: cell_row(2), cell_col(2), i,j,idx
+
+    p = normalized_coord(p_in)
+    ! find enclosing grid points
+    CALL binary_search(p%lon, grid%xvals1D, cell_col(1))    
+    IF (cell_col(1) == -1)  THEN
+      cell_col(1)  = grid%nxpoints
+      cell_col(2) = 1
+    ELSE
+      cell_col(2) = cell_col(1) + 1
+    END IF
+    CALL binary_search(p%lat, grid%yvals1D, cell_row(1))    
+    IF (cell_row(1) == -1)  THEN
+      IF (p%lat < grid%yvals1D(1)) THEN
+        cell_row(1:2) = (/ 1, 2 /)
+      ELSE IF (p%lat > grid%yvals1D(grid%nypoints)) THEN
+        cell_row(1:2) = (/ grid%nypoints-1, grid%nypoints /)
+      ELSE
+        CALL finish(routine, "Internal error!")
+      END IF
+    ELSE
+      cell_row(2) = cell_row(1) + 1
+    END IF
+    ! compute corresponding cell indices
+    idx = 1
+    DO i=1,2
+      DO j=1,2
+        global_idx(idx) = (grid%yperm1D(cell_row(i))-1)*grid%nxpoints + grid%xperm1D(cell_col(j))
+        idx = idx + 1
+      END DO
+    END DO
+  END FUNCTION get_containing_dual_cell
 
 
   ! --------------------------------------------------------------------
@@ -380,7 +494,7 @@ CONTAINS
       grid%regular_grid%edge_lat(i) = (grid%regular_grid%yvals1D(i) + grid%regular_grid%yvals1D(i-1))/2._wp
     END DO
     grid%regular_grid%edge_lon(1) = (grid%regular_grid%xvals1D(1) + 360._wp + &
-      &     grid%regular_grid%xvals1D(xsize))/2._wp
+      &                             grid%regular_grid%xvals1D(xsize))/2._wp
     IF (grid%regular_grid%edge_lon(1) > 360._wp) THEN
       grid%regular_grid%edge_lon(1) = grid%regular_grid%edge_lon(1) - 360._wp
     END IF
@@ -490,6 +604,7 @@ CONTAINS
 
     ! set (trivial) local-to-global mapping:
     grid%p_patch%cells%glb_index(:) = (/ ( i, i=1,grid%p_patch%n_patch_cells) /)
+    grid%p_patch%edges%glb_index(:) = (/ ( i, i=1,grid%p_patch%n_patch_edges) /)
 
     ! set characteristic grid size
     grid%char_length = ABS(grid%regular_grid%edge_lat(yperm(3))-grid%regular_grid%edge_lat(yperm(2)))
@@ -537,6 +652,7 @@ CONTAINS
       &      grid%p_patch%edges%cell_idx(    nproma, grid%p_patch%nblks_e, 2),                     &
       &      grid%p_patch%edges%cell_blk(    nproma, grid%p_patch%nblks_e, 2),                     &
       &      grid%p_patch%cells%glb_index(grid%p_patch%n_patch_cells),                             &
+      &      grid%p_patch%edges%glb_index(grid%p_patch%n_patch_edges),                             &
       &      STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
 

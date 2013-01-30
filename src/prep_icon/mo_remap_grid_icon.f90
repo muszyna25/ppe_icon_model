@@ -1,13 +1,10 @@
-!! Loads an ICON grid into patch variables.
-!!
-!! @note We use direct NetCDF library calls since the CDI have no
-!! sufficient support for INTEGER fields.
-!!
-!! Possible compiler bug: The following option directive DISABLES VECTORIZATION! Proven to be necessary
-!! when compiling with "-Chopt" on the NEC SX9, Rev.451, running with 24x1 MPI tasks. - 2012/12/08 [F. Prill, DWD]:
-!! !option! -Nv
-!! Update, Guenther Zaengl, 2012-12-10: The compiler bug actually happened during the inlining of the
-!! compute_vertex_nb_index subroutine. A NOIEXPAND directive for this routine fixes the problem
+! Loads an ICON grid into patch variables.
+!
+! @note We use direct NetCDF library calls since the CDI have no
+! sufficient support for INTEGER fields.
+!
+! @author F. Prill, DWD
+!
 MODULE mo_remap_grid_icon
 
   USE mo_kind,               ONLY: wp
@@ -15,13 +12,14 @@ MODULE mo_remap_grid_icon
   USE mo_exception,          ONLY: finish
   USE mo_impl_constants,     ONLY: SUCCESS, MAX_CHAR_LENGTH
   USE mo_communication,      ONLY: idx_no, blk_no
-  USE mo_math_constants,     ONLY: pi, pi_180
   USE mo_physical_constants, ONLY: inverse_earth_radius
-  USE mo_util_netcdf,        ONLY: nf
-  USE mo_model_domain,       ONLY: t_patch
-  USE mo_remap_config,       ONLY: dbg_level, N_VNB_STENCIL
+  USE mo_math_constants,     ONLY: pi, pi_180
+  USE mo_math_utilities,     ONLY: t_cartesian_coordinates, gvec2cvec
   USE mo_mpi,                ONLY: p_comm_work, p_int, p_real_dp,   &
     &                              get_my_mpi_work_id, p_bcast
+  USE mo_util_netcdf,        ONLY: nf
+  USE mo_model_domain,       ONLY: t_patch
+  USE mo_remap_config,       ONLY: dbg_level, N_VNB_STENCIL_ICON
   USE mo_remap_shared,       ONLY: t_grid, normalized_coord
   USE mo_remap_io,           ONLY: t_file_metadata
 
@@ -50,7 +48,8 @@ CONTAINS
       &  i, start_idx, end_idx, start_blk, end_blk, jb, jc,        &
       &  ncid, dimid, j, idx, varID, n_patch_cells, n_patch_edges, &
       &  n_patch_verts
-    REAL(wp), ALLOCATABLE :: vlon(:), vlat(:), clon(:), clat(:), area_of_c(:)
+    REAL(wp), ALLOCATABLE :: vlon(:), vlat(:), clon(:), clat(:), area_of_c(:), &
+      &                      elon(:), elat(:), en_v1(:), en_v2(:)
     INTEGER,  ALLOCATABLE :: v_of_c(:,:), e_of_c(:,:), c_of_c(:,:), &
       &                      v_of_e(:,:), c_of_e(:,:), c_of_v(:,:), v_of_v(:,:)
     REAL(wp)              :: i_rr
@@ -317,14 +316,74 @@ CONTAINS
     END DO
     DEALLOCATE(area_of_c)
 
+    IF (dbg_level >=5) WRITE (0,*) "# load edges centers from file"
+    ALLOCATE(elon(grid%p_patch%n_patch_edges))
+    IF (get_my_mpi_work_id() == rank0) THEN
+      IF (nf_inq_varid(ncid, 'lon_edge_centre', varid) /= nf_noerr) &
+        &  CALL finish(routine, "Field <lon_edge_centre> missing in grid file.")
+      CALL nf(nf_get_var_double(ncid, varid, elon), routine)
+    END IF
+    CALL p_bcast(elon,rank0,p_comm_work)
+    DO i=1,grid%p_patch%n_patch_edges
+      jc = idx_no(i)
+      jb = blk_no(i)
+      grid%p_patch%edges%center(jc,jb)%lon = elon(i)/pi_180
+    END DO
+    DEALLOCATE(elon)
+    ALLOCATE(elat(grid%p_patch%n_patch_edges))
+    IF (get_my_mpi_work_id() == rank0) THEN
+      IF (nf_inq_varid(ncid, 'lat_edge_centre', varid) /= nf_noerr) &
+        &  CALL finish(routine, "Field <lat_edge_centre> missing in grid file.")
+      CALL nf(nf_get_var_double(ncid, varid, elat), routine)
+    END IF
+    CALL p_bcast(elat,rank0,p_comm_work)
+    DO i=1,grid%p_patch%n_patch_edges
+      jc = idx_no(i)
+      jb = blk_no(i)
+      grid%p_patch%edges%center(jc,jb)%lat = elat(i)/pi_180
+    END DO
+    DEALLOCATE(elat)
+
+    IF (dbg_level >=5) WRITE (0,*) "# load edges normals from file"
+    ALLOCATE(en_v1(grid%p_patch%n_patch_edges))
+    IF (get_my_mpi_work_id() == rank0) THEN
+      IF (nf_inq_varid(ncid, 'zonal_normal_primal_edge', varid) /= nf_noerr) &
+        &  CALL finish(routine, "Field <zonal_normal_primal_edge> missing in grid file.")
+      CALL nf(nf_get_var_double(ncid, varid, en_v1), routine)
+    END IF
+    CALL p_bcast(en_v1,rank0,p_comm_work)
+    DO i=1,grid%p_patch%n_patch_edges
+      jc = idx_no(i)
+      jb = blk_no(i)
+      grid%p_patch%edges%primal_normal(jc,jb)%v1 = en_v1(i)
+    END DO
+    DEALLOCATE(en_v1)
+    ALLOCATE(en_v2(grid%p_patch%n_patch_edges))
+    IF (get_my_mpi_work_id() == rank0) THEN
+      IF (nf_inq_varid(ncid, 'meridional_normal_primal_edge', varid) /= nf_noerr) &
+        &  CALL finish(routine, "Field <meridional_normal_primal_edge> missing in grid file.")
+      CALL nf(nf_get_var_double(ncid, varid, en_v2), routine)
+    END IF
+    CALL p_bcast(en_v2,rank0,p_comm_work)
+    DO i=1,grid%p_patch%n_patch_edges
+      jc = idx_no(i)
+      jb = blk_no(i)
+      grid%p_patch%edges%primal_normal(jc,jb)%v2 = en_v2(i)
+    END DO
+    DEALLOCATE(en_v2)
+
     ! set (trivial) local-to-global mapping:
     grid%p_patch%cells%glb_index(:) = (/ ( i, i=1,grid%p_patch%n_patch_cells) /)
+    grid%p_patch%edges%glb_index(:) = (/ ( i, i=1,grid%p_patch%n_patch_edges) /)
 
     ! set characteristic grid size
     grid%char_length = SQRT(4*pi/grid%p_patch%n_patch_cells)/pi_180
 
 !CDIR NOIEXPAND
     CALL compute_vertex_nb_index(grid)
+
+!CDIR NOIEXPAND
+    CALL compute_edge_normals(grid)
  
   END SUBROUTINE load_icon_grid
 
@@ -360,29 +419,33 @@ CONTAINS
     ! create vertices and topology info:
     IF (dbg_level >=5) WRITE (0,*) "# allocate data structures"
     ALLOCATE(p%verts%vertex    (nproma,p%nblks_v), &
-      &      p%cells%vertex_idx(nproma,p%nblks_c,p%cell_type),  &
-      &      p%cells%vertex_blk(nproma,p%nblks_c,p%cell_type),  &
-      &      p%cells%edge_idx(  nproma,p%nblks_c,p%cell_type),  &
-      &      p%cells%edge_blk(  nproma,p%nblks_c,p%cell_type),  &
-      &      p%cells%center(   nproma,p%nblks_c),               &
-      &      p%cells%area  (   nproma,p%nblks_c),               &
-      &      p%edges%vertex_idx(  nproma,p%nblks_e, 2),         &
-      &      p%edges%vertex_blk(  nproma,p%nblks_e, 2),         &
-      &      p%edges%cell_idx(    nproma,p%nblks_e, 2),         &
-      &      p%edges%cell_blk(    nproma,p%nblks_e, 2),         &
-      &      p%verts%cell_idx(  nproma,p%nblks_v, 6),           &
-      &      p%verts%cell_blk(  nproma,p%nblks_v, 6),           &
+      &      p%cells%vertex_idx(nproma,p%nblks_c,p%cell_type),   &
+      &      p%cells%vertex_blk(nproma,p%nblks_c,p%cell_type),   &
+      &      p%cells%edge_idx(  nproma,p%nblks_c,p%cell_type),   &
+      &      p%cells%edge_blk(  nproma,p%nblks_c,p%cell_type),   &
+      &      p%cells%center(   nproma,p%nblks_c),                &
+      &      p%cells%area  (   nproma,p%nblks_c),                &
+      &      p%edges%vertex_idx(  nproma,p%nblks_e, 2),          &
+      &      p%edges%vertex_blk(  nproma,p%nblks_e, 2),          &
+      &      p%edges%cell_idx(    nproma,p%nblks_e, 2),          &
+      &      p%edges%cell_blk(    nproma,p%nblks_e, 2),          &
+      &      p%verts%cell_idx(  nproma,p%nblks_v, 6),            &
+      &      p%verts%cell_blk(  nproma,p%nblks_v, 6),            &
       &      p%cells%neighbor_idx(nproma,p%nblks_c,p%cell_type), &
       &      p%cells%neighbor_blk(nproma,p%nblks_c,p%cell_type), &
       &      p%verts%neighbor_idx(nproma,p%nblks_v,6),           &
       &      p%verts%neighbor_blk(nproma,p%nblks_v,6),           &
       &      p%cells%glb_index(p%n_patch_cells),                 &
+      &      p%edges%glb_index(p%n_patch_edges),                 &
+      &      p%edges%center(nproma,p%nblks_e),                   &
+      &      p%edges%primal_cart_normal(nproma,p%nblks_e),       &
+      &      p%edges%primal_normal(nproma,p%nblks_e),            &
       &      STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
 
-    ALLOCATE(grid%vertex_nb_idx(nproma,p%nblks_c,N_VNB_STENCIL), &
-      &      grid%vertex_nb_blk(nproma,p%nblks_c,N_VNB_STENCIL), &
-      &      grid%vertex_nb_stencil(nproma,p%nblks_c),           &
+    ALLOCATE(grid%vertex_nb_idx(nproma,p%nblks_c,N_VNB_STENCIL_ICON), &
+      &      grid%vertex_nb_blk(nproma,p%nblks_c,N_VNB_STENCIL_ICON), &
+      &      grid%vertex_nb_stencil(nproma,p%nblks_c),                &
       &      STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
 
@@ -393,8 +456,6 @@ CONTAINS
 
 
   !> compute stencil indices of vertex-neighbors (cells)
-  !
-  ! @todo No parallel synchronization implemented!
   !
   SUBROUTINE compute_vertex_nb_index( grid )
     TYPE (t_grid), INTENT(INOUT) :: grid
@@ -481,7 +542,49 @@ CONTAINS
     ENDDO ! loop over blocks
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
-
   END SUBROUTINE compute_vertex_nb_index
+
+
+  !> compute cartesian edge normals
+  !
+  SUBROUTINE compute_edge_normals ( grid )
+    TYPE (t_grid), INTENT(INOUT) :: grid
+    ! local variables
+    TYPE (t_cartesian_coordinates) :: z_vec
+    INTEGER                        :: jb, je, start_idx, end_idx
+    REAL(wp)                       :: z_lon, z_lat, z_u, z_v, z_norm
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,je,start_idx,end_idx,z_lon,z_lat, &
+!$OMP             z_u,z_v,z_vec,z_norm) 
+    DO jb = 1,grid%p_patch%nblks_e
+      start_idx = 1
+      end_idx   = nproma
+      IF (jb == grid%p_patch%nblks_e) end_idx = grid%p_patch%npromz_e
+      DO je = start_idx, end_idx
+
+        ! location of edge midpoint
+        z_lon = grid%p_patch%edges%center(je,jb)%lon * pi_180
+        z_lat = grid%p_patch%edges%center(je,jb)%lat * pi_180
+        
+        ! zonal and meridional component of primal normal
+        z_u = grid%p_patch%edges%primal_normal(je,jb)%v1
+        z_v = grid%p_patch%edges%primal_normal(je,jb)%v2
+        
+        ! calculate Cartesian components of primal normal
+        CALL gvec2cvec( z_u, z_v, z_lon, z_lat, z_vec%x(1), z_vec%x(2), z_vec%x(3) )
+        
+        ! compute unit normal to edge je
+        z_norm = SQRT( DOT_PRODUCT(z_vec%x(1:3),z_vec%x(1:3)) )
+        z_vec%x(1:3) = 1._wp / z_norm * z_vec%x(1:3)
+        
+        grid%p_patch%edges%primal_cart_normal(je,jb)%x(1) = z_vec%x(1)
+        grid%p_patch%edges%primal_cart_normal(je,jb)%x(2) = z_vec%x(2)
+        grid%p_patch%edges%primal_cart_normal(je,jb)%x(3) = z_vec%x(3)
+      END DO
+    END DO
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+  END SUBROUTINE compute_edge_normals
 
 END MODULE mo_remap_grid_icon

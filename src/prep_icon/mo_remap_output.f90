@@ -10,11 +10,11 @@ MODULE mo_remap_output
   USE mo_exception,          ONLY: finish
   USE mo_util_string,        ONLY: tolower
   USE mo_util_uuid,          ONLY: t_uuid
-  USE mo_remap_config,       ONLY: dbg_level, MAX_NAME_LENGTH
+  USE mo_remap_config,       ONLY: dbg_level, MAX_NAME_LENGTH, MAX_INPUT_FIELDS, MAX_NZAXIS
   USE mo_mpi,                ONLY: get_my_mpi_work_id
   USE mo_remap_shared,       ONLY: t_grid, GRID_TYPE_REGULAR, GRID_TYPE_ICON    
   USE mo_remap_input,        ONLY: t_field_metadata, t_global_metadata, t_zaxis_metadata, &
-    &                              MAX_INPUT_FIELDS, MAX_NZAXIS
+    &                              CELL_GRID, EDGE_GRID
   USE mo_remap_io,           ONLY: t_file_metadata
 
   IMPLICIT NONE
@@ -50,15 +50,16 @@ MODULE mo_remap_output
     TYPE(t_uuid)                  :: grid_uuid               !< uuid of grid
     ! unstructured cell grid description:
     INTEGER                       :: nglb_c                  !< global no. of cells
+    INTEGER                       :: nglb_e                  !< global no. of edges
     INTEGER                       :: cell_type               !< 3: triangles
-    REAL(wp), ALLOCATABLE         :: clon(:), clat(:), &
-      &                              lonv(:,:), latv(:,:)
+    REAL(wp), ALLOCATABLE         :: clon(:),    clat(:),   &
+      &                              elon(:),    elat(:),   &
+      &                              clonv(:,:), clatv(:,:),&
+      &                              elonv(:,:), elatv(:,:)
     ! structured grid description:
     INTEGER                       :: structure               !< LONLAT or UNSTRUCTURED
     INTEGER                       :: nx, ny                  !< hor. grid dimensions
     REAL(wp), ALLOCATABLE         :: xvals(:), yvals(:)      !< regular horizontal grid
-    ! internal IDs for CDI
-    INTEGER                       :: gridID
   END TYPE t_output_grid
 
   ! CDI axis ID's for output file
@@ -88,16 +89,25 @@ CONTAINS
       grid_metadata%cell_type = 3
       grid_metadata%structure = GRID_UNSTRUCTURED
       grid_metadata%nglb_c    = gridInqSize(file_metadata%c_gridID)
-      ALLOCATE(grid_metadata%clon(grid_metadata%nglb_c),  &
-        &      grid_metadata%clat(grid_metadata%nglb_c),  &
-        &      grid_metadata%lonv(grid_metadata%cell_type, grid_metadata%nglb_c), &
-        &      grid_metadata%latv(grid_metadata%cell_type, grid_metadata%nglb_c), &
+      grid_metadata%nglb_e    = gridInqSize(file_metadata%e_gridID)
+      ALLOCATE(grid_metadata%clon(grid_metadata%nglb_c),     &
+        &      grid_metadata%clat(grid_metadata%nglb_c),     &
+        &      grid_metadata%elon(grid_metadata%nglb_e),     &
+        &      grid_metadata%elat(grid_metadata%nglb_e),     &
+        &      grid_metadata%clonv(grid_metadata%cell_type, grid_metadata%nglb_c), &
+        &      grid_metadata%clatv(grid_metadata%cell_type, grid_metadata%nglb_c), &
+        &      grid_metadata%elonv(4, grid_metadata%nglb_e), &
+        &      grid_metadata%elatv(4, grid_metadata%nglb_e), &
         &      STAT=ierrstat)
       IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
       xsize = gridInqXvals    (file_metadata%c_gridID, grid_metadata%clon)
       ysize = gridInqYvals    (file_metadata%c_gridID, grid_metadata%clat)
-      xsize = gridInqXbounds  (file_metadata%c_gridID, grid_metadata%lonv)
-      ysize = gridInqYbounds  (file_metadata%c_gridID, grid_metadata%latv)
+      xsize = gridInqXvals    (file_metadata%e_gridID, grid_metadata%elon)
+      ysize = gridInqYvals    (file_metadata%e_gridID, grid_metadata%elat)
+      xsize = gridInqXbounds  (file_metadata%c_gridID, grid_metadata%clonv)
+      ysize = gridInqYbounds  (file_metadata%c_gridID, grid_metadata%clatv)
+      xsize = gridInqXbounds  (file_metadata%e_gridID, grid_metadata%elonv)
+      ysize = gridInqYbounds  (file_metadata%e_gridID, grid_metadata%elatv)
       ! read grid UUID:
       ! DISABLED for the time being (segfault problem):
       ! dummy = gridInqUUID(file_metadata%c_gridID, grid_metadata%grid_uuid%data)
@@ -106,14 +116,14 @@ CONTAINS
       ! read regular grid structure from file:
       grid_metadata%structure = GRID_LONLAT
       grid_metadata%cell_type = 4
-      grid_metadata%nx        = gridInqXsize(file_metadata%gridID)
-      grid_metadata%ny        = gridInqYsize(file_metadata%gridID)
+      grid_metadata%nx        = gridInqXsize(file_metadata%c_gridID)
+      grid_metadata%ny        = gridInqYsize(file_metadata%c_gridID)
       ALLOCATE(grid_metadata%xvals(grid_metadata%nx), &
         &      grid_metadata%yvals(grid_metadata%ny), &
         &      STAT=ierrstat)
       IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
-      xsize = gridInqXvals(file_metadata%gridID, grid_metadata%xvals)
-      ysize = gridInqYvals(file_metadata%gridID, grid_metadata%yvals)
+      xsize = gridInqXvals(file_metadata%c_gridID, grid_metadata%xvals)
+      ysize = gridInqYvals(file_metadata%c_gridID, grid_metadata%yvals)
       ! read grid UUID:
       ! DISABLED for the time being (segfault problem):
       ! dummy = gridInqUUID(file_metadata%gridID, grid_metadata%grid_uuid%data)
@@ -173,11 +183,9 @@ CONTAINS
           IF (tolower(TRIM(zname)) == "elon") file_metadata%e_gridID = gridID
           IF (tolower(TRIM(zname)) == "vlon") file_metadata%v_gridID = gridID
         END DO LOOP
-        grid_metadata%gridID = file_metadata%c_gridID
       CASE (GRID_TYPE_REGULAR)
         ! set file gridID to regular grid:
-        file_metadata%gridID = vlistGrid(file_metadata%vlistID, 0)
-        grid_metadata%gridID = file_metadata%gridID
+        file_metadata%c_gridID = vlistGrid(file_metadata%vlistID, 0)
       CASE DEFAULT
         CALL finish(routine, "Unknown grid type")
       END SELECT
@@ -208,6 +216,9 @@ CONTAINS
 
     CALL vlistDefTaxis(file_metadata%vlistID, cdiTaxisID)
 
+    ! define variables:
+    ! -----------------
+
     IF (dbg_level >= 5) WRITE (0,*) "# define variables"
     DO i=1,nfields
       ! find z-axis for this variable
@@ -217,7 +228,16 @@ CONTAINS
       END DO
       IF (iaxis == -1)  CALL finish(routine, "Internal error!")
       ! create variable
-      varID(i) = vlistDefVar(file_metadata%vlistID, grid_metadata%gridID, cdizaxisID(iaxis), &
+      SELECT CASE (field_metadata(i)%grid_type)
+      CASE(CELL_GRID)
+        gridID = file_metadata%c_gridID
+      CASE(EDGE_GRID)
+        gridID = file_metadata%e_gridID
+      CASE DEFAULT
+        CALL finish(routine, "Unknown grid type")
+      END SELECT
+        
+      varID(i) = vlistDefVar(file_metadata%vlistID, gridID, cdizaxisID(iaxis), &
         &                    field_metadata(i)%steptype)
       CALL vlistDefVarName(file_metadata%vlistID, varID(i), TRIM(field_metadata(i)%outputname))
 
@@ -226,7 +246,6 @@ CONTAINS
         &  cdiEncodeParam(field_metadata(i)%grib2%number,    &
         &                 field_metadata(i)%grib2%category,  &
         &                 field_metadata(i)%grib2%discipline) )
-      CALL vlistDefVarTable   (file_metadata%vlistID, varID(i), field_metadata(i)%table     )
       CALL vlistDefVarDatatype(file_metadata%vlistID, varID(i), field_metadata(i)%grib2%bits)
 
       CALL vlistDefVarStdName  (file_metadata%vlistID, varID(i), TRIM(field_metadata(i)%cf%standard_name))
@@ -261,37 +280,54 @@ CONTAINS
       nx = grid_metadata%nx
       ny = grid_metadata%ny
       IF (dbg_level >= 10) WRITE (0,*) "# define horizontal grid with size ", nx*ny
-      grid_metadata%gridID = gridCreate(grid_metadata%structure, nx * ny)
 
-      CALL gridDefXsize (grid_metadata%gridID, nx)
-      CALL gridDefXname (grid_metadata%gridID, 'lon')
-      CALL gridDefXunits(grid_metadata%gridID, 'degrees_east')
-      CALL gridDefYsize (grid_metadata%gridID, ny)
-      CALL gridDefYname (grid_metadata%gridID, 'lat')
-      CALL gridDefYunits(grid_metadata%gridID, 'degrees_north')
+      file_metadata%c_gridID = gridCreate(grid_metadata%structure, nx * ny)
+      CALL gridDefXsize (file_metadata%c_gridID, nx)
+      CALL gridDefXname (file_metadata%c_gridID, 'lon')
+      CALL gridDefXunits(file_metadata%c_gridID, 'degrees_east')
+      CALL gridDefYsize (file_metadata%c_gridID, ny)
+      CALL gridDefYname (file_metadata%c_gridID, 'lat')
+      CALL gridDefYunits(file_metadata%c_gridID, 'degrees_north')
 
-      CALL gridDefXvals (grid_metadata%gridID, grid_metadata%xvals)
-      CALL gridDefYvals (grid_metadata%gridID, grid_metadata%yvals)
+      CALL gridDefXvals (file_metadata%c_gridID, grid_metadata%xvals)
+      CALL gridDefYvals (file_metadata%c_gridID, grid_metadata%yvals)
       ! define grid UUID:
       ! DISABLED for the time being (segfault problem):
       ! CALL gridDefUUID(file_metadata%c_gridID, grid_metadata%grid_uuid%data)
     CASE (GRID_UNSTRUCTURED)
       ! define unstructured horizontal cell grid:
       IF (dbg_level >= 10) WRITE (0,*) "# define horizontal grid with size ", grid_metadata%nglb_c
-      grid_metadata%gridID = gridCreate(grid_metadata%structure, grid_metadata%nglb_c)
 
-      CALL gridDefNvertex  (grid_metadata%gridID, grid_metadata%cell_type)
-      CALL gridDefXname    (grid_metadata%gridID, 'clon')
-      CALL gridDefXlongname(grid_metadata%gridID, 'center longitude')
-      CALL gridDefXunits   (grid_metadata%gridID, 'radian')
-      CALL gridDefYname    (grid_metadata%gridID, 'clat')
-      CALL gridDefYlongname(grid_metadata%gridID, 'center latitude')
-      CALL gridDefYunits   (grid_metadata%gridID, 'radian')
+      ! cell grid:
+      file_metadata%c_gridID = gridCreate(grid_metadata%structure, grid_metadata%nglb_c)
+      CALL gridDefNvertex  (file_metadata%c_gridID, grid_metadata%cell_type)
+      CALL gridDefXname    (file_metadata%c_gridID, 'clon')
+      CALL gridDefXlongname(file_metadata%c_gridID, 'center longitude')
+      CALL gridDefXunits   (file_metadata%c_gridID, 'degrees east')
+      CALL gridDefYname    (file_metadata%c_gridID, 'clat')
+      CALL gridDefYlongname(file_metadata%c_gridID, 'degrees north')
+      CALL gridDefYunits   (file_metadata%c_gridID, 'radian')
 
-      CALL gridDefXvals    (grid_metadata%gridID, grid_metadata%clon)
-      CALL gridDefYvals    (grid_metadata%gridID, grid_metadata%clat)
-      CALL gridDefXbounds  (grid_metadata%gridID, grid_metadata%lonv)
-      CALL gridDefYbounds  (grid_metadata%gridID, grid_metadata%latv)
+      CALL gridDefXvals    (file_metadata%c_gridID, grid_metadata%clon)
+      CALL gridDefYvals    (file_metadata%c_gridID, grid_metadata%clat)
+      CALL gridDefXbounds  (file_metadata%c_gridID, grid_metadata%clonv)
+      CALL gridDefYbounds  (file_metadata%c_gridID, grid_metadata%clatv)
+
+      ! edge grid:
+      file_metadata%e_gridID = gridCreate(grid_metadata%structure, grid_metadata%nglb_e)
+      CALL gridDefNvertex  (file_metadata%e_gridID, 4)
+      CALL gridDefXname    (file_metadata%e_gridID, 'elon')
+      CALL gridDefXlongname(file_metadata%e_gridID, 'edge midpoint longitude')
+      CALL gridDefXunits   (file_metadata%e_gridID, 'radian')
+      CALL gridDefYname    (file_metadata%e_gridID, 'elat')
+      CALL gridDefYlongname(file_metadata%e_gridID, 'edge midpoint latitude')
+      CALL gridDefYunits   (file_metadata%e_gridID, 'radian')
+
+      CALL gridDefXvals    (file_metadata%e_gridID, grid_metadata%elon)
+      CALL gridDefYvals    (file_metadata%e_gridID, grid_metadata%elat)
+      CALL gridDefXbounds  (file_metadata%e_gridID, grid_metadata%elonv)
+      CALL gridDefYbounds  (file_metadata%e_gridID, grid_metadata%elatv)
+
       ! define grid UUID:
       ! DISABLED for the time being (segfault problem):
       ! CALL gridDefUUID(file_metadata%gridID, grid_metadata%grid_uuid%data)
@@ -299,9 +335,6 @@ CONTAINS
       CALL finish(routine, "Unknown grid type")
     END SELECT
 
-    ! CDI internal ID for the gaussian grid or the mass point grid
-    ! (unstructured case):
-    file_metadata%gridID = grid_metadata%gridID
     IF (dbg_level >= 10) WRITE (0,*) "# done."
   END SUBROUTINE define_output_grid
 
@@ -317,19 +350,25 @@ CONTAINS
 
     IF (dbg_level >= 5) WRITE (0,*) "# clean up grid"
 
-    IF(grid_metadata%gridID /= CDI_UNDEFID) CALL gridDestroy(grid_metadata%gridID)
-    grid_metadata%gridID = CDI_UNDEFID
+    IF(file_metadata%c_gridID /= CDI_UNDEFID) CALL gridDestroy(file_metadata%c_gridID)
+    IF(file_metadata%e_gridID /= CDI_UNDEFID) CALL gridDestroy(file_metadata%e_gridID)
+    file_metadata%c_gridID = CDI_UNDEFID
+    file_metadata%e_gridID = CDI_UNDEFID
     CALL taxisDestroy(cdiTaxisID)
     DO j = 1, SIZE(cdiZaxisID)
       IF(cdiZaxisID(j) /= CDI_UNDEFID) CALL zaxisDestroy(cdiZaxisID(j))
       cdiZaxisID(j) = CDI_UNDEFID
     ENDDO
-    if (ALLOCATED (grid_metadata% clon )) DEALLOCATE (grid_metadata% clon)
-    if (ALLOCATED (grid_metadata% clat )) DEALLOCATE (grid_metadata% clat)
-    if (ALLOCATED (grid_metadata% lonv )) DEALLOCATE (grid_metadata% lonv)
-    if (ALLOCATED (grid_metadata% latv )) DEALLOCATE (grid_metadata% latv)
-    if (ALLOCATED (grid_metadata% xvals)) DEALLOCATE (grid_metadata% xvals)
-    if (ALLOCATED (grid_metadata% yvals)) DEALLOCATE (grid_metadata% yvals)
+    if (ALLOCATED (grid_metadata%clon )) DEALLOCATE (grid_metadata%clon)
+    if (ALLOCATED (grid_metadata%clat )) DEALLOCATE (grid_metadata%clat)
+    if (ALLOCATED (grid_metadata%elon )) DEALLOCATE (grid_metadata%elon)
+    if (ALLOCATED (grid_metadata%elat )) DEALLOCATE (grid_metadata%elat)
+    if (ALLOCATED (grid_metadata%clonv)) DEALLOCATE (grid_metadata%clonv)
+    if (ALLOCATED (grid_metadata%clatv)) DEALLOCATE (grid_metadata%clatv)
+    if (ALLOCATED (grid_metadata%elonv)) DEALLOCATE (grid_metadata%elonv)
+    if (ALLOCATED (grid_metadata%elatv)) DEALLOCATE (grid_metadata%elatv)
+    if (ALLOCATED (grid_metadata%xvals)) DEALLOCATE (grid_metadata%xvals)
+    if (ALLOCATED (grid_metadata%yvals)) DEALLOCATE (grid_metadata%yvals)
 
     CALL streamClose(file_metadata%streamID)
     file_metadata = empty
