@@ -1859,6 +1859,24 @@ I & 2& & GRIB edition number of input data file &
 i\_oper\_mode=4 (prepicon\_nml)
 \tabularnewline
 
+\hline 
+lcompute\_vn&
+L & .FALSE.& & Flag: .TRUE., if the normal wind shall be computed &
+i\_oper\_mode=4 (prepicon\_nml)
+\tabularnewline
+
+\hline 
+lcompute\_vt&
+L & .FALSE.& & Flag: .TRUE., if the tangential wind at edge midpoints shall be computed &
+i\_oper\_mode=4 (prepicon\_nml)
+\tabularnewline
+
+\hline 
+rbf\_vec\_scale&
+R &  0.05 & & Scaling factor for interpolation with radial basis functions.  &
+i\_oper\_mode=4 (prepicon\_nml)
+\tabularnewline
+
 \end{longtab}
 
 Defined and used in: src/prep\_icon/mo\_remap\_io.f90
