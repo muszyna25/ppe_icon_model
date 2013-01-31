@@ -642,10 +642,10 @@ CONTAINS
           albnirdif = pfrc(:,idx_wtr)*albnirdif_wtr + SUM(conc(:,:)*albnirdif_ice(:,:), 2)
         ENDWHERE
       ELSE
-          albvisdir = pfrc(:,idx_wtr)*albvisdir_wtr + SUM(conc(:,:)*albvisdir_ice(:,:), 2)
-          albvisdif = pfrc(:,idx_wtr)*albvisdif_wtr + SUM(conc(:,:)*albvisdif_ice(:,:), 2)
-          albnirdir = pfrc(:,idx_wtr)*albnirdir_wtr + SUM(conc(:,:)*albnirdir_ice(:,:), 2)
-          albnirdif = pfrc(:,idx_wtr)*albnirdif_wtr + SUM(conc(:,:)*albnirdif_ice(:,:), 2)
+        albvisdir = pfrc(:,idx_wtr)*albvisdir_wtr + SUM(conc(:,:)*albvisdir_ice(:,:), 2)
+        albvisdif = pfrc(:,idx_wtr)*albvisdif_wtr + SUM(conc(:,:)*albvisdif_ice(:,:), 2)
+        albnirdir = pfrc(:,idx_wtr)*albnirdir_wtr + SUM(conc(:,:)*albnirdir_ice(:,:), 2)
+        albnirdif = pfrc(:,idx_wtr)*albnirdif_wtr + SUM(conc(:,:)*albnirdif_ice(:,:), 2)
       ENDIF
 ! Set the tile temperature
       ptsfc_tile(:,idx_ice) = Tsurf(:,1) + tmelt

@@ -1414,6 +1414,8 @@ CONTAINS
           ELSE
             albvisdir(jc,k) =  albflag(jc,k) * albim + (1.0_wp-albflag(jc,k)) * albi
           ENDIF
+        ELSE
+          albvisdir(jc,k) = 0._wp
         ENDIF
 
       ENDDO
