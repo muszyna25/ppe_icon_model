@@ -598,7 +598,7 @@ CONTAINS
         &        0.31_wp*ptrsolall/(1._wp-albnirdir)*(1._wp-albnirdir_wtr) + &
         &        0.17_wp*ptrsolall/(1._wp-albnirdif)*(1._wp-albnirdif_wtr)
 
-      CALL ice_fast(1, kproma, kbdim, kice, &
+      CALL ice_fast(1, kproma, kbdim, kice, pdtime, &
         &   Tsurf,              &
         &   T1,                 &
         &   T2,                 &

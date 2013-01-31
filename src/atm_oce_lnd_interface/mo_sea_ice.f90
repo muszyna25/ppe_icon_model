@@ -1077,7 +1077,7 @@ CONTAINS
   !! Initial release by Peter Korn, MPI-M (2010-07). Originally code written by
   !! Dirk Notz, following MPI-OM. Code transfered to ICON.
   !!
-  SUBROUTINE ice_fast(i_startidx_c, i_endidx_c, nbdim, kice, &
+  SUBROUTINE ice_fast(i_startidx_c, i_endidx_c, nbdim, kice, pdtime, &
             &   Tsurf,          & ! Surface temperature [degC]
             &   T1,             & ! Temperature of upper layer [degC]
             &   T2,             & ! Temperature of lower layer [degC]
@@ -1096,6 +1096,7 @@ CONTAINS
             &   doy)              ! Day of the year
 
     INTEGER, INTENT(IN)    :: i_startidx_c, i_endidx_c, nbdim, kice
+    REAL(wp),INTENT(IN)    :: pdtime
     REAL(wp),INTENT(INOUT) :: Tsurf      (nbdim,kice)
     REAL(wp),INTENT(INOUT) :: T1         (nbdim,kice)
     REAL(wp),INTENT(INOUT) :: T2         (nbdim,kice)
@@ -1118,7 +1119,7 @@ CONTAINS
     
     ! #achim
     IF ( i_ice_therm == 1 .OR. i_ice_therm == 3 ) THEN
-      CALL set_ice_temp_zerolayer(i_startidx_c, i_endidx_c, nbdim, kice, i_ice_therm, &
+      CALL set_ice_temp_zerolayer(i_startidx_c, i_endidx_c, nbdim, kice, i_ice_therm, pdtime, &
             &   Tsurf,          & 
             &   hi,             & 
             &   hs,             & 
@@ -1130,7 +1131,7 @@ CONTAINS
             &   Tfw,            &
             &   doy)
     ELSE IF ( i_ice_therm == 2 ) THEN
-      CALL set_ice_temp_winton(i_startidx_c, i_endidx_c, nbdim, kice, &
+      CALL set_ice_temp_winton(i_startidx_c, i_endidx_c, nbdim, kice, pdtime, &
             &   Tsurf,          & 
             &   T1,             & 
             &   T2,             & 
@@ -1145,7 +1146,7 @@ CONTAINS
     ELSE IF ( i_ice_therm == 4 )  THEN
       WHERE ( hi(:,:) > 0._wp )
       Tsurf=min(0._wp, Tsurf + (SWnet+nonsolar + ki/hi*(Tf-Tsurf)) &
-        &               / (ci*rhoi*0.05_wp/dtime-dnonsolardT+ki/hi))
+        &               / (ci*rhoi*0.05_wp/pdtime-dnonsolardT+ki/hi))
       ELSEWHERE
         Tsurf(:,:) = Tf
       ENDWHERE

@@ -522,7 +522,7 @@ CONTAINS
 
         DO jb = all_cells%start_block, all_cells%end_block
           CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
-          CALL ice_fast(i_startidx_c, i_endidx_c, nproma, p_ice%kice, &
+          CALL ice_fast(i_startidx_c, i_endidx_c, nproma, p_ice%kice, dtime, &
             &   p_ice% Tsurf(:,:,jb),   &
             &   p_ice% T1   (:,:,jb),   &
             &   p_ice% T2   (:,:,jb),   &
@@ -807,7 +807,7 @@ CONTAINS
 
           DO jb = all_cells%start_block, all_cells%end_block
             CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
-            CALL ice_fast(i_startidx_c, i_endidx_c, nproma, p_ice%kice, &
+            CALL ice_fast(i_startidx_c, i_endidx_c, nproma, p_ice%kice, dtime, &
               &   p_ice% Tsurf(:,:,jb),   &
               &   p_ice% T1   (:,:,jb),   &
               &   p_ice% T2   (:,:,jb),   &

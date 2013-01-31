@@ -86,7 +86,7 @@ CONTAINS
   !! Dirk Notz, following MPI-OM. Code transfered to ICON.
   !!
 
-  SUBROUTINE set_ice_temp_winton(i_startidx_c, i_endidx_c, nbdim, kice, &
+  SUBROUTINE set_ice_temp_winton(i_startidx_c, i_endidx_c, nbdim, kice, pdtime, &
             &   Tsurf,          & ! Surface temperature [degC]                                   
             &   T1,             & ! Temperature of upper layer [degC]                            
             &   T2,             & ! Temperature of lower layer [degC]                            
@@ -100,6 +100,7 @@ CONTAINS
             &   Tfw)              ! Freezing temperature of the ocean
 
     INTEGER, INTENT(IN)    :: i_startidx_c, i_endidx_c, nbdim, kice
+    REAL(wp),INTENT(IN)    :: pdtime
     REAL(wp),INTENT(INOUT) :: Tsurf      (nbdim,kice)
     REAL(wp),INTENT(INOUT) :: T1         (nbdim,kice)
     REAL(wp),INTENT(INOUT) :: T2         (nbdim,kice)
@@ -138,7 +139,7 @@ CONTAINS
     ! initialization
     Qbot(:,:) = 0._wp
     Qtop(:,:) = 0._wp
-    idt2   =  1.0_wp / (2.0_wp*dtime)
+    idt2   =  1.0_wp / (2.0_wp*pdtime)
     
     DO k=1,kice
       DO jc = i_startidx_c,i_endidx_c
@@ -161,7 +162,7 @@ CONTAINS
 
           K1 =  4.0_wp*ki*ks/( ks*hi(jc,k) + 4.0_wp*ki*hs(jc,k) )                       ! Eq.  5
           K2 =  2.0_wp*ki/hi(jc,k)                                                      ! Eq. 10
-          D  =  1.0_wp/( 6.0_wp*dtime*K2 + rhoi*hi(jc,k)*ci )                 
+          D  =  1.0_wp/( 6.0_wp*pdtime*K2 + rhoi*hi(jc,k)*ci )                 
           iK1B =  1.0_wp/( K1 + B )
 
           ! Set temperature at which surface is fully liquid
@@ -171,10 +172,10 @@ CONTAINS
             Tsurfm =  - muS
           END IF
 
-          A1a = rhoi*hi(jc,k)*idt2*ci + K2*( 4.0_wp*dtime*K2 + rhoi*hi(jc,k)*ci )*D     ! Eq. 16
+          A1a = rhoi*hi(jc,k)*idt2*ci + K2*( 4.0_wp*pdtime*K2 + rhoi*hi(jc,k)*ci )*D     ! Eq. 16
           A1  = A1a + K1*B*iK1B
           B1a = -rhoi*hi(jc,k)*( ci*T1(jc,k) - alf*muS/T1(jc,k) )*idt2 -SWnet(jc,k)*I   &
-            &          - K2*( 4.0_wp*dtime*K2*Tfw(jc) + rhoi*hi(jc,k)*ci*T2(jc,k) )*D ! Eq. 17
+            &          - K2*( 4.0_wp*pdtime*K2*Tfw(jc) + rhoi*hi(jc,k)*ci*T2(jc,k) )*D ! Eq. 17
           B1 = B1a + A*K1*iK1B                                                          ! Eq. 18
           C1 = -rhoi*hi(jc,k)*alf*muS*idt2                                              ! Eq. 21
 
@@ -192,7 +193,7 @@ CONTAINS
             Qtop(jc,k) = + K1*( T1(jc,k) - Tsurf(jc,k) ) - ( A + B*Tsurf(jc,k) )        ! Eq. 22
           END IF
    
-          T2(jc,k) = ( 2.0_wp*dtime*K2*( T1(jc,k) + 2.0_wp*Tfw(jc) ) &
+          T2(jc,k) = ( 2.0_wp*pdtime*K2*( T1(jc,k) + 2.0_wp*Tfw(jc) ) &
             &                                           + rhoi*hi(jc,k)*ci*T2(jc,k) )*D ! Eq. 15
 
           ! Conductive heatflux at ice-ocean interface for each atmospheric time step.

@@ -91,7 +91,7 @@ CONTAINS
   !! @par Revision History
   !! Initial release by Achim Randelhoff
 
-  SUBROUTINE set_ice_temp_zerolayer(i_startidx_c, i_endidx_c, nbdim, kice, i_therm_model, &
+  SUBROUTINE set_ice_temp_zerolayer(i_startidx_c, i_endidx_c, nbdim, kice, i_therm_model, pdtime, &
             &   Tsurf,          & 
             &   hi,             & 
             &   hs,             & 
@@ -104,6 +104,7 @@ CONTAINS
             &   doy)
 
     INTEGER, INTENT(IN)    :: i_startidx_c, i_endidx_c, nbdim, kice, i_therm_model
+    REAL(wp),INTENT(IN)    :: pdtime
     REAL(wp),INTENT(INOUT) :: Tsurf      (nbdim,kice)
     REAL(wp),INTENT(IN)    :: hi         (nbdim,kice)
     REAL(wp),INTENT(IN)    :: hs         (nbdim,kice)
@@ -173,7 +174,7 @@ CONTAINS
 
           IF (i_therm_model == 1 ) THEN
           ! We add constant heat capacity to deltaTdenominator to stabilize the atmosphere
-            deltaTdenominator = k_effective  - dnonsolardT(jc,k) + rhoi*0.05_wp*ci/dtime
+            deltaTdenominator = k_effective  - dnonsolardT(jc,k) + rhoi*0.05_wp*ci/pdtime
           ELSE IF (i_therm_model == 3) THEN
             ! dLWdT is missing!
             deltaTdenominator = k_effective + 4.0_wp*zemiss_def*StBo*(Tsurf(jc,k)+tmelt)**3
