@@ -118,6 +118,7 @@ MODULE mo_io_vlist
   USE mo_ocean_nml,             ONLY: n_zlev, dzlev_m, iforc_oce, no_tracer,      &
     &                                 temperature_relaxation, i_sea_ice,          &
     &                                 irelax_2d_S
+  USE mo_sea_ice_nml,           ONLY: i_ice_therm
   USE mo_dynamics_config,       ONLY: iequations,lshallow_water,                  &
     &                                 idiv_method, divavg_cntrwgt,                &
     &                                 nold, nnow, nnow_rcf, lcoriolis
@@ -1874,21 +1875,23 @@ CONTAINS
             CALL addVar(TimeVar('ice_Tsurf','surface temperature of snow/ice','C',&
             &         100,128,                    &
             &         vlistID(k_jg),gridCellID(k_jg),zaxisID_generic_ice(k_jg)),k_jg)
-            CALL addVar(TimeVar('ice_T1','temperature of the upper ice layer','C',&
-            &         100,128,                    &
-            &         vlistID(k_jg),gridCellID(k_jg),zaxisID_generic_ice(k_jg)),k_jg)
-            CALL addVar(TimeVar('ice_T2','temperature of the lower ice layer','C',&
-            &         100,128,                    &
-            &         vlistID(k_jg),gridCellID(k_jg),zaxisID_generic_ice(k_jg)),k_jg)
-           CALL addVar(TimeVar('ice_hi','ice thickness','m',&
-            &         100,128,                    &
-            &         vlistID(k_jg),gridCellID(k_jg),zaxisID_generic_ice(k_jg)),k_jg)
-           CALL addVar(TimeVar('ice_hs','ice thickness','m',&
-            &         100,128,                    &
-            &         vlistID(k_jg),gridCellID(k_jg),zaxisID_generic_ice(k_jg)),k_jg)
-            CALL addVar(TimeVar('ice_conc','ice concentration in each ice class','',&
-            &         100,128,                    &
-            &         vlistID(k_jg),gridCellID(k_jg),zaxisID_generic_ice(k_jg)),k_jg)
+            IF ( i_ice_therm == 2 ) THEN
+              CALL addVar(TimeVar('ice_T1','temperature of the upper ice layer','C',&
+              &         100,128,                    &
+              &         vlistID(k_jg),gridCellID(k_jg),zaxisID_generic_ice(k_jg)),k_jg)
+              CALL addVar(TimeVar('ice_T2','temperature of the lower ice layer','C',&
+              &         100,128,                    &
+              &         vlistID(k_jg),gridCellID(k_jg),zaxisID_generic_ice(k_jg)),k_jg)
+            ENDIF
+            CALL addVar(TimeVar('ice_hi','ice thickness','m',&
+             &         100,128,                    &
+             &         vlistID(k_jg),gridCellID(k_jg),zaxisID_generic_ice(k_jg)),k_jg)
+            CALL addVar(TimeVar('ice_hs','ice thickness','m',&
+             &         100,128,                    &
+             &         vlistID(k_jg),gridCellID(k_jg),zaxisID_generic_ice(k_jg)),k_jg)
+             CALL addVar(TimeVar('ice_conc','ice concentration in each ice class','',&
+             &         100,128,                    &
+             &         vlistID(k_jg),gridCellID(k_jg),zaxisID_generic_ice(k_jg)),k_jg)
           ENDIF
 
         END SELECT !iforcing
@@ -2435,12 +2438,14 @@ CONTAINS
        CALL addVar(TimeVar('p_ice_Tsurf','surface temperature of snow/ice','C',&
        &         100,128,                    &
        &         vlistID(k_jg),gridCellID(k_jg),zaxisID_generic_ice(k_jg)),k_jg)
-!      CALL addVar(TimeVar('p_ice_T1','temperature of the upper ice layer','C',&
-!      &         100,128,                    &
-!      &         vlistID(k_jg),gridCellID(k_jg),zaxisID_generic_ice(k_jg)),k_jg)
-!      CALL addVar(TimeVar('p_ice_T2','temperature of the lower ice layer','C',&
-!      &         100,128,                    &
-!      &         vlistID(k_jg),gridCellID(k_jg),zaxisID_generic_ice(k_jg)),k_jg)
+       IF ( i_ice_therm == 2 ) THEN
+         CALL addVar(TimeVar('p_ice_T1','temperature of the upper ice layer','C',&
+         &         100,128,                    &
+         &         vlistID(k_jg),gridCellID(k_jg),zaxisID_generic_ice(k_jg)),k_jg)
+         CALL addVar(TimeVar('p_ice_T2','temperature of the lower ice layer','C',&
+         &         100,128,                    &
+         &         vlistID(k_jg),gridCellID(k_jg),zaxisID_generic_ice(k_jg)),k_jg)
+       ENDIF
 !       CALL addVar(TimeVar('p_ice_E1','energy content of the upper ice layer','Jm/kg',&
 !       &         100,128,                    &
 !       &         vlistID(k_jg),gridCellID(k_jg),zaxisID_generic_ice(k_jg)),k_jg)
