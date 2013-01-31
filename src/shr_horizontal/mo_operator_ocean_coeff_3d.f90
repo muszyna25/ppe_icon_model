@@ -1607,10 +1607,11 @@ CONTAINS
     INTEGER :: start_index, end_index, neigbor
     INTEGER :: level
 
-    TYPE(t_subset_range), POINTER :: owned_edges         
+    TYPE(t_subset_range), POINTER :: owned_edges, all_edges         
     TYPE(t_subset_range), POINTER :: owned_cells        
     !-----------------------------------------------------------------------
     owned_edges => patch%edges%owned
+    all_edges   => patch%edges%all
     owned_cells => patch%cells%owned
     !-------------------------------------------
     ! 3) compute:
@@ -1856,16 +1857,20 @@ CONTAINS
       ENDDO ! edge_index = start_index, end_index
     ENDDO ! edge_block = owned_edges%start_block, owned_edges%end_block
 
-    CALL sync_patch_array(SYNC_E, patch, edge2edge_viacell_coeff)
+    ! these coeffecients will not be used for-non owened edges,
+    ! sync only for safety
+    DO ictr=1, 2*no_primal_edges
+      CALL sync_patch_array(SYNC_E, patch, edge2edge_viacell_coeff(:,:,ictr))
+    ENDDO
 
     !copy 2D to 3D structure
-    DO edge_block = owned_edges%start_block, owned_edges%end_block
+    DO edge_block = all_edges%start_block, all_edges%end_block
       DO level = 1, n_zlev
-        CALL get_index_range(owned_edges, edge_block, start_index, end_index)
+        CALL get_index_range(all_edges, edge_block, start_index, end_index)
         DO edge_index =  start_index, end_index
 
-          ocean_coeff%edge2edge_viacell_coeff(edge_index,level,edge_block,1:2*no_primal_edges) &
-          &= edge2edge_viacell_coeff(edge_index,edge_block,1:2*no_primal_edges)
+          ocean_coeff%edge2edge_viacell_coeff(edge_index,level,edge_block,1:2*no_primal_edges) = &
+            & edge2edge_viacell_coeff(edge_index,edge_block,1:2*no_primal_edges)
 
         ENDDO
       ENDDO
@@ -1931,10 +1936,11 @@ CONTAINS
     INTEGER :: start_index, end_index, neigbor
     INTEGER :: level
 
-    TYPE(t_subset_range), POINTER :: owned_edges        
+    TYPE(t_subset_range), POINTER :: owned_edges, all_edges        
     TYPE(t_subset_range), POINTER :: owned_verts         
     !-----------------------------------------------------------------------
     owned_edges => patch%edges%owned
+    all_edges   => patch%edges%all
     owned_verts => patch%verts%owned
 
     IF ( MID_POINT_DUAL_EDGE ) THEN
@@ -2152,22 +2158,24 @@ CONTAINS
       ENDDO ! edge_index = start_index, end_index
     ENDDO ! edge_block = owned_edges%start_block, owned_edges%end_block
     !-------------------
-   CALL sync_patch_array(SYNC_V, patch, edge2edge_viavert_coeff)
+    DO ictr=1, 2*no_dual_edges
+      CALL sync_patch_array(SYNC_V, patch, edge2edge_viavert_coeff(:,:,ictr))
+    ENDDO
 
-    DO edge_block = owned_edges%start_block, owned_edges%end_block
+    DO edge_block = all_edges%start_block, all_edges%end_block
       DO level = 1, n_zlev
-        CALL get_index_range(owned_edges, edge_block, start_index, end_index)
+        CALL get_index_range(all_edges, edge_block, start_index, end_index)
         DO edge_index =  start_index, end_index
 
-          ocean_coeff%edge2edge_viavert_coeff(edge_index,level,edge_block,1:2*no_dual_edges)&
-          &=edge2edge_viavert_coeff(edge_index,edge_block,1:2*no_dual_edges)
+          ocean_coeff%edge2edge_viavert_coeff(edge_index,level,edge_block,1:2*no_dual_edges) = &
+            & edge2edge_viavert_coeff(edge_index,edge_block,1:2*no_dual_edges)
 
         ENDDO
       ENDDO
     ENDDO
-   DO neigbor=1,2*no_dual_edges
-     CALL sync_patch_array(SYNC_E, patch, ocean_coeff%edge2edge_viavert_coeff(:,:,:,neigbor))
-   END DO
+!    DO neigbor=1,2*no_dual_edges
+!      CALL sync_patch_array(SYNC_E, patch, ocean_coeff%edge2edge_viavert_coeff(:,:,:,neigbor))
+!    END DO
    !-------------------------------------------
 
 !Do ictr=1,12
