@@ -1,5 +1,6 @@
 !>
-!! soil vegetation atmosphere transfer: source module  "mo_soil_ml_v413.f90"
+!! soil vegetation atmosphere transfer: source module  "mo_soil_ml.f90"
+!! "Nihil in TERRA sine causa fit." (Cicero)
 !!------------------------------------------------------------------------------
 !!----------------------------------------------------------------------------- 
 !! 
@@ -1331,7 +1332,7 @@ END SUBROUTINE message
         zpwp (i)  = cpwp (mstyp)              ! plant wilting point
         zadp (i)  = cadp (mstyp)              ! air dryness point
         zfcap(i)  = cfcap(mstyp)              ! field capacity
-        zrock(i)  = crock(mstyp)              ! rock or ice indicator
+        zrock(i)  = crock(mstyp)              ! EQ 0 for Ice and Rock EQ 1 else
         zrocg(i)  = crhoc(mstyp)              ! heat capacity
         zdlam(i)  = cala1(mstyp)-cala0(mstyp) ! heat conductivity parameter
         zbwt(i)   = MAX(0.001_ireals,rootdp(i))! Artificial minimum value
@@ -1448,10 +1449,23 @@ END SUBROUTINE message
       END DO
   END DO
 
-! JH Copy soil moisture and ice content for all soiltypes and levels on new state, untouched for rock and ice
- 
-  w_so_new(istarts:iends,ke_soil+1) = w_so_now(istarts:iends,ke_soil+1)
-  w_so_ice_new(istarts:iends,:)     = w_so_ice_now(istarts:iends,:)
+
+! JH No soil moisture for Ice and Rock
+  DO kso   = 1, ke_soil+1
+      DO i = istarts, iends
+    IF (m_styp(i) < 3) THEN ! Ice and Rock
+  w_so_now(i,kso)         = 0._ireals
+  w_so_ice_now(i,kso)     = 0._ireals
+  w_so_new(i,kso)         = w_so_now(i,kso)
+  w_so_ice_new(i,kso)     = w_so_ice_now(i,kso)
+    ELSE
+  w_so_new(i,kso)         = w_so_now(i,kso)
+  w_so_ice_new(i,kso)     = w_so_ice_now(i,kso)
+    END IF
+
+       END DO
+  END DO
+
   
   IF (itype_heatcond == 2) THEN
 
