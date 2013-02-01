@@ -104,7 +104,7 @@ MODULE mo_echam_phy_init
 
   IMPLICIT NONE
   PRIVATE
-  PUBLIC  :: prepare_echam_phy, initcond_echam_phy
+  PUBLIC  :: init_echam_phy, initcond_echam_phy
   PUBLIC  :: additional_restart_init
 
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
@@ -117,8 +117,9 @@ CONTAINS
   !!
   !! @par Revision History
   !! Initial version by Hui Wan, MPI-M (2010-07)
+  !! name change to init_echam_phy by Levi Silvers
   !!
-  SUBROUTINE prepare_echam_phy( p_patch, ltestcase, ctest_name, &
+  SUBROUTINE init_echam_phy( p_patch, ltestcase, ctest_name, &
                                 nlev, vct_a, vct_b, ceta        )
 
     TYPE(t_patch),   INTENT(IN) :: p_patch(:)
@@ -223,7 +224,7 @@ CONTAINS
     
     IF (timers_level > 1) CALL timer_stop(timer_prep_echam_phy)
 
-  END SUBROUTINE prepare_echam_phy
+  END SUBROUTINE init_echam_phy
   !-------------
   !>
   !! Loop over all grid levels and give proper values to some components

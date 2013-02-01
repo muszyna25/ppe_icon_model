@@ -113,7 +113,7 @@ cat > ${atmo_namelist} << EOF
  dt_data          = ${dt_data}       ! [s] time interval for data output
  dt_file          = ${dt_file}       ! [s] time interval for new output files
  dt_checkpoint    = ${dt_checkpoint} ! [s] time interval for re-start files
- lwrite_tend_phy  = .TRUE.  ! .TRUE.: additional output for physics tendencies
+ lwrite_tend_phy  = .FALSE.  ! .TRUE.: additional output for physics tendencies
  lwrite_radiation = .FALSE. ! .TRUE.: additional output for radiation
  lwrite_cloud     = .TRUE.  ! .TRUE.: additional output for cloud
  lwrite_precip    = .TRUE.  ! .TRUE.: additional output for precipitation

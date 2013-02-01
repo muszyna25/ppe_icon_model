@@ -1831,7 +1831,8 @@ CONTAINS
       CALL message(TRIM(routine), 'Initialization of testcases (50)')
       CALL message(TRIM(routine), ' - here: testcase for coupled aquaplanet, using sst_qobs')
 
-      sst_case='sst_qobs'
+      !sst_case='sst_qobs'
+      sst_case='sst1'
       jk = 1
       DO jb = all_cells%start_block, all_cells%end_block
         CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)

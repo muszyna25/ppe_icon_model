@@ -1,5 +1,4 @@
-#!/bin/bash
-
+#!/bin/bash 
 #==============================================================================
 # Creates the ICON run scripts
 # Leonidas Linardakis, MPI-M, 2011-25-1
@@ -43,7 +42,14 @@ base_folder=$(pwd)
 # Define run parameters
 
 #   The experiment name (descriptor is ./run/exp.hat_jww)
-exp_name="hat_jww"
+#  exp_name="hat_heldsuarez"
+#   exp_name="nat_rce_R2B04_test"
+#  exp_name="hat_icoham_ape"
+#   exp_name="nat_jww_nwp_mpiomp"
+   exp_name="nat_jww_nwp_simple"
+#   exp_name="nat_ape_R2B04_bnchmrk"
+#   exp_name="nh_dcmip_tc_52_r2b4"
+#   exp_name="nh_dcmip_bi_410_R3B4L31_defnew"
 
 #   Define how many nodes to use on blizzard, should be 1 for all other machines
 #   at DKRZ and MPI-M
@@ -55,10 +61,10 @@ no_of_nodes=1
 mpi_procs=32
 
 #   Define how many openmp threads. This has effect only when compiled with openmp.
-openmp_threads=1
+openmp_threads=2
 
 #   The wall clock time in "hh:mm:ss"
-cpu_time="01:00:00"
+cpu_time="00:58:00"
 #==============================================================================
 nproma=24
 memory_model="large"
@@ -86,9 +92,7 @@ $make_runscript                  \
   mpi_procs=$mpi_procs           \
   openmp_threads=$openmp_threads \
   memory_model=$memory_model     \
-  cpu_time=$cpu_time             #\
-# queue="express"
-
+  cpu_time=$cpu_time              
 }
 #==============================================================================
 

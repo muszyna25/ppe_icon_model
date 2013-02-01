@@ -201,12 +201,12 @@ CONTAINS
     irad_cfc12 = 2
     irad_aero  = 2
 
-    vmr_co2    =  353.9e-06_wp
-    vmr_ch4    = 1693.6e-09_wp
-    vmr_n2o    =  309.5e-09_wp
+    vmr_co2    = 348.0e-06_wp
+    vmr_ch4    = 1650.0e-09_wp
+    vmr_n2o    =  306.0e-09_wp
     vmr_o2     =    0.20946_wp
-    vmr_cfc11  =  252.8e-12_wp
-    vmr_cfc12  =  466.2e-12_wp
+    vmr_cfc11  =  214.5e-12_wp
+    vmr_cfc12  =  371.1e-12_wp
 
 
     izenith = 4  ! Default: seasonal orbit and diurnal cycle
