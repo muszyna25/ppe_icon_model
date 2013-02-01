@@ -79,11 +79,9 @@ MODULE mo_ha_stepping
   USE mo_vertical_coord_table,ONLY: vct
   USE mo_io_restart,          ONLY: write_restart_info_file
   
-  USE mo_icon_comm_lib,     ONLY: icon_comm_sync_all
-  USE mo_parallel_config,   ONLY: use_icon_comm
-  USE mo_name_list_output_config, ONLY: use_async_name_list_io
-  USE mo_name_list_output,        ONLY: write_name_list_output, istime4name_list_output, &
-       &                                output_file
+  USE mo_icon_comm_lib,       ONLY: icon_comm_sync_all
+  USE mo_parallel_config,     ONLY: use_icon_comm
+  USE mo_name_list_output,    ONLY: write_name_list_output, istime4name_list_output
 
   IMPLICIT NONE
 

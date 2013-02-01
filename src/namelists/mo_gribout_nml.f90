@@ -100,6 +100,9 @@ MODULE mo_gribout_nml
                                         ! 3: icoeu
                                         ! 4: ...
 
+  LOGICAL :: ldate_grib_act             ! add Creation date to GRIB file
+                                        ! .TRUE. : activated
+                                        ! .FALSE.: deactivated (use dummy date/time) 
 
 
   NAMELIST/gribout_nml/  significanceOfReferenceTime,     &
@@ -107,7 +110,8 @@ MODULE mo_gribout_nml
     &                    typeOfProcessedData,             &
     &                    typeOfGeneratingProcess,         &
     &                    backgroundProcess,               &
-    &                    generatingProcessIdentifier
+    &                    generatingProcessIdentifier,     &
+    &                    ldate_grib_act
 
 
 CONTAINS
@@ -149,7 +153,7 @@ CONTAINS
     typeOfGeneratingProcess         = 2  ! 2: Forecast
     backgroundProcess               = 0  ! 0: main run
     generatingProcessIdentifier(:)  = 1  ! 1: icogl
-
+    ldate_grib_act                  = .TRUE.
 
 
     !------------------------------------------------------------------
@@ -199,6 +203,8 @@ CONTAINS
         &                backgroundProcess
       gribout_config(jg)%generatingProcessIdentifier     = &
         &                generatingProcessIdentifier(jg)
+      gribout_config(jg)%ldate_grib_act                  = &
+        &                ldate_grib_act
     ENDDO
 
 

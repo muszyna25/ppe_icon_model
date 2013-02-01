@@ -52,7 +52,7 @@ MODULE mo_nh_vert_interp
   USE mo_intp,                ONLY: edges2cells_scalar, cell_avg, &
     &                               cells2edges_scalar
   USE mo_parallel_config,     ONLY: nproma
-  USE mo_physical_constants,  ONLY: grav, rd, rdv, o_m_rdv
+  USE mo_physical_constants,  ONLY: grav, rd, rdv, o_m_rdv, dtdz_standardatm
   USE mo_grid_config,         ONLY: n_dom
   USE mo_run_config,          ONLY: iforcing, iqv, iqc, iqr, iqi, iqs
   USE mo_io_config,           ONLY: itype_pres_msl
@@ -82,9 +82,6 @@ MODULE mo_nh_vert_interp
   ! Threshold for switching between analytical formulas for constant temperature and
   ! constant vertical gradient of temperature, respectively
   REAL(wp), PARAMETER :: dtvdz_thresh = 1.e-4_wp ! 0.1 K/km
-  
-  ! Standard atmosphere vertical temperature gradient
-  REAL(wp), PARAMETER :: vtgrad_standardatm = -6.5e-3_wp ! -6.5 K/km
   
   ! Artificial limits on temperature profile used for extrapolation below the ground
   REAL(wp), PARAMETER :: t_low  = 255.0_wp
@@ -117,9 +114,10 @@ CONTAINS
   !! Initial version by Guenther Zaengl, DWD(2011-07-14)
   !!
   !!
-  SUBROUTINE vert_interp_atm(p_patch, p_int, p_grf, initicon)
+  SUBROUTINE vert_interp_atm(p_patch, p_nh_state, p_int, p_grf, initicon)
 
     TYPE(t_patch),          INTENT(IN)       :: p_patch(:)
+    TYPE(t_nh_state),       INTENT(IN)       :: p_nh_state(:)
     TYPE(t_int_state),      INTENT(IN)       :: p_int(:)
     TYPE(t_gridref_state),  INTENT(IN)       :: p_grf(:)
     TYPE(t_initicon_state), INTENT(INOUT)    :: initicon(:)
@@ -138,7 +136,7 @@ CONTAINS
 
       IF (p_patch(jg)%n_patch_cells==0) CYCLE ! skip empty patches
 
-      CALL vert_interp(p_patch(jg), p_int(jg), initicon(jg))
+      CALL vert_interp(p_patch(jg), p_int(jg), p_nh_state(jg)%metrics, initicon(jg))
 
       ! Apply boundary interpolation for u and v because the outer nest boundary
       ! points would remain undefined otherwise
@@ -208,11 +206,12 @@ CONTAINS
   !! Initial version by Guenther Zaengl, DWD(2011-07-14)
   !!
   !!
-  SUBROUTINE vert_interp(p_patch, p_int, initicon)
+  SUBROUTINE vert_interp(p_patch, p_int, p_metrics, initicon)
 
 
     TYPE(t_patch),          INTENT(IN)       :: p_patch
     TYPE(t_int_state),      INTENT(IN)       :: p_int
+    TYPE(t_nh_metrics),     INTENT(IN)       :: p_metrics
     TYPE(t_initicon_state), INTENT(INOUT)    :: initicon
 
 
@@ -231,6 +230,8 @@ CONTAINS
     REAL(wp), DIMENSION(nproma,p_patch%nlev,p_patch%nblks_c) :: &
       z_tempv
 
+    ! CELLS !
+    !
     ! Auxiliary fields for coefficients
     REAL(wp), DIMENSION(nproma,p_patch%nlev,p_patch%nblks_c) :: &
       wfac_lin, coef1, coef2, coef3
@@ -244,12 +245,36 @@ CONTAINS
     INTEGER , DIMENSION(nproma,p_patch%nlevp1,p_patch%nblks_c) :: &
       idx0_lin_w
 
+    ! extrapolation weights and indices for cells
     REAL(wp), DIMENSION(nproma,p_patch%nblks_c) :: &
       wfacpbl1, wfacpbl2, slope
 
     INTEGER , DIMENSION(nproma,p_patch%nblks_c) :: &
       bot_idx_lin, bot_idx_lin_w, bot_idx_cub, kpbl1, kpbl2
 
+
+
+    ! EDGES !
+    !
+    ! Auxiliary fields for coefficients at edges
+    REAL(wp), DIMENSION(nproma,p_patch%nlev,p_patch%nblks_e) :: &
+      wfac_lin_e, coef1_e, coef2_e, coef3_e
+
+    INTEGER , DIMENSION(nproma,p_patch%nlev,p_patch%nblks_e) :: &
+      idx0_lin_e, idx0_cub_e
+
+    ! extrapolation weights
+    REAL(wp), DIMENSION(nproma,p_patch%nblks_e) :: &
+      wfacpbl1_e, wfacpbl2_e
+
+    INTEGER , DIMENSION(nproma,p_patch%nblks_e) :: &
+      bot_idx_lin_e, bot_idx_cub_e, kpbl1_e, kpbl2_e
+
+    ! full level heights of initicon input fields at edge midpoints
+    REAL(wp), DIMENSION(nproma,nlev_in,p_patch%nblks_e) :: atm_in_z_me
+
+    ! full level heights of ICON vertical grid at edge midpoints
+    REAL(wp), DIMENSION(nproma,p_patch%nlev,p_patch%nblks_e) :: z_me
 
 !-------------------------------------------------------------------------
 
@@ -300,7 +325,7 @@ CONTAINS
 !$OMP END PARALLEL
 
 
-    ! Prepare interpolation coefficients
+    ! Prepare interpolation coefficients for cells
     CALL prepare_lin_intp(initicon%atm_in%z3d, initicon%z_mc,               &
                           p_patch%nblks_c, p_patch%npromz_c, nlev_in, nlev, &
                           wfac_lin, idx0_lin, bot_idx_lin)
@@ -328,21 +353,68 @@ CONTAINS
                           l_restore_sfcinv=.TRUE., l_hires_corr=lc2f,             &
                           extrapol_dist=-1500._wp, l_pz_mode=.FALSE., slope=slope )
 
+
     ! horizontal wind components
-    CALL uv_intp(initicon%atm_in%u, initicon%atm%u,                &
-                 initicon%atm_in%z3d, initicon%z_mc,               &
-                 p_patch%nblks_c, p_patch%npromz_c, nlev_in, nlev, &
-                 coef1, coef2, coef3, wfac_lin,                    &
-                 idx0_cub, idx0_lin, bot_idx_cub, bot_idx_lin,     &
-                 wfacpbl1, kpbl1, wfacpbl2, kpbl2,                 &
-                 l_hires_intp=lc2f                                 )
-    CALL uv_intp(initicon%atm_in%v, initicon%atm%v,                &
-                 initicon%atm_in%z3d, initicon%z_mc,               &
-                 p_patch%nblks_c, p_patch%npromz_c, nlev_in, nlev, &
-                 coef1, coef2, coef3, wfac_lin,                    &
-                 idx0_cub, idx0_lin, bot_idx_cub, bot_idx_lin,     &
-                 wfacpbl1, kpbl1, wfacpbl2, kpbl2,                 &
-                 l_hires_intp=lc2f                                 )
+    IF (ALLOCATED(initicon%atm_in%vn)) THEN
+
+      !
+      ! prepare interpolation coefficients for edges
+      !
+
+      ! full level heights at edges for initicon input
+      CALL cells2edges_scalar(initicon%atm_in%z3d, p_patch, p_int%c_lin_e, atm_in_z_me)
+
+
+      ! full level heights at edges for ICON vertical grid
+      CALL cells2edges_scalar(p_metrics%z_mc, p_patch, p_int%c_lin_e, z_me)
+
+
+      ! compute extrapolation coefficients for edges
+      CALL prepare_extrap(atm_in_z_me, p_patch%nblks_e, p_patch%npromz_e, &
+        &                 nlev_in, kpbl1_e, wfacpbl1_e, kpbl2_e, wfacpbl2_e )
+
+
+      ! compute linear interpolation coefficients for edges
+      CALL prepare_lin_intp(atm_in_z_me, z_me,                                &
+                            p_patch%nblks_e, p_patch%npromz_e, nlev_in, nlev, &
+                            wfac_lin_e, idx0_lin_e, bot_idx_lin_e)
+
+      ! compute cubic interpolation coefficients for edges
+      CALL prepare_cubic_intp(atm_in_z_me, z_me,                                &
+                            p_patch%nblks_e, p_patch%npromz_e, nlev_in, nlev,   &
+                            coef1_e, coef2_e, coef3_e, idx0_cub_e, bot_idx_cub_e)
+
+      ! vertically interpolate vn to ICON grid 
+      CALL uv_intp(initicon%atm_in%vn, initicon%atm%vn,                  &
+                   atm_in_z_me, z_me,                                    &
+                   p_patch%nblks_e, p_patch%npromz_e, nlev_in, nlev,     &
+                   coef1_e, coef2_e, coef3_e, wfac_lin_e,                &
+                   idx0_cub_e, idx0_lin_e, bot_idx_cub_e, bot_idx_lin_e, &
+                   wfacpbl1_e, kpbl1_e, wfacpbl2_e, kpbl2_e,             &
+                   l_hires_intp=lc2f                                     )
+
+    ELSE
+      CALL uv_intp(initicon%atm_in%u, initicon%atm%u,                &
+                   initicon%atm_in%z3d, initicon%z_mc,               &
+                   p_patch%nblks_c, p_patch%npromz_c, nlev_in, nlev, &
+                   coef1, coef2, coef3, wfac_lin,                    &
+                   idx0_cub, idx0_lin, bot_idx_cub, bot_idx_lin,     &
+                   wfacpbl1, kpbl1, wfacpbl2, kpbl2,                 &
+                   l_hires_intp=lc2f                                 )
+      CALL uv_intp(initicon%atm_in%v, initicon%atm%v,                &
+                   initicon%atm_in%z3d, initicon%z_mc,               &
+                   p_patch%nblks_c, p_patch%npromz_c, nlev_in, nlev, &
+                   coef1, coef2, coef3, wfac_lin,                    &
+                   idx0_cub, idx0_lin, bot_idx_cub, bot_idx_lin,     &
+                   wfacpbl1, kpbl1, wfacpbl2, kpbl2,                 &
+                   l_hires_intp=lc2f                                 )
+
+      ! Convert u and v on cell points to vn at edge points
+      CALL interp_uv_2_vn(p_patch, p_int, initicon%atm%u, initicon%atm%v, initicon%atm%vn)
+    ENDIF
+
+    CALL sync_patch_array(SYNC_E,p_patch,initicon%atm%vn)
+
 
     ! Preliminary interpolation of QV: this is needed to compute virtual temperature
     ! below, which in turn is required to integrate the hydrostatic equation
@@ -385,9 +457,9 @@ CONTAINS
                       initicon%atm%qi, initicon%atm%qr, initicon%atm%qs, z_tempv)
 
     ! Interpolate pressure on ICON grid
-    CALL pressure_intp_initmode(initicon%atm_in%pres, temp_v_in, initicon%atm_in%z3d,           &
-      &                        initicon%atm%pres, z_tempv, initicon%z_mc,                       &
-      &                        p_patch%nblks_c, p_patch%npromz_c, nlev,                         &
+    CALL pressure_intp_initmode(initicon%atm_in%pres, temp_v_in, initicon%atm_in%z3d,    &
+      &                        initicon%atm%pres, z_tempv, initicon%z_mc,                &
+      &                        p_patch%nblks_c, p_patch%npromz_c, nlev,                  &
       &                        wfac_lin, idx0_lin, bot_idx_lin)
  
     CALL qv_intp(initicon%atm_in%qv, initicon%atm%qv, initicon%atm_in%z3d,  &
@@ -405,9 +477,9 @@ CONTAINS
                       initicon%atm%qi, initicon%atm%qr, initicon%atm%qs, z_tempv)
 
     ! Final interpolation of pressure on ICON grid
-    CALL pressure_intp_initmode(initicon%atm_in%pres, temp_v_in, initicon%atm_in%z3d,          &
-      &                        initicon%atm%pres, z_tempv, initicon%z_mc,                      &
-      &                        p_patch%nblks_c, p_patch%npromz_c, nlev,                        &
+    CALL pressure_intp_initmode(initicon%atm_in%pres, temp_v_in, initicon%atm_in%z3d,    &
+      &                        initicon%atm%pres, z_tempv, initicon%z_mc,                &
+      &                        p_patch%nblks_c, p_patch%npromz_c, nlev,                  &
       &                        wfac_lin, idx0_lin, bot_idx_lin)
 
 
@@ -416,10 +488,7 @@ CONTAINS
                          initicon%atm%rho, initicon%atm%exner,   &
                          initicon%atm%theta_v                    )
 
-    ! Convert u and v on cell points to vn at edge points
-    CALL interp_uv_2_vn(p_patch, p_int, initicon%atm%u, initicon%atm%v, initicon%atm%vn)
 
-    CALL sync_patch_array(SYNC_E,p_patch,initicon%atm%vn)
 
     ! convert omega to w
     CALL convert_omega2w(initicon%atm_in%omega, initicon%atm_in%w,   &
@@ -1402,7 +1471,7 @@ CONTAINS
         DO jc = 1, nlen
           tsfc_mod(jc) = tempv_in(jc,nlevs_in,jb)
           IF (tsfc_mod(jc) < t_low) tsfc_mod(jc) = 0.5_wp*(t_low+tsfc_mod(jc))
-          tmsl(jc) = tsfc_mod(jc) - vtgrad_standardatm*z3d_in(jc,nlevs_in,jb)
+          tmsl(jc) = tsfc_mod(jc) - dtdz_standardatm*z3d_in(jc,nlevs_in,jb)
           IF (tmsl(jc) > t_high) THEN
             IF (tsfc_mod(jc) > t_high) THEN
               tsfc_mod(jc) = 0.5_wp*(t_high+tsfc_mod(jc))
@@ -1452,7 +1521,7 @@ CONTAINS
           IF (tsfc_mod(jc) < t_low) tsfc_mod(jc) = 0.5_wp*(t_low+tsfc_mod(jc))
 
           ! Estimated temperature at mean sea level
-          tmsl(jc) = tsfc_mod(jc) - vtgrad_standardatm*z3d_in(jc,nlevs_in,jb)
+          tmsl(jc) = tsfc_mod(jc) - dtdz_standardatm*z3d_in(jc,nlevs_in,jb)
 
           IF (tmsl(jc) > t_high) THEN
             IF (tsfc_mod(jc) > t_high) THEN
@@ -1476,7 +1545,7 @@ CONTAINS
             dtvdz_down(jc,jk) = (tsfc_mod(jc)-tmsl(jc))/z3d_in(jc,nlevs_in,jb)
             
           ELSE ! avoid pathological results at grid points below sea level
-            dtvdz_down(jc,jk) = vtgrad_standardatm
+            dtvdz_down(jc,jk) = dtdz_standardatm
             
           ENDIF
 
@@ -1737,7 +1806,7 @@ CONTAINS
 
     ! LOCAL VARIABLES
 
-    REAL(wp) :: dtvdz_thresh, vtgrad_standardatm, t_low, t_high
+    REAL(wp) :: dtvdz_thresh, t_low, t_high
 
     INTEGER  :: jb, jkm, jkp, jc, jkm_start 
     INTEGER  :: nlen, ierror(nblks)
@@ -1756,9 +1825,6 @@ CONTAINS
     ! Threshold for switching between analytical formulas for constant temperature and
     ! constant vertical gradient of temperature, respectively
     dtvdz_thresh = 1.e-4_wp ! 0.1 K/km
-
-    ! Standard atmosphere vertical temperature gradient
-    vtgrad_standardatm = -6.5e-3_wp ! -6.5 K/km
 
     ! Artificial limits on temperature profile used for extrapolation below the ground
     t_low  = 255.0_wp
@@ -1831,7 +1897,7 @@ CONTAINS
         DO jc = 1, nlen
           tsfc_mod(jc) = tempv_ml(jc,nlevs_ml,jb)
           IF (tsfc_mod(jc) < t_low) tsfc_mod(jc) = 0.5_wp*(t_low+tsfc_mod(jc))
-          tmsl(jc) = tsfc_mod(jc) - vtgrad_standardatm*z3d_ml(jc,nlevs_ml,jb)
+          tmsl(jc) = tsfc_mod(jc) - dtdz_standardatm*z3d_ml(jc,nlevs_ml,jb)
           IF (tmsl(jc) > t_high) THEN
             IF (tsfc_mod(jc) > t_high) THEN
               tsfc_mod(jc) = 0.5_wp*(t_high+tsfc_mod(jc))
@@ -1881,7 +1947,7 @@ CONTAINS
           IF (tsfc_mod(jc) < t_low) tsfc_mod(jc) = 0.5_wp*(t_low+tsfc_mod(jc))
 
           ! Estimated temperature at mean sea level
-          tmsl(jc) = tsfc_mod(jc) - vtgrad_standardatm*z3d_ml(jc,nlevs_ml,jb)
+          tmsl(jc) = tsfc_mod(jc) - dtdz_standardatm*z3d_ml(jc,nlevs_ml,jb)
 
           IF (tmsl(jc) > t_high) THEN
             IF (tsfc_mod(jc) > t_high) THEN
@@ -1919,7 +1985,7 @@ CONTAINS
             dtvdz(jc,jkp) = (tsfc_mod(jc)-tmsl(jc))/z3d_ml(jc,nlevs_ml,jb)
 
           ELSE ! avoid pathological results at grid points below sea level
-            dtvdz(jc,jkp) = vtgrad_standardatm
+            dtvdz(jc,jkp) = dtdz_standardatm
           ENDIF
         ENDDO
       ENDDO
@@ -2307,7 +2373,7 @@ CONTAINS
     ! LOCAL VARIABLES
 
     INTEGER  :: jb, jk, jk1, jc, nlen, jk_start, jk_start_in, jk_start_out, ik1(nproma)
-    REAL(wp) :: wfac, sfcinv, vtgrad_standardatm, tmsl_max
+    REAL(wp) :: wfac, sfcinv, tmsl_max
 
     REAL(wp), DIMENSION(nproma) :: temp1, temp2, vtgrad_up, zdiff_inout, &
                                    redinv1, redinv2, tmsl, tmsl_mod
@@ -2323,9 +2389,6 @@ CONTAINS
 
     IF (l_hires_corr .AND. .NOT. PRESENT(slope)) CALL finish("temperature_intp:",&
       "slope correction requires slope data as input")
-
-    ! Standard atmosphere vertical temperature gradient used for large extrapolation distances
-    vtgrad_standardatm = -6.5e-3_wp
 
     ! Artificial upper limit on sea-level temperature for so-called plateau correction
     tmsl_max = 298._wp
@@ -2504,7 +2567,7 @@ CONTAINS
                 temp_out(jc,jk,jb) = temp_mod(jc,nlevs_in) + wfac_lin(jc,jk,jb)*vtgrad_up(jc)
               ELSE
                 temp_out(jc,jk,jb) = temp_mod(jc,nlevs_in) + extrapol_dist*vtgrad_up(jc) +  &
-                                     (wfac_lin(jc,jk,jb)-extrapol_dist)*vtgrad_standardatm
+                                     (wfac_lin(jc,jk,jb)-extrapol_dist)*dtdz_standardatm
               ENDIF
 
             ENDIF
@@ -2521,7 +2584,7 @@ CONTAINS
         DO jc = 1, nlen
 
           ! extrapolated mean sea level temperature
-          tmsl(jc) = temp_mod(jc,nlevs_in) - vtgrad_standardatm * z3d_in(jc,nlevs_in,jb)
+          tmsl(jc) = temp_mod(jc,nlevs_in) - dtdz_standardatm * z3d_in(jc,nlevs_in,jb)
 
           ! "Plateau correction"
           IF (z3d_in(jc,nlevs_in,jb) > 2000._wp .AND. tmsl(jc) > tmsl_max) THEN
@@ -2615,8 +2678,8 @@ CONTAINS
   !-------------
   !>
   !! SUBROUTINE uv_intp
-  !! Performs vertical interpolation and extrapolation of horizontal wind components with 
-  !! components with special treatment of boundary layer effects
+  !! Performs vertical interpolation and extrapolation of horizontal wind components 
+  !! with special treatment of boundary layer effects
   !!
   !! Required input fields: 3D input field to be interpolated,
   !! coefficient fields from prepare_lin/cubic_intp and prepare_extrap
@@ -3438,12 +3501,9 @@ CONTAINS
     REAL(wp), DIMENSION(nproma) :: tempv1, tempv2, vtgrad_pbl_in, vtgrad_up, zdiff_inout, &
                                    sfc_inv, tempv_out_pbl1, vtgrad_up_out, tempv_out,     &
                                    vtgrad_pbl_out, p_pbl1, p_pbl1_out
-    REAL(wp) :: dtvdz_thresh, vtgrad_standardatm
+    REAL(wp) :: dtvdz_thresh
 
 !-------------------------------------------------------------------------
-
-    ! Standard atmosphere vertical temperature gradient used for large extrapolation distances
-    vtgrad_standardatm = -6.5e-3_wp
 
     ! Threshold for switching between analytical formulas for constant temperature and
     ! constant vertical gradient of temperature, respectively
@@ -3508,7 +3568,7 @@ CONTAINS
           vtgrad_up_out(jc)  = vtgrad_up(jc)
         ELSE
           tempv_out_pbl1(jc) = tempv1(jc) + extrapol_dist*vtgrad_up(jc) +   &
-                            (zdiff_inout(jc)-extrapol_dist)*vtgrad_standardatm
+                            (zdiff_inout(jc)-extrapol_dist)*dtdz_standardatm
 
           ! Artificial limitation analogous to GME method
           IF (tempv_out_pbl1(jc) < 255.65_wp) THEN

@@ -43,7 +43,8 @@ MODULE mo_nwp_phy_init
 
   USE mo_kind,                ONLY: wp
   USE mo_math_constants,      ONLY: pi
-  USE mo_physical_constants,  ONLY: grav, rd_o_cpd, cpd, p0ref, rd, p0sl_bg, tmelt
+  USE mo_physical_constants,  ONLY: grav, rd_o_cpd, cpd, p0ref, rd, p0sl_bg, tmelt, &
+    &                               dtdz_standardatm
 !   USE mo_math_utilities,      ONLY: sphere_cell_mean_char_length
   USE mo_grid_config,         ONLY: grid_sphere_radius
   USE mo_nwp_phy_types,       ONLY: t_nwp_phy_diag,t_nwp_phy_tend
@@ -168,7 +169,6 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
   INTEGER             :: icur_date    ! current date converted to integer
 
   ! Reference atmosphere parameters
-  REAL(wp), PARAMETER :: dtdz_tropo = -6.5e-3_wp  ! [K/m]  tropospheric temperture gradient
   REAL(wp), PARAMETER :: htropo = 11000._wp       ! [m]    tropopause height
   REAL(wp), PARAMETER :: t00    = 288.15_wp       ! [m]    temperature at sea level
   REAL(wp) :: ttropo, ptropo, temp, zfull
@@ -402,14 +402,14 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
   !  because pref is used for determining model level indices referring to pressures
   !  >= 60 hPa)
   !--------------------------------------------------------------
-  ttropo = t00 + dtdz_tropo*htropo
-  ptropo = p0sl_bg*(ttropo/t00)**(-grav/(rd*dtdz_tropo))
+  ttropo = t00 + dtdz_standardatm*htropo
+  ptropo = p0sl_bg*(ttropo/t00)**(-grav/(rd*dtdz_standardatm))
   DO jk = nlev, 1, -1
     jk1 = jk + nshift
     zfull = 0.5_wp*(vct_a(jk1) + vct_a(jk1+1))
     IF (zfull < htropo) THEN
-      temp = t00 + dtdz_tropo*zfull
-      pref(jk) = p0sl_bg*(temp/t00)**(-grav/(rd*dtdz_tropo))
+      temp = t00 + dtdz_standardatm*zfull
+      pref(jk) = p0sl_bg*(temp/t00)**(-grav/(rd*dtdz_standardatm))
     ELSE
       pref(jk) = ptropo*EXP(-grav*(zfull-htropo)/(rd*ttropo))
     ENDIF

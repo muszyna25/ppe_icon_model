@@ -58,7 +58,7 @@ USE mo_parallel_config,     ONLY: nproma, p_test_run
 USE mo_run_config,          ONLY: msg_level, iqv, iqc, iqi
 USE mo_nwp_phy_state,       ONLY: prm_diag
 USE mo_impl_constants,      ONLY: min_rlcell, min_rlcell_int
-USE mo_physical_constants,  ONLY: rd, grav, stbo, vtmpc1
+USE mo_physical_constants,  ONLY: rd, grav, stbo, vtmpc1, dtdz_standardatm
 USE mo_satad,               ONLY: qsat_rho
 USE mo_loopindices,         ONLY: get_indices_c
 USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c, grf_ovlparea_start_c, grf_fbk_start_c
@@ -470,7 +470,7 @@ SUBROUTINE upscale_rad_input(jg, jgp, nlev_rg, fr_land, fr_glac, emis_rad, &
         p_pres(jc,1,jb) = 0.5_wp*p_pres_ifc(jc,2,jb)
         ! Temperature is linearly extrapolated to the barycenter of the passive layer
         p_temp(jc,1,jb) = p_temp(jc,2,jb) + (scalfac*p_temp(jc,2,jb)+exdist)* &
-          MIN(4.e-3_wp,MAX(-6.5e-3_wp,rdelta_z*(p_temp(jc,2,jb)-p_temp(jc,3,jb))))
+          MIN(4.e-3_wp,MAX(dtdz_standardatm,rdelta_z*(p_temp(jc,2,jb)-p_temp(jc,3,jb))))
         ! For ozone, aerosols and cloud fields, a no-gradient condition is assumed
         p_q_o3(jc,1,jb) = p_q_o3(jc,2,jb)
         p_aeq1(jc,1,jb) = p_aeq1(jc,2,jb)

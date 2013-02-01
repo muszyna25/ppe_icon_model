@@ -48,7 +48,7 @@ MODULE mo_nwp_sfc_interp
   USE mo_nh_initicon_types,   ONLY: t_initicon_state
   USE mo_lnd_nwp_config,      ONLY: nlev_soil
   USE mo_impl_constants,      ONLY: zml_soil
-  USE mo_physical_constants,  ONLY: grav
+  USE mo_physical_constants,  ONLY: grav, dtdz_standardatm
   USE mo_ext_data_state,      ONLY: ext_data
   USE mo_exception,           ONLY: message, message_text, finish
 
@@ -92,8 +92,6 @@ CONTAINS
     REAL(wp) :: zsoil_ifs(4)=(/ 0.07_wp,0.21_wp,0.72_wp,1.89_wp/)
     REAL(wp) :: dzsoil_icon(8)=(/ 0.01_wp,0.02_wp,0.06_wp,0.18_wp,&
       & 0.54_wp,1.62_wp,4.86_wp,14.58_wp/)
-    ! Standard atmosphere vertical temperature gradient
-    REAL(wp) :: dtdz_clim = -6.5e-3_wp
 
     REAL(wp) :: tcorr1(nproma),tcorr2(nproma),wfac,wfac_vintp(nlev_soil-1),wfac_snow,snowdep
 
@@ -173,7 +171,8 @@ CONTAINS
         ! correction for ground level
         tcorr1(jc) = initicon%atm%temp(jc,nlev,jb) - initicon%atm_in%temp(jc,nlev_in,jb)
         ! climatological correction for deep soil levels
-        tcorr2(jc) = dtdz_clim*(initicon%topography_c(jc,jb)-initicon%sfc_in%phi(jc,jb)/grav)
+        tcorr2(jc) = dtdz_standardatm &
+          &        * (initicon%topography_c(jc,jb)-initicon%sfc_in%phi(jc,jb)/grav)
       ENDDO
 
       DO jk = 1, nlevsoil_in

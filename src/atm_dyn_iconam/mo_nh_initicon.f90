@@ -325,7 +325,7 @@ MODULE mo_nh_initicon
     ! Perform vertical interpolation from intermediate IFS2ICON grid to ICON grid
     ! and convert variables to the NH set of prognostic variables
     !
-    CALL vert_interp_atm(p_patch, p_int_state, p_grf_state, initicon)
+    CALL vert_interp_atm(p_patch, p_nh_state, p_int_state, p_grf_state, initicon)
 
     
     ! Finally copy the results to the prognostic model variables
@@ -408,13 +408,15 @@ MODULE mo_nh_initicon
 
     INTEGER :: no_cells, no_levels
     INTEGER :: ncid, dimid, varid, mpi_comm
+    INTEGER :: ist
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
       routine = 'mo_nh_initicon:read_ifs_atm'
 
     CHARACTER(LEN=filename_max) :: ifs2icon_file(max_dom)
 
-    LOGICAL :: lreadqr, lreadqs
+    LOGICAL :: lread_qr, lread_qs ! are qr, qs provided as input?
+    LOGICAL :: lread_vn           ! is vn provided as input?
 
     !-------------------------------------------------------------------------
 
@@ -497,9 +499,9 @@ MODULE mo_nh_initicon
         ! Check if rain water (QR) is provided as input
         !
         IF (nf_inq_varid(ncid, 'QR', varid) == nf_noerr) THEN
-          lreadqr = .true.
+          lread_qr = .true.
         ELSE
-          lreadqr = .false.
+          lread_qr = .false.
           CALL message(TRIM(routine),'Rain water (QR) not available in input data')
         ENDIF
 
@@ -507,13 +509,23 @@ MODULE mo_nh_initicon
         ! Check if snow water (QS) is provided as input
         !
         IF (nf_inq_varid(ncid, 'QS', varid) == nf_noerr) THEN
-          lreadqs = .true.
+          lread_qs = .true.
         ELSE
-          lreadqs = .false.
+          lread_qs = .false.
           CALL message(TRIM(routine),'Snow water (QS) not available in input data')
         ENDIF
 
+        !
+        ! Check if surface pressure (VN) is provided as input
+        !
+        IF (nf_inq_varid(ncid, 'VN', varid) == nf_noerr) THEN
+          lread_vn = .TRUE.
+        ELSE 
+          lread_vn = .FALSE.
+        ENDIF
+
       ENDIF ! pe_io
+
 
       IF(p_test_run) THEN
         mpi_comm = p_comm_work_test 
@@ -521,8 +533,9 @@ MODULE mo_nh_initicon
         mpi_comm = p_comm_work
       ENDIF
 
-      CALL p_bcast(lreadqs, p_io, mpi_comm)
-      CALL p_bcast(lreadqr, p_io, mpi_comm)
+      CALL p_bcast(lread_qs,  p_io, mpi_comm)
+      CALL p_bcast(lread_qr,  p_io, mpi_comm)
+      CALL p_bcast(lread_vn, p_io, mpi_comm)
 
 
       IF (msg_level >= 10) THEN
@@ -530,6 +543,13 @@ MODULE mo_nh_initicon
         CALL message('', TRIM(message_text))
         WRITE(message_text,'(a)') 'Model-level surface geopotential: '//TRIM(geop_ml_var)
         CALL message('', TRIM(message_text))
+        IF (.NOT. lread_vn) THEN
+          WRITE(message_text,'(a)') 'No direct input of vn! vn derived from (u,v).'
+          CALL message('', TRIM(message_text))
+        ELSE
+          WRITE(message_text,'(a)') 'Direct input of vn!'
+          CALL message('', TRIM(message_text))
+        ENDIF
       ENDIF
 
 
@@ -540,13 +560,25 @@ MODULE mo_nh_initicon
         &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
         &                     nlev_in,initicon(jg)%atm_in%temp)
 
-      CALL read_netcdf_data_single (ncid, 'U', p_patch(jg)%n_patch_cells_g,           &
-        &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-        &                     nlev_in,initicon(jg)%atm_in%u)
 
-      CALL read_netcdf_data_single (ncid, 'V', p_patch(jg)%n_patch_cells_g,           &
-        &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-        &                     nlev_in,initicon(jg)%atm_in%v)
+      IF (lread_vn) THEN
+        ALLOCATE(initicon(jg)%atm_in%vn(nproma,nlev_in,p_patch(jg)%nblks_e), STAT=ist)
+        IF (ist /= SUCCESS) THEN
+          CALL finish ( TRIM(routine), 'allocation of atm_in%vn failed')
+        ENDIF
+        CALL read_netcdf_data_single (ncid, 'VN', p_patch(jg)%n_patch_edges_g,          &
+          &                     p_patch(jg)%n_patch_edges, p_patch(jg)%edges%glb_index, &
+          &                     nlev_in,initicon(jg)%atm_in%vn)
+      ELSE
+        CALL read_netcdf_data_single (ncid, 'U', p_patch(jg)%n_patch_cells_g,           &
+          &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+          &                     nlev_in,initicon(jg)%atm_in%u)
+
+        CALL read_netcdf_data_single (ncid, 'V', p_patch(jg)%n_patch_cells_g,           &
+          &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+          &                     nlev_in,initicon(jg)%atm_in%v)
+      ENDIF
+
 
       ! Note: input vertical velocity is in fact omega (Pa/s)
       CALL read_netcdf_data_single (ncid, 'W', p_patch(jg)%n_patch_cells_g,           &
@@ -565,7 +597,7 @@ MODULE mo_nh_initicon
         &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
         &                     nlev_in,initicon(jg)%atm_in%qi)
 
-      IF (lreadqr) THEN
+      IF (lread_qr) THEN
         CALL read_netcdf_data_single (ncid, 'QR', p_patch(jg)%n_patch_cells_g,          &
         &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
         &                     nlev_in,initicon(jg)%atm_in%qr)
@@ -573,7 +605,7 @@ MODULE mo_nh_initicon
         initicon(jg)%atm_in%qr(:,:,:)=0._wp
       ENDIF
 
-      IF (lreadqs) THEN
+      IF (lread_qs) THEN
         CALL read_netcdf_data_single (ncid, 'QS', p_patch(jg)%n_patch_cells_g,          &
         &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
         &                     nlev_in,initicon(jg)%atm_in%qs)
@@ -2115,6 +2147,9 @@ MODULE mo_nh_initicon
                  initicon(jg)%atm_in%qi,      &
                  initicon(jg)%atm_in%qr,      &
                  initicon(jg)%atm_in%qs )
+      IF (ALLOCATED(initicon(jg)%atm_in%vn)) THEN
+        DEALLOCATE(initicon(jg)%atm_in%vn)
+      ENDIF
 
       ! surface input data
       DEALLOCATE(initicon(jg)%sfc_in%phi,      &
@@ -2147,6 +2182,7 @@ MODULE mo_nh_initicon
                  initicon(jg)%atm%qi,      &
                  initicon(jg)%atm%qr,      &
                  initicon(jg)%atm%qs       )
+
 
       ! surface output data
       DEALLOCATE(initicon(jg)%sfc%tskin,    &

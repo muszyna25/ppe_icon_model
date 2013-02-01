@@ -2836,10 +2836,34 @@ CONTAINS
     INTEGER,                INTENT(IN) :: vlistID, varID
     TYPE(t_gribout_config), INTENT(IN) :: grib_conf
 
-    ! Do not know, why this has to be set manually.
-    ! Otherwise: tablesVersion=4
+    CHARACTER(len=MAX_STRING_LEN) :: ydate, ytime
+    INTEGER :: cent, year, month, day    ! date
+    INTEGER :: hour, minute              ! time
+
+
+    IF (grib_conf%ldate_grib_act) THEN
+      ! get date and time
+      ! ydate : ccyymmdd, ytime : hhmmss.sss
+      CALL date_and_time(ydate,ytime)
+      READ(ydate,'(4i2)') cent, year, month, day
+      READ(ytime,'(2i2)') hour, minute
+    ELSE ! set date to "01010101" (for better comparability of GRIB files)
+      cent  = 1
+      year  = 1
+      month = 1
+      year  = 1
+      hour  = 1
+      minute= 1 
+    ENDIF
+
+
+
+    ! Load correct tables ans activate section 2
+    !
+    ! set tablesVersion=5
     CALL vlistDefVarIntKey(vlistID, varID, "tablesVersion", 5)
-!DR      CALL vlistDefVarIntKey(vlistID, varID, "localTablesVersion", 1)
+    ! Initialize section 2
+    CALL vlistDefVarIntKey(vlistID, varID, "grib2LocalSectionPresent", 1)
     !
     ! Product definition
     CALL vlistDefVarIntKey(vlistID, varID, "significanceOfReferenceTime",     &
@@ -2856,18 +2880,18 @@ CONTAINS
     CALL vlistDefVarIntKey(vlistID, varID, "generatingProcessIdentifier",     &
       &                    grib_conf%generatingProcessIdentifier)
     !
-    ! Product Generation (local) !!!!!!! DOES NOT WORK, YET !!!!!!!!!!
-!      CALL vlistDefVarIntKey(vlistID, varID, "localDefinitionNumber", 254)
-!      CALL vlistDefVarIntKey(vlistID, varID, "localCreationDateYear", 8)
-!      CALL vlistDefVarIntKey(vlistID, varID, "localValidityDate", 254)
-!      CALL vlistDefVarIntKey(vlistID, varID, "localNumberOfExperiment", 25)
+    ! Product Generation (local)
+    CALL vlistDefVarIntKey(vlistID, varID, "localDefinitionNumber"  , 254)
+    CALL vlistDefVarIntKey(vlistID, varID, "localCreationDateYear"  , 100*cent+year)
+    CALL vlistDefVarIntKey(vlistID, varID, "localCreationDateMonth" , month)
+    CALL vlistDefVarIntKey(vlistID, varID, "localCreationDateDay"   , day)
+    CALL vlistDefVarIntKey(vlistID, varID, "localCreationDateHour"  , hour)
+    CALL vlistDefVarIntKey(vlistID, varID, "localCreationDateMinute", minute)
+
+!    CALL vlistDefVarIntKey(vlistID, varID, "localValidityDate", 2013)
+!    CALL vlistDefVarIntKey(vlistID, varID, "localNumberOfExperiment", 25)
 
 
-    !!!!!!! OBSOLETE !!!!!!!!
-    !Set typeOfStatisticalProcessing
-    !Note: instead of calling vlistDefVarTsteptype, one should probably replace 
-    !info%cdiTimeID in the call of vlistDefVar by info%isteptype
-    !CALL vlistDefVarTsteptype(vlistID, varID, info%isteptype)
   END SUBROUTINE set_additional_GRIB2_keys
 
 
@@ -2881,7 +2905,7 @@ CONTAINS
     ! local variables:
     CHARACTER(LEN=*), PARAMETER :: routine = 'mo_name_list_output/add_variables_to_vlist'
     TYPE (t_var_metadata), POINTER :: info
-    INTEGER :: iv, vlistID, varID, gridID, zaxisID, nlev, nlevp1, i
+    INTEGER :: iv, vlistID, varID, gridID, zaxisID, nlev, nlevp1
     CHARACTER(LEN=vname_len) :: mapped_name
 
     vlistID = of%cdiVlistID
@@ -2969,6 +2993,12 @@ CONTAINS
 
       ! GRIB2 Quick hack: Set additional GRIB2 keys      
       CALL set_additional_GRIB2_keys(vlistID, varID, gribout_config(of%phys_patch_id))
+
+      !!!!!!! OBSOLETE !!!!!!!!
+      !Set typeOfStatisticalProcessing
+      !Note: instead of calling vlistDefVarTsteptype, one should probably replace 
+      !info%cdiTimeID in the call of vlistDefVar by info%isteptype
+      !CALL vlistDefVarTsteptype(vlistID, varID, info%isteptype)
 
     ENDDO
     !

@@ -98,6 +98,10 @@ MODULE mo_gribout_config
                                           ! 3: icoeu
                                           ! 4: ...
 
+    LOGICAL :: ldate_grib_act             ! add Creation date to GRIB file
+                                          ! .TRUE. : activated
+                                          ! .FALSE.: deactivated (use dummy date/time) 
+
 
     ! derived variables
  

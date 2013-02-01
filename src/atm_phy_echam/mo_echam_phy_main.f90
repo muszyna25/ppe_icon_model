@@ -75,8 +75,6 @@ MODULE mo_echam_phy_main
   USE mo_echam_cloud_params,  ONLY: ctaus, ctaul, ctauk !, ncctop, nccbot
   USE mo_radiation,           ONLY: radiation, radheat
   USE mo_radiation_config,    ONLY: tsi, izenith, irad_o3
-  USE mo_srtm_config,         ONLY: jpsw
-  USE mo_lrtm_par,            ONLY: jpband => nbndlw
   USE mo_vdiff_config,        ONLY: vdiff_config
   USE mo_vdiff_downward_sweep,ONLY: vdiff_down
   USE mo_vdiff_upward_sweep,  ONLY: vdiff_up
