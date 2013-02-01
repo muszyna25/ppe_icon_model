@@ -2878,7 +2878,7 @@ END SUBROUTINE message
           ENDIF                       ! overflow of interception store
 
         ! freezing of rain falling on soil with Ts < T0  (black-ice !!!)
-        ELSEIF ((1._ireals-ztsnow_pm(i))*zrr(i) > 0.0_ireals) THEN
+        ELSEIF ((1._ireals-zts_pm(i))*zrr(i) > 0.0_ireals) THEN
           zsprs  (i) = lh_f*zrr(i)
           zdwidt (i) = zdwidt (i) - zrr(i)
           zdwsndt(i) = zdwsndt(i) + zrr(i)
@@ -3077,21 +3077,20 @@ END SUBROUTINE message
     DO i = istarts, iends
 !      IF (llandmask(i)) THEN  ! for landpoints only
         IF (zwsnew(i).GT.zepsi) THEN
-!           zgsb(i) = (zalas_mult(i,ke_snow)*(-zhm_snow(i,ke_snow))+zalam(i,1)*zdzms(1))/ &
-!                       (-zhm_snow(i,ke_snow)+zdzms(1)) * &
-!                       (ztsnow_mult(i,ke_snow) - t_so_now(i,1))/(-zhm_snow(i,ke_snow) &
-!                       +zdzms(1))
+           zgsb(i) = ((zalas_mult(i,ke_snow)*(-zhm_snow(i,ke_snow))+zalam(i,1)*zdzms(1))/ &
+                       (-zhm_snow(i,ke_snow)+zdzms(1)) * &
+                       (ztsnow_mult(i,ke_snow) - t_so_now(i,1))/(-zhm_snow(i,ke_snow) &
+                       +zdzms(1)))*zf_snow(i)
 
-          ! GZ: use formulation of single-layer snow model, which is numerically more stable
-          zgsb(i) = zalas_mult(i,ke_snow)*(ztsnow_mult(i,ke_snow) - t_so_now(i,1))/ &
-            MAX(-zhm_snow(i,ke_snow),cdsmin)
+!          ! GZ: use formulation of single-layer snow model, which is numerically more stable
+!          zgsb(i) = zalas_mult(i,ke_snow)*(ztsnow_mult(i,ke_snow) - t_so_now(i,1))/ &
+!            MAX(-zhm_snow(i,ke_snow),cdsmin)
 
         END IF
 
         ! total forcing for uppermost soil layer
-        zfor_s(i) = ( zrnet_s(i) + zshfl_s(i) + zlhfl_s(i) + zsprs(i) ) &
-                         * (1._ireals - zf_snow(i)) &
-                    + zf_snow(i) * (1._ireals-ztsnow_pm(i)) * zgsb(i)
+        zfor_s(i) = ( zrnet_s(i) + zshfl_s(i) + zlhfl_s(i) + zsprs(i) ) * (1._ireals - zf_snow(i)) &
+                    + (1._ireals-ztsnow_pm(i)) * zgsb(i)
 
         IF(zwsnew(i) .GT. zepsi) THEN
           zrnet_snow = sobs(i) * (1.0_ireals - EXP(-zextinct(i,1)*zdzm_snow(i,1))) &
@@ -3101,7 +3100,7 @@ END SUBROUTINE message
         END IF
         zshfl_snow(i) = zrhoch(i)*cp_d*(zth_low(i) - ztsnow_mult(i,1))
         zlhfl_snow(i) = lh_s*zversn(i)   
-        zfor_snow_mult(i)  = (zrnet_snow + zshfl_snow(i) + zlhfl_snow(i) + zsprs(i))*zf_snow(i)
+        zfor_snow_mult(i)  = (zrnet_snow + zshfl_snow(i) + zlhfl_snow(i) + lh_f*zrr(i))*zf_snow(i)
 
 !      END IF          ! land-points only
     END DO
@@ -3425,11 +3424,11 @@ ENDIF
 !          IF (llandmask(i)) THEN          ! land-points only
             IF(zwsnew(i) .GT. zepsi .and. zwsnew(i) .LT. zswitch(i)) THEN
   
-              IF(zfor_snow_mult(i)*zdt > zwsnew(i)*rho_w*lh_f) THEN
+              IF((zfor_snow_mult(i)-zgsb(i))*zdt > zwsnew(i)*rho_w*lh_f) THEN
                 ztsnown_mult(i,ksn) = t_so_now(i,0)
-              ELSE IF(zfor_snow_mult(i) .GT. 0._ireals) THEN
+              ELSE IF(zfor_snow_mult(i)-zgsb(i) .GT. 0._ireals) THEN
                 ztsnown_mult(i,ksn) = ztsnow_mult(i,ksn) + &
-                  zfor_snow_mult(i)*zdt/(chc_i*wtot_snow_now(i,ksn))/rho_w/ke_snow
+                  (zfor_snow_mult(i)-zgsb(i))*zdt/(chc_i*wtot_snow_now(i,ksn))/rho_w/ke_snow
               END IF
             END IF
 !          END IF  ! land-points only
@@ -3440,14 +3439,11 @@ ENDIF
 !      IF (llandmask(i)) THEN          ! land-points only
         IF(zwsnew(i) .GT. zepsi .and. zwsnew(i) .LT. zswitch(i)) THEN
   
-          IF(zfor_snow_mult(i)*zdt > zwsnew(i)*rho_w*lh_f) THEN
-            zfor_snow_mult(i) = zfor_snow_mult(i) - zwsnew(i)*rho_w*lh_f/zdt
+          IF((zfor_snow_mult(i)-zgsb(i))*zdt > zwsnew(i)*rho_w*lh_f) THEN
             zdwsndt(i) = zdwsndt(i) - zwsnew(i)*rho_w/zdt
             zwsnew(i)  = 0._ireals
             ztsnown_mult(i,0) = t_so_now(i,0)
-            zfor_s(i) = zfor_s(i) + zfor_snow_mult(i)
-          ELSE IF(zfor_snow_mult(i) .GT. 0._ireals) THEN
-            zfor_snow_mult(i) = 0._ireals
+          ELSE IF((zfor_snow_mult(i)-zgsb(i)) .GT. 0._ireals) THEN
             ztsnown_mult(i,0) = ztsnown_mult(i,1)
           END IF
   
