@@ -233,9 +233,11 @@ CONTAINS
         ! *instead* of "u", "v", but in addition to these fields.
         IF (TRIM(tolower(inputname)) == "u") THEN
           ! input_field(n_input_fields)%intp_method = INTP_NONE  
+          input_field(n_input_fields)%intp_method = INTP_CONS        
           field_id_u = n_input_fields
         ELSE IF (TRIM(tolower(inputname)) == "v") THEN
           ! input_field(n_input_fields)%intp_method = INTP_NONE 
+          input_field(n_input_fields)%intp_method = INTP_CONS        
           field_id_v = n_input_fields
         ELSE
           input_field(n_input_fields)%intp_method = INTP_CONS        
