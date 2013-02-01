@@ -229,11 +229,13 @@ CONTAINS
       ! default interpolation method: INTP_CONS, only "u", "v" are
       ! treated with RBF interpolation weights:
       IF ((lcompute_vt) .OR. (lcompute_vn)) THEN
+        ! NOTE: For development reasons, we do not write "vn"/"vt"
+        ! *instead* of "u", "v", but in addition to these fields.
         IF (TRIM(tolower(inputname)) == "u") THEN
-          input_field(n_input_fields)%intp_method = INTP_NONE  
+          ! input_field(n_input_fields)%intp_method = INTP_NONE  
           field_id_u = n_input_fields
         ELSE IF (TRIM(tolower(inputname)) == "v") THEN
-          input_field(n_input_fields)%intp_method = INTP_NONE 
+          ! input_field(n_input_fields)%intp_method = INTP_NONE 
           field_id_v = n_input_fields
         ELSE
           input_field(n_input_fields)%intp_method = INTP_CONS        

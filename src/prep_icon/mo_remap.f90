@@ -300,7 +300,7 @@ CONTAINS
     time_read_tot  = 0.
     time_intp_tot  = 0.
     time_write_tot = 0.
-    DO ivar=1,n_input_fields
+    VAR_LOOP : DO ivar=1,n_input_fields
 
       IF (dbg_level >= 1)  &
         &  WRITE (0,*) "# read and interpolate variable '", TRIM(input_field(ivar)%inputname), "'"
@@ -394,6 +394,7 @@ CONTAINS
 
       CASE (INTP_NONE)
         IF (dbg_level >= 2)  WRITE (0,*) "# skipping"
+        CYCLE VAR_LOOP
       CASE DEFAULT
         CALL finish(routine, "Internal error!")
 
@@ -428,7 +429,7 @@ CONTAINS
           time_write_tot = time_write_tot + toc(time_write)
         END IF
       END DO
-    END DO ! ivar
+    END DO VAR_LOOP ! ivar
     DEALLOCATE(tmp_rfield3D, STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")
 
