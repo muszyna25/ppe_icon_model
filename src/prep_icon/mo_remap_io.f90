@@ -28,7 +28,6 @@ MODULE mo_remap_io
   PUBLIC :: t_file_metadata
   PUBLIC :: l_have3dbuffer
   PUBLIC :: s_maxsize
-  PUBLIC :: in_file_gribedition
   PUBLIC :: lcompute_vt, lcompute_vn
   PUBLIC :: rbf_vec_scale
 
@@ -78,6 +77,7 @@ MODULE mo_remap_io
     INTEGER :: streamID  = -1
     INTEGER :: vlistID   = -1
     INTEGER :: ncfileID  = -1
+    INTEGER :: gribedition = 2
 
     ! CDI internal ID for the gaussian grid or the cells/edges/verts
     ! grids (unstructured case):
@@ -106,7 +106,7 @@ CONTAINS
     out_type          =  2
     l_have3dbuffer    = .FALSE.
     s_maxsize         = 500000
-    in_file_gribedition = 2
+    in_file_gribedition = -1
     lcompute_vn       = .FALSE.
     lcompute_vt       = .FALSE.
     rbf_vec_scale     = 0.05_wp
@@ -126,6 +126,10 @@ CONTAINS
         &         MAX_NSTENCIL_CONS, "/", s_maxsize
       WRITE (0,*) "# RBF vec scale (RBF remapping): ", &
         &         rbf_vec_scale
+    END IF
+    ! warn about deprecated parameters:
+    IF (in_file_gribedition /= -1) THEN
+      WRITE (0,*) "Deprecated parameter: in_file_gribedition! This parameter will be removed in future versions!"
     END IF
   END SUBROUTINE read_remap_namelist
 
@@ -178,6 +182,7 @@ CONTAINS
         file_metadata%structure = GRID_TYPE_ICON
         file_metadata%streamID  = streamOpenRead(TRIM(filename))
         file_metadata%vlistID   = streamInqVlist(file_metadata%streamID)
+        file_metadata%gribedition = 2
         ! set file gridID to cell-grid:
         ngrids = vlistNgrids(file_metadata%vlistID)
         LOOP : DO i=1,ngrids
@@ -192,6 +197,17 @@ CONTAINS
         file_metadata%structure = GRID_TYPE_REGULAR
         file_metadata%streamID  = streamOpenRead(TRIM(filename))
         file_metadata%vlistID   = streamInqVlist(file_metadata%streamID)
+
+        ! determine GRIB edition
+        SELECT CASE(streamInqFiletype(file_metadata%streamID))
+        CASE (FILETYPE_GRB) 
+          file_metadata%gribedition = 1
+        CASE (FILETYPE_GRB2) 
+          file_metadata%gribedition = 2
+        CASE default
+          CALL finish(routine, "Unrecognized GRIB edition!")
+        END SELECT
+
         ! set file gridID to regular grid:
         file_metadata%c_gridID  = vlistGrid(file_metadata%vlistID, 0)
       CASE DEFAULT
@@ -262,7 +278,7 @@ CONTAINS
     IF (get_my_mpi_work_id() == gather_c%rank0) THEN
       streamID = file_metadata%streamID
       vlistID  = file_metadata%vlistID
-      IF (in_file_gribedition == 1) THEN
+      IF (file_metadata%gribedition == 1) THEN
         varID    = get_varID(vlistID, code=var_code)
       ELSE
         varID    = get_varID(vlistID, name=TRIM(var_name))
@@ -309,7 +325,7 @@ CONTAINS
     IF (get_my_mpi_work_id() == gather_c%rank0) THEN
       streamID = file_metadata%streamID
       vlistID  = file_metadata%vlistID
-      IF (in_file_gribedition == 1) THEN
+      IF (file_metadata%gribedition == 1) THEN
         varID    = get_varID(vlistID, code=var_code)
       ELSE
         varID    = get_varID(vlistID, name=TRIM(var_name))

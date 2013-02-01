@@ -124,12 +124,12 @@ CONTAINS
       &                        tmp_rfield3D(:,:,:)
     INTEGER                 :: i, nthreads, ivar, max_nlev,          &
       &                        glb_max_nlev, glb_idx, ilev,          &
-      &                        fac, max_nforeignA, max_nforeignB,    &
+      &                        max_nforeignA, max_nforeignB,         &
       &                        max_nforeign, igather_size, ierrstat, &
       &                        ihorizontal_size_loc,                 &
       &                        ihorizontal_size_glb
     REAL(wp)                :: lat_rangeA(2), lat_rangeB(2),         &
-      &                        lat_range(2)
+      &                        lat_range(2), fac
     REAL                    :: time_s, time_comm, time_write,        &
       &                        time_comm_tot, time_read_tot,         &
       &                        time_intp_tot, time_write_tot,        &
@@ -211,7 +211,7 @@ CONTAINS
     ! estimate the number of cells of a covering which are foreign to
     ! the local process (needed to set the dimension of a list which
     ! will be communicated):
-    fac = 10 ! safety factor (>= 1)
+    fac = 10.0_wp ! safety factor (>= 1)
     max_nforeignA = NINT(fac * REAL(gridB_cov%p_patch%n_patch_cells,wp)) * &
       &   ((lat_range(IMAX) - lat_rangeA(IMAX)) + (lat_rangeA(IMIN) - lat_range(IMIN))) / &
       &   (lat_range(IMAX) - lat_range(IMIN))
@@ -245,8 +245,8 @@ CONTAINS
     END IF
 
     ! allocate interpolation weights
-    CALL allocate_intp_data(intp_data_A,          gridA%p_patch%nblks_c, MAX_NSTENCIL_CONS)
-    CALL allocate_intp_data(intp_data_B,          gridB%p_patch%nblks_c, MAX_NSTENCIL_CONS)
+    CALL allocate_intp_data(intp_data_A, gridA%p_patch%nblks_c, MAX_NSTENCIL_CONS)
+    CALL allocate_intp_data(intp_data_B, gridB%p_patch%nblks_c, MAX_NSTENCIL_CONS)
 
     ! compute interpolation weights: RBF remapping
     IF (ANY(input_field(:)%intp_method == INTP_RBF)) THEN

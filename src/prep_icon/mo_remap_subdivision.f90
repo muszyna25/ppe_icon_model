@@ -231,7 +231,7 @@ CONTAINS
         lat_min = MINVAL(grid_in%p_patch%cells%center(:,1:(grid_in%p_patch%nblks_c-1))%lat)
         lat_max = MAXVAL(grid_in%p_patch%cells%center(:,1:(grid_in%p_patch%nblks_c-1))%lat)
         lat_delta = 1.0001_wp * (lat_max - lat_min)/nparts
-        lat_min = lat_min + lat_delta*get_my_mpi_work_id()
+        lat_min = lat_min + lat_delta*REAL(get_my_mpi_work_id(),wp)
         lat_max = lat_min + lat_delta
         IF (dbg_level >= 2)  WRITE (0,*) "# partition with lat = [", lat_min, ",", lat_max, "]"
       CASE (GRID_TYPE_REGULAR)

@@ -20,8 +20,7 @@ MODULE mo_remap_input
   USE mo_remap_config,       ONLY: dbg_level, MAX_NAME_LENGTH, MAX_NZAXIS, MAX_INPUT_FIELDS
   USE mo_remap_shared,       ONLY: t_grid, GRID_TYPE_REGULAR
   USE mo_remap_sync,         ONLY: t_gather, scatter_field2D
-  USE mo_remap_io,           ONLY: t_file_metadata, get_varID, &
-    &                              in_file_gribedition
+  USE mo_remap_io,           ONLY: t_file_metadata, get_varID
 
   IMPLICIT NONE
   INCLUDE 'cdi.inc'
@@ -212,8 +211,8 @@ CONTAINS
       code_geosp    = 129
       var_qv        = "QV"
       code_qv       = 133
-      hpbl1         = 500
-      hpbl2         = 1000
+      hpbl1         = 500._wp
+      hpbl2         = 1000._wp
 
       ! read user's (new) specifications
       READ (nnml, input_field_nml)
@@ -299,12 +298,13 @@ CONTAINS
   !
   !  @todo Consistency checks of variable metadata still missing!
   !
-  FUNCTION get_field_varID(vlistID, field_info) RESULT(result_varID)
+  FUNCTION get_field_varID(vlistID, gribedition, field_info) RESULT(result_varID)
     INTEGER                             :: result_varID
     INTEGER,                 INTENT(IN) :: vlistID             !< link to GRIB file vlist
+    INTEGER,                 INTENT(IN) :: gribedition         !< grib edition 1/2
     TYPE (t_field_metadata), INTENT(IN) :: field_info          !< field meta-data
 
-    IF (in_file_gribedition == 1) THEN
+    IF (gribedition == 1) THEN
       result_varID = get_varID(vlistID, code=field_info%code)
     ELSE
       result_varID = get_varID(vlistID, name=field_info%inputname)
@@ -343,7 +343,7 @@ CONTAINS
     ! Loop over all fields from input config file, read file only on PE rank0:
     DO i=1,n_input_fields
       IF (get_my_mpi_work_id() == rank0) THEN
-        input_field(i)%varID = get_field_varID(vlistID, input_field(i))
+        input_field(i)%varID = get_field_varID(vlistID, file%gribedition, input_field(i))
       END IF
       ! distributed computation: broadcast to other worker PEs:
       CALL p_bcast(input_field(i)%varID, rank0, p_comm_work)
@@ -559,7 +559,7 @@ CONTAINS
         !-----------------------
         maxblk = min (size (dst_field, dim=3), size (rfield2D_loc, dim=2))
         dst_field(:,ilev,1:maxblk)  = rfield2D_loc(:,1:maxblk)
-        dst_field(:,ilev,maxblk+1:) = 0
+        dst_field(:,ilev,maxblk+1:) = 0._wp
       END DO ! ilev
     END IF ! (varID /= -1)
 
