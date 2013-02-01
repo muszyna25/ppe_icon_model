@@ -60,7 +60,7 @@ MODULE mo_ext_data_state
   USE mo_impl_constants,     ONLY: inwp, iecham, ildf_echam, io3_clim, io3_ape, &
     &                              ihs_ocean, ihs_atm_temp, ihs_atm_theta, inh_atmosphere, &
     &                              max_char_length, min_rlcell_int,                        &
-    &                              VINTP_METHOD_LIN
+    &                              VINTP_METHOD_LIN, HINTP_TYPE_NONE
   USE mo_math_constants,     ONLY: dbl_eps
   USE mo_physical_constants, ONLY: ppmv2gg, zemiss_def
   USE mo_run_config,         ONLY: iforcing
@@ -88,10 +88,12 @@ MODULE mo_ext_data_state
   USE mo_linked_list,        ONLY: t_var_list
   USE mo_ext_data_types,     ONLY: t_external_data, t_external_atmos,    &
     &                              t_external_atmos_td, t_external_ocean
-  USE mo_var_list,           ONLY: default_var_list_settings, &
-    &                              add_var, add_ref,          &
-    &                              new_var_list,              &
-    &                              delete_var_list, create_vert_interp_metadata
+  USE mo_var_list,           ONLY: default_var_list_settings,   &
+    &                              add_var, add_ref,            &
+    &                              new_var_list,                &
+    &                              delete_var_list,             &
+    &                              create_vert_interp_metadata, &
+    &                              create_hor_interp_metadata
   USE mo_master_nml,         ONLY: model_base_dir
   USE mo_cf_convention,      ONLY: t_cf_var
   USE mo_grib2,              ONLY: t_grib2_var
@@ -1180,7 +1182,9 @@ CONTAINS
       grib2_desc = t_grib2_var( 2, 3, 196, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'soiltyp', p_ext_atm%soiltyp,   &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
-        &           grib2_desc, ldims=shape2d_c, loutput=.FALSE. )
+        &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,    &
+        &           hor_interp=create_hor_interp_metadata(          &
+        &               hor_intp_type=HINTP_TYPE_NONE ) )
 
       ! soiltyp_t      p_ext_atm%soiltyp_t(nproma,nblks_c,ntiles_total)
       cf_desc    = t_cf_var('soil_type', '-','soil type', DATATYPE_FLT32)

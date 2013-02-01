@@ -130,15 +130,21 @@ MODULE mo_name_list_output_config
   ! Max number of time levels:
   INTEGER, PARAMETER :: max_time_levels = 5
 
-  ! Unfortunately, Fortran does not allow arrays of pointers, so we have to define an extra type
+  ! Unfortunately, Fortran does not allow arrays of pointers, so we have to define extra types
   TYPE t_rptr_5d
     REAL(wp), POINTER :: p(:,:,:,:,:)
   END TYPE
 
+  TYPE t_iptr_5d
+    INTEGER,  POINTER :: p(:,:,:,:,:)
+  END TYPE
+
   TYPE t_var_desc
-    REAL(wp), POINTER :: r_ptr(:,:,:,:,:)        ! Pointer to time level independent data (or NULL)
-    TYPE(t_rptr_5d) :: tlev_ptr(max_time_levels) ! Pointers to time level dependent data
-    TYPE(t_var_metadata) :: info                 ! Info structure for variable
+    REAL(wp), POINTER :: r_ptr(:,:,:,:,:)         ! Pointer to time level independent REAL data (or NULL)
+    INTEGER,  POINTER :: i_ptr(:,:,:,:,:)         ! Pointer to time level independent INTEGER data (or NULL)
+    TYPE(t_rptr_5d) :: tlev_rptr(max_time_levels) ! Pointers to time level dependent REAL data
+    TYPE(t_iptr_5d) :: tlev_iptr(max_time_levels) ! Pointers to time level dependent INTEGER data
+    TYPE(t_var_metadata) :: info                  ! Info structure for variable
   END TYPE
 
   !------------------------------------------------------------------------------------------------
@@ -403,8 +409,10 @@ CONTAINS
       ! Nullify pointers in p_of%var_desc
       DO ivar=(p_of%max_vars+1),new_max_vars
         p_of%var_desc(ivar)%r_ptr => NULL()
+        p_of%var_desc(ivar)%i_ptr => NULL()
         DO i = 1, max_time_levels
-          p_of%var_desc(ivar)%tlev_ptr(i)%p => NULL()
+          p_of%var_desc(ivar)%tlev_rptr(i)%p => NULL()
+          p_of%var_desc(ivar)%tlev_iptr(i)%p => NULL()
         ENDDO
       END DO
 

@@ -1159,8 +1159,10 @@ CONTAINS
     DO ivar = 1,(ivar-1)
       ! Nullify pointers in p_of%var_desc
       p_of%var_desc(ivar)%r_ptr => NULL()
+      p_of%var_desc(ivar)%i_ptr => NULL()
       DO i = 1, max_time_levels
-        p_of%var_desc(ivar)%tlev_ptr(i)%p => NULL()
+        p_of%var_desc(ivar)%tlev_rptr(i)%p => NULL()
+        p_of%var_desc(ivar)%tlev_iptr(i)%p => NULL()
       ENDDO
     END DO ! ivar
 
@@ -1170,8 +1172,10 @@ CONTAINS
       found = .FALSE.
       ! Nullify pointers
       var_desc%r_ptr => NULL()
+      var_desc%i_ptr => NULL()
       DO i = 1, max_time_levels
-        var_desc%tlev_ptr(i)%p => NULL()
+        var_desc%tlev_rptr(i)%p => NULL()
+        var_desc%tlev_iptr(i)%p => NULL()
       ENDDO
 
       ! Loop over all var_lists listed in vl_list to find the variable
@@ -1234,6 +1238,7 @@ CONTAINS
             ! Not time level dependent
             IF(found) CALL finish(routine,'Duplicate var name: '//TRIM(varlist(ivar)))
             p_var_desc%r_ptr => element%field%r_ptr
+            p_var_desc%i_ptr => element%field%i_ptr
             p_var_desc%info  = element%field%info
           ELSE
             IF(found) THEN
@@ -1244,7 +1249,7 @@ CONTAINS
                 CALL finish(routine,'Dimension mismatch TL variable: '//TRIM(varlist(ivar)))
               END IF
               ! There must not be a TL independent variable with the same name
-              IF(ASSOCIATED(p_var_desc%r_ptr)) &
+              IF (ASSOCIATED(p_var_desc%r_ptr) .OR. ASSOCIATED(p_var_desc%i_ptr)) &
                 CALL finish(routine,'Duplicate var name: '//TRIM(varlist(ivar)))
               ! Maybe some more members of info should be tested ...
             ELSE
@@ -1257,9 +1262,10 @@ CONTAINS
             tl = ICHAR(element%field%info%name(idx_t+3:idx_t+3)) - ICHAR('0')
             IF(tl<=0 .OR. tl>max_time_levels) &
               CALL finish(routine, 'Illegal time level in '//TRIM(element%field%info%name))
-            IF(ASSOCIATED(p_var_desc%tlev_ptr(tl)%p)) &
+            IF (ASSOCIATED(p_var_desc%tlev_rptr(tl)%p) .OR. ASSOCIATED(p_var_desc%tlev_iptr(tl)%p)) &
               CALL finish(routine, 'Duplicate time level for '//TRIM(element%field%info%name))
-            p_var_desc%tlev_ptr(tl)%p => element%field%r_ptr
+            p_var_desc%tlev_rptr(tl)%p => element%field%r_ptr
+            p_var_desc%tlev_iptr(tl)%p => element%field%i_ptr
           ENDIF
 
           found = .TRUE.
@@ -2881,15 +2887,15 @@ CONTAINS
       &                    grib_conf%generatingProcessIdentifier)
     !
     ! Product Generation (local)
-    CALL vlistDefVarIntKey(vlistID, varID, "localDefinitionNumber"  ,         &
-      &                    grib_conf%localDefinitionNumber)
-    CALL vlistDefVarIntKey(vlistID, varID, "localNumberOfExperiment",         &
-      &                    grib_conf%localNumberOfExperiment)
-    CALL vlistDefVarIntKey(vlistID, varID, "localCreationDateYear"  , 100*cent+year)
-    CALL vlistDefVarIntKey(vlistID, varID, "localCreationDateMonth" , month)
-    CALL vlistDefVarIntKey(vlistID, varID, "localCreationDateDay"   , day)
-    CALL vlistDefVarIntKey(vlistID, varID, "localCreationDateHour"  , hour)
-    CALL vlistDefVarIntKey(vlistID, varID, "localCreationDateMinute", minute)
+!    CALL vlistDefVarIntKey(vlistID, varID, "localDefinitionNumber"  ,         &
+!      &                    grib_conf%localDefinitionNumber)
+!    CALL vlistDefVarIntKey(vlistID, varID, "localNumberOfExperiment",         &
+!      &                    grib_conf%localNumberOfExperiment)
+!    CALL vlistDefVarIntKey(vlistID, varID, "localCreationDateYear"  , 100*cent+year)
+!    CALL vlistDefVarIntKey(vlistID, varID, "localCreationDateMonth" , month)
+!    CALL vlistDefVarIntKey(vlistID, varID, "localCreationDateDay"   , day)
+!    CALL vlistDefVarIntKey(vlistID, varID, "localCreationDateHour"  , hour)
+!    CALL vlistDefVarIntKey(vlistID, varID, "localCreationDateMinute", minute)
 !    CALL vlistDefVarIntKey(vlistID, varID, "localValidityDate", 2013)
 
 
@@ -3390,23 +3396,28 @@ CONTAINS
 #endif
 
     TYPE (t_output_file), INTENT(INOUT), TARGET :: of
-    LOGICAL, INTENT(IN) :: l_first_write
+    LOGICAL,              INTENT(IN)            :: l_first_write
+    ! local variables:
+    CHARACTER(LEN=*), PARAMETER    :: routine = 'mo_name_list_output/write_name_list'
+    REAL(wp),         PARAMETER    :: SYNC_ERROR_PRINT_TOL = 1e-13_wp
+    INTEGER,          PARAMETER    :: iUNKNOWN = 0
+    INTEGER,          PARAMETER    :: iINTEGER = 1
+    INTEGER,          PARAMETER    :: iREAL    = 2
 
-    INTEGER :: tl, i_dom, i_log_dom, i, iv, jk, n_points, nlevs, nblks, &
-      &        nindex, mpierr, lonlat_id, ierrstat
-    INTEGER(i8) :: ioff
+    INTEGER                        :: tl, i_dom, i_log_dom, i, iv, jk, n_points, &
+      &                               nlevs, nblks, nindex, mpierr, lonlat_id,   &
+      &                               ierrstat, idata_type
+    INTEGER(i8)                    :: ioff
     TYPE (t_var_metadata), POINTER :: info
-    TYPE(t_reorder_info), POINTER  :: p_ri
-
-    REAL(wp), POINTER :: r_ptr(:,:,:)
-    REAL(wp), ALLOCATABLE :: r_tmp(:,:,:), r_out_recv(:,:)
-    REAL(sp), ALLOCATABLE :: r_out_sp(:,:)
-    REAL(dp), ALLOCATABLE :: r_out_dp(:,:)
-    TYPE(t_comm_pattern), POINTER :: p_pat
-
-    CHARACTER(LEN=*), PARAMETER :: routine = 'mo_name_list_output/write_name_list'
-    REAL(wp) :: SYNC_ERROR_PRINT_TOL = 1e-13_wp
-    LOGICAL  :: l_error
+    TYPE(t_reorder_info),  POINTER :: p_ri
+    REAL(wp),              POINTER :: r_ptr(:,:,:)
+    INTEGER,               POINTER :: i_ptr(:,:,:)
+    REAL(wp),          ALLOCATABLE :: r_tmp(:,:,:), r_out_recv(:,:)
+    INTEGER,           ALLOCATABLE :: i_tmp(:,:,:)
+    REAL(sp),          ALLOCATABLE :: r_out_sp(:,:)
+    REAL(dp),          ALLOCATABLE :: r_out_dp(:,:)
+    TYPE(t_comm_pattern),  POINTER :: p_pat
+    LOGICAL                        :: l_error
 
     ! Offset in memory window for async I/O
     ioff = of%my_mem_win_off
@@ -3422,8 +3433,9 @@ CONTAINS
       CALL MPI_Win_lock(MPI_LOCK_EXCLUSIVE, p_pe_work, MPI_MODE_NOCHECK, mpi_win, mpierr)
 #endif
 
+    ! ----------------------------------------------------
     ! Go over all name list variables for this output file
-
+    ! ----------------------------------------------------
     DO iv = 1, of%num_vars
 
       info => of%var_desc(iv)%info
@@ -3434,15 +3446,17 @@ CONTAINS
 
       ! Check if first dimension of array is nproma.
       ! Otherwise we got an array which is not suitable for this output scheme.
-
       IF(info%used_dimensions(1) /= nproma) &
         CALL finish(routine,'1st dim is not nproma: '//TRIM(info%name))
 
+      idata_type = iUNKNOWN
       r_ptr => NULL()
+      i_ptr => NULL()
 
-      ! For time level dependent elements: set time level and check if time level is present
-
-      IF(.NOT.ASSOCIATED(of%var_desc(iv)%r_ptr)) THEN
+      ! For time level dependent elements: set time level and check if
+      ! time level is present:
+      IF (.NOT. ASSOCIATED(of%var_desc(iv)%r_ptr)  .AND.    &
+        & .NOT. ASSOCIATED(of%var_desc(iv)%i_ptr)) THEN
         SELECT CASE (info%tlev_source)
           CASE(0); tl = nnow(i_log_dom)
           CASE(1); tl = nnow_rcf(i_log_dom)
@@ -3452,34 +3466,63 @@ CONTAINS
         IF(tl<=0 .OR. tl>max_time_levels) &
           CALL finish(routine, 'Illegal time level in nnow()/nnow_rcf()')
         ! Check if present
-        IF(.NOT.ASSOCIATED(of%var_desc(iv)%tlev_ptr(tl)%p)) &
+        IF (.NOT. ASSOCIATED(of%var_desc(iv)%tlev_rptr(tl)%p)   .AND.   &  
+          & .NOT. ASSOCIATED(of%var_desc(iv)%tlev_iptr(tl)%p)) THEN
           CALL finish(routine,'Actual timelevel not in '//TRIM(info%name))
+        END IF
+      ELSE
+        ! set a default time level (which is not used anyway, but must
+        ! be a valid array subscript):
+        tl = 1
       ENDIF
-      !
+      
       IF (info%lcontained) THEN 
         nindex = info%ncontained
       ELSE
         nindex = 1
       ENDIF
 
+      ! determine, if this is a REAL or an INTEGER variable:
+      IF (ASSOCIATED(of%var_desc(iv)%r_ptr) .OR.  &
+        & ASSOCIATED(of%var_desc(iv)%tlev_rptr(tl)%p)) THEN
+        idata_type = iREAL
+      ELSE IF (ASSOCIATED(of%var_desc(iv)%i_ptr) .OR.  &
+        & ASSOCIATED(of%var_desc(iv)%tlev_iptr(tl)%p)) THEN
+        idata_type = iINTEGER
+      END IF
+
       SELECT CASE (info%ndims)
       CASE (1)
         CALL message(routine, info%name)
         CALL finish(routine,'1d arrays not handled yet.')
       CASE (2)
-        ! Make a 3D copy of the array
-        ALLOCATE(r_ptr(info%used_dimensions(1),1,info%used_dimensions(2)))
-        IF(ASSOCIATED(of%var_desc(iv)%r_ptr)) THEN
+        ! 2D fields: Make a 3D copy of the array
+        IF (idata_type == iREAL)    ALLOCATE(r_ptr(info%used_dimensions(1),1,info%used_dimensions(2)))
+        IF (idata_type == iINTEGER) ALLOCATE(i_ptr(info%used_dimensions(1),1,info%used_dimensions(2)))
+
+        IF (ASSOCIATED(of%var_desc(iv)%r_ptr)) THEN
           r_ptr(:,1,:) = of%var_desc(iv)%r_ptr(:,:,nindex,1,1)
+        ELSE IF (ASSOCIATED(of%var_desc(iv)%i_ptr)) THEN
+          i_ptr(:,1,:) = of%var_desc(iv)%i_ptr(:,:,nindex,1,1)
+        ELSE IF (ASSOCIATED(of%var_desc(iv)%tlev_rptr(tl)%p)) THEN
+          r_ptr(:,1,:) = of%var_desc(iv)%tlev_rptr(tl)%p(:,:,nindex,1,1)
+        ELSE IF (ASSOCIATED(of%var_desc(iv)%tlev_iptr(tl)%p)) THEN
+          i_ptr(:,1,:) = of%var_desc(iv)%tlev_iptr(tl)%p(:,:,nindex,1,1)
         ELSE
-          r_ptr(:,1,:) = of%var_desc(iv)%tlev_ptr(tl)%p(:,:,nindex,1,1)
+          CALL finish(routine, "Internal error!")
         ENDIF
       CASE (3)
         ! Just set a pointer to the array
         IF(ASSOCIATED(of%var_desc(iv)%r_ptr)) THEN
           r_ptr => of%var_desc(iv)%r_ptr(:,:,:,nindex,1)
+        ELSE IF (ASSOCIATED(of%var_desc(iv)%i_ptr)) THEN
+          i_ptr => of%var_desc(iv)%i_ptr(:,:,:,nindex,1)
+        ELSE IF (ASSOCIATED(of%var_desc(iv)%tlev_rptr(tl)%p)) THEN
+          r_ptr => of%var_desc(iv)%tlev_rptr(tl)%p(:,:,:,nindex,1)
+        ELSE IF (ASSOCIATED(of%var_desc(iv)%tlev_iptr(tl)%p)) THEN
+          i_ptr => of%var_desc(iv)%tlev_iptr(tl)%p(:,:,:,nindex,1)
         ELSE
-          r_ptr => of%var_desc(iv)%tlev_ptr(tl)%p(:,:,:,nindex,1)
+          CALL finish(routine, "Internal error!")
         ENDIF
       CASE (4)
         CALL message(routine, info%name)
@@ -3530,31 +3573,57 @@ CONTAINS
         CALL finish(routine,'unknown grid type')
       END SELECT
 
-      IF(.NOT.use_async_name_list_io .OR. my_process_is_mpi_test()) THEN
+      IF (.NOT.use_async_name_list_io .OR. my_process_is_mpi_test()) THEN
 
-        ! No asynchronous I/O, gather the array on stdio PE and write it out there
+        ! -------------------
+        ! No asynchronous I/O
+        ! -------------------
+        !
+        ! gather the array on stdio PE and write it out there
 
         n_points = p_ri%n_glb
         nblks = (n_points-1)/nproma + 1
 
-        IF(my_process_is_mpi_test() .OR. my_process_is_mpi_workroot()) THEN
-          ALLOCATE(r_tmp(nproma,nlevs,nblks))
-        ELSE
-          ! Dimensions 1 and 2 of r_tmp must always be nproma and nlevs,
-          ! otherwise exchange_data doesn't work!
-          ALLOCATE(r_tmp(nproma,nlevs,1))
-        ENDIF
-        r_tmp(:,:,:) = 0._wp
-        ! Gather data on root
-        IF(my_process_is_mpi_seq()) THEN
-          DO jk = 1, nlevs
-            DO i = 1, p_ri%n_own
-              r_tmp(p_ri%own_dst_idx(i),jk,p_ri%own_dst_blk(i)) = r_ptr(p_ri%own_idx(i),jk,p_ri%own_blk(i))
+        IF (idata_type == iREAL) THEN
+          IF(my_process_is_mpi_test() .OR. my_process_is_mpi_workroot()) THEN
+            ALLOCATE(r_tmp(nproma,nlevs,nblks))
+          ELSE
+            ! Dimensions 1 and 2 of r_tmp must always be nproma and nlevs,
+            ! otherwise exchange_data doesn't work!
+            ALLOCATE(r_tmp(nproma,nlevs,1))
+          ENDIF
+          r_tmp(:,:,:) = 0._wp
+          ! Gather data on root
+          IF(my_process_is_mpi_seq()) THEN
+            DO jk = 1, nlevs
+              DO i = 1, p_ri%n_own
+                r_tmp(p_ri%own_dst_idx(i),jk,p_ri%own_dst_blk(i)) = r_ptr(p_ri%own_idx(i),jk,p_ri%own_blk(i))
+              ENDDO
             ENDDO
-          ENDDO
-        ELSE
-          CALL exchange_data(p_pat, RECV=r_tmp, SEND=r_ptr)
-        ENDIF
+          ELSE
+            CALL exchange_data(p_pat, RECV=r_tmp, SEND=r_ptr)
+          ENDIF
+        END IF
+        IF (idata_type == iINTEGER) THEN
+          IF(my_process_is_mpi_test() .OR. my_process_is_mpi_workroot()) THEN
+            ALLOCATE(i_tmp(nproma,nlevs,nblks))
+          ELSE
+            ! Dimensions 1 and 2 of r_tmp must always be nproma and nlevs,
+            ! otherwise exchange_data doesn't work!
+            ALLOCATE(i_tmp(nproma,nlevs,1))
+          ENDIF
+          i_tmp(:,:,:) = 0._wp
+          ! Gather data on root
+          IF(my_process_is_mpi_seq()) THEN
+            DO jk = 1, nlevs
+              DO i = 1, p_ri%n_own
+                i_tmp(p_ri%own_dst_idx(i),jk,p_ri%own_dst_blk(i)) = i_ptr(p_ri%own_idx(i),jk,p_ri%own_blk(i))
+              ENDDO
+            ENDDO
+          ELSE
+            CALL exchange_data(p_pat, RECV=i_tmp, SEND=i_ptr)
+          ENDIF
+        END IF
 
         IF(my_process_is_mpi_test() .OR. my_process_is_mpi_workroot()) THEN
 
@@ -3562,19 +3631,39 @@ CONTAINS
           IF(use_sp_output) THEN
             ALLOCATE(r_out_sp(n_points, nlevs), STAT=ierrstat)
             IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
-            DO jk = 1, nlevs
-              r_out_sp(:,jk) = REAL(RESHAPE(r_tmp(:,jk,:), (/ n_points /)), sp)
-            ENDDO
+            IF (idata_type == iREAL) THEN
+              DO jk = 1, nlevs
+                r_out_sp(:,jk) = REAL(RESHAPE(r_tmp(:,jk,:), (/ n_points /)), sp)
+              ENDDO
+            END IF
+            IF (idata_type == iINTEGER) THEN
+              DO jk = 1, nlevs
+                r_out_sp(:,jk) = REAL(RESHAPE(i_tmp(:,jk,:), (/ n_points /)), sp)
+              ENDDO
+            END IF
           ELSE
             ALLOCATE(r_out_dp(n_points, nlevs), STAT=ierrstat)
             IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
-            DO jk = 1, nlevs
-              r_out_dp(:,jk) = REAL(RESHAPE(r_tmp(:,jk,:), (/ n_points /)), dp)
-            ENDDO
+            IF (idata_type == iREAL) THEN
+              DO jk = 1, nlevs
+                r_out_dp(:,jk) = REAL(RESHAPE(r_tmp(:,jk,:), (/ n_points /)), dp)
+              ENDDO
+            END IF
+            IF (idata_type == iINTEGER) THEN
+              DO jk = 1, nlevs
+                r_out_dp(:,jk) = REAL(RESHAPE(i_tmp(:,jk,:), (/ n_points /)), dp)
+              ENDDO
+            END IF
           ENDIF
 
-          ! In the case of a test run: Compare results on worker PEs and test PE
-          IF(p_test_run .AND. .NOT.use_async_name_list_io .AND. .NOT.use_sp_output) THEN
+          ! ------------------
+          ! case of a test run
+          ! ------------------
+          !
+          ! compare results on worker PEs and test PE
+          IF (p_test_run                    .AND. &
+            & .NOT. use_async_name_list_io  .AND. &
+            & .NOT. use_sp_output) THEN
             ! Currently we don't do the check for REAL*4, we would need
             ! p_send/p_recv for this type
             IF(.NOT. my_process_is_mpi_test()) THEN
@@ -3606,9 +3695,11 @@ CONTAINS
           ENDIF
 
         ENDIF
-        !
+
+        ! ----------
         ! write data
-        !
+        ! ----------
+
         IF (my_process_is_stdio() .AND. .NOT. my_process_is_mpi_test()) THEN
           IF(use_sp_output) THEN
             CALL streamWriteVarF(of%cdiFileID, info%cdiVarID, r_out_sp, 0)
@@ -3617,7 +3708,10 @@ CONTAINS
           ENDIF
         ENDIF
 
-        DEALLOCATE(r_tmp)
+        ! clean up
+        IF (ALLOCATED(r_tmp))  DEALLOCATE(r_tmp)
+        IF (ALLOCATED(i_tmp))  DEALLOCATE(i_tmp)
+
         IF(my_process_is_mpi_test() .OR. my_process_is_mpi_workroot()) THEN
           IF(use_sp_output) THEN
             DEALLOCATE(r_out_sp, STAT=ierrstat)
@@ -3629,23 +3723,45 @@ CONTAINS
 
       ELSE
 
-        ! Asynchronous I/O is used, just copy the OWN data points to the memory window
+        ! ------------------------
+        ! Asynchronous I/O is used
+        ! ------------------------
+        ! 
+        ! just copy the OWN DATA points to the memory window
 
         DO jk = 1, nlevs
           IF(use_sp_output) THEN
-            DO i = 1, p_ri%n_own
-              mem_ptr_sp(ioff+INT(i,i8)) = REAL(r_ptr(p_ri%own_idx(i),jk,p_ri%own_blk(i)),sp)
-            ENDDO
+            IF (idata_type == iREAL) THEN
+              DO i = 1, p_ri%n_own
+                mem_ptr_sp(ioff+INT(i,i8)) = REAL(r_ptr(p_ri%own_idx(i),jk,p_ri%own_blk(i)),sp)
+              ENDDO
+            END IF
+            IF (idata_type == iINTEGER) THEN
+              DO i = 1, p_ri%n_own
+                mem_ptr_sp(ioff+INT(i,i8)) = REAL(i_ptr(p_ri%own_idx(i),jk,p_ri%own_blk(i)),sp)
+              ENDDO
+            END IF
           ELSE
-            DO i = 1, p_ri%n_own
-              mem_ptr_dp(ioff+INT(i,i8)) = REAL(r_ptr(p_ri%own_idx(i),jk,p_ri%own_blk(i)),dp)
-            ENDDO
+            IF (idata_type == iREAL) THEN
+              DO i = 1, p_ri%n_own
+                mem_ptr_dp(ioff+INT(i,i8)) = REAL(r_ptr(p_ri%own_idx(i),jk,p_ri%own_blk(i)),dp)
+              ENDDO
+            END IF
+            IF (idata_type == iINTEGER) THEN
+              DO i = 1, p_ri%n_own
+                mem_ptr_dp(ioff+INT(i,i8)) = REAL(i_ptr(p_ri%own_idx(i),jk,p_ri%own_blk(i)),dp)
+              ENDDO
+            END IF
           END IF
           ioff = ioff + INT(p_ri%n_own,i8)
         END DO
       END IF
 
-      IF(info%ndims == 2) DEALLOCATE(r_ptr)
+      ! clean up
+      IF(info%ndims == 2) THEN
+        IF (ASSOCIATED(r_ptr)) DEALLOCATE(r_ptr)
+        IF (ASSOCIATED(i_ptr)) DEALLOCATE(i_ptr)
+      END IF
 
     ENDDO
 
@@ -3654,7 +3770,6 @@ CONTAINS
     IF(use_async_name_list_io .AND. .NOT.my_process_is_mpi_test()) &
       CALL MPI_Win_unlock(p_pe_work, mpi_win, mpierr)
 #endif
-
 
   END SUBROUTINE write_name_list
 
