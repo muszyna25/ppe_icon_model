@@ -38,6 +38,7 @@ MODULE mo_remap
   USE mo_grib2,             ONLY: t_grib2_var
   USE mo_cf_convention,     ONLY: t_cf_var
   USE mo_gnat_gridsearch,   ONLY: gnat_init_grid
+  USE mo_util_string,       ONLY: tolower
   USE mo_remap_config,      ONLY: dbg_level, MAX_NSTENCIL_CONS,                &
     &                             MAX_NSTENCIL_RBF, MIN_NFOREIGN,              &
     &                             MAX_NAME_LENGTH                         
@@ -168,12 +169,12 @@ CONTAINS
     IF ((field_id_u /= CONST_UNINITIALIZED)  .AND.   &
       & (field_id_v /= CONST_UNINITIALIZED)) THEN
       IF (lcompute_vn) THEN
-        CALL insert_v_edge( "vn", &
+        CALL insert_v_edge( "VN", &
           &      t_cf_var('normal_velocity', 'm s-1', 'velocity normal to edge', DATATYPE_FLT32), &
           &      t_grib2_var(0, 2, 34, DATATYPE_PACK16, GRID_REFERENCE, EDGE_GRID) )
       END IF
       IF (lcompute_vt) THEN
-        CALL insert_v_edge( "vt", &
+        CALL insert_v_edge( "VT", &
           &      t_cf_var('tangential_wind', 'm s-1', 'tangential-component of wind', DATATYPE_FLT32), &
           &      t_grib2_var(0, 2, 35, DATATYPE_PACK16, GRID_REFERENCE, EDGE_GRID) )
       END IF
@@ -381,12 +382,12 @@ CONTAINS
 
       CASE (INTP_RBF)
 
-        IF (TRIM(input_field(ivar)%inputname) == "vn") THEN
+        IF (TRIM(tolower(input_field(ivar)%inputname)) == "vn") THEN
           CALL interpolate_v_edge(in_data, comm_data_c_A_cov, gridA_cov, gridB,              &
             &                     intp_data_rbf_vn_u_B, intp_data_rbf_vn_v_B,                &
             &                     fieldB_loc, time_comm_tot, time_read_tot, time_intp_tot)
         END IF
-        IF (TRIM(input_field(ivar)%inputname) == "vt") THEN
+        IF (TRIM(tolower(input_field(ivar)%inputname)) == "vt") THEN
           CALL interpolate_v_edge(in_data, comm_data_c_A_cov, gridA_cov, gridB,              &
             &                     intp_data_rbf_vt_u_B, intp_data_rbf_vt_v_B,                &
             &                     fieldB_loc, time_comm_tot, time_read_tot, time_intp_tot)
