@@ -100,6 +100,14 @@ MODULE mo_gribout_nml
                                         ! 3: icoeu
                                         ! 4: ...
 
+  INTEGER :: &                          ! Table: local.78.254.def
+    & localDefinitionNumber             ! 252: Ensemble system incl. postprocessing
+                                        ! 253: Ensemble system 
+                                        ! 254: Deterministic system
+
+  INTEGER :: &                          ! Table: local.78.254.def
+    & localNumberOfExperiment           !  
+
   LOGICAL :: ldate_grib_act             ! add Creation date to GRIB file
                                         ! .TRUE. : activated
                                         ! .FALSE.: deactivated (use dummy date/time) 
@@ -111,6 +119,8 @@ MODULE mo_gribout_nml
     &                    typeOfGeneratingProcess,         &
     &                    backgroundProcess,               &
     &                    generatingProcessIdentifier,     &
+    &                    localDefinitionNumber,           &
+    &                    localNumberOfExperiment,         &
     &                    ldate_grib_act
 
 
@@ -147,12 +157,14 @@ CONTAINS
     !-----------------------
     ! 1. default settings   
     !-----------------------
-    significanceOfReferenceTime     = 1  ! 1: Start of forecast
-    productionStatusOfProcessedData = 1  ! 1: Oper. test products
-    typeOfProcessedData             = 1  ! 1: Forecast products
-    typeOfGeneratingProcess         = 2  ! 2: Forecast
-    backgroundProcess               = 0  ! 0: main run
-    generatingProcessIdentifier(:)  = 1  ! 1: icogl
+    significanceOfReferenceTime     = 1   ! 1: Start of forecast
+    productionStatusOfProcessedData = 1   ! 1: Oper. test products
+    typeOfProcessedData             = 1   ! 1: Forecast products
+    typeOfGeneratingProcess         = 2   ! 2: Forecast
+    backgroundProcess               = 0   ! 0: main run
+    generatingProcessIdentifier(:)  = 1   ! 1: icogl
+    localDefinitionNumber           = 254 ! 254: Deterministic system
+    localNumberOfExperiment         = 1 
     ldate_grib_act                  = .TRUE.
 
 
@@ -203,6 +215,10 @@ CONTAINS
         &                backgroundProcess
       gribout_config(jg)%generatingProcessIdentifier     = &
         &                generatingProcessIdentifier(jg)
+      gribout_config(jg)%localDefinitionNumber           = &
+        &                localDefinitionNumber
+      gribout_config(jg)%localNumberOfExperiment         = &
+        &                localNumberOfExperiment
       gribout_config(jg)%ldate_grib_act                  = &
         &                ldate_grib_act
     ENDDO

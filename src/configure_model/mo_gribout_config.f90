@@ -98,6 +98,14 @@ MODULE mo_gribout_config
                                           ! 3: icoeu
                                           ! 4: ...
 
+    INTEGER :: &                          ! Table: local.78.254.def
+      & localDefinitionNumber             ! 252: Ensemble system incl. postprocessing 
+                                          ! 253: Ensemble system 
+                                          ! 254: Deterministic system
+
+    INTEGER :: &                          ! Table: local.78.254.def
+      & localNumberOfExperiment           !  
+
     LOGICAL :: ldate_grib_act             ! add Creation date to GRIB file
                                           ! .TRUE. : activated
                                           ! .FALSE.: deactivated (use dummy date/time) 

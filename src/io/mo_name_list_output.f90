@@ -2881,15 +2881,17 @@ CONTAINS
       &                    grib_conf%generatingProcessIdentifier)
     !
     ! Product Generation (local)
-    CALL vlistDefVarIntKey(vlistID, varID, "localDefinitionNumber"  , 254)
+    CALL vlistDefVarIntKey(vlistID, varID, "localDefinitionNumber"  ,         &
+      &                    grib_conf%localDefinitionNumber)
+    CALL vlistDefVarIntKey(vlistID, varID, "localNumberOfExperiment",         &
+      &                    grib_conf%localNumberOfExperiment)
     CALL vlistDefVarIntKey(vlistID, varID, "localCreationDateYear"  , 100*cent+year)
     CALL vlistDefVarIntKey(vlistID, varID, "localCreationDateMonth" , month)
     CALL vlistDefVarIntKey(vlistID, varID, "localCreationDateDay"   , day)
     CALL vlistDefVarIntKey(vlistID, varID, "localCreationDateHour"  , hour)
     CALL vlistDefVarIntKey(vlistID, varID, "localCreationDateMinute", minute)
-
 !    CALL vlistDefVarIntKey(vlistID, varID, "localValidityDate", 2013)
-!    CALL vlistDefVarIntKey(vlistID, varID, "localNumberOfExperiment", 25)
+
 
 
   END SUBROUTINE set_additional_GRIB2_keys
