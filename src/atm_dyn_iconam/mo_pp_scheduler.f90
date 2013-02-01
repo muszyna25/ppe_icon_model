@@ -527,12 +527,12 @@ CONTAINS
           info => element%field%info
           ! Do not inspect element if it is a container
           IF (info%lcontainer) CYCLE VAR_LOOP
-
           ! Do not inspect element if "loutput=.false."
           IF (.NOT. info%loutput) CYCLE VAR_LOOP
           ! Do not inspect element if it does not support horizontal
           ! interpolation
           IF (info%hor_interp%hor_intp_type==HINTP_TYPE_NONE) CYCLE VAR_LOOP
+
           ! Check for matching name
           vname = ll_varlist(ivar)
 
@@ -548,6 +548,11 @@ CONTAINS
           ENDIF
 
           IF (info%hgrid /= GRID_UNSTRUCTURED_CELL)  CYCLE VAR_LOOP
+
+          ! throw error message, if this variable is not a REAL field:
+          IF (.NOT. ASSOCIATED(element%field%r_ptr)) THEN
+            CALL finish(routine, TRIM(info%name)//": Lon-lat RBF interpolation implemented for REAL fields only.")
+          END IF
 
           ! Found it, add it to the variable list of optional
           ! diagnostics       
