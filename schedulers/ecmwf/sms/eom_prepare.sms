@@ -166,6 +166,9 @@ if [[ $lcatdata = 1 ]] ; then
       echo "processing variable: "$var
       outdir="%SCTEMP%/%SUITE%/%EXPNUM%/output/${ymdh}/"
       cd $outdir
+      if [ ! -f  grb_data/${base}_${ymdh}_DOM01_0001_${var}.grb ] ; then
+        continue 2
+      fi 
       grib_copy  grb_data/${base}_${ymdh}_DOM01_0001_${var}.grb \
         ${mondir}/tmp_dir/${base}_${ymdh}_DOM01_0001_${var}_[endStep].grb
       if [[ $ldeldata = 1 ]] ; then
