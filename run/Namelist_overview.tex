@@ -4620,7 +4620,7 @@ Defined and used in: src/namelists/mo\_gw\_hines\_nml.f90
 \begin{longtab}
 
 \hline
-i\_sea\_ice    & I & 0  && 1: Winton, 2:Semtner& \tabularnewline 
+i\_sea\_ice    & I & 1  && 0: No sea ice, 1: Include sea ice& \tabularnewline 
 &&&& .FALSE.: compute drag only & \tabularnewline
 \hline 
 richardson\_factor\_tracer  & I & 0.5e-5 & m/s&  & \tabularnewline
@@ -4628,6 +4628,43 @@ richardson\_factor\_tracer  & I & 0.5e-5 & m/s&  & \tabularnewline
 richardson\_factor\_veloc  & I & 0.5e-5 & m/s&  & \tabularnewline
 \hline
 l\_constant\_mixing  & L & .FALSE. & &  & \tabularnewline
+
+\end{longtab}
+
+\subsection{sea\_ice\_nml}
+
+\begin{longtab}
+
+  \hline
+  i\_ice\_therm &
+  I             &
+  2             &&
+  Switch for thermodynamic model: \\
+  1: Zero-layer model \\
+  2: Two layer Winton (2000) model \\
+  3: Zero-layer model with analytical forcing (for diagnostics) \\
+  4: Zero-layer model for atmosphere-only runs (for diagnostics) &
+  In an ocean run i\_sea\_ice must be >=1. In an atmospheric run the ice surface type must be defined.
+  \tabularnewline
+
+  i\_ice\_albedo        &
+  I                     &
+  1                     &&
+  Switch for albedo model. Only one is implemented so far. &
+  \tabularnewline
+
+  kice  &
+  I     &
+  1     &&
+  Number of ice classes (must be one for now) &
+  \tabularnewline
+
+  hnull &
+  R     &
+  0.5   &
+  m     &
+  Hibler's $h_0$ parameter for new-ice growth. &
+  \tabularnewline
 
 \end{longtab}
 
