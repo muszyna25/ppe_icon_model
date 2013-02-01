@@ -34,7 +34,7 @@ if [ %NENS% -gt 0 ]
   else TXTENS=''
 fi
 
-if [ %SIMMODE% -eq 3 ]
+if [ %SIMMODE% -eq 3  -o  %YMD% -lt 20110518 ]
   then in_file_gribedition=1
   else in_file_gribedition=2
 fi
@@ -60,8 +60,8 @@ export GRIB_DEFINITION_PATH="%SCSOFT%/software/grib_api/release/share-1.9.9/defi
 # =============================================
 
 IFS_FILENAME_GRB="ifs_oper_*_%YMD%%INIHOUR%.grb"
-ifs_res=`ls ${IFS_FILENAME_GRB} | cut -c 10-13`
-IFS_FILENAME_GRB="${ifsdir}/ifs_oper_${ifs_res}_%YMD%%INIHOUR%.grb"
+ifs_res=`ls ${IFS_FILENAME_GRB} | awk -F '_' '{print $3}'`
+IFS_FILENAME_GRB="ifs_oper_${ifs_res}_%YMD%%INIHOUR%.grb"
 
 IFS_FILENAME_NC="ifs2icon_%RES%_DOM01.nc"
 ICON_GRIDFILE="icon%RES%_DOM01.nc"
@@ -331,7 +331,7 @@ EOF
 
 # 80-83 changed to 39-42!!!
  
-if [ %SIMMODE% -ne 3 ] ; then
+if [ %SIMMODE% -ne 3  -a  %YMD% -ge 20101109 ] ; then
 
 cat >> NAMELIST_PREPICON << EOF
 &input_field_nml  ! rain water content

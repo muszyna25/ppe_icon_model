@@ -24,11 +24,7 @@
 # 2012-end:    Switch co C2A (Martin Koehler and Stefan Koerner)
 #
 
-# import environment variables:
-setenv -i HOME
-setenv -i USER
-setenv -i HOST
-setenv -i TMPDIR
+# ---USER SETUP------------------------------------
 
 # global definitions:
 set EXPNUM        "001"                #---experiment number---
@@ -38,9 +34,35 @@ set FIRST_DATE    20130124
 set LAST_DATE     20130630
 set MONTHS        000000               #---months to be run (not for oper)
 set ICON_HOME     /home/ms/de/deia 
-set ICON_ID       deia
-set RES           "R2B06"              #---ICON resolution dynamics
-set RESRAD        "R2B05"              #---ICON resolution radiation (requires namelist)
+set ICON_ID       deia 
+set RES           "R2B07"              #---ICON resolution dynamics
+set RESRAD        "R2B06"              #---ICON resolution radiation (requires namelist)
+
+# no. of time steps (10x86400s/72s)
+set NSTEPS       12000   # R2B6 10d
+#set NSTEPS       4800   # grey zone 48h: R2B7-4800, R2B8-9600
+#set NSTEPS       2880
+
+# simulation modes: 1:oper, 2:monthly 10day forecasts, 3:climate (1year)
+set SIMMODE      1
+
+# no. of ensemble members (dummies here)
+#set NENS         10
+set NENS         0   # default for no ensemble run
+set NMEM         0   # default for no ensemble run
+
+# Processors
+set ICONNODES        32   # R2B6: 32,  R2B7: 32,  R2B8: 64
+set ICONTASKSPERNODE 32   #       32         32         32
+set ICONTHREADS       2   #        2          2          1
+
+# -------------------------------------------------
+
+# import environment variables:
+setenv -i HOME
+setenv -i USER
+setenv -i HOST
+setenv -i TMPDIR
 
 # HPC environment:
 set SCHOST      c2a
@@ -77,27 +99,12 @@ set SMSOUT      "$ICON_HOME/sms"
 set compday     1  # 1=Monday, 7=Sunday, 0=never
 
 # no. of time steps (10x86400s/72s)
-set NSTEPS       12000
-#set NSTEPS       2880
-
-# simulation modes: 1:oper, 2:monthly 10day forecasts, 3:climate (1year)
-set SIMMODE      1
-
-# no. of ensemble members (dummies here)
-#set NENS         10
-set NENS         0   # default for no ensemble run
-set NMEM         0   # default for no ensemble run
-
 # wait interval between file checks:
 set WAITINTVL    10
 
 # set no. of restarts for aborted tasks in SMS:
 set SMSTRIES      1
 
-# -------------------------------------------------
-set ICONNODES        32
-set ICONTASKSPERNODE 32
-set ICONTHREADS       2
 # -------------------------------------------------
 
 
