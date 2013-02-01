@@ -12,6 +12,7 @@ MODULE mo_gme_turbdiff
   USE mo_nh_torus_exp,       ONLY: shflx_cbl, lhflx_cbl, set_sst_cbl, ufric_cbl
   USE mo_run_config,         ONLY: ltestcase
   USE mo_nh_testcases,       ONLY: nh_test_name
+  USE mo_math_constants,     ONLY: eps
 
   IMPLICIT NONE
 
@@ -846,7 +847,7 @@ SUBROUTINE parturs( zsurf, z1 , u1   , v1     , t1   ,           &
         DO j1 = i_startidx, i_endidx
           rdzrho      = 1._wp/( rho(j1,ke)*( zh(j1,ke1)-zh(j1,ke)) )
           zagat       = ztmkv (j1,ke)*rdzrho
-          zagct       = ufric_cbl**2 * rdzrho / zvm (j1) 
+          zagct       = ufric_cbl**2 * rdzrho / ( eps + zvm(j1) )
           zaga        = - zagat*a1t(ke)
           zagb        = rdt - zaga - zagct*a1t(ke1)
           zag1(j1,ke) =  zagat*( u(j1,ke-1) - u(j1,ke)) &
@@ -897,8 +898,8 @@ SUBROUTINE parturs( zsurf, z1 , u1   , v1     , t1   ,           &
 !
       IF(ltestcase.AND.nh_test_name=='CBL'.AND..NOT.set_sst_cbl)THEN
         DO j1 = i_startidx, i_endidx
-          umfl_s(j1) = -ufric_cbl**2 * u(j1,ke) / zvm(j1)
-          vmfl_s(j1) = -ufric_cbl**2 * v(j1,ke) / zvm(j1)
+          umfl_s(j1) = -ufric_cbl**2 * u(j1,ke) / ( eps + zvm(j1) )
+          vmfl_s(j1) = -ufric_cbl**2 * v(j1,ke) / ( eps + zvm(j1) )
         ENDDO
      ELSE
         DO j1 = i_startidx, i_endidx
