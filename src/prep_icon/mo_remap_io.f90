@@ -142,9 +142,10 @@ CONTAINS
     TYPE (t_file_metadata), INTENT(OUT) :: file_metadata
     INTEGER,                INTENT(IN)  :: rank0
     ! local variables:
-    CHARACTER(LEN=*), PARAMETER :: routine = TRIM(modname)//'::open_file'
-    INTEGER                     :: ngrids, i, gridID
+    CHARACTER(LEN=*), PARAMETER    :: routine = TRIM(modname)//'::open_file'
+    INTEGER                        :: ngrids, i, gridID
     CHARACTER(len=MAX_NAME_LENGTH) :: zname
+    LOGICAL                        :: file_exists
 
 
     ! Remark on usage of "cdiDefMissval"
@@ -163,8 +164,12 @@ CONTAINS
     DOUBLE PRECISION ::  cdimissval = -9.E+15
     CALL cdiDefMissval(cdimissval) 
 
-    file_metadata%structure = istructure
+    ! test if file exists:
+    INQUIRE(FILE=TRIM(filename), EXIST=file_exists)
+    IF (.NOT. file_exists) &
+      & CALL finish(routine, "File "//TRIM(filename)//" not found!")
 
+    file_metadata%structure = istructure
     IF (get_my_mpi_work_id() == rank0) THEN
       SELECT CASE(file_metadata%structure)
       CASE (GRID_TYPE_ICON)
