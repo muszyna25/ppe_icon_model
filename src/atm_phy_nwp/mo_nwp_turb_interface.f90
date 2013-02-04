@@ -624,7 +624,8 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
         DO jc = i_startidx, i_endidx
           prm_diag%tcm_t(jc,jb,jt) = prm_diag%tcm(jc,jb)
           prm_diag%tch_t(jc,jb,jt) = prm_diag%tch(jc,jb)
-          prm_diag%tfv_t(jc,jb,jt) = prm_diag%tfv(jc,jb)
+          ! the GME turbulence scheme does not have tfv. Set tfv=1
+          prm_diag%tfv_t(jc,jb,jt) = 1._wp    !   prm_diag%tfv(jc,jb)
         ENDDO
       ENDDO
 
