@@ -1,5 +1,6 @@
 !>
-!! soil vegetation atmosphere transfer: source module  "mo_soil_ml.f90"
+!! Soil Vegetation Atmosphere Transfer (SVAT) scheme TERRA
+!! Source Module  "mo_soil_ml.f90"
 !! "Nihil in TERRA sine causa fit." (Cicero)
 !!------------------------------------------------------------------------------
 !!----------------------------------------------------------------------------- 
@@ -752,7 +753,7 @@ END SUBROUTINE message
     ksn            , & ! loop index for snow layers
     k              , & ! loop index for snow layers
     ke_soil_hy     , & ! number of active soil moisture layers
-    i,ic,jc        , & ! loop index in x-direction              
+    i,ic,jc,kc,rc  , & ! loop index in x-direction              
 #ifndef __ICON__
 !    im1, jm1       , & ! i-1, j-1   ! must be removed completely
 #endif
@@ -1087,7 +1088,11 @@ END SUBROUTINE message
     zw_m     (ie)          ! maximum of liquid water content  (m)
 
   INTEGER  (KIND=iintegers ) ::  &
-    m_styp   (ie)          ! soil type
+    m_styp   (ie)      , & ! soil type
+    melt_list(ie)      , & ! list of melting snow points
+    soil_list(ie)      , & ! list of "true" soil points
+                           ! i.e. no ice no rock       
+    rockice_list(ie)       ! list of rock and ice points
 
   REAL    (KIND=ireals   ) ::  &
 !
@@ -1202,8 +1207,8 @@ END SUBROUTINE message
     zdqvtsnow(ie)      , & ! first derivative of saturation specific humidity
                               !    with respect to t_snow
     zts_pm   (ie)      , & ! indicator zts > < T_melt
-    ztsnow_pm(ie)      , & ! indicator ztsnow > < T_melt
-    melt_list(ie)          ! index list of completly melted snow points
+    ztsnow_pm(ie)          ! indicator ztsnow > < T_melt
+
 
   LOGICAL     :: &
 !
@@ -1315,14 +1320,19 @@ END SUBROUTINE message
 
 
 ! Prepare basic surface properties (for land-points only)
- 
+
+  kc=0
+  rc=0
   DO i = istarts, iends
-
-!>JH
-!      IF(llandmask(i)) THEN        ! for land-points only
-
         mstyp       = soiltyp_subs(i)        ! soil type
         m_styp(i) = mstyp                     ! array for soil type
+        IF (mstyp >= 3) THEN
+        kc=kc+1
+        soil_list(kc)=i
+        ELSE
+        rc=rc+1
+        rockice_list(rc)=i
+        END IF
         zdw   (i)  = cdw0  (mstyp)
         zdw1  (i)  = cdw1  (mstyp)
         zkw   (i)  = ckw0  (mstyp)
@@ -1350,13 +1360,6 @@ END SUBROUTINE message
         zpsis(i)    = -zpsi0 * 10._ireals**(1.88_ireals-0.013_ireals*zsandf(i))
         zb_por(i)   = 2.91_ireals + .159_ireals*zclayf(i)
         zedb(i)     = 1._ireals/zb_por(i)
-
-! print*,i,zporv(i),zclayf(i),zpsis(i),zb_por(i)
-
-!<JH
-!DR        IF(m_styp(i) < 9 ) llandmask(i) = .true.
-!>JH      ENDIF
-
   ENDDO
 
 
@@ -1449,23 +1452,22 @@ END SUBROUTINE message
       END DO
   END DO
 
-
 ! JH No soil moisture for Ice and Rock
   DO kso   = 1, ke_soil+1
-      DO i = istarts, iends
-    IF (m_styp(i) < 3) THEN ! Ice and Rock
+      DO ic = 1, rc
+       i=rockice_list(ic)
   w_so_now(i,kso)         = 0._ireals
   w_so_ice_now(i,kso)     = 0._ireals
   w_so_new(i,kso)         = w_so_now(i,kso)
   w_so_ice_new(i,kso)     = w_so_ice_now(i,kso)
-    ELSE
+      END DO
+ 
+      DO ic = 1, kc
+      i=soil_list(ic)
   w_so_new(i,kso)         = w_so_now(i,kso)
   w_so_ice_new(i,kso)     = w_so_ice_now(i,kso)
-    END IF
-
-       END DO
+     END DO
   END DO
-
   
   IF (itype_heatcond == 2) THEN
 
@@ -2484,7 +2486,8 @@ END SUBROUTINE message
 !------------------------------------------------------------------------------
 
 ! uppermost layer, kso = 1
-  DO i = istarts, iends
+      DO ic = 1, kc
+        i=soil_list(ic)
       ! sedimentation and capillary transport in soil
       ! Note: The fractional liquid water content (concentration)  of each layer
       !       is normalized by the ice free fraction of each layer in order to
@@ -2494,8 +2497,6 @@ END SUBROUTINE message
       !       by a reduction factor depending on the maximum ice fraction of the
       !       adjacent layers in order to avoid the transport of liquid water
       !       in to the frozen part of the adjacent layer
-!      IF (llandmask(i)) THEN      ! land-points only
-        IF (m_styp(i) >= 3) THEN   ! neither ice nor rock as soil type
           zice_fr_kso   = ziw_fr(i,1)
           zice_fr_ksop1 = ziw_fr(i,2)
           zlw_fr_kso    = zlw_fr(i,1)
@@ -2527,16 +2528,13 @@ END SUBROUTINE message
   
           ! explicit part of soil surface water flux:
           zflmg (i,1) = - zinfil(i)! boundary value for soil water transport
-        ENDIF
-!      ENDIF
   END DO
 
 ! inner layers 2 <=kso<=ke_soil_hy-1
   DO kso =2,ke_soil_hy-1
-      DO i = istarts, iends
-        ! sedimentation and capillary transport in soil
-!        IF (llandmask(i)) THEN      ! land-points only
-          IF (m_styp(i) >= 3) THEN   ! neither ice nor rock as soil type
+      DO ic = 1, kc
+        i=soil_list(ic)
+! sedimentation and capillary transport in soil
             zice_fr_ksom1 = ziw_fr(i,kso-1)
             zice_fr_kso   = ziw_fr(i,kso  )
             zice_fr_ksop1 = ziw_fr(i,kso+1)
@@ -2591,14 +2589,11 @@ END SUBROUTINE message
                 &       *(zdlw_fr_ksop05*(zlw_fr_ksop1+zice_fr_ksop1-zlw_fr_kso-zice_fr_kso) &
                 &       / zdzms(kso+1) - zklw_fr_ksop05)
             ENDIF
-          ENDIF
-!        ENDIF
       END DO
   END DO
 
-  DO i = istarts, iends
-!      IF (llandmask(i)) THEN      ! land-points only
-        IF (m_styp(i) >= 3) THEN   ! neither ice nor rock as soil type
+     DO ic = 1, kc
+        i=soil_list(ic)
           ! lowest active hydrological layer ke_soil_hy-1
           zice_fr_ksom1 = ziw_fr(i,ke_soil_hy-1)
           zice_fr_kso   = ziw_fr(i,ke_soil_hy  )
@@ -2624,67 +2619,50 @@ END SUBROUTINE message
                              zgam2m05*(zlw_fr_ksom1  - zlw_fr_kso)            &
                             +z1dgam1*                                         &
                              zgam2m05*(zice_fr_ksom1-zice_fr_kso )   
-        ENDIF
-!      ENDIF
   END DO
 
-  DO i = istarts, iends
-!      IF (llandmask(i)) THEN          ! land-points only
+  DO ic = 1, kc
+        i=soil_list(ic)
         ! generalized upper boundary condition
-        IF (m_styp(i) >= 3) THEN   ! neither ice nor rock as soil type
           zagc(i,1) = zagc(i,1)/zagb(i,1)
           zagd(i,1) = zagd(i,1)/zagb(i,1)
-        ENDIF
-!      END IF          ! land-points only
   END DO
 
   DO kso=2,ke_soil_hy-1
-      DO i = istarts, iends
-!        IF (llandmask(i)) THEN          ! land-points only
-          IF (m_styp(i) >= 3) THEN   ! neither ice nor rock as soil type
+  DO ic = 1, kc
+        i=soil_list(ic)
             zzz = 1._ireals/(zagb(i,kso) - zaga(i,kso)*zagc(i,kso-1))
             zagc(i,kso) = zagc(i,kso) * zzz
             zagd(i,kso) = (zagd(i,kso) - zaga(i,kso)*zagd(i,kso-1)) * zzz
-          ENDIF
-!        END IF          ! land-points only
       END DO
   END DO                ! soil layers
 
-  DO i = istarts, iends
-!      IF (llandmask(i)) THEN          ! land-points only
-        IF (m_styp(i) >= 3) THEN   ! neither ice nor rock as soil type
+  DO ic = 1, kc
+        i=soil_list(ic)
            zage(i,ke_soil_hy) = (zagd(i,ke_soil_hy)-zaga(i,ke_soil_hy)*  &
                              zagd(i,ke_soil_hy-1))/                          &
                             (zagb(i,ke_soil_hy) - zaga(i,ke_soil_hy)*      &
                              zagc(i,ke_soil_hy-1))
-        ENDIF
-!      END IF          ! land-points only
   END DO
 
   DO kso = ke_soil_hy-1,1,-1
-      DO i = istarts, iends
-!        IF (llandmask(i)) THEN          ! land-points only
-          IF (m_styp(i) >= 3) THEN   ! neither ice nor rock as soil type
+  DO ic = 1, kc
+        i=soil_list(ic)
             zage(i,kso)     = zagd(i,kso) - zagc(i,kso)*zage(i,kso+1)
             ! compute implicit part of new liquid water content and add existing
             ! ice content
             w_so_new(i,kso) = zage(i,kso)*zdzhs(kso) + w_so_ice_now(i,kso)
-          END IF
-!        END IF          ! land-points only
       END DO
   END DO                ! soil layers
 
 !lowest active hydrological level
-  DO i = istarts, iends
-!      IF (llandmask(i)) THEN          ! land-points only
-        IF (m_styp(i) >= 3) THEN   ! neither ice nor rock as soil type
+  DO ic = 1, kc
+        i=soil_list(ic)
           ! boundary values ensure that the calculation below leaves the climate
           ! layer water contents unchanged compute implicit part of new liquid
           ! water content and add existing ice content
           w_so_new(i,ke_soil_hy) = zage(i,ke_soil_hy)*zdzhs(ke_soil_hy) + &
                           w_so_ice_now(i,ke_soil_hy)
-        END IF 
-!      END IF          ! land-points only
   END DO
 
 ! to ensure vertical constant water concentration profile beginning at 
@@ -2694,22 +2672,16 @@ END SUBROUTINE message
   IF (itype_hydbound == 3) THEN
     ! ground water as lower boundary of soil column
     DO kso = ke_soil_hy+1,ke_soil+1
-        DO i = istarts, iends
-!          IF (llandmask(i)) THEN          ! land-points only
-            IF (m_styp(i) >= 3) THEN   ! neither ice nor rock as soil type
+  DO ic = 1, kc
+        i=soil_list(ic)
               w_so_new(i,kso) = zporv(i)*zdzhs(kso)
-            END IF
-!          END IF          ! land-points only
         END DO
     END DO
   ELSE
     DO kso = ke_soil_hy+1,ke_soil+1
-       DO i = istarts, iends
-!         IF (llandmask(i)) THEN          ! land-points only
-           IF (m_styp(i) >= 3) THEN   ! neither ice nor rock as soil type
+  DO ic = 1, kc
+        i=soil_list(ic)
              w_so_new(i,kso) = w_so_new(i,kso-1)*zdzhs(kso)/zdzhs(kso-1)
-           END IF
-!         END IF          ! land-points only
        END DO
     END DO
   ENDIF
@@ -2717,9 +2689,8 @@ END SUBROUTINE message
 ! combine implicit part of sedimentation and capillary flux with explicit part
 ! (for soil water flux investigations only)
   DO kso = 2,ke_soil+1
-      DO i = istarts, iends
-!        IF (llandmask(i)) THEN          ! land-points only
-          IF (m_styp(i) >= 3) THEN   ! neither ice nor rock as soil type
+  DO ic = 1, kc
+        i=soil_list(ic)
             zice_fr_ksom1 = ziw_fr(i,kso-1)
             zice_fr_kso   = ziw_fr(i,kso)
             zlw_fr_ksom1_new= w_so_new(i,kso-1)/zdzhs(kso-1) - zice_fr_ksom1
@@ -2775,8 +2746,6 @@ END SUBROUTINE message
                   (1.0_ireals-exp(-zdhydcond_dlwfr/zdlw_fr_kso*0.5_ireals*zdzms(ke_soil_hy+1)))* &
                   zdelta_sm
             ENDIF
-          END IF 
-!        END IF          ! land-points only
       END DO
   END DO
 
@@ -2792,11 +2761,9 @@ END SUBROUTINE message
       zfmb_fak = 0.0_ireals
     END IF
 
-    DO i = istarts, iends
-!        IF (llandmask(i)) THEN      ! land-points only
           ! sedimentation and capillary transport in soil
-          IF (m_styp(i) >= 3) THEN   ! neither ice nor rock as soil type
-
+      DO ic = 1, kc
+         i=soil_list(ic)
             ! first runoff calculation without consideration of
             ! evapotranspiration
             !zdwg   =  zflmg(i,kso+1) - zflmg(i,kso)
@@ -2823,10 +2790,8 @@ END SUBROUTINE message
             ! runoff_g reformulation:
             runoff_g(i) = runoff_g(i) - (zrunoff_grav(i,kso) * zfmb_fak &
                                           + zkorr) * zroffdt
-          END IF          ! ice/rock-exclusion
-!        END IF   ! land-points only
-    END DO
-  END DO         ! end loop over soil layers
+      END DO
+   END DO         ! end loop over soil layers
 
 
 
@@ -3454,39 +3419,9 @@ ENDIF
   END IF
 
 
-  IF(lmelt) THEN
-    IF(.NOT.lmelt_var) THEN
+!  IF(lmelt) THEN ! + lmelt_var
       DO kso = 1,ke_soil
-          DO i = istarts, iends
-!            IF (llandmask(i)) THEN ! land points only,
-              IF (m_styp(i).ge.3) THEN ! neither ice or rocks
-                ! melting or freezing of soil water
-                zenergy   = zroc(i,kso)*zdzhs(kso)*(t_so_new(i,kso) - t0_melt)
-                zdwi_max  = - zenergy/(lh_f*rho_w)
-                zdelwice  = zdwi_max
-                zwso_new  = w_so_now(i,kso) + zdt*zdwgdt(i,kso)/rho_w
-                IF (zdelwice.LT.0.0_ireals)                                    &
-                          zdelwice = - MIN( - zdelwice,w_so_ice_now(i,kso))
-                IF (zdelwice.GT.0.0_ireals)                                    &
-                          zdelwice =   MIN(   zdelwice,zwso_new - w_so_ice_now(i,kso))
-                w_so_ice_new(i,kso) = w_so_ice_now(i,kso) + zdelwice
-
-  !             At this point we have 0.0 LE w_so_ice(i,kso,nnew) LE w_so(i,kso,nnew)
-  !             If we have 0.0 LT w_so_ice(i,kso,nnew) LT w_so(i,kso,nnew)
-  !             the resulting new temperature has to be equal to t0_melt.
-  !             If not all energy available can be used to melt/freeze soil water, the
-  !             following line corrects the temperature. It also applies to cases
-  !             where all soil water is completely ice or water, respectively.
-
-                t_so_new(i,kso) = t0_melt + (zdelwice - zdwi_max)*(lh_f*rho_w)/     &
-                                              (zroc(i,kso)*zdzhs(kso))
-              END IF  ! m_styp > 2
-!            END IF  ! land-points only
-          END DO
-      END DO        ! soil layers
-    ELSE IF(lmelt_var) THEN
-      DO kso = 1,ke_soil
-          DO i = istarts, iends
+         DO i = istarts, iends
 !            IF (llandmask(i)) THEN ! land points only,
               IF (m_styp(i).ge.3) THEN ! neither ice or rocks
                 ztx      = t0_melt
@@ -3520,13 +3455,10 @@ ENDIF
 
                 t_so_new(i,kso) = ztx + (zdelwice - zdwi_max)*       &
                                      (lh_f*rho_w)/(zroc(i,kso)*zdzhs(kso))
-  
-             END IF                   ! m_stpy > 2
-!            END IF                    ! land-points only
+             END IF
           END DO
       ENDDO
-    ENDIF   ! lmelt_var
-  END IF ! lmelt
+!  END IF ! lmelt
 
 
 !------------------------------------------------------------------------------
@@ -4195,40 +4127,7 @@ ENDIF
 
 
 
-  IF(lmelt) THEN
-    IF(.NOT.lmelt_var) THEN
-     DO kso = 1,ke_soil
-!CDIR NODEP,VOVERTAKE,VOB
-       DO ic=1,jc
-         i=melt_list(ic) 
-!            IF (llandmask(i)) THEN ! land points only,
-              IF (m_styp(i).ge.3) THEN ! neither ice or rocks
-                ! melting or freezing of soil water
-                zenergy   = zroc(i,kso)*zdzhs(kso)*(t_so_new(i,kso) - t0_melt)
-                zdwi_max  = - zenergy/(lh_f*rho_w)
-                zdelwice  = zdwi_max
-                zwso_new  = w_so_new(i,kso) + zdt*zdwgdt(i,kso)/rho_w
-                IF (zdelwice.LT.0.0_ireals)                                    &
-                          zdelwice = - MIN( - zdelwice,w_so_ice_new(i,kso))
-                IF (zdelwice.GT.0.0_ireals)                                    &
-                          zdelwice =   MIN(   zdelwice,zwso_new - w_so_ice_new(i,kso))
-                w_so_ice_new(i,kso) = w_so_ice_new(i,kso) + zdelwice
-
-  !             At this point we have 0.0 LE w_so_ice(i,kso,nnew) LE w_so(i,kso,nnew)
-  !             If we have 0.0 LT w_so_ice(i,kso,nnew) LT w_so(i,kso,nnew)
-  !             the resulting new temperature has to be equal to t0_melt.
-  !             If not all energy available can be used to melt/freeze soil water, the
-  !             following line corrects the temperature. It also applies to cases
-  !             where all soil water is completely ice or water, respectively.
-
-                t_so_new(i,kso) = t0_melt + (zdelwice - zdwi_max)*(lh_f*rho_w)/     &
-                                              (zroc(i,kso)*zdzhs(kso))
-              END IF  ! m_styp > 2
-!            END IF  ! land-points only
-      END DO        ! soil layers
-   END DO
-
-    ELSE IF(lmelt_var) THEN
+!  IF(lmelt) THEN ! + melt_var!
      DO kso = 1,ke_soil
 !CDIR NODEP,VOVERTAKE,VOB
        DO ic=1,jc
@@ -4271,8 +4170,6 @@ ENDIF
 !            END IF                    ! land-points only
           END DO
        ENDDO
-    ENDIF   ! lmelt_var
- END IF ! lmelt
 ! End of heat transfer 
 
   DO i = istarts, iends
@@ -4726,7 +4623,7 @@ SUBROUTINE terra_multlay_init (                &
   INTEGER (KIND=iintegers) ::  &
     kso            , & ! loop index for soil moisture layers           
     ksn            , & ! loop index for snow layers
-    i              , & ! loop index in x-direction              
+    i,ic,kc,rc     , & ! loop index in x-direction              
     mstyp          , & ! soil type index
     istarts        , & ! start index for x-direction      
     iends          , & ! end   index for x-direction     
@@ -4793,8 +4690,10 @@ SUBROUTINE terra_multlay_init (                &
   INTEGER  (KIND=iintegers ) ::  &
     m_styp   (ie)      , & ! soil type
     zicount1 (ie)      , &
-    zicount2 (ie)       
-
+    zicount2 (ie)      , &    
+    soil_list(ie)      , & ! list of "true" soil points
+                           ! i.e. no ice no rock       
+    rockice_list(ie)       ! list of rock and ice points
   REAL    (KIND=ireals   ) ::  & ! Soil and plant parameters
 !
     zfcap    (ie)      , & ! field capacity of soil
@@ -4885,14 +4784,18 @@ SUBROUTINE terra_multlay_init (                &
 
 
 ! Prepare basic surface properties (for land-points only)
- 
+  kc=0
+  rc=0
   DO i = istarts, iends
-
-!>JH
-!      IF(llandmask(i)) THEN        ! for land-points only
-
         mstyp       = soiltyp_subs(i)        ! soil type
         m_styp(i) = mstyp                     ! array for soil type
+        IF (mstyp >= 3) THEN
+        kc=kc+1
+        soil_list(kc)=i
+        ELSE
+        rc=rc+1
+        rockice_list(rc)=i
+        END IF
         zdw   (i)  = cdw0  (mstyp)
         zdw1  (i)  = cdw1  (mstyp)
         zkw   (i)  = ckw0  (mstyp)
@@ -4952,18 +4855,17 @@ SUBROUTINE terra_multlay_init (                &
 !   Provide for a soil moisture 1 % above air dryness point, reset soil
 !   moisture to zero in case of ice and rock
     DO kso   = 1,ke_soil+1
-        DO i = istarts, iends
-!          IF (llandmask(i)) THEN             ! for land-points only
-            IF (m_styp(i).ge.3) THEN
+        DO ic = 1, kc
+           i=soil_list(ic)
               w_so_now (i,kso) = MAX(w_so_now(i,kso),                     &
                                            1.01_ireals*zadp(i)*zdzhs(kso) )
               w_so_new (i,kso) = MAX(w_so_new(i,kso),                     &
                                            1.01_ireals*zadp(i)*zdzhs(kso) )
-            ELSE
+        END DO
+         DO ic = 1, rc
+           i=rockice_list(ic)
               w_so_now(i,kso) = 0.0_ireals
               w_so_new(i,kso) = 0.0_ireals
-            ENDIF
-!          END IF   ! land-points
         END DO
     END DO
 
@@ -4973,7 +4875,7 @@ SUBROUTINE terra_multlay_init (                &
 !   loop over grid points
     DO i = istarts, iends
 !        IF(llandmask(i)) THEN   ! for land-points only
-          IF (w_snow_now(i) <=1.0E-6_ireals) THEN
+          IF (w_snow_now(i) <= zepsi) THEN
             ! spurious snow is removed
             t_snow_now(i)=t_so_now(i,0)
 !jh         t_snow_new(i)=t_so_now(i,0)
