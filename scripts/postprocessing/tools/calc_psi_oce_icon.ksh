@@ -47,11 +47,12 @@ plotfile=nclpsi.$filestr
 
 echo " working on files: input: $inpfile ; output: $outfile ; plot: $plotfile ; resolution: $resol"
 
-# select wet_c (lsm) and u_vint (vertical integral of u)
+# select wet_c (lsm at surface) and u_vint (vertical integral of u)
+#  - sellevidx: select first level index at surface
 if [ ! -s $inpfile.srv ]; then
   if [ -z "$weightfile" ]; then
     echo "weightfile is not given! Use remapnn ..."
-    cdo -P 8 remapnn,$resol -selvar,u_vint,wet_c $avgfile $inpfile.nc
+    cdo -P 8 remapnn,$resol -selvar,u_vint,wet_c -sellevidx,1 $avgfile $inpfile.nc
   else
     echo "weightfile is given:'$weightfile'. Use remap ..."
     cdo remap,$resol,$weightfile -selvar,u_vint,wet_c, $avgfile $inpfile.nc
@@ -79,6 +80,7 @@ cat > scr-psiread.f90 <<EOF
 !! @par Revision History
 !! Developed  by  Stephan Lorenz, MPI-M (2012).
 !!  based on code from MPIOM
+!   ignore vertical dimension
 !
 ! TODO: implement variable output dimension (1 deg resolution) and smoothing extent
 !! 
@@ -91,11 +93,9 @@ INTEGER, PARAMETER ::  rho_ref = 1025.022            ! reference density
 INTEGER, PARAMETER ::  nlat = $nlat                  ! meridional dimension of regular grid
 INTEGER, PARAMETER ::  nlon = $nlon                  ! zonal dimension of regular grid
 
-INTEGER, PARAMETER ::  nlev = 20                     ! vertical dimension of experiment
-
 ! smoothing area is 2*jsmth-1 lat/lon areas of 1 deg
 INTEGER, PARAMETER ::  jsmth = 3                  
-INTEGER            :: jb, jc, jk, i_startidx, i_endidx
+INTEGER            :: jb, jc, i_startidx, i_endidx
 INTEGER            :: jlat, jlon, jx, jy
 INTEGER            :: isrv(8)
 
@@ -103,7 +103,7 @@ INTEGER            :: isrv(8)
 REAL               :: z_lat_dist, erad, pi
 REAL               :: z_uint_reg(nlon,nlat)     ! vertical integral on regular grid
 REAL               :: psi_reg(nlon,nlat)        ! horizontal stream function
-REAL               :: wet_c(nlon,nlev,nlat)     ! slm
+REAL               :: wet_c(nlon,nlat)          ! slm
 
 !CHARACTER(len=max_char_length), PARAMETER :: routine = ('mo_oce_diagnostics:calc_psi')
 
@@ -138,15 +138,11 @@ jx = 1 + 270*nlat/360
   open (80,file="$outfile.srv", form='unformatted')
 
 
-  do jk=1,nlev
-    read (11) isrv
-    read (11) wet_c(:,jk,:)
+  read (11) isrv
+  read (11) wet_c(:,:)
 
-    IF (jk == 1) THEN
-      write(80) (isrv(jb),jb=1,8)
-      write(80) ((wet_c(jlon,jk,jlat),jlon=1,nlon),jlat=1,nlat)
-    END IF
-  enddo
+  write(80) (isrv(jb),jb=1,8)
+  write(80) ((wet_c(jlon,jlat),jlon=1,nlon),jlat=1,nlat)
 
   read (11) isrv
   write (*,*) isrv
@@ -171,7 +167,8 @@ jx = 1 + 270*nlat/360
   z_lat_dist = pi/real(nlat)*erad   !  z_lat_dist = dlat* pi*R/180 ; dlat=180/nlat
 
   !psi_reg(:,:) = z_uint_reg(:,:) * z_lat_dist * rho_ref * wet_c(:,1,:) * 1.0e-9 ! e+9 [kg/s]
-  psi_reg(:,:) = z_uint_reg(:,:) * z_lat_dist * wet_c(:,1,:) * 1.0e-6           ! e+6 [m3/s]
+  !psi_reg(:,:) = z_uint_reg(:,:) * z_lat_dist * wet_c(:,1,:) * 1.0e-6           ! e+6 [m3/s]
+  psi_reg(:,:) = z_uint_reg(:,:) * z_lat_dist * wet_c(:,:) * 1.0e-6
 
 
   write(80) (isrv(jb),jb=1,8)
