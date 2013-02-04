@@ -889,7 +889,7 @@ CONTAINS
       ! Boundary condition at surface (upper bound of D at center of first layer)
       !   is relaxation to temperature (tau = relaxation constant [1/s] ):
       !   K_v*dT/dz(surf) = Q_T = -dz/tau*(T-T*) [ K*m/s ]
-      ! discretized (T* = T_data = relaxation temperature, forc_tracer_relax):
+      ! discretized (T* = T_data = relaxation-temperature, forc_tracer_relax):
       !   top_bc_tracer = forc_tracer = -(del_zlev_m+h) / relax_param[s] * (tracer - forc_tracer_relax)
       !
       ! This is equivalent to an additonal forcing term in the tracer equation, i.e. outside
@@ -945,7 +945,7 @@ CONTAINS
       ! Boundary condition at surface (upper bound of D at center of first layer)
       !   is relaxation to salinity (tau = relaxation constant [1/s] ):
       !   K_v*dS/dz(surf) = Q_S = -dz/tau*(S-S*) [ psu*m/s ]
-      ! discretized (T* = T_data = relaxation temperature, forc_tracer_relax):
+      ! discretized (S* = S_data = relaxation-salinity, forc_tracer_relax):
       !   top_bc_tracer = forc_tracer = -(del_zlev_m+h) / relax_param[s] * (tracer - forc_tracer_relax)
       !
       ! This is equivalent to an additonal forcing term in the tracer equation, i.e. outside
@@ -1015,8 +1015,8 @@ CONTAINS
     IF (irelax_2d_S >= 1 .AND. no_tracer >1) THEN
 
       ! Freshwater flux at surface W_s diagnosed for relaxation cases (see Griffies)
-      !   W_s = -Q_S / S_0   [m/s]  with S_s surface salinity, 
-      !   which is set to reference value S_ref=35 psu to avoid instability for low sal.
+      !   W_s = -Q_S / S_0   [m/s]  with reference salinity at surface, 
+      !   which is set to reference value S_ref=35 psu to avoid instability for low salinity
       ! where
       !   Q_S = K_v*dS/dz(surf) = -W_s*S_ref  [psu*m/s]
       ! from above
