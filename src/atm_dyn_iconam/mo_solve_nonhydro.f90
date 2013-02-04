@@ -48,7 +48,7 @@ MODULE mo_solve_nonhydro
   USE mo_kind,                 ONLY: wp
   USE mo_nonhydrostatic_config,ONLY: itime_scheme,iadv_rhotheta, igradp_method, l_open_ubc, &
                                      kstart_moist, lhdiff_rcf, divdamp_fac, divdamp_order,  &
-                                     rayleigh_type, iadv_rcf
+                                     rayleigh_type, iadv_rcf, rhotheta_offctr
   USE mo_dynamics_config,   ONLY: idiv_method
   USE mo_parallel_config,   ONLY: nproma, p_test_run, itype_comm, use_dycore_barrier, &
     & use_icon_comm
@@ -603,8 +603,8 @@ MODULE mo_solve_nonhydro
                 z_hydro_corr    (nproma,p_patch%nblks_e)
 
 
-    REAL(wp):: z_theta1, z_theta2, z_raylfac, wgt_nnow, wgt_nnew, scal_divdamp, z_w_lim, &
-               dt_shift, bdy_divdamp
+    REAL(wp):: z_theta1, z_theta2, z_raylfac, wgt_nnow_vel, wgt_nnew_vel, scal_divdamp, z_w_lim, &
+               dt_shift, bdy_divdamp, wgt_nnow_rth, wgt_nnew_rth
     INTEGER :: nproma_gradp, nblks_gradp, npromz_gradp, nlen_gradp, jk_start
     LOGICAL :: lcompute, lcleanup, lvn_only
 
@@ -717,8 +717,14 @@ MODULE mo_solve_nonhydro
     ! Weighting coefficients for velocity advection if tendency averaging is used
     ! The off-centering specified here turned out to be beneficial to numerical
     ! stability in extreme situations
-    wgt_nnow = 0.25_wp
-    wgt_nnew = 1._wp - wgt_nnow
+    wgt_nnow_vel = 0.25_wp
+    wgt_nnew_vel = 1._wp - wgt_nnow_vel
+
+    ! Weighting coefficients for rho and theta at interface levels in the corrector step
+    ! This empirically determined weighting minimizes the vertical wind off-centering
+    ! needed for numerical stability of vertical sound wave propagation
+    wgt_nnew_rth = 0.5_wp + rhotheta_offctr ! default value for rhotheta_offctr is -0.2
+    wgt_nnow_rth = 1._wp - wgt_nnew_rth
 
     i_nchdom   = MAX(1,p_patch%n_childdom)
 
@@ -971,14 +977,14 @@ MODULE mo_solve_nonhydro
       DO jk = 2, nlev
         DO jc = i_startidx, i_endidx
           ! density at interface levels for vertical flux divergence computation
-          p_nh%diag%rho_ic(jc,jk,jb) = 0.5_wp*(                                     &
-            p_nh%metrics%wgtfac_c(jc,jk,jb)*(p_nh%prog(nnow)%rho(jc,jk,jb) +        &
-            p_nh%prog(nvar)%rho(jc,jk,jb))+(1._wp-p_nh%metrics%wgtfac_c(jc,jk,jb))* &
-            (p_nh%prog(nnow)%rho(jc,jk-1,jb)+p_nh%prog(nvar)%rho(jc,jk-1,jb)) )
+          p_nh%diag%rho_ic(jc,jk,jb) =                                                                &
+            p_nh%metrics%wgtfac_c(jc,jk,jb)*(wgt_nnow_rth*p_nh%prog(nnow)%rho(jc,jk,jb) +             &
+            wgt_nnew_rth*p_nh%prog(nvar)%rho(jc,jk,jb))+(1._wp-p_nh%metrics%wgtfac_c(jc,jk,jb))*      &
+            (wgt_nnow_rth*p_nh%prog(nnow)%rho(jc,jk-1,jb)+wgt_nnew_rth*p_nh%prog(nvar)%rho(jc,jk-1,jb))
 
           ! perturbation virtual potential temperature at main levels
-          z_theta_v_pr_mc(jc,jk) = 0.5_wp*(p_nh%prog(nnow)%theta_v(jc,jk,jb) +     &
-            p_nh%prog(nvar)%theta_v(jc,jk,jb)) - p_nh%metrics%theta_ref_mc(jc,jk,jb)
+          z_theta_v_pr_mc(jc,jk) = wgt_nnow_rth*p_nh%prog(nnow)%theta_v(jc,jk,jb) +            &
+            wgt_nnew_rth*p_nh%prog(nvar)%theta_v(jc,jk,jb) - p_nh%metrics%theta_ref_mc(jc,jk,jb)
 
           ! perturbation virtual potential temperature at interface levels
           z_theta_v_pr_ic(jc,jk) = &
@@ -1249,9 +1255,9 @@ MODULE mo_solve_nonhydro
 !CDIR UNROLL=5
         DO jk = 1, nlev
           DO je = i_startidx, i_endidx
-            p_nh%prog(nnew)%vn(je,jk,jb) = p_nh%prog(nnow)%vn(je,jk,jb)+ dtime              &
-            & *(wgt_nnow*p_nh%diag%ddt_vn_adv(je,jk,jb,ntl1)                                &
-            & + wgt_nnew*p_nh%diag%ddt_vn_adv(je,jk,jb,ntl2)+p_nh%diag%ddt_vn_phy(je,jk,jb) &
+            p_nh%prog(nnew)%vn(je,jk,jb) = p_nh%prog(nnow)%vn(je,jk,jb)+ dtime                  &
+            & *(wgt_nnow_vel*p_nh%diag%ddt_vn_adv(je,jk,jb,ntl1)                                &
+            & + wgt_nnew_vel*p_nh%diag%ddt_vn_adv(je,jk,jb,ntl2)+p_nh%diag%ddt_vn_phy(je,jk,jb) &
             & -cpd*z_theta_v_e(je,jk,jb)*z_gradh_exner(je,jk,jb))
           ENDDO
         ENDDO
@@ -1824,8 +1830,8 @@ MODULE mo_solve_nonhydro
 
             ! explicit part for w
             z_w_expl(jc,jk) = p_nh%prog(nnow)%w(jc,jk,jb)  + dtime * &
-              (wgt_nnow*p_nh%diag%ddt_w_adv(jc,jk,jb,ntl1) +         &
-               wgt_nnew*p_nh%diag%ddt_w_adv(jc,jk,jb,ntl2)           &
+              (wgt_nnow_vel*p_nh%diag%ddt_w_adv(jc,jk,jb,ntl1) +     &
+               wgt_nnew_vel*p_nh%diag%ddt_w_adv(jc,jk,jb,ntl2)       &
               -cpd*z_th_ddz_exner_c(jc,jk,jb) )
 
             ! contravariant vertical velocity times density for explicit part

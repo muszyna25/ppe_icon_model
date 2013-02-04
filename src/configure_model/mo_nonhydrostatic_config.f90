@@ -91,6 +91,7 @@ MODULE mo_nonhydrostatic_config
     REAL(wp):: damp_height(max_dom)    ! height at which w-damping and sponge layer start
     REAL(wp):: rayleigh_coeff(max_dom) ! Rayleigh damping coefficient in w-equation
     REAL(wp):: vwind_offctr     ! Off-centering in vertical wind solver
+    REAL(wp):: rhotheta_offctr  ! Off-centering for density and potential temperature at interface levels
     INTEGER :: iadv_rhotheta    ! Advection scheme used for density and pot. temperature
     INTEGER :: igradp_method    ! Method for computing the horizontal presure gradient
     REAL(wp):: exner_expol      ! Temporal extrapolation of Exner for computation of

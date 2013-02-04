@@ -59,6 +59,7 @@ MODULE mo_nonhydrostatic_nml
                                     & config_rayleigh_type    => rayleigh_type    , &
                                     & config_rayleigh_coeff   => rayleigh_coeff   , &
                                     & config_vwind_offctr     => vwind_offctr     , &
+                                    & config_rhotheta_offctr  => rhotheta_offctr  , &
                                     & config_iadv_rhotheta    => iadv_rhotheta    , &
                                     & config_igradp_method    => igradp_method    , &
                                     & config_exner_expol      => exner_expol      , &
@@ -112,6 +113,7 @@ MODULE mo_nonhydrostatic_nml
   REAL(wp):: damp_height(max_dom)    ! height at which w-damping and sponge layer start
   REAL(wp):: rayleigh_coeff(max_dom) ! Rayleigh damping coefficient in w-equation
   REAL(wp):: vwind_offctr            ! Off-centering in vertical wind solver
+  REAL(wp):: rhotheta_offctr         ! Off-centering for density and potential temperature at interface levels
   INTEGER :: iadv_rhotheta           ! Advection scheme used for density and pot. temperature
   INTEGER :: igradp_method           ! Method for computing the horizontal presure gradient
   REAL(wp):: exner_expol             ! Temporal extrapolation of Exner for computation of
@@ -144,7 +146,8 @@ MODULE mo_nonhydrostatic_nml
                               & divdamp_fac, igradp_method, exner_expol, l_open_ubc,      &
                               & l_nest_rcf, nest_substeps, l_masscorr_nest, l_zdiffu_t,   &
                               & thslp_zdiffu, thhgtd_zdiffu, gmres_rtol_nh, ltheta_up_hori, &
-                              & upstr_beta, ltheta_up_vert, k2_updamp_coeff, divdamp_order
+                              & upstr_beta, ltheta_up_vert, k2_updamp_coeff, divdamp_order, &
+                              & rhotheta_offctr
 
 CONTAINS
   !-------------------------------------------------------------------------
@@ -212,6 +215,12 @@ CONTAINS
     ! When combining coarse spatial resolutions (R2B5 or coarser) with high model tops (> 50 km),
     ! this value can be increased up to 1.0 in order to stabilize the numerical treatment of sound waves
     vwind_offctr      = 0.15_wp
+    ! Off-centering for density and potential temperature at interface levels
+    ! Specifying a negative value here reduces the amount of vertical wind off-centering needed for
+    ! stability of sound waves. The empirically determined optimum for the combination of coarse resolution
+    ! (R2B4) with a high model top (90 km) is -0.28, but this negatively affects the stability at higher 
+    ! resolutions. -0.2 seems to be a good compromise
+    rhotheta_offctr   = -0.2_wp
     ! Use Miura scheme for advection of rho and theta
     iadv_rhotheta     = 2
     ! Use truly horizontal pressure-gradient computation to ensure numerical stability
@@ -322,6 +331,7 @@ CONTAINS
        config_damp_height   (:) = damp_height   (:)
        config_iadv_rhotheta     = iadv_rhotheta
        config_vwind_offctr      = vwind_offctr
+       config_rhotheta_offctr   = rhotheta_offctr
        config_igradp_method     = igradp_method
        config_exner_expol       = exner_expol
        config_ltheta_up_hori    = ltheta_up_hori
