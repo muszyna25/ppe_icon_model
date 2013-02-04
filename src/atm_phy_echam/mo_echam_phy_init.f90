@@ -329,6 +329,92 @@ CONTAINS
 !$OMP END PARALLEL DO
           END IF ! ljsbach
 
+          IF ( is_coupled_run() ) CALL finish('ERROR: Use testcase APEc for a coupled run')
+
+        CASE('APEi') 
+          ! The same as APE, except we don't allow JSBACH and whenever SST reaches tmelt we put 1 m
+          ! thick ice with concentration of 0.9 on top
+
+!$OMP PARALLEL DO PRIVATE(jb,jc,jcs,jce,zlat) ICON_OMP_DEFAULT_SCHEDULE
+          DO jb = jbs,nblks_c
+            CALL get_indices_c( p_patch(jg), jb,jbs,nblks_c, jcs,jce, 2)
+            DO jc = jcs,jce
+              zlat = p_patch(jg)%cells%center(jc,jb)%lat
+              ! SST must reach Tf where there's ice. It may be better to modify ape_sst it self.
+              field% tsfc_tile(jc,jb,iwtr) = ape_sst(ape_sst_case,zlat) + Tf
+              ! Initialise the ice - Tsurf, T1 & T2 must be in degC
+              field% tsfc_tile  (jc,jb,iice) = Tf + tmelt
+              field% Tsurf      (jc,1, jb  ) = Tf
+              field% T1         (jc,1, jb  ) = Tf
+              field% T2         (jc,1, jb  ) = Tf
+              field% hs         (jc,1, jb  ) = 0._wp
+              IF ( field%tsfc_tile(jc,jb,iwtr) <= Tf + tmelt ) THEN
+!                ! Set the ice surface temperature to the same value as the lowest model level above
+!                ! surface. This is copied from the JWw and LDF cases.
+!                field%tsfc_tile(jc,jb,iice) = &
+!                  &     p_hydro_state(jg)%prog(nnow(jg))%temp(jc,nlev,jb)
+
+                field%Tsurf (jc,1,jb) = field% tsfc_tile(jc,jb,iice) - tmelt
+                field%conc  (jc,1,jb) = 0.9_wp
+                field%hi    (jc,1,jb) = 1.0_wp
+                field%seaice(jc,  jb) = field%conc(jc,1,jb)
+              ELSE
+                field%conc  (jc,1,jb) = 0._wp
+                field%hi    (jc,1,jb) = 0._wp
+                field%seaice(jc,  jb) = field%conc(jc,1,jb)
+              ENDIF
+              field% tsfc(jc,jb) = field%seaice(jc,jb)*field%tsfc_tile(jc,jb,iice) &
+                &       + ( 1._wp - field%seaice(jc,jb) )*field%tsfc_tile(jc,jb,iwtr)
+            END DO
+            field% lsmask(jcs:jce,jb) = 0._wp   ! zero land fraction
+            field% glac  (jcs:jce,jb) = 0._wp   ! zero glacier fraction
+          END DO
+!$OMP END PARALLEL DO
+          field% albvisdir_ice(:,:,:) = albi ! albedo in the visible range for direct radiation
+          field% albnirdir_ice(:,:,:) = albi ! albedo in the NIR range for direct radiation 
+          field% albvisdif_ice(:,:,:) = albi ! albedo in the visible range for diffuse radiation
+          field% albnirdif_ice(:,:,:) = albi ! albedo in the NIR range for diffuse radiation
+          field% albvisdir_wtr(:,:) = albedoW ! albedo in the visible range for direct radiation
+          field% albnirdir_wtr(:,:) = albedoW ! albedo in the NIR range for direct radiation 
+          field% albvisdif_wtr(:,:) = albedoW ! ! albedo in the visible range for diffuse radiation
+          field% albnirdif_wtr(:,:) = albedoW ! albedo in the NIR range for diffuse radiation
+
+        CASE('APEc') 
+          ! The same as APEi, except we initialize with no ice and don't modify the surface
+          ! temperature. This is meant for a coupled run.
+
+!$OMP PARALLEL DO PRIVATE(jb,jc,jcs,jce,zlat) ICON_OMP_DEFAULT_SCHEDULE
+          DO jb = jbs,nblks_c
+            CALL get_indices_c( p_patch(jg), jb,jbs,nblks_c, jcs,jce, 2)
+            DO jc = jcs,jce
+              zlat = p_patch(jg)%cells%center(jc,jb)%lat
+              field% tsfc_tile(jc,jb,iwtr) = ape_sst(ape_sst_case,zlat)
+              ! Initialise the ice - Tsurf, T1 & T2 must be in degC
+              field% tsfc_tile  (jc,jb,iice) = Tf + tmelt
+              field% Tsurf      (jc,1, jb  ) = Tf
+              field% T1         (jc,1, jb  ) = Tf
+              field% T2         (jc,1, jb  ) = Tf
+              field% hs         (jc,1, jb  ) = 0._wp
+              field%conc  (jc,1,jb) = 0._wp
+              field%hi    (jc,1,jb) = 0._wp
+              field%seaice(jc,  jb) = field%conc(jc,1,jb)
+              field% tsfc(jc,jb) = field%seaice(jc,jb)*field%tsfc_tile(jc,jb,iice) &
+                &       + ( 1._wp - field%seaice(jc,jb) )*field%tsfc_tile(jc,jb,iwtr)
+            END DO
+            field% lsmask(jcs:jce,jb) = 0._wp   ! zero land fraction
+            field% glac  (jcs:jce,jb) = 0._wp   ! zero glacier fraction
+          END DO
+!$OMP END PARALLEL DO
+          field% albvisdir_ice(:,:,:) = albi ! albedo in the visible range for direct radiation
+          field% albnirdir_ice(:,:,:) = albi ! albedo in the NIR range for direct radiation 
+          field% albvisdif_ice(:,:,:) = albi ! albedo in the visible range for diffuse radiation
+          field% albnirdif_ice(:,:,:) = albi ! albedo in the NIR range for diffuse radiation
+          field% albvisdir_wtr(:,:) = albedoW ! albedo in the visible range for direct radiation
+          field% albnirdir_wtr(:,:) = albedoW ! albedo in the NIR range for direct radiation 
+          field% albvisdif_wtr(:,:) = albedoW ! ! albedo in the visible range for diffuse radiation
+          field% albnirdif_wtr(:,:) = albedoW ! albedo in the NIR range for diffuse radiation
+
+! This shouldn't be necessary!
           IF ( is_coupled_run() ) THEN
 
              ALLOCATE(buffer(nproma*nblks_c,4))
@@ -344,10 +430,13 @@ CONTAINS
              !   field_id(3) represents "SFWFLX" surface fresh water flux
              !   field_id(4) represents "SFTEMP" surface temperature
              !   field_id(5) represents "THFLX"  total heat flux
+             !   field_id(6) represents "ICEATM" ice temperatures and melt potential
              !
-             !   field_id(6) represents "SST"    sea surface temperature
-             !   field_id(7) represents "OCEANU" u component of ocean surface current
-             !   field_id(8) represents "OCEANV" v component of ocean surface current
+             !   field_id(7) represents "SST"    sea surface temperature
+             !   field_id(9) represents "OCEANU" u component of ocean surface current
+             !   field_id(9) represents "OCEANV" v component of ocean surface current
+             !   field_id(10)represents "ICEOCE" ice thickness, concentration and temperatures
+             !
              !
              CALL ICON_cpl_get_nbr_fields ( nbr_fields )
              ALLOCATE(field_id(nbr_fields))
@@ -398,15 +487,23 @@ CONTAINS
              !
              ! THFLX, total heat flux
              !
-             buffer(:,1) =  RESHAPE ( field%swflxsfc  (:,:)     , (/ nbr_points /) ) !net shortwave flux at sfc
-             buffer(:,2) =  RESHAPE ( field%lwflxsfc  (:,:)     , (/ nbr_points /) ) !net longwave flux at sfc
-             buffer(:,3) =  RESHAPE ( field%shflx_tile(:,:,iwtr), (/ nbr_points /) ) !sensible heat flux
-             buffer(:,4) =  RESHAPE ( field%lhflx_tile(:,:,iwtr), (/ nbr_points /) ) !latent heat flux
-
-             field_shape(3) = 4
+             buffer(:,1) =  RESHAPE ( field%swflxsfc_tile(:,:,iwtr), (/ nbr_points /) ) !net shortwave flux for ocean
+             buffer(:,2) =  RESHAPE ( field%lwflxsfc_tile(:,:,iwtr), (/ nbr_points /) ) + &
+              &             RESHAPE ( field%shflx_tile(:,:,iwtr),    (/ nbr_points /) ) + &
+              &             RESHAPE ( field%lhflx_tile(:,:,iwtr),    (/ nbr_points /) ) !net non-solar fluxes for ocean
+             field_shape(3) = 2
              CALL ICON_cpl_put_init ( field_id(5), field_shape, &
+                                      buffer(1:nbr_hor_points,1:2), ierror )
+             !
+             ! ICEATM, Ice state determined by atmosphere
+             !
+             buffer(:,1) =  RESHAPE ( field%Qtop(:,1,:), (/ nbr_points /) ) !Melt-potential for ice - top
+             buffer(:,2) =  RESHAPE ( field%Qbot(:,1,:), (/ nbr_points /) ) !Melt-potential for ice - bottom
+             buffer(:,3) =  RESHAPE ( field%T1  (:,1,:), (/ nbr_points /) ) !Temperature of upper ice layer
+             buffer(:,4) =  RESHAPE ( field%T2  (:,1,:), (/ nbr_points /) ) !Temperature of lower ice layer
+             field_shape(3) = 4
+             CALL ICON_cpl_put_init ( field_id(6), field_shape, &
                                       buffer(1:nbr_hor_points,1:4), ierror )
-             field_shape(3) = 1
 
              ! Receive fields, only assign values if something was received ( info > 0 )
              ! -------------------------------------------------------------------------
@@ -416,7 +513,8 @@ CONTAINS
              !
              ! SST
              !
-             CALL ICON_cpl_get_init ( field_id(6), field_shape, &
+             field_shape(3) = 1
+             CALL ICON_cpl_get_init ( field_id(7), field_shape, &
                                       buffer(1:nbr_hor_points,1:1), info, ierror )
 
              IF ( info > 0 ) THEN
@@ -429,7 +527,7 @@ CONTAINS
              !
              ! OCEANU
              !
-             CALL ICON_cpl_get_init ( field_id(7), field_shape, &
+             CALL ICON_cpl_get_init ( field_id(8), field_shape, &
                                       buffer(1:nbr_hor_points,1:1), info, ierror )
              IF ( info > 0 ) THEN
                 buffer(nbr_hor_points+1:nbr_points,1:1) = 0.0_wp
@@ -439,7 +537,7 @@ CONTAINS
              !
              ! OCEANV
              !
-             CALL ICON_cpl_get_init ( field_id(8), field_shape, &
+             CALL ICON_cpl_get_init ( field_id(9), field_shape, &
                                       buffer(1:nbr_hor_points,1:1), info, ierror )
              IF ( info > 0 ) THEN
                 buffer(nbr_hor_points+1:nbr_points,1:1) = 0.0_wp
@@ -447,58 +545,31 @@ CONTAINS
                 CALL sync_patch_array(sync_c, p_patch(jg), field%ocv(:,:))
              ENDIF
 
+             !
+             ! ICEOCE
+             !
+             field_shape(3) = 4
+             CALL ICON_cpl_get_init ( field_id(10), field_shape, &
+                                      buffer(1:nbr_hor_points,1:4), info, ierror )
+             IF ( info > 0 ) THEN
+               buffer(nbr_hor_points+1:nbr_points,1:4) = 0.0_wp
+               field%hi  (:,1,:) = RESHAPE (buffer(:,1), (/ nproma, nblks_c /) )
+               field%conc(:,1,:) = RESHAPE (buffer(:,2), (/ nproma, nblks_c /) )
+               field%T1  (:,1,:) = RESHAPE (buffer(:,3), (/ nproma, nblks_c /) )
+               field%T2  (:,1,:) = RESHAPE (buffer(:,4), (/ nproma, nblks_c /) )
+               field%seaice(:,:) = field%conc(:,1,:)
+               CALL sync_patch_array(sync_c, p_patch(jg), field%hi  (:,1,:))
+               CALL sync_patch_array(sync_c, p_patch(jg), field%conc(:,1,:))
+               CALL sync_patch_array(sync_c, p_patch(jg), field%seaice(:,:))
+               CALL sync_patch_array(sync_c, p_patch(jg), field%T1  (:,1,:))
+               CALL sync_patch_array(sync_c, p_patch(jg), field%T2  (:,1,:))
+             ENDIF
+
              DEALLOCATE(field_id)
              DEALLOCATE(buffer)
 
           ENDIF
 
-        CASE('APEi') 
-          ! The same as APE, except we don't allow JSBACH and whenever SST reaches tmelt we put 1 m
-          ! thick ice with concentration of 0.9 on top
-
-!$OMP PARALLEL DO PRIVATE(jb,jc,jcs,jce,zlat) ICON_OMP_DEFAULT_SCHEDULE
-          DO jb = jbs,nblks_c
-            CALL get_indices_c( p_patch(jg), jb,jbs,nblks_c, jcs,jce, 2)
-            DO jc = jcs,jce
-              zlat = p_patch(jg)%cells%center(jc,jb)%lat
-              ! SST must reach Tf where there's ice. It may be better to modify ape_sst it self.
-              field% tsfc_tile(jc,jb,iwtr) = ape_sst(ape_sst_case,zlat) + Tf
-              ! Initialise the ice - Tsurf, T1 & T2 must be in degC
-              field% tsfc_tile  (jc,jb,iice) = Tf + tmelt
-              field% Tsurf      (jc,1, jb  ) = Tf
-              field% T1         (jc,1, jb  ) = Tf
-              field% T2         (jc,1, jb  ) = Tf
-              field% hs         (jc,1, jb  ) = 0._wp
-              IF ( field%tsfc_tile(jc,jb,iwtr) <= Tf + tmelt ) THEN
-!                ! Set the ice surface temperature to the same value as the lowest model level above
-!                ! surface. This is copied from the JWw and LDF cases.
-!                field%tsfc_tile(jc,jb,iice) = &
-!                  &     p_hydro_state(jg)%prog(nnow(jg))%temp(jc,nlev,jb)
-
-                field%Tsurf (jc,1,jb) = field% tsfc_tile(jc,jb,iice) - tmelt
-                field%conc  (jc,1,jb) = 0.9_wp
-                field%hi    (jc,1,jb) = 1.0_wp
-                field%seaice(jc,  jb) = field%conc(jc,1,jb)
-              ELSE
-                field%conc  (jc,1,jb) = 0._wp
-                field%hi    (jc,1,jb) = 0._wp
-                field%seaice(jc,  jb) = field%conc(jc,1,jb)
-              ENDIF
-              field% tsfc(jc,jb) = field%seaice(jc,jb)*field%tsfc_tile(jc,jb,iice) &
-                &       + ( 1._wp - field%seaice(jc,jb) )*field%tsfc_tile(jc,jb,iwtr)
-            END DO
-            field% lsmask(jcs:jce,jb) = 0._wp   ! zero land fraction
-            field% glac  (jcs:jce,jb) = 0._wp   ! zero glacier fraction
-          END DO
-!$OMP END PARALLEL DO
-          field% albvisdir_ice(:,:,:) = albi ! albedo in the visible range for direct radiation
-          field% albnirdir_ice(:,:,:) = albi ! albedo in the NIR range for direct radiation 
-          field% albvisdif_ice(:,:,:) = albi ! albedo in the visible range for diffuse radiation
-          field% albnirdif_ice(:,:,:) = albi ! albedo in the NIR range for diffuse radiation
-          field% albvisdir_wtr(:,:) = albedoW ! albedo in the visible range for direct radiation
-          field% albnirdir_wtr(:,:) = albedoW ! albedo in the NIR range for direct radiation 
-          field% albvisdif_wtr(:,:) = albedoW ! ! albedo in the visible range for diffuse radiation
-          field% albnirdif_wtr(:,:) = albedoW ! albedo in the NIR range for diffuse radiation
 
         CASE('JWw-Moist','LDF-Moist')
 

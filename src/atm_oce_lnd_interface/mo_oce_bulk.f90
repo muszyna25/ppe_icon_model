@@ -641,18 +641,19 @@ CONTAINS
         buffer(:,:) = 0.0_wp
 
       !
-      !  see drivers/mo_atmo_model.f90:
+      !  see drivers/mo_ocean_model.f90:
       !
       !   field_id(1) represents "TAUX"   wind stress component
       !   field_id(2) represents "TAUY"   wind stress component
       !   field_id(3) represents "SFWFLX" surface fresh water flux
       !   field_id(4) represents "SFTEMP" surface temperature
       !   field_id(5) represents "THFLX"  total heat flux
+      !   field_id(6) represents "ICEATM" ice temperatures and melt potential
       !
-      !   field_id(6) represents "SST"    sea surface temperature
-      !   field_id(7) represents "OCEANU" u component of ocean surface current
-      !   field_id(8) represents "OCEANV" v component of ocean surface current
-      !   field_id(9) represents "ALBEDO" ice & ocean albedo
+      !   field_id(7) represents "SST"    sea surface temperature
+      !   field_id(8) represents "OCEANU" u component of ocean surface current
+      !   field_id(9) represents "OCEANV" v component of ocean surface current
+      !   field_id(10)represents "ICEOCE" ice thickness, concentration and temperatures
       !
       !
         CALL ICON_cpl_get_nbr_fields ( nbr_fields )
@@ -672,31 +673,31 @@ CONTAINS
       !
         write_coupler_restart = .FALSE.
       !
-      ! SST/sea ice surface temperature:
-      ! They need to be weighted now that p_ice%concSum is variable
-        buffer(:,1) = RESHAPE(p_ice%Tsurf(:,1,:)*p_ice%concSum(:,:) +           &
-          &     p_os%p_prog(nold(1))%tracer(:,1,:,1)*(1._wp-p_ice%concSum(:,:)),&
-          &           (/nbr_points /) ) + tmelt
-        CALL ICON_cpl_put ( field_id(6), field_shape, buffer(1:nbr_hor_points,1:1), info, ierror )
+      ! SST
+        buffer(:,1) = RESHAPE(p_os%p_prog(nold(1))%tracer(:,1,:,1), (/nbr_points /) ) + tmelt
+        CALL ICON_cpl_put ( field_id(7), field_shape, buffer(1:nbr_hor_points,1:1), info, ierror )
         IF ( info == 2 ) write_coupler_restart = .TRUE.
       !
       ! zonal velocity
         buffer(:,1) = RESHAPE(p_os%p_diag%u(:,1,:), (/nbr_points /) )
-        CALL ICON_cpl_put ( field_id(7), field_shape, buffer(1:nbr_hor_points,1:1), info, ierror )
+        CALL ICON_cpl_put ( field_id(8), field_shape, buffer(1:nbr_hor_points,1:1), info, ierror )
         IF ( info == 2 ) write_coupler_restart = .TRUE.
       !
       ! meridional velocity
         buffer(:,1) = RESHAPE(p_os%p_diag%v(:,1,:), (/nbr_points /) )
-        CALL ICON_cpl_put ( field_id(8), field_shape, buffer(1:nbr_hor_points,1:1), info, ierror )
-        IF ( info == 2 ) write_coupler_restart = .TRUE.
-      !
-      ! ocean & ice albedo
-        buffer(:,1) = RESHAPE(Qatm%albvisdir(:,1,:)*p_ice%concSum(:,:) +   &
-          &     Qatm%albvisdirw*(1._wp-p_ice%concSum(:,:)), (/nbr_points /) )
         CALL ICON_cpl_put ( field_id(9), field_shape, buffer(1:nbr_hor_points,1:1), info, ierror )
         IF ( info == 2 ) write_coupler_restart = .TRUE.
+      !
+      ! Ice thickness, concentration, T1 and T2
+        buffer(:,1) = RESHAPE(p_ice%hi  (:,1,:), (/nbr_points /) )
+        buffer(:,2) = RESHAPE(p_ice%conc(:,1,:), (/nbr_points /) )
+        buffer(:,3) = RESHAPE(p_ice%T1  (:,1,:), (/nbr_points /) )
+        buffer(:,4) = RESHAPE(p_ice%T2  (:,1,:), (/nbr_points /) )
+        field_shape(3) = 4
+        CALL ICON_cpl_put ( field_id(10), field_shape, buffer(1:nbr_hor_points,1:4), info, ierror )
+        IF ( info == 2 ) write_coupler_restart = .TRUE.
 
-        IF ( write_coupler_restart ) CALL icon_cpl_write_restart ( 4, field_id(6:9), ierror )
+        IF ( write_coupler_restart ) CALL icon_cpl_write_restart ( 4, field_id(7:10), ierror )
       !
       ! Receive fields from atmosphere
       ! ------------------------------
@@ -705,6 +706,7 @@ CONTAINS
       ! Apply wind stress - records 0 and 1 of field_id
 
       ! zonal wind stress
+        field_shape(3) = 1
         CALL ICON_cpl_get ( field_id(1), field_shape, buffer(1:nbr_hor_points,1:1), info, ierror )
         IF (info > 0 ) THEN
             buffer(nbr_hor_points+1:nbr_points,1) = 0.0_wp
@@ -746,37 +748,47 @@ CONTAINS
         END IF
       !
       ! Apply total heat flux - 4 parts - record 5
-      ! swflx(:,:)  surface short wave heat flux        [W/m2]
-      ! lwflx(:,:)  surface long  wave heat flux        [W/m2]
-      ! ssflx(:,:)  surface sensible   heat flux        [W/m2]
-      ! slflx(:,:)  surface latent     heat flux        [W/m2]
-        field_shape(3) = 4
-        CALL ICON_cpl_get ( field_id(5), field_shape, buffer(1:nbr_hor_points,1:4), info, ierror )
+      ! p_sfc_flx%swflx(:,:)  ocean short wave heat flux                              [W/m2]
+      ! p_sfc_flx%lwflx(:,:)  ocean long  wave, latent and sensible heat fluxes (sum) [W/m2]
+        field_shape(3) = 2
+        CALL ICON_cpl_get ( field_id(5), field_shape, buffer(1:nbr_hor_points,1:2), info, ierror )
         IF (info > 0 ) THEN
-          buffer(nbr_hor_points+1:nbr_points,1:4) = 0.0_wp
+          buffer(nbr_hor_points+1:nbr_points,1:2) = 0.0_wp
           p_sfc_flx%forc_swflx(:,:) = RESHAPE(buffer(:,1),(/ nproma, p_patch%nblks_c /) )
           p_sfc_flx%forc_lwflx(:,:) = RESHAPE(buffer(:,2),(/ nproma, p_patch%nblks_c /) )
-          p_sfc_flx%forc_ssflx(:,:) = RESHAPE(buffer(:,3),(/ nproma, p_patch%nblks_c /) )
-          p_sfc_flx%forc_slflx(:,:) = RESHAPE(buffer(:,4),(/ nproma, p_patch%nblks_c /) )
           CALL sync_patch_array(sync_c, p_patch, p_sfc_flx%forc_swflx(:,:))
           CALL sync_patch_array(sync_c, p_patch, p_sfc_flx%forc_lwflx(:,:))
-          CALL sync_patch_array(sync_c, p_patch, p_sfc_flx%forc_ssflx(:,:))
-          CALL sync_patch_array(sync_c, p_patch, p_sfc_flx%forc_slflx(:,:))
           ! sum of fluxes for ocean boundary condition
-          p_sfc_flx%forc_hflx(:,:) = p_sfc_flx%forc_swflx(:,:) + p_sfc_flx%forc_lwflx(:,:) &
-      &                            + p_sfc_flx%forc_ssflx(:,:) + p_sfc_flx%forc_slflx(:,:)
+          p_sfc_flx%forc_hflx(:,:) = p_sfc_flx%forc_swflx(:,:) + p_sfc_flx%forc_lwflx(:,:)
+        ENDIF
+      ! p_ice%Qtop(:,:)         Surface melt potential of ice                           [W/m2]
+      ! p_ice%Qbot(:,:)         Bottom melt potential of ice                            [W/m2]
+      ! p_ice%T1  (:,:)         Temperature of the upper ice layer                      [degC]
+      ! p_ice%T2  (:,:)         Temperature of the lower ice layer                      [degC]
+        field_shape(3) = 4
+        CALL ICON_cpl_get ( field_id(6), field_shape, buffer(1:nbr_hor_points,1:4), info, ierror )
+        IF (info > 0 ) THEN
+          buffer(nbr_hor_points+1:nbr_points,1:4) = 0.0_wp
+          p_ice%Qtop(:,1,:) = RESHAPE(buffer(:,1),(/ nproma, p_patch%nblks_c /) )
+          p_ice%Qbot(:,1,:) = RESHAPE(buffer(:,2),(/ nproma, p_patch%nblks_c /) )
+          p_ice%T1  (:,1,:) = RESHAPE(buffer(:,3),(/ nproma, p_patch%nblks_c /) )
+          p_ice%T2  (:,1,:) = RESHAPE(buffer(:,4),(/ nproma, p_patch%nblks_c /) )
+          CALL sync_patch_array(sync_c, p_patch, p_ice%Qtop(:,1,:))
+          CALL sync_patch_array(sync_c, p_patch, p_ice%Qbot(:,1,:))
+          CALL sync_patch_array(sync_c, p_patch, p_ice%T1  (:,1,:))
+          CALL sync_patch_array(sync_c, p_patch, p_ice%T2  (:,1,:))
         END IF
 
         !---------DEBUG DIAGNOSTICS-------------------------------------------
         idt_src=1  ! output print level (1-5, fix)
-        CALL dbg_print('UpdSfc: CPL: SW-flux'      ,p_sfc_flx%forc_swflx     ,str_module,idt_src)
-        CALL dbg_print('UpdSfc: CPL: LW-flux'      ,p_sfc_flx%forc_lwflx     ,str_module,idt_src)
-        CALL dbg_print('UpdSfc: CPL: Sens.  HF'    ,p_sfc_flx%forc_ssflx     ,str_module,idt_src)
-        CALL dbg_print('UpdSfc: CPL: Latent HF'    ,p_sfc_flx%forc_slflx     ,str_module,idt_src)
-        CALL dbg_print('UpdSfc: CPL: Total  HF'    ,p_sfc_flx%forc_hflx      ,str_module,idt_src)
-        CALL dbg_print('UpdSfc: CPL: Precip.'      ,p_sfc_flx%forc_prflx     ,str_module,idt_src)
-        CALL dbg_print('UpdSfc: CPL: Evaporation'  ,p_sfc_flx%forc_evflx     ,str_module,idt_src)
-        CALL dbg_print('UpdSfc: CPL: Freshw. Flux' ,p_sfc_flx%forc_fwfx      ,str_module,idt_src)
+        CALL dbg_print('UpdSfc: CPL: SW-flux'       ,p_sfc_flx%forc_swflx     ,str_module,idt_src)
+        CALL dbg_print('UpdSfc: CPL: non-solar flux',p_sfc_flx%forc_lwflx     ,str_module,idt_src)
+        CALL dbg_print('UpdSfc: CPL: Total  HF'     ,p_sfc_flx%forc_hflx      ,str_module,idt_src)
+        CALL dbg_print('UpdSfc: CPL: Melt-pot. top' ,p_ice%Qtop               ,str_module,idt_src)
+        CALL dbg_print('UpdSfc: CPL: Melt-pot. bot' ,p_ice%Qbot               ,str_module,idt_src)
+        CALL dbg_print('UpdSfc: CPL: Precip.'       ,p_sfc_flx%forc_prflx     ,str_module,idt_src)
+        CALL dbg_print('UpdSfc: CPL: Evaporation'   ,p_sfc_flx%forc_evflx     ,str_module,idt_src)
+        CALL dbg_print('UpdSfc: CPL: Freshw. Flux'  ,p_sfc_flx%forc_fwfx      ,str_module,idt_src)
         !---------------------------------------------------------------------
 
         DEALLOCATE(buffer)
@@ -787,51 +799,10 @@ CONTAINS
         ! call of sea ice model
         IF (i_sea_ice >= 1) THEN
 
-          Qatm%SWnet  (:,1,:) = p_sfc_flx%forc_swflx(:,:)
-          Qatm%LWnet  (:,1,:) = p_sfc_flx%forc_lwflx(:,:)
-          Qatm%sens   (:,1,:) = p_sfc_flx%forc_ssflx(:,:)
-          Qatm%lat    (:,1,:) = p_sfc_flx%forc_slflx(:,:)
           Qatm%SWnetw (:,:)   = p_sfc_flx%forc_swflx(:,:)
           Qatm%LWnetw (:,:)   = p_sfc_flx%forc_lwflx(:,:)
-          Qatm%sensw  (:,:)   = p_sfc_flx%forc_ssflx(:,:)
-          Qatm%latw   (:,:)   = p_sfc_flx%forc_slflx(:,:)
-          Qatm%dsensdT(:,:,:) = 0.0_wp
-          Qatm%dlatdT (:,:,:) = 0.0_wp
-          Qatm%dLWdT  (:,:,:) = -4.0_wp * zemiss_def*StBo * (p_ice%Tsurf(:,:,:) + tmelt)**3
 
-          IF ( no_tracer >= 2 ) THEN
-            Tfw(:,:) = -mu*p_os%p_prog(nold(1))%tracer(:,1,:,2)
-          ELSE
-            Tfw = Tf
-          ENDIF
-
-          DO jb = all_cells%start_block, all_cells%end_block
-            CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
-            CALL ice_fast(i_startidx_c, i_endidx_c, nproma, p_ice%kice, dtime, &
-              &   p_ice% Tsurf(:,:,jb),   &
-              &   p_ice% T1   (:,:,jb),   &
-              &   p_ice% T2   (:,:,jb),   &
-              &   p_ice% hi   (:,:,jb),   &
-              &   p_ice% hs   (:,:,jb),   &
-              &   p_ice% Qtop (:,:,jb),   &
-              &   p_ice% Qbot (:,:,jb),   & 
-              &   Qatm%SWnet  (:,:,jb),   &
-              &   Qatm%lat(:,:,jb) + Qatm%sens(:,:,jb) + Qatm%LWnet(:,:,jb),              & 
-              &   Qatm%dlatdT (:,:,jb) + Qatm%dsensdT(:,:,jb) + Qatm%dLWdT  (:,:,jb),     & 
-              &   Tfw         (:,  jb),   &
-              &   Qatm%albvisdir(:,:,jb), &
-              &   Qatm%albvisdif(:,:,jb), &
-              &   Qatm%albnirdir(:,:,jb), &
-              &   Qatm%albnirdif(:,:,jb), &
-              &   doy=datetime%yeaday)
-          ENDDO
           CALL ice_slow(p_patch, p_os, p_ice, Qatm, p_sfc_flx)
-
-          ! Ocean albedo model
-          Qatm%albvisdirw = albedoW
-          Qatm%albvisdifw = albedoW
-          Qatm%albnirdirw = albedoW
-          Qatm%albnirdifw = albedoW
 
           ! sum of flux from sea ice to the ocean is stored in p_sfc_flx%forc_hflx
           !  done in mo_sea_ice:upper_ocean_TS

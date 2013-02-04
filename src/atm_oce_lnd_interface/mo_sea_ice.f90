@@ -1479,12 +1479,12 @@ CONTAINS
     ! Ocean points only
     ! Calculate change in water level 'zo' from liquid and solid precipitation and
     ! evaporation
-    precw           (:,:)   = QatmAve% rprecw (:,:) * dtime
-    preci           (:,:)   = QatmAve% rpreci (:,:) * dtime
-    evap            (:,:)   = (QatmAve% latw(:,:)/ alv * dtime * &
-      &                       sum(ice%conc(:,:,:), 2) +          &
-      &                       sum(ice%evapwi(:,:,:) * ice% conc(:,:,:), 2)) /rho_ref
-
+    !precw           (:,:)   = QatmAve% rprecw (:,:) * dtime
+    !preci           (:,:)   = QatmAve% rpreci (:,:) * dtime
+    !evap            (:,:)   = (QatmAve% latw(:,:)/ alv * dtime * &
+    !  &                       sum(ice%conc(:,:,:), 2) +          &
+    !  &                       sum(ice%evapwi(:,:,:) * ice% conc(:,:,:), 2)) /rho_ref
+    !
     ! TODO: This should probably be done via surface fluxes?
     !p_os%p_prog(nold(1))%h(:,:) = p_os%p_prog(nold(1))%h(:,:) +  precw + preci - evap
 

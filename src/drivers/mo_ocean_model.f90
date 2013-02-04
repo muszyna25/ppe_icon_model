@@ -177,7 +177,7 @@ CONTAINS
     TYPE(t_patch_3D), POINTER     :: p_patch_3D
     ! For the coupling
 
-    INTEGER, PARAMETER :: no_of_fields = 9
+    INTEGER, PARAMETER :: no_of_fields = 10
 
     CHARACTER(LEN=MAX_CHAR_LENGTH) ::  field_name(no_of_fields)
     CHARACTER(LEN=MAX_CHAR_LENGTH) :: grid_file_name
@@ -465,23 +465,24 @@ CONTAINS
       field_name(2) = "TAUY"
       field_name(3) = "SFWFLX" ! bundled field containing two components
       field_name(4) = "SFTEMP"
-      field_name(5) = "THFLX"  ! bundled field containing four components
-      field_name(6) = "SST"
-      field_name(7) = "OCEANU"
-      field_name(8) = "OCEANV"
-      field_name(9) = "ALBEDO"
+      field_name(5) = "THFLX"  ! bundled field containing two components
+      field_name(6) = "ICEATM" ! bundled field containing four components
+      field_name(7) = "SST"
+      field_name(8) = "OCEANU"
+      field_name(9) = "OCEANV"
+      field_name(10) = "ICEOCE" ! bundled field containing four components
 
       field_shape(1:2) = grid_shape(1:2)
 
       DO i = 1, no_of_fields
-      IF ( i == 3 ) THEN
-         field_shape(3) = 2
-      ELSE IF ( i == 5 ) THEN
-         field_shape(3) = 4
-      ELSE
-         field_shape(3) = 1
-      ENDIF
-         CALL ICON_cpl_def_field ( field_name(i), grid_id, field_id(i), &
+        IF ( i == 3 .OR. i == 5 ) THEN
+           field_shape(3) = 2
+        ELSE IF ( i == 6 .OR. i == 10 ) THEN
+           field_shape(3) = 4
+        ELSE
+           field_shape(3) = 1
+        ENDIF
+        CALL ICON_cpl_def_field ( field_name(i), grid_id, field_id(i), &
     &                               field_shape, error_status )
       ENDDO
 

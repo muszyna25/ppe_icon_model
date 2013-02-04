@@ -97,7 +97,7 @@ CONTAINS
 
         END IF
 
-      CASE('APEi')
+      CASE('APEi','APEc')
       ! Aqua-planet simulation with ice, but no land;
 
         iwtr      = 1
