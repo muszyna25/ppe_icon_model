@@ -2478,7 +2478,8 @@ CONTAINS
 
           ! GRIB2 Quick hack: Set additional GRIB2 keys      
           CALL set_additional_GRIB2_keys(vlistID, of%cdi_grb2(idx(igrid),i), &
-            &                            gribout_config(of%phys_patch_id))
+            &                            gribout_config(of%phys_patch_id),   &
+            &                            of%name_list%namespace)
         END DO
       END DO
 
@@ -2497,7 +2498,8 @@ CONTAINS
 
         ! GRIB2 Quick hack: Set additional GRIB2 keys      
         CALL set_additional_GRIB2_keys(vlistID, of%cdi_grb2(ILATLON,i), &
-          &                            gribout_config(of%phys_patch_id))
+          &                            gribout_config(of%phys_patch_id), &
+          &                            of%name_list%namespace)
       END DO
 
     CASE DEFAULT
@@ -2838,9 +2840,10 @@ CONTAINS
   ! Set additional GRIB2 keys. These are added to each single variable, even though 
   ! adding it to the vertical or horizontal grid description may be more elegant.
   ! 
-  SUBROUTINE set_additional_GRIB2_keys(vlistID, varID, grib_conf)
+  SUBROUTINE set_additional_GRIB2_keys(vlistID, varID, grib_conf, namespace)
     INTEGER,                INTENT(IN) :: vlistID, varID
     TYPE(t_gribout_config), INTENT(IN) :: grib_conf
+    CHARACTER (LEN=*),      INTENT(IN) :: namespace
 
     CHARACTER(len=MAX_STRING_LEN) :: ydate, ytime
     INTEGER :: cent, year, month, day    ! date
@@ -2861,8 +2864,6 @@ CONTAINS
       hour  = 1
       minute= 1 
     ENDIF
-
-
 
     ! Load correct tables ans activate section 2
     !
@@ -2887,18 +2888,18 @@ CONTAINS
       &                    grib_conf%generatingProcessIdentifier)
     !
     ! Product Generation (local)
-!    CALL vlistDefVarIntKey(vlistID, varID, "localDefinitionNumber"  ,         &
-!      &                    grib_conf%localDefinitionNumber)
-!    CALL vlistDefVarIntKey(vlistID, varID, "localNumberOfExperiment",         &
-!      &                    grib_conf%localNumberOfExperiment)
-!    CALL vlistDefVarIntKey(vlistID, varID, "localCreationDateYear"  , 100*cent+year)
-!    CALL vlistDefVarIntKey(vlistID, varID, "localCreationDateMonth" , month)
-!    CALL vlistDefVarIntKey(vlistID, varID, "localCreationDateDay"   , day)
-!    CALL vlistDefVarIntKey(vlistID, varID, "localCreationDateHour"  , hour)
-!    CALL vlistDefVarIntKey(vlistID, varID, "localCreationDateMinute", minute)
-!    CALL vlistDefVarIntKey(vlistID, varID, "localValidityDate", 2013)
-
-
+    IF (tolower(namespace) == "dwd") THEN
+      CALL vlistDefVarIntKey(vlistID, varID, "localDefinitionNumber"  ,         &
+        &                    grib_conf%localDefinitionNumber)
+      CALL vlistDefVarIntKey(vlistID, varID, "localNumberOfExperiment",         &
+        &                    grib_conf%localNumberOfExperiment)
+      CALL vlistDefVarIntKey(vlistID, varID, "localCreationDateYear"  , 100*cent+year)
+      CALL vlistDefVarIntKey(vlistID, varID, "localCreationDateMonth" , month)
+      CALL vlistDefVarIntKey(vlistID, varID, "localCreationDateDay"   , day)
+      CALL vlistDefVarIntKey(vlistID, varID, "localCreationDateHour"  , hour)
+      CALL vlistDefVarIntKey(vlistID, varID, "localCreationDateMinute", minute)
+      ! CALL vlistDefVarIntKey(vlistID, varID, "localValidityDateYear"  , 2013)
+    END IF
 
   END SUBROUTINE set_additional_GRIB2_keys
 
@@ -3000,7 +3001,8 @@ CONTAINS
       ENDIF
 
       ! GRIB2 Quick hack: Set additional GRIB2 keys      
-      CALL set_additional_GRIB2_keys(vlistID, varID, gribout_config(of%phys_patch_id))
+      CALL set_additional_GRIB2_keys(vlistID, varID, gribout_config(of%phys_patch_id), &
+        &                            of%name_list%namespace)
 
       !!!!!!! OBSOLETE !!!!!!!!
       !Set typeOfStatisticalProcessing

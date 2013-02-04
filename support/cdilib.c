@@ -33279,8 +33279,8 @@ size_t gribapiEncode(int varID, int levelID, int vlistID, int gridID, int zaxisI
       }
     for (i=0; i<vlistptr->vars[varID].opt_grib_int_nentries; i++)
       {
-	GRIB_CHECK(grib_set_double(gh, vlistptr->vars[varID].opt_grib_int_keyword[i], 
-				   vlistptr->vars[varID].opt_grib_int_val[i]), 0);
+	GRIB_CHECK(grib_set_long(gh, vlistptr->vars[varID].opt_grib_int_keyword[i], 
+				 vlistptr->vars[varID].opt_grib_int_val[i]), 0);
       }
   }
 
