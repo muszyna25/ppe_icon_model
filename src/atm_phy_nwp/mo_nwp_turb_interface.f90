@@ -189,8 +189,8 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
 !$OMP DO PRIVATE(jb,jt,jc,jk,ic,jt1,ilist,i_startidx,i_endidx,i_count,ierrstat,errormsg,eroutine,&
 !$OMP lc_class,z_tvs,gz0_t,tcm_t,tch_t,tfm_t,tfh_t,tfv_t,t_g_t,qv_s_t,t_2m_t,qv_2m_t,           &  
 !$OMP td_2m_t,rh_2m_t,u_10m_t,v_10m_t,tvs_t,pres_sfc_t,u_t,v_t,temp_t,pres_t,qv_t,qc_t,tkvm_t,   &
-!$OMP tkvh_t,z_ifc_t,w_t,rcld_t,sai_t,fr_land_t,depth_lk_t,h_ice_t,area_frac,shfl_s_t,lhfl_s_t)  &
-!$OMP ICON_OMP_GUIDED_SCHEDULE
+!$OMP tkvh_t,z_ifc_t,w_t,rcld_t,sai_t,fr_land_t,depth_lk_t,h_ice_t,area_frac,shfl_s_t,lhfl_s_t,  &
+!$OMP z_umfl_s,z_vmfl_s) ICON_OMP_GUIDED_SCHEDULE
 
   DO jb = i_startblk, i_endblk
 
@@ -647,7 +647,7 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
 
     ENDIF !inwp_turb
 
-  ENDDO
+  ENDDO  ! jb
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
