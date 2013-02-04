@@ -30,7 +30,7 @@ MODULE mo_name_list_output
 
   USE mo_kind,                  ONLY: wp, i8, dp, sp
   USE mo_impl_constants,        ONLY: max_phys_dom, ihs_ocean, zml_soil, MAX_NVARS,   &
-    &                                 vname_len, max_dom, SUCCESS, HINTP_TYPE_LONLAT, &
+    &                                 vname_len, max_dom, SUCCESS,                    &
     &                                 min_rlcell_int, min_rledge_int, min_rlvert,     &
     &                                 max_var_ml, max_var_pl, max_var_hl, max_var_il
   USE mo_grid_config,           ONLY: n_dom, n_phys_dom, global_cell_type, &

@@ -70,7 +70,7 @@ USE mo_nwp_phy_types,       ONLY: t_nwp_phy_diag, t_nwp_phy_tend
 USE mo_impl_constants,      ONLY: icc, success, max_char_length,      &
   &                               VINTP_METHOD_UV,                    &
   &                               VINTP_METHOD_LIN,VINTP_METHOD_QV,   &
-  &                               TASK_COMPUTE_RH
+  &                               TASK_COMPUTE_RH, HINTP_TYPE_LONLAT_NNB
 USE mo_parallel_config,     ONLY: nproma
 USE mo_run_config,          ONLY: nqtendphy, iqv, iqc, iqi
 USE mo_exception,           ONLY: message, finish !,message_text
@@ -81,8 +81,9 @@ USE mo_linked_list,         ONLY: t_list_element, t_var_list
 USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
 USE mo_lnd_nwp_config,      ONLY: ntiles_total, ntiles_water, nlev_soil
 USE mo_var_list,            ONLY: default_var_list_settings, &
-  &                               add_var, add_ref, new_var_list, delete_var_list, &
-  &                               create_vert_interp_metadata, groups, vintp_types
+  &                               add_var, add_ref, new_var_list, delete_var_list,  &
+  &                               create_vert_interp_metadata, groups, vintp_types, &
+  &                               create_hor_interp_metadata
 USE mo_nwp_parameters,      ONLY: t_phy_params
 USE mo_cf_convention,       ONLY: t_cf_var
 USE mo_grib2,               ONLY: t_grib2_var
@@ -451,7 +452,8 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
     CALL add_var( diag_list, 'cape', diag%cape,                               &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
                 & ldims=shape2d, lrestart=.FALSE.,                            &
-                & in_group=groups("additional_precip_vars") )
+                & in_group=groups("additional_precip_vars"),                  &
+                & hor_interp=create_hor_interp_metadata(hor_intp_type=HINTP_TYPE_LONLAT_NNB ) )
 
     ! &      diag%con_gust(nproma,nblks_c)
     cf_desc    = t_cf_var('con_gust', 'm s-1 ', 'convective gusts', DATATYPE_FLT32)
@@ -613,7 +615,8 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,       &
                 & ldims=(/nproma,klev,kblks,4/) ,                               &
                 & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.,         &
-                & initval_r=0.0_wp )
+                & initval_r=0.0_wp,                                             &
+                & hor_interp=create_hor_interp_metadata(hor_intp_type=HINTP_TYPE_LONLAT_NNB ))
 
     ALLOCATE( diag%tot_ptr(kcloud))
     vname_prefix='tot_'
@@ -694,35 +697,40 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
         grib2_desc = t_grib2_var(0, 6, 22, ibits, GRID_REFERENCE, GRID_CELL)
         CALL add_var( diag_list, 'clch', diag%clch,                               &
           & GRID_UNSTRUCTURED_CELL, ZA_PRESSURE_0, cf_desc, grib2_desc,           &
-          & ldims=shape2d, lrestart=.FALSE. )
+          & ldims=shape2d, lrestart=.FALSE.,                                      &
+          & hor_interp=create_hor_interp_metadata(hor_intp_type=HINTP_TYPE_LONLAT_NNB ))
 
         ! &      diag%clcm(nproma,nblks_c)
         cf_desc    = t_cf_var('clcm', '', 'mid_level_clouds', DATATYPE_FLT32)
         grib2_desc = t_grib2_var(0, 6, 22, ibits, GRID_REFERENCE, GRID_CELL)
         CALL add_var( diag_list, 'clcm', diag%clcm,                               &
           & GRID_UNSTRUCTURED_CELL, ZA_PRESSURE_400, cf_desc, grib2_desc,         &
-          & ldims=shape2d, lrestart=.FALSE. )
+          & ldims=shape2d, lrestart=.FALSE.,                                      &
+          & hor_interp=create_hor_interp_metadata(hor_intp_type=HINTP_TYPE_LONLAT_NNB ))
 
         ! &      diag%clcl(nproma,nblks_c)
         cf_desc    = t_cf_var('clcl', '', 'low_level_clouds', DATATYPE_FLT32)
         grib2_desc = t_grib2_var(0, 6, 22, ibits, GRID_REFERENCE, GRID_CELL)
         CALL add_var( diag_list, 'clcl', diag%clcl,                               &
           & GRID_UNSTRUCTURED_CELL, ZA_PRESSURE_800, cf_desc, grib2_desc,         &
-          & ldims=shape2d, lrestart=.FALSE. )
+          & ldims=shape2d, lrestart=.FALSE.,                                      &
+          & hor_interp=create_hor_interp_metadata(hor_intp_type=HINTP_TYPE_LONLAT_NNB ))
 
         ! &      diag%hbas_con(nproma,nblks_c)
         cf_desc    = t_cf_var('hbas_con', '', 'height_of_convective_cloud_base', DATATYPE_FLT32)
         grib2_desc = t_grib2_var(0, 6, 26, ibits, GRID_REFERENCE, GRID_CELL)
         CALL add_var( diag_list, 'hbas_con', diag%hbas_con,                       &
           & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,              &
-          & ldims=shape2d, lrestart=.FALSE. )
+          & ldims=shape2d, lrestart=.FALSE.,                                      &
+          & hor_interp=create_hor_interp_metadata(hor_intp_type=HINTP_TYPE_LONLAT_NNB ))
 
         ! &      diag%htop_con(nproma,nblks_c)
         cf_desc    = t_cf_var('htop_con', '', 'height_of_convective_cloud_top', DATATYPE_FLT32)
         grib2_desc = t_grib2_var(0, 6, 27, ibits, GRID_REFERENCE, GRID_CELL)
         CALL add_var( diag_list, 'htop_con', diag%htop_con,                       &
           & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,              &
-          & ldims=shape2d, lrestart=.FALSE. )
+          & ldims=shape2d, lrestart=.FALSE.,                                      &
+          & hor_interp=create_hor_interp_metadata(hor_intp_type=HINTP_TYPE_LONLAT_NNB ))
 
     !------------------
     ! Radiation

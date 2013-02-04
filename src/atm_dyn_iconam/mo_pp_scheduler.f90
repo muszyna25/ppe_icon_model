@@ -82,7 +82,7 @@ MODULE mo_pp_scheduler
   USE mo_kind,                    ONLY: wp
   USE mo_exception,               ONLY: message, message_text, finish
   USE mo_impl_constants,          ONLY: SUCCESS,                       &
-    & HINTP_TYPE_NONE, HINTP_TYPE_LONLAT,                              &
+    & HINTP_TYPE_NONE,                                                 &
     & max_dom, max_var_ml, max_var_pl, max_var_hl, max_var_il,         &
     & TASK_NONE, TASK_INIT_VER_Z, TASK_INIT_VER_P, TASK_INIT_VER_I,    &
     & TASK_FINALIZE_IPZ,                                               &

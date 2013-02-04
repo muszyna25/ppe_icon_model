@@ -48,7 +48,8 @@ MODULE mo_pp_tasks
     & TASK_FINALIZE_IPZ,                                              &
     & TASK_INTP_HOR_LONLAT, TASK_INTP_VER_PLEV, TASK_INTP_SYNC,       &
     & TASK_COMPUTE_RH, TASK_INTP_VER_ZLEV, TASK_INTP_VER_ILEV,        &
-    & PRES_MSL_METHOD_SAI, PRES_MSL_METHOD_GME, max_dom
+    & PRES_MSL_METHOD_SAI, PRES_MSL_METHOD_GME, max_dom,              &
+    & HINTP_TYPE_LONLAT_NNB
   USE mo_model_domain,            ONLY: t_patch, p_patch
   USE mo_var_list_element,        ONLY: t_var_list_element, level_type_ml,  &
     &                                   level_type_pl, level_type_hl
@@ -85,8 +86,8 @@ MODULE mo_pp_tasks
     &                                   DATATYPE_PACK16, is_2d_field
   USE mo_linked_list,             ONLY: t_var_list, t_list_element
   USE mo_lonlat_grid,             ONLY: t_lon_lat_grid
-  USE mo_intp_lonlat,             ONLY: rbf_interpol_lonlat_nl,                  &
-    &                                   rbf_vec_interpol_lonlat_nl
+  USE mo_intp_lonlat,             ONLY: rbf_interpol_lonlat,                     &
+    &                                   rbf_vec_interpol_lonlat
   USE mo_sync,                    ONLY: sync_patch_array,                        &
     &                                   SYNC_C, SYNC_E, SYNC_V
   USE mo_util_phys,               ONLY: compute_field_rel_hum
@@ -222,10 +223,10 @@ CONTAINS
     TYPE(t_job_queue), POINTER :: ptr_task
     ! local variables
     CHARACTER(*), PARAMETER :: routine = TRIM("mo_pp_tasks:pp_task_lonlat")
-    INTEGER                            :: &
+    INTEGER                            ::        &
       &  nblks_ll, npromz_ll, lonlat_id, jg,     &
       &  in_var_idx, out_var_idx, out_var_idx_2, &
-      &  ierrstat, dim1, dim2
+      &  ierrstat, dim1, dim2, hintp_type
     TYPE (t_var_list_element), POINTER :: in_var, out_var, out_var_2
     TYPE (t_var_metadata),     POINTER :: p_info
     TYPE (t_lon_lat_intp),     POINTER :: ptr_int_lonlat
@@ -240,6 +241,7 @@ CONTAINS
     lonlat_id      =  ptr_task%data_output%var%info%hor_interp%lonlat_id
     jg             =  ptr_task%data_input%jg
     ptr_int_lonlat => lonlat_grid_list(lonlat_id)%intp(jg)
+    hintp_type     = p_info%hor_interp%hor_intp_type
 
     in_var_idx        = 1
     IF (in_var%info%lcontained)  in_var_idx  = in_var%info%ncontained
@@ -273,11 +275,11 @@ CONTAINS
 
         ! for cell-based variables: interpolate gradients (finite
         ! differences) and reconstruct
-        CALL rbf_interpol_lonlat_nl(              &
+        CALL rbf_interpol_lonlat(                 &
           &   tmp_var(:,:,:),                     &
           &   ptr_int_lonlat,                     &
           &   out_var%r_ptr(:,:,:,out_var_idx,1), &
-          &   nblks_ll, npromz_ll)
+          &   nblks_ll, npromz_ll, hintp_type)
 
         ! clean up:
         DEALLOCATE(tmp_var, STAT=ierrstat)
@@ -285,11 +287,11 @@ CONTAINS
       ELSE
         ! for cell-based variables: interpolate gradients (finite
         ! differences) and reconstruct
-        CALL rbf_interpol_lonlat_nl(              &
+        CALL rbf_interpol_lonlat(                 &
           &   in_var%r_ptr(:,:,:,in_var_idx,1),   &
           &   ptr_int_lonlat,                     &
           &   out_var%r_ptr(:,:,:,out_var_idx,1), &
-          &   nblks_ll, npromz_ll)
+          &   nblks_ll, npromz_ll, hintp_type)
       END IF ! 2D
       ! --------------------------------------------------------------
       !
@@ -304,7 +306,7 @@ CONTAINS
         tmp_var(:,1,:) = in_var%r_ptr(:,:,in_var_idx,1,1)
 
         ! for edge-based variables: simple interpolation
-        CALL rbf_vec_interpol_lonlat_nl(              &
+        CALL rbf_vec_interpol_lonlat(                 &
           &   tmp_var(:,:,:),                         &
           &   ptr_int_lonlat,                         &
           &   out_var%r_ptr(:,:,:,out_var_idx,1),     &
@@ -315,7 +317,7 @@ CONTAINS
         IF (ierrstat /= SUCCESS)  CALL finish (routine, 'deallocation failed')
       ELSE
         ! for edge-based variables: simple interpolation
-        CALL rbf_vec_interpol_lonlat_nl(              &
+        CALL rbf_vec_interpol_lonlat(                 &
           &   in_var%r_ptr(:,:,:,in_var_idx,1),       &
           &   ptr_int_lonlat,                         &
           &   out_var%r_ptr(:,:,:,out_var_idx,1),     &
@@ -338,7 +340,7 @@ CONTAINS
   ! To avoid unnecessary overhead in the synchronization,
   ! several improvements are possible:
   !   - Use "*_mult" synchronization routines
-
+  !
   !   - Copy 2D fields into a 3D field which is
   !     synchronized. Afterwards, 2D fields are extracted again from
   !     the temporary 3D field.
@@ -366,25 +368,27 @@ CONTAINS
         p_patch     => ptr_task%data_input%p_patch
         in_var      => ptr_task%data_input%var
         in_var_idx  =  1
-        IF (in_var%info%lcontained) &
-          &  in_var_idx = in_var%info%ncontained
+        IF (in_var%info%lcontained) in_var_idx = in_var%info%ncontained
         
-        IF (is_2d_field(p_info%vgrid) .AND. (p_info%ndims /= 2)) THEN
-          CALL finish(routine, "Inconsistent dimension info!")
-        END IF
+        IF (is_2d_field(p_info%vgrid) .AND. (p_info%ndims /= 2)) &
+          &  CALL finish(routine, "Inconsistent dimension info!")
 
         SELECT CASE (p_info%hgrid)
         CASE (GRID_UNSTRUCTURED_CELL)
           IF (is_2d_field(p_info%vgrid)) THEN
-            CALL sync_patch_array(SYNC_C, p_patch, in_var%r_ptr(:,:,in_var_idx,1,1) )
+            IF (ASSOCIATED(in_var%r_ptr)) CALL sync_patch_array(SYNC_C, p_patch, in_var%r_ptr(:,:,in_var_idx,1,1) )
+            IF (ASSOCIATED(in_var%i_ptr)) CALL finish(routine, "Not yet implemented")
           ELSE
-            CALL sync_patch_array(SYNC_C, p_patch, in_var%r_ptr(:,:,:,in_var_idx,1) )
+            IF (ASSOCIATED(in_var%r_ptr)) CALL sync_patch_array(SYNC_C, p_patch, in_var%r_ptr(:,:,:,in_var_idx,1) )
+            IF (ASSOCIATED(in_var%i_ptr)) CALL finish(routine, "Not yet implemented")
           END IF
         CASE (GRID_UNSTRUCTURED_EDGE)
           IF (is_2d_field(p_info%vgrid)) THEN
-            CALL sync_patch_array(SYNC_E, p_patch, in_var%r_ptr(:,:,in_var_idx,1,1) )
+            IF (ASSOCIATED(in_var%r_ptr)) CALL sync_patch_array(SYNC_E, p_patch, in_var%r_ptr(:,:,in_var_idx,1,1) )
+            IF (ASSOCIATED(in_var%i_ptr)) CALL finish(routine, "Not yet implemented")
           ELSE
-            CALL sync_patch_array(SYNC_E, p_patch, in_var%r_ptr(:,:,:,in_var_idx,1) )
+            IF (ASSOCIATED(in_var%r_ptr)) CALL sync_patch_array(SYNC_E, p_patch, in_var%r_ptr(:,:,:,in_var_idx,1) )
+            IF (ASSOCIATED(in_var%i_ptr)) CALL finish(routine, "Not yet implemented")
           END IF
         CASE DEFAULT
           CALL finish(routine, 'Unknown grid type.')

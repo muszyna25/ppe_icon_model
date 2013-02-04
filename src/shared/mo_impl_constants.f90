@@ -423,11 +423,13 @@ MODULE mo_impl_constants
   INTEGER, PARAMETER :: div_metis     = 2  ! Use Metis
 
   !-----  horizontal interpolation: type of interpolation
-  CHARACTER(len=32), PARAMETER :: STR_HINTP_TYPE(2) = &
-    (/ "HINTP_TYPE_NONE  ",  &
-    &  "HINTP_TYPE_LONLAT" /)
-  INTEGER, PARAMETER :: HINTP_TYPE_NONE    = 1
-  INTEGER, PARAMETER :: HINTP_TYPE_LONLAT  = 2
+  CHARACTER(len=32), PARAMETER :: STR_HINTP_TYPE(3) = &
+    (/ "HINTP_TYPE_NONE      ",  &
+    &  "HINTP_TYPE_LONLAT_RBF",  &
+    &  "HINTP_TYPE_LONLAT_NNB" /)
+  INTEGER, PARAMETER :: HINTP_TYPE_NONE        = 1
+  INTEGER, PARAMETER :: HINTP_TYPE_LONLAT_RBF  = 2
+  INTEGER, PARAMETER :: HINTP_TYPE_LONLAT_NNB  = 3
 
   !-----  vertical interpolation algorithms
   INTEGER, PARAMETER :: VINTP_METHOD_UV    = 1

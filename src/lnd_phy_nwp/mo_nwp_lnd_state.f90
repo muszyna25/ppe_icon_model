@@ -63,7 +63,7 @@
 MODULE mo_nwp_lnd_state
 
   USE mo_kind,                 ONLY: wp
-  USE mo_impl_constants,       ONLY: SUCCESS, MAX_CHAR_LENGTH
+  USE mo_impl_constants,       ONLY: SUCCESS, MAX_CHAR_LENGTH, HINTP_TYPE_LONLAT_NNB
   USE mo_parallel_config,      ONLY: nproma
   USE mo_nwp_lnd_types,        ONLY: t_lnd_state, t_lnd_prog, t_lnd_diag, t_wtr_prog
   USE mo_exception,            ONLY: message, finish
@@ -73,10 +73,11 @@ MODULE mo_nwp_lnd_state
   USE mo_lnd_nwp_config,       ONLY: nlev_soil, nlev_snow, ntiles_total, &
     &                                lmulti_snow, ntiles_water, lseaice, llake
   USE mo_linked_list,          ONLY: t_var_list
-  USE mo_var_list,             ONLY: default_var_list_settings, &
-    &                               add_var, add_ref,           &
-    &                               new_var_list,               &
-    &                               delete_var_list, groups
+  USE mo_var_list,             ONLY: default_var_list_settings,  &
+    &                                add_var, add_ref,           &
+    &                                new_var_list,               &
+    &                                delete_var_list, groups,    &
+    &                                create_hor_interp_metadata
   USE mo_var_metadata,         ONLY: t_var_metadata
   USE mo_cf_convention,        ONLY: t_cf_var
   USE mo_grib2,                ONLY: t_grib2_var
@@ -624,6 +625,7 @@ MODULE mo_nwp_lnd_state
            & t_grib2_var(2, 3, 20, ibits, GRID_REFERENCE, GRID_CELL),        &
            & ldims=(/nproma,nlev_soil,kblks/),                               &
            & tlev_source=1,                                                  &
+           & hor_interp=create_hor_interp_metadata(hor_intp_type=HINTP_TYPE_LONLAT_NNB ), & 
            & in_group=groups("land_tile_vars","dwd_ana_vars") ) ! for output take field from nnow_rcf slice
     ENDDO
 
@@ -648,6 +650,7 @@ MODULE mo_nwp_lnd_state
            & t_cf_var('w_so_ice_t_'//csfc, '', '', DATATYPE_FLT32),          &
            & t_grib2_var(2, 3, 22, ibits, GRID_REFERENCE, GRID_CELL),        &
            & ldims=(/nproma,nlev_soil,kblks/),                               &
+           & hor_interp=create_hor_interp_metadata(hor_intp_type=HINTP_TYPE_LONLAT_NNB ), &
            & tlev_source=1, in_group=groups("land_tile_vars") ) ! for output take field from nnow_rcf slice
     ENDDO
 
@@ -1054,7 +1057,8 @@ MODULE mo_nwp_lnd_state
          & p_diag_lnd%w_so_ice, GRID_UNSTRUCTURED_CELL, ZA_DEPTH_BELOW_LAND,     &
          & cf_desc, grib2_desc, ldims=(/nproma,nlev_soil,kblks/),                &
          & lrestart=.FALSE., loutput=.TRUE.,                                     &
-         & in_group=groups("land_vars") )
+         & in_group=groups("land_vars"),                                         &
+         & hor_interp=create_hor_interp_metadata(hor_intp_type=HINTP_TYPE_LONLAT_NNB ))
 
     ! & p_diag_lnd%wliq_snow(nproma,nlev_snow,nblks_c)
     cf_desc    = t_cf_var('wliq_snow', 'm H2O', 'weighted liquid water content in snow', &

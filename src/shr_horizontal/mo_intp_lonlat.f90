@@ -55,8 +55,9 @@
     !
     USE mo_kind,                ONLY: wp
     USE mo_exception,           ONLY: message, message_text, finish
-    USE mo_impl_constants,      ONLY: SUCCESS, min_rlcell_int, max_dom, &
-      &                               HINTP_TYPE_NONE
+    USE mo_impl_constants,      ONLY: SUCCESS, min_rlcell_int, max_dom,       &
+      &                               HINTP_TYPE_NONE, HINTP_TYPE_LONLAT_RBF, &
+      &                               HINTP_TYPE_LONLAT_NNB
     USE mo_model_domain,        ONLY: t_patch
     USE mo_run_config,          ONLY: ltimer
     USE mo_grid_config,         ONLY: n_dom, grid_sphere_radius
@@ -116,9 +117,9 @@
     PUBLIC :: rbf_vec_compute_coeff_lonlat
     PUBLIC :: rbf_compute_coeff_c2grad_lonlat
     PUBLIC :: rbf_setup_interpol_lonlat_grid
-    PUBLIC :: rbf_vec_interpol_lonlat_nl
-    PUBLIC :: rbf_interpol_c2grad_lonlat_nl
-    PUBLIC :: rbf_interpol_lonlat_nl
+    PUBLIC :: rbf_vec_interpol_lonlat
+    PUBLIC :: rbf_interpol_c2grad_lonlat
+    PUBLIC :: rbf_interpol_lonlat
     PUBLIC :: allocate_int_state_lonlat_grid
     PUBLIC :: deallocate_int_state_lonlat
 
@@ -679,12 +680,11 @@
     ! @par Revision History
     !      Initial implementation  by  F.Prill, DWD (2011-08)
     !
-    SUBROUTINE rbf_vec_compute_coeff_lonlat( ptr_patch, ptr_int, ptr_int_lonlat, lon_lat_points, &
+    SUBROUTINE rbf_vec_compute_coeff_lonlat( ptr_patch, ptr_int_lonlat, lon_lat_points, &
       &                                      nblks_lonlat, npromz_lonlat )
 
       ! Input parameters
       TYPE(t_patch),                 INTENT(IN)    :: ptr_patch
-      TYPE (t_int_state),    TARGET, INTENT(INOUT) :: ptr_int
       TYPE (t_lon_lat_intp),         INTENT(INOUT) :: ptr_int_lonlat
       REAL(gk),                      INTENT(IN)    :: lon_lat_points(:,:,:)
       INTEGER,                       INTENT(IN)    :: nblks_lonlat, npromz_lonlat ! blocking info
@@ -1379,7 +1379,7 @@
       !-- compute interpolation coefficients
       IF (dbg_level > 1) &
         CALL message(routine, "compute lon-lat interpolation coefficients")
-      CALL rbf_vec_compute_coeff_lonlat( ptr_patch, ptr_int, ptr_int_lonlat,  &
+      CALL rbf_vec_compute_coeff_lonlat( ptr_patch, ptr_int_lonlat,  &
         &                                in_points, nblks_lonlat, npromz_lonlat )
 
       
@@ -1510,10 +1510,10 @@
     ! @par Revision History
     !      Initial implementation  by  F.Prill, DWD (2011-08)
     !
-    SUBROUTINE rbf_vec_interpol_lonlat_nl( p_vn_in, ptr_int, &
-      &                                    grad_x, grad_y,              &
-      &                                    nblks_lonlat, npromz_lonlat, &
-      &                                    opt_slev, opt_elev)
+    SUBROUTINE rbf_vec_interpol_lonlat( p_vn_in, ptr_int, &
+      &                                 grad_x, grad_y,              &
+      &                                 nblks_lonlat, npromz_lonlat, &
+      &                                 opt_slev, opt_elev)
 
       ! INPUT PARAMETERS
 
@@ -1595,7 +1595,69 @@
 !$OMP END DO
 !$OMP END PARALLEL
 
-    END SUBROUTINE rbf_vec_interpol_lonlat_nl
+    END SUBROUTINE rbf_vec_interpol_lonlat
+
+
+    !-------------------------------------------------------------------------
+    !> Performs vector RBF reconstruction at lon-lat grid points.
+    !
+    ! This routine is based on mo_intp_rbf::rbf_vec_interpol_cell()
+    ! 
+    ! @par Revision History
+    !      Initial implementation  by  F.Prill, DWD (2011-08)
+    !
+    SUBROUTINE nnb_interpol_lonlat( p_cell_in, ptr_int,                   &
+      &                             p_out, nblks_lonlat, npromz_lonlat,   &
+      &                             opt_slev, opt_elev)
+      ! INPUT PARAMETERS
+      !
+      ! input cell-based variable for which gradient at cell center is computed
+      REAL(wp),                  INTENT(IN) :: p_cell_in(:,:,:) ! dim: (nproma,nlev,nblks_c)
+      ! Indices of source points and interpolation coefficients
+      TYPE (t_lon_lat_intp), TARGET, INTENT(IN) :: ptr_int
+      ! reconstructed scalar value at lon-lat point
+      REAL(wp),INTENT(INOUT) :: p_out(:,:,:) ! dim: (nproma,nlev,nblks_lonlat)
+
+      ! lon-lat grid blocking info
+      INTEGER,                   INTENT(IN) :: nblks_lonlat, npromz_lonlat
+      ! optional vertical start/end level
+      INTEGER,                   INTENT(IN), OPTIONAL :: opt_slev, opt_elev
+
+      ! LOCAL VARIABLES
+      INTEGER :: slev, elev,                 & ! vertical start and end level
+        &        i_startidx, i_endidx,       & ! start/end index
+        &        jc, jb, jk                    ! integer over lon-lat points, levels
+
+      slev = 1
+      elev = UBOUND(p_cell_in,2)
+      ! check optional arguments
+      IF ( PRESENT(opt_slev) ) slev = opt_slev
+      IF ( PRESENT(opt_elev) ) elev = opt_elev
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc), SCHEDULE(runtime)
+      DO jb = 1,nblks_lonlat
+
+        i_startidx = 1
+        i_endidx   = nproma
+        IF (jb == nblks_lonlat) i_endidx = npromz_lonlat
+
+#ifdef __LOOP_EXCHANGE
+          DO jc = i_startidx, i_endidx
+            DO jk = slev, elev
+#else
+!CDIR UNROLL=3
+          DO jk = slev, elev
+            DO jc = i_startidx, i_endidx
+#endif
+              p_out(jc,jk,jb) = p_cell_in(ptr_int%tri_idx(1,jc,jb), jk, ptr_int%tri_idx(2,jc,jb))
+            ENDDO
+          ENDDO
+        END DO
+!$OMP END DO
+!$OMP END PARALLEL
+      
+    END SUBROUTINE nnb_interpol_lonlat
 
 
     !-------------------------------------------------------------------------
@@ -1617,10 +1679,10 @@
     !      Initial implementation  by  F.Prill, DWD (2011-08)
     !      based on "rbf_interpol_c2grad"
     !
-    SUBROUTINE rbf_interpol_c2grad_lonlat_nl( p_cell_in, ptr_int,            &
-      &                                       grad_x, grad_y,                &
-      &                                       nblks_lonlat, npromz_lonlat,   &
-      &                                       opt_slev, opt_elev)
+    SUBROUTINE rbf_interpol_c2grad_lonlat( p_cell_in, ptr_int,            &
+      &                                    grad_x, grad_y,                &
+      &                                    nblks_lonlat, npromz_lonlat,   &
+      &                                    opt_slev, opt_elev)
 
       ! !INPUT PARAMETERS
       !
@@ -1768,7 +1830,7 @@
 !$OMP END DO
 !$OMP END PARALLEL
 
-    END SUBROUTINE rbf_interpol_c2grad_lonlat_nl
+    END SUBROUTINE rbf_interpol_c2grad_lonlat
 
 
     !-------------------------------------------------------------------------
@@ -2031,10 +2093,8 @@
     ! @par Revision History
     !      Initial implementation  by  F.Prill, DWD (2011-08)
     !
-    SUBROUTINE rbf_interpol_lonlat_nl( p_cell_in, ptr_int,            &
-      &                                p_lonlat_out,                  &
-      &                                nblks_lonlat, npromz_lonlat,   &
-      &                                opt_slev, opt_elev)
+    SUBROUTINE rbf_interpol_lonlat( p_cell_in, ptr_int, p_lonlat_out, nblks_lonlat, &
+      &                             npromz_lonlat, hintp_type)
       ! input cell-based variable for which gradient at cell center is computed
       REAL(wp),              INTENT(IN)           :: p_cell_in(:,:,:)    ! dim: (nproma,nlev,nblks_c)
       ! Indices of source points and interpolation coefficients
@@ -2042,9 +2102,9 @@
       ! output lon-lat-based variable
       REAL(wp),              INTENT(INOUT)        :: p_lonlat_out(:,:,:) ! dim: (nproma,nlev,nblks_lonlat)
       ! lon-lat grid blocking info
-      INTEGER,                   INTENT(IN)       :: nblks_lonlat, npromz_lonlat
+      INTEGER,               INTENT(IN)           :: nblks_lonlat, npromz_lonlat
       ! optional vertical start/end level
-      INTEGER,                   INTENT(IN), OPTIONAL :: opt_slev, opt_elev
+      INTEGER,               INTENT(IN)           :: hintp_type
 
       ! Local Parameters:
       CHARACTER(*), PARAMETER :: routine = TRIM("mo_intp_rbf:rbf_interpol_lonlat")
@@ -2056,9 +2116,6 @@
 
       slev = 1
       elev = UBOUND(p_cell_in,2)
-      ! check optional arguments
-      IF ( PRESENT(opt_slev) ) slev = opt_slev
-      IF ( PRESENT(opt_elev) ) elev = opt_elev
 
       !-- apply interpolation coefficients
       IF (dbg_level > 1) THEN
@@ -2066,55 +2123,68 @@
         CALL message(routine, message_text)
       END IF
 
-      IF (.NOT. l_intp_c2l) THEN
+      SELECT CASE(hintp_type)
+      CASE (HINTP_TYPE_LONLAT_RBF)
 
-        CALL rbf_interpol_c2grad_lonlat_nl( p_cell_in(:,:,:), ptr_int,   &
-          &                                 grad_x, grad_y,              &
-          &                                 nblks_lonlat, npromz_lonlat, &
-          &                                 slev, elev)
+        ! ---------------------------------------------------------------
+        ! RBF interpolation
+        ! ---------------------------------------------------------------
 
-        !-- reconstruct scalar from gradient information
-        IF (dbg_level > 1) THEN
-          WRITE(message_text,*) "PE #", p_pe, ": reconstruct scalar from gradient information"
-          CALL message(routine, message_text)
-        END IF
-
-        ! simple linear reconstruction
-        ! given: zonal, meridional gradients d_1/2 in lon-lat grid points (x_0i, y_0i)
-        !        and scalar values in cell centers (x_c, y_c)
-
-        ! extrapolate: f(x_0i) = f(x_c) + (x_0i-x_c)*d_1 + (y_0i - y_c)*d_2
-
+        IF (.NOT. l_intp_c2l) THEN
+          CALL rbf_interpol_c2grad_lonlat( p_cell_in(:,:,:), ptr_int,   &
+            &                              grad_x, grad_y,              &
+            &                              nblks_lonlat, npromz_lonlat, &
+            &                              slev, elev)
+          
+          ! reconstruct scalar from gradient information
+          IF (dbg_level > 1) THEN
+            WRITE(message_text,*) "PE #", p_pe, ": reconstruct scalar from gradient information"
+            CALL message(routine, message_text)
+          END IF
+          
+          ! simple linear reconstruction
+          ! given: zonal, meridional gradients d_1/2 in lon-lat grid points (x_0i, y_0i)
+          !        and scalar values in cell centers (x_c, y_c)
+          !
+          ! extrapolate: f(x_0i) = f(x_c) + (x_0i-x_c)*d_1 + (y_0i - y_c)*d_2
+          
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc), SCHEDULE(runtime)
-        DO jb=1,nblks_lonlat
-          i_startidx = 1
-          i_endidx   = nproma
-          IF (jb == nblks_lonlat) i_endidx = npromz_lonlat
+          DO jb=1,nblks_lonlat
+            i_startidx = 1
+            i_endidx   = nproma
+            IF (jb == nblks_lonlat) i_endidx = npromz_lonlat
 !CDIR UNROLL=5
-          DO jk=slev,elev
-            DO jc=i_startidx,i_endidx
-
-              p_lonlat_out(jc,jk,jb) = p_cell_in(ptr_int%tri_idx(1,jc,jb), jk, &
-                &                                ptr_int%tri_idx(2,jc,jb))     &
-                &           +  ptr_int%rdist(1,jc,jb) * grad_x(jc,jk,jb)       &
-                &           +  ptr_int%rdist(2,jc,jb) * grad_y(jc,jk,jb)
-
+            DO jk=slev,elev
+              DO jc=i_startidx,i_endidx
+                p_lonlat_out(jc,jk,jb) = p_cell_in(ptr_int%tri_idx(1,jc,jb), jk, &
+                  &                                ptr_int%tri_idx(2,jc,jb))     &
+                  &           +  ptr_int%rdist(1,jc,jb) * grad_x(jc,jk,jb)       &
+                  &           +  ptr_int%rdist(2,jc,jb) * grad_y(jc,jk,jb)
+              END DO
             END DO
           END DO
-        END DO
 !$OMP END DO
 !$OMP END PARALLEL
+        ELSE
+          CALL rbf_interpol_c2l( p_cell_in(:,:,:), ptr_int, p_lonlat_out(:,:,:), &
+            &                    nblks_lonlat, npromz_lonlat, slev, elev)
+        END IF
 
-      ELSE
+      CASE (HINTP_TYPE_LONLAT_NNB)
 
-        CALL rbf_interpol_c2l( p_cell_in(:,:,:), ptr_int,   &
-          &                    p_lonlat_out(:,:,:),         &
-          &                    nblks_lonlat, npromz_lonlat, &
-          &                    slev, elev)
+        ! ---------------------------------------------------------------
+        ! Nearest-neighbor interpolation
+        ! ---------------------------------------------------------------
 
-      END IF
+        CALL nnb_interpol_lonlat( p_cell_in(:,:,:), ptr_int, p_lonlat_out(:,:,:), &
+          &                       nblks_lonlat, npromz_lonlat, slev, elev)
 
-    END SUBROUTINE rbf_interpol_lonlat_nl
+      CASE DEFAULT
+        CALL finish(routine, "Internal error!")
+
+      END SELECT
+
+    END SUBROUTINE rbf_interpol_lonlat
 
   END MODULE mo_intp_lonlat

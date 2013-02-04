@@ -25,7 +25,7 @@ MODULE mo_var_list
   USE mo_util_hash,        ONLY: util_hashword
   USE mo_util_string,      ONLY: remove_duplicates, toupper
   USE mo_impl_constants,   ONLY: VINTP_METHOD_LIN,                  &
-    &                            HINTP_TYPE_LONLAT,                 &
+    &                            HINTP_TYPE_LONLAT_RBF,             &
     &                            max_var_lists, vname_len,          &
     &                            STR_HINTP_TYPE
   USE mo_advection_config, ONLY: t_advection_config
@@ -698,7 +698,7 @@ CONTAINS
       &  hor_intp_type, lonlat_id
 
     ! set default values
-    hor_interp_meta%hor_intp_type    = HINTP_TYPE_LONLAT
+    hor_interp_meta%hor_intp_type    = HINTP_TYPE_LONLAT_RBF
     hor_interp_meta%lonlat_id        = 0 ! invalid ID
 
     ! supersede with user definitions
