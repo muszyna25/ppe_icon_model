@@ -129,6 +129,7 @@ cat > ${ocean_namelist} << EOF
  iequations  = ${ocean_model_equations}       ! -1: hydrost. ocean model
 /
 &run_nml
+ output      = 'vlist'      ! We're still using the old output mechanism
  dtime       = 1800         ! model timestep in seconds
 /
 &dbg_index_nml
