@@ -96,6 +96,7 @@ cat > ${atmo_namelist} << EOF
  ltimer = .TRUE.
  timers_level = 5
  activate_sync_timers = .TRUE.
+ output="nml",
 /
 &dynamics_nml
  iequations  = ${atmo_model_equations}
