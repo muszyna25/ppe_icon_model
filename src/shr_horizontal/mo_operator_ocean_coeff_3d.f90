@@ -2134,8 +2134,7 @@ CONTAINS
             !actual edge
             edge_index_cell = patch%verts%edge_idx(vertex_index, vertex_block, vert_edge)
             edge_block_cell = patch%verts%edge_blk(vertex_index, vertex_block, vert_edge) 
-            dist_vector%x  =  dual_edge_middle(edge_index_cell, edge_block_cell)%x &
-                           & -vertex_center%x
+            dist_vector%x  =  dual_edge_middle(edge_index_cell, edge_block_cell)%x - vertex_center%x
 
             dist_vector = vector_product(dist_vector, dual_edge_middle(edge_index_cell, edge_block_cell))
             orientation = DOT_PRODUCT( dist_vector%x,                         &
@@ -2144,26 +2143,15 @@ CONTAINS
 
             !This is the cosine of the angle between vectors from dual cell centers
             !to dual cell edges 
-            IF(neigbor==1)THEN
-            edge2edge_viavert_coeff(edge_index,edge_block,ictr)&
-              & =DOT_PRODUCT(dist_vector_basic%x,dist_vector%x)
+            edge2edge_viavert_coeff(edge_index,edge_block,ictr)   &
+              & = (-1.0_wp)*((-1.0_wp)**(REAL(neigbor)))          &
+              &   *DOT_PRODUCT(dist_vector_basic%x,dist_vector%x)
 
-            ELSEIF(neigbor==2)THEN
-            edge2edge_viavert_coeff(edge_index,edge_block,ictr)&
-              & = -DOT_PRODUCT(dist_vector_basic%x,dist_vector%x)
-            ENDIF
-!edge2edge_viavert_coeff(edge_index,edge_block,ictr)&
-!&=DOT_PRODUCT(edge2vert_coeff_cc(vertex_index, vertex_block, vert_edge)%x,&
-!&edge2vert_coeff_cc_t(edge_index, edge_block, neigbor)%x)
-! IF(edge_index==1 .and. edge_block==1)THEN
-! write(*,*)'oce coeff',ictr,edge2edge_viavert_coeff(edge_index,edge_block,ictr),&
-! &acos(edge2edge_viavert_coeff(edge_index,edge_block,ictr))*rad2deg, edge_index,edge_block,edge_index_cell,edge_block_cell
-! ENDIF
-            edge2edge_viavert_coeff(edge_index,edge_block,ictr)&
-            &=edge2edge_viavert_coeff(edge_index,edge_block,ictr)&
-            &* patch%edges%system_orientation(edge_index, edge_block)&
-            &*(dual_edge_length(edge_index_cell, edge_block_cell) &
-            &/prime_edge_length(edge_index, edge_block))
+            edge2edge_viavert_coeff(edge_index,edge_block,ictr)         &
+              & = edge2edge_viavert_coeff(edge_index,edge_block,ictr)   &
+              & * patch%edges%system_orientation(edge_index, edge_block)&
+              & *(dual_edge_length(edge_index_cell, edge_block_cell)    &
+              & /prime_edge_length(edge_index, edge_block))
 
           END DO
         ENDDO !neigbor=1,2
@@ -2171,6 +2159,7 @@ CONTAINS
     ENDDO ! edge_block = owned_edges%start_block, owned_edges%end_block
     !-------------------
     DO ictr=1, 2*no_dual_edges
+!      write(0,*)'ictr:',ictr
       CALL sync_patch_array(SYNC_V, patch, edge2edge_viavert_coeff(:,:,ictr))
     ENDDO
 
