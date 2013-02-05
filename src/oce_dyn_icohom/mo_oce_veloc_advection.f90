@@ -53,7 +53,7 @@ MODULE mo_oce_veloc_advection
     &                               grad_fd_norm_oce_3d, &!grad_fd_norm_oce, div_oce_3d, &
     &                               rot_vertex_ocean_3d!, rot_vertex_ocean
   USE mo_math_utilities,      ONLY: t_cartesian_coordinates, vector_product!,cc2gc, gvec2cvec, gc2cc
-  USE mo_scalar_product,      ONLY: map_cell2edges_3D, nonlinear_coriolis_3D,nonlinear_coriolis_3d_2!, map_edges2edges, map_edges2cell
+  USE mo_scalar_product,      ONLY: map_cell2edges_3D, nonlinear_coriolis_3D!,nonlinear_coriolis_3d_old!, map_edges2edges, map_edges2cell
   USE mo_intp_data_strc,      ONLY: t_int_state
   USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
@@ -205,10 +205,11 @@ CONTAINS
 
     INTEGER :: slev, elev     ! vertical start and end level
     INTEGER :: jk, jb, jc, je!, jv, ile, ibe, ie, jev
-    INTEGER :: i_startidx_c, i_endidx_c
+    INTEGER :: i_startidx_c, i_endidx_c,il_v1,il_v2,ib_v1,ib_v2
     INTEGER :: i_startidx_e, i_endidx_e
     REAL(wp) :: z_e            (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
     REAL(wp) :: z_vort_flx     (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
+    REAL(wp) :: z_vort_flx2     (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
     REAL(wp) :: z_grad_ekin_rbf(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
     REAL(wp) :: z_kin_rbf_e    (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
     REAL(wp) :: z_kin_rbf_c    (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)
@@ -228,6 +229,7 @@ CONTAINS
 
     z_e             (1:nproma,1:n_zlev,1:p_patch%nblks_e) = 0.0_wp
     z_vort_flx      (1:nproma,1:n_zlev,1:p_patch%nblks_e) = 0.0_wp
+    z_vort_flx2      (1:nproma,1:n_zlev,1:p_patch%nblks_e) = 0.0_wp
     veloc_adv_horz_e(1:nproma,1:n_zlev,1:p_patch%nblks_e) = 0.0_wp
 
     slev = 1
@@ -243,13 +245,6 @@ CONTAINS
       & p_op_coeff,      &
       & z_vort_flx)
 
-!     CALL nonlinear_coriolis_3d_2( p_patch_3D, &
-!       & vn_old,          &
-!       & p_diag%p_vn_dual,&
-!       & p_diag%thick_e,  &
-!       & p_diag%vort,     &
-!       & p_op_coeff,      &
-!       & z_vort_flx)
     !-------------------------------------------------------------------------------
     ! IF(L_ENSTROPHY_DISSIPATION)THEN
     !  DO jk = slev, elev

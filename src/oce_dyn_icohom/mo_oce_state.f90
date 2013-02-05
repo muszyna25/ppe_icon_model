@@ -77,8 +77,7 @@ MODULE mo_oce_state
   USE mo_math_constants,      ONLY: deg2rad,rad2deg
   USE mo_physical_constants,  ONLY: rho_ref
   USE mo_sync,                ONLY: SYNC_E, SYNC_C, SYNC_V,sync_patch_array, global_sum_array, sync_idx
-USE mo_loopindices,         ONLY: get_indices_c, get_indices_e, get_indices_v
-!USE mo_sync,                ONLY: SYNC_C, SYNC_E, SYNC_V, sync_patch_array, sync_idx, global_max
+  USE mo_loopindices,         ONLY: get_indices_c, get_indices_e, get_indices_v
 
   USE mo_linked_list,         ONLY: t_var_list
   USE mo_var_list,            ONLY: add_var,                  &
@@ -135,8 +134,7 @@ USE mo_loopindices,         ONLY: get_indices_c, get_indices_e, get_indices_v
   !destructors
   PRIVATE :: destruct_hydro_ocean_diag
   PRIVATE :: destruct_hydro_ocean_aux
-  !INTEGER, PRIVATE :: i_cell_type=3
-
+ 
 !
 !! basis types for constructing 3-dim ocean state
 !
@@ -272,25 +270,6 @@ USE mo_loopindices,         ONLY: get_indices_c, get_indices_e, get_indices_v
                                   ! dimension: (nproma,n_zlev, nblks_e)
       &  div_mass_flx_c(:,:,:) ,& ! individual fluid column thickness at cells. Unit [m].
                                   ! dimension: (nproma,n_zlev, nblks_c)
-! !       &  prism_thick_c(:,:,:)   ,& ! individual prism thickness at cells. Unit [m]. This array includes the free surface.
-! !                                   ! dimension: (nproma,n_zlev, nblks_c)
-! !       &  prism_thick_e(:,:,:)   ,& ! individual prism thickness at edges. Unit [m]. This array includes the free surface.
-! !                                   ! dimension: (nproma,n_zlev, nblks_e)
-! !       &  prism_thick_flat_sfc_c(:,:,:) ,& ! individual fluid column thickness at cells. Unit [m].This array assumes a flat surface
-! !                                   ! dimension: (nproma,n_zlev, nblks_c)
-! !       &  prism_thick_flat_sfc_e(:,:,:) ,& ! individual fluid column thickness at edges. Unit [m].This array assumes a flat surface
-! !                                   ! dimension: (nproma,n_zlev, nblks_c)
-! !       & prism_center_dist_c(:,:,:),&! distance between prism centers at cells. Unit [m].
-! !                                      ! dimension: (nproma,n_zlev, nblks_c)
-! !      &  inv_prism_thick_c(:,:,:) ,& ! inverse individual fluid column thickness at cells. Unit [m].This array assumes a flat surface
-! !                                   ! dimension: (nproma,n_zlev, nblks_c)
-! !       &  inv_prism_thick_e(:,:,:) ,& ! inverse individual fluid column thickness at edges. Unit [m].This array assumes a flat surface
-! !                                   ! dimension: (nproma,n_zlev, nblks_e)
-! !       &  inv_prism_center_dist_c(:,:,:) ,& ! inverse vertical distance between prism centers at cells. Unit [m].This array assumes a 
-! !                                            !flat surface  dimension: (nproma,n_zlev, nblks_c)
-! !       &  inv_prism_center_dist_e(:,:,:) ,& ! inverse vertical distance between prism centers at edges. Unit [m].This array assumes a 
-! !                                            !flat surface dimension: (nproma,n_zlev, nblks_e)
-! !                                   ! dimension: (nproma,n_zlev, nblks_c)
       &  w(:,:,:)              ,& ! vertical velocity. Unit [m/s].
                                   ! dimension: (nproma, n_zlev+1, nblks_c)
       &  w_old(:,:,:)          ,& ! vertical velocity from previous timestep. Unit [m/s].
@@ -445,7 +424,7 @@ USE mo_loopindices,         ONLY: get_indices_c, get_indices_e, get_indices_v
   END TYPE t_hydro_ocean_aux
 
   TYPE t_ocean_diagnostics
-    REAL(wp), POINTER ::         &
+    REAL(wp), POINTER ::           &
       &  volume(:,:)             , & 
       &  kin_energy(:,:)         , &
       &  pot_energy(:,:)         , &
@@ -481,7 +460,7 @@ USE mo_loopindices,         ONLY: get_indices_c, get_indices_e, get_indices_v
   ! variables
   TYPE(t_var_list)         , PUBLIC                      :: ocean_restart_list
   TYPE(t_var_list)         , PUBLIC                      :: ocean_default_list
-  TYPE(t_hydro_ocean_state), PUBLIC, TARGET, ALLOCATABLE :: v_ocean_state(:)
+  !TYPE(t_hydro_ocean_state), PUBLIC, TARGET, ALLOCATABLE :: v_ocean_state(:)
   TYPE(t_hydro_ocean_base) , PUBLIC, TARGET              :: v_base
   TYPE(t_oce_config)       , PUBLIC                      :: oce_config
 
@@ -1711,22 +1690,22 @@ CONTAINS
   !! Developed  by  Peter Korn, MPI-M (2011).
   !
   !!  mpi parallelized LL (no sync required)
-  SUBROUTINE  set_lateral_boundary_values( p_patch, vn )
+  SUBROUTINE  set_lateral_boundary_values( p_patch_3D, vn )
 
-    TYPE(t_patch), TARGET, INTENT(in) :: p_patch
-    REAL(wp)                  :: vn(:,:,:)
+    TYPE(t_patch_3D ),TARGET, INTENT(IN) :: p_patch_3D
+    REAL(wp)                             :: vn(:,:,:)
 
     ! local variables
-    INTEGER :: jb, je, jk !, il_v, ib_v, ie, iv_ctr, il_e, ib_e
+    INTEGER :: jb, je, jk
     INTEGER :: i_startidx_e, i_endidx_e
- !  INTEGER :: rl_start_e, rl_end_e
     INTEGER :: slev,elev 
     TYPE(t_subset_range), POINTER :: all_edges
+    TYPE(t_patch), POINTER        :: p_patch
 !!$    CHARACTER(len=max_char_length), PARAMETER :: &
 !!$      &      routine = 'mo_oce_state: set_lateral_boundary_values'
-
 !---------------------------------------------------------------
-    all_edges => p_patch%edges%all
+  p_patch   => p_patch_3D%p_patch_2D(1)
+  all_edges => p_patch%edges%all
 
 ! blocking
   slev         = 1
@@ -1736,29 +1715,9 @@ CONTAINS
     CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
     DO jk = slev, elev
       DO je= i_startidx_e, i_endidx_e
-        IF ( v_base%lsm_e(je,jk,jb) >= BOUNDARY ) THEN
+        IF ( p_patch_3D%lsm_e(je,jk,jb) >= BOUNDARY ) THEN
           vn(je,jk,jb) = 0.0_wp
         ENDIF
-
-!         il_v = p_patch%edges%vertex_idx(je,jb,1)
-!         ib_v = p_patch%edges%vertex_blk(je,jb,1)
-!         iv_ctr = 0
-! 
-!         DO ie = 1, p_patch%verts%num_edges(il_v,ib_v)
-!           il_e = p_patch%verts%edge_idx(il_v,ib_v,ie)
-!           ib_e = p_patch%verts%edge_blk(il_v,ib_v,ie)
-! 
-!           IF ( v_base%lsm_e(il_e,jk,ib_e) /=sea ) THEN
-!             iv_ctr = iv_ctr+1
-!           ENDIF
-!         END DO
-!         IF(iv_ctr==1)THEN
-!           DO ie = 1, p_patch%verts%num_edges(il_v,ib_v)
-!             il_e = p_patch%verts%edge_idx(il_v,ib_v,ie)
-!             ib_e = p_patch%verts%edge_blk(il_v,ib_v,ie)
-!             vn(il_e,jk,ib_e) = 0.0_wp
-!           END DO
-!         ENDIF
       END DO
     END DO
   END DO
@@ -1902,6 +1861,8 @@ CONTAINS
       &           v_base%zlev_i    , v_base%zlev_m)
 
     ! surface level: as read in ext_data:
+    v_base%lsm_c(:,1,:) = p_ext_data%oce%lsm_ctr_c(:,:)
+    v_base%lsm_e(:,1,:) = p_ext_data%oce%lsm_ctr_e(:,:)
 
     nogllnd_c = 0
     noglsea_c = 0
@@ -1914,15 +1875,8 @@ CONTAINS
     noct1_e = 0
 
     !  surface level and second level of lsm_c defined by gridgenerator, not the current bathymetry
-    v_base%lsm_e(:,1,:) = p_ext_data%oce%lsm_ctr_e(:,:)
     v_base%lsm_c(:,1,:) = p_ext_data%oce%lsm_ctr_c(:,:)
-    ! initialize all sea land mask for cells
-    ! mostly to assgin the proper values for the ghost cell
-    ! which is not included in the subsets
-    DO jk = 2, n_zlev
-      v_base%lsm_c(:,jk,:) = p_ext_data%oce%lsm_ctr_c(:,:)
-    ENDDO
-!     IF(n_zlev>=2) v_base%lsm_c(:,2,:) = p_ext_data%oce%lsm_ctr_c(:,:)
+    IF(n_zlev>=2) v_base%lsm_c(:,2,:) = p_ext_data%oce%lsm_ctr_c(:,:)
 
     !  first and second level of dolic_c defined by gridgenerator
     WHERE (p_ext_data%oce%lsm_ctr_c(:,:) <= SEA_BOUNDARY) v_base%dolic_c(:,:) = 2

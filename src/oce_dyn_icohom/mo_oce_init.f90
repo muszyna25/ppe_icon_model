@@ -2049,7 +2049,7 @@ ELSEIF( iswm_oce == 1 )THEN
 
       CALL message(TRIM(routine), 'you have selected the "no-testcase" option')
 
-    CASE (25)
+    CASE (24)
 
       CALL message(TRIM(routine), 'Shallow-Water-Testcase (25)')
       CALL message(TRIM(routine), ' - here: h and bathy for solid body rotation (Laeuter Test)')
@@ -2063,12 +2063,8 @@ ELSEIF( iswm_oce == 1 )THEN
           z_lat = p_patch%cells%center(jc,jb)%lat
           z_lon = p_patch%cells%center(jc,jb)%lon
 
-          p_os%p_prog(nold(1))%h(jc,jb) = test_usbr_h( z_lon, z_lat, 0.0_wp)
-
-          ! #slo# - bathymetry not taken into account due to constant bottom cell depth
-          !       - use v_base%zlev_i(dolic(jc,jb)) instead
+          p_os%p_prog(nold(1))%h(jc,jb)      = test_usbr_h( z_lon, z_lat, 0.0_wp)
           p_ext_data%oce%bathymetry_c(jc,jb) = test_usbr_oro( z_lon, z_lat, 0.0_wp )
-
           ! write(*,*)'h orig, bathy_c:', z_lon, z_lat,p_os%p_prog(nold(1))%h(jc,jb)!, &
           !                                            p_ext_data%oce%bathymetry_c(jc,jb)
         END DO
@@ -2085,10 +2081,49 @@ ELSEIF( iswm_oce == 1 )THEN
             &                                p_patch%edges%primal_normal(je,jb)%v1&
             &                                + test_usbr_v(z_lon, z_lat,0.0_wp)* &
             &                                p_patch%edges%primal_normal(je,jb)%v2
-          ! write(*,*)'vn', je,jb,p_os%p_prog(nold(1))%vn(je,1,jb),z_lon, z_lat
-
         END DO
       END DO
+    CASE (25)
+      CALL message(TRIM(routine), 'Shallow-Water-Testcase (26)')
+      CALL message(TRIM(routine), ' - here: h and bathy of Williamson Test 2')
+
+      p_patch_3D%lsm_c(:,:,:) = sea
+      p_patch_3D%lsm_e(:,:,:) = sea
+      !init height
+      DO jb = all_cells%start_block, all_cells%end_block
+        CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+        DO jc = i_startidx_c, i_endidx_c
+          z_lat = p_patch%cells%center(jc,jb)%lat
+          z_lon = p_patch%cells%center(jc,jb)%lon
+
+         p_os%p_prog(nold(1))%h(jc,jb) = test2_h( z_lon, z_lat, 0.0_wp)
+         !p_ext_data%oce%bathymetry_c(jc,jb) = test2_oro( z_lon, z_lat, 0.0_wp )
+        END DO
+      END DO
+!       CALL height_related_quantities( p_patch, p_os)
+!       CALL grad_fd_norm_oce_2D( p_os%p_prog(nold(1))%h, &
+!                  & p_patch,    &
+!                  & p_os%p_diag%grad(:,1,:))
+!       p_os%p_diag%grad(:,1,:)= -p_os%p_diag%grad(:,1,:)*grav
+!       p_os%p_prog(nold(1))%vn(:,1,:) = &
+!       &geo_balance_mim(p_patch, p_os%p_diag%h_e, p_os%p_diag%grad(:,1,:))
+
+
+      !init normal velocity
+      DO jb = all_edges%start_block, all_edges%end_block
+        CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
+        DO je = i_startidx_e, i_endidx_e
+          z_lat = p_patch%edges%center(je,jb)%lat
+          z_lon = p_patch%edges%center(je,jb)%lon
+
+          p_os%p_prog(nold(1))%vn(je,1,jb) = &
+          &   test2_u(z_lon, z_lat,0.0_wp)*p_patch%edges%primal_normal(je,jb)%v1  &
+          & + test2_v(z_lon, z_lat,0.0_wp)*p_patch%edges%primal_normal(je,jb)%v2
+!           write(*,*)'vn:expl: inverse', je,jb,&
+!           &p_os%p_prog(nold(1))%vn(je,1,jb),p_os%p_prog(nnew(1))%vn(je,1,jb)
+        END DO
+      END DO
+
     CASE (26)
       CALL message(TRIM(routine), 'Shallow-Water-Testcase (26)')
       CALL message(TRIM(routine), ' - here: h and bathy of Williamson Test 5')
@@ -2102,10 +2137,7 @@ ELSEIF( iswm_oce == 1 )THEN
           z_lat = p_patch%cells%center(jc,jb)%lat
           z_lon = p_patch%cells%center(jc,jb)%lon
 
-         p_os%p_prog(nold(1))%h(jc,jb) = test5_h( z_lon, z_lat, 0.0_wp)
-         ! #slo# - bathymetry not taken into account due to constant bottom cell depth
-         ! #slo# 2011-08-22 - check - use v_base%zlev_i(dolic(jc,jb)) instead (??)
-
+         p_os%p_prog(nold(1))%h(jc,jb)     = test5_h( z_lon, z_lat, 0.0_wp)
         p_ext_data%oce%bathymetry_c(jc,jb) = test5_oro( z_lon, z_lat, 0.0_wp )
         END DO
       END DO
@@ -2134,11 +2166,16 @@ ELSEIF( iswm_oce == 1 )THEN
       END DO
 
     CASE(27)!temperature ditribution
+      CALL message(TRIM(routine), 'Shallow-Water-Testcase (27)')
       p_os%p_prog(nold(1))%h  = 0.0_wp
       p_os%p_prog(nold(1))%vn = 0.0_wp
       p_os%p_prog(nnew(1))%vn = 0.0_wp
-      p_os%p_prog(nold(1))%tracer(:,1,:,1) = 0.0_wp
-      p_os%p_prog(nnew(1))%tracer(:,1,:,1) = 0.0_wp
+      IF(no_tracer>0)THEN
+        p_os%p_prog(nold(1))%tracer(:,1,:,1) = 0.0_wp
+        p_os%p_prog(nnew(1))%tracer(:,1,:,1) = 0.0_wp
+      ELSE
+        CALL finish(TRIM(routine), 'Number of tracers =0 is inappropriate for this test - TERMINATE')
+      ENDIF
       DO jb = all_cells%start_block, all_cells%end_block
         CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
         DO jc = i_startidx_c, i_endidx_c
@@ -2162,6 +2199,7 @@ ELSEIF( iswm_oce == 1 )THEN
       END DO
 
      CASE(28)
+      CALL message(TRIM(routine), 'Shallow-Water-Testcase (28)')
       !init normal velocity
       DO jb = all_edges%start_block, all_edges%end_block
         CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
@@ -2214,7 +2252,7 @@ ELSEIF( iswm_oce == 1 )THEN
       &minval( p_os%p_prog(nold(1))%tracer(:,1,:,1))
 
     CASE(29)!State at rest, forced by wind
-
+         CALL message(TRIM(routine), 'Shallow-Water-Testcase (29)')
           p_os%p_prog(nold(1))%h         = 0.0_wp
           p_os%p_prog(nold(1))%vn(:,1,:) = 0.0_wp
 

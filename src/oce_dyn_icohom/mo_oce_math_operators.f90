@@ -56,7 +56,7 @@ MODULE mo_oce_math_operators
 #ifndef __SX__
   USE mo_timer,              ONLY: timer_start, timer_stop, timer_div, timer_grad
 #endif
-  USE mo_oce_state,          ONLY: t_hydro_ocean_state!, v_base
+  USE mo_oce_state,          ONLY: t_hydro_ocean_state, v_base
   !USE mo_intp_data_strc,     ONLY: p_int_state
   USE mo_math_utilities,     ONLY: t_cartesian_coordinates, vector_product !, gc2cc
   USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff
@@ -134,9 +134,10 @@ CONTAINS
             ile = p_patch%verts%edge_idx(jv,jb,jev)
             ibe = p_patch%verts%edge_blk(jv,jb,jev)
 
-              p_vn_dual(jv,jk,jb)%x = p_vn_dual(jv,jk,jb)%x        &
-              & +edge2vert_coeff_cc(jv,jk,jb,jev)%x &
-              & *vn(ile,jk,ibe)!/(p_patch%verts%dual_area(jv,jb)/(re*re))
+            p_vn_dual(jv,jk,jb)%x = p_vn_dual(jv,jk,jb)%x        &
+            & +edge2vert_coeff_cc(jv,jk,jb,jev)%x &
+            & *vn(ile,jk,ibe)
+!ENDIF
           END DO
         END DO ! jv = i_startidx_v, i_endidx_v
       END DO ! jk = slev, elev
@@ -467,14 +468,11 @@ CONTAINS
     ELSE
       elev = n_zlev
     END IF
-            
+
 #ifndef __SX__
     IF (ltimer) CALL timer_start(timer_div)
 #endif
-
-    div_vec_c(:,:,all_cells%end_block) = 0.0_wp ! 0 the ghost land cells 
-
-!$OMP PARALLEL PRIVATE(iidx, iblk)
+!$OMP PARALLEL
 
     iidx => p_patch%cells%edge_idx
     iblk => p_patch%cells%edge_blk
@@ -579,10 +577,7 @@ CONTAINS
 #ifndef __SX__
     IF (ltimer) CALL timer_start(timer_div)
 #endif
-
-    div_vec_c(:,all_cells%end_block) = 0.0_wp ! 0 the ghost land cells
-
-!$OMP PARALLEL PRIVATE(iidx, iblk)
+!$OMP PARALLEL
 
     iidx => p_patch%cells%edge_idx
     iblk => p_patch%cells%edge_blk
@@ -1448,10 +1443,9 @@ CONTAINS
     ! #endif
     all_cells => p_patch%cells%all
     edges_in_domain => p_patch%edges%in_domain
-    
+
     !Step 1: calculate cell-located variables for 2D and 3D case
     !For 3D and for SWE thick_c contains thickness of fluid column
-    p_os%p_diag%thick_c(:,all_cells%end_block) = 0.0_wp  ! 0 the ghost land cells
     IF ( iswm_oce == 1 ) THEN  !  SWM
 
       DO jb = all_cells%start_block, all_cells%end_block

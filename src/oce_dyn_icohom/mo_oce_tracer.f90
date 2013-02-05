@@ -531,9 +531,9 @@ SUBROUTINE advect_individual_tracer_ab(p_patch_3D, trac_old,                  &
       DO jc = i_startidx_c, i_endidx_c
           !IF ( v_base%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
           IF ( p_patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
-            delta_z =  p_patch_3D%p_patch_1D(1)%del_zlev_m(1)!v_base%del_zlev_m(1)
-            trac_new(jc,jk,jb)= trac_old(jc,jk,jb)&
-            & +(delta_t/delta_z)*flux_horz(jc,jk,jb)
+            delta_z =  p_patch_3D%p_patch_1D(1)%del_zlev_m(1)
+
+            trac_new(jc,jk,jb)= trac_old(jc,jk,jb)+(delta_t/delta_z)*flux_horz(jc,jk,jb)
           ENDIF
         END DO
       END DO
@@ -567,7 +567,7 @@ SUBROUTINE advect_individual_tracer_ab(p_patch_3D, trac_old,                  &
       DO jb = cells_in_domain%start_block, cells_in_domain%end_block
         CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
           DO jc = i_startidx_c, i_endidx_c
-            z_dolic = p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)!v_base%dolic_c(jc,jb)
+            z_dolic = p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)
             !IF(z_dolic>=MIN_DOLIC)THEN
 !TODO check algorithm: inv_prism_thick_c vs. del_zlev_m | * vs. /
             IF ( p_patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
@@ -576,7 +576,6 @@ SUBROUTINE advect_individual_tracer_ab(p_patch_3D, trac_old,                  &
 
               ! z_temp(jc,jk,jb)= trac_old(jc,jk,jb) &
               ! & -(delta_t/delta_z)*(flux_vert(jc,jk,jb)-flux_horz(jc,jk,jb))
-
               !z_temp(jc,jk,jb)=z_temp(jc,jk,jb)+(delta_t/delta_z)*bc_top_tracer(jc,jb)
 
                z_temp(jc,jk,jb)= (trac_old(jc,jk,jb)*delta_z &
@@ -592,13 +591,12 @@ SUBROUTINE advect_individual_tracer_ab(p_patch_3D, trac_old,                  &
       DO jb = cells_in_domain%start_block, cells_in_domain%end_block
         CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
           DO jc = i_startidx_c, i_endidx_c
-            z_dolic = p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)! v_base%dolic_c(jc,jb)
+            z_dolic = p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)
             !IF(z_dolic>=MIN_DOLIC)THEN
             DO jk = 2, z_dolic
               IF ( p_patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
                 delta_z = p_patch_3D%p_patch_1D(1)%del_zlev_m(jk)
-                z_temp(jc,jk,jb)= trac_old(jc,jk,jb)&
-                & -(delta_t/delta_z)*(flux_vert(jc,jk,jb)-flux_horz(jc,jk,jb))
+                z_temp(jc,jk,jb)= trac_old(jc,jk,jb) -(delta_t/delta_z)*(flux_vert(jc,jk,jb)-flux_horz(jc,jk,jb))
 
               ENDIF
             ENDDO
