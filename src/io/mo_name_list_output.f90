@@ -3312,6 +3312,8 @@ CONTAINS
 
         ENDIF
 
+        p_onl => output_file(i)%name_list
+
         IF(my_process_is_io()) THEN
 #ifndef NOMPI
           IF(output_file(i)%io_proc_id == p_pe) THEN
