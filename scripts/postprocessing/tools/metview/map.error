@@ -75,7 +75,6 @@ precision( 4 )           # precision of numbers in plots
 firstinidate = inidate
 expres  = 'NWP.'&exphres&'L90'
 
-varfile  = varname
 case levtype of
   'ml':  
      vartitle = varname&'  ml'
@@ -126,6 +125,8 @@ end case
 #-----------------------------------------------------------------------
 #--- read data
 
+varfile  = lowercase(varname)
+
 # delete "_tile_1"
 #txt_index = search (varfile, '_tile_1')
 #if txt_index > 0 then
@@ -136,11 +137,11 @@ end case
 #if varname = 'QC'     or varname = 'QI'   or # varname = 'RAIN_CON' or varname = 'RAIN_GSP' or 
 #   varname = 'T_SNOW' or varname = 'W_I'  or
 #   varname = 'CLWC'   or varname = 'CIWC' or varname = 'CRWC' or varname = 'CSWC' then
+#  varfile = lowercase(varfile)
 #end if
-varfile = lowercase(varfile)
 
 # rename
-case varfile of
+case varname of
  'ACCSOB_S':  varfile = 'ssr'         end
  'ACCSOB_T':  varfile = 'nswrf'       end
  'ACCTHB_S':  varfile = 'str'         end
@@ -181,8 +182,6 @@ case varfile of
  'PS'      :  varfile = 'sp'          end
  'PMSL'    :  varfile = 'prmsl'       end
 end case
-
-#varfile = lowercase(varfile)
 
 #verify QV,QC,QI against Q1,Q2,Q3 at initial condition (IFS)
 varfile2 = varfile

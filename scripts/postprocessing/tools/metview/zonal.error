@@ -68,7 +68,6 @@ precision( 4 )           # precision of numbers in plots
 
 expres  = 'NWP.'&exphres&'L90'
 
-varfile  = varname
 case levtype of
   'ml':  
      vartitle = varname&'  ml'
@@ -118,6 +117,8 @@ end case
 
 #-----------------------------------------------------------------------
 #--- read data
+
+varfile  = lowercase(varname)
 
 # scaling: to 1/day from 1/s
 scale = 1.0
@@ -176,8 +177,6 @@ case varname of
  'PS'      :  varfile = 'sp'          end
  'PMSL'    :  varfile = 'prmsl'       end
 end case
-
-#varfile = lowercase(varfile)
 
 #verify QV,QC,QI against Q1,Q2,Q3 at initial condition (IFS)
 varfile2 = varfile
