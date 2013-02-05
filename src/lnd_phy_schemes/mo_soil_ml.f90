@@ -667,10 +667,11 @@ END SUBROUTINE message
   REAL    (KIND = ireals), DIMENSION(ie,ke_soil+1), INTENT(OUT) :: &
                   w_so_new         , & ! total water conent (ice + liquid water)       (m H20)
                   w_so_ice_new         ! ice content                                   (m H20)
-  REAL    (KIND = ireals), DIMENSION(ie), INTENT(INOUT) :: &
+  REAL    (KIND = ireals), DIMENSION(ie), INTENT(IN) :: &
 !                 t_2m             , & ! temperature in 2m                             (  K  )
                   u_10m            , & ! zonal wind in 10m                             ( m/s )
-                  v_10m            , & ! meridional wind in 10m                        ( m/s )
+                  v_10m                ! meridional wind in 10m                        ( m/s )
+  REAL    (KIND = ireals), DIMENSION(ie), INTENT(INOUT) :: &
                   freshsnow        , & ! indicator for age of snow in top of snow layer(  -  )
                   zf_snow              ! snow-cover fraction
   REAL    (KIND = ireals), DIMENSION(ie,ke_snow), INTENT(INOUT) :: &
@@ -687,8 +688,7 @@ END SUBROUTINE message
                   prr_con          , & ! precipitation rate of rain, convective        (kg/m2*s)
                   prs_con          , & ! precipitation rate of snow, convective        (kg/m2*s)
                   prr_gsp          , & ! precipitation rate of rain, grid-scale        (kg/m2*s)
-                  prs_gsp              ! precipitation rate of snow, grid-scale        (kg/m2*s)
-  REAL    (KIND = ireals), DIMENSION(ie), INTENT(INOUT) ::    &
+                  prs_gsp          , & ! precipitation rate of snow, grid-scale        (kg/m2*s)
                   prg_gsp              ! precipitation rate of graupel, grid-scale     (kg/m2*s)
 
   REAL    (KIND = ireals), DIMENSION(ie), INTENT(INOUT) :: &
@@ -1263,7 +1263,7 @@ END SUBROUTINE message
   iends   = iendpar
 
 !>JH
-  prg_gsp=0._ireals ! graupel not implemented yet 
+!  prg_gsp=0._ireals ! graupel not implemented yet 
 !<JH
 
   ierror = 0

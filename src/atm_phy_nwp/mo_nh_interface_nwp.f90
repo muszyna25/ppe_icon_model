@@ -92,8 +92,9 @@ MODULE mo_nh_interface_nwp
   USE mo_radiation_config,   ONLY: irad_aero
   USE mo_nwp_gw_interface,   ONLY: nwp_gwdrag 
   USE mo_nwp_gscp_interface, ONLY: nwp_microphysics
-  USE mo_nwp_turb_interface, ONLY: nwp_turbulence
-  USE mo_nwp_turb_sfc_interface, ONLY: nwp_turbulence_sfc
+  USE mo_nwp_turbtrans_interface, ONLY: nwp_turbtrans
+  USE mo_nwp_turbdiff_interface,  ONLY: nwp_turbdiff
+  USE mo_nwp_turb_sfc_interface,  ONLY: nwp_turbulence_sfc
   USE mo_nwp_sfc_interface,  ONLY: nwp_surface
   USE mo_nwp_conv_interface, ONLY: nwp_convection
   USE mo_nwp_rad_interface,  ONLY: nwp_radiation
@@ -101,11 +102,11 @@ MODULE mo_nh_interface_nwp
                                    SYNC_C, SYNC_C1, global_max, global_min, global_sum_array
   USE mo_mpi,                ONLY: my_process_is_mpi_all_parallel, work_mpi_barrier
   USE mo_nwp_diagnosis,      ONLY: nwp_diagnosis, nwp_diag_output_1, nwp_diag_output_2
-  USE mo_icon_comm_lib,     ONLY: new_icon_comm_variable, delete_icon_comm_variable, &
+  USE mo_icon_comm_lib,      ONLY: new_icon_comm_variable, delete_icon_comm_variable, &
      & icon_comm_var_is_ready, icon_comm_sync, icon_comm_sync_all, is_ready, until_sync
 !  USE mo_communication,      ONLY: time_sync
   USE mo_art_washout_interface,  ONLY:art_washout_interface
-  USE mo_art_config,          ONLY:art_config
+  USE mo_art_config,          ONLY: art_config
   USE mo_linked_list,         ONLY: t_var_list
 
   IMPLICIT NONE
@@ -452,16 +453,31 @@ CONTAINS
       IF (timers_level > 1) CALL timer_start(timer_nwp_turbulence)
       IF ( atm_phy_nwp_config(jg)%inwp_turb <= 2 ) THEN
         ! Turbulence schemes not including the call to the surface scheme
-        CALL nwp_turbulence (  dt_phy_jg(itfastphy),              & !>input
-                              & pt_patch, p_metrics,              & !>input
-                              & ext_data,                         & !>input
+        !
+        ! compute turbulent transfer coefficients (atmosphere-surface interface)
+        CALL nwp_turbtrans  (  dt_phy_jg(itfastphy),              & !>in
+                              & pt_patch, p_metrics,              & !>in
+                              & ext_data,                         & !>in
                               & pt_prog,                          & !>inout
+                              & pt_prog_now_rcf, pt_prog_rcf,     & !>in/inout
+                              & pt_diag ,                         & !>inout
+                              & prm_diag,                         & !>inout
+                              & wtr_prog_now,                     & !>in
+                              & lnd_prog_now,                     & !>inout 
+                              & lnd_diag                          ) !>inout
+
+        ! compute turbulent diffusion (atmospheric column)
+        CALL nwp_turbdiff   (  dt_phy_jg(itfastphy),              & !>in
+                              & pt_patch, p_metrics,              & !>in
+                              & ext_data,                         & !>in
+                              & pt_prog,                          & !>in
                               & pt_prog_now_rcf, pt_prog_rcf,     & !>in/inout
                               & pt_diag ,                         & !>inout
                               & prm_diag,prm_nwp_tend,            & !>inout
                               & wtr_prog_now,                     & !>in
-                              & lnd_prog_now,                     & !>inout 
-                              & lnd_diag                          ) !>inout
+                              & lnd_prog_now,                     & !>in 
+                              & lnd_diag                          ) !>in
+
       ELSE
         ! Turbulence schemes including the call to the surface scheme
         CALL nwp_turbulence_sfc (  dt_phy_jg(itfastphy),              & !>input

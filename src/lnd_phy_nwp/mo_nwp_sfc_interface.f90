@@ -146,8 +146,7 @@ CONTAINS
     REAL(wp) :: t_s_new_t  (nproma, p_patch%nblks_c, ntiles_total)
 
     REAL(wp) :: t_g_t      (nproma, p_patch%nblks_c, ntiles_total)
-    REAL(wp) :: t_g_now_t  (nproma, p_patch%nblks_c, ntiles_total)
-    REAL(wp) :: t_g_new_t  (nproma, p_patch%nblks_c, ntiles_total)
+    REAL(wp) :: t_g_new_t  (nproma, p_patch%nblks_c, ntiles_total)  !DR obsolete ???
     REAL(wp) :: qv_s_t     (nproma, p_patch%nblks_c, ntiles_total)
 
     REAL(wp) :: w_snow_now_t(nproma, p_patch%nblks_c, ntiles_total)
@@ -233,7 +232,7 @@ CONTAINS
 !--------------------------------------------------------------
 
 
-    ! initialize dummy variable
+    ! initialize dummy variable (precipitation rate of graupel, grid-scale)
     dummy_prg_gsp(1:nproma) = 0._wp
 
     ! local variables related to the blocking
@@ -370,7 +369,6 @@ CONTAINS
 
           t_snow_now_t(ic,jb,isubs)          =  lnd_prog_now%t_snow_t(jc,jb,isubs) 
           t_s_now_t(ic,jb,isubs)             =  lnd_prog_now%t_s_t(jc,jb,isubs)   
-          t_g_now_t (ic,jb,isubs)            =  lnd_prog_now%t_g_t(jc,jb,isubs)
           t_g_t (ic,jb,isubs)                =  lnd_prog_now%t_g_t(jc,jb,isubs)
           qv_s_t(ic,jb,isubs)                =  lnd_diag%qv_s_t(jc,jb,isubs)  
           w_snow_now_t(ic,jb,isubs)          =  lnd_prog_now%w_snow_t(jc,jb,isubs)
@@ -523,7 +521,7 @@ CONTAINS
         &  prs_con       = prs_con_t(:,jb)                   , & !IN precipitation rate of snow, convective       (kg/m2*s)
         &  prr_gsp       = prr_gsp_t(:,jb)                   , & !IN precipitation rate of rain, grid-scale       (kg/m2*s)
         &  prs_gsp       = prs_gsp_t(:,jb)                   , & !IN precipitation rate of snow, grid-scale       (kg/m2*s)
-        &  prg_gsp       = dummy_prg_gsp(:)                  , & !INOUT precipitation rate of graupel, grid-scale (kg/m2*s)
+        &  prg_gsp       = dummy_prg_gsp(:)                  , & !IN precipitation rate of graupel, grid-scale    (kg/m2*s)
 !
         &  tch           = tch_t(:,jb,isubs)                 , & !INOUT turbulent transfer coefficient for heat     ( -- )
         &  tcm           = tcm_t(:,jb,isubs)                 , & !INOUT turbulent transfer coefficient for momentum ( -- )
