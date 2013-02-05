@@ -104,21 +104,29 @@ fi
 
 
 #-----------------------------------------------------------------------------
-# meteogram: rename and copy to ecgate
+# meteogram: rename and copy to ecfs
 
 outfile_mtg1=${outdir}/METEOGRAM_patch001.nc
 outfile_mtg2=${outdir}/${basename}_meteogram.nc
-mv $outfile_mtg1 $outfile_mtg2 || true
+mv  $outfile_mtg1 $outfile_mtg2 || true
 rcp $outfile_mtg2 ecgate:${gatedir}
-ecp -o $outfile_mtg2 $ecfsdir
+if [ -f  $outfile_mtg2 ] ; then
+  ecp -o $outfile_mtg2 $ecfsdir
+else
+  ecp $ecfsdir/$outfile_mtg2 .
+fi
 smsevent meteogram_data
 
 
 #-----------------------------------------------------------------------------
-# GRIB: copy to ecgate
+# GRIB: copy to ecfs
 
 for levtype in ML PL HL ; do
-  ecp -o ${outdir}/${basename}_DOM01_${levtype}_0001.grb $ecfsdir || true
+  if [ -f   ${outdir}/${basename}_DOM01_${levtype}_0001.grb ] ; then
+    ecp -o ${outdir}/${basename}_DOM01_${levtype}_0001.grb $ecfsdir
+  else
+    ecp     $ecfsdir/${basename}_DOM01_${levtype}_0001.grb ${outdir}
+  fi
 done
 
 
@@ -128,7 +136,8 @@ done
 if [[ $lsplitdata = 1 ]] ; then
 
 # export the DWD GRIB short names:
-  export GRIB_DEFINITION_PATH="%SCSOFT%/software/grib_api/release/share-1.9.9/definitions.edzw:/usr/local/lib/metaps/lib/grib_api/current/share/definitions"
+# export GRIB_DEFINITION_PATH="%SCSOFT%/software/grib_api/release/share-1.9.9/definitions.edzw:/usr/local/lib/metaps/lib/grib_api/current/share/definitions"
+  export GRIB_DEFINITION_PATH="/usr/local/lib/metaps/lib/grib_api/current/share/definitions:%SCSOFT%/software/grib_api/release/share-1.9.9/definitions.edzw"
 
   mkdir -p grb_data
   for levtype1 in PL HL ML; do

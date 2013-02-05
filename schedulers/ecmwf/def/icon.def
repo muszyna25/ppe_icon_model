@@ -23,20 +23,21 @@
 # ---USER SETUP------------------------------------
 
 # global definitions:
-set EXPNUM        "016"                #---experiment number---
-set EXPNUM2       "016"                #---experiment number used for score comparison---
+set EXPNUM        "015"                #---experiment number---
+set EXPNUM2       "015"                #---experiment number used for score comparison---
 set SUITE2        "dei2"               #---suite             used for score comparison---
 set FIRST_DATE    20100130
 set LAST_DATE     20100130
 set MONTHS        201001_201207        #---months to be run e.g. 201201_201207
+set INIHOUR       12
 set ICON_HOME     /home/ms/de/deia 
 set ICON_ID       deia 
-set RES           "R2B07"              #---ICON resolution dynamics
-set RESRAD        "R2B06"              #---ICON resolution radiation (requires namelist)
+set RES           "R2B08"              #---ICON resolution dynamics
+set RESRAD        "R2B07"              #---ICON resolution radiation (requires namelist)
 
 # no. of time steps (10x86400s/72s)
 #set NSTEPS       12000  # R2B6 10d
-set NSTEPS       4800   # grey zone 48h: R2B7-4800, R2B8-9600
+set NSTEPS       7200   # grey zone 48h: R2B7-3600, R2B8-7200
 #set NSTEPS       2880
 
 # simulation modes: 1:oper, 2:monthly 10day forecasts, 3:climate (1year)
@@ -48,9 +49,9 @@ set NENS         0   # default for no ensemble run
 set NMEM         0   # default for no ensemble run
 
 # Processors
-set ICONNODES        32   # R2B6: 32,  R2B7: 32,  R2B8: 64
-set ICONTASKSPERNODE 32   #       32         32         32
-set ICONTHREADS       2   #        2          2          1
+set ICONNODES        64   # R2B6: 32,  R2B7: 32,  R2B8: 64
+set ICONTASKSPERNODE  8   #       32         32          8
+set ICONTHREADS       8   #        2          2          8
 
 # -------------------------------------------------
 
@@ -157,7 +158,7 @@ suite $USER
 
 
     # initial hour: could be cycled later
-    edit INIHOUR 00
+    edit INIHOUR $INIHOUR
 
     # init local variables:
     set ENABLE_INIT               1
@@ -299,7 +300,7 @@ suite $USER
             edit SCJOBTYPE    parallel
             edit SCJOBCLASS   np
             edit SCTOTALTASKS 32
-            edit SCCPUS       4
+            edit SCCPUS       8
             edit SCWALLCLOCKLIMIT 00:60:00
 
     endfamily

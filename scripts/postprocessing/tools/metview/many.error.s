@@ -43,7 +43,7 @@ while [[ $nt < ${#inidate[*]} ]]; do
 
   # -------------------------------------------------------
 
-  set -A vars TQV  TQC  TQI   TCC            TQ1  TQ2  TQ3  TQ4  TQ5       PS    \
+  set -A vars TQV  TQC  TQI   TCC            TQ1  TQ2  TQ3  TQ4  TQ5   PS  PMSL  \
               ACCSOB_S        ACCTHB_S       ACCSOB_T         ACCTHB_T           \
               ACCLHFL_S       ACCSHFL_S                                          \
               TOT_PREC        RAIN_GSP       SNOW_GSP         RAIN_CON  SNOW_CON \
