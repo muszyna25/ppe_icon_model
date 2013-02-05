@@ -7,7 +7,7 @@
 
 # Set parameters for postprocessing
 #
-EXP="test_hat_jww_410"
+EXP="test_hat_jww"
 grid_name="iconR2B04-grid"
 ExpName="${EXP}_${grid_name}"
 plotBaseName="${EXP}_R2B04L31"
