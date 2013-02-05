@@ -162,17 +162,17 @@ case varname of
  'Q1'      :  varfile = 'q'           end
  'Q2'      :  varfile = 'clwmr'       end
  'Q3'      :  varfile = '0.1.82'      end
- 'Q4'      :  varfile = 'rwmr'        end
- 'Q5'      :  varfile = 'swmr'        end
+ 'QR'      :  varfile = 'rwmr'        end
+ 'QS'      :  varfile = 'swmr'        end
  'CC'      :  varfile = '0.6.22'      end
  'QTVAR'   :  varfile = '192.201.39'  end
  'ttendsw' :  varfile = '192.162.100' end
  'ttendlw' :  varfile = '192.162.101' end
- 'T_2m'    :  varfile = '2t'          end
+ 'T_2M'    :  varfile = '2t'          end
  'U_10M'   :  varfile = '10u'         end
  'V_10M'   :  varfile = '10v'         end
  'W'       :  varfile = '0.2.9'       end
- 'FI'      :  varfile = 'Z'           end
+ 'FI'      :  varfile = 'z'           end
  'P'       :  varfile = 'pres'        end
  'PS'      :  varfile = 'sp'          end
  'PMSL'    :  varfile = 'prmsl'       end
@@ -181,16 +181,16 @@ end case
 #verify QV,QC,QI against Q1,Q2,Q3 at initial condition (IFS)
 varfile2 = varfile
 case varname of
- 'QV':      varfile2 = 'QV'          end
- 'QC':      varfile2 = 'QC'          end
- 'QI':      varfile2 = 'QI'          end
+ 'QV'      :  varfile2 = 'q1'         end  # compare to Q1 initial condition
+ 'QC'      :  varfile2 = 'q2'         end
+ 'QI'      :  varfile2 = 'q3'         end
 end case
 
 
 for nd=1 to ndays do 
 
 
-# --- data files
+# --- setup: data files
 
 # source_ini_icon = '/uwork1/mkoehler/icon/experiments/exp'&expnum&
 #   '/NWP_icon'&exphres&inidate&initime&'_DOM01_0001_'&varfile&'_'&levtype&'.grb'
