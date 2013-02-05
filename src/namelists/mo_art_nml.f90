@@ -38,6 +38,7 @@
 !!
 MODULE mo_art_nml
 
+  USE mo_exception,           ONLY: message, finish, message_text
   USE mo_kind                ,ONLY: wp
   USE mo_parallel_config     ,ONLY: nproma
   USE mo_exception           ,ONLY: finish
@@ -48,7 +49,7 @@ MODULE mo_art_nml
   USE mo_mpi                 ,ONLY: my_process_is_stdio
   USE mo_io_restart_namelist ,ONLY: open_tmpfile, store_and_close_namelist,     &
     &                               open_and_restore_namelist, close_tmpfile
-  USE mo_art_config          ,ONLY: art_config ,t_volc_list,MAX_NUM_VOLC 
+  USE mo_art_config          ,ONLY: art_config ,t_volc_list,max_volc_input
 
   
   IMPLICIT NONE
@@ -70,7 +71,7 @@ MODULE mo_art_nml
     
  END TYPE t_list_volcanoes
 
- TYPE (t_list_volcanoes) :: art_volclist_tot(MAX_NUM_VOLC) !>list of volcanoes
+    TYPE (t_list_volcanoes) :: art_volclist_tot(max_volc_input) !>list of volcanoes
  
     LOGICAL :: lart                        !< main switch for using the ART-package
                                            !< .TRUE.: switch ON
@@ -90,9 +91,13 @@ MODULE mo_art_nml
 
     INTEGER :: nart_emis_volcano_update    !< Time interval for reading volcano emission file
 
-  LOGICAL :: lart_volclist  !< Input of Volcano coordinates. TRUE:use nml, FALSE:external data file is used.
-  NAMELIST/art_nml/ lart, lart_volcano, lart_emis_volcano,lart_conv_volcano, lart_wash_volcano, &
-    &               lart_rad_volcano, lart_cloud_volcano, nart_emis_volcano_update,art_volclist_tot, lart_volclist
+    LOGICAL :: lart_volclist  !< Input of Volcano coordinates. TRUE:use nml, FALSE:external data file is used.
+
+    CHARACTER (LEN=120) :: volcanofile_path
+
+    NAMELIST/art_nml/ lart, lart_volcano, lart_emis_volcano,lart_conv_volcano, lart_wash_volcano, &
+   &               lart_rad_volcano, lart_cloud_volcano, nart_emis_volcano_update,art_volclist_tot, &
+   &               lart_volclist, volcanofile_path
 
 
 CONTAINS
@@ -138,11 +143,14 @@ CONTAINS
 
     nart_emis_volcano_update= 0          ! Time interval for reading emission file
     lart_volclist=.FALSE.
-    art_volclist_tot(:)%lon   = -1._wp     ! Longitude coordinate of each volcano. 
-                                           !-1 is used for creating the list of volcanoes.  
+    art_volclist_tot(:)%lon   = -1000._wp     ! Longitude coordinate of each volcano. 
+                                           !-1000 is used for creating the list of volcanoes.  
     art_volclist_tot(:)%lat   = 0._wp     ! Latitude coordinate of each volcano
     art_volclist_tot(:)%zname = ""        ! Name of volcanoes
 !   art_volclist_tot(:)%nstart= 1         ! Start time of volcanic eruption
+
+    volcanofile_path     =  "./volcanofile"
+
     !------------------------------------------------------------------
     ! 2. If this is a resumed integration, overwrite the defaults above 
     !    by values used in the previous integration.
@@ -180,8 +188,12 @@ CONTAINS
       nvolc=0
       DO
         nvolc = nvolc + 1
-        IF (nvolc > MAX_NUM_VOLC) EXIT           ! maximum number reached.
-        IF (art_volclist_tot(nvolc)%lon == -1._wp) EXIT   ! default value --> this component is not filled. Max. comp. reached.
+        IF (nvolc > max_volc_input) THEN
+          CALL message(TRIM(routine), 'number of volcanos in input file &
+        & exeedes maximum allowed number of 20, please use file input')
+          EXIT           ! maximum number reached.
+        ENDIF
+        IF (art_volclist_tot(nvolc)%lon == -1000._wp) EXIT   ! default value --> this component is not filled. Max. comp. reached.
       ENDDO
       nvolc=nvolc-1
     DO jg= 0,max_dom
@@ -195,6 +207,8 @@ CONTAINS
       art_config(jg)%nart_emis_volcano_update   = nart_emis_volcano_update 
       art_config(jg)%lart_volclist=lart_volclist
       art_config(jg)%nvolc         = nvolc
+      art_config(jg)%volcanofile_path  = volcanofile_path
+
       
       nblks=nvolc/nproma+1
       npromz=nvolc-nproma*(nblks-1)

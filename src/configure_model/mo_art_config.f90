@@ -56,7 +56,7 @@ MODULE mo_art_config
   !!--------------------------------------------------------------------------
   !! Basic configuration setup for ICON-ART
   !!--------------------------------------------------------------------------
-   INTEGER, PARAMETER  :: MAX_NUM_VOLC  = 20 !Maximum number of volcanoes
+   INTEGER, PARAMETER  :: max_volc_input  = 20 !Maximum number of volcanoes in input namelist art_volclist_tot
    INTEGER, PARAMETER  :: nart_tendphy  =6    !Maximum number of tracers that are effected by deep convective transport 
 
   TYPE t_volc_list
@@ -87,6 +87,8 @@ MODULE mo_art_config
     INTEGER :: nart_emis_volcano_update    !< Time interval for reading volcano emission file
 
     LOGICAL :: lart_volclist    !< Use list of volcanoes from namelist (TRUE/FALSE)
+
+    CHARACTER (LEN=120) :: volcanofile_path !< PAth of volcano file
 
    !For specification of valcano locations.
    INTEGER                     :: nvolc             !< Number ov volcanoes
