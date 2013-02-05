@@ -540,15 +540,15 @@ MODULE mo_nh_initicon
 
       IF (msg_level >= 10) THEN
         WRITE(message_text,'(a)') 'surface pressure variable: '//TRIM(psvar)
-        CALL message('', TRIM(message_text))
+        CALL message(TRIM(routine), TRIM(message_text))
         WRITE(message_text,'(a)') 'Model-level surface geopotential: '//TRIM(geop_ml_var)
-        CALL message('', TRIM(message_text))
+        CALL message(TRIM(routine), TRIM(message_text))
         IF (.NOT. lread_vn) THEN
           WRITE(message_text,'(a)') 'No direct input of vn! vn derived from (u,v).'
-          CALL message('', TRIM(message_text))
+          CALL message(TRIM(routine), TRIM(message_text))
         ELSE
           WRITE(message_text,'(a)') 'Direct input of vn!'
-          CALL message('', TRIM(message_text))
+          CALL message(TRIM(routine), TRIM(message_text))
         ENDIF
       ENDIF
 
@@ -658,11 +658,11 @@ MODULE mo_nh_initicon
 
         IF (msg_level >= 15) THEN
           WRITE(message_text,'(a)') 'vct table values of input data:'
-          CALL message('', TRIM(message_text))
+          CALL message(TRIM(routine), TRIM(message_text))
 
           DO jk = 1, nlev_in+1
             WRITE(message_text,'(a,i4,F12.4,F12.8)') 'jk, vct_a, vct_b: ',jk, vct_a(jk), vct_b(jk)
-            CALL message('', TRIM(message_text))
+            CALL message(TRIM(routine), TRIM(message_text))
           ENDDO
         ENDIF
 
