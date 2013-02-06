@@ -129,6 +129,7 @@ cat > ${ocean_namelist} << EOF
 /
 &run_nml
  dtime       = 1800         ! model timestep in seconds
+ output      = 'vlist'      ! We're still using the old output mechanism
 /
 &ocean_dynamics_nml
 ! 10 unevenly spaced levels beginning with 50m depth
