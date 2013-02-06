@@ -1121,7 +1121,11 @@ MODULE mo_nonhydro_state
     grib2_desc = t_grib2_var( 0, 2, 13, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_diag_list, 'div', p_diag%div,                               &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,       &
-                & ldims=shape3d_c, lrestart=.FALSE., in_group=groups("atmo_derived_vars") )
+                & ldims=shape3d_c, lrestart=.FALSE.,                            &
+                & vert_interp=create_vert_interp_metadata( &
+                &   vert_intp_type=vintp_types("P","Z","I"),  &
+                &   vert_intp_method=VINTP_METHOD_LIN ),   &
+                &   in_group=groups("atmo_derived_vars") )
 
 
     ! vor          p_diag%vor(nproma,nlev,nblks_c)
