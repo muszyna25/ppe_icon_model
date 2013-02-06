@@ -15,7 +15,7 @@
 !! for the ice surface temperature and the ice thickness. 
 !! An explicit Euler scheme is used for time advance.
 !! In the current configuration of the scheme, snow over sea ice is not treated explicitly. 
-!! The effect of snow above the ice is accounted for implicitely (parametrically) through 
+!! The effect of snow above the ice is accounted for implicitly (parametrically) through 
 !! an empirical temperature dependence of the ice surface albedo with respect to solar radiation. 
 !! For the "sea water" type ICON grid boxes, the snow thickness is set to zero and
 !! the snow surface temperature is set equal to the ice surface temperature
@@ -27,10 +27,7 @@
 !! The ice fraction is determined on the basis of observational data
 !! by the data assimilation scheme and is kept constant over the entire model forecast period. 
 !! However, if the ice melts out during the forecast, the ice fraction is reset to zero. 
-!! This is done within 
-!! SUBROUTINE <name>, 
-!! where the grid-box-mean (aggregated) surface temperature 
-!! and grid-box-mean surface fluxes are computed.
+!! This is done within SUBROUTINE update_idx_lists_sea. 
 !! If the ICON grid box is set ice-free during the initialization, 
 !! no ice is created over the forecast period. 
 !! If observational data indicate open water conditions for a given ICON grid box,
@@ -60,6 +57,10 @@
 !!
 !! @par Revision History
 !! Initial release by Dmitrii Mironov, DWD (2012-07-24)
+!!
+!! Modification by Daniel Reinert, DWD (2012-11-07)
+!! - moved tf_salt to mo_physical_constant, since it is also needed elsewhere
+!!
 !!
 !! @par Copyright
 !! 2002-2010 by DWD and MPI-M
@@ -161,7 +162,7 @@ MODULE mo_seaice_nwp
             &  nband_optic                              !< number of wave-length bands [-]
     REAL (wp) ::                                     &
               &  frac_optic(nband_optic_max)       , &  !< fractions of total solar radiation flux for different bands [-]
-              &  extincoef_optic(nband_optic_max)       !< extinction coefficients for different bands [-]
+              &  extincoef_optic(nband_optic_max)       !< extinction coefficients for different bands [1/m]
   END TYPE opticpar_seaice
 
   ! One-band approximation for opaque sea ice.
@@ -219,11 +220,10 @@ CONTAINS
   !! 
   !! @par Revision History
   !! Initial release by Dmitrii Mironov, DWD (2012-07-24)
+  !!
   !! Modification by Daniel Reinert, DWD (2012-11-05)
   !! - modified initialization procedure for the case that the sea-ice thickness 
   !!   field is not provided as input (i.e. when starting from IFS analysis)
-  !! Modification by Daniel Reinert, DWD (2012-11-07)
-  !! - moved tf_salt to mo_physical constant, since it is also needed elsewhere
   !!
 
   SUBROUTINE seaice_init_nwp (                                  & 
@@ -244,26 +244,38 @@ CONTAINS
                                   !< (equal to the number of grid boxes within a block 
                                   !< where the sea ice is present) 
 
-    REAL(wp), DIMENSION(:), INTENT(IN)    ::       &
-                                           &  frsi      !< sea-ice fraction [-]
+    REAL(wp), DIMENSION(:), INTENT(IN)    ::         &
+                                          &  frsi       !< sea-ice fraction [-]
  
-    REAL(wp), DIMENSION(:), INTENT(IN)    ::       &
-                                           &  t_skin    !< skin temperature (including sea-ice) [K]
+!_cdm>
+! Note that the use of l_hice_in is intimately related to the use of t_skin 
+! to perform a "cold start" initialization of the sea-ice surface temperature. 
+! If l_hice_in=.TRUE., then it is assumed that both the ice thickness and the ice surface temperature
+! are available from the previous ICON run. 
+! This actually means a "warm start" of the sea-ice parameterization scheme.
+! If l_hice_in=.FALSE., the sea-ice thickness is not available. 
+! It is then initialized with hice_ini ("thickness of the newly formed sea ice"). 
+! However, an estimate of the sea-ice surface temperature is still reqiered for the cold start 
+! and is assumed to be available. This "cold start" sea-ice surface temperature field
+! is stored in array t_skin. 
+! The only option at the time being is to use the IFS skin tempearature for the cold start initialization.
+!_cdm<
+    LOGICAL, INTENT(IN)                   ::         &
+                                          &  l_hice_in  !< Logical switch, set .TRUE. 
+                                                        !< if the sea-ice thickness is provided as input 
 
-    LOGICAL, INTENT(IN)                   ::       &
-                                           &  l_hice_in !< Logical switch, if sea-ice thickness field is 
-                                                        !< provided as input                     
+    REAL(wp), DIMENSION(:), INTENT(IN)    ::         &
+                                          &  t_skin     !< "cold-start" sea-ice surface temperature [K]
 
-    REAL(wp), DIMENSION(:), INTENT(INOUT) ::               &
-                                              &  tice_p  , &  !< temperature of ice upper surface at previous time level [K] 
-                                              &  hice_p  , &  !< ice thickness at previous time level [m] 
-                                              &  tsnow_p , &  !< temperature of snow upper surface at previous time level [K] 
-                                              &  hsnow_p , &  !< snow thickness at previous time level [m] 
-                                              &  tice_n  , &  !< temperature of ice upper surface at new time level [K] 
-
-                                              &  hice_n  , &  !< ice thickness at new time level [m] 
-                                              &  tsnow_n , &  !< temperature of snow upper surface at new time level [K] 
-                                              &  hsnow_n      !< snow thickness at new time level [m] 
+    REAL(wp), DIMENSION(:), INTENT(INOUT) ::           &
+                                          &  tice_p  , &  !< temperature of ice upper surface at previous time level [K] 
+                                          &  hice_p  , &  !< ice thickness at previous time level [m] 
+                                          &  tsnow_p , &  !< temperature of snow upper surface at previous time level [K] 
+                                          &  hsnow_p , &  !< snow thickness at previous time level [m] 
+                                          &  tice_n  , &  !< temperature of ice upper surface at new time level [K] 
+                                          &  hice_n  , &  !< ice thickness at new time level [m] 
+                                          &  tsnow_n , &  !< temperature of snow upper surface at new time level [K] 
+                                          &  hsnow_n      !< snow thickness at new time level [m] 
 
     ! Local variables 
 
@@ -297,19 +309,17 @@ CONTAINS
         ! Exit DO loop to call model abort
         EXIT GridBoxesWithSeaIce 
       END IF 
- 
 
-      IF ( l_hice_in ) THEN ! sea-ice thickness field provided as input
-        ! Create new ice 
+      IF ( l_hice_in ) THEN ! sea-ice thickness is provided as input (warm start)
+        ! Create new ice as needed (otherwise do nothing)
         IF( hice_p(isi) < (hice_min-csmall) ) THEN 
           hice_p(isi) = hice_ini
           tice_p(isi) = tf_salt
         END IF
-      ELSE  ! sea-ice thickness field NOT provided as input
-        hice_p(isi) = hice_ini
-        tice_p(isi) = t_skin(isi)  ! use skin temperature
+      ELSE  ! sea-ice thickness is NOT provided as input (cold start)
+        hice_p(isi) = hice_ini     ! thickness of newly formed sea ice
+        tice_p(isi) = t_skin(isi)  ! IFS skin temperature
       ENDIF 
-
 
       ! Take security measures 
       hice_p(isi) = MAX(MIN(hice_p(isi), hice_max), hice_min) 
@@ -602,7 +612,7 @@ CONTAINS
 
     END DO GridBoxesWithSeaIce
 
-
+    ! Store time tendencies (optional)
     IF (PRESENT(opt_dticedt)) THEN
       opt_dticedt(:) = dticedt(:)
     ENDIF
