@@ -1564,7 +1564,7 @@ CONTAINS
   !!
   SUBROUTINE ice_conc_change(p_patch,ice, p_os,p_sfc_flx)
 
-    USE mo_sea_ice_nml,         ONLY: hnull
+    USE mo_sea_ice_nml,         ONLY: hnull, hmin
 
     TYPE(t_patch),             INTENT(IN)    :: p_patch 
     TYPE (t_sea_ice),          INTENT(INOUT) :: ice  
@@ -1606,8 +1606,8 @@ CONTAINS
         &               ice%conc(:,1,:) + ice%newice(:,:)*( 1._wp - ice%conc(:,1,:) )/hnull )
       ! New thickness: We just preserve volume, so: New_Volume = newice_volume + hi*old_conc 
       !  => hi <- newice/conc + hi*old_conc/conc
-      ice%hi   (:,1,:) = ( ice%newice(:,:)+ice%hi(:,1,:)*old_conc(:,:) )/ice%conc(:,1,:)
-      ice%vol  (:,1,:) = ice%hi(:,1,:)*ice%conc(:,1,:)*p_patch%cells%area(:,:)
+      ice%vol  (:,1,:) = ice%vol(:,1,:) + ice%newice(:,:)*p_patch%cells%area(:,:)
+      ice%hi   (:,1,:) = ice%vol(:,1,:)/( ice%conc(:,1,:)*p_patch%cells%area(:,:) )
       !TODO: Re-calculate temperatures to conserve energy when we change the ice thickness
 
       ! New ice forms over open water - set temperature to Tfw
@@ -1624,6 +1624,12 @@ CONTAINS
         &        ( ice%hiold(:,1,:)-ice%hi(:,1,:) )*ice%conc(:,1,:)*0.5_wp/ice%hiold(:,1,:) )
       ice%hi   (:,1,:) = ice%vol(:,1,:)/( ice%conc(:,1,:)*p_patch%cells%area(:,:) )
       !TODO: Re-calculate temperatures to conserve energy when we change the ice thickness
+    ENDWHERE
+
+    ! Ice cannot grow thinner than hmin
+    ice%hi(:,:,:) = MAX( hmin, ice%hi(:,:,:) )
+    WHERE ( ice%hi(:,1,:) > 0._wp )
+      ice%conc(:,1,:) = ice%vol(:,1,:) / ( ice%hi(:,1,:)*p_patch%cells%area(:,:) )
     ENDWHERE
 
     ice% concSum(:,:)  = SUM(ice% conc(:,:,:),2)

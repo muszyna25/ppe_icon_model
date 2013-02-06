@@ -68,6 +68,7 @@ MODULE mo_sea_ice_nml
   INTEGER,PUBLIC :: i_ice_albedo        !< Albedo model (no albedo model implemented yet)
 
   REAL(wp),PUBLIC :: hnull              !< Hibler's h_0 for new ice formation
+  REAL(wp),PUBLIC :: hmin               !< Minimum ice thickness allowed in the model
 
   NAMELIST /sea_ice_nml/ kice, i_ice_therm, i_ice_albedo, hnull
 
@@ -90,6 +91,7 @@ CONTAINS
     i_ice_albedo= 999
 
     hnull       = 0.5_wp
+    hmin        = hnull
 
     !------------------------------------------------------------------
     ! If this is a resumed integration, overwrite the defaults above
@@ -126,6 +128,13 @@ CONTAINS
     IF (i_ice_albedo /= 999) THEN
       CALL message(TRIM(routine), 'only one albedo scheme implemented')
     END IF
+
+    IF (hmin > hnull) THEN
+      CALL message(TRIM(routine), 'hmin cannot be larger than hnull')
+      CALL message(TRIM(routine), 'setting hmin to hnull')
+      hmin = hnull
+    ENDIF
+
 
     !------------------------------------------------------------------
     ! Store the namelist for restart
