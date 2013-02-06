@@ -2126,8 +2126,10 @@ CONTAINS
 
           dist_vector_basic%x = (edge_center%x - vertex_center%x)
 
-          IF(neigbor==1)ictr = 0
-          IF(neigbor==2)ictr = no_dual_edges 
+          !IF(neigbor==1)ictr = 0
+          !IF(neigbor==2)ictr = no_dual_edges
+
+          ictr = (neigbor - 1)*no_dual_edges
 
           DO vert_edge=1,patch%verts%num_edges(vertex_index,vertex_block)!no_dual_edges
             ictr=ictr+1
