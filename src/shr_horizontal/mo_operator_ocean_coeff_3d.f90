@@ -2680,7 +2680,7 @@ CONTAINS
           ELSEIF ( sea_edges_per_vertex(jv,jk,jb) /= 0 ) THEN
 
             !Modified area calculation
-            vertex_cc = patch%verts%cartesian(jv,jb)
+            vertex_cc = patch%verts%cartesian(jv,jb)            
             DO jev = 1, patch%verts%num_edges(jv,jb)
               ! get line and block indices of edge jev around vertex jv
               ile = patch%verts%edge_idx(jv,jb,jev)
@@ -2705,10 +2705,20 @@ CONTAINS
                   & + triangle_area(cell1_cc, vertex_cc, cell2_cc)
                 ! edge with indices ile, ibe is boundary edge                
               ELSE IF ( p_patch_3D%lsm_e(ile,jk,ibe) == boundary ) THEN
+!                 zarea_fraction(jv,jk,jb) = zarea_fraction(jv,jk,jb)  &
+!                   & + 0.5_wp*triangle_area(cell1_cc, vertex_cc, cell2_cc)
+                ! add only the sea dual area, ie the triagle area between
+                ! the vertex, edge centre, and sea cell center
+                IF (p_patch_3D%lsm_c(icell_idx_1,jk,icell_blk_1) > sea_boundary) THEN
+                  ! cell2 is the sea cell
+                  cell1_cc%x = cell2_cc%x
+                ENDIF
                 zarea_fraction(jv,jk,jb) = zarea_fraction(jv,jk,jb)  &
-                  & + 0.5_wp*triangle_area(cell1_cc, vertex_cc, cell2_cc)
-              END IF
-            END DO
+                  & + triangle_area(cell1_cc, vertex_cc, patch%edges%cartesian_center(ile,ibe))
+              ENDIF
+              
+            END DO ! jev = 1, patch%verts%num_edges(jv,jb)
+            
           ENDIF !( sea_edges_per_vertex(jv,jk,jb) == patch%verts%num_edges(jv,jb) )
           !The two quantities: 
           !zarea_fraction(jv,jk,jb)*(earth_radius*earth_radius) 
