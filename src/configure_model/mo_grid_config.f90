@@ -67,7 +67,7 @@ USE mo_read_netcdf_parallel, ONLY:                &
     &       lredgrid_phys, ifeedback_type, start_time, end_time
 
   PUBLIC :: grid_rescale_factor, grid_length_rescale_factor, &
-     & grid_area_rescale_factor, grid_sphere_radius, grid_angular_velocity
+     & grid_sphere_radius, grid_angular_velocity
 
   PUBLIC :: namelist_grid_angular_velocity
 
@@ -121,7 +121,7 @@ INCLUDE 'netcdf.inc'
 
   REAL(wp) :: grid_rescale_factor = 1.0_wp
   REAL(wp) :: grid_length_rescale_factor = 1.0_wp
-  REAL(wp) :: grid_area_rescale_factor = 1.0_wp
+!   REAL(wp) :: grid_area_rescale_factor = 1.0_wp
   REAL(wp) :: grid_sphere_radius  = earth_radius
   REAL(wp) :: grid_angular_velocity  = earth_angular_velocity
   REAL(wp) :: namelist_grid_angular_velocity  = earth_angular_velocity
@@ -210,7 +210,7 @@ CONTAINS
     CALL get_gridfile_sphere_radius(dynamics_grid_filename(1), grid_sphere_radius)
     grid_sphere_radius = grid_sphere_radius * grid_rescale_factor
     grid_length_rescale_factor = grid_rescale_factor
-    grid_area_rescale_factor   = grid_rescale_factor * grid_rescale_factor
+!     grid_area_rescale_factor   = grid_rescale_factor * grid_rescale_factor
     grid_angular_velocity      = namelist_grid_angular_velocity / grid_rescale_factor
 !     write(0,*) "   nroot = ", nroot
     

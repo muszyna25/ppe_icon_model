@@ -133,6 +133,7 @@ MODULE mo_model_domimp_setup
   PUBLIC :: init_coriolis
   PUBLIC :: set_verts_phys_id
   PUBLIC :: init_butterfly_idx
+  PUBLIC :: rescale_grid
   
   PUBLIC :: fill_grid_subsets, fill_grid_subset_names, read_grid_subsets, write_grid_subsets
   
@@ -143,6 +144,59 @@ MODULE mo_model_domimp_setup
   
 CONTAINS
 
+  
+  !-------------------------------------------------------------------------
+  !> Rescale grids
+  ! Note: this does not rescale the cartesian coordinates (used in torus)
+  SUBROUTINE rescale_grid( patch, grid_length_rescale_factor)
+    
+    TYPE(t_patch), INTENT(inout), TARGET ::  patch  ! patch data structure
+    REAL(wp), INTENT(in) :: grid_length_rescale_factor
+    
+    REAL(wp) :: grid_area_rescale_factor
+    !-----------------------------------------------------------------------
+    grid_area_rescale_factor   = grid_length_rescale_factor * grid_length_rescale_factor
+    
+    patch%cells%area(:,:)               = &
+      & patch%cells%area(:,:)               * grid_area_rescale_factor
+    patch%verts%dual_area(:,:)          = &
+      & patch%verts%dual_area(:,:)          * grid_area_rescale_factor
+    patch%edges%primal_edge_length(:,:) = &
+      & patch%edges%primal_edge_length(:,:) * grid_length_rescale_factor
+    patch%edges%dual_edge_length(:,:)   = &
+      & patch%edges%dual_edge_length(:,:)   * grid_length_rescale_factor
+    patch%edges%edge_cell_length(:,:,:) = &
+      & patch%edges%edge_cell_length(:,:,:) * grid_length_rescale_factor
+    patch%edges%edge_vert_length(:,:,:) = &
+      & patch%edges%edge_vert_length(:,:,:) * grid_length_rescale_factor
+
+    ! rescale geometry parameters
+    patch%geometry_info%mean_edge_length = &
+      & patch%geometry_info%mean_edge_length * grid_length_rescale_factor
+    patch%geometry_info%mean_cell_area   = &
+      & patch%geometry_info%mean_cell_area   * grid_area_rescale_factor
+    patch%geometry_info%domain_length    = &
+      & patch%geometry_info%domain_length    * grid_length_rescale_factor
+    patch%geometry_info%domain_height    = &
+      & patch%geometry_info%domain_height    * grid_length_rescale_factor
+    patch%geometry_info%sphere_radius    = &
+      & patch%geometry_info%sphere_radius    * grid_length_rescale_factor
+    patch%geometry_info%mean_characteristic_length    = &
+      & patch%geometry_info%mean_characteristic_length * grid_length_rescale_factor
+
+!     write(0,*) "Rescale grid_length_rescale_factor:", &
+!       & grid_length_rescale_factor
+!     write(0,*) "Rescale mean_cell_area:", &
+!       & patch%geometry_info%mean_cell_area
+!     write(0,*) "Rescale mean_characteristic_length:", &
+!       & patch%geometry_info%mean_characteristic_length
+
+    IF (patch%geometry_info%mean_characteristic_length == 0.0_wp) &
+      & CALL finish("rescale_grid", "mean_characteristic_length=0")
+    
+  END SUBROUTINE rescale_grid
+  !-------------------------------------------------------------------------
+  
   !-------------------------------------------------------------------------
   !>
   !! This routine calculates the edge area of the patch

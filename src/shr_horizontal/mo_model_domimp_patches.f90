@@ -119,12 +119,13 @@ MODULE mo_model_domimp_patches
   USE mo_parallel_config,    ONLY: nproma
   USE mo_model_domimp_setup, ONLY: reshape_int, reshape_real,  &
     & init_quad_twoadjcells, init_coriolis, set_verts_phys_id, &
-    & init_butterfly_idx, calculate_patch_cartesian_positions
+    & init_butterfly_idx, calculate_patch_cartesian_positions, &
+    & fill_grid_subsets, rescale_grid
   USE mo_grid_config,        ONLY: start_lev, nroot, n_dom, n_dom_start,    &
     & lfeedback, l_limited_area, max_childdom, &
     & dynamics_grid_filename,   dynamics_parent_grid_id,  &
     & radiation_grid_filename,  global_cell_type, lplane, &
-    & grid_area_rescale_factor, grid_length_rescale_factor, &
+    & grid_length_rescale_factor,                         &
     & is_plane_torus, grid_sphere_radius
   USE mo_dynamics_config,    ONLY: lcoriolis
   USE mo_master_control,     ONLY: my_process_is_ocean
@@ -139,7 +140,6 @@ MODULE mo_model_domimp_patches
 
   USE mo_grid_geometry_info, ONLY: planar_torus_geometry, sphere_geometry, &
     &  set_grid_geometry_derived_info, copy_grid_geometry_info, parallel_read_geometry_info
-  USE mo_model_domimp_setup, ONLY: fill_grid_subsets
   USE mo_alloc_patches,      ONLY: set_patches_grid_filename, allocate_basic_patch, &
     & allocate_remaining_patch
   USE mo_math_constants,     ONLY: pi, pi_2
@@ -531,11 +531,11 @@ CONTAINS
     
     ! rescale grids
     DO jg = n_dom_start, n_dom
-      CALL rescale_grid( patch(jg) )
+      CALL rescale_grid( patch(jg), grid_length_rescale_factor  )
     ENDDO
     IF(my_process_is_mpi_parallel() ) THEN
       DO jg = n_dom_start+1, n_dom
-        CALL rescale_grid( p_patch_local_parent(jg) )
+        CALL rescale_grid( p_patch_local_parent(jg), grid_length_rescale_factor )
       ENDDO
     ENDIF
 
@@ -619,54 +619,6 @@ CONTAINS
     END SELECT
     
   END SUBROUTINE set_grid_mean_geometry_info
-  !-------------------------------------------------------------------------
-  
-  !-------------------------------------------------------------------------
-  !> Rescale grids
-  ! Note: this does not rescale the cartesian coordinates for the torus
-  SUBROUTINE rescale_grid( patch )
-    
-    TYPE(t_patch), INTENT(inout), TARGET ::  patch  ! patch data structure
-    
-    !-----------------------------------------------------------------------
-    patch%cells%area(:,:)               = &
-      & patch%cells%area(:,:)               * grid_area_rescale_factor
-    patch%verts%dual_area(:,:)          = &
-      & patch%verts%dual_area(:,:)          * grid_area_rescale_factor
-    patch%edges%primal_edge_length(:,:) = &
-      & patch%edges%primal_edge_length(:,:) * grid_length_rescale_factor
-    patch%edges%dual_edge_length(:,:)   = &
-      & patch%edges%dual_edge_length(:,:)   * grid_length_rescale_factor
-    patch%edges%edge_cell_length(:,:,:) = &
-      & patch%edges%edge_cell_length(:,:,:) * grid_length_rescale_factor
-    patch%edges%edge_vert_length(:,:,:) = &
-      & patch%edges%edge_vert_length(:,:,:) * grid_length_rescale_factor
-
-    ! rescale geometry parameters
-    patch%geometry_info%mean_edge_length = &
-      & patch%geometry_info%mean_edge_length * grid_length_rescale_factor
-    patch%geometry_info%mean_cell_area   = &
-      & patch%geometry_info%mean_cell_area   * grid_area_rescale_factor
-    patch%geometry_info%domain_length    = &
-      & patch%geometry_info%domain_length    * grid_length_rescale_factor
-    patch%geometry_info%domain_height    = &
-      & patch%geometry_info%domain_height    * grid_length_rescale_factor
-    patch%geometry_info%sphere_radius    = &
-      & patch%geometry_info%sphere_radius    * grid_length_rescale_factor
-    patch%geometry_info%mean_characteristic_length    = &
-      & patch%geometry_info%mean_characteristic_length * grid_length_rescale_factor
-
-!     write(0,*) "Rescale grid_length_rescale_factor:", &
-!       & grid_length_rescale_factor
-!     write(0,*) "Rescale mean_cell_area:", &
-!       & patch%geometry_info%mean_cell_area
-!     write(0,*) "Rescale mean_characteristic_length:", &
-!       & patch%geometry_info%mean_characteristic_length
-
-    IF (patch%geometry_info%mean_characteristic_length == 0.0_wp) &
-      & CALL finish("rescale_grid", "mean_characteristic_length=0")
-    
-  END SUBROUTINE rescale_grid
   !-------------------------------------------------------------------------
   
   !-------------------------------------------------------------------------
