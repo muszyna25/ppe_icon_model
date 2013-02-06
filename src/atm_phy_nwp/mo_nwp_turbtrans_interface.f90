@@ -451,29 +451,26 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
             z_tvs(jc,nlevp1,1)          = z_tvs(jc,nlevp1,1)+tvs_t(ic,3,1,jt)         * area_frac
             prm_diag%tkvm(jc,nlevp1,jb) = prm_diag%tkvm(jc,nlevp1,jb)+tkvm_t(ic,2,jt) * area_frac
             prm_diag%tkvh(jc,nlevp1,jb) = prm_diag%tkvh(jc,nlevp1,jb)+tkvh_t(ic,2,jt) * area_frac
-!MR
-         !  prm_diag%rcld(jc,nlevp1,jb) = prm_diag%rcld(jc,nlevp1,jb)+rcld_t(ic,3,jt)*area_frac
-!MR
 
-            prm_diag%t_2m(jc,jb)   = prm_diag%t_2m(jc,jb) +t_2m_t(ic,jt)  * area_frac
-            prm_diag%qv_2m(jc,jb)  = prm_diag%qv_2m(jc,jb)+qv_2m_t(ic,jt) * area_frac
-            prm_diag%td_2m(jc,jb)  = prm_diag%td_2m(jc,jb)+td_2m_t(ic,jt) * area_frac
-            prm_diag%rh_2m(jc,jb)  = prm_diag%rh_2m(jc,jb)+rh_2m_t(ic,jt) * area_frac
-            prm_diag%u_10m(jc,jb)  = prm_diag%u_10m(jc,jb)+u_10m_t(ic,jt) * area_frac
-            prm_diag%v_10m(jc,jb)  = prm_diag%v_10m(jc,jb)+v_10m_t(ic,jt) * area_frac
-            prm_diag%shfl_s(jc,jb) = prm_diag%shfl_s(jc,jb)+shfl_s_t(ic,jt) * area_frac
-            prm_diag%lhfl_s(jc,jb) = prm_diag%lhfl_s(jc,jb)+lhfl_s_t(ic,jt) * area_frac
+            prm_diag%t_2m  (jc,jb) = prm_diag%t_2m(jc,jb)  + t_2m_t(ic,jt)  * area_frac
+            prm_diag%qv_2m (jc,jb) = prm_diag%qv_2m(jc,jb) + qv_2m_t(ic,jt) * area_frac
+            prm_diag%td_2m (jc,jb) = prm_diag%td_2m(jc,jb) + td_2m_t(ic,jt) * area_frac
+            prm_diag%rh_2m (jc,jb) = prm_diag%rh_2m(jc,jb) + rh_2m_t(ic,jt) * area_frac
+            prm_diag%u_10m (jc,jb) = prm_diag%u_10m(jc,jb) + u_10m_t(ic,jt) * area_frac
+            prm_diag%v_10m (jc,jb) = prm_diag%v_10m(jc,jb) + v_10m_t(ic,jt) * area_frac
+            prm_diag%shfl_s(jc,jb) = prm_diag%shfl_s(jc,jb)+ shfl_s_t(ic,jt)* area_frac
+            prm_diag%lhfl_s(jc,jb) = prm_diag%lhfl_s(jc,jb)+ lhfl_s_t(ic,jt)* area_frac
 
             prm_diag%shfl_s_t(jc,jb,jt1) = shfl_s_t(ic,jt)
             prm_diag%lhfl_s_t(jc,jb,jt1) = lhfl_s_t(ic,jt)
-            prm_diag%tch_t(jc,jb,jt1)    = tch_t(ic,jt)    ! needed by TERRA
-            prm_diag%tcm_t(jc,jb,jt1)    = tcm_t(ic,jt)    ! needed by TERRA
-            prm_diag%tfv_t(jc,jb,jt1)    = tfv_t(ic,jt)    ! needed by TERRA
-            prm_diag%gz0_t(jc,jb,jt1)    = gz0_t(ic,jt)    ! input for turbtran at n+1
-                                                           ! over land
-
+            prm_diag%u_10m_t (jc,jb,jt1) = u_10m_t(ic,jt) ! needed by TERRA
+            prm_diag%v_10m_t (jc,jb,jt1) = v_10m_t(ic,jt) ! needed by TERRA
+            prm_diag%tch_t   (jc,jb,jt1) = tch_t(ic,jt)   ! needed by TERRA
+            prm_diag%tcm_t   (jc,jb,jt1) = tcm_t(ic,jt)   ! needed by TERRA
+            prm_diag%tfv_t   (jc,jb,jt1) = tfv_t(ic,jt)   ! needed by TERRA
+            prm_diag%gz0_t   (jc,jb,jt1) = gz0_t(ic,jt)   ! input for turbtran at n+1
+                                                          ! over land
 !MR: tke, tkvm, tkvh tilespezifisch speichern
-!DR should tile specific u10m, v10m fields be stored for TERRA?
 
           ENDDO
 

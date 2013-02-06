@@ -2886,6 +2886,8 @@ CONTAINS
     ! in case of lon-lat output, "1" has to be added to generatingProcessIdentifier
     CALL vlistDefVarIntKey(vlistID, varID, "generatingProcessIdentifier",     &
       &                    grib_conf%generatingProcessIdentifier)
+
+
     !
     ! Product Generation (local)
     IF (tolower(namespace) == "dwd") THEN
@@ -2900,6 +2902,10 @@ CONTAINS
       CALL vlistDefVarIntKey(vlistID, varID, "localCreationDateMinute", minute)
       ! CALL vlistDefVarIntKey(vlistID, varID, "localValidityDateYear"  , 2013)
     END IF
+
+
+    ! SECTION 3
+    CALL vlistDefVarIntKey(vlistID, varID, "shapeOfTheEarth", 6)
 
   END SUBROUTINE set_additional_GRIB2_keys
 

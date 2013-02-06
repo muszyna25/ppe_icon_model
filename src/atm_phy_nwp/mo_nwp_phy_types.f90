@@ -105,10 +105,7 @@ MODULE mo_nwp_phy_types
     TYPE(t_ptr_2d3d),ALLOCATABLE :: tch_t_ptr(:) !< pointer array: turbulent transfer coefficients for heat
     TYPE(t_ptr_2d3d),ALLOCATABLE :: tfv_t_ptr(:) !< pointer array: laminar reduction factor for evaporation
     TYPE(t_ptr_2d3d),ALLOCATABLE :: gz0_t_ptr(:) !< pointer array: roughness length * gravity
-    TYPE(t_ptr_2d3d),ALLOCATABLE :: t_2m_t_ptr(:)  !< pointer array: temperature at 2m
-    TYPE(t_ptr_2d3d),ALLOCATABLE :: qv_2m_t_ptr(:) !< pointer array: specific water vapor content at 2m
-    TYPE(t_ptr_2d3d),ALLOCATABLE :: rh_2m_t_ptr(:) !< pointer array: relative humidity at 2m
-    TYPE(t_ptr_2d3d),ALLOCATABLE :: td_2m_t_ptr(:) !< pointer array: dew point at 2m
+
     TYPE(t_ptr_2d3d),ALLOCATABLE :: u_10m_t_ptr(:) !< pointer array: zonal wind at 2am
     TYPE(t_ptr_2d3d),ALLOCATABLE :: v_10m_t_ptr(:) !< pointer array: meridional wind at 2m
     TYPE(t_ptr_2d3d),ALLOCATABLE :: shfl_s_t_ptr(:) !< pointer array: surface sensible heat flux 
@@ -232,10 +229,6 @@ MODULE mo_nwp_phy_types
       tch_t(:,:,:)     ,   & !! turbulent transfer coefficients for heat        --
       tfv_t(:,:,:)     ,   & !! laminar reduction factor for evaporation        --
       gz0_t(:,:,:)     ,   & !! roughness length * g                          (m2/s2)
-      t_2m_t (:,:,:)   ,   & !! temperature at 2m                             (  K  )
-      qv_2m_t(:,:,:)   ,   & !! specific water vapor content at 2m            (kg/kg)
-      td_2m_t(:,:,:)   ,   & !! dew-point at 2m                               (  K  )
-      rh_2m_t(:,:,:)   ,   & !! relative humidity at 2m                       (  %  )
       u_10m_t(:,:,:)   ,   & !! zonal wind at 10m                             ( m/s )
       v_10m_t(:,:,:)         !! meridional wind at 10m                        ( m/s )
 
