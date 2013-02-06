@@ -957,7 +957,7 @@ CONTAINS
           edge_index = patch%cells%edge_idx(cell_index, cell_block, neigbor)
           edge_block = patch%cells%edge_blk(cell_index, cell_block, neigbor)
 
-          IF (edge_block > 0 ) THEN
+          IF (edge_block > 0 ) THEN ! this if should not be necessary but for safety let it be
             ! we have an edge
             dist_vector%x = &
               & patch%edges%cartesian_center(edge_index,edge_block)%x - &
@@ -1497,27 +1497,28 @@ CONTAINS
       ENDDO ! vertex_index = start_index, end_index
     ENDDO !vertex_block = owned_verts%start_block, owned_verts%end_block
    
-  !Copy coefficients to 3D 
-   DO level=1,n_zlev
-     ocean_coeff%div_coeff(:,level,:,:) = div_coeff(:,:,:)
-     ocean_coeff%rot_coeff(:,level,:,:) = rot_coeff(:,:,:)
-     ocean_coeff%grad_coeff(:,level,:)  = grad_coeff(:,:)
-   END DO
-   !-------------------
-   ! sync the results
-   CALL sync_patch_array(SYNC_E, patch, ocean_coeff%grad_coeff(:,:,:))
-   DO neigbor=1,no_primal_edges
-     CALL sync_patch_array(SYNC_C, patch, ocean_coeff%div_coeff(:,:,:,neigbor))
-   END DO
-   DO neigbor=1,no_dual_edges
-     CALL sync_patch_array(SYNC_V, patch, ocean_coeff%rot_coeff(:,:,:,neigbor))
-   END DO
+    !Copy coefficients to 3D
+    DO level=1,n_zlev
+    ocean_coeff%div_coeff(:,level,:,:) = div_coeff(:,:,:)
+    ocean_coeff%rot_coeff(:,level,:,:) = rot_coeff(:,:,:)
+    ocean_coeff%grad_coeff(:,level,:)  = grad_coeff(:,:)
+    END DO
+    !-------------------
+    ! sync the results
+    CALL sync_patch_array(SYNC_E, patch, ocean_coeff%grad_coeff(:,:,:))
+    DO neigbor=1,no_primal_edges
+      CALL sync_patch_array(SYNC_C, patch, ocean_coeff%div_coeff(:,:,:,neigbor))
+    END DO
+    DO neigbor=1,no_dual_edges
+      CALL sync_patch_array(SYNC_V, patch, ocean_coeff%rot_coeff(:,:,:,neigbor))
+    END DO
 
-   CALL init_operator_coeffs_cell( patch, ocean_coeff,prime_edge_length, dual_edge_length )
-   CALL init_operator_coeffs_vertex( patch, ocean_coeff, prime_edge_length, dual_edge_length)
+    !----------------------------------------------------
+    CALL init_operator_coeffs_cell( patch, ocean_coeff,prime_edge_length, dual_edge_length )
+    CALL init_operator_coeffs_vertex( patch, ocean_coeff, prime_edge_length, dual_edge_length)
 
-     !----------------------------------------------------
-     ! 9) recalculate the coriolis coefficient
+    !----------------------------------------------------
+    ! 9) recalculate the coriolis coefficient
     ! It is required if we use the middle of the dual_edge_length
     IF (MID_POINT_DUAL_EDGE) THEN
 
@@ -2109,9 +2110,8 @@ CONTAINS
     ENDDO ! neigbor=1,2
 
     !----------------------------------------------------
-   !----------------------------------------------------
-   ! 8) compute
-   !   edge2edge_viavert calculation
+    ! 8) compute
+    !   edge2edge_viavert calculation
     DO edge_block = owned_edges%start_block, owned_edges%end_block
       CALL get_index_range(owned_edges, edge_block, start_index, end_index)
       DO edge_index = start_index, end_index
@@ -2141,19 +2141,20 @@ CONTAINS
             dist_vector = vector_product(dist_vector, dual_edge_middle(edge_index_cell, edge_block_cell))
             orientation = DOT_PRODUCT( dist_vector%x,                         &
                & patch%edges%primal_cart_normal(edge_index_cell, edge_block_cell)%x)
-            IF (orientation < 0.0_wp) dist_vector%x = - dist_vector%x
+            ! orientation should not be 0, since this would mean that the prime and dual are parallel
+            ! overall this calculation should be derived from the verts%edge_orientation
+            ! orientation will recieve a value -1, or 1 based on the previous,
+            ! then multuplied by -1 if neigbor=2, otherwise unchanged
+            orientation = SIGN(1.0_wp,orientation) * (3.0_wp - 2.0_wp * REAL(neigbor))
 
-            !This is the cosine of the angle between vectors from dual cell centers
+            !The dot product is the cosine of the angle between vectors from dual cell centers
             !to dual cell edges 
-            edge2edge_viavert_coeff(edge_index,edge_block,ictr)   &
-              & = (-1.0_wp)*((-1.0_wp)**(REAL(neigbor)))          &
-              &   *DOT_PRODUCT(dist_vector_basic%x,dist_vector%x)
-
             edge2edge_viavert_coeff(edge_index,edge_block,ictr)         &
-              & = edge2edge_viavert_coeff(edge_index,edge_block,ictr)   &
+              & = orientation                                           &
+              & * DOT_PRODUCT(dist_vector_basic%x,dist_vector%x)        &
               & * patch%edges%system_orientation(edge_index, edge_block)&
-              & *(dual_edge_length(edge_index_cell, edge_block_cell)    &
-              & /prime_edge_length(edge_index, edge_block))
+              & * (dual_edge_length(edge_index_cell, edge_block_cell)   &
+              &    / prime_edge_length(edge_index, edge_block))
 
           END DO
         ENDDO !neigbor=1,2
@@ -2379,11 +2380,12 @@ CONTAINS
    !  CALL sync_patch_array(SYNC_E, patch, ocean_coeff%edge2edge_viavert_coeff(:,:,:,neigbor))
    !END DO
 
-   !---------------------------------------------------------
-
   END SUBROUTINE copy_2D_to_3D_coeff
   !-------------------------------------------------------------------------
-  !> Initialize expansion coefficients.
+  
+
+  !-------------------------------------------------------------------------
+  !> Modify coefficients at the boundary
   !!
   !! @par Revision History
   !! Peter Korn (2012-2)
@@ -2399,7 +2401,7 @@ CONTAINS
     INTEGER :: i_startidx_c, i_endidx_c
     INTEGER :: i_startidx_v, i_endidx_v
 
-    INTEGER :: i_v_ctr(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_v)
+    INTEGER :: sea_edges_per_vertex(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_v)
     INTEGER :: ibnd_edge_idx(4), ibnd_edge_blk(4)  !maximal 4 boundary edges in a dual loop.
     INTEGER :: i_edge_idx(4)
     !REAL(wp) :: z_orientation(4)!,z_area_scaled 
@@ -2431,7 +2433,7 @@ CONTAINS
     owned_verts => p_patch_3D%p_patch_2D(1)%verts%owned
     patch       => p_patch_3D%p_patch_2D(1)
 
-    i_v_ctr(:,:,:)          = 0
+    sea_edges_per_vertex(:,:,:)                       = 0
     zarea_fraction(1:nproma,1:n_zlev,1:patch%nblks_v) = 0.0_wp
 
     !-------------------------------------------------------------
@@ -2471,10 +2473,8 @@ CONTAINS
       END DO
     END DO 
 
-
     !-------------------------------------------------------------
-    !All the coefficients "edge2edge_viacell_coeff" are set to zero
-    !if the edge is an land edge.
+    ! Normalize "edge2edge_viacell_coeff" are set to zero
     DO jb = all_edges%start_block, all_edges%end_block
       CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
       DO jk = 1, n_zlev
@@ -2495,7 +2495,6 @@ CONTAINS
         END DO
       END DO
     END DO 
-
 
     !-------------------------------------------------------------
     !1) Set coefficients for div and grad to zero at boundary edges
@@ -2541,7 +2540,7 @@ CONTAINS
             ! edge with indices ile, ibe is boundary edge
 
             IF ( p_patch_3D%lsm_e(ile,jk,ibe) == SEA ) THEN
-              i_v_ctr(jv,jk,jb) = i_v_ctr(jv,jk,jb)+1
+              sea_edges_per_vertex(jv,jk,jb) = sea_edges_per_vertex(jv,jk,jb) + 1
             ELSEIF ( p_patch_3D%lsm_e(ile,jk,ibe) == BOUNDARY ) THEN
 
               !increase boundary edge counter
@@ -2573,35 +2572,36 @@ CONTAINS
           IF( MOD(boundary_counter,2) /= 0 ) THEN
             CALL finish (routine,'MOD(boundary_counter,2) /= 0 !!')
           ENDIF
-!---------------------------------------------------------------------------------
-            !Modified area calculation
-            vertex_cc = patch%verts%cartesian(jv,jb)
-            DO jev = 1, patch%verts%num_edges(jv,jb)
-              ! get line and block indices of edge jev around vertex jv
-              ile = patch%verts%edge_idx(jv,jb,jev)
-              ibe = patch%verts%edge_blk(jv,jb,jev)
-              !get neighbor cells
-              icell_idx_1 = patch%edges%cell_idx(ile,ibe,1)
-              icell_idx_2 = patch%edges%cell_idx(ile,ibe,2)
-              icell_blk_1 = patch%edges%cell_blk(ile,ibe,1)
-              icell_blk_2 = patch%edges%cell_blk(ile,ibe,2)
 
-              cell1_cc%x  = patch%cells%cartesian_center(icell_idx_1,icell_blk_1)%x
-              cell2_cc%x  = patch%cells%cartesian_center(icell_idx_2,icell_blk_2)%x
+          !---------------------------------------------------------------------------------
+          !Modified area calculation
+          vertex_cc = patch%verts%cartesian(jv,jb)
+          DO jev = 1, patch%verts%num_edges(jv,jb)
+            ! get line and block indices of edge jev around vertex jv
+            ile = patch%verts%edge_idx(jv,jb,jev)
+            ibe = patch%verts%edge_blk(jv,jb,jev)
+            !get neighbor cells
+            icell_idx_1 = patch%edges%cell_idx(ile,ibe,1)
+            icell_idx_2 = patch%edges%cell_idx(ile,ibe,2)
+            icell_blk_1 = patch%edges%cell_blk(ile,ibe,1)
+            icell_blk_2 = patch%edges%cell_blk(ile,ibe,2)
 
-              !Check, if edge is sea or boundary edge and take care of dummy edge
-              !edge with indices ile, ibe is sea edge
-              !Add up for wet dual area.
-              !IF ( v_base%lsm_e(ile,jk,ibe) <= sea_boundary ) THEN
-              IF ( p_patch_3D%lsm_e(ile,jk,ibe) <= sea_boundary ) THEN
-                ocean_coeff%variable_dual_vol_norm(jv,jk,jb,jev)= triangle_area(cell1_cc, vertex_cc, cell2_cc)
-                ! edge with indices ile, ibe is boundary edge
-              ELSE IF ( p_patch_3D%lsm_e(ile,jk,ibe) == boundary ) THEN
-                ocean_coeff%variable_dual_vol_norm(jv,jk,jb,jev)=0.0_wp!0.5_wp*triangle_area(cell1_cc, vertex_cc, cell2_cc)
-              END IF
-            END DO
+            cell1_cc%x  = patch%cells%cartesian_center(icell_idx_1,icell_blk_1)%x
+            cell2_cc%x  = patch%cells%cartesian_center(icell_idx_2,icell_blk_2)%x
 
-         !---------------------------------------------------------------------------------------------
+            !Check, if edge is sea or boundary edge and take care of dummy edge
+            !edge with indices ile, ibe is sea edge
+            !Add up for wet dual area.
+            !IF ( v_base%lsm_e(ile,jk,ibe) <= sea_boundary ) THEN
+            IF ( p_patch_3D%lsm_e(ile,jk,ibe) <= sea_boundary ) THEN
+              ocean_coeff%variable_dual_vol_norm(jv,jk,jb,jev)= triangle_area(cell1_cc, vertex_cc, cell2_cc)
+              ! edge with indices ile, ibe is boundary edge
+            ELSE IF ( p_patch_3D%lsm_e(ile,jk,ibe) == boundary ) THEN
+              ocean_coeff%variable_dual_vol_norm(jv,jk,jb,jev)=0.0_wp!0.5_wp*triangle_area(cell1_cc, vertex_cc, cell2_cc)
+            END IF
+          END DO
+
+          !---------------------------------------------------------------------------------------------
           DO je = 1, boundary_counter
             ibnd_edge_idx(je) = ocean_coeff%bnd_edge_idx(jv,jk,jb,je)
             ibnd_edge_blk(je) = ocean_coeff%bnd_edge_blk(jv,jk,jb,je)
@@ -2666,7 +2666,7 @@ CONTAINS
 
     !-------------------------------------------------------------
     !Merge dual area calculation with coefficients
-    ! note: i_v_ctr has been calculated on the owned_verts
+    ! note: sea_edges_per_vertex has been calculated on the owned_verts
     !       it does not need to be synced
     DO jb = owned_verts%start_block, owned_verts%end_block
       CALL get_index_range(owned_verts, jb, i_startidx_v, i_endidx_v)
@@ -2674,12 +2674,12 @@ CONTAINS
 !CDIR nextscalar
         DO jv = i_startidx_v, i_endidx_v
 
-          IF ( i_v_ctr(jv,jk,jb) == patch%verts%num_edges(jv,jb) ) THEN
+          IF ( sea_edges_per_vertex(jv,jk,jb) == no_dual_edges ) THEN ! we have to count for lateral boundaries at the top
             zarea_fraction(jv,jk,jb)= patch%verts%dual_area(jv,jb)/(earth_radius*earth_radius)
             !zarea_fraction(jv,jk,jb)=SUM(ocean_coeff%variable_dual_vol_norm(jv,jk,jb,:))
 
             !ELSEIF(ocean_coeff%bnd_edges_per_vertex(jv,jk,jb)/=0)THEN!boundary edges are involved
-          ELSEIF ( i_v_ctr(jv,jk,jb) /= 0 ) THEN
+          ELSEIF ( sea_edges_per_vertex(jv,jk,jb) /= 0 ) THEN
 
             !Modified area calculation
             vertex_cc = patch%verts%cartesian(jv,jb)
@@ -2711,7 +2711,7 @@ CONTAINS
                   & + 0.5_wp*triangle_area(cell1_cc, vertex_cc, cell2_cc)
               END IF
             END DO
-          ENDIF !( i_v_ctr(jv,jk,jb) == patch%verts%num_edges(jv,jb) )
+          ENDIF !( sea_edges_per_vertex(jv,jk,jb) == patch%verts%num_edges(jv,jb) )
           !The two quantities: 
           !zarea_fraction(jv,jk,jb)*(earth_radius*earth_radius) 
           !and 
@@ -2736,7 +2736,7 @@ CONTAINS
             END DO
             ocean_coeff%rot_coeff(jv,jk,jb,:)=0.0_wp
           ENDIF
-         !!ENDIF !( i_v_ctr(jv,jk,jb) == patch%verts%num_edges(jv,jb) )
+         !!ENDIF !( sea_edges_per_vertex(jv,jk,jb) == patch%verts%num_edges(jv,jb) )
 
         ENDDO!jv = i_startidx_v, i_endidx_v
       END DO!jk = 1, n_zlev
