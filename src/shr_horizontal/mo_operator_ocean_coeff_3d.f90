@@ -2413,9 +2413,9 @@ CONTAINS
     INTEGER :: vertex_edge
     TYPE(t_cartesian_coordinates) :: cell1_cc, cell2_cc, vertex_cc
 
-    TYPE(t_subset_range), POINTER :: all_edges
+    TYPE(t_subset_range), POINTER :: all_edges, owned_edges
     TYPE(t_subset_range), POINTER :: all_cells
-    TYPE(t_subset_range), POINTER :: owned_verts
+    TYPE(t_subset_range), POINTER :: owned_verts, in_domain_verts
     TYPE(t_patch), POINTER        :: patch
 
 
@@ -2428,7 +2428,9 @@ CONTAINS
 
     all_cells   => p_patch_3D%p_patch_2D(1)%cells%all
     all_edges   => p_patch_3D%p_patch_2D(1)%edges%all
+    owned_edges => p_patch_3D%p_patch_2D(1)%edges%owned
     owned_verts => p_patch_3D%p_patch_2D(1)%verts%owned
+    in_domain_verts  => p_patch_3D%p_patch_2D(1)%verts%in_domain
     patch       => p_patch_3D%p_patch_2D(1)
 
     sea_edges_per_vertex(:,:,:)                       = 0
@@ -2771,27 +2773,33 @@ CONTAINS
         CALL sync_patch_array(SYNC_E, patch, ocean_coeff%edge2edge_viavert_coeff(:,jk,:, jev))
       ENDDO
     ENDDO
-    DO jb = all_edges%start_block, all_edges%end_block
-      CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
-      DO jk = 1, n_zlev
-        DO je = i_startidx_e, i_endidx_e
+    
+    DO jb = owned_edges%start_block, owned_edges%end_block
+      CALL get_index_range(owned_edges, jb, i_startidx_e, i_endidx_e)
+      DO je = i_startidx_e, i_endidx_e
+        DO jk = 1, n_zlev
+          
+          IF ( p_patch_3D%lsm_e(je,jk,jb) <= sea_boundary ) THEN
 
-          DO neigbor=1,2
+            DO neigbor=1,2
 
-            jv  = patch%edges%vertex_idx(je, jb, neigbor)
-            jev = patch%edges%vertex_blk(je, jb, neigbor) 
+              jv  = patch%edges%vertex_idx(je, jb, neigbor)
+              jev = patch%edges%vertex_blk(je, jb, neigbor)
 
-            IF(neigbor==1)THEN
-              ocean_coeff%edge2edge_viavert_coeff(je,jk,jb,1:no_dual_edges)&
-              &=ocean_coeff%edge2edge_viavert_coeff(je,jk,jb,1:no_dual_edges)&
-              &/zarea_fraction(jv,jk,jev)!SUM(ocean_coeff%variable_dual_vol_norm(jv,jk,jev,:))
-            ELSEIF(neigbor==2)THEN
-              ocean_coeff%edge2edge_viavert_coeff(je,jk,jb,no_dual_edges+1:2*no_dual_edges)&
-              &=ocean_coeff%edge2edge_viavert_coeff(je,jk,jb,no_dual_edges+1:2*no_dual_edges)&
-              &/zarea_fraction(jv,jk,jev)!SUM(ocean_coeff%variable_dual_vol_norm(jv,jk,jev,:))
-            ENDIF
-            !ENDIF
-          END DO
+              IF(neigbor==1)THEN
+                ocean_coeff%edge2edge_viavert_coeff(je,jk,jb,1:no_dual_edges)&
+                &=ocean_coeff%edge2edge_viavert_coeff(je,jk,jb,1:no_dual_edges)&
+                &/zarea_fraction(jv,jk,jev)!SUM(ocean_coeff%variable_dual_vol_norm(jv,jk,jev,:))
+              ELSEIF(neigbor==2)THEN
+                ocean_coeff%edge2edge_viavert_coeff(je,jk,jb,no_dual_edges+1:2*no_dual_edges)&
+                &=ocean_coeff%edge2edge_viavert_coeff(je,jk,jb,no_dual_edges+1:2*no_dual_edges)&
+                &/zarea_fraction(jv,jk,jev)!SUM(ocean_coeff%variable_dual_vol_norm(jv,jk,jev,:))
+              ENDIF
+            
+            END DO !neigbor=1,2
+
+          ENDIF !  p_patch_3D%lsm_e(je,jk,jb) <= sea_boundary
+          
         END DO
       END DO
     END DO
@@ -2927,7 +2935,7 @@ CONTAINS
         p_patch%edges%inv_dual_edge_length(edge_index,edge_block) = &
           & 1._wp / p_patch%edges%dual_edge_length(edge_index,edge_block)
 
-        DO level=2, n_zlev
+        DO level=1, n_zlev
           p_coeff%grad_coeff(edge_index,level, edge_block)   &
             & = p_patch%edges%inv_dual_edge_length(edge_index,edge_block)
         ENDDO !levels
