@@ -24,7 +24,7 @@
 
 echo "POST_PREPARE.SMS" 
 
-## module load python
+module load python
 ## module load netcdf
 ## module load grib_api
 ## module load cdo/1.5.4  # to get specific version
@@ -159,9 +159,9 @@ if [[ $lsplitdata = 1 ]] ; then
     done
   done
 
-fi
+  ls -l grb_data
 
-ls -l grb_data
+fi
 
 
 #-----------------------------------------------------------------------------
@@ -170,6 +170,11 @@ ls -l grb_data
 if [[ $lcpdata = 1 ]] ; then
   rsh ecgate mkdir ${gatedir}/grb_data
   rcp grb_data/* ecgate:${gatedir}/grb_data
+  if [[ %SIMMODE% = 1 ]] ; then
+    VERDATEHOUR=`python %ECBASEDIR%/gen/date_calc.py -a printdate -d %YMD%%INIHOUR% -s +1`
+    gatedir_1=%ECTEMP%/%SUITE%/%EXPNUM%/${VERDATEHOUR}
+    rsh ecgate \cp -f ${gatedir}/grb_data/*.grb ${gatedir_1}/grb_data
+  fi
 fi
 
 

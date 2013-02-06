@@ -26,7 +26,11 @@ echo "POST_ARCHIVE.SMS"
 
 
 case %SIMMODE% in
-  1) ldeldata=1  ;;    # pre-operations
+  1) if [ %FAMILY1% = "post" ] ; then
+       ldeldata=0      # pre-operations (post)
+     else
+       ldeldata=1      # pre-operations (post_1)
+     fi ;;
   2) ldeldata=0  ;;    # monthly mean 10day forecasts
 esac
 
