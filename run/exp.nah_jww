@@ -107,7 +107,7 @@ cat > ${atmo_namelist} << EOF
  ntracer     = 0            ! number of tracers
  iforcing    = ${iforcing}  ! ECHAM physics                --> echam_phy_nml
  msg_level   = 10           ! detailed report during integration 
- output="nml",
+ output="vlist",
 /
 &dynamics_nml
  iequations  = ${atmo_model_equations}       ! 1: hydrost. atmosphere
