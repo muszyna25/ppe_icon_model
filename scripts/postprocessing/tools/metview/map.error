@@ -168,7 +168,7 @@ case varname of
  'Q2'      :  varfile = 'clwmr'       end
  'Q3'      :  varfile = '0.1.82'      end
  'QR'      :  varfile = 'rwmr'        end
- 'QS'      :  varfile = 'swmr'        end
+ 'QS'      :  varfile = 'snmr'        end
  'CC'      :  varfile = '0.6.22'      end
  'QTVAR'   :  varfile = '192.201.39'  end
  'ttendsw' :  varfile = '192.162.100' end
@@ -186,9 +186,9 @@ end case
 #verify QV,QC,QI against Q1,Q2,Q3 at initial condition (IFS)
 varfile2 = varfile
 case varname of
- 'QV'      :  varfile2 = 'q1'         end  # compare to Q1 initial condition
- 'QC'      :  varfile2 = 'q2'         end
- 'QI'      :  varfile2 = 'q3'         end
+ 'QV'      :  varfile2 = 'q'          end  # compare to Q1 initial condition
+ 'QC'      :  varfile2 = 'qc'         end
+ 'QI'      :  varfile2 = 'qi'         end
 end case
 
 
@@ -295,7 +295,7 @@ for nd=1 to ndays do
        #ddays = date(verdate)+vertime1[1]/24.0  - date(inidate)-initime1[1]/24.0
         param = varname
         case varname of
-         #'CLCT':            param = 'TCC'  end
+          'TCC':             param = 'TCC'  end
           'TQV':             param = 'TCWV' end
           'TQC':             param = 'TCLW' end
           'TQI':             param = 'TCIW' end
