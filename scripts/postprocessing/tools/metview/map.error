@@ -307,9 +307,9 @@ for nd=1 to ndays do
           'V_10M':           param = '10V'  end
           'T_2M':            param = '2T'   end
           'PS':              param = 'SP'   end
+          'TOT_PREC':        param = 'TP'   ; scale= 1000.0 end
          #'':                param = 'CP'   end
          #'':                param = 'LSP'  end
-          'TOT_PREC':        param = 'TP'   ; scale= 1000.0 end
          #'':                param = 'SSTK' end
           'H_SNOW':          param = 'SD'   end
           'RHO_SNOW':        param = 'RSN'  end
