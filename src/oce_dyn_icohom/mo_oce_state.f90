@@ -3376,8 +3376,8 @@ END SUBROUTINE complete_patchinfo_oce
     n_zlvp = n_zlev + 1
     n_zlvm = n_zlev - 1
 
-   ALLOCATE(p_patch_3D%p_patch_1D(n_dom_start:n_dom), STAT=ist)
-   IF (ist /= SUCCESS) THEN
+    ALLOCATE(p_patch_3D%p_patch_1D(n_dom_start:n_dom), STAT=ist)
+    IF (ist /= SUCCESS) THEN
       CALL finish (routine,'allocating p_patch_1D failed')
     ENDIF
 
@@ -3411,6 +3411,11 @@ END SUBROUTINE complete_patchinfo_oce
     ALLOCATE(p_patch_3D%lsm_e(nproma,n_zlev,nblks_e),STAT=ist)
     IF (ist /= SUCCESS) THEN
       CALL finish (routine,'allocating lsm_e failed')
+    ENDIF
+    ! surface vertices
+    ALLOCATE(p_patch_3D%surface_lsm_v(nproma,nblks_v),STAT=ist)
+    IF (ist /= SUCCESS) THEN
+      CALL finish (routine,'allocating surface_lsm_v failed')
     ENDIF
     ! deepest ocean layer in column
     ALLOCATE(p_patch_3D%p_patch_1D(n_dom)%dolic_c(nproma,nblks_c),STAT=ist)
@@ -3500,7 +3505,7 @@ END SUBROUTINE complete_patchinfo_oce
     IF (ist /= SUCCESS) THEN
       CALL finish (routine,'allocating inv_prism_thick_e failed')
     ENDIF
- ALLOCATE(p_patch_3D%p_patch_1D(1)%inv_prism_center_dist_c(nproma,n_zlev,nblks_e),STAT=ist)
+   ALLOCATE(p_patch_3D%p_patch_1D(1)%inv_prism_center_dist_c(nproma,n_zlev,nblks_e),STAT=ist)
     IF (ist /= SUCCESS) THEN
       CALL finish (routine,'allocating prism_center_dist_c failed')
     ENDIF
@@ -3584,54 +3589,110 @@ END SUBROUTINE complete_patchinfo_oce
     TYPE(t_hydro_ocean_base), INTENT(INOUT)    :: v_base
     ! local variables
     INTEGER :: ist
-    INTEGER :: nblks_c, nblks_e, nblks_v, n_zlvp, n_zlvm!, ie
+!     INTEGER :: nblks_c, nblks_e, nblks_v, n_zlvp, n_zlvm!, ie
     INTEGER :: je,jc,jb,jk
     INTEGER :: i_startidx_c, i_endidx_c,i_startidx_e, i_endidx_e
     CHARACTER(len=max_char_length), PARAMETER :: &
       &      routine = 'mo_oce_state:construct_patch_3D'
 
+    TYPE(t_patch), POINTER :: patch_2D
     TYPE(t_subset_range), POINTER :: all_cells
     TYPE(t_subset_range), POINTER :: all_edges
+    TYPE(t_subset_range), POINTER :: owned_verts
+
+    INTEGER :: vertex_block, vertex_index, start_index, end_index
+    INTEGER :: edge_block, edge_index, neighbor
+    INTEGER :: land_edges, sea_edges, boundary_edges
+    REAL(wp), ALLOCATABLE :: z_sync_v(:,:)
+
     !-----------------------------------------------------------------------------
     CALL message (TRIM(routine), 'start')
-    
-    all_cells   => p_patch_3D%p_patch_2D(1)%cells%all
-    all_edges   => p_patch_3D%p_patch_2D(1)%edges%all
+    patch_2D    => p_patch_3D%p_patch_2D(1)
+    all_cells   => patch_2D%cells%all
+    all_edges   => patch_2D%edges%all
+    owned_verts => patch_2D%verts%owned
 !-------------------------------------------------------------------------
 
     !CALL message(TRIM(routine), 'start to construct basic hydro ocean state')
 
-    ! determine size of arrays
-    nblks_c = p_patch_3D%p_patch_2D(n_dom_start)%nblks_c
-    nblks_e = p_patch_3D%p_patch_2D(n_dom_start)%nblks_e
-    nblks_v = p_patch_3D%p_patch_2D(n_dom_start)%nblks_v
-    n_zlvp = n_zlev + 1
-    n_zlvm = n_zlev - 1
-
    !Copy indormation from v_base
 
-   p_patch_3D%p_patch_1D(1)%zlev_i = v_base%zlev_i    
-   p_patch_3D%p_patch_1D(1)%zlev_m = v_base%zlev_m    
-   p_patch_3D%p_patch_1D(1)%del_zlev_i = v_base%del_zlev_i    
-   p_patch_3D%p_patch_1D(1)%del_zlev_m = v_base%del_zlev_m
+    p_patch_3D%p_patch_1D(1)%zlev_i = v_base%zlev_i
+    p_patch_3D%p_patch_1D(1)%zlev_m = v_base%zlev_m
+    p_patch_3D%p_patch_1D(1)%del_zlev_i = v_base%del_zlev_i
+    p_patch_3D%p_patch_1D(1)%del_zlev_m = v_base%del_zlev_m
 
-   p_patch_3D%p_patch_1D(1)%n_zlev = v_base%n_zlev    
-   p_patch_3D%p_patch_1D(1)%n_zlvp = v_base%n_zlvp    
-   p_patch_3D%p_patch_1D(1)%n_zlvm = v_base%n_zlvm    
+    p_patch_3D%p_patch_1D(1)%n_zlev = v_base%n_zlev
+    p_patch_3D%p_patch_1D(1)%n_zlvp = v_base%n_zlvp
+    p_patch_3D%p_patch_1D(1)%n_zlvm = v_base%n_zlvm
 
-   p_patch_3D%wet_e = v_base%wet_e    
-   p_patch_3D%wet_c = v_base%wet_c
+    p_patch_3D%wet_e = v_base%wet_e
+    p_patch_3D%wet_c = v_base%wet_c
 
-   p_patch_3D%lsm_e = v_base%lsm_e    
-   p_patch_3D%lsm_c = v_base%lsm_c
+    p_patch_3D%lsm_e = v_base%lsm_e
+    p_patch_3D%lsm_c = v_base%lsm_c
+    
+    ! calculate surface_lsm_v
+    DO vertex_block = owned_verts%start_block, owned_verts%end_block
+      CALL get_index_range(owned_verts, vertex_block, start_index, end_index)
+      DO vertex_index = start_index, end_index
+        land_edges     = 0
+        sea_edges      = 0
+        boundary_edges = 0
+        
+        DO neighbor=1, patch_2D%verts%num_edges(vertex_index,vertex_block)
+          edge_index = patch_2D%verts%edge_idx(vertex_index, vertex_block, neighbor)
+          edge_block = patch_2D%verts%edge_blk(vertex_index, vertex_block, neighbor)
 
-   p_patch_3D%basin_c  = v_base%basin_c 
-   p_patch_3D%regio_c  = v_base%regio_c
-   p_patch_3D%rbasin_c = v_base%rbasin_c
-   p_patch_3D%rregio_c = v_base%rregio_c
+          IF (edge_index > 0) THEN ! this if should not be necessary
 
-   p_patch_3D%p_patch_1D(1)%dolic_c = v_base%dolic_c
-   p_patch_3D%p_patch_1D(1)%dolic_e = v_base%dolic_e
+            SELECT CASE(p_patch_3D%lsm_e(edge_index, 1, edge_block))
+
+              CASE(sea, sea_boundary)
+                sea_edges = sea_edges + 1
+              CASE(boundary)
+                boundary_edges = boundary_edges + 1
+              CASE(land, land_boundary)
+                land_edges = land_edges + 1
+              CASE default
+                CALL finish(routine, "Uknown patch_3D%lsm_e" )
+                
+            END SELECT
+            
+          ENDIF
+        
+        ENDDO ! neighbor
+
+        p_patch_3D%surface_lsm_v(vertex_index, vertex_block)   = sea
+        IF (boundary_edges > 0) THEN
+          p_patch_3D%surface_lsm_v(vertex_index, vertex_block) = boundary
+        ELSEIF (land_edges > 0) THEN
+          p_patch_3D%surface_lsm_v(vertex_index, vertex_block) = land
+          ! consistency check
+          IF (sea_edges > 0) &
+             CALL finish(routine, "Inconsistent patch_3D%lsm_e" )         
+        ENDIF
+              
+      ENDDO
+    ENDDO
+    ! sync the results
+    ALLOCATE(z_sync_v(nproma,patch_2D%nblks_v),STAT=ist)
+    IF (ist /= SUCCESS) THEN
+      CALL finish (routine,'allocating surface_lsm_v failed')
+    ENDIF     
+    z_sync_v(:,:) =  REAL(p_patch_3D%surface_lsm_v(:,:),wp)
+    CALL sync_patch_array(SYNC_V, patch_2D, z_sync_v(:,:))
+    p_patch_3D%surface_lsm_v(:,:) = INT(z_sync_v(:,:))
+    DEALLOCATE(z_sync_v)
+    !---------------------------------------
+      
+    p_patch_3D%basin_c  = v_base%basin_c
+    p_patch_3D%regio_c  = v_base%regio_c
+    p_patch_3D%rbasin_c = v_base%rbasin_c
+    p_patch_3D%rregio_c = v_base%rregio_c
+
+    p_patch_3D%p_patch_1D(1)%dolic_c = v_base%dolic_c
+    p_patch_3D%p_patch_1D(1)%dolic_e = v_base%dolic_e
 
     DO jb = all_cells%start_block, all_cells%end_block
       CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)

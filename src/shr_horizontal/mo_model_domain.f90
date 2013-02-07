@@ -952,7 +952,8 @@ MODULE mo_model_domain
     INTEGER, ALLOCATABLE :: lsm_e(:,:,:)
     ! land-sea-mask for cell vertices
     ! index1=1,nproma, index2=1,n_zlev, index3=1,nblks_v
-    ! INTEGER, ALLOCATABLE :: lsm_v(:,:,:)
+    ! this is to be used by the sea-ice module
+    INTEGER, ALLOCATABLE :: surface_lsm_v(:,:)
 
     ! To simply set land points to zero we store additional 3-dim wet points
     ! dimensions as in lsm_oce:
