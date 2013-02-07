@@ -154,9 +154,10 @@ case varname of
  'SNOW_CON':  varfile = 'csrwe'       end    # 0.1.55
  'SNOW_GSP':  varfile = 'lssrwe'      end    # 0.1.56
  'TCC'     :  varfile = '0.6.1'       end
+ 'TQV'     :  varfile = 'tciwv'       end    # 0.1.64
  'TQC'     :  varfile = '0.1.69'      end
  'TQI'     :  varfile = '0.1.70'      end
- 'TQ1'     :  varfile = 'tciwv'       end
+ 'TQ1'     :  varfile = '0.1.221'     end
  'TQ2'     :  varfile = '0.1.222'     end
  'TQ3'     :  varfile = '0.1.223'     end
  'TQ4'     :  varfile = '0.1.224'     end

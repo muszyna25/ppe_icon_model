@@ -45,7 +45,7 @@ ldeldata=1
 #-----------------------------------------------------------------------------
 # loop over level type
 
-for levtype1 in PL HL ML; do
+for levtype1 in PL HL ML ; do
 #for levtype1 in ML      ; do
 
 
@@ -81,11 +81,10 @@ for levtype1 in PL HL ML; do
 # GRIB: rename and copy to ecgate
 
     outfile=${basename}_DOM01_${levtype1}_0001.grb
-    case $lgetdata in
-      1) ecp ec:icon/experiments/%SUITE%/%EXPNUM%/${ymdh}/$outfile .  ;;
-#     2) cp %SCTEMP%/%SUITE%/%EXPNUM%/${ymdh}/$outfile . ;;
-    esac
-    smsmeter ecget ${dd}
+    if [[ $lgetdata = 1 ]] ; then
+      ecp ec:icon/experiments/%SUITE%/%EXPNUM%/${ymdh}/$outfile .
+      smsmeter ecget ${dd}
+    fi
 
 
 #-----------------------------------------------------------------------------
