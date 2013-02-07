@@ -1627,8 +1627,8 @@ CONTAINS
     ENDWHERE
 
     ! Ice cannot grow thinner than hmin
-    ice%hi(:,:,:) = MAX( hmin, ice%hi(:,:,:) )
     WHERE ( ice%hi(:,1,:) > 0._wp )
+      ice%hi  (:,1,:) = MAX( hmin, ice%hi(:,1,:) )
       ice%conc(:,1,:) = ice%vol(:,1,:) / ( ice%hi(:,1,:)*p_patch%cells%area(:,:) )
     ENDWHERE
 
