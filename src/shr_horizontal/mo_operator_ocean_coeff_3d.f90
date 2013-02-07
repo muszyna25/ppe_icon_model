@@ -1633,6 +1633,7 @@ CONTAINS
 
     fixed_vol_norm(:,:)       = 0.0_wp
     variable_vol_norm(:,:,:)  = 0.0_wp
+    edge2edge_viacell_coeff(:,:,:) = 0.0_wp
 
     DO cell_block = owned_cells%start_block, owned_cells%end_block
       CALL get_index_range(owned_cells, cell_block, start_index, end_index)
@@ -1883,9 +1884,9 @@ CONTAINS
         ENDDO
       ENDDO
     ENDDO    
-    DO neigbor=1, 2*no_primal_edges
-      CALL sync_patch_array(SYNC_E, patch,  ocean_coeff%edge2edge_viacell_coeff(:,:,:,neigbor))
-    ENDDO
+    !DO neigbor=1, 2*no_primal_edges
+    !  CALL sync_patch_array(SYNC_E, patch,  ocean_coeff%edge2edge_viacell_coeff(:,:,:,neigbor))
+    !ENDDO
    !-------------------------------------------
 !Do ictr=1,12
 ! write(*,*)'max coeff',&
