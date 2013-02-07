@@ -2162,7 +2162,7 @@ CONTAINS
     !-------------------
     DO ictr=1, 2*no_dual_edges
 !      write(0,*)'ictr:',ictr
-      CALL sync_patch_array(SYNC_V, patch, edge2edge_viavert_coeff(:,:,ictr))
+      CALL sync_patch_array(SYNC_E, patch, edge2edge_viavert_coeff(:,:,ictr))
     ENDDO
 
     DO edge_block = all_edges%start_block, all_edges%end_block
