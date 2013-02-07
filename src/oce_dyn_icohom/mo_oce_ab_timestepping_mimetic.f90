@@ -63,7 +63,7 @@ USE mo_ocean_nml,                 ONLY: n_zlev, solver_tolerance, l_inverse_flip
   &                                     FLUX_CALCULATION_HORZ, MIMETIC,CENTRAL,UPWIND
 USE mo_run_config,                ONLY: dtime, ltimer
 USE mo_timer,                     ONLY: timer_start, timer_stop, timer_ab_expl,           &
-  &                                     timer_ab_rhs4sfc
+  &                                     timer_ab_rhs4sfc, timer_lhs
 USE mo_dynamics_config,           ONLY: nold, nnew
 USE mo_physical_constants,        ONLY: grav
 USE mo_oce_state,                 ONLY: t_hydro_ocean_state, t_hydro_ocean_diag,&! v_base,  &
@@ -1439,7 +1439,7 @@ REAL(wp),    INTENT(in)          :: coeff
 TYPE(t_operator_coeff),INTENT(in):: p_op_coeff
 REAL(wp),    INTENT(in)          :: h_e(:,:)         !SW-case: thickness at edges
                                               !3D-case: surface height above zero at edges
-REAL(wp),    INTENT(in)   :: thickness_c(:,:) !thickness of fluid column    
+REAL(wp),    INTENT(in)   :: thickness_c(:,:) !thickness of fluid column
 !
 ! Left-hand side calculated from iterated height
 !
@@ -1458,7 +1458,9 @@ TYPE(t_subset_range), POINTER :: cells_in_domain, all_cells, all_edges
 TYPE(t_patch), POINTER :: p_patch     ! patch on which computation is performed
 ! CHARACTER(len=max_char_length), PARAMETER ::     &
 !   &      routine = ('mo_oce_ab_timestepping_mimetic: lhs_surface_height_ab_mim')
-!-----------------------------------------------------------------------  
+  !-----------------------------------------------------------------------  
+  IF (ltimer) CALL timer_start(timer_lhs)
+  !-----------------------------------------------------------------------  
 !CALL message (TRIM(routine), 'start - iteration by GMRES')        
   p_patch         => p_patch_3D%p_patch_2D(1)
   cells_in_domain => p_patch%cells%in_domain
@@ -1611,6 +1613,9 @@ TYPE(t_patch), POINTER :: p_patch     ! patch on which computation is performed
       ENDIF
     END DO
   END DO
+  
+  IF (ltimer) CALL timer_stop(timer_lhs)
+  !-----------------------------------------------------------------------  
 
 END FUNCTION lhs_surface_height_ab_mim
 !-------------------------------------------------------------------------  
@@ -1808,7 +1813,7 @@ INTEGER, DIMENSION(:,:,:), POINTER :: iilc,iibc
 TYPE(t_cartesian_coordinates):: z_vn_c (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)
 TYPE(t_subset_range), POINTER :: cells_in_domain, edges_in_domain
 TYPE(t_patch), POINTER :: p_patch
-!-----------------------------------------------------------------------  
+!-----------------------------------------------------------------------
  p_patch         => p_patch_3D%p_patch_2D(1)
  cells_in_domain => p_patch%cells%in_domain
  edges_in_domain => p_patch%edges%in_domain
