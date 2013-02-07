@@ -68,8 +68,7 @@ USE mo_oce_math_operators,        ONLY:&! div_oce,grad_fd_norm_oce,&
 USE mo_oce_diffusion,             ONLY: tracer_diffusion_horz
 USE mo_operator_ocean_coeff_3d,   ONLY: t_operator_coeff
 USE mo_grid_subset,               ONLY: t_subset_range, get_index_range
-USE mo_sync,                      ONLY: SYNC_C, SYNC_C1, SYNC_E, sync_patch_array, &
-  &                                     sync_patch_array_mult
+USE mo_sync,                      ONLY: SYNC_C, SYNC_C1, SYNC_E, sync_patch_array
 USE mo_mpi,                       ONLY: my_process_is_mpi_parallel
 
 IMPLICIT NONE
@@ -1067,7 +1066,8 @@ END SUBROUTINE advect_diffuse_flux_horz
 
     ! 4. Limit the antidiffusive fluxes z_mflx_anti, such that the updated tracer
     !    field is free of any new extrema.
-    CALL sync_patch_array_mult(SYNC_C1, p_patch, 2, z_tracer_max, z_tracer_min)
+    CALL sync_patch_array(SYNC_C1, p_patch,  z_tracer_max)
+    CALL sync_patch_array(SYNC_C1, p_patch,  z_tracer_min)
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,z_max,p_p,z_min,p_m)
@@ -1126,7 +1126,8 @@ END SUBROUTINE advect_diffuse_flux_horz
 !$OMP END DO
 !$OMP END PARALLEL
     ! Synchronize r_m and r_p
-    CALL sync_patch_array_mult(SYNC_C1, p_patch, 2, r_m, r_p)
+    CALL sync_patch_array(SYNC_C1, p_patch, r_m)
+    CALL sync_patch_array(SYNC_C1, p_patch, r_p)
 
     ! 5. Now loop over all edges and determine the minimum fraction which must
     !    multiply the antidiffusive flux at the edge.
@@ -1383,7 +1384,8 @@ END SUBROUTINE advect_diffuse_flux_horz
 
     ! 4. Limit the antidiffusive fluxes z_mflx_anti, such that the updated tracer
     !    field is free of any new extrema.
-    CALL sync_patch_array_mult(SYNC_C1, p_patch, 2, z_tracer_max, z_tracer_min)
+    CALL sync_patch_array(SYNC_C1, p_patch, z_tracer_max)
+    CALL sync_patch_array(SYNC_C1, p_patch, z_tracer_min)
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,z_max,p_p,z_min,p_m)
@@ -1441,7 +1443,8 @@ END SUBROUTINE advect_diffuse_flux_horz
 !$OMP END DO
 !$OMP END PARALLEL
     ! Synchronize r_m and r_p
-    CALL sync_patch_array_mult(SYNC_C1, p_patch, 2, r_m, r_p)
+    CALL sync_patch_array(SYNC_C1, p_patch, r_m)
+    CALL sync_patch_array(SYNC_C1, p_patch, r_p)
 
     ! 5. Now loop over all edges and determine the minimum fraction which must
     !    multiply the antidiffusive flux at the edge.
