@@ -594,7 +594,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                          &
                 & t_cf_var(TRIM(vname_prefix)//'qc', '',                       &
                 & 'tci_specific_cloud_water_content_avg', DATATYPE_FLT32),     &
-                & t_grib2_var(0, 6, 18, ibits, GRID_REFERENCE, GRID_CELL),     &
+                & t_grib2_var(0, 1, 69, ibits, GRID_REFERENCE, GRID_CELL),     &
                 & ldims=shape2d, lrestart=.FALSE.,                             &
                 & isteptype=TSTEP_AVG )
 
@@ -604,7 +604,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                          &
                 & t_cf_var(TRIM(vname_prefix)//'qi', '',                       &
                 & 'tci_specific_cloud_ice_content_avg', DATATYPE_FLT32),       &
-                & t_grib2_var(0, 6, 19, ibits, GRID_REFERENCE, GRID_CELL),     &
+                & t_grib2_var(0, 1, 70, ibits, GRID_REFERENCE, GRID_CELL),     &
                 & ldims=shape2d, lrestart=.FALSE.,                             &
                 & isteptype=TSTEP_AVG )
 
