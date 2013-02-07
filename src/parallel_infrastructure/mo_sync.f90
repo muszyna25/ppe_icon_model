@@ -648,7 +648,9 @@ SUBROUTINE check_patch_array_3(typ, p_patch, arr, opt_varname)
       ! Terminate the programm if the array is out of sync
 
       IF(sync_error) THEN
-        CLOSE (log_unit)
+        IF(l_log_checks) THEN
+          CLOSE (log_unit)
+        ENDIF
         CALL finish('sync_patch_array','Out of sync detected!')
       ENDIF
 
