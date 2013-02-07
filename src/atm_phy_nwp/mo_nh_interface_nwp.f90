@@ -165,7 +165,7 @@ CONTAINS
 
     TYPE(t_nh_diag), TARGET, INTENT(inout) :: pt_diag     !<the diagnostic variables
     TYPE(t_nh_prog), TARGET, INTENT(inout) :: pt_prog     !<the prognostic variables
-    TYPE(t_nh_prog), TARGET, INTENT(IN)    :: pt_prog_now_rcf !<old state for tke
+    TYPE(t_nh_prog), TARGET, INTENT(inout) :: pt_prog_now_rcf !<old state for tke
     TYPE(t_nh_prog), TARGET, INTENT(inout) :: pt_prog_rcf !<the prognostic variables (with
                                                           !< red. calling frequency for tracers!
     TYPE(t_nwp_phy_diag),       INTENT(inout) :: prm_diag
