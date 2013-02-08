@@ -42,9 +42,7 @@ MODULE mo_sync
 !    modified for ICON project, DWD/MPI-M 2006
 !
 !-------------------------------------------------------------------------
-!
-!
-!
+
 
 USE mo_kind,               ONLY: wp, dp, i8
 USE mo_exception,          ONLY: finish, message, message_text
@@ -96,8 +94,10 @@ INTEGER, PARAMETER, PUBLIC :: SYNC_V = 3
 INTEGER, PARAMETER, PUBLIC :: SYNC_C1 = 4
 
 INTERFACE sync_patch_array
-  MODULE PROCEDURE sync_patch_array_2
-  MODULE PROCEDURE sync_patch_array_3
+  MODULE PROCEDURE sync_patch_array_r2
+  MODULE PROCEDURE sync_patch_array_r3
+  MODULE PROCEDURE sync_patch_array_i2
+  MODULE PROCEDURE sync_patch_array_i3
 END INTERFACE
 
 INTERFACE check_patch_array
@@ -155,26 +155,18 @@ END SUBROUTINE enable_sync_checks
 SUBROUTINE disable_sync_checks()
   do_sync_checks = .FALSE.
 END SUBROUTINE disable_sync_checks
+
+
 !-------------------------------------------------------------------------
+!> Does boundary exchange for a 3-D REAL array.
 !
+!  @par Revision History
+!  Initial version by Rainer Johanni, Nov 2009
 !
-
-!>
-!! Does boundary exchange for a 3-D array.
-!!
-!!
-!! @par Revision History
-!! Initial version by Rainer Johanni, Nov 2009
-!!
-SUBROUTINE sync_patch_array_3(typ, p_patch, arr)
-
-!
-
-   INTEGER, INTENT(IN)     :: typ
-   TYPE(t_patch), INTENT(IN) :: p_patch
-
-   REAL(wp), INTENT(INOUT) :: arr(:,:,:)
-!-----------------------------------------------------------------------
+SUBROUTINE sync_patch_array_r3(typ, p_patch, arr)
+   INTEGER,       INTENT(IN)    :: typ
+   TYPE(t_patch), INTENT(IN)    :: p_patch
+   REAL(wp),      INTENT(INOUT) :: arr(:,:,:)
 
    ! If this is a verification run, check consistency before doing boundary exchange
    IF (p_test_run .AND. do_sync_checks) CALL check_patch_array_3(typ, p_patch, arr, 'sync')
@@ -193,44 +185,86 @@ SUBROUTINE sync_patch_array_3(typ, p_patch, arr)
          CALL finish('sync_patch_array','Illegal type parameter')
       ENDIF
    ENDIF
+END SUBROUTINE sync_patch_array_r3
 
-END SUBROUTINE sync_patch_array_3
 
 !-------------------------------------------------------------------------
+!> Does boundary exchange for a 3-D INTEGER array.
 !
+!  @par Revision History
+!  Initial version by Rainer Johanni, Nov 2009
 !
-
-!>
-!! Does boundary exchange for a 2-D array.
-!!
-!!
-!! @par Revision History
-!! Initial version by Rainer Johanni, Nov 2009
-!!
-SUBROUTINE sync_patch_array_2(typ, p_patch, arr)
-
+!  @note This implementation does not perform a consistency check
+!        (p_test_run)!
 !
+SUBROUTINE sync_patch_array_i3(typ, p_patch, arr)
+   INTEGER,       INTENT(IN)    :: typ
+   TYPE(t_patch), INTENT(IN)    :: p_patch
+   INTEGER,       INTENT(INOUT) :: arr(:,:,:)
 
-   INTEGER, INTENT(IN)     :: typ
-   TYPE(t_patch), INTENT(IN) :: p_patch
+   ! Boundary exchange for work PEs
+   IF(my_process_is_mpi_parallel()) THEN
+      IF(typ == SYNC_C) THEN
+         CALL exchange_data(p_patch%comm_pat_c, arr)
+      ELSE IF(typ == SYNC_E) THEN
+         CALL exchange_data(p_patch%comm_pat_e, arr)
+      ELSE IF(typ == SYNC_V) THEN
+         CALL exchange_data(p_patch%comm_pat_v, arr)
+      ELSE IF(typ == SYNC_C1) THEN
+         CALL exchange_data(p_patch%comm_pat_c1, arr)
+      ELSE
+         CALL finish('sync_patch_array','Illegal type parameter')
+      ENDIF
+   ENDIF
+END SUBROUTINE sync_patch_array_i3
 
-   REAL(wp), INTENT(INOUT) :: arr(:,:)
 
+!-------------------------------------------------------------------------
+!> Does boundary exchange for a 2-D REAL array.
+!
+!  @par Revision History
+!  Initial version by Rainer Johanni, Nov 2009
+!
+SUBROUTINE sync_patch_array_r2(typ, p_patch, arr)
+   INTEGER,       INTENT(IN)    :: typ
+   TYPE(t_patch), INTENT(IN)    :: p_patch
+   REAL(wp),      INTENT(INOUT) :: arr(:,:)
+   ! local variable
    REAL(wp), ALLOCATABLE :: arr3(:,:,:)
-!-----------------------------------------------------------------------
 
    ALLOCATE(arr3(UBOUND(arr,1), 1, UBOUND(arr,2)))
    arr3(:,1,:) = arr(:,:)
-   CALL sync_patch_array_3(typ, p_patch, arr3)
+   CALL sync_patch_array_r3(typ, p_patch, arr3)
    arr(:,:) = arr3(:,1,:)
    DEALLOCATE(arr3)
+END SUBROUTINE sync_patch_array_r2
 
-END SUBROUTINE sync_patch_array_2
 
 !-------------------------------------------------------------------------
+!> Does boundary exchange for a 2-D INTEGER array.
 !
+!  @par Revision History
+!  Initial version by Rainer Johanni, Nov 2009
 !
+!  @note This implementation does not perform a consistency check
+!        (p_test_run)!
+!
+SUBROUTINE sync_patch_array_i2(typ, p_patch, arr)
+   INTEGER,       INTENT(IN)    :: typ
+   TYPE(t_patch), INTENT(IN)    :: p_patch
+   INTEGER,       INTENT(INOUT) :: arr(:,:)
+   ! local variable
+   INTEGER, ALLOCATABLE :: arr3(:,:,:)
 
+   ALLOCATE(arr3(UBOUND(arr,1), 1, UBOUND(arr,2)))
+   arr3(:,1,:) = arr(:,:)
+   CALL sync_patch_array_i3(typ, p_patch, arr3)
+   arr(:,:) = arr3(:,1,:)
+   DEALLOCATE(arr3)
+END SUBROUTINE sync_patch_array_i2
+
+
+!-------------------------------------------------------------------------
 !>
 !! Does boundary exchange for up to 5 3D cell-based fields and/or a 4D field.
 !!
@@ -2409,8 +2443,8 @@ SUBROUTINE decomposition_statistics(p_patch)
      max_nprecv = NINT(csmax(5))
 
      ! Compute average latitude and longitude over prognostic grid points (including nest boundary)
-     avglat = 0
-     avglon = 0
+     avglat = 0._wp
+     avglon = 0._wp
      i2m = p_patch%cells%end_blk(min_rlcell_int,i_nchdom)
      DO i2 = 1, i2m
        i1m = nproma

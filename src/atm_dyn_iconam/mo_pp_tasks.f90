@@ -231,6 +231,7 @@ CONTAINS
     TYPE (t_var_metadata),     POINTER :: p_info
     TYPE (t_lon_lat_intp),     POINTER :: ptr_int_lonlat
     REAL(wp), ALLOCATABLE              :: tmp_var(:,:,:)
+    INTEGER,  ALLOCATABLE              :: tmp_int_var(:,:,:)
     TYPE(t_patch),             POINTER :: p_patch
 
     p_patch        => ptr_task%data_input%p_patch      ! patch
@@ -264,38 +265,88 @@ CONTAINS
 
     SELECT CASE (p_info%hgrid)
     CASE (GRID_UNSTRUCTURED_CELL)
-      IF (is_2d_field(p_info%vgrid)) THEN
-        ! For 2D variables (nproma, nblks) we first copy this to 1-level
-        ! 3D variable (nproma, nlevs, nblks). This requires a temporary
-        ! variable:
-        dim1 = p_info%used_dimensions(1)
-        dim2 = p_info%used_dimensions(2)
-        ALLOCATE(tmp_var(dim1, 1, dim2), STAT=ierrstat)
-        tmp_var(:,1,:) = in_var%r_ptr(:,:,in_var_idx,1,1)
+      IF (ASSOCIATED(in_var%r_ptr)) THEN
 
-        ! for cell-based variables: interpolate gradients (finite
-        ! differences) and reconstruct
-        CALL rbf_interpol_lonlat(                 &
-          &   tmp_var(:,:,:),                     &
-          &   ptr_int_lonlat,                     &
-          &   out_var%r_ptr(:,:,:,out_var_idx,1), &
-          &   nblks_ll, npromz_ll, hintp_type)
+        ! -----------
+        ! REAL fields
+        ! -----------
 
-        ! clean up:
-        DEALLOCATE(tmp_var, STAT=ierrstat)
-        IF (ierrstat /= SUCCESS)  CALL finish (routine, 'deallocation failed')
-      ELSE
-        ! for cell-based variables: interpolate gradients (finite
-        ! differences) and reconstruct
-        CALL rbf_interpol_lonlat(                 &
-          &   in_var%r_ptr(:,:,:,in_var_idx,1),   &
-          &   ptr_int_lonlat,                     &
-          &   out_var%r_ptr(:,:,:,out_var_idx,1), &
-          &   nblks_ll, npromz_ll, hintp_type)
+        IF (is_2d_field(p_info%vgrid)) THEN
+          ! For 2D variables (nproma, nblks) we first copy this to 1-level
+          ! 3D variable (nproma, nlevs, nblks). This requires a temporary
+          ! variable:
+          dim1 = p_info%used_dimensions(1)
+          dim2 = p_info%used_dimensions(2)
+          ALLOCATE(tmp_var(dim1, 1, dim2), STAT=ierrstat)
+          tmp_var(:,1,:) = in_var%r_ptr(:,:,in_var_idx,1,1)
+
+          ! for cell-based variables: interpolate gradients (finite
+          ! differences) and reconstruct
+          CALL rbf_interpol_lonlat(                 &
+            &   tmp_var(:,:,:),                     &
+            &   ptr_int_lonlat,                     &
+            &   out_var%r_ptr(:,:,:,out_var_idx,1), &
+            &   nblks_ll, npromz_ll, hintp_type)
+
+          ! clean up:
+          DEALLOCATE(tmp_var, STAT=ierrstat)
+          IF (ierrstat /= SUCCESS)  CALL finish (routine, 'deallocation failed')
+        ELSE
+          ! for cell-based variables: interpolate gradients (finite
+          ! differences) and reconstruct
+          CALL rbf_interpol_lonlat(                 &
+            &   in_var%r_ptr(:,:,:,in_var_idx,1),   &
+            &   ptr_int_lonlat,                     &
+            &   out_var%r_ptr(:,:,:,out_var_idx,1), &
+            &   nblks_ll, npromz_ll, hintp_type)
       END IF ! 2D
+
+    ELSE IF (ASSOCIATED(in_var%i_ptr)) THEN
+
+        ! --------------
+        ! INTEGER fields
+        ! --------------
+
+        IF (is_2d_field(p_info%vgrid)) THEN
+          ! For 2D variables (nproma, nblks) we first copy this to 1-level
+          ! 3D variable (nproma, nlevs, nblks). This requires a temporary
+          ! variable:
+          dim1 = p_info%used_dimensions(1)
+          dim2 = p_info%used_dimensions(2)
+          ALLOCATE(tmp_int_var(dim1, 1, dim2), STAT=ierrstat)
+          tmp_int_var(:,1,:) = in_var%i_ptr(:,:,in_var_idx,1,1)
+
+          ! for cell-based variables: interpolate gradients (finite
+          ! differences) and reconstruct
+          CALL rbf_interpol_lonlat(                 &
+            &   tmp_int_var(:,:,:),                 &
+            &   ptr_int_lonlat,                     &
+            &   out_var%i_ptr(:,:,:,out_var_idx,1), &
+            &   nblks_ll, npromz_ll, hintp_type)
+
+          ! clean up:
+          DEALLOCATE(tmp_int_var, STAT=ierrstat)
+          IF (ierrstat /= SUCCESS)  CALL finish (routine, 'deallocation failed')
+        ELSE
+          ! for cell-based variables: interpolate gradients (finite
+          ! differences) and reconstruct
+          CALL rbf_interpol_lonlat(                 &
+            &   in_var%i_ptr(:,:,:,in_var_idx,1),   &
+            &   ptr_int_lonlat,                     &
+            &   out_var%i_ptr(:,:,:,out_var_idx,1), &
+            &   nblks_ll, npromz_ll, hintp_type)
+      END IF ! 2D
+
+    END IF
+
       ! --------------------------------------------------------------
       !
     CASE (GRID_UNSTRUCTURED_EDGE)
+      ! throw error message, if this variable is not a REAL field:
+      IF (.NOT. ASSOCIATED(in_var%r_ptr)) THEN
+        CALL finish(routine, TRIM(p_info%name)//": Interpolation not implemented.")
+      END IF
+
       IF (is_2d_field(p_info%vgrid)) THEN
         ! For 2D variables (nproma, nblks) we first copy this to 1-level
         ! 3D variable (nproma, nlevs, nblks). This requires a temporary
@@ -377,18 +428,18 @@ CONTAINS
         CASE (GRID_UNSTRUCTURED_CELL)
           IF (is_2d_field(p_info%vgrid)) THEN
             IF (ASSOCIATED(in_var%r_ptr)) CALL sync_patch_array(SYNC_C, p_patch, in_var%r_ptr(:,:,in_var_idx,1,1) )
-            IF (ASSOCIATED(in_var%i_ptr)) CALL finish(routine, "Not yet implemented")
+            IF (ASSOCIATED(in_var%i_ptr)) CALL sync_patch_array(SYNC_C, p_patch, in_var%i_ptr(:,:,in_var_idx,1,1) )
           ELSE
             IF (ASSOCIATED(in_var%r_ptr)) CALL sync_patch_array(SYNC_C, p_patch, in_var%r_ptr(:,:,:,in_var_idx,1) )
-            IF (ASSOCIATED(in_var%i_ptr)) CALL finish(routine, "Not yet implemented")
+            IF (ASSOCIATED(in_var%i_ptr)) CALL sync_patch_array(SYNC_C, p_patch, in_var%i_ptr(:,:,:,in_var_idx,1) )
           END IF
         CASE (GRID_UNSTRUCTURED_EDGE)
           IF (is_2d_field(p_info%vgrid)) THEN
             IF (ASSOCIATED(in_var%r_ptr)) CALL sync_patch_array(SYNC_E, p_patch, in_var%r_ptr(:,:,in_var_idx,1,1) )
-            IF (ASSOCIATED(in_var%i_ptr)) CALL finish(routine, "Not yet implemented")
+            IF (ASSOCIATED(in_var%i_ptr)) CALL sync_patch_array(SYNC_E, p_patch, in_var%i_ptr(:,:,in_var_idx,1,1) )
           ELSE
             IF (ASSOCIATED(in_var%r_ptr)) CALL sync_patch_array(SYNC_E, p_patch, in_var%r_ptr(:,:,:,in_var_idx,1) )
-            IF (ASSOCIATED(in_var%i_ptr)) CALL finish(routine, "Not yet implemented")
+            IF (ASSOCIATED(in_var%i_ptr)) CALL sync_patch_array(SYNC_E, p_patch, in_var%i_ptr(:,:,:,in_var_idx,1) )
           END IF
         CASE DEFAULT
           CALL finish(routine, 'Unknown grid type.')
@@ -908,6 +959,11 @@ CONTAINS
     out_var_2      => ptr_task%data_output%var_2
     out_var_idx_2  =  1
     IF (out_var_2%info%lcontained) out_var_idx_2 = out_var_2%info%ncontained
+
+    ! throw error message, if this variable is not a REAL field:
+    IF (.NOT. ASSOCIATED(in_var%r_ptr)) THEN
+      CALL finish(routine, TRIM(p_info%name)//": Implemented for REAL fields only.")
+    END IF
 
     CALL rbf_vec_interpol_cell(in_var%r_ptr(:,:,:,in_var_idx,1),        &   !< normal wind comp.
       &                        p_patch, intp_hrz,                       &   !< patch, interpolation state

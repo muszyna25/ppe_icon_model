@@ -60,7 +60,7 @@ MODULE mo_ext_data_state
   USE mo_impl_constants,     ONLY: inwp, iecham, ildf_echam, io3_clim, io3_ape, &
     &                              ihs_ocean, ihs_atm_temp, ihs_atm_theta, inh_atmosphere, &
     &                              max_char_length, min_rlcell_int,                        &
-    &                              VINTP_METHOD_LIN, HINTP_TYPE_NONE
+    &                              VINTP_METHOD_LIN, HINTP_TYPE_NONE, HINTP_TYPE_LONLAT_NNB
   USE mo_math_constants,     ONLY: dbl_eps
   USE mo_physical_constants, ONLY: ppmv2gg, zemiss_def
   USE mo_run_config,         ONLY: iforcing
@@ -1184,7 +1184,7 @@ CONTAINS
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
         &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,    &
         &           hor_interp=create_hor_interp_metadata(          &
-        &               hor_intp_type=HINTP_TYPE_NONE ) )
+        &               hor_intp_type=HINTP_TYPE_LONLAT_NNB ) )
 
       ! soiltyp_t      p_ext_atm%soiltyp_t(nproma,nblks_c,ntiles_total)
       cf_desc    = t_cf_var('soil_type', '-','soil type', DATATYPE_FLT32)

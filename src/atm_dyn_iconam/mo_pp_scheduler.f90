@@ -388,6 +388,7 @@ CONTAINS
     TYPE(t_job_queue),         POINTER    :: task
     TYPE(t_var_list),          POINTER    :: p_opt_diag_list
     REAL(wp), POINTER                     :: p_opt_field_r3d(:,:,:)
+    INTEGER,  POINTER                     :: p_opt_field_i3d(:,:,:)
     TYPE(t_list_element),      POINTER    :: element, new_element
     CHARACTER(LEN=vname_len),  POINTER    :: varlist(:)
     INTEGER, ALLOCATABLE                  :: ll_vargrid(:)
@@ -549,10 +550,11 @@ CONTAINS
 
           IF (info%hgrid /= GRID_UNSTRUCTURED_CELL)  CYCLE VAR_LOOP
 
-          ! throw error message, if this variable is not a REAL field:
-          IF (.NOT. ASSOCIATED(element%field%r_ptr)) THEN
-            CALL finish(routine, TRIM(info%name)//": Lon-lat RBF interpolation implemented for REAL fields only.")
-          END IF
+! DEVELOPMENT
+!          ! throw error message, if this variable is not a REAL field:
+!          IF (.NOT. ASSOCIATED(element%field%r_ptr)) THEN
+!            CALL finish(routine, TRIM(info%name)//": Lon-lat RBF interpolation implemented for REAL fields only.")
+!          END IF
 
           ! Found it, add it to the variable list of optional
           ! diagnostics       
@@ -582,13 +584,26 @@ CONTAINS
 
           SELECT CASE (info%hgrid)
           CASE (GRID_UNSTRUCTURED_CELL)
-            CALL add_var( p_opt_diag_list, info%name, p_opt_field_r3d,          &
-              &           GRID_REGULAR_LONLAT, info%vgrid, info%cf, info%grib2, &
-              &           ldims=var_shape, lrestart=.FALSE.,                    &
-              &           loutput=.TRUE., new_element=new_element,              &
-              &           isteptype=info%isteptype,                             &
-              &           hor_interp=create_hor_interp_metadata(                &
-              &               hor_intp_type=HINTP_TYPE_NONE ) )
+            !--- REAL fields
+            IF (ASSOCIATED(element%field%r_ptr)) THEN
+              CALL add_var( p_opt_diag_list, info%name, p_opt_field_r3d,          &
+                &           GRID_REGULAR_LONLAT, info%vgrid, info%cf, info%grib2, &
+                &           ldims=var_shape, lrestart=.FALSE.,                    &
+                &           loutput=.TRUE., new_element=new_element,              &
+                &           isteptype=info%isteptype,                             &
+                &           hor_interp=create_hor_interp_metadata(                &
+                &               hor_intp_type=HINTP_TYPE_NONE ) )
+            END IF
+            !--- INTEGER fields
+            IF (ASSOCIATED(element%field%i_ptr)) THEN
+              CALL add_var( p_opt_diag_list, info%name, p_opt_field_i3d,          &
+                &           GRID_REGULAR_LONLAT, info%vgrid, info%cf, info%grib2, &
+                &           ldims=var_shape, lrestart=.FALSE.,                    &
+                &           loutput=.TRUE., new_element=new_element,              &
+                &           isteptype=info%isteptype,                             &
+                &           hor_interp=create_hor_interp_metadata(                &
+                &               hor_intp_type=HINTP_TYPE_NONE ) )
+            END IF
           CASE DEFAULT
             CALL finish(routine, "Unsupported grid type!")
           END SELECT
@@ -1173,6 +1188,11 @@ CONTAINS
               ELSE
                 IF (TRIM(varlist(ivar)) /= info%name(1:idx-1)) CYCLE
               ENDIF
+
+              ! throw error message, if this variable is not a REAL field:
+              IF (.NOT. ASSOCIATED(element%field%r_ptr)) THEN
+                CALL finish(routine, TRIM(info%name)//": i/p/z interpolation implemented for REAL fields only.")
+              END IF
 
               ! Found it, add it to the variable list of optional
               ! diagnostics
