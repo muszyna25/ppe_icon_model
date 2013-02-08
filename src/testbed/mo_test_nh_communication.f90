@@ -72,8 +72,6 @@ MODULE mo_test_nh_communication
   USE mo_model_domain,        ONLY: t_patch
   USE mo_grid_config,         ONLY: n_dom, lfeedback, ifeedback_type, l_limited_area, &
     &                               n_dom_start, lredgrid_phys
-  USE mo_nh_testcases,        ONLY: init_nh_testtopo, init_nh_testcase, nh_test_name, &
-    &                               rotate_axis_deg
   USE mo_nh_pa_test,          ONLY: set_nh_w_rho
   USE mo_nh_df_test,          ONLY: get_nh_df_velocity
   USE mo_integrate_density_pa,ONLY: integrate_density_pa

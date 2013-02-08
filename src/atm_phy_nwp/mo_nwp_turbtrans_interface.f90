@@ -441,6 +441,8 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
           DO ic = 1, i_count
             jc = ilist(ic)
             area_frac = ext_data%atm%frac_t(jc,jb,jt1)
+
+            ! Aggregate
             prm_diag%gz0(jc,jb) = prm_diag%gz0(jc,jb)+gz0_t(ic,jt) * area_frac
             prm_diag%tcm(jc,jb) = prm_diag%tcm(jc,jb)+tcm_t(ic,jt) * area_frac
             prm_diag%tch(jc,jb) = prm_diag%tch(jc,jb)+tch_t(ic,jt) * area_frac
@@ -461,6 +463,7 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
             prm_diag%shfl_s(jc,jb) = prm_diag%shfl_s(jc,jb)+ shfl_s_t(ic,jt)* area_frac
             prm_diag%lhfl_s(jc,jb) = prm_diag%lhfl_s(jc,jb)+ lhfl_s_t(ic,jt)* area_frac
 
+            ! Store
             prm_diag%shfl_s_t(jc,jb,jt1) = shfl_s_t(ic,jt)
             prm_diag%lhfl_s_t(jc,jb,jt1) = lhfl_s_t(ic,jt)
             prm_diag%u_10m_t (jc,jb,jt1) = u_10m_t(ic,jt) ! needed by TERRA
@@ -506,8 +509,7 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
           prm_diag%tcm_t(jc,jb,jt) = prm_diag%tcm(jc,jb)
           prm_diag%tch_t(jc,jb,jt) = prm_diag%tch(jc,jb)
           ! the GME turbulence scheme does not have tfv. Set tfv=1
-!          prm_diag%tfv_t(jc,jb,jt) = 1._wp    !   prm_diag%tfv(jc,jb)
-          prm_diag%tfv_t(jc,jb,jt) = prm_diag%tfv(jc,jb)
+          prm_diag%tfv_t(jc,jb,jt) = 1._wp    !   prm_diag%tfv(jc,jb)
         ENDDO
       ENDDO
 

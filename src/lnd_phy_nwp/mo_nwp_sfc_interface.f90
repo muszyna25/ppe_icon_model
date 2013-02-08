@@ -121,8 +121,8 @@ CONTAINS
 
     ! Local scalars:
     !
-    INTEGER :: jc,jb,jg,jk      !loop indices
-
+    INTEGER  :: jc,jb,jg,jk     ! loop indices
+    REAL(wp) :: area_frac       ! tile area fraction
 
     REAL(wp) :: ps_t        (nproma, p_patch%nblks_c)
     REAL(wp) :: prr_con_t   (nproma, p_patch%nblks_c)
@@ -146,7 +146,6 @@ CONTAINS
     REAL(wp) :: t_s_new_t  (nproma, p_patch%nblks_c, ntiles_total)
 
     REAL(wp) :: t_g_t      (nproma, p_patch%nblks_c, ntiles_total)
-    REAL(wp) :: t_g_new_t  (nproma, p_patch%nblks_c, ntiles_total)  !DR obsolete ???
     REAL(wp) :: qv_s_t     (nproma, p_patch%nblks_c, ntiles_total)
 
     REAL(wp) :: w_snow_now_t(nproma, p_patch%nblks_c, ntiles_total)
@@ -220,17 +219,16 @@ CONTAINS
     REAL(wp) :: snow_con_rate(nproma, p_patch%nblks_c, ntiles_total)
     REAL(wp), PARAMETER :: small = 1.E-06_wp
 
-    REAL(wp) :: t_g_s(nproma), qv_s_s(nproma), lhfl_bs_s(nproma), rstom_s(nproma)
-    REAL(wp) :: lhfl_pl_s(nproma, nlev_soil)
-    REAL(wp) :: shfl_s_t    (nproma, p_patch%nblks_c, ntiles_total)
-    REAL(wp) :: lhfl_s_t    (nproma, p_patch%nblks_c, ntiles_total)
-    REAL(wp) :: shfl_soil_t (nproma, p_patch%nblks_c, ntiles_total)
-    REAL(wp) :: lhfl_soil_t (nproma, p_patch%nblks_c, ntiles_total)
+    REAL(wp) :: t_g_s(nproma)
+    REAL(wp) :: shfl_s_t    (nproma, p_patch%nblks_c, ntiles_total) ! sensible heat flux sfc
+    REAL(wp) :: lhfl_s_t    (nproma, p_patch%nblks_c, ntiles_total) ! latent heat flux sfc
+    REAL(wp) :: shfl_soil_t (nproma, p_patch%nblks_c, ntiles_total) ! sensible heat flux sfc (snow free)
+    REAL(wp) :: lhfl_soil_t (nproma, p_patch%nblks_c, ntiles_total) ! latent heat flux sfc   (snow free)
+    REAL(wp) :: shfl_snow_t (nproma, p_patch%nblks_c, ntiles_total) ! sensible heat flux sfc (snow covered)
+    REAL(wp) :: lhfl_snow_t (nproma, p_patch%nblks_c, ntiles_total) ! latent heat flux sfc   (snow covered)
     REAL(wp) :: lhfl_bs_t   (nproma, p_patch%nblks_c, ntiles_total)
     REAL(wp) :: lhfl_pl_t   (nproma, nlev_soil, p_patch%nblks_c, ntiles_total)
     REAL(wp) :: rstom_t     (nproma, p_patch%nblks_c, ntiles_total)
-    REAL(wp) :: shfl_snow_t (nproma, p_patch%nblks_c, ntiles_total)
-    REAL(wp) :: lhfl_snow_t (nproma, p_patch%nblks_c, ntiles_total)
 !--------------------------------------------------------------
 
 
@@ -397,7 +395,7 @@ CONTAINS
           eai_t(ic,jb,isubs)                 =  ext_data%atm%eai_t(jc,jb,isubs)
           rsmin2d_t(ic,jb,isubs)             =  ext_data%atm%rsmin2d_t(jc,jb,isubs)
 
-          t_so_now_t(ic,nlev_soil+1,jb,isubs) = lnd_prog_now%t_so_t(jc,nlev_soil+1,jb,isubs)
+          t_so_now_t(ic,nlev_soil+1,jb,isubs)= lnd_prog_now%t_so_t(jc,nlev_soil+1,jb,isubs)
 
           IF(lmulti_snow) THEN
             t_snow_mult_now_t(ic,nlev_snow+1,jb,isubs) = &
@@ -546,7 +544,7 @@ CONTAINS
         &  zshfl_sfc     = shfl_s_t   (:,jb,isubs)           , & !OUT sensible heat flux surface interface     (W/m2) 
         &  zlhfl_sfc     = lhfl_s_t   (:,jb,isubs)             ) !OUT latent   heat flux surface interface     (W/m2) 
 
-!DR NOTE that LHFL_S_T MUST BE STORED!!!!
+
 
         CALL diag_snowfrac_tg(                           &
           &  istart = 1, iend = i_count                , & ! start/end indices
@@ -588,11 +586,14 @@ CONTAINS
           prm_diag%lhfl_bs_t     (jc,jb,isubs) = lhfl_bs_t     (ic,jb,isubs)
           lnd_diag%rstom_t       (jc,jb,isubs) = rstom_t       (ic,jb,isubs)
 
+          !DR prm_diag%shfl_s_t      (jc,jb,isubs) = shfl_s_t      (ic,jb,isubs)
+          !DR prm_diag%lhfl_s_t      (jc,jb,isubs) = lhfl_s_t      (ic,jb,isubs)
+
+
           IF(lmulti_snow) THEN
             lnd_prog_new%t_snow_mult_t(jc,nlev_snow+1,jb,isubs) = &
               t_snow_mult_new_t(ic,nlev_snow+1,jb,isubs)
           ENDIF
-          t_g_new_t (ic,jb,isubs) = t_g_t (ic,jb,isubs)
         ENDDO
 
         IF (lsnowtile .AND. isubs > ntiles_lnd) THEN ! copy snowfrac_t to snow-free tile
@@ -868,7 +869,7 @@ CONTAINS
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jc,isubs,i_startidx,i_endidx,t_g_s,qv_s_s,lhfl_bs_s,lhfl_pl_s,rstom_s)
+!$OMP DO PRIVATE(jb,jc,isubs,i_startidx,i_endidx,t_g_s)
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -878,9 +879,11 @@ CONTAINS
        IF (ntiles_total == 1) THEN 
          DO jc = i_startidx, i_endidx
            lnd_prog_new%t_g(jc,jb)  = lnd_prog_new%t_g_t(jc,jb,1)
-           lnd_diag%qv_s(jc,jb)     = lnd_diag%qv_s_t(jc,jb,1)
+           lnd_diag%qv_s   (jc,jb)  = lnd_diag%qv_s_t   (jc,jb,1)
+           !DR prm_diag%shfl_s (jc,jb)  = prm_diag%shfl_s_t (jc,jb,1) 
+           !DR prm_diag%lhfl_s (jc,jb)  = prm_diag%lhfl_s_t (jc,jb,1)
            prm_diag%lhfl_bs(jc,jb)  = prm_diag%lhfl_bs_t(jc,jb,1) 
-           lnd_diag%rstom(jc,jb)    = lnd_diag%rstom_t(jc,jb,1)
+           lnd_diag%rstom  (jc,jb)  = lnd_diag%rstom_t  (jc,jb,1)
          ENDDO
          DO jk=1,nlev_soil
            DO jc = i_startidx, i_endidx
@@ -889,29 +892,34 @@ CONTAINS
          ENDDO  ! jk
        ELSE ! aggregate fields over tiles
          t_g_s(:)      = 0._wp
-         qv_s_s(:)     = 0._wp
-         lhfl_bs_s(:)  = 0._wp
-         lhfl_pl_s(:,:)= 0._wp
-         rstom_s(:)    = 0._wp
+         lnd_diag%qv_s   (i_startidx:i_endidx,jb) = 0._wp
+         !DR prm_diag%shfl_s(i_startidx:i_endidx,jb)  = 0._wp
+         !DR prm_diag%lhfl_s(i_startidx:i_endidx,jb)  = 0._wp
+         prm_diag%lhfl_bs(i_startidx:i_endidx,jb) = 0._wp
+         lnd_diag%rstom  (i_startidx:i_endidx,jb) = 0._wp
+         prm_diag%lhfl_pl(i_startidx:i_endidx,1:nlev_soil,jb) = 0._wp
+
          DO isubs = 1,ntiles_total+ntiles_water
            DO jc = i_startidx, i_endidx
-             t_g_s(jc) = t_g_s(jc) + ext_data%atm%frac_t(jc,jb,isubs)  &
-               &       * lnd_prog_new%t_g_t(jc,jb,isubs)**4
-             qv_s_s(jc) = qv_s_s(jc) + ext_data%atm%frac_t(jc,jb,isubs) &
-               &       * lnd_diag%qv_s_t(jc,jb,isubs)
+             area_frac = ext_data%atm%frac_t(jc,jb,isubs)
+             t_g_s (jc)           = t_g_s(jc)  + lnd_prog_new%t_g_t(jc,jb,isubs)**4 * area_frac 
+             lnd_diag%qv_s(jc,jb) = lnd_diag%qv_s(jc,jb) + lnd_diag%qv_s_t(jc,jb,isubs) * area_frac
+             !DR prm_diag%shfl_s(jc,jb) = prm_diag%shfl_s(jc,jb)                    &
+             !DR   &                    + prm_diag%shfl_s_t (jc,jb,isubs) * area_frac 
+             !DR prm_diag%lhfl_s(jc,jb) = prm_diag%lhfl_s(jc,jb)                    &
+             !DR   &                    + prm_diag%lhfl_s_t (jc,jb,isubs) * area_frac 
            ENDDO
          ENDDO
 
          DO isubs = 1,ntiles_total
            DO jc = i_startidx, i_endidx
-             lhfl_bs_s(jc) = lhfl_bs_s(jc) + ext_data%atm%frac_t(jc,jb,isubs) &
-               &       * prm_diag%lhfl_bs_t(jc,jb,isubs)
-             rstom_s(jc)   = rstom_s(jc) + ext_data%atm%frac_t(jc,jb,isubs) &
-               &       * lnd_diag%rstom_t(jc,jb,isubs)
+             area_frac = ext_data%atm%frac_t(jc,jb,isubs)
+             prm_diag%lhfl_bs(jc,jb) = prm_diag%lhfl_bs(jc,jb) + prm_diag%lhfl_bs_t(jc,jb,isubs) * area_frac
+             lnd_diag%rstom  (jc,jb) = lnd_diag%rstom(jc,jb)   + lnd_diag%rstom_t(jc,jb,isubs)   * area_frac
            ENDDO  ! jc
            DO jk=1,nlev_soil
              DO jc = i_startidx, i_endidx
-               lhfl_pl_s(jc,jk) = lhfl_pl_s(jc,jk) + ext_data%atm%frac_t(jc,jb,isubs) &
+               prm_diag%lhfl_pl(jc,jk,jb) = prm_diag%lhfl_pl(jc,jk,jb) + ext_data%atm%frac_t(jc,jb,isubs) &
                  &       * prm_diag%lhfl_pl_t(jc,jk,jb,isubs)
              ENDDO  ! jc
            ENDDO  ! jk
@@ -919,15 +927,7 @@ CONTAINS
 
          DO jc = i_startidx, i_endidx
            lnd_prog_new%t_g(jc,jb)  = SQRT(SQRT(t_g_s(jc)))
-           lnd_diag%qv_s(jc,jb)     = qv_s_s(jc)
-           prm_diag%lhfl_bs(jc,jb)  = lhfl_bs_s(jc)
-           lnd_diag%rstom(jc,jb)    = rstom_s(jc)
          ENDDO  ! jc
-         DO jk=1,nlev_soil
-           DO jc = i_startidx, i_endidx
-             prm_diag%lhfl_pl(jc,jk,jb)= lhfl_pl_s(jc,jk)
-           ENDDO  ! jc
-         ENDDO  ! jk
 
        ENDIF    ! with or without tiles
 
