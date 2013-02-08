@@ -1330,42 +1330,42 @@ END SUBROUTINE message
   rockice_list(:) =0
   melt_list(:)    =0
   DO i = istarts, iends
-        mstyp       = soiltyp_subs(i)        ! soil type
-        m_styp(i) = mstyp                     ! array for soil type
-        IF (mstyp >= 3) THEN
-        icount_soil=icount_soil+1
-        soil_list(icount_soil)=i
-        ELSE
-        icount_rockice=icount_rockice+1
-        rockice_list(icount_rockice)=i
-        END IF
-        zdw   (i)  = cdw0  (mstyp)
-        zdw1  (i)  = cdw1  (mstyp)
-        zkw   (i)  = ckw0  (mstyp)
-        zkw1  (i)  = ckw1  (mstyp)
-        zik2  (i)  = cik2  (mstyp)
-        zporv(i)  = cporv(mstyp)              ! pore volume
-        zpwp (i)  = cpwp (mstyp)              ! plant wilting point
-        zadp (i)  = cadp (mstyp)              ! air dryness point
-        zfcap(i)  = cfcap(mstyp)              ! field capacity
-        zrock(i)  = crock(mstyp)              ! EQ 0 for Ice and Rock EQ 1 else
-        zrocg(i)  = crhoc(mstyp)              ! heat capacity
-        zdlam(i)  = cala1(mstyp)-cala0(mstyp) ! heat conductivity parameter
-        zbwt(i)   = MAX(0.001_ireals,rootdp(i))! Artificial minimum value
+    mstyp       = soiltyp_subs(i)        ! soil type
+    m_styp(i) = mstyp                     ! array for soil type
+    IF (mstyp >= 3) THEN
+      icount_soil=icount_soil+1
+      soil_list(icount_soil)=i
+    ELSE
+      icount_rockice=icount_rockice+1
+      rockice_list(icount_rockice)=i
+    END IF
+    zdw   (i)  = cdw0  (mstyp)
+    zdw1  (i)  = cdw1  (mstyp)
+    zkw   (i)  = ckw0  (mstyp)
+    zkw1  (i)  = ckw1  (mstyp)
+    zik2  (i)  = cik2  (mstyp)
+    zporv(i)  = cporv(mstyp)              ! pore volume
+    zpwp (i)  = cpwp (mstyp)              ! plant wilting point
+    zadp (i)  = cadp (mstyp)              ! air dryness point
+    zfcap(i)  = cfcap(mstyp)              ! field capacity
+    zrock(i)  = crock(mstyp)              ! EQ 0 for Ice and Rock EQ 1 else
+    zrocg(i)  = crhoc(mstyp)              ! heat capacity
+    zdlam(i)  = cala1(mstyp)-cala0(mstyp) ! heat conductivity parameter
+    zbwt(i)   = MAX(0.001_ireals,rootdp(i))! Artificial minimum value
                                                 ! for root depth
-        zroota(i) = 3._ireals/zbwt(i)       ! root density profile parameter (1/m)
+    zroota(i) = 3._ireals/zbwt(i)       ! root density profile parameter (1/m)
                                                 ! zroota=0. creates the original TERRA_LM
                                                 ! version with constant root density
                                                 ! for root depth
-        ! New arrays for BATS-scheme
-        zk0di(i)  = ck0di(mstyp)              !
-        zbedi(i)  = cbedi(mstyp)              !
-        ! Arrays for soil water freezing/melting
-        zsandf(i)   = csandf(mstyp)
-        zclayf(i)   = cclayf(mstyp)
-        zpsis(i)    = -zpsi0 * 10._ireals**(1.88_ireals-0.013_ireals*zsandf(i))
-        zb_por(i)   = 2.91_ireals + .159_ireals*zclayf(i)
-        zedb(i)     = 1._ireals/zb_por(i)
+    ! New arrays for BATS-scheme
+    zk0di(i)  = ck0di(mstyp)              !
+    zbedi(i)  = cbedi(mstyp)              !
+    ! Arrays for soil water freezing/melting
+    zsandf(i)   = csandf(mstyp)
+    zclayf(i)   = cclayf(mstyp)
+    zpsis(i)    = -zpsi0 * 10._ireals**(1.88_ireals-0.013_ireals*zsandf(i))
+    zb_por(i)   = 2.91_ireals + .159_ireals*zclayf(i)
+    zedb(i)     = 1._ireals/zb_por(i)
   ENDDO
 
 
@@ -1460,19 +1460,21 @@ END SUBROUTINE message
 
 ! JH No soil moisture for Ice and Rock
   DO kso   = 1, ke_soil+1
-      DO ic = 1, icount_rockice
-       i=rockice_list(ic)
-  w_so_now(i,kso)         = 0._ireals
-  w_so_ice_now(i,kso)     = 0._ireals
-  w_so_new(i,kso)         = w_so_now(i,kso)
-  w_so_ice_new(i,kso)     = w_so_ice_now(i,kso)
-      END DO
- 
-      DO ic = 1, icount_soil
+!CDIR NODEP,VOVERTAKE,VOB  
+    DO ic = 1, icount_rockice
+      i=rockice_list(ic)
+      w_so_now(i,kso)         = 0._ireals
+      w_so_ice_now(i,kso)     = 0._ireals
+      w_so_new(i,kso)         = w_so_now(i,kso)
+      w_so_ice_new(i,kso)     = w_so_ice_now(i,kso)
+    END DO
+
+!CDIR NODEP,VOVERTAKE,VOB  
+    DO ic = 1, icount_soil
       i=soil_list(ic)
-  w_so_new(i,kso)         = w_so_now(i,kso)
-  w_so_ice_new(i,kso)     = w_so_ice_now(i,kso)
-     END DO
+      w_so_new(i,kso)         = w_so_now(i,kso)
+      w_so_ice_new(i,kso)     = w_so_ice_now(i,kso)
+    END DO
   END DO
   
   IF (itype_heatcond == 2) THEN
@@ -2091,6 +2093,7 @@ END SUBROUTINE message
         END DO
 
       DO kso   = 1,ke_soil
+!CDIR NODEP,VOVERTAKE,VOB  
          DO ic=1,icount_soil
             i=soil_list(ic)
 !!$          DO i = istarts, iends
@@ -2120,6 +2123,7 @@ END SUBROUTINE message
     ELSE
 
       DO kso   = 1,ke_soil
+!CDIR NODEP,VOVERTAKE,VOB  
          DO ic=1,icount_soil
             i=soil_list(ic)
 !!$          DO i = istarts, iends
@@ -2141,6 +2145,7 @@ END SUBROUTINE message
 
 
     ! Determination of the transfer functions CA, CF, and CV
+!CDIR NODEP,VOVERTAKE,VOB  
          DO ic=1,icount_soil
             i=soil_list(ic)
 !!$      DO i = istarts, iends
@@ -2219,6 +2224,7 @@ END SUBROUTINE message
     ! soil layers
 
     DO     kso       = 1,ke_soil
+!CDIR NODEP,VOVERTAKE,VOB  
          DO ic=1,icount_soil
             i=soil_list(ic)
 !!$        DO i         = istarts, iends
@@ -2500,6 +2506,7 @@ END SUBROUTINE message
 !------------------------------------------------------------------------------
 
 ! uppermost layer, kso = 1
+!CDIR NODEP,VOVERTAKE,VOB  
       DO ic = 1, icount_soil
         i=soil_list(ic)
       ! sedimentation and capillary transport in soil
@@ -2546,6 +2553,7 @@ END SUBROUTINE message
 
 ! inner layers 2 <=kso<=ke_soil_hy-1
   DO kso =2,ke_soil_hy-1
+!CDIR NODEP,VOVERTAKE,VOB  
       DO ic = 1, icount_soil
         i=soil_list(ic)
 ! sedimentation and capillary transport in soil
@@ -2606,6 +2614,7 @@ END SUBROUTINE message
       END DO
   END DO
 
+!CDIR NODEP,VOVERTAKE,VOB  
      DO ic = 1, icount_soil
         i=soil_list(ic)
           ! lowest active hydrological layer ke_soil_hy-1
@@ -2635,6 +2644,7 @@ END SUBROUTINE message
                              zgam2m05*(zice_fr_ksom1-zice_fr_kso )   
   END DO
 
+!CDIR NODEP,VOVERTAKE,VOB  
   DO ic = 1, icount_soil
         i=soil_list(ic)
         ! generalized upper boundary condition
@@ -2643,6 +2653,7 @@ END SUBROUTINE message
   END DO
 
   DO kso=2,ke_soil_hy-1
+!CDIR NODEP,VOVERTAKE,VOB  
   DO ic = 1, icount_soil
         i=soil_list(ic)
             zzz = 1._ireals/(zagb(i,kso) - zaga(i,kso)*zagc(i,kso-1))
@@ -2651,6 +2662,7 @@ END SUBROUTINE message
       END DO
   END DO                ! soil layers
 
+!CDIR NODEP,VOVERTAKE,VOB  
   DO ic = 1, icount_soil
         i=soil_list(ic)
            zage(i,ke_soil_hy) = (zagd(i,ke_soil_hy)-zaga(i,ke_soil_hy)*  &
@@ -2660,6 +2672,7 @@ END SUBROUTINE message
   END DO
 
   DO kso = ke_soil_hy-1,1,-1
+!CDIR NODEP,VOVERTAKE,VOB  
   DO ic = 1, icount_soil
         i=soil_list(ic)
             zage(i,kso)     = zagd(i,kso) - zagc(i,kso)*zage(i,kso+1)
@@ -2670,6 +2683,7 @@ END SUBROUTINE message
   END DO                ! soil layers
 
 !lowest active hydrological level
+!CDIR NODEP,VOVERTAKE,VOB  
   DO ic = 1, icount_soil
         i=soil_list(ic)
           ! boundary values ensure that the calculation below leaves the climate
@@ -2686,6 +2700,7 @@ END SUBROUTINE message
   IF (itype_hydbound == 3) THEN
     ! ground water as lower boundary of soil column
     DO kso = ke_soil_hy+1,ke_soil+1
+!CDIR NODEP,VOVERTAKE,VOB  
   DO ic = 1, icount_soil
         i=soil_list(ic)
               w_so_new(i,kso) = zporv(i)*zdzhs(kso)
@@ -2693,6 +2708,7 @@ END SUBROUTINE message
     END DO
   ELSE
     DO kso = ke_soil_hy+1,ke_soil+1
+!CDIR NODEP,VOVERTAKE,VOB  
   DO ic = 1, icount_soil
         i=soil_list(ic)
              w_so_new(i,kso) = w_so_new(i,kso-1)*zdzhs(kso)/zdzhs(kso-1)
@@ -2703,7 +2719,8 @@ END SUBROUTINE message
 ! combine implicit part of sedimentation and capillary flux with explicit part
 ! (for soil water flux investigations only)
   DO kso = 2,ke_soil+1
-  DO ic = 1, icount_soil
+!CDIR NODEP,VOVERTAKE,VOB  
+     DO ic = 1, icount_soil
         i=soil_list(ic)
             zice_fr_ksom1 = ziw_fr(i,kso-1)
             zice_fr_kso   = ziw_fr(i,kso)
@@ -2775,7 +2792,8 @@ END SUBROUTINE message
       zfmb_fak = 0.0_ireals
     END IF
 
-          ! sedimentation and capillary transport in soil
+     ! sedimentation and capillary transport in soil
+!CDIR NODEP,VOVERTAKE,VOB  
       DO ic = 1, icount_soil
          i=soil_list(ic)
             ! first runoff calculation without consideration of
@@ -3435,6 +3453,7 @@ ENDIF
 
 !  IF(lmelt) THEN ! + lmelt_var
       DO kso = 1,ke_soil
+!CDIR NODEP,VOVERTAKE,VOB  
          DO ic=1,icount_soil
             i=soil_list(ic)
                 ztx      = t0_melt
@@ -3961,14 +3980,10 @@ ENDIF
         IF (w_snow_now(i) > zepsi .AND. w_snow_new(i) < zepsi) THEN ! Snow vanished during time step 
          icount_snow=icount_snow+1
          melt_list(icount_snow)=i
+         zfor_s(i)=0._ireals ! no soil forcing is needed at this step
+                             ! only distribution of heat
         END IF
      END DO
-
-      DO ic=1,icount_snow
-         i=melt_list(ic)
-        zfor_s(i)=0._ireals ! no soil forcing is needed at this step
-                            ! only distribution of heat
-      END DO
  
 !     New update of soil heat capacity
       DO   kso = 1,ke_soil+1
