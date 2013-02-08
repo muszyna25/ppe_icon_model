@@ -224,6 +224,8 @@ CONTAINS
     REAL(wp) :: lhfl_pl_s(nproma, nlev_soil)
     REAL(wp) :: shfl_s_t    (nproma, p_patch%nblks_c, ntiles_total)
     REAL(wp) :: lhfl_s_t    (nproma, p_patch%nblks_c, ntiles_total)
+    REAL(wp) :: shfl_soil_t (nproma, p_patch%nblks_c, ntiles_total)
+    REAL(wp) :: lhfl_soil_t (nproma, p_patch%nblks_c, ntiles_total)
     REAL(wp) :: lhfl_bs_t   (nproma, p_patch%nblks_c, ntiles_total)
     REAL(wp) :: lhfl_pl_t   (nproma, nlev_soil, p_patch%nblks_c, ntiles_total)
     REAL(wp) :: rstom_t     (nproma, p_patch%nblks_c, ntiles_total)
@@ -534,13 +536,15 @@ CONTAINS
         &  runoff_s      = runoff_s_t(:,jb,isubs)            , & !INOUT surface water runoff; sum over forecast  (kg/m2)
         &  runoff_g      = runoff_g_t(:,jb,isubs)            , & !INOUT soil water runoff; sum over forecast     (kg/m2)
 !
-        &  zshfl_s       = shfl_s_t   (:,jb,isubs)           , & !OUT sensible heat flux soil/air interface    (W/m2) 
-        &  zlhfl_s       = lhfl_s_t   (:,jb,isubs)           , & !OUT latent   heat flux soil/air interface    (W/m2) 
+        &  zshfl_s       = shfl_soil_t(:,jb,isubs)           , & !OUT sensible heat flux soil/air interface    (W/m2) 
+        &  zlhfl_s       = lhfl_soil_t(:,jb,isubs)           , & !OUT latent   heat flux soil/air interface    (W/m2) 
         &  zshfl_snow    = shfl_snow_t(:,jb,isubs)           , & !OUT sensible heat flux snow/air interface    (W/m2) 
         &  zlhfl_snow    = lhfl_snow_t(:,jb,isubs)           , & !OUT latent   heat flux snow/air interface    (W/m2) 
         &  lhfl_bs       = lhfl_bs_t  (:,jb,isubs)           , & !OUT latent heat flux from bare soil evap.    (W/m2)
         &  lhfl_pl       = lhfl_pl_t  (:,:,jb,isubs)         , & !OUT latent heat flux from bare soil evap.    (W/m2)
-        &  rstom         = rstom_t    (:,jb,isubs)             ) !OUT stomatal resistance                      ( s/m )
+        &  rstom         = rstom_t    (:,jb,isubs)           , & !OUT stomatal resistance                      ( s/m )
+        &  zshfl_sfc     = shfl_s_t   (:,jb,isubs)           , & !OUT sensible heat flux surface interface     (W/m2) 
+        &  zlhfl_sfc     = lhfl_s_t   (:,jb,isubs)             ) !OUT latent   heat flux surface interface     (W/m2) 
 
 !DR NOTE that LHFL_S_T MUST BE STORED!!!!
 

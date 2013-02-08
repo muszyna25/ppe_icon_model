@@ -579,7 +579,9 @@ END SUBROUTINE message
                   zlhfl_snow       , & ! latent   heat flux snow/air interface         (W/m2)  
                   lhfl_bs          , & ! latent heat flux from bare soil evap.         (W/m2)
                   lhfl_pl          , & ! latent heat flux from plants                  (W/m2)
-                  rstom              & ! stomatal resistance                           ( s/m )
+                  rstom            , & ! stomatal resistance                           ( s/m )
+                  zshfl_sfc        , & ! sensible heat flux surface interface          (W/m2) 
+                  zlhfl_sfc          & ! latent   heat flux surface interface          (W/m2) 
                                      )  
 
 
@@ -716,6 +718,9 @@ END SUBROUTINE message
                   lhfl_bs          ! latent heat flux from bare soil evap.             ( W/m2)
   REAL    (KIND = ireals), DIMENSION(ie,ke_soil+1), INTENT(OUT) :: &
                   lhfl_pl          ! average latent heat flux from plants              ( W/m2)
+  REAL    (KIND = ireals), DIMENSION(ie), OPTIONAL, INTENT(OUT) :: &
+                  zshfl_sfc        , & ! sensible heat flux surface interface          (W/m2) 
+                  zlhfl_sfc            ! latent   heat flux surface interface          (W/m2) 
 
 !--------------------------------------------------------------------------------
 ! TERRA Declarations
@@ -4407,6 +4412,13 @@ ENDIF
   ENDIF
 !  END DO
 
+  ! computation of the weighted turbulent fluxes at the boundary surface-atmosphere
+  IF(PRESENT(zshfl_sfc)) THEN
+    DO i = istarts, iends
+      zshfl_sfc(i) = zshfl_s(i)*(1._ireals - zf_snow(i)) + zshfl_snow(i)*zf_snow(i)
+      zlhfl_sfc(i) = zlhfl_s(i)*(1._ireals - zf_snow(i)) + zlhfl_snow(i)*zf_snow(i)
+    END DO
+  END IF
 
 ! Debug messages
 
@@ -4416,8 +4428,8 @@ ENDIF
      DO ic=1,icount_snow
        i=melt_list(ic) 
 
-	IF (w_snow_now(i) > 1.E-4_ireals.AND.t(i)> 285._ireals) THEN
-	
+!	IF (w_snow_now(i) > 1.E-4_ireals.AND.t(i)> 285._ireals) THEN
+	IF (i == 48 .AND. soiltyp_subs(i).eq.3 .AND. plcov(i).GT.0.8286 .AND. plcov(i).LT.0.8287) THEN
 
 !        IF ((t_snow_new(i) > t0_melt .AND. w_snow_new(i) > zepsi).OR.&
 !   (w_snow_new(i) <= zepsi .OR. w_snow_new(i) > zepsi .AND. t_s_new(i) > t0_melt+15.0_ireals .AND. & 
