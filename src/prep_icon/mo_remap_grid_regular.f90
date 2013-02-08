@@ -387,8 +387,8 @@ CONTAINS
       xsize = grid%regular_grid%nxpoints
       ysize = grid%regular_grid%nypoints
 
-      grid%regular_grid%xvals1D = (/ ( -180. + 360./(xsize)*(i-1), i=1,xsize ) /)
-      grid%regular_grid%yvals1D = (/ (  -90. + 180./(ysize)*(i-1), i=1,ysize ) /)
+      grid%regular_grid%xvals1D = (/ ( -180._wp + 360._wp/(xsize)*(i-1), i=1,xsize ) /)
+      grid%regular_grid%yvals1D = (/ (  -90._wp + 180._wp/(ysize)*(i-1), i=1,ysize ) /)
     ELSE
       ! note: we read only on PE#0 and broadcast the data to the other
       ! working PEs:

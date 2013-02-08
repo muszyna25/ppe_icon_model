@@ -78,7 +78,7 @@ MODULE mo_remap_shared
 
   !> threshold: cells within "pole_thresh*grid%char_length" to one of
   !  the poles are treated with Lambert transform:
-  REAL(wp), PARAMETER :: pole_thresh = 2_wp
+  REAL(wp), PARAMETER :: pole_thresh = 2._wp
 
   TYPE t_line
     TYPE (t_geographical_coordinates) :: p(2)
@@ -240,7 +240,7 @@ CONTAINS
     TYPE(t_poly),   INTENT(OUT), TARGET :: poly
     INTEGER,        INTENT(OUT)   :: ne
     ! local variables
-    REAL(wp), PARAMETER :: TOL = 1e-6
+    REAL(wp), PARAMETER :: TOL = 1.0e-6_wp
     INTEGER  :: vertex_idx(4), vertex_blk(4), i
     TYPE (t_geographical_coordinates) :: t
     REAL(wp) :: min_lon, max_lon, lon
@@ -291,7 +291,7 @@ CONTAINS
     LOGICAL :: is_valid
     TYPE (t_line), INTENT(IN) :: line
     ! local variables:
-    REAL(wp), PARAMETER :: TOL = 1e-10
+    REAL(wp), PARAMETER :: TOL = 1.0e-10_wp
     ! skip degenerate edges
     is_valid = ((ABS(line%p(1)%lon - line%p(2)%lon) > TOL) .OR.  &
       &         (ABS(line%p(1)%lat - line%p(2)%lat) > TOL))
@@ -371,7 +371,7 @@ CONTAINS
     TYPE (t_line), INTENT(IN) :: l1_in, l2_in
     TYPE (t_geographical_coordinates), INTENT(OUT) :: p
     ! local variables
-    REAL(wp), PARAMETER :: TOL = 1e-10
+    REAL(wp), PARAMETER :: TOL = 1e-10_wp
     REAL(wp) :: dx1, dy1, dx2, dy2, dxa, det2, det11
     TYPE (t_line) :: l1, l2
 
@@ -653,8 +653,8 @@ CONTAINS
 
         ! *slightly* disturb those vertices which would otherwise land
         ! *exactly in the origin:
-        IF ((ABS(grid%vertex(jc,jb,ilist)%lon) < 1e-10) .AND.  &
-          & (ABS(grid%vertex(jc,jb,ilist)%lat) < 1e-10) .AND. &
+        IF ((ABS(grid%vertex(jc,jb,ilist)%lon) < 1.0e-10_wp) .AND.  &
+          & (ABS(grid%vertex(jc,jb,ilist)%lat) < 1.0e-10_wp) .AND. &
           & (grid%p_patch%cell_type == 3)) THEN
           IF (ilist == LIST_NPOLE) p%lat = p%lat - 1e-2
           IF (ilist == LIST_SPOLE) p%lat = p%lat + 1e-2
@@ -829,7 +829,7 @@ CONTAINS
     INTEGER,                           INTENT(IN)    :: coord_transform
     ! local variables
     REAL (wp) :: r, min_dist, v(2)
-    INTEGER   :: min_node_idx(3), count_dist, ne, icell, jb, jc
+    INTEGER   :: min_node_idx(3), ne, icell, jb, jc
     TYPE (t_geographical_coordinates) :: p,q
     TYPE (t_poly) :: poly
 
@@ -842,13 +842,12 @@ CONTAINS
     END IF
 
     global_idx = -1
-    count_dist =  0
     min_node_idx(1:2) = 0
     min_dist          = MAX_RANGE
 
     v = (/ q%lon * pi_180, q%lat * pi_180 /)  ! search point
     r = gnat_std_radius(gnat_tree)                  ! search radius
-    CALL gnat_recursive_query(gnat_tree, v, r, min_dist, min_node_idx, count_dist)
+    CALL gnat_recursive_query(gnat_tree, v, r, min_dist, min_node_idx)
 
     ! For local grids: abort if there is no "nearest cell"
     IF (min_node_idx(1) == 0) RETURN

@@ -723,8 +723,8 @@ CONTAINS
       ! build GNAT data structure
       CALL gnat_init_grid(ptr_patch)
       ! perform proximity query
-      CALL gnat_query_containing_triangles(ptr_patch, gnat_tree, in_points(:,:,:),    &
-        &                                  nproma, nblks, npromz, grid_sphere_radius, &
+      CALL gnat_query_containing_triangles(ptr_patch, gnat_tree, in_points(:,:,:),        &
+        &                                  nproma, nblks, npromz, grid_sphere_radius,     &
         &                                  p_test_run, tri_idx(:,:,:), min_dist(:,:))
       CALL gnat_merge_distributed_queries(ptr_patch, nstations, nproma, nblks, min_dist,  &
         &                                 tri_idx(:,:,:), in_points(:,:,:),               &
