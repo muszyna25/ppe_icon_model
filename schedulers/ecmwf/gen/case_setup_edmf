@@ -38,9 +38,10 @@ if [ ! -d $EXPDIR ]; then
 fi
 cd $EXPDIR
 
-ln -sf $INDIR/icon*DOM*.nc .
-ln -sf $EXTPARDIR/extpar*DOM*.nc .
-ln -sf $IFS2ICONDIR/ifs2icon*DOM*.nc .
+ln -sf $INDIR/icon${res}_DOM01.nc .
+ln -sf $INDIR/icon${resrad}_DOM00.nc .
+ln -sf $EXTPARDIR/extpar_icon${res}_DOM01.nc .
+ln -sf $IFS2ICONDIR/ifs2icon_${res}_DOM01.nc .
 
 ln -sf ${RADDIR}/ECHAM6_CldOptProps.nc .
 ln -sf ${RADDIR}/rrtmg_lw.nc .
@@ -51,12 +52,13 @@ ndays_restart=60
 dt_restart=`expr ${ndays_restart} \* 86400`
 
 # model timing
-dtime=72
-dtconv=720             # convection, SSO, GWD. See iadv_rcf for TURB frequency
-dtrad=3600             # radiation time step
-ndays=10               # number of days to run
+dtime=100    # dyn            R2B4:150  R2B5:100  R2B6:72   R2B7:36   R2B8:18
+dtconv=600   # conv, SSO, GWD R2B4:600  R2B5:600  R2B6:720  R2B7:360  R2B8:360
+dtrad=3600   # rad            R2B4:3600 R2B5:3600 R2B6:3600 R2B7:1800 R2B8:1800
+iadv_rcf=6   # adv, turb      R2B4:4    R2B5:6    R2B6:5    R2B7:5    R2B8:5
+ndays=10     # number of days to run
 nsteps=`expr ${ndays} \* 86400 / ${dtime}`
-ninc_mtgrm=50          # output interval 3600s
+ninc_mtgrm=36          # output interval 3600s
 
 # model parameters
 atmo_namelist=NAMELIST_${basename}
@@ -149,13 +151,13 @@ cat > ${atmo_namelist} << EOF
  ifeedback_type               = 2
 /
 &initicon_nml
- init_mode                   = 2           ! initialization mode (2 for IFS ana, 1 for DWD ana)
- nlev_in                     = 91          ! number of levels of input data
- zpbl1                       = 500. 
- zpbl2                       = 1000. 
+ init_mode                    = 2           ! initialization mode (2 for IFS ana, 1 for DWD ana)
+ nlev_in                      = 91          ! number of levels of input data
+ zpbl1                        = 500. 
+ zpbl2                        = 1000. 
 /
 &io_nml
- lflux_avg                   = .FALSE.    
+ lflux_avg                    = .FALSE.    
 /
 &run_nml
  num_lev                      = 90
@@ -262,7 +264,7 @@ cat > ${atmo_namelist} << EOF
  vwind_offctr                 = 0.2
  damp_height                  = 50000.
  rayleigh_coeff               = 0.10
- iadv_rcf                     = 5
+ iadv_rcf                     = ${iadv_rcf}
  lhdiff_rcf                   = .true.
  divdamp_fac                  = 0.004
  divdamp_order                = 4

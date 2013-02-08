@@ -40,18 +40,17 @@ if [ %SIMMODE% -eq 3  -o  %YMD% -lt 20110518 ]
 fi
 
 
-
 # grid directory
 GRIDDIR=%SCPERM%/icon_input/grids
 # ifsdir for IFS initial condition
-ifsdir=%SCTEMP%/%SUITE%/%EXPNUM%/input/%YMD%%INIHOUR%${DIRENS}
+IFSDATADIR=%SCTEMP%/%SUITE%/%EXPNUM%/input/%YMD%%INIHOUR%${DIRENS}
 # base directory for model output
 outbasedir=%SCTEMP%/%SUITE%/%EXPNUM%/output
 # base name for output and namelist files
 basename=%SUITE%_%EXPNUM%_%YMD%%INIHOUR%${TXTENS}
 
-mkdir -p ${ifsdir}
-cd ${ifsdir}
+mkdir -p ${IFSDATADIR}
+cd ${IFSDATADIR}
 
 # Important: ==================================
 # export the DWD GRIB short names:
@@ -352,15 +351,17 @@ fi
 
 # -------------------------------------------------
 
+IFSDATADIR2=%SCTEMP%/%SUITE%/%EXPNUM2%/input/%YMD%%INIHOUR%${DIRENS}
 
-cp -p ${outbasedir}/bin/prep_icon ./prep_icon
-
-echo "job::start"
-date
-export USE_SIGNAL_HANDLING=yes
-./prep_icon
-echo "job::end"
-date
+if [ -f ${IFSDATADIR2}/${IFS_FILENAME_NC} ] ; then
+  echo 'ifs2icon file can be copied - no prepicon!'
+  ls -l ${IFSDATADIR2}/${IFS_FILENAME_NC}
+  cp    ${IFSDATADIR2}/${IFS_FILENAME_NC} .     # copy old ifs2icon file
+else
+  cp -p ${outbasedir}/bin/prep_icon ./prep_icon
+  export USE_SIGNAL_HANDLING=yes
+  ./prep_icon
+fi
 
 ls -l ${IFS_FILENAME_NC}
 
