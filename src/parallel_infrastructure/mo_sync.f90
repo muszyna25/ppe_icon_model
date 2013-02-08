@@ -50,7 +50,7 @@ USE mo_model_domain,       ONLY: t_patch
 USE mo_parallel_config,    ONLY: nproma
 USE mo_run_config,         ONLY: msg_level
 USE mo_math_constants,     ONLY: pi
-USE mo_impl_constants,     ONLY: min_rlcell_int, min_rledge_int, min_rlvert_int
+USE mo_impl_constants,     ONLY: min_rlcell_int, min_rledge_int, min_rlvert_int, max_dom
 USE mo_impl_constants_grf, ONLY: grf_bdywidth_c, grf_bdywidth_e
 USE mo_io_units,           ONLY: find_next_free_unit, filename_max
 USE mo_mpi,                ONLY: p_pe, p_bcast, p_sum, p_max, p_min, p_send, p_recv,               &
@@ -83,7 +83,8 @@ PUBLIC :: sync_patch_array, check_patch_array, sync_idx,              &
           sync_patch_array_mult,                                      &
           global_min, global_max, sync_patch_array_gm,                &
           sync_patch_array_4de3, decomposition_statistics,            &
-          enable_sync_checks, disable_sync_checks
+          enable_sync_checks, disable_sync_checks,                    &
+          cumulative_sync_patch_array, complete_cumulative_sync
 
 !
 !variables
@@ -133,10 +134,26 @@ END INTERFACE
 ! Unit for logging sync errors
 INTEGER, SAVE :: log_unit = -1
 
-! Falg if sync checks are enabled when sync_patch_array et al is called
+! Flag if sync checks are enabled when sync_patch_array et al is called
 LOGICAL, SAVE :: do_sync_checks = .TRUE.
 
 !-------------------------------------------------------------------------
+
+!> Type definition for "cumulative syncs": These are boundary
+!  exchanges for 3D cell-based fields, collecting as many fields as
+!  possible before actually performing the sync.
+TYPE t_cumulative_sync
+  REAL(wp),      POINTER :: f3d(:,:,:)
+  TYPE(t_patch), POINTER :: p_patch
+END TYPE t_cumulative_sync
+
+!> max. no. fields that can be handled by "sync_patch_array_mult"
+INTEGER, PARAMETER :: MAX_CUMULATIVE_SYNC = 5
+!> No. of pending cumulative sync; dim (typ,patch_id,fieldno)
+INTEGER :: ncumul_sync(4,max_dom) = 0
+!> List of cumulative sync fields:
+TYPE(t_cumulative_sync) :: cumul_sync(4,max_dom,MAX_CUMULATIVE_SYNC)
+
 
 CONTAINS
 
@@ -2493,6 +2510,95 @@ SUBROUTINE decomposition_statistics(p_patch)
 END SUBROUTINE decomposition_statistics
 
 !-------------------------------------------------------------------------
+
+
+!-------------------------------------------------------------------------
+!> Does boundary exchange for 3D cell-based fields, collecting as many
+!  fields as possible before actually performing the sync.
+!
+!  @par Revision History
+!  Initial revision : F. Prill, DWD (2013-02-08)
+! 
+SUBROUTINE cumulative_sync_patch_array(typ, p_patch, f3d)
+  INTEGER,       INTENT(IN)            :: typ
+  TYPE(t_patch), INTENT(IN),    TARGET :: p_patch
+  REAL(wp),      INTENT(INOUT), TARGET :: f3d(:,:,:)
+  ! local variables
+  CHARACTER(*), PARAMETER :: routine = TRIM("mo_sync:cumulative_sync_patch_array")
+  INTEGER :: idx
+
+  ! add pointer to list of cumulative sync fields:
+  idx = ncumul_sync(typ,p_patch%id) + 1
+  IF (idx > MAX_CUMULATIVE_SYNC) CALL finish(routine, "Internal error!")
+  ncumul_sync(typ, p_patch%id)            =  idx
+  cumul_sync(typ, p_patch%id,idx)%f3d     => f3d
+  cumul_sync(typ, p_patch%id,idx)%p_patch => p_patch
+  IF (idx == MAX_CUMULATIVE_SYNC) THEN
+!CDIR NOIEXPAND
+    CALL complete_cumulative_sync(typ, p_patch%id)
+  END IF
+END SUBROUTINE cumulative_sync_patch_array
+
+
+!-------------------------------------------------------------------------
+!> If there are any pending "cumulative sync" operations: Complete them!
+!
+!  @par Revision History
+!  Initial revision : F. Prill, DWD (2013-02-08)
+! 
+RECURSIVE SUBROUTINE complete_cumulative_sync(opt_typ, opt_patch_id)
+  INTEGER, OPTIONAL, INTENT(IN) :: opt_typ
+  INTEGER, OPTIONAL, INTENT(IN) :: opt_patch_id
+  ! local variables
+  CHARACTER(*), PARAMETER :: routine = TRIM("mo_sync:complete_cumulative_sync")
+  TYPE(t_patch), POINTER :: p_patch
+  INTEGER :: i
+
+  ! first, handle the case that this routine has been called for all
+  ! sync types or/and all patches:
+  IF (.NOT. PRESENT(opt_typ)) THEN
+    DO i=1,4
+!CDIR NOIEXPAND
+      CALL complete_cumulative_sync(i, opt_patch_id)
+    END DO
+    RETURN
+  END IF
+  IF (.NOT. PRESENT(opt_patch_id)) THEN
+    DO i=1,max_dom
+!CDIR NOIEXPAND
+      CALL complete_cumulative_sync(opt_typ,i)
+    END DO
+    RETURN
+  END IF
+  ! now, call "sync_patch_array_mult"
+  IF (PRESENT(opt_typ) .AND. (PRESENT(opt_patch_id))) THEN
+    p_patch => cumul_sync(opt_typ,opt_patch_id,1)%p_patch
+    SELECT CASE(ncumul_sync(opt_typ,opt_patch_id))
+    CASE (0)
+      RETURN
+    CASE (1)
+      CALL sync_patch_array_mult(opt_typ, p_patch, 1, cumul_sync(opt_typ,opt_patch_id,1)%f3d)
+    CASE (2)
+      CALL sync_patch_array_mult(opt_typ, p_patch, 2, cumul_sync(opt_typ,opt_patch_id, 1)%f3d, &
+        &                        cumul_sync(opt_typ,opt_patch_id,2)%f3d)
+    CASE (3)
+      CALL sync_patch_array_mult(opt_typ, p_patch, 3, cumul_sync(opt_typ,opt_patch_id,1)%f3d,  &
+        &                        cumul_sync(opt_typ,opt_patch_id,2)%f3d, cumul_sync(opt_typ,opt_patch_id,3)%f3d)
+    CASE (4)
+      CALL sync_patch_array_mult(opt_typ, p_patch, 4, cumul_sync(opt_typ,opt_patch_id,1)%f3d,  &
+        &                        cumul_sync(opt_typ,opt_patch_id,2)%f3d, cumul_sync(opt_typ,opt_patch_id,3)%f3d, &
+        &                        cumul_sync(opt_typ,opt_patch_id,4)%f3d)
+    CASE (5)
+      CALL sync_patch_array_mult(opt_typ, p_patch, 5, cumul_sync(opt_typ,opt_patch_id,1)%f3d,  &
+        &                        cumul_sync(opt_typ,opt_patch_id,2)%f3d, cumul_sync(opt_typ,opt_patch_id,3)%f3d, &
+        &                        cumul_sync(opt_typ,opt_patch_id,4)%f3d, cumul_sync(opt_typ,opt_patch_id,5)%f3d)
+    CASE DEFAULT
+      CALL finish(routine, "Internal error!")
+    END SELECT
+    ncumul_sync(opt_typ,opt_patch_id) = 0 ! reset sync counter
+  END IF
+END SUBROUTINE complete_cumulative_sync
+
 
 END MODULE mo_sync
 

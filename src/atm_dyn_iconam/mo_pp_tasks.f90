@@ -89,7 +89,9 @@ MODULE mo_pp_tasks
   USE mo_intp_lonlat,             ONLY: rbf_interpol_lonlat,                     &
     &                                   rbf_vec_interpol_lonlat
   USE mo_sync,                    ONLY: sync_patch_array,                        &
-    &                                   SYNC_C, SYNC_E, SYNC_V
+    &                                   SYNC_C, SYNC_E, SYNC_V,                  &
+    &                                   cumulative_sync_patch_array,             &
+    &                                   complete_cumulative_sync
   USE mo_util_phys,               ONLY: compute_field_rel_hum
   USE mo_io_config,               ONLY: itype_pres_msl
 
@@ -390,7 +392,6 @@ CONTAINS
   !
   ! To avoid unnecessary overhead in the synchronization,
   ! several improvements are possible:
-  !   - Use "*_mult" synchronization routines
   !
   !   - Copy 2D fields into a 3D field which is
   !     synchronized. Afterwards, 2D fields are extracted again from
@@ -430,7 +431,7 @@ CONTAINS
             IF (ASSOCIATED(in_var%r_ptr)) CALL sync_patch_array(SYNC_C, p_patch, in_var%r_ptr(:,:,in_var_idx,1,1) )
             IF (ASSOCIATED(in_var%i_ptr)) CALL sync_patch_array(SYNC_C, p_patch, in_var%i_ptr(:,:,in_var_idx,1,1) )
           ELSE
-            IF (ASSOCIATED(in_var%r_ptr)) CALL sync_patch_array(SYNC_C, p_patch, in_var%r_ptr(:,:,:,in_var_idx,1) )
+            IF (ASSOCIATED(in_var%r_ptr)) CALL cumulative_sync_patch_array(SYNC_C, p_patch, in_var%r_ptr(:,:,:,in_var_idx,1))
             IF (ASSOCIATED(in_var%i_ptr)) CALL sync_patch_array(SYNC_C, p_patch, in_var%i_ptr(:,:,:,in_var_idx,1) )
           END IF
         CASE (GRID_UNSTRUCTURED_EDGE)
@@ -438,7 +439,7 @@ CONTAINS
             IF (ASSOCIATED(in_var%r_ptr)) CALL sync_patch_array(SYNC_E, p_patch, in_var%r_ptr(:,:,in_var_idx,1,1) )
             IF (ASSOCIATED(in_var%i_ptr)) CALL sync_patch_array(SYNC_E, p_patch, in_var%i_ptr(:,:,in_var_idx,1,1) )
           ELSE
-            IF (ASSOCIATED(in_var%r_ptr)) CALL sync_patch_array(SYNC_E, p_patch, in_var%r_ptr(:,:,:,in_var_idx,1) )
+            IF (ASSOCIATED(in_var%r_ptr)) CALL cumulative_sync_patch_array(SYNC_E, p_patch, in_var%r_ptr(:,:,:,in_var_idx,1))
             IF (ASSOCIATED(in_var%i_ptr)) CALL sync_patch_array(SYNC_E, p_patch, in_var%i_ptr(:,:,:,in_var_idx,1) )
           END IF
         CASE DEFAULT
@@ -448,6 +449,8 @@ CONTAINS
       !
       ptr_task => ptr_task%next
     END DO LOOP_JOB
+    ! complete pending syncs:
+    CALL complete_cumulative_sync()
 
   END SUBROUTINE pp_task_sync
 

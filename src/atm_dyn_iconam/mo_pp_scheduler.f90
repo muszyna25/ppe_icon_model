@@ -550,12 +550,6 @@ CONTAINS
 
           IF (info%hgrid /= GRID_UNSTRUCTURED_CELL)  CYCLE VAR_LOOP
 
-! DEVELOPMENT
-!          ! throw error message, if this variable is not a REAL field:
-!          IF (.NOT. ASSOCIATED(element%field%r_ptr)) THEN
-!            CALL finish(routine, TRIM(info%name)//": Lon-lat RBF interpolation implemented for REAL fields only.")
-!          END IF
-
           ! Found it, add it to the variable list of optional
           ! diagnostics       
           SELECT CASE(ll_varlevs(ivar))
@@ -648,7 +642,7 @@ CONTAINS
       WRITE (task%job_name, *) "horizontal interp. SYNC"
       task%job_type = TASK_INTP_SYNC
       task%activity = new_simulation_status(l_output_step=.TRUE.)
-      task%activity%ldom_active(:) = .TRUE.
+      task%activity%ldom_active(:) = .FALSE.
     END IF
     IF (dbg_level > 5)  CALL message(routine, "Done")
     
@@ -1328,6 +1322,10 @@ CONTAINS
     LOOP_JOB : DO
       IF (.NOT. ASSOCIATED(ptr_task)) EXIT
       IF (.NOT. pp_task_is_active(ptr_task, simulation_status)) THEN
+        IF (dbg_level > 5) THEN
+          WRITE(message_text,*) "Skipping task '", TRIM(ptr_task%job_name), "'"
+          CALL message(routine, TRIM(message_text))
+        END IF
         ptr_task => ptr_task%next
         CYCLE LOOP_JOB
       END IF
