@@ -18,6 +18,8 @@ MODULE mo_data_turbdiff
 ! ---------- ---------- ----
 !              2010/12/30 Matthias Raschendorfer
 ! Initial release
+!              2013/02/08 Dmitrii Mironov
+! Replaced "USE data_flake" with "USE mo_data_flake" 
 !
 ! Code Description:
 ! Language: Fortran 90.
@@ -122,7 +124,7 @@ USE data_turbulence, ONLY : rlam_mom, & ! scaling factor of the laminar boudary 
 ! Flake parameters:
 ! -----------------------------------------------------
 
-USE data_flake,              ONLY: h_Ice_min_flk
+USE mo_data_flake,           ONLY: h_Ice_min_flk
 
 ! Switches controlling other physical parameterizations:
 ! -----------------------------------------------------
