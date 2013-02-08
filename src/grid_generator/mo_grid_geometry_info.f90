@@ -41,7 +41,7 @@ MODULE mo_grid_geometry_info
   USE mo_math_constants,     ONLY: pi
   USE mo_exception,          ONLY: message_text, message, finish, warning
 
-#ifndef NOMPI
+#if !( defined (NOMPI) || defined (__ICON_GRID_GENERATOR__))
   ! The USE statement below lets this module use the routines from
   ! mo_read_netcdf_parallel where only 1 processor is reading
   ! and broadcasting the results  
@@ -193,7 +193,7 @@ CONTAINS
     INTEGER, INTENT(in) :: ncid
     TYPE(t_grid_geometry_info) :: geometry_info
     
-#ifdef NOMPI
+#if ( defined (NOMPI) || defined (__ICON_GRID_GENERATOR__))
     parallel_read_geometry_info = read_geometry_info(ncid, geometry_info)
 #else
     

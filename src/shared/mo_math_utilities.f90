@@ -100,9 +100,10 @@ MODULE mo_math_utilities
   USE mo_kind,                ONLY: wp
   USE mo_math_constants,      ONLY: pi, pi_2, dbl_eps
   USE mo_exception,           ONLY: message, finish
-  USE mo_parallel_config,     ONLY: nproma
+#ifndef __ICON_GRID_GENERATOR__
   USE mo_lonlat_grid,         ONLY: t_lon_lat_grid
-  USE mo_grid_config,         ONLY: grid_sphere_radius
+  USE mo_physical_constants,  ONLY: earth_radius
+#endif
   USE mo_grid_geometry_info,  ONLY: t_grid_geometry_info, planar_torus_geometry, sphere_geometry
   USE mo_math_types
   IMPLICIT NONE
@@ -151,8 +152,11 @@ MODULE mo_math_utilities
   PUBLIC :: integral_over_triangle
   PUBLIC :: rotate_latlon
   PUBLIC :: rotate_latlon_vec
+
+#ifndef __ICON_GRID_GENERATOR__
   PUBLIC :: rotate_latlon_grid
   PUBLIC :: latlon_compute_area_weights
+#endif
   
   PUBLIC :: gnomonic_proj
   PUBLIC :: orthogr_proj
@@ -580,7 +584,7 @@ CONTAINS
       !Assuming that the flat geometry is nothing but a small arc 
       !over sphere. This assumption doesn't really affect any calculation
       p_arc = plane_torus_distance(p_x%x,p_y%x,geometry_info) / &
-              grid_sphere_radius     
+              geometry_info%sphere_radius
     CASE (sphere_geometry)
       !    
       p_arc = arc_length_sphere (p_x, p_y)
@@ -684,7 +688,7 @@ CONTAINS
       !Assuming that the flat geometry is nothing but a small arc 
       !over sphere. This assumption doesn't really affect any calculation
       p_arc = plane_torus_distance(p_x,p_y,geometry_info) / &
-              grid_sphere_radius     
+              geometry_info%sphere_radius
     CASE (sphere_geometry)
       !
       p_arc = arc_length_v_sphere (p_x, p_y)
@@ -1686,6 +1690,7 @@ CONTAINS
   !!  Initial revision                   : F. Prill,  2011-08-04
   !!  floating point exception handling  : G. Zaengl, 2012-11-20
   !!
+#ifndef __ICON_GRID_GENERATOR__
   SUBROUTINE rotate_latlon_grid( lon_lat_grid, rotated_pts )
     
     TYPE (t_lon_lat_grid), INTENT(in)    :: lon_lat_grid
@@ -1780,7 +1785,7 @@ CONTAINS
     REAL(wp) :: latitude(grid%lat_dim)
     INTEGER :: k, pole1, pole2
     
-    radius = grid_sphere_radius ! earth's radius (average)
+    radius = earth_radius ! earth's radius (average)
     pi_180 = ATAN(1._wp)/45._wp
     start_lat   = grid%reg_lat_def(1) * pi_180
     delta_lon   = grid%reg_lon_def(2) * pi_180
@@ -1813,6 +1818,7 @@ CONTAINS
     
   END SUBROUTINE latlon_compute_area_weights
   !-----------------------------------------------------------------------
+#endif
   
   !-----------------------------------------------------------------------
   !>
