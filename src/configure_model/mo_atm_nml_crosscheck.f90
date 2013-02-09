@@ -106,6 +106,7 @@ MODULE mo_nml_crosscheck
   
   USE mo_art_config,         ONLY: art_config
   USE mo_prepicon_config,    ONLY: i_oper_mode
+  USE mo_nh_torus_exp,       ONLY: set_sst_cbl
 
   IMPLICIT NONE
 
@@ -438,6 +439,9 @@ CONTAINS
 
        IF(.NOT.turbdiff_config(1)%lconst_z0)  &
             CALL message(TRIM(routine),'WARNING!! roughness length is not homogeneous!')
+
+       IF(atm_phy_nwp_config(1)%inwp_turb/=2 .AND. .NOT.set_sst_cbl) &
+            CALL finish(TRIM(routine),'STOPPING!! for fixed flux only inwp_turb =2 works')
     ENDIF     
 
     !--------------------------------------------------------------------
