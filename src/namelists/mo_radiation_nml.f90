@@ -127,14 +127,20 @@ MODULE mo_radiation_nml
 #ifdef __SX__
   INTEGER, PARAMETER :: qp = SELECTED_REAL_KIND(24, 307)
   REAL(qp) :: vmr_co2
+  REAL(qp) :: vmr_ch4
+  REAL(qp) :: vmr_n2o
+  REAL(qp) :: vmr_o2
+  REAL(qp) :: vmr_cfc11
+  REAL(qp) :: vmr_cfc12
 #else
   REAL(wp) :: vmr_co2
-#endif
   REAL(wp) :: vmr_ch4
   REAL(wp) :: vmr_n2o
   REAL(wp) :: vmr_o2
   REAL(wp) :: vmr_cfc11
   REAL(wp) :: vmr_cfc12
+#endif
+
   !
   ! --- Time control
   !

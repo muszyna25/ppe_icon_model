@@ -688,10 +688,17 @@ CONTAINS
       &                              xp = vpp_n2o        )
     xm_o2    (1:jce,:) = gas_profile(jce, klev, irad_o2,     &
       &                              mmr_gas = mmr_o2    )
+#ifdef __SX__
+    xm_cfc11 (1:jce,:) = gas_profile(jce, klev, irad_cfc11,  &
+      &                              mmr_gas = REAL(vmr_cfc11,wp) )
+    xm_cfc12 (1:jce,:) = gas_profile(jce, klev, irad_cfc12,  &
+      &                              mmr_gas = REAL(vmr_cfc12,wp) )
+#else
     xm_cfc11 (1:jce,:) = gas_profile(jce, klev, irad_cfc11,  &
       &                              mmr_gas = vmr_cfc11 )
     xm_cfc12 (1:jce,:) = gas_profile(jce, klev, irad_cfc12,  &
       &                              mmr_gas = vmr_cfc12 )
+#endif
     !
 !    ozon: SELECT CASE (irad_o3)
 !    CASE (0)
