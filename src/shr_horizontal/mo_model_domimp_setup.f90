@@ -1060,8 +1060,13 @@ CONTAINS
     CALL fill_subset(patch%cells%one_edge_in_domain, patch, patch%cells%halo_level, 0, 1)
     patch%cells%one_edge_in_domain%is_in_domain = .false.
     
-    IF (patch%cells%in_domain%no_of_holes > 0) &
-      CALL warning("patch%cells%in_domain", "no_of_holes > 0")
+    IF (patch%cells%in_domain%no_of_holes > 0) THEN
+      IF (get_my_process_type() == ocean_process) THEN
+        CALL finish("patch%cells%in_domain", "no_of_holes > 0, gmres for the ocean requires no_of_holes=0")
+      ELSE
+        CALL warning("patch%cells%in_domain", "no_of_holes > 0")
+      ENDIF
+    ENDIF
     IF (patch%cells%one_edge_in_domain%no_of_holes > 0) &
       CALL warning("patch%cells%one_edge_in_domain", "no_of_holes > 0")
     
