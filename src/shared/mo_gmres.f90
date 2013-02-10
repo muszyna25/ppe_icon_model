@@ -84,7 +84,7 @@ MODULE mo_gmres
 
 ! !PUBLIC MEMBER FUNCTIONS/SUBROUTINES
   PUBLIC :: gmres
-  PUBLIC :: gmres_oce  
+  PUBLIC :: gmres_oce, gmres_oce_old  
   PUBLIC :: gmres_oce_e2e
   PUBLIC :: gmres_e2e
   PUBLIC :: gmres_arg1

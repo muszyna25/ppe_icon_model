@@ -70,7 +70,7 @@ USE mo_oce_state,                 ONLY: t_hydro_ocean_state, t_hydro_ocean_diag,
   &                                     set_lateral_boundary_values, is_initial_timestep
 USE mo_model_domain,              ONLY: t_patch, t_patch_3D
 USE mo_ext_data_types,            ONLY: t_external_data
-USE mo_gmres,                     ONLY: gmres
+USE mo_gmres,                     ONLY: gmres, gmres_oce_old
 USE mo_exception,                 ONLY: message, finish!, message_text
 USE mo_util_dbg_prnt,             ONLY: dbg_print
 USE mo_oce_boundcond,             ONLY: bot_bound_cond_horz_veloc, top_bound_cond_horz_veloc
@@ -91,6 +91,7 @@ USE mo_oce_diffusion,             ONLY: velocity_diffusion,&
 USE mo_operator_ocean_coeff_3d,   ONLY: t_operator_coeff
 USE mo_grid_subset,               ONLY: t_subset_range, get_index_range
 USE mo_grid_config,               ONLY: n_dom
+USE mo_parallel_config,           ONLY: p_test_run
 IMPLICIT NONE
 
 PRIVATE
@@ -363,51 +364,98 @@ REAL(wp)                     ::trac_c(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nbl
     !  z_h_e = p_os%p_diag%h_e         ! #slo# 2011-02-21 bugfix (for mimetic only)
     !ENDIF 
 
-  CALL sync_patch_array(SYNC_E, p_patch_horz, z_h_e)
-  CALL sync_patch_array(SYNC_C, p_patch_horz, p_os%p_diag%thick_c)
-  CALL sync_patch_array(SYNC_C, p_patch_horz, p_os%p_prog(nold(1))%h)
+    CALL sync_patch_array(SYNC_E, p_patch_horz, z_h_e)
+    CALL sync_patch_array(SYNC_C, p_patch_horz, p_os%p_diag%thick_c)
+    CALL sync_patch_array(SYNC_C, p_patch_horz, p_os%p_prog(nold(1))%h)
 
-  IF(lprecon)THEN
-  !p_os%p_aux%p_rhs_sfc_eq = p_os%p_aux%p_rhs_sfc_eq *p_patch%cells%area
+    IF (p_test_run) THEN
+      ! the new gmres_oce uses out of order global sum for efficiency,
+      ! when running in p_test_run mode use the old one
+      IF(lprecon)THEN
+      !p_os%p_aux%p_rhs_sfc_eq = p_os%p_aux%p_rhs_sfc_eq *p_patch%cells%area
 
-  CALL gmres( z_h_c(:,:),                 &  ! arg 1 of lhs. x input is the first guess.
-      &        lhs_surface_height_ab_mim, &  ! function calculating l.h.s.
-      &        p_os%p_diag%thick_e,       &  ! edge thickness for LHS
-      &        p_os%p_diag%thick_c,       &  ! p_os%p_diag%thick_c, & 
-                                             ! arg 6 of lhs p_os%p_prog(nold(1))%h,
-                                             ! p_os%p_diag%cons_thick_c(:,1,:),&
-      &        p_os%p_prog(nold(1))%h,    &  !arg 2 of lhs !not used
-      &        p_patch_3D,                &  !arg 3 of lhs 
-      &        z_implcoeff,               &  !arg 4 of lhs
-      &        p_op_coeff,                &
-      &        p_os%p_aux%p_rhs_sfc_eq,   &  ! right hand side as input
-      &        tolerance,                 &  ! relative tolerance
-      &        .FALSE.,                   &  ! NOT absolute tolerance
-      &        nmax_iter,                 &  ! max. # of iterations to do
-      &        l_maxiter,                 &  ! out: .true. = not converged
-      &        n_iter,                    &  ! out: # of iterations done
-      &        zresidual,                 & ! inout: the residual (array)  
-      &        Jacobi_precon )
+      CALL gmres_oce_old( z_h_c(:,:),                 &  ! arg 1 of lhs. x input is the first guess.
+          &        lhs_surface_height_ab_mim, &  ! function calculating l.h.s.
+          &        p_os%p_diag%thick_e,       &  ! edge thickness for LHS
+          &        p_os%p_diag%thick_c,       &  ! p_os%p_diag%thick_c, & 
+                                                ! arg 6 of lhs p_os%p_prog(nold(1))%h,
+                                                ! p_os%p_diag%cons_thick_c(:,1,:),&
+          &        p_os%p_prog(nold(1))%h,    &  !arg 2 of lhs !not used
+          &        p_patch_3D,                &  !arg 3 of lhs 
+          &        z_implcoeff,               &  !arg 4 of lhs
+          &        p_op_coeff,                &
+          &        p_os%p_aux%p_rhs_sfc_eq,   &  ! right hand side as input
+          &        tolerance,                 &  ! relative tolerance
+          &        .FALSE.,                   &  ! NOT absolute tolerance
+          &        nmax_iter,                 &  ! max. # of iterations to do
+          &        l_maxiter,                 &  ! out: .true. = not converged
+          &        n_iter,                    &  ! out: # of iterations done
+          &        zresidual,                 & ! inout: the residual (array)  
+          &        Jacobi_precon )
 
-  ELSEIF(.NOT.lprecon)THEN
-  CALL gmres( z_h_c(:,:),                 &  ! arg 1 of lhs. x input is the first guess.
-      &        lhs_surface_height_ab_mim, &  ! function calculating l.h.s.
-      &        p_os%p_diag%thick_e,       &  ! edge thickness for LHS
-      &        p_os%p_diag%thick_c,       &  ! p_os%p_diag%thick_c, & 
-                                             ! arg 6 of lhs p_os%p_prog(nold(1))%h,
-                                             ! p_os%p_diag%cons_thick_c(:,1,:),&
-      &        p_os%p_prog(nold(1))%h,    &  !arg 2 of lhs !not used
-      &        p_patch_3D,                &  !arg 3 of lhs 
-      &        z_implcoeff,               &  !arg 4 of lhs
-      &        p_op_coeff,                &
-      &        p_os%p_aux%p_rhs_sfc_eq,   &  ! right hand side as input
-      &        tolerance,                 &  ! relative tolerance
-      &        .FALSE.,                   &  ! NOT absolute tolerance
-      &        nmax_iter,                 &  ! max. # of iterations to do
-      &        l_maxiter,                 &  ! out: .true. = not converged
-      &        n_iter,                    &  ! out: # of iterations done
-      &        zresidual )
-  ENDIF         
+      ELSEIF(.NOT.lprecon)THEN
+      CALL gmres_oce_old( z_h_c(:,:),                 &  ! arg 1 of lhs. x input is the first guess.
+          &        lhs_surface_height_ab_mim, &  ! function calculating l.h.s.
+          &        p_os%p_diag%thick_e,       &  ! edge thickness for LHS
+          &        p_os%p_diag%thick_c,       &  ! p_os%p_diag%thick_c, & 
+                                                ! arg 6 of lhs p_os%p_prog(nold(1))%h,
+                                                ! p_os%p_diag%cons_thick_c(:,1,:),&
+          &        p_os%p_prog(nold(1))%h,    &  !arg 2 of lhs !not used
+          &        p_patch_3D,                &  !arg 3 of lhs 
+          &        z_implcoeff,               &  !arg 4 of lhs
+          &        p_op_coeff,                &
+          &        p_os%p_aux%p_rhs_sfc_eq,   &  ! right hand side as input
+          &        tolerance,                 &  ! relative tolerance
+          &        .FALSE.,                   &  ! NOT absolute tolerance
+          &        nmax_iter,                 &  ! max. # of iterations to do
+          &        l_maxiter,                 &  ! out: .true. = not converged
+          &        n_iter,                    &  ! out: # of iterations done
+          &        zresidual )
+      ENDIF  
+    ELSE
+      ! call the new gmre_oce, uses out of order global sum
+      IF(lprecon)THEN
+      !p_os%p_aux%p_rhs_sfc_eq = p_os%p_aux%p_rhs_sfc_eq *p_patch%cells%area
+
+      CALL gmres( z_h_c(:,:),                 &  ! arg 1 of lhs. x input is the first guess.
+          &        lhs_surface_height_ab_mim, &  ! function calculating l.h.s.
+          &        p_os%p_diag%thick_e,       &  ! edge thickness for LHS
+          &        p_os%p_diag%thick_c,       &  ! p_os%p_diag%thick_c, & 
+                                                ! arg 6 of lhs p_os%p_prog(nold(1))%h,
+                                                ! p_os%p_diag%cons_thick_c(:,1,:),&
+          &        p_os%p_prog(nold(1))%h,    &  !arg 2 of lhs !not used
+          &        p_patch_3D,                &  !arg 3 of lhs 
+          &        z_implcoeff,               &  !arg 4 of lhs
+          &        p_op_coeff,                &
+          &        p_os%p_aux%p_rhs_sfc_eq,   &  ! right hand side as input
+          &        tolerance,                 &  ! relative tolerance
+          &        .FALSE.,                   &  ! NOT absolute tolerance
+          &        nmax_iter,                 &  ! max. # of iterations to do
+          &        l_maxiter,                 &  ! out: .true. = not converged
+          &        n_iter,                    &  ! out: # of iterations done
+          &        zresidual,                 & ! inout: the residual (array)  
+          &        Jacobi_precon )
+
+      ELSEIF(.NOT.lprecon)THEN
+      CALL gmres( z_h_c(:,:),                 &  ! arg 1 of lhs. x input is the first guess.
+          &        lhs_surface_height_ab_mim, &  ! function calculating l.h.s.
+          &        p_os%p_diag%thick_e,       &  ! edge thickness for LHS
+          &        p_os%p_diag%thick_c,       &  ! p_os%p_diag%thick_c, & 
+                                                ! arg 6 of lhs p_os%p_prog(nold(1))%h,
+                                                ! p_os%p_diag%cons_thick_c(:,1,:),&
+          &        p_os%p_prog(nold(1))%h,    &  !arg 2 of lhs !not used
+          &        p_patch_3D,                &  !arg 3 of lhs 
+          &        z_implcoeff,               &  !arg 4 of lhs
+          &        p_op_coeff,                &
+          &        p_os%p_aux%p_rhs_sfc_eq,   &  ! right hand side as input
+          &        tolerance,                 &  ! relative tolerance
+          &        .FALSE.,                   &  ! NOT absolute tolerance
+          &        nmax_iter,                 &  ! max. # of iterations to do
+          &        l_maxiter,                 &  ! out: .true. = not converged
+          &        n_iter,                    &  ! out: # of iterations done
+          &        zresidual )
+      ENDIF         
+    ENDIF         
 !   CALL gmres( z_h_c(:,:),                 &  ! arg 1 of lhs. x input is the first guess.
 !       &        lhs_surface_height_ab_mim, &  ! function calculating l.h.s.
 !       &        p_os%p_diag%thick_e,       &  ! z_h_e, &  !arg 5 of lhs  !not used

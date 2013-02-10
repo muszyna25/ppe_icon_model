@@ -121,6 +121,7 @@ cat > ${ocean_namelist} << EOF
 !
 &parallel_nml
  nproma         = ${nproma}
+ l_fast_sum     = .true.
 /
 &grid_nml
  dynamics_grid_filename = "${ocean_grids}",
