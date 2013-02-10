@@ -74,6 +74,7 @@ MODULE mo_gmres
   USE mo_sync,                ONLY: sync_e, sync_c, sync_v, sync_patch_array
   USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
+  USE mo_mpi,                 ONLY: get_my_global_mpi_id, p_barrier
 
   IMPLICIT NONE
 
@@ -128,7 +129,7 @@ CONTAINS
  !! @par
  !! inital guess, overwritten with the solution
  !!
- SUBROUTINE gmres_hydro(x,lhs,curr_patch,p_int,nblks,npromz,coeff,b,  &
+ SUBROUTINE gmres_hydro(x,lhs,patch_2D,p_int,nblks,npromz,coeff,b,  &
       &                 tolerance,abstol,m,maxiterex,niter,res, &
       &                 preconditioner)
 !
@@ -139,7 +140,7 @@ CONTAINS
 !
   REAL(wp), INTENT(INOUT) :: x(:,:,:)
   ! patch info needed for calculating lhs
-  TYPE(t_patch), TARGET, INTENT(IN) :: curr_patch
+  TYPE(t_patch), TARGET, INTENT(IN) :: patch_2D
   ! interpolation state (needed for divergence averaging)
   TYPE(t_int_state), INTENT(IN) :: p_int
   ! index defining the "active" region of the arrays
@@ -164,12 +165,12 @@ CONTAINS
   REAL(wp), INTENT(INOUT) :: res(:) ! (m)
 
   INTERFACE   ! left-hand-side: A*x
-    FUNCTION lhs(x,curr_patch,p_int,coeff) RESULT(ax)
+    FUNCTION lhs(x,patch_2D,p_int,coeff) RESULT(ax)
       USE mo_kind, ONLY: wp
       USE mo_model_domain, ONLY: t_patch
       USE mo_intp_data_strc,ONLY: t_int_state
       REAL(wp),    INTENT(in) :: x(:,:,:)
-      TYPE(t_patch), TARGET, INTENT(in) :: curr_patch
+      TYPE(t_patch), TARGET, INTENT(in) :: patch_2D
       TYPE(t_int_state), INTENT(in) :: p_int
       REAL(wp),    INTENT(in) :: coeff
       REAL(wp) :: ax( SIZE(x,1) , SIZE(x,2) , SIZE(x,3) ) ! same as x
@@ -236,7 +237,7 @@ CONTAINS
 
    ! 1) compute the preconditioned residual
 
-   w(:,:,:) = lhs(x(:,:,:),curr_patch,p_int,coeff)
+   w(:,:,:) = lhs(x(:,:,:),patch_2D,p_int,coeff)
 
    IF (ltimer) CALL timer_start(timer_gmres)
 
@@ -283,7 +284,7 @@ CONTAINS
        DO jk = 2,ndim2
          z(1:nlen,jb) = z(1:nlen,jb) + r(1:nlen,jk,jb)*r(1:nlen,jk,jb)
        ENDDO
-       WHERE(.NOT.curr_patch%cells%owner_mask(:,jb)) z(:,jb) = 0._wp
+       WHERE(.NOT.patch_2D%cells%owner_mask(:,jb)) z(:,jb) = 0._wp
      ENDDO
 !$OMP END DO
 
@@ -323,7 +324,7 @@ CONTAINS
    arnoldi: DO i = 1, m-1
 
      ! 4.1) compute the next (i.e. i+1) Krylov vector
-     w(:,:,:) = lhs( v(:,:,:,i), curr_patch, p_int, coeff )
+     w(:,:,:) = lhs( v(:,:,:,i), patch_2D, p_int, coeff )
 
      ! 4.2) Gram-Schmidt orthogonalization
 
@@ -358,7 +359,7 @@ CONTAINS
        DO jk = 2,ndim2
          z(1:nlen,jb) = z(1:nlen,jb) + w(1:nlen,jk,jb)*v(1:nlen,jk,jb,k)
        ENDDO
-       WHERE(.NOT.curr_patch%cells%owner_mask(:,jb)) z(:,jb) = 0.0_wp
+       WHERE(.NOT.patch_2D%cells%owner_mask(:,jb)) z(:,jb) = 0.0_wp
      ENDDO
 !$OMP END DO
 
@@ -407,7 +408,7 @@ CONTAINS
        DO jk = 2,ndim2
          z(1:nlen,jb) = z(1:nlen,jb) + w(1:nlen,jk,jb)*w(1:nlen,jk,jb)
        ENDDO
-       WHERE(.NOT.curr_patch%cells%owner_mask(:,jb)) z(:,jb) = 0.0_wp
+       WHERE(.NOT.patch_2D%cells%owner_mask(:,jb)) z(:,jb) = 0.0_wp
      ENDDO
 !$OMP END DO
 
@@ -503,7 +504,7 @@ CONTAINS
  END SUBROUTINE gmres_hydro
 
 
- SUBROUTINE gmres_nonhydro(x,lhs,curr_patch,p_int,p_metrics,nblks,npromz,coeff,b,  &
+ SUBROUTINE gmres_nonhydro(x,lhs,patch_2D,p_int,p_metrics,nblks,npromz,coeff,b,  &
       &                    tolerance,abstol,m,maxiterex,niter,res, &
       &                    preconditioner)
 !
@@ -514,7 +515,7 @@ CONTAINS
 !
   REAL(wp), INTENT(INOUT) :: x(:,:)
   ! patch info needed for calculating lhs
-  TYPE(t_patch), TARGET,INTENT(IN) :: curr_patch
+  TYPE(t_patch), TARGET,INTENT(IN) :: patch_2D
   ! interpolation state
   TYPE(t_int_state), INTENT(IN) :: p_int
   ! metrics needed for NH-version
@@ -541,13 +542,13 @@ CONTAINS
   REAL(wp), INTENT(INOUT) :: res(:) ! (m)
 
   INTERFACE   ! left-hand-side: A*x
-    FUNCTION lhs(x,curr_patch,p_int,p_metrics,coeff) RESULT(ax)
+    FUNCTION lhs(x,patch_2D,p_int,p_metrics,coeff) RESULT(ax)
       USE mo_kind, ONLY: wp
       USE mo_model_domain, ONLY: t_patch
       USE mo_intp_data_strc,ONLY: t_int_state
       USE mo_nonhydro_types,ONLY: t_nh_metrics
       REAL(wp),    INTENT(in) :: x(:,:)
-      TYPE(t_patch), TARGET, INTENT(in) :: curr_patch
+      TYPE(t_patch), TARGET, INTENT(in) :: patch_2D
       TYPE(t_int_state), INTENT(in) :: p_int
       TYPE(t_nh_metrics), INTENT(in) :: p_metrics
       REAL(wp),    INTENT(in) :: coeff
@@ -612,7 +613,7 @@ CONTAINS
 
    ! 1) compute the preconditioned residual
 
-   w(:,:) = lhs(x(:,:),curr_patch,p_int,p_metrics,coeff)
+   w(:,:) = lhs(x(:,:),patch_2D,p_int,p_metrics,coeff)
 
    IF (ltimer) CALL timer_start(timer_gmres)
 
@@ -655,7 +656,7 @@ CONTAINS
        nlen = end_nproma
      ENDIF
      z(1:nlen,jb) = r(1:nlen,jb)*r(1:nlen,jb)
-     WHERE(.NOT.curr_patch%edges%owner_mask(:,jb)) z(:,jb) = 0._wp
+     WHERE(.NOT.patch_2D%edges%owner_mask(:,jb)) z(:,jb) = 0._wp
    ENDDO
 !$OMP END DO
 
@@ -699,7 +700,7 @@ CONTAINS
    arnoldi: DO i = 1, m-1
 
      ! 4.1) compute the next (i.e. i+1) Krylov vector
-     w(:,:) = lhs( v(:,:,i), curr_patch, p_int, p_metrics, coeff )
+     w(:,:) = lhs( v(:,:,i), patch_2D, p_int, p_metrics, coeff )
 
      ! 4.2) Gram-Schmidt orthogonalization
 
@@ -731,7 +732,7 @@ CONTAINS
          nlen = end_nproma
        ENDIF
        z(1:nlen,jb) = w(1:nlen,jb)*v(1:nlen,jb,k)
-       WHERE(.NOT.curr_patch%edges%owner_mask(:,jb)) z(:,jb) = 0._wp
+       WHERE(.NOT.patch_2D%edges%owner_mask(:,jb)) z(:,jb) = 0._wp
      ENDDO
 !$OMP END DO
 
@@ -776,7 +777,7 @@ CONTAINS
          nlen = end_nproma
        ENDIF
        z(1:nlen,jb) = w(1:nlen,jb)*w(1:nlen,jb)
-       WHERE(.NOT.curr_patch%edges%owner_mask(:,jb)) z(:,jb) = 0._wp
+       WHERE(.NOT.patch_2D%edges%owner_mask(:,jb)) z(:,jb) = 0._wp
      ENDDO
 !$OMP END DO
 
@@ -920,7 +921,7 @@ REAL(wp), INTENT(IN) :: h_e(:,:)
 REAL(wp), INTENT(IN) :: thickness_c(:,:)
 REAL(wp), INTENT(IN) :: old_h(:,:)
 ! patch info needed for calculating lhs
-!TYPE(t_patch), INTENT(IN) :: curr_patch
+!TYPE(t_patch), INTENT(IN) :: patch_2D
 TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: p_patch_3D
 ! index defining the "active" region of the arrays
 ! parameter used in calculating the lhs
@@ -950,7 +951,7 @@ INTERFACE   ! left-hand-side: A*x
     USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff
     REAL(wp),    INTENT(inout) :: x(:,:)  ! inout for sync
     REAL(wp), INTENT(IN) :: old_h(:,:)
-    !TYPE(t_patch), TARGET, INTENT(in) :: curr_patch
+    !TYPE(t_patch), TARGET, INTENT(in) :: patch_2D
     TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: p_patch_3D
     REAL(wp),    INTENT(in) :: coeff  
     REAL(wp),    INTENT(in) :: h_e(:,:)
@@ -966,7 +967,7 @@ INTERFACE   ! preconditioner
     USE mo_model_domain, ONLY: t_patch, t_patch_3D
     USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff 
     REAL(wp), INTENT(inout)           :: r(:,:)
-    !TYPE(t_patch), TARGET, INTENT(in) :: curr_patch
+    !TYPE(t_patch), TARGET, INTENT(in) :: patch_2D
     TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: p_patch_3D
     TYPE(t_operator_coeff),INTENT(IN) :: p_op_coeff
     REAL(wp),    INTENT(in)           :: h_e(:,:)
@@ -1005,18 +1006,18 @@ INTEGER :: no_of_blocks, end_nproma
 ! #endif
 
   INTEGER :: myThreadNo
-  TYPE(t_patch), POINTER :: curr_patch
+  TYPE(t_patch), POINTER :: patch_2D
 !$ INTEGER OMP_GET_THREAD_NUM
 !-------------------------------------------------------------------------
 
-  curr_patch =>  p_patch_3D%p_patch_2D(1)
+  patch_2D =>  p_patch_3D%p_patch_2D(1)
 
    ! 0) set module variables and initialize maxiterex
 
    !>
    !!
-   no_of_blocks    = curr_patch%cells%in_domain%end_block
-   end_nproma      = curr_patch%cells%in_domain%end_index
+   no_of_blocks    = patch_2D%cells%in_domain%end_block
+   end_nproma      = patch_2D%cells%in_domain%end_index
 
    maxiterex = .FALSE.
 
@@ -1027,8 +1028,9 @@ INTEGER :: no_of_blocks, end_nproma
  IF (PRESENT(preconditioner)) CALL preconditioner(x(:,:),p_patch_3D,p_op_coeff,h_e)
  IF (PRESENT(preconditioner)) CALL preconditioner(b(:,:),p_patch_3D,p_op_coeff,h_e)
    w(:,:) = lhs(x(:,:),old_h, p_patch_3D,coeff, h_e, thickness_c, p_op_coeff)
-   w(end_nproma+1, no_of_blocks) = 0.0_wp
-   b(end_nproma+1, no_of_blocks) = 0.0_wp
+   w(end_nproma+1:nproma, no_of_blocks) = 0.0_wp
+   b(end_nproma+1:nproma, no_of_blocks) = 0.0_wp
+   x(end_nproma+1:nproma, no_of_blocks) = 0.0_wp
 #ifndef __SX__
    IF (ltimer) CALL timer_start(timer_gmres)
 #endif
@@ -1069,6 +1071,9 @@ INTEGER :: no_of_blocks, end_nproma
 !$OMP END DO NOWAIT
    ENDIF
 !$OMP END PARALLEL
+!      write(*,*)  get_my_global_mpi_id(), ':', end_nproma, nproma, 'r=', r(end_nproma+1:nproma, no_of_blocks)     
+!      write(*,*)  get_my_global_mpi_id(), ':', end_nproma, nproma, 'v=', v(end_nproma+1:nproma, no_of_blocks, 1)     
+!      CALL p_barrier
 
    IF (rn2(1) == 0.0_wp) THEN ! already done
 !    print*,' gmres: rn2(1)=0.0 '
@@ -1094,7 +1099,8 @@ INTEGER :: no_of_blocks, end_nproma
    arnoldi: DO i = 1, m-1
      ! 4.1) compute the next (i.e. i+1) Krylov vector
      w(:,:) = lhs( v(:,:,i),old_h,p_patch_3D,coeff,h_e, thickness_c, p_op_coeff )
-     w(end_nproma+1, no_of_blocks) = 0.0_wp
+     w(end_nproma+1:nproma, no_of_blocks) = 0.0_wp
+     v(end_nproma+1:nproma, no_of_blocks,i) = 0.0_wp
 
      ! 4.2) Gram-Schmidt orthogonalization
 
@@ -1110,7 +1116,11 @@ INTEGER :: no_of_blocks, end_nproma
          sum_aux(jb) = SUM(w(1:nproma,jb) * v(1:nproma,jb,k))
      ENDDO
 !$OMP END DO
-     
+    
+!      write(*,*)  get_my_global_mpi_id(), ':', end_nproma, nproma, 'w=', w(end_nproma+1:nproma, no_of_blocks)     
+!      write(*,*)  get_my_global_mpi_id(), ':', end_nproma, nproma, k, 'v=', v(end_nproma+1:nproma, no_of_blocks, k)     
+!      CALL p_barrier
+
      IF (myThreadNo == 0) THEN  
        h_aux = global_sum_array(sum_aux)
        h(k,i) = h_aux
@@ -1126,8 +1136,12 @@ INTEGER :: no_of_blocks, end_nproma
 
    ENDDO gs_orth
 
-     ! 4.3) new element for h
+!    write(*,*)  get_my_global_mpi_id(), ':', end_nproma, nproma, 'w=', w(end_nproma+1:nproma, no_of_blocks)     
+!    CALL p_barrier
+!    w(end_nproma+1:nproma, no_of_blocks) = 0.0_wp
+!    CALL sync_patch_array(SYNC_C, patch_2D, w(:,:) )
 
+     ! 4.3) new element for h
 !$OMP DO PRIVATE(jb) ICON_OMP_DEFAULT_SCHEDULE
      DO jb = 1, no_of_blocks
        sum_aux(jb) = SUM(w(1:nproma,jb) * w(1:nproma,jb))
@@ -1281,7 +1295,7 @@ REAL(wp), INTENT(IN) :: h_e(:,:)
 REAL(wp), INTENT(IN) :: thickness_c(:,:)
 REAL(wp), INTENT(IN) :: old_h(:,:)
 ! patch info needed for calculating lhs
-!TYPE(t_patch), INTENT(IN) :: curr_patch
+!TYPE(t_patch), INTENT(IN) :: patch_2D
 TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: p_patch_3D
 ! index defining the "active" region of the arrays
 ! parameter used in calculating the lhs
@@ -1311,7 +1325,7 @@ INTERFACE   ! left-hand-side: A*x
     USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff
     REAL(wp),    INTENT(inout) :: x(:,:)  ! inout for sync
     REAL(wp), INTENT(IN) :: old_h(:,:)
-    !TYPE(t_patch), TARGET, INTENT(in) :: curr_patch
+    !TYPE(t_patch), TARGET, INTENT(in) :: patch_2D
     TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: p_patch_3D
     REAL(wp),    INTENT(in) :: coeff  
     REAL(wp),    INTENT(in) :: h_e(:,:)
@@ -1327,7 +1341,7 @@ INTERFACE   ! preconditioner
     USE mo_model_domain, ONLY: t_patch, t_patch_3D
     USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff 
     REAL(wp), INTENT(inout)           :: r(:,:)
-    !TYPE(t_patch), TARGET, INTENT(in) :: curr_patch
+    !TYPE(t_patch), TARGET, INTENT(in) :: patch_2D
     TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: p_patch_3D
     TYPE(t_operator_coeff),INTENT(IN) :: p_op_coeff
     REAL(wp),    INTENT(in)           :: h_e(:,:)
@@ -1361,23 +1375,23 @@ INTEGER :: jb, jk, nlen
 INTEGER :: no_of_blocks, end_nproma
 
 #ifdef NOMPI_DISABLED
-  REAL(wp) :: sum_aux(curr_patch%cells%in_domain%end_block)
+  REAL(wp) :: sum_aux(patch_2D%cells%in_domain%end_block)
 #else
   REAL(wp) :: z(SIZE(x,1),SIZE(x,2)) ! needed for global sums in p_test_run
 #endif
 
   INTEGER :: myThreadNo
-  TYPE(t_patch), POINTER :: curr_patch
+  TYPE(t_patch), POINTER :: patch_2D
 !$ INTEGER OMP_GET_THREAD_NUM
 !-------------------------------------------------------------------------
-  curr_patch =>  p_patch_3D%p_patch_2D(1)
+  patch_2D =>  p_patch_3D%p_patch_2D(1)
 
    ! 0) set module variables and initialize maxiterex
 
    !>
    !!
-   no_of_blocks    = curr_patch%cells%in_domain%end_block
-   end_nproma   = curr_patch%cells%in_domain%end_index
+   no_of_blocks    = patch_2D%cells%in_domain%end_block
+   end_nproma   = patch_2D%cells%in_domain%end_index
 
    maxiterex = .FALSE.
 
@@ -1435,7 +1449,7 @@ INTEGER :: no_of_blocks, end_nproma
        ELSE
          z(1:end_nproma,jb) = r(1:end_nproma,jb)*r(1:end_nproma,jb)
        ENDIF
-       WHERE(.NOT.curr_patch%cells%owner_mask(:,jb)) z(:,jb) = 0.0_wp
+       WHERE(.NOT.patch_2D%cells%owner_mask(:,jb)) z(:,jb) = 0.0_wp
      ENDDO
 !$OMP END DO
 
@@ -1512,7 +1526,7 @@ INTEGER :: no_of_blocks, end_nproma
        ELSE
          z(1:end_nproma,jb) = w(1:end_nproma,jb) * v(1:end_nproma,jb,k)
        ENDIF
-       WHERE(.NOT.curr_patch%cells%owner_mask(:,jb)) z(:,jb) = 0.0_wp
+       WHERE(.NOT.patch_2D%cells%owner_mask(:,jb)) z(:,jb) = 0.0_wp
      ENDDO
 !$OMP END DO
     h_aux = omp_global_sum_array(z)
@@ -1556,7 +1570,7 @@ INTEGER :: no_of_blocks, end_nproma
        ELSE
          z(1:end_nproma,jb) = w(1:end_nproma,jb)*w(1:end_nproma,jb)
        ENDIF
-       WHERE(.NOT.curr_patch%cells%owner_mask(:,jb)) z(:,jb) = 0.0_wp
+       WHERE(.NOT.patch_2D%cells%owner_mask(:,jb)) z(:,jb) = 0.0_wp
      ENDDO
 !$OMP END DO
 
@@ -1667,7 +1681,7 @@ END SUBROUTINE gmres_oce_old
 !! @par
 !! inital guess, overwritten with the solution
 !!
-SUBROUTINE gmres_oce_e2e( x,lhs,h_e, lev, curr_patch,p_patch_3D, &
+SUBROUTINE gmres_oce_e2e( x,lhs,h_e, lev, patch_2D,p_patch_3D, &
                     & coeff, p_op_coeff, b,                      &
                     & tolerance,abstol,m,maxiterex,niter,res,    &
                     & preconditioner)
@@ -1683,7 +1697,7 @@ INTEGER,     INTENT(IN) :: lev
 ! REAL(wp), INTENT(IN) :: thickness_c(:,:)
 ! REAL(wp), INTENT(IN) :: old_h(:,:)
 ! patch info needed for calculating lhs
-TYPE(t_patch), INTENT(IN) :: curr_patch
+TYPE(t_patch), INTENT(IN) :: patch_2D
 TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: p_patch_3D
 ! index defining the "active" region of the arrays
 ! parameter used in calculating the lhs
@@ -1708,13 +1722,13 @@ REAL(wp), INTENT(INOUT) :: res(:) ! (m)
 
 INTERFACE   ! left-hand-side: A*x
 
-! !   FUNCTION lhs(x,old_h, curr_patch,p_patch_3D,coeff, h_e, thickness_c, p_op_coeff) RESULT(ax)
+! !   FUNCTION lhs(x,old_h, patch_2D,p_patch_3D,coeff, h_e, thickness_c, p_op_coeff) RESULT(ax)
 ! !     USE mo_kind, ONLY: wp
 ! !     USE mo_model_domain, ONLY: t_patch, t_patch_3D
 ! !     USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff
 ! !     REAL(wp),    INTENT(inout) :: x(:,:)  ! inout for sync
 ! !     REAL(wp), INTENT(IN) :: old_h(:,:)
-! !     TYPE(t_patch), TARGET, INTENT(in) :: curr_patch
+! !     TYPE(t_patch), TARGET, INTENT(in) :: patch_2D
 ! !     TYPE(t_patch_3D ),TARGET, INTENT(INOUT)   :: p_patch_3D
 ! !     REAL(wp),    INTENT(in) :: coeff  
 ! !     REAL(wp),    INTENT(in) :: h_e(:,:)
@@ -1722,31 +1736,31 @@ INTERFACE   ! left-hand-side: A*x
 ! !     TYPE(t_operator_coeff),INTENT(IN)  :: p_op_coeff
 ! !     REAL(wp) :: ax( SIZE(x,1) , SIZE(x,2) ) ! same as x
 ! !   ENDFUNCTION lhs
-  FUNCTION lhs(x, curr_patch, p_patch_3D, p_op_coeff, lev,coeff, h_e) RESULT(ax)
+  FUNCTION lhs(x, patch_2D, p_patch_3D, p_op_coeff, lev,coeff, h_e) RESULT(ax)
     USE mo_kind, ONLY: wp
     USE mo_model_domain, ONLY: t_patch, t_patch_3D
     USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff
-    TYPE(t_patch),TARGET, INTENT(in):: curr_patch
+    TYPE(t_patch),TARGET, INTENT(in):: patch_2D
     TYPE(t_patch_3D ),TARGET, INTENT(IN) :: p_patch_3D
     TYPE(t_operator_coeff),INTENT(IN)  :: p_op_coeff
 
-    REAL(wp),    INTENT(inout) :: x(:,:)!(nproma,curr_patch%nblks_e)
+    REAL(wp),    INTENT(inout) :: x(:,:)!(nproma,patch_2D%nblks_e)
     INTEGER,     INTENT(IN) :: lev
     REAL(wp),    INTENT(in) :: coeff
-    REAL(wp), OPTIONAL,    INTENT(in) :: h_e(SIZE(x,1), SIZE(x,2))!(:,:)!(nproma,curr_patch%nblks_e)
-    REAL(wp) :: ax(SIZE(x,1), SIZE(x,2))!(nproma,curr_patch%nblks_e) ! same as x
+    REAL(wp), OPTIONAL,    INTENT(in) :: h_e(SIZE(x,1), SIZE(x,2))!(:,:)!(nproma,patch_2D%nblks_e)
+    REAL(wp) :: ax(SIZE(x,1), SIZE(x,2))!(nproma,patch_2D%nblks_e) ! same as x
   ENDFUNCTION lhs
 
 
 END INTERFACE
 
 INTERFACE   ! preconditioner
-  SUBROUTINE preconditioner(r,curr_patch, p_patch_3D, p_op_coeff,h_e)
+  SUBROUTINE preconditioner(r,patch_2D, p_patch_3D, p_op_coeff,h_e)
     USE mo_kind, ONLY: wp
     USE mo_model_domain, ONLY: t_patch, t_patch_3D
     USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff 
     REAL(wp), INTENT(inout)           :: r(:,:)
-    TYPE(t_patch), TARGET, INTENT(in) :: curr_patch
+    TYPE(t_patch), TARGET, INTENT(in) :: patch_2D
     TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: p_patch_3D
     TYPE(t_operator_coeff),INTENT(IN) :: p_op_coeff
     REAL(wp),    INTENT(in)           :: h_e(:,:)
@@ -1780,7 +1794,7 @@ INTEGER :: jb, jk, nlen
 INTEGER :: no_of_blocks, end_nproma
 
 #ifdef NOMPI_DISABLED
-  REAL(wp) :: sum_aux(curr_patch%cells%in_domain%end_block)
+  REAL(wp) :: sum_aux(patch_2D%cells%in_domain%end_block)
 #else
   REAL(wp) :: z(SIZE(x,1),SIZE(x,2)) ! needed for global sums in p_test_run
 #endif
@@ -1794,8 +1808,8 @@ INTEGER :: no_of_blocks, end_nproma
 
    !>
    !!
-   no_of_blocks    = curr_patch%edges%in_domain%end_block
-   end_nproma   = curr_patch%edges%in_domain%end_index
+   no_of_blocks    = patch_2D%edges%in_domain%end_block
+   end_nproma   = patch_2D%edges%in_domain%end_index
 
    maxiterex = .FALSE.
 
@@ -1807,8 +1821,8 @@ INTEGER :: no_of_blocks, end_nproma
 
    ! 1) compute the preconditioned residual
  
-   !w(:,:) = lhs(x(:,:),old_h, curr_patch, p_patch_3D,coeff, h_e, thickness_c, p_op_coeff)
-   w(:,:) = lhs(x, curr_patch, p_patch_3D, p_op_coeff, lev,coeff, h_e)
+   !w(:,:) = lhs(x(:,:),old_h, patch_2D, p_patch_3D,coeff, h_e, thickness_c, p_op_coeff)
+   w(:,:) = lhs(x, patch_2D, p_patch_3D, p_op_coeff, lev,coeff, h_e)
    
 #ifndef __SX__
    IF (ltimer) CALL timer_start(timer_gmres)
@@ -1852,7 +1866,7 @@ INTEGER :: no_of_blocks, end_nproma
        ELSE
          z(1:end_nproma,jb) = r(1:end_nproma,jb)*r(1:end_nproma,jb)
        ENDIF
-       WHERE(.NOT.curr_patch%edges%owner_mask(:,jb)) z(:,jb) = 0.0_wp
+       WHERE(.NOT.patch_2D%edges%owner_mask(:,jb)) z(:,jb) = 0.0_wp
      ENDDO
 !$OMP END DO
 
@@ -1898,8 +1912,8 @@ INTEGER :: no_of_blocks, end_nproma
    ! 4) Arnoldi loop
    arnoldi: DO i = 1, m-1
      ! 4.1) compute the next (i.e. i+1) Krylov vector
-     !w(:,:) = lhs( v(:,:,i),old_h, curr_patch,p_patch_3D,coeff,h_e, thickness_c, p_op_coeff )
-     w(:,:) =lhs( v(:,:,i), curr_patch, p_patch_3D, p_op_coeff, lev,coeff, h_e)
+     !w(:,:) = lhs( v(:,:,i),old_h, patch_2D,p_patch_3D,coeff,h_e, thickness_c, p_op_coeff )
+     w(:,:) =lhs( v(:,:,i), patch_2D, p_patch_3D, p_op_coeff, lev,coeff, h_e)
 
      ! 4.2) Gram-Schmidt orthogonalization
 
@@ -1929,7 +1943,7 @@ INTEGER :: no_of_blocks, end_nproma
        ELSE
          z(1:end_nproma,jb) = w(1:end_nproma,jb) * v(1:end_nproma,jb,k)
        ENDIF
-       WHERE(.NOT.curr_patch%edges%owner_mask(:,jb)) z(:,jb) = 0.0_wp
+       WHERE(.NOT.patch_2D%edges%owner_mask(:,jb)) z(:,jb) = 0.0_wp
      ENDDO
 !$OMP END DO
     h_aux = omp_global_sum_array(z)
@@ -1973,7 +1987,7 @@ INTEGER :: no_of_blocks, end_nproma
        ELSE
          z(1:end_nproma,jb) = w(1:end_nproma,jb)*w(1:end_nproma,jb)
        ENDIF
-       WHERE(.NOT.curr_patch%edges%owner_mask(:,jb)) z(:,jb) = 0.0_wp
+       WHERE(.NOT.patch_2D%edges%owner_mask(:,jb)) z(:,jb) = 0.0_wp
      ENDDO
 !$OMP END DO
 
@@ -2082,7 +2096,7 @@ END SUBROUTINE gmres_oce_e2e
 !! inital guess, overwritten with the solution
 !!  mpi note: depending on the subset_range, it will compute the results on edges%in_domain
 !!
-SUBROUTINE gmres_e2e( x,lhs,h_e, curr_patch, lev, subset_range, coeff,b,  &
+SUBROUTINE gmres_e2e( x,lhs,h_e, patch_2D, lev, subset_range, coeff,b,  &
                     & tolerance,abstol,m,maxiterex,niter,res, &
                     & preconditioner)
 !
@@ -2091,7 +2105,7 @@ SUBROUTINE gmres_e2e( x,lhs,h_e, curr_patch, lev, subset_range, coeff,b,  &
 !  can be of any TYPE for which the following operations are defined:
 !   +, -, dot_product
 !
-TYPE(t_patch), INTENT(IN) :: curr_patch
+TYPE(t_patch), INTENT(IN) :: patch_2D
 REAL(wp), INTENT(INOUT) :: x(:,:)
 REAL(wp), INTENT(IN)    :: h_e(:,:)
  INTEGER,     INTENT(IN) :: lev
@@ -2102,7 +2116,7 @@ TYPE(t_subset_range) :: subset_range
 REAL(wp), INTENT(IN) :: coeff
 !INTEGER, INTENT(IN) :: lev
 ! right-hand side: same shape as x
-REAL(wp), INTENT(IN) :: b(nproma,curr_patch%nblks_e) ! same size as x
+REAL(wp), INTENT(IN) :: b(nproma,patch_2D%nblks_e) ! same size as x
 REAL(wp), INTENT(IN) :: tolerance ! (relative or absolute) tolerance
 LOGICAL,  INTENT(IN) :: abstol    ! .true. for absolute tolerance,
                                   ! .false. for relative tolerance
@@ -2119,15 +2133,15 @@ INTEGER,  INTENT(OUT) :: niter    ! number of iterations (defined
 REAL(wp), INTENT(INOUT) :: res(:) ! (m)
 
 INTERFACE   ! left-hand-side: A*x
-  FUNCTION lhs(x, curr_patch, lev,coeff, h_e) RESULT(ax)
+  FUNCTION lhs(x, patch_2D, lev,coeff, h_e) RESULT(ax)
     USE mo_kind, ONLY: wp
     USE mo_model_domain, ONLY: t_patch
-    TYPE(t_patch),TARGET, INTENT(in):: curr_patch
-    REAL(wp),    INTENT(inout) :: x(:,:)!(nproma,curr_patch%nblks_e)
+    TYPE(t_patch),TARGET, INTENT(in):: patch_2D
+    REAL(wp),    INTENT(inout) :: x(:,:)!(nproma,patch_2D%nblks_e)
     INTEGER,     INTENT(IN) :: lev
     REAL(wp),    INTENT(in) :: coeff
-    REAL(wp), OPTIONAL,    INTENT(in) :: h_e(SIZE(x,1), SIZE(x,2))!(:,:)!(nproma,curr_patch%nblks_e)
-    REAL(wp) :: ax(SIZE(x,1), SIZE(x,2))!(nproma,curr_patch%nblks_e) ! same as x
+    REAL(wp), OPTIONAL,    INTENT(in) :: h_e(SIZE(x,1), SIZE(x,2))!(:,:)!(nproma,patch_2D%nblks_e)
+    REAL(wp) :: ax(SIZE(x,1), SIZE(x,2))!(nproma,patch_2D%nblks_e) ! same as x
   ENDFUNCTION lhs
 END INTERFACE
 
@@ -2187,7 +2201,7 @@ REAL(wp) :: sum_aux(subset_range%end_block)
 
    ! 1) compute the preconditioned residual
 
-   w(:,:) = lhs(x, curr_patch, lev,coeff, h_e)
+   w(:,:) = lhs(x, patch_2D, lev,coeff, h_e)
 
 #ifndef __SX__
    IF (ltimer) CALL timer_start(timer_gmres)
@@ -2234,7 +2248,7 @@ REAL(wp) :: sum_aux(subset_range%end_block)
        ENDIF
        z(1:nlen,jb) = r(1:nlen,jb)*r(1:nlen,jb)
 ! #slo# - 2010-06-16 - Error - routine used for cells and edges as well
-       WHERE(.NOT.curr_patch%edges%owner_mask(:,jb)) z(:,jb) = 0.0_wp
+       WHERE(.NOT.patch_2D%edges%owner_mask(:,jb)) z(:,jb) = 0.0_wp
      ENDDO
 !$OMP END DO
 ! #slo# - 2011-03-02 - to be checked lsm_oce vs. owner_mask in this module
@@ -2282,7 +2296,7 @@ REAL(wp) :: sum_aux(subset_range%end_block)
    arnoldi: DO i = 1, m-1
 
      ! 4.1) compute the next (i.e. i+1) Krylov vector
-     w(:,:) = lhs(v(:,:,i), curr_patch, lev,coeff, h_e)
+     w(:,:) = lhs(v(:,:,i), patch_2D, lev,coeff, h_e)
 
      ! 4.2) Gram-Schmidt orthogonalization
 
@@ -2314,7 +2328,7 @@ REAL(wp) :: sum_aux(subset_range%end_block)
          nlen = end_nproma
        ENDIF
        z(1:nlen,jb) = w(1:nlen,jb)*v(1:nlen,jb,k)
-       WHERE(.NOT.curr_patch%edges%owner_mask(:,jb)) z(:,jb) = 0.0_wp
+       WHERE(.NOT.patch_2D%edges%owner_mask(:,jb)) z(:,jb) = 0.0_wp
      ENDDO
 !$OMP END DO
      !WHERE(v_base%lsm_e(:,1,:)>sea_boundary) z(:,:) = 0.0_wp
@@ -2361,7 +2375,7 @@ REAL(wp) :: sum_aux(subset_range%end_block)
          nlen = end_nproma
        ENDIF
        z(1:nlen,jb) = w(1:nlen,jb)*w(1:nlen,jb)
-       WHERE(.NOT.curr_patch%edges%owner_mask(:,jb)) z(:,jb) = 0.0_wp
+       WHERE(.NOT.patch_2D%edges%owner_mask(:,jb)) z(:,jb) = 0.0_wp
      ENDDO
 !$OMP END DO
      !WHERE(v_base%lsm_e(:,1,:)>sea_boundary) z(:,:) = 0.0_wp
@@ -2472,7 +2486,7 @@ REAL(wp) :: sum_aux(subset_range%end_block)
 !! @par
 !! inital guess, overwritten with the solution
 !!
-SUBROUTINE gmres_arg1( x,lhs,curr_patch,nblks,npromz,coeff,b,  &
+SUBROUTINE gmres_arg1( x,lhs,patch_2D,nblks,npromz,coeff,b,  &
   &                    tolerance,abstol,m,maxiterex,niter,res, &
   &                    preconditioner)
 !
@@ -2483,7 +2497,7 @@ SUBROUTINE gmres_arg1( x,lhs,curr_patch,nblks,npromz,coeff,b,  &
 !
 REAL(wp), INTENT(INOUT) :: x(:,:)
 ! patch info needed for calculating lhs
-TYPE(t_patch), INTENT(IN) :: curr_patch
+TYPE(t_patch), INTENT(IN) :: patch_2D
 ! index defining the "active" region of the arrays
 INTEGER, INTENT(IN) :: nblks, npromz
 ! parameter used in calculating the lhs
@@ -2507,11 +2521,11 @@ INTEGER,  INTENT(OUT) :: niter    ! number of iterations (defined
 REAL(wp), INTENT(INOUT) :: res(:) ! (m)
 
 INTERFACE   ! left-hand-side: A*x
-  FUNCTION lhs(x,curr_patch,coeff) RESULT(ax)
+  FUNCTION lhs(x,patch_2D,coeff) RESULT(ax)
     USE mo_kind, ONLY: wp
     USE mo_model_domain, ONLY: t_patch
     REAL(wp),    INTENT(in) :: x(:,:)
-    TYPE(t_patch), INTENT(in) :: curr_patch
+    TYPE(t_patch), INTENT(in) :: patch_2D
     REAL(wp),    INTENT(in) :: coeff
 !    INTEGER, INTENT(IN) :: lev
     REAL(wp) :: ax( SIZE(x,1) , SIZE(x,2) ) ! same as x
@@ -2577,7 +2591,7 @@ REAL(wp) :: sum_aux(nblks)
 
    ! 1) compute the preconditioned residual
 
-   w(:,:) = lhs(x(:,:),curr_patch,coeff)
+   w(:,:) = lhs(x(:,:),patch_2D,coeff)
 
 #ifndef __SX__
    IF (ltimer) CALL timer_start(timer_gmres)
@@ -2624,7 +2638,7 @@ REAL(wp) :: sum_aux(nblks)
        ENDIF
        z(1:nlen,jb) = r(1:nlen,jb)*r(1:nlen,jb)
 ! #slo# - 2010-06-16 - Error - routine used for cells and edges as well
-!      WHERE(.NOT.curr_patch%cells%owner_mask(:,jb)) z(:,jb) = 0.0_wp
+!      WHERE(.NOT.patch_2D%cells%owner_mask(:,jb)) z(:,jb) = 0.0_wp
      ENDDO
 !$OMP END DO
 
@@ -2670,7 +2684,7 @@ REAL(wp) :: sum_aux(nblks)
    arnoldi: DO i = 1, m-1
 
      ! 4.1) compute the next (i.e. i+1) Krylov vector
-     w(:,:) = lhs( v(:,:,i), curr_patch,coeff )
+     w(:,:) = lhs( v(:,:,i), patch_2D,coeff )
 
      ! 4.2) Gram-Schmidt orthogonalization
 
@@ -2702,7 +2716,7 @@ REAL(wp) :: sum_aux(nblks)
          nlen = end_nproma
        ENDIF
        z(1:nlen,jb) = w(1:nlen,jb)*v(1:nlen,jb,k)
-       WHERE(.NOT.curr_patch%cells%owner_mask(:,jb)) z(:,jb) = 0.0_wp
+       WHERE(.NOT.patch_2D%cells%owner_mask(:,jb)) z(:,jb) = 0.0_wp
      ENDDO
 !$OMP END DO
 
@@ -2748,7 +2762,7 @@ REAL(wp) :: sum_aux(nblks)
          nlen = end_nproma
        ENDIF
        z(1:nlen,jb) = w(1:nlen,jb)*w(1:nlen,jb)
-       WHERE(.NOT.curr_patch%cells%owner_mask(:,jb)) z(:,jb) = 0.0_wp
+       WHERE(.NOT.patch_2D%cells%owner_mask(:,jb)) z(:,jb) = 0.0_wp
      ENDDO
 !$OMP END DO
 
