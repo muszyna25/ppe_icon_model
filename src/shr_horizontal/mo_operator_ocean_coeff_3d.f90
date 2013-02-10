@@ -1713,7 +1713,7 @@ CONTAINS
         ENDDO ! neigbor=1,patch%cell_type
       ENDDO  !  level = 1, n_zlev
     ENDDO ! cell_block
-!   No need to sync
+! no need for sync
 !     CALL sync_patch_array(SYNC_C, patch, ocean_coeff%fixed_vol_norm(:,:,:))
 !     DO neigbor=1,no_primal_edges
 !       CALL sync_patch_array(SYNC_C, patch, ocean_coeff%edge2cell_coeff_cc(:,:,:,neigbor)%x(1))
@@ -1805,20 +1805,19 @@ CONTAINS
 
           cell_index    = patch%edges%cell_idx(edge_index, edge_block, neigbor)
           cell_block    = patch%edges%cell_blk(edge_index, edge_block, neigbor)         
+          cell_center%x = patch%cells%cartesian_center(cell_index, cell_block)%x
 
-          IF (cell_index > 0) THEN
-            cell_center%x = patch%cells%cartesian_center(cell_index, cell_block)%x
+          !dist_vector_basic%x = edge2cell_coeff_cc_t(edge_index, edge_block, neigbor)%x
+          dist_vector_basic%x = edge_center%x - cell_center%x
 
-            !dist_vector_basic%x = edge2cell_coeff_cc_t(edge_index, edge_block, neigbor)%x
-            dist_vector_basic%x = edge_center%x - cell_center%x
+          dist_edge_cell_basic  = SQRT(SUM( dist_vector_basic%x * dist_vector_basic%x))
+          dist_vector_basic%x = dist_vector_basic%x/dist_edge_cell_basic
 
-            dist_edge_cell_basic  = SQRT(SUM( dist_vector_basic%x * dist_vector_basic%x))
-            dist_vector_basic%x = dist_vector_basic%x/dist_edge_cell_basic
+          orientation = DOT_PRODUCT(dist_vector_basic%x, &
+          & patch%edges%primal_cart_normal(edge_index,edge_block)%x)
+          IF (orientation < 0.0_wp) dist_vector_basic%x = - dist_vector_basic%x
 
-            orientation = DOT_PRODUCT(dist_vector_basic%x, &
-              & patch%edges%primal_cart_normal(edge_index,edge_block)%x)
-            IF (orientation < 0.0_wp) dist_vector_basic%x = - dist_vector_basic%x
-
+          IF (cell_block > 0) THEN
 
             !loop over the edges of neighbor 1 and 2
             DO cell_edge=1,patch%cells%num_edges(cell_index,cell_block)!no_primal_edges!patch%cell_type
@@ -1864,7 +1863,7 @@ CONTAINS
 ! !ENDIF
 ! ENDIF
             END DO
-          ENDIF ! (cell_index > 0)
+          ENDIF ! (cell_block > 0)
         ENDDO ! neigbor=1,2
       ENDDO ! edge_index = start_index, end_index
     ENDDO ! edge_block = owned_edges%start_block, owned_edges%end_block
