@@ -4,6 +4,7 @@
 !
 MODULE mo_remap_input
 
+#ifdef __ICON__
   USE mo_kind,               ONLY: wp
   USE mo_parallel_config,    ONLY: nproma
   USE mo_exception,          ONLY: finish, message
@@ -14,13 +15,21 @@ MODULE mo_remap_input
   USE mo_grib2,              ONLY: t_grib2_var
   USE mo_io_units,           ONLY: nnml
   USE mo_namelist,           ONLY: POSITIONED, position_nml, open_nml, close_nml
-  USE mo_util_sort,          ONLY: quicksort
   USE mo_util_string,        ONLY: tolower
-  USE mo_mpi,                ONLY: get_my_mpi_work_id, p_comm_work, p_int, p_bcast
-  USE mo_remap_config,       ONLY: dbg_level, MAX_NAME_LENGTH, MAX_NZAXIS, MAX_INPUT_FIELDS
-  USE mo_remap_shared,       ONLY: t_grid, GRID_TYPE_REGULAR
-  USE mo_remap_sync,         ONLY: t_gather, scatter_field2D
-  USE mo_remap_io,           ONLY: t_file_metadata, get_varID
+#else
+  USE mo_utilities,        ONLY: nproma, t_cf_var, t_grib2_var, wp,      &
+  &                              SUCCESS, nnml, POSITIONED, blk_no, toc, &
+  &                              position_nml, open_nml, close_nml,      &
+  &                              finish, message, tic, tolower
+#endif
+
+  USE mo_mpi,              ONLY: get_my_mpi_work_id, p_comm_work, p_int, p_bcast
+  USE mo_util_sort,        ONLY: quicksort
+  USE mo_remap_config,     ONLY: dbg_level, MAX_NZAXIS, MAX_INPUT_FIELDS, &
+    &                            MAX_NAME_LENGTH
+  USE mo_remap_shared,     ONLY: t_grid, GRID_TYPE_REGULAR
+  USE mo_remap_sync,       ONLY: t_gather, scatter_field2D
+  USE mo_remap_io,         ONLY: t_file_metadata, get_varID
 
   IMPLICIT NONE
   INCLUDE 'cdi.inc'

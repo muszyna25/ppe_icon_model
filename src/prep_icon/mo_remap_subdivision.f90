@@ -7,6 +7,7 @@
 !!
 MODULE mo_remap_subdivision
 
+#ifdef __ICON__
   USE mo_kind,               ONLY: wp
   USE mo_parallel_config,    ONLY: nproma
   USE mo_exception,          ONLY: finish
@@ -14,13 +15,21 @@ MODULE mo_remap_subdivision
   USE mo_communication,      ONLY: idx_no, blk_no, idx_1d
   USE mo_math_utilities,     ONLY: t_geographical_coordinates, t_cartesian_coordinates
   USE mo_model_domain,       ONLY: t_tangent_vectors
-  USE mo_remap_config,       ONLY: dbg_level
+#else
+  USE mo_utilities,          ONLY: wp, nproma, t_geographical_coordinates,      &
+    &                              SUCCESS, idx_no, blk_no, idx_1d,             &
+    &                              finish, t_tangent_vectors,                   &
+    &                              t_cartesian_coordinates
+#endif
+
+  USE mo_mpi,                ONLY: p_n_work, get_my_mpi_work_id,                &
+    &                              p_int, p_comm_work,  p_allreduce_max
   USE mo_util_sort,          ONLY: quicksort
+  USE mo_remap_config,       ONLY: dbg_level
   USE mo_remap_shared,       ONLY: t_grid, GRID_TYPE_REGULAR, GRID_TYPE_ICON
   USE mo_remap_grid_regular, ONLY: allocate_gaussian_grid, latlon_compute_area
   USE mo_remap_grid_icon,    ONLY: allocate_icon_grid
-  USE mo_mpi,                ONLY: p_n_work, get_my_mpi_work_id,                &
-    &                              p_int, p_comm_work,  p_allreduce_max
+
   !
   IMPLICIT NONE
 

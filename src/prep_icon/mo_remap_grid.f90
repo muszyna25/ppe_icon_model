@@ -1,11 +1,15 @@
 MODULE mo_remap_grid
 
+#ifdef __ICON__
   USE mo_kind,               ONLY: wp
   USE mo_parallel_config,    ONLY: nproma
   USE mo_exception,          ONLY: finish
   USE mo_impl_constants,     ONLY: SUCCESS
   USE mo_math_utilities,     ONLY: t_geographical_coordinates
-  USE mo_gnat_gridsearch,    ONLY: gnat_tree, UNASSOCIATED
+#else
+  USE mo_utilities,          ONLY: wp, nproma, t_geographical_coordinates,  &
+    &                              SUCCESS, finish
+#endif
   USE mo_remap_config,       ONLY: dbg_level
   USE mo_remap_shared,       ONLY: t_grid,                                  &
     &                              GRID_TYPE_ICON, GRID_TYPE_REGULAR,       &

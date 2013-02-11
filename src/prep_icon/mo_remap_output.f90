@@ -5,17 +5,23 @@
 !!
 MODULE mo_remap_output
 
+#ifdef __ICON__
   USE mo_kind,               ONLY: wp
   USE mo_impl_constants,     ONLY: SUCCESS
   USE mo_exception,          ONLY: finish
   USE mo_util_string,        ONLY: tolower
   USE mo_util_uuid,          ONLY: t_uuid
-  USE mo_remap_config,       ONLY: dbg_level, MAX_NAME_LENGTH, MAX_INPUT_FIELDS, MAX_NZAXIS
-  USE mo_mpi,                ONLY: get_my_mpi_work_id
-  USE mo_remap_shared,       ONLY: t_grid, GRID_TYPE_REGULAR, GRID_TYPE_ICON    
-  USE mo_remap_input,        ONLY: t_field_metadata, t_global_metadata, t_zaxis_metadata, &
-    &                              CELL_GRID, EDGE_GRID
-  USE mo_remap_io,           ONLY: t_file_metadata
+#else
+  USE mo_utilities,     ONLY: wp, SUCCESS, tolower, finish, t_uuid
+#endif
+
+  USE mo_mpi,           ONLY: get_my_mpi_work_id
+  USE mo_remap_config,  ONLY: dbg_level, MAX_INPUT_FIELDS, MAX_NZAXIS, &
+    &                         MAX_NAME_LENGTH
+  USE mo_remap_shared,  ONLY: t_grid, GRID_TYPE_REGULAR, GRID_TYPE_ICON
+  USE mo_remap_input,   ONLY: t_field_metadata, t_global_metadata, t_zaxis_metadata, &
+    &                         CELL_GRID, EDGE_GRID
+  USE mo_remap_io,      ONLY: t_file_metadata
 
   IMPLICIT NONE
   INCLUDE 'cdi.inc'
@@ -33,8 +39,7 @@ MODULE mo_remap_output
   ! name and version of this tool
   ! (will be written as meta-data to output data file):
   CHARACTER (LEN=*), PARAMETER :: tool_name    = "prepicon_conversion_tool"
-  CHARACTER (LEN=*), PARAMETER :: tool_version = &
-    & "version $Rev$"
+  CHARACTER (LEN=*), PARAMETER :: tool_version = "version $Rev$"
 
   ! generic interface for storing data to output file
   ! (may later be expanded to 3D fields)

@@ -21,8 +21,10 @@ MODULE mo_remap_config
   ! vertex-neighbor cells: stencil size
   INTEGER, PARAMETER :: N_VNB_STENCIL_ICON = 13
 
+#ifdef __ICON__
   ! level of output verbosity
-  INTEGER            :: dbg_level =  1
+  INTEGER            :: dbg_level =  3
+#endif
 
   ! max. name string length
   INTEGER, PARAMETER :: MAX_NAME_LENGTH = 32

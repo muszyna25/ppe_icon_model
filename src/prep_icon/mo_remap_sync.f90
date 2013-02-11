@@ -4,17 +4,23 @@
 !!
 MODULE mo_remap_sync
 
+#ifdef __ICON__
   USE mo_kind,               ONLY: wp
   USE mo_parallel_config,    ONLY: nproma
   USE mo_exception,          ONLY: finish
   USE mo_impl_constants,     ONLY: SUCCESS
   USE mo_communication,      ONLY: idx_no, blk_no
-  USE mo_remap_config,       ONLY: dbg_level
-  USE mo_mpi,                ONLY: p_real_dp, p_comm_work, p_n_work, p_int, &
-    &                              get_my_mpi_work_id, p_gather, p_gatherv, &
-    &                              p_scatterv, p_wait, p_isend, p_recv,     &
-    &                              p_clear_request
-  USE mo_remap_shared,       ONLY: t_grid
+#else
+  USE mo_utilities,    ONLY: wp, SUCCESS, nproma, idx_no,             &
+    &                        blk_no, finish
+#endif
+
+  USE mo_mpi,          ONLY: p_real_dp, p_comm_work, p_n_work, p_int, &
+    &                        get_my_mpi_work_id, p_gather, p_gatherv, &
+    &                        p_scatterv, p_wait, p_isend, p_recv,     &
+    &                        p_clear_request
+  USE mo_remap_config, ONLY: dbg_level
+  USE mo_remap_shared, ONLY: t_grid
   IMPLICIT NONE
 
   PRIVATE

@@ -4,24 +4,33 @@
 !!
 MODULE mo_remap_hydcorr
 
+#ifdef __ICON__
   USE mo_kind,               ONLY: wp
   USE mo_parallel_config,    ONLY: nproma
   USE mo_physical_constants, ONLY: rd, grav, vtmpc1
   USE mo_util_phys,          ONLY: virtual_temp
   USE mo_exception,          ONLY: message, finish
   USE mo_impl_constants,     ONLY: SUCCESS
-  USE mo_remap_config,       ONLY: dbg_level, MAX_NAME_LENGTH
-  USE mo_mpi,                ONLY: get_my_mpi_work_id, p_comm_work,  &
-    &                              p_bcast
-  USE mo_remap_io,           ONLY: t_file_metadata, get_varID,       &
-    &                              read_field2D, read_field3D
-  USE mo_remap_sync,         ONLY: t_gather
-  USE mo_util_binheap,       ONLY: t_heap_data
-  USE mo_remap_intp,         ONLY: t_intp_data, interpolate_c_2D_cons
-  USE mo_remap_shared,       ONLY: t_grid
-  USE mo_ifs_coord,          ONLY: alloc_vct, auxhyb, geopot,        &
-    &                              half_level_pressure, init_vct, vct
-  USE mo_remap_input,        ONLY: t_field_adjustment
+#else
+  USE mo_utilities,     ONLY: rd     => phys_constant_rd,       &
+    &                         grav   => phys_constant_grav,     &
+    &                         vtmpc1 => phys_constant_vtmpc1,   &
+    &                         finish, nproma, SUCCESS, message, &
+    &                         virtual_temp, wp
+#endif
+
+  USE mo_mpi,           ONLY: get_my_mpi_work_id, p_comm_work,  &
+    &                         p_bcast
+  USE mo_util_binheap,  ONLY: t_heap_data
+  USE mo_ifs_coord,     ONLY: alloc_vct, auxhyb, geopot,        &
+    &                         half_level_pressure, init_vct, vct
+  USE mo_remap_config,  ONLY: dbg_level
+  USE mo_remap_io,      ONLY: t_file_metadata,                  &
+    &                         read_field2D, read_field3D
+  USE mo_remap_sync,    ONLY: t_gather
+  USE mo_remap_intp,    ONLY: t_intp_data, interpolate_c_2D_cons
+  USE mo_remap_shared,  ONLY: t_grid
+  USE mo_remap_input,   ONLY: t_field_adjustment
 
   IMPLICIT NONE
   INCLUDE 'cdi.inc'

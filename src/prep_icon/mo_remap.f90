@@ -28,26 +28,38 @@ MODULE mo_remap
 
 !$  USE OMP_LIB
 
+#ifdef __ICON__
   USE mo_kind,              ONLY: wp
   USE mo_parallel_config,   ONLY: nproma
   USE mo_impl_constants,    ONLY: SUCCESS
   USE mo_communication,     ONLY: blk_no
   USE mo_exception,         ONLY: finish
   USE mo_timer,             ONLY: tic, toc
-  USE mo_mpi,               ONLY: get_my_mpi_work_id, p_n_work
   USE mo_grib2,             ONLY: t_grib2_var
   USE mo_cf_convention,     ONLY: t_cf_var
-  USE mo_gnat_gridsearch,   ONLY: gnat_init_grid
   USE mo_util_string,       ONLY: tolower
+#else
+  USE mo_utilities,         ONLY: tic, toc, wp, nproma, blk_no,                &
+    &                             SUCCESS, finish, t_cf_var, t_grib2_var,      &
+    &                             tolower
+  USE mo_mpi,               ONLY: stop_mpi
+#endif
+
+  USE mo_mpi,               ONLY: start_mpi, get_my_mpi_work_id, p_n_work
+  USE mo_gnat_gridsearch,   ONLY: gnat_init_grid                               
   USE mo_remap_config,      ONLY: dbg_level, MAX_NSTENCIL_CONS,                &
     &                             MAX_NSTENCIL_RBF, MIN_NFOREIGN,              &
-    &                             MAX_NAME_LENGTH                         
+    &                             MAX_NAME_LENGTH
+  USE mo_remap_shared,      ONLY: t_grid, GRID_TYPE_ICON, GRID_TYPE_REGULAR    
+  USE mo_remap_grid,        ONLY: load_grid, finalize_grid                     
+  USE mo_remap_subdivision, ONLY: decompose_grid, create_grid_covering,        &
+    &                             IMAX, IMIN, get_latitude_range               
   USE mo_remap_sync,        ONLY: t_gather, allocate_gather_c,                 &
     &                             allocate_gather_e,                           &
     &                             gather_field2D, gather_field3D,              &
-    &                             finalize_gather                         
+    &                             finalize_gather                              
   USE mo_remap_weights_cons,ONLY: prepare_interpolation_cons,                  &
-    &                             consistency_check
+    &                             consistency_check                            
   USE mo_remap_weights_rbf, ONLY: prepare_interpolation_rbf_vec                
   USE mo_remap_intp,        ONLY: t_intp_data, allocate_intp_data,             &
     &                             finalize_intp_data, mask_intp_coeffs,        &
@@ -72,13 +84,7 @@ MODULE mo_remap
   USE mo_remap_output,      ONLY: load_metadata_output, open_output,           &
     &                             close_output, store_field, varID,            &
     &                             t_output_grid
-  USE mo_remap_grid,        ONLY: load_grid, finalize_grid
-  USE mo_remap_shared,      ONLY: t_grid, GRID_TYPE_ICON, GRID_TYPE_REGULAR
   USE mo_remap_hydcorr,     ONLY: remap_horz
-  USE mo_remap_subdivision, ONLY: decompose_grid, create_grid_covering,     &
-    &                             IMAX, IMIN, get_latitude_range
-
-
 
   IMPLICIT NONE
   INCLUDE 'cdi.inc'

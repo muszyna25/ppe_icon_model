@@ -5,7 +5,12 @@
 !!
 MODULE mo_util_sort
 
+#ifdef __ICON__
   USE mo_kind,   ONLY: wp
+#else
+  USE mo_utilities, ONLY: wp
+#endif
+
   IMPLICIT NONE
 
   PRIVATE

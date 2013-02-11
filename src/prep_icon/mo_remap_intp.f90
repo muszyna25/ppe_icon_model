@@ -6,29 +6,38 @@
 !!
 MODULE mo_remap_intp
 
-#if !defined (NOMPI)
+#if !defined(NOMPI)
+#ifdef __SX__
   USE MPI
 #endif
+#endif
 
+#ifdef __ICON__
   USE mo_kind,               ONLY: wp
   USE mo_parallel_config,    ONLY: nproma
   USE mo_exception,          ONLY: finish
   USE mo_impl_constants,     ONLY: SUCCESS
   USE mo_communication,      ONLY: blk_no, idx_no
   USE mo_io_units,           ONLY: nnml
-  USE mo_util_sort,          ONLY: quicksort
-  USE mo_mpi,                ONLY: p_n_work, p_comm_work, p_int, p_real_dp,    &
-    &                              p_commit_type_struct, p_alltoall
-  USE mo_util_binheap,       ONLY: t_heap_data, t_heap, heap_cmp, heap_init,   &
-    &                              heap_empty, heap_take_accumulated,          &
-    &                              heap_union, node_storage, nnode,            &
-    &                              INVALID_NODE, heap_add_offset,              &
-    &                              resize_node_storage, node_storage_finalize, &
-    &                              get_free_node, heap_node_init, heap_insert
-  USE mo_remap_config,       ONLY: dbg_level, MAX_NSTENCIL_CONS,               &
-    &                               MAX_NSTENCIL_RBF
-  USE mo_remap_shared,       ONLY: t_grid
-  USE mo_remap_io,           ONLY: s_maxsize
+#else
+  USE mo_utilities,    ONLY: wp, nnml, SUCCESS,                          &
+    &                        blk_no, idx_no, nproma, POSITIONED,         &
+    &                        position_nml, open_nml, close_nml, finish
+#endif
+
+  USE mo_mpi,          ONLY: p_n_work, p_comm_work, p_int, p_real_dp,    &
+    &                        p_commit_type_struct, p_alltoall
+  USE mo_util_sort,    ONLY: quicksort
+  USE mo_util_binheap, ONLY: t_heap_data, t_heap, heap_cmp, heap_init,   &
+    &                        heap_empty, heap_take_accumulated,          &
+    &                        heap_union, node_storage, nnode,            &
+    &                        INVALID_NODE, heap_add_offset,              &
+    &                        resize_node_storage, node_storage_finalize, &
+    &                        get_free_node, heap_node_init, heap_insert
+  USE mo_remap_config, ONLY: dbg_level, MAX_NSTENCIL_CONS,               &
+    &                        MAX_NSTENCIL_RBF
+  USE mo_remap_shared, ONLY: t_grid
+  USE mo_remap_io,     ONLY: s_maxsize
 
   IMPLICIT NONE
 

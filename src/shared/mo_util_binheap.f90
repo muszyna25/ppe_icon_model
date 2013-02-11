@@ -14,7 +14,12 @@
 !!
 MODULE mo_util_binheap
 
+#ifdef __ICON__
   USE mo_kind, ONLY: wp
+#else
+  USE mo_utilities, ONLY: wp
+#endif
+
   IMPLICIT NONE
 
   INTEGER, PARAMETER   :: NOT_IN_HEAP  = -1, INVALID_NODE = -1

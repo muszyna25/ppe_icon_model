@@ -7,6 +7,7 @@
 !
 MODULE mo_remap_grid_icon
 
+#ifdef __ICON__
   USE mo_kind,               ONLY: wp
   USE mo_parallel_config,    ONLY: nproma
   USE mo_exception,          ONLY: finish
@@ -15,13 +16,21 @@ MODULE mo_remap_grid_icon
   USE mo_physical_constants, ONLY: inverse_earth_radius
   USE mo_math_constants,     ONLY: pi, pi_180
   USE mo_math_utilities,     ONLY: t_cartesian_coordinates, gvec2cvec
-  USE mo_mpi,                ONLY: p_comm_work, p_int, p_real_dp,   &
-    &                              get_my_mpi_work_id, p_bcast
   USE mo_util_netcdf,        ONLY: nf
   USE mo_model_domain,       ONLY: t_patch
-  USE mo_remap_config,       ONLY: dbg_level, N_VNB_STENCIL_ICON
-  USE mo_remap_shared,       ONLY: t_grid, normalized_coord
-  USE mo_remap_io,           ONLY: t_file_metadata
+#else
+  USE mo_utilities,    ONLY: wp, nproma, SUCCESS, t_patch,    &
+    &                        finish, idx_no, blk_no, pi_180,  &
+    &                        pi, inverse_earth_radius, nf,    &
+    &                        gvec2cvec, gc2cc,                &
+    &                        t_cartesian_coordinates
+#endif
+
+  USE mo_mpi,          ONLY: p_comm_work, p_int, p_real_dp,   &
+    &                        get_my_mpi_work_id, p_bcast
+  USE mo_remap_config, ONLY: dbg_level, N_VNB_STENCIL_ICON
+  USE mo_remap_shared, ONLY: t_grid, normalized_coord
+  USE mo_remap_io,     ONLY: t_file_metadata
 
   IMPLICIT NONE
   INCLUDE 'netcdf.inc'

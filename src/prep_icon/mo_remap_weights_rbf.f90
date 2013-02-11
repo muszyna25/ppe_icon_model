@@ -13,6 +13,7 @@ MODULE mo_remap_weights_rbf
 
 !$  USE OMP_LIB
 
+#ifdef __ICON__
   USE mo_kind,                 ONLY: wp
   USE mo_parallel_config,      ONLY: nproma
   USE mo_exception,            ONLY: finish
@@ -21,11 +22,18 @@ MODULE mo_remap_weights_rbf
   USE mo_math_utilities,       ONLY: t_geographical_coordinates, t_cartesian_coordinates, &
     &                                gvec2cvec, gc2cc
   USE mo_math_utility_solvers, ONLY: choldec_v, solve_chol_v
-  USE mo_remap_shared,         ONLY: t_grid, GRID_TYPE_REGULAR, GRID_TYPE_ICON,  &
-    &                                dist_deg
-  USE mo_remap_config,         ONLY: MAX_NSTENCIL_RBF, dbg_level, rbf_vec_dim
-  USE mo_remap_intp,           ONLY: t_intp_data
-  USE mo_remap_grid_regular,   ONLY: get_containing_dual_cell
+#else
+  USE mo_utilities,          ONLY: finish, nproma, t_geographical_coordinates, &
+    &                              idx_no, blk_no, wp, pi_180, gc2cc,          &
+    &                              t_cartesian_coordinates, gvec2cvec,         &
+    &                              choldec_v, solve_chol_v
+#endif
+
+  USE mo_remap_config,       ONLY: MAX_NSTENCIL_RBF, dbg_level, rbf_vec_dim
+  USE mo_remap_shared,       ONLY: t_grid, GRID_TYPE_REGULAR, GRID_TYPE_ICON,  &
+    &                              dist_deg
+  USE mo_remap_intp,         ONLY: t_intp_data
+  USE mo_remap_grid_regular, ONLY: get_containing_dual_cell
 
   IMPLICIT NONE
 

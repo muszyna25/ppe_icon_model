@@ -4,6 +4,7 @@
 !
 MODULE mo_remap_grid_regular
 
+#ifdef __ICON__
   USE mo_kind,              ONLY: wp
   USE mo_parallel_config,   ONLY: nproma
   USE mo_communication,     ONLY: blk_no, idx_no, idx_1d
@@ -11,12 +12,18 @@ MODULE mo_remap_grid_regular
   USE mo_impl_constants,    ONLY: SUCCESS
   USE mo_math_constants,    ONLY: pi_180
   USE mo_math_utilities,    ONLY: t_geographical_coordinates
-  USE mo_remap_config,      ONLY: dbg_level, MAX_NAME_LENGTH
-  USE mo_util_sort,         ONLY: quicksort
-  USE mo_mpi,               ONLY: p_comm_work, p_int, p_real_dp, get_my_mpi_work_id, &
-    &                             p_bcast
-  USE mo_remap_shared,      ONLY: t_grid, t_regular_grid, normalized_coord
-  USE mo_remap_io,          ONLY: t_file_metadata
+#else
+  USE mo_utilities,     ONLY: wp, finish, t_geographical_coordinates, blk_no,    &
+    &                         idx_no, idx_1d, SUCCESS,                           &
+    &                         nproma, pi_180
+#endif
+
+  USE mo_mpi,           ONLY: p_comm_work, p_int, p_real_dp, get_my_mpi_work_id, &
+    &                         p_bcast
+  USE mo_util_sort,     ONLY: quicksort
+  USE mo_remap_config,  ONLY: dbg_level, MAX_NAME_LENGTH
+  USE mo_remap_shared,  ONLY: t_grid, t_regular_grid, normalized_coord
+  USE mo_remap_io,      ONLY: t_file_metadata
 
   IMPLICIT NONE
   INCLUDE 'cdi.inc'

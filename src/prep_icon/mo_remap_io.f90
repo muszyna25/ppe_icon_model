@@ -1,16 +1,22 @@
 MODULE mo_remap_io
 
+#ifdef __ICON__
   USE mo_kind,               ONLY: wp
   USE mo_io_units,           ONLY: nnml
-  USE mo_mpi,                ONLY: get_my_mpi_work_id
   USE mo_namelist,           ONLY: POSITIONED, position_nml, open_nml, close_nml
   USE mo_impl_constants,     ONLY: MAX_CHAR_LENGTH
   USE mo_exception,          ONLY: finish
   USE mo_util_string,        ONLY: tolower
   USE mo_util_netcdf,        ONLY: nf
-  USE mo_remap_config,       ONLY: dbg_level, MAX_NAME_LENGTH, MAX_NSTENCIL_CONS
-  USE mo_remap_sync,         ONLY: t_gather, scatter_field2D
-  USE mo_remap_shared,       ONLY: GRID_TYPE_REGULAR, GRID_TYPE_ICON    
+#else
+  USE mo_utilities,     ONLY: wp, nnml, POSITIONED, tolower, nf, position_nml, &
+    &                         open_nml, close_nml, finish
+#endif
+
+  USE mo_mpi,           ONLY: get_my_mpi_work_id
+  USE mo_remap_config,  ONLY: dbg_level, MAX_NSTENCIL_CONS, MAX_NAME_LENGTH
+  USE mo_remap_sync,    ONLY: t_gather, scatter_field2D
+  USE mo_remap_shared,  ONLY: GRID_TYPE_REGULAR, GRID_TYPE_ICON
   IMPLICIT NONE
 
   INCLUDE 'cdi.inc'
