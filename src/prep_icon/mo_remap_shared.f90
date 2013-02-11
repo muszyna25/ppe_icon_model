@@ -49,7 +49,7 @@ MODULE mo_remap_shared
   PUBLIC :: t_index_list
   PUBLIC :: t_grid
   PUBLIC :: GRID_TYPE_REGULAR
-  PUBLIC :: GRID_TYPE_ICON    
+  PUBLIC :: GRID_TYPE_ICON
   PUBLIC :: LIST_NPOLE, LIST_SPOLE, LIST_DEFAULT, LIST_NAME
   PUBLIC :: pole_thresh
   PUBLIC :: npole, spole
@@ -63,7 +63,7 @@ MODULE mo_remap_shared
   INTEGER, PARAMETER :: LIST_SPOLE          = 2
   INTEGER, PARAMETER :: LIST_DEFAULT        = 3
   CHARACTER(LEN=7), PARAMETER :: LIST_NAME(3) = &
-    & (/ "NPOLE  ", "SPOLE  ", "DEFAULT" /) 
+    & (/ "NPOLE  ", "SPOLE  ", "DEFAULT" /)
 
   ! pole factor (constant used for Lambert transform):
   REAL(wp), PARAMETER :: r_ns(3) = (/ 1.0_wp, -1.0_wp, 0.0_wp /)
@@ -78,7 +78,7 @@ MODULE mo_remap_shared
 
   !> threshold: cells within "pole_thresh*grid%char_length" to one of
   !  the poles are treated with Lambert transform:
-  REAL(wp), PARAMETER :: pole_thresh = 2._wp
+  REAL(wp), PARAMETER :: pole_thresh = 2_wp
 
   TYPE t_line
     TYPE (t_geographical_coordinates) :: p(2)
@@ -121,7 +121,7 @@ MODULE mo_remap_shared
 
 
   !> Data structure for a general grid topology
-  ! 
+  !
   !  Essentially, this derived type simply contains an instance of
   !  type "t_patch" for unstructured 2D meshes. However, the data
   !  structure applies also to structured rectangular grids where many
@@ -133,7 +133,7 @@ MODULE mo_remap_shared
 
     INTEGER              :: structure
     TYPE(t_patch)        :: p_patch
-    
+
     ! index lists for edges near north/south pole
     TYPE (t_index_list) :: index_list
 
@@ -240,7 +240,7 @@ CONTAINS
     TYPE(t_poly),   INTENT(OUT), TARGET :: poly
     INTEGER,        INTENT(OUT)   :: ne
     ! local variables
-    REAL(wp), PARAMETER :: TOL = 1.0e-6_wp
+    REAL(wp), PARAMETER :: TOL = 1e-6
     INTEGER  :: vertex_idx(4), vertex_blk(4), i
     TYPE (t_geographical_coordinates) :: t
     REAL(wp) :: min_lon, max_lon, lon
@@ -263,7 +263,7 @@ CONTAINS
       IF ((ABS(pp_ne%lon - t%lon) > TOL) .OR.  &
         & (ABS(pp_ne%lat - t%lat) > TOL)) THEN
         ne = ne + 1
-        pp_ne => poly%p(ne) 
+        pp_ne => poly%p(ne)
         pp_ne = t
 
         min_lon = MIN(min_lon, t%lon)
@@ -291,20 +291,20 @@ CONTAINS
     LOGICAL :: is_valid
     TYPE (t_line), INTENT(IN) :: line
     ! local variables:
-    REAL(wp), PARAMETER :: TOL = 1.0e-10_wp
+    REAL(wp), PARAMETER :: TOL = 1e-10
     ! skip degenerate edges
     is_valid = ((ABS(line%p(1)%lon - line%p(2)%lon) > TOL) .OR.  &
       &         (ABS(line%p(1)%lat - line%p(2)%lat) > TOL))
   END FUNCTION is_valid
 
 
-  !>  test for counter-clockwise direction when travelling 
+  !>  test for counter-clockwise direction when travelling
   !   from point p0 to p1 to p2.
   !
-  !   @return -1 if clockwise direction or         
+  !   @return -1 if clockwise direction or
   !           if pts are collinear and p0 is between p1 and p2
   !   @return  0 if pts are collinear and p2 is between p0 and p1
-  !   @return +1 if counter-clockwise direction or 
+  !   @return +1 if counter-clockwise direction or
   !            if pts are collinear and p1 is between p0 and p2
   ELEMENTAL FUNCTION ccw(p0, p1, p2)
     INTEGER :: ccw
@@ -367,11 +367,11 @@ CONTAINS
   END FUNCTION intersect
 
 
-  SUBROUTINE compute_intersection(l1_in, l2_in, p) 
+  SUBROUTINE compute_intersection(l1_in, l2_in, p)
     TYPE (t_line), INTENT(IN) :: l1_in, l2_in
     TYPE (t_geographical_coordinates), INTENT(OUT) :: p
     ! local variables
-    REAL(wp), PARAMETER :: TOL = 1e-10_wp
+    REAL(wp), PARAMETER :: TOL = 1e-10
     REAL(wp) :: dx1, dy1, dx2, dy2, dxa, det2, det11
     TYPE (t_line) :: l1, l2
 
@@ -404,7 +404,7 @@ CONTAINS
     ! line 1 parametrized as (x,y) = l1%p(1) + s1*(dx1,dx2)
     ! intersection: s1=det11/det2
     det2 = dx1*dy2 - dx2*dy1
-  
+
     IF (ABS(det2) < TOL) THEN
       p = l1%p(1)
     ELSE
@@ -434,7 +434,7 @@ CONTAINS
     m_ones = 0
     DO i=1,npts
       IF (i==npts) THEN
-        p2=1 
+        p2=1
       ELSE
         p2=i+1
       END IF
@@ -499,7 +499,7 @@ CONTAINS
     END IF
     p%lon = p%lon/pi_180
     p%lat = p%lat/pi_180
-    p = normalized_coord(p) 
+    p = normalized_coord(p)
   END FUNCTION backtransform_lambert_azimuthal
 
 
@@ -512,7 +512,7 @@ CONTAINS
     REAL(wp) :: p,q,s, n, this_r_ns, t
     TYPE(t_geographical_coordinates) :: d, x1, x2, res
 
-    this_r_ns = r_ns(coord_transform)    
+    this_r_ns = r_ns(coord_transform)
     t = 2._wp * SIN(this_r_ns*pi_4 -pi_180*rlat/2._wp)
 
     x1 = transform_lambert_azimuthal(x1_deg,coord_transform)
@@ -541,7 +541,7 @@ CONTAINS
     TYPE (t_grid),        INTENT(INOUT) :: grid
     REAL(wp),             INTENT(IN)    :: thresh
     ! local variables
-    CHARACTER(LEN=*), PARAMETER :: routine = TRIM('mo_remap_shared::compute_index_lists')
+    CHARACTER(LEN=*), PARAMETER :: routine = 'mo_remap_shared::compute_index_lists'
     INTEGER,          PARAMETER :: NLISTS  = 3
     INTEGER                           ::  ierrstat, start_idx, end_idx, &
       &                                   start_blk, end_blk, jb, jc,   &
@@ -550,6 +550,7 @@ CONTAINS
       &                                   new_jc, new_jb, ilist,        &
       &                                   npromz_c, nblks_c
     REAL(wp)                          ::  rlat, distn, dists
+    integer                           ::  nproma_c !, nproma_e, nproma_v
 
     ! allocate data structures:
     nblks_c  = grid%p_patch%nblks_c
@@ -559,9 +560,14 @@ CONTAINS
     npromz_e = grid%p_patch%npromz_e
     npromz_v = grid%p_patch%npromz_v
 
+    ! Handle case where nproma is ridiculously large (3D-Var)
+    nproma_c = min (nproma, grid%p_patch% n_patch_cells)
+!   nproma_e = min (nproma, grid%p_patch% n_patch_edges)
+!   nproma_v = min (nproma, grid%p_patch% n_patch_verts)
+
     grid%index_list%cnlist(1:NLISTS) = 0
-    ALLOCATE(grid%index_list%clist_idx(nproma, nblks_c,NLISTS),      &
-      &      grid%index_list%clist_blk(nproma, nblks_c,NLISTS),      &
+    ALLOCATE(grid%index_list%clist_idx(nproma_c, nblks_c,NLISTS),      &
+      &      grid%index_list%clist_blk(nproma_c, nblks_c,NLISTS),      &
       &      STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
     grid%index_list%l_initialized = .TRUE.
@@ -653,8 +659,8 @@ CONTAINS
 
         ! *slightly* disturb those vertices which would otherwise land
         ! *exactly in the origin:
-        IF ((ABS(grid%vertex(jc,jb,ilist)%lon) < 1.0e-10_wp) .AND.  &
-          & (ABS(grid%vertex(jc,jb,ilist)%lat) < 1.0e-10_wp) .AND. &
+        IF ((ABS(grid%vertex(jc,jb,ilist)%lon) < 1e-10) .AND.  &
+          & (ABS(grid%vertex(jc,jb,ilist)%lat) < 1e-10) .AND. &
           & (grid%p_patch%cell_type == 3)) THEN
           IF (ilist == LIST_NPOLE) p%lat = p%lat - 1e-2
           IF (ilist == LIST_SPOLE) p%lat = p%lat + 1e-2
@@ -669,15 +675,15 @@ CONTAINS
   END SUBROUTINE compute_coordinate_transform
 
 
-  !> Copy the vertex coordinate list from "p_patch%vertes%vertex"
+  !> Copy the vertex coordinate list from "p_patch%verts%vertex"
   !
   SUBROUTINE copy_vertex_coords(grid)
     TYPE (t_grid), INTENT(INOUT) :: grid
-    CHARACTER(LEN=*), PARAMETER :: routine = TRIM('mo_remap_shared::copy_vertex_coords')
+    CHARACTER(LEN=*), PARAMETER :: routine = 'mo_remap_shared::copy_vertex_coords'
     INTEGER :: ierrstat
 
     IF (.NOT. ALLOCATED(grid%vertex)) THEN
-      ALLOCATE(grid%vertex(nproma, grid%p_patch%nblks_v,3), &
+      ALLOCATE(grid%vertex(size (grid%p_patch%verts%vertex,1), grid%p_patch%nblks_v,3), &
         &      STAT=ierrstat)
       IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
     END IF
@@ -693,19 +699,24 @@ CONTAINS
     TYPE (t_grid), INTENT(INOUT) :: grid1, grid2
     INTEGER,       INTENT(IN)    :: nthreads
     ! local variables
-    CHARACTER(LEN=*), PARAMETER :: routine = TRIM('mo_remap_shared::allocate_lookup_tables')
+    CHARACTER(LEN=*), PARAMETER :: routine = 'mo_remap_shared::allocate_lookup_tables'
     INTEGER :: ierrstat
+    integer :: nproma_v
 
   IF (.NOT. grid1%lookup_tbl%l_initialized) THEN
-    ALLOCATE(grid1%lookup_tbl%vertex_c_idx(nproma, grid2%p_patch%nblks_v,3,nthreads), &
-      &      grid1%lookup_tbl%vertex_c_blk(nproma, grid2%p_patch%nblks_v,3,nthreads), &
+    ! Handle case where nproma is ridiculously large (3D-Var)
+    nproma_v = min (nproma, grid2%p_patch% n_patch_verts)
+    ALLOCATE(grid1%lookup_tbl%vertex_c_idx(nproma_v, grid2%p_patch%nblks_v,3,nthreads), &
+      &      grid1%lookup_tbl%vertex_c_blk(nproma_v, grid2%p_patch%nblks_v,3,nthreads), &
       &      STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
     grid1%lookup_tbl%l_initialized = .TRUE.
   END IF
   IF (.NOT. grid2%lookup_tbl%l_initialized) THEN
-    ALLOCATE(grid2%lookup_tbl%vertex_c_idx(nproma, grid1%p_patch%nblks_v,3,nthreads), &
-      &      grid2%lookup_tbl%vertex_c_blk(nproma, grid1%p_patch%nblks_v,3,nthreads), &
+    ! Handle case where nproma is ridiculously large (3D-Var)
+    nproma_v = min (nproma, grid1%p_patch% n_patch_verts)
+    ALLOCATE(grid2%lookup_tbl%vertex_c_idx(nproma_v, grid1%p_patch%nblks_v,3,nthreads), &
+      &      grid2%lookup_tbl%vertex_c_blk(nproma_v, grid1%p_patch%nblks_v,3,nthreads), &
       &      STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
     grid2%lookup_tbl%l_initialized = .TRUE.
@@ -772,7 +783,7 @@ CONTAINS
   !          generic implementation for unstructured grids.
   !
   FUNCTION get_containing_cell_generic(grid, p_in, coord_transform) RESULT(global_idx)
-    INTEGER :: global_idx 
+    INTEGER :: global_idx
     TYPE (t_grid),                     INTENT(IN) :: grid
     TYPE (t_geographical_coordinates), INTENT(IN) :: p_in
     INTEGER,                           INTENT(IN) :: coord_transform
@@ -823,7 +834,7 @@ CONTAINS
   !> Find containing cell using a GNAT data structure for fast search.
   !
   FUNCTION get_containing_cell_gnat(grid, p_in, coord_transform) RESULT(global_idx)
-    INTEGER :: global_idx 
+    INTEGER :: global_idx
     TYPE (t_grid),                     INTENT(INOUT) :: grid
     TYPE (t_geographical_coordinates), INTENT(IN)    :: p_in
     INTEGER,                           INTENT(IN)    :: coord_transform
@@ -879,13 +890,13 @@ CONTAINS
 
     ! last resort: sequential search
     !    IF (global_idx == -1) THEN
-    !      
+    !
     !      global_idx = get_containing_cell_generic(grid,p_in,coord_transform)
     !      IF (dbg_level >= 5)  WRITE (0,*) "# p=",p_in,": resort to ", global_idx
     !    END IF
   END FUNCTION get_containing_cell_gnat
 
-  
+
   !> @return +1.0, if edge is oriented counter-clockwise wrt. a given cell,
   !          otherwise return -1.0
   !
@@ -894,7 +905,7 @@ CONTAINS
   FUNCTION ccw_orientation(edge_idx, edge_blk, jc, jb, grid)
     REAL(wp)                  :: ccw_orientation
     INTEGER,       INTENT(IN) :: edge_idx, edge_blk, jc, jb
-    TYPE (t_grid), INTENT(IN) :: grid    
+    TYPE (t_grid), INTENT(IN) :: grid
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = TRIM('mo_remap_shared::ccw_orientation')
     INTEGER :: ne, i, local_idx, cedge_idx(4), cedge_blk(4), &
@@ -929,7 +940,7 @@ CONTAINS
 
 
   ! --------------------------------------------------------------------
-  !> normalizes geographical coordinates (in degrees) to the 
+  !> normalizes geographical coordinates (in degrees) to the
   !  interval [-180., 180]/[-90.,90]
   !
   ELEMENTAL FUNCTION normalized_coord(p)
@@ -937,8 +948,8 @@ CONTAINS
     TYPE (t_geographical_coordinates), INTENT(IN) :: p
 
     normalized_coord = p
-    IF (p%lon > 180._wp) normalized_coord%lon = p%lon - 360._wp
-    IF (normalized_coord%lon > 180._wp) normalized_coord%lon = normalized_coord%lon - 360._wp
+    IF (p%lon < -180._wp) normalized_coord%lon = p%lon + 360._wp
+    IF (p%lon >  180._wp) normalized_coord%lon = p%lon - 360._wp
     normalized_coord%lat = MIN(MAX(-90._wp, normalized_coord%lat), 90._wp)
   END FUNCTION normalized_coord
 

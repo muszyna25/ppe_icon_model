@@ -30,7 +30,7 @@ MODULE mo_remap_grid_icon
   PUBLIC :: load_icon_grid
   PUBLIC :: allocate_icon_grid
 
-  CHARACTER(LEN=*), PARAMETER :: modname = TRIM('mo_remap_grid_icon')  
+  CHARACTER(LEN=*), PARAMETER :: modname = 'mo_remap_grid_icon'
 
 CONTAINS
 
@@ -42,12 +42,10 @@ CONTAINS
     INTEGER,                INTENT(IN)           :: rank0    !< MPI rank where file is actually read
     TYPE (t_file_metadata), INTENT(IN), OPTIONAL :: opt_file
     ! local variables
-    CHARACTER(LEN=*), PARAMETER :: &
-      &  routine    = TRIM(TRIM(modname)//'::load_icon_grid')
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//'::load_icon_grid'
     INTEGER :: &
-      &  i, start_idx, end_idx, start_blk, end_blk, jb, jc,        &
-      &  ncid, dimid, j, idx, varID, n_patch_cells, n_patch_edges, &
-      &  n_patch_verts
+      &  i, j, idx, start_idx, end_idx, start_blk, end_blk, jb, jc, ne,  &
+      &  ncid, dimid, varID, n_patch_cells, n_patch_edges, n_patch_verts
     REAL(wp), ALLOCATABLE :: vlon(:), vlat(:), clon(:), clat(:), area_of_c(:), &
       &                      elon(:), elat(:), en_v1(:), en_v2(:)
     INTEGER,  ALLOCATABLE :: v_of_c(:,:), e_of_c(:,:), c_of_c(:,:), &
@@ -109,7 +107,7 @@ CONTAINS
       jc = idx_no(i)
       jb = blk_no(i)
       grid%p_patch%verts%vertex(jc,jb)%lat = vlat(i)/pi_180
-    END DO    
+    END DO
     DEALLOCATE(vlat)
     ! convert rad->deg, normalize coordinates
     start_blk = 1
@@ -191,11 +189,14 @@ CONTAINS
     DO i=1,grid%p_patch%n_patch_verts
       jc = idx_no(i)
       jb = blk_no(i)
+      ne = 0
       DO j=1,6
         idx = v_of_v(i,j)
+        IF (idx > 0) ne = ne + 1
         grid%p_patch%verts%neighbor_idx(jc,jb,j) = idx_no(idx)
         grid%p_patch%verts%neighbor_blk(jc,jb,j) = blk_no(idx)
       END DO
+      grid%p_patch%verts%num_edges(jc,jb) = ne
     END DO
     DEALLOCATE(v_of_v)
 
@@ -286,7 +287,7 @@ CONTAINS
       jc = idx_no(i)
       jb = blk_no(i)
       grid%p_patch%cells%center(jc,jb)%lat = clat(i)/pi_180
-    END DO    
+    END DO
     DEALLOCATE(clat)
     ! convert rad->deg, normalize coordinates
     start_blk = 1
@@ -384,7 +385,7 @@ CONTAINS
 
 !CDIR NOIEXPAND
     CALL compute_edge_normals(grid)
- 
+
   END SUBROUTINE load_icon_grid
 
 
@@ -397,9 +398,10 @@ CONTAINS
     INTEGER,          INTENT(IN)    :: n_patch_cells, n_patch_edges, n_patch_verts
     TARGET                          :: grid
     ! local variables
-    CHARACTER(LEN=*), PARAMETER :: routine = TRIM(modname)//'::allocate_icon_grid'
-    INTEGER :: ierrstat
-    type(t_patch), pointer   :: p
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//'::allocate_icon_grid'
+    INTEGER                     :: ierrstat
+    integer                     :: nproma_c, nproma_e, nproma_v
+    type(t_patch),    pointer   :: p
 
     grid%name = TRIM(name)
     p => grid% p_patch
@@ -407,6 +409,11 @@ CONTAINS
     p%n_patch_cells = n_patch_cells
     p%n_patch_edges = n_patch_edges
     p%n_patch_verts = n_patch_verts
+
+    ! Handle case where nproma is ridiculously large (3D-Var)
+    nproma_c   = min (nproma, n_patch_cells)
+    nproma_e   = min (nproma, n_patch_edges)
+    nproma_v   = min (nproma, n_patch_verts)
 
     ! compute the no. of blocks:
     p%nblks_c  = blk_no(p%n_patch_cells)
@@ -418,34 +425,35 @@ CONTAINS
 
     ! create vertices and topology info:
     IF (dbg_level >=5) WRITE (0,*) "# allocate data structures"
-    ALLOCATE(p%verts%vertex    (nproma,p%nblks_v), &
-      &      p%cells%vertex_idx(nproma,p%nblks_c,p%cell_type),   &
-      &      p%cells%vertex_blk(nproma,p%nblks_c,p%cell_type),   &
-      &      p%cells%edge_idx(  nproma,p%nblks_c,p%cell_type),   &
-      &      p%cells%edge_blk(  nproma,p%nblks_c,p%cell_type),   &
-      &      p%cells%center(   nproma,p%nblks_c),                &
-      &      p%cells%area  (   nproma,p%nblks_c),                &
-      &      p%edges%vertex_idx(  nproma,p%nblks_e, 2),          &
-      &      p%edges%vertex_blk(  nproma,p%nblks_e, 2),          &
-      &      p%edges%cell_idx(    nproma,p%nblks_e, 2),          &
-      &      p%edges%cell_blk(    nproma,p%nblks_e, 2),          &
-      &      p%verts%cell_idx(  nproma,p%nblks_v, 6),            &
-      &      p%verts%cell_blk(  nproma,p%nblks_v, 6),            &
-      &      p%cells%neighbor_idx(nproma,p%nblks_c,p%cell_type), &
-      &      p%cells%neighbor_blk(nproma,p%nblks_c,p%cell_type), &
-      &      p%verts%neighbor_idx(nproma,p%nblks_v,6),           &
-      &      p%verts%neighbor_blk(nproma,p%nblks_v,6),           &
-      &      p%cells%glb_index(p%n_patch_cells),                 &
-      &      p%edges%glb_index(p%n_patch_edges),                 &
-      &      p%edges%center(nproma,p%nblks_e),                   &
-      &      p%edges%primal_cart_normal(nproma,p%nblks_e),       &
-      &      p%edges%primal_normal(nproma,p%nblks_e),            &
+    ALLOCATE(p%verts%vertex      (nproma_v,p%nblks_v),             &
+      &      p%verts%num_edges   (nproma_v,p%nblks_v),             &
+      &      p%cells%vertex_idx  (nproma_c,p%nblks_c,p%cell_type), &
+      &      p%cells%vertex_blk  (nproma_c,p%nblks_c,p%cell_type), &
+      &      p%cells%edge_idx    (nproma_c,p%nblks_c,p%cell_type), &
+      &      p%cells%edge_blk    (nproma_c,p%nblks_c,p%cell_type), &
+      &      p%cells%center      (nproma_c,p%nblks_c),             &
+      &      p%cells%area        (nproma_c,p%nblks_c),             &
+      &      p%edges%vertex_idx  (nproma_e,p%nblks_e, 2),          &
+      &      p%edges%vertex_blk  (nproma_e,p%nblks_e, 2),          &
+      &      p%edges%cell_idx    (nproma_e,p%nblks_e, 2),          &
+      &      p%edges%cell_blk    (nproma_e,p%nblks_e, 2),          &
+      &      p%edges%center      (nproma_e,p%nblks_e),             &
+      &      p%verts%cell_idx    (nproma_v,p%nblks_v, 6),          &
+      &      p%verts%cell_blk    (nproma_v,p%nblks_v, 6),          &
+      &      p%cells%neighbor_idx(nproma_c,p%nblks_c,p%cell_type), &
+      &      p%cells%neighbor_blk(nproma_c,p%nblks_c,p%cell_type), &
+      &      p%verts%neighbor_idx(nproma_v,p%nblks_v, 6),          &
+      &      p%verts%neighbor_blk(nproma_v,p%nblks_v, 6),          &
+      &      p%cells%glb_index   (p%n_patch_cells),                &
+      &      p%edges%glb_index   (p%n_patch_edges),                &
+      &      p%edges%primal_cart_normal(nproma_e,p%nblks_e),       &
+      &      p%edges%primal_normal     (nproma_e,p%nblks_e),       &
       &      STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
 
-    ALLOCATE(grid%vertex_nb_idx(nproma,p%nblks_c,N_VNB_STENCIL_ICON), &
-      &      grid%vertex_nb_blk(nproma,p%nblks_c,N_VNB_STENCIL_ICON), &
-      &      grid%vertex_nb_stencil(nproma,p%nblks_c),                &
+    ALLOCATE(grid%vertex_nb_idx(nproma_c,p%nblks_c,N_VNB_STENCIL_ICON), &
+      &      grid%vertex_nb_blk(nproma_c,p%nblks_c,N_VNB_STENCIL_ICON), &
+      &      grid%vertex_nb_stencil(nproma_c,p%nblks_c),                &
       &      STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
 
@@ -481,7 +489,7 @@ CONTAINS
     ! Note: At pentagon points the size of the stencil reduces to 12.
 
 !$OMP DO PRIVATE(jb,jc,jec,jj,jtri,cnt,ilv,ibv,start_idx,end_idx, &
-!$OMP            ilc_v,ibc_v,ilc_n,ibc_n,nb_idx,nb_blk) 
+!$OMP            ilc_v,ibc_v,ilc_n,ibc_n,nb_idx,nb_blk)
     DO jb = 1,nblks_c
       start_idx = 1
       end_idx   = nproma
@@ -556,7 +564,7 @@ CONTAINS
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,je,start_idx,end_idx,z_lon,z_lat, &
-!$OMP             z_u,z_v,z_vec,z_norm) 
+!$OMP             z_u,z_v,z_vec,z_norm)
     DO jb = 1,grid%p_patch%nblks_e
       start_idx = 1
       end_idx   = nproma
@@ -566,18 +574,18 @@ CONTAINS
         ! location of edge midpoint
         z_lon = grid%p_patch%edges%center(je,jb)%lon * pi_180
         z_lat = grid%p_patch%edges%center(je,jb)%lat * pi_180
-        
+
         ! zonal and meridional component of primal normal
         z_u = grid%p_patch%edges%primal_normal(je,jb)%v1
         z_v = grid%p_patch%edges%primal_normal(je,jb)%v2
-        
+
         ! calculate Cartesian components of primal normal
         CALL gvec2cvec( z_u, z_v, z_lon, z_lat, z_vec%x(1), z_vec%x(2), z_vec%x(3) )
-        
+
         ! compute unit normal to edge je
         z_norm = SQRT( DOT_PRODUCT(z_vec%x(1:3),z_vec%x(1:3)) )
         z_vec%x(1:3) = 1._wp / z_norm * z_vec%x(1:3)
-        
+
         grid%p_patch%edges%primal_cart_normal(je,jb)%x(1) = z_vec%x(1)
         grid%p_patch%edges%primal_cart_normal(je,jb)%x(2) = z_vec%x(2)
         grid%p_patch%edges%primal_cart_normal(je,jb)%x(3) = z_vec%x(3)

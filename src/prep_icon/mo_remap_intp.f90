@@ -716,7 +716,7 @@ CONTAINS
   SUBROUTINE divide_by_area(intp_data)
     TYPE (t_intp_data), INTENT(INOUT)  :: intp_data
     ! local variables
-    REAL(wp), PARAMETER :: ZERO_THRESH = 1.e-12_wp
+    REAL(wp), PARAMETER :: ZERO_THRESH = 1.e-12
     INTEGER            :: i
     TYPE (t_heap_data) :: t
     REAL(wp)           :: area
