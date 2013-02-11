@@ -61,6 +61,7 @@ MODULE mo_gnat_gridsearch
 
 !$  USE OMP_LIB
 
+#ifdef __ICON__
   USE mo_kind,                ONLY: wp, sp
   USE mo_exception,           ONLY: message, message_text, finish
   USE mo_math_constants,      ONLY: pi_180
@@ -74,7 +75,12 @@ MODULE mo_gnat_gridsearch
     &                               process_mpi_all_test_id, process_mpi_all_workroot_id
   USE mo_communication,       ONLY: idx_1d
   USE mo_icon_comm_lib,       ONLY: t_mpi_mintype, mpi_reduce_mindistance_pts
-
+#else
+  USE mo_utilities,    ONLY: wp, t_patch, t_geographical_coordinates, &
+    &                        message_text, min_rlcell_int, pi_180,    &
+    &                        idx_1d, finish, message, get_indices_c
+  USE mo_remap_config, ONLY: dbg_level
+#endif
 
   IMPLICIT NONE
 
@@ -92,8 +98,10 @@ MODULE mo_gnat_gridsearch
   INTEGER, PARAMETER  :: UNUSED_NODE  = -2
   INTEGER, PARAMETER  :: SKIP_NODE    = -3
 
+#ifdef __ICON__
   !> level of output verbosity
   INTEGER, PARAMETER  :: dbg_level = 0
+#endif
 
   !> dimension of coordinate system
   INTEGER, PARAMETER :: icoord_dim = 2
@@ -151,9 +159,8 @@ MODULE mo_gnat_gridsearch
   PUBLIC :: gnat_init_grid
   PUBLIC :: gnat_destroy
   PUBLIC :: gnat_std_radius
-  PUBLIC :: gnat_query_containing_triangles
-  PUBLIC :: gnat_merge_distributed_queries
   PUBLIC :: gnat_recursive_query
+  PUBLIC :: gnat_query
   PUBLIC :: gnat_recursive_proximity_query
   ! data
   PUBLIC :: gk
@@ -164,6 +171,12 @@ MODULE mo_gnat_gridsearch
   PUBLIC :: UNASSOCIATED
   PUBLIC :: MAX_RANGE
   PUBLIC :: INVALID_NODE, SKIP_NODE
+  PUBLIC :: num_nodes, max_num_nodes
+  PUBLIC :: node_storage
+#ifdef __ICON__
+  PUBLIC :: gnat_query_containing_triangles
+  PUBLIC :: gnat_merge_distributed_queries
+#endif
 
 CONTAINS
 
@@ -181,6 +194,22 @@ CONTAINS
     dist = ACOS( MIN(1._gk, MAX(-1._gk, val)) )
 
   END FUNCTION dist
+
+
+  ! -----------------------------------------------------------------------------------
+
+
+  !> distance computation, uses precomputed sine, cosine
+  PURE FUNCTION dist_t_coord(p1, p2)
+    REAL(gk)                    :: dist_t_coord
+    TYPE (t_coord), INTENT(IN)  :: p1, p2
+    ! local variables
+    REAL(gk) :: val
+
+    ! spherical distance:
+    val = p1%sin_p*p2%sin_p + p1%cos_p*p2%cos_p*COS(p1%p(1)-p2%p(1))
+    dist_t_coord = ACOS( MIN(1._gk, MAX(-1._gk, val)) )
+  END FUNCTION dist_t_coord
 
 
   ! -----------------------------------------------------------------------------------
@@ -313,9 +342,9 @@ CONTAINS
       node%drange(i,i,1:2) = 0._gk
 
       FORALL (j=1:i-1)
-        node%drange(j,i,1) = MIN( node%drange(j,i,1), pdist(j) )
-        node%drange(j,i,2) = MAX( node%drange(j,i,2), pdist(j) )
-        node%drange(i,j,1:2) = pdist(j)
+        node%drange(i,j,1) = MIN( node%drange(i,j,1), pdist(j) )
+        node%drange(i,j,2) = MAX( node%drange(i,j,2), pdist(j) )
+        node%drange(j,i,1:2) = pdist(j)
       END FORALL
       lcomplete = .TRUE.
       RETURN
@@ -324,8 +353,8 @@ CONTAINS
     !-- case 2: traverse into subtree for closest split point
     imin  = MINLOC(pdist)
     FORALL (j=1:gnat_k)
-      node%drange(j,imin,1) = MIN( node%drange(j,imin,1), pdist(j) )
-      node%drange(j,imin,2) = MAX( node%drange(j,imin,2), pdist(j) )
+      node%drange(imin,j,1) = MIN( node%drange(imin,j,1), pdist(j) )
+      node%drange(imin,j,2) = MAX( node%drange(imin,j,2), pdist(j) )
     END FORALL
 
     ! instead of recursive traversal, like
@@ -405,8 +434,8 @@ CONTAINS
         END IF
 
         WHERE (pflag(1:isplit_pts))
-          pflag(1:isplit_pts) = (tree%drange(ip,1:isplit_pts,1) <= (dist_vp+r)) .AND. &
-            &                   (tree%drange(ip,1:isplit_pts,2) >= (dist_vp-r))
+          pflag(1:isplit_pts) = (tree%drange(1:isplit_pts,ip,1) <= (dist_vp+r)) .AND. &
+            &                   (tree%drange(1:isplit_pts,ip,2) >= (dist_vp-r))
         END WHERE
 
       END IF
@@ -418,8 +447,107 @@ CONTAINS
         CALL gnat_recursive_query(tree%child(ip), v, r, min_dist, min_node_idx(:))
       END IF
     END DO
-
   END SUBROUTINE gnat_recursive_query
+
+
+  ! -----------------------------------------------------------------------------------
+  !> Identify nearest point within given radius, non-recursive, partly
+  !  vectorizable version of the algorithm.
+  !
+  SUBROUTINE gnat_query(ihead, v, r, min_dist, min_node_idx)
+    INTEGER,           INTENT(IN)    :: ihead
+    REAL(gk),          INTENT(IN)    :: v(icoord_dim)
+    REAL(gk),          INTENT(IN)    :: r
+    REAL(gk),          INTENT(INOUT) :: min_dist
+    INTEGER,           INTENT(INOUT) :: min_node_idx(3)
+    ! local variables
+    INTEGER, PARAMETER :: NLIST = 100 ! max size of traversal list
+    LOGICAL                          :: pflag(gnat_k,NLIST)
+    INTEGER                          :: traversal_list(NLIST),        &
+      &                                 ntrv_list(gnat_k*NLIST),      &
+      &                                 ip, isplit_pts, ntraversal0,  &
+      &                                 i, ti, ntraversal
+    TYPE(t_coord)                    :: p_v, p_ip
+#ifdef __SX__
+    REAL(gk)                         :: dist_v(gnat_k)
+#endif
+    REAL(gk)                         :: dist_vp, r0
+
+    ! initialization
+    p_v%p(:)  = v(:)
+    p_v%sin_p = SIN(v(2))
+    p_v%cos_p = COS(v(2))
+
+    ntraversal        = 1
+    traversal_list(1) = ihead
+    r0                = MIN(r, min_dist)
+    DO
+      pflag(:,:) = .TRUE.
+
+      ! remove some elements from P
+      DO i=1,ntraversal
+        ti         = traversal_list(i)
+        isplit_pts = node_storage(ti)%isplit_pts          
+
+#ifdef __SX__
+        CALL dist_vect(node_storage(ti)%p, v, isplit_pts, dist_v)
+#endif
+
+        P : DO ip=1,isplit_pts
+          IF (pflag(ip,i)) THEN
+#ifdef __SX__
+            dist_vp = dist_v(ip)
+#else
+            p_ip    = node_storage(ti)%p(ip)
+            dist_vp = dist_t_coord(p_ip,p_v)
+#endif
+
+            IF (dist_vp <= r0) THEN
+#ifdef __SX__
+              p_ip = node_storage(ti)%p(ip)
+#endif
+              IF (dist_vp == r0) THEN
+                IF (min_node_idx(3) > p_ip%idx(3)) THEN
+                  min_node_idx(:) = p_ip%idx(:)
+                  r0              = dist_vp
+                END IF
+              ELSE
+                min_node_idx(:) = p_ip%idx(:)
+                r0              = dist_vp
+              END IF
+            END IF
+
+            WHERE (pflag(1:isplit_pts,i))
+              pflag(1:isplit_pts,i) = (node_storage(ti)%drange(1:isplit_pts,ip,1) <= (dist_vp+r0)) .AND. &
+                &                     (node_storage(ti)%drange(1:isplit_pts,ip,2) >= (dist_vp-r0))
+            END WHERE
+          END IF
+        END DO P
+      END DO
+
+      ! store subtrees for remaining ip in P (traversed later):
+      ntraversal0 = ntraversal
+      ntraversal  = 0
+      DO ip=1,gnat_k
+        DO i=1,ntraversal0
+          IF (pflag(ip,i) .AND. (node_storage(traversal_list(i))%child(ip) /= UNASSOCIATED)) THEN
+            ntraversal = ntraversal + 1
+            ntrv_list(ntraversal) = node_storage(traversal_list(i))%child(ip)
+          END IF
+        END DO
+      END DO
+
+      IF (ntraversal == 0) THEN
+        ! abort, if no more nodes to be traversed
+        min_dist = r0
+        EXIT
+      ELSE
+        ! copy new traversal list:
+        traversal_list(1:ntraversal) = ntrv_list(1:ntraversal)
+      END IF
+    END DO
+
+  END SUBROUTINE gnat_query
 
 
   ! -----------------------------------------------------------------------------------
@@ -470,8 +598,8 @@ CONTAINS
         END IF
 
         WHERE (pflag(1:isplit_pts))
-          pflag(1:isplit_pts) = (tree%drange(ip,1:isplit_pts,1) <= (dist_vp+r)) .AND. &
-            &                   (tree%drange(ip,1:isplit_pts,2) >= (dist_vp-r))
+          pflag(1:isplit_pts) = (tree%drange(1:isplit_pts,ip,1) <= (dist_vp+r)) .AND. &
+            &                   (tree%drange(1:isplit_pts,ip,2) >= (dist_vp-r))
         END WHERE
 
       END IF
@@ -926,10 +1054,10 @@ CONTAINS
     ! move down tree an collect range values
     node => node_storage(tree_idx)
     i = node%isplit_pts
-    gnat_std_radius = MINVAL(node%drange(1, 2:i, 1))
+    gnat_std_radius = MINVAL(node%drange(2:i, 1, 1))
     DO
       i = node%isplit_pts
-      gnat_std_radius = MIN(gnat_std_radius, MINVAL(node%drange(1, 2:i, 1)))
+      gnat_std_radius = MIN(gnat_std_radius, MINVAL(node%drange( 2:i, 1, 1)))
 
       IF (node%child(1) == UNASSOCIATED) EXIT
       node => node_storage(node%child(1))
@@ -1052,6 +1180,8 @@ CONTAINS
 
   END SUBROUTINE point_inside_triangle
 
+
+#ifdef __ICON__
 
   ! -----------------------------------------------------------------------------------
   ! In this routine, the master process merges the results of several
@@ -1317,7 +1447,8 @@ CONTAINS
       END DO
     END DO
 !$OMP END PARALLEL DO
-
   END SUBROUTINE gnat_query_containing_triangles
+
+#endif
 
 END MODULE mo_gnat_gridsearch
