@@ -110,6 +110,8 @@ CONTAINS
       &      routine = 'mo_util_dbg_prnt:init_dbg_index'
    
     CALL message(TRIM(routine), 'Start' )
+
+    ! test submit via eclipse workshop / 2013-02-11
    
     ! fill subset for use in dbg_print without passing the patch in every call
 !    v_subdom_cell = ppatch%cells%in_domain
