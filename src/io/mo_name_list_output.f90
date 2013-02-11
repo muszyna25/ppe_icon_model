@@ -32,7 +32,8 @@ MODULE mo_name_list_output
   USE mo_impl_constants,        ONLY: max_phys_dom, ihs_ocean, zml_soil, MAX_NVARS,   &
     &                                 vname_len, max_dom, SUCCESS,                    &
     &                                 min_rlcell_int, min_rledge_int, min_rlvert,     &
-    &                                 max_var_ml, max_var_pl, max_var_hl, max_var_il
+    &                                 max_var_ml, max_var_pl, max_var_hl, max_var_il, &
+    &                                 MAX_TIME_LEVELS
   USE mo_grid_config,           ONLY: n_dom, n_phys_dom, global_cell_type, &
     &                                 grid_rescale_factor, start_time, end_time
   USE mo_grid_levels,           ONLY: check_orientation
@@ -47,7 +48,8 @@ MODULE mo_name_list_output
   USE mo_linked_list,           ONLY: t_var_list, t_list_element
   USE mo_var_list,              ONLY: nvar_lists, max_var_lists, var_lists,     &
     &                                 new_var_list, get_all_var_names,          &
-    &                                 total_number_of_variables, collect_group
+    &                                 total_number_of_variables, collect_group, &
+    &                                 get_var_timelevel, get_var_name
   USE mo_var_list_element,      ONLY: level_type_ml, level_type_pl, level_type_hl, &
     &                                 level_type_il
   USE mo_util_uuid,             ONLY: t_uuid
@@ -104,7 +106,6 @@ MODULE mo_name_list_output
   &                                     vname_len,               &  
   &                                     t_output_name_list,      &
   &                                     first_output_name_list,  &
-  &                                     max_time_levels,         &
   &                                     t_output_file,           &
   &                                     is_output_nml_active,    &
   &                                     is_output_file_active,   &
@@ -1139,7 +1140,7 @@ CONTAINS
     INTEGER, INTENT(IN) :: vl_list(:)
     CHARACTER(LEN=*), INTENT(IN) :: varlist(:)
 
-    INTEGER :: ivar, i, iv, idx, idx_t, tl, grid_of, grid_var
+    INTEGER :: ivar, i, iv, tl, grid_of, grid_var
     LOGICAL :: found
     TYPE(t_list_element), POINTER :: element
     TYPE(t_var_desc), TARGET  ::  var_desc   !< variable descriptor
@@ -1217,24 +1218,16 @@ CONTAINS
           ! Do not inspect element if it is a container
           IF(element%field%info%lcontainer) CYCLE
 
-          ! find suffix position for component and time level indices:
-          idx_t = INDEX(element%field%info%name,'.TL')
-
-          idx = vname_len
-          IF (idx_t > 0) idx=MIN(idx, idx_t)
-          IF (idx==vname_len) idx=0
+          ! get time level
+          tl = get_var_timelevel(element%field)
 
           ! Check for matching name
-          IF(idx == 0) THEN
-            IF(TRIM(varlist(ivar)) /= TRIM(tolower(element%field%info%name))) CYCLE
-          ELSE
-            IF(TRIM(varlist(ivar)) /= TRIM(tolower(element%field%info%name(1:idx-1)))) CYCLE
-          ENDIF
+          IF(TRIM(varlist(ivar)) /= TRIM(tolower(get_var_name(element%field)))) CYCLE
 
           ! Found it, add it to the variable list of output file
           p_var_desc => var_desc
 
-          IF(idx_t == 0) THEN
+          IF(tl == -1) THEN
             ! Not time level dependent
             IF(found) CALL finish(routine,'Duplicate var name: '//TRIM(varlist(ivar)))
             p_var_desc%r_ptr => element%field%r_ptr
@@ -1256,12 +1249,9 @@ CONTAINS
               ! Variable encountered the first time, set info field ...
               p_var_desc%info = element%field%info
               ! ... and set name without .TL# suffix
-              p_var_desc%info%name = element%field%info%name(1:idx_t-1)
+              p_var_desc%info%name = TRIM(get_var_name(element%field))
             ENDIF
-            ! Get time level
-            tl = ICHAR(element%field%info%name(idx_t+3:idx_t+3)) - ICHAR('0')
-            IF(tl<=0 .OR. tl>max_time_levels) &
-              CALL finish(routine, 'Illegal time level in '//TRIM(element%field%info%name))
+
             IF (ASSOCIATED(p_var_desc%tlev_rptr(tl)%p) .OR. ASSOCIATED(p_var_desc%tlev_iptr(tl)%p)) &
               CALL finish(routine, 'Duplicate time level for '//TRIM(element%field%info%name))
             p_var_desc%tlev_rptr(tl)%p => element%field%r_ptr

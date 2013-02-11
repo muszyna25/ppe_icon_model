@@ -27,7 +27,7 @@ MODULE mo_var_list
   USE mo_impl_constants,   ONLY: VINTP_METHOD_LIN,                  &
     &                            HINTP_TYPE_LONLAT_RBF,             &
     &                            max_var_lists, vname_len,          &
-    &                            STR_HINTP_TYPE
+    &                            STR_HINTP_TYPE, MAX_TIME_LEVELS
   USE mo_advection_config, ONLY: t_advection_config
   USE mo_fortran_tools,    ONLY: assign_if_present, t_ptr_2d3d
   
@@ -59,6 +59,9 @@ MODULE mo_var_list
   PUBLIC :: add_ref                   ! create/reference a new var_list list entry
   PUBLIC :: get_var                   ! obtain reference to existing list entry
   PUBLIC :: get_all_var_names         ! obtain a list of variables names
+
+  PUBLIC :: get_var_name              ! return plain variable name (without timelevel)
+  PUBLIC :: get_var_timelevel         ! return variable timelevel (or "-1")
 
   PUBLIC :: total_number_of_variables ! returns total number of defined variables
   PUBLIC :: groups                    ! group array constructor
@@ -282,7 +285,7 @@ CONTAINS
       &                               opt_hor_intp_type
     LOGICAL, OPTIONAL, INTENT(IN)  :: opt_lcontainer, opt_loutput
     ! local variables
-    INTEGER                       :: i, idx, ivintp_type
+    INTEGER                       :: i, ivintp_type
     LOGICAL                       :: lcontainer
     TYPE(t_list_element), POINTER :: element
     TYPE(t_var_metadata), POINTER :: info
@@ -342,20 +345,56 @@ CONTAINS
         END IF
 
         ! Check for time level suffix:
-        idx = INDEX(info%name,'.TL')
         ivar = ivar+1
-        IF (idx==0) THEN
-          varlist(ivar) = TRIM(info%name)
-        ELSE
-          varlist(ivar) = TRIM(info%name(1:idx-1))
-        END IF
-
+        varlist(ivar) = TRIM(get_var_name(element%field))
       ENDDO LOOPVAR ! loop over vlist "i"
     ENDDO LOOP_VARLISTS ! i = 1,nvar_lists
 
     CALL remove_duplicates(varlist, ivar)
 
   END SUBROUTINE get_all_var_names
+
+
+  !------------------------------------------------------------------------------------------------
+  !> @return Plain variable name (i.e. without time level suffix ".TL")
+  !
+  FUNCTION get_var_name(var)
+    CHARACTER(LEN=VARNAME_LEN) :: get_var_name
+    TYPE(t_var_list_element)   :: var
+    ! local variable
+    INTEGER :: idx
+
+    idx = INDEX(var%info%name,'.TL')
+    IF (idx==0) THEN
+      get_var_name = TRIM(var%info%name)
+    ELSE
+      get_var_name = TRIM(var%info%name(1:idx-1))
+    END IF
+  END FUNCTION get_var_name
+
+
+  !------------------------------------------------------------------------------------------------
+  !> @return time level (extracted from time level suffix ".TL") or "-1"
+  !
+  FUNCTION get_var_timelevel(var)
+    INTEGER :: get_var_timelevel
+    TYPE(t_var_list_element)   :: var
+    ! local variable
+    CHARACTER(LEN=*), PARAMETER :: routine = 'mo_var_list:get_var_timelevel'
+    INTEGER :: idx
+
+    idx = INDEX(var%info%name,'.TL')
+    IF (idx == 0) THEN
+      get_var_timelevel = -1
+      RETURN
+    END IF
+
+    ! Get time level
+    get_var_timelevel = ICHAR(var%info%name(idx+3:idx+3)) - ICHAR('0')
+    IF(get_var_timelevel<=0 .OR. get_var_timelevel>max_time_levels) &
+      CALL finish(routine, 'Illegal time level in '//TRIM(var%info%name))
+  END FUNCTION get_var_timelevel
+
 
   !------------------------------------------------------------------------------------------------
   !
@@ -3665,7 +3704,7 @@ CONTAINS
 
     ! local variables
     CHARACTER(*), PARAMETER :: routine = TRIM("mo_var_list:collect_group")
-    INTEGER :: i, ivar, grp_id, idx, idx_x, idx_y, idx_t
+    INTEGER :: i, ivar, grp_id
     TYPE(t_list_element), POINTER :: element
     TYPE(t_var_metadata), POINTER :: info
     CHARACTER(LEN=VARNAME_LEN)    :: name
@@ -3688,22 +3727,7 @@ CONTAINS
         IF (info%lcontainer) CYCLE LOOPVAR
         
         IF (info%in_group(grp_id)) THEN
-
-          ! find suffix position for component and time level indices:
-          idx_x = INDEX(element%field%info%name,'.X')
-          idx_y = INDEX(element%field%info%name,'.Y')
-          idx_t = INDEX(element%field%info%name,'.TL')
-
-          idx = vname_len
-          IF (idx_t > 0) idx=MIN(idx, idx_t)
-          IF (idx_x > 0) idx=MIN(idx, idx_x)
-          IF (idx_y > 0) idx=MIN(idx, idx_y)
-          IF (idx==vname_len) idx=0
-          IF (idx==0) THEN
-            name = TRIM(info%name)
-          ELSE
-            name = TRIM(info%name(1:idx-1))
-          END IF
+          name = TRIM(get_var_name(element%field))
 
           ! Skip element if we need only output variables:
           IF (loutputvars_only .AND. &

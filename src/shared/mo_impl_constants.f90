@@ -465,6 +465,8 @@ MODULE mo_impl_constants
     PRES_MSL_METHOD_GME = 1,  &   ! GME-type extrapolation
     PRES_MSL_METHOD_SAI = 2       ! stepwise analytical integration 
 
+  ! Max number of time levels:
+  INTEGER, PARAMETER :: MAX_TIME_LEVELS = 5
 
   !-----------------------------------!
   !  POST PROCESSING SCHEDULER TASKS  !

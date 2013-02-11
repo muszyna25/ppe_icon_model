@@ -48,7 +48,8 @@ MODULE mo_name_list_output_config
   USE mo_io_units,              ONLY: filename_max
   USE mo_impl_constants,        ONLY: max_phys_dom, max_bounds,          &
     &                                 vname_len, max_var_ml, max_var_pl, &
-    &                                 max_var_hl, max_var_il, max_levels
+    &                                 max_var_hl, max_var_il, max_levels,&
+    &                                 MAX_TIME_LEVELS
   USE mo_cdi_constants,         ONLY: FILETYPE_GRB, FILETYPE_GRB2
   USE mo_var_metadata,          ONLY: t_var_metadata
   USE mo_util_string,           ONLY: toupper
@@ -127,8 +128,6 @@ MODULE mo_name_list_output_config
   TYPE(t_output_name_list), POINTER :: first_output_name_list => NULL()
 
   !------------------------------------------------------------------------------------------------
-  ! Max number of time levels:
-  INTEGER, PARAMETER :: max_time_levels = 5
 
   ! Unfortunately, Fortran does not allow arrays of pointers, so we have to define extra types
   TYPE t_rptr_5d
@@ -142,8 +141,8 @@ MODULE mo_name_list_output_config
   TYPE t_var_desc
     REAL(wp), POINTER :: r_ptr(:,:,:,:,:)         ! Pointer to time level independent REAL data (or NULL)
     INTEGER,  POINTER :: i_ptr(:,:,:,:,:)         ! Pointer to time level independent INTEGER data (or NULL)
-    TYPE(t_rptr_5d) :: tlev_rptr(max_time_levels) ! Pointers to time level dependent REAL data
-    TYPE(t_iptr_5d) :: tlev_iptr(max_time_levels) ! Pointers to time level dependent INTEGER data
+    TYPE(t_rptr_5d) :: tlev_rptr(MAX_TIME_LEVELS) ! Pointers to time level dependent REAL data
+    TYPE(t_iptr_5d) :: tlev_iptr(MAX_TIME_LEVELS) ! Pointers to time level dependent INTEGER data
     TYPE(t_var_metadata) :: info                  ! Info structure for variable
   END TYPE
 

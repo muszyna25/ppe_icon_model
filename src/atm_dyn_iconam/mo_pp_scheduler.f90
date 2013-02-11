@@ -93,7 +93,8 @@ MODULE mo_pp_scheduler
   USE mo_var_list,                ONLY: add_var, get_all_var_names,         &
     &                                   create_hor_interp_metadata,         &
     &                                   nvar_lists, var_lists, vintp_types, &
-    &                                   vintp_type_id
+    &                                   vintp_type_id, get_var_name,        &
+    &                                   get_var_timelevel
   USE mo_var_list_element,        ONLY: t_var_list_element, level_type_ml,  &
     &                                   level_type_pl, level_type_hl, level_type_il
   USE mo_var_metadata,            ONLY: t_var_metadata, t_vert_interp_meta, &
@@ -245,12 +246,13 @@ CONTAINS
     ! local variables
     CHARACTER(*), PARAMETER :: routine =  TRIM("mo_pp_scheduler:init_vn_horizontal_post_processing")
     TYPE(t_list_element), POINTER :: element_u, element_v, element, new_element, new_element_2
-    CHARACTER(len=4)              :: suffix
-    INTEGER                       :: i, idx, shape3d_ll(3), shape3d_e(3), nblks_lonlat, nblks_e, nlev, jg
+    INTEGER                       :: i, shape3d_ll(3), shape3d_e(3), nblks_lonlat, &
+      &                              nblks_e, nlev, jg, tl
     TYPE(t_job_queue),    POINTER :: task
     TYPE(t_var_metadata), POINTER :: info
     REAL(wp),             POINTER :: p_opt_field_r3d(:,:,:)
     CHARACTER(len=varname_len)    :: name
+    CHARACTER(len=4)              :: suffix
     TYPE(t_cf_var)                :: cf
     TYPE(t_grib2_var)             :: grib2
     TYPE(t_var_list), POINTER     :: dst_varlist     !< destination variable list
@@ -304,14 +306,12 @@ CONTAINS
         IF (.NOT. info%loutput) CYCLE
 
         ! Check for matching name
-        idx = INDEX(info%name,'.TL')
-        IF(idx == 0) THEN
-          IF (vn_name /= TRIM(info%name)) CYCLE
-          suffix = ""
-        ELSE
-          IF (vn_name /= info%name(1:idx-1)) CYCLE
-          suffix = info%name(idx:LEN(info%name))
-        ENDIF
+        IF (vn_name /= TRIM(tolower(get_var_name(element%field)))) CYCLE
+
+        ! get time level
+        tl = get_var_timelevel(element%field)
+        suffix = ""
+        IF (tl /= -1)  WRITE (suffix,'(".TL",i1)') tl
 
         !- find existing variables "u", "v" (for copying the meta-data):
         element_u => find_list_element (p_nh_state(jg)%diag_list, "u")
@@ -329,7 +329,7 @@ CONTAINS
         !   for the same time level
         IF (dbg_level > 8) &
           CALL message(routine, "horizontal interpolation: create u/v variables on lon-lat grid")
-        name    = TRIM(element_u%field%info%name)//suffix
+        name    = TRIM(get_var_name(element_u%field))//suffix
         cf      = element_u%field%info%cf
         grib2   = element_u%field%info%grib2
         CALL add_var( dst_varlist, TRIM(name), p_opt_field_r3d,                           &
@@ -337,7 +337,7 @@ CONTAINS
           & ldims=shape3d_ll, lrestart=.FALSE., in_group=element_u%field%info%in_group,   &
           & new_element=new_element, loutput=.TRUE. )
 
-        name    = TRIM(element_v%field%info%name)//suffix
+        name    = TRIM(get_var_name(element_v%field))//suffix
         cf      = element_v%field%info%cf
         grib2   = element_v%field%info%grib2
         CALL add_var( dst_varlist, TRIM(name), p_opt_field_r3d,                           &
@@ -381,7 +381,7 @@ CONTAINS
     ! local variables
     CHARACTER(*), PARAMETER :: routine =  TRIM("mo_pp_scheduler:pp_scheduler_init_lonlat")
     INTEGER                               :: &
-      &  jg, ndom, ierrstat, ivar, i, j, idx, nvars_ll, &
+      &  jg, ndom, ierrstat, ivar, i, j, nvars_ll, &
       &  nblks_lonlat, ilev_type, max_var, ilev, n_uv_hrz_intp
     LOGICAL                               :: found, l_horintp
     TYPE (t_output_name_list), POINTER    :: p_onl
@@ -540,13 +540,9 @@ CONTAINS
           ! "u", "v" are processed separately, see above.
           IF ((TRIM(vname) == "u") .OR. (TRIM(vname) == "v"))  CYCLE VAR_LOOP
 
-          ! Check for suffix of time-dependent variables:
-          idx = INDEX(info%name,'.TL')
-          IF(idx == 0) THEN
-            IF (TRIM(vname) /= TRIM(tolower(info%name))) CYCLE VAR_LOOP
-          ELSE
-            IF (TRIM(vname) /= TRIM(tolower(info%name(1:idx-1)))) CYCLE VAR_LOOP
-          ENDIF
+          ! Check for matching name (take care of suffix of
+          ! time-dependent variables):
+          IF (TRIM(vname) /= TRIM(tolower(get_var_name(element%field)))) CYCLE VAR_LOOP
 
           IF (info%hgrid /= GRID_UNSTRUCTURED_CELL)  CYCLE VAR_LOOP
 
@@ -642,7 +638,7 @@ CONTAINS
       WRITE (task%job_name, *) "horizontal interp. SYNC"
       task%job_type = TASK_INTP_SYNC
       task%activity = new_simulation_status(l_output_step=.TRUE.)
-      task%activity%ldom_active(:) = .FALSE.
+      task%activity%ldom_active(:) = .FALSE. ! i.e. no domain-wise (in-)activity 
     END IF
     IF (dbg_level > 5)  CALL message(routine, "Done")
     
@@ -763,12 +759,12 @@ CONTAINS
     ! local variables
     CHARACTER(*), PARAMETER :: routine = TRIM("mo_pp_scheduler:init_vn_vertical_post_processing")
     TYPE(t_list_element), POINTER :: element_u, element_v, element, vn_element, new_element, new_element_2
-    CHARACTER(len=4)              :: suffix
-    INTEGER                       :: i, idx, shape3d_c(3), shape3d_e(3), nblks_c, nblks_e
+    INTEGER                       :: i, shape3d_c(3), shape3d_e(3), nblks_c, nblks_e, tl
     TYPE(t_job_queue),    POINTER :: task
     TYPE(t_var_metadata), POINTER :: info
     REAL(wp),             POINTER :: p_opt_field_r3d(:,:,:)
     CHARACTER(len=varname_len)    :: name
+    CHARACTER(len=4)              :: suffix
     TYPE(t_cf_var)                :: cf
     TYPE(t_grib2_var)             :: grib2
 
@@ -810,15 +806,14 @@ CONTAINS
         ! Do not inspect element if "loutput=.false."
         IF (.NOT. info%loutput) CYCLE
 
-        ! Check for matching name
-        idx = INDEX(info%name,'.TL')
-        IF(idx == 0) THEN
-          IF (vn_name /= TRIM(info%name)) CYCLE
-          suffix = ""
-        ELSE
-          IF (vn_name /= info%name(1:idx-1)) CYCLE
-          suffix = info%name(idx:LEN(info%name))
-        ENDIF
+        ! Check for matching name (take care of suffix of
+        ! time-dependent variables):
+        IF (TRIM(vn_name) /= TRIM(tolower(get_var_name(element%field)))) CYCLE
+
+        ! get time level
+        tl = get_var_timelevel(element%field)
+        suffix = ""
+        IF (tl /= -1)  WRITE (suffix,'(".TL",i1)') tl
 
         !-- create a new z/p/i-variable "vn":
         CALL add_var( dst_varlist, TRIM(info%name), p_opt_field_r3d, element%field%info%hgrid,    &
@@ -849,7 +844,8 @@ CONTAINS
         task%data_output%var => vn_element%field   ! set output variable
 
         !-- create new cell-based variables "u", "v" on the same vertical axis
-        name    = TRIM(element_u%field%info%name)//suffix
+
+        name    = TRIM(get_var_name(element_u%field))//suffix
         cf      = element_u%field%info%cf
         grib2   = element_u%field%info%grib2
         CALL add_var( dst_varlist, TRIM(name), p_opt_field_r3d,                           &
@@ -857,7 +853,7 @@ CONTAINS
           & ldims=shape3d_c, lrestart=.FALSE., in_group=element_u%field%info%in_group,    &
           & new_element=new_element )
 
-        name    = TRIM(element_v%field%info%name)//suffix
+        name    = TRIM(get_var_name(element_v%field))//suffix
         cf      = element_v%field%info%cf
         grib2   = element_v%field%info%grib2
         CALL add_var( dst_varlist, TRIM(name), p_opt_field_r3d,                           &
@@ -909,7 +905,7 @@ CONTAINS
     CHARACTER,    PARAMETER :: init_names(3) = &
       &  (/ 'z', 'p', 'i' /)
     INTEGER                            :: &
-      &  jg, ndom, ibits, nblks_c, nblks_v, ierrstat, ivar, i, idx, &
+      &  jg, ndom, ibits, nblks_c, nblks_v, ierrstat, ivar, i,      &
       &  iaxis, vgrid, nlev, nvars_pl, nvars_hl, nvars_il, nvars,   &
       &  job_type, z_id, p_id, i_id, shape3d(3)
     LOGICAL                            :: &
@@ -1175,13 +1171,9 @@ CONTAINS
                 IF (.NOT. info%vert_interp%vert_intp_type(i_id)) CYCLE
               END IF
 
-              ! Check for matching name
-              idx = INDEX(info%name,'.TL')
-              IF(idx == 0) THEN
-                IF (TRIM(varlist(ivar)) /= TRIM(info%name)) CYCLE
-              ELSE
-                IF (TRIM(varlist(ivar)) /= info%name(1:idx-1)) CYCLE
-              ENDIF
+              ! Check for matching name (take care of suffix of
+              ! time-dependent variables):
+              IF (TRIM(varlist(ivar)) /= TRIM(tolower(get_var_name(element%field)))) CYCLE
 
               ! throw error message, if this variable is not a REAL field:
               IF (.NOT. ASSOCIATED(element%field%r_ptr)) THEN
@@ -1475,7 +1467,7 @@ CONTAINS
   ! 
   ! Fills data structure with default values (unless set otherwise).
   FUNCTION new_simulation_status(l_output_step, l_first_step, l_last_step, &
-    &                            l_dom_active)  &
+    &                            l_dom_active, iactive_timelevel)  &
     RESULT(sim_status)
 
     TYPE(t_simulation_status) :: sim_status
@@ -1483,6 +1475,8 @@ CONTAINS
       &  l_output_step, l_first_step, l_last_step
     LOGICAL, INTENT(IN), OPTIONAL      :: &
       &  l_dom_active(:)
+    INTEGER, INTENT(IN), OPTIONAL      :: &
+      &  iactive_timelevel
     ! local variables
     INTEGER :: ndom
 
@@ -1494,12 +1488,17 @@ CONTAINS
     CALL assign_if_present(sim_status%status_flags(2), l_first_step)
     CALL assign_if_present(sim_status%status_flags(3), l_last_step)
 
-    ! as a default, all domains are "inactive":
+    ! as a default, all domains are "inactive", i.e. the activity
+    ! flags are not considered:
     sim_status%ldom_active(:) = .FALSE.
     IF  (PRESENT(l_dom_active)) THEN
       ndom = SIZE(l_dom_active)
       sim_status%ldom_active(1:ndom) = l_dom_active(1:ndom)
     END IF
+
+    ! as a default, no special timelevel is set for (in-)activity:
+    sim_status%iactive_timelevel = -1
+    CALL assign_if_present(sim_status%iactive_timelevel, iactive_timelevel)
 
   END FUNCTION new_simulation_status
 

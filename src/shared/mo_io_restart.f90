@@ -6,7 +6,7 @@ MODULE mo_io_restart
   USE mo_exception,             ONLY: finish, message, message_text
   USE mo_var_metadata,          ONLY: t_var_metadata
   USE mo_linked_list,           ONLY: t_var_list, t_list_element, find_list_element
-  USE mo_var_list,              ONLY: nvar_lists, var_lists
+  USE mo_var_list,              ONLY: nvar_lists, var_lists, get_var_timelevel
   USE mo_cdi_constants
   USE mo_util_string,           ONLY: separator
   USE mo_util_sysinfo,          ONLY: util_user_name, util_os_system, util_node_name 
@@ -822,7 +822,6 @@ CONTAINS
     !
     REAL(wp) :: casted_missval
     !
-    INTEGER :: idx 
     INTEGER :: time_level
     INTEGER :: tlev_skip
 
@@ -845,12 +844,7 @@ CONTAINS
       ! skip this field because of wrong time index ?
       !
       ! get time index of current field
-      idx = INDEX(element%field%info%name,'.TL')
-      IF (idx == 0) THEN
-        time_level = -1
-      ELSE
-        time_level = ICHAR(element%field%info%name(idx+3:idx+3)) - ICHAR('0')
-      ENDIF
+      time_level = get_var_timelevel(element%field)
 
       ! get information about timelevel to be skipped for current field
       ! for the time being this will work with the global patch only
@@ -1152,7 +1146,6 @@ CONTAINS
     !
     INTEGER :: gdims(5), nindex
     !
-    INTEGER :: idx 
     INTEGER :: time_level
     INTEGER :: tlev_skip
 
@@ -1184,12 +1177,7 @@ CONTAINS
       ! skip this field because of wrong time index ?
       !
       ! get time index of current field
-      idx = INDEX(element%field%info%name,'.TL')
-      IF (idx == 0) THEN
-        time_level = -1
-      ELSE
-        time_level = ICHAR(element%field%info%name(idx+3:idx+3)) - ICHAR('0')
-      ENDIF
+      time_level = get_var_timelevel(element%field)
 
       ! get information about timelevel to be skipped for current field
       ! for the time being this will work with the global patch only
