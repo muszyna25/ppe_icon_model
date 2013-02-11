@@ -149,7 +149,6 @@ MODULE mo_gnat_gridsearch
   PRIVATE
   ! functions and subroutines
   PUBLIC :: gnat_init_grid
-  PUBLIC :: gnat_query_list_mt
   PUBLIC :: gnat_destroy
   PUBLIC :: gnat_std_radius
   PUBLIC :: gnat_query_containing_triangles
@@ -501,7 +500,7 @@ CONTAINS
     REAL(gk),      INTENT(IN)    :: v(iv_nproma, iv_nblks, icoord_dim)    ! search point
     REAL(gk),      INTENT(IN)    :: rr                   ! initial search radius
     REAL(gk),      INTENT(INOUT) :: min_dist(iv_nproma, iv_nblks)         ! minimal distance
-    INTEGER,       INTENT(INOUT) :: min_node_idx(iv_nproma, iv_nblks,3)   ! corresponding node
+    INTEGER,       INTENT(INOUT) :: min_node_idx(3,iv_nproma, iv_nblks)   ! corresponding node
     ! local parameters
     INTEGER                      :: jb, jc, jc1, end_idx      ! block, index loop counter
     REAL(gk)                     :: r2, r, min_dist_old
@@ -533,12 +532,12 @@ CONTAINS
       end_idx = iv_nproma
       IF (jb == iv_nblks) THEN
         end_idx = iv_npromz
-        min_node_idx((end_idx+1):, jb, 1) = UNUSED_NODE
+        min_node_idx(1, (end_idx+1):, jb) = UNUSED_NODE
       END IF
 
       ! Build an index list: Skip search points that have been externally
       ! flagged with index "SKIP_NODE":
-      indices = PACK(all_indices, (min_node_idx(1:end_idx,jb,1) /= SKIP_NODE), zero)
+      indices = PACK(all_indices, (min_node_idx(1,1:end_idx,jb) /= SKIP_NODE), zero)
 
       DO jc1=1,end_idx
         jc = indices(jc1)
@@ -565,7 +564,7 @@ CONTAINS
 
         CALL gnat_recursive_query(tree, p_new(:), r, vmin_dist, vmin_node_idx(:))
         min_dist(jc,jb)         = vmin_dist
-        min_node_idx(jc,jb,:)   = vmin_node_idx(:)
+        min_node_idx(:,jc,jb)   = vmin_node_idx(:)
 
         p_old(1:icoord_dim)     = p_new(1:icoord_dim)
         min_dist_old            = vmin_dist
@@ -800,8 +799,7 @@ CONTAINS
   ! - the search radius parameter is optional
   ! - search radius is adapted in case of algorithm failure
   SUBROUTINE gnat_query_list_mt(tree, v, iv_nproma, iv_nblks, iv_npromz,       &
-    &                           min_dist, min_node_idx, ladapt_radius,         &
-    &                           opt_rr)
+    &                           min_dist, min_node_idx, ladapt_radius, opt_rr)
 
     ! max. trial steps to adapt search radius, r_new = opt_rr*10**iadapt
     INTEGER, PARAMETER :: nadapt = 15
@@ -810,7 +808,7 @@ CONTAINS
     INTEGER,            INTENT(IN)    :: iv_nproma, iv_nblks, iv_npromz     ! list size
     REAL(gk),           INTENT(IN)    :: v(iv_nproma, iv_nblks, icoord_dim) ! list of search points
     REAL(gk),           INTENT(INOUT) :: min_dist(iv_nproma, iv_nblks)      ! minimal distance
-    INTEGER,            INTENT(INOUT) :: min_node_idx(iv_nproma, iv_nblks,3)! corresponding node
+    INTEGER,            INTENT(INOUT) :: min_node_idx(3,iv_nproma, iv_nblks)! corresponding node
     LOGICAL,            INTENT(IN)    :: ladapt_radius
     REAL(gk), OPTIONAL, INTENT(IN)    :: opt_rr                                 ! opt. search radius
     ! local parameters
@@ -845,8 +843,8 @@ CONTAINS
       iend       = MIN(iv_nblks, istart+ichunksize-1)
       IF (iend >= istart) THEN
         ichunksize = iend - istart + 1
-        CALL gnat_query_list(tree, v, iv_nproma, iv_nblks, iv_npromz, ichunksize, &
-          &                  istart, r, min_dist, min_node_idx)
+        CALL gnat_query_list_new(tree, v, iv_nproma, iv_nblks, iv_npromz, ichunksize, &
+          &                      istart, r, min_dist, min_node_idx)
       END IF
 !$OMP END PARALLEL
     ELSE
@@ -868,7 +866,7 @@ CONTAINS
     iadapt = 0
     DO
       IF ((iadapt > nadapt) .OR. &
-        & (COUNT(min_node_idx(:,:,1) == INVALID_NODE) == 0)) EXIT
+        & (COUNT(min_node_idx(1,:,:) == INVALID_NODE) == 0)) EXIT
       ! adapt search radius
       iadapt = iadapt + 1
       r = r*2._gk
@@ -884,13 +882,13 @@ CONTAINS
         IF (jb == iv_nblks) end_idx = iv_npromz
 
         DO jc=1,end_idx
-          IF (min_node_idx(jc,jb,1) == INVALID_NODE) THEN
+          IF (min_node_idx(1,jc,jb) == INVALID_NODE) THEN
             vmin_dist        = MAX_RANGE
             vmin_node_idx(1) = INVALID_NODE
             CALL gnat_recursive_query(tree, v(jc,jb,:), r,     &
               &                       vmin_dist, vmin_node_idx(:))
             min_dist(jc,jb)         = vmin_dist
-            min_node_idx(jc,jb,:)   = vmin_node_idx(:)
+            min_node_idx(:,jc,jb)   = vmin_node_idx(:)
           END IF
         END DO
       END DO
@@ -1165,7 +1163,7 @@ CONTAINS
     !            perform a simple nearest neighbor query.
     LOGICAL,      PARAMETER :: l_check_point_inside = .FALSE.
 
-    INTEGER                 :: min_node_idx(iv_nproma, iv_nblks, 3)  ! corresponding GNAT nodes
+    INTEGER                 :: min_node_idx(3,iv_nproma, iv_nblks)  ! corresponding GNAT nodes
     INTEGER                 :: jb, jc, j, k, i_nb,  &
       &                        end_idx, i_end,      &
       &                        tmp_idx(2),          &   ! (idx,blk)
@@ -1213,12 +1211,11 @@ CONTAINS
     ! query list of nearest neighbors
     ! TODO[FP] : For some test cases it might be reasonable to enable
     ! radius adaptation
-    min_node_idx(:,:,1) = tri_idx(1,:,:)
+    min_node_idx(1,:,:) = tri_idx(1,:,:)
     CALL gnat_query_list_mt(tree, v, iv_nproma, iv_nblks, iv_npromz,     &
-      &                     min_dist, min_node_idx, .FALSE.,             &
-      &                     opt_rr=radius)
-    WHERE (min_node_idx(:,:,1) == SKIP_NODE)
-      min_node_idx(:,:,1) = INVALID_NODE
+      &                     min_dist, min_node_idx, .FALSE., opt_rr=radius)
+    WHERE (min_node_idx(1,:,:) == SKIP_NODE)
+      min_node_idx(1,:,:) = INVALID_NODE
       min_dist(:,:)       = MAX_RANGE
     END WHERE
 
@@ -1236,7 +1233,7 @@ CONTAINS
 
         CHECK_INSIDE : IF (.NOT. l_check_point_inside) THEN
 
-          tri_idx(1:2,jc,jb) = min_node_idx(jc,jb,1:2)
+          tri_idx(1:2,jc,jb) = min_node_idx(1:2,jc,jb)
 
         ELSE
 
@@ -1251,7 +1248,7 @@ CONTAINS
           ! consisting of the neighbors of all 3 vertices
           ! (without the center cell this makes 15 cells instead of 12
           !  since duplicates are not removed from the set)
-          nb_idx(0,1:2) = min_node_idx(jc,jb,1:2)
+          nb_idx(0,1:2) = min_node_idx(1:2,jc,jb)
           IF (nb_idx(0,1) == INVALID_NODE) CYCLE
 
           ! get all vertices of center cell
