@@ -240,11 +240,11 @@ CONTAINS
   !  axis, based on the meta-data of the standard "vn". - This is done
   !  for all available time levels.
   !
-  SUBROUTINE init_vn_horizontal_post_processing(ll_grid_id, lev_type)
+  SUBROUTINE init_vn_horizontal(ll_grid_id, lev_type)
     INTEGER,          INTENT(IN)  :: ll_grid_id      !< lon-lat grid number
     INTEGER,          INTENT(IN)  :: lev_type        !< level type: p/z/i/m
     ! local variables
-    CHARACTER(*), PARAMETER :: routine =  TRIM("mo_pp_scheduler:init_vn_horizontal_post_processing")
+    CHARACTER(*), PARAMETER :: routine =  TRIM("mo_pp_scheduler:init_vn_horizontal")
     TYPE(t_list_element), POINTER :: element_u, element_v, element, new_element, new_element_2
     INTEGER                       :: i, shape3d_ll(3), shape3d_e(3), nblks_lonlat, &
       &                              nblks_e, nlev, jg, tl
@@ -370,7 +370,7 @@ CONTAINS
     END DO
     if (dbg_level > 5)  CALL message(routine, "Done")
 
-  END SUBROUTINE init_vn_horizontal_post_processing
+  END SUBROUTINE init_vn_horizontal
 
 
   !---------------------------------------------------------------
@@ -491,7 +491,7 @@ CONTAINS
     IF (n_uv_hrz_intp > 0) THEN
       DO i=1,n_uv_hrz_intp
         ! insert post-processing tasks for "vn":
-        CALL init_vn_horizontal_post_processing(uv_hrz_intp_grid(i), uv_hrz_intp_levs(i))
+        CALL init_vn_horizontal(uv_hrz_intp_grid(i), uv_hrz_intp_levs(i))
       END DO
     END IF
 
@@ -748,7 +748,7 @@ CONTAINS
   !  axis, based on the meta-data of the standard "vn". - This is done
   !  for all available time levels.
   !
-  SUBROUTINE init_vn_vertical_post_processing(jg, job_type, prefix, l_init_prm_diag, nlev, dst_axis, dst_varlist)
+  SUBROUTINE init_vn_vertical(jg, job_type, prefix, l_init_prm_diag, nlev, dst_axis, dst_varlist)
     INTEGER,          INTENT(IN)  :: jg              !< domain number
     INTEGER,          INTENT(IN)  :: job_type        !< vertical interpolation type
     CHARACTER(LEN=*), INTENT(IN)  :: prefix          !< job name prefix
@@ -757,7 +757,7 @@ CONTAINS
     INTEGER,          INTENT(IN)  :: dst_axis        !< destination axis
     TYPE(t_var_list), POINTER     :: dst_varlist     !< destination variable list
     ! local variables
-    CHARACTER(*), PARAMETER :: routine = TRIM("mo_pp_scheduler:init_vn_vertical_post_processing")
+    CHARACTER(*), PARAMETER :: routine = TRIM("mo_pp_scheduler:init_vn_vertical")
     TYPE(t_list_element), POINTER :: element_u, element_v, element, vn_element, new_element, new_element_2
     INTEGER                       :: i, shape3d_c(3), shape3d_e(3), nblks_c, nblks_e, tl
     TYPE(t_job_queue),    POINTER :: task
@@ -882,7 +882,7 @@ CONTAINS
 
     if (dbg_level > 5)  CALL message(routine, "Done")
 
-  END SUBROUTINE init_vn_vertical_post_processing
+  END SUBROUTINE init_vn_vertical
 
 
   !---------------------------------------------------------------
@@ -1126,8 +1126,8 @@ CONTAINS
           ! vertical axis, create a post-processing task for vertical
           ! interpolation of "vn", create a post-processing task for
           ! edge2cell interpolation "vn" -> "u","v":
-          CALL init_vn_vertical_post_processing(jg, job_type, prefix, l_init_prm_diag, &
-            &                                   nlev, vgrid, p_opt_diag_list)
+          CALL init_vn_vertical(jg, job_type, prefix, l_init_prm_diag, &
+            &                   nlev, vgrid, p_opt_diag_list)
         END IF
 
         DO ivar=1,nvars
