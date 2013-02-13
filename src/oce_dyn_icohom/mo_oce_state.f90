@@ -1860,9 +1860,6 @@ CONTAINS
       &           v_base%del_zlev_i, v_base%del_zlev_m, &
       &           v_base%zlev_i    , v_base%zlev_m)
 
-    ! surface level: as read in ext_data:
-    v_base%lsm_c(:,1,:) = p_ext_data%oce%lsm_ctr_c(:,:)
-    v_base%lsm_e(:,1,:) = p_ext_data%oce%lsm_ctr_e(:,:)
 
     nogllnd_c = 0
     noglsea_c = 0
@@ -1874,9 +1871,15 @@ CONTAINS
     noct1_c = 0
     noct1_e = 0
 
-    !  surface level and second level of lsm_c defined by gridgenerator, not the current bathymetry
-    v_base%lsm_c(:,1,:) = p_ext_data%oce%lsm_ctr_c(:,:)
-    IF(n_zlev>=2) v_base%lsm_c(:,2,:) = p_ext_data%oce%lsm_ctr_c(:,:)
+    ! surface level: as read in ext_data
+    ! for cells fill all levels in orddr to take care of ghost land cells
+    DO jk = 1, n_zlev
+      v_base%lsm_c(:,jk,:) = p_ext_data%oce%lsm_ctr_c(:,:)
+    ENDDO
+    v_base%lsm_e(:,1,:) = p_ext_data%oce%lsm_ctr_e(:,:)
+!     !  surface level and second level of lsm_c defined by gridgenerator, not the current bathymetry
+!     v_base%lsm_c(:,1,:) = p_ext_data%oce%lsm_ctr_c(:,:)
+!     IF(n_zlev>=2) v_base%lsm_c(:,2,:) = p_ext_data%oce%lsm_ctr_c(:,:)
 
     !  first and second level of dolic_c defined by gridgenerator
     WHERE (p_ext_data%oce%lsm_ctr_c(:,:) <= SEA_BOUNDARY) v_base%dolic_c(:,:) = 2
@@ -3604,6 +3607,8 @@ END SUBROUTINE complete_patchinfo_oce
     INTEGER :: edge_block, edge_index, neighbor
     INTEGER :: land_edges, sea_edges, boundary_edges
     REAL(wp), ALLOCATABLE :: z_sync_v(:,:)
+    
+    CHARACTER(*), PARAMETER :: method_name = "mo_oce_state:init_patch_3D"
 
     !-----------------------------------------------------------------------------
     CALL message (TRIM(routine), 'start')
@@ -3644,7 +3649,7 @@ END SUBROUTINE complete_patchinfo_oce
           edge_index = patch_2D%verts%edge_idx(vertex_index, vertex_block, neighbor)
           edge_block = patch_2D%verts%edge_blk(vertex_index, vertex_block, neighbor)
 
-          IF (edge_index > 0) THEN ! this if should not be necessary
+          IF (edge_index > 0) THEN ! this should not be necessary
 
             SELECT CASE(p_patch_3D%lsm_e(edge_index, 1, edge_block))
 
@@ -3660,8 +3665,12 @@ END SUBROUTINE complete_patchinfo_oce
             END SELECT
             
           ENDIF
-        
+
         ENDDO ! neighbor
+        
+        IF( MOD(boundary_edges,2) /= 0 ) THEN
+          CALL finish (method_name,'MOD(boundary_edges,2) /= 0 !!')
+        ENDIF
 
         p_patch_3D%surface_lsm_v(vertex_index, vertex_block)   = sea
         IF (boundary_edges > 0) THEN

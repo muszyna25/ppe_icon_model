@@ -1001,6 +1001,7 @@ INTEGER :: jb, jk, nlen
 INTEGER :: no_of_blocks, end_nproma
 
   REAL(wp) :: sum_aux(p_patch_3D%p_patch_2D(1)%cells%in_domain%end_block)
+!   REAL(wp) :: sum_x(0:7), sum_w, sum_v
 ! #else
 !   REAL(wp) :: z(SIZE(x,1),SIZE(x,2)) ! needed for global sums in p_test_run
 ! #endif
@@ -1024,13 +1025,25 @@ INTEGER :: no_of_blocks, end_nproma
    v(:,:,:)  = 0.0_wp
    r(:,:)    = 0.0_wp
 
+   x(end_nproma+1:nproma, no_of_blocks) = 0.0_wp
+!    sum_x(0) = SUM(x(:,:))
+    
    ! 1) compute the preconditioned residual
  IF (PRESENT(preconditioner)) CALL preconditioner(x(:,:),p_patch_3D,p_op_coeff,h_e)
  IF (PRESENT(preconditioner)) CALL preconditioner(b(:,:),p_patch_3D,p_op_coeff,h_e)
+
+   
    w(:,:) = lhs(x(:,:),old_h, p_patch_3D,coeff, h_e, thickness_c, p_op_coeff)
+       
    w(end_nproma+1:nproma, no_of_blocks) = 0.0_wp
    b(end_nproma+1:nproma, no_of_blocks) = 0.0_wp
    x(end_nproma+1:nproma, no_of_blocks) = 0.0_wp
+   
+!    write(0,*) "-----------------------------------"
+!    sum_x(1) = SUM(x(:,:))
+!    sum_w    = SUM(w(:,:))
+!    write(0,*) "gmres sum x(0:1), w:", sum_x(0:1), sum_w
+   
 #ifndef __SX__
    IF (ltimer) CALL timer_start(timer_gmres)
 #endif
@@ -1098,9 +1111,15 @@ INTEGER :: no_of_blocks, end_nproma
    ! 4) Arnoldi loop
    arnoldi: DO i = 1, m-1
      ! 4.1) compute the next (i.e. i+1) Krylov vector
+!      sum_v = SUM(v(:,:,i))
+!       write(0,*) i, " gmres v before lhs:", sum_v, sum_w
      w(:,:) = lhs( v(:,:,i),old_h,p_patch_3D,coeff,h_e, thickness_c, p_op_coeff )
      w(end_nproma+1:nproma, no_of_blocks) = 0.0_wp
      v(end_nproma+1:nproma, no_of_blocks,i) = 0.0_wp
+   
+!      sum_v = SUM(v(:,:,i))
+!      sum_w = SUM(w(:,:))
+!      write(0,*) i, " gmres sum v, w:", sum_v, sum_w
 
      ! 4.2) Gram-Schmidt orthogonalization
 
@@ -1387,7 +1406,6 @@ INTEGER :: no_of_blocks, end_nproma
   patch_2D =>  p_patch_3D%p_patch_2D(1)
 
    ! 0) set module variables and initialize maxiterex
-
    !>
    !!
    no_of_blocks    = patch_2D%cells%in_domain%end_block

@@ -2482,19 +2482,23 @@ CONTAINS
       CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
       DO jk = 1, n_zlev
         DO je = i_startidx_e, i_endidx_e
-          icell_idx_1 = patch%edges%cell_idx(je,jb,1)
-          icell_blk_1 = patch%edges%cell_blk(je,jb,1)
-
-          icell_idx_2 = patch%edges%cell_idx(je,jb,2)
-          icell_blk_2 = patch%edges%cell_blk(je,jb,2)
         
-          ocean_coeff%edge2edge_viacell_coeff(je,jk,jb,1:no_primal_edges) &
-          &= ocean_coeff%edge2edge_viacell_coeff(je,jk,jb,1:no_primal_edges)&
-          &/ocean_coeff%fixed_vol_norm(icell_idx_1,jk,icell_blk_1)
+          IF ( p_patch_3D%lsm_e(je,jk,jb) == sea ) THEN
+            icell_idx_1 = patch%edges%cell_idx(je,jb,1)
+            icell_blk_1 = patch%edges%cell_blk(je,jb,1)
 
-          ocean_coeff%edge2edge_viacell_coeff(je,jk,jb,no_primal_edges+1:2*no_primal_edges) &
-          &= ocean_coeff%edge2edge_viacell_coeff(je,jk,jb,no_primal_edges+1:2*no_primal_edges)&
-          &/ocean_coeff%fixed_vol_norm(icell_idx_2,jk,icell_blk_2)
+            icell_idx_2 = patch%edges%cell_idx(je,jb,2)
+            icell_blk_2 = patch%edges%cell_blk(je,jb,2)
+
+            ocean_coeff%edge2edge_viacell_coeff(je,jk,jb,1:no_primal_edges) &
+            &= ocean_coeff%edge2edge_viacell_coeff(je,jk,jb,1:no_primal_edges)&
+            &/ocean_coeff%fixed_vol_norm(icell_idx_1,jk,icell_blk_1)
+            
+            ocean_coeff%edge2edge_viacell_coeff(je,jk,jb,no_primal_edges+1:2*no_primal_edges) &
+            &= ocean_coeff%edge2edge_viacell_coeff(je,jk,jb,no_primal_edges+1:2*no_primal_edges)&
+            &/ocean_coeff%fixed_vol_norm(icell_idx_2,jk,icell_blk_2)            
+          ENDIF
+          
         END DO
       END DO
     END DO 
@@ -2570,6 +2574,9 @@ CONTAINS
               ocean_coeff%edge_idx(jv,jk,jb,boundary_counter)    = jev
 
             END IF
+
+!             write(0,*) jb, jv, jk, patch%verts%num_edges(jv,jb), jev, p_patch_3D%lsm_e(ile,jk,ibe), boundary_counter
+            
           END DO ! jev = 1, patch%verts%num_edges(jv,jb)
 
           IF( MOD(boundary_counter,2) /= 0 ) THEN

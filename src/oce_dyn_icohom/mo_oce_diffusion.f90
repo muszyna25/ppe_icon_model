@@ -548,6 +548,7 @@ END SUBROUTINE veloc_diff_biharmonic_div_grad
     ivblk => p_patch%edges%vertex_blk
 
     ! compute divergence of vector field
+    z_div_c(:,:,p_patch%nblks_c) = 0.0_wp
     CALL div_oce_3d( u_vec_e, p_patch, p_op_coeff%div_coeff, z_div_c)
     CALL sync_patch_array(SYNC_C,p_patch,z_div_c)
 
