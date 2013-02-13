@@ -4,7 +4,7 @@ MODULE mo_gme_turbdiff
   USE mo_physical_constants, ONLY: grav, cpd, rcpd, vtmpc1, p0ref, rd_o_cpd, &
                                    tmelt, alvdcp, alv, als, rd, rdv, O_m_rdv
   USE mo_satad,              ONLY: sat_pres_water, sat_pres_ice, spec_humi, dqsatdT
-  USE data_turbulence,       ONLY: Rkarman => akt
+  USE data_turbulence,       ONLY: Rkarman => akt, tkhmin, tkmmin
   USE mo_lnd_nwp_config,     ONLY: lseaice
 
   USE mo_exception,          ONLY: message
@@ -12,7 +12,7 @@ MODULE mo_gme_turbdiff
   USE mo_nh_torus_exp,       ONLY: shflx_cbl, lhflx_cbl, set_sst_cbl, ufric_cbl
   USE mo_run_config,         ONLY: ltestcase
   USE mo_nh_testcases,       ONLY: nh_test_name
-  USE mo_math_constants,     ONLY: eps
+  USE mo_math_constants,     ONLY: dbl_eps
 
   IMPLICIT NONE
 
@@ -129,9 +129,9 @@ SUBROUTINE partura( zh  , zf , u  , v  , t   ,  &
       REAL(KIND=wp), PARAMETER :: zthmin = 0.007_wp   ! for heat
  
 !     minimum diffusion coefficient (absolute value) for
-!     very stable conditions (RI >= RIK) in the ABL
-      REAL(KIND=wp), PARAMETER :: ztkmmin = 1.0_wp     ! for momentum
-      REAL(KIND=wp), PARAMETER :: ztkhmin = 0.4_wp     ! for heat
+!     very stable conditions (RI >= RIK) in the ABL (specified via namelist now)
+      REAL(KIND=wp) :: ztkmmin  ! old default 1.0_wp  ! for momentum
+      REAL(KIND=wp) :: ztkhmin  ! old default 0.4_wp  ! for heat
 
 !     relative humidities to calculate partial cloud cover
       REAL(KIND=wp), PARAMETER :: Rh_cr1 =  0.8_wp
@@ -141,6 +141,10 @@ SUBROUTINE partura( zh  , zf , u  , v  , t   ,  &
 !=======================================================================
 !
       IF ( msg_level >= 15) CALL message( 'mo_gme_turbdiff:', 'partura')
+
+      ! take minimum diffusion coefficients from namelist
+      ztkmmin   = tkmmin
+      ztkhmin   = tkhmin
 
 !     Presettings
       ztmmin_a  = ztmmin *0.1_wp
@@ -847,7 +851,7 @@ SUBROUTINE parturs( zsurf, z1 , u1   , v1     , t1   ,           &
         DO j1 = i_startidx, i_endidx
           rdzrho      = 1._wp/( rho(j1,ke)*( zh(j1,ke1)-zh(j1,ke)) )
           zagat       = ztmkv (j1,ke)*rdzrho
-          zagct       = ufric_cbl**2 * rdzrho / ( eps + zvm(j1) )
+          zagct       = ufric_cbl**2 * rdzrho / ( dbl_eps + zvm(j1) )
           zaga        = - zagat*a1t(ke)
           zagb        = rdt - zaga - zagct*a1t(ke1)
           zag1(j1,ke) =  zagat*( u(j1,ke-1) - u(j1,ke)) &
@@ -898,8 +902,8 @@ SUBROUTINE parturs( zsurf, z1 , u1   , v1     , t1   ,           &
 !
       IF(ltestcase.AND.nh_test_name=='CBL'.AND..NOT.set_sst_cbl)THEN
         DO j1 = i_startidx, i_endidx
-          umfl_s(j1) = -ufric_cbl**2 * u(j1,ke) / ( eps + zvm(j1) )
-          vmfl_s(j1) = -ufric_cbl**2 * v(j1,ke) / ( eps + zvm(j1) )
+          umfl_s(j1) = -ufric_cbl**2 * u(j1,ke) / ( dbl_eps + zvm(j1) )
+          vmfl_s(j1) = -ufric_cbl**2 * v(j1,ke) / ( dbl_eps + zvm(j1) )
         ENDDO
      ELSE
         DO j1 = i_startidx, i_endidx
