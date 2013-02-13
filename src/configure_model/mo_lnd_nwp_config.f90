@@ -56,7 +56,7 @@ MODULE mo_lnd_nwp_config
 
   PUBLIC :: nlev_soil, nlev_snow, ntiles_total, ntiles_lnd, ntiles_water, nlists_water
   PUBLIC :: frlnd_thrhld, frlndtile_thrhld, frlake_thrhld, frsea_thrhld
-  PUBLIC :: lseaice,  llake, lmelt, lmelt_var, lmulti_snow, lsnowtile 
+  PUBLIC :: lseaice,  llake, lmelt, lmelt_var, lmulti_snow, lsnowtile, max_toplaydepth
   PUBLIC :: itype_gscp, itype_trvg ,    itype_evsl, itype_tran 
   PUBLIC :: itype_root, itype_heatcond, itype_hydbound, idiag_snowfrac
   PUBLIC :: lstomata,   l2tls, lana_rho_snow, itype_subs 
@@ -99,6 +99,7 @@ MODULE mo_lnd_nwp_config
   LOGICAL ::  lmelt       !! soil model with melting process
   LOGICAL ::  lmelt_var   !! freezing temperature dependent on water content
   LOGICAL ::  lmulti_snow !! run the multi-layer snow model
+  REAL(wp)::  max_toplaydepth !< maximum depth of uppermost snow layer for multi-layer snow scheme
   LOGICAL ::  lstomata    !! map of minimum stomata resistance
   LOGICAL ::  l2tls       !! forecast with 2-TL integration scheme
   LOGICAL ::  lana_rho_snow !! if .TRUE., take rho_snow-values from analysis file 

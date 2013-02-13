@@ -60,6 +60,7 @@ MODULE mo_lnd_nwp_nml
     &                               config_lmelt       => lmelt         , &
     &                               config_lmelt_var   => lmelt_var     , &
     &                               config_lmulti_snow => lmulti_snow   , &
+    &                          config_max_toplaydepth => max_toplaydepth, &
     &                            config_idiag_snowfrac => idiag_snowfrac, &
     &                               config_itype_gscp  => itype_gscp    , &
     &                               config_itype_trvg  => itype_trvg    , &
@@ -91,6 +92,7 @@ MODULE mo_lnd_nwp_nml
                                 !< tile for a grid point
   REAL(wp)::  frlake_thrhld     !< fraction threshold for creating a lake grid point
   REAL(wp)::  frsea_thrhld      !< fraction threshold for creating a sea grid point
+  REAL(wp)::  max_toplaydepth   !< maximum depth of uppermost snow layer for multi-layer snow scheme
   INTEGER ::  itype_gscp        !< type of grid-scale precipitation physics
   INTEGER ::  itype_trvg        !< type of vegetation transpiration parameterization
   INTEGER ::  itype_evsl        !< type of parameterization of bare soil evaporation
@@ -122,7 +124,7 @@ MODULE mo_lnd_nwp_nml
     &               frlnd_thrhld, lseaice, llake, lmelt       , &
     &               frlndtile_thrhld, frlake_thrhld, frsea_thrhld, &
     &               lmelt_var, lmulti_snow, itype_gscp        , & 
-    &               itype_trvg, idiag_snowfrac                , & 
+    &               itype_trvg, idiag_snowfrac, max_toplaydepth, & 
     &               itype_evsl                                , & 
     &               itype_tran                                , & 
     &               itype_root                                , & 
@@ -192,6 +194,7 @@ MODULE mo_lnd_nwp_nml
     lmelt          = .TRUE.  ! soil model with melting process
     lmelt_var      = .TRUE.  ! freezing temperature dependent on water content
     lmulti_snow    = .FALSE. ! run the multi-layer snow model
+    max_toplaydepth = 0.25_wp ! maximum depth of uppermost snow layer for multi-layer snow scheme (25 cm)
     lsnowtile      = .FALSE. ! if .TRUE., snow is considered as a separate tile
     idiag_snowfrac = 1       ! 1: old method based on SWE, 2: more advanced experimental method
     !
@@ -265,6 +268,7 @@ MODULE mo_lnd_nwp_nml
       config_lmelt       = lmelt
       config_lmelt_var   = lmelt_var
       config_lmulti_snow = lmulti_snow
+      config_max_toplaydepth = max_toplaydepth
       config_idiag_snowfrac = idiag_snowfrac
       config_itype_gscp  = itype_gscp
       config_itype_trvg  = itype_trvg
