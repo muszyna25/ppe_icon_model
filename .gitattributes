@@ -787,8 +787,8 @@ scripts/codestyle_scripts/restyle_module -text
 scripts/doxygen_scripts/has_doxygen -text
 scripts/f2html_scripts/f2html.pl -text
 scripts/f2html_scripts/fgenrc -text
-scripts/gmt_scripts/banner/iconR2B04-cell_area.gmt -text
-scripts/gmt_scripts/banner/iconR2B04-dual_area.gmt -text
+scripts/gmt_scripts/banner/iconR2B04-cell_area.gmt.lzma -text svneol=unset#unset
+scripts/gmt_scripts/banner/iconR2B04-dual_area.gmt.lzma -text svneol=unset#unset
 scripts/gmt_scripts/banner/landfill_tri-hex.bash -text
 scripts/gmt_scripts/plot_model_domains -text
 scripts/postprocessing/.hluresfile -text
