@@ -213,7 +213,6 @@ CONTAINS
 
     REAL(wp) :: z_qsum       !< summand of virtual increment
     REAL(wp) :: z_ddt_qsum   !< summand of tendency of virtual increment
-    REAL(wp) :: rcld(nproma,pt_patch%nlevp1)
 
     ! auxiliaries for Rayleigh friction computation
     REAL(wp) :: vabs, rfric_fac, ustart, uoffset_q, ustart_q, max_relax
@@ -731,13 +730,12 @@ CONTAINS
       !-------------------------------------------------------------------------
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,rcld) ICON_OMP_GUIDED_SCHEDULE
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx) ICON_OMP_GUIDED_SCHEDULE
       DO jb = i_startblk, i_endblk
         !
         CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
 &                       i_startidx, i_endidx, rl_start, rl_end)
 
-          rcld = 0.0_wp ! standard deviation of saturation deficit=0 for now, needs to be specified form turbulence
 
           IF (timers_level > 2) CALL timer_start(timer_cover_koe)
           CALL cover_koe &
@@ -751,7 +749,7 @@ CONTAINS
 &              t_g    = lnd_prog_new%t_g     (:,jb)       ,       & !! in:  surface temperature
 &              pgeo   = p_metrics%geopot_agl (:,:,jb)     ,       & !! in:  geopotential height
 &              rho    = pt_prog%rho          (:,:,jb  )   ,       & !! in:  density
-&              rcld   = rcld                              ,       & !! in:  standard deviation of saturation deficit
+&              rcld   = prm_diag%rcld        (:,:,jb)     ,       & !! in:  standard deviation of saturation deficit
 &              ldland = ext_data%atm%llsm_atm_c (:,jb)    ,       & !! in:  land/sea mask
 &              ldcum  = prm_diag%locum       (:,jb)       ,       & !! in:  convection on/off
 &              kcbot  = prm_diag%mbas_con    (:,jb)       ,       & !! in:  convective cloud base

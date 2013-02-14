@@ -986,6 +986,9 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
 &                       i_startidx, i_endidx, rl_start, rl_end)
 
+      ! paranoia: Make sure that rcld is initialized  (needed by cloud cover scheme)
+      prm_diag%rcld(:,:,jb) = 0._wp
+
       IF (atm_phy_nwp_config(jg)%itype_z0 == 2) THEN
         ! specify land-cover-related roughness length over land points
         ! note:  water points are set in turbdiff
@@ -1126,6 +1129,8 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
     prm_diag% ustar (:,:)   = 1._wp
     prm_diag% kedisp(:,:)   = 0._wp
     prm_diag% thvvar(:,:,:) = 1.e-4_wp
+    ! paranoia: Make sure that rcld is initialized  (needed by cloud cover scheme)
+    prm_diag%rcld(:,:,:)    = 0._wp
 !$OMP END PARALLEL WORKSHARE
 
     IF (iwtr<=nsfc_type) prm_diag%z0m_tile(:,:,iwtr) = 1.e-3_wp !see init_surf in echam (or z0m_oce?)
@@ -1145,6 +1150,11 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
     CALL susekf
     CALL susveg
     CALL sussoil
+
+!$OMP PARALLEL WORKSHARE
+    ! paranoia: Make sure that rcld is initialized  (needed by cloud cover scheme)
+    prm_diag%rcld(:,:,:)    = 0._wp
+!$OMP END PARALLEL WORKSHARE
   ENDIF
 
 

@@ -407,7 +407,7 @@ USE mo_lnd_nwp_config,     ONLY: lmelt, lmelt_var, lmulti_snow,  &
   &                              itype_gscp, itype_trvg, itype_evsl,     &
   &                              itype_tran, itype_root, itype_heatcond, &
   &                              itype_hydbound, lstomata, l2tls,        &
-  &                              lana_rho_snow, itype_subs
+  &                              lana_rho_snow, itype_subs, max_toplaydepth
 !
 !                           
 USE mo_exception,          ONLY: message, finish, message_text
@@ -583,7 +583,6 @@ END SUBROUTINE message
                   zshfl_sfc        , & ! sensible heat flux surface interface          (W/m2) 
                   zlhfl_sfc          & ! latent   heat flux surface interface          (W/m2) 
                                      )  
-
 
 !-------------------------------------------------------------------------------
 ! Declarations for ICON (USE statements for COSMO)
@@ -2962,21 +2961,30 @@ END SUBROUTINE message
 !        END IF          ! land-points only
       END DO
     END DO    
-              
+       
+    DO ksn = 1,ke_snow  
+      DO i = istarts, iends
+        IF(zwsnew(i) .GT. zepsi) THEN
+          IF(zwsnow(i) .GT. zepsi) THEN
+            IF (ksn == 1) THEN ! Limit top layer to max_toplaydepth
+              zhh_snow(i,ksn) = -MAX( h_snow_now(i)-max_toplaydepth, h_snow_now(i)/ke_snow*(ke_snow-ksn) )
+            ELSE ! distribute the remaining snow equally among the layers
+              zhh_snow(i,ksn) = zhh_snow(i,1)/(ke_snow-1)*(ke_snow-ksn)
+            ENDIF
+          ELSE ! a newly generated snow cover will not exceed max_toplaydepth
+            zhh_snow(i,ksn) = -h_snow_now(i)/ke_snow*(ke_snow-ksn)
+          END IF
+        END IF
+      END DO  
+    END DO
+       
     DO ksn = ke_snow,1,-1
       DO i = istarts, iends
-!        IF (llandmask(i)) THEN  ! for landpoints only
-          IF(zwsnew(i) .GT. zepsi) THEN
-            IF(zwsnow(i) .GT. zepsi) THEN
-              dz_old(i,ksn) = zdzh_snow(i,ksn)
-              z_old(i,ksn) = -sum_weight(i) - zdzh_snow(i,ksn)/2._ireals
-              sum_weight(i) = sum_weight(i) + zdzh_snow(i,ksn)
-              zhh_snow(i,ksn) = -h_snow_now(i)/ke_snow*(ke_snow-ksn)
-            ELSE
-              zhh_snow(i,ksn) = -h_snow_now(i)/ke_snow*(ke_snow-ksn)
-            END IF
-          END IF
-!        END IF          ! land-points only
+        IF(zwsnew(i) .GT. zepsi .AND. zwsnow(i) .GT. zepsi) THEN
+          dz_old(i,ksn) = zdzh_snow(i,ksn)
+          z_old(i,ksn) = -sum_weight(i) - zdzh_snow(i,ksn)/2._ireals
+          sum_weight(i) = sum_weight(i) + zdzh_snow(i,ksn)
+        END IF
       END DO  
     END DO
 
@@ -3055,7 +3063,7 @@ END SUBROUTINE message
               rho_snow_mult_now(i,ksn) = rho_new(i,ksn)
               wtot_snow_now    (i,ksn) = rho_new(i,ksn)*zdzh_snow(i,ksn)/rho_w
               wliq_snow_now    (i,ksn) = wl_new (i,ksn)*zdzh_snow(i,ksn)
-            ELSE
+            ELSE ! Remark: if there was now snow in the previous time step, snow depth will not exceed the limit for equipartitioning
               ztsnow_mult  (i,ksn      ) = t_s_now(i)
               rho_snow_mult_now(i,ksn) = rho_snow_mult_now(i,1)
               wtot_snow_now    (i,ksn) = zwsnew(i)/ke_snow
@@ -4288,19 +4296,28 @@ ENDIF
         END DO
     END DO    
               
+    DO ksn = 1,ke_snow  
+      DO i = istarts, iends
+        IF (w_snow_new(i) .GT. zepsi) THEN
+          IF (ksn == 1) THEN ! Limit top layer to max_toplaydepth
+            zhh_snow(i,ksn) = -MAX( h_snow_new(i)-max_toplaydepth, h_snow_new(i)/ke_snow*(ke_snow-ksn) )
+          ELSE ! distribute the remaining snow equally among the layers
+            zhh_snow(i,ksn) = zhh_snow(i,1)/(ke_snow-1)*(ke_snow-ksn)
+          ENDIF
+        ENDIF
+      END DO  
+    END DO
+       
     DO ksn = ke_snow,1,-1
-        DO i = istarts, iends
-!          IF (llandmask(i)) THEN  ! for landpoints only
-            IF(w_snow_new(i) .GT. zepsi) THEN
-              dz_old(i,ksn) = dzh_snow_new(i,ksn)
-              z_old(i,ksn) = -sum_weight(i) - dzh_snow_new(i,ksn)/2._ireals
-              sum_weight(i) = sum_weight(i) + dzh_snow_new(i,ksn)
-              zhh_snow(i,ksn) = -h_snow_new(i)/ke_snow*(ke_snow-ksn)
-            END IF
-!          END IF          ! land-points only
-        END DO
-    END DO   
-    
+      DO i = istarts, iends
+        IF (w_snow_new(i) .GT. zepsi) THEN
+          dz_old(i,ksn) = dzh_snow_new(i,ksn)
+          z_old(i,ksn) = -sum_weight(i) - dzh_snow_new(i,ksn)/2._ireals
+          sum_weight(i) = sum_weight(i) + dzh_snow_new(i,ksn)
+        END IF
+      END DO  
+    END DO
+
     DO i = istarts, iends
 !      IF (llandmask(i)) THEN  ! for landpoints only
         IF(w_snow_new(i) .GT. zepsi) THEN
@@ -4958,23 +4975,32 @@ SUBROUTINE terra_multlay_init (                &
 !   Initialization of snow density, if necessary
 !   --------------------------------------------
     IF (.NOT. lana_rho_snow) THEN
-        DO i = istarts, iends
-!          IF (llandmask(i)) THEN             ! for land-points only
-            IF(lmulti_snow) THEN
-              DO ksn = 1, ke_snow
-                rho_snow_mult_now(i,ksn) = 250.0_ireals    ! average initial density
-                t_snow_mult_now  (i,ksn) = t_snow_now(i)
-                wtot_snow_now    (i,ksn) = w_snow_now(i)/REAL(ke_snow,ireals)
-                dzh_snow_now     (i,ksn) = w_snow_now(i)/REAL(ke_snow,ireals) &
-                  &                            *rho_w/rho_snow_mult_now(i,ksn)
-                wliq_snow_now    (i,ksn) = 0.0_ireals
-              END DO
-              t_snow_mult_now    (i,0  ) = t_snow_now(i)
-            ELSE
-              rho_snow_now(i) = 250.0_ireals    ! average initial density
-            ENDIF
-!          ENDIF   ! land-points
-        ENDDO
+       IF(lmulti_snow) THEN
+         ksn = 1
+         DO i = istarts, iends
+           rho_snow_mult_now(i,ksn) = 250.0_ireals    ! average initial density
+           t_snow_mult_now  (i,ksn) = t_snow_now(i)
+           wliq_snow_now    (i,ksn) = 0.0_ireals
+           ! Limit top layer to max_toplaydepth
+           dzh_snow_now     (i,ksn) = MIN(max_toplaydepth, w_snow_now(i)/REAL(ke_snow,ireals) &
+                  &                            *rho_w/rho_snow_mult_now(i,ksn))
+           wtot_snow_now    (i,ksn) = dzh_snow_now(i,ksn)*rho_snow_mult_now(i,ksn)/rho_w
+           t_snow_mult_now  (i,0  ) = t_snow_now(i)
+         ENDDO
+         DO ksn = 2, ke_snow
+           DO i = istarts, iends
+             rho_snow_mult_now(i,ksn) = 250.0_ireals    ! average initial density
+             t_snow_mult_now  (i,ksn) = t_snow_now(i)
+             wliq_snow_now    (i,ksn) = 0.0_ireals
+             ! distribute the remaining snow equally among the layers
+             dzh_snow_now     (i,ksn) = (w_snow_now(i)-wtot_snow_now(i,1))/REAL(ke_snow-1,ireals) &
+                    &                            *rho_w/rho_snow_mult_now(i,ksn)
+             wtot_snow_now    (i,ksn) = dzh_snow_now(i,ksn)*rho_snow_mult_now(i,ksn)/rho_w
+           ENDDO
+         ENDDO
+       ELSE
+         rho_snow_now(istarts:iends) = 250.0_ireals    ! average initial density
+       ENDIF
     ELSE
       IF(lmulti_snow) THEN
 !The sum of wtot_snow, i.e. the "old" total water equivalent depth
@@ -5004,8 +5030,14 @@ SUBROUTINE terra_multlay_init (                &
             ELSE
               IF(rho_snow_now(i) .EQ. 0._ireals) rho_snow_now(i) = 250._ireals
               rho_snow_mult_now(i,ksn) = rho_snow_now(i)
-              wtot_snow_now    (i,ksn) = w_snow_now(i)/ke_snow
-              dzh_snow_now     (i,ksn) = w_snow_now(i)*rho_w/rho_snow_mult_now(i,ksn)/ke_snow
+              IF (ksn == 1) THEN ! Limit top layer to max_toplaydepth
+                dzh_snow_now(i,ksn) = MIN(max_toplaydepth, w_snow_now(i)/REAL(ke_snow,ireals) &
+                  &                  *rho_w/rho_snow_mult_now(i,ksn))
+              ELSE ! distribute the remaining snow equally among the layers
+                dzh_snow_now(i,ksn) = (w_snow_now(i)-wtot_snow_now(i,1))/REAL(ke_snow-1,ireals) &
+                    &                 *rho_w/rho_snow_mult_now(i,ksn)
+              ENDIF
+              wtot_snow_now    (i,ksn) = dzh_snow_now(i,ksn)*rho_snow_mult_now(i,ksn)/rho_w
               wliq_snow_now    (i,ksn) = 0.0_ireals
             END IF
             t_snow_mult_now(i,ksn) = t_snow_now(i)

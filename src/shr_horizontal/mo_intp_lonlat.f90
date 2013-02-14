@@ -108,7 +108,7 @@
 
     IMPLICIT NONE
 
-    !> level of output verbosity
+    !> level of output verbosity (for debugging purposes)
     INTEGER, PARAMETER  :: dbg_level = 0
 
     PRIVATE
@@ -1376,7 +1376,10 @@
       CHARACTER(*), PARAMETER :: routine = TRIM("mo_intp_rbf_coeffs:rbf_setup_interpol_lonlat")
       ! Flag: .TRUE., if we want to erase values outside local domains
       LOGICAL,      PARAMETER :: l_cutoff_local_domains = .TRUE.
+      ! Flag: .TRUE., if we want raw performance measurements
       LOGICAL,      PARAMETER :: l_measure_time         = .FALSE.
+      ! Zero threshold constant for equality test
+      REAL(wp),     PARAMETER :: ZERO_TOL               = 1.e-15_wp
 
       REAL(wp), ALLOCATABLE            :: rotated_pts(:,:,:)
       REAL(gk), ALLOCATABLE            :: in_points(:,:,:)
@@ -1385,13 +1388,19 @@
       INTEGER                          :: jb, jc, i_startidx, i_endidx,           &
         &                                 nblks_lonlat, npromz_lonlat, errstat,   &
         &                                 jb_lonlat, jc_lonlat,                   &
-        &                                 rl_start, rl_end, i_nchdom, i_startblk
+        &                                 rl_start, rl_end, i_nchdom, i_startblk, &
+        &                                 i, j, row_idx(2), ibeg_idx, ibeg_blk,   &
+        &                                 iend_idx, iend_blk, tri_idx_pole,       &
+        &                                 ibeg_glb
+      REAL(gk)                         :: min_dist_pole
       LOGICAL, ALLOCATABLE             :: l_cutoff(:,:)
       TYPE(t_geographical_coordinates) :: cell_center, lonlat_pt
       TYPE(t_cartesian_coordinates)    :: p1, p2
-      REAL(wp)                         :: point(2), z_norm, z_nx1(3), z_nx2(3), &
+      REAL(wp)                         :: point(2), z_norm, z_nx1(3), z_nx2(3),   &
         &                                 max_dist
       REAL                             :: time1
+      LOGICAL                          :: l_grid_is_unrotated, l_grid_contains_poles
+
 
       !-----------------------------------------------------------------------
 
@@ -1405,14 +1414,23 @@
       nblks_lonlat  = grid%nblks
       npromz_lonlat = grid%npromz
 
+      ! ------------------------------------------
+      ! check, if we have a global, unrotated grid
+      ! ------------------------------------------
+
+      l_grid_is_unrotated   = ((ABS(90._wp - grid%north_pole(2)) < ZERO_TOL)       .AND.  &
+        &                       ABS( 0._wp - grid%north_pole(1)) < ZERO_TOL)
+      l_grid_contains_poles = ((ABS(90._wp - ABS(grid%reg_lat_def(1))) < ZERO_TOL) .AND.  &
+        &                      (ABS(90._wp - ABS(grid%reg_lat_def(3))) < ZERO_TOL))
+
       ! ---------------------------------------------------------
       ! preliminaries: make a sensible guess for maximum distance
       ! ---------------------------------------------------------
 
       ! make a sensible guess for maximum distance (just taking a
       ! "randomly chosen" edge length)
-      rl_start = 2
-      rl_end   = min_rlcell_int
+      rl_start   = 2
+      rl_end     = min_rlcell_int
       i_nchdom   = MAX(1,ptr_patch%n_childdom)
       i_startblk = ptr_patch%cells%start_blk(rl_start,1)
       CALL get_indices_e(ptr_patch, i_startblk, i_startblk, i_startblk, &
@@ -1457,6 +1475,13 @@
       pts_flags(:,:) = INVALID_NODE
       call flag_ll_points(rotated_pts, 1,grid%lon_dim, 1,grid%lat_dim, pts_flags, 1,5)
 
+      !-- if we have a global, unrotated grid: skip all points of the
+      !   first and last latitude row (except one):
+      IF (l_grid_is_unrotated .AND. l_grid_contains_poles) THEN
+        pts_flags(2:,           1) = SKIP_NODE
+        pts_flags(2:,grid%lat_dim) = SKIP_NODE
+      END IF
+
       ! --------------------------------------------------------------
       ! proximity query, build a list of cell indices that contain the
       ! lon/lat grid points
@@ -1481,6 +1506,31 @@
         &                 nproma, nblks_lonlat, npromz_lonlat, grid_sphere_radius,       &
         &                 p_test_run, ptr_int_lonlat%tri_idx(:,:,:), min_dist(:,:))
 !$    IF (l_measure_time) WRITE (0,*) "elapsed time (query): ",  REAL(omp_get_wtime()) - time1
+
+      !-- if we have a global, unrotated grid: copy the distance
+      !   result for all points of the first and last latitude row:
+      IF (l_grid_is_unrotated .AND. l_grid_contains_poles) THEN
+        row_idx = (/ 1, grid%lat_dim /)
+        DO i=1,2
+          ! compute indices for pole row
+          ibeg_glb = (row_idx(i)-1)*grid%lon_dim
+          ibeg_idx = idx_no(ibeg_glb + 1)
+          ibeg_blk = blk_no(ibeg_glb + 1)
+          iend_idx = idx_no(ibeg_glb + grid%lon_dim)
+          iend_blk = blk_no(ibeg_glb + grid%lon_dim)
+          ! copy indices and distances:
+          DO j=1,2
+            tri_idx_pole = ptr_int_lonlat%tri_idx(j,ibeg_idx,ibeg_blk)
+            ptr_int_lonlat%tri_idx(j, (ibeg_idx+1):nproma,                  ibeg_blk) = tri_idx_pole
+            ptr_int_lonlat%tri_idx(j,                   :, (ibeg_blk+1):(iend_blk-1)) = tri_idx_pole
+            ptr_int_lonlat%tri_idx(j,          1:iend_idx,                  iend_blk) = tri_idx_pole
+          END DO
+          min_dist_pole = min_dist(ibeg_idx,ibeg_blk)
+          min_dist((ibeg_idx+1):nproma,                  ibeg_blk) = min_dist_pole
+          min_dist(                  :, (ibeg_blk+1):(iend_blk-1)) = min_dist_pole
+          min_dist(         1:iend_idx,                  iend_blk) = min_dist_pole
+        END DO
+      END IF
 
       CALL gnat_merge_distributed_queries(ptr_patch, grid%total_dim, nproma, grid%nblks, &
         &                 min_dist, ptr_int_lonlat%tri_idx(:,:,:), in_points(:,:,:),     &

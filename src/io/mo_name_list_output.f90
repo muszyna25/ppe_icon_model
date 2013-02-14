@@ -20,7 +20,7 @@
 !!
 MODULE mo_name_list_output
 
-  ! Please note: The spelling "name_list" (with underscore) is intented to make
+  ! Please note: The spelling "name_list" (with underscore) is intended to make
   ! clear that this does not pertain to a FORTRAN namelist but rather
   ! to a list of names of output variables
 
@@ -51,7 +51,7 @@ MODULE mo_name_list_output
     &                                 total_number_of_variables, collect_group, &
     &                                 get_var_timelevel, get_var_name
   USE mo_var_list_element,      ONLY: level_type_ml, level_type_pl, level_type_hl, &
-    &                                 level_type_il
+    &                                 level_type_il, lev_type_str
   USE mo_util_uuid,             ONLY: t_uuid
   ! MPI Communication routines
   USE mo_mpi,                   ONLY: p_send, p_recv, p_bcast, p_barrier, p_stop, &
@@ -93,7 +93,7 @@ MODULE mo_name_list_output
 
   USE mo_util_string,           ONLY: toupper, t_keyword_list, associate_keyword,  &
     &                                 with_keywords, insert_group, MAX_STRING_LEN, &
-    &                                 tocompact, tolower
+    &                                 tocompact, tolower, int2string
   USE mo_loopindices,           ONLY: get_indices_c, get_indices_e, get_indices_v
   USE mo_communication,         ONLY: exchange_data, t_comm_pattern, idx_no, blk_no
   USE mo_math_utilities,        ONLY: t_geographical_coordinates, rotate_latlon_grid
@@ -111,12 +111,12 @@ MODULE mo_name_list_output
   &                                     is_output_file_active,   &
   &                                     t_var_desc,              &
   &                                     add_var_desc
-  ! meteogram output
   USE mo_meteogram_output,    ONLY: meteogram_init, meteogram_finalize, meteogram_flush_file
   USE mo_meteogram_config,    ONLY: meteogram_output_config
   USE mo_timer,               ONLY: timer_start, timer_stop, timer_write_output, ltimer
   USE mo_dictionary,          ONLY: t_dictionary, dict_init, dict_finalize, &
-    &                               dict_loadfile, dict_get
+    &                               dict_loadfile, dict_get, DICT_MAX_STRLEN
+  USE mo_fortran_tools,       ONLY: assign_if_present
 
 
   IMPLICIT NONE
@@ -300,71 +300,52 @@ CONTAINS
   !
   SUBROUTINE read_name_list_output_namelists( filename )
     CHARACTER(LEN=*), INTENT(IN)   :: filename
+    ! local variables
+    CHARACTER(LEN=*), PARAMETER       :: routine = 'read_name_list_output_namelists'
 
-    INTEGER :: istat, i
+    INTEGER                           :: istat, i
     TYPE(t_output_name_list), POINTER :: p_onl
-    CHARACTER(LEN=*), PARAMETER :: routine = 'read_name_list_output_namelists'
-    INTEGER :: nnamelists
-    LOGICAL :: lrewind
+    INTEGER                           :: nnamelists
+    LOGICAL                           :: lrewind
 
     ! Local variables corresponding to members of output_name_list
-    INTEGER  :: filetype
-    CHARACTER(LEN=8) :: namespace
-    INTEGER  :: mode
-    INTEGER  :: taxis_tunit
-    INTEGER  :: dom(max_phys_dom)
-    INTEGER  :: output_time_unit
-    REAL(wp) :: output_bounds(3,max_bounds), output_bounds_sec(3,max_bounds)
-    INTEGER  :: steps_per_file
-    LOGICAL  :: include_last
-    LOGICAL  :: output_grid
-    CHARACTER(LEN=filename_max) :: output_filename
-    LOGICAL  :: lwrite_ready
-    CHARACTER(LEN=filename_max) :: ready_directory
-    CHARACTER(LEN=vname_len)  :: ml_varlist(max_var_ml)
-    CHARACTER(LEN=vname_len)  :: pl_varlist(max_var_pl)
-    CHARACTER(LEN=vname_len)  :: hl_varlist(max_var_hl)
-    CHARACTER(LEN=vname_len)  :: il_varlist(max_var_il)
-    REAL(wp) :: p_levels(max_levels)
-    REAL(wp) :: h_levels(max_levels)
-    REAL(wp) :: i_levels(max_levels)
-    INTEGER  :: remap
-    REAL(wp) :: reg_lon_def(3)
-    REAL(wp) :: reg_lat_def(3)
-    INTEGER  :: gauss_tgrid_def
-    REAL(wp) :: north_pole(2)
-    TYPE(t_lon_lat_data), POINTER :: lonlat
-    TYPE (t_keyword_list), POINTER :: keywords => NULL()
-    CHARACTER(len=MAX_STRING_LEN)  :: cfilename
-
+    INTEGER                           :: filetype
+    CHARACTER(LEN=8)                  :: namespace
+    INTEGER                           :: mode
+    INTEGER                           :: taxis_tunit
+    INTEGER                           :: dom(max_phys_dom)
+    INTEGER                           :: output_time_unit
+    REAL(wp)                          :: output_bounds(3,max_bounds), output_bounds_sec(3,max_bounds)
+    INTEGER                           :: steps_per_file
+    LOGICAL                           :: include_last
+    LOGICAL                           :: output_grid
+    CHARACTER(LEN=filename_max)       :: output_filename
+    CHARACTER(LEN=filename_max)       :: filename_format
+    LOGICAL                           :: lwrite_ready
+    CHARACTER(LEN=filename_max)       :: ready_directory
+    CHARACTER(LEN=vname_len)          :: ml_varlist(max_var_ml)
+    CHARACTER(LEN=vname_len)          :: pl_varlist(max_var_pl)
+    CHARACTER(LEN=vname_len)          :: hl_varlist(max_var_hl)
+    CHARACTER(LEN=vname_len)          :: il_varlist(max_var_il)
+    REAL(wp)                          :: p_levels(max_levels)
+    REAL(wp)                          :: h_levels(max_levels)
+    REAL(wp)                          :: i_levels(max_levels)
+    INTEGER                           :: remap
+    REAL(wp)                          :: reg_lon_def(3)
+    REAL(wp)                          :: reg_lat_def(3)
+    REAL(wp)                          :: north_pole(2)
+    TYPE(t_lon_lat_data),  POINTER    :: lonlat
+    TYPE (t_keyword_list), POINTER    :: keywords => NULL()
+    CHARACTER(len=MAX_STRING_LEN)     :: cfilename
 
     ! The namelist containing all variables above
     NAMELIST /output_nml/ &
-      filetype,           &
-      namespace,          &
-      mode,               &
-      taxis_tunit,        &
-      dom,                &
-      output_time_unit,   &
-      output_bounds,      &
-      steps_per_file,     &
-      include_last,       &
-      output_grid,        &
-      output_filename,    &
-      lwrite_ready,       &
-      ready_directory,    &
-      ml_varlist,         &
-      pl_varlist,         &
-      hl_varlist,         &
-      il_varlist,         &
-      p_levels,           &
-      h_levels,           &
-      i_levels,           &
-      remap,              &
-      reg_lon_def,        &
-      reg_lat_def,        &
-      gauss_tgrid_def,    &
-      north_pole
+      filetype, namespace, mode, taxis_tunit, dom, output_time_unit,   &
+      output_bounds, steps_per_file, include_last, output_grid,        &
+      output_filename, lwrite_ready, ready_directory, ml_varlist,      &
+      pl_varlist, hl_varlist, il_varlist, p_levels, h_levels,          &
+      i_levels, remap, reg_lon_def, reg_lat_def, north_pole,           &
+      filename_format
 
     ! Open input file and position to first namelist 'output_nml'
 
@@ -402,6 +383,7 @@ CONTAINS
       include_last       = .TRUE.
       output_grid        = .FALSE.
       output_filename    = ' '
+      filename_format    = "<output_filename>_DOM<physdom>_<levtype>_<jfile>"
       lwrite_ready       = .FALSE.
       ready_directory    = ' '
       ml_varlist(:)      = ' '
@@ -414,7 +396,6 @@ CONTAINS
       remap              = REMAP_NONE
       reg_lon_def(:)     = 0._wp
       reg_lat_def(:)     = 0._wp
-      gauss_tgrid_def    = 0
       north_pole(:)      = (/ 0._wp, 90._wp /)
 
       !------------------------------------------------------------------
@@ -508,6 +489,7 @@ CONTAINS
       p_onl%include_last     = include_last
       p_onl%output_grid      = output_grid
       p_onl%output_filename  = output_filename
+      p_onl%filename_format  = filename_format
       p_onl%lwrite_ready     = lwrite_ready
       p_onl%ready_directory  = ready_directory
       p_onl%ml_varlist(:)    = ml_varlist(:)
@@ -524,14 +506,13 @@ CONTAINS
       CALL dict_init(varnames_dict,     lcase_sensitive=.FALSE.)
       CALL dict_init(out_varnames_dict, lcase_sensitive=.FALSE.)
 
+      CALL associate_keyword("<path>", TRIM(model_base_dir), keywords)
       IF(varnames_map_file     /= ' ') THEN
-        CALL associate_keyword("<path>", TRIM(model_base_dir), keywords)
         cfilename = TRIM(with_keywords(keywords, varnames_map_file))
         CALL message(routine, "load dictionary file.")
         CALL dict_loadfile(varnames_dict, cfilename)
       END IF
       IF(out_varnames_map_file /= ' ') THEN
-        CALL associate_keyword("<path>", TRIM(model_base_dir), keywords)
         cfilename = TRIM(with_keywords(keywords, out_varnames_map_file))
         CALL message(routine, "load dictionary file (output names).")
         CALL dict_loadfile(out_varnames_dict, cfilename)
@@ -604,7 +585,6 @@ CONTAINS
           ENDDO DOM_LOOP
         END IF
       ENDIF
-      p_onl%gauss_tgrid_def      = gauss_tgrid_def
 
       p_onl%cur_bounds_triple= 1
       p_onl%next_output_time = p_onl%output_bounds(1,1)
@@ -739,25 +719,22 @@ CONTAINS
     LOGICAL, OPTIONAL, INTENT(in) :: lprintlist
     INTEGER, OPTIONAL, INTENT(in) :: isample
 
-    ! For a list of all variables, enable the following:
-    LOGICAL :: l_print_list
-
-    INTEGER :: i, j, nfiles, i_typ, nvl, vl_list(max_var_lists), jp
-    CHARACTER(LEN=2) :: lev_type
-    INTEGER          :: ilev_type, idom, ierrstat, jg, idom_log
-    TYPE (t_output_name_list), POINTER :: p_onl
-    TYPE (t_output_file), POINTER :: p_of
-    TYPE(t_list_element), POINTER :: element
-
+    ! local variables:
     CHARACTER(LEN=*), PARAMETER :: routine = &
       &  TRIM('mo_name_list_output/init_name_list_output')
-    REAL(wp), ALLOCATABLE :: lonv(:,:,:), latv(:,:,:)
+    
+    LOGICAL                            :: l_print_list ! Flag. Enables  a list of all variables
+    INTEGER                            :: i, j, nfiles, i_typ, nvl, vl_list(max_var_lists), jp
+    INTEGER                            :: idom, ierrstat, jg, idom_log
+    TYPE (t_output_name_list), POINTER :: p_onl
+    TYPE (t_output_file), POINTER      :: p_of
+    TYPE(t_list_element), POINTER      :: element
+    REAL(wp), ALLOCATABLE              :: lonv(:,:,:), latv(:,:,:)
 
     l_print_list = .FALSE.
-    IF (PRESENT(lprintlist)) l_print_list = lprintlist
-
-    i_sample = 1
-    IF (PRESENT(isample)) i_sample = isample
+    i_sample     = 1
+    CALL assign_if_present(l_print_list, lprintlist)
+    CALL assign_if_present(i_sample, isample)
 
     ! For hexagons, we still copy grid info from file; for triangular
     ! grids we have a faster method without file access:
@@ -1042,16 +1019,14 @@ CONTAINS
           p_of => output_file(nfiles)
 
           SELECT CASE(i_typ)
-            CASE(1); lev_type = 'ML'; ilev_type=level_type_ml
-            CASE(2); lev_type = 'PL'; ilev_type=level_type_pl
-            CASE(3); lev_type = 'HL'; ilev_type=level_type_hl
-            CASE(4); lev_type = 'IL'; ilev_type=level_type_il
+            CASE(1); p_of%ilev_type = level_type_ml
+            CASE(2); p_of%ilev_type = level_type_pl
+            CASE(3); p_of%ilev_type = level_type_hl
+            CASE(4); p_of%ilev_type = level_type_il
           END SELECT
 
           ! Set prefix of output_file name
-
-          WRITE(p_of%filename_pref,'(a,"_DOM",i2.2,"_",a)') &
-            TRIM(p_onl%output_filename),idom,lev_type
+          p_of%filename_pref = TRIM(p_onl%output_filename)
 
           p_of%phys_patch_id = idom
           p_of%log_patch_id  = patch_info(idom)%log_patch_id
@@ -2877,8 +2852,6 @@ CONTAINS
     CALL vlistDefVarIntKey(vlistID, varID, "generatingProcessIdentifier",     &
       &                    grib_conf%generatingProcessIdentifier)
 
-
-    !
     ! Product Generation (local)
     IF (tolower(namespace) == "dwd") THEN
       CALL vlistDefVarIntKey(vlistID, varID, "localDefinitionNumber"  ,         &
@@ -2893,7 +2866,6 @@ CONTAINS
       ! CALL vlistDefVarIntKey(vlistID, varID, "localValidityDateYear"  , 2013)
     END IF
 
-
     ! SECTION 3
     CALL vlistDefVarIntKey(vlistID, varID, "shapeOfTheEarth", 6)
 
@@ -2904,20 +2876,18 @@ CONTAINS
   !> define variables and attributes
   !
   SUBROUTINE add_variables_to_vlist(of)
-
     TYPE (t_output_file), INTENT(IN), TARGET :: of
-
     ! local variables:
     CHARACTER(LEN=*), PARAMETER :: routine = 'mo_name_list_output/add_variables_to_vlist'
     TYPE (t_var_metadata), POINTER :: info
-    INTEGER :: iv, vlistID, varID, gridID, zaxisID, nlev, nlevp1
-    CHARACTER(LEN=vname_len) :: mapped_name
+    INTEGER                        :: iv, vlistID, varID, gridID, &
+      &                               zaxisID, nlev, nlevp1
+    CHARACTER(LEN=DICT_MAX_STRLEN) :: mapped_name
 
     vlistID = of%cdiVlistID
     nlev   = num_lev(of%log_patch_id)
     nlevp1 = num_levp1(of%log_patch_id)
 
-    !
     DO iv = 1, of%num_vars
       !
       info => of%var_desc(iv)%info
@@ -2952,8 +2922,7 @@ CONTAINS
       ENDIF
 
       ! Search name mapping for name in NetCDF file
-      mapped_name = dict_get(out_varnames_dict, mapped_name, default=info%name)
-
+      mapped_name = TRIM(dict_get(out_varnames_dict, mapped_name, default=info%name))
 
       ! note that an explicit call of vlistDefVarTsteptype is obsolete, since 
       ! isteptype is already defined via vlistDefVar
@@ -3043,10 +3012,12 @@ CONTAINS
   SUBROUTINE open_output_file(of, jfile)
 
     TYPE(t_output_file), INTENT(INOUT) :: of
-    INTEGER, INTENT(IN) :: jfile ! Number of file set to open
-
-    CHARACTER(LEN=16) :: extn
-    CHARACTER(LEN=*), PARAMETER :: routine = 'mo_name_list_output/open_output_file'
+    INTEGER,             INTENT(IN)    :: jfile ! Number of file set to open
+    ! local variables:
+    CHARACTER(LEN=*), PARAMETER       :: routine = 'mo_name_list_output/open_output_file'
+    CHARACTER(LEN=16)                 :: extn
+    TYPE (t_keyword_list), POINTER    :: keywords => NULL()
+    CHARACTER(len=MAX_STRING_LEN)     :: cfilename
 
     ! Please note that this routine is only executed on one processor (for a specific file)
     ! and thus all calls to message get the all_print=.TRUE. argument so that the messages
@@ -3070,13 +3041,21 @@ CONTAINS
       CALL finish(routine,'unknown output_type')
     END SELECT
 
-    ! Set actual output file name and open file
+    ! Set actual output file name (insert keywords):
+    CALL associate_keyword("<path>",            TRIM(model_base_dir),                         keywords)
+    CALL associate_keyword("<output_filename>", TRIM(of%filename_pref),                       keywords)
+    CALL associate_keyword("<physdom>",         TRIM(int2string(of%phys_patch_id, "(i2.2)")), keywords)
+    CALL associate_keyword("<levtype>",         TRIM(lev_type_str(of%ilev_type)),             keywords)
+    CALL associate_keyword("<jfile>",           TRIM(int2string(jfile, "(i4.4)")),            keywords)
+    cfilename = TRIM(with_keywords(keywords, of%name_list%filename_format))
 
     IF(my_process_is_mpi_test()) THEN
-      WRITE(of%filename,'(a,"_",i4.4,"_TEST",a)') TRIM(of%filename_pref),jfile,TRIM(extn)
+      WRITE(of%filename,'(a,"_TEST",a)') TRIM(cfilename),TRIM(extn)
     ELSE
-      WRITE(of%filename,'(a,"_",i4.4,a)') TRIM(of%filename_pref),jfile,TRIM(extn)
+      WRITE(of%filename,'(a,a)') TRIM(cfilename),TRIM(extn)
     ENDIF
+
+    ! open file:
     of%cdiFileID = streamOpenWrite(TRIM(of%filename), of%output_type)
 
     IF (of%cdiFileID < 0) THEN
@@ -3088,13 +3067,9 @@ CONTAINS
     END IF
 
     ! assign the vlist (which must have ben set before)
-!PR 
-    !WRITE(6,'(a,i)') 'taxisTunit openning ',taxisInqTunit(of%cdiTaxisID)
-
     CALL streamDefVlist(of%cdiFileID, of%cdiVlistID)
 
     ! set cdi internal time index to 0 for writing time slices in netCDF
-
     of%cdiTimeIndex = 0
 
   END SUBROUTINE open_output_file
@@ -3612,7 +3587,7 @@ CONTAINS
             ! otherwise exchange_data doesn't work!
             ALLOCATE(i_tmp(nproma,nlevs,1))
           ENDIF
-          i_tmp(:,:,:) = 0._wp
+          i_tmp(:,:,:) = 0
           ! Gather data on root
           IF(my_process_is_mpi_seq()) THEN
             DO jk = 1, nlevs
@@ -3825,12 +3800,12 @@ CONTAINS
   !  Please note that this routine never returns.
   !
   SUBROUTINE name_list_io_main_proc(isample)
-
     INTEGER, INTENT(in) :: isample
-    LOGICAL :: done, last_step
-    TYPE(t_datetime) :: datetime
-    REAL(wp) :: sim_time
-    INTEGER :: jg
+    ! local variables:
+    LOGICAL             :: done, last_step
+    TYPE(t_datetime)    :: datetime
+    REAL(wp)            :: sim_time
+    INTEGER             :: jg
 
     ! If ldump_states or ldump_dd is set, the compute PEs will exit after dumping,
     ! there is nothing to do at all for I/O PEs
@@ -3852,7 +3827,7 @@ CONTAINS
     CALL init_name_list_output(isample=isample)
 
     ! Tell the compute PEs that we are ready to work
-    CALL async_io_send_ready_message
+    CALL async_io_send_handshake
 
     ! write recent samples of meteogram output
     DO jg = 1, n_dom
@@ -3874,7 +3849,7 @@ CONTAINS
       CALL write_name_list_output(datetime, sim_time, last_step)
 
       ! Inform compute PEs that we are done
-      CALL async_io_send_ready_message
+      CALL async_io_send_handshake
 
       ! write recent samples of meteogram output
       DO jg = 1, n_dom
@@ -4597,10 +4572,10 @@ CONTAINS
   ! ... called on IO procs:
 
   !-------------------------------------------------------------------------------------------------
-  !> async_io_send_ready_message: Send a message to the compute PEs that the I/O is ready
-  !  The counterpart on the compute side is compute_wait_for_async_io
+  !> Send a message to the compute PEs that the I/O is ready The
+  !  counterpart on the compute side is compute_wait_for_async_io
   !
-  SUBROUTINE async_io_send_ready_message
+  SUBROUTINE async_io_send_handshake
 
     REAL(wp) :: msg
 
@@ -4613,7 +4588,7 @@ CONTAINS
       CALL p_send(msg, p_work_pe0, 0)
     ENDIF
 
-  END SUBROUTINE async_io_send_ready_message
+  END SUBROUTINE async_io_send_handshake
 
 
   !-------------------------------------------------------------------------------------------------
@@ -4673,7 +4648,7 @@ CONTAINS
 
   !-------------------------------------------------------------------------------------------------
   !> compute_wait_for_async_io: Wait for a message that the I/O is ready
-  !  The counterpart on the I/O side is io_send_ready_message
+  !  The counterpart on the I/O side is io_send_handshake
   !
   SUBROUTINE compute_wait_for_async_io
 

@@ -489,6 +489,13 @@ MODULE mo_impl_constants
   !------ computation of optional diagnostic fields
   INTEGER, PARAMETER, PUBLIC :: TASK_COMPUTE_RH        = 13 !< task: compute relative humidity
 
+  !--------------------------------------------------------------------!
+  !  VARIABLE TIMELEVEL SPECIFICATION (FOR POST-PROCESSING SCHEDULER)  !
+  !--------------------------------------------------------------------!
+
+  INTEGER, PARAMETER, PUBLIC :: UNDEF_TIMELEVEL        = -2 !< means "undefined time level"
+  INTEGER, PARAMETER, PUBLIC :: ALL_TIMELEVELS         = -1 !< means "active at all time levels"
+
 
 !--------------------------------------------------------------------
 END MODULE mo_impl_constants

@@ -185,7 +185,7 @@ MODULE mo_pp_tasks
   TYPE t_simulation_status
     LOGICAL :: status_flags(3)         !< l_output_step, l_first_step, l_last_step
     LOGICAL :: ldom_active(max_dom)    !< active domains
-    INTEGER :: iactive_timelevel       !< active time level (for output variables)
+    INTEGER :: i_timelevel(max_dom)    !< active time level (for output variables)
   END TYPE t_simulation_status
 
 
@@ -401,11 +401,12 @@ CONTAINS
   !     therefore the corresponding variable lists can be marked as
   !     "skip_sync".
   !
-  SUBROUTINE pp_task_sync()
+  SUBROUTINE pp_task_sync(sim_status)
+    TYPE(t_simulation_status),  INTENT(IN) :: sim_status
     ! local variables
     CHARACTER(*), PARAMETER :: routine = TRIM("mo_pp_tasks:pp_task_sync")
-    TYPE(t_job_queue), POINTER :: ptr_task
-    INTEGER                            :: in_var_idx
+    TYPE(t_job_queue),         POINTER :: ptr_task
+    INTEGER                            :: in_var_idx, jg
     TYPE (t_var_list_element), POINTER :: in_var
     TYPE (t_var_metadata),     POINTER :: p_info
     TYPE(t_patch),             POINTER :: p_patch
@@ -414,36 +415,41 @@ CONTAINS
     ! loop over job queue
     LOOP_JOB : DO
       IF (.NOT. ASSOCIATED(ptr_task)) EXIT
-      IF (ptr_task%job_type == TASK_INTP_HOR_LONLAT) THEN
-        p_info      => ptr_task%data_input%var%info
-        p_patch     => ptr_task%data_input%p_patch
-        in_var      => ptr_task%data_input%var
-        in_var_idx  =  1
-        IF (in_var%info%lcontained) in_var_idx = in_var%info%ncontained
-        
-        IF (is_2d_field(p_info%vgrid) .AND. (p_info%ndims /= 2)) &
-          &  CALL finish(routine, "Inconsistent dimension info!")
 
-        SELECT CASE (p_info%hgrid)
-        CASE (GRID_UNSTRUCTURED_CELL)
-          IF (is_2d_field(p_info%vgrid)) THEN
-            IF (ASSOCIATED(in_var%r_ptr)) CALL sync_patch_array(SYNC_C, p_patch, in_var%r_ptr(:,:,in_var_idx,1,1) )
-            IF (ASSOCIATED(in_var%i_ptr)) CALL sync_patch_array(SYNC_C, p_patch, in_var%i_ptr(:,:,in_var_idx,1,1) )
-          ELSE
-            IF (ASSOCIATED(in_var%r_ptr)) CALL cumulative_sync_patch_array(SYNC_C, p_patch, in_var%r_ptr(:,:,:,in_var_idx,1))
-            IF (ASSOCIATED(in_var%i_ptr)) CALL sync_patch_array(SYNC_C, p_patch, in_var%i_ptr(:,:,:,in_var_idx,1) )
-          END IF
-        CASE (GRID_UNSTRUCTURED_EDGE)
-          IF (is_2d_field(p_info%vgrid)) THEN
-            IF (ASSOCIATED(in_var%r_ptr)) CALL sync_patch_array(SYNC_E, p_patch, in_var%r_ptr(:,:,in_var_idx,1,1) )
-            IF (ASSOCIATED(in_var%i_ptr)) CALL sync_patch_array(SYNC_E, p_patch, in_var%i_ptr(:,:,in_var_idx,1,1) )
-          ELSE
-            IF (ASSOCIATED(in_var%r_ptr)) CALL cumulative_sync_patch_array(SYNC_E, p_patch, in_var%r_ptr(:,:,:,in_var_idx,1))
-            IF (ASSOCIATED(in_var%i_ptr)) CALL sync_patch_array(SYNC_E, p_patch, in_var%i_ptr(:,:,:,in_var_idx,1) )
-          END IF
-        CASE DEFAULT
-          CALL finish(routine, 'Unknown grid type.')
-        END SELECT
+      IF (ptr_task%job_type == TASK_INTP_HOR_LONLAT) THEN
+        p_patch     => ptr_task%data_input%p_patch
+        jg          =  p_patch%id
+        
+        IF (ptr_task%activity%i_timelevel(jg) == sim_status%i_timelevel(jg))  THEN
+          p_info      => ptr_task%data_input%var%info
+          in_var      => ptr_task%data_input%var
+          in_var_idx  =  1
+          IF (in_var%info%lcontained) in_var_idx = in_var%info%ncontained
+
+          IF (is_2d_field(p_info%vgrid) .AND. (p_info%ndims /= 2)) &
+            &  CALL finish(routine, "Inconsistent dimension info!")
+
+          SELECT CASE (p_info%hgrid)
+          CASE (GRID_UNSTRUCTURED_CELL)
+            IF (is_2d_field(p_info%vgrid)) THEN
+              IF (ASSOCIATED(in_var%r_ptr)) CALL sync_patch_array(SYNC_C, p_patch, in_var%r_ptr(:,:,in_var_idx,1,1) )
+              IF (ASSOCIATED(in_var%i_ptr)) CALL sync_patch_array(SYNC_C, p_patch, in_var%i_ptr(:,:,in_var_idx,1,1) )
+            ELSE
+              IF (ASSOCIATED(in_var%r_ptr)) CALL cumulative_sync_patch_array(SYNC_C, p_patch, in_var%r_ptr(:,:,:,in_var_idx,1))
+              IF (ASSOCIATED(in_var%i_ptr)) CALL sync_patch_array(SYNC_C, p_patch, in_var%i_ptr(:,:,:,in_var_idx,1) )
+            END IF
+          CASE (GRID_UNSTRUCTURED_EDGE)
+            IF (is_2d_field(p_info%vgrid)) THEN
+              IF (ASSOCIATED(in_var%r_ptr)) CALL sync_patch_array(SYNC_E, p_patch, in_var%r_ptr(:,:,in_var_idx,1,1) )
+              IF (ASSOCIATED(in_var%i_ptr)) CALL sync_patch_array(SYNC_E, p_patch, in_var%i_ptr(:,:,in_var_idx,1,1) )
+            ELSE
+              IF (ASSOCIATED(in_var%r_ptr)) CALL cumulative_sync_patch_array(SYNC_E, p_patch, in_var%r_ptr(:,:,:,in_var_idx,1))
+              IF (ASSOCIATED(in_var%i_ptr)) CALL sync_patch_array(SYNC_E, p_patch, in_var%i_ptr(:,:,:,in_var_idx,1) )
+            END IF
+          CASE DEFAULT
+            CALL finish(routine, 'Unknown grid type.')
+          END SELECT
+        END IF
       END IF
       !
       ptr_task => ptr_task%next

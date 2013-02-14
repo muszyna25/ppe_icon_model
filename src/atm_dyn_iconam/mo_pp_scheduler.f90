@@ -81,45 +81,44 @@ MODULE mo_pp_scheduler
 
   USE mo_kind,                    ONLY: wp
   USE mo_exception,               ONLY: message, message_text, finish
-  USE mo_impl_constants,          ONLY: SUCCESS,                       &
-    & HINTP_TYPE_NONE,                                                 &
-    & max_dom, max_var_ml, max_var_pl, max_var_hl, max_var_il,         &
-    & TASK_NONE, TASK_INIT_VER_Z, TASK_INIT_VER_P, TASK_INIT_VER_I,    &
-    & TASK_FINALIZE_IPZ,                                               &
-    & TASK_INTP_HOR_LONLAT, TASK_INTP_VER_PLEV, TASK_INTP_SYNC,        &
-    & TASK_INTP_MSL, TASK_COMPUTE_RH, TASK_INTP_VER_ZLEV,              &
-    & TASK_INTP_VER_ILEV, TASK_INTP_EDGE2CELL, max_phys_dom
+  USE mo_impl_constants,          ONLY: SUCCESS, HINTP_TYPE_NONE, max_dom, max_var_ml,      &
+    &                                   max_var_pl, max_var_hl, max_var_il, TASK_NONE,      &
+    &                                   TASK_INIT_VER_Z, TASK_INIT_VER_P, TASK_INIT_VER_I,  &
+    &                                   TASK_FINALIZE_IPZ, TASK_INTP_HOR_LONLAT,            &
+    &                                   TASK_INTP_VER_PLEV, TASK_INTP_SYNC, TASK_INTP_MSL,  &
+    &                                   TASK_COMPUTE_RH, TASK_INTP_VER_ZLEV,                &
+    &                                   TASK_INTP_VER_ILEV, TASK_INTP_EDGE2CELL,            &
+    &                                   max_phys_dom, UNDEF_TIMELEVEL, ALL_TIMELEVELS
   USE mo_model_domain,            ONLY: t_patch, p_patch, p_phys_patch
-  USE mo_var_list,                ONLY: add_var, get_all_var_names,         &
-    &                                   create_hor_interp_metadata,         &
-    &                                   nvar_lists, var_lists, vintp_types, &
-    &                                   vintp_type_id, get_var_name,        &
+  USE mo_var_list,                ONLY: add_var, get_all_var_names,                         &
+    &                                   create_hor_interp_metadata,                         &
+    &                                   nvar_lists, var_lists, vintp_types,                 &
+    &                                   vintp_type_id, get_var_name,                        &
     &                                   get_var_timelevel
-  USE mo_var_list_element,        ONLY: t_var_list_element, level_type_ml,  &
+  USE mo_var_list_element,        ONLY: t_var_list_element, level_type_ml,                  &
     &                                   level_type_pl, level_type_hl, level_type_il
-  USE mo_var_metadata,            ONLY: t_var_metadata, t_vert_interp_meta, &
+  USE mo_var_metadata,            ONLY: t_var_metadata, t_vert_interp_meta,                 &
     &                                   VINTP_TYPE_LIST, VARNAME_LEN
-  USE mo_intp_data_strc,          ONLY: t_int_state, lonlat_grid_list,      &
-    &                                   t_lon_lat_intp, p_int_state,        &
+  USE mo_intp_data_strc,          ONLY: t_int_state, lonlat_grid_list,                      &
+    &                                   t_lon_lat_intp, p_int_state,                        &
     &                                   MAX_LONLAT_GRIDS
   USE mo_nonhydro_state,          ONLY: p_nh_state
   USE mo_opt_diagnostics,         ONLY: t_nh_diag_pz, t_nh_opt_diag, p_nh_opt_diag
   USE mo_nwp_phy_types,           ONLY: t_nwp_phy_diag
   USE mo_nwp_phy_state,           ONLY: prm_diag
   USE mo_nh_pzlev_config,         ONLY: t_nh_pzlev_config, nh_pzlev_config
-  USE mo_name_list_output_config, ONLY: t_output_name_list, &
+  USE mo_name_list_output_config, ONLY: t_output_name_list,                                 &
     &                                   vname_len, first_output_name_list
   USE mo_parallel_config,         ONLY: nproma
-  USE mo_dynamics_config,         ONLY: nnow
   USE mo_cf_convention,           ONLY: t_cf_var
   USE mo_grib2,                   ONLY: t_grib2_var
-  USE mo_util_string,             ONLY: int2string, remove_duplicates, &
+  USE mo_util_string,             ONLY: int2string, remove_duplicates,                      &
     &                                   difference, toupper, tolower
-  USE mo_cdi_constants,           ONLY: GRID_CELL, GRID_REFERENCE,                      &
-    &                                   GRID_UNSTRUCTURED_CELL, ZA_ALTITUDE,            &
-    &                                   ZA_PRESSURE, GRID_REGULAR_LONLAT,               &
-    &                                   GRID_UNSTRUCTURED_EDGE,                         &
-    &                                   DATATYPE_FLT32, DATATYPE_PACK16, ZA_ISENTROPIC, &
+  USE mo_cdi_constants,           ONLY: GRID_CELL, GRID_REFERENCE,                          &
+    &                                   GRID_UNSTRUCTURED_CELL, ZA_ALTITUDE,                &
+    &                                   ZA_PRESSURE, GRID_REGULAR_LONLAT,                   &
+    &                                   GRID_UNSTRUCTURED_EDGE,                             &
+    &                                   DATATYPE_FLT32, DATATYPE_PACK16, ZA_ISENTROPIC,     &
     &                                   is_2d_field
   USE mo_linked_list,             ONLY: t_var_list, t_list_element, find_list_element
   USE mo_grid_config,             ONLY: n_dom
@@ -133,8 +132,6 @@ MODULE mo_pp_scheduler
     &                                   DEFAULT_PRIORITY2, DEFAULT_PRIORITY3,               &
     &                                   LOW_PRIORITY, dbg_level
   USE mo_fortran_tools,           ONLY: assign_if_present
-  USE mo_cf_convention,           ONLY: t_cf_var
-  USE mo_grib2,                   ONLY: t_grib2_var
 
 
   IMPLICIT NONE
@@ -353,19 +350,20 @@ CONTAINS
         task => pp_task_insert(DEFAULT_PRIORITY3)
         WRITE (task%job_name, *) "horizontal interp. ",TRIM(info%name),", ",prefix//"-levels", ", DOM ",jg
         IF (dbg_level > 8) CALL message(routine, task%job_name)
-        task%data_input%p_nh_state      => NULL()
-        task%data_input%prm_diag        => NULL()
-        task%data_input%nh_pzlev_config => NULL()
-        task%data_input%jg            =  jg           
-        task%data_input%p_patch       => p_patch(jg)
-        task%data_input%p_nh_opt_diag => p_nh_opt_diag(jg)
-        task%data_input%p_int_state   => p_int_state(jg)
-        task%job_type                 =  TASK_INTP_HOR_LONLAT
-        task%activity                 =  new_simulation_status(l_output_step=.TRUE.)
-        task%activity%ldom_active(jg) =  .TRUE.
-        task%data_input%var           => element%field       ! set input variable
-        task%data_output%var          => new_element%field   ! set output variable "u"
-        task%data_output%var_2        => new_element_2%field ! set output variable "v"
+        task%data_input%p_nh_state          => NULL()
+        task%data_input%prm_diag            => NULL()
+        task%data_input%nh_pzlev_config     => NULL()
+        task%data_input%jg                  =  jg           
+        task%data_input%p_patch             => p_patch(jg)
+        task%data_input%p_nh_opt_diag       => p_nh_opt_diag(jg)
+        task%data_input%p_int_state         => p_int_state(jg)
+        task%job_type                       =  TASK_INTP_HOR_LONLAT
+        task%activity                       =  new_simulation_status(l_output_step=.TRUE.)
+        task%activity%ldom_active(jg)       =  .TRUE.
+        task%activity%i_timelevel(jg)       =  get_var_timelevel(element%field)
+        task%data_input%var                 => element%field       ! set input variable
+        task%data_output%var                => new_element%field   ! set output variable "u"
+        task%data_output%var_2              => new_element_2%field ! set output variable "v"
       END DO
     END DO
     if (dbg_level > 5)  CALL message(routine, "Done")
@@ -607,15 +605,16 @@ CONTAINS
           task%data_input%p_nh_state      => NULL()
           task%data_input%prm_diag        => NULL()
           task%data_input%nh_pzlev_config => NULL()
-          task%data_input%jg            =  jg           
-          task%data_input%p_patch       => p_patch(jg)
-          task%data_input%p_nh_opt_diag => p_nh_opt_diag(jg)
-          task%data_input%p_int_state   => p_int_state(jg)
-          task%job_type                 =  TASK_INTP_HOR_LONLAT
-          task%activity                 =  new_simulation_status(l_output_step=.TRUE.)
-          task%activity%ldom_active(jg) =  .TRUE.
-          task%data_input%var           => element%field       ! set input variable
-          task%data_output%var          => new_element%field   ! set output variable
+          task%data_input%jg              =  jg           
+          task%data_input%p_patch         => p_patch(jg)
+          task%data_input%p_nh_opt_diag   => p_nh_opt_diag(jg)
+          task%data_input%p_int_state     => p_int_state(jg)
+          task%job_type                   =  TASK_INTP_HOR_LONLAT
+          task%activity                   =  new_simulation_status(l_output_step=.TRUE.)
+          task%activity%ldom_active(jg)   =  .TRUE.
+          task%activity%i_timelevel(jg)   =  get_var_timelevel(element%field)
+          task%data_input%var             => element%field       ! set input variable
+          task%data_output%var            => new_element%field   ! set output variable
           
           ! Flag. Denotes that at least one interpolation task has
           ! been created.
@@ -638,7 +637,8 @@ CONTAINS
       WRITE (task%job_name, *) "horizontal interp. SYNC"
       task%job_type = TASK_INTP_SYNC
       task%activity = new_simulation_status(l_output_step=.TRUE.)
-      task%activity%ldom_active(:) = .FALSE. ! i.e. no domain-wise (in-)activity 
+      task%activity%ldom_active(:)  = .FALSE. ! i.e. no domain-wise (in-)activity 
+      task%activity%i_timelevel(:)  = ALL_TIMELEVELS
     END IF
     IF (dbg_level > 5)  CALL message(routine, "Done")
     
@@ -817,8 +817,8 @@ CONTAINS
 
         !-- create a new z/p/i-variable "vn":
         CALL add_var( dst_varlist, TRIM(info%name), p_opt_field_r3d, element%field%info%hgrid,    &
-          &           dst_axis, element%field%info%cf, element%field%info%grib2, ldims=shape3d_e, &
-          &           vert_interp=element%field%info%vert_interp, new_element=vn_element )
+          &           dst_axis, info%cf, info%grib2, ldims=shape3d_e,                             &
+          &           vert_interp=info%vert_interp, new_element=vn_element )
          
         !-- create a post-processing task for vertical interpolation of "vn"
         task => pp_task_insert(DEFAULT_PRIORITY0)
@@ -829,6 +829,7 @@ CONTAINS
         task%job_type                    =  job_type
         task%activity                    =  new_simulation_status(l_output_step=.TRUE.)
         task%activity%ldom_active(jg)    =  .TRUE.
+        task%activity%i_timelevel(jg)    =  get_var_timelevel(element%field)
         task%data_input%jg               =  jg 
         task%data_input%p_patch          => p_patch(jg)          
         task%data_input%p_int_state      => p_int_state(jg)
@@ -874,6 +875,7 @@ CONTAINS
         task%job_type                   =  TASK_INTP_EDGE2CELL
         task%activity                   =  new_simulation_status(l_output_step=.TRUE.)
         task%activity%ldom_active(jg)   =  .TRUE.
+        task%activity%i_timelevel(jg)   =  get_var_timelevel(element%field)
         task%data_input%var             => vn_element%field    ! set input variable
         task%data_output%var            => new_element%field   ! set output variable
         task%data_output%var_2          => new_element_2%field ! set Y-component
@@ -1058,6 +1060,7 @@ CONTAINS
         task%data_input%nh_pzlev_config  => nh_pzlev_config(jg)
         task%activity     = new_simulation_status(l_output_step=.TRUE.)
         task%activity%ldom_active(jg)    = .TRUE.
+        task%activity%i_timelevel(jg)    = ALL_TIMELEVELS
         task%job_type                    = init_tasks(i)
         task%job_name                    = "Init: "//init_names(i)//"-level interpolation, DOM "//TRIM(int2string(jg))
       END DO
@@ -1065,7 +1068,8 @@ CONTAINS
       !-- register clean-up routine as a post-processing task
       task => pp_task_insert(LOW_PRIORITY)
       task%activity     = new_simulation_status(l_output_step=.TRUE.)
-      task%activity%ldom_active(jg) =  .TRUE.
+      task%activity%ldom_active(jg)    =  .TRUE.
+      task%activity%i_timelevel(jg)    =  ALL_TIMELEVELS
       task%data_input%p_nh_opt_diag => p_nh_opt_diag(jg)
       task%job_name     = "Clean-up: ipz-level interpolation, level "//TRIM(int2string(jg))
       task%job_type     = TASK_FINALIZE_IPZ
@@ -1209,6 +1213,7 @@ CONTAINS
               task%job_type                    =  job_type
               task%activity                    =  new_simulation_status(l_output_step=.TRUE.)
               task%activity%ldom_active(jg)    =  .TRUE.
+              task%activity%i_timelevel(jg)    =  get_var_timelevel(element%field)
               task%data_input%jg               =  jg 
               task%data_input%p_patch          => p_patch(jg)          
               task%data_input%p_int_state      => p_int_state(jg)
@@ -1292,6 +1297,7 @@ CONTAINS
     task%job_type                    =  job_type
     task%activity                    =  new_simulation_status(l_output_step=l_output_step)
     task%activity%ldom_active(jg)    =  .TRUE.
+    task%activity%i_timelevel(jg)    =  ALL_TIMELEVELS
 
   END SUBROUTINE pp_scheduler_register
 
@@ -1328,28 +1334,36 @@ CONTAINS
       END IF
 
       SELECT CASE ( ptr_task%job_type )
+
         ! initialize vertical interpolation:
       CASE ( TASK_INIT_VER_Z, TASK_INIT_VER_P, TASK_INIT_VER_I, &
            & TASK_FINALIZE_IPZ)
         CALL pp_task_ipzlev_setup(ptr_task)
+
         ! perform horizontal interpolation:
       CASE ( TASK_INTP_HOR_LONLAT )
         CALL pp_task_lonlat(ptr_task)
+
         ! perform vertical interpolation:
       CASE ( TASK_INTP_VER_PLEV, TASK_INTP_VER_ZLEV, TASK_INTP_VER_ILEV )
         CALL pp_task_ipzlev(ptr_task)
+
         ! synchronize halo regions:
       CASE ( TASK_INTP_SYNC )
-        CALL pp_task_sync()
+        CALL pp_task_sync(simulation_status)
+
         ! compute mean sea level pressure:
       CASE ( TASK_INTP_MSL )
         CALL pp_task_intp_msl(ptr_task)
+
         ! compute relative humidty
       CASE ( TASK_COMPUTE_RH )
         CALL pp_task_compute_field(ptr_task)
+
         ! vector reconstruction on cell centers:
       CASE ( TASK_INTP_EDGE2CELL )
         CALL pp_task_edge2cell(ptr_task)
+
       CASE DEFAULT
         CALL finish(routine, "Unknown post-processing job.")
       END SELECT
@@ -1388,18 +1402,12 @@ CONTAINS
 
   !---------------------------------------------------------------
   !> @return .TRUE. if given post-processing task is in active state.
-  !
-  ! @todo Many post-processing tasks are performed for multiple time
-  !       levels of the same variable, though only one of these time
-  !       levels is later used for output purposes. To avoid this 
-  !       unnecessary computation: Provide "nnow" as an additional
-  !       simulation_status argument [FP].
   ! 
   ! Tasks may be inactive, e.g. outside the output intervals.
-  FUNCTION pp_task_is_active(ptr_task, simulation_status)
+  FUNCTION pp_task_is_active(ptr_task, sim_status)
     LOGICAL :: pp_task_is_active
     TYPE(t_job_queue), POINTER :: ptr_task
-    TYPE(t_simulation_status),  INTENT(IN) :: simulation_status
+    TYPE(t_simulation_status),  INTENT(IN) :: sim_status
 
     INTEGER :: i
 
@@ -1408,14 +1416,25 @@ CONTAINS
     ! fulfilled:
     pp_task_is_active = .FALSE.
     IF (ANY(ptr_task%activity%status_flags(:)  .AND.  &
-      &     simulation_status%status_flags(:))) pp_task_is_active = .TRUE.
+      &     sim_status%status_flags(:))) pp_task_is_active = .TRUE.
 
     ! check, if current task applies only to domains which are
     ! "active":
     DO i=1,n_dom
       IF (ptr_task%activity%ldom_active(i) .AND. &
-        & .NOT. simulation_status%ldom_active(i)) THEN
+        & .NOT. sim_status%ldom_active(i)) THEN
         pp_task_is_active = .FALSE.
+      END IF
+    END DO
+
+    ! check, if current task matches the variable time level (TL1,
+    ! TL2, ...) of the simulation status:
+    DO i=1,n_dom
+      IF (ptr_task%activity%ldom_active(i)) THEN
+        IF  ((ptr_task%activity%i_timelevel(i) /= ALL_TIMELEVELS) .AND.  &
+          &  (ptr_task%activity%i_timelevel(i) /= sim_status%i_timelevel(i))) THEN
+          pp_task_is_active = .FALSE.
+        END IF
       END IF
     END DO
 
@@ -1433,8 +1452,7 @@ CONTAINS
     TYPE(t_job_queue), POINTER :: tmp, nb_left
     INTEGER                    :: ierrstat
 
-    IF (dbg_level > 5) &
-         & CALL message(routine, "Inserting pp task")
+    IF (dbg_level > 5)  CALL message(routine, "Inserting pp task")
     
     ! find the correct position in list:
     tmp     => job_queue
@@ -1456,8 +1474,9 @@ CONTAINS
       element => job_queue
     END IF
     ! fill new list element with data
-    element%job_priority =  job_priority
-    element%next         => tmp
+    element%job_priority            =  job_priority
+    element%next                    => tmp
+    element%activity%i_timelevel(:) =  UNDEF_TIMELEVEL
   END FUNCTION pp_task_insert
 
 
@@ -1467,7 +1486,7 @@ CONTAINS
   ! 
   ! Fills data structure with default values (unless set otherwise).
   FUNCTION new_simulation_status(l_output_step, l_first_step, l_last_step, &
-    &                            l_dom_active, iactive_timelevel)  &
+    &                            l_dom_active, i_timelevel)  &
     RESULT(sim_status)
 
     TYPE(t_simulation_status) :: sim_status
@@ -1476,7 +1495,7 @@ CONTAINS
     LOGICAL, INTENT(IN), OPTIONAL      :: &
       &  l_dom_active(:)
     INTEGER, INTENT(IN), OPTIONAL      :: &
-      &  iactive_timelevel
+      &  i_timelevel(:)
     ! local variables
     INTEGER :: ndom
 
@@ -1497,8 +1516,8 @@ CONTAINS
     END IF
 
     ! as a default, no special timelevel is set for (in-)activity:
-    sim_status%iactive_timelevel = -1
-    CALL assign_if_present(sim_status%iactive_timelevel, iactive_timelevel)
+    sim_status%i_timelevel(:) = ALL_TIMELEVELS
+    CALL assign_if_present(sim_status%i_timelevel, i_timelevel)
 
   END FUNCTION new_simulation_status
 

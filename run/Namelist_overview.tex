@@ -3021,8 +3021,15 @@ L&.FALSE.& &
 C&None& &
  Output filename prefix (which may include path).
  Domain number, level type, file number and extension will be added,
- so specifying 'XXX' for output\_filename you will end up in a name
- like XXX\_DOM01\_ML\_0001.nc
+ according to the format given in namelist parameter ``filename\_format''.
+&
+\tabularnewline
+
+\hline
+ filename\_format &
+C&see description.& &
+ Output filename format. Includes keywords \texttt{path}, \texttt{output\_filename}, \texttt{physdom}, \texttt{levtype}, \texttt{jfile}.
+ Default is \texttt{<output\_filename>\_DOM<physdom>\_<levtype>\_<jfile>}
 &
 \tabularnewline
 
@@ -3102,8 +3109,7 @@ R&None& K &
 \hline
  remap &
 I&0& &
- interpolate horizontally, 0: none, 1: to regular lat-lon grid, 2: to Gaussian grids, (3:...) \\
- {\color{red} Currently only 0 and 1 are implemented.}
+ interpolate horizontally, 0: none, 1: to regular lat-lon grid
 &
 \tabularnewline
 
@@ -3118,14 +3124,6 @@ R&None& &
  reg\_lat\_def(3) &
 R&None& &
  if remap=1: start, increment, end latitude in degrees
-&
-\tabularnewline
-
-\hline
- gauss\_tgrid\_def &
-I&None& &
- if remap=2: triangular truncation (e.g.63 for T63) for which the Gauss grid should be used \\
- {\color{red} Currently unused since Gaussian grids are not implemented.}
 &
 \tabularnewline
 
@@ -4138,6 +4136,14 @@ L&
 .FALSE.&
 &
 .TRUE. for use of multi-layer snow model&
+\tabularnewline
+
+\hline
+max\_toplaydepth &
+R &
+0.25&
+m &
+maximum depth of uppermost snow layer & lmulti\_snow=.TRUE.
 \tabularnewline
 
 \hline 

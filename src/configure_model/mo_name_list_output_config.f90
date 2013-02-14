@@ -88,37 +88,69 @@ MODULE mo_name_list_output_config
 
   TYPE t_output_name_list
 
-    INTEGER  :: filetype            ! One of CDI's FILETYPE_XXX constants
-    CHARACTER(LEN=8) :: namespace   ! 'DWD' - DWD short names (or 'MPIM', 'CMIP', 'ECMWF')
-    INTEGER  :: mode                ! 1 = forecast mode, 2 = climate mode
-    INTEGER  :: taxis_tunit         ! 1 = TUNIT_SECOND, 2 = TUNIT_MINUTE, 3 TUNIT_HOUR ...  
-                                    ! (see cdi.inc)
-    INTEGER  :: dom(max_phys_dom)   ! domains for which this namelist is used, ending with -1
-    INTEGER  :: output_time_unit    ! 1 = second, 2=minute, 3=hour, 4=day, 5=month, 6=year
-    REAL(wp) :: output_bounds(3,max_bounds) ! post-processing times in units defined by output_time_unit: start, end, increment
-    INTEGER  :: steps_per_file      ! Max number of output steps in one output file
-    LOGICAL  :: include_last        ! Flag whether to include the last timestep in output
-    LOGICAL  :: output_grid         ! Flag whether grid information is output (in NetCDF output)
+    ! --------------------
+    ! file name and format
+    ! --------------------
+
+    INTEGER                     :: filetype          ! One of CDI's FILETYPE_XXX constants
     CHARACTER(LEN=filename_max) :: output_filename   ! output filename prefix
-    LOGICAL  :: lwrite_ready        ! Flag. TRUE if a "ready file" (sentinel file) should be written at the end of each output stage
-    CHARACTER(LEN=filename_max) :: ready_directory        ! output directory for ready files
+    CHARACTER(LEN=filename_max) :: filename_format   ! output filename format (contains keywords <physdom>,<levtype> etc.)
+
+    ! --------------------
+    ! general settings
+    ! --------------------
+
+    CHARACTER(LEN=8) :: namespace                   ! 'DWD' - DWD short names (or 'MPIM', 'CMIP', 'ECMWF')
+    INTEGER          :: mode                        ! 1 = forecast mode, 2 = climate mode
+    INTEGER          :: dom(max_phys_dom)           ! domains for which this namelist is used, ending with -1
+    INTEGER          :: output_time_unit            ! 1 = second, 2=minute, 3=hour, 4=day, 5=month, 6=year
+    INTEGER          :: steps_per_file              ! Max number of output steps in one output file
+    LOGICAL          :: include_last                ! Flag whether to include the last timestep in output
+    LOGICAL          :: output_grid                 ! Flag whether grid information is output (in NetCDF output)
+
+    ! post-processing times in units defined by output_time_unit: start, end, increment:
+    REAL(wp)         :: output_bounds(3,max_bounds) 
+
+    INTEGER          :: taxis_tunit   ! 1 = TUNIT_SECOND, 2 = TUNIT_MINUTE, 3 TUNIT_HOUR ... (see cdi.inc)
+
+    ! --------------------
+    ! ready file handling
+    ! --------------------
+
+    LOGICAL                     :: lwrite_ready     ! Flag. TRUE if a "ready file" (sentinel file) should be written
+    CHARACTER(LEN=filename_max) :: ready_directory  ! output directory for ready files
+
+    ! --------------------
+    ! variable lists
+    ! --------------------
+
     CHARACTER(LEN=vname_len)  :: ml_varlist(max_var_ml)   ! name of model level fields (translation to model by namespace)
     CHARACTER(LEN=vname_len)  :: pl_varlist(max_var_pl)   ! name of pressure level fields (translation to model by namespace)
-    REAL(wp) :: p_levels(max_levels)                      ! pressure levels [hPa]
     CHARACTER(LEN=vname_len)  :: hl_varlist(max_var_hl)   ! name of height level fields
-    REAL(wp) :: h_levels(max_levels)                      ! height levels
     CHARACTER(LEN=vname_len)  :: il_varlist(max_var_hl)   ! name of isentropic level fields
-    REAL(wp) :: i_levels(max_levels)                      ! isentropic levels
-    INTEGER  :: remap               ! interpolate horizontally, 0: none, 1: to regular lat-lon grid, 2: to Gaussian grids, (3:...)
-    LOGICAL  :: remap_internal      ! do interpolations online in the model or external (including triggering)
-    
-    INTEGER  :: lonlat_id     ! if remap=1: index of lon-lat-grid in global list "lonlat_grid_list"
 
-    INTEGER  :: gauss_tgrid_def     ! if remap=2: triangular truncation (e.g.63 for T63) for which the Gauss grid should be used
+    ! --------------------
+    ! horizontal interpol.
+    ! --------------------
 
+    INTEGER  :: remap                 ! interpolate horizontally, 0: none, 1: to regular lat-lon grid, 2: to Gaussian grids, (3:...)
+    LOGICAL  :: remap_internal        ! do interpolations online in the model or external (including triggering)
+    INTEGER  :: lonlat_id             ! if remap=1: index of lon-lat-grid in global list "lonlat_grid_list"
+
+    ! --------------------
+    ! vertical interpol.
+    ! --------------------
+
+    REAL(wp) :: p_levels(max_levels)  ! pressure levels [hPa]
+    REAL(wp) :: h_levels(max_levels)  ! height levels
+    REAL(wp) :: i_levels(max_levels)  ! isentropic levels
+
+    ! -------------------------------------
     ! Internal members, not read from input
-    INTEGER  :: cur_bounds_triple   ! current output_bounds triple in use
-    REAL(wp) :: next_output_time    ! next output time (in seconds simulation time)
+    ! -------------------------------------
+
+    INTEGER  :: cur_bounds_triple     ! current output_bounds triple in use
+    REAL(wp) :: next_output_time      ! next output time (in seconds simulation time)
     INTEGER  :: n_output_steps
     TYPE(t_output_name_list), POINTER :: next ! Pointer to next output_name_list
 
@@ -129,7 +161,8 @@ MODULE mo_name_list_output_config
 
   !------------------------------------------------------------------------------------------------
 
-  ! Unfortunately, Fortran does not allow arrays of pointers, so we have to define extra types
+  ! Unfortunately, Fortran does not allow arrays of pointers, so we
+  ! have to define extra types
   TYPE t_rptr_5d
     REAL(wp), POINTER :: p(:,:,:,:,:)
   END TYPE
@@ -157,7 +190,7 @@ MODULE mo_name_list_output_config
     REAL(wp)                    :: start_time    ! start time of model domain
     REAL(wp)                    :: end_time      ! end time of model domain
     LOGICAL                     :: initialized   ! .TRUE. if vlist setup has already been called
-
+    INTEGER                     :: ilev_type     ! level type: level_type_ml/level_type_pl/level_type_hl/level_type_il
     INTEGER                     :: max_vars      ! maximum number of variables allocated
     INTEGER                     :: num_vars      ! number of variables in use
     TYPE(t_var_desc),ALLOCATABLE :: var_desc(:)
