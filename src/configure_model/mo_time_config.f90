@@ -45,12 +45,14 @@ MODULE mo_time_config
 
   USE mo_kind,                  ONLY: wp
   USE mo_datetime,              ONLY: t_datetime
+  USE mo_impl_constants,        ONLY: max_dom
  
   IMPLICIT NONE
   PRIVATE
   PUBLIC :: t_time_config, time_config, restart_experiment
 
-  CHARACTER(len=*), PARAMETER, PRIVATE :: version = '$Id$'
+  CHARACTER(len=*), PARAMETER, PRIVATE :: &
+    &  version = '$Id$'
 
   !>
   !! Derived type containing information for time control. 
@@ -59,14 +61,16 @@ MODULE mo_time_config
 
     ! from namelist 
 
-    REAL(wp) :: dt_restart    !< Length of restart cycle in seconds
-    INTEGER  :: calendar      !< calendar type
+    REAL(wp)         :: dt_restart         !< Length of restart cycle in seconds
+    INTEGER          :: calendar           !< calendar type
 
     ! not directly from namelist  
 
-    TYPE(t_datetime) :: ini_datetime  !< Starting time of model integration
-    TYPE(t_datetime) :: end_datetime  !< Ending   time of model integration
-    TYPE(t_datetime) :: cur_datetime  !< Current  time model time 
+    TYPE(t_datetime) :: ini_datetime       !< Starting time of model integration
+    TYPE(t_datetime) :: end_datetime       !< Ending   time of model integration
+    TYPE(t_datetime) :: cur_datetime       !< Current  time model time 
+
+    REAL(wp)         :: sim_time(max_dom)  !< elapsed simulation time (may locally differ between domains!)
  
   END TYPE t_time_config
   !>
