@@ -49,7 +49,7 @@ MODULE mo_pp_tasks
     & TASK_INTP_HOR_LONLAT, TASK_INTP_VER_PLEV, TASK_INTP_SYNC,       &
     & TASK_COMPUTE_RH, TASK_INTP_VER_ZLEV, TASK_INTP_VER_ILEV,        &
     & PRES_MSL_METHOD_SAI, PRES_MSL_METHOD_GME, max_dom,              &
-    & HINTP_TYPE_LONLAT_NNB
+    & HINTP_TYPE_LONLAT_NNB, ALL_TIMELEVELS
   USE mo_model_domain,            ONLY: t_patch, p_patch
   USE mo_var_list_element,        ONLY: t_var_list_element, level_type_ml,  &
     &                                   level_type_pl, level_type_hl
@@ -420,7 +420,8 @@ CONTAINS
         p_patch     => ptr_task%data_input%p_patch
         jg          =  p_patch%id
         
-        IF (ptr_task%activity%i_timelevel(jg) == sim_status%i_timelevel(jg))  THEN
+        IF ((ptr_task%activity%i_timelevel(jg) == sim_status%i_timelevel(jg)) .OR.  &
+          & (ptr_task%activity%i_timelevel(jg) == ALL_TIMELEVELS))  THEN
           p_info      => ptr_task%data_input%var%info
           in_var      => ptr_task%data_input%var
           in_var_idx  =  1
