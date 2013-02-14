@@ -81,7 +81,7 @@ MODULE mo_name_list_output
     &                                 msg_level, output_mode, ltestcase
   USE mo_nh_pzlev_config,       ONLY: nh_pzlev_config
   USE mo_lnd_nwp_config,        ONLY: nlev_snow
-  USE mo_datetime,              ONLY: t_datetime
+  USE mo_datetime,              ONLY: t_datetime, cly360day_to_date
   USE mo_time_config,           ONLY: time_config
   USE mo_lonlat_grid,           ONLY: t_lon_lat_grid, compute_lonlat_specs
   USE mo_intp_data_strc,        ONLY: t_lon_lat_intp,                         &
@@ -3009,15 +3009,18 @@ CONTAINS
   !> open_output_file:
   !  Opens a output file and sets its vlist
   !
-  SUBROUTINE open_output_file(of, jfile)
+  SUBROUTINE open_output_file(of, jfile, sim_time)
 
     TYPE(t_output_file), INTENT(INOUT) :: of
-    INTEGER,             INTENT(IN)    :: jfile ! Number of file set to open
+    INTEGER,             INTENT(IN)    :: jfile    !< Number of file set to open
+    REAL(wp),            intent(IN)    :: sim_time !< elapsed simulation time
     ! local variables:
     CHARACTER(LEN=*), PARAMETER       :: routine = 'mo_name_list_output/open_output_file'
     CHARACTER(LEN=16)                 :: extn
     TYPE (t_keyword_list), POINTER    :: keywords => NULL()
     CHARACTER(len=MAX_STRING_LEN)     :: cfilename
+    CHARACTER(len=8)                  :: ddhhmmss_str
+    TYPE (t_datetime)                 :: rel_fct_time
 
     ! Please note that this routine is only executed on one processor (for a specific file)
     ! and thus all calls to message get the all_print=.TRUE. argument so that the messages
@@ -3041,12 +3044,20 @@ CONTAINS
       CALL finish(routine,'unknown output_type')
     END SELECT
 
+    ! generate DDHHMMSS forecast time string (elapsed time)
+    rel_fct_time%calday  = 0
+    rel_fct_time%caltime = sim_time/86400._wp
+    CALL cly360day_to_date(rel_fct_time)
+    WRITE (ddhhmmss_str,"(i2.2,i2.2,i2.2,i2.2)") (rel_fct_time%day-1), rel_fct_time%hour, &
+      &                                           rel_fct_time%minute, INT(rel_fct_time%second)
+
     ! Set actual output file name (insert keywords):
     CALL associate_keyword("<path>",            TRIM(model_base_dir),                         keywords)
     CALL associate_keyword("<output_filename>", TRIM(of%filename_pref),                       keywords)
     CALL associate_keyword("<physdom>",         TRIM(int2string(of%phys_patch_id, "(i2.2)")), keywords)
     CALL associate_keyword("<levtype>",         TRIM(lev_type_str(of%ilev_type)),             keywords)
     CALL associate_keyword("<jfile>",           TRIM(int2string(jfile, "(i4.4)")),            keywords)
+    CALL associate_keyword("<ddhhmmss>",        TRIM(ddhhmmss_str),                           keywords)
     cfilename = TRIM(with_keywords(keywords, of%name_list%filename_format))
 
     IF(my_process_is_mpi_test()) THEN
@@ -3247,7 +3258,7 @@ CONTAINS
             IF(.NOT. lnewly_initialized) THEN
               CALL close_output_file(output_file(i))
             ENDIF
-            CALL open_output_file(output_file(i),p_onl%n_output_steps/p_onl%steps_per_file+1)
+            CALL open_output_file(output_file(i),p_onl%n_output_steps/p_onl%steps_per_file+1, sim_time)
           ENDIF
         ENDIF
 
