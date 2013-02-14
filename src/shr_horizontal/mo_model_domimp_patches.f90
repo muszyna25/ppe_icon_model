@@ -2197,8 +2197,13 @@ CONTAINS
       DO jl = 1, nlen
         il  = jl + ( jb - 1 )*nproma
         idx_in = p_idx_array_in(il)
-        blk = ( ABS(idx_in) - 1 ) / nproma + 1
-        idx = SIGN( ABS(idx_in) - ( blk - 1 )*nproma, idx_in )
+        IF (idx_in /= 0) THEN
+          blk = ( ABS(idx_in) - 1 ) / nproma + 1
+          idx = SIGN( ABS(idx_in) - ( blk - 1 )*nproma, idx_in )
+        ELSE
+          blk = 0
+          idx = 0
+        ENDIF
         p_reshaped_idx_array_out(jl,jb) = idx
         p_reshaped_blk_array_out(jl,jb) = blk
       END DO
