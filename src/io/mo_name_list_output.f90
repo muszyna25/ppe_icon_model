@@ -117,6 +117,7 @@ MODULE mo_name_list_output
   USE mo_dictionary,          ONLY: t_dictionary, dict_init, dict_finalize, &
     &                               dict_loadfile, dict_get, DICT_MAX_STRLEN
   USE mo_fortran_tools,       ONLY: assign_if_present
+  USE mo_io_units,            ONLY: find_next_free_unit
 
 
   IMPLICIT NONE
@@ -617,8 +618,7 @@ CONTAINS
   !> Looks for variable groups ("group:xyz") and replaces them
   !
   SUBROUTINE parse_variable_groups()
-    CHARACTER(LEN=*), PARAMETER :: routine = &
-      &  TRIM('mo_name_list_output/parse_variable_groups')
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//"::parse_variable_groups"
     !
     CHARACTER(LEN=VARNAME_LEN), ALLOCATABLE :: varlist(:), grp_vars(:), new_varlist(:)
     CHARACTER(LEN=VARNAME_LEN) :: vname, grp_name
@@ -720,8 +720,7 @@ CONTAINS
     INTEGER, OPTIONAL, INTENT(in) :: isample
 
     ! local variables:
-    CHARACTER(LEN=*), PARAMETER :: routine = &
-      &  TRIM('mo_name_list_output/init_name_list_output')
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//"::init_name_list_output"
     
     LOGICAL                            :: l_print_list ! Flag. Enables  a list of all variables
     INTEGER                            :: i, j, nfiles, i_typ, nvl, vl_list(max_var_lists), jp
@@ -1121,7 +1120,7 @@ CONTAINS
     TYPE(t_var_desc), TARGET  ::  var_desc   !< variable descriptor
     TYPE(t_var_desc), POINTER ::  p_var_desc               !< variable descriptor (pointer)
 
-    CHARACTER(LEN=*), PARAMETER :: routine = 'mo_name_list_output/add_varlist_to_output_file'
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//"::add_varlist_to_output_file"
 
     ! Get the number of variables in varlist
     DO ivar = 1, SIZE(varlist)
@@ -1278,7 +1277,7 @@ CONTAINS
 
     INTEGER :: jp, jl, ierrstat, jg
 
-    CHARACTER(LEN=*), PARAMETER :: routine = 'mo_name_list_output/set_patch_info'
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//"::set_patch_info"
 
     DO jp = 1, n_dom_out
 
@@ -1358,7 +1357,7 @@ CONTAINS
     INTEGER,                          INTENT(IN)    :: dim3
     TYPE(t_comm_pattern),  POINTER                  :: p_pat
     ! local variables
-    CHARACTER(LEN=*), PARAMETER :: routine  =  TRIM('mo_name_list_output/collect_grid_info')
+    CHARACTER(LEN=*), PARAMETER :: routine  =  modname//"::collect_grid_info"
     INTEGER               :: ierrstat, jb, jc, idim
     REAL(wp), ALLOCATABLE :: r_tmp_lon(:,:), r_tmp_lat(:,:)
 
@@ -1652,7 +1651,7 @@ CONTAINS
     LOGICAL, ALLOCATABLE :: phys_owner_mask(:) ! owner mask for physical patch
     INTEGER, ALLOCATABLE :: glbidx_own(:), glbidx_glb(:), reorder_index_log_dom(:)
 
-    CHARACTER(LEN=*), PARAMETER :: routine = 'mo_name_list_output/set_reorder_info'
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//"::set_reorder_info"
 
     ! Just for safety
     IF(my_process_is_io()) CALL finish(routine, 'Must not be called on IO PEs')
@@ -1787,8 +1786,7 @@ CONTAINS
     TYPE(t_lon_lat_intp), INTENT(IN)    :: intp
     TYPE(t_reorder_info), INTENT(INOUT) :: p_ri ! Result: reorder info
 
-    CHARACTER(LEN=*), PARAMETER :: routine = &
-      &   'mo_name_list_output/set_reorder_info_lonlat'
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//"::set_reorder_info_lonlat"
     INTEGER :: ierrstat, i, jc, jb, this_pe, mpierr, & 
     &          ioffset, gidx
 
@@ -1876,7 +1874,7 @@ CONTAINS
   SUBROUTINE setup_output_vlist(of)
     TYPE(t_output_file), INTENT(INOUT) :: of
     ! local variables
-    CHARACTER(LEN=*), PARAMETER   :: routine = TRIM('mo_name_list_output/setup_output_vlist')
+    CHARACTER(LEN=*), PARAMETER   :: routine = modname//"::setup_output_vlist"
     INTEGER                       :: k, nlev, nlevp1, nplev, nzlev, nilev, nzlevp1, znlev_soil, &
       &                              i_dom, ll_dim(2), gridtype, idate, itime
     REAL(wp), ALLOCATABLE         :: levels_i(:), levels_m(:), p_lonlat(:)
@@ -2368,7 +2366,7 @@ CONTAINS
 
     TYPE (t_output_file), INTENT(IN) :: of
 
-    CHARACTER(LEN=*), PARAMETER :: routine = 'mo_name_list_output/set_grid_info_netcdf'
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//"::set_grid_info_netcdf"
     INTEGER :: idom
 
     idom  = of%phys_patch_id
@@ -2400,7 +2398,7 @@ CONTAINS
   SUBROUTINE set_grid_info_grb2(of)
     TYPE (t_output_file), INTENT(INOUT) :: of
     ! local variables:
-    CHARACTER(LEN=*), PARAMETER :: routine = 'mo_name_list_output/set_grid_info_grb'
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//"::set_grid_info_grb"
     CHARACTER(LEN=4), PARAMETER :: grid_coord_name(2) = (/ "RLON", "RLAT" /)
     TYPE (t_grib2_var), PARAMETER :: grid_coord_grib2(2) = (/  &
       ! geographical longitude RLON
@@ -2480,7 +2478,7 @@ CONTAINS
   SUBROUTINE write_grid_info_grb2(of)
     TYPE (t_output_file), INTENT(INOUT) :: of
     ! local variables:
-    CHARACTER(LEN=*), PARAMETER :: routine = TRIM('mo_name_list_output/write_grid_info_grb2')
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//"::write_grid_info_grb2"
 
     TYPE t_grid_info_ptr
       TYPE (t_grid_info), POINTER :: ptr
@@ -2561,7 +2559,7 @@ CONTAINS
     REAL(wp), ALLOCATABLE :: elon(:), elat(:), elonv(:,:), elatv(:,:)
     REAL(wp), ALLOCATABLE :: vlon(:), vlat(:), vlonv(:,:), vlatv(:,:)
 
-    CHARACTER(LEN=*), PARAMETER :: routine = 'mo_name_list_output/copy_grid_info'
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//"::copy_grid_info"
 
     i_dom = of%phys_patch_id
 
@@ -2878,7 +2876,7 @@ CONTAINS
   SUBROUTINE add_variables_to_vlist(of)
     TYPE (t_output_file), INTENT(IN), TARGET :: of
     ! local variables:
-    CHARACTER(LEN=*), PARAMETER :: routine = 'mo_name_list_output/add_variables_to_vlist'
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//"::add_variables_to_vlist"
     TYPE (t_var_metadata), POINTER :: info
     INTEGER                        :: iv, vlistID, varID, gridID, &
       &                               zaxisID, nlev, nlevp1
@@ -2992,7 +2990,7 @@ CONTAINS
   FUNCTION get_id(in_str)
     INTEGER                      :: get_id, iname
     CHARACTER(LEN=*), INTENT(IN) :: in_str
-    CHARACTER(*), PARAMETER :: routine = TRIM("mo_name_list_output:get_id")
+    CHARACTER(*), PARAMETER :: routine = modname//"::get_id"
 
     get_id = -1
     LOOP_GROUPS : DO iname=1,SIZE(sfs_name_list)
@@ -3015,9 +3013,10 @@ CONTAINS
     INTEGER,             INTENT(IN)    :: jfile    !< Number of file set to open
     REAL(wp),            intent(IN)    :: sim_time !< elapsed simulation time
     ! local variables:
-    CHARACTER(LEN=*), PARAMETER       :: routine = 'mo_name_list_output/open_output_file'
+    CHARACTER(LEN=*), PARAMETER       :: routine = modname//"::open_output_file"
     CHARACTER(LEN=16)                 :: extn
-    TYPE (t_keyword_list), POINTER    :: keywords => NULL()
+    TYPE (t_keyword_list), POINTER    :: keywords     => NULL()
+    TYPE (t_keyword_list), POINTER    :: rdy_keywords => NULL()
     CHARACTER(len=MAX_STRING_LEN)     :: cfilename
     CHARACTER(len=8)                  :: ddhhmmss_str
     TYPE (t_datetime)                 :: rel_fct_time
@@ -3065,6 +3064,19 @@ CONTAINS
     ELSE
       WRITE(of%filename,'(a,a)') TRIM(cfilename),TRIM(extn)
     ENDIF
+
+    IF (of%name_list%lwrite_ready) THEN
+      ! generate filename of ready file by stripping output filename from path,
+      ! adding ready file directory prefix and file extension ".rdy":
+      CALL associate_keyword("<path>",            TRIM(of%name_list%ready_directory),           rdy_keywords)
+      CALL associate_keyword("<output_filename>", TRIM(of%filename_pref),                       rdy_keywords)
+      CALL associate_keyword("<physdom>",         TRIM(int2string(of%phys_patch_id, "(i2.2)")), rdy_keywords)
+      CALL associate_keyword("<levtype>",         TRIM(lev_type_str(of%ilev_type)),             rdy_keywords)
+      CALL associate_keyword("<jfile>",           TRIM(int2string(jfile, "(i4.4)")),            rdy_keywords)
+      CALL associate_keyword("<ddhhmmss>",        TRIM(ddhhmmss_str),                           rdy_keywords)
+      cfilename = TRIM(with_keywords(rdy_keywords, of%name_list%filename_format))
+      WRITE (of%rdy_filename, '(a,".rdy")') TRIM(cfilename)
+    END IF
 
     ! open file:
     of%cdiFileID = streamOpenWrite(TRIM(of%filename), of%output_type)
@@ -3129,15 +3141,50 @@ CONTAINS
 
 
   !------------------------------------------------------------------------------------------------
+  !> Create a "ready file"
+  !
+  !  A "ready file" is a technique for handling dependencies between
+  !  the NWP processes at DWD: When a program - parallel or
+  !  sequential, shell script or binary - produces some output which
+  !  is necessary for other running applications, then the completion
+  !  of the write process signals this by creating a small file (size:
+  !  a few bytes). Only when this file exists, the second program
+  !  starts reading its input data. Implicity, this assumes that a
+  !  file system creates (and closes) files in the same order as they
+  !  are written by the program.
+  ! 
+  !  Implementation of "ready files" in ICON:
+  ! 
+  !   "Ready files" get the name of the corresponding output file,
+  !   with extension ".rdy".
+  !
+  SUBROUTINE write_ready_file(of)
+    TYPE (t_output_file), INTENT(IN) :: of
+    ! local variables
+    CHARACTER(LEN=*), PARAMETER   :: routine = modname//"::write_ready_file"
+    INTEGER                       :: iunit, idx
+
+    IF (msg_level >= 6) THEN
+      WRITE (message_text,*) "Write ready file ", TRIM(of%rdy_filename)
+      CALL message(routine,message_text)
+    END IF
+
+    ! actually create ready file:
+    iunit = find_next_free_unit(10,20)
+    OPEN (iunit, file=TRIM(of%rdy_filename), form='formatted')
+    WRITE(iunit, '(A)') 'ready'
+    CLOSE(iunit)
+  END SUBROUTINE write_ready_file
+
+
+  !------------------------------------------------------------------------------------------------
   !> Close output stream and the associated file,
   !  destroy all vlist related data for this file
   !
   SUBROUTINE close_output_file(of)
-
     TYPE (t_output_file), INTENT(INOUT) :: of
-
-    CHARACTER(LEN=*), PARAMETER :: routine = &
-      & TRIM('mo_name_list_output/close_output_file')
+    ! local variables
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//"::close_output_file"
     LOGICAL :: is_output_process
 
     ! GRB2 format: define geographical longitude, latitude as special
@@ -3153,10 +3200,12 @@ CONTAINS
       END IF
       
       CALL streamClose(of%cdiFileID)
+
+      ! write a "ready file", if required:
+      IF (of%name_list%lwrite_ready)  CALL write_ready_file(of)
     END IF
 
     of%cdiFileID = CDI_UNDEFID
-
   END SUBROUTINE close_output_file
 
 
@@ -3165,11 +3214,9 @@ CONTAINS
   !  destroy all vlist related data for this file
   !
   SUBROUTINE destroy_output_vlist(of)
-
     TYPE (t_output_file), INTENT(INOUT) :: of
-
+    ! local variables
     INTEGER :: j, vlistID
-
 
     vlistID = of%cdiVlistID
     IF(vlistID /= CDI_UNDEFID) THEN
@@ -3205,12 +3252,14 @@ CONTAINS
     TYPE(t_datetime), INTENT(in) :: datetime
     REAL(wp), INTENT(in)         :: sim_time
     LOGICAL, INTENT(IN)          :: last_step
-
-    INTEGER :: i, idate, itime, iret, n, jg
-    TYPE(t_output_name_list), POINTER :: p_onl
-    CHARACTER(LEN=filename_max+100) :: text
+    ! local variables
+    CHARACTER(LEN=*), PARAMETER  :: routine = modname//"::write_name_list_output"
     REAL(wp), PARAMETER :: eps = 1.d-10 ! Tolerance for checking output bounds
-    LOGICAL :: lnewly_initialized = .FALSE.
+
+    INTEGER                           :: i, idate, itime, iret, n, jg
+    TYPE(t_output_name_list), POINTER :: p_onl
+    CHARACTER(LEN=filename_max+100)   :: text
+    LOGICAL                           :: lnewly_initialized = .FALSE.
 
     IF (ltimer) CALL timer_start(timer_write_output)
     ! If asynchronous I/O is enabled, the compute PEs have to make sure
@@ -3289,7 +3338,7 @@ CONTAINS
           WRITE(text,'(a,a,a,1pg15.9,a,i6)') &
             'Output to ',TRIM(output_file(i)%filename),' at simulation time ',sim_time, &
              ' by PE ',p_pe
-          CALL message('mo_name_list_output',text,all_print=.TRUE.)
+          CALL message(routine, text,all_print=.TRUE.)
 #endif
 
         ENDIF
@@ -3384,7 +3433,7 @@ CONTAINS
     TYPE (t_output_file), INTENT(INOUT), TARGET :: of
     LOGICAL,              INTENT(IN)            :: l_first_write
     ! local variables:
-    CHARACTER(LEN=*), PARAMETER    :: routine = 'mo_name_list_output/write_name_list'
+    CHARACTER(LEN=*), PARAMETER    :: routine = modname//"::write_name_list"
     REAL(wp),         PARAMETER    :: SYNC_ERROR_PRINT_TOL = 1e-13_wp
     INTEGER,          PARAMETER    :: iUNKNOWN = 0
     INTEGER,          PARAMETER    :: iINTEGER = 1
@@ -3954,7 +4003,7 @@ CONTAINS
     CHARACTER(LEN=256) :: var_list_name
     INTEGER :: idom, ierrstat, dim_c, dim_e, dim_v
 
-    CHARACTER(len=*), PARAMETER :: routine = 'mo_name_list_output/replicate_data_on_io_procs'
+    CHARACTER(len=*), PARAMETER :: routine = modname//"::replicate_data_on_io_procs"
 
     ! There is nothing to do for the test PE:
     IF(my_process_is_mpi_test()) RETURN
@@ -4164,7 +4213,7 @@ CONTAINS
     TYPE(c_ptr) :: c_mem_ptr
 #endif
 
-    CHARACTER(LEN=*), PARAMETER :: routine = 'mo_name_list_output/init_async_name_list_output'
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//"::init_async_name_list_output"
     INTEGER :: i_log_dom, n_own, lonlat_id
 
     ! There is nothing to do for the test PE:
@@ -4344,7 +4393,7 @@ CONTAINS
     TYPE (t_output_file), INTENT(IN), TARGET :: of
     LOGICAL, INTENT(IN) :: l_first_write
 
-    CHARACTER(LEN=*), PARAMETER :: routine = 'mo_name_list_output/io_proc_write_name_list'
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//"::io_proc_write_name_list"
 
     INTEGER nval, nlev_max, iv, jk, i, nlevs, mpierr, nv_off, np, i_dom, &
       &     lonlat_id, i_log_dom, ierrstat
@@ -4647,7 +4696,7 @@ CONTAINS
 
     CASE DEFAULT
       ! Anything else is an error
-      CALL finish(modname,'I/O PE: Got illegal I/O tag')
+      CALL finish(modname, 'I/O PE: Got illegal I/O tag')
 
     END SELECT
 
@@ -4669,7 +4718,7 @@ CONTAINS
     IF(p_pe_work==0) THEN
       CALL p_recv(msg, p_io_pe0, 0)
       ! Just for safety: Check if we got the correct tag
-      IF(INT(msg) /= msg_io_done) CALL finish(modname,'Compute PE: Got illegal I/O tag')
+      IF(INT(msg) /= msg_io_done) CALL finish(modname, 'Compute PE: Got illegal I/O tag')
     ENDIF
 
     ! Wait in barrier until message is here

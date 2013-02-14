@@ -209,7 +209,8 @@ MODULE mo_name_list_output_config
     !----------------------------
 
     ! The following members are set during open
-    CHARACTER(LEN=filename_max) :: filename      ! Actual name of output file
+    CHARACTER(LEN=filename_max) :: filename           ! Actual name of output file
+    CHARACTER(LEN=filename_max) :: rdy_filename       ! Actual name of ready file (if any)
     INTEGER                     :: cdiFileId
     INTEGER                     :: cdiVlistId         ! cdi vlist handler
     INTEGER                     :: cdiCellGridID
