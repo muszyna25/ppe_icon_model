@@ -1861,6 +1861,7 @@ CONTAINS
             ELSE IF (pres_pl(jc,jkp,jb) >= pres_ml(jc,nlevs_ml,jb)) THEN
               l_found(jc) = .TRUE.
               idx0_ml(jc,jkp) = nlevs_ml
+              bot_idx_ml(jc) = 0
             ELSE IF (pres_pl(jc,jkp,jb) < pres_ml(jc,1,jb)) THEN
               idx0_ml(jc,jkp) = 1
               wfac_ml(jc,jkp) = (pres_pl(jc,jkp,jb)-pres_ml(jc,2,jb))/&
