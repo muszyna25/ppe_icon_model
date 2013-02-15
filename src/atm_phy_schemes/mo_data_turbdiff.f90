@@ -150,7 +150,7 @@ INTEGER (KIND=iintegers) :: &
     imode_tran   =1,       & ! mode of surface-atmosphere transfer
     icldm_tran   =0,       & ! mode of cloud representation in transfer parametr.
 !
-    imode_turb   =2,       & ! mode of turbulent diffusion parametrization
+    imode_turb   =3,       & ! mode of turbulent diffusion parametrization
     icldm_turb   =2,       & ! mode of cloud representation in turbulence parametr.
     itype_sher   =1          ! type of shear production for TKE
 

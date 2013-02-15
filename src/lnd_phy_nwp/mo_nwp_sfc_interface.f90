@@ -70,9 +70,9 @@ MODULE mo_nwp_sfc_interface
   
   IMPLICIT NONE 
 
-  PUBLIC  ::  nwp_surface
-
   PRIVATE
+
+  PUBLIC  ::  nwp_surface
 
 
 #ifdef __SX__
@@ -586,8 +586,8 @@ CONTAINS
           prm_diag%lhfl_bs_t     (jc,jb,isubs) = lhfl_bs_t     (ic,jb,isubs)
           lnd_diag%rstom_t       (jc,jb,isubs) = rstom_t       (ic,jb,isubs)
 
-          !DR prm_diag%shfl_s_t      (jc,jb,isubs) = shfl_s_t      (ic,jb,isubs)
-          !DR prm_diag%lhfl_s_t      (jc,jb,isubs) = lhfl_s_t      (ic,jb,isubs)
+          prm_diag%shfl_s_t      (jc,jb,isubs) = shfl_s_t      (ic,jb,isubs)
+          prm_diag%lhfl_s_t      (jc,jb,isubs) = lhfl_s_t      (ic,jb,isubs)
 
 
           IF(lmulti_snow) THEN
@@ -880,10 +880,9 @@ CONTAINS
          DO jc = i_startidx, i_endidx
            lnd_prog_new%t_g(jc,jb)  = lnd_prog_new%t_g_t(jc,jb,1)
            lnd_diag%qv_s   (jc,jb)  = lnd_diag%qv_s_t   (jc,jb,1)
-           !DR prm_diag%shfl_s (jc,jb)  = prm_diag%shfl_s_t (jc,jb,1) 
-           !DR prm_diag%lhfl_s (jc,jb)  = prm_diag%lhfl_s_t (jc,jb,1)
+           prm_diag%shfl_s (jc,jb)  = prm_diag%shfl_s_t (jc,jb,1) 
+           prm_diag%lhfl_s (jc,jb)  = prm_diag%lhfl_s_t (jc,jb,1)
            prm_diag%lhfl_bs(jc,jb)  = prm_diag%lhfl_bs_t(jc,jb,1) 
-           lnd_diag%rstom  (jc,jb)  = lnd_diag%rstom_t  (jc,jb,1)
          ENDDO
          DO jk=1,nlev_soil
            DO jc = i_startidx, i_endidx
@@ -893,10 +892,9 @@ CONTAINS
        ELSE ! aggregate fields over tiles
          t_g_s(:)      = 0._wp
          lnd_diag%qv_s   (i_startidx:i_endidx,jb) = 0._wp
-         !DR prm_diag%shfl_s(i_startidx:i_endidx,jb)  = 0._wp
-         !DR prm_diag%lhfl_s(i_startidx:i_endidx,jb)  = 0._wp
+         prm_diag%shfl_s(i_startidx:i_endidx,jb)  = 0._wp
+         prm_diag%lhfl_s(i_startidx:i_endidx,jb)  = 0._wp
          prm_diag%lhfl_bs(i_startidx:i_endidx,jb) = 0._wp
-         lnd_diag%rstom  (i_startidx:i_endidx,jb) = 0._wp
          prm_diag%lhfl_pl(i_startidx:i_endidx,1:nlev_soil,jb) = 0._wp
 
          DO isubs = 1,ntiles_total+ntiles_water
@@ -904,10 +902,10 @@ CONTAINS
              area_frac = ext_data%atm%frac_t(jc,jb,isubs)
              t_g_s (jc)           = t_g_s(jc)  + lnd_prog_new%t_g_t(jc,jb,isubs)**4 * area_frac 
              lnd_diag%qv_s(jc,jb) = lnd_diag%qv_s(jc,jb) + lnd_diag%qv_s_t(jc,jb,isubs) * area_frac
-             !DR prm_diag%shfl_s(jc,jb) = prm_diag%shfl_s(jc,jb)                    &
-             !DR   &                    + prm_diag%shfl_s_t (jc,jb,isubs) * area_frac 
-             !DR prm_diag%lhfl_s(jc,jb) = prm_diag%lhfl_s(jc,jb)                    &
-             !DR   &                    + prm_diag%lhfl_s_t (jc,jb,isubs) * area_frac 
+             prm_diag%shfl_s(jc,jb) = prm_diag%shfl_s(jc,jb)                    &
+               &                    + prm_diag%shfl_s_t (jc,jb,isubs) * area_frac 
+             prm_diag%lhfl_s(jc,jb) = prm_diag%lhfl_s(jc,jb)                    &
+               &                    + prm_diag%lhfl_s_t (jc,jb,isubs) * area_frac 
            ENDDO
          ENDDO
 
@@ -915,7 +913,6 @@ CONTAINS
            DO jc = i_startidx, i_endidx
              area_frac = ext_data%atm%frac_t(jc,jb,isubs)
              prm_diag%lhfl_bs(jc,jb) = prm_diag%lhfl_bs(jc,jb) + prm_diag%lhfl_bs_t(jc,jb,isubs) * area_frac
-             lnd_diag%rstom  (jc,jb) = lnd_diag%rstom(jc,jb)   + lnd_diag%rstom_t(jc,jb,isubs)   * area_frac
            ENDDO  ! jc
            DO jk=1,nlev_soil
              DO jc = i_startidx, i_endidx
