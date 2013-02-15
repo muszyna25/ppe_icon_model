@@ -83,7 +83,8 @@ MODULE mo_name_list_output
   USE mo_lnd_nwp_config,        ONLY: nlev_snow
   USE mo_datetime,              ONLY: t_datetime, cly360day_to_date
   USE mo_time_config,           ONLY: time_config
-  USE mo_lonlat_grid,           ONLY: t_lon_lat_grid, compute_lonlat_specs
+  USE mo_lonlat_grid,           ONLY: t_lon_lat_grid, compute_lonlat_specs,   &
+    &                                 rotate_latlon_grid
   USE mo_intp_data_strc,        ONLY: t_lon_lat_intp,                         &
     &                                 t_lon_lat_data, get_free_lonlat_grid,   &
     &                                 lonlat_grid_list, n_lonlat_grids
@@ -96,7 +97,7 @@ MODULE mo_name_list_output
     &                                 tocompact, tolower, int2string
   USE mo_loopindices,           ONLY: get_indices_c, get_indices_e, get_indices_v
   USE mo_communication,         ONLY: exchange_data, t_comm_pattern, idx_no, blk_no
-  USE mo_math_utilities,        ONLY: t_geographical_coordinates, rotate_latlon_grid
+  USE mo_math_utilities,        ONLY: t_geographical_coordinates
   USE mo_math_constants,        ONLY: pi, pi_180
   USE mo_name_list_output_config, ONLY: name_list_output_active, &
   &                                     use_async_name_list_io,  &
