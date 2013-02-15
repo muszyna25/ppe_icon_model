@@ -625,7 +625,10 @@
     else
       setDefaultVectorPlot(ResC,5.0,vecRefLength,"CurlyVector",vecMinDist)
 
-      vc = plotVecOrStream(vecColByLen,streamLine,uvar,vvar,velocity,ResC,wks,True)
+      vc = plotVecOrStream(vecColByLen,streamLine,\
+                          uvar,vvar, \
+                          sqrt(uvar*uvar + vvar*vvar), \
+                          ResC,wks,True)
       draw(vc)
     end if
   end if

@@ -1101,7 +1101,7 @@ MODULE mo_nwp_lnd_state
     ! & p_diag_lnd%freshsnow(nproma,nblks_c)
     cf_desc    = t_cf_var('freshsnow', '- ', &
            & 'weighted indicator for age of snow in top of snow layer', DATATYPE_FLT32)
-    grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = t_grib2_var(0, 1, 203, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, vname_prefix//'freshsnow', p_diag_lnd%freshsnow,     &
            & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,             &
            & ldims=shape2d, lrestart=.FALSE., loutput=.TRUE. )
@@ -1156,7 +1156,7 @@ MODULE mo_nwp_lnd_state
     ! & p_diag_lnd%freshsnow_t(nproma,nblks_c,ntiles_total)
     cf_desc    = t_cf_var('freshsnow_t', '- ', &
          &                'indicator for age of snow in top of snow layer', DATATYPE_FLT32)
-    grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = t_grib2_var(0, 1, 203, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, vname_prefix//'freshsnow_t', p_diag_lnd%freshsnow_t, &
            & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,             &
            & ldims=shape3d_subs, lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE. )
@@ -1165,13 +1165,13 @@ MODULE mo_nwp_lnd_state
     ALLOCATE(p_diag_lnd%freshsnow_ptr(ntiles_total))
       DO jsfc = 1,ntiles_total
         WRITE(csfc,'(i2)') jsfc 
-        CALL add_ref( diag_list, vname_prefix//'freshsnow_t',                     &
-                 & vname_prefix//'freshsnow_t_'//ADJUSTL(TRIM(csfc)),             &
-                 & p_diag_lnd%freshsnow_ptr(jsfc)%p_2d,                           &
-                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                            &
-                 & t_cf_var('freshsnow_t_'//csfc, '', '', DATATYPE_FLT32),        &
-                 & t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),  &
-                 & ldims=shape2d,                                                 &
+        CALL add_ref( diag_list, vname_prefix//'freshsnow_t',                   &
+                 & vname_prefix//'freshsnow_t_'//ADJUSTL(TRIM(csfc)),           &
+                 & p_diag_lnd%freshsnow_ptr(jsfc)%p_2d,                         &
+                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                          &
+                 & t_cf_var('freshsnow_t_'//csfc, '', '', DATATYPE_FLT32),      &
+                 & t_grib2_var(0, 1, 203, ibits, GRID_REFERENCE, GRID_CELL),    &
+                 & ldims=shape2d,                                               &
                  & in_group=groups("dwd_ana_vars") )
       END DO
 

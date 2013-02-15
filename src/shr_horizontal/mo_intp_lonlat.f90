@@ -67,13 +67,12 @@
       &                               timer_lonlat_setup
     USE mo_math_utilities,      ONLY: gc2cc, gvec2cvec, arc_length_v,                       &
       &                               t_cartesian_coordinates,                              &
-      &                               t_geographical_coordinates,                           &
-      &                               latlon_compute_area_weights
+      &                               t_geographical_coordinates
     USE mo_math_constants,      ONLY: pi, pi2, pi_2
     USE mo_math_utility_solvers, ONLY: solve_chol_v, choldec_v
     USE mo_lonlat_grid,         ONLY: t_lon_lat_grid,                                       &
       &                               compute_lonlat_blocking,                              &
-      &                               compute_lonlat_specs
+      &                               compute_lonlat_specs, latlon_compute_area_weights
     USE mo_parallel_config,     ONLY: nproma, p_test_run
     USE mo_loopindices,         ONLY: get_indices_c, get_indices_e, get_indices_v
     USE mo_intp_data_strc,      ONLY: t_int_state, t_lon_lat_intp, n_lonlat_grids,          &
@@ -85,7 +84,6 @@
       &                               gnat_query_containing_triangles,                      &
       &                               gnat_merge_distributed_queries, gk, SKIP_NODE,        &
       &                               INVALID_NODE, gnat_recursive_proximity_query
-    USE mo_math_utilities,      ONLY: rotate_latlon_grid
     USE mo_mpi,                 ONLY: my_process_is_mpi_workroot,                           &
       &                               get_my_mpi_work_id, p_n_work,                         &
       &                               p_max, get_my_mpi_work_communicator,                  &
@@ -95,7 +93,7 @@
       &                               process_mpi_all_workroot_id, p_pe
     USE mo_communication,       ONLY: idx_1d, blk_no, idx_no,                               &
       &                               setup_comm_pattern
-    USE mo_lonlat_grid,         ONLY: t_lon_lat_grid
+    USE mo_lonlat_grid,         ONLY: t_lon_lat_grid, rotate_latlon_grid
     USE mo_cf_convention,       ONLY: t_cf_var
     USE mo_grib2,               ONLY: t_grib2_var
     USE mo_cdi_constants,       ONLY: GRID_REGULAR_LONLAT, GRID_REFERENCE,                  &

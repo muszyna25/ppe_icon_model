@@ -29,7 +29,8 @@ module load python
 ## module load grib_api
 ## module load cdo/1.5.4  # to get specific version
 module load cdo
-
+module unload grib_api
+module load grib_api/1.10.4
 
 lsplitdata=1
 case %SIMMODE% in

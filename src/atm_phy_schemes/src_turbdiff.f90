@@ -4804,18 +4804,30 @@ REAL (KIND=ireals) :: &
                      hlp(i,k)=t(i,k)/exner(i,k)
                   END DO
                END DO   
-               DO i=istartpar,iendpar
-                  hlp(i,ke1)=t_g(i)/zexner(ps(i))
-               END DO
+               IF (PRESENT(shfl_s) .AND. imode_turb.EQ.3) THEN
+                  DO i=istartpar,iendpar
+                     hlp(i,ke1)=hlp(i,ke)-shfl_s(i)/(zexner(ps(i))*cp_d*a(i,ke1,1))
+                  END DO
+               ELSE
+                  DO i=istartpar,iendpar
+                     hlp(i,ke1)=t_g(i)/zexner(ps(i))
+                  END DO
+               END IF
             ELSEIF (n.EQ.vap) THEN
                DO k=1,ke
                   DO i=istartpar,iendpar
                      hlp(i,k)=qv(i,k)
                   END DO
-               END DO   
-               DO i=istartpar,iendpar
-                  hlp(i,ke1)=qv_s(i)
-               END DO
+               END DO 
+               IF (PRESENT(lhfl_s) .AND. imode_turb.EQ.3) THEN
+                  DO i=istartpar,iendpar
+                     hlp(i,ke1)=hlp(i,ke)-lhfl_s(i)/(lh_v*a(i,ke1,1))
+                  END DO
+               ELSE   
+                  DO i=istartpar,iendpar
+                     hlp(i,ke1)=qv_s(i)
+                  END DO
+               END IF   
             ELSEIF (n.EQ.liq) THEN
                DO k=1,ke
                   DO i=istartpar,iendpar

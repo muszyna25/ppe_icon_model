@@ -52,10 +52,10 @@ ndays_restart=60
 dt_restart=`expr ${ndays_restart} \* 86400`
 
 # model timing
-dtime=100    # dyn            R2B4:150  R2B5:100  R2B6:72   R2B7:36   R2B8:18
-dtconv=600   # conv, SSO, GWD R2B4:600  R2B5:600  R2B6:720  R2B7:360  R2B8:360
+dtime=90     # dyn            R2B4:150  R2B5:90   R2B6:72   R2B7:36   R2B8:18
+dtconv=900   # conv, SSO, GWD R2B4:600  R2B5:900  R2B6:720  R2B7:360  R2B8:360
 dtrad=3600   # rad            R2B4:3600 R2B5:3600 R2B6:3600 R2B7:1800 R2B8:1800
-iadv_rcf=6   # adv, turb      R2B4:4    R2B5:6    R2B6:5    R2B7:5    R2B8:5
+iadv_rcf=5   # adv, turb      R2B4:4    R2B5:5    R2B6:5    R2B7:5    R2B8:5
 ndays=10     # number of days to run
 nsteps=`expr ${ndays} \* 86400 / ${dtime}`
 ninc_mtgrm=36          # output interval 3600s
@@ -261,6 +261,12 @@ cat > ${atmo_namelist} << EOF
  irad_o3                      = 7
  irad_aero                    = 6
  izenith                      = 4           ! 4: NWP default, 3: no annual cycle
+ vmr_co2                      = 390.e-06    ! trace gase values representative for 2012
+ vmr_ch4                      = 1800.e-09
+ vmr_n2o                      = 322.0e-09
+ vmr_o2                       = 0.20946
+ vmr_cfc11                    = 240.e-12
+ vmr_cfc12                    = 532.e-12
 /
 &nonhydrostatic_nml
  iadv_rhotheta                = 2

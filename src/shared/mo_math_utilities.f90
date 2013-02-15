@@ -100,10 +100,6 @@ MODULE mo_math_utilities
   USE mo_kind,                ONLY: wp
   USE mo_math_constants,      ONLY: pi, pi_2, dbl_eps
   USE mo_exception,           ONLY: message, finish
-#ifndef __ICON_GRID_GENERATOR__
-  USE mo_lonlat_grid,         ONLY: t_lon_lat_grid
-  USE mo_physical_constants,  ONLY: earth_radius
-#endif
   USE mo_grid_geometry_info,  ONLY: t_grid_geometry_info, planar_torus_geometry, sphere_geometry
   USE mo_math_types
   IMPLICIT NONE
@@ -153,11 +149,6 @@ MODULE mo_math_utilities
   PUBLIC :: rotate_latlon
   PUBLIC :: rotate_latlon_vec
 
-#ifndef __ICON_GRID_GENERATOR__
-  PUBLIC :: rotate_latlon_grid
-  PUBLIC :: latlon_compute_area_weights
-#endif
-  
   PUBLIC :: gnomonic_proj
   PUBLIC :: orthogr_proj
   PUBLIC :: az_eqdist_proj
@@ -1658,6 +1649,9 @@ CONTAINS
   !! Rotates latitude and longitude for more accurate computation
   !! of bilinear interpolation
   !!
+  !! See the routine "mo_lonlat_grid::rotate_latlon_grid" for a
+  !! detailed description of the transformation process.
+  !!
   !! @par Revision History
   !!  developed by Guenther Zaengl, 2009-03-13
   !!
@@ -1679,146 +1673,6 @@ CONTAINS
   END SUBROUTINE rotate_latlon
   !-------------------------------------------------------------------------
   
-  
-  !-------------------------------------------------------------------------
-  !> Rotates lon-lat grid
-  !!
-  !! Rotates latitude and longitude for all grid points to standard grid
-  !! coordinates.
-  !!
-  !! @par Revision History
-  !!  Initial revision                   : F. Prill,  2011-08-04
-  !!  floating point exception handling  : G. Zaengl, 2012-11-20
-  !!
-#ifndef __ICON_GRID_GENERATOR__
-  SUBROUTINE rotate_latlon_grid( lon_lat_grid, rotated_pts )
-    
-    TYPE (t_lon_lat_grid), INTENT(in)    :: lon_lat_grid
-    REAL(wp),              INTENT(inout) :: rotated_pts(:,:,:)
-    
-    ! Local parameters
-    REAL(wp), PARAMETER :: ZERO_TOL = 1.e-15
-
-    REAL(wp) :: sincos_pole(2,2),                   &  ! (lon/lat, sin/cos)
-      &         sincos_lon(lon_lat_grid%lon_dim,2), &
-      &         sincos_lat(lon_lat_grid%lat_dim,2), &
-      &         pi_180, npole_rad(2), arg1, arg2,   &
-      &         rlon(lon_lat_grid%lon_dim),         &
-      &         rlat(lon_lat_grid%lat_dim)
-    INTEGER  :: k, j
-    LOGICAL  :: ltrivial_rotation
-    
-    !-----------------------------------------------------------------------
-    
-    ltrivial_rotation = ((ABS(90._wp - lon_lat_grid%north_pole(2)) < ZERO_TOL) .AND.  &
-      &                   ABS( 0._wp - lon_lat_grid%north_pole(1)) < ZERO_TOL)
-    DO k=1,lon_lat_grid%lon_dim
-      rlon(k)         = lon_lat_grid%start_corner(1) + REAL(k-1,wp)*lon_lat_grid%delta(1)
-      sincos_lon(k,:) = (/ SIN(rlon(k)), COS(rlon(k)) /)
-    END DO
-    DO k=1,lon_lat_grid%lat_dim
-      rlat(k)         = lon_lat_grid%start_corner(2) + REAL(k-1,wp)*lon_lat_grid%delta(2)
-      sincos_lat(k,:) = (/ SIN(rlat(k)), COS(rlat(k)) /)
-    END DO
-
-    ! special treatment for "trivial rotation" (no.pole at +90,0):
-    IF (ltrivial_rotation) THEN
-
-      DO j = 1, lon_lat_grid%lat_dim
-        DO k = 1, lon_lat_grid%lon_dim
-          rotated_pts(k,j,1) = rlon(k)
-          rotated_pts(k,j,2) = rlat(j)
-        END DO
-      END DO
-
-    ELSE
-
-      ! convert north pole: degree -> rad:
-      pi_180 = ATAN(1._wp)/45._wp
-      npole_rad(:) = lon_lat_grid%north_pole(:)*pi_180
-
-      sincos_pole(:,1) = SIN(npole_rad(:))
-      sincos_pole(:,2) = COS(npole_rad(:))  
-
-      DO j = 1, lon_lat_grid%lat_dim
-        DO k = 1, lon_lat_grid%lon_dim
-
-          ! ATAN2(COS(phi)*SIN(lambda), SIN(poleY)*COS(phi)*COS(lambda) - SIN(phi)*COS(poleY)) + poleX
-          arg1 = sincos_lat(j,2)*sincos_lon(k,1)
-          arg2 = sincos_pole(2,1)*sincos_lat(j,2)*sincos_lon(k,2) - sincos_lat(j,1)*sincos_pole(2,2)
-
-          IF ((ABS(arg1) > ZERO_TOL) .OR. (ABS(arg2) > ZERO_TOL)) THEN
-            rotated_pts(k,j,1) = ATAN2( arg1, arg2 ) + npole_rad(1)
-          ELSE
-            rotated_pts(k,j,1) = 0.0_wp ! ATAN2(0,0) is undefined, so we just have to set something
-          ENDIF
-
-          ! ASIN( SIN(phi)*SIN(poleY) + COS(phi)*COS(lambda)*COS(poleY) )
-          rotated_pts(k,j,2) = &
-            & ASIN( sincos_lat(j,1)*sincos_pole(2,1) + &
-            & sincos_lat(j,2)*sincos_lon(k,2)*sincos_pole(2,2) )
-
-        ENDDO
-      ENDDO
-
-    END IF
-    
-  END SUBROUTINE rotate_latlon_grid
-  !-------------------------------------------------------------------------
-  
-  
-  !-------------------------------------------------------------------------
-  !> Compute normalized area weights for lon-lat grid
-  !!
-  !! @return 1D array (index: latitude)
-  !!
-  !! @par Revision History
-  !!  developed by F. Prill, 2012-05-24
-  !!
-  SUBROUTINE latlon_compute_area_weights( grid, area )
-    
-    TYPE (t_lon_lat_grid), INTENT(in)    :: grid
-    REAL(wp),              INTENT(inout) :: area(:)
-    ! local variables
-    REAL(wp) :: start_lat, delta_lon, delta_lat, delta_lat_2,  &
-      & pi_180, radius, rr_dlon, tot_area
-    REAL(wp) :: latitude(grid%lat_dim)
-    INTEGER :: k, pole1, pole2
-    
-    radius = earth_radius ! earth's radius (average)
-    pi_180 = ATAN(1._wp)/45._wp
-    start_lat   = grid%reg_lat_def(1) * pi_180
-    delta_lon   = grid%reg_lon_def(2) * pi_180
-    delta_lat   = grid%reg_lat_def(2) * pi_180
-    delta_lat_2 = delta_lat / 2._wp
-    rr_dlon     = radius*radius * delta_lon
-    
-    ! for each latitude, compute area of a grid box with a lon-lat
-    ! point at its center
-    DO k = 1, grid%lat_dim
-      latitude(k)  = start_lat + REAL(k-1,wp)*delta_lat
-      area(k)      = 2._wp*rr_dlon * SIN(delta_lat_2) * COS(latitude(k))
-    END DO
-    ! treat the special case of the poles (compute area of "triangle"
-    ! with one vertex at the pole and the opposite side with constant
-    ! latitude)
-    pole1 = INT(( 90._wp - grid%reg_lat_def(1))/grid%reg_lat_def(2)) + 1
-    pole2 = INT((-90._wp - grid%reg_lat_def(1))/grid%reg_lat_def(2)) + 1
-    IF ((pole1 > 0) .AND. (pole1 <= grid%lat_dim)) THEN
-      area(pole1) = rr_dlon*(1._wp-SIN(latitude(pole1)-delta_lat_2))
-    END IF
-    IF ((pole2 > 0) .AND. (pole2 <= grid%lat_dim)) THEN
-      area(pole2) = rr_dlon*(1._wp-ABS(SIN(latitude(pole2)+delta_lat_2)))
-    END IF
-    ! normalize
-    tot_area = REAL(grid%lon_dim,wp) * SUM(area)
-    DO k = 1, grid%lat_dim
-      area(k) = area(k)/tot_area
-    END DO
-    
-  END SUBROUTINE latlon_compute_area_weights
-  !-----------------------------------------------------------------------
-#endif
   
   !-----------------------------------------------------------------------
   !>
