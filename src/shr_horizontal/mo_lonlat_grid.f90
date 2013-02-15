@@ -111,14 +111,43 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   !> Rotates lon-lat grid
-  !!
-  !! Rotates latitude and longitude for all grid points to standard grid
-  !! coordinates.
-  !!
-  !! @par Revision History
-  !!  Initial revision                   : F. Prill,  2011-08-04
-  !!  floating point exception handling  : G. Zaengl, 2012-11-20
-  !!
+  !
+  !  Rotates latitude and longitude for all grid points to standard grid
+  !  coordinates.
+  !
+  !  Description of the rotated spherical coordinates system:
+  !  [ cf. COSMO User Guide, Part I - Dynamis and Numerics, p.21 ]
+  ! 
+  !  "The origin of this new system is also located at the earth's
+  !  centre, but the \tilde{Z}-axis is tilted against the Z-axis. By
+  !  defining the \tilde{Z}-axis to point from the centre to a point
+  !  P_N = (\lambda_g^N, \phi_g^N) in which \lambda_g^N is
+  !  geographical longitude and \phi_g^N is geographical latitude of
+  !  the point, the transformation is uniquely specified. P_N defines
+  !  the north pole of the rotated coordinate system."
+  !
+  !  Transformation relations:
+  !  [ cf. COSMO User Guide, Part I - Dynamis and Numerics, p.25 ] 
+  !
+  !  To transform the geographical longitude/latitude (\lambda_g, \phi_g)
+  !  to the rotated horizontal coordinates (\lambda,\phi):
+  !
+  !  (1) :=  \phi_g    = arcsin( sin(\phi) \sin(\phi_g^N) + \cos(\phi) \cos(\lambda) \cos(\phi_g^N) )
+  !
+  !  (2) :=  \lambda_g = arctan( \frac{\cos(\phi) \sin(\phi)}
+  !                        {\SIN(\phi_g^N) \COS(\phi) \COS(\lambda) - \sin(\phi) \cos(\phi_g^N)}
+  !                      )  +  \lambda_g^N
+  !
+  !  Since we have atan(a/b) + c = atan((a + b*tan(c))/(b-a*tan(c)))
+  !                              = atan((cos(c)*a + sin(c)*b)/(cos(c)*b-sin(c)*a))
+  !  equation (2) is equivalent to the formulation below, which is also
+  !  given in the COSMO database description, appendices A.1, A.2.
+  !
+  !  @par Revision History
+  !   Initial revision                   : F. Prill,  2011-08-04
+  !   floating point exception handling  : G. Zaengl, 2012-11-20
+  !   changed transformation formula     : F. Prill,  2013-02-15
+  !
   SUBROUTINE rotate_latlon_grid( lon_lat_grid, rotated_pts )
     
     TYPE (t_lon_lat_grid), INTENT(in)    :: lon_lat_grid
@@ -135,9 +164,7 @@ CONTAINS
       &         rlat(lon_lat_grid%lat_dim)
     INTEGER  :: k, j
     LOGICAL  :: ltrivial_rotation
-    
-    !-----------------------------------------------------------------------
-    
+   
     ltrivial_rotation = ((ABS(90._wp - lon_lat_grid%north_pole(2)) < ZERO_TOL) .AND.  &
       &                   ABS( 0._wp - lon_lat_grid%north_pole(1)) < ZERO_TOL)
     DO k=1,lon_lat_grid%lon_dim
@@ -172,11 +199,14 @@ CONTAINS
         DO k = 1, lon_lat_grid%lon_dim
 
           ! ATAN2(COS(phi)*SIN(lambda), SIN(poleY)*COS(phi)*COS(lambda) - SIN(phi)*COS(poleY)) + poleX
+
           arg1 = sincos_lat(j,2)*sincos_lon(k,1)
           arg2 = sincos_pole(2,1)*sincos_lat(j,2)*sincos_lon(k,2) - sincos_lat(j,1)*sincos_pole(2,2)
 
           IF ((ABS(arg1) > ZERO_TOL) .OR. (ABS(arg2) > ZERO_TOL)) THEN
-            rotated_pts(k,j,1) = ATAN2( arg1, arg2 ) + npole_rad(1)
+            ! rotated_pts(k,j,1) = ATAN2( arg1, arg2 ) + npole_rad(1)
+            rotated_pts(k,j,1) = ATAN2( -1._wp*sincos_pole(1,1)*arg2 - sincos_pole(1,2)*arg1 ,&
+              &                         -1._wp*sincos_pole(1,2)*arg2 + sincos_pole(1,1)*arg1 )
           ELSE
             rotated_pts(k,j,1) = 0.0_wp ! ATAN2(0,0) is undefined, so we just have to set something
           ENDIF

@@ -1649,6 +1649,9 @@ CONTAINS
   !! Rotates latitude and longitude for more accurate computation
   !! of bilinear interpolation
   !!
+  !! See the routine "mo_lonlat_grid::rotate_latlon_grid" for a
+  !! detailed description of the transformation process.
+  !!
   !! @par Revision History
   !!  developed by Guenther Zaengl, 2009-03-13
   !!
