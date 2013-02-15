@@ -722,7 +722,7 @@ CONTAINS
     CHARACTER(*), PARAMETER :: routine = TRIM("mo_gnat_gridsearch:gnat_insert_mt")
 
     ! reordering parameter (for permuting points before insertion):
-    INTEGER, PARAMETER :: nstrides = 7
+    INTEGER                    :: nstrides
     INTEGER                    :: root ! index pointer 
     INTEGER                    :: idx(3,nproc), work(nproc), depth(nproc)
     INTEGER                    :: node_proc(nproc) ! index pointer
@@ -792,6 +792,10 @@ CONTAINS
       END DO
     END IF
     icount = 0
+
+    ! set a (somewhat empirical) value to improve 
+    ! the distribution of split points:
+    nstrides = NINT(SQRT(REAL(ntotal,wp)))
 
     DO jb=1,nstrides
       DO jc=jb,ntotal,nstrides
