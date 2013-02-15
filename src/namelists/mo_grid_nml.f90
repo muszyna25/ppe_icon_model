@@ -69,6 +69,8 @@ MODULE mo_grid_nml
     & config_dyn_radiation_grid_link      => dynamics_radiation_grid_link, &
     & config_grid_rescale_factor          => grid_rescale_factor,          &
     & config_grid_angular_velocity        => namelist_grid_angular_velocity,&
+    & config_use_duplicated_connectivity  => use_duplicated_connectivity,   &
+    & config_use_dummy_cell_closure       => use_dummy_cell_closure,        &
 !     & config_radiation_grid_distrib       => radiation_grid_distribution,  &
     & max_rad_dom
 
@@ -112,6 +114,9 @@ MODULE mo_grid_nml
     LOGICAL    :: lredgrid_phys(max_dom)   ! If set to .true. is calculated on a reduced grid
     LOGICAL    :: l_limited_area            
 
+    LOGICAL    :: use_duplicated_connectivity ! if true, the zero connectivity is replaced by the last non-zero value
+    LOGICAL    :: use_dummy_cell_closure ! if true then create a dummy cell and connect it to cells and edges with no neigbor
+
     LOGICAL    :: lplane                   ! f-plane option
     REAL(wp)   :: corio_lat                ! Latitude, where the f-plane is located if lplane=.true.
   
@@ -134,7 +139,8 @@ MODULE mo_grid_nml
       &  patch_weight, lredgrid_phys, start_time, end_time,        &
       &  dynamics_grid_filename,  dynamics_parent_grid_id,         &
       &  radiation_grid_filename, dynamics_radiation_grid_link,    &
-      &  grid_angular_velocity
+      &  grid_angular_velocity, use_duplicated_connectivity,       &
+      &  use_dummy_cell_closure
 !       &  radiation_grid_distribution
 
 
@@ -170,6 +176,8 @@ MODULE mo_grid_nml
     patch_weight= 0.0_wp
     lredgrid_phys = .FALSE.
 !     radiation_grid_distribution = 0
+    use_duplicated_connectivity = config_use_duplicated_connectivity
+    use_dummy_cell_closure      = config_use_dummy_cell_closure
 
     !----------------------------------------------------------------
     grid_rescale_factor   = 1.0_wp

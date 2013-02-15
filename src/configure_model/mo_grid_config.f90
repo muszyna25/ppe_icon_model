@@ -81,6 +81,8 @@ USE mo_read_netcdf_parallel, ONLY:                &
   PUBLIC :: n_phys_dom
 
   PUBLIC :: no_of_dynamics_grids, no_of_radiation_grids
+
+  PUBLIC :: use_duplicated_connectivity, use_dummy_cell_closure
   ! ------------------------------------------------------------------------
 
 
@@ -106,6 +108,9 @@ INCLUDE 'netcdf.inc'
   LOGICAL  :: lfeedback(max_dom)       ! specifies if feedback to parent grid is performed
   LOGICAL  :: lredgrid_phys(max_dom)   ! If set to .true. is calculated on a reduced grid
   LOGICAL  :: l_limited_area
+
+  LOGICAL  :: use_duplicated_connectivity  = .false.  ! if true, the zero connectivity is replaced by the last non-zero value
+  LOGICAL  :: use_dummy_cell_closure = .false.  ! if true then create a dummy cell and connect it to cells and edges with no neigbor
    
 !   INTEGER  :: radiation_grid_distribution   ! 0=do nothing
                                        ! 1=redistribute for radiaiton reading from file
