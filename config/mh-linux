@@ -143,6 +143,10 @@ case "$fortran_compiler" in
         # CFLAGS      = -fpe0 -msse2 -pc64  -DpgiFortran -DHAVE_LIBNETCDF -DHAVE_CF_INTERFACE
         CFLAGS      = "$CFLAGS" -DpgiFortran
         FC          = ifort
+
+        DEBUG_FLAGS = -check bounds -check pointers -check uninit -debug -g
+        STD_FLAGS   = -O2 -msse2 -fltconsistency -pc64 -fpp -traceback  -D__LOOP_EXCHANGE "$DEBUG_FLAGS"
+
         FDEBUG      = -check bounds -check pointers -check uninit -debug -g
         FFLAGS      =           -O2 -msse2 -fltconsistency       -pc64 -fpp -traceback  -D__LOOP_EXCHANGE
  #      FFLAGS      = "$FDEBUG" -O2 -msse2 -fltconsistency       -pc64 -fpp -traceback  -D__LOOP_EXCHANGE
@@ -386,11 +390,12 @@ case "$ac_sitename" in
                     intel)
                       MPIROOT = $software_tree/mpi/openmpi_ib-1.6.2-static-intel13
                       load_modules="gcc/4.6.3" "intel/13.0.0" "openmpi_ib/1.6.2-static-intel13" "${load_modules}"
+                      HIOPT_FLAGS = -O3 -no-prec-div -static -xHost -xAVX -vec-report2 -diag-file -fpp -traceback -D__LOOP_EXCHANGE
                       ;;
                     nag)
                       MPIROOT = $software_tree/mpi/openmpi_ib-1.6.2-static-nag52
                       ## load_modules="gcc/4.6.3" "nag/5.3.907" "openmpi_ib/1.6.2-static-nag53" "${load_modules}"
-                      load_modules="gcc/4.6.3" "nag/5.2.721" "openmpi_ib/1.6.2-static-nag52" "${load_modules}"
+                      load_modules="gcc/4.6.3" "nag/5.2.747" "openmpi_ib/1.6.2-static-nag52" "${load_modules}"
                       ;;
                 esac
                 ;;
