@@ -143,14 +143,14 @@ CONTAINS
     REAL(wp) :: wtot_snow_now_t(nproma, 1:nlev_snow, p_patch%nblks_c, ntiles_total)
     REAL(wp) :: dzh_snow_now_t(nproma, 1:nlev_snow, p_patch%nblks_c, ntiles_total)
 
-    INTEGER  ::          soiltyp_t (nproma, p_patch%nblks_c, ntiles_total)
-    REAL(wp) ::          rootdp_t  (nproma, p_patch%nblks_c, ntiles_total)
-    REAL(wp) ::          tai_t     (nproma, p_patch%nblks_c, ntiles_total)
+    INTEGER  :: soiltyp_t (nproma, p_patch%nblks_c, ntiles_total)
+    REAL(wp) :: rootdp_t  (nproma, p_patch%nblks_c, ntiles_total)
+    REAL(wp) :: tai_t     (nproma, p_patch%nblks_c, ntiles_total)
 
-    REAL(wp) ::          freshsnow_t(nproma, p_patch%nblks_c, ntiles_total)
-    REAL(wp) ::          snowfrac_t (nproma, p_patch%nblks_c, ntiles_total)
-    REAL(wp) ::          sso_sigma_t(nproma,  p_patch%nblks_c, ntiles_total)
-    INTEGER  ::          lc_class_t (nproma,  p_patch%nblks_c, ntiles_total)
+    REAL(wp) :: freshsnow_t(nproma, p_patch%nblks_c, ntiles_total)
+    REAL(wp) :: snowfrac_t (nproma, p_patch%nblks_c, ntiles_total)
+    REAL(wp) :: sso_sigma_t(nproma,  p_patch%nblks_c, ntiles_total)
+    INTEGER  :: lc_class_t (nproma,  p_patch%nblks_c, ntiles_total)
 
     ! local fields for sea ice model
     !
@@ -170,7 +170,6 @@ CONTAINS
 
     INTEGER  :: i_count, ic, i_count_snow, isubs_snow
     REAL(wp), PARAMETER :: small = 1.E-06_wp
-    REAL(wp) :: t_g_s(nproma), qv_s_s(nproma)
     REAL(wp) :: temp
 
   !-------------------------------------------------------------------------
@@ -186,10 +185,10 @@ CONTAINS
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,isubs,i_count,i_count_snow,icount_ice,    &
-!$OMP            icount_water, temp, qv_s_s,                                         &
-!$OMP            ic,jk,isubs_snow,t_g_s,frsi,t_skin,tice_now,hice_now,tsnow_now,     &
-!$OMP            hsnow_now,tice_new,hice_new,tsnow_new,hsnow_new), SCHEDULE(guided)
+!$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,isubs,i_count,i_count_snow,icount_ice, &
+!$OMP            icount_water, temp,ic,isubs_snow,frsi,t_skin,tice_now,hice_now,     &
+!$OMP            tsnow_now,hsnow_now,tice_new,hice_new,tsnow_new,hsnow_new),         &
+!$OMP            SCHEDULE(guided)
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -644,7 +643,7 @@ CONTAINS
 
     ! Local :
 
-    INTEGER :: jc,jb,isubs,jk
+    INTEGER :: jc,jb,isubs
     REAL(wp) :: t_g_s(nproma), qv_s_s(nproma)
 !-------------------------------------------------------------------------
 
@@ -704,15 +703,12 @@ CONTAINS
     TYPE(t_lnd_prog),            INTENT(inout):: lnd_prog      !< prog vars for sfc
     TYPE(t_lnd_diag),            INTENT(inout):: lnd_diag      !< diag vars for sfc
 
-
     ! Local scalars:
     INTEGER :: rl_start, rl_end
     INTEGER :: i_startblk, i_endblk    !> blocks
     INTEGER :: i_startidx, i_endidx    !< slices
     INTEGER :: i_nchdom                !< number of child domains
-
-    INTEGER :: jc,jb,isubs,jk
-    INTEGER :: i_count, ic
+    INTEGER :: jc, jb, jk, isubs
 
     REAL(wp) :: tilefrac ! fractional area covered by tile
 
@@ -728,28 +724,27 @@ CONTAINS
 
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,isubs,i_count,ic,jk,tilefrac) ICON_OMP_GUIDED_SCHEDULE
+!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,isubs,jk,tilefrac) ICON_OMP_GUIDED_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
         & i_startidx, i_endidx, rl_start, rl_end)
 
-      i_count = ext_data%atm%lp_count(jb) ! for aggregation process land points only
 
-      IF (ntiles_total == 1) THEN  ! just copy prognostic variables from tile 1 to diagnostic aggregated variable
-!CDIR NODEP,VOVERTAKE,VOB
-        DO ic = 1, i_count
-          jc = ext_data%atm%idx_lst_lp(ic,jb)
-          lnd_diag%t_snow(jc,jb)       = lnd_prog%t_snow_t(jc,jb,1)
-          lnd_diag%t_s(jc,jb)          = lnd_prog%t_s_t(jc,jb,1)
-          lnd_diag%w_snow(jc,jb)       = lnd_prog%w_snow_t(jc,jb,1)
-          lnd_diag%rho_snow(jc,jb)     = lnd_prog%rho_snow_t(jc,jb,1)
-          lnd_diag%w_i(jc,jb)          = lnd_prog%w_i_t(jc,jb,1)
-          lnd_diag%h_snow(jc,jb)       = lnd_diag%h_snow_t(jc,jb,1)
-          lnd_diag%freshsnow(jc,jb)    = lnd_diag%freshsnow_t(jc,jb,1)
-          lnd_diag%snowfrac(jc,jb)     = lnd_diag%snowfrac_t(jc,jb,1)
-          lnd_diag%runoff_s(jc,jb)     = lnd_diag%runoff_s_t(jc,jb,1)
-          lnd_diag%runoff_g(jc,jb)     = lnd_diag%runoff_g_t(jc,jb,1)
+      IF (ntiles_total == 1) THEN  ! just copy prognostic variables from tile 1 
+                                   ! to diagnostic aggregated variable
+        DO jc = i_startidx, i_endidx
+          lnd_diag%t_snow   (jc,jb) = lnd_prog%t_snow_t   (jc,jb,1)
+          lnd_diag%t_s      (jc,jb) = lnd_prog%t_s_t      (jc,jb,1)
+          lnd_diag%w_snow   (jc,jb) = lnd_prog%w_snow_t   (jc,jb,1)
+          lnd_diag%rho_snow (jc,jb) = lnd_prog%rho_snow_t (jc,jb,1)
+          lnd_diag%w_i      (jc,jb) = lnd_prog%w_i_t      (jc,jb,1)
+          lnd_diag%h_snow   (jc,jb) = lnd_diag%h_snow_t   (jc,jb,1)
+          lnd_diag%freshsnow(jc,jb) = lnd_diag%freshsnow_t(jc,jb,1)
+          lnd_diag%snowfrac (jc,jb) = lnd_diag%snowfrac_t (jc,jb,1)
+          lnd_diag%runoff_s (jc,jb) = lnd_diag%runoff_s_t (jc,jb,1)
+          lnd_diag%runoff_g (jc,jb) = lnd_diag%runoff_g_t (jc,jb,1)
+          lnd_diag%rstom    (jc,jb) = lnd_diag%rstom_t    (jc,jb,1)
           lnd_diag%t_so(jc,nlev_soil+1,jb) = lnd_prog%t_so_t(jc,nlev_soil+1,jb,1)
 
           IF(lmulti_snow) THEN
@@ -758,81 +753,82 @@ CONTAINS
         ENDDO
 
         DO jk=1,nlev_soil
-!CDIR NODEP,VOVERTAKE,VOB
-          DO ic = 1, i_count
-            jc = ext_data%atm%idx_lst_lp(ic,jb)
-            lnd_diag%t_so(jc,jk,jb)      = lnd_prog%t_so_t(jc,jk,jb,1)
-            lnd_diag%w_so(jc,jk,jb)      = lnd_prog%w_so_t(jc,jk,jb,1)
-            lnd_diag%w_so_ice(jc,jk,jb)  = lnd_prog%w_so_ice_t(jc,jk,jb,1)
+          DO jc = i_startidx, i_endidx
+            lnd_diag%t_so    (jc,jk,jb) = lnd_prog%t_so_t    (jc,jk,jb,1)
+            lnd_diag%w_so    (jc,jk,jb) = lnd_prog%w_so_t    (jc,jk,jb,1)
+            lnd_diag%w_so_ice(jc,jk,jb) = lnd_prog%w_so_ice_t(jc,jk,jb,1)
           ENDDO
         ENDDO
 
         IF (lmulti_snow) THEN
           DO jk=1,nlev_snow
-!CDIR NODEP,VOVERTAKE,VOB
-            DO ic = 1, i_count
-              jc = ext_data%atm%idx_lst_lp(ic,jb)
-              lnd_diag%t_snow_mult(jc,jk,jb)   = lnd_prog%t_snow_mult_t(jc,jk,jb,1)
+            DO jc = i_startidx, i_endidx
+              lnd_diag%t_snow_mult  (jc,jk,jb) = lnd_prog%t_snow_mult_t(jc,jk,jb,1)
               lnd_diag%rho_snow_mult(jc,jk,jb) = lnd_prog%rho_snow_mult_t(jc,jk,jb,1)
-              lnd_diag%wliq_snow(jc,jk,jb)     = lnd_prog%wliq_snow_t(jc,jk,jb,1)
-              lnd_diag%wtot_snow(jc,jk,jb)     = lnd_prog%wtot_snow_t(jc,jk,jb,1)
-              lnd_diag%dzh_snow(jc,jk,jb)      = lnd_prog%dzh_snow_t(jc,jk,jb,1)
+              lnd_diag%wliq_snow    (jc,jk,jb) = lnd_prog%wliq_snow_t(jc,jk,jb,1)
+              lnd_diag%wtot_snow    (jc,jk,jb) = lnd_prog%wtot_snow_t(jc,jk,jb,1)
+              lnd_diag%dzh_snow     (jc,jk,jb) = lnd_prog%dzh_snow_t(jc,jk,jb,1)
             ENDDO
           ENDDO
         ENDIF
 
       ELSE ! aggregate fields over tiles
 
-        ! First initialize fields to zero in order to prepare subsequent summation over the tiles
 
-        lnd_diag%t_snow(:,jb)      = 0._wp
-        lnd_diag%t_s(:,jb)         = 0._wp
-        lnd_diag%w_snow(:,jb)      = 0._wp
-        lnd_diag%rho_snow(:,jb)    = 0._wp
-        lnd_diag%w_i(:,jb)         = 0._wp
-        lnd_diag%h_snow(:,jb)      = 0._wp
-        lnd_diag%freshsnow(:,jb)   = 0._wp
-        lnd_diag%snowfrac(:,jb)    = 0._wp
-        lnd_diag%runoff_s(:,jb)    = 0._wp
-        lnd_diag%runoff_g(:,jb)    = 0._wp
+        ! First initialize fields to zero in order to prepare 
+        ! subsequent summation over the tiles
+        !
+        lnd_diag%t_snow   (:,jb)  = 0._wp
+        lnd_diag%t_s      (:,jb)  = 0._wp
+        lnd_diag%w_snow   (:,jb)  = 0._wp
+        lnd_diag%rho_snow (:,jb)  = 0._wp
+        lnd_diag%w_i      (:,jb)  = 0._wp
+        lnd_diag%h_snow   (:,jb)  = 0._wp
+        lnd_diag%freshsnow(:,jb)  = 0._wp
+        lnd_diag%snowfrac (:,jb)  = 0._wp
+        lnd_diag%runoff_s (:,jb)  = 0._wp
+        lnd_diag%runoff_g (:,jb)  = 0._wp
+        lnd_diag%rstom    (:,jb)  = 0._wp
 
-        lnd_diag%t_so(:,:,jb)      = 0._wp
-        lnd_diag%w_so(:,:,jb)      = 0._wp
-        lnd_diag%w_so_ice(:,:,jb)  = 0._wp
- 
+        lnd_diag%t_so    (:,:,jb) = 0._wp
+        lnd_diag%w_so    (:,:,jb) = 0._wp
+        lnd_diag%w_so_ice(:,:,jb) = 0._wp
+
         IF (lmulti_snow) THEN
-          lnd_diag%t_snow_mult(:,:,jb)   = 0._wp
+          lnd_diag%t_snow_mult  (:,:,jb) = 0._wp
           lnd_diag%rho_snow_mult(:,:,jb) = 0._wp
-          lnd_diag%wliq_snow(:,:,jb)     = 0._wp
-          lnd_diag%wtot_snow(:,:,jb)     = 0._wp
-          lnd_diag%dzh_snow(:,:,jb)      = 0._wp
+          lnd_diag%wliq_snow    (:,:,jb) = 0._wp
+          lnd_diag%wtot_snow    (:,:,jb) = 0._wp
+          lnd_diag%dzh_snow     (:,:,jb) = 0._wp
         ENDIF
 
+
         DO isubs = 1,ntiles_total
-!CDIR NODEP,VOVERTAKE,VOB
-          DO ic = 1, i_count
-            jc = ext_data%atm%idx_lst_lp(ic,jb)
+          DO jc = i_startidx, i_endidx
             tilefrac = ext_data%atm%frac_t(jc,jb,isubs)
-            lnd_diag%t_snow(jc,jb)       = lnd_diag%t_snow(jc,jb) + tilefrac * &
-                                           lnd_prog%t_snow_t(jc,jb,isubs)
-            lnd_diag%t_s(jc,jb)          = lnd_diag%t_s(jc,jb) + tilefrac * &
-                                           lnd_prog%t_s_t(jc,jb,isubs)
-            lnd_diag%w_snow(jc,jb)       = lnd_diag%w_snow(jc,jb) + tilefrac * &
-                                           lnd_prog%w_snow_t(jc,jb,isubs)
-            lnd_diag%rho_snow(jc,jb)     = lnd_diag%rho_snow(jc,jb) + tilefrac * &
-                                           lnd_prog%rho_snow_t(jc,jb,isubs)
-            lnd_diag%w_i(jc,jb)          = lnd_diag%w_i(jc,jb) + tilefrac * &
-                                           lnd_prog%w_i_t(jc,jb,isubs)
-            lnd_diag%h_snow(jc,jb)       = lnd_diag%h_snow(jc,jb) + tilefrac * &
-                                           lnd_diag%h_snow_t(jc,jb,isubs)
-            lnd_diag%freshsnow(jc,jb)    = lnd_diag%freshsnow(jc,jb) + tilefrac * &
-                                           lnd_diag%freshsnow_t(jc,jb,isubs)
-            lnd_diag%snowfrac(jc,jb)     = lnd_diag%snowfrac(jc,jb) + tilefrac * &
-                                           lnd_diag%snowfrac_t(jc,jb,isubs)
-            lnd_diag%runoff_s(jc,jb)     = lnd_diag%runoff_s(jc,jb) + tilefrac * &
-                                           lnd_diag%runoff_s_t(jc,jb,isubs)
-            lnd_diag%runoff_g(jc,jb)     = lnd_diag%runoff_g(jc,jb) + tilefrac * &
-                                           lnd_diag%runoff_g_t(jc,jb,isubs)
+
+            lnd_diag%t_snow(jc,jb)    = lnd_diag%t_snow(jc,jb) + tilefrac    &
+              &                         * lnd_prog%t_snow_t(jc,jb,isubs)
+            lnd_diag%t_s(jc,jb)       = lnd_diag%t_s(jc,jb) + tilefrac       &
+              &                         * lnd_prog%t_s_t(jc,jb,isubs)
+            lnd_diag%w_snow(jc,jb)    = lnd_diag%w_snow(jc,jb) + tilefrac    &
+              &                         * lnd_prog%w_snow_t(jc,jb,isubs)
+            lnd_diag%rho_snow(jc,jb)  = lnd_diag%rho_snow(jc,jb) + tilefrac  &
+              &                         * lnd_prog%rho_snow_t(jc,jb,isubs)
+            lnd_diag%w_i(jc,jb)       = lnd_diag%w_i(jc,jb) + tilefrac       &
+              &                         * lnd_prog%w_i_t(jc,jb,isubs)
+            lnd_diag%h_snow(jc,jb)    = lnd_diag%h_snow(jc,jb) + tilefrac    &
+              &                         * lnd_diag%h_snow_t(jc,jb,isubs)
+            lnd_diag%freshsnow(jc,jb) = lnd_diag%freshsnow(jc,jb) + tilefrac &
+              &                         * lnd_diag%freshsnow_t(jc,jb,isubs)
+            lnd_diag%snowfrac(jc,jb)  = lnd_diag%snowfrac(jc,jb) + tilefrac  &
+              &                         * lnd_diag%snowfrac_t(jc,jb,isubs)
+            lnd_diag%runoff_s(jc,jb)  = lnd_diag%runoff_s(jc,jb) + tilefrac  &
+              &                         * lnd_diag%runoff_s_t(jc,jb,isubs)
+            lnd_diag%runoff_g(jc,jb)  = lnd_diag%runoff_g(jc,jb) + tilefrac  &
+              &                         * lnd_diag%runoff_g_t(jc,jb,isubs)
+            lnd_diag%rstom(jc,jb)     = lnd_diag%rstom(jc,jb) + tilefrac     &
+              &                         * lnd_diag%rstom_t(jc,jb,isubs)
             lnd_diag%t_so(jc,nlev_soil+1,jb) = lnd_diag%t_so(jc,nlev_soil+1,jb) + tilefrac * &
                                                lnd_prog%t_so_t(jc,nlev_soil+1,jb,isubs)
 
@@ -843,135 +839,41 @@ CONTAINS
           ENDDO
 
           DO jk=1,nlev_soil
-!CDIR NODEP,VOVERTAKE,VOB
-            DO ic = 1, i_count
-              jc = ext_data%atm%idx_lst_lp(ic,jb)
+            DO jc = i_startidx, i_endidx
               tilefrac = ext_data%atm%frac_t(jc,jb,isubs)
-              lnd_diag%t_so(jc,jk,jb)      = lnd_diag%t_so(jc,jk,jb) + tilefrac* &
-                                             lnd_prog%t_so_t(jc,jk,jb,isubs)
-              lnd_diag%w_so(jc,jk,jb)      = lnd_diag%w_so(jc,jk,jb) + tilefrac * &
-                                             lnd_prog%w_so_t(jc,jk,jb,isubs)
-              lnd_diag%w_so_ice(jc,jk,jb)  = lnd_diag%w_so_ice(jc,jk,jb) + tilefrac * &
-                                             lnd_prog%w_so_ice_t(jc,jk,jb,isubs)
+
+              lnd_diag%t_so(jc,jk,jb)      = lnd_diag%t_so(jc,jk,jb) + tilefrac &
+                                             * lnd_prog%t_so_t(jc,jk,jb,isubs)
+              lnd_diag%w_so(jc,jk,jb)      = lnd_diag%w_so(jc,jk,jb) + tilefrac  &
+                                             * lnd_prog%w_so_t(jc,jk,jb,isubs)
+              lnd_diag%w_so_ice(jc,jk,jb)  = lnd_diag%w_so_ice(jc,jk,jb) + tilefrac  &
+                                             * lnd_prog%w_so_ice_t(jc,jk,jb,isubs)
             ENDDO
           ENDDO
 
           IF (lmulti_snow) THEN
             DO jk=1,nlev_snow
-!CDIR NODEP,VOVERTAKE,VOB
-              DO ic = 1, i_count
-                jc = ext_data%atm%idx_lst_lp(ic,jb)
+              DO jc = i_startidx, i_endidx
                 tilefrac = ext_data%atm%frac_t(jc,jb,isubs)
-                lnd_diag%t_snow_mult(jc,jk,jb)   = lnd_diag%t_snow_mult(jc,jk,jb) + tilefrac * &
-                                                   lnd_prog%t_snow_mult_t(jc,jk,jb,isubs)
-                lnd_diag%rho_snow_mult(jc,jk,jb) = lnd_diag%rho_snow_mult(jc,jk,jb) + tilefrac * &
-                                                   lnd_prog%rho_snow_mult_t(jc,jk,jb,isubs)
-                lnd_diag%wliq_snow(jc,jk,jb)     = lnd_diag%wliq_snow(jc,jk,jb) + tilefrac * &
-                                                   lnd_prog%wliq_snow_t(jc,jk,jb,isubs)
-                lnd_diag%wtot_snow(jc,jk,jb)     = lnd_diag%wtot_snow(jc,jk,jb) + tilefrac * &
-                                                   lnd_prog%wtot_snow_t(jc,jk,jb,isubs)
-                lnd_diag%dzh_snow(jc,jk,jb)      = lnd_diag%dzh_snow(jc,jk,jb) + tilefrac * &
-                                                   lnd_prog%dzh_snow_t(jc,jk,jb,isubs)
+
+                lnd_diag%t_snow_mult(jc,jk,jb)   = lnd_diag%t_snow_mult(jc,jk,jb) + tilefrac  &
+                                                   * lnd_prog%t_snow_mult_t(jc,jk,jb,isubs)
+                lnd_diag%rho_snow_mult(jc,jk,jb) = lnd_diag%rho_snow_mult(jc,jk,jb) + tilefrac  &
+                                                   * lnd_prog%rho_snow_mult_t(jc,jk,jb,isubs)
+                lnd_diag%wliq_snow(jc,jk,jb)     = lnd_diag%wliq_snow(jc,jk,jb) + tilefrac  &
+                                                   * lnd_prog%wliq_snow_t(jc,jk,jb,isubs)
+                lnd_diag%wtot_snow(jc,jk,jb)     = lnd_diag%wtot_snow(jc,jk,jb) + tilefrac  &
+                                                   * lnd_prog%wtot_snow_t(jc,jk,jb,isubs)
+                lnd_diag%dzh_snow(jc,jk,jb)      = lnd_diag%dzh_snow(jc,jk,jb) + tilefrac   &
+                                                   * lnd_prog%dzh_snow_t(jc,jk,jb,isubs)
               ENDDO
             ENDDO
           ENDIF
 
-        ENDDO
-      ENDIF
+        ENDDO  ! isubs
+      ENDIF  ! ntiles_total == 1
 
-     i_count = ext_data%atm%sp_count(jb) ! second step: just copy variables for sea points 
-
-!CDIR NODEP,VOVERTAKE,VOB
-      DO ic = 1, i_count
-        jc = ext_data%atm%idx_lst_sp(ic,jb)
-        lnd_diag%t_snow(jc,jb)       = lnd_prog%t_snow_t(jc,jb,1)
-        lnd_diag%t_s(jc,jb)          = lnd_prog%t_s_t(jc,jb,1)
-        lnd_diag%w_snow(jc,jb)       = lnd_prog%w_snow_t(jc,jb,1)
-        lnd_diag%rho_snow(jc,jb)     = lnd_prog%rho_snow_t(jc,jb,1)
-        lnd_diag%w_i(jc,jb)          = lnd_prog%w_i_t(jc,jb,1)
-        lnd_diag%h_snow(jc,jb)       = lnd_diag%h_snow_t(jc,jb,1)
-        lnd_diag%freshsnow(jc,jb)    = lnd_diag%freshsnow_t(jc,jb,1)
-        lnd_diag%snowfrac(jc,jb)     = lnd_diag%snowfrac_t(jc,jb,1)
-        lnd_diag%runoff_s(jc,jb)     = lnd_diag%runoff_s_t(jc,jb,1)
-        lnd_diag%runoff_g(jc,jb)     = lnd_diag%runoff_g_t(jc,jb,1)
-        lnd_diag%t_so(jc,nlev_soil+1,jb) = lnd_prog%t_so_t(jc,nlev_soil+1,jb,1)
-
-        IF(lmulti_snow) THEN
-          lnd_diag%t_snow_mult(jc,nlev_snow+1,jb) = lnd_prog%t_snow_mult_t(jc,nlev_snow+1,jb,1)
-        ENDIF
-      ENDDO
-
-      DO jk=1,nlev_soil
-!CDIR NODEP,VOVERTAKE,VOB
-        DO ic = 1, i_count
-          jc = ext_data%atm%idx_lst_sp(ic,jb)
-          lnd_diag%t_so(jc,jk,jb)      = lnd_prog%t_so_t(jc,jk,jb,1)
-          lnd_diag%w_so(jc,jk,jb)      = lnd_prog%w_so_t(jc,jk,jb,1)
-          lnd_diag%w_so_ice(jc,jk,jb)  = lnd_prog%w_so_ice_t(jc,jk,jb,1)
-        ENDDO
-      ENDDO
-
-      IF (lmulti_snow) THEN
-        DO jk=1,nlev_snow
-!CDIR NODEP,VOVERTAKE,VOB
-          DO ic = 1, i_count
-            jc = ext_data%atm%idx_lst_sp(ic,jb)
-            lnd_diag%t_snow_mult(jc,jk,jb)   = lnd_prog%t_snow_mult_t(jc,jk,jb,1)
-            lnd_diag%rho_snow_mult(jc,jk,jb) = lnd_prog%rho_snow_mult_t(jc,jk,jb,1)
-            lnd_diag%wliq_snow(jc,jk,jb)     = lnd_prog%wliq_snow_t(jc,jk,jb,1)
-            lnd_diag%wtot_snow(jc,jk,jb)     = lnd_prog%wtot_snow_t(jc,jk,jb,1)
-            lnd_diag%dzh_snow(jc,jk,jb)      = lnd_prog%dzh_snow_t(jc,jk,jb,1)
-          ENDDO
-        ENDDO
-      ENDIF
-
-     i_count = ext_data%atm%fp_count(jb) ! third step: copy variables also for lake points 
-
-!CDIR NODEP,VOVERTAKE,VOB
-      DO ic = 1, i_count
-        jc = ext_data%atm%idx_lst_fp(ic,jb)
-        lnd_diag%t_snow(jc,jb)       = lnd_prog%t_snow_t(jc,jb,1)
-        lnd_diag%t_s(jc,jb)          = lnd_prog%t_s_t(jc,jb,1)
-        lnd_diag%w_snow(jc,jb)       = lnd_prog%w_snow_t(jc,jb,1)
-        lnd_diag%rho_snow(jc,jb)     = lnd_prog%rho_snow_t(jc,jb,1)
-        lnd_diag%w_i(jc,jb)          = lnd_prog%w_i_t(jc,jb,1)
-        lnd_diag%h_snow(jc,jb)       = lnd_diag%h_snow_t(jc,jb,1)
-        lnd_diag%freshsnow(jc,jb)    = lnd_diag%freshsnow_t(jc,jb,1)
-        lnd_diag%snowfrac(jc,jb)     = lnd_diag%snowfrac_t(jc,jb,1)
-        lnd_diag%runoff_s(jc,jb)     = lnd_diag%runoff_s_t(jc,jb,1)
-        lnd_diag%runoff_g(jc,jb)     = lnd_diag%runoff_g_t(jc,jb,1)
-        lnd_diag%t_so(jc,nlev_soil+1,jb) = lnd_prog%t_so_t(jc,nlev_soil+1,jb,1)
-
-        IF(lmulti_snow) THEN
-          lnd_diag%t_snow_mult(jc,nlev_snow+1,jb) = lnd_prog%t_snow_mult_t(jc,nlev_snow+1,jb,1)
-        ENDIF
-      ENDDO
-
-      DO jk=1,nlev_soil
-!CDIR NODEP,VOVERTAKE,VOB
-        DO ic = 1, i_count
-          jc = ext_data%atm%idx_lst_fp(ic,jb)
-          lnd_diag%t_so(jc,jk,jb)      = lnd_prog%t_so_t(jc,jk,jb,1)
-          lnd_diag%w_so(jc,jk,jb)      = lnd_prog%w_so_t(jc,jk,jb,1)
-          lnd_diag%w_so_ice(jc,jk,jb)  = lnd_prog%w_so_ice_t(jc,jk,jb,1)
-        ENDDO
-      ENDDO
-
-      IF (lmulti_snow) THEN
-        DO jk=1,nlev_snow
-!CDIR NODEP,VOVERTAKE,VOB
-          DO ic = 1, i_count
-            jc = ext_data%atm%idx_lst_fp(ic,jb)
-            lnd_diag%t_snow_mult(jc,jk,jb)   = lnd_prog%t_snow_mult_t(jc,jk,jb,1)
-            lnd_diag%rho_snow_mult(jc,jk,jb) = lnd_prog%rho_snow_mult_t(jc,jk,jb,1)
-            lnd_diag%wliq_snow(jc,jk,jb)     = lnd_prog%wliq_snow_t(jc,jk,jb,1)
-            lnd_diag%wtot_snow(jc,jk,jb)     = lnd_prog%wtot_snow_t(jc,jk,jb,1)
-            lnd_diag%dzh_snow(jc,jk,jb)      = lnd_prog%dzh_snow_t(jc,jk,jb,1)
-          ENDDO
-        ENDDO
-      ENDIF
-
-    ENDDO    
+    ENDDO  ! jb
 !$OMP END DO
 !$OMP END PARALLEL
 

@@ -80,7 +80,7 @@ MODULE mo_nh_interface_nwp
   USE mo_run_config,         ONLY: ntracer, iqv, iqc, iqi, iqr, iqs,          &
     &                              msg_level, ltimer, timers_level, nqtendphy
   USE mo_io_config,          ONLY: lflux_avg
-  USE mo_physical_constants, ONLY: rd, rd_o_cpd, vtmpc1, p0ref, cvd_o_rd, rcvd, cpd
+  USE mo_physical_constants, ONLY: rd, rd_o_cpd, vtmpc1, p0ref, rcvd, cpd
 
   USE mo_nh_diagnose_pres_temp,ONLY: diagnose_pres_temp
 
@@ -208,7 +208,6 @@ CONTAINS
     REAL(wp) :: zsct ! solar constant (at time of year)
     REAL(wp) :: zcosmu0 (nproma,pt_patch%nblks_c)
 
-    REAL(wp) :: rd_o_cvd
     REAL(wp) :: r_sim_time
 
     REAL(wp) :: z_qsum       !< summand of virtual increment
@@ -243,7 +242,6 @@ CONTAINS
     ieidx => pt_patch%cells%edge_idx
     ieblk => pt_patch%cells%edge_blk
 
-    rd_o_cvd  = 1._wp / cvd_o_rd
 
     ! Inverse of simulation time
     r_sim_time = 1._wp/MAX(1.e-6_wp, p_sim_time)
@@ -465,18 +463,6 @@ CONTAINS
                               & lnd_prog_now,                     & !>inout 
                               & lnd_diag                          ) !>inout
 
-        ! compute turbulent diffusion (atmospheric column)
-        CALL nwp_turbdiff   (  dt_phy_jg(itfastphy),              & !>in
-                              & pt_patch, p_metrics,              & !>in
-                              & ext_data,                         & !>in
-                              & pt_prog,                          & !>in
-                              & pt_prog_now_rcf, pt_prog_rcf,     & !>in/inout
-                              & pt_diag ,                         & !>inout
-                              & prm_diag,prm_nwp_tend,            & !>inout
-                              & wtr_prog_now,                     & !>in
-                              & lnd_prog_now,                     & !>in 
-                              & lnd_diag                          ) !>in
-
       ELSE
         ! Turbulence schemes including the call to the surface scheme
         CALL nwp_turbulence_sfc (  dt_phy_jg(itfastphy),              & !>input
@@ -546,6 +532,27 @@ CONTAINS
                             & lnd_diag                          ) !>input
 
     ENDIF
+
+
+    IF (  lcall_phy_jg(itturb)) THEN
+      IF (timers_level > 1) CALL timer_start(timer_nwp_turbulence)
+      IF ( atm_phy_nwp_config(jg)%inwp_turb <= 2 ) THEN
+        ! Turbulence schemes not including the call to the surface scheme
+        !
+        ! compute turbulent diffusion (atmospheric column)
+        CALL nwp_turbdiff   (  dt_phy_jg(itfastphy),              & !>in
+                              & pt_patch, p_metrics,              & !>in
+                              & ext_data,                         & !>in
+                              & pt_prog,                          & !>in
+                              & pt_prog_now_rcf, pt_prog_rcf,     & !>in/inout
+                              & pt_diag ,                         & !>inout
+                              & prm_diag,prm_nwp_tend,            & !>inout
+                              & wtr_prog_now,                     & !>in
+                              & lnd_prog_now,                     & !>in 
+                              & lnd_diag                          ) !>in
+      ENDIF
+      IF (timers_level > 1) CALL timer_stop(timer_nwp_turbulence)
+    ENDIF !lcall(itturb)
 
 
     IF (lcall_phy_jg(itsatad) .OR. lcall_phy_jg(itgscp) .OR. lcall_phy_jg(itturb)) THEN

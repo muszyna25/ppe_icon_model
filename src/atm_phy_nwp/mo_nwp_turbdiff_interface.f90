@@ -259,6 +259,7 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
                &           + tcall_turb_jg*prm_nwp_tend%ddt_tracer_turb(jc,jk,jb,iqc))
         ENDDO
       ENDDO
+      ! VN is updated in nwp_nh_interface (for efficiency reasons)
 
     ELSE IF ( atm_phy_nwp_config(jg)%inwp_turb == 2 ) THEN
 
@@ -312,6 +313,7 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
                &           + tcall_turb_jg*prm_nwp_tend%ddt_tracer_turb(jc,jk,jb,iqc))
         ENDDO
       ENDDO
+      ! VN is updated in nwp_nh_interface (for efficiency reasons)
 
 
       ! diagnose 2 m temperature, humidity, 10 m wind
