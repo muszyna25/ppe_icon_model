@@ -360,6 +360,7 @@ case "$ac_sitename" in
         software_tree = /sw/$dist_codename-x64
         case $ac_hostname in
             thunder*)
+                config_target=thunder
                 NETCDFROOT  = $software_tree/netcdf-4.1.3-static-gcc46
                 HDF5ROOT    = $software_tree/hdf5-1.8.8-static
                 SZIPROOT    = $software_tree/szip-2.1-static
@@ -367,10 +368,13 @@ case "$ac_sitename" in
                 SYS_LIBS = -lnuma -lrt -lnsl -lutil -lm -lpthread -ldl -Wl,--export-dynamic -lrt -lnsl -lutil -lm -lpthread -ldl
                 IB_LIBS  = -lrdmacm -libverbs
                 MPI_LIB  = -lmpi_f90 -lmpi_f77 -lmpi $IB_LIBS $SYS_LIBS
-                load_profile="." "/client/etc/profile.zmaw"
+                # load_profile="." "/client/etc/profile.zmaw"
+                use_shell=/bin/bash
+                load_profile="source" "/sw/share/Modules/init/bash"
                 load_modules="ncl/6.0.0-gccsys" "cdo/default" "jdk" "${load_modules}"
                 make_command="make" "-j" "4"
-                case $fortran_compiler in
+                submit="sbatch"
+                case "$fortran_compiler" in
                     default|gcc)
                       MPIROOT = $software_tree/mpi/openmpi_ib-1.6.2-static-gcc46
                       load_modules="gcc/4.6.3" "openmpi_ib/1.6.2-static-gcc46" "${load_modules}"
@@ -391,7 +395,7 @@ case "$ac_sitename" in
                 esac
                 ;;
         *)
-          case "$host" in
+           case "$host" in
               i686-*-linux-*)           # 32 bit MPI/ZMAW workstation
                   config_target=mpipc
                   load_modules="ncl/5.2.0-bin" "cdo/default" "jdk" "${load_modules}"
