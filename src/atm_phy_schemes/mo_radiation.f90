@@ -1551,18 +1551,18 @@ CONTAINS
       !   Adjust for changed surface temperature (ptsfc) with respect to the
       !   surface temperature used for the longwave flux computation (ptsfctrad).
       !   --> modifies heating in lowermost layer only (is this smart?)
-      zflxlw(jcs:jce,klevp1) = pflxlw(jcs:jce,klevp1)             !!$  &
-!!$ TR        &                   + pemiss(jcs:jce)*stbo * ptsfctrad(jcs:jce)**4 &
-!!$ TR        &                   - pemiss(jcs:jce)*stbo * ptsfc    (jcs:jce)**4
+      zflxlw(jcs:jce,klevp1) = pflxlw(jcs:jce,klevp1)                      &
+        &                   + pemiss(jcs:jce)*stbo * ptsfctrad(jcs:jce)**4 &
+        &                   - pemiss(jcs:jce)*stbo * ptsfc    (jcs:jce)**4
 
 
     ENDIF
     
     !KF for sea-ice model: temperature tendency of longwave flux at surface
     IF(PRESENT (dflxlw_dT)) &
-      &    dflxlw_dT(jcs:jce)= 4._wp*pemiss(jcs:jce)*stbo               &
-      &                      * (ptemp_klev(jcs:jce)-ptsfc (jcs:jce))**3 &
-      &                      * (ptemp_klev(jcs:jce)-1._wp)
+      &    dflxlw_dT(jcs:jce)= 4._wp * pemiss(jcs:jce) * stbo             &
+      &                      * (ptemp_klev(jcs:jce) - ptsfc (jcs:jce))**3 &
+      &                      * (ptemp_klev(jcs:jce) - 1._wp)
 
     !
     !

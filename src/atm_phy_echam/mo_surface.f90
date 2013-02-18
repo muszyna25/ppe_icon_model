@@ -491,7 +491,7 @@ CONTAINS
        wgt_sum(1:kproma) = wgt_sum(1:kproma) + wgt(1:kproma)
         se_sum(1:kproma) =  se_sum(1:kproma) + bb_btm(1:kproma,jsfc,ih)*wgt(1:kproma)
         qv_sum(1:kproma) =  qv_sum(1:kproma) + bb_btm(1:kproma,jsfc,iqv) &
-                         &                       *wgt(1:kproma)*zca(1:kproma,jsfc)
+                         &                       *wgt(1:kproma)
     ENDDO
 
     IF (lsfc_heat_flux) THEN
