@@ -59,7 +59,7 @@ MODULE mo_ext_data_state
   USE mo_parallel_config,    ONLY: nproma
   USE mo_impl_constants,     ONLY: inwp, iecham, ildf_echam, io3_clim, io3_ape, &
     &                              ihs_ocean, ihs_atm_temp, ihs_atm_theta, inh_atmosphere, &
-    &                              max_char_length, min_rlcell_int,                        &
+    &                              max_char_length, min_rlcell_int,  LAND,                 &
     &                              VINTP_METHOD_LIN, HINTP_TYPE_NONE, HINTP_TYPE_LONLAT_NNB
   USE mo_math_constants,     ONLY: dbl_eps
   USE mo_physical_constants, ONLY: ppmv2gg, zemiss_def
@@ -2657,17 +2657,12 @@ CONTAINS
     REAL(wp):: z_flux(nproma,iforc_len,p_patch(1)%nblks_c)
     TYPE (t_keyword_list), POINTER :: keywords => NULL()
 
-!-------------------------------------------------------------------------
-
     CALL message (TRIM(routine), 'start')
 
-!-------------------------------------------------------------------------
-
+    !-------------------------------------------------------------------------
     !  READ OCEAN BATHYMETRY
-
     !-------------------------------------------------------------------------
 
-    !DO jg = 1,n_dom
     jg = 1
 
     i_lev       = p_patch(jg)%level
@@ -2734,33 +2729,33 @@ CONTAINS
     ! Read bathymetry for triangle centers and edges
     !
     !-------------------------------------------------------
+    ! These arrays are not included in standard icon-grid, but they are
+    ! created by "create_ocean_grid"
+    ! first initialise everything as land
+    ! we need to do this since dummy entities may exist in the arryas but not in the grid data
+    ext_data(jg)%oce%bathymetry_c(:,:) = 99999999.0_wp
+    ext_data(jg)%oce%bathymetry_e(:,:) = 99999999.0_wp
+    ext_data(jg)%oce%lsm_ctr_c(:,:)    = LAND
+    ext_data(jg)%oce%lsm_ctr_e(:,:)    = LAND
+     
+    CALL read_netcdf_data (ncid, 'cell_elevation', p_patch(jg)%n_patch_cells_g,     &
+      &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+      &                     ext_data(jg)%oce%bathymetry_c)
 
-    ! triangle center and edges
+    CALL read_netcdf_data (ncid, 'edge_elevation', p_patch(jg)%n_patch_edges_g,     &
+      &                     p_patch(jg)%n_patch_edges, p_patch(jg)%edges%glb_index, &
+      &                     ext_data(jg)%oce%bathymetry_e)
 
-    IF (i_cell_type == 3) THEN     ! triangular grid
+    ! get land-sea-mask on cells, integer marks are:
+    ! inner sea (-2), boundary sea (-1, cells and vertices), boundary (0, edges),
+    ! boundary land (1, cells and vertices), inner land (2)
+    CALL read_netcdf_data (ncid, 'cell_sea_land_mask', p_patch(jg)%n_patch_cells_g, &
+      &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+      &                     ext_data(jg)%oce%lsm_ctr_c)
 
-      ! These arrays are not included in standard icon-grid, but they are
-      ! created by "create_ocean_grid"
-      CALL read_netcdf_data (ncid, 'cell_elevation', p_patch(jg)%n_patch_cells_g,     &
-        &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-        &                     ext_data(jg)%oce%bathymetry_c)
-
-      CALL read_netcdf_data (ncid, 'edge_elevation', p_patch(jg)%n_patch_edges_g,     &
-        &                     p_patch(jg)%n_patch_edges, p_patch(jg)%edges%glb_index, &
-        &                     ext_data(jg)%oce%bathymetry_e)
-
-      ! get land-sea-mask on cells, integer marks are:
-      ! inner sea (-2), boundary sea (-1, cells and vertices), boundary (0, edges),
-      ! boundary land (1, cells and vertices), inner land (2)
-      CALL read_netcdf_data (ncid, 'cell_sea_land_mask', p_patch(jg)%n_patch_cells_g, &
-        &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-        &                     ext_data(jg)%oce%lsm_ctr_c)
-
-      CALL read_netcdf_data (ncid, 'edge_sea_land_mask', p_patch(jg)%n_patch_edges_g, &
+    CALL read_netcdf_data (ncid, 'edge_sea_land_mask', p_patch(jg)%n_patch_edges_g, &
         &                    p_patch(jg)%n_patch_edges, p_patch(jg)%edges%glb_index,  &
         &                    ext_data(jg)%oce%lsm_ctr_e)
-
-    ENDIF
 
     !
     ! close file

@@ -175,6 +175,7 @@ MODULE mo_model_domain
   
   TYPE t_grid_cells
     
+    INTEGER :: max_connectivity
     ! number of edges connected to cell
     ! index1=1,nproma, index2=1,nblks_c
     INTEGER, ALLOCATABLE :: num_edges(:,:)
@@ -546,6 +547,7 @@ MODULE mo_model_domain
   
   TYPE t_grid_vertices
     
+    INTEGER :: max_connectivity
     ! physical domain ID of verts
     ! (may differ from the "normal" domain ID in case of domain merging):
     ! index1=1,nproma, index2=1,nblks_v
@@ -719,12 +721,21 @@ MODULE mo_model_domain
     ! global id of processor with rank 0 (within the working set p_comm_work)
     INTEGER :: proc0
     
-    !
-    ! ! total number of cells, edges and vertices
-    !
+    ! total number of allocated cells, edges and vertices
     INTEGER :: n_patch_cells
     INTEGER :: n_patch_edges
     INTEGER :: n_patch_verts
+    
+    ! total number of exist cells
+!    INTEGER :: n_exist_cells
+!    INTEGER :: n_cell_blocks
+!    INTEGER :: last_cell_block_size
+    
+    ! in case of a dummy cell, we keep the blk and index of it
+!    INTEGER :: dummy_cell_blk
+!    INTEGER :: dummy_cell_idx
+    
+    
     !
     ! ! number of cells, edges and vertices in the global patch
     INTEGER :: n_patch_cells_g

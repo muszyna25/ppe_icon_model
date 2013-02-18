@@ -2945,6 +2945,8 @@ CONTAINS
 !! are stored for use in the RBF initialization routines, and inverse
 !! primal and dual edge lengths are computed
 !!
+!! Note: Not clear if all the included calclulations are needed
+!!
 !! @par Revision History
 !!  developed by Guenther Zaengl, 2009-03-31
 !!
@@ -3156,14 +3158,20 @@ DO jb = i_startblk, i_endblk
     ilv4 = ptr_patch%edges%vertex_idx(je,jb,4)
     ibv4 = ptr_patch%edges%vertex_blk(je,jb,4)
 
-    cc_ev3 = gc2cc(ptr_patch%verts%vertex(ilv3,ibv3))
-    cc_ev4 = gc2cc(ptr_patch%verts%vertex(ilv4,ibv4))
+!     IF ( ilv3 > 0 .AND. ilv4 > 0) THEN
+!      write(*,*) "cells:", ilc1, ibc1, ilc2, ibc2
+!      write(*,*) "cell1 vertex idx :", ptr_patch%cells%vertex_idx(ilc1,ibc1,:)
+!      write(*,*) "cell1 vertex blk :", ptr_patch%cells%vertex_blk(ilc1,ibc1,:)
+!      write(*,*) "cell2 vertex idx :", ptr_patch%cells%vertex_idx(ilc2,ibc2,:)
+!      write(*,*) "cell2 vertex blk :", ptr_patch%cells%vertex_blk(ilc2,ibc2,:)
+!      write(*,*) "chosen vertexes:", ilv3,ibv3, ilv4,ibv4
+      cc_ev3 = gc2cc(ptr_patch%verts%vertex(ilv3,ibv3))
+      cc_ev4 = gc2cc(ptr_patch%verts%vertex(ilv4,ibv4))
 
-    ! inverse length bewtween vertices 3 and 4
-    IF (ptr_patch%cell_type == 3 ) THEN
-      ptr_patch%edges%inv_vert_vert_length(je,jb) = 1._wp/&
-        & (grid_sphere_radius*arc_length(cc_ev3,cc_ev4))
-    ENDIF
+      ! inverse length bewtween vertices 3 and 4
+      ptr_patch%edges%inv_vert_vert_length(je,jb) = 1._wp / &
+        & (grid_sphere_radius * arc_length(cc_ev3,cc_ev4))
+!      ENDIF
 
     ! next step: compute projected orientation vectors for cells and vertices
     ! bordering to each edge (incl. vertices 3 and 4 intorduced above)

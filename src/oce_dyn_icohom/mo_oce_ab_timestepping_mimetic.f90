@@ -511,6 +511,8 @@ REAL(wp)                     ::trac_c(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nbl
 
   ENDIF  ! l_rigid_lid
 
+  write(0,*) "solve_free_sfc_ab_mimetic: sum(h)=", SUM(p_os%p_prog(nnew(1))%h(:,:))
+
 END SUBROUTINE solve_free_sfc_ab_mimetic
 !-------------------------------------------------------------------------  
 SUBROUTINE Jacobi_precon( p_jp, p_patch_3D, p_op_coeff,thick_e) !RESULT(p_jp)
@@ -1692,6 +1694,9 @@ SUBROUTINE calc_normal_velocity_ab_mimetic(p_patch_3D,p_os, p_op_coeff, p_ext_da
   CHARACTER(len=*), PARAMETER ::     &
     &      method_name='mo_oce_ab_timestepping_mimetic: calc_normal_velocity_ab_mimetic'
   TYPE(t_patch), POINTER :: p_patch
+
+  REAL(wp) :: sum_vn, sum_vn_pred, sum_z_grad
+
   !----------------------------------------------------------------------
   !CALL message (TRIM(routine), 'start')
   !-----------------------------------------------------------------------
@@ -1711,6 +1716,18 @@ SUBROUTINE calc_normal_velocity_ab_mimetic(p_patch_3D,p_os, p_op_coeff, p_ext_da
       &                  p_op_coeff%grad_coeff(:,1,:),&
       &                  z_grad_h(:,:))
   ENDIF
+
+  sum_z_grad = SUM(z_grad_h(:,:))
+  sum_vn_pred =- 0.0_wp
+  DO jb = edges_in_domain%start_block, edges_in_domain%end_block
+    CALL get_index_range(edges_in_domain, jb, i_startidx_e, i_endidx_e)
+    DO jk = 1, n_zlev
+      DO je = i_startidx_e, i_endidx_e
+        sum_vn_pred = sum_vn_pred + p_os%p_diag%vn_pred(je,jk,jb)
+      END DO
+    END DO
+  END DO
+
   ! Step 2) Calculate the new velocity from the predicted one and the new surface height
   IF (iswm_oce == 1) THEN ! shallow water case
 
@@ -1812,6 +1829,18 @@ SUBROUTINE calc_normal_velocity_ab_mimetic(p_patch_3D,p_os, p_op_coeff, p_ext_da
     !---------------------------------------------------------------------
 
   ENDIF
+
+  sum_vn =- 0.0_wp
+  DO jb = edges_in_domain%start_block, edges_in_domain%end_block
+    CALL get_index_range(edges_in_domain, jb, i_startidx_e, i_endidx_e)
+    DO jk = 1, n_zlev
+      DO je = i_startidx_e, i_endidx_e
+        sum_vn = sum_vn + p_os%p_prog(nnew(1))%vn(je,jk,jb)
+      END DO
+    END DO
+  END DO
+
+  write(0,*) "---calc_normal_velocity_ab_mimetic: grad=", sum_z_grad, " sum_vn_pred=",sum_vn_pred, " sum_vn=", sum_vn
 
   !CALL message (TRIM(routine), 'end')
 
