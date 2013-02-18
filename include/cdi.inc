@@ -989,6 +989,25 @@
 !                                     DOUBLEPRECISION value)
       EXTERNAL        vlistDefVarDblKey
 
+!                     vlistInqVarRawBegin
+!                                     (INTEGER        streamID, 
+!                                      INTEGER        varID)
+      EXTERNAL        vlistInqVarRawBegin
+
+      DOUBLEPRECISION vlistInqVarDblKey
+!                                     (INTEGER        streamID, 
+!				       CHARACTER*(*)  name)
+      EXTERNAL        vlistInqVarDblKey
+
+      INTEGER         vlistInqVarIntKey
+!                                     (INTEGER        streamID, 
+!				       CHARACTER*(*)  name)
+      EXTERNAL        vlistInqVarIntKey
+
+!                     vlistInqVarRawEnd
+!                                     (INTEGER        streamID)
+      EXTERNAL        vlistInqVarRawEnd
+
 !                     vlistDefVarModel
 !                                    (INTEGER         vlistID,
 !                                     INTEGER         varID,
