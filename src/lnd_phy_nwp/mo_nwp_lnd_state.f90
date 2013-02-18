@@ -737,7 +737,7 @@ MODULE mo_nwp_lnd_state
     ENDIF
  
 
-    p_prog_lnd%t_g_t(:,:,:)   = 290.4_wp
+!DR    p_prog_lnd%t_g_t(:,:,:)   = 290.4_wp
 
     p_prog_lnd%t_so_t(:,1,:,:) = 290.4_wp !!HW: be careful about the indices!!
     p_prog_lnd%t_so_t(:,2,:,:) = 290.4_wp !!HW: be careful about the indices!!

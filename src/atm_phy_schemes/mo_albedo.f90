@@ -56,7 +56,7 @@ MODULE mo_albedo
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
   USE mo_radiation_config,     ONLY: rad_csalbw
   USE mo_lnd_nwp_config,       ONLY: ntiles_total, ntiles_water, lseaice,     &
-    &                                isub_water, isub_seaice
+    &                                isub_water, isub_lake, isub_seaice
   USE mo_phyparam_soil,        ONLY: csalb, csalb_snow_fe, csalb_snow_fd,     &
     &                                csalb_snow_min, csalb_snow_max, cf_snow, &
     &                                csalb_p
@@ -233,6 +233,7 @@ CONTAINS
           ! - loop over lake points (same jt as water points)
           !
           i_count_flk = ext_data%atm%fp_count(jb)
+          jt = isub_lake
 
           DO ic = 1, i_count_flk
             jc = ext_data%atm%idx_lst_fp(ic,jb)
@@ -277,7 +278,7 @@ CONTAINS
           !
           ! 2b. Consider sea points
           !
-          ! - loop over sea points
+          ! - loop over sea points (includes sea-ice points)
           !
           i_count_sea = ext_data%atm%spw_count(jb)
           jt = isub_water
@@ -300,15 +301,16 @@ CONTAINS
           !
           ! 3b. Consider lake points (no tiles)
           !
-          ! - loop over lake points (same jt as water points)
+          ! - loop over lake points
           !
           i_count_flk = ext_data%atm%fp_count(jb)
+          jt = isub_lake
 
           DO ic = 1, i_count_flk
             jc = ext_data%atm%idx_lst_fp(ic,jb)
 
             ! special handling of sea ice points
-            IF (lnd_prog%t_g_t(jc,jb,isub_water) < tf_salt) THEN ! sea ice
+            IF (lnd_prog%t_g_t(jc,jb,isub_lake) < tf_salt) THEN ! sea ice
               ist = 10
             ELSE
               ist = 9 ! water
