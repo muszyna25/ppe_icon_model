@@ -80,7 +80,7 @@ MODULE mo_nh_interface_nwp
   USE mo_run_config,         ONLY: ntracer, iqv, iqc, iqi, iqr, iqs,          &
     &                              msg_level, ltimer, timers_level, nqtendphy
   USE mo_io_config,          ONLY: lflux_avg
-  USE mo_physical_constants, ONLY: rd, rd_o_cpd, vtmpc1, p0ref, cvd_o_rd, rcvd, cpd
+  USE mo_physical_constants, ONLY: rd, rd_o_cpd, vtmpc1, p0ref, rcvd, cpd
 
   USE mo_nh_diagnose_pres_temp,ONLY: diagnose_pres_temp
 
@@ -118,7 +118,6 @@ MODULE mo_nh_interface_nwp
 
   REAL(wp), PARAMETER :: rd_o_p0ref = rd / p0ref
   REAL(wp), PARAMETER :: cpd_o_rd = 1._wp / rd_o_cpd
-  REAL(wp), PARAMETER :: rd_o_cvd = cvd_o_rd
 
   PUBLIC :: nwp_nh_interface
 

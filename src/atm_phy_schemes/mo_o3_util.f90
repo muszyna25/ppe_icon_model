@@ -937,7 +937,7 @@ END SUBROUTINE o3_timeint
     TYPE(t_external_data), INTENT(inout) :: ext_data  !!the external data state
 
     ! local fields
-    INTEGER  :: idx0(nproma,pt_patch%nlev,pt_patch%nblks_c)
+    INTEGER  :: idx0(nproma,0:pt_patch%nlev,pt_patch%nblks_c)
     REAL(wp) :: zlat(0:ilat+1)
     REAL(wp) :: zozn(0:ilat+1,1:nlev_gems)
     REAL(wp) :: zpresh(0:nlev_gems)
@@ -1084,7 +1084,7 @@ END SUBROUTINE o3_timeint
 
       jk_start = 0
 
-      DO jk = 1,pt_patch%nlev
+      DO jk = 0,pt_patch%nlev
         l_found(:) = .FALSE.
         lfound_all = .FALSE.
         DO jkk = jk_start,nlev_gems-1
