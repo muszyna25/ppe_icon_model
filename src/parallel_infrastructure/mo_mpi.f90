@@ -5851,22 +5851,25 @@ CONTAINS
   !
   ! @param[out]   proc_id  (Optional:) PE number of maximum value
   ! @param[inout] keyval   (Optional:) additional meta information
+  ! @param[in]    root     (Optional:) root PE, otherwise we perform an
+  !                                    ALL-TO-ALL operation
   !
   ! The parameter @p keyval can be used to communicate
   ! additional data on the maximum value, e.g., the level
   ! index where the maximum occurred.
   !
-  FUNCTION p_max_0d (zfield, proc_id, keyval, comm) RESULT (p_max)
+  FUNCTION p_max_0d (zfield, proc_id, keyval, comm, root) RESULT (p_max)
 
     REAL(dp)                         :: p_max
     REAL(dp),          INTENT(in)    :: zfield
     INTEGER, OPTIONAL, INTENT(inout) :: proc_id
     INTEGER, OPTIONAL, INTENT(inout) :: keyval
+    INTEGER, OPTIONAL, INTENT(in)    :: root
     INTEGER, OPTIONAL, INTENT(in)    :: comm
 #ifndef NOMPI
     INTEGER  :: p_comm
     INTEGER  :: meta_info, ikey
-    REAL(dp) :: in_val(2)
+    REAL(dp) :: in_val(2), rcv_val(2)
 
     IF (PRESENT(comm)) THEN
        p_comm = comm
@@ -5884,17 +5887,27 @@ CONTAINS
         ! use MPI_MAXLOC to transfer additional data
         in_val(1) = zfield
         in_val(2) = REAL( meta_info, wp )
-        CALL MPI_ALLREDUCE (MPI_IN_PLACE, in_val, 1, MPI_2DOUBLE_PRECISION, &
-          MPI_MAXLOC, p_comm, p_error)
+        IF (PRESENT(root)) THEN
+          CALL MPI_REDUCE (in_val, rcv_val, 1, MPI_2DOUBLE_PRECISION, &
+            MPI_MAXLOC, root, p_comm, p_error)
+        ELSE
+          CALL MPI_ALLREDUCE (in_val, rcv_val, 1, MPI_2DOUBLE_PRECISION, &
+            MPI_MAXLOC, p_comm, p_error)
+        END IF
         ! decode meta info:
-        p_max = in_val(1)
-        ikey = INT(in_val(2)+0.5)/process_mpi_all_size
+        p_max = rcv_val(1)
+        ikey = INT(rcv_val(2)+0.5)/process_mpi_all_size
         IF (PRESENT(keyval))  keyval  = ikey
-        IF (PRESENT(proc_id)) proc_id = INT(in_val(2)+0.5) - ikey
+        IF (PRESENT(proc_id)) proc_id = INT(rcv_val(2)+0.5) - ikey
       ELSE
         ! compute simple (standard) maximum
-        CALL MPI_ALLREDUCE (zfield, p_max, 1, p_real_dp, &
-          MPI_MAX, p_comm, p_error)
+        IF (PRESENT(root)) THEN
+          CALL MPI_REDUCE (zfield, p_max, 1, p_real_dp, &
+            MPI_MAX, root, p_comm, p_error)
+        ELSE
+          CALL MPI_ALLREDUCE (zfield, p_max, 1, p_real_dp, &
+            MPI_MAX, p_comm, p_error)
+        END IF
      END IF
     ELSE
        p_max = zfield
@@ -5935,23 +5948,26 @@ CONTAINS
   !
   ! @param[out]   proc_id  (Optional:) PE number of maximum value
   ! @param[inout] keyval   (Optional:) additional meta information
+  ! @param[in]    root     (Optional:) root PE, otherwise we perform an
+  !                                    ALL-TO-ALL operation
   !
   ! The parameter @p keyval can be used to communicate
   ! additional data on the maximum value, e.g., the level
   ! index where the maximum occurred.
   !
-  FUNCTION p_max_1d (zfield, proc_id, keyval, comm) RESULT (p_max)
+  FUNCTION p_max_1d (zfield, proc_id, keyval, comm, root) RESULT (p_max)
 
     REAL(dp),          INTENT(in)    :: zfield(:)
     INTEGER, OPTIONAL, INTENT(inout) :: proc_id(SIZE(zfield))
     INTEGER, OPTIONAL, INTENT(inout) :: keyval(SIZE(zfield))
+    INTEGER, OPTIONAL, INTENT(in)    :: root
     INTEGER, OPTIONAL, INTENT(in)    :: comm
     REAL(dp)                         :: p_max (SIZE(zfield))
 
 #ifndef NOMPI
     INTEGER :: p_comm
     INTEGER  :: meta_info, ikey, j
-    REAL(dp) :: in_val(2, SIZE(zfield))
+    REAL(dp) :: in_val(2, SIZE(zfield)), rcv_val(2, SIZE(zfield))
 
     IF (PRESENT(comm)) THEN
        p_comm = comm
@@ -5971,20 +5987,30 @@ CONTAINS
           in_val(2,j) = REAL( meta_info, wp )
         END DO
         ! use MPI_MAXLOC to transfer additional data
-        CALL MPI_ALLREDUCE (MPI_IN_PLACE, in_val, SIZE(zfield), MPI_2DOUBLE_PRECISION, &
-          MPI_MAXLOC, p_comm, p_error)
+        IF (PRESENT(root)) THEN
+          CALL MPI_REDUCE (in_val, rcv_val, SIZE(zfield), MPI_2DOUBLE_PRECISION, &
+            &              MPI_MAXLOC, root, p_comm, p_error)
+        ELSE
+          CALL MPI_ALLREDUCE (in_val, rcv_val, SIZE(zfield), MPI_2DOUBLE_PRECISION, &
+            &                 MPI_MAXLOC, p_comm, p_error)
+        END IF
         ! decode meta info:
-        p_max = in_val(1,:)
+        p_max = rcv_val(1,:)
         DO j=1, SIZE(zfield)
-          ikey = INT(in_val(2,j)+0.5)/process_mpi_all_size
+          ikey = INT(rcv_val(2,j)+0.5)/process_mpi_all_size
           IF (PRESENT(keyval))  keyval(j)  = ikey
           IF (PRESENT(proc_id)) proc_id(j) = &
-            & INT(in_val(2,j)+0.5) - ikey*process_mpi_all_size
+            & INT(rcv_val(2,j)+0.5) - ikey*process_mpi_all_size
         END DO
       ELSE
         ! compute simple (standard) maximum
-        CALL MPI_ALLREDUCE (zfield, p_max, SIZE(zfield), p_real_dp, &
-          MPI_MAX, p_comm, p_error)
+        IF (PRESENT(root)) THEN
+          CALL MPI_REDUCE (zfield, p_max, SIZE(zfield), p_real_dp, &
+            &              MPI_MAX, root, p_comm, p_error)
+        ELSE
+          CALL MPI_ALLREDUCE (zfield, p_max, SIZE(zfield), p_real_dp, &
+            &                 MPI_MAX, p_comm, p_error)
+        END IF
       END IF
 
     ELSE

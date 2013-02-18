@@ -65,7 +65,7 @@ iforcing=0        # no forcing
 #
 #-----------------------------------------------------------------------------
 # the grid files
-atmo_dyn_grids='iconR2B04-grid.nc'
+atmo_dyn_grids='iconR2B04-dual-grid.nc'
 #
 #-----------------------------------------------------------------------------
 
@@ -107,6 +107,7 @@ cat > ${atmo_namelist} << EOF
  ntracer     = 0            ! number of tracers
  iforcing    = ${iforcing}  ! ECHAM physics                --> echam_phy_nml
  msg_level   = 10           ! detailed report during integration 
+ !output      = "vlist",
 /
 &dynamics_nml
  iequations  = ${atmo_model_equations}       ! 1: hydrost. atmosphere
@@ -124,6 +125,8 @@ cat > ${atmo_namelist} << EOF
 &io_nml
  out_expname = '${EXPNAME}' ! file name base
  dt_checkpoint    = ${dt_checkpoint} ! [s] trigger new restart file
+ dt_data        = ${dt_data}   ! [s] output interval
+ dt_diag        = ${dt_data}
 /
 EOF
 #

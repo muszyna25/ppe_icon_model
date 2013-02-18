@@ -66,6 +66,9 @@ MODULE mo_td_ext_data
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c
   USE mo_seaice_nwp,          ONLY: frsi_min
 
+  USE mo_extpar_config,       ONLY: generate_td_filename
+  USE mo_lnd_nwp_config,      ONLY: sst_td_filename, ci_td_filename
+
   IMPLICIT NONE
 
   ! required for reading external data
@@ -132,8 +135,8 @@ CONTAINS
      
            i_nchdom  = MAX(1,p_patch(jg)%n_childdom)
 !$OMP PARALLEL PRIVATE(i_startblk,i_endblk, i_rlstart, i_rlend)     
-           i_rlstart = 1
-           i_rlend   = min_rlcell
+           i_rlstart = grf_bdywidth_c+1
+           i_rlend   = min_rlcell_int
 
            i_startblk = p_patch(jg)%cells%start_blk(i_rlstart,1)
            i_endblk   = p_patch(jg)%cells%end_blk(i_rlend,i_nchdom)
@@ -184,8 +187,8 @@ CONTAINS
      
            i_nchdom  = MAX(1,p_patch(jg)%n_childdom)
 !$OMP PARALLEL PRIVATE(i_startblk,i_endblk, i_rlstart, i_rlend)          
-           i_rlstart = 1
-           i_rlend   = min_rlcell
+           i_rlstart = grf_bdywidth_c+1
+           i_rlend   = min_rlcell_int
 
            i_startblk = p_patch(jg)%cells%start_blk(i_rlstart,1)
            i_endblk   = p_patch(jg)%cells%end_blk(i_rlend,i_nchdom)
@@ -266,7 +269,7 @@ CONTAINS
     TYPE(t_patch), INTENT(IN)            :: p_patch(:)
     TYPE(t_external_data), INTENT(INOUT) :: ext_data(:)
 
-    CHARACTER(LEN=filename_max) :: extpar_td_filename,extpar_file 
+    CHARACTER(LEN=filename_max) :: extpar_file 
     INTEGER                     :: ncid, jg, mpi_comm
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
     &  routine = 'mo_td_ext_data:read_td_ext_data_file:'
@@ -293,13 +296,12 @@ CONTAINS
         CALL message  (routine, TRIM(message_text))
         !! READ SST files
 
-        extpar_td_filename = "<path>SST_<year>_<month>_<gridfile>"
         IF(my_process_is_stdio()) THEN
 
-          extpar_file = generate_td_filename(extpar_td_filename,                &
+          extpar_file = generate_td_filename(sst_td_filename,                &
             &                             model_base_dir,                    &
             &                             TRIM(p_patch(jg)%grid_filename),   &
-            &                             y1,m1                   )
+            &                             m1,y1                   )
 
           CALL message  (routine, TRIM(extpar_file))
           CALL nf( nf_open(TRIM(extpar_file), NF_NOWRITE, ncid), routine )
@@ -315,10 +317,10 @@ CONTAINS
 
         IF(my_process_is_stdio()) THEN
 
-          extpar_file = generate_td_filename(extpar_td_filename,                &
+          extpar_file = generate_td_filename(sst_td_filename,                &
             &                             model_base_dir,                    &
             &                             TRIM(p_patch(jg)%grid_filename),   &
-            &                             y2,m2                   )
+            &                             m2, y2                   )
           CALL message  (routine, TRIM(extpar_file))
           CALL nf(nf_open(TRIM(extpar_file), NF_NOWRITE, ncid), routine)
 
@@ -333,13 +335,12 @@ CONTAINS
 
         !! READ CI files
 
-        extpar_td_filename = "<path>CI_<year>_<month>_<gridfile>"
         IF(my_process_is_stdio()) THEN
 
-          extpar_file = generate_td_filename(extpar_td_filename,                &
+          extpar_file = generate_td_filename(ci_td_filename,                &
             &                             model_base_dir,                    &
             &                             TRIM(p_patch(jg)%grid_filename),   &
-            &                             y1,m1                   )
+            &                             m1,y1                   )
           CALL message  (routine, TRIM(extpar_file))
           CALL nf(nf_open(TRIM(extpar_file), NF_NOWRITE, ncid), routine)
 
@@ -353,10 +354,10 @@ CONTAINS
 
         IF(my_process_is_stdio()) THEN
 
-          extpar_file = generate_td_filename(extpar_td_filename,                &
+          extpar_file = generate_td_filename(ci_td_filename,                &
             &                             model_base_dir,                    &
             &                             TRIM(p_patch(jg)%grid_filename),   &
-            &                             y2,m2                   )
+            &                             m2,y2                   )
           CALL message  (routine, TRIM(extpar_file))
           CALL nf(nf_open(TRIM(extpar_file), NF_NOWRITE, ncid), routine)
 
@@ -371,27 +372,6 @@ CONTAINS
   END SUBROUTINE read_td_ext_data_file
 
 !-----------------------------------------------------------------------
-  FUNCTION generate_td_filename(extpar_filename, model_base_dir, grid_filename,year,month) &
-    &  RESULT(result_str)
-    CHARACTER(len=*), INTENT(IN)   :: extpar_filename, &
-      &                               model_base_dir,  &
-      &                               grid_filename
-    INTEGER, INTENT(IN)            :: year,month
-    CHARACTER(len=MAX_STRING_LEN)  :: syear,smonth
-    CHARACTER(len=MAX_STRING_LEN)  :: result_str
-    TYPE (t_keyword_list), POINTER :: keywords => NULL()
 
-    WRITE(syear, '(i4.4)') year
-    WRITE(smonth,'(i2.2)') month
-
-    CALL associate_keyword("<path>",     TRIM(model_base_dir), keywords)
-    CALL associate_keyword("<gridfile>", TRIM(grid_filename),  keywords)
-    CALL associate_keyword("<year>", TRIM(syear),  keywords)
-    CALL associate_keyword("<month>", TRIM(smonth),  keywords)
-    ! replace keywords in "extpar_filename", which is by default
-    ! extpar_filename = "<path>extpar_<year>_<month>_<gridfile>"
-    result_str = TRIM(with_keywords(keywords, TRIM(extpar_filename)))
-
-  END FUNCTION generate_td_filename
 END MODULE mo_td_ext_data
 

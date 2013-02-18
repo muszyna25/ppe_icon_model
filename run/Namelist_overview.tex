@@ -1377,7 +1377,7 @@ grid because the send buffer may then be empty on some PEs) & iequations = 3
 
 \hline 
 output &
-C(:)& ``vlist'',''totint'' & &
+C(:)& ``nml'',''totint'' & &
 Main switch for enabling/disabling components of the model output. One or more choices can be set (as an array of string constants). Possible choices are:
 \begin{itemize}
 \item ``none'': switch off all output;
@@ -1385,7 +1385,7 @@ Main switch for enabling/disabling components of the model output. One or more c
 \item``nml'': new output mode (cf.\ \texttt{output\_nml});
 \item``totint'': computation of total integrals.
 \end{itemize}
-If the \texttt{output} namelist parameter is not set explicitly, the default setting ``vlist'',''totint'' is assumed.
+If the \texttt{output} namelist parameter is not set explicitly, the default setting ``nml'',''totint'' is assumed.
  &
 \tabularnewline
 
@@ -1690,6 +1690,26 @@ Operating mode if the prep\_icon executable is run: \\
 4: grid remapping &
 \tabularnewline
 
+\end{longtab}
+
+Defined and used in: src/namelists/mo\_prepicon\_nml.f90
+
+
+
+%------------------------------------------------------------------------------
+% initicon_nml
+%------------------------------------------------------------------------------
+\subsection{initicon\_nml}
+
+\begin{longtab}
+
+\hline 
+init\_mode&
+I & 1& &
+1: start from DWD analysis \\
+2: start from IFS analysis &
+\tabularnewline
+
 \hline 
 nlev\_in&
 I & 91 & &
@@ -1715,35 +1735,11 @@ top height (AGL) of layer used for gradient computation&
 \tabularnewline
 
 \hline 
-l\_w\_in&
-L & .FALSE.& &
-Logical switch if vertical wind is provided as input &
-\tabularnewline
-
-\hline 
-l\_sfc\_in&
-L & .TRUE.& &
-Logical switch if surface fields are provided as input (mandatory when inwp\_surface $>$0) &
-\tabularnewline
-
-\hline 
 l\_sst\_in&
 L & .FALSE.& &
 Logical switch. If true, the surface temperature of the water sea points is initialized 
 with the SST provided in the ifs2icon file. If false, it is initialized with the skin 
 temperature. If the SST is not provided in the ifs2icon file,l\_sst\_in is reset to false.  &
-\tabularnewline
-
-\hline 
-l\_zp\_out&
-L & .FALSE.& &
-Logical switch for diagnostic output on pressure and height levels & prep\_icon only
-\tabularnewline
-
-\hline 
-l\_extdata\_out&
-L & .FALSE.& &
-Logical switch to write extdata fields into output & prep\_icon only
 \tabularnewline
 
 \hline 
@@ -1761,12 +1757,37 @@ Filename of IFS2ICON input file, default
 ''\texttt{<path>ifs2icon\_R<nroot>B<jlev>\_DOM<idom>.nc}''.
 May contain the keywords \texttt{<path>} which will be substituted by
 \texttt{model\_base\_dir}, as well as \texttt{nroot}, \texttt{jlev},
-and \texttt{idom} defining the current patch. &
+and \texttt{idom} defining the current patch. & init\_mode=2
+\tabularnewline
+
+\hline 
+dwdfg\_filename&
+C &
+&
+&
+Filename of DWD first-guess input file, default
+''\texttt{<path>dwdFG\_R<nroot>B<jlev>\_DOM<idom>.nc}''.
+May contain the keywords \texttt{<path>} which will be substituted by
+\texttt{model\_base\_dir}, as well as \texttt{nroot}, \texttt{jlev},
+and \texttt{idom} defining the current patch. & init\_mode=1
+\tabularnewline
+
+\hline 
+dwdinc\_filename&
+C &
+&
+&
+Filename of DWD analysis increments input file, default
+''\texttt{<path>dwdinc\_R<nroot>B<jlev>\_DOM<idom>.nc}''.
+May contain the keywords \texttt{<path>} which will be substituted by
+\texttt{model\_base\_dir}, as well as \texttt{nroot}, \texttt{jlev},
+and \texttt{idom} defining the current patch. & init\_mode=1
 \tabularnewline
 
 \end{longtab}
 
-Defined and used in: src/namelists/mo\_prepicon\_nml.f90
+Defined and used in: src/namelists/mo\_initicon\_nml.f90
+
 
 
 %------------------------------------------------------------------------------
@@ -1833,8 +1854,22 @@ i\_oper\_mode=4 (prepicon\_nml)
 \tabularnewline
 
 \hline 
-in\_file\_gribedition&
-I & 2& & GRIB edition number of input data file &
+lcompute\_vn&
+L & .FALSE.& & Flag: .TRUE., if the normal wind shall be computed. 
+This requires the specification of input fields ``u'' and ``v''. &
+i\_oper\_mode=4 (prepicon\_nml)
+\tabularnewline
+
+\hline 
+lcompute\_vt&
+L & .FALSE.& & Flag: .TRUE., if the tangential wind at edge midpoints shall be computed.
+This requires the specification of input fields ``u'' and ``v''.  &
+i\_oper\_mode=4 (prepicon\_nml)
+\tabularnewline
+
+\hline 
+rbf\_vec\_scale&
+R &  0.05 & & Scaling factor for interpolation with radial basis functions.  &
 i\_oper\_mode=4 (prepicon\_nml)
 \tabularnewline
 
@@ -2315,6 +2350,13 @@ cell\_type=6, hdiff\_order=3 (Smagorinski)
 vwind\_offctr&
 R& 0.15& &
 Off-centering in vertical wind solver&
+cell\_type=3
+\tabularnewline
+
+\hline 
+rhotheta\_offctr&
+R& -0.2& &
+Off-centering of density and potential temperature at interface level &
 cell\_type=3
 \tabularnewline
 
@@ -2813,7 +2855,7 @@ iequations = 3 {\color{red}(to be done for 1, 2)}
 
 \hline 
 lflux\_avg&
-L& .FALSE. & &
+L& .TRUE. & &
 if .FALSE. the output fluxes are accumulated  \\
  from the beginning of the run                \\
 if .TRUE. the output fluxes are average values\\ 
@@ -2832,10 +2874,49 @@ Specifies method for computation of mean sea level pressure. \\
 &
 \tabularnewline
 
+\hline
+ varnames\_map\_file &
+C&' '& &
+ File containing the mapping of variable names to the internal ICON names. 
+ May contain the keyword \texttt{<path>} which will be substituted by
+ \texttt{model\_base\_dir}.\\
+ The format of this file: \\
+ One mapping per line, first the name as given in the \texttt{ml\_varlist},
+ \texttt{hl\_varlist}, \texttt{pl\_varlist} or \texttt{il\_varlist}
+ of the \texttt{output\_nml} namelists, then the internal ICON name,
+ separated by an arbitrary number of blanks.
+ The line may also start and end with an arbitrary number of blanks.
+ Empty lines or lines starting with \# are treated as comments. \\
+ Names not covered by the mapping are used as they are.
+&
+\texttt{output\_nml} namelists
+\tabularnewline
+
+\hline
+ out\_varnames\_map\_file &
+C&' '& &
+ File containing the mapping from internal names to names written to NetCDF. 
+ May contain the keyword \texttt{<path>} which will be substituted by
+ \texttt{model\_base\_dir}.\\
+ The format of this file: \\
+ One mapping per line, first the internal name, then the name written to NetCDF,
+ separated by an arbitrary number of blanks.
+ The line may also start and end with an arbitrary number of blanks.
+ Empty lines or lines starting with \# are treated as comments. \\
+ Names not covered by the mapping are output as they are. \\
+ Note that the specification of output variables, e.\,g.\ in
+ \texttt{ml\_varlist}, is independent from this renaming, see
+ the namelist parameter \texttt{varnames\_map\_file} for this.
+& 
+\texttt{output\_nml} namelists, 
+NetCDF output
+\tabularnewline
+
 \hline 
 \end{longtab}
 
 Defined and used in: src/namelists/mo\_io\_nml.f90
+
 
 
 %------------------------------------------------------------------------------
@@ -2861,25 +2942,7 @@ Possible values: 2 (=FILETYPE\_GRB2), 4 (=FILETYPE\_NC2), 5 (=FILETYPE\_NC4)
  namespace &
 C&'ECMWF'& &
  'DWD' - DWD short names (or 'MPIMET', 'CMIP', 'ECMWF') \\
- {\color{red} Currently used for setting GRIB2 centre/subcentre information.} \\
- RJ: For what exactly should that be used?
-&
-\tabularnewline
-
-\hline
- map\_file &
-C&' '& &
- File containig the mapping from internal names to names written to NetCDF. 
- May contain the keyword \texttt{<path>} which will be substituted by
- \texttt{model\_base\_dir}.\\
- The format of this file: \\
- One mapping per line, first the internal name, then the name written to NetCDF,
- separated by an arbitrary number of blanks.
- The line may also start and end with an arbitrary number of blanks.
- Empty lines or lines starting with \# are treated as comments. \\
- Names not covered by the mapping are output as they are. \\
- Note that the specification of output variables, e.\,g.\ in
- \texttt{ml\_varlist}, is independent from this renaming.
+ {\color{red} Currently used for setting GRIB2 centre/subcentre information.}
 &
 \tabularnewline
 
@@ -2957,45 +3020,50 @@ L&.FALSE.& &
 C&None& &
  Output filename prefix (which may include path).
  Domain number, level type, file number and extension will be added,
- so specifying 'XXX' for output\_filename you will end up in a name
- like XXX\_DOM01\_ML\_0001.nc
+ according to the format given in namelist parameter ``filename\_format''.
+&
+\tabularnewline
+
+\hline
+ filename\_format &
+C&see description.& &
+ Output filename format. Includes keywords \texttt{path}, \texttt{output\_filename}, \texttt{physdom}, \texttt{levtype}, \texttt{jfile}, \texttt{ddhhmmss}.
+ Default is \texttt{<output\_filename>\_DOM<physdom>\_<levtype>\_<jfile>}
 &
 \tabularnewline
 
 \hline
  lwrite\_ready &
 L&.FALSE.& &
- Flag if a "ready file" (sentinel file) should be written at the end of each output stage. \\
- {\color{red} Not yet implemented.}
+ Flag if a "ready file" (sentinel file) should be written at the end of each output stage.
 &
 \tabularnewline
 
 \hline
  ready\_directory &
 C&None& &
- Output directory for ready files. \\
- {\color{red} Not yet implemented.}
+ Output directory for ready files.
 &
 \tabularnewline
 
 \hline
  ml\_varlist(:) &
 C&None& &
- Name of model level fields to be output -- or 'all'.
+ Name of model level fields to be output.
 &
 \tabularnewline
 
 \hline
  pl\_varlist(:) &
 C&None& &
- Name of pressure level fields to be output -- or 'all'.
+ Name of pressure level fields to be output.
 &
 \tabularnewline
 
 \hline
  hl\_varlist(:) &
 C&None& &
- Name of height level fields to be output -- or 'all'.
+ Name of height level fields to be output.
 &
 \tabularnewline
 
@@ -3003,7 +3071,7 @@ C&None& &
 \hline
  il\_varlist(:) &
 C&None& &
- Name of isentropic level fields to be output -- or 'all'.
+ Name of isentropic level fields to be output.
 &
 \tabularnewline
 
@@ -3038,16 +3106,7 @@ R&None& K &
 \hline
  remap &
 I&0& &
- interpolate horizontally, 0: none, 1: to regular lat-lon grid, 2: to Gaussian grids, (3:...) \\
- {\color{red} Currently only 0 and 1 are implemented.}
-&
-\tabularnewline
-
-\hline
- remap\_internal &
-L&.FALSE.& &
- do interpolations online in the model or external (including triggering) \\
- {\color{red} Currently unused, interpolations are always done internally.}
+ interpolate horizontally, 0: none, 1: to regular lat-lon grid
 &
 \tabularnewline
 
@@ -3062,14 +3121,6 @@ R&None& &
  reg\_lat\_def(3) &
 R&None& &
  if remap=1: start, increment, end latitude in degrees
-&
-\tabularnewline
-
-\hline
- gauss\_tgrid\_def &
-I&None& &
- if remap=2: triangular truncation (e.g.63 for T63) for which the Gauss grid should be used \\
- {\color{red} Currently unused since Gaussian grids are not implemented.}
 &
 \tabularnewline
 
@@ -3089,6 +3140,7 @@ Using the \texttt{"group:"} keyword for the namelist parameters \texttt{ml\_varl
 sets of common variables can be added to the output:
 \begin{tabbing}
 \hspace*{0.4\textwidth} \= \kill
+\texttt{group:all}                     \>      output of all variables (caution: do not combine with \underline{mixed} vertical interpolation) \\
 \texttt{group:atmo\_ml\_vars}          \>      basic atmospheric variables on model levels                          \\
 \texttt{group:atmo\_pl\_vars}, 
 \texttt{group:atmo\_zl\_vars}          \>      same set as atmo\_ml\_vars, but except pres and height, respectively \\
@@ -3104,6 +3156,91 @@ sets of common variables can be added to the output:
 \end{tabbing}
 
 Defined and used in: src/namelists/mo\_name\_list\_output.f90
+
+
+%------------------------------------------------------------------------------
+% gribout_nml:
+%------------------------------------------------------------------------------
+\subsection{gribout\_nml}
+\begin{longtab}
+
+\hline 
+significanceOfReferenceTime &
+I& 1& &
+Significance of reference time\\
+- GRIB2 code table 1.2 &
+filetype=2
+\tabularnewline
+
+\hline 
+productionStatusOfProcessedData&
+I& 1 & &
+Production status of data\\
+- GRIB2 code table 1.3 &
+filetype=2
+\tabularnewline
+
+\hline 
+typeOfProcessedData&
+I& 1 & &
+Type of data \\
+- GRIB2 code table 1.4 &
+filetype=2
+\tabularnewline
+
+\hline 
+typeOfGeneratingProcess&
+I& 2 & &
+Type of generating process \\
+- GRIB2 code table 4.3 &
+filetype=2
+\tabularnewline
+
+\hline 
+backgroundProcess&
+I& 0 & &
+Background process \\
+- GRIB2 code table backgroundProcess.table &
+filetype=2
+\tabularnewline
+
+\hline 
+generatingProcessIdentifier&
+I(n\_dom)& 1 & &
+generating Process Identifier \\
+- GRIB2 code table generatingProcessIdentifier.table &
+filetype=2
+\tabularnewline
+
+\hline 
+localDefinitionNumber&
+I& 254 & &
+local Definition Number\\
+- GRIB2 code table grib2LocalSectionNumber.78.table &
+filetype=2
+\tabularnewline
+
+\hline 
+localNumberOfExperiment&
+I& 1 & &
+local Number of Experiment &
+filetype=2
+\tabularnewline
+
+\hline 
+ldate\_grib\_act&
+L& .TRUE. & &
+GRIB creation date\\
+.TRUE.: add creation date\\
+.FALSE.: add dummy date &
+filetype=2
+\tabularnewline
+
+\hline 
+\end{longtab}
+
+Defined and used in: src/namelists/mo\_gribout\_nml.f90
+
 
 %------------------------------------------------------------------------------
 % meteogram_output_nml:
@@ -3919,7 +4056,7 @@ Defined and used in: src/namelists/mo\_radiation\_nml.f90
 %------------------------------------------------------------------------------
 % nwp_lnd_nml:
 %------------------------------------------------------------------------------
-\subsection{nwp\_lnd\_nml}
+\subsection{lnd\_nml}
 
 \begin{longtab}
 
@@ -3998,6 +4135,14 @@ L&
 .TRUE. for use of multi-layer snow model&
 \tabularnewline
 
+\hline
+max\_toplaydepth &
+R &
+0.25&
+m &
+maximum depth of uppermost snow layer & lmulti\_snow=.TRUE.
+\tabularnewline
+
 \hline 
 idiag\_snowfrac &
 I & 1 &  & Type of snow-fraction diagnosis: 1 = based on SWE only, 2 = more advanced experimental method &
@@ -4018,9 +4163,43 @@ L&
 .TRUE. for use of lake model&
 \tabularnewline
 \hline
+sstice\_mode &
+I&
+1&
+&
+1: SST and sea ice fraction are read from the analysis and kept constant. The 
+sea ice fraction can be modified by the seaice model.\\
+2: SST and sea ice fraction are updated daily, based on climatological monthly 
+means\\
+3: SST and sea ice fraction are updated daily, based on actual monthly means\\
+4: SST and sea ice fraction are updated daily, based on actual daily means, 
+not yet implemented&
+iequations=3\\
+iforcing=3
+\tabularnewline
+\hline
+sst\_td\_filename &
+C&
+&
+&
+Filename of SST input files for time dependent SST. 
+Default is "<path>SST\_<year>\_<month>\_<gridfile>". May contain the 
+keyword <path> which will be substituted by model\_base\_dir&
+sstice\_mode=2,3
+\tabularnewline
+\hline
+ci\_td\_filename &
+C&
+&
+&
+Filename of sea ice fraction input files for time dependent sea ice fraction. 
+Default is "<path>CI\_<year>\_<month>\_<gridfile>". May contain 
+the keyword <path> which will be substituted by model\_base\_dir&
+sstice\_mode=2,3
+\tabularnewline
 \end{longtab}
 
-Defined and used in: src/namelists/mo\_nwp\_lnd\_nml.f90
+Defined and used in: src/namelists/mo\_lnd\_nwp\_nml.f90
 
 
 %------------------------------ switches for ECHAM physics 
@@ -4469,7 +4648,7 @@ Defined and used in: src/namelists/mo\_gw\_hines\_nml.f90
 \begin{longtab}
 
 \hline
-i\_sea\_ice    & I & 0  && 1: Winton, 2:Semtner& \tabularnewline 
+i\_sea\_ice    & I & 1  && 0: No sea ice, 1: Include sea ice& \tabularnewline 
 &&&& .FALSE.: compute drag only & \tabularnewline
 \hline 
 richardson\_factor\_tracer  & I & 0.5e-5 & m/s&  & \tabularnewline
@@ -4477,6 +4656,43 @@ richardson\_factor\_tracer  & I & 0.5e-5 & m/s&  & \tabularnewline
 richardson\_factor\_veloc  & I & 0.5e-5 & m/s&  & \tabularnewline
 \hline
 l\_constant\_mixing  & L & .FALSE. & &  & \tabularnewline
+
+\end{longtab}
+
+\subsection{sea\_ice\_nml}
+
+\begin{longtab}
+
+  \hline
+  i\_ice\_therm &
+  I             &
+  2             &&
+  Switch for thermodynamic model: \\
+  1: Zero-layer model \\
+  2: Two layer Winton (2000) model \\
+  3: Zero-layer model with analytical forcing (for diagnostics) \\
+  4: Zero-layer model for atmosphere-only runs (for diagnostics) &
+  In an ocean run i\_sea\_ice must be >=1. In an atmospheric run the ice surface type must be defined.
+  \tabularnewline
+
+  i\_ice\_albedo        &
+  I                     &
+  1                     &&
+  Switch for albedo model. Only one is implemented so far. &
+  \tabularnewline
+
+  kice  &
+  I     &
+  1     &&
+  Number of ice classes (must be one for now) &
+  \tabularnewline
+
+  hnull &
+  R     &
+  0.5   &
+  m     &
+  Hibler's $h_0$ parameter for new-ice growth. &
+  \tabularnewline
 
 \end{longtab}
 

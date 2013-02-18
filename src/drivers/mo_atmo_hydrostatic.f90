@@ -56,7 +56,7 @@ MODULE mo_atmo_hydrostatic
   USE mo_ha_stepping,         ONLY: prepare_ha_dyn, initcond_ha_dyn, &
                                     perform_ha_stepping
 
-  USE mo_echam_phy_init,      ONLY: prepare_echam_phy, initcond_echam_phy, &
+  USE mo_echam_phy_init,      ONLY: init_echam_phy, initcond_echam_phy, &
                                     additional_restart_init
   USE mo_echam_phy_cleanup,   ONLY: cleanup_echam_phy
 
@@ -64,7 +64,6 @@ MODULE mo_atmo_hydrostatic
   USE mo_io_restart_attributes,ONLY: get_restart_attribute
   USE mo_output,               ONLY: init_output_files, close_output_files,&
                                      write_output
-  USE mo_name_list_output_config, ONLY: first_output_name_list, use_async_name_list_io
   USE mo_name_list_output,        ONLY: init_name_list_output,  &
        &                                write_name_list_output, &
        &                                close_name_list_output
@@ -111,7 +110,7 @@ CONTAINS
 
 
     IF (iforcing==IECHAM.OR.iforcing==ILDF_ECHAM) THEN
-      CALL prepare_echam_phy( p_patch(1:), ltestcase, ctest_name, &
+      CALL init_echam_phy( p_patch(1:), ltestcase, ctest_name, &
                             & nlev, vct_a, vct_b, ceta )
     END IF
 

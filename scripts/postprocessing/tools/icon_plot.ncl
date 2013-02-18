@@ -9,6 +9,14 @@
  load "$NCARG_ROOT/lib/ncarg/nclscripts/csm/contributed.ncl"
  load "$NCARG_ROOT/lib/ncarg/nclscripts/csm/shea_util.ncl"
 
+;------- lib location from the command line ------------------------------------------------------------------
+ libLoaded = False
+ if ( isvar("altLibDir") ) then
+   print("Load library: "+altLibDir+"/icon_plot_lib.ncl")
+   loadscript(altLibDir +"/icon_plot_lib.ncl")
+   libLoaded = True
+ end if
+;------------------------------------------------------------------------------
 ;------- config ---------------------------------------------------------------
   ; default settings from user file
   ; --- Skip any user configuration through a file
@@ -33,15 +41,19 @@
       end if
     end if
   end if
-
+;--- end config ---------------------------------------------------------------
+;--- default lib location  ----------------------------------------------------
   if ( .not. isvar("altLibDir") )  then
     print("load default library from /pool/data/ICON/tools")
     loadscript("/pool/data/ICON/tools/icon_plot_lib.ncl")
   else
-    print("Load library: "+altLibDir+"/icon_plot_lib.ncl")
-    loadscript(altLibDir +"/icon_plot_lib.ncl")
+    if ( .not. libLoaded ) then
+;--- lib location from the config file ----------------------------------------
+      print("Load library: "+altLibDir+"/icon_plot_lib.ncl")
+      loadscript(altLibDir +"/icon_plot_lib.ncl")
+    end if
   end if
-;--- end config ---------------------------------------------------------------
+;------------------------------------------------------------------------------
 ;==============================================================================
   VERSION = "0.0.6"
 ;----- MAIN PROGRAM -----------------------------------------------------------
@@ -558,7 +570,7 @@
     drawNDCGrid(wks)
   end if
 
-  ResC = setDefaultResource(True,withLines,withLineLabels,"rasterfill")
+  ResC = setDefaultResource(True,withLines,withLineLabels,fillMode)
 
   if (.not. userColors) setDefaultColors(ResC,minVar,maxVar,DEBUG) end if
 
@@ -613,7 +625,10 @@
     else
       setDefaultVectorPlot(ResC,5.0,vecRefLength,"CurlyVector",vecMinDist)
 
-      vc = plotVecOrStream(vecColByLen,streamLine,uvar,vvar,velocity,ResC,wks,True)
+      vc = plotVecOrStream(vecColByLen,streamLine,\
+                          uvar,vvar, \
+                          sqrt(uvar*uvar + vvar*vvar), \
+                          ResC,wks,True)
       draw(vc)
     end if
   end if

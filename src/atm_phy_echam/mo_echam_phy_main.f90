@@ -75,8 +75,6 @@ MODULE mo_echam_phy_main
   USE mo_echam_cloud_params,  ONLY: ctaus, ctaul, ctauk !, ncctop, nccbot
   USE mo_radiation,           ONLY: radiation, radheat
   USE mo_radiation_config,    ONLY: tsi, izenith, irad_o3
-  USE mo_srtm_config,         ONLY: jpsw
-  USE mo_lrtm_par,            ONLY: jpband => nbndlw
   USE mo_vdiff_config,        ONLY: vdiff_config
   USE mo_vdiff_downward_sweep,ONLY: vdiff_down
   USE mo_vdiff_upward_sweep,  ONLY: vdiff_up
@@ -161,6 +159,7 @@ CONTAINS
     INTEGER  :: jks   !< start index for vertical loops
     INTEGER  :: nc    !< number of cells/columns from (jce-jcs+1)
     INTEGER  :: jc
+    INTEGER  :: jsfc
     INTEGER  :: ntrac !< # of tracers excluding water vapour and hydrometeors
                       !< (handled by sub-models, e.g., chemical species)
     INTEGER  :: selmon !< selected month for ozone data (temporary var!)
@@ -351,7 +350,11 @@ CONTAINS
             ztemperature_rad(jcs:jce) = field% tsfc_tile(jcs:jce,jb,iwtr)
          ENDWHERE
        ELSE
-           ztemperature_rad(jcs:jce) = field% tsfc(jcs:jce,jb)
+         ztemperature_rad(:) = zfrc(:,1)*field%tsfc_tile(:,jb,1)**4
+         DO jsfc=2,nsfc_type
+           ztemperature_rad(:) = ztemperature_rad(:) + zfrc(:,jsfc)*field%tsfc_tile(:,jb,jsfc)**4
+         ENDDO
+         ztemperature_rad(:) = ztemperature_rad(:)**0.25_wp
         END IF
 
        ! 4.1 RADIATIVE TRANSFER
@@ -625,7 +628,7 @@ CONTAINS
         & pi0        = zi0                      (:)   ,&! in    solar incoming flux at TOA [W/m2]
         & pemiss     = ext_data(jg)%atm%emis_rad(:,jb),&! in    lw sfc emissivity
         & ptsfc      = field%tsfc               (:,jb),&! in    surface temperature           [K]
-        & ptsfctrad  = field%tsfc               (:,jb),&! in    sfc temp. used in "radiation" [K]
+        & ptsfctrad  = ztemperature_rad(:)            ,&! in    sfc temp. used in "radiation" [K]
         & ptemp_klev = field%temp          (:,nlev,jb),&! in    temp at lowest full level     [K]
         & ptrmsw     = field%trsolall         (:,:,jb),&! in    shortwave net tranmissivity   []
         & pflxlw     = field%emterall         (:,:,jb),&! in    longwave net flux           [W/m2]
@@ -813,7 +816,7 @@ CONTAINS
     CALL update_surface( vdiff_config%lsfc_heat_flux,  &! in
                        & vdiff_config%lsfc_mom_flux,   &! in
                        & pdtime, psteplen,             &! in, time steps
-                       & jce, nbdim,                   &! in
+                       & jce, nbdim, field%kice,       &! in
                        & nlev, nsfc_type,              &! in 
                        & iwtr, iice, ilnd,             &! in, indices of surface types
                        & zfrc(:,:),                    &! in, area fraction
@@ -923,7 +926,8 @@ CONTAINS
     CALL update_surface( vdiff_config%lsfc_heat_flux,  &! in
                        & vdiff_config%lsfc_mom_flux,   &! in
                        & pdtime, psteplen,             &! in, time steps
-                       & jce, nbdim, nlev, nsfc_type,  &! in 
+                       & jce, nbdim, field%kice,       &! in
+                       & nlev, nsfc_type,              &! in 
                        & iwtr, iice, ilnd,             &! in, indices of surface types
                        & zfrc(:,:),                    &! in, area fraction
                        & field% cfh_tile(:,jb,:),      &! in, from "vdiff_down" 
@@ -947,7 +951,39 @@ CONTAINS
                        & field% shflx_tile    (:,jb,:),   &! out
                        & field% dshflx_dT_tile(:,jb,:),   &! out for Sea ice
                        & field%  evap_tile    (:,jb,:),   &! out
-                       & zqhflx                          )! out, for "cucall"
+                       & zqhflx,                         &! out, for "cucall"
+                       & ptrsolall = field% swflxsfc(:,jb), &! in, net surface shortwave flux [W/m2]
+                       & pemterall = field% lwflxsfc(:,jb), &! in, surface net longwave flux [W/m2]
+                       & pssfl = field% ssfl(:,jb),    &! in, snow surface large scale (from cloud)
+                       & pssfc = field% ssfc(:,jb),    &! in, snow surface concective (from cucall)
+                       & albvisdir = field% albvisdir(:,jb),                    &! inout
+                       & albnirdir = field% albnirdir(:,jb),                    &! inout
+                       & albvisdif = field% albvisdif(:,jb),                    &! inout
+                       & albnirdif = field% albnirdif(:,jb),                    &! inout
+                       & Tsurf = field% Tsurf(:,:,jb),  &! inout, for sea ice
+                       & T1    = field% T1   (:,:,jb),  &! inout, for sea ice
+                       & T2    = field% T2   (:,:,jb),  &! inout, for sea ice
+                       & hi    = field% hi   (:,:,jb),  &! in, for sea ice
+                       & hs    = field% hs   (:,:,jb),  &! in, for sea ice
+                       & conc  = field% conc (:,:,jb),  &! in, for sea ice
+                       & Qtop  = field% Qtop (:,:,jb),  &! out, for sea ice
+                       & Qbot  = field% Qbot (:,:,jb),  &! out, for sea ice
+                       & albvisdir_ice = field% albvisdir_ice(:,:,jb), &! inout ice albedos
+                       & albnirdir_ice = field% albnirdir_ice(:,:,jb), &! inout
+                       & albvisdif_ice = field% albvisdif_ice(:,:,jb), &! inout
+                       & albnirdif_ice = field% albnirdif_ice(:,:,jb), &! inout
+                       & albvisdir_wtr = field% albvisdir_wtr(:  ,jb), &! inout ocean albedos
+                       & albnirdir_wtr = field% albnirdir_wtr(:  ,jb), &! inout
+                       & albvisdif_wtr = field% albvisdif_wtr(:  ,jb), &! inout
+                       & albnirdif_wtr = field% albnirdif_wtr(:  ,jb), &! inout
+                       & plwflx_wtr = field%lwflxsfc_tile(:,jb,iwtr),  &! out (for coupling)
+                       & pswflx_wtr = field%swflxsfc_tile(:,jb,iwtr))  ! out (for coupling)
+! Merge surface temperatures
+       field%tsfc(:,jb) = zfrc(:,1)*field%tsfc_tile(:,jb,1)
+       DO jsfc=2,nsfc_type
+         field%tsfc(:,jb) = field%tsfc(:,jb) + zfrc(:,jsfc)*field%tsfc_tile(:,jb,jsfc)
+       ENDDO
+
     ENDIF ! ljsbach
     ! 5.5 Turbulent mixing, part II:
     !     - Elimination for the lowest model level using boundary conditions

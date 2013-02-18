@@ -44,16 +44,18 @@
 MODULE mo_extpar_config
 
   USE mo_kind,               ONLY: wp
-  USE mo_impl_constants,     ONLY: max_dom
+  USE mo_impl_constants,     ONLY: max_dom, MAX_CHAR_LENGTH
   USE mo_io_units,           ONLY: filename_max
   USE mo_util_string,        ONLY: t_keyword_list, MAX_STRING_LEN,  &
     &                              associate_keyword, with_keywords
+  USE mo_exception,          ONLY: finish
+
 
   IMPLICIT NONE
 
   PRIVATE
   PUBLIC :: itopo, fac_smooth_topo, n_iter_smooth_topo, l_emiss, heightdiff_threshold
-  PUBLIC :: extpar_filename, generate_filename
+  PUBLIC :: extpar_filename, generate_filename, generate_td_filename
 
   CHARACTER(len=*),PARAMETER :: version = '$Id$'
 
@@ -94,5 +96,39 @@ CONTAINS
     result_str = TRIM(with_keywords(keywords, TRIM(extpar_filename)))
 
   END FUNCTION generate_filename
+!-----------------------------------------------------------------------
+  FUNCTION generate_td_filename(extpar_td_filename, model_base_dir, grid_filename, month, year, clim) &
+    &  RESULT(result_str)
+    CHARACTER(len=*), INTENT(IN)   :: extpar_td_filename, &
+      &                               model_base_dir,  &
+      &                               grid_filename
+    INTEGER, INTENT(IN)            :: month
+    INTEGER, INTENT(IN), OPTIONAL  :: year
+    LOGICAL, INTENT(IN), OPTIONAL  :: clim
+    CHARACTER(len=MAX_STRING_LEN)  :: syear,smonth
+    CHARACTER(len=MAX_STRING_LEN)  :: result_str
+    TYPE (t_keyword_list), POINTER :: keywords => NULL()
+    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
+    &  routine = 'mo_td_ext_data:generate_td_filename:'
 
+    IF (PRESENT (year)) THEN
+     WRITE(syear, '(i4.4)') year
+    ELSEIF ( PRESENT(clim) .AND. clim) THEN
+     syear="CLIM"
+    ELSE
+          CALL finish(TRIM(ROUTINE),&
+            & 'Missing year for a non climatological run')     
+    END IF
+    WRITE(smonth,'(i2.2)') month
+
+    CALL associate_keyword("<path>",     TRIM(model_base_dir), keywords)
+    CALL associate_keyword("<gridfile>", TRIM(grid_filename),  keywords)
+    CALL associate_keyword("<year>", TRIM(syear),  keywords)
+    CALL associate_keyword("<month>", TRIM(smonth),  keywords)
+    ! replace keywords in "extpar_filename", which is by default
+    ! extpar_td_filename = "<path>extpar_<year>_<month>_<gridfile>"
+    ! if clim ist present and clim=.TRUE., <year> ist subst. by "CLIM"
+    result_str = TRIM(with_keywords(keywords, TRIM(extpar_td_filename)))
+
+  END FUNCTION generate_td_filename
 END MODULE mo_extpar_config

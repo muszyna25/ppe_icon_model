@@ -60,15 +60,17 @@ MODULE mo_ext_data_state
   USE mo_impl_constants,     ONLY: inwp, iecham, ildf_echam, io3_clim, io3_ape, &
     &                              ihs_ocean, ihs_atm_temp, ihs_atm_theta, inh_atmosphere, &
     &                              max_char_length, min_rlcell_int,                        &
-    &                              VINTP_TYPE_P_OR_Z, VINTP_METHOD_LIN
+    &                              VINTP_METHOD_LIN, HINTP_TYPE_NONE, HINTP_TYPE_LONLAT_NNB
+  USE mo_math_constants,     ONLY: dbl_eps
   USE mo_physical_constants, ONLY: ppmv2gg, zemiss_def
   USE mo_run_config,         ONLY: iforcing
   USE mo_ocean_nml,          ONLY: iforc_oce, iforc_type, iforc_len
   USE mo_impl_constants_grf, ONLY: grf_bdywidth_c
   USE mo_lnd_nwp_config,     ONLY: ntiles_total, ntiles_lnd, ntiles_water, lsnowtile, frlnd_thrhld, &
                                    frlndtile_thrhld, frlake_thrhld, frsea_thrhld, isub_water,       &
-                                   sstice_mode
-  USE mo_extpar_config,      ONLY: itopo, l_emiss, extpar_filename, generate_filename
+                                   sstice_mode, sst_td_filename, ci_td_filename
+  USE mo_extpar_config,      ONLY: itopo, l_emiss, extpar_filename, generate_filename, & 
+    &                              generate_td_filename
   USE mo_time_config,        ONLY: time_config
   USE mo_dynamics_config,    ONLY: iequations
   USE mo_radiation_config,   ONLY: irad_o3, irad_aero
@@ -86,10 +88,12 @@ MODULE mo_ext_data_state
   USE mo_linked_list,        ONLY: t_var_list
   USE mo_ext_data_types,     ONLY: t_external_data, t_external_atmos,    &
     &                              t_external_atmos_td, t_external_ocean
-  USE mo_var_list,           ONLY: default_var_list_settings, &
-    &                              add_var, add_ref,          &
-    &                              new_var_list,              &
-    &                              delete_var_list, create_vert_interp_metadata
+  USE mo_var_list,           ONLY: default_var_list_settings,   &
+    &                              add_var, add_ref,            &
+    &                              new_var_list,                &
+    &                              delete_var_list,             &
+    &                              create_vert_interp_metadata, &
+    &                              create_hor_interp_metadata
   USE mo_master_nml,         ONLY: model_base_dir
   USE mo_cf_convention,      ONLY: t_cf_var
   USE mo_grib2,              ONLY: t_grib2_var
@@ -102,7 +106,8 @@ MODULE mo_ext_data_state
     &                              GRID_UNSTRUCTURED_VERT, GRID_REFERENCE,         &
     &                              GRID_CELL, GRID_EDGE, GRID_VERTEX, ZA_SURFACE,  &
     &                              ZA_HYBRID, ZA_PRESSURE, DATATYPE_FLT32,         &
-    &                              DATATYPE_PACK16, FILETYPE_NC2, TSTEP_CONSTANT
+    &                              DATATYPE_PACK16, FILETYPE_NC2, TSTEP_CONSTANT,  &
+    &                              TSTEP_MAX
 
   IMPLICIT NONE
 
@@ -135,10 +140,11 @@ MODULE mo_ext_data_state
   PUBLIC :: nmonths
   PUBLIC :: nlev_o3
 
-  PUBLIC :: init_ext_data
+  PUBLIC :: init_ext_data  
+  PUBLIC :: init_ext_data_oce
   PUBLIC :: init_index_lists
   PUBLIC :: destruct_ext_data
-
+  PUBLIC :: interpol_ndvi_time
 
   TYPE(t_external_data),TARGET, ALLOCATABLE :: &
     &  ext_data(:)  ! n_dom
@@ -258,7 +264,8 @@ CONTAINS
       CALL message( TRIM(routine),'Running with analytical topography' )
 
       ! call read_ext_data_atm to read land-sea mask for JSBACH and to read O3
-      IF (echam_phy_config%ljsbach .OR. irad_o3 == io3_clim .OR. irad_o3 == io3_ape) THEN
+      IF (echam_phy_config%ljsbach .OR. irad_o3 == io3_clim .OR. irad_o3 == io3_ape &
+        & .OR. sstice_mode == 2) THEN
         CALL read_ext_data_atm (p_patch, ext_data, nlev_o3)
       END IF 
     CASE(1) ! read external data from netcdf dataset
@@ -299,6 +306,65 @@ CONTAINS
   END SUBROUTINE init_ext_data
 
 
+  !-------------------------------------------------------------------------
+  !>
+  !! Init external data for atmosphere and ocean
+  !!
+  !! Init external data for atmosphere and ocean.
+  !! 1. Build data structure, including field lists and 
+  !!    memory allocation.
+  !! 2. External data are read in from netCDF file or set analytically
+  !!
+  !! @par Revision History
+  !! Initial revision by Daniel Reinert, DWD (2010-07-16)
+  !!
+  SUBROUTINE init_ext_data_oce (p_patch, ext_data)
+
+    TYPE(t_patch), INTENT(IN)            :: p_patch(:)
+    TYPE(t_external_data), INTENT(INOUT) :: ext_data(:)
+
+
+    INTEGER :: jg
+
+    CHARACTER(len=max_char_length), PARAMETER :: &
+      routine = 'mo_ext_data:init_ext_data'
+
+    !-------------------------------------------------------------------------
+    CALL message (TRIM(routine), 'Start')
+
+    !-------------------------------------------------------------------------
+    !  1.  inquire external files for their data structure
+    !-------------------------------------------------------------------------
+
+    ALLOCATE(nclass_lu(n_dom))
+    ! Set default value for nclass_lu. Will be overwritten, if external data 
+    ! are read from file
+    nclass_lu(1:n_dom) = 1
+
+    ALLOCATE(nmonths_ext(n_dom))
+    ! Set default value for nmonths_ext. Will be overwritten, if external data 
+    ! are read from file
+    nmonths_ext(1:n_dom) = 1
+
+    CALL inquire_external_files(p_patch)
+
+    !------------------------------------------------------------------
+    !  2.  construct external fields for the model
+    !------------------------------------------------------------------
+
+    ! top-level procedure for building data structures for 
+    ! external data.
+    CALL construct_ext_data(p_patch, ext_data)
+
+    !-------------------------------------------------------------------------
+    !  3.  read the data into the fields
+    !-------------------------------------------------------------------------
+
+    ! Check, whether external data should be read from file
+    ! 
+
+      CALL read_ext_data_oce (p_patch, ext_data)
+  END SUBROUTINE init_ext_data_oce
 
   !-------------------------------------------------------------------------
   !>
@@ -346,7 +412,7 @@ CONTAINS
 
     ELSE ! iequations==ihs_ocean ------------------------------------------
 
-      write(*,*) 'create new external data list for ocean'
+      write(0,*) 'create new external data list for ocean'
       ! Build external data list for constant-in-time fields for the ocean model
       DO jg = 1, n_dom
         WRITE(listname,'(a,i2.2)') 'ext_data_oce_D',jg
@@ -411,7 +477,7 @@ CONTAINS
     INTEGER :: ibits         !< "entropy" of horizontal slice
 
     INTEGER          :: jsfc
-    CHARACTER(LEN=1) :: csfc
+    CHARACTER(LEN=2) :: csfc
 
     !--------------------------------------------------------------
 
@@ -805,15 +871,39 @@ CONTAINS
       grib2_desc = t_grib2_var( 2, 0, 4, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'plcov_mx', p_ext_atm%plcov_mx, &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
-        &           grib2_desc, ldims=shape2d_c, loutput=.FALSE. )
+        &           grib2_desc, ldims=shape2d_c, loutput=.FALSE.,   &
+        &           isteptype=TSTEP_MAX )
+
+      ! plcov     p_ext_atm%plcov(nproma,nblks_c)
+      cf_desc    = t_cf_var('vegetation_area_fraction_vegetation_period', '-',&
+        &                   'Plant covering degree in the vegetation phase', DATATYPE_FLT32)
+      grib2_desc = t_grib2_var( 2, 0, 4, ibits, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( p_ext_atm_list, 'plcov', p_ext_atm%plcov,       &
+        &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
+        &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,    &
+        &           isteptype=TSTEP_CONSTANT )
 
       ! plcov_t     p_ext_atm%plcov_t(nproma,nblks_c,ntiles_total)
       cf_desc    = t_cf_var('vegetation_area_fraction_vegetation_period', '-',&
         &                   'Plant covering degree in the vegetation phase', DATATYPE_FLT32)
       grib2_desc = t_grib2_var( 2, 0, 4, ibits, GRID_REFERENCE, GRID_CELL)
-      CALL add_var( p_ext_atm_list, 'plcov_t', p_ext_atm%plcov_t, &
-        &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,  &
-        &           grib2_desc, ldims=shape3d_nt, loutput=.FALSE. )
+      CALL add_var( p_ext_atm_list, 'plcov_t', p_ext_atm%plcov_t,    &
+        &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,     &
+        &           grib2_desc, ldims=shape3d_nt, lcontainer=.TRUE., &
+        &           loutput=.FALSE. )
+
+!!$      ALLOCATE(p_ext_atm%plcov_t_ptr(ntiles_total))
+!!$      DO jsfc = 1,ntiles_total
+!!$        WRITE(csfc,'(i2)') jsfc 
+!!$        CALL add_ref( p_ext_atm_list, 'plcov_t',                         &
+!!$               & 'plcov_t_'//ADJUSTL(TRIM(csfc)),                        &
+!!$               & p_ext_atm%plcov_t_ptr(jsfc)%p_2d,                       &
+!!$               & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                     &
+!!$               & t_cf_var('plcov_t_'//csfc, '', '', DATATYPE_FLT32),     &
+!!$               & t_grib2_var(2, 0, 4, ibits, GRID_REFERENCE, GRID_CELL), &
+!!$               & ldims=shape2d_c, loutput=.TRUE.)
+!!$      ENDDO
+
 
 
       ! Max Leaf area index
@@ -824,7 +914,19 @@ CONTAINS
       grib2_desc = t_grib2_var( 2, 0, 28, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'lai_mx', p_ext_atm%lai_mx,     &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
-        &           grib2_desc, ldims=shape2d_c, loutput=.FALSE. )
+        &           grib2_desc, ldims=shape2d_c, loutput=.FALSE.,   &
+        &           isteptype=TSTEP_MAX )
+
+      ! Leaf area index
+      !
+      ! lai       p_ext_atm%lai(nproma,nblks_c)
+      cf_desc    = t_cf_var('leaf_area_index_vegetation_period', '-',&
+        &                   'Leaf Area Index', DATATYPE_FLT32)
+      grib2_desc = t_grib2_var( 2, 0, 28, ibits, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( p_ext_atm_list, 'lai', p_ext_atm%lai,           &
+        &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
+        &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,   &
+        &           isteptype=TSTEP_CONSTANT )
 
       ! sai_t       p_ext_atm%sai_t(nproma,nblks_c,ntiles_total+ntiles_water)
       cf_desc    = t_cf_var('surface_area_index_vegetation_period', '-',&
@@ -859,7 +961,7 @@ CONTAINS
       grib2_desc = t_grib2_var( 2, 0, 32, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'rootdp', p_ext_atm%rootdp,     &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
-        &           grib2_desc, ldims=shape2d_c, loutput=.FALSE. )
+        &           grib2_desc, ldims=shape2d_c, loutput=.TRUE. )
 
       ! rootdp_t      p_ext_atm%rootdp_t(nproma,nblks_c,ntiles_total)
       cf_desc    = t_cf_var('root_depth_of_vegetation', 'm',&
@@ -1049,7 +1151,7 @@ CONTAINS
       ! fill the separate variables belonging to the container frac_t
       ALLOCATE(p_ext_atm%frac_t_ptr(ntiles_total+ntiles_water))
       DO jsfc = 1,ntiles_total + ntiles_water
-      WRITE(csfc,'(i1)') jsfc
+      WRITE(csfc,'(i2)') jsfc
       CALL add_ref( p_ext_atm_list, 'frac_t', 'frac_t_'//TRIM(ADJUSTL(csfc)),  &
         &           p_ext_atm%frac_t_ptr(jsfc)%p_2d,                           &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,   &
@@ -1077,14 +1179,16 @@ CONTAINS
       !
       ! soiltyp      p_ext_atm%soiltyp(nproma,nblks_c)
       cf_desc    = t_cf_var('soil_type', '-','soil type', DATATYPE_FLT32)
-      grib2_desc = t_grib2_var( 2, 3, 0, ibits, GRID_REFERENCE, GRID_CELL)
+      grib2_desc = t_grib2_var( 2, 3, 196, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'soiltyp', p_ext_atm%soiltyp,   &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
-        &           grib2_desc, ldims=shape2d_c, loutput=.FALSE. )
+        &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,    &
+        &           hor_interp=create_hor_interp_metadata(          &
+        &               hor_intp_type=HINTP_TYPE_LONLAT_NNB ) )
 
       ! soiltyp_t      p_ext_atm%soiltyp_t(nproma,nblks_c,ntiles_total)
       cf_desc    = t_cf_var('soil_type', '-','soil type', DATATYPE_FLT32)
-      grib2_desc = t_grib2_var( 2, 3, 0, ibits, GRID_REFERENCE, GRID_CELL)
+      grib2_desc = t_grib2_var( 2, 3, 196, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'soiltyp_t', p_ext_atm%soiltyp_t,   &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,        &
         &           grib2_desc, ldims=shape3d_nt, loutput=.FALSE. )
@@ -1840,7 +1944,10 @@ CONTAINS
     CHARACTER(filename_max) :: ozone_file  !< file name for reading in
     CHARACTER(len=max_char_length) :: rawdata_attr
 
-    INTEGER :: jg, jc, jb, i, mpi_comm, ilu
+    CHARACTER(filename_max) :: sst_td_file !< file name for reading in
+    CHARACTER(filename_max) :: ci_td_file !< file name for reading in
+
+    INTEGER :: jg, jc, jb, i, mpi_comm, ilu,im
     INTEGER :: i_lev,jk
     INTEGER :: ncid, varid
 
@@ -1856,6 +1963,8 @@ CONTAINS
 
     REAL(wp), DIMENSION(num_lcc*n_param_lcc):: lu_glc2000   ! < lookup table landuse class GLC2000
     REAL(wp), DIMENSION(num_lcc*n_param_lcc):: lu_gcv2009   ! < lookup table landuse class GlobCover2009
+
+    LOGICAL :: l_exist
 
 !                    z0         pcmx      laimx rd      rsmin      snowalb snowtile
 !
@@ -2447,10 +2556,10 @@ CONTAINS
       ENDDO ! ndom
     END IF ! irad_o3
 
-!
+!------------------------------------------
 ! Read time dependent SST and ICE Fraction  
-!
-   IF (sstice_mode == 2) THEN
+!------------------------------------------
+   IF (sstice_mode == 2 .AND. iforcing == inwp) THEN
 
       IF(p_test_run) THEN
         mpi_comm = p_comm_work_test
@@ -2461,7 +2570,55 @@ CONTAINS
       DO jg = 1,n_dom
        !Read the climatological values for SST and ice cover
 
-        CALL finish(TRIM(routine),'sstice_mode == 2 not yet implemented .')
+        DO im=1,12
+
+         IF(my_process_is_stdio()) THEN
+
+          sst_td_file= generate_td_filename(sst_td_filename,                &
+            &                             model_base_dir,                   &
+            &                             TRIM(p_patch(jg)%grid_filename),  &
+            &                             im,clim=.TRUE.                   )
+          CALL message  (routine, TRIM(sst_td_file))
+
+          INQUIRE (FILE=sst_td_file, EXIST=l_exist)
+          IF (.NOT.l_exist) THEN
+            CALL finish(TRIM(routine),'td sst external data file is not found.')
+          ENDIF
+
+          CALL nf(nf_open(TRIM(sst_td_file), NF_NOWRITE, ncid), routine)
+
+         ENDIF    
+         CALL read_netcdf_data (ncid, 'SST', p_patch(jg)%n_patch_cells_g, &
+          &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+          &                     ext_data(jg)%atm_td%sst_m(:,:,im)) 
+
+         IF( my_process_is_stdio()) CALL nf(nf_close(ncid), routine)
+
+         IF(my_process_is_stdio()) THEN
+
+          ci_td_file= generate_td_filename(ci_td_filename,                  &
+            &                             model_base_dir,                   &
+            &                             TRIM(p_patch(jg)%grid_filename),  &
+            &                             im,clim=.TRUE.                   )
+          CALL message  (routine, TRIM(ci_td_file))
+
+          INQUIRE (FILE=ci_td_file, EXIST=l_exist)
+          IF (.NOT.l_exist) THEN
+            CALL finish(TRIM(routine),'td ci external data file is not found.')
+          ENDIF
+
+          CALL nf(nf_open(TRIM(ci_td_file), NF_NOWRITE, ncid), routine)
+
+         ENDIF    
+         CALL read_netcdf_data (ncid, 'CI', p_patch(jg)%n_patch_cells_g, &
+          &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+          &                     ext_data(jg)%atm_td%fr_ice_m(:,:,im)) 
+
+         IF( my_process_is_stdio()) CALL nf(nf_close(ncid), routine)
+
+        END DO 
+ 
+       ! CALL finish(TRIM(routine),'sstice_mode == 2 not yet implemented .')
       END DO ! ndom
 
    END IF ! sstice_mode
@@ -3180,10 +3337,96 @@ CONTAINS
 
     END DO  !jg
 
-  
+
+
+    ! Diagnose aggregated external parameter fields
+    ! (mainly for output putposes)
+    !
+    CALL diagnose_ext_aggr (p_patch, ext_data)
+
 
   END SUBROUTINE init_index_lists
 
+
+
+  !-------------------------------------------------------------------------
+  !>
+  !! Diagnose aggregated external fields
+  !!
+  !! Aggregated external fields are diagnosed based on tile based external 
+  !! fields. This is mostly done for output and visualization purposes 
+  !! i.e. meteograms.
+  !!
+  !! @par Revision History
+  !! Initial revision by Daniel Reinert, DWD (2013-01-23)
+  !!
+  SUBROUTINE diagnose_ext_aggr (p_patch, ext_data)
+
+    TYPE(t_patch), INTENT(IN)            :: p_patch(:)
+    TYPE(t_external_data), INTENT(INOUT) :: ext_data(:)
+
+    INTEGER  :: jg,jb,jt,ic,jc
+    INTEGER  :: rl_start, rl_end
+    INTEGER  :: i_startblk, i_endblk    !> blocks
+    INTEGER  :: i_nchdom                !< domain index
+    INTEGER  :: i_count
+    REAL(wp) :: area_frac
+
+    CHARACTER(len=max_char_length), PARAMETER :: &
+      routine = 'mo_ext_data:diagnose_ext_aggr'
+    !-------------------------------------------------------------------------
+
+    DO jg = 1, n_dom 
+
+      i_nchdom  = MAX(1,p_patch(jg)%n_childdom)
+
+      ! exclude the boundary interpolation zone of nested domains
+      rl_start = grf_bdywidth_c+1
+      rl_end   = min_rlcell_int
+
+      i_startblk = p_patch(jg)%cells%start_blk(rl_start,1)
+      i_endblk   = p_patch(jg)%cells%end_blk(rl_end,i_nchdom)
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,jt,ic,i_count,jc,area_frac)
+      DO jb = i_startblk, i_endblk
+
+        IF (ext_data(jg)%atm%lp_count(jb) == 0) CYCLE ! skip loop if there is no land point
+
+        ext_data(jg)%atm%plcov (:,jb) = 0._wp
+        ext_data(jg)%atm%rootdp(:,jb) = 0._wp
+        ext_data(jg)%atm%lai   (:,jb) = 0._wp
+
+        DO jt = 1, ntiles_total
+          i_count = ext_data(jg)%atm%gp_count_t(jb,jt)
+          IF (i_count == 0) CYCLE ! skip loop if the index list for the given tile is empty
+
+          DO ic = 1, i_count
+            jc = ext_data(jg)%atm%idx_lst_t(ic,jb,jt)
+
+            area_frac = ext_data(jg)%atm%frac_t(jc,jb,jt)
+
+            ext_data(jg)%atm%plcov(jc,jb) = ext_data(jg)%atm%plcov(jc,jb)       &
+              &              + ext_data(jg)%atm%plcov_t(jc,jb,jt) * area_frac
+
+            ext_data(jg)%atm%rootdp(jc,jb) = ext_data(jg)%atm%rootdp(jc,jb)     &
+              &             + ext_data(jg)%atm%rootdp_t(jc,jb,jt) * area_frac
+
+            ext_data(jg)%atm%lai(jc,jb) = ext_data(jg)%atm%lai(jc,jb)           &
+              &             + ( ext_data(jg)%atm%tai_t(jc,jb,jt)                &
+              &             /(ext_data(jg)%atm%plcov_t(jc,jb,jt)+dbl_eps) * area_frac )
+
+          ENDDO  !ic
+
+        ENDDO  !jt
+
+      ENDDO  !jb
+!$OMP END DO
+!$OMP END PARALLEL
+
+    ENDDO  !jg
+
+  END SUBROUTINE diagnose_ext_aggr
 
 
   !-------------------------------------------------------------------------

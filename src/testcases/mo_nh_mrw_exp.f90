@@ -58,8 +58,8 @@ MODULE mo_nh_mrw_exp
    USE mo_extpar_config,       ONLY: itopo
    USE mo_nonhydro_types,      ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
 
-   USE mo_nh_init_utils,       ONLY: convert_thdvars, virtual_temp, init_w ,      &
-                                   & hydro_adjust
+   USE mo_nh_init_utils,       ONLY: convert_thdvars, init_w, hydro_adjust
+   USE mo_util_phys,           ONLY: virtual_temp
    USE mo_nh_jabw_exp,         ONLY: init_nh_inwp_tracers
    USE mo_loopindices,         ONLY: get_indices_e
    USE mo_run_config,          ONLY: iqv

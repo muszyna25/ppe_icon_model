@@ -93,7 +93,9 @@ MODULE mo_nonhydro_types
     &  v(:,:,:),            & ! meridional wind (nproma,nlev,nblks_c)          [m/s]
     &  vt(:,:,:),           & ! tangential wind (nproma,nlev,nblks_e)          [m/s]
     &  omega_z(:,:,:),      & ! relative vertical vorticity at dual grid
-                              ! (nproma,nlev,nblks_v or nblks_e)               [1/s]
+                              ! (nproma,nlev,nblks_v)                          [1/s]
+    &  vor(:,:,:),          & ! relative vertical vorticity interpolated to cells
+                              ! (nproma,nlev,nblks_c)                          [1/s]
     &  ddt_vn_phy(:,:,:),   & ! normal wind tendency from forcing
                               ! (nproma,nlev,nblks_e)                          [m/s^2]
     &  ddt_exner(:,:,:),    & ! exner pressure tendency from forcing (nproma,nlev,nblks_c)  [1/s]
@@ -127,7 +129,7 @@ MODULE mo_nonhydro_types
     &  w_concorr_c(:,:,:),  & ! contravariant vert correction (nproma,nlevp1,nblks_c)[m/s]
     &  e_kinh(:,:,:),       & ! horizontal spec. kinetic energy
                               ! (nproma,nlev,nblks_c)                            [m^2/s^2]
-                              !  
+   
     ! b) variables needed for the triangular grid only
     &  vn_ie(:,:,:),        & ! normal wind at half levels (nproma,nlevp1,nblks_e)   [m/s]
     &  ddt_vn_adv(:,:,:,:), & ! normal wind tendency from advection

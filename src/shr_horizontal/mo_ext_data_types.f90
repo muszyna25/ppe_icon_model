@@ -182,10 +182,14 @@ MODULE mo_ext_data_types
     REAL(wp), POINTER ::   &   !< ground fraction covered by plants (vegetation period)  [ ]
       & plcov_mx(:,:)          ! index1=1,nproma, index2=1,nblks_c
     REAL(wp), POINTER ::   &   !< ground fraction covered by plants (vegetation period)  [ ]
+      & plcov(:,:)             ! index1=1,nproma, index2=1,nblks_c
+    REAL(wp), POINTER ::   &   !< ground fraction covered by plants (vegetation period)  [ ]
       & plcov_t(:,:,:)         ! index1=1,nproma, index2=1,nblks_c, ntiles_total
 
-    REAL(wp), POINTER ::   &   !< leaf area index (vegetation period)            [ ]
+    REAL(wp), POINTER ::   &   !< max leaf area index (vegetation period)        [ ]
       &  lai_mx(:,:)           ! index1=1,nproma, index2=1,nblks_c
+    REAL(wp), POINTER ::   &   !< leaf area index (vegetation period)            [ ]
+      &  lai(:,:)              ! index1=1,nproma, index2=1,nblks_c
     REAL(wp), POINTER ::   &   !< surface area index (vegetation period)         [ ]
       &  sai_t(:,:,:)          ! index1=1,nproma, index2=1,nblks_c, ntiles_total
     REAL(wp), POINTER ::   &   !< transpiration area index (vegetation period)   [ ]
@@ -323,7 +327,8 @@ MODULE mo_ext_data_types
 
 
     ! for output purposes.
-    TYPE(t_ptr_2d3d),ALLOCATABLE :: frac_t_ptr(:)
+    TYPE(t_ptr_2d3d), ALLOCATABLE :: frac_t_ptr(:)
+    TYPE(t_ptr_2d3d), ALLOCATABLE :: plcov_t_ptr(:)
 
   END TYPE t_external_atmos
 

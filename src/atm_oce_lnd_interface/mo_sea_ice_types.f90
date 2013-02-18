@@ -109,6 +109,7 @@ MODULE mo_sea_ice_types
       & lat     (:,:,:),           & ! Latent heat flux at ice surface             [W/m2]
       & LWout   (:,:,:),           & ! outgoing LW radiation flux at ice surface   [W/m2]
       & LWnet   (:,:,:),           & ! net LW radiation flux at ice surface        [W/m2]
+      & SWnet   (:,:,:),           & ! net SW radiation flux over ice              [W/m2]
       & bot     (:,:,:),           & ! Ocean heat flux at ice bottom               [W/m2]
       & dsensdT (:,:,:),           & ! d sensible Flux / d T_surf                  [W/m2/K]
       & dlatdT  (:,:,:),           & ! d latent Flux / d T_surf                    [W/m2/K]
@@ -121,8 +122,19 @@ MODULE mo_sea_ice_types
       & latw   (:,:),             & ! Latent heat flux over water                 [W/m2]
       & LWoutw (:,:),             & ! outgoing LW radiation flux over water       [W/m2]
       & LWnetw (:,:),             & ! net LW radiation flux over water            [W/m2]
-      & SWin   (:,:),             & ! incoming SW radiation flux                  [W/m2]
-      & LWin   (:,:)                  ! incoming LW radiation flux                  [W/m2]
+      & SWnetw (:,:),             & ! net SW radiation flux over water            [W/m2]
+      & LWin   (:,:)                ! incoming LW radiation flux                  [W/m2]
+
+! Albedos
+    REAL(wp), ALLOCATABLE::     &
+      & albvisdir (:,:,:),      & ! VIS direct/paralell (ice)
+      & albvisdif (:,:,:),      & ! VIS diffuse (ice)
+      & albnirdir (:,:,:),      & ! NIR direct/paralell (ice)
+      & albnirdif (:,:,:),      & ! NIR diffuse (ice)
+      & albvisdirw(:,:),        & ! VIS direct/paralell (ocean)
+      & albvisdifw(:,:),        & ! VIS diffuse (ocean)
+      & albnirdirw(:,:),        & ! NIR direct/paralell (ocean)
+      & albnirdifw(:,:)           ! NIR diffuse (ocean)
                                                                             
     INTEGER ::     counter                                                  
 
@@ -150,9 +162,6 @@ MODULE mo_sea_ice_types
   ! The description of the sea-ice state, defined on cell-centers
   ! dimension: (nproma, nblks_c)
 
-    LOGICAL, POINTER :: &
-      &  isice(:,:,:)    ! Logical field that marks ice-covered grid cells
-    
     REAL(wp), POINTER :: &
       & alb        (:,:,:)       ,   & ! Albedo of snow-ice system
       & Tsurf      (:,:,:)       ,   & ! Surface temperature                           [C]
@@ -160,6 +169,7 @@ MODULE mo_sea_ice_types
       & T2         (:,:,:)       ,   & ! Temperature lower layer                       [C]
       & E1         (:,:,:)       ,   & ! Energy content upper layer                    [Jm/kg]
       & E2         (:,:,:)       ,   & ! Energy content lower layer                    [Jm/kg]
+      & vol        (:,:,:)       ,   & ! Ice volume                                    [m^3]
       & hi         (:,:,:)       ,   & ! Ice thickness                                 [m]
       & hs         (:,:,:)       ,   & ! Snow thickness                                [m]
       & hiold      (:,:,:)       ,   & ! Ice thickness at previous time step           [m]
@@ -171,8 +181,7 @@ MODULE mo_sea_ice_types
       & surfmelt   (:,:,:)       ,   & ! surface melt water running into ocean         [m]
       & surfmeltT  (:,:,:)       ,   & ! Mean temperature of surface melt water        [C]
       & evapwi     (:,:,:)       ,   & ! amount of evaporated water if no ice left     [kg/m2]
-      & conc       (:,:,:)       ,   & ! ice concentration in each ice class
-      & restart_isice(:,:,:)           ! ice mask as a real field for getting it into restart
+      & conc       (:,:,:)             ! ice concentration in each ice class
 
     REAL(wp), POINTER :: &
       & u(:,:)          ,      & ! Zonal velocity                                [m/s]
@@ -181,7 +190,7 @@ MODULE mo_sea_ice_types
       & newice(:,:)     ,      & ! New ice growth in open water                  [m]
       & zUnderIce(:,:)           ! water in upper ocean grid cell below ice      [m]
 
-     INTEGER ::  kice = 1   ! Number of ice-thickness classes
+     INTEGER ::  kice           ! Number of ice-thickness classes
 
     REAL(wp), ALLOCATABLE ::  hi_lim(:)   ! Thickness limits 
 

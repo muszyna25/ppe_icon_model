@@ -95,7 +95,7 @@ CONTAINS
 
     REAL(wp),INTENT(OUT)   :: dshflx_dT_tile(1:kproma,ksfc_type)
 
-    REAL(wp),INTENT(IN)    :: evapotranspiration(1:kproma)
+    REAL(wp),OPTIONAL,INTENT(IN)    :: evapotranspiration(1:kproma)
 
     INTEGER  :: jsfc
     REAL(wp) :: zconst, zdqv(kbdim), zdcptv(kbdim)

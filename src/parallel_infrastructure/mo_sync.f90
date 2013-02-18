@@ -42,9 +42,7 @@ MODULE mo_sync
 !    modified for ICON project, DWD/MPI-M 2006
 !
 !-------------------------------------------------------------------------
-!
-!
-!
+
 
 USE mo_kind,               ONLY: wp, dp, i8
 USE mo_exception,          ONLY: finish, message, message_text
@@ -52,15 +50,15 @@ USE mo_model_domain,       ONLY: t_patch
 USE mo_parallel_config,    ONLY: nproma
 USE mo_run_config,         ONLY: msg_level
 USE mo_math_constants,     ONLY: pi
-USE mo_impl_constants,     ONLY: min_rlcell_int, min_rledge_int, min_rlvert_int
+USE mo_impl_constants,     ONLY: min_rlcell_int, min_rledge_int, min_rlvert_int, max_dom
 USE mo_impl_constants_grf, ONLY: grf_bdywidth_c, grf_bdywidth_e
 USE mo_io_units,           ONLY: find_next_free_unit, filename_max
-USE mo_mpi,                ONLY: p_pe, p_bcast, p_sum, p_max, p_min, &
-  & p_send, p_recv, p_comm_work_test,  p_comm_work, p_n_work,        &
-  & my_process_is_mpi_test, get_my_mpi_all_id, process_mpi_all_test_id, &
-  & my_process_is_mpi_parallel,       &
-  & p_work_pe0,p_pe_work, push_glob_comm, pop_glob_comm, get_glob_proc0, &
-  & comm_lev, glob_comm, comm_proc0, p_gather, p_gatherv
+USE mo_mpi,                ONLY: p_pe, p_bcast, p_sum, p_max, p_min, p_send, p_recv,               &
+  &                              p_comm_work_test,  p_comm_work, p_n_work, my_process_is_mpi_test, &
+  &                              get_my_mpi_all_id, process_mpi_all_test_id,                       &
+  &                              my_process_is_mpi_parallel, p_work_pe0,p_pe_work, push_glob_comm, &
+  &                              pop_glob_comm, get_glob_proc0, comm_lev, glob_comm, comm_proc0,   &
+  &                              p_gather, p_gatherv
 USE mo_parallel_config, ONLY:p_test_run,   &
   & n_ghost_rows, l_log_checks, l_fast_sum
 USE mo_communication,      ONLY: exchange_data, exchange_data_4de3,            &
@@ -85,7 +83,8 @@ PUBLIC :: sync_patch_array, check_patch_array, sync_idx,              &
           sync_patch_array_mult,                                      &
           global_min, global_max, sync_patch_array_gm,                &
           sync_patch_array_4de3, decomposition_statistics,            &
-          enable_sync_checks, disable_sync_checks
+          enable_sync_checks, disable_sync_checks,                    &
+          cumulative_sync_patch_array, complete_cumulative_sync
 
 !
 !variables
@@ -96,8 +95,10 @@ INTEGER, PARAMETER, PUBLIC :: SYNC_V = 3
 INTEGER, PARAMETER, PUBLIC :: SYNC_C1 = 4
 
 INTERFACE sync_patch_array
-  MODULE PROCEDURE sync_patch_array_2
-  MODULE PROCEDURE sync_patch_array_3
+  MODULE PROCEDURE sync_patch_array_r2
+  MODULE PROCEDURE sync_patch_array_r3
+  MODULE PROCEDURE sync_patch_array_i2
+  MODULE PROCEDURE sync_patch_array_i3
 END INTERFACE
 
 INTERFACE check_patch_array
@@ -133,10 +134,26 @@ END INTERFACE
 ! Unit for logging sync errors
 INTEGER, SAVE :: log_unit = -1
 
-! Falg if sync checks are enabled when sync_patch_array et al is called
+! Flag if sync checks are enabled when sync_patch_array et al is called
 LOGICAL, SAVE :: do_sync_checks = .TRUE.
 
 !-------------------------------------------------------------------------
+
+!> Type definition for "cumulative syncs": These are boundary
+!  exchanges for 3D cell-based fields, collecting as many fields as
+!  possible before actually performing the sync.
+TYPE t_cumulative_sync
+  REAL(wp),      POINTER :: f3d(:,:,:)
+  TYPE(t_patch), POINTER :: p_patch
+END TYPE t_cumulative_sync
+
+!> max. no. fields that can be handled by "sync_patch_array_mult"
+INTEGER, PARAMETER :: MAX_CUMULATIVE_SYNC = 5
+!> No. of pending cumulative sync; dim (typ,patch_id,fieldno)
+INTEGER :: ncumul_sync(4,max_dom) = 0
+!> List of cumulative sync fields:
+TYPE(t_cumulative_sync) :: cumul_sync(4,max_dom,MAX_CUMULATIVE_SYNC)
+
 
 CONTAINS
 
@@ -155,26 +172,18 @@ END SUBROUTINE enable_sync_checks
 SUBROUTINE disable_sync_checks()
   do_sync_checks = .FALSE.
 END SUBROUTINE disable_sync_checks
+
+
 !-------------------------------------------------------------------------
+!> Does boundary exchange for a 3-D REAL array.
 !
+!  @par Revision History
+!  Initial version by Rainer Johanni, Nov 2009
 !
-
-!>
-!! Does boundary exchange for a 3-D array.
-!!
-!!
-!! @par Revision History
-!! Initial version by Rainer Johanni, Nov 2009
-!!
-SUBROUTINE sync_patch_array_3(typ, p_patch, arr)
-
-!
-
-   INTEGER, INTENT(IN)     :: typ
-   TYPE(t_patch), INTENT(IN) :: p_patch
-
-   REAL(wp), INTENT(INOUT) :: arr(:,:,:)
-!-----------------------------------------------------------------------
+SUBROUTINE sync_patch_array_r3(typ, p_patch, arr)
+   INTEGER,       INTENT(IN)    :: typ
+   TYPE(t_patch), INTENT(IN)    :: p_patch
+   REAL(wp),      INTENT(INOUT) :: arr(:,:,:)
 
    ! If this is a verification run, check consistency before doing boundary exchange
    IF (p_test_run .AND. do_sync_checks) CALL check_patch_array_3(typ, p_patch, arr, 'sync')
@@ -193,44 +202,86 @@ SUBROUTINE sync_patch_array_3(typ, p_patch, arr)
          CALL finish('sync_patch_array','Illegal type parameter')
       ENDIF
    ENDIF
+END SUBROUTINE sync_patch_array_r3
 
-END SUBROUTINE sync_patch_array_3
 
 !-------------------------------------------------------------------------
+!> Does boundary exchange for a 3-D INTEGER array.
 !
+!  @par Revision History
+!  Initial version by Rainer Johanni, Nov 2009
 !
-
-!>
-!! Does boundary exchange for a 2-D array.
-!!
-!!
-!! @par Revision History
-!! Initial version by Rainer Johanni, Nov 2009
-!!
-SUBROUTINE sync_patch_array_2(typ, p_patch, arr)
-
+!  @note This implementation does not perform a consistency check
+!        (p_test_run)!
 !
+SUBROUTINE sync_patch_array_i3(typ, p_patch, arr)
+   INTEGER,       INTENT(IN)    :: typ
+   TYPE(t_patch), INTENT(IN)    :: p_patch
+   INTEGER,       INTENT(INOUT) :: arr(:,:,:)
 
-   INTEGER, INTENT(IN)     :: typ
-   TYPE(t_patch), INTENT(IN) :: p_patch
+   ! Boundary exchange for work PEs
+   IF(my_process_is_mpi_parallel()) THEN
+      IF(typ == SYNC_C) THEN
+         CALL exchange_data(p_patch%comm_pat_c, arr)
+      ELSE IF(typ == SYNC_E) THEN
+         CALL exchange_data(p_patch%comm_pat_e, arr)
+      ELSE IF(typ == SYNC_V) THEN
+         CALL exchange_data(p_patch%comm_pat_v, arr)
+      ELSE IF(typ == SYNC_C1) THEN
+         CALL exchange_data(p_patch%comm_pat_c1, arr)
+      ELSE
+         CALL finish('sync_patch_array','Illegal type parameter')
+      ENDIF
+   ENDIF
+END SUBROUTINE sync_patch_array_i3
 
-   REAL(wp), INTENT(INOUT) :: arr(:,:)
 
+!-------------------------------------------------------------------------
+!> Does boundary exchange for a 2-D REAL array.
+!
+!  @par Revision History
+!  Initial version by Rainer Johanni, Nov 2009
+!
+SUBROUTINE sync_patch_array_r2(typ, p_patch, arr)
+   INTEGER,       INTENT(IN)    :: typ
+   TYPE(t_patch), INTENT(IN)    :: p_patch
+   REAL(wp),      INTENT(INOUT) :: arr(:,:)
+   ! local variable
    REAL(wp), ALLOCATABLE :: arr3(:,:,:)
-!-----------------------------------------------------------------------
 
    ALLOCATE(arr3(UBOUND(arr,1), 1, UBOUND(arr,2)))
    arr3(:,1,:) = arr(:,:)
-   CALL sync_patch_array_3(typ, p_patch, arr3)
+   CALL sync_patch_array_r3(typ, p_patch, arr3)
    arr(:,:) = arr3(:,1,:)
    DEALLOCATE(arr3)
+END SUBROUTINE sync_patch_array_r2
 
-END SUBROUTINE sync_patch_array_2
 
 !-------------------------------------------------------------------------
+!> Does boundary exchange for a 2-D INTEGER array.
 !
+!  @par Revision History
+!  Initial version by Rainer Johanni, Nov 2009
 !
+!  @note This implementation does not perform a consistency check
+!        (p_test_run)!
+!
+SUBROUTINE sync_patch_array_i2(typ, p_patch, arr)
+   INTEGER,       INTENT(IN)    :: typ
+   TYPE(t_patch), INTENT(IN)    :: p_patch
+   INTEGER,       INTENT(INOUT) :: arr(:,:)
+   ! local variable
+   INTEGER, ALLOCATABLE :: arr3(:,:,:)
 
+   ALLOCATE(arr3(UBOUND(arr,1), 1, UBOUND(arr,2)))
+   arr3(:,1,:) = arr(:,:)
+   CALL sync_patch_array_i3(typ, p_patch, arr3)
+   arr(:,:) = arr3(:,1,:)
+   DEALLOCATE(arr3)
+END SUBROUTINE sync_patch_array_i2
+
+
+!-------------------------------------------------------------------------
 !>
 !! Does boundary exchange for up to 5 3D cell-based fields and/or a 4D field.
 !!
@@ -648,7 +699,9 @@ SUBROUTINE check_patch_array_3(typ, p_patch, arr, opt_varname)
       ! Terminate the programm if the array is out of sync
 
       IF(sync_error) THEN
-        CLOSE (log_unit)
+        IF(l_log_checks) THEN
+          CLOSE (log_unit)
+        ENDIF
         CALL finish('sync_patch_array','Out of sync detected!')
       ENDIF
 
@@ -1560,22 +1613,27 @@ END FUNCTION global_min_1d
 !
 ! @param[out]   proc_id  (Optional:) PE number of maximum value
 ! @param[inout] keyval   (Optional:) additional meta information
+! @param[in]    iroot    (Optional:) root PE, otherwise we perform an
+!                                    ALL-TO-ALL operation
 !
 ! The parameter @p keyval can be used to communicate
 ! additional data on the maximum value, e.g., the level
 ! index where the maximum occurred.
 !
-FUNCTION global_max_0d(zfield, proc_id, keyval) RESULT(global_max)
+FUNCTION global_max_0d(zfield, proc_id, keyval, iroot) RESULT(global_max)
 
   REAL(wp), INTENT(IN) :: zfield
   INTEGER, OPTIONAL, INTENT(inout) :: proc_id
   INTEGER, OPTIONAL, INTENT(inout) :: keyval
+  INTEGER, OPTIONAL, INTENT(in)    :: iroot
   REAL(wp) :: global_max
 
   IF(comm_lev==0) THEN
-    global_max = p_max(zfield, proc_id=proc_id, keyval=keyval, comm=p_comm_work)
+    global_max = p_max(zfield, proc_id=proc_id, keyval=keyval, &
+      &                comm=p_comm_work, root=iroot)
   ELSE
-    global_max = p_max(zfield, proc_id=proc_id, keyval=keyval, comm=glob_comm(comm_lev))
+    global_max = p_max(zfield, proc_id=proc_id, keyval=keyval, &
+      &                comm=glob_comm(comm_lev), root=iroot)
   ENDIF
 
   IF(p_test_run .AND. do_sync_checks) CALL check_result( (/ global_max /), 'global_max' )
@@ -1587,22 +1645,27 @@ END FUNCTION global_max_0d
 !
 ! @param[out]   proc_id  (Optional:) PE number of maximum value
 ! @param[inout] keyval   (Optional:) additional meta information
+! @param[in]    iroot    (Optional:) root PE, otherwise we perform an
+!                                    ALL-TO-ALL operation
 !
 ! The parameter @p keyval can be used to communicate
 ! additional data on the maximum value, e.g., the level
 ! index where the maximum occurred.
 !
-FUNCTION global_max_1d(zfield, proc_id, keyval) RESULT(global_max)
+FUNCTION global_max_1d(zfield, proc_id, keyval, iroot) RESULT(global_max)
 
   REAL(wp), INTENT(IN) :: zfield(:)
   INTEGER, OPTIONAL, INTENT(inout) :: proc_id(SIZE(zfield))
   INTEGER, OPTIONAL, INTENT(inout) :: keyval(SIZE(zfield))
+  INTEGER, OPTIONAL, INTENT(in)    :: iroot
   REAL(wp) :: global_max(SIZE(zfield))
 
   IF(comm_lev==0) THEN
-    global_max = p_max(zfield, proc_id=proc_id, keyval=keyval, comm=p_comm_work)
+    global_max = p_max(zfield, proc_id=proc_id, keyval=keyval, &
+      &                comm=p_comm_work, root=iroot)
   ELSE
-    global_max = p_max(zfield, proc_id=proc_id, keyval=keyval, comm=glob_comm(comm_lev))
+    global_max = p_max(zfield, proc_id=proc_id, keyval=keyval, &
+      &                comm=glob_comm(comm_lev), root=iroot)
   ENDIF
 
   IF(p_test_run .AND. do_sync_checks) CALL check_result( global_max, 'global_max' )
@@ -2397,8 +2460,8 @@ SUBROUTINE decomposition_statistics(p_patch)
      max_nprecv = NINT(csmax(5))
 
      ! Compute average latitude and longitude over prognostic grid points (including nest boundary)
-     avglat = 0
-     avglon = 0
+     avglat = 0._wp
+     avglon = 0._wp
      i2m = p_patch%cells%end_blk(min_rlcell_int,i_nchdom)
      DO i2 = 1, i2m
        i1m = nproma
@@ -2447,6 +2510,95 @@ SUBROUTINE decomposition_statistics(p_patch)
 END SUBROUTINE decomposition_statistics
 
 !-------------------------------------------------------------------------
+
+
+!-------------------------------------------------------------------------
+!> Does boundary exchange for 3D cell-based fields, collecting as many
+!  fields as possible before actually performing the sync.
+!
+!  @par Revision History
+!  Initial revision : F. Prill, DWD (2013-02-08)
+! 
+SUBROUTINE cumulative_sync_patch_array(typ, p_patch, f3d)
+  INTEGER,       INTENT(IN)            :: typ
+  TYPE(t_patch), INTENT(IN),    TARGET :: p_patch
+  REAL(wp),      INTENT(INOUT), TARGET :: f3d(:,:,:)
+  ! local variables
+  CHARACTER(*), PARAMETER :: routine = TRIM("mo_sync:cumulative_sync_patch_array")
+  INTEGER :: idx
+
+  ! add pointer to list of cumulative sync fields:
+  idx = ncumul_sync(typ,p_patch%id) + 1
+  IF (idx > MAX_CUMULATIVE_SYNC) CALL finish(routine, "Internal error!")
+  ncumul_sync(typ, p_patch%id)            =  idx
+  cumul_sync(typ, p_patch%id,idx)%f3d     => f3d
+  cumul_sync(typ, p_patch%id,idx)%p_patch => p_patch
+  IF (idx == MAX_CUMULATIVE_SYNC) THEN
+!CDIR NOIEXPAND
+    CALL complete_cumulative_sync(typ, p_patch%id)
+  END IF
+END SUBROUTINE cumulative_sync_patch_array
+
+
+!-------------------------------------------------------------------------
+!> If there are any pending "cumulative sync" operations: Complete them!
+!
+!  @par Revision History
+!  Initial revision : F. Prill, DWD (2013-02-08)
+! 
+RECURSIVE SUBROUTINE complete_cumulative_sync(opt_typ, opt_patch_id)
+  INTEGER, OPTIONAL, INTENT(IN) :: opt_typ
+  INTEGER, OPTIONAL, INTENT(IN) :: opt_patch_id
+  ! local variables
+  CHARACTER(*), PARAMETER :: routine = TRIM("mo_sync:complete_cumulative_sync")
+  TYPE(t_patch), POINTER :: p_patch
+  INTEGER :: i
+
+  ! first, handle the case that this routine has been called for all
+  ! sync types or/and all patches:
+  IF (.NOT. PRESENT(opt_typ)) THEN
+    DO i=1,4
+!CDIR NOIEXPAND
+      CALL complete_cumulative_sync(i, opt_patch_id)
+    END DO
+    RETURN
+  END IF
+  IF (.NOT. PRESENT(opt_patch_id)) THEN
+    DO i=1,max_dom
+!CDIR NOIEXPAND
+      CALL complete_cumulative_sync(opt_typ,i)
+    END DO
+    RETURN
+  END IF
+  ! now, call "sync_patch_array_mult"
+  IF (PRESENT(opt_typ) .AND. (PRESENT(opt_patch_id))) THEN
+    p_patch => cumul_sync(opt_typ,opt_patch_id,1)%p_patch
+    SELECT CASE(ncumul_sync(opt_typ,opt_patch_id))
+    CASE (0)
+      RETURN
+    CASE (1)
+      CALL sync_patch_array_mult(opt_typ, p_patch, 1, cumul_sync(opt_typ,opt_patch_id,1)%f3d)
+    CASE (2)
+      CALL sync_patch_array_mult(opt_typ, p_patch, 2, cumul_sync(opt_typ,opt_patch_id, 1)%f3d, &
+        &                        cumul_sync(opt_typ,opt_patch_id,2)%f3d)
+    CASE (3)
+      CALL sync_patch_array_mult(opt_typ, p_patch, 3, cumul_sync(opt_typ,opt_patch_id,1)%f3d,  &
+        &                        cumul_sync(opt_typ,opt_patch_id,2)%f3d, cumul_sync(opt_typ,opt_patch_id,3)%f3d)
+    CASE (4)
+      CALL sync_patch_array_mult(opt_typ, p_patch, 4, cumul_sync(opt_typ,opt_patch_id,1)%f3d,  &
+        &                        cumul_sync(opt_typ,opt_patch_id,2)%f3d, cumul_sync(opt_typ,opt_patch_id,3)%f3d, &
+        &                        cumul_sync(opt_typ,opt_patch_id,4)%f3d)
+    CASE (5)
+      CALL sync_patch_array_mult(opt_typ, p_patch, 5, cumul_sync(opt_typ,opt_patch_id,1)%f3d,  &
+        &                        cumul_sync(opt_typ,opt_patch_id,2)%f3d, cumul_sync(opt_typ,opt_patch_id,3)%f3d, &
+        &                        cumul_sync(opt_typ,opt_patch_id,4)%f3d, cumul_sync(opt_typ,opt_patch_id,5)%f3d)
+    CASE DEFAULT
+      CALL finish(routine, "Internal error!")
+    END SELECT
+    ncumul_sync(opt_typ,opt_patch_id) = 0 ! reset sync counter
+  END IF
+END SUBROUTINE complete_cumulative_sync
+
 
 END MODULE mo_sync
 

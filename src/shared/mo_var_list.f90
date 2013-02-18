@@ -5,14 +5,16 @@ MODULE mo_var_list
        &                         DATATYPE_INT32, &
        &                         DATATYPE_INT8,  &
        &                         TIME_VARIABLE,  &
-       &                         TSTEP_INSTANT
+       &                         TSTEP_INSTANT,  &
+       &                         GRID_UNSTRUCTURED_CELL
   USE mo_cf_convention,    ONLY: t_cf_var
   USE mo_grib2,            ONLY: t_grib2_var
   USE mo_var_metadata,     ONLY: t_var_metadata, t_union_vals, &
     &                            t_tracer_meta,                &
     &                            t_vert_interp_meta,           &
     &                            t_hor_interp_meta,            &
-    &                            VARNAME_LEN, VAR_GROUPS
+    &                            VARNAME_LEN, VAR_GROUPS,      &
+    &                            VINTP_TYPE_LIST
   USE mo_var_list_element, ONLY: t_var_list_element
   USE mo_linked_list,      ONLY: t_var_list, t_list_element, &
        &                         new_list, delete_list,      &
@@ -22,10 +24,10 @@ MODULE mo_var_list
   USE mo_exception,        ONLY: message, message_text, finish
   USE mo_util_hash,        ONLY: util_hashword
   USE mo_util_string,      ONLY: remove_duplicates, toupper
-  USE mo_impl_constants,   ONLY: VINTP_TYPE_NONE, VINTP_METHOD_LIN, &
-    &                            HINTP_TYPE_LONLAT,                 &
+  USE mo_impl_constants,   ONLY: VINTP_METHOD_LIN,                  &
+    &                            HINTP_TYPE_LONLAT_RBF,             &
     &                            max_var_lists, vname_len,          &
-    &                            STR_HINTP_TYPE, STR_VINTP_TYPE
+    &                            STR_HINTP_TYPE, MAX_TIME_LEVELS
   USE mo_advection_config, ONLY: t_advection_config
   USE mo_fortran_tools,    ONLY: assign_if_present, t_ptr_2d3d
   
@@ -58,8 +60,13 @@ MODULE mo_var_list
   PUBLIC :: get_var                   ! obtain reference to existing list entry
   PUBLIC :: get_all_var_names         ! obtain a list of variables names
 
+  PUBLIC :: get_var_name              ! return plain variable name (without timelevel)
+  PUBLIC :: get_var_timelevel         ! return variable timelevel (or "-1")
+
   PUBLIC :: total_number_of_variables ! returns total number of defined variables
   PUBLIC :: groups                    ! group array constructor
+  PUBLIC :: vintp_type_id             ! mapping: string specifier of vert. interp. typer -> ID
+  PUBLIC :: vintp_types               ! vertical interpolation type (array) constructor
   PUBLIC :: collect_group             ! obtain variables in a group
   
   PUBLIC :: add_tracer_ref            ! add new tracer component
@@ -268,17 +275,17 @@ CONTAINS
   ! Get a list of variable names matching a given criterion.
   !
   SUBROUTINE get_all_var_names (varlist, ivar, opt_vlevel_type,                          &
-    &                           opt_vert_intp_type, opt_vert_intp_type2,                 &
+    &                           opt_vert_intp_type,                                      &
     &                           opt_hor_intp_type, opt_lcontainer,                       &
     &                           opt_loutput, opt_patch_id)
     CHARACTER(LEN=vname_len), INTENT(INOUT) :: varlist(:)
     INTEGER,                  INTENT(OUT)   :: ivar
-    INTEGER, OPTIONAL, INTENT(IN)  :: opt_vlevel_type, opt_vert_intp_type, &
-      &                               opt_vert_intp_type2, opt_patch_id,   &
+    LOGICAL, OPTIONAL, INTENT(IN)  :: opt_vert_intp_type(SIZE(VINTP_TYPE_LIST))
+    INTEGER, OPTIONAL, INTENT(IN)  :: opt_vlevel_type, opt_patch_id,   &
       &                               opt_hor_intp_type
     LOGICAL, OPTIONAL, INTENT(IN)  :: opt_lcontainer, opt_loutput
     ! local variables
-    INTEGER                       :: i, idx
+    INTEGER                       :: i, ivintp_type
     LOGICAL                       :: lcontainer
     TYPE(t_list_element), POINTER :: element
     TYPE(t_var_metadata), POINTER :: info
@@ -326,12 +333,10 @@ CONTAINS
         ! Do not inspect element if it does not contain info for
         ! vertical interpolation
         IF (PRESENT(opt_vert_intp_type)) THEN
-          IF (PRESENT(opt_vert_intp_type2)) THEN
-            IF ((info%vert_interp%vert_intp_type /= opt_vert_intp_type)  .AND.  &
-              & (info%vert_interp%vert_intp_type /= opt_vert_intp_type2)) CYCLE LOOPVAR
-          ELSE
-            IF (info%vert_interp%vert_intp_type /= opt_vert_intp_type) CYCLE LOOPVAR
-          END IF
+          LOOP_VINTP_TYPES : DO ivintp_type=1,SIZE(VINTP_TYPE_LIST)
+            IF (opt_vert_intp_type(ivintp_type) .AND. &
+              & .NOT. info%vert_interp%vert_intp_type(ivintp_type)) CYCLE LOOPVAR
+          END DO LOOP_VINTP_TYPES
         END IF
         ! Do not inspect element if it does not contain info for
         ! horizontal interpolation
@@ -340,20 +345,56 @@ CONTAINS
         END IF
 
         ! Check for time level suffix:
-        idx = INDEX(info%name,'.TL')
         ivar = ivar+1
-        IF (idx==0) THEN
-          varlist(ivar) = TRIM(info%name)
-        ELSE
-          varlist(ivar) = TRIM(info%name(1:idx-1))
-        END IF
-
+        varlist(ivar) = TRIM(get_var_name(element%field))
       ENDDO LOOPVAR ! loop over vlist "i"
     ENDDO LOOP_VARLISTS ! i = 1,nvar_lists
 
     CALL remove_duplicates(varlist, ivar)
 
   END SUBROUTINE get_all_var_names
+
+
+  !------------------------------------------------------------------------------------------------
+  !> @return Plain variable name (i.e. without time level suffix ".TL")
+  !
+  FUNCTION get_var_name(var)
+    CHARACTER(LEN=VARNAME_LEN) :: get_var_name
+    TYPE(t_var_list_element)   :: var
+    ! local variable
+    INTEGER :: idx
+
+    idx = INDEX(var%info%name,'.TL')
+    IF (idx==0) THEN
+      get_var_name = TRIM(var%info%name)
+    ELSE
+      get_var_name = TRIM(var%info%name(1:idx-1))
+    END IF
+  END FUNCTION get_var_name
+
+
+  !------------------------------------------------------------------------------------------------
+  !> @return time level (extracted from time level suffix ".TL") or "-1"
+  !
+  FUNCTION get_var_timelevel(var)
+    INTEGER :: get_var_timelevel
+    TYPE(t_var_list_element)   :: var
+    ! local variable
+    CHARACTER(LEN=*), PARAMETER :: routine = 'mo_var_list:get_var_timelevel'
+    INTEGER :: idx
+
+    idx = INDEX(var%info%name,'.TL')
+    IF (idx == 0) THEN
+      get_var_timelevel = -1
+      RETURN
+    END IF
+
+    ! Get time level
+    get_var_timelevel = ICHAR(var%info%name(idx+3:idx+3)) - ICHAR('0')
+    IF(get_var_timelevel<=0 .OR. get_var_timelevel>max_time_levels) &
+      CALL finish(routine, 'Illegal time level in '//TRIM(var%info%name))
+  END FUNCTION get_var_timelevel
+
 
   !------------------------------------------------------------------------------------------------
   !
@@ -640,8 +681,10 @@ CONTAINS
     RESULT(vert_interp_meta)
 
     TYPE(t_vert_interp_meta) :: vert_interp_meta    
+    LOGICAL, INTENT(IN), OPTIONAL      :: &
+      &  vert_intp_type(SIZE(VINTP_TYPE_LIST))
     INTEGER, INTENT(IN), OPTIONAL      :: &
-      &  vert_intp_type, vert_intp_method
+      &  vert_intp_method
     LOGICAL, INTENT(IN), OPTIONAL      :: &
       &  l_hires_intp, l_restore_fricred, l_loglin, &
       &  l_extrapol, l_satlimit, l_restore_pbldev,  &
@@ -650,7 +693,7 @@ CONTAINS
       &  lower_limit, extrapol_dist
 
     ! set default values
-    vert_interp_meta%vert_intp_type    = VINTP_TYPE_NONE
+    vert_interp_meta%vert_intp_type(:) = .FALSE.
     vert_interp_meta%vert_intp_method  = VINTP_METHOD_LIN
     vert_interp_meta%l_hires_intp      = .FALSE.
     vert_interp_meta%l_restore_fricred = .FALSE.
@@ -694,7 +737,7 @@ CONTAINS
       &  hor_intp_type, lonlat_id
 
     ! set default values
-    hor_interp_meta%hor_intp_type    = HINTP_TYPE_LONLAT
+    hor_interp_meta%hor_intp_type    = HINTP_TYPE_LONLAT_RBF
     hor_interp_meta%lonlat_id        = 0 ! invalid ID
 
     ! supersede with user definitions
@@ -3205,12 +3248,13 @@ CONTAINS
   !
   ! add supplementary fields to a different var list (eg. geopotential, surface pressure, ...)
   !
-  SUBROUTINE add_var_list_reference (to_var_list, name, from_var_list, loutput, bit_precision)
+  SUBROUTINE add_var_list_reference (to_var_list, name, from_var_list, loutput, bit_precision, in_group)
     TYPE(t_var_list), INTENT(inout)          :: to_var_list
     CHARACTER(len=*), INTENT(in)             :: name
     CHARACTER(len=*), INTENT(in)             :: from_var_list
     LOGICAL,          INTENT(in),   OPTIONAL :: loutput
     INTEGER,          INTENT(in),   OPTIONAL :: bit_precision
+    LOGICAL,          INTENT(in),   OPTIONAL :: in_group(SIZE(VAR_GROUPS))  ! groups to which a variable belongs
     !
     TYPE(t_var_list_element), POINTER :: source
     TYPE(t_list_element),     POINTER :: new_list_element
@@ -3223,6 +3267,9 @@ CONTAINS
       new_list_element%field%info%lrestart  = .FALSE.
       CALL assign_if_present(new_list_element%field%info%loutput, loutput)
       CALL assign_if_present(new_list_element%field%info%grib2%bits, bit_precision)
+      if (present(in_group)) then
+        new_list_element%field%info%in_group(:)=in_group(:)
+      end if
     ENDIF
     !
   CONTAINS
@@ -3312,7 +3359,7 @@ CONTAINS
     !
     TYPE(t_list_element), POINTER :: this_list_element
     CHARACTER(len=32) :: dimension_text, dtext
-    INTEGER :: i, igrp
+    INTEGER :: i, igrp, ivintp_type
    
     CALL message('','')
     CALL message('','')
@@ -3496,16 +3543,20 @@ CONTAINS
         END IF
 
         !
-        ! print horizontal and vertical interpolation method:
+        ! print horizontal and vertical interpolation method(s):
         WRITE (message_text,'(a)')  &
           &  'Horizontal interpolation                    : '//  &
           &  TRIM(STR_HINTP_TYPE(this_list_element%field%info%hor_interp%hor_intp_type))
         CALL message('', message_text)
-        WRITE (message_text,'(a)')  &
-          &  'Vertical interpolation                      : '//  &
-          &  TRIM(STR_VINTP_TYPE(this_list_element%field%info%vert_interp%vert_intp_type))
-        CALL message('', message_text)
-          
+
+        LOOP_VINTP_TYPES : DO ivintp_type=1,SIZE(VINTP_TYPE_LIST)
+          IF (this_list_element%field%info%vert_interp%vert_intp_type(ivintp_type)) THEN
+            WRITE (message_text,'(a)')  &
+              &  'Vertical interpolation                      : '//  &
+              &  toupper(TRIM(VINTP_TYPE_LIST(ivintp_type)))
+            CALL message('', message_text)
+          END IF
+        END DO LOOP_VINTP_TYPES
         CALL message('', '')
       ENDIF
 
@@ -3534,6 +3585,57 @@ CONTAINS
     !LK    CALL print_sinfo_list (this_list)
     !
   END SUBROUTINE print_sinfo
+
+
+  !------------------------------------------------------------------------------------------------
+  ! HANDLING OF VERTICAL INTERPOLATION MODES
+  !------------------------------------------------------------------------------------------------
+
+  !> Implements a (somewhat randomly chosen) one-to-one mapping
+  !  between a string and an integer ID number between 1 and
+  !  MAX_VINTP_TYPES.
+  !
+  FUNCTION vintp_type_id(in_str)
+    INTEGER                      :: vintp_type_id, ivintp_type
+    CHARACTER(LEN=*), INTENT(IN) :: in_str
+    CHARACTER(*), PARAMETER :: routine = TRIM("mo_var_list:vintp_type_id")
+
+    vintp_type_id = 0
+    LOOP_VINTP_TYPES : DO ivintp_type=1,SIZE(VINTP_TYPE_LIST)
+      IF (toupper(TRIM(in_str)) == toupper(TRIM(VINTP_TYPE_LIST(ivintp_type)))) THEN
+        vintp_type_id = ivintp_type
+        EXIT LOOP_VINTP_TYPES
+      END IF
+    END DO LOOP_VINTP_TYPES
+    ! paranoia:
+    IF ((vintp_type_id < 1) .OR. (vintp_type_id > SIZE(VINTP_TYPE_LIST))) &
+      &  CALL finish(routine, "Invalid vertical interpolation type!")
+  END FUNCTION vintp_type_id
+
+
+  !> Utility function with *a lot* of optional string parameters v1,
+  !  v2, v3, v4, ...; mapping those onto a
+  !  LOGICAL(DIMENSION=MAX_VAR_GROUPS) according to the "group_id"
+  !  function.
+  !
+  FUNCTION vintp_types(v01, v02, v03, v04, v05, v06, v07, v08, v09, v10)
+    LOGICAL :: vintp_types(SIZE(VINTP_TYPE_LIST))
+    CHARACTER(LEN=*), INTENT(IN), OPTIONAL :: &
+      &   v01, v02, v03, v04, v05, v06, v07, v08, v09, v10
+    
+    vintp_types(:) = .FALSE.
+    IF (PRESENT(v01)) vintp_types(vintp_type_id(v01)) = .TRUE.
+    IF (PRESENT(v02)) vintp_types(vintp_type_id(v02)) = .TRUE.
+    IF (PRESENT(v03)) vintp_types(vintp_type_id(v03)) = .TRUE.
+    IF (PRESENT(v04)) vintp_types(vintp_type_id(v04)) = .TRUE.
+    IF (PRESENT(v05)) vintp_types(vintp_type_id(v05)) = .TRUE.
+    IF (PRESENT(v06)) vintp_types(vintp_type_id(v06)) = .TRUE.
+    IF (PRESENT(v07)) vintp_types(vintp_type_id(v07)) = .TRUE.
+    IF (PRESENT(v08)) vintp_types(vintp_type_id(v08)) = .TRUE.
+    IF (PRESENT(v09)) vintp_types(vintp_type_id(v09)) = .TRUE.
+    IF (PRESENT(v10)) vintp_types(vintp_type_id(v10)) = .TRUE.
+  END FUNCTION vintp_types
+
 
   !------------------------------------------------------------------------------------------------
   ! HANDLING OF VARIABLE GROUPS
@@ -3588,14 +3690,24 @@ CONTAINS
   !> Loops over all variables and collects the variables names
   !  corresponding to the group @p grp_name
   !
-  SUBROUTINE collect_group(grp_name, var_name, nvars)
+  SUBROUTINE collect_group(grp_name, var_name, nvars, &
+    &                      loutputvars_only, lremap_lonlat)
     CHARACTER(LEN=*),           INTENT(IN)    :: grp_name
     CHARACTER(LEN=VARNAME_LEN), INTENT(INOUT) :: var_name(:)
     INTEGER,                    INTENT(OUT)   :: nvars
+    ! loutputvars_only: If set to .TRUE. all variables in the group
+    ! which have the the loutput flag equal to .FALSE. are skipped.
+    LOGICAL,                    INTENT(IN)    :: loutputvars_only
+    ! lremap_lonlat: If set to .TRUE. only variables in the group
+    ! which can be interpolated onto lon-lat grids are considered.
+    LOGICAL,                    INTENT(IN)    :: lremap_lonlat
+
     ! local variables
-    INTEGER :: i, ivar, grp_id, idx, idx_x, idx_y, idx_t
+    CHARACTER(*), PARAMETER :: routine = TRIM("mo_var_list:collect_group")
+    INTEGER :: i, ivar, grp_id
     TYPE(t_list_element), POINTER :: element
     TYPE(t_var_metadata), POINTER :: info
+    CHARACTER(LEN=VARNAME_LEN)    :: name
     
     nvars  = 0
     grp_id = group_id(grp_name)
@@ -3615,23 +3727,23 @@ CONTAINS
         IF (info%lcontainer) CYCLE LOOPVAR
         
         IF (info%in_group(grp_id)) THEN
-          nvars = nvars + 1
+          name = TRIM(get_var_name(element%field))
 
-          ! find suffix position for component and time level indices:
-          idx_x = INDEX(element%field%info%name,'.X')
-          idx_y = INDEX(element%field%info%name,'.Y')
-          idx_t = INDEX(element%field%info%name,'.TL')
-
-          idx = vname_len
-          IF (idx_t > 0) idx=MIN(idx, idx_t)
-          IF (idx_x > 0) idx=MIN(idx, idx_x)
-          IF (idx_y > 0) idx=MIN(idx, idx_y)
-          IF (idx==vname_len) idx=0
-          IF (idx==0) THEN
-            var_name(nvars) = TRIM(info%name)
-          ELSE
-            var_name(nvars) = TRIM(info%name(1:idx-1))
+          ! Skip element if we need only output variables:
+          IF (loutputvars_only .AND. &
+            & (.NOT. info%loutput) .OR. (.NOT. var_lists(i)%p%loutput)) THEN
+            CALL message(routine, "Skipping variable "//TRIM(name)//" for output.")
+            CYCLE LOOPVAR
           END IF
+
+          IF (lremap_lonlat .AND. &
+            & (info%hgrid /= GRID_UNSTRUCTURED_CELL)) THEN
+            CALL message(routine, "Skipping variable "//TRIM(name)//" for lon-lat output.")
+            CYCLE LOOPVAR
+          END IF
+
+          nvars = nvars + 1
+          var_name(nvars) = name
         END IF
       ENDDO LOOPVAR ! loop over vlist "i"
     ENDDO ! i = 1,nvar_lists

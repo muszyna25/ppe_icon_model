@@ -29,27 +29,45 @@ if [ %NENS% -gt 0 ]
   else DIRENS=''
 fi
 
+# ifsdir for IFS initial condition
+IFSDATADIR=%SCTEMP%/%SUITE%/%EXPNUM%/input/%YMD%%INIHOUR%${DIRENS}
+# ifs2icon file
+IFSDATADIR2=%SCTEMP%/%SUITE%/%EXPNUM2%/input/%YMD%%INIHOUR%${DIRENS}
+IFS_FILENAME_NC="ifs2icon_%RES%_DOM01.nc"
+# locat
 SCRIPTDIR=%SCPERM%/icon-dev/scripts
-IFSDATADIR=%SCTEMP%/%SUITE%/%EXPNUM%/input/ifs2icon${DIRENS}
 TMPDIR="${TEMP}"
+
 mkdir -p ${IFSDATADIR}
+cd ${IFSDATADIR}
 
 DATCONVCMD="/home/ms/de/dfr/routfox/bin/datconv"
-PERL5LIB="/home/ms/de/dfi0/routfox/perl"
+PERL5LIB="/home/ms/de/dfr/routfox/perl"
 
 export IFSDATADIR DATCONVCMD PERL5LIB TMPDIR
 
 
-# Change directory ----------------------------
-
-cd ${IFSDATADIR}
-
-
 # Retrieve data from MARS ---------------------
 
-if [ %NENS% -gt 0 ]
-  then ${SCRIPTDIR}/preprocessing/mars4icon_smi_32r3+_eda %YMD%%INIHOUR% 0 255 1/to/91 %NMEM%
-  else ${SCRIPTDIR}/preprocessing/mars4icon_smi_32r3+     %YMD%%INIHOUR% 0 255 1/to/91
+if [ -f ${IFSDATADIR2}/${IFS_FILENAME_NC} ] ; then
+  echo 'ifs2icon file can be copied - no MARS!'
+  ls -l ${IFSDATADIR2}/${IFS_FILENAME_NC}
+else
+
+  if [ %SIMMODE% -eq 3 ] ; then
+        ${SCRIPTDIR}/preprocessing/mars4icon_smi_ERAinterim %YMD%%INIHOUR% 0  255 1/to/60 %SCPERMIII%/icon_input/slt-data
+  else
+    if [ %NENS% -gt 0 ] ; then
+        ${SCRIPTDIR}/preprocessing/mars4icon_smi_32r3+_eda  %YMD%%INIHOUR% 0  399 1/to/91 %NMEM%
+    else 
+      if [ %YMD% -ge 20100126  -a  %RES% = "R2B08" ] ; then
+        ${SCRIPTDIR}/preprocessing/mars4icon_smi_32r3+      %YMD%%INIHOUR% 0 1279 1/to/91
+      else 
+        ${SCRIPTDIR}/preprocessing/mars4icon_smi_32r3+      %YMD%%INIHOUR% 0  799 1/to/91
+      fi
+    fi
+  fi
+
 fi
 ls -lrt ${IFSDATADIR}
 

@@ -18,6 +18,8 @@ MODULE mo_data_turbdiff
 ! ---------- ---------- ----
 !              2010/12/30 Matthias Raschendorfer
 ! Initial release
+!              2013/02/08 Dmitrii Mironov
+! Replaced "USE data_flake" with "USE mo_data_flake" 
 !
 ! Code Description:
 ! Language: Fortran 90.
@@ -122,7 +124,7 @@ USE data_turbulence, ONLY : rlam_mom, & ! scaling factor of the laminar boudary 
 ! Flake parameters:
 ! -----------------------------------------------------
 
-USE data_flake,              ONLY: h_Ice_min_flk
+USE mo_data_flake,           ONLY: h_Ice_min_flk
 
 ! Switches controlling other physical parameterizations:
 ! -----------------------------------------------------
@@ -148,7 +150,7 @@ INTEGER (KIND=iintegers) :: &
     imode_tran   =1,       & ! mode of surface-atmosphere transfer
     icldm_tran   =0,       & ! mode of cloud representation in transfer parametr.
 !
-    imode_turb   =2,       & ! mode of turbulent diffusion parametrization
+    imode_turb   =3,       & ! mode of turbulent diffusion parametrization
     icldm_turb   =2,       & ! mode of cloud representation in turbulence parametr.
     itype_sher   =1          ! type of shear production for TKE
 

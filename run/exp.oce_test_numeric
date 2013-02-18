@@ -124,6 +124,7 @@ cat > ${ocean_namelist} << EOF
 !
 &parallel_nml
  nproma         = ${nproma}
+ l_fast_sum     = .true.
 /
 &grid_nml
  dynamics_grid_filename = "${ocean_grids}",
@@ -133,6 +134,7 @@ cat > ${ocean_namelist} << EOF
 /
 &run_nml
  dtime       = 1800         ! model timestep in seconds
+ output = 'vlist'
 /
 &ocean_dynamics_nml
 ! 10 unevenly spaced levels beginning with 50m depth

@@ -1,16 +1,22 @@
 MODULE mo_remap_io
 
+#ifdef __ICON__
   USE mo_kind,               ONLY: wp
   USE mo_io_units,           ONLY: nnml
-  USE mo_mpi,                ONLY: get_my_mpi_work_id
   USE mo_namelist,           ONLY: POSITIONED, position_nml, open_nml, close_nml
   USE mo_impl_constants,     ONLY: MAX_CHAR_LENGTH
   USE mo_exception,          ONLY: finish
   USE mo_util_string,        ONLY: tolower
   USE mo_util_netcdf,        ONLY: nf
-  USE mo_remap_config,       ONLY: dbg_level, MAX_NAME_LENGTH, MAX_NSTENCIL
-  USE mo_remap_sync,         ONLY: t_gather_c, scatter_field2D_c
-  USE mo_remap_shared,       ONLY: GRID_TYPE_REGULAR, GRID_TYPE_ICON    
+#else
+  USE mo_utilities,     ONLY: wp, nnml, POSITIONED, tolower, nf, position_nml, &
+    &                         open_nml, close_nml, finish
+#endif
+
+  USE mo_mpi,           ONLY: get_my_mpi_work_id
+  USE mo_remap_config,  ONLY: dbg_level, MAX_NSTENCIL_CONS, MAX_NAME_LENGTH
+  USE mo_remap_sync,    ONLY: t_gather, scatter_field2D
+  USE mo_remap_shared,  ONLY: GRID_TYPE_REGULAR, GRID_TYPE_ICON
   IMPLICIT NONE
 
   INCLUDE 'cdi.inc'
@@ -20,6 +26,7 @@ MODULE mo_remap_io
   PUBLIC :: read_remap_namelist
   PUBLIC :: open_file, close_file
   PUBLIC :: read_field2D, read_field3D
+  PUBLIC :: print_file_metadata
   PUBLIC :: get_varID
   PUBLIC :: in_filename,      out_filename,      &
     &       in_grid_filename, out_grid_filename, &
@@ -27,9 +34,11 @@ MODULE mo_remap_io
   PUBLIC :: t_file_metadata
   PUBLIC :: l_have3dbuffer
   PUBLIC :: s_maxsize
-  PUBLIC :: in_file_gribedition
+  PUBLIC :: lcompute_vt, lcompute_vn
+  PUBLIC :: rbf_vec_scale
 
-  CHARACTER(LEN=*), PARAMETER :: modname = TRIM('mo_remap_io')  
+
+  CHARACTER(LEN=*), PARAMETER :: modname = 'mo_remap_io'
 
   CHARACTER (len=MAX_NAME_LENGTH)    :: in_filename         !< input file name.
   CHARACTER (len=MAX_NAME_LENGTH)    :: out_filename        !< output file name.
@@ -48,11 +57,20 @@ MODULE mo_remap_io
   ! Maximum size of sequential list for very large stencils
   INTEGER  :: s_maxsize
 
+  ! RBF interpolation for "u","v" (REGULAR) -> "vn"/"vt" (ICON)
+  LOGICAL  :: lcompute_vn               !< Flag: .TRUE., if the normal wind shall be computed
+  LOGICAL  :: lcompute_vt               !< Flag: .TRUE., if the tangential wind shall be computed
+
+  REAL(wp)           :: rbf_vec_scale = 0.05_wp   !< RBF scaling factor
+
   ! namelist definition: main namelist
   NAMELIST/remap_nml/   in_grid_filename,  in_filename,  in_type,  &
     &                   out_grid_filename, out_filename, out_type, &
     &                   l_have3dbuffer, s_maxsize,                 &
-    &                   in_file_gribedition
+    &                   in_file_gribedition,                       &
+    &                   lcompute_vt, lcompute_vn, rbf_vec_scale
+
+
 
   ! Derived type containing IDs for opened grid/data files.
   !
@@ -61,11 +79,17 @@ MODULE mo_remap_io
   ! library.
   !
   TYPE t_file_metadata
-    INTEGER :: structure, streamID, vlistID, ncfileID
+    INTEGER :: structure = -1
+    INTEGER :: streamID  = -1
+    INTEGER :: vlistID   = -1
+    INTEGER :: ncfileID  = -1
+    INTEGER :: gribedition = 2
 
     ! CDI internal ID for the gaussian grid or the cells/edges/verts
     ! grids (unstructured case):
-    INTEGER :: gridID, c_gridID, e_gridID, v_gridID
+    INTEGER :: c_gridID = -1
+    INTEGER :: e_gridID = -1
+    INTEGER :: v_gridID = -1
   END TYPE t_file_metadata
 
 CONTAINS
@@ -75,7 +99,7 @@ CONTAINS
   SUBROUTINE read_remap_namelist(filename)
     CHARACTER(LEN=*), INTENT(IN) :: filename !< main namelist file
     ! local variables
-    CHARACTER(LEN=*), PARAMETER :: routine = TRIM(TRIM(modname)//'::read_remap_namelist')
+    CHARACTER(LEN=*), PARAMETER :: routine = TRIM(modname)//'::read_remap_namelist'
     INTEGER :: istat
 
     IF (dbg_level >= 5) WRITE (0,*) "# read io namelist"
@@ -88,7 +112,10 @@ CONTAINS
     out_type          =  2
     l_have3dbuffer    = .FALSE.
     s_maxsize         = 500000
-    in_file_gribedition = 2
+    in_file_gribedition = -1
+    lcompute_vn       = .FALSE.
+    lcompute_vt       = .FALSE.
+    rbf_vec_scale     = 0.05_wp
 
     ! read user's (new) specifications
     CALL open_nml(TRIM(filename))
@@ -100,7 +127,16 @@ CONTAINS
     END IF
     CALL close_nml
     ! status output
-    IF (dbg_level >= 2)  WRITE (0,*) "# stencil size: ", MAX_NSTENCIL, "/", s_maxsize
+    IF (dbg_level >= 2)  THEN
+      WRITE (0,*) "# stencil size (cons. remapping): ", &
+        &         MAX_NSTENCIL_CONS, "/", s_maxsize
+      WRITE (0,*) "# RBF vec scale (RBF remapping): ", &
+        &         rbf_vec_scale
+    END IF
+    ! warn about deprecated parameters:
+    IF (in_file_gribedition /= -1) THEN
+      WRITE (0,*) "Deprecated parameter: in_file_gribedition! This parameter will be removed in future versions!"
+    END IF
   END SUBROUTINE read_remap_namelist
 
 
@@ -116,25 +152,47 @@ CONTAINS
     TYPE (t_file_metadata), INTENT(OUT) :: file_metadata
     INTEGER,                INTENT(IN)  :: rank0
     ! local variables:
-    CHARACTER(LEN=MAX_CHAR_LENGTH), PARAMETER :: &
-      &       routine = TRIM('mo_grid_interface::open_file')
-    INTEGER                     :: ngrids, i, gridID
+    CHARACTER(LEN=*), PARAMETER    :: routine = TRIM(modname)//'::open_file'
+    INTEGER                        :: ngrids, i, gridID
     CHARACTER(len=MAX_NAME_LENGTH) :: zname
+    LOGICAL                        :: file_exists
+
+
+    ! Remark on usage of "cdiDefMissval"
+
+    ! Inside the GRIB_API (v.1.9.18) the missing value is converted
+    ! into LONG INT for a test, but the default CDI missing value is
+    ! outside of the valid range for LONG INT (U. Schulzweida, bug
+    ! report SUP-277). This causes a crash with INVALID OPERATION.
+
+    ! As a workaround we can choose a different missing value in the
+    ! calling subroutine (here). For the SX-9 this must lie within 53
+    ! bits, because "the SX compiler generates codes using HW
+    ! instructions for floating-point data instead of instructions for
+    ! integers. Therefore, the operation result is not guaranteed if
+    ! the value cannot be represented as integer within 53 bits."
+    DOUBLE PRECISION ::  cdimissval = -9.E+15
+    CALL cdiDefMissval(cdimissval) 
+
+    ! test if file exists:
+    INQUIRE(FILE=TRIM(filename), EXIST=file_exists)
+    IF (.NOT. file_exists) &
+      & CALL finish(routine, "File "//TRIM(filename)//" not found!")
 
     file_metadata%structure = istructure
-
     IF (get_my_mpi_work_id() == rank0) THEN
-      SELECT CASE(file_metadata%structure) 
+      SELECT CASE(file_metadata%structure)
       CASE (GRID_TYPE_ICON)
         IF (dbg_level >= 2)  WRITE (0,*) "# open file '",TRIM(filename),"' (unstructured NetCDF)"
         CALL nf(nf_open(TRIM(filename), NF_NOWRITE, file_metadata%ncfileID), routine)
         file_metadata%structure = GRID_TYPE_ICON
         file_metadata%streamID  = streamOpenRead(TRIM(filename))
         file_metadata%vlistID   = streamInqVlist(file_metadata%streamID)
+        file_metadata%gribedition = 2
         ! set file gridID to cell-grid:
         ngrids = vlistNgrids(file_metadata%vlistID)
         LOOP : DO i=1,ngrids
-          gridID = vlistGrid(file_metadata%vlistID, 0)
+          gridID = vlistGrid(file_metadata%vlistID, i-1)
           CALL gridInqXname(gridID, zname)
           IF (tolower(TRIM(zname)) == "clon") file_metadata%c_gridID = gridID
           IF (tolower(TRIM(zname)) == "elon") file_metadata%e_gridID = gridID
@@ -145,8 +203,19 @@ CONTAINS
         file_metadata%structure = GRID_TYPE_REGULAR
         file_metadata%streamID  = streamOpenRead(TRIM(filename))
         file_metadata%vlistID   = streamInqVlist(file_metadata%streamID)
+
+        ! determine GRIB edition
+        SELECT CASE(streamInqFiletype(file_metadata%streamID))
+        CASE (FILETYPE_GRB) 
+          file_metadata%gribedition = 1
+        CASE (FILETYPE_GRB2) 
+          file_metadata%gribedition = 2
+        CASE default
+          CALL finish(routine, "Unrecognized GRIB edition!")
+        END SELECT
+
         ! set file gridID to regular grid:
-        file_metadata%gridID    = vlistGrid(file_metadata%vlistID, 0)
+        file_metadata%c_gridID  = vlistGrid(file_metadata%vlistID, 0)
       CASE DEFAULT
         CALL finish(routine, "Unknown grid type")
       END SELECT
@@ -156,29 +225,44 @@ CONTAINS
 
   !> Open grid/data file for input
   !
-  SUBROUTINE close_file(file_metadata)
-    TYPE (t_file_metadata), INTENT(INOUT) :: file_metadata
-    ! local variables:
-    CHARACTER(LEN=MAX_CHAR_LENGTH), PARAMETER :: routine = TRIM('mo_grid_interface::close_file')
-    
-    SELECT CASE(file_metadata%structure) 
-    CASE (GRID_TYPE_ICON)
-      CALL nf(nf_close(file_metadata%ncfileID), routine)
-      CALL streamClose(file_metadata%streamID)
-    CASE (GRID_TYPE_REGULAR)
-      CALL streamClose(file_metadata%streamID)
-    CASE DEFAULT
-      CALL finish(routine, "Unknown grid type")
-    END SELECT
+  RECURSIVE SUBROUTINE close_file(file_metadata, &
+    &                             opt_file_metadata2,opt_file_metadata3,opt_file_metadata4)
 
-    file_metadata%structure = -1
-    file_metadata%streamID  = -1
-    file_metadata%vlistID   = -1
-    file_metadata%ncfileID  = -1
+    TYPE (t_file_metadata), INTENT(INOUT) :: file_metadata
+    TYPE (t_file_metadata), INTENT(INOUT), OPTIONAL :: opt_file_metadata2,opt_file_metadata3,opt_file_metadata4
+    ! local variables:
+    CHARACTER(LEN=*), PARAMETER :: routine = TRIM(modname)//'::close_file'
+    TYPE (t_file_metadata)      :: empty
+
+    ! the following recursion makes this more readable on the caller
+    ! side (we can call this SR with more than one object as an
+    ! argument):
+    IF (PRESENT(opt_file_metadata4)) THEN
+      CALL close_file(opt_file_metadata4)
+      CALL close_file(file_metadata, opt_file_metadata2, opt_file_metadata3)
+    ELSE IF (PRESENT(opt_file_metadata3)) THEN
+      CALL close_file(opt_file_metadata3)
+      CALL close_file(file_metadata, opt_file_metadata2)
+    ELSE IF (PRESENT(opt_file_metadata2)) THEN
+      CALL close_file(opt_file_metadata2)
+      CALL close_file(file_metadata)
+    ELSE
+      ! close file
+      SELECT CASE(file_metadata%structure)
+      CASE (GRID_TYPE_ICON)
+        CALL nf(nf_close(file_metadata%ncfileID), routine)
+        CALL streamClose(file_metadata%streamID)
+      CASE (GRID_TYPE_REGULAR)
+        CALL streamClose(file_metadata%streamID)
+      CASE DEFAULT
+        CALL finish(routine, "Unknown grid type")
+      END SELECT
+      file_metadata = empty
+    END IF
   END SUBROUTINE close_file
 
 
-  !> Utility routine: Read and communicate 2D field.
+  !> Utility routine: Read and communicate 3D field.
   !
   SUBROUTINE read_field3D(file_metadata, var_name, var_code, nlev, gather_c, rfield1D, &
     &                     rfield2D, rfield3D_loc, opt_zaxisID)
@@ -186,7 +270,7 @@ CONTAINS
     CHARACTER(LEN=*),       INTENT(IN)    :: var_name           !< variable name string
     INTEGER,                INTENT(IN)    :: var_code           !< GRIB variable code
     INTEGER,                INTENT(IN)    :: nlev               !< no. of levels to read
-    TYPE(t_gather_c),       INTENT(IN)    :: gather_c           !< communication pattern
+    TYPE(t_gather),         INTENT(IN)    :: gather_c           !< communication pattern
     REAL(wp),               INTENT(INOUT) :: rfield1D(:),   &   !< global 1D field (on rank0)
       &                                      rfield2D(:,:), &   !< global 2D field (on rank0)
       &                                      rfield3D_loc(:,:,:)!< local 2D field
@@ -195,12 +279,12 @@ CONTAINS
     INTEGER :: streamID, vlistID, varID, ilev, nmiss
     INTEGER :: shape2d(2)
 
-    shape2d = (/ UBOUND(rfield2D,1), UBOUND(rfield2D,2) /)
+    shape2d = SHAPE (rfield2D)
 
     IF (get_my_mpi_work_id() == gather_c%rank0) THEN
       streamID = file_metadata%streamID
       vlistID  = file_metadata%vlistID
-      IF (in_file_gribedition == 1) THEN
+      IF (file_metadata%gribedition == 1) THEN
         varID    = get_varID(vlistID, code=var_code)
       ELSE
         varID    = get_varID(vlistID, name=TRIM(var_name))
@@ -218,7 +302,7 @@ CONTAINS
         rfield2D(:,:) = RESHAPE(rfield1D(:), shape2d, (/ 0._wp /))
       END IF ! if rank0
       ! for distributed computation: scatter interpolation input to work PEs
-      CALL scatter_field2D_c(gather_c, rfield2D, rfield3D_loc(:,ilev,:))
+      CALL scatter_field2D(gather_c, rfield2D, rfield3D_loc(:,ilev,:))
     END DO ! ilev
   END SUBROUTINE read_field3D
 
@@ -230,7 +314,7 @@ CONTAINS
     TYPE (t_file_metadata), INTENT(IN)    :: file_metadata      !< input file meta-data
     CHARACTER(LEN=*),       INTENT(IN)    :: var_name           !< variable name string
     INTEGER,                INTENT(IN)    :: var_code           !< GRIB variable code
-    TYPE(t_gather_c),       INTENT(IN)    :: gather_c           !< communication pattern
+    TYPE(t_gather),         INTENT(IN)    :: gather_c           !< communication pattern
     REAL(wp),               INTENT(INOUT) :: rfield1D(:),   &   !< global 1D field (on rank0)
       &                                      rfield2D(:,:), &   !< global 2D field (on rank0)
       &                                      rfield2D_loc(:,:)  !< local 2D field
@@ -239,7 +323,7 @@ CONTAINS
     INTEGER :: streamID, vlistID, varID, ilev, nmiss
     INTEGER :: shape2d(2)
 
-    shape2d = (/ UBOUND(rfield2D,1), UBOUND(rfield2D,2) /)
+    shape2d = SHAPE (rfield2D)
 
     ilev = 1
     IF (PRESENT(opt_ilev)) ilev = opt_ilev
@@ -247,7 +331,7 @@ CONTAINS
     IF (get_my_mpi_work_id() == gather_c%rank0) THEN
       streamID = file_metadata%streamID
       vlistID  = file_metadata%vlistID
-      IF (in_file_gribedition == 1) THEN
+      IF (file_metadata%gribedition == 1) THEN
         varID    = get_varID(vlistID, code=var_code)
       ELSE
         varID    = get_varID(vlistID, name=TRIM(var_name))
@@ -259,27 +343,27 @@ CONTAINS
       rfield2D(:,:) = RESHAPE(rfield1D(:), shape2d, (/ 0._wp /))
     END IF ! if rank0
     ! for distributed computation: scatter interpolation input to work PEs
-    CALL scatter_field2D_c(gather_c, rfield2D, rfield2D_loc)
+    CALL scatter_field2D(gather_c, rfield2D, rfield2D_loc)
   END SUBROUTINE read_field2D
 
 
   !> @return vlist variable ID for a given variable name
   !
-  !  Uses cdilib for file access. 
-  ! 
+  !  Uses cdilib for file access.
+  !
   FUNCTION get_varID(vlistID, name, code) RESULT(result_varID)
     INTEGER                                 :: result_varID
     INTEGER,           INTENT(IN)           :: vlistID             !< link to GRIB file vlist
     CHARACTER (LEN=*), INTENT(IN), OPTIONAL :: name                !< variable name
     INTEGER,           INTENT(IN), OPTIONAL :: code                !< GRIB1 variable code
     ! local variables
-    CHARACTER(LEN=*), PARAMETER :: routine = TRIM(TRIM(modname)//'::get_varID')
+    CHARACTER(LEN=*), PARAMETER :: routine = TRIM(modname)//'::get_varID'
     CHARACTER(len=MAX_NAME_LENGTH) :: zname
     LOGICAL                        :: l_found
     INTEGER                        :: nvars, varID, icode
 
     IF (.NOT. (PRESENT(name) .OR. PRESENT(code))) &
-      & CALL finish(routine, "Internal error!")
+      & CALL finish(routine, "'name' or 'code' must be present!")
 
     zname = ""
     icode =  0
@@ -321,5 +405,21 @@ CONTAINS
       END IF
     END IF
   END FUNCTION get_varID
+
+  !===========================================================================
+  subroutine print_file_metadata (m, rank0)
+    TYPE(t_file_metadata), INTENT(IN) :: m
+    INTEGER,               INTENT(IN) :: rank0
+
+    if (get_my_mpi_work_id () == rank0) then
+       print *, "structure =", m% structure
+       print *, "streamID  =", m% streamID
+       print *, "vlistID   =", m% vlistID
+       print *, "ncfileID  =", m% ncfileID
+       print *, "c_gridID  =", m% c_gridID
+       print *, "e_gridID  =", m% e_gridID
+       print *, "v_gridID  =", m% v_gridID
+    end if
+  end subroutine print_file_metadata
 
 END MODULE mo_remap_io

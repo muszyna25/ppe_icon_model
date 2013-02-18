@@ -48,7 +48,7 @@ MODULE mo_grid_conditions
     & arc_length
 !  USE mo_local_grid_geometry,ONLY: geographical_to_cartesian
   USE mo_grid_toolbox,       ONLY: smooth_boundaryfrom_cell_list, &
-    & get_grid_from_cell_list, flag_grid_cells_list
+    & get_grid_from_cell_list, flag_grid_cells_list, get_boundary_edges
   USE mo_io_local_grid,      ONLY: read_new_netcdf_grid, write_netcdf_grid
   USE mo_timer
 
@@ -438,42 +438,42 @@ CONTAINS
   END FUNCTION get_vertex_depths
   !-------------------------------------------------------------------------
 
-  !-------------------------------------------------------------------------
-  !>
-  !!
-  FUNCTION get_boundary_edges(grid_id) result(boundary_edges_list)
-    INTEGER, INTENT(in) :: grid_id
-    TYPE(t_integer_list)  :: boundary_edges_list
-
-    TYPE(t_grid),       POINTER :: current_grid
-    TYPE(t_grid_edges), POINTER :: edges
-    INTEGER :: no_of_edges, no_of_boundary_edges, edge_index
-    INTEGER :: error_status
-
-    current_grid  => get_grid(grid_id)
-    edges         => current_grid%edges
-    no_of_edges   = edges%no_of_existedges
-
-    ALLOCATE(boundary_edges_list%value(no_of_edges),stat=error_status)
-    IF (error_status > 0) &
-      & CALL finish ('get_boudary_edges', 'ALLOCATE(boundary_edges_list)')
-!     boundary_edges_list%value(:) = 0
-
-    no_of_boundary_edges    = 0
-    DO edge_index = 1, no_of_edges
-      ! check if it is outer boundary
-      IF (edges%get_cell_index(edge_index,1) == 0 .OR. &
-        & edges%get_cell_index(edge_index,2) == 0) THEN
-        ! add edge to boundary list
-        no_of_boundary_edges = no_of_boundary_edges + 1
-        boundary_edges_list%value(no_of_boundary_edges) = edge_index
-      ENDIF
-    ENDDO
-    
-    boundary_edges_list%list_size = no_of_boundary_edges
-
-  END FUNCTION get_boundary_edges
-  !-------------------------------------------------------------------------
+!   !-------------------------------------------------------------------------
+!   !>
+!   !!
+!   FUNCTION get_boundary_edges(grid_id) result(boundary_edges_list)
+!     INTEGER, INTENT(in) :: grid_id
+!     TYPE(t_integer_list)  :: boundary_edges_list
+! 
+!     TYPE(t_grid),       POINTER :: current_grid
+!     TYPE(t_grid_edges), POINTER :: edges
+!     INTEGER :: no_of_edges, no_of_boundary_edges, edge_index
+!     INTEGER :: error_status
+! 
+!     current_grid  => get_grid(grid_id)
+!     edges         => current_grid%edges
+!     no_of_edges   = edges%no_of_existedges
+! 
+!     ALLOCATE(boundary_edges_list%value(no_of_edges),stat=error_status)
+!     IF (error_status > 0) &
+!       & CALL finish ('get_boudary_edges', 'ALLOCATE(boundary_edges_list)')
+! !     boundary_edges_list%value(:) = 0
+! 
+!     no_of_boundary_edges    = 0
+!     DO edge_index = 1, no_of_edges
+!       ! check if it is outer boundary
+!       IF (edges%get_cell_index(edge_index,1) == 0 .OR. &
+!         & edges%get_cell_index(edge_index,2) == 0) THEN
+!         ! add edge to boundary list
+!         no_of_boundary_edges = no_of_boundary_edges + 1
+!         boundary_edges_list%value(no_of_boundary_edges) = edge_index
+!       ENDIF
+!     ENDDO
+!     
+!     boundary_edges_list%list_size = no_of_boundary_edges
+! 
+!   END FUNCTION get_boundary_edges
+!   !-------------------------------------------------------------------------
 
 
   !-------------------------------------------------------------------------

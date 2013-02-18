@@ -22,7 +22,7 @@
 
 echo "ONCE.SMS"
 
-# Create setup directory on c1a and copy ICON namelist there
+# Create setup directory on c2a and copy ICON namelist there
  
 if [ %NENS% -eq 0 ]
 then 
@@ -32,7 +32,6 @@ then
 
   SETDIR=%SCBASEDIR%/gen
   cp ${SETDIR}/case_setup        ${SETDIRTMP}
-  cp ${SETDIR}/mapfile_vlist.txt ${SETDIRTMP}
 
 else
 
@@ -43,7 +42,6 @@ else
 
     SETDIR=%SCBASEDIR%/gen
     cp ${SETDIR}/case_setup_eps    ${SETDIRTMP}/case_setup
-    cp ${SETDIR}/mapfile_vlist.txt ${SETDIRTMP}
 
   done
 

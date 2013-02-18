@@ -10,10 +10,13 @@ MODULE mo_var_metadata
   PRIVATE
 
   ! maximum string length for variable names
-  INTEGER, PARAMETER :: varname_len = 32
+  INTEGER, PARAMETER :: VARNAME_LEN = 32
 
   ! list of variable groups
-  CHARACTER(len=varname_len), PARAMETER :: var_groups(15) = &
+  ! 
+  ! A variable can have any combination of this which means that it is
+  ! part of each of these different variable sets.
+  CHARACTER(len=VARNAME_LEN), PARAMETER :: var_groups(17) = &
     (/ "ALL                   ",  &
     &  "ATMO_ML_VARS          ",  &
     &  "ATMO_PL_VARS          ",  &
@@ -26,9 +29,11 @@ MODULE mo_var_metadata
     &  "PBL_VARS              ",  &
     &  "PHYS_TENDENCIES       ",  &
     &  "LAND_VARS             ",  &
+    &  "LAND_TILE_VARS        ",  &
     &  "MULTISNOW_VARS        ",  &
     &  "ADDITIONAL_PRECIP_VARS",  &
-    &  "SNOW_VARS             "/)
+    &  "SNOW_VARS             ",  &
+    &  "DWD_ANA_VARS          "/)
 
   TYPE t_union_vals
     REAL(dp) :: rval
@@ -55,9 +60,20 @@ MODULE mo_var_metadata
   END TYPE t_tracer_meta
 
 
+  ! list of vertical interpolation types
+  ! 
+  ! A variable can have any combination of this which means that it
+  ! can be interpolated vertically in these different ways.
+  CHARACTER(len=VARNAME_LEN), PARAMETER :: VINTP_TYPE_LIST(3) = &
+    (/ "Z                     ",  &
+    &  "P                     ",  &
+    &  "I                     " /)
+
   !> data specific for pz-level interpolation.
   TYPE t_vert_interp_meta
-    INTEGER  :: vert_intp_type, vert_intp_method
+    ! meta data containing the groups to which a variable belongs
+    LOGICAL  :: vert_intp_type(SIZE(VINTP_TYPE_LIST))
+    INTEGER  :: vert_intp_method
     LOGICAL  :: l_hires_intp, l_restore_fricred, l_loglin, &
          &      l_extrapol, l_satlimit, l_restore_pbldev,  &
          &      l_pd_limit, l_restore_sfcinv, l_hires_corr
@@ -74,7 +90,7 @@ MODULE mo_var_metadata
   TYPE t_var_metadata
     !
     INTEGER                    :: key                   ! hash value of name
-    CHARACTER(len=varname_len) :: name                  ! variable name  
+    CHARACTER(len=VARNAME_LEN) :: name                  ! variable name  
     !
     TYPE(t_cf_var)             :: cf                    ! CF convention information 
     TYPE(t_grib1_var)          :: grib1                 ! GRIB1 related information
@@ -139,9 +155,10 @@ MODULE mo_var_metadata
   PUBLIC :: t_union_vals
   PUBLIC :: t_var_metadata
   PUBLIC :: t_tracer_meta
+  PUBLIC :: VINTP_TYPE_LIST
   PUBLIC :: t_vert_interp_meta
   PUBLIC :: t_hor_interp_meta
-  PUBLIC :: varname_len
+  PUBLIC :: VARNAME_LEN
   PUBLIC :: var_groups
 
 END MODULE mo_var_metadata

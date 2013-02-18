@@ -85,7 +85,8 @@ MODULE mo_complete_subdivision
   PUBLIC :: setup_phys_patches
   PUBLIC :: set_comm_pat_gather
   PUBLIC :: complete_parallel_setup
-
+  PUBLIC :: complete_parallel_setup_oce
+  PUBLIC :: finalize_decomposition_oce
   !-------------------------------------------------------------------------
   ! Definition of local parent patches
   ! For any given patch p_patch(jg) and jgp = p_patch(jg)%parent_id,
@@ -1952,6 +1953,93 @@ CONTAINS
     l_blk = blk_no(j_l)
 
   END SUBROUTINE remap_index
+
+!--------------------------------------------------------------
+  SUBROUTINE complete_parallel_setup_oce(p_patch_2D)
+
+   TYPE(t_patch) :: p_patch_2D(:)
+
+    INTEGER :: jg, jgp
+
+    DO jg = n_dom_start, n_dom
+
+      jgp = p_patch_2D(jg)%parent_id
+
+      ! Set communication patterns for boundary exchange
+      CALL set_comm_pat_bound_exch(p_patch_2D(jg))
+
+      ! Set communication patterns for gathering on proc 0
+      CALL set_comm_pat_gather(p_patch_2D(jg))
+
+      CALL set_owner_mask(p_patch_2D(jg))
+     
+     ! Fill the owner_local value
+      ! this is done in the set_owner_mask
+      ! CALL fill_owner_local(p_patch(jg))
+
+      IF(jg == n_dom_start) THEN
+
+        ! parent_idx/blk is set to 0 since it just doesn't exist,
+        ! child_idx/blk is set to 0 since it makes sense only on the local parent
+        p_patch_2D(jg)%cells%parent_idx = 0
+        p_patch_2D(jg)%cells%parent_blk = 0
+        p_patch_2D(jg)%cells%child_idx  = 0
+        p_patch_2D(jg)%cells%child_blk  = 0
+        p_patch_2D(jg)%edges%parent_idx = 0
+        p_patch_2D(jg)%edges%parent_blk = 0
+        p_patch_2D(jg)%edges%child_idx  = 0
+        p_patch_2D(jg)%edges%child_blk  = 0
+
+      ELSE
+        CALL finish('complete_parallel_setup_oce','functionality with local parent patch not implemented')
+!         CALL setup_comm_cpy_interpolation(p_patch_2D(jg), p_patch_2D(jgp))
+!         CALL setup_comm_grf_interpolation(p_patch_2D(jg), p_patch_2D(jgp))
+!         CALL setup_comm_ubc_interpolation(p_patch_2D(jg), p_patch_2D(jgp))
+! 
+!         CALL set_comm_pat_bound_exch(p_patch_local_parent(jg))
+!         CALL set_comm_pat_gather(p_patch_local_parent(jg))
+! 
+!         CALL set_parent_child_relations(p_patch_local_parent(jg), p_patch(jg))
+! 
+!         CALL set_glb_loc_comm(p_patch(jgp), p_patch_local_parent(jg), &
+!           &                   p_patch(jg)%parent_child_index)
+! 
+!         CALL set_owner_mask(p_patch_local_parent(jg))
+      ENDIF
+
+    ENDDO
+
+    CALL set_patch_communicators(p_patch_2D)
+
+  END SUBROUTINE complete_parallel_setup_oce
+
+  !-----------------------------------------------------------------------------
+
+  SUBROUTINE finalize_decomposition_oce(p_patch_2D)
+
+    implicit none
+
+    TYPE(t_patch) :: p_patch_2D(:)
+    integer jg
+
+    ! Remap indices in patches and local parents
+
+    DO jg = n_dom_start, n_dom
+
+      CALL remap_patch_indices(p_patch_2D(jg))
+
+      IF(jg>n_dom_start) THEN
+        CALL finish('finalize_decomposition_oce','functionality with local parent patch not implemented')
+        CALL remap_patch_indices(p_patch_local_parent(jg))
+      ENDIF
+
+    ENDDO
+                 
+  END SUBROUTINE finalize_decomposition_oce
+
+  !-----------------------------------------------------------------------------
+
+
 
 END MODULE mo_complete_subdivision
 

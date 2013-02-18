@@ -187,7 +187,7 @@ MODULE mo_meteogram_output
   PUBLIC ::  meteogram_finalize  
   PUBLIC ::  meteogram_flush_file
 
-  INTEGER, PARAMETER :: MAX_TIME_STAMPS      = 1000  !< max. number of time stamps
+  INTEGER, PARAMETER :: MAX_TIME_STAMPS      =10000  !< max. number of time stamps
   INTEGER, PARAMETER :: MAX_NVARS            =  100  !< max. number of sampled 3d vars
   INTEGER, PARAMETER :: MAX_NSFCVARS         =  100  !< max. number of sampled surface vars
   INTEGER, PARAMETER :: MAX_DESCR_LENGTH     =  128  !< length of info strings (see cf_convention)
@@ -438,10 +438,10 @@ CONTAINS
 
     CALL add_atmo_var(VAR_GROUP_ATMO_ML, "CLC", "-", "total cloud cover", jg, &
       &               prm_diag%tot_cld(:,:,:,:), icc)
-    CALL add_atmo_var(VAR_GROUP_ATMO_ML, "TKVM", "m**2/s",             &
+    CALL add_atmo_var(VAR_GROUP_ATMO_HL, "TKVM", "m**2/s",             &
       &               "turbulent diffusion coefficients for momentum", &
       &               jg, prm_diag%tkvm(:,:,:))
-    CALL add_atmo_var(VAR_GROUP_ATMO_ML, "TKVH", "m**2/s",             &
+    CALL add_atmo_var(VAR_GROUP_ATMO_HL, "TKVH", "m**2/s",             &
       &               "turbulent diffusion coefficients for heat",     &
       &               jg, prm_diag%tkvh(:,:,:))
     CALL add_atmo_var(VAR_GROUP_ATMO_HL, "Phalf", "Pa", "Pressure on the half levels", jg, &
@@ -459,9 +459,9 @@ CONTAINS
         &               "ice content", jg, p_lnd_diag%w_so_ice(:,:,:))
 
       CALL add_sfc_var(VAR_GROUP_SURFACE,  "PL_Cov", "-", "ground fraction covered by plants", &
-        &              jg, ext_data%atm%plcov_mx(:,:))
+        &              jg, ext_data%atm%plcov(:,:))
       CALL add_sfc_var(VAR_GROUP_SURFACE,  "LA_Ind", "-", "leaf area index (vegetation period)", &
-        &              jg, ext_data%atm%lai_mx(:,:))
+        &              jg, ext_data%atm%lai(:,:))
       CALL add_sfc_var(VAR_GROUP_SURFACE,  "RO_Dept", "-", "root depth", jg, &
         &              ext_data%atm%rootdp(:,:))
       CALL add_sfc_var(VAR_GROUP_SURFACE,  "Z0", "m", "roughness length*g", jg, prm_diag%gz0(:,:))
@@ -723,8 +723,8 @@ CONTAINS
       ! build GNAT data structure
       CALL gnat_init_grid(ptr_patch)
       ! perform proximity query
-      CALL gnat_query_containing_triangles(ptr_patch, gnat_tree, in_points(:,:,:),    &
-        &                                  nproma, nblks, npromz, grid_sphere_radius, &
+      CALL gnat_query_containing_triangles(ptr_patch, gnat_tree, in_points(:,:,:),        &
+        &                                  nproma, nblks, npromz, grid_sphere_radius,     &
         &                                  p_test_run, tri_idx(:,:,:), min_dist(:,:))
       CALL gnat_merge_distributed_queries(ptr_patch, nstations, nproma, nblks, min_dist,  &
         &                                 tri_idx(:,:,:), in_points(:,:,:),               &

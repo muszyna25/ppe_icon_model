@@ -620,6 +620,7 @@ run/exp.hat_heldsuarez -text
 run/exp.hat_icoham_ape -text
 run/exp.hat_icoham_ape_jsbach -text
 run/exp.hat_icoham_ape_r2b6 -text
+run/exp.hat_icoham_apei -text
 run/exp.hat_jww -text
 run/exp.hat_jww-moist_cld-cnv-vdf -text
 run/exp.hat_jww-moist_cld-cnv-vdf-gwh -text
@@ -638,26 +639,25 @@ run/exp.nh35_heldsuarez -text
 run/exp.nh35_tri_jws -text
 run/exp.nh35_tri_jws_efdt4 -text
 run/exp.nh3_tri_tracer_solid_body -text
+run/exp.nh_cbl -text
 run/exp.nh_dcmip_gw_31_R2B4L10 -text
 run/exp.nh_dcmip_gw_32_R2B4L10 -text
 run/exp.nh_dcmip_tc_52_r2b4 -text
 run/exp.nh_dcmip_tc_52_r5b4 -text
+run/exp.nh_schaer -text
 run/exp.oce_4dwd -text
 run/exp.oce_aqpl -text
 run/exp.oce_base -text
 run/exp.oce_channel -text
-run/exp.oce_cmp2mpiom_central -text
-run/exp.oce_cmp2mpiom_miura -text
-run/exp.oce_cmp2mpiom_upwind -text
-run/exp.oce_default_L40 -text
-run/exp.oce_density_front -text
-run/exp.oce_densityfront -text
-run/exp.oce_diagnostics -text
-run/exp.oce_diffusion -text
-run/exp.oce_homogen -text
 run/exp.oce_mpiom -text
 run/exp.oce_mpiom_Rrefined -text
-run/exp.oce_omip -text
+run/exp.oce_speed -text
+run/exp.oce_speed_1 -text
+run/exp.oce_speed_16 -text
+run/exp.oce_speed_2 -text
+run/exp.oce_speed_32 -text
+run/exp.oce_speed_4 -text
+run/exp.oce_speed_8 -text
 run/exp.oce_test_numeric -text
 run/exp.oce_test_parallel -text
 run/exp.ozon -text
@@ -682,6 +682,7 @@ run/grid.create_ocean_grids -text
 run/grid.create_patches_R2B7N13 -text
 run/grid.create_torus_grid -text
 run/grid.decompose_metis -text
+run/grid.remove_land_points -text
 run/grid.rescale_grid -text
 run/ico_grd_spr_sw_ref -text
 run/mapfile_vlist.txt -text
@@ -708,6 +709,7 @@ run/run_ICON_R2B4_real_mpi_ref -text
 run/test_local_patch_refinement -text
 run/variations.rb -text
 schedulers/ecmwf/def/icon.def -text
+schedulers/ecmwf/def/icon_clim.def -text
 schedulers/ecmwf/def/icon_eps.def -text
 schedulers/ecmwf/def/icon_oper.def -text
 schedulers/ecmwf/def/ifs_trigger.def -text
@@ -715,6 +717,7 @@ schedulers/ecmwf/doc/doc.html -text
 schedulers/ecmwf/gen/cancel_check_progress -text
 schedulers/ecmwf/gen/case_setup -text
 schedulers/ecmwf/gen/case_setup.B-matrix -text
+schedulers/ecmwf/gen/case_setup_clim -text
 schedulers/ecmwf/gen/case_setup_default -text
 schedulers/ecmwf/gen/case_setup_edmf -text
 schedulers/ecmwf/gen/case_setup_eps -text
@@ -785,8 +788,8 @@ scripts/codestyle_scripts/restyle_module -text
 scripts/doxygen_scripts/has_doxygen -text
 scripts/f2html_scripts/f2html.pl -text
 scripts/f2html_scripts/fgenrc -text
-scripts/gmt_scripts/banner/iconR2B04-cell_area.gmt -text
-scripts/gmt_scripts/banner/iconR2B04-dual_area.gmt -text
+scripts/gmt_scripts/banner/iconR2B04-cell_area.gmt.lzma -text svneol=unset#unset
+scripts/gmt_scripts/banner/iconR2B04-dual_area.gmt.lzma -text svneol=unset#unset
 scripts/gmt_scripts/banner/landfill_tri-hex.bash -text
 scripts/gmt_scripts/plot_model_domains -text
 scripts/postprocessing/.hluresfile -text
@@ -861,6 +864,8 @@ scripts/postprocessing/testcases/RH4_postpro.ncl -text
 scripts/postprocessing/testcases/RH4_postpro_driver.bash -text
 scripts/postprocessing/testcases/SBR_postpro_driver.bash -text
 scripts/postprocessing/testcases/SBR_postpro_scripts/solid_body_init.ncl -text
+scripts/postprocessing/testcases/TORUS_GEOMETRY/plot_torus_section.ncl -text
+scripts/postprocessing/testcases/TORUS_GEOMETRY/plot_torus_section_driver.bash -text
 scripts/postprocessing/testcases/echam_ape_postpro.ksh -text
 scripts/postprocessing/testcases/error_postpro_driver.bash -text
 scripts/postprocessing/testcases/error_postpro_scripts/norm_err_std.ncl -text
@@ -907,6 +912,7 @@ scripts/postprocessing/tools/metview/paperclose.pro -text
 scripts/postprocessing/tools/metview/paperopenl.pro -text
 scripts/postprocessing/tools/metview/scores.pro -text
 scripts/postprocessing/tools/metview/zonal.error -text
+scripts/postprocessing/tools/movieMaker.sh -text
 scripts/postprocessing/tools/mtgrm_ascii.ncl -text
 scripts/postprocessing/tools/mtgrm_cosmo.ncl -text
 scripts/postprocessing/tools/mtgrm_plot.ncl -text
@@ -927,6 +933,8 @@ scripts/postprocessing/tools/plot_vcs_driver.bash -text
 scripts/postprocessing/tools/rhopot.rb -text
 scripts/postprocessing/tools/rhopot.sh -text
 scripts/postprocessing/tools/scatterPlot.rb -text
+scripts/postprocessing/tools/spectra_uv.ncl -text
+scripts/postprocessing/tools/spectra_vordiv.ncl -text
 scripts/postprocessing/tools/splitHemisphere.rb -text
 scripts/preprocessing/IFS2ICON_README.TXT -text
 scripts/preprocessing/estimate.py -text
@@ -934,6 +942,8 @@ scripts/preprocessing/ifs2icon-hs.conf -text
 scripts/preprocessing/ifs2icon.conf -text
 scripts/preprocessing/ifs2icon.rb -text
 scripts/preprocessing/mars4icon.all -text
+scripts/preprocessing/mars4icon_ei_ci -text
+scripts/preprocessing/mars4icon_ei_sst -text
 scripts/preprocessing/mars4icon_smi_32r2- -text
 scripts/preprocessing/mars4icon_smi_32r3+ -text
 scripts/preprocessing/mars4icon_smi_32r3+_eda -text
@@ -993,6 +1003,8 @@ src/atm_dyn_iconam/mo_nh_held_suarez_interface.f90 -text
 src/atm_dyn_iconam/mo_nh_hex_util.f90 -text
 src/atm_dyn_iconam/mo_nh_init_nest_utils.f90 -text
 src/atm_dyn_iconam/mo_nh_init_utils.f90 -text
+src/atm_dyn_iconam/mo_nh_initicon.f90 -text
+src/atm_dyn_iconam/mo_nh_initicon_types.f90 -text
 src/atm_dyn_iconam/mo_nh_nest_utilities.f90 -text
 src/atm_dyn_iconam/mo_nh_prog_util.f90 -text
 src/atm_dyn_iconam/mo_nh_stepping.f90 -text
@@ -1102,13 +1114,13 @@ src/atm_phy_nwp/mo_nwp_phy_state.f90 -text
 src/atm_phy_nwp/mo_nwp_phy_types.f90 -text
 src/atm_phy_nwp/mo_nwp_rad_interface.f90 -text
 src/atm_phy_nwp/mo_nwp_rrtm_interface.f90 -text
-src/atm_phy_nwp/mo_nwp_turb_interface.f90 -text
 src/atm_phy_nwp/mo_nwp_turb_sfc_interface.f90 -text
+src/atm_phy_nwp/mo_nwp_turbdiff_interface.f90 -text
+src/atm_phy_nwp/mo_nwp_turbtrans_interface.f90 -text
 src/atm_phy_nwp/mo_nwp_vdiff_driver.f90 -text
 src/atm_phy_nwp/mo_phys_nest_utilities.f90 -text
 src/atm_phy_nwp/mo_rrtm_data_interface.f90 -text
 src/atm_phy_nwp/mo_util_phys.f90 -text
-src/atm_phy_schemes/data_flake.f90 -text
 src/atm_phy_schemes/data_gscp.f90 -text
 src/atm_phy_schemes/data_gwd.f90 -text
 src/atm_phy_schemes/data_turbulence.f90 -text
@@ -1178,11 +1190,13 @@ src/configure_model/mo_dynamics_config.f90 -text
 src/configure_model/mo_echam_conv_config.f90 -text
 src/configure_model/mo_echam_phy_config.f90 -text
 src/configure_model/mo_extpar_config.f90 -text
+src/configure_model/mo_gribout_config.f90 -text
 src/configure_model/mo_grid_config.f90 -text
 src/configure_model/mo_gridref_config.f90 -text
 src/configure_model/mo_gw_hines_config.f90 -text
 src/configure_model/mo_ha_dyn_config.f90 -text
 src/configure_model/mo_icon_testbed_config.f90 -text
+src/configure_model/mo_initicon_config.f90 -text
 src/configure_model/mo_interpol_config.f90 -text
 src/configure_model/mo_io_config.f90 -text
 src/configure_model/mo_lnd_jsbach_config.f90 -text
@@ -1246,7 +1260,6 @@ src/grid_generator/mo_icosahedron_grid.f90 -text
 src/grid_generator/mo_io_graph.f90 -text
 src/grid_generator/mo_io_grid.f90 -text
 src/grid_generator/mo_io_local_grid.f90 -text
-src/grid_generator/mo_io_utils_grid.f90 -text
 src/grid_generator/mo_local_grid.f90 -text
 src/grid_generator/mo_local_grid_geometry.f90 -text
 src/grid_generator/mo_local_grid_hierarchy.f90 -text
@@ -1263,6 +1276,7 @@ src/grid_generator/partitioner.f90 -text
 src/include/dsl_definitions.inc -text
 src/include/omp_definitions.inc -text
 src/io/mo_cf_convention.f90 -text
+src/io/mo_dump_restore.f90 -text
 src/io/mo_grib1.f90 -text
 src/io/mo_grib2.f90 -text
 src/io/mo_io_async.f90 -text
@@ -1271,6 +1285,7 @@ src/io/mo_io_vlist.f90 -text
 src/io/mo_mtgrm_output.f90 -text
 src/io/mo_name_list_output.f90 -text
 src/io/mo_output.f90 -text
+src/io/mo_read_netcdf_parallel.f90 -text
 src/lnd_phy_nwp/mo_nwp_lnd_state.f90 -text
 src/lnd_phy_nwp/mo_nwp_lnd_types.f90 -text
 src/lnd_phy_nwp/mo_nwp_sfc_interface.f90 -text
@@ -1278,6 +1293,7 @@ src/lnd_phy_nwp/mo_nwp_sfc_interface_edmf.f90 -text
 src/lnd_phy_nwp/mo_nwp_sfc_interp.f90 -text
 src/lnd_phy_nwp/mo_nwp_sfc_utils.f90 -text
 src/lnd_phy_nwp/mo_td_ext_data.f90 -text
+src/lnd_phy_schemes/mo_data_flake.f90 -text
 src/lnd_phy_schemes/mo_phyparam_soil.f90 -text
 src/lnd_phy_schemes/mo_seaice_nwp.f90 -text
 src/lnd_phy_schemes/mo_soil_ml.f90 -text
@@ -1290,11 +1306,13 @@ src/namelists/mo_dynamics_nml.f90 -text
 src/namelists/mo_echam_conv_nml.f90 -text
 src/namelists/mo_echam_phy_nml.f90 -text
 src/namelists/mo_extpar_nml.f90 -text
+src/namelists/mo_gribout_nml.f90 -text
 src/namelists/mo_grid_nml.f90 -text
 src/namelists/mo_gridref_nml.f90 -text
 src/namelists/mo_gw_hines_nml.f90 -text
 src/namelists/mo_ha_dyn_nml.f90 -text
 src/namelists/mo_icon_testbed_nml.f90 -text
+src/namelists/mo_initicon_nml.f90 -text
 src/namelists/mo_interpol_nml.f90 -text
 src/namelists/mo_io_nml.f90 -text
 src/namelists/mo_lnd_jsbach_nml.f90 -text
@@ -1310,6 +1328,7 @@ src/namelists/mo_prepicon_nml.f90 -text
 src/namelists/mo_radiation_nml.f90 -text
 src/namelists/mo_read_namelists.f90 -text
 src/namelists/mo_run_nml.f90 -text
+src/namelists/mo_sea_ice_nml.f90 -text
 src/namelists/mo_sleve_nml.f90 -text
 src/namelists/mo_time_nml.f90 -text
 src/namelists/mo_turbdiff_nml.f90 -text
@@ -1317,7 +1336,6 @@ src/namelists/mo_vdiff_nml.f90 -text
 src/oce_dyn_icohom/mo_hydro_ocean_run.f90 -text
 src/oce_dyn_icohom/mo_oce_ab_timestepping.f90 -text
 src/oce_dyn_icohom/mo_oce_ab_timestepping_mimetic.f90 -text
-src/oce_dyn_icohom/mo_oce_ab_timestepping_rbf.f90 -text
 src/oce_dyn_icohom/mo_oce_boundcond.f90 -text
 src/oce_dyn_icohom/mo_oce_diagnostics.f90 -text
 src/oce_dyn_icohom/mo_oce_diffusion.f90 -text
@@ -1342,8 +1360,6 @@ src/parallel_infrastructure/mo_mpi.f90 -text
 src/parallel_infrastructure/mo_ompthreads.f90 -text
 src/parallel_infrastructure/mo_setup_subdivision.f90 -text
 src/parallel_infrastructure/mo_sync.f90 -text
-src/prep_icon/mo_prepicon_old.f90 -text
-src/prep_icon/mo_prepicon_utils.f90 -text
 src/prep_icon/mo_remap.f90 -text
 src/prep_icon/mo_remap_config.f90 -text
 src/prep_icon/mo_remap_grid.f90 -text
@@ -1357,10 +1373,11 @@ src/prep_icon/mo_remap_output.f90 -text
 src/prep_icon/mo_remap_shared.f90 -text
 src/prep_icon/mo_remap_subdivision.f90 -text
 src/prep_icon/mo_remap_sync.f90 -text
-src/prep_icon/mo_remap_weights.f90 -text
+src/prep_icon/mo_remap_weights_cons.f90 -text
+src/prep_icon/mo_remap_weights_rbf.f90 -text
 src/shared/mo_cdi_constants.f90 -text
 src/shared/mo_datetime.f90 -text
-src/shared/mo_dump_restore.f90 -text
+src/shared/mo_dictionary.f90 -text
 src/shared/mo_exception.f90 -text
 src/shared/mo_exception.f90_luis -text
 src/shared/mo_fast_math_lib.f90 svneol=native#text/plain
@@ -1380,12 +1397,13 @@ src/shared/mo_kind.f90 -text
 src/shared/mo_linked_list.f90 -text
 src/shared/mo_loopindices.f90 -text
 src/shared/mo_math_constants.f90 -text
+src/shared/mo_math_types.f90 -text
 src/shared/mo_math_utilities.f90 -text
+src/shared/mo_math_utility_solvers.f90 -text
 src/shared/mo_namelist.f90 -text
 src/shared/mo_orbit.f90 -text
 src/shared/mo_physical_constants.f90 -text
 src/shared/mo_profile.f90 -text
-src/shared/mo_read_netcdf_parallel.f90 -text
 src/shared/mo_real_timer.f90 -text
 src/shared/mo_time_base.f90 -text
 src/shared/mo_timer.f90 -text
@@ -1466,12 +1484,12 @@ src/testcases/mo_nh_lim_area_testcases.f90 -text
 src/testcases/mo_nh_mrw_exp.f90 -text
 src/testcases/mo_nh_pa_test.f90 -text
 src/testcases/mo_nh_testcases.f90 -text
+src/testcases/mo_nh_torus_exp.f90 -text
 src/testcases/mo_nh_wk_exp.f90 -text
 src/testcases/mo_pa_test.f90 -text
 src/testcases/mo_rh_test.f90 -text
 src/testcases/mo_sv_test.f90 -text
 src/testcases/mo_sw_test.f90 -text
-src_not_used/mo_nwp_mpiomp_rrtm_interface.f90.not_used -text
 support/cdilib.c -text
 support/cfortran.h -text
 support/rtc_sx.s -text

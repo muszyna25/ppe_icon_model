@@ -46,6 +46,8 @@ MODULE mo_grid_toolbox
 !     & min_rlvert, max_rlvert
   USE mo_local_grid
   USE mo_io_local_grid,  ONLY: read_new_netcdf_grid,write_netcdf_grid
+  USE mo_grid_geometry_info, ONLY: copy_grid_geometry_info, set_grid_geometry_derived_info
+  
 !  USE mo_local_grid_geometry,ONLY: geographical_to_cartesian
 
   IMPLICIT NONE
@@ -456,7 +458,7 @@ CONTAINS
 
     INTEGER :: i
     
-    CHARACTER(*), PARAMETER :: method_name = "add_to_list_if_not_exist"
+    CHARACTER(*), PARAMETER :: method_name = "mo_grid_toolbox:add_to_list_if_not_exist"
 
     DO i=1,inout_list%list_size
       IF (inout_list%value(i) == value) THEN
@@ -478,10 +480,9 @@ CONTAINS
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
-  !  SUBROUTINE get_boundary_edges(grid_id, boundary_edge_list)
   !>
   ! Returns the boundary edges in boundary_edge_list
-  SUBROUTINE get_boundary_edges(grid_id, boundary_edge_list)
+  FUNCTION get_boundary_edges(grid_id) result(boundary_edge_list)
     INTEGER, INTENT(in) :: grid_id
     TYPE(t_integer_list)  :: boundary_edge_list
 
@@ -491,6 +492,7 @@ CONTAINS
     INTEGER :: no_of_edges, edge_index, no_of_boundary_edges
     INTEGER :: i_status
 
+    CHARACTER(*), PARAMETER :: method_name = "mo_grid_toolbox:get_boundary_edges"
 
     current_grid    => get_grid(grid_id)
     edges           => current_grid%edges
@@ -498,12 +500,12 @@ CONTAINS
 
     ALLOCATE(boundary_edge_list%value(no_of_edges),stat=i_status)
     IF (i_status > 0) &
-      & CALL finish ('get_boundary_edges', 'ALLOCATE(boundary_edge_list(noOfEdges))')
-    no_of_boundary_edges    = 0
+      & CALL finish (method_name, 'ALLOCATE(boundary_edge_list(noOfEdges))')
 
     ! mark boundary edges
+    no_of_boundary_edges    = 0
     DO edge_index = 1, no_of_edges
-      IF (edges%get_cell_index(edge_index,1) == 0 .or. edges%get_cell_index(edge_index,2) == 0 ) THEN
+      IF (edges%get_cell_index(edge_index,1) == 0 .OR. edges%get_cell_index(edge_index,2) == 0 ) THEN
         ! add edge to boundary list
         no_of_boundary_edges = no_of_boundary_edges + 1
         boundary_edge_list%value(no_of_boundary_edges) = edge_index
@@ -513,10 +515,10 @@ CONTAINS
     boundary_edge_list%list_size = no_of_boundary_edges
     WRITE(message_text,'(a,i9,a,i9)') "Total no of edges=",no_of_edges,&
       & " Boundary edges=", no_of_boundary_edges
-    CALL message ('', TRIM(message_text))
+    CALL message (method_name, TRIM(message_text))
 
 
-  END SUBROUTINE get_boundary_edges
+  END FUNCTION get_boundary_edges
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
@@ -889,6 +891,7 @@ END FUNCTION concatenate_grids
     ! Local Variables
     INTEGER :: no_of_dual_cells,no_of_dual_edges,no_of_dual_vertices
     INTEGER :: dual_max_cell_vertices, dual_max_vertex_connect
+    CHARACTER(*), PARAMETER :: method_name = "mo_grid_toolbox:get_basic_dual_grid"
     !-----------------------------------------------------------------------
 
     !--------------------------------------------------------------
@@ -907,10 +910,29 @@ END FUNCTION concatenate_grids
     dual_grid%nverts = no_of_dual_vertices
     dual_grid%cells%max_no_of_vertices = dual_max_cell_vertices
     dual_grid%verts%max_connectivity   = dual_max_vertex_connect
+    dual_grid%level = input_grid%level
     CALL allocate_grid_object(dual_grid_id)
     CALL grid_set_exist_eq_allocated(dual_grid_id)
     !--------------------------------------------------------------
-    dual_grid%level = input_grid%level
+    ! fill dual geometry info
+    CALL copy_grid_geometry_info(input_grid%geometry_info, dual_grid%geometry_info)
+    
+    SELECT CASE (input_grid%geometry_info%cell_type)
+      CASE (3)
+          dual_grid%geometry_info%cell_type = 6
+      CASE (6)
+          dual_grid%geometry_info%cell_type = 3
+      CASE default
+          CALL finish(method_name, "Uknown cell_type")
+    END SELECT 
+    
+    dual_grid%geometry_info%mean_edge_length           = input_grid%geometry_info%mean_dual_edge_length
+    dual_grid%geometry_info%mean_dual_edge_length      = input_grid%geometry_info%mean_edge_length
+    dual_grid%geometry_info%mean_cell_area             = input_grid%geometry_info%mean_dual_cell_area
+    dual_grid%geometry_info%mean_dual_cell_area        = input_grid%geometry_info%mean_cell_area
+    
+    CALL set_grid_geometry_derived_info(dual_grid%geometry_info)
+
     !--------------------------------------------------------------
     ! fill the dual edges
     dual_grid%edges%idx(1:no_of_dual_edges)                = &
@@ -965,7 +987,6 @@ END FUNCTION concatenate_grids
 
     CALL set_nest_defaultindexes(dual_grid_id)
 
-
   END FUNCTION get_basic_dual_grid
   !-------------------------------------------------------------------------
 
@@ -1005,15 +1026,15 @@ END FUNCTION concatenate_grids
     !-----------------------------------------------------------------------
 
     !--------------------------------------------------------------
-    input_grid => get_grid(input_grid_id)
-    !--------------------------------------------------------------
-
+    input_grid   => get_grid(input_grid_id)
     dual_grid_id = get_basic_dual_grid(input_grid_id)
     dual_grid    => get_grid(dual_grid_id)
-    no_of_dual_cells    = dual_grid%cells%no_of_existcells
-    no_of_dual_edges    = dual_grid%edges%no_of_existedges
-    no_of_dual_vertices = dual_grid%verts%no_of_existvertices
-    dual_max_cell_vertices = dual_grid%cells%max_no_of_vertices
+    !--------------------------------------------------------------
+    
+    no_of_dual_cells        = dual_grid%cells%no_of_existcells
+    no_of_dual_edges        = dual_grid%edges%no_of_existedges
+    no_of_dual_vertices     = dual_grid%verts%no_of_existvertices
+    dual_max_cell_vertices  = dual_grid%cells%max_no_of_vertices
     dual_max_vertex_connect = dual_grid%verts%max_connectivity
     !--------------------------------------------------------------
     ! The basic info of the dual is filled by get_basic_dual_grid
@@ -1047,21 +1068,33 @@ END FUNCTION concatenate_grids
       & -input_grid%edges%primal_normal(1:no_of_dual_edges)%v2
 
     DO i = 1, no_of_dual_edges
-      IF (input_grid%edges%system_orientation(i) == 1) THEN
-        !         we keep the dual normal, inverse the prime normal to keep orientation
-        dual_grid%edges%primal_normal(i)%v1   = input_grid%edges%dual_normal(i)%v1
-        dual_grid%edges%primal_normal(i)%v2   = input_grid%edges%dual_normal(i)%v2
-        dual_grid%edges%dual_normal(i)%v1     = -input_grid%edges%primal_normal(i)%v1
-        dual_grid%edges%dual_normal(i)%v2     = -input_grid%edges%primal_normal(i)%v2
-        dual_grid%edges%system_orientation(i)  = -1
-      ELSE
-        !         inverse the dual normal, keep the prime normal to keep orientation
-        dual_grid%edges%primal_normal(i)%v1   = -input_grid%edges%dual_normal(i)%v1
-        dual_grid%edges%primal_normal(i)%v2   = -input_grid%edges%dual_normal(i)%v2
-        dual_grid%edges%dual_normal(i)%v1     = input_grid%edges%primal_normal(i)%v1
-        dual_grid%edges%dual_normal(i)%v2     = input_grid%edges%primal_normal(i)%v2
-        dual_grid%edges%system_orientation(i)= 1
-      ENDIF
+      ! this is not correct, but this is how the hex model works
+      dual_grid%edges%primal_normal(i)%v1             = input_grid%edges%dual_normal(i)%v1
+      dual_grid%edges%primal_normal(i)%v2             = input_grid%edges%dual_normal(i)%v2
+      dual_grid%edges%cartesian_primal_normal(i)%x(:) = input_grid%edges%cartesian_dual_normal(i)%x(:)
+      dual_grid%edges%dual_normal(i)%v1               = input_grid%edges%primal_normal(i)%v1
+      dual_grid%edges%dual_normal(i)%v2               = input_grid%edges%primal_normal(i)%v2
+      dual_grid%edges%cartesian_dual_normal(i)%x(:)   = input_grid%edges%cartesian_primal_normal(i)%x(:)
+      dual_grid%edges%system_orientation(i)           = input_grid%edges%system_orientation(i)
+!       IF (input_grid%edges%system_orientation(i) == 1) THEN
+!         !         we keep the dual normal, inverse the prime normal to keep orientation
+!         dual_grid%edges%primal_normal(i)%v1             = input_grid%edges%dual_normal(i)%v1
+!         dual_grid%edges%primal_normal(i)%v2             = input_grid%edges%dual_normal(i)%v2
+!         dual_grid%edges%cartesian_primal_normal(i)%x(:) = input_grid%edges%cartesian_dual_normal(i)%x(:)
+!         dual_grid%edges%dual_normal(i)%v1               = -input_grid%edges%primal_normal(i)%v1
+!         dual_grid%edges%dual_normal(i)%v2               = -input_grid%edges%primal_normal(i)%v2
+!         dual_grid%edges%cartesian_dual_normal(i)%x(:)   = -input_grid%edges%cartesian_primal_normal(i)%x(:)
+!         dual_grid%edges%system_orientation(i)           = -1
+!       ELSE
+!         !         inverse the dual normal, keep the prime normal to keep orientation
+!         dual_grid%edges%primal_normal(i)%v1             = -input_grid%edges%dual_normal(i)%v1
+!         dual_grid%edges%primal_normal(i)%v2             = -input_grid%edges%dual_normal(i)%v2
+!         dual_grid%edges%cartesian_primal_normal(i)%x(:) = -input_grid%edges%cartesian_dual_normal(i)%x(:)
+!         dual_grid%edges%dual_normal(i)%v1               = input_grid%edges%primal_normal(i)%v1
+!         dual_grid%edges%dual_normal(i)%v2               = input_grid%edges%primal_normal(i)%v2
+!         dual_grid%edges%cartesian_dual_normal(i)%x(:)   = input_grid%edges%cartesian_primal_normal(i)%x(:)
+!         dual_grid%edges%system_orientation(i)           = 1
+!       ENDIF
 
     ENDDO
 
@@ -1078,15 +1111,17 @@ END FUNCTION concatenate_grids
     DO i = 1, no_of_dual_vertices
 !      DO j = 1, dual_grid%verts%no_of_neigbors(i)
       DO j = 1, dual_max_vertex_connect
-        edge_index                              = dual_grid%verts%get_edge_index(i,j)
+        edge_index = dual_grid%verts%get_edge_index(i,j)
         IF (edge_index > 0) THEN
-          IF (i == dual_grid%edges%get_vertex_index(edge_index,1)) THEN
-            direction = 1
-          ELSE
-            direction = -1
-          ENDIF
-          dual_grid%verts%get_edge_orient(i,j) = direction &
-            & * dual_grid%edges%system_orientation(edge_index)
+          ! this is actually wrong, but this is how the hex model works
+          dual_grid%verts%get_edge_orient(i,j) = input_grid%cells%get_edge_orient(i,j)
+!           IF (i == dual_grid%edges%get_vertex_index(edge_index,1)) THEN
+!             direction = 1
+!           ELSE
+!             direction = -1
+!           ENDIF
+!           dual_grid%verts%get_edge_orient(i,j) = direction &
+!             & * dual_grid%edges%system_orientation(edge_index)
         ENDIF
       ENDDO
     ENDDO
@@ -1102,12 +1137,14 @@ END FUNCTION concatenate_grids
       DO j = 1, dual_max_cell_vertices
         edge_index = dual_grid%cells%get_edge_index(i,j)
         IF (edge_index > 0) THEN
-          IF (i == dual_grid%edges%get_cell_index(edge_index,1)) THEN
-            direction = cell_direction_c1_c2
-          ELSE
-            direction = -cell_direction_c1_c2
-          ENDIF
-          dual_grid%cells%get_edge_orient(i,j) = direction ! +1 if outwards
+          ! this is actually wrong, but this is how the hex model works
+          dual_grid%cells%get_edge_orient(i,j) = input_grid%verts%get_edge_orient(i,j)
+!           IF (i == dual_grid%edges%get_cell_index(edge_index,1)) THEN
+!             direction = cell_direction_c1_c2
+!           ELSE
+!             direction = -cell_direction_c1_c2
+!           ENDIF
+!           dual_grid%cells%get_edge_orient(i,j) = direction ! +1 if outwards
         ENDIF
       ENDDO
     ENDDO

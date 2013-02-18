@@ -185,6 +185,9 @@ MODULE mo_physical_constants
   REAL(wp), PARAMETER :: vpp_ch4(3) = (/1.25e-01_wp,  683.0_wp, -1.43_wp/)
   REAL(wp), PARAMETER :: vpp_n2o(3) = (/1.20e-02_wp, 1395.0_wp, -1.43_wp/)
 
+  !> U.S. standard atmosphere vertical tropospheric temperature gradient
+  REAL(wp), PARAMETER :: dtdz_standardatm = -6.5e-3_wp    ! [ K/m ]
+
   !> constants for radiation module
   REAL(wp), PARAMETER :: zemiss_def = 0.996_wp  !> lw sfc default emissivity factor
 
@@ -226,7 +229,7 @@ MODULE mo_physical_constants
     albim        = 0.64_wp,         & ! Albedo of ice (melting)    
     albedoW      = 0.07_wp,         & ! albedo of the ocean 
     !I_0          = 0.3             ! Ice-surface penetrating shortwave fraction
-    I_0          = 0.00_wp            ! Ice-surface penetrating shortwave fraction
+    I_0          = 0.17_wp            ! Ice-surface penetrating shortwave fraction
 
 
 !--------- parameters for NWP sea-ice model (we should agree on a single value)-----

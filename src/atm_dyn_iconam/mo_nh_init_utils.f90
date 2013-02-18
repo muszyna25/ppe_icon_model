@@ -82,14 +82,15 @@ MODULE mo_nh_init_utils
   PUBLIC :: nflat, nflatlev, n_flat_level, layer_thickness
 
   PUBLIC :: hydro_adjust, init_hybrid_coord, init_sleve_coord, compute_smooth_topo, &
-    &       init_vert_coord, interp_uv_2_vn, init_w, adjust_w, convert_thdvars, virtual_temp, &
-    &       convert_omega2w
+    &       init_vert_coord, interp_uv_2_vn, init_w, adjust_w, convert_thdvars,     &
+    &       convert_omega2w, hydro_adjust_downward
 
 CONTAINS
   !-------------
   !>
   !! SUBROUTINE hydro_adjust
-  !! Computes hydrostatically balanced initial condition
+  !! Computes hydrostatically balanced initial condition by bottom-up integration
+  !! Virtual temperature is kept constant during the adjustment process
   !!
   !! Input/Output: density, Exner pressure, virtual potential temperature
   !!
@@ -196,6 +197,82 @@ CONTAINS
 !$OMP END PARALLEL
 
   END SUBROUTINE hydro_adjust
+
+  !-------------
+  !>
+  !! SUBROUTINE hydro_adjust_downward
+  !! Computes hydrostatically balanced initial condition by top-down integration
+  !! In contrast to the above routine, virtual potential temperature is kept constant
+  !! during the adjustment, leading to a simpler formula
+  !!
+  !! Input/Output: density, Exner pressure, virtual potential temperature
+  !!
+  !! @par Revision History
+  !! Initial version by Guenther Zaengl, DWD(2012-12-28)
+  !!
+  !!
+  !!
+  SUBROUTINE hydro_adjust_downward(p_patch, p_nh_metrics, rho, exner, theta_v, rhotheta_v)
+
+
+    TYPE(t_patch),      INTENT(IN)       :: p_patch
+    TYPE(t_nh_metrics), INTENT(IN)       :: p_nh_metrics
+
+    ! Thermodynamic fields - all defined at full model levels
+    REAL(wp), INTENT(INOUT) :: rho(:,:,:)        ! density (kg/m**3)
+    REAL(wp), INTENT(INOUT) :: exner(:,:,:)      ! Exner pressure
+    REAL(wp), INTENT(INOUT) :: theta_v(:,:,:)    ! virtual potential temperature (K)
+    REAL(wp), INTENT(INOUT) :: rhotheta_v(:,:,:) ! rho*theta_v
+
+
+    ! LOCAL VARIABLES
+    REAL(wp), DIMENSION(nproma) :: theta_v_pr_ic
+
+    INTEGER :: jb, jk, jc
+    INTEGER :: nlen, nlev
+
+    nlev = p_patch%nlev
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,nlen,jk,jc,theta_v_pr_ic) ICON_OMP_DEFAULT_SCHEDULE
+
+    ! The full model grid including the lateral boundary interpolation zone of
+    ! nested domains and MPI-halo points is processed; depending on the setup
+    ! of the parallel-read routine, the input fields may need to be synchronized
+    ! before entering this routine.
+
+    DO jb = 1, p_patch%nblks_c
+      IF (jb /= p_patch%nblks_c) THEN
+        nlen = nproma
+      ELSE
+        nlen = p_patch%npromz_c
+      ENDIF
+
+      ! Now compute hydrostatically balanced prognostic fields:
+      ! The following expressions are derived from the discretized (!) third
+      ! equation of motion, assuming dw/dt = 0, and solved for the exner pressure.
+      DO jk = 2, nlev
+        DO jc = 1, nlen
+          theta_v_pr_ic(jc) = p_nh_metrics%wgtfac_c(jc,jk,jb) *        &
+           (theta_v(jc,jk,jb) - p_nh_metrics%theta_ref_mc(jc,jk,jb)) + &
+           (1._wp-p_nh_metrics%wgtfac_c(jc,jk,jb)) *                   &
+           (theta_v(jc,jk-1,jb)-p_nh_metrics%theta_ref_mc(jc,jk-1,jb)  )
+
+          exner(jc,jk,jb) = exner(jc,jk-1,jb) + p_nh_metrics%exner_ref_mc(jc,jk,jb) -      &
+            p_nh_metrics%exner_ref_mc(jc,jk-1,jb) + p_nh_metrics%ddqz_z_half(jc,jk,jb)*    &
+            theta_v_pr_ic(jc)*p_nh_metrics%d_exner_dz_ref_ic(jc,jk,jb)/(theta_v_pr_ic(jc)+ &
+            p_nh_metrics%theta_ref_ic(jc,jk,jb))
+
+          rhotheta_v(jc,jk,jb) = exner(jc,jk,jb)**cvd_o_rd*p0ref/rd
+          rho(jc,jk,jb)        = rhotheta_v(jc,jk,jb)/theta_v(jc,jk,jb)
+        ENDDO
+      ENDDO
+
+    ENDDO
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+
+  END SUBROUTINE hydro_adjust_downward
 
   !-------------
   !>
@@ -313,76 +390,7 @@ CONTAINS
 !$OMP END PARALLEL
 
   END SUBROUTINE convert_omega2w
-  !-------------
-  !>
-  !! SUBROUTINE virtual_temp
-  !! Computes virtual temperature
-  !!
-  !! Required input fields: temperature, specific humidity, cloud and precipitation variables
-  !! Output: virtual temperature
-  !!
-  !! @par Revision History
-  !! Initial version by Guenther Zaengl, DWD(2011-07-14)
-  !!
-  !!
-  !!
-  SUBROUTINE virtual_temp(p_patch, temp, qv, qc, qi, qr, qs, temp_v)
 
-
-    TYPE(t_patch), INTENT(IN) :: p_patch
-
-    ! Input fields - all defined at full model levels
-    REAL(wp), INTENT(IN)           :: temp(:,:,:) ! temperature (K)
-    REAL(wp), INTENT(IN)           :: qv  (:,:,:) ! specific humidity
-    REAL(wp), INTENT(IN), OPTIONAL :: qc  (:,:,:) ! specific cloud water
-    REAL(wp), INTENT(IN), OPTIONAL :: qi  (:,:,:) ! specific cloud ice
-    REAL(wp), INTENT(IN), OPTIONAL :: qr  (:,:,:) ! specific rain water
-    REAL(wp), INTENT(IN), OPTIONAL :: qs  (:,:,:) ! specific snow
-
-    REAL(wp), INTENT(OUT) :: temp_v(:,:,:) ! virtual temperature (K)
-
-    INTEGER :: jb, jk, jc
-    INTEGER :: nlen, nlev
-    LOGICAL :: l_cloud_precip
-
-    nlev = SIZE(temp,2) ! in order to be usable for input and output data
-
-    IF (PRESENT(qc) .AND. PRESENT(qi) .AND. PRESENT(qr) .AND. PRESENT(qs)) THEN
-      l_cloud_precip = .TRUE.
-    ELSE
-      l_cloud_precip = .FALSE.
-    ENDIF
-
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,nlen,jk,jc) ICON_OMP_DEFAULT_SCHEDULE
-
-    DO jb = 1, p_patch%nblks_c
-      IF (jb /= p_patch%nblks_c) THEN
-        nlen = nproma
-      ELSE
-        nlen = p_patch%npromz_c
-      ENDIF
-
-      IF (l_cloud_precip) THEN
-        DO jk = 1, nlev
-          DO jc = 1, nlen
-            temp_v(jc,jk,jb) = temp(jc,jk,jb) * (1._wp + vtmpc1*qv(jc,jk,jb) -      &
-                              (qc(jc,jk,jb)+qi(jc,jk,jb)+qr(jc,jk,jb)+qs(jc,jk,jb)) )
-          ENDDO
-        ENDDO
-      ELSE
-        DO jk = 1, nlev
-          DO jc = 1, nlen
-            temp_v(jc,jk,jb) = temp(jc,jk,jb) * (1._wp + vtmpc1*qv(jc,jk,jb))
-          ENDDO
-        ENDDO
-      ENDIF
-
-    ENDDO
-!$OMP END DO NOWAIT
-!$OMP END PARALLEL
-
-  END SUBROUTINE virtual_temp
 
   !-------------
   !>

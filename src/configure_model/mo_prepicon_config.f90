@@ -2,7 +2,7 @@
 !! @author G. Zaengl
 !!
 !! @par Revision History
-!! Moved configure state from namelists/mo_prepiconnml:
+!! Moved configure state from namelists/mo_prepicon_nml:
 !! F. Prill, DWD (2012-01-31)
 !!
 !! @par Copyright
@@ -34,21 +34,10 @@
 !!
 MODULE mo_prepicon_config
 
-  USE mo_kind,               ONLY: wp
-  USE mo_util_string,        ONLY: t_keyword_list, MAX_STRING_LEN,   &
-    &                              associate_keyword, with_keywords, &
-    &                              int2string
-  USE mo_io_units,           ONLY: filename_max
-  USE mo_impl_constants,     ONLY: max_dom
 
   IMPLICIT NONE
 
-  PUBLIC :: i_oper_mode, nlev_in, nlevsoil_in, zpbl1, zpbl2
-  PUBLIC :: MODE_GENERATE_COORDS, MODE_CONVERTIFS, MODE_VERTINTERP, MODE_REMAP
-  PUBLIC :: l_w_in, l_sfc_in, l_hice_in, l_sst_in     
-  PUBLIC :: l_zp_out, l_extdata_out, l_coarse2fine_mode
-  PUBLIC :: ifs2icon_filename
-  PUBLIC :: generate_filename
+  PUBLIC :: i_oper_mode
 
 
   CHARACTER(len=*),PARAMETER,PRIVATE :: &
@@ -59,47 +48,6 @@ MODULE mo_prepicon_config
   ! ----------------------------------------------------------------------------
   !
   INTEGER  :: i_oper_mode   ! operation mode
-  INTEGER  :: nlev_in       ! number of model levels of input data
-  INTEGER  :: nlevsoil_in   ! number of soil levels of input data
 
-  REAL(wp) :: zpbl1, zpbl2  ! AGL heights used for vertical gradient computation
-  LOGICAL  :: l_w_in        ! Logical switch if w is provided as input
-  LOGICAL  :: l_sfc_in      ! Logical switch if surface fields are provided as input
-  LOGICAL  :: l_hice_in     ! Logical switch, if sea-ice thickness field is provided as input
-  LOGICAL  :: l_sst_in      ! logical switch, if sea surface temperature is provided as input
-  LOGICAL  :: l_zp_out      ! Logical switch for diagnostic output on pressure and height levels
-  LOGICAL  :: l_extdata_out ! Logical switch to write extdata fields into output (to simplify checking)
-
-  LOGICAL  :: l_coarse2fine_mode(max_dom)  ! If true, apply special corrections for interpolation from coarse
-                                           ! to fine resolutions over mountainous terrain
-
-  ! IFS2ICON input filename, may contain keywords, by default
-  ! ifs2icon_filename = "<path>ifs2icon_R<nroot>B<jlev>_DOM<idom>.nc"
-  CHARACTER(LEN=filename_max) :: ifs2icon_filename
-
-  INTEGER, PARAMETER :: MODE_GENERATE_COORDS = 1
-  INTEGER, PARAMETER :: MODE_CONVERTIFS      = 2
-  INTEGER, PARAMETER :: MODE_VERTINTERP      = 3
-  INTEGER, PARAMETER :: MODE_REMAP           = 4 
-
-CONTAINS
-  
-  FUNCTION generate_filename(ifs2icon_filename, model_base_dir, &
-    &                        nroot, jlev, idom)  RESULT(result_str)
-    CHARACTER(len=*), INTENT(IN)   :: ifs2icon_filename, &
-      &                               model_base_dir
-    INTEGER,          INTENT(IN)   :: nroot, jlev, idom
-    CHARACTER(len=MAX_STRING_LEN)  :: result_str
-    TYPE (t_keyword_list), POINTER :: keywords => NULL()
-
-    CALL associate_keyword("<path>",   TRIM(model_base_dir),             keywords)
-    CALL associate_keyword("<nroot>",  TRIM(int2string(nroot,"(i1)")),   keywords)
-    CALL associate_keyword("<jlev>",   TRIM(int2string(jlev, "(i2.2)")), keywords)
-    CALL associate_keyword("<idom>",   TRIM(int2string(idom, "(i2.2)")), keywords)
-    ! replace keywords in "ifs2icon_filename", which is by default
-    ! ifs2icon_filename = "<path>ifs2icon_R<nroot>B<jlev>_DOM<idom>.nc"
-    result_str = TRIM(with_keywords(keywords, TRIM(ifs2icon_filename)))
-
-  END FUNCTION generate_filename
 
 END MODULE mo_prepicon_config

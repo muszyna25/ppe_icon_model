@@ -44,11 +44,12 @@ MODULE mo_util_netcdf
 
   USE mo_kind,               ONLY: wp, sp
   USE mo_exception,          ONLY: message, finish, em_warn
-  USE mo_impl_constants,     ONLY: MAX_CHAR_LENGTH
+  USE mo_impl_constants,     ONLY: MAX_CHAR_LENGTH, SUCCESS
   USE mo_communication,      ONLY: idx_no, blk_no
   USE mo_parallel_config,    ONLY: p_test_run
   USE mo_mpi,                ONLY: my_process_is_stdio, p_io, p_bcast, &
     &                              p_comm_work_test, p_comm_work
+  USE mo_fortran_tools,      ONLY: assign_if_present
 
   IMPLICIT NONE
 
@@ -205,9 +206,8 @@ CONTAINS
   !! Adapted for parallel runs by Rainer Johanni (2010-12-07)
   !! Adapted for 3 D by Guenther Zaengl, DWD (2011-07-11)
   !!
-  SUBROUTINE read_netcdf_3d (ncid, varname, glb_arr_len, &
-       &                     loc_arr_len, glb_index, &
-       &                     nlevs,      var_out)
+  SUBROUTINE read_netcdf_3d (ncid, varname, glb_arr_len, loc_arr_len, glb_index, &
+    &                        nlevs, var_out)
 
     CHARACTER(len=*), INTENT(IN)  ::  &  !< Var name of field to be read
       &  varname
@@ -226,7 +226,8 @@ CONTAINS
 
     INTEGER :: varid, mpi_comm, j, jl, jb, jk
     REAL(wp):: z_dummy_array(glb_arr_len,nlevs)!< local dummy array
-  !-------------------------------------------------------------------------
+
+    !-------------------------------------------------------------------------
 
     ! Get var ID
     IF(my_process_is_stdio()) CALL nf(nf_inq_varid(ncid, TRIM(varname), varid), routine)
@@ -265,10 +266,10 @@ CONTAINS
   !!
   !! @par Revision History
   !! Initial revision by F. Prill, DWD (2012-02-15)
+  !! Optional switch to read 3D field in 2D slices: F. Prill, DWD (2012-12-19)
   !!
-  SUBROUTINE read_netcdf_3d_single (ncid, varname, glb_arr_len, &
-    &                               loc_arr_len, glb_index, &
-    &                               nlevs,      var_out)
+  SUBROUTINE read_netcdf_3d_single (ncid, varname, glb_arr_len, loc_arr_len, glb_index, &
+    &                               nlevs, var_out, opt_lvalue_add)
 
     CHARACTER(len=*), INTENT(IN)  ::  &  !< Var name of field to be read
       &  varname
@@ -278,19 +279,58 @@ CONTAINS
     INTEGER, INTENT(IN) :: glb_arr_len   !< length of 1D field (global)
     INTEGER, INTENT(IN) :: loc_arr_len   !< length of 1D field (local)
     INTEGER, INTENT(IN) :: glb_index(:)  !< Index mapping local to global
-
     REAL(wp), INTENT(INOUT) :: &         !< output field
       &  var_out(:,:,:)
+    LOGICAL, INTENT(IN), OPTIONAL :: opt_lvalue_add !< If .TRUE., add values to given field
 
+    ! local constants:
     CHARACTER(len=max_char_length), PARAMETER :: &
       routine = 'mo_util_netcdf:read_netcdf_3d_single'
+    ! enable this flag to use a 3d buffer (which may be faster)
+    LOGICAL, PARAMETER :: luse3dbuffer = .FALSE.
+    ! time level (fixed)
+    INTEGER, PARAMETER :: itime = 1
 
-    INTEGER :: varid, mpi_comm, j, jl, jb, jk
-    REAL(sp):: z_dummy_array(glb_arr_len,nlevs)!< SINGLE PRECISION local array
-  !-------------------------------------------------------------------------
+    ! local variables:
+    INTEGER :: varid, mpi_comm, j, jl, jb, jk, &
+      &        istart(3), icount(3), ierrstat, &
+      &        dimlen(3), dims(3)
+    ! SINGLE PRECISION local array
+    REAL(sp), ALLOCATABLE:: tmp_buf(:,:)
+    LOGICAL :: lvalue_add
+
+    !-------------------------------------------------------------------------
+
+    lvalue_add = .FALSE.
+    CALL assign_if_present(lvalue_add, opt_lvalue_add)
+
+    ! allocate temporary buffer:
+    IF (luse3dbuffer) THEN
+      ! allocate a buffer for all levels
+      ALLOCATE(tmp_buf(glb_arr_len,nlevs), STAT=ierrstat)
+    ELSE
+      ! allocate a buffer for one vertical level
+      ALLOCATE(tmp_buf(glb_arr_len,1), STAT=ierrstat)
+    END IF
+    IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
 
     ! Get var ID
-    IF(my_process_is_stdio()) CALL nf(nf_inq_varid(ncid, TRIM(varname), varid), routine)
+    IF(my_process_is_stdio()) THEN
+      CALL nf(nf_inq_varid(ncid, TRIM(varname), varid), routine)
+
+      ! Check variable dimensions:
+      CALL nf(NF_INQ_VARDIMID(ncid, varid, dims(:)), routine)
+      DO j=1,3
+        CALL nf(NF_INQ_DIMLEN  (ncid, dims(j), dimlen(j)), routine)
+      END DO
+      IF ((dimlen(1) /= glb_arr_len) .OR.  &
+        & (dimlen(2) /= nlevs)) THEN
+        CALL finish(routine, "Incompatible dimensions!")
+      END IF
+    END IF
+
+    ! initialize output field:
+    var_out(:,:,:) = 0._wp
 
     IF(p_test_run) THEN
       mpi_comm = p_comm_work_test
@@ -299,25 +339,69 @@ CONTAINS
     ENDIF
 
     ! I/O PE reads and broadcasts data
+    IF (luse3dbuffer) THEN
+      !-- 3D buffer implementation
 
-    IF(my_process_is_stdio()) CALL nf(nf_get_var_real(ncid, varid, z_dummy_array(:,:)), routine)
-    CALL p_bcast(z_dummy_array, p_io, mpi_comm)
+      IF(my_process_is_stdio()) THEN
+        CALL nf(nf_get_var_real(ncid, varid, tmp_buf(:,:)), routine)
+      END IF
+      ! broadcast data: 
+      CALL p_bcast(tmp_buf, p_io, mpi_comm)
+      ! Set var_out from global data
+      IF (lvalue_add) THEN
+        DO jk = 1, nlevs
+          DO j = 1, loc_arr_len
+            jb = blk_no(j) ! Block index in distributed patch
+            jl = idx_no(j) ! Line  index in distributed patch
+            var_out(jl,jk,jb) = var_out(jl,jk,jb) + REAL(tmp_buf(glb_index(j),jk), wp)
+          ENDDO
+        ENDDO
+      ELSE
+        DO jk = 1, nlevs
+          DO j = 1, loc_arr_len
+            jb = blk_no(j) ! Block index in distributed patch
+            jl = idx_no(j) ! Line  index in distributed patch
+            var_out(jl,jk,jb) = REAL(tmp_buf(glb_index(j),jk), wp)
+          ENDDO
+        ENDDO
+      END IF
 
-    var_out(:,:,:) = 0._wp
+    ELSE
+      !-- 2D buffer implementation
 
-    ! Set var_out from global data
-     DO jk = 1, nlevs
-       DO j = 1, loc_arr_len
+      icount = (/ glb_arr_len,1,1 /)
+      DO jk=1,nlevs
+        istart = (/ 1,jk,itime /)
+        IF(my_process_is_stdio()) THEN
+          CALL nf(nf_get_vara_real(ncid, varid, &
+            &     istart, icount, tmp_buf(:,:)), routine)
+        END IF
 
-         jb = blk_no(j) ! Block index in distributed patch
-         jl = idx_no(j) ! Line  index in distributed patch
-               
-         var_out(jl,jk,jb) = REAL(z_dummy_array(glb_index(j),jk), wp)
+        ! broadcast data: 
+        CALL p_bcast(tmp_buf, p_io, mpi_comm)
+        ! Set var_out from global data
+        IF (lvalue_add) THEN
+          DO j = 1, loc_arr_len
+            jb = blk_no(j) ! Block index in distributed patch
+            jl = idx_no(j) ! Line  index in distributed patch
+            var_out(jl,jk,jb) = var_out(jl,jk,jb) + REAL(tmp_buf(glb_index(j),1), wp)
+          ENDDO
+        ELSE
+          DO j = 1, loc_arr_len
+            jb = blk_no(j) ! Block index in distributed patch
+            jl = idx_no(j) ! Line  index in distributed patch
+            var_out(jl,jk,jb) = REAL(tmp_buf(glb_index(j),1), wp)
+          ENDDO
+        END IF
+      END DO ! jk=1,nlevs
+      
+    END IF
+    
+    ! clean up
+    DEALLOCATE(tmp_buf, STAT=ierrstat)
+    IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")
 
-       ENDDO
-     ENDDO
-
-   END SUBROUTINE read_netcdf_3d_single
+  END SUBROUTINE read_netcdf_3d_single
 
 
   !-------------------------------------------------------------------------
@@ -592,7 +676,7 @@ CONTAINS
   SUBROUTINE nf(STATUS, routine, warnonly, silent)
     
     INTEGER, INTENT(in)           :: STATUS
-    CHARACTER(len=MAX_CHAR_LENGTH), INTENT(in) :: routine
+    CHARACTER(len=*), INTENT(in) :: routine
     LOGICAL, INTENT(in), OPTIONAL :: warnonly
     LOGICAL, INTENT(in), OPTIONAL :: silent
     

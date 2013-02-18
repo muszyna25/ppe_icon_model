@@ -44,6 +44,7 @@ MODULE mo_read_namelists
   USE mo_parallel_nml        ,ONLY: read_parallel_namelist
   USE mo_run_nml             ,ONLY: read_run_namelist
   USE mo_io_nml              ,ONLY: read_io_namelist
+  USE mo_gribout_nml         ,ONLY: read_gribout_namelist
   USE mo_dbg_nml             ,ONLY: read_dbg_namelist
 
   USE mo_nh_pzlev_nml        ,ONLY: read_nh_pzlev_namelist
@@ -71,7 +72,7 @@ MODULE mo_read_namelists
   USE mo_lnd_jsbach_nml      ,ONLY: read_lnd_jsbach_namelist
   USE mo_art_nml             ,ONLY: read_art_namelist
 
-  USE mo_prepicon_nml        ,ONLY: read_prepicon_namelist
+  USE mo_initicon_nml        ,ONLY: read_initicon_namelist
   USE mo_ha_testcases        ,ONLY: read_ha_testcase_namelist 
   USE mo_nh_testcases        ,ONLY: read_nh_testcase_namelist
 
@@ -80,6 +81,8 @@ MODULE mo_read_namelists
   USE mo_coupling_nml        ,ONLY: read_coupling_namelist
 
   USE mo_ocean_nml           ,ONLY: setup_ocean_nml
+
+  USE mo_sea_ice_nml         ,ONLY: read_sea_ice_namelist
 
   USE mo_meteogram_nml       ,ONLY: read_meteogram_namelist
   USE mo_name_list_output    ,ONLY: read_name_list_output_namelists
@@ -161,17 +164,22 @@ CONTAINS
     CALL read_gw_hines_namelist       (TRIM(atm_namelist_filename))
     CALL read_nwp_lnd_namelist        (TRIM(atm_namelist_filename))
     CALL read_lnd_jsbach_namelist     (TRIM(atm_namelist_filename))
+    CALL read_sea_ice_namelist        (TRIM(atm_namelist_filename))
     CALL read_art_namelist            (TRIM(atm_namelist_filename))
 
     ! Initial conditions
     !
-    CALL read_prepicon_namelist       (TRIM(atm_namelist_filename))
+    CALL read_initicon_namelist       (TRIM(atm_namelist_filename))
     CALL read_ha_testcase_namelist    (TRIM(atm_namelist_filename))
     CALL read_nh_testcase_namelist    (TRIM(atm_namelist_filename))
 
     ! Boundary conditions
     !
     CALL read_extpar_namelist         (TRIM(atm_namelist_filename))
+
+    !
+    ! GRIB output
+    CALL read_gribout_namelist        (TRIM(atm_namelist_filename))
 
     ! Coupling
     !
@@ -240,6 +248,10 @@ CONTAINS
     !
     CALL read_extpar_namelist         (TRIM(oce_namelist_filename))
 
+    !
+    ! GRIB output
+    !CALL read_gribout_namelist        (TRIM(oce_namelist_filename))
+
     ! Coupling
     !
     CALL read_coupling_namelist       (TRIM(oce_namelist_filename))
@@ -247,6 +259,10 @@ CONTAINS
     ! More namelists from the old setup
     !
     CALL setup_ocean_nml              (TRIM(oce_namelist_filename))
+    
+    ! Sea ice namelist
+    !
+    CALL read_sea_ice_namelist        (TRIM(oce_namelist_filename))
 
     !-----------------------------------------------------------------
     ! Close the file in which all the namelist variables and their
@@ -324,10 +340,11 @@ CONTAINS
     CALL read_gw_hines_namelist       (TRIM(cpl_dummy_namelist))
     CALL read_nwp_lnd_namelist        (TRIM(cpl_dummy_namelist))
     CALL read_lnd_jsbach_namelist     (TRIM(cpl_dummy_namelist))
+    CALL read_sea_ice_namelist        (TRIM(cpl_dummy_namelist))
 
     ! Initial conditions
     !
-    CALL read_prepicon_namelist       (TRIM(cpl_dummy_namelist))
+    CALL read_initicon_namelist       (TRIM(cpl_dummy_namelist))
     CALL read_ha_testcase_namelist    (TRIM(cpl_dummy_namelist))
     CALL read_nh_testcase_namelist    (TRIM(cpl_dummy_namelist))
 

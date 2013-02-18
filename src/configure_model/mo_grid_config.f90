@@ -38,7 +38,7 @@ MODULE mo_grid_config
   USE mo_exception,          ONLY: message_text, finish
   USE mo_impl_constants,     ONLY: max_dom, itri, ihex
   USE mo_io_units,           ONLY: filename_max 
-  USE mo_physical_constants, ONLY: earth_radius
+  USE mo_physical_constants, ONLY: earth_radius, earth_angular_velocity
   USE mo_parallel_config,    ONLY: division_method, division_file_name
 
 #ifndef NOMPI
@@ -63,13 +63,13 @@ USE mo_read_netcdf_parallel, ONLY:                &
   PUBLIC :: max_rad_dom
   
   PUBLIC :: global_cell_type, nroot, start_lev, n_dom, lfeedback,       &
-    &       lplane, corio_lat, l_limited_area, patch_weight, &
+    &       lplane, is_plane_torus, corio_lat, l_limited_area, patch_weight, &
     &       lredgrid_phys, ifeedback_type, start_time, end_time
 
   PUBLIC :: grid_rescale_factor, grid_length_rescale_factor, &
-     & grid_area_rescale_factor, grid_sphere_radius, grid_angular_velocity
+     & grid_sphere_radius, grid_angular_velocity
 
-  PUBLIC :: namelst_grid_angular_velocity
+  PUBLIC :: namelist_grid_angular_velocity
 
   PUBLIC :: dynamics_grid_filename,  dynamics_parent_grid_id,     &
     &       radiation_grid_filename, dynamics_radiation_grid_link
@@ -111,18 +111,20 @@ INCLUDE 'netcdf.inc'
                                        ! 1=redistribute for radiaiton reading from file
 
   LOGICAL  :: lplane                   ! f-plane option
-  REAL(wp) :: corio_lat                ! Latitude at which the f-plane is located 
+  LOGICAL  :: is_plane_torus = .false. ! f-plane with doubly periodic boundary==> like a plane torus
+  REAL(wp) :: corio_lat                ! Latitude, where the f-plane is located if 
+                                       ! lplane or is_plane_torus=.true.
 
   REAL(wp) :: patch_weight(max_dom)    ! If patch_weight is set to a value > 0
                                        ! for any of the first level child patches,
                                        ! processor splitting will be performed
 
-  REAL(wp) :: grid_rescale_factor = 0.0_wp
-  REAL(wp) :: grid_length_rescale_factor = 0.0_wp
-  REAL(wp) :: grid_area_rescale_factor = 0.0_wp
-  REAL(wp) :: grid_sphere_radius  = 0.0_wp
-  REAL(wp) :: grid_angular_velocity  = 0.0_wp
-  REAL(wp) :: namelst_grid_angular_velocity  = 0.0_wp
+  REAL(wp) :: grid_rescale_factor = 1.0_wp
+  REAL(wp) :: grid_length_rescale_factor = 1.0_wp
+!   REAL(wp) :: grid_area_rescale_factor = 1.0_wp
+  REAL(wp) :: grid_sphere_radius  = earth_radius
+  REAL(wp) :: grid_angular_velocity  = earth_angular_velocity
+  REAL(wp) :: namelist_grid_angular_velocity  = earth_angular_velocity
 
   CHARACTER(LEN=filename_max) :: dynamics_grid_filename(max_dom)
   INTEGER                     :: dynamics_parent_grid_id(max_dom)
@@ -146,7 +148,7 @@ CONTAINS
   SUBROUTINE init_grid_configuration
                                                
     !local variables
-    INTEGER  :: jg
+    INTEGER  :: jg, ncid, cell_type
 !    INTEGER  :: funit
     LOGICAL  :: file_exists
     CHARACTER(*), PARAMETER :: method_name = "mo_grid_config:init_grid_configuration"
@@ -194,8 +196,13 @@ CONTAINS
       
     ! get here the nroot, eventually it should be moved into the patch info
 !     nroot = get_grid_root(dynamics_grid_filename(1))
-    CALL get_gridfile_root_level(dynamics_grid_filename(1), nroot, start_lev)
+    CALL nf(nf_open(dynamics_grid_filename(1), nf_nowrite, ncid))
+    CALL get_gridfile_root_level(ncid, nroot, start_lev)
+    CALL get_gridfile_cell_type(ncid, cell_type)
+    CALL nf(nf_close(ncid))
 
+    IF (global_cell_type /= cell_type) &
+      CALL finish(method_name, "global_cell_type /= cell_type")
 
     ! domain geometric properties
 !    CALL get_gridfile_rescale_factor(dynamics_grid_filename(1), grid_rescale_factor)
@@ -203,8 +210,8 @@ CONTAINS
     CALL get_gridfile_sphere_radius(dynamics_grid_filename(1), grid_sphere_radius)
     grid_sphere_radius = grid_sphere_radius * grid_rescale_factor
     grid_length_rescale_factor = grid_rescale_factor
-    grid_area_rescale_factor   = grid_rescale_factor * grid_rescale_factor
-    grid_angular_velocity      = namelst_grid_angular_velocity / grid_rescale_factor
+!     grid_area_rescale_factor   = grid_rescale_factor * grid_rescale_factor
+    grid_angular_velocity      = namelist_grid_angular_velocity / grid_rescale_factor
 !     write(0,*) "   nroot = ", nroot
     
 !     write(0,*) "grid_sphere_radius=",grid_sphere_radius
@@ -255,18 +262,29 @@ CONTAINS
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
-  SUBROUTINE get_gridfile_root_level( patch_file, grid_root, grid_level )
-    CHARACTER(len=*),    INTENT(in)  ::  patch_file   ! name of grid file
-    INTEGER,    INTENT(inout)  ::  grid_root, grid_level
+  SUBROUTINE get_gridfile_root_level( ncid, grid_root, grid_level )
+!     CHARACTER(len=*),    INTENT(in)  ::  patch_file   ! name of grid file
+    INTEGER,    INTENT(in)     :: ncid
+    INTEGER,    INTENT(inout)  :: grid_root, grid_level
 
-    INTEGER :: ncid
-
-    CALL nf(nf_open(TRIM(patch_file), nf_nowrite, ncid))
     CALL nf(nf_get_att_int(ncid, nf_global, 'grid_root', grid_root))
     CALL nf(nf_get_att_int(ncid, nf_global, 'grid_level', grid_level))
-    CALL nf(nf_close(ncid))
 
   END SUBROUTINE get_gridfile_root_level
+  !-------------------------------------------------------------------------
+  
+  !-------------------------------------------------------------------------
+  SUBROUTINE get_gridfile_cell_type( ncid, cell_type )
+    INTEGER,    INTENT(in)     :: ncid
+    INTEGER,    INTENT(inout)  :: cell_type
+
+    INTEGER :: netcd_status
+    
+    netcd_status = nf_get_att_int(ncid, nf_global,'grid_cell_type', cell_type)
+    IF (netcd_status /= nf_noerr) & ! old grid 
+      cell_type = global_cell_type
+
+  END SUBROUTINE get_gridfile_cell_type
   !-------------------------------------------------------------------------
   
   !-------------------------------------------------------------------------

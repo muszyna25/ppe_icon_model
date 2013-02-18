@@ -48,6 +48,7 @@ MODULE mo_io_config
     &                          SUCCESS
   USE mo_exception,      ONLY: message, finish
   USE mo_run_config,     ONLY: dtime, nsteps
+  USE mo_io_units,       ONLY: filename_max
 
   IMPLICIT NONE
   PUBLIC
@@ -56,70 +57,60 @@ MODULE mo_io_config
   !--------------------------------------------------------------------------
   ! Derived type 
   !--------------------------------------------------------------------------
-  !TYPE :: t_io_config
 
-    ! from namelist
+  ! from namelist
+  
+  CHARACTER(len=max_char_length) :: out_expname
+  INTEGER :: out_filetype               ! 1 - GRIB1, 2 - netCDF
+  LOGICAL :: lkeep_in_sync              ! if .true., sync stream after each timestep
+  REAL(wp):: dt_data                    ! output timestep [seconds]
+  REAL(wp):: dt_diag                    ! diagnostic output timestep [seconds]
+  REAL(wp):: dt_file                    ! timestep [seconds] for triggering new output file
+  REAL(wp):: dt_checkpoint              ! timestep [seconds] for triggering new restart file
 
-    CHARACTER(len=max_char_length) :: out_expname
-    INTEGER :: out_filetype               ! 1 - GRIB1, 2 - netCDF
-    LOGICAL :: lkeep_in_sync              ! if .true., sync stream after each timestep
-    REAL(wp):: dt_data                    ! output timestep [seconds]
-    REAL(wp):: dt_diag                    ! diagnostic output timestep [seconds]
-    REAL(wp):: dt_file                    ! timestep [seconds] for triggering new output file
-    REAL(wp):: dt_checkpoint              ! timestep [seconds] for triggering new restart file
+  LOGICAL :: lwrite_initial             ! if .true., write out initial values
+  LOGICAL :: lwrite_dblprec             ! if .true. create double precision output
+  LOGICAL :: lwrite_decomposition       ! if .true. write field with MPI_RANK
 
-    LOGICAL :: lwrite_initial             ! if .true., write out initial values
-    LOGICAL :: lwrite_dblprec             ! if .true. create double precision output
-    LOGICAL :: lwrite_decomposition       ! if .true. write field with MPI_RANK
+  LOGICAL :: lwrite_vorticity           ! if .true., write out vorticity
+  LOGICAL :: lwrite_divergence          ! if .true., write out divergence
+  LOGICAL :: lwrite_omega               ! if .true., write out the vertical velocity
+  LOGICAL :: lwrite_pres                ! if .true., write out full level pressure
+  LOGICAL :: lwrite_z3                  ! if .true., write out geopotential on full levels
+  LOGICAL :: lwrite_tracer(max_ntracer) ! for each tracer, if .true. write out
+  ! tracer on full levels
+  LOGICAL :: lwrite_tend_phy            ! if .true., write out physics-induced tendencies
+  LOGICAL :: lwrite_radiation           ! if .true., write out fields related to radiation
+  LOGICAL :: lwrite_precip              ! if .true., write out precip
+  LOGICAL :: lwrite_cloud               ! if .true., write out cloud variables
+  ! in pressure coordinate
+  LOGICAL :: lwrite_tke                 ! if .true., write out TKE
+  LOGICAL :: lwrite_surface             ! if .true., write out surface related fields
 
-    LOGICAL :: lwrite_vorticity           ! if .true., write out vorticity
-    LOGICAL :: lwrite_divergence          ! if .true., write out divergence
-    LOGICAL :: lwrite_omega               ! if .true., write out the vertical velocity
-    LOGICAL :: lwrite_pres                ! if .true., write out full level pressure
-    LOGICAL :: lwrite_z3                  ! if .true., write out geopotential on full levels
-    LOGICAL :: lwrite_tracer(max_ntracer) ! for each tracer, if .true. write out
-                                          ! tracer on full levels
-    LOGICAL :: lwrite_tend_phy            ! if .true., write out physics-induced tendencies
-    LOGICAL :: lwrite_radiation           ! if .true., write out fields related to radiation
-    LOGICAL :: lwrite_precip              ! if .true., write out precip
-    LOGICAL :: lwrite_cloud               ! if .true., write out cloud variables
-                                          ! in pressure coordinate
-    LOGICAL :: lwrite_tke                 ! if .true., write out TKE
-    LOGICAL :: lwrite_surface             ! if .true., write out surface related fields
+  LOGICAL :: lwrite_extra               ! if .true., write out extra fields
+  INTEGER :: inextra_2d                 ! number of extra output fields for debugging
+  INTEGER :: inextra_3d                 ! number of extra output fields for debugging
+  LOGICAL :: lflux_avg                  ! if .FALSE. the output fluxes are accumulated 
+  !  from the beginning of the run
+  ! if .TRUE. the output fluxex are average values 
+  !  from the beginning of the run, except of 
+  !  TOT_PREC that would be accumulated
+  LOGICAL :: lwrite_oce_timestepping    ! if .true. write intermediate ocean variables
+  INTEGER :: itype_pres_msl             ! Specifies method for computation of mean sea level pressure
 
-    LOGICAL :: lwrite_extra               ! if .true., write out extra fields
-    INTEGER :: inextra_2d                 ! number of extra output fields for debugging
-    INTEGER :: inextra_3d                 ! number of extra output fields for debugging
-    LOGICAL :: lflux_avg                  ! if .FALSE. the output fluxes are accumulated 
-                                          !  from the beginning of the run
-                                          ! if .TRUE. the output fluxex are average values 
-                                          !  from the beginning of the run, except of 
-                                          !  TOT_PREC that would be accumulated
-    LOGICAL :: lwrite_oce_timestepping    ! if .true. write intermediate ocean variables
-    INTEGER :: itype_pres_msl             ! Specifies method for computation of mean sea level pressure
+  CHARACTER(LEN=filename_max) :: &
+    &        varnames_map_file,   &     !< maps variable names onto the internal ICON names.
+    &        out_varnames_map_file      !< maps internal variable names onto names in output file (NetCDF only).
 
 
-    ! derived variables
+  ! derived variables
 
-    LOGICAL :: l_outputtime      ! if .true., output is written at the end of the time step.
-    LOGICAL :: l_diagtime        ! if .true., diagnostic output is computed and written
-                                 ! at the end of the time step.
+  LOGICAL :: l_outputtime      ! if .true., output is written at the end of the time step.
+  LOGICAL :: l_diagtime        ! if .true., diagnostic output is computed and written at the end of the time step.
 
-!     LOGICAL :: lprepare_output(max_dom) ! if .true., save the prognostic variables
-                                        ! to p_prog_out and update p_diag_out.
-
-  !END TYPE t_io_config
-  !>
-  !!
-  !TYPE(t_io_config):: io_config(max_dom)
 
 CONTAINS
   !----------------------------------------------------------------------------------
-  !  !>
-  !  !!
-  !  subroutine configure_io(n_dom)
-  !  end subroutine configure_io
-
    FUNCTION istime4output(sim_time) RESULT(retval)
      REAL(wp), INTENT(IN)  :: sim_time            ! simulation time [s]
      LOGICAL               :: retval
@@ -135,21 +126,6 @@ CONTAINS
 
    END FUNCTION istime4output
   !----------------------------------------------------------------------------------
-
-!!$   FUNCTION istime4output(current_timestep) RESULT(retval)
-!!$     LOGICAL :: retval
-!!$     INTEGER, INTENT(IN)  :: current_timestep
-!!$
-!!$     INTEGER :: n_io
-!!$
-!!$     n_io    = NINT(dt_data/dtime)        ! write output
-!!$
-!!$     IF ( (MOD(current_timestep-1,n_io)==0 .AND. current_timestep/=1) ) THEN
-!!$       retval = .TRUE.
-!!$     ELSE
-!!$       retval = .FALSE.
-!!$     END IF
-!!$   END FUNCTION istime4output
 
   !----------------------------------------------------------------------------------
    FUNCTION istime4newoutputfile(current_timestep) RESULT(retval)

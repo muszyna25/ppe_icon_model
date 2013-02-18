@@ -32,8 +32,8 @@ scriptdir="./"
 cd ${scriptdir}
 
 #metview=metview4_new
-#metview=metview4_dev
-metview=/usr/local/apps/Metview/metview4_expt
+metview=metview4_dev
+#metview=/usr/local/apps/Metview/metview4_expt
 
 met_job=met.job.all.$nstart
 \rm -rf $met_job
@@ -42,21 +42,26 @@ integer nt
 while [[ $nt < ${#inidate[*]} ]]; do
 
   # -------------------------------------------------------
-  
-  set -A vars TQV  TQC  TQI   TCC  TQ1  TQ2  TQ3  PS                             \
+
+  set -A vars TQV             TQC            TQI              TCC                \
+              TQ1             TQ2            TQ3              TQ4       TQ5      \
+              PS              PMSL                                               \
               ACCSOB_S        ACCTHB_S       ACCSOB_T         ACCTHB_T           \
               ACCLHFL_S       ACCSHFL_S                                          \
               TOT_PREC        RAIN_GSP       SNOW_GSP         RAIN_CON  SNOW_CON \
-              Z0  T_G  QV_S   T_2M  QV_2M    U_10M  V_10M                        \
+              QV_S            T_2M           QV_2M                               \
+              U_10M           V_10M                                              \
               T_GT_tile_1     T_S_tile_1     W_I_tile_1                          \
               T_SNOW_tile_1   DZH_SNOW_tile_1                 H_SNOW_tile_1      \
               W_SNOW_tile_1   WTOT_SNOW_tile_1                WLIQ_SNOW_tile_1   \
               RHO_SNOW_tile_1 RHO_SNOW_MULT_tile_1
+#             Z0  T_G 
   for var in ${vars[*]}
   do
     echo ${metview} -b ${scriptdir}map.error $expnum $var sfc snap  ${inidate[nt]} ${initime[nt]} ${verdate[nt]} ${vertime[nt]} ${ndays} ${res} >> $met_job
   done
   set -A vars TQV             TQC            TQI              TCC                \
+              TQ1             TQ2            TQ3                                 \
               ACCSOB_S        ACCTHB_S       ACCSOB_T         ACCTHB_T           \
               ACCLHFL_S       ACCSHFL_S      TOT_PREC         PS                 \
               T_G             T_2M           U_10M            V_10M              \

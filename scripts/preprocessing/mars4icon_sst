@@ -34,7 +34,8 @@ set -x
 year=${1:-2011}
 yearm1=`expr ${year} \- 1`
 yearp1=`expr ${year} \+ 1`
-ydate="${yearm1}-12-01/${year}-01-01/${year}-02-01/${year}-03-01/${year}-04-01/${year}-05-01/${year}-06-01/${year}-07-01/${year}-08-01/${year}-09-01/${year}-10-01/${year}-11-01/${year}-12-01/${yearp1}-01-01,"
+ydate="${yearm1}-12-01/${year}-01-01/${year}-02-01/${year}-03-01/${year}-04-01/${year}-05-01/${year}-06-01/${year}-07-01/${year}-08-01/${year}-09-01/${year}-10-01/${year}-11-01/${year}-12-01/${yearp1}-01-01"
+
 
 # define data directory (if not set otherwise)
 datadir=${IFSDATADIR:-/e/uwork/${USER}/icon/ifs.data}
@@ -52,14 +53,14 @@ retrieve,
         domain   = g,
         stream   = moda,
         type     = an,
-        date     = ${ydate}
+        date     = ${ydate},
         target   = "${grib_file}",
         #param    = 34.128,                               #sst
         param    = sst,                               #sst
         repres   = gg,                                  # gaussian grid
         gaussian = regular,
         grid     = 128,                                 # ERA interim !
-        levtype  = sfc
+        levtype  = surface
 MARS_IFS2ICON_EOF.$$
 
 mars ${tempdir}/MARS_IN.$$

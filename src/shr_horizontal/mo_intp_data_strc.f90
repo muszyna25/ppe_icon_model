@@ -396,10 +396,9 @@ TYPE t_int_state
   REAL(wp), ALLOCATABLE :: geofac_grg(:,:,:,:)  ! factor for Green-Gauss gradient (nproma,4,nblks_c,2)
 
   ! f) precomputed Cartesian orientation and location vectors of edge midpoints
-  !    and location of cell centers(for efficiency)
+  !    and location of cell centers(for efficiency) : it is now computed in grid genrator stored 
+  !    in p_patch
   !------------------------------------------------------------------------------
-  REAL(wp), ALLOCATABLE :: cart_edge_coord(:,:,:)    ! Cartesian edge coordinates (nproma,nblks_e)
-  REAL(wp), ALLOCATABLE :: cart_cell_coord(:,:,:)    ! Cartesian cell coordinates (nproma,nblks_c)
 
   ! g) patch elements restored from edges to cells to reduce frequency of indirect addressing
   !------------------------------------------------------------------------------

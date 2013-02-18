@@ -48,7 +48,8 @@ MODULE mo_name_list_output_config
   USE mo_io_units,              ONLY: filename_max
   USE mo_impl_constants,        ONLY: max_phys_dom, max_bounds,          &
     &                                 vname_len, max_var_ml, max_var_pl, &
-    &                                 max_var_hl, max_var_il, max_levels
+    &                                 max_var_hl, max_var_il, max_levels,&
+    &                                 MAX_TIME_LEVELS
   USE mo_cdi_constants,         ONLY: FILETYPE_GRB, FILETYPE_GRB2
   USE mo_var_metadata,          ONLY: t_var_metadata
   USE mo_util_string,           ONLY: toupper
@@ -87,38 +88,69 @@ MODULE mo_name_list_output_config
 
   TYPE t_output_name_list
 
-    INTEGER  :: filetype            ! One of CDI's FILETYPE_XXX constants
-    CHARACTER(LEN=8) :: namespace   ! 'DWD' - DWD short names (or 'MPIM', 'CMIP', 'ECMWF')
-    CHARACTER(LEN=filename_max) :: map_file ! File containig mapping internal names -> names in NetCDF
-    INTEGER  :: mode                ! 1 = forecast mode, 2 = climate mode
-    INTEGER  :: taxis_tunit         ! 1 = TUNIT_SECOND, 2 = TUNIT_MINUTE, 3 TUNIT_HOUR ...  
-                                    ! (see cdi.inc)
-    INTEGER  :: dom(max_phys_dom)   ! domains for which this namelist is used, ending with -1
-    INTEGER  :: output_time_unit    ! 1 = second, 2=minute, 3=hour, 4=day, 5=month, 6=year
-    REAL(wp) :: output_bounds(3,max_bounds) ! post-processing times in units defined by output_time_unit: start, end, increment
-    INTEGER  :: steps_per_file      ! Max number of output steps in one output file
-    LOGICAL  :: include_last        ! Flag whether to include the last timestep in output
-    LOGICAL  :: output_grid         ! Flag whether grid information is output (in NetCDF output)
+    ! --------------------
+    ! file name and format
+    ! --------------------
+
+    INTEGER                     :: filetype          ! One of CDI's FILETYPE_XXX constants
     CHARACTER(LEN=filename_max) :: output_filename   ! output filename prefix
-    LOGICAL  :: lwrite_ready        ! Flag. TRUE if a "ready file" (sentinel file) should be written at the end of each output stage
-    CHARACTER(LEN=filename_max) :: ready_directory        ! output directory for ready files
+    CHARACTER(LEN=filename_max) :: filename_format   ! output filename format (contains keywords <physdom>,<levtype> etc.)
+
+    ! --------------------
+    ! general settings
+    ! --------------------
+
+    CHARACTER(LEN=8) :: namespace                   ! 'DWD' - DWD short names (or 'MPIM', 'CMIP', 'ECMWF')
+    INTEGER          :: mode                        ! 1 = forecast mode, 2 = climate mode
+    INTEGER          :: dom(max_phys_dom)           ! domains for which this namelist is used, ending with -1
+    INTEGER          :: output_time_unit            ! 1 = second, 2=minute, 3=hour, 4=day, 5=month, 6=year
+    INTEGER          :: steps_per_file              ! Max number of output steps in one output file
+    LOGICAL          :: include_last                ! Flag whether to include the last timestep in output
+    LOGICAL          :: output_grid                 ! Flag whether grid information is output (in NetCDF output)
+
+    ! post-processing times in units defined by output_time_unit: start, end, increment:
+    REAL(wp)         :: output_bounds(3,max_bounds) 
+
+    INTEGER          :: taxis_tunit   ! 1 = TUNIT_SECOND, 2 = TUNIT_MINUTE, 3 TUNIT_HOUR ... (see cdi.inc)
+
+    ! --------------------
+    ! ready file handling
+    ! --------------------
+
+    LOGICAL                     :: lwrite_ready     ! Flag. TRUE if a "ready file" (sentinel file) should be written
+    CHARACTER(LEN=filename_max) :: ready_directory  ! output directory for ready files
+
+    ! --------------------
+    ! variable lists
+    ! --------------------
+
     CHARACTER(LEN=vname_len)  :: ml_varlist(max_var_ml)   ! name of model level fields (translation to model by namespace)
     CHARACTER(LEN=vname_len)  :: pl_varlist(max_var_pl)   ! name of pressure level fields (translation to model by namespace)
-    REAL(wp) :: p_levels(max_levels)                      ! pressure levels [hPa]
     CHARACTER(LEN=vname_len)  :: hl_varlist(max_var_hl)   ! name of height level fields
-    REAL(wp) :: h_levels(max_levels)                      ! height levels
     CHARACTER(LEN=vname_len)  :: il_varlist(max_var_hl)   ! name of isentropic level fields
-    REAL(wp) :: i_levels(max_levels)                      ! isentropic levels
-    INTEGER  :: remap               ! interpolate horizontally, 0: none, 1: to regular lat-lon grid, 2: to Gaussian grids, (3:...)
-    LOGICAL  :: remap_internal      ! do interpolations online in the model or external (including triggering)
-    
-    INTEGER  :: lonlat_id     ! if remap=1: index of lon-lat-grid in global list "lonlat_grid_list"
 
-    INTEGER  :: gauss_tgrid_def     ! if remap=2: triangular truncation (e.g.63 for T63) for which the Gauss grid should be used
+    ! --------------------
+    ! horizontal interpol.
+    ! --------------------
 
+    INTEGER  :: remap                 ! interpolate horizontally, 0: none, 1: to regular lat-lon grid, 2: to Gaussian grids, (3:...)
+    LOGICAL  :: remap_internal        ! do interpolations online in the model or external (including triggering)
+    INTEGER  :: lonlat_id             ! if remap=1: index of lon-lat-grid in global list "lonlat_grid_list"
+
+    ! --------------------
+    ! vertical interpol.
+    ! --------------------
+
+    REAL(wp) :: p_levels(max_levels)  ! pressure levels [hPa]
+    REAL(wp) :: h_levels(max_levels)  ! height levels
+    REAL(wp) :: i_levels(max_levels)  ! isentropic levels
+
+    ! -------------------------------------
     ! Internal members, not read from input
-    INTEGER  :: cur_bounds_triple   ! current output_bounds triple in use
-    REAL(wp) :: next_output_time    ! next output time (in seconds simulation time)
+    ! -------------------------------------
+
+    INTEGER  :: cur_bounds_triple     ! current output_bounds triple in use
+    REAL(wp) :: next_output_time      ! next output time (in seconds simulation time)
     INTEGER  :: n_output_steps
     TYPE(t_output_name_list), POINTER :: next ! Pointer to next output_name_list
 
@@ -128,18 +160,23 @@ MODULE mo_name_list_output_config
   TYPE(t_output_name_list), POINTER :: first_output_name_list => NULL()
 
   !------------------------------------------------------------------------------------------------
-  ! Max number of time levels:
-  INTEGER, PARAMETER :: max_time_levels = 5
 
-  ! Unfortunately, Fortran does not allow arrays of pointers, so we have to define an extra type
+  ! Unfortunately, Fortran does not allow arrays of pointers, so we
+  ! have to define extra types
   TYPE t_rptr_5d
     REAL(wp), POINTER :: p(:,:,:,:,:)
   END TYPE
 
+  TYPE t_iptr_5d
+    INTEGER,  POINTER :: p(:,:,:,:,:)
+  END TYPE
+
   TYPE t_var_desc
-    REAL(wp), POINTER :: r_ptr(:,:,:,:,:)        ! Pointer to time level independent data (or NULL)
-    TYPE(t_rptr_5d) :: tlev_ptr(max_time_levels) ! Pointers to time level dependent data
-    TYPE(t_var_metadata) :: info                 ! Info structure for variable
+    REAL(wp), POINTER :: r_ptr(:,:,:,:,:)         ! Pointer to time level independent REAL data (or NULL)
+    INTEGER,  POINTER :: i_ptr(:,:,:,:,:)         ! Pointer to time level independent INTEGER data (or NULL)
+    TYPE(t_rptr_5d) :: tlev_rptr(MAX_TIME_LEVELS) ! Pointers to time level dependent REAL data
+    TYPE(t_iptr_5d) :: tlev_iptr(MAX_TIME_LEVELS) ! Pointers to time level dependent INTEGER data
+    TYPE(t_var_metadata) :: info                  ! Info structure for variable
   END TYPE
 
   !------------------------------------------------------------------------------------------------
@@ -153,7 +190,7 @@ MODULE mo_name_list_output_config
     REAL(wp)                    :: start_time    ! start time of model domain
     REAL(wp)                    :: end_time      ! end time of model domain
     LOGICAL                     :: initialized   ! .TRUE. if vlist setup has already been called
-
+    INTEGER                     :: ilev_type     ! level type: level_type_ml/level_type_pl/level_type_hl/level_type_il
     INTEGER                     :: max_vars      ! maximum number of variables allocated
     INTEGER                     :: num_vars      ! number of variables in use
     TYPE(t_var_desc),ALLOCATABLE :: var_desc(:)
@@ -172,17 +209,19 @@ MODULE mo_name_list_output_config
     !----------------------------
 
     ! The following members are set during open
-    CHARACTER(LEN=filename_max) :: filename      ! Actual name of output file
+    CHARACTER(LEN=filename_max) :: filename           ! Actual name of output file
+    CHARACTER(LEN=filename_max) :: rdy_filename       ! Actual name of ready file (if any)
     INTEGER                     :: cdiFileId
     INTEGER                     :: cdiVlistId         ! cdi vlist handler
     INTEGER                     :: cdiCellGridID
     INTEGER                     :: cdiVertGridID
     INTEGER                     :: cdiEdgeGridID
     INTEGER                     :: cdiLonLatGridID
-    INTEGER                     :: cdiZaxisID(18) ! All types of possible Zaxis ID's
+    INTEGER                     :: cdiZaxisID(22) ! All types of possible Zaxis ID's
     INTEGER                     :: cdiTaxisID
     INTEGER                     :: cdiTimeIndex
     INTEGER                     :: cdiInstID      ! output generating institute
+    INTEGER                     :: cdi_grb2(3,2)  !< geographical position: (GRID, latitude/longitude)
 
   END TYPE t_output_file
 
@@ -403,8 +442,10 @@ CONTAINS
       ! Nullify pointers in p_of%var_desc
       DO ivar=(p_of%max_vars+1),new_max_vars
         p_of%var_desc(ivar)%r_ptr => NULL()
+        p_of%var_desc(ivar)%i_ptr => NULL()
         DO i = 1, max_time_levels
-          p_of%var_desc(ivar)%tlev_ptr(i)%p => NULL()
+          p_of%var_desc(ivar)%tlev_rptr(i)%p => NULL()
+          p_of%var_desc(ivar)%tlev_iptr(i)%p => NULL()
         ENDDO
       END DO
 

@@ -47,8 +47,6 @@
 !!  - including all the improvements of Tobias Ruppert's diploma thesis
 !!  - several changes according to the programming guide
 !!  - functions func_f and dxg moved from here to mo_interpolation
-!!  Modification by Daniel Reinert, DWD, (2009-07-20)
-!!  - added subroutine qrdec
 !!  Modification by Daniel Reinert, DWD, (2009-10-30)
 !!  - added subroutine gnomonic_proj which uses a gnomonic projection in
 !!    order to project a point (lat_1,lon_1) onto a tangent plane with
@@ -102,10 +100,8 @@ MODULE mo_math_utilities
   USE mo_kind,                ONLY: wp
   USE mo_math_constants,      ONLY: pi, pi_2, dbl_eps
   USE mo_exception,           ONLY: message, finish
-  USE mo_parallel_config,     ONLY: nproma
-  USE mo_lonlat_grid,         ONLY: t_lon_lat_grid
-  USE mo_grid_config,         ONLY: grid_sphere_radius
-  
+  USE mo_grid_geometry_info,  ONLY: t_grid_geometry_info, planar_torus_geometry, sphere_geometry
+  USE mo_math_types
   IMPLICIT NONE
   
   PRIVATE
@@ -143,13 +139,6 @@ MODULE mo_math_utilities
   PUBLIC :: norma_of_vector_product
   PUBLIC :: project_point_to_plane
   
-  PUBLIC :: solve_lu
-  PUBLIC :: solve_chol
-  PUBLIC :: solve_chol_v
-  PUBLIC :: ludec
-  PUBLIC :: choldec
-  PUBLIC :: choldec_v
-  PUBLIC :: inv_mat
   PUBLIC :: disp_new
   PUBLIC :: disp_new_vect
   
@@ -159,45 +148,20 @@ MODULE mo_math_utilities
   PUBLIC :: integral_over_triangle
   PUBLIC :: rotate_latlon
   PUBLIC :: rotate_latlon_vec
-  PUBLIC :: rotate_latlon_grid
-  PUBLIC :: latlon_compute_area_weights
-  PUBLIC :: qrdec
+
   PUBLIC :: gnomonic_proj
   PUBLIC :: orthogr_proj
   PUBLIC :: az_eqdist_proj
   PUBLIC :: gamma_fct
-  PUBLIC :: sphere_cell_mean_char_length
+!   PUBLIC :: sphere_cell_mean_char_length
   PUBLIC :: ccw
   PUBLIC :: line_intersect
   PUBLIC :: lintersect
-  
+  PUBLIC :: tdma_solver
+ 
   PUBLIC :: OPERATOR(+)
   PUBLIC :: OPERATOR(-)
-  PUBLIC :: OPERATOR(*)
-  
-  ! cartesian coordinate class
-  TYPE t_cartesian_coordinates
-    REAL(wp) :: x(3)
-  END TYPE t_cartesian_coordinates
-  
-  ! geographical coordinate class
-  TYPE t_geographical_coordinates
-    REAL(wp) :: lon
-    REAL(wp) :: lat
-  END TYPE t_geographical_coordinates
-
-  ! the two coordinates on the tangent plane
-  TYPE t_tangent_vectors
-    REAL(wp) :: v1
-    REAL(wp) :: v2
-  END TYPE t_tangent_vectors
-  
-  ! line class
-  TYPE t_line
-    TYPE(t_geographical_coordinates) :: p1
-    TYPE(t_geographical_coordinates) :: p2
-  END TYPE t_line
-  
+  PUBLIC :: OPERATOR(*)    
   
   INTERFACE OPERATOR(+)
     MODULE PROCEDURE cartesian_coordinates_plus
@@ -207,6 +171,15 @@ MODULE mo_math_utilities
   END INTERFACE
   INTERFACE OPERATOR(*)
     MODULE PROCEDURE cartesian_coordinates_prod
+  END INTERFACE
+
+  INTERFACE arc_length
+    MODULE PROCEDURE arc_length_sphere
+    MODULE PROCEDURE arc_length_generic
+  END INTERFACE
+  INTERFACE arc_length_v
+    MODULE PROCEDURE arc_length_v_sphere
+    MODULE PROCEDURE arc_length_v_generic
   END INTERFACE
 
 !-----------------------------------------------------------------------
@@ -240,27 +213,47 @@ CONTAINS
   !! @par Revision History
   !! Original version by Tobias Ruppert and Thomas Heinze, DWD (2006-11-14)
   !!
-  PURE SUBROUTINE gvec2cvec (p_gu, p_gv, p_long, p_lat, p_cu, p_cv, p_cw)
+  SUBROUTINE gvec2cvec (p_gu, p_gv, p_long, p_lat, p_cu, p_cv, p_cw, geometry_info)
     !
     REAL(wp), INTENT(in)  :: p_gu, p_gv     ! zonal and meridional vec. component
     REAL(wp), INTENT(in)  :: p_long, p_lat  ! geo. coord. of data point
+    TYPE(t_grid_geometry_info), INTENT(in), OPTIONAL :: geometry_info
     
     REAL(wp), INTENT(out) :: p_cu, p_cv, p_cw            ! Cart. vector
     
     REAL(wp)              :: z_cln, z_sln, z_clt, z_slt  ! sin and cos of
-    ! p_long and p_lat
-    
+    INTEGER               :: geometry_type
+    CHARACTER(LEN=*), PARAMETER :: method_name='mo_math_utils:gvec2cvec'
     !-------------------------------------------------------------------------
+
+    geometry_type = sphere_geometry
+    IF (PRESENT(geometry_info)) &
+      geometry_type = geometry_info%geometry_type
     
-    z_sln = SIN(p_long)
-    z_cln = COS(p_long)
-    z_slt = SIN(p_lat)
-    z_clt = COS(p_lat)
+    SELECT CASE(geometry_type)
     
-    p_cu = z_sln * p_gu + z_slt * z_cln * p_gv
-    p_cu = -1._wp * p_cu
-    p_cv = z_cln * p_gu - z_slt * z_sln * p_gv
-    p_cw = z_clt * p_gv
+    CASE (planar_torus_geometry)
+      p_cu  = p_gu
+      p_cv  = p_gv
+      p_cw  = 0._wp
+    CASE (sphere_geometry)
+      z_sln = SIN(p_long)
+      z_cln = COS(p_long)
+      z_slt = SIN(p_lat)
+      z_clt = COS(p_lat)
+    
+      p_cu = z_sln * p_gu + z_slt * z_cln * p_gv
+      p_cu = -1._wp * p_cu
+      p_cv = z_cln * p_gu - z_slt * z_sln * p_gv
+      p_cw = z_clt * p_gv
+   CASE DEFAULT
+  ! Commented by GZ because this destroys vectorization
+  !    CALL finish(method_name, "Undefined geometry type")
+      p_cu  = p_gu
+      p_cv  = p_gv
+      p_cw  = 0._wp
+   END SELECT
+
   END SUBROUTINE gvec2cvec
   !-------------------------------------------------------------------------
   
@@ -283,26 +276,45 @@ CONTAINS
   !! @par Revision History
   !! Original version by Thomas Heinze, DWD (2006-11-16)
   !!
-  PURE SUBROUTINE cvec2gvec (p_cu, p_cv, p_cw, p_long, p_lat, p_gu, p_gv)
+  SUBROUTINE cvec2gvec (p_cu, p_cv, p_cw, p_long, p_lat, p_gu, p_gv, geometry_info)
     !
     REAL(wp), INTENT(in)  :: p_cu, p_cv, p_cw  ! Cart. vector
     REAL(wp), INTENT(in)  :: p_long, p_lat     ! geo. coord. of data point
-    
+    TYPE(t_grid_geometry_info), INTENT(in), OPTIONAL :: geometry_info
+
     REAL(wp), INTENT(out) :: p_gu, p_gv        ! zonal and meridional vec. comp.
     
     REAL(wp)              :: z_cln, z_clt, z_sln, z_slt  ! sin and cos of
-    ! p_long and p_lat
+    INTEGER               :: geometry_type
+    CHARACTER(LEN=*), PARAMETER :: method_name='mo_math_utils:cvec2gvec'
+    !-------------------------------------------------------------------------
+
+    geometry_type = sphere_geometry
+    IF (PRESENT(geometry_info)) &
+      geometry_type = geometry_info%geometry_type
     
-    !-------------------------------------------------------------------------    
-    z_sln = SIN(p_long)
-    z_cln = COS(p_long)
-    z_slt = SIN(p_lat)
-    z_clt = COS(p_lat)
+    SELECT CASE(geometry_type)
     
-    p_gu = z_cln * p_cv - z_sln * p_cu
-    p_gv = z_cln * p_cu + z_sln * p_cv
-    p_gv = z_slt * p_gv
-    p_gv = z_clt * p_cw - p_gv
+    CASE (planar_torus_geometry)
+       p_gu = p_cu
+       p_gv = p_cv
+    CASE (sphere_geometry)
+      ! p_long and p_lat
+      z_sln = SIN(p_long)
+      z_cln = COS(p_long)
+      z_slt = SIN(p_lat)
+      z_clt = COS(p_lat)
+      
+      p_gu = z_cln * p_cv - z_sln * p_cu
+      p_gv = z_cln * p_cu + z_sln * p_cv
+      p_gv = z_slt * p_gv
+      p_gv = z_clt * p_cw - p_gv
+    CASE DEFAULT
+  ! Commented by GZ because this destroys vectorization
+  !    CALL finish(method_name, "Undefined geometry type")
+       p_gu = p_cu
+       p_gv = p_cv
+    END SELECT
     
   END SUBROUTINE cvec2gvec
   !-------------------------------------------------------------------------
@@ -509,7 +521,7 @@ CONTAINS
   !! Developed by Th.Heinze (2006-09-19).
   !! Previous version by Luis Kornblueh (2004) discarded.
   !!
-  ELEMENTAL FUNCTION arc_length (p_x, p_y)  result (p_arc)
+  ELEMENTAL FUNCTION arc_length_sphere (p_x, p_y)  result (p_arc)
   
     TYPE(t_cartesian_coordinates), INTENT(in) :: p_x, p_y  ! endpoints
     
@@ -531,7 +543,48 @@ CONTAINS
     
     p_arc = ACOS(z_cc)
     
-  END FUNCTION arc_length
+  END FUNCTION arc_length_sphere
+
+  !-------------------------------------------------------------------------
+  !>
+  !! Computes length of geodesic arc with endpoints @f$p\_x, p\_y@f$.
+  !!
+  !! @par Revision History
+  !! Developed by Th.Heinze (2006-09-19).
+  !! Previous version by Luis Kornblueh (2004) discarded.
+  !! Modified by Anurag Dipankar, MPIM (2012-12-27)
+  !! -Elemental form of the function wasn't allowing call to another routines
+  FUNCTION arc_length_generic (p_x, p_y, geometry_info)  result (p_arc)
+  
+    TYPE(t_cartesian_coordinates), INTENT(in) :: p_x, p_y  ! endpoints
+    TYPE(t_grid_geometry_info), INTENT(in) :: geometry_info
+    
+    REAL(wp)            :: p_arc          ! length of geodesic arc
+    
+    REAL(wp)            :: z_lx,  z_ly    ! length of vector p_x and p_y
+    REAL(wp)            :: z_cc           ! cos of angle between endpoints
+    INTEGER             :: geometry_type
+    CHARACTER(LEN=*), PARAMETER :: method_name='mo_math_utils:arc_length'
+    !-----------------------------------------------------------------------
+    
+    geometry_type = geometry_info%geometry_type
+    
+    SELECT CASE(geometry_type)
+    
+    CASE (planar_torus_geometry)
+      !Assuming that the flat geometry is nothing but a small arc 
+      !over sphere. This assumption doesn't really affect any calculation
+      p_arc = plane_torus_distance(p_x%x,p_y%x,geometry_info) / &
+              geometry_info%sphere_radius
+    CASE (sphere_geometry)
+      !    
+      p_arc = arc_length_sphere (p_x, p_y)
+    CASE DEFAULT    
+      !
+      CALL finish(method_name, "Undefined geometry type")
+    END SELECT
+
+  END FUNCTION arc_length_generic
   !-------------------------------------------------------------------------
   
   !-------------------------------------------------------------------------
@@ -570,7 +623,7 @@ CONTAINS
   !! Previous version by Luis Kornblueh (2004) discarded.
   !! Vectorizable version developed by Guenther Zaengl, DWD (2009-04-20)
   !!
-  PURE FUNCTION arc_length_v (p_x, p_y)  result (p_arc)
+  PURE FUNCTION arc_length_v_sphere (p_x, p_y)  result (p_arc)
     REAL(wp), INTENT(in) :: p_x(3), p_y(3)  ! endpoints
     
     REAL(wp)            :: p_arc          ! length of geodesic arc
@@ -592,7 +645,50 @@ CONTAINS
     
     p_arc = ACOS(z_cc)
     
-  END FUNCTION arc_length_v
+  END FUNCTION arc_length_v_sphere
+
+  !-------------------------------------------------------------------------
+  !>
+  !! Computes length of geodesic arc with endpoints @f$p\_x, p\_y@f$.
+  !!
+  !! Vectorizable version
+  !!
+  !! @par Revision History
+  !! Developed by Th.Heinze (2006-09-19).
+  !! Previous version by Luis Kornblueh (2004) discarded.
+  !! Vectorizable version developed by Guenther Zaengl, DWD (2009-04-20)
+  !! Modified by Anurag Dipankar, MPIM (2012-12-27)
+  !! -Elemental form of the function wasn't allowing call to another routines
+  FUNCTION arc_length_v_generic (p_x, p_y, geometry_info)  result (p_arc)
+    REAL(wp), INTENT(in) :: p_x(3), p_y(3)  ! endpoints
+    TYPE(t_grid_geometry_info), INTENT(in) :: geometry_info
+    
+    REAL(wp)            :: p_arc          ! length of geodesic arc
+    
+    REAL(wp)            :: z_lx,  z_ly    ! length of vector p_x and p_y
+    REAL(wp)            :: z_cc           ! cos of angle between endpoints
+    INTEGER             :: geometry_type
+    CHARACTER(LEN=*), PARAMETER :: method_name='mo_math_utils:arc_length'
+    !-----------------------------------------------------------------------
+    
+    geometry_type = geometry_info%geometry_type
+    
+    SELECT CASE(geometry_type)
+    
+    CASE (planar_torus_geometry)
+      !Assuming that the flat geometry is nothing but a small arc 
+      !over sphere. This assumption doesn't really affect any calculation
+      p_arc = plane_torus_distance(p_x,p_y,geometry_info) / &
+              geometry_info%sphere_radius
+    CASE (sphere_geometry)
+      !
+      p_arc = arc_length_v_sphere (p_x, p_y)
+    CASE DEFAULT    
+      !
+      CALL finish(method_name, "Undefined geometry type")
+    END SELECT
+    
+  END FUNCTION arc_length_v_generic
   !-------------------------------------------------------------------------
   
   !-----------------------------------------------------------------------
@@ -620,59 +716,63 @@ CONTAINS
   END FUNCTION cos_arc_length
   !-----------------------------------------------------------------------
   
-  !--------------------------------------------------------------------
+  !-----------------------------------------------------------------------
+  !>
+  ! returns the torus modulo coordinates of v1 that are
+  ! closest to v0
   FUNCTION plane_torus_closest_coordinates(v0, v1, &
-    & length_of_torus, height_of_torus) result(new_v1_coord)
+    & geometry_info) result(new_v1_coord)
     
-    TYPE(t_cartesian_coordinates), INTENT(in) :: v0, v1
-    REAL(wp), INTENT(in) :: length_of_torus, height_of_torus
+    REAL(wp), INTENT(in) :: v0(3), v1(3)
+    TYPE(t_grid_geometry_info), INTENT(in) :: geometry_info
     
+    REAL(wp) :: length_of_torus, height_of_torus
     TYPE(t_cartesian_coordinates) :: new_v1_coord
 
-    TYPE(t_cartesian_coordinates) :: dv
-
+    length_of_torus = geometry_info%domain_length
+    height_of_torus = geometry_info%domain_height
     ! check the x coordinate
-    IF ( ABS(v0%x(1) - v1%x(1)) >  length_of_torus * 0.5_wp) THEN
+    IF ( ABS(v0(1) - v1(1)) >  length_of_torus * 0.5_wp) THEN
       ! we will wrap around + or -  length_of_torus       
-      IF (v0%x(1) > v1%x(1)) THEN
-        new_v1_coord%x(1) = v1%x(1) + length_of_torus
+      IF (v0(1) > v1(1)) THEN
+        new_v1_coord%x(1) = v1(1) + length_of_torus
       ELSE
-        new_v1_coord%x(1) = v1%x(1) - length_of_torus
+        new_v1_coord%x(1) = v1(1) - length_of_torus
       ENDIF
     ELSE
       ! keep the same 
-      new_v1_coord%x(1) = v1%x(1)
+      new_v1_coord%x(1) = v1(1)
     ENDIF
 
     ! check the y coordinate
-    IF ( ABS(v0%x(2) - v1%x(2)) >  height_of_torus * 0.5_wp) THEN
+    IF ( ABS(v0(2) - v1(2)) >  height_of_torus * 0.5_wp) THEN
       ! we will wrap around + or -  length_of_torus       
-      IF (v0%x(2) > v1%x(2)) THEN
-        new_v1_coord%x(2) = v1%x(2) + height_of_torus
+      IF (v0(2) > v1(2)) THEN
+        new_v1_coord%x(2) = v1(2) + height_of_torus
       ELSE
-        new_v1_coord%x(2) = v1%x(2) - height_of_torus
+        new_v1_coord%x(2) = v1(2) - height_of_torus
       ENDIF
     ELSE
       ! keep the same 
-      new_v1_coord%x(2) = v1%x(2)
+      new_v1_coord%x(2) = v1(2)
     ENDIF
 
     ! this should be zero
-    new_v1_coord%x(3) = v1%x(3)
+    new_v1_coord%x(3) = v1(3)
     
   END FUNCTION plane_torus_closest_coordinates
   !--------------------------------------------------------------------
 
   !--------------------------------------------------------------------
   REAL(wp) FUNCTION plane_torus_distance(v0, v1, &
-    & length_of_torus, height_of_torus)
-    TYPE(t_cartesian_coordinates), INTENT(in) :: v0, v1
-    REAL(wp), INTENT(in) :: length_of_torus, height_of_torus
+    & geometry_info)
+    REAL(wp), INTENT(in) :: v0(3), v1(3)
+    TYPE(t_grid_geometry_info), INTENT(in) :: geometry_info
 
     TYPE(t_cartesian_coordinates) :: dv
 
-    dv = plane_torus_closest_coordinates(v0, v1, length_of_torus, height_of_torus)
-    dv%x = dv%x - v0%x
+    dv = plane_torus_closest_coordinates(v0, v1, geometry_info)
+    dv%x = dv%x - v0
     plane_torus_distance = d_norma_3d(dv)
     
   END FUNCTION plane_torus_distance
@@ -682,7 +782,6 @@ CONTAINS
   ELEMENTAL FUNCTION sphere_cartesian_midpoint (p1, p2) result(mid_point)
     TYPE(t_cartesian_coordinates), INTENT(in) :: p1, p2
     TYPE(t_cartesian_coordinates) :: mid_point
-
 
       mid_point%x = (p1%x + p2%x)
       mid_point%x = mid_point%x / &
@@ -1097,590 +1196,7 @@ CONTAINS
 
   END FUNCTION norma_of_vector_product
   !-------------------------------------------------------------------------
-
-  
-  !-------------------------------------------------------------------------
-  !>
-  !!  Home made routine for LU decomposition.
-  !!
-  !!  Home made routine for LU decomposition
-  !!  to be substituted by call from linear algebra library;
-  !!  provides input matrix for routine <i>solve</i>;<br>
-  !!  @f$k\_dim@f$  : matrix dimension <br>
-  !!  @f$p\_a@f$    : input matrix, overwritten by lu decomposition <br>
-  !!  @f$k\_pivot@f$: integer index array recording row pivot line exchanges
-  !!
-  !! @par Revision History
-  !! Developed  by P.Korn (2006).
-  !! Revised by Th.Heinze, DWD, (2006-11-01):
-  !! - changed stop criterion from 1.e-08 to 1.e-12
-  !!
-  SUBROUTINE ludec (k_dim, p_a, k_pivot)
-    !
-    INTEGER, INTENT(in)     :: k_dim              ! matrix dimension
-    
-    REAL(wp), INTENT(inout) :: p_a(k_dim,k_dim)   ! input matrix
-    
-    INTEGER, INTENT(out)    :: k_pivot(k_dim)     ! pivoting index
-    
-    REAL(wp)                :: z_rmax(k_dim)      ! reciprocal of max value for
-    ! each row
-    REAL(wp)                :: z_temp             ! temporary variable
-    REAL(wp)                :: z_max              ! max value
-    REAL(wp)                :: z_sum, z_dum       ! variables generated by matrix
-    ! entries
-    INTEGER :: ji, jj, jk         ! integer over dimension
-    INTEGER :: imax
-    
-    !-----------------------------------------------------------------------
-    
-    imax = 0
-    
-    DO ji = 1, k_dim
-      z_max = 0._wp
-      DO jj = 1, k_dim
-        z_temp = ABS(p_a(ji,jj))
-        IF(z_temp >= z_max) THEN
-          z_max = z_temp
-        ENDIF
-      ENDDO
-#if defined(SINGULARITY_CHECKS)
-      IF (z_max <= 1.e-12_wp) THEN
-        CALL message ('mo_math_utilities:ludec', &
-          & 'error in matrix inversion, nearly singular matrix')
-        CALL finish  ('mo_math_utilities:ludec', &
-          & 'error in matrix inversion, nearly singular matrix')
-      ENDIF
-#endif
-      
-      z_rmax(ji) = 1._wp / z_max
-    ENDDO
-    
-    DO jj = 1, k_dim
-      DO ji = 1, jj-1
-        z_sum = p_a(ji,jj)
-        DO jk = 1, ji-1
-          z_sum = z_sum - p_a(ji,jk) * p_a(jk,jj)
-        ENDDO
-        p_a(ji,jj) = z_sum
-      ENDDO
-      
-      z_max = 0._wp
-      
-      DO ji = jj, k_dim
-        z_sum = p_a(ji,jj)
-        DO jk = 1, jj-1
-          z_sum = z_sum - p_a(ji,jk) * p_a(jk,jj)
-        ENDDO
-        p_a(ji,jj) = z_sum
-        z_dum = z_rmax(ji) * ABS(z_sum)
-        IF (z_dum >= z_max) THEN
-          z_max = z_dum
-          imax  = ji
-        ENDIF
-      ENDDO
-      
-      IF (jj /= imax) THEN
-        
-        DO jk=1,k_dim
-          z_dum        = p_a(imax,jk)
-          p_a(imax,jk) = p_a(jj,jk)
-          p_a(jj,jk)   = z_dum
-        ENDDO
-        z_rmax(imax) = z_rmax(jj)
-        
-      ENDIF
-      
-      k_pivot(jj) = imax
-#if defined(SINGULARITY_CHECKS)
-      IF (ABS(p_a(jj,jj)) <= 1.e-12_wp) THEN
-        CALL message ('mo_math_utilities:ludec', &
-          & 'error  in matrix inversion, nearly singular matrix 2')
-        CALL finish  ('mo_math_utilities:ludec', &
-          & 'error  in matrix inversion, nearly singular matrix 2')
-      ENDIF
-#endif
-      IF (jj /= k_dim) THEN
-        z_dum = 1._wp / p_a(jj,jj)
-        DO ji = jj + 1, k_dim
-          p_a(ji,jj) = p_a(ji,jj) * z_dum
-        ENDDO
-      ENDIF
-    ENDDO
-    
-  END SUBROUTINE ludec
-  !-------------------------------------------------------------------------  
-  
-  !-------------------------------------------------------------------------
-  !>
-  !!  QR decomposition of (m x n) matrix  Applies modified Gram-Schmidt algorithm.
-  !!
-  !!  QR decomposition of (m x n) matrix  Applies modified Gram-Schmidt algorithm
-  !!  @f$p\_inmat@f$ : input matrix (m x n)<br>
-  !!  @f$p\_qmat@f$  : Q matrix (orthogonal) (m x n) <br>
-  !!  @f$p\_rmat@f$  : R matrix (upper triangular) (n x n)
-  !!
-  !! @par Revision History
-  !! Developed and tested by Daniel Reinert, DWD (2009-11-26)
-  !!
-  SUBROUTINE qrdec (nrow, ncol, i_startidx, i_endidx, p_inmat, p_qmat, p_rmat)
-    !
-    ! !LITERATURE
-    ! Ruenger et al. (2005): Comparison of different parallel modified
-    !                        Gram-Schmidt Algorithms. Lecture Notes in
-    !                        Computer Science, 3648, 826-836
-    !
-    INTEGER, INTENT(in)  :: nrow          ! number of rows (m) of matrix
-    ! p\_inmat
-    
-    INTEGER, INTENT(in)  :: ncol          ! number of columns (n) of matrix
-    ! p\_inmat
-    
-    INTEGER, INTENT(in)  :: i_startidx,  & ! start and and indices for
-      & i_endidx       ! loop over cells
-    
-    REAL(wp), INTENT(in) :: p_inmat(:,:,:)   ! matrix for which QR-
-    ! factorization is calculated
-    
-    REAL(wp), INTENT(out)  :: p_qmat(nproma,nrow,ncol)  ! Q matrix
-    REAL(wp), INTENT(out)  :: p_rmat(nproma,ncol,ncol)  ! R matrix
-    
-    INTEGER :: i, k, jc                   ! loop indices
-    REAL(wp) :: z_q(nproma,nrow)          ! column of input matrix
-    REAL(wp) :: d_product(nproma)
-    
-    !-----------------------------------------------------------------------    
-    ! Modified Gram-Schmidt algorithm
-    !
-    p_qmat(i_startidx:i_endidx,:,:) = p_inmat(i_startidx:i_endidx,:,:)
-    
-    DO i=1, ncol
-      
-      DO jc = i_startidx, i_endidx
-        z_q(jc,1:nrow)      = p_qmat(jc,1:nrow,i)                          ! ith column
-        p_rmat(jc,i,i) = SQRT(DOT_PRODUCT(z_q(jc,1:nrow),z_q(jc,1:nrow)))  ! vector length
-        z_q(jc,1:nrow)      = z_q(jc,1:nrow)/p_rmat(jc,i,i)                ! normalization
-        p_qmat(jc,1:nrow,i) = z_q(jc,1:nrow)
-        
-        ! loop over all old columns of the input array
-        DO k=i+1,ncol
-          d_product(jc) = DOT_PRODUCT(p_qmat(jc,1:nrow,k),z_q(jc,1:nrow))
-          p_qmat(jc,1:nrow,k) = p_qmat(jc,1:nrow,k) - d_product(jc) * z_q(jc,1:nrow)
-          p_rmat(jc,i,k) = d_product(jc)
-        ENDDO
-      ENDDO
-      
-    ENDDO
-    
-  END SUBROUTINE qrdec
-  !-------------------------------------------------------------------------
-  
-  
-  !-------------------------------------------------------------------------
-  !>
-  !! Given a positive-definite symmetric matrix @f$p\_a(1:k\_dim,1:k\_dim)@f$, with.
-  !!
-  !! Given a positive-definite symmetric matrix @f$p\_a(1:k\_dim,1:k\_dim)@f$, with
-  !! physical dimension @f$k\_dim@f$, this routine constructs its Cholesky
-  !! decomposition, @f$p\_a = LL^T@f$. On input, only the upper triangle of @f$p\_a@f$
-  !! need be given; it is not modified. The Cholesky factor @f$L@f$ is returned
-  !! in the lower triangle of @f$p\_a@f$, except for its diagonal elements which are
-  !! returned in @f$p\_diag(1:k\_dim)@f$.
-  !!
-  !! @par Revision History
-  !!  Original version by Tobias Ruppert and Thomas Heinze, DWD (2006-11-14)
-  !!
-  SUBROUTINE choldec (k_dim, p_a, p_diag)
-    !
-    
-    INTEGER, INTENT(in)       :: k_dim                ! matrix dimension
-    
-    REAL(wp), INTENT(inout)   :: p_a(:,:)             ! input matrix
-    
-    REAL(wp), INTENT(out)     :: p_diag(:)            ! diagonal of output matrix
-    
-    REAL(wp)                  :: z_sum                ! variable generated by
-    ! matrix entries
-    INTEGER :: ji, jj, jk           ! integer over dimension
-    
-    !-----------------------------------------------------------------------   
-    DO ji = 1, k_dim
-      DO jj = ji, k_dim
-        z_sum = p_a(ji,jj)
-        
-        DO jk = ji-1, 1, -1
-          z_sum = z_sum - p_a(ji,jk) * p_a(jj,jk)
-        ENDDO
-        
-        IF (ji == jj) THEN
-#if defined(SINGULARITY_CHECKS)
-          IF (z_sum <= 1.e-12_wp) THEN
-            CALL message ('mo_math_utilities:choldec',                           &
-              & 'error in matrix inversion, nearly singular matrix')
-            CALL finish  ('mo_math_utilities:choldec',                           &
-              & 'error in matrix inversion, nearly singular matrix')
-          ELSE
-#endif
-            p_diag(ji) = SQRT(z_sum)
-#if defined(SINGULARITY_CHECKS)
-          ENDIF
-#endif
-        ELSE
-          p_a(jj,ji) = z_sum / p_diag(ji)
-        ENDIF
-      ENDDO
-    ENDDO
-    
-  END SUBROUTINE choldec
-  !-------------------------------------------------------------------------
-  
-  !-------------------------------------------------------------------------
-  !>
-  !! Vectorized version of choldec.
-  !!
-  !! Vectorized version of choldec
-  !! Given a positive-definite symmetric matrix @f$p\_a(1:k\_dim,1:k\_dim)@f$, with
-  !! physical dimension @f$k\_dim@f$, this routine constructs its Cholesky
-  !! decomposition, @f$p\_a = LL^T@f$. On input, only the upper triangle of @f$p\_a@f$
-  !! need be given; it is not modified. The Cholesky factor @f$L@f$ is returned
-  !! in the lower triangle of @f$p\_a@f$, except for its diagonal elements which are
-  !! returned in @f$p\_diag(1:k\_dim)@f$.
-  !!
-  !! @par Revision History
-  !!  Original version by Tobias Ruppert and Thomas Heinze, DWD (2006-11-14)
-  !!  Vectorized version by Guenther Zaengl, DWD (2009-04-20)
-  !!
-#ifdef __SX__
-  SUBROUTINE choldec_v (istart, iend, k_dim, maxdim, p_a, p_diag)
-    
-    INTEGER, INTENT(in)       :: istart, iend         ! start and end index    
-    INTEGER, INTENT(in)       :: k_dim(:)                ! matrix dimension    
-    INTEGER, INTENT(in)       :: maxdim                  ! maximum matrix dimension
-    REAL(wp), INTENT(inout)   :: p_a(:,:,:)             ! input matrix    
-    REAL(wp), INTENT(out)     :: p_diag(:,:)            ! diagonal of output matrix
-    
-    REAL(wp)                  :: z_sum(nproma)        ! variable generated by
-    ! matrix entries
-    INTEGER :: jc, ji, jj, jk           ! integer over dimension
-    
-    !-----------------------------------------------------------------------    
-    DO ji = 1, maxdim
-      DO jj = ji, maxdim
-        DO jc = istart, iend
-          IF ((ji > k_dim(jc)) .OR. (jj > k_dim(jc))) CYCLE
-          z_sum(jc) = p_a(jc,ji,jj)
-        ENDDO
-        DO jk = ji-1, 1, -1
-          DO jc = istart, iend
-            IF ((ji > k_dim(jc)) .OR. (jj > k_dim(jc))) CYCLE
-            z_sum(jc) = z_sum(jc) - p_a(jc,ji,jk) * p_a(jc,jj,jk)
-          ENDDO
-        ENDDO
-        
-        IF (ji == jj) THEN
-          DO jc = istart, iend
-            IF (ji > k_dim(jc)) CYCLE
-            p_diag(jc,ji) = SQRT(z_sum(jc))
-          ENDDO
-        ELSE
-          DO jc = istart, iend
-            IF ((ji > k_dim(jc)) .OR. (jj > k_dim(jc))) CYCLE
-            p_a(jc,jj,ji) = z_sum(jc) / p_diag(jc,ji)
-          ENDDO
-        ENDIF
-      ENDDO
-    ENDDO
-    
-  END SUBROUTINE choldec_v
-#else
-  ! non-vecorized version
-  SUBROUTINE choldec_v (istart, iend, k_dim, p_a, p_diag)
-    !    
-    INTEGER, INTENT(in)       :: istart, iend         ! start and end index    
-    INTEGER, INTENT(in)       :: k_dim(:)                ! matrix dimension    
-    REAL(wp), INTENT(inout)   :: p_a(:,:,:)             ! input matrix   
-    REAL(wp), INTENT(out)     :: p_diag(:,:)            ! diagonal of output matrix
-    
-    REAL(wp)                  :: z_sum                ! variable generated by
-    ! matrix entries
-    INTEGER :: jc, ji, jj, jk           ! integer over dimension
-    
-    !-----------------------------------------------------------------------    
-    DO jc = istart, iend
-      DO ji = 1, k_dim(jc)
-        DO jj = ji, k_dim(jc)
-          z_sum = p_a(jc,ji,jj)
-          
-          DO jk = ji-1, 1, -1
-            z_sum = z_sum - p_a(jc,ji,jk) * p_a(jc,jj,jk)
-          ENDDO
-          
-          IF (ji == jj) THEN
-#if defined(SINGULARITY_CHECKS)
-            IF (z_sum <= 1.e-12_wp) THEN
-              WRITE (*,*) p_a
-              CALL message ('mo_math_utilities:choldec',                           &
-                & 'error in matrix inversion, nearly singular matrix')
-              CALL finish  ('mo_math_utilities:choldec',                           &
-                & 'error in matrix inversion, nearly singular matrix')
-            ELSE
-#endif
-              p_diag(jc,ji) = SQRT(z_sum)
-#if defined(SINGULARITY_CHECKS)
-            ENDIF
-#endif
-          ELSE
-            p_a(jc,jj,ji) = z_sum / p_diag(jc,ji)
-          ENDIF
-        ENDDO
-      ENDDO
-    ENDDO
-    
-  END SUBROUTINE choldec_v
-#endif
-  !-------------------------------------------------------------------------
-  
-  !-------------------------------------------------------------------------
-  !>
-  !! Compute the inverse of matrix a (use only for VERY small matrices!).
-  !!
-  !!
-  !! @par Revision History
-  !! Original version by Marco Restelli (2007-11-22)
-  !!
-  SUBROUTINE inv_mat (a)
-    
-    REAL(wp), INTENT(inout)   :: a(:,:)     ! input matrix
-    
-    INTEGER :: k_pivot(SIZE(a,1)), j
-    REAL(wp) :: b(SIZE(a,1),SIZE(a,1)), e(SIZE(a,1))
-    !-----------------------------------------------------------------------
-    
-    b = a
-    CALL ludec(SIZE(a,1),b,k_pivot)
-    
-    DO j=1,SIZE(a,1)
-      e = 0.0_wp
-      e(j) = 1.0_wp
-      CALL solve_lu(SIZE(a,1),b,e,a(:,j),k_pivot)
-    ENDDO
-    
-  END SUBROUTINE inv_mat
-  !-------------------------------------------------------------------------
-  
-  !-------------------------------------------------------------------------
-  !>
-  !! Solves the set of @f$k\_dim@f$ linear equations @f$p\_a \cdot p\_x = p\_b@f$, where.
-  !!
-  !! Solves the set of @f$k\_dim@f$ linear equations @f$p\_a \cdot p\_x = p\_b@f$, where
-  !! @f$p\_a@f$ is a positive-definite symmetric matrix with physical dimension @f$k\_dim@f$.
-  !! @f$p\_a@f$ and @f$p\_diag@f$ are input as the output of the routine {\\tt choldec}.
-  !! Only the lower triangle of @f$p\_a@f$ is accessed. @f$p\_b(1:k\_dim)@f$ is input as
-  !! the right-hand side vector. The solution vector is returned in @f$p\_x(1:k\_dim)@f$.
-  !! @f$p\_a@f$ and @f$p\_diag@f$ are not modified and can be left in place for successive
-  !! calls with different right-hand sides @f$p\_b@f$. @f$p\_b@f$ is not modified unless
-  !! you identify @f$p\_b@f$ and @f$p\_x@f$ in the calling sequence, which is allowed.
-  !!
-  !! @par Revision History
-  !!  Original version by Tobias Ruppert and Thomas Heinze, DWD (2006-11-14)
-  !!
-  SUBROUTINE solve_chol (k_dim, p_a, p_diag, p_b, p_x)
-    !
-    INTEGER,  INTENT(in)   :: k_dim         ! matrix dimension
-    REAL(wp), INTENT(in)   :: p_a(:,:)      ! (k_dim,k_dim) matrix
-    REAL(wp), INTENT(in)   :: p_diag(:)     ! (k_dim) diagonal of matrix
-    
-    REAL(wp), INTENT(inout):: p_b(:)        ! (k_dim) input vector    
-    REAL(wp), INTENT(inout):: p_x(:)        ! (k_dim) output vector
-    
-    REAL(wp)               :: z_sum         ! variable generated by
-    ! matrix entries
-    INTEGER :: ji, jj        ! integer over dimensions
-    
-    !-----------------------------------------------------------------------    
-    ! Solve L*y = b, storing y in x.    
-    DO ji = 1, k_dim
-      z_sum = p_b(ji)
-      DO jj = ji - 1, 1, -1
-        z_sum = z_sum - p_a(ji,jj) * p_x(jj)
-      ENDDO
-      p_x(ji) = z_sum / p_diag(ji)
-    ENDDO
-    
-    ! Solve L^T * x = y
-    
-    DO ji = k_dim, 1, -1
-      z_sum = p_x(ji)
-      DO jj = ji+1, k_dim
-        z_sum = z_sum - p_a(jj,ji) * p_x(jj)
-      ENDDO
-      p_x(ji) = z_sum / p_diag(ji)
-    ENDDO
-    
-  END SUBROUTINE solve_chol
-  !-------------------------------------------------------------------------
-  
-  !-------------------------------------------------------------------------
-  !>
-  !! Solves the set of @f$k\_dim@f$ linear equations @f$p\_a \cdot p\_x = p\_b@f$, where.
-  !!
-  !! Solves the set of @f$k\_dim@f$ linear equations @f$p\_a \cdot p\_x = p\_b@f$, where
-  !! @f$p\_a@f$ is a positive-definite symmetric matrix with physical dimension @f$k\_dim@f$.
-  !! @f$p\_a@f$ and @f$p\_diag@f$ are input as the output of the routine {\\tt choldec}.
-  !! Only the lower triangle of @f$p\_a@f$ is accessed. @f$p\_b(1:k\_dim)@f$ is input as
-  !! the right-hand side vector. The solution vector is returned in @f$p\_x(1:k\_dim)@f$.
-  !! @f$p\_a@f$ and @f$p\_diag@f$ are not modified and can be left in place for successive
-  !! calls with different right-hand sides @f$p\_b@f$. @f$p\_b@f$ is not modified unless
-  !! you identify @f$p\_b@f$ and @f$p\_x@f$ in the calling sequence, which is allowed.
-  !!
-  !! @par Revision History
-  !!  Original version by Tobias Ruppert and Thomas Heinze, DWD (2006-11-14)
-  !!
-#ifdef __SX__
-  SUBROUTINE solve_chol_v (istart, iend, k_dim, maxdim, p_a, p_diag, p_b, p_x)
-    !
-    INTEGER,  INTENT(in)   :: istart, iend    ! start and end indices
-    INTEGER,  INTENT(in)   :: k_dim(:)        ! (nproma) matrix dimension
-    INTEGER,  INTENT(in)   :: maxdim          ! maximum matrix dimension
-    REAL(wp), INTENT(in)   :: p_a(:,:,:)      ! (nproma,k_dim,k_dim) matrix
-    REAL(wp), INTENT(in)   :: p_diag(:,:)     ! (nproma,k_dim) diagonal of matrix
-    
-    REAL(wp), INTENT(inout):: p_b(:,:)        ! (nproma,k_dim) input vector
-    
-    REAL(wp), INTENT(inout):: p_x(:,:)        ! (k_dim,nproma) output vector
-    
-    REAL(wp)               :: z_sum(nproma) ! variable generated by
-    ! matrix entries
-    INTEGER :: jc, ji, jj    ! integer over dimensions
-    
-    !-----------------------------------------------------------------------
-    ! Solve L*y = b, storing y in x.    
-    DO ji = 1,maxdim
-      DO jc = istart, iend
-        IF (ji > k_dim(jc)) CYCLE
-        z_sum(jc) = p_b(jc,ji)
-      ENDDO
-      DO jj = ji - 1, 1, -1
-        DO jc = istart, iend
-          IF (ji > k_dim(jc)) CYCLE
-          z_sum(jc) = z_sum(jc) - p_a(jc,ji,jj) * p_x(jj,jc)
-        ENDDO
-      ENDDO
-      DO jc = istart, iend
-        IF (ji > k_dim(jc)) CYCLE
-        p_x(ji,jc) = z_sum(jc) / p_diag(jc,ji)
-      ENDDO
-    ENDDO
-    
-    ! Solve L^T * x = y    
-    DO ji = maxdim, 1, -1
-      DO jc = istart, iend
-        IF (ji > k_dim(jc)) CYCLE
-        z_sum(jc) = p_x(ji,jc)
-      ENDDO
-      DO jj = ji+1, maxdim
-        DO jc = istart, iend
-          IF ((ji > k_dim(jc)) .OR. (jj > k_dim(jc))) CYCLE
-          z_sum(jc) = z_sum(jc) - p_a(jc,jj,ji) * p_x(jj,jc)
-        ENDDO
-      ENDDO
-      DO jc = istart, iend
-        IF (ji > k_dim(jc)) CYCLE
-        p_x(ji,jc) = z_sum(jc) / p_diag(jc,ji)
-      ENDDO
-    ENDDO
-  END SUBROUTINE solve_chol_v
-  
-#else
-  ! non-vecotrized version
-  SUBROUTINE solve_chol_v (istart, iend, k_dim, p_a, p_diag, p_b, p_x)
-    !
-    INTEGER,  INTENT(in)   :: istart, iend    ! start and end indices
-    INTEGER,  INTENT(in)   :: k_dim(:)        ! (nproma) matrix dimension
-    REAL(wp), INTENT(in)   :: p_a(:,:,:)      ! (nproma,k_dim,k_dim) matrix
-    REAL(wp), INTENT(in)   :: p_diag(:,:)     ! (nproma,k_dim) diagonal of matrix
-    
-    REAL(wp), INTENT(inout):: p_b(:,:)        ! (nproma,k_dim) input vector
-    
-    REAL(wp), INTENT(inout):: p_x(:,:)        ! (k_dim,nproma) output vector
-    
-    REAL(wp)               :: z_sum         ! variable generated by
-    ! matrix entries
-    INTEGER :: jc, ji, jj    ! integer over dimensions
-    
-    !-----------------------------------------------------------------------
-    ! Solve L*y = b, storing y in x.    
-    DO jc = istart, iend
-      DO ji = 1, k_dim(jc)
-        z_sum = p_b(jc,ji)
-        DO jj = ji - 1, 1, -1
-          z_sum = z_sum - p_a(jc,ji,jj) * p_x(jj,jc)
-        ENDDO
-        p_x(ji,jc) = z_sum / p_diag(jc,ji)
-      ENDDO
-      
-      ! Solve L^T * x = y      
-      DO ji = k_dim(jc), 1, -1
-        z_sum = p_x(ji,jc)
-        DO jj = ji+1, k_dim(jc)
-          z_sum = z_sum - p_a(jc,jj,ji) * p_x(jj,jc)
-        ENDDO
-        p_x(ji,jc) = z_sum / p_diag(jc,ji)
-      ENDDO
-    ENDDO
-    
-  END SUBROUTINE solve_chol_v
-  !-------------------------------------------------------------------------
-#endif
-  
-  !-------------------------------------------------------------------------
-  !>
-  !!  home made routine for backsubstitution.
-  !!
-  !!  home made routine for backsubstitution
-  !!  to be substituted by call from linear algebra library
-  !!  dim: matrix dimension
-  !!  a: input matrix  lu decomposed by ludec (otherwise it does not work)
-  !!  b: right hand side, row pivot  exchanges to be performed using ind
-  !!  ind: integer index array recording row pivot  exchanges
-  !!
-  SUBROUTINE solve_lu (k_dim, p_a, p_b, p_x, k_pivot)
-    !
-    INTEGER,  INTENT(in)    :: k_dim                   ! matrix dimension
-    INTEGER,  INTENT(in)    :: k_pivot(k_dim)          ! pivoting index
-    REAL(wp), INTENT(in)    :: p_a(k_dim,k_dim)        ! matrix
-    
-    REAL(wp), INTENT(inout) :: p_b(k_dim)              ! input vector
-    
-    REAL(wp), INTENT(out)   :: p_x(k_dim)              ! output vector
-    
-    INTEGER :: ji, jj, ip              ! integer over dimensions
-    REAL(wp)                :: z_sum                   ! sum
-    
-    !-----------------------------------------------------------------------   
-    ! forward    
-    DO ji = 1, k_dim
-      ip      = k_pivot(ji)
-      z_sum   = p_b(ip)
-      p_b(ip) = p_b(ji)
-      DO jj = 1, ji-1
-        z_sum = z_sum - p_a(ji,jj) * p_x(jj)
-      ENDDO
-      p_x(ji) = z_sum
-    ENDDO
-    
-    ! backward    
-    DO ji = k_dim, 1, -1
-      z_sum = p_x(ji)
-      DO jj = ji + 1, k_dim
-        z_sum = z_sum - p_a(ji,jj) * p_x(jj)
-      ENDDO
-      p_x(ji) = z_sum / p_a(ji,ji)
-    ENDDO
-    
-  END SUBROUTINE solve_lu
-  !-------------------------------------------------------------------------
-  
+     
   !-------------------------------------------------------------------------
   !>
   !!  Calculates coordinates of a grid point (longin, latin) in relation to
@@ -1822,7 +1338,7 @@ CONTAINS
   !! @par Revision History
   !! Developed by Marco Restelli (2008-03-04)
   !!
-  PURE SUBROUTINE disp_new_vect(p_gu,p_gv,lon,lat,barlon,barlat, &
+  SUBROUTINE disp_new_vect(p_gu,p_gv,lon,lat,barlon,barlat, &
     & new_lon,new_lat,new_p_gu,new_p_gv)
     
     REAL(wp), INTENT(in) :: &
@@ -2133,6 +1649,9 @@ CONTAINS
   !! Rotates latitude and longitude for more accurate computation
   !! of bilinear interpolation
   !!
+  !! See the routine "mo_lonlat_grid::rotate_latlon_grid" for a
+  !! detailed description of the transformation process.
+  !!
   !! @par Revision History
   !!  developed by Guenther Zaengl, 2009-03-13
   !!
@@ -2154,124 +1673,6 @@ CONTAINS
   END SUBROUTINE rotate_latlon
   !-------------------------------------------------------------------------
   
-  
-  !-------------------------------------------------------------------------
-  !> Rotates lon-lat grid
-  !!
-  !! Rotates latitude and longitude for all grid points to standard grid
-  !! coordinates.
-  !!
-  !! @par Revision History
-  !!  Initial revision                   : F. Prill,  2011-08-04
-  !!  floating point exception handling  : G. Zaengl, 2012-11-20
-  !!
-  SUBROUTINE rotate_latlon_grid( lon_lat_grid, rotated_pts )
-    
-    TYPE (t_lon_lat_grid), INTENT(in)    :: lon_lat_grid
-    REAL(wp),              INTENT(inout) :: rotated_pts(:,:,:)
-    
-    ! Local parameters
-    REAL(wp) :: sincos_pole(2,2) ! (lon/lat, sin/cos)
-    REAL(wp) :: sincos_lon(lon_lat_grid%lon_dim,2), &
-      & sincos_lat(lon_lat_grid%lat_dim,2)
-    INTEGER :: k, j
-    REAL(wp) :: rlon_lat, pi_180, npole_rad(2), arg1, arg2
-    
-    !-----------------------------------------------------------------------
-    
-    ! convert north pole: degree -> rad:
-    pi_180 = ATAN(1._wp)/45._wp
-    npole_rad(:) = lon_lat_grid%north_pole(:)*pi_180
-    
-    sincos_pole(:,1) = SIN(npole_rad(:))
-    sincos_pole(:,2) = COS(npole_rad(:))
-    
-    DO k=1,lon_lat_grid%lon_dim
-      rlon_lat        = lon_lat_grid%start_corner(1) + REAL(k-1,wp)*lon_lat_grid%delta(1)
-      sincos_lon(k,:) = (/ SIN(rlon_lat), COS(rlon_lat) /)
-    END DO
-    DO k=1,lon_lat_grid%lat_dim
-      rlon_lat        = lon_lat_grid%start_corner(2) + REAL(k-1,wp)*lon_lat_grid%delta(2)
-      sincos_lat(k,:) = (/ SIN(rlon_lat), COS(rlon_lat) /)
-    END DO
-    
-    
-    DO j = 1, lon_lat_grid%lat_dim
-      DO k = 1, lon_lat_grid%lon_dim
-        
-        ! ATAN2(COS(phi)*SIN(lambda), SIN(poleY)*COS(phi)*COS(lambda) - SIN(phi)*COS(poleY)) + poleX
-        arg1 = sincos_lat(j,2)*sincos_lon(k,1)
-        arg2 = sincos_pole(2,1)*sincos_lat(j,2)*sincos_lon(k,2) - sincos_lat(j,1)*sincos_pole(2,2)
-        
-        IF (arg1 /= 0.0_wp .OR. arg2 /= 0.0_wp) THEN
-          rotated_pts(k,j,1) = ATAN2( arg1, arg2 ) + npole_rad(1)
-        ELSE
-          rotated_pts(k,j,1) = 0.0_wp ! ATAN2(0,0) is undefined, so we just have to set something
-        ENDIF
-        
-        ! ASIN( SIN(phi)*SIN(poleY) + COS(phi)*COS(lambda)*COS(poleY) )
-        rotated_pts(k,j,2) = &
-          & ASIN( sincos_lat(j,1)*sincos_pole(2,1) + &
-          & sincos_lat(j,2)*sincos_lon(k,2)*sincos_pole(2,2) )
-        
-      ENDDO
-    ENDDO
-    
-  END SUBROUTINE rotate_latlon_grid
-  !-------------------------------------------------------------------------
-  
-  
-  !-------------------------------------------------------------------------
-  !> Compute normalized area weights for lon-lat grid
-  !!
-  !! @return 1D array (index: latitude)
-  !!
-  !! @par Revision History
-  !!  developed by F. Prill, 2012-05-24
-  !!
-  SUBROUTINE latlon_compute_area_weights( grid, area )
-    
-    TYPE (t_lon_lat_grid), INTENT(in)    :: grid
-    REAL(wp),              INTENT(inout) :: area(:)
-    ! local variables
-    REAL(wp) :: start_lat, delta_lon, delta_lat, delta_lat_2,  &
-      & pi_180, radius, rr_dlon, tot_area
-    REAL(wp) :: latitude(grid%lat_dim)
-    INTEGER :: k, pole1, pole2
-    
-    radius = grid_sphere_radius ! earth's radius (average)
-    pi_180 = ATAN(1._wp)/45._wp
-    start_lat   = grid%reg_lat_def(1) * pi_180
-    delta_lon   = grid%reg_lon_def(2) * pi_180
-    delta_lat   = grid%reg_lat_def(2) * pi_180
-    delta_lat_2 = delta_lat / 2._wp
-    rr_dlon     = radius*radius * delta_lon
-    
-    ! for each latitude, compute area of a grid box with a lon-lat
-    ! point at its center
-    DO k = 1, grid%lat_dim
-      latitude(k)  = start_lat + REAL(k-1,wp)*delta_lat
-      area(k)      = 2._wp*rr_dlon * SIN(delta_lat_2) * COS(latitude(k))
-    END DO
-    ! treat the special case of the poles (compute area of "triangle"
-    ! with one vertex at the pole and the opposite side with constant
-    ! latitude)
-    pole1 = INT(( 90._wp - grid%reg_lat_def(1))/grid%reg_lat_def(2)) + 1
-    pole2 = INT((-90._wp - grid%reg_lat_def(1))/grid%reg_lat_def(2)) + 1
-    IF ((pole1 > 0) .AND. (pole1 <= grid%lat_dim)) THEN
-      area(pole1) = rr_dlon*(1._wp-SIN(latitude(pole1)-delta_lat_2))
-    END IF
-    IF ((pole2 > 0) .AND. (pole2 <= grid%lat_dim)) THEN
-      area(pole2) = rr_dlon*(1._wp-ABS(SIN(latitude(pole2)+delta_lat_2)))
-    END IF
-    ! normalize
-    tot_area = REAL(grid%lon_dim,wp) * SUM(area)
-    DO k = 1, grid%lat_dim
-      area(k) = area(k)/tot_area
-    END DO
-    
-  END SUBROUTINE latlon_compute_area_weights
-  !-----------------------------------------------------------------------
   
   !-----------------------------------------------------------------------
   !>
@@ -2639,15 +2040,16 @@ CONTAINS
   !! @par Revision History
   !! Implemented by Kristina Froehlich, DWD (2010-10-29).
   !! moved to a more general place, Kristina Froehlich, MPI-M (2011-10-06)
-  !!
-  SUBROUTINE sphere_cell_mean_char_length( total_number_of_cells, mean_charlen ) ! output
-    
-    INTEGER , INTENT(in)  :: total_number_of_cells 
-    REAL(wp), INTENT(out) :: mean_charlen
-    
-    mean_charlen = SQRT (4._wp*pi*grid_sphere_radius**2 /REAL(total_number_of_cells,wp))
-    
-  END SUBROUTINE sphere_cell_mean_char_length
+  !! Changed to use total number odf cells insted of root/level by LL, MPI-M (2012-12)
+  !! Not used since the charecteristic lenntgh os now part of the grid_geometry_info. LL, MPI-M (2012-12)
+!   SUBROUTINE sphere_cell_mean_char_length( total_number_of_cells, mean_charlen ) ! output
+!     
+!     INTEGER , INTENT(in)  :: total_number_of_cells 
+!     REAL(wp), INTENT(out) :: mean_charlen
+!     
+!     mean_charlen = SQRT (4._wp*pi*grid_sphere_radius**2 /REAL(total_number_of_cells,wp))
+!     
+!   END SUBROUTINE sphere_cell_mean_char_length
   !-------------------------------------------------------------------------
   
   
@@ -2784,6 +2186,47 @@ CONTAINS
     
   END FUNCTION line_intersect
   !-------------------------------------------------------------------------
-  
+ 
+  !-------------------------------------------------------------------------
+  !>
+  !! TDMA tridiagonal matrix solver
+  !!
+  !! @par Revision History
+  !! Initial revision by Anurag Dipankar(2013, Jan)
+  !!
+  !!       a - sub-diagonal (means it is the diagonal below the main diagonal)
+  !!       b - the main diagonal
+  !!       c - sup-diagonal (means it is the diagonal above the main diagonal)
+  !!       d - right part
+  !!       x - the answer
+  !!       n - number of equations
+  SUBROUTINE tdma_solver(a,b,c,d,n,varout) 
+       INTEGER, INTENT(in) :: n
+       REAL(wp),DIMENSION(n),INTENT(in)  :: a,b,c,d
+       REAL(wp),DIMENSION(n),INTENT(out) :: varout
+
+       REAL(wp):: m, cp(n), dp(n)
+       INTEGER :: i
+ 
+! initialize c-prime and d-prime
+        cp(1) = c(1)/b(1)
+        dp(1) = d(1)/b(1)
+! solve for vectors c-prime and d-prime
+         do i = 2,n
+           m = b(i)-cp(i-1)*a(i)
+           cp(i) = c(i)/m
+           dp(i) = (d(i)-dp(i-1)*a(i))/m
+         enddo
+! initialize varout
+         varout(n) = dp(n)
+! solve for varout from the vectors c-prime and d-prime
+        do i = n-1, 1, -1
+          varout(i) = dp(i)-cp(i)*varout(i+1)
+        end do
+ 
+    END SUBROUTINE tdma_solver
+  !-------------------------------------------------------------------------
+
+
 END MODULE mo_math_utilities
 

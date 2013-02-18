@@ -53,24 +53,25 @@ end
 #==============================================================================
 def horizPlot(ifile,experiment,plots,lock,plotDir=".")
   plotter, plotFile = myPlotter
+  year = 2011
   # compute the index of the last timestep
 #  lastTimestep = Cdo.ntime(:input => "-selname,ELEV #{ifile}")[0].to_i - 1
 #  lastTimestepData = Cdo.seltimestep(lastTimestep, :input => "-selname,T #{ifile}",:output => "lastTimeStep_"+File.basename(ifile),:force => true)
-  lastTimestepData = Cdo.yearmean(:input => "-selyear,2030 -selname,T #{ifile}",:output => "lastTimeStep_"+File.basename(ifile),:force => true)
+  lastTimestepData = Cdo.yearmean(:input => "-selyear,#{year} -selname,T #{ifile}",:output => "lastTimeStep_"+File.basename(ifile),:force => true)
   diffOfLast2Init = Cdo.sub(:input => [lastTimestepData,"-selname,T " +initFilename(experiment)].join(' '),:output => "diffOfLastTimestep_#{experiment}.nc",:force => true)
     im = plotter.scalarPlot(diffOfLast2Init,'T_10m'+     File.basename(ifile,'.nc'),'T',
                             :tStrg => experiment, :bStrg => '" "',:maskName => "wet_c",:maskFile => ifile,
-                            :levIndex => 0, :tStrg => '2030 yearmean variation to initial',
+                            :levIndex => 0, :tStrg => "#{year} yearmean variation to initial",
                             :rStrg => 'Temperature')
     lock.synchronize {(plots[experiment] ||= []) << im }
     im = plotter.scalarPlot(diffOfLast2Init,'T_30m'+     File.basename(ifile,'.nc'),'T',
                             :tStrg => experiment, :bStrg => '" "',:maskName => "wet_c",:maskFile => ifile,
-                            :levIndex => 1, :tStrg => '2030 yearmean variation to initial',
+                            :levIndex => 1, :tStrg => "#{year} yearmean variation to initial",
                             :rStrg => 'Temperature')
     lock.synchronize {(plots[experiment] ||= []) << im }
     im = plotter.scalarPlot(diffOfLast2Init,'T_50m'+     File.basename(ifile,'.nc'),'T',
                             :tStrg => experiment, :bStrg => '" "',:maskName => "wet_c",:maskFile => ifile,
-                            :levIndex => 2, :tStrg => '2030 yearmean variation to initial',
+                            :levIndex => 2, :tStrg => "#{year} yearmean variation to initial",
                             :rStrg => 'Temperature')
     lock.synchronize {(plots[experiment] ||= []) << im }
 end
@@ -119,6 +120,14 @@ def cropMapPlots(plots,plotDir='.')
   #system("display #{cropfiles.join(' ')}") #if 'thingol' == Socket.gethostname
 end
 #==============================================================================
+def computeRhopot(ifile,ofile=nil)
+  if Cdo.version < "1.6.0"
+    Cdo.rhopot(0,:input => ifile,:output => ofile)
+  else
+    Cdo.rhopot(0,:input => "-adisit #{ifile}",:output => ofile)
+  end
+end
+#==============================================================================
 #==============================================================================
 # check input
 if ARGV[0].nil?
@@ -162,7 +171,7 @@ experimentFiles.each {|experiment, files|
     # create a separate File with the initial values
     if not File.exist?(initFile) or not Cdo.showname(:input => initFile).flatten.first.split(' ').include?("rhopot")
       initTS     = Cdo.selname('T,S',:input => "-seltimestep,1 #{files[0]}",:options => '-r -f nc')
-      initRhopot = Cdo.rhopot(0,:input => initTS)
+      initRhopot = computeRhopot(initTS)
       merged = Cdo.merge(:input => [initTS,initRhopot].join(' '))
       FileUtils.cp(merged,initFile)
     end
@@ -189,7 +198,7 @@ experimentFiles.each {|experiment, files|
 
       Cdo.div(:input => " -selname,T,S #{file} #{maskFile}",:output => maskedYMeanFile)
       # compute rhopot
-      Cdo.rhopot(0,:input => maskedYMeanFile,:output => rhopotFile)
+      computeRhopot(maskedYMeanFile,rhopotFile)
 
       Cdo.merge(:input => [maskedYMeanFile,rhopotFile].join(' '), :output => mergedFile)
       Cdo.sub(:input => [mergedFile,initFile].join(' '),:output => diffFile)
@@ -215,9 +224,9 @@ experimentAnalyzedData.each {|experiment,files|
   Cdo.settunits('years',:input => "-yearmean #{ofile}", :output => ymfile,:force => plot?)
 
   q.push { secPlot(ymfile,experiment,secPlots,lock) if plot? }
-  q.push { horizPlot(experimentFiles[experiment][-1],experiment,mapPlots,lock) if plot? }
+#  q.push { horizPlot(experimentFiles[experiment][-1],experiment,mapPlots,lock) if plot? }
 }
 q.run
 cropSecPlots(secPlots) if plot?
-cropMapPlots(mapPlots) if plot?
+#cropMapPlots(mapPlots) if plot?
 

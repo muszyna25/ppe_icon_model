@@ -16,36 +16,36 @@
   - generate plots 
 %end
 
-# -------------------------------------------------
 # include the header file for remote jobs
 %include <init_job.h> 
 
+# -------------------------------------------------
+
+
 echo "EOM_PREPARE.SMS" 
 
-module load python
-module load netcdf
-module load grib_api
-cdo='%SCSOFT%/software/cdo-1.5.4_build/bin/cdo'
+## module load python
+## module load netcdf
+## module load grib_api
+## module load cdo/1.5.4  # to get specific version
+module load cdo
 
 
-lecget=1
-lsplitdata=1
+case %SIMMODE% in
+  1) lgetdata=1        # 0: get no data, 1: get from ecfs
+     lsplitdata=1  ;;  # pre-operations
+  2) lgetdata=0        # monthly mean 10day forecasts
+     lsplitdata=0  ;;
+esac
 lcatdata=1
 lcpdata=1
 ldeldata=1
 
 
 #-----------------------------------------------------------------------------
-# ectrans data to DWD from diagnostic plotting by Uli Damrath
-# (script by Helmut Frank, requires to set-up ectrans)
-
-#ICON_VERSION=3 ECTrans_ASSOCIATION=ECtoHPC ~dw7/ICON/iconECFS2DWD -e icon_003_ICON_r2B06_10d/2012060100 -d 2012060100 -d 2012060200
-
-
-#-----------------------------------------------------------------------------
 # loop over level type
 
-for levtype1 in PL HL ML; do
+for levtype1 in PL HL ML ; do
 #for levtype1 in ML      ; do
 
 
@@ -64,8 +64,9 @@ for levtype1 in PL HL ML; do
 # directories
 
     dd=`echo ${ymdh} | cut -c 7-8`
-    outdir="%SCTEMP%/%SUITE%/%EXPNUM%/output/${ymdh}/"
-    gatedir="%ECTEMP%/%SUITE%/%EXPNUM%/${ymdh}"
+    outdir=%SCTEMP%/%SUITE%/%EXPNUM%/output/${ymdh}/
+    gatedir=%ECTEMP%/%SUITE%/%EXPNUM%/${ymdh}
+    mkdir -p ${outdir}
     rsh ecgate mkdir -p ${gatedir}
     cd ${outdir}
 
@@ -79,10 +80,10 @@ for levtype1 in PL HL ML; do
 #-----------------------------------------------------------------------------
 # GRIB: rename and copy to ecgate
 
-    if [[ $lecget = 1 ]] ; then
-      outfile=${basename}_DOM01_${levtype1}_0001.grb
+    outfile=${basename}_DOM01_${levtype1}_0001.grb
+    if [[ $lgetdata = 1 ]] ; then
       ecp ec:icon/experiments/%SUITE%/%EXPNUM%/${ymdh}/$outfile .
-      smsmeter ecget  ${dd}
+      smsmeter ecget ${dd}
     fi
 
 
@@ -92,17 +93,14 @@ for levtype1 in PL HL ML; do
     if [[ $lsplitdata = 1 ]] ; then
 
 # export the DWD GRIB short names:
-      export GRIB_DEFINITION_PATH="%SCSOFT%/software/usr/local/grib_api/release/share-1.9.9/definitions.edzw:/usr/local/lib/metaps/lib/grib_api/1.9.9/share/definitions"
+#     export GRIB_DEFINITION_PATH="%SCSOFT%/software/grib_api/release/share-1.9.9/definitions.edzw:/usr/local/lib/metaps/lib/grib_api/current/share/definitions"
+      export GRIB_DEFINITION_PATH="/usr/local/lib/metaps/lib/grib_api/current/share/definitions:%SCSOFT%/software/grib_api/release/share-1.9.9/definitions.edzw"
 
       mkdir -p grb_data
       if [[ ${levtype1} = 'HL' ]] ; then
         grib_copy  ${basename}_DOM01_HL_0001.grb  \
           grb_data/${basename}_DOM01_0001_[shortName]_zl.grb
       else
-       #grib_set -s centre=98 ${EXPNAME}_icon${res}_DOM01_${inidate}_${levtype1}_0001.grb      \
-       #                      ${EXPNAME}_icon${res}_DOM01_${inidate}_${levtype1}_0001.temp.grb
-       #\mv                   ${EXPNAME}_icon${res}_DOM01_${inidate}_${levtype1}_0001.temp.grb \
-       #                      ${EXPNAME}_icon${res}_DOM01_${inidate}_${levtype1}_0001.grb
         grib_copy  ${basename}_DOM01_${levtype1}_0001.grb  \
           grb_data/${basename}_DOM01_0001_[shortName]_[typeOfFirstFixedSurface].grb
       fi
@@ -168,6 +166,9 @@ if [[ $lcatdata = 1 ]] ; then
       echo "processing variable: "$var
       outdir="%SCTEMP%/%SUITE%/%EXPNUM%/output/${ymdh}/"
       cd $outdir
+      if [ ! -f  grb_data/${base}_${ymdh}_DOM01_0001_${var}.grb ] ; then
+        continue 2
+      fi 
       grib_copy  grb_data/${base}_${ymdh}_DOM01_0001_${var}.grb \
         ${mondir}/tmp_dir/${base}_${ymdh}_DOM01_0001_${var}_[endStep].grb
       if [[ $ldeldata = 1 ]] ; then
@@ -193,10 +194,10 @@ if [[ $lcatdata = 1 ]] ; then
     cat ${base}*_DOM01_0001_${var}_24.grb  > ${basenameMM}_DOM01_0001_${var}_24.grb   
     cat ${base}*_DOM01_0001_${var}_240.grb > ${basenameMM}_DOM01_0001_${var}_240.grb
 
-    $cdo timselavg,${DDm1},1,100   ${basenameMM}_DOM01_0001_${var}_0.grb   ${mondir}/${basenameMM}_DOM01_0001_${var}_0_mn2-${DD}.grb
-    $cdo timselavg,${DDm1},0,100   ${basenameMM}_DOM01_0001_${var}_24.grb  ${mondir}/${basenameMM}_DOM01_0001_${var}_24_mn2-${DD}.grb
-    $cdo timselavg,${DDm10},10,100 ${basenameMM}_DOM01_0001_${var}_0.grb   ${mondir}/${basenameMM}_DOM01_0001_${var}_0_mn11-${DD}.grb
-    $cdo timselavg,${DDm10},0,100  ${basenameMM}_DOM01_0001_${var}_240.grb ${mondir}/${basenameMM}_DOM01_0001_${var}_240_mn11-${DD}.grb
+    cdo timselavg,${DDm1},1,100   ${basenameMM}_DOM01_0001_${var}_0.grb   ${mondir}/${basenameMM}_DOM01_0001_${var}_0_mn2-${DD}.grb
+    cdo timselavg,${DDm1},0,100   ${basenameMM}_DOM01_0001_${var}_24.grb  ${mondir}/${basenameMM}_DOM01_0001_${var}_24_mn2-${DD}.grb
+    cdo timselavg,${DDm10},10,100 ${basenameMM}_DOM01_0001_${var}_0.grb   ${mondir}/${basenameMM}_DOM01_0001_${var}_0_mn11-${DD}.grb
+    cdo timselavg,${DDm10},0,100  ${basenameMM}_DOM01_0001_${var}_240.grb ${mondir}/${basenameMM}_DOM01_0001_${var}_240_mn11-${DD}.grb
 
     grib_set -s stepRange=0      ${mondir}/${basenameMM}_DOM01_0001_${var}_0_mn2-${DD}.grb    out.grb
                       mv out.grb ${mondir}/${basenameMM}_DOM01_0001_${var}_0_mn2-${DD}.grb

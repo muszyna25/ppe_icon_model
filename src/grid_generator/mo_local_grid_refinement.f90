@@ -350,7 +350,7 @@ CONTAINS
     no_of_input_edges = in_edges%no_of_existedges
     no_of_input_verts = in_verts%no_of_existvertices
     CALL grid_get_parent_pointers(in_grid_id, parent_cell_pnt, parent_edge_pnt, parent_vertex_pnt)
-
+!     write(0,*) "Parents from:",in_grid%parents_from
     !------------------------------------------------
     no_of_output_cells = 4 * no_of_input_cells
     no_of_output_edges = 2 * no_of_input_edges + 3 * no_of_input_cells

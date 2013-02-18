@@ -90,7 +90,7 @@ CONTAINS
     
     ! calculate heat flux from ocean to ice  (zHeatOceI) 
     DO k=1,ice%kice
-      WHERE (ice%isice(:,k,:)) 
+      WHERE (ice%hi(:,k,:) > 0._wp) 
         zHeatOceI(:,k,:) = ( p_os%p_prog(nold(1))%tracer(:,1,:,1) - Tfw(:,k,:) ) &
           &                 * ice%zUnderIce(:,:) * clw*rho_ref/dtime
       ENDWHERE
@@ -127,9 +127,8 @@ CONTAINS
     DO jb = 1,p_patch%nblks_c
       CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c) 
       DO jc = i_startidx_c,i_endidx_c
-        !        IF (ice%isice(jc,1,jb)) THEN
         DO k=1,ice%kice
-          IF (ice%isice(jc,k,jb)) THEN
+          IF (ice%hi(jc,k,jb) > 0._wp) THEN
             ctr = ctr+1
             values(ctr) = A(jc,jb)
           END IF
@@ -141,15 +140,15 @@ CONTAINS
 102 FORMAT(a10,a25,':     ', 4i4)
     
     WRITE(nerr,101) ' MAX/MIN ',description, &
-      &              MAXVAL(A(:,:),MASK=ice%isice(:,1,:)),     &
-      &              MINVAL(A(:,:),MASK=ice%isice(:,1,:)),     &
+      &              MAXVAL(A(:,:),MASK=(ice%hi(:,1,:)>0._wp)),     &
+      &              MINVAL(A(:,:),MASK=(ice%hi(:,1,:)>0._wp)),     &
 !!$      &              MAXVAL(values(1:ctr-1)), &
 !!$      &              MINVAL(values(1:ctr-1)), &
       &              SUM(values(1:ctr-1))/SIZE(values(1:ctr-1))
     
     WRITE(nerr,102) ' LOC ',description, &
-      &              MAXLOC(A(:,:),MASK=ice%isice(:,1,:)),     &
-      &              MINLOC(A(:,:),MASK=ice%isice(:,1,:))
+      &              MAXLOC(A(:,:),MASK=(ice%hi(:,1,:)>0._wp)),     &
+      &              MINLOC(A(:,:),MASK=(ice%hi(:,1,:)>0._wp))
 !!$      &              MAXLOC(values(1:ctr-1)), &
 !!$      &              MINLOC(values(1:ctr-1)) 
       

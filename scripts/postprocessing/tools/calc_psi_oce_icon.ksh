@@ -9,7 +9,7 @@
 #
 #  Method:
 #   - vertical interpolation is done in the model, variable u_vint
-#   - interpolation done by cdo remapnn, nearest neighbor interpolation
+#   - horizontal interpolation done by cdo remapcon, conservative remapping
 #   - convert to SERVICE format, calculate meridional integral incl. using
 #     land-sea-mask, fortran program psiread
 #   - convert badk to NETCDF format using grid description file
@@ -19,53 +19,71 @@
 set -e
 
 ### input parameter
-# 1x1 deg resolution
-nlon=360
-nlat=180
+
+# Resolution:
+# cdo remapnn and remapdis generate shaky isolines
+# cdo remapcon generates missing values at Poles if resolution of regular target grid is too fine
+#   R2B04-r180x90 and R2B05-r360x180 match well
 
 # direct assignment of filenames
 #avgfile=avg.5y.xom.bliz.r9368.45
 #filestr=avg45.2164ym
 #avgfile=timmean_2420-2470
 #filestr=2420-2470ym
+#resol=r${nlon}x${nlat}
+#resol='r180x90'
 
 # via parameter
 avgfile=${1}
 filestr=${2}
-weightfile=${3}
+resol=${3:-r180x90}
+weightfile=${4}
 
-echo "Input file is '$avgfile'"
-echo "Tag is '$filestr'"
-echo "Weightsfile is '$weightfile'"
+echo "PSI: Input file is '$avgfile'"
+echo "PSI: Tag is '$filestr'"
+echo "PSI: Resolution is '$resol'"
+echo "PSI: Weightsfile is '$weightfile'"
 ### input parameter end
 
 # file names
-resol=r${nlon}x${nlat}
 inpfile=uvint.${resol}.$filestr
 outfile=psi.${resol}.$filestr
 plotfile=nclpsi.$filestr
 
-echo " working on files: input: $inpfile ; output: $outfile ; plot: $plotfile ; resolution: $resol"
+rlon=${resol%x*}
+nlon=${rlon#r}
+nlat=${resol#*x}
 
-# select wet_c (lsm) and u_vint (vertical integral of u)
+echo "PSI: Resolution used is $resol"
+echo "PSI: Working on files: input: $avgfile ; output: $outfile ; plot: $plotfile"
+
+# select wet_c (lsm at surface) and u_vint (vertical integral of u)
+#  - sellevidx: select first level index at surface
 if [ ! -s $inpfile.srv ]; then
   if [ -z "$weightfile" ]; then
-    echo "weightfile is not given! Use remapnn ..."
-    cdo -P 8 remapnn,$resol -selvar,u_vint,wet_c $avgfile $inpfile.nc
+    echo "PSI: weightfile is not given! Use remapcon for u_vint and remapnn for wet_c ..."
+    #cdo -P 8 remapdis,$resol -selvar,u_vint $avgfile xsrc.${resol}_uint.nc
+    cdo -P 8 remapcon,$resol -selvar,u_vint $avgfile xsrc.${resol}_uint.nc
+    cdo -P 8 remapnn,$resol  -selvar,wet_c -sellevidx,1 $avgfile xsrc.${resol}_wetc.nc
+    #cdo merge xsrc.${resol}_wetc.nc xsrc.${resol}_uint.nc $inpfile.nc
+    cdo merge xsrc.${resol}_uint.nc xsrc.${resol}_wetc.nc $inpfile.nc
+    # Memory fault in r2b5?
+    #cdo -P 8 merge -remapnn,$resol  -selvar,wet_c -sellevidx,1 $avgfile -selvar,u_vint $avgfile $inpfile.nc
+    rm xsrc.${resol}_wetc.nc xsrc.${resol}_uint.nc
   else
-    echo "weightfile is given:'$weightfile'. Use remap ..."
-    cdo remap,$resol,$weightfile -selvar,u_vint,wet_c, $avgfile $inpfile.nc
+    echo "PSI: weightfile is given:'$weightfile'. Use remap ..."
+    cdo -P 8 remap,$resol,$weightfile -selvar,u_vint,wet_c, $avgfile $inpfile.nc
   fi
 
   # store grid description, convert to service format
-  echo "cdo -v griddes $inpfile.nc > griddes.$resol"
+  echo "PSI: cdo -v griddes $inpfile.nc > griddes.$resol"
   cdo griddes $inpfile.nc > griddes.$resol
 
-  echo "cdo -v -f srv copy $inpfile.nc $inpfile.srv"
+  echo "PSI: cdo -v -f srv copy $inpfile.nc $inpfile.srv"
   cdo -f srv copy $inpfile.nc $inpfile.srv
   rm $inpfile.nc
 else
-  echo "Use input for the psi-computation:'$inpfile.srv'"
+  echo "PSI: Use input for the psi-computation:'$inpfile.srv'"
 fi
 
 cat > scr-psiread.f90 <<EOF
@@ -79,7 +97,9 @@ cat > scr-psiread.f90 <<EOF
 !! @par Revision History
 !! Developed  by  Stephan Lorenz, MPI-M (2012).
 !!  based on code from MPIOM
+!   ignore vertical dimension
 !
+! TODO: diffuse from ocean to land, cut land points
 ! TODO: implement variable output dimension (1 deg resolution) and smoothing extent
 !! 
 PROGRAM psiread
@@ -91,19 +111,17 @@ INTEGER, PARAMETER ::  rho_ref = 1025.022            ! reference density
 INTEGER, PARAMETER ::  nlat = $nlat                  ! meridional dimension of regular grid
 INTEGER, PARAMETER ::  nlon = $nlon                  ! zonal dimension of regular grid
 
-INTEGER, PARAMETER ::  nlev = 20                     ! vertical dimension of experiment
-
 ! smoothing area is 2*jsmth-1 lat/lon areas of 1 deg
 INTEGER, PARAMETER ::  jsmth = 3                  
-INTEGER            :: jb, jc, jk, i_startidx, i_endidx
+INTEGER            :: jb, jc, i_startidx, i_endidx
 INTEGER            :: jlat, jlon, jx, jy
-INTEGER            :: isrv(8)
+INTEGER            :: isrv(8), isrvu(8)
 
 
 REAL               :: z_lat_dist, erad, pi
 REAL               :: z_uint_reg(nlon,nlat)     ! vertical integral on regular grid
 REAL               :: psi_reg(nlon,nlat)        ! horizontal stream function
-REAL               :: wet_c(nlon,nlev,nlat)     ! slm
+REAL               :: wet_c(nlon,nlat)          ! slm
 
 !CHARACTER(len=max_char_length), PARAMETER :: routine = ('mo_oce_diagnostics:calc_psi')
 
@@ -133,25 +151,21 @@ jx = 1 + 270*nlat/360
 !   END DO
 ! END DO
 
-! (2) read barotropic system: first wet_c
+! (2) read barotropic system: after cdo merge above, now read first uint then wet_c
+
   open (11,file="$inpfile.srv", form='unformatted')
   open (80,file="$outfile.srv", form='unformatted')
 
-
-  do jk=1,nlev
-    read (11) isrv
-    read (11) wet_c(:,jk,:)
-
-    IF (jk == 1) THEN
-      write(80) (isrv(jb),jb=1,8)
-      write(80) ((wet_c(jlon,jk,jlat),jlon=1,nlon),jlat=1,nlat)
-    END IF
-  enddo
-
-  read (11) isrv
-  write (*,*) isrv
+  read (11) isrvu
+  write (*,*) isrvu
   read (11) z_uint_reg(:,:)
 ! write(*,*) 'jx=',jx,' jy=',jy,' read uvint=',z_uint_reg(jx,jy)
+
+  read (11) isrv
+  read (11) wet_c(:,:)
+
+  write(80) (isrv(jb),jb=1,8)
+  write(80) ((wet_c(jlon,jlat),jlon=1,nlon),jlat=1,nlat)
 
 
   ! (3) calculate meridional integral on regular grid starting from south pole:
@@ -171,10 +185,11 @@ jx = 1 + 270*nlat/360
   z_lat_dist = pi/real(nlat)*erad   !  z_lat_dist = dlat* pi*R/180 ; dlat=180/nlat
 
   !psi_reg(:,:) = z_uint_reg(:,:) * z_lat_dist * rho_ref * wet_c(:,1,:) * 1.0e-9 ! e+9 [kg/s]
-  psi_reg(:,:) = z_uint_reg(:,:) * z_lat_dist * wet_c(:,1,:) * 1.0e-6           ! e+6 [m3/s]
+  !psi_reg(:,:) = z_uint_reg(:,:) * z_lat_dist * wet_c(:,1,:) * 1.0e-6           ! e+6 [m3/s]
+  psi_reg(:,:) = z_uint_reg(:,:) * z_lat_dist * wet_c(:,:) * 1.0e-6
 
 
-  write(80) (isrv(jb),jb=1,8)
+  write(80) (isrvu(jb),jb=1,8)
   write(80) ((psi_reg(jlon,jlat),jlon=1,nlon),jlat=1,nlat)
 
 
@@ -182,16 +197,19 @@ END PROGRAM psiread
 !-------------------------------------------------------------------------  
 EOF
 
+echo "PSI: compile and run program scr-psiread.x"
 gfortran -o scr-psiread.x scr-psiread.f90
 ./scr-psiread.x
 rm scr-psiread.*
 
 # convert back to netcdf
+echo "PSI: cdo -f nc -g griddes.$resol chvar,var4,psi -chvar,var1,wet_c $outfile.srv $outfile.nc"
 cdo -f nc -g griddes.$resol chvar,var4,psi -chvar,var1,wet_c $outfile.srv $outfile.nc
 rm $outfile.srv
 
 # plot with nclsh:
 
+echo "PSI: plot using icon_plot.ncl:"
 nclsh /pool/data/ICON/tools/icon_plot.ncl -altLibDir=/pool/data/ICON/tools \
   -iFile=$outfile.nc -oFile=$plotfile -varName=psi -timeStep=0 -oType=eps \
   -maskName=wet_c -selMode=manual -minVar=-150 -maxVar=150 -numLevs=15 \

@@ -62,6 +62,12 @@ else
   type=fc
 fi
 
+if [ ${cymd} -ge 20101109 ] ; then
+  rainsnow="/crwc/cswc"
+else
+  rainsnow=""
+fi
+
 # --- read ---
 
 case ${res} in
@@ -85,7 +91,7 @@ retrieve,
         time     = ${hh},
         step     = ${step},
         target   = "${grib_file}",
-        param    = u/v/w/t/q/clwc/ciwc/crwc/cswc/o3,    # /crwc/cswc/ rain,snow on/off
+        param    = u/v/w/t/q/clwc/ciwc${rainsnow}/o3,   # /crwc/cswc/ rain,snow on/off
         repres   = sh,                                  # spherical harmonics,
         resol    = ${res},
         grid     = ${grd},

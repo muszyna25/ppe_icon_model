@@ -20,7 +20,7 @@
 !!
 MODULE mo_name_list_output
 
-  ! Please note: The spelling "name_list" (with underscore) is intented to make
+  ! Please note: The spelling "name_list" (with underscore) is intended to make
   ! clear that this does not pertain to a FORTRAN namelist but rather
   ! to a list of names of output variables
 
@@ -30,23 +30,28 @@ MODULE mo_name_list_output
 
   USE mo_kind,                  ONLY: wp, i8, dp, sp
   USE mo_impl_constants,        ONLY: max_phys_dom, ihs_ocean, zml_soil, MAX_NVARS,   &
-    &                                 vname_len, max_dom, SUCCESS, HINTP_TYPE_LONLAT, &
+    &                                 vname_len, max_dom, SUCCESS,                    &
     &                                 min_rlcell_int, min_rledge_int, min_rlvert,     &
-    &                                 max_var_ml, max_var_pl, max_var_hl, max_var_il
+    &                                 max_var_ml, max_var_pl, max_var_hl, max_var_il, &
+    &                                 MAX_TIME_LEVELS
   USE mo_grid_config,           ONLY: n_dom, n_phys_dom, global_cell_type, &
     &                                 grid_rescale_factor, start_time, end_time
   USE mo_grid_levels,           ONLY: check_orientation
+  USE mo_grib2,                 ONLY: t_grib2_var
   USE mo_cdi_constants          ! We need all
   USE mo_io_units,              ONLY: filename_max, nnml, nnml_output, find_next_free_unit
+  USE mo_io_config,             ONLY: out_varnames_map_file, varnames_map_file
+  USE mo_gribout_config,        ONLY: gribout_config, t_gribout_config
   USE mo_exception,             ONLY: finish, message, message_text
   USE mo_namelist,              ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_var_metadata,          ONLY: t_var_metadata, VARNAME_LEN
   USE mo_linked_list,           ONLY: t_var_list, t_list_element
   USE mo_var_list,              ONLY: nvar_lists, max_var_lists, var_lists,     &
     &                                 new_var_list, get_all_var_names,          &
-    &                                 total_number_of_variables, collect_group
+    &                                 total_number_of_variables, collect_group, &
+    &                                 get_var_timelevel, get_var_name
   USE mo_var_list_element,      ONLY: level_type_ml, level_type_pl, level_type_hl, &
-    &                                 level_type_il
+    &                                 level_type_il, lev_type_str
   USE mo_util_uuid,             ONLY: t_uuid
   ! MPI Communication routines
   USE mo_mpi,                   ONLY: p_send, p_recv, p_bcast, p_barrier, p_stop, &
@@ -76,9 +81,10 @@ MODULE mo_name_list_output
     &                                 msg_level, output_mode, ltestcase
   USE mo_nh_pzlev_config,       ONLY: nh_pzlev_config
   USE mo_lnd_nwp_config,        ONLY: nlev_snow
-  USE mo_datetime,              ONLY: t_datetime
+  USE mo_datetime,              ONLY: t_datetime, cly360day_to_date
   USE mo_time_config,           ONLY: time_config
-  USE mo_lonlat_grid,           ONLY: t_lon_lat_grid
+  USE mo_lonlat_grid,           ONLY: t_lon_lat_grid, compute_lonlat_specs,   &
+    &                                 rotate_latlon_grid
   USE mo_intp_data_strc,        ONLY: t_lon_lat_intp,                         &
     &                                 t_lon_lat_data, get_free_lonlat_grid,   &
     &                                 lonlat_grid_list, n_lonlat_grids
@@ -88,11 +94,11 @@ MODULE mo_name_list_output
 
   USE mo_util_string,           ONLY: toupper, t_keyword_list, associate_keyword,  &
     &                                 with_keywords, insert_group, MAX_STRING_LEN, &
-    &                                 tocompact, tolower
+    &                                 tocompact, tolower, int2string
   USE mo_loopindices,           ONLY: get_indices_c, get_indices_e, get_indices_v
   USE mo_communication,         ONLY: exchange_data, t_comm_pattern, idx_no, blk_no
   USE mo_math_utilities,        ONLY: t_geographical_coordinates
-  USE mo_math_constants,        ONLY: pi
+  USE mo_math_constants,        ONLY: pi, pi_180
   USE mo_name_list_output_config, ONLY: name_list_output_active, &
   &                                     use_async_name_list_io,  &
   &                                     l_output_phys_patch,     &
@@ -101,22 +107,28 @@ MODULE mo_name_list_output
   &                                     vname_len,               &  
   &                                     t_output_name_list,      &
   &                                     first_output_name_list,  &
-  &                                     max_time_levels,         &
   &                                     t_output_file,           &
   &                                     is_output_nml_active,    &
   &                                     is_output_file_active,   &
   &                                     t_var_desc,              &
   &                                     add_var_desc
-  ! meteogram output
   USE mo_meteogram_output,    ONLY: meteogram_init, meteogram_finalize, meteogram_flush_file
   USE mo_meteogram_config,    ONLY: meteogram_output_config
   USE mo_timer,               ONLY: timer_start, timer_stop, timer_write_output, ltimer
+  USE mo_dictionary,          ONLY: t_dictionary, dict_init, dict_finalize, &
+    &                               dict_loadfile, dict_get, DICT_MAX_STRLEN
+  USE mo_fortran_tools,       ONLY: assign_if_present
+  USE mo_io_units,            ONLY: find_next_free_unit
 
 
   IMPLICIT NONE
 
   PRIVATE
 
+  !-----------------------------------------------------------------
+  ! include NetCDF headers (direct NetCDF library calls are required
+  ! for output of grid information).
+  !-----------------------------------------------------------------
   INCLUDE 'netcdf.inc'
 
   PUBLIC :: read_name_list_output_namelists
@@ -175,6 +187,7 @@ MODULE mo_name_list_output
     REAL(wp), ALLOCATABLE :: lonv(:,:), latv(:,:)
   END TYPE t_grid_info
 
+
   ! TYPE t_patch_info contains the reordering info for cells, edges and verts
   TYPE t_patch_info
     TYPE(t_reorder_info) :: cells
@@ -218,8 +231,6 @@ MODULE mo_name_list_output
   ! "loutput=.TRUE."
   INTEGER :: n_allvars
 
-  CHARACTER(LEN=vname_len) :: all_varlist(MAX_NVARS)
-
   !------------------------------------------------------------------------------------------------
   ! Currently, we use only 1 MPI window for all output files
   INTEGER mpi_win
@@ -252,84 +263,91 @@ MODULE mo_name_list_output
   INTEGER :: i_sample
   !------------------------------------------------------------------------------------------------
 
+  !------------------------------------------------------------------------------------------------
+  ! dictionaries for variable names:
+  TYPE (t_dictionary) ::     &
+    &   varnames_dict      , & !< maps variable names onto the internal ICON names.
+    &   out_varnames_dict      !< maps internal variable names onto names in output file (NetCDF only).
+  !------------------------------------------------------------------------------------------------
+
   CHARACTER(LEN=*), PARAMETER :: modname = 'mo_name_list_output'
 
+  ! constants for better readability:
+  INTEGER, PARAMETER :: REMAP_NONE           = 0
+  INTEGER, PARAMETER :: REMAP_REGULAR_LATLON = 1
+
+  INTEGER, PARAMETER :: IRLON                 = 1
+  INTEGER, PARAMETER :: IRLAT                 = 2
+  INTEGER, PARAMETER :: ILATLON               = 1
+  INTEGER, PARAMETER :: ICELL                 = 1
+  INTEGER, PARAMETER :: IEDGE                 = 2
+  INTEGER, PARAMETER :: IVERT                 = 3
+
+
+  ! fields for which typeOfSecondFixedSurface must be re-set
+  CHARACTER(LEN=12), PARAMETER :: sfs_name_list(2) =(/"z_ifc       ", "topography_c"/)
+  ! typeOfSecondFixedSurface to be used
+  INTEGER          , PARAMETER :: second_tos(2)    =(/101, 101/)
+
 CONTAINS
-
+  
+  !------------------------------------------------------------------------------------------------
+  !> Read configuration for namelist controlled output module.
+  !
+  !  The name is a bit strange, but if follows the convention to read
+  !  namelists with a routine called read_XXX_namelist (plural is
+  !  used here since several namelists are read).
+  ! 
+  !  Please note the difference between name_list and namelist!
+  !
   SUBROUTINE read_name_list_output_namelists( filename )
-
-    ! The name is a bit strange, but if follows the convention to read namelists
-    ! with a routine called read_XXX_namelist (plural is used here since several
-    ! namelists are read).
-    ! Please note the difference between name_list and namelist!
-
     CHARACTER(LEN=*), INTENT(IN)   :: filename
+    ! local variables
+    CHARACTER(LEN=*), PARAMETER       :: routine = 'read_name_list_output_namelists'
 
-    INTEGER :: istat, i
+    INTEGER                           :: istat, i
     TYPE(t_output_name_list), POINTER :: p_onl
-    CHARACTER(LEN=*), PARAMETER :: routine = 'read_name_list_output_namelists'
-    INTEGER :: nnamelists
-    LOGICAL :: lrewind
+    INTEGER                           :: nnamelists
+    LOGICAL                           :: lrewind
 
     ! Local variables corresponding to members of output_name_list
-    INTEGER  :: filetype
-    CHARACTER(LEN=8) :: namespace
-    CHARACTER(LEN=filename_max) :: map_file
-    INTEGER  :: mode
-    INTEGER  :: taxis_tunit
-    INTEGER  :: dom(max_phys_dom)
-    INTEGER  :: output_time_unit
-    REAL(wp) :: output_bounds(3,max_bounds)
-    INTEGER  :: steps_per_file
-    LOGICAL  :: include_last
-    LOGICAL  :: output_grid
-    CHARACTER(LEN=filename_max) :: output_filename
-    LOGICAL  :: lwrite_ready
-    CHARACTER(LEN=filename_max) :: ready_directory
-    CHARACTER(LEN=vname_len)  :: ml_varlist(max_var_ml)
-    CHARACTER(LEN=vname_len)  :: pl_varlist(max_var_pl)
-    CHARACTER(LEN=vname_len)  :: hl_varlist(max_var_hl)
-    CHARACTER(LEN=vname_len)  :: il_varlist(max_var_il)
-    REAL(wp) :: p_levels(max_levels)
-    REAL(wp) :: h_levels(max_levels)
-    REAL(wp) :: i_levels(max_levels)
-    INTEGER  :: remap
-    LOGICAL  :: remap_internal
-    REAL(wp) :: reg_lon_def(3)
-    REAL(wp) :: reg_lat_def(3)
-    INTEGER  :: gauss_tgrid_def
-    REAL(wp) :: north_pole(2)
-    TYPE(t_lon_lat_data), POINTER :: lonlat
+    INTEGER                           :: filetype
+    CHARACTER(LEN=8)                  :: namespace
+    INTEGER                           :: mode
+    INTEGER                           :: taxis_tunit
+    INTEGER                           :: dom(max_phys_dom)
+    INTEGER                           :: output_time_unit
+    REAL(wp)                          :: output_bounds(3,max_bounds), output_bounds_sec(3,max_bounds)
+    INTEGER                           :: steps_per_file
+    LOGICAL                           :: include_last
+    LOGICAL                           :: output_grid
+    CHARACTER(LEN=filename_max)       :: output_filename
+    CHARACTER(LEN=filename_max)       :: filename_format
+    LOGICAL                           :: lwrite_ready
+    CHARACTER(LEN=filename_max)       :: ready_directory
+    CHARACTER(LEN=vname_len)          :: ml_varlist(max_var_ml)
+    CHARACTER(LEN=vname_len)          :: pl_varlist(max_var_pl)
+    CHARACTER(LEN=vname_len)          :: hl_varlist(max_var_hl)
+    CHARACTER(LEN=vname_len)          :: il_varlist(max_var_il)
+    REAL(wp)                          :: p_levels(max_levels)
+    REAL(wp)                          :: h_levels(max_levels)
+    REAL(wp)                          :: i_levels(max_levels)
+    INTEGER                           :: remap
+    REAL(wp)                          :: reg_lon_def(3)
+    REAL(wp)                          :: reg_lat_def(3)
+    REAL(wp)                          :: north_pole(2)
+    TYPE(t_lon_lat_data),  POINTER    :: lonlat
+    TYPE (t_keyword_list), POINTER    :: keywords => NULL()
+    CHARACTER(len=MAX_STRING_LEN)     :: cfilename
 
     ! The namelist containing all variables above
     NAMELIST /output_nml/ &
-      filetype,           &
-      namespace,          &
-      map_file,           &
-      mode,               &
-      taxis_tunit,        &
-      dom,                &
-      output_time_unit,   &
-      output_bounds,      &
-      steps_per_file,     &
-      include_last,       &
-      output_grid,        &
-      output_filename,    &
-      lwrite_ready,       &
-      ready_directory,    &
-      ml_varlist,         &
-      pl_varlist,         &
-      hl_varlist,         &
-      il_varlist,         &
-      p_levels,           &
-      h_levels,           &
-      i_levels,           &
-      remap,              &
-      remap_internal,     &
-      reg_lon_def,        &
-      reg_lat_def,        &
-      gauss_tgrid_def,    &
-      north_pole
+      filetype, namespace, mode, taxis_tunit, dom, output_time_unit,   &
+      output_bounds, steps_per_file, include_last, output_grid,        &
+      output_filename, lwrite_ready, ready_directory, ml_varlist,      &
+      pl_varlist, hl_varlist, il_varlist, p_levels, h_levels,          &
+      i_levels, remap, reg_lon_def, reg_lat_def, north_pole,           &
+      filename_format
 
     ! Open input file and position to first namelist 'output_nml'
 
@@ -358,7 +376,6 @@ CONTAINS
 
       filetype           = FILETYPE_NC2 ! NetCDF
       namespace          = 'ECMWF'
-      map_file           = ' '
       mode               = 2
       taxis_tunit        = TUNIT_HOUR
       dom(:)             = -1
@@ -368,6 +385,7 @@ CONTAINS
       include_last       = .TRUE.
       output_grid        = .FALSE.
       output_filename    = ' '
+      filename_format    = "<output_filename>_DOM<physdom>_<levtype>_<jfile>"
       lwrite_ready       = .FALSE.
       ready_directory    = ' '
       ml_varlist(:)      = ' '
@@ -377,11 +395,9 @@ CONTAINS
       p_levels(:)        = 0._wp
       h_levels(:)        = 0._wp
       i_levels(:)        = 0._wp
-      remap              = 0
-      remap_internal     = .FALSE.
+      remap              = REMAP_NONE
       reg_lon_def(:)     = 0._wp
       reg_lat_def(:)     = 0._wp
-      gauss_tgrid_def    = 0
       north_pole(:)      = (/ 0._wp, 90._wp /)
 
       !------------------------------------------------------------------
@@ -413,24 +429,41 @@ CONTAINS
       IF(dtime<=0._wp) CALL finish(routine, 'dtime must be set before reading output namelists')
 
       ! Output bounds
-      IF(output_bounds(1,1) < 0._wp .OR. &
-         output_bounds(2,1) <= output_bounds(1,1) .OR. &
-         output_bounds(3,1) <= dtime * grid_rescale_factor ) THEN
+      ! output_bounds is always in seconds - the question is what to do with months or years
+      ! output_time_unit: 1 = second, 2=minute, 3=hour, 4=day, 5=month, 6=year
+      SELECT CASE(output_time_unit)
+        CASE(1); output_bounds_sec(:,:) = output_bounds(:,:)
+        CASE(2); output_bounds_sec(:,:) = output_bounds(:,:)*60._wp
+        CASE(3); output_bounds_sec(:,:) = output_bounds(:,:)*3600._wp
+        CASE(4); output_bounds_sec(:,:) = output_bounds(:,:)*86400._wp
+        CASE(5); output_bounds_sec(:,:) = output_bounds(:,:)*86400._wp*30._wp  ! Not a real calender month
+        CASE(6); output_bounds_sec(:,:) = output_bounds(:,:)*86400._wp*365._wp ! Not a real calender year
+        CASE DEFAULT
+          CALL finish(routine,'Illegal output_time_unit')
+      END SELECT
+
+      !Consistency check on output bounds
+      IF(output_bounds_sec(1,1) < 0._wp .OR. &
+         output_bounds_sec(2,1) <= output_bounds_sec(1,1) .OR. &
+         output_bounds_sec(3,1) <= dtime * grid_rescale_factor ) THEN
         CALL finish(routine,'Illegal output_bounds(:,1)')
       ENDIF
 
       DO i = 2, max_bounds-1
-        IF(output_bounds(3,i) <= 0._wp) EXIT ! The last one
-        IF(output_bounds(1,i) <= output_bounds(2,i-1)) &
+        IF(output_bounds_sec(3,i) <= 0._wp) EXIT ! The last one
+
+        IF(output_bounds_sec(1,i) <= output_bounds_sec(2,i-1)) &
           CALL finish(routine,'output_bounds not increasing')
-        IF(output_bounds(2,i) <= output_bounds(1,i)) &
+
+        IF(output_bounds_sec(2,i) <= output_bounds_sec(1,i)) &
           CALL finish(routine,'output_bounds end <= start')
-        IF(output_bounds(3,i) <  dtime * grid_rescale_factor ) &
+
+        IF(output_bounds_sec(3,i) <  dtime * grid_rescale_factor ) &
           CALL finish(routine,'output_bounds inc < dtime')
       ENDDO
 
       ! For safety, at least last bounds triple must always be 0
-      output_bounds(:,i:) = 0._wp
+      output_bounds_sec(:,i:) = 0._wp
 
       ! Allocate next output_name_list
 
@@ -445,41 +478,20 @@ CONTAINS
         p_onl => p_onl%next
       ENDIF
 
-      ! consistency check
-      IF (output_grid .AND. (filetype == FILETYPE_GRB2)) THEN
-        WRITE(message_text,*) &
-          & 'WARNING: Output file type does not support grid output! => output_grid := .FALSE.'
-        CALL message(TRIM(routine), TRIM(message_text))
-        output_grid = .FALSE.
-      END IF
-
       ! Set next output_name_list from values read
 
       p_onl%filetype         = filetype
       p_onl%namespace        = namespace
-      p_onl%map_file         = map_file
       p_onl%mode             = mode
       p_onl%taxis_tunit      = taxis_tunit
       p_onl%dom(:)           = dom(:)
       p_onl%output_time_unit = output_time_unit
-
-      ! output_bounds is always in seconds - the question is what to do with months or years
-      ! output_time_unit: 1 = second, 2=minute, 3=hour, 4=day, 5=month, 6=year
-      SELECT CASE(output_time_unit)
-        CASE(1); p_onl%output_bounds(:,:) = output_bounds(:,:)
-        CASE(2); p_onl%output_bounds(:,:) = output_bounds(:,:)*60._wp
-        CASE(3); p_onl%output_bounds(:,:) = output_bounds(:,:)*3600._wp
-        CASE(4); p_onl%output_bounds(:,:) = output_bounds(:,:)*86400._wp
-        CASE(5); p_onl%output_bounds(:,:) = output_bounds(:,:)*86400._wp*30._wp  ! Not a real calender month
-        CASE(6); p_onl%output_bounds(:,:) = output_bounds(:,:)*86400._wp*365._wp ! Not a real calender year
-        CASE DEFAULT
-          CALL finish(routine,'Illegal output_time_unit')
-      END SELECT
-
+      p_onl%output_bounds(:,:) = output_bounds_sec(:,:)
       p_onl%steps_per_file   = steps_per_file
       p_onl%include_last     = include_last
       p_onl%output_grid      = output_grid
       p_onl%output_filename  = output_filename
+      p_onl%filename_format  = filename_format
       p_onl%lwrite_ready     = lwrite_ready
       p_onl%ready_directory  = ready_directory
       p_onl%ml_varlist(:)    = ml_varlist(:)
@@ -490,9 +502,43 @@ CONTAINS
       p_onl%h_levels         = h_levels
       p_onl%i_levels         = i_levels
       p_onl%remap            = remap
-      p_onl%remap_internal   = remap_internal
       p_onl%lonlat_id        = -1
 
+      ! read the map files into dictionary data structures
+      CALL dict_init(varnames_dict,     lcase_sensitive=.FALSE.)
+      CALL dict_init(out_varnames_dict, lcase_sensitive=.FALSE.)
+
+      CALL associate_keyword("<path>", TRIM(model_base_dir), keywords)
+      IF(varnames_map_file     /= ' ') THEN
+        cfilename = TRIM(with_keywords(keywords, varnames_map_file))
+        CALL message(routine, "load dictionary file.")
+        CALL dict_loadfile(varnames_dict, cfilename)
+      END IF
+      IF(out_varnames_map_file /= ' ') THEN
+        cfilename = TRIM(with_keywords(keywords, out_varnames_map_file))
+        CALL message(routine, "load dictionary file (output names).")
+        CALL dict_loadfile(out_varnames_dict, cfilename)
+      END IF
+
+      ! translate variables names according to variable name
+      ! dictionary:
+      DO i=1,max_var_ml
+        p_onl%ml_varlist(i) = dict_get(varnames_dict, p_onl%ml_varlist(i), &
+          &                            default=p_onl%ml_varlist(i))
+      END DO
+      DO i=1,max_var_pl
+        p_onl%pl_varlist(i) = dict_get(varnames_dict, p_onl%pl_varlist(i), &
+          &                            default=p_onl%pl_varlist(i))
+      END DO
+      DO i=1,max_var_hl
+        p_onl%hl_varlist(i) = dict_get(varnames_dict, p_onl%hl_varlist(i), &
+          &                            default=p_onl%hl_varlist(i))
+      END DO
+      DO i=1,max_var_il
+        p_onl%il_varlist(i) = dict_get(varnames_dict, p_onl%il_varlist(i), &
+          &                            default=p_onl%il_varlist(i))
+      END DO
+      
       ! allow case-insensitive variable names:
       DO i=1,max_var_ml
         p_onl%ml_varlist(i) = tolower(p_onl%ml_varlist(i))
@@ -506,11 +552,11 @@ CONTAINS
       DO i=1,max_var_il
         p_onl%il_varlist(i) = tolower(p_onl%il_varlist(i))
       END DO
-
+      
       ! If "remap=1": lon-lat interpolation requested
-      IF(remap/=0 .AND. remap/=1) &
+      IF(remap/=REMAP_NONE .AND. remap/=REMAP_REGULAR_LATLON) &
         CALL finish(routine,'Unsupported value for remap')
-      IF (remap == 1) THEN
+      IF (remap == REMAP_REGULAR_LATLON) THEN
         ! Register a lon-lat grid data structure in global list
         p_onl%lonlat_id = get_free_lonlat_grid()
         lonlat => lonlat_grid_list(p_onl%lonlat_id)
@@ -541,7 +587,6 @@ CONTAINS
           ENDDO DOM_LOOP
         END IF
       ENDIF
-      p_onl%gauss_tgrid_def      = gauss_tgrid_def
 
       p_onl%cur_bounds_triple= 1
       p_onl%next_output_time = p_onl%output_bounds(1,1)
@@ -571,12 +616,10 @@ CONTAINS
 
 
   !------------------------------------------------------------------------------------------------
- 
   !> Looks for variable groups ("group:xyz") and replaces them
   !
   SUBROUTINE parse_variable_groups()
-    CHARACTER(LEN=*), PARAMETER :: routine = &
-      &  TRIM('mo_name_list_output/parse_variable_groups')
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//"::parse_variable_groups"
     !
     CHARACTER(LEN=VARNAME_LEN), ALLOCATABLE :: varlist(:), grp_vars(:), new_varlist(:)
     CHARACTER(LEN=VARNAME_LEN) :: vname, grp_name
@@ -621,7 +664,9 @@ CONTAINS
           IF (INDEX(vname, GRP_PREFIX) > 0) THEN
             ! this is a group identifier
             grp_name = vname((LEN(TRIM(GRP_PREFIX))+1) : LEN(vname))
-            CALL collect_group(grp_name, grp_vars, ngrp_vars)
+            CALL collect_group(grp_name, grp_vars, ngrp_vars, &
+              &               loutputvars_only=.TRUE.,        &
+              &               lremap_lonlat=(p_onl%remap == REMAP_REGULAR_LATLON))
             CALL insert_group(varlist, VARNAME_LEN, ntotal_vars, &
               &               TRIM(GRP_PREFIX)//TRIM(grp_name),  &
               &               grp_vars(1:ngrp_vars), new_varlist)
@@ -661,8 +706,7 @@ CONTAINS
 
 
   !------------------------------------------------------------------------------------------------
-
-
+  !
   SUBROUTINE init_name_list_output(lprintlist, isample)
 
 #ifndef NOMPI
@@ -676,25 +720,21 @@ CONTAINS
     LOGICAL, OPTIONAL, INTENT(in) :: lprintlist
     INTEGER, OPTIONAL, INTENT(in) :: isample
 
-    ! For a list of all variables, enable the following:
-    LOGICAL :: l_print_list
-
-    INTEGER :: i, j, nfiles, i_typ, nvl, vl_list(max_var_lists), jp
-    CHARACTER(LEN=2) :: lev_type
-    INTEGER          :: ilev_type, idom, ierrstat, jg, idom_log
+    ! local variables:
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//"::init_name_list_output"
+    
+    LOGICAL                            :: l_print_list ! Flag. Enables  a list of all variables
+    INTEGER                            :: i, j, nfiles, i_typ, nvl, vl_list(max_var_lists), jp
+    INTEGER                            :: idom, ierrstat, jg, idom_log
     TYPE (t_output_name_list), POINTER :: p_onl
-    TYPE (t_output_file), POINTER :: p_of
-    TYPE(t_list_element), POINTER :: element
-
-    CHARACTER(LEN=*), PARAMETER :: routine = &
-      &  TRIM('mo_name_list_output/init_name_list_output')
-    REAL(wp), ALLOCATABLE :: lonv(:,:,:), latv(:,:,:)
+    TYPE (t_output_file), POINTER      :: p_of
+    TYPE(t_list_element), POINTER      :: element
+    REAL(wp), ALLOCATABLE              :: lonv(:,:,:), latv(:,:,:)
 
     l_print_list = .FALSE.
-    IF (PRESENT(lprintlist)) l_print_list = lprintlist
-
-    i_sample = 1
-    IF (PRESENT(isample)) i_sample = isample
+    i_sample     = 1
+    CALL assign_if_present(l_print_list, lprintlist)
+    CALL assign_if_present(i_sample, isample)
 
     ! For hexagons, we still copy grid info from file; for triangular
     ! grids we have a faster method without file access:
@@ -717,6 +757,12 @@ CONTAINS
                  &            element%field%info%loutput, '  ',     &
                  &            trim(element%field%info%cf%long_name)
             CALL message('',message_text)
+            ! WRITE (message_text,'(a,a,i4,i4,i4)') &
+            !      &     '    ',element%field%info%name,              &
+            !      &            element%field%info%grib2%number,      &
+            !      &            element%field%info%grib2%category,    &
+            !      &            element%field%info%grib2%discipline
+            ! CALL message('',message_text)
             element => element%next_list_element
           ENDDO
         ENDIF
@@ -973,16 +1019,14 @@ CONTAINS
           p_of => output_file(nfiles)
 
           SELECT CASE(i_typ)
-            CASE(1); lev_type = 'ML'; ilev_type=level_type_ml
-            CASE(2); lev_type = 'PL'; ilev_type=level_type_pl
-            CASE(3); lev_type = 'HL'; ilev_type=level_type_hl
-            CASE(4); lev_type = 'IL'; ilev_type=level_type_il
+            CASE(1); p_of%ilev_type = level_type_ml
+            CASE(2); p_of%ilev_type = level_type_pl
+            CASE(3); p_of%ilev_type = level_type_hl
+            CASE(4); p_of%ilev_type = level_type_il
           END SELECT
 
           ! Set prefix of output_file name
-
-          WRITE(p_of%filename_pref,'(a,"_DOM",i2.2,"_",a)') &
-            TRIM(p_onl%output_filename),idom,lev_type
+          p_of%filename_pref = TRIM(p_onl%output_filename)
 
           p_of%phys_patch_id = idom
           p_of%log_patch_id  = patch_info(idom)%log_patch_id
@@ -1018,51 +1062,15 @@ CONTAINS
 
           ENDDO
 
-          ! build a total varlist of variables tagged with
-          ! "loutput=.TRUE."
-          IF (p_of%remap == 1) THEN
-            CALL get_all_var_names(all_varlist, n_allvars, opt_loutput=.TRUE.,    &
-              &       opt_vlevel_type=ilev_type, opt_hor_intp_type=HINTP_TYPE_LONLAT,  &
-              &       opt_patch_id=patch_info(idom)%log_patch_id)
-          ELSE
-            CALL get_all_var_names(all_varlist, n_allvars, opt_loutput=.TRUE.,    &
-              &       opt_vlevel_type=ilev_type, opt_patch_id=patch_info(idom)%log_patch_id)
-          END IF
-
-
           SELECT CASE(i_typ)
             CASE(1)
-              IF (toupper(TRIM(p_onl%ml_varlist(1))) == "ALL") THEN
-                IF (n_allvars > 0) &
-                  CALL add_varlist_to_output_file(p_of,vl_list(1:nvl), &
-                  &                               all_varlist(1:n_allvars))
-              ELSE
-                CALL add_varlist_to_output_file(p_of,vl_list(1:nvl),p_onl%ml_varlist)
-              END IF
+              CALL add_varlist_to_output_file(p_of,vl_list(1:nvl),p_onl%ml_varlist)
             CASE(2)
-              IF (toupper(TRIM(p_onl%pl_varlist(1))) == "ALL") THEN
-                IF (n_allvars > 0) &
-                  CALL add_varlist_to_output_file(p_of,vl_list(1:nvl), &
-                  &                               all_varlist(1:n_allvars))
-              ELSE
-                CALL add_varlist_to_output_file(p_of,vl_list(1:nvl),p_onl%pl_varlist)
-              END IF
+              CALL add_varlist_to_output_file(p_of,vl_list(1:nvl),p_onl%pl_varlist)
             CASE(3)
-              IF (toupper(TRIM(p_onl%hl_varlist(1))) == "ALL") THEN
-                IF (n_allvars > 0) &
-                  CALL add_varlist_to_output_file(p_of,vl_list(1:nvl), &
-                  &                               all_varlist(1:n_allvars))
-              ELSE
-                CALL add_varlist_to_output_file(p_of,vl_list(1:nvl),p_onl%hl_varlist)
-              END IF
+              CALL add_varlist_to_output_file(p_of,vl_list(1:nvl),p_onl%hl_varlist)
             CASE(4)
-              IF (toupper(TRIM(p_onl%il_varlist(1))) == "ALL") THEN
-                IF (n_allvars > 0) &
-                  CALL add_varlist_to_output_file(p_of,vl_list(1:nvl), &
-                  &                               all_varlist(1:n_allvars))
-              ELSE
-                CALL add_varlist_to_output_file(p_of,vl_list(1:nvl),p_onl%il_varlist)
-              END IF
+              CALL add_varlist_to_output_file(p_of,vl_list(1:nvl),p_onl%il_varlist)
           END SELECT
 
         ENDDO
@@ -1098,21 +1106,22 @@ CONTAINS
 
   END SUBROUTINE init_name_list_output
 
-  !------------------------------------------------------------------------------------------------
 
+  !------------------------------------------------------------------------------------------------
+  !
   SUBROUTINE add_varlist_to_output_file(p_of, vl_list, varlist)
 
     TYPE (t_output_file), INTENT(INOUT) :: p_of
     INTEGER, INTENT(IN) :: vl_list(:)
     CHARACTER(LEN=*), INTENT(IN) :: varlist(:)
 
-    INTEGER :: ivar, i, iv, idx, idx_t, idx_x, idx_y, tl, grid_of, grid_var
-    LOGICAL :: found, found_1, found_2
+    INTEGER :: ivar, i, iv, tl, grid_of, grid_var
+    LOGICAL :: found
     TYPE(t_list_element), POINTER :: element
-    TYPE(t_var_desc), TARGET  ::  var_desc_1, var_desc_2   !< variable descriptor
+    TYPE(t_var_desc), TARGET  ::  var_desc   !< variable descriptor
     TYPE(t_var_desc), POINTER ::  p_var_desc               !< variable descriptor (pointer)
 
-    CHARACTER(LEN=*), PARAMETER :: routine = 'mo_name_list_output/add_varlist_to_output_file'
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//"::add_varlist_to_output_file"
 
     ! Get the number of variables in varlist
     DO ivar = 1, SIZE(varlist)
@@ -1126,22 +1135,23 @@ CONTAINS
     DO ivar = 1,(ivar-1)
       ! Nullify pointers in p_of%var_desc
       p_of%var_desc(ivar)%r_ptr => NULL()
+      p_of%var_desc(ivar)%i_ptr => NULL()
       DO i = 1, max_time_levels
-        p_of%var_desc(ivar)%tlev_ptr(i)%p => NULL()
+        p_of%var_desc(ivar)%tlev_rptr(i)%p => NULL()
+        p_of%var_desc(ivar)%tlev_iptr(i)%p => NULL()
       ENDDO
     END DO ! ivar
 
     ! Allocate array of variable descriptions
     DO ivar = 1,(ivar-1)
 
-      found_1 = .FALSE.
-      found_2 = .FALSE.
+      found = .FALSE.
       ! Nullify pointers
-      var_desc_1%r_ptr => NULL()
-      var_desc_2%r_ptr => NULL()
+      var_desc%r_ptr => NULL()
+      var_desc%i_ptr => NULL()
       DO i = 1, max_time_levels
-        var_desc_1%tlev_ptr(i)%p => NULL()
-        var_desc_2%tlev_ptr(i)%p => NULL()
+        var_desc%tlev_rptr(i)%p => NULL()
+        var_desc%tlev_iptr(i)%p => NULL()
       ENDDO
 
       ! Loop over all var_lists listed in vl_list to find the variable
@@ -1166,57 +1176,37 @@ CONTAINS
           ! Do not inspect element if output is disabled
           IF(.NOT.element%field%info%loutput) CYCLE
 
-          IF (p_of%name_list%remap==1) THEN
+          IF (p_of%name_list%remap==REMAP_REGULAR_LATLON) THEN
             ! If lon-lat variable is requested, skip variable if it
             ! does not correspond to the same lon-lat grid:
+            IF (element%field%info%hgrid /= GRID_REGULAR_LONLAT) CYCLE
             grid_of  = p_of%name_list%lonlat_id
             grid_var = element%field%info%hor_interp%lonlat_id
-
             IF (grid_of /= grid_var) CYCLE
           ELSE
             ! On the other hand: If no lon-lat interpolation is
             ! requested for this output file, skip all variables of
             ! this kind:
             IF (element%field%info%hgrid == GRID_REGULAR_LONLAT) CYCLE
-          END IF ! (remap/=1)
+          END IF ! (remap/=REMAP_REGULAR_LATLON)
 
           ! Do not inspect element if it is a container
           IF(element%field%info%lcontainer) CYCLE
 
-          ! find suffix position for component and time level indices:
-          idx_x = INDEX(element%field%info%name,'.X')
-          idx_y = INDEX(element%field%info%name,'.Y')
-          idx_t = INDEX(element%field%info%name,'.TL')
-
-          idx = vname_len
-          IF (idx_t > 0) idx=MIN(idx, idx_t)
-          IF (idx_x > 0) idx=MIN(idx, idx_x)
-          IF (idx_y > 0) idx=MIN(idx, idx_y)
-          IF (idx==vname_len) idx=0
+          ! get time level
+          tl = get_var_timelevel(element%field)
 
           ! Check for matching name
-          IF(idx == 0) THEN
-            IF(varlist(ivar) /= element%field%info%name) CYCLE
-          ELSE
-            IF(varlist(ivar) /= element%field%info%name(1:idx-1)) CYCLE
-          ENDIF
+          IF(TRIM(varlist(ivar)) /= TRIM(tolower(get_var_name(element%field)))) CYCLE
 
           ! Found it, add it to the variable list of output file
-          
-          ! If we are dealing with an edge-based variable: look for
-          ! both, the x and y component
-          IF ((p_of%name_list%remap/=1) .OR. (idx_y == 0)) THEN
-            p_var_desc => var_desc_1
-            found      =  found_1
-          ELSE
-            p_var_desc => var_desc_2
-            found      =  found_2
-          END IF
+          p_var_desc => var_desc
 
-          IF(idx_t == 0) THEN
+          IF(tl == -1) THEN
             ! Not time level dependent
             IF(found) CALL finish(routine,'Duplicate var name: '//TRIM(varlist(ivar)))
             p_var_desc%r_ptr => element%field%r_ptr
+            p_var_desc%i_ptr => element%field%i_ptr
             p_var_desc%info  = element%field%info
           ELSE
             IF(found) THEN
@@ -1227,37 +1217,30 @@ CONTAINS
                 CALL finish(routine,'Dimension mismatch TL variable: '//TRIM(varlist(ivar)))
               END IF
               ! There must not be a TL independent variable with the same name
-              IF(ASSOCIATED(p_var_desc%r_ptr)) &
+              IF (ASSOCIATED(p_var_desc%r_ptr) .OR. ASSOCIATED(p_var_desc%i_ptr)) &
                 CALL finish(routine,'Duplicate var name: '//TRIM(varlist(ivar)))
               ! Maybe some more members of info should be tested ...
             ELSE
               ! Variable encountered the first time, set info field ...
               p_var_desc%info = element%field%info
               ! ... and set name without .TL# suffix
-              p_var_desc%info%name = element%field%info%name(1:idx_t-1)
+              p_var_desc%info%name = TRIM(get_var_name(element%field))
             ENDIF
-            ! Get time level
-            tl = ICHAR(element%field%info%name(idx_t+3:idx_t+3)) - ICHAR('0')
-            IF(tl<=0 .OR. tl>max_time_levels) &
-              CALL finish(routine, 'Illegal time level in '//TRIM(element%field%info%name))
-            IF(ASSOCIATED(p_var_desc%tlev_ptr(tl)%p)) &
+
+            IF (ASSOCIATED(p_var_desc%tlev_rptr(tl)%p) .OR. ASSOCIATED(p_var_desc%tlev_iptr(tl)%p)) &
               CALL finish(routine, 'Duplicate time level for '//TRIM(element%field%info%name))
-            p_var_desc%tlev_ptr(tl)%p => element%field%r_ptr
+            p_var_desc%tlev_rptr(tl)%p => element%field%r_ptr
+            p_var_desc%tlev_iptr(tl)%p => element%field%i_ptr
           ENDIF
 
-          IF ((p_of%name_list%remap/=1) .OR. (idx_y == 0)) THEN
-            found_1 = .TRUE.
-          ELSE
-            found_2 = .TRUE.
-          END IF
-
+          found = .TRUE.
         ENDDO
 
       ENDDO ! i = 1, SIZE(vl_list)
 
       ! Check that at least one element with this name has been found
 
-      IF (.NOT. found_1) THEN
+      IF (.NOT. found) THEN
 
         DO i = 1, nvar_lists
           IF (my_process_is_stdio()) THEN
@@ -1281,30 +1264,21 @@ CONTAINS
         CALL finish(routine,'Output name list variable not found: '//TRIM(varlist(ivar)))
       ENDIF
 
-      ! append variable descriptor to list; append two different
-      ! variables (X and Y) if we have a lon-lat interpolated variable
-      ! defined on edges:
-      IF (found_2) THEN
-        var_desc_1%info%name = TRIM(var_desc_1%info%name)//".X"
-        CALL add_var_desc(p_of, var_desc_1)
-        var_desc_2%info%name = TRIM(var_desc_2%info%name)//".Y"
-        CALL add_var_desc(p_of, var_desc_2)
-      ELSE
-        CALL add_var_desc(p_of, var_desc_1)
-      END IF
-
+      ! append variable descriptor to list
+      CALL add_var_desc(p_of, var_desc)
+      
     ENDDO ! ivar = 1,(ivar-1)
 
   END SUBROUTINE add_varlist_to_output_file
 
 
   !------------------------------------------------------------------------------------------------
-
+  !
   SUBROUTINE set_patch_info
 
     INTEGER :: jp, jl, ierrstat, jg
 
-    CHARACTER(LEN=*), PARAMETER :: routine = 'mo_name_list_output/set_patch_info'
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//"::set_patch_info"
 
     DO jp = 1, n_dom_out
 
@@ -1384,7 +1358,7 @@ CONTAINS
     INTEGER,                          INTENT(IN)    :: dim3
     TYPE(t_comm_pattern),  POINTER                  :: p_pat
     ! local variables
-    CHARACTER(LEN=*), PARAMETER :: routine  =  TRIM('mo_name_list_output/collect_grid_info')
+    CHARACTER(LEN=*), PARAMETER :: routine  =  modname//"::collect_grid_info"
     INTEGER               :: ierrstat, jb, jc, idim
     REAL(wp), ALLOCATABLE :: r_tmp_lon(:,:), r_tmp_lat(:,:)
 
@@ -1658,11 +1632,10 @@ CONTAINS
 
 
   !------------------------------------------------------------------------------------------------
-  !>
-  !! Sets the reorder_info for cells/edges/verts
-  !! ATTENTION: This routine must only be called on work and test PE (i.e. not on IO PEs)
-  !!            The arguments don't make sense on the IO PEs anyways
-
+  !> Sets the reorder_info for cells/edges/verts
+  !  ATTENTION: This routine must only be called on work and test PE (i.e. not on IO PEs)
+  !             The arguments don't make sense on the IO PEs anyways
+  !
   SUBROUTINE set_reorder_info(phys_patch_id, n_points_g, n_points, owner_mask, phys_id, &
                               glb_index, p_ri)
 
@@ -1679,7 +1652,7 @@ CONTAINS
     LOGICAL, ALLOCATABLE :: phys_owner_mask(:) ! owner mask for physical patch
     INTEGER, ALLOCATABLE :: glbidx_own(:), glbidx_glb(:), reorder_index_log_dom(:)
 
-    CHARACTER(LEN=*), PARAMETER :: routine = 'mo_name_list_output/set_reorder_info'
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//"::set_reorder_info"
 
     ! Just for safety
     IF(my_process_is_io()) CALL finish(routine, 'Must not be called on IO PEs')
@@ -1814,8 +1787,7 @@ CONTAINS
     TYPE(t_lon_lat_intp), INTENT(IN)    :: intp
     TYPE(t_reorder_info), INTENT(INOUT) :: p_ri ! Result: reorder info
 
-    CHARACTER(LEN=*), PARAMETER :: routine = &
-      &   'mo_name_list_output/set_reorder_info_lonlat'
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//"::set_reorder_info_lonlat"
     INTEGER :: ierrstat, i, jc, jb, this_pe, mpierr, & 
     &          ioffset, gidx
 
@@ -1898,30 +1870,19 @@ CONTAINS
 
 
   !------------------------------------------------------------------------------------------------
-  !> setup_output_vlist:
-  !! Sets up the vlist for a t_output_file structure
-
+  !> Sets up the vlist for a t_output_file structure
+  !
   SUBROUTINE setup_output_vlist(of)
-
     TYPE(t_output_file), INTENT(INOUT) :: of
-
-    INTEGER :: k, nlev, nlevp1, nplev, nzlev, nilev, nzlevp1, znlev_soil, i_dom
-    INTEGER :: ll_dim(2)
-    INTEGER :: gridtype
-    REAL(wp), ALLOCATABLE :: levels(:), levels_i(:), levels_m(:), p_lonlat(:)
-    REAL(wp), ALLOCATABLE :: lbounds(:), ubounds(:)
-
-    CHARACTER(LEN=*), PARAMETER :: routine = 'mo_name_list_output/setup_output_vlist'
+    ! local variables
+    CHARACTER(LEN=*), PARAMETER   :: routine = modname//"::setup_output_vlist"
+    INTEGER                       :: k, nlev, nlevp1, nplev, nzlev, nilev, nzlevp1, znlev_soil, &
+      &                              i_dom, ll_dim(2), gridtype, idate, itime
+    REAL(wp), ALLOCATABLE         :: levels_i(:), levels_m(:), p_lonlat(:)
+    REAL(dp), ALLOCATABLE         :: levels(:), lbounds(:), ubounds(:)
     TYPE(t_lon_lat_data), POINTER :: lonlat
-    LOGICAL :: lwrite_pzlev
-    INTEGER :: idate, itime
-    TYPE(t_datetime) :: ini_datetime
-
-    ! Read map_file - we do it here and not during initialization
-    ! since it is enough if only the output PE does the read (and not all)
-
-    IF(of%name_list%map_file /= ' ') CALL read_map_file(of, of%name_list%map_file)
-
+    LOGICAL                       :: lwrite_pzlev
+    TYPE(t_datetime)              :: ini_datetime
 
     IF (of%output_type == FILETYPE_GRB2) THEN
       ! since the current CDI-version does not fully support "GRID_UNSTRUCTURED", the 
@@ -1954,9 +1915,12 @@ CONTAINS
     CALL vlistDefInstitut(of%cdiVlistID,of%cdiInstID)
 
 
+    CALL vlistDefTable(of%cdiVlistID,5)
+
+
     ! 3. add horizontal grid descriptions
 
-    IF(of%name_list%remap == 1) THEN
+    IF(of%name_list%remap == REMAP_REGULAR_LATLON) THEN
 
       ! Lon/Lat Interpolation requested
 
@@ -2078,13 +2042,21 @@ CONTAINS
 
       ! If wanted, set grid info
       IF(of%name_list%output_grid) THEN
-        IF (l_grid_info_from_file) THEN
-          CALL copy_grid_info(of)
-        ELSE IF (.NOT. my_process_is_mpi_test()) THEN
-          CALL set_grid_info(of)
-        END IF
+        SELECT CASE(of%name_list%filetype)
+        CASE (FILETYPE_NC2, FILETYPE_NC4)
+          ! encode grid info in NetCDF format:
+          IF (l_grid_info_from_file) THEN
+            CALL copy_grid_info(of)
+          ELSE IF (.NOT. my_process_is_mpi_test()) THEN
+            CALL set_grid_info_netcdf(of)
+          END IF
+        CASE (FILETYPE_GRB2) 
+          ! handled later...
+        CASE DEFAULT
+          CALL finish(routine, "Unknown grid type")
+        END SELECT
       END IF
-
+        
     ENDIF
 
     !
@@ -2096,7 +2068,7 @@ CONTAINS
     ! surface level
     of%cdiZaxisID(ZA_surface) = zaxisCreate(ZAXIS_SURFACE, 1)
     ALLOCATE(levels(1))
-    levels(1) = 0.0_wp
+    levels(1) = 0.0_dp
     CALL zaxisDefLevels(of%cdiZaxisID(ZA_surface), levels)
     DEALLOCATE(levels)
 
@@ -2115,11 +2087,11 @@ CONTAINS
       of%cdiZaxisID(ZA_hybrid)      = zaxisCreate(ZAXIS_HYBRID, nlev)
       ALLOCATE(lbounds(nlev), ubounds(nlev), levels(nlev))
       DO k = 1, nlev
-        lbounds(k) = REAL(k,wp)
-        levels(k)  = REAL(k,wp)
+        lbounds(k) = REAL(k,dp)
+        levels(k)  = REAL(k,dp)
       END DO
       DO k = 2, nlevp1
-        ubounds(k-1) = REAL(k,wp)
+        ubounds(k-1) = REAL(k,dp)
       END DO
       CALL zaxisDefLbounds(of%cdiZaxisID(ZA_hybrid), lbounds) !necessary for GRIB2
       CALL zaxisDefUbounds(of%cdiZaxisID(ZA_hybrid), ubounds) !necessary for GRIB2
@@ -2132,18 +2104,33 @@ CONTAINS
       of%cdiZaxisID(ZA_hybrid_half) = zaxisCreate(ZAXIS_HYBRID_HALF, nlevp1)
       ALLOCATE(levels(nlevp1))
       DO k = 1, nlevp1
-        levels(k) = REAL(k,wp)
+        levels(k) = REAL(k,dp)
       END DO
       CALL zaxisDefLevels(of%cdiZaxisID(ZA_hybrid_half), levels)
       DEALLOCATE(levels)
       CALL zaxisDefVct(of%cdiZaxisID(ZA_hybrid_half), 2*nlevp1, vct(1:2*nlevp1))
+
+      ! HYBRID (special version for HHL)
+      !
+      of%cdiZaxisID(ZA_hybrid_half_hhl) = zaxisCreate(ZAXIS_HYBRID_HALF, nlevp1)
+      ALLOCATE(lbounds(nlevp1), ubounds(nlevp1), levels(nlevp1))
+      DO k = 1, nlevp1
+        lbounds(k) = REAL(k,dp)
+        levels(k)  = REAL(k,dp)
+      END DO
+      ubounds(1:nlevp1) = 0._dp
+      CALL zaxisDefLbounds(of%cdiZaxisID(ZA_hybrid_half_hhl), lbounds) !necessary for GRIB2
+      CALL zaxisDefUbounds(of%cdiZaxisID(ZA_hybrid_half_hhl), ubounds) !necessary for GRIB2
+      CALL zaxisDefLevels(of%cdiZaxisID(ZA_hybrid_half_hhl), levels)  !necessary for NetCDF
+      DEALLOCATE(lbounds, ubounds, levels)
+      CALL zaxisDefVct(of%cdiZaxisID(ZA_hybrid_half_hhl), 2*nlevp1, vct(1:2*nlevp1))
 
       !
       ! Define axis for output on mean sea level
       !
       of%cdiZaxisID(ZA_meansea) = zaxisCreate(ZAXIS_MEANSEA, 1)
       ALLOCATE(levels(1))
-      levels(1) = 0.0_wp
+      levels(1) = 0.0_dp
       CALL zaxisDefLevels(of%cdiZaxisID(ZA_meansea), levels)
       DEALLOCATE(levels)
 
@@ -2153,9 +2140,9 @@ CONTAINS
       of%cdiZaxisID(ZA_depth_below_land_p1) = &
         & zaxisCreate(ZAXIS_DEPTH_BELOW_LAND, znlev_soil+1)
       ALLOCATE(levels(znlev_soil+1))
-      levels(1) = 0._wp
+      levels(1) = 0._dp
       DO k = 1, znlev_soil
-        levels(k+1) = zml_soil(k)*1000._wp  ! in mm
+        levels(k+1) = REAL(zml_soil(k)*1000._wp,dp)  ! in mm
       END DO
       CALL zaxisDefLevels(of%cdiZaxisID(ZA_depth_below_land_p1), levels)
       CALL zaxisDefUnits(of%cdiZaxisID(ZA_depth_below_land_p1), "mm")
@@ -2165,16 +2152,16 @@ CONTAINS
       !
       of%cdiZaxisID(ZA_depth_below_land) = zaxisCreate(ZAXIS_DEPTH_BELOW_LAND, znlev_soil)
       ALLOCATE(lbounds(znlev_soil), ubounds(znlev_soil), levels(znlev_soil))
-      lbounds(1) = 0._wp   ! surface
+      lbounds(1) = 0._dp   ! surface
       DO k = 2, znlev_soil
-        lbounds(k)   = (zml_soil(k-1) + (zml_soil(k-1) - lbounds(k-1)))
+        lbounds(k)   = REAL((zml_soil(k-1) + (zml_soil(k-1) - lbounds(k-1))),dp)
       ENDDO
       DO k = 1, znlev_soil
-        ubounds(k) = (zml_soil(k) + (zml_soil(k) - lbounds(k)))
-        levels(k)  = zml_soil(k)*1000._wp
+        ubounds(k) = REAL((zml_soil(k) + (zml_soil(k) - lbounds(k))),dp)
+        levels(k)  = REAL(zml_soil(k)*1000._wp,dp)
       ENDDO
-      ubounds(:) = ubounds(:) * 1000._wp        ! in mm
-      lbounds(:) = lbounds(:) * 1000._wp        ! in mm
+      ubounds(:) = ubounds(:) * 1000._dp        ! in mm
+      lbounds(:) = lbounds(:) * 1000._dp        ! in mm
       CALL zaxisDefLbounds(of%cdiZaxisID(ZA_depth_below_land), lbounds) !necessary for GRIB2
       CALL zaxisDefUbounds(of%cdiZaxisID(ZA_depth_below_land), ubounds) !necessary for GRIB2
       CALL zaxisDefLevels (of%cdiZaxisID(ZA_depth_below_land), levels)  !necessary for NetCDF
@@ -2185,7 +2172,7 @@ CONTAINS
       of%cdiZaxisID(ZA_generic_snow_p1) = zaxisCreate(ZAXIS_GENERIC, nlev_snow+1)
       ALLOCATE(levels(nlev_snow+1))
       DO k = 1, nlev_snow+1
-        levels(k) = REAL(k,wp)
+        levels(k) = REAL(k,dp)
       END DO
       CALL zaxisDefLevels(of%cdiZaxisID(ZA_generic_snow_p1), levels)
       DEALLOCATE(levels)
@@ -2193,7 +2180,7 @@ CONTAINS
       of%cdiZaxisID(ZA_generic_snow) = zaxisCreate(ZAXIS_GENERIC, nlev_snow)
       ALLOCATE(levels(nlev_snow))
       DO k = 1, nlev_snow
-        levels(k) = REAL(k,wp)
+        levels(k) = REAL(k,dp)
       END DO
       CALL zaxisDefLevels(of%cdiZaxisID(ZA_generic_snow), levels)
       DEALLOCATE(levels)
@@ -2202,7 +2189,7 @@ CONTAINS
       !
       of%cdiZaxisID(ZA_height_2m)  = zaxisCreate(ZAXIS_HEIGHT, 1)
       ALLOCATE(levels(1))
-      levels(1) = 2._wp
+      levels(1) = 2._dp
       CALL zaxisDefLevels(of%cdiZaxisID(ZA_height_2m), levels)
       DEALLOCATE(levels)
       !
@@ -2210,7 +2197,7 @@ CONTAINS
       !
       of%cdiZaxisID(ZA_height_10m)  = zaxisCreate(ZAXIS_HEIGHT, 1)
       ALLOCATE(levels(1))
-      levels(1) = 10._wp
+      levels(1) = 10._dp
       CALL zaxisDefLevels(of%cdiZaxisID(ZA_height_10m), levels)
       DEALLOCATE(levels)
       !
@@ -2218,10 +2205,48 @@ CONTAINS
       !
       of%cdiZaxisID(ZA_toa)  = zaxisCreate(ZAXIS_TOA, 1)
       ALLOCATE(levels(1))
-      levels(1) = 1._wp
+      levels(1) = 1._dp
       CALL zaxisDefLevels(of%cdiZaxisID(ZA_toa), levels)
       DEALLOCATE(levels)
-
+      !
+      ! Isobaric surface 800 hPa (layer)
+      !
+      of%cdiZaxisID(ZA_pressure_800)  = zaxisCreate(ZAXIS_PRESSURE, 1)
+      ALLOCATE(lbounds(1), ubounds(1), levels(1))
+      lbounds(1)= 0._dp     ! hPa
+      ubounds(1)= 800._dp   ! hPa
+      levels(1) = 800._dp   ! hPa
+      CALL zaxisDefLbounds(of%cdiZaxisID(ZA_pressure_800), lbounds) !necessary for GRIB2
+      CALL zaxisDefUbounds(of%cdiZaxisID(ZA_pressure_800), ubounds) !necessary for GRIB2
+      CALL zaxisDefLevels (of%cdiZaxisID(ZA_pressure_800), levels)
+      CALL zaxisDefUnits  (of%cdiZaxisID(ZA_pressure_800), "hPa")
+      DEALLOCATE(lbounds, ubounds, levels)
+      !
+      ! Isobaric surface 400 hPa (layer)
+      !
+      of%cdiZaxisID(ZA_pressure_400)  = zaxisCreate(ZAXIS_PRESSURE, 1)
+      ALLOCATE(lbounds(1), ubounds(1), levels(1))
+      lbounds(1)= 800._dp   ! hPa
+      ubounds(1)= 400._dp   ! hPa
+      levels(1) = 400._dp   ! hPa
+      CALL zaxisDefLbounds(of%cdiZaxisID(ZA_pressure_400), lbounds) !necessary for GRIB2
+      CALL zaxisDefUbounds(of%cdiZaxisID(ZA_pressure_400), ubounds) !necessary for GRIB2
+      CALL zaxisDefLevels (of%cdiZaxisID(ZA_pressure_400), levels)
+      CALL zaxisDefUnits  (of%cdiZaxisID(ZA_pressure_400), "hPa")
+      DEALLOCATE(lbounds, ubounds, levels)
+      !
+      ! Isobaric surface 0 hPa (layer)
+      !
+      of%cdiZaxisID(ZA_pressure_0)  = zaxisCreate(ZAXIS_PRESSURE, 1)
+      ALLOCATE(lbounds(1), ubounds(1), levels(1))
+      lbounds(1)= 400._dp ! hPa
+      ubounds(1)= 0._dp   ! hPa
+      levels(1) = 0._dp   ! hPa
+      CALL zaxisDefLbounds(of%cdiZaxisID(ZA_pressure_0), lbounds) !necessary for GRIB2
+      CALL zaxisDefUbounds(of%cdiZaxisID(ZA_pressure_0), ubounds) !necessary for GRIB2
+      CALL zaxisDefLevels (of%cdiZaxisID(ZA_pressure_0), levels)
+      CALL zaxisDefUnits  (of%cdiZaxisID(ZA_pressure_0), "hPa")
+      DEALLOCATE(lbounds, ubounds, levels)
 
 
       ! Define axes for output on p-, i- and z-levels
@@ -2237,7 +2262,7 @@ CONTAINS
         of%cdiZaxisID(ZA_pressure) = zaxisCreate(ZAXIS_PRESSURE, nplev)
         ALLOCATE(levels(nplev))
         DO k = 1, nplev
-          levels(k) = nh_pzlev_config(of%log_patch_id)%plevels(k)
+          levels(k) = REAL(nh_pzlev_config(of%log_patch_id)%plevels(k),dp)
         END DO
         CALL zaxisDefLevels(of%cdiZaxisID(ZA_pressure), levels)
         CALL zaxisDefVct(of%cdiZaxisID(ZA_pressure), nplev, levels)
@@ -2250,7 +2275,7 @@ CONTAINS
         of%cdiZaxisID(ZA_altitude)  = zaxisCreate(ZAXIS_ALTITUDE, nzlev)
         ALLOCATE(levels(nzlev))
         DO k = 1, nzlev
-          levels(k) = nh_pzlev_config(of%log_patch_id)%zlevels(k)
+          levels(k) = REAL(nh_pzlev_config(of%log_patch_id)%zlevels(k),dp)
         END DO
         CALL zaxisDefLevels(of%cdiZaxisID(ZA_altitude), levels)
         CALL zaxisDefVct(of%cdiZaxisID(ZA_altitude), nzlev, levels)
@@ -2263,7 +2288,7 @@ CONTAINS
         of%cdiZaxisID(ZA_isentropic) = zaxisCreate(ZAXIS_ISENTROPIC, nilev)
         ALLOCATE(levels(nilev))
         DO k = 1, nilev
-          levels(k) = nh_pzlev_config(of%log_patch_id)%ilevels(k)
+          levels(k) = REAL(nh_pzlev_config(of%log_patch_id)%ilevels(k),dp)
         END DO
         CALL zaxisDefLevels(of%cdiZaxisID(ZA_isentropic), levels)
         CALL zaxisDefVct(of%cdiZaxisID(ZA_isentropic), nilev, levels)
@@ -2278,18 +2303,17 @@ CONTAINS
       ALLOCATE(levels_i(nzlevp1))
       ALLOCATE(levels_m(n_zlev))
       CALL set_zlev(levels_i, levels_m)
-      CALL zaxisDefLevels(of%cdiZaxisID(ZA_depth_below_sea), levels_m)
-      CALL zaxisDefLevels(of%cdiZaxisID(ZA_depth_below_sea_half), levels_i)
+      CALL zaxisDefLevels(of%cdiZaxisID(ZA_depth_below_sea), REAL(levels_m,dp))
+      CALL zaxisDefLevels(of%cdiZaxisID(ZA_depth_below_sea_half), REAL(levels_i,dp))
       DEALLOCATE(levels_i)
       DEALLOCATE(levels_m)
       of%cdiZaxisID(ZA_generic_ice) = zaxisCreate(ZAXIS_GENERIC, 1)
     ENDIF
 
+
     !
     ! 5. output does contain absolute time 
-
-!PR    !
-    !WRITE(6,'(a,i)') 'mode ',of%name_list%mode
+    !
     SELECT CASE (of%name_list%mode)
     CASE (1)  ! forecast mode
      of%cdiTaxisID = taxisCreate(TAXIS_RELATIVE)
@@ -2326,148 +2350,24 @@ CONTAINS
     !
     CALL add_variables_to_vlist(of)
 
+    ! GRB2 format: define geographical longitude, latitude as special
+    ! variables "RLON", "RLAT":
+    IF (of%name_list%output_grid .AND. &
+      & (of%name_list%filetype == FILETYPE_GRB2)) THEN
+      CALL set_grid_info_grb2(of)
+    END IF
+
   END SUBROUTINE setup_output_vlist
 
-  !------------------------------------------------------------------------------------------------
-
-  SUBROUTINE read_map_file(p_of, map_file)
-
-    TYPE (t_output_file), INTENT(INOUT) :: p_of
-    CHARACTER(LEN=*) :: map_file
-
-    INTEGER :: iunit, ist, nvars
-    CHARACTER(LEN=256) :: line
-    CHARACTER(LEN=vname_len) :: key, val
-    LOGICAL :: valid
-
-    CHARACTER(LEN=*), PARAMETER :: routine = 'mo_name_list_output/read_map_file'
-    TYPE (t_keyword_list), POINTER :: keywords => NULL()
-    CHARACTER(len=MAX_STRING_LEN)  :: filename
-
-    CALL associate_keyword("<path>", TRIM(model_base_dir), keywords)
-    filename = TRIM(with_keywords(keywords, map_file))
-
-    iunit = find_next_free_unit(10,99)
-    OPEN (unit=iunit,file=filename,access='SEQUENTIAL', &
-      &  form='FORMATTED', action='READ', status='OLD', IOSTAT=ist)
-
-    IF(ist/=0)THEN
-      CALL finish (routine, 'Open of map_file '//TRIM(map_file)//' failed')
-    ENDIF
-
-    nvars = 0
-
-    DO
-      line = ' '
-      READ(iunit,'(a)',iostat=ist) line
-      IF(ist < 0) EXIT ! No more lines
-      IF(ist > 0) CALL finish(routine, 'Read error in map_file '//TRIM(map_file))
-      CALL parse_line(line,key,val,valid)
-      IF(valid) nvars = nvars+1
-    ENDDO
-
-    REWIND(iunit)
-    ALLOCATE(p_of%name_map(2,nvars))
-
-    nvars = 0
-
-    DO
-      line = ' '
-      READ(iunit,'(a)',iostat=ist) line
-      IF(ist < 0) EXIT ! No more lines
-      IF(ist > 0) CALL finish(routine, 'Read error in map_file '//TRIM(map_file))
-      CALL parse_line(line,key,val,valid)
-      IF(valid) THEN
-        nvars = nvars+1
-        ! Safety only
-        IF(nvars > UBOUND(p_of%name_map,2)) &
-          CALL finish(routine,'INTERNAL: Length of name_map calculated wrong')
-        p_of%name_map(1,nvars) = key
-        p_of%name_map(2,nvars) = val
-      ENDIF
-    ENDDO
-
-    CLOSE(unit=iunit)
-
-  END SUBROUTINE read_map_file
 
   !------------------------------------------------------------------------------------------------
-  ! parse_line:
-  ! Parses a line from map_file and returns key and value part
-  ! (first two nonblank words separated by blanks or tabs)
-
-  SUBROUTINE parse_line(line, key, val, valid)
-
-    CHARACTER(LEN=*), INTENT(IN)  :: line
-    CHARACTER(LEN=*), INTENT(OUT) :: key, val
-    LOGICAL, INTENT(OUT)          :: valid
-
-    INTEGER :: ipos1, ipos2
-
-    valid = .FALSE.
-    key = ' '
-    val = ' '
-
-    ! Search first nonblank character
-    DO ipos1 = 1, LEN(line)
-      IF(.NOT.isblank(line(ipos1:ipos1))) EXIT
-    ENDDO
-
-    IF(ipos1 > LEN(line)) RETURN ! completely empty line
-
-    IF(line(ipos1:ipos1) == '#') RETURN ! comment line
-
-    ! Search end of key
-    DO ipos2 = ipos1, LEN(line)
-      IF(isblank(line(ipos2:ipos2))) EXIT
-    ENDDO
-
-    key = line(ipos1:ipos2-1)
-
-    ! Search next nonblank character
-    DO ipos1 = ipos2, LEN(line)
-      IF(.NOT.isblank(line(ipos1:ipos1))) EXIT
-    ENDDO
-
-    IF(ipos1 > LEN(line)) THEN ! line contains no value part
-      CALL message('mo_name_list_output','Illegal line in name_map:')
-      CALL message('mo_name_list_output',TRIM(line))
-      RETURN
-    ENDIF
-
-    ! Search end of val
-    DO ipos2 = ipos1, LEN(line)
-      IF(isblank(line(ipos2:ipos2))) EXIT
-    ENDDO
-
-    val = line(ipos1:ipos2-1)
-
-    valid = .TRUE.
-
-    CONTAINS
-
-    ! Fortran equivalent to C isblank function
-    LOGICAL FUNCTION isblank(c)
-      CHARACTER(LEN=1) :: c
-      IF(c==' ' .OR. ICHAR(c)==9) THEN
-        ! Blank or Tab
-        isblank = .TRUE.
-      ELSE
-        isblank = .FALSE.
-      ENDIF
-    END FUNCTION isblank
-
-  END SUBROUTINE parse_line
-
-  !------------------------------------------------------------------------------------------------
+  !> Sets the grid information in output file
   !
-  ! Sets the grid information in output file
-  !
-  SUBROUTINE set_grid_info(of)
+  SUBROUTINE set_grid_info_netcdf(of)
 
     TYPE (t_output_file), INTENT(IN) :: of
 
-    CHARACTER(LEN=*), PARAMETER :: routine = 'mo_name_list_output/set_grid_info'
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//"::set_grid_info_netcdf"
     INTEGER :: idom
 
     idom  = of%phys_patch_id
@@ -2490,14 +2390,165 @@ CONTAINS
     CALL gridDefXbounds(of%cdiVertGridID, patch_info(idom)%grid_v%lonv)
     CALL gridDefYbounds(of%cdiVertGridID, patch_info(idom)%grid_v%latv)
 
-  END SUBROUTINE set_grid_info
+  END SUBROUTINE set_grid_info_netcdf
+
+
+  !------------------------------------------------------------------------------------------------
+  !> Declaration of the grid information (RLAT/RLON) in output file, GRIB2 format.
+  !
+  SUBROUTINE set_grid_info_grb2(of)
+    TYPE (t_output_file), INTENT(INOUT) :: of
+    ! local variables:
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//"::set_grid_info_grb"
+    CHARACTER(LEN=4), PARAMETER :: grid_coord_name(2) = (/ "RLON", "RLAT" /)
+    TYPE (t_grib2_var), PARAMETER :: grid_coord_grib2(2) = (/  &
+      ! geographical longitude RLON
+      & t_grib2_var(               0,   &  ! discipline
+      &                          191,   &  ! category
+      &                            2,   &  ! number
+      &              DATATYPE_PACK16,   &  ! bits
+      &               GRID_REFERENCE,   &  ! gridtype
+      &                    GRID_CELL ), &  ! subgridtype
+      ! geographical latitude RLAT
+      & t_grib2_var(               0,   &  ! discipline
+      &                          191,   &  ! category
+      &                            1,   &  ! number
+      &              DATATYPE_PACK16,   &  ! bits
+      &               GRID_REFERENCE,   &  ! gridtype
+      &                    GRID_CELL )  &  ! subgridtype
+      /)
+
+    INTEGER :: igrid,i,vlistID,idx(3),gridID(3),zaxisID
+
+    vlistID = of%cdiVlistID
+    zaxisID = of%cdiZaxisID(ZA_surface)
+
+    SELECT CASE(of%name_list%remap)
+    CASE (REMAP_NONE)
+      idx(:)    = (/ ICELL, IEDGE, IVERT /)
+      gridID(:) = (/ of%cdiCellGridID, of%cdiEdgeGridID, of%cdiVertGridID /)
+      DO igrid=1,3
+        DO i=1,2 ! for longitude, latitude:
+          of%cdi_grb2(idx(igrid),i) = vlistDefVar(vlistID, gridID(igrid), zaxisID, TSTEP_CONSTANT)
+          CALL vlistDefVarDatatype(vlistID,  of%cdi_grb2(idx(igrid),i), grid_coord_grib2(i)%bits)
+          CALL vlistDefVarTsteptype(vlistID, of%cdi_grb2(idx(igrid),i), TSTEP_CONSTANT)
+          CALL vlistDefVarName(vlistID,      of%cdi_grb2(idx(igrid),i), TRIM(grid_coord_name(i)))
+          
+          ! Set GRIB2 Triplet
+          CALL vlistDefVarParam( vlistID, of%cdi_grb2(idx(igrid),i),  &
+            &  cdiEncodeParam(grid_coord_grib2(i)%number,             &
+            &                 grid_coord_grib2(i)%category,           &
+            &                 grid_coord_grib2(i)%discipline) )
+
+          ! GRIB2 Quick hack: Set additional GRIB2 keys      
+          CALL set_additional_GRIB2_keys(vlistID, of%cdi_grb2(idx(igrid),i), &
+            &                            gribout_config(of%phys_patch_id),   &
+            &                            of%name_list%namespace)
+        END DO
+      END DO
+
+    CASE (REMAP_REGULAR_LATLON)
+      ! for longitude, latitude:
+      DO i=1,2
+        of%cdi_grb2(ILATLON,i) = vlistDefVar(vlistID, of%cdiLonLatGridID, zaxisID, TSTEP_CONSTANT)
+        CALL vlistDefVarDatatype(vlistID,  of%cdi_grb2(ILATLON,i), grid_coord_grib2(i)%bits)
+        CALL vlistDefVarTsteptype(vlistID, of%cdi_grb2(ILATLON,i), TSTEP_CONSTANT)
+        CALL vlistDefVarName(vlistID,      of%cdi_grb2(ILATLON,i), TRIM(grid_coord_name(i)))
+        ! Set GRIB2 Triplet
+        CALL vlistDefVarParam( vlistID, of%cdi_grb2(ILATLON,i),   &
+          &  cdiEncodeParam(grid_coord_grib2(i)%number,            &
+          &                 grid_coord_grib2(i)%category,          &
+          &                 grid_coord_grib2(i)%discipline) )
+
+        ! GRIB2 Quick hack: Set additional GRIB2 keys      
+        CALL set_additional_GRIB2_keys(vlistID, of%cdi_grb2(ILATLON,i), &
+          &                            gribout_config(of%phys_patch_id), &
+          &                            of%name_list%namespace)
+      END DO
+
+    CASE DEFAULT
+      CALL finish(routine, "Unsupported grid type.")
+    END SELECT
+
+  END SUBROUTINE set_grid_info_grb2
+
+
+  !------------------------------------------------------------------------------------------------
+  !> Writes the grid information in output file, GRIB2 format.
+  !
+  SUBROUTINE write_grid_info_grb2(of)
+    TYPE (t_output_file), INTENT(INOUT) :: of
+    ! local variables:
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//"::write_grid_info_grb2"
+
+    TYPE t_grid_info_ptr
+      TYPE (t_grid_info), POINTER :: ptr
+    END TYPE t_grid_info_ptr
+
+    INTEGER                        :: errstat, idom, igrid, idx(3), isize(3), idom_log
+    TYPE (t_lon_lat_grid), POINTER :: grid
+    REAL(wp), ALLOCATABLE          :: rotated_pts(:,:,:), r_out_dp(:,:), r_out_dp_1D(:)
+    TYPE(t_grid_info_ptr)          :: gptr(3)
+
+    ! skip this on test PE...
+    IF (my_process_is_mpi_test()) RETURN
+
+    SELECT CASE(of%name_list%remap)
+    CASE (REMAP_NONE)
+      idom     = of%phys_patch_id
+      idom_log = patch_info(idom)%log_patch_id
+      idx(:)    = (/ ICELL, IEDGE, IVERT /)
+      isize(:)  = (/ patch_info(idom_log)%cells%n_glb, &
+        &            patch_info(idom_log)%edges%n_glb, &
+        &            patch_info(idom_log)%verts%n_glb /)
+      gptr(1)%ptr => patch_info(idom_log)%grid_c
+      gptr(2)%ptr => patch_info(idom_log)%grid_e
+      gptr(3)%ptr => patch_info(idom_log)%grid_v
+      DO igrid=1,3
+        ! allocate data buffer:
+        ALLOCATE(r_out_dp_1D(isize(igrid)), stat=errstat)
+        IF (errstat /= SUCCESS) CALL finish(routine, 'ALLOCATE failed!')
+        ! write RLON, RLAT
+        r_out_dp_1D(:) = gptr(igrid)%ptr%lon(1:isize(igrid)) / pi_180
+        CALL streamWriteVar(of%cdiFileID, of%cdi_grb2(idx(igrid),IRLON), r_out_dp_1D, 0)
+        r_out_dp_1D(:) = gptr(igrid)%ptr%lat(1:isize(igrid)) / pi_180
+        CALL streamWriteVar(of%cdiFileID, of%cdi_grb2(idx(igrid),IRLAT), r_out_dp_1D, 0)
+        ! clean up
+        DEALLOCATE(r_out_dp_1D, stat=errstat)
+        IF (errstat /= SUCCESS) CALL finish(routine, 'DEALLOCATE failed!')
+      END DO
+
+    CASE (REMAP_REGULAR_LATLON)
+      ! allocate data buffer:
+      grid => lonlat_grid_list(of%name_list%lonlat_id)%grid
+      ALLOCATE(rotated_pts(grid%lon_dim, grid%lat_dim, 2), &
+        &      r_out_dp(grid%lon_dim,grid%lat_dim), stat=errstat)
+      IF (errstat /= SUCCESS) CALL finish(routine, 'ALLOCATE failed!')
+      ! compute some entries of lon-lat grid specification:
+      CALL compute_lonlat_specs(grid)
+      ! compute grid points of rotated lon/lat grid
+      CALL rotate_latlon_grid(grid, rotated_pts)
+      ! write RLON, RLAT
+      r_out_dp(:,:) = rotated_pts(:,:,1) / pi_180
+      CALL streamWriteVar(of%cdiFileID, of%cdi_grb2(ILATLON,IRLON), r_out_dp, 0)
+      r_out_dp(:,:) = rotated_pts(:,:,2) / pi_180
+      CALL streamWriteVar(of%cdiFileID, of%cdi_grb2(ILATLON,IRLAT), r_out_dp, 0)
+      ! clean up
+      DEALLOCATE(rotated_pts, r_out_dp, stat=errstat)
+      IF (errstat /= SUCCESS) CALL finish(routine, 'DEALLOCATE failed!')
+
+    CASE DEFAULT
+      CALL finish(routine, "Unsupported grid type.")
+    END SELECT
+
+  END SUBROUTINE write_grid_info_grb2
 
 
   !------------------------------------------------------------------------------------------------
   !
   ! Copies the grid information from grid file to output file
   !
-    SUBROUTINE copy_grid_info(of)
+  SUBROUTINE copy_grid_info(of)
 
     TYPE (t_output_file), INTENT(IN) :: of
 
@@ -2509,7 +2560,7 @@ CONTAINS
     REAL(wp), ALLOCATABLE :: elon(:), elat(:), elonv(:,:), elatv(:,:)
     REAL(wp), ALLOCATABLE :: vlon(:), vlat(:), vlonv(:,:), vlatv(:,:)
 
-    CHARACTER(LEN=*), PARAMETER :: routine = 'mo_name_list_output/copy_grid_info'
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//"::copy_grid_info"
 
     i_dom = of%phys_patch_id
 
@@ -2745,26 +2796,97 @@ CONTAINS
 
 
   !------------------------------------------------------------------------------------------------
+  !> Set additional GRIB2 keys
   !
-  ! define variables and attributes
+  ! GRIB2 Quick hack
+  ! ----------------
+  !
+  ! Set additional GRIB2 keys. These are added to each single variable, even though 
+  ! adding it to the vertical or horizontal grid description may be more elegant.
+  ! 
+  SUBROUTINE set_additional_GRIB2_keys(vlistID, varID, grib_conf, namespace)
+    INTEGER,                INTENT(IN) :: vlistID, varID
+    TYPE(t_gribout_config), INTENT(IN) :: grib_conf
+    CHARACTER (LEN=*),      INTENT(IN) :: namespace
+
+    CHARACTER(len=MAX_STRING_LEN) :: ydate, ytime
+    INTEGER :: cent, year, month, day    ! date
+    INTEGER :: hour, minute              ! time
+
+
+    IF (grib_conf%ldate_grib_act) THEN
+      ! get date and time
+      ! ydate : ccyymmdd, ytime : hhmmss.sss
+      CALL date_and_time(ydate,ytime)
+      READ(ydate,'(4i2)') cent, year, month, day
+      READ(ytime,'(2i2)') hour, minute
+    ELSE ! set date to "01010101" (for better comparability of GRIB files)
+      cent  = 1
+      year  = 1
+      month = 1
+      year  = 1
+      hour  = 1
+      minute= 1 
+    ENDIF
+
+    ! Load correct tables ans activate section 2
+    !
+    ! set tablesVersion=5
+    CALL vlistDefVarIntKey(vlistID, varID, "tablesVersion", 5)
+    ! Initialize section 2
+    CALL vlistDefVarIntKey(vlistID, varID, "grib2LocalSectionPresent", 1)
+    !
+    ! Product definition
+    CALL vlistDefVarIntKey(vlistID, varID, "significanceOfReferenceTime",     &
+      &                    grib_conf%significanceOfReferenceTime)
+    CALL vlistDefVarIntKey(vlistID, varID, "productionStatusOfProcessedData", &
+      &                    grib_conf%productionStatusOfProcessedData)
+    CALL vlistDefVarIntKey(vlistID, varID, "typeOfProcessedData",             &
+      &                    grib_conf%typeOfProcessedData)
+    CALL vlistDefVarIntKey(vlistID, varID, "typeOfGeneratingProcess",         &
+      &                    grib_conf%typeOfGeneratingProcess)
+    CALL vlistDefVarIntKey(vlistID, varID, "backgroundProcess",               &
+      &                    grib_conf%backgroundProcess)
+    ! in case of lon-lat output, "1" has to be added to generatingProcessIdentifier
+    CALL vlistDefVarIntKey(vlistID, varID, "generatingProcessIdentifier",     &
+      &                    grib_conf%generatingProcessIdentifier)
+
+    ! Product Generation (local)
+    IF (tolower(namespace) == "dwd") THEN
+      CALL vlistDefVarIntKey(vlistID, varID, "localDefinitionNumber"  ,         &
+        &                    grib_conf%localDefinitionNumber)
+      CALL vlistDefVarIntKey(vlistID, varID, "localNumberOfExperiment",         &
+        &                    grib_conf%localNumberOfExperiment)
+      CALL vlistDefVarIntKey(vlistID, varID, "localCreationDateYear"  , 100*cent+year)
+      CALL vlistDefVarIntKey(vlistID, varID, "localCreationDateMonth" , month)
+      CALL vlistDefVarIntKey(vlistID, varID, "localCreationDateDay"   , day)
+      CALL vlistDefVarIntKey(vlistID, varID, "localCreationDateHour"  , hour)
+      CALL vlistDefVarIntKey(vlistID, varID, "localCreationDateMinute", minute)
+      ! CALL vlistDefVarIntKey(vlistID, varID, "localValidityDateYear"  , 2013)
+    END IF
+
+    ! SECTION 3
+    CALL vlistDefVarIntKey(vlistID, varID, "shapeOfTheEarth", 6)
+
+  END SUBROUTINE set_additional_GRIB2_keys
+
+
+  !------------------------------------------------------------------------------------------------
+  !> define variables and attributes
   !
   SUBROUTINE add_variables_to_vlist(of)
-
     TYPE (t_output_file), INTENT(IN), TARGET :: of
-
+    ! local variables:
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//"::add_variables_to_vlist"
     TYPE (t_var_metadata), POINTER :: info
-    !
-    INTEGER :: iv, vlistID, varID, gridID, zaxisID, nlev, nlevp1, i
-    CHARACTER(LEN=vname_len) :: mapped_name
-
-    CHARACTER(LEN=*), PARAMETER :: routine = 'mo_name_list_output/add_variables_to_vlist'
+    INTEGER                        :: iv, vlistID, varID, gridID, &
+      &                               zaxisID, nlev, nlevp1
+    CHARACTER(LEN=DICT_MAX_STRLEN) :: mapped_name
 
     vlistID = of%cdiVlistID
-
     nlev   = num_lev(of%log_patch_id)
     nlevp1 = num_levp1(of%log_patch_id)
 
-    !
     DO iv = 1, of%num_vars
       !
       info => of%var_desc(iv)%info
@@ -2798,23 +2920,12 @@ CONTAINS
         CALL finish(routine, message_text)
       ENDIF
 
-
-
       ! Search name mapping for name in NetCDF file
-      !
-      mapped_name = info%name
-      IF(ALLOCATED(of%name_map)) THEN
-        DO i = 1, UBOUND(of%name_map, 2)
-          IF(TRIM(info%name) == TRIM(of%name_map(1,i))) THEN
-            mapped_name = of%name_map(2,i)
-            EXIT
-          ENDIF
-        ENDDO
-      ENDIF
+      mapped_name = TRIM(dict_get(out_varnames_dict, mapped_name, default=info%name))
 
-
+      ! note that an explicit call of vlistDefVarTsteptype is obsolete, since 
+      ! isteptype is already defined via vlistDefVar
       varID = vlistDefVar(vlistID, gridID, zaxisID, info%isteptype)
-
       info%cdiVarID   = varID
 
       CALL vlistDefVarName(vlistID, varID, TRIM(mapped_name))
@@ -2825,38 +2936,91 @@ CONTAINS
       ! Currently only real valued variables are allowed, so we can always use info%missval%rval
       IF (info%lmiss) CALL vlistDefVarMissval(vlistID, varID, info%missval%rval)
 
+      ! Set GRIB2 Triplet
+      CALL vlistDefVarParam(vlistID, varID,                                              &
+           &  cdiEncodeParam(info%grib2%number, info%grib2%category, info%grib2%discipline) )
+
       IF ( of%output_type == FILETYPE_GRB2 ) THEN
-        ! Set GRIB2 Triplet
-        CALL vlistDefVarParam(vlistID, varID,                                              &
-          &  cdiEncodeParam(info%grib2%number, info%grib2%category, info%grib2%discipline) )
         CALL vlistDefVarDatatype(vlistID, varID, info%grib2%bits)
-      ELSE
+
+        ! For HHL/z_ifc, HSURF/topography_c set "typeOfSecondFixedSurface = 101 (mean sea level)"
+        ! that is, a Fortran equivalent of:
+        ! GRIB_CHECK(grib_set_long(gh, "typeOfSecondFixedSurface", 101), 0);
+        ! additional special treatment needed for
+        ! HBAS_CON: typeOfSecondFixedSurface = 101
+        ! HTOP_CON: typeOfSecondFixedSurface = 101
+        ! CLCL    : typeOfSecondFixedSurface = 1
+        IF ( get_id(TRIM(info%name)) /= -1 ) THEN
+          CALL vlistDefVarIntKey(vlistID, varID, "typeOfSecondFixedSurface", &
+            &                    second_tos(get_id(TRIM(info%name)))) 
+        ENDIF
+
+        ! Quick hack: shortName.def should be revised, instead
+        IF ( TRIM(info%name)=='qv_s' ) THEN
+          CALL vlistDefVarIntKey(vlistID, varID, "scaleFactorOfFirstFixedSurface", 0) 
+        ENDIF        
+
+      ELSE ! NetCDF
         CALL vlistDefVarDatatype(vlistID, varID, info%cf%datatype)
       ENDIF
 
+      ! GRIB2 Quick hack: Set additional GRIB2 keys      
+      CALL set_additional_GRIB2_keys(vlistID, varID, gribout_config(of%phys_patch_id), &
+        &                            of%name_list%namespace)
 
+      !!!!!!! OBSOLETE !!!!!!!!
       !Set typeOfStatisticalProcessing
       !Note: instead of calling vlistDefVarTsteptype, one should probably replace 
       !info%cdiTimeID in the call of vlistDefVar by info%isteptype
-      ! So far, passing typeOfStatisticalProcessing only works, when choosing TAXIS_RELATIVE. 
-      ! Otherwise, passing info%isteptype has no effect.
-      CALL vlistDefVarTsteptype(vlistID, varID, info%isteptype);
-        
+      !CALL vlistDefVarTsteptype(vlistID, varID, info%isteptype)
+
     ENDDO
     !
   END SUBROUTINE add_variables_to_vlist
 
+
+
+  !------------------------------------------------------------------------------------------------
+  !> FUNCTION get_id:
+  !  Search for name in String-Array sfs_name_list containing all variables for which 
+  !  typeOfSecondFixedSurface must be re-set. Returns variable-ID which is used to determine 
+  !  the proper typeOfSecondFixedSurface from second_tos. 
+  !  If no match is found, get_id is set to -1.
+  ! 
+  !
+  FUNCTION get_id(in_str)
+    INTEGER                      :: get_id, iname
+    CHARACTER(LEN=*), INTENT(IN) :: in_str
+    CHARACTER(*), PARAMETER :: routine = modname//"::get_id"
+
+    get_id = -1
+    LOOP_GROUPS : DO iname=1,SIZE(sfs_name_list)
+      IF (toupper(TRIM(in_str)) == toupper(TRIM(sfs_name_list(iname)))) THEN
+        get_id = iname
+        EXIT LOOP_GROUPS
+      END IF
+    END DO LOOP_GROUPS 
+  END FUNCTION get_id
+
+
+
   !------------------------------------------------------------------------------------------------
   !> open_output_file:
-  !! Opens a output file and sets its vlist
-
-  SUBROUTINE open_output_file(of, jfile)
+  !  Opens a output file and sets its vlist
+  !
+  SUBROUTINE open_output_file(of, jfile, sim_time)
 
     TYPE(t_output_file), INTENT(INOUT) :: of
-    INTEGER, INTENT(IN) :: jfile ! Number of file set to open
-
-    CHARACTER(LEN=16) :: extn
-    CHARACTER(LEN=*), PARAMETER :: routine = 'mo_name_list_output/open_output_file'
+    INTEGER,             INTENT(IN)    :: jfile    !< Number of file set to open
+    REAL(wp),            intent(IN)    :: sim_time !< elapsed simulation time
+    ! local variables:
+    CHARACTER(LEN=*), PARAMETER       :: routine = modname//"::open_output_file"
+    CHARACTER(LEN=16)                 :: extn
+    TYPE (t_keyword_list), POINTER    :: keywords     => NULL()
+    TYPE (t_keyword_list), POINTER    :: rdy_keywords => NULL()
+    CHARACTER(len=MAX_STRING_LEN)     :: cfilename
+    CHARACTER(len=8)                  :: ddhhmmss_str
+    TYPE (t_datetime)                 :: rel_fct_time
 
     ! Please note that this routine is only executed on one processor (for a specific file)
     ! and thus all calls to message get the all_print=.TRUE. argument so that the messages
@@ -2880,13 +3044,42 @@ CONTAINS
       CALL finish(routine,'unknown output_type')
     END SELECT
 
-    ! Set actual output file name and open file
+    ! generate DDHHMMSS forecast time string (elapsed time)
+    rel_fct_time%calday  = 0
+    rel_fct_time%caltime = sim_time/86400._wp
+    CALL cly360day_to_date(rel_fct_time)
+    WRITE (ddhhmmss_str,"(i2.2,i2.2,i2.2,i2.2)") (rel_fct_time%day-1), rel_fct_time%hour, &
+      &                                           rel_fct_time%minute, INT(rel_fct_time%second)
+
+    ! Set actual output file name (insert keywords):
+    CALL associate_keyword("<path>",            TRIM(model_base_dir),                         keywords)
+    CALL associate_keyword("<output_filename>", TRIM(of%filename_pref),                       keywords)
+    CALL associate_keyword("<physdom>",         TRIM(int2string(of%phys_patch_id, "(i2.2)")), keywords)
+    CALL associate_keyword("<levtype>",         TRIM(lev_type_str(of%ilev_type)),             keywords)
+    CALL associate_keyword("<jfile>",           TRIM(int2string(jfile, "(i4.4)")),            keywords)
+    CALL associate_keyword("<ddhhmmss>",        TRIM(ddhhmmss_str),                           keywords)
+    cfilename = TRIM(with_keywords(keywords, of%name_list%filename_format))
 
     IF(my_process_is_mpi_test()) THEN
-      WRITE(of%filename,'(a,"_",i4.4,"_TEST",a)') TRIM(of%filename_pref),jfile,TRIM(extn)
+      WRITE(of%filename,'(a,"_TEST",a)') TRIM(cfilename),TRIM(extn)
     ELSE
-      WRITE(of%filename,'(a,"_",i4.4,a)') TRIM(of%filename_pref),jfile,TRIM(extn)
+      WRITE(of%filename,'(a,a)') TRIM(cfilename),TRIM(extn)
     ENDIF
+
+    IF (of%name_list%lwrite_ready) THEN
+      ! generate filename of ready file by stripping output filename from path,
+      ! adding ready file directory prefix and file extension ".rdy":
+      CALL associate_keyword("<path>",            TRIM(of%name_list%ready_directory),           rdy_keywords)
+      CALL associate_keyword("<output_filename>", TRIM(of%filename_pref),                       rdy_keywords)
+      CALL associate_keyword("<physdom>",         TRIM(int2string(of%phys_patch_id, "(i2.2)")), rdy_keywords)
+      CALL associate_keyword("<levtype>",         TRIM(lev_type_str(of%ilev_type)),             rdy_keywords)
+      CALL associate_keyword("<jfile>",           TRIM(int2string(jfile, "(i4.4)")),            rdy_keywords)
+      CALL associate_keyword("<ddhhmmss>",        TRIM(ddhhmmss_str),                           rdy_keywords)
+      cfilename = TRIM(with_keywords(rdy_keywords, of%name_list%filename_format))
+      WRITE (of%rdy_filename, '(a,".rdy")') TRIM(cfilename)
+    END IF
+
+    ! open file:
     of%cdiFileID = streamOpenWrite(TRIM(of%filename), of%output_type)
 
     IF (of%cdiFileID < 0) THEN
@@ -2898,28 +3091,25 @@ CONTAINS
     END IF
 
     ! assign the vlist (which must have ben set before)
-!PR 
-    !WRITE(6,'(a,i)') 'taxisTunit openning ',taxisInqTunit(of%cdiTaxisID)
-
     CALL streamDefVlist(of%cdiFileID, of%cdiVlistID)
 
     ! set cdi internal time index to 0 for writing time slices in netCDF
-
     of%cdiTimeIndex = 0
 
   END SUBROUTINE open_output_file
 
+
   !------------------------------------------------------------------------------------------------
+  !> Close all name_list files
   !
-  SUBROUTINE close_name_list_output
-    !
-    ! Close all name_list files
-    !
+  SUBROUTINE close_name_list_output()
     INTEGER :: i, jg
 
-
 #ifndef NOMPI
-    IF(use_async_name_list_io.AND..NOT.my_process_is_io().AND..NOT.my_process_is_mpi_test()) THEN
+    IF (use_async_name_list_io    .AND.  &
+      & .NOT. my_process_is_io()  .AND.  &
+      & .NOT. my_process_is_mpi_test()) THEN
+      !-- compute PEs (senders):
 
       ! write recent samples of meteogram output
       DO jg = 1, n_dom
@@ -2933,6 +3123,7 @@ CONTAINS
 
     ELSE
 #endif
+      !-- asynchronous I/O PEs (receiver):
       DO i = 1, SIZE(output_file)
         CALL close_output_file(output_file(i))
         CALL destroy_output_vlist(output_file(i))
@@ -2943,37 +3134,90 @@ CONTAINS
 
     DEALLOCATE(output_file)
 
+    ! destroy variable name dictionaries:
+    CALL dict_finalize(varnames_dict)
+    CALL dict_finalize(out_varnames_dict)
+
   END SUBROUTINE close_name_list_output
 
+
   !------------------------------------------------------------------------------------------------
+  !> Create a "ready file"
   !
-  ! Close output stream and the associated file,
-  ! destroy all vlist related data for this file
+  !  A "ready file" is a technique for handling dependencies between
+  !  the NWP processes at DWD: When a program - parallel or
+  !  sequential, shell script or binary - produces some output which
+  !  is necessary for other running applications, then the completion
+  !  of the write process signals this by creating a small file (size:
+  !  a few bytes). Only when this file exists, the second program
+  !  starts reading its input data. Implicity, this assumes that a
+  !  file system creates (and closes) files in the same order as they
+  !  are written by the program.
+  ! 
+  !  Implementation of "ready files" in ICON:
+  ! 
+  !   "Ready files" get the name of the corresponding output file,
+  !   with extension ".rdy".
+  !
+  SUBROUTINE write_ready_file(of)
+    TYPE (t_output_file), INTENT(IN) :: of
+    ! local variables
+    CHARACTER(LEN=*), PARAMETER   :: routine = modname//"::write_ready_file"
+    INTEGER                       :: iunit, idx
+
+    IF (msg_level >= 6) THEN
+      WRITE (message_text,*) "Write ready file ", TRIM(of%rdy_filename)
+      CALL message(routine,message_text)
+    END IF
+
+    ! actually create ready file:
+    iunit = find_next_free_unit(10,20)
+    OPEN (iunit, file=TRIM(of%rdy_filename), form='formatted')
+    WRITE(iunit, '(A)') 'ready'
+    CLOSE(iunit)
+  END SUBROUTINE write_ready_file
+
+
+  !------------------------------------------------------------------------------------------------
+  !> Close output stream and the associated file,
+  !  destroy all vlist related data for this file
   !
   SUBROUTINE close_output_file(of)
-
     TYPE (t_output_file), INTENT(INOUT) :: of
+    ! local variables
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//"::close_output_file"
+    LOGICAL :: is_output_process
 
-    CHARACTER(LEN=*), PARAMETER :: routine = &
-      & TRIM('mo_name_list_output/close_output_file')
+    ! GRB2 format: define geographical longitude, latitude as special
+    ! variables "RLON", "RLAT"
+    is_output_process = my_process_is_io() .OR. &
+      &                 ((.NOT. use_async_name_list_io) .AND. my_process_is_stdio())
 
-    IF(of%cdiFileID /= CDI_UNDEFID) CALL streamClose(of%cdiFileID)
+    IF(of%cdiFileID /= CDI_UNDEFID) THEN
+      IF (of%name_list%output_grid .AND. &
+        & is_output_process        .AND. &
+        & (of%name_list%filetype == FILETYPE_GRB2)) THEN
+        CALL write_grid_info_grb2(of)
+      END IF
+      
+      CALL streamClose(of%cdiFileID)
+
+      ! write a "ready file", if required:
+      IF (of%name_list%lwrite_ready)  CALL write_ready_file(of)
+    END IF
 
     of%cdiFileID = CDI_UNDEFID
-
   END SUBROUTINE close_output_file
 
+
   !------------------------------------------------------------------------------------------------
-  !
-  ! Close output stream and the associated file,
-  ! destroy all vlist related data for this file
+  !> Close output stream and the associated file,
+  !  destroy all vlist related data for this file
   !
   SUBROUTINE destroy_output_vlist(of)
-
     TYPE (t_output_file), INTENT(INOUT) :: of
-
+    ! local variables
     INTEGER :: j, vlistID
-
 
     vlistID = of%cdiVlistID
     IF(vlistID /= CDI_UNDEFID) THEN
@@ -2998,23 +3242,25 @@ CONTAINS
 
   END SUBROUTINE destroy_output_vlist
 
+
   !------------------------------------------------------------------------------------------------
-  !
-  ! Loop over all output_name_list's, write the ones for which output is due
-  ! This routine also cares about opening the output files the first time
-  ! and reopening the files after a certain number of steps.
+  !> Loop over all output_name_list's, write the ones for which output is due
+  !  This routine also cares about opening the output files the first time
+  !  and reopening the files after a certain number of steps.
   !
   SUBROUTINE write_name_list_output(datetime, sim_time, last_step)
 
     TYPE(t_datetime), INTENT(in) :: datetime
     REAL(wp), INTENT(in)         :: sim_time
     LOGICAL, INTENT(IN)          :: last_step
-
-    INTEGER :: i, idate, itime, iret, n, jg
-    TYPE(t_output_name_list), POINTER :: p_onl
-    CHARACTER(LEN=filename_max+100) :: text
+    ! local variables
+    CHARACTER(LEN=*), PARAMETER  :: routine = modname//"::write_name_list_output"
     REAL(wp), PARAMETER :: eps = 1.d-10 ! Tolerance for checking output bounds
-    LOGICAL :: lnewly_initialized = .FALSE.
+
+    INTEGER                           :: i, idate, itime, iret, n, jg
+    TYPE(t_output_name_list), POINTER :: p_onl
+    CHARACTER(LEN=filename_max+100)   :: text
+    LOGICAL                           :: lnewly_initialized = .FALSE.
 
     IF (ltimer) CALL timer_start(timer_write_output)
     ! If asynchronous I/O is enabled, the compute PEs have to make sure
@@ -3056,12 +3302,13 @@ CONTAINS
           ENDIF
         ENDIF
 
-        IF (lnewly_initialized .OR. MOD(p_onl%n_output_steps,p_onl%steps_per_file) == 0) THEN
+        IF (lnewly_initialized .OR. &
+          & MOD(p_onl%n_output_steps,p_onl%steps_per_file) == 0) THEN
           IF (output_file(i)%io_proc_id == p_pe) THEN
             IF(.NOT. lnewly_initialized) THEN
               CALL close_output_file(output_file(i))
             ENDIF
-            CALL open_output_file(output_file(i),p_onl%n_output_steps/p_onl%steps_per_file+1)
+            CALL open_output_file(output_file(i),p_onl%n_output_steps/p_onl%steps_per_file+1, sim_time)
           ENDIF
         ENDIF
 
@@ -3082,15 +3329,7 @@ CONTAINS
         IF (output_file(i)%io_proc_id == p_pe) THEN
           CALL taxisDefVdate(output_file(i)%cdiTaxisID, idate)
           CALL taxisDefVtime(output_file(i)%cdiTaxisID, itime)
-!PR
-    !WRITE(6,'(a,i,a,i)')'idate forc and ref',idate,' ',taxisInqRdate(output_file(i)%cdiTaxisID)
-    !WRITE(6,'(a,i,a,i)')'itime forc and ref',itime,' ',taxisInqRtime(output_file(i)%cdiTaxisID)
-    !WRITE(6,'(a,i,i)')'validation date and time ',taxisInqVdate(output_file(i)%cdiTaxisID), &
-    !             & taxisInqVtime(output_file(i)%cdiTaxisID)
- 
-    !WRITE(6,'(a,i)') 'taxisTunit writing ',taxisInqTunit(output_file(i)%cdiTaxisID)
 
-!PR
           iret = streamDefTimestep(output_file(i)%cdiFileId, output_file(i)%cdiTimeIndex)
           output_file(i)%cdiTimeIndex = output_file(i)%cdiTimeIndex + 1
 
@@ -3100,10 +3339,12 @@ CONTAINS
           WRITE(text,'(a,a,a,1pg15.9,a,i6)') &
             'Output to ',TRIM(output_file(i)%filename),' at simulation time ',sim_time, &
              ' by PE ',p_pe
-          CALL message('mo_name_list_output',text,all_print=.TRUE.)
+          CALL message(routine, text,all_print=.TRUE.)
 #endif
 
         ENDIF
+
+        p_onl => output_file(i)%name_list
 
         IF(my_process_is_io()) THEN
 #ifndef NOMPI
@@ -3176,10 +3417,10 @@ CONTAINS
 
   END SUBROUTINE write_name_list_output
 
+
   !------------------------------------------------------------------------------------------------
-  !
-  ! Write a output name list
-  !
+  !> Write a output name list
+  ! 
   SUBROUTINE write_name_list(of, l_first_write)
 
 #ifndef NOMPI
@@ -3191,23 +3432,28 @@ CONTAINS
 #endif
 
     TYPE (t_output_file), INTENT(INOUT), TARGET :: of
-    LOGICAL, INTENT(IN) :: l_first_write
+    LOGICAL,              INTENT(IN)            :: l_first_write
+    ! local variables:
+    CHARACTER(LEN=*), PARAMETER    :: routine = modname//"::write_name_list"
+    REAL(wp),         PARAMETER    :: SYNC_ERROR_PRINT_TOL = 1e-13_wp
+    INTEGER,          PARAMETER    :: iUNKNOWN = 0
+    INTEGER,          PARAMETER    :: iINTEGER = 1
+    INTEGER,          PARAMETER    :: iREAL    = 2
 
-    INTEGER :: tl, i_dom, i_log_dom, i, iv, jk, n_points, nlevs, nblks, &
-      &        nindex, mpierr, lonlat_id, ierrstat
-    INTEGER(i8) :: ioff
+    INTEGER                        :: tl, i_dom, i_log_dom, i, iv, jk, n_points, &
+      &                               nlevs, nblks, nindex, mpierr, lonlat_id,   &
+      &                               ierrstat, idata_type
+    INTEGER(i8)                    :: ioff
     TYPE (t_var_metadata), POINTER :: info
-    TYPE(t_reorder_info), POINTER  :: p_ri
-
-    REAL(wp), POINTER :: r_ptr(:,:,:)
-    REAL(wp), ALLOCATABLE :: r_tmp(:,:,:), r_out_recv(:,:)
-    REAL(sp), ALLOCATABLE :: r_out_sp(:,:)
-    REAL(dp), ALLOCATABLE :: r_out_dp(:,:)
-    TYPE(t_comm_pattern), POINTER :: p_pat
-
-    CHARACTER(LEN=*), PARAMETER :: routine = 'mo_name_list_output/write_name_list'
-    REAL(wp) :: SYNC_ERROR_PRINT_TOL = 1e-13_wp
-    LOGICAL  :: l_error
+    TYPE(t_reorder_info),  POINTER :: p_ri
+    REAL(wp),              POINTER :: r_ptr(:,:,:)
+    INTEGER,               POINTER :: i_ptr(:,:,:)
+    REAL(wp),          ALLOCATABLE :: r_tmp(:,:,:), r_out_recv(:,:)
+    INTEGER,           ALLOCATABLE :: i_tmp(:,:,:)
+    REAL(sp),          ALLOCATABLE :: r_out_sp(:,:)
+    REAL(dp),          ALLOCATABLE :: r_out_dp(:,:)
+    TYPE(t_comm_pattern),  POINTER :: p_pat
+    LOGICAL                        :: l_error
 
     ! Offset in memory window for async I/O
     ioff = of%my_mem_win_off
@@ -3223,8 +3469,9 @@ CONTAINS
       CALL MPI_Win_lock(MPI_LOCK_EXCLUSIVE, p_pe_work, MPI_MODE_NOCHECK, mpi_win, mpierr)
 #endif
 
+    ! ----------------------------------------------------
     ! Go over all name list variables for this output file
-
+    ! ----------------------------------------------------
     DO iv = 1, of%num_vars
 
       info => of%var_desc(iv)%info
@@ -3235,15 +3482,17 @@ CONTAINS
 
       ! Check if first dimension of array is nproma.
       ! Otherwise we got an array which is not suitable for this output scheme.
-
       IF(info%used_dimensions(1) /= nproma) &
         CALL finish(routine,'1st dim is not nproma: '//TRIM(info%name))
 
+      idata_type = iUNKNOWN
       r_ptr => NULL()
+      i_ptr => NULL()
 
-      ! For time level dependent elements: set time level and check if time level is present
-
-      IF(.NOT.ASSOCIATED(of%var_desc(iv)%r_ptr)) THEN
+      ! For time level dependent elements: set time level and check if
+      ! time level is present:
+      IF (.NOT. ASSOCIATED(of%var_desc(iv)%r_ptr)  .AND.    &
+        & .NOT. ASSOCIATED(of%var_desc(iv)%i_ptr)) THEN
         SELECT CASE (info%tlev_source)
           CASE(0); tl = nnow(i_log_dom)
           CASE(1); tl = nnow_rcf(i_log_dom)
@@ -3253,34 +3502,63 @@ CONTAINS
         IF(tl<=0 .OR. tl>max_time_levels) &
           CALL finish(routine, 'Illegal time level in nnow()/nnow_rcf()')
         ! Check if present
-        IF(.NOT.ASSOCIATED(of%var_desc(iv)%tlev_ptr(tl)%p)) &
+        IF (.NOT. ASSOCIATED(of%var_desc(iv)%tlev_rptr(tl)%p)   .AND.   &  
+          & .NOT. ASSOCIATED(of%var_desc(iv)%tlev_iptr(tl)%p)) THEN
           CALL finish(routine,'Actual timelevel not in '//TRIM(info%name))
+        END IF
+      ELSE
+        ! set a default time level (which is not used anyway, but must
+        ! be a valid array subscript):
+        tl = 1
       ENDIF
-      !
+      
       IF (info%lcontained) THEN 
         nindex = info%ncontained
       ELSE
         nindex = 1
       ENDIF
 
+      ! determine, if this is a REAL or an INTEGER variable:
+      IF (ASSOCIATED(of%var_desc(iv)%r_ptr) .OR.  &
+        & ASSOCIATED(of%var_desc(iv)%tlev_rptr(tl)%p)) THEN
+        idata_type = iREAL
+      ELSE IF (ASSOCIATED(of%var_desc(iv)%i_ptr) .OR.  &
+        & ASSOCIATED(of%var_desc(iv)%tlev_iptr(tl)%p)) THEN
+        idata_type = iINTEGER
+      END IF
+
       SELECT CASE (info%ndims)
       CASE (1)
         CALL message(routine, info%name)
         CALL finish(routine,'1d arrays not handled yet.')
       CASE (2)
-        ! Make a 3D copy of the array
-        ALLOCATE(r_ptr(info%used_dimensions(1),1,info%used_dimensions(2)))
-        IF(ASSOCIATED(of%var_desc(iv)%r_ptr)) THEN
+        ! 2D fields: Make a 3D copy of the array
+        IF (idata_type == iREAL)    ALLOCATE(r_ptr(info%used_dimensions(1),1,info%used_dimensions(2)))
+        IF (idata_type == iINTEGER) ALLOCATE(i_ptr(info%used_dimensions(1),1,info%used_dimensions(2)))
+
+        IF (ASSOCIATED(of%var_desc(iv)%r_ptr)) THEN
           r_ptr(:,1,:) = of%var_desc(iv)%r_ptr(:,:,nindex,1,1)
+        ELSE IF (ASSOCIATED(of%var_desc(iv)%i_ptr)) THEN
+          i_ptr(:,1,:) = of%var_desc(iv)%i_ptr(:,:,nindex,1,1)
+        ELSE IF (ASSOCIATED(of%var_desc(iv)%tlev_rptr(tl)%p)) THEN
+          r_ptr(:,1,:) = of%var_desc(iv)%tlev_rptr(tl)%p(:,:,nindex,1,1)
+        ELSE IF (ASSOCIATED(of%var_desc(iv)%tlev_iptr(tl)%p)) THEN
+          i_ptr(:,1,:) = of%var_desc(iv)%tlev_iptr(tl)%p(:,:,nindex,1,1)
         ELSE
-          r_ptr(:,1,:) = of%var_desc(iv)%tlev_ptr(tl)%p(:,:,nindex,1,1)
+          CALL finish(routine, "Internal error!")
         ENDIF
       CASE (3)
         ! Just set a pointer to the array
         IF(ASSOCIATED(of%var_desc(iv)%r_ptr)) THEN
           r_ptr => of%var_desc(iv)%r_ptr(:,:,:,nindex,1)
+        ELSE IF (ASSOCIATED(of%var_desc(iv)%i_ptr)) THEN
+          i_ptr => of%var_desc(iv)%i_ptr(:,:,:,nindex,1)
+        ELSE IF (ASSOCIATED(of%var_desc(iv)%tlev_rptr(tl)%p)) THEN
+          r_ptr => of%var_desc(iv)%tlev_rptr(tl)%p(:,:,:,nindex,1)
+        ELSE IF (ASSOCIATED(of%var_desc(iv)%tlev_iptr(tl)%p)) THEN
+          i_ptr => of%var_desc(iv)%tlev_iptr(tl)%p(:,:,:,nindex,1)
         ELSE
-          r_ptr => of%var_desc(iv)%tlev_ptr(tl)%p(:,:,:,nindex,1)
+          CALL finish(routine, "Internal error!")
         ENDIF
       CASE (4)
         CALL message(routine, info%name)
@@ -3331,31 +3609,57 @@ CONTAINS
         CALL finish(routine,'unknown grid type')
       END SELECT
 
-      IF(.NOT.use_async_name_list_io .OR. my_process_is_mpi_test()) THEN
+      IF (.NOT.use_async_name_list_io .OR. my_process_is_mpi_test()) THEN
 
-        ! No asynchronous I/O, gather the array on stdio PE and write it out there
+        ! -------------------
+        ! No asynchronous I/O
+        ! -------------------
+        !
+        ! gather the array on stdio PE and write it out there
 
         n_points = p_ri%n_glb
         nblks = (n_points-1)/nproma + 1
 
-        IF(my_process_is_mpi_test() .OR. my_process_is_mpi_workroot()) THEN
-          ALLOCATE(r_tmp(nproma,nlevs,nblks))
-        ELSE
-          ! Dimensions 1 and 2 of r_tmp must always be nproma and nlevs,
-          ! otherwise exchange_data doesn't work!
-          ALLOCATE(r_tmp(nproma,nlevs,1))
-        ENDIF
-        r_tmp(:,:,:) = 0._wp
-        ! Gather data on root
-        IF(my_process_is_mpi_seq()) THEN
-          DO jk = 1, nlevs
-            DO i = 1, p_ri%n_own
-              r_tmp(p_ri%own_dst_idx(i),jk,p_ri%own_dst_blk(i)) = r_ptr(p_ri%own_idx(i),jk,p_ri%own_blk(i))
+        IF (idata_type == iREAL) THEN
+          IF(my_process_is_mpi_test() .OR. my_process_is_mpi_workroot()) THEN
+            ALLOCATE(r_tmp(nproma,nlevs,nblks))
+          ELSE
+            ! Dimensions 1 and 2 of r_tmp must always be nproma and nlevs,
+            ! otherwise exchange_data doesn't work!
+            ALLOCATE(r_tmp(nproma,nlevs,1))
+          ENDIF
+          r_tmp(:,:,:) = 0._wp
+          ! Gather data on root
+          IF(my_process_is_mpi_seq()) THEN
+            DO jk = 1, nlevs
+              DO i = 1, p_ri%n_own
+                r_tmp(p_ri%own_dst_idx(i),jk,p_ri%own_dst_blk(i)) = r_ptr(p_ri%own_idx(i),jk,p_ri%own_blk(i))
+              ENDDO
             ENDDO
-          ENDDO
-        ELSE
-          CALL exchange_data(p_pat, RECV=r_tmp, SEND=r_ptr)
-        ENDIF
+          ELSE
+            CALL exchange_data(p_pat, RECV=r_tmp, SEND=r_ptr)
+          ENDIF
+        END IF
+        IF (idata_type == iINTEGER) THEN
+          IF(my_process_is_mpi_test() .OR. my_process_is_mpi_workroot()) THEN
+            ALLOCATE(i_tmp(nproma,nlevs,nblks))
+          ELSE
+            ! Dimensions 1 and 2 of r_tmp must always be nproma and nlevs,
+            ! otherwise exchange_data doesn't work!
+            ALLOCATE(i_tmp(nproma,nlevs,1))
+          ENDIF
+          i_tmp(:,:,:) = 0
+          ! Gather data on root
+          IF(my_process_is_mpi_seq()) THEN
+            DO jk = 1, nlevs
+              DO i = 1, p_ri%n_own
+                i_tmp(p_ri%own_dst_idx(i),jk,p_ri%own_dst_blk(i)) = i_ptr(p_ri%own_idx(i),jk,p_ri%own_blk(i))
+              ENDDO
+            ENDDO
+          ELSE
+            CALL exchange_data(p_pat, RECV=i_tmp, SEND=i_ptr)
+          ENDIF
+        END IF
 
         IF(my_process_is_mpi_test() .OR. my_process_is_mpi_workroot()) THEN
 
@@ -3363,19 +3667,39 @@ CONTAINS
           IF(use_sp_output) THEN
             ALLOCATE(r_out_sp(n_points, nlevs), STAT=ierrstat)
             IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
-            DO jk = 1, nlevs
-              r_out_sp(:,jk) = REAL(RESHAPE(r_tmp(:,jk,:), (/ n_points /)), sp)
-            ENDDO
+            IF (idata_type == iREAL) THEN
+              DO jk = 1, nlevs
+                r_out_sp(:,jk) = REAL(RESHAPE(r_tmp(:,jk,:), (/ n_points /)), sp)
+              ENDDO
+            END IF
+            IF (idata_type == iINTEGER) THEN
+              DO jk = 1, nlevs
+                r_out_sp(:,jk) = REAL(RESHAPE(i_tmp(:,jk,:), (/ n_points /)), sp)
+              ENDDO
+            END IF
           ELSE
             ALLOCATE(r_out_dp(n_points, nlevs), STAT=ierrstat)
             IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
-            DO jk = 1, nlevs
-              r_out_dp(:,jk) = REAL(RESHAPE(r_tmp(:,jk,:), (/ n_points /)), dp)
-            ENDDO
+            IF (idata_type == iREAL) THEN
+              DO jk = 1, nlevs
+                r_out_dp(:,jk) = REAL(RESHAPE(r_tmp(:,jk,:), (/ n_points /)), dp)
+              ENDDO
+            END IF
+            IF (idata_type == iINTEGER) THEN
+              DO jk = 1, nlevs
+                r_out_dp(:,jk) = REAL(RESHAPE(i_tmp(:,jk,:), (/ n_points /)), dp)
+              ENDDO
+            END IF
           ENDIF
 
-          ! In the case of a test run: Compare results on worker PEs and test PE
-          IF(p_test_run .AND. .NOT.use_async_name_list_io .AND. .NOT.use_sp_output) THEN
+          ! ------------------
+          ! case of a test run
+          ! ------------------
+          !
+          ! compare results on worker PEs and test PE
+          IF (p_test_run                    .AND. &
+            & .NOT. use_async_name_list_io  .AND. &
+            & .NOT. use_sp_output) THEN
             ! Currently we don't do the check for REAL*4, we would need
             ! p_send/p_recv for this type
             IF(.NOT. my_process_is_mpi_test()) THEN
@@ -3407,9 +3731,11 @@ CONTAINS
           ENDIF
 
         ENDIF
-        !
+
+        ! ----------
         ! write data
-        !
+        ! ----------
+
         IF (my_process_is_stdio() .AND. .NOT. my_process_is_mpi_test()) THEN
           IF(use_sp_output) THEN
             CALL streamWriteVarF(of%cdiFileID, info%cdiVarID, r_out_sp, 0)
@@ -3418,7 +3744,10 @@ CONTAINS
           ENDIF
         ENDIF
 
-        DEALLOCATE(r_tmp)
+        ! clean up
+        IF (ALLOCATED(r_tmp))  DEALLOCATE(r_tmp)
+        IF (ALLOCATED(i_tmp))  DEALLOCATE(i_tmp)
+
         IF(my_process_is_mpi_test() .OR. my_process_is_mpi_workroot()) THEN
           IF(use_sp_output) THEN
             DEALLOCATE(r_out_sp, STAT=ierrstat)
@@ -3430,23 +3759,45 @@ CONTAINS
 
       ELSE
 
-        ! Asynchronous I/O is used, just copy the OWN data points to the memory window
+        ! ------------------------
+        ! Asynchronous I/O is used
+        ! ------------------------
+        ! 
+        ! just copy the OWN DATA points to the memory window
 
         DO jk = 1, nlevs
           IF(use_sp_output) THEN
-            DO i = 1, p_ri%n_own
-              mem_ptr_sp(ioff+INT(i,i8)) = REAL(r_ptr(p_ri%own_idx(i),jk,p_ri%own_blk(i)),sp)
-            ENDDO
+            IF (idata_type == iREAL) THEN
+              DO i = 1, p_ri%n_own
+                mem_ptr_sp(ioff+INT(i,i8)) = REAL(r_ptr(p_ri%own_idx(i),jk,p_ri%own_blk(i)),sp)
+              ENDDO
+            END IF
+            IF (idata_type == iINTEGER) THEN
+              DO i = 1, p_ri%n_own
+                mem_ptr_sp(ioff+INT(i,i8)) = REAL(i_ptr(p_ri%own_idx(i),jk,p_ri%own_blk(i)),sp)
+              ENDDO
+            END IF
           ELSE
-            DO i = 1, p_ri%n_own
-              mem_ptr_dp(ioff+INT(i,i8)) = REAL(r_ptr(p_ri%own_idx(i),jk,p_ri%own_blk(i)),dp)
-            ENDDO
+            IF (idata_type == iREAL) THEN
+              DO i = 1, p_ri%n_own
+                mem_ptr_dp(ioff+INT(i,i8)) = REAL(r_ptr(p_ri%own_idx(i),jk,p_ri%own_blk(i)),dp)
+              ENDDO
+            END IF
+            IF (idata_type == iINTEGER) THEN
+              DO i = 1, p_ri%n_own
+                mem_ptr_dp(ioff+INT(i,i8)) = REAL(i_ptr(p_ri%own_idx(i),jk,p_ri%own_blk(i)),dp)
+              ENDDO
+            END IF
           END IF
           ioff = ioff + INT(p_ri%n_own,i8)
         END DO
       END IF
 
-      IF(info%ndims == 2) DEALLOCATE(r_ptr)
+      ! clean up
+      IF(info%ndims == 2) THEN
+        IF (ASSOCIATED(r_ptr)) DEALLOCATE(r_ptr)
+        IF (ASSOCIATED(i_ptr)) DEALLOCATE(i_ptr)
+      END IF
 
     ENDDO
 
@@ -3456,17 +3807,17 @@ CONTAINS
       CALL MPI_Win_unlock(p_pe_work, mpi_win, mpierr)
 #endif
 
-
   END SUBROUTINE write_name_list
+
 
   !------------------------------------------------------------------------------------------------
   !> Returns if it is time for the next output step
-  !! Please note:
-  !! This function returns .TRUE. whenever the next output time of any name list
-  !! is less or equal (sim_time+i_sample*dtime/2._wp).
-  !! It DOES NOT check if the step indicated at sim_time is an advection step.
-  !! THIS CHECK MUST BE DONE BY THE CALLER !!!!
-
+  !  Please note:
+  !  This function returns .TRUE. whenever the next output time of any name list
+  !  is less or equal (sim_time+i_sample*dtime/2._wp).
+  !  It DOES NOT check if the step indicated at sim_time is an advection step.
+  !  THIS CHECK MUST BE DONE BY THE CALLER !!!!
+  !
   FUNCTION istime4name_list_output(sim_time) RESULT(retval)
 
     REAL(wp), INTENT(IN)  :: sim_time            ! simulation time [s]
@@ -3504,18 +3855,18 @@ CONTAINS
 
 #else
 
+
   !-------------------------------------------------------------------------------------------------
-  !>
-  !! Main routine for I/O PEs.
-  !! Please note that this routine never returns.
-
+  !> Main routine for I/O PEs.
+  !  Please note that this routine never returns.
+  !
   SUBROUTINE name_list_io_main_proc(isample)
-
     INTEGER, INTENT(in) :: isample
-    LOGICAL :: done, last_step
-    TYPE(t_datetime) :: datetime
-    REAL(wp) :: sim_time
-    INTEGER :: jg
+    ! local variables:
+    LOGICAL             :: done, last_step
+    TYPE(t_datetime)    :: datetime
+    REAL(wp)            :: sim_time
+    INTEGER             :: jg
 
     ! If ldump_states or ldump_dd is set, the compute PEs will exit after dumping,
     ! there is nothing to do at all for I/O PEs
@@ -3537,7 +3888,7 @@ CONTAINS
     CALL init_name_list_output(isample=isample)
 
     ! Tell the compute PEs that we are ready to work
-    CALL async_io_send_ready_message
+    CALL async_io_send_handshake
 
     ! write recent samples of meteogram output
     DO jg = 1, n_dom
@@ -3559,7 +3910,7 @@ CONTAINS
       CALL write_name_list_output(datetime, sim_time, last_step)
 
       ! Inform compute PEs that we are done
-      CALL async_io_send_ready_message
+      CALL async_io_send_handshake
 
       ! write recent samples of meteogram output
       DO jg = 1, n_dom
@@ -3592,10 +3943,10 @@ CONTAINS
 
   END SUBROUTINE name_list_io_main_proc
 
-  !------------------------------------------------------------------------------------------------
-  !>
-  !! Transfers reorder_info to IO PEs
 
+  !------------------------------------------------------------------------------------------------
+  !> Transfers reorder_info to IO PEs
+  !
   SUBROUTINE transfer_reorder_info(p_ri)
 
     TYPE(t_reorder_info), INTENT(INOUT) :: p_ri ! Result: reorder info
@@ -3632,13 +3983,13 @@ CONTAINS
 
   END SUBROUTINE transfer_reorder_info
 
-  !-------------------------------------------------------------------------------------------------
-  !>
-  !! Replicates data (mainly the variable lists) needed for async I/O on the I/O procs.
-  !! ATTENTION: The data is not completely replicated, only as far as needed for I/O.
-  !!
-  !! This routine has to be called by all PEs (work and I/O)
 
+  !-------------------------------------------------------------------------------------------------
+  !> Replicates data (mainly the variable lists) needed for async I/O on the I/O procs.
+  !  ATTENTION: The data is not completely replicated, only as far as needed for I/O.
+  !
+  !  This routine has to be called by all PEs (work and I/O)
+  !
   SUBROUTINE replicate_data_on_io_procs
 
     INTEGER :: ivct_len
@@ -3653,7 +4004,7 @@ CONTAINS
     CHARACTER(LEN=256) :: var_list_name
     INTEGER :: idom, ierrstat, dim_c, dim_e, dim_v
 
-    CHARACTER(len=*), PARAMETER :: routine = 'mo_name_list_output/replicate_data_on_io_procs'
+    CHARACTER(len=*), PARAMETER :: routine = modname//"::replicate_data_on_io_procs"
 
     ! There is nothing to do for the test PE:
     IF(my_process_is_mpi_test()) RETURN
@@ -3838,10 +4189,10 @@ CONTAINS
 
   END SUBROUTINE replicate_data_on_io_procs
 
-  !------------------------------------------------------------------------------------------------
-  !>
-  !! Initializes the memory window for asynchronous IO
 
+  !------------------------------------------------------------------------------------------------
+  !> Initializes the memory window for asynchronous IO
+  !
   SUBROUTINE init_memory_window
 
 #ifdef __SUNPRO_F95
@@ -3863,7 +4214,7 @@ CONTAINS
     TYPE(c_ptr) :: c_mem_ptr
 #endif
 
-    CHARACTER(LEN=*), PARAMETER :: routine = 'mo_name_list_output/init_async_name_list_output'
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//"::init_async_name_list_output"
     INTEGER :: i_log_dom, n_own, lonlat_id
 
     ! There is nothing to do for the test PE:
@@ -4010,6 +4361,7 @@ CONTAINS
 
   END SUBROUTINE init_memory_window
 
+
 #ifdef USE_CRAY_POINTER
   !------------------------------------------------------------------------------------------------
   ! Helper routines for setting mem_ptr with the correct size information
@@ -4029,9 +4381,8 @@ CONTAINS
 
 
   !------------------------------------------------------------------------------------------------
-  !>
-  !! Output routine on the IO PE
-
+  !> Output routine on the IO PE
+  !
   SUBROUTINE io_proc_write_name_list(of, l_first_write)
 
 #ifdef __SUNPRO_F95
@@ -4043,7 +4394,7 @@ CONTAINS
     TYPE (t_output_file), INTENT(IN), TARGET :: of
     LOGICAL, INTENT(IN) :: l_first_write
 
-    CHARACTER(LEN=*), PARAMETER :: routine = 'mo_name_list_output/io_proc_write_name_list'
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//"::io_proc_write_name_list"
 
     INTEGER nval, nlev_max, iv, jk, i, nlevs, mpierr, nv_off, np, i_dom, &
       &     lonlat_id, i_log_dom, ierrstat
@@ -4147,7 +4498,7 @@ CONTAINS
 
         nval = p_ri%pe_own(np)*nlevs ! Number of words to transfer
 
-        t_0 = p_mpi_wtime()
+        t_0 = REAL(p_mpi_wtime(),wp)
         CALL MPI_Win_lock(MPI_LOCK_SHARED, np, MPI_MODE_NOCHECK, mpi_win, mpierr)
 
         IF(use_sp_output) THEN
@@ -4159,7 +4510,7 @@ CONTAINS
         ENDIF
 
         CALL MPI_Win_unlock(np, mpi_win, mpierr)
-        t_get  = t_get  + p_mpi_wtime()-t_0
+        t_get  = t_get  + REAL(p_mpi_wtime(),wp)-t_0
         mb_get = mb_get + nval
 
         ! Update the offset in var1
@@ -4181,7 +4532,7 @@ CONTAINS
       ! var1 is stored in the order in which the variable was stored on compute PEs,
       ! get it back into the global storage order
 
-      t_0 = p_mpi_wtime()
+      t_0 = REAL(p_mpi_wtime(),wp)
       IF(use_sp_output) THEN
         ALLOCATE(var3_sp(p_ri%n_glb,nlevs), STAT=ierrstat) ! Must be allocated to exact size
       ELSE
@@ -4212,17 +4563,17 @@ CONTAINS
           ENDDO
         ENDIF
       ENDDO ! Loop over levels
-      t_copy = t_copy + p_mpi_wtime()-t_0
+      t_copy = t_copy + REAL(p_mpi_wtime(),wp)-t_0
 
-      t_0 = p_mpi_wtime()
+      t_0 = REAL(p_mpi_wtime(),wp)
       IF(use_sp_output) THEN
         CALL streamWriteVarF(of%cdiFileID, info%cdiVarID, var3_sp, 0)
-        mb_wr = mb_wr + SIZE(var3_sp)
+        mb_wr = mb_wr + REAL(SIZE(var3_sp),wp)
       ELSE
         CALL streamWriteVar(of%cdiFileID, info%cdiVarID, var3_dp, 0)
-        mb_wr = mb_wr + SIZE(var3_dp)
+        mb_wr = mb_wr + REAL(SIZE(var3_dp), wp)
       ENDIF
-      t_write = t_write + p_mpi_wtime()-t_0
+      t_write = t_write + REAL(p_mpi_wtime(),wp)-t_0
 
       IF(use_sp_output) THEN
         DEALLOCATE(var3_sp, STAT=ierrstat)
@@ -4269,6 +4620,7 @@ CONTAINS
 
   END SUBROUTINE io_proc_write_name_list
 
+
   !-------------------------------------------------------------------------------------------------
   !-------------------------------------------------------------------------------------------------
   !-------------------------------------------------------------------------------------------------
@@ -4279,12 +4631,12 @@ CONTAINS
 
   !-------------------------------------------------------------------------------------------------
   ! ... called on IO procs:
-  !-------------------------------------------------------------------------------------------------
-  !>
-  !! async_io_send_ready_message: Send a message to the compute PEs that the I/O is ready
-  !! The counterpart on the compute side is compute_wait_for_async_io
 
-  SUBROUTINE async_io_send_ready_message
+  !-------------------------------------------------------------------------------------------------
+  !> Send a message to the compute PEs that the I/O is ready The
+  !  counterpart on the compute side is compute_wait_for_async_io
+  !
+  SUBROUTINE async_io_send_handshake
 
     REAL(wp) :: msg
 
@@ -4297,13 +4649,13 @@ CONTAINS
       CALL p_send(msg, p_work_pe0, 0)
     ENDIF
 
-  END SUBROUTINE async_io_send_ready_message
+  END SUBROUTINE async_io_send_handshake
+
 
   !-------------------------------------------------------------------------------------------------
-  !>
-  !! async_io_wait_for_start: Wait for a message from I/O PEs that we should start I/O or finish
-  !! The counterpart on the compute side is compute_start_io/compute_shutdown_io
-
+  !> async_io_wait_for_start: Wait for a message from I/O PEs that we should start I/O or finish
+  !  The counterpart on the compute side is compute_start_io/compute_shutdown_io
+  !
   SUBROUTINE async_io_wait_for_start(done, datetime, sim_time, last_step)
 
     LOGICAL, INTENT(OUT)          :: done ! flag if we should shut down
@@ -4345,19 +4697,20 @@ CONTAINS
 
     CASE DEFAULT
       ! Anything else is an error
-      CALL finish(modname,'I/O PE: Got illegal I/O tag')
+      CALL finish(modname, 'I/O PE: Got illegal I/O tag')
 
     END SELECT
 
   END SUBROUTINE async_io_wait_for_start
 
+
   !-------------------------------------------------------------------------------------------------
   ! ... called on compute procs:
-  !-------------------------------------------------------------------------------------------------
-  !>
-  !! compute_wait_for_async_io: Wait for a message that the I/O is ready
-  !! The counterpart on the I/O side is io_send_ready_message
 
+  !-------------------------------------------------------------------------------------------------
+  !> compute_wait_for_async_io: Wait for a message that the I/O is ready
+  !  The counterpart on the I/O side is io_send_handshake
+  !
   SUBROUTINE compute_wait_for_async_io
 
     REAL(wp) :: msg
@@ -4366,7 +4719,7 @@ CONTAINS
     IF(p_pe_work==0) THEN
       CALL p_recv(msg, p_io_pe0, 0)
       ! Just for safety: Check if we got the correct tag
-      IF(INT(msg) /= msg_io_done) CALL finish(modname,'Compute PE: Got illegal I/O tag')
+      IF(INT(msg) /= msg_io_done) CALL finish(modname, 'Compute PE: Got illegal I/O tag')
     ENDIF
 
     ! Wait in barrier until message is here
@@ -4374,11 +4727,11 @@ CONTAINS
 
   END SUBROUTINE compute_wait_for_async_io
 
-  !-------------------------------------------------------------------------------------------------
-  !>
-  !! compute_start_async_io: Send a message to I/O PEs that they should start I/O
-  !! The counterpart on the I/O side is io_wait_for_start_message
 
+  !-------------------------------------------------------------------------------------------------
+  !> compute_start_async_io: Send a message to I/O PEs that they should start I/O
+  !  The counterpart on the I/O side is io_wait_for_start_message
+  !
   SUBROUTINE compute_start_async_io(datetime, sim_time, last_step)
 
     TYPE(t_datetime), INTENT(IN) :: datetime
@@ -4403,11 +4756,11 @@ CONTAINS
 
   END SUBROUTINE compute_start_async_io
 
-  !-------------------------------------------------------------------------------------------------
-  !>
-  !! compute_shutdown_async_io: Send a message to I/O PEs that they should shut down
-  !! The counterpart on the I/O side is io_wait_for_start_message
 
+  !-------------------------------------------------------------------------------------------------
+  !> compute_shutdown_async_io: Send a message to I/O PEs that they should shut down
+  !  The counterpart on the I/O side is io_wait_for_start_message
+  !
   SUBROUTINE compute_shutdown_async_io
 
     REAL(wp) :: msg(9)

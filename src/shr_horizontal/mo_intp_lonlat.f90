@@ -11,6 +11,9 @@
   !!
   !! @par Revision History
   !! Moved from mo_intp_rbf_coeffs : 2012-03-20, F. Prill (DWD)
+  !! Modified by Anurag Dipankar, MPIM, 2012-12-28
+  !!-Replaced usage of ptr_int%cart_edge%coord with ptr_patch%edges%cartesian_center which is now calculated
+  !! within the grid_generator. The ptr_int variable is not calculated anymore.
   !!
   !! @par Copyright
   !! 2002-2007 by DWD and MPI-M
@@ -50,48 +53,51 @@
     !
     !-------------------------------------------------------------------------
     !
+!$  USE OMP_LIB
     USE mo_kind,                ONLY: wp
     USE mo_exception,           ONLY: message, message_text, finish
-    USE mo_impl_constants,      ONLY: SUCCESS, min_rlcell_int, max_dom, &
-      &                               HINTP_TYPE_NONE
+    USE mo_impl_constants,      ONLY: SUCCESS, min_rlcell_int, max_dom,                     &
+      &                               HINTP_TYPE_NONE, HINTP_TYPE_LONLAT_RBF,               &
+      &                               HINTP_TYPE_LONLAT_NNB
     USE mo_model_domain,        ONLY: t_patch
     USE mo_run_config,          ONLY: ltimer
     USE mo_grid_config,         ONLY: n_dom, grid_sphere_radius
-    USE mo_timer,               ONLY: timer_start, timer_stop, &
-      &                               timers_level,            &
+    USE mo_timer,               ONLY: timer_start, timer_stop,                              &
+      &                               timers_level,                                         &
       &                               timer_lonlat_setup
-    USE mo_math_utilities,      ONLY: gc2cc, gvec2cvec, solve_chol_v, choldec_v, &
-      &                               arc_length_v, t_cartesian_coordinates,     &
-      &                               t_geographical_coordinates,                &
-      &                               latlon_compute_area_weights
-    USE mo_lonlat_grid,         ONLY: t_lon_lat_grid,                         &
-      &                               compute_lonlat_blocking,                &
-      &                               compute_lonlat_specs
+    USE mo_math_utilities,      ONLY: gc2cc, gvec2cvec, arc_length_v,                       &
+      &                               t_cartesian_coordinates,                              &
+      &                               t_geographical_coordinates
+    USE mo_math_constants,      ONLY: pi, pi2, pi_2
+    USE mo_math_utility_solvers, ONLY: solve_chol_v, choldec_v
+    USE mo_lonlat_grid,         ONLY: t_lon_lat_grid,                                       &
+      &                               compute_lonlat_blocking,                              &
+      &                               compute_lonlat_specs, latlon_compute_area_weights
     USE mo_parallel_config,     ONLY: nproma, p_test_run
     USE mo_loopindices,         ONLY: get_indices_c, get_indices_e, get_indices_v
-    USE mo_intp_data_strc,      ONLY: t_int_state, t_lon_lat_intp, n_lonlat_grids, &
+    USE mo_intp_data_strc,      ONLY: t_int_state, t_lon_lat_intp, n_lonlat_grids,          &
       &                               lonlat_grid_list, n_lonlat_grids, MAX_LONLAT_GRIDS
-    USE mo_interpol_config,     ONLY: rbf_vec_dim_c, rbf_c2grad_dim, rbf_vec_kern_ll,   &
-      &                               rbf_vec_scale_ll, rbf_dim_c2l, l_intp_c2l,        &
+    USE mo_interpol_config,     ONLY: rbf_vec_dim_c, rbf_c2grad_dim, rbf_vec_kern_ll,       &
+      &                               rbf_vec_scale_ll, rbf_dim_c2l, l_intp_c2l,            &
       &                               l_mono_c2l
-    USE mo_gnat_gridsearch,     ONLY: gnat_init_grid, gnat_destroy, gnat_tree,&
-      &                               gnat_query_containing_triangles,        &
-      &                               gnat_merge_distributed_queries, gk
-    USE mo_math_utilities,      ONLY: rotate_latlon_grid
-    USE mo_mpi,                 ONLY: my_process_is_mpi_workroot,                 &
-      &                               get_my_mpi_work_id, p_n_work,               &
-      &                               p_max, get_my_mpi_work_communicator,        &
-      &                               my_process_is_mpi_seq, p_comm_work,         &
-      &                               my_process_is_mpi_test, p_max, p_send,      &
-      &                               p_recv, process_mpi_all_test_id,            &
+    USE mo_gnat_gridsearch,     ONLY: gnat_init_grid, gnat_destroy, gnat_tree,              &
+      &                               gnat_query_containing_triangles,                      &
+      &                               gnat_merge_distributed_queries, gk, SKIP_NODE,        &
+      &                               INVALID_NODE, gnat_recursive_proximity_query
+    USE mo_mpi,                 ONLY: my_process_is_mpi_workroot,                           &
+      &                               get_my_mpi_work_id, p_n_work,                         &
+      &                               p_max, get_my_mpi_work_communicator,                  &
+      &                               my_process_is_mpi_seq, p_comm_work,                   &
+      &                               my_process_is_mpi_test, p_max, p_send,                &
+      &                               p_recv, process_mpi_all_test_id,                      &
       &                               process_mpi_all_workroot_id, p_pe
-    USE mo_communication,       ONLY: idx_1d, blk_no, idx_no, &
+    USE mo_communication,       ONLY: idx_1d, blk_no, idx_no,                               &
       &                               setup_comm_pattern
-    USE mo_lonlat_grid,         ONLY: t_lon_lat_grid
+    USE mo_lonlat_grid,         ONLY: t_lon_lat_grid, rotate_latlon_grid
     USE mo_cf_convention,       ONLY: t_cf_var
     USE mo_grib2,               ONLY: t_grib2_var
-    USE mo_cdi_constants,       ONLY: GRID_REGULAR_LONLAT, GRID_REFERENCE,  &
-      &                               GRID_CELL, ZA_SURFACE, TIME_CONSTANT, &
+    USE mo_cdi_constants,       ONLY: GRID_REGULAR_LONLAT, GRID_REFERENCE,                  &
+      &                               GRID_CELL, ZA_SURFACE, TIME_CONSTANT,                 &
       &                               TSTEP_CONSTANT, DATATYPE_PACK16, DATATYPE_FLT32
     USE mo_nonhydro_state,      ONLY: p_nh_state
     USE mo_var_list,            ONLY: add_var, create_hor_interp_metadata
@@ -100,7 +106,7 @@
 
     IMPLICIT NONE
 
-    !> level of output verbosity
+    !> level of output verbosity (for debugging purposes)
     INTEGER, PARAMETER  :: dbg_level = 0
 
     PRIVATE
@@ -111,12 +117,21 @@
     PUBLIC :: compute_lonlat_area_weights
     PUBLIC :: rbf_vec_compute_coeff_lonlat
     PUBLIC :: rbf_compute_coeff_c2grad_lonlat
-    PUBLIC :: rbf_setup_interpol_lonlat_grid
-    PUBLIC :: rbf_vec_interpol_lonlat_nl
-    PUBLIC :: rbf_interpol_c2grad_lonlat_nl
-    PUBLIC :: rbf_interpol_lonlat_nl
+    PUBLIC :: rbf_vec_interpol_lonlat
+    PUBLIC :: rbf_interpol_c2grad_lonlat
+    PUBLIC :: rbf_interpol_lonlat
     PUBLIC :: allocate_int_state_lonlat_grid
     PUBLIC :: deallocate_int_state_lonlat
+
+    INTERFACE rbf_interpol_lonlat
+      MODULE PROCEDURE rbf_interpol_lonlat_int
+      MODULE PROCEDURE rbf_interpol_lonlat_real
+    END INTERFACE
+
+    INTERFACE nnb_interpol_lonlat
+      MODULE PROCEDURE nnb_interpol_lonlat_real
+      MODULE PROCEDURE nnb_interpol_lonlat_int
+    END INTERFACE
 
   CONTAINS
 
@@ -152,7 +167,7 @@
       INTEGER :: i, jg
       CHARACTER(*), PARAMETER :: routine = &
         &  TRIM("mo_intp_lonlat:destroy_lonlat_grid_list")
-      
+
       IF (dbg_level > 5) CALL message(routine, "Enter")
       DO i=1, n_lonlat_grids
         DO jg=1,n_dom
@@ -160,7 +175,7 @@
             CALL deallocate_int_state_lonlat(lonlat_grid_list(i)%intp(jg))
             lonlat_grid_list(i)%l_initialized(jg) = .FALSE.
           END IF
-        END DO 
+        END DO
       END DO
       IF (dbg_level > 5) CALL message(routine, "Done")
 
@@ -180,7 +195,7 @@
         &  TRIM("mo_intp_lonlat:resize_lonlat_state")
       INTEGER, ALLOCATABLE  :: tmp_tri_idx(:,:,:), tmp_global_idx(:)
       INTEGER               :: errstat
-      
+
       ! perform a triangle copy for the two fields:
       IF (dbg_level > 5) CALL message(routine, "Enter")
 
@@ -227,18 +242,25 @@
 
       IF (dbg_level > 5) CALL message(routine, "Enter")
       DO i=1, n_lonlat_grids
-
         ! compute some entries of lon-lat grid specification:
         CALL compute_lonlat_specs(lonlat_grid_list(i)%grid)
- 
-        CALL compute_lonlat_blocking(lonlat_grid_list(i)%grid, nproma)
-        
-        ! allocate and compute coefficients needed for lon-lat
-        ! interpolation:
-        lonlat_grid_list(i)%l_dom(n_dom+1:) = .FALSE.
-        DO jg=1,n_dom
-          IF (lonlat_grid_list(i)%l_dom(jg)) THEN
 
+        CALL compute_lonlat_blocking(lonlat_grid_list(i)%grid, nproma)
+
+        lonlat_grid_list(i)%l_dom(n_dom+1:) = .FALSE.
+      END DO
+
+      ! allocate and compute coefficients needed for lon-lat
+      ! interpolation:
+      DO jg=1,n_dom
+        IF (.NOT. ANY(lonlat_grid_list(1:n_lonlat_grids)%l_dom(jg))) CYCLE
+
+        ! build GNAT data structure
+        IF (dbg_level > 1) CALL message(routine, "build GNAT data structure")
+        CALL gnat_init_grid(p_patch(jg))
+
+        DO i=1, n_lonlat_grids
+          IF (lonlat_grid_list(i)%l_dom(jg)) THEN
             IF (ltimer) CALL timer_start(timer_lonlat_setup)
             CALL rbf_setup_interpol_lonlat_grid(      &
               &         lonlat_grid_list(i)%grid,     &
@@ -248,8 +270,13 @@
             IF (ltimer) CALL timer_stop(timer_lonlat_setup)
             lonlat_grid_list(i)%l_initialized(jg) = .TRUE.
           END IF
-        END DO ! jg
-        
+        END DO ! i
+
+        ! clean up
+        CALL gnat_destroy()
+      END DO ! jg
+
+      DO i=1, n_lonlat_grids
         ! set communication pattern for gathering lon-lat grids:
         DO jg=1,n_dom
           IF (lonlat_grid_list(i)%l_dom(jg)) THEN
@@ -327,7 +354,7 @@
       TYPE (t_lon_lat_intp), POINTER :: ptr_int_lonlat
 !DR      REAL(wp),              POINTER :: area_weights(:), p_dummy(:,:,:)
 !DR !!! Using the POINTER attribute for area_weights(:) mysteriously leads
-!DR !!! to a bus error on NEC SX9 (tested with compiler revision 450). However, 
+!DR !!! to a bus error on NEC SX9 (tested with compiler revision 450). However,
 !DR !!! using the ALLOCATABLE attribute, instead, works.
       REAL(wp), ALLOCATABLE          :: area_weights(:)
       REAL(wp),              POINTER :: p_dummy(:,:,:)
@@ -337,7 +364,7 @@
       DO i=1, n_lonlat_grids
         DO jg=1,n_dom
           IF (lonlat_grid_list(i)%l_dom(jg)) THEN
-            
+
             grid           => lonlat_grid_list(i)%grid
             ptr_int_lonlat => lonlat_grid_list(i)%intp(jg)
 
@@ -348,7 +375,7 @@
 
             ALLOCATE(area_weights(grid%lat_dim), STAT=ierrstat)
             IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
-            
+
             CALL add_var( p_nh_state(jg)%diag_list,                             &
               &           "gw", p_dummy,                                        &
               &           GRID_REGULAR_LONLAT, ZA_SURFACE, cf_desc, grib2_desc, &
@@ -361,6 +388,7 @@
             ! link this new variable to the lon-lat grid:
             new_element%field%info%hor_interp%lonlat_id = i
             ! compute area weights:
+!CDIR NOIEXPAND
             CALL latlon_compute_area_weights(grid, area_weights)
             ! for each local lon-lat point on this PE:
             DO j=1, ptr_int_lonlat%nthis_local_pts
@@ -457,7 +485,7 @@
 
     END SUBROUTINE allocate_int_state_lonlat_grid
 
-    
+
     !-------------------------------------------------------------------------
     !
     !>
@@ -542,12 +570,12 @@
 
       !--------------------------------------------------------------------
 
-      ! stencil size: 4  = nearest neighbor, 
+      ! stencil size: 4  = nearest neighbor,
       !               13 = vertex stencil,
       !               rbf_c2grad_dim = edge stencil
 
       IF ((rbf_dim_c2l == 4) .OR. (rbf_dim_c2l == 13)) THEN
-        
+
         rl_start = 2
         rl_end   = min_rlcell_int
         ptr_int_lonlat%rbf_c2l_idx(:,:,:) = 0
@@ -558,7 +586,7 @@
         ! The start block depends on the width of the stencil
         i_nchdom   = MAX(1,ptr_patch%n_childdom)
         i_startblk = ptr_patch%cells%start_blk(rl_start,1)
-        i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)    
+        i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
 
 !$OMP PARALLEL
 
@@ -569,7 +597,7 @@
         ! Note: At pentagon points the size of the stencil reduces to 12.
 
 !$OMP DO PRIVATE(jb,jc,jec,jj,jtri,i_startidx,i_endidx,cnt,ilv,ibv, &
-!$OMP            ilc_v,ibc_v,ilc_n,ibc_n) 
+!$OMP            ilc_v,ibc_v,ilc_n,ibc_n)
         DO jb = i_startblk, i_endblk
 
           CALL get_indices_c(ptr_patch, jb,        &
@@ -607,8 +635,8 @@
 
             ! 2. loop over the vertices and add all the cells
             !    that are no direct neighbors and not our CV.
-   
-            IF (rbf_dim_c2l == 13) THEN         
+
+            IF (rbf_dim_c2l == 13) THEN
               DO jj = 1,3   ! loop over vertices
                 DO jtri=1,6 ! loop over cells around each vertex
 
@@ -670,16 +698,15 @@
     !-------------------------------------------------------------------------
     !
     ! This routine is based on mo_intp_rbf_coeffs::rbf_vec_compute_coeff_cell()
-    ! 
+    !
     ! @par Revision History
     !      Initial implementation  by  F.Prill, DWD (2011-08)
     !
-    SUBROUTINE rbf_vec_compute_coeff_lonlat( ptr_patch, ptr_int, ptr_int_lonlat, lon_lat_points, &
+    SUBROUTINE rbf_vec_compute_coeff_lonlat( ptr_patch, ptr_int_lonlat, lon_lat_points, &
       &                                      nblks_lonlat, npromz_lonlat )
 
       ! Input parameters
       TYPE(t_patch),                 INTENT(IN)    :: ptr_patch
-      TYPE (t_int_state),    TARGET, INTENT(INOUT) :: ptr_int
       TYPE (t_lon_lat_intp),         INTENT(INOUT) :: ptr_int_lonlat
       REAL(gk),                      INTENT(IN)    :: lon_lat_points(:,:,:)
       INTEGER,                       INTENT(IN)    :: nblks_lonlat, npromz_lonlat ! blocking info
@@ -758,8 +785,8 @@
               ibe2 = ptr_int_lonlat%rbf_vec_blk(je2,jc,jb)
 
               ! get Cartesian coordinates and orientation vectors
-              cc_e1(:) = ptr_int%cart_edge_coord(ile1,ibe1,:)
-              cc_e2(:) = ptr_int%cart_edge_coord(ile2,ibe2,:)
+              cc_e1(:) = ptr_patch%edges%cartesian_center(ile1,ibe1)%x(:)
+              cc_e2(:) = ptr_patch%edges%cartesian_center(ile2,ibe2)%x(:)
               !
               z_nx1(jc,:) = ptr_patch%edges%primal_cart_normal(ile1,ibe1)%x(:)
               z_nx2(jc,:) = ptr_patch%edges%primal_cart_normal(ile2,ibe2)%x(:)
@@ -834,7 +861,7 @@
             ile2   = ptr_int_lonlat%rbf_vec_idx(je2,jc,jb)
             ibe2   = ptr_int_lonlat%rbf_vec_blk(je2,jc,jb)
 
-            cc_e2(:)  = ptr_int%cart_edge_coord(ile2,ibe2,:)
+            cc_e2(:)  = ptr_patch%edges%cartesian_center(ile2,ibe2)%x(:)
 
             z_dist = arc_length_v(cc_c(jc,:), cc_e2)
 
@@ -916,7 +943,8 @@
     END SUBROUTINE rbf_vec_compute_coeff_lonlat
 
 
-    !> Computed combined coefficient/finite difference matrix for lon-lat interpolation.
+    !> Computes combined coefficient/finite difference matrix for lon-lat interpolation.
+    !!
     !! This routine computes the coefficients needed for reconstructing the gradient
     !! of a cell-based variable at the cell center. The operations performed here
     !! combine taking the centered-difference gradient (like in grad_fd_norm) at
@@ -962,7 +990,7 @@
 
       ! loop through all patch cells (and blocks)
 
-!$OMP PARALLEL 
+!$OMP PARALLEL
 !$OMP DO PRIVATE(jb,je,jcc,jc,i_startidx,i_endidx,ile,ibe,ilc,ibc, &
 !$OMP            aux_coeff, inv_length, coeff, ilcc, ibcc, jc_c, jb_c)
       DO jb = 1,nblks_lonlat
@@ -1125,7 +1153,7 @@
             END DO
           END DO
         END DO
-        
+
         ! apply Cholesky decomposition to matrix
         !
 !CDIR NOIEXPAND
@@ -1204,17 +1232,123 @@
       IF (ist /= SUCCESS) &
         CALL finish (routine, 'deallocation for working arrays failed')
 !OMP END PARALLEL
-      
+
     END SUBROUTINE rbf_compute_coeff_c2l
 
 
+    ! -----------------------------------------------------------------------------------
+    !> Utility function: distance computation
+    !
+    PURE FUNCTION dist_p(p1, p2)
+      REAL(gk)              :: dist_p
+      REAL(gk), INTENT(IN)  :: p1(2), p2(2)
+      ! local variables
+      REAL(gk) :: val
+      
+      ! spherical distance:
+      val = SIN(p1(2))*SIN(p2(2)) + COS(p1(2))*COS(p2(2))*COS(p1(1)-p2(1))
+      dist_p = ACOS( MIN(1._gk, MAX(-1._gk, val)) )
+    END FUNCTION dist_p
+
+
+    ! -----------------------------------------------------------------------------------
+    !> Utility function: Divide-and-Conquer algorithm to determine
+    !  points in lon-lat grid which are "far off" the current patch of
+    !  the triangular grid.
+    !
+    RECURSIVE SUBROUTINE flag_ll_points(rotated_pts, s_lon, e_lon, s_lat, e_lat, &
+      &                                 pts_flags, recursion_depth, max_recursion)
+      REAL(wp), INTENT(IN)    :: rotated_pts(:,:,:)  ! dim (lon,lat,1:2)
+      INTEGER,  INTENT(IN)    :: s_lon, e_lon, s_lat, e_lat
+      INTEGER,  INTENT(INOUT) :: pts_flags(:,:)
+      INTEGER,  INTENT(IN)    :: recursion_depth, max_recursion
+      ! local variables
+      INTEGER  :: m_lon, m_lat, c_lon(4), c_lat(4), v_lon(4,4), v_lat(4,4), &
+        &         s_lon2(4), s_lat2(4), e_lon2(4), e_lat2(4), icirc, ivert, &
+        &         i1, i2
+      REAL(gk) :: p1(4,2), p2(2), radius(4)
+      LOGICAL  :: is_pt_inside(4)
+
+      IF (recursion_depth == max_recursion) RETURN
+
+      ! determine mid longitude and latitude in current range, thus
+      ! dividing the regular grid into 4 subgrids:
+      m_lon = (e_lon + s_lon)/2
+      m_lat = (e_lat + s_lat)/2
+
+      ! nomenclature
+      !
+      ! *-------*-------*   - e_lat
+      ! |       |       |
+      ! |   3   |   4   |
+      ! |       |       |
+      ! *-------*-------*   - m_lat
+      ! |       |       |
+      ! |   1   |   2   |
+      ! |       |       |
+      ! *-------*-------*   - s_lat
+      !
+      ! |       |       |
+      !  s_lon   m_lon   e_lon
+
+      s_lon2(1:4) = (/ s_lon, m_lon, s_lon, m_lon /)
+      e_lon2(1:4) = (/ m_lon, e_lon, m_lon, e_lon /)
+      s_lat2(1:4) = (/ s_lat, s_lat, m_lat, m_lat /)
+      e_lat2(1:4) = (/ m_lat, m_lat, e_lat, e_lat /)
+      ! for each of the four subblocks, determine centre point and
+      ! vertex indices:
+      DO icirc=1,4
+        c_lon(icirc) = (s_lon2(icirc) + e_lon2(icirc)) / 2
+        c_lat(icirc) = (s_lat2(icirc) + e_lat2(icirc)) / 2
+        ! vertex numbering counter-clockwise
+        v_lon(icirc,1:4) = (/ s_lon2(icirc), e_lon2(icirc), e_lon2(icirc), s_lon2(icirc) /)
+        v_lat(icirc,1:4) = (/ s_lat2(icirc), s_lat2(icirc), e_lat2(icirc), e_lat2(icirc) /)
+      END DO
+      ! determine radii of circles overlapping each subblock:
+      radius(:) = 0._gk
+      DO icirc=1,4
+        p1(icirc,1:2) = rotated_pts(c_lon(icirc),c_lat(icirc),1:2)
+        DO ivert=1,4
+          p2(1:2) = rotated_pts(v_lon(icirc,ivert),v_lat(icirc,ivert),1:2)
+          radius(icirc) = MAX(radius(icirc), dist_p(p1(icirc,1:2), p2))
+        END DO
+      END DO
+      radius(1:4) = 1.25_gk * radius(1:4) ! safety margin
+      ! test, if there exists a triangle center inside the circles:
+      DO icirc=1,4
+        is_pt_inside(icirc) = .FALSE.
+        CALL gnat_recursive_proximity_query(gnat_tree, p1(icirc,1:2), radius(icirc), is_pt_inside(icirc))
+      END DO
+      ! for each of the four subblocks:
+      DO icirc=1,4
+        IF (.NOT. is_pt_inside(icirc)) THEN
+          ! if patch of triangular grid does not intersect circle:
+          ! mark corresponding points in regular grid with "SKIP_NODE"
+          DO i2=s_lat2(icirc),e_lat2(icirc)
+            DO i1=s_lon2(icirc),e_lon2(icirc)
+              pts_flags(i1,i2) = SKIP_NODE
+            END DO
+          END DO
+        ELSE
+          ! if patch of triangular grid does intersect circle:
+          ! recursion and further subdivision:
+          CALL flag_ll_points(rotated_pts, s_lon2(icirc), e_lon2(icirc), s_lat2(icirc), e_lat2(icirc), &
+            &                 pts_flags, (recursion_depth+1), max_recursion)          
+        END IF
+      END DO
+    END SUBROUTINE flag_ll_points
+
 
     !-------------------------------------------------------------------------
-    !> Setup routine for RBF reconstruction at lon-lat grid points for an arbitrary grid.
-    ! 
+    !> Setup routine for RBF reconstruction at lon-lat grid points for
+    !  an arbitrary grid.
+    !
     ! @par Revision History
     !      Initial implementation  by  F.Prill, DWD (2011-08)
     !      Changed for abritrary grids by Rainer Johanni (2011-11)
+    !
+    ! @note   This subroutine assumes that the GNAT data structure for
+    !         this patch has already been initialized.
     !
     ! Note:   Two variables are created globally: "tri_idx" and "global_idx"
     !         This is necessary for the splitting of the lon-lat grid
@@ -1238,89 +1372,173 @@
       TYPE (t_int_state),    TARGET, INTENT(INOUT) :: ptr_int
       ! Local Parameters:
       CHARACTER(*), PARAMETER :: routine = TRIM("mo_intp_rbf_coeffs:rbf_setup_interpol_lonlat")
+      ! Flag: .TRUE., if we want to erase values outside local domains
+      LOGICAL,      PARAMETER :: l_cutoff_local_domains = .TRUE.
+      ! Flag: .TRUE., if we want raw performance measurements
+      LOGICAL,      PARAMETER :: l_measure_time         = .FALSE.
+      ! Zero threshold constant for equality test
+      REAL(wp),     PARAMETER :: ZERO_TOL               = 1.e-15_wp
+
       REAL(wp), ALLOCATABLE            :: rotated_pts(:,:,:)
       REAL(gk), ALLOCATABLE            :: in_points(:,:,:)
+      INTEGER,  ALLOCATABLE            :: pts_flags(:,:)
       REAL(gk), ALLOCATABLE            :: min_dist(:,:)       ! minimal distance
-      INTEGER                          :: jb, jc, i_startidx, i_endidx,         &
-        &                                 nblks_lonlat, npromz_lonlat, errstat, &
-        &                                 jb_lonlat, jc_lonlat,                 &
-        &                                 rl_start, rl_end, i_nchdom, i_startblk
-      LOGICAL                          :: l_cutoff_local_domains
+      INTEGER                          :: jb, jc, i_startidx, i_endidx,           &
+        &                                 nblks_lonlat, npromz_lonlat, errstat,   &
+        &                                 jb_lonlat, jc_lonlat,                   &
+        &                                 rl_start, rl_end, i_nchdom, i_startblk, &
+        &                                 i, j, row_idx(2), ibeg_idx, ibeg_blk,   &
+        &                                 iend_idx, iend_blk, tri_idx_pole,       &
+        &                                 ibeg_glb
+      REAL(gk)                         :: min_dist_pole
       LOGICAL, ALLOCATABLE             :: l_cutoff(:,:)
       TYPE(t_geographical_coordinates) :: cell_center, lonlat_pt
       TYPE(t_cartesian_coordinates)    :: p1, p2
-      REAL(wp)                         :: point(2), z_norm, z_nx1(3), z_nx2(3), &
+      REAL(wp)                         :: point(2), z_norm, z_nx1(3), z_nx2(3),   &
         &                                 max_dist
+      REAL                             :: time1
+      LOGICAL                          :: l_grid_is_unrotated, l_grid_contains_poles
+
 
       !-----------------------------------------------------------------------
-
-      ! Flag: .TRUE., if we want to erase values outside local domains
-      l_cutoff_local_domains = .TRUE.
 
       IF (dbg_level > 1) THEN
         WRITE(message_text,*) "SETUP : rbf_interpol_lonlat"
         CALL message(routine, message_text)
       END IF
-      IF (ptr_patch%cell_type == 6) THEN
-        CALL finish(routine, "Lon-lat interpolation not yet implemented for cell_type == 6!")
-      END IF
+      IF (ptr_patch%cell_type == 6) &
+        &   CALL finish(routine, "Lon-lat interpolation not yet implemented for cell_type == 6!")
 
       nblks_lonlat  = grid%nblks
       npromz_lonlat = grid%npromz
 
-      !-- compute grid points of rotated lon/lat grid
+      ! ------------------------------------------
+      ! check, if we have a global, unrotated grid
+      ! ------------------------------------------
+
+      l_grid_is_unrotated   = ((ABS(90._wp - grid%north_pole(2)) < ZERO_TOL)       .AND.  &
+        &                       ABS( 0._wp - grid%north_pole(1)) < ZERO_TOL)
+      l_grid_contains_poles = ((ABS(90._wp - ABS(grid%reg_lat_def(1))) < ZERO_TOL) .AND.  &
+        &                      (ABS(90._wp - ABS(grid%reg_lat_def(3))) < ZERO_TOL))
+
+      ! ---------------------------------------------------------
+      ! preliminaries: make a sensible guess for maximum distance
+      ! ---------------------------------------------------------
+
+      ! make a sensible guess for maximum distance (just taking a
+      ! "randomly chosen" edge length)
+      rl_start   = 2
+      rl_end     = min_rlcell_int
+      i_nchdom   = MAX(1,ptr_patch%n_childdom)
+      i_startblk = ptr_patch%cells%start_blk(rl_start,1)
+      CALL get_indices_e(ptr_patch, i_startblk, i_startblk, i_startblk, &
+        &                i_startidx, i_endidx, rl_start, rl_end)
+      max_dist = 3._gk * &
+        & REAL(ptr_patch%edges%primal_edge_length(i_startidx,i_startblk)/grid_sphere_radius, gk)
+      ! for MPI-independent behaviour: determine global max.
+      max_dist = p_max(max_dist, comm=p_comm_work)
+      IF(p_test_run) THEN
+        IF(.NOT. my_process_is_mpi_test()) THEN
+          ! Send to test PE
+          CALL p_send(max_dist, process_mpi_all_test_id, 1)
+        ELSE
+          ! Receive result from parallel worker PEs
+          CALL p_recv(max_dist, process_mpi_all_workroot_id, 1)
+        END IF
+      END IF
+
+      ! -------------------------------------------
+      ! compute grid points of rotated lon/lat grid
+      ! -------------------------------------------
 
       ALLOCATE(in_points(nproma, nblks_lonlat, 2),            &
         &      rotated_pts(grid%lon_dim, grid%lat_dim, 2),    &
+        &      pts_flags(grid%lon_dim, grid%lat_dim),         &
         &      min_dist(nproma, nblks_lonlat),                &
         &      stat=errstat)
-      IF (errstat /= SUCCESS) THEN
-        CALL finish (routine, 'allocation for working arrays failed')
-      ENDIF
+      IF (errstat /= SUCCESS) CALL finish (routine, 'allocation for working arrays failed')
 
-      IF (dbg_level > 1) &
-        CALL message(routine, "rotate lon-lat grid points")
+      IF (dbg_level > 1) CALL message(routine, "rotate lon-lat grid points")
+      ! compute grid points (in radians): "rotated_pts(lon,lat,1:2)"
+      ! contains the longitude and latitude of the point with grid
+      ! index lon/lat.
       CALL rotate_latlon_grid( grid, rotated_pts )
+      in_points(:,:,1) = RESHAPE(REAL(rotated_pts(:,:,1), gk), (/ nproma, nblks_lonlat /), (/ 0._gk /) )
+      in_points(:,:,2) = RESHAPE(REAL(rotated_pts(:,:,2), gk), (/ nproma, nblks_lonlat /), (/ 0._gk /) )
 
-      in_points(:,:,1) = RESHAPE(REAL(rotated_pts(:,:,1), gk), &
-        &                        (/ nproma, nblks_lonlat /), (/ 0._gk /) )
-      in_points(:,:,2) = RESHAPE(REAL(rotated_pts(:,:,2), gk), &
-        &                        (/ nproma, nblks_lonlat /), (/ 0._gk /) )
+      ! --------------------------------------------------------------
+      ! discard lon/lat grid points which are "far off"
+      ! --------------------------------------------------------------
 
-      !-- proximity query, build a list of cell indices that contain the
-      !   lon/lat grid points
+      pts_flags(:,:) = INVALID_NODE
+      call flag_ll_points(rotated_pts, 1,grid%lon_dim, 1,grid%lat_dim, pts_flags, 1,5)
 
-      ! build GNAT data structure
-      IF (dbg_level > 1) &
-        CALL message(routine, "build GNAT data structure")
-      CALL gnat_init_grid(ptr_patch)
+      !-- if we have a global, unrotated grid: skip all points of the
+      !   first and last latitude row (except one):
+      IF (l_grid_is_unrotated .AND. l_grid_contains_poles) THEN
+        pts_flags(2:,           1) = SKIP_NODE
+        pts_flags(2:,grid%lat_dim) = SKIP_NODE
+      END IF
+
+      ! --------------------------------------------------------------
+      ! proximity query, build a list of cell indices that contain the
+      ! lon/lat grid points
+      ! --------------------------------------------------------------
 
       ! allocate global arrays for distributed computation:
       nblks_lonlat  = (grid%total_dim - 1)/nproma + 1
       npromz_lonlat = grid%total_dim - (nblks_lonlat-1)*nproma
       ALLOCATE(ptr_int_lonlat%tri_idx(2, nproma, nblks_lonlat),   &
         &      ptr_int_lonlat%global_idx(grid%total_dim), STAT=errstat )
-      IF (errstat /= SUCCESS) &
-        CALL finish (routine, 'allocation for lon-lat point distribution failed')
-      ptr_int_lonlat%tri_idx(:,:,:) = 0
+      IF (errstat /= SUCCESS) CALL finish (routine, 'allocation for lon-lat point distribution failed')
+      ptr_int_lonlat%tri_idx(1,:,:) = RESHAPE(pts_flags(:,:), (/ nproma, nblks_lonlat /), (/ INVALID_NODE /) )
+      ptr_int_lonlat%tri_idx(2,:,:) = 0
+
+!$    time1 = REAL(omp_get_wtime())
 
       ! Perform query. Note that for distributed patches we receive a
       ! local list of "in_points" actually located on this portion of the
       ! domain.
-      IF (dbg_level > 1) &
-        CALL message(routine, "proximity query")
+      IF (dbg_level > 1) CALL message(routine, "proximity query")
       CALL gnat_query_containing_triangles(ptr_patch, gnat_tree, in_points(:,:,:),       &
-        &                   nproma, nblks_lonlat, npromz_lonlat, grid_sphere_radius,     &
-        &                   p_test_run, ptr_int_lonlat%tri_idx(:,:,:), min_dist(:,:))
+        &                 nproma, nblks_lonlat, npromz_lonlat, grid_sphere_radius,       &
+        &                 p_test_run, ptr_int_lonlat%tri_idx(:,:,:), min_dist(:,:))
+!$    IF (l_measure_time) WRITE (0,*) "elapsed time (query): ",  REAL(omp_get_wtime()) - time1
+
+      !-- if we have a global, unrotated grid: copy the distance
+      !   result for all points of the first and last latitude row:
+      IF (l_grid_is_unrotated .AND. l_grid_contains_poles) THEN
+        row_idx = (/ 1, grid%lat_dim /)
+        DO i=1,2
+          ! compute indices for pole row
+          ibeg_glb = (row_idx(i)-1)*grid%lon_dim
+          ibeg_idx = idx_no(ibeg_glb + 1)
+          ibeg_blk = blk_no(ibeg_glb + 1)
+          iend_idx = idx_no(ibeg_glb + grid%lon_dim)
+          iend_blk = blk_no(ibeg_glb + grid%lon_dim)
+          ! copy indices and distances:
+          DO j=1,2
+            tri_idx_pole = ptr_int_lonlat%tri_idx(j,ibeg_idx,ibeg_blk)
+            ptr_int_lonlat%tri_idx(j, (ibeg_idx+1):nproma,                  ibeg_blk) = tri_idx_pole
+            ptr_int_lonlat%tri_idx(j,                   :, (ibeg_blk+1):(iend_blk-1)) = tri_idx_pole
+            ptr_int_lonlat%tri_idx(j,          1:iend_idx,                  iend_blk) = tri_idx_pole
+          END DO
+          min_dist_pole = min_dist(ibeg_idx,ibeg_blk)
+          min_dist((ibeg_idx+1):nproma,                  ibeg_blk) = min_dist_pole
+          min_dist(                  :, (ibeg_blk+1):(iend_blk-1)) = min_dist_pole
+          min_dist(         1:iend_idx,                  iend_blk) = min_dist_pole
+        END DO
+      END IF
+
       CALL gnat_merge_distributed_queries(ptr_patch, grid%total_dim, nproma, grid%nblks, &
         &                 min_dist, ptr_int_lonlat%tri_idx(:,:,:), in_points(:,:,:),     &
         &                 ptr_int_lonlat%global_idx(:), ptr_int_lonlat%nthis_local_pts)
-        
+
+!$    if (l_measure_time) WRITE (0,*) "elapsed time: ",  REAL(omp_get_wtime()) - time1
+
       ! set local values for "nblks" and "npromz"
       nblks_lonlat  = (ptr_int_lonlat%nthis_local_pts - 1)/nproma + 1
       npromz_lonlat = ptr_int_lonlat%nthis_local_pts - (nblks_lonlat-1)*nproma
-      ! clean up
-      CALL gnat_destroy()
 
       ! After the lon-lat points have been distributed, we know
       ! exactly for each PE the number of points
@@ -1330,14 +1548,16 @@
       ! are available through previous calls to SR rbf_vec_index_cell()
       ! and rbf_c2grad_index()
 
-      !-- copy neighbor indices from standard RBF interpolation
-      IF (dbg_level > 1) &
-        CALL message(routine, "copy neighbor indices from standard RBF interpolation")
+      ! -----------------------------------------------------
+      ! copy neighbor indices from standard RBF interpolation
+      ! -----------------------------------------------------
+
+      IF (dbg_level > 1) CALL message(routine, "copy neighbor indices from standard RBF interpolation")
 
 !$OMP PARALLEL SHARED(nblks_lonlat, nproma, npromz_lonlat,   &
 !$OMP                 ptr_int_lonlat, ptr_int, l_intp_c2l),  &
 !$OMP          DEFAULT (NONE)
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc), SCHEDULE(runtime)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jc_lonlat,jb_lonlat), SCHEDULE(runtime)
       DO jb_lonlat = 1,nblks_lonlat
 
         i_startidx = 1
@@ -1349,7 +1569,7 @@
           jc = ptr_int_lonlat%tri_idx(1,jc_lonlat, jb_lonlat)
           jb = ptr_int_lonlat%tri_idx(2,jc_lonlat, jb_lonlat)
 
-          ptr_int_lonlat%rbf_vec_stencil(jc_lonlat,jb_lonlat) = ptr_int%rbf_vec_stencil_c(jc,jb)      
+          ptr_int_lonlat%rbf_vec_stencil(jc_lonlat,jb_lonlat) = ptr_int%rbf_vec_stencil_c(jc,jb)
           ptr_int_lonlat%rbf_vec_idx(:,jc_lonlat,jb_lonlat)   = ptr_int%rbf_vec_idx_c(:,jc,jb)
           ptr_int_lonlat%rbf_vec_blk(:,jc_lonlat,jb_lonlat)   = ptr_int%rbf_vec_blk_c(:,jc,jb)
         ENDDO
@@ -1370,13 +1590,19 @@
 !$OMP END DO
 !$OMP END PARALLEL
 
-      !-- compute interpolation coefficients
-      IF (dbg_level > 1) &
-        CALL message(routine, "compute lon-lat interpolation coefficients")
-      CALL rbf_vec_compute_coeff_lonlat( ptr_patch, ptr_int, ptr_int_lonlat,  &
+      IF (dbg_level > 1) CALL message(routine, "compute lon-lat interpolation coefficients")
+
+      ! -------------------------------------------------------------------------
+      ! compute interpolation coefficients for RBF interpolation of vector fields
+      ! -------------------------------------------------------------------------
+
+      CALL rbf_vec_compute_coeff_lonlat( ptr_patch, ptr_int_lonlat,  &
         &                                in_points, nblks_lonlat, npromz_lonlat )
 
-      
+      ! -------------------------------------------------------------------------
+      ! compute interpolation coefficients for RBF interpolation of scalar values
+      ! -------------------------------------------------------------------------
+
       IF (l_intp_c2l) THEN
         CALL rbf_c2l_index( ptr_patch, ptr_int, ptr_int_lonlat )
         CALL rbf_compute_coeff_c2l( ptr_patch, ptr_int_lonlat,  &
@@ -1395,17 +1621,19 @@
             jc = ptr_int_lonlat%tri_idx(1,jc_lonlat, jb_lonlat)
             jb = ptr_int_lonlat%tri_idx(2,jc_lonlat, jb_lonlat)
 
-            ptr_int_lonlat%rbf_c2lr_idx(:,jc_lonlat,jb_lonlat) = ptr_int_lonlat%rbf_c2l_idx(:,jc,jb)   
+            ptr_int_lonlat%rbf_c2lr_idx(:,jc_lonlat,jb_lonlat) = ptr_int_lonlat%rbf_c2l_idx(:,jc,jb)
             ptr_int_lonlat%rbf_c2lr_blk(:,jc_lonlat,jb_lonlat) = ptr_int_lonlat%rbf_c2l_blk(:,jc,jb)
           ENDDO
 
         ENDDO
 !$OMP END DO
 !$OMP END PARALLEL
+      END IF ! if (l_intp_c2l)
 
-      END IF
-
+      ! ----------------------------
       ! compute distances (x0i - xc)
+      ! ----------------------------
+
       DO jb=1,nblks_lonlat
         i_startidx = 1
         i_endidx   = nproma
@@ -1439,56 +1667,39 @@
         END DO
       END DO
 
+      ! -----------------------------------------------------------------------
+      ! compute coefficients for RBF interpolation with gradient reconstruction
+      ! -----------------------------------------------------------------------
+
       IF (.NOT.l_intp_c2l) THEN
         CALL rbf_compute_coeff_c2grad_lonlat (ptr_patch, ptr_int, nblks_lonlat, &
           &                                   npromz_lonlat, ptr_int_lonlat)
       ENDIF
 
-      IF ( l_cutoff_local_domains ) THEN
-        ! make a sensible guess for maximum distance (just taking a
-        ! "randomly chosen" edge length)
-        rl_start = 2
-        rl_end   = min_rlcell_int
-        i_nchdom   = MAX(1,ptr_patch%n_childdom)
-        i_startblk = ptr_patch%cells%start_blk(rl_start,1)
-        CALL get_indices_e(ptr_patch, i_startblk,  &
-          &                i_startblk, i_startblk, &
-          &                i_startidx, i_endidx, &
-          &                rl_start, rl_end)
-        max_dist = 3._gk * &
-          & REAL(ptr_patch%edges%primal_edge_length(i_startidx,i_startblk)/grid_sphere_radius, gk)
-        ! for MPI-independent behaviour: determine global max.
-        max_dist = p_max(max_dist, comm=p_comm_work)
-        IF(p_test_run) THEN
-          IF(.NOT. my_process_is_mpi_test()) THEN
-            ! Send to test PE
-            CALL p_send(max_dist, process_mpi_all_test_id, 1)
-          ELSE
-            ! Receive result from parallel worker PEs
-            CALL p_recv(max_dist, process_mpi_all_workroot_id, 1)
-          END IF
-        END IF
+      ! ----------------------------------------
+      ! erase coefficients outside local domains
+      ! ----------------------------------------
 
+      IF ( l_cutoff_local_domains ) THEN
         ! build a logical array, .true. where lon-lat point is outside of
         ! the current patch:
         ALLOCATE(l_cutoff(nproma, nblks_lonlat), stat=errstat)
         IF (errstat /= SUCCESS) CALL finish (routine, 'allocation for working arrays failed')
         l_cutoff(:,:) = (MAX(ABS(ptr_int_lonlat%rdist(1,:,:)), &
           &                  ABS(ptr_int_lonlat%rdist(2,:,:))) >= max_dist)
-        
+
         WHERE (l_cutoff(:,:))
           ptr_int_lonlat%rdist(1,:,:) = 0._wp
           ptr_int_lonlat%rdist(2,:,:) = 0._wp
         END WHERE
-        
+
         ! clean up
         DEALLOCATE(l_cutoff, stat=errstat)
         IF (errstat /= SUCCESS)  CALL finish (routine, 'DEALLOCATE of working arrays failed')
       END IF
-      
-      DEALLOCATE(in_points, rotated_pts, min_dist, stat=errstat)
-      IF (errstat /= SUCCESS) &
-        CALL finish (routine, 'DEALLOCATE of working arrays failed')
+
+      DEALLOCATE(in_points, pts_flags, rotated_pts, min_dist, stat=errstat)
+      IF (errstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE of working arrays failed')
 
     END SUBROUTINE rbf_setup_interpol_lonlat_grid
 
@@ -1500,14 +1711,14 @@
     !> Performs vector RBF reconstruction at lon-lat grid points.
     !
     ! This routine is based on mo_intp_rbf::rbf_vec_interpol_cell()
-    ! 
+    !
     ! @par Revision History
     !      Initial implementation  by  F.Prill, DWD (2011-08)
     !
-    SUBROUTINE rbf_vec_interpol_lonlat_nl( p_vn_in, ptr_int, &
-      &                                    grad_x, grad_y,              &
-      &                                    nblks_lonlat, npromz_lonlat, &
-      &                                    opt_slev, opt_elev)
+    SUBROUTINE rbf_vec_interpol_lonlat( p_vn_in, ptr_int, &
+      &                                 grad_x, grad_y,              &
+      &                                 nblks_lonlat, npromz_lonlat, &
+      &                                 opt_slev, opt_elev)
 
       ! INPUT PARAMETERS
 
@@ -1569,7 +1780,7 @@
               ptr_coeff(6,1,jc,jb)*p_vn_in(iidx(6,jc,jb),jk,iblk(6,jc,jb)) + &
               ptr_coeff(7,1,jc,jb)*p_vn_in(iidx(7,jc,jb),jk,iblk(7,jc,jb)) + &
               ptr_coeff(8,1,jc,jb)*p_vn_in(iidx(8,jc,jb),jk,iblk(8,jc,jb)) + &
-              ptr_coeff(9,1,jc,jb)*p_vn_in(iidx(9,jc,jb),jk,iblk(9,jc,jb)) 
+              ptr_coeff(9,1,jc,jb)*p_vn_in(iidx(9,jc,jb),jk,iblk(9,jc,jb))
 
             grad_y(jc,jk,jb) =                                               &
               ptr_coeff(1,2,jc,jb)*p_vn_in(iidx(1,jc,jb),jk,iblk(1,jc,jb)) + &
@@ -1580,17 +1791,129 @@
               ptr_coeff(6,2,jc,jb)*p_vn_in(iidx(6,jc,jb),jk,iblk(6,jc,jb)) + &
               ptr_coeff(7,2,jc,jb)*p_vn_in(iidx(7,jc,jb),jk,iblk(7,jc,jb)) + &
               ptr_coeff(8,2,jc,jb)*p_vn_in(iidx(8,jc,jb),jk,iblk(8,jc,jb)) + &
-              ptr_coeff(9,2,jc,jb)*p_vn_in(iidx(9,jc,jb),jk,iblk(9,jc,jb)) 
-            
+              ptr_coeff(9,2,jc,jb)*p_vn_in(iidx(9,jc,jb),jk,iblk(9,jc,jb))
+
           ENDDO
         ENDDO
-        
+
       ENDDO
 !$OMP END DO
 !$OMP END PARALLEL
 
-    END SUBROUTINE rbf_vec_interpol_lonlat_nl
+    END SUBROUTINE rbf_vec_interpol_lonlat
 
+
+    !-------------------------------------------------------------------------
+    !> Performs nearest neighbor interpolation, REAL implementation
+    !
+    ! @par Revision History
+    !      Initial implementation  by  F.Prill, DWD (2013-02)
+    !
+    SUBROUTINE nnb_interpol_lonlat_real( p_cell_in, ptr_int,                   &
+      &                                  p_out, nblks_lonlat, npromz_lonlat,   &
+      &                                  opt_slev, opt_elev)
+      ! INPUT PARAMETERS
+      !
+      ! input cell-based variable for which gradient at cell center is computed
+      REAL(wp),                      INTENT(IN)    :: p_cell_in(:,:,:) ! dim: (nproma,nlev,nblks_c)
+      ! Indices of source points and interpolation coefficients
+      TYPE (t_lon_lat_intp), TARGET, INTENT(IN)    :: ptr_int
+      ! reconstructed scalar value at lon-lat point
+      REAL(wp),                      INTENT(INOUT) :: p_out(:,:,:)     ! dim: (nproma,nlev,nblks_lonlat)
+      ! lon-lat grid blocking info
+      INTEGER,                       INTENT(IN)    :: nblks_lonlat, npromz_lonlat
+      ! optional vertical start/end level
+      INTEGER,                       INTENT(IN), OPTIONAL :: opt_slev, opt_elev
+
+      ! LOCAL VARIABLES
+      INTEGER :: slev, elev,                 & ! vertical start and end level
+        &        i_startidx, i_endidx,       & ! start/end index
+        &        jc, jb, jk                    ! integer over lon-lat points, levels
+
+      slev = 1
+      elev = UBOUND(p_cell_in,2)
+      ! check optional arguments
+      IF ( PRESENT(opt_slev) ) slev = opt_slev
+      IF ( PRESENT(opt_elev) ) elev = opt_elev
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc), SCHEDULE(runtime)
+      DO jb = 1,nblks_lonlat
+        i_startidx = 1
+        i_endidx   = nproma
+        IF (jb == nblks_lonlat) i_endidx = npromz_lonlat
+#ifdef __LOOP_EXCHANGE
+          DO jc = i_startidx, i_endidx
+            DO jk = slev, elev
+#else
+!CDIR UNROLL=3
+          DO jk = slev, elev
+            DO jc = i_startidx, i_endidx
+#endif
+              p_out(jc,jk,jb) = p_cell_in(ptr_int%tri_idx(1,jc,jb), jk, ptr_int%tri_idx(2,jc,jb))
+            ENDDO
+          ENDDO
+      END DO
+!$OMP END DO
+!$OMP END PARALLEL
+    END SUBROUTINE nnb_interpol_lonlat_real
+
+
+    !-------------------------------------------------------------------------
+    !> Performs nearest neighbor interpolation, INTEGER implementation
+    !
+    ! @par Revision History
+    !      Initial implementation  by  F.Prill, DWD (2013-02)
+    !
+    SUBROUTINE nnb_interpol_lonlat_int( p_cell_in, ptr_int,                   &
+      &                                 p_out, nblks_lonlat, npromz_lonlat,   &
+      &                                 opt_slev, opt_elev)
+      ! INPUT PARAMETERS
+      !
+      ! input cell-based variable for which gradient at cell center is computed
+      INTEGER,                       INTENT(IN)    :: p_cell_in(:,:,:) ! dim: (nproma,nlev,nblks_c)
+      ! Indices of source points and interpolation coefficients
+      TYPE (t_lon_lat_intp), TARGET, INTENT(IN)    :: ptr_int
+      ! reconstructed scalar value at lon-lat point
+      INTEGER,                       INTENT(INOUT) :: p_out(:,:,:)     ! dim: (nproma,nlev,nblks_lonlat)
+      ! lon-lat grid blocking info
+      INTEGER,                       INTENT(IN)    :: nblks_lonlat, npromz_lonlat
+      ! optional vertical start/end level
+      INTEGER,                       INTENT(IN), OPTIONAL :: opt_slev, opt_elev
+
+      ! LOCAL VARIABLES
+      INTEGER :: slev, elev,                 & ! vertical start and end level
+        &        i_startidx, i_endidx,       & ! start/end index
+        &        jc, jb, jk                    ! integer over lon-lat points, levels
+
+      slev = 1
+      elev = UBOUND(p_cell_in,2)
+      ! check optional arguments
+      IF ( PRESENT(opt_slev) ) slev = opt_slev
+      IF ( PRESENT(opt_elev) ) elev = opt_elev
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc), SCHEDULE(runtime)
+      DO jb = 1,nblks_lonlat
+        i_startidx = 1
+        i_endidx   = nproma
+        IF (jb == nblks_lonlat) i_endidx = npromz_lonlat
+#ifdef __LOOP_EXCHANGE
+          DO jc = i_startidx, i_endidx
+            DO jk = slev, elev
+#else
+!CDIR UNROLL=3
+          DO jk = slev, elev
+            DO jc = i_startidx, i_endidx
+#endif
+              p_out(jc,jk,jb) = p_cell_in(ptr_int%tri_idx(1,jc,jb), jk, ptr_int%tri_idx(2,jc,jb))
+            ENDDO
+          ENDDO
+      END DO
+!$OMP END DO
+!$OMP END PARALLEL
+    END SUBROUTINE nnb_interpol_lonlat_int
+      
 
     !-------------------------------------------------------------------------
     !> Performs vector RBF reconstruction at lon-lat grid points.
@@ -1611,10 +1934,10 @@
     !      Initial implementation  by  F.Prill, DWD (2011-08)
     !      based on "rbf_interpol_c2grad"
     !
-    SUBROUTINE rbf_interpol_c2grad_lonlat_nl( p_cell_in, ptr_int,            &
-      &                                       grad_x, grad_y,                &
-      &                                       nblks_lonlat, npromz_lonlat,   &
-      &                                       opt_slev, opt_elev)
+    SUBROUTINE rbf_interpol_c2grad_lonlat( p_cell_in, ptr_int,            &
+      &                                    grad_x, grad_y,                &
+      &                                    nblks_lonlat, npromz_lonlat,   &
+      &                                    opt_slev, opt_elev)
 
       ! !INPUT PARAMETERS
       !
@@ -1756,13 +2079,13 @@
             ENDDO
           ENDDO
 
-        ENDIF  
+        ENDIF
 
       ENDDO
 !$OMP END DO
 !$OMP END PARALLEL
 
-    END SUBROUTINE rbf_interpol_c2grad_lonlat_nl
+    END SUBROUTINE rbf_interpol_c2grad_lonlat
 
 
     !-------------------------------------------------------------------------
@@ -1853,7 +2176,7 @@
                 ptr_coeff(3 ,jc,jb)*p_cell_in(iidx(3 ,jc,jb),jk,iblk(3 ,jc,jb)) + &
                 ptr_coeff(4 ,jc,jb)*p_cell_in(iidx(4 ,jc,jb),jk,iblk(4 ,jc,jb))
 
-              ! monotonicity can be enforced by demanding that the interpolated 
+              ! monotonicity can be enforced by demanding that the interpolated
               ! value is not higher or lower than the stencil point values.
 
               ! Cf. the "lmono" implementation in the GME:
@@ -1901,7 +2224,7 @@
                 ptr_coeff(9 ,jc,jb)*p_cell_in(iidx(9 ,jc,jb),jk,iblk(9 ,jc,jb)) + &
                 ptr_coeff(10,jc,jb)*p_cell_in(iidx(10,jc,jb),jk,iblk(10,jc,jb))
 
-              ! monotonicity can be enforced by demanding that the interpolated 
+              ! monotonicity can be enforced by demanding that the interpolated
               ! value is not higher or lower than the stencil point values.
 
               ! Cf. the "lmono" implementation in the GME:
@@ -1964,7 +2287,7 @@
                 ptr_coeff(12,jc,jb)*p_cell_in(iidx(12,jc,jb),jk,iblk(12,jc,jb)) + &
                 ptr_coeff(13,jc,jb)*p_cell_in(iidx(13,jc,jb),jk,iblk(13,jc,jb))
 
-              ! monotonicity can be enforced by demanding that the interpolated 
+              ! monotonicity can be enforced by demanding that the interpolated
               ! value is not higher or lower than the stencil point values.
 
               ! Cf. the "lmono" implementation in the GME:
@@ -2009,7 +2332,7 @@
           ENDDO
 
         END SELECT
-     
+
       ENDDO
 !$OMP END DO
 !$OMP END PARALLEL
@@ -2018,17 +2341,14 @@
 
 
     !-------------------------------------------------------------------------
-    
-    !> Driver routine for RBF reconstruction of cell-based variables at
-    !  lon-lat grid points.
+    !> REAL fields: Driver routine for RBF reconstruction of
+    !  cell-based variables at lon-lat grid points.
     !
     ! @par Revision History
     !      Initial implementation  by  F.Prill, DWD (2011-08)
     !
-    SUBROUTINE rbf_interpol_lonlat_nl( p_cell_in, ptr_int,            &
-      &                                p_lonlat_out,                  &
-      &                                nblks_lonlat, npromz_lonlat,   &
-      &                                opt_slev, opt_elev)
+    SUBROUTINE rbf_interpol_lonlat_real( p_cell_in, ptr_int, p_lonlat_out, nblks_lonlat, &
+      &                                  npromz_lonlat, hintp_type)
       ! input cell-based variable for which gradient at cell center is computed
       REAL(wp),              INTENT(IN)           :: p_cell_in(:,:,:)    ! dim: (nproma,nlev,nblks_c)
       ! Indices of source points and interpolation coefficients
@@ -2036,12 +2356,12 @@
       ! output lon-lat-based variable
       REAL(wp),              INTENT(INOUT)        :: p_lonlat_out(:,:,:) ! dim: (nproma,nlev,nblks_lonlat)
       ! lon-lat grid blocking info
-      INTEGER,                   INTENT(IN)       :: nblks_lonlat, npromz_lonlat
-      ! optional vertical start/end level
-      INTEGER,                   INTENT(IN), OPTIONAL :: opt_slev, opt_elev
+      INTEGER,               INTENT(IN)           :: nblks_lonlat, npromz_lonlat
+      ! optional: horizontal interpolation type
+      INTEGER,               INTENT(IN)           :: hintp_type
 
       ! Local Parameters:
-      CHARACTER(*), PARAMETER :: routine = TRIM("mo_intp_rbf:rbf_interpol_lonlat")
+      CHARACTER(*), PARAMETER :: routine = TRIM("mo_intp_rbf:rbf_interpol_lonlat_real")
       INTEGER  :: jb, jk, jc, i_startidx, i_endidx, slev, elev
       REAL(wp) :: grad_x(nproma, SIZE(p_cell_in,2), SIZE(p_lonlat_out,3)), &
         &         grad_y(nproma, SIZE(p_cell_in,2), SIZE(p_lonlat_out,3))
@@ -2050,9 +2370,6 @@
 
       slev = 1
       elev = UBOUND(p_cell_in,2)
-      ! check optional arguments
-      IF ( PRESENT(opt_slev) ) slev = opt_slev
-      IF ( PRESENT(opt_elev) ) elev = opt_elev
 
       !-- apply interpolation coefficients
       IF (dbg_level > 1) THEN
@@ -2060,55 +2377,120 @@
         CALL message(routine, message_text)
       END IF
 
-      IF (.NOT. l_intp_c2l) THEN
+      SELECT CASE(hintp_type)
+      CASE (HINTP_TYPE_LONLAT_RBF)
 
-        CALL rbf_interpol_c2grad_lonlat_nl( p_cell_in(:,:,:), ptr_int,   &
-          &                                 grad_x, grad_y,              &
-          &                                 nblks_lonlat, npromz_lonlat, &
-          &                                 slev, elev)
+        ! ---------------------------------------------------------------
+        ! RBF interpolation
+        ! ---------------------------------------------------------------
 
-        !-- reconstruct scalar from gradient information
-        IF (dbg_level > 1) THEN
-          WRITE(message_text,*) "PE #", p_pe, ": reconstruct scalar from gradient information"
-          CALL message(routine, message_text)
-        END IF
+        IF (.NOT. l_intp_c2l) THEN
+          CALL rbf_interpol_c2grad_lonlat( p_cell_in(:,:,:), ptr_int,   &
+            &                              grad_x, grad_y,              &
+            &                              nblks_lonlat, npromz_lonlat, &
+            &                              slev, elev)
 
-        ! simple linear reconstruction
-        ! given: zonal, meridional gradients d_1/2 in lon-lat grid points (x_0i, y_0i)
-        !        and scalar values in cell centers (x_c, y_c)
+          ! reconstruct scalar from gradient information
+          IF (dbg_level > 1) THEN
+            WRITE(message_text,*) "PE #", p_pe, ": reconstruct scalar from gradient information"
+            CALL message(routine, message_text)
+          END IF
 
-        ! extrapolate: f(x_0i) = f(x_c) + (x_0i-x_c)*d_1 + (y_0i - y_c)*d_2
+          ! simple linear reconstruction
+          ! given: zonal, meridional gradients d_1/2 in lon-lat grid points (x_0i, y_0i)
+          !        and scalar values in cell centers (x_c, y_c)
+          !
+          ! extrapolate: f(x_0i) = f(x_c) + (x_0i-x_c)*d_1 + (y_0i - y_c)*d_2
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc), SCHEDULE(runtime)
-        DO jb=1,nblks_lonlat
-          i_startidx = 1
-          i_endidx   = nproma
-          IF (jb == nblks_lonlat) i_endidx = npromz_lonlat
+          DO jb=1,nblks_lonlat
+            i_startidx = 1
+            i_endidx   = nproma
+            IF (jb == nblks_lonlat) i_endidx = npromz_lonlat
 !CDIR UNROLL=5
-          DO jk=slev,elev
-            DO jc=i_startidx,i_endidx
-
-              p_lonlat_out(jc,jk,jb) = p_cell_in(ptr_int%tri_idx(1,jc,jb), jk, &
-                &                                ptr_int%tri_idx(2,jc,jb))     &
-                &           +  ptr_int%rdist(1,jc,jb) * grad_x(jc,jk,jb)       &
-                &           +  ptr_int%rdist(2,jc,jb) * grad_y(jc,jk,jb)
-
+            DO jk=slev,elev
+              DO jc=i_startidx,i_endidx
+                p_lonlat_out(jc,jk,jb) = p_cell_in(ptr_int%tri_idx(1,jc,jb), jk, &
+                  &                                ptr_int%tri_idx(2,jc,jb))     &
+                  &           +  ptr_int%rdist(1,jc,jb) * grad_x(jc,jk,jb)       &
+                  &           +  ptr_int%rdist(2,jc,jb) * grad_y(jc,jk,jb)
+              END DO
             END DO
           END DO
-        END DO
 !$OMP END DO
 !$OMP END PARALLEL
+        ELSE
+          CALL rbf_interpol_c2l( p_cell_in(:,:,:), ptr_int, p_lonlat_out(:,:,:), &
+            &                    nblks_lonlat, npromz_lonlat, slev, elev)
+        END IF
 
-      ELSE
+      CASE (HINTP_TYPE_LONLAT_NNB)
 
-        CALL rbf_interpol_c2l( p_cell_in(:,:,:), ptr_int,   &
-          &                    p_lonlat_out(:,:,:),         &
-          &                    nblks_lonlat, npromz_lonlat, &
-          &                    slev, elev)
+        ! ---------------------------------------------------------------
+        ! Nearest-neighbor interpolation
+        ! ---------------------------------------------------------------
 
+        CALL nnb_interpol_lonlat( p_cell_in(:,:,:), ptr_int, p_lonlat_out(:,:,:), &
+          &                       nblks_lonlat, npromz_lonlat, slev, elev)
+
+      CASE DEFAULT
+        CALL finish(routine, "Internal error!")
+
+      END SELECT
+
+    END SUBROUTINE rbf_interpol_lonlat_real
+
+
+    !-------------------------------------------------------------------------
+    !> INTEGER fields: Driver routine for RBF reconstruction of
+    !  cell-based variables at lon-lat grid points.
+    !
+    ! @par Revision History
+    !      Initial implementation  by  F.Prill, DWD (2013-02)
+    !
+    SUBROUTINE rbf_interpol_lonlat_int( p_cell_in, ptr_int, p_lonlat_out, nblks_lonlat, &
+      &                                 npromz_lonlat, hintp_type)
+      ! input cell-based variable for which gradient at cell center is computed
+      INTEGER,               INTENT(IN)           :: p_cell_in(:,:,:)    ! dim: (nproma,nlev,nblks_c)
+      ! Indices of source points and interpolation coefficients
+      TYPE (t_lon_lat_intp), TARGET, INTENT(IN)   :: ptr_int
+      ! output lon-lat-based variable
+      INTEGER,               INTENT(INOUT)        :: p_lonlat_out(:,:,:) ! dim: (nproma,nlev,nblks_lonlat)
+      ! lon-lat grid blocking info
+      INTEGER,               INTENT(IN)           :: nblks_lonlat, npromz_lonlat
+      ! optional: horizontal interpolation type
+      INTEGER,               INTENT(IN)           :: hintp_type
+
+      ! Local Parameters:
+      CHARACTER(*), PARAMETER :: routine = TRIM("mo_intp_rbf:rbf_interpol_lonlat_int")
+      INTEGER :: slev, elev
+
+      slev = 1
+      elev = UBOUND(p_cell_in,2)
+
+      !-- apply interpolation coefficients
+      IF (dbg_level > 1) THEN
+        WRITE(message_text,*) "PE #", p_pe, ": apply interpolation coefficients"
+        CALL message(routine, message_text)
       END IF
 
-    END SUBROUTINE rbf_interpol_lonlat_nl
+      SELECT CASE(hintp_type)
+      
+      CASE (HINTP_TYPE_LONLAT_NNB)
+
+        ! ---------------------------------------------------------------
+        ! Nearest-neighbor interpolation
+        ! ---------------------------------------------------------------
+
+        CALL nnb_interpol_lonlat( p_cell_in(:,:,:), ptr_int, p_lonlat_out(:,:,:), &
+          &                       nblks_lonlat, npromz_lonlat, slev, elev)
+
+      CASE DEFAULT
+        CALL finish(routine, "Internal error!")
+
+      END SELECT
+
+    END SUBROUTINE rbf_interpol_lonlat_int
 
   END MODULE mo_intp_lonlat

@@ -10,7 +10,7 @@
 !! @par Revision History
 !! Initial release by Guenther Zaengl (2010-10-13) based on earlier work
 !! by Almut Gassmann, MPI-M
-!!
+!! 
 !! @par Copyright
 !! 2002-2009 by DWD and MPI-M
 !! This software is provided for non-commercial use only.
@@ -48,13 +48,13 @@ MODULE mo_solve_nonhydro
   USE mo_kind,                 ONLY: wp
   USE mo_nonhydrostatic_config,ONLY: itime_scheme,iadv_rhotheta, igradp_method, l_open_ubc, &
                                      kstart_moist, lhdiff_rcf, divdamp_fac, divdamp_order,  &
-                                     rayleigh_type, iadv_rcf
+                                     rayleigh_type, iadv_rcf, rhotheta_offctr
   USE mo_dynamics_config,   ONLY: idiv_method
   USE mo_parallel_config,   ONLY: nproma, p_test_run, itype_comm, use_dycore_barrier, &
     & use_icon_comm
-  USE mo_run_config,        ONLY: ltimer, timers_level, lvert_nest
+  USE mo_run_config,        ONLY: ltimer, timers_level, lvert_nest, ltestcase
   USE mo_model_domain,      ONLY: t_patch
-  USE mo_grid_config,       ONLY: l_limited_area, nroot, grid_sphere_radius
+  USE mo_grid_config,       ONLY: l_limited_area, is_plane_torus
   USE mo_gridref_config,    ONLY: grf_intmethod_e
   USE mo_interpol_config,   ONLY: nudge_max_coeff
   USE mo_intp_data_strc,    ONLY: t_int_state
@@ -80,6 +80,8 @@ MODULE mo_solve_nonhydro
   USE mo_timer,             ONLY: timer_solve_nh, timer_barrier, timer_start, timer_stop, &
                                   timer_solve_nh_p1, timer_solve_nh_p2, timer_solve_nh_exch
   USE mo_icon_comm_lib,     ONLY: icon_comm_sync
+  USE mo_nh_testcases,      ONLY: nh_test_name
+  USE mo_nh_torus_exp,      ONLY: vt_geostrophic
 
   IMPLICIT NONE
 
@@ -141,7 +143,7 @@ MODULE mo_solve_nonhydro
     INTEGER  :: nlev, nlevp1          !< number of full and half levels
     ! Local control variable for vertical nesting
     LOGICAL :: l_vert_nested
-
+      
     !--------------------------------------------------------------------------
 
     IF ((lvert_nest) .AND. (p_patch%nshift > 0)) THEN  
@@ -496,10 +498,22 @@ MODULE mo_solve_nonhydro
             p_metrics%ddqz_z_full_e(je,jk,jb) )
         ENDDO
       ENDDO
+
+      !Add geostrophic wind for torus geometry
+      IF(ltestcase .AND. nh_test_name=='CBL')THEN  
+        DO jk = 1 , nlev
+          DO je = i_startidx, i_endidx                   
+            p_diag%ddt_vn_adv(je,jk,jb,ntnd) = p_diag%ddt_vn_adv(je,jk,jb,ntnd) + &
+                    p_patch%edges%f_e(je,jb) * vt_geostrophic(je,jk,jb) 
+          END DO
+        END DO
+      END IF
+
     ENDDO
 !$OMP END DO NOWAIT
 
 !$OMP END PARALLEL
+
 
   END SUBROUTINE velocity_tendencies
 
@@ -512,7 +526,6 @@ MODULE mo_solve_nonhydro
   !! @par Revision History
   !! Based on the initial release of divergent_modes by Almut Gassmann (2009-05-12)
   !! Modified by Guenther Zaengl starting on 2010-02-03
-  !!
   SUBROUTINE solve_nh (p_nh, p_patch, p_int, bufr, mflx_avg, nnow, nnew, l_init, l_recompute, &
                        lsave_mflx, idyn_timestep, jstep, l_bdy_nudge, dtime)
 
@@ -543,7 +556,7 @@ MODULE mo_solve_nonhydro
     ! Local variables
     INTEGER  :: jb, jk, jc, je
     INTEGER  :: nlev, nlevp1              !< number of full levels
-    INTEGER  :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
+    INTEGER  :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom, ishift
     INTEGER  :: rl_start, rl_end, istep, ntl1, ntl2, nvar, nshift
     INTEGER  :: ic, ie, ilc0, ibc0, ikp1, ikp2
 
@@ -590,8 +603,8 @@ MODULE mo_solve_nonhydro
                 z_hydro_corr    (nproma,p_patch%nblks_e)
 
 
-    REAL(wp):: z_theta1, z_theta2, z_raylfac, wgt_nnow, wgt_nnew, scal_divdamp, z_w_lim, &
-               dt_shift, bdy_divdamp
+    REAL(wp):: z_theta1, z_theta2, z_raylfac, wgt_nnow_vel, wgt_nnew_vel, scal_divdamp, z_w_lim, &
+               dt_shift, bdy_divdamp, wgt_nnow_rth, wgt_nnew_rth
     INTEGER :: nproma_gradp, nblks_gradp, npromz_gradp, nlen_gradp, jk_start
     LOGICAL :: lcompute, lcleanup, lvn_only
 
@@ -610,10 +623,10 @@ MODULE mo_solve_nonhydro
     REAL(wp), DIMENSION(:,:,:),   POINTER :: ptr_vn
     ! Pointers needed for igradp_method = 3
     INTEGER,  DIMENSION(:),   POINTER :: iplev, ipeidx, ipeblk
-    REAL(wp) :: sphere_radius_squared
+!     REAL(wp) :: sphere_radius_squared
 
     !-----------------------------------------------------------------------
-    sphere_radius_squared = grid_sphere_radius * grid_sphere_radius
+!     sphere_radius_squared = grid_sphere_radius * grid_sphere_radius
 
     !-------------------------------------------------------------------
     IF (use_dycore_barrier) THEN
@@ -661,11 +674,17 @@ MODULE mo_solve_nonhydro
 
     ! scaling factor for divergence damping: divdamp_fac*delta_x**2
     IF (divdamp_order == 2) THEN
-      scal_divdamp = divdamp_fac*4._wp*pi*sphere_radius_squared &
-        & / REAL(20*nroot**2*4**(p_patch%level),wp)
+!        scal_divdamp = divdamp_fac*4._wp*pi*sphere_radius_squared &
+!                         & / REAL(20*nroot**2*4**(p_patch%level),wp)
+      ! get the mean cell area directly from the p_patch%geometry_info
+      ! this should work for any (near-uniform) grid geometry
+      scal_divdamp = divdamp_fac * p_patch%geometry_info%mean_cell_area 
     ELSE IF (divdamp_order == 4) THEN
-      scal_divdamp = -divdamp_fac*(4._wp*pi*sphere_radius_squared &
-        & /REAL(20*nroot**2*4**(p_patch%level),wp))**2
+!        scal_divdamp = -divdamp_fac*(4._wp*pi*sphere_radius_squared &
+!                        & /REAL(20*nroot**2*4**(p_patch%level),wp))**2
+      ! get the mean cell area directly from the p_patch%geometry_info
+      ! this should work for any (near-uniform) grid geometry
+       scal_divdamp = -divdamp_fac * (p_patch%geometry_info%mean_cell_area**2)
     ENDIF
 
     ! Time increment for backward-shifting of lateral boundary mass flux 
@@ -698,8 +717,14 @@ MODULE mo_solve_nonhydro
     ! Weighting coefficients for velocity advection if tendency averaging is used
     ! The off-centering specified here turned out to be beneficial to numerical
     ! stability in extreme situations
-    wgt_nnow = 0.25_wp
-    wgt_nnew = 1._wp - wgt_nnow
+    wgt_nnow_vel = 0.25_wp
+    wgt_nnew_vel = 1._wp - wgt_nnow_vel
+
+    ! Weighting coefficients for rho and theta at interface levels in the corrector step
+    ! This empirically determined weighting minimizes the vertical wind off-centering
+    ! needed for numerical stability of vertical sound wave propagation
+    wgt_nnew_rth = 0.5_wp + rhotheta_offctr ! default value for rhotheta_offctr is -0.2
+    wgt_nnow_rth = 1._wp - wgt_nnew_rth
 
     i_nchdom   = MAX(1,p_patch%n_childdom)
 
@@ -952,14 +977,14 @@ MODULE mo_solve_nonhydro
       DO jk = 2, nlev
         DO jc = i_startidx, i_endidx
           ! density at interface levels for vertical flux divergence computation
-          p_nh%diag%rho_ic(jc,jk,jb) = 0.5_wp*(                                     &
-            p_nh%metrics%wgtfac_c(jc,jk,jb)*(p_nh%prog(nnow)%rho(jc,jk,jb) +        &
-            p_nh%prog(nvar)%rho(jc,jk,jb))+(1._wp-p_nh%metrics%wgtfac_c(jc,jk,jb))* &
-            (p_nh%prog(nnow)%rho(jc,jk-1,jb)+p_nh%prog(nvar)%rho(jc,jk-1,jb)) )
+          p_nh%diag%rho_ic(jc,jk,jb) =                                                                &
+            p_nh%metrics%wgtfac_c(jc,jk,jb)*(wgt_nnow_rth*p_nh%prog(nnow)%rho(jc,jk,jb) +             &
+            wgt_nnew_rth*p_nh%prog(nvar)%rho(jc,jk,jb))+(1._wp-p_nh%metrics%wgtfac_c(jc,jk,jb))*      &
+            (wgt_nnow_rth*p_nh%prog(nnow)%rho(jc,jk-1,jb)+wgt_nnew_rth*p_nh%prog(nvar)%rho(jc,jk-1,jb))
 
           ! perturbation virtual potential temperature at main levels
-          z_theta_v_pr_mc(jc,jk) = 0.5_wp*(p_nh%prog(nnow)%theta_v(jc,jk,jb) +     &
-            p_nh%prog(nvar)%theta_v(jc,jk,jb)) - p_nh%metrics%theta_ref_mc(jc,jk,jb)
+          z_theta_v_pr_mc(jc,jk) = wgt_nnow_rth*p_nh%prog(nnow)%theta_v(jc,jk,jb) +            &
+            wgt_nnew_rth*p_nh%prog(nvar)%theta_v(jc,jk,jb) - p_nh%metrics%theta_ref_mc(jc,jk,jb)
 
           ! perturbation virtual potential temperature at interface levels
           z_theta_v_pr_ic(jc,jk) = &
@@ -975,7 +1000,6 @@ MODULE mo_solve_nonhydro
             p_nh%diag%theta_v_ic(jc,jk,jb) * (z_exner_pr(jc,jk-1,jb)-      &
             z_exner_pr(jc,jk,jb)) / p_nh%metrics%ddqz_z_half(jc,jk,jb) +   &
             z_theta_v_pr_ic(jc,jk)*p_nh%metrics%d_exner_dz_ref_ic(jc,jk,jb)
-
         ENDDO
       ENDDO
 
@@ -1199,17 +1223,17 @@ MODULE mo_solve_nonhydro
 
     IF (istep == 1 .AND. (igradp_method == 3 .OR. igradp_method == 5)) THEN
 
-!$OMP DO PRIVATE(jb,je,ie,nlen_gradp) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,je,ie,nlen_gradp,ishift) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = 1, nblks_gradp
         IF (jb == nblks_gradp) THEN
           nlen_gradp = npromz_gradp
         ELSE
           nlen_gradp = nproma_gradp
         ENDIF
-
+        ishift = (jb-1)*nproma_gradp
 !CDIR NODEP,VOVERTAKE,VOB
         DO je = 1, nlen_gradp
-          ie = (jb-1)*nproma_gradp+je
+          ie = ishift+je
 
           z_gradh_exner(ipeidx(ie),iplev(ie),ipeblk(ie))  =              &
             z_gradh_exner(ipeidx(ie),iplev(ie),ipeblk(ie)) +             &
@@ -1231,9 +1255,9 @@ MODULE mo_solve_nonhydro
 !CDIR UNROLL=5
         DO jk = 1, nlev
           DO je = i_startidx, i_endidx
-            p_nh%prog(nnew)%vn(je,jk,jb) = p_nh%prog(nnow)%vn(je,jk,jb)+ dtime              &
-            & *(wgt_nnow*p_nh%diag%ddt_vn_adv(je,jk,jb,ntl1)                                &
-            & + wgt_nnew*p_nh%diag%ddt_vn_adv(je,jk,jb,ntl2)+p_nh%diag%ddt_vn_phy(je,jk,jb) &
+            p_nh%prog(nnew)%vn(je,jk,jb) = p_nh%prog(nnow)%vn(je,jk,jb)+ dtime                  &
+            & *(wgt_nnow_vel*p_nh%diag%ddt_vn_adv(je,jk,jb,ntl1)                                &
+            & + wgt_nnew_vel*p_nh%diag%ddt_vn_adv(je,jk,jb,ntl2)+p_nh%diag%ddt_vn_phy(je,jk,jb) &
             & -cpd*z_theta_v_e(je,jk,jb)*z_gradh_exner(je,jk,jb))
           ENDDO
         ENDDO
@@ -1514,7 +1538,7 @@ MODULE mo_solve_nonhydro
               + p_int%e_flx_avg(je,3,jb)*p_nh%prog(nnew)%vn(iqidx(je,jb,2),jk,iqblk(je,jb,2)) &
               + p_int%e_flx_avg(je,4,jb)*p_nh%prog(nnew)%vn(iqidx(je,jb,3),jk,iqblk(je,jb,3)) &
               + p_int%e_flx_avg(je,5,jb)*p_nh%prog(nnew)%vn(iqidx(je,jb,4),jk,iqblk(je,jb,4))
-
+           
            ENDDO
         ENDDO
 
@@ -1806,13 +1830,14 @@ MODULE mo_solve_nonhydro
 
             ! explicit part for w
             z_w_expl(jc,jk) = p_nh%prog(nnow)%w(jc,jk,jb)  + dtime * &
-              (wgt_nnow*p_nh%diag%ddt_w_adv(jc,jk,jb,ntl1) +         &
-               wgt_nnew*p_nh%diag%ddt_w_adv(jc,jk,jb,ntl2)           &
+              (wgt_nnow_vel*p_nh%diag%ddt_w_adv(jc,jk,jb,ntl1) +     &
+               wgt_nnew_vel*p_nh%diag%ddt_w_adv(jc,jk,jb,ntl2)       &
               -cpd*z_th_ddz_exner_c(jc,jk,jb) )
 
             ! contravariant vertical velocity times density for explicit part
             z_contr_w_fl_l(jc,jk) = p_nh%diag%rho_ic(jc,jk,jb)*(-p_nh%diag%w_concorr_c(jc,jk,jb) &
               + p_nh%metrics%vwind_expl_wgt(jc,jb)*p_nh%prog(nnow)%w(jc,jk,jb) )
+
           ENDDO
         ENDDO
       ELSE
@@ -1827,6 +1852,7 @@ MODULE mo_solve_nonhydro
             ! contravariant vertical velocity times density for explicit part
             z_contr_w_fl_l(jc,jk) = p_nh%diag%rho_ic(jc,jk,jb)*(-p_nh%diag%w_concorr_c(jc,jk,jb) &
               + p_nh%metrics%vwind_expl_wgt(jc,jb)*p_nh%prog(nnow)%w(jc,jk,jb) )
+
           ENDDO
         ENDDO
       ENDIF

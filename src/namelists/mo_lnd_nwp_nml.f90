@@ -44,7 +44,7 @@ MODULE mo_lnd_nwp_nml
   USE mo_impl_constants,      ONLY: max_dom
   USE mo_namelist,            ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_mpi,                 ONLY: my_process_is_stdio
-  USE mo_io_units,            ONLY: nnml, nnml_output
+  USE mo_io_units,            ONLY: nnml, nnml_output, filename_max
   USE mo_master_control,      ONLY: is_restart_run
   USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist,  &
     &                               open_and_restore_namelist, close_tmpfile
@@ -60,6 +60,7 @@ MODULE mo_lnd_nwp_nml
     &                               config_lmelt       => lmelt         , &
     &                               config_lmelt_var   => lmelt_var     , &
     &                               config_lmulti_snow => lmulti_snow   , &
+    &                          config_max_toplaydepth => max_toplaydepth, &
     &                            config_idiag_snowfrac => idiag_snowfrac, &
     &                               config_itype_gscp  => itype_gscp    , &
     &                               config_itype_trvg  => itype_trvg    , &
@@ -73,7 +74,9 @@ MODULE mo_lnd_nwp_nml
     &                            config_itype_hydbound => itype_hydbound, &
     &                            config_lana_rho_snow  => lana_rho_snow , &
     &                            config_lsnowtile      => lsnowtile     , &
-    &                            config_sstice_mode  => sstice_mode
+    &                            config_sstice_mode  => sstice_mode     , &
+    &                            config_sst_td_filename => sst_td_filename,&
+    &                            config_ci_td_filename => ci_td_filename
 
   IMPLICIT NONE
 
@@ -89,6 +92,7 @@ MODULE mo_lnd_nwp_nml
                                 !< tile for a grid point
   REAL(wp)::  frlake_thrhld     !< fraction threshold for creating a lake grid point
   REAL(wp)::  frsea_thrhld      !< fraction threshold for creating a sea grid point
+  REAL(wp)::  max_toplaydepth   !< maximum depth of uppermost snow layer for multi-layer snow scheme
   INTEGER ::  itype_gscp        !< type of grid-scale precipitation physics
   INTEGER ::  itype_trvg        !< type of vegetation transpiration parameterization
   INTEGER ::  itype_evsl        !< type of parameterization of bare soil evaporation
@@ -99,6 +103,7 @@ MODULE mo_lnd_nwp_nml
   INTEGER ::  itype_subs        !< type of subscale surface treatment =1 MOSAIC, =2 TILE       
   INTEGER ::  idiag_snowfrac    !< method for diagnosis of snow-cover fraction       
 
+  CHARACTER(LEN=filename_max) :: sst_td_filename, ci_td_filename
 
 
   LOGICAL ::       &
@@ -119,7 +124,7 @@ MODULE mo_lnd_nwp_nml
     &               frlnd_thrhld, lseaice, llake, lmelt       , &
     &               frlndtile_thrhld, frlake_thrhld, frsea_thrhld, &
     &               lmelt_var, lmulti_snow, itype_gscp        , & 
-    &               itype_trvg, idiag_snowfrac                , & 
+    &               itype_trvg, idiag_snowfrac, max_toplaydepth, & 
     &               itype_evsl                                , & 
     &               itype_tran                                , & 
     &               itype_root                                , & 
@@ -130,7 +135,9 @@ MODULE mo_lnd_nwp_nml
     &               lana_rho_snow                             , & 
     &               itype_subs                                , &
     &               lsnowtile                                 , &
-    &               sstice_mode
+    &               sstice_mode                               , &
+    &               sst_td_filename                           , &
+    &               ci_td_filename
    
   PUBLIC :: read_nwp_lnd_namelist
 
@@ -171,6 +178,11 @@ MODULE mo_lnd_nwp_nml
     sstice_mode  = 1       ! forecast mode, sst and sea ice fraction is read from 
                              !  the analysis, sst ist kept constant, sea ice fraction
                              !  is modified by the sea ice model
+                            ! default names for the time dependent SST and CI ext param files
+                            ! if sstice=2, <year> is substituted by "CLIM"
+    sst_td_filename = "<path>SST_<year>_<month>_<gridfile>"
+    ci_td_filename = "<path>CI_<year>_<month>_<gridfile>"
+
 
     nlev_snow      = 1       ! 0 = default value for number of snow layers
     ntiles         = 1       ! 1 = default value for number of static surface types
@@ -182,6 +194,7 @@ MODULE mo_lnd_nwp_nml
     lmelt          = .TRUE.  ! soil model with melting process
     lmelt_var      = .TRUE.  ! freezing temperature dependent on water content
     lmulti_snow    = .FALSE. ! run the multi-layer snow model
+    max_toplaydepth = 0.25_wp ! maximum depth of uppermost snow layer for multi-layer snow scheme (25 cm)
     lsnowtile      = .FALSE. ! if .TRUE., snow is considered as a separate tile
     idiag_snowfrac = 1       ! 1: old method based on SWE, 2: more advanced experimental method
     !
@@ -255,6 +268,7 @@ MODULE mo_lnd_nwp_nml
       config_lmelt       = lmelt
       config_lmelt_var   = lmelt_var
       config_lmulti_snow = lmulti_snow
+      config_max_toplaydepth = max_toplaydepth
       config_idiag_snowfrac = idiag_snowfrac
       config_itype_gscp  = itype_gscp
       config_itype_trvg  = itype_trvg
@@ -269,6 +283,9 @@ MODULE mo_lnd_nwp_nml
       config_lana_rho_snow  = lana_rho_snow
       config_lsnowtile   = lsnowtile
       config_sstice_mode   = sstice_mode
+      config_sst_td_filename = sst_td_filename
+      config_ci_td_filename = ci_td_filename
+
     ENDDO
 
     !-----------------------------------------------------

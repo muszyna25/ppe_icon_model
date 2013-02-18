@@ -99,9 +99,7 @@ CONTAINS
                                                                  !< microphysics
     ! Local array bounds:
 
-    INTEGER :: nblks_c, nblks_e        !< number of blocks for cells / edges
     INTEGER :: nlev                    !< number of full levels
-    INTEGER :: npromz_e, npromz_c      !< length of last block line
     INTEGER :: rl_start, rl_end
     INTEGER :: i_startblk, i_endblk    !< blocks
     INTEGER :: i_startidx, i_endidx    !< slices
@@ -111,12 +109,8 @@ CONTAINS
 
     INTEGER :: jc,jb,jg               !<block indeces
 
- ! local variables related to the blocking
-
-    nblks_c   = p_patch%nblks_int_c
-    npromz_c  = p_patch%npromz_int_c
-    nblks_e   = p_patch%nblks_int_e
-    npromz_e  = p_patch%npromz_int_e
+    ! local variables
+    !
     i_nchdom  = MAX(1,p_patch%n_childdom)
 
     ! number of vertical levels

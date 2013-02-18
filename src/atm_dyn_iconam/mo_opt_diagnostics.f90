@@ -141,10 +141,10 @@ MODULE mo_opt_diagnostics
       &  z_temp(:,:,:),        & ! temperature                  [K]
       &  z_pres(:,:,:),        & ! pressure                     [Pa]
       ! fields that are essential for p-level interpolation only:
-      &  p_geopot(:,:,:),      & ! geopotential                 [m2/s2]
+      &  p_gh    (:,:,:),      & ! geopotential height          [m]
       &  p_temp(:,:,:),        & ! temperature                  [K]
       ! fields that are essential for interpolation on isentropes only:            
-      &  i_geopot(:,:,:),      & ! geopotential                 [m2/s2]
+      &  i_gh    (:,:,:),      & ! geopotential height          [m]
       &  i_temp(:,:,:)           ! temperature                  [K]
 
     ! coefficient tables for vertical interpolation. There exist

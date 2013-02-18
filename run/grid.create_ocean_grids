@@ -19,10 +19,10 @@
 #    Using geometric conditions (no_of_conditions=1) and $SEADEPTH for creating a basin
 # B. create_aqua_planet=".true."
 #    No conditions: no_of_conditions=0, elevation_file='', $SEADEPTH for aqua planet
-# C. create_etopo40_flat=".true."
-#    Using etopo40 file to create a land-sea-mask and a flat bottom bathymetry ($LSMDEPTH, $SEADEPTH)
-# D. create_etopo40_planet=".true."
-#    Using etopo40 file to create a land-sea-mask and ocean bathymetry ($LSMDEPTH)
+# C. create_etopo_flat=".true."
+#    Using etopo file to create a land-sea-mask and a flat bottom bathymetry ($LSMDEPTH, $SEADEPTH)
+# D. create_etopo_planet=".true."
+#    Using etopo file to create a land-sea-mask and ocean bathymetry ($LSMDEPTH)
 #
 # There are three parameters determining the resultant ocean bathymetry
 #    min_sea_depth=$LSMDEPTH gives the value to decide whether a point is land or sea
@@ -43,9 +43,9 @@
 
 #-----------------------------------------------------------------------------
 #create_basin=".true."
-create_aqua_planet=".true."
-#create_etopo40_flat=".true."
-create_etopo40_planet=".true."
+#create_aqua_planet=".true."
+#create_etopo_flat=".true."
+create_etopo_planet=".true."
 #-----------------------------------------------------------------------------
 # plot_grid=".true."
 #-----------------------------------------------------------------------------
@@ -305,6 +305,7 @@ create_ocean_grid()
   circle_radious=${circle_radious:=0.0}
   patch_center_x=${patch_center_x:=0.0}
   patch_center_y=${patch_center_y:=0.0}
+  write_all_levels=${write_all_levels:=".false."}
   #-----------------------------------------------------------------------------
 
   #-----------------------------------------------------------------------------
@@ -332,6 +333,7 @@ cat > $parameterFile << EOF
   set_sea_depth             = $SEADEPTH
   set_min_sea_depth         = $MINDEPTH
   refine_iterations         = $REFINE_ITERATIONS
+  write_all_levels          = $write_all_levels
 /
 EOF
 
@@ -373,9 +375,12 @@ if [[ x$create_basin = "x.true." ]] ; then
   B=4                   # no. of bisections applied for the global grid
   REFINE_ITERATIONS=3   # no. of refinements after smoothing ocean boundary
                         #  - resolution for smoothing is ((B-REFINE_ITERATIONS))
-  optimize_ocean_grids=".true."
+#  optimize_ocean_grids=".true."
+#  smooth_ocean_boundary=".true."
+  optimize_ocean_grids=".false."
+  smooth_ocean_boundary=".false."
   only_get_sea_land_mask=".true."
-  smooth_ocean_boundary=".true."
+  write_all_levels=".true."
   #bathymetry parameters
   SEADEPTH="-12000.0"   # set ocean bathymetry to constant (flat bottom)
   INTMTH=3              # edge elevation interpolation method: 1= linear, 2=min,  3=max
@@ -398,10 +403,11 @@ if [[ x$create_basin = "x.true." ]] ; then
   # output grid name
   # OCEGRID=iconR${R}B0${B}-ocean_basin.nc
   OCEGRID=iconR${R}B0${B}-ocean_bas10-80N.nc  #  new Stommel basin slo 10-80N
-  OCEGRID=iconR${R}B0${B}-ocean_bas0-60N.nc   #  new Stommel basin pk 0-60N
-  ATMOGRID=iconR${R}B0${B}-atmo_basin.nc
+  OCEGRID="ocean-basin_60N_R${R}B0_"   #  new Stommel basin pk 0-60N
+  #ATMOGRID=iconR${R}B0${B}-atmo_basin.nc
 
   create_ocean_grid
+  write_all_levels=".false."
 fi
 
 
@@ -430,8 +436,8 @@ if [[ x$create_aqua_planet = "x.true." ]] ; then
 fi
 
 #-----------------------------------------------------------------------------
-# create etopo40 flat bottom bathymetry
-if [[ x$create_etopo40_flat = "x.true." ]] ; then
+# create etopo flat bottom bathymetry
+if [[ x$create_etopo_flat = "x.true." ]] ; then
   # grid parameters
   R=2                   # nroot
   B=4                   # number of bisections applied for the global grid
@@ -443,20 +449,22 @@ if [[ x$create_etopo40_flat = "x.true." ]] ; then
   LSMDEPTH="0.0"        # minimum bathymetry depth to consider grid point as sea [m] in elevation file
   SEADEPTH="-12000.0"   # set ocean bathymetry to constant value (flat bottom)
   INTMTH=3              # edge elevation interpolation method: 1= linear, 2=min,  3=max
-  # topography file
-  TOPFILE="etopo40.cdf" # topography file on regular grid to create land-sea-mask
+  # Topography file on regular grid to create land-sea-mask - see below:
+  #TOPRES=05
+  TOPRES=40
+  TOPFILE="etopo${TOPRES}.cdf"
   #conditions
   no_of_conditions=0
   # output grid name
-  OCEGRID=iconR${R}B0${B}-ocean_etopo40_flat.nc
-  ATMOGRID=iconR${R}B0${B}-atmo_etopo40_planet.nc
+  OCEGRID=iconR${R}B0${B}-ocean_etopo${TOPRES}_flat.nc
+  ATMOGRID=iconR${R}B0${B}-atmo_etopo${TOPRES}_planet.nc
 
   create_ocean_grid
 fi
 
 #-----------------------------------------------------------------------------
-# create etopo40 variable bathymetry
-if [[ x$create_etopo40_planet = "x.true." ]] ; then
+# create etopo variable bathymetry
+if [[ x$create_etopo_planet = "x.true." ]] ; then
   # grid parameters
   R=2                   # nroot
   B=4                   # number of bisections applied for the global grid
@@ -469,13 +477,22 @@ if [[ x$create_etopo40_planet = "x.true." ]] ; then
   SEADEPTH=""           # not used here
   MINDEPTH="-40.0"      # set to minimum bathymetry depth when gridpoint considered as sea
   INTMTH=3              # edge elevation interpolation method: 1= linear, 2=min,  3=max
-  # topography file
-  TOPFILE="etopo40.cdf" # topography file on regular grid to create land-sea-mask
+  # Topography file on regular grid to create land-sea-mask:
+  #TOPRES=05
+  #   - etopo05.cdf is the high resolution topography file (5 min resolution)
+  #     this file is available at ZMAW root and must be provided at data/external
+  #   - Interpolation from regular to unstructured icon-grid takes time and can be preprocessed
+  #     using cdo remapcon, see below - resulting file is:
+  #     TOPICON=iconR${R}B${Bm1}-topo.nc  # note: no 0 before $Bm1
+  TOPRES=40
+  #   - etopo40.cdf is the general topography file (40 min resolution)
+  #     this file is included in the repository at data/external
+  TOPFILE="etopo${TOPRES}.cdf"
   #conditions
   no_of_conditions=0
   # output grid name
-  OCEGRID=iconR${R}B0${B}-ocean_etopo40_planet.nc
-  ATMOGRID=iconR${R}B0${B}-atmo_etopo40_planet.nc
+  OCEGRID=iconR${R}B0${B}-ocean_etopo${TOPRES}_planet.nc
+  ATMOGRID=iconR${R}B0${B}-atmo_etopo${TOPRES}_planet.nc
 
   create_ocean_grid
 fi

@@ -7,13 +7,29 @@
 !!
 !! @author F. Prill, DWD
 !!
-!! @note We do not check for a pole correction where the pole is inside an element!
+!! @note This implementation makes several assumptions which make the algorithm
+!!       slightly inaccurate:
+!!       
+!!  General grids:
+!!    - We do not check for a pole correction where the pole is inside an element!
+!!  Nest grids (locally bounded):
+!!    1. We do not detect edge intersections between an edge of gridA and an edge of gridB 
+!!       where the start point and end points of edgeA lie outside of gridB.
+!!    2. The edge intersection algorithm stops traversing edgeA as soon as it leaves gridB.
 !!
-
+!!                            b                   b-------b         
+!!                           / \                   \     / \        
+!!                  out   a-/---\-a   out           \ a-/---a----?   
+!!                         / in  \                   \ /     \      
+!!                        b-------b                   b-------b     
+!!
+!!                          (case 1)                  (case 2)
+!!
+!!
 !! Possible compiler bug: The following option directive line has proven to be necessary
 !! when compiling with "-Chopt" on the NEC SX9, Rev.451 2012/06/20 [F. Prill, DWD]:
 !option! -O nodarg
-MODULE mo_remap_weights
+MODULE mo_remap_weights_cons
 
 !$  USE OMP_LIB
 
@@ -44,20 +60,22 @@ MODULE mo_remap_weights
     &                              compute_length, ccw_orientation,           &
     &                              pole_thresh, compute_index_lists,          &
     &                              finalize_index_lists, LIST_NAME,           &
-    &                              finalize_vertex_coords, npole, spole
+    &                              finalize_vertex_coords, npole, spole,      &
+    &                              GRID_TYPE_ICON
   USE mo_remap_grid,         ONLY: get_containing_cell
   USE mo_remap_intp,         ONLY: t_intp_data, t_intp_data_mt,               &
     &                              reduce_mthreaded_weights,                  &
-    &                              allocate_intp_data,  deallocate_intp_data, &
-    &                              merge_heaps, sync_foreign_wgts
+    &                              allocate_intp_data,  finalize_intp_data,   &
+    &                              merge_heaps, sync_foreign_wgts,            &
+    &                              resize_intp_data_mthreaded, divide_by_area
  
   IMPLICIT NONE
 
   PRIVATE
-  PUBLIC :: prepare_interpolation
+  PUBLIC :: prepare_interpolation_cons
   PUBLIC :: consistency_check
 
-  CHARACTER(LEN=*), PARAMETER :: modname = TRIM('mo_remap_weights')
+  CHARACTER(LEN=*), PARAMETER :: modname = TRIM('mo_remap_weights_cons')
  
 CONTAINS
 
@@ -240,6 +258,44 @@ CONTAINS
   END SUBROUTINE intersect_segment
 
 
+  SUBROUTINE transform_if_required(thresh, coord_transform, s, s_beg)
+    REAL(wp),                          INTENT(IN)    :: thresh
+    INTEGER,                           INTENT(INOUT) :: coord_transform
+    TYPE (t_line),                     INTENT(INOUT) :: s
+    TYPE (t_geographical_coordinates), INTENT(OUT)   :: s_beg
+    ! local variables
+    INTEGER   :: ilist
+    REAL(wp)  :: distn, dists
+
+    ! decide, if we should use the Lambert transformed coords for this
+    ! segment:
+    s_beg = s%p(1)
+    IF (coord_transform /= LIST_DEFAULT) THEN
+        s_beg = backtransform_lambert_azimuthal(s_beg, coord_transform)
+      END IF
+
+      distn = ABS(npole%lat - s_beg%lat)
+      dists = ABS(spole%lat - s_beg%lat)
+      IF (distn < thresh) THEN
+        ilist = LIST_NPOLE
+      ELSE IF (dists < thresh) THEN
+        ilist = LIST_SPOLE
+      ELSE
+        ilist = LIST_DEFAULT
+      END IF
+
+      IF ((ilist /= LIST_DEFAULT) .AND. (coord_transform == LIST_DEFAULT)) THEN
+        s%p(1) = transform_lambert_azimuthal(s%p(1), ilist)
+        s%p(2) = transform_lambert_azimuthal(s%p(2), ilist)
+        coord_transform = ilist
+      ELSE IF ((ilist == LIST_DEFAULT) .AND. (coord_transform /= LIST_DEFAULT)) THEN
+        s%p(1) = s_beg
+        s%p(2) = backtransform_lambert_azimuthal(s%p(2), coord_transform)
+        coord_transform = ilist
+      END IF
+  END SUBROUTINE transform_if_required
+
+
   !> Computes all intersection of a given line @l1 with edges of a grid
   !
   SUBROUTINE intersect_line(edge_v_idx, edge_v_blk, l1_in, grid, coord_transform, &
@@ -260,11 +316,12 @@ CONTAINS
     INTEGER                     :: cc_idx, cc_blk, ee_idx, ee_blk,    &
       &                            out_c_k_idx, out_c_k_blk,          &
       &                            out_e_k_idx, out_e_k_blk,          &
-      &                            nmax, ne, global_idx, ilist, ithrd
+      &                            nmax, ne, global_idx, ithrd,       &
+      &                            initial_coord_transform
     LOGICAL                     :: istat, lthresh, l_determine_cell, l_lookup, &
       &                            l_firstsubsegment, lskip_segment
     TYPE (t_geographical_coordinates) ::  s_beg, l_beg
-    REAL(wp)                    :: distn, dists, fct
+    REAL(wp)                    :: fct
 
     ithrd = 1
 !$  ithrd = OMP_GET_THREAD_NUM() + 1
@@ -292,32 +349,8 @@ CONTAINS
     ! loop: successively "eat away" the segments to the next
     ! intersection point:
     LOOP : DO 
-      ! decide, if we should use the Lambert transformed coords for
-      ! this segment:
-      s_beg = s%p(1)
-      IF (coord_transform /= LIST_DEFAULT) THEN
-        s_beg = backtransform_lambert_azimuthal(s_beg, coord_transform)
-      END IF
-
-      distn = ABS(npole%lat - s_beg%lat)
-      dists = ABS(spole%lat - s_beg%lat)
-      IF (distn < thresh) THEN
-        ilist = LIST_NPOLE
-      ELSE IF (dists < thresh) THEN
-        ilist = LIST_SPOLE
-      ELSE
-        ilist = LIST_DEFAULT
-      END IF
-
-      IF ((ilist /= LIST_DEFAULT) .AND. (coord_transform == LIST_DEFAULT)) THEN
-        s%p(1) = transform_lambert_azimuthal(s%p(1), ilist)
-        s%p(2) = transform_lambert_azimuthal(s%p(2), ilist)
-        coord_transform = ilist
-      ELSE IF ((ilist == LIST_DEFAULT) .AND. (coord_transform /= LIST_DEFAULT)) THEN
-        s%p(1) = s_beg
-        s%p(2) = backtransform_lambert_azimuthal(s%p(2), coord_transform)
-        coord_transform = ilist
-      END IF
+      initial_coord_transform = coord_transform
+      CALL transform_if_required(thresh, coord_transform, s, s_beg)
 
       ! determine containing cell
       IF (l_determine_cell) THEN
@@ -347,6 +380,8 @@ CONTAINS
             edge_v_blk(1:2) = (/ edge_v_blk(2), edge_v_blk(1) /)
             l1%p(1:2)       = (/ l1%p(2),       l1%p(1)       /)
             s   = l1
+            coord_transform = initial_coord_transform
+            CALL transform_if_required(thresh, coord_transform, s, s_beg)
             fct = -1.0_wp
             CYCLE LOOP
           END IF
@@ -479,6 +514,9 @@ CONTAINS
       ! weight for foreign PE:
       nn = intp_data1%nforeign + 1
       intp_data1%nforeign = nn
+      IF (nn > SIZE(intp_data1%foreign_wgt)) THEN
+        CALL resize_intp_data_mthreaded(intp_data1)
+      END IF
       intp_data1%foreign_wgt(nn) = t_heap_data(wgt, jc_src,jb_src, jc_dst,jb_dst)
       intp_data1%foreign_pe (nn) = grid1%owner_c(idx_cov)
     END IF
@@ -528,7 +566,7 @@ CONTAINS
         c_blk = grid2%index_list%clist_blk( idx_no(iidx), blk_no(iidx), ilist )
 
         nsegments = 0  ! start index in segment list
-        coord_transform = LIST_DEFAULT
+        coord_transform = ilist
         ! loop over cell edges:
         DO iedge=1,grid2%p_patch%cell_type
 
@@ -553,10 +591,10 @@ CONTAINS
           CALL intersect_line(edge_v_idx, edge_v_blk, l1, grid1, coord_transform, &
             &                 out_s, out_c, out_fct, nsegments, thresh)
 
+          ! adjust start/end point (this avoids most pole intersection problems)
+          out_s(nsegments0)%p(1) = grid2%p_patch%verts%vertex(edge_v_idx(1),edge_v_blk(1))
+          out_s(nsegments)%p(2)  = grid2%p_patch%verts%vertex(edge_v_idx(2),edge_v_blk(2))
           DO i=nsegments0,nsegments
-            ! adjust start/end point (this avoids most pole intersection problems)
-            out_s(nsegments0)%p(1) = grid2%p_patch%verts%vertex(edge_v_idx(1),edge_v_blk(1))
-            out_s(nsegments)%p(2)  = grid2%p_patch%verts%vertex(edge_v_idx(2),edge_v_blk(2))
             in_e(i,1:2) = (/ jc,jb /)
           END DO
 
@@ -586,15 +624,16 @@ CONTAINS
 
   !> Computes interpolation weights.
   !
-  SUBROUTINE prepare_interpolation(grid1, grid2, grid1_cov, grid2_cov, intp_data1, intp_data2)
+  SUBROUTINE prepare_interpolation_cons(grid1, grid2, grid1_cov, grid2_cov, &
+    &                                   intp_data1, intp_data2, max_nforeign)
     TYPE (t_grid),     INTENT(INOUT) :: grid1, grid2            !< local grid partition
     TYPE (t_grid),     INTENT(INOUT) :: grid1_cov, grid2_cov    !< local grid partition coverings
     TYPE(t_intp_data), INTENT(INOUT) :: intp_data1, intp_data2  !< interpolation coefficients (result)
+    INTEGER,           INTENT(IN)    :: max_nforeign            !< upper bounds for size of weight storage for other PEs
     ! local variables
-    CHARACTER(LEN=*), PARAMETER :: routine = TRIM(TRIM(modname)//'::prepare_interpolation')
+    CHARACTER(LEN=*), PARAMETER :: routine = TRIM(TRIM(modname)//'::prepare_interpolation_cons')
     TYPE (t_intp_data_mt) :: intp_data1_mt, intp_data2_mt
-    TYPE (t_heap_data) :: t
-    INTEGER  :: nthreads, i, ierrstat, ithrd
+    INTEGER  :: nthreads, ierrstat, ithrd
     REAL(wp) :: thresh
 
     nthreads = 1
@@ -628,8 +667,8 @@ CONTAINS
     CALL compute_coordinate_transform(grid2_cov, LIST_SPOLE)
 
     ! allocate thread-safe data structure for interpolation weights
-    CALL allocate_intp_data(intp_data1_mt, nthreads)
-    CALL allocate_intp_data(intp_data2_mt, nthreads)
+    CALL allocate_intp_data(intp_data1_mt, nthreads, max_nforeign)
+    CALL allocate_intp_data(intp_data2_mt, nthreads, max_nforeign)
 
     ! allocate lookup tables
     CALL allocate_lookup_tables(grid1, grid2, nthreads)
@@ -650,11 +689,6 @@ CONTAINS
     ! clear index lists
     CALL finalize_index_lists(grid1)
     CALL finalize_index_lists(grid2)
-    ! clear "working copy" with vertex coordinates
-    CALL finalize_vertex_coords(grid1)
-    CALL finalize_vertex_coords(grid2)
-    CALL finalize_vertex_coords(grid1_cov)
-    CALL finalize_vertex_coords(grid2_cov)
     ! merge multi-threaded weight lists into a single one
     CALL merge_heaps(intp_data1_mt, intp_data2_mt, nthreads)
 
@@ -671,44 +705,39 @@ CONTAINS
         IF (dbg_level >= 10) &
           &   WRITE (0,*) "# list length 1: ", intp_data1%s_nlist
         ! clean up
-        CALL deallocate_intp_data(intp_data1_mt)
+        CALL finalize_intp_data(intp_data1_mt)
       CASE(2)
         CALL reduce_mthreaded_weights(intp_data2_mt, intp_data2)
         IF (dbg_level >= 10) &
           &   WRITE (0,*) "# list length 2: ", intp_data2%s_nlist
         ! clean up
-        CALL deallocate_intp_data(intp_data2_mt)
+        CALL finalize_intp_data(intp_data2_mt)
       END SELECT
     END DO
 !$OMP END DO
 !$OMP END  PARALLEL
 
     ! divide by area of destination grid cell:
-    DO i=1,intp_data1%nstencil
-     intp_data1%wgt(i,:,:) = intp_data1%wgt(i,:,:)/intp_data1%area(:,:)
-    END DO
-    DO i=1,intp_data2%nstencil
-      intp_data2%wgt(i,:,:) = intp_data2%wgt(i,:,:)/intp_data2%area(:,:)
-    END DO
-!$OMP PARALLEL 
-!$OMP DO PRIVATE(i,t)
-    DO i=1,intp_data1%s_nlist
-      t = intp_data1%sl(i)
-      intp_data1%sl(i)%wgt  = t%wgt/intp_data1%area(t%didx,t%dblk)
-    END DO
-!$OMP END DO
-!$OMP DO PRIVATE(i,t)
-    DO i=1,intp_data2%s_nlist
-      t = intp_data2%sl(i)
-      intp_data2%sl(i)%wgt  = t%wgt/intp_data2%area(t%didx,t%dblk)
-    END DO
-!$OMP END DO
-!$OMP END PARALLEL
+    CALL divide_by_area(intp_data1)
+    CALL divide_by_area(intp_data2)
+
+    ! fix all those entries which have NO source grid contributions by
+    ! setting a nearest-neighbor "interpolation"
+    IF (grid1%structure == GRID_TYPE_ICON) &
+      CALL correct_wgts_at_nest_boundary(grid2_cov, grid1, intp_data1)
+    IF (grid2%structure == GRID_TYPE_ICON) &
+      CALL correct_wgts_at_nest_boundary(grid1_cov, grid2, intp_data2)
+
+    ! clear "working copy" with vertex coordinates
+    CALL finalize_vertex_coords(grid1)
+    CALL finalize_vertex_coords(grid2)
+    CALL finalize_vertex_coords(grid1_cov)
+    CALL finalize_vertex_coords(grid2_cov)
 
     CALL node_storage_finalize(1)
     DEALLOCATE(node_storage, nnode, STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")
-  END SUBROUTINE prepare_interpolation
+  END SUBROUTINE prepare_interpolation_cons
 
 
   !> Perform some consistency checks: Check for negative weights and
@@ -751,4 +780,55 @@ CONTAINS
     WRITE (0,*) "# ", nfail, " cells did not pass consistency check."
   END SUBROUTINE consistency_check
 
-END MODULE mo_remap_weights
+
+  !> The algorithm makes several assumptions which make the algorithm
+  !  inaccurate at local nest boundarys (see module comment, above).
+  !
+  !  We fix all those entries which have NO source grid contributions by
+  !  setting a nearest-neighbor "interpolation"
+  !
+  SUBROUTINE correct_wgts_at_nest_boundary(src_grid, dst_grid, intp_data)
+    TYPE (t_grid),     INTENT(INOUT) :: src_grid, dst_grid      !< source and destination grid
+    TYPE(t_intp_data), INTENT(INOUT) :: intp_data               !< interpolation coefficients (result)  
+    ! local variables
+    INTEGER  :: icount, start_blk, end_blk, start_idx, end_idx, &
+      &         jc, jb, global_idx
+    TYPE (t_geographical_coordinates) :: p
+
+
+    icount    = 0
+    start_blk = 1
+    end_blk   = dst_grid%p_patch%nblks_c
+!$OMP PARALLEL PRIVATE(start_idx, end_idx,jc,jb,icount,p,global_idx)
+!$OMP DO
+    BLOCKLOOP : DO jb=start_blk,end_blk
+      start_idx = 1
+      end_idx   = nproma
+      IF (jb == end_blk) end_idx = dst_grid%p_patch%npromz_c
+      CELLLOOP : DO jc=start_idx,end_idx
+
+        ! skip all cells where the standard algorithm has provided proper
+        ! interpolation weights:
+        IF (intp_data%nidx(jc,jb) > 0) CYCLE CELLLOOP
+
+        icount = icount + 1
+
+        ! determine nearest cell in source grid:
+        p = dst_grid%p_patch%cells%center(jc,jb)
+        global_idx = get_containing_cell(src_grid, p, LIST_DEFAULT)
+        ! set nearest neighbor "interpolation":
+        intp_data%nidx(jc,jb)   = 1
+        intp_data%wgt(1,jc,jb)  = 1._wp
+        intp_data%iidx(1,jc,jb) = idx_no(global_idx)
+        intp_data%iblk(1,jc,jb) = blk_no(global_idx)
+        
+      END DO CELLLOOP
+    END DO BLOCKLOOP
+!$OMP END DO
+    IF (dbg_level >= 1)  &
+      WRITE (0,*) "# Nearest-neighbor interpolation fix needed for ", icount, " cells."
+!$OMP END PARALLEL
+
+  END SUBROUTINE correct_wgts_at_nest_boundary
+
+END MODULE mo_remap_weights_cons

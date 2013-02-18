@@ -85,7 +85,6 @@ cat > ${atmo_namelist} << EOF
  dt_data        = ${dt_data}   ! [s] output interval
  dt_diag        = ${dt_data}
 /
-/
 &run_nml
  num_lev        = ${nlev},        ! number of full levels of vertical grid
  nsteps         = ${nsteps}    ! 50 ! 1200 ! 7200 !

@@ -299,7 +299,7 @@ CONTAINS
       config_output(:) = output(:)
     ELSE
       config_output(:) = " "
-      config_output(1) = "vlist"
+      config_output(1) = "nml"
       config_output(2) = "totint"
     END IF
     CALL parse_output_mode(config_output, config_output_mode)

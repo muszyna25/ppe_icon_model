@@ -29,6 +29,7 @@
 !! Initial  by Kristina Froehlich (2009-06-10)
 !! Memory allocation method changed from explicit allocation to Luis' 
 !! infrastructure by Kristina Froehlich (MPI-M, 2011-04-27)
+!! Added clch, clcm, clcl, hbas_con, htop_con by Helmut Frank (DWD, 2013-01-17)
 !!
 !! @par Copyright
 !! 2002-2009 by DWD and MPI-M
@@ -101,18 +102,15 @@ MODULE mo_nwp_phy_types
     TYPE(t_ptr_2d3d),ALLOCATABLE :: lwflxsfc_t_ptr(:) !< pointer array: longwave net flux at surface
     TYPE(t_ptr_2d3d),ALLOCATABLE :: tcm_t_ptr(:) !< pointer array: turbulent transfer coefficients for momentum
     TYPE(t_ptr_2d3d),ALLOCATABLE :: tch_t_ptr(:) !< pointer array: turbulent transfer coefficients for heat
-    TYPE(t_ptr_2d3d),ALLOCATABLE :: tfm_t_ptr(:) !< pointer array: factor of laminar transfer of momentum
-    TYPE(t_ptr_2d3d),ALLOCATABLE :: tfh_t_ptr(:) !< pointer array: factor of laminar transfer of heat 
     TYPE(t_ptr_2d3d),ALLOCATABLE :: tfv_t_ptr(:) !< pointer array: laminar reduction factor for evaporation
     TYPE(t_ptr_2d3d),ALLOCATABLE :: gz0_t_ptr(:) !< pointer array: roughness length * gravity
-    TYPE(t_ptr_2d3d),ALLOCATABLE :: t_2m_t_ptr(:)  !< pointer array: temperature at 2m
-    TYPE(t_ptr_2d3d),ALLOCATABLE :: qv_2m_t_ptr(:) !< pointer array: specific water vapor content at 2m
-    TYPE(t_ptr_2d3d),ALLOCATABLE :: rh_2m_t_ptr(:) !< pointer array: relative humidity at 2m
-    TYPE(t_ptr_2d3d),ALLOCATABLE :: td_2m_t_ptr(:) !< pointer array: dew point at 2m
+
     TYPE(t_ptr_2d3d),ALLOCATABLE :: u_10m_t_ptr(:) !< pointer array: zonal wind at 2am
     TYPE(t_ptr_2d3d),ALLOCATABLE :: v_10m_t_ptr(:) !< pointer array: meridional wind at 2m
     TYPE(t_ptr_2d3d),ALLOCATABLE :: shfl_s_t_ptr(:) !< pointer array: surface sensible heat flux 
     TYPE(t_ptr_2d3d),ALLOCATABLE :: lhfl_s_t_ptr(:) !< pointer array: surface latent heat flux
+    TYPE(t_ptr_2d3d),ALLOCATABLE :: lhfl_bs_t_ptr(:)!< pointer array: lhf from bare soil
+    TYPE(t_ptr_2d3d),ALLOCATABLE :: lhfl_pl_t_ptr(:)!< pointer array: lhf from plants
 
 
     REAL(wp), POINTER ::  &
@@ -129,39 +127,50 @@ MODULE mo_nwp_phy_types
       &   tot_prec(:,:),       & !! accumulated grid-scale plus convective surface       [kg/m2]
                                  !! total precipitation
       &   tot_prec_rate_avg(:,:),   & !! average since model start of                    [kg/m2/s]
-                                !! grid-scale plus convective surface 
-                                !! total precipitation rate
+                                 !! grid-scale plus convective surface 
+                                 !! total precipitation rate
       &   con_prec_rate_avg(:,:),   & !! average since model start of                    [kg/m2/s]
-                                !! convective surface precipitation rate
+                                 !! convective surface precipitation rate
       &   gsp_prec_rate_avg(:,:),   & !! average since model start of                    [kg/m2/s]
-                                !! grid-scale surface precipitation rate
+                                 !! grid-scale surface precipitation rate
       &   cape    (:,:),       & !! convective available energy
       &   con_gust(:,:),       & !! convective gusts near surface
       &   con_udd(:,:,:,:),    & !!(nproma,nlev,nblks,8) convective up/downdraft fields
-                                !! 1= convective updraft mass flux (pmfu)
-                                !! 2= convective downdraft mass flux (pmfd)
-                                !! 3= updraft   detrainment rate  (pmfude_rate)
-                                !! 4= downdraft   detrainment rate (pmfdde_rate)
-                                !! 5= temperature in updraft region (ptu)
-                                !! 6= humidity in updraft region (pqu)
-                                !! 7= condensate in updraft region (plu)
+                                 !! 1= convective updraft mass flux (pmfu)
+                                 !! 2= convective downdraft mass flux (pmfd)
+                                 !! 3= updraft   detrainment rate  (pmfude_rate)
+                                 !! 4= downdraft   detrainment rate (pmfdde_rate)
+                                 !! 5= temperature in updraft region (ptu)
+                                 !! 6= humidity in updraft region (pqu)
+                                 !! 7= condensate in updraft region (plu)
       &  rain_upd(:,:),        & !! total precipitation produced in updrafts [kg/m2/s]
+      &  hbas_con(:,:),        & !! height of base of convection [m]
+      &  htop_con(:,:),        & !! height of top of convection [m]
       &  shfl_s(:,:),          & !! sensible heat flux (surface) ( W/m2)
       &  shfl_s_t(:,:,:),      & !! sensible heat flux (surface) ( W/m2)
       &  lhfl_s(:,:),          & !! latent   heat flux (surface) ( W/m2)
       &  lhfl_s_t(:,:,:),      & !! latent   heat flux (surface) ( W/m2)
+      &  lhfl_bs(:,:),         & !! latent heat flux from bare soil evap. (surface) ( W/m2)
+      &  lhfl_bs_t(:,:,:),     & !! latent heat flux from bare soil evap. (surface) ( W/m2)
+      &  lhfl_pl(:,:,:),       & !! latent heat flux from plants                    ( W/m2)
+      &  lhfl_pl_t(:,:,:,:),   & !! latent heat flux from plants                    ( W/m2)
       &  qhfl_s(:,:),          & !!      moisture flux (surface) ( Kg/m2/s)
-                                !!      = evaporation rate at surface
-      &  shfl_s_a(:,:),        & !! average or accumulated since model start of shfl_s [W/m2]
-      &  lhfl_s_a(:,:),        & !! average or accumulated since model start of lhfl_s [W/m2]
-      &  qhfl_s_avg(:,:),      & !! average since model start of qhfl_s ( Kg/m2/s) 
-                                !! = average of evaporation rate at surface
+                                 !!      = evaporation rate at surface
+      &  ashfl_s(:,:),         & !! average or accumulated since model start of shfl_s [W/m2]
+      &  alhfl_s(:,:),         & !! average or accumulated since model start of lhfl_s [W/m2]
+      &  aqhfl_s(:,:),         & !! average since model start of qhfl_s ( Kg/m2/s) 
+                                 !! = average of evaporation rate at surface
+      &  alhfl_bs(:,:),        & !! average or accumulated since model start of lhfl_bs [W/m2]
+      &  alhfl_pl(:,:,:),      & !! average or accumulated since model start of lhfl_pl [W/m2]
       &  tot_cld(:,:,:,:),     & !! total cloud variables (cc,qv,qc,qi)
       &  tot_cld_vi(:,:,:),    & !! vertically integrated tot_cld (cc,qv,qc,qi) 
-                                !! for cc, instead of the vertically integrated value, 
-                                !! this is the cloud cover assuming maximum-random overlap
+                                 !! for cc, instead of the vertically integrated value, 
+                                 !! this is the cloud cover assuming maximum-random overlap
       &  tot_cld_vi_avg(:,:,:),& !! average since model start of the 
-                                !! vertically integrated tot_cld (cc,qv,qc,qi)  
+                                 !! vertically integrated tot_cld (cc,qv,qc,qi)  
+      &  clch(:,:),            & !! cloud cover of high-level clouds
+      &  clcm(:,:),            & !! cloud cover of mid-level clouds
+      &  clcl(:,:),            & !! cloud cover of low-level clouds
       &  cosmu0(:,:),          & !! cosine of solar zenith angle
       &  albvisdif(:,:),       & !! surface albedo for visible range, diffuse
       &  albvisdif_t(:,:,:),   & !! tile-based surface albedo for visible range, diffuse
@@ -182,8 +191,8 @@ MODULE mo_nwp_phy_types
       &  swflxsfc_a(:,:),      & !! shortwave net flux at surface [W/m2], accumulated or mean since last output
       &  lwflxtoa_a(:,:),      & !! longwave net flux at toa [W/m2], accumulated or mean since last output
       &  swflxtoa_a(:,:),      & !! shortwave net flux at toa [W/m2], accumulated or mean since last output
-                                !! _a means average values if lflux_avg=.TRUE.
-                                !! and accumulated values if lflux_avg=.FALSE., default is .FALSE.
+                                 !! _a means average values if lflux_avg=.TRUE.
+                                 !! and accumulated values if lflux_avg=.FALSE., default is .FALSE.
       &  acdnc(:,:,:)            !! cloud droplet number concentration [1/m**3]
 
 
@@ -218,14 +227,8 @@ MODULE mo_nwp_phy_types
       edr   (:,:,:)    ,   & !! eddy dissipation rate
       tcm_t(:,:,:)     ,   & !! turbulent transfer coefficients for momentum    --
       tch_t(:,:,:)     ,   & !! turbulent transfer coefficients for heat        --
-      tfm_t(:,:,:)     ,   & !! factor of laminar transfer of momentum          --
-      tfh_t(:,:,:)     ,   & !! factor of laminar transfer of scalars           --
       tfv_t(:,:,:)     ,   & !! laminar reduction factor for evaporation        --
       gz0_t(:,:,:)     ,   & !! roughness length * g                          (m2/s2)
-      t_2m_t (:,:,:)   ,   & !! temperature at 2m                             (  K  )
-      qv_2m_t(:,:,:)   ,   & !! specific water vapor content at 2m            (kg/kg)
-      td_2m_t(:,:,:)   ,   & !! dew-point at 2m                               (  K  )
-      rh_2m_t(:,:,:)   ,   & !! relative humidity at 2m                       (  %  )
       u_10m_t(:,:,:)   ,   & !! zonal wind at 10m                             ( m/s )
       v_10m_t(:,:,:)         !! meridional wind at 10m                        ( m/s )
 

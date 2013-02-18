@@ -107,6 +107,7 @@ cat > $atmo_namelist << EOF
  ltimer          = .TRUE.
  timers_level    = 5
  activate_sync_timers = .TRUE.
+ output="vlist",
 /
 &testcase_nml
  ctest_name      = 'JWw'            ! test case identifier

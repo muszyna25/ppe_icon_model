@@ -41,8 +41,7 @@ USE mo_timer,                ONLY: print_timer, timers_level, timer_start, &
 USE mo_master_control,       ONLY: is_restart_run
 USE mo_output,               ONLY: init_output_files, close_output_files,&
   &                                write_output
-USE mo_intp_rbf,             ONLY: rbf_vec_interpol_cell
-USE mo_intp,                 ONLY: edges2cells_scalar
+USE mo_var_list,             ONLY: print_var_list
 USE mo_time_config,          ONLY: time_config      ! variable
 USE mo_io_restart,           ONLY: read_restart_files
 USE mo_io_restart_attributes,ONLY: get_restart_attribute
@@ -83,10 +82,7 @@ USE mo_nh_diagnose_pres_temp,ONLY: diagnose_pres_temp
 ! Time integration
 USE mo_nh_stepping,          ONLY: prepare_nh_integration, perform_nh_stepping
 ! Initialization with real data
-USE mo_prepicon_utils,      ONLY: init_prepicon, prepicon, copy_prepicon2prog, &
-  &                               compute_coord_fields,  deallocate_prepicon
-USE mo_prepicon_config,     ONLY: i_oper_mode, l_sfc_in
-USE mo_nh_vert_interp,      ONLY: vertical_interpolation
+USE mo_nh_initicon,         ONLY: init_icon
 USE mo_ext_data_state,      ONLY: ext_data, init_index_lists
 ! meteogram output
 USE mo_meteogram_output,    ONLY: meteogram_init, meteogram_finalize
@@ -98,10 +94,7 @@ USE mo_name_list_output,    ONLY: init_name_list_output,  &
   &                               close_name_list_output, &
   &                               parse_variable_groups,  &
   &                               output_file
-USE mo_pp_scheduler,        ONLY: new_simulation_status, pp_scheduler_init, &
-  &                               pp_scheduler_process, pp_scheduler_finalize
-USE mo_pp_tasks,            ONLY: t_simulation_status
-USE mo_var_list,            ONLY: print_var_list
+USE mo_pp_scheduler,        ONLY: pp_scheduler_init, pp_scheduler_finalize
 USE mo_intp_lonlat,         ONLY: compute_lonlat_area_weights
 
 !-------------------------------------------------------------------------
@@ -152,10 +145,9 @@ CONTAINS
     CHARACTER(*), PARAMETER :: routine = "construct_atmo_nonhydrostatic"
     
 
-    INTEGER :: jg, ist, ntl, ntlr
+    INTEGER :: jg, ist
     LOGICAL :: l_realcase
     INTEGER :: pat_level(n_dom)
-    TYPE(t_simulation_status) :: simulation_status
     LOGICAL :: l_pres_msl(n_dom) !< Flag. TRUE if computation of mean sea level pressure desired
     LOGICAL :: l_rh(n_dom)       !< Flag. TRUE if computation of relative humidity desired
 
@@ -215,38 +207,7 @@ CONTAINS
 
     IF(iforcing /= inwp) atm_phy_nwp_config(:)%inwp_surface = 0
 
-      !------------------------------------------------------------------
-      ! Prepare initial conditions for time integration.
-      !------------------------------------------------------------------
 
-    ! Initialize model with real atmospheric data if appropriate switches are set
-    ! This has been shifted before the allocation of the NH and physics state
-    ! in order to reduce the maximum amount of memory consumed
-    IF (l_realcase .AND. .NOT. is_restart_run()) THEN
-
-      CALL message(TRIM(routine),'Real-data mode: perform initialization with IFS2ICON data')
-
-      ! Allocate prepicon data type
-      ALLOCATE (prepicon(n_dom), stat=ist)
-      IF (ist /= success) THEN
-        CALL finish(TRIM(routine),'allocation for prepicon failed')
-      ENDIF
-
-      i_oper_mode = 3 ! For the time being, the only option that works when called
-                      ! from the main ICON program
-
-      IF (atm_phy_nwp_config(1)%inwp_surface > 0 .AND. .NOT. l_sfc_in) THEN
-        CALL finish(TRIM(routine),'A real-data run with surface scheme requires &
-                                   &surface input data')
-      ENDIF
- 
-      ! allocate memory for topography and coordinate fields,
-      ! read topo data from netCDF file, 
-      ! optionally smooth topography data,
-      ! and, in case of nesting, perform topography blending and feedback
-      CALL init_prepicon (p_int_state(1:), p_grf_state(1:), prepicon, ext_data)
-
-    ENDIF
 
     ! Now allocate memory for the states
     DO jg=1,n_dom
@@ -333,27 +294,21 @@ CONTAINS
       END IF
     END DO
 
-    ! Continue operations for real-data initialization
+
+
+    !------------------------------------------------------------------
+    ! Prepare initial conditions for time integration.
+    !------------------------------------------------------------------
+    !
+    ! Initialize model with real atmospheric data if appropriate switches are set
+    !
     IF (l_realcase .AND. .NOT. is_restart_run()) THEN
 
-      ! Compute the 3D coordinate fields
-      CALL compute_coord_fields(p_int_state(1:), prepicon)
-
-      ! Perform vertical interpolation from intermediate IFS2ICON grid to ICON grid
-      ! and convert variables to the NH set of prognostic variables
-      CALL vertical_interpolation(p_patch(1:), p_int_state(1:), p_grf_state(1:), prepicon)
-
-      ! Finally copy the results to the prognostic model variables
-      CALL copy_prepicon2prog(prepicon, p_nh_state, p_lnd_state, ext_data(:))
-
-      ! Deallocate prepicon data type
-      CALL deallocate_prepicon(prepicon)
-      DEALLOCATE (prepicon, stat=ist)
-      IF (ist /= success) THEN
-        CALL finish(TRIM(routine),'deallocation for prepicon failed')
-      ENDIF
+      CALL init_icon (p_patch(1:), p_nh_state(1:), p_lnd_state(1:), &
+        &             p_int_state(1:), p_grf_state(1:), ext_data(1:))
 
     ENDIF
+
 
     !---------------------------------------------------------
     ! The most primitive event handling algorithm: 
@@ -419,65 +374,6 @@ CONTAINS
     IF (output_mode%l_nml) THEN
       CALL init_name_list_output(isample=iadv_rcf)
     END IF
-
-    !------------------------------------------------------------------
-    !  get and write out some of the inital values
-    !------------------------------------------------------------------
-    IF (.NOT.is_restart_run()) THEN
-
-      ! diagnose u and v to have meaningful initial output
-      ! For real-case runs, also diagnose pressure and temperature
-      ! because these variables are needed for initializing the physics parameterizations
-
-      DO jg = 1, n_dom
-
-        IF (.NOT. p_patch(jg)%ldom_active) CYCLE
-
-        ! time levels
-        ntl  = nnow(jg)
-        ntlr = nnow_rcf(jg)
-
-        SELECT CASE (p_patch(jg)%cell_type)
-          CASE (3)
-          CALL rbf_vec_interpol_cell(p_nh_state(jg)%prog(ntl)%vn,p_patch(jg),&
-            & p_int_state(jg),p_nh_state(jg)%diag%u,p_nh_state(jg)%diag%v)
-          CASE (6)
-          CALL edges2cells_scalar(p_nh_state(jg)%prog(ntl)%vn,p_patch(jg), &
-            & p_int_state(jg)%hex_east,p_nh_state(jg)%diag%u)
-          CALL edges2cells_scalar(p_nh_state(jg)%prog(ntl)%vn,p_patch(jg), &
-            & p_int_state(jg)%hex_north,p_nh_state(jg)%diag%v)
-        END SELECT
-
-        IF (l_realcase) THEN ! for test cases, diagnose_pres_temp is currently 
-                             ! called in nh_testcases
-          CALL diagnose_pres_temp(p_nh_state(jg)%metrics, p_nh_state(jg)%prog(ntl),     &
-            &                  p_nh_state(jg)%prog(ntlr), p_nh_state(jg)%diag,          &
-            &                  p_patch(jg), opt_calc_temp=.TRUE., opt_calc_pres=.TRUE., &
-            &                  lnd_prog=p_lnd_state(jg)%prog_lnd(ntlr) )
-        ENDIF
-
-      ENDDO
-
-      !--------------------------------------------------------------------------
-      ! loop over the list of internal post-processing tasks, e.g.
-      ! interpolate selected fields to p- and/or z-levels
-      simulation_status = new_simulation_status(l_first_step =.TRUE., l_output_step=.TRUE., &
-        &                                       l_dom_active=p_patch(1:)%ldom_active)
-      CALL pp_scheduler_process(simulation_status)
-
-      ! Note: here the derived output variables are not yet available
-      ! (divergence, vorticity)
-      !
-      IF (output_mode%l_vlist) THEN
-        CALL write_output( time_config%cur_datetime )
-        l_have_output = .TRUE.
-      END IF
-
-      IF (output_mode%l_nml) THEN
-        CALL write_name_list_output( time_config%cur_datetime, 0._wp, .FALSE. )
-      END IF
-
-    END IF ! not is_restart_run()
 
 
     ! for debug purpose: print var lists

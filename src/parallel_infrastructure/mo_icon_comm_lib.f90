@@ -453,18 +453,18 @@ CONTAINS
   
   !-----------------------------------------------------------------------
   !>
-  SUBROUTINE init_icon_std_comm_patterns(p_patch)
-    TYPE(t_patch), INTENT(inout) :: p_patch
+  SUBROUTINE init_icon_std_comm_patterns(patch)
+    TYPE(t_patch), INTENT(inout) :: patch
 
-    CALL init_icon_halo_comm_patterns(p_patch)
+    CALL init_icon_halo_comm_patterns(patch)
     
   END SUBROUTINE init_icon_std_comm_patterns
   !-----------------------------------------------------------------------
 
   !-----------------------------------------------------------------------
   !>
-  SUBROUTINE init_icon_halo_comm_patterns(p_patch)
-    TYPE(t_patch), INTENT(inout) :: p_patch
+  SUBROUTINE init_icon_halo_comm_patterns(patch)
+    TYPE(t_patch), INTENT(inout) :: patch
 
     CHARACTER(*), PARAMETER :: method_name = "init_icon_std_comm_patterns"
     
@@ -482,59 +482,59 @@ CONTAINS
     ! halo cells comm_pattern
 !     CALL work_mpi_barrier()
 !     write(0,*) my_mpi_work_id, method_name, "setup_grid_comm_pattern cells_not_in_domain..."
-    p_patch%sync_cells_not_in_domain = new_icon_comm_pattern( &
-      & p_patch%n_patch_cells,   p_patch%cells%owner_local, &
-      & p_patch%cells%glb_index, p_patch%cells%loc_index,   &
+    patch%sync_cells_not_in_domain = new_icon_comm_pattern( &
+      & patch%n_patch_cells,   patch%cells%owner_local, &
+      & patch%cells%glb_index, patch%cells%loc_index,   &
       & name="cells_not_in_domain" )
-    p_patch%sync_cells_not_owned = p_patch%sync_cells_not_in_domain
+    patch%sync_cells_not_owned = patch%sync_cells_not_in_domain
                
-    p_patch%sync_cells_one_edge_in_domain = new_icon_comm_pattern( &
-      & p_patch%n_patch_cells,   p_patch%cells%owner_local, &
-      & p_patch%cells%glb_index, p_patch%cells%loc_index,   &
-      & halo_level=p_patch%cells%halo_level, level_start=1, level_end=1,&
+    patch%sync_cells_one_edge_in_domain = new_icon_comm_pattern( &
+      & patch%n_patch_cells,   patch%cells%owner_local, &
+      & patch%cells%glb_index, patch%cells%loc_index,   &
+      & halo_level=patch%cells%halo_level, level_start=1, level_end=1,&
       & name="cells_one_edge_in_domain" )
             
     ! halo edges comm_pattern
 !     CALL work_mpi_barrier()
 !     write(0,*) my_mpi_work_id, method_name, "setup_grid_comm_pattern edges_not_owned..."
-    p_patch%sync_edges_not_owned = new_icon_comm_pattern(   &
-      & p_patch%n_patch_edges,   p_patch%edges%owner_local, &
-      & p_patch%edges%glb_index, p_patch%edges%loc_index,   &
+    patch%sync_edges_not_owned = new_icon_comm_pattern(   &
+      & patch%n_patch_edges,   patch%edges%owner_local, &
+      & patch%edges%glb_index, patch%edges%loc_index,   &
       & name="edges_not_owned")
     
-    p_patch%sync_edges_not_in_domain = new_icon_comm_pattern( &
-      & p_patch%n_patch_edges,   p_patch%edges%owner_local, &
-      & p_patch%edges%glb_index, p_patch%edges%loc_index,   &
-      & halo_level=p_patch%edges%halo_level, level_start=2, level_end=HALO_LEVELS_CEILING,&
+    patch%sync_edges_not_in_domain = new_icon_comm_pattern( &
+      & patch%n_patch_edges,   patch%edges%owner_local, &
+      & patch%edges%glb_index, patch%edges%loc_index,   &
+      & halo_level=patch%edges%halo_level, level_start=2, level_end=HALO_LEVELS_CEILING,&
       & name="edges_not_in_domain")
     
     ! halo verts comm_pattern
 !     CALL work_mpi_barrier()
 !     write(0,*) my_mpi_work_id, method_name, "setup_grid_comm_pattern verts_not_owned..."
-    p_patch%sync_verts_not_owned = new_icon_comm_pattern(   &
-      & p_patch%n_patch_verts,   p_patch%verts%owner_local, &
-      & p_patch%verts%glb_index, p_patch%verts%loc_index,   &
+    patch%sync_verts_not_owned = new_icon_comm_pattern(   &
+      & patch%n_patch_verts,   patch%verts%owner_local, &
+      & patch%verts%glb_index, patch%verts%loc_index,   &
       & name="verts_not_owned" )
         
-    p_patch%sync_verts_not_in_domain = new_icon_comm_pattern(  &
-      & p_patch%n_patch_verts,   p_patch%verts%owner_local, &
-      & p_patch%verts%glb_index, p_patch%verts%loc_index,   &
-      & halo_level=p_patch%verts%halo_level, level_start=2, level_end=HALO_LEVELS_CEILING,&
+    patch%sync_verts_not_in_domain = new_icon_comm_pattern(  &
+      & patch%n_patch_verts,   patch%verts%owner_local, &
+      & patch%verts%glb_index, patch%verts%loc_index,   &
+      & halo_level=patch%verts%halo_level, level_start=2, level_end=HALO_LEVELS_CEILING,&
       & name="verts_not_in_domain" )
         
-    CALL print_grid_comm_stats(p_patch%sync_cells_not_in_domain)
-    CALL print_grid_comm_stats(p_patch%sync_cells_one_edge_in_domain)
-    CALL print_grid_comm_stats(p_patch%sync_edges_not_owned)
-    CALL print_grid_comm_stats(p_patch%sync_edges_not_in_domain)
-    CALL print_grid_comm_stats(p_patch%sync_verts_not_owned)
-    CALL print_grid_comm_stats(p_patch%sync_verts_not_in_domain)
+    CALL print_grid_comm_stats(patch%sync_cells_not_in_domain)
+    CALL print_grid_comm_stats(patch%sync_cells_one_edge_in_domain)
+    CALL print_grid_comm_stats(patch%sync_edges_not_owned)
+    CALL print_grid_comm_stats(patch%sync_edges_not_in_domain)
+    CALL print_grid_comm_stats(patch%sync_verts_not_owned)
+    CALL print_grid_comm_stats(patch%sync_verts_not_in_domain)
     IF ( icon_comm_debug) THEN
-      CALL print_grid_comm_pattern(p_patch%sync_cells_not_in_domain)
-      CALL print_grid_comm_pattern(p_patch%sync_cells_one_edge_in_domain)
-      CALL print_grid_comm_pattern(p_patch%sync_edges_not_owned)
-      CALL print_grid_comm_pattern(p_patch%sync_edges_not_in_domain)
-      CALL print_grid_comm_pattern(p_patch%sync_verts_not_owned)
-      CALL print_grid_comm_pattern(p_patch%sync_verts_not_in_domain)
+      CALL print_grid_comm_pattern(patch%sync_cells_not_in_domain)
+      CALL print_grid_comm_pattern(patch%sync_cells_one_edge_in_domain)
+      CALL print_grid_comm_pattern(patch%sync_edges_not_owned)
+      CALL print_grid_comm_pattern(patch%sync_edges_not_in_domain)
+      CALL print_grid_comm_pattern(patch%sync_verts_not_owned)
+      CALL print_grid_comm_pattern(patch%sync_verts_not_in_domain)
     ENDIF    
         
  !   CALL finish("init_icon_std_comm_patterns","ends")

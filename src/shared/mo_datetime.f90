@@ -102,6 +102,7 @@ MODULE mo_datetime
     &   check_date          ,& ! check if (yr,mo,dy,hr,mn,s) is valid
     &   date_to_time        ,& ! convert (yr,mo,dy,hr,mn,s) to time and compute auxiliary info
     &   time_to_date        ,& ! convert time to (yr,mo,dy,hr,mn,s) and compute auxiliary info
+    &   cly360day_to_date   ,& ! convert time to (yr,mo,dy,hr,mn,s) based on 0 at 0000-01-01, 00:00
     &   add_time            ,& ! add a time increment in (dy,hr,mn,s) to a datetime variable
     &   check_newday        ,& ! 
     &   print_datetime_all  ,& ! print a datetime variable, including: 

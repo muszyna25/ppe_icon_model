@@ -55,7 +55,7 @@ MODULE mo_nml_crosscheck
     &                              NO_HADV, UP, MIURA, MIURA3, FFSL, UP3,     &
     &                              MCYCL, MIURA_MCYCL, MIURA3_MCYCL,          &
     &                              ifluxl_sm, ifluxl_m, ihs_ocean,            &
-    &                              RAYLEIGH_CLASSIC 
+    &                              RAYLEIGH_CLASSIC, MODE_REMAP
   USE mo_time_config,        ONLY: time_config, restart_experiment
   USE mo_extpar_config,      ONLY: itopo
   USE mo_io_config,          ONLY: dt_checkpoint, lflux_avg,inextra_2d,       &
@@ -105,7 +105,8 @@ MODULE mo_nml_crosscheck
     & testbed_process,  atmo_process, ocean_process, radiation_process
   
   USE mo_art_config,         ONLY: art_config
-  USE mo_prepicon_config,    ONLY: i_oper_mode, MODE_REMAP
+  USE mo_prepicon_config,    ONLY: i_oper_mode
+  USE mo_nh_torus_exp,       ONLY: set_sst_cbl
 
   IMPLICIT NONE
 
@@ -424,6 +425,24 @@ CONTAINS
         & 'surface scheme must be switched off, when running the APE test')
     ENDIF     
 
+    IF (TRIM(nh_test_name)=='CBL') THEN
+       IF( atm_phy_nwp_config(1)%inwp_gscp       /=0 .OR. & 
+           atm_phy_nwp_config(1)%inwp_convection /=0 .OR. & 
+           atm_phy_nwp_config(1)%inwp_radiation  /=0 .OR. &
+           atm_phy_nwp_config(1)%inwp_cldcover   /=0 .OR. &
+           atm_phy_nwp_config(1)%inwp_satad      /=0 .OR. &
+           atm_phy_nwp_config(1)%inwp_surface    /=0)     &
+            CALL finish(TRIM(routine), 'all physics processes must be turned off for CBL test')
+
+       IF(atm_phy_nwp_config(1)%inwp_turb==0 .OR. atm_phy_nwp_config(1)%inwp_turb>2) &
+            CALL message(TRIM(routine),'WARNING!! inwp_turb is either off or > 2!')
+
+       IF(.NOT.turbdiff_config(1)%lconst_z0)  &
+            CALL message(TRIM(routine),'WARNING!! roughness length is not homogeneous!')
+
+       IF(atm_phy_nwp_config(1)%inwp_turb/=2 .AND. .NOT.set_sst_cbl) &
+            CALL finish(TRIM(routine),'STOPPING!! for fixed flux only inwp_turb =2 works')
+    ENDIF     
 
     !--------------------------------------------------------------------
     ! Shallow water
@@ -859,6 +878,12 @@ CONTAINS
         & "because global 'timers_level' is > 9."
       CALL message('io_namelist', TRIM(message_text))
     END IF
+
+
+    !--------------------------------------------------------------------
+    ! Realcase runs
+    !--------------------------------------------------------------------
+
 
     ! check meteogram configuration
     CALL check_meteogram_configuration(num_io_procs)

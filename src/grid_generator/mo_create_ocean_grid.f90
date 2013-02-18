@@ -42,9 +42,10 @@ MODULE mo_create_ocean_grid
 #include "grid_definitions.inc"
   !-------------------------------------------------------------------------
   USE mo_kind,                 ONLY: wp
-  USE mo_exception,            ONLY: message_text, message, finish
+  USE mo_exception,            ONLY: message_text, message, finish, warning
   USE mo_io_units,             ONLY: filename_max, nnml
   USE mo_namelist,             ONLY: position_nml, open_nml, positioned
+  USE mo_math_constants,       ONLY: pi_2
   USE mo_local_grid
   USE mo_grid_conditions,      ONLY: read_grid_conditions, get_conditional_cells
   USE mo_io_local_grid,        ONLY: read_new_netcdf_grid, write_netcdf_grid, &
@@ -52,7 +53,7 @@ MODULE mo_create_ocean_grid
   USE mo_grid_toolbox,         ONLY: get_grid_from_cell_list, &
     & smooth_boundaryfrom_cell_list, &
     & get_conditional_list, set_edge_elev_fromcells, get_grid_conditional_cells,       &
-    & until_convergence
+    & until_convergence, get_boundary_edges
   USE mo_local_grid_refinement,ONLY: refine_grid_edgebisection
   USE mo_local_grid_geometry,  ONLY: compute_sphere_grid_geometry
   USE mo_local_grid_hierarchy, ONLY: create_grid_hierarchy
@@ -69,8 +70,9 @@ MODULE mo_create_ocean_grid
   CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
 
   !-------------------------------------------------------------------------
-  PUBLIC :: create_ocean_grid, generate_ocean_grid
-
+  PUBLIC :: create_ocean_grid
+  PUBLIC :: remove_land_points
+  
   !-------------------------------------------------------------------------
   ! input parameters
   ! NOTE : negative elevations are below sea level (sea depth)
@@ -79,6 +81,7 @@ MODULE mo_create_ocean_grid
   REAL(wp) :: set_min_sea_depth = 0.0_wp ! if negative, min depth will be set to this
   LOGICAL  :: only_get_sea_land_mask = .false.
   LOGICAL  :: smooth_ocean_boundary = .true.
+  LOGICAL  :: write_all_levels = .false.
   CHARACTER(LEN=filename_max) :: input_file  ! the input grid file
   INTEGER :: refine_iterations
   ! the netcdf file where elevations ares stored, and the related field name
@@ -99,6 +102,129 @@ MODULE mo_create_ocean_grid
 CONTAINS
 
   !-------------------------------------------------------------------------
+  !>
+  SUBROUTINE remove_land_points(in_file_name, out_file_name)
+    CHARACTER(LEN=*), INTENT(in) :: in_file_name, out_file_name
+    
+    TYPE(t_integer_list) :: sea_cell_list
+    INTEGER :: in_grid_id, out_grid_id
+
+    in_grid_id = read_new_netcdf_grid(in_file_name)    
+    sea_cell_list = get_ocean_cell_list_from_mask(in_grid_id)
+    CALL grid_set_parents_from(in_grid_id, parents_from_parentpointers)
+    out_grid_id = get_grid_from_cell_list(in_grid_id, sea_cell_list)
+    CALL delete_grid(in_grid_id)
+    CALL create_grid_hierarchy(out_grid_id) ! define the lateral entities to avoid meaningless calculations
+    CALL close_grid_connectivity(out_grid_id)
+    CALL set_grid_parent_id(out_grid_id, 0)
+    CALL write_netcdf_grid(out_grid_id, out_file_name)
+    CALL delete_grid(out_grid_id)
+ 
+  END SUBROUTINE remove_land_points
+  !-------------------------------------------------------------------------
+  
+  !-------------------------------------------------------------------------
+  !>
+  ! If there are boundaries these are closed by adding an artificial cell
+  SUBROUTINE close_grid_connectivity(grid_id)
+    INTEGER, INTENT(in)  :: grid_id
+    
+    TYPE(t_grid), POINTER :: grid
+    TYPE(t_grid_cells), POINTER :: cells
+    TYPE(t_grid_edges), POINTER :: edges
+    
+    TYPE(t_integer_list)  :: boundary_edges_list
+
+    INTEGER :: no_of_cells, no_of_edges, max_no_of_cell_vertices, edge_no
+    INTEGER :: ghost_cell, no_of_boundary_edges
+    INTEGER :: land_cell_index, sea_cell_index, i, sea_cell
+    CHARACTER(*), PARAMETER :: method_name = "mo_create_ocean_grid:close_grid_connectivity"
+
+    ! first get boundary edges
+!     boundary_edges_list = get_boundary_edges(grid_id)
+!     IF (boundary_edges_list%list_size == 0) THEN
+!       CALL warning(method_name, "No boundary edges found")
+!       RETURN
+!     ENDIF
+    
+    grid  => get_grid(grid_id)
+    cells => grid%cells
+    edges => grid%edges
+    no_of_cells = cells%no_of_existcells
+    no_of_edges = edges%no_of_existedges
+    max_no_of_cell_vertices = cells%max_no_of_vertices
+
+    IF (cells%no_of_allocatedcells <= no_of_cells) &
+      CALL finish(method_name, "Not enough space to insert additional cell")
+      
+    ! create an artificial cell
+    ghost_cell = no_of_cells + 1
+    cells%center(ghost_cell)%lon    = -pi_2
+    cells%sea_land_mask(ghost_cell) = land_inner
+    cells%elevation(ghost_cell)     = 999999.0_wp
+
+    ! go through the edges and fill the ghost connectivity
+    ! for edges and cells
+    no_of_boundary_edges = 0
+    DO edge_no = 1, no_of_edges
+      IF (edges%get_cell_index(edge_no, 1) == 0) THEN
+        land_cell_index = 1
+        sea_cell_index = 2
+      ELSEIF (edges%get_cell_index(edge_no, 2) == 0) THEN
+        land_cell_index = 2
+        sea_cell_index = 1
+      ELSE
+        CYCLE
+      ENDIF
+      no_of_boundary_edges = no_of_boundary_edges + 1      
+      edges%get_cell_index(edge_no, land_cell_index) = ghost_cell
+
+      ! fill the cell connectivity with tge ghost cell
+      sea_cell = edges%get_cell_index(edge_no, sea_cell_index)
+      DO i=1, cells%max_no_of_vertices
+        ! by convention the neigbor cell is located t the same index as the edge
+        IF (cells%get_edge_index(sea_cell, i) == edge_no) THEN
+          IF (cells%get_neighbor_index(sea_cell, i) /= 0) &
+            CALL finish(method_name, "Incosistent boundary neigbor at cell")
+          cells%get_neighbor_index(sea_cell, i) = ghost_cell
+          EXIT
+        ENDIF        
+      ENDDO
+      
+    ENDDO
+    
+    IF (no_of_boundary_edges == 0) THEN
+      CALL warning(method_name, "No boundary edges found")
+      RETURN
+    ENDIF
+
+    ! finaly add the ghost cell to the cells
+    cells%no_of_existcells = cells%no_of_existcells + 1
+  
+  END SUBROUTINE close_grid_connectivity
+  !-------------------------------------------------------------------------
+  
+  !-------------------------------------------------------------------------
+  !>
+  !! Returns the ocean part of the in_grid_id based on cell sea land mask. Private
+  FUNCTION get_ocean_cell_list_from_mask(in_grid_id) result(sea_cell_list)
+    INTEGER, INTENT(in)  :: in_grid_id    
+    TYPE(t_integer_list) :: sea_cell_list
+
+    TYPE(t_grid), POINTER :: in_grid
+    TYPE(t_integer_list)  :: cell_sea_land_mask
+    
+    in_grid => get_grid(in_grid_id)
+    
+    cell_sea_land_mask%list_size  = in_grid%cells%no_of_existcells
+    cell_sea_land_mask%value      => in_grid%cells%sea_land_mask
+    CALL get_conditional_list(cell_sea_land_mask, less_than, 0, -1, &
+      & sea_cell_list)
+      
+   END FUNCTION get_ocean_cell_list_from_mask
+  !-------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------
   !   SUBROUTINE read_param(param_file_name)
   !>
   !! Reads the parameters for the ocean grid generation. Private
@@ -114,7 +240,7 @@ CONTAINS
     NAMELIST /create_ocean_grid/ input_file, elevation_file, elevation_field, &
       & output_atmo_file, min_sea_depth, set_sea_depth, set_min_sea_depth, &
       & edge_elev_interp_method, only_get_sea_land_mask, output_ocean_file, &
-      & smooth_ocean_boundary, refine_iterations 
+      & smooth_ocean_boundary, refine_iterations, write_all_levels 
     !------------------------------------------------------------------------
     ! set default values
     parameter_file_name = param_file_name
@@ -196,7 +322,8 @@ CONTAINS
     INTEGER :: init_grid_id, ocean_grid_id, refined_grid_id
     TYPE(t_integer_list) :: sea_cell_list
 
-    INTEGER :: no_of_conditions, i
+    CHARACTER(LEN=filename_max) :: file_name
+    INTEGER :: no_of_conditions, i, level
 
     ! read initial grid and elevation
     init_grid_id = read_new_netcdf_grid(input_file)
@@ -220,10 +347,10 @@ CONTAINS
       ENDIF
       CALL get_conditional_cells(init_grid_id, sea_cell_list)
     ENDIF
-      
+            
     !------------------------------------------------------------------------
     ! sea_cell_list contains now the sea cells, or is empty in case of aqua planet
-   IF (set_sea_depth < 0.0_wp) THEN
+    IF (set_sea_depth < 0.0_wp) THEN
       CALL grid_set_sea_depth(init_grid_id, set_sea_depth, sea_cell_list)
     ELSE IF (set_min_sea_depth < 0.0_wp) THEN
       CALL grid_set_min_sea_depth(init_grid_id, set_min_sea_depth, sea_cell_list)
@@ -243,13 +370,19 @@ CONTAINS
     ! write the initial ocean_grid_id grid with the sea-land mask
     ! CALL write_netcdf_grid(ocean_grid_id, output_ocean_file)
 
-   !------------------------------------------------------------------------
+    !------------------------------------------------------------------------
     ! refine initial grid
     DO i=1, refine_iterations
       refined_grid_id = refine_grid_edgebisection(init_grid_id)
       CALL set_grid_parent_id(refined_grid_id,0)
       CALL delete_grid(init_grid_id)
       CALL optimize_grid(refined_grid_id)
+      
+      IF (write_all_levels) THEN
+        level = get_grid_level(refined_grid_id)
+        WRITE(file_name,'(a,i2.2,a)')  TRIM(output_ocean_file), level, ".nc"
+        CALL write_netcdf_grid(refined_grid_id, file_name)
+      ENDIF
       
       init_grid_id = refined_grid_id
     ENDDO
@@ -263,26 +396,36 @@ CONTAINS
     CALL compute_sphere_grid_geometry(init_grid_id)
     CALL fill_edges_sea_land_mask(init_grid_id)
     IF (output_atmo_file /= "") THEN
-      CALL write_netcdf_grid(ocean_grid_id, output_atmo_file)
+      CALL write_netcdf_grid(init_grid_id, output_atmo_file)
     ENDIF
     !------------------------------------------------------------------------
 
     IF (.NOT. only_get_sea_land_mask) THEN
+    
       IF ( .NOT. smooth_ocean_boundary) &   ! if  smooth_ocean_boundary the  sea_cell_list is filled      
         & sea_cell_list = get_ocean_cell_list_from_depth(init_grid_id)
+      
+      CALL grid_set_parents_from(init_grid_id, parents_from_parentpointers)
       ocean_grid_id = get_grid_from_cell_list(init_grid_id, sea_cell_list)
       CALL delete_grid(init_grid_id)
+      
     ELSE
       ocean_grid_id=init_grid_id
     ENDIF
     !------------------------------------------------------------------------
     
-    CALL create_grid_hierarchy(ocean_grid_id)
+   ! CALL create_grid_hierarchy(ocean_grid_id)
     CALL set_edge_elev_fromcells(ocean_grid_id, edge_elev_interp_method)
 !     CALL fill_edges_sea_land_mask(ocean_grid_id)
     CALL check_ocean_grid_mask(ocean_grid_id)
     CALL set_boundary_edges_tozero(ocean_grid_id)
-    CALL write_netcdf_grid(ocean_grid_id, output_ocean_file)
+    IF (write_all_levels) THEN
+      level = get_grid_level(ocean_grid_id)
+      WRITE(file_name,'(a,i2.2,a)')  TRIM(output_ocean_file), level, ".nc"
+    ELSE
+      file_name=output_ocean_file
+    ENDIF
+    CALL write_netcdf_grid(ocean_grid_id, file_name)
     !CALL message('get_ocean_vertical_strc..','')
     !CALL get_ocean_vertical_strc(refined_grid_id)
     CALL delete_grid(ocean_grid_id)
@@ -292,7 +435,7 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   !>
-  !! Returns the ocean part of the in_grid_id. Private
+  !! Returns the ocean part of the in_grid_id based on cell depth. Private
   !! Ocean cells have elevation < min_sea_depth
   FUNCTION get_ocean_cell_list_from_depth(in_grid_id, use_smoothing) result(smooth_sea_cell_list)
     INTEGER, INTENT(in)  :: in_grid_id
@@ -312,7 +455,7 @@ CONTAINS
 
     in_grid => get_grid(in_grid_id)
     in_grid%cells%min_sea_depth = min_sea_depth
-    elevation_list%list_size    = in_grid%cells%no_of_allocatedcells
+    elevation_list%list_size    = in_grid%cells%no_of_existcells
     elevation_list%value       => in_grid%cells%elevation
     CALL get_conditional_list(elevation_list, less_than, min_sea_depth, -1, &
       & sea_cell_list)
@@ -345,7 +488,7 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   !>
-  !! Returns the ocean part of the in_grid_id. Private
+  !! Returns the land part of the in_grid_id based on cell depth. Private
   !! Ocean cells have elevation < min_sea_depth
   FUNCTION get_land_cell_list_from_mask(in_grid_id, use_smoothing) result(smooth_land_cell_list)
     INTEGER, INTENT(in)  :: in_grid_id
@@ -364,7 +507,7 @@ CONTAINS
 
 
     in_grid => get_grid(in_grid_id)
-    sea_land_mask_list%list_size  = in_grid%cells%no_of_allocatedcells
+    sea_land_mask_list%list_size  = in_grid%cells%no_of_existcells
     sea_land_mask_list%value      => in_grid%cells%sea_land_mask
     CALL get_conditional_list(sea_land_mask_list, greater_than, land_boundary-1, &
       & -1, land_cell_list)
@@ -564,7 +707,7 @@ CONTAINS
     in_edges => in_grid%edges
     
     check_min_sea_depth = in_grid%cells%min_sea_depth 
-    elevation_list%list_size    = in_grid%cells%no_of_allocatedcells
+    elevation_list%list_size    = in_grid%cells%no_of_existcells
     elevation_list%value       => in_grid%cells%elevation
 
     ! check cell sea land mask

@@ -302,7 +302,7 @@ CONTAINS
     TYPE(t_grid_vertices), POINTER :: new_verts
     INTEGER :: no_of_output_cells, no_of_output_edges, no_of_output_verts
     INTEGER :: max_cell_vertices, max_vertex_connect
-    INTEGER :: vertex, edge, cell, vertex1, vertex2, cell1, cell2,max_edge
+    INTEGER :: vertex, edge, cell, vertex1, vertex2, max_edge
     INTEGER :: vertex_edge(12,12)
 
 

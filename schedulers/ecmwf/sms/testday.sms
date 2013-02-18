@@ -31,6 +31,8 @@ echo "METVIEW.SMS"
 #========================================================================
 
 
+# -------------------------------------------------
+# test end-of-month
 
 EOFM=`python %ECBASEDIR%/gen/date_calc.py -a endofmonth -d %YMD%%INIHOUR%`
 if [ "${EOFM}" -eq "1" ]
@@ -38,6 +40,23 @@ then
     echo "End of month!"
     smsevent time_eom
 fi
+
+
+# -------------------------------------------------
+# test for monthly mean runs if current month is selected
+
+YYYYMM=`echo %YMD% | cut -c 1-6`
+MONTHS=`echo %MONTHS% | sed 's/_/ /'`
+for month in ${MONTHS[*]} ; do
+  if [ ${YYYYMM} -eq ${month} ]
+  then
+    echo "Calculate this month!"
+    smsevent time_domonth
+  fi
+done
+
+
+
 
 
 

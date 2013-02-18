@@ -166,14 +166,11 @@ cat > ${atmo_namelist} << EOF_NL
  dynamics_parent_grid_id = 0,1
  lredgrid_phys           = .false.
 /
-&prepicon_nml
-  i_oper_mode = 3           ! operation mode
+&initicon_nml
+  init_mode   = 2           ! operation mode
   nlev_in     = 91          ! number of levels of input data
   zpbl1       = 500. 
   zpbl2       = 1000. 
-  l_zp_out    = .false.
-  l_w_in      = .true.
-  l_sfc_in    = .true.
 /
 &nh_testcase_nml
  nh_test_name      = 'APE_nh'     ! test case identifier

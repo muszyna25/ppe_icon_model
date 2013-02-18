@@ -48,6 +48,7 @@ MODULE mo_lnd_nwp_config
   USE mo_impl_constants,  ONLY: MAX_NTRACER, SUCCESS, MAX_CHAR_LENGTH, &
     &                           max_dom, zml_soil
   USE mo_model_domain,    ONLY: t_patch
+  USE mo_io_units,        ONLY: filename_max
 
   IMPLICIT NONE
 
@@ -55,12 +56,12 @@ MODULE mo_lnd_nwp_config
 
   PUBLIC :: nlev_soil, nlev_snow, ntiles_total, ntiles_lnd, ntiles_water, nlists_water
   PUBLIC :: frlnd_thrhld, frlndtile_thrhld, frlake_thrhld, frsea_thrhld
-  PUBLIC :: lseaice,  llake, lmelt, lmelt_var, lmulti_snow, lsnowtile 
+  PUBLIC :: lseaice,  llake, lmelt, lmelt_var, lmulti_snow, lsnowtile, max_toplaydepth
   PUBLIC :: itype_gscp, itype_trvg ,    itype_evsl, itype_tran 
   PUBLIC :: itype_root, itype_heatcond, itype_hydbound, idiag_snowfrac
   PUBLIC :: lstomata,   l2tls, lana_rho_snow, itype_subs 
   PUBLIC :: isub_water, isub_seaice
-  PUBLIC :: sstice_mode
+  PUBLIC :: sstice_mode, sst_td_filename, ci_td_filename
 
   PUBLIC :: configure_lnd_nwp
 
@@ -98,6 +99,7 @@ MODULE mo_lnd_nwp_config
   LOGICAL ::  lmelt       !! soil model with melting process
   LOGICAL ::  lmelt_var   !! freezing temperature dependent on water content
   LOGICAL ::  lmulti_snow !! run the multi-layer snow model
+  REAL(wp)::  max_toplaydepth !< maximum depth of uppermost snow layer for multi-layer snow scheme
   LOGICAL ::  lstomata    !! map of minimum stomata resistance
   LOGICAL ::  l2tls       !! forecast with 2-TL integration scheme
   LOGICAL ::  lana_rho_snow !! if .TRUE., take rho_snow-values from analysis file 
@@ -106,7 +108,7 @@ MODULE mo_lnd_nwp_config
   INTEGER ::  sstice_mode      !< set if SST and sea ice cover are read from the analysis
                                  !< and kept constant or read from external data files 
                                  !< and updated regularly in run time
-
+  CHARACTER(LEN=filename_max) :: sst_td_filename, ci_td_filename
   ! derived variables
   INTEGER ::  nlev_soil   !< number of soil layers (based on zml_soil in impl_constants)
   INTEGER ::  isub_water  !< (open) water points tile number

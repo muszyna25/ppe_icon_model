@@ -125,9 +125,12 @@ CONTAINS
           new_cpl_fields(i)%field_shape     = 0
           new_cpl_fields(i)%l_field_status  = .FALSE.
 
-          new_cpl_fields(i)%coupling%lag         = 0
-          new_cpl_fields(i)%coupling%dt_coupling = 0
-          new_cpl_fields(i)%coupling%dt_model    = 0
+          new_cpl_fields(i)%coupling%cdi_varID    = -1
+          new_cpl_fields(i)%coupling%cdi_gridID   = -1
+          new_cpl_fields(i)%coupling%restart_flag = .FALSE.
+          new_cpl_fields(i)%coupling%lag          = 0
+          new_cpl_fields(i)%coupling%dt_coupling  = 0
+          new_cpl_fields(i)%coupling%dt_model     = 0
           new_cpl_fields(i)%coupling%time_operation = 0
 
           Nullify ( new_cpl_fields(i)%send_field_acc )
@@ -223,6 +226,9 @@ CONTAINS
        fptr%coupling%time_operation = cpl_field_none
     ENDIF
 
+    fptr%coupling%cdi_gridID   = -1
+    fptr%coupling%cdi_varID    = -1
+    fptr%coupling%restart_flag = .FALSE.
     fptr%coupling%lag          = config_cpl_fields(global_field_id)%lag
     fptr%coupling%dt_coupling  = config_cpl_fields(global_field_id)%dt_coupling
     fptr%coupling%dt_model     = config_cpl_fields(global_field_id)%dt_model

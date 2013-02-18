@@ -1,5 +1,7 @@
 !>
-!! soil vegetation atmosphere transfer: source module  "mo_soil_ml_v413.f90"
+!! Soil Vegetation Atmosphere Transfer (SVAT) scheme TERRA
+!! Source Module  "mo_soil_ml.f90"
+!! "Nihil in TERRA sine causa fit." (Cicero)
 !!------------------------------------------------------------------------------
 !!----------------------------------------------------------------------------- 
 !! 
@@ -405,7 +407,7 @@ USE mo_lnd_nwp_config,     ONLY: lmelt, lmelt_var, lmulti_snow,  &
   &                              itype_gscp, itype_trvg, itype_evsl,     &
   &                              itype_tran, itype_root, itype_heatcond, &
   &                              itype_hydbound, lstomata, l2tls,        &
-  &                              lana_rho_snow, itype_subs
+  &                              lana_rho_snow, itype_subs, max_toplaydepth
 !
 !                           
 USE mo_exception,          ONLY: message, finish, message_text
@@ -574,8 +576,13 @@ END SUBROUTINE message
                   zshfl_s          , & ! sensible heat flux soil/air interface         (W/m2) 
                   zlhfl_s          , & ! latent   heat flux soil/air interface         (W/m2) 
                   zshfl_snow       , & ! sensible heat flux snow/air interface         (W/m2) 
-                  zlhfl_snow         ) ! latent   heat flux snow/air interface         (W/m2) 
-
+                  zlhfl_snow       , & ! latent   heat flux snow/air interface         (W/m2)  
+                  lhfl_bs          , & ! latent heat flux from bare soil evap.         (W/m2)
+                  lhfl_pl          , & ! latent heat flux from plants                  (W/m2)
+                  rstom            , & ! stomatal resistance                           ( s/m )
+                  zshfl_sfc        , & ! sensible heat flux surface interface          (W/m2) 
+                  zlhfl_sfc          & ! latent   heat flux surface interface          (W/m2) 
+                                     )  
 
 !-------------------------------------------------------------------------------
 ! Declarations for ICON (USE statements for COSMO)
@@ -661,10 +668,11 @@ END SUBROUTINE message
   REAL    (KIND = ireals), DIMENSION(ie,ke_soil+1), INTENT(OUT) :: &
                   w_so_new         , & ! total water conent (ice + liquid water)       (m H20)
                   w_so_ice_new         ! ice content                                   (m H20)
-  REAL    (KIND = ireals), DIMENSION(ie), INTENT(INOUT) :: &
+  REAL    (KIND = ireals), DIMENSION(ie), INTENT(IN) :: &
 !                 t_2m             , & ! temperature in 2m                             (  K  )
                   u_10m            , & ! zonal wind in 10m                             ( m/s )
-                  v_10m            , & ! meridional wind in 10m                        ( m/s )
+                  v_10m                ! meridional wind in 10m                        ( m/s )
+  REAL    (KIND = ireals), DIMENSION(ie), INTENT(INOUT) :: &
                   freshsnow        , & ! indicator for age of snow in top of snow layer(  -  )
                   zf_snow              ! snow-cover fraction
   REAL    (KIND = ireals), DIMENSION(ie,ke_snow), INTENT(INOUT) :: &
@@ -681,8 +689,7 @@ END SUBROUTINE message
                   prr_con          , & ! precipitation rate of rain, convective        (kg/m2*s)
                   prs_con          , & ! precipitation rate of snow, convective        (kg/m2*s)
                   prr_gsp          , & ! precipitation rate of rain, grid-scale        (kg/m2*s)
-                  prs_gsp              ! precipitation rate of snow, grid-scale        (kg/m2*s)
-  REAL    (KIND = ireals), DIMENSION(ie), INTENT(INOUT) ::    &
+                  prs_gsp          , & ! precipitation rate of snow, grid-scale        (kg/m2*s)
                   prg_gsp              ! precipitation rate of graupel, grid-scale     (kg/m2*s)
 
   REAL    (KIND = ireals), DIMENSION(ie), INTENT(INOUT) :: &
@@ -704,13 +711,15 @@ END SUBROUTINE message
                   zshfl_snow       , & ! sensible heat flux snow/air interface         (W/m2) 
                   zlhfl_snow           ! latent   heat flux snow/air interface         (W/m2) 
 
-!!$  REAL    (KIND = ireals), DIMENSION(ie), INTENT(INOUT) :: &
-!!$                  rstom            ! stomata resistance                           ( s/m )
-!!$  REAL    (KIND = ireals), DIMENSION(ie), INTENT(INOUT) :: &
-!!$                  lhfl_bs          ! average latent heat flux from bare soil evap.( W/m2)
-!!$  REAL    (KIND = ireals), DIMENSION(ie,ke_soil), INTENT(INOUT) :: &
-!!$                  lhfl_pl          ! average latent heat flux from plants         ( W/m2)
-
+  REAL    (KIND = ireals), DIMENSION(ie), INTENT(OUT) :: &
+                  rstom            ! stomata resistance                                ( s/m )
+  REAL    (KIND = ireals), DIMENSION(ie), INTENT(OUT) :: &
+                  lhfl_bs          ! latent heat flux from bare soil evap.             ( W/m2)
+  REAL    (KIND = ireals), DIMENSION(ie,ke_soil+1), INTENT(OUT) :: &
+                  lhfl_pl          ! average latent heat flux from plants              ( W/m2)
+  REAL    (KIND = ireals), DIMENSION(ie), OPTIONAL, INTENT(OUT) :: &
+                  zshfl_sfc        , & ! sensible heat flux surface interface          (W/m2) 
+                  zlhfl_sfc            ! latent   heat flux surface interface          (W/m2) 
 
 !--------------------------------------------------------------------------------
 ! TERRA Declarations
@@ -748,7 +757,10 @@ END SUBROUTINE message
     ksn            , & ! loop index for snow layers
     k              , & ! loop index for snow layers
     ke_soil_hy     , & ! number of active soil moisture layers
-    i              , & ! loop index in x-direction              
+    i,ic           , & ! loop index in x-direction              
+    icount_snow    , & ! Counter for snow
+    icount_soil    , & ! "true" soil
+    icount_rockice , & ! rock and ice points
 #ifndef __ICON__
 !    im1, jm1       , & ! i-1, j-1   ! must be removed completely
 #endif
@@ -1083,7 +1095,11 @@ END SUBROUTINE message
     zw_m     (ie)          ! maximum of liquid water content  (m)
 
   INTEGER  (KIND=iintegers ) ::  &
-    m_styp   (ie)          ! soil type
+    m_styp   (ie)      , & ! soil type
+    melt_list(ie)      , & ! list of melting snow points
+    soil_list(ie)      , & ! list of "true" soil points
+                           ! i.e. no ice no rock       
+    rockice_list(ie)       ! list of rock and ice points
 
   REAL    (KIND=ireals   ) ::  &
 !
@@ -1200,6 +1216,7 @@ END SUBROUTINE message
     zts_pm   (ie)      , & ! indicator zts > < T_melt
     ztsnow_pm(ie)          ! indicator ztsnow > < T_melt
 
+
   LOGICAL     :: &
 !
     ldebug                , & !
@@ -1253,7 +1270,7 @@ END SUBROUTINE message
   iends   = iendpar
 
 !>JH
-  prg_gsp=0._ireals ! graupel not implemented yet 
+!  prg_gsp=0._ireals ! graupel not implemented yet 
 !<JH
 
   ierror = 0
@@ -1310,48 +1327,49 @@ END SUBROUTINE message
 
 
 ! Prepare basic surface properties (for land-points only)
- 
+
+  icount_soil     =0
+  icount_rockice  =0
+  soil_list(:)    =0
+  rockice_list(:) =0
+  melt_list(:)    =0
   DO i = istarts, iends
-
-!>JH
-!      IF(llandmask(i)) THEN        ! for land-points only
-
-        mstyp       = soiltyp_subs(i)        ! soil type
-        m_styp(i) = mstyp                     ! array for soil type
-        zdw   (i)  = cdw0  (mstyp)
-        zdw1  (i)  = cdw1  (mstyp)
-        zkw   (i)  = ckw0  (mstyp)
-        zkw1  (i)  = ckw1  (mstyp)
-        zik2  (i)  = cik2  (mstyp)
-        zporv(i)  = cporv(mstyp)              ! pore volume
-        zpwp (i)  = cpwp (mstyp)              ! plant wilting point
-        zadp (i)  = cadp (mstyp)              ! air dryness point
-        zfcap(i)  = cfcap(mstyp)              ! field capacity
-        zrock(i)  = crock(mstyp)              ! rock or ice indicator
-        zrocg(i)  = crhoc(mstyp)              ! heat capacity
-        zdlam(i)  = cala1(mstyp)-cala0(mstyp) ! heat conductivity parameter
-        zbwt(i)   = MAX(0.001_ireals,rootdp(i))! Artificial minimum value
+    mstyp       = soiltyp_subs(i)        ! soil type
+    m_styp(i) = mstyp                     ! array for soil type
+    IF (mstyp >= 3) THEN
+      icount_soil=icount_soil+1
+      soil_list(icount_soil)=i
+    ELSE
+      icount_rockice=icount_rockice+1
+      rockice_list(icount_rockice)=i
+    END IF
+    zdw   (i)  = cdw0  (mstyp)
+    zdw1  (i)  = cdw1  (mstyp)
+    zkw   (i)  = ckw0  (mstyp)
+    zkw1  (i)  = ckw1  (mstyp)
+    zik2  (i)  = cik2  (mstyp)
+    zporv(i)  = cporv(mstyp)              ! pore volume
+    zpwp (i)  = cpwp (mstyp)              ! plant wilting point
+    zadp (i)  = cadp (mstyp)              ! air dryness point
+    zfcap(i)  = cfcap(mstyp)              ! field capacity
+    zrock(i)  = crock(mstyp)              ! EQ 0 for Ice and Rock EQ 1 else
+    zrocg(i)  = crhoc(mstyp)              ! heat capacity
+    zdlam(i)  = cala1(mstyp)-cala0(mstyp) ! heat conductivity parameter
+    zbwt(i)   = MAX(0.001_ireals,rootdp(i))! Artificial minimum value
                                                 ! for root depth
-        zroota(i) = 3._ireals/zbwt(i)       ! root density profile parameter (1/m)
+    zroota(i) = 3._ireals/zbwt(i)       ! root density profile parameter (1/m)
                                                 ! zroota=0. creates the original TERRA_LM
                                                 ! version with constant root density
                                                 ! for root depth
-        ! New arrays for BATS-scheme
-        zk0di(i)  = ck0di(mstyp)              !
-        zbedi(i)  = cbedi(mstyp)              !
-        ! Arrays for soil water freezing/melting
-        zsandf(i)   = csandf(mstyp)
-        zclayf(i)   = cclayf(mstyp)
-        zpsis(i)    = -zpsi0 * 10._ireals**(1.88_ireals-0.013_ireals*zsandf(i))
-        zb_por(i)   = 2.91_ireals + .159_ireals*zclayf(i)
-        zedb(i)     = 1._ireals/zb_por(i)
-
-! print*,i,zporv(i),zclayf(i),zpsis(i),zb_por(i)
-
-!<JH
-!DR        IF(m_styp(i) < 9 ) llandmask(i) = .true.
-!>JH      ENDIF
-
+    ! New arrays for BATS-scheme
+    zk0di(i)  = ck0di(mstyp)              !
+    zbedi(i)  = cbedi(mstyp)              !
+    ! Arrays for soil water freezing/melting
+    zsandf(i)   = csandf(mstyp)
+    zclayf(i)   = cclayf(mstyp)
+    zpsis(i)    = -zpsi0 * 10._ireals**(1.88_ireals-0.013_ireals*zsandf(i))
+    zb_por(i)   = 2.91_ireals + .159_ireals*zclayf(i)
+    zedb(i)     = 1._ireals/zb_por(i)
   ENDDO
 
 
@@ -1402,6 +1420,9 @@ END SUBROUTINE message
       zrr    (i)      = 0.0_ireals         ! in first part formation of dew
       zrs    (i)      = 0.0_ireals         ! in first part formation of rime
       zw_fr(i,ke_soil+1)  = w_so_now(i,ke_soil+1)/zdzhs(ke_soil+1)
+      lhfl_bs(i)      = 0.0_ireals
+      lhfl_pl(i,:)    = 0.0_ireals
+      rstom  (i)      = 0.0_ireals
   END DO
 
   DO kso   = 1, ke_soil
@@ -1441,10 +1462,24 @@ END SUBROUTINE message
       END DO
   END DO
 
-! JH Copy soil moisture and ice content for all soiltypes and levels on new state, untouched for rock and ice
- 
-  w_so_new(istarts:iends,ke_soil+1) = w_so_now(istarts:iends,ke_soil+1)
-  w_so_ice_new(istarts:iends,:)     = w_so_ice_now(istarts:iends,:)
+! JH No soil moisture for Ice and Rock
+  DO kso   = 1, ke_soil+1
+!CDIR NODEP,VOVERTAKE,VOB  
+    DO ic = 1, icount_rockice
+      i=rockice_list(ic)
+      w_so_now(i,kso)         = 0._ireals
+      w_so_ice_now(i,kso)     = 0._ireals
+      w_so_new(i,kso)         = w_so_now(i,kso)
+      w_so_ice_new(i,kso)     = w_so_ice_now(i,kso)
+    END DO
+
+!CDIR NODEP,VOVERTAKE,VOB  
+    DO ic = 1, icount_soil
+      i=soil_list(ic)
+      w_so_new(i,kso)         = w_so_now(i,kso)
+      w_so_ice_new(i,kso)     = w_so_ice_now(i,kso)
+    END DO
+  END DO
   
   IF (itype_heatcond == 2) THEN
 
@@ -1989,7 +2024,7 @@ END SUBROUTINE message
                           *(1.0_ireals - zf_snow(i)) & ! not snow covered
                           * eai(i)/sai(i) ! relative source surface
                                               ! of the bare soil
-!            lhfl_bs(i) = lh_v * zesoil(i)
+            lhfl_bs(i) = lh_v * zesoil(i)
           END IF  ! upwards directed potential evaporation
 !        END IF    ! land points
       END DO
@@ -2035,6 +2070,7 @@ END SUBROUTINE message
                           *(1.0_ireals - zf_snow(i)) & ! not snow covered
                           * eai(i)/sai(i) ! relative source surface of the bare soil
             
+            lhfl_bs(i) = lh_v * zesoil(i)
           END IF  ! upwards directed potential evaporation
 !        END IF    ! land points
       END DO
@@ -2059,10 +2095,14 @@ END SUBROUTINE message
           zrootdz_int (i)= 0.0_ireals   !initialize the root density profile integral
           zwrootdz_int(i)= 0.0_ireals   !initialize the root water content integral
         END DO
+
       DO kso   = 1,ke_soil
-          DO i = istarts, iends
-!            IF (llandmask(i)) THEN ! land points only,
-              IF (m_styp(i).ge.3) THEN ! neither ice or rocks
+!CDIR NODEP,VOVERTAKE,VOB  
+         DO ic=1,icount_soil
+            i=soil_list(ic)
+!!$          DO i = istarts, iends
+!!$!            IF (llandmask(i)) THEN ! land points only,
+!!$              IF (m_styp(i).ge.3) THEN ! neither ice or rocks
                 IF (zep_s(i) < 0.0_ireals) THEN  ! upwards directed potential evaporation
                   ! consider the effect of root depth & root density
                   zrootfr = EXP (-zroota(i)*zmls(kso)) ! root density
@@ -2072,7 +2112,7 @@ END SUBROUTINE message
                   zwrootdz(i,kso)=zrootdz*(zw_fr(i,kso)-w_so_ice_now(i,kso)/zdzhs(kso))
                   zwrootdz_int(i)=zwrootdz_int(i) + zwrootdz(i,kso)
                 END IF  ! negative potential evaporation only
-              END IF  ! neither ice or rocks
+!!$              END IF  ! neither ice or rocks
 !            END IF    ! land-points only
           END DO
       END DO
@@ -2087,9 +2127,12 @@ END SUBROUTINE message
     ELSE
 
       DO kso   = 1,ke_soil
-          DO i = istarts, iends
-!            IF (llandmask(i)) THEN ! land points only,
-              IF (m_styp(i).ge.3) THEN ! neither ice or rocks
+!CDIR NODEP,VOVERTAKE,VOB  
+         DO ic=1,icount_soil
+            i=soil_list(ic)
+!!$          DO i = istarts, iends
+!!$!            IF (llandmask(i)) THEN ! land points only,
+!!$              IF (m_styp(i).ge.3) THEN ! neither ice or rocks
                 IF (zep_s(i) < 0.0_ireals) THEN  ! upwards directed potential
                                                    ! evaporation
                   zropart  = MIN ( zdzhs(kso), MAX(0.0_ireals,                     &
@@ -2097,7 +2140,7 @@ END SUBROUTINE message
                   zropartw(i,kso) = zropart*(zw_fr(i,kso)-w_so_ice_now(i,kso)/zdzhs(kso))
                   zwroot(i) = zwroot(i) + zropartw(i,kso)/MAX(zepsi,zbwt(i))
                 END IF  ! negative potential evaporation only
-              END IF  ! neither ice or rocks
+!!$              END IF  ! neither ice or rocks
 !            END IF    ! land-points only
           END DO
       END DO
@@ -2106,10 +2149,12 @@ END SUBROUTINE message
 
 
     ! Determination of the transfer functions CA, CF, and CV
-
-      DO i = istarts, iends
-!        IF (llandmask(i)) THEN ! land points only,
-          IF (m_styp(i).ge.3) THEN ! neither ice or rocks
+!CDIR NODEP,VOVERTAKE,VOB  
+         DO ic=1,icount_soil
+            i=soil_list(ic)
+!!$      DO i = istarts, iends
+!!$!        IF (llandmask(i)) THEN ! land points only,
+!!$          IF (m_styp(i).ge.3) THEN ! neither ice or rocks
             IF (zep_s(i) < 0.0_ireals) THEN  ! upwards directed potential evaporation
               zuv        = SQRT (u_10m(i) **2 + v_10m(i)**2 )
               zcatm      = tch(i)*zuv           ! Function CA
@@ -2170,12 +2215,12 @@ END SUBROUTINE message
               END IF
 
               zrstom     = 1.0_ireals/zedrstom              ! stomatal resistance
-!              rstom(i) = zrstom
+              rstom(i) = zrstom
               zrveg      = zrla + zrstom
               ! Transpiration rate of dry leaves:
               ztraleav(i)=zep_s(i)*tai(i)/(sai(i)+zrveg*zcatm)
             END IF  ! upwards directed potential evaporation only
-          END IF    ! m_styp > 2
+!!$          END IF    ! m_styp > 2
 !        END IF      ! land points
       END DO
 
@@ -2183,9 +2228,12 @@ END SUBROUTINE message
     ! soil layers
 
     DO     kso       = 1,ke_soil
-        DO i         = istarts, iends
-!          IF (llandmask(i)) THEN ! land points only,
-            IF (m_styp(i).ge.3) THEN ! neither ice or rocks
+!CDIR NODEP,VOVERTAKE,VOB  
+         DO ic=1,icount_soil
+            i=soil_list(ic)
+!!$        DO i         = istarts, iends
+!!$!          IF (llandmask(i)) THEN ! land points only,
+!!$            IF (m_styp(i).ge.3) THEN ! neither ice or rocks
               IF (zep_s(i) < 0.0_ireals) THEN    ! upwards potential evaporation
                 ztrabpf  = ztraleav(i)*                   & ! plant covered part
                            (1.0_ireals - zf_wi(i))*       & ! not water covered
@@ -2201,10 +2249,10 @@ END SUBROUTINE message
                   IF(zw_fr(i,kso)+ztrang(i,kso)*zdtdrhw/zdzhs(kso) &
                                     .LT.zpwp(i)) ztrang(i,kso) = 0._ireals
                 ENDIF
-!                lhfl_pl(i,kso)= lh_v * ztrang(i,kso)
+                lhfl_pl(i,kso)= lh_v * ztrang(i,kso)
                 ztrangs(i)    = ztrangs(i) + ztrang(i,kso)
               END IF  ! upwards directed potential evaporation only
-            END IF    ! m_styp > 2
+!!$            END IF    ! m_styp > 2
 !          END IF      ! land points
         END DO
     END DO          ! loop over soil layers
@@ -2462,7 +2510,9 @@ END SUBROUTINE message
 !------------------------------------------------------------------------------
 
 ! uppermost layer, kso = 1
-  DO i = istarts, iends
+!CDIR NODEP,VOVERTAKE,VOB  
+      DO ic = 1, icount_soil
+        i=soil_list(ic)
       ! sedimentation and capillary transport in soil
       ! Note: The fractional liquid water content (concentration)  of each layer
       !       is normalized by the ice free fraction of each layer in order to
@@ -2472,8 +2522,6 @@ END SUBROUTINE message
       !       by a reduction factor depending on the maximum ice fraction of the
       !       adjacent layers in order to avoid the transport of liquid water
       !       in to the frozen part of the adjacent layer
-!      IF (llandmask(i)) THEN      ! land-points only
-        IF (m_styp(i) >= 3) THEN   ! neither ice nor rock as soil type
           zice_fr_kso   = ziw_fr(i,1)
           zice_fr_ksop1 = ziw_fr(i,2)
           zlw_fr_kso    = zlw_fr(i,1)
@@ -2505,16 +2553,14 @@ END SUBROUTINE message
   
           ! explicit part of soil surface water flux:
           zflmg (i,1) = - zinfil(i)! boundary value for soil water transport
-        ENDIF
-!      ENDIF
   END DO
 
 ! inner layers 2 <=kso<=ke_soil_hy-1
   DO kso =2,ke_soil_hy-1
-      DO i = istarts, iends
-        ! sedimentation and capillary transport in soil
-!        IF (llandmask(i)) THEN      ! land-points only
-          IF (m_styp(i) >= 3) THEN   ! neither ice nor rock as soil type
+!CDIR NODEP,VOVERTAKE,VOB  
+      DO ic = 1, icount_soil
+        i=soil_list(ic)
+! sedimentation and capillary transport in soil
             zice_fr_ksom1 = ziw_fr(i,kso-1)
             zice_fr_kso   = ziw_fr(i,kso  )
             zice_fr_ksop1 = ziw_fr(i,kso+1)
@@ -2569,14 +2615,12 @@ END SUBROUTINE message
                 &       *(zdlw_fr_ksop05*(zlw_fr_ksop1+zice_fr_ksop1-zlw_fr_kso-zice_fr_kso) &
                 &       / zdzms(kso+1) - zklw_fr_ksop05)
             ENDIF
-          ENDIF
-!        ENDIF
       END DO
   END DO
 
-  DO i = istarts, iends
-!      IF (llandmask(i)) THEN      ! land-points only
-        IF (m_styp(i) >= 3) THEN   ! neither ice nor rock as soil type
+!CDIR NODEP,VOVERTAKE,VOB  
+     DO ic = 1, icount_soil
+        i=soil_list(ic)
           ! lowest active hydrological layer ke_soil_hy-1
           zice_fr_ksom1 = ziw_fr(i,ke_soil_hy-1)
           zice_fr_kso   = ziw_fr(i,ke_soil_hy  )
@@ -2602,67 +2646,55 @@ END SUBROUTINE message
                              zgam2m05*(zlw_fr_ksom1  - zlw_fr_kso)            &
                             +z1dgam1*                                         &
                              zgam2m05*(zice_fr_ksom1-zice_fr_kso )   
-        ENDIF
-!      ENDIF
   END DO
 
-  DO i = istarts, iends
-!      IF (llandmask(i)) THEN          ! land-points only
+!CDIR NODEP,VOVERTAKE,VOB  
+  DO ic = 1, icount_soil
+        i=soil_list(ic)
         ! generalized upper boundary condition
-        IF (m_styp(i) >= 3) THEN   ! neither ice nor rock as soil type
           zagc(i,1) = zagc(i,1)/zagb(i,1)
           zagd(i,1) = zagd(i,1)/zagb(i,1)
-        ENDIF
-!      END IF          ! land-points only
   END DO
 
   DO kso=2,ke_soil_hy-1
-      DO i = istarts, iends
-!        IF (llandmask(i)) THEN          ! land-points only
-          IF (m_styp(i) >= 3) THEN   ! neither ice nor rock as soil type
+!CDIR NODEP,VOVERTAKE,VOB  
+  DO ic = 1, icount_soil
+        i=soil_list(ic)
             zzz = 1._ireals/(zagb(i,kso) - zaga(i,kso)*zagc(i,kso-1))
             zagc(i,kso) = zagc(i,kso) * zzz
             zagd(i,kso) = (zagd(i,kso) - zaga(i,kso)*zagd(i,kso-1)) * zzz
-          ENDIF
-!        END IF          ! land-points only
       END DO
   END DO                ! soil layers
 
-  DO i = istarts, iends
-!      IF (llandmask(i)) THEN          ! land-points only
-        IF (m_styp(i) >= 3) THEN   ! neither ice nor rock as soil type
+!CDIR NODEP,VOVERTAKE,VOB  
+  DO ic = 1, icount_soil
+        i=soil_list(ic)
            zage(i,ke_soil_hy) = (zagd(i,ke_soil_hy)-zaga(i,ke_soil_hy)*  &
                              zagd(i,ke_soil_hy-1))/                          &
                             (zagb(i,ke_soil_hy) - zaga(i,ke_soil_hy)*      &
                              zagc(i,ke_soil_hy-1))
-        ENDIF
-!      END IF          ! land-points only
   END DO
 
   DO kso = ke_soil_hy-1,1,-1
-      DO i = istarts, iends
-!        IF (llandmask(i)) THEN          ! land-points only
-          IF (m_styp(i) >= 3) THEN   ! neither ice nor rock as soil type
+!CDIR NODEP,VOVERTAKE,VOB  
+  DO ic = 1, icount_soil
+        i=soil_list(ic)
             zage(i,kso)     = zagd(i,kso) - zagc(i,kso)*zage(i,kso+1)
             ! compute implicit part of new liquid water content and add existing
             ! ice content
             w_so_new(i,kso) = zage(i,kso)*zdzhs(kso) + w_so_ice_now(i,kso)
-          END IF
-!        END IF          ! land-points only
       END DO
   END DO                ! soil layers
 
 !lowest active hydrological level
-  DO i = istarts, iends
-!      IF (llandmask(i)) THEN          ! land-points only
-        IF (m_styp(i) >= 3) THEN   ! neither ice nor rock as soil type
+!CDIR NODEP,VOVERTAKE,VOB  
+  DO ic = 1, icount_soil
+        i=soil_list(ic)
           ! boundary values ensure that the calculation below leaves the climate
           ! layer water contents unchanged compute implicit part of new liquid
           ! water content and add existing ice content
           w_so_new(i,ke_soil_hy) = zage(i,ke_soil_hy)*zdzhs(ke_soil_hy) + &
                           w_so_ice_now(i,ke_soil_hy)
-        END IF 
-!      END IF          ! land-points only
   END DO
 
 ! to ensure vertical constant water concentration profile beginning at 
@@ -2672,22 +2704,18 @@ END SUBROUTINE message
   IF (itype_hydbound == 3) THEN
     ! ground water as lower boundary of soil column
     DO kso = ke_soil_hy+1,ke_soil+1
-        DO i = istarts, iends
-!          IF (llandmask(i)) THEN          ! land-points only
-            IF (m_styp(i) >= 3) THEN   ! neither ice nor rock as soil type
+!CDIR NODEP,VOVERTAKE,VOB  
+  DO ic = 1, icount_soil
+        i=soil_list(ic)
               w_so_new(i,kso) = zporv(i)*zdzhs(kso)
-            END IF
-!          END IF          ! land-points only
         END DO
     END DO
   ELSE
     DO kso = ke_soil_hy+1,ke_soil+1
-       DO i = istarts, iends
-!         IF (llandmask(i)) THEN          ! land-points only
-           IF (m_styp(i) >= 3) THEN   ! neither ice nor rock as soil type
+!CDIR NODEP,VOVERTAKE,VOB  
+  DO ic = 1, icount_soil
+        i=soil_list(ic)
              w_so_new(i,kso) = w_so_new(i,kso-1)*zdzhs(kso)/zdzhs(kso-1)
-           END IF
-!         END IF          ! land-points only
        END DO
     END DO
   ENDIF
@@ -2695,9 +2723,9 @@ END SUBROUTINE message
 ! combine implicit part of sedimentation and capillary flux with explicit part
 ! (for soil water flux investigations only)
   DO kso = 2,ke_soil+1
-      DO i = istarts, iends
-!        IF (llandmask(i)) THEN          ! land-points only
-          IF (m_styp(i) >= 3) THEN   ! neither ice nor rock as soil type
+!CDIR NODEP,VOVERTAKE,VOB  
+     DO ic = 1, icount_soil
+        i=soil_list(ic)
             zice_fr_ksom1 = ziw_fr(i,kso-1)
             zice_fr_kso   = ziw_fr(i,kso)
             zlw_fr_ksom1_new= w_so_new(i,kso-1)/zdzhs(kso-1) - zice_fr_ksom1
@@ -2753,8 +2781,6 @@ END SUBROUTINE message
                   (1.0_ireals-exp(-zdhydcond_dlwfr/zdlw_fr_kso*0.5_ireals*zdzms(ke_soil_hy+1)))* &
                   zdelta_sm
             ENDIF
-          END IF 
-!        END IF          ! land-points only
       END DO
   END DO
 
@@ -2770,11 +2796,10 @@ END SUBROUTINE message
       zfmb_fak = 0.0_ireals
     END IF
 
-    DO i = istarts, iends
-!        IF (llandmask(i)) THEN      ! land-points only
-          ! sedimentation and capillary transport in soil
-          IF (m_styp(i) >= 3) THEN   ! neither ice nor rock as soil type
-
+     ! sedimentation and capillary transport in soil
+!CDIR NODEP,VOVERTAKE,VOB  
+      DO ic = 1, icount_soil
+         i=soil_list(ic)
             ! first runoff calculation without consideration of
             ! evapotranspiration
             !zdwg   =  zflmg(i,kso+1) - zflmg(i,kso)
@@ -2801,10 +2826,8 @@ END SUBROUTINE message
             ! runoff_g reformulation:
             runoff_g(i) = runoff_g(i) - (zrunoff_grav(i,kso) * zfmb_fak &
                                           + zkorr) * zroffdt
-          END IF          ! ice/rock-exclusion
-!        END IF   ! land-points only
-    END DO
-  END DO         ! end loop over soil layers
+      END DO
+   END DO         ! end loop over soil layers
 
 
 
@@ -2856,7 +2879,7 @@ END SUBROUTINE message
           ENDIF                       ! overflow of interception store
 
         ! freezing of rain falling on soil with Ts < T0  (black-ice !!!)
-        ELSEIF ((1._ireals-ztsnow_pm(i))*zrr(i) > 0.0_ireals) THEN
+        ELSEIF ((1._ireals-zts_pm(i))*zrr(i) > 0.0_ireals) THEN
           zsprs  (i) = lh_f*zrr(i)
           zdwidt (i) = zdwidt (i) - zrr(i)
           zdwsndt(i) = zdwsndt(i) + zrr(i)
@@ -2938,21 +2961,30 @@ END SUBROUTINE message
 !        END IF          ! land-points only
       END DO
     END DO    
-              
+       
+    DO ksn = 1,ke_snow  
+      DO i = istarts, iends
+        IF(zwsnew(i) .GT. zepsi) THEN
+          IF(zwsnow(i) .GT. zepsi) THEN
+            IF (ksn == 1) THEN ! Limit top layer to max_toplaydepth
+              zhh_snow(i,ksn) = -MAX( h_snow_now(i)-max_toplaydepth, h_snow_now(i)/ke_snow*(ke_snow-ksn) )
+            ELSE ! distribute the remaining snow equally among the layers
+              zhh_snow(i,ksn) = zhh_snow(i,1)/(ke_snow-1)*(ke_snow-ksn)
+            ENDIF
+          ELSE ! a newly generated snow cover will not exceed max_toplaydepth
+            zhh_snow(i,ksn) = -h_snow_now(i)/ke_snow*(ke_snow-ksn)
+          END IF
+        END IF
+      END DO  
+    END DO
+       
     DO ksn = ke_snow,1,-1
       DO i = istarts, iends
-!        IF (llandmask(i)) THEN  ! for landpoints only
-          IF(zwsnew(i) .GT. zepsi) THEN
-            IF(zwsnow(i) .GT. zepsi) THEN
-              dz_old(i,ksn) = zdzh_snow(i,ksn)
-              z_old(i,ksn) = -sum_weight(i) - zdzh_snow(i,ksn)/2._ireals
-              sum_weight(i) = sum_weight(i) + zdzh_snow(i,ksn)
-              zhh_snow(i,ksn) = -h_snow_now(i)/ke_snow*(ke_snow-ksn)
-            ELSE
-              zhh_snow(i,ksn) = -h_snow_now(i)/ke_snow*(ke_snow-ksn)
-            END IF
-          END IF
-!        END IF          ! land-points only
+        IF(zwsnew(i) .GT. zepsi .AND. zwsnow(i) .GT. zepsi) THEN
+          dz_old(i,ksn) = zdzh_snow(i,ksn)
+          z_old(i,ksn) = -sum_weight(i) - zdzh_snow(i,ksn)/2._ireals
+          sum_weight(i) = sum_weight(i) + zdzh_snow(i,ksn)
+        END IF
       END DO  
     END DO
 
@@ -3031,7 +3063,7 @@ END SUBROUTINE message
               rho_snow_mult_now(i,ksn) = rho_new(i,ksn)
               wtot_snow_now    (i,ksn) = rho_new(i,ksn)*zdzh_snow(i,ksn)/rho_w
               wliq_snow_now    (i,ksn) = wl_new (i,ksn)*zdzh_snow(i,ksn)
-            ELSE
+            ELSE ! Remark: if there was now snow in the previous time step, snow depth will not exceed the limit for equipartitioning
               ztsnow_mult  (i,ksn      ) = t_s_now(i)
               rho_snow_mult_now(i,ksn) = rho_snow_mult_now(i,1)
               wtot_snow_now    (i,ksn) = zwsnew(i)/ke_snow
@@ -3055,21 +3087,20 @@ END SUBROUTINE message
     DO i = istarts, iends
 !      IF (llandmask(i)) THEN  ! for landpoints only
         IF (zwsnew(i).GT.zepsi) THEN
-!           zgsb(i) = (zalas_mult(i,ke_snow)*(-zhm_snow(i,ke_snow))+zalam(i,1)*zdzms(1))/ &
-!                       (-zhm_snow(i,ke_snow)+zdzms(1)) * &
-!                       (ztsnow_mult(i,ke_snow) - t_so_now(i,1))/(-zhm_snow(i,ke_snow) &
-!                       +zdzms(1))
+           zgsb(i) = ((zalas_mult(i,ke_snow)*(-zhm_snow(i,ke_snow))+zalam(i,1)*zdzms(1))/ &
+                       (-zhm_snow(i,ke_snow)+zdzms(1)) * &
+                       (ztsnow_mult(i,ke_snow) - t_so_now(i,1))/(-zhm_snow(i,ke_snow) &
+                       +zdzms(1)))*zf_snow(i)
 
-          ! GZ: use formulation of single-layer snow model, which is numerically more stable
-          zgsb(i) = zalas_mult(i,ke_snow)*(ztsnow_mult(i,ke_snow) - t_so_now(i,1))/ &
-            MAX(-zhm_snow(i,ke_snow),cdsmin)
+!          ! GZ: use formulation of single-layer snow model, which is numerically more stable
+!          zgsb(i) = zalas_mult(i,ke_snow)*(ztsnow_mult(i,ke_snow) - t_so_now(i,1))/ &
+!            MAX(-zhm_snow(i,ke_snow),cdsmin)
 
         END IF
 
         ! total forcing for uppermost soil layer
-        zfor_s(i) = ( zrnet_s(i) + zshfl_s(i) + zlhfl_s(i) + zsprs(i) ) &
-                         * (1._ireals - zf_snow(i)) &
-                    + zf_snow(i) * (1._ireals-ztsnow_pm(i)) * zgsb(i)
+        zfor_s(i) = ( zrnet_s(i) + zshfl_s(i) + zlhfl_s(i) + zsprs(i) ) * (1._ireals - zf_snow(i)) &
+                    + (1._ireals-ztsnow_pm(i)) * zgsb(i)
 
         IF(zwsnew(i) .GT. zepsi) THEN
           zrnet_snow = sobs(i) * (1.0_ireals - EXP(-zextinct(i,1)*zdzm_snow(i,1))) &
@@ -3079,7 +3110,7 @@ END SUBROUTINE message
         END IF
         zshfl_snow(i) = zrhoch(i)*cp_d*(zth_low(i) - ztsnow_mult(i,1))
         zlhfl_snow(i) = lh_s*zversn(i)   
-        zfor_snow_mult(i)  = (zrnet_snow + zshfl_snow(i) + zlhfl_snow(i) + zsprs(i))*zf_snow(i)
+        zfor_snow_mult(i)  = (zrnet_snow + zshfl_snow(i) + zlhfl_snow(i) + lh_f*zrr(i))*zf_snow(i)
 
 !      END IF          ! land-points only
     END DO
@@ -3403,11 +3434,11 @@ ENDIF
 !          IF (llandmask(i)) THEN          ! land-points only
             IF(zwsnew(i) .GT. zepsi .and. zwsnew(i) .LT. zswitch(i)) THEN
   
-              IF(zfor_snow_mult(i)*zdt > zwsnew(i)*rho_w*lh_f) THEN
+              IF((zfor_snow_mult(i)-zgsb(i))*zdt > zwsnew(i)*rho_w*lh_f) THEN
                 ztsnown_mult(i,ksn) = t_so_now(i,0)
-              ELSE IF(zfor_snow_mult(i) .GT. 0._ireals) THEN
+              ELSE IF(zfor_snow_mult(i)-zgsb(i) .GT. 0._ireals) THEN
                 ztsnown_mult(i,ksn) = ztsnow_mult(i,ksn) + &
-                  zfor_snow_mult(i)*zdt/(chc_i*wtot_snow_now(i,ksn))/rho_w/ke_snow
+                  (zfor_snow_mult(i)-zgsb(i))*zdt/(chc_i*wtot_snow_now(i,ksn))/rho_w/ke_snow
               END IF
             END IF
 !          END IF  ! land-points only
@@ -3418,14 +3449,11 @@ ENDIF
 !      IF (llandmask(i)) THEN          ! land-points only
         IF(zwsnew(i) .GT. zepsi .and. zwsnew(i) .LT. zswitch(i)) THEN
   
-          IF(zfor_snow_mult(i)*zdt > zwsnew(i)*rho_w*lh_f) THEN
-            zfor_snow_mult(i) = zfor_snow_mult(i) - zwsnew(i)*rho_w*lh_f/zdt
+          IF((zfor_snow_mult(i)-zgsb(i))*zdt > zwsnew(i)*rho_w*lh_f) THEN
             zdwsndt(i) = zdwsndt(i) - zwsnew(i)*rho_w/zdt
             zwsnew(i)  = 0._ireals
             ztsnown_mult(i,0) = t_so_now(i,0)
-            zfor_s(i) = zfor_s(i) + zfor_snow_mult(i)
-          ELSE IF(zfor_snow_mult(i) .GT. 0._ireals) THEN
-            zfor_snow_mult(i) = 0._ireals
+          ELSE IF((zfor_snow_mult(i)-zgsb(i)) .GT. 0._ireals) THEN
             ztsnown_mult(i,0) = ztsnown_mult(i,1)
           END IF
   
@@ -3436,41 +3464,11 @@ ENDIF
   END IF
 
 
-  IF(lmelt) THEN
-    IF(.NOT.lmelt_var) THEN
+!  IF(lmelt) THEN ! + lmelt_var
       DO kso = 1,ke_soil
-          DO i = istarts, iends
-!            IF (llandmask(i)) THEN ! land points only,
-              IF (m_styp(i).ge.3) THEN ! neither ice or rocks
-                ! melting or freezing of soil water
-                zenergy   = zroc(i,kso)*zdzhs(kso)*(t_so_new(i,kso) - t0_melt)
-                zdwi_max  = - zenergy/(lh_f*rho_w)
-                zdelwice  = zdwi_max
-                zwso_new  = w_so_now(i,kso) + zdt*zdwgdt(i,kso)/rho_w
-                IF (zdelwice.LT.0.0_ireals)                                    &
-                          zdelwice = - MIN( - zdelwice,w_so_ice_now(i,kso))
-                IF (zdelwice.GT.0.0_ireals)                                    &
-                          zdelwice =   MIN(   zdelwice,zwso_new - w_so_ice_now(i,kso))
-                w_so_ice_new(i,kso) = w_so_ice_now(i,kso) + zdelwice
-
-  !             At this point we have 0.0 LE w_so_ice(i,kso,nnew) LE w_so(i,kso,nnew)
-  !             If we have 0.0 LT w_so_ice(i,kso,nnew) LT w_so(i,kso,nnew)
-  !             the resulting new temperature has to be equal to t0_melt.
-  !             If not all energy available can be used to melt/freeze soil water, the
-  !             following line corrects the temperature. It also applies to cases
-  !             where all soil water is completely ice or water, respectively.
-
-                t_so_new(i,kso) = t0_melt + (zdelwice - zdwi_max)*(lh_f*rho_w)/     &
-                                              (zroc(i,kso)*zdzhs(kso))
-              END IF  ! m_styp > 2
-!            END IF  ! land-points only
-          END DO
-      END DO        ! soil layers
-    ELSE IF(lmelt_var) THEN
-      DO kso = 1,ke_soil
-          DO i = istarts, iends
-!            IF (llandmask(i)) THEN ! land points only,
-              IF (m_styp(i).ge.3) THEN ! neither ice or rocks
+!CDIR NODEP,VOVERTAKE,VOB  
+         DO ic=1,icount_soil
+            i=soil_list(ic)
                 ztx      = t0_melt
                 zw_m(i)     = zporv(i)*zdzhs(kso)
                 IF(t_so_new(i,kso).LT.(t0_melt-zepsi)) THEN
@@ -3502,13 +3500,9 @@ ENDIF
 
                 t_so_new(i,kso) = ztx + (zdelwice - zdwi_max)*       &
                                      (lh_f*rho_w)/(zroc(i,kso)*zdzhs(kso))
-  
-             END IF                   ! m_stpy > 2
-!            END IF                    ! land-points only
           END DO
       ENDDO
-    ENDIF   ! lmelt_var
-  END IF ! lmelt
+!  END IF ! lmelt
 
 
 !------------------------------------------------------------------------------
@@ -3972,7 +3966,7 @@ ENDIF
 !      IF (llandmask(i)) THEN  ! for landpoints only
         ! t_snow is computed above
         ! t_snow(i,nnew)  = t_snow(i,nx) + zdt*zdtsnowdt(i)
-        t_so_new(i,1)  = t_so_now(i,1) + zdt*zdtsdt   (i)
+        t_so_new(i,1)  = t_so_now(i,1) + zdt*zdtsdt   (i)         ! (*)
   
         ! Next line has to be changed, if the soil surface temperature
         ! t_so(i,0,nnew) predicted by the heat conduction equation is used
@@ -3981,41 +3975,243 @@ ENDIF
         w_snow_new(i)  = w_snow_now(i) + zdt*zdwsndt  (i)/rho_w
         w_i_new   (i)  = w_i_now(i) + zdt*zdwidt   (i)/rho_w
 
-        ! *** Provisional fix for numerical instabilities in the presence of very
-        !     small amounts of snow *** !
-        ! melting-point adjustment of snow: if snow temp is above freezing and a non-negligible
-        ! amount of snow is available, then melt as much snow as needed to get snow temp
-        ! back to t0_melt while conserving energy
-        IF (t_snow_new(i) > t0_melt .AND. w_snow_new(i) > zepsi) THEN
-          w_snow_new(i) = MAX(w_snow_new(i)*(1._ireals-(t_snow_new(i)-t0_melt) &
-            *chc_i/lh_f), 0.0_ireals)
-          t_snow_new(i) = t0_melt
-        ELSE IF (w_snow_new(i) <= zepsi .OR. w_snow_new(i) > zepsi .AND. t_s_new(i) > t0_melt+15.0_ireals .AND. & 
-          t(i) > t0_melt+15.0_ireals .AND. t_so_new(i,2) > t0_melt+15.0_ireals) THEN
-          ! if the amount of snow is negligible, or the environment is very warm, then just remove it
-          w_snow_new(i) = 0.0_ireals
-          ! If the snow has just melted, limit soil temperature increment to 2.5 deg C
-          ! in order to avoid nonsensically large temperature jumps
-          IF (w_snow_now(i) > zepsi) THEN
-!CDIR BEGIN EXPAND=7
-            t_so_new(i,1:7) = MIN(t_so_now(i,1:7)+2.5_ireals,t_so_new(i,1:7))
-            t_so_new(i,1:7) = MAX(t_so_now(i,1:7)-2.5_ireals,t_so_new(i,1:7))
-!CDIR END
-            t_so_new(i,0) = t_so_new(i,1)
-            t_s_new(i)    = t_so_new(i,1)
-          ENDIF
-          t_snow_new(i) = t_so_new(i,0)
-        ENDIF
-        ! *** End of provisional stability fix *** !
-        !
-        ! *** original code *** !
-!         IF (w_snow_new(i) <= zepsi) THEN
-!           w_snow_new(i) = 0.0_ireals
-!           t_snow_new(i) = t_so_new(i,0)
-!         ENDIF
-        IF (w_i_new(i) <= zepsi) w_i_new(i) = 0.0_ireals
+
 !      END IF          ! land-points only
+     END DO
+
+
+!>JH New solution of heat conduction for snow points which melted completly 
+!    during time step
+!------------------------------------------------------------------------------
+! Section II.6n: Solution of the heat conduction equation, freezing/melting
+!               of soil water/ice (optionally)
+!------------------------------------------------------------------------------
+
+! Index list of completly melting snow points
+     icount_snow=0
+     DO i = istarts, iends
+        IF (w_snow_now(i) > zepsi .AND. w_snow_new(i) < zepsi) THEN ! Snow vanished during time step 
+         icount_snow=icount_snow+1
+         melt_list(icount_snow)=i
+         zfor_s(i)=0._ireals ! no soil forcing is needed at this step
+                             ! only distribution of heat
+        END IF
+     END DO
+ 
+!     New update of soil heat capacity
+      DO   kso = 1,ke_soil+1
+!CDIR NODEP,VOVERTAKE,VOB  
+        DO ic=1,icount_snow
+          i=melt_list(ic)
+          ziw_fr(i,kso) = w_so_ice_new(i,kso)/zdzhs(kso)   ! ice frac.
+          zlw_fr(i,kso) = w_so_new(i,kso)/zdzhs(kso) - ziw_fr(i,kso)  ! liquid water frac.
+          zroc(i,kso)   = zrocg(i) + rho_w*zlw_fr(i,kso)*chc_w +          &
+                                         rho_w*ziw_fr(i,kso)*chc_i
+       END DO      !soil layers
+      END DO
+
+
+      DO kso = 2,ke_soil
+!CDIR NODEP,VOVERTAKE,VOB  
+        DO ic=1,icount_snow
+          i=melt_list(ic)
+!        IF (llandmask(i)) THEN          ! land-points only
+          ! for heat conductivity: zalam is now 3D
+          zakb = zalam(i,kso)/zroc(i,kso)
+          zaga(i,kso) = -zalfa*zdt*zakb/(zdzhs(kso)*zdzms(kso))
+          zagc(i,kso) = -zalfa*zdt*zakb/(zdzhs(kso)*zdzms(kso+1))
+          zagb(i,kso) = 1._ireals - zaga(i,kso) - zagc(i,kso)
+          zagd(i,kso) = t_so_new(i,kso) +                                     &    ! distribute heat in (*)
+                 (1._ireals - zalfa)*( - zaga(i,kso)/zalfa*t_so_new(i,kso-1)+ &
+                 (zaga(i,kso)/zalfa + zagc(i,kso)/zalfa)*t_so_new(i,kso) -  &
+                  zagc(i,kso)/zalfa*t_so_new(i,kso+1)  )
+!        END IF  ! land-points only
+         END DO        ! soil layers
+       END DO
+
+  
+!CDIR NODEP,VOVERTAKE,VOB  
+     DO ic=1,icount_snow
+        i=melt_list(ic)
+!    IF (llandmask(i)) THEN          ! land-points only
+      ! for heat conductivity: zalam is now 3D: here we need layer 1
+      zakb = zalam(i,1)/zroc(i,1)
+      zaga(i,  1) = -zalfa*zdt*zakb/(zdzhs(1)*zdzms(1))
+      zagc(i,  1) = -zalfa*zdt*zakb/(zdzhs(1)*zdzms(2))
+      zagb(i,  1) = 1._ireals - zaga(i,1) - zagc(i,1)
+      zagd(i,  1) = t_so_new(i,1) + (1._ireals - zalfa)* (                 &
+                      - zaga(i,1)/zalfa * t_s_new(i) +                     &
+                      (zaga(i,1) + zagc(i,1))/zalfa * t_so_new(i,1) -    &
+                       zagc(i,1)/zalfa * t_so_new(i,2)   )
+      zaga(i,0)    = 0.0_ireals
+      zagb(i,0)    = zalfa
+      zagc(i,0)    = -zalfa
+      zagd(i,0)    = zdzms(1) * zfor_s(i)/zalam(i,1)+(1._ireals-zalfa)* &
+                      (t_so_new(i,1) - t_s_new(i))
+      zaga(i,ke_soil+1) = 0.0_ireals
+      zagb(i,ke_soil+1) = 1.0_ireals
+      zagc(i,ke_soil+1) = 0.0_ireals
+      zagd(i,ke_soil+1) = t_so_new(i,ke_soil+1)
+  
+!    END IF          ! land-points only
   END DO
+
+!CDIR NODEP,VOVERTAKE,VOB
+     DO ic=1,icount_snow
+        i=melt_list(ic)
+!    IF (llandmask(i)) THEN          ! land-points only
+      zagc(i,0) = zagc(i,0)/zagb(i,0)
+      zagd(i,0) = zagd(i,0)/zagb(i,0)
+!    END IF          ! land-points only
+   END DO
+
+
+     DO kso=1,ke_soil
+!CDIR NODEP,VOVERTAKE,VOB
+       DO ic=1,icount_snow
+         i=melt_list(ic)  
+
+!        IF (llandmask(i)) THEN          ! land-points only
+         zzz = 1._ireals/(zagb(i,kso) - zaga(i,kso)*zagc(i,kso-1))
+         zagc(i,kso) = zagc(i,kso) * zzz
+         zagd(i,kso) = (zagd(i,kso) - zaga(i,kso)*zagd(i,kso-1)) * zzz
+!        END IF          ! land-points only
+       END DO                ! soil layers
+     END DO
+
+  
+     DO ic=1,icount_snow
+        i=melt_list(ic)  
+!    IF (llandmask(i)) THEN          ! land-points only
+      zage(i,ke_soil+1) = (zagd(i,ke_soil+1) - zaga(i,ke_soil+1)*       &
+                             zagd(i,ke_soil))/                              &
+                            (zagb(i,ke_soil+1) - zaga(i,ke_soil+1)*       &
+                             zagc(i,ke_soil))
+!    END IF          ! land-points only
+    END DO
+
+
+    DO kso = ke_soil,0,-1
+!CDIR NODEP,VOVERTAKE,VOB
+      DO ic=1,icount_snow
+        i=melt_list(ic)   
+!        IF (llandmask(i)) THEN          ! land-points only
+          zage(i,kso)     = zagd(i,kso) - zagc(i,kso)*zage(i,kso+1)
+        ! The surface temperature computed by t_so(i,0,nnew)=zage(i,0) is
+        ! presently unused
+          t_so_new(i,kso) = zage(i,kso)
+!        END IF          ! land-points only
+      END DO                ! soil layers
+    END DO
+
+
+     DO ic=1,icount_snow
+       i=melt_list(ic)   
+!    IF (llandmask(i)) THEN          ! land-points only
+      t_so_new(i,ke_soil+1) = zage(i,ke_soil+1) ! climate value, unchanged
+!    END IF          ! land-points only
+   END DO
+
+
+
+!  IF(lmelt) THEN ! + melt_var!
+     DO kso = 1,ke_soil
+!CDIR NODEP,VOVERTAKE,VOB
+       DO ic=1,icount_snow
+         i=melt_list(ic) 
+!            IF (llandmask(i)) THEN ! land points only,
+              IF (m_styp(i).ge.3) THEN ! neither ice or rocks
+                ztx      = t0_melt
+                zw_m(i)     = zporv(i)*zdzhs(kso)
+                IF(t_so_new(i,kso).LT.(t0_melt-zepsi)) THEN
+                  zaa    = g*zpsis(i)/lh_f
+                  zw_m(i) = zw_m(i)*((t_so_new(i,kso) - t0_melt)/(t_so_new(i,kso)&
+                    &         *zaa))**(-zedb(i))
+                  zliquid= MAX(zepsi,w_so_new(i,kso) -  w_so_ice_new(i,kso))
+                  znen   = 1._ireals-zaa*(zporv(i)*zdzhs(kso)/zliquid)**zb_por(i)
+                  ztx    = t0_melt/znen
+                ENDIF
+                ztx      = MIN(t0_melt,ztx)
+                zenergy  = zroc(i,kso)*zdzhs(kso)*(t_so_new(i,kso)-ztx)
+                zdwi_max = - zenergy/(lh_f*rho_w)
+                zdelwice = zdwi_max
+                zwso_new  = w_so_new(i,kso) + zdt*zdwgdt(i,kso)/rho_w
+                zargu = zwso_new - zw_m(i) - w_so_ice_new(i,kso)
+                IF (zdelwice.LT.0.0_ireals) zdelwice =                           &
+                        - MIN( - zdelwice,MIN(-zargu,w_so_ice_new(i,kso)))
+                IF (zdelwice.GT.0.0_ireals) zdelwice =                           &
+                          MIN(   zdelwice,MAX( zargu,0.0_ireals))
+                w_so_ice_new(i,kso) = w_so_ice_new(i,kso) + zdelwice
+  !             At this point we have 0.0 LE w_so_ice(i,kso,nnew) LE zwso_new
+  !             If we have 0.0 LT w_so_ice(i,kso,nnew) LT zwso_new
+  !             the resulting new temperature has to be equal to ztx.
+  !             If not all energy available can be used to melt/freeze soil water,
+  !             the following line corrects the temperature. It also applies
+  !             to cases without any freezing/melting, in these cases the
+  !             original temperature is reproduced.
+
+                t_so_new(i,kso) = ztx + (zdelwice - zdwi_max)*       &
+                                     (lh_f*rho_w)/(zroc(i,kso)*zdzhs(kso))
+  
+             END IF                   ! m_stpy > 2
+!            END IF                    ! land-points only
+          END DO
+       ENDDO
+! End of heat transfer 
+
+  DO i = istarts, iends
+!      IF (llandmask(i)) THEN  ! for landpoints only
+        ! Next line has to be changed, if the soil surface temperature
+        ! t_so(i,0,nnew) predicted by the heat conduction equation is used
+        t_s_new   (i)    = t_so_new(i,1)
+        t_so_new  (i,0)  = t_so_new(i,1)
+        w_snow_new(i)  = w_snow_now(i) + zdt*zdwsndt  (i)/rho_w
+        w_i_new   (i)  = w_i_now(i) + zdt*zdwidt   (i)/rho_w
+
+
+!      END IF          ! land-points only
+     END DO
+
+
+
+  DO i = istarts, iends
+!!$!GZ:    ! *** Provisional fix for numerical instabilities in the presence of very
+!!$        !     small amounts of snow *** !
+!!$        ! melting-point adjustment of snow: if snow temp is above freezing and a non-negligible
+!!$        ! amount of snow is available, then melt as much snow as needed to get snow temp
+!!$        ! back to t0_melt while conserving energy
+!!$        IF (t_snow_new(i) > t0_melt .AND. w_snow_new(i) > zepsi) THEN
+!!$          w_snow_new(i) = MAX(w_snow_new(i)*(1._ireals-(t_snow_new(i)-t0_melt) &
+!!$            *chc_i/lh_f), 0.0_ireals)
+!!$          t_snow_new(i) = t0_melt
+!!$        ELSE IF (w_snow_new(i) <= zepsi .OR. w_snow_new(i) > zepsi .AND. t_s_new(i) > t0_melt+15.0_ireals .AND. & 
+!!$          t(i) > t0_melt+15.0_ireals .AND. t_so_new(i,2) > t0_melt+15.0_ireals) THEN
+!!$          ! if the amount of snow is negligible, or the environment is very warm, then just remove it
+!!$          w_snow_new(i) = 0.0_ireals
+!!$          ! If the snow has just melted, limit soil temperature increment to 2.5 deg C
+!!$          ! in order to avoid nonsensically large temperature jumps
+!!$
+!!$          IF (w_snow_now(i) > zepsi) THEN
+!!$!CDIR BEGIN EXPAND=7
+!!$            t_so_new(i,1:7) = MIN(t_so_now(i,1:7)+2.5_ireals,t_so_new(i,1:7))
+!!$            t_so_new(i,1:7) = MAX(t_so_now(i,1:7)-2.5_ireals,t_so_new(i,1:7))
+!!$!CDIR END
+!!$            t_so_new(i,0) = t_so_new(i,1)
+!!$            t_s_new(i)    = t_so_new(i,1)
+!!$          ENDIF
+!!$          t_snow_new(i) = t_so_new(i,0)
+!!$       ENDIF
+!!$        ! *** End of provisional stability fix *** !
+        !
+
+        ! *** original code *** !
+         IF (w_snow_new(i) <= zepsi) THEN
+           w_snow_new(i) = 0.0_ireals
+           t_snow_new(i) = t_so_new(i,0)
+         ENDIF
+        IF (w_i_new(i) <= zepsi) w_i_new(i) = 0.0_ireals
+     end DO
+!<JH
 
 
   ! Eliminate snow for multi-layer snow model, if w_snow = 0
@@ -4039,7 +4235,6 @@ ENDIF
   IF(.NOT. lmulti_snow) THEN
 
       DO i = istarts, iends
-!        IF (llandmask(i)) THEN  ! for landpoints only
 
 !BR 7/2005 Update snow density
 !
@@ -4076,6 +4271,11 @@ ENDIF
          ENDIF
          rho_snow_new(i) = MIN(crhosmax_ml,MAX(crhosmin_ml, rho_snow_new(i)))
 !        END IF          ! land-points only
+         
+! New calculation of snow height for single layer snow model
+         zdz_snow(i)=w_snow_new(i)*rho_w/rho_snow_new(i)
+         h_snow_new(i) = zdz_snow(i)
+
       END DO
 
   ELSE   ! new snow scheme
@@ -4096,19 +4296,28 @@ ENDIF
         END DO
     END DO    
               
+    DO ksn = 1,ke_snow  
+      DO i = istarts, iends
+        IF (w_snow_new(i) .GT. zepsi) THEN
+          IF (ksn == 1) THEN ! Limit top layer to max_toplaydepth
+            zhh_snow(i,ksn) = -MAX( h_snow_new(i)-max_toplaydepth, h_snow_new(i)/ke_snow*(ke_snow-ksn) )
+          ELSE ! distribute the remaining snow equally among the layers
+            zhh_snow(i,ksn) = zhh_snow(i,1)/(ke_snow-1)*(ke_snow-ksn)
+          ENDIF
+        ENDIF
+      END DO  
+    END DO
+       
     DO ksn = ke_snow,1,-1
-        DO i = istarts, iends
-!          IF (llandmask(i)) THEN  ! for landpoints only
-            IF(w_snow_new(i) .GT. zepsi) THEN
-              dz_old(i,ksn) = dzh_snow_new(i,ksn)
-              z_old(i,ksn) = -sum_weight(i) - dzh_snow_new(i,ksn)/2._ireals
-              sum_weight(i) = sum_weight(i) + dzh_snow_new(i,ksn)
-              zhh_snow(i,ksn) = -h_snow_new(i)/ke_snow*(ke_snow-ksn)
-            END IF
-!          END IF          ! land-points only
-        END DO
-    END DO   
-    
+      DO i = istarts, iends
+        IF (w_snow_new(i) .GT. zepsi) THEN
+          dz_old(i,ksn) = dzh_snow_new(i,ksn)
+          z_old(i,ksn) = -sum_weight(i) - dzh_snow_new(i,ksn)/2._ireals
+          sum_weight(i) = sum_weight(i) + dzh_snow_new(i,ksn)
+        END IF
+      END DO  
+    END DO
+
     DO i = istarts, iends
 !      IF (llandmask(i)) THEN  ! for landpoints only
         IF(w_snow_new(i) .GT. zepsi) THEN
@@ -4187,7 +4396,7 @@ ENDIF
 !      END IF          ! land-points only
     END DO
 
-  ENDIF ! lmulti_snow
+ ENDIF ! lmulti_snow
 
 
   DO kso = 1,ke_soil
@@ -4201,7 +4410,7 @@ ENDIF
   ! Update of two-time level interface variables 
   DO i = istarts, iends
 !    IF (llandmask(i)) THEN  ! for landpoints only
-      h_snow(i) = h_snow_new(i)
+     h_snow(i) = h_snow_new(i)
 !    END IF
   END DO
   
@@ -4220,73 +4429,74 @@ ENDIF
   ENDIF
 !  END DO
 
+  ! computation of the weighted turbulent fluxes at the boundary surface-atmosphere
+  IF(PRESENT(zshfl_sfc)) THEN
+    DO i = istarts, iends
+      zshfl_sfc(i) = zshfl_s(i)*(1._ireals - zf_snow(i)) + zshfl_snow(i)*zf_snow(i)
+      zlhfl_sfc(i) = zlhfl_s(i)*(1._ireals - zf_snow(i)) + zlhfl_snow(i)*zf_snow(i)
+    END DO
+  END IF
 
 ! Debug messages
 
 
 #ifdef __ICON__
   IF (msg_level >= 14) THEN
-        DO i = istarts, iends
-             IF (w_snow_new(i) > zepsi .AND. (t_snow_new(i)<180. &
-                 & .OR. t_snow_new(i)>274.) .OR. t_s_new(i)>380. ) THEN 
-              write(0,*) "SFC-DIAGNOSIS TERRA ",nsubs0,i,nsubs1!,ntstep
-        !!$   write(0,*)" lmelt  ",               lmelt    
-        !!$   write(0,*)" lmelt_var ",            lmelt_var
-        !!$   write(0,*)" lmulti_snow ",          lmulti_snow 
-        !!$   write(0,*)" itype_gscp ",           itype_gscp
-        !!$   write(0,*)" itype_trvg ",           itype_trvg
-        !!$   write(0,*)" itype_evsl ",           itype_evsl
-        !!$   write(0,*)" itype_tran ",           itype_tran
-        !!$   write(0,*)" itype_root ",           itype_root
-        !!$   write(0,*)" itype_heatcond ",       itype_heatcond
-        !!$   write(0,*)" itype_hydbound ",       itype_hydbound
-        !!$   write(0,*)" lstomata  ",            lstomata
-        !!$   write(0,*)" l2tls ",                l2tls  
-        !!$   write(0,*)" lana_rho_snow ",        lana_rho_snow
-        !!$   write(0,*)" itype_subs ",           itype_subs
-        !!$   write(0,*) "zml_soil: ",czmls
-              write(0,*) "t", t(i)
-              write(0,*) "p0",p0(i)
-              write(0,*) "qv",qv(i)
-              write(0,*) "ps",ps(i)
-              write(0,*) "t_g",t_g(i)
-              write(0,*) "t_s",t_s_now(i),t_s_new(i)
-              write(0,*) "t_snow",t_snow_now(i),t_snow_new(i)
-              write(0,*) "w_snow",w_snow_now(i),w_snow_new(i)
-              write(0,*) "h_snow",h_snow_now(i),h_snow_new(i)
-              write(0,*) "rho_snow",rho_snow_now(i),rho_snow_new(i)
-              write(0,*) "qv_s",qv_s(i)
-              write(0,*) "t_so",t_so_now(i,:),t_so_new(i,:)
-              write(0,*) "w_so",w_so_now(i,:),w_so_new(i,:)
+     DO ic=1,icount_snow
+       i=melt_list(ic) 
+
+!	IF (w_snow_now(i) > 1.E-4_ireals.AND.t(i)> 285._ireals) THEN
+	IF (i == 48 .AND. soiltyp_subs(i).eq.3 .AND. plcov(i).GT.0.8286 .AND. plcov(i).LT.0.8287) THEN
+
+!        IF ((t_snow_new(i) > t0_melt .AND. w_snow_new(i) > zepsi).OR.&
+!   (w_snow_new(i) <= zepsi .OR. w_snow_new(i) > zepsi .AND. t_s_new(i) > t0_melt+15.0_ireals .AND. & 
+!         t(i) > t0_melt+15.0_ireals .AND. t_so_new(i,2) > t0_melt+15.0_ireals)) THEN 
+
+              write(0,*) "SFC-DIAGNOSIS TERRA ",i,icount_snow!,ntstep
+              write(0,*) "t",i, t(i)
+              write(0,*) "p0",i,p0(i)
+              write(0,*) "qv",i,qv(i)
+              write(0,*) "ps",i,ps(i)
+              write(0,*) "t_g",i,t_g(i)
+              write(0,*) "t_s",i,t_s_now(i),t_s_new(i)
+              write(0,*) "t_snow",i,t_snow_now(i),t_snow_new(i)
+              write(0,*) "w_snow",i,w_snow_now(i),w_snow_new(i)
+              write(0,*) "h_snow",i,h_snow_now(i),h_snow_new(i)
+              write(0,*) "rho_snow",i,rho_snow_now(i),rho_snow_new(i)
+              write(0,*) "qv_s",i,qv_s(i)
+              write(0,*) "t_so_now",i,t_so_now(i,:)
+              write(0,*) "t_so_new",i,t_so_new(i,:)
+              write(0,*) "w_so_now",i,w_so_now(i,:)
+              write(0,*) "w_so_new",i,w_so_new(i,:)
               IF (lmulti_snow) THEN
-                write(0,*) "t_snow_mult",t_snow_mult_now(i,:),t_snow_mult_new(i,:)
-                write(0,*) "rho_snow_mult",rho_snow_mult_now(i,:),rho_snow_mult_new(i,:)
-                write(0,*) "wliq_snow",wliq_snow_now(i,:),wliq_snow_new(i,:)
-                write(0,*) "wtot_snow",wtot_snow_now(i,:),wtot_snow_new(i,:)
-                write(0,*) "dzh_snow",dzh_snow_now(i,:),dzh_snow_new(i,:)
+                write(0,*) "t_snow_mult",i,t_snow_mult_now(i,:),t_snow_mult_new(i,:)
+                write(0,*) "rho_snow_mult",i,rho_snow_mult_now(i,:),rho_snow_mult_new(i,:)
+                write(0,*) "wliq_snow",i,wliq_snow_now(i,:),wliq_snow_new(i,:)
+                write(0,*) "wtot_snow",i,wtot_snow_now(i,:),wtot_snow_new(i,:)
+                write(0,*) "dzh_snow",i,dzh_snow_now(i,:),dzh_snow_new(i,:)
               ENDIF
-              write(0,*) "tch_t",tch(i)
-              write(0,*) "tcm_t",tcm(i)
-              write(0,*) " tfv_t",tfv(i)
-              write(0,*) "zshfl,zlhfl,zradfl,zg1",zshfl(i),zlhfl(i),zradfl(i),zg1(i)
-              write(0,*) "zshfl_s,zlhfl_s", zshfl_s(i), zlhfl_s(i)
-              write(0,*) "zshfl_snow,zlhfl_snow,zf_snow,zgsb",zshfl_snow(i),zlhfl_snow(i), zf_snow(i),zgsb(i)
-              write(0,*) "soiltyp_t",soiltyp_subs(i)
-              write(0,*) "plcov_t",  plcov(i)
-              write(0,*) "rootdp_t", rootdp(i)
-              write(0,*) "sai_t",   sai(i) 
-              write(0,*) "tai_t",   tai(i) 
-              write(0,*) "eai_t",   eai(i) 
-!             write(0,*) "t_2m_t",  t_2m(i) 
-              write(0,*) "u_10m_t", u_10m(i)   
-              write(0,*) "v_10m_t", v_10m(i)    
-              write(0,*) "sobs_t",  sobs(i)    
-              write(0,*) "thbs_t",  thbs(i)     
-              write(0,*) "pabs_t",  pabs(i)     
-              write(0,*) "prr_gsp, prr_con, prs_gsp, prs_con",prr_gsp(i), prr_con(i), prs_gsp(i), prs_con(i)
-              write(0,*) "zrr, zrs", zrr(i), zrs(i)
-              write(0,*) "zsprs, ztchv, ztchv_max", zsprs(i), ztchv(i), ztchv_max(i), ztchv(i)/MAX(SQRT(u(i)**2+v(i)**2),zepsi)
-!              write(0,*) "llandmask_t",llandmask(i) 
+              write(0,*) "tch_t",i,tch(i)
+              write(0,*) "tcm_t",i,tcm(i)
+              write(0,*) " tfv_t",i,tfv(i)
+              write(0,*) "zshfl,zlhfl,zradfl,zg1",i,zshfl(i),zlhfl(i),zradfl(i),zg1(i)
+              write(0,*) "zshfl_s,zlhfl_s",i, zshfl_s(i), zlhfl_s(i)
+              write(0,*) "zshfl_snow,zlhfl_snow,zf_snow,zgsb",i,zshfl_snow(i),zlhfl_snow(i), zf_snow(i),zgsb(i)
+              write(0,*) "soiltyp_t",i,soiltyp_subs(i)
+              write(0,*) "plcov_t",i,  plcov(i)
+              write(0,*) "rootdp_t",i, rootdp(i)
+              write(0,*) "sai_t",i,   sai(i) 
+              write(0,*) "tai_t",i,   tai(i) 
+              write(0,*) "eai_t",i,   eai(i) 
+!             write(0,*) "t_2m_t",i,  t_2m(i) 
+              write(0,*) "u_10m_t",i, u_10m(i)   
+              write(0,*) "v_10m_t",i, v_10m(i)    
+              write(0,*) "sobs_t",i,  sobs(i)    
+              write(0,*) "thbs_t",i,  thbs(i)     
+              write(0,*) "pabs_t",i,  pabs(i)     
+              write(0,*) "prr_gsp, prr_con, prs_gsp, prs_con",i,prr_gsp(i), prr_con(i), prs_gsp(i), prs_con(i)
+              write(0,*) "zrr, zrs",i, zrr(i), zrs(i)
+              write(0,*) "zsprs, ztchv, ztchv_max",i, zsprs(i), ztchv(i), ztchv_max(i), ztchv(i)/MAX(SQRT(u(i)**2+v(i)**2),zepsi)
+!              write(0,*) "llandmask_t",i,llandmask(i) 
            END IF
          END DO
   ENDIF
@@ -4416,7 +4626,10 @@ SUBROUTINE terra_multlay_init (                &
   INTEGER (KIND=iintegers) ::  &
     kso            , & ! loop index for soil moisture layers           
     ksn            , & ! loop index for snow layers
-    i              , & ! loop index in x-direction              
+    i,ic           , & ! loop index in x-direction              
+    icount_snow    , & ! Counter for snow
+    icount_soil    , & ! "true" soil
+    icount_rockice , & ! rock and ice points
     mstyp          , & ! soil type index
     istarts        , & ! start index for x-direction      
     iends          , & ! end   index for x-direction     
@@ -4483,8 +4696,10 @@ SUBROUTINE terra_multlay_init (                &
   INTEGER  (KIND=iintegers ) ::  &
     m_styp   (ie)      , & ! soil type
     zicount1 (ie)      , &
-    zicount2 (ie)       
-
+    zicount2 (ie)      , &    
+    soil_list(ie)      , & ! list of "true" soil points
+                           ! i.e. no ice no rock       
+    rockice_list(ie)       ! list of rock and ice points
   REAL    (KIND=ireals   ) ::  & ! Soil and plant parameters
 !
     zfcap    (ie)      , & ! field capacity of soil
@@ -4575,14 +4790,18 @@ SUBROUTINE terra_multlay_init (                &
 
 
 ! Prepare basic surface properties (for land-points only)
- 
+  icount_soil=0
+  icount_rockice=0
   DO i = istarts, iends
-
-!>JH
-!      IF(llandmask(i)) THEN        ! for land-points only
-
         mstyp       = soiltyp_subs(i)        ! soil type
         m_styp(i) = mstyp                     ! array for soil type
+        IF (mstyp >= 3) THEN
+        icount_soil=icount_soil+1
+        soil_list(icount_soil)=i
+        ELSE
+        icount_rockice=icount_rockice+1
+        rockice_list(icount_rockice)=i
+        END IF
         zdw   (i)  = cdw0  (mstyp)
         zdw1  (i)  = cdw1  (mstyp)
         zkw   (i)  = ckw0  (mstyp)
@@ -4642,18 +4861,17 @@ SUBROUTINE terra_multlay_init (                &
 !   Provide for a soil moisture 1 % above air dryness point, reset soil
 !   moisture to zero in case of ice and rock
     DO kso   = 1,ke_soil+1
-        DO i = istarts, iends
-!          IF (llandmask(i)) THEN             ! for land-points only
-            IF (m_styp(i).ge.3) THEN
+        DO ic = 1, icount_soil
+           i=soil_list(ic)
               w_so_now (i,kso) = MAX(w_so_now(i,kso),                     &
                                            1.01_ireals*zadp(i)*zdzhs(kso) )
               w_so_new (i,kso) = MAX(w_so_new(i,kso),                     &
                                            1.01_ireals*zadp(i)*zdzhs(kso) )
-            ELSE
+        END DO
+         DO ic = 1, icount_rockice
+           i=rockice_list(ic)
               w_so_now(i,kso) = 0.0_ireals
               w_so_new(i,kso) = 0.0_ireals
-            ENDIF
-!          END IF   ! land-points
         END DO
     END DO
 
@@ -4663,7 +4881,7 @@ SUBROUTINE terra_multlay_init (                &
 !   loop over grid points
     DO i = istarts, iends
 !        IF(llandmask(i)) THEN   ! for land-points only
-          IF (w_snow_now(i) <=1.0E-6_ireals) THEN
+          IF (w_snow_now(i) <= zepsi) THEN
             ! spurious snow is removed
             t_snow_now(i)=t_so_now(i,0)
 !jh         t_snow_new(i)=t_so_now(i,0)
@@ -4757,23 +4975,32 @@ SUBROUTINE terra_multlay_init (                &
 !   Initialization of snow density, if necessary
 !   --------------------------------------------
     IF (.NOT. lana_rho_snow) THEN
-        DO i = istarts, iends
-!          IF (llandmask(i)) THEN             ! for land-points only
-            IF(lmulti_snow) THEN
-              DO ksn = 1, ke_snow
-                rho_snow_mult_now(i,ksn) = 250.0_ireals    ! average initial density
-                t_snow_mult_now  (i,ksn) = t_snow_now(i)
-                wtot_snow_now    (i,ksn) = w_snow_now(i)/REAL(ke_snow,ireals)
-                dzh_snow_now     (i,ksn) = w_snow_now(i)/REAL(ke_snow,ireals) &
-                  &                            *rho_w/rho_snow_mult_now(i,ksn)
-                wliq_snow_now    (i,ksn) = 0.0_ireals
-              END DO
-              t_snow_mult_now    (i,0  ) = t_snow_now(i)
-            ELSE
-              rho_snow_now(i) = 250.0_ireals    ! average initial density
-            ENDIF
-!          ENDIF   ! land-points
-        ENDDO
+       IF(lmulti_snow) THEN
+         ksn = 1
+         DO i = istarts, iends
+           rho_snow_mult_now(i,ksn) = 250.0_ireals    ! average initial density
+           t_snow_mult_now  (i,ksn) = t_snow_now(i)
+           wliq_snow_now    (i,ksn) = 0.0_ireals
+           ! Limit top layer to max_toplaydepth
+           dzh_snow_now     (i,ksn) = MIN(max_toplaydepth, w_snow_now(i)/REAL(ke_snow,ireals) &
+                  &                            *rho_w/rho_snow_mult_now(i,ksn))
+           wtot_snow_now    (i,ksn) = dzh_snow_now(i,ksn)*rho_snow_mult_now(i,ksn)/rho_w
+           t_snow_mult_now  (i,0  ) = t_snow_now(i)
+         ENDDO
+         DO ksn = 2, ke_snow
+           DO i = istarts, iends
+             rho_snow_mult_now(i,ksn) = 250.0_ireals    ! average initial density
+             t_snow_mult_now  (i,ksn) = t_snow_now(i)
+             wliq_snow_now    (i,ksn) = 0.0_ireals
+             ! distribute the remaining snow equally among the layers
+             dzh_snow_now     (i,ksn) = (w_snow_now(i)-wtot_snow_now(i,1))/REAL(ke_snow-1,ireals) &
+                    &                            *rho_w/rho_snow_mult_now(i,ksn)
+             wtot_snow_now    (i,ksn) = dzh_snow_now(i,ksn)*rho_snow_mult_now(i,ksn)/rho_w
+           ENDDO
+         ENDDO
+       ELSE
+         rho_snow_now(istarts:iends) = 250.0_ireals    ! average initial density
+       ENDIF
     ELSE
       IF(lmulti_snow) THEN
 !The sum of wtot_snow, i.e. the "old" total water equivalent depth
@@ -4803,8 +5030,14 @@ SUBROUTINE terra_multlay_init (                &
             ELSE
               IF(rho_snow_now(i) .EQ. 0._ireals) rho_snow_now(i) = 250._ireals
               rho_snow_mult_now(i,ksn) = rho_snow_now(i)
-              wtot_snow_now    (i,ksn) = w_snow_now(i)/ke_snow
-              dzh_snow_now     (i,ksn) = w_snow_now(i)*rho_w/rho_snow_mult_now(i,ksn)/ke_snow
+              IF (ksn == 1) THEN ! Limit top layer to max_toplaydepth
+                dzh_snow_now(i,ksn) = MIN(max_toplaydepth, w_snow_now(i)/REAL(ke_snow,ireals) &
+                  &                  *rho_w/rho_snow_mult_now(i,ksn))
+              ELSE ! distribute the remaining snow equally among the layers
+                dzh_snow_now(i,ksn) = (w_snow_now(i)-wtot_snow_now(i,1))/REAL(ke_snow-1,ireals) &
+                    &                 *rho_w/rho_snow_mult_now(i,ksn)
+              ENDIF
+              wtot_snow_now    (i,ksn) = dzh_snow_now(i,ksn)*rho_snow_mult_now(i,ksn)/rho_w
               wliq_snow_now    (i,ksn) = 0.0_ireals
             END IF
             t_snow_mult_now(i,ksn) = t_snow_now(i)

@@ -54,11 +54,11 @@ MODULE mo_local_grid
     & min_rlcell, max_rlcell, min_rlcell_int, &
     & min_rlvert, max_rlvert,                 & ! min_rlvert_int,
     & min_rledge, max_rledge, min_rledge_int
-  USE mo_grid_geometry_info,  ONLY: sphere_geometry, t_planar_torus_geometry_info,  &
-    & copy_planar_torus_info
+  USE mo_grid_geometry_info,  ONLY: sphere_geometry, planar_torus_geometry, &
+    & cut_off_grid, t_grid_geometry_info, copy_grid_geometry_info,          &
+    & refined_bisection_grid, dualy_refined_grid, set_default_geometry_info
 
   USE mo_namelist,        ONLY: position_nml, open_nml, positioned
-  USE mo_physical_constants, ONLY: earth_radius
 
   IMPLICIT NONE
 
@@ -153,11 +153,6 @@ MODULE mo_local_grid
   !   PARENTTYPE_TRIANGLE+j, signifies the peripheral child triangle,
   !   that lies beween the j and j+1 edge of the parent  triangle
 
-  ! -----------------------------
-  ! types of grid creation
-  INTEGER, PARAMETER ::  cut_off_grid = 1
-  INTEGER, PARAMETER ::  refined_bisection_grid = 2
-  INTEGER, PARAMETER ::  dualy_refined_grid = 3
   
   ! -----------------------------
   ! types of grid optimization
@@ -422,22 +417,9 @@ MODULE mo_local_grid
     !> flags for the netcdf files
     INTEGER :: netcdf_flags
     
-    !> The creation process of the grid (cut_off, refined, etc, see parameters).
-    INTEGER :: grid_creation_process
-    !> The grid optimization procces
-    INTEGER :: grid_optimization_process
-        
-    !> The grid domain geometry parameters
-    INTEGER :: geometry_type
 
-    TYPE(t_planar_torus_geometry_info) :: planar_torus_info
+    TYPE(t_grid_geometry_info) :: geometry_info
     
-    !> Sphere radious. 
-    REAL(wp) :: sphere_radius
-    !> Earth rescaling factor.
-    ! When > 0, then this geometry is rescaled from earth by earth_rescale_factor
-    REAL(wp) :: earth_rescale_factor
- 
     ! grid entities
     !> The number of cells in the grid
     INTEGER :: ncells
@@ -730,11 +712,10 @@ CONTAINS
 
     CALL check_active_grid_id(created_grid_id)
 
-    get_grid_object(created_grid_id)%grid_creation_process = creation_id
     IF (PRESENT(from_grid_id)) THEN
       CALL set_default_geometry_parameters(to_grid_id=created_grid_id, from_grid_id=from_grid_id)
     ENDIF
-    
+    get_grid_object(created_grid_id)%geometry_info%grid_creation_process = creation_id    
 
   END SUBROUTINE set_grid_creation
   !-------------------------------------------------------------------------
@@ -954,6 +935,7 @@ CONTAINS
     INTEGER :: no_of_out_verts,no_of_out_edges,no_of_out_cells
     INTEGER :: i,j,to_index
     INTEGER :: add_subgrid_id
+    INTEGER :: k
 
     reindex = PRESENT(opt_new_vertindex)
     IF (reindex .AND. .NOT. &
@@ -993,7 +975,7 @@ CONTAINS
       start_no_of_cells = 0
       to_grid%nverts = no_of_copy_verts
       to_grid%nedges = no_of_copy_edges
-      to_grid%ncells = no_of_copy_cells
+      to_grid%ncells = no_of_copy_cells + 1  ! one additonal allocated cell as buffer for other uses
       no_of_out_verts = no_of_copy_verts + start_no_of_verts
       no_of_out_edges = no_of_copy_edges + start_no_of_edges
       no_of_out_cells = no_of_copy_cells + start_no_of_cells
@@ -1030,11 +1012,6 @@ CONTAINS
     to_grid%out_file_name             = from_grid%out_file_name
     to_grid%netcdf_flags              = from_grid%netcdf_flags
     
-    to_grid%grid_creation_process     = from_grid%grid_creation_process
-    to_grid%grid_optimization_process = from_grid%grid_optimization_process
-    to_grid%geometry_type             = from_grid%geometry_type
-    to_grid%sphere_radius             = from_grid%sphere_radius
-    to_grid%earth_rescale_factor      = from_grid%earth_rescale_factor
     to_grid%level                     = from_grid%level
     to_grid%vertical_structure        => from_grid%vertical_structure
     to_grid%patch_id                  = from_grid%patch_id
@@ -1051,7 +1028,7 @@ CONTAINS
 
     to_cells%no_of_domains(:)         = from_cells%no_of_domains(:)
 
-    CALL copy_planar_torus_info(from_grid%planar_torus_info, to_grid%planar_torus_info)
+    CALL copy_grid_geometry_info(from_grid%geometry_info, to_grid%geometry_info)
     
 
 !     print *, 'from_grid%start_subgrid_id:',from_grid%start_subgrid_id
@@ -1091,7 +1068,7 @@ CONTAINS
 !$OMP PARALLEL
     !-----------------------------------------------------------------------
     ! copy vertices
-!$OMP DO PRIVATE(i,to_index,j)
+!$OMP DO PRIVATE(i,to_index,j,k)
     DO i=1,no_of_verts
 
       IF (reindex) THEN
@@ -1100,19 +1077,36 @@ CONTAINS
 
         to_index = to_index + start_no_of_verts
 
-        DO j=1,max_vertex_connectivity
-          to_verts%get_neighbor_index(to_index,j) = &
-            & opt_new_vertindex(from_verts%get_neighbor_index(i,j))
-          to_verts%get_edge_index    (to_index,j) = &
-            & opt_new_edgeindex(from_verts%get_edge_index    (i,j))
-          to_verts%get_cell_index    (to_index,j) =  &
-            & opt_new_cellindex(from_verts%get_cell_index    (i,j))
+        k = 0
+        DO j = 1,max_vertex_connectivity
+          IF (opt_new_edgeindex(from_verts%get_edge_index(i,j)) > 0) THEN
+            k = k + 1
+            to_verts%get_edge_index    (to_index,k) = &
+              & opt_new_edgeindex(from_verts%get_edge_index    (i,j))
+          ENDIF
         ENDDO
+        
+        k = 0
+        DO j = 1,max_vertex_connectivity
+          IF (opt_new_vertindex(from_verts%get_neighbor_index(i,j)) > 0) THEN
+            k = k + 1
+            to_verts%get_neighbor_index    (to_index,k) = &
+              & opt_new_vertindex(from_verts%get_neighbor_index(i,j))
+          ENDIF
+        ENDDO
+        k = 0
+        DO j = 1,max_vertex_connectivity
+          IF (opt_new_cellindex(from_verts%get_cell_index   (i,j)) > 0) THEN
+            k = k + 1
+            to_verts%get_cell_index    (to_index,j) =  &
+              & opt_new_cellindex(from_verts%get_cell_index(i,j))
+          ENDIF
+        ENDDO
+         
 
       ELSE
 
         to_index = i + start_no_of_verts
-
         DO j=1,max_vertex_connectivity
           to_verts%get_neighbor_index(to_index,j) = &
             & from_verts%get_neighbor_index(i,j)
@@ -1138,7 +1132,6 @@ CONTAINS
 
     ENDDO ! i=1,no_of_verts
 !$OMP END DO
-
     !-----------------------------------------------------------------------
 
     !-----------------------------------------------------------------------
@@ -1312,10 +1305,40 @@ CONTAINS
      ENDIF !(start_no_of_verts > 0)
 !$OMP END PARALLEL
 
-
   END SUBROUTINE copy_grid
   !-----------------------------------------------------------------------
 
+  !-----------------------------------------------------------------------
+  !> 
+  !! Under construction!
+  SUBROUTINE move_null_connecitvity_to_end(grid_id)
+    INTEGER, INTENT(in)      :: grid_id
+
+    TYPE(t_grid), POINTER          :: grid
+    TYPE(t_grid_vertices), POINTER :: verts
+    TYPE(t_grid_edges), POINTER    :: edges
+    TYPE(t_grid_cells), POINTER    :: cells
+
+    INTEGER :: max_vertex_connectivity, max_no_of_cell_vertices
+    INTEGER :: no_of_verts,no_of_edges,no_of_cells
+    INTEGER :: i,j,to_index
+
+
+    CALL check_active_grid_id(grid_id)
+    grid  => get_grid_object(grid_id)
+    verts => grid%verts
+    edges => grid%edges
+    cells => grid%cells
+    no_of_verts = verts%no_of_existvertices
+    no_of_edges = edges%no_of_existedges
+    no_of_cells = cells%no_of_existcells
+    max_vertex_connectivity = verts%max_connectivity
+    max_no_of_cell_vertices = cells%max_no_of_vertices
+
+
+  END SUBROUTINE move_null_connecitvity_to_end
+  !-----------------------------------------------------------------------
+  
   !-------------------------------------------------------------------------
   !   grid_get_parent_pointers(parent_grid_id, parent_cell, parent_edge, parent_vertex)
   !>
@@ -1334,7 +1357,7 @@ CONTAINS
 !       print *, 'parents_from == undefined'
 !       print *, 'grid_creation_process:',parent_grid%grid_creation_process
 !       print *, 'parent_grid_id:',parent_grid%parent_grid_id
-      IF (parent_grid%grid_creation_process == cut_off_grid &
+      IF (parent_grid%geometry_info%grid_creation_process == cut_off_grid &
         & .OR. parent_grid%parent_grid_id /= undefined) THEN
         parents_from = parents_from_parentpointers
       ELSE
@@ -2127,9 +2150,7 @@ CONTAINS
     of_grid%cells%start_idx(min_rlcell:0, 1) = no_of_input_cells + 1
     of_grid%cells%end_idx(1:max_rlcell ,  1) = 0
     of_grid%cells%end_idx(min_rlcell:0 ,  1) = no_of_input_cells
-     of_grid%cells%refin_ctrl          (:  ) = min_rlcell_int
-
-    
+    of_grid%cells%refin_ctrl           (:  ) = min_rlcell_int
 
   END SUBROUTINE set_nest_defaultindexes
   !-------------------------------------------------------------------------
@@ -2364,8 +2385,6 @@ CONTAINS
     grid_obj%grid_obj_id              = grid_id
     grid_obj%file_name                = ''
     grid_obj%out_file_name    = ''
-    grid_obj%grid_creation_process    = undefined
-    grid_obj%grid_optimization_process= undefined
     ! grid_obj%geometry_type = undefined, this will be set by set_default_geometry_parameters
     grid_obj%netcdf_flags             = undefined
     grid_obj%netcdf_flags             = netcdf_CF_1_1_convention
@@ -2415,53 +2434,42 @@ CONTAINS
 
     TYPE(t_grid), POINTER :: grid, from_grid
     INTEGER  :: geometry_type
-    REAL(wp) :: sphere_radius, earth_rescale_factor
+    REAL(wp) :: sphere_radius
     INTEGER  :: i_status
     
-    NAMELIST /grid_geometry_parameters/ geometry_type, sphere_radius, earth_rescale_factor
+    NAMELIST /grid_geometry_parameters/ geometry_type, sphere_radius
     
     grid => get_grid(to_grid_id)
-    geometry_type = sphere_geometry
-    earth_rescale_factor = 1.0_wp
-    sphere_radius = earth_radius
 
-    grid%planar_torus_info%cell_edge_length = 0.0_wp
-    grid%planar_torus_info%center%x         = 0.0_wp
-    grid%planar_torus_info%length           = 0.0_wp
-    grid%planar_torus_info%height           = 0.0_wp
-        
+    CALL set_default_geometry_info(grid%geometry_info)
+    
     IF (PRESENT(from_grid_id)) THEN
       from_grid => get_grid(from_grid_id)
-      geometry_type         = from_grid%geometry_type
-      earth_rescale_factor  = from_grid%earth_rescale_factor
-      sphere_radius         = from_grid%sphere_radius
-      CALL copy_planar_torus_info(from_grid%planar_torus_info, grid%planar_torus_info)
+      CALL copy_grid_geometry_info(from_grid%geometry_info, grid%geometry_info)
     ENDIF
            
     IF (PRESENT(param_file_name)) THEN
-      ! read namelist
+    
+      geometry_type = grid%geometry_info%geometry_type
+      sphere_radius = grid%geometry_info%sphere_radius
+      ! read namelist  
       CALL open_nml(param_file_name)
       CALL position_nml('grid_geometry_parameters',STATUS=i_status)
       IF (i_status == positioned) THEN
         READ (nnml,grid_geometry_parameters)
       ENDIF
       CLOSE(nnml)
-    ENDIF
 
-    ! check
-    SELECT CASE(geometry_type)
-      CASE (sphere_geometry) ! ok
-      CASE default
-        CALL finish ('assign_geometry_parameters', 'Unkown geometry_type')
-    END SELECT
-    
-    IF (earth_rescale_factor > 0.0_wp) THEN
-      sphere_radius = earth_radius * earth_rescale_factor
+      ! check
+      SELECT CASE(geometry_type)
+        CASE (sphere_geometry, planar_torus_geometry) ! ok
+        CASE default
+          CALL finish ('assign_geometry_parameters', 'Unkown geometry_type')
+      END SELECT
+          
+      grid%geometry_info%geometry_type = geometry_type
+      grid%geometry_info%sphere_radius = sphere_radius
     ENDIF
-    
-    grid%geometry_type = geometry_type
-    grid%sphere_radius = sphere_radius
-    grid%earth_rescale_factor = earth_rescale_factor
 
   END SUBROUTINE set_default_geometry_parameters
   !-------------------------------------------------------------------------

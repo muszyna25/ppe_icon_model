@@ -72,8 +72,9 @@ MODULE mo_echam_phy_interface
     & timer_echam_sync_temp , timer_echam_sync_tracers
                                 
   USE mo_coupling_config,    ONLY: is_coupled_run
-  USE mo_icon_cpl_exchg,    ONLY: ICON_cpl_put, ICON_cpl_get
-  USE mo_icon_cpl_def_field, ONLY:ICON_cpl_get_nbr_fields, ICON_cpl_get_field_ids
+  USE mo_icon_cpl_exchg,     ONLY: ICON_cpl_put, ICON_cpl_get
+  USE mo_icon_cpl_def_field, ONLY: ICON_cpl_get_nbr_fields, ICON_cpl_get_field_ids
+  USE mo_icon_cpl_restart,   ONLY: icon_cpl_write_restart
 
   USE mo_icoham_sfc_indices,ONLY: iwtr, iice
 
@@ -147,6 +148,7 @@ CONTAINS
     INTEGER :: jc, jk   !< column index, vertical level index
     INTEGER :: jcn,jbn  !< column and block indices of a neighbour cell
 
+    LOGICAL               :: write_coupler_restart
     INTEGER               :: nbr_fields
     INTEGER               :: nbr_hor_points ! = inner and halo points
     INTEGER               :: nbr_points     ! = nproma * nblks
@@ -417,11 +419,13 @@ CONTAINS
        !   field_id(3) represents "SFWFLX" surface fresh water flux
        !   field_id(4) represents "SFTEMP" surface temperature
        !   field_id(5) represents "THFLX"  total heat flux
+       !   field_id(6) represents "ICEATM" ice temperatures and melt potential
        !
-       !   field_id(6) represents "SST"    sea surface temperature
-       !   field_id(7) represents "OCEANU" u component of ocean surface current
-       !   field_id(8) represents "OCEANV" v component of ocean surface current
-       !   field_id(9) represents "ALBEDO" ocean & ice albedo
+       !   field_id(7) represents "SST"    sea surface temperature
+       !   field_id(9) represents "OCEANU" u component of ocean surface current
+       !   field_id(9) represents "OCEANV" v component of ocean surface current
+       !   field_id(10)represents "ICEOCE" ice thickness, concentration and temperatures
+       !
        !
        CALL ICON_cpl_get_nbr_fields ( nbr_fields )
        ALLOCATE(field_id(nbr_fields))
@@ -436,15 +440,19 @@ CONTAINS
        ! Send fields away
        ! ----------------
        !
+       write_coupler_restart = .FALSE.
+       !
        ! TAUX
        !
        buffer(:,1) = RESHAPE ( prm_field(jg)%u_stress_tile(:,:,iwtr), (/ nbr_points /) )
-       CALL ICON_cpl_put ( field_id(1), field_shape, buffer(1:nbr_hor_points,1:1), ierror )
+       CALL ICON_cpl_put ( field_id(1), field_shape, buffer(1:nbr_hor_points,1:1), info, ierror )
+       IF ( info == 2 ) write_coupler_restart = .TRUE.
        !
        ! TAUY
        !
        buffer(:,1) = RESHAPE ( prm_field(jg)%v_stress_tile(:,:,iwtr), (/ nbr_points /) )
-       CALL ICON_cpl_put ( field_id(2), field_shape, buffer(1:nbr_hor_points,1:1), ierror )
+       CALL ICON_cpl_put ( field_id(2), field_shape, buffer(1:nbr_hor_points,1:1), info, ierror )
+       IF ( info == 2 ) write_coupler_restart = .TRUE.
        !
        ! SFWFLX Note: the evap_tile should be properly updated and added
        !
@@ -455,43 +463,53 @@ CONTAINS
         buffer(:,2) = RESHAPE ( prm_field(jg)%evap_tile(:,:,iwtr), (/ nbr_points /) )
  
        field_shape(3) = 2
-       CALL ICON_cpl_put ( field_id(3), field_shape, buffer(1:nbr_hor_points,1:2), ierror )
+       CALL ICON_cpl_put ( field_id(3), field_shape, buffer(1:nbr_hor_points,1:2), info, ierror )
+       IF ( info == 2 ) write_coupler_restart = .TRUE.
        !
        ! SFTEMP
        !
        buffer(:,1) =  RESHAPE ( prm_field(jg)%temp(:,nlev,:), (/ nbr_points /) )
        field_shape(3) = 1
-       CALL ICON_cpl_put ( field_id(4), field_shape, buffer(1:nbr_hor_points,1:1), ierror )
+       CALL ICON_cpl_put ( field_id(4), field_shape, buffer(1:nbr_hor_points,1:1), info, ierror )
+       IF ( info == 2 ) write_coupler_restart = .TRUE.
        !
        ! THFLX, total heat flux
        !
-       buffer(:,1) =  RESHAPE ( prm_field(jg)%swflxsfc  (:,:)     , (/ nbr_points /) ) !net shortwave flux at sfc
-       buffer(:,2) =  RESHAPE ( prm_field(jg)%lwflxsfc  (:,:)     , (/ nbr_points /) ) !net longwave flux at sfc
-       buffer(:,3) =  RESHAPE ( prm_field(jg)%shflx_tile(:,:,iwtr), (/ nbr_points /) ) !sensible heat flux
-       buffer(:,4) =  RESHAPE ( prm_field(jg)%lhflx_tile(:,:,iwtr), (/ nbr_points /) ) !latent heat flux
-
+       buffer(:,1) =  RESHAPE ( prm_field(jg)%swflxsfc_tile(:,:,iwtr), (/ nbr_points /) ) !net shortwave flux for ocean
+       buffer(:,2) =  RESHAPE ( prm_field(jg)%lwflxsfc_tile(:,:,iwtr), (/ nbr_points /) ) + &
+        &             RESHAPE ( prm_field(jg)%shflx_tile(:,:,iwtr),    (/ nbr_points /) ) + &
+        &             RESHAPE ( prm_field(jg)%lhflx_tile(:,:,iwtr),    (/ nbr_points /) ) !net non-solar fluxes for ocean
+       field_shape(3) = 2
+       CALL ICON_cpl_put ( field_id(5), field_shape, buffer(1:nbr_hor_points,1:2), info, ierror )
+       !
+       ! ICEATM, Ice state determined by atmosphere
+       !
+       buffer(:,1) =  RESHAPE ( prm_field(jg)%Qtop(:,1,:), (/ nbr_points /) ) !Melt-potential for ice - top
+       buffer(:,2) =  RESHAPE ( prm_field(jg)%Qbot(:,1,:), (/ nbr_points /) ) !Melt-potential for ice - bottom
+       buffer(:,3) =  RESHAPE ( prm_field(jg)%T1  (:,1,:), (/ nbr_points /) ) !Temperature of upper ice layer
+       buffer(:,4) =  RESHAPE ( prm_field(jg)%T2  (:,1,:), (/ nbr_points /) ) !Temperature of lower ice layer
        field_shape(3) = 4
-       CALL ICON_cpl_put ( field_id(5), field_shape, buffer(1:nbr_hor_points,1:4), ierror )
-       field_shape(3) = 1
+       CALL ICON_cpl_put ( field_id(6), field_shape, buffer(1:nbr_hor_points,1:4), info, ierror )
+       IF ( info == 2 ) write_coupler_restart = .TRUE.
 
+       IF ( write_coupler_restart ) CALL icon_cpl_write_restart ( 6, field_id(1:6), ierror )
        !
        ! Receive fields, only assign values if something was received ( info > 0 )
        ! -------------------------------------------------------------------------
        !
        ! SST
        !
-       CALL ICON_cpl_get ( field_id(6), field_shape, buffer(1:nbr_hor_points,1:1), info, ierror )
+       field_shape(3) = 1
+       CALL ICON_cpl_get ( field_id(7), field_shape, buffer(1:nbr_hor_points,1:1), info, ierror )
        IF ( info > 0 ) THEN
          buffer(nbr_hor_points+1:nbr_points,1:1) = 0.0_wp
          prm_field(jg)%tsfc_tile(:,:,iwtr) = RESHAPE (buffer(:,1), (/ nproma, p_patch%nblks_c /) )
-         prm_field(jg)%tsfc     (:,:)      = prm_field(jg)%tsfc_tile(:,:,iwtr)
          CALL sync_patch_array(sync_c, p_patch, prm_field(jg)%tsfc_tile(:,:,iwtr))
-         CALL sync_patch_array(sync_c, p_patch, prm_field(jg)%tsfc     (:,:))
        ENDIF
        !
        ! OCEANU
        !
-       CALL ICON_cpl_get ( field_id(7), field_shape, buffer(1:nbr_hor_points,1:1), info, ierror )
+       CALL ICON_cpl_get ( field_id(8), field_shape, buffer(1:nbr_hor_points,1:1), info, ierror )
        IF ( info > 0 ) THEN
          buffer(nbr_hor_points+1:nbr_points,1:1) = 0.0_wp
          prm_field(jg)%ocu(:,:) = RESHAPE (buffer(:,1), (/ nproma,  p_patch%nblks_c /) )
@@ -500,26 +518,29 @@ CONTAINS
        !
        ! OCEANV
        !
-       CALL ICON_cpl_get ( field_id(8), field_shape, buffer(1:nbr_hor_points,1:1), info, ierror )
+       CALL ICON_cpl_get ( field_id(9), field_shape, buffer(1:nbr_hor_points,1:1), info, ierror )
        IF ( info > 0 ) THEN
          buffer(nbr_hor_points+1:nbr_points,1:1) = 0.0_wp
          prm_field(jg)%ocv(:,:) = RESHAPE (buffer(:,1), (/ nproma, p_patch%nblks_c /) )
          CALL sync_patch_array(sync_c, p_patch, prm_field(jg)%ocv(:,:))
        ENDIF
        !
-       ! ALBEDO
+       ! ICEOCE
        !
-       CALL ICON_cpl_get ( field_id(9), field_shape, buffer(1:nbr_hor_points,1:1), info, ierror )
+       field_shape(3) = 4
+       CALL ICON_cpl_get ( field_id(10), field_shape, buffer(1:nbr_hor_points,1:4), info, ierror )
        IF ( info > 0 ) THEN
-         buffer(nbr_hor_points+1:nbr_points,1:1) = 0.0_wp
-         prm_field(jg)%albvisdir(:,:) = RESHAPE (buffer(:,1), (/ nproma, p_patch%nblks_c /) )
-         prm_field(jg)%albvisdif(:,:) = RESHAPE (buffer(:,1), (/ nproma, p_patch%nblks_c /) )
-         prm_field(jg)%albnirdir(:,:) = RESHAPE (buffer(:,1), (/ nproma, p_patch%nblks_c /) )
-         prm_field(jg)%albnirdif(:,:) = RESHAPE (buffer(:,1), (/ nproma, p_patch%nblks_c /) )
-         CALL sync_patch_array(sync_c, p_patch, prm_field(jg)%albvisdir(:,:))
-         CALL sync_patch_array(sync_c, p_patch, prm_field(jg)%albvisdif(:,:))
-         CALL sync_patch_array(sync_c, p_patch, prm_field(jg)%albnirdir(:,:))
-         CALL sync_patch_array(sync_c, p_patch, prm_field(jg)%albnirdif(:,:))
+         buffer(nbr_hor_points+1:nbr_points,1:4) = 0.0_wp
+         prm_field(jg)%hi  (:,1,:) = RESHAPE (buffer(:,1), (/ nproma, p_patch%nblks_c /) )
+         prm_field(jg)%conc(:,1,:) = RESHAPE (buffer(:,2), (/ nproma, p_patch%nblks_c /) )
+         prm_field(jg)%T1  (:,1,:) = RESHAPE (buffer(:,3), (/ nproma, p_patch%nblks_c /) )
+         prm_field(jg)%T2  (:,1,:) = RESHAPE (buffer(:,4), (/ nproma, p_patch%nblks_c /) )
+         prm_field(jg)%seaice(:,:) = prm_field(jg)%conc(:,1,:)
+         CALL sync_patch_array(sync_c, p_patch, prm_field(jg)%hi  (:,1,:))
+         CALL sync_patch_array(sync_c, p_patch, prm_field(jg)%conc(:,1,:))
+         CALL sync_patch_array(sync_c, p_patch, prm_field(jg)%seaice(:,:))
+         CALL sync_patch_array(sync_c, p_patch, prm_field(jg)%T1  (:,1,:))
+         CALL sync_patch_array(sync_c, p_patch, prm_field(jg)%T2  (:,1,:))
        ENDIF
 
        DEALLOCATE(buffer)

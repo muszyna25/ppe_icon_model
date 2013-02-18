@@ -134,6 +134,7 @@ cat > ${ocean_namelist} << EOF
 &run_nml
  nsteps      = ${nsteps}    ! number of steps length of run
  dtime       = ${dtime}     ! [s] timestep in seconds
+ output      = 'vlist'      ! We're still using the old output mechanism
 /
 &dynamics_nml
  iequations  = ${ocean_model_equations}       ! -1: hydrost. ocean model

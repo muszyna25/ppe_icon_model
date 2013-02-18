@@ -117,7 +117,8 @@ MODULE mo_io_vlist
     &                                 itime_scheme_nh_atm => itime_scheme
   USE mo_ocean_nml,             ONLY: n_zlev, dzlev_m, iforc_oce, no_tracer,      &
     &                                 temperature_relaxation, i_sea_ice,          &
-    &                                 irelax_2d_S !, i_apply_bulk
+    &                                 irelax_2d_S
+  USE mo_sea_ice_nml,           ONLY: i_ice_therm
   USE mo_dynamics_config,       ONLY: iequations,lshallow_water,                  &
     &                                 idiv_method, divavg_cntrwgt,                &
     &                                 nold, nnow, nnow_rcf, lcoriolis
@@ -156,7 +157,7 @@ MODULE mo_io_vlist
   USE mo_vertical_coord_table,  ONLY: vct
   USE mo_grid_config,           ONLY: start_lev, nroot, n_dom, lfeedback, lplane, &
     &                                 n_dom_start
-  USE mo_model_domain,          ONLY: t_patch, p_patch
+  USE mo_model_domain,          ONLY: t_patch, p_patch, t_patch_3D
   USE mo_physical_constants,    ONLY: grav
   USE mo_mpi,                   ONLY: my_process_is_stdio, p_recv, p_send, &
     &                                 num_work_procs, get_my_mpi_all_id
@@ -164,9 +165,9 @@ MODULE mo_io_vlist
   USE mo_nonhydro_types,        ONLY: t_nh_prog, t_nh_diag
   USE mo_opt_diagnostics,       ONLY: t_nh_diag_pz
   USE mo_oce_state,             ONLY: t_hydro_ocean_state, t_hydro_ocean_prog,       &
-       &                              t_hydro_ocean_diag, t_hydro_ocean_base,        &
+       &                              t_hydro_ocean_diag, &!t_hydro_ocean_base,        &
        &                              t_hydro_ocean_aux,                             &
-       &                              v_base, set_zlev, v_ocean_state
+       &                              set_zlev!, v_ocean_state!, v_base
 !  USE mo_oce_forcing,           ONLY: t_sfc_flx, v_sfc_flx
   ! #
   USE mo_sea_ice_types,                ONLY: t_sfc_flx, v_sfc_flx, t_sea_ice, v_sea_ice
@@ -177,7 +178,7 @@ MODULE mo_io_vlist
   USE mo_nwp_phy_state,         ONLY: prm_diag, prm_nwp_tend !, t_nwp_phy_diag
   USE mo_ext_data_state,        ONLY: ext_data
   USE mo_echam_phy_memory,      ONLY: prm_field, prm_tend
-  USE mo_icoham_sfc_indices,    ONLY: nsfc_type
+  USE mo_icoham_sfc_indices,    ONLY: nsfc_type, iice
   USE mo_radiation_config,      ONLY: izenith, irad_h2o,                          &
     &                                 irad_co2, irad_ch4, irad_n2o, irad_o3,      &
     &                                 irad_o2, irad_cfc11, irad_cfc12,  irad_aero
@@ -265,11 +266,12 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   !BOC
-  SUBROUTINE setup_vlist(grid_filename, k_jg, l_do_io)
+  SUBROUTINE setup_vlist(grid_filename, k_jg, l_do_io,mypatch)
 
     CHARACTER(len=*), INTENT(in) :: grid_filename
     INTEGER, INTENT(in) :: k_jg
     LOGICAL, INTENT(in) :: l_do_io
+    TYPE(t_patch),OPTIONAL :: mypatch(:)
 
     INTEGER :: ncid, dimid, varid
     INTEGER :: i_nc, i_ne, i_nv
@@ -361,9 +363,15 @@ CONTAINS
       END SELECT
       CALL nf(nf_inq_dimlen(ncid, dimid, i_nv))
     ELSE
-      i_nc = p_patch(k_jg)%n_patch_cells_g
-      i_ne = p_patch(k_jg)%n_patch_edges_g
-      i_nv = p_patch(k_jg)%n_patch_verts_g
+     IF (PRESENT(mypatch)) THEN
+       i_nc = mypatch(k_jg)%n_patch_cells_g
+       i_ne = mypatch(k_jg)%n_patch_edges_g
+       i_nv = mypatch(k_jg)%n_patch_verts_g
+     ELSE
+        i_nc = p_patch(k_jg)%n_patch_cells_g
+        i_ne = p_patch(k_jg)%n_patch_edges_g
+        i_nv = p_patch(k_jg)%n_patch_verts_g
+     ENDIF
     ENDIF
 
     !
@@ -671,8 +679,9 @@ CONTAINS
       CALL zaxisDefLevels(zaxisID_halfdepth(k_jg), levels_i)
       DEALLOCATE(levels_i)
       DEALLOCATE(levels_m)
-      zaxisID_generic_ice(k_jg) = zaxisCreate(ZAXIS_GENERIC, 1) !TOOE v_ice%kice
     ENDIF
+    ! The ice axis must exist for atmosphere and ocean
+    zaxisID_generic_ice(k_jg) = zaxisCreate(ZAXIS_GENERIC, 1) !TOOE v_ice%kice
     !
     !
     !=========================================================================
@@ -949,7 +958,7 @@ CONTAINS
               meaning = "averaged"
             ELSE 
               sufix = ""
-              meaning = "instant."     
+              meaning = "instantan"     
             END IF
 
             WRITE(name,'(A8,A4)') "swflxsfc", sufix
@@ -1467,6 +1476,20 @@ CONTAINS
           &                   'm^2/s^2', 152, 201,&
           &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_hybrid_half(k_jg)),&
           &           k_jg)
+          IF(ltestcase .AND. nh_test_name=='CBL')THEN
+            !--- turbulent viscosity-----
+            CALL addVar(TimeVar('TKVM',&
+            &                   'sub-grid turbulent viscosity',&
+            &                   'm^2/s', 255, 255,&
+            &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_hybrid_half(k_jg)),&
+            &           k_jg)
+            !--- turbulent diffusivity-----
+            CALL addVar(TimeVar('TKVH',&
+            &                   'sub-grid turbulent diffusivity',&
+            &                   'm^2/s', 255, 255,&
+            &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_hybrid_half(k_jg)),&
+            &           k_jg)
+          END IF
 !DR to be implemented
 !!$          !--- TKE-tendency ---
 !!$          CALL addVar(TimeVar('tend_tke',&
@@ -1691,7 +1714,7 @@ CONTAINS
             &           k_jg)
 
           ENDDO
-          END IF  ! inwp_surface
+        END IF  ! inwp_surface TERRA
 
           !--- Specific Humidity at Surface---
           CALL addVar(TimeVar('QV_S',&
@@ -1846,6 +1869,30 @@ CONTAINS
             &           vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),k_jg)
 
           END DO
+
+          ! Sea ice - mostly for debuging purposes
+          IF ( iice <= nsfc_type ) THEN
+            CALL addVar(TimeVar('ice_Tsurf','surface temperature of snow/ice','C',&
+            &         100,128,                    &
+            &         vlistID(k_jg),gridCellID(k_jg),zaxisID_generic_ice(k_jg)),k_jg)
+            IF ( i_ice_therm == 2 ) THEN
+              CALL addVar(TimeVar('ice_T1','temperature of the upper ice layer','C',&
+              &         100,128,                    &
+              &         vlistID(k_jg),gridCellID(k_jg),zaxisID_generic_ice(k_jg)),k_jg)
+              CALL addVar(TimeVar('ice_T2','temperature of the lower ice layer','C',&
+              &         100,128,                    &
+              &         vlistID(k_jg),gridCellID(k_jg),zaxisID_generic_ice(k_jg)),k_jg)
+            ENDIF
+            CALL addVar(TimeVar('ice_hi','ice thickness','m',&
+             &         100,128,                    &
+             &         vlistID(k_jg),gridCellID(k_jg),zaxisID_generic_ice(k_jg)),k_jg)
+            CALL addVar(TimeVar('ice_hs','ice thickness','m',&
+             &         100,128,                    &
+             &         vlistID(k_jg),gridCellID(k_jg),zaxisID_generic_ice(k_jg)),k_jg)
+             CALL addVar(TimeVar('ice_conc','ice concentration in each ice class','',&
+             &         100,128,                    &
+             &         vlistID(k_jg),gridCellID(k_jg),zaxisID_generic_ice(k_jg)),k_jg)
+          ENDIF
 
         END SELECT !iforcing
       ENDIF !lwrite_surface
@@ -2192,8 +2239,7 @@ CONTAINS
       &                   zaxisID_surface(k_jg)),&
       &           k_jg)
     END IF 
-    !IF (temperature_relaxation /= 0 .OR. i_sea_ice >= 1 .OR. i_apply_bulk==1 ) THEN
-    IF (iforc_oce > 11) THEN   !  e.g. OMIP forcing or coupled
+    IF (temperature_relaxation /= 0 .OR. i_sea_ice >= 1 ) THEN
       CALL addVar(TimeVar('forc_hflx',&
       &                   'net surface heat flux',&
       &                   'W/m2',16,128,&
@@ -2386,21 +2432,20 @@ CONTAINS
 
    ! sea ice
      IF (i_sea_ice >= 1 ) THEN
-!       CALL addVar(TimeVar('p_ice_isice','','',&
-!       &         100,128,                    &
-!       &         vlistID(k_jg),gridCellID(k_jg),zaxisID_generic_ice(k_jg)),k_jg)
 !      CALL addVar(TimeVar('p_ice_alb','albedo of the snow/ice system','',&
 !      &         100,128,                    &
 !      &         vlistID(k_jg),gridCellID(k_jg),zaxisID_generic_ice(k_jg)),k_jg)
        CALL addVar(TimeVar('p_ice_Tsurf','surface temperature of snow/ice','C',&
        &         100,128,                    &
        &         vlistID(k_jg),gridCellID(k_jg),zaxisID_generic_ice(k_jg)),k_jg)
-!      CALL addVar(TimeVar('p_ice_T1','temperature of the upper ice layer','C',&
-!      &         100,128,                    &
-!      &         vlistID(k_jg),gridCellID(k_jg),zaxisID_generic_ice(k_jg)),k_jg)
-!      CALL addVar(TimeVar('p_ice_T2','temperature of the lower ice layer','C',&
-!      &         100,128,                    &
-!      &         vlistID(k_jg),gridCellID(k_jg),zaxisID_generic_ice(k_jg)),k_jg)
+       IF ( i_ice_therm == 2 ) THEN
+         CALL addVar(TimeVar('p_ice_T1','temperature of the upper ice layer','C',&
+         &         100,128,                    &
+         &         vlistID(k_jg),gridCellID(k_jg),zaxisID_generic_ice(k_jg)),k_jg)
+         CALL addVar(TimeVar('p_ice_T2','temperature of the lower ice layer','C',&
+         &         100,128,                    &
+         &         vlistID(k_jg),gridCellID(k_jg),zaxisID_generic_ice(k_jg)),k_jg)
+       ENDIF
 !       CALL addVar(TimeVar('p_ice_E1','energy content of the upper ice layer','Jm/kg',&
 !       &         100,128,                    &
 !       &         vlistID(k_jg),gridCellID(k_jg),zaxisID_generic_ice(k_jg)),k_jg)
@@ -2808,6 +2853,8 @@ CONTAINS
       CASE ('snow');   ptr2 => prm_field(jg)%snow
       CASE ('albvisdir');   ptr2 => prm_field(jg)%albvisdir
       CASE ('albnirdir');   ptr2 => prm_field(jg)%albnirdir
+      CASE ('albvisdif');   ptr2 => prm_field(jg)%albvisdif
+      CASE ('albnirdif');   ptr2 => prm_field(jg)%albnirdif
         !KF  the reset command can only be used for 'plain' fields
       CASE ('swflxsfc_avg')
                                 ptr2 => dup2(prm_field(jg)% swflxsfc_avg(:,:)/dt_data)
@@ -2882,6 +2929,15 @@ CONTAINS
 !!$      CASE ('debug_3d_6');      ptr3 => prm_field(jg)%debug_3d_6
 !!$      CASE ('debug_3d_7');      ptr3 => prm_field(jg)%debug_3d_7
 !!$      CASE ('debug_3d_8');      ptr3 => prm_field(jg)%debug_3d_8
+
+      ! Sea ice - mostly for debuging purposes
+      CASE ('ice_Tsurf');       ptr3 => prm_field(jg)%Tsurf
+      CASE ('ice_T1');          ptr3 => prm_field(jg)%T1
+      CASE ('ice_T2');          ptr3 => prm_field(jg)%T2
+      CASE ('ice_hi');          ptr3 => prm_field(jg)%hi
+      CASE ('ice_hs');          ptr3 => prm_field(jg)%hs
+      CASE ('ice_conc');        ptr3 => prm_field(jg)%conc
+
       !
       CASE DEFAULT;             not_found = .TRUE.
     END SELECT
@@ -3062,10 +3118,10 @@ CONTAINS
       CASE ('ACCTHB_T');        ptr2 => prm_diag(jg)%lwflxtoa_a(:,:)
       CASE ('T_G');             ptr2 => p_prog_lnd%t_g
       CASE ('QV_S');            ptr2 => p_diag_lnd%qv_s
-      CASE ('ASHFL_S');         ptr2 => prm_diag(jg)%shfl_s_a 
-      CASE ('ALHFL_S');         ptr2 => prm_diag(jg)%lhfl_s_a
-      CASE ('ACCSHFL_S');       ptr2 => prm_diag(jg)%shfl_s_a 
-      CASE ('ACCLHFL_S');       ptr2 => prm_diag(jg)%lhfl_s_a
+      CASE ('ASHFL_S');         ptr2 => prm_diag(jg)%ashfl_s 
+      CASE ('ALHFL_S');         ptr2 => prm_diag(jg)%alhfl_s
+      CASE ('ACCSHFL_S');       ptr2 => prm_diag(jg)%ashfl_s 
+      CASE ('ACCLHFL_S');       ptr2 => prm_diag(jg)%alhfl_s
       CASE ('SHFL_S')
        IF   (atm_phy_nwp_config(jg)%inwp_turb.EQ.1) THEN  
          ptr2 => dup2(-1.*prm_diag(jg)%shfl_s(:,:)); delete = .TRUE.
@@ -3082,7 +3138,7 @@ CONTAINS
        ELSE
          ptr2 => prm_diag(jg)%lhfl_s
        ENDIF
-      CASE ('EVAP_RATE_avg');   ptr2 => prm_diag(jg)%qhfl_s_avg     
+      CASE ('EVAP_RATE_avg');   ptr2 => prm_diag(jg)%aqhfl_s     
       CASE ('VOR');             ptr3 => p_diag%omega_z
       CASE ('DIV');             ptr3 => p_diag%div
       CASE ('THETA_V');         ptr3 => p_prog%theta_v
@@ -3091,6 +3147,10 @@ CONTAINS
       CASE ('TKE');             ptr3 => p_prog_rcf%tke
       CASE ('TCM');             ptr2 => prm_diag(jg)%tcm
       CASE ('TCH');             ptr2 => prm_diag(jg)%tch
+      !<AD: Added for torus testcases
+      CASE ('TKVM');            ptr3 => prm_diag(jg)%tkvm
+      CASE ('TKVH');            ptr3 => prm_diag(jg)%tkvh      
+      !AD> 
       CASE ('Z0')
         IF (atm_phy_nwp_config(jg)%inwp_turb.EQ.1 .OR.  &
          &  atm_phy_nwp_config(jg)%inwp_turb.EQ.2) THEN
@@ -3133,7 +3193,7 @@ CONTAINS
         ENDIF
       ENDDO
 
-      DO jt = 1, 3
+      DO jt = 1, 5
         ctracer = ctracer_list(jt:jt)
         IF(varname == 'TQ'//ctracer) THEN
           ptr2 => p_diag%tracer_vi(:,:,jt)
@@ -3299,13 +3359,14 @@ CONTAINS
 
 
   !-------------------------------------------------------------------------------------------------
-  SUBROUTINE get_outvar_ptr_oce(varname,jg,ptr2d,ptr3d,reset,delete)
+  SUBROUTINE get_outvar_ptr_oce(varname,jg,ptr2d,ptr3d,reset,delete,p_patch_3D, p_os)
 
     CHARACTER(LEN=*), INTENT(IN) :: varname
     INTEGER, INTENT(IN) :: jg
     REAL(wp), POINTER :: ptr2d(:,:)
     REAL(wp), POINTER :: ptr3d(:,:,:)
-
+    TYPE(t_patch_3D ),TARGET, INTENT(IN)  :: p_patch_3D
+    TYPE(t_hydro_ocean_state), TARGET, INTENT(IN) :: p_os(n_dom)
 
     LOGICAL, INTENT(OUT) :: reset, delete
 
@@ -3317,13 +3378,15 @@ CONTAINS
     TYPE(t_sfc_flx),          POINTER :: forcing
     TYPE(t_ho_params),        POINTER :: p_params
     TYPE(t_sea_ice),          POINTER :: p_ice
-    REAL(wp),                 POINTER :: r_isice(:,:,:)
     REAL(wp),                 POINTER :: r_dolic_c(:,:), r_dolic_e(:,:)
-    INTEGER                           :: s_isice(3), shp_dolic(2)
+    INTEGER                           :: shp_dolic(2)
 
-    p_prog  => v_ocean_state(jg)%p_prog(nold(jg))
-    p_diag  => v_ocean_state(jg)%p_diag
-    p_aux   => v_ocean_state(jg)%p_aux
+!     p_prog  => v_ocean_state(jg)%p_prog(nold(jg))
+!     p_diag  => v_ocean_state(jg)%p_diag
+!     p_aux   => v_ocean_state(jg)%p_aux
+    p_prog  => p_os(jg)%p_prog(nold(jg))
+    p_diag  => p_os(jg)%p_diag
+    p_aux   => p_os(jg)%p_aux
     forcing => v_sfc_flx 
     p_params=> v_params
     p_ice   => v_sea_ice
@@ -3335,19 +3398,19 @@ CONTAINS
     not_found = .FALSE.
 
     SELECT CASE(varname)
-      CASE ('wet_c');        ptr3d => v_base%wet_c
-      CASE ('wet_e');        ptr3d => v_base%wet_e
-      CASE ('rbasin_c');     ptr2d => v_base%rbasin_c(:,:)
-      CASE ('rregio_c');     ptr2d => v_base%rregio_c(:,:)
+      CASE ('wet_c');        ptr3d => p_patch_3D%wet_c
+      CASE ('wet_e');        ptr3d => p_patch_3D%wet_e
+      CASE ('rbasin_c');     ptr2d => p_patch_3D%rbasin_c(:,:)
+      CASE ('rregio_c');     ptr2d => p_patch_3D%rregio_c(:,:)
       CASE ('dolic_c')
-        shp_dolic = SHAPE(v_base%dolic_c)
+        shp_dolic = SHAPE(p_patch_3D%p_patch_1D(1)%dolic_c)
         ALLOCATE(r_dolic_c(shp_dolic(1),shp_dolic(2)))
-        r_dolic_c(:,:) = REAL(v_base%dolic_c(:,:))
+        r_dolic_c(:,:) = REAL(p_patch_3D%p_patch_1D(1)%dolic_c(:,:))
         ptr2d => r_dolic_c
       CASE ('dolic_e')
-        shp_dolic = SHAPE(v_base%dolic_e)
+        shp_dolic = SHAPE(p_patch_3D%p_patch_1D(1)%dolic_e)
         ALLOCATE(r_dolic_e(shp_dolic(1),shp_dolic(2)))
-        r_dolic_e(:,:) = REAL(v_base%dolic_e(:,:))
+        r_dolic_e(:,:) = REAL(p_patch_3D%p_patch_1D(1)%dolic_e(:,:))
         ptr2d => r_dolic_e
       CASE ('ELEV');         ptr2d => p_prog%h
       CASE ('forc_u');       ptr2d => forcing%forc_wind_u
@@ -3374,18 +3437,18 @@ CONTAINS
       CASE ('g_n');          ptr3d => p_aux%g_n(:,:,:)
       CASE ('g_nm1');        ptr3d => p_aux%g_nm1(:,:,:)
       CASE ('g_nimd');       ptr3d => p_aux%g_nimd(:,:,:)
-      CASE ('g_n_c_h_T');    ptr3d => p_aux%g_n_c_h(:,:,:,1)
-      CASE ('g_n_c_h_S');    ptr3d => p_aux%g_n_c_h(:,:,:,2)
-      CASE ('g_n_c_v_T');    ptr3d => p_aux%g_n_c_v(:,:,:,1)
-      CASE ('g_n_c_v_S');    ptr3d => p_aux%g_n_c_v(:,:,:,2)
-      CASE ('g_nm1_c_h_T');  ptr3d => p_aux%g_nm1_c_h(:,:,:,1)
-      CASE ('g_nm1_c_h_S');  ptr3d => p_aux%g_nm1_c_h(:,:,:,2)
-      CASE ('g_nm1_c_v_T');  ptr3d => p_aux%g_nm1_c_h(:,:,:,1)
-      CASE ('g_nm1_c_v_S');  ptr3d => p_aux%g_nm1_c_h(:,:,:,2)
-      CASE ('g_nimd_c_h_T'); ptr3d => p_aux%g_nimd_c_v(:,:,:,1)
-      CASE ('g_nimd_c_h_S'); ptr3d => p_aux%g_nimd_c_v(:,:,:,2)
-      CASE ('g_nimd_c_v_T'); ptr3d => p_aux%g_nimd_c_v(:,:,:,1)
-      CASE ('g_nimd_c_v_S'); ptr3d => p_aux%g_nimd_c_v(:,:,:,2)
+!       CASE ('g_n_c_h_T');    ptr3d => p_aux%g_n_c_h(:,:,:,1)
+!       CASE ('g_n_c_h_S');    ptr3d => p_aux%g_n_c_h(:,:,:,2)
+!       CASE ('g_n_c_v_T');    ptr3d => p_aux%g_n_c_v(:,:,:,1)
+!       CASE ('g_n_c_v_S');    ptr3d => p_aux%g_n_c_v(:,:,:,2)
+!       CASE ('g_nm1_c_h_T');  ptr3d => p_aux%g_nm1_c_h(:,:,:,1)
+!       CASE ('g_nm1_c_h_S');  ptr3d => p_aux%g_nm1_c_h(:,:,:,2)
+!       CASE ('g_nm1_c_v_T');  ptr3d => p_aux%g_nm1_c_h(:,:,:,1)
+!       CASE ('g_nm1_c_v_S');  ptr3d => p_aux%g_nm1_c_h(:,:,:,2)
+!       CASE ('g_nimd_c_h_T'); ptr3d => p_aux%g_nimd_c_v(:,:,:,1)
+!       CASE ('g_nimd_c_h_S'); ptr3d => p_aux%g_nimd_c_v(:,:,:,2)
+!       CASE ('g_nimd_c_v_T'); ptr3d => p_aux%g_nimd_c_v(:,:,:,1)
+!       CASE ('g_nimd_c_v_S'); ptr3d => p_aux%g_nimd_c_v(:,:,:,2)
       CASE ('VORT');         ptr3d => p_diag%vort
       CASE ('u');            ptr3d => p_diag%u
       CASE ('v');            ptr3d => p_diag%v
@@ -3400,15 +3463,6 @@ CONTAINS
       CASE('Horz_Mixing_V'); ptr3d => p_params%K_veloc_h
       CASE ('cell_owner');   ptr2d => cell_owner
       ! sea ice variables
-      CASE('p_ice_isice')
-        s_isice = SHAPE(p_ice%isice)
-        ALLOCATE(r_isice(s_isice(1),s_isice(2),s_isice(3)))
-        WHERE(p_ice%isice)
-          r_isice = 1.0_wp
-        ELSEWHERE
-          r_isice = 0.0_wp
-        ENDWHERE
-        ptr3d => r_isice
       CASE('p_ice_alb');         ptr3d => p_ice%alb
       CASE('p_ice_Tsurf');       ptr3d => p_ice%Tsurf
       CASE('p_ice_T1');          ptr3d => p_ice%T1
@@ -3477,7 +3531,7 @@ CONTAINS
   END SUBROUTINE get_outvar_ptr_oce
 
   !-------------------------------------------------------------------------------------------------
-  SUBROUTINE write_vlist (datetime, z_sim_time)
+  SUBROUTINE write_vlist (datetime, z_sim_time, p_patch_3D, p_state_oce)
 
     !=========================================================================
     !> Write output directly: PE 0 gathers and writes, others send
@@ -3485,6 +3539,9 @@ CONTAINS
 
     TYPE(t_datetime),            INTENT(in) :: datetime
     REAL(wp), OPTIONAL,          INTENT(in) :: z_sim_time(n_dom)
+    !TYPE(t_patch), OPTIONAL,     INTENT(IN) ::  p_patch_2D(:) 
+    TYPE(t_patch_3D ), OPTIONAL, INTENT(IN)  :: p_patch_3D
+    TYPE(t_hydro_ocean_state), OPTIONAL, INTENT(IN) :: p_state_oce(n_dom)
     INTEGER :: idate, itime
     INTEGER :: istatus, ierrstat
     INTEGER :: jg, ivar, n_tot
@@ -3531,55 +3588,103 @@ CONTAINS
             CALL get_outvar_ptr_nh &
               & (outvar_desc(ivar,jg)%name, jg, ptr2, ptr3, reset, delete)
           CASE (ihs_ocean)
-            CALL get_outvar_ptr_oce(outvar_desc(ivar,jg)%name, jg, ptr2, ptr3,reset, delete)
+            CALL get_outvar_ptr_oce(outvar_desc(ivar,jg)%name, jg, ptr2, ptr3,reset, delete,&
+                                  & p_patch_3D, p_state_oce)
           CASE DEFAULT
             CALL finish('write_vlist','Unsupported value of iequations')
         END SELECT
 
-        SELECT CASE(outvar_desc(ivar, jg)%type)
-          CASE (GATHER_C)
-            n_tot = p_patch(jg)%n_patch_cells_g
-          CASE (GATHER_E)
-            n_tot = p_patch(jg)%n_patch_edges_g
-          CASE (GATHER_V)
-            n_tot = p_patch(jg)%n_patch_verts_g
-          CASE DEFAULT
+        IF(present(p_patch_3D))THEN
+          SELECT CASE(outvar_desc(ivar, jg)%type)
+            CASE (GATHER_C)
+              n_tot = p_patch_3D%p_patch_2D(jg)%n_patch_cells_g
+            CASE (GATHER_E)
+              n_tot = p_patch_3D%p_patch_2D(jg)%n_patch_edges_g
+            CASE (GATHER_V)
+              n_tot = p_patch_3D%p_patch_2D(jg)%n_patch_verts_g
+            CASE DEFAULT
             CALL finish('write_vlist', 'Illegal type in outvar_desc')
-        END SELECT
-
+          END SELECT
+        ELSEIF(.NOT.present(p_patch_3D))THEN
+          SELECT CASE(outvar_desc(ivar, jg)%type)
+            CASE (GATHER_C)
+              n_tot = p_patch(jg)%n_patch_cells_g
+            CASE (GATHER_E)
+              n_tot = p_patch(jg)%n_patch_edges_g
+            CASE (GATHER_V)
+              n_tot = p_patch(jg)%n_patch_verts_g
+            CASE DEFAULT
+            CALL finish('write_vlist', 'Illegal type in outvar_desc')
+          END SELECT
+        ENDIF
         klev = outvar_desc(ivar, jg)%nlev
 
         ! Pack and output variable
         IF_2D_3D : IF(ASSOCIATED(ptr2)) THEN
 
-          IF(my_process_is_stdio()) ALLOCATE(streamvar1(n_tot))
+          IF(PRESENT(p_patch_3D))THEN
+            IF(my_process_is_stdio()) ALLOCATE(streamvar1(n_tot))
 
-          CALL gather_array1( outvar_desc(ivar, jg)%type, p_patch(jg), ptr2, &
-            &                 streamvar1,outvar_desc(ivar,jg)%name, collected_var_3d )
+            CALL gather_array1( outvar_desc(ivar, jg)%type, p_patch_3D%p_patch_2D(jg), ptr2, &
+              &                 streamvar1,outvar_desc(ivar,jg)%name, collected_var_3d )
+  
+            IF(my_process_is_stdio()) THEN
+              CALL streamWriteVar(streamID(jg), varids(ivar,jg), streamvar1, 0)
+              DEALLOCATE(streamvar1)
+            ENDIF
+            IF(reset) ptr2 = 0._wp
+            IF(delete) DEALLOCATE(ptr2)
 
-          IF(my_process_is_stdio()) THEN
-            CALL streamWriteVar(streamID(jg), varids(ivar,jg), streamvar1, 0)
-            DEALLOCATE(streamvar1)
-          ENDIF
-          IF(reset) ptr2 = 0._wp
-          IF(delete) DEALLOCATE(ptr2)
+            nlev = 1
+          ELSEIF(.NOT. PRESENT(p_patch_3D))THEN
+               
+            IF(my_process_is_stdio()) ALLOCATE(streamvar1(n_tot))
 
-          nlev = 1
+            CALL gather_array1( outvar_desc(ivar, jg)%type, p_patch(jg), ptr2, &
+              &                 streamvar1,outvar_desc(ivar,jg)%name, collected_var_3d )
+  
+            IF(my_process_is_stdio()) THEN
+              CALL streamWriteVar(streamID(jg), varids(ivar,jg), streamvar1, 0)
+              DEALLOCATE(streamvar1)
+            ENDIF
+            IF(reset) ptr2 = 0._wp
+            IF(delete) DEALLOCATE(ptr2)
 
-        ELSE
-          IF(my_process_is_stdio()) ALLOCATE(streamvar2(n_tot, klev))
-          CALL gather_array2( outvar_desc(ivar, jg)%type, p_patch(jg), ptr3,  &
+            nlev = 1
+          ENDIF!(PRESENT(p_patch_2D))
+
+        ELSEIF(.NOT.ASSOCIATED(ptr2))THEN          
+          IF(PRESENT(p_patch_3D))THEN
+
+            IF(my_process_is_stdio()) ALLOCATE(streamvar2(n_tot, klev))
+            CALL gather_array2( outvar_desc(ivar, jg)%type, p_patch_3D%p_patch_2D(jg), ptr3,  &
             &                 streamvar2,outvar_desc(ivar,jg)%name, collected_var_3d )
 
-          IF(my_process_is_stdio()) THEN
-            CALL streamWriteVar(streamID(jg), varids(ivar,jg), streamvar2, 0)
-            DEALLOCATE(streamvar2)
-          ENDIF
+            IF(my_process_is_stdio()) THEN
+              CALL streamWriteVar(streamID(jg), varids(ivar,jg), streamvar2, 0)
+              DEALLOCATE(streamvar2)
+            ENDIF
 
-          nlev = SIZE(ptr3(:,:,:), 2)
-          IF(reset) ptr3 = 0._wp
-          IF(delete) DEALLOCATE(ptr3)
+            nlev = SIZE(ptr3(:,:,:), 2)
+            IF(reset) ptr3 = 0._wp
+            IF(delete) DEALLOCATE(ptr3)
 
+
+          ELSEIF(.NOT. PRESENT(p_patch_3D))THEN
+            IF(my_process_is_stdio()) ALLOCATE(streamvar2(n_tot, klev))
+            CALL gather_array2( outvar_desc(ivar, jg)%type, p_patch(jg), ptr3,  &
+            &                 streamvar2,outvar_desc(ivar,jg)%name, collected_var_3d )
+
+            IF(my_process_is_stdio()) THEN
+              CALL streamWriteVar(streamID(jg), varids(ivar,jg), streamvar2, 0)
+              DEALLOCATE(streamvar2)
+            ENDIF
+
+            nlev = SIZE(ptr3(:,:,:), 2)
+            IF(reset) ptr3 = 0._wp
+            IF(delete) DEALLOCATE(ptr3)
+          
+          ENDIF!(PRESENT(p_patch_2D))
         END IF IF_2D_3D
 
         ! clean up: collected 3d field on triangular grid no longer needed

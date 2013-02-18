@@ -70,9 +70,9 @@ atmo_dyn_grids='iconR2B04-grid.nc'
 cat > NAMELIST_${EXPNAME} << EOF
 &parallel_nml
  nproma         = ${nproma}
- p_test_run     = .false.
+ p_test_run     = .true.
  l_test_openmp  = .false.
- l_log_checks   = .false.
+ l_log_checks   = .true.
 /
 &grid_nml
  cell_type = 3            ! triangular cells

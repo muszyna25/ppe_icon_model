@@ -422,28 +422,14 @@ MODULE mo_impl_constants
   INTEGER, PARAMETER :: div_geometric = 1  ! Geometric subdivision
   INTEGER, PARAMETER :: div_metis     = 2  ! Use Metis
 
-  !--------------------------!
-  !  VERTICAL INTERPOLATION  !
-  !--------------------------!
-
-  !-----  vertical interpolation: type of interpolation
-  CHARACTER(len=32), PARAMETER :: STR_VINTP_TYPE(3) = &
-    (/ "VINTP_TYPE_NONE  ",  &
-    &  "VINTP_TYPE_Z     ",  &
-    &  "VINTP_TYPE_P_OR_Z" /)
-  INTEGER, PARAMETER :: VINTP_TYPE_NONE    = 1
-  INTEGER, PARAMETER :: VINTP_TYPE_Z       = 2
-  INTEGER, PARAMETER :: VINTP_TYPE_P_OR_Z  = 3
-! To Do: Not yet implemented for isentropes
-!
-!  INTEGER, PARAMETER :: VINTP_TYPE_I       = 3
-
   !-----  horizontal interpolation: type of interpolation
-  CHARACTER(len=32), PARAMETER :: STR_HINTP_TYPE(2) = &
-    (/ "HINTP_TYPE_NONE  ",  &
-    &  "HINTP_TYPE_LONLAT" /)
-  INTEGER, PARAMETER :: HINTP_TYPE_NONE    = 1
-  INTEGER, PARAMETER :: HINTP_TYPE_LONLAT  = 2
+  CHARACTER(len=32), PARAMETER :: STR_HINTP_TYPE(3) = &
+    (/ "HINTP_TYPE_NONE      ",  &
+    &  "HINTP_TYPE_LONLAT_RBF",  &
+    &  "HINTP_TYPE_LONLAT_NNB" /)
+  INTEGER, PARAMETER :: HINTP_TYPE_NONE        = 1
+  INTEGER, PARAMETER :: HINTP_TYPE_LONLAT_RBF  = 2
+  INTEGER, PARAMETER :: HINTP_TYPE_LONLAT_NNB  = 3
 
   !-----  vertical interpolation algorithms
   INTEGER, PARAMETER :: VINTP_METHOD_UV    = 1
@@ -452,6 +438,13 @@ MODULE mo_impl_constants
   INTEGER, PARAMETER :: VINTP_METHOD_PRES  = 4
   INTEGER, PARAMETER :: VINTP_METHOD_LIN_NLEVP1 = 5
 
+  !----- init ICON operation modes -----
+  INTEGER, PARAMETER :: MODE_DWDANA      = 1
+  INTEGER, PARAMETER :: MODE_IFSANA      = 2
+  INTEGER, PARAMETER :: MODE_COMBINED    = 3
+  INTEGER, PARAMETER :: MODE_REMAP       = 4 
+
+
   !----------------!
   !  MODEL OUTPUT  !
   !----------------!
@@ -459,7 +452,7 @@ MODULE mo_impl_constants
   INTEGER, PARAMETER :: &
     max_var_lists  = 256, & ! max number of output var_lists
     MAX_NVARS      = 999, & ! maximum number of output variables (total)
-    max_var_ml     = 400, & ! maximum number of output model-level variables
+    max_var_ml     = 600, & ! maximum number of output model-level variables
     max_var_pl     = 100, & ! maximum number of pressure-level variables
     max_var_hl     = 100, & ! maximum number of height-level variables
     max_var_il     = 100, & ! maximum number of variables on isentropes
@@ -472,6 +465,8 @@ MODULE mo_impl_constants
     PRES_MSL_METHOD_GME = 1,  &   ! GME-type extrapolation
     PRES_MSL_METHOD_SAI = 2       ! stepwise analytical integration 
 
+  ! Max number of time levels:
+  INTEGER, PARAMETER :: MAX_TIME_LEVELS = 5
 
   !-----------------------------------!
   !  POST PROCESSING SCHEDULER TASKS  !
@@ -490,8 +485,16 @@ MODULE mo_impl_constants
   INTEGER, PARAMETER, PUBLIC :: TASK_INTP_VER_ILEV     = 9  !< task: vertical isentropic levels
   INTEGER, PARAMETER, PUBLIC :: TASK_INTP_SYNC         = 10 !< task: synchronizes halo regions
   INTEGER, PARAMETER, PUBLIC :: TASK_INTP_MSL          = 11 !< task: intp. to mean sea level
+  INTEGER, PARAMETER, PUBLIC :: TASK_INTP_EDGE2CELL    = 12 !< task: intp. from edge midpoints to cell centers
   !------ computation of optional diagnostic fields
-  INTEGER, PARAMETER, PUBLIC :: TASK_COMPUTE_RH        = 12 !< task: compute relative humidity
+  INTEGER, PARAMETER, PUBLIC :: TASK_COMPUTE_RH        = 13 !< task: compute relative humidity
+
+  !--------------------------------------------------------------------!
+  !  VARIABLE TIMELEVEL SPECIFICATION (FOR POST-PROCESSING SCHEDULER)  !
+  !--------------------------------------------------------------------!
+
+  INTEGER, PARAMETER, PUBLIC :: UNDEF_TIMELEVEL        = -2 !< means "undefined time level"
+  INTEGER, PARAMETER, PUBLIC :: ALL_TIMELEVELS         = -1 !< means "active at all time levels"
 
 
 !--------------------------------------------------------------------

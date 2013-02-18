@@ -53,10 +53,11 @@ MODULE mo_sea_ice
   USE mo_exception,           ONLY: finish, message
   USE mo_impl_constants,      ONLY: success, max_char_length, sea_boundary 
   USE mo_physical_constants,  ONLY: rhoi, rhos, rho_ref,ki,ks,Tf,albi,albim,albsm,albs, mu, &
-    &                               alf, alv, albedoW, clw, cpd, zemiss_def,rd, stbo,tmelt
+    &                               alf, alv, albedoW, clw, cpd, zemiss_def,rd, stbo,tmelt, ci
   USE mo_math_constants,      ONLY: rad2deg
   USE mo_ocean_nml,           ONLY: no_tracer, init_oce_prog, iforc_oce, &
-    &                               FORCING_FROM_FILE_FLUX, i_sea_ice
+    &                               FORCING_FROM_FILE_FLUX
+  USE mo_sea_ice_nml,         ONLY: i_ice_therm
   USE mo_oce_state,           ONLY: t_hydro_ocean_state, v_base, ocean_restart_list
   USE mo_var_list,            ONLY: add_var
   USE mo_master_control,      ONLY: is_restart_run
@@ -93,16 +94,14 @@ MODULE mo_sea_ice
   PUBLIC :: destruct_atmos_fluxes
 
   PUBLIC :: ice_init
-  PUBLIC :: set_ice_albedo
-  PUBLIC :: sum_fluxes
-  PUBLIC :: ave_fluxes
+!  PUBLIC :: set_ice_albedo
+!  PUBLIC :: sum_fluxes
+!  PUBLIC :: ave_fluxes
   PUBLIC :: ice_fast
   PUBLIC :: ice_slow
-  PUBLIC :: upper_ocean_TS
+!  PUBLIC :: upper_ocean_TS
   PUBLIC :: calc_bulk_flux_ice
   PUBLIC :: calc_bulk_flux_oce
-  PUBLIC :: prepareAfterRestart
-  PUBLIC :: prepare4restart
 
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
@@ -142,17 +141,6 @@ CONTAINS
 
     p_ice%kice = i_no_ice_thick_class
 
-    ALLOCATE(p_ice%isice(nproma,i_no_ice_thick_class,nblks_c), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for isice failed')
-    END IF
-
-    CALL add_var(ocean_restart_list, 'isice', p_ice%restart_isice ,&
-      &          GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE, &
-      &          t_cf_var('isice', '', 'ice mask', DATATYPE_FLT32),&
-      &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
-      &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/),&
-      &          lrestart_cont=.TRUE.)
     CALL add_var(ocean_restart_list, 'alb', p_ice%alb ,&
       &          GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE, &
       &          t_cf_var('alb', '', 'albedo of snow-ice system', DATATYPE_FLT32),&
@@ -186,6 +174,12 @@ CONTAINS
     CALL add_var(ocean_restart_list, 'E2', p_ice%E2 ,&
       &          GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE, &
       &          t_cf_var('E2', 'Jm/kg', 'Energy content lower layer', DATATYPE_FLT32),&
+      &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
+      &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/),&
+      &          lrestart_cont=.TRUE.)
+    CALL add_var(ocean_restart_list, 'vol', p_ice%vol ,&
+      &          GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE, &
+      &          t_cf_var('vol', 'm^3', 'ice volume', DATATYPE_FLT32),&
       &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
       &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/),&
       &          lrestart_cont=.TRUE.)
@@ -441,12 +435,10 @@ CONTAINS
       p_sfc_flx%forc_fwfx        (:,:)    = 0.0_wp
       p_sfc_flx%forc_swflx       (:,:)    = 0.0_wp
       p_sfc_flx%forc_lwflx       (:,:)    = 0.0_wp
-   !  if (no_tracer>=2) then
       p_sfc_flx%forc_ssflx       (:,:)    = 0.0_wp
       p_sfc_flx%forc_slflx       (:,:)    = 0.0_wp
       p_sfc_flx%forc_prflx       (:,:)    = 0.0_wp
       p_sfc_flx%forc_evflx       (:,:)    = 0.0_wp
-   !  endif
       p_sfc_flx%forc_tracer      (:,:,:)  = 0.0_wp
       p_sfc_flx%forc_tracer_relax(:,:,:)  = 0.0_wp
     ENDIF
@@ -702,6 +694,11 @@ CONTAINS
       CALL finish(TRIM(routine),'allocation for LWnet failed')
     END IF
 
+    ALLOCATE(p_atm_f%SWnet(nproma,i_no_ice_thick_class,nblks_c), STAT=ist)
+    IF (ist/=SUCCESS) THEN
+      CALL finish(TRIM(routine),'allocation for SWnet failed')
+    END IF
+
     ALLOCATE(p_atm_f%bot(nproma,i_no_ice_thick_class,nblks_c), STAT=ist)
     IF (ist/=SUCCESS) THEN
       CALL finish(TRIM(routine),'allocation for sens failed')
@@ -753,15 +750,57 @@ CONTAINS
       CALL finish(TRIM(routine),'allocation for LWnetw failed')
     END IF
 
-    ALLOCATE(p_atm_f%SWin(nproma,nblks_c), STAT=ist)
+    ALLOCATE(p_atm_f%SWnetw(nproma,nblks_c), STAT=ist)
     IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for SWin failed')
+      CALL finish(TRIM(routine),'allocation for SWnetw failed')
     END IF
 
     ALLOCATE(p_atm_f%LWin(nproma,nblks_c), STAT=ist)
     IF (ist/=SUCCESS) THEN
       CALL finish(TRIM(routine),'allocation for LWin failed')
      END IF
+
+
+    ALLOCATE(p_atm_f%albvisdirw(nproma,nblks_c), STAT=ist)
+    IF (ist/=SUCCESS) THEN
+      CALL finish(TRIM(routine),'allocation for albvisdirw failed')
+    END IF
+
+    ALLOCATE(p_atm_f%albvisdifw(nproma,nblks_c), STAT=ist)
+    IF (ist/=SUCCESS) THEN
+      CALL finish(TRIM(routine),'allocation for albvisdifw failed')
+    END IF
+
+    ALLOCATE(p_atm_f%albnirdirw(nproma,nblks_c), STAT=ist)
+    IF (ist/=SUCCESS) THEN
+      CALL finish(TRIM(routine),'allocation for albnirdirw failed')
+    END IF
+
+    ALLOCATE(p_atm_f%albnirdifw(nproma,nblks_c), STAT=ist)
+    IF (ist/=SUCCESS) THEN
+      CALL finish(TRIM(routine),'allocation for albnirdifw failed')
+    END IF
+
+    ALLOCATE(p_atm_f%albvisdir(nproma,i_no_ice_thick_class,nblks_c), STAT=ist)
+    IF (ist/=SUCCESS) THEN
+      CALL finish(TRIM(routine),'allocation for albvisdir failed')
+    END IF
+
+    ALLOCATE(p_atm_f%albvisdif(nproma,i_no_ice_thick_class,nblks_c), STAT=ist)
+    IF (ist/=SUCCESS) THEN
+      CALL finish(TRIM(routine),'allocation for albvisdif failed')
+    END IF
+
+    ALLOCATE(p_atm_f%albnirdir(nproma,i_no_ice_thick_class,nblks_c), STAT=ist)
+    IF (ist/=SUCCESS) THEN
+      CALL finish(TRIM(routine),'allocation for albnirdir failed')
+    END IF
+
+    ALLOCATE(p_atm_f%albnirdif(nproma,i_no_ice_thick_class,nblks_c), STAT=ist)
+    IF (ist/=SUCCESS) THEN
+      CALL finish(TRIM(routine),'allocation for albnirdif failed')
+    END IF
+
 
     ! Initialise everything with zero
     p_atm_f%sens   (:,:,:) = 0.0_wp
@@ -778,9 +817,19 @@ CONTAINS
     p_atm_f%latw   (:,:)   = 0.0_wp
     p_atm_f%LWoutw (:,:)   = 0.0_wp
     p_atm_f%LWnetw (:,:)   = 0.0_wp
-    p_atm_f%SWin   (:,:)   = 0.0_wp
+    p_atm_f%SWnetw (:,:)   = 0.0_wp
+    p_atm_f%SWnet  (:,:,:) = 0.0_wp
     p_atm_f%LWin   (:,:)   = 0.0_wp
     p_atm_f%counter        = 0
+    ! Initialise the albedos sensibly
+    p_atm_f%albvisdir (:,:,:) = albi
+    p_atm_f%albvisdif (:,:,:) = albi
+    p_atm_f%albnirdir (:,:,:) = albi
+    p_atm_f%albnirdif (:,:,:) = albi
+    p_atm_f%albvisdirw(:,:) = albedoW
+    p_atm_f%albvisdifw(:,:) = albedoW
+    p_atm_f%albnirdirw(:,:) = albedoW
+    p_atm_f%albnirdifw(:,:) = albedoW
 
     CALL message(TRIM(routine), 'end' )
 
@@ -821,6 +870,11 @@ CONTAINS
     DEALLOCATE(p_atm_f%LWnet, STAT=ist)
     IF (ist/=SUCCESS) THEN
       CALL finish(TRIM(routine),'deallocation for LWnet failed')
+    END IF
+
+    DEALLOCATE(p_atm_f%SWnet, STAT=ist)
+    IF (ist/=SUCCESS) THEN
+      CALL finish(TRIM(routine),'deallocation for SWnet failed')
     END IF
 
     DEALLOCATE(p_atm_f%bot, STAT=ist)
@@ -874,14 +928,55 @@ CONTAINS
       CALL finish(TRIM(routine),'deallocation for LWnetw failed')
     END IF
 
-    DEALLOCATE(p_atm_f%SWin, STAT=ist)
+    DEALLOCATE(p_atm_f%SWnetw, STAT=ist)
     IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for SWin failed')
+      CALL finish(TRIM(routine),'deallocation for SWnetw failed')
     END IF
 
     DEALLOCATE(p_atm_f%LWin, STAT=ist)
     IF (ist/=SUCCESS) THEN
       CALL finish(TRIM(routine),'deallocation for LWin failed')
+    END IF
+
+
+    DEALLOCATE(p_atm_f%albvisdirw, STAT=ist)
+    IF (ist/=SUCCESS) THEN
+      CALL finish(TRIM(routine),'deallocation for albvisdirw failed')
+    END IF
+
+    DEALLOCATE(p_atm_f%albvisdifw, STAT=ist)
+    IF (ist/=SUCCESS) THEN
+      CALL finish(TRIM(routine),'deallocation for albvisdifw failed')
+    END IF
+
+    DEALLOCATE(p_atm_f%albnirdirw, STAT=ist)
+    IF (ist/=SUCCESS) THEN
+      CALL finish(TRIM(routine),'deallocation for albnirdirw failed')
+    END IF
+
+    DEALLOCATE(p_atm_f%albnirdifw, STAT=ist)
+    IF (ist/=SUCCESS) THEN
+      CALL finish(TRIM(routine),'deallocation for albnirdifw failed')
+    END IF
+
+    DEALLOCATE(p_atm_f%albvisdir, STAT=ist)
+    IF (ist/=SUCCESS) THEN
+      CALL finish(TRIM(routine),'deallocation for albvisdir failed')
+    END IF
+
+    DEALLOCATE(p_atm_f%albvisdif, STAT=ist)
+    IF (ist/=SUCCESS) THEN
+      CALL finish(TRIM(routine),'deallocation for albvisdif failed')
+    END IF
+
+    DEALLOCATE(p_atm_f%albnirdir, STAT=ist)
+    IF (ist/=SUCCESS) THEN
+      CALL finish(TRIM(routine),'deallocation for albnirdir failed')
+    END IF
+
+    DEALLOCATE(p_atm_f%albnirdif, STAT=ist)
+    IF (ist/=SUCCESS) THEN
+      CALL finish(TRIM(routine),'deallocation for albnirdif failed')
     END IF
 
     CALL message(TRIM(routine), 'end' )
@@ -936,19 +1031,18 @@ CONTAINS
     ice% T1   (:,:,:)  = Tf
     ice% T2   (:,:,:)  = Tf
     ice% conc (:,:,:)  = 0.0_wp
-    ice% isice(:,:,:)  = .FALSE.
     draft     (:,:,:)  = 0.0_wp
 
     ! Stupid initialisation trick for Levitus initialisation
     IF (init_oce_prog == 1) THEN
       WHERE (p_os%p_prog(nold(1))%tracer(:,1,:,1) <= -1.0_wp &
-          &     .and. v_base%lsm_oce_c(:,1,:) <= sea_boundary )
+          &     .and. v_base%lsm_c(:,1,:) <= sea_boundary )
         ice%hi(:,1,:) = 2._wp
         ice%conc(:,1,:) = 1._wp
       ENDWHERE
       IF ( no_tracer < 2 ) THEN
         WHERE (p_os%p_prog(nold(1))%tracer(:,:,:,1) <= -1.0_wp    &
-          &     .and. v_base%lsm_oce_c(:,:,:) <= sea_boundary )   &
+          &     .and. v_base%lsm_c(:,:,:) <= sea_boundary )   &
           &             p_os%p_prog(nold(1))%tracer(:,:,:,1) = Tf
       ENDIF
     ENDIF
@@ -960,7 +1054,6 @@ CONTAINS
       Tinterface (:,:,:) = (Tfw(:,:,:) * (ki/ks * ice%hs(:,:,:)/ice%hi(:,:,:))+&
         &                    ice%Tsurf(:,:,:)) / (1.0_wp+ki/ks * ice%hs(:,:,:)/ice%hi(:,:,:))
       ice% conc  (:,:,:) = 1.0_wp/REAL(ice%kice,wp)
-      ice% isice (:,:,:) = .TRUE.
       ice% T1    (:,:,:) = Tfw(:,:,:) + 2._wp/3._wp*(Tinterface(:,:,:)-Tfw(:,:,:))
       ice% T2    (:,:,:) = Tfw(:,:,:) + 1._wp/3._wp*(Tinterface(:,:,:)-Tfw(:,:,:))
       draft      (:,:,:) = (rhos * ice%hs(:,:,:) + rhoi * ice%hi(:,:,:)) / rho_ref
@@ -984,29 +1077,84 @@ CONTAINS
   !! Initial release by Peter Korn, MPI-M (2010-07). Originally code written by
   !! Dirk Notz, following MPI-OM. Code transfered to ICON.
   !!
-  SUBROUTINE ice_fast(p_patch, ice,Tfw,Qatm,QatmAve,doy)
+  SUBROUTINE ice_fast(i_startidx_c, i_endidx_c, nbdim, kice, pdtime, &
+            &   Tsurf,          & ! Surface temperature [degC]
+            &   T1,             & ! Temperature of upper layer [degC]
+            &   T2,             & ! Temperature of lower layer [degC]
+            &   hi,             & ! Ice thickness
+            &   hs,             & ! Snow thickness
+            &   Qtop,           & ! Energy flux available for surface melting [W/m2] 
+            &   Qbot,           & ! Energy flux available for bottom melting [W/m2] 
+            &   SWnet,          & ! Net shortwave flux [W/m^2]
+            &   nonsolar,       & ! Latent and sensible heat flux and longwave radiation [W/m^2]
+            &   dnonsolardT,    & ! Derivative of non-solar fluxes w.r.t. temperature [W/m^2/K]
+            &   Tfw,            & ! Freezing temperature of the ocean
+            &   albvisdir,      & ! Albedo VIS, direct/parallel
+            &   albvisdif,      & ! Albedo VIS, diffuse
+            &   albnirdir,      & ! Albedo NIR, direct/parallel
+            &   albnirdif,      & ! Albedo NIR, diffuse
+            &   doy)              ! Day of the year
 
-    TYPE(t_patch),            INTENT(IN)     :: p_patch 
-    !TYPE(t_hydro_ocean_state),INTENT(IN)     :: p_os
-    !TYPE(t_atmos_for_ocean),  INTENT(IN)     :: p_as
-    REAL(wp),                 INTENT(IN)     :: Tfw(:,:,:)
-    TYPE (t_sea_ice),         INTENT (INOUT) :: ice
-    TYPE (t_atmos_fluxes),    INTENT (IN)    :: Qatm
-    TYPE (t_atmos_fluxes),    INTENT (INOUT) :: QatmAve
-    INTEGER,                  INTENT(IN)     :: doy
+    INTEGER, INTENT(IN)    :: i_startidx_c, i_endidx_c, nbdim, kice
+    REAL(wp),INTENT(IN)    :: pdtime
+    REAL(wp),INTENT(INOUT) :: Tsurf      (nbdim,kice)
+    REAL(wp),INTENT(INOUT) :: T1         (nbdim,kice)
+    REAL(wp),INTENT(INOUT) :: T2         (nbdim,kice)
+    REAL(wp),INTENT(IN)    :: hi         (nbdim,kice)
+    REAL(wp),INTENT(IN)    :: hs         (nbdim,kice)
+    REAL(wp),INTENT(OUT)   :: Qtop       (nbdim,kice)
+    REAL(wp),INTENT(OUT)   :: Qbot       (nbdim,kice)
+    REAL(wp),INTENT(IN)    :: SWnet      (nbdim,kice)
+    REAL(wp),INTENT(IN)    :: nonsolar   (nbdim,kice)
+    REAL(wp),INTENT(IN)    :: dnonsolardT(nbdim,kice)
+    REAL(wp),INTENT(IN)    :: Tfw        (nbdim)
+    REAL(wp),INTENT(OUT)   :: albvisdir  (nbdim,kice)
+    REAL(wp),INTENT(OUT)   :: albvisdif  (nbdim,kice)
+    REAL(wp),INTENT(OUT)   :: albnirdir  (nbdim,kice)
+    REAL(wp),INTENT(OUT)   :: albnirdif  (nbdim,kice)
+
+    INTEGER, OPTIONAL,INTENT(IN)  :: doy
 
     !------------------------------------------------------------------------- 
-    !CALL get_atmos_fluxes (p_patch, p_os,p_as,ice, Qatm)
-    CALL set_ice_albedo(p_patch,ice)
     
     ! #achim
-    IF      ( i_sea_ice == 1 ) THEN
-      CALL set_ice_temp_winton  (p_patch,ice, Tfw, Qatm)
-    ELSE IF ( i_sea_ice == 2 .OR. i_sea_ice == 3 ) THEN
-      CALL set_ice_temp_zerolayer  (p_patch,ice, Tfw, Qatm,doy)
+    IF ( i_ice_therm == 1 .OR. i_ice_therm == 3 ) THEN
+      CALL set_ice_temp_zerolayer(i_startidx_c, i_endidx_c, nbdim, kice, i_ice_therm, pdtime, &
+            &   Tsurf,          & 
+            &   hi,             & 
+            &   hs,             & 
+            &   Qtop,           & 
+            &   Qbot,           & 
+            &   SWnet,          & 
+            &   nonsolar,       & 
+            &   dnonsolardT,    &
+            &   Tfw,            &
+            &   doy)
+    ELSE IF ( i_ice_therm == 2 ) THEN
+      CALL set_ice_temp_winton(i_startidx_c, i_endidx_c, nbdim, kice, pdtime, &
+            &   Tsurf,          & 
+            &   T1,             & 
+            &   T2,             & 
+            &   hi,             & 
+            &   hs,             & 
+            &   Qtop,           & 
+            &   Qbot,           & 
+            &   SWnet,          & 
+            &   nonsolar,       & 
+            &   dnonsolardT,    &
+            &   Tfw)
+    ELSE IF ( i_ice_therm == 4 )  THEN
+      WHERE ( hi(:,:) > 0._wp )
+      Tsurf=min(0._wp, Tsurf + (SWnet+nonsolar + ki/hi*(Tf-Tsurf)) &
+        &               / (ci*rhoi*0.05_wp/pdtime-dnonsolardT+ki/hi))
+      ELSEWHERE
+        Tsurf(:,:) = Tf
+      ENDWHERE
     END IF
 
-    CALL sum_fluxes    (Qatm, QatmAve)
+    ! New albedo based on the new surface temperature
+    CALL set_ice_albedo(i_startidx_c, i_endidx_c, nbdim, kice, Tsurf, hi, hs, &
+      & albvisdir, albvisdif, albnirdir, albnirdif)
 
    END SUBROUTINE ice_fast
   !-------------------------------------------------------------------------------
@@ -1029,11 +1177,13 @@ CONTAINS
     TYPE (t_atmos_fluxes),    INTENT (INOUT) :: QatmAve
     TYPE(t_sfc_flx),          INTENT (INOUT) :: p_sfc_flx
 
-    REAL(wp), PARAMETER :: C_iw = 5.5e-3_wp ! Drag coefficient for ice/ocean drag
+    REAL(wp),PARAMETER :: C_iw = 5.5e-3_wp ! Drag coefficient for ice/ocean drag
+    INTEGER :: k
     
     !-------------------------------------------------------------------------------
 
-    CALL ave_fluxes     (ice, QatmAve)
+    !CALL ave_fluxes     (ice, QatmAve)
+    CALL ice_zero       (ice)
     !CALL ice_dynamics   (ice, QatmAve)
     !! At the moment we just pretend the ice movement is zero and modify the oceanic stress
     !! accordingly
@@ -1048,10 +1198,11 @@ CONTAINS
 
     
     ice%hiold(:,:,:) = ice%hi(:,:,:)
+    ice%hsold(:,:,:) = ice%hs(:,:,:)
     ! #achim
-    IF      ( i_sea_ice == 1 ) THEN
+    IF      ( i_ice_therm == 1 ) THEN
       CALL ice_growth_winton    (p_patch,p_os,ice, QatmAve%rpreci)!, QatmAve%lat)
-    ELSE IF ( i_sea_ice == 2 .OR. i_sea_ice == 3 ) THEN !2=zerolayer, 3=simple fluxes from dirk's thesis
+    ELSE IF ( i_ice_therm == 2 .OR. i_ice_therm == 3 ) THEN !2=zerolayer, 3=simple fluxes from dirk's thesis
       CALL ice_growth_zerolayer (p_patch,p_os,ice, QatmAve%rpreci)
     END IF
 
@@ -1059,7 +1210,7 @@ CONTAINS
     CALL ice_conc_change(p_patch,ice, p_os,p_sfc_flx)
     !CALL ice_advection  (ice)
     !CALL write_ice      (ice,QatmAve,1,ie,je)
-    CALL ice_zero       (ice, QatmAve)
+    !CALL ice_zero       (ice, QatmAve)
     !sictho = ice%hi   (:,:,1) * ice%conc (:,:,1)
     !sicomo = ice%conc (:,:,1)
     !sicsno = ice%hs   (:,:,1) * ice%conc (:,:,1)
@@ -1120,7 +1271,8 @@ CONTAINS
     QatmAve % LWoutw (:,:)   = QatmAve % LWoutw (:,:)   + Qatm % LWoutw (:,:)  
     QatmAve % LWnet  (:,:,:) = QatmAve % LWnet  (:,:,:) + Qatm % LWnet  (:,:,:)
     QatmAve % LWnetw (:,:)   = QatmAve % LWnetw (:,:)   + Qatm % LWnetw (:,:)  
-    QatmAve % SWin   (:,:)   = QatmAve % SWin   (:,:)   + Qatm % SWin   (:,:)  
+    QatmAve % SWnet  (:,:,:) = QatmAve % SWnet  (:,:,:) + Qatm % SWnet  (:,:,:)
+    QatmAve % SWnetw (:,:)   = QatmAve % SWnetw (:,:)   + Qatm % SWnetw (:,:)  
     QatmAve % LWin   (:,:)   = QatmAve % LWin   (:,:)   + Qatm % LWin   (:,:)  
     QatmAve % rprecw (:,:)   = QatmAve % rprecw (:,:)   + Qatm % rprecw (:,:)  
     QatmAve % rpreci (:,:)   = QatmAve % rpreci (:,:)   + Qatm % rpreci (:,:)  
@@ -1156,7 +1308,8 @@ CONTAINS
     QatmAve% LWoutw (:,:)   = QatmAve% LWoutw(:,:)    / ctr
     QatmAve% LWnet  (:,:,:) = QatmAve% LWnet (:,:,:)  / ctr
     QatmAve% LWnetw (:,:)   = QatmAve% LWnetw(:,:)    / ctr
-    QatmAve% SWin   (:,:)   = QatmAve% SWin  (:,:)    / ctr
+    QatmAve% SWnet  (:,:,:) = QatmAve% SWnet (:,:,:)  / ctr
+    QatmAve% SWnetw (:,:)   = QatmAve% SWnetw(:,:)    / ctr
     QatmAve% LWin   (:,:)   = QatmAve% LWin  (:,:)    / ctr
     QatmAve% rprecw (:,:)   = QatmAve% rprecw(:,:)    / ctr
     QatmAve% rpreci (:,:)   = QatmAve% rpreci(:,:)    / ctr
@@ -1173,10 +1326,10 @@ CONTAINS
   !! Initial release by Einar Olason, MPI-M (2011-09). Originally code written by
   !! Dirk Notz, following MPI-OM. Code transfered to ICON.
   !!
-  SUBROUTINE ice_zero (ice,QatmAve)
+  SUBROUTINE ice_zero (ice)
     TYPE (t_sea_ice),      INTENT (INOUT) :: ice
     !TYPE (t_atmos_fluxes), INTENT (INOUT) :: Qatm
-    TYPE (t_atmos_fluxes), INTENT (INOUT) :: QatmAve
+    !TYPE (t_atmos_fluxes), INTENT (INOUT) :: QatmAve
 
     !Qatm    % sens        (:,:,:) = 0._wp
     !Qatm    % sensw       (:,:)   = 0._wp
@@ -1191,26 +1344,27 @@ CONTAINS
     !Qatm    % rprecw      (:,:)   = 0._wp
     !Qatm    % rpreci      (:,:)   = 0._wp
                           
-    QatmAve % sens        (:,:,:) = 0._wp
-    QatmAve % sensw       (:,:)   = 0._wp
-    QatmAve % lat         (:,:,:) = 0._wp
-    QatmAve % latw        (:,:)   = 0._wp
-    QatmAve % LWout       (:,:,:) = 0._wp
-    QatmAve % LWoutw      (:,:)   = 0._wp
-    QatmAve % LWnet       (:,:,:) = 0._wp
-    QatmAve % LWnetw      (:,:)   = 0._wp
-    QatmAve % SWin        (:,:)   = 0._wp
-    QatmAve % LWin        (:,:)   = 0._wp
-    QatmAve % rprecw      (:,:)   = 0._wp
-    QatmAve % rpreci      (:,:)   = 0._wp
-    QatmAve % counter             = 0 
+!    QatmAve % sens        (:,:,:) = 0._wp
+!    QatmAve % sensw       (:,:)   = 0._wp
+!    QatmAve % lat         (:,:,:) = 0._wp
+!    QatmAve % latw        (:,:)   = 0._wp
+!    QatmAve % LWout       (:,:,:) = 0._wp
+!    QatmAve % LWoutw      (:,:)   = 0._wp
+!    QatmAve % LWnet       (:,:,:) = 0._wp
+!    QatmAve % LWnetw      (:,:)   = 0._wp
+!    QatmAve % SWin        (:,:)   = 0._wp
+!    QatmAve % LWin        (:,:)   = 0._wp
+!    QatmAve % rprecw      (:,:)   = 0._wp
+!    QatmAve % rpreci      (:,:)   = 0._wp
+!    QatmAve % counter             = 0 
 
-    ice     % Qbot        (:,:,:) = 0._wp
-    ice     % Qtop        (:,:,:) = 0._wp
+!    ice     % Qbot        (:,:,:) = 0._wp
+!    ice     % Qtop        (:,:,:) = 0._wp
     ice     % surfmelt    (:,:,:) = 0._wp
     ice     % surfmeltT   (:,:,:) = 0._wp
     ice     % evapwi      (:,:,:) = 0._wp
     ice     % hiold       (:,:,:) = 0._wp
+    ice     % hsold       (:,:,:) = 0._wp
     ice     % snow_to_ice (:,:,:) = 0._wp
     ice     % heatOceI    (:,:,:) = 0._wp
 
@@ -1230,25 +1384,47 @@ CONTAINS
   !! Initial release by Peter Korn, MPI-M (2010-07). Originally code written by
   !! Dirk Notz, following MPI-OM. Code transfered to ICON.
   !!
-  SUBROUTINE set_ice_albedo(p_patch, ice) 
-    TYPE(t_patch),    INTENT(IN)    :: p_patch 
-    TYPE (t_sea_ice), INTENT(INOUT) :: ice
-    !
+  SUBROUTINE set_ice_albedo(i_startidx_c, i_endidx_c, nbdim, kice, Tsurf, hi, hs, &
+      & albvisdir, albvisdif, albnirdir, albnirdif)
+    INTEGER, INTENT(IN)  :: i_startidx_c, i_endidx_c, nbdim, kice
+    REAL(wp),INTENT(IN)  :: Tsurf(nbdim,kice)
+    REAL(wp),INTENT(IN)  :: hi   (nbdim,kice)
+    REAL(wp),INTENT(IN)  :: hs   (nbdim,kice)
+    REAL(wp),INTENT(OUT) :: albvisdir  (nbdim,kice)
+    REAL(wp),INTENT(OUT) :: albvisdif  (nbdim,kice)
+    REAL(wp),INTENT(OUT) :: albnirdir  (nbdim,kice)
+    REAL(wp),INTENT(OUT) :: albnirdif  (nbdim,kice)
+    
+    
     !Local variables
     REAL(wp), PARAMETER :: albtrans   = 0.5_wp
-    REAL(wp)            :: albflag(nproma,ice%kice, p_patch%nblks_c)
+    REAL(wp)            :: albflag(nbdim,kice)
+    INTEGER             :: jc,k
     !-------------------------------------------------------------------------------
 
     ! This is Uwe's albedo expression from the old budget function
-    albflag (:,:,:) =  1.0_wp/ ( 1.0_wp+albtrans * (ice%tsurf(:,:,:))**2 )
+    DO k=1,kice
+      DO jc = i_startidx_c,i_endidx_c
+
+        albflag (jc,k) =  1.0_wp/ ( 1.0_wp+albtrans * (Tsurf(jc,k))**2 )
     
-    WHERE (ice  % isice(:,:,:))
-      WHERE (ice % hs(:,:,:) > 1.e-2_wp)
-        ice% alb(:,:,:) =  albflag(:,:,:) * albsm + (1.0_wp-albflag(:,:,:)) * albs
-      ELSEWHERE
-        ice% alb(:,:,:) =  albflag(:,:,:) * albim + (1.0_wp-albflag(:,:,:)) * albi
-      END WHERE
-    END WHERE
+        IF ( hi(jc,k) > 0._wp ) THEN
+          IF ( hs(jc,k) > 1.e-2_wp ) THEN
+            albvisdir(jc,k) =  albflag(jc,k) * albsm + (1.0_wp-albflag(jc,k)) * albs
+          ELSE
+            albvisdir(jc,k) =  albflag(jc,k) * albim + (1.0_wp-albflag(jc,k)) * albi
+          ENDIF
+        ELSE
+          albvisdir(jc,k) = 0._wp
+        ENDIF
+
+      ENDDO
+    ENDDO
+
+    ! all albedos are the same
+    albvisdif = albvisdir
+    albnirdir = albvisdir
+    albnirdif = albvisdir
 
   END SUBROUTINE set_ice_albedo
   
@@ -1303,12 +1479,12 @@ CONTAINS
     ! Ocean points only
     ! Calculate change in water level 'zo' from liquid and solid precipitation and
     ! evaporation
-    precw           (:,:)   = QatmAve% rprecw (:,:) * dtime
-    preci           (:,:)   = QatmAve% rpreci (:,:) * dtime
-    evap            (:,:)   = (QatmAve% latw(:,:)/ alv * dtime * &
-      &                       sum(ice%conc(:,:,:), 2) +          &
-      &                       sum(ice%evapwi(:,:,:) * ice% conc(:,:,:), 2)) /rho_ref
-
+    !precw           (:,:)   = QatmAve% rprecw (:,:) * dtime
+    !preci           (:,:)   = QatmAve% rpreci (:,:) * dtime
+    !evap            (:,:)   = (QatmAve% latw(:,:)/ alv * dtime * &
+    !  &                       sum(ice%conc(:,:,:), 2) +          &
+    !  &                       sum(ice%evapwi(:,:,:) * ice% conc(:,:,:), 2)) /rho_ref
+    !
     ! TODO: This should probably be done via surface fluxes?
     !p_os%p_prog(nold(1))%h(:,:) = p_os%p_prog(nold(1))%h(:,:) +  precw + preci - evap
 
@@ -1326,16 +1502,14 @@ CONTAINS
    
 
     ! Calculate heat input through formerly ice covered and through open water areas
-    !heatOceW        (:,:)   = (QatmAve%SWin(:,:) * (1.0_wp-albedoW) * (1.0_wp-swsum) +    &
-    !!! We need a unified albedo calculation !!!
     heatOceI(:,:)   = sum(ice% heatOceI(:,:,:) * ice% conc(:,:,:),2)
-    heatOceW(:,:) = ( QatmAve%SWin(:,:)*(1.0_wp-albedoW)    &
-      &         + QatmAve%LWnetw(:,:) + QatmAve%sensw(:,:)+ &
+    heatOceW(:,:) = ( QatmAve%SWnetw(:,:)                       &
+      &         + QatmAve%LWnetw(:,:) + QatmAve%sensw(:,:)+     &
       &                 QatmAve%latw(:,:) )*(1.0_wp-sum(ice%conc(:,:,:),2))
 
 
     ! Diagnosis: collect the 4 parts of heat fluxes into the p_sfc_flx variables - no flux under ice:
-    p_sfc_flx%forc_swflx(:,:) = QatmAve%SWin(:,:)*(1.0_wp-albedoW)*(1.0_wp-sum(ice%conc(:,:,:),2))
+    p_sfc_flx%forc_swflx(:,:) = QatmAve%SWnetw(:,:)*(1.0_wp-sum(ice%conc(:,:,:),2))
     p_sfc_flx%forc_lwflx(:,:) = QatmAve%LWnetw(:,:)*(1.0_wp-sum(ice%conc(:,:,:),2))
     p_sfc_flx%forc_ssflx(:,:) = QatmAve%sensw (:,:)*(1.0_wp-sum(ice%conc(:,:,:),2))
     p_sfc_flx%forc_slflx(:,:) = QatmAve%latw  (:,:)*(1.0_wp-sum(ice%conc(:,:,:),2))
@@ -1367,7 +1541,7 @@ CONTAINS
     !heatabs         (:,:)   = swsum * QatmAve% SWin(:,:) * (1 - ice%concsum)
 
     ! set to zero on land points
-    WHERE (v_base%lsm_oce_c(:,1,:) > sea_boundary )
+    WHERE (v_base%lsm_c(:,1,:) > sea_boundary )
       p_sfc_flx%forc_hflx (:,:) = 0.0_wp
       p_sfc_flx%forc_swflx(:,:) = 0.0_wp
       p_sfc_flx%forc_lwflx(:,:) = 0.0_wp
@@ -1389,23 +1563,31 @@ CONTAINS
   !! Einar Olason, renamed and added support for changing concentration
   !!
   SUBROUTINE ice_conc_change(p_patch,ice, p_os,p_sfc_flx)
+
+    USE mo_sea_ice_nml,         ONLY: hnull, hmin
+
     TYPE(t_patch),             INTENT(IN)    :: p_patch 
     TYPE (t_sea_ice),          INTENT(INOUT) :: ice  
     TYPE(t_hydro_ocean_state), INTENT(INOUT) :: p_os
     !TYPE (t_atmos_fluxes),     INTENT(IN)    :: QatmAve
     TYPE(t_sfc_flx),           INTENT(INOUT) :: p_sfc_flx
 
+    INTEGER  :: k
     REAL(wp) :: sst(nproma,p_patch%nblks_c)
     REAL(wp) :: Tfw(nproma,p_patch%nblks_c) ! Ocean freezing temperature [C]
     REAL(wp) :: old_conc(nproma,p_patch%nblks_c)
     ! h_0 from Hibler (1979)
-    REAL(wp), PARAMETER :: hnull = 0.5_wp
+!    REAL(wp), PARAMETER :: hnull = 0.5_wp
 
     if ( no_tracer >= 2 ) then
       Tfw(:,:) = -mu*p_os%p_prog(nold(1))%tracer(:,1,:,2)
     else
       Tfw(:,:) = Tf
     endif
+
+    DO k=1,ice%kice
+      ice%vol(:,k,:) = ice%hi(:,k,:)*ice%conc(:,k,:)*p_patch%cells%area(:,:)
+    ENDDO
     
     ! Calculate possible super-cooling of the surface layer
     sst = p_os%p_prog(nold(1))%tracer(:,1,:,1) + &
@@ -1413,32 +1595,41 @@ CONTAINS
 
     ice % newice(:,:) = 0.0_wp
     ! This is where new ice forms
-    WHERE (sst < Tfw(:,:) .and. v_base%lsm_oce_c(:,1,:) <= sea_boundary )
+    WHERE (sst < Tfw(:,:) .and. v_base%lsm_c(:,1,:) <= sea_boundary )
       ice%newice(:,:) = - (sst - Tfw(:,:)) * ice%zUnderIce(:,:) * clw*rho_ref / (alf*rhoi)
       ! Add energy for new-ice formation due to supercooled ocean to  ocean temperature
       p_sfc_flx%forc_hflx(:,:) = ( Tfw(:,:) - p_os%p_prog(nold(1))%tracer(:,1,:,1) ) &
         &     *ice%zUnderIce(:,:)*clw*rho_ref/dtime
 
-      ! New ice forms over open water - set temperature to Tfw
-      WHERE(.NOT.ice%isice(:,1,:))
-        ice%Tsurf(:,1,:) = Tfw(:,:)
-        ice%T2   (:,1,:) = Tfw(:,:)
-        ice%T1   (:,1,:) = Tfw(:,:)
-      ENDWHERE
-
-      ice%isice(:,1,:) = .TRUE.
       old_conc (:,:)   = ice%conc(:,1,:)
       ice%conc (:,1,:) = min( 1._wp, & 
         &               ice%conc(:,1,:) + ice%newice(:,:)*( 1._wp - ice%conc(:,1,:) )/hnull )
       ! New thickness: We just preserve volume, so: New_Volume = newice_volume + hi*old_conc 
       !  => hi <- newice/conc + hi*old_conc/conc
-      ice%hi   (:,1,:) = ( ice%newice(:,:)+ice%hi(:,1,:)*old_conc(:,:) )/ice%conc(:,1,:)
+      ice%vol  (:,1,:) = ice%vol(:,1,:) + ice%newice(:,:)*p_patch%cells%area(:,:)
+      ice%hi   (:,1,:) = ice%vol(:,1,:)/( ice%conc(:,1,:)*p_patch%cells%area(:,:) )
+      !TODO: Re-calculate temperatures to conserve energy when we change the ice thickness
+
+      ! New ice forms over open water - set temperature to Tfw
+      WHERE(ice%hi(:,1,:)<=0._wp)
+        ice%Tsurf(:,1,:) = Tfw(:,:)
+        ice%T2   (:,1,:) = Tfw(:,:)
+        ice%T1   (:,1,:) = Tfw(:,:)
+      ENDWHERE
     ENDWHERE
 
-    ! This is where concentration changes due to ice melt
-    WHERE (ice%hiold(:,1,:)-ice%hi(:,1,:) > 0._wp )
+    ! This is where concentration, and thickness change due to ice melt (we must conserve volme)
+    WHERE (ice%hiold(:,1,:) > ice%hi(:,1,:))
       ice%conc(:,1,:) = max( 0._wp, ice%conc(:,1,:) - &
         &        ( ice%hiold(:,1,:)-ice%hi(:,1,:) )*ice%conc(:,1,:)*0.5_wp/ice%hiold(:,1,:) )
+      ice%hi   (:,1,:) = ice%vol(:,1,:)/( ice%conc(:,1,:)*p_patch%cells%area(:,:) )
+      !TODO: Re-calculate temperatures to conserve energy when we change the ice thickness
+    ENDWHERE
+
+    ! Ice cannot grow thinner than hmin
+    WHERE ( ice%hi(:,1,:) > 0._wp )
+      ice%hi  (:,1,:) = MAX( hmin, ice%hi(:,1,:) )
+      ice%conc(:,1,:) = ice%vol(:,1,:) / ( ice%hi(:,1,:)*p_patch%cells%area(:,:) )
     ENDWHERE
 
     ice% concSum(:,:)  = SUM(ice% conc(:,:,:),2)
@@ -1488,6 +1679,7 @@ CONTAINS
     
     INTEGER :: i, jb, jc, i_startidx_c, i_endidx_c
     REAL(wp) :: aw,bw,cw,dw,ai,bi,ci,di,AAw,BBw,CCw,AAi,BBi,CCi,alpha,beta
+    REAL(wp) :: fvisdir, fvisdif, fnirdir, fnirdif
 
     TYPE(t_subset_range), POINTER :: all_cells
 
@@ -1566,8 +1758,14 @@ CONTAINS
     dragl0(:,:)     = 1e-3_wp*(0.8195_wp+0.0506_wp*fu10lim(:,:) &
       &               - 0.0009_wp*fu10lim(:,:)*fu10lim(:,:))
 
+    ! Fractions of SWin in each band (from cice)
+    fvisdir=0.28_wp; fvisdif=0.24_wp; fnirdir=0.31_wp; fnirdif=0.17_wp
     DO i = 1, p_ice%kice
-      WHERE (p_ice%isice(:,i,:))
+      WHERE (p_ice%hi(:,i,:)>0._wp)
+        Qatm%SWnet(:,i,:) = ( 1._wp-Qatm%albvisdir(:,i,:) )*fvisdir*p_as%fswr(:,:) +   &
+          &                 ( 1._wp-Qatm%albvisdif(:,i,:) )*fvisdif*p_as%fswr(:,:) +   &
+          &                 ( 1._wp-Qatm%albnirdir(:,i,:) )*fnirdir*p_as%fswr(:,:) +   &
+          &                 ( 1._wp-Qatm%albnirdif(:,i,:) )*fnirdif*p_as%fswr(:,:)
         Tsurf(:,:)    = p_ice%Tsurf(:,i,:)
         fi(:,:)       = 1.0_wp+AAi+p_as%pao(:,:)*(BBi+CCi*Tsurf(:,:) **2)
         esti(:,:)     = fi(:,:)*ai*EXP((bi-Tsurf(:,:) /di)*Tsurf(:,:) /(Tsurf(:,:) +ci))
@@ -1579,8 +1777,16 @@ CONTAINS
         dragl(:,:)    = MAX(0.5e-3_wp, MIN(3.0e-3_wp,dragl(:,:)))
         drags(:,:)    = 0.95_wp * dragl(:,:)
 
-        Qatm%LWnet (:,i,:)  = fakts(:,:) * humi(:,:) * zemiss_def*stbo * tafoK(:,:)**4 &
-          &     - 4._wp*zemiss_def*stbo*tafoK(:,:)**3 * (Tsurf(:,:) - p_as%tafo(:,:))
+        ! #eoo# 2012-12-14: another bugfix
+        ! #slo# 2012-12-13: bugfix, corrected form
+        Qatm%LWnet (:,i,:)  = - fakts(:,:) * humi(:,:) * zemiss_def*stbo * tafoK(:,:)**4 &
+           &                  - 4._wp*zemiss_def*stbo*tafoK(:,:)**3 * (Tsurf(:,:) - p_as%tafo(:,:))
+        ! same form as MPIOM:
+        !Qatm%LWnet (:,i,:)  = - (fakts(:,:) * humi(:,:) * zemiss_def*stbo * tafoK(:,:)**4 &
+        !  &         + 4._wp*zemiss_def*stbo*tafoK(:,:)**3 * (Tsurf(:,:) - p_as%tafo(:,:)))
+        ! bug
+        !Qatm%LWnet (:,i,:)  = fakts(:,:) * humi(:,:) * zemiss_def*stbo * tafoK(:,:)**4 &
+        !  &     - 4._wp*zemiss_def*stbo*tafoK(:,:)**3 * (Tsurf(:,:) - p_as%tafo(:,:))
         Qatm%dLWdT (:,i,:)  = -4._wp*zemiss_def*stbo*tafoK(:,:)**3
         Qatm%sens  (:,i,:)  = drags(:,:) * rhoair(:,:)*cpd*p_as%fu10(:,:) &
           &                    * (p_as%tafo(:,:) -Tsurf(:,:))
@@ -1655,6 +1861,7 @@ CONTAINS
     
     INTEGER :: jb, jc, i_startidx_c, i_endidx_c
     REAL(wp) :: aw,bw,cw,dw,AAw,BBw,CCw,alpha,beta
+    REAL(wp) :: fvisdir, fvisdif, fnirdir, fnirdif
 
     TYPE(t_subset_range), POINTER :: all_cells
 
@@ -1713,10 +1920,23 @@ CONTAINS
     Qatm%LWin(:,:) = 0._wp
     Qatm%LWoutw(:,:) = 0._wp
 
-    Qatm%LWnetw(:,:) = fakts(:,:) * humi(:,:) * zemiss_def*stbo * tafoK(:,:)**4  &
-      &         - 4._wp*zemiss_def*stbo*tafoK(:,:)**3 * (Tsurf(:,:) - p_as%tafo(:,:))
+    ! #eoo# 2012-12-14: another bugfix
+    ! #slo# #hha# 2012-12-13: bugfix, corrected form
+    Qatm%LWnetw(:,:) = - fakts(:,:) * humi(:,:) * zemiss_def*stbo * tafoK(:,:)**4  &
+      &                - 4._wp*zemiss_def*stbo*tafoK(:,:)**3 * (Tsurf(:,:) - p_as%tafo(:,:))
+    ! same form as MPIOM:
+    !Qatm%LWnetw(:,:) = - (fakts(:,:) * humi(:,:) * zemiss_def*stbo * tafoK(:,:)**4  &
+    !  &         + 4._wp*zemiss_def*stbo*tafoK(:,:)**3 * (Tsurf(:,:) - p_as%tafo(:,:)))
+    ! bug
+    !Qatm%LWnetw(:,:) = fakts(:,:) * humi(:,:) * zemiss_def*stbo * tafoK(:,:)**4  &
+    !  &         - 4._wp*zemiss_def*stbo*tafoK(:,:)**3 * (Tsurf(:,:) - p_as%tafo(:,:))
 
-    Qatm%SWin(:,:) = p_as%fswr(:,:)
+    ! Fractions of SWin in each band (from cice)
+    fvisdir=0.28_wp; fvisdif=0.24_wp; fnirdir=0.31_wp; fnirdif=0.17_wp
+    Qatm%SWnetw(:,:) = ( 1._wp-Qatm%albvisdirw(:,:) )*fvisdir*p_as%fswr(:,:) +   &
+      &                ( 1._wp-Qatm%albvisdifw(:,:) )*fvisdif*p_as%fswr(:,:) +   &
+      &                ( 1._wp-Qatm%albnirdirw(:,:) )*fnirdir*p_as%fswr(:,:) +   &
+      &                ( 1._wp-Qatm%albnirdifw(:,:) )*fnirdif*p_as%fswr(:,:)
 
     !-----------------------------------------------------------------------
     !  Calculate bulk equations according to 
@@ -1765,28 +1985,4 @@ CONTAINS
 
   END SUBROUTINE calc_bulk_flux_oce
  
-  !-------------------------------------------------------------------------
-
-  SUBROUTINE prepare4restart(p_ice)
-    TYPE (t_sea_ice),  INTENT(INOUT) :: p_ice
-
-    WHERE (p_ice%isice(:,:,:))
-      p_ice%restart_isice(:,:,:) = 1.0_wp
-    ELSEWHERE
-      p_ice%restart_isice(:,:,:) = 0.0_wp
-    ENDWHERE
-  END SUBROUTINE prepare4restart
-
-  SUBROUTINE prepareAfterRestart(p_ice)
-    TYPE (t_sea_ice),  INTENT(INOUT) :: p_ice
-
-    IF (is_restart_run()) THEN
-      WHERE (p_ice%restart_isice(:,:,:) < 0.5_wp)
-        p_ice%isice(:,:,:) = .FALSE.
-      ELSEWHERE
-        p_ice%isice(:,:,:) = .TRUE.
-      ENDWHERE
-    END IF
-  END SUBROUTINE prepareAfterRestart
-
 END MODULE mo_sea_ice
