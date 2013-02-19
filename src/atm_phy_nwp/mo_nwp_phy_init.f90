@@ -300,6 +300,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
          !  Remember that t_seasfc is the skin temperature (with a limiter) in case l_sst_in is FALSE
          ! Over the sea and over the ice, qv_s is set to the saturated value
          ! Over the land we keep the initial set value (0.001_wp)
+!CDIR NODEP,VOVERTAKE,VOB
          DO ic=1, ext_data%atm%spw_count(jb)
            jc = ext_data%atm%idx_lst_spw(ic,jb)
            ! if not lseaice, all the points are water points
@@ -318,6 +319,12 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
            p_prog_lnd_now%t_g(jc,jb) = p_diag_lnd%t_skin(jc,jb)
            p_diag_lnd%qv_s    (jc,jb)    = &
             & spec_humi(sat_pres_ice(p_prog_lnd_now%t_g(jc,jb)),p_diag%pres_sfc(jc,jb))
+         END DO
+         DO ic=1, ext_data%atm%fp_count(jb)
+           jc = ext_data%atm%idx_lst_fp(ic,jb)
+           p_prog_lnd_now%t_g(jc,jb) = p_diag_lnd%t_seasfc(jc,jb)
+           p_diag_lnd%qv_s    (jc,jb)    = &
+            & spec_humi(sat_pres_water(p_prog_lnd_now%t_g(jc,jb)),p_diag%pres_sfc(jc,jb))
          END DO
          DO ic=1, ext_data%atm%lp_count(jb)
            jc = ext_data%atm%idx_lst_lp(ic,jb)
