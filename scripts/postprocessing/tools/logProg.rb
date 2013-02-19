@@ -24,13 +24,16 @@ tags    = %w[total gmres tracer_ab upd_phys upd_flx]
 q, lock = JobQueue.new, Mutex.new
 results = {}
 
+# setup processing method
 procLog = lambda {|logFile,tags|
   logpattern = / (#{tags.join('|')}) /
   tagpattern = /(#{tags.join('|')})/
   retval     = {}
+
+  # read in the whole file
   logContent = File.open(logFile).readlines.map(&:chomp)
 
-  # collect all requesten timers
+  # collect all requested timers
   logContent.grep(logpattern).map(&:split).map {|v| [v[0,3].grep(tagpattern),v[-1]].flatten}.each {|k,v| 
     (retval[k] ||= [])<< v
   }
@@ -48,13 +51,13 @@ procLog = lambda {|logFile,tags|
   }
   retval.merge!(minMaxHash)
 
-  #postProc, i.e. use arrays instead of numbers
+  #postProc, i.e. use arrays instead of numbers - this eases later plotting
   retval.each {|k,v| retval[k] = [v]}
 
   return retval
 }
 
-
+# process log files in parallel throuth the JobQueue
 logFiles.each {|file|
   q.push {
     log = procLog[file,tags]
@@ -63,28 +66,18 @@ logFiles.each {|file|
 }
 q.run
 
-# collect all logs into a singel object
-a = ExtCsv.concat(*results.values.collect {|data|
-  ExtCsv.new("hash","txt",data)
-})
+# collect all logs into a single object
+a = ExtCsv.concat(*results.values.collect {|data| ExtCsv.new("hash","txt",data) })
 
-data4Plot = a.datasets('PEs', 'total', 'total_min', 'total_max', 'gmres', 'gmres_min', 'gmres_max').sort_by {|v| v[0].abs}
+##possible output for manual gnuplot visualization
+#File.open("logPlot.dat","w") {|f| data4Plot.each {|v| f << v.join(' ') << "\n" } }
 
-File.open("logPlot.dat","w") {|f|
-  data4Plot.each {|v|
-    f << v.join(' ') << "\n"
-  }
-}
-
-# ExtCsvDiagram.plot_xy(a,'PEs','total','Total runtime')
 dataTotal = a.datasets('PEs', 'total', 'total_min', 'total_max').transpose
 dataGmres = a.datasets('PEs', 'gmres', 'gmres_min', 'gmres_max').transpose
 dataTrace = a.datasets('PEs', 'tracer_ab', 'tracer_ab_min', 'tracer_ab_max').transpose
-pp dataTotal
-pp dataGmres
+# multiline plot with gnuplot
 Gnuplot.open do |gp|
   Gnuplot::Plot.new( gp ) do |plot|
-
     plot.title 'ICON ocean runtime + scaling (181 days simulation time)'
     plot.grid
     plot.y2tics 'in'
@@ -100,7 +93,5 @@ Gnuplot.open do |gp|
       ds.with = "errorbars axes x1y2"
       ds.title = 'tracer_ab'
     end
-
   end
-
 end
