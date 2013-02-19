@@ -163,7 +163,7 @@ MODULE mo_nh_init_nest_utils
     REAL(wp), ALLOCATABLE :: tsfc_ref_p(:,:), tsfc_ref_c(:,:) ! Reference temperature at lowest level
 
     ! Soil layer thicknesses (needed for limiting the soil water content)
-    REAL(wp) :: dzsoil(9)=(/0.01_wp,0.01_wp,0.02_wp,0.06_wp,0.18_wp,0.54_wp,&
+    REAL(wp) :: dzsoil(8)=(/0.01_wp,0.02_wp,0.06_wp,0.18_wp,0.54_wp,&
                             1.62_wp,4.86_wp,14.58_wp/)
 
     LOGICAL :: l_parallel, l_limit(ntracer)
