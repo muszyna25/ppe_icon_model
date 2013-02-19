@@ -68,7 +68,8 @@ MODULE mo_nh_init_nest_utils
   USE mo_impl_constants_grf,    ONLY: grf_bdywidth_c, grf_bdywidth_e, grf_fbk_start_c, &
                                       grf_nudgintp_start_c, grf_nudgintp_start_e
   USE mo_nwp_lnd_types,         ONLY: t_lnd_prog, t_lnd_diag, t_wtr_prog
-  USE mo_lnd_nwp_config,        ONLY: ntiles_total, ntiles_water, nlev_soil, lseaice
+  USE mo_lnd_nwp_config,        ONLY: ntiles_total, ntiles_water, nlev_soil, lseaice,  &
+    &                                 lmulti_snow, nlev_snow
   USE mo_nwp_lnd_state,         ONLY: p_lnd_state
   USE mo_atm_phy_nwp_config,    ONLY: atm_phy_nwp_config
   USE mo_interpol_config,       ONLY: nudge_zone_width
@@ -134,11 +135,15 @@ MODULE mo_nh_init_nest_utils
     TYPE(t_patch),      POINTER     :: p_pp => NULL()
     TYPE(t_patch),      POINTER     :: p_pc => NULL()
 
+    TYPE(t_lnd_diag),   POINTER     :: lnd_diag
+    TYPE(t_lnd_prog),   POINTER     :: lnd_prog
+
     ! local variables
 
     ! Indices
     INTEGER :: jb, jc, jk, jk1, jt, je, i_nchdom, i_chidx, i_startblk, i_endblk, &
                i_startidx, i_endidx
+    INTEGER :: rl_start, rl_end
     INTEGER :: nlev_c, nlev_p
     INTEGER :: nshift      ! difference between upper boundary of parent or feedback-parent 
                            ! domain and upper boundary of child domain (in terms 
@@ -162,6 +167,9 @@ MODULE mo_nh_init_nest_utils
                             1.62_wp,4.86_wp,14.58_wp/)
 
     LOGICAL :: l_parallel, l_limit(ntracer)
+
+    INTEGER :: i_count, ic
+
     !-----------------------------------------------------------------------
 
     IF (msg_level >= 10) THEN
@@ -191,6 +199,9 @@ MODULE mo_nh_init_nest_utils
     p_child_ldiag     => p_lnd_state(jgc)%diag_lnd
     p_grfc            => p_grf_state(jgc)
     p_pc              => p_patch(jgc)
+
+    lnd_diag          => p_lnd_state(jg)%diag_lnd
+    lnd_prog          => p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))
 
     IF (l_parallel) THEN
       p_grf => p_grf_state_local_parent(jgc)
@@ -253,6 +264,128 @@ MODULE mo_nh_init_nest_utils
       wtrvars_chi  = 0._wp
       phdiag_chi   = 0._wp
     ENDIF
+
+
+
+
+
+
+    ! Step 0: Copy variables for sea and lake points.
+    ! 
+    ! Ad hoc fix to have meaningful values near coastal regions 
+
+    ! exclude nest boundary and halo points
+    rl_start = grf_bdywidth_c+1
+    rl_end   = min_rlcell_int
+
+    i_startblk = p_patch(jg)%cells%start_blk(rl_start,1)
+    i_endblk   = p_patch(jg)%cells%end_blk(rl_end,i_nchdom)
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,i_count,ic,jk) ICON_OMP_GUIDED_SCHEDULE
+    DO jb = i_startblk, i_endblk
+
+      CALL get_indices_c(p_patch(jg), jb, i_startblk, i_endblk, &
+        & i_startidx, i_endidx, rl_start, rl_end)
+
+      i_count = ext_data(jg)%atm%sp_count(jb) ! second step: just copy variables for sea points 
+
+!CDIR NODEP,VOVERTAKE,VOB
+      DO ic = 1, i_count
+        jc = ext_data(jg)%atm%idx_lst_sp(ic,jb)
+        lnd_diag%t_snow(jc,jb)       = lnd_prog%t_snow_t(jc,jb,1)
+        lnd_diag%t_s(jc,jb)          = lnd_prog%t_s_t(jc,jb,1)
+        lnd_diag%w_snow(jc,jb)       = lnd_prog%w_snow_t(jc,jb,1)
+        lnd_diag%rho_snow(jc,jb)     = lnd_prog%rho_snow_t(jc,jb,1)
+        lnd_diag%w_i(jc,jb)          = lnd_prog%w_i_t(jc,jb,1)
+        lnd_diag%h_snow(jc,jb)       = lnd_diag%h_snow_t(jc,jb,1)
+        lnd_diag%freshsnow(jc,jb)    = lnd_diag%freshsnow_t(jc,jb,1)
+        lnd_diag%snowfrac(jc,jb)     = lnd_diag%snowfrac_t(jc,jb,1)
+        lnd_diag%runoff_s(jc,jb)     = lnd_diag%runoff_s_t(jc,jb,1)
+        lnd_diag%runoff_g(jc,jb)     = lnd_diag%runoff_g_t(jc,jb,1)
+        lnd_diag%t_so(jc,nlev_soil+1,jb) = lnd_prog%t_so_t(jc,nlev_soil+1,jb,1)
+
+        IF(lmulti_snow) THEN
+          lnd_diag%t_snow_mult(jc,nlev_snow+1,jb) = lnd_prog%t_snow_mult_t(jc,nlev_snow+1,jb,1)
+        ENDIF
+      ENDDO
+
+      DO jk=1,nlev_soil
+!CDIR NODEP,VOVERTAKE,VOB
+        DO ic = 1, i_count
+          jc = ext_data(jg)%atm%idx_lst_sp(ic,jb)
+          lnd_diag%t_so(jc,jk,jb)      = lnd_prog%t_so_t(jc,jk,jb,1)
+          lnd_diag%w_so(jc,jk,jb)      = lnd_prog%w_so_t(jc,jk,jb,1)
+          lnd_diag%w_so_ice(jc,jk,jb)  = lnd_prog%w_so_ice_t(jc,jk,jb,1)
+        ENDDO
+      ENDDO
+
+      IF (lmulti_snow) THEN
+        DO jk=1,nlev_snow
+!CDIR NODEP,VOVERTAKE,VOB
+          DO ic = 1, i_count
+            jc = ext_data(jg)%atm%idx_lst_sp(ic,jb)
+            lnd_diag%t_snow_mult(jc,jk,jb)   = lnd_prog%t_snow_mult_t(jc,jk,jb,1)
+            lnd_diag%rho_snow_mult(jc,jk,jb) = lnd_prog%rho_snow_mult_t(jc,jk,jb,1)
+            lnd_diag%wliq_snow(jc,jk,jb)     = lnd_prog%wliq_snow_t(jc,jk,jb,1)
+            lnd_diag%wtot_snow(jc,jk,jb)     = lnd_prog%wtot_snow_t(jc,jk,jb,1)
+            lnd_diag%dzh_snow(jc,jk,jb)      = lnd_prog%dzh_snow_t(jc,jk,jb,1)
+          ENDDO
+        ENDDO
+      ENDIF
+
+      i_count = ext_data(jg)%atm%fp_count(jb) ! third step: copy variables also for lake points 
+
+!CDIR NODEP,VOVERTAKE,VOB
+      DO ic = 1, i_count
+        jc = ext_data(jg)%atm%idx_lst_fp(ic,jb)
+        lnd_diag%t_snow(jc,jb)       = lnd_prog%t_snow_t(jc,jb,1)
+        lnd_diag%t_s(jc,jb)          = lnd_prog%t_s_t(jc,jb,1)
+        lnd_diag%w_snow(jc,jb)       = lnd_prog%w_snow_t(jc,jb,1)
+        lnd_diag%rho_snow(jc,jb)     = lnd_prog%rho_snow_t(jc,jb,1)
+        lnd_diag%w_i(jc,jb)          = lnd_prog%w_i_t(jc,jb,1)
+        lnd_diag%h_snow(jc,jb)       = lnd_diag%h_snow_t(jc,jb,1)
+        lnd_diag%freshsnow(jc,jb)    = lnd_diag%freshsnow_t(jc,jb,1)
+        lnd_diag%snowfrac(jc,jb)     = lnd_diag%snowfrac_t(jc,jb,1)
+        lnd_diag%runoff_s(jc,jb)     = lnd_diag%runoff_s_t(jc,jb,1)
+        lnd_diag%runoff_g(jc,jb)     = lnd_diag%runoff_g_t(jc,jb,1)
+        lnd_diag%t_so(jc,nlev_soil+1,jb) = lnd_prog%t_so_t(jc,nlev_soil+1,jb,1)
+
+        IF(lmulti_snow) THEN
+          lnd_diag%t_snow_mult(jc,nlev_snow+1,jb) = lnd_prog%t_snow_mult_t(jc,nlev_snow+1,jb,1)
+        ENDIF
+      ENDDO
+
+      DO jk=1,nlev_soil
+!CDIR NODEP,VOVERTAKE,VOB
+        DO ic = 1, i_count
+          jc = ext_data(jg)%atm%idx_lst_fp(ic,jb)
+          lnd_diag%t_so(jc,jk,jb)      = lnd_prog%t_so_t(jc,jk,jb,1)
+          lnd_diag%w_so(jc,jk,jb)      = lnd_prog%w_so_t(jc,jk,jb,1)
+          lnd_diag%w_so_ice(jc,jk,jb)  = lnd_prog%w_so_ice_t(jc,jk,jb,1)
+        ENDDO
+      ENDDO
+
+      IF (lmulti_snow) THEN
+        DO jk=1,nlev_snow
+!CDIR NODEP,VOVERTAKE,VOB
+          DO ic = 1, i_count
+            jc = ext_data(jg)%atm%idx_lst_fp(ic,jb)
+            lnd_diag%t_snow_mult(jc,jk,jb)   = lnd_prog%t_snow_mult_t(jc,jk,jb,1)
+            lnd_diag%rho_snow_mult(jc,jk,jb) = lnd_prog%rho_snow_mult_t(jc,jk,jb,1)
+            lnd_diag%wliq_snow(jc,jk,jb)     = lnd_prog%wliq_snow_t(jc,jk,jb,1)
+            lnd_diag%wtot_snow(jc,jk,jb)     = lnd_prog%wtot_snow_t(jc,jk,jb,1)
+            lnd_diag%dzh_snow(jc,jk,jb)      = lnd_prog%dzh_snow_t(jc,jk,jb,1)
+          ENDDO
+        ENDDO
+      ENDIF
+
+    ENDDO    
+!$OMP END DO
+!$OMP END PARALLEL
+
+
+
 
     ! Step 1: boundary interpolation
     !
@@ -735,8 +868,10 @@ MODULE mo_nh_init_nest_utils
                             p_patch(jgc), opt_calc_temp=.TRUE., opt_calc_pres=.TRUE.,      &
                             lnd_prog=p_child_lprog)
 
-    DEALLOCATE(thv_pr_par, rho_pr_par, lndvars_par, lndvars_chi, tsfc_ref_p, tsfc_ref_c, vn_lp, w_lp, &
-               thv_pr_lp, rho_pr_lp, tracer_lp, lndvars_lp, wtrvars_par, wtrvars_chi, wtrvars_lp)
+
+    DEALLOCATE(thv_pr_par, rho_pr_par, lndvars_par, wtrvars_par, phdiag_par, lndvars_chi, &
+      &       wtrvars_chi, phdiag_chi, tsfc_ref_p, tsfc_ref_c, vn_lp, w_lp, thv_pr_lp   , &
+      &       rho_pr_lp, phdiag_lp, tracer_lp, lndvars_lp, wtrvars_lp)
 
   END SUBROUTINE initialize_nest
 
