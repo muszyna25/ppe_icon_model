@@ -14164,6 +14164,7 @@ void vlistDefVarDblKey(int vlistID, int varID, const char* name, double value)
 /* vlistInqVarRawBegin: Open GRIB record to retrieve raw meta-data in subsequent calls */
 void vlistInqVarRawBegin(int streamID, int varID)
 {
+#if  defined  (HAVE_LIBGRIB_API)
   stream_t *streamptr;
   int       recID, tsID, fileID;
   long      recpos, recsize;
@@ -14183,37 +14184,44 @@ void vlistInqVarRawBegin(int streamID, int varID)
   fileRead(fileID, streamptr->record->buffer, (size_t) recsize);
 
   streamptr->gh = (void *) grib_handle_new_from_message(NULL, (void *) streamptr->record->buffer, recsize);
+#endif
 }
 
 
 /* vlistInqVarDblKey: raw access to GRIB meta-data */
 double vlistInqVarDblKey(int streamID, const char* name)
 {
+#if  defined  (HAVE_LIBGRIB_API)
   stream_t *streamptr = stream_to_pointer(streamID);
   stream_check_ptr(__func__, streamptr);
   double value = 0;
   GRIB_CHECK(grib_get_double((grib_handle*) streamptr->gh, name, &value), 0);
   return value;
+#endif
 }
 
 
 /* vlistInqVarIntKey: raw access to GRIB meta-data */
 int vlistInqVarIntKey(int streamID, const char* name)
 {
+#if  defined  (HAVE_LIBGRIB_API)
   stream_t *streamptr = stream_to_pointer(streamID);
   stream_check_ptr(__func__, streamptr);
   long int value = 0;
   GRIB_CHECK(grib_get_long((grib_handle*) streamptr->gh, name, &value), 0);
   return (int) value;
+#endif
 }
 
 
 /* vlistInqVarRawEnd: Free previously opened GRIB record */
 void vlistInqVarRawEnd(int streamID)
 {
+#if  defined  (HAVE_LIBGRIB_API)
   stream_t *streamptr = stream_to_pointer(streamID);
   stream_check_ptr(__func__, streamptr);
   grib_handle_delete((grib_handle*) streamptr->gh);
+#endif
 }
 
 
