@@ -48,6 +48,13 @@ MODULE mo_edmf_param
 
   IMPLICIT NONE
 
+  PUBLIC
+
+! NTILES for EDMF
+
+  INTEGER(KIND=JPIM) :: NTILES_EDMF=8
+  
+
 
 !------------------------------------------------------------------------------
 ! yoephy.F90 (part)
@@ -61,7 +68,6 @@ MODULE mo_edmf_param
 ! LEOCCO : LOGICAL : COOL OCEAN SKIN PARAMETRIZATION
 ! LEFLAKE : LOGICAL  : LAKE MODEL FLAKE
 
-  PUBLIC
 
   LOGICAL :: LVDFTRAC
   LOGICAL :: LEOCWA
@@ -475,7 +481,7 @@ SUBROUTINE SUSVEG
 !          THIS ROUTINE INITIALIZES THE CONSTANTS IN COMMON BLOCK
 !     *YOS_VEG*
 
-USE mo_lnd_nwp_config,       ONLY: NTILES=>ntiles_total
+!USE mo_lnd_nwp_config,       ONLY: NTILES=>ntiles_total
 USE mo_srfrootfr     ,       ONLY: srfrootfr
 USE mo_cuparameters  ,       ONLY: RETV
 
@@ -531,42 +537,42 @@ RLHAEROS=10._JPRB
 
 ! Unstable skin layer conductivity
 
-IF(.NOT.ALLOCATED(RVLAMSK)) ALLOCATE(RVLAMSK(NTILES))
-IF (NTILES >= 1) RVLAMSK(1)=ZLARGE           !  Water
-IF (NTILES >= 2) RVLAMSK(2)=58._JPRB         !  Sea ice
-IF (NTILES >= 3) RVLAMSK(3)=10._JPRB         !  Wet skin
-IF (NTILES >= 4) RVLAMSK(4)=10._JPRB         !  Low veg. (Aerodyn.+Rad.+Soil)
-IF (NTILES >= 5) RVLAMSK(5)=ZSNOW            !  Snow
-IF (NTILES >= 5) RVLAMSK(6)=RLHAERO+5._JPRB  !  High veg. (Aerodyn.+Rad.)
-IF (NTILES >= 7) RVLAMSK(7)=RLHAERO+5._JPRB  !  Snow under veg (Aerodyn.+Rad.)
-IF (NTILES >= 8) RVLAMSK(8)=15._JPRB         !  Bare soil
-IF (NTILES >= 9) RVLAMSK(9)=ZLARGE           !  LAKES = WATER  
+IF(.NOT.ALLOCATED(RVLAMSK)) ALLOCATE(RVLAMSK(NTILES_EDMF))
+IF (NTILES_EDMF >= 1) RVLAMSK(1)=ZLARGE           !  Water
+IF (NTILES_EDMF >= 2) RVLAMSK(2)=58._JPRB         !  Sea ice
+IF (NTILES_EDMF >= 3) RVLAMSK(3)=10._JPRB         !  Wet skin
+IF (NTILES_EDMF >= 4) RVLAMSK(4)=10._JPRB         !  Low veg. (Aerodyn.+Rad.+Soil)
+IF (NTILES_EDMF >= 5) RVLAMSK(5)=ZSNOW            !  Snow
+IF (NTILES_EDMF >= 5) RVLAMSK(6)=RLHAERO+5._JPRB  !  High veg. (Aerodyn.+Rad.)
+IF (NTILES_EDMF >= 7) RVLAMSK(7)=RLHAERO+5._JPRB  !  Snow under veg (Aerodyn.+Rad.)
+IF (NTILES_EDMF >= 8) RVLAMSK(8)=15._JPRB         !  Bare soil
+IF (NTILES_EDMF >= 9) RVLAMSK(9)=ZLARGE           !  LAKES = WATER  
 
 ! Stable skin layer conductivity
 
-IF(.NOT.ALLOCATED(RVLAMSKS)) ALLOCATE(RVLAMSKS(NTILES))
-IF (NTILES >= 1) RVLAMSKS(1)=ZLARGE            !  Water
-IF (NTILES >= 2) RVLAMSKS(2)=58._JPRB          !  Sea ice
-IF (NTILES >= 3) RVLAMSKS(3)=10._JPRB          !  Wet skin
-IF (NTILES >= 4) RVLAMSKS(4)=10._JPRB          !  Low veg. (Aerodyn.+Rad.+Soil)
-IF (NTILES >= 5) RVLAMSKS(5)=ZSNOW             !  Snow
-IF (NTILES >= 5) RVLAMSKS(6)=RLHAEROS+5._JPRB  !  High veg. (Aerodyn.+Rad.)
-IF (NTILES >= 7) RVLAMSKS(7)=RLHAEROS+5._JPRB  !  Snow under veg (Aerodyn.+Rad.+Snow
-IF (NTILES >= 8) RVLAMSKS(8)=15._JPRB          !  Bare soil
-IF (NTILES >= 9) RVLAMSKS(9)=ZLARGE            !  LAKES = WATER  
+IF(.NOT.ALLOCATED(RVLAMSKS)) ALLOCATE(RVLAMSKS(NTILES_EDMF))
+IF (NTILES_EDMF >= 1) RVLAMSKS(1)=ZLARGE            !  Water
+IF (NTILES_EDMF >= 2) RVLAMSKS(2)=58._JPRB          !  Sea ice
+IF (NTILES_EDMF >= 3) RVLAMSKS(3)=10._JPRB          !  Wet skin
+IF (NTILES_EDMF >= 4) RVLAMSKS(4)=10._JPRB          !  Low veg. (Aerodyn.+Rad.+Soil)
+IF (NTILES_EDMF >= 5) RVLAMSKS(5)=ZSNOW             !  Snow
+IF (NTILES_EDMF >= 5) RVLAMSKS(6)=RLHAEROS+5._JPRB  !  High veg. (Aerodyn.+Rad.)
+IF (NTILES_EDMF >= 7) RVLAMSKS(7)=RLHAEROS+5._JPRB  !  Snow under veg (Aerodyn.+Rad.+Snow
+IF (NTILES_EDMF >= 8) RVLAMSKS(8)=15._JPRB          !  Bare soil
+IF (NTILES_EDMF >= 9) RVLAMSKS(9)=ZLARGE            !  LAKES = WATER  
 
 ! Transmission of net solar rad. through vegetation
 
-IF(.NOT.ALLOCATED(RVTRSR)) ALLOCATE(RVTRSR(NTILES))
-IF (NTILES >= 1) RVTRSR(1)=0.00_JPRB     ! Ocean (SSR transmission does not apply)
-IF (NTILES >= 2) RVTRSR(2)=0.00_JPRB     ! Ice   (SSR transmission does not apply)
-IF (NTILES >= 3) RVTRSR(3)=0.05_JPRB     ! Wet skin (this is a compromise)
-IF (NTILES >= 4) RVTRSR(4)=0.05_JPRB     ! Low vegetation
-IF (NTILES >= 5) RVTRSR(5)=0.00_JPRB     ! Snow on vegetation (SSR transmission does not apply)
-IF (NTILES >= 5) RVTRSR(6)=0.03_JPRB     ! High veg.
-IF (NTILES >= 7) RVTRSR(7)=0.03_JPRB     ! Snow under veg.
-IF (NTILES >= 8) RVTRSR(8)=0.00_JPRB     ! Bare soil (SSR transmission does not apply)
-IF (NTILES >= 9) RVTRSR(9)=0.00_JPRB     ! LAKES (SSR transmission does not apply) 
+IF(.NOT.ALLOCATED(RVTRSR)) ALLOCATE(RVTRSR(NTILES_EDMF))
+IF (NTILES_EDMF >= 1) RVTRSR(1)=0.00_JPRB     ! Ocean (SSR transmission does not apply)
+IF (NTILES_EDMF >= 2) RVTRSR(2)=0.00_JPRB     ! Ice   (SSR transmission does not apply)
+IF (NTILES_EDMF >= 3) RVTRSR(3)=0.05_JPRB     ! Wet skin (this is a compromise)
+IF (NTILES_EDMF >= 4) RVTRSR(4)=0.05_JPRB     ! Low vegetation
+IF (NTILES_EDMF >= 5) RVTRSR(5)=0.00_JPRB     ! Snow on vegetation (SSR transmission does not apply)
+IF (NTILES_EDMF >= 5) RVTRSR(6)=0.03_JPRB     ! High veg.
+IF (NTILES_EDMF >= 7) RVTRSR(7)=0.03_JPRB     ! Snow under veg.
+IF (NTILES_EDMF >= 8) RVTRSR(8)=0.00_JPRB     ! Bare soil (SSR transmission does not apply)
+IF (NTILES_EDMF >= 9) RVTRSR(9)=0.00_JPRB     ! LAKES (SSR transmission does not apply) 
 
 ! Root fraction
 

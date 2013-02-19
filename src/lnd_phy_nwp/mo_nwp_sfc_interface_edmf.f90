@@ -150,9 +150,9 @@ CONTAINS
   IMPLICIT NONE
 
   INTEGER,  INTENT(IN)  ::  &
-                  nproma,            & ! array dimensions
-                  i_startidx,        & ! start index for computations in the parallel program
-                  i_endidx,          & ! end index for computations in the parallel program
+                  nproma           , & ! array dimensions
+                  i_startidx       , & ! start index for computations in the parallel program
+                  i_endidx         , & ! end index for computations in the parallel program
                   jb               , & ! block
                   jg                   ! patch
   REAL(wp), INTENT(IN)  ::  &
@@ -168,11 +168,12 @@ CONTAINS
                   t_snow_mult_ex       ! temperature of the snow-surface               (  K  )
   REAL(wp), DIMENSION(nproma,nlev_snow,ntiles_total), INTENT(INOUT) :: &
                   rho_snow_mult_ex     ! snow density                                  (kg/m**3)
+  REAL(wp), DIMENSION(nproma,ntiles_total+ntiles_water), INTENT(INOUT) :: &
+                  t_g_ex           , & ! weighted surface temperature                  (  K  )
+                  qv_s_ex              ! specific humidity at the surface              (kg/kg)
   REAL(wp), DIMENSION(nproma,ntiles_total), INTENT(INOUT) :: &
                   t_snow_ex        , & ! temperature of the snow-surface (K)
                   t_s_ex           , & ! temperature of the ground surface             (  K  )
-                  t_g_ex           , & ! weighted surface temperature                  (  K  )
-                  qv_s_ex          , & ! specific humidity at the surface              (kg/kg)
                   w_snow_ex        , & ! water content of snow                         (m H2O)
                   w_snow_eff_ex    , & ! water content of snow                         (m H2O)
                   rho_snow_ex      , & ! snow density                                  (kg/m**3)
@@ -200,12 +201,11 @@ CONTAINS
                   prs_con_ex       , & ! precipitation rate of snow, convective        (kg/m2*s)
                   prr_gsp_ex       , & ! precipitation rate of rain, grid-scale        (kg/m2*s)
                   prs_gsp_ex           ! precipitation rate of snow, grid-scale        (kg/m2*s)
-
-  REAL(wp), DIMENSION(nproma,ntiles_total), INTENT(INOUT) :: &
+  REAL(wp), DIMENSION(nproma,ntiles_total+ntiles_water), INTENT(INOUT) :: &
                   tch_ex           , & ! turbulent transfer coefficient for heat       ( -- )
                   tcm_ex           , & ! turbulent transfer coefficient for momentum   ( -- )
                   tfv_ex               ! laminar reduction factor for evaporation      ( -- )
-  REAL(wp), DIMENSION(nproma,ntiles_total), INTENT(IN) :: &
+  REAL(wp), DIMENSION(nproma,ntiles_total+ntiles_water), INTENT(IN) :: &
                   sobs_ex          , & ! solar radiation at the ground                 ( W/m2)
                   thbs_ex          , & ! thermal radiation at the ground               ( W/m2)
                   pabs_ex              !!!! photosynthetic active radiation            ( W/m2)
@@ -215,7 +215,7 @@ CONTAINS
   REAL(wp), DIMENSION(nproma), INTENT(INOUT) :: &
                   t_g              , &
                   qv_s
-  REAL(wp), DIMENSION(nproma,ntiles_total), INTENT(OUT) :: &
+  REAL(wp), DIMENSION(nproma,ntiles_total+ntiles_water), INTENT(OUT) :: &
                   shfl_s_ex        , & ! sensible heat flux soil/air interface         (W/m2)
                   lhfl_s_ex        , & ! latent   heat flux soil/air interface         (W/m2)
                   shfl_snow_ex     , & ! sensible heat flux snow/air interface         (W/m2)
@@ -328,13 +328,9 @@ CONTAINS
     REAL(wp) :: snow_gsp_rate(nproma, ntiles_total)
     REAL(wp) :: rain_con_rate(nproma, ntiles_total)
     REAL(wp) :: snow_con_rate(nproma, ntiles_total)
-
     REAL(wp), PARAMETER :: small = 1.E-06_wp
 
     REAL(wp) :: t_g_s(nproma), qv_s_s(nproma)
-    REAL(wp) :: qv_2m_t     (nproma, ntiles_total)
-    REAL(wp) :: td_2m_t     (nproma, ntiles_total)
-    REAL(wp) :: rh_2m_t     (nproma, ntiles_total)
 
     REAL(wp) :: shfl_s_t    (nproma, ntiles_total)
     REAL(wp) :: lhfl_s_t    (nproma, ntiles_total)
@@ -344,12 +340,10 @@ CONTAINS
     REAL(wp) :: shfl_snow_t (nproma, ntiles_total)
     REAL(wp) :: lhfl_snow_t (nproma, ntiles_total)
 
-    REAL(wp) :: dummy1(nproma)
-
 !--------------------------------------------------------------
 
 
-    ! initialize dummy variable
+    ! initialize dummy variable (precipitation rate of graupel, grid-scale)
     dummy_prg_gsp(1:nproma) = 0._wp
 
     ! local variables related to the blocking
@@ -434,12 +428,10 @@ CONTAINS
          END DO
        END IF
 
-
-
 !---------- Copy input fields for each tile
 
 !----------------------------------
-      DO isubs = 1,ntiles_total
+       DO isubs = 1,ntiles_total
 !----------------------------------
 
         i_count = ext_data%atm%gp_count_t(jb,isubs) 
@@ -605,12 +597,11 @@ IF ( .true. ) THEN
         &  w_so_ice_now  = w_so_ice_now_t(:,:,isubs)         , & ! ice content                       (m H20)
         &  w_so_ice_new  = w_so_ice_new_t(:,:,isubs)         , & ! ice content                       (m H20)
 !
-!       &  t_2m          = t_2m_t(:,isubs)                   , & ! temperature in 2m                  (  K  )
         &  u_10m         = u_10m_t(:,isubs)                  , & ! zonal wind in 10m                  ( m/s )
         &  v_10m         = v_10m_t(:,isubs)                  , & ! meridional wind in 10m            ( m/s )
         &  freshsnow     = freshsnow_t(:,isubs)              , & ! indicator for age of snow in top of snow layer (  -  )
         &  zf_snow       = snowfrac_t(:,isubs)               , & ! snow-cover fraction                            (  -  )
-!                                                            
+!
         &  wliq_snow_now = wliq_snow_now_t(:,:,isubs)        , & ! liquid water content in the snow  (m H2O)
         &  wliq_snow_new = wliq_snow_new_t(:,:,isubs)        , & ! liquid water content in the snow  (m H2O)
 !
@@ -683,6 +674,8 @@ IF (msg_level >= 15) THEN
   ENDDO
 ENDIF
 
+
+
 if (.true.) then
         CALL diag_snowfrac_tg(                        &
           &  istart = 1, iend = i_count             , & ! start/end indices
@@ -719,12 +712,14 @@ endif
           snowfrac_ex (jc,isubs)  = snowfrac_t    (ic,isubs) 
           runoff_s_ex (jc,isubs)  = runoff_s_t    (ic,isubs)  
           runoff_g_ex (jc,isubs)  = runoff_g_t    (ic,isubs)  
-          shfl_s_ex   (jc,isubs)  = shfl_s_t      (ic,isubs)
-          shfl_snow_ex(jc,isubs)  = shfl_snow_t   (ic,isubs)
-          lhfl_s_ex   (jc,isubs)  = lhfl_s_t      (ic,isubs)   
-          lhfl_snow_ex(jc,isubs)  = lhfl_snow_t   (ic,isubs)
 
           t_so_ex(jc,nlev_soil+1,isubs) = t_so_new_t(ic,nlev_soil+1,isubs)
+
+          shfl_s_ex   (jc,isubs)  = shfl_s_t      (ic,isubs)
+          lhfl_s_ex   (jc,isubs)  = lhfl_s_t      (ic,isubs)   
+          shfl_snow_ex(jc,isubs)  = shfl_snow_t   (ic,isubs)
+          lhfl_snow_ex(jc,isubs)  = lhfl_snow_t   (ic,isubs)
+
 
           IF(lmulti_snow) THEN
             t_snow_mult_ex     (jc,nlev_snow+1,isubs) = &
@@ -781,8 +776,7 @@ endif
           ENDDO
         ENDDO
 
-      END DO ! isubs - loop over tiles
-
+       END DO ! isubs - loop over tiles
 
        IF(lsnowtile) THEN      ! snow is considered as separate tiles
          DO isubs = 1, ntiles_lnd
@@ -891,18 +885,18 @@ endif
                  tmp3 = w_so_ice_ex(jc,jk,isubs)
   
                  t_so_ex    (jc,jk,isubs) = t_so_ex    (jc,jk,isubs)*fact1(jc) &
-                   &                         + t_so_ex    (jc,jk,isubs_snow)*(1._wp - fact1(jc))
+                   &                      + t_so_ex    (jc,jk,isubs_snow)*(1._wp - fact1(jc))
                  w_so_ex    (jc,jk,isubs) = w_so_ex    (jc,jk,isubs)*fact1(jc) &
-                   &                         + w_so_ex    (jc,jk,isubs_snow)*(1._wp - fact1(jc))
+                   &                      + w_so_ex    (jc,jk,isubs_snow)*(1._wp - fact1(jc))
                  w_so_ice_ex(jc,jk,isubs) = w_so_ice_ex(jc,jk,isubs)*fact1(jc) &
-                   &                         + w_so_ice_ex(jc,jk,isubs_snow)*(1._wp - fact1(jc))
+                   &                      + w_so_ice_ex(jc,jk,isubs_snow)*(1._wp - fact1(jc))
  
                  t_so_ex    (jc,jk,isubs_snow) = tmp1*(1._wp - fact2(jc)) &
-                   &                              + t_so_ex    (jc,jk,isubs_snow)*fact2(jc)
+                   &                           + t_so_ex    (jc,jk,isubs_snow)*fact2(jc)
                  w_so_ex    (jc,jk,isubs_snow) = tmp2*(1._wp - fact2(jc)) &
-                   &                              + w_so_ex    (jc,jk,isubs_snow)*fact2(jc)
+                   &                           + w_so_ex    (jc,jk,isubs_snow)*fact2(jc)
                  w_so_ice_ex(jc,jk,isubs_snow) = tmp3*(1._wp - fact2(jc)) &
-                   &                              + w_so_ice_ex(jc,jk,isubs_snow)*fact2(jc)
+                   &                           + w_so_ice_ex(jc,jk,isubs_snow)*fact2(jc)
 
                  IF (jk == 1) THEN
                    t_s_ex(jc,isubs)      = t_so_ex(jc,jk,isubs)
