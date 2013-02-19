@@ -1411,6 +1411,7 @@ src/shared/mo_util_binheap.f90 -text
 src/shared/mo_util_dbg_prnt.f90 -text
 src/shared/mo_util_debug.f90 -text
 src/shared/mo_util_file.f90 -text
+src/shared/mo_util_grib.f90 -text
 src/shared/mo_util_hash.f90 -text
 src/shared/mo_util_netcdf.f90 -text
 src/shared/mo_util_postgresql.f90_off -text
