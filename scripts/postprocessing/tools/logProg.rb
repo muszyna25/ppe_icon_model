@@ -7,6 +7,8 @@ require 'date'
 
 #===============================================================================
 #
+# debug output
+def dbg(msg); pp msg unless ENV['DEBUG'].nil? ; end
 # proccesing method which should be called for each file
 def procLog(logFile,tags)
   logpattern = / (#{tags.join('|')}) /
@@ -21,13 +23,18 @@ def procLog(logFile,tags)
   simulationLengthInDays         = (simulationEnd - simulationStart).to_i
   simulationLengthInYears        = simulationLengthInDays/365.0
   oneDayInSeconds                = 86400.0
+  dbg(simulationLengthInYears)
 
   # collect all requested timers
-  logContent.grep(logpattern).map(&:split).map {|v| [v[0,3].grep(tagpattern),v[-1]].flatten}.each {|k,v| 
+  dbg(logContent.grep(logpattern).map(&:split).map {|v|[v.grep(tagpattern),v[-1]].flatten})
+  logContent.grep(logpattern).map(&:split).map {|v| [v.grep(tagpattern),v[-1]].flatten}.each {|k,v| 
     (retval[k] ||= [])<< v
+    dbg(k)
   }
   # add numer of PEs
-  retval['PEs'] = logContent.grep(/PE( |:)/).collect {|v| n = /PE(:| ) *(\d+)/.match(v)[2]}.size
+  retval['PEs'] = logContent.grep(/PE( |:)/).collect {|v| n = /PE(:| ) *(\d+)/.match(v)[2]}.uniq.size
+  dbg(retval['PEs'])
+
   # use min,max,mean instead of all available values
   minMaxHash = {}
   retval.each {|k,v|
@@ -61,16 +68,22 @@ def createPlot(dataTotal,dataGmres,dataTrace,oType='x11',oName='test')
         plot.terminal oType
         plot.output "#{oName}.#{oType}"
       end
-      plot.title 'ICON ocean speed/runtime/scaling R2B04 on blizzard'
+      if ENV['TITLE'].nil?
+        plot.title 'ICON ocean speed/runtime/scaling R2B04 on blizzard'
+      else
+        plot.title ENV['TITLE']
+      end
       plot.grid
+      plot.yrange '[0:60]'
+      plot.y2range '[0:30]'
       plot.y2tics  'in'
       plot.key     'out horiz bot'
       plot.ylabel  'speed [years/day]'
-      plot.y2label 'speed [seconds/day]'
+      plot.y2label 'speed [read seconds/ simulated day]'
       plot.data << Gnuplot::DataSet.new( dataTotal ) do |ds|
         ds.with = "lines"
         ds.title = 'total [y/d]'
-      end
+      end# if false
       plot.data << Gnuplot::DataSet.new( dataTotal ) do |ds|
         ds.with = "errorbars"
         ds.title = 'total error [y/d]'
