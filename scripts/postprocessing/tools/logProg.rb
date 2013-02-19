@@ -69,19 +69,19 @@ def createPlot(dataTotal,dataGmres,dataTrace,oType='x11',oName='test')
       plot.y2label 'speed [seconds/day]'
       plot.data << Gnuplot::DataSet.new( dataTotal ) do |ds|
         ds.with = "lines"
-        ds.title = 'total'
+        ds.title = 'total [y/d]'
       end
       plot.data << Gnuplot::DataSet.new( dataTotal ) do |ds|
         ds.with = "errorbars"
-        ds.title = 'total error'
+        ds.title = 'total error [y/d]'
       end
       plot.data << Gnuplot::DataSet.new( dataGmres ) do |ds|
         ds.with = "errorbars axes x1y2"
-        ds.title = 'gmres'
+        ds.title = 'gmres [s/d]'
       end
       plot.data << Gnuplot::DataSet.new( dataTrace ) do |ds|
         ds.with = "errorbars axes x1y2"
-        ds.title = 'tracer_ab'
+        ds.title = 'tracer_ab [s/d]'
       end
     end
   end
