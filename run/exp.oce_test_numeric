@@ -141,6 +141,10 @@ cat > ${ocean_namelist} << EOF
   n_zlev             =   10      ! number of vertical levels and (dzlev_m) thicknesses
   dzlev_m(1:20)      =   50.0,  100.0,  200.0,  300.0,  450.0,  600.0,  800.0, 1000.0, 1000.0, 1000.0,
                        1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0
+  solver_tolerance = 1.0E-11
+  solver_start_tolerance = 1.0E-8
+  solver_tolerance_decrease_ratio = 0.1
+  use_absolute_solver_tolerance = .true.
 /
 &ocean_physics_nml
   i_sea_ice          =    0      ! 0 = no sea ice; 1 = sea ice switched on
