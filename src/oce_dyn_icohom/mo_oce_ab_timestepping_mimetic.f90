@@ -1554,7 +1554,7 @@ REAL(wp) :: p_lhs(SIZE(p_x,1), SIZE(p_x,2))  ! (nproma,p_patch%nblks_c)
 REAL(wp) :: gdt2_inv, gam_times_beta
 INTEGER :: i_startidx, i_endidx
 INTEGER :: jc, jb, je
-TYPE(t_subset_range), POINTER :: cells_in_domain, all_cells, all_edges, owned_edges
+TYPE(t_subset_range), POINTER :: cells_in_domain, all_cells, all_edges, edges_in_domain
 TYPE(t_patch), POINTER :: patch     ! patch on which computation is performed
 ! CHARACTER(len=max_char_length), PARAMETER ::     &
 !   &      routine = ('mo_oce_ab_timestepping_mimetic: lhs_surface_height_ab_mim')
@@ -1566,7 +1566,8 @@ TYPE(t_patch), POINTER :: patch     ! patch on which computation is performed
   cells_in_domain => patch%cells%in_domain
   all_cells       => patch%cells%all
   all_edges       => patch%edges%all
-  owned_edges     => patch%edges%owned
+!  owned_edges     => patch%edges%owned
+  edges_in_domain => patch%edges%in_domain
 
  ! p_lhs => lhs_result
 ! 
@@ -1591,8 +1592,8 @@ TYPE(t_patch), POINTER :: patch     ! patch on which computation is performed
           &                   p_op_coeff%grad_coeff(:,1,:),  &
           &                   lhs_z_e(:,:))
           
-    DO jb = owned_edges%start_block, owned_edges%end_block
-      CALL get_index_range(owned_edges, jb, i_startidx, i_endidx)
+    DO jb = edges_in_domain%start_block, edges_in_domain%end_block
+      CALL get_index_range(edges_in_domain, jb, i_startidx, i_endidx)
       DO je = i_startidx, i_endidx
 !        IF(p_patch_3D%lsm_e(je,1,jb)<= sea_boundary)THEN
           lhs_z_e(je,jb) = lhs_z_e(je,jb) * h_e(je,jb)
@@ -1604,7 +1605,8 @@ TYPE(t_patch), POINTER :: patch     ! patch on which computation is performed
 
       END DO
     END DO
-    CALL sync_patch_array(SYNC_E, patch, lhs_z_e(:,:) )
+    ! no need to sync since we will compute only cells in domain
+    !CALL sync_patch_array(SYNC_E, patch, lhs_z_e(:,:) )
 
   ELSEIF(.NOT.l_edge_based)THEN
 
