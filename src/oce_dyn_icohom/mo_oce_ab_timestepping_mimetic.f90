@@ -62,7 +62,10 @@ USE mo_ocean_nml,                 ONLY: n_zlev, solver_tolerance, l_inverse_flip
   &                                     no_tracer, l_RIGID_LID, l_edge_based,             &
   &                                     FLUX_CALCULATION_HORZ, MIMETIC,CENTRAL,UPWIND,    &
   &                                     use_absolute_solver_tolerance, solver_start_tolerance, &
-  &                                     solver_tolerance_decrease_ratio
+  &                                     solver_tolerance_decrease_ratio,                  &
+  &                                     solver_max_restart_iterations,                    &
+  &                                     solver_max_iterations_per_restart
+
 USE mo_run_config,                ONLY: dtime, ltimer
 USE mo_timer,                     ONLY: timer_start, timer_stop, timer_ab_expl,           &
   &                                     timer_ab_rhs4sfc, timer_lhs
@@ -173,7 +176,9 @@ SUBROUTINE solve_free_sfc_ab_mimetic(p_patch_3D, p_os, p_ext_data, p_sfc_flx, &
   LOGICAL  :: lprecon         = .FALSE.
   REAL(wp) :: z_implcoeff
   REAL(wp) :: zresidual(nmax_iter)    ! norms of the residual (convergence history);an argument of dimension at least m is required
-  LOGICAL  :: l_maxiter                 ! true if reached m iterations
+  REAL(wp) :: residual_norm
+  LOGICAL  :: l_maxiter     ! true if reached m iterations
+  INTEGER  :: gmres_restart_iterations
   CHARACTER(len=max_char_length) :: string
   TYPE(t_subset_range), POINTER :: all_cells, all_edges
   TYPE(t_patch), POINTER :: patch_horz
@@ -450,7 +455,10 @@ REAL(wp)                     ::trac_c(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nbl
     
       ! call the new gmre_oce, uses out of order global sum
       tolerance = solver_start_tolerance
-      DO  WHILE(tolerance >= solver_tolerance)
+      residual_norm = solver_tolerance + 1.0_wp
+      gmres_restart_iterations = 0
+      ! write(0,*) tolerance, solver_tolerance, residual_norm, gmres_restart_iterations, solver_max_restart_iterations
+      DO  WHILE(residual_norm >= solver_tolerance .AND. gmres_restart_iterations < solver_max_restart_iterations)
 
         CALL gmres( z_h_c(:,:),                 &  ! arg 1 of lhs. x input is the first guess.
           &        lhs_surface_height_ab_mim, &  ! function calculating l.h.s.
@@ -463,27 +471,34 @@ REAL(wp)                     ::trac_c(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nbl
           &        p_os%p_aux%p_rhs_sfc_eq,   &  ! right hand side as input
           &        tolerance,                     &  ! tolerance
           &        use_absolute_solver_tolerance, &  ! absolute/relative tolerance
-          &        nmax_iter,                 &  ! max. # of iterations to do
+          &        solver_max_iterations_per_restart,  &  ! max. # of iterations to do
           &        l_maxiter,                 &  ! out: .true. = not converged
           &        n_iter,                    &  ! out: # of iterations done
           &        zresidual )
-        IF (l_maxiter) THEN
-          CALL finish('GMRES solver surface equation: ','NOT YET CONVERGED !!')
-        ELSE
-          ! output print level idt_src used for GMRES output with call message:
-          IF(n_iter==0)n_iter=1
-          idt_src=0
-          IF (idbg_mxmn >= idt_src) THEN
-            WRITE(string,'(a,i4,a,e28.20)') &
-              'iteration =', n_iter,', residual =', ABS(zresidual(n_iter))
-            CALL message('GMRES surface height',TRIM(string))
-          ENDIF
-        ENDIF
 
-        tolerance = tolerance * solver_tolerance_decrease_ratio
+
+        ! output print level idt_src used for GMRES output with call message:
+        IF(n_iter==0) THEN
+          residual_norm = 0.0_wp
+        ELSE
+          residual_norm =  ABS(zresidual(n_iter))
+        ENDIF
+!        IF (idbg_mxmn >= idt_src) THEN
+          WRITE(string,'(a,i4,a,e28.20)') &
+            'gmres iteration =', n_iter,', residual =', residual_norm
+          CALL message('GMRES surface height',TRIM(string))
+!        ENDIF
+
+        IF (tolerance > solver_tolerance) &
+          tolerance = MAX(tolerance * solver_tolerance_decrease_ratio, solver_tolerance)
+
+        gmres_restart_iterations = gmres_restart_iterations + 1
         
       END DO ! WHILE(tolerance >= solver_tolerance)
       
+      IF (residual_norm > solver_tolerance) &
+          CALL finish('GMRES solver surface equation: ','NOT YET CONVERGED !!')
+
       p_os%p_prog(nnew(1))%h = z_h_c
       
     ENDIF

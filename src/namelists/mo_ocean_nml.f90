@@ -178,6 +178,8 @@ MODULE mo_ocean_nml
   REAL(wp) :: ab_gam                = 0.6_wp     ! Parameter in semi-implicit timestepping
   REAL(wp) :: solver_tolerance      = 1.e-6_wp   ! Maximum value allowed for solver tolerance
   REAL(wp) :: solver_start_tolerance  = -1.0_wp  ! For restarting gmres
+  INTEGER  :: solver_max_restart_iterations = 100 ! For restarting gmres
+  INTEGER  :: solver_max_iterations_per_restart = 200 ! For restarting gmres
   REAL(wp) :: solver_tolerance_decrease_ratio   = 0.1_wp  ! For restarting gmres, must be < 1
   LOGICAL  :: use_absolute_solver_tolerance  = .false.   ! Maximum value allowed for solver tolerance
                                                 
@@ -276,7 +278,9 @@ MODULE mo_ocean_nml
     &                 veloc_diffusion_order,veloc_diffusion_form,          &
     &                 FLUX_CALCULATION_HORZ, FLUX_CALCULATION_VERT,        &
     &                 use_absolute_solver_tolerance, solver_start_tolerance, &
-    &                 solver_tolerance_decrease_ratio
+    &                 solver_tolerance_decrease_ratio,                     &
+    &                 solver_max_restart_iterations,                       &
+    &                 solver_max_iterations_per_restart
  
 
 

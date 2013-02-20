@@ -1214,7 +1214,7 @@ INTEGER :: no_of_blocks, end_nproma
      rn2(i  ) =  c(i)*rn2(i)
 
      ! 4.9) check whether we are done
-   !  write(0,*) i, " gmres  tolerance bound, residual: ", tol, ABS(rn2(i+1))
+     ! write(0,*) i, " gmres  tolerance bound, residual: ", tol, ABS(rn2(i+1))
      IF ( done .OR. (ABS(rn2(i+1)) < tol) ) EXIT arnoldi
    ENDDO arnoldi
 
