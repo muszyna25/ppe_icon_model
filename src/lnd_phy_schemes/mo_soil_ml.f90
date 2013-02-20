@@ -407,7 +407,7 @@ USE mo_lnd_nwp_config,     ONLY: lmelt, lmelt_var, lmulti_snow,  &
   &                              itype_gscp, itype_trvg, itype_evsl,     &
   &                              itype_tran, itype_root, itype_heatcond, &
   &                              itype_hydbound, lstomata, l2tls,        &
-  &                              lana_rho_snow, itype_subs, max_toplaydepth
+  &                              lana_rho_snow, max_toplaydepth
 !
 !                           
 USE mo_exception,          ONLY: message, finish, message_text

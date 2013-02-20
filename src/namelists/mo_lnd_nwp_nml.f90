@@ -69,7 +69,6 @@ MODULE mo_lnd_nwp_nml
     &                               config_itype_root  => itype_root    , &
     &                               config_lstomata    => lstomata      , &
     &                               config_l2tls       => l2tls         , &
-    &                               config_itype_subs  => itype_subs    , &
     &                            config_itype_heatcond => itype_heatcond, &
     &                            config_itype_hydbound => itype_hydbound, &
     &                            config_lana_rho_snow  => lana_rho_snow , &
@@ -100,7 +99,6 @@ MODULE mo_lnd_nwp_nml
   INTEGER ::  itype_root        !< type of root density distribution
   INTEGER ::  itype_heatcond    !< type of soil heat conductivity
   INTEGER ::  itype_hydbound    !< type of hydraulic lower boundary condition
-  INTEGER ::  itype_subs        !< type of subscale surface treatment =1 MOSAIC, =2 TILE       
   INTEGER ::  idiag_snowfrac    !< method for diagnosis of snow-cover fraction       
 
   CHARACTER(LEN=filename_max) :: sst_td_filename, ci_td_filename
@@ -133,7 +131,6 @@ MODULE mo_lnd_nwp_nml
     &               lstomata                                  , & 
     &               l2tls                                     , & 
     &               lana_rho_snow                             , & 
-    &               itype_subs                                , &
     &               lsnowtile                                 , &
     &               sstice_mode                               , &
     &               sst_td_filename                           , &
@@ -208,7 +205,6 @@ MODULE mo_lnd_nwp_nml
     lstomata       =.TRUE.   ! map of minimum stomata resistance
     l2tls          =.TRUE.   ! forecast with 2-TL integration scheme
     lana_rho_snow  =.TRUE.   ! if .TRUE., take rho_snow-values from analysis file 
-    itype_subs     = 2       ! type of subscale surface treatment =1 MOSAIC, =2 TILE       
 
 
     lseaice    = .TRUE.
@@ -276,7 +272,6 @@ MODULE mo_lnd_nwp_nml
       config_itype_root  = itype_root
       config_lstomata    = lstomata
       config_l2tls       = l2tls
-      config_itype_subs  = itype_subs
       config_itype_heatcond = itype_heatcond
       config_itype_hydbound = itype_hydbound
       config_lana_rho_snow  = lana_rho_snow
