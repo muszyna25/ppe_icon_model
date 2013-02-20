@@ -1213,6 +1213,20 @@ void    vlistDefVarIntKey(int vlistID, int varID, const char* name, int value);
 void    vlistDefVarDblKey(int vlistID, int varID, const char* name, double value);
 
 
+  /* ---------------------------------- */
+  /* Local change: 2013-02-18, FP (DWD) */
+  /* ---------------------------------- */
+
+/* vlistInqVarRawBegin: Open GRIB record to retrieve raw meta-data in subsequent calls */
+void    vlistInqVarRawBegin(int streamID, int varID);
+/* vlistInqVarDblKey: raw access to GRIB meta-data */
+double  vlistInqVarDblKey(int streamID, const char* name);
+/* vlistInqVarIntKey: raw access to GRIB meta-data */
+int     vlistInqVarIntKey(int streamID, const char* name);
+/* vlistInqVarRawEnd: Free previously opened GRIB record */
+void    vlistInqVarRawEnd(int streamID);
+
+
 void    vlistDefVarModel(int vlistID, int varID, int modelID);
 int     vlistInqVarModel(int vlistID, int varID);
 void    vlistDefVarTable(int vlistID, int varID, int tableID);
@@ -5606,6 +5620,12 @@ typedef struct {
   void       *gribContainers;
 #endif
   int         vlistIDorig;
+
+  /* ---------------------------------- */
+  /* Local change: 2013-02-18, FP (DWD) */
+  /* ---------------------------------- */
+
+  void *gh; // grib handle
 }
 stream_t;
 
@@ -14133,6 +14153,75 @@ void vlistDefVarDblKey(int vlistID, int varID, const char* name, double value)
     vlistptr->vars[varID].opt_grib_dbl_keyword[idx] = strdupx(name);
   else
     Error("Internal error!");
+}
+
+
+
+/* ---------------------------------- */
+/* Local change: 2013-01-28, FP (DWD) */
+/* ---------------------------------- */
+
+/* vlistInqVarRawBegin: Open GRIB record to retrieve raw meta-data in subsequent calls */
+void vlistInqVarRawBegin(int streamID, int varID)
+{
+#if  defined  (HAVE_LIBGRIB_API)
+  stream_t *streamptr;
+  int       recID, tsID, fileID;
+  long      recpos, recsize;
+
+  streamptr = stream_to_pointer(streamID);
+  stream_check_ptr(__func__, streamptr);
+
+  fileID  = streamInqFileID(streamID);
+  tsID    = streamptr->curTsID;
+
+  // determine record ID for varID in current time step
+  for (recID=0; (recID<streamptr->tsteps[0].nrecs) && (varID != streamptr->tsteps[tsID].records[recID].varID); recID++);
+  recpos  = streamptr->tsteps[tsID].records[recID].position;
+  recsize = streamptr->tsteps[tsID].records[recID].size;
+
+  fileSetPos(fileID, recpos, SEEK_SET);
+  fileRead(fileID, streamptr->record->buffer, (size_t) recsize);
+
+  streamptr->gh = (void *) grib_handle_new_from_message(NULL, (void *) streamptr->record->buffer, recsize);
+#endif
+}
+
+
+/* vlistInqVarDblKey: raw access to GRIB meta-data */
+double vlistInqVarDblKey(int streamID, const char* name)
+{
+#if  defined  (HAVE_LIBGRIB_API)
+  stream_t *streamptr = stream_to_pointer(streamID);
+  stream_check_ptr(__func__, streamptr);
+  double value = 0;
+  GRIB_CHECK(grib_get_double((grib_handle*) streamptr->gh, name, &value), 0);
+  return value;
+#endif
+}
+
+
+/* vlistInqVarIntKey: raw access to GRIB meta-data */
+int vlistInqVarIntKey(int streamID, const char* name)
+{
+#if  defined  (HAVE_LIBGRIB_API)
+  stream_t *streamptr = stream_to_pointer(streamID);
+  stream_check_ptr(__func__, streamptr);
+  long int value = 0;
+  GRIB_CHECK(grib_get_long((grib_handle*) streamptr->gh, name, &value), 0);
+  return (int) value;
+#endif
+}
+
+
+/* vlistInqVarRawEnd: Free previously opened GRIB record */
+void vlistInqVarRawEnd(int streamID)
+{
+#if  defined  (HAVE_LIBGRIB_API)
+  stream_t *streamptr = stream_to_pointer(streamID);
+  stream_check_ptr(__func__, streamptr);
+  grib_handle_delete((grib_handle*) streamptr->gh);
+#endif
 }
 
 
@@ -64979,6 +65068,15 @@ FCALLSCFUN2 (INT, vlistInqVarInstitut, VLISTINQVARINSTITUT, vlistinqvarinstitut,
 /* ---------------------------------- */
 FCALLSCSUB4 (vlistDefVarIntKey, VLISTDEFVARINTKEY, vlistdefvarintkey, INT, INT, STRING, INT)
 FCALLSCSUB4 (vlistDefVarDblKey, VLISTDEFVARDBLKEY, vlistdefvardblkey, INT, INT, STRING, DOUBLE)
+
+/* ---------------------------------- */
+/* Local change: 2013-02-18, FP (DWD) */
+/* ---------------------------------- */
+
+FCALLSCSUB2 (vlistInqVarRawBegin, VLISTINQVARRAWBEGIN, vlistinqvarrawbegin, INT, INT)
+FCALLSCFUN2 (DOUBLE, vlistInqVarDblKey,   VLISTINQFVARDBLKEY,  vlistinqvardblkey,   INT, STRING)
+FCALLSCFUN2 (INT,    vlistInqVarIntKey,   VLISTINQFVARINTKEY,  vlistinqvarintkey,   INT, STRING)
+FCALLSCSUB1 (vlistInqVarRawEnd,   VLISTINQVARRAWEND,   vlistinqvarrawend,   INT)
 
 FCALLSCSUB3 (vlistDefVarModel, VLISTDEFVARMODEL, vlistdefvarmodel, INT, INT, INT)
 FCALLSCFUN2 (INT, vlistInqVarModel, VLISTINQVARMODEL, vlistinqvarmodel, INT, INT)

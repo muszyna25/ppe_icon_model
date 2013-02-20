@@ -64,6 +64,7 @@ MODULE mo_nwp_turbdiff_interface
   USE mo_data_turbdiff,        ONLY: get_turbdiff_param
   USE src_turbdiff,            ONLY: turbdiff
   USE mo_gme_turbdiff,         ONLY: partura, progimp_turb, nearsfc
+  USE mo_lnd_nwp_config,       ONLY: ntiles_total, ntiles_water
 
   IMPLICIT NONE
 
@@ -115,7 +116,7 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
 
   ! Local scalars:
 
-  INTEGER :: jc,jk,jb,jg      !loop indices
+  INTEGER :: jc,jk,jb,jg,jt      !loop indices
 
   ! local variables for turbdiff
 
@@ -161,7 +162,7 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
   ENDIF
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,ierrstat,errormsg,eroutine,z_tvs)  &
+!$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,ierrstat,errormsg,eroutine,z_tvs,jt)  &
 !$OMP ICON_OMP_GUIDED_SCHEDULE
 
   DO jb = i_startblk, i_endblk
@@ -332,6 +333,15 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
         &           t_2m=prm_diag%t_2m(:,jb), qv_2m=prm_diag%qv_2m(:,jb),           & !out
         &           td_2m=prm_diag%td_2m(:,jb), rh_2m=prm_diag%rh_2m(:,jb),         & !out
         &           u_10m=prm_diag%u_10m(:,jb), v_10m=prm_diag%v_10m(:,jb)          ) !out
+
+
+      ! Copy transfer u_10m/v_10m to tile-based variables, which are used in TERRA
+      DO jt = 1, ntiles_total+ntiles_water
+        DO jc = i_startidx, i_endidx
+          prm_diag%u_10m_t(jc,jb,jt) = prm_diag%u_10m(jc,jb)
+          prm_diag%v_10m_t(jc,jb,jt) = prm_diag%v_10m(jc,jb)
+        ENDDO
+      ENDDO
 
     ENDIF !inwp_turb
 

@@ -67,8 +67,8 @@ MODULE mo_nwp_turbtrans_interface
   USE mo_gme_turbdiff,         ONLY: parturs
   USE mo_run_config,           ONLY: ltestcase
   USE mo_nh_testcases,         ONLY: nh_test_name
-  USE mo_lnd_nwp_config,       ONLY: ntiles_total, nlists_water, ntiles_water, &
-    &                                isub_water, isub_seaice
+  USE mo_lnd_nwp_config,       ONLY: ntiles_total, ntiles_water, isub_water, &
+    &                                isub_lake, isub_seaice
 
   IMPLICIT NONE
 
@@ -108,6 +108,8 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
   REAL(wp),                    INTENT(in)   :: tcall_turb_jg   !< time interval for 
                                                                !< turbulence
 
+  CHARACTER(len=*),PARAMETER :: routine = 'mo_nwp_turbtrans_interface:nwp_turbtrans'
+
   ! Local array bounds
 
   INTEGER :: rl_start, rl_end
@@ -117,7 +119,7 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
 
   ! Local scalars:
 
-  INTEGER :: jc,jb,jt,jg,ic,i_count,jt1      !loop indices
+  INTEGER :: jc,jb,jt,jg,ic,i_count      !loop indices
 
   ! local variables for turbdiff
 
@@ -135,17 +137,17 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
   ! Local fields needed to reorder turbtran input/output fields for tile approach
 
   ! 2D fields
-  REAL(wp), DIMENSION(nproma,ntiles_total+nlists_water) :: gz0_t, tcm_t, tch_t, tfm_t, tfh_t, tfv_t, &  
+  REAL(wp), DIMENSION(nproma,ntiles_total+ntiles_water) :: gz0_t, tcm_t, tch_t, tfm_t, tfh_t, tfv_t, &  
    t_2m_t, qv_2m_t, td_2m_t, rh_2m_t, u_10m_t, v_10m_t, t_g_t, qv_s_t, pres_sfc_t, sai_t, shfl_s_t, lhfl_s_t
 
   ! 3D full-level fields
-  REAL(wp), DIMENSION(nproma,2,ntiles_total+nlists_water) :: u_t, v_t, temp_t, pres_t, qv_t, qc_t, tkvm_t, tkvh_t
+  REAL(wp), DIMENSION(nproma,2,ntiles_total+ntiles_water) :: u_t, v_t, temp_t, pres_t, qv_t, qc_t, tkvm_t, tkvh_t
 
   ! 3D half-level fields
-  REAL(wp), DIMENSION(nproma,3,ntiles_total+nlists_water) :: z_ifc_t, w_t, rcld_t
+  REAL(wp), DIMENSION(nproma,3,ntiles_total+ntiles_water) :: z_ifc_t, w_t, rcld_t
 
   ! SQRT(2*TKE)
-  REAL(wp) :: tvs_t(nproma,3,1,ntiles_total+nlists_water)
+  REAL(wp) :: tvs_t(nproma,3,1,ntiles_total+ntiles_water)
 
   INTEGER, POINTER :: ilist(:)  ! pointer to tile index list
 
@@ -177,10 +179,10 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
   ENDIF
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jt,jc,ic,jt1,ilist,i_startidx,i_endidx,i_count,ierrstat,errormsg,eroutine,&
+!$OMP DO PRIVATE(jb,jt,jc,ic,ilist,i_startidx,i_endidx,i_count,ierrstat,errormsg,eroutine,      &
 !$OMP lc_class,z_tvs,gz0_t,tcm_t,tch_t,tfm_t,tfh_t,tfv_t,t_g_t,qv_s_t,t_2m_t,qv_2m_t,           &  
-!$OMP td_2m_t,rh_2m_t,u_10m_t,v_10m_t,tvs_t,pres_sfc_t,u_t,v_t,temp_t,pres_t,qv_t,qc_t,tkvm_t,   &
-!$OMP tkvh_t,z_ifc_t,w_t,rcld_t,sai_t,fr_land_t,depth_lk_t,h_ice_t,area_frac,shfl_s_t,lhfl_s_t)  &
+!$OMP td_2m_t,rh_2m_t,u_10m_t,v_10m_t,tvs_t,pres_sfc_t,u_t,v_t,temp_t,pres_t,qv_t,qc_t,tkvm_t,  &
+!$OMP tkvh_t,z_ifc_t,w_t,rcld_t,sai_t,fr_land_t,depth_lk_t,h_ice_t,area_frac,shfl_s_t,lhfl_s_t) &
 !$OMP ICON_OMP_GUIDED_SCHEDULE
 
   DO jb = i_startblk, i_endblk
@@ -313,33 +315,33 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
         depth_lk_t(:) = 0._wp
         h_ice_t(:)    = 0._wp
 
-        ! Loop over index lists for land tile points, sea/lake points and seaice points
-        DO  jt = 1, ntiles_total + nlists_water
+        ! Loop over land tile points, sea, lake points and seaice points
+        ! Each tile has a separate index list
+        DO  jt = 1, ntiles_total + ntiles_water
 
           IF (jt <= ntiles_total) THEN ! land tile points
-            jt1 = jt
             i_count =  ext_data%atm%gp_count_t(jb,jt)
             ilist   => ext_data%atm%idx_lst_t(:,jb,jt)
           ELSE IF (jt == ntiles_total + 1) THEN ! sea points (open water)
-            jt1 = isub_water   !jt
             i_count =  ext_data%atm%spw_count(jb)
             ilist   => ext_data%atm%idx_lst_spw(:,jb)
             fr_land_t(:) = 0._wp
           ELSE IF (jt == ntiles_total + 2) THEN ! lake points
-            jt1 = isub_water   !ntiles_total + 1
             i_count =  ext_data%atm%fp_count(jb)
             ilist   => ext_data%atm%idx_lst_fp(:,jb)
             fr_land_t(:)  = 0._wp
             depth_lk_t(:) = 1._wp
             ! h_ice_t(:) = ...
-          ELSE ! IF (jt == ntiles_total + 3) THEN ! seaice points
-            jt1 = isub_seaice    !ntiles_total + 2
+          ELSE IF (jt == ntiles_total + 3) THEN ! seaice points
             i_count =  ext_data%atm%spi_count(jb)
             ilist   => ext_data%atm%idx_lst_spi(:,jb)
             fr_land_t (:) = 0._wp
             depth_lk_t(:) = 0._wp
             h_ice_t   (:) = 1._wp  ! prelim. implementation. Only needed for checking whether 
                                    ! ice is present or not
+          ELSE
+            ! Paranoia
+            CALL finish( TRIM(routine),'wrong value of ntiles_total + ntiles_water')
           ENDIF
 
           IF (i_count == 0) CYCLE ! skip loop if the index list for the given tile is empty
@@ -348,10 +350,10 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
           ! It remains to be determined which of the model levels are actually needed for non-init calls
           DO ic = 1, i_count
             jc = ilist(ic)
-            gz0_t(ic,jt)       = prm_diag%gz0_t(jc,jb,jt1)
-            t_g_t(ic,jt)       = lnd_prog_now%t_g_t(jc,jb,jt1)
-            qv_s_t(ic,jt)      = lnd_diag%qv_s_t(jc,jb,jt1)
-            sai_t(ic,jt)       = ext_data%atm%sai_t(jc,jb,jt1)
+            gz0_t(ic,jt)       = prm_diag%gz0_t(jc,jb,jt)
+            t_g_t(ic,jt)       = lnd_prog_now%t_g_t(jc,jb,jt)
+            qv_s_t(ic,jt)      = lnd_diag%qv_s_t(jc,jb,jt)
+            sai_t(ic,jt)       = ext_data%atm%sai_t(jc,jb,jt)
             z_ifc_t(ic,1:3,jt) = p_metrics%z_ifc(jc,nlev-1:nlev+1,jb)
             pres_sfc_t(ic,jt)  = p_diag%pres_sfc(jc,jb)
 !MR: Hauptflaechengroessen nur fuer level nlev
@@ -415,22 +417,18 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
         prm_diag%rcld(i_startidx:i_endidx,nlevp1,jb) = 0._wp
 
         ! ii) loop over index lists
-        DO  jt = 1, ntiles_total + nlists_water
+        DO  jt = 1, ntiles_total + ntiles_water
 
           IF (jt <= ntiles_total) THEN ! land tile points
-            jt1 = jt
             i_count = ext_data%atm%gp_count_t(jb,jt)
             ilist => ext_data%atm%idx_lst_t(:,jb,jt)
           ELSE IF (jt == ntiles_total + 1) THEN ! sea points (seaice points excluded)
-            jt1 = isub_water   !jt
             i_count = ext_data%atm%spw_count(jb)
             ilist => ext_data%atm%idx_lst_spw(:,jb)
           ELSE IF (jt == ntiles_total + 2) THEN ! lake points
-            jt1 = isub_water   !ntiles_total + 1
             i_count = ext_data%atm%fp_count(jb)
             ilist => ext_data%atm%idx_lst_fp(:,jb)
           ELSE ! IF (jt == ntiles_total + 3) THEN ! seaice points
-            jt1 = isub_seaice   !ntiles_total + 2
             i_count = ext_data%atm%spi_count(jb)
             ilist => ext_data%atm%idx_lst_spi(:,jb)
           ENDIF
@@ -440,7 +438,7 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
 !CDIR NODEP,VOVERTAKE,VOB
           DO ic = 1, i_count
             jc = ilist(ic)
-            area_frac = ext_data%atm%frac_t(jc,jb,jt1)
+            area_frac = ext_data%atm%frac_t(jc,jb,jt)
 
             ! Aggregate
             prm_diag%gz0(jc,jb) = prm_diag%gz0(jc,jb)+gz0_t(ic,jt) * area_frac
@@ -464,14 +462,14 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
             prm_diag%lhfl_s(jc,jb) = prm_diag%lhfl_s(jc,jb)+ lhfl_s_t(ic,jt)* area_frac
 
             ! Store
-            prm_diag%shfl_s_t(jc,jb,jt1) = shfl_s_t(ic,jt)
-            prm_diag%lhfl_s_t(jc,jb,jt1) = lhfl_s_t(ic,jt)
-            prm_diag%u_10m_t (jc,jb,jt1) = u_10m_t(ic,jt) ! needed by TERRA
-            prm_diag%v_10m_t (jc,jb,jt1) = v_10m_t(ic,jt) ! needed by TERRA
-            prm_diag%tch_t   (jc,jb,jt1) = tch_t(ic,jt)   ! needed by TERRA
-            prm_diag%tcm_t   (jc,jb,jt1) = tcm_t(ic,jt)   ! needed by TERRA
-            prm_diag%tfv_t   (jc,jb,jt1) = tfv_t(ic,jt)   ! needed by TERRA
-            prm_diag%gz0_t   (jc,jb,jt1) = gz0_t(ic,jt)   ! input for turbtran at n+1
+            prm_diag%shfl_s_t(jc,jb,jt) = shfl_s_t(ic,jt)
+            prm_diag%lhfl_s_t(jc,jb,jt) = lhfl_s_t(ic,jt)
+            prm_diag%u_10m_t (jc,jb,jt) = u_10m_t(ic,jt) ! needed by TERRA
+            prm_diag%v_10m_t (jc,jb,jt) = v_10m_t(ic,jt) ! needed by TERRA
+            prm_diag%tch_t   (jc,jb,jt) = tch_t(ic,jt)   ! needed by TERRA
+            prm_diag%tcm_t   (jc,jb,jt) = tcm_t(ic,jt)   ! needed by TERRA
+            prm_diag%tfv_t   (jc,jb,jt) = tfv_t(ic,jt)   ! needed by TERRA
+            prm_diag%gz0_t   (jc,jb,jt) = gz0_t(ic,jt)   ! input for turbtran at n+1
                                                           ! over land
 !MR: tke, tkvm, tkvh tilespezifisch speichern
 

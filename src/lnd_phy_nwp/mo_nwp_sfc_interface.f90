@@ -57,7 +57,7 @@ MODULE mo_nwp_sfc_interface
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
   USE mo_lnd_nwp_config,      ONLY: nlev_soil, nlev_snow, ntiles_total, ntiles_water, &
     &                               lseaice, llake, lmulti_snow, ntiles_lnd, lsnowtile, &
-    &                               isub_water, isub_seaice
+    &                               isub_water, isub_seaice, isub_lake
   USE mo_satad,               ONLY: sat_pres_water, sat_pres_ice, spec_humi  
   USE mo_soil_ml,             ONLY: terra_multlay
   USE mo_nwp_sfc_utils,       ONLY: diag_snowfrac_tg, update_idx_lists_lnd, update_idx_lists_sea
@@ -291,6 +291,7 @@ CONTAINS
          ENDDO
       ENDIF
  
+
       IF (  atm_phy_nwp_config(jg)%inwp_surface == 1 .and. &
           & atm_phy_nwp_config(jg)%inwp_turb    /= 3 ) THEN
 
@@ -1084,7 +1085,7 @@ CONTAINS
         &              frac_t_water  = ext_data%atm%frac_t(:,jb,isub_water),    &!inout
         &              fr_seaice     = p_lnd_diag%fr_seaice(:,jb),              &!inout
         &              t_g_t_new     = lnd_prog_new%t_g_t(:,jb,isub_water),     &!inout
-        &              qv_s_t        = p_lnd_diag%qv_s_t(:,jb,isub_seaice)      )!inout
+        &              qv_s_t        = p_lnd_diag%qv_s_t(:,jb,isub_water)       )!inout
 
 
     ENDDO  ! jb

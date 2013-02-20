@@ -73,9 +73,10 @@ MODULE mo_nwp_turb_sfc_interface
   USE mo_run_config,           ONLY: ltestcase
   USE mo_nh_testcases,         ONLY: nh_test_name
   USE mo_nh_wk_exp,            ONLY: qv_max_wk
-  USE mo_lnd_nwp_config,       ONLY: nlev_soil, nlev_snow, ntiles_total, lmulti_snow
+  USE mo_lnd_nwp_config,       ONLY: nlev_soil, nlev_snow, ntiles_total, ntiles_water, &
+                                   & lmulti_snow
   USE mo_sync,                 ONLY: sync_patch_array, sync_patch_array_mult, SYNC_E, &
-                                     SYNC_C, SYNC_C1, global_max, global_min, global_sum_array
+                                   & SYNC_C, SYNC_C1, global_max, global_min, global_sum_array
   USE mo_run_config,           ONLY: ntracer
 
   IMPLICIT NONE
@@ -203,19 +204,22 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
     &         zdummy_vdf_6c(nproma,itrac_vdf)
   REAL(wp) :: zdummy_vdf_7a(nproma,0), zdummy_vdf_7b(nproma,p_patch%nlev,0)
 
-  REAL(wp) :: z_omega_p(nproma,p_patch%nlev), zchar(nproma),                    &
-    &         zucurr(nproma)                , zvcurr(nproma),                   &
-    &         zsoteu(nproma,p_patch%nlev)   , zsotev(nproma,p_patch%nlev),      &
-    &         zsobeta(nproma,p_patch%nlev)  , zz0h(nproma),                     &
-    &         shfl_s_t(nproma,ntiles_total) , evap_s_t(nproma,ntiles_total),    &
-    &         tskin_t(nproma,ntiles_total)  , &
-    &         ustr_s_t(nproma,ntiles_total) , vstr_s_t(nproma,ntiles_total),    &
-    &         zae(nproma,p_patch%nlev)      ,                                   &
-    &         ztice(nproma)                 , ztske1(nproma),                   &
-    &         ztskm1m(nproma)               , ztskrad(nproma),                  &
-    &         zsigflt(nproma)               , zfrti(nproma,ntiles_edmf),        &
-    &         tch_ex(nproma,ntiles_total)   , tcm_ex(nproma,ntiles_total),      &
-    &         tfv_ex(nproma,ntiles_total)
+  REAL(wp) :: z_omega_p(nproma,p_patch%nlev), zchar(nproma)                   , &
+    &         zucurr(nproma)                , zvcurr(nproma)                  , &
+    &         zsoteu(nproma,p_patch%nlev)   , zsotev(nproma,p_patch%nlev)     , &
+    &         zsobeta(nproma,p_patch%nlev)  , zz0h(nproma)                    , &
+    &         shfl_s_t(nproma,ntiles_total+ntiles_water)                      , &
+    &         evap_s_t(nproma,ntiles_total+ntiles_water)                      , &
+    &         tskin_t(nproma,ntiles_total+ntiles_water)                       , &
+    &         ustr_s_t(nproma,ntiles_total+ntiles_water)                      , &
+    &         vstr_s_t(nproma,ntiles_total+ntiles_water)                      , &
+    &         zae(nproma,p_patch%nlev)                                        , &
+    &         ztice(nproma)                 , ztske1(nproma)                  , &
+    &         ztskm1m(nproma)               , ztskrad(nproma)                 , &
+    &         zsigflt(nproma)               , zfrti(nproma,ntiles_edmf)       , &
+    &         tch_ex(nproma,ntiles_total+ntiles_water)                        , &
+    &         tcm_ex(nproma,ntiles_total+ntiles_water)                        , &
+    &         tfv_ex(nproma,ntiles_total+ntiles_water)
   LOGICAL  :: ldummy_vdf_a(nproma)
 
   INTEGER, SAVE :: nstep_turb = 0
@@ -525,6 +529,7 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
        prm_diag%shfl_s(1:i_endidx,jb)=z_dummy_shflx(1:i_endidx,nsfc_type,jb)
       ENDIF
 
+
     ELSE IF ( atm_phy_nwp_config(jg)%inwp_turb == 3 ) THEN
 
 !-------------------------------------------------------------------------
@@ -541,7 +546,7 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
 
       icnt = 0
 
-!     TERRA variable initializtion
+!     TERRA variable initialization
 
       DO jt = 1,ntiles_total
         DO jc = i_startidx, i_endidx
@@ -906,7 +911,7 @@ endif
       prm_diag%tch   (:,:) = 0.0_wp
       prm_diag%tcm   (:,:) = 0.0_wp
       prm_diag%tfv   (:,:) = 0.0_wp
-      DO jt = 1, ntiles_total    !!! + ntiles_water ???
+      DO jt = 1, ntiles_total + ntiles_water
         DO jc = i_startidx, i_endidx
           prm_diag%rh_2m (jc,jb) = prm_diag%rh_2m (jc,jb) + 0.0_wp  !???
 

@@ -104,7 +104,7 @@ MODULE mo_nwp_phy_init
   USE mo_vdiff_solver,        ONLY: init_vdiff_solver
   USE mo_nwp_sfc_utils,       ONLY: nwp_surface_init, init_snowtile_lists, init_sea_lists
   USE mo_lnd_nwp_config,      ONLY: ntiles_total, ntiles_lnd, lsnowtile, ntiles_water, &
-    &                               lseaice, isub_water, isub_seaice
+    &                               lseaice, isub_water, isub_lake, isub_seaice
   USE mo_phyparam_soil,       ONLY: csalbw!, z0_lu
   USE mo_satad,               ONLY: sat_pres_water, &  !! saturation vapor pressure w.r.t. water
     &                                sat_pres_ice, &  !! saturation vapor pressure w.r.t. ice
@@ -300,6 +300,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
          !  Remember that t_seasfc is the skin temperature (with a limiter) in case l_sst_in is FALSE
          ! Over the sea and over the ice, qv_s is set to the saturated value
          ! Over the land we keep the initial set value (0.001_wp)
+!CDIR NODEP,VOVERTAKE,VOB
          DO ic=1, ext_data%atm%spw_count(jb)
            jc = ext_data%atm%idx_lst_spw(ic,jb)
            ! if not lseaice, all the points are water points
@@ -318,6 +319,12 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
            p_prog_lnd_now%t_g(jc,jb) = p_diag_lnd%t_skin(jc,jb)
            p_diag_lnd%qv_s    (jc,jb)    = &
             & spec_humi(sat_pres_ice(p_prog_lnd_now%t_g(jc,jb)),p_diag%pres_sfc(jc,jb))
+         END DO
+         DO ic=1, ext_data%atm%fp_count(jb)
+           jc = ext_data%atm%idx_lst_fp(ic,jb)
+           p_prog_lnd_now%t_g(jc,jb) = p_diag_lnd%t_seasfc(jc,jb)
+           p_diag_lnd%qv_s    (jc,jb)    = &
+            & spec_humi(sat_pres_water(p_prog_lnd_now%t_g(jc,jb)),p_diag%pres_sfc(jc,jb))
          END DO
          DO ic=1, ext_data%atm%lp_count(jb)
            jc = ext_data%atm%idx_lst_lp(ic,jb)
@@ -905,9 +912,10 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
         jc = ext_data%atm%idx_lst_sp(ic,jb)
         ext_data%atm%sai_t(jc,jb,isub_water) = prm_diag%sai(jc,jb)
       ENDDO
+      ! Copy sai over all lake points to the lake tile-index of tile-based variables
       DO ic = 1, ext_data%atm%fp_count(jb)
         jc = ext_data%atm%idx_lst_fp(ic,jb)
-        ext_data%atm%sai_t(jc,jb,isub_water) = prm_diag%sai(jc,jb)
+        ext_data%atm%sai_t(jc,jb,isub_lake) = prm_diag%sai(jc,jb)
       ENDDO
       ! Copy sai over all water/seaice water points to the seaice tile-index of tile-based variables
       DO ic = 1, ext_data%atm%sp_count(jb)
@@ -947,9 +955,10 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
         jc = ext_data%atm%idx_lst_sp(ic,jb)
         ext_data%atm%sai_t(jc,jb,isub_water) = prm_diag%sai(jc,jb)
       ENDDO
+      ! Copy sai over all lake points to the lake tile-index of tile-based variables
       DO ic = 1, ext_data%atm%fp_count(jb)
         jc = ext_data%atm%idx_lst_fp(ic,jb)
-        ext_data%atm%sai_t(jc,jb,isub_water) = prm_diag%sai(jc,jb)
+        ext_data%atm%sai_t(jc,jb,isub_lake) = prm_diag%sai(jc,jb)
       ENDDO
       ! Copy sai over all water/seaice water points to the seaice tile-index of tile-based variables
       DO ic = 1, ext_data%atm%sp_count(jb)

@@ -68,7 +68,7 @@ MODULE mo_ext_data_state
   USE mo_impl_constants_grf, ONLY: grf_bdywidth_c
   USE mo_lnd_nwp_config,     ONLY: ntiles_total, ntiles_lnd, ntiles_water, lsnowtile, frlnd_thrhld, &
                                    frlndtile_thrhld, frlake_thrhld, frsea_thrhld, isub_water,       &
-                                   sstice_mode, sst_td_filename, ci_td_filename
+                                   isub_lake, sstice_mode, sst_td_filename, ci_td_filename
   USE mo_extpar_config,      ONLY: itopo, l_emiss, extpar_filename, generate_filename, & 
     &                              generate_td_filename
   USE mo_time_config,        ONLY: time_config
@@ -3022,6 +3022,7 @@ CONTAINS
     REAL(wp), POINTER  ::  &  !< pointer to proportion of actual value/maximum
       &  ptr_ndvi_mrat(:,:)   !< NDVI (for starting time of model integration)
 
+
     CHARACTER(len=max_char_length), PARAMETER :: &
       routine = 'mo_ext_data:init_index_lists'
     !-------------------------------------------------------------------------
@@ -3218,7 +3219,9 @@ CONTAINS
              END IF ! ntiles
            ENDIF
 
-           jt = ntiles_total + MIN(1,ntiles_water)
+
+
+
            !
            ! searching for lake-points
            !
@@ -3227,9 +3230,9 @@ CONTAINS
              ext_data(jg)%atm%idx_lst_fp(i_count_flk,jb) = jc  ! write index of lake-points
              ext_data(jg)%atm%fp_count(jb) = i_count_flk
              ! set land-cover class
-             ext_data(jg)%atm%lc_class_t(jc,jb,jt)  = ext_data(jg)%atm%i_lc_water
+             ext_data(jg)%atm%lc_class_t(jc,jb,isub_lake) = ext_data(jg)%atm%i_lc_water
              ! set also area fractions
-             ext_data(jg)%atm%lc_frac_t(jc,jb,jt)  = ext_data(jg)%atm%fr_lake(jc,jb)
+             ext_data(jg)%atm%lc_frac_t(jc,jb,isub_lake)  = ext_data(jg)%atm%fr_lake(jc,jb)
            ELSE IF (1._wp-ext_data(jg)%atm%fr_land(jc,jb) >= frsea_thrhld) THEN
              ! 
              ! searching for sea points 
@@ -3238,22 +3241,24 @@ CONTAINS
              ext_data(jg)%atm%idx_lst_sp(i_count_sea,jb) = jc  ! write index of sea-points
              ext_data(jg)%atm%sp_count(jb) = i_count_sea
              ! set land-cover class
-             ext_data(jg)%atm%lc_class_t(jc,jb,jt) = ext_data(jg)%atm%i_lc_water
+             ext_data(jg)%atm%lc_class_t(jc,jb,isub_water) = ext_data(jg)%atm%i_lc_water
              ! set also area fractions
-             ext_data(jg)%atm%lc_frac_t(jc,jb,jt)  = 1._wp-ext_data(jg)%atm%fr_land(jc,jb)
+             ext_data(jg)%atm%lc_frac_t(jc,jb,isub_water)  = 1._wp-ext_data(jg)%atm%fr_land(jc,jb)
            ENDIF
+
 
          END DO ! jc
 
 
 
-         ! Normalize land-cover fractions over the land tile indices plus the first water index to a sum of 1
+         ! Normalize land-cover fractions over the land tile indices plus the sea-water and 
+         ! lake index to a sum of 1
          IF (ntiles_lnd > 1) THEN
            DO jc = i_startidx, i_endidx
              sum_frac = SUM(ext_data(jg)%atm%lc_frac_t(jc,jb,1:ntiles_lnd)) + &
-                            ext_data(jg)%atm%lc_frac_t(jc,jb,ntiles_total+MIN(1,ntiles_water))
+                        SUM(ext_data(jg)%atm%lc_frac_t(jc,jb,isub_water:isub_lake))
 
-             DO jt = 1, ntiles_total + MIN(1,ntiles_water)
+             DO jt = 1, ntiles_total + MIN(2,ntiles_water)
                ext_data(jg)%atm%lc_frac_t(jc,jb,jt) = ext_data(jg)%atm%lc_frac_t(jc,jb,jt) / sum_frac
              ENDDO
            ENDDO
@@ -3262,6 +3267,9 @@ CONTAINS
              ext_data(jg)%atm%lc_frac_t(jc,jb,1) = 1
            ENDDO
          ENDIF
+
+
+
 
          IF (lsnowtile) THEN ! copy static external data fields to snow tile grid points
            DO jt = ntiles_lnd+1, ntiles_total
@@ -3300,7 +3308,10 @@ CONTAINS
            ENDDO
          ENDDO
          DO jc = i_startidx, i_endidx
-           ext_data(jg)%atm%frac_t(jc,jb,isub_water)  = ext_data(jg)%atm%lc_frac_t(jc,jb,isub_water)
+           ext_data(jg)%atm%frac_t(jc,jb,isub_water) = ext_data(jg)%atm%lc_frac_t(jc,jb,isub_water)
+         ENDDO
+         DO jc = i_startidx, i_endidx
+           ext_data(jg)%atm%frac_t(jc,jb,isub_lake)  = ext_data(jg)%atm%lc_frac_t(jc,jb,isub_lake)
          ENDDO
          ! frac_t(jc,jb,isub_seaice) is set in init_sea_lists
 
@@ -3335,7 +3346,7 @@ CONTAINS
 
 
     ! Diagnose aggregated external parameter fields
-    ! (mainly for output putposes)
+    ! (mainly for output purposes)
     !
     CALL diagnose_ext_aggr (p_patch, ext_data)
 
