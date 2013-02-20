@@ -184,7 +184,7 @@ MODULE mo_lnd_nwp_nml
     ci_td_filename = "<path>CI_<year>_<month>_<gridfile>"
 
 
-    nlev_snow      = 1       ! 0 = default value for number of snow layers
+    nlev_snow      = 2       ! 2 = default value for number of snow layers
     ntiles         = 1       ! 1 = default value for number of static surface types
     frlnd_thrhld   = 0.5_wp  ! fraction threshold for creating a land grid point
     frlndtile_thrhld = 0.05_wp ! fraction threshold for retaining the respective 
@@ -193,7 +193,7 @@ MODULE mo_lnd_nwp_nml
     frsea_thrhld   = 0.5_wp  ! fraction threshold for creating a sea grid point
     lmelt          = .TRUE.  ! soil model with melting process
     lmelt_var      = .TRUE.  ! freezing temperature dependent on water content
-    lmulti_snow    = .FALSE. ! run the multi-layer snow model
+    lmulti_snow    = .TRUE.  ! run the multi-layer snow model
     max_toplaydepth = 0.25_wp ! maximum depth of uppermost snow layer for multi-layer snow scheme (25 cm)
     lsnowtile      = .FALSE. ! if .TRUE., snow is considered as a separate tile
     idiag_snowfrac = 1       ! 1: old method based on SWE, 2: more advanced experimental method
@@ -211,8 +211,7 @@ MODULE mo_lnd_nwp_nml
     itype_subs     = 2       ! type of subscale surface treatment =1 MOSAIC, =2 TILE       
 
 
-    !> KF  current settings to get NWP turbulence running
-    lseaice    = .FALSE.
+    lseaice    = .TRUE.
     llake      = .FALSE.
     
 

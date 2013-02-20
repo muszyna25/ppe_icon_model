@@ -47,7 +47,7 @@ MODULE mo_nwp_sfc_interp
   USE mo_initicon_config,     ONLY: nlevsoil_in, nlev_in
   USE mo_nh_initicon_types,   ONLY: t_initicon_state
   USE mo_lnd_nwp_config,      ONLY: nlev_soil
-  USE mo_impl_constants,      ONLY: zml_soil
+  USE mo_impl_constants,      ONLY: zml_soil, dzsoil_icon => dzsoil
   USE mo_physical_constants,  ONLY: grav, dtdz_standardatm
   USE mo_ext_data_state,      ONLY: ext_data
   USE mo_exception,           ONLY: message, message_text, finish
@@ -90,8 +90,6 @@ CONTAINS
     INTEGER  :: nlen, nlev
     ! Soil layer depths in IFS
     REAL(wp) :: zsoil_ifs(4)=(/ 0.07_wp,0.21_wp,0.72_wp,1.89_wp/)
-    REAL(wp) :: dzsoil_icon(8)=(/ 0.01_wp,0.02_wp,0.06_wp,0.18_wp,&
-      & 0.54_wp,1.62_wp,4.86_wp,14.58_wp/)
 
     REAL(wp) :: tcorr1(nproma),tcorr2(nproma),wfac,wfac_vintp(nlev_soil-1),wfac_snow,snowdep
 
