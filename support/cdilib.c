@@ -58401,7 +58401,7 @@ statusCode namespaceInqResStatus ( void )
 #if defined (HAVE_CONFIG_H)
 #endif
 
-#define _XOPEN_SOURCE 600 /* PTHREAD_MUTEX_RECURSIVE */
+//#define _XOPEN_SOURCE 600 /* PTHREAD_MUTEX_RECURSIVE */
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -60529,7 +60529,7 @@ void pioWriteTimestep ( int tsID, int vdate, int vtime )
  * require-trailing-newline: t
  * End:
  */
-#define _XOPEN_SOURCE 600
+//#define _XOPEN_SOURCE 600
 
 #ifdef HAVE_CONFIG_H
 #endif
