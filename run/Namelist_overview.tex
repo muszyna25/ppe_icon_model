@@ -1784,6 +1784,15 @@ May contain the keywords \texttt{<path>} which will be substituted by
 and \texttt{idom} defining the current patch. & init\_mode=1
 \tabularnewline
 
+\hline 
+filetype &
+I&4& &
+One of CDI's FILETYPE\_XXX constants.
+Possible values: 2 (=FILETYPE\_GRB2), 4 (=FILETYPE\_NC2).
+If this parameter has not been set, we try to determine the file type by its extension "*.grb*" or ".nc".
+&
+\tabularnewline
+
 \end{longtab}
 
 Defined and used in: src/namelists/mo\_initicon\_nml.f90
