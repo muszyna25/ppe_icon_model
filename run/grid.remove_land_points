@@ -17,7 +17,7 @@ cd $WRKDIR
 #-----------------------------------------------------------------------------
 
 in_grid="iconR2B03-ocean_etopo40_planet.nc"
-out_grid="iconR2B03-ocean-only_etopo40_planet.nc"
+out_grid="iconR2B03-ocean-only-nodummycell_etopo40_planet.nc"
 
 #-----------------------------------------------------------------------------
 
