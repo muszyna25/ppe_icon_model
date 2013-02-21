@@ -93,9 +93,12 @@ MODULE mo_sea_ice_types
       & fclou(:,:),            &  ! Fractional cloud cover
       & fu10(:,:) ,            &  ! 10 m wind speed                                  [m/s]
       & fswr(:,:),             &  ! Incoming surface solar radiation                 [W/m]
-      & pao(:,:),              &  !Surface atmospheric pressure                      [hPa]
-      & u(:,:),                &  !wind in reference height                          [m/s]
-      & v(:,:)       
+      & pao(:,:),              &  ! Surface atmospheric pressure                     [hPa]
+      & u(:,:),                &  ! wind in reference height                         [m/s]
+      & v(:,:),                &
+      & precip(:,:),           &  ! precipitation rate                               [m/s]
+      & evap  (:,:),           &  ! evaporation   rate                               [m/s]
+      & runoff(:,:)               ! river runoff  rate                               [m/s]
 
   END TYPE t_atmos_for_ocean
 

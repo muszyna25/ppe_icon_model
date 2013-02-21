@@ -578,15 +578,33 @@ CONTAINS
       CALL finish(TRIM(routine),'allocation for v failed')
     END IF
 
+    ALLOCATE(p_as%precip(nproma,nblks_c), STAT=ist)
+    IF (ist/=SUCCESS) THEN
+      CALL finish(TRIM(routine),'allocation for precip failed')
+    END IF
 
-    p_as%tafo (:,:) = 0.0_wp
-    p_as%ftdew(:,:) = 0.0_wp
-    p_as%fclou(:,:) = 0.0_wp
-    p_as%fu10 (:,:) = 0.0_wp
-    p_as%fswr (:,:) = 0.0_wp
-    p_as%pao  (:,:) = 0.0_wp
-    p_as%u    (:,:) = 0.0_wp
-    p_as%v    (:,:) = 0.0_wp
+    ALLOCATE(p_as%evap(nproma,nblks_c), STAT=ist)
+    IF (ist/=SUCCESS) THEN
+      CALL finish(TRIM(routine),'allocation for evap failed')
+    END IF
+
+    ALLOCATE(p_as%runoff(nproma,nblks_c), STAT=ist)
+    IF (ist/=SUCCESS) THEN
+      CALL finish(TRIM(routine),'allocation for runoff failed')
+    END IF
+
+
+    p_as%tafo  (:,:) = 0.0_wp
+    p_as%ftdew (:,:) = 0.0_wp
+    p_as%fclou (:,:) = 0.0_wp
+    p_as%fu10  (:,:) = 0.0_wp
+    p_as%fswr  (:,:) = 0.0_wp
+    p_as%pao   (:,:) = 0.0_wp
+    p_as%u     (:,:) = 0.0_wp
+    p_as%v     (:,:) = 0.0_wp
+    p_as%precip(:,:) = 0.0_wp
+    p_as%evap  (:,:) = 0.0_wp
+    p_as%runoff(:,:) = 0.0_wp
 
     CALL message(TRIM(routine), 'end')
 
@@ -646,6 +664,19 @@ CONTAINS
     DEALLOCATE(p_as%v, STAT=ist)
     IF (ist/=SUCCESS) THEN
       CALL finish(TRIM(routine),'deallocation for v failed')
+    END IF
+
+    DEALLOCATE(p_as%precip, STAT=ist)
+    IF (ist/=SUCCESS) THEN
+      CALL finish(TRIM(routine),'deallocation for precip failed')
+    END IF
+    DEALLOCATE(p_as%evap, STAT=ist)
+    IF (ist/=SUCCESS) THEN
+      CALL finish(TRIM(routine),'deallocation for evap failed')
+    END IF
+    DEALLOCATE(p_as%runoff, STAT=ist)
+    IF (ist/=SUCCESS) THEN
+      CALL finish(TRIM(routine),'deallocation for runoff failed')
     END IF
 
     CALL message(TRIM(routine), 'end')

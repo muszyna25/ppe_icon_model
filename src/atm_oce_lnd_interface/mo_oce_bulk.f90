@@ -321,7 +321,7 @@ CONTAINS
 
       IF (iforc_type == 2 .OR. iforc_type == 5) THEN
 
-      !-------------------------------------------------------------------------
+        !-------------------------------------------------------------------------
         ! provide OMIP fluxes for sea ice (interface to ocean)
         ! 4:  tafo(:,:),   &  ! 2 m air temperature                              [C]
         ! 5:  ftdew(:,:),  &  ! 2 m dew-point temperature                        [K]
@@ -329,6 +329,9 @@ CONTAINS
         ! 7:  fclou(:,:),  &  ! Fractional cloud cover
         ! 8:  pao(:,:),    &  ! Surface atmospheric pressure                     [hPa]
         ! 9:  fswr(:,:),   &  ! Incoming surface solar radiation                 [W/m]
+        ! 10:  precip(:,:), &  ! precipitation rate                              [m/s]
+        ! 11:  evap  (:,:), &  ! evaporation   rate                              [m/s]
+        ! 12:  runoff(:,:)     ! river runoff  rate                              [m/s]
 
         p_as%tafo(:,:)  = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,4) + &
           &               rday2*ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,4)
@@ -347,6 +350,14 @@ CONTAINS
         p_as%fswr(:,:)  = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,9) + &
           &               rday2*ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,9)
 
+        ! provide precip, evap, runoff data for freshwater forcing of ocean
+        p_as%precip(:,:) = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,10) + &
+          &                rday2*ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,10)
+        p_as%evap  (:,:) = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,11) + &
+          &                rday2*ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,11)
+        p_as%runoff(:,:) = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,12) + &
+          &                rday2*ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,12)
+
         !---------DEBUG DIAGNOSTICS-------------------------------------------
         idt_src=3  ! output print level (1-5, fix)
         z_c2(:,:)=ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,4)
@@ -354,6 +365,7 @@ CONTAINS
         z_c2(:,:)=ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,4)
         CALL dbg_print('UpdSfc: Ext data4-ta/mon2' ,z_c2                     ,str_module,idt_src)
         CALL dbg_print('UpdSfc: p_as%tafo'         ,p_as%tafo                ,str_module,idt_src)
+        CALL dbg_print('UpdSfc: p_as%evap'         ,p_as%evap                ,str_module,idt_src)
         !---------------------------------------------------------------------
 
       END IF

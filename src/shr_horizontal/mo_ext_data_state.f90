@@ -2875,12 +2875,16 @@ CONTAINS
       IF (iforc_type == 2) THEN
 
       ! Read complete OMIP data sets for focing ocean model
-      ! 4:  tafo(:,:),   &  ! 2 m air temperature                              [C]
-      ! 5:  ftdew(:,:),  &  ! 2 m dew-point temperature                        [K]
-      ! 6:  fu10(:,:) ,  &  ! 10 m wind speed                                  [m/s]
-      ! 7:  fclou(:,:),  &  ! Fractional cloud cover
-      ! 8:  pao(:,:),    &  ! Surface atmospheric pressure                     [hPa]
-      ! 9:  fswr(:,:),   &  ! Incoming surface solar radiation                 [W/m]
+      !  - names are used in type t_atmos_for_ocean in mo_se_ice_types
+      !  4:  tafo(:,:),   &  ! 2 m air temperature                              [C]
+      !  5:  ftdew(:,:),  &  ! 2 m dew-point temperature                        [K]
+      !  6:  fu10(:,:) ,  &  ! 10 m wind speed                                  [m/s]
+      !  7:  fclou(:,:),  &  ! Fractional cloud cover
+      !  8:  pao(:,:),    &  ! Surface atmospheric pressure                     [hPa]
+      !  9:  fswr(:,:),   &  ! Incoming surface solar radiation                 [W/m]
+      ! 10:  precip(:,:), &  ! precipitation rate                               [m/s]
+      ! 11:  evap  (:,:), &  ! evaporation   rate                               [m/s]
+      ! 12:  runoff(:,:)     ! river runoff  rate                               [m/s]
 
         ! 2m-temperature
         CALL read_netcdf_data (ncid, 'temp_2m', p_patch(jg)%n_patch_cells_g,           &
