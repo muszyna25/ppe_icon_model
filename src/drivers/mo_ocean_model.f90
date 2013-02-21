@@ -314,6 +314,7 @@ CONTAINS
 
       ! Please note: ldump_dd/lread_dd not (yet?) implemented
       IF(my_process_is_mpi_parallel()) THEN
+
         !The 3D-ocean version of previous calls
         ALLOCATE(p_patch_global(n_dom_start:n_dom))
         CALL import_basic_patches(p_patch_global,nlev,nlevp1,num_lev,num_levp1,nshift)      
@@ -322,8 +323,10 @@ CONTAINS
         CALL complete_parallel_setup_oce(p_patch_3D%p_patch_2D)
 
       ELSE
+
         !The 3D-ocean version of previous calls 
         CALL import_basic_patches(p_patch_3D%p_patch_2D,nlev,nlevp1,num_lev,num_levp1,nshift) 
+
       ENDIF
 
       ! Complete information which is not yet read or calculated
@@ -333,7 +336,8 @@ CONTAINS
 
     DO jg = n_dom_start, n_dom
       !CALL complete_patchinfo_oce(p_patch(jg))
-      !The 3D-ocean version of previous calls 
+      !The 3D-ocean version of previous calls
+      ! Note: this apperas to be problematic for removing the land points
       CALL complete_patchinfo_oce(p_patch_3D%p_patch_2D(jg))
     END DO
 

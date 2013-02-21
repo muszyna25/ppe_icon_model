@@ -109,7 +109,12 @@ USE mo_oce_diagnostics,        ONLY: &!calculate_oce_diagnostics,&
   &                                  construct_oce_diagnostics,&
   &                                  destruct_oce_diagnostics, t_oce_timeseries, &
   &                                  calc_moc, calc_psi
+USE mo_oce_ab_timestepping_mimetic, ONLY: init_ho_lhs_fields_mimetic
+
+
 USE mo_mpi,                    ONLY: my_process_is_mpi_all_parallel
+
+
 IMPLICIT NONE
 
 PRIVATE
@@ -481,6 +486,9 @@ CONTAINS
     CALL allocate_exp_coeff     ( p_patch_3D%p_patch_2D(jg), p_op_coeff)
     CALL par_init_operator_coeff( p_patch_3D, p_os(jg),p_phys_param, p_op_coeff)
     CALL init_ho_recon_fields   ( p_patch_3D%p_patch_2D(jg),p_patch_3D, p_os(jg), p_op_coeff)
+
+    CALL init_ho_lhs_fields_mimetic   ( p_patch_3D )
+    
 
   ! IF (ltimer) CALL timer_stop(timer_oce_init)
     CALL message (TRIM(routine),'end')

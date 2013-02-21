@@ -126,7 +126,8 @@ MODULE mo_model_domimp_patches
     & dynamics_grid_filename,   dynamics_parent_grid_id,  &
     & radiation_grid_filename,  global_cell_type, lplane, &
     & grid_length_rescale_factor,                         &
-    & is_plane_torus, grid_sphere_radius
+    & is_plane_torus, grid_sphere_radius,                 &
+    & use_duplicated_connectivity! ,  use_dummy_cell_closure
   USE mo_dynamics_config,    ONLY: lcoriolis
   USE mo_master_control,     ONLY: my_process_is_ocean
   USE mo_impl_constants_grf, ONLY: grf_bdyintp_start_c, grf_bdyintp_start_e
@@ -1605,8 +1606,7 @@ CONTAINS
     ! account for dummy cells arising in case of a pentagon
     ! Fill dummy cell with existing index to simplify do loops
     ! Note, however, that related multiplication factors must be zero
-!     IF (global_cell_type == 3) &
-      CALL move_dummies_to_end(array_v_int, max_verts_connectivity, .TRUE.)
+      CALL move_dummies_to_end(array_v_int, patch%n_patch_verts, max_verts_connectivity, use_duplicated_connectivity)
     !
     DO ji = 1, max_verts_connectivity
       DO ip = 0, n_lp
@@ -1636,7 +1636,7 @@ CONTAINS
     ! Fill dummy cell with existing index to simplify do loops
     ! Note, however, that related multiplication factors must be zero   
 !     IF (global_cell_type == 3) &
-      CALL move_dummies_to_end(array_v_int, max_verts_connectivity, .TRUE.)
+      CALL move_dummies_to_end(array_v_int, patch%n_patch_verts, max_verts_connectivity, use_duplicated_connectivity)
     !
     DO ji = 1, max_verts_connectivity
       DO ip = 0, n_lp
@@ -1659,7 +1659,7 @@ CONTAINS
     CALL nf(nf_inq_varid(ncid, 'edge_orientation', varid))
     CALL nf(nf_get_var_int(ncid, varid, array_v_int(:,1:max_verts_connectivity)))
     ! move dummy edges to end and set edge orientation to zero
-    CALL move_dummies_to_end(array_v_int, max_verts_connectivity, .FALSE.)
+    CALL move_dummies_to_end(array_v_int, patch%n_patch_verts, max_verts_connectivity, .FALSE.)
     DO ji = 1, max_verts_connectivity
       DO ip = 0, n_lp
         p_p => get_patch_ptr(patch, id_lp, ip)
@@ -1748,27 +1748,61 @@ CONTAINS
     !-------------------------------------------------------------------------
     ! Checks for the pentagon case and moves dummy cells to end.
     ! The dummy entry is either set to 0 or duplicated from the last one
-    SUBROUTINE move_dummies_to_end(array, max_verts_connectivity, duplicate)
+    SUBROUTINE move_dummies_to_end(array, array_size, max_connectivity, duplicate)
       
       INTEGER, INTENT(inout) :: array(:,:)
-      INTEGER, INTENT(in) :: max_verts_connectivity
+      INTEGER, INTENT(in) :: array_size, max_connectivity
       LOGICAL, INTENT(in) :: duplicate
-      
-      INTEGER :: j, je
-      
-      DO j = 1, UBOUND(array,1)
-        DO je = 1, max_verts_connectivity
-          IF (array(j,je) == 0) THEN
-            IF ( je /= max_verts_connectivity ) array(j,je) = array(j,max_verts_connectivity)
-            IF ( duplicate ) THEN
-              array(j,max_verts_connectivity) = array(j,max_verts_connectivity-1)
-            ELSE
-              array(j,max_verts_connectivity) = 0
+
+      INTEGER :: j, je, first_zero, last_no_zero
+      CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_model_domimp_patches:move_dummies_to_end'
+
+      IF (array_size > UBOUND(array, 1) ) &
+        & CALL finish(method_name, "array_size > UBOUND(array, 1)" )
+
+      DO j = 1, array_size
+        last_no_zero = 0
+        first_zero = 0
+        DO WHILE(last_no_zero >=  first_zero)
+          ! find first zero, last non-zero
+          DO je = 1, max_connectivity
+            IF (array(j,je) /= 0) THEN
+              last_no_zero = je
+            ELSEIF ( first_zero <= 0) THEN
+              first_zero = je
             ENDIF
+          ENDDO
+
+          IF (first_zero == 0) THEN
+            ! no zeros found, exit
             EXIT
-          END IF
-        END DO
-      END DO
+          ELSEIF ( last_no_zero == 0) THEN
+            CALL warning(method_name, "no connectivity found")
+            EXIT
+          ELSEIF ( first_zero <  last_no_zero) THEN
+            !swap
+            array(j,first_zero) = array(j,last_no_zero)
+            array(j,last_no_zero) = 0
+            ! check again
+            last_no_zero = 0
+            first_zero = 0
+          ENDIF
+        ENDDO ! WHILE(last_no_zero >=  first_zero)
+
+        IF (first_zero == 0)   CYCLE   ! no zeros found, get next one
+        IF (last_no_zero == 0) CYCLE ! no connectivity found"
+
+        IF ( duplicate ) THEN
+          ! fill zero connectivity with last_no_zero
+          DO je = first_zero, max_verts_connectivity
+            IF (array(j,je) /= 0) &
+              CALL finish(method_name, "Error when swapping!")
+            array(j,je) =  array(j,last_no_zero)
+          ENDDO
+        ENDIF
+
+      ENDDO ! j = 1, UBOUND(array,1)
+
       
     END SUBROUTINE move_dummies_to_end
     !-------------------------------------------------------------------------
@@ -2197,8 +2231,13 @@ CONTAINS
       DO jl = 1, nlen
         il  = jl + ( jb - 1 )*nproma
         idx_in = p_idx_array_in(il)
-        blk = ( ABS(idx_in) - 1 ) / nproma + 1
-        idx = SIGN( ABS(idx_in) - ( blk - 1 )*nproma, idx_in )
+        IF (idx_in /= 0) THEN
+          blk = ( ABS(idx_in) - 1 ) / nproma + 1
+          idx = SIGN( ABS(idx_in) - ( blk - 1 )*nproma, idx_in )
+        ELSE
+          blk = 0
+          idx = 0
+        ENDIF
         p_reshaped_idx_array_out(jl,jb) = idx
         p_reshaped_blk_array_out(jl,jb) = blk
       END DO

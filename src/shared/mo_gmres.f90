@@ -60,9 +60,6 @@ MODULE mo_gmres
 !
 !-------------------------------------------------------------------------
 !
-!
-!
-!
   USE mo_kind,                ONLY: wp
   USE mo_parallel_config, ONLY: nproma
   USE mo_run_config,          ONLY: ltimer
@@ -906,7 +903,7 @@ CONTAINS
 !  00     L ab_expl                    48    .229443s    .230345s    .245423s    11.0566s      11.05655
 !  00     L ab_rhs4sfc                 48    .020855s    .020938s    .021379s     1.0050s       1.00502
 !  00 lhs                            1929    .000896s    .001115s    .002361s     2.1514s       2.15143
- SUBROUTINE gmres_oce( x,lhs,h_e, thickness_c, old_h, p_patch_3D, &
+SUBROUTINE gmres_oce( x,lhs,h_e, thickness_c, old_h, p_patch_3D, &
                     & coeff, p_op_coeff, b,                      &
                     & tolerance,abstol,m,maxiterex,niter,res,    &
                     & preconditioner)
@@ -957,6 +954,7 @@ INTERFACE   ! left-hand-side: A*x
     REAL(wp),    INTENT(in) :: h_e(:,:)
     REAL(wp),    INTENT(in) :: thickness_c(:,:)
     TYPE(t_operator_coeff),INTENT(IN)  :: p_op_coeff
+!     REAL(wp), POINTER :: ax( :, : ) ! same as x
     REAL(wp) :: ax( SIZE(x,1) , SIZE(x,2) ) ! same as x
   ENDFUNCTION lhs
 END INTERFACE
@@ -989,11 +987,13 @@ REAL(wp) ::    &
   r(SIZE(x,1),SIZE(x,2)),  & ! residual
   rn2(m),      &             ! two-norm of the residual
   v(SIZE(x,1),SIZE(x,2),m),& ! Krylov basis
-  w(SIZE(x,1),SIZE(x,2)),  & ! new Krylov vector
   h(m,m),      &             ! Hessemberg matrix
   hki, hk1i,   &
   c(m), s(m),  &             ! rotation matrices
   den, ci
+
+! REAL(wp), POINTER :: w(:,:)
+REAL(wp) ::  w(SIZE(x,1),SIZE(x,2)) ! new Krylov vector
 
 REAL(wp) :: rrn2, h_aux, rh
 INTEGER :: jb, jk, nlen
@@ -1010,6 +1010,7 @@ INTEGER :: no_of_blocks, end_nproma
   TYPE(t_patch), POINTER :: patch_2D
 !$ INTEGER OMP_GET_THREAD_NUM
 !-------------------------------------------------------------------------
+!  write(0,*) "--------------- gmres --------------------------"
 
   patch_2D =>  p_patch_3D%p_patch_2D(1)
 
@@ -1033,7 +1034,7 @@ INTEGER :: no_of_blocks, end_nproma
  IF (PRESENT(preconditioner)) CALL preconditioner(b(:,:),p_patch_3D,p_op_coeff,h_e)
 
    
-   w(:,:) = lhs(x(:,:),old_h, p_patch_3D,coeff, h_e, thickness_c, p_op_coeff)
+   w(:, :) = lhs(x(:,:),old_h, p_patch_3D,coeff, h_e, thickness_c, p_op_coeff)
        
    w(end_nproma+1:nproma, no_of_blocks) = 0.0_wp
    b(end_nproma+1:nproma, no_of_blocks) = 0.0_wp
@@ -1172,6 +1173,7 @@ INTEGER :: no_of_blocks, end_nproma
      ENDIF
 !$OMP FLUSH(h_aux)
 !$OMP BARRIER
+!     write(0,*) i, " gmres  tol2, h_aux", tol2, h_aux
 
      IF (h_aux < tol2) THEN
        done = .TRUE.
@@ -1212,6 +1214,7 @@ INTEGER :: no_of_blocks, end_nproma
      rn2(i  ) =  c(i)*rn2(i)
 
      ! 4.9) check whether we are done
+     ! write(0,*) i, " gmres  tolerance bound, residual: ", tol, ABS(rn2(i+1))
      IF ( done .OR. (ABS(rn2(i+1)) < tol) ) EXIT arnoldi
    ENDDO arnoldi
 
@@ -1350,6 +1353,7 @@ INTERFACE   ! left-hand-side: A*x
     REAL(wp),    INTENT(in) :: h_e(:,:)
     REAL(wp),    INTENT(in) :: thickness_c(:,:)
     TYPE(t_operator_coeff),INTENT(IN)  :: p_op_coeff
+!     REAL(wp), POINTER :: ax( :, : ) ! same as x
     REAL(wp) :: ax( SIZE(x,1) , SIZE(x,2) ) ! same as x
   ENDFUNCTION lhs
 END INTERFACE
@@ -1382,11 +1386,13 @@ REAL(wp) ::    &
   r(SIZE(x,1),SIZE(x,2)),  & ! residual
   rn2(m),      &             ! two-norm of the residual
   v(SIZE(x,1),SIZE(x,2),m),& ! Krylov basis
-  w(SIZE(x,1),SIZE(x,2)),  & ! new Krylov vector
   h(m,m),      &             ! Hessemberg matrix
   hki, hk1i,   &
   c(m), s(m),  &             ! rotation matrices
   den, ci
+
+! REAL(wp), POINTER :: w(:,:)
+REAL(wp) ::  w(SIZE(x,1),SIZE(x,2)) ! new Krylov vector
 
 REAL(wp) :: rrn2, rn2_aux, h_aux, rh
 INTEGER :: jb, jk, nlen
@@ -1513,7 +1519,7 @@ INTEGER :: no_of_blocks, end_nproma
    ! 4) Arnoldi loop
    arnoldi: DO i = 1, m-1
      ! 4.1) compute the next (i.e. i+1) Krylov vector
-     w(:,:) = lhs( v(:,:,i),old_h,p_patch_3D,coeff,h_e, thickness_c, p_op_coeff )
+     w(:, :) = lhs( v(:,:,i),old_h,p_patch_3D,coeff,h_e, thickness_c, p_op_coeff )
 
      ! 4.2) Gram-Schmidt orthogonalization
 
