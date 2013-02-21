@@ -74,10 +74,11 @@ MODULE mo_nwp_turb_sfc_interface
   USE mo_nh_testcases,         ONLY: nh_test_name
   USE mo_nh_wk_exp,            ONLY: qv_max_wk
   USE mo_lnd_nwp_config,       ONLY: nlev_soil, nlev_snow, ntiles_total, ntiles_water, &
-                                   & lmulti_snow
+                                   & lmulti_snow, isub_water, isub_seaice
   USE mo_sync,                 ONLY: sync_patch_array, sync_patch_array_mult, SYNC_E, &
                                    & SYNC_C, SYNC_C1, global_max, global_min, global_sum_array
   USE mo_run_config,           ONLY: ntracer
+  USE mo_edmf_param,           ONLY: ntiles_edmf
 
   IMPLICIT NONE
 
@@ -180,7 +181,6 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
 
   INTEGER  :: icnt
   INTEGER, PARAMETER :: itrac_vdf = 0
-  INTEGER, PARAMETER :: ntiles_edmf = 8
   INTEGER  :: KTVL(nproma)         , KTVH(nproma)         , zsoty(nproma)        , & 
     &         idummy_vdf_0d(nproma), idummy_vdf_0e(nproma), idummy_vdf_0f(nproma)
   REAL(wp) :: zdummy_vdf_1a(nproma), zdummy_vdf_1b(nproma), zdummy_vdf_1c(nproma), &
@@ -225,7 +225,7 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
   INTEGER, SAVE :: nstep_turb = 0
 
 ! estimates of tile albedo ???
-  REAL(wp) :: zalbti_est(ntiles_edmf)
+  REAL(wp) :: zalbti_est(8)
   DATA        zalbti_est  / 0.06, 0.80, 0.20, 0.20, 0.70, 0.15, 0.35, 0.40 /
 ! conversion of soil types TERRA to TESSEL
   REAL(wp) :: soiltyp_conv(8)
@@ -548,11 +548,15 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
 
 !     TERRA variable initialization
 
+      DO jt = 1,ntiles_total+ntiles_water
+        DO jc = i_startidx, i_endidx
+          lnd_prog_new%t_g_t     (jc,jb,jt) = lnd_prog_now%t_g_t     (jc,jb,jt)
+        ENDDO
+      ENDDO
       DO jt = 1,ntiles_total
         DO jc = i_startidx, i_endidx
           lnd_prog_new%t_snow_t  (jc,jb,jt) = lnd_prog_now%t_snow_t  (jc,jb,jt) 
           lnd_prog_new%t_s_t     (jc,jb,jt) = lnd_prog_now%t_s_t     (jc,jb,jt)   
-          lnd_prog_new%t_g_t     (jc,jb,jt) = lnd_prog_now%t_g_t     (jc,jb,jt)
           lnd_prog_new%w_snow_t  (jc,jb,jt) = lnd_prog_now%w_snow_t  (jc,jb,jt)    
           lnd_prog_new%rho_snow_t(jc,jb,jt) = lnd_prog_now%rho_snow_t(jc,jb,jt)  
           lnd_prog_new%w_i_t     (jc,jb,jt) = lnd_prog_now%w_i_t     (jc,jb,jt)       
@@ -611,7 +615,7 @@ endif
         ENDDO
       ENDDO
 
-      DO jt = 1,ntiles_total
+      DO jt = 1,ntiles_total+ntiles_water
         DO jc = i_startidx, i_endidx
           shfl_s_t(jc,jt) = prm_diag%shfl_s  (jc,jb)   ! should be tile specific !!!
           evap_s_t(jc,jt) = prm_diag%lhfl_s  (jc,jb) / alv ! evaporation [kg/(m2 s)]  -"-
@@ -633,7 +637,7 @@ endif
         KTVH(jc) = 3                                   ! KTVH: dummy default ???
       ENDDO
 
-      DO jt = ntiles_total, 1, -1                      ! backward to use dominant veg types
+      DO jt = ntiles_total, 1, -1                      ! backward to use dominant veg types (land only)
         DO jc = i_startidx, i_endidx
           IF ( ( ext_data%atm%llsm_atm_c(jc,jb) )  .and.        & ! land
                ( ext_data%atm%frac_t(jc,jb,jt) > 0.0_wp) ) THEN   ! only used tiles 
@@ -662,17 +666,8 @@ endif
       ENDDO
 
       DO jc = i_startidx, i_endidx
-        IF ( .NOT. ext_data%atm%llsm_atm_c(jc,jb) ) THEN ! ocean or sea-ice point
-          zfrti(jc,:) = 0.0_wp                           ! all zero
-          zfrti(jc,1) = 1.0_wp                           ! ocean one
-!ELSE
-!  zfrti(jc,:) = 0.0_wp
-!  zfrti(jc,7) = 1.0_wp  !8,3,4,5 work, 6?
-        ENDIF
-       !ELSE !!! IF ( lnd_prog_now%t_g(jc,jb) > (t0_melt + zt_ice) ) THEN  ! salt water freezing temperature
-       !  zfrti(jc,1) = 1.0_wp                           ! open ocean
-       !!!!ELSE
-       !!!!  zfrti(jc,2) = 1.0_wp                        ! sea ice (requires sea ice cover)
+          zfrti(jc,1) = ext_data%atm%frac_t(jc,jb,isub_water)      ! open ocean fraction
+          zfrti(jc,2) = ext_data%atm%frac_t(jc,jb,isub_seaice)     ! sea ice fraction
       ENDDO
 
       DO jc = i_startidx, i_endidx

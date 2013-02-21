@@ -50,6 +50,7 @@ MODULE mo_initicon_config
   PUBLIC :: dwdfg_filename
   PUBLIC :: dwdinc_filename
   PUBLIC :: generate_filename
+  PUBLIC :: filetype
 
 
   CHARACTER(len=*),PARAMETER,PRIVATE :: &
@@ -69,6 +70,8 @@ MODULE mo_initicon_config
 
   LOGICAL  :: l_coarse2fine_mode(max_dom)  ! If true, apply special corrections for interpolation from coarse
                                            ! to fine resolutions over mountainous terrain
+
+  INTEGER  :: filetype      ! One of CDI's FILETYPE\_XXX constants. Possible values: 2 (=FILETYPE\_GRB2), 4 (=FILETYPE\_NC2)
 
   ! IFS2ICON input filename, may contain keywords, by default
   ! ifs2icon_filename = "<path>ifs2icon_R<nroot>B<jlev>_DOM<idom>.nc"

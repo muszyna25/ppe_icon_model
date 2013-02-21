@@ -1508,12 +1508,12 @@ SUBROUTINE bln_int_coeff_e2c( ptr_patch, ptr_int_state )
   SELECT CASE(ptr_patch%geometry_info%geometry_type)
    
   CASE (planar_torus_geometry)
-    CALL calculate_flat_scalar_coeffs( ptr_patch, ptr_int_state )
-    CALL calculate_vector_coeffs(ptr_patch, ptr_int_state)
+    CALL flat_scalar_coeffs( ptr_patch, ptr_int_state )
+    CALL vector_coeffs(ptr_patch, ptr_int_state)
 
   CASE (sphere_geometry)
-    CALL calculate_spherical_scalar_coeffs( ptr_patch, ptr_int_state )
-    CALL calculate_vector_coeffs(ptr_patch, ptr_int_state)
+    CALL spherical_scalar_coeffs( ptr_patch, ptr_int_state )
+    CALL vector_coeffs(ptr_patch, ptr_int_state)
     
   CASE DEFAULT    
     CALL finish(method_name, "Undefined geometry type")
@@ -1535,7 +1535,7 @@ END SUBROUTINE bln_int_coeff_e2c
 !! @par Revision History
 !!  developed by Guenther Zaengl, 2009-01-06
 !!
-SUBROUTINE calculate_spherical_scalar_coeffs ( ptr_patch, ptr_int_state )
+SUBROUTINE spherical_scalar_coeffs ( ptr_patch, ptr_int_state )
 !
 !
 !  patch on which computation is performed
@@ -1663,7 +1663,7 @@ END DO !block loop
 CALL sync_patch_array(SYNC_C,ptr_patch,ptr_int_state%e_bln_c_s)
 
 
-END SUBROUTINE calculate_spherical_scalar_coeffs
+END SUBROUTINE spherical_scalar_coeffs
 !-------------------------------------------------------------------------
 
 
@@ -1676,7 +1676,7 @@ END SUBROUTINE calculate_spherical_scalar_coeffs
 !! @par Revision History
 !!  developed by Guenther Zaengl, 2009-01-06
 !!
-SUBROUTINE calculate_vector_coeffs ( ptr_patch, ptr_int_state )
+SUBROUTINE vector_coeffs ( ptr_patch, ptr_int_state )
 !
 !
 !  patch on which computation is performed
@@ -1817,7 +1817,7 @@ END DO !block loop
 CALL sync_patch_array(SYNC_C,ptr_patch,ptr_int_state%e_bln_c_u)
 CALL sync_patch_array(SYNC_C,ptr_patch,ptr_int_state%e_bln_c_v)
 
-END SUBROUTINE calculate_vector_coeffs
+END SUBROUTINE vector_coeffs
 !-------------------------------------------------------------------------
 
 !-------------------------------------------------------------------------
@@ -1828,7 +1828,7 @@ END SUBROUTINE calculate_vector_coeffs
 !! @par Revision History
 !!  developed by Anurag Dipankar, 2012-28-12 (taken from calculate_spherical_scalar_intp_coeffs)
 !!
-SUBROUTINE calculate_flat_scalar_coeffs ( ptr_patch, ptr_int_state )
+SUBROUTINE flat_scalar_coeffs ( ptr_patch, ptr_int_state )
 !
 !
 !  patch on which computation is performed
@@ -1878,7 +1878,7 @@ wgt = 1._wp/3._wp
 CALL sync_patch_array(SYNC_C,ptr_patch,ptr_int_state%e_bln_c_s)
 
 
-END SUBROUTINE calculate_flat_scalar_coeffs
+END SUBROUTINE flat_scalar_coeffs
 !-------------------------------------------------------------------------
 
 

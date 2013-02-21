@@ -53,6 +53,7 @@ MODULE mo_util_grib
   PRIVATE
 
   PUBLIC  :: read_grib_data
+  PUBLIC  :: get_varID
 
   INTERFACE read_grib_data
     MODULE PROCEDURE read_grib_3d

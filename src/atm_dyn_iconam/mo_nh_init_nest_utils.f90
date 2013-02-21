@@ -52,7 +52,8 @@ MODULE mo_nh_init_nest_utils
   USE mo_dynamics_config,       ONLY: nnow, nnow_rcf, nnew_rcf
   USE mo_physical_constants,    ONLY: rd, cvd_o_rd, p0ref
   USE mo_impl_constants,        ONLY: min_rlcell, min_rlcell_int, min_rledge_int, &
-                                      min_rlvert, min_rlvert_int, MAX_CHAR_LENGTH
+    &                                 min_rlvert, min_rlvert_int, MAX_CHAR_LENGTH,&
+    &                                 dzsoil
   USE mo_grf_nudgintp,          ONLY: interpol_scal_nudging, interpol_vec_nudging
   USE mo_grf_bdyintp,           ONLY: interpol_scal_grf, interpol2_vec_grf
   USE mo_grid_config,           ONLY: lfeedback
@@ -161,10 +162,6 @@ MODULE mo_nh_init_nest_utils
     REAL(wp), ALLOCATABLE, DIMENSION(:,:,:)   :: thv_pr_par, rho_pr_par, lndvars_par, lndvars_chi, &
                                                  wtrvars_par, wtrvars_chi, phdiag_par, phdiag_chi
     REAL(wp), ALLOCATABLE :: tsfc_ref_p(:,:), tsfc_ref_c(:,:) ! Reference temperature at lowest level
-
-    ! Soil layer thicknesses (needed for limiting the soil water content)
-    REAL(wp) :: dzsoil(8)=(/0.01_wp,0.02_wp,0.06_wp,0.18_wp,0.54_wp,&
-                            1.62_wp,4.86_wp,14.58_wp/)
 
     LOGICAL :: l_parallel, l_limit(ntracer)
 
