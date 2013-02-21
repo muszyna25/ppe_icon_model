@@ -61,6 +61,8 @@ MODULE mo_nwp_sfc_utils
   USE mo_nonhydro_types,      ONLY: t_nh_diag, t_nh_state
   USE mo_grid_config,         ONLY: n_dom
   USE mo_dynamics_config,     ONLY: nnow,nnew
+  USE mo_phyparam_soil,       ONLY: c_lnd
+  USE mo_ext_data_state,      ONLY: diagnose_ext_aggr
   
   IMPLICIT NONE 
 
@@ -80,7 +82,7 @@ INTEGER, PARAMETER :: nlsnow= 2
   PUBLIC :: aggregate_landvars
   PUBLIC :: update_idx_lists_lnd
   PUBLIC :: update_idx_lists_sea
-  PUBLIC :: update_sstice
+  PUBLIC :: update_sstice, update_ndvi
   PUBLIC :: init_snowtile_lists
   PUBLIC :: init_sea_lists
 
@@ -1956,6 +1958,11 @@ CONTAINS
         &  i_startblk, i_endblk,  p_patch(jg)%n_patch_cells_g
       CALL message('', TRIM(message_text))   
 
+    !renitialized to cero 
+    ext_data(jg)%atm%spi_count(i_startblk:i_endblk)=0
+    ext_data(jg)%atm%spw_count(i_startblk:i_endblk)=0
+
+
     IF (lseaice) THEN
 
     ! generate sea-ice and open-water index list
@@ -2229,6 +2236,106 @@ CONTAINS
 
    END DO !jg
   END SUBROUTINE update_sstice
+ 
+  !-------------------------------------------------------------------------
+  !! @par Revision History
+  !! Initial release by Pilar Ripodas (2013-02)
+  !!
+  
+  SUBROUTINE update_ndvi(p_patch, ext_data  )
+
+    
+    TYPE(t_patch), INTENT(IN)            :: p_patch(:)
+    TYPE(t_external_data), INTENT(INOUT) :: ext_data(:)
+
+    INTEGER  :: jg,jb,jt,ic,jc, jt_in
+    INTEGER  :: rl_start, rl_end
+    INTEGER  :: i_startblk, i_endblk    !> blocks
+    INTEGER  :: i_nchdom                !< domain index
+    INTEGER  :: i_count
+    INTEGER  :: lu_subs
+
+ 
+    !-------------------------------------------------------------------------
+
+    DO jg = 1, n_dom 
+
+      i_nchdom  = MAX(1,p_patch(jg)%n_childdom)
+
+       ! exclude the boundary interpolation zone of nested domains
+       rl_start = grf_bdywidth_c+1
+       rl_end   = min_rlcell_int
+
+       i_startblk = p_patch(jg)%cells%start_blk(rl_start,1)
+       i_endblk   = p_patch(jg)%cells%end_blk(rl_end,i_nchdom)
+       DO jb = i_startblk, i_endblk
+         i_count = ext_data(jg)%atm%lp_count(jb)
+         IF (i_count == 0) CYCLE ! skip loop if there is no land point
+         IF (ntiles_lnd == 1) THEN 
+! !CDIR NODEP
+          DO ic = 1, i_count 
+            jc = ext_data(jg)%atm%idx_lst_lp_t(ic,jb,1)
+            ext_data(jg)%atm%plcov_t  (jc,jb,1)  = ext_data(jg)%atm%ndvi_mrat(jc,jb)  &
+            &                                       * ext_data(jg)%atm%plcov_mx(jc,jb)
+            ext_data(jg)%atm%tai_t    (jc,jb,1)  = ext_data(jg)%atm%ndvi_mrat(jc,jb)**2  &
+            & * ext_data(jg)%atm%plcov_mx(jc,jb)*ext_data(jg)%atm%lai_mx(jc,jb)
+            ext_data(jg)%atm%sai_t    (jc,jb,1)  = c_lnd+ext_data(jg)%atm%tai_t(jc,jb,1)
+ 
+          END DO
+         ELSE ! ntiles_lnd > 1
+
+          DO jt=1,ntiles_lnd
+! !CDIR NODEP
+           DO ic = 1, i_count
+            jc = ext_data(jg)%atm%idx_lst_lp_t(ic,jb,jt)
+              IF (ext_data(jg)%atm%fr_land(jc,jb) < 0.5_wp) THEN
+                 ! fix for non-dominant land points: reset soil type to sandy loam ...
+                 !ext_data(jg)%atm%soiltyp(jc,jb) = 4
+                 ! ... and reset ndvi_mrat to 0.5
+                 ext_data(jg)%atm%ndvi_mrat(jc,jb) = 0.5_wp
+               ENDIF
+               lu_subs = ext_data(jg)%atm%lc_class_t(jc,jb,jt)
+                 IF (lu_subs < 0) CYCLE
+                 ! plant cover
+                 ext_data(jg)%atm%plcov_t  (jc,jb,jt)  =    &
+                   &         ext_data(jg)%atm%ndvi_mrat(jc,jb) * ext_data(jg)%atm%plcovmax_lcc(lu_subs)
+                 ! max leaf area index
+                 ext_data(jg)%atm%tai_t    (jc,jb,jt)  =    &
+                   &  ext_data(jg)%atm%ndvi_mrat(jc,jb)**2 *ext_data(jg)%atm%plcovmax_lcc(lu_subs)  &
+                   &     * ext_data(jg)%atm%laimax_lcc(lu_subs)
+
+                 ! max leaf area index
+                 ext_data(jg)%atm%sai_t    (jc,jb,jt)  = c_lnd+ ext_data(jg)%atm%tai_t (jc,jb,jt)     
+
+
+
+           END DO !ic
+          END DO !jt
+ 
+         END IF !ntiles
+!
+
+       IF (lsnowtile) THEN ! copy static external data fields to snow tile grid points
+           DO jt = ntiles_lnd+1, ntiles_total
+
+             jt_in = jt - ntiles_lnd
+!CDIR NODEP
+             DO ic = 1, ext_data(jg)%atm%lp_count_t(jb,jt)
+               jc = ext_data(jg)%atm%idx_lst_lp_t(ic,jb,jt)
+               ext_data(jg)%atm%plcov_t(jc,jb,jt)    = ext_data(jg)%atm%plcov_t(jc,jb,jt_in)
+               ext_data(jg)%atm%tai_t(jc,jb,jt)      = ext_data(jg)%atm%tai_t(jc,jb,jt_in)
+               ext_data(jg)%atm%sai_t(jc,jb,jt)      = ext_data(jg)%atm%sai_t(jc,jb,jt_in)
+             ENDDO !ic
+
+           ENDDO !jt
+       ENDIF !lsnowtile
+
+     ENDDO  !jb
+    END DO !jg
+
+  CALL diagnose_ext_aggr (p_patch, ext_data)
+
+  END SUBROUTINE update_ndvi
 
 END MODULE mo_nwp_sfc_utils
 

@@ -109,6 +109,8 @@ MODULE mo_ext_data_state
     &                              DATATYPE_PACK16, FILETYPE_NC2, TSTEP_CONSTANT,  &
     &                              TSTEP_MAX
 
+  USE mo_master_control,        ONLY: is_restart_run
+
   IMPLICIT NONE
 
   ! required for reading external data
@@ -145,6 +147,7 @@ MODULE mo_ext_data_state
   PUBLIC :: init_index_lists
   PUBLIC :: destruct_ext_data
   PUBLIC :: interpol_ndvi_time
+  PUBLIC :: diagnose_ext_aggr
 
   TYPE(t_external_data),TARGET, ALLOCATABLE :: &
     &  ext_data(:)  ! n_dom
@@ -175,6 +178,7 @@ CONTAINS
 
     INTEGER :: jg
 
+    TYPE(t_datetime) :: datetime_ndvi
     CHARACTER(len=max_char_length), PARAMETER :: &
       routine = 'mo_ext_data:init_ext_data'
 
@@ -288,7 +292,13 @@ CONTAINS
       !
       SELECT CASE ( iforcing )
       CASE ( inwp )
+       IF (.NOT. is_restart_run()) THEN
         CALL interpol_ndvi_time (p_patch, ext_data, time_config%ini_datetime)
+       ELSE
+        datetime_ndvi=time_config%cur_datetime
+        datetime_ndvi%hour=0
+        CALL interpol_ndvi_time (p_patch, ext_data, datetime_ndvi)
+       END IF
       END SELECT
 
     CASE DEFAULT

@@ -140,7 +140,7 @@ MODULE mo_nh_stepping
   USE mo_pp_tasks,            ONLY: t_simulation_status
   USE mo_art_emission_interface,  ONLY:art_emission_interface
   USE mo_art_config,          ONLY:art_config
-  USE mo_nwp_sfc_utils,       ONLY: aggregate_landvars, update_sstice
+  USE mo_nwp_sfc_utils,       ONLY: aggregate_landvars, update_sstice, update_ndvi
   USE mo_nh_init_nest_utils,  ONLY: initialize_nest, topo_blending_and_fbk
   USE mo_nh_init_utils,       ONLY: hydro_adjust_downward
   USE mo_td_ext_data,         ONLY: set_actual_td_ext_data,  &
@@ -482,6 +482,7 @@ MODULE mo_nh_stepping
         !CALL interpol_ndvi_time (p_patch(1:), ext_data, datetime)
         ! after updating ndvi_mrat, probably plcov_t and tai_t have to be updated also.
         ! So it is better not to update ndvi_mrat till this is clarified 
+        !CALL update_ndvi(p_patch(1:), ext_data)
       END IF
 
       !Check if the the SST and Sea ice fraction have to be updated (sstice_mode 2,3,4)
