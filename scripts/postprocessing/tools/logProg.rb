@@ -60,7 +60,8 @@ def procLog(logFile,tags)
 end
 
 # create a plot for some dedicated parameters: total runtime, gmres and tracer advection
-def createPlot(dataTotal,dataGmres,dataTrace,oType='x11',oName='test')
+def createPlot(data, oType='x11',oName='test')
+  yearsPerDayData = ['total']
   # multiline plot with gnuplot
   Gnuplot.open do |gp|
     Gnuplot::Plot.new( gp ) do |plot|
@@ -74,28 +75,29 @@ def createPlot(dataTotal,dataGmres,dataTrace,oType='x11',oName='test')
         plot.title ENV['TITLE']
       end
       plot.grid
-      plot.yrange '[0:60]'
-      plot.y2range '[0:30]'
+       plot.yrange '[0:60]'
+       plot.y2range '[0:30]'
       plot.y2tics  'in'
       plot.key     'out horiz bot'
       plot.ylabel  'speed [years/day]'
-      plot.y2label 'speed [read seconds/ simulated day]'
-      plot.data << Gnuplot::DataSet.new( dataTotal ) do |ds|
-        ds.with = "lines"
-        ds.title = 'total [y/d]'
-      end# if false
-      plot.data << Gnuplot::DataSet.new( dataTotal ) do |ds|
-        ds.with = "errorbars"
-        ds.title = 'total error [y/d]'
-      end
-      plot.data << Gnuplot::DataSet.new( dataGmres ) do |ds|
-        ds.with = "errorbars axes x1y2"
-        ds.title = 'gmres [s/d]'
-      end
-      plot.data << Gnuplot::DataSet.new( dataTrace ) do |ds|
-        ds.with = "errorbars axes x1y2"
-        ds.title = 'tracer_ab [s/d]'
-      end
+      plot.y2label 'speed [real seconds/ simulated day]'
+      data.each {|k,v|
+        if yearsPerDayData.include?(k)
+          plot.data << Gnuplot::DataSet.new( v ) do |ds|
+            ds.with = "lines"
+            ds.title = "#{k} [y/d]"
+          end
+          plot.data << Gnuplot::DataSet.new( v ) do |ds|
+            ds.with = "errorbars"
+            ds.title = "#{k} error [y/d]"
+          end
+        else
+          plot.data << Gnuplot::DataSet.new( v ) do |ds|
+            ds.with = "errorbars axes x1y2"
+            ds.title = "#{k} [s/d]"
+          end
+        end
+      }
     end
   end
 end
@@ -117,8 +119,9 @@ logFiles.each {|file|
 }
 puts "Processing files #{logFiles.join(', ')} ..."
 
-# Which timer should get analyzed?
-tags    = %w[total gmres tracer_ab upd_phys upd_flx]
+# Which timers should get analyzed?
+tags    = %w[total gmres tracer_ab upd_phys upd_flx adv_horz dif_horz adv_vert dif_vert hflx_lim]
+#tags    = %w[total global_sum exch_data]
 
 # setup for parallel processing
 q, lock = JobQueue.new, Mutex.new
@@ -139,10 +142,10 @@ a = ExtCsv.concat(*results.values.collect {|data| ExtCsv.new("hash","txt",data) 
 ##possible output for manual gnuplot visualization
 #File.open("logPlot.dat","w") {|f| data4Plot.each {|v| f << v.join(' ') << "\n" } }
 
-dataTotal = a.datasets('PEs', 'total', 'total_min', 'total_max').sort_by {|v| v[0].abs}.transpose
-dataGmres = a.datasets('PEs', 'gmres', 'gmres_min', 'gmres_max').transpose
-dataTrace = a.datasets('PEs', 'tracer_ab', 'tracer_ab_min', 'tracer_ab_max').transpose
-
-createPlot(dataTotal,dataGmres,dataTrace)
-createPlot(dataTotal,dataGmres,dataTrace,'png')
+data = {}
+tags.each {|tag|
+  data[tag] = a.datasets('PEs', tag, tag+'_min', tag+'_max').sort_by {|v| v[0].abs}.transpose
+}
+createPlot(data)
+createPlot(data,'png')
 
