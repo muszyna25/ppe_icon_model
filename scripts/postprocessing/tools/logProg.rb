@@ -75,8 +75,10 @@ def createPlot(data, oType='x11',oName='test')
         plot.title ENV['TITLE']
       end
       plot.grid
-       plot.yrange '[0:60]'
-       plot.y2range '[0:30]'
+      unless ENV['FIXAXES'].nil?
+        plot.yrange  '[0:60]'
+        plot.y2range '[0:30]'
+      end
       plot.y2tics  'in'
       plot.key     'out horiz bot'
       plot.ylabel  'speed [years/day]'
