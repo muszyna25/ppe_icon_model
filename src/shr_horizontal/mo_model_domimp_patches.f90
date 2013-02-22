@@ -1760,7 +1760,8 @@ CONTAINS
       IF (array_size > UBOUND(array, 1) ) &
         & CALL finish(method_name, "array_size > UBOUND(array, 1)" )
 
-      DO j = 1, array_size
+      ! GZ: this routine is called before executing the domain decomposition; thus, all grid points must be processed
+      DO j = 1,  UBOUND(array, 1)  ! array_size
         last_no_zero = 0
         first_zero = 0
         DO WHILE(last_no_zero >=  first_zero)
