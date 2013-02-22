@@ -109,7 +109,7 @@ INCLUDE 'netcdf.inc'
   LOGICAL  :: lredgrid_phys(max_dom)   ! If set to .true. is calculated on a reduced grid
   LOGICAL  :: l_limited_area
 
-  LOGICAL  :: use_duplicated_connectivity  = .false.  ! if true, the zero connectivity is replaced by the last non-zero value
+  LOGICAL  :: use_duplicated_connectivity  = .true.  ! if true, the zero connectivity is replaced by the last non-zero value
 !  LOGICAL  :: use_dummy_cell_closure = .false.  ! if true then create a dummy cell and connect it to cells and edges with no neigbor
    
 !   INTEGER  :: radiation_grid_distribution   ! 0=do nothing
