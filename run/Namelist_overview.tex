@@ -1786,10 +1786,19 @@ and \texttt{idom} defining the current patch. & init\_mode=1
 
 \hline 
 filetype &
-I&4& &
+I& -1 (undef.)& &
 One of CDI's FILETYPE\_XXX constants.
 Possible values: 2 (=FILETYPE\_GRB2), 4 (=FILETYPE\_NC2).
 If this parameter has not been set, we try to determine the file type by its extension "*.grb*" or ".nc".
+&
+\tabularnewline
+
+
+\hline 
+ana\_varnames\_map\_file &
+C& & &
+Dictionary file which maps internal variable names onto
+GRIB2 shortnames or NetCDF var names.
 &
 \tabularnewline
 
