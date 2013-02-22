@@ -350,7 +350,7 @@ CONTAINS
         p_as%fswr(:,:)  = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,9) + &
           &               rday2*ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,9)
 
-        ! provide precip, evap, runoff data for freshwater forcing of ocean
+        ! provide precipitation, evaporation, runoff data for freshwater forcing of ocean
         p_as%precip(:,:) = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,10) + &
           &                rday2*ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,10)
         p_as%evap  (:,:) = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,11) + &
@@ -365,7 +365,15 @@ CONTAINS
         z_c2(:,:)=ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,4)
         CALL dbg_print('UpdSfc: Ext data4-ta/mon2' ,z_c2                     ,str_module,idt_src)
         CALL dbg_print('UpdSfc: p_as%tafo'         ,p_as%tafo                ,str_module,idt_src)
-        CALL dbg_print('UpdSfc: p_as%evap'         ,p_as%evap                ,str_module,idt_src)
+
+        ! apply sum of freshwater forcing to (open) ocean
+        !  - in OMIP data: evaporation is negative
+        IF (l_forc_freshw) THEN
+          p_sfc_flx%forc_fwfx(:,:) = p_as%precip(:,:) + p_as%evap(:,:) + p_as%runoff(:,:)
+          CALL dbg_print('UpdSfc: p_as%precip'       ,p_as%precip              ,str_module,idt_src)
+          CALL dbg_print('UpdSfc: p_as%evap'         ,p_as%evap                ,str_module,idt_src)
+          CALL dbg_print('UpdSfc: p_as%runoff'       ,p_as%runoff              ,str_module,idt_src)
+        ENDIF
         !---------------------------------------------------------------------
 
       END IF
@@ -969,23 +977,20 @@ CONTAINS
       ! note that the freshwater flux is opposite in sign to F_S, see below,
       ! i.e. fwf >0 for  S-S* >0 (i.e. increasing freshwater flux to decrease the salinity)
       ! 
-      ! Mixed boundary conditions (relaxation term plus fluxes) can be included accordingly
+      ! Additional freshwater boundary conditions applied independtly below
 
       DO jb = all_cells%start_block, all_cells%end_block
         CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
         DO jc = i_startidx_c, i_endidx_c
           IF ( p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary ) THEN
 
-          !z_relax = p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,1,jb)&
-          !          &/(relaxation_param*seconds_per_month)
+            !z_relax = p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,1,jb)&
+            !          &/(relaxation_param*seconds_per_month)
+            z_relax = (p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,1,jb)+p_os%p_prog(nold(1))%h(jc,jb)) / &
+              &       (relax_2d_mon_S*seconds_per_month)
 
-
-          z_relax = (p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,1,jb)+p_os%p_prog(nold(1))%h(jc,jb)) / &
-            &       (relax_2d_mon_S*seconds_per_month)
-
-              p_sfc_flx%forc_tracer(jc,jb,2) =                             &
-             &          - z_relax*(p_os%p_prog(nold(1))%tracer(jc,1,jb,2)  &
-             &                    -p_sfc_flx%forc_tracer_relax(jc,jb,2))
+            p_sfc_flx%forc_tracer(jc,jb,2) = -z_relax*(p_os%p_prog(nold(1))%tracer(jc,1,jb,2)  &
+              &                                        -p_sfc_flx%forc_tracer_relax(jc,jb,2))
           ELSE
             p_sfc_flx%forc_tracer(jc,jb,2) = 0.0_wp
           ENDIF
@@ -1011,7 +1016,21 @@ CONTAINS
 
     IF (l_forc_freshw) THEN
 
-      ! Freshwater forcing activated as boundary condition in vertical Diffusion D:
+      ! Freshwater forcing activated as boundary condition in vertical Diffusion D, see above
+      ! Vertical diffusion term for salinity Q_S in tracer equation is
+      !   Q_S = K_v*dS/dz(surf) = -W_s*S(nold)  [psu*m/s]
+
+      DO jb = all_cells%start_block, all_cells%end_block
+        CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+        DO jc = i_startidx_c, i_endidx_c
+          IF ( p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary ) THEN
+              p_sfc_flx%forc_tracer(jc,jb,2) = p_sfc_flx%forc_tracer(jc,jb,2) &
+                &                            - p_sfc_flx%forc_fwfx(jc,jb)*p_os%p_prog(nold(1))%tracer(jc,1,jb,2)
+          ELSE
+            p_sfc_flx%forc_tracer(jc,jb,2) = 0.0_wp
+          ENDIF
+        END DO
+      END DO
 
     ENDIF
 
@@ -1035,7 +1054,8 @@ CONTAINS
     ! Freshwater flux diagnosed
     IF (irelax_2d_S >= 1 .AND. no_tracer >1) THEN
 
-      ! Freshwater flux at surface W_s diagnosed for relaxation cases (see Griffies)
+      ! Sum of freshwater flux at surface W_s diagnosed for relaxation cases (see Griffies)
+      ! does also apply for OMIP-freshwater (iforc_type=2) plus relaxation (irelax_2d_S >=1)
       !   W_s = -Q_S / S_0   [m/s]  with reference salinity at surface, 
       !   which is set to reference value S_ref=35 psu to avoid instability for low salinity
       ! where

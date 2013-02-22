@@ -1230,12 +1230,12 @@ IF (l_edge_based) THEN
         IF(p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary ) THEN
 !         p_os%p_aux%p_rhs_sfc_eq(jc,jb) = ((p_os%p_prog(nold(1))%h(jc,jb)&
 !                                        & - dtime*(div_z_c(jc,jb)        &
-!                                        & + p_sfc_flx%forc_tracer(jc,jb,2) ))/gdt2)&
-!                                        &  *v_base%wet_c(jc,1,jb) !last idx=2 for freshwater
-          p_os%p_aux%p_rhs_sfc_eq(jc,jb) = ((p_os%p_prog(nold(1))%h(jc,jb)&
-                                         & - dtime*(div_z_depth_int_c(jc,jb)        &
-                                         & + p_sfc_flx%forc_tracer(jc,jb,2) ))/gdt2)&
-                                         &  *p_patch_3D%wet_c(jc,1,jb) !last idx=2 for freshwater
+!                                        & + p_sfc_flx%forc_tracer(jc,jb,2) ))/gdt2)& !last idx=2 for freshwater
+!                                        &  *v_base%wet_c(jc,1,jb)
+          p_os%p_aux%p_rhs_sfc_eq(jc,jb) = ((p_os%p_prog(nold(1))%h(jc,jb)           &
+                                         & - dtime*(div_z_depth_int_c(jc,jb)         &
+                                         & + p_sfc_flx%forc_tracer(jc,jb,2) ))/gdt2) & !last idx=2 for freshwater
+                                         &  *p_patch_3D%wet_c(jc,1,jb)
         ENDIF
       ENDDO
     END DO
