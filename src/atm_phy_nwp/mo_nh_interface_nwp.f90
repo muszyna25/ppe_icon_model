@@ -478,30 +478,6 @@ CONTAINS
       IF (timers_level > 1) CALL timer_stop(timer_nwp_turbulence)
     ENDIF !lcall(itturb)
 
-    !-------------------------------------------------------------------------
-    !  prognostic microphysic and precipitation scheme
-    !-------------------------------------------------------------------------
-    IF ( lcall_phy_jg(itgscp)) THEN
-
-      IF (msg_level >= 15) &
-        & CALL message('mo_nh_interface_nwp:', 'microphysics')
-
-      !> temperature and tracers have been updated by turbulence;
-      !! an update of the pressure field is not needed because pressure
-      !! is not needed at high accuracy in the microphysics scheme
-
-      IF (timers_level > 1) CALL timer_start(timer_nwp_microphysics)
-
-      CALL nwp_microphysics ( dt_phy_jg(itfastphy),             & !>input
-                            & pt_patch, p_metrics,              & !>input
-                            & pt_prog,                          & !>inout
-                            & pt_prog_rcf,                      & !>inout
-                            & pt_diag ,                         & !>inout
-                            & prm_diag                          ) !>inout
-
-      IF (timers_level > 1) CALL timer_stop(timer_nwp_microphysics)
-
-    ENDIF
 
       IF (art_config(jg)%lart) THEN
 
@@ -554,6 +530,30 @@ CONTAINS
       IF (timers_level > 1) CALL timer_stop(timer_nwp_turbulence)
     ENDIF !lcall(itturb)
 
+    !-------------------------------------------------------------------------
+    !  prognostic microphysic and precipitation scheme
+    !-------------------------------------------------------------------------
+    IF ( lcall_phy_jg(itgscp)) THEN
+
+      IF (msg_level >= 15) &
+        & CALL message('mo_nh_interface_nwp:', 'microphysics')
+
+      !> temperature and tracers have been updated by turbulence;
+      !! an update of the pressure field is not needed because pressure
+      !! is not needed at high accuracy in the microphysics scheme
+
+      IF (timers_level > 1) CALL timer_start(timer_nwp_microphysics)
+
+      CALL nwp_microphysics ( dt_phy_jg(itfastphy),             & !>input
+                            & pt_patch, p_metrics,              & !>input
+                            & pt_prog,                          & !>inout
+                            & pt_prog_rcf,                      & !>inout
+                            & pt_diag ,                         & !>inout
+                            & prm_diag                          ) !>inout
+
+      IF (timers_level > 1) CALL timer_stop(timer_nwp_microphysics)
+
+    ENDIF
 
     IF (lcall_phy_jg(itsatad) .OR. lcall_phy_jg(itgscp) .OR. lcall_phy_jg(itturb)) THEN
       
