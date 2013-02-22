@@ -268,7 +268,7 @@ case "$ac_sitename" in
                     ;;
                 esac
 
-		mpi_startrun="aprun" "-n" "\\\$no_of_nodes" -N "\\\$mpi_procs"
+		mpi_startrun="aprun" "-n" "\\\$no_of_nodes" -N "\\\$mpi_total_procs"
         esac
         ;;
 #===============================================

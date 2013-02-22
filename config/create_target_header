@@ -12,7 +12,7 @@
 # Basic parameters in this script
 # -----------------------------
 # use_nodes  =  no of nodes to run
-# use_mpi_procs = number of mpi procs per node
+# use_mpi_procs_pernode = number of mpi procs per node
 #
 #==============================================================================
 
@@ -35,7 +35,7 @@ fi
 
 set_default use_nodes 1
 set_default use_omp_stacksize 32M
-let mpi_total_procs=${use_nodes}*${use_mpi_procs}
+let mpi_total_procs=${use_nodes}*${use_mpi_procs_pernode}
 
 cat >> $output_script << EOF
 #=============================================================================
@@ -110,7 +110,7 @@ nproma=$use_nproma
 # ----------------------------
 mpi_root=$use_mpi_root
 no_of_nodes=$use_nodes
-mpi_procs=$use_mpi_procs
+mpi_procs_pernode=$use_mpi_procs_pernode
 mpi_total_procs=$mpi_total_procs
 start="$start"
 START="\$start"
@@ -208,20 +208,20 @@ set_run_target_blizzard()
   
   if [[ $use_mpi == "yes" ]]; then
     if [[ $use_openmp == "yes" ]]; then
-      set_default use_mpi_procs 16
+      set_default use_mpi_procs_pernode 16
       set_default use_openmp_threads 4
     else
-      set_default use_mpi_procs 64
+      set_default use_mpi_procs_pernode 64
     fi
   else
     if [[ $use_openmp == "yes" ]]; then
       set_default use_openmp_threads 64
-#      set_default use_mpi_procs 1
+#      set_default use_mpi_procs_pernode 1
     fi
   fi
   
   # check if we are in smt mode
-  let total_threads=${use_openmp_threads}*${use_mpi_procs}
+  let total_threads=${use_openmp_threads}*${use_mpi_procs_pernode}
   if [[ total_threads -ge 64 ]] ; then
     smt_mode="smt"
     task_affinity="cpu($use_openmp_threads)"
@@ -262,7 +262,7 @@ set_run_target_blizzard()
         ;;
     esac
   fi
-  let memory_size=${total_memory}/${use_mpi_procs}
+  let memory_size=${total_memory}/${use_mpi_procs_pernode}
   use_resources="$use_resources ConsumableMemory(${memory_size}mb)"
 
   # create header
@@ -283,7 +283,7 @@ set_run_target_blizzard()
     mcm_affinity_options="mcm_affinity_options = mcm_accumulate"
 #    mcm_affinity_options="mcm_affinity_options = mcm_distribute"
     node="node             = $use_nodes"
-    tasks_per_node="tasks_per_node   = $use_mpi_procs"
+    tasks_per_node="tasks_per_node   = $use_mpi_procs_pernode"
   fi
   if  [[ $use_openmp_threads -gt 8 ]] ; then
     rset=" # rset         = rset_mcm_affinity"
@@ -303,7 +303,7 @@ set_run_target_blizzard()
   fi 
   # ------------------------------------
 
-  if [[ "$use_nodes" -eq 1 ]] && [[ "$use_mpi_procs" -eq 1 ]] ; then
+  if [[ "$use_nodes" -eq 1 ]] && [[ "$use_mpi_procs_pernode" -eq 1 ]] ; then
     use_node_usage="shared"
   fi
   if [[ "$use_node_usage" == "shared" ]] ; then
@@ -423,15 +423,15 @@ set_run_target_thunder()
   is_serial_run="no"
   if [[ $use_mpi == "yes" ]]; then
     if [[ $use_openmp == "yes" ]]; then
-      set_default use_mpi_procs 4
+      set_default use_mpi_procs_pernode 4
       set_default use_openmp_threads 4
     else
-      set_default use_mpi_procs 16
+      set_default use_mpi_procs_pernode 16
     fi
   else
     if [[ $use_openmp == "yes" ]]; then
       set_default use_openmp_threads 16
-#      set_default use_mpi_procs 1
+#      set_default use_mpi_procs_pernode 1
      else
        is_serial_run="yes"
    fi
@@ -448,7 +448,7 @@ set_run_target_thunder()
  else
     job_type=parallel
     queue="mpi-compute"
-    tasks_per_node=$use_mpi_procs
+    tasks_per_node=$use_mpi_procs_pernode
   fi
   # ------------------------------------
 
@@ -477,7 +477,7 @@ set_run_target_mpipc()
   use_nodes=1
   
   if [[ $use_mpi == "yes" ]]; then
-    set_default use_mpi_procs 2
+    set_default use_mpi_procs_pernode 2
   fi
   if [[ $use_openmp == "yes" ]]; then
     set_default use_openmp_threads 2
@@ -521,7 +521,7 @@ set_run_target_squall()
   set_default use_openmp_threads 1
 
   if [[ $use_mpi == "yes" ]]; then
-    set_default use_mpi_procs 4
+    set_default use_mpi_procs_pernode 4
   fi
 
 # create header
@@ -535,7 +535,7 @@ set_run_target_squall()
 #$ -o LOG.$job_name.o
 #$ -j y
 #$ -cwd
-#$ -pe linux64 $use_mpi_procs
+#$ -pe linux64 $use_mpi_procs_pernode
 # We changed back to only squall queue because 
 # the squall-bigmem runs into a hanging job.
 ##$ -q squall,squall-bigmem
@@ -565,13 +565,13 @@ set_run_target_tornado()
     queue="-q smp"
     resources=" -pe smp 16"
   elif [[ $use_mpi == "yes" ]]; then
-    set_default use_mpi_procs 8
-    if [[ "$use_mpi_procs" == "1" ]] ; then
+    set_default use_mpi_procs_pernode 8
+    if [[ "$use_mpi_procs_pernode" == "1" ]] ; then
       queue="-q serial"
       resources=""    
     else
       queue="-q cluster"
-      resources="-pe orte8 ${use_mpi_procs}"
+      resources="-pe orte8 ${use_mpi_procs_pernode}"
     fi
   else
     queue="-q serial"
@@ -623,13 +623,13 @@ set_run_target_dole()
     queue="-q smp"
     resources=" -pe smp 16"
   elif [[ $use_mpi == "yes" ]]; then
-    set_default use_mpi_procs 8
-    if [[ "$use_mpi_procs" == "1" ]] ; then
+    set_default use_mpi_procs_pernode 8
+    if [[ "$use_mpi_procs_pernode" == "1" ]] ; then
       queue="-q serial"
       resources=""    
     else
       queue="-q cluster"
-      resources="-pe orte8 ${use_mpi_procs}"
+      resources="-pe orte8 ${use_mpi_procs_pernode}"
     fi
   else
     queue="-q serial"
@@ -666,7 +666,7 @@ set_run_target_mpimac()
   set_default use_nproma 48
   
   if [[ "$use_mpi" == "yes" ]]; then
-    set_default use_mpi_procs 2
+    set_default use_mpi_procs_pernode 2
   fi
   if [[ "$use_openmp" == "yes" ]]; then
     set_default use_openmp_threads 2
@@ -683,7 +683,7 @@ set_run_target_oflws()
   set_default use_nproma 64
 
   if [[ "$use_mpi" == "yes" ]]; then
-    set_default use_mpi_procs 4
+    set_default use_mpi_procs_pernode 4
   fi
   if [[ "$use_openmp" == "yes" ]]; then
     set_default use_openmp_threads 2
@@ -699,7 +699,7 @@ set_run_target_hpc()
 {
   set_default use_nproma 64
   set_default use_nodes 1
-  set_default use_mpi_procs 1
+  set_default use_mpi_procs_pernode 1
   set_default use_openmp_threads 1
 
   cdo="/e/uhome/extrmuel/local/bin/cdo"
@@ -713,7 +713,7 @@ set_run_target_hpc()
 #PBS -q lang
 #PBS -j oe
 #PBS -o LOG.$job_name.o
-#PBS -l select=$use_nodes:ncpus=$use_mpi_procs
+#PBS -l select=$use_nodes:ncpus=$use_mpi_procs_pernode
 #PBS -m n
 # ===========================
 #-----------------------------------------------------------------------------
@@ -743,18 +743,18 @@ set_run_target_sx9()
  
     mpimultitaskmix="ON"
     set_default use_nodes 4
-    set_default use_mpi_procs 2
+    set_default use_mpi_procs_pernode 2
 
     if [[ $use_openmp == "yes" ]]; then
       set_default use_openmp_threads 4
       cpunum_job=8                         
     else
       set_default use_openmp_threads 1
-      cpunum_job=$use_mpi_procs
+      cpunum_job=$use_mpi_procs_pernode
     fi
   else
     set_default use_nodes 1
-    set_default use_mpi_procs 1
+    set_default use_mpi_procs_pernode 1
     if [[ $use_openmp == "yes" ]]; then
       set_default use_openmp_threads 4
       cpunum_job=$use_openmp_threads
@@ -802,7 +802,7 @@ if [[ -n \${PBS_O_WORKDIR} ]] ; then
 fi
 export F_PROGINF=DETAIL
 export MPIMULTITASKMIX=$mpimultitaskmix
-export NMPITASKS=$use_mpi_procs
+export NMPITASKS=$use_mpi_procs_pernode
 export NC_BLOCKSIZE=128mb
 export MPIPROGINF=yes
 export MPIPROGINF=ALL_DETAIL
@@ -820,7 +820,7 @@ set_run_target_default()
 
   set_default use_nproma 8
   set_default use_nodes 1
-  set_default use_mpi_procs 2
+  set_default use_mpi_procs_pernode 2
   
   if [[ $use_openmp == "yes" ]]; then
     set_default use_openmp_threads 2
@@ -843,8 +843,8 @@ create_target_header()
 
   if [[ "$use_mpi" == "no" ]]; then
     use_nodes=1
-    use_mpi_procs=1
-    use_mpi_procs=1
+    use_mpi_procs_pernode=1
+    use_mpi_procs_pernode=1
   fi
 
   if [[ "$use_openmp" == "no" ]]; then
