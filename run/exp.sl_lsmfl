@@ -195,7 +195,10 @@ cat > ${ocean_namelist} << EOF
                                  ! FALSE: use the free surface dynamics
   ab_beta            =    0.7    ! parameter for Adam-Bashforth time-stepping
   ab_gam             =    0.7    ! parameter for Adam-Bashforth time-stepping
-  solver_tolerance   = 1.0E-6
+  solver_tolerance   = 1.0E-11
+  use_absolute_solver_tolerance = .true.
+  solver_max_iter_per_restart = 10
+  solver_max_restart_iterations = 20
   i_bc_veloc_lateral =    0      ! Boundary condition for normal velocity for lateral walls
   i_bc_veloc_top     =    1      ! Boundary condition for normal velocity for ocean top
   i_bc_veloc_bot     =    0      ! Boundary condition for normal velocity for ocean bottom
@@ -215,7 +218,7 @@ cat > ${ocean_namelist} << EOF
   l_edge_based = .TRUE.          !  edge- or cell-based mimetic discretization
   FLUX_CALCULATION_HORZ = 4      ! 1=upwind, 2=central, 3=mimetic, 4=mimetic_miura
   FLUX_CALCULATION_VERT = 4      ! 1=upwind, 2=central, 3=mimetic, 4=mimetic_miura
-  i_apply_bulk          = 1      ! 1=use bulk formula without sea ice
+  i_apply_bulk          = 0      ! 1=use bulk formula without sea ice
 /
 &ocean_physics_nml
   i_sea_ice          =    1      ! 0 = no sea ice; 1 = Winton; 2 = Semtner
@@ -279,6 +282,7 @@ cat > ${ocean_namelist} << EOF
   irelax_3d_S        =    0      ! 3-dim relaxation of salinity (0: no relax) 1-2: not yet used
                                  ! 3: use initial S read with init_oce=1
   relax_3d_mon_S     =    1.0    ! strength of 3-dim relaxation for salinity (months)
+  l_forc_freshw      = .FALSE.   ! TRUE : apply freshwater forcing boundary condition
 /
 &io_nml
  out_expname   = '${EXPNAME}'

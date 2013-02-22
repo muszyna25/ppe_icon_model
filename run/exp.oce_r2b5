@@ -114,7 +114,7 @@ ocean_model_equations=-1 # equation system: -1=hydrost. ocean
 dtime=${dtime:=900}      # model timestep in seconds
 solver_tolerance=${solver_tolerance:=1.0E-12}
 use_absolute_solver_tolerance=${use_absolute_solver_tolerance:=".true."}
-solver_max_iterations_per_restart=${solver_max_iterations_per_restart:=12}
+solver_max_iter_per_restart=${solver_max_iterations_per_restart:=12}
 solver_max_restart_iterations=${solver_max_restart_iterations:=20}
 # solver_start_tolerance = 1.0E-08
 # solver_tolerance_decrease_ratio = 0.1

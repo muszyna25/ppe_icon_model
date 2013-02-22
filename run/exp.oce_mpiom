@@ -163,7 +163,7 @@ cat > ${ocean_namelist} << EOF
   !veloc_diffusion_form  = 1      ! curlcurl-graddiv form of laplacian
   solver_tolerance = 1.0E-11
   use_absolute_solver_tolerance = .true.
-  solver_max_iterations_per_restart = 10
+  solver_max_iter_per_restart = 10
   solver_max_restart_iterations = 20
   ! solver_start_tolerance = 1.0E-08
   ! solver_tolerance_decrease_ratio = 0.1
