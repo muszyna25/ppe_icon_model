@@ -70,7 +70,7 @@ def createPlot(data, oType='x11',oName='test')
         plot.output "#{oName}.#{oType}"
       end
       if ENV['TITLE'].nil?
-        plot.title 'ICON ocean speed/runtime/scaling R2B04 on blizzard'
+        plot.title 'ICON ocean speed/runtime/scaling'
       else
         plot.title ENV['TITLE']
       end
@@ -148,6 +148,14 @@ data = {}
 tags.each {|tag|
   data[tag] = a.datasets('PEs', tag, tag+'_min', tag+'_max').sort_by {|v| v[0].abs}.transpose
 }
-createPlot(data)
-createPlot(data,'png')
+
+if ENV['OTYPE'].nil?
+  createPlot(data)
+else
+  if ENV['OFILE'].nil?
+    createPlot(data,ENV['OTYPE'])
+  else
+    createPlot(data,ENV['OTYPE'],ENV['OFILE'])
+  end
+end
 
