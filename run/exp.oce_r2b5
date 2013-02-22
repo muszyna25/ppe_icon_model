@@ -120,7 +120,8 @@ solver_max_restart_iterations=${solver_max_restart_iterations:=20}
 # solver_tolerance_decrease_ratio = 0.1
 #-----------------------------------------------------------------------------
 # parallelization / optimization parameters
-division_method=${division_method:=102}
+#division_method=${division_method:=102}
+division_method=${division_method:=1}
 fast_sum=${fast_sum:=".true."}
 nproma=${nproma:=32}
 
