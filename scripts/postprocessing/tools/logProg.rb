@@ -87,11 +87,11 @@ def createPlot(data, oType='x11',oName='test')
         if yearsPerDayData.include?(k)
           plot.data << Gnuplot::DataSet.new( v ) do |ds|
             ds.with = "lines"
-            ds.title = "#{k} [y/d]"
+            ds.title = "#{k} (mean) [y/d]"
           end
           plot.data << Gnuplot::DataSet.new( v ) do |ds|
             ds.with = "errorbars"
-            ds.title = "#{k} error [y/d]"
+            ds.title = "#{k} [y/d]"
           end
         else
           plot.data << Gnuplot::DataSet.new( v ) do |ds|
