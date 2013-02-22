@@ -609,6 +609,7 @@ lapack/izmax1.f -text
 run/Namelist_overview.pdf -text
 run/Namelist_overview.tex -text
 run/README -text
+run/ana_varnames_map_file.txt -text
 run/compile_for_dev.mpi.ksh -text
 run/compile_for_developers.ksh -text
 run/exec.iconrun -text

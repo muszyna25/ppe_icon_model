@@ -51,6 +51,7 @@ MODULE mo_initicon_config
   PUBLIC :: dwdinc_filename
   PUBLIC :: generate_filename
   PUBLIC :: filetype
+  PUBLIC :: ana_varnames_map_file
 
 
   CHARACTER(len=*),PARAMETER,PRIVATE :: &
@@ -84,6 +85,10 @@ MODULE mo_initicon_config
   ! DWD-inc input filename, may contain keywords, by default
   ! dwdinc_filename = "<path>dwdinc_R<nroot>B<jlev>_DOM<idom>.nc"
   CHARACTER(LEN=filename_max) :: dwdinc_filename
+
+  ! analysis file: dictionary which maps internal variable names onto
+  ! GRIB2 shortnames or NetCDF var names.
+  CHARACTER(LEN=filename_max) :: ana_varnames_map_file      
 
 CONTAINS
   

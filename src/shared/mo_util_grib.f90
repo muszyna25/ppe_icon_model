@@ -43,7 +43,7 @@ MODULE mo_util_grib
   USE mo_parallel_config,    ONLY: p_test_run
   USE mo_mpi,                ONLY: my_process_is_stdio, p_bcast,  &
     &                              p_comm_work, p_comm_work_test, &
-    &                              p_io
+    &                              p_io, p_pe
   USE mo_util_string,        ONLY: tolower
   USE mo_fortran_tools,      ONLY: assign_if_present
 
@@ -52,13 +52,8 @@ MODULE mo_util_grib
 
   PRIVATE
 
-  PUBLIC  :: read_grib_data
+  PUBLIC  :: read_grib_2d, read_grib_3d
   PUBLIC  :: get_varID
-
-  INTERFACE read_grib_data
-    MODULE PROCEDURE read_grib_3d
-    MODULE PROCEDURE read_grib_2d
-  END INTERFACE read_grib_data
 
 
   CHARACTER(len=*), PARAMETER :: version = &
@@ -73,17 +68,19 @@ CONTAINS
   !  Uses cdilib for file access.
   !  Initial revision by F. Prill, DWD (2013-02-19)
   !
-  FUNCTION get_varID(vlistID, name) RESULT(result_varID)
+  FUNCTION get_varID(streamID, name, opt_tileidx) RESULT(result_varID)
     INTEGER                                 :: result_varID
-    INTEGER,           INTENT(IN)           :: vlistID             !< link to GRIB file vlist
+    INTEGER,           INTENT(IN)           :: streamID            !< link to GRIB file 
     CHARACTER (LEN=*), INTENT(IN)           :: name                !< variable name
+    INTEGER,           INTENT(IN), OPTIONAL :: opt_tileidx         !< tile index, encoded as "localInformationNumber"
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = TRIM(modname)//'::get_varID'
     CHARACTER(len=MAX_CHAR_LENGTH) :: zname
     LOGICAL                        :: l_found
-    INTEGER                        :: nvars, varID
+    INTEGER                        :: nvars, varID, vlistID, tileidx
 
-    zname = ""
+    zname   = ""
+    vlistID = streamInqVlist(streamID)
 
     result_varID = -1
     ! total number of available fields:
@@ -91,15 +88,29 @@ CONTAINS
     ! loop over vlist, find the corresponding varID
     l_found = .FALSE.
     LOOP : DO varID=0,(nvars-1)
+
       CALL vlistInqVarName(vlistID, varID, zname)
 
+
       IF (tolower(TRIM(zname)) == tolower(TRIM(name))) THEN
+
+        ! check tile index
+        IF (PRESENT(opt_tileidx)) THEN
+          CALL vlistInqVarRawBegin(streamID, varID)
+          tileidx = vlistInqVarIntKey(streamID, "localInformationNumber")
+          CALL vlistInqVarRawEnd(streamID)
+          IF (tileidx /= opt_tileidx) CYCLE LOOP
+        END IF
+
         result_varID = varID
         l_found = .TRUE.
         EXIT LOOP
       END IF
     END DO LOOP
     IF (.NOT. l_found) THEN
+      if (present(opt_tileidx)) then
+        write (0,*) "tileidx = ", opt_tileidx
+      end if
       CALL finish(routine, "Variable "//TRIM(name)//" not found!")
     END IF
   END FUNCTION get_varID
@@ -114,7 +125,7 @@ CONTAINS
   !  Initial revision by F. Prill, DWD (2013-02-19)
   ! 
   SUBROUTINE read_grib_3d(streamID, varname, glb_arr_len, loc_arr_len, glb_index, &
-    &                     nlevs, var_out, opt_lvalue_add)
+    &                     nlevs, var_out, opt_tileidx, opt_lvalue_add)
 
     INTEGER,          INTENT(IN)    :: streamID       !< ID of CDI file stream
     CHARACTER(len=*), INTENT(IN)    :: varname        !< Var name of field to be read
@@ -122,6 +133,7 @@ CONTAINS
     INTEGER,          INTENT(IN)    :: glb_arr_len    !< length of 1D field (global)
     INTEGER,          INTENT(IN)    :: loc_arr_len    !< length of 1D field (local)
     INTEGER,          INTENT(IN)    :: glb_index(:)   !< Index mapping local to global
+    INTEGER,          INTENT(IN), OPTIONAL :: opt_tileidx  !< tile index, encoded as "localInformationNumber"
     REAL(wp),         INTENT(INOUT) :: var_out(:,:,:) !< output field
     LOGICAL, INTENT(IN), OPTIONAL   :: opt_lvalue_add !< If .TRUE., add values to given field
     ! local constants:
@@ -143,14 +155,15 @@ CONTAINS
     IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
 
     ! get var ID
-    IF(my_process_is_stdio()) THEN
+    IF(p_pe == p_io) THEN
       vlistID   = streamInqVlist(streamID)
-      varID     = get_varID(vlistID, name=TRIM(varname))
+      varID     = get_varID(streamID, name=TRIM(varname), opt_tileidx=opt_tileidx)
       zaxisID   = vlistInqVarZaxis(vlistID, varID)
       gridID    = vlistInqVarGrid(vlistID, varID)
       dimlen(1) = gridInqSize(gridID)
       dimlen(2) = zaxisInqSize(zaxisID)
 
+!DR write(0,*) "varname, zaxisID, dimlen(2), nlevs: ", TRIM(varname), zaxisID, dimlen(2), nlevs
       ! Check variable dimensions:
       IF ((dimlen(1) /= glb_arr_len) .OR.  &
         & (dimlen(2) /= nlevs)) THEN
@@ -170,7 +183,7 @@ CONTAINS
     ! I/O PE reads and broadcasts data
    
     DO jk=1,nlevs
-      IF(my_process_is_stdio()) THEN
+      IF(p_pe == p_io) THEN
         ! read record as 1D field
         CALL streamReadVarSlice(streamID, varID, jk-1, tmp_buf(:), nmiss)
       END IF
@@ -207,7 +220,7 @@ CONTAINS
   ! 
   !  Initial revision by F. Prill, DWD (2013-02-19)
   !
-  SUBROUTINE read_grib_2d (streamID, varname, glb_arr_len, loc_arr_len, glb_index, var_out)
+  SUBROUTINE read_grib_2d (streamID, varname, glb_arr_len, loc_arr_len, glb_index, var_out, opt_tileidx)
 
     INTEGER,          INTENT(IN)    :: streamID       !< ID of CDI file stream
     CHARACTER(len=*), INTENT(IN)    :: varname        !< Var name of field to be read
@@ -215,6 +228,7 @@ CONTAINS
     INTEGER,          INTENT(IN)    :: loc_arr_len    !< length of 1D field (local)
     INTEGER,          INTENT(IN)    :: glb_index(:)   !< Index mapping local to global
     REAL(wp),         INTENT(INOUT) :: var_out(:,:)   !< output field
+    INTEGER,          INTENT(IN), OPTIONAL :: opt_tileidx  !< tile index, encoded as "localInformationNumber"
     ! local variables:
     CHARACTER(len=max_char_length), PARAMETER :: &
       routine = modname//':read_grib_2d'
@@ -224,9 +238,9 @@ CONTAINS
 
 
     ! Get var ID
-    IF (my_process_is_stdio()) THEN
+    IF (p_pe == p_io) THEN
       vlistID   = streamInqVlist(streamID)
-      varID     = get_varID(vlistID, name=TRIM(varname))
+      varID     = get_varID(streamID, name=TRIM(varname), opt_tileidx=opt_tileidx)
       gridID    = vlistInqVarGrid(vlistID, varID)
       ! Check variable dimensions:
       IF (gridInqSize(gridID) /= glb_arr_len) THEN
@@ -242,7 +256,7 @@ CONTAINS
 
     ! I/O PE reads and broadcasts data
 
-    IF (my_process_is_stdio()) THEN
+    IF (p_pe == p_io) THEN
       ! read record as 1D field
       CALL streamReadVarSlice(streamID, varID, 0, z_dummy_array(:), nmiss)
     END IF

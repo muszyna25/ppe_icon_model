@@ -58,7 +58,8 @@ MODULE mo_initicon_nml
     & config_dwdfg_filename     => dwdfg_filename,    &
     & config_dwdinc_filename    => dwdinc_filename,   &
     & config_l_coarse2fine_mode => l_coarse2fine_mode,&
-    & config_filetype           => filetype
+    & config_filetype           => filetype,          &
+    & config_ana_varnames_map_file => ana_varnames_map_file
 
   IMPLICIT NONE
 
@@ -96,10 +97,15 @@ MODULE mo_initicon_nml
   ! dwdinc_filename = "<path>dwdinc_R<nroot>B<jlev>_DOM<idom>.nc"
   CHARACTER(LEN=filename_max) :: dwdinc_filename
 
+  ! analysis file: dictionary which maps internal variable names onto
+  ! GRIB2 shortnames or NetCDF var names.
+  CHARACTER(LEN=filename_max) :: ana_varnames_map_file      
+
 
   NAMELIST /initicon_nml/ init_mode, nlev_in, zpbl1, zpbl2, l_coarse2fine_mode, &
-                          nlevsoil_in, l_hice_in, l_sst_in, ifs2icon_filename, &
-                          dwdfg_filename, dwdinc_filename, filetype
+                          nlevsoil_in, l_hice_in, l_sst_in, ifs2icon_filename,  &
+                          dwdfg_filename, dwdinc_filename, filetype,            &
+                          ana_varnames_map_file
   
 CONTAINS
 
@@ -137,6 +143,7 @@ CONTAINS
   l_hice_in   = .FALSE.     ! true: sea-ice thickness field provided as input
   l_sst_in    = .FALSE.     ! true: sea surface temperature field provided as input
   filetype    = -1          ! "-1": undefined
+  ana_varnames_map_file = " "
   ifs2icon_filename = "<path>ifs2icon_R<nroot>B<jlev>_DOM<idom>.nc"
   dwdfg_filename    = "<path>dwdFG_R<nroot>B<jlev>_DOM<idom>.nc"
   dwdinc_filename   = "<path>dwdinc_R<nroot>B<jlev>_DOM<idom>.nc"
@@ -171,6 +178,7 @@ CONTAINS
   config_dwdinc_filename   = dwdinc_filename
   config_l_coarse2fine_mode= l_coarse2fine_mode
   config_filetype          = filetype
+  config_ana_varnames_map_file = ana_varnames_map_file
 
   !------------------------------------------------------------
   ! 5.0 check the consistency of the parameters

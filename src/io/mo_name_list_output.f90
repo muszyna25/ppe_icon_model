@@ -49,7 +49,8 @@ MODULE mo_name_list_output
   USE mo_var_list,              ONLY: nvar_lists, max_var_lists, var_lists,     &
     &                                 new_var_list, get_all_var_names,          &
     &                                 total_number_of_variables, collect_group, &
-    &                                 get_var_timelevel, get_var_name
+    &                                 get_var_timelevel, get_var_name,          &
+    &                                 get_var_tileidx
   USE mo_var_list_element,      ONLY: level_type_ml, level_type_pl, level_type_hl, &
     &                                 level_type_il, lev_type_str
   USE mo_util_uuid,             ONLY: t_uuid
@@ -2443,7 +2444,7 @@ CONTAINS
           ! GRIB2 Quick hack: Set additional GRIB2 keys      
           CALL set_additional_GRIB2_keys(vlistID, of%cdi_grb2(idx(igrid),i), &
             &                            gribout_config(of%phys_patch_id),   &
-            &                            of%name_list%namespace)
+            &                            0, of%name_list%namespace)
         END DO
       END DO
 
@@ -2463,7 +2464,7 @@ CONTAINS
         ! GRIB2 Quick hack: Set additional GRIB2 keys      
         CALL set_additional_GRIB2_keys(vlistID, of%cdi_grb2(ILATLON,i), &
           &                            gribout_config(of%phys_patch_id), &
-          &                            of%name_list%namespace)
+          &                            0, of%name_list%namespace)
       END DO
 
     CASE DEFAULT
@@ -2804,9 +2805,10 @@ CONTAINS
   ! Set additional GRIB2 keys. These are added to each single variable, even though 
   ! adding it to the vertical or horizontal grid description may be more elegant.
   ! 
-  SUBROUTINE set_additional_GRIB2_keys(vlistID, varID, grib_conf, namespace)
+  SUBROUTINE set_additional_GRIB2_keys(vlistID, varID, grib_conf, tileidx, namespace)
     INTEGER,                INTENT(IN) :: vlistID, varID
     TYPE(t_gribout_config), INTENT(IN) :: grib_conf
+    INTEGER,                INTENT(IN) :: tileidx
     CHARACTER (LEN=*),      INTENT(IN) :: namespace
 
     CHARACTER(len=MAX_STRING_LEN) :: ydate, ytime
@@ -2862,6 +2864,8 @@ CONTAINS
       CALL vlistDefVarIntKey(vlistID, varID, "localCreationDateDay"   , day)
       CALL vlistDefVarIntKey(vlistID, varID, "localCreationDateHour"  , hour)
       CALL vlistDefVarIntKey(vlistID, varID, "localCreationDateMinute", minute)
+      ! preliminary HACK for identifying tile based variables
+      CALL vlistDefVarIntKey(vlistID, varID, "localInformationNumber" , tileidx)
       ! CALL vlistDefVarIntKey(vlistID, varID, "localValidityDateYear"  , 2013)
     END IF
 
@@ -2921,7 +2925,7 @@ CONTAINS
       ENDIF
 
       ! Search name mapping for name in NetCDF file
-      mapped_name = TRIM(dict_get(out_varnames_dict, mapped_name, default=info%name))
+      mapped_name = TRIM(dict_get(out_varnames_dict, info%name, default=info%name))
 
       ! note that an explicit call of vlistDefVarTsteptype is obsolete, since 
       ! isteptype is already defined via vlistDefVar
@@ -2966,7 +2970,7 @@ CONTAINS
 
       ! GRIB2 Quick hack: Set additional GRIB2 keys      
       CALL set_additional_GRIB2_keys(vlistID, varID, gribout_config(of%phys_patch_id), &
-        &                            of%name_list%namespace)
+        &                            get_var_tileidx(TRIM(info%name)), of%name_list%namespace)
 
       !!!!!!! OBSOLETE !!!!!!!!
       !Set typeOfStatisticalProcessing

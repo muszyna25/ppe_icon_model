@@ -31043,6 +31043,70 @@ void grib1GetLevel(grib_handle *gh, int *leveltype, int *lbounds, int *level1, i
 }
 
 static
+void grib2GetLevel_Raw(grib_handle *gh, int *leveltype, int *lbounds, int *level1, int *level2)
+{
+  int status;
+  int leveltype2 = -1;
+  long lpar;
+  long factor;
+  double dlevel;
+
+  *leveltype = 0;
+  *lbounds = 0;
+  *level1  = 0;
+  *level2  = 0;
+
+  status = grib_get_long(gh, "typeOfFirstFixedSurface", &lpar);
+  if ( status == 0 )
+    {
+      *leveltype = (int) lpar;
+
+      status = grib_get_long(gh, "typeOfSecondFixedSurface", &lpar);
+      if ( status == 0 ) leveltype2 = lpar;
+
+      if ( *leveltype == leveltype2 && *leveltype != 255 ) *lbounds = 1;
+
+      if ( *lbounds == 0 )
+	{
+	  if ( *leveltype == GRIB2_LTYPE_LANDDEPTH )
+	    {
+	      GRIB_CHECK(grib_get_long(gh, "scaleFactorOfFirstFixedSurface", &factor), 0);
+	      GRIB_CHECK(grib_get_double(gh, "scaledValueOfFirstFixedSurface", &dlevel), 0);
+	    }
+	  else
+	    {
+	      GRIB_CHECK(grib_get_double(gh, "level", &dlevel), 0);
+	      if ( *leveltype == GRIB2_LTYPE_ISOBARIC ) dlevel *= 100;
+	      if ( dlevel < -2.e9 || dlevel > 2.e9 ) dlevel = 0;
+	      if ( *leveltype == 99 ) *leveltype = 100;
+	    }
+
+	  *level1 = (int) dlevel;
+	  *level2 = 0;
+	}
+      else
+	{
+	  if ( *leveltype == GRIB2_LTYPE_LANDDEPTH )
+	    {
+	      GRIB_CHECK(grib_get_long(gh, "scaleFactorOfFirstFixedSurface", &factor), 0);
+	      GRIB_CHECK(grib_get_double(gh, "scaledValueOfFirstFixedSurface", &dlevel), 0);
+	      *level1 = (int) dlevel;
+	      GRIB_CHECK(grib_get_long(gh, "scaleFactorOfSecondFixedSurface", &factor), 0);
+	      GRIB_CHECK(grib_get_double(gh, "scaledValueOfSecondFixedSurface", &dlevel), 0);
+	      *level2 = (int) dlevel;
+	    }
+	  else
+	    {
+	      GRIB_CHECK(grib_get_long(gh, "topLevel", &lpar), 0);
+	      *level1 = lpar;
+	      GRIB_CHECK(grib_get_long(gh, "bottomLevel", &lpar), 0);
+	      *level2 = lpar;
+	    }
+	}
+    }
+}
+
+static
 void grib2GetLevel(grib_handle *gh, int *leveltype, int *lbounds, int *level1, int *level2)
 {
   int status;
@@ -31448,7 +31512,9 @@ int gribapiScanTimestep1(int streamID)
 
 	  param = cdiEncodeParam(pnum, pcat, pdis);
 
-	  grib2GetLevel(gh, &leveltype, &lbounds, &level1, &level2);
+	  // DEVELOPMENT
+	  grib2GetLevel_Raw(gh, &leveltype, &lbounds, &level1, &level2);
+//	  grib2GetLevel(gh, &leveltype, &lbounds, &level1, &level2);
 	}
 
       gribapiGetValidityDateTime(gh, &vdate, &vtime);
@@ -31472,7 +31538,6 @@ int gribapiScanTimestep1(int streamID)
                 datatype = bitsPerValue;
             }
         }
-
       if ( nrecs == 0 )
 	{
 	  datetime0.date = vdate;

@@ -254,6 +254,7 @@ CONTAINS
     CHARACTER(LEN=DICT_MAX_STRLEN) :: key, val
     LOGICAL                        :: valid
 
+    write (0,*) "load dictionary"
     iunit = find_next_free_unit(10,99)
     OPEN (unit=iunit,file=filename,access='SEQUENTIAL', &
       &  form='FORMATTED', action='READ', status='OLD', IOSTAT=ist)
@@ -264,7 +265,9 @@ CONTAINS
       IF(ist < 0) EXIT ! No more lines
       IF(ist > 0) CALL finish(routine, 'Read error in dictionary file '//TRIM(filename))
       CALL parse_line(line,key,val,valid)
-      IF(valid) CALL  dict_set(dict, TRIM(key), TRIM(val))
+      IF(valid) then
+        CALL  dict_set(dict, TRIM(key), TRIM(val))
+      end IF
     ENDDO
     ! close file
     CLOSE(unit=iunit)

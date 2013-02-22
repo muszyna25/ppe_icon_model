@@ -59,7 +59,8 @@ MODULE mo_nh_initicon
   USE mo_initicon_config,     ONLY: init_mode, nlev_in, nlevsoil_in, l_hice_in, l_sst_in, &
     &                               ifs2icon_filename, dwdfg_filename, dwdinc_filename,   &
     &                               generate_filename,                                    &
-    &                               nml_filetype => filetype
+    &                               nml_filetype => filetype,                             &
+    &                               ana_varnames_map_file
   USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, max_dom, MODE_DWDANA,       &
     &                               MODE_IFSANA, MODE_COMBINED, min_rlcell,               &
     &                               min_rledge, min_rledge_int, min_rlcell_int
@@ -69,7 +70,7 @@ MODULE mo_nh_initicon
   USE mo_grid_config,         ONLY: n_dom, nroot
   USE mo_mpi,                 ONLY: p_pe, p_io, p_bcast, p_comm_work_test, p_comm_work
   USE mo_util_netcdf,         ONLY: read_netcdf_data, read_netcdf_data_single, nf
-  USE mo_util_grib,           ONLY: read_grib_data, get_varID
+  USE mo_util_grib,           ONLY: read_grib_2d, read_grib_3d, get_varID
   USE mo_io_config,           ONLY: lkeep_in_sync
   USE mo_io_util,             ONLY: gather_array1, gather_array2, outvar_desc,    &
     &                               GATHER_C, GATHER_E, GATHER_V, num_output_vars
@@ -86,6 +87,8 @@ MODULE mo_nh_initicon
   USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
   USE mo_sync,                ONLY: sync_patch_array, SYNC_E, SYNC_C
   USE mo_math_laplace,        ONLY: nabla4_vec
+  USE mo_dictionary,          ONLY: t_dictionary, dict_init, dict_finalize, &
+    &                               dict_loadfile, dict_get, DICT_MAX_STRLEN
   USE mo_cdi_constants          ! We need all
 
   IMPLICIT NONE
@@ -119,6 +122,10 @@ MODULE mo_nh_initicon
   ! integers. Therefore, the operation result is not guaranteed if the
   ! value cannot be represented as integer within 53 bits."
   DOUBLE PRECISION, PARAMETER :: cdimissval = -9.E+15
+
+  ! dictionary which maps internal variable names onto
+  ! GRIB2 shortnames or NetCDF var names.
+  TYPE (t_dictionary) :: ana_varnames_dict
 
 
   PUBLIC :: init_icon
@@ -408,7 +415,7 @@ MODULE mo_nh_initicon
   !> Wrapper routine for NetCDF and GRIB2 read routines, 2D case.
   !
   SUBROUTINE read_data_2d (filetype, fileid, varname, glb_arr_len, loc_arr_len, &
-    &                      glb_index, var_out)
+    &                      glb_index, var_out, opt_tileidx)
 
     INTEGER,          intent(IN)    :: filetype       !< FILETYPE_NC2 or FILETYPE_GRB2
     CHARACTER(len=*), INTENT(IN)    :: varname        !< var name of field to be read
@@ -417,16 +424,31 @@ MODULE mo_nh_initicon
     INTEGER,          INTENT(IN)    :: loc_arr_len    !< length of 1D field (local)
     INTEGER,          INTENT(IN)    :: glb_index(:)   !< Index mapping local to global
     REAL(wp),         INTENT(INOUT) :: var_out(:,:)   !< output field
+    INTEGER,          INTENT(IN), OPTIONAL :: opt_tileidx  !< tile index, encoded as "localInformationNumber"
     ! local variables
-    CHARACTER(len=*), PARAMETER :: routine = 'mo_nh_initicon:read_data_2d'
+    CHARACTER(len=*), PARAMETER     :: routine = 'mo_nh_initicon:read_data_2d'
+    CHARACTER(LEN=DICT_MAX_STRLEN)  :: mapped_name
+
+    ! Search name mapping for name in NetCDF/GRIB2 file
+    mapped_name = TRIM(dict_get(ana_varnames_dict, varname, default=varname))
 
     SELECT CASE(filetype)
     CASE (FILETYPE_NC2)
+      IF(p_pe == p_io .AND. msg_level>10) THEN
+        WRITE(message_text,'(a)') 'NC-Read: '//TRIM(varname)
+        CALL message(TRIM(routine), TRIM(message_text))
+      ENDIF
+
       CALL read_netcdf_data (fileid, varname, glb_arr_len, loc_arr_len, &
         &                    glb_index, var_out)
     CASE (FILETYPE_GRB2)
-      CALL read_grib_data   (fileid, varname, glb_arr_len, loc_arr_len, &
-        &                    glb_index, var_out)
+      IF(p_pe == p_io .AND. msg_level>10) THEN
+        WRITE(message_text,'(a)') 'GRB2-Read: '//TRIM(mapped_name)
+        CALL message(TRIM(routine), TRIM(message_text))
+      ENDIF
+
+      CALL read_grib_2d(fileid, mapped_name, glb_arr_len, loc_arr_len, &
+        &                    glb_index, var_out, opt_tileidx)
     CASE DEFAULT
       CALL finish(routine, "Unknown file type")
     END SELECT
@@ -438,7 +460,7 @@ MODULE mo_nh_initicon
   !> Wrapper routine for NetCDF and GRIB2 read routines, 3D case.
   !
   SUBROUTINE read_data_3d (filetype, fileid, varname, glb_arr_len, loc_arr_len, &
-    &                      glb_index, nlevs, var_out)
+    &                      glb_index, nlevs, var_out, opt_tileidx)
 
     INTEGER,          intent(IN)    :: filetype       !< FILETYPE_NC2 or FILETYPE_GRB2
     CHARACTER(len=*), INTENT(IN)    :: varname        !< var name of field to be read
@@ -448,16 +470,32 @@ MODULE mo_nh_initicon
     INTEGER,          INTENT(IN)    :: loc_arr_len    !< length of 1D field (local)
     INTEGER,          INTENT(IN)    :: glb_index(:)   !< Index mapping local to global
     REAL(wp),         INTENT(INOUT) :: var_out(:,:,:) !< output field
+    INTEGER,          INTENT(IN), OPTIONAL :: opt_tileidx  !< tile index, encoded as "localInformationNumber"
     ! local variables
-    CHARACTER(len=*), PARAMETER :: routine = 'mo_nh_initicon:read_data_2d'
+    CHARACTER(len=*), PARAMETER     :: routine = 'mo_nh_initicon:read_data_3d'
+    CHARACTER(LEN=DICT_MAX_STRLEN)  :: mapped_name
+
+    ! Search name mapping for name in NetCDF/GRIB2 file
+    mapped_name = TRIM(dict_get(ana_varnames_dict, varname, default=varname))
 
     SELECT CASE(filetype)
     CASE (FILETYPE_NC2)
+      IF(p_pe == p_io .AND. msg_level>10 ) THEN
+        WRITE(message_text,'(a)') 'NC-Read: '//TRIM(varname)
+        CALL message(TRIM(routine), TRIM(message_text))
+      ENDIF
+
       CALL read_netcdf_data_single (fileid, varname, glb_arr_len, loc_arr_len, &
         &                           glb_index, nlevs, var_out)
+
     CASE (FILETYPE_GRB2)
-      CALL read_grib_data          (fileid, varname, glb_arr_len, loc_arr_len, &
-        &                           glb_index, nlevs, var_out)
+      IF(p_pe == p_io .AND. msg_level>10 ) THEN
+        WRITE(message_text,'(a)') 'GRB2-Read: '//TRIM(mapped_name)
+        CALL message(TRIM(routine), TRIM(message_text))
+      ENDIF
+
+      CALL read_grib_3d            (fileid, mapped_name, glb_arr_len, loc_arr_len, &
+        &                           glb_index, nlevs, var_out, opt_tileidx)
     CASE DEFAULT
       CALL finish(routine, "Unknown file type")
     END SELECT
@@ -1083,7 +1121,7 @@ MODULE mo_nh_initicon
     LOGICAL :: l_exist
 
     INTEGER :: no_cells, no_cells_2, no_levels, no_levels_2
-    INTEGER :: fileID, dimid
+    INTEGER :: fileID, dimid, mpi_comm
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
       routine = 'mo_nh_initicon:read_dwdana_atm'
@@ -1110,6 +1148,7 @@ MODULE mo_nh_initicon
       !--------------------------!
       ! Read in DWD first guess  !
       !--------------------------!
+      fileID = 0
       IF(p_pe == p_io ) THEN 
 
         ! ----------------------
@@ -1159,6 +1198,8 @@ MODULE mo_nh_initicon
                  & 'Number of patch cells and cells in DWD FG file do not match.')
           ENDIF
           
+          !DR          CALL consistency_checks_cdf
+
           IF(p_patch(jg)%nlev /= no_levels .AND. p_patch(jg)%nlev /= no_levels_2) THEN
             CALL finish(TRIM(ROUTINE),&
                  & 'nlev does not match the number of levels in DWD FG file.')
@@ -1166,12 +1207,25 @@ MODULE mo_nh_initicon
 
         CASE (FILETYPE_GRB2)
           CALL cdiDefMissval(cdimissval) 
+
           fileID  = streamOpenRead(TRIM(dwdfg_file(jg)))
+
+          !DR          CALL consistency_checks_grb
+
         CASE DEFAULT
           CALL finish(routine, "Unknown file type")
         END SELECT
 
       ENDIF  ! p_io
+
+      IF(p_test_run) THEN
+        mpi_comm = p_comm_work_test 
+      ELSE
+        mpi_comm = p_comm_work
+      ENDIF
+
+      CALL p_bcast(filetype, p_io, mpi_comm)
+      CALL p_bcast(fileID,   p_io, mpi_comm)
 
       ! start reading first guess (atmosphere only)
       !
@@ -1238,7 +1292,6 @@ MODULE mo_nh_initicon
     !-----------------------!
 
     ! DA increments are only read for the global domain
-
     jg = 1
 
     IF(p_pe == p_io ) THEN 
@@ -1297,6 +1350,8 @@ MODULE mo_nh_initicon
 
     ENDIF  ! p_io
 
+    CALL p_bcast(filetype, p_io, mpi_comm)
+    CALL p_bcast(fileID,   p_io, mpi_comm)
 
     ! start reading DA increments (atmosphere only)
     ! For simplicity, increments are stored in initicon(jg)%atm
@@ -1374,7 +1429,7 @@ MODULE mo_nh_initicon
     LOGICAL :: l_exist
 
     INTEGER :: no_cells, no_cells_2,no_levels, no_levels_2
-    INTEGER :: fileID, vlistID, dimid, varid, mpi_comm
+    INTEGER :: fileID, dimid, varid, mpi_comm
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
       routine = 'mo_nh_initicon:read_dwdfg_sfc'
@@ -1397,6 +1452,7 @@ MODULE mo_nh_initicon
       IF (.NOT. p_patch(jg)%ldom_active) CYCLE
 
 
+
       ! Read in data from IFS2ICON
       !
       IF(p_pe == p_io ) THEN 
@@ -1414,8 +1470,10 @@ MODULE mo_nh_initicon
           CALL message (TRIM(routine), 'read sfc fields from '//TRIM(dwdfg_file(jg)))
         ENDIF
 
+
         ! determine filetype
         filetype = get_filetype(TRIM(dwdfg_file(jg)))
+
 
         ! --------------------------------
         ! open file, read basic dimensions
@@ -1470,8 +1528,7 @@ MODULE mo_nh_initicon
           CALL cdiDefMissval(cdimissval) 
           fileID  = streamOpenRead(TRIM(dwdfg_file(jg)))
 
-          vlistID = streamInqVlist(fileID)
-          if (get_varID(vlistID, "H_ICE") == -1) then
+          if (get_varID(fileID, "H_ICE") == -1) then
             WRITE (message_text,'(a,a)')                            &
                  &  'sea-ice thickness not available. ', &
                  &  'initialize with constant value (0.5 m), instead.'
@@ -1495,6 +1552,8 @@ MODULE mo_nh_initicon
       ENDIF
 
       CALL p_bcast(l_hice_in, p_io, mpi_comm)
+      CALL p_bcast(filetype,  p_io, mpi_comm)
+      CALL p_bcast(fileID,    p_io, mpi_comm)
 
 
       ! start reading surface fields from First Guess
@@ -1534,39 +1593,47 @@ MODULE mo_nh_initicon
         CALL read_data_2d (filetype, fileID,'t_snow_t_'//TRIM(ADJUSTL(ct)),        &
           &                p_patch(jg)%n_patch_cells_g,                            &
           &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-          &                p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_snow_t(:,:,jt))
+          &                p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_snow_t(:,:,jt), &
+          &                jt)
 
         CALL read_data_2d (filetype, fileID, 'freshsnow_t_'//TRIM(ADJUSTL(ct)),    &
           &                p_patch(jg)%n_patch_cells_g,                            &
           &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-          &                p_lnd_state(jg)%diag_lnd%freshsnow_t(:,:,jt))
+          &                p_lnd_state(jg)%diag_lnd%freshsnow_t(:,:,jt),           &
+          &                jt)
 
         CALL read_data_2d (filetype, fileID, 'w_snow_t_'//TRIM(ADJUSTL(ct)),       &
           &                p_patch(jg)%n_patch_cells_g,                            &
           &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-          &                p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_snow_t(:,:,jt))
+          &                p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_snow_t(:,:,jt),&
+          &                jt)
 
         CALL read_data_2d (filetype, fileID, 'rho_snow_t_'//TRIM(ADJUSTL(ct)),     &
           &                p_patch(jg)%n_patch_cells_g,                            &
           &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-          &                p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%rho_snow_t(:,:,jt))
+          &                p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%rho_snow_t(:,:,jt),&
+          &                jt)
 
         CALL read_data_2d (filetype, fileID, 'w_i_t_'//TRIM(ADJUSTL(ct)),          &
           &                p_patch(jg)%n_patch_cells_g,                            &
           &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-          &                p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_i_t(:,:,jt))
+          &                p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_i_t(:,:,jt),   &
+          &                jt)
 
 
         ! multi layer fields
-        CALL read_data_3d (filetype, fileID, 't_so_t_'//TRIM(ADJUSTL(ct)),            &
-          &                p_patch(jg)%n_patch_cells_g,                               &
-          &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,    &
-          &                nlev_soil+1, p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_so_t(:,:,:,jt))
 
         CALL read_data_3d (filetype, fileID, 'w_so_t_'//TRIM(ADJUSTL(ct)),            &
           &                p_patch(jg)%n_patch_cells_g,                               &
           &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,    &
-          &                nlev_soil, p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_so_t(:,:,:,jt))
+          &                nlev_soil, p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_so_t(:,:,:,jt), &
+          &                jt)
+
+        CALL read_data_3d (filetype, fileID, 't_so_t_'//TRIM(ADJUSTL(ct)),            &
+          &                p_patch(jg)%n_patch_cells_g,                               &
+          &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,    &
+          &                nlev_soil+1, p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_so_t(:,:,:,jt), &
+          &                jt)
 
         ! DR: how about w_so_ice_t ??
         ! w_so_ice is initialized in terra_multlay_init
@@ -2278,9 +2345,15 @@ MODULE mo_nh_initicon
                initicon(jg)%sfc%seaice   (nproma,nblks_c             ), &
                initicon(jg)%sfc%tsoil    (nproma,nblks_c,0:nlev_soil ), &
                initicon(jg)%sfc%wsoil    (nproma,nblks_c,nlev_soil)     )
-
-
     ENDDO ! loop over model domains
+
+    ! read the map file into dictionary data structure:
+    CALL dict_init(ana_varnames_dict, lcase_sensitive=.FALSE.)
+    IF(p_pe == p_io ) THEN 
+      IF(ana_varnames_map_file /= ' ') THEN
+        CALL dict_loadfile(ana_varnames_dict, TRIM(ana_varnames_map_file))
+      END IF
+    end IF
 
   END SUBROUTINE allocate_initicon
 
@@ -2377,6 +2450,9 @@ MODULE mo_nh_initicon
                  initicon(jg)%sfc%wsoil     )
 
     ENDDO ! loop over model domains
+
+    ! destroy variable name dictionaries:
+    CALL dict_finalize(ana_varnames_dict)
 
   END SUBROUTINE deallocate_initicon
 

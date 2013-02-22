@@ -62,6 +62,7 @@ MODULE mo_var_list
 
   PUBLIC :: get_var_name              ! return plain variable name (without timelevel)
   PUBLIC :: get_var_timelevel         ! return variable timelevel (or "-1")
+  PUBLIC :: get_var_tileidx           ! return variable tile index
 
   PUBLIC :: total_number_of_variables ! returns total number of defined variables
   PUBLIC :: groups                    ! group array constructor
@@ -394,6 +395,29 @@ CONTAINS
     IF(get_var_timelevel<=0 .OR. get_var_timelevel>max_time_levels) &
       CALL finish(routine, 'Illegal time level in '//TRIM(var%info%name))
   END FUNCTION get_var_timelevel
+
+
+  !------------------------------------------------------------------------------------------------
+  !> @return tile index (extracted from tile index suffix "t_") or "-1"
+  !
+  FUNCTION get_var_tileidx(varname)
+    INTEGER :: get_var_tileidx
+    CHARACTER(LEN=*) :: varname
+    ! local variable
+    CHARACTER(LEN=*), PARAMETER :: routine = 'mo_var_list:get_var_tileidx'
+    INTEGER :: idx
+
+    idx = INDEX(varname,'_t_')
+    IF (idx == 0) THEN
+      get_var_tileidx = 0
+      RETURN
+    END IF
+
+    ! Get time level
+    get_var_tileidx = ICHAR(varname(idx+3:idx+3)) - ICHAR('0')
+    IF (get_var_tileidx<=0) &
+      CALL finish(routine, 'Illegal time level in '//TRIM(varname))
+  END FUNCTION get_var_tileidx
 
 
   !------------------------------------------------------------------------------------------------
