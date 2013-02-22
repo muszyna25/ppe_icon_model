@@ -6,6 +6,17 @@ require 'gnuplot'
 require 'date'
 
 #===============================================================================
+# usage:
+#   OFILE='foo' OTYPE=pdf YMAX=100 Y2MAX=30 DEBUG=1 TITLE='title' logProg.rb <logFile list>
+#
+# All environment settings are optional:
+#  OFILE: output file name without extension
+#  OTYPE: image type, can be anythingm which is supported by gnuplot (e.g. png,svg,...)
+#  YMAX: limits the first y-axes to given value (simulated years per day)
+#  Y2MAX: limits the sec. y-axes to given value (read seconds per simulated day)
+#  DEBUG: pring debug messages
+#  TITLE: image title
+#===============================================================================
 #
 # debug output
 def dbg(msg); pp msg unless ENV['DEBUG'].nil? ; end
@@ -75,10 +86,10 @@ def createPlot(data, oType='x11',oName='test')
         plot.title ENV['TITLE']
       end
       plot.grid
-      unless ENV['FIXAXES'].nil?
-        plot.yrange  '[0:60]'
-        plot.y2range '[0:30]'
-      end
+
+      plot.yrange  "[0:#{ENV['YMAX']}]"  unless ENV['YMAX'].nil?
+      plot.y2range "[0:#{ENV['Y2MAX']}]" unless ENV['Y2MAX'].nil?
+
       plot.y2tics  'in'
       plot.key     'out horiz bot'
       plot.ylabel  'speed [years/day]'
