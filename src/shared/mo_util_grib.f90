@@ -163,7 +163,8 @@ CONTAINS
       dimlen(1) = gridInqSize(gridID)
       dimlen(2) = zaxisInqSize(zaxisID)
 
-!DR write(0,*) "varname, zaxisID, dimlen(2), nlevs: ", TRIM(varname), zaxisID, dimlen(2), nlevs
+!DR write(0,*) "varname, varID, zaxisID, dimlen(2), nlevs: ", TRIM(varname), &
+!DR  & varID, zaxisID, dimlen(2), nlevs
       ! Check variable dimensions:
       IF ((dimlen(1) /= glb_arr_len) .OR.  &
         & (dimlen(2) /= nlevs)) THEN

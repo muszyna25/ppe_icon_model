@@ -471,7 +471,8 @@ MODULE mo_nwp_lnd_state
              & t_cf_var('t_snow_mult_t_'//csfc, '', '', DATATYPE_FLT32),     &
              & t_grib2_var(0, 0, 18, ibits, GRID_REFERENCE, GRID_CELL),      &
              & ldims=(/nproma,nlev_snow+1,kblks/), lrestart=.TRUE.,          &
-             & tlev_source=1, in_group=groups("land_tile_vars") ) ! for output take field from nnow_rcf slice 
+             & tlev_source=1,                                                &
+             & in_group=groups("land_tile_vars","dwd_ana_vars") ) ! for output take field from nnow_rcf slice 
       ENDDO
     ENDIF 
 
@@ -547,7 +548,8 @@ MODULE mo_nwp_lnd_state
              & t_cf_var('rho_snow_mult_t_'//csfc, '', '', DATATYPE_FLT32),      &
              & t_grib2_var(0, 1, 61, ibits, GRID_REFERENCE, GRID_CELL),         &
              & ldims=(/nproma,nlev_snow,kblks/), lrestart=.TRUE.,               &
-             & tlev_source=1, in_group=groups("land_tile_vars") ) ! for output take field from nnow_rcf slice 
+             & tlev_source=1,                                                   &
+             & in_group=groups("land_tile_vars","dwd_ana_vars") ) ! for output take field from nnow_rcf slice 
       ENDDO
     ENDIF
 
