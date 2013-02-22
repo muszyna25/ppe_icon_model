@@ -75,8 +75,6 @@ MODULE mo_nwp_turb_sfc_interface
   USE mo_nh_wk_exp,            ONLY: qv_max_wk
   USE mo_lnd_nwp_config,       ONLY: nlev_soil, nlev_snow, ntiles_total, ntiles_water, &
                                    & lmulti_snow, isub_water, isub_lake, isub_seaice
-  USE mo_sync,                 ONLY: sync_patch_array, sync_patch_array_mult, SYNC_E, &
-                                   & SYNC_C, SYNC_C1, global_max, global_min, global_sum_array
   USE mo_run_config,           ONLY: ntracer
   USE mo_edmf_param,           ONLY: ntiles_edmf
 
@@ -89,9 +87,9 @@ MODULE mo_nwp_turb_sfc_interface
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
 CONTAINS
-  !!
-  !!-------------------------------------------------------------------------
-  !!
+!!
+!!-------------------------------------------------------------------------
+!!
 SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
                               & p_patch,p_metrics,                 & !>input
                               & ext_data,                          & !>input
@@ -138,51 +136,39 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
     &  z_plitot(nproma,p_patch%nlev,p_patch%nblks_c)
   REAL(wp) ::  &                     !< fraction of land,seaice, open water in the grid box
     &  zfrc(nproma,nsfc_type,p_patch%nblks_c)         
-  REAL(wp) ::  &                     !< dummy variable for input
-    &  zdummy_tsfc(nproma,1:nsfc_type,p_patch%nblks_c)
-  REAL(wp) ::  &                     !< dummy variable for input
+  REAL(wp) ::  &                     !< dummy variables for input
+    &  zdummy_tsfc(nproma,1:nsfc_type,p_patch%nblks_c)       , &
     &  zdummy_qvsfc(nproma,1:nsfc_type,p_patch%nblks_c)
-  REAL(wp) ::  &                     !< dummy variable for output
-    & z_dummy_shflx(nproma,1:nsfc_type,p_patch%nblks_c)
-  REAL(wp) ::  &                     !< dummy variable for output
+  REAL(wp) ::  &                     !< dummy variables for output
+    & z_dummy_shflx(nproma,1:nsfc_type,p_patch%nblks_c)      , &
     & z_dummy_lhflx(nproma,1:nsfc_type,p_patch%nblks_c)
-  REAL(wp) ::  &                     !< dummy variable for input
-    &  zdummy_i(nproma,p_patch%nlev,p_patch%nblks_c)
-  REAL(wp) ::  &                     !< dummy variable for input
-    &  zdummy_it(nproma,p_patch%nlev,itrac,p_patch%nblks_c)
-  REAL(wp) ::  &                     !< dummy variable for input
+  REAL(wp) ::  &                     !< dummy variables for input
+    &  zdummy_i(nproma,p_patch%nlev,p_patch%nblks_c)         , &
+    &  zdummy_it(nproma,p_patch%nlev,itrac,p_patch%nblks_c)  , &
     &  zdummy_ith(nproma,itrac,p_patch%nblks_c)
-  REAL(wp) ::  &                     !< dummy variable for output
-    &  zdummy_o1(nproma,p_patch%nlev,p_patch%nblks_c)
-  REAL(wp) ::  &                     !< dummy variable for output
-    &  zdummy_o2(nproma,p_patch%nlev,p_patch%nblks_c)
-  REAL(wp) ::  &                     !< dummy variable for output
-    &  zdummy_o3(nproma,p_patch%nlev,p_patch%nblks_c)
-  REAL(wp) ::  &                     !< dummy variable for output
-    &  zdummy_o4(nproma,p_patch%nlev,p_patch%nblks_c)
-  REAL(wp) ::  &                     !< dummy variable for output
-    &  zdummy_o5(nproma,p_patch%nlev,p_patch%nblks_c)
-  REAL(wp) ::  &                     !< dummy variable for output
-    &  zdummy_o6(nproma,p_patch%nlev,p_patch%nblks_c)
-  REAL(wp) ::  &                     !< dummy variable for output
-    &  zdummy_o7(nproma,p_patch%nlev,p_patch%nblks_c) 
-  REAL(wp) ::  &                     !< dummy variable for output
-    &  zdummy_o8(nproma,p_patch%nlev,p_patch%nblks_c) 
-  REAL(wp) ::  &                     !< dummy variable for output
-    &  zdummy_ot3(nproma,p_patch%nlev,itrac,p_patch%nblks_c)
-  REAL(wp) ::  &                     !< dummy variable for output
-    &  zdummy_ot2(nproma,p_patch%nlev,itrac,p_patch%nblks_c)
-  REAL(wp) ::  &                     !< dummy variable for output
+  REAL(wp) ::  &                     !< dummy variables for output
+    &  zdummy_o1(nproma,p_patch%nlev,p_patch%nblks_c)        , &
+    &  zdummy_o2(nproma,p_patch%nlev,p_patch%nblks_c)        , &
+    &  zdummy_o3(nproma,p_patch%nlev,p_patch%nblks_c)        , &
+    &  zdummy_o4(nproma,p_patch%nlev,p_patch%nblks_c)        , &
+    &  zdummy_o5(nproma,p_patch%nlev,p_patch%nblks_c)        , &
+    &  zdummy_o6(nproma,p_patch%nlev,p_patch%nblks_c)        , &
+    &  zdummy_o7(nproma,p_patch%nlev,p_patch%nblks_c)        , & 
+    &  zdummy_o8(nproma,p_patch%nlev,p_patch%nblks_c)        , &
+    &  zdummy_ot3(nproma,p_patch%nlev,itrac,p_patch%nblks_c) , &
+    &  zdummy_ot2(nproma,p_patch%nlev,itrac,p_patch%nblks_c) , &
     &  zdummy_oh(nproma,p_patch%nblks_c) 
   INTEGER  :: idummy_oh(nproma ,p_patch%nblks_c)    !< dummy variable for output
   INTEGER  :: nlev, nlevp1                          !< number of full and half levels
 
-  ! local variables for edmf
+  ! local variables for edmf (attention: if no block index - p_patch%nblks_c - variables 
+  !                           need to be declared private) 
 
   INTEGER  :: icnt
   INTEGER, PARAMETER :: itrac_vdf = 0
   INTEGER  :: KTVL(nproma)         , KTVH(nproma)         , zsoty(nproma)        , & 
     &         idummy_vdf_0d(nproma), idummy_vdf_0e(nproma), idummy_vdf_0f(nproma)
+  LOGICAL  :: ldummy_vdf_a(nproma)
   REAL(wp) :: zdummy_vdf_1a(nproma), zdummy_vdf_1b(nproma), zdummy_vdf_1c(nproma), &
     &         zdummy_vdf_1d(nproma), zdummy_vdf_1e(nproma), zdummy_vdf_1f(nproma), &
     &         zdummy_vdf_1g(nproma), zdummy_vdf_1h(nproma), zdummy_vdf_1i(nproma), &
@@ -193,10 +179,10 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
   REAL(wp) :: zdummy_vdf_2a(nproma,p_patch%nlev),   zdummy_vdf_2b(nproma,p_patch%nlev)
   REAL(wp) :: zdummy_vdf_3a(nproma,p_patch%nlev+1), zdummy_vdf_3b(nproma,p_patch%nlev+1), &
     &         zdummy_vdf_3c(nproma,p_patch%nlev+1), zdummy_vdf_3d(nproma,p_patch%nlev+1), &
+    &         zdummy_vdf_3k(nproma,p_patch%nlev+1), zdummy_vdf_3l(nproma,p_patch%nlev+1), &
     &         pdifts(nproma,p_patch%nlev+1) , pdiftq(nproma,p_patch%nlev+1)   , &
     &         pdiftl(nproma,p_patch%nlev+1) , pdifti(nproma,p_patch%nlev+1)   , &
-    &         pstrtu(nproma,p_patch%nlev+1) , pstrtv(nproma,p_patch%nlev+1)   , &
-    &         zdummy_vdf_3k(nproma,p_patch%nlev+1), zdummy_vdf_3l(nproma,p_patch%nlev+1)
+    &         pstrtu(nproma,p_patch%nlev+1) , pstrtv(nproma,p_patch%nlev+1)
   REAL(wp) :: zdummy_vdf_4a(nproma,nlev_soil-1)   , zdummy_vdf_4b(nproma,nlev_soil-1)
   REAL(wp) :: zalbti(nproma,ntiles_edmf)          , pssrflti(nproma,ntiles_edmf)
   REAL(wp) :: zdummy_vdf_6a(nproma,p_patch%nlev,itrac_vdf), &
@@ -219,7 +205,6 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
     &         tch_ex  (nproma,ntiles_total+ntiles_water)                      , &
     &         tcm_ex  (nproma,ntiles_total+ntiles_water)                      , &
     &         tfv_ex  (nproma,ntiles_total+ntiles_water)
-  LOGICAL  :: ldummy_vdf_a(nproma)
 
   INTEGER, SAVE :: nstep_turb = 0
 
@@ -291,33 +276,37 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
   i_startblk = p_patch%cells%start_blk(rl_start,1)
   i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jt,jc,jk,i_startidx,i_endidx, icnt, &
-!$OMP KTVL, KTVH, zsoty, & 
-!$OMP idummy_vdf_0d, idummy_vdf_0e, idummy_vdf_0f, &
-!$OMP zdummy_vdf_1a, zdummy_vdf_1b, zdummy_vdf_1c, &
-!$OMP zdummy_vdf_1d, zdummy_vdf_1e, zdummy_vdf_1f, &
-!$OMP zdummy_vdf_1g, zdummy_vdf_1h, zdummy_vdf_1i, &
-!$OMP zdummy_vdf_1j, zdummy_vdf_1k, zdummy_vdf_1l, &
-!$OMP zdummy_vdf_1m, zdummy_vdf_1n, zdummy_vdf_1o, &
-!$OMP zdummy_vdf_1p, zdummy_vdf_1q, zdummy_vdf_1r, &
-!$OMP zdummy_vdf_1s, &
-!$OMP zdummy_vdf_2a, zdummy_vdf_2b, &
-!$OMP zdummy_vdf_3a, zdummy_vdf_3b, zdummy_vdf_3c, &
-!$OMP zdummy_vdf_3d, zdummy_vdf_3k, zdummy_vdf_3l, &
-!$OMP zdummy_vdf_4a, zdummy_vdf_4b, &
-!$OMP zdummy_vdf_6a, zdummy_vdf_6b, zdummy_vdf_6c, &
-!$OMP zdummy_vdf_7a, zdummy_vdf_7b, &
-!$OMP zalbti  , pssrflti, z_omega_p, zchar , &
-!$OMP zucurr  , zvcurr  , zsoteu , zsotev  , &
-!$OMP zsobeta , zz0h    , &
-!$OMP pdifts  , pdiftq  , pdiftl , pdifti  , pstrtu  , pstrtv, &
-!$OMP shfl_s_t, evap_s_t, tskin_t, ustr_s_t, vstr_s_t, &
-!$OMP zae     , ztice   , ztske1 , ztskm1m , ztskrad , &
-!$OMP zsigflt,   zfrti, &
-!$OMP tch_ex,    tcm_ex,  tfv_ex, &
-!$OMP ldummy_vdf_a &
-!$OMP ) ICON_OMP_GUIDED_SCHEDULE
+! ATTENTION: OMP currently doesn't work: probably some private missing
+!            symptom: different results for openMP on/off
+!            on: !$OMP   off: ! !$OMP  (also at the end)
+
+! !$OMP PARALLEL
+! !$OMP DO PRIVATE(jb,jt,jc,jk,i_startidx,i_endidx,icnt, &
+! !$OMP KTVL, KTVH, zsoty, & 
+! !$OMP idummy_vdf_0d, idummy_vdf_0e, idummy_vdf_0f, &
+! !$OMP ldummy_vdf_a , &
+! !$OMP zdummy_vdf_1a, zdummy_vdf_1b, zdummy_vdf_1c, &
+! !$OMP zdummy_vdf_1d, zdummy_vdf_1e, zdummy_vdf_1f, &
+! !$OMP zdummy_vdf_1g, zdummy_vdf_1h, zdummy_vdf_1i, &
+! !$OMP zdummy_vdf_1j, zdummy_vdf_1k, zdummy_vdf_1l, &
+! !$OMP zdummy_vdf_1m, zdummy_vdf_1n, zdummy_vdf_1o, &
+! !$OMP zdummy_vdf_1p, zdummy_vdf_1q, zdummy_vdf_1r, &
+! !$OMP zdummy_vdf_1s, &
+! !$OMP zdummy_vdf_2a, zdummy_vdf_2b, &
+! !$OMP zdummy_vdf_3a, zdummy_vdf_3b, zdummy_vdf_3c, &
+! !$OMP zdummy_vdf_3d, zdummy_vdf_3k, zdummy_vdf_3l, &
+! !$OMP zdummy_vdf_4a, zdummy_vdf_4b, &
+! !$OMP zdummy_vdf_6a, zdummy_vdf_6b, zdummy_vdf_6c, &
+! !$OMP zdummy_vdf_7a, zdummy_vdf_7b, &
+! !$OMP zalbti  , pssrflti, z_omega_p, zchar , &
+! !$OMP zucurr  , zvcurr  , zsoteu , zsotev  , &
+! !$OMP zsobeta , zz0h    , &
+! !$OMP pdifts  , pdiftq  , pdiftl , pdifti  , pstrtu  , pstrtv, &
+! !$OMP shfl_s_t, evap_s_t, tskin_t, ustr_s_t, vstr_s_t, &
+! !$OMP zae     , ztice   , ztske1 , ztskm1m , ztskrad , &
+! !$OMP zsigflt , zfrti   , &
+! !$OMP tch_ex  , tcm_ex  , tfv_ex  &
+! !$OMP ) ICON_OMP_GUIDED_SCHEDULE
 
   DO jb = i_startblk, i_endblk
 
@@ -594,7 +583,7 @@ if (ztskm1m(jc) > 400.0 ) then
 endif
       ENDDO
 
-      DO jk = 1,p_patch%nlev
+      DO jk = 1,nlev
         DO jc = i_startidx, i_endidx
           zsoteu (jc,jk) = 0.0_wp
           zsotev (jc,jk) = 0.0_wp
@@ -670,7 +659,7 @@ endif
 
       DO jk = 1,nlev_soil-1
         DO jc = i_startidx, i_endidx
-          zdummy_vdf_4a(jc,jk) = lnd_prog_now%t_so_t(jc,jk,jb,1) ! simple: take one tile #1 ???
+          zdummy_vdf_4a(jc,jk) = lnd_prog_now%t_so_t(jc,jk,jb,1) ! simple: take dominant tile #1 ???
           zdummy_vdf_4b(jc,jk) = lnd_prog_now%w_so_t(jc,jk,jb,1) ! ---
         ENDDO
       ENDDO
@@ -897,16 +886,17 @@ endif
       prm_diag%tch   (:,:) = 0.0_wp
       prm_diag%tcm   (:,:) = 0.0_wp
       prm_diag%tfv   (:,:) = 0.0_wp
+      DO jc = i_startidx, i_endidx
+        prm_diag%shfl_s(jc,jb) = pdifts(jc,nlev+1) 
+        prm_diag%lhfl_s(jc,jb) = pdiftq(jc,nlev+1)*alv
+      ENDDO
       DO jt = 1, ntiles_total + ntiles_water
         DO jc = i_startidx, i_endidx
-          prm_diag%rh_2m (jc,jb) = prm_diag%rh_2m (jc,jb) + 0.0_wp  !???
-
+          prm_diag%rh_2m (jc,jb) = prm_diag%rh_2m (jc,jb) + 0.0_wp     !???
         ! prm_diag%shfl_s(jc,jb) = prm_diag%shfl_s(jc,jb) + shfl_s_t(jc,jt)    * ext_data%atm%frac_t(jc,jb,jt)
         ! prm_diag%lhfl_s(jc,jb) = prm_diag%lhfl_s(jc,jb) + evap_s_t(jc,jt)*alv* ext_data%atm%frac_t(jc,jb,jt)
         ! prm_diag%shfl_s(jc,jb) = prm_diag%shfl_s(jc,jb) + shfl_s_t(jc,jt)    * zfrti(jc,jt)   !bad, but needed for EDMF???
         ! prm_diag%lhfl_s(jc,jb) = prm_diag%lhfl_s(jc,jb) + evap_s_t(jc,jt)*alv* zfrti(jc,jt)   ! ----
-          prm_diag%shfl_s(jc,jb) = pdifts(jc,jb) 
-          prm_diag%lhfl_s(jc,jb) = pdiftq(jc,jb)*alv
 
           prm_diag%tch   (jc,jb) = prm_diag%tch   (jc,jb) + tch_ex  (jc,jt)    * ext_data%atm%frac_t(jc,jb,jt)
           prm_diag%tcm   (jc,jb) = prm_diag%tcm   (jc,jb) + tcm_ex  (jc,jt)    * ext_data%atm%frac_t(jc,jb,jt)
@@ -920,28 +910,21 @@ endif
         ENDDO           
       ENDDO
 
+!      DO jc = i_startidx, i_endidx
+!        IF ( (SUM(shfl_s_t(jc,:))    == 0.0_wp) .or. (SUM(evap_s_t(jc,:))    == 0.0_wp) .or. &
+!             (prm_diag%shfl_s(jc,jb) == 0.0_wp) .or. (prm_diag%lhfl_s(jc,jb) == 0.0_wp) ) THEN
+!          write(*,*) 'turb_sfc3: ', prm_diag%shfl_s(jc,jb), prm_diag%lhfl_s(jc,jb), shfl_s_t(jc,:), evap_s_t(jc,:)*alv, &
+!            & zfrti(jc,:), ext_data%atm%frac_t(jc,jb,:)
+!        ENDIF
+!      ENDDO
+
     ENDIF !inwp_turb
 
   ENDDO
-!$OMP END DO NOWAIT
-!$OMP END PARALLEL
+! !$OMP END DO NOWAIT
+! !$OMP END PARALLEL
 
 nstep_turb = nstep_turb + 1
-
-CALL sync_patch_array_mult(SYNC_C, p_patch, ntracer, f4din=p_prog_rcf%tracer)
-CALL sync_patch_array_mult(SYNC_C, p_patch, 2, p_diag%tempv, p_diag%exner_old)
-CALL sync_patch_array     (SYNC_C, p_patch, p_diag%tempv)
-CALL sync_patch_array_mult(SYNC_C1,p_patch, 2, &
-                          prm_nwp_tend%ddt_u_turb, prm_nwp_tend%ddt_v_turb)
-CALL sync_patch_array_mult(SYNC_C1,p_patch, 2, prm_nwp_tend%ddt_u_turb, &
-                          prm_nwp_tend%ddt_v_turb)
-
-CALL sync_patch_array(SYNC_C, p_patch, prm_diag%rh_2m)
-CALL sync_patch_array(SYNC_C, p_patch, prm_diag%shfl_s)
-CALL sync_patch_array(SYNC_C, p_patch, prm_diag%lhfl_s)
-CALL sync_patch_array(SYNC_C, p_patch, prm_diag%tch)
-CALL sync_patch_array(SYNC_C, p_patch, prm_diag%tcm)
-CALL sync_patch_array(SYNC_C, p_patch, prm_diag%tfv)
 
 END SUBROUTINE nwp_turbulence_sfc
 

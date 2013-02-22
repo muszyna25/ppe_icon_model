@@ -1281,6 +1281,15 @@ CALL VDFDIFH (KIDIA  , KFDIA  , KLON   , KLEV   , IDRAFT , ITOP   , KTILES, &
             & PEVAPTI, PAHFSTI, ZAHFLTI, ZSTR   , ZG0)
 
 
+!DO JL=KIDIA,KFDIA
+!  IF ( (SUM(PAHFSTI(JL,:)) == 0.0) .or. (SUM(PEVAPTI(JL,:)) == 0.0) .or. &
+!       (PDIFTS(JL,KLEV)    == 0.0) .or. (PDIFTQ(JL,KLEV)    == 0.0) ) THEN
+!    write(*,*) 'vdfmain4: ', PDIFTS(JL,KLEV), PDIFTQ(JL,KLEV), PAHFSTI(JL,:), PEVAPTI(JL,:)*RLVTT, &
+!      & PFRTI(JL,:)
+!  ENDIF
+!ENDDO
+
+
 !*         5.3  INCREMENTATION OF U AND V TENDENCIES, STORAGE OF
 !*              THE DISSIPATION, COMPUTATION OF MULTILEVEL FLUXES.
 
@@ -1402,12 +1411,12 @@ CALL SURFPP( KIDIA=KIDIA,KFDIA=KFDIA,KLON=KLON,KTILES=KTILES, &
  & PDHTLS=PDHTLS &
  & )
 
-DO JL=KIDIA,KFDIA
-  IF ( ABS(PDIFTS(JL,KLEV))          > 1000.0_JPRB  .OR. & 
-       ABS(PDIFTQ(JL,KLEV) * RLVTT ) > 2000.0_JPRB ) THEN
+!DO JL=KIDIA,KFDIA
+!  IF ( ABS(PDIFTS(JL,KLEV))          > 1000.0_JPRB  .OR. & 
+!       ABS(PDIFTQ(JL,KLEV) * RLVTT ) > 2000.0_JPRB ) THEN
 !    write(*,*) 'vdfmain: SHF, LHF ', PDIFTS(JL,KLEV), PDIFTQ(JL,KLEV) * RLVTT 
-  ENDIF
-ENDDO
+!  ENDIF
+!ENDDO
 
 !amk  diagnostic values have to be set !!!!
 ! DO JL=KIDIA,KFDIA
@@ -1795,18 +1804,25 @@ ENDDO
   ENDDO
 
 !amk: debug
-  DO JK=1,KLEV
-    DO JL=KIDIA,KFDIA
+! DO JK=1,KLEV
+!   DO JL=KIDIA,KFDIA
 !      IF ( ZTUPD(JL,JK) < 100.0_JPRB .OR. ZTUPD(JL,JK) > 400.0_JPRB ) THEN
 !        WRITE(*,*) 'vdfmain T<100 or T>400, kstep, JL,JK,T:', KSTEP, JL, JK, ZTUPD(JL,JK)
 !      ENDIF
 !      IF ( ZQUPD(JL,JK) < -0.01_JPRB .OR. ZQUPD(JL,JK) > 0.1_JPRB ) THEN
 !        WRITE(*,*) 'vdfmain q<-10g/kg or q>100g/kg, kstep, JL,JK,Q:', KSTEP, JL, JK, ZQUPD(JL,JK)
 !      ENDIF
-    ENDDO
-  ENDDO
+!   ENDDO
+! ENDDO
 !xxx
 
+! DO JL=KIDIA,KFDIA
+!   IF ( (SUM(PAHFSTI(JL,:)) == 0.0) .or. (SUM(PEVAPTI(JL,:)) == 0.0) .or. &
+!        (PDIFTS(JL,KLEV)    == 0.0) .or. (PDIFTQ(JL,KLEV)    == 0.0) ) THEN
+!     write(*,*) 'vdfmain5: ', PDIFTS(JL,KLEV), PDIFTQ(JL,KLEV), PAHFSTI(JL,:), PEVAPTI(JL,:)*RLVTT, &
+!       & PFRTI(JL,:)
+!   ENDIF
+! ENDDO
 
 !     ------------------------------------------------------------------
 
