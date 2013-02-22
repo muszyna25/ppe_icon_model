@@ -18,7 +18,7 @@
 #
 #    out_folder=<output folder>. By default is =<in_folder>
 #
-#    mpi_procs=<number of mpi processes>. In the case of MPI configuration,
+#    mpi_procs_pernode=<number of mpi processes>. In the case of MPI configuration,
 #       defines how many processes per node will be used.
 # 
 #    no_of_nodes=<Number of nodes>. In the case of MPI configuration,
@@ -111,7 +111,7 @@ fi
 for filename in $grid_list
 do
   if [[ $filename != *.run && $filename != *~ && $filename != *.status ]] ; then
-    $make_runscript in_folder=$input_folder in_script=${filename}  mpi_procs=1\
+    $make_runscript in_folder=$input_folder in_script=${filename}  mpi_procs_pernode=1\
     queue="$use_queue" cpu_time="00:30:00"
   fi
 done
@@ -119,7 +119,7 @@ done
 if [ $make_bb_grid = "true" ] ; then
   $make_runscript in_folder=$input_folder in_script=grid.create_atmo_grids\
     in_script=grid.create_ocean_grids out_script=grid.create_bb_grids.run\
-    mpi_procs=1 queue="$use_queue" cpu_time="00:30:00"
+    mpi_procs_pernode=1 queue="$use_queue" cpu_time="00:30:00"
 fi
 
 #==============================================================================
@@ -151,7 +151,7 @@ do
         ;;    
   #   hom_*)
   #     $make_runscript in_folder=$input_folder in_script=${filename} in_script=exec.iconrun EXPNAME=${name}\
-  #     mpi_procs=1 memory_model="large" cpu_time="08:00:00"
+  #     mpi_procs_pernode=1 memory_model="large" cpu_time="08:00:00"
   #     ;;
       *_nwp_*)
         $make_runscript in_folder=$input_folder in_script=${filename} in_script=exec.iconrun EXPNAME=${name}\
