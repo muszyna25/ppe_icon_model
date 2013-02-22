@@ -19,7 +19,7 @@
 #
 #    out_folder=<output folder>. By default is =<in_folder>
 #
-#    mpi_procs=<number of mpi processes>. In the case of MPI configuration,
+#    mpi_procs_pernode=<number of mpi processes>. In the case of MPI configuration,
 #       defines how many processes per node will be used.
 # 
 #    no_of_nodes=<Number of nodes>. In the case of MPI configuration,
@@ -104,7 +104,7 @@ create_dec()
   
   $make_runscript in_folder=$input_folder in_script=exp.$exp_descriptor in_script=exec.iconrun EXPNAME=${exp_name} out_script=${runname} \
     atmo_dyn_gridname="$atmo_dyn_gridname" atmo_rad_gridname="$atmo_rad_gridname" nproma=$nproma no_of_nodes=$nodes dec_size=$dec_size dt_rad=$dt_rad \
-    mpi_procs=$mpi_procs_pernode openmp_threads=$openmp_threads cpu_time=$cpu_time use_dycore_barrier=$use_dycore_barrier testbed_mode=$testbed_mode division_method=$division_method \
+    mpi_procs_pernode=$mpi_procs_pernode openmp_threads=$openmp_threads cpu_time=$cpu_time use_dycore_barrier=$use_dycore_barrier testbed_mode=$testbed_mode division_method=$division_method \
     ndays=$ndays use_icon_comm=$use_icon_comm parallel_radiation_mode=$parallel_radiation_mode icon_comm_method=$icon_comm_method grids_folder=$grids_folder \
     max_mpi_message_size=$max_mpi_message_size dtime=$dtime nlevels=$nlevels iorder_sendrecv=$iorder_sendrecv itime_scheme=${itime_scheme} \
     advection_substepping=$advection_substepping  vwind_implicitness=${vwind_implicitness} max_send_recv_buffer_size=${max_send_recv_buffer_size} \
@@ -1082,7 +1082,7 @@ exit
 #   exp_name=${name}.${nodes}nodes
 #   runname=exp.${exp_name}.run
 #   $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun EXPNAME=$exp_name out_script=$runname\
-#   grid="iconR2B06-grid.nc"  nproma=$nproma no_of_nodes=$nodes mpi_procs=16 openmp_threads=4 cpu_time="00:10:00"
+#   grid="iconR2B06-grid.nc"  nproma=$nproma no_of_nodes=$nodes mpi_procs_pernode=16 openmp_threads=4 cpu_time="00:10:00"
 # 
 #   if [[ $run_script == "true" ]] ; then
 #      cd $input_folder

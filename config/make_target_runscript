@@ -20,7 +20,7 @@ eval_argument ()
   "cpu_time" ) use_cpu_time=$2
 #     echo "use_cpu_time=$use_cpu_time"
   ;;
-  "mpi_procs" ) use_mpi_procs_pernode=$2
+  "mpi_procs_pernode" ) use_mpi_procs_pernode=$2
 #     echo "use_mpi_procs_pernode=$use_mpi_procs_pernode"
   ;;
   "nproma" ) use_nproma=$2
