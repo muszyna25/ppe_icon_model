@@ -64,7 +64,8 @@ USE mo_ocean_nml,                 ONLY: n_zlev, solver_tolerance, l_inverse_flip
   &                                     use_absolute_solver_tolerance, solver_start_tolerance, &
   &                                     solver_tolerance_decrease_ratio,                  &
   &                                     solver_max_restart_iterations,                    &
-  &                                     solver_max_iter_per_restart
+  &                                     solver_max_iter_per_restart,                      &
+  &                                     l_forc_freshw
 
 USE mo_run_config,                ONLY: dtime, ltimer
 USE mo_timer,                     ONLY: timer_start, timer_stop, timer_ab_expl,           &
@@ -121,7 +122,6 @@ PRIVATE :: inverse_primal_flip_flop
 PRIVATE :: Jacobi_precon
 
 INTEGER, PARAMETER :: top=1
-LOGICAL, PARAMETER :: l_forc_freshw = .FALSE.
 CHARACTER(len=12)  :: str_module = 'oceSTEPmimet'  ! Output of module for 1 line debug
 INTEGER            :: idt_src    = 1               ! Level of detail for 1 line debug
 

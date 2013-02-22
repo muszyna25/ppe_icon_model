@@ -237,6 +237,7 @@ MODULE mo_ocean_nml
   REAL(wp) :: relax_3d_mon_T        = 1.0_wp     ! strength of 3-dim relaxation for temperature in months
   INTEGER  :: irelax_3d_S           = 0          ! 0: no 3-dim relax.,  3: use initial S read with init_oce_prog=1
   REAL(wp) :: relax_3d_mon_S        = 1.0_wp     ! strength of 3-dim relaxation for salinity in months
+  LOGICAL  :: l_forc_freshw         = .FALSE.    ! .TRUE. apply freshwater forcing boundary condition (OMIP only)
                                                 
   INTEGER  :: coriolis_type         = 1          ! 0=zero Coriolis, the non-rotating case
                                                  ! 1=full varying Coriolis
@@ -298,7 +299,8 @@ MODULE mo_ocean_nml
     &                 itestcase_oce, idiag_oce,                            &
     &                 temperature_relaxation, relaxation_param,            &
     &                 irelax_2d_S, relax_2d_mon_S,&!relax_2d_T, relax_2d_mon_T, &
-    &                 irelax_3d_S, relax_3d_mon_S, irelax_3d_T, relax_3d_mon_T
+    &                 irelax_3d_S, relax_3d_mon_S, irelax_3d_T, relax_3d_mon_T, &
+    &                 l_forc_freshw
 
 
   ! ------------------------------------------------------------------------

@@ -72,7 +72,7 @@ USE mo_ocean_nml,           ONLY: iforc_oce, iforc_type, iforc_len, itestcase_oc
   &                               relax_2d_mon_s, temperature_relaxation, irelax_2d_S,     &
   &                               NO_FORCING, ANALYT_FORC, FORCING_FROM_FILE_FLUX,         &
   &                               FORCING_FROM_FILE_FIELD, FORCING_FROM_COUPLED_FLUX,      &
-  &                               FORCING_FROM_COUPLED_FIELD, i_sea_ice
+  &                               FORCING_FROM_COUPLED_FIELD, i_sea_ice, l_forc_freshw
 USE mo_dynamics_config,     ONLY: nold
 USE mo_model_domain,        ONLY: t_patch, t_patch_3D
 USE mo_util_dbg_prnt,       ONLY: dbg_print
@@ -1003,6 +1003,15 @@ CONTAINS
 !       z_c2(:,:) = p_sfc_flx%forc_tracer(:,:,2)
 !       CALL dbg_print('UpdSfc: S-forc-trac [Km/s]',z_c2                    ,str_module,idt_src)
       !---------------------------------------------------------------------
+
+    ENDIF
+
+    !-------------------------------------------------------------------------
+    ! Apply freshwater forcing to surface boundary condition, independent of salinity relaxation
+
+    IF (l_forc_freshw) THEN
+
+      ! Freshwater forcing activated as boundary condition in vertical Diffusion D:
 
     ENDIF
 
