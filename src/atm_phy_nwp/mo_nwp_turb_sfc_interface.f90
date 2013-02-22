@@ -74,7 +74,7 @@ MODULE mo_nwp_turb_sfc_interface
   USE mo_nh_testcases,         ONLY: nh_test_name
   USE mo_nh_wk_exp,            ONLY: qv_max_wk
   USE mo_lnd_nwp_config,       ONLY: nlev_soil, nlev_snow, ntiles_total, ntiles_water, &
-                                   & lmulti_snow, isub_water, isub_seaice
+                                   & lmulti_snow, isub_water, isub_lake, isub_seaice
   USE mo_sync,                 ONLY: sync_patch_array, sync_patch_array_mult, SYNC_E, &
                                    & SYNC_C, SYNC_C1, global_max, global_min, global_sum_array
   USE mo_run_config,           ONLY: ntracer
@@ -193,33 +193,32 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
   REAL(wp) :: zdummy_vdf_2a(nproma,p_patch%nlev),   zdummy_vdf_2b(nproma,p_patch%nlev)
   REAL(wp) :: zdummy_vdf_3a(nproma,p_patch%nlev+1), zdummy_vdf_3b(nproma,p_patch%nlev+1), &
     &         zdummy_vdf_3c(nproma,p_patch%nlev+1), zdummy_vdf_3d(nproma,p_patch%nlev+1), &
-    &         zdummy_vdf_3e(nproma,p_patch%nlev+1), zdummy_vdf_3f(nproma,p_patch%nlev+1), &
-    &         zdummy_vdf_3g(nproma,p_patch%nlev+1), zdummy_vdf_3h(nproma,p_patch%nlev+1), &
-    &         zdummy_vdf_3i(nproma,p_patch%nlev+1), zdummy_vdf_3j(nproma,p_patch%nlev+1), &
+    &         pdifts(nproma,p_patch%nlev+1) , pdiftq(nproma,p_patch%nlev+1)   , &
+    &         pdiftl(nproma,p_patch%nlev+1) , pdifti(nproma,p_patch%nlev+1)   , &
+    &         pstrtu(nproma,p_patch%nlev+1) , pstrtv(nproma,p_patch%nlev+1)   , &
     &         zdummy_vdf_3k(nproma,p_patch%nlev+1), zdummy_vdf_3l(nproma,p_patch%nlev+1)
   REAL(wp) :: zdummy_vdf_4a(nproma,nlev_soil-1)   , zdummy_vdf_4b(nproma,nlev_soil-1)
-  REAL(wp) :: zalbti(nproma,ntiles_edmf)
+  REAL(wp) :: zalbti(nproma,ntiles_edmf)          , pssrflti(nproma,ntiles_edmf)
   REAL(wp) :: zdummy_vdf_6a(nproma,p_patch%nlev,itrac_vdf), &
     &         zdummy_vdf_6b(nproma,p_patch%nlev,itrac_vdf), &
     &         zdummy_vdf_6c(nproma,itrac_vdf)
   REAL(wp) :: zdummy_vdf_7a(nproma,0), zdummy_vdf_7b(nproma,p_patch%nlev,0)
-
   REAL(wp) :: z_omega_p(nproma,p_patch%nlev), zchar(nproma)                   , &
     &         zucurr(nproma)                , zvcurr(nproma)                  , &
     &         zsoteu(nproma,p_patch%nlev)   , zsotev(nproma,p_patch%nlev)     , &
     &         zsobeta(nproma,p_patch%nlev)  , zz0h(nproma)                    , &
-    &         shfl_s_t(nproma,ntiles_total+ntiles_water)                      , &
-    &         evap_s_t(nproma,ntiles_total+ntiles_water)                      , &
-    &         tskin_t(nproma,ntiles_total+ntiles_water)                       , &
-    &         ustr_s_t(nproma,ntiles_total+ntiles_water)                      , &
-    &         vstr_s_t(nproma,ntiles_total+ntiles_water)                      , &
     &         zae(nproma,p_patch%nlev)                                        , &
     &         ztice(nproma)                 , ztske1(nproma)                  , &
     &         ztskm1m(nproma)               , ztskrad(nproma)                 , &
     &         zsigflt(nproma)               , zfrti(nproma,ntiles_edmf)       , &
-    &         tch_ex(nproma,ntiles_total+ntiles_water)                        , &
-    &         tcm_ex(nproma,ntiles_total+ntiles_water)                        , &
-    &         tfv_ex(nproma,ntiles_total+ntiles_water)
+    &         shfl_s_t(nproma,ntiles_total+ntiles_water)                      , &
+    &         evap_s_t(nproma,ntiles_total+ntiles_water)                      , &
+    &         tskin_t (nproma,ntiles_total+ntiles_water)                      , &
+    &         ustr_s_t(nproma,ntiles_total+ntiles_water)                      , &
+    &         vstr_s_t(nproma,ntiles_total+ntiles_water)                      , &
+    &         tch_ex  (nproma,ntiles_total+ntiles_water)                      , &
+    &         tcm_ex  (nproma,ntiles_total+ntiles_water)                      , &
+    &         tfv_ex  (nproma,ntiles_total+ntiles_water)
   LOGICAL  :: ldummy_vdf_a(nproma)
 
   INTEGER, SAVE :: nstep_turb = 0
@@ -292,7 +291,6 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
   i_startblk = p_patch%cells%start_blk(rl_start,1)
   i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
-
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jt,jc,jk,i_startidx,i_endidx, icnt, &
 !$OMP KTVL, KTVH, zsoty, & 
@@ -305,28 +303,17 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
 !$OMP zdummy_vdf_1p, zdummy_vdf_1q, zdummy_vdf_1r, &
 !$OMP zdummy_vdf_1s, &
 !$OMP zdummy_vdf_2a, zdummy_vdf_2b, &
-!$OMP zdummy_vdf_3a, zdummy_vdf_3b, &
-!$OMP zdummy_vdf_3c, zdummy_vdf_3d, &
-!$OMP zdummy_vdf_3e, zdummy_vdf_3f, &
-!$OMP zdummy_vdf_3g, zdummy_vdf_3h, &
-!$OMP zdummy_vdf_3i, zdummy_vdf_3j, &
-!$OMP zdummy_vdf_3k, zdummy_vdf_3l, &
+!$OMP zdummy_vdf_3a, zdummy_vdf_3b, zdummy_vdf_3c, &
+!$OMP zdummy_vdf_3d, zdummy_vdf_3k, zdummy_vdf_3l, &
 !$OMP zdummy_vdf_4a, zdummy_vdf_4b, &
-!$OMP zalbti, &
-!$OMP zdummy_vdf_6a, &
-!$OMP zdummy_vdf_6b, &
-!$OMP zdummy_vdf_6c, &
+!$OMP zdummy_vdf_6a, zdummy_vdf_6b, zdummy_vdf_6c, &
 !$OMP zdummy_vdf_7a, zdummy_vdf_7b, &
-!$OMP z_omega_p, zchar, &
-!$OMP zucurr,    zvcurr, &
-!$OMP zsoteu,    zsotev, &
-!$OMP zsobeta,   zz0h, &
-!$OMP shfl_s_t, &
-!$OMP evap_s_t,  tskin_t, &
-!$OMP ustr_s_t,  vstr_s_t, &
-!$OMP zae, &
-!$OMP ztice,     ztske1, &
-!$OMP ztskm1m,   ztskrad, &
+!$OMP zalbti  , pssrflti, z_omega_p, zchar , &
+!$OMP zucurr  , zvcurr  , zsoteu , zsotev  , &
+!$OMP zsobeta , zz0h    , &
+!$OMP pdifts  , pdiftq  , pdiftl , pdifti  , pstrtu  , pstrtv, &
+!$OMP shfl_s_t, evap_s_t, tskin_t, ustr_s_t, vstr_s_t, &
+!$OMP zae     , ztice   , ztske1 , ztskm1m , ztskrad , &
 !$OMP zsigflt,   zfrti, &
 !$OMP tch_ex,    tcm_ex,  tfv_ex, &
 !$OMP ldummy_vdf_a &
@@ -399,8 +386,8 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
       zdummy_it (:,:,jb,:) = 0.0_wp
       zdummy_ith(:,:,jb)   = 0.0_wp
       zdummy_ot3(:,:,jb,:) = 0.0_wp
-      z_dummy_shflx(:,:,jb)   = 0.0_wp
-      z_dummy_shflx(:,:,jb)   = 0.0_wp
+      z_dummy_shflx(:,:,jb)= 0.0_wp
+      z_dummy_lhflx(:,:,jb)= 0.0_wp
 
       ! Merge three pieces of information into one array for vdiff
 
@@ -532,6 +519,7 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
 
     ELSE IF ( atm_phy_nwp_config(jg)%inwp_turb == 3 ) THEN
 
+
 !-------------------------------------------------------------------------
 !> EDMF DUALM turbulence scheme (eddy-diffusivity/mass-flux dual mass-flux)
 !-------------------------------------------------------------------------
@@ -548,7 +536,7 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
 
 !     TERRA variable initialization
 
-      DO jt = 1,ntiles_total+ntiles_water
+      DO jt = 1,ntiles_total + ntiles_water
         DO jc = i_startidx, i_endidx
           lnd_prog_new%t_g_t     (jc,jb,jt) = lnd_prog_now%t_g_t     (jc,jb,jt)
         ENDDO
@@ -615,13 +603,15 @@ endif
         ENDDO
       ENDDO
 
+!ATTENTION: these tile quantities are used in TERRA (with ntiles_edmf) ????
+
       DO jt = 1,ntiles_total+ntiles_water
         DO jc = i_startidx, i_endidx
-          shfl_s_t(jc,jt) = prm_diag%shfl_s  (jc,jb)   ! should be tile specific !!!
-          evap_s_t(jc,jt) = prm_diag%lhfl_s  (jc,jb) / alv ! evaporation [kg/(m2 s)]  -"-
-          tskin_t (jc,jt) = lnd_prog_now%t_g (jc,jb)   ! should be tile specific, and prognostic !!!
-          ustr_s_t(jc,jt) = 0.0_wp                     ! prognostic surface stress U  !!!
-          vstr_s_t(jc,jt) = 0.0_wp                     ! prognostic surface stress V  !!!
+          shfl_s_t(jc,jt) = prm_diag%shfl_s_t (jc,jb,jt) ! should be tile specific !!!
+          evap_s_t(jc,jt) = prm_diag%lhfl_s_t (jc,jb,jt) / alv ! evaporation [kg/(m2 s)]  -"-
+          tskin_t (jc,jt) = lnd_prog_now%t_g_t(jc,jb,jt) ! should be tile specific, and prognostic !!!
+          ustr_s_t(jc,jt) = 0.0_wp                       ! prognostic surface stress U  !!!
+          vstr_s_t(jc,jt) = 0.0_wp                       ! prognostic surface stress V  !!!
         ENDDO
       ENDDO
 
@@ -629,6 +619,7 @@ endif
         DO jc = i_startidx, i_endidx
           zfrti   (jc,jt) = 0.0_wp                     ! all zero but tile1=1.0 ... all ocean ???
           zalbti  (jc,jt) = zalbti_est(jt)             ! surface albedo ????????
+          pssrflti(jc,jt) = 0.0_wp                     ! initialize (but only output variable)
         ENDDO
       ENDDO
 
@@ -639,8 +630,8 @@ endif
 
       DO jt = ntiles_total, 1, -1                      ! backward to use dominant veg types (land only)
         DO jc = i_startidx, i_endidx
-          IF ( ( ext_data%atm%llsm_atm_c(jc,jb) )  .and.        & ! land
-               ( ext_data%atm%frac_t(jc,jb,jt) > 0.0_wp) ) THEN   ! only used tiles 
+!         IF ( ( ext_data%atm%llsm_atm_c(jc,jb) )  .and.    & ! land
+          IF ( ext_data%atm%frac_t(jc,jb,jt) > 0.0_wp ) THEN   ! only used tiles 
             JTILE = jtessel_gcv2009(ext_data%atm%lc_class_t(jc,jb,jt))
 !JTILE=8 !?????????????
 !                IF (JTILE == 4)  KTVL(jc) = vegtyp_conv(ext_data%atm%lc_class_t(jc,jb,jt))
@@ -666,13 +657,14 @@ endif
       ENDDO
 
       DO jc = i_startidx, i_endidx
-          zfrti(jc,1) = ext_data%atm%frac_t(jc,jb,isub_water)      ! open ocean fraction
+          zfrti(jc,1) = ext_data%atm%frac_t(jc,jb,isub_water) &    ! open ocean fraction
+                    & + ext_data%atm%frac_t(jc,jb,isub_lake)       ! lake fraction (fake it as ocean?????)
           zfrti(jc,2) = ext_data%atm%frac_t(jc,jb,isub_seaice)     ! sea ice fraction
       ENDDO
 
       DO jc = i_startidx, i_endidx
         IF ( (SUM(zfrti(jc,:)) > 1.01_wp) .or. (SUM(zfrti(jc,:)) < 0.99_wp) ) THEN
-          write(*,*) 'turb_sfc2: ', zfrti(jc,:)
+          write(*,*) 'turb_sfc2: ', ext_data%atm%llsm_atm_c(jc,jb), zfrti(jc,:), ext_data%atm%frac_t(jc,jb,:)
         ENDIF
       ENDDO
 
@@ -760,7 +752,6 @@ endif
         & PTLWML  = zdummy_vdf_1e                              ,&! (IN)  lake mean water T    - unused
         & PSST    = ztskm1m                                    ,&! (IN)  SST
         & KSOTY   = zsoty                                      ,&! (IN)  soil type
-!xmk ?  & PFRTI   = ext_data%atm%lc_frac_t(:,jb,:)             ,&! (IN)  tile fraction 
         & PFRTI   = zfrti                                      ,&! (IN)  tile fraction 
         & PALBTI  = zalbti                                     ,&! (IN)  tile albedo
         & PWLMX   = zdummy_vdf_1f                              ,&! (IN)  maximum skin reservoir capacity
@@ -792,7 +783,7 @@ endif
         & PBLH    = zdummy_vdf_1n                              ,&! (OUT) optional out: PBL HEIGHT (dry diagnostic based on Ri#)
         & KHPBLN  = idummy_vdf_0d                              ,&! (OUT) optional out: PBL top level 
         & KVARTOP = idummy_vdf_0e                              ,&! (OUT) optional out: top level of predictied qt,var
-        & PSSRFLTI= prm_diag%swflxsfc_t(:,jb,:)                ,&! (INOUT) net SW sfc flux for each tile (use tile ablbedo!!!)
+        & PSSRFLTI= PSSRFLTI                                   ,&! (OUT) net SW sfc flux for each tile (use tile ablbedo)
         & PEVAPSNW= zdummy_vdf_1o                              ,&! (OUT) optional out: evaporation from snow under forest
         & PGUST   = zdummy_vdf_1p                              ,&! (OUT) optional out: 10m gust
         & PWUAVG  = zdummy_vdf_1q                              ,&! (OUT) optional out: w,up averaged
@@ -823,12 +814,12 @@ endif
         & PAHFSTI = shfl_s_t                                   ,&! (INOUT) tile sensible heat flux
         & PEVAPTI = evap_s_t                                   ,&! (INOUT) tile latent heat flux
         & PTSKTI  = tskin_t                                    ,&! (INOUT) now! ???ocean???  lnd_prog_now%t_g(:,jb)
-        & PDIFTS  = zdummy_vdf_3e                              ,&! (OUT)  optional out: turbulent heat flux
-        & PDIFTQ  = zdummy_vdf_3f                              ,&! (OUT)  optional out: turbulent moisture flux
-        & PDIFTL  = zdummy_vdf_3g                              ,&! (OUT)  optional out: turbulent liquid water flux
-        & PDIFTI  = zdummy_vdf_3h                              ,&! (OUT)  optional out: turbulent ice water flux
-        & PSTRTU  = zdummy_vdf_3i                              ,&! (OUT)  optional out: turbulent U flux
-        & PSTRTV  = zdummy_vdf_3j                              ,&! (OUT)  optional out: turbulent V flux
+        & PDIFTS  = pdifts                                     ,&! (OUT)  optional out: turbulent heat flux
+        & PDIFTQ  = pdiftq                                     ,&! (OUT)  optional out: turbulent moisture flux
+        & PDIFTL  = pdiftl                                     ,&! (OUT)  optional out: turbulent liquid water flux
+        & PDIFTI  = pdifti                                     ,&! (OUT)  optional out: turbulent ice water flux
+        & PSTRTU  = pstrtu                                     ,&! (OUT)  optional out: turbulent U flux
+        & PSTRTV  = pstrtv                                     ,&! (OUT)  optional out: turbulent V flux
         & PTOFDU  = zdummy_vdf_1r                              ,&! (OUT)  optional out: TOFD U flux
         & PTOFDV  = zdummy_vdf_1s                              ,&! (OUT)  optional out: TOFD V flux
         & PSTRSOU = zdummy_vdf_3k                              ,&! (OUT)  optional out: SSO U flux 
@@ -912,12 +903,20 @@ endif
 
         ! prm_diag%shfl_s(jc,jb) = prm_diag%shfl_s(jc,jb) + shfl_s_t(jc,jt)    * ext_data%atm%frac_t(jc,jb,jt)
         ! prm_diag%lhfl_s(jc,jb) = prm_diag%lhfl_s(jc,jb) + evap_s_t(jc,jt)*alv* ext_data%atm%frac_t(jc,jb,jt)
-          prm_diag%shfl_s(jc,jb) = prm_diag%shfl_s(jc,jb) + shfl_s_t(jc,jt)    * zfrti(jc,jt)   !bad, but needed for EDMF???
-          prm_diag%lhfl_s(jc,jb) = prm_diag%lhfl_s(jc,jb) + evap_s_t(jc,jt)*alv* zfrti(jc,jt)   ! ----
+        ! prm_diag%shfl_s(jc,jb) = prm_diag%shfl_s(jc,jb) + shfl_s_t(jc,jt)    * zfrti(jc,jt)   !bad, but needed for EDMF???
+        ! prm_diag%lhfl_s(jc,jb) = prm_diag%lhfl_s(jc,jb) + evap_s_t(jc,jt)*alv* zfrti(jc,jt)   ! ----
+          prm_diag%shfl_s(jc,jb) = pdifts(jc,jb) 
+          prm_diag%lhfl_s(jc,jb) = pdiftq(jc,jb)*alv
 
-          prm_diag%tch   (jc,jb) = prm_diag%tch   (jc,jb) + tch_ex  (jc,jt)    * ext_data%atm%frac_t(jc,jb,jt) !??land only??
+          prm_diag%tch   (jc,jb) = prm_diag%tch   (jc,jb) + tch_ex  (jc,jt)    * ext_data%atm%frac_t(jc,jb,jt)
           prm_diag%tcm   (jc,jb) = prm_diag%tcm   (jc,jb) + tcm_ex  (jc,jt)    * ext_data%atm%frac_t(jc,jb,jt)
           prm_diag%tfv   (jc,jb) = prm_diag%tfv   (jc,jb) + tfv_ex  (jc,jt)    * ext_data%atm%frac_t(jc,jb,jt)
+
+          prm_diag%shfl_s_t(jc,jb,jt) = shfl_s_t(jc,jt)
+          prm_diag%lhfl_s_t(jc,jb,jt) = evap_s_t(jc,jt)*alv
+          prm_diag%tch_t   (jc,jb,jt) = tch_ex  (jc,jt)
+          prm_diag%tcm_t   (jc,jb,jt) = tcm_ex  (jc,jt)
+          prm_diag%tfv_t   (jc,jb,jt) = tfv_ex  (jc,jt)
         ENDDO           
       ENDDO
 
