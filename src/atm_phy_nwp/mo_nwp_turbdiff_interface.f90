@@ -205,7 +205,8 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
         &           SQRT(2._wp * p_prog_now_rcf%tke(i_startidx:i_endidx,:,jb))
 
 
-
+      ! GZ, 2013-02-22: always use concentration lower boundary condition for momentum 
+      ! (corresponding to imode_turb = 2) because the flux condition suffers from stability problems
       CALL turbdiff(iini=0, lstfnct=.TRUE.,                                             & !in
          &  dt_var=tcall_turb_jg, dt_tke=tcall_turb_jg, nprv=1, ntur=1, ntim=1,         & !in
          &  ie=nproma, ke=nlev, ke1=nlevp1,  kcm=nlevp1,                                & !in

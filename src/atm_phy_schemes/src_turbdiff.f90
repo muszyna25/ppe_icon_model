@@ -4755,7 +4755,7 @@ REAL (KIND=ireals) :: &
                CALL prep_impl_vert_diff( &
                  i_st=istartpar, i_en=iendpar, k_tp=0, k_sf=ke1,  &
                  disc_mom=dicke, diff_mom=a(:,:,1), impl_mom=a(:,:,2), invs_mom=a(:,:,3), &
-                 lsflucond=(imode_turb.EQ.3) ) 
+                 lsflucond=.FALSE. ) !  (imode_turb.EQ.3) ) GZ: flux condition for wind causes stability problems
 
             ELSEIF (n.eq.nvel+1) THEN  
 
