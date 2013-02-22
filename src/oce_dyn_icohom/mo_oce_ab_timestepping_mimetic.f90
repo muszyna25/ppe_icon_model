@@ -64,7 +64,7 @@ USE mo_ocean_nml,                 ONLY: n_zlev, solver_tolerance, l_inverse_flip
   &                                     use_absolute_solver_tolerance, solver_start_tolerance, &
   &                                     solver_tolerance_decrease_ratio,                  &
   &                                     solver_max_restart_iterations,                    &
-  &                                     solver_max_iterations_per_restart
+  &                                     solver_max_iter_per_restart
 
 USE mo_run_config,                ONLY: dtime, ltimer
 USE mo_timer,                     ONLY: timer_start, timer_stop, timer_ab_expl,           &
@@ -471,7 +471,7 @@ REAL(wp)                     ::trac_c(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nbl
           &        p_os%p_aux%p_rhs_sfc_eq,   &  ! right hand side as input
           &        tolerance,                     &  ! tolerance
           &        use_absolute_solver_tolerance, &  ! absolute/relative tolerance
-          &        solver_max_iterations_per_restart,  &  ! max. # of iterations to do
+          &        solver_max_iter_per_restart,   &  ! max. # of iterations to do
           &        l_maxiter,                 &  ! out: .true. = not converged
           &        n_iter,                    &  ! out: # of iterations done
           &        zresidual )
