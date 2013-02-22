@@ -135,6 +135,8 @@ cat > ${ocean_namelist} << EOF
 &run_nml
  dtime       = 1800         ! model timestep in seconds
  output = 'vlist'
+ activate_sync_timers = .TRUE.
+ write_timer_files  = .TRUE.
 /
 &ocean_dynamics_nml
 ! 10 unevenly spaced levels beginning with 50m depth
