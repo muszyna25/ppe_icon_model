@@ -420,7 +420,7 @@ CONTAINS
     ENDIF ! satad
 
     !!-------------------------------------------------------------------------
-    !>  turbulent transfer and diffusion  and microphysics
+    !>  turbulent transfer and diffusion and microphysics
     !!
     !!  Because we consider the following physical processes as fast ones
     !!  we allow here the update of prognostic variables inside the subroutines
@@ -479,18 +479,18 @@ CONTAINS
     ENDIF !lcall(itturb)
 
 
-      IF (art_config(jg)%lart) THEN
+    IF (art_config(jg)%lart) THEN
 
-       CALL art_washout_interface(dt_phy_jg(itfastphy),          & !>in
-                  &          pt_patch,                           & !>in
-                  &          p_prog_list,                        & !>in
-                  &          prm_diag,                           & !>in
-                  &          pt_prog%rho,                        & !>in               
-                  &          pt_prog_rcf%tracer)                   !>inout             
+      CALL art_washout_interface(dt_phy_jg(itfastphy),          & !>in
+                 &          pt_patch,                           & !>in
+                 &          p_prog_list,                        & !>in
+                 &          prm_diag,                           & !>in
+                 &          pt_prog%rho,                        & !>in               
+                 &          pt_prog_rcf%tracer)                   !>inout             
 
-      ENDIF !lart    
+    ENDIF !lart    
 
-    IF (lcall_phy_jg(itsfc)) THEN
+    IF ( lcall_phy_jg(itsfc) .AND. atm_phy_nwp_config(jg)%inwp_turb > 2 ) THEN
 
       !> temperature and tracers have been updated by microphysics;
       !! as pressure is needed only for an approximate adiabatic extrapolation
@@ -637,9 +637,9 @@ CONTAINS
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
-    IF (timers_level > 1) CALL timer_stop(timer_fast_phys)
+      IF (timers_level > 1) CALL timer_stop(timer_fast_phys)
    
-   ENDIF ! end of fast physics part
+    ENDIF ! end of fast physics part
 
     !!-------------------------------------------------------------------------
     !!  slow physics part
@@ -744,8 +744,8 @@ CONTAINS
 &                       i_startidx, i_endidx, rl_start, rl_end)
 
 
-          IF (timers_level > 2) CALL timer_start(timer_cover_koe)
-          CALL cover_koe &
+        IF (timers_level > 2) CALL timer_start(timer_cover_koe)
+        CALL cover_koe &
 &             (kidia  = i_startidx ,   kfdia  = i_endidx  ,       & !! in:  horizonal begin, end indices
 &              klon = nproma,  kstart = kstart_moist(jg)  ,       & !! in:  horiz. and vert. vector length
 &              klev   = nlev,                                     &
@@ -770,7 +770,7 @@ CONTAINS
 &              qv_tot = prm_diag%tot_cld     (:,:,jb,iqv) ,       & !! out: qv       -"-
 &              qc_tot = prm_diag%tot_cld     (:,:,jb,iqc) ,       & !! out: clw      -"-
 &              qi_tot = prm_diag%tot_cld     (:,:,jb,iqi) )         !! out: ci       -"-
-          IF (timers_level > 2) CALL timer_stop(timer_cover_koe)
+        IF (timers_level > 2) CALL timer_stop(timer_cover_koe)
 
       ENDDO
   
@@ -945,7 +945,7 @@ CONTAINS
           !T.R.: this is not correct for output after 1st timestep,
           !e.g. dt_phy_jg(itradheat) may then be greater than p_sim_time
           !leading to wrong averaging.
-         DO jc =  i_startidx, i_endidx
+          DO jc =  i_startidx, i_endidx
 
           prm_diag%swflxsfc_a(jc,jb) = ( prm_diag%swflxsfc_a(jc,jb)                     &
                                  &  * (p_sim_time - dt_phy_jg(itfastphy))               &
@@ -963,11 +963,11 @@ CONTAINS
                                  &  * (p_sim_time - dt_phy_jg(itfastphy))               &
                                  & + dt_phy_jg(itfastphy) * prm_diag%lwflxall(jc,1,jb)) &
                                  &  * r_sim_time
-         ENDDO
+          ENDDO
 
         ELSEIF ( .NOT. lflux_avg ) THEN
 
-         DO jc =  i_startidx, i_endidx
+          DO jc =  i_startidx, i_endidx
 
           prm_diag%swflxsfc_a(jc,jb) = prm_diag%swflxsfc_a(jc,jb)                    &
                                 & + dt_phy_jg(itfastphy) * prm_diag%swflxsfc(jc,jb)
@@ -977,7 +977,7 @@ CONTAINS
                                 & + dt_phy_jg(itfastphy) * prm_diag%swflxtoa(jc,jb)
           prm_diag%lwflxtoa_a(jc,jb) = prm_diag%lwflxtoa_a(jc,jb)                    &
                                 & + dt_phy_jg(itfastphy) * prm_diag%lwflxall(jc,1,jb)
-         END DO
+          END DO
 
 
         END IF
@@ -1391,31 +1391,31 @@ CONTAINS
 !$OMP END DO
 
 
-      ! Diagnosis of ABS(dpsdt) if msg_level >= 11
-      IF (msg_level >= 11) THEN
+    ! Diagnosis of ABS(dpsdt) if msg_level >= 11
+    IF (msg_level >= 11) THEN
 
-        rl_start = grf_bdywidth_c+1
-        rl_end   = min_rlcell_int
+      rl_start = grf_bdywidth_c+1
+      rl_end   = min_rlcell_int
 
-        i_startblk = pt_patch%cells%start_blk(rl_start,1)
-        i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
+      i_startblk = pt_patch%cells%start_blk(rl_start,1)
+      i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
 
 !$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
-        DO jb = i_startblk, i_endblk
+      DO jb = i_startblk, i_endblk
 
-          CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
-                             i_startidx, i_endidx, rl_start, rl_end)
+        CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
+                           i_startidx, i_endidx, rl_start, rl_end)
 
-          DO jc = i_startidx, i_endidx
-            ! Note: division by time step follows below
-            dps_blk(jb) = dps_blk(jb) + &
-              ABS(pt_diag%pres_sfc(jc,jb)-pt_diag%pres_sfc_old(jc,jb))
-            npoints_blk(jb) = npoints_blk(jb) + 1
-            pt_diag%pres_sfc_old(jc,jb) = pt_diag%pres_sfc(jc,jb)
-          ENDDO
+        DO jc = i_startidx, i_endidx
+          ! Note: division by time step follows below
+          dps_blk(jb) = dps_blk(jb) + &
+            ABS(pt_diag%pres_sfc(jc,jb)-pt_diag%pres_sfc_old(jc,jb))
+          npoints_blk(jb) = npoints_blk(jb) + 1
+          pt_diag%pres_sfc_old(jc,jb) = pt_diag%pres_sfc(jc,jb)
         ENDDO
+      ENDDO
 !$OMP END DO NOWAIT
-      ENDIF
+    ENDIF
 
 !$OMP END PARALLEL
 
@@ -1425,34 +1425,34 @@ CONTAINS
     IF (timers_level > 3) CALL timer_stop(timer_phys_sync_vn)
     IF (timers_level > 2) CALL timer_stop(timer_phys_acc)
 
-      ! dpsdt diagnostic - omitted in the case of a parallization test (p_test_run) because this
-      ! is a purely diagnostic quantitiy, for which it does not make sense to implement an order-invariant
-      ! summation
-      IF (.NOT. p_test_run .AND. msg_level >= 11) THEN
-        dpsdt_avg = SUM(dps_blk)
-        npoints   = SUM(npoints_blk)
-        dpsdt_avg = global_sum_array(dpsdt_avg)
-        npoints   = global_sum_array(npoints)
-        dpsdt_avg = dpsdt_avg/(REAL(npoints,wp)*dtadv_loc)
-        ! Exclude initial time step where pres_sfc_old is zero
-        IF (dpsdt_avg < 10000._wp/dtadv_loc) THEN
-          WRITE(message_text,'(a,f12.6,a,i3)') 'average |dPS/dt| =',dpsdt_avg,' Pa/s in domain',jg
-          CALL message('nwp_nh_interface: ', TRIM(message_text))
-        ENDIF
+    ! dpsdt diagnostic - omitted in the case of a parallization test (p_test_run) because this
+    ! is a purely diagnostic quantitiy, for which it does not make sense to implement an order-invariant
+    ! summation
+    IF (.NOT. p_test_run .AND. msg_level >= 11) THEN
+      dpsdt_avg = SUM(dps_blk)
+      npoints   = SUM(npoints_blk)
+      dpsdt_avg = global_sum_array(dpsdt_avg)
+      npoints   = global_sum_array(npoints)
+      dpsdt_avg = dpsdt_avg/(REAL(npoints,wp)*dtadv_loc)
+      ! Exclude initial time step where pres_sfc_old is zero
+      IF (dpsdt_avg < 10000._wp/dtadv_loc) THEN
+        WRITE(message_text,'(a,f12.6,a,i3)') 'average |dPS/dt| =',dpsdt_avg,' Pa/s in domain',jg
+        CALL message('nwp_nh_interface: ', TRIM(message_text))
       ENDIF
+    ENDIF
 
-      IF (msg_level >= 13) THEN ! extended diagnostic
-        CALL nwp_diag_output_2(pt_patch, pt_diag, pt_prog_rcf, prm_nwp_tend, dt_loc, lcall_phy_jg(itturb))
-      ENDIF
+    IF (msg_level >= 13) THEN ! extended diagnostic
+      CALL nwp_diag_output_2(pt_patch, pt_diag, pt_prog_rcf, prm_nwp_tend, dt_loc, lcall_phy_jg(itturb))
+    ENDIF
    
-     CALL nwp_diagnosis(lcall_phy_jg,lredgrid,               & !input
-                            & dt_phy_jg,p_sim_time,          & !input
-                            & kstart_moist(jg),              & !input
-                            & ih_clch(jg), ih_clcm(jg),      & !input
-                            & pt_patch, p_metrics,           & !input
-                            & pt_prog, pt_prog_rcf,          & !in
-                            & pt_diag,                       & !inout
-                            & prm_diag,prm_nwp_tend)
+    CALL nwp_diagnosis(lcall_phy_jg,lredgrid,               & !input
+                           & dt_phy_jg,p_sim_time,          & !input
+                           & kstart_moist(jg),              & !input
+                           & ih_clch(jg), ih_clcm(jg),      & !input
+                           & pt_patch, p_metrics,           & !input
+                           & pt_prog, pt_prog_rcf,          & !in
+                           & pt_diag,                       & !inout
+                           & prm_diag,prm_nwp_tend)
 
 
     IF (ltimer) CALL timer_stop(timer_physics)
