@@ -399,7 +399,7 @@ case "$ac_sitename" in
                       ;;
                     sun)
                       MPIROOT = $software_tree/mpi/openmpi_ib-1.4.5-static-sun12
-                      load_modules="gcc/4.6.3" "sun/12.2" "openmpi_ib/1.6.2-static-sun2" "${load_modules}"
+                      load_modules="gcc/4.6.3" "sun/12.2" "openmpi_ib/1.6.2-static-sun12" "${load_modules}"
                       ;;
                 esac
                 ;;
