@@ -45,8 +45,7 @@ USE mo_mpi,                    ONLY: my_process_is_stdio, p_pe
 USE mo_io_units,               ONLY: nerr
 USE mo_parallel_config,        ONLY: nproma, p_test_run
 USE mo_impl_constants,         ONLY: max_char_length
-USE mo_run_config,             ONLY: ltimer
-USE mo_timer,                  ONLY: timer_start, timer_stop, timer_dbg_prnt
+USE mo_timer,                  ONLY: timer_start, timer_stop, timer_dbg_prnt, timers_level
 USE mo_sync,                   ONLY: SYNC_C, sync_patch_array, global_max, global_min
 USE mo_grid_subset,            ONLY: t_subset_range, get_index_range
 USE mo_dbg_nml,                ONLY: str_mod_tst, dim_mod_tst, dbg_lon_in, dbg_lat_in, &
@@ -347,7 +346,7 @@ CONTAINS
   INTEGER           ::  i_startidx, i_endidx, jb
   REAL(wp)          ::  ctrxind(nproma), ctrnind(nproma)
 
-  IF (ltimer) CALL timer_start(timer_dbg_prnt)
+  IF (timers_level > 10) CALL timer_start(timer_dbg_prnt)
 
   !cells_in_domain => ppatch%cells%in_domain
 
@@ -399,7 +398,7 @@ CONTAINS
     END DO
    
     ! if str_mod_src not found in str_mod_tst - no output
-    IF (icheck_str_mod == 0 .and. ltimer) CALL timer_stop(timer_dbg_prnt)
+    IF (icheck_str_mod == 0 .and. timers_level > 10) CALL timer_stop(timer_dbg_prnt)
     IF (icheck_str_mod == 0 ) RETURN
    
     strout=TRIM(str_prntdes)
@@ -462,7 +461,7 @@ CONTAINS
     END DO
    
     ! if str_mod_src not found in str_mod_tst - no output
-    IF (icheck_str_mod == 0 .and. ltimer) CALL timer_stop(timer_dbg_prnt)
+    IF (icheck_str_mod == 0 .and. timers_level > 10) CALL timer_stop(timer_dbg_prnt)
     IF (icheck_str_mod == 0 ) RETURN
    
     strout=TRIM(str_prntdes)
@@ -516,7 +515,7 @@ CONTAINS
 
   END IF
 
-  IF (ltimer) CALL timer_stop(timer_dbg_prnt)
+  IF (timers_level > 10) CALL timer_stop(timer_dbg_prnt)
 
   END SUBROUTINE dbg_print_3d
 
@@ -541,7 +540,7 @@ CONTAINS
   !REAL(wp)          ::  ctrxind(nproma), ctrnind(nproma)
   !INTEGER           ::  i_startidx, i_endidx, jb
 
-  IF (ltimer) CALL timer_start(timer_dbg_prnt)
+  IF (timers_level > 10) CALL timer_start(timer_dbg_prnt)
 
   !cells_in_domain => ppatch%cells%in_domain
 
@@ -559,7 +558,7 @@ CONTAINS
   END DO
 
   ! if str_mod_src not found in str_mod_tst - no output
-  IF (icheck_str_mod == 0 .and. ltimer) CALL timer_stop(timer_dbg_prnt)
+  IF (icheck_str_mod == 0 .and. timers_level > 10) CALL timer_stop(timer_dbg_prnt)
   IF (icheck_str_mod == 0 ) RETURN
 
 #ifdef __SX__
@@ -646,7 +645,7 @@ CONTAINS
 
   END IF
 
-  IF (ltimer) CALL timer_stop(timer_dbg_prnt)
+  IF (timers_level > 10) CALL timer_stop(timer_dbg_prnt)
 
   END SUBROUTINE dbg_print_2d
 

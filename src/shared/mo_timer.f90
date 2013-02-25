@@ -58,6 +58,7 @@ MODULE mo_timer
     & timer_icon_comm_ircv, timer_icon_comm_fillsend, timer_icon_comm_fillandsend, &
     & timer_icon_comm_barrier_2, timer_icon_comm_send
   PUBLIC :: timer_barrier
+  PUBLIC :: timer_gmres_p_sum
 
   PUBLIC :: timer_integrate_nh
   PUBLIC :: timer_solve_nh, timer_solve_nh_p1, timer_solve_nh_p2, timer_solve_nh_exch
@@ -162,6 +163,8 @@ MODULE mo_timer
     & timer_icon_comm_ircv, timer_icon_comm_fillsend,timer_icon_comm_fillandsend,   &
     & timer_icon_comm_barrier_2, timer_icon_comm_send
   INTEGER :: timer_barrier
+  INTEGER :: timer_gmres_p_sum
+
   INTEGER :: timer_nh_hdiffusion
 
   INTEGER :: timer_integrate_nh
@@ -274,6 +277,8 @@ CONTAINS
     ! major timers
     timer_total        = new_timer("total")
 
+    IF (.NOT. ltimer)  return
+
     timer_barrier  = new_timer("mpi_barrier")
     timer_exch_data = new_timer("exch_data")
     timer_exch_data_rv = new_timer("exch_data_rv")
@@ -292,6 +297,7 @@ CONTAINS
     timer_icon_comm_send         = new_timer("comm_send")
     timer_icon_comm_wait         = new_timer("comm_wait")
     timer_icon_comm_barrier_2    = new_timer("comm_barrier_2")
+    timer_gmres_p_sum            = new_timer("gmres_p_sum")
 
     timer_coupling      = new_timer("coupling")
     timer_write_output  = new_timer("wrt_output")

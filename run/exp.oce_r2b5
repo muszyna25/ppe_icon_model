@@ -88,18 +88,21 @@ iforc_len=365  # length of OMIP/NCEP dataset: 1 = annual; 12 = monthly data; 365
 #
 #-----------------------------------------------------------------------------
 # global timing
+end_day=${end_day:=11}
+end_month=${end_month:=01}
+end_year=${end_year:=2001}
 start_date="2001-01-01T00:00:00Z"
-  end_date=${end_date:="2001-01-10T00:00:00Z"}
+  end_date=${end_date:="${end_year}-${end_month}-${end_day}T00:00:00Z"}
 #  end_date="2501-01-01T00:00:00Z"
 #
 #-----------------------------------------------------------------------------
 # model timing
 nhours_data=240      # ocean model output interval hours [hours]
-ndays_file=6000      # new output file generation interval [days]
-ndays_checkp=184     # write restart file interval [days]
+ndays_file=3650      # new output file generation interval [days]
+ndays_checkp=3650     # write restart file interval [days]
 #ndays_restart=5490   # stop model for restart [days]
 #ndays_restart=3655   # stop model for restart [days]
-ndays_restart=366    # stop model for restart [days]
+#ndays_restart=366    # stop model for restart [days]
 #
 #-----------------------------------------------------------------------------
 # calculate model timesteps using $ndays
@@ -110,20 +113,33 @@ dt_restart=`expr ${ndays_restart} \* 86400`
 #
 #-----------------------------------------------------------------------------
 # model parameters
-ocean_model_equations=-1 # equation system: -1=hydrost. ocean
-dtime=${dtime:=900}      # model timestep in seconds
+ocean_model_equations=-1  # equation system: -1=hydrost. ocean
+dtime=${dtime:=1200}      # model timestep in seconds
+
 solver_tolerance=${solver_tolerance:=1.0E-12}
 use_absolute_solver_tolerance=${use_absolute_solver_tolerance:=".true."}
-solver_max_iter_per_restart=${solver_max_iterations_per_restart:=12}
+solver_max_iter_per_restart=${solver_max_iter_per_restart:=10}
 solver_max_restart_iterations=${solver_max_restart_iterations:=20}
+
+# the original setup
+# solver_tolerance=1.0E-6
+# use_absolute_solver_tolerance=".false."
+# solver_max_iter_per_restart=1000
+# solver_max_restart_iterations=20
+
+
+use_duplicated_connectivity=${use_duplicated_connectivity:=".false."}
 # solver_start_tolerance = 1.0E-08
 # solver_tolerance_decrease_ratio = 0.1
 #-----------------------------------------------------------------------------
 # parallelization / optimization parameters
-#division_method=${division_method:=102}
-division_method=${division_method:=1}
+division_method=${division_method:=102}
 fast_sum=${fast_sum:=".true."}
 nproma=${nproma:=32}
+
+ltimer=${ltimer:=".true."}
+timers_level=${timers_level:=15}
+activate_sync_timers=${activate_sync_timers:=".TRUE."}
 
 #-----------------------------------------------------------------------------
 # write ICON namelist parameters
@@ -136,22 +152,28 @@ cat > ${ocean_namelist} << EOF
 /
 &grid_nml
  dynamics_grid_filename = "${ocean_grids}",
+ use_duplicated_connectivity = ${use_duplicated_connectivity}
 /
 &dynamics_nml
  iequations  = ${ocean_model_equations}       ! -1: hydrost. ocean model
 /
 &run_nml
  dtime       =  $dtime         ! model timestep in seconds
- write_timer_files =.TRUE.
+! output="vlist",
+ output="none",
+ ltimer               = ${ltimer}
+ timers_level         = ${timers_level}
+ activate_sync_timers = ${activate_sync_timers}
+ write_timer_files    =.TRUE.
 /
-&dbg_index_nml
-  idbg_mxmn=0                     ! initialize MIN/MAX  debug output
-  idbg_val =0                     ! initialize one cell debug output
-  idbg_slev=1                     ! initialize start level for debug output
-  idbg_elev=5                     ! initialize end level for debug output
-  dbg_lat_in=   30.0              ! latitude location of one cell debug output
-  dbg_lon_in=  -30.0              ! longitude location of one cell debug output
-  str_mod_tst='all'               ! define modules to print out in debug mode
+!&dbg_index_nml
+!  idbg_mxmn=0                     ! initialize MIN/MAX  debug output
+!  idbg_val =0                     ! initialize one cell debug output
+!  idbg_slev=1                     ! initialize start level for debug output
+!  idbg_elev=5                     ! initialize end level for debug output
+!  dbg_lat_in=   30.0              ! latitude location of one cell debug output
+!  dbg_lon_in=  -30.0              ! longitude location of one cell debug output
+!  str_mod_tst='all'               ! define modules to print out in debug mode
 /
 &ocean_dynamics_nml
 ! 20 unevenly spaced levels used by MPIOM/GR60, limited to 700m at bottom
@@ -170,7 +192,11 @@ cat > ${ocean_namelist} << EOF
   i_apply_bulk          = 0      ! 1=use bulk formula without sea ice
   !veloc_diffusion_order = 2      ! biharmonic friction
   !veloc_diffusion_form  = 1      ! curlcurl-graddiv form of laplacian
-  solver_tolerance      = 1.0E-6 ! solver tolerance; default is 1.0E-6
+  ! solver_tolerance      = 1.0E-6 ! solver tolerance; default is 1.0E-6
+  solver_tolerance              = ${solver_tolerance}
+  use_absolute_solver_tolerance = ${use_absolute_solver_tolerance}
+  solver_max_iter_per_restart   = ${solver_max_iter_per_restart}
+  solver_max_restart_iterations = ${solver_max_restart_iterations}
 /
 &ocean_physics_nml
   i_sea_ice          =    1      ! 0 = no sea ice; 1 = Winton; 2 = Semtner

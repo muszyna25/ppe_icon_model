@@ -194,7 +194,8 @@ CONTAINS
   IF (idiag_oce == 1) &
     & CALL construct_oce_diagnostics( p_patch,p_patch_3D, p_os(jg), oce_ts)
 
-  IF (ltimer) CALL timer_start(timer_total)
+  ! IF (ltimer) CALL timer_start(timer_total)
+  CALL timer_start(timer_total)
 
   ! open file for MOC - extraordinary at this time
   CALL datetime_to_string(datestring, datetime)
@@ -379,7 +380,8 @@ CONTAINS
 
   IF (idiag_oce==1) CALL destruct_oce_diagnostics(oce_ts)
 
-  IF (ltimer) CALL timer_stop(timer_total)
+!  IF (ltimer) CALL timer_stop(timer_total)
+  CALL timer_stop(timer_total)
 
   END SUBROUTINE perform_ho_stepping
  !-------------------------------------------------------------------------

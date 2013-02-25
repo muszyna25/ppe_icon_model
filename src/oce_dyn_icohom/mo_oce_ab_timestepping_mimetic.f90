@@ -48,7 +48,7 @@ MODULE mo_oce_ab_timestepping_mimetic
 !
 !
 USE mo_kind,                      ONLY: wp
-USE mo_parallel_config,           ONLY: nproma
+USE mo_parallel_config,           ONLY: nproma, l_fast_sum
 USE mo_math_utilities,            ONLY: t_cartesian_coordinates
 USE mo_sync,                      ONLY: sync_e, sync_c, sync_patch_array
 !USE mo_mpi,                       ONLY: my_process_is_mpi_parallel
@@ -387,7 +387,7 @@ REAL(wp)                     ::trac_c(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nbl
     CALL sync_patch_array(SYNC_C, patch_horz, p_os%p_diag%thick_c)
     CALL sync_patch_array(SYNC_C, patch_horz, p_os%p_prog(nold(1))%h)
 
-    IF (p_test_run) THEN
+    IF (p_test_run .or. .not. l_fast_sum ) THEN
       ! the new gmres_oce uses out of order global sum for efficiency,
       ! when running in p_test_run mode use the old one
       IF(lprecon)THEN

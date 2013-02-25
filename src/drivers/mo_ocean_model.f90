@@ -35,7 +35,8 @@ MODULE mo_ocean_model
   USE mo_kind,                ONLY: wp
   USE mo_exception,           ONLY: message, message_text, finish
   USE mo_master_control,      ONLY: is_restart_run, get_my_process_name, get_my_model_no
-  USE mo_parallel_config,     ONLY: p_test_run, l_test_openmp, num_io_procs
+  USE mo_parallel_config,     ONLY: p_test_run, l_test_openmp, num_io_procs, &
+    & use_icon_comm, division_method
   USE mo_mpi,                 ONLY: p_stop, &
     & my_process_is_io,  my_process_is_mpi_seq, my_process_is_mpi_test, &
     & my_process_is_mpi_parallel,                                       &
@@ -81,6 +82,7 @@ MODULE mo_ocean_model
 !  USE mo_advection_nml,       ONLY: transport_nml_setup,  & ! process transport
 !    & setup_transport         ! control parameters
 
+  USE mo_ext_decompose_patches, ONLY: ext_decompose_patches
   USE mo_setup_subdivision,     ONLY: decompose_domain_oce!decompose_domain
   USE mo_complete_subdivision,  ONLY:  &
     & complete_parallel_setup,       &
@@ -255,7 +257,7 @@ CONTAINS
     !-------------------------------------------------------------------
     ! 3.2 Initialize various timers
     !-------------------------------------------------------------------
-    IF (ltimer) CALL init_timer
+    CALL init_timer
 
     IF (ltimer) CALL timer_start(timer_model_init)
 
@@ -315,12 +317,25 @@ CONTAINS
       ! Please note: ldump_dd/lread_dd not (yet?) implemented
       IF(my_process_is_mpi_parallel()) THEN
 
-        !The 3D-ocean version of previous calls
-        ALLOCATE(p_patch_global(n_dom_start:n_dom))
-        CALL import_basic_patches(p_patch_global,nlev,nlevp1,num_lev,num_levp1,nshift)      
-        CALL decompose_domain_oce(p_patch_3D%p_patch_2D,p_patch_global)
-        DEALLOCATE(p_patch_global)
-        CALL complete_parallel_setup_oce(p_patch_3D%p_patch_2D)
+        IF (division_method(1) > 100) THEN
+          ! use ext decomposition library driver
+          ALLOCATE(p_patch_global(n_dom_start:n_dom))
+          CALL import_basic_patches(p_patch_global,nlev,nlevp1,num_lev,num_levp1,nshift)
+          CALL ext_decompose_patches(p_patch_3D%p_patch_2D, p_patch_global)
+          DEALLOCATE(p_patch_global)
+          CALL complete_parallel_setup_oce(p_patch_3D%p_patch_2D)
+
+        ELSE
+
+          ! use internal decomposition
+          !The 3D-ocean version of previous calls
+          ALLOCATE(p_patch_global(n_dom_start:n_dom))
+          CALL import_basic_patches(p_patch_global,nlev,nlevp1,num_lev,num_levp1,nshift)
+          CALL decompose_domain_oce(p_patch_3D%p_patch_2D,p_patch_global)
+          DEALLOCATE(p_patch_global)
+          CALL complete_parallel_setup_oce(p_patch_3D%p_patch_2D)
+!          CALL finish(routine, "Old decomposition not available for the ocean" )
+        ENDIF
 
       ELSE
 
@@ -591,7 +606,7 @@ CONTAINS
       &                       v_params, p_as, p_atm_f,v_sea_ice,p_op_coeff,&
       &                       l_have_output)
 
-    IF (ltimer) CALL print_timer
+    CALL print_timer
 
     !------------------------------------------------------------------
     !  cleaning up process
