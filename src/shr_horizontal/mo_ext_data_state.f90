@@ -100,7 +100,7 @@ MODULE mo_ext_data_state
   USE mo_util_netcdf,        ONLY: read_netcdf_data, read_netcdf_lu, nf
   USE mo_util_string,        ONLY: t_keyword_list,  &
     &                              associate_keyword, with_keywords
-  USE mo_phyparam_soil,      ONLY: c_lnd, c_soil
+  USE mo_phyparam_soil,      ONLY: c_lnd, c_soil, c_sea
   USE mo_datetime,           ONLY: t_datetime, month2hour
   USE mo_cdi_constants,      ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE, &
     &                              GRID_UNSTRUCTURED_VERT, GRID_REFERENCE,         &
@@ -3247,6 +3247,9 @@ CONTAINS
              ext_data(jg)%atm%lc_class_t(jc,jb,isub_lake) = ext_data(jg)%atm%i_lc_water
              ! set also area fractions
              ext_data(jg)%atm%lc_frac_t(jc,jb,isub_lake)  = ext_data(jg)%atm%fr_lake(jc,jb)
+
+             ! set surface area index (needed by turbtran)
+             ext_data(jg)%atm%sai_t    (jc,jb,isub_lake)  = c_sea
            ENDIF 
 
            ! 
@@ -3262,8 +3265,17 @@ CONTAINS
              ! set also area fractions
              ext_data(jg)%atm%lc_frac_t(jc,jb,isub_water)  = 1._wp                        &
                &         -ext_data(jg)%atm%fr_land(jc,jb) - ext_data(jg)%atm%fr_lake(jc,jb)
+
+             ! set surface area index (needed by turbtran)
+             ext_data(jg)%atm%sai_t    (jc,jb,isub_water)  = c_sea
            ENDIF
 
+           !
+           ! index list for seaice points is generated in mo_nwp_sfc_utils/init_sea_lists
+           ! 
+           ! note that in principle, sai_t for seaice should be different from sai_t for 
+           ! open water points. However, for the time being, sai_t=c_sea is also used 
+           ! for seaice points.
 
          END DO ! jc
 

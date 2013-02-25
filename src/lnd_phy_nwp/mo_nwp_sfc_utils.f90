@@ -61,7 +61,7 @@ MODULE mo_nwp_sfc_utils
   USE mo_nonhydro_types,      ONLY: t_nh_diag, t_nh_state
   USE mo_grid_config,         ONLY: n_dom
   USE mo_dynamics_config,     ONLY: nnow,nnew
-  USE mo_phyparam_soil,       ONLY: c_lnd
+  USE mo_phyparam_soil,       ONLY: c_lnd, c_sea
   USE mo_ext_data_state,      ONLY: diagnose_ext_aggr
   
   IMPLICIT NONE 
@@ -1047,6 +1047,8 @@ CONTAINS
             ext_data%atm%spi_count(jb)               = i_count_ice
             ! set land-cover class
             ext_data%atm%lc_class_t(jc,jb,isub_seaice)= ext_data%atm%i_lc_snow_ice
+            ! set surface area index (needed by turbtran)
+            ext_data%atm%sai_t    (jc,jb,isub_seaice) = c_sea
           ELSE
             !
             ! water point: all sea points with fr_seaice < 0.5
@@ -1095,6 +1097,11 @@ CONTAINS
             ! Initialize frac_t for seaice
             ext_data%atm%frac_t(jc,jb,isub_seaice) = ext_data%atm%lc_frac_t(jc,jb,isub_seaice) &
               &                                    * p_lnd_diag%fr_seaice(jc,jb)
+
+!DR Note that sai at seaice points is initialized with c/=c_sea, a corresponding update 
+!DR of sai_t needs to be added to the procedure which updates the seaice index list.
+            ! set surface area index (needed by turbtran) 
+            ext_data%atm%sai_t    (jc,jb,isub_seaice)  = c_sea
           ELSE
             ext_data%atm%frac_t(jc,jb,isub_seaice) = 0._wp 
           ENDIF
