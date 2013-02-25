@@ -2268,11 +2268,13 @@ CONTAINS
 
        i_startblk = p_patch(jg)%cells%start_blk(rl_start,1)
        i_endblk   = p_patch(jg)%cells%end_blk(rl_end,i_nchdom)
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,jt,ic,i_count,jc,lu_subs)
        DO jb = i_startblk, i_endblk
-         i_count = ext_data(jg)%atm%lp_count(jb)
-         IF (i_count == 0) CYCLE ! skip loop if there is no land point
+         IF (ext_data(jg)%atm%lp_count(jb) == 0) CYCLE ! skip loop if there is no land point
          IF (ntiles_lnd == 1) THEN 
-! !CDIR NODEP
+          i_count = ext_data(jg)%atm%lp_count_t(jb,1)
+!CDIR NODEP,VOVERTAKE,VOB
           DO ic = 1, i_count 
             jc = ext_data(jg)%atm%idx_lst_lp_t(ic,jb,1)
             ext_data(jg)%atm%plcov_t  (jc,jb,1)  = ext_data(jg)%atm%ndvi_mrat(jc,jb)  &
@@ -2283,9 +2285,9 @@ CONTAINS
  
           END DO
          ELSE ! ntiles_lnd > 1
-
           DO jt=1,ntiles_lnd
-! !CDIR NODEP
+           i_count = ext_data(jg)%atm%lp_count_t(jb,jt)
+!CDIR NODEP,VOVERTAKE,VOB
            DO ic = 1, i_count
             jc = ext_data(jg)%atm%idx_lst_lp_t(ic,jb,jt)
               IF (ext_data(jg)%atm%fr_land(jc,jb) < 0.5_wp) THEN
@@ -2319,7 +2321,7 @@ CONTAINS
            DO jt = ntiles_lnd+1, ntiles_total
 
              jt_in = jt - ntiles_lnd
-!CDIR NODEP
+!CDIR NODEP,VOVERTAKE,VOB
              DO ic = 1, ext_data(jg)%atm%lp_count_t(jb,jt)
                jc = ext_data(jg)%atm%idx_lst_lp_t(ic,jb,jt)
                ext_data(jg)%atm%plcov_t(jc,jb,jt)    = ext_data(jg)%atm%plcov_t(jc,jb,jt_in)
@@ -2331,6 +2333,8 @@ CONTAINS
        ENDIF !lsnowtile
 
      ENDDO  !jb
+!$OMP END DO
+!$OMP END PARALLEL
     END DO !jg
 
   CALL diagnose_ext_aggr (p_patch, ext_data)
