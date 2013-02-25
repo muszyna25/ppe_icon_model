@@ -292,13 +292,14 @@ CONTAINS
       !
       SELECT CASE ( iforcing )
       CASE ( inwp )
-       IF (.NOT. is_restart_run()) THEN
+! ** GZ: to be activated when daily NDVI update becomes effective ** !
+!       IF (.NOT. is_restart_run()) THEN
         CALL interpol_ndvi_time (p_patch, ext_data, time_config%ini_datetime)
-       ELSE
-        datetime_ndvi=time_config%cur_datetime
-        datetime_ndvi%hour=0
-        CALL interpol_ndvi_time (p_patch, ext_data, datetime_ndvi)
-       END IF
+!       ELSE
+!        datetime_ndvi=time_config%cur_datetime
+!        datetime_ndvi%hour=0
+!        CALL interpol_ndvi_time (p_patch, ext_data, datetime_ndvi)
+!       END IF
       END SELECT
 
     CASE DEFAULT
