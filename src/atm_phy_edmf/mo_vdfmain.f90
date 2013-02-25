@@ -900,7 +900,7 @@ DO JL=KIDIA,KFDIA
 
   ZEXTSHF(JL) = 0.0_JPRB
   ZEXTLHF(JL) = 0.0_JPRB
-  DO JT=1,ntiles_total+ntiles_water
+  DO JT=1,ntiles_total      ! land points only
     IF (LLTERRA) THEN
       ZEXTSHF(JL) = ZEXTSHF(JL) + ext_data%atm%frac_t(JL,JB,JT) * &
         ( SHFL_S_T   (JL,JT) * (1.0_JPRB - SNOWFRAC_EX(JL,JT)) +  &
@@ -910,6 +910,9 @@ DO JL=KIDIA,KFDIA
           LHFL_SNOW_T(JL,JT) *             SNOWFRAC_EX(JL,JT)  )
     END IF
   ENDDO
+! normalize to get mean over land points
+  ZEXTSHF(JL) = ZEXTSHF(JL) / SUM(ext_data%atm%frac_t(JL,JB,1:ntiles_total))
+  ZEXTLHF(JL) = ZEXTLHF(JL) / SUM(ext_data%atm%frac_t(JL,JB,1:ntiles_total))
 
   IF (LDLAND(JL)) THEN
     ZRHO = PAPHM1(JL,KLEV)/( RD*PTM1(JL,KLEV)*(1.0_JPRB+RETV*PQM1(JL,KLEV)) )

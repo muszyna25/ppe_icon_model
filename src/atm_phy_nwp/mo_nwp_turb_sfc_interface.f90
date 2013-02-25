@@ -619,7 +619,6 @@ endif
 
       DO jt = ntiles_total, 1, -1                      ! backward to use dominant veg types (land only)
         DO jc = i_startidx, i_endidx
-!         IF ( ( ext_data%atm%llsm_atm_c(jc,jb) )  .and.    & ! land
           IF ( ext_data%atm%frac_t(jc,jb,jt) > 0.0_wp ) THEN   ! only used tiles 
             JTILE = jtessel_gcv2009(ext_data%atm%lc_class_t(jc,jb,jt))
 !JTILE=8 !?????????????
@@ -636,10 +635,8 @@ endif
                   JTILE = 5   ! snow over bare ground
               END SELECT
             ENDIF
-           !IF ( t_g(jl) > (t0_melt + zt_ice) ) THEN   ! salt water freezing temperature
-           !  JTILE = 2              ! sea ice         ! this may never be active as not LAND
-           !ENDIF
            !interception layer (#3) missing ???
+
             zfrti(jc,jtile) = zfrti(jc,jtile) + ext_data%atm%frac_t(jc,jb,jt)
           ENDIF
         ENDDO
@@ -648,6 +645,7 @@ endif
       DO jc = i_startidx, i_endidx
           zfrti(jc,1) = ext_data%atm%frac_t(jc,jb,isub_water) &    ! open ocean fraction
                     & + ext_data%atm%frac_t(jc,jb,isub_lake)       ! lake fraction (fake it as ocean?????)
+          zfrti(jc,1) = ext_data%atm%frac_t(jc,jb,isub_lake)       ! lake fraction (fake it as ocean?????)
           zfrti(jc,2) = ext_data%atm%frac_t(jc,jb,isub_seaice)     ! sea ice fraction
       ENDDO
 
