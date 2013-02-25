@@ -3236,7 +3236,6 @@ CONTAINS
 
 
 
-
            !
            ! searching for lake-points
            !
@@ -3248,17 +3247,21 @@ CONTAINS
              ext_data(jg)%atm%lc_class_t(jc,jb,isub_lake) = ext_data(jg)%atm%i_lc_water
              ! set also area fractions
              ext_data(jg)%atm%lc_frac_t(jc,jb,isub_lake)  = ext_data(jg)%atm%fr_lake(jc,jb)
-           ELSE IF (1._wp-ext_data(jg)%atm%fr_land(jc,jb) >= frsea_thrhld) THEN
-             ! 
-             ! searching for sea points 
-             !
+           ENDIF 
+
+           ! 
+           ! searching for sea points 
+           !
+           IF (1._wp-ext_data(jg)%atm%fr_land(jc,jb)-ext_data(jg)%atm%fr_lake(jc,jb) &
+             &   >= frsea_thrhld) THEN
              i_count_sea=i_count_sea + 1
              ext_data(jg)%atm%idx_lst_sp(i_count_sea,jb) = jc  ! write index of sea-points
              ext_data(jg)%atm%sp_count(jb) = i_count_sea
              ! set land-cover class
              ext_data(jg)%atm%lc_class_t(jc,jb,isub_water) = ext_data(jg)%atm%i_lc_water
              ! set also area fractions
-             ext_data(jg)%atm%lc_frac_t(jc,jb,isub_water)  = 1._wp-ext_data(jg)%atm%fr_land(jc,jb)
+             ext_data(jg)%atm%lc_frac_t(jc,jb,isub_water)  = 1._wp                        &
+               &         -ext_data(jg)%atm%fr_land(jc,jb) - ext_data(jg)%atm%fr_lake(jc,jb)
            ENDIF
 
 
