@@ -92,24 +92,6 @@ case ${target} in
        configureoption="--with-fortran=sun"
         ;;
 
-    # Tornado
-    # -------
-    tornado | tornado_gcc)
-        configureoption="--with-fortran=gcc --with-loopexchange=yes"
-        ;;
-    tornado_nag)
-        configureoption="--with-fortran=nag"
-        ;;
-    tornado_intel)
-        configureoption="--with-fortran=intel"
-        ;;
-    tornado_pgi)
-        configureoption="--with-fortran=pgi"
-        ;;
-    tornado_sun)
-        configureoption="--with-fortran=sun"
-        ;;
-
     # MPIMAC
     # ------
     mpimac | mpimac_gcc)
