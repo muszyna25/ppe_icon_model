@@ -1183,7 +1183,6 @@ src/atm_phy_schemes/srtm_kgb28.f90 -text
 src/atm_phy_schemes/srtm_kgb29.f90 -text
 src/configure_model/mo_advection_config.f90 -text
 src/configure_model/mo_art_config.f90 -text
-src/configure_model/mo_atm_nml_crosscheck.f90 -text
 src/configure_model/mo_atm_phy_nwp_config.f90 -text
 src/configure_model/mo_coupling_config.f90 -text
 src/configure_model/mo_diffusion_config.f90 -text
@@ -1205,6 +1204,7 @@ src/configure_model/mo_lnd_nwp_config.f90 -text
 src/configure_model/mo_mtgrm_config.f90 -text
 src/configure_model/mo_name_list_output_config.f90 -text
 src/configure_model/mo_nh_pzlev_config.f90 -text
+src/configure_model/mo_nml_crosscheck.f90 -text
 src/configure_model/mo_nonhydrostatic_config.f90 -text
 src/configure_model/mo_parallel_config.f90 -text
 src/configure_model/mo_prepicon_config.f90 -text
