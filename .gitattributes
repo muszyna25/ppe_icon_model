@@ -722,6 +722,7 @@ schedulers/ecmwf/gen/case_setup_clim -text
 schedulers/ecmwf/gen/case_setup_default -text
 schedulers/ecmwf/gen/case_setup_edmf -text
 schedulers/ecmwf/gen/case_setup_eps -text
+schedulers/ecmwf/gen/case_setup_oper -text
 schedulers/ecmwf/gen/date_calc.py -text
 schedulers/ecmwf/gen/dot_cdprc -text
 schedulers/ecmwf/gen/icon_restart -text
