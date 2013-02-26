@@ -137,9 +137,9 @@ CONTAINS
     CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_oce_bulk:update_sfcflx'
     INTEGER  :: jmon, jdmon, jmon1, jmon2, ylen, yday
     INTEGER  :: iniyear, curyear, offset
-    INTEGER  :: jc, jb, i, no_set, k
+    INTEGER  :: jc, jb, i, no_set
     INTEGER  :: i_startidx_c, i_endidx_c
-    REAL(wp) :: z_tmin, z_relax, rday1, rday2, dtm1, dsec
+    REAL(wp) :: z_tmin, z_relax, rday1, rday2, dtm1, dsec, z_smax
     !REAL(wp) :: z_c(nproma,n_zlev,p_patch%nblks_c)
     REAL(wp) ::  z_c2(nproma,p_patch_3D%p_patch_2D(1)%nblks_c)
     REAL(wp) ::   Tfw(nproma,p_patch_3D%p_patch_2D(1)%nblks_c)
@@ -567,7 +567,7 @@ CONTAINS
         Qatm%albnirdirw = albedoW
         Qatm%albnirdifw = albedoW
 
-        ! (#slo# 2012-12):
+        ! #slo# 2012-12:
         ! sum of flux from sea ice to the ocean is stored in p_sfc_flx%forc_hflx
         ! diagnosis of 4 parts is stored in p_sfc_flx%forc_swflx/lwflx/ssflx/slflx
         ! this diagnosis is done in mo_sea_ice:upper_ocean_TS
@@ -580,6 +580,20 @@ CONTAINS
         !   this should be done by the coupler if ice_fast is moved to the atmosphere
 
         CALL ice_slow(p_patch, p_os, p_ice, Qatm, p_sfc_flx)
+
+        ! #slo# 2013-02:
+        ! limit sea ice thickness to 50% of surface layer depth
+        !   - hardcoded for all cases - ATTENTION - NOT FOR COUPLING / HEAT BUDGET
+        !   - number of ice classes currently kice=1 - sum of classes must be limited
+        !   - only sea ice, no snow is considered
+
+        z_smax = 0.5*p_patch_3D%p_patch_1D(1)%del_zlev_m(1)
+        DO jb = all_cells%start_block, all_cells%end_block
+          CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+          DO jc = i_startidx_c, i_endidx_c
+            p_ice%hs(jc,:,jb) = min(p_ice%hs(jc,:,jb), z_smax)
+          END DO
+        END DO
 
       ELSE   !  no sea ice
 
