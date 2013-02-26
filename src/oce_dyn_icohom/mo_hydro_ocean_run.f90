@@ -356,7 +356,7 @@ CONTAINS
     ! close the current output file and trigger a new one
     IF (istime4newoutputfile(jstep)) THEN
       jfile = jfile +1
-      CALL init_output_files(jfile,lclose=l_have_output)
+      CALL init_output_files(jfile,lclose=l_have_output,p_patch_2D=p_patch_3D%p_patch_2D)
     END IF
 
     ! Shift time indices for the next loop
