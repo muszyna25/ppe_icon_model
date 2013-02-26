@@ -921,36 +921,6 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
 
     CALL message('mo_nwp_phy_init:', 'Cosmo turbulence initialized')
 
-!!$  ELSE IF (atm_phy_nwp_config(jg)%inwp_turb == 1) THEN ! Restart initialization
-!!$
-!!$    rl_start = 1 ! Initialization is done also for nest boundary points
-!!$    rl_end   = min_rlcell_int
-!!$
-!!$    i_startblk = p_patch%cells%start_blk(rl_start,1)
-!!$    i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
-!!$
-!!$    DO jb = i_startblk, i_endblk
-!!$
-!!$      CALL get_indices_c(p_patch, jb, i_startblk, i_endblk,    &
-!!$                         i_startidx, i_endidx, rl_start, rl_end)
-!!$
-!!$      ! Copy sai over all water/seaice points to the water tile-index of tile-based variables
-!!$      ! otherwise the code breaks if a water seaice point becomes a water point.
-!!$      DO ic = 1, ext_data%atm%sp_count(jb)
-!!$        jc = ext_data%atm%idx_lst_sp(ic,jb)
-!!$        ext_data%atm%sai_t(jc,jb,isub_water) = prm_diag%sai(jc,jb)
-!!$      ENDDO
-!!$      ! Copy sai over all lake points to the lake tile-index of tile-based variables
-!!$      DO ic = 1, ext_data%atm%fp_count(jb)
-!!$        jc = ext_data%atm%idx_lst_fp(ic,jb)
-!!$        ext_data%atm%sai_t(jc,jb,isub_lake) = prm_diag%sai(jc,jb)
-!!$      ENDDO
-!!$      ! Copy sai over all water/seaice water points to the seaice tile-index of tile-based variables
-!!$      DO ic = 1, ext_data%atm%sp_count(jb)
-!!$        jc = ext_data%atm%idx_lst_sp(ic,jb)
-!!$        ext_data%atm%sai_t(jc,jb,isub_seaice) = prm_diag%sai(jc,jb)
-!!$      ENDDO
-!!$    ENDDO
 
   ELSE IF (  atm_phy_nwp_config(jg)%inwp_turb == 2) THEN
 

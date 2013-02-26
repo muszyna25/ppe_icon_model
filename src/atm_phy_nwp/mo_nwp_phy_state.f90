@@ -1124,7 +1124,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
         grib2_desc = t_grib2_var(0, 2, 29, ibits, GRID_REFERENCE, GRID_CELL)
         CALL add_var( diag_list, 'tcm', diag%tcm,                             &
           & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,          &
-          & ldims=shape2d, lrestart=.FALSE.,                                  &
+          & ldims=shape2d,                                                    &
           & in_group=groups("pbl_vars") )
 
 
@@ -1134,7 +1134,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
         grib2_desc = t_grib2_var(0, 0, 19, ibits, GRID_REFERENCE, GRID_CELL)
         CALL add_var( diag_list, 'tch', diag%tch,                             &
           & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,          &
-          & ldims=shape2d, lrestart=.FALSE.,                                  &
+          & ldims=shape2d,                                                    &
           & in_group=groups("pbl_vars") )
 
         
@@ -1143,7 +1143,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
         grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
         CALL add_var( diag_list, 'tfm', diag%tfm,                             &
           & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,          &
-          & ldims=shape2d, lrestart=.FALSE. )
+          & ldims=shape2d )
 
 
         ! &      diag%tfh(nproma,nblks_c)
@@ -1151,7 +1151,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
         grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
         CALL add_var( diag_list, 'tfh', diag%tfh,                             &
           & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,          &
-          & ldims=shape2d, lrestart=.FALSE. )
+          & ldims=shape2d )
 
 
         ! &      diag%tfv(nproma,nblks_c)
@@ -1160,7 +1160,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
         grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
         CALL add_var( diag_list, 'tfv', diag%tfv,                             &
           & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,          &
-          & ldims=shape2d, lrestart=.FALSE. )
+          & ldims=shape2d )
 
 
         ! &      diag%gz0(nproma,nblks_c)

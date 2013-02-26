@@ -425,7 +425,7 @@ CONTAINS
     !!  Because we consider the following physical processes as fast ones
     !!  we allow here the update of prognostic variables inside the subroutines
     !!  This means that the conversion back to the ICON-prognostic variables
-    !!  has to be done atferwards
+    !!  has to be done afterwards
     !!-------------------------------------------------------------------------
 
     IF (lcall_phy_jg(itgscp) .OR. lcall_phy_jg(itturb) .OR. lcall_phy_jg(itsfc)) THEN
@@ -446,24 +446,9 @@ CONTAINS
 
     ENDIF
 
-    IF (  lcall_phy_jg(itturb)) THEN
+    IF (  lcall_phy_jg(itturb) .AND. atm_phy_nwp_config(jg)%inwp_turb > 2) THEN
       IF (timers_level > 1) CALL timer_start(timer_nwp_turbulence)
-      IF ( atm_phy_nwp_config(jg)%inwp_turb <= 2 ) THEN
-        ! Turbulence schemes not including the call to the surface scheme
-        !
-        ! compute turbulent transfer coefficients (atmosphere-surface interface)
-        CALL nwp_turbtrans  (  dt_phy_jg(itfastphy),              & !>in
-                              & pt_patch, p_metrics,              & !>in
-                              & ext_data,                         & !>in
-                              & pt_prog,                          & !>inout
-                              & pt_prog_now_rcf, pt_prog_rcf,     & !>in/inout
-                              & pt_diag ,                         & !>inout
-                              & prm_diag,                         & !>inout
-                              & wtr_prog_now,                     & !>in
-                              & lnd_prog_now,                     & !>inout 
-                              & lnd_diag                          ) !>inout
 
-      ELSE
         ! Turbulence schemes including the call to the surface scheme
         CALL nwp_turbulence_sfc (  dt_phy_jg(itfastphy),              & !>input
                                   & pt_patch, p_metrics,              & !>input
@@ -474,21 +459,10 @@ CONTAINS
                                   & prm_diag,prm_nwp_tend,            & !>inout 
                                   & lnd_prog_now, lnd_prog_new,       & !>inout 
                                   & lnd_diag                          ) !>inout
-      ENDIF
+
       IF (timers_level > 1) CALL timer_stop(timer_nwp_turbulence)
     ENDIF !lcall(itturb)
 
-
-    IF (art_config(jg)%lart) THEN
-
-      CALL art_washout_interface(dt_phy_jg(itfastphy),          & !>in
-                 &          pt_patch,                           & !>in
-                 &          p_prog_list,                        & !>in
-                 &          prm_diag,                           & !>in
-                 &          pt_prog%rho,                        & !>in               
-                 &          pt_prog_rcf%tracer)                   !>inout             
-
-    ENDIF !lart    
 
     IF ( lcall_phy_jg(itsfc) .AND. atm_phy_nwp_config(jg)%inwp_turb <= 2 ) THEN
 
@@ -554,6 +528,18 @@ CONTAINS
       IF (timers_level > 1) CALL timer_stop(timer_nwp_microphysics)
 
     ENDIF
+
+
+    IF (art_config(jg)%lart) THEN
+
+      CALL art_washout_interface(dt_phy_jg(itfastphy),          & !>in
+                 &          pt_patch,                           & !>in
+                 &          p_prog_list,                        & !>in
+                 &          prm_diag,                           & !>in
+                 &          pt_prog%rho,                        & !>in               
+                 &          pt_prog_rcf%tracer)                   !>inout             
+    ENDIF !lart
+
 
     IF (lcall_phy_jg(itsatad) .OR. lcall_phy_jg(itgscp) .OR. lcall_phy_jg(itturb)) THEN
       
@@ -637,14 +623,42 @@ CONTAINS
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
+
+      ! re-diagnose pressure (needed by turbtran)
+      CALL diagnose_pres_temp (p_metrics, pt_prog, pt_prog_rcf,   &
+        &                      pt_diag, pt_patch,                 &
+        &                      opt_calc_temp     = .FALSE.,       &
+        &                      opt_calc_pres     = .TRUE.,        &
+        &                      opt_rlend         = min_rlcell_int )
+
+
+      IF (  lcall_phy_jg(itturb) .AND. atm_phy_nwp_config(jg)%inwp_turb <= 2 ) THEN
+        IF (timers_level > 1) CALL timer_start(timer_nwp_turbulence)
+        ! compute turbulent transfer coefficients (atmosphere-surface interface)
+        CALL nwp_turbtrans  ( dt_phy_jg(itfastphy),              & !>in
+                            & pt_patch, p_metrics,              & !>in
+                            & ext_data,                         & !>in
+                            & pt_prog,                          & !>inout
+                            & pt_prog_rcf, pt_prog_rcf,         & !>in/inout
+                            & pt_diag ,                         & !>inout
+                            & prm_diag,                         & !>inout
+                            & wtr_prog_new,                     & !>in
+                            & lnd_prog_new,                     & !>inout 
+                            & lnd_diag                          ) !>inout
+  
+        IF (timers_level > 1) CALL timer_stop(timer_nwp_turbulence)
+      ENDIF !lcall(itturb)
+
+
       IF (timers_level > 1) CALL timer_stop(timer_fast_phys)
    
     ENDIF ! end of fast physics part
 
+
+
     !!-------------------------------------------------------------------------
     !!  slow physics part
     !!-------------------------------------------------------------------------
-
 
     IF (l_any_slowphys) THEN
 
@@ -660,9 +674,9 @@ CONTAINS
         ltemp = .FALSE.
       ENDIF
 
-      ! Pressure should always be rediagnosed for slow physics in order to have
-      ! the correct air masses for computing heating rates
-      lpres = .TRUE.
+
+      ! Pressure has already been updated at the end of the fast physics part
+      lpres = .FALSE.
 
       ! Temperature at interface levels is needed if irad_aero = 5 or 6
       ! or if Ritter-Geleyn radiation is called
@@ -681,14 +695,12 @@ CONTAINS
         &                      opt_calc_temp_ifc = ltemp_ifc,     &
         &                      opt_rlend         = min_rlcell_int )
 
-    ELSE
-      ! diagnose pressure only for radheat
-      CALL diagnose_pres_temp (p_metrics, pt_prog, pt_prog_rcf,   &
-        &                      pt_diag, pt_patch,                 &
-        &                      opt_calc_temp     = .FALSE.,       &
-        &                      opt_calc_pres     = .TRUE.,        &
-        &                      opt_rlend         = min_rlcell_int )
     ENDIF
+
+
+    !-------------------------------------------------------------------------
+    !> Convection
+    !-------------------------------------------------------------------------
 
     IF ( lcall_phy_jg(itconv)  ) THEN
 
@@ -706,6 +718,11 @@ CONTAINS
       IF (timers_level > 2) CALL timer_stop(timer_nwp_convection)
 
     ENDIF! convection
+
+
+    !-------------------------------------------------------------------------
+    !> Cloud cover
+    !-------------------------------------------------------------------------
 
     IF ( lcall_phy_jg(itccov) ) THEN
 
@@ -990,6 +1007,7 @@ CONTAINS
       IF (timers_level > 2) CALL timer_stop(timer_radheat)
       
     ENDIF  ! inwp_radiation
+
 
     !-------------------------------------------------------------------------
     !  Gravity waves drag: orographic and non-orographic
@@ -1424,6 +1442,7 @@ CONTAINS
     IF (lcall_phy_jg(itturb)) CALL sync_patch_array(SYNC_E, pt_patch, pt_prog%vn)
     IF (timers_level > 3) CALL timer_stop(timer_phys_sync_vn)
     IF (timers_level > 2) CALL timer_stop(timer_phys_acc)
+
 
     ! dpsdt diagnostic - omitted in the case of a parallization test (p_test_run) because this
     ! is a purely diagnostic quantitiy, for which it does not make sense to implement an order-invariant

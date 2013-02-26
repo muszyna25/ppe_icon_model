@@ -272,8 +272,8 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
       ! note that TKE must be converted to the turbulence velocity scale SQRT(2*TKE)
       ! for turbdiff
       ! INPUT to turbdiff is timestep now
-      z_tvs(i_startidx:i_endidx,:,1) =  &
-        &           SQRT(2._wp * p_prog_now_rcf%tke(i_startidx:i_endidx,:,jb))
+      z_tvs(i_startidx:i_endidx,nlev-1:nlev+1,1) =  &
+        &           SQRT(2._wp * p_prog_now_rcf%tke(i_startidx:i_endidx,nlev-1:nlev+1,jb))
 
 
       ! First call of turbtran for all grid points (water points with > 50% water

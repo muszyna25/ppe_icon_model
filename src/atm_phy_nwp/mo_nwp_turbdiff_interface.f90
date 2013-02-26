@@ -245,13 +245,20 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
       p_prog_rcf%tke(i_startidx:i_endidx,:,jb)= 0.5_wp                            &
         &                                     * (z_tvs(i_startidx:i_endidx,:,1))**2
 
-       ! Update QV, QC and temperature with turbulence tendencies
+      ! Update wind speed, QV and temperature with turbulence tendencies
+      ! Note: the update of wind speed is done here in order to pass u and v at the correct time level
+      ! to turbtran and the convection scheme. However, the update of the prognostic variable vn
+      ! is done at the end of the NWP interface by first interpolating the u/v tendencies to the 
+      ! velocity points (in order to minimize interpolation errors) and then adding the tendencies
+      ! to vn
       DO jk = 1, nlev
         DO jc = i_startidx, i_endidx
           p_prog_rcf%tracer(jc,jk,jb,iqv) =MAX(0._wp, p_prog_rcf%tracer(jc,jk,jb,iqv) &
                &           + tcall_turb_jg*prm_nwp_tend%ddt_tracer_turb(jc,jk,jb,iqv))
           p_diag%temp(jc,jk,jb) = p_diag%temp(jc,jk,jb)  &
            &  + tcall_turb_jg*prm_nwp_tend%ddt_temp_turb(jc,jk,jb)
+          p_diag%u(jc,jk,jb) = p_diag%u(jc,jk,jb) + tcall_turb_jg*prm_nwp_tend%ddt_u_turb(jc,jk,jb)
+          p_diag%v(jc,jk,jb) = p_diag%v(jc,jk,jb) + tcall_turb_jg*prm_nwp_tend%ddt_v_turb(jc,jk,jb)
         ENDDO
       ENDDO
       ! QC is updated only in that part of the model domain where moisture physics is active
@@ -299,13 +306,21 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
         &                shfl_s=prm_diag%shfl_s(:,jb), lhfl_s=prm_diag%lhfl_s(:,jb),   & !out
         &                umfl_s=z_umfl_s(:)          , vmfl_s=z_vmfl_s(:)              ) !out
 
-       ! Update QV, QC and temperature with turbulence tendencies
+
+      ! Update wind speed, QV and temperature with turbulence tendencies
+      ! Note: the update of wind speed is done here in order to pass u and v at the correct time level
+      ! to turbtran and the convection scheme. However, the update of the prognostic variable vn
+      ! is done at the end of the NWP interface by first interpolating the u/v tendencies to the 
+      ! velocity points (in order to minimize interpolation errors) and then adding the tendencies
+      ! to vn
       DO jk = 1, nlev
         DO jc = i_startidx, i_endidx
           p_prog_rcf%tracer(jc,jk,jb,iqv) =MAX(0._wp, p_prog_rcf%tracer(jc,jk,jb,iqv) &
                &           + tcall_turb_jg*prm_nwp_tend%ddt_tracer_turb(jc,jk,jb,iqv))
           p_diag%temp(jc,jk,jb) = p_diag%temp(jc,jk,jb)  &
                &           + tcall_turb_jg*prm_nwp_tend%ddt_temp_turb(jc,jk,jb)
+          p_diag%u(jc,jk,jb) = p_diag%u(jc,jk,jb) + tcall_turb_jg*prm_nwp_tend%ddt_u_turb(jc,jk,jb)
+          p_diag%v(jc,jk,jb) = p_diag%v(jc,jk,jb) + tcall_turb_jg*prm_nwp_tend%ddt_v_turb(jc,jk,jb)
         ENDDO
       ENDDO
       ! QC is updated only in that part of the model domain where moisture physics is active
