@@ -55,8 +55,8 @@ USE mo_ocean_nml,              ONLY: iswm_oce, n_zlev, no_tracer, &
   &                                  itestcase_oce, idiag_oce, init_oce_prog, init_oce_relax, &
   &                                  EOS_type, i_sea_ice, l_staggered_timestep
 USE mo_dynamics_config,        ONLY: nold, nnew
-USE mo_io_config,              ONLY: out_expname, istime4output, istime4newoutputfile,&
-  &                                  is_checkpoint_time, n_checkpoints
+USE mo_io_config,              ONLY: out_expname, istime4newoutputfile, n_files,&
+  &                                  is_checkpoint_time, n_checkpoints, is_output_time
 USE mo_run_config,             ONLY: nsteps, dtime, ltimer, output_mode
 USE mo_exception,              ONLY: message, message_text, finish
 USE mo_ext_data_types,         ONLY: t_external_data
@@ -331,9 +331,8 @@ CONTAINS
     CALL add_time(dtime,0,0,0,datetime)
     ! Not nice, but the name list output requires this
     sim_time(1) = MODULO(sim_time(1) + dtime, 86400.0_wp) 
-
-    l_outputtime = (MOD(jstep,n_io) == 0)
-    IF ( l_outputtime .OR. istime4name_list_output(sim_time(1)) ) THEN
+    IF (is_output_time(jstep) .OR. istime4name_list_output(sim_time(1)+dtime)) THEN 
+!TODO    IF ( l_outputtime .OR. istime4name_list_output(sim_time(1)) ) THEN
 
       CALL calc_moc (p_patch,p_patch_3D, p_os(jg)%p_diag%w(:,:,:), datetime)
       CALL calc_psi (p_patch,p_patch_3D, p_os(jg)%p_diag%u(:,:,:), &
@@ -353,11 +352,17 @@ CONTAINS
 
     END IF
 
-    ! close the current output file and trigger a new one
-    IF (istime4newoutputfile(jstep)) THEN
+    ! If it's time, close the current output file and trigger a new one
+    IF (jstep/=1.AND.(MOD(jstep,n_files())==0).AND.jstep/=nsteps) THEN
       jfile = jfile +1
       CALL init_output_files(jfile,lclose=l_have_output,p_patch_2D=p_patch_3D%p_patch_2D)
-    END IF
+    ENDIF
+
+!   ! close the current output file and trigger a new one
+!   IF (istime4newoutputfile(jstep)) THEN
+!     jfile = jfile +1
+!     CALL init_output_files(jfile,lclose=l_have_output,p_patch_2D=p_patch_3D%p_patch_2D)
+!   END IF
 
     ! Shift time indices for the next loop
     ! this HAS to ge into the restart files, because the start with the following loop
