@@ -639,7 +639,7 @@ CONTAINS
                             & pt_patch, p_metrics,              & !>in
                             & ext_data,                         & !>in
                             & pt_prog,                          & !>inout
-                            & pt_prog_rcf, pt_prog_rcf,         & !>in/inout
+                            & pt_prog_rcf,                      & !>inout
                             & pt_diag ,                         & !>inout
                             & prm_diag,                         & !>inout
                             & wtr_prog_new,                     & !>in

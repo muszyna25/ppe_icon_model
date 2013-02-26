@@ -83,14 +83,14 @@ CONTAINS
   !!-------------------------------------------------------------------------
   !!
 SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
-                          & p_patch,p_metrics,                 & !>in
+                          & p_patch, p_metrics,                & !>in
                           & ext_data,                          & !>in
                           & p_prog,                            & !>inout
-                          & p_prog_now_rcf, p_prog_rcf,        & !>in/inout
+                          & p_prog_rcf,                        & !>inout
                           & p_diag ,                           & !>inout
                           & prm_diag,                          & !>inout
-                          & wtr_prog_now,                      & !>in 
-                          & lnd_prog_now,                      & !>inout 
+                          & wtr_prog_new,                      & !>in 
+                          & lnd_prog_new,                      & !>inout 
                           & lnd_diag                           ) !>inout
 
 
@@ -98,12 +98,11 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
   TYPE(t_external_data),       INTENT(in)   :: ext_data        !< external data
   TYPE(t_nh_metrics)          ,INTENT(in)   :: p_metrics
   TYPE(t_nh_prog),      TARGET,INTENT(inout):: p_prog          !<the prog vars
-  TYPE(t_nh_prog),      TARGET,INTENT(inout):: p_prog_now_rcf  !<progs with red.
   TYPE(t_nh_prog),      TARGET,INTENT(inout):: p_prog_rcf      !<call freq
   TYPE(t_nh_diag),      TARGET,INTENT(inout):: p_diag          !<the diag vars
   TYPE(t_nwp_phy_diag),        INTENT(inout):: prm_diag        !< atm phys vars
-  TYPE(t_wtr_prog),            INTENT(in)   :: wtr_prog_now    !< prog vars for wtr
-  TYPE(t_lnd_prog),            INTENT(inout):: lnd_prog_now    !< prog vars for sfc
+  TYPE(t_wtr_prog),            INTENT(in)   :: wtr_prog_new    !< prog vars for wtr
+  TYPE(t_lnd_prog),            INTENT(inout):: lnd_prog_new    !< prog vars for sfc
   TYPE(t_lnd_diag),            INTENT(inout):: lnd_diag        !< diag vars for sfc
   REAL(wp),                    INTENT(in)   :: tcall_turb_jg   !< time interval for 
                                                                !< turbulence
@@ -207,12 +206,15 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
         lnd_diag%qv_s (:,jb) = 0._wp
       ELSE IF ( atm_phy_nwp_config(jg)%inwp_turb == 1 .OR.   &
         &       atm_phy_nwp_config(jg)%inwp_turb == 2) THEN
-        IF ( ltestcase .AND. nh_test_name == 'wk82') THEN   
+        IF ( ltestcase .AND. nh_test_name == 'wk82') THEN
+
+!DR Note thta this must be re-checked, once turbtran is called at the very end 
+!DR of the fast physics part.   
          DO jc = i_startidx, i_endidx
-          lnd_prog_now%t_g(jc,jb) = p_diag%temp(jc,nlev,jb)*  &
+          lnd_prog_new%t_g(jc,jb) = p_diag%temp(jc,nlev,jb)*  &
                       ((p_diag%pres_sfc(jc,jb))/p_diag%pres(jc,nlev,jb))**rd_o_cpd
           lnd_diag%qv_s (jc,jb) = &
-             &         spec_humi(sat_pres_water(lnd_prog_now%t_g(jc,jb)),&
+             &         spec_humi(sat_pres_water(lnd_prog_new%t_g(jc,jb)),&
              &                                   p_diag%pres_sfc(jc,jb) )          
           lnd_diag%qv_s(jc,jb) = MIN (lnd_diag%qv_s(jc,jb) ,p_prog_rcf%tracer(jc,nlev,jb,iqv))
          END DO
@@ -222,7 +224,7 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
          !
          DO jc = i_startidx, i_endidx
            lnd_diag%qv_s (jc,jb) = &
-             &         spec_humi(sat_pres_water(lnd_prog_now%t_g(jc,jb)),&
+             &         spec_humi(sat_pres_water(lnd_prog_new%t_g(jc,jb)),&
              &                                   p_diag%pres_sfc(jc,jb) )
          ENDDO
         END IF
@@ -271,9 +273,9 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
 
       ! note that TKE must be converted to the turbulence velocity scale SQRT(2*TKE)
       ! for turbdiff
-      ! INPUT to turbdiff is timestep now
+      ! INPUT to turbtran is timestep new
       z_tvs(i_startidx:i_endidx,nlev-1:nlev+1,1) =  &
-        &           SQRT(2._wp * p_prog_now_rcf%tke(i_startidx:i_endidx,nlev-1:nlev+1,jb))
+        &           SQRT(2._wp * p_prog_rcf%tke(i_startidx:i_endidx,nlev-1:nlev+1,jb))
 
 
       ! First call of turbtran for all grid points (water points with > 50% water
@@ -285,8 +287,8 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
           & istart=i_startidx, iend=i_endidx, istartpar=i_startidx, iendpar=i_endidx,  & !in
           & l_hori=phy_params(jg)%mean_charlen, hhl=p_metrics%z_ifc(:,:,jb),           & !in
           & fr_land=ext_data%atm%fr_land(:,jb), depth_lk=ext_data%atm%depth_lk(:,jb),  & !in
-          & sai=prm_diag%sai(:,jb), h_ice=wtr_prog_now%h_ice(:,jb),                    & !in
-          & ps=p_diag%pres_sfc(:,jb), t_g=lnd_prog_now%t_g(:,jb),                      & !in
+          & sai=prm_diag%sai(:,jb), h_ice=wtr_prog_new%h_ice(:,jb),                    & !in
+          & ps=p_diag%pres_sfc(:,jb), t_g=lnd_prog_new%t_g(:,jb),                      & !in
           & qv_s=lnd_diag%qv_s(:,jb),                                                  & !in
           & u=p_diag%u(:,:,jb), v=p_diag%v(:,:,jb), w=p_prog%w(:,:,jb),                & !in
           & T=p_diag%temp(:,:,jb), prs=p_diag%pres(:,:,jb),                            & !in
@@ -351,7 +353,7 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
           DO ic = 1, i_count
             jc = ilist(ic)
             gz0_t(ic,jt)       = prm_diag%gz0_t(jc,jb,jt)
-            t_g_t(ic,jt)       = lnd_prog_now%t_g_t(jc,jb,jt)
+            t_g_t(ic,jt)       = lnd_prog_new%t_g_t(jc,jb,jt)
             qv_s_t(ic,jt)      = lnd_diag%qv_s_t(jc,jb,jt)
             sai_t(ic,jt)       = ext_data%atm%sai_t(jc,jb,jt)
             z_ifc_t(ic,1:3,jt) = p_metrics%z_ifc(jc,nlev-1:nlev+1,jb)
@@ -480,8 +482,8 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
       ENDIF ! tiles / no tiles
 
       ! transform updated turbulent velocity scale back to TKE
-      p_prog_now_rcf%tke(i_startidx:i_endidx,nlevp1,jb)= 0.5_wp                        &
-        &                                     * (z_tvs(i_startidx:i_endidx,nlevp1,1))**2
+      p_prog_rcf%tke(i_startidx:i_endidx,nlevp1,jb)= 0.5_wp                        &
+        &                                  * (z_tvs(i_startidx:i_endidx,nlevp1,1))**2
 
 
     ELSE IF ( atm_phy_nwp_config(jg)%inwp_turb == 2 ) THEN
@@ -494,8 +496,8 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
       CALL parturs( zsurf=p_metrics%z_ifc(:,nlevp1,jb), z1=p_metrics%z_mc(:,nlev,jb),   & !in
         &           u1=p_diag%u(:,nlev,jb), v1=p_diag%v(:,nlev,jb),                     & !in
         &           t1=p_diag%temp(:,nlev,jb), qv1=p_prog_rcf%tracer(:,nlev,jb,iqv),    & !in
-        &           t_g=lnd_prog_now%t_g(:,jb), qv_s=lnd_diag%qv_s(:,jb),               & !in
-        &           fr_land=ext_data%atm%fr_land(:,jb), h_ice=wtr_prog_now%h_ice(:,jb), & !in
+        &           t_g=lnd_prog_new%t_g(:,jb), qv_s=lnd_diag%qv_s(:,jb),               & !in
+        &           fr_land=ext_data%atm%fr_land(:,jb), h_ice=wtr_prog_new%h_ice(:,jb), & !in
         &           ie=nproma, i_startidx=i_startidx, i_endidx=i_endidx,                & !in
         &           tcm=prm_diag%tcm(:,jb), tch=prm_diag%tch(:,jb),                     & !out
         &           gz0=prm_diag%gz0(:,jb)                                              ) !inout
