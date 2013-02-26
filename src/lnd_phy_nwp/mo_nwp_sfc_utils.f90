@@ -2021,10 +2021,13 @@ CONTAINS
              p_lnd_state(jg)%prog_lnd(n_now)%t_g_t(jc,jb,isub_seaice)= tf_salt
              p_lnd_state(jg)%prog_wtr(n_now)%t_ice(jc,jb) = tf_salt
              p_lnd_state(jg)%prog_wtr(n_now)%h_ice(jc,jb) = hice_ini
+
             ELSE
              ! before was also ice. 
             END IF
 
+             ! set sai_t
+             ext_data(jg)%atm%sai_t    (jc,jb,isub_seaice)  = c_sea
              ext_data(jg)%atm%frac_t(jc,jb,isub_seaice) = 1._wp
              ext_data(jg)%atm%frac_t(jc,jb,isub_water)  = 0._wp
           ELSE
@@ -2041,6 +2044,9 @@ CONTAINS
             p_lnd_state(jg)%diag_lnd%qv_s_t(jc,jb,isub_water)    =                    &
              &   spec_humi( sat_pres_water(p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) ),&
              &                                  p_nh_state(jg)%diag%pres_sfc(jc,jb) ) 
+            
+            ! set sai_t
+            ext_data(jg)%atm%sai_t    (jc,jb,isub_water)  = c_sea
             ext_data(jg)%atm%frac_t(jc,jb,isub_water) = 1._wp
             ext_data(jg)%atm%frac_t(jc,jb,isub_seaice) = 0._wp
              
@@ -2093,6 +2099,7 @@ CONTAINS
               &                                  p_nh_state(jg)%diag%pres_sfc(jc,jb) )  
              p_lnd_state(jg)%prog_wtr(n_now)%t_ice(jc,jb) = tf_salt
              p_lnd_state(jg)%prog_wtr(n_now)%h_ice(jc,jb) = hice_ini
+
             ELSE
 
       !WRITE(0,'(a,2i, 5g12.5)') 'before was also ice',jc, jb, &
@@ -2103,6 +2110,8 @@ CONTAINS
       !CALL message('', TRIM(message_text))
 
             END IF
+            ! set sai_t
+            ext_data(jg)%atm%sai_t    (jc,jb,isub_seaice)  = c_sea
             ! set new frac_t for isub_seaice
             ext_data(jg)%atm%frac_t(jc,jb,isub_seaice) = ext_data(jg)%atm%lc_frac_t(jc,jb,isub_seaice) &
               &                                    * p_lnd_state(jg)%diag_lnd%fr_seaice(jc,jb)
@@ -2149,6 +2158,8 @@ CONTAINS
 !!$        !& p_nh_state(jg)%diag%pres_sfc(jc,jb)
         
             END IF
+           ! set sai_t
+            ext_data(jg)%atm%sai_t    (jc,jb,isub_water)  = c_sea
            ! Update frac_t for water tile
             ext_data(jg)%atm%frac_t(jc,jb,isub_water)  = ext_data(jg)%atm%lc_frac_t(jc,jb,isub_water)  &
               &                                    * (1._wp - p_lnd_state(jg)%diag_lnd%fr_seaice(jc,jb))
