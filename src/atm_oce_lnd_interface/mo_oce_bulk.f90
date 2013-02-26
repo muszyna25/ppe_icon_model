@@ -591,7 +591,7 @@ CONTAINS
         DO jb = all_cells%start_block, all_cells%end_block
           CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
           DO jc = i_startidx_c, i_endidx_c
-            p_ice%hs(jc,:,jb) = min(p_ice%hs(jc,:,jb), z_smax)
+            p_ice%hi(jc,:,jb) = min(p_ice%hi(jc,:,jb), z_smax)
           END DO
         END DO
 
