@@ -110,7 +110,16 @@ cp -p ${outbasedir}/bin/control_model ./icon.exe
 echo "job::start"
 date
 export USE_SIGNAL_HANDLING=yes
-./icon.exe
+
+debug=0
+if [ ${debug} = 1 ] ; then                    # optional totalview debugging (max tasks: 256! better 64)
+  export DISPLAY=ecaccess.ecmwf.int:1631.0    # open nxclient on c2a and get DISPLAY
+  totalview -searchpath='/perm/ms/de/dei2/icon-dev/src/atm_phy_edmf/,/perm/ms/de/dei2/icon-dev/src/lnd_phy_nwp/,/perm/ms/de/dei2/icon-dev/src/atm_phy_nwp/' \
+    poe -a ./icon.exe
+else
+  ./icon.exe
+fi
+
 echo "job::end"
 date
 

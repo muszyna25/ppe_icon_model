@@ -55,7 +55,6 @@ ls -lrt
 smsevent configure
 
 # Submit ''Make'' -----------------------------
-export LDR_CNTRL=MAXDAT=0xD000000DSA
 gmake -j%SCTOTALTASKS%
 smsevent make
 

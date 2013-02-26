@@ -240,7 +240,7 @@ if [[ $lcpdata = 1 ]] ; then
   rsh ecgate mkdir -p ${gatedir}/grb_data
   rcp *.grb    ecgate:${gatedir}/grb_data
   emkdir -p ec:icon/experiments/%SUITE%/%EXPNUM%/${YYYYMM}
-  ecp *.grb ec:icon/experiments/%SUITE%/%EXPNUM%/${YYYYMM}
+  ecp "*.grb" ec:icon/experiments/%SUITE%/%EXPNUM%/${YYYYMM}
   smsevent cpdata
 fi
 
