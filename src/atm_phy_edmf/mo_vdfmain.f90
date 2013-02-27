@@ -911,8 +911,8 @@ DO JL=KIDIA,KFDIA
     END IF
   ENDDO
 ! normalize to get mean over land points
-  ZEXTSHF(JL) = ZEXTSHF(JL) / SUM(ext_data%atm%frac_t(JL,JB,1:ntiles_total))
-  ZEXTLHF(JL) = ZEXTLHF(JL) / SUM(ext_data%atm%frac_t(JL,JB,1:ntiles_total))
+!  ZEXTSHF(JL) = ZEXTSHF(JL) / SUM(ext_data%atm%frac_t(JL,JB,1:ntiles_total))
+!  ZEXTLHF(JL) = ZEXTLHF(JL) / SUM(ext_data%atm%frac_t(JL,JB,1:ntiles_total))
 
   IF (LDLAND(JL)) THEN
     ZRHO = PAPHM1(JL,KLEV)/( RD*PTM1(JL,KLEV)*(1.0_JPRB+RETV*PQM1(JL,KLEV)) )
