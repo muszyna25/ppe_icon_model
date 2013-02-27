@@ -1115,7 +1115,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
         CALL add_var( diag_list, 'aqhfl_s', diag%aqhfl_s  ,                   &
           & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,          &
           & ldims=shape2d,                                                    &
-          & isteptype=TSTEP_AVG )
+          & isteptype=TSTEP_AVG, in_group=groups("pbl_vars") )
 
 
         ! &      diag%tcm(nproma,nblks_c)
