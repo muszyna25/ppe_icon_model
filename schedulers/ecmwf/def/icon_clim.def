@@ -1,4 +1,4 @@
-# -------------------------------------------------
+cs# -------------------------------------------------
 # ICON.DEF
 # -------------------------------------------------
 #
@@ -23,11 +23,13 @@
 # ---USER SETUP------------------------------------
 
 # global definitions:
-set EXPNUM        "020"                #---experiment number---
-set EXPNUM2       "020"                #---experiment number used for score comparison---
-set SUITE2        "dei2"               #---suite             used for score comparison---
+set EXPNUM        "002"                #---experiment number---
+set EXPNUM2       "002"                #---experiment number used for score comparison---
+set SUITE2        "dei3"               #---suite             used for score comparison---
 set FIRST_DATE    20001126
 set LAST_DATE     20001127
+set FIRST_SSTICE_YEAR 2000             # First and last year for which we neeed the external SST
+set LAST_SSTICE_YEAR  2002             #  and CI external files 
 set MONTHS        200011               #---months to be run e.g. 201201_201207
 set ICON_HOME     /home/ms/de/deia 
 set ICON_ID       deia
@@ -209,6 +211,10 @@ suite $USER
     edit ECTEMP     $ECTEMP
     edit SCSOFT     $SCSOFT
     edit MONTHS     $MONTHS
+    edit FIRST_SSTICE_YEAR $FIRST_SSTICE_YEAR
+    edit LAST_SSTICE_YEAR  $LAST_SSTICE_YEAR
+    edit FDATE $FIRST_DATE
+
 
     edit ICONNODES        $ICONNODES        
     edit ICONTASKSPERNODE $ICONTASKSPERNODE 
@@ -282,6 +288,7 @@ suite $USER
 
         endfamily
 
+
         task get_data
             trigger (setup == complete) and (../once == complete)
             complete ($ENABLE_GET_DATA == 0) or (testday==complete) and not (testday:time_domonth)
@@ -305,15 +312,40 @@ suite $USER
 
     endfamily
 
+ 
+    family sst_ice
+
+       repeat integer YYYY ${FIRST_SSTICE_YEAR}  ${LAST_SSTICE_YEAR} 
+       trigger (init/build==complete) and (once == complete)
+
+         task retreive_sst_ice
+            on_hpc_parallel
+            edit SCJOBTYPE    parallel
+            edit SCJOBCLASS   np
+            edit SCTOTALTASKS 4
+            edit SCCPUS       4
+            edit SCMEM        3000MB
+            edit SCWALLCLOCKLIMIT 02:00:00
+         task prepicon_sst_ice
+            trigger retreive_sst_ice==complete
+            on_hpc_parallel
+            edit SCJOBTYPE    parallel
+            edit SCJOBCLASS   np
+            edit SCTOTALTASKS 4
+            edit SCCPUS       4
+            edit SCMEM        3000MB
+            edit SCWALLCLOCKLIMIT 02:00:00
+    endfamily
+
 
     # FORECAST ----------------------------------------
 
     family forecast
        #repeat date YMD ${FIRST_DATE} ${LAST_DATE}      # cycle over dates
-        trigger init==complete
+        trigger (init==complete) and (sst_ice==complete)
         complete ($ENABLE_FORECAST == 0)
 
-        loop DATE ( 20001126 20001127 ) do
+        loop DATE ( ${FIRST_DATE} ${LAST_DATE} ) do
             family $DATE
               edit YMD $DATE
 
