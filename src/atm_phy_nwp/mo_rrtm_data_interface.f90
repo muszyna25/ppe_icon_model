@@ -355,7 +355,7 @@ CONTAINS
     
     CALL allocate_rrtm_model_data(rrtm_data)
 
-    rrtm_data%convection_type(:,:) = 0 ! this is always 0 and will not ber communicated
+    rrtm_data%convection_type(:,:) = 0 ! this is always 0 and will not be communicated
       
   END SUBROUTINE init_rrtm_data
   !-----------------------------------------
@@ -512,10 +512,10 @@ CONTAINS
     & zland      ,&!< in     land fraction
     & zglac      ,&!< in     land glacier fraction
     & cos_mu0    ,&!< in  cos of zenith angle mu0
-    & alb_vis_dir,&!< in surface albedo for visible range, direct
-    & alb_nir_dir,&!< in surface albedo for near IR range, direct
+!    & alb_vis_dir,&!< in surface albedo for visible range, direct
+!    & alb_nir_dir,&!< in surface albedo for near IR range, direct
     & alb_vis_dif,&!< in surface albedo for visible range, diffuse
-    & alb_nir_dif,&!< in surface albedo for near IR range, diffuse
+!    & alb_nir_dif,&!< in surface albedo for near IR range, diffuse
     & emis_rad   ,&!< in longwave surface emissivity
     & tk_sfc     ,&!< in surface temperature
     & pp_hl      ,&!< in  pres at half levels at t-dt [Pa]
@@ -541,10 +541,10 @@ CONTAINS
                                                         ! = smoothed fr_glac
     REAL(wp), TARGET ::  cos_mu0(:,:)        ! cosine of solar zenith angle
 
-    REAL(wp), TARGET ::  alb_vis_dir(:,:) ! surface albedo for visible and near IR range, direct
-    REAL(wp), TARGET ::  alb_nir_dir(:,:) ! surface albedo for visible and near IR range, direct
-    REAL(wp), TARGET ::  alb_nir_dif(:,:) !< in surface albedo for visible range, diffuse
+!    REAL(wp), TARGET ::  alb_vis_dir(:,:) ! surface albedo for visible and near IR range, direct
     REAL(wp), TARGET ::  alb_vis_dif(:,:) !< in surface albedo for visible range, diffuse
+!    REAL(wp), TARGET ::  alb_nir_dir(:,:) ! surface albedo for visible and near IR range, direct
+!    REAL(wp), TARGET ::  alb_nir_dif(:,:) !< in surface albedo for visible range, diffuse
 
     REAL(wp), TARGET ::  emis_rad(:,:)      ! lw sfc emissivity
     REAL(wp), TARGET ::  tk_sfc(:,:)      ! surface temperature at trad [K]
@@ -607,21 +607,21 @@ CONTAINS
       &  name     = "tmp" )
 ! 
     
-    recv_tmp      = new_icon_comm_variable ( &
-      &  recv_var = rrtm_data%albedo_vis_dir, &
-      &  send_var = alb_vis_dir,                    &
-      &  comm_pattern_index = recv_comm_pattern,    &
-      &  status   = is_ready,                       &
-      &  scope    = until_sync,                     &
-      &  name     = "tmp" )
+!     recv_tmp      = new_icon_comm_variable ( &
+!       &  recv_var = rrtm_data%albedo_vis_dir, &
+!       &  send_var = alb_vis_dir,                    &
+!       &  comm_pattern_index = recv_comm_pattern,    &
+!       &  status   = is_ready,                       &
+!       &  scope    = until_sync,                     &
+!       &  name     = "tmp" )
           
-    recv_tmp      = new_icon_comm_variable ( &
-      &  recv_var = rrtm_data%albedo_nir_dir, &
-      &  send_var = alb_nir_dir,                    &
-      &  comm_pattern_index = recv_comm_pattern,    &
-      &  status   = is_ready,                       &
-      &  scope    = until_sync,                     &
-      &  name     = "tmp" )
+!     recv_tmp      = new_icon_comm_variable ( &
+!       &  recv_var = rrtm_data%albedo_nir_dir, &
+!       &  send_var = alb_nir_dir,                    &
+!       &  comm_pattern_index = recv_comm_pattern,    &
+!       &  status   = is_ready,                       &
+!       &  scope    = until_sync,                     &
+!       &  name     = "tmp" )
       
          
     recv_tmp      = new_icon_comm_variable ( &
@@ -632,13 +632,13 @@ CONTAINS
       &  scope    = until_sync,                     &
       &  name     = "tmp" )
           
-    recv_tmp      = new_icon_comm_variable ( &
-      &  recv_var = rrtm_data%albedo_nir_dif, &
-      &  send_var = alb_nir_dif,                    &
-      &  comm_pattern_index = recv_comm_pattern,    &
-      &  status   = is_ready,                       &
-      &  scope    = until_sync,                     &
-      &  name     = "tmp" )
+!     recv_tmp      = new_icon_comm_variable ( &
+!       &  recv_var = rrtm_data%albedo_nir_dif, &
+!       &  send_var = alb_nir_dif,                    &
+!       &  comm_pattern_index = recv_comm_pattern,    &
+!       &  status   = is_ready,                       &
+!       &  scope    = until_sync,                     &
+!       &  name     = "tmp" )
 ! 
     recv_tmp      = new_icon_comm_variable ( &
       &  recv_var = rrtm_data%emis_rad      , &

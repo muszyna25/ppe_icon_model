@@ -176,10 +176,10 @@ CONTAINS
       zland       = rrtm_local_data%fr_land_smt    ,&  !< in     land fraction
       zglac       = rrtm_local_data%fr_glac_smt    ,&  !< in     land glacier fraction
       cos_mu0     = rrtm_local_data%cosmu0         ,&  !< in  cos of zenith angle mu0
-      alb_vis_dir = rrtm_local_data%albedo_vis_dir ,&  !< in surface albedo for visible range, direct
-      alb_nir_dir = rrtm_local_data%albedo_nir_dir ,&  !< in surface albedo for near IR range, direct
+ !     alb_vis_dir = rrtm_local_data%albedo_vis_dir ,&  !< in surface albedo for visible range, direct
+ !     alb_nir_dir = rrtm_local_data%albedo_nir_dir ,&  !< in surface albedo for near IR range, direct
       alb_vis_dif = rrtm_local_data%albedo_vis_dif ,&  !< in surface albedo for visible range, diffuse
-      alb_nir_dif = rrtm_local_data%albedo_nir_dif ,&  !< in surface albedo for near IR range, diffuse
+ !     alb_nir_dif = rrtm_local_data%albedo_nir_dif ,&  !< in surface albedo for near IR range, diffuse
       emis_rad    = rrtm_local_data%emis_rad       ,&  !< in longwave surface emissivity
       tk_sfc      = rrtm_local_data%tsfctrad       ,&  !< in surface temperature
       pp_hl       = rrtm_local_data%pres_ifc       ,&  !< in  pres at half levels at t-dt [Pa]

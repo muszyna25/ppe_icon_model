@@ -1239,10 +1239,7 @@ CONTAINS
     TYPE(t_nwp_phy_diag),       INTENT(inout):: prm_diag
     TYPE(t_lnd_prog),           INTENT(inout):: lnd_prog
 
-    REAL(wp):: albvisdir     (nproma,pt_patch%nblks_c) !<
-    REAL(wp):: albnirdir     (nproma,pt_patch%nblks_c) !<
-    REAL(wp):: albnirdif     (nproma,pt_patch%nblks_c) !<
-    REAL(wp):: aclcov        (nproma,pt_patch%nblks_c) !<
+    REAL(wp), POINTER:: albvisdir(:,:), albnirdir(:,:), albnirdif(:,:)
 
     INTEGER :: itype(nproma)   !< type of convection
 
@@ -1309,52 +1306,52 @@ CONTAINS
     i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
 
     IF (test_parallel_radiation) THEN
+    
       ! allocate temp arrays for comparing the results
       ! from the direct radiation call and the redistributed
       ! radiation call
       ALLOCATE( &
+        & albvisdir    (nproma,         pt_patch%nblks_c),  &
+        & albnirdir    (nproma,         pt_patch%nblks_c),  &
+        & albnirdif    (nproma,         pt_patch%nblks_c),  &
         & test_aclcov  (nproma,         pt_patch%nblks_c),  &
         & test_lwflxclr(nproma, nlevp1, pt_patch%nblks_c),  &
         & test_trsolclr(nproma, nlevp1, pt_patch%nblks_c),  &
         & test_lwflxall(nproma, nlevp1, pt_patch%nblks_c),  &
         & test_trsolall(nproma, nlevp1, pt_patch%nblks_c),  &
         & STAT=return_status)        
-     ENDIF ! test_parallel_radiation
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,itype) ICON_OMP_GUIDED_SCHEDULE
-    DO jb = i_startblk, i_endblk
+      DO jb = i_startblk, i_endblk
 
-      CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
-        &                         i_startidx, i_endidx, rl_start, rl_end)
-
-
-      ! Loop starts with 1 instead of i_startidx because the start index is missing in RRTM
-      itype(1:i_endidx) = 0 !INT(field%rtype(1:i_endidx,jb))
+        CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
+          &                         i_startidx, i_endidx, rl_start, rl_end)
 
 
-      ! It may happen that an MPI patch contains only nest boundary points
-      ! In this case, no action is needed
-      IF (i_startidx > i_endidx) CYCLE
+        ! Loop starts with 1 instead of i_startidx because the start index is missing in RRTM
+        itype(1:i_endidx) = 0 !INT(field%rtype(1:i_endidx,jb))
 
 
-      !Calculate direct albedo from diffuse albedo and solar zenith angle
-      !formula as in Ritter-Geleyn's fesft
-      DO jc = i_startidx,i_endidx
-        albvisdir(jc,jb) =  ( 1.0_wp                                                           &
-          &  + 0.5_wp * (prm_diag%cosmu0(jc,jb) * (1.0_wp/prm_diag%albvisdif(jc,jb) - 1.0_wp))) &
-          & / (1.0_wp + (prm_diag%cosmu0(jc,jb) * (1.0_wp/prm_diag%albvisdif(jc,jb) - 1.0_wp)))**2
-      ENDDO
-      IF (i_startidx > 1) albvisdir(1:i_startidx-1,jb) = albvisdir(i_startidx,jb)
-
-      ! no distiction between vis and nir albedo
-      albnirdir(1:i_endidx,jb) = albvisdir(1:i_endidx,jb)
-      albnirdif(1:i_endidx,jb) = prm_diag%albvisdif(1:i_endidx,jb)
-
-      prm_diag%tsfctrad(1:i_endidx,jb) = lnd_prog%t_g(1:i_endidx,jb)
+        ! It may happen that an MPI patch contains only nest boundary points
+        ! In this case, no action is needed
+        IF (i_startidx > i_endidx) CYCLE
 
 
-      IF (test_parallel_radiation) THEN
+        !Calculate direct albedo from diffuse albedo and solar zenith angle
+        !formula as in Ritter-Geleyn's fesft
+        DO jc = i_startidx,i_endidx
+          albvisdir(jc,jb) =  ( 1.0_wp                                                           &
+            &  + 0.5_wp * (prm_diag%cosmu0(jc,jb) * (1.0_wp/prm_diag%albvisdif(jc,jb) - 1.0_wp))) &
+            & / (1.0_wp + (prm_diag%cosmu0(jc,jb) * (1.0_wp/prm_diag%albvisdif(jc,jb) - 1.0_wp)))**2
+        ENDDO
+        IF (i_startidx > 1) albvisdir(1:i_startidx-1,jb) = albvisdir(i_startidx,jb)
+
+        ! no distiction between vis and nir albedo
+        albnirdir(1:i_endidx,jb) = albvisdir(1:i_endidx,jb)
+        albnirdif(1:i_endidx,jb) = prm_diag%albvisdif(1:i_endidx,jb)
+
+        prm_diag%tsfctrad(1:i_endidx,jb) = lnd_prog%t_g(1:i_endidx,jb)
 
         CALL radiation(               &
                                 !
@@ -1406,25 +1403,31 @@ CONTAINS
           & emter_all  = test_lwflxall(:,:,jb),&!< out terrestrial flux, all sky, net down
           & trsol_all  = test_trsolall(:,:,jb),&!< out solar transmissivity, all sky, net down
           & opt_halo_cosmu0 = .FALSE. )
-      ENDIF !test_parallel_radiation
 
-    ENDDO ! blocks
+      ENDDO ! blocks
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
+
+    ENDIF !test_parallel_radiation
+    
+
     IF (timers_level > 3) THEN
       CALL timer_stop(timer_preradiaton)
       CALL timer_start(timer_radiaton_recv)
     ENDIF
-
+    
+    ! this maybe used, so we fill it while not an output of the radiation
+    prm_diag%tsfctrad(:,:) = lnd_prog%t_g(:,:)
     CALL recv_rrtm_input( &
           & zland      =ext_data%atm%fr_land_smt(:,:)   ,&!< in     land fraction
           & zglac      =ext_data%atm%fr_glac_smt(:,:)   ,&!< in     land glacier fraction
                                 !
           & cos_mu0    =prm_diag%cosmu0  (:,:) ,&!< in  cos of zenith angle mu0
-          & alb_vis_dir=albvisdir        (:,:) ,&!< in surface albedo for visible range, direct
-          & alb_nir_dir=albnirdir        (:,:) ,&!< in surface albedo for near IR range, direct
+          ! these are actualy computed from albvisdif
+!          & alb_vis_dir=albvisdir        (:,:) ,&!< in surface albedo for visible range, direct
+!          & alb_nir_dir=albnirdir        (:,:) ,&!< in surface albedo for near IR range, direct
           & alb_vis_dif=prm_diag%albvisdif(:,:),&!< in surface albedo for visible range, diffuse
-          & alb_nir_dif=albnirdif        (:,:) ,&!< in surface albedo for near IR range, diffuse
+!          & alb_nir_dif=albnirdif        (:,:) ,&!< in surface albedo for near IR range, diffuse
           & emis_rad=ext_data%atm%emis_rad(:,:),&!< in longwave surface emissivity
           & tk_sfc     =prm_diag%tsfctrad(:,:) ,&!< in surface temperature
                                 !
@@ -1445,19 +1448,32 @@ CONTAINS
           & zaeq5      = zaeq5(:,:,:)                 ,&!< in aerosol stratospheric background
           & patch      = pt_patch                     ,&!< in
           & rrtm_data  = rrtm_data)                     !< out, pointer to rrtm input values
-
     
     IF (timers_level > 3) THEN
       CALL timer_stop(timer_radiaton_recv)
       CALL timer_start(timer_radiaton_comp)
     ENDIF
+    
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,itype) ICON_OMP_GUIDED_SCHEDULE
     DO jb = 1, rrtm_data%no_of_blocks
     
       i_endidx = rrtm_data%block_size
       IF (jb == rrtm_data%no_of_blocks) i_endidx = rrtm_data%end_index
-    
+      
+      !Calculate direct albedo from diffuse albedo and solar zenith angle
+      !formula as in Ritter-Geleyn's fesft
+      DO jc = 1, i_endidx
+        rrtm_data%albedo_vis_dir(jc,jb) =  ( 1.0_wp                                                           &
+          &  + 0.5_wp * (rrtm_data%cosmu0(jc,jb) * (1.0_wp/rrtm_data%albedo_vis_dif(jc,jb) - 1.0_wp))) &
+          & / (1.0_wp + (rrtm_data%cosmu0(jc,jb) * (1.0_wp/rrtm_data%albedo_vis_dif(jc,jb) - 1.0_wp)))**2
+      ENDDO
+!      IF (i_startidx > 1) albvisdir(1:i_startidx-1,jb) = albvisdir(i_startidx,jb)
+
+      ! no distiction between vis and nir albedo
+      rrtm_data%albedo_nir_dir(1:i_endidx,jb) = rrtm_data%albedo_vis_dir(1:i_endidx,jb)
+      rrtm_data%albedo_nir_dif(1:i_endidx,jb) = rrtm_data%albedo_vis_dif(1:i_endidx,jb)
+      
       CALL radiation(               &
                               !
                               ! input
@@ -1523,7 +1539,7 @@ CONTAINS
       & prm_diag%trsolclr(:,:,:), &!< out sol. transmissivity, clear sky, net down
       & prm_diag%lwflxall(:,:,:), &!< out terrestrial flux, all sky, net down
       & prm_diag%trsolall(:,:,:))  !< out solar transmissivity, all sky, net down
-
+    
     IF (timers_level > 3) &
       & CALL timer_stop(timer_radiaton_send)
     
@@ -1571,7 +1587,8 @@ CONTAINS
        ENDDO
      ENDDO
 
-     DEALLOCATE(test_aclcov, test_lwflxclr, test_trsolclr, test_lwflxall, test_trsolall)
+     DEALLOCATE(albvisdir, albnirdir, albnirdif,    &
+      & test_aclcov, test_lwflxclr, test_trsolclr, test_lwflxall, test_trsolall)
 
    ENDIF ! test_parallel_radiation
       
