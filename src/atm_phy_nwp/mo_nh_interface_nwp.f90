@@ -466,8 +466,7 @@ CONTAINS
 
     IF ( lcall_phy_jg(itsfc) .AND. atm_phy_nwp_config(jg)%inwp_turb <= 2 ) THEN
 
-      !> temperature and tracers have been updated by microphysics;
-      !! as pressure is needed only for an approximate adiabatic extrapolation
+      !> as pressure is needed only for an approximate adiabatic extrapolation
       !! of the temperature at the lowest model level towards ground level,
       !! a recalculation is not required
 

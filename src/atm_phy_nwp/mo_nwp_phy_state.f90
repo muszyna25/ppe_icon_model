@@ -1511,6 +1511,25 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
              & t_grib2_var(0, 4, 0, ibits, GRID_REFERENCE, GRID_CELL),    &
              & ldims=shape2d, lrestart=.TRUE., loutput=.TRUE.)
         ENDDO
+
+
+        ! &      diag%umfl_s(nproma,nblks_c)
+        cf_desc    = t_cf_var('umfl_s', 'N m-2', 'u-momentum flux at the surface', &
+             &                DATATYPE_FLT32)
+        grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+        CALL add_var( diag_list, 'umfl_s', diag%umfl_s,                            &
+          & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d,&
+          & lrestart=.FALSE., loutput=.FALSE.)
+
+        ! &      diag%vmfl_s(nproma,nblks_c)
+        cf_desc    = t_cf_var('vmfl_s', 'N m-2', 'v-momentum flux at the surface', &
+             &                DATATYPE_FLT32)
+        grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+        CALL add_var( diag_list, 'vmfl_s', diag%vmfl_s,                            &
+          & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d,&
+          & lrestart=.FALSE., loutput=.FALSE.)
+
+
   !
   ! vdiff
   !

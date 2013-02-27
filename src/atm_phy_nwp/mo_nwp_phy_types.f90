@@ -230,7 +230,9 @@ MODULE mo_nwp_phy_types
       tfv_t(:,:,:)     ,   & !! laminar reduction factor for evaporation        --
       gz0_t(:,:,:)     ,   & !! roughness length * g                          (m2/s2)
       u_10m_t(:,:,:)   ,   & !! zonal wind at 10m                             ( m/s )
-      v_10m_t(:,:,:)         !! meridional wind at 10m                        ( m/s )
+      v_10m_t(:,:,:)   ,   & !! meridional wind at 10m                        ( m/s )
+      umfl_s(:,:)      ,   & !! u-momentum flux at the surface                 (N/m2)
+      vmfl_s(:,:)            !! u-momentum flux at the surface                 (N/m2)
 
     ! need only for vdiff (and some for EDMF)
     REAL(wp),POINTER :: &

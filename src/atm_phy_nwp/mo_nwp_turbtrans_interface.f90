@@ -64,7 +64,7 @@ MODULE mo_nwp_turbtrans_interface
   USE mo_data_turbdiff,        ONLY: get_turbdiff_param
   USE src_turbdiff,            ONLY: turbtran
   USE mo_satad,                ONLY: sat_pres_water, spec_humi  
-  USE mo_gme_turbdiff,         ONLY: parturs
+  USE mo_gme_turbdiff,         ONLY: parturs, nearsfc
   USE mo_run_config,           ONLY: ltestcase
   USE mo_nh_testcases,         ONLY: nh_test_name
   USE mo_lnd_nwp_config,       ONLY: ntiles_total, ntiles_water, isub_water, &
@@ -410,8 +410,6 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
         prm_diag%rh_2m (i_startidx:i_endidx,jb) = 0._wp
         prm_diag%u_10m (i_startidx:i_endidx,jb) = 0._wp
         prm_diag%v_10m (i_startidx:i_endidx,jb) = 0._wp
-        prm_diag%shfl_s(i_startidx:i_endidx,jb) = 0._wp
-        prm_diag%lhfl_s(i_startidx:i_endidx,jb) = 0._wp
 
         z_tvs        (i_startidx:i_endidx,nlevp1, 1) = 0._wp
         prm_diag%tkvm(i_startidx:i_endidx,nlevp1,jb) = 0._wp
@@ -460,8 +458,6 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
             prm_diag%rh_2m (jc,jb) = prm_diag%rh_2m(jc,jb) + rh_2m_t(ic,jt) * area_frac
             prm_diag%u_10m (jc,jb) = prm_diag%u_10m(jc,jb) + u_10m_t(ic,jt) * area_frac
             prm_diag%v_10m (jc,jb) = prm_diag%v_10m(jc,jb) + v_10m_t(ic,jt) * area_frac
-            prm_diag%shfl_s(jc,jb) = prm_diag%shfl_s(jc,jb)+ shfl_s_t(ic,jt)* area_frac
-            prm_diag%lhfl_s(jc,jb) = prm_diag%lhfl_s(jc,jb)+ lhfl_s_t(ic,jt)* area_frac
 
             ! Store
             prm_diag%shfl_s_t(jc,jb,jt) = shfl_s_t(ic,jt)
@@ -503,15 +499,41 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
         &           gz0=prm_diag%gz0(:,jb)                                              ) !inout
 
 
-      ! Copy transfer coefficients to tile-based variables, which are used in TERRA
+
+      ! diagnose 2 m temperature, humidity, 10 m wind
+      CALL nearsfc( t=p_diag%temp(:,:,jb), qv=p_prog_rcf%tracer(:,:,jb,iqv),        & !in
+        &           u=p_diag%u(:,:,jb),    v=p_diag%v(:,:,jb),                      & !in
+        &           zf=p_metrics%z_mc(:,:,jb), ps=p_diag%pres_ifc(:,nlevp1,jb),     & !in
+        &           t_g=lnd_prog_new%t_g(:,jb),                                     & !in
+        &           tcm=prm_diag%tcm(:,jb), tch=prm_diag%tch(:,jb),                 & !in
+        &           gz0=prm_diag%gz0(:,jb),                                         & !in
+        &           shfl_s=prm_diag%shfl_s(:,jb), lhfl_s=prm_diag%lhfl_s(:,jb),     & !in
+        &           umfl_s=prm_diag%umfl_s(:,jb), vmfl_s=prm_diag%vmfl_s(:,jb),     & !in
+        &           zsurf=p_metrics%z_ifc(:,nlevp1,jb),                             & !in
+        &           fr_land=ext_data%atm%fr_land(:,jb), pf1=p_diag%pres(:,nlev,jb), & !in
+        &           qv_s=lnd_diag%qv_s(:,jb), ie=nproma, ke=nlev,                   & !in
+        &           i_startidx=i_startidx, i_endidx=i_endidx,                       & !in
+        &           t_2m=prm_diag%t_2m(:,jb), qv_2m=prm_diag%qv_2m(:,jb),           & !out
+        &           td_2m=prm_diag%td_2m(:,jb), rh_2m=prm_diag%rh_2m(:,jb),         & !out
+        &           u_10m=prm_diag%u_10m(:,jb), v_10m=prm_diag%v_10m(:,jb)          ) !out
+
+
+
       DO jt = 1, ntiles_total+ntiles_water
         DO jc = i_startidx, i_endidx
+
+          ! Copy transfer coefficients to tile-based variables, which are used in TERRA
           prm_diag%tcm_t(jc,jb,jt) = prm_diag%tcm(jc,jb)
           prm_diag%tch_t(jc,jb,jt) = prm_diag%tch(jc,jb)
           ! the GME turbulence scheme does not have tfv. Set tfv=1
           prm_diag%tfv_t(jc,jb,jt) = 1._wp    !   prm_diag%tfv(jc,jb)
+
+          ! Copy transfer u_10m/v_10m to tile-based variables, which are used in TERRA
+          prm_diag%u_10m_t(jc,jb,jt) = prm_diag%u_10m(jc,jb)
+          prm_diag%v_10m_t(jc,jb,jt) = prm_diag%v_10m(jc,jb)
         ENDDO
       ENDDO
+
 
     ENDIF !inwp_turb
 
