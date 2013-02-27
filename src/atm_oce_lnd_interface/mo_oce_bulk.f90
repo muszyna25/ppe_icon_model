@@ -350,7 +350,7 @@ CONTAINS
         p_as%fswr(:,:)  = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,9) + &
           &               rday2*ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,9)
 
-        ! provide precipitation, evaporation, runoff flux data for freshwater forcing of ocean
+        ! provide precipitation, evaporation, runoff flux data for freshwater forcing of ocean 
         !  - not changed via bulk formula, stored in surface flux data
         p_sfc_flx%forc_precip(:,:) = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,10) + &
           &                          rday2*ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,10)
