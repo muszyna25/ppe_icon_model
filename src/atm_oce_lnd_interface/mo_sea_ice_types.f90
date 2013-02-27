@@ -57,20 +57,21 @@ MODULE mo_sea_ice_types
 
     ! The forcing is specified as fluxes at the air-sea interface defined on cell-centers
     ! dimension: (nproma, nblks_c)
-    REAL(wp), POINTER ::           &
-      &  forc_wind_u(:,:),         & ! forcing of zonal component of velocity equation,
-      &  forc_wind_v(:,:),         & ! forcing of meridional component of velocity equation,
-      &  forc_hflx(:,:),           & ! forcing of temperature tracer with surface heat flux [W/m2]
-      &  forc_fwfx(:,:),           & ! forcing of salinity tracer with surface freshw. flux [m/s]
-      &  forc_swflx(:,:),          & ! surface short wave heat flux [W/m2]
-      &  forc_lwflx(:,:),          & ! surface long wave heat flux [W/m2]
-      &  forc_ssflx(:,:),          & ! surface sensible heat flux [W/m2]
-      &  forc_slflx(:,:),          & ! surface latent heat flux [W/m2]
-      &  forc_prflx(:,:),          & ! total precipitation flux [m/s]
-      &  forc_evflx(:,:),          & ! evaporation flux [m/s]
-      &  forc_tracer(:,:,:),       & ! tracer flux. Last index refers to tracer id
-      &  forc_tracer_relax(:,:,:)    ! tracer relaxation: contains data to which is relaxated.
-                                     ! Last index refers to tracer id (1=temperature, 2=salinity)
+    REAL(wp), POINTER ::   &
+      &  forc_wind_u      (:,:),     & ! forcing of zonal component of velocity equation,
+      &  forc_wind_v      (:,:),     & ! forcing of meridional component of velocity equation,
+      &  forc_swflx       (:,:),     & ! surface short wave heat flux                              [W/m2]
+      &  forc_lwflx       (:,:),     & ! surface long wave heat flux                               [W/m2]
+      &  forc_ssflx       (:,:),     & ! surface sensible heat flux                                [W/m2]
+      &  forc_slflx       (:,:),     & ! surface latent heat flux                                  [W/m2]
+      &  forc_precip      (:,:),     & ! total precipitation flux                                  [m/s]
+      &  forc_evap        (:,:),     & ! evaporation flux                                          [m/s]
+      &  forc_runoff      (:,:),     & ! river runoff flux                                         [m/s]
+      &  forc_hflx        (:,:),     & ! forcing of temperature tracer with surface heat flux      [W/m2]
+      &  forc_fwfx        (:,:),     & ! forcing of salinity tracer with surface freshwater flux   [m/s]
+      &  forc_tracer      (:,:,:),   & ! tracer flux. Last index refers to tracer id
+      &  forc_tracer_relax(:,:,:)      ! tracer relaxation: contains data to which is relaxated. 
+
     TYPE(t_cartesian_coordinates), & ! wind forcing with cartesian vector, located at cell centers
       & ALLOCATABLE :: forc_wind_cc(:,:) 
 
@@ -148,8 +149,9 @@ MODULE mo_sea_ice_types
       &  forc_lwflx       (:,:),     & ! surface long wave heat flux                               [W/m2]
       &  forc_ssflx       (:,:),     & ! surface sensible heat flux                                [W/m2]
       &  forc_slflx       (:,:),     & ! surface latent heat flux                                  [W/m2]
-      &  forc_prflx       (:,:),     & ! total precipitation flux                                  [m/s]
-      &  forc_evflx       (:,:),     & ! evaporation flux                                          [m/s]
+      &  forc_precip      (:,:),     & ! total precipitation flux                                  [m/s]
+      &  forc_evap        (:,:),     & ! evaporation flux                                          [m/s]
+      &  forc_runoff      (:,:),     & ! river runoff flux                                         [m/s]
       &  forc_hflx        (:,:),     & ! forcing of temperature tracer with surface heat flux      [W/m2]
       &  forc_fwfx        (:,:),     & ! forcing of salinity tracer with surface freshwater flux   [m/s]
       &  forc_tracer      (:,:,:),   & ! tracer flux. Last index refers to tracer id

@@ -397,13 +397,17 @@ CONTAINS
     IF (ist/=SUCCESS) THEN
       CALL finish(TRIM(routine),'allocation for surface latent heat flux failed')
     END IF
-    ALLOCATE(p_sfc_flx%forc_prflx(nproma,nblks_c), STAT=ist)
+    ALLOCATE(p_sfc_flx%forc_precip(nproma,nblks_c), STAT=ist)
     IF (ist/=SUCCESS) THEN
       CALL finish(TRIM(routine),'allocation for precipitation flux failed')
     END IF
-    ALLOCATE(p_sfc_flx%forc_evflx(nproma,nblks_c), STAT=ist)
+    ALLOCATE(p_sfc_flx%forc_evap(nproma,nblks_c), STAT=ist)
     IF (ist/=SUCCESS) THEN
       CALL finish(TRIM(routine),'allocation for evaporation flux failed')
+    END IF
+    ALLOCATE(p_sfc_flx%forc_runoff(nproma,nblks_c), STAT=ist)
+    IF (ist/=SUCCESS) THEN
+      CALL finish(TRIM(routine),'allocation for river runoff flux failed')
     END IF
     IF(no_tracer>=1)THEN
       ALLOCATE(p_sfc_flx%forc_tracer(nproma,nblks_c, no_tracer), STAT=ist)
@@ -437,8 +441,9 @@ CONTAINS
       p_sfc_flx%forc_lwflx       (:,:)    = 0.0_wp
       p_sfc_flx%forc_ssflx       (:,:)    = 0.0_wp
       p_sfc_flx%forc_slflx       (:,:)    = 0.0_wp
-      p_sfc_flx%forc_prflx       (:,:)    = 0.0_wp
-      p_sfc_flx%forc_evflx       (:,:)    = 0.0_wp
+      p_sfc_flx%forc_precip      (:,:)    = 0.0_wp
+      p_sfc_flx%forc_evap        (:,:)    = 0.0_wp
+      p_sfc_flx%forc_runoff      (:,:)    = 0.0_wp
       p_sfc_flx%forc_tracer      (:,:,:)  = 0.0_wp
       p_sfc_flx%forc_tracer_relax(:,:,:)  = 0.0_wp
     ENDIF
@@ -496,13 +501,17 @@ CONTAINS
     IF (ist/=SUCCESS) THEN
       CALL finish(TRIM(routine),'deallocation for heat flux failed')
     END IF
-    DEALLOCATE(p_sfc_flx%forc_prflx, STAT=ist)
+    DEALLOCATE(p_sfc_flx%forc_precip, STAT=ist)
     IF (ist/=SUCCESS) THEN
       CALL finish(TRIM(routine),'deallocation for precip flux failed')
     END IF
-    DEALLOCATE(p_sfc_flx%forc_evflx, STAT=ist)
+    DEALLOCATE(p_sfc_flx%forc_evap, STAT=ist)
     IF (ist/=SUCCESS) THEN
       CALL finish(TRIM(routine),'deallocation for evap flux failed')
+    END IF
+    DEALLOCATE(p_sfc_flx%forc_runoff, STAT=ist)
+    IF (ist/=SUCCESS) THEN
+      CALL finish(TRIM(routine),'deallocation for runoff flux failed')
     END IF
     DEALLOCATE(p_sfc_flx%forc_tracer, STAT=ist)
     IF (ist/=SUCCESS) THEN

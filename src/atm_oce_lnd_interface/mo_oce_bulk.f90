@@ -350,13 +350,14 @@ CONTAINS
         p_as%fswr(:,:)  = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,9) + &
           &               rday2*ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,9)
 
-        ! provide precipitation, evaporation, runoff data for freshwater forcing of ocean
-        p_as%precip(:,:) = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,10) + &
-          &                rday2*ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,10)
-        p_as%evap  (:,:) = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,11) + &
-          &                rday2*ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,11)
-        p_as%runoff(:,:) = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,12) + &
-          &                rday2*ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,12)
+        ! provide precipitation, evaporation, runoff flux data for freshwater forcing of ocean
+        !  - not changed via bulk formula, stored in surface flux data
+        p_sfc_flx%forc_precip(:,:) = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,10) + &
+          &                          rday2*ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,10)
+        p_sfc_flx%forc_evap  (:,:) = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,11) + &
+          &                          rday2*ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,11)
+        p_sfc_flx%forc_runoff(:,:) = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,12) + &
+          &                          rday2*ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,12)
 
         !---------DEBUG DIAGNOSTICS-------------------------------------------
         idt_src=3  ! output print level (1-5, fix)
@@ -369,10 +370,10 @@ CONTAINS
         ! apply sum of freshwater forcing to (open) ocean
         !  - in OMIP data: evaporation is negative
         IF (l_forc_freshw) THEN
-          p_sfc_flx%forc_fwfx(:,:) = p_as%precip(:,:) + p_as%evap(:,:) + p_as%runoff(:,:)
-          CALL dbg_print('UpdSfc: p_as%precip'       ,p_as%precip              ,str_module,idt_src)
-          CALL dbg_print('UpdSfc: p_as%evap'         ,p_as%evap                ,str_module,idt_src)
-          CALL dbg_print('UpdSfc: p_as%runoff'       ,p_as%runoff              ,str_module,idt_src)
+          p_sfc_flx%forc_fwfx(:,:) = p_sfc_flx%forc_precip(:,:) + p_sfc_flx%forc_evap(:,:) + p_sfc_flx%forc_runoff(:,:)
+          CALL dbg_print('UpdSfc: p_sfc_flx%forc_precip'   ,p_sfc_flx%forc_precip   ,str_module,idt_src)
+          CALL dbg_print('UpdSfc: p_sfc_flx%forc_evap'     ,p_sfc_flx%forc_evap     ,str_module,idt_src)
+          CALL dbg_print('UpdSfc: p_sfc_flx%forc_runoff'   ,p_sfc_flx%forc_runoff   ,str_module,idt_src)
         ENDIF
         !---------------------------------------------------------------------
 
@@ -424,8 +425,8 @@ CONTAINS
         ! 5:  lwflx(:,:)   !  surface long  wave heat flux        [W/m2]
         ! 6:  ssflx(:,:)   !  surface sensible   heat flux        [W/m2]
         ! 7:  slflx(:,:)   !  surface latent     heat flux        [W/m2]
-        ! 8:  prflx(:,:)   !  total precipitation flux            [m/s]
-        ! 9:  evflx(:,:)   !  evaporation flux                    [m/s]
+        ! 8:  precip(:,:)  !  total precipitation flux            [m/s]
+        ! 9:  evap(:,:)    !  evaporation flux                    [m/s]
 
         p_sfc_flx%forc_swflx(:,:) = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,4) + &
           &                         rday2*ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,4)
@@ -435,15 +436,15 @@ CONTAINS
           &                         rday2*ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,6)
         p_sfc_flx%forc_slflx(:,:) = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,7) + &
           &                         rday2*ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,7)
-        p_sfc_flx%forc_prflx(:,:) = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,8) + &
+        p_sfc_flx%forc_precip(:,:) = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,8) + &
           &                         rday2*ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,8)
-        p_sfc_flx%forc_evflx(:,:) = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,9) + &
+        p_sfc_flx%forc_evap(:,:) = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,9) + &
           &                         rday2*ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,9)
 
         ! sum of fluxes for ocean boundary condition
         p_sfc_flx%forc_hflx(:,:) = p_sfc_flx%forc_swflx(:,:) + p_sfc_flx%forc_lwflx(:,:) &
           &                      + p_sfc_flx%forc_ssflx(:,:) + p_sfc_flx%forc_slflx(:,:)
-        p_sfc_flx%forc_fwfx(:,:) = p_sfc_flx%forc_prflx(:,:) + p_sfc_flx%forc_evflx(:,:)
+        p_sfc_flx%forc_fwfx(:,:) = p_sfc_flx%forc_precip(:,:) + p_sfc_flx%forc_evap(:,:)
 
         !---------DEBUG DIAGNOSTICS-------------------------------------------
         idt_src=2  ! output print level (1-5, fix)
@@ -452,8 +453,8 @@ CONTAINS
         CALL dbg_print('UpdSfc: Data Sens.  HF'    ,p_sfc_flx%forc_ssflx     ,str_module,idt_src)
         CALL dbg_print('UpdSfc: Data Latent HF'    ,p_sfc_flx%forc_slflx     ,str_module,idt_src)
         CALL dbg_print('UpdSfc: Data Total  HF'    ,p_sfc_flx%forc_hflx      ,str_module,idt_src)
-        CALL dbg_print('UpdSfc: Data Precip.'      ,p_sfc_flx%forc_prflx     ,str_module,idt_src)
-        CALL dbg_print('UpdSfc: Data Evaporation'  ,p_sfc_flx%forc_evflx     ,str_module,idt_src)
+        CALL dbg_print('UpdSfc: Data Precip.'      ,p_sfc_flx%forc_precip    ,str_module,idt_src)
+        CALL dbg_print('UpdSfc: Data Evaporation'  ,p_sfc_flx%forc_evap      ,str_module,idt_src)
         CALL dbg_print('UpdSfc: Data Freshw. Flux' ,p_sfc_flx%forc_fwfx      ,str_module,idt_src)
         !---------------------------------------------------------------------
 
@@ -763,12 +764,12 @@ CONTAINS
         CALL ICON_cpl_get ( field_id(3), field_shape, buffer(1:nbr_hor_points,1:2), info, ierror )
         IF (info > 0 ) THEN
             buffer(nbr_hor_points+1:nbr_points,1:2) = 0.0_wp
-            p_sfc_flx%forc_prflx(:,:) = RESHAPE(buffer(:,1),(/ nproma, p_patch%nblks_c /) )
-            p_sfc_flx%forc_evflx(:,:) = RESHAPE(buffer(:,2),(/ nproma, p_patch%nblks_c /) )
-            CALL sync_patch_array(sync_c, p_patch, p_sfc_flx%forc_prflx(:,:))
-            CALL sync_patch_array(sync_c, p_patch, p_sfc_flx%forc_evflx(:,:))
+            p_sfc_flx%forc_precip(:,:) = RESHAPE(buffer(:,1),(/ nproma, p_patch%nblks_c /) )
+            p_sfc_flx%forc_evap  (:,:) = RESHAPE(buffer(:,2),(/ nproma, p_patch%nblks_c /) )
+            CALL sync_patch_array(sync_c, p_patch, p_sfc_flx%forc_precip(:,:))
+            CALL sync_patch_array(sync_c, p_patch, p_sfc_flx%forc_evap(:,:))
             ! sum of fluxes for ocean boundary condition
-            p_sfc_flx%forc_fwfx(:,:) = p_sfc_flx%forc_prflx(:,:) + p_sfc_flx%forc_evflx(:,:)
+            p_sfc_flx%forc_fwfx(:,:) = p_sfc_flx%forc_precip(:,:) + p_sfc_flx%forc_evap(:,:)
         END IF
       !
       ! Apply surface air temperature - not used with temperature_relaxation= -1 - record 4
@@ -820,8 +821,8 @@ CONTAINS
         CALL dbg_print('UpdSfc: CPL: Total  HF'     ,p_sfc_flx%forc_hflx      ,str_module,idt_src)
         CALL dbg_print('UpdSfc: CPL: Melt-pot. top' ,p_ice%Qtop               ,str_module,idt_src)
         CALL dbg_print('UpdSfc: CPL: Melt-pot. bot' ,p_ice%Qbot               ,str_module,idt_src)
-        CALL dbg_print('UpdSfc: CPL: Precip.'       ,p_sfc_flx%forc_prflx     ,str_module,idt_src)
-        CALL dbg_print('UpdSfc: CPL: Evaporation'   ,p_sfc_flx%forc_evflx     ,str_module,idt_src)
+        CALL dbg_print('UpdSfc: CPL: Precip.'       ,p_sfc_flx%forc_precip    ,str_module,idt_src)
+        CALL dbg_print('UpdSfc: CPL: Evaporation'   ,p_sfc_flx%forc_evap      ,str_module,idt_src)
         CALL dbg_print('UpdSfc: CPL: Freshw. Flux'  ,p_sfc_flx%forc_fwfx      ,str_module,idt_src)
         !---------------------------------------------------------------------
 

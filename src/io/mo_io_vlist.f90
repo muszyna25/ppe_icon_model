@@ -117,7 +117,7 @@ MODULE mo_io_vlist
     &                                 itime_scheme_nh_atm => itime_scheme
   USE mo_ocean_nml,             ONLY: n_zlev, dzlev_m, iforc_oce, no_tracer,      &
     &                                 temperature_relaxation, i_sea_ice,          &
-    &                                 irelax_2d_S
+    &                                 irelax_2d_S, l_forc_freshw
   USE mo_sea_ice_nml,           ONLY: i_ice_therm
   USE mo_dynamics_config,       ONLY: iequations,lshallow_water,                  &
     &                                 idiv_method, divavg_cntrwgt,                &
@@ -2304,6 +2304,29 @@ CONTAINS
       &                   zaxisID_surface(k_jg)),&
       &           k_jg)
     END IF 
+    IF (l_forc_freshw) THEN
+      CALL addVar(TimeVar('forc_precip',&
+      &                   'forcing precipitation flux',&
+      &                   'm/s',16,128,&
+      &                   vlistID(k_jg),&
+      &                   gridCellID(k_jg),&
+      &                   zaxisID_surface(k_jg)),&
+      &           k_jg)
+      CALL addVar(TimeVar('forc_evap',&
+      &                   'forcing evaporation flux',&
+      &                   'm/s',16,128,&
+      &                   vlistID(k_jg),&
+      &                   gridCellID(k_jg),&
+      &                   zaxisID_surface(k_jg)),&
+      &           k_jg)
+      CALL addVar(TimeVar('forc_runoff',&
+      &                   'forcing river runoff flux',&
+      &                   'm/s',16,128,&
+      &                   vlistID(k_jg),&
+      &                   gridCellID(k_jg),&
+      &                   zaxisID_surface(k_jg)),&
+      &           k_jg)
+    END IF 
    !  CALL addVar(TimeVar('horz_adv',&
    !  &                   'nonlin Cor ',&
    !  &                   'm/s',2,128,&
@@ -3425,6 +3448,9 @@ CONTAINS
       CASE ('forc_sdata');   ptr2d => forcing%forc_tracer_relax(:,:,2)
       CASE ('forc_s');       ptr2d => forcing%forc_tracer(:,:,2)
       CASE ('forc_fwfx');    ptr2d => forcing%forc_fwfx(:,:)
+      CASE ('forc_precip');  ptr2d => forcing%forc_precip(:,:)
+      CASE ('forc_evap');    ptr2d => forcing%forc_evap(:,:)
+      CASE ('forc_runoff');  ptr2d => forcing%forc_runoff(:,:)
       CASE('horz_adv');      ptr3d => p_diag%veloc_adv_horz
       CASE('Ekin_grad');     ptr3d => p_diag%grad
       CASE('Ekin');          ptr3d => p_diag%kin
