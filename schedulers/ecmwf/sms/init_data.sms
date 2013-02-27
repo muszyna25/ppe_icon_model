@@ -358,7 +358,9 @@ if [ -f ${IFSDATADIR2}/${IFS_FILENAME_NC} ] ; then
   ls -l ${IFSDATADIR2}/${IFS_FILENAME_NC}
   sleep 120
   ls -l ${IFSDATADIR2}/${IFS_FILENAME_NC}
-  cp -f   ${IFSDATADIR2}/${IFS_FILENAME_NC} .     # copy old ifs2icon file
+  if [ %EXPNUM% -ne %EXPNUM2% ] ; then
+   cp    ${IFSDATADIR2}/${IFS_FILENAME_NC} .     # copy old ifs2icon file
+  fi
 else
   cp -p ${outbasedir}/bin/prep_icon ./prep_icon
   export USE_SIGNAL_HANDLING=yes
