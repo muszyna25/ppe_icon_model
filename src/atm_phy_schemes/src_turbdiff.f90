@@ -2807,7 +2807,8 @@ REAL (KIND=ireals), DIMENSION(:,:), OPTIONAL, INTENT(OUT) :: &
 #ifdef  __xlC__
  REAL (KIND=ireals), DIMENSION(ie), OPTIONAL, INTENT(INOUT) :: &
 #else
- REAL (KIND=ireals), DIMENSION(:), OPTIONAL, INTENT(INOUT) :: &
+!DR REAL (KIND=ireals), DIMENSION(:), OPTIONAL, INTENT(INOUT) :: &
+ REAL (KIND=ireals), DIMENSION(:), OPTIONAL, INTENT(IN) :: &
 #endif
 !
      shfl_s,       & ! sensible heat flux at the surface             (W/m2) (positive downward)
@@ -4928,17 +4929,19 @@ REAL (KIND=ireals) :: &
       END IF 
 
 ! 10) Berechnung der Enthalpieflussdichten:
-       
-      IF (PRESENT(shfl_s)) THEN
-         DO i=istartpar,iendpar
-            shfl_s(i)=-zexner(ps(i))*cp_d*flux(i,tet)
-         END DO
-      END IF
-      IF (PRESENT(lhfl_s)) THEN
-         DO i=istartpar,iendpar
-            lhfl_s(i)=-lh_v*flux(i,vap)
-         END DO
-      END IF
+
+!DR Sensible and latent heat fluxes over non-land points are computed by turbtran (tile based)
+!       
+!!$      IF (PRESENT(shfl_s)) THEN
+!!$         DO i=istartpar,iendpar
+!!$            shfl_s(i)=-zexner(ps(i))*cp_d*flux(i,tet)
+!!$         END DO
+!!$      END IF
+!!$      IF (PRESENT(lhfl_s)) THEN
+!!$         DO i=istartpar,iendpar
+!!$            lhfl_s(i)=-lh_v*flux(i,vap)
+!!$         END DO
+!!$      END IF
  
 !---------------------------------------------------------------------------------------
 #ifdef SCLM 
