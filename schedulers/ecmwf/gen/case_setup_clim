@@ -26,6 +26,8 @@ EXTPARDIR=${basedir}/icon_input/extpar
 IFS2ICONDIR=${ifsdir}
 # absolute path to files needed for radiation
 RADDIR=${basedir}/icon_input/radiation
+# absolute path to files needed to update SST and CI
+SSTICEDIR=${sstice_dir}/icon_input/sstice
 
 # --------------------------------------------------------------------
 
@@ -46,14 +48,17 @@ ln -sf $IFS2ICONDIR/ifs2icon_${res}_DOM01.nc .
 ln -sf ${RADDIR}/ECHAM6_CldOptProps.nc .
 ln -sf ${RADDIR}/rrtmg_lw.nc .
 
+ln -sf ${SSTICEDIR}/*/*SST**${res}_DOM01* .
+ln -sf ${SSTICEDIR}/*/*CI**${res}_DOM01* .
+
 # global timing
 start_date="${INITIME_FMT}"
 ndays_restart=500
 dt_restart=`expr ${ndays_restart} \* 86400`
 
 # model timing
-dtime=100
-dtconv=1200            # convection, SSO, GWD. See iadv_rcf for TURB frequency
+dtime=90
+dtconv=900            # convection, SSO, GWD. See iadv_rcf for TURB frequency
 dtrad=3600             # radiation time step
 ndays=405              # number of days to runo
 
@@ -114,7 +119,7 @@ done
 
 # ---
 
-ml_varlist="'temp','u','v','w','pres','pres_sfc', 'pres_msl', 
+ml_varlist="'fr_seaice', 't_seasfc','temp','u','v','w','pres','pres_sfc', 'pres_msl', 
 'qv','qc','qi','qr','qs','o3','tot_cc','tot_qv','tot_qc','tot_qi', 
 'tcc','tqv','tqc','tqi', 
 'tracer_vi01','tracer_vi02','tracer_vi03','tracer_vi04','tracer_vi05'
@@ -257,6 +262,7 @@ cat > ${atmo_namelist} << EOF
  idiag_snowfrac               = 3
  lsnowtile                    = .false.
  lseaice                      = .true.
+ sstice_mode                  = 3
 /
 &radiation_nml
  irad_o3                      = 7
@@ -271,7 +277,7 @@ cat > ${atmo_namelist} << EOF
  vwind_offctr                 = 0.2
  damp_height                  = 50000.
  rayleigh_coeff               = 0.10
- iadv_rcf                     = 4
+ iadv_rcf                     = 5
  lhdiff_rcf                   = .true.
  divdamp_fac                  = 0.004
  divdamp_order                = 4

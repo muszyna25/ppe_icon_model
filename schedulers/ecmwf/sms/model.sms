@@ -50,6 +50,8 @@ SETDIRTMP=%SCTEMP%/%SUITE%/%EXPNUM%/output/setup${DIRENS}
 ifsdir=%SCTEMP%/%SUITE%/%EXPNUM%/input/%YMD%%INIHOUR%${DIRENS}
 # base directory for external data
 basedir=%SCPERM%
+# base directory for time dependent external data SST ansd CI data
+sstice_dir=%SCPERMIII%
 # base directory for model output
 outbasedir=%SCTEMP%/%SUITE%/%EXPNUM%/output
 # base name for output and namelist files
