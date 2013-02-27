@@ -643,10 +643,9 @@ endif
       ENDDO
 
       DO jc = i_startidx, i_endidx
-          zfrti(jc,1) = ext_data%atm%frac_t(jc,jb,isub_water) &    ! open ocean fraction
-                    & + ext_data%atm%frac_t(jc,jb,isub_lake)       ! lake fraction (fake it as ocean?????)
-          zfrti(jc,1) = ext_data%atm%frac_t(jc,jb,isub_lake)       ! lake fraction (fake it as ocean?????)
-          zfrti(jc,2) = ext_data%atm%frac_t(jc,jb,isub_seaice)     ! sea ice fraction
+        zfrti(jc,1) = ext_data%atm%frac_t(jc,jb,isub_water) &    ! open ocean fraction
+                  & + ext_data%atm%frac_t(jc,jb,isub_lake)       ! lake fraction (fake it as ocean?????)
+        zfrti(jc,2) = ext_data%atm%frac_t(jc,jb,isub_seaice)     ! sea ice fraction
       ENDDO
 
       DO jc = i_startidx, i_endidx
