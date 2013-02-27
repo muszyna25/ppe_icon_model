@@ -116,15 +116,16 @@ optimize_vertex_depth=4
 set_comb_optimization_grids()
 {
   set_default_optimization_grids
-  
+
+#  use same optimization as in the atmosphere
 #   use_optimization='.true.'
 
   use_edge_springs='.true.'
   prime_ref_length_coeff=1.0
   use_adaptive_spring_length='.true.'
   
-  use_local_reference_length='.true.'
-  local_reference_length_coeff=0.75
+#   use_local_reference_length='.true.'
+#   local_reference_length_coeff=0.75
   
 #   use_prime_spring_cellcenters='.true.'
 #   centers_ref_length_coeff=1.0 
@@ -272,7 +273,6 @@ create_ocean_grid()
   else
     ELEVF="$GRIDDIR/$TOPICON"
   fi
-
   # interpolate regular topography into icon grid
   if [[ "x$TOPFILE" != "x" ]]; then
     if [[ ! -s  "$GRIDDIR/$TOPICON" ]]; then
