@@ -229,6 +229,7 @@ create_dec_run()
   dec_size=$3
   nproma=$4
   
+  atmo_dyn_gridname=$grid_name
   create_${create_method}
 }
 
@@ -1146,6 +1147,7 @@ create_blizzard_test_01_03_2013()
   dtime=96
   dt_rad=1920
   vwind_implicitness=0.4
+  redrad_split_factor=4 
   
   icon_comm_method=1
   create_dec_run  "$setup_grid" "$setup_name" 7682 12
