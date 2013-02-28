@@ -1674,6 +1674,16 @@ CONTAINS
 
     ice% concSum(:,:)  = SUM(ice% conc(:,:,:),2)
 
+    WHERE (ice%hi(:,1,:) <= 0._wp)
+      ice%Tsurf(:,1,:) = Tfw(:,:)
+      ice%T1   (:,1,:) = Tfw(:,:)
+      ice%T2   (:,1,:) = Tfw(:,:)
+      ice%conc (:,1,:) = 0.0_wp
+      ice%hi   (:,1,:) = 0.0_wp
+      ice%E1   (:,1,:) = 0.0_wp
+      ice%E2   (:,1,:) = 0.0_wp
+    ENDWHERE
+
   END SUBROUTINE ice_conc_change
 
 

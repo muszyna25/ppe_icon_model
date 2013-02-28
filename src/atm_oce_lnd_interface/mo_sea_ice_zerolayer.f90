@@ -354,6 +354,12 @@ CONTAINS
               &                   + (ice%hs(jc,k,jb)-ice%hsold(jc,k,jb)) *alf*rhos/dtime
 
 
+          ELSE
+            ice%heatOceI(jc,k,jb) = ice%Qtop(jc,k,jb) + ice%Qbot(jc,k,jb)
+            ice%Tsurf(jc,k,jb) =  Tfw(jc,k,jb)
+            ice%conc (jc,k,jb) = 0.0_wp
+            ice%hi   (jc,k,jb) = 0.0_wp
+            ice%hs   (jc,k,jb) = 0.0_wp
           ENDIF
         END DO
       END DO

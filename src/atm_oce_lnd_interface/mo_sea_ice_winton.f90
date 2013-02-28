@@ -485,6 +485,15 @@ CONTAINS
 !              &                  - (ice%Qtop(jc,k,jb) + ice%Qbot(jc,k,jb) )    &
 !              &                / (ice%hs(jc,k,jb)*rhos + ice%hi(jc,k,jb)*rhoi)
             
+          ELSE
+            ice%heatOceI(jc,k,jb) = ice%Qtop(jc,k,jb) + ice%Qbot(jc,k,jb)
+            ice%Tsurf(jc,k,jb) = Tfw(jc,k,jb)
+            ice%T1   (jc,k,jb) = Tfw(jc,k,jb)
+            ice%T2   (jc,k,jb) = Tfw(jc,k,jb)
+            ice%conc (jc,k,jb) = 0.0_wp
+            ice%hi   (jc,k,jb) = 0.0_wp
+            ice%E1   (jc,k,jb) = 0.0_wp
+            ice%E2   (jc,k,jb) = 0.0_wp
           END IF  ! hi > 0
         END DO
       END DO
