@@ -56,7 +56,8 @@ MODULE mo_local_grid
     & min_rledge, max_rledge, min_rledge_int
   USE mo_grid_geometry_info,  ONLY: sphere_geometry, planar_torus_geometry, &
     & cut_off_grid, t_grid_geometry_info, copy_grid_geometry_info,          &
-    & refined_bisection_grid, dualy_refined_grid, set_default_geometry_info
+    & refined_bisection_grid, dualy_refined_grid, set_default_geometry_info, &
+    & geometry_info_get_resolution_string => get_resolution_string
 
   USE mo_namelist,        ONLY: position_nml, open_nml, positioned
 
@@ -89,7 +90,8 @@ MODULE mo_local_grid
     & grid_set_parents_from, set_grid_parent_id,                     &
     & set_no_of_subgrids, set_start_subgrids, grid_set_sea_depth,    &
     & grid_set_min_sea_depth, set_grid_level, get_grid_level,        &
-    & set_grid_netcdf_flags, get_number_of_vertices, zero_children
+    & set_grid_netcdf_flags, get_number_of_vertices, zero_children,  &
+    & get_resolution_string
 
   PUBLIC :: print_grid_cell, print_grid_edge, print_grid_vertex
 
@@ -1422,6 +1424,17 @@ CONTAINS
   END SUBROUTINE grid_set_allocated_eq_exist
   !-----------------------------------------------------------------------
 
+  !-------------------------------------------------------------------------
+  CHARACTER(len=16) FUNCTION get_resolution_string(grid_id)
+    INTEGER, INTENT(in) :: grid_id
+
+    TYPE(t_grid), POINTER :: grid
+
+    grid => get_grid(grid_id)
+    get_resolution_string = geometry_info_get_resolution_string(grid%geometry_info)
+
+  END FUNCTION get_resolution_string
+  !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
   SUBROUTINE print_grid_edge(in_grid_id, edge_no)

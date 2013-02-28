@@ -78,7 +78,8 @@ MODULE mo_grid_geometry_info
   ! public methods
   PUBLIC :: set_default_geometry_info, copy_grid_geometry_info, &
     & set_grid_geometry_derived_info, read_geometry_info,       &
-    & parallel_read_geometry_info, write_geometry_info
+    & parallel_read_geometry_info, write_geometry_info,         &
+    & get_resolution_string
 
   ! -----------------------------
   ! types of grid geometries
@@ -187,6 +188,20 @@ CONTAINS
     
   END SUBROUTINE set_grid_geometry_derived_info
   !-------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------
+  FUNCTION get_resolution_string(geometry_info) result(resolution_string)
+    TYPE(t_grid_geometry_info) :: geometry_info
+
+    CHARACTER(len=16) :: resolution_string
+
+    WRITE(resolution_string,'(i4.4,a)') NINT(SQRT(geometry_info%mean_cell_area) / 1000.0_wp), "km"
+!    write(0,*) SQRT(geometry_info%mean_cell_area) / 1000.0_wp, resolution_string
+!    stop
+
+  END FUNCTION get_resolution_string
+  !-------------------------------------------------------------------------
+
   
   !-------------------------------------------------------------------------
   INTEGER FUNCTION parallel_read_geometry_info(ncid, geometry_info)
