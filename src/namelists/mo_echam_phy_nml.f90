@@ -71,6 +71,7 @@ MODULE mo_echam_phy_nml
   LOGICAL :: lgw_hines  !< .true. for atmospheric gravity wave drag
   LOGICAL :: lice       !< .true. for sea-ice temperature calculation
   LOGICAL :: lmeltpond  !< .true. for calculation of meltponds
+  LOGICAL :: lamip      !< .true. for AMIP simulations
   LOGICAL :: lmlo       !< .true. for mixed layer ocean
   LOGICAL :: ljsbach    !< .true. for calculating the JSBACH land surface
   LOGICAL :: lhd        !< .true. for hydrologic discharge model
@@ -81,7 +82,7 @@ MODULE mo_echam_phy_nml
   NAMELIST /echam_phy_nml/ lrad, lvdiff, lconv, lcond,  &
                          & lcover, lssodrag, lgw_hines, &
                          & llandsurf, lice, lmeltpond,  &
-                         & lmlo, ljsbach, lhd, dt_rad!!$, lmidatm
+                         & lamip, lmlo, ljsbach, lhd, dt_rad!!$, lmidatm
 
 CONTAINS
   !>
@@ -104,6 +105,7 @@ CONTAINS
     lgw_hines = .FALSE.
     lice      = .FALSE.
     lmeltpond = .FALSE.
+    lamip     = .FALSE.
     lmlo      = .FALSE.
     ljsbach   = .FALSE.
     lhd       = .FALSE.
@@ -163,6 +165,7 @@ CONTAINS
     echam_phy_config% lgw_hines = lgw_hines                                           
     echam_phy_config% lice      = lice                                                
     echam_phy_config% lmeltpond = lmeltpond                                           
+    echam_phy_config% lamip     = lamip                                                
     echam_phy_config% lmlo      = lmlo                                                
     echam_phy_config% ljsbach   = ljsbach
     echam_phy_config% lhd       = lhd                                                 

@@ -66,6 +66,7 @@ MODULE mo_echam_phy_config
                            !<   by blocking and gravity waves (lgwdrag in ECHAM6)
     LOGICAL :: lice        !<  .true. for sea-ice temperature calculation
     LOGICAL :: lmeltpond   !<  .true. for calculation of meltponds
+    LOGICAL :: lamip       !< .true. for AMIP simulations    
     LOGICAL :: lmlo        !<  .true. for mixed layer ocean
     LOGICAL :: ljsbach     !<  .true. for calculating the JSBACH land surface
     LOGICAL :: lhd         !<  .true. for hydrologic discharge model
@@ -104,6 +105,7 @@ CONTAINS
         echam_phy_config% lssodrag  = .FALSE.
         echam_phy_config% lice      = .FALSE.
         echam_phy_config% lmeltpond = .FALSE.
+        echam_phy_config% lamip     = .FALSE.
         echam_phy_config% lmlo      = .FALSE.
         echam_phy_config% lhd       = .FALSE.
 
@@ -116,6 +118,7 @@ CONTAINS
         CALL print_value('lssodrag  ',echam_phy_config% lssodrag )
         CALL print_value('lice      ',echam_phy_config% lice     )
         CALL print_value('lmeltpond ',echam_phy_config% lmeltpond)
+        CALL print_value('lamip     ',echam_phy_config% lamip    )
         CALL print_value('lmlo      ',echam_phy_config% lmlo     )
         CALL print_value('lhd       ',echam_phy_config% lhd      )
 
