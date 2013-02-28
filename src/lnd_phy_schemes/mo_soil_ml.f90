@@ -4433,11 +4433,11 @@ ENDIF
   IF(PRESENT(zshfl_sfc)) THEN
     DO i = istarts, iends
       zshfl_sfc(i) = zshfl_s(i)*(1._ireals - zf_snow(i)) + zshfl_snow(i)*zf_snow(i)
-!      zlhfl_sfc(i) = zlhfl_s(i)*(1._ireals - zf_snow(i)) + zlhfl_snow(i)*zf_snow(i)
+      zlhfl_sfc(i) = zlhfl_s(i)*(1._ireals - zf_snow(i)) + zlhfl_snow(i)*zf_snow(i)
 !        zlhfl_s(i) = (zts_pm(i)*lh_v + (1._ireals-zts_pm(i))*lh_s)*zverbo(i) &
 !                     / MAX(zepsi,(1._ireals - zf_snow(i)))  ! take out (1-f) scaling
 !        zlhfl_snow(i) = lh_s*zversn(i) 
-      zlhfl_sfc(i) = zverbo(i) + zversn(i)*zf_snow(i)
+!      zlhfl_sfc(i) = zverbo(i) + zversn(i)*zf_snow(i)
     END DO
   END IF
 
