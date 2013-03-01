@@ -58,7 +58,9 @@ SUBROUTINE SURFEXCDRIVER    ( &
  & , sobs_ex, thbs_ex, pabs_ex                                          & !in
  & , runoff_s_ex, runoff_g_ex                                           & !inout
  & , t_g, qv_s                                                          & ! -
- & , shfl_s_t, lhfl_s_t, shfl_snow_t, lhfl_snow_t                       & !out
+ & , t_ice, h_ice, t_snow_si, h_snow_si                                 & ! -
+ & , fr_seaice                                                          & !in
+ & , shfl_soil_t, lhfl_soil_t, shfl_snow_t, lhfl_snow_t                 & !out
 ! standard input
  & , CDCONF &
  & , KIDIA, KFDIA, KLON, KLEVS, KTILES, KSTEP &
@@ -379,8 +381,12 @@ REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,ntiles_total)             :: &
   runoff_s_ex    ,runoff_g_ex        
 REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON)                          :: &
   t_g            ,qv_s
+REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON)                          :: &
+  t_ice          ,h_ice          ,t_snow_si      ,h_snow_si
+REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON)                          :: &
+  fr_seaice
 REAL(KIND=JPRB)  ,INTENT(OUT)    ,DIMENSION(KLON,ntiles_total+ntiles_water):: &
-  shfl_s_t       ,lhfl_s_t       ,shfl_snow_t    ,lhfl_snow_t   
+  shfl_soil_t    ,lhfl_soil_t    ,shfl_snow_t    ,lhfl_snow_t   
 TYPE(t_external_data), INTENT(INOUT)                                       :: &
   ext_data
   
@@ -778,7 +784,9 @@ CALL SURFEXCDRIVER_CTL(CDCONF &
  & , sobs_ex, thbs_ex, pabs_ex                                          & !in
  & , runoff_s_ex, runoff_g_ex                                           & !inout
  & , t_g, qv_s                                                          & ! -
- & , shfl_s_t, lhfl_s_t, shfl_snow_t, lhfl_snow_t)                        !out
+ & , t_ice, h_ice, t_snow_si, h_snow_si                                 & ! -
+ & , fr_seaice                                                          & !in
+ & , shfl_soil_t, lhfl_soil_t, shfl_snow_t, lhfl_snow_t)                  !out
 
 IF (LHOOK) CALL DR_HOOK('SRFEXCDRIVER',1,ZHOOK_HANDLE)
 

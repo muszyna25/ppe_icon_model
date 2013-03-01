@@ -60,7 +60,7 @@ MODULE mo_nwp_turb_sfc_interface
   USE mo_nonhydro_types,       ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_nwp_phy_types,        ONLY: t_nwp_phy_diag, t_nwp_phy_tend
   USE mo_nwp_phy_state,        ONLY: phy_params 
-  USE mo_nwp_lnd_types,        ONLY: t_lnd_prog, t_lnd_diag
+  USE mo_nwp_lnd_types,        ONLY: t_lnd_prog, t_wtr_prog, t_lnd_diag
   USE mo_parallel_config,      ONLY: nproma
   USE mo_run_config,           ONLY: msg_level, iqv, iqc, iqi, iqr, iqs, iqtvar, nqtendphy
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
@@ -98,6 +98,7 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
                               & p_diag ,                           & !>inout
                               & prm_diag, prm_nwp_tend,            & !>inout 
                               & lnd_prog_now, lnd_prog_new,        & !>inout 
+                              & p_prog_wtr_now, p_prog_wtr_new,    & !>inout
                               & lnd_diag                           ) !>inout
 
 
@@ -112,6 +113,8 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
   TYPE(t_nwp_phy_tend), TARGET,INTENT(inout):: prm_nwp_tend    !< atm tend vars
   TYPE(t_lnd_prog),            INTENT(inout):: lnd_prog_now    !< prog vars for sfc
   TYPE(t_lnd_prog),            INTENT(inout):: lnd_prog_new    !< prog vars for sfc
+  TYPE(t_wtr_prog),            INTENT(inout):: p_prog_wtr_now  !< prog vars for wtr
+  TYPE(t_wtr_prog),            INTENT(inout):: p_prog_wtr_new  !< prog vars for wtr
   TYPE(t_lnd_diag),            INTENT(inout):: lnd_diag        !< diag vars for sfc
   REAL(wp),                    INTENT(in)   :: tcall_turb_jg   !< time interval for 
                                                                !< turbulence
@@ -567,6 +570,16 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
         ENDDO
       ENDDO
 
+!     SEA ICE variable initialization
+
+      jt = isub_seaice
+      DO jc = i_startidx, i_endidx
+        p_prog_wtr_new%t_ice    (jc,jb) = p_prog_wtr_now%t_ice    (jc,jb)
+        p_prog_wtr_new%h_ice    (jc,jb) = p_prog_wtr_now%h_ice    (jc,jb)
+        p_prog_wtr_new%t_snow_si(jc,jb) = p_prog_wtr_now%t_snow_si(jc,jb)
+        p_prog_wtr_new%h_snow_si(jc,jb) = p_prog_wtr_now%h_snow_si(jc,jb)
+      ENDDO
+
 !     Various variables for VDFOUTER
       DO jc = i_startidx, i_endidx
         zchar  (jc) = 0.018_wp ! default value from IFS if no wave model
@@ -592,7 +605,7 @@ endif
         ENDDO
       ENDDO
 
-!ATTENTION: these tile quantities are used in TERRA (with ntiles_edmf) ????
+!ATTENTION: these tile quantities are TESSEL/IFS type (with ntiles_edmf=8) ????
 
       DO jt = 1,ntiles_total+ntiles_water
         DO jc = i_startidx, i_endidx
@@ -855,7 +868,12 @@ endif
         & , runoff_s_ex     = lnd_diag%runoff_s_t      (:,jb,:)   & !inout
         & , runoff_g_ex     = lnd_diag%runoff_g_t      (:,jb,:)   & ! -
         & , t_g             = lnd_prog_new%t_g         (:,jb)     & ! -
-        & , qv_s            = lnd_diag%qv_s            (:,jb)     ) ! -
+        & , qv_s            = lnd_diag%qv_s            (:,jb)     & ! -
+        & , t_ice           = p_prog_wtr_new%t_ice     (:,jb)     & ! -
+        & , h_ice           = p_prog_wtr_new%h_ice     (:,jb)     & ! -
+        & , t_snow_si       = p_prog_wtr_new%t_snow_si (:,jb)     & ! -
+        & , h_snow_si       = p_prog_wtr_new%h_snow_si (:,jb)     & ! -   
+        & , fr_seaice       = lnd_diag%fr_seaice       (:,jb)     ) !in
 
 
 ! Turbulence updating strategy:
@@ -895,15 +913,17 @@ endif
         ! prm_diag%shfl_s(jc,jb) = prm_diag%shfl_s(jc,jb) + shfl_s_t(jc,jt)    * zfrti(jc,jt)   !bad, but needed for EDMF???
         ! prm_diag%lhfl_s(jc,jb) = prm_diag%lhfl_s(jc,jb) + evap_s_t(jc,jt)*alv* zfrti(jc,jt)   ! ----
 
-          prm_diag%tch   (jc,jb) = prm_diag%tch   (jc,jb) + tch_ex  (jc,jt)    * ext_data%atm%frac_t(jc,jb,jt)
-          prm_diag%tcm   (jc,jb) = prm_diag%tcm   (jc,jb) + tcm_ex  (jc,jt)    * ext_data%atm%frac_t(jc,jb,jt)
-          prm_diag%tfv   (jc,jb) = prm_diag%tfv   (jc,jb) + tfv_ex  (jc,jt)    * ext_data%atm%frac_t(jc,jb,jt)
+!attention: these are all TERRA/ICON tiles (1 - ntiles_total+ntiles_water) ... transfer coefficients
+          prm_diag%tch     (jc,jb) = prm_diag%tch(jc,jb) + tch_ex(jc,jt) * ext_data%atm%frac_t(jc,jb,jt)
+          prm_diag%tcm     (jc,jb) = prm_diag%tcm(jc,jb) + tcm_ex(jc,jt) * ext_data%atm%frac_t(jc,jb,jt)
+          prm_diag%tfv     (jc,jb) = prm_diag%tfv(jc,jb) + tfv_ex(jc,jt) * ext_data%atm%frac_t(jc,jb,jt)
+          prm_diag%tch_t   (jc,jb,jt) = tch_ex(jc,jt)     
+          prm_diag%tcm_t   (jc,jb,jt) = tcm_ex(jc,jt)  
+          prm_diag%tfv_t   (jc,jb,jt) = tfv_ex(jc,jt)   
 
-          prm_diag%shfl_s_t(jc,jb,jt) = shfl_s_t(jc,jt)
-          prm_diag%lhfl_s_t(jc,jb,jt) = evap_s_t(jc,jt)*alv
-          prm_diag%tch_t   (jc,jb,jt) = tch_ex  (jc,jt)
-          prm_diag%tcm_t   (jc,jb,jt) = tcm_ex  (jc,jt)
-          prm_diag%tfv_t   (jc,jb,jt) = tfv_ex  (jc,jt)
+!attention: these are all TESSEL/IFS tiles (1-8) ...  fluxes ???
+          prm_diag%shfl_s_t(jc,jb,jt) = shfl_s_t(jc,jt)   
+          prm_diag%lhfl_s_t(jc,jb,jt) = evap_s_t(jc,jt)*alv 
         ENDDO           
       ENDDO
 

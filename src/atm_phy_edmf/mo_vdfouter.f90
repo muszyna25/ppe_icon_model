@@ -90,7 +90,9 @@ SUBROUTINE VDFOUTER   ( CDCONF, &
  & , tch_ex, tcm_ex, tfv_ex                                             & !inout
  & , sobs_ex, thbs_ex, pabs_ex                                          & !in
  & , runoff_s_ex, runoff_g_ex                                           & !inout
- & , t_g, qv_s                                                          ) ! -
+ & , t_g, qv_s                                                          & ! -
+ & , t_ice, h_ice, t_snow_si, h_snow_si                                 & ! -
+ & , fr_seaice                                                          ) !in
 !***
 
 !**   *VDFMAIN* - DOES THE VERTICAL EXCHANGE OF U,V,SLG,QT BY TURBULENCE.
@@ -537,6 +539,10 @@ REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,ntiles_total)             :: &
   runoff_s_ex    ,runoff_g_ex        
 REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON)                          :: &
   t_g            ,qv_s
+REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON)                          :: &
+  t_ice          ,h_ice          ,t_snow_si      ,h_snow_si
+REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON)                          :: &
+  fr_seaice
 TYPE(t_external_data), INTENT(INOUT)                                       :: &
   ext_data
 
@@ -791,7 +797,9 @@ ENDDO
    & , tch_ex, tcm_ex, tfv_ex                                             & !inout
    & , sobs_ex, thbs_ex, pabs_ex                                          & !in
    & , runoff_s_ex, runoff_g_ex                                           & !inout
-   & , t_g, qv_s                                                          ) ! -
+   & , t_g, qv_s                                                          & ! -
+   & , t_ice, h_ice, t_snow_si, h_snow_si                                 & ! -
+   & , fr_seaice                                                          ) !in
 
 
 !*         3.0    UPDATE STATE VARIABLES

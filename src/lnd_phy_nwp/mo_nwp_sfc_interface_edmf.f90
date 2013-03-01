@@ -52,10 +52,12 @@ MODULE mo_nwp_sfc_interface_edmf
   USE mo_run_config,          ONLY: msg_level
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
   USE mo_lnd_nwp_config,      ONLY: nlev_soil, nlev_snow, ntiles_total, ntiles_water, &
-    &                               lseaice, llake, lmulti_snow, ntiles_lnd, lsnowtile
-  USE mo_satad,               ONLY: sat_pres_water, spec_humi  
+    &                               lseaice, llake, lmulti_snow, ntiles_lnd, lsnowtile, &
+    &                               isub_water, isub_seaice, isub_lake
+  USE mo_satad,               ONLY: sat_pres_water, sat_pres_ice, spec_humi  
   USE mo_soil_ml,             ONLY: terra_multlay
-  USE mo_nwp_sfc_utils,       ONLY: diag_snowfrac_tg, update_idx_lists_lnd
+  USE mo_nwp_sfc_utils,       ONLY: diag_snowfrac_tg, update_idx_lists_lnd, update_idx_lists_sea
+  USE mo_seaice_nwp,          ONLY: seaice_timestep_nwp
   USE mo_phyparam_soil              ! soil and vegetation parameters for TILES
   USE mo_physical_constants,  ONLY: tmelt
 
@@ -84,10 +86,9 @@ CONTAINS
                   ext_data         , & !>in
                   jb               , & ! block
                   jg               , & ! patch
-                  nproma           , & ! array dimensions
                   i_startidx       , & ! start index for computations in the parallel program
                   i_endidx         , & ! end index for computations in the parallel program
-                  dt               , & ! time step                                     ( s  )
+                  tcall_sfc_jg     , & ! time step                                     ( s  )
 
                   u_ex             , & ! zonal wind speed                              ( m/s )
                   v_ex             , & ! meridional wind speed                         ( m/s )
@@ -140,8 +141,14 @@ CONTAINS
                   t_g              , & ! surface temperature (grid mean)               ( K )
                   qv_s             , & ! surface specific humidity (grid mean)         (kg/kg)
 
-                  shfl_s_ex        , & ! sensible heat flux soil/air interface         (W/m2)
-                  lhfl_s_ex        , & ! latent   heat flux soil/air interface         (W/m2)
+                  t_ice            , & ! sea ice temperature                           (  K  )
+                  h_ice            , & ! sea ice height                                (  m  )
+                  t_snow_si        , & ! sea ice snow temperature                      (  K  )
+                  h_snow_si        , & ! sea ice snow height                           (  m  )
+                  fr_seaice        , & ! sea ice fraction                              (  1  )
+
+                  shfl_soil_ex     , & ! sensible heat flux soil/air interface         (W/m2)
+                  lhfl_soil_ex     , & ! latent   heat flux soil/air interface         (W/m2)
                   shfl_snow_ex     , & ! sensible heat flux snow/air interface         (W/m2)
                   lhfl_snow_ex       & ! latent   heat flux snow/air interface         (W/m2)
                                      )
@@ -150,13 +157,12 @@ CONTAINS
   IMPLICIT NONE
 
   INTEGER,  INTENT(IN)  ::  &
-                  nproma           , & ! array dimensions
                   i_startidx       , & ! start index for computations in the parallel program
                   i_endidx         , & ! end index for computations in the parallel program
                   jb               , & ! block
                   jg                   ! patch
   REAL(wp), INTENT(IN)  ::  &
-                  dt
+                  tcall_sfc_jg         ! time interval for surface                     (  s  )
   REAL(wp), DIMENSION(nproma), INTENT(IN) :: & 
                   u_ex             , & ! zonal wind speed                              ( m/s )
                   v_ex             , & ! meridional wind speed                         ( m/s )
@@ -215,11 +221,18 @@ CONTAINS
   REAL(wp), DIMENSION(nproma), INTENT(INOUT) :: &
                   t_g              , &
                   qv_s
-  REAL(wp), DIMENSION(nproma,ntiles_total+ntiles_water), INTENT(OUT) :: &
-                  shfl_s_ex        , & ! sensible heat flux soil/air interface         (W/m2)
-                  lhfl_s_ex        , & ! latent   heat flux soil/air interface         (W/m2)
-                  shfl_snow_ex     , & ! sensible heat flux snow/air interface         (W/m2)
-                  lhfl_snow_ex         ! latent   heat flux snow/air interface         (W/m2)
+  REAL(wp), DIMENSION(nproma), INTENT(INOUT) :: &
+                  t_ice            , & ! sea ice temperature                           (  K  )
+                  h_ice            , & ! sea ice height                                (  m  )
+                  t_snow_si        , & ! sea ice snow temperature                      (  K  )
+                  h_snow_si            ! sea ice snow height                           (  m  )
+  REAL(wp), DIMENSION(nproma), INTENT(INOUT) :: &
+                  fr_seaice            ! sea ice fraction                              (  1  )
+  REAL(wp), DIMENSION(nproma,ntiles_total+ntiles_water), INTENT(INOUT) :: &
+                  shfl_soil_ex     , & ! sensible heat flux soil/air interface         ( W/m2)
+                  lhfl_soil_ex     , & ! latent   heat flux soil/air interface         ( W/m2)
+                  shfl_snow_ex     , & ! sensible heat flux snow/air interface         ( W/m2)
+                  lhfl_snow_ex         ! latent   heat flux snow/air interface         ( W/m2)
 
   TYPE(t_external_data), INTENT(inout) :: ext_data        !< external data
 
@@ -332,8 +345,8 @@ CONTAINS
 
     REAL(wp) :: t_g_s(nproma), qv_s_s(nproma)
 
-    REAL(wp) :: shfl_s_t    (nproma, ntiles_total)
-    REAL(wp) :: lhfl_s_t    (nproma, ntiles_total)
+    REAL(wp) :: shfl_soil_t (nproma, ntiles_total)
+    REAL(wp) :: lhfl_soil_t (nproma, ntiles_total)
     REAL(wp) :: lhfl_bs_t   (nproma, ntiles_total)
     REAL(wp) :: lhfl_pl_t   (nproma, nlev_soil, ntiles_total)
     REAL(wp) :: rstom_t     (nproma, ntiles_total)
@@ -368,14 +381,14 @@ CONTAINS
       ENDIF
     ENDIF
 
-    DO isubs = 1,ntiles_total
-      DO jc = i_startidx, i_endidx
-        shfl_s_ex   (jc,isubs) = 0.0_wp
-        lhfl_s_ex   (jc,isubs) = 0.0_wp
-        shfl_snow_ex(jc,isubs) = 0.0_wp
-        lhfl_snow_ex(jc,isubs) = 0.0_wp
-        shfl_s_t    (jc,isubs) = 0.0_wp
-        lhfl_s_t    (jc,isubs) = 0.0_wp
+    DO isubs = 1,ntiles_total          
+      DO jc = i_startidx, i_endidx 
+        shfl_soil_ex(jc,isubs) = 0.0_wp    !initialized fluxes over land only
+        lhfl_soil_ex(jc,isubs) = 0.0_wp    !not over water/ice/lake 
+        shfl_snow_ex(jc,isubs) = 0.0_wp    ! - 
+        lhfl_snow_ex(jc,isubs) = 0.0_wp    ! -
+        shfl_soil_t (jc,isubs) = 0.0_wp
+        lhfl_soil_t (jc,isubs) = 0.0_wp
         shfl_snow_t (jc,isubs) = 0.0_wp
         lhfl_snow_t (jc,isubs) = 0.0_wp
         snowfrac_lc_t(jc,isubs) = 0.0_wp
@@ -546,7 +559,7 @@ IF ( .true. ) THEN
         &  ke_soil=nlev_soil-1, ke_snow=nlev_snow            , & ! without lowermost (climat.) soil layer
         &  czmls=zml_soil,    ldiag_tg=.FALSE.               , & ! processing soil level structure 
         &  inwp_turb=atm_phy_nwp_config(jg)%inwp_turb        , &
-        &  dt=dt                                             , &
+        &  dt=tcall_sfc_jg                                   , &
         &  soiltyp_subs = soiltyp_t(:,isubs)                 , & ! type of the soil (keys 0-9)         --    
         &  plcov        = plcov_t(:,isubs)                   , & ! fraction of plant cover             --
         &  rootdp       = rootdp_t(:,isubs)                  , & ! depth of the roots                ( m  )
@@ -628,8 +641,8 @@ IF ( .true. ) THEN
         &  runoff_s      = runoff_s_t(:,isubs)               , & ! surface water runoff; sum over forecast      (kg/m2)
         &  runoff_g      = runoff_g_t(:,isubs)               , & ! soil water runoff; sum over forecast         (kg/m2)
 !
-        &  zshfl_s       = shfl_s_t   (:,isubs)              , & ! sensible heat flux soil/air interface         (W/m2) 
-        &  zlhfl_s       = lhfl_s_t   (:,isubs)              , & ! latent   heat flux soil/air interface         (W/m2) 
+        &  zshfl_s       = shfl_soil_t(:,isubs)              , & ! sensible heat flux soil/air interface         (W/m2) 
+        &  zlhfl_s       = lhfl_soil_t(:,isubs)              , & ! latent   heat flux soil/air interface         (W/m2) 
         &  zshfl_snow    = shfl_snow_t(:,isubs)              , & ! sensible heat flux snow/air interface         (W/m2) 
         &  zlhfl_snow    = lhfl_snow_t(:,isubs)              , & ! latent   heat flux snow/air interface         (W/m2) 
         &  lhfl_bs       = lhfl_bs_t  (:,isubs)              , & ! out: latent heat flux from bare soil evap.    (W/m2)
@@ -646,19 +659,19 @@ endif
 IF (msg_level >= 15) THEN
   DO ic = 1, i_count
     jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
-    if ( abs(shfl_s_t(ic,isubs)) > 500.0  .or. shfl_snow_t(ic,isubs) > 500.0  .or. &
-         abs(lhfl_s_t(ic,isubs)) > 2000.0 .or. lhfl_snow_t(ic,isubs) > 2000.0 ) then
+    if ( abs(shfl_soil_t(ic,isubs)) > 500.0  .or. shfl_snow_t(ic,isubs) > 500.0  .or. &
+         abs(lhfl_soil_t(ic,isubs)) > 2000.0 .or. lhfl_snow_t(ic,isubs) > 2000.0 ) then
        write(*,*) 'sfc_interface_edmf: fluxes ', &
          ic, jc, isubs, snowfrac_t(ic,isubs), &
-         shfl_s_t(ic,isubs), shfl_snow_t(ic,isubs), &
-         lhfl_s_t(ic,isubs), lhfl_snow_t(ic,isubs)
+         shfl_soil_t(ic,isubs), shfl_snow_t(ic,isubs), &
+         lhfl_soil_t(ic,isubs), lhfl_snow_t(ic,isubs)
     endif
     DO jk=1,nlev_soil+1
       if ( abs( t_so_ex(jc,jk,isubs) - t_so_new_t(ic,jk,isubs) ) > 2.0 ) then 
         write(*,*) 'sfc_interface_edmf: t_so ', ic, jc, isubs, jk, & 
           t_so_ex(jc,jk,isubs), t_so_new_t(ic,jk,isubs), &
           lc_class_t(ic,isubs), snowfrac_t(ic,isubs), &
-          shfl_s_t(ic,isubs), shfl_snow_t(ic,isubs)
+          shfl_soil_t(ic,isubs), shfl_snow_t(ic,isubs)
       endif
     ENDDO
     DO jk=1,nlev_soil
@@ -716,8 +729,8 @@ endif
 
           t_so_ex(jc,nlev_soil+1,isubs) = t_so_new_t(ic,nlev_soil+1,isubs)
 
-          shfl_s_ex   (jc,isubs)  = shfl_s_t      (ic,isubs)
-          lhfl_s_ex   (jc,isubs)  = lhfl_s_t      (ic,isubs)   
+          shfl_soil_ex(jc,isubs)  = shfl_soil_t   (ic,isubs)
+          lhfl_soil_ex(jc,isubs)  = lhfl_soil_t   (ic,isubs)   
           shfl_snow_ex(jc,isubs)  = shfl_snow_t   (ic,isubs)
           lhfl_snow_ex(jc,isubs)  = lhfl_snow_t   (ic,isubs)
 
@@ -1002,7 +1015,182 @@ endif
     ENDIF !inwp_sfc
 
 
+
+    !
+    ! Call seaice parameterization
+    !
+    IF ( (atm_phy_nwp_config(jg)%inwp_surface == 1) .AND. (lseaice) ) THEN
+
+    ! sea ice flux calculation
+!      DO jc = i_startidx, i_endidx
+!        shfl_soil_ex(jc,isub_seaice) = 1 !?
+!        lhfl_soil_ex(jc,isub_seaice) = 1 !?
+!        shfl_snow_ex(jc,isub_seaice) = 0.0_wp    ! snow over sea ice ignored for the moment
+!        lhfl_snow_ex(jc,isub_seaice) = 0.0_wp   
+!      ENDDO
+
+      CALL nwp_seaice(ext_data    , jb          , tcall_sfc_jg,                      &
+                   &  t_g_ex      , qv_s_ex     , ps_ex       , sobs_ex  , thbs_ex,  &
+                   &  shfl_soil_ex, lhfl_soil_ex,                                    &
+                   &  t_ice       , h_ice       , t_snow_si   , h_snow_si,           &
+                   &  fr_seaice                                                      )
+    ENDIF
+
+
+
+    !
+    ! Call Flake model
+    !
+!    IF ( (atm_phy_nwp_config(jg)%inwp_surface == 1) .AND. (llake) ) THEN
+!    ENDIF
+
+
   END SUBROUTINE nwp_surface_edmf
+
+
+
+  !>
+  !! Interface for seaice parameterization
+  !!
+  !! Interface for seaice parameterization. Calls seaice time integration scheme 
+  !! seaice_timestep_nwp and updates the dynamic seaice index lists.
+  !!
+  !! @par Revision History
+  !! Initial revision by Daniel Reinert, DWD (2012-08-31)
+  !!
+  SUBROUTINE nwp_seaice (ext_data    , jb          , dtime       ,                         &
+                      &  t_g_ex      , qv_s_ex     , ps_ex       , sobs_ex     , thbs_ex,  &
+                      &  shfl_soil_ex, lhfl_soil_ex,                                       &
+                      &  t_ice_ex    , h_ice_ex    , t_snow_si_ex, h_snow_si_ex,           &
+                      &  fr_seaice                                                         )
+
+    INTEGER,                                               INTENT(IN)    :: &
+                  jb                   ! block
+    TYPE(t_external_data),                                 INTENT(INOUT) :: &
+                  ext_data             ! external data
+    REAL(wp),                                              INTENT(IN)    :: &
+                  dtime                ! time interval for sea ice 
+    REAL(wp), DIMENSION(nproma,ntiles_total+ntiles_water), INTENT(INOUT) :: &
+                  t_g_ex           , & ! weighted surface temperature                  (  K  )
+                  qv_s_ex              ! specific humidity at the surface              (kg/kg)
+    REAL(wp), DIMENSION(nproma),                           INTENT(IN)    :: & 
+                  ps_ex                ! surface pressure                              ( pa  )
+    REAL(wp), DIMENSION(nproma,ntiles_total+ntiles_water), INTENT(IN)    :: &
+                  sobs_ex          , & ! solar radiation at the ground                 ( W/m2)
+                  thbs_ex              ! thermal radiation at the ground               ( W/m2)
+    REAL(wp), DIMENSION(nproma,ntiles_total+ntiles_water), INTENT(IN)    :: &
+                  shfl_soil_ex     , & ! sensible heat flux soil/air interface         ( W/m2)
+                  lhfl_soil_ex         ! latent   heat flux soil/air interface         ( W/m2)
+    REAL(wp), DIMENSION(nproma),                           INTENT(INOUT) :: &
+                  t_ice_ex         , & ! sea ice temperature                           (  K  )
+                  h_ice_ex         , & ! sea ice height                                (  m  )
+                  t_snow_si_ex     , & ! sea ice snow temperature                      (  K  )
+                  h_snow_si_ex         ! sea ice snow height                           (  m  )
+    REAL(wp), DIMENSION(nproma),                           INTENT(INOUT) :: &
+                  fr_seaice            ! sea ice fraction                              (  1  )
+ 
+    ! Local arrays  (local copies)
+    !
+    REAL(wp) :: shfl_s   (nproma)   ! sensible heat flux at the surface                [W/m^2]
+    REAL(wp) :: lhfl_s   (nproma)   ! latent heat flux at the surface                  [W/m^2]
+    REAL(wp) :: lwflxsfc (nproma)   ! net long-wave radiation flux at the surface      [W/m^2] 
+    REAL(wp) :: swflxsfc (nproma)   ! net solar radiation flux at the surface          [W/m^2]
+    REAL(wp) :: tice_now (nproma)   ! temperature of ice upper surface at previous time  [K]
+    REAL(wp) :: hice_now (nproma)   ! ice thickness at previous time level               [m]
+    REAL(wp) :: tsnow_now(nproma)   ! temperature of snow upper surface at previous time [K]
+    REAL(wp) :: hsnow_now(nproma)   ! snow thickness at previous time level              [m]
+    REAL(wp) :: tice_new (nproma)   ! temperature of ice upper surface at new time       [K]
+    REAL(wp) :: hice_new (nproma)   ! ice thickness at new time level                    [m]
+    REAL(wp) :: tsnow_new(nproma)   ! temperature of snow upper surface at new time      [K]
+    REAL(wp) :: hsnow_new(nproma)   ! snow thickness at new time level                   [m]
+
+    ! Local scalars:
+    !
+    INTEGER :: jc, ic              !loop indices
+    INTEGER :: i_count
+
+    CHARACTER(len=*), PARAMETER :: routine = 'mo_nwp_sfc_interface:nwp_seaice'
+    !-------------------------------------------------------------------------
+
+
+    IF (msg_level >= 15) THEN
+      CALL message('mo_nwp_sfc_interface: ', 'call nwp_seaice scheme')
+    ENDIF
+
+
+      ! Copy input fields
+      !
+      i_count = ext_data%atm%spi_count(jb) 
+
+      DO ic = 1, i_count
+        jc = ext_data%atm%idx_lst_spi(ic,jb)
+
+        shfl_s   (ic) = shfl_soil_ex(jc,isub_seaice)     ! sensible heat flux at sfc       [W/m^2]
+        lhfl_s   (ic) = lhfl_soil_ex(jc,isub_seaice)     ! latent heat flux at sfc         [W/m^2]
+        lwflxsfc (ic) = thbs_ex     (jc,isub_seaice)     ! net lw radiation flux at sfc    [W/m^2]
+        swflxsfc (ic) = sobs_ex     (jc,isub_seaice)     ! net solar radiation flux at sfc [W/m^2]
+        tice_now (ic) = t_ice_ex    (jc)
+        hice_now (ic) = h_ice_ex    (jc)
+        tsnow_now(ic) = t_snow_si_ex(jc)
+        hsnow_now(ic) = h_snow_si_ex(jc)
+      ENDDO  ! ic
+
+
+      ! call seaice time integration scheme
+      !
+      CALL seaice_timestep_nwp (       &
+        &   dtime   = dtime,           &
+        &   nproma  = nproma,          & !in
+        &   nsigb   = i_count,         & !in
+        &   qsen    = shfl_s(:),       & !in 
+        &   qlat    = lhfl_s(:),       & !in
+        &   qlwrnet = lwflxsfc(:),     & !in
+        &   qsolnet = swflxsfc(:),     & !in
+        &   tice_p  = tice_now(:),     & !in
+        &   hice_p  = hice_now(:),     & !in
+        &   tsnow_p = tsnow_now(:),    & !in    ! DUMMY: not used yet
+        &   hsnow_p = hsnow_now(:),    & !in    ! DUMMY: not used yet
+        &   tice_n  = tice_new(:),     & !out
+        &   hice_n  = hice_new(:),     & !out
+        &   tsnow_n = tsnow_new(:),    & !out   ! DUMMY: not used yet
+        &   hsnow_n = hsnow_new(:)     ) !out   ! DUMMY: not used yet
+      ! optional arguments dticedt, dhicedt, dtsnowdt, dhsnowdt (tendencies) are neglected
+
+
+      !  Recover fields from index list
+      !
+      DO ic = 1, i_count
+        jc = ext_data%atm%idx_lst_spi(ic,jb)
+
+        t_ice_ex    (jc) = tice_new (ic)
+        h_ice_ex    (jc) = hice_new (ic)
+        t_snow_si_ex(jc) = tsnow_new(ic)
+        h_snow_si_ex(jc) = hsnow_new(ic)
+
+        t_g_ex(jc,isub_seaice)  = tice_new(ic)
+        ! surface saturation specific humidity (uses saturation water vapor pressure 
+        ! over ice)
+        qv_s_ex(jc,isub_seaice) = spec_humi( sat_pres_ice(tice_new(ic)), ps_ex(jc) )
+      ENDDO  ! ic
+
+
+      ! Update dynamic sea-ice index list
+      !
+      CALL update_idx_lists_sea (                                    &
+        &   hice_n        = h_ice_ex(:),                             &!in
+        &   pres_sfc      = ps_ex(:),                                &!in
+        &   idx_lst_spw   = ext_data%atm%idx_lst_spw(:,jb),          &!inout
+        &   spw_count     = ext_data%atm%spw_count(jb),              &!inout
+        &   idx_lst_spi   = ext_data%atm%idx_lst_spi(:,jb),          &!inout
+        &   spi_count     = ext_data%atm%spi_count(jb),              &!inout
+        &   frac_t_ice    = ext_data%atm%frac_t(:,jb,isub_seaice),   &!inout
+        &   frac_t_water  = ext_data%atm%frac_t(:,jb,isub_water),    &!inout
+        &   fr_seaice     = fr_seaice(:),                            &!inout
+        &   t_g_t_new     = t_g_ex(:,isub_water),                    &!inout
+        &   qv_s_t        = qv_s_ex(:,isub_water)                    )!inout
+
+
+  END SUBROUTINE nwp_seaice
 
 
 END MODULE mo_nwp_sfc_interface_edmf

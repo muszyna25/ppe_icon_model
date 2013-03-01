@@ -94,7 +94,9 @@ SUBROUTINE VDFMAIN ( CDCONF , &
  & , tch_ex, tcm_ex, tfv_ex                                             & !inout
  & , sobs_ex, thbs_ex, pabs_ex                                          & !in
  & , runoff_s_ex, runoff_g_ex                                           & !inout
- & , t_g, qv_s                                                          ) ! -
+ & , t_g, qv_s                                                          & ! -
+ & , t_ice, h_ice, t_snow_si, h_snow_si                                 & ! -
+ & , fr_seaice                                                          ) ! -
 !***
 
 !**   *VDFMAIN* - DOES THE VERTICAL EXCHANGE OF U,V,SLG,QT BY TURBULENCE.
@@ -403,7 +405,8 @@ USE mo_edmf_param   ,ONLY : &
                 & N_VMASS  ,&                                         !yomjfh
                 & FOEALFA                                             !fcttre.f
 USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
-USE mo_lnd_nwp_config,ONLY: nlev_soil, nlev_snow, ntiles_total, ntiles_water
+USE mo_lnd_nwp_config,ONLY: nlev_soil, nlev_snow, ntiles_total, ntiles_water, &
+                            isub_seaice
 USE mo_ext_data_types,ONLY: t_external_data
 
 USE mo_vdfdpbl      ,ONLY : vdfdpbl
@@ -589,6 +592,10 @@ REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,ntiles_total)             :: &
   runoff_s_ex    ,runoff_g_ex        
 REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON)                          :: &
   t_g            ,qv_s
+REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON)                          :: &
+  t_ice          ,h_ice          ,t_snow_si      ,h_snow_si
+REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON)                          :: &
+  fr_seaice
 TYPE(t_external_data), INTENT(INOUT)                                       :: &
   ext_data
 
@@ -685,7 +692,7 @@ LOGICAL ::            LMPBLEQU
 REAL(KIND=JPRB) ::    ZQTENH(KLON,0:KLEV) 
 
 REAL(KIND=JPRB), DIMENSION(KLON,ntiles_total+ntiles_water) :: &
-                    & shfl_s_t, lhfl_s_t, shfl_snow_t, lhfl_snow_t   
+                    & shfl_soil_t, lhfl_soil_t, shfl_snow_t, lhfl_snow_t   
 
 !amk testing only!!!
 REAL(KIND=JPRB) ::    ZCFNC1  
@@ -855,7 +862,9 @@ CALL SURFEXCDRIVER( &
    & , sobs_ex, thbs_ex, pabs_ex                                          & !in
    & , runoff_s_ex, runoff_g_ex                                           & !inout
    & , t_g, qv_s                                                          & ! -
-   & , shfl_s_t, lhfl_s_t, shfl_snow_t, lhfl_snow_t,                      & !out
+   & , t_ice, h_ice, t_snow_si, h_snow_si                                 & ! -
+   & , fr_seaice                                                          & !in
+   & , shfl_soil_t, lhfl_soil_t, shfl_snow_t, lhfl_snow_t,                & !out
   ! standard input
    & CDCONF=CDCONF, &
    & KIDIA=KIDIA, KFDIA=KFDIA, KLON=KLON, KLEVS=KLEVS, KTILES=KTILES, KSTEP=KSTEP, &
@@ -902,14 +911,23 @@ DO JL=KIDIA,KFDIA
   ZEXTLHF(JL) = 0.0_JPRB
   DO JT=1,ntiles_total      ! land points only
     IF (LLTERRA) THEN
-      ZEXTSHF(JL) = ZEXTSHF(JL) + ext_data%atm%frac_t(JL,JB,JT) * &
-        ( SHFL_S_T   (JL,JT) * (1.0_JPRB - SNOWFRAC_EX(JL,JT)) +  &
+      ZEXTSHF(JL) = ZEXTSHF(JL) + ext_data%atm%frac_t(JL,JB,JT) *    &
+        ( SHFL_SOIL_T(JL,JT) * (1.0_JPRB - SNOWFRAC_EX(JL,JT)) +  &
           SHFL_SNOW_T(JL,JT) *             SNOWFRAC_EX(JL,JT)  )
-      ZEXTLHF(JL) = ZEXTLHF(JL) + ext_data%atm%frac_t(JL,JB,JT) * &
-        ( LHFL_S_T   (JL,JT) * (1.0_JPRB - SNOWFRAC_EX(JL,JT)) +  &
+      ZEXTLHF(JL) = ZEXTLHF(JL) + ext_data%atm%frac_t(JL,JB,JT) *    &
+        ( LHFL_SOIL_T(JL,JT) * (1.0_JPRB - SNOWFRAC_EX(JL,JT)) +  &
           LHFL_SNOW_T(JL,JT) *             SNOWFRAC_EX(JL,JT)  )
     END IF
   ENDDO
+
+! sea ice fluxes (mean flux stored in '_soil' flux)
+!
+!  JT = isub_seaice
+!  ZEXTSHF(JL) = ZEXTSHF(JL) + ext_data%atm%frac_t(JL,JB,JT) *    &
+!    SHFL_SOIL_T(JL,JT)
+!  ZEXTLHF(JL) = ZEXTLHF(JL) + ext_data%atm%frac_t(JL,JB,JT) *    &
+!    LHFL_SOIL_T(JL,JT)
+
 ! normalize to get mean over land points
 !  ZEXTSHF(JL) = ZEXTSHF(JL) / SUM(ext_data%atm%frac_t(JL,JB,1:ntiles_total))
 !  ZEXTLHF(JL) = ZEXTLHF(JL) / SUM(ext_data%atm%frac_t(JL,JB,1:ntiles_total))
@@ -1283,6 +1301,13 @@ CALL VDFDIFH (KIDIA  , KFDIA  , KLON   , KLEV   , IDRAFT , ITOP   , KTILES, &
             & ZTSKTIP1,ZSLGE  , PTE    , ZQTE, &
             & PEVAPTI, PAHFSTI, ZAHFLTI, ZSTR   , ZG0)
 
+! store sea ice fluxes for sea ice calculation in the surface interface
+DO JL=KIDIA,KFDIA
+  shfl_soil_t(jl,isub_seaice) = PAHFSTI(jl,2)
+  lhfl_soil_t(jl,isub_seaice) = ZAHFLTI(jl,2)
+  shfl_snow_t(jl,isub_seaice) = PAHFSTI(jl,2)   !snow over sea ice not used currently
+  lhfl_snow_t(jl,isub_seaice) = ZAHFLTI(jl,2)
+ENDDO
 
 !DO JL=KIDIA,KFDIA
 !  IF ( (SUM(PAHFSTI(JL,:)) == 0.0) .or. (SUM(PEVAPTI(JL,:)) == 0.0) .or. &

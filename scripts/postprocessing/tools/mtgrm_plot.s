@@ -24,8 +24,8 @@ iFile=${5}
 echo "dir = " $dir " iFile = " $iFile
 
 mkdir -p ${dir}"/meteo"
-#oType="png" !doesn't work on AIX (NCL 5.2.1)
-oType="eps"
+oType="png" #doesn't work on AIX (NCL 5.2.1)
+#oType="pdf"
 
 set -A iStation 1 2 3 4 5 6 7 8 9 10 11 12 13 14
 

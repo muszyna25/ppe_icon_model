@@ -132,7 +132,7 @@ USE mo_edmf_param   ,ONLY : &
 
 !    Reals with tile index (Out):
 !      PJS     :    Flux of dry static energy                  (W/m2)
-!      PQS     :    Moisture flux                              (kg/m2s)
+!      PJQ     :    Moisture flux                              (kg/m2s)
 !      PSSK    :    New dry static energy of skin              (J/kg)
 !      PTSK    :    New skin temperature                       (K)
 !      PSSH    :    Surface sensible heat flux                 (W/m2)

@@ -83,7 +83,9 @@ SUBROUTINE SURFEXCDRIVER_CTL(CDCONF &
  & , sobs_ex, thbs_ex, pabs_ex                                          & !in
  & , runoff_s_ex, runoff_g_ex                                           & !inout
  & , t_g, qv_s                                                          & ! -
- & , shfl_s_ex, lhfl_s_ex, shfl_snow_ex, lhfl_snow_ex)                    !out
+ & , t_ice, h_ice, t_snow_si, h_snow_si                                 & ! -
+ & , fr_seaice                                                          & !in
+ & , shfl_soil_ex, lhfl_soil_ex, shfl_snow_ex, lhfl_snow_ex)              !out
 
 ! USE PARKIND1  ,ONLY : JPIM, JPRB
 ! 
@@ -412,8 +414,12 @@ REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,ntiles_total)             :: &
   runoff_s_ex    ,runoff_g_ex        
 REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON)                          :: &
   t_g            ,qv_s
+REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON)                          :: &
+  t_ice          ,h_ice          ,t_snow_si      ,h_snow_si
+REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON)                          :: &
+  fr_seaice
 REAL(KIND=JPRB)  ,INTENT(OUT)    ,DIMENSION(KLON,ntiles_total+ntiles_water):: &
-  shfl_s_ex      ,lhfl_s_ex      ,shfl_snow_ex   ,lhfl_snow_ex  
+  shfl_soil_ex   ,lhfl_soil_ex   ,shfl_snow_ex   ,lhfl_snow_ex  
 TYPE(t_external_data), INTENT(INOUT)                                       :: &
   ext_data
 
@@ -448,11 +454,11 @@ REAL(KIND=JPRB) :: ZFRMAX(KLON)   , ZFRLMAX(KLON)  , ZALB(KLON)     , &
 INTEGER(KIND=JPIM) :: JL, JTILE, JT, IITT, isubs
 LOGICAL :: LLINIT
 
-REAL(KIND=JPRB) :: ZDUA, ZZCDN, ZQSSN, ZCOR, ZRG, ZRTMST , &
+REAL(KIND=JPRB) :: ZQSSN, ZCOR, ZRG, ZRTMST , &
                  & ZZ0MWMO, ZBLENDWMO, ZBLENDZ0, ZCOEF1, ZCONS1
 REAL(KIND=JPRB) :: ZHOOK_HANDLE
 
-LOGICAL         :: LLAND, LLSICE, LLHISSR(KLON)
+LOGICAL         :: LLHISSR(KLON)
 
 ! Globcover 2009: tile index used in TESSEL (IFS) (see also mo_ext_data_state.f90)
 !   Number of landcover classes provided by external parameter data
@@ -778,10 +784,9 @@ IF ( .true. ) THEN
     ext_data         = ext_data        , & !>in  
     jb               = jb              , & ! block  
     jg               = jg              , & ! patch
-    nproma           = KLON            , & ! array dimensions
     i_startidx       = KIDIA           , & ! start index for computations in the parallel program
     i_endidx         = KFDIA           , & ! end index for computations in the parallel program
-    dt               = PTSTEP          , & ! time step
+    tcall_sfc_jg     = PTSTEP          , & ! time step
  !                                      
     u_ex             = PUMLEV          , & ! zonal wind speed                              ( m/s )
     v_ex             = PVMLEV          , & ! meridional wind speed                         ( m/s )
@@ -831,11 +836,17 @@ IF ( .true. ) THEN
     runoff_s_ex      = runoff_s_ex     , & ! surface water runoff; sum over forecast       (kg/m2)
     runoff_g_ex      = runoff_g_ex     , & ! soil water runoff; sum over forecast          (kg/m2)
  !                                   
-    t_g              = t_g             , & ! surface temperature (grid mean)               ( K )
+    t_g              = t_g             , & ! surface temperature (grid mean)               (  K  )
     qv_s             = qv_s            , & ! surface specific humidity (grid mean)         (kg/kg)
  !
-    shfl_s_ex        = shfl_s_ex       , & ! sensible heat flux soil/air interface         (W/m2)
-    lhfl_s_ex        = lhfl_s_ex       , & ! latent   heat flux soil/air interface         (W/m2)
+    t_ice            = t_ice           , & ! sea ice temperature                           (  K  )
+    h_ice            = h_ice           , & ! sea ice height                                (  m  )
+    t_snow_si        = t_snow_si       , & ! sea ice snow temperature                      (  K  )
+    h_snow_si        = h_snow_si       , & ! sea ice snow height                           (  m  )
+    fr_seaice        = fr_seaice       , & ! sea ice fraction                              (  1  )
+!
+    shfl_soil_ex     = shfl_soil_ex    , & ! sensible heat flux soil/air interface         (W/m2)
+    lhfl_soil_ex     = lhfl_soil_ex    , & ! latent   heat flux soil/air interface         (W/m2)
     shfl_snow_ex     = shfl_snow_ex    , & ! sensible heat flux snow/air interface         (W/m2)
     lhfl_snow_ex     = lhfl_snow_ex    )   ! latent   heat flux snow/air interface         (W/m2)
 ENDIF
@@ -844,14 +855,14 @@ ENDIF
 IF (msg_level >= 15) THEN
   DO JTILE=1,KTILES
     DO JL=KIDIA,KFDIA
-      IF ( ABS( shfl_s_ex   (jl,jtile) * (1-snowfrac_ex(jl,jtile)))  >  400.0_JPRB  .OR. & 
+      IF ( ABS( shfl_soil_ex(jl,jtile) * (1-snowfrac_ex(jl,jtile)))  >  400.0_JPRB  .OR. & 
            ABS( shfl_snow_ex(jl,jtile) *    snowfrac_ex(jl,jtile) )  >  400.0_JPRB  .OR. & 
-           ABS( lhfl_s_ex   (jl,jtile) * (1-snowfrac_ex(jl,jtile)))  > 2000.0_JPRB  .OR. & 
+           ABS( lhfl_soil_ex(jl,jtile) * (1-snowfrac_ex(jl,jtile)))  > 2000.0_JPRB  .OR. & 
            ABS( lhfl_snow_ex(jl,jtile) *    snowfrac_ex(jl,jtile) )  > 2000.0_JPRB  ) THEN
          write(*,*) 'surfexc: SHF-soil,-snow,LHF-soil,-snow', &
            jl, jtile, snowfrac_ex(jl,jtile), &
-           shfl_s_ex(jl,jtile), shfl_snow_ex(jl,jtile), &
-           lhfl_s_ex(jl,jtile), lhfl_snow_ex(jl,jtile)
+           shfl_soil_ex(jl,jtile), shfl_snow_ex(jl,jtile), &
+           lhfl_soil_ex(jl,jtile), lhfl_snow_ex(jl,jtile)
       ENDIF
     ENDDO
   ENDDO
@@ -865,11 +876,11 @@ ENDIF
 !??     PEVAPTI(JL,JTILE) = 0.0_JPRB
 !??     DO JT=1,ntiles_total+ntiles_water
 !??       PAHFSTI(JL,JTILE) = PAHFSTI(JL,JTILE) + subsfrac_ex(JL,JT) * &
-!??           ( SHFL_S_EX   (JL,JT) * (1.0_JPRB - SNOWFRAC_EX(JL,JT)) +  &
-!??             SHFL_SNOW_EX(JL,JT) *             SNOWFRAC_EX(JL,JT)  ) 
+!??           ( SHFL_SOIL_EX   (JL,JT) * (1.0_JPRB - SNOWFRAC_EX(JL,JT)) +  &
+!??             SHFL_SNOW_EX(JL,JT) *                SNOWFRAC_EX(JL,JT)  ) 
 !??       PEVAPTI(JL,JTILE) = PEVAPTI(JL,JTILE) + subsfrac_ex(JL,JT) * &
-!??           ( LHFL_S_EX   (JL,JT) * (1.0_JPRB - SNOWFRAC_EX(JL,JT)) +  &
-!??             LHFL_SNOW_EX(JL,JT) *             SNOWFRAC_EX(JL,JT)  )/RLVTT
+!??           ( LHFL_SOIL_EX   (JL,JT) * (1.0_JPRB - SNOWFRAC_EX(JL,JT)) +  &
+!??             LHFL_SNOW_EX(JL,JT) *                SNOWFRAC_EX(JL,JT)  )/RLVTT
 !??     ENDDO
 !??   ENDDO
 !?? ENDDO

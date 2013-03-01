@@ -458,6 +458,7 @@ CONTAINS
                                   & pt_diag ,                         & !>inout
                                   & prm_diag,prm_nwp_tend,            & !>inout 
                                   & lnd_prog_now, lnd_prog_new,       & !>inout 
+                                  & wtr_prog_now, wtr_prog_new,       & !>inout
                                   & lnd_diag                          ) !>inout
 
       IF (timers_level > 1) CALL timer_stop(timer_nwp_turbulence)
