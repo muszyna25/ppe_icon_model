@@ -64,7 +64,6 @@ USE mo_impl_constants,      ONLY: success, max_char_length, MIN_DOLIC, SEA
 USE mo_exception,           ONLY: message, finish
 USE mo_util_dbg_prnt,       ONLY: dbg_print
 USE mo_oce_state,           ONLY: t_hydro_ocean_state, oce_config!, v_base
-USE mo_oce_thermodyn,       ONLY: calc_global_density
 USE mo_physical_constants,  ONLY: grav, rho_ref, SItodBar
 USE mo_math_constants,      ONLY: dbl_eps
 USE mo_dynamics_config,     ONLY: nold!, nnew
@@ -661,10 +660,6 @@ write(*,*)'max-min coeff',z_diff_multfac, maxval(p_phys_param%K_veloc_h(:,1,:)),
       z_s2                         = 0.0_wp
       z_grav_rho                   = grav/rho_ref
       z_inv_rho_ref                = 1.0_wp/rho_ref
-
-      !CALL calc_density(p_patch_3D,&
-      !  &               p_os(jg)%p_prog(nold(1))%tracer,&
-      !  &               p_os(jg)%p_diag%rho)
 
       !Calculate Richardson number and vertical density gradient
       DO jb = all_cells%start_block, all_cells%end_block
