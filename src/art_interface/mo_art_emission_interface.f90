@@ -154,8 +154,6 @@ CONTAINS
              jsp=>info%ncontained
              var_name=>info%name
 
-             WRITE(0,*) 'EMISSION of ', var_name,' with idx= ',jsp
-
              IF(info%tracer%tracer_class=='radioact') THEN
                CALL art_emiss_radioact(p_patch,p_dtime,p_tracer_now(:,:,:,jsp),p_rho,info%tracer%imis_tracer)
              ENDIF
