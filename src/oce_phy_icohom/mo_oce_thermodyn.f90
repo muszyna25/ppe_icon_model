@@ -70,7 +70,7 @@ CHARACTER(len=*), PARAMETER :: this_mod_name = 'mo_oce_thermodyn'
 
 PUBLIC  :: calc_internal_press
 PUBLIC  :: calc_internal_press_new
-PUBLIC  :: calc_density
+PUBLIC  :: calc_global_density
 !each specific EOS comes as a sbr and as a function. The sbr version is private as it is
 !only used in "calc_internal_press", whilethe function version is used in mo_oce_physics
 !(sbr "update_ho_params") to calculate the local Richardson number.
@@ -345,7 +345,7 @@ END INTERFACE
   !! Initial version by Peter Korn, MPI-M (2009)
   !! Initial release by Stephan Lorenz, MPI-M (2010-07)
   !!
-  SUBROUTINE calc_density(p_patch_3D,tracer, rho)
+  SUBROUTINE calc_global_density(p_patch_3D,tracer, rho)
   !
   !!
   TYPE(t_patch_3D ),TARGET, INTENT(IN) :: p_patch_3D
@@ -768,7 +768,7 @@ END SUBROUTINE calc_density_JM_EOS
     DO jb = all_cells%start_block, all_cells%end_block
       CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
      DO jk=1, n_zlev
-       z_p = p_patch_3D%p_patch_1D(1)%zlev_m(jk)*rho_ref*SItodBar
+       z_p = p_patch_3D%p_patch_1D(1)%zlev_i(jk)*rho_ref*SItodBar
        DO jc = i_startidx, i_endidx
          ! operate on wet ocean points only
          IF(p_patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
@@ -783,7 +783,7 @@ END SUBROUTINE calc_density_JM_EOS
     DO jb = all_cells%start_block, all_cells%end_block
       CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
      DO jk=1, n_zlev
-       z_p = p_patch_3D%p_patch_1D(1)%zlev_m(jk)*rho_ref*SItodBar
+       z_p = p_patch_3D%p_patch_1D(1)%zlev_i(jk)*rho_ref*SItodBar
        DO jc = i_startidx, i_endidx
          ! operate on wet ocean points only
          IF(p_patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
