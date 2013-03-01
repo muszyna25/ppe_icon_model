@@ -768,7 +768,7 @@ END SUBROUTINE calc_density_JM_EOS
     DO jb = all_cells%start_block, all_cells%end_block
       CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
      DO jk=1, n_zlev
-       z_p = p_patch_3D%p_patch_1D(1)%zlev_i(jk)*rho_ref*SItodBar
+       z_p = p_patch_3D%p_patch_1D(1)%zlev_m(jk)*rho_ref*SItodBar
        DO jc = i_startidx, i_endidx
          ! operate on wet ocean points only
          IF(p_patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
@@ -783,13 +783,11 @@ END SUBROUTINE calc_density_JM_EOS
     DO jb = all_cells%start_block, all_cells%end_block
       CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
      DO jk=1, n_zlev
-       z_p = p_patch_3D%p_patch_1D(1)%zlev_i(jk)*rho_ref*SItodBar
+       z_p = p_patch_3D%p_patch_1D(1)%zlev_m(jk)*rho_ref*SItodBar
        DO jc = i_startidx, i_endidx
          ! operate on wet ocean points only
          IF(p_patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
-
            rho(jc,jk,jb) = calc_density_MPIOM_func( tracer(jc,jk,jb,1), SAL_REF, z_p)
-!write(123,*)'rho',jc,jk,jb,rho(jc,jk,jb)
          END IF
        END DO
      END DO
