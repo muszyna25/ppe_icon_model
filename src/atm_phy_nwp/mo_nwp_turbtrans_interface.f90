@@ -131,7 +131,7 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
 
   REAL(wp) :: z_tvs(nproma,p_patch%nlevp1,1)        !< aux turbulence velocity scale [m/s]
 
-  REAL(wp) :: fr_land_t(nproma),depth_lk_t(nproma),h_ice_t(nproma),area_frac
+  REAL(wp) :: fr_land_t(nproma),depth_lk_t(nproma),h_ice_t(nproma),area_frac,z0_mod
 
   ! Local fields needed to reorder turbtran input/output fields for tile approach
 
@@ -179,7 +179,7 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jt,jc,ic,ilist,i_startidx,i_endidx,i_count,ierrstat,errormsg,eroutine,      &
-!$OMP lc_class,z_tvs,gz0_t,tcm_t,tch_t,tfm_t,tfh_t,tfv_t,t_g_t,qv_s_t,t_2m_t,qv_2m_t,           &  
+!$OMP lc_class,z_tvs,z0_mod,gz0_t,tcm_t,tch_t,tfm_t,tfh_t,tfv_t,t_g_t,qv_s_t,t_2m_t,qv_2m_t,    &  
 !$OMP td_2m_t,rh_2m_t,u_10m_t,v_10m_t,tvs_t,pres_sfc_t,u_t,v_t,temp_t,pres_t,qv_t,qc_t,tkvm_t,  &
 !$OMP tkvh_t,z_ifc_t,w_t,rcld_t,sai_t,fr_land_t,depth_lk_t,h_ice_t,area_frac,shfl_s_t,lhfl_s_t) &
 !$OMP ICON_OMP_GUIDED_SCHEDULE
@@ -240,12 +240,18 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
           ! 2. snow_covered and snow_free areas combined in one tile
           jc = ext_data%atm%idx_lst_t(ic,jb,jt)
           lc_class = MAX(1,ext_data%atm%lc_class_t(jc,jb,jt)) ! to avoid segfaults
-          prm_diag%gz0_t(jc,jb,jt) = grav * (                                     &
-           (1._wp-lnd_diag%snowfrac_t(jc,jb,jt))*ext_data%atm%z0_lcc(lc_class) +  &
-            lnd_diag%snowfrac_t(jc,jb,jt)*0.5_wp*ext_data%atm%z0_lcc(i_lc_si) )
-          !
-          ! factor of 0.5 added by GZ, since z0_lcc(i_lc_si)=0.01 appears to be 
-          ! quite large
+          IF (ext_data%atm%z0_lcc(lc_class) >= 0.25_wp .AND. lc_class /= ext_data%atm%i_lc_urban) THEN
+            ! for forest-type vegetation, reduce roughness length when the vegetation is sparse
+            z0_mod = ext_data%atm%z0_lcc(lc_class) * SQRT(MAX(0.0625_wp,ext_data%atm%ndvi_mrat(jc,jb)))
+          ELSE
+            z0_mod = ext_data%atm%z0_lcc(lc_class)
+          ENDIF
+          ! Modify roughness length depending on snow cover. Snow is assumed to have a roughness
+          ! length of 5 mm (= 0.5*z0_lcc(i_lc_si)), but the final roughness length is limited
+          ! to 10% of the basic land-cover roughness length or 20% of the reduced roughness length
+          prm_diag%gz0_t(jc,jb,jt) = grav * MAX(0.1_wp*ext_data%atm%z0_lcc(lc_class), &
+            0.2_wp*z0_mod, (1._wp-lnd_diag%snowfrac_t(jc,jb,jt)**2)*z0_mod +          &
+            lnd_diag%snowfrac_t(jc,jb,jt)**2*0.5_wp*ext_data%atm%z0_lcc(i_lc_si) )
         ENDDO
       ENDDO
       IF (ntiles_total == 1) THEN

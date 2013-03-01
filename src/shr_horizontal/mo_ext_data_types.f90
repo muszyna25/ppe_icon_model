@@ -322,9 +322,9 @@ MODULE mo_ext_data_types
       & snowalb_lcc(:)         ! index1=1,23
     LOGICAL, POINTER ::  &     !< Existence of separate snow tiles for land-cover class [ ]
       & snowtile_lcc(:)        ! index1=1,23
-    INTEGER :: i_lc_snow_ice   !< Specification of land-use class for snow and ice
-    INTEGER :: i_lc_water      !< Specification of land-use class for water
-
+    INTEGER :: i_lc_snow_ice   !< Land-cover classification index for snow and ice
+    INTEGER :: i_lc_water      !< Land-cover classification index for water
+    INTEGER :: i_lc_urban      !< Land-cover classification index for urban / artificial surface
 
     ! for output purposes.
     TYPE(t_ptr_2d3d), ALLOCATABLE :: frac_t_ptr(:)

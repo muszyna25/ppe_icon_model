@@ -551,6 +551,7 @@ CONTAINS
           &  istart = 1, iend = i_count                , & ! start/end indices
           &  z0_lcc    = ext_data%atm%z0_lcc(:)        , & ! roughness length
           &  lc_class  = lc_class_t        (:,jb,isubs), & ! land-cover class
+          &  i_lc_urban = ext_data%atm%i_lc_urban      , & ! land-cover class index for urban areas
           &  t_snow    = t_snow_new_t      (:,jb,isubs), & ! snow temp
           &  t_soiltop = t_s_new_t         (:,jb,isubs), & ! soil top temp
           &  w_snow    = w_snow_new_t      (:,jb,isubs), & ! snow WE

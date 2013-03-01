@@ -292,6 +292,7 @@ CONTAINS
           &  istart = 1, iend = i_count                , & ! start/end indices
           &  z0_lcc    = ext_data%atm%z0_lcc(:)        , & ! roughness length
           &  lc_class  = lc_class_t        (:,jb,isubs), & ! land-cover class
+          &  i_lc_urban = ext_data%atm%i_lc_urban      , & ! land-cover class index for urban areas
           &  t_snow    = t_snow_now_t      (:,jb,isubs), & ! snow temp
           &  t_soiltop = t_s_now_t         (:,jb,isubs), & ! soil top temp
           &  w_snow    = w_snow_now_t      (:,jb,isubs), & ! snow WE
@@ -374,6 +375,7 @@ CONTAINS
           &  istart = 1, iend = i_count                , & ! start/end indices
           &  z0_lcc    = ext_data%atm%z0_lcc(:)        , & ! roughness length
           &  lc_class  = lc_class_t        (:,jb,isubs), & ! land-cover class
+          &  i_lc_urban = ext_data%atm%i_lc_urban      , & ! land-cover class index for urban areas
           &  t_snow    = t_snow_now_t      (:,jb,isubs), & ! snow temp
           &  t_soiltop = t_s_now_t         (:,jb,isubs), & ! soil top temp
           &  w_snow    = w_snow_now_t      (:,jb,isubs), & ! snow WE
@@ -1569,12 +1571,13 @@ CONTAINS
   END SUBROUTINE subsmean_power4
 
 
-  SUBROUTINE diag_snowfrac_tg(istart, iend, z0_lcc, lc_class, t_snow, t_soiltop, w_snow, &
+  SUBROUTINE diag_snowfrac_tg(istart, iend, z0_lcc, lc_class, i_lc_urban, t_snow, t_soiltop, w_snow, &
     & rho_snow, freshsnow, sso_sigma, tai, snowfrac, t_g)
 
     INTEGER, INTENT (IN) :: istart, iend ! start and end-indices of the computation
 
     INTEGER, INTENT (IN) :: lc_class(:)  ! list of land-cover classes
+    INTEGER, INTENT (IN) :: i_lc_urban   ! land-cover class index for urban / artificial surface
     REAL(wp), DIMENSION(:), INTENT(IN) :: z0_lcc(:)    ! roughness length
     REAL(wp), DIMENSION(:), INTENT(IN) :: t_snow, t_soiltop, w_snow, rho_snow, &
       freshsnow, sso_sigma, tai
@@ -1582,7 +1585,7 @@ CONTAINS
     REAL(wp), DIMENSION(:), INTENT(INOUT) :: snowfrac, t_g
 
     INTEGER  :: ic
-    REAL(wp) :: h_snow, snowdepth_fac, sso_fac, z0_fac, z0_limit, lc_limit
+    REAL(wp) :: h_snow, snowdepth_fac, sso_fac, z0_fac, z0_limit, lc_fac, lc_limit
 
     IF (idiag_snowfrac == 1) THEN
       DO ic = istart, iend
@@ -1604,7 +1607,7 @@ CONTAINS
         ENDIF
         t_g(ic) = t_snow(ic) + (1.0_wp - snowfrac(ic))*(t_soiltop(ic) - t_snow(ic))
       ENDDO
-    ELSE    ! idiag_snowfrac = 3 - similar to option 2, but different tuning
+    ELSE IF (idiag_snowfrac == 3) THEN   ! idiag_snowfrac = 3 - similar to option 2, but different tuning
       DO ic = istart, iend
         IF (w_snow(ic) <= 1.e-6_wp) THEN
           snowfrac(ic) = 0._wp
@@ -1616,6 +1619,24 @@ CONTAINS
           z0_limit = MIN(1._wp,SQRT(SQRT(2.5_wp/z0_fac)))
           lc_limit = MIN(1._wp,1.75_wp/SQRT(MAX(0.1_wp,tai(ic))))
           snowfrac(ic) = MIN(lc_limit,z0_limit,snowdepth_fac/z0_fac)
+        ENDIF
+        t_g(ic) = t_snow(ic) + (1.0_wp - snowfrac(ic))*(t_soiltop(ic) - t_snow(ic))
+      ENDDO
+    ELSE IF (idiag_snowfrac == 4) THEN   ! idiag_snowfrac = 4 - do not use z0 but only tai to cover vegetation effects
+      DO ic = istart, iend
+        IF (w_snow(ic) <= 1.e-6_wp) THEN
+          snowfrac(ic) = 0._wp
+        ELSE
+          h_snow = 1000._wp*w_snow(ic)/rho_snow(ic)  ! snow depth in m
+          sso_fac = SQRT(0.025_wp*MAX(25._wp,sso_sigma(ic)*(1._wp-freshsnow(ic))))
+          snowdepth_fac = h_snow*(17.5_wp*freshsnow(ic)+5._wp+5._wp/sso_fac*(1._wp-freshsnow(ic)))
+          lc_fac   = MAX(1._wp,SQRT(7.5_wp*tai(ic)))
+          IF (lc_class(ic) == i_lc_urban) THEN
+            lc_limit = 0.8_wp ! this accounts for the effect of human activities in snow cover
+          ELSE
+            lc_limit = MIN(1._wp,1._wp/MAX(0.1_wp,4.0_wp*tai(ic))**0.125_wp)
+          ENDIF
+          snowfrac(ic) = MIN(lc_limit,snowdepth_fac/lc_fac)
         ENDIF
         t_g(ic) = t_snow(ic) + (1.0_wp - snowfrac(ic))*(t_soiltop(ic) - t_snow(ic))
       ENDDO

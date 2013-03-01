@@ -2191,6 +2191,7 @@ CONTAINS
         IF (i_lctype(jg) == 1) THEN
           ext_data(jg)%atm%i_lc_snow_ice = 21
           ext_data(jg)%atm%i_lc_water    = 20
+          ext_data(jg)%atm%i_lc_urban    = 22
           DO i = 1, num_lcc*n_param_lcc, n_param_lcc
             ilu=ilu+1
             ext_data(jg)%atm%z0_lcc(ilu)          = lu_glc2000(i  )  ! Land-cover related roughness length
@@ -2205,6 +2206,7 @@ CONTAINS
           i_lctype(jg) = 2
           ext_data(jg)%atm%i_lc_snow_ice = 22
           ext_data(jg)%atm%i_lc_water    = 21
+          ext_data(jg)%atm%i_lc_urban    = 19
           DO i = 1, num_lcc*n_param_lcc, n_param_lcc
             ilu=ilu+1
             ext_data(jg)%atm%z0_lcc(ilu)          = lu_gcv2009(i  )  ! Land-cover related roughness length
