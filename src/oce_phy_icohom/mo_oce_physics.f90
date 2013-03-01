@@ -598,6 +598,7 @@ write(*,*)'max-min coeff',z_diff_multfac, maxval(p_phys_param%K_veloc_h(:,1,:)),
     REAL(wp) :: z_shear_c            (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)
     REAL(wp) :: z_rho_up             (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)
     REAL(wp) :: z_rho_down           (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)
+    REAL(wp) ::   rho                (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)
     REAL(wp) :: z_Ri_c               (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)
     REAL(wp) :: z_Ri_e               (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
     REAL(wp) :: z_c                  (nproma,n_zlev+1,p_patch_3D%p_patch_2D(1)%nblks_c)
@@ -660,47 +661,6 @@ write(*,*)'max-min coeff',z_diff_multfac, maxval(p_phys_param%K_veloc_h(:,1,:)),
       z_s2                         = 0.0_wp
       z_grav_rho                   = grav/rho_ref
       z_inv_rho_ref                = 1.0_wp/rho_ref
-
-    ! #slo# this part is taken from revision r5966
-    ! !Following MPI-OM (cf. vertical mixing sbr)
-    ! z_w_T = CWT/6.0_wp**3
-    ! z_w_v = CWA/6.0_wp**3
-    ! 
-    ! !The wind part
-    ! DO jb = i_startblk_e, i_endblk_e
-    !   CALL get_indices_e( p_patch, jb, i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e, &
-    !   &                   rl_start_e, rl_end_e)
-    !   DO je = i_startidx_e, i_endidx_e 
-    !     IF ( v_base%lsm_e(je,1,jb) <= sea_boundary ) THEN
-    ! 
-    !      ilc1 = p_patch%edges%cell_idx(je,jb,1)
-    !      ibc1 = p_patch%edges%cell_blk(je,jb,1)
-    !      ilc2 = p_patch%edges%cell_idx(je,jb,2)
-    !      ibc2 = p_patch%edges%cell_blk(je,jb,2)
-    ! 
-    !       !This is (15) in Marsland et al. 
-    !       z_10m_wind_e(je,1,jb)= SQRT(&
-    !       &0.5_wp*(DOT_PRODUCT(p_sfc_flx%forc_wind_cc(ilc1,ibc1)%x,     &
-    !       &                    p_sfc_flx%forc_wind_cc(ilc1,ibc1)%x)     &
-    !       &       +DOT_PRODUCT(p_sfc_flx%forc_wind_cc(ilc2,ibc2)%x,     &
-    !       &                    p_sfc_flx%forc_wind_cc(ilc2,ibc2)%x)))**3
-    !       z_A_W_v (je,1,jb) = z_w_v*z_10m_wind_e(je,1,jb)
-    !     ENDIF
-    !   END DO
-    ! END DO
-    !
-    ! DO jb = i_startblk_c, i_endblk_c
-    !   CALL get_indices_c( p_patch, jb, i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c, &
-    !   &                   rl_start_c, rl_end_c)
-    !   DO jc = i_startidx_c, i_endidx_c 
-    !     IF ( v_base%lsm_c(jc,1,jb) <= sea_boundary ) THEN
-    !       !This is (15) in Marsland et al. 
-    !       z_10m_wind_c(jc,1,jb)= SQRT(DOT_PRODUCT(p_sfc_flx%forc_wind_cc(jc,jb)%x,&
-    !                                              &p_sfc_flx%forc_wind_cc(jc,jb)%x))**3
-    !       z_A_W_T (jc,1,jb) = z_w_T*z_10m_wind_c(jc,1,jb)
-    !     ENDIF
-    !   END DO
-    ! END DO
 
       !Calculate Richardson number and vertical density gradient
       DO jb = all_cells%start_block, all_cells%end_block
