@@ -571,20 +571,20 @@ write(*,*)'max-min coeff',z_diff_multfac, maxval(p_phys_param%K_veloc_h(:,1,:)),
   !
   !! mpi parallelized, sync required:
   !!                   params_oce%A_tracer_v, params_oce%A_veloc_v
-  SUBROUTINE update_ho_params(p_patch_3D, p_os, p_sfc_flx, params_oce, calc_density)
+  SUBROUTINE update_ho_params(p_patch_3D, p_os, p_sfc_flx, params_oce, calc_density_func)
 
     TYPE(t_patch_3D ),TARGET, INTENT(IN) :: p_patch_3D
     TYPE(t_hydro_ocean_state), TARGET           :: p_os
     TYPE(t_sfc_flx),   INTENT(IN)               :: p_sfc_flx
     TYPE(t_ho_params), INTENT(INOUT)            :: params_oce
     INTERFACE !This contains the function version of the actual EOS as chosen in namelist
-      FUNCTION calc_density(tpot, sal, press) RESULT(rho)
+      FUNCTION calc_density_func(tpot, sal, press) RESULT(rho)
         USE mo_kind, ONLY: wp
         REAL(wp), INTENT(IN) :: tpot
         REAL(wp), INTENT(IN) :: sal
         REAL(wp), INTENT(IN) :: press
         REAL(wp) :: rho
-     ENDFUNCTION calc_density
+     ENDFUNCTION calc_density_func
     END INTERFACE
 
     ! Local variables
@@ -662,8 +662,7 @@ write(*,*)'max-min coeff',z_diff_multfac, maxval(p_phys_param%K_veloc_h(:,1,:)),
       z_grav_rho                   = grav/rho_ref
       z_inv_rho_ref                = 1.0_wp/rho_ref
 
-      !calc rho globally
-      !CALL calc_glocal_density(p_patch_3D,&
+      !CALL calc_density(p_patch_3D,&
       !  &               p_os(jg)%p_prog(nold(1))%tracer,&
       !  &               p_os(jg)%p_diag%rho)
 
@@ -693,11 +692,11 @@ write(*,*)'max-min coeff',z_diff_multfac, maxval(p_phys_param%K_veloc_h(:,1,:)),
               ENDIF
               !density of upper and lower cell w.r.t.to pressure at intermediate level
               !z_rho_up(jc,jk,jb)   = p_os%p_diag%rho(jc,jk-1,jb)
-              z_rho_up(jc,jk,jb)   = calc_density &
+              z_rho_up(jc,jk,jb)   = calc_density_func &
                & (p_os%p_prog(nold(1))%tracer(jc,jk-1,jb,1), z_s1, z_press)
 
               !z_rho_down(jc,jk,jb)   = p_os%p_diag%rho(jc,jk,jb)
-              z_rho_down(jc,jk,jb) = calc_density &
+              z_rho_down(jc,jk,jb) = calc_density_func &
                 & (p_os%p_prog(nold(1))%tracer(jc,jk,jb,1), z_s2, z_press) !TODO: local/current
                                                                            !density
 

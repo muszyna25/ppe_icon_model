@@ -70,7 +70,7 @@ CHARACTER(len=*), PARAMETER :: this_mod_name = 'mo_oce_thermodyn'
 
 PUBLIC  :: calc_internal_press
 PUBLIC  :: calc_internal_press_new
-PUBLIC  :: calc_global_density
+PUBLIC  :: calc_density
 !each specific EOS comes as a sbr and as a function. The sbr version is private as it is
 !only used in "calc_internal_press", whilethe function version is used in mo_oce_physics
 !(sbr "update_ho_params") to calculate the local Richardson number.
@@ -163,7 +163,7 @@ CONTAINS
   !!  - division by rho_ref included
   !!  mpi parallelized LL (no sync required)
 
-  SUBROUTINE calc_internal_press_new(p_patch_3D, trac_t, trac_s, h, calc_density, press_hyd)
+  SUBROUTINE calc_internal_press_new(p_patch_3D, trac_t, trac_s, h, calc_density_func, press_hyd)
   !
   TYPE(t_patch_3D ),TARGET, INTENT(IN):: p_patch_3D
   REAL(wp),    INTENT(IN)       :: trac_t   (:,:,:)  !temperature
@@ -171,13 +171,13 @@ CONTAINS
   REAL(wp),    INTENT(IN)       :: h        (:,:)    !< surface elevation at cells
   REAL(wp),   INTENT(INOUT)     :: press_hyd(:,:,:)  !< hydrostatic pressure
 INTERFACE !This contains the function version of the actual EOS as chosen in namelist
- FUNCTION calc_density(tpot, sal, press) RESULT(rho) 
+ FUNCTION calc_density_func(tpot, sal, press) RESULT(rho) 
     USE mo_kind, ONLY: wp
     REAL(wp), INTENT(IN) :: tpot
     REAL(wp), INTENT(IN) :: sal
     REAL(wp), INTENT(IN) :: press
     REAL(wp) :: rho
- ENDFUNCTION calc_density
+ ENDFUNCTION calc_density_func
 END INTERFACE
   ! local variables:
   !CHARACTER(len=max_char_length), PARAMETER :: &
@@ -208,7 +208,7 @@ END INTERFACE
     DO jc = i_startidx, i_endidx
 
        z_press      = (p_patch_3D%p_patch_1D(1)%zlev_i(1)+h(jc,jb))*rho_ref*SItodBar ! grav
-       z_rho_up = calc_density(&
+       z_rho_up = calc_density_func(&
             & trac_t(jc,1,jb),&
             & trac_s(jc,1,jb),&
             & z_press)
@@ -223,12 +223,12 @@ END INTERFACE
 
             z_press = p_patch_3D%p_patch_1D(1)%zlev_i(jk)*rho_ref*SItodBar!grav
             !density of upper cell w.r.t.to pressure at intermediate level
-            z_rho_up = calc_density(&
+            z_rho_up = calc_density_func(&
             & trac_t(jc,jk-1,jb),&
             & trac_s(jc,jk-1,jb),&
             & z_press)
             !density of lower cell w.r.t.to pressure at intermediate level
-            z_rho_down = calc_density(&
+            z_rho_down = calc_density_func(&
             & trac_t(jc,jk,jb),&
             & trac_s(jc,jk,jb),&
             & z_press)
@@ -345,7 +345,7 @@ END INTERFACE
   !! Initial version by Peter Korn, MPI-M (2009)
   !! Initial release by Stephan Lorenz, MPI-M (2010-07)
   !!
-  SUBROUTINE calc_global_density(p_patch_3D,tracer, rho)
+  SUBROUTINE calc_density(p_patch_3D,tracer, rho)
   !
   !!
   TYPE(t_patch_3D ),TARGET, INTENT(IN) :: p_patch_3D
