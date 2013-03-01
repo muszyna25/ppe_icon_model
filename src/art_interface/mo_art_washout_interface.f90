@@ -1,7 +1,7 @@
 !>
-!! Provides interface to ART-routines dealing with washout of volcanic ash particles
+!! Provides interface to ART-routines dealing with washout
 !!
-!! This module provides an interface to the ART-routine emission_volc.
+!! This module provides an interface to the ART-routines.
 !! The interface is written in such a way, that ICON will compile and run 
 !! properly, even if the ART-routines are not available at compile time.
 !!
@@ -43,12 +43,15 @@ MODULE mo_art_washout_interface
     USE mo_kind,                ONLY: wp
     USE mo_model_domain,        ONLY: t_patch
     USE mo_art_config,          ONLY: art_config
-    USE mo_exception,             ONLY: message, message_text, finish
+    USE mo_exception,           ONLY: message, message_text, finish
     USE mo_linked_list,         ONLY: t_var_list,t_list_element
     USE mo_var_metadata,        ONLY: t_var_metadata
-    USE mo_nwp_phy_types,      ONLY: t_nwp_phy_diag
+    USE mo_nwp_phy_types,       ONLY: t_nwp_phy_diag
+    USE mo_run_config,          ONLY: iqr,iqs
+
 #ifdef __ICON_ART
     USE mo_art_washout_volc,       ONLY:art_washout_volc
+    USE mo_art_radioactive,        ONLY:art_washout_radioact
 #endif
 
   IMPLICIT NONE
@@ -62,9 +65,9 @@ CONTAINS
 
 
   !>
-  !! Interface for ART-routine washout_volc
+  !! Interface for ART-routines dealing with washout
   !!
-  !! This interface calls the ART-routine emission_volc, if ICON has been 
+  !! This interface calls the ART-routines, if ICON has been 
   !! built including the ART-package. Otherwise, this is simply a dummy 
   !! routine.
   !!
@@ -111,42 +114,80 @@ CONTAINS
     !-----------------------------------------------------------------------
  
 #ifdef __ICON_ART
+
+jg  = p_patch%id
+
+IF(art_config(jg)%lart .AND. art_config(jg)%lart_wash) THEN 
     
-    jg  = p_patch%id
 
       current_element=>p_prog_list%p%first_list_element
 
-      !start DO-loop over elements in list:
+      ! ----------------------------------
+      ! --- start DO-loop over elements in list:
+      ! ----------------------------------
+
       DO WHILE (ASSOCIATED(current_element))
 
-      !get meta data of current element:
+      ! ----------------------------------
+      ! --- get meta data of current element:
+      ! ----------------------------------
+
       info=>current_element%field%info
 
-      ! assure that current element is tracer
-      IF (info%tracer%lis_tracer) THEN
-        IF (art_config(jg)%lart_wash_volcano .AND. info%tracer%lwash_tracer) THEN
+      ! ----------------------------------
+      ! ---  assure that current element is tracer
+      ! ----------------------------------
 
-         !
-         ! retrieve  running index:
-         !
+      IF (info%tracer%lis_tracer) THEN
+        IF (info%tracer%lwash_tracer) THEN
+
+          ! ----------------------------------
+          ! --- retrieve  running index:
+          ! ----------------------------------
+
           jsp=>info%ncontained
           var_name=>info%name
 
-          WRITE(0,*) 'WASHOUT of ', var_name,' with idx= ',jsp
+WRITE(0,*) 'WASHOUT of ', var_name,' with idx= ',jsp
 
-         CALL art_washout_volc(dt_phy_jg,       & !>in
-         &          p_patch,                    & !>in
-         &          prm_diag,                   & !>in
-         &          p_rho,                   & !>in
-         &          p_tracer_new,jsp)                !>inout 
+          ! ----------------------------------
+          ! --- Choose parameterisation
+          ! ----------------------------------
+
+          SELECT CASE(info%tracer%tracer_class)
+
+          CASE('volcash')
+
+             CALL art_washout_volc(dt_phy_jg,       & !>in
+             &          p_patch,                    & !>in
+             &          prm_diag,                   & !>in
+             &          p_rho,                   & !>in
+             &          p_tracer_new,jsp)                !>inout 
+
+          CASE('radioact')
+
+             CALL art_washout_radioact(p_patch,    & !>in
+             &          dt_phy_jg,                 & !>in
+             &          prm_diag,                  & !>in
+             &          p_tracer_new(:,:,:,jsp),   & !>inout
+             &          info%tracer%imis_tracer,       & !>in  needed for nuclide specific factors
+             &          p_tracer_new(:,:,:,iqr),   & !>in
+             &          p_tracer_new(:,:,:,iqs)    ) !>in
+
+          END SELECT
+
         ENDIF
       ENDIF !lis_tracer
 
-      ! select the next element in the list
+      ! ----------------------------------
+      ! --- select the next element in the list
+      ! ----------------------------------
+
       current_element => current_element%next_list_element
 
      ENDDO !loop elements
 
+ENDIF
 #endif
 
   END SUBROUTINE art_washout_interface

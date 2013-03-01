@@ -48,8 +48,11 @@ MODULE mo_art_emission_interface
     USE mo_art_config,          ONLY: art_config
     USE mo_exception,             ONLY: message, message_text, finish
     USE mo_datetime,             ONLY:t_datetime
+    USE mo_linked_list,         ONLY: t_var_list,t_list_element
+    USE mo_var_metadata,        ONLY: t_var_metadata
 #ifdef __ICON_ART
     USE mo_art_emission_volc,       ONLY:art_organize_emission_volc
+    USE mo_art_radioactive,            ONLY:art_emiss_radioact
 #endif
 
   IMPLICIT NONE
@@ -73,13 +76,16 @@ CONTAINS
   !! Initial revision by Daniel Reinert, DWD (2012-01-27)
   !! Modification by Kristina Lundgren, KIT (2012-01-30)
   !! - Call modified for emission of volcanic ash
-  SUBROUTINE art_emission_interface( p_patch,p_dtime,datetime,p_rho,p_tracer_now)
+  SUBROUTINE art_emission_interface( p_patch,p_dtime,datetime,p_prog_list,p_rho,p_tracer_now)
 
 
     TYPE(t_patch), TARGET, INTENT(IN) ::  &  !< patch on which computation
       &  p_patch                             !< is performed
     REAL(wp), INTENT(IN) ::p_dtime
      TYPE(t_datetime), INTENT(IN)::datetime
+
+    TYPE(t_var_list), INTENT(IN) :: &        !< current prognostic state list
+      &  p_prog_list
 
     REAL(wp), INTENT(INOUT) ::  &  !< density of air 
       &  p_rho(:,:,:)              !< [kg/m3] 
@@ -90,18 +96,82 @@ CONTAINS
                                    !< [kg/kg]
                                    !< dim: (nproma,nlev,nblks_c,ntracer)
     
-    INTEGER  :: jg                !< loop index
+    INTEGER  :: jg                !< patch id
 
+    TYPE(t_list_element), POINTER :: current_element !< returns the reference to
+                                                     !< current element in list
+    TYPE(t_var_metadata), POINTER :: info            !< returns reference to tracer
+                                                     !< metadata of current element
+    INTEGER, POINTER :: jsp                          !< returns index of element
+    CHARACTER(len=32), POINTER :: var_name           !< returns a character containing the name
+                                                     !< of current ash component without the time level
+                                                     !< suffix at the end. e.g. qash1(.TL1)
     !-----------------------------------------------------------------------
  
 #ifdef __ICON_ART
     
-    jg  = p_patch%id
+   jg  = p_patch%id
      
-     IF (art_config(jg)%lart_volcano .AND. art_config(jg)%lart_emis_volcano) THEN
-      CALL art_organize_emission_volc(p_patch,p_dtime,datetime,p_rho,p_tracer_now) 
-     ENDIF
+   IF (art_config(jg)%lart .AND. art_config(jg)%lart_emiss) THEN
 
+   ! ----------------------------------
+   ! --- volcano emissions
+   ! ----------------------------------
+
+       IF (art_config(jg)%lart_volcano) THEN
+         CALL art_organize_emission_volc(p_patch,p_dtime,p_rho,p_tracer_now) 
+       ENDIF
+
+   ! ----------------------------------
+   ! --- radioactive nuclide emissions
+   ! ----------------------------------
+
+       IF (art_config(jg)%lart_radioact) THEN
+
+         current_element=>p_prog_list%p%first_list_element
+
+         ! ----------------------------------
+         ! --- start DO-loop over elements in list:
+         ! ----------------------------------
+
+         DO WHILE (ASSOCIATED(current_element))
+
+         ! ----------------------------------
+         ! --- get meta data of current element:
+         ! ----------------------------------
+
+         info=>current_element%field%info
+
+         ! ----------------------------------
+         ! ---  assure that current element is tracer
+         ! ----------------------------------
+
+           IF (info%tracer%lis_tracer) THEN
+           ! ----------------------------------
+           ! --- retrieve  running index:
+           ! ----------------------------------
+
+             jsp=>info%ncontained
+             var_name=>info%name
+
+             WRITE(0,*) 'EMISSION of ', var_name,' with idx= ',jsp
+
+             IF(info%tracer%tracer_class=='radioact') THEN
+               CALL art_emiss_radioact(p_patch,p_dtime,p_tracer_now(:,:,:,jsp),p_rho,info%tracer%imis_tracer)
+             ENDIF
+
+           ENDIF
+           ! ----------------------------------
+           ! --- select the next element in the list
+           ! ----------------------------------
+
+           current_element => current_element%next_list_element
+
+         ENDDO ! loop elements
+
+       ENDIF
+
+   ENDIF
 
 #endif
 

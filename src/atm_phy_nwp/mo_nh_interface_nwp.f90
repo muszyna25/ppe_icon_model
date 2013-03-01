@@ -106,6 +106,7 @@ MODULE mo_nh_interface_nwp
      & icon_comm_var_is_ready, icon_comm_sync, icon_comm_sync_all, is_ready, until_sync
 !  USE mo_communication,      ONLY: time_sync
   USE mo_art_washout_interface,  ONLY:art_washout_interface
+  USE mo_art_reaction_interface, ONLY:art_reaction_interface
   USE mo_art_config,          ONLY: art_config
   USE mo_linked_list,         ONLY: t_var_list
   USE mo_fortran_tools,       ONLY: t_ptr_tracer!,pcen,ptenc 
@@ -504,6 +505,8 @@ CONTAINS
     ENDIF
 
       IF (art_config(jg)%lart) THEN
+
+       CALL art_reaction_interface(pt_patch,dt_phy_jg(itfastphy),p_prog_list,pt_prog_rcf%tracer)
 
        CALL art_washout_interface(dt_phy_jg(itfastphy),          & !>in
                   &          pt_patch,                           & !>in
@@ -1521,7 +1524,7 @@ CONTAINS
         ENDDO
       ENDDO
 
-      IF(art_config(jg)%lart .AND. art_config(jg)%lart_conv_volcano) THEN
+      IF(art_config(jg)%lart .AND. art_config(jg)%lart_conv) THEN
 ! KL add convective tendency and fix to positive values
       DO jt=1,art_config(jg)%nconv_tracer  ! ASH
         DO jk = 1, nlev

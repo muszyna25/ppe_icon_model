@@ -157,30 +157,32 @@ CONTAINS
     INTEGER  :: p_iubc, &                !< Upper boundary condition. Default value=0, no upper bc cond.
     &           p_itype_vlimit           !< Type of limiter for vertical transport. Default val. =1, semi-monotone slope limiter.
     LOGICAL  :: lcompute_gt, lcleanup_gt !Compute and clean up geometrical terms in connection to flux calculation.  
-    LOGICAL,SAVE  :: ltest=.TRUE.  
+
     !-----------------------------------------------------------------------
  
 #ifdef __ICON_ART
+
+jg  = p_patch%id
+
+IF(art_config(jg)%lart) THEN
+
     
-     jg  = p_patch%id
-     p_iubc =0        ! No upper boundary condition
-!     p_itype_vlimit=4 ! Positive definite limiter1 
-!     p_itype_vlimit=1 ! Semi monotone limiter
-     p_itype_vlimit=2 ! Monotone limiter
+    p_iubc =0        ! No upper boundary condition
+    p_itype_vlimit=2 ! Monotone limiter
 
 
-     nlev      = p_patch%nlev        !< Number of vertical full levels
-     nlevp1    = p_patch%nlevp1      !< Number of vertical half levels
-     nblks     = p_patch%nblks_c
+    nlev      = p_patch%nlev        !< Number of vertical full levels
+    nlevp1    = p_patch%nlevp1      !< Number of vertical half levels
+    nblks     = p_patch%nblks_c
 
-     !Get all cell enitities, except halos
-     i_nchdom  = MAX(1,p_patch%n_childdom)
-     i_rlstart = 1  !is always one
-     i_rlend   = min_rlcell
-     i_startblk = p_patch%cells%start_blk(i_rlstart,1)
-     i_endblk   = p_patch%cells%end_blk(i_rlend,i_nchdom)
+    !Get all cell enitities, except halos
+    i_nchdom  = MAX(1,p_patch%n_childdom)
+    i_rlstart = 1  !is always one
+    i_rlend   = min_rlcell
+    i_startblk = p_patch%cells%start_blk(i_rlstart,1)
+    i_endblk   = p_patch%cells%end_blk(i_rlend,i_nchdom)
 
-     ALLOCATE(p_mflx_contra_vsed(nproma,nlevp1,nblks),p_upflux_sed(nproma,nlevp1,nblks),stat=istat)
+    ALLOCATE(p_mflx_contra_vsed(nproma,nlevp1,nblks),p_upflux_sed(nproma,nlevp1,nblks),stat=istat)
 
 
     lcompute_gt=.TRUE. ! compute geometrical terms
@@ -188,11 +190,10 @@ CONTAINS
                        ! compute values for first component, cleanup after last component.
 
 
-!      WRITE(0,*) 'K.L. in sed_ifc'
-      current_element=>p_prog_list%p%first_list_element 
+    current_element=>p_prog_list%p%first_list_element 
 
       !start DO-loop over elements in list:
-      DO WHILE (ASSOCIATED(current_element))
+    DO WHILE (ASSOCIATED(current_element))
 
       !get meta data of current element:
       info=>current_element%field%info
@@ -201,9 +202,10 @@ CONTAINS
       IF (info%tracer%lis_tracer) THEN
         IF (info%tracer%lsed_tracer) THEN
 
-         !
-         ! retrieve  running index:
-         !
+        ! ----------------------------------
+        ! --- retrieve  running index
+        ! ----------------------------------
+
           jsp           =>  info%ncontained 
           var_name      =>  info%name
           diameter_ash  =>  info%tracer%rdiameter_tracer
@@ -212,120 +214,80 @@ CONTAINS
           WRITE (message_text,*) 'Sedimentation of ',var_name,' with idx= ',jsp,info%tracer%lsed_tracer
           CALL message(TRIM(routine),message_text)
 
-         !
-         ! calculate sedimentation velocities of volcanic ash particles:
-         !
+        ! ----------------------------------
+        ! --- calculate sedimentation velocities
+        ! ----------------------------------
+
+          SELECT CASE(info%tracer%tracer_class)
+
+          CASE('volcash')
+
             CALL art_sedi_volc(p_patch,p_dtime,p_metrics,     &
-              &                p_rho,&
-              &                p_diag,    &
-              &                diameter_ash,rho_ash,&
+              &                p_rho,                         &
+              &                p_diag,                        &
+              &                diameter_ash,rho_ash,          &
               &                p_mflx_contra_vsed) 
-!*******************************************
-! MaBa: SET CONC IN LAYERS FOR SEDI TEST
-!      DO jb = i_startblk, i_endblk
-!
-!        CALL get_indices_c(p_patch, jb, i_startblk, i_endblk,  &
-!                       i_startidx, i_endidx, i_rlstart, i_rlend)
-!
-!!          DO  jk =1, nlev
-!          DO jk =1, nlev-1
-!            ! index of top half level
-!            DO jc = i_startidx, i_endidx
-!           IF(ltest) THEN
-!              p_tracer_new(jc,jk+1,jb,jsp) =                                         &
-!                 &    1.0E-30    !kg m-3
-!            IF(jk.eq.45) THEN
-!              p_tracer_new(jc,jk,jb,jsp) =                                         &
-!                 &    0.1    !kg m-3
-!            ENDIF
-!            IF(jsp.eq.11) THEN
-!              p_tracer_new(jc,jk,jb,jsp) =                                         &
-!                 &    1.1    !kg m-3
-!            ENDIF
-!            ELSE 
-!            p_tracer_new(jc,jk,jb,jsp) = 1.0E-30 
-!            ENDIF !layer
-!           ENDIF !ltest
 
-!              IF(jb.eq.7.and.jc.eq.724.and.jk.ge.45) THEN
-!                WRITE(0,*) 'K.L. tracer INI 1 mass:',p_tracer_new(jc,jk,jb,jsp), p_cellhgt_mc_now(jc,jk,jb)
-!              ENDIF !jb..jk..
-!            p_tracer_new(jc,jk,jb,jsp) =                                         &
-!                & p_tracer_new(jc,jk,jb,jsp)/p_rho(jc,jk,jb) !kg kg-1
-!             IF(jb.eq.7.and.jc.eq.724.and.jk.eq.45) THEN
-!               WRITE(0,*) 'K.L. tracer INI 2 q:',p_tracer_new(jc,jk,jb,jsp)
-!             ENDIF  ! jb..jk..
-!          ENDDO  !jc
-!          ENDDO  !jk
-!          ENDDO  !jb
+          CASE('radioact')
+ 
+             WRITE (message_text,*) 'Sedimentation of ',var_name,' currently not possible'
+             CALL message(TRIM(routine),message_text)
+             p_mflx_contra_vsed = 0.0_wp 
+              
+          END SELECT
 
-!*******************************
-
-         !
-         ! calculate vertical flux term due to sedimentation
-         !
+        ! ----------------------------------
+        ! --- calculate vertical flux term due to sedimentation
+        ! ----------------------------------
           
           CALL upwind_vflux_ppm_cfl( p_patch, p_tracer_new(:,:,:,jsp), p_iubc,    &! in
-            &                  p_mflx_contra_vsed, p_dtime, lcompute_gt, &! in
-            &                  lcleanup_gt, p_itype_vlimit,       &! in
-            &                  p_cellhgt_mc_now, p_rhodz_new,             &! in
-            &                  p_upflux_sed(:,:,:))!,                           &! out
-!            &                  opt_topflx_tra=opt_topflx_tra(:,:,jt),        &! in
-!            &                  opt_slev=p_iadv_slev(jt),                     &! in
-!            &                  opt_rlstart=opt_rlstart,                      &! in
-!            &                  opt_rlend=opt_rlend                           )! in
+            &                  p_mflx_contra_vsed, p_dtime, lcompute_gt,          &! in
+            &                  lcleanup_gt, p_itype_vlimit,                       &! in
+            &                  p_cellhgt_mc_now, p_rhodz_new,                     &! in
+            &                  p_upflux_sed(:,:,:))                                ! out
 
+        ! ----------------------------------
+        ! --- update mixing ratio after sedimentation
+        ! ----------------------------------
 
+            DO jb = i_startblk, i_endblk
 
-
-         !
-         ! update mixing ratio after sedimentation
-         ! 
-WRITE(0,*) 'K.L. sedi update bef',jsp, MAXVAL(p_tracer_new(:,:,:,jsp)),MAXLOC(p_tracer_new(:,:,:,jsp))
-
-      DO jb = i_startblk, i_endblk
-
-        CALL get_indices_c(p_patch, jb, i_startblk, i_endblk,  &
+              CALL get_indices_c(p_patch, jb, i_startblk, i_endblk,  &
                        i_startidx, i_endidx, i_rlstart, i_rlend)
 
-!          DO jk =1, nlev
-          DO jk =1, nlev-1
+              DO jk =1, nlev-1
 
-            ! index of top half level
-            ikp1 = jk + 1
+              ! index of top half level
+                ikp1 = jk + 1
 
-            DO jc = i_startidx, i_endidx
+                DO jc = i_startidx, i_endidx
 
-!***           IF(.NOT. ltest) THEN
+                  p_tracer_new(jc,jk,jb,jsp) =                       &
+                  &    p_tracer_new(jc,jk,jb,jsp)                    &
+                  &  - p_dtime * (  p_upflux_sed(jc,jk,jb)           &
+                  &               - p_upflux_sed(jc,ikp1  ,jb) )     &
+                  &  / p_rhodz_new(jc,jk,jb)
 
-            p_tracer_new(jc,jk,jb,jsp) =                                         &
-                &    p_tracer_new(jc,jk,jb,jsp)   &
-                &  - p_dtime * (  p_upflux_sed(jc,jk,jb)                &
-                &               - p_upflux_sed(jc,ikp1  ,jb) )             &
-                &  / p_rhodz_new(jc,jk,jb)
+                END DO!jc
 
- 
-!***           ENDIF !ltest
-!***             p_tracer_new(jc,jk,jb,jsp) =                                         &
-!***                & p_tracer_new(jc,jk,jb,jsp)*p_rho(jc,jk,jb) !kg m-3
+              END DO !jk
 
-          
-            END DO!jc
-          END DO !jk
-       END DO !jb
-WRITE(0,*) 'K.L. sedi update after',jsp, MAXVAL(p_tracer_new(:,:,:,jsp)),MAXLOC(p_tracer_new(:,:,:,jsp))
+            END DO !jb
 
-      ENDIF !lsed_tracer
-
+        ENDIF !lsed_tracer
       ENDIF !lis_tracer
 
-      ! select the next element in the list
+      ! ----------------------------------
+      ! --- select the next element in the list
+      ! ----------------------------------
+
       current_element => current_element%next_list_element
 
-     ENDDO !loop elements
-           ltest=.FALSE. 
+    ENDDO !loop elements
 
-       DEALLOCATE(p_mflx_contra_vsed,p_upflux_sed)
+    DEALLOCATE(p_mflx_contra_vsed,p_upflux_sed)
+
+ENDIF !lart
 #endif
 
   END SUBROUTINE art_sedi_interface

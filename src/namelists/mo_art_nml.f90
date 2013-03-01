@@ -73,21 +73,21 @@ MODULE mo_art_nml
 
     TYPE (t_list_volcanoes) :: art_volclist_tot(max_volc_input) !>list of volcanoes
  
-    LOGICAL :: lart                        !< main switch for using the ART-package
-                                           !< .TRUE.: switch ON
-                                           !< .FALSE.: switch OFF
+    LOGICAL :: lart                !< main switch for using the ART-package
+                                   !< .TRUE.: switch ON
+                                   !< .FALSE.: switch OFF
 
-    LOGICAL :: lart_volcano                !< Treatment of volcanic ash (TRUE/FALSE)
+    LOGICAL :: lart_volcano        !< Treatment of volcanic ash (TRUE/FALSE)
 
-    LOGICAL :: lart_emis_volcano           !< Emission of volcanic ash (TRUE/FALSE)
+    LOGICAL :: lart_emiss          !< Emission of volcanic ash (TRUE/FALSE)
 
-    LOGICAL :: lart_conv_volcano           !< Convection of volcanic ash (TRUE/FALSE)
+    LOGICAL :: lart_conv           !< Convection of volcanic ash (TRUE/FALSE)
 
-    LOGICAL :: lart_wash_volcano           !< Washout of volcanic ash (TRUE/FALSE)
+    LOGICAL :: lart_wash           !< Washout of volcanic ash (TRUE/FALSE)
 
-    LOGICAL :: lart_rad_volcano            !< Radiative impact of volcanic ash (TRUE/FALSE)
+    LOGICAL :: lart_rad            !< Radiative impact of volcanic ash (TRUE/FALSE)
 
-    LOGICAL :: lart_cloud_volcano          !< Cloud volcanic ash interaction (TRUE/FALSE)
+    LOGICAL :: lart_cloud          !< Cloud volcanic ash interaction (TRUE/FALSE)
 
     INTEGER :: nart_emis_volcano_update    !< Time interval for reading volcano emission file
 
@@ -95,10 +95,16 @@ MODULE mo_art_nml
 
     CHARACTER (LEN=120) :: volcanofile_path
 
-    NAMELIST/art_nml/ lart, lart_volcano, lart_emis_volcano,lart_conv_volcano, lart_wash_volcano, &
-   &               lart_rad_volcano, lart_cloud_volcano, nart_emis_volcano_update,art_volclist_tot, &
-   &               lart_volclist, volcanofile_path
+    LOGICAL :: lart_radioact                !< Treatment of volcanic ash (TRUE/FALSE)
+   
+    LOGICAL :: lart_decay_radioact          !< Treatment of volcanic ash (TRUE/FALSE)
 
+    CHARACTER (LEN=120) :: radioactfile_path
+
+    NAMELIST/art_nml/ lart, lart_volcano, lart_emiss,lart_conv, lart_wash,            &
+   &               lart_rad, lart_cloud, nart_emis_volcano_update,art_volclist_tot,   &
+   &               lart_volclist, volcanofile_path,lart_radioact,lart_decay_radioact, &
+   &               radioactfile_path
 
 CONTAINS
 
@@ -135,11 +141,11 @@ CONTAINS
     !-----------------------
     lart                = .FALSE.        ! ART-package switched off
     lart_volcano        = .FALSE.        ! Treatment of volcanic ash
-    lart_emis_volcano   = .FALSE.        ! Emission of volcanic ash
-    lart_conv_volcano   = .FALSE.        ! Convection of volcanic ash
-    lart_wash_volcano   = .FALSE.        ! Washout of volcanic ash 
-    lart_rad_volcano    = .FALSE.        ! Radiative impact of volcanic ash
-    lart_cloud_volcano  = .FALSE.        ! Impact on clouds
+    lart_emiss   = .FALSE.        ! Emission of volcanic ash
+    lart_conv   = .FALSE.        ! Convection of volcanic ash
+    lart_wash   = .FALSE.        ! Washout of volcanic ash 
+    lart_rad    = .FALSE.        ! Radiative impact of volcanic ash
+    lart_cloud  = .FALSE.        ! Impact on clouds
 
     nart_emis_volcano_update= 0          ! Time interval for reading emission file
     lart_volclist=.FALSE.
@@ -149,7 +155,12 @@ CONTAINS
     art_volclist_tot(:)%zname = ""        ! Name of volcanoes
 !   art_volclist_tot(:)%nstart= 1         ! Start time of volcanic eruption
 
-    volcanofile_path     =  "./volcanofile"
+    volcanofile_path          =  "./volcanofile"
+
+    lart_radioact             = .FALSE.    !< Treatment of radioactive nuclides
+    lart_decay_radioact       = .FALSE.    !< Treatment of radioactive decay
+    radioactfile_path         =  "./radioactfile"
+
 
     !------------------------------------------------------------------
     ! 2. If this is a resumed integration, overwrite the defaults above 
@@ -199,16 +210,18 @@ CONTAINS
     DO jg= 0,max_dom
       art_config(jg)%lart          = lart
       art_config(jg)%lart_volcano     = lart_volcano
-      art_config(jg)%lart_emis_volcano     = lart_emis_volcano
-      art_config(jg)%lart_conv_volcano  = lart_conv_volcano
-      art_config(jg)%lart_wash_volcano  = lart_wash_volcano
-      art_config(jg)%lart_rad_volcano     = lart_rad_volcano
-      art_config(jg)%lart_cloud_volcano   = lart_cloud_volcano
+      art_config(jg)%lart_emiss     = lart_emiss
+      art_config(jg)%lart_conv  = lart_conv
+      art_config(jg)%lart_wash  = lart_wash
+      art_config(jg)%lart_rad     = lart_rad
+      art_config(jg)%lart_cloud   = lart_cloud
       art_config(jg)%nart_emis_volcano_update   = nart_emis_volcano_update 
       art_config(jg)%lart_volclist=lart_volclist
       art_config(jg)%nvolc         = nvolc
       art_config(jg)%volcanofile_path  = volcanofile_path
-
+      art_config(jg)%lart_radioact = lart_radioact
+      art_config(jg)%lart_decay_radioact = lart_radioact
+      art_config(jg)%radioactfile_path = radioactfile_path
       
       nblks=nvolc/nproma+1
       npromz=nvolc-nproma*(nblks-1)

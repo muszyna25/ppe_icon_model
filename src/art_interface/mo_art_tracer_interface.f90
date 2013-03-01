@@ -45,6 +45,7 @@ MODULE mo_art_tracer_interface
     USE mo_advection_config,     ONLY: t_advection_config
     USE mo_nwp_phy_types,        ONLY: t_nwp_phy_tend
     USE mo_nonhydro_types,       ONLY: t_nh_prog
+    USE mo_art_config,           ONLY: art_config
 #ifdef __ICON_ART
     USE mo_art_tracer,       ONLY:art_tracer
 #endif
@@ -91,7 +92,7 @@ CONTAINS
     !-----------------------------------------------------------------------
  
 #ifdef __ICON_ART
-   
+  
       CALL art_tracer(defcase,jg,nblks_c,this_list,vname_prefix,ptr_arr,advconf,phy_tend,p_prog,timelev,ldims,&
        & tlev_source) 
 

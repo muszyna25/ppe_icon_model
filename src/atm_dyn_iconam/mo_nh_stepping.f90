@@ -1113,6 +1113,7 @@ MODULE mo_nh_stepping
                 CALL art_emission_interface( p_patch(jg), &!in
      &          dtadv_loc,                                &!in
      &          datetime,                                 &!in   
+     &          p_nh_state(jg)%prog_list(n_now_rcf),      &!in  
      &          p_nh_state(jg)%prog(n_new)%rho,           &!in 
      &          p_nh_state(jg)%prog(n_now_rcf)%tracer)     !inout
               ENDIF   

@@ -45,6 +45,7 @@ MODULE mo_var_metadata
   TYPE t_tracer_meta
     !
     LOGICAL :: lis_tracer         ! this is a tracer field (TRUE/FALSE)
+    CHARACTER(len=VARNAME_LEN) :: tracer_class ! type of tracer
     !  
     INTEGER :: ihadv_tracer       ! method for horizontal transport
     INTEGER :: ivadv_tracer       ! method for vertical transport
@@ -57,6 +58,10 @@ MODULE mo_var_metadata
     !
     REAL(wp) :: rdiameter_tracer   ! particle diameter in m
     REAL(wp) :: rrho_tracer        ! particle density in kg m^-3
+    !
+    REAL(wp) :: halflife_tracer   ! radioactive half-life in s^-1
+    INTEGER  :: imis_tracer     ! IMIS number
+    !
   END TYPE t_tracer_meta
 
 

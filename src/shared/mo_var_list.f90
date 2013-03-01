@@ -580,11 +580,14 @@ CONTAINS
   ! Comment by DR: Maybe for the future one could define different sets of default values
   ! for different groups of ART species.
   ! 
-  FUNCTION create_tracer_metadata(lis_tracer, ihadv_tracer, ivadv_tracer, lturb_tracer, &
+  FUNCTION create_tracer_metadata(lis_tracer,tracer_class,                              &
+    &                            ihadv_tracer, ivadv_tracer, lturb_tracer,              &
     &                            lsed_tracer, ldep_tracer, lconv_tracer,                &
-    &                            lwash_tracer,rdiameter_tracer, rrho_tracer) RESULT(tracer_meta)
+    &                            lwash_tracer,rdiameter_tracer, rrho_tracer,            &
+    &                            halflife_tracer,imis_tracer) RESULT(tracer_meta) 
 
     LOGICAL, INTENT(IN), OPTIONAL :: lis_tracer      ! this is a tracer field (TRUE/FALSE)
+    CHARACTER(len=*), INTENT(IN), OPTIONAL :: tracer_class  ! type of tracer (cloud, volcash, radioact,...) 
     INTEGER, INTENT(IN), OPTIONAL :: ihadv_tracer    ! method for horizontal transport
     INTEGER, INTENT(IN), OPTIONAL :: ivadv_tracer    ! method for vertical transport
     LOGICAL, INTENT(IN), OPTIONAL :: lturb_tracer    ! turbulent transport (TRUE/FALSE)
@@ -594,6 +597,8 @@ CONTAINS
     LOGICAL, INTENT(IN), OPTIONAL :: lwash_tracer    ! washout (TRUE/FALSE)
     REAL(wp), INTENT(IN), OPTIONAL :: rdiameter_tracer! particle diameter in m
     REAL(wp), INTENT(IN), OPTIONAL :: rrho_tracer     ! particle density in kg m^-3
+    REAL(wp), INTENT(IN), OPTIONAL :: halflife_tracer       ! radioactive half-life in s^-1
+    INTEGER, INTENT(IN), OPTIONAL :: imis_tracer         ! IMIS number
 
     TYPE(t_tracer_meta) :: tracer_meta               ! tracer metadata
 
@@ -602,6 +607,13 @@ CONTAINS
       tracer_meta%lis_tracer = lis_tracer
     ELSE
       tracer_meta%lis_tracer = .FALSE.
+    ENDIF
+
+    ! tracer_class
+    IF ( PRESENT(tracer_class) ) THEN
+      tracer_meta%tracer_class = tracer_class
+    ELSE
+      tracer_meta%tracer_class = "cloud"  ! USE cloud as standard
     ENDIF
 
     ! ihadv_tracer
@@ -665,6 +677,20 @@ CONTAINS
       tracer_meta%rrho_tracer = rrho_tracer
     ELSE
       tracer_meta%rrho_tracer = 1000.0_wp       ! particle density in kg m^-3
+    ENDIF
+
+    ! halflife_tracer
+    IF ( PRESENT(halflife_tracer) ) THEN
+      tracer_meta%halflife_tracer = halflife_tracer
+    ELSE
+      tracer_meta%halflife_tracer = 0.0_wp       ! half-life in s^-1
+    ENDIF
+
+    ! imis_tracer
+    IF ( PRESENT(imis_tracer) ) THEN
+      tracer_meta%imis_tracer = imis_tracer
+    ELSE
+      tracer_meta%imis_tracer = -999       ! IMIS number
     ENDIF
 
   END FUNCTION create_tracer_metadata
@@ -3473,6 +3499,12 @@ CONTAINS
         IF (this_list_element%field%info%tracer%lis_tracer) THEN
           CALL message('', 'Tracer field                                : yes.')
 
+          WRITE (message_text,'(a,a)') &
+             'Tracer class                                : ', &
+             this_list_element%field%info%tracer%tracer_class
+          CALL message('', message_text)
+
+
           WRITE (message_text,'(a,3i3)') &
              'Horizontal transport method                 : ', &
              this_list_element%field%info%tracer%ihadv_tracer
@@ -3522,6 +3554,18 @@ CONTAINS
              'particle density in kg m^-3                 : ', &
              this_list_element%field%info%tracer%rrho_tracer
           CALL message('', message_text)
+
+        WRITE (message_text,'(a,e18.12)') &
+             'Radioactive half-life in s^-1                      : ', &
+             this_list_element%field%info%tracer%halflife_tracer
+          CALL message('', message_text)
+
+        WRITE (message_text,'(a,i3)') &
+             'IMIS number                      : ', &
+             this_list_element%field%info%tracer%imis_tracer
+          CALL message('', message_text)
+
+
         ELSE
           CALL message('', 'Tracer field                                : no.')
         ENDIF
@@ -3804,9 +3848,10 @@ CONTAINS
   SUBROUTINE add_var_list_reference_tracer(this_list, target_name, tracer_name,  &
     &        tracer_idx, ptr_arr, cf, grib2, advconf,jg, ldims, loutput, lrestart,  &
     &        isteptype, tlev_source, vert_interp, hor_interp, in_group,          &
-    &        lis_tracer, ihadv_tracer, ivadv_tracer, lturb_tracer, lsed_tracer,  &
+    &        lis_tracer,tracer_class,                                            &
+    &        ihadv_tracer, ivadv_tracer, lturb_tracer, lsed_tracer,              &
     &        ldep_tracer, lconv_tracer, lwash_tracer, rdiameter_tracer,          &
-    &        rrho_tracer)
+    &        rrho_tracer,halflife_tracer,imis_tracer)
 
     TYPE(t_var_list)    , INTENT(inout)        :: this_list
     CHARACTER(len=*)    , INTENT(in)           :: target_name
@@ -3826,6 +3871,7 @@ CONTAINS
     TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp  ! horizontal interpolation metadata
     LOGICAL, INTENT(in), OPTIONAL :: in_group(SIZE(VAR_GROUPS))  ! groups to which a variable belongs
     LOGICAL             , INTENT(in), OPTIONAL :: lis_tracer     ! this is a tracer field (TRUE/FALSE)
+    CHARACTER(len=*)    , INTENT(in), OPTIONAL :: tracer_class  ! type of tracer (cloud, volcash, radioact,...) 
     INTEGER             , INTENT(in), OPTIONAL :: ihadv_tracer   ! method for hor. transport
     INTEGER             , INTENT(in), OPTIONAL :: ivadv_tracer   ! method for vert. transport
     LOGICAL             , INTENT(in), OPTIONAL :: lturb_tracer   ! turbulent transport (TRUE/FALSE)
@@ -3835,6 +3881,8 @@ CONTAINS
     LOGICAL             , INTENT(in), OPTIONAL :: lwash_tracer   ! washout (TRUE/FALSE)
     REAL(wp)            , INTENT(in), OPTIONAL :: rdiameter_tracer ! particle diameter in m
     REAL(wp)            , INTENT(in), OPTIONAL :: rrho_tracer    ! particle density in kg m^-3
+    REAL(wp)            , INTENT(in), OPTIONAL :: halflife_tracer       ! radioactive half-life in s^-1
+    INTEGER             , INTENT(in), OPTIONAL :: imis_tracer         ! IMIS number
 
 
     ! Local variables:
@@ -3894,6 +3942,7 @@ CONTAINS
     !
     tracer_info = create_tracer_metadata(                                     &
       &                                  lis_tracer       = lis_tracer,       &
+      &                                  tracer_class     = tracer_class,     &
       &                                  ihadv_tracer     = zihadv_tracer,    &
       &                                  ivadv_tracer     = zivadv_tracer,    &
       &                                  lturb_tracer     = lturb_tracer,     &
@@ -3902,7 +3951,9 @@ CONTAINS
       &                                  lconv_tracer     = lconv_tracer,     &
       &                                  lwash_tracer     = lwash_tracer,     &
       &                                  rdiameter_tracer = rdiameter_tracer, &
-      &                                  rrho_tracer      = rrho_tracer )
+      &                                  rrho_tracer      = rrho_tracer,      &
+      &                                  halflife_tracer  = halflife_tracer,        &
+      &                                  imis_tracer      = imis_tracer       )
 
 
 
@@ -3916,12 +3967,12 @@ CONTAINS
 
     ! Get the number of convection tracers  
 
-    IF (art_config(jg)%lart_conv_volcano) THEN
+    IF (art_config(jg)%lart_conv) THEN
          IF( lconv_tracer) THEN
       art_config(jg)%nconv_tracer = art_config(jg)%nconv_tracer + 1
          ELSE
-          WRITE (message_text,*) 'WARNING. lart_conv_volcano=',&
-          & art_config(jg)%lart_conv_volcano,&
+          WRITE (message_text,*) 'WARNING. lart_conv=',&
+          & art_config(jg)%lart_conv,&
           & 'lconv_tracer=',lconv_tracer
           CALL message('add_var_list_reference_tracer',message_text)
          ENDIF
