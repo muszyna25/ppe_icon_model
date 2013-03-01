@@ -257,9 +257,9 @@ CONTAINS
 
       IF (ltimer) CALL timer_start(timer_upd_phys)
       ! Calc density globally
-      !CALL calc_density(p_patch(jg),&
-      !  &               p_os(jg)%p_prog(nold(1))%tracer,&
-      !  &               p_os(jg)%p_diag%rho)
+     !CALL calc_density(p_patch_3D,&
+     !  &               p_os(jg)%p_prog(nold(1))%tracer,&
+     !  &               p_os(jg)%p_diag%rho)
 
       SELECT CASE (EOS_TYPE)
        CASE(1)

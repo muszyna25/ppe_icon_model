@@ -349,8 +349,8 @@ END INTERFACE
   !
   !!
   TYPE(t_patch_3D ),TARGET, INTENT(IN) :: p_patch_3D
-  REAL(wp),    INTENT(IN), TARGET             :: tracer(:,:,:,:)     !< input of S and T
-  REAL(wp), INTENT(INOUT), TARGET             :: rho   (:,:,:)       !< density
+  REAL(wp),    INTENT(IN), TARGET      :: tracer(:,:,:,:)     !< input of S and T
+  REAL(wp), INTENT(INOUT), TARGET      :: rho   (:,:,:)       !< density
 
   ! local variables:
   ! CHARACTER(len=max_char_length), PARAMETER :: &
