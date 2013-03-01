@@ -1102,7 +1102,7 @@ TYPE(t_patch), POINTER :: patch_horz
   cells_in_domain => p_patch_3D%p_patch_2D(1)%cells%in_domain
   all_edges       => p_patch_3D%p_patch_2D(1)%edges%all
 
-  gdt2 = grav*(dtime)**2
+  gdt2 = grav*dtime*dtime
 
   z_vn_ab(1:nproma,1:n_zlev,1:patch_horz%nblks_e)  = 0.0_wp
   z_e2D(1:nproma,1:patch_horz%nblks_e)             = 0.0_wp

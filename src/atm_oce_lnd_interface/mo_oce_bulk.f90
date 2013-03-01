@@ -370,7 +370,7 @@ CONTAINS
         ! apply sum of freshwater forcing to (open) ocean
         !  - in OMIP data: evaporation is negative
         IF (l_forc_freshw) THEN
-          p_sfc_flx%forc_fwfx(:,:) = p_sfc_flx%forc_precip(:,:) + p_sfc_flx%forc_evap(:,:) + p_sfc_flx%forc_runoff(:,:)
+          p_sfc_flx%forc_fwbc(:,:) = p_sfc_flx%forc_precip(:,:) + p_sfc_flx%forc_evap(:,:) + p_sfc_flx%forc_runoff(:,:)
           CALL dbg_print('UpdSfc: p_sfc_flx%forc_precip'   ,p_sfc_flx%forc_precip   ,str_module,idt_src)
           CALL dbg_print('UpdSfc: p_sfc_flx%forc_evap'     ,p_sfc_flx%forc_evap     ,str_module,idt_src)
           CALL dbg_print('UpdSfc: p_sfc_flx%forc_runoff'   ,p_sfc_flx%forc_runoff   ,str_module,idt_src)
@@ -1006,8 +1006,14 @@ CONTAINS
 
             p_sfc_flx%forc_tracer(jc,jb,2) = -z_relax*(p_os%p_prog(nold(1))%tracer(jc,1,jb,2)  &
               &                                        -p_sfc_flx%forc_tracer_relax(jc,jb,2))
+
+            ! Diagnosed freshwater flux due to relaxation [m/s]
+            p_sfc_flx%forc_fwrelax(jc,jb) = -p_sfc_flx%forc_tracer(jc,jb,2) &
+              &                            / p_os%p_prog(nold(1))%tracer(jc,1,jb,2)
+
           ELSE
             p_sfc_flx%forc_tracer(jc,jb,2) = 0.0_wp
+            p_sfc_flx%forc_fwrelax(jc,jb)  = 0.0_wp
           ENDIF
         END DO
       END DO
@@ -1024,7 +1030,7 @@ CONTAINS
 !       CALL dbg_print('UpdSfc: S-forc-trac [Km/s]',z_c2                    ,str_module,idt_src)
       !---------------------------------------------------------------------
 
-    ENDIF
+    ENDIF  !  irelax_2d_S >=1  salinity relaxation
 
     !-------------------------------------------------------------------------
     ! Apply freshwater forcing to surface boundary condition, independent of salinity relaxation
@@ -1040,7 +1046,7 @@ CONTAINS
         DO jc = i_startidx_c, i_endidx_c
           IF ( p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary ) THEN
               p_sfc_flx%forc_tracer(jc,jb,2) = p_sfc_flx%forc_tracer(jc,jb,2) &
-                &                            - p_sfc_flx%forc_fwfx(jc,jb)*p_os%p_prog(nold(1))%tracer(jc,1,jb,2)
+                &                            - p_sfc_flx%forc_fwbc(jc,jb)*p_os%p_prog(nold(1))%tracer(jc,1,jb,2)
           ELSE
             p_sfc_flx%forc_tracer(jc,jb,2) = 0.0_wp
           ENDIF
@@ -1050,6 +1056,7 @@ CONTAINS
     ENDIF
 
     ! Heat flux diagnosed for all ocean only relaxation cases
+    ! TODO: discriminate hflx and hfrelax
     IF (temperature_relaxation >= 1) THEN
 
       ! Heat flux diagnosed for relaxation cases, see above
@@ -1067,26 +1074,29 @@ CONTAINS
     END IF
 
     ! Freshwater flux diagnosed
-    IF (irelax_2d_S >= 1 .AND. no_tracer >1) THEN
+    ! TODO: coupling flux is not fwfx anymore but fwbc if implemented for iforc_type=3/4
+    !IF (irelax_2d_S >= 1 .AND. no_tracer >1) THEN
 
       ! Sum of freshwater flux at surface W_s diagnosed for relaxation cases (see Griffies)
       ! does also apply for OMIP-freshwater (iforc_type=2) plus relaxation (irelax_2d_S >=1)
       !   W_s = -Q_S / S_0   [m/s]  with reference salinity at surface, 
-      !   which is set to reference value S_ref=35 psu to avoid instability for low salinity
       ! where
       !   Q_S = K_v*dS/dz(surf) = -W_s*S_ref  [psu*m/s]
       ! from above
 
       ! p_sfc_flx%forc_fwfx(:,:) = -p_sfc_flx%forc_tracer(:,:,2) / sal_ref
       ! now in m/month for diagnosis
-        p_sfc_flx%forc_fwfx(:,:) = -p_sfc_flx%forc_tracer(:,:,2) / sal_ref * 2.592e6_wp
+      !  p_sfc_flx%forc_fwfx(:,:) = -p_sfc_flx%forc_tracer(:,:,2) / sal_ref * 2.592e6_wp
+
+      ! now simply sum of fluxes:
+        p_sfc_flx%forc_fwfx(:,:) = (p_sfc_flx%forc_fwbc(:,:)-p_sfc_flx%forc_tracer(:,:,2)) / sal_ref * 2.592e6_wp
 
       !---------DEBUG DIAGNOSTICS-------------------------------------------
       idt_src=1  ! output print level (1-5, fix)
-      CALL dbg_print('UpdSfc:S-relax-fwfx[m/mon]',p_sfc_flx%forc_fwfx     ,str_module,idt_src)
+      CALL dbg_print('UpdSfc:S-sum-fwfx[m/mon]',p_sfc_flx%forc_fwfx     ,str_module,idt_src)
       !---------------------------------------------------------------------
 
-    END IF
+    !END IF
 
     !-------------------------------------------------------------------------
     ! Apply net surface heat flux to boundary condition

@@ -409,6 +409,18 @@ CONTAINS
     IF (ist/=SUCCESS) THEN
       CALL finish(TRIM(routine),'allocation for river runoff flux failed')
     END IF
+    ALLOCATE(p_sfc_flx%forc_fwbc(nproma,nblks_c), STAT=ist)
+    IF (ist/=SUCCESS) THEN
+      CALL finish(TRIM(routine),'allocation for sum of BC freshwater flux failed')
+    END IF
+    ALLOCATE(p_sfc_flx%forc_hfrelax(nproma,nblks_c), STAT=ist)
+    IF (ist/=SUCCESS) THEN
+      CALL finish(TRIM(routine),'allocation for heat flux due to relaxation failed')
+    END IF
+    ALLOCATE(p_sfc_flx%forc_fwrelax(nproma,nblks_c), STAT=ist)
+    IF (ist/=SUCCESS) THEN
+      CALL finish(TRIM(routine),'allocation for freshwater flux due to relaxation failed')
+    END IF
     IF(no_tracer>=1)THEN
       ALLOCATE(p_sfc_flx%forc_tracer(nproma,nblks_c, no_tracer), STAT=ist)
       IF (ist/=SUCCESS) THEN
@@ -444,6 +456,9 @@ CONTAINS
       p_sfc_flx%forc_precip      (:,:)    = 0.0_wp
       p_sfc_flx%forc_evap        (:,:)    = 0.0_wp
       p_sfc_flx%forc_runoff      (:,:)    = 0.0_wp
+      p_sfc_flx%forc_fwbc        (:,:)    = 0.0_wp
+      p_sfc_flx%forc_hfrelax     (:,:)    = 0.0_wp
+      p_sfc_flx%forc_fwrelax     (:,:)    = 0.0_wp
       p_sfc_flx%forc_tracer      (:,:,:)  = 0.0_wp
       p_sfc_flx%forc_tracer_relax(:,:,:)  = 0.0_wp
     ENDIF
@@ -512,6 +527,18 @@ CONTAINS
     DEALLOCATE(p_sfc_flx%forc_runoff, STAT=ist)
     IF (ist/=SUCCESS) THEN
       CALL finish(TRIM(routine),'deallocation for runoff flux failed')
+    END IF
+    DEALLOCATE(p_sfc_flx%forc_fwbc, STAT=ist)
+    IF (ist/=SUCCESS) THEN
+      CALL finish(TRIM(routine),'deallocation for sum of BC freshwater flux failed')
+    END IF
+    DEALLOCATE(p_sfc_flx%forc_hfrelax, STAT=ist)
+    IF (ist/=SUCCESS) THEN
+      CALL finish(TRIM(routine),'deallocation for heat flux due to relaxation failed')
+    END IF
+    DEALLOCATE(p_sfc_flx%forc_fwrelax, STAT=ist)
+    IF (ist/=SUCCESS) THEN
+      CALL finish(TRIM(routine),'deallocation for freshwater flux due to relaxation failed')
     END IF
     DEALLOCATE(p_sfc_flx%forc_tracer, STAT=ist)
     IF (ist/=SUCCESS) THEN

@@ -67,10 +67,14 @@ MODULE mo_sea_ice_types
       &  forc_precip      (:,:),     & ! total precipitation flux                                  [m/s]
       &  forc_evap        (:,:),     & ! evaporation flux                                          [m/s]
       &  forc_runoff      (:,:),     & ! river runoff flux                                         [m/s]
-      &  forc_hflx        (:,:),     & ! forcing of temperature tracer with surface heat flux      [W/m2]
-      &  forc_fwfx        (:,:),     & ! forcing of salinity tracer with surface freshwater flux   [m/s]
-      &  forc_tracer      (:,:,:),   & ! tracer flux. Last index refers to tracer id
+      &  forc_fwbc        (:,:),     & ! sum of forcing surface freshwater flux due to BC          [m/s]
+      &  forc_fwrelax     (:,:),     & ! diagnosed surface freshwater flux due to relaxation       [m/s]
+      &  forc_fwfx        (:,:),     & ! diagnosed sum of forcing surface freshwater flux          [m/month]
+      &  forc_hfrelax     (:,:),     & ! diagnosed surface heat flux due to relaxation             [m/s]
+      &  forc_hflx        (:,:),     & ! diagnosed sum of forcing surface heat flux                [W/m2]
+      &  forc_tracer      (:,:,:),   & ! forcing of tracer in vertical duffusion equation          [K*m/s; psu*m/s]
       &  forc_tracer_relax(:,:,:)      ! tracer relaxation: contains data to which is relaxated. 
+                                       !   3rd index refers to tracer id
 
     TYPE(t_cartesian_coordinates), & ! wind forcing with cartesian vector, located at cell centers
       & ALLOCATABLE :: forc_wind_cc(:,:) 
@@ -151,12 +155,9 @@ MODULE mo_sea_ice_types
       &  forc_slflx       (:,:),     & ! surface latent heat flux                                  [W/m2]
       &  forc_precip      (:,:),     & ! total precipitation flux                                  [m/s]
       &  forc_evap        (:,:),     & ! evaporation flux                                          [m/s]
-      &  forc_runoff      (:,:),     & ! river runoff flux                                         [m/s]
-      &  forc_hflx        (:,:),     & ! forcing of temperature tracer with surface heat flux      [W/m2]
-      &  forc_fwfx        (:,:),     & ! forcing of salinity tracer with surface freshwater flux   [m/s]
-      &  forc_tracer      (:,:,:),   & ! tracer flux. Last index refers to tracer id
-      &  forc_tracer_relax(:,:,:) ! tracer relaxation: contains data to which is relaxated. 
-                                  ! Last index refers to tracer id (1=temperature, 2=salinity)
+      &  forc_runoff      (:,:)!     & ! river runoff flux                                         [m/s]
+  !   &  forc_hflx        (:,:),     & ! forcing of temperature tracer with surface heat flux      [W/m2]
+  !   &  forc_fwfx        (:,:)      & ! forcing of salinity tracer with surface freshwater flux   [m/s]
     TYPE(t_cartesian_coordinates), & ! wind forcing with cartesian vector, located at cell centers
       & ALLOCATABLE :: forc_wind_cc(:,:) 
 
