@@ -592,12 +592,12 @@ write(*,*)'max-min coeff',z_diff_multfac, maxval(p_phys_param%K_veloc_h(:,1,:)),
     INTEGER  :: ilc1, ibc1, ilc2,ibc2!, jj, ible,idxe
     INTEGER  :: i_startidx_c, i_endidx_c
     INTEGER  :: i_startidx_e, i_endidx_e
+    REAL(wp) :: z_rho_up
+    REAL(wp) :: z_rho_down
+    REAL(wp) :: z_stabio
+    REAL(wp) :: z_shear_c
     REAL(wp) :: z_vert_density_grad_c(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)
     REAL(wp) :: z_vert_density_grad_e(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
-    REAL(wp) :: z_stabio             (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)
-    REAL(wp) :: z_shear_c            (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)
-    REAL(wp) :: z_rho_up             (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)
-    REAL(wp) :: z_rho_down           (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)
     REAL(wp) :: z_Ri_c               (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)
     REAL(wp) :: z_Ri_e               (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
     REAL(wp) :: z_c                  (nproma,n_zlev+1,p_patch_3D%p_patch_2D(1)%nblks_c)
@@ -654,8 +654,8 @@ write(*,*)'max-min coeff',z_diff_multfac, maxval(p_phys_param%K_veloc_h(:,1,:)),
       z_vert_density_grad_e(:,:,:) = 0.0_wp
       z_Ri_c(:,:,:)                = 0.0_wp
       z_Ri_e(:,:,:)                = 0.0_wp
-      z_stabio (:,:,:)             = 0.0_wp
-      z_shear_c(:,:,:)             = 0.0_wp
+      z_stabio                     = 0.0_wp
+      z_shear_c                    = 0.0_wp
       z_s1                         = 0.0_wp
       z_s2                         = 0.0_wp
       z_grav_rho                   = grav/rho_ref
@@ -674,8 +674,7 @@ write(*,*)'max-min coeff',z_diff_multfac, maxval(p_phys_param%K_veloc_h(:,1,:)),
               !dz_inv = p_patch_3D%p_patch_1D(1)%inv_prism_center_dist_c(jc,jk,jb)
               !This calculates the localshear at cells
               ! - add small epsilon to avoid division by zero
-              z_shear_c(jc,jk,jb) = dbl_eps + &
-                & sum((p_os%p_diag%p_vn(jc,jk-1,jb)%x-p_os%p_diag%p_vn(jc,jk,jb)%x)**2)
+              z_shear_c = dbl_eps + sum((p_os%p_diag%p_vn(jc,jk-1,jb)%x-p_os%p_diag%p_vn(jc,jk,jb)%x)**2)
 
               z_press = p_patch_3D%p_patch_1D(1)%zlev_i(jk)*rho_ref*SItodBar
 
@@ -686,14 +685,8 @@ write(*,*)'max-min coeff',z_diff_multfac, maxval(p_phys_param%K_veloc_h(:,1,:)),
                                                                !the lower one!
               ENDIF
               !density of upper and lower cell w.r.t.to pressure at intermediate level
-              !z_rho_up(jc,jk,jb)   = p_os%p_diag%rho(jc,jk-1,jb)
-              z_rho_up(jc,jk,jb)   = calc_density_func &
-               & (p_os%p_prog(nold(1))%tracer(jc,jk-1,jb,1), z_s1, z_press)
-
-              !z_rho_down(jc,jk,jb)   = p_os%p_diag%rho(jc,jk,jb)
-              z_rho_down(jc,jk,jb) = calc_density_func &
-                & (p_os%p_prog(nold(1))%tracer(jc,jk,jb,1), z_s2, z_press) !TODO: local/current
-                                                                           !density
+              z_rho_up   = calc_density_func(p_os%p_prog(nold(1))%tracer(jc,jk-1,jb,1), z_s1, z_press)
+              z_rho_down = calc_density_func(p_os%p_prog(nold(1))%tracer(jc,jk,jb,1), z_s2, z_press)
 
               ! comments from MPIOM
               !! calculate vertical density stabio gradient between upper and lower box
@@ -701,13 +694,13 @@ write(*,*)'max-min coeff',z_diff_multfac, maxval(p_phys_param%K_veloc_h(:,1,:)),
 
               !! stabio > 0 stable   stratification  (lower layer is havier)  => vert_density_grad  > 0
               !! stabio < 0 instable stratification  (lower layer is lighter) => vert_density_grad  < 0
-              z_stabio(jc,jk,jb) = (z_rho_down(jc,jk,jb)-z_rho_up(jc,jk,jb))
+              z_stabio  = z_rho_down-z_rho_up
 
               ! z_stabio  = dz_inv*0.5_wp*(z_rho_up(jc,jk,jb)-z_rho_down(jc,jk,jb))
               ! #slo# - think once more about 0.5, and this line in mo_convection of MPIOM:
               ! rhoo(:, j, k-1) = 0.5_wp * (rhoo(:, j, k-1) + rhuppo(:))
 
-              z_vert_density_grad_c(jc,jk,jb) = dbl_eps+z_stabio(jc,jk,jb)
+              z_vert_density_grad_c(jc,jk,jb) = dbl_eps + z_stabio
 
               ! taken from: G.R. Stuhne, W.R. Peltier / Journal of Computational Physics 213 (2006), p. 719
               ! Richardson number is positive for stable stratification (rho_down > rho_up)
@@ -719,7 +712,7 @@ write(*,*)'max-min coeff',z_diff_multfac, maxval(p_phys_param%K_veloc_h(:,1,:)),
               !buoyance_frequence = z_grav_rho*z_vert_density_grad_c/z_shear_c
 !   buoyance_frequence            = z_grav_rho*z_vert_density_grad_c(jc,jk,jb)/z_shear_c(jc,jk,jb)
 !z_Ri_c(jc,jk,jb)=v_base%zlev_i(jk)*buoyance_frequence !TODO this created a difference in results!!
- z_Ri_c(jc,jk,jb)=p_patch_3D%p_patch_1D(1)%zlev_i(jk)*z_grav_rho*z_vert_density_grad_c(jc,jk,jb)/z_shear_c(jc,jk,jb)
+ z_Ri_c(jc,jk,jb)=p_patch_3D%p_patch_1D(1)%zlev_i(jk)*z_grav_rho*z_vert_density_grad_c(jc,jk,jb)/z_shear_c
             END DO
           ENDIF
         END DO
@@ -848,10 +841,6 @@ write(*,*)'max-min coeff',z_diff_multfac, maxval(p_phys_param%K_veloc_h(:,1,:)),
     idt_src=4  ! output print level (1-5, fix)
     CALL dbg_print('UpdPar: p_vn%x(1)'         ,p_os%p_diag%p_vn%x(1)    ,str_module,idt_src)
     CALL dbg_print('UpdPar: p_vn%x(2)'         ,p_os%p_diag%p_vn%x(1)    ,str_module,idt_src)
-    idt_src=3  ! output print level (1-5, fix)
-    CALL dbg_print('UpdPar: z_rho_down'        ,z_rho_down               ,str_module,idt_src)
-    CALL dbg_print('UpdPar: z_rho_up'          ,z_rho_up                 ,str_module,idt_src)
-    CALL dbg_print('UpdPar: z_shear_c'         ,z_shear_c                ,str_module,idt_src)
     idt_src=2  ! output print level (1-5, fix)
     DO itracer = 1, no_tracer
       z_c(:,:,:)=params_oce%A_tracer_v(:,:,:,itracer)
