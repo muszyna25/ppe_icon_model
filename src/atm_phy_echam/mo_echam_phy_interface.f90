@@ -76,7 +76,8 @@ MODULE mo_echam_phy_interface
   USE mo_icon_cpl_def_field, ONLY: ICON_cpl_get_nbr_fields, ICON_cpl_get_field_ids
   USE mo_icon_cpl_restart,   ONLY: icon_cpl_write_restart
 
-  USE mo_icoham_sfc_indices,ONLY: iwtr, iice
+  USE mo_icoham_sfc_indices, ONLY: iwtr, iice
+  USE mo_amip_bc,            ONLY: read_amip_bc, amip_time_weights, amip_time_interpolation
 
   IMPLICIT NONE
   PRIVATE
@@ -330,6 +331,18 @@ CONTAINS
 
     ! Read and interpolate SST for AMIP simulations; prescribed ozone and
     ! aerosol concentrations.
+    !LK: this is not checked for correctness yet!
+    !TODO  read only at begin of year
+    !TODO: pass timestep as argument
+    !TODO: lsmask == slm and is not slf! 
+    IF (phy_config%lamip) THEN
+      CALL read_amip_bc(datetime%year, p_patch)
+      CALL amip_time_weights(datetime)
+      CALL amip_time_interpolation(prm_field(jg)%seaice(:,:), &
+           &                       prm_field(jg)%tsfc_tile(:,:,:), &
+           &                       prm_field(jg)%lsmask(:,:))
+    ENDIF
+
 !    WRITE(0,*)'radiation=',ltrig_rad, dt_rad
 !    WRITE(0,*)' vor PYHSC rad fluxes sw sfc',  MAXVAL(prm_field(jg)% swflxsfc_avg(:,:))
 !    WRITE(0,*)' vor PYHSC rad fluxes lw sfc', MINVAL(prm_field(jg)% lwflxsfc_avg(:,:))
