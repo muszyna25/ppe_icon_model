@@ -75,11 +75,9 @@ case "$fortran_compiler" in
         STD_FLAGS   = -march=native -O0 "$DEBUG_FLAGS" -D__LOOP_EXCHANGE 
         HIOPT_FLAGS = -march=native -O3 -ffast-math -D__LOOP_EXCHANGE
 
-       #FC          = gfortran
-        FC          = ~hanlauf/X86_64/bin/gfortran47
+        FC          = gfortran
         FFLAGS      = "$FCPP" "$FLANG" "$FWARN"
-       #F77         = gfortran
-        F77         = ~hanlauf/X86_64/bin/gfortran47
+        F77         = gfortran
         F77FLAGS    = -march=native -O0 -ffast-math
         LDFLAGS     = "$FOTPTIM"
         OMPFLAG     = -fopenmp

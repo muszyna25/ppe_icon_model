@@ -262,7 +262,7 @@ case "$mh_setup" in
     CC       = sxmpic++
 
     CFLAGS   = $CFLAGS
-    FFLAGS   = -tv -Cdebug -sx9 $DEBUGFLAGS $FPTRAP
+    FFLAGS   = -Cdebug -sx9 $DEBUGFLAGS $FPTRAP
     LDFLAGS  = $LDFLAGS $LDDEBUG
 
     ;;
