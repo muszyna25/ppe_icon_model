@@ -890,6 +890,8 @@ write(*,*)'max-min coeff',z_diff_multfac, maxval(p_phys_param%K_veloc_h(:,1,:)),
     CALL dbg_print('UpdPar: p_vn%x(1)'         ,p_os%p_diag%p_vn%x(1)    ,str_module,idt_src)
     CALL dbg_print('UpdPar: p_vn%x(2)'         ,p_os%p_diag%p_vn%x(1)    ,str_module,idt_src)
     idt_src=3  ! output print level (1-5, fix)
+    CALL dbg_print('UpdPar: z_rho_down'        ,z_rho_down               ,str_module,idt_src)
+    CALL dbg_print('UpdPar: z_rho_up'          ,z_rho_up                 ,str_module,idt_src)
     CALL dbg_print('UpdPar: z_shear_c'         ,z_shear_c                ,str_module,idt_src)
     idt_src=2  ! output print level (1-5, fix)
     DO itracer = 1, no_tracer
