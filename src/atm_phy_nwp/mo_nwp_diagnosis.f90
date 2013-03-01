@@ -95,14 +95,14 @@ CONTAINS
   !! of base and top of convection  by Helmut Frank, DWD (2013-01-17)
   !!
   !!
-  SUBROUTINE nwp_diagnosis(lcall_phy_jg,lredgrid,         & !input
+  SUBROUTINE nwp_diagnosis(lcall_phy_jg,                  & !input
                             & dt_phy_jg,p_sim_time,       & !input
                             & kstart_moist,               & !input
                             & ih_clch, ih_clcm,           & !in
                             & pt_patch, p_metrics,        & !input
                             & pt_prog, pt_prog_rcf,       & !in
                             & pt_diag,                    & !inout
-                            & prm_diag,prm_nwp_tend)    
+                            & prm_diag)    
                             
 
     !>
@@ -110,7 +110,6 @@ CONTAINS
 
     LOGICAL, INTENT(IN)          ::   &             !< physics package time control (switches)
          &                          lcall_phy_jg(:) !< for domain jg
-    LOGICAL, INTENT(IN)          :: lredgrid        !< use reduced grid for radiation
     REAL(wp),INTENT(in)          :: dt_phy_jg(:)    !< time interval for all physics
                                                     !< packages on domain jg
     REAL(wp),INTENT(in)          :: p_sim_time
@@ -124,7 +123,6 @@ CONTAINS
     TYPE(t_nh_metrics)   ,       INTENT(in):: p_metrics
 
     TYPE(t_nwp_phy_diag),       INTENT(inout) :: prm_diag
-    TYPE(t_nwp_phy_tend),TARGET,INTENT(inout) :: prm_nwp_tend
 
     ! Local
 
@@ -400,7 +398,11 @@ CONTAINS
     END IF
 
 
-    ! latent heat, latent heat from bare soil and sensible heat at surface. 
+    ! Compute 
+    ! - surface latent heat flux
+    ! - surface latent heat flux from bare soil 
+    ! - surface sensible heat flux
+    ! - surface moisture flux 
     ! Calculation of average/accumulated values since model start
     !
     IF ( p_sim_time > 1.e-6_wp .AND. lflux_avg) THEN
@@ -454,6 +456,13 @@ CONTAINS
           ENDDO
         END SELECT
 
+        DO jc = i_startidx, i_endidx
+          prm_diag%aqhfl_s(jc,jb) = ( prm_diag%aqhfl_s(jc,jb)        &
+                            &  * (p_sim_time - dt_phy_jg(itfastphy)) &
+                            &  + prm_diag%qhfl_s(jc,jb)              & !attention to the sign, in the output all fluxes 
+                            &  * dt_phy_jg(itfastphy) )              & !must be positive downwards 
+                            & * r_sim_time
+        ENDDO
       ENDDO ! nblks     
 !$OMP END DO
 
@@ -495,43 +504,15 @@ CONTAINS
           ENDDO
         END SELECT
 
+        DO jc = i_startidx, i_endidx
+          prm_diag%aqhfl_s(jc,jb) =  prm_diag%aqhfl_s(jc,jb)       &
+                             &  + prm_diag%qhfl_s(jc,jb)           &!attention to the sign, in the output all fluxes 
+                             &  * dt_phy_jg(itfastphy)              !must be positive downwards 
+        ENDDO
+
       ENDDO ! nblks     
 !$OMP END DO    
 
-    END IF
-
-! Evaporation rate at surface.  Calculation of 
-! average values since model start
-
-
-    IF ( p_sim_time > 1.e-6_wp ) THEN
-!$OMP DO PRIVATE(jb, i_startidx,i_endidx,jc) ICON_OMP_DEFAULT_SCHEDULE
-      DO jb = i_startblk, i_endblk
-        !
-        CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
-          & i_startidx, i_endidx, rl_start, rl_end)
-
-        SELECT CASE (atm_phy_nwp_config(jg)%inwp_turb)
-        CASE (1, 2, 3)
-          DO jc = i_startidx, i_endidx
-            prm_diag%aqhfl_s(jc,jb) = ( prm_diag%aqhfl_s(jc,jb)         &
-                               &  * (p_sim_time - dt_phy_jg(itfastphy)) &
-                               &  + prm_diag%lhfl_s(jc,jb)/lh_v         & !attention to the sign, in the output all fluxes  
-                               &  * dt_phy_jg(itfastphy) )              & !must be positive downwards 
-                               & * r_sim_time
-          ENDDO
-        CASE (4)
-          DO jc = i_startidx, i_endidx
-             prm_diag%aqhfl_s(jc,jb) = ( prm_diag%aqhfl_s(jc,jb)        &
-                               &  * (p_sim_time - dt_phy_jg(itfastphy)) &
-                               &  + prm_diag%qhfl_s(jc,jb)              &
-                               &  * dt_phy_jg(itfastphy) )              &
-                               & * r_sim_time
-          ENDDO
-        END SELECT
-
-      ENDDO ! nblks     
-!$OMP END DO
     END IF
 
 

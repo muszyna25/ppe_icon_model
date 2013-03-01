@@ -65,7 +65,7 @@ MODULE mo_nwp_sfc_interface
   USE mo_phyparam_soil              ! soil and vegetation parameters for TILES
 !  USE mo_aggregate_surface,   ONLY: subsmean,subs_disaggregate_radflux,subsmean_albedo
 !  USE mo_icoham_sfc_indices,  ONLY: nsfc_type, igbm, iwtr, iice, ilnd
-  USE mo_physical_constants,  ONLY: tmelt
+  USE mo_physical_constants,  ONLY: tmelt, lh_v=>alv
 
   
   IMPLICIT NONE 
@@ -222,6 +222,7 @@ CONTAINS
     REAL(wp) :: t_g_s(nproma)
     REAL(wp) :: shfl_s_t    (nproma, p_patch%nblks_c, ntiles_total) ! sensible heat flux sfc
     REAL(wp) :: lhfl_s_t    (nproma, p_patch%nblks_c, ntiles_total) ! latent heat flux sfc
+    REAL(wp) :: qhfl_s_t    (nproma, p_patch%nblks_c, ntiles_total) ! moisture flux sfc
     REAL(wp) :: shfl_soil_t (nproma, p_patch%nblks_c, ntiles_total) ! sensible heat flux sfc (snow free)
     REAL(wp) :: lhfl_soil_t (nproma, p_patch%nblks_c, ntiles_total) ! latent heat flux sfc   (snow free)
     REAL(wp) :: shfl_snow_t (nproma, p_patch%nblks_c, ntiles_total) ! sensible heat flux sfc (snow covered)
@@ -543,7 +544,8 @@ CONTAINS
         &  lhfl_pl       = lhfl_pl_t  (:,:,jb,isubs)         , & !OUT latent heat flux from bare soil evap.    (W/m2)
         &  rstom         = rstom_t    (:,jb,isubs)           , & !OUT stomatal resistance                      ( s/m )
         &  zshfl_sfc     = shfl_s_t   (:,jb,isubs)           , & !OUT sensible heat flux surface interface     (W/m2) 
-        &  zlhfl_sfc     = lhfl_s_t   (:,jb,isubs)             ) !OUT latent   heat flux surface interface     (W/m2) 
+        &  zlhfl_sfc     = lhfl_s_t   (:,jb,isubs)           , & !OUT latent   heat flux surface interface     (W/m2) 
+        &  zqhfl_sfc     = qhfl_s_t   (:,jb,isubs)             ) !OUT moisture flux surface interface          (kg/m2/s) 
 
 
 
@@ -590,6 +592,7 @@ CONTAINS
 
           prm_diag%shfl_s_t      (jc,jb,isubs) = shfl_s_t      (ic,jb,isubs)
           prm_diag%lhfl_s_t      (jc,jb,isubs) = lhfl_s_t      (ic,jb,isubs)
+          prm_diag%qhfl_s_t      (jc,jb,isubs) = qhfl_s_t      (ic,jb,isubs)
 
 
           IF(lmulti_snow) THEN
@@ -884,6 +887,7 @@ CONTAINS
            lnd_diag%qv_s   (jc,jb)  = lnd_diag%qv_s_t   (jc,jb,1)
            prm_diag%shfl_s (jc,jb)  = prm_diag%shfl_s_t (jc,jb,1) 
            prm_diag%lhfl_s (jc,jb)  = prm_diag%lhfl_s_t (jc,jb,1)
+           prm_diag%qhfl_s (jc,jb)  = prm_diag%qhfl_s_t (jc,jb,1)
            prm_diag%lhfl_bs(jc,jb)  = prm_diag%lhfl_bs_t(jc,jb,1) 
          ENDDO
          DO jk=1,nlev_soil
@@ -896,6 +900,7 @@ CONTAINS
          lnd_diag%qv_s   (i_startidx:i_endidx,jb) = 0._wp
          prm_diag%shfl_s(i_startidx:i_endidx,jb)  = 0._wp
          prm_diag%lhfl_s(i_startidx:i_endidx,jb)  = 0._wp
+         prm_diag%qhfl_s(i_startidx:i_endidx,jb)  = 0._wp
          prm_diag%lhfl_bs(i_startidx:i_endidx,jb) = 0._wp
          prm_diag%lhfl_pl(i_startidx:i_endidx,1:nlev_soil,jb) = 0._wp
 
@@ -908,6 +913,8 @@ CONTAINS
                &                    + prm_diag%shfl_s_t (jc,jb,isubs) * area_frac 
              prm_diag%lhfl_s(jc,jb) = prm_diag%lhfl_s(jc,jb)                    &
                &                    + prm_diag%lhfl_s_t (jc,jb,isubs) * area_frac 
+             prm_diag%qhfl_s(jc,jb) = prm_diag%qhfl_s(jc,jb)                    &
+               &                    + prm_diag%qhfl_s_t (jc,jb,isubs) * area_frac 
            ENDDO
          ENDDO
 

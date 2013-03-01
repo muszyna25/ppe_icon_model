@@ -1105,7 +1105,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
         grib2_desc = t_grib2_var(2, 0, 6, ibits, GRID_REFERENCE, GRID_CELL)
         CALL add_var( diag_list, 'qhfl_s', diag%qhfl_s,                       &
           & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,          &
-          & ldims=shape2d,                                                    &
+          & ldims=shape2d, lrestart=.TRUE.,                                   &
           & in_group=groups("pbl_vars"))
 
 
@@ -1379,6 +1379,27 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
              & t_grib2_var(2, 0, 194, ibits, GRID_REFERENCE, GRID_CELL),  & 
              & ldims=(/nproma,nlev_soil,kblks/), lrestart=.FALSE.,        &
              & loutput=.TRUE.)
+        ENDDO
+
+        ! &      diag%qhfl_s_t(nproma,nblks_c,ntiles_total+ntiles_water)
+        cf_desc    = t_cf_var('qhfl_s_t', 'Kg m-2 s-1','tile based surface moisture flux', &
+             &                DATATYPE_FLT32)
+        grib2_desc = t_grib2_var(2, 0, 6, ibits, GRID_REFERENCE, GRID_CELL)
+        CALL add_var( diag_list, 'qhfl_s_t', diag%qhfl_s_t,                                &
+          & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape3dsubsw,   &
+          & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
+
+        ! fill the separate variables belonging to the container qhfl_s_t
+        ALLOCATE(diag%qhfl_s_t_ptr(ntiles_total+ntiles_water))
+        DO jsfc = 1,ntiles_total+ntiles_water
+          WRITE(csfc,'(i1)') jsfc
+          CALL add_ref( diag_list, 'qhfl_s_t',                            &
+             & 'qhfl_s_t_'//TRIM(ADJUSTL(csfc)),                          &
+             & diag%qhfl_s_t_ptr(jsfc)%p_2d,                              &
+             & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                        & 
+             & t_cf_var('qhfl_s_t_'//TRIM(csfc), '', '', DATATYPE_FLT32), &
+             & t_grib2_var(0, 0, 10, ibits, GRID_REFERENCE, GRID_CELL),   & 
+             & ldims=shape2d, lrestart=.TRUE., loutput=.TRUE.)
         ENDDO
 
 

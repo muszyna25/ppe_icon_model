@@ -789,7 +789,7 @@ SUBROUTINE turbtran(iini, dt_tke, nprv, ntur, ntim, &
           tke, tkvm, tkvh, rcld, edr, &
 !    
           t_2m, qv_2m, td_2m, rh_2m, u_10m, v_10m, &
-          shfl_s, lhfl_s, &
+          shfl_s, lhfl_s, qhfl_s, &
 !
           ierrstat, errormsg, eroutine)
 
@@ -1242,7 +1242,8 @@ REAL (KIND=ireals), DIMENSION(:), OPTIONAL, INTENT(OUT) :: &
 #endif
 !
      shfl_s,       & ! sensible heat flux at the surface             (W/m2) (positive downward)
-     lhfl_s          ! latent   heat flux at the surface             (W/m2) (positive downward)
+     lhfl_s,       & ! latent   heat flux at the surface             (W/m2) (positive downward)
+     qhfl_s          ! moisture      flux at the surface          (kg/m2/s) (positive downward)
 
 INTEGER (KIND=iintegers), INTENT(INOUT) :: ierrstat
 
@@ -1921,6 +1922,11 @@ REAL (KIND=ireals) :: &
             lhfl_s(i)=lh_v*rho_2d(i)*tkvh(i,ke1)*grad(i,h2o_g)
          END DO
       END IF   
+      IF (PRESENT(qhfl_s)) THEN 
+         DO i=istartpar,iendpar
+            qhfl_s(i)=rho_2d(i)*tkvh(i,ke1)*grad(i,h2o_g)
+         END DO
+      END IF   
 
 !-----------------------------------------------------------------------
 #ifdef SCLM
@@ -2327,7 +2333,7 @@ SUBROUTINE turbdiff(iini,lstfnct, dt_var,dt_tke, nprv,ntur,ntim, &
           u_tens, v_tens, t_tens, qv_tens, qc_tens, tketens, &
           qvt_diff, ut_sso, vt_sso, &
 !    
-          shfl_s, lhfl_s, &
+          shfl_s, qhfl_s, &
 !
           ierrstat, errormsg, eroutine)
 
@@ -2812,7 +2818,7 @@ REAL (KIND=ireals), DIMENSION(:,:), OPTIONAL, INTENT(OUT) :: &
 #endif
 !
      shfl_s,       & ! sensible heat flux at the surface             (W/m2) (positive downward)
-     lhfl_s          ! latent   heat flux at the surface             (W/m2) (positive downward)
+     qhfl_s          ! moisture      flux at the surface          (kg/m2/s) (positive downward)
 
 INTEGER (KIND=iintegers), INTENT(INOUT) :: ierrstat
 
@@ -4820,9 +4826,13 @@ REAL (KIND=ireals) :: &
                      hlp(i,k)=qv(i,k)
                   END DO
                END DO 
-               IF (PRESENT(lhfl_s) .AND. imode_turb.EQ.3) THEN
+!!$               IF (PRESENT(lhfl_s) .AND. imode_turb.EQ.3) THEN
+!!$                  DO i=istartpar,iendpar
+!!$                     hlp(i,ke1)=hlp(i,ke)-lhfl_s(i)/(lh_v*a(i,ke1,1))
+!!$                  END DO
+               IF (PRESENT(qhfl_s) .AND. imode_turb.EQ.3) THEN
                   DO i=istartpar,iendpar
-                     hlp(i,ke1)=hlp(i,ke)-lhfl_s(i)/(lh_v*a(i,ke1,1))
+                     hlp(i,ke1)=hlp(i,ke)-qhfl_s(i)/(a(i,ke1,1))
                   END DO
                ELSE   
                   DO i=istartpar,iendpar
@@ -4952,7 +4962,7 @@ REAL (KIND=ireals) :: &
 #endif 
 !SCLM-----------------------------------------------------------------------------------
 
-       !Bem: shfl_s und lhfl_s, sowie SHF und LHF sind positiv abwaerts!
+       !Bem: shfl_s und qhfl_s, sowie SHF und LHF sind positiv abwaerts!
 
 ! 11) Berechnung der Tendenzen infloge horizontaler turb. Diffusion
 !     (und aufsummieren auf die Tendenzfelder):

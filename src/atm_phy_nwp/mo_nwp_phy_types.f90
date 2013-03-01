@@ -110,6 +110,7 @@ MODULE mo_nwp_phy_types
     TYPE(t_ptr_2d3d),ALLOCATABLE :: v_10m_t_ptr(:) !< pointer array: meridional wind at 2m
     TYPE(t_ptr_2d3d),ALLOCATABLE :: shfl_s_t_ptr(:) !< pointer array: surface sensible heat flux 
     TYPE(t_ptr_2d3d),ALLOCATABLE :: lhfl_s_t_ptr(:) !< pointer array: surface latent heat flux
+    TYPE(t_ptr_2d3d),ALLOCATABLE :: qhfl_s_t_ptr(:) !< pointer array: surface moisture flux
     TYPE(t_ptr_2d3d),ALLOCATABLE :: lhfl_bs_t_ptr(:)!< pointer array: lhf from bare soil
     TYPE(t_ptr_2d3d),ALLOCATABLE :: lhfl_pl_t_ptr(:)!< pointer array: lhf from plants
 
@@ -155,6 +156,8 @@ MODULE mo_nwp_phy_types
       &  lhfl_pl(:,:,:),       & !! latent heat flux from plants                    ( W/m2)
       &  lhfl_pl_t(:,:,:,:),   & !! latent heat flux from plants                    ( W/m2)
       &  qhfl_s(:,:),          & !!      moisture flux (surface) ( Kg/m2/s)
+                                 !!      = evaporation rate at surface
+      &  qhfl_s_t(:,:,:),      & !! moisture flux (surface)                         ( Kg/m2/s)
                                  !!      = evaporation rate at surface
       &  ashfl_s(:,:),         & !! average or accumulated since model start of shfl_s [W/m2]
       &  alhfl_s(:,:),         & !! average or accumulated since model start of lhfl_s [W/m2]

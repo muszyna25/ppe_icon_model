@@ -581,7 +581,10 @@ END SUBROUTINE message
                   lhfl_pl          , & ! latent heat flux from plants                  (W/m2)
                   rstom            , & ! stomatal resistance                           ( s/m )
                   zshfl_sfc        , & ! sensible heat flux surface interface          (W/m2) 
-                  zlhfl_sfc          & ! latent   heat flux surface interface          (W/m2) 
+                  zlhfl_sfc        , & ! latent   heat flux surface interface          (W/m2)
+!DR start
+                  zqhfl_sfc          & ! moisture      flux surface interface          (kg/m2/s)
+!DR end 
                                      )  
 
 !-------------------------------------------------------------------------------
@@ -719,7 +722,10 @@ END SUBROUTINE message
                   lhfl_pl          ! average latent heat flux from plants              ( W/m2)
   REAL    (KIND = ireals), DIMENSION(ie), OPTIONAL, INTENT(OUT) :: &
                   zshfl_sfc        , & ! sensible heat flux surface interface          (W/m2) 
-                  zlhfl_sfc            ! latent   heat flux surface interface          (W/m2) 
+                  zlhfl_sfc        , & ! latent   heat flux surface interface          (W/m2)
+!DR start
+                  zqhfl_sfc            ! latent   heat flux surface interface          (W/m2)
+!DR end 
 
 !--------------------------------------------------------------------------------
 ! TERRA Declarations
@@ -1009,7 +1015,11 @@ END SUBROUTINE message
     zroota    (ie                  ) ,& ! root density profile parameter (1/m)
     zwrootdz  (ie         , ke_soil) ,& ! mean water content over root depth weighted by root density
     zrootdz_int (ie                ) ,& ! parameter needed to initialize the root density profile integral
-    zwrootdz_int(ie                )    ! parameter needed to initialize the root water content integral
+    zwrootdz_int(ie                ) ,& ! parameter needed to initialize the root water content integral
+!DR start
+    zqhfl_s    (ie                 ) ,& ! moisture flux at soil/air interface
+    zqhfl_snow (ie                 )    ! moisture flux at snow/air interface
+!DR end
     
     
   INTEGER m_limit                          ! counter for application of limitation
@@ -2859,6 +2869,9 @@ END SUBROUTINE message
         zshfl_s(i) = cp_d*zrhoch(i) * (zth_low(i) - zts(i))
         zlhfl_s(i) = (zts_pm(i)*lh_v + (1._ireals-zts_pm(i))*lh_s)*zverbo(i) &
                      / MAX(zepsi,(1._ireals - zf_snow(i)))  ! take out (1-f) scaling
+!DR start
+        zqhfl_s(i) = zverbo(i)/ MAX(zepsi,(1._ireals - zf_snow(i)))  ! take out (1-f) scaling
+!DR end
         zsprs  (i) = 0.0_ireals
         ! thawing of snow falling on soil with Ts > T0
         IF (ztsnow_pm(i)*zrs(i) > 0.0_ireals) THEN
@@ -3110,6 +3123,9 @@ END SUBROUTINE message
         END IF
         zshfl_snow(i) = zrhoch(i)*cp_d*(zth_low(i) - ztsnow_mult(i,1))
         zlhfl_snow(i) = lh_s*zversn(i)   
+!DR start
+        zqhfl_snow(i) = zversn(i)   
+!DR end
         zfor_snow_mult(i)  = (zrnet_snow + zshfl_snow(i) + zlhfl_snow(i) + lh_f*zrr(i))*zf_snow(i)
 
 !      END IF          ! land-points only
@@ -3139,6 +3155,9 @@ END SUBROUTINE message
         zshfl_s(i) = cp_d*zrhoch(i) * (zth_low(i) - zts(i))
         zlhfl_s(i) = (zts_pm(i)*lh_v + (1._ireals-zts_pm(i))*lh_s)*zverbo(i) &
                      / MAX(zepsi,(1._ireals - zf_snow(i)))  ! take out (1-f) scaling
+!DR start
+        zqhfl_s(i) = zverbo(i)/ MAX(zepsi,(1._ireals - zf_snow(i)))  ! take out (1-f) scaling
+!DR end
         zsprs  (i) = 0.0_ireals
         ! thawing of snow falling on soil with Ts > T0
         IF (ztsnow_pm(i)*zrs(i) > 0.0_ireals) THEN
@@ -3528,6 +3547,9 @@ ENDIF
           zrnet_snow    = sobs(i) + zthsnw(i)
           zshfl_snow(i) = zrhoch(i)*cp_d*(zth_low(i) - ztsnow(i))
           zlhfl_snow(i) = lh_s*zversn(i)
+!DR start
+          zqhfl_snow(i) = zversn(i)
+!DR end
           zfor_snow     = zrnet_snow + zshfl_snow(i) + zlhfl_snow(i)
 
           ! forecast of snow temperature Tsnow
@@ -4434,6 +4456,11 @@ ENDIF
     DO i = istarts, iends
       zshfl_sfc(i) = zshfl_s(i)*(1._ireals - zf_snow(i)) + zshfl_snow(i)*zf_snow(i)
       zlhfl_sfc(i) = zlhfl_s(i)*(1._ireals - zf_snow(i)) + zlhfl_snow(i)*zf_snow(i)
+
+!DR start
+      zqhfl_sfc(i) = zqhfl_s(i)*(1._ireals - zf_snow(i)) + zqhfl_snow(i)*zf_snow(i)
+!DR end
+
 !        zlhfl_s(i) = (zts_pm(i)*lh_v + (1._ireals-zts_pm(i))*lh_s)*zverbo(i) &
 !                     / MAX(zepsi,(1._ireals - zf_snow(i)))  ! take out (1-f) scaling
 !        zlhfl_snow(i) = lh_s*zversn(i) 

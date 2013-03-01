@@ -643,7 +643,7 @@ SUBROUTINE parturs( zsurf, z1 , u1   , v1     , t1   ,           &
                             i_startidx, i_endidx,                           &
                             dt     , du_turb, dv_turb, dt_turb, dqv_turb ,  &
                             dqc_turb,                                       &
-                            shfl_s , lhfl_s , umfl_s , vmfl_s )
+                            shfl_s , lhfl_s , qhfl_s, umfl_s , vmfl_s )
 !
 !=======================================================================
 !
@@ -657,7 +657,7 @@ SUBROUTINE parturs( zsurf, z1 , u1   , v1     , t1   ,           &
 !     - meridional wind component           v
 !
 !  For diagnostic purposes, the turbulent fluxes of heat, moisture
-!  and momentum (--> shfl_s, lhfl_s, umfl_s, vmfl_s) are computed.
+!  and momentum (--> shfl_s, lhfl_s, qhfl_s, umfl_s, vmfl_s) are computed.
 !
 !  The code was extracted from subroutine "progexp" of GME and modified.
 !
@@ -702,6 +702,7 @@ SUBROUTINE parturs( zsurf, z1 , u1   , v1     , t1   ,           &
   REAL(KIND=wp), INTENT(OUT) :: dqc_turb(ie,ke) ! tendency of qc (1/s)
   REAL(KIND=wp), INTENT(OUT) :: shfl_s  (ie)    ! sensible heat flux at the surface (W/m2)
   REAL(KIND=wp), INTENT(OUT) :: lhfl_s  (ie)    ! latent   heat flux at the surface (W/m2)
+  REAL(KIND=wp), INTENT(OUT) :: qhfl_s  (ie)    ! moisture      flux at the surface (kg/m2/s)
   REAL(KIND=wp), INTENT(OUT) :: umfl_s  (ie)    ! u-momentum    flux at the surface (N/m2)
   REAL(KIND=wp), INTENT(OUT) :: vmfl_s  (ie)    ! v-momentum    flux at the surface (N/m2)
 !
@@ -1110,6 +1111,7 @@ SUBROUTINE parturs( zsurf, z1 , u1   , v1     , t1   ,           &
             &            + g_o_cp*(zh(j1,ke1)-zf(j1,ke) ) )
 !
           lhfl_s(j1) = - ztmcm(j1)*( qv_s(j1) - qv(j1,ke) - dqv_turb(j1,ke) )
+          qhfl_s(j1) = lhfl_s(j1)
           IF ( .NOT. lseaice) THEN
             lhfl_s(j1) = alv*lhfl_s(j1)
           ELSE IF ( h_ice(j1) > 0._wp) THEN

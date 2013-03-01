@@ -1463,14 +1463,14 @@ CONTAINS
       CALL nwp_diag_output_2(pt_patch, pt_diag, pt_prog_rcf, prm_nwp_tend, dt_loc, lcall_phy_jg(itturb))
     ENDIF
    
-    CALL nwp_diagnosis(lcall_phy_jg,lredgrid,               & !input
+    CALL nwp_diagnosis(lcall_phy_jg,                        & !input
                            & dt_phy_jg,p_sim_time,          & !input
                            & kstart_moist(jg),              & !input
                            & ih_clch(jg), ih_clcm(jg),      & !input
                            & pt_patch, p_metrics,           & !input
                            & pt_prog, pt_prog_rcf,          & !in
                            & pt_diag,                       & !inout
-                           & prm_diag,prm_nwp_tend)
+                           & prm_diag)
 
 
     IF (ltimer) CALL timer_stop(timer_physics)

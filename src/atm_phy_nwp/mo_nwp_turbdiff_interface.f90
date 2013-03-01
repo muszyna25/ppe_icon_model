@@ -228,7 +228,7 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
          &  tketens=prm_nwp_tend%ddt_tke(:,:,jb),                                       & !inout
          &  ut_sso=prm_nwp_tend%ddt_u_sso(:,:,jb),                                      & !in
          &  vt_sso=prm_nwp_tend%ddt_v_sso(:,:,jb) ,                                     & !in
-         &  shfl_s=prm_diag%shfl_s(:,jb), lhfl_s=prm_diag%lhfl_s(:,jb),                 & !in
+         &  shfl_s=prm_diag%shfl_s(:,jb), qhfl_s=prm_diag%qhfl_s(:,jb),                 & !in
          &  ierrstat=ierrstat, errormsg=errormsg, eroutine=eroutine                     ) !inout
           
       IF (ierrstat.NE.0) THEN
@@ -256,6 +256,7 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
         &           i_startidx=i_startidx, i_endidx=i_endidx,                              & !in
         &           tkvm=prm_diag%tkvm(:,2:nlev,jb), tkvh=prm_diag%tkvh(:,2:nlev,jb)       ) !inout
 
+
       ! tendencies from turbulent diffusion
       CALL progimp_turb( t=p_diag%temp(:,:,jb), qv=p_prog_rcf%tracer(:,:,jb,iqv),      & !in
         &                qc=p_prog_rcf%tracer(:,:,jb,iqc),                             & !in
@@ -274,8 +275,14 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
         &                dt_turb=prm_nwp_tend%ddt_temp_turb(:,:,jb),                   & !out
         &                dqv_turb=prm_nwp_tend%ddt_tracer_turb(:,:,jb,iqv),            & !out
         &                dqc_turb=prm_nwp_tend%ddt_tracer_turb(:,:,jb,iqc),            & !out
-        &                shfl_s=prm_diag%shfl_s(:,jb), lhfl_s=prm_diag%lhfl_s(:,jb),   & !out
+        &                shfl_s=prm_diag%shfl_s_t(:,jb,1),                             & !out
+        &                lhfl_s=prm_diag%lhfl_s_t(:,jb,1),                             & !out
+        &                qhfl_s=prm_diag%qhfl_s_t(:,jb,1),                             & !out
         &                umfl_s=prm_diag%umfl_s(:,jb), vmfl_s=prm_diag%vmfl_s(:,jb)    ) !out
+
+!DR NOTE: computation of sensible and latent heat fluxes (over non-land points) should be 
+!DR moved either to the turbtran interface, or the surface interface!!
+
 
     ENDIF !inwp_turb
 

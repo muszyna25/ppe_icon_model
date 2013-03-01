@@ -52,7 +52,7 @@ MODULE mo_nwp_turbtrans_interface
   USE mo_impl_constants,       ONLY: min_rlcell_int
   USE mo_impl_constants_grf,   ONLY: grf_bdywidth_c
   USE mo_loopindices,          ONLY: get_indices_c
-  USE mo_physical_constants,   ONLY: rd_o_cpd, grav
+  USE mo_physical_constants,   ONLY: rd_o_cpd, grav, lh_v=>alv, lh_s=>als
   USE mo_ext_data_types,       ONLY: t_external_data
   USE mo_nonhydro_types,       ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_nwp_phy_types,        ONLY: t_nwp_phy_diag, t_nwp_phy_tend
@@ -137,7 +137,8 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
 
   ! 2D fields
   REAL(wp), DIMENSION(nproma,ntiles_total+ntiles_water) :: gz0_t, tcm_t, tch_t, tfm_t, tfh_t, tfv_t, &  
-   t_2m_t, qv_2m_t, td_2m_t, rh_2m_t, u_10m_t, v_10m_t, t_g_t, qv_s_t, pres_sfc_t, sai_t, shfl_s_t, lhfl_s_t
+   t_2m_t, qv_2m_t, td_2m_t, rh_2m_t, u_10m_t, v_10m_t, t_g_t, qv_s_t, pres_sfc_t, sai_t, shfl_s_t,  &
+   lhfl_s_t, qhfl_s_t
 
   ! 3D full-level fields
   REAL(wp), DIMENSION(nproma,2,ntiles_total+ntiles_water) :: u_t, v_t, temp_t, pres_t, qv_t, qc_t, tkvm_t, tkvh_t
@@ -181,8 +182,8 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
 !$OMP DO PRIVATE(jb,jt,jc,ic,ilist,i_startidx,i_endidx,i_count,ierrstat,errormsg,eroutine,      &
 !$OMP lc_class,z_tvs,z0_mod,gz0_t,tcm_t,tch_t,tfm_t,tfh_t,tfv_t,t_g_t,qv_s_t,t_2m_t,qv_2m_t,    &  
 !$OMP td_2m_t,rh_2m_t,u_10m_t,v_10m_t,tvs_t,pres_sfc_t,u_t,v_t,temp_t,pres_t,qv_t,qc_t,tkvm_t,  &
-!$OMP tkvh_t,z_ifc_t,w_t,rcld_t,sai_t,fr_land_t,depth_lk_t,h_ice_t,area_frac,shfl_s_t,lhfl_s_t) &
-!$OMP ICON_OMP_GUIDED_SCHEDULE
+!$OMP tkvh_t,z_ifc_t,w_t,rcld_t,sai_t,fr_land_t,depth_lk_t,h_ice_t,area_frac,shfl_s_t,lhfl_s_t, &
+!$OMP qhfl_s_t) ICON_OMP_GUIDED_SCHEDULE
 
   DO jb = i_startblk, i_endblk
 
@@ -307,9 +308,17 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
           & t_2m=prm_diag%t_2m(:,jb), qv_2m=prm_diag%qv_2m(:,jb),                      & !out
           & td_2m=prm_diag%td_2m(:,jb), rh_2m=prm_diag%rh_2m(:,jb),                    & !out
           & u_10m=prm_diag%u_10m(:,jb), v_10m=prm_diag%v_10m(:,jb),                    & !out
-          & shfl_s=prm_diag%shfl_s(:,jb), lhfl_s=prm_diag%lhfl_s(:,jb),                & !out
+          & shfl_s=prm_diag%shfl_s_t(:,jb,1), lhfl_s=prm_diag%lhfl_s_t(:,jb,1),        & !out
+          & qhfl_s=prm_diag%qhfl_s_t(:,jb,1),                                          & !out
           & ierrstat=ierrstat, errormsg=errormsg, eroutine=eroutine                    ) !inout
 
+
+        ! fix latent heat flux over seaice
+        DO jc = i_startidx, i_endidx
+          IF (wtr_prog_new%h_ice(jc,jb) > 0._wp ) THEN
+            prm_diag%lhfl_s_t(jc,jb,1) = (lh_s/lh_v) * prm_diag%lhfl_s_t(jc,jb,1)
+          ENDIF
+        ENDDO
 
         ! copy
         prm_diag%tcm(i_startidx:i_endidx,jb) = prm_diag%tcm_t(i_startidx:i_endidx,jb,1)
@@ -397,10 +406,17 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
             & tkvh=tkvh_t(:,:,jt), rcld=rcld_t(:,:,jt),                               & !inout
             & t_2m=t_2m_t(:,jt), qv_2m=qv_2m_t(:,jt), td_2m=td_2m_t(:,jt),            & !out
             & rh_2m=rh_2m_t(:,jt), u_10m=u_10m_t(:,jt), v_10m=v_10m_t(:,jt),          & !out
-            & shfl_s=shfl_s_t(:,jt), lhfl_s=lhfl_s_t(:,jt),                           & !out
+            & shfl_s=shfl_s_t(:,jt), lhfl_s=lhfl_s_t(:,jt), qhfl_s=qhfl_s_t(:,jt),    & !out
             & ierrstat=ierrstat, errormsg=errormsg, eroutine=eroutine                 ) !inout
 
         ENDDO
+
+
+        ! fix latent heat flux over seaice
+        DO ic = 1,ext_data%atm%spi_count(jb)
+          lhfl_s_t(ic,isub_seaice) = (lh_s/lh_v) * lhfl_s_t(ic,isub_seaice)
+        ENDDO
+
 
         ! Aggregate tile-based output fields of turbtran over tiles
         ! i) initialize fields to zero before starting the summation
@@ -422,7 +438,9 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
         prm_diag%tkvh(i_startidx:i_endidx,nlevp1,jb) = 0._wp
         prm_diag%rcld(i_startidx:i_endidx,nlevp1,jb) = 0._wp
 
-        ! ii) loop over index lists
+
+
+         ! ii) loop over index lists
         DO  jt = 1, ntiles_total + ntiles_water
 
           IF (jt <= ntiles_total) THEN ! land tile points
@@ -468,6 +486,7 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
             ! Store
             prm_diag%shfl_s_t(jc,jb,jt) = shfl_s_t(ic,jt)
             prm_diag%lhfl_s_t(jc,jb,jt) = lhfl_s_t(ic,jt)
+            prm_diag%qhfl_s_t(jc,jb,jt) = qhfl_s_t(ic,jt)
             prm_diag%u_10m_t (jc,jb,jt) = u_10m_t(ic,jt) ! needed by TERRA
             prm_diag%v_10m_t (jc,jb,jt) = v_10m_t(ic,jt) ! needed by TERRA
             prm_diag%tch_t   (jc,jb,jt) = tch_t(ic,jt)   ! needed by TERRA
@@ -506,6 +525,10 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
 
 
 
+      !DR inside "nearsfc", lhfl_s is converted to qhfl_s via 
+      !DR qhfl_s = lhfl_s/lh_v. This is incorrect over snow and ice. 
+      !DR Shouldn't we simply pass qhfl_s ? 
+      !
       ! diagnose 2 m temperature, humidity, 10 m wind
       CALL nearsfc( t=p_diag%temp(:,:,jb), qv=p_prog_rcf%tracer(:,:,jb,iqv),        & !in
         &           u=p_diag%u(:,:,jb),    v=p_diag%v(:,:,jb),                      & !in

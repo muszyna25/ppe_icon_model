@@ -92,8 +92,6 @@ CONTAINS
                                                                  !< convection
     ! Local array bounds:
 
-    INTEGER :: nblks_c, nblks_e        !< number of blocks for cells / edges
-    INTEGER :: npromz_e, npromz_c      !< length of last block line
     INTEGER :: nlev, nlevp1            !< number of full and half levels
     INTEGER :: rl_start, rl_end
     INTEGER :: i_startblk, i_endblk    !< blocks
@@ -115,10 +113,6 @@ CONTAINS
 
 
     ! local variables related to the blocking
-    nblks_c   = p_patch%nblks_int_c
-    npromz_c  = p_patch%npromz_int_c
-    nblks_e   = p_patch%nblks_int_e
-    npromz_e  = p_patch%npromz_int_e
     i_nchdom  = MAX(1,p_patch%n_childdom)
     jg        = p_patch%id
 
@@ -176,10 +170,10 @@ CONTAINS
           z_qhfl(i_startidx:i_endidx,nlevp1) = - 4.79846_wp*1.e-5_wp !> moisture flux kg/m2/s
           z_shfl(i_startidx:i_endidx,nlevp1) = - 17._wp              !! sens. heat fl W/m**2
 
-        CASE (1,2)
+        CASE (1,2,3)
 
-          ! In turb1 and turb2, the flux is positive downwards / negative upwards
-          prm_diag%qhfl_s(i_startidx:i_endidx,jb) = prm_diag%lhfl_s(i_startidx:i_endidx,jb) / alv
+          ! In turb1,turb2 and turb3, the flux is positive downwards / negative upwards
+
           z_qhfl(i_startidx:i_endidx,nlevp1) = prm_diag%qhfl_s(i_startidx:i_endidx,jb)
           z_shfl(i_startidx:i_endidx,nlevp1) = prm_diag%shfl_s(i_startidx:i_endidx,jb)
 
@@ -197,12 +191,6 @@ CONTAINS
           ELSE
             z_shfl( i_startidx:i_endidx,nlevp1) = - 17._wp !! sens. heat fl W/m**2 not yet implemented
           ENDIF
-
-        CASE (3)
-
-          ! In turb3, the flux is negative upwards.
-          z_qhfl(i_startidx:i_endidx,nlevp1) = prm_diag%lhfl_s(i_startidx:i_endidx,jb) / alv ! moisture flux kg/m2/s
-          z_shfl(i_startidx:i_endidx,nlevp1) = prm_diag%shfl_s(i_startidx:i_endidx,jb)       ! sens. heat fl W/m**2
 
         END SELECT
 
