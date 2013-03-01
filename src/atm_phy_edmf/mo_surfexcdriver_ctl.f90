@@ -906,10 +906,8 @@ ENDDO
 !*         3.3a   PREPARE ARRAY'S FOR CALL TO SURFACE ENERGY
 !                 BALANCE ROUTINE
 
-!xmk: as a first try turn of the first step SEB 
-IF (KSTEP == 0) THEN    !???
-!IF (0 == 0) THEN 
-!xxx
+IF (KSTEP == 0) THEN
+
   IF (LEOCWA .OR. LEOCCO) THEN
     ZTSRF(KIDIA:KFDIA,1)=PTSKTI(KIDIA:KFDIA,1)
   ELSE
@@ -939,7 +937,6 @@ IF (KSTEP == 0) THEN    !???
 
 !*         3.3b   CALL TO SURFACE ENERGY BALANCE ROUTINE
 
-!dmk SEB - not needed ???
   CALL SURFSEB_CTL(KIDIA,KFDIA,KLON,KTILES,&
    & PCPTSTI,PTSKTI,PQSTI,&
    & PDQSTI,ZRHOCHU,ZRHOCQU,&
@@ -952,7 +949,6 @@ IF (KSTEP == 0) THEN    !???
    & ZJS,ZJQ,ZSSK,ZTSK,&
    & ZSSH,ZSLH,ZSTR,ZG0,&
    & ZSL,ZQL)  
-!xxx
 
   DO JTILE=1,KTILES
     DO JL=KIDIA,KFDIA

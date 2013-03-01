@@ -581,6 +581,7 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
       ENDDO
 
 !     Various variables for VDFOUTER
+
       DO jc = i_startidx, i_endidx
         zchar  (jc) = 0.018_wp ! default value from IFS if no wave model
         zucurr (jc) = 0.0_wp
@@ -607,7 +608,7 @@ endif
 
 !ATTENTION: these tile quantities are TESSEL/IFS type (with ntiles_edmf=8) ????
 
-      DO jt = 1,ntiles_total+ntiles_water
+      DO jt = 1,ntiles_total+ntiles_water    !==ntiles_edmf???
         DO jc = i_startidx, i_endidx
           shfl_s_t(jc,jt) = prm_diag%shfl_s_t (jc,jb,jt) ! should be tile specific !!!
           evap_s_t(jc,jt) = prm_diag%lhfl_s_t (jc,jb,jt) / alv ! evaporation [kg/(m2 s)]  -"-
@@ -634,10 +635,8 @@ endif
         DO jc = i_startidx, i_endidx
           IF ( ext_data%atm%frac_t(jc,jb,jt) > 0.0_wp ) THEN   ! only used tiles 
             JTILE = jtessel_gcv2009(ext_data%atm%lc_class_t(jc,jb,jt))
-!JTILE=8 !?????????????
-!                IF (JTILE == 4)  KTVL(jc) = vegtyp_conv(ext_data%atm%lc_class_t(jc,jb,jt))
-!                IF (JTILE == 6)  KTVH(jc) = vegtyp_conv(ext_data%atm%lc_class_t(jc,jb,jt))
-!write(*,*) 'turb_sfc1: ',  jt, JTILE, KTVL(jc), KTVH(jc), ext_data%atm%lc_class_t(jc,jb,jt)
+!??         IF (JTILE == 4)  KTVL(jc) = vegtyp_conv(ext_data%atm%lc_class_t(jc,jb,jt))
+!??         IF (JTILE == 6)  KTVH(jc) = vegtyp_conv(ext_data%atm%lc_class_t(jc,jb,jt))
             IF ( lnd_diag%snowfrac_lc_t(jc,jb,jt) > 0.5_wp ) THEN
               SELECT CASE ( JTILE )
                 CASE (4)
@@ -649,7 +648,6 @@ endif
               END SELECT
             ENDIF
            !interception layer (#3) missing ???
-
             zfrti(jc,jtile) = zfrti(jc,jtile) + ext_data%atm%frac_t(jc,jb,jt)
           ENDIF
         ENDDO
@@ -675,13 +673,11 @@ endif
       ENDDO
 
       DO jc = i_startidx, i_endidx
-       !KTVL(jc) = 16    !KTVL  ???
-       !KTVH(jc) = 3     !KTVH  ???
-        zdummy_vdf_1a(jc) = 0.5_wp!PCVL  ???
-        zdummy_vdf_1b(jc) = 0.5_wp!PCVH  ???
+        zdummy_vdf_1a(jc) = 0.5_wp   !PCVL  ???
+        zdummy_vdf_1b(jc) = 0.5_wp   !PCVH  ???
         zsoty(jc)         = soiltyp_conv(ext_data%atm%soiltyp_t(jc,jb,1)) !KSOTY ???
-        zdummy_vdf_1f(jc) = 1.0_wp!maximum skin reservoir capacity (~1mm = 1kg/m2) ??? needs to be done physically by TERRA
-        zdummy_vdf_1c(jc) = 0.0_wp!lake ice thickness ??? (no lakes???)
+        zdummy_vdf_1f(jc) = 1.0_wp   !maximum skin reservoir capacity (~1mm = 1kg/m2) ??? needs to be done physically by TERRA
+        zdummy_vdf_1c(jc) = 0.0_wp   !lake ice thickness ??? (no lakes???)
         zdummy_vdf_1d(jc) = 273.0_wp !lake ice temperature ??? (no lakes???)
       ENDDO
 
