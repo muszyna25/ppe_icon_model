@@ -256,12 +256,7 @@ CONTAINS
       IF (ltimer) CALL timer_stop(timer_upd_flx)
 
       IF (ltimer) CALL timer_start(timer_upd_phys)
-      ! Calc density globally
-     !CALL calc_density(p_patch_3D,&
-     !  &               p_os(jg)%p_prog(nold(1))%tracer,&
-     !  &               p_os(jg)%p_diag%rho)
 
-      CALL dbg_print('RHO',p_os(jg)%p_diag%rho,'hydroOceanRun',5)
       SELECT CASE (EOS_TYPE)
        CASE(1)
          CALL update_ho_params(p_patch_3D, p_os(jg), p_sfc_flx, p_phys_param,&
