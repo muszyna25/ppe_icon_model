@@ -842,6 +842,23 @@ ENDDO
 !*         3.  Compute all surface related quantities
 !          ------------------------------------------
 
+! initialize skin temperature for surfexcdriver
+
+DO JL=KIDIA,KFDIA
+  ztmean = 0.0_jprb
+  DO jt=1,ntiles_total
+    ztmean = ztmean + t_g_ex(jl,jt) * ext_data%atm%frac_t(jl,jb,jt)
+  ENDDO
+  IF (SUM(ext_data%atm%frac_t(jl,jb,1:ntiles_total)) > 0.0_JPRB ) THEN
+    ztmean = ztmean / SUM(ext_data%atm%frac_t(jl,jb,1:ntiles_total))
+  ENDIF
+
+  PTSKTI(JL,1) = t_g_ex(jl,isub_water)  ! ocaen tile  (previous time step)
+  PTSKTI(JL,2) = t_g_ex(jl,isub_seaice) ! SEAICE tile
+  PTSKTI(JL,3:ntiles_edmf) = ztmean     ! TESSEL/IFS land tiles (take mean land value)
+ENDDO
+
+
 DO JL=KIDIA,KFDIA
  if ( PTSKM1M(JL) > 400.0 .or. PTSKM1M(JL) < 100.0 ) then
   write(*,*) 'vdfmain1: ', JL, JB, PTSKM1M(JL), PTM1(JL,KLEV), PTM1(JL,KLEV-1)
