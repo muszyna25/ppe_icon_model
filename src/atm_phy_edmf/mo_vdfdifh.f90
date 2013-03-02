@@ -549,6 +549,10 @@ IF (LDTERRA) THEN
         
 !???    ZSSK(JL,JT)=ZBSL(JL)+ZJS(JL,JT)*(ZASL(JL)-1.0_JPRB/ZRHOCHU(JL,JT)) 
 !???    ZTSK(JL,JT)=ZSSK(JL,JT)/(RCPD*(1.+RVTMP2*PQSTI(JL,JT)))
+
+!----here should be the mean TERRA TSK - maybe separate for snow and soil----
+!----same for fluxes - separate for snow and soil (from vdfmain) ---
+
 if ( (ZTSK(JL,JT) > 400.0) .or. (ZTSK(JL,JT) < 0.0  ) ) then
   write(*,*) 'vdfdifh0 ', JT, ZTSK(JL,JT), ZSSK(JL,JT), PQSTI(JL,JT)
 endif

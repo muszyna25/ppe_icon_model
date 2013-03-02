@@ -403,10 +403,11 @@ USE mo_edmf_param   ,ONLY : &
                 & LVDFTRAC ,&                                         !yoephy 
                 & N_SEKF_PT          ,LUSEKF_REF         ,LUSE_JATM,& !yomsekf
                 & N_VMASS  ,&                                         !yomjfh
-                & FOEALFA                                             !fcttre.f
+                & FOEALFA  ,&                                         !fcttre.f
+                & ntiles_edmf
 USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
 USE mo_lnd_nwp_config,ONLY: nlev_soil, nlev_snow, ntiles_total, ntiles_water, &
-                            isub_seaice
+                            isub_water, isub_seaice
 USE mo_ext_data_types,ONLY: t_external_data
 
 USE mo_vdfdpbl      ,ONLY : vdfdpbl
@@ -692,7 +693,8 @@ LOGICAL ::            LMPBLEQU
 REAL(KIND=JPRB) ::    ZQTENH(KLON,0:KLEV) 
 
 REAL(KIND=JPRB), DIMENSION(KLON,ntiles_total+ntiles_water) :: &
-                    & shfl_soil_t, lhfl_soil_t, shfl_snow_t, lhfl_snow_t   
+                    & shfl_soil_t, lhfl_soil_t, shfl_snow_t, lhfl_snow_t
+REAL(KIND=JPRB)       ZTMEAN
 
 !amk testing only!!!
 REAL(KIND=JPRB) ::    ZCFNC1  
@@ -919,6 +921,20 @@ DO JL=KIDIA,KFDIA
           LHFL_SNOW_T(JL,JT) *             SNOWFRAC_EX(JL,JT)  )
     END IF
   ENDDO
+
+! update skin temperature from TERRA and SEAICE
+
+  ztmean = 0.0_jprb
+  DO jt=1,ntiles_total
+    ztmean = ztmean + t_g_ex(jl,jt) * ext_data%atm%frac_t(jl,jb,jt)
+  ENDDO
+  IF (SUM(ext_data%atm%frac_t(jl,1:ntiles_total)) > 0.0_JPRB ) THEN
+    ztmean = ztmean / SUM(ext_data%atm%frac_t(jl,1:ntiles_total)
+  ENDIF
+
+  PTSKTI(JL,1) = t_g_ex(jl,isub_water)  ! ocaen tile  (previous time step)
+  PTSKTI(JL,2) = t_g_ex(jl,isub_seaice) ! SEAICE tile
+  PTSKTI(JL,3:ntiles_edmf) = ztmean     ! TESSEL/IFS land tiles (take mean land value)
 
 ! sea ice fluxes (mean flux stored in '_soil' flux)
 !
@@ -1438,6 +1454,22 @@ CALL SURFPP( KIDIA=KIDIA,KFDIA=KFDIA,KLON=KLON,KTILES=KTILES, &
 ! output DDH
  & PDHTLS=PDHTLS &
  & )
+
+! store skin temperature in t_g_ex for next step
+
+DO JL=KIDIA,KFDIA
+  ztmean = 0.0_jprb
+  DO jt=3,ntiles_edmf
+    ztmean = ztmean + PTSKTI(jl,jt) * PFRTI(jl,jt)
+  ENDDO
+  IF (SUM(PFRTI(jl,3:ntiles_edmf)) > 0.0_JPRB ) THEN
+    ztmean = ztmean / SUM(PFRTI(jl,3:ntiles_edmf)
+  ENDIF
+
+  t_g_ex(jl,isub_water)     = PTSKTI(jl,1)   !ocean tiles
+  t_g_ex(jl,isub_seaice)    = PTSKTI(jl,2)   !sea ice tiles
+  t_g_ex(jl,1:ntiles_total) = ztmean         !TERRA tiles (mean)
+ENDDO
 
 !DO JL=KIDIA,KFDIA
 !  IF ( ABS(PDIFTS(JL,KLEV))          > 1000.0_JPRB  .OR. & 

@@ -612,7 +612,8 @@ endif
         DO jc = i_startidx, i_endidx
           shfl_s_t(jc,jt) = prm_diag%shfl_s_t (jc,jb,jt) ! should be tile specific !!!
           evap_s_t(jc,jt) = prm_diag%lhfl_s_t (jc,jb,jt) / alv ! evaporation [kg/(m2 s)]  -"-
-          tskin_t (jc,jt) = lnd_prog_now%t_g_t(jc,jb,jt) ! should be tile specific, and prognostic !!!
+         !tskin_t (jc,jt) = lnd_prog_now%t_g_t(jc,jb,jt) ! should be tile specific, and prognostic !!!
+          tskin_t (jc,jt) = 0.0_wp                       ! not needed as TSK is transferren in t_g_ex
           ustr_s_t(jc,jt) = 0.0_wp                       ! prognostic surface stress U  !!!
           vstr_s_t(jc,jt) = 0.0_wp                       ! prognostic surface stress V  !!!
         ENDDO
