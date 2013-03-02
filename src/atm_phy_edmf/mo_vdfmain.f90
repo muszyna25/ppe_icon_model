@@ -928,8 +928,8 @@ DO JL=KIDIA,KFDIA
   DO jt=1,ntiles_total
     ztmean = ztmean + t_g_ex(jl,jt) * ext_data%atm%frac_t(jl,jb,jt)
   ENDDO
-  IF (SUM(ext_data%atm%frac_t(jl,1:ntiles_total)) > 0.0_JPRB ) THEN
-    ztmean = ztmean / SUM(ext_data%atm%frac_t(jl,1:ntiles_total)
+  IF (SUM(ext_data%atm%frac_t(jl,jb,1:ntiles_total)) > 0.0_JPRB ) THEN
+    ztmean = ztmean / SUM(ext_data%atm%frac_t(jl,jb,1:ntiles_total))
   ENDIF
 
   PTSKTI(JL,1) = t_g_ex(jl,isub_water)  ! ocaen tile  (previous time step)
@@ -1463,7 +1463,7 @@ DO JL=KIDIA,KFDIA
     ztmean = ztmean + PTSKTI(jl,jt) * PFRTI(jl,jt)
   ENDDO
   IF (SUM(PFRTI(jl,3:ntiles_edmf)) > 0.0_JPRB ) THEN
-    ztmean = ztmean / SUM(PFRTI(jl,3:ntiles_edmf)
+    ztmean = ztmean / SUM(PFRTI(jl,3:ntiles_edmf))
   ENDIF
 
   t_g_ex(jl,isub_water)     = PTSKTI(jl,1)   !ocean tiles
