@@ -851,6 +851,8 @@ DO JL=KIDIA,KFDIA
   ENDDO
   IF (SUM(ext_data%atm%frac_t(jl,jb,1:ntiles_total)) > 0.0_JPRB ) THEN
     ztmean = ztmean / SUM(ext_data%atm%frac_t(jl,jb,1:ntiles_total))
+  ELSE
+    ztmean = t_g_ex(jl,isub_water)      ! set to SST if no land for safety
   ENDIF
 
   PTSKTI(JL,1) = t_g_ex(jl,isub_water)  ! ocaen tile  (previous time step)
@@ -947,6 +949,8 @@ DO JL=KIDIA,KFDIA
   ENDDO
   IF (SUM(ext_data%atm%frac_t(jl,jb,1:ntiles_total)) > 0.0_JPRB ) THEN
     ztmean = ztmean / SUM(ext_data%atm%frac_t(jl,jb,1:ntiles_total))
+  ELSE
+    ztmean = t_g_ex(jl,isub_water)      ! set to SST if no land for safety
   ENDIF
 
   PTSKTI(JL,1) = t_g_ex(jl,isub_water)  ! ocaen tile  (previous time step)
@@ -1481,11 +1485,13 @@ DO JL=KIDIA,KFDIA
   ENDDO
   IF (SUM(PFRTI(jl,3:ntiles_edmf)) > 0.0_JPRB ) THEN
     ztmean = ztmean / SUM(PFRTI(jl,3:ntiles_edmf))
+  ELSE
+    ztmean = PTSKTI(jl,1)                  ! set to SST if no land for safety
   ENDIF
 
-  t_g_ex(jl,isub_water)     = PTSKTI(jl,1)   !ocean tiles
-  t_g_ex(jl,isub_seaice)    = PTSKTI(jl,2)   !sea ice tiles
-  t_g_ex(jl,1:ntiles_total) = ztmean         !TERRA tiles (mean)
+  t_g_ex(jl,isub_water)     = PTSKTI(jl,1) !ocean tiles
+  t_g_ex(jl,isub_seaice)    = PTSKTI(jl,2) !sea ice tiles
+  t_g_ex(jl,1:ntiles_total) = ztmean       !TERRA tiles (mean)
 ENDDO
 
 !DO JL=KIDIA,KFDIA
