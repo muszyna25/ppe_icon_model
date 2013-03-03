@@ -163,7 +163,7 @@ CONTAINS
     INTEGER  :: ntrac !< # of tracers excluding water vapour and hydrometeors
                       !< (handled by sub-models, e.g., chemical species)
     INTEGER  :: selmon !< selected month for ozone data (temporary var!)
-    INTEGER  :: cur_month, pre_month, suc_month, cur_day !< (temporary var!)
+    INTEGER  :: cur_month, pre_month, suc_month, cur_day !< date (temporary var!)
 
     ! Coefficient matrices and right-hand-side vectors for the turbulence solver
     ! _btm refers to the lowest model level (i.e., full level "klev", not the surface)
@@ -187,6 +187,13 @@ CONTAINS
 
     REAL(wp) :: ztemperature_rad(nbdim)
 
+    ! Temporary variables used for zenith angle
+
+    REAL(wp) :: zleapfrac
+    REAL(wp) :: zyearfrac
+    REAL(wp) :: zdeclination_sun
+    REAL(wp) :: ztime_dateline
+
 !!$    REAL(wp) :: zo3_timint(nbdim,nlev_o3) !< intermediate value of ozon 
 
 !!$    REAL(wp) :: rlfland (nbdim), rlfglac (nbdim)
@@ -209,9 +216,11 @@ CONTAINS
 
     ntrac = ntracer-iqt+1  !# of tracers excluding water vapour and hydrometeors
 
+    ! set current date
+    datetime = time_config%cur_datetime
+
     ! update prescribed SST
     IF (phy_config%ljsbach) THEN
-       datetime = time_config%cur_datetime
        cur_month = datetime%month
        pre_month = cur_month - 1
        IF (cur_month == 1) pre_month = 12
@@ -338,9 +347,16 @@ CONTAINS
        ! circular non-seasonal orbit, no diurnal cycle
        ! at 07:14:15 or 16:45:45 local time (--> sin(time of day)=1/pi )
          ztsi = tsi
-       CASE(3,4) 
+       CASE(3) 
        ! circular non-seasonal orbit, with diurnal cycle
          ztsi = tsi
+       CASE(4)
+       ! elliptical seasonal orbit, with diurnal cycle
+         zleapfrac = 0.681_wp + 0.2422_wp * REAL(datetime%year - 1949,wp) - &
+                        REAL((datetime%year - 1949) / 4,wp)
+         zyearfrac = 2._wp * pi * (REAL(datetime%yeaday,wp) - 1.0_wp + zleapfrac) / 365.2422_wp
+         ztsi = (1.000110_wp + 0.034221_wp * COS(zyearfrac) + 0.001280_wp * SIN(zyearfrac) &
+            + 0.000719_wp * COS(2._wp * zyearfrac) + 0.000077_wp * SIN(2._wp * zyearfrac)) * tsi
        END SELECT
 
        IF (phy_config%ljsbach) THEN
@@ -389,6 +405,31 @@ CONTAINS
             field%cosmu0(jcs:jce,jb) = -COS( p_patch(jg)%cells%center(jcs:jce,jb)%lat ) &
                                      & *COS( p_patch(jg)%cells%center(jcs:jce,jb)%lon   &
                                      &      +ptime_radtran )
+
+          CASE(4)
+          ! elliptical, seasonal orbit, with diurnal cycle
+          ! to be used in AMIP simulations
+
+            zleapfrac = 0.681_wp + 0.2422_wp * REAL(datetime%year - 1949,wp) - &
+                        REAL((datetime%year - 1949) / 4,wp)
+            zyearfrac = 2._wp * pi * (REAL(datetime%yeaday,wp) - 1.0_wp + zleapfrac) / 365.2422_wp
+            zdeclination_sun = 0.006918_wp - 0.399912_wp * COS(zyearfrac) + &
+                               0.070257_wp * SIN(zyearfrac) -               &
+                               0.006758_wp * COS(2._wp * zyearfrac) +       &
+                               0.000907_wp * SIN(2._wp * zyearfrac) -       &
+                               0.002697_wp * COS(3._wp * zyearfrac) +       &
+                               0.001480_wp * SIN(3._wp * zyearfrac)
+            ztime_dateline = ((REAL(datetime%hour,wp) * 3600._wp + &
+                              REAL(datetime%minute,wp) * 60._wp +  &
+                              REAL(datetime%second,wp)) /          &
+                              REAL(datetime%daylen,wp)) - 0.5_wp
+            ztime_dateline = ztime_dateline * 2._wp * pi + 0.000075_wp +              &
+               0.001868_wp * COS(zyearfrac) - 0.032077_wp * SIN(zyearfrac) -          &
+               0.014615_wp * COS(2._wp * zyearfrac) - 0.040849_wp * SIN(2._wp * zyearfrac)
+
+            field%cosmu0(jcs:jce,jb) = SIN(zdeclination_sun) * SIN(p_patch(jg)%cells%center(jcs:jce,jb)%lat) + &
+                                       COS(zdeclination_sun) * COS(p_patch(jg)%cells%center(jcs:jce,jb)%lat) * &
+                                       COS(ztime_dateline + p_patch(jg)%cells%center(jcs:jce,jb)%lon)
 
           END SELECT
 
@@ -568,9 +609,9 @@ CONTAINS
 
       ! - solar incoming flux at TOA
     
-      field% cosmu0(jcs:jce,jb) = -COS( p_patch(jg)%cells%center(jcs:jce,jb)%lat ) &
-                                & *COS( p_patch(jg)%cells%center(jcs:jce,jb)%lon   &
-                                &      +ptime_radheat )
+!!$ TR      field% cosmu0(jcs:jce,jb) = -COS( p_patch(jg)%cells%center(jcs:jce,jb)%lat ) &
+!!$ TR                                & *COS( p_patch(jg)%cells%center(jcs:jce,jb)%lon   &
+!!$ TR                                &      +ptime_radheat )
 
       zi0(jcs:jce) = MAX(0._wp,field%cosmu0(jcs:jce,jb)) * ztsi  ! instantaneous for radheat
 
