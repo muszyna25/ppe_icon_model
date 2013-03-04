@@ -205,7 +205,6 @@ CONTAINS
     !< vertical interfaces
 
     REAL(wp) :: z_airmass (nproma,pt_patch%nlev) !< needed for radheat
-    REAL(wp) :: zi0       (nproma)     !< solar incoming radiation at TOA   [W/m2]
     REAL(wp) :: zsct ! solar constant (at time of year)
     REAL(wp) :: zcosmu0 (nproma,pt_patch%nblks_c)
 
@@ -851,7 +850,7 @@ CONTAINS
 
       IF (timers_level > 2) CALL timer_start(timer_radheat)
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,zi0,z_airmass) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,z_airmass) ICON_OMP_DEFAULT_SCHEDULE
 !
       DO jb = i_startblk, i_endblk
         !
@@ -861,8 +860,10 @@ CONTAINS
         zcosmu0 (i_startidx:i_endidx,jb) = MAX(zcosmu0(i_startidx:i_endidx,jb),0.0_wp)
 
         !calculate solar incoming flux at TOA
-        zi0 (i_startidx:i_endidx) = zcosmu0(i_startidx:i_endidx,jb) * zsct !zsct by pre_radiation
-        prm_diag%flxdwswtoa(i_startidx:i_endidx,jb) = zi0 (i_startidx:i_endidx)
+        prm_diag%flxdwswtoa(i_startidx:i_endidx,jb) = zcosmu0(i_startidx:i_endidx,jb) &
+          &                                         * zsct                 !zsct by pre_radiation
+
+        !DR computed twice - could be replaced by prep_adv(jg)%rhodz_mc_new
         z_airmass(i_startidx:i_endidx,:) = p_metrics%ddqz_z_full(i_startidx:i_endidx,:,jb) * &
                                            pt_prog%rho(i_startidx:i_endidx,:,jb)
 
@@ -889,7 +890,7 @@ CONTAINS
           & ntiles_wtr=ntiles_water                ,&! in     number of extra tiles for ocean and lakes
           & pmair=z_airmass                        ,&! in     layer air mass             [kg/m2]
           & pqv=pt_prog_rcf%tracer(:,:,jb,iqv)     ,&! in     specific moisture           [kg/kg]
-          & pi0=zi0                                ,&! in     solar incoming flux at TOA  [W/m2]
+          & pi0=prm_diag%flxdwswtoa(:,jb)          ,&! in     solar incoming flux at TOA  [W/m2]
           & pemiss=ext_data%atm%emis_rad(:,jb)     ,&! in     lw sfc emissivity
           & pqc=prm_diag%tot_cld    (:,:,jb,iqc)   ,&! in     specific cloud water        [kg/kg]
           & pqi=prm_diag%tot_cld    (:,:,jb,iqi)   ,&! in     specific cloud ice          [kg/kg]
@@ -902,7 +903,7 @@ CONTAINS
           & idx_lst_lp=ext_data%atm%idx_lst_lp(:,jb), &! in   index list of land points
           & idx_lst_t=ext_data%atm%idx_lst_t(:,jb,:), &! in   index list of land points per tile
           & idx_lst_spi=ext_data%atm%idx_lst_spi(:,jb),&! in  index list of seaice points
-          & cosmu0=zcosmu0(:,jb),                   &! in     cosine of solar zenith angle
+          & cosmu0=zcosmu0(:,jb)                   ,&! in     cosine of solar zenith angle
           & opt_nh_corr=.TRUE.                     ,&! in     switch for NH mode
           & ptsfc=lnd_prog_new%t_g(:,jb)           ,&! in     surface temperature         [K]
           & ptsfc_t=lnd_prog_new%t_g_t(:,jb,:)     ,&! in     tile-specific surface temperature         [K]
@@ -937,12 +938,12 @@ CONTAINS
           & ntiles_wtr=0                           ,&! in     number of extra tiles for ocean and lakes
           & pmair=z_airmass                        ,&! in     layer air mass             [kg/m2]
           & pqv=pt_prog_rcf%tracer(:,:,jb,iqv)     ,&! in     specific moisture           [kg/kg]
-          & pi0=zi0                                ,&! in     solar incoming flux at TOA  [W/m2]
+          & pi0=prm_diag%flxdwswtoa(:,jb)          ,&! in     solar incoming flux at TOA  [W/m2]
           & pemiss=ext_data%atm%emis_rad(:,jb)     ,&! in     lw sfc emissivity
           & pqc=prm_diag%tot_cld    (:,:,jb,iqc)   ,&! in     specific cloud water        [kg/kg]
           & pqi=prm_diag%tot_cld    (:,:,jb,iqi)   ,&! in     specific cloud ice          [kg/kg]
           & ppres_ifc=pt_diag%pres_ifc(:,:,jb)     ,&! in     pressure at layer boundaries [Pa]
-          & cosmu0=zcosmu0(:,jb),                   &! in     cosine of solar zenith angle
+          & cosmu0=zcosmu0(:,jb)                   ,&! in     cosine of solar zenith angle
           & opt_nh_corr=.TRUE.                     ,&! in     switch for NH mode
           & ptsfc=lnd_prog_new%t_g(:,jb)           ,&! in     surface temperature         [K]
           & ptsfctrad=prm_diag%tsfctrad(:,jb)      ,&! in     sfc temp. used for pflxlw   [K]

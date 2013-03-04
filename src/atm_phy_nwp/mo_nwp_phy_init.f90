@@ -92,8 +92,6 @@ MODULE mo_nwp_phy_init
   USE mo_turbdiff_config,     ONLY: turbdiff_config
   USE mo_data_turbdiff,       ONLY: get_turbdiff_param
   USE src_turbdiff,           ONLY: init_canopy, turbtran, turbdiff
-!DR  USE mo_gme_turbdiff,        ONLY: partura, parturs, progimp_turb, nearsfc
-  ! for APE_nh experiments
 
   ! air-sea-land interface
   USE mo_icoham_sfc_indices,  ONLY: nsfc_type, iwtr, iice, ilnd !, &
