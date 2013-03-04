@@ -434,7 +434,7 @@ CONTAINS
 
     IF ( ICON_local_rank == ICON_root ) THEN
 
-       streamID = streamOpenRead(TRIM(file_name),FILETYPE_NC2)
+       streamID = streamOpenRead(TRIM(file_name))
 
        IF ( streamID < 0 ) &
           WRITE(cplout,*) 'Problem opening file ', TRIM(file_name), ': ', cdiStringError(streamID)
