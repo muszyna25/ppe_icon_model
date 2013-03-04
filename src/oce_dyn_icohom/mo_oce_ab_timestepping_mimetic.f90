@@ -1178,7 +1178,9 @@ TYPE(t_patch), POINTER :: patch_horz
 ! !-------------------------------------------------------------------------------
 IF (l_edge_based) THEN
 ! !-------------------------------------------------------------------------------
+
   IF( iswm_oce /= 1 ) THEN !the 3D case
+
     !calculate depth-integrated velocity 
     DO jb = all_edges%start_block, all_edges%end_block
       CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
@@ -1209,8 +1211,8 @@ IF (l_edge_based) THEN
     END DO
 
   ENDIF
-  CALL div_oce_3d(z_e, patch_horz,p_op_coeff%div_coeff, div_z_c, subset_range=cells_in_domain )
 
+  CALL div_oce_3d(z_e, patch_horz,p_op_coeff%div_coeff, div_z_c, subset_range=cells_in_domain )
   DO jb = all_cells%start_block, all_cells%end_block
     CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
     DO jc = i_startidx_c, i_endidx_c
@@ -1223,18 +1225,16 @@ IF (l_edge_based) THEN
     END DO
   END DO
 
+  !-------------------------------------------------------------------------
+  ! Apply net surface freshwater flux to elevation
   IF(l_forc_freshw)THEN
     DO jb = cells_in_domain%start_block, cells_in_domain%end_block
       CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
       DO jc = i_startidx_c, i_endidx_c
         IF(p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary ) THEN
-!         p_os%p_aux%p_rhs_sfc_eq(jc,jb) = ((p_os%p_prog(nold(1))%h(jc,jb)&
-!                                        & - dtime*(div_z_c(jc,jb)        &
-!                                        & + p_sfc_flx%forc_tracer(jc,jb,2) ))/gdt2)& !last idx=2 for freshwater
-!                                        &  *v_base%wet_c(jc,1,jb)
-          p_os%p_aux%p_rhs_sfc_eq(jc,jb) = ((p_os%p_prog(nold(1))%h(jc,jb)           &
-                                         & - dtime*(div_z_depth_int_c(jc,jb)         &
-                                         & + p_sfc_flx%forc_tracer(jc,jb,2) ))/gdt2) & !last idx=2 for freshwater
+          p_os%p_aux%p_rhs_sfc_eq(jc,jb) = ((p_os%p_prog(nold(1))%h(jc,jb)              &
+                                         & - dtime*(div_z_depth_int_c(jc,jb) +          &
+                                         &          p_sfc_flx%forc_fwfx(jc,jb)) )/gdt2) &
                                          &  *p_patch_3D%wet_c(jc,1,jb)
         ENDIF
       ENDDO
@@ -1246,9 +1246,6 @@ IF (l_edge_based) THEN
       CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
       DO jc = i_startidx_c, i_endidx_c
         IF(p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary ) THEN
-!             p_os%p_aux%p_rhs_sfc_eq(jc,jb) = ((p_os%p_prog(nold(1))%h(jc,jb)&
-!                                            & - dtime*div_z_c(jc,jb))/gdt2)!&
-!                                            !& *v_base%wet_c(jc,1,jb)
             p_os%p_aux%p_rhs_sfc_eq(jc,jb) = ((p_os%p_prog(nold(1))%h(jc,jb)&
                                            & - dtime*div_z_depth_int_c(jc,jb))/gdt2)
         ENDIF
@@ -1420,22 +1417,18 @@ ELSEIF(.NOT. l_edge_based)THEN!NOT EDGE-BASED
 !     END DO
 !   ENDIF
 
-
 ! !-------------------------------------------------------------------------------
 
-
+  !-------------------------------------------------------------------------
+  ! Apply net surface freshwater flux to elevation
   IF(l_forc_freshw)THEN
     DO jb = cells_in_domain%start_block, cells_in_domain%end_block
       CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
       DO jc = i_startidx_c, i_endidx_c
         IF(p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary)THEN
-!         p_os%p_aux%p_rhs_sfc_eq(jc,jb) = ((p_os%p_prog(nold(1))%h(jc,jb)&
-!                                        & - dtime*(div_z_c(jc,jb)        &
-!                                        & + p_sfc_flx%forc_tracer(jc,jb,2) ))/gdt2)&
-!                                        &  *v_base%wet_c(jc,1,jb) !last idx=2 for freshwater
-          p_os%p_aux%p_rhs_sfc_eq(jc,jb) = ((p_os%p_prog(nold(1))%h(jc,jb)&
-                                         & - dtime*(div_z_depth_int_c(jc,jb)        &
-                                         & + p_sfc_flx%forc_tracer(jc,jb,2) ))/gdt2)!&
+          p_os%p_aux%p_rhs_sfc_eq(jc,jb) = ((p_os%p_prog(nold(1))%h(jc,jb)     &
+                                         & - dtime*(div_z_depth_int_c(jc,jb) + &
+                                         &          p_sfc_flx%forc_fwfx(jc,jb)) )/gdt2)!&
                                          !&  *v_base%wet_c(jc,1,jb) !last idx=2 for freshwater
         ENDIF !write(*,*)'RHS:',jc,jb,p_os%p_aux%p_rhs_sfc_eq(jc,jb), div_z_c(jc,1,jb)
       ENDDO

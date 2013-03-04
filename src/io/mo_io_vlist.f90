@@ -2276,57 +2276,74 @@ CONTAINS
       &                   zaxisID_surface(k_jg)),&
       &           k_jg)
     END IF 
-  ! IF (irelax_2d_S >= 1 ) THEN
-  !   CALL addVar(TimeVar('forc_sdata',&
-  !   &                   'salinity relaxation data',&
-  !   &                   'psu',15,128,&
-  !   &                   vlistID(k_jg),&
-  !   &                   gridCellID(k_jg),&
-  !   &                   zaxisID_surface(k_jg)),&
-  !   &           k_jg)
-  ! END IF 
-  ! IF (irelax_2d_S /= 0 ) THEN
-  !   CALL addVar(TimeVar('forc_s',&
-  !   &                   'salinity relaxation flux at centers',&
-  !   &                   'psu*m/s',15,128,&
-  !   &                   vlistID(k_jg),&
-  !   &                   gridCellID(k_jg),&
-  !   &                   zaxisID_surface(k_jg)),&
-  !   &           k_jg)
-  ! END IF 
-    IF (irelax_2d_S /= 0 ) THEN
+    IF (no_tracer > 1) THEN
+  !   IF (irelax_2d_S >= 1 ) THEN
+  !     CALL addVar(TimeVar('forc_sdata',&
+  !     &                   'salinity relaxation data',&
+  !     &                   'psu',15,128,&
+  !     &                   vlistID(k_jg),&
+  !     &                   gridCellID(k_jg),&
+  !     &                   zaxisID_surface(k_jg)),&
+  !     &           k_jg)
+  !   END IF 
+  !   IF (irelax_2d_S /= 0 ) THEN
+  !     CALL addVar(TimeVar('forc_s',&
+  !     &                   'salinity relaxation flux at centers',&
+  !     &                   'psu*m/s',15,128,&
+  !     &                   vlistID(k_jg),&
+  !     &                   gridCellID(k_jg),&
+  !     &                   zaxisID_surface(k_jg)),&
+  !     &           k_jg)
+  !   END IF 
+      IF (irelax_2d_S /= 0 ) THEN
+        CALL addVar(TimeVar('forc_fwrelax',&
+        &                   'diagnosed net freshwater flux due to relaxation',&
+!       &                   'm/s',16,128,&
+        &                   'm/month',16,128,&
+        &                   vlistID(k_jg),&
+        &                   gridCellID(k_jg),&
+        &                   zaxisID_surface(k_jg)),&
+        &           k_jg)
+      END IF 
       CALL addVar(TimeVar('forc_fwfx',&
-      &                   'diagnosed net freshwater flux',&
-!     &                   'm/s',16,128,&
-      &                   'm/month',16,128,&
-      &                   vlistID(k_jg),&
-      &                   gridCellID(k_jg),&
-      &                   zaxisID_surface(k_jg)),&
-      &           k_jg)
-    END IF 
-    IF (l_forc_freshw) THEN
-      CALL addVar(TimeVar('forc_precip',&
-      &                   'forcing precipitation flux',&
-      &                   'm/s',16,128,&
-      &                   vlistID(k_jg),&
-      &                   gridCellID(k_jg),&
-      &                   zaxisID_surface(k_jg)),&
-      &           k_jg)
-      CALL addVar(TimeVar('forc_evap',&
-      &                   'forcing evaporation flux',&
-      &                   'm/s',16,128,&
-      &                   vlistID(k_jg),&
-      &                   gridCellID(k_jg),&
-      &                   zaxisID_surface(k_jg)),&
-      &           k_jg)
-      CALL addVar(TimeVar('forc_runoff',&
-      &                   'forcing river runoff flux',&
-      &                   'm/s',16,128,&
-      &                   vlistID(k_jg),&
-      &                   gridCellID(k_jg),&
-      &                   zaxisID_surface(k_jg)),&
-      &           k_jg)
-    END IF 
+        &                 'diagnosed sum of net freshwater flux',&
+!       &                 'm/s',16,128,&
+        &                 'm/month',16,128,&
+        &                 vlistID(k_jg),&
+        &                 gridCellID(k_jg),&
+        &                 zaxisID_surface(k_jg)),&
+        &         k_jg)
+      IF (l_forc_freshw) THEN
+        CALL addVar(TimeVar('forc_precip',&
+        &                   'forcing precipitation flux',&
+        &                   'm/s',16,128,&
+        &                   vlistID(k_jg),&
+        &                   gridCellID(k_jg),&
+        &                   zaxisID_surface(k_jg)),&
+        &           k_jg)
+        CALL addVar(TimeVar('forc_evap',&
+        &                   'forcing evaporation flux',&
+        &                   'm/s',16,128,&
+        &                   vlistID(k_jg),&
+        &                   gridCellID(k_jg),&
+        &                   zaxisID_surface(k_jg)),&
+        &           k_jg)
+        CALL addVar(TimeVar('forc_runoff',&
+        &                   'forcing river runoff flux',&
+        &                   'm/s',16,128,&
+        &                   vlistID(k_jg),&
+        &                   gridCellID(k_jg),&
+        &                   zaxisID_surface(k_jg)),&
+        &           k_jg)
+        CALL addVar(TimeVar('forc_fwbc',&
+        &                   'forcing net freshwater flux from boundary condition',&
+        &                   'm/s',16,128,&
+        &                   vlistID(k_jg),&
+        &                   gridCellID(k_jg),&
+        &                   zaxisID_surface(k_jg)),&
+        &           k_jg)
+      END IF 
+    END IF  ! tracer>1
    !  CALL addVar(TimeVar('horz_adv',&
    !  &                   'nonlin Cor ',&
    !  &                   'm/s',2,128,&
@@ -3448,9 +3465,11 @@ CONTAINS
       CASE ('forc_sdata');   ptr2d => forcing%forc_tracer_relax(:,:,2)
       CASE ('forc_s');       ptr2d => forcing%forc_tracer(:,:,2)
       CASE ('forc_fwfx');    ptr2d => forcing%forc_fwfx(:,:)
+      CASE ('forc_fwrelax'); ptr2d => forcing%forc_fwrelax(:,:)
       CASE ('forc_precip');  ptr2d => forcing%forc_precip(:,:)
       CASE ('forc_evap');    ptr2d => forcing%forc_evap(:,:)
       CASE ('forc_runoff');  ptr2d => forcing%forc_runoff(:,:)
+      CASE ('forc_fwbc');    ptr2d => forcing%forc_fwbc(:,:)
       CASE('horz_adv');      ptr3d => p_diag%veloc_adv_horz
       CASE('Ekin_grad');     ptr3d => p_diag%grad
       CASE('Ekin');          ptr3d => p_diag%kin

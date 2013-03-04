@@ -896,6 +896,15 @@ CONTAINS
     END IF
 
     !-------------------------------------------------------------------------
+    ! TODO: collect heat/fwf BC, include if tracer>1 for fwf BC
+    !-------------------------------------------------------------------------
+    ! Set surface coundary conditions to zero
+    !  - sum of forcings applied to forc_tracer
+
+    !p_sfc_flx%forc_tracer(:,:,1) = 0.0_wp
+    p_sfc_flx%forc_tracer(:,:,2) = 0.0_wp
+
+    !-------------------------------------------------------------------------
     ! Apply temperature relaxation to surface boundary condition
     !  - 2011-12: this is alternative to forcing by fluxes, not in addition
 
@@ -1004,7 +1013,8 @@ CONTAINS
             z_relax = (p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,1,jb)+p_os%p_prog(nold(1))%h(jc,jb)) / &
               &       (relax_2d_mon_S*seconds_per_month)
 
-            p_sfc_flx%forc_tracer(jc,jb,2) = -z_relax*(p_os%p_prog(nold(1))%tracer(jc,1,jb,2)  &
+            p_sfc_flx%forc_tracer(jc,jb,2) = p_sfc_flx%forc_tracer(jc,jb,2) &
+              &                              -z_relax*(p_os%p_prog(nold(1))%tracer(jc,1,jb,2)  &
               &                                        -p_sfc_flx%forc_tracer_relax(jc,jb,2))
 
             ! Diagnosed freshwater flux due to relaxation [m/s]
@@ -1075,6 +1085,7 @@ CONTAINS
 
     ! Freshwater flux diagnosed
     ! TODO: coupling flux is not fwfx anymore but fwbc if implemented for iforc_type=3/4
+
     !IF (irelax_2d_S >= 1 .AND. no_tracer >1) THEN
 
       ! Sum of freshwater flux at surface W_s diagnosed for relaxation cases (see Griffies)
@@ -1087,16 +1098,20 @@ CONTAINS
       ! p_sfc_flx%forc_fwfx(:,:) = -p_sfc_flx%forc_tracer(:,:,2) / sal_ref
       ! now in m/month for diagnosis
       !  p_sfc_flx%forc_fwfx(:,:) = -p_sfc_flx%forc_tracer(:,:,2) / sal_ref * 2.592e6_wp
-
-      ! now simply sum of fluxes:
-        p_sfc_flx%forc_fwfx(:,:) = (p_sfc_flx%forc_fwbc(:,:)-p_sfc_flx%forc_tracer(:,:,2)) / sal_ref * 2.592e6_wp
-
-      !---------DEBUG DIAGNOSTICS-------------------------------------------
-      idt_src=1  ! output print level (1-5, fix)
-      CALL dbg_print('UpdSfc:S-sum-fwfx[m/mon]',p_sfc_flx%forc_fwfx     ,str_module,idt_src)
-      !---------------------------------------------------------------------
+      !  p_sfc_flx%forc_fwfx(:,:) = (p_sfc_flx%forc_fwbc(:,:)-p_sfc_flx%forc_tracer(:,:,2) / sal_ref) * 2.592e6_wp
 
     !END IF
+
+    
+    ! now simply sum of fluxes [m/s]:
+
+    IF (no_tracer >1) THEN
+      p_sfc_flx%forc_fwfx(:,:) = (p_sfc_flx%forc_fwbc(:,:) + p_sfc_flx%forc_fwrelax(:,:))
+      !---------DEBUG DIAGNOSTICS-------------------------------------------
+      idt_src=1  ! output print level (1-5, fix)
+      CALL dbg_print('UpdSfc:S-sum-fwfx[m/s]',p_sfc_flx%forc_fwfx     ,str_module,idt_src)
+      !---------------------------------------------------------------------
+    END IF
 
     !-------------------------------------------------------------------------
     ! Apply net surface heat flux to boundary condition
@@ -1133,7 +1148,7 @@ CONTAINS
 
     !-------------------------------------------------------------------------
     ! Apply net surface freshwater flux to boundary condition
-
+    !  - irelax_2d_S = -1 for coupling
     IF (irelax_2d_S == -1 .AND. no_tracer >1) THEN
 
       ! Salinity boundary condition in vertical Diffusion D, see above
