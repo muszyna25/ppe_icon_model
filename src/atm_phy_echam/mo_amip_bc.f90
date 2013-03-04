@@ -124,9 +124,9 @@ CONTAINS
     
   END SUBROUTINE read_amip_bc
   
-  SUBROUTINE read_amip_data(fn, y, zin)
+  SUBROUTINE read_amip_data(file_name, y, zin)
     
-    CHARACTER(len=*), INTENT(in) :: fn
+    CHARACTER(len=*), INTENT(in) :: file_name
     INTEGER, INTENT(in) :: y
     REAL(dp), POINTER, INTENT(inout) :: zin(:,:)
     
@@ -140,7 +140,7 @@ CONTAINS
     ym1 = y-1
     yp1 = y+1
 
-    streamID = streamOpenRead(fn)
+    streamID = streamOpenRead(TRIM(file_name),FILETYPE_NC2)
     IF ( streamID < 0 ) THEN
       WRITE(message_text,*) cdiStringError(streamID)
       CALL finish('mo_amip_bc:read_amip_data', message_text)
