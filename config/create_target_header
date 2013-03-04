@@ -379,8 +379,8 @@ set_run_target_blizzard()
 # @ $resources
 # @ $wall_clock_limit
 # @ job_name     = $job_name
-# @ output       = LOG.\$(job_name).o
-# @ error        = LOG.\$(job_name).o
+# @ output       = LOG.\$(job_name).\$(jobid).out
+# @ error        = LOG.\$(job_name).\$(jobid).err
 # @ notification = error
 # @ $account
 # @ queue
