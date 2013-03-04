@@ -307,7 +307,7 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
           & tkvh=prm_diag%tkvh(:,2:nlevp1,jb), rcld=prm_diag%rcld(:,:,jb),             & !inout
           & t_2m=prm_diag%t_2m(:,jb), qv_2m=prm_diag%qv_2m(:,jb),                      & !out
           & td_2m=prm_diag%td_2m(:,jb), rh_2m=prm_diag%rh_2m(:,jb),                    & !out
-          & u_10m=prm_diag%u_10m(:,jb), v_10m=prm_diag%v_10m(:,jb),                    & !out
+          & u_10m=prm_diag%u_10m_t(:,jb,1), v_10m=prm_diag%v_10m_t(:,jb,1),            & !out
           & shfl_s=prm_diag%shfl_s_t(:,jb,1), lhfl_s=prm_diag%lhfl_s_t(:,jb,1),        & !out
           & qhfl_s=prm_diag%qhfl_s_t(:,jb,1),                                          & !out
           & ierrstat=ierrstat, errormsg=errormsg, eroutine=eroutine                    ) !inout
@@ -321,9 +321,11 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
         ENDDO
 
         ! copy
-        prm_diag%tcm(i_startidx:i_endidx,jb) = prm_diag%tcm_t(i_startidx:i_endidx,jb,1)
-        prm_diag%tch(i_startidx:i_endidx,jb) = prm_diag%tch_t(i_startidx:i_endidx,jb,1)
-        prm_diag%tfv(i_startidx:i_endidx,jb) = prm_diag%tfv_t(i_startidx:i_endidx,jb,1)
+        prm_diag%tcm(i_startidx:i_endidx,jb)   = prm_diag%tcm_t(i_startidx:i_endidx,jb,1)
+        prm_diag%tch(i_startidx:i_endidx,jb)   = prm_diag%tch_t(i_startidx:i_endidx,jb,1)
+        prm_diag%tfv(i_startidx:i_endidx,jb)   = prm_diag%tfv_t(i_startidx:i_endidx,jb,1)
+        prm_diag%u_10m(i_startidx:i_endidx,jb) = prm_diag%u_10m_t(i_startidx:i_endidx,jb,1)
+        prm_diag%v_10m(i_startidx:i_endidx,jb) = prm_diag%v_10m_t(i_startidx:i_endidx,jb,1)
 
       ELSE ! tile approach used
 
