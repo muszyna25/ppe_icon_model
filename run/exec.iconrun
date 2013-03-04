@@ -79,8 +79,9 @@ check_error $? "${EXPDIR} does not exist?"
 #-----------------------------------------------------------------------------
 # set some default values and derive some run parameteres
 restart=${restart:=".false."}
-
-#-----------------------------------------------------------------------------
+#AUTOMATIC_RESTART_SETUP:
+#END AUTOMATIC_RESTART_SETUP
+#
 # fill some checks
 
 run_atmo=${run_atmo="false"}
@@ -499,10 +500,10 @@ namelist_list=""
 if [ $finish_status = "RESTART" ] ; then
   echo "restart next experiment..."
   cd $RUNSCRIPTDIR
-  this_script="$0"
-  cp $this_script ${this_script}.tmp && echo  'restart=.true.' | cat - ${this_script}.tmp > ${this_script}
-  chmod +x $this_script
-  $submit $0    
+  this_script="${RUNSCRIPTDIR}/${job_name}"
+  echo 'this_script: ' "$this_script"
+  perl -pi -e 's/(^#AUTOMATIC_RESTART_SETUP.*)/\1\nrestart=\.true\./' "${this_script}"
+  ${submit} $this_script
 fi
 
 
