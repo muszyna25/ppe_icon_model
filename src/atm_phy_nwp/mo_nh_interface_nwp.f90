@@ -59,6 +59,7 @@ MODULE mo_nh_interface_nwp
  ! USE mo_timer,              ONLY: timer_physics, timer_start, timer_stop, &
   USE mo_timer 
   USE mo_exception,          ONLY: message, message_text !, finish
+  USE mo_math_constants,     ONLY: dbl_eps
   USE mo_impl_constants,     ONLY: itconv, itccov, itrad, itgscp,         &
     &                              itsatad, itupdate, itturb, itsfc, itradheat, &
     &                              itsso, itgwd, itfastphy, icc,          &
@@ -484,7 +485,10 @@ CONTAINS
     ENDIF
 
 
-    IF (  lcall_phy_jg(itturb)) THEN
+    ! By checking p_sim_time>dbl_eps, we make sure that turbdiff is skipped at the 
+    ! initialization step and that only turbtran is called.
+    IF ( lcall_phy_jg(itturb) .AND. p_sim_time>dbl_eps ) THEN
+
       IF (timers_level > 1) CALL timer_start(timer_nwp_turbulence)
       IF ( atm_phy_nwp_config(jg)%inwp_turb <= 2 ) THEN
         ! Turbulence schemes not including the call to the surface scheme
@@ -634,6 +638,7 @@ CONTAINS
 
       IF (  lcall_phy_jg(itturb) .AND. atm_phy_nwp_config(jg)%inwp_turb <= 2 ) THEN
         IF (timers_level > 1) CALL timer_start(timer_nwp_turbulence)
+
         ! compute turbulent transfer coefficients (atmosphere-surface interface)
         CALL nwp_turbtrans  ( dt_phy_jg(itfastphy),              & !>in
                             & pt_patch, p_metrics,              & !>in

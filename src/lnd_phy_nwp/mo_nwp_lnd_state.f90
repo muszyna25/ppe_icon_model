@@ -417,7 +417,7 @@ MODULE mo_nwp_lnd_state
                & p_prog_lnd%t_gt_ptr(jsfc)%p_2d,                               &
                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                           &
                & t_cf_var('t_g_t_'//TRIM(csfc), '', '', DATATYPE_FLT32),       &
-               & t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL), &
+               & t_grib2_var(0, 0, 0, ibits, GRID_REFERENCE, GRID_CELL),       &
                & ldims=shape2d,                                                &
                & tlev_source=1, in_group=groups("land_tile_vars") ) ! for output take field from nnow_rcf slice
       ENDDO
@@ -951,7 +951,7 @@ MODULE mo_nwp_lnd_state
                & p_diag_lnd%qv_st_ptr(jsfc)%p_2d,                              &
                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                           &
                & t_cf_var('qv_s_t_'//csfc, '', '', DATATYPE_FLT32),            &
-               & t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL), &
+               & t_grib2_var(0, 1, 0, ibits, GRID_REFERENCE, GRID_CELL),       &
                & ldims=shape2d, in_group=groups("land_tile_vars") )
       ENDDO
 
@@ -967,7 +967,7 @@ MODULE mo_nwp_lnd_state
     ! & p_diag_lnd%t_snow(nproma,nblks_c)
     cf_desc    = t_cf_var('t_snow', 'K', 'weighted temperature of the snow-surface', &
          &                DATATYPE_FLT32)
-    grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = t_grib2_var(0, 0, 18, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, vname_prefix//'t_snow', p_diag_lnd%t_snow,        &
          & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,  cf_desc, grib2_desc,           &
          & ldims=shape2d, lrestart=.FALSE., loutput=.TRUE.,                    &
@@ -975,7 +975,7 @@ MODULE mo_nwp_lnd_state
 
     ! & p_diag_lnd%t_snow_mult(nproma,nlev_snow+1,nblks_c)
     cf_desc    = t_cf_var('t_snow_mult', 'K', 'weighted temperature of the snow', DATATYPE_FLT32)
-    grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = t_grib2_var(0, 0, 18, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, vname_prefix//'t_snow_mult', p_diag_lnd%t_snow_mult, &
      & GRID_UNSTRUCTURED_CELL, ZA_GENERIC_SNOW_P1, cf_desc, grib2_desc,           &
      & ldims=(/nproma,nlev_snow+1,kblks/),                                        &

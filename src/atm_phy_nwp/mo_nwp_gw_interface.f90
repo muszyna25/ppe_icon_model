@@ -100,8 +100,6 @@ CONTAINS
 
     ! Local array bounds:
 
-    INTEGER :: nblks_c                 !< number of blocks for cells
-    INTEGER :: npromz_c                !< length of last block line
     INTEGER :: nlev, nlevp1            !< number of full and half levels
     INTEGER :: rl_start, rl_end
     INTEGER :: i_startblk, i_endblk    !< blocks
@@ -117,10 +115,6 @@ CONTAINS
 
     INTEGER :: jk,jc,jb,jg             !<block indeces
 
-
-    ! local variables related to the blocking
-    nblks_c   = p_patch%nblks_int_c
-    npromz_c  = p_patch%npromz_int_c
 
     i_nchdom  = MAX(1,p_patch%n_childdom)
 

@@ -350,7 +350,7 @@ MODULE mo_nh_stepping
     ENDDO
     ! Compute diagnostic physics fields
     CALL diag_for_output_phys
-    ! Initial call of slow physics schemes
+    ! Initial call of (slow) physics schemes, including computation of transfer coefficients
     CALL init_slowphysics (datetime, 1, dtime, dtime_adv, time_config%sim_time)
   ENDIF
 
@@ -1420,7 +1420,10 @@ MODULE mo_nh_stepping
 
   !-------------------------------------------------------------------------
   !>
-  !! Driver routine for initial call of slow physics routines
+  !! Driver routine for initial call of physics routines.
+  !! Apart from the full set of slow physics parameterizations, also turbulent transfer is 
+  !! called, in order to have proper transfer coefficients available at the initial time step.
+  !!
   !! This had to be moved ahead of the initial output for the physics fields to be more complete
   !!
   !! @par Revision History
@@ -1443,7 +1446,7 @@ MODULE mo_nh_stepping
     ! Local variables
 
     ! Time levels
-    INTEGER :: n_now, n_new, n_now_rcf, n_new_rcf
+    INTEGER :: n_now,n_now_rcf
 
     INTEGER :: jgp, jgc, jn
 
@@ -1460,11 +1463,9 @@ MODULE mo_nh_stepping
 
     ! Set local variables for time levels
     n_now  = nnow(jg)
-    n_new  = nnew(jg)
 
     ! Set local variable for rcf-time levels
     n_now_rcf = nnow_rcf(jg)
-    n_new_rcf = nnew_rcf(jg)
 
     CALL time_ctrl_physics ( dt_phy, lstep_adv, dt_loc, jg,  &! in
       &                      .TRUE.,                         &! in
@@ -1472,7 +1473,7 @@ MODULE mo_nh_stepping
       &                      lcall_phy )                      ! out
 
     IF (msg_level >= 7) THEN
-      WRITE(message_text,'(a,i2)') 'initial call of slow physics, domain ', jg
+      WRITE(message_text,'(a,i2)') 'initial call of (slow) physics, domain ', jg
       CALL message(TRIM(routine), TRIM(message_text))
     ENDIF
 
@@ -1746,9 +1747,13 @@ MODULE mo_nh_stepping
     ! dynamics step
     IF (linit) THEN
 
-      ! Initialize lcall_phy with .false. Only slow physics will be set to 
-      ! .true. initially.
+      ! Initialize lcall_phy with .false. Only slow physics and turbtran will 
+      ! be set to .true. initially.
       lcall_phy(jg,:)  = .FALSE.
+
+      ! fast physics (turbulent transfer, only)
+      IF ( atm_phy_nwp_config(jg)%lproc_on(itturb) ) lcall_phy(jg,itturb) = .TRUE.
+
 
       ! slow physics
       IF ( atm_phy_nwp_config(jg)%lproc_on(itconv) ) lcall_phy(jg,itconv) = .TRUE.
