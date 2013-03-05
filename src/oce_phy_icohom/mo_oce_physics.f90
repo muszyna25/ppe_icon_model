@@ -64,7 +64,7 @@ USE mo_impl_constants,      ONLY: success, max_char_length, MIN_DOLIC, SEA
 USE mo_exception,           ONLY: message, finish
 USE mo_util_dbg_prnt,       ONLY: dbg_print
 USE mo_oce_state,           ONLY: t_hydro_ocean_state, oce_config!, v_base
-USE mo_physical_constants,  ONLY: grav, rho_ref, SItodBar
+USE mo_physical_constants,  ONLY: grav, rho_ref, SItodBar,sal_ref
 USE mo_math_constants,      ONLY: dbl_eps
 USE mo_dynamics_config,     ONLY: nold!, nnew
 USE mo_sea_ice_types,       ONLY: t_sfc_flx
@@ -659,8 +659,8 @@ write(*,*)'max-min coeff',z_diff_multfac, maxval(p_phys_param%K_veloc_h(:,1,:)),
       z_Ri_e(:,:,:)                = 0.0_wp
       z_stabio                     = 0.0_wp
       z_shear_c                    = 0.0_wp
-      z_s1                         = 0.0_wp
-      z_s2                         = 0.0_wp
+      z_s1                         = sal_ref
+      z_s2                         = sal_ref
       z_grav_rho                   = grav/rho_ref
       z_inv_rho_ref                = 1.0_wp/rho_ref
 
