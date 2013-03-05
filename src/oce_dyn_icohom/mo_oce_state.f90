@@ -464,6 +464,9 @@ MODULE mo_oce_state
   TYPE(t_hydro_ocean_base) , PUBLIC, TARGET              :: v_base
   TYPE(t_oce_config)       , PUBLIC                      :: oce_config
 
+
+  LOGICAL   :: l_partial_cells = .FALSE.
+
 !-------------------------------------------------------------------------
 
 CONTAINS
@@ -1898,6 +1901,7 @@ CONTAINS
       !    then grid point is wet; dolic is in that level (l_max_bottom=.false.)
       !  - values for BOUNDARY set below
 
+      IF (l_partial_cells) l_max_bottom = .FALSE.
       IF (l_max_bottom) THEN
 
         DO jb = all_cells%start_block, all_cells%end_block
@@ -1906,7 +1910,7 @@ CONTAINS
       
             IF (p_ext_data%oce%bathymetry_c(jc,jb) <= -v_base%zlev_i(jk)) THEN
               v_base%lsm_c(jc,jk,jb) = SEA
-              v_base%dolic_c(jc,jb)      = jk
+              v_base%dolic_c(jc,jb)  = jk
             ELSE
               v_base%lsm_c(jc,jk,jb) = LAND
             END IF
@@ -1922,7 +1926,7 @@ CONTAINS
        
             IF (p_ext_data%oce%bathymetry_c(jc,jb) <= -v_base%zlev_m(jk)) THEN
               v_base%lsm_c(jc,jk,jb) = SEA
-              v_base%dolic_c(jc,jb)      = jk
+              v_base%dolic_c(jc,jb)  = jk
             ELSE
               v_base%lsm_c(jc,jk,jb) = LAND
             END IF
@@ -2092,7 +2096,7 @@ CONTAINS
 
     ! Main loop for edges, dolic, boundaries, diagnosis and output
     !  - using lsm_c after complete correction in jk>2 as input
-    !  - (1) set land and sea values at cells <0 (sea) and >0 (land) - no boundaries
+    !  - (1) set land and sea values at cells to SEA=-2 and LAND=2 without considering boundaries
     !  - (2) set land and sea values at edges including boundaries
     !  - (3) set land and sea boundary values (-1 = SEA_BOUNDARY, 1=LAND_BOUNDARY)
     !
@@ -3594,9 +3598,10 @@ END SUBROUTINE complete_patchinfo_oce
 !! Developed  by  Peter korn, MPI-M (2012/08).
 !!
 
-  SUBROUTINE init_patch_3D(p_patch_3D,v_base)
+  SUBROUTINE init_patch_3D(p_patch_3D, p_ext_data, v_base)
 
-    TYPE(t_patch_3D ),TARGET, INTENT(INOUT) :: p_patch_3D
+    TYPE(t_patch_3D ),TARGET, INTENT(INOUT)    :: p_patch_3D
+    TYPE(t_external_data),    INTENT(INOUT)    :: p_ext_data
     TYPE(t_hydro_ocean_base), INTENT(INOUT)    :: v_base
     ! local variables
     INTEGER :: ist
@@ -3711,25 +3716,50 @@ END SUBROUTINE complete_patchinfo_oce
     p_patch_3D%p_patch_1D(1)%dolic_c = v_base%dolic_c
     p_patch_3D%p_patch_1D(1)%dolic_e = v_base%dolic_e
 
+   !  prepare for partial cells
+   !    DO jb = all_cells%start_block, all_cells%end_block
+   !      CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
+   !      DO jc = i_startidx, i_endidx
+   !   
+   !        IF (p_ext_data%oce%bathymetry_c(jc,jb) <= -v_base%zlev_m(jk)) THEN
+   !          v_base%lsm_c(jc,jk,jb) = SEA
+   !          v_base%dolic_c(jc,jb)  = jk
+   !        ELSE
+   !          v_base%lsm_c(jc,jk,jb) = LAND
+   !        END IF
+   !   
+   !      END DO
+   !    END DO
+
     DO jb = all_cells%start_block, all_cells%end_block
       CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
       DO jc = i_startidx_c, i_endidx_c
         DO jk=1,n_zlev
           IF ( v_base%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
+
             p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,jk,jb) = v_base%del_zlev_m(jk)
             p_patch_3D%p_patch_1D(1)%prism_thick_c(jc,jk,jb)          = v_base%del_zlev_m(jk)
             p_patch_3D%p_patch_1D(1)%prism_center_dist_c(jc,jk,jb)    = v_base%del_zlev_i(jk)
 
+            ! preliminary partial cells conform with l_max_bottom=false only
+            IF (l_partial_cells .AND. jk == v_base%dolic_c(jc,jb)) THEN
+              p_patch_3D%p_patch_1D(1)%prism_thick_c(jc,jk,jb) = -p_ext_data%oce%bathymetry_c(jc,jb)-v_base%zlev_i(jk)
+              p_patch_3D%p_patch_1D(1)%prism_center_dist_c(jc,jk,jb) = 0.5_wp* &
+                & (v_base%del_zlev_m(jk-1) + p_patch_3D%p_patch_1D(1)%prism_thick_c(jc,jk,jb))
+            ENDIF
 
             p_patch_3D%p_patch_1D(1)%inv_prism_thick_c(jc,jk,jb)      = 1.0_wp/v_base%del_zlev_m(jk)
             p_patch_3D%p_patch_1D(1)%inv_prism_center_dist_c(jc,jk,jb)= 1.0_wp/v_base%del_zlev_i(jk)
+
           ELSE
+
             p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,jk,jb) = 0.0_wp
             p_patch_3D%p_patch_1D(1)%prism_thick_c(jc,jk,jb)          = 0.0_wp
             p_patch_3D%p_patch_1D(1)%prism_center_dist_c(jc,jk,jb)    = 0.0_wp
 
             p_patch_3D%p_patch_1D(1)%inv_prism_thick_c(jc,jk,jb)      = 0.0_wp
             p_patch_3D%p_patch_1D(1)%inv_prism_center_dist_c(jc,jk,jb)= 0.0_wp
+
           ENDIF
         END DO
       END DO

@@ -445,8 +445,9 @@ CONTAINS
     CALL init_ho_base     (p_patch_3D%p_patch_2D(jg), p_ext_data(jg), v_base)
     CALL init_ho_basins   (p_patch_3D%p_patch_2D(jg),                 v_base)
     CALL init_coriolis_oce(p_patch_3D%p_patch_2D(jg) )
+    CALL init_patch_3D    (p_patch_3D,                p_ext_data(jg), v_base)
+    !CALL init_patch_3D(p_patch_3D, v_base)
 
-    CALL init_patch_3D(p_patch_3D, v_base)
     !------------------------------------------------------------------
     ! construct ocean state and physics
     !------------------------------------------------------------------
