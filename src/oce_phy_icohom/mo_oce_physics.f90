@@ -57,14 +57,13 @@ USE mo_ocean_nml,           ONLY: n_zlev, bottom_drag_coeff, k_veloc_h, k_veloc_
   &                               HORZ_VELOC_DIFF_TYPE, veloc_diffusion_order,            &
   &                               biharmonic_diffusion_factor, &
   &                               richardson_factor_tracer, richardson_factor_veloc,      &
-  &                               l_constant_mixing, l_smooth_veloc_diffusion, density_computation
+  &                               l_constant_mixing, l_smooth_veloc_diffusion
 USE mo_parallel_config,     ONLY: nproma
 USE mo_model_domain,        ONLY: t_patch, t_patch_3D
 USE mo_impl_constants,      ONLY: success, max_char_length, MIN_DOLIC, SEA
 USE mo_exception,           ONLY: message, finish
 USE mo_util_dbg_prnt,       ONLY: dbg_print
 USE mo_oce_state,           ONLY: t_hydro_ocean_state, oce_config!, v_base
-USE mo_oce_thermodyn,       ONLY: calc_density_MPIOM_elemental
 USE mo_physical_constants,  ONLY: grav, rho_ref, SItodBar
 USE mo_math_constants,      ONLY: dbl_eps
 USE mo_dynamics_config,     ONLY: nold!, nnew
@@ -594,15 +593,6 @@ write(*,*)'max-min coeff',z_diff_multfac, maxval(p_phys_param%K_veloc_h(:,1,:)),
     INTEGER  :: i_startidx_c, i_endidx_c
     INTEGER  :: i_startidx_e, i_endidx_e
 
-    ! local variables for using the ELEMENTAL implementation of density calculation
-    REAL(wp) :: z_rho_up_ary(nproma)
-    REAL(wp) :: z_rho_down_ary(nproma)
-    REAL(wp) :: z_stabio_ary(nproma)
-    REAL(wp) :: z_shear_c_ary(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)
-    REAL(wp) :: z_s1_ary(nproma)
-    REAL(wp) :: z_s2_ary(nproma)
-    REAL(wp) :: z_press_ary(n_zlev+1)
-
     REAL(wp) :: z_rho_up
     REAL(wp) :: z_rho_down
     REAL(wp) :: z_stabio
@@ -667,7 +657,6 @@ write(*,*)'max-min coeff',z_diff_multfac, maxval(p_phys_param%K_veloc_h(:,1,:)),
       z_vert_density_grad_e(:,:,:) = 0.0_wp
       z_Ri_c(:,:,:)                = 0.0_wp
       z_Ri_e(:,:,:)                = 0.0_wp
-      z_press_ary(:)               = 0.0_wp
       z_stabio                     = 0.0_wp
       z_shear_c                    = 0.0_wp
       z_s1                         = 0.0_wp
@@ -675,101 +664,57 @@ write(*,*)'max-min coeff',z_diff_multfac, maxval(p_phys_param%K_veloc_h(:,1,:)),
       z_grav_rho                   = grav/rho_ref
       z_inv_rho_ref                = 1.0_wp/rho_ref
 
-      SELECT CASE (density_computation)
-      CASE (2)
-        z_press_ary = p_patch_3D%p_patch_1D(1)%zlev_i(:)*rho_ref*SItodBar
-        !Calculate Richardson number and vertical density gradient
-        DO jb = all_cells%start_block, all_cells%end_block
-          CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
-          DO jc = i_startidx_c, i_endidx_c
-            DO jk = 2, p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)
-              z_shear_c_ary(jc,jk,jb) = dbl_eps + sum((p_os%p_diag%p_vn(jc,jk-1,jb)%x-p_os%p_diag%p_vn(jc,jk,jb)%x)**2)
-            ENDDO
-          ENDDO
-        ENDDO
+      DO jb = all_cells%start_block, all_cells%end_block
+        CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
 
-        DO jb = all_cells%start_block, all_cells%end_block
-        DO jk = 2, n_zlev!p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)
+        DO jc = i_startidx_c, i_endidx_c
+          DO jk = 2, p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)
+
+             !dz_inv = p_os%p_diag%inv_prism_center_dist_c(jc,jk,jb) !1.0_wp/v_base%del_zlev_i(jk)
+             !dz_inv = p_patch_3D%p_patch_1D(1)%inv_prism_center_dist_c(jc,jk,jb)
+             !This calculates the localshear at cells
+             ! - add small epsilon to avoid division by zero
+          z_shear_c = dbl_eps + sum((p_os%p_diag%p_vn(jc,jk-1,jb)%x-p_os%p_diag%p_vn(jc,jk,jb)%x)**2)
+
+          z_press = p_patch_3D%p_patch_1D(1)%zlev_i(jk)*rho_ref*SItodBar
+
           !salinity at upper and lower cell
           IF(no_tracer >= 2) THEN
-            z_s1_ary = p_os%p_prog(nold(1))%tracer(:,jk-1,jb,2)
-            z_s2_ary = p_os%p_prog(nold(1))%tracer(:,jk,  jb,2) !TODO: this is the current cell, not the lower one!
+            z_s1 = p_os%p_prog(nold(1))%tracer(jc,jk-1,jb,2)
+            z_s2 = p_os%p_prog(nold(1))%tracer(jc,jk,jb,2) !TODO: this is the current cell, not the lower one!
           ENDIF
-
           !density of upper and lower cell w.r.t.to pressure at intermediate level
-          z_rho_up_ary   = calc_density_MPIOM_elemental(p_os%p_prog(nold(1))%tracer(:,jk-1,jb,1), z_s1_ary, z_press_ary(jk))
-          z_rho_down_ary = calc_density_MPIOM_elemental(p_os%p_prog(nold(1))%tracer(:,jk,  jb,1), z_s2_ary, z_press_ary(jk))
+          z_rho_up   = calc_density_func(p_os%p_prog(nold(1))%tracer(jc,jk-1,jb,1), z_s1, z_press)
+          z_rho_down = calc_density_func(p_os%p_prog(nold(1))%tracer(jc,jk,jb,1), z_s2, z_press)
 
-          ! comments from MPIOM
-          !! calculate vertical density stabio gradient between upper and lower box
-          !! vertical density gradient 1/delta_z * (rho(k)-rho(k-1))
+            ! comments from MPIOM
+            !! calculate vertical density stabio gradient between upper and lower box
+            !! vertical density gradient 1/delta_z * (rho(k)-rho(k-1))
 
-          !! stabio > 0 stable   stratification  (lower layer is havier)  => vert_density_grad  > 0
-          !! stabio < 0 instable stratification  (lower layer is lighter) => vert_density_grad  < 0
-          z_stabio_ary  = z_rho_down_ary - z_rho_up_ary
+            !! stabio > 0 stable   stratification  (lower layer is havier)  => vert_density_grad  > 0
+            !! stabio < 0 instable stratification  (lower layer is lighter) => vert_density_grad  < 0
+          z_stabio  = z_rho_down-z_rho_up
 
-          ! z_stabio  = dz_inv*0.5_wp*(z_rho_up(jc,jk,jb)-z_rho_down(jc,jk,jb))
-          ! #slo# - think once more about 0.5, and this line in mo_convection of MPIOM:
-          ! rhoo(:, j, k-1) = 0.5_wp * (rhoo(:, j, k-1) + rhuppo(:))
+             ! z_stabio  = dz_inv*0.5_wp*(z_rho_up(jc,jk,jb)-z_rho_down(jc,jk,jb))
+             ! #slo# - think once more about 0.5, and this line in mo_convection of MPIOM:
+             ! rhoo(:, j, k-1) = 0.5_wp * (rhoo(:, j, k-1) + rhuppo(:))
 
-          z_vert_density_grad_c(:,jk,jb) = dbl_eps + z_stabio_ary
+          z_vert_density_grad_c(jc,jk,jb) = dbl_eps + z_stabio
 
-          z_Ri_c(:,jk,jb)=p_patch_3D%p_patch_1D(1)%zlev_i(jk)*z_grav_rho*z_vert_density_grad_c(:,jk,jb)/z_shear_c_ary(:,jk,jb)
-         END DO
-         END DO
-       CASE DEFAULT
-         DO jb = all_cells%start_block, all_cells%end_block
-           CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
-
-           DO jc = i_startidx_c, i_endidx_c
-             DO jk = 2, p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)
-
-                !dz_inv = p_os%p_diag%inv_prism_center_dist_c(jc,jk,jb) !1.0_wp/v_base%del_zlev_i(jk)
-                !dz_inv = p_patch_3D%p_patch_1D(1)%inv_prism_center_dist_c(jc,jk,jb)
-                !This calculates the localshear at cells
-                ! - add small epsilon to avoid division by zero
-             z_shear_c = dbl_eps + sum((p_os%p_diag%p_vn(jc,jk-1,jb)%x-p_os%p_diag%p_vn(jc,jk,jb)%x)**2)
-
-             z_press = p_patch_3D%p_patch_1D(1)%zlev_i(jk)*rho_ref*SItodBar
-
-             !salinity at upper and lower cell
-             IF(no_tracer >= 2) THEN
-               z_s1 = p_os%p_prog(nold(1))%tracer(jc,jk-1,jb,2)
-               z_s2 = p_os%p_prog(nold(1))%tracer(jc,jk,jb,2) !TODO: this is the current cell, not the lower one!
-             ENDIF
-             !density of upper and lower cell w.r.t.to pressure at intermediate level
-             z_rho_up   = calc_density_func(p_os%p_prog(nold(1))%tracer(jc,jk-1,jb,1), z_s1, z_press)
-             z_rho_down = calc_density_func(p_os%p_prog(nold(1))%tracer(jc,jk,jb,1), z_s2, z_press)
-
-               ! comments from MPIOM
-               !! calculate vertical density stabio gradient between upper and lower box
-               !! vertical density gradient 1/delta_z * (rho(k)-rho(k-1))
-
-               !! stabio > 0 stable   stratification  (lower layer is havier)  => vert_density_grad  > 0
-               !! stabio < 0 instable stratification  (lower layer is lighter) => vert_density_grad  < 0
-             z_stabio  = z_rho_down-z_rho_up
-
-                ! z_stabio  = dz_inv*0.5_wp*(z_rho_up(jc,jk,jb)-z_rho_down(jc,jk,jb))
-                ! #slo# - think once more about 0.5, and this line in mo_convection of MPIOM:
-                ! rhoo(:, j, k-1) = 0.5_wp * (rhoo(:, j, k-1) + rhuppo(:))
-
-             z_vert_density_grad_c(jc,jk,jb) = dbl_eps + z_stabio
-
-                ! taken from: G.R. Stuhne, W.R. Peltier / Journal of Computational Physics 213 (2006), p. 719
-                ! Richardson number is positive for stable stratification (rho_down > rho_up)
-                ! Richardson number is zero for unstable strat., see switch z_frac below
-                ! The expression z_grav_rho*z_vert_density_grad_c/z_shear_c is the
-                ! Buoyancy frequency:
-                ! z_Ri_c(jc,jk,jb)=MAX(z_grav_rho*z_vert_density_grad_c(jc,jk,jb)/z_shear_c(jc,jk,jb)&
-                !                     &,0.0_wp)
-                !buoyance_frequence = z_grav_rho*z_vert_density_grad_c/z_shear_c
-    !   buoyance_frequence            = z_grav_rho*z_vert_density_grad_c(jc,jk,jb)/z_shear_c(jc,jk,jb)
-    !z_Ri_c(jc,jk,jb)=v_base%zlev_i(jk)*buoyance_frequence !TODO this created a difference in results!!
-             z_Ri_c(jc,jk,jb)=p_patch_3D%p_patch_1D(1)%zlev_i(jk)*z_grav_rho*z_vert_density_grad_c(jc,jk,jb)/z_shear_c
-             END DO
-           END DO
-         END DO
-       END SELECT
+             ! taken from: G.R. Stuhne, W.R. Peltier / Journal of Computational Physics 213 (2006), p. 719
+             ! Richardson number is positive for stable stratification (rho_down > rho_up)
+             ! Richardson number is zero for unstable strat., see switch z_frac below
+             ! The expression z_grav_rho*z_vert_density_grad_c/z_shear_c is the
+             ! Buoyancy frequency:
+             ! z_Ri_c(jc,jk,jb)=MAX(z_grav_rho*z_vert_density_grad_c(jc,jk,jb)/z_shear_c(jc,jk,jb)&
+             !                     &,0.0_wp)
+             !buoyance_frequence = z_grav_rho*z_vert_density_grad_c/z_shear_c
+ !   buoyance_frequence            = z_grav_rho*z_vert_density_grad_c(jc,jk,jb)/z_shear_c(jc,jk,jb)
+ !z_Ri_c(jc,jk,jb)=v_base%zlev_i(jk)*buoyance_frequence !TODO this created a difference in results!!
+          z_Ri_c(jc,jk,jb)=p_patch_3D%p_patch_1D(1)%zlev_i(jk)*z_grav_rho*z_vert_density_grad_c(jc,jk,jb)/z_shear_c
+          END DO
+        END DO
+      END DO
 
       !The tracer mixing coefficient at cell centers
       DO jb = all_cells%start_block, all_cells%end_block

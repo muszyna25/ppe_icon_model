@@ -79,8 +79,6 @@ PUBLIC  :: calc_density_lin_EOS_func
 PRIVATE :: calc_density_JMDWFG06_EOS
 PUBLIC  :: calc_density_JMDWFG06_EOS_func
 PUBLIC  :: calc_density_MPIOM_func
-PUBLIC  :: calc_density_MPIOM_elemental_1d
-PUBLIC  :: calc_density_MPIOM_elemental_2d
 PUBLIC  :: calc_density_MPIOM_elemental
 PRIVATE :: calc_density_MPIOM
 PRIVATE :: convert_insitu2pot_temp
@@ -813,7 +811,7 @@ END SUBROUTINE calc_density_JM_EOS
   !! Initial version by Peter Korn, MPI-M (2011)
   !!
 
-FUNCTION calc_density_MPIOM_func(tpot, sal, p) RESULT(rho)
+  FUNCTION calc_density_MPIOM_func(tpot, sal, p) RESULT(rho)
     REAL(wp), INTENT(in) :: tpot, sal, p
     REAL(wp)             :: rho
 
@@ -850,23 +848,7 @@ FUNCTION calc_density_MPIOM_func(tpot, sal, p) RESULT(rho)
 
   END FUNCTION calc_density_MPIOM_func
 
-  FUNCTION calc_density_MPIOM_elemental_1d(tpot,sal,p) RESULT(rho)
-    REAL(wp), INTENT(in) :: tpot, sal, p
-    REAL(wp)             :: rho
-    
-    rho = calc_density_MPIOM_elemental(tpot,sal,p)
-  END FUNCTION calc_density_MPIOM_elemental_1d
-
-  FUNCTION calc_density_MPIOM_elemental_2d(p_patch_3D,tpot,sal,p) RESULT(rho)
-    TYPE(t_patch_3D ),TARGET, INTENT(IN) :: p_patch_3D
-    REAL(wp), INTENT(in)  :: tpot(1:nproma,1:n_zlev, p_patch_3D%p_patch_2D(1)%nblks_c)
-    REAL(wp), INTENT(in)  :: sal(1:nproma,1:n_zlev, p_patch_3D%p_patch_2D(1)%nblks_c)
-    REAL(wp), INTENT(in)  :: p(1:nproma,1:n_zlev, p_patch_3D%p_patch_2D(1)%nblks_c)
-    REAL(wp)              :: rho(1:nproma,1:n_zlev, p_patch_3D%p_patch_2D(1)%nblks_c)
-    
-    rho = calc_density_MPIOM_elemental(tpot,sal,p)
-  END FUNCTION calc_density_MPIOM_elemental_2d
-
+  ! elemental version of the above computation
   ELEMENTAL FUNCTION calc_density_MPIOM_elemental(tpot, sal, p) RESULT(rho)
     REAL(wp), INTENT(in) :: tpot, sal, p
     REAL(wp)             :: rho
