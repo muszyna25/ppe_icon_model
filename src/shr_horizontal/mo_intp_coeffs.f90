@@ -186,8 +186,6 @@ MODULE mo_intp_coeffs
   USE mo_loopindices,         ONLY: get_indices_c, get_indices_e, get_indices_v
   USE mo_sync,                ONLY: sync_c, sync_e, sync_v, sync_patch_array, sync_idx, global_max
   USE mo_intp_data_strc,      ONLY: t_int_state
-  USE mo_intp_coeffs_lsq_bln, ONLY: lsq_stencil_create, lsq_compute_coeff_cell, &
-    & scalar_int_coeff, bln_int_coeff_e2c
   USE mo_interpol_config,     ONLY: i_cori_method, nudge_zone_width, nudge_max_coeff, &
     & nudge_efold_width
   USE mo_ocean_nml,           ONLY: n_zlev, dzlev_m, no_tracer, t_ref, s_ref,          &
@@ -200,11 +198,17 @@ MODULE mo_intp_coeffs
   
   PRIVATE
   
-  PUBLIC ::  lsq_stencil_create, lsq_compute_coeff_cell, scalar_int_coeff,      &
-    & bln_int_coeff_e2c, compute_heli_bra_coeff_idx, init_cellavg_wgt,  &
-    & init_geo_factors, complete_patchinfo, init_tplane_e,              &
-    & init_tplane_c, init_geo_factors_oce,                              &
-    & init_nudgecoeffs, tri_quadrature_pts, par_init_scalar_product_oce
+
+  PUBLIC :: compute_heli_bra_coeff_idx
+  PUBLIC :: init_cellavg_wgt
+  PUBLIC :: init_geo_factors
+  PUBLIC :: complete_patchinfo
+  PUBLIC :: init_tplane_e
+  PUBLIC :: init_tplane_c
+  PUBLIC :: init_geo_factors_oce
+  PUBLIC :: init_nudgecoeffs
+  PUBLIC :: tri_quadrature_pts
+  PUBLIC :: par_init_scalar_product_oce
   
   
   

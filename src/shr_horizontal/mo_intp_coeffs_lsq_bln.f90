@@ -180,8 +180,7 @@ USE mo_advection_config,    ONLY: advection_config
 USE mo_sync,                ONLY: SYNC_C, SYNC_E, SYNC_V, sync_patch_array, sync_idx
 USE mo_grid_config,         ONLY: grid_sphere_radius
 USE mo_grid_geometry_info,  ONLY: planar_torus_geometry, sphere_geometry
-
-USE mo_intp_data_strc
+USE mo_intp_data_strc,      ONLY: t_lsq, t_int_state
 
 IMPLICIT NONE
 

@@ -180,13 +180,13 @@ USE mo_intp_rbf_coeffs,     ONLY: rbf_vec_index_cell, rbf_vec_index_edge,       
   &                               rbf_vec_compute_coeff_edge,                            &
   &                               rbf_vec_compute_coeff_vertex, rbf_c2grad_index,        &
   &                               rbf_compute_coeff_c2grad
-USE mo_intp_coeffs,         ONLY: lsq_stencil_create, lsq_compute_coeff_cell,          &
-  &                               scalar_int_coeff, bln_int_coeff_e2c,                 &
-  &                               compute_heli_bra_coeff_idx, init_cellavg_wgt,        &
+USE mo_intp_coeffs,         ONLY: compute_heli_bra_coeff_idx, init_cellavg_wgt,        &
   &                               init_geo_factors, complete_patchinfo, init_tplane_e, &
   &                               init_tplane_c, init_geo_factors_oce,                 &
   &                               init_nudgecoeffs,                                    &
   &                               tri_quadrature_pts, par_init_scalar_product_oce
+USE mo_intp_coeffs_lsq_bln, ONLY: lsq_stencil_create, lsq_compute_coeff_cell,          &
+  &                               scalar_int_coeff, bln_int_coeff_e2c
 USE mo_sync,                ONLY: SYNC_C, SYNC_E, SYNC_V
 USE mo_communication,       ONLY: t_comm_pattern, blk_no, idx_no, idx_1d, &
   &                               setup_comm_pattern, delete_comm_pattern, exchange_data
