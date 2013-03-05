@@ -1030,14 +1030,14 @@ CONTAINS
 
       !---------DEBUG DIAGNOSTICS-------------------------------------------
 !Commented out because of NAG-compiler, PK
-!       idt_src=1  ! output print level (1-5, fix)
-!       z_c2(:,:) = p_sfc_flx%forc_tracer_relax(:,:,2)
-!       CALL dbg_print('UpdSfc: Sal.-relax'        ,z_c2                    ,str_module,idt_src)
-!       idt_src=2  ! output print level (1-5, fix)
-!       z_c2(:,:) = p_sfc_flx%forc_tracer_relax(:,:,2)-p_os%p_prog(nold(1))%tracer(:,1,:,2)
-!       CALL dbg_print('UpdSfc: Sal.-difference'   ,z_c2                    ,str_module,idt_src)
-!       z_c2(:,:) = p_sfc_flx%forc_tracer(:,:,2)
-!       CALL dbg_print('UpdSfc: S-forc-trac [Km/s]',z_c2                    ,str_module,idt_src)
+        idt_src=1  ! output print level (1-5, fix)
+        z_c2(:,:) = p_sfc_flx%forc_tracer_relax(:,:,2)
+        CALL dbg_print('UpdSfc: Sal.-relax'        ,z_c2                    ,str_module,idt_src)
+        idt_src=2  ! output print level (1-5, fix)
+        z_c2(:,:) = p_sfc_flx%forc_tracer_relax(:,:,2)-p_os%p_prog(nold(1))%tracer(:,1,:,2)
+        CALL dbg_print('UpdSfc: Sal.-difference'   ,z_c2                    ,str_module,idt_src)
+        z_c2(:,:) = p_sfc_flx%forc_tracer(:,:,2)
+        CALL dbg_print('UpdSfc: S-forc-trac [Km/s]',z_c2                    ,str_module,idt_src)
       !---------------------------------------------------------------------
 
     ENDIF  !  irelax_2d_S >=1  salinity relaxation
