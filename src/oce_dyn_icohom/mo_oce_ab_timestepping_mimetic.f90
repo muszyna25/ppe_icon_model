@@ -1082,7 +1082,7 @@ INTEGER :: i_dolic_c,i_dolic_e
 REAL(wp) :: gdt2, delta_z
 REAL(wp) :: z_e2D(nproma,p_patch_3D%p_patch_2D(1)%nblks_e)
 REAL(wp) :: z_e(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
-REAL(wp) :: div_z_depth_int_c(nproma,p_patch_3D%p_patch_2D(1)%nblks_e)
+REAL(wp) :: div_z_depth_int_c(nproma,p_patch_3D%p_patch_2D(1)%nblks_c)
 !REAL(wp) :: div_z_c_2D(nproma,p_patch_3D%p_patch_2D(1)%nblks_c)
 REAL(wp) :: div_z_c(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)
 REAL(wp) :: z_vn_ab(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
