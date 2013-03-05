@@ -59,7 +59,6 @@ MODULE mo_nh_interface_nwp
  ! USE mo_timer,              ONLY: timer_physics, timer_start, timer_stop, &
   USE mo_timer 
   USE mo_exception,          ONLY: message, message_text !, finish
-  USE mo_math_constants,     ONLY: dbl_eps
   USE mo_impl_constants,     ONLY: itconv, itccov, itrad, itgscp,         &
     &                              itsatad, itupdate, itturb, itsfc, itradheat, &
     &                              itsso, itgwd, itfastphy, icc,          &
@@ -126,8 +125,8 @@ CONTAINS
   !
   !-----------------------------------------------------------------------
   !
-  SUBROUTINE nwp_nh_interface(lcall_phy_jg, lredgrid, dt_loc,      & !input
-                            & dtadv_loc, dt_phy_jg,                & !input
+  SUBROUTINE nwp_nh_interface(lcall_phy_jg, linit, lredgrid,       & !input
+                            & dt_loc, dtadv_loc, dt_phy_jg,        & !input
                             & p_sim_time, datetime,                & !input
                             & pt_patch, pt_int_state, p_metrics,   & !input
                             & pt_par_patch, pt_par_int_state,      & !input
@@ -146,6 +145,8 @@ CONTAINS
 
     LOGICAL, INTENT(IN)          ::   &             !< physics package time control (switches)
          &                          lcall_phy_jg(:) !< for domain jg
+    LOGICAL, INTENT(IN)          :: linit           !< .TRUE. if initialization call (this switch is currently used
+                                                    !  to call turbtran in addition to the slow-physics routines
     LOGICAL, INTENT(IN)          :: lredgrid        !< use reduced grid for radiation
     REAL(wp),INTENT(in)          :: dt_loc          !< time step applicable to local grid level
     REAL(wp),INTENT(in)          :: dtadv_loc       !< same for advective time step
@@ -282,8 +283,8 @@ CONTAINS
     
     ENDIF
 
-    IF ( lcall_phy_jg(itturb) .OR. lcall_phy_jg(itconv) .OR. &
-         lcall_phy_jg(itsso)  .OR. lcall_phy_jg(itgwd) ) THEN
+    IF ( lcall_phy_jg(itturb) .OR. lcall_phy_jg(itconv) .OR.           &
+         lcall_phy_jg(itsso)  .OR. lcall_phy_jg(itgwd) .OR. linit ) THEN
     
       !-------------------------------------------------------------------------
       !>
@@ -314,7 +315,7 @@ CONTAINS
 
     ENDIF ! diagnose u/v
 
-    IF (l_any_fastphys) THEN
+    IF (l_any_fastphys .OR. linit) THEN
 
       ! Diagnose temperature if any of the fast physics schemes is called
       CALL diagnose_pres_temp (p_metrics, pt_prog, pt_prog_rcf,    &
@@ -484,26 +485,24 @@ CONTAINS
     ENDIF
 
 
-    ! By checking p_sim_time>dbl_eps, we make sure that turbdiff is skipped at the 
-    ! initialization step and that only turbtran is called.
-    IF ( lcall_phy_jg(itturb) .AND. p_sim_time>dbl_eps ) THEN
+    IF ( lcall_phy_jg(itturb) .AND. atm_phy_nwp_config(jg)%inwp_turb <= 2 ) THEN
 
+      ! Turbulence schemes not including the call to the surface scheme
       IF (timers_level > 1) CALL timer_start(timer_nwp_turbulence)
-      IF ( atm_phy_nwp_config(jg)%inwp_turb <= 2 ) THEN
-        ! Turbulence schemes not including the call to the surface scheme
-        !
-        ! compute turbulent diffusion (atmospheric column)
-        CALL nwp_turbdiff   (  dt_phy_jg(itfastphy),              & !>in
-                              & pt_patch, p_metrics,              & !>in
-                              & ext_data,                         & !>in
-                              & pt_prog,                          & !>in
-                              & pt_prog_now_rcf, pt_prog_rcf,     & !>in/inout
-                              & pt_diag ,                         & !>inout
-                              & prm_diag,prm_nwp_tend,            & !>inout
-                              & wtr_prog_now,                     & !>in
-                              & lnd_prog_now,                     & !>in 
-                              & lnd_diag                          ) !>in
-      ENDIF
+
+      !
+      ! compute turbulent diffusion (atmospheric column)
+      CALL nwp_turbdiff   (  dt_phy_jg(itfastphy),              & !>in
+                            & pt_patch, p_metrics,              & !>in
+                            & ext_data,                         & !>in
+                            & pt_prog,                          & !>in
+                            & pt_prog_now_rcf, pt_prog_rcf,     & !>in/inout
+                            & pt_diag ,                         & !>inout
+                            & prm_diag,prm_nwp_tend,            & !>inout
+                            & wtr_prog_now,                     & !>in
+                            & lnd_prog_now,                     & !>in 
+                            & lnd_diag                          ) !>in
+
       IF (timers_level > 1) CALL timer_stop(timer_nwp_turbulence)
     ENDIF !lcall(itturb)
 
@@ -626,38 +625,37 @@ CONTAINS
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
+    ENDIF ! end of fast physics part
 
-      ! re-diagnose pressure (needed by turbtran)
+    IF (lcall_phy_jg(itturb) .OR. linit .OR. l_any_slowphys) THEN
+      ! re-diagnose pressure
       CALL diagnose_pres_temp (p_metrics, pt_prog, pt_prog_rcf,   &
         &                      pt_diag, pt_patch,                 &
         &                      opt_calc_temp     = .FALSE.,       &
         &                      opt_calc_pres     = .TRUE.,        &
         &                      opt_rlend         = min_rlcell_int )
+    ENDIF
 
 
-      IF (  lcall_phy_jg(itturb) .AND. atm_phy_nwp_config(jg)%inwp_turb <= 2 ) THEN
-        IF (timers_level > 1) CALL timer_start(timer_nwp_turbulence)
+    IF (  (lcall_phy_jg(itturb) .OR. linit) .AND. atm_phy_nwp_config(jg)%inwp_turb <= 2 ) THEN
+      IF (timers_level > 1) CALL timer_start(timer_nwp_turbulence)
 
-        ! compute turbulent transfer coefficients (atmosphere-surface interface)
-        CALL nwp_turbtrans  ( dt_phy_jg(itfastphy),              & !>in
-                            & pt_patch, p_metrics,              & !>in
-                            & ext_data,                         & !>in
-                            & pt_prog,                          & !>inout
-                            & pt_prog_rcf,                      & !>inout
-                            & pt_diag ,                         & !>inout
-                            & prm_diag,                         & !>inout
-                            & wtr_prog_new,                     & !>in
-                            & lnd_prog_new,                     & !>inout 
-                            & lnd_diag                          ) !>inout
+      ! compute turbulent transfer coefficients (atmosphere-surface interface)
+      CALL nwp_turbtrans  ( dt_phy_jg(itfastphy),              & !>in
+                          & pt_patch, p_metrics,              & !>in
+                          & ext_data,                         & !>in
+                          & pt_prog,                          & !>inout
+                          & pt_prog_rcf,                      & !>inout
+                          & pt_diag ,                         & !>inout
+                          & prm_diag,                         & !>inout
+                          & wtr_prog_new,                     & !>in
+                          & lnd_prog_new,                     & !>inout 
+                          & lnd_diag                          ) !>inout
   
-        IF (timers_level > 1) CALL timer_stop(timer_nwp_turbulence)
-      ENDIF !lcall(itturb)
+      IF (timers_level > 1) CALL timer_stop(timer_nwp_turbulence)
+    ENDIF !lcall(itturb)
 
-
-      IF (timers_level > 1) CALL timer_stop(timer_fast_phys)
-   
-    ENDIF ! end of fast physics part
-
+    IF (timers_level > 1) CALL timer_stop(timer_fast_phys)
 
 
     !!-------------------------------------------------------------------------

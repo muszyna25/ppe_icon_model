@@ -1152,7 +1152,7 @@ MODULE mo_nh_stepping
 
           !> moist tracer update is now synchronized with advection and satad
 
-          CALL nwp_nh_interface(lcall_phy(jg,:),                   & !in
+          CALL nwp_nh_interface(lcall_phy(jg,:), .FALSE.,          & !in
             &                  lredgrid_phys(jg),                  & !in
             &                  dt_loc,                             & !in
             &                  dtadv_loc,                          & !in
@@ -1477,7 +1477,7 @@ MODULE mo_nh_stepping
       CALL message(TRIM(routine), TRIM(message_text))
     ENDIF
 
-    CALL nwp_nh_interface(lcall_phy(jg,:),                   & !in
+    CALL nwp_nh_interface(lcall_phy(jg,:), .TRUE.,           & !in
       &                  lredgrid_phys(jg),                  & !in
       &                  dt_loc,                             & !in
       &                  dtadv_loc,                          & !in
@@ -1747,13 +1747,9 @@ MODULE mo_nh_stepping
     ! dynamics step
     IF (linit) THEN
 
-      ! Initialize lcall_phy with .false. Only slow physics and turbtran will 
-      ! be set to .true. initially.
+      ! Initialize lcall_phy with .false. Only slow physics will be set to .true. initially;
+      ! turbulent transfer is called by specifying the initialization mode of the NWP interface
       lcall_phy(jg,:)  = .FALSE.
-
-      ! fast physics (turbulent transfer, only)
-      IF ( atm_phy_nwp_config(jg)%lproc_on(itturb) ) lcall_phy(jg,itturb) = .TRUE.
-
 
       ! slow physics
       IF ( atm_phy_nwp_config(jg)%lproc_on(itconv) ) lcall_phy(jg,itconv) = .TRUE.
