@@ -79,6 +79,9 @@ PUBLIC  :: calc_density_lin_EOS_func
 PRIVATE :: calc_density_JMDWFG06_EOS
 PUBLIC  :: calc_density_JMDWFG06_EOS_func
 PUBLIC  :: calc_density_MPIOM_func
+PUBLIC  :: calc_density_MPIOM_elemental_1d
+PUBLIC  :: calc_density_MPIOM_elemental_2d
+PUBLIC  :: calc_density_MPIOM_elemental
 PRIVATE :: calc_density_MPIOM
 PRIVATE :: convert_insitu2pot_temp
 PUBLIC  :: convert_insitu2pot_temp_func
@@ -846,6 +849,60 @@ FUNCTION calc_density_MPIOM_func(tpot, sal, p) RESULT(rho)
     rho = rho/denom
 
   END FUNCTION calc_density_MPIOM_func
+
+  FUNCTION calc_density_MPIOM_elemental_1d(tpot,sal,p) RESULT(rho)
+    REAL(wp), INTENT(in) :: tpot, sal, p
+    REAL(wp)             :: rho
+    
+    rho = calc_density_MPIOM_elemental(tpot,sal,p)
+  END FUNCTION calc_density_MPIOM_elemental_1d
+
+  FUNCTION calc_density_MPIOM_elemental_2d(p_patch_3D,tpot,sal,p) RESULT(rho)
+    TYPE(t_patch_3D ),TARGET, INTENT(IN) :: p_patch_3D
+    REAL(wp), INTENT(in)  :: tpot(1:nproma,1:n_zlev, p_patch_3D%p_patch_2D(1)%nblks_c)
+    REAL(wp), INTENT(in)  :: sal(1:nproma,1:n_zlev, p_patch_3D%p_patch_2D(1)%nblks_c)
+    REAL(wp), INTENT(in)  :: p(1:nproma,1:n_zlev, p_patch_3D%p_patch_2D(1)%nblks_c)
+    REAL(wp)              :: rho(1:nproma,1:n_zlev, p_patch_3D%p_patch_2D(1)%nblks_c)
+    
+    rho = calc_density_MPIOM_elemental(tpot,sal,p)
+  END FUNCTION calc_density_MPIOM_elemental_2d
+
+  ELEMENTAL FUNCTION calc_density_MPIOM_elemental(tpot, sal, p) RESULT(rho)
+    REAL(wp), INTENT(in) :: tpot, sal, p
+    REAL(wp)             :: rho
+
+    REAL(wp) :: dvs, fne, fst, qn3, qnq, qvs, s, s3h, t, denom
+    REAL(wp), PARAMETER :: z_sref = 35.0_wp
+
+
+    !This is the adisit part, that transforms potential in in-situ temperature
+    qnq = -p * (-a_a3 + p * a_c3)
+    qn3 = -p * a_a4
+    qvs = (p * (a_b1 - a_d * p))*(sal - z_sref) + p * (a_a1 + p * (a_c1 - a_e1 * p))
+    dvs = (a_b2 * p)*(sal - z_sref) + 1.0_wp + p * (-a_a2 + p * (a_c2 - a_e2 * p))
+    t   = (tpot + qvs)/dvs
+    fne = - qvs + t*(dvs + t*(qnq + t*qn3)) - tpot
+    fst = dvs + t*(2._wp*qnq + 3._wp*qn3*t)
+    t   = t - fne/fst
+    s   = MAX(sal, 0.0_wp)
+    s3h = SQRT(s**3)
+
+    rho = r_a0 + t * (r_a1 + t * (r_a2 + t * (r_a3 + t * (r_a4 + t * r_a5))))&
+         & + s * (r_b0 + t * (r_b1 + t * (r_b2 + t * (r_b3 + t * r_b4))))    &
+         & + r_d0 * s**2                                                     &
+         & + s3h * (r_c0 + t * (r_c1 + r_c2 * t))
+    denom = 1._wp                                                            &
+         &  - p / (p * (r_h0 + t * (r_h1 + t * (r_h2 + t * r_h3))            &
+         &              + s * (r_ai0 + t * (r_ai1 + r_ai2 * t))              &
+         &              + r_aj0 * s3h                                        &
+         &              + (r_ak0 + t * (r_ak1 + t * r_ak2)                   &
+         &              + s * (r_am0 + t * (r_am1 + t * r_am2))) * p)        &
+         &         + r_e0 + t * (r_e1 + t * (r_e2 + t * (r_e3 + t * r_e4)))  &
+         &         + s * (r_f0 + t * (r_f1 + t * (r_f2 + t * r_f3)))         &
+         &         + s3h * (r_g0 + t * (r_g1 + r_g2 * t)))
+    rho = rho/denom
+
+  END FUNCTION calc_density_MPIOM_elemental
   !-------------------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------------------

@@ -185,6 +185,7 @@ MODULE mo_ocean_nml
                                                 
   INTEGER :: EOS_TYPE               = 2          ! 1=linear EOS,2=(nonlinear, from MPIOM)
                                                  ! 3=nonlinear Jacket-McDoudgall-formulation (not yet recommended)
+  INTEGER :: density_computation    = 1          ! 1 = calc_density_MPIOM_func,2 = calc_density_MPIOM_elemental, 3 = calc_density_MPIOM_elemental_wrap
   INTEGER :: no_tracer              = 2          ! number of tracers 
                                                 
   ! more ocean parameters, not yet well placed
@@ -287,7 +288,8 @@ MODULE mo_ocean_nml
  
 
 
-  NAMELIST/ocean_physics_nml/EOS_TYPE, no_tracer, HORZ_VELOC_DIFF_TYPE,    &
+  NAMELIST/ocean_physics_nml/EOS_TYPE, density_computation,                &
+    &                 no_tracer, HORZ_VELOC_DIFF_TYPE,                     &
     &                 k_veloc_h, k_veloc_v,  k_pot_temp_h, k_pot_temp_v,   &
     &                 k_sal_h, k_sal_v,                                    &
     &                 MAX_VERT_DIFF_VELOC, MAX_VERT_DIFF_TRAC,             &

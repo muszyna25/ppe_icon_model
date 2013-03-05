@@ -53,7 +53,7 @@ USE mo_grid_config,            ONLY: n_dom
 USE mo_sync,                   ONLY: sync_e, sync_c, sync_v, sync_patch_array
 USE mo_ocean_nml,              ONLY: iswm_oce, n_zlev, no_tracer, &
   &                                  itestcase_oce, idiag_oce, init_oce_prog, init_oce_relax, &
-  &                                  EOS_type, i_sea_ice, l_staggered_timestep
+  &                                  EOS_TYPE, i_sea_ice, l_staggered_timestep
 USE mo_dynamics_config,        ONLY: nold, nnew
 USE mo_io_config,              ONLY: out_expname, istime4newoutputfile, n_files,&
   &                                  is_checkpoint_time, n_checkpoints, is_output_time
@@ -258,16 +258,15 @@ CONTAINS
       IF (ltimer) CALL timer_start(timer_upd_phys)
 
       SELECT CASE (EOS_TYPE)
-       CASE(1)
-         CALL update_ho_params(p_patch_3D, p_os(jg), p_sfc_flx, p_phys_param,&
-           &                   calc_density_lin_EOS_func)
- 
-       CASE(2)
-         CALL update_ho_params(p_patch_3D, p_os(jg), p_sfc_flx, p_phys_param,&
-           &                   calc_density_MPIOM_func)
-       CASE(3)
-         CALL update_ho_params(p_patch_3D,p_os(jg), p_sfc_flx, p_phys_param,&
-           &                   calc_density_JMDWFG06_EOS_func)
+        CASE(1)
+          CALL update_ho_params(p_patch_3D, p_os(jg), p_sfc_flx, p_phys_param,&
+            &                   calc_density_lin_EOS_func)
+        CASE(2)
+          CALL update_ho_params(p_patch_3D, p_os(jg), p_sfc_flx, p_phys_param,&
+            &                   calc_density_MPIOM_func)
+        CASE(3)
+          CALL update_ho_params(p_patch_3D,p_os(jg), p_sfc_flx, p_phys_param,&
+            &                   calc_density_JMDWFG06_EOS_func)
       CASE DEFAULT
       END SELECT
       IF (ltimer) CALL timer_stop(timer_upd_phys)
