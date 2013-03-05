@@ -52,7 +52,7 @@ USE mo_parallel_config,           ONLY: nproma, l_fast_sum
 USE mo_math_utilities,            ONLY: t_cartesian_coordinates
 USE mo_sync,                      ONLY: sync_e, sync_c, sync_patch_array
 !USE mo_mpi,                       ONLY: my_process_is_mpi_parallel
-USE mo_impl_constants,            ONLY: sea_boundary,sea,                                 &
+USE mo_impl_constants,            ONLY: sea_boundary, &  !  sea,                          &
 ! &                                     min_rlcell, min_rledge, min_rlcell,               &
   &                                     max_char_length, MIN_DOLIC
 USE mo_dbg_nml,                   ONLY: idbg_mxmn
@@ -60,7 +60,6 @@ USE mo_ocean_nml,                 ONLY: n_zlev, solver_tolerance, l_inverse_flip
   &                                     ab_const, ab_beta, ab_gam, iswm_oce,              &
   &                                     expl_vertical_velocity_diff, iforc_oce,           &
   &                                     no_tracer, l_RIGID_LID, l_edge_based,             &
-  &                                     FLUX_CALCULATION_HORZ, MIMETIC,CENTRAL,UPWIND,    &
   &                                     use_absolute_solver_tolerance, solver_start_tolerance, &
   &                                     solver_tolerance_decrease_ratio,                  &
   &                                     solver_max_restart_iterations,                    &
@@ -83,9 +82,8 @@ USE mo_oce_boundcond,             ONLY: bot_bound_cond_horz_veloc, top_bound_con
 USE mo_oce_thermodyn,             ONLY: calc_density, calc_internal_press
 USE mo_oce_physics,               ONLY: t_ho_params
 USE mo_sea_ice_types,             ONLY: t_sfc_flx
-USE mo_scalar_product,            ONLY: map_cell2edges_3D,map_edges2edges_viacell_3d,&
-  &                                     map_edges2cell_3D, calc_scalar_product_veloc_3D,&
-  &                                     nonlinear_coriolis_3d, nonlinear_coriolis_3d_old
+USE mo_scalar_product,            ONLY: map_cell2edges_3D, &  !map_edges2edges_viacell_3d,&
+  &                                     map_edges2cell_3D, calc_scalar_product_veloc_3D
 USE mo_oce_math_operators,        ONLY: div_oce_3D, grad_fd_norm_oce_3D,&
   &                                     grad_fd_norm_oce_2d_3D,  &
   &                                     height_related_quantities
@@ -168,7 +166,7 @@ SUBROUTINE solve_free_sfc_ab_mimetic(p_patch_3D, p_os, p_ext_data, p_sfc_flx, &
   INTEGER,PARAMETER :: nmax_iter   = 200      ! maximum number of iterations
   REAL(wp) :: tolerance =0.0_wp               ! (relative or absolute) tolerance
   INTEGER  :: n_iter                          ! actual number of iterations 
-  INTEGER  :: jc,jb,je,jk,il_v1,il_v2,ib_v1,ib_v2
+  INTEGER  :: jc,jb,je   ! ,jk,il_v1,il_v2,ib_v1,ib_v2
   INTEGER  :: i_startidx_c, i_endidx_c
   INTEGER  :: i_startidx_e, i_endidx_e
   REAL(wp) :: z_h_c(nproma,p_patch_3D%p_patch_2D(1)%nblks_c)
@@ -183,11 +181,11 @@ SUBROUTINE solve_free_sfc_ab_mimetic(p_patch_3D, p_os, p_ext_data, p_sfc_flx, &
   TYPE(t_subset_range), POINTER :: all_cells, all_edges
   TYPE(t_patch), POINTER :: patch_horz
 
-TYPE(t_cartesian_coordinates):: z_vn_c(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)
-REAL(wp)                     :: z_vn1 (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
-REAL(wp)                     :: z_vn2 (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
-REAL(wp)                     ::div_z_c(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)
-REAL(wp)                     ::trac_c(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)
+!TYPE(t_cartesian_coordinates):: z_vn_c(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)
+!REAL(wp)                     :: z_vn1 (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
+!REAL(wp)                     :: z_vn2 (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
+!REAL(wp)                     ::div_z_c(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)
+!REAL(wp)                     ::trac_c(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)
   !CHARACTER(len=max_char_length), PARAMETER :: &
   !       & routine = ('mo_oce_ab_timestepping_mimetic:solve_free_sfc_ab_mimetic')
   !-------------------------------------------------------------------------------
@@ -241,7 +239,8 @@ REAL(wp)                     ::trac_c(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nbl
 !       IF( z_vn1(je,1,jb)/=0.0_wp.OR.z_vn2(je,1,jb)/=0.0_wp)THEN
 !       !IF ( p_patch_3D%lsm_e(je,1,jb) <= sea_boundary ) THEN
 ! !write(123,*)'indices',je,jb,p_patch_3D%lsm_e(je,1,jb)
-!       write(123,*)'result 1',je,jb, z_vn1(je,1,jb),&!& z_vn_c(patch_horz%edges%cell_idx(je,jb,1),1,patch_horz%edges%cell_blk(je,jb,1))%x
+!       write(123,*)'result 1',je,jb, z_vn1(je,1,jb),&
+!& z_vn_c(patch_horz%edges%cell_idx(je,jb,1),1,patch_horz%edges%cell_blk(je,jb,1))%x
 ! &z_vn2(je,1,jb), abs(z_vn1(je,1,jb)-z_vn2(je,1,jb)),&
 !       &p_patch_3D%lsm_e(je,1,jb)!,& !SUM(p_op_coeff%edge2edge_viacell_coeff(je,1,jb,:))
 !       ENDIF
@@ -543,19 +542,19 @@ REAL(wp),INTENT(in)                           :: thick_e(:,:)
 ! local variables
 REAL(wp) :: gdt2
 INTEGER :: i_startidx, i_endidx
-INTEGER :: jc, jb, je
-REAL(wp) :: z1,z2,z3
+INTEGER :: jc, jb  !, je
+!REAL(wp) :: z1,z2,z3
 INTEGER :: edge_1_idx, edge_1_blk, edge_2_idx, edge_2_blk, edge_3_idx, edge_3_blk
 REAL(wp) :: p_diag(nproma,p_patch_3D%p_patch_2D(1)%nblks_c)
-TYPE(t_subset_range), POINTER :: cells_in_domain, all_cells!, all_edges
+TYPE(t_subset_range), POINTER :: all_cells  !, cells_in_domain, all_edges
 TYPE(t_patch), POINTER :: patch     ! patch on which computation is performed
 !-----------------------------------------------------------------------  
 !CALL message (TRIM(routine), 'start - iteration by GMRES')
 patch =>  p_patch_3D%p_patch_2D(1)
 !write(*,*)'inside jacobi'
 write(*,*)'residual before',maxval(p_jp),minval(p_jp)!,maxvalp_jp),minval(p_jp)
-cells_in_domain => patch%cells%in_domain
 all_cells => patch%cells%all
+!cells_in_domain => patch%cells%in_domain
 !all_edges => patch%edges%all
 
 !p_jp(1:nproma,1:patch%nblks_c)  = 0.0_wp
@@ -1079,7 +1078,7 @@ INTEGER :: i_startidx_c, i_endidx_c
 INTEGER :: i_startidx_e, i_endidx_e
 INTEGER :: jc, jb, jk, je
 INTEGER :: i_dolic_c,i_dolic_e
-REAL(wp) :: gdt2, delta_z
+REAL(wp) :: gdt2    !, delta_z
 REAL(wp) :: z_e2D(nproma,p_patch_3D%p_patch_2D(1)%nblks_e)
 REAL(wp) :: z_e(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
 REAL(wp) :: div_z_depth_int_c(nproma,p_patch_3D%p_patch_2D(1)%nblks_c)
@@ -1942,8 +1941,8 @@ TYPE(t_hydro_ocean_state)         :: p_os
 TYPE(t_hydro_ocean_diag)          :: p_diag
 TYPE(t_operator_coeff),INTENT(IN) :: p_op_coeff
 REAL(wp),         INTENT(INOUT)   :: ph_e(:,:)  ! 
-REAL(wp),            INTENT(IN)   :: top_bc_w(nproma,p_patch_3D%p_patch_2D(1)%nblks_c)       ! bottom boundary condition for vertical velocity
-REAL(wp),            INTENT(IN)   :: bot_bc_w(nproma,p_patch_3D%p_patch_2D(1)%nblks_c)       ! bottom boundary condition for vertical velocity
+REAL(wp),            INTENT(IN)   :: top_bc_w(nproma,p_patch_3D%p_patch_2D(1)%nblks_c)       ! bottom BC for vertical velocity
+REAL(wp),            INTENT(IN)   :: bot_bc_w(nproma,p_patch_3D%p_patch_2D(1)%nblks_c)       ! bottom BC for vertical velocity
 REAL(wp),         INTENT(INOUT)   :: pw_c (nproma,n_zlev+1,p_patch_3D%p_patch_2D(1)%nblks_c) ! vertical velocity on cells
 !
 !
@@ -1951,12 +1950,12 @@ REAL(wp),         INTENT(INOUT)   :: pw_c (nproma,n_zlev+1,p_patch_3D%p_patch_2D
 INTEGER :: jc, jk, jb, je
 INTEGER :: z_dolic
 INTEGER :: i_startidx, i_endidx
-REAL(wp) :: delta_z
+!REAL(wp) :: delta_z
 REAL(wp) :: div_depth_int(nproma,p_patch_3D%p_patch_2D(1)%nblks_c)
 REAL(wp) :: z_vn_2D(nproma,p_patch_3D%p_patch_2D(1)%nblks_e)
 REAL(wp) :: z_vn_e(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
-REAL(wp) :: z_grad_h(nproma,1,p_patch_3D%p_patch_2D(1)%nblks_e)
-INTEGER, DIMENSION(:,:,:), POINTER :: iilc,iibc
+!REAL(wp) :: z_grad_h(nproma,1,p_patch_3D%p_patch_2D(1)%nblks_e)
+!INTEGER, DIMENSION(:,:,:), POINTER :: iilc,iibc
 TYPE(t_cartesian_coordinates):: z_vn_c (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)
 TYPE(t_subset_range), POINTER :: cells_in_domain, edges_in_domain
 TYPE(t_patch), POINTER :: patch
@@ -2173,8 +2172,8 @@ REAL(wp),         INTENT(INOUT)   :: pw_c (nproma,n_zlev+1,p_patch_3D%p_patch_2D
 INTEGER :: jc, jk, jb, je
 INTEGER :: z_dolic
 INTEGER :: i_startidx, i_endidx
-INTEGER, DIMENSION(:,:,:), POINTER :: iilc,iibc 
-REAL(wp) :: delta_z
+!INTEGER, DIMENSION(:,:,:), POINTER :: iilc,iibc 
+!REAL(wp) :: delta_z
 REAL(wp) :: z_vn_2D                   (nproma,p_patch_3D%p_patch_2D(1)%nblks_e)
 TYPE(t_cartesian_coordinates):: z_vn_c(nproma, n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)
 TYPE(t_subset_range), POINTER:: cells_in_domain, edges_in_domain
@@ -2398,9 +2397,9 @@ FUNCTION inverse_primal_flip_flop(patch, p_patch_3D, p_op_coeff, rhs_e, h_e) res
    !LOGICAL  :: lverbose = .TRUE.
    !CHARACTER(len=MAX_CHAR_LENGTH) :: string
    REAL(wp) :: rhstemp(nproma,patch%nblks_e)
-   REAL(wp), ALLOCATABLE :: inv_flip_flop_e2(:,:)!(nproma,patch%nblks_e)
+!   REAL(wp), ALLOCATABLE :: inv_flip_flop_e2(:,:)!(nproma,patch%nblks_e)
    REAL(wp) :: z_e(nproma,n_zlev,patch%nblks_e)
-   TYPE(t_cartesian_coordinates) :: z_vn_cc(nproma,patch%nblks_c)
+!   TYPE(t_cartesian_coordinates) :: z_vn_cc(nproma,patch%nblks_c)
    INTEGER :: jk
    !INTEGER :: i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e
    !INTEGER :: rl_start_e, rl_end_e, je,jb
@@ -2482,7 +2481,7 @@ write(*,*)'sol', maxvaL(inv_flip_flop_e(:,jk,:)),minvaL(inv_flip_flop_e(:,jk,:))
     REAL(wp)                                      :: llhs(SIZE(x,1), SIZE(x,2))
 
     !local variables
-    REAL(wp) :: z_x_out(SIZE(x,1), SIZE(x,2))!(nproma,patch%nblks_e)
+!    REAL(wp) :: z_x_out(SIZE(x,1), SIZE(x,2))!(nproma,patch%nblks_e)
     TYPE(t_cartesian_coordinates) :: z_vn_cc(nproma,patch%nblks_c)
     !TYPE(t_subset_range), POINTER :: edges_in_domain
     !-----------------------------------------------------------------------
