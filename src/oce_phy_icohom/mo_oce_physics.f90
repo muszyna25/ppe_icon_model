@@ -595,12 +595,12 @@ write(*,*)'max-min coeff',z_diff_multfac, maxval(p_phys_param%K_veloc_h(:,1,:)),
     INTEGER  :: i_startidx_e, i_endidx_e
 
     ! local variables for using the ELEMENTAL implementation of density calculation
-    REAL(wp) :: z_rho_up_ary(nproma,p_patch_3D%p_patch_2D(1)%nblks_c)
-    REAL(wp) :: z_rho_down_ary(nproma,p_patch_3D%p_patch_2D(1)%nblks_c)
-    REAL(wp) :: z_stabio_ary(nproma,p_patch_3D%p_patch_2D(1)%nblks_c)
+    REAL(wp) :: z_rho_up_ary(nproma)
+    REAL(wp) :: z_rho_down_ary(nproma)
+    REAL(wp) :: z_stabio_ary(nproma)
     REAL(wp) :: z_shear_c_ary(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)
-    REAL(wp) :: z_s1_ary(nproma,p_patch_3D%p_patch_2D(1)%nblks_c)
-    REAL(wp) :: z_s2_ary(nproma,p_patch_3D%p_patch_2D(1)%nblks_c)
+    REAL(wp) :: z_s1_ary(nproma)
+    REAL(wp) :: z_s2_ary(nproma)
     REAL(wp) :: z_press_ary(n_zlev+1)
 
     REAL(wp) :: z_rho_up
@@ -688,18 +688,17 @@ write(*,*)'max-min coeff',z_diff_multfac, maxval(p_phys_param%K_veloc_h(:,1,:)),
           ENDDO
         ENDDO
 
-        !salinity at upper and lower cell
-        IF(no_tracer >= 2) THEN
-          DO jk = 2, n_zlev!p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)
-            z_s1_ary = p_os%p_prog(nold(1))%tracer(:,jk-1,:,2)
-            z_s2_ary = p_os%p_prog(nold(1))%tracer(:,jk,  :,2) !TODO: this is the current cell, not the lower one!
-          ENDDO
-        ENDIF
+        DO jb = all_cells%start_block, all_cells%end_block
         DO jk = 2, n_zlev!p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)
+          !salinity at upper and lower cell
+          IF(no_tracer >= 2) THEN
+            z_s1_ary = p_os%p_prog(nold(1))%tracer(:,jk-1,jb,2)
+            z_s2_ary = p_os%p_prog(nold(1))%tracer(:,jk,  jb,2) !TODO: this is the current cell, not the lower one!
+          ENDIF
 
           !density of upper and lower cell w.r.t.to pressure at intermediate level
-          z_rho_up_ary   = calc_density_MPIOM_elemental(p_os%p_prog(nold(1))%tracer(:,jk-1,:,1), z_s1_ary, z_press_ary(jk))
-          z_rho_down_ary = calc_density_MPIOM_elemental(p_os%p_prog(nold(1))%tracer(:,jk,  :,1), z_s2_ary, z_press_ary(jk))
+          z_rho_up_ary   = calc_density_MPIOM_elemental(p_os%p_prog(nold(1))%tracer(:,jk-1,jb,1), z_s1_ary, z_press_ary(jk))
+          z_rho_down_ary = calc_density_MPIOM_elemental(p_os%p_prog(nold(1))%tracer(:,jk,  jb,1), z_s2_ary, z_press_ary(jk))
 
           ! comments from MPIOM
           !! calculate vertical density stabio gradient between upper and lower box
@@ -713,9 +712,10 @@ write(*,*)'max-min coeff',z_diff_multfac, maxval(p_phys_param%K_veloc_h(:,1,:)),
           ! #slo# - think once more about 0.5, and this line in mo_convection of MPIOM:
           ! rhoo(:, j, k-1) = 0.5_wp * (rhoo(:, j, k-1) + rhuppo(:))
 
-          z_vert_density_grad_c(:,jk,:) = dbl_eps + z_stabio_ary
+          z_vert_density_grad_c(:,jk,jb) = dbl_eps + z_stabio_ary
 
-          z_Ri_c(:,jk,:)=p_patch_3D%p_patch_1D(1)%zlev_i(jk)*z_grav_rho*z_vert_density_grad_c(:,jk,:)/z_shear_c_ary(:,jk,:)
+          z_Ri_c(:,jk,jb)=p_patch_3D%p_patch_1D(1)%zlev_i(jk)*z_grav_rho*z_vert_density_grad_c(:,jk,jb)/z_shear_c_ary(:,jk,jb)
+         END DO
          END DO
        CASE DEFAULT
          DO jb = all_cells%start_block, all_cells%end_block
