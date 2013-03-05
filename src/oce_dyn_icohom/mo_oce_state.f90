@@ -1839,7 +1839,7 @@ CONTAINS
 
       !  - blocks and indices of dbg_print are used, i.e. location of the step
       !    can be controled by dbg_lat/lon_in of namelist dbg_index_nml
-      !  - Attention: lsm for level 1 and 2 is set by gridgen, therefore minimum depth
+      !  - Attention: lsm for level 1 and 2 is set by gridgenerator, therefore minimum depth
       !    must be greater than zlev_i(3)
       !  - Attention: when running in parallel there might be steps as much as mpi-processes
       !    or even errors - use in serial mode only
@@ -3458,6 +3458,23 @@ END SUBROUTINE complete_patchinfo_oce
     IF (ist /= SUCCESS) THEN
       CALL finish (routine,'allocating regio_c failed')
     ENDIF
+    ! 2-dim bottom and column thickness
+    ALLOCATE(p_patch_3D%bottom_thick_c(nproma,nblks_c),STAT=ist)
+    IF (ist /= SUCCESS) THEN
+      CALL finish (routine,'allocating bottom_thick_c failed')
+    ENDIF
+    ALLOCATE(p_patch_3D%bottom_thick_e(nproma,nblks_e),STAT=ist)
+    IF (ist /= SUCCESS) THEN
+      CALL finish (routine,'allocating bottom_thick_e failed')
+    ENDIF
+    ALLOCATE(p_patch_3D%column_thick_c(nproma,nblks_c),STAT=ist)
+    IF (ist /= SUCCESS) THEN
+      CALL finish (routine,'allocating column_thick_c failed')
+    ENDIF
+    ALLOCATE(p_patch_3D%column_thick_e(nproma,nblks_e),STAT=ist)
+    IF (ist /= SUCCESS) THEN
+      CALL finish (routine,'allocating column_thick_e failed')
+    ENDIF
     ! 3-dim real land-sea-mask
     ! cells
     ALLOCATE(p_patch_3D%wet_c(nproma,n_zlev,nblks_c),STAT=ist)
@@ -3490,6 +3507,11 @@ END SUBROUTINE complete_patchinfo_oce
 
     p_patch_3D%rbasin_c = 0.0_wp
     p_patch_3D%rregio_c = 0.0_wp
+
+    p_patch_3D%bottom_thick_c = 0.0_wp
+    p_patch_3D%bottom_thick_e = 0.0_wp
+    p_patch_3D%column_thick_c = 0.0_wp
+    p_patch_3D%column_thick_e = 0.0_wp
 
    ALLOCATE(p_patch_3D%p_patch_1D(1)%prism_thick_c(nproma,n_zlev,nblks_c),STAT=ist)
     IF (ist /= SUCCESS) THEN
@@ -3716,37 +3738,16 @@ END SUBROUTINE complete_patchinfo_oce
     p_patch_3D%p_patch_1D(1)%dolic_c = v_base%dolic_c
     p_patch_3D%p_patch_1D(1)%dolic_e = v_base%dolic_e
 
-   !  prepare for partial cells
-   !    DO jb = all_cells%start_block, all_cells%end_block
-   !      CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
-   !      DO jc = i_startidx, i_endidx
-   !   
-   !        IF (p_ext_data%oce%bathymetry_c(jc,jb) <= -v_base%zlev_m(jk)) THEN
-   !          v_base%lsm_c(jc,jk,jb) = SEA
-   !          v_base%dolic_c(jc,jb)  = jk
-   !        ELSE
-   !          v_base%lsm_c(jc,jk,jb) = LAND
-   !        END IF
-   !   
-   !      END DO
-   !    END DO
-
     DO jb = all_cells%start_block, all_cells%end_block
       CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
       DO jc = i_startidx_c, i_endidx_c
+
         DO jk=1,n_zlev
           IF ( v_base%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
 
             p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,jk,jb) = v_base%del_zlev_m(jk)
             p_patch_3D%p_patch_1D(1)%prism_thick_c(jc,jk,jb)          = v_base%del_zlev_m(jk)
             p_patch_3D%p_patch_1D(1)%prism_center_dist_c(jc,jk,jb)    = v_base%del_zlev_i(jk)
-
-            ! preliminary partial cells conform with l_max_bottom=false only
-            IF (l_partial_cells .AND. jk == v_base%dolic_c(jc,jb)) THEN
-              p_patch_3D%p_patch_1D(1)%prism_thick_c(jc,jk,jb) = -p_ext_data%oce%bathymetry_c(jc,jb)-v_base%zlev_i(jk)
-              p_patch_3D%p_patch_1D(1)%prism_center_dist_c(jc,jk,jb) = 0.5_wp* &
-                & (v_base%del_zlev_m(jk-1) + p_patch_3D%p_patch_1D(1)%prism_thick_c(jc,jk,jb))
-            ENDIF
 
             p_patch_3D%p_patch_1D(1)%inv_prism_thick_c(jc,jk,jb)      = 1.0_wp/v_base%del_zlev_m(jk)
             p_patch_3D%p_patch_1D(1)%inv_prism_center_dist_c(jc,jk,jb)= 1.0_wp/v_base%del_zlev_i(jk)
@@ -3762,6 +3763,29 @@ END SUBROUTINE complete_patchinfo_oce
 
           ENDIF
         END DO
+
+        jk = v_base%dolic_c(jc,jb)
+        IF (jk >= min_dolic) THEN
+          p_patch_3D%bottom_thick_c(jc,jb) = p_patch_3D%p_patch_1D(1)%prism_thick_c(jc,jk,jb)
+          p_patch_3D%column_thick_c(jc,jb) = v_base%zlev_i(jk+1)   !  lower bound is below dolic_c
+         
+          ! preliminary partial cells conform with l_max_bottom=false only
+          IF (l_partial_cells) THEN
+         
+            p_patch_3D%p_patch_1D(1)%prism_thick_c(jc,jk,jb) = -p_ext_data%oce%bathymetry_c(jc,jb)-v_base%zlev_i(jk)
+            p_patch_3D%p_patch_1D(1)%prism_center_dist_c(jc,jk,jb) = 0.5_wp* &
+              & (v_base%del_zlev_m(jk-1) + p_patch_3D%p_patch_1D(1)%prism_thick_c(jc,jk,jb))
+            p_patch_3D%p_patch_1D(1)%inv_prism_thick_c(jc,jk,jb)      = &
+              &  1.0_wp/p_patch_3D%p_patch_1D(1)%prism_thick_c(jc,jk,jb)
+            p_patch_3D%p_patch_1D(1)%inv_prism_center_dist_c(jc,jk,jb)= &
+              &  1.0_wp/p_patch_3D%p_patch_1D(1)%prism_center_dist_c(jc,jk,jb)
+         
+            ! bottom and column depth for output
+            p_patch_3D%bottom_thick_c(jc,jb) = p_patch_3D%p_patch_1D(1)%prism_thick_c(jc,jk,jb)
+            p_patch_3D%column_thick_c(jc,jb) = v_base%zlev_i(jk) + p_patch_3D%bottom_thick_c(jc,jb)
+         
+          ENDIF ! l_partial_cells
+        ENDIF ! jk>=min_dolic
       END DO
     END DO
 
@@ -3786,21 +3810,49 @@ END SUBROUTINE complete_patchinfo_oce
     DO jb = all_edges%start_block, all_edges%end_block
       CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
       DO je = i_startidx_e, i_endidx_e
+
         DO jk=1,n_zlev
           IF ( v_base%lsm_e(je,jk,jb) <= sea_boundary ) THEN
+
             p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_e(je,jk,jb) = v_base%del_zlev_m(jk)
             p_patch_3D%p_patch_1D(1)%prism_thick_e(je,jk,jb)          = v_base%del_zlev_m(jk)
 
             p_patch_3D%p_patch_1D(1)%inv_prism_thick_e(je,jk,jb)      = 1.0_wp/v_base%del_zlev_m(jk)
             p_patch_3D%p_patch_1D(1)%inv_prism_center_dist_e(je,jk,jb)= 1.0_wp/v_base%del_zlev_i(jk)
+
           ELSE
+
             p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_e(je,jk,jb) = 0.0_wp
             p_patch_3D%p_patch_1D(1)%prism_thick_e(je,jk,jb)          = 0.0_wp
 
             p_patch_3D%p_patch_1D(1)%inv_prism_thick_e(je,jk,jb)      = 0.0_wp
             p_patch_3D%p_patch_1D(1)%inv_prism_center_dist_e(je,jk,jb)= 0.0_wp
+
           ENDIF
         END DO
+
+        jk = v_base%dolic_e(je,jb)
+        IF (jk >= min_dolic) THEN
+          p_patch_3D%bottom_thick_e(je,jb) = p_patch_3D%p_patch_1D(1)%prism_thick_e(je,jk,jb)
+          p_patch_3D%column_thick_e(je,jb) = v_base%zlev_i(jk+1)   !  lower bound is below dolic_e
+         
+          IF (l_partial_cells) THEN
+         
+            p_patch_3D%p_patch_1D(1)%prism_thick_e(je,jk,jb) = -p_ext_data%oce%bathymetry_e(je,jb)-v_base%zlev_i(jk)
+            ! no matching prims_center_dist_e ?
+      !     p_patch_3D%p_patch_1D(1)%prism_center_dist_e(je,jk,jb) = 0.5_wp* &
+      !       & (v_base%del_zlev_m(jk-1) + p_patch_3D%p_patch_1D(1)%prism_thick_e(je,jk,jb))
+            p_patch_3D%p_patch_1D(1)%inv_prism_thick_e(je,jk,jb)      = &
+              &  1.0_wp/p_patch_3D%p_patch_1D(1)%prism_thick_e(je,jk,jb)
+      !     p_patch_3D%p_patch_1D(1)%inv_prism_center_dist_e(je,jk,jb)= &
+      !       &  1.0_wp/p_patch_3D%p_patch_1D(1)%prism_center_dist_e(je,jk,jb)
+         
+            ! bottom and column depth for output
+            p_patch_3D%bottom_thick_e(je,jb) = p_patch_3D%p_patch_1D(1)%prism_thick_e(je,jk,jb)
+         
+          ENDIF ! l_partial_cells
+        ENDIF ! jk>=min_dolic
+
       END DO
     END DO
     !If column has not enough wet layers set all 4 depth-arrays to zero
