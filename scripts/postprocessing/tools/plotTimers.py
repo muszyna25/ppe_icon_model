@@ -392,7 +392,6 @@ timersListNat=[
 ]
 #timer_totalcomm_index 11
 #timer_radcomm_index   12
-
 timer_total_index=0
 timer_exchdata_index=5
 timer_nhsolveexch_index=6
@@ -400,23 +399,19 @@ timer_iconcomm_index=7
 timer_nwp_radiation_index=8
 timer_radiaton_comp_index=3
 
+timersCommunnication=[
+#" total",          #2
+" exch_data",      #3
+" exch_data.wait", #4
+" icon_comm_sync", #5
+" comm_wait"       #6
+]
 
-def blizzard_bechmarks_01_03_2013_scaling():
-
-  days_list=[6]*20
-  filePrefix="timer.atmo."
+def stdall_timers_statistics(folders_list, resolution, cores_list, days_list):
+  filePrefix="timer.atmo." # only needed for cores time distribution
   
-  resolution="20km"
-  icon_20km_folders_list=[
-  "nat-ape_6days_iconR2B07-grid_96levels.1decm_0-comm.61nodes.0radsplit.16nproma.1952procs",
-  "nat-ape_6days_iconR2B07-grid_96levels.1decm_0-comm.122nodes.0radsplit.16nproma.3904procs",
-  #"nat-ape_6days_iconR2B07-grid_96levels.1decm_0-comm.246nodes.0radsplit.21nproma.7872procs",
-  "nat-ape_6days_iconR2B07-grid_96levels.104decm_1-comm.246nodes.8radsplit.21nproma.7872procs"
-  ]
-  cores_list=[1952, 3904, 7872]
-
-  (minTimes, meanTimes, maxTimes)=processFolderList(icon_20km_folders_list, timersListNat, totalTimeIndex )
-  writeYearsPerDay(resolution, maxTimes, cores_list, days_list, 0)
+  (minTimes, meanTimes, maxTimes)=processFolderList(folders_list, timersListNat, totalTimeIndex )
+  writeYearsPerDay(resolution, maxTimes, cores_list, days_list, timer_total_index)
   writeParallelEfficency(resolution, maxTimes, timer_total_index, cores_list)
 
   timer_totalcomm_index=addTimers(meanTimes, timer_exchdata_index, timer_iconcomm_index)
@@ -424,53 +419,64 @@ def blizzard_bechmarks_01_03_2013_scaling():
   normTimeList=normalizeTimerList(meanTimes, timer_total_index)
   writeTimerList(resolution+"_normalizedCost", normTimeList, cores_list)
   
+  #(minTimes, meanTimes, maxTimes)=processFolderList(folders_list, timersCommunnication, totalTimeIndex )
+  #normTimeList=normalizeTimerList(meanTimes, timer_total_index)
+  #writeTimerList(resolution+"_communication_times", meanTimes, cores_list)
+  #writeTimerList(resolution+"_communication_normalizedCost", normTimeList, cores_list)
+  
+
+def blizzard_bechmarks_01_03_2013_scaling():
+
+  days_list=[6]*20
+
+  #---------------------------------------------------
+  resolution="20km"
+  folders_list=[
+  "nat-ape_6days_iconR2B07-grid_96levels.1decm_0-comm.61nodes.0radsplit.16nproma.1952procs",
+  "nat-ape_6days_iconR2B07-grid_96levels.1decm_0-comm.122nodes.0radsplit.16nproma.3904procs",
+  #"nat-ape_6days_iconR2B07-grid_96levels.1decm_0-comm.246nodes.0radsplit.21nproma.7872procs",
+  "nat-ape_6days_iconR2B07-grid_96levels.104decm_1-comm.246nodes.8radsplit.21nproma.7872procs"
+  ]
+  cores_list=[1952, 3904, 7872]
+  stdall_timers_statistics(folders_list, resolution, cores_list, days_list)
+  
+  #---------------------------------------------------
   resolution="40km"
-  icon_40km_folders_list=[
+  folders_list=[
   "nat-ape_6days_iconR2B06-grid_96levels.1decm_0-comm.61nodes.0radsplit.12nproma.1952procs",
   "nat-ape_6days_iconR2B06-grid_96levels.1decm_0-comm.122nodes.0radsplit.12nproma.3904procs",
   "nat-ape_6days_iconR2B06-grid_96levels.1decm_0-comm.246nodes.0radsplit.21nproma.7872procs"
   #"nat-ape_6days_iconR2B06-grid_96levels.104decm_103-comm.246nodes.6radsplit.21nproma.7872procs",
   #"nat-ape_6days_iconR2B06-grid_96levels.104decm_1-comm.246nodes.6radsplit.21nproma.7872procs"
   ]
-  cores_list=[1952, 3904, 7872 ]
+  cores_list=[1952, 3904, 7872]
+  stdall_timers_statistics(folders_list, resolution, cores_list, days_list)
 
-  (minTimes, meanTimes, maxTimes)=processFolderList(icon_40km_folders_list, timersListTotal, totalTimeIndex )
-  writeYearsPerDay(resolution, maxTimes, cores_list, days_list, 0)
-  writeParallelEfficency(resolution, maxTimes, timer_total_index, cores_list)
-
-
-
+  
+  #---------------------------------------------------
   resolution="26km"
-  icon_26km_folders_list=[
+  folders_list=[
   "nat-ape_6days_ico_0026km_hdec07682_dcells096_96levels.1decm_0-comm.61nodes.0radsplit.16nproma.1952procs",
   "nat-ape_6days_ico_0026km_hdec07682_dcells096_96levels.1decm_0-comm.122nodes.0radsplit.16nproma.3904procs",
-  "nat-ape_6days_ico_0026km_hdec07682_dcells096_96levels.1decm_0-comm.241nodes.0radsplit.24nproma.7712procs",
-  "nat-ape_6days_ico_0026km_hdec07682_dcells096_96levels.0decm_1-comm.241nodes.0radsplit.24nproma.7682procs",
-  "nat-ape_6days_ico_0026km_hdec07682_dcells096_96levels.0decm_1-comm.241nodes.8radsplit.24nproma.7682procs"
+  #"nat-ape_6days_ico_0026km_hdec07682_dcells096_96levels.1decm_0-comm.241nodes.0radsplit.24nproma.7712procs",
+  "nat-ape_6days_ico_0026km_hdec07682_dcells096_96levels.0decm_1-comm.241nodes.0radsplit.24nproma.7682procs"
+  #"nat-ape_6days_ico_0026km_hdec07682_dcells096_96levels.0decm_1-comm.241nodes.8radsplit.24nproma.7682procs"
   ]
-  cores_list=[1952, 3904, 7712, 7682, 7682 ]
+  cores_list=[1952, 3904, 7682]
+  stdall_timers_statistics(folders_list, resolution, cores_list, days_list)
 
-  (minTimes, meanTimes, maxTimes)=processFolderList(icon_26km_folders_list, timersListTotal, totalTimeIndex )
-  writeYearsPerDay(resolution, maxTimes, cores_list, days_list, 0)
-  writeParallelEfficency(resolution, maxTimes, timer_total_index, cores_list)
-
-
+  #---------------------------------------------------
   resolution="53km"
-  icon_53km_folders_list=[
+  folders_list=[
   "nat-ape_6days_ico_0053km_hdec07682_dcells024_96levels.1decm_0-comm.61nodes.0radsplit.16nproma.1952procs",
   "nat-ape_6days_ico_0053km_hdec07682_dcells024_96levels.1decm_0-comm.122nodes.0radsplit.16nproma.3904procs",
-  "nat-ape_6days_ico_0053km_hdec07682_dcells024_96levels.1decm_0-comm.241nodes.0radsplit.12nproma.7712procs",
-  "nat-ape_6days_ico_0053km_hdec07682_dcells024_96levels.0decm_103-comm.241nodes.4radsplit.12nproma.7682procs",
-  "nat-ape_6days_ico_0053km_hdec07682_dcells024_96levels.0decm_1-comm.241nodes.4radsplit.12nproma.7682procs",
+  #"nat-ape_6days_ico_0053km_hdec07682_dcells024_96levels.1decm_0-comm.241nodes.0radsplit.12nproma.7712procs",
+  #"nat-ape_6days_ico_0053km_hdec07682_dcells024_96levels.0decm_103-comm.241nodes.4radsplit.12nproma.7682procs",
+  #"nat-ape_6days_ico_0053km_hdec07682_dcells024_96levels.0decm_1-comm.241nodes.4radsplit.12nproma.7682procs",
   "nat-ape_6days_ico_0053km_hdec07682_dcells024_96levels.0decm_1-comm.241nodes.0radsplit.12nproma.7682procs"
   ]
-  cores_list=[1952, 3904, 7712, 7682, 7682, 7682 ]
-
-  (minTimes, meanTimes, maxTimes)=processFolderList(icon_53km_folders_list, timersListTotal, totalTimeIndex )
-  writeYearsPerDay(resolution, maxTimes, cores_list, days_list, 0)
-  writeParallelEfficency(resolution, maxTimes, timer_total_index, cores_list)
-
-
+  cores_list=[1952, 3904, 7682]
+  stdall_timers_statistics(folders_list, resolution, cores_list, days_list)
 
 
   #distibution_folder="nat-ape_6days_ico_0053km_hdec07682_dcells024_96levels.1decm_0-comm.241nodes.0radsplit.12nproma.7712procs"
