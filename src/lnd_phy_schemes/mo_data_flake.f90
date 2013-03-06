@@ -347,7 +347,6 @@ MODULE mo_data_flake
     opticpar_water_ref = opticpar_medium(1,                      &
       (/1._ireals, (0._ireals,i=2,nband_optic_max)/),            &
       (/3._ireals, (1.E+10_ireals,i=2,nband_optic_max)/))      , &
-
     ! Transparent water (two-band)
     opticpar_water_trans = opticpar_medium(2,                             & 
       (/0.10_ireals, 0.90_ireals, (0._ireals,i=3,nband_optic_max)/),      &
