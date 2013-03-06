@@ -63,21 +63,21 @@ MODULE mo_oce_state
     &                               success, max_char_length, min_dolic,               &
     &                               full_coriolis, beta_plane_coriolis,                &
     &                               f_plane_coriolis, zero_coriolis,min_rlcell, min_rledge
-  USE mo_ocean_nml,           ONLY: n_zlev, dzlev_m, no_tracer, l_max_bottom,          &
+  USE mo_ocean_nml,           ONLY: n_zlev, dzlev_m, no_tracer, l_max_bottom, l_partial_cells, &
     &                               CORIOLIS_TYPE, basin_center_lat, basin_height_deg
   USE mo_util_dbg_prnt,       ONLY: c_i, c_b, nc_i, nc_b
   USE mo_exception,           ONLY: message_text, message, finish
   USE mo_model_domain,        ONLY: t_patch,t_patch_3D
   USE mo_grid_config,         ONLY: n_dom, n_dom_start, grid_sphere_radius, grid_angular_velocity
   USE mo_ext_data_types,      ONLY: t_external_data
-  USE mo_dynamics_config,     ONLY: nnew,nnow
+  USE mo_dynamics_config,     ONLY: nnew
   USE mo_math_utilities,      ONLY: gc2cc,t_cartesian_coordinates,cvec2gvec,      &
     &                               t_geographical_coordinates, &!vector_product, &
     &                               arc_length
   USE mo_math_constants,      ONLY: deg2rad,rad2deg
   USE mo_physical_constants,  ONLY: rho_ref
   USE mo_sync,                ONLY: SYNC_E, SYNC_C, SYNC_V,sync_patch_array, global_sum_array, sync_idx
-  USE mo_loopindices,         ONLY: get_indices_c, get_indices_e, get_indices_v
+  USE mo_loopindices,         ONLY: get_indices_e  !, get_indices_c, get_indices_v
 
   USE mo_linked_list,         ONLY: t_var_list
   USE mo_var_list,            ONLY: add_var,                  &
@@ -463,9 +463,6 @@ MODULE mo_oce_state
   !TYPE(t_hydro_ocean_state), PUBLIC, TARGET, ALLOCATABLE :: v_ocean_state(:)
   TYPE(t_hydro_ocean_base) , PUBLIC, TARGET              :: v_base
   TYPE(t_oce_config)       , PUBLIC                      :: oce_config
-
-
-  LOGICAL   :: l_partial_cells = .FALSE.
 
 !-------------------------------------------------------------------------
 
@@ -895,8 +892,8 @@ CONTAINS
 
     INTEGER :: ist
     INTEGER :: nblks_c, nblks_e, nblks_v
-    INTEGER :: jb, jc, jk, je
-    INTEGER :: i_startidx_c, i_endidx_c, i_startidx_e, i_endidx_e
+    !INTEGER :: jb, jc, jk, je
+    !INTEGER :: i_startidx_c, i_endidx_c, i_startidx_e, i_endidx_e
     CHARACTER(len=max_char_length), PARAMETER :: &
       &      routine = 'mo_oce_state:construct_hydro_ocean_diag'
 
@@ -1387,7 +1384,7 @@ CONTAINS
 
     ! local variables
 
-    INTEGER ::  ist, jtrc
+    INTEGER ::  ist  !, jtrc
     INTEGER ::  nblks_c, nblks_e, nblks_v
 
     CHARACTER(len=max_char_length), PARAMETER :: &
@@ -2964,16 +2961,16 @@ TYPE(t_patch), TARGET, INTENT(inout) :: ptr_patch
 
 !
 
-INTEGER :: jb, je, jc
+INTEGER :: jb, je!, jc
 INTEGER :: rl_start, rl_end
 INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
 
 INTEGER :: ilc1, ibc1, ilv1, ibv1, ilc2, ibc2, ilv2, ibv2, &
-           ilv3, ibv3, ilv4, ibv4, ile1, ibe1
+           ilv3, ibv3, ilv4, ibv4!, ile1, ibe1
 
 REAL(wp) :: z_nu, z_nv, z_lon, z_lat, z_nx1(3), z_nx2(3), z_norm
 
-TYPE(t_cartesian_coordinates) :: cc_edge, cc_ev3, cc_ev4
+TYPE(t_cartesian_coordinates) :: cc_ev3, cc_ev4
 
 !-----------------------------------------------------------------------
 
@@ -3002,7 +2999,7 @@ i_endblk   = ptr_patch%edges%end_blk(rl_end,i_nchdom)
 ! In addition, the fields for the inverse primal and dual edge lengths are
 ! initialized here.
 !
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,je,cc_edge) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,je) ICON_OMP_DEFAULT_SCHEDULE
 DO jb = i_startblk, i_endblk
 
   CALL get_indices_e(ptr_patch, jb, i_startblk, i_endblk, &
