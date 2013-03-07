@@ -1163,7 +1163,8 @@ endif
 
 !debug
         if (tice_new(ic) < 100.0 .or. t_g_ex(jc,isub_seaice) < 100.0 ) then
-          write(*,*) 'seaice1: ', tice_new(ic), tice_now(ic), hice_new(ic), hice_now(ic), shfl_s(ic), lhfl_s(ic), lwflxsfc(ic), swflxsfc(ic) 
+          write(*,*) 'seaice1: ', tice_new(ic), tice_now(ic), hice_new(ic), &
+            & hice_now(ic), shfl_s(ic), lhfl_s(ic), lwflxsfc(ic), swflxsfc(ic) 
         endif
 !xxxxx
 
