@@ -514,7 +514,6 @@ MODULE mo_solve_nonhydro
 
 !$OMP END PARALLEL
 
-
   END SUBROUTINE velocity_tendencies
 
 

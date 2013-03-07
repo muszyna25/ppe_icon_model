@@ -543,9 +543,9 @@ CONTAINS
     ENDIF !lart
 
 
+    IF (timers_level > 1) CALL timer_start(timer_fast_phys)
     IF (lcall_phy_jg(itsatad) .OR. lcall_phy_jg(itgscp) .OR. lcall_phy_jg(itturb)) THEN
       
-      IF (timers_level > 1) CALL timer_start(timer_fast_phys)
 
       ! Remark: in the (unusual) case that satad is used without any other physics,
       ! recalculation of the thermodynamic variables is duplicated here. However,
