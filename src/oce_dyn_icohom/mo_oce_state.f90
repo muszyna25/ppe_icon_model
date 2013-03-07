@@ -991,13 +991,13 @@ CONTAINS
 ! !     CALL add_var(ocean_restart_list, 'inverse prism center distance at cell', p_os_diag%inv_prism_center_dist_c, &
 ! !     &            GRID_UNSTRUCTURED_CELL, &
 ! !     &            ZAXIS_DEPTH_BELOW_SEA, &
-! !     &            t_cf_var('inverse inv_prism_center_dist_c','','inverse of dist between prism centers at cells', DATATYPE_FLT32),&
+! !     &   t_cf_var('inverse inv_prism_center_dist_c','','inverse of dist between prism centers at cells', DATATYPE_FLT32),&
 ! !     &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
 ! !     &            ldims=(/nproma,n_zlev,nblks_c/),lrestart_cont=.TRUE.)
 ! !     CALL add_var(ocean_restart_list, 'inverse prism center distance at edge', p_os_diag%inv_prism_center_dist_e, &
 ! !     &            GRID_UNSTRUCTURED_CELL, &
 ! !     &            ZAXIS_DEPTH_BELOW_SEA, &
-! !     &            t_cf_var('inverse inv_prism_center_dist_e','','inverse of dist betweenprism centers at edges', DATATYPE_FLT32),&
+! !     &   t_cf_var('inverse inv_prism_center_dist_e','','inverse of dist betweenprism centers at edges', DATATYPE_FLT32),&
 ! !     &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_EDGE),&
 ! !     &            ldims=(/nproma,n_zlev,nblks_e/),lrestart_cont=.TRUE.)
 
@@ -3763,13 +3763,25 @@ END SUBROUTINE complete_patchinfo_oce
 
         jk = v_base%dolic_c(jc,jb)
         IF (jk >= min_dolic) THEN
+
+          ! Bottom and column thickness for output
           p_patch_3D%bottom_thick_c(jc,jb) = p_patch_3D%p_patch_1D(1)%prism_thick_c(jc,jk,jb)
-          p_patch_3D%column_thick_c(jc,jb) = v_base%zlev_i(jk+1)   !  lower bound is below dolic_c
+          p_patch_3D%column_thick_c(jc,jb) = v_base%zlev_i(jk+1)   !  lower bound of cell is at dolic_c+1
          
-          ! preliminary partial cells conform with l_max_bottom=false only
+          ! Preliminary partial cells conform with l_max_bottom=false only
           IF (l_partial_cells) THEN
          
-            p_patch_3D%p_patch_1D(1)%prism_thick_c(jc,jk,jb) = -p_ext_data%oce%bathymetry_c(jc,jb)-v_base%zlev_i(jk)
+            ! Partial cell ends at real bathymetry below upper boundary zlev_i(dolic)
+            ! at most one dry cell as neighbor is allowed, therefore bathymetry can be much deeper than corrected dolic
+            ! maximum thickness limited be an additional part of the thickness of the underlying cell
+            IF (jk < n_zlev) THEN
+              p_patch_3D%p_patch_1D(1)%prism_thick_c(jc,jk,jb) = &
+                & MIN(-p_ext_data%oce%bathymetry_c(jc,jb)-v_base%zlev_i(jk), &
+                &      v_base%del_zlev_m(jk)+0.8_wp*v_base%del_zlev_m(jk+1))
+            ELSE  ! at lowest level set thickness to real bathymetry
+              p_patch_3D%p_patch_1D(1)%prism_thick_c(jc,jk,jb) = -p_ext_data%oce%bathymetry_c(jc,jb)-v_base%zlev_i(jk)
+            ENDIF
+
             p_patch_3D%p_patch_1D(1)%prism_center_dist_c(jc,jk,jb) = 0.5_wp* &
               & (v_base%del_zlev_m(jk-1) + p_patch_3D%p_patch_1D(1)%prism_thick_c(jc,jk,jb))
             p_patch_3D%p_patch_1D(1)%inv_prism_thick_c(jc,jk,jb)      = &
@@ -3777,8 +3789,10 @@ END SUBROUTINE complete_patchinfo_oce
             p_patch_3D%p_patch_1D(1)%inv_prism_center_dist_c(jc,jk,jb)= &
               &  1.0_wp/p_patch_3D%p_patch_1D(1)%prism_center_dist_c(jc,jk,jb)
          
-            ! bottom and column depth for output
+            ! bottom and column thickness for output
+            ! bottom cell thickness at jk=dolic
             p_patch_3D%bottom_thick_c(jc,jb) = p_patch_3D%p_patch_1D(1)%prism_thick_c(jc,jk,jb)
+            ! column cell thickness: add upper column without elevation
             p_patch_3D%column_thick_c(jc,jb) = v_base%zlev_i(jk) + p_patch_3D%bottom_thick_c(jc,jb)
          
           ENDIF ! l_partial_cells
@@ -3786,7 +3800,7 @@ END SUBROUTINE complete_patchinfo_oce
       END DO
     END DO
 
-    !If column has not enough wet layers set all 4 depth-arrays to zero
+    ! If column has not enough wet layers set all 4 depth-arrays to zero
     DO jb = all_cells%start_block, all_cells%end_block
       CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
       DO jc = i_startidx_c, i_endidx_c
@@ -3834,8 +3848,15 @@ END SUBROUTINE complete_patchinfo_oce
           p_patch_3D%column_thick_e(je,jb) = v_base%zlev_i(jk+1)   !  lower bound is below dolic_e
          
           IF (l_partial_cells) THEN
+
+            IF (jk < n_zlev) THEN
+              p_patch_3D%p_patch_1D(1)%prism_thick_e(je,jk,jb) = &
+                & MIN(-p_ext_data%oce%bathymetry_e(je,jb)-v_base%zlev_i(jk), &
+                &      v_base%del_zlev_m(jk)+0.8_wp*v_base%del_zlev_m(jk+1))
+            ELSE  ! at lowest level set thickness to real bathymetry
+              p_patch_3D%p_patch_1D(1)%prism_thick_e(je,jk,jb) = -p_ext_data%oce%bathymetry_e(je,jb)-v_base%zlev_i(jk)
+            ENDIF
          
-            p_patch_3D%p_patch_1D(1)%prism_thick_e(je,jk,jb) = -p_ext_data%oce%bathymetry_e(je,jb)-v_base%zlev_i(jk)
             ! no matching prims_center_dist_e ?
       !     p_patch_3D%p_patch_1D(1)%prism_center_dist_e(je,jk,jb) = 0.5_wp* &
       !       & (v_base%del_zlev_m(jk-1) + p_patch_3D%p_patch_1D(1)%prism_thick_e(je,jk,jb))
