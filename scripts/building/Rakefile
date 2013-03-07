@@ -47,6 +47,10 @@ $hosts = {
     :hostname => 'localhost',
     :port     => 50022,
     :dir      => '/scratch/mpi/mh0287/users/m300064/builds/remote/icon' },
+  :passat => {
+    :user     => REMOTE_USER,
+    :hostname => 'passat.dkrz.de',
+    :dir      => '/work/mh0287/users/ram/builds/icon'},
   # laptop on my desk
   :thingol => {
     :dir => '/home/ram/builds/icon' }
@@ -63,7 +67,8 @@ $builds = {
   :remoteDef   => {:host => :thunder4,:subdir => 'test'},
   :remoteGccHi => {:host => :thunder5,:subdir => 'gcc',  :CC => 'gcc', :FLAGS => 'hiopt'},
   :remoteNag   => {:host => :thunder4,:subdir => 'nag',  :CC => 'nag'},
-  :remoteIntel => {:host => :thunder5,:subdir => 'intel',:CC => 'intel'}
+  :remoteIntel => {:host => :thunder5,:subdir => 'intel',:CC => 'intel'},
+  :remoteXlf   => {:host => :passat  ,:subdir => '.'}
 }
 # ============================================================================
 
