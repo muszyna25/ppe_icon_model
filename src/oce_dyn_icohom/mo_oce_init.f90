@@ -2051,7 +2051,7 @@ ELSEIF( iswm_oce == 1 )THEN
 
     CASE (24)
 
-      CALL message(TRIM(routine), 'Shallow-Water-Testcase (25)')
+      CALL message(TRIM(routine), 'Shallow-Water-Testcase (24)')
       CALL message(TRIM(routine), ' - here: h and bathy for solid body rotation (Laeuter Test)')
 
       p_patch_3D%lsm_c(:,:,:) = sea
@@ -2064,7 +2064,7 @@ ELSEIF( iswm_oce == 1 )THEN
           z_lon = p_patch%cells%center(jc,jb)%lon
 
           p_os%p_prog(nold(1))%h(jc,jb)      = test_usbr_h( z_lon, z_lat, 0.0_wp)
-          p_ext_data%oce%bathymetry_c(jc,jb) = test_usbr_oro( z_lon, z_lat, 0.0_wp )
+          p_ext_data%oce%bathymetry_c(jc,jb) = 0.0 !test_usbr_oro( z_lon, z_lat, 0.0_wp )
           ! write(*,*)'h orig, bathy_c:', z_lon, z_lat,p_os%p_prog(nold(1))%h(jc,jb)!, &
           !                                            p_ext_data%oce%bathymetry_c(jc,jb)
         END DO
@@ -2084,7 +2084,7 @@ ELSEIF( iswm_oce == 1 )THEN
         END DO
       END DO
     CASE (25)
-      CALL message(TRIM(routine), 'Shallow-Water-Testcase (26)')
+      CALL message(TRIM(routine), 'Shallow-Water-Testcase (25)')
       CALL message(TRIM(routine), ' - here: h and bathy of Williamson Test 2')
 
       p_patch_3D%lsm_c(:,:,:) = sea
@@ -2097,7 +2097,7 @@ ELSEIF( iswm_oce == 1 )THEN
           z_lon = p_patch%cells%center(jc,jb)%lon
 
          p_os%p_prog(nold(1))%h(jc,jb) = test2_h( z_lon, z_lat, 0.0_wp)
-         !p_ext_data%oce%bathymetry_c(jc,jb) = test2_oro( z_lon, z_lat, 0.0_wp )
+         p_ext_data%oce%bathymetry_c(jc,jb) = 0.0_wp !test2_oro( z_lon, z_lat, 0.0_wp )
         END DO
       END DO
 !       CALL height_related_quantities( p_patch, p_os)
@@ -2253,7 +2253,19 @@ ELSEIF( iswm_oce == 1 )THEN
 
     CASE(29)!State at rest, forced by wind
          CALL message(TRIM(routine), 'Shallow-Water-Testcase (29)')
-          p_os%p_prog(nold(1))%h         = 0.0_wp
+          DO jb = all_cells%start_block, all_cells%end_block
+        CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+        DO jc = i_startidx_c, i_endidx_c
+          z_lat = p_patch%cells%center(jc,jb)%lat
+          z_lon = p_patch%cells%center(jc,jb)%lon
+          
+          p_os%p_prog(nold(1))%h(jc, jb)         = 0.0_wp
+          
+          !p_ext_data%oce%bathymetry_c(jc,jb) = 0.0_wp
+        END DO
+      END DO
+          
+          
           p_os%p_prog(nold(1))%vn(:,1,:) = 0.0_wp
 
     CASE DEFAULT

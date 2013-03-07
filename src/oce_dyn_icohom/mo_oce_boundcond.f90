@@ -127,7 +127,8 @@ CONTAINS
     ! Modification of surface wind forcing according to surface boundary condition
     IF(iswm_oce == 1)THEN
       !z_scale(:,:) = v_base%del_zlev_m(1)*rho_ref
-      z_scale(:,:) = rho_ref*p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(:,1,:)
+      !z_scale(:,:) = rho_ref*p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(:,1,:) 
+       z_scale(:,:) = rho_ref*p_os%p_diag%thick_c(:,:)
     ELSEIF(iswm_oce /= 1)THEN
       z_scale = rho_ref
     ENDIF

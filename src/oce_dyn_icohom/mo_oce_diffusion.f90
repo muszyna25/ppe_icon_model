@@ -117,8 +117,8 @@ SUBROUTINE velocity_diffusion( p_patch_3D, vn_in, p_param, p_diag,p_op_coeff, la
 !CALL message (TRIM(routine), 'start')        
 
   IF(veloc_diffusion_order==1)THEN
-
-    !divgrad laplacian is chosen 
+     
+ !divgrad laplacian is chosen 
     IF(veloc_diffusion_form==2)THEN
 
       CALL veloc_diff_harmonic_div_grad( p_patch_3D,&
@@ -126,7 +126,7 @@ SUBROUTINE velocity_diffusion( p_patch_3D, vn_in, p_param, p_diag,p_op_coeff, la
                                        & p_diag,    &
                                        & p_op_coeff,&
                                        & laplacian_vn_out)
-
+      
     ELSEIF(veloc_diffusion_form==1)THEN
 
        CALL veloc_diff_harmonic_curl_curl( vn_in, p_diag%vort,&
@@ -135,6 +135,7 @@ SUBROUTINE velocity_diffusion( p_patch_3D, vn_in, p_param, p_diag,p_op_coeff, la
                                          & p_diag%p_vn_dual,  &
                                          & laplacian_vn_out,  & 
                                          & p_param%K_veloc_h)
+      
    ENDIF
 
   ELSEIF(veloc_diffusion_order==2)THEN
@@ -249,6 +250,7 @@ SUBROUTINE veloc_diff_harmonic_div_grad( p_patch_3D, p_param, p_diag,&
             &                  ( p_diag%p_vn(il_c2,jk,ib_c2)%x &
             &                  - p_diag%p_vn(il_c1,jk,ib_c1)%x)&
             &                  / p_patch%edges%dual_edge_length(je,jb)
+         
       ENDIF 
       ENDDO
     END DO
@@ -281,6 +283,7 @@ SUBROUTINE veloc_diff_harmonic_div_grad( p_patch_3D, p_param, p_diag,&
             & * p_op_coeff%div_coeff(jc,jk,jb,2)+&
             z_grad_u(iidx(jc,jb,3),jk,iblk(jc,jb,3))%x&
             & * p_op_coeff%div_coeff(jc,jk,jb,3)
+                
         ENDIF
       END DO
     END DO
@@ -291,7 +294,7 @@ SUBROUTINE veloc_diff_harmonic_div_grad( p_patch_3D, p_param, p_diag,&
 
   !Step 3: Map divergence back to edges
   CALL map_cell2edges_3D( p_patch_3D, z_div_grad_u, laplacian_vn_out, p_op_coeff)
-
+  
   ! write(*,*)'lapla',maxval(p_param%K_veloc_h(:,1,:)*p_patch%edges%primal_edge_length),&
   ! &minval(p_param%K_veloc_h(:,1,:)*p_patch%edges%primal_edge_length)
   ! !  CALL sync_patch_array(SYNC_E, p_patch, laplacian_vn_out)

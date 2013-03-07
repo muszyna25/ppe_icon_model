@@ -1465,7 +1465,7 @@ CONTAINS
 !              &  + p_patch_3D%p_patch_1D(1)%zlev_i(p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)+1)
 
             p_os%p_diag%thick_c(jc,jb) = p_os%p_prog(nold(1))%h(jc,jb)&
-              &  + p_ext_data%oce%bathymetry_c(jc,jb)
+              &  - p_ext_data%oce%bathymetry_c(jc,jb) ! works fine with williamson 5
           ELSE
             p_os%p_diag%thick_c(jc,jb) = 0.0_wp
           ENDIF

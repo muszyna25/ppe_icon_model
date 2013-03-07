@@ -838,7 +838,7 @@ write(*,*)'max-min coeff',z_diff_multfac, maxval(p_phys_param%K_veloc_h(:,1,:)),
     !---------DEBUG DIAGNOSTICS-------------------------------------------
     idt_src=4  ! output print level (1-5, fix)
     CALL dbg_print('UpdPar: p_vn%x(1)'         ,p_os%p_diag%p_vn%x(1)    ,str_module,idt_src)
-    CALL dbg_print('UpdPar: p_vn%x(2)'         ,p_os%p_diag%p_vn%x(1)    ,str_module,idt_src)
+    CALL dbg_print('UpdPar: p_vn%x(2)'         ,p_os%p_diag%p_vn%x(2)    ,str_module,idt_src)
     idt_src=2  ! output print level (1-5, fix)
     DO itracer = 1, no_tracer
       z_c(:,:,:)=params_oce%A_tracer_v(:,:,:,itracer)

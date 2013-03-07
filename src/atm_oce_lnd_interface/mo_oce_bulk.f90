@@ -900,9 +900,10 @@ CONTAINS
     !-------------------------------------------------------------------------
     ! Set surface coundary conditions to zero
     !  - sum of forcings applied to forc_tracer
-
+    If (no_tracer>1) then
     !p_sfc_flx%forc_tracer(:,:,1) = 0.0_wp
     p_sfc_flx%forc_tracer(:,:,2) = 0.0_wp
+    END IF
 
     !-------------------------------------------------------------------------
     ! Apply temperature relaxation to surface boundary condition
