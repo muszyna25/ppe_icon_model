@@ -852,12 +852,15 @@ DO JL=KIDIA,KFDIA
   IF (SUM(ext_data%atm%frac_t(jl,jb,1:ntiles_total)) > 0.0_JPRB ) THEN
     ztmean = ztmean / SUM(ext_data%atm%frac_t(jl,jb,1:ntiles_total))
   ELSE
-    ztmean = t_g_ex(jl,isub_water)      ! set to SST if no land for safety
-  ENDIF
+    ztmean = t_g_ex(jl,isub_water)       ! set to SST if no land for safety
+  ENDIF  
 
-  PTSKTI(JL,1) = t_g_ex(jl,isub_water)  ! ocaen tile  (previous time step)
-  PTSKTI(JL,2) = t_g_ex(jl,isub_seaice) ! SEAICE tile
-  PTSKTI(JL,3:ntiles_edmf) = ztmean     ! TESSEL/IFS land tiles (take mean land value)
+  PTSKTI(JL,1) = PSST(jl)                ! ocean tile  (use SST as input, not skin)
+  PTSKTI(JL,2) = t_g_ex(jl,isub_seaice)  ! SEAICE tile
+  PTSKTI(JL,3:ntiles_edmf) = ztmean      ! TESSEL/IFS land tiles (take mean land value)
+  IF (ext_data%atm%frac_t(jl,jb,isub_water) == 0.0_jprb) THEN
+    PTSKTI(JL,1) = t_g_ex(jl,isub_water) ! safety for vupdz0 calculations
+  ENDIF
 ENDDO
 
 
@@ -950,12 +953,15 @@ DO JL=KIDIA,KFDIA
   IF (SUM(ext_data%atm%frac_t(jl,jb,1:ntiles_total)) > 0.0_JPRB ) THEN
     ztmean = ztmean / SUM(ext_data%atm%frac_t(jl,jb,1:ntiles_total))
   ELSE
-    ztmean = t_g_ex(jl,isub_water)      ! set to SST if no land for safety
+    ztmean = t_g_ex(jl,isub_water)       ! set to SST if no land for safety
   ENDIF
 
-  PTSKTI(JL,1) = t_g_ex(jl,isub_water)  ! ocaen tile  (previous time step)
-  PTSKTI(JL,2) = t_g_ex(jl,isub_seaice) ! SEAICE tile
-  PTSKTI(JL,3:ntiles_edmf) = ztmean     ! TESSEL/IFS land tiles (take mean land value)
+  PTSKTI(JL,1) = PSST(jl)                ! ocean tile  (use SST as input, not skin)
+  PTSKTI(JL,2) = t_g_ex(jl,isub_seaice)  ! SEAICE tile
+  PTSKTI(JL,3:ntiles_edmf) = ztmean      ! TESSEL/IFS land tiles (take mean land value)
+  IF (ext_data%atm%frac_t(jl,jb,isub_water) == 0.0_jprb) THEN
+    PTSKTI(JL,1) = t_g_ex(jl,isub_water) ! safety for vdfdifh calculations
+  ENDIF
 
 ! sea ice fluxes (mean flux stored in '_soil' flux)
 !
@@ -1334,7 +1340,7 @@ CALL VDFDIFH (KIDIA  , KFDIA  , KLON   , KLEV   , IDRAFT , ITOP   , KTILES, &
             & ZSLGM1 , PTM1   , PQM1   , ZQTM1  , PAPHM1 , &
             & ZCFH   , ZCFHTI , ZCFQTI , ZMFLX  , ZSLGUH , ZQTUH  , &
             & ZSLGDIF, ZQTDIF , ZCPTSTI, ZQSTI  , ZCAIRTI, ZCSATTI, &
-            & ZDQSTI , PTSKTI , PTSKRAD, PTSAM1M(1,1)    , PTSNOW , PTICE  , PSST, &
+            & ZDQSTI , PTSKTI , PTSKRAD, PTSAM1M(1,1)    , PTSNOW , t_ice , PSST, &
             & ZTSKTIP1,ZSLGE  , PTE    , ZQTE, &
             & PEVAPTI, PAHFSTI, ZAHFLTI, ZSTR   , ZG0)
 
@@ -1489,7 +1495,7 @@ DO JL=KIDIA,KFDIA
     ztmean = PTSKTI(jl,1)                  ! set to SST if no land for safety
   ENDIF
 
-  t_g_ex(jl,isub_water)     = PTSKTI(jl,1) !ocean tiles
+  t_g_ex(jl,isub_water)     = PTSKTI(jl,1) !ocean tiles (includes cold skin ..., NOT SST) ???
   t_g_ex(jl,isub_seaice)    = PTSKTI(jl,2) !sea ice tiles
   t_g_ex(jl,1:ntiles_total) = ztmean       !TERRA tiles (mean)
 ENDDO

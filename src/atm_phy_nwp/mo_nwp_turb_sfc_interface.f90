@@ -198,7 +198,7 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
     &         zsobeta(nproma,p_patch%nlev)  , zz0h(nproma)                    , &
     &         zae(nproma,p_patch%nlev)                                        , &
     &         ztice(nproma)                 , ztske1(nproma)                  , &
-    &         ztskm1m(nproma)               , ztskrad(nproma)                 , &
+    &         zsst(nproma)                  , ztskrad(nproma)                 , &
     &         zsigflt(nproma)               , zfrti(nproma,ntiles_edmf)       , &
     &         shfl_s_t(nproma,ntiles_total+ntiles_water)                      , &
     &         evap_s_t(nproma,ntiles_total+ntiles_water)                      , &
@@ -306,7 +306,7 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
 ! !$OMP zsobeta , zz0h    , &
 ! !$OMP pdifts  , pdiftq  , pdiftl , pdifti  , pstrtu  , pstrtv, &
 ! !$OMP shfl_s_t, evap_s_t, tskin_t, ustr_s_t, vstr_s_t, &
-! !$OMP zae     , ztice   , ztske1 , ztskm1m , ztskrad , &
+! !$OMP zae     , ztice   , ztske1 , zsst    , ztskrad , &
 ! !$OMP zsigflt , zfrti   , &
 ! !$OMP tch_ex  , tcm_ex  , tfv_ex  &
 ! !$OMP ) ICON_OMP_GUIDED_SCHEDULE
@@ -586,14 +586,14 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
         zchar  (jc) = 0.018_wp ! default value from IFS if no wave model
         zucurr (jc) = 0.0_wp
         zvcurr (jc) = 0.0_wp
-        ztice  (jc) = 273.0_wp ! top level ice temperature ???????
-        ztske1 (jc) = 0.0_wp   ! skin temperature tendency
-        ztskm1m(jc) = lnd_prog_now%t_g (jc,jb) ! skin temperature (prognostic ???)
-        ztskrad(jc) = lnd_prog_now%t_g (jc,jb) ! skin temperature at last radiation step ????
         zsigflt(jc) = 0.0_wp   ! just for testing (standard dev. of filtered orogrphy)
         zz0h   (jc) = 0.0_wp   ! diagnostic z0,h - should be in diagnostic output ???
-if (ztskm1m(jc) > 400.0 ) then
-  write(*,*) 'turb_sfc1: ', ztskm1m(jc)
+        ztice  (jc) = p_prog_wtr_now%t_ice(jc,jb)
+        ztske1 (jc) = 0.0_wp   ! skin temperature tendency
+        zsst   (jc) = lnd_diag%t_seasfc(jc,jb) ! SST
+        ztskrad(jc) = lnd_prog_now%t_g (jc,jb) ! skin temperature at last radiation step ????
+if (zsst(jc) > 400.0 ) then
+  write(*,*) 'turb_sfc1: ', zsst(jc)
 endif
       ENDDO
 
@@ -746,7 +746,7 @@ endif
         & PHLICE  = zdummy_vdf_1c                              ,&! (IN)  lake ice thickness   - unused
         & PTLICE  = zdummy_vdf_1d                              ,&! (IN)  lake ice temperature - unused 
         & PTLWML  = zdummy_vdf_1e                              ,&! (IN)  lake mean water T    - unused
-        & PSST    = ztskm1m                                    ,&! (IN)  SST
+        & PSST    = zsst                                       ,&! (IN)  SST
         & KSOTY   = zsoty                                      ,&! (IN)  soil type
         & PFRTI   = zfrti                                      ,&! (IN)  tile fraction 
         & PALBTI  = zalbti                                     ,&! (IN)  tile albedo
@@ -809,7 +809,7 @@ endif
         & PVSTRTI = vstr_s_t                                   ,&! (INOUT) tile v stress
         & PAHFSTI = shfl_s_t                                   ,&! (INOUT) tile sensible heat flux
         & PEVAPTI = evap_s_t                                   ,&! (INOUT) tile latent heat flux
-        & PTSKTI  = tskin_t                                    ,&! (INOUT) now! ???ocean???  lnd_prog_now%t_g(:,jb)
+        & PTSKTI  = tskin_t                                    ,&! (INOUT) now! ???ocean??? 
         & PDIFTS  = pdifts                                     ,&! (OUT)  optional out: turbulent heat flux
         & PDIFTQ  = pdiftq                                     ,&! (OUT)  optional out: turbulent moisture flux
         & PDIFTL  = pdiftl                                     ,&! (OUT)  optional out: turbulent liquid water flux
@@ -889,7 +889,7 @@ endif
                         & + tcall_turb_jg * prm_nwp_tend%ddt_temp_turb(jc,jk,jb)
         ENDDO
       ENDDO
-
+ 
 ! Diagnostic output variables:  ???? TERRA-tiles or TESSEL-tiles???
 
       prm_diag%rh_2m (:,:) = 0.0_wp

@@ -547,14 +547,15 @@ IF (LDTERRA) THEN
         ZJS(JL,JT)=PEXTSHF(JL)  !no more RVTMP2
         PJQ(JL,JT)=PEXTLHF(JL)/RLVTT
         
-        ZSSK(JL,JT)=ZBSL(JL)+ZJS(JL,JT)*(ZASL(JL)-1.0_JPRB/ZRHOCHU(JL,JT)) 
-        ZTSK(JL,JT)=ZSSK(JL,JT)/(RCPD*(1.+RVTMP2*PQSTI(JL,JT)))
+!       ZSSK(JL,JT)=ZBSL(JL)+ZJS(JL,JT)*(ZASL(JL)-1.0_JPRB/ZRHOCHU(JL,JT)) 
+!       ZTSK(JL,JT)=ZSSK(JL,JT)/(RCPD*(1.+RVTMP2*PQSTI(JL,JT)))
 
 !----here should be the mean TERRA TSK - maybe separate for snow and soil----
 !----same for fluxes - separate for snow and soil (from vdfmain) ---
 
 if ( (ZTSK(JL,JT) > 400.0) .or. (ZTSK(JL,JT) < 100.0  ) ) then
-  write(*,*) 'vdfdifh0 ', JT, ZTSK(JL,JT), ZSSK(JL,JT), PQSTI(JL,JT)
+  write(*,*) 'vdfdifh0 ', JT, ZTSK(JL,JT), ZSSK(JL,JT), PQSTI(JL,JT), &
+    ZASL(JL), ZBSL(JL), PTSKTI(JL,JT), PQSTI(JL,JT)
 endif
         PSSH(JL,JT)=PEXTSHF(JL)
         PSLH(JL,JT)=PEXTLHF(JL)
@@ -581,7 +582,7 @@ if ( (ZTSK(JL,JT) > 400.0) .or. (PTSKTI(JL,JT) > 400.0) .or. &
   write(*,*) 'vdfdifh1: ', JT, ZTSK(JL,JT), PTSKTI(JL,JT), ZTPFAC2, ZTPFAC3, &
     ZBSL(JL), ZJS(JL,JT), ZASL(JL), ZRHOCHU(JL,JT), PEXTSHF(JL), PEXTLHF(JL)
 endif
-    PTSKTIP1(JL,JT)=ZTPFAC2*ZTSK(JL,JT)+ZTPFAC3*PTSKTI(JL,JT)
+    PTSKTIP1(JL,JT)=ZTPFAC2*ZTSK(JL,JT)+ZTPFAC3*PTSKTI(JL,JT)     !?????
     ZQSP1=PQSTI(JL,JT)+PDQSTI(JL,JT)*(ZTSK(JL,JT)-PTSKTI(JL,JT))
   ENDDO
 ENDDO

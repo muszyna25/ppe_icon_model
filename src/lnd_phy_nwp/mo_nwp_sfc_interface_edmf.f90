@@ -64,9 +64,9 @@ MODULE mo_nwp_sfc_interface_edmf
   
   IMPLICIT NONE 
 
-  PUBLIC  ::  nwp_surface_edmf
-
   PRIVATE
+
+  PUBLIC  ::  nwp_surface_edmf
 
 
 #ifdef __SX__
@@ -573,7 +573,7 @@ IF ( .true. ) THEN
         &  t  = t_t(:)                                       , & ! temperature                       (  K  )
         &  qv = qv_t(:)                                      , & ! specific water vapor content      (kg/kg)
         &  p0 = p0_t(:)                                      , & ! base state pressure               ( Pa  ) 
-        &  ps = ps_t(:)                                      , & ! surface pressure                  ( pa  )
+        &  ps = ps_t(:)                                      , & ! surface pressure                  ( Pa  )
 !
         &  t_snow_now    = t_snow_now_t(:,isubs)             , & ! temperature of the snow-surface   (  K  )
         &  t_snow_new    = t_snow_new_t(:,isubs)             , & ! temperature of the snow-surface   (  K  )
@@ -969,41 +969,6 @@ endif
 
        ENDIF  !snow tiles
 
-
-      ! Final step: aggregate t_g and qv_s
-      i_count = ext_data%atm%lp_count(jb)
-
-      IF (ntiles_total == 1) THEN 
-!CDIR NODEP,VOVERTAKE,VOB
-        DO ic = 1, i_count
-          jc = ext_data%atm%idx_lst_lp(ic,jb)
-          t_g (jc) = t_g_ex (jc,1)
-          qv_s(jc) = qv_s_ex(jc,1) 
-        ENDDO
-      ELSE ! aggregate fields over tiles
-        t_g_s (:) =  0._wp
-        qv_s_s(:) =  0._wp
-        DO isubs = 1,ntiles_total+ntiles_water
-!CDIR NODEP,VOVERTAKE,VOB
-          DO ic = 1, i_count
-            jc = ext_data%atm%idx_lst_lp(ic,jb)
-            t_g_s(jc)  = t_g_s(jc)  + ext_data%atm%frac_t(jc,jb,isubs)* &
-                         t_g_ex(jc,isubs)**4
-            qv_s_s(jc) = qv_s_s(jc) + ext_data%atm%frac_t(jc,jb,isubs)* &
-                         qv_s_ex(jc,isubs)
-          ENDDO
-        ENDDO
-
-!CDIR NODEP,VOVERTAKE,VOB
-        DO ic = 1, i_count
-          jc = ext_data%atm%idx_lst_lp(ic,jb)
-          t_g(jc)  = SQRT(SQRT(t_g_s(jc)))
-          qv_s(jc) = qv_s_s(jc)
-        ENDDO
-
-      ENDIF     ! with or without tiles
-
- 
     ELSE IF ( atm_phy_nwp_config(jg)%inwp_surface == 2 ) THEN 
 
           !-------------------------------------------------------------------------
@@ -1045,6 +1010,40 @@ endif
 !    ENDIF
 
 
+
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    ! Final step: aggregate t_g and qv_s            !!
+    !                                               !!
+    ! Loop over all points (land AND water points)  !!
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+    !aggregation ofr shfl_s and lhfs_s done in turb_sfc_interface
+
+    IF (ntiles_total == 1) THEN 
+      DO jc = i_startidx, i_endidx
+        t_g (jc) = t_g_ex (jc,1)
+        qv_s(jc) = qv_s_ex(jc,1) 
+      ENDDO
+    ELSE ! aggregate fields over tiles
+      t_g_s (:) =  0._wp
+      qv_s_s(:) =  0._wp
+      DO isubs = 1,ntiles_total+ntiles_water
+        DO jc = i_startidx, i_endidx
+          t_g_s(jc)  = t_g_s(jc)  + ext_data%atm%frac_t(jc,jb,isubs)* &
+                       t_g_ex(jc,isubs)**4
+          qv_s_s(jc) = qv_s_s(jc) + ext_data%atm%frac_t(jc,jb,isubs)* &
+                       qv_s_ex(jc,isubs)
+        ENDDO
+      ENDDO
+
+      DO jc = i_startidx, i_endidx
+        t_g(jc)  = SQRT(SQRT(t_g_s(jc)))
+        qv_s(jc) = qv_s_s(jc)
+      ENDDO
+
+    ENDIF     ! with or without tiles
+
+ 
   END SUBROUTINE nwp_surface_edmf
 
 
@@ -1106,7 +1105,7 @@ endif
 
     ! Local scalars:
     !
-    INTEGER :: jc, ic              !loop indices
+    INTEGER :: jc, ic               !loop indices
     INTEGER :: i_count
 
     CHARACTER(len=*), PARAMETER :: routine = 'mo_nwp_sfc_interface:nwp_seaice'
@@ -1161,6 +1160,12 @@ endif
       !
       DO ic = 1, i_count
         jc = ext_data%atm%idx_lst_spi(ic,jb)
+
+!debug
+        if (tice_new(ic) < 100.0 .or. t_g_ex(jc,isub_seaice) < 100.0 ) then
+          write(*,*) 'seaice1: ', tice_new(ic), tice_now(ic), hice_new(ic), hice_now(ic), shfl_s(ic), lhfl_s(ic), lwflxsfc(ic), swflxsfc(ic) 
+        endif
+!xxxxx
 
         t_ice_ex    (jc) = tice_new (ic)
         h_ice_ex    (jc) = hice_new (ic)
