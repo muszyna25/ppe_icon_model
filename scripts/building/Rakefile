@@ -146,7 +146,7 @@ $configureCall = lambda {|build|
 
 # exclude files for a build
 $excludeFiles = lambda {|build|
-  list = "--exclude='experiments/**/*nc*' --exclude='**/*.o'  --exclude='build/*' --exclude='**/*.run' --exclude=config/mh-config-use "
+  list = "--exclude='experiments/**/*nc*' --exclude='**/*.o'  --exclude='build/*' --exclude='**/*.run' --exclude=config/mh-config-use --exclude='config.*' --exclude=Makefile --exclude=build_command"
   list << " --exclude=config/mh-override " if isRemote?(build)
   list
 }
