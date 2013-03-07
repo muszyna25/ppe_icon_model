@@ -50,7 +50,7 @@ $hosts = {
   :passat => {
     :user     => REMOTE_USER,
     :hostname => 'passat.dkrz.de',
-    :dir      => '/work/mh0287/users/ram/builds/icon'},
+    :dir      => '/work/mh0287/users/ram/builds'},
   # laptop on my desk
   :thingol => {
     :dir => '/home/ram/builds/icon' }
@@ -68,7 +68,8 @@ $builds = {
   :remoteGccHi => {:host => :thunder5,:subdir => 'gcc',  :CC => 'gcc', :FLAGS => 'hiopt'},
   :remoteNag   => {:host => :thunder4,:subdir => 'nag',  :CC => 'nag'},
   :remoteIntel => {:host => :thunder5,:subdir => 'intel',:CC => 'intel'},
-  :remoteXlf   => {:host => :passat  ,:subdir => '.'}
+  :remoteXlf   => {:host => :passat  ,:subdir => 'default'},
+  :remoteXlfHi => {:host => :passat  ,:subdir => 'hiopt',:FLAGS => 'hiopt'}
 }
 # ============================================================================
 
@@ -238,6 +239,7 @@ $builds.each_key {|build|
 
 # tasks for parallel run of other tasks
 parTaskName = :par
+desc "tasks for parallel run of other tasks"
 task parTaskName do
   dbg(Rake.application.top_level_tasks)
   Rake.application.top_level_tasks.clear
@@ -251,6 +253,7 @@ end
 # tasks for parallel run of other tasks in an Xtra terminal and shut them when finished
 parTaskName       = :parX
 terminalEmulators = ['gnome-terminal','xterm']
+desc "parallel run of other tasks in an Xtra terminal and shut them when finished"
 task parTaskName do
   dbg(Rake.application.top_level_tasks)
   Rake.application.top_level_tasks.clear
@@ -266,6 +269,7 @@ end
 # tasks for parallel run of other tasks in an Xtra terminal and keep them open
 parTaskName       = :parXWait
 terminalEmulators = ['gnome-terminal','xterm']
+desc "parallel run of other tasks in an Xtra terminal and keep them open"
 task parTaskName do
   dbg(Rake.application.top_level_tasks)
   Rake.application.top_level_tasks.clear
