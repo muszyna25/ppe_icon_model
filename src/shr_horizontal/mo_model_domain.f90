@@ -971,17 +971,16 @@ MODULE mo_model_domain
     REAL(wp), ALLOCATABLE :: wet_c(:,:,:)  ! cell centers
     REAL(wp), ALLOCATABLE :: wet_e(:,:,:)  ! cell edges
 
-
     ! For diagnosis like stream functions and area calculations we add surface arrays
     ! index1=1,nproma, index2=1,nblks_c
     INTEGER,  ALLOCATABLE :: basin_c(:,:)  ! basin information Atlantic/Indian/Pacific
     INTEGER,  ALLOCATABLE :: regio_c(:,:)  ! area information like tropical Atlantic etc.
     REAL(wp), ALLOCATABLE :: rbasin_c(:,:) ! real for output
     REAL(wp), ALLOCATABLE :: rregio_c(:,:) ! real for output
-    REAL(wp), ALLOCATABLE :: bottom_thick_c(:,:)  ! individual prism thickness at bottom cells. Unit [m]. 
-    REAL(wp), ALLOCATABLE :: bottom_thick_e(:,:)  ! individual prism thickness at bottom edges. Unit [m]. 
-    REAL(wp), ALLOCATABLE :: column_thick_c(:,:)  ! individual column thickness at bottom cells, no elevation. Unit [m].
-    REAL(wp), ALLOCATABLE :: column_thick_e(:,:)  ! individual column thickness at bottom edges, no elevation. Unit [m].
+    REAL(wp), ALLOCATABLE :: bottom_thick_c(:,:)  ! individual bottom prism thickness at cells. Unit [m]. 
+    REAL(wp), ALLOCATABLE :: bottom_thick_e(:,:)  ! individual bottom prism thickness at edges. Unit [m]. 
+    REAL(wp), ALLOCATABLE :: column_thick_c(:,:)  ! individual column thickness at cells, no elevation. Unit [m].
+    REAL(wp), ALLOCATABLE :: column_thick_e(:,:)  ! individual column thickness at edges, no elevation. Unit [m].
     
   END TYPE t_patch_3D
   !--------------------------------------------------------------------

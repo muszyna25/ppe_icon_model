@@ -2177,6 +2177,34 @@ CONTAINS
       &                     gridCellID(k_jg), &
       &                     zaxisID_surface(k_jg)),&
       &           k_jg)
+      CALL addVar(ConstVar('bottom_thick_c',&
+      &                    'individual bottom thickness on cells',&
+      &                    '', 1, 128,&
+      &                     vlistID(k_jg),&
+      &                     gridCellID(k_jg), &
+      &                     zaxisID_surface(k_jg)),&
+      &           k_jg)
+      CALL addVar(ConstVar('column_thick_c',&
+      &                    'individual column thickness on cells',&
+      &                    '', 1, 128,&
+      &                     vlistID(k_jg),&
+      &                     gridCellID(k_jg), &
+      &                     zaxisID_surface(k_jg)),&
+      &           k_jg)
+      CALL addVar(ConstVar('bottom_thick_e',&
+      &                    'individual bottom thickness on edges',&
+      &                    '', 1, 128,&
+      &                     vlistID(k_jg),&
+      &                     gridEdgeID(k_jg), &
+      &                     zaxisID_surface(k_jg)),&
+      &           k_jg)
+      CALL addVar(ConstVar('column_thick_e',&
+      &                    'individual column thickness on edges',&
+      &                    '', 1, 128,&
+      &                     vlistID(k_jg),&
+      &                     gridEdgeID(k_jg), &
+      &                     zaxisID_surface(k_jg)),&
+      &           k_jg)
    !  CALL addVar(ConstVar('dolic_c',&
    !  &                    'deepest ocean layer on cells',&
    !  &                    '', 1, 128,&
@@ -3438,10 +3466,14 @@ CONTAINS
     not_found = .FALSE.
 
     SELECT CASE(varname)
-      CASE ('wet_c');        ptr3d => p_patch_3D%wet_c
-      CASE ('wet_e');        ptr3d => p_patch_3D%wet_e
-      CASE ('rbasin_c');     ptr2d => p_patch_3D%rbasin_c(:,:)
-      CASE ('rregio_c');     ptr2d => p_patch_3D%rregio_c(:,:)
+      CASE ('wet_c');          ptr3d => p_patch_3D%wet_c
+      CASE ('wet_e');          ptr3d => p_patch_3D%wet_e
+      CASE ('rbasin_c');       ptr2d => p_patch_3D%rbasin_c(:,:)
+      CASE ('rregio_c');       ptr2d => p_patch_3D%rregio_c(:,:)
+      CASE ('bottom_thick_c'); ptr2d => p_patch_3D%bottom_thick_c(:,:)
+      CASE ('column_thick_c'); ptr2d => p_patch_3D%column_thick_c(:,:)
+      CASE ('bottom_thick_e'); ptr2d => p_patch_3D%bottom_thick_e(:,:)
+      CASE ('column_thick_e'); ptr2d => p_patch_3D%column_thick_e(:,:)
       CASE ('dolic_c')
         shp_dolic = SHAPE(p_patch_3D%p_patch_1D(1)%dolic_c)
         ALLOCATE(r_dolic_c(shp_dolic(1),shp_dolic(2)))
