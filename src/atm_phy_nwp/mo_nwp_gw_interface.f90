@@ -145,6 +145,14 @@ CONTAINS
 
       IF (lcall_sso_jg .AND. atm_phy_nwp_config(jg)%inwp_sso == 1) THEN
 
+        ! ATTENTION: - geopot_agl is the full level geopotential height above ground 
+        !              and not full level geopotential height above MSL.
+        !            - geopot_agl_ifc is the half level geopotential height above ground 
+        !              and not the half level geopotential height above MSL.
+        !              I.e. geopot_agl_ifc(:,nlevp1,jb) is not the surface geopotential height,  
+        !              but geopot_agl_ifc(:,nlevp1,jb) = 0
+        !            Since both geopot_agl AND geopot_agl_ifc are defined above ground, the 
+        !            resulting geopotential height which is computed inside of "SSO" is correct. 
         CALL sso(                                          &
           & ie        =nproma                           ,  & !> in:  actual array size
           & ke        =nlev                             ,  & !< in:  actual array size

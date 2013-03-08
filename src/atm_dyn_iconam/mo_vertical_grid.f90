@@ -248,6 +248,12 @@ MODULE mo_vertical_grid
           ENDDO
         ENDIF
 
+
+        ! surface geopotential
+        !
+        ext_data(jg)%atm%fis(1:nlen,jb) = grav*p_nh(jg)%metrics%z_ifc(1:nlen,nlevp1,jb)
+
+
         !-------------------------------------------------------------
         ! geopot above ground  - because physics needs positive values
         !-------------------------------------------------------------

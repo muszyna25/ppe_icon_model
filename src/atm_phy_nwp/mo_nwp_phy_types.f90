@@ -200,6 +200,7 @@ MODULE mo_nwp_phy_types
 
 
 
+
     !> Parameter fields for turbulence
     REAL(wp), POINTER ::  &
       rcld(:,:,:)      ,    & !> standard deviation of the saturation deficit    --
@@ -232,6 +233,12 @@ MODULE mo_nwp_phy_types
       tch_t(:,:,:)     ,   & !! turbulent transfer coefficients for heat        --
       tfv_t(:,:,:)     ,   & !! laminar reduction factor for evaporation        --
       gz0_t(:,:,:)     ,   & !! roughness length * g                          (m2/s2)
+      tvs_s_t(:,:,:)   ,   & !! surface turbulence velocity scale (SQRT(2*TKE)) (m/s)
+                             !! (tile based)
+      tkvm_s_t(:,:,:)  ,   & !! surface turbulent diffusion coefficients for momentum (m/s2)
+                             !! (tile based)
+      tkvh_s_t(:,:,:)  ,   & !! surface turbulent diffusion coefficients for heat (m/s2)
+                             !! (tile based)
       u_10m_t(:,:,:)   ,   & !! zonal wind at 10m                             ( m/s )
       v_10m_t(:,:,:)   ,   & !! meridional wind at 10m                        ( m/s )
       umfl_s(:,:)      ,   & !! u-momentum flux at the surface                 (N/m2)

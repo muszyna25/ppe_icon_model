@@ -641,10 +641,9 @@ CONTAINS
       IF (timers_level > 1) CALL timer_start(timer_nwp_turbulence)
 
       ! compute turbulent transfer coefficients (atmosphere-surface interface)
-      CALL nwp_turbtrans  ( dt_phy_jg(itfastphy),              & !>in
+      CALL nwp_turbtrans  ( dt_phy_jg(itfastphy),             & !>in
                           & pt_patch, p_metrics,              & !>in
                           & ext_data,                         & !>in
-                          & pt_prog,                          & !>inout
                           & pt_prog_rcf,                      & !>inout
                           & pt_diag ,                         & !>inout
                           & prm_diag,                         & !>inout

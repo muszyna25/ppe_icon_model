@@ -85,7 +85,6 @@ CONTAINS
 SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
                           & p_patch, p_metrics,                & !>in
                           & ext_data,                          & !>in
-                          & p_prog,                            & !>inout
                           & p_prog_rcf,                        & !>inout
                           & p_diag ,                           & !>inout
                           & prm_diag,                          & !>inout
@@ -97,7 +96,6 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
   TYPE(t_patch),        TARGET,INTENT(in)   :: p_patch        !!<grid/patch info.
   TYPE(t_external_data),       INTENT(in)   :: ext_data        !< external data
   TYPE(t_nh_metrics)          ,INTENT(in)   :: p_metrics
-  TYPE(t_nh_prog),      TARGET,INTENT(inout):: p_prog          !<the prog vars
   TYPE(t_nh_prog),      TARGET,INTENT(inout):: p_prog_rcf      !<call freq
   TYPE(t_nh_diag),      TARGET,INTENT(inout):: p_diag          !<the diag vars
   TYPE(t_nwp_phy_diag),        INTENT(inout):: prm_diag        !< atm phys vars
@@ -144,7 +142,7 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
   REAL(wp), DIMENSION(nproma,2,ntiles_total+ntiles_water) :: u_t, v_t, temp_t, pres_t, qv_t, qc_t, tkvm_t, tkvh_t
 
   ! 3D half-level fields
-  REAL(wp), DIMENSION(nproma,3,ntiles_total+ntiles_water) :: z_ifc_t, w_t, rcld_t
+  REAL(wp), DIMENSION(nproma,3,ntiles_total+ntiles_water) :: z_ifc_t, rcld_t
 
   ! SQRT(2*TKE)
   REAL(wp) :: tvs_t(nproma,3,1,ntiles_total+ntiles_water)
@@ -182,7 +180,8 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
 !$OMP DO PRIVATE(jb,jt,jc,ic,ilist,i_startidx,i_endidx,i_count,ierrstat,errormsg,eroutine,      &
 !$OMP lc_class,z_tvs,z0_mod,gz0_t,tcm_t,tch_t,tfm_t,tfh_t,tfv_t,t_g_t,qv_s_t,t_2m_t,qv_2m_t,    &  
 !$OMP td_2m_t,rh_2m_t,u_10m_t,v_10m_t,tvs_t,pres_sfc_t,u_t,v_t,temp_t,pres_t,qv_t,qc_t,tkvm_t,  &
-!$OMP tkvh_t,z_ifc_t,w_t,rcld_t,sai_t,fr_land_t,depth_lk_t,h_ice_t,area_frac,shfl_s_t,lhfl_s_t, &
+!!$OMP tkvh_t,z_ifc_t,w_t,rcld_t,sai_t,fr_land_t,depth_lk_t,h_ice_t,area_frac,shfl_s_t,lhfl_s_t, &
+!$OMP tkvh_t,z_ifc_t,rcld_t,sai_t,fr_land_t,depth_lk_t,h_ice_t,area_frac,shfl_s_t,lhfl_s_t, &
 !$OMP qhfl_s_t) ICON_OMP_GUIDED_SCHEDULE
 
   DO jb = i_startblk, i_endblk
@@ -281,8 +280,8 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
       ! note that TKE must be converted to the turbulence velocity scale SQRT(2*TKE)
       ! for turbdiff
       ! INPUT to turbtran is timestep new
-      z_tvs(i_startidx:i_endidx,nlev-1:nlev+1,1) =  &
-        &           SQRT(2._wp * p_prog_rcf%tke(i_startidx:i_endidx,nlev-1:nlev+1,jb))
+      z_tvs(i_startidx:i_endidx,nlev-1:nlevp1,1) =  &
+        &           SQRT(2._wp * p_prog_rcf%tke(i_startidx:i_endidx,nlev-1:nlevp1,jb))
 
 
       ! First call of turbtran for all grid points (water points with > 50% water
@@ -297,7 +296,7 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
           & sai=prm_diag%sai(:,jb), h_ice=wtr_prog_new%h_ice(:,jb),                    & !in
           & ps=p_diag%pres_sfc(:,jb), t_g=lnd_prog_new%t_g(:,jb),                      & !in
           & qv_s=lnd_diag%qv_s(:,jb),                                                  & !in
-          & u=p_diag%u(:,:,jb), v=p_diag%v(:,:,jb), w=p_prog%w(:,:,jb),                & !in
+          & u=p_diag%u(:,:,jb), v=p_diag%v(:,:,jb),                                    & !in
           & T=p_diag%temp(:,:,jb), prs=p_diag%pres(:,:,jb),                            & !in
           & qv=p_prog_rcf%tracer(:,:,jb,iqv), qc=p_prog_rcf%tracer(:,:,jb,iqc),        & !in
           & gz0=prm_diag%gz0(:,jb), tcm=prm_diag%tcm_t(:,jb,1),                        & !inout
@@ -373,12 +372,11 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
             t_g_t(ic,jt)       = lnd_prog_new%t_g_t(jc,jb,jt)
             qv_s_t(ic,jt)      = lnd_diag%qv_s_t(jc,jb,jt)
             sai_t(ic,jt)       = ext_data%atm%sai_t(jc,jb,jt)
-            z_ifc_t(ic,1:3,jt) = p_metrics%z_ifc(jc,nlev-1:nlev+1,jb)
+            z_ifc_t(ic,1:3,jt) = p_metrics%z_ifc(jc,nlev-1:nlevp1,jb)
             pres_sfc_t(ic,jt)  = p_diag%pres_sfc(jc,jb)
 !MR: Hauptflaechengroessen nur fuer level nlev
             u_t(ic,1:2,jt)     = p_diag%u(jc,nlev-1:nlev,jb)
             v_t(ic,1:2,jt)     = p_diag%v(jc,nlev-1:nlev,jb)
-            w_t(ic,1:3,jt)     = p_prog%w(jc,nlev-1:nlev+1,jb)
             temp_t(ic,1:2,jt)  = p_diag%temp(jc,nlev-1:nlev,jb)
             pres_t(ic,1:2,jt)  = p_diag%pres(jc,nlev-1:nlev,jb)
             qv_t(ic,1:2,jt)    = p_prog_rcf%tracer(jc,nlev-1:nlev,jb,iqv)
@@ -386,11 +384,23 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
 !MR: tkvm, tkvh: benoetigt fuer nlev, nlev+1 als Nebenflaechengroessen (done), 
 !MR: fuer nlev+1 sogar tile-spezifisch
 !MR: tke: ausserhalb der Initialisierung nur fuer ke1 noetig, dort aber tilespezifisch
-            tvs_t(ic,1:3,1,jt) = z_tvs(jc,nlev-1:nlev+1,1)
+            tvs_t(ic,1:3,1,jt) = z_tvs(jc,nlev-1:nlevp1,1)
             tkvm_t(ic,1:2,jt)  = prm_diag%tkvm(jc,nlev:nlevp1,jb)
             tkvh_t(ic,1:2,jt)  = prm_diag%tkvh(jc,nlev:nlevp1,jb)
+
+!DR: to be re-checked bevore it can be activated
+!!$            tvs_t(ic,1:2,1,jt) = z_tvs(jc,nlev-1:nlev,1)
+!!$            tvs_t(ic,3,1,jt)   = prm_diag%tvs_s_t(jc,jb,jt)      ! tile-specific for lowest level   
+!!$                                 ! z_tvs(jc,nlevp1,1) 
+!!$            tkvm_t(ic,1,jt)    = prm_diag%tkvm(jc,nlev,jb)
+!!$            tkvm_t(ic,2,jt)    = prm_diag%tkvm_s_t(jc,jb,jt)     ! tile-specific for lowest level       
+!!$                                 ! prm_diag%tkvm(jc,nlevp1,jb)
+!!$            tkvh_t(ic,1,jt)    = prm_diag%tkvh(jc,nlev,jb)
+!!$            tkvh_t(ic,2,jt)    = prm_diag%tkvh_s_t(jc,jb,jt)     ! tile-specific for lowest level        
+!!$                                 ! prm_diag%tkvh(jc,nlevp1,jb)
+
 !MR: rcld: benoetigt nur fuer level nlev (als Nebenflaechenvariable)
-            rcld_t(ic,1:3,jt)  = prm_diag%rcld(jc,nlev-1:nlev+1,jb)
+            rcld_t(ic,1:3,jt)  = prm_diag%rcld(jc,nlev-1:nlevp1,jb)
           ENDDO
 
           CALL turbtran(iini=0, dt_tke=tcall_turb_jg, nprv=1, ntur=1, ntim=1,         & !in
@@ -400,7 +410,7 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
             & fr_land=fr_land_t(:), depth_lk=depth_lk_t(:),                           & !in
             & sai=sai_t(:,jt), h_ice=h_ice_t(:), ps=pres_sfc_t(:,jt),                 & !in
             & t_g=t_g_t(:,jt), qv_s=qv_s_t(:,jt),                                     & !in
-            & u=u_t(:,:,jt), v=v_t(:,:,jt), w=w_t(:,:,jt),                            & !in
+            & u=u_t(:,:,jt), v=v_t(:,:,jt),                                           & !in
             & T=temp_t(:,:,jt), prs=pres_t(:,:,jt), qv=qv_t(:,:,jt), qc=qc_t(:,:,jt), & !in
             & gz0=gz0_t(:,jt), tcm=tcm_t(:,jt), tch=tch_t(:,jt),                      & !inout
             & tfm=tfm_t(:,jt), tfh=tfh_t(:,jt), tfv=tfv_t(:,jt),                      & !inout
@@ -485,18 +495,25 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
             prm_diag%u_10m (jc,jb) = prm_diag%u_10m(jc,jb) + u_10m_t(ic,jt) * area_frac
             prm_diag%v_10m (jc,jb) = prm_diag%v_10m(jc,jb) + v_10m_t(ic,jt) * area_frac
 
+
             ! Store
             prm_diag%shfl_s_t(jc,jb,jt) = shfl_s_t(ic,jt)
             prm_diag%lhfl_s_t(jc,jb,jt) = lhfl_s_t(ic,jt)
             prm_diag%qhfl_s_t(jc,jb,jt) = qhfl_s_t(ic,jt)
-            prm_diag%u_10m_t (jc,jb,jt) = u_10m_t(ic,jt) ! needed by TERRA
-            prm_diag%v_10m_t (jc,jb,jt) = v_10m_t(ic,jt) ! needed by TERRA
-            prm_diag%tch_t   (jc,jb,jt) = tch_t(ic,jt)   ! needed by TERRA
-            prm_diag%tcm_t   (jc,jb,jt) = tcm_t(ic,jt)   ! needed by TERRA
-            prm_diag%tfv_t   (jc,jb,jt) = tfv_t(ic,jt)   ! needed by TERRA
-            prm_diag%gz0_t   (jc,jb,jt) = gz0_t(ic,jt)   ! input for turbtran at n+1
+            prm_diag%u_10m_t (jc,jb,jt) = u_10m_t(ic,jt)  ! needed by TERRA
+            prm_diag%v_10m_t (jc,jb,jt) = v_10m_t(ic,jt)  ! needed by TERRA
+            prm_diag%tch_t   (jc,jb,jt) = tch_t(ic,jt)    ! needed by TERRA
+            prm_diag%tcm_t   (jc,jb,jt) = tcm_t(ic,jt)    ! needed by TERRA
+            prm_diag%tfv_t   (jc,jb,jt) = tfv_t(ic,jt)    ! needed by TERRA
+            prm_diag%gz0_t   (jc,jb,jt) = gz0_t(ic,jt)    ! input for turbtran at n+1
                                                           ! over land
+
+
 !MR: tke, tkvm, tkvh tilespezifisch speichern
+            prm_diag%tvs_s_t (jc,jb,jt) = tvs_t(ic,3,1,jt)! needed as input for turbtran
+            prm_diag%tkvm_s_t(jc,jb,jt) = tkvm_t(ic,2,jt) ! needed as input for turbtran
+            prm_diag%tkvh_s_t(jc,jb,jt) = tkvh_t(ic,2,jt) ! needed as input for turbtran
+
 
           ENDDO
 

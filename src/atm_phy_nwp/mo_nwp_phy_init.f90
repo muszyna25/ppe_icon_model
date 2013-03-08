@@ -818,7 +818,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
     i_startblk = p_patch%cells%start_blk(rl_start,1)
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,ic,jc,jt) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,jk,i_startidx,i_endidx,ic,jc,jt) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -848,7 +848,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
 !
          &  ps=p_diag%pres_sfc(:,jb), t_g=p_prog_lnd_now%t_g(:,jb), qv_s=p_diag_lnd%qv_s(:,jb), &
 !
-         &  u=p_diag%u(:,:,jb), v=p_diag%v(:,:,jb), w=p_prog%w(:,:,jb), T=p_diag%temp(:,:,jb), &
+         &  u=p_diag%u(:,:,jb), v=p_diag%v(:,:,jb), T=p_diag%temp(:,:,jb),   &
          &  qv=p_prog%tracer(:,:,jb,iqv), qc=p_prog%tracer(:,:,jb,iqc), &
 !
          &  prs=p_diag%pres(:,:,jb),  &
@@ -903,9 +903,24 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
          &  ierrstat=ierrstat, errormsg=errormsg, eroutine=eroutine )
 
 
+      ! tile-specific quantities needed by turbtran
+      ! 
       DO jt = 1, ntiles_total+ntiles_water 
-        prm_diag%gz0_t(:,jb,jt) = prm_diag%gz0(:,jb)
+        prm_diag%gz0_t   (:,jb,jt) = prm_diag%gz0(:,jb)
+        prm_diag%tvs_s_t (:,jb,jt) = p_prog_now%tke(:,nlevp1,jb)  !here: SQRT(2*TKE) 
+        prm_diag%tkvm_s_t(:,jb,jt) = prm_diag%tkvm(:,nlevp1,jb)
+        prm_diag%tkvh_s_t(:,jb,jt) = prm_diag%tkvh(:,nlevp1,jb)
       ENDDO
+
+
+!DR: to be re-checked bevore it can be activated
+!!$      ! Note that TKE in turbtran/turbdiff is defined as the turbulence velocity scale
+!!$      ! TVS=SQRT(2*TKE)
+!!$      !
+!!$      DO jk =1,nlevp1
+!!$        p_prog_now%tke(i_startidx:i_endidx,jk,jb)= 0.5_wp                        &
+!!$          &                                * (p_prog_now%tke(i_startidx:i_endidx,jk,jb))**2
+!!$      ENDDO 
     ENDDO
 !$OMP END DO
 

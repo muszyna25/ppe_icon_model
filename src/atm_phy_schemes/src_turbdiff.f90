@@ -783,7 +783,7 @@ SUBROUTINE turbtran(iini, dt_tke, nprv, ntur, ntim, &
           fr_land, depth_lk, sai, &
 !
           h_ice, ps, t_g, qv_s, &
-          u, v, w, t, qv, qc, prs, &
+          u, v, t, qv, qc, prs, &
 !    
           gz0, tcm, tch, tfm, tfh, tfv, &
           tke, tkvm, tkvh, rcld, edr, &
@@ -1156,14 +1156,6 @@ REAL (KIND=ireals), DIMENSION(:,:), TARGET, INTENT(IN) :: &
 #endif
 !
      prs            ! atmospheric pressure                          ( pa  )
-
-#ifdef  __xlC__
-REAL (KIND=ireals), DIMENSION(ie,ke1), INTENT(IN) :: &
-#else
-REAL (KIND=ireals), DIMENSION(:,:), INTENT(IN) :: &
-#endif
-!
-     w              ! vertical wind speed (defined on half levels)  ( m/s )
 
 #ifdef  __xlC__
 REAL (KIND=ireals), DIMENSION(ie), INTENT(INOUT) :: &
@@ -2813,7 +2805,6 @@ REAL (KIND=ireals), DIMENSION(:,:), OPTIONAL, INTENT(OUT) :: &
 #ifdef  __xlC__
  REAL (KIND=ireals), DIMENSION(ie), OPTIONAL, INTENT(INOUT) :: &
 #else
-!DR REAL (KIND=ireals), DIMENSION(:), OPTIONAL, INTENT(INOUT) :: &
  REAL (KIND=ireals), DIMENSION(:), OPTIONAL, INTENT(IN) :: &
 #endif
 !

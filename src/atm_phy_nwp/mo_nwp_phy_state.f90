@@ -448,7 +448,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
 
     ! &      diag%cape(nproma,nblks_c)
     cf_desc    = t_cf_var('cape', 'J kg-1 ', 'conv avail pot energy', DATATYPE_FLT32)
-    grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = t_grib2_var(0, 7, 6, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, 'cape', diag%cape,                               &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
                 & ldims=shape2d, lrestart=.FALSE.,                            &
@@ -1492,6 +1492,36 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
         ENDDO
 
 
+        ! &      diag%tvs_s_t(nproma,nblks_c,ntiles_total+ntiles_water)
+        cf_desc    = t_cf_var('tvs_s_t', 'm2 s-2 ',                              &
+             &                'tile-based turbulence velocity scale at surface', &
+             &                DATATYPE_FLT32)
+        grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+        CALL add_var( diag_list, 'tvs_s_t', diag%tvs_s_t,                                &
+          & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape3dsubsw, &
+          & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
+
+
+        ! &      diag%tkvm_s_t(nproma,nblks_c,ntiles_total+ntiles_water)
+        cf_desc    = t_cf_var('tkvm_s_t', 'm s-2 ',                                       &
+             &                'tile-based turbulent diff. coeff for momentum at surface', &
+             &                DATATYPE_FLT32)
+        grib2_desc = t_grib2_var(0, 2, 31, ibits, GRID_REFERENCE, GRID_CELL)
+        CALL add_var( diag_list, 'tkvm_s_t', diag%tkvm_s_t,                              &
+          & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape3dsubsw, &
+          & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
+
+
+        ! &      diag%tkvh_s_t(nproma,nblks_c,ntiles_total+ntiles_water)
+        cf_desc    = t_cf_var('tkvh_s_t', 'm s-2 ',                                      &
+             &                'tile-based turbulent diff. coeff for heat at surface',    &
+             &                DATATYPE_FLT32)
+        grib2_desc = t_grib2_var(0, 0, 20, ibits, GRID_REFERENCE, GRID_CELL)
+        CALL add_var( diag_list, 'tkvh_s_t', diag%tkvh_s_t,                              &
+          & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape3dsubsw, &
+          & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
+
+
         ! &      diag%u_10m_t(nproma,nblks_c,ntiles_total+ntiles_water)
         cf_desc    = t_cf_var('u_10m_t', 'm s-1 ', 'tile-based zonal wind in 2m', DATATYPE_FLT32)
         grib2_desc = t_grib2_var(0, 0, 11, ibits, GRID_REFERENCE, GRID_CELL)
@@ -1632,7 +1662,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
 
        ! &      diag%ustar(nproma,nblks_c)
        cf_desc    = t_cf_var('ustar', 'm s-1','friction velocity', DATATYPE_FLT32)
-       grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+       grib2_desc = t_grib2_var(0, 2, 30, ibits, GRID_REFERENCE, GRID_CELL)
        CALL add_var( diag_list, 'ustar', diag%ustar,                         &
          & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d)
 
