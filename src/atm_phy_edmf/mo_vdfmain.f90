@@ -991,35 +991,13 @@ DO JL=KIDIA,KFDIA
    !ZKMFL(JL)   = 0.0_JPRB  ! - " -      (0 is bad idea!!!)
 
 ENDDO
-!xxx
 
-! DO JL=KIDIA,KFDIA
-!   IF ( .NOT. LDLAND(JL) ) THEN
-!     if ( PSST(JL) > 294.95599 .and. PSST(JL) < 294.95600 ) THEN
-!       write(*,*) 'vdfmain5: ', ZKHFL(JL)*RCPD, ZKQFL(JL)*RLVTT, ZKMFL(JL)
-!     endif
-!   ENDIF
-! ENDDO
+
 DO JL=KIDIA,KFDIA
  if ( PTSKM1M(JL) > 400.0 .or. PTSKM1M(JL) < 100.0) then
   write(*,*) 'vdfmain2: ', PTSKM1M(JL), PTM1(JL,KLEV), PTM1(JL,KLEV-1)
  endif
 ENDDO
-
-!amk ATTENTION: needs to specify surface layer diffusion coefficients
-!   JK = KLEV
-!   DO JL=KIDIA,KFDIA
-!     ZCFNC1 = RVDIFTS * ZTMST * RG * PAPHM1(JL,JK) / RD &
-!            & /( PTM1(JL,JK) * (1.0_JPRB+RETV*PQM1(JL,JK)) )
-!     ZCFNC1 = 0.0_JPRB
-!     ZCFM(JL,KLEV) = 1.0_JPRB * ZCFNC1  ! normalization??
-!     ZCFH(JL,KLEV) = 1.0_JPRB * ZCFNC1  !   -
-!     ZCFQTI(JL,:)  = 1.0_JPRB * ZCFNC1  !   -
-!     ZCFHTI(JL,:)  = 1.0_JPRB * ZCFNC1  !   -
-!     ZBLEND(JL)    = 75.0_JPRB   !blending height for U10 diagnostic
-!   ENDDO
-!xxx
-
 
 
 !     ------------------------------------------------------------------
@@ -1076,10 +1054,7 @@ CALL VDFHGHTN (KIDIA   , KFDIA   , KLON    , KLEV    , IDRAFT   , ZTMST   , KSTE
              & PFPLVL  , PFPLVN  , ZDETR   , &
 !amk: for convective preconditioning
              & PVAR    , &
-!xxx
-!amk
              & LDLAND  , &   
-!xxx
              & PBIR    , LDNODECP, LLRUNDRY, KPBLTYPE, ZWQT2 )
 
 

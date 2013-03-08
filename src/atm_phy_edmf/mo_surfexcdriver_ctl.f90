@@ -778,8 +778,7 @@ DO isubs=1,ntiles_total+ntiles_water
   ENDDO
 ENDDO
 
-!IF ( atm_phy_nwp_config(jg)%inwp_surface == 1 ) THEN
-IF ( .true. ) THEN
+IF ( atm_phy_nwp_config(jg)%inwp_surface == 1 ) THEN
   CALL nwp_surface_edmf (&
     ext_data         = ext_data        , & !>in  
     jb               = jb              , & ! block  

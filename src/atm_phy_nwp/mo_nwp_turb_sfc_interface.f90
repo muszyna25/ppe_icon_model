@@ -806,7 +806,7 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
         & PVSTRTI = vstr_s_t                                   ,&! (INOUT) tile v stress
         & PAHFSTI = shfl_s_t                                   ,&! (INOUT) tile sensible heat flux
         & PEVAPTI = evap_s_t                                   ,&! (INOUT) tile latent heat flux
-        & PTSKTI  = tskin_t                                    ,&! (INOUT) now! ???ocean??? 
+        & PTSKTI  = tskin_t                                    ,&! (INOUT) currently unused!!!
         & PDIFTS  = pdifts                                     ,&! (OUT)  optional out: turbulent heat flux
         & PDIFTQ  = pdiftq                                     ,&! (OUT)  optional out: turbulent moisture flux
         & PDIFTL  = pdiftl                                     ,&! (OUT)  optional out: turbulent liquid water flux
@@ -892,6 +892,7 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
       DO jc = i_startidx, i_endidx
         prm_diag%shfl_s(jc,jb) = pdifts(jc,nlev+1) 
         prm_diag%lhfl_s(jc,jb) = pdiftq(jc,nlev+1)*alv
+        prm_diag%qhfl_s(jc,jb) = pdiftq(jc,nlev+1)
         prm_diag%rh_2m (jc,jb) = 0.0_wp                 !??? needs to be defined
       ENDDO
       prm_diag%tch   (:,jb) = 0.0_wp
