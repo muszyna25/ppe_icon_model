@@ -36,8 +36,12 @@
 !! -----------------------------------------------------------------------------------
 MODULE mo_lonlat_grid
 
-  USE mo_kind,                ONLY: wp
-  USE mo_physical_constants,  ONLY: earth_radius
+#ifdef __ICON__
+  USE mo_kind,              ONLY: wp
+#else
+  USE mo_utilities,         ONLY: wp
+#endif
+  USE mo_mpi,               ONLY: p_bcast
 
   IMPLICIT NONE
 
@@ -46,6 +50,7 @@ MODULE mo_lonlat_grid
   PUBLIC :: latlon_compute_area_weights
   PUBLIC :: compute_lonlat_specs
   PUBLIC :: compute_lonlat_blocking
+  PUBLIC :: bcast_lonlat_specs
   ! types and variables:
   PUBLIC :: t_lon_lat_grid
 
@@ -94,6 +99,39 @@ CONTAINS
     lonlat_grid%start_corner(1) = lonlat_grid%reg_lon_def(1) * pi_180
     lonlat_grid%start_corner(2) = lonlat_grid%reg_lat_def(1) * pi_180
   END SUBROUTINE compute_lonlat_specs
+
+
+  SUBROUTINE bcast_lonlat_specs(lonlat_grid, source, comm)
+    TYPE (t_lon_lat_grid), INTENT(INOUT) :: lonlat_grid
+    INTEGER,               INTENT(IN)    :: source, comm
+    ! local variables
+    REAL(wp) :: buf(12), int_buf(2)
+
+    !-- broadcast REAL data:    
+    buf = (/ lonlat_grid%delta(1),        lonlat_grid%delta(2),                                  &
+      &      lonlat_grid%start_corner(1), lonlat_grid%start_corner(2),                           &
+      &      lonlat_grid%reg_lon_def(1), lonlat_grid%reg_lon_def(2), lonlat_grid%reg_lon_def(3), &
+      &      lonlat_grid%reg_lat_def(1), lonlat_grid%reg_lat_def(2), lonlat_grid%reg_lat_def(3), & 
+      &      lonlat_grid%north_pole(1), lonlat_grid%north_pole(2) /)
+    CALL p_bcast(buf, source, comm)
+    lonlat_grid%delta(1)        = buf( 1)
+    lonlat_grid%delta(2)        = buf( 2)
+    lonlat_grid%start_corner(1) = buf( 3)
+    lonlat_grid%start_corner(2) = buf( 4)
+    lonlat_grid%reg_lon_def(1)  = buf( 5)
+    lonlat_grid%reg_lon_def(2)  = buf( 6)
+    lonlat_grid%reg_lon_def(3)  = buf( 7)
+    lonlat_grid%reg_lat_def(1)  = buf( 8)
+    lonlat_grid%reg_lat_def(2)  = buf( 9)
+    lonlat_grid%reg_lat_def(3)  = buf(10)
+    lonlat_grid%north_pole(1)   = buf(11)
+    lonlat_grid%north_pole(2)   = buf(12)  
+    !-- broadcast INTEGER data:
+    int_buf = (/ lonlat_grid%lon_dim, lonlat_grid%lat_dim /)
+    CALL p_bcast(int_buf, source, comm)
+    lonlat_grid%lon_dim = int_buf(1)
+    lonlat_grid%lat_dim = int_buf(2)
+  END SUBROUTINE bcast_lonlat_specs
 
 
   !---------------------------------------------------------------
@@ -230,9 +268,10 @@ CONTAINS
   !! @par Revision History
   !!  developed by F. Prill, 2012-05-24
   !!
-  SUBROUTINE latlon_compute_area_weights( grid, area )
+  SUBROUTINE latlon_compute_area_weights( grid, earth_radius, area )
     
     TYPE (t_lon_lat_grid), INTENT(in)    :: grid
+    REAL(wp),              INTENT(IN)    :: earth_radius
     REAL(wp),              INTENT(inout) :: area(:)
     ! local variables
     REAL(wp) :: start_lat, delta_lon, delta_lat, delta_lat_2,  &

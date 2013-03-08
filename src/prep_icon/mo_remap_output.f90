@@ -7,12 +7,14 @@ MODULE mo_remap_output
 
 #ifdef __ICON__
   USE mo_kind,               ONLY: wp
+  USE mo_parallel_config,    ONLY: nproma
   USE mo_impl_constants,     ONLY: SUCCESS
   USE mo_exception,          ONLY: finish
   USE mo_util_string,        ONLY: tolower
   USE mo_util_uuid,          ONLY: t_uuid
+  USE mo_communication,      ONLY: blk_no
 #else
-  USE mo_utilities,     ONLY: wp, SUCCESS, tolower, finish, t_uuid
+  USE mo_utilities,     ONLY: wp, SUCCESS, tolower, finish, t_uuid, blk_no, nproma
 #endif
 
   USE mo_mpi,           ONLY: get_my_mpi_work_id
@@ -28,6 +30,8 @@ MODULE mo_remap_output
 
   PRIVATE
   PUBLIC :: load_metadata_output
+  PUBLIC :: extract_metadata_output
+  PUBLIC :: deallocate_grid_metadata
   PUBLIC :: open_output, close_output
   PUBLIC :: store_field
   ! output variables:
@@ -81,7 +85,7 @@ CONTAINS
     INTEGER,                INTENT(IN)  :: rank0
     ! local variables:
     CHARACTER(LEN=*), PARAMETER :: routine = TRIM(TRIM(modname)//'::load_metadata_output')
-    INTEGER :: ierrstat, xsize, ysize
+    INTEGER :: ierrstat, xsize, ysize, size_c, size_e
     ! CHARACTER :: dummy
 
     ! read data only on I/O process:
@@ -95,14 +99,17 @@ CONTAINS
       grid_metadata%structure = GRID_UNSTRUCTURED
       grid_metadata%nglb_c    = gridInqSize(file_metadata%c_gridID)
       grid_metadata%nglb_e    = gridInqSize(file_metadata%e_gridID)
-      ALLOCATE(grid_metadata%clon(grid_metadata%nglb_c),     &
-        &      grid_metadata%clat(grid_metadata%nglb_c),     &
-        &      grid_metadata%elon(grid_metadata%nglb_e),     &
-        &      grid_metadata%elat(grid_metadata%nglb_e),     &
-        &      grid_metadata%clonv(grid_metadata%cell_type, grid_metadata%nglb_c), &
-        &      grid_metadata%clatv(grid_metadata%cell_type, grid_metadata%nglb_c), &
-        &      grid_metadata%elonv(4, grid_metadata%nglb_e), &
-        &      grid_metadata%elatv(4, grid_metadata%nglb_e), &
+
+      size_c = nproma * blk_no(grid_metadata%nglb_c)
+      size_e = nproma * blk_no(grid_metadata%nglb_e)
+      ALLOCATE(grid_metadata%clon(size_c),                           &
+        &      grid_metadata%clat(size_c),                           &
+        &      grid_metadata%elon(size_e),                           &
+        &      grid_metadata%elat(size_e),                           &
+        &      grid_metadata%clonv(grid_metadata%cell_type, 100*size_c), &
+        &      grid_metadata%clatv(grid_metadata%cell_type, 100*size_c), &
+        &      grid_metadata%elonv(4, size_e),                       &
+        &      grid_metadata%elatv(4, size_e),                       &
         &      STAT=ierrstat)
       IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
       xsize = gridInqXvals    (file_metadata%c_gridID, grid_metadata%clon)
@@ -138,11 +145,61 @@ CONTAINS
   END SUBROUTINE load_metadata_output
 
 
+  !> Extract grid meta-data according to a given sub-patch.
+  !
+  SUBROUTINE extract_metadata_output(file_metadata, subgrid, grid_metadata_in, grid_metadata_out)
+    TYPE (t_file_metadata), INTENT(IN)    :: file_metadata
+    TYPE (t_grid),          INTENT(INOUT) :: subgrid
+    TYPE (t_output_grid),   INTENT(IN)    :: grid_metadata_in
+    TYPE (t_output_grid),   INTENT(OUT)   :: grid_metadata_out
+    ! local variables:
+    CHARACTER(LEN=*), PARAMETER :: routine = TRIM(TRIM(modname)//'::extract_metadata_output')
+    INTEGER :: ierrstat, i, idx
+
+    SELECT CASE(file_metadata%structure)
+    CASE (GRID_TYPE_ICON)
+      IF (dbg_level >= 10)  WRITE (0,*) "# extract meta-data for output, ICON grid"
+      grid_metadata_out%cell_type = grid_metadata_in%cell_type
+      grid_metadata_out%structure = grid_metadata_in%structure
+      grid_metadata_out%nglb_c    = subgrid%p_patch%n_patch_cells
+      grid_metadata_out%nglb_e    = subgrid%p_patch%n_patch_edges
+      ALLOCATE(grid_metadata_out%clon(grid_metadata_out%nglb_c),     &
+        &      grid_metadata_out%clat(grid_metadata_out%nglb_c),     &
+        &      grid_metadata_out%elon(grid_metadata_out%nglb_e),     &
+        &      grid_metadata_out%elat(grid_metadata_out%nglb_e),     &
+        &      grid_metadata_out%clonv(grid_metadata_out%cell_type, grid_metadata_out%nglb_c), &
+        &      grid_metadata_out%clatv(grid_metadata_out%cell_type, grid_metadata_out%nglb_c), &
+        &      grid_metadata_out%elonv(4, grid_metadata_out%nglb_e), &
+        &      grid_metadata_out%elatv(4, grid_metadata_out%nglb_e), &
+        &      STAT=ierrstat)
+      IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
+      DO i=1,grid_metadata_out%nglb_c
+        idx = subgrid%p_patch%cells%glb_index(i)
+        grid_metadata_out%clon(i)    = grid_metadata_in%clon(idx)
+        grid_metadata_out%clat(i)    = grid_metadata_in%clat(idx)
+        grid_metadata_out%clonv(:,i) = grid_metadata_in%clonv(:,idx)
+        grid_metadata_out%clatv(:,i) = grid_metadata_in%clatv(:,idx)
+      END DO
+      DO i=1,grid_metadata_out%nglb_e
+        idx = subgrid%p_patch%edges%glb_index(i)
+        grid_metadata_out%elon(i)    = grid_metadata_in%elon(idx)
+        grid_metadata_out%elat(i)    = grid_metadata_in%elat(idx)
+        grid_metadata_out%elonv(:,i) = grid_metadata_in%elonv(:,idx)
+        grid_metadata_out%elatv(:,i) = grid_metadata_in%elatv(:,idx)
+      END DO
+    CASE (GRID_TYPE_REGULAR)
+      CALL finish(routine, "Not yet implemented!")
+    CASE DEFAULT
+      CALL finish(routine, "Unknown grid type")
+    END SELECT
+  END SUBROUTINE extract_metadata_output
+
+
   !> Open output data file.
   !
   SUBROUTINE open_output(out_filename, global_metadata, field_metadata, nfields, &
-    &                    zaxis_metadata, n_zaxis, grid_metadata, file_metadata, &
-    &                    infile_metadata)
+    &                    zaxis_metadata, n_zaxis, grid_metadata, file_metadata,  &
+    &                    infile_metadata, gribedition, opt_otype)
     CHARACTER(LEN=*),         INTENT(IN)    :: out_filename
     TYPE (t_global_metadata), INTENT(IN)    :: global_metadata
     TYPE (t_field_metadata),  INTENT(IN)    :: field_metadata(:)
@@ -151,18 +208,20 @@ CONTAINS
     INTEGER,                  INTENT(IN)    :: nfields, n_zaxis
     TYPE (t_file_metadata),   INTENT(OUT)   :: file_metadata
     TYPE (t_file_metadata),   INTENT(IN)    :: infile_metadata
+    INTEGER,                  INTENT(IN)    :: gribedition
+    INTEGER,                  INTENT(IN), OPTIONAL :: opt_otype !< output file type: 2=FILETYPE_GRB2, 4=FILETYPE_NC2
     ! local constants
     CHARACTER(LEN=*), PARAMETER :: routine  = TRIM(modname)//'::open_output'
     CHARACTER(LEN=*), PARAMETER :: att_name = TRIM(tool_name)
     CHARACTER(LEN=*), PARAMETER :: att_txt  = TRIM(tool_version)
     LOGICAL,          PARAMETER :: ldefine = .TRUE.
     ! local variables
-    INTEGER :: i, j, iret, cdiTimeIndex, iaxis, output_type, gridID, ngrids, tmp
+    INTEGER :: i, j, iret, cdiTimeIndex, iaxis, gridID, ngrids, tmp
     CHARACTER(len=MAX_NAME_LENGTH) :: zname
 
     cdiZaxisID(:) = CDI_UNDEFID
-    output_type   = FILETYPE_NC2
-    file_metadata%streamID  = streamOpenWrite(TRIM(out_filename), output_type)
+    IF (PRESENT(opt_otype)) file_metadata%file_type = opt_otype
+    file_metadata%streamID  = streamOpenWrite(TRIM(out_filename), file_metadata%file_type)
     file_metadata%vlistID   = vlistCreate() ! create cdi vlist
 
     file_metadata%structure = infile_metadata%structure
@@ -210,7 +269,7 @@ CONTAINS
     ! define time axis:
     ! -----------------
 
-    IF (dbg_level >= 5) WRITE (0,*) "# define time axis"
+    IF (dbg_level >= 5) WRITE (0,*) "# define time axis (", global_metadata%timetype, ")"
     cdiTaxisID = taxisCreate(global_metadata%timetype)
     CALL taxisDefTunit   (cdiTaxisID, global_metadata%tunit   )
     CALL taxisDefCalendar(cdiTaxisID, global_metadata%calendar)
@@ -239,7 +298,7 @@ CONTAINS
       CASE(EDGE_GRID)
         gridID = file_metadata%e_gridID
       CASE DEFAULT
-        CALL finish(routine, "Unknown grid type")
+        CALL finish(routine, "field meta-data: Unknown grid type")
       END SELECT
         
       varID(i) = vlistDefVar(file_metadata%vlistID, gridID, cdizaxisID(iaxis), &
@@ -247,16 +306,27 @@ CONTAINS
       CALL vlistDefVarName(file_metadata%vlistID, varID(i), TRIM(field_metadata(i)%outputname))
 
       ! set GRIB2 triplet
-      CALL vlistDefVarParam(file_metadata%vlistID, varID(i), &
-        &  cdiEncodeParam(field_metadata(i)%grib2%number,    &
-        &                 field_metadata(i)%grib2%category,  &
-        &                 field_metadata(i)%grib2%discipline) )
+
+      ! Note: We do not set the GRIB2 triplet if the input file is
+      ! GRIB1 and thus use only the GRIB short name of the
+      ! variable. Otherwise, the GRIB_API cannot resolve the fields
+      ! that are written to the output file.
+      IF (gribedition > 1) THEN
+        CALL vlistDefVarParam(file_metadata%vlistID, varID(i), &
+          &  cdiEncodeParam(field_metadata(i)%grib2%number,    &
+          &                 field_metadata(i)%grib2%category,  &
+          &                 field_metadata(i)%grib2%discipline) )
+      END IF
       CALL vlistDefVarDatatype(file_metadata%vlistID, varID(i), field_metadata(i)%grib2%bits)
 
       CALL vlistDefVarStdName  (file_metadata%vlistID, varID(i), TRIM(field_metadata(i)%cf%standard_name))
       CALL vlistDefVarLongname (file_metadata%vlistID, varID(i), TRIM(field_metadata(i)%cf%long_name)    )
       CALL vlistDefVarUnits    (file_metadata%vlistID, varID(i), TRIM(field_metadata(i)%cf%units)        )
-      CALL vlistDefVarTsteptype(file_metadata%vlistID, varID(i), field_metadata(i)%steptype              )
+
+      ! Note: we set all variables as "TIME_INSTANT", regardless of
+      ! their source, in order to get a time axis.
+      !    CALL vlistDefVarTsteptype(file_metadata%vlistID, varID(i), field_metadata(i)%steptype)
+      CALL vlistDefVarTsteptype(file_metadata%vlistID, varID(i), TSTEP_INSTANT)
       CALL vlistDefVarDatatype (file_metadata%vlistID, varID(i), field_metadata(i)%cf%datatype           )
 
       ! set missing value information on variable:
@@ -277,7 +347,7 @@ CONTAINS
     TYPE (t_file_metadata), INTENT(INOUT) :: file_metadata
     ! local variables:
     CHARACTER(LEN=*), PARAMETER :: routine = TRIM(modname)//'::define_output_grid'
-    INTEGER :: nx, ny
+    INTEGER :: nx, ny, gridtype
 
     SELECT CASE(grid_metadata%structure)
     CASE (GRID_LONLAT)
@@ -300,11 +370,20 @@ CONTAINS
       ! DISABLED for the time being (segfault problem):
       ! CALL gridDefUUID(file_metadata%c_gridID, grid_metadata%grid_uuid%data)
     CASE (GRID_UNSTRUCTURED)
+      IF (file_metadata%file_type == FILETYPE_GRB2) THEN
+        ! since the current CDI-version does not fully support "GRID_UNSTRUCTURED", the 
+        ! grid type is changed to "GRID_REFERENCE".
+        gridtype = GRID_REFERENCE
+      ELSE
+        gridtype = GRID_UNSTRUCTURED
+      ENDIF
+
       ! define unstructured horizontal cell grid:
       IF (dbg_level >= 10) WRITE (0,*) "# define horizontal grid with size ", grid_metadata%nglb_c
 
       ! cell grid:
-      file_metadata%c_gridID = gridCreate(grid_metadata%structure, grid_metadata%nglb_c)
+      IF (dbg_level >= 2) WRITE (0,*) "# define horizontal cell grid"
+      file_metadata%c_gridID = gridCreate(gridtype, grid_metadata%nglb_c)
       CALL gridDefNvertex  (file_metadata%c_gridID, grid_metadata%cell_type)
       CALL gridDefXname    (file_metadata%c_gridID, 'clon')
       CALL gridDefXlongname(file_metadata%c_gridID, 'center longitude')
@@ -313,13 +392,16 @@ CONTAINS
       CALL gridDefYlongname(file_metadata%c_gridID, 'degrees north')
       CALL gridDefYunits   (file_metadata%c_gridID, 'radian')
 
-      CALL gridDefXvals    (file_metadata%c_gridID, grid_metadata%clon)
-      CALL gridDefYvals    (file_metadata%c_gridID, grid_metadata%clat)
-      CALL gridDefXbounds  (file_metadata%c_gridID, grid_metadata%clonv)
-      CALL gridDefYbounds  (file_metadata%c_gridID, grid_metadata%clatv)
+      IF (file_metadata%file_type /= FILETYPE_GRB2) THEN
+        CALL gridDefXvals    (file_metadata%c_gridID, grid_metadata%clon)
+        CALL gridDefYvals    (file_metadata%c_gridID, grid_metadata%clat)
+        CALL gridDefXbounds  (file_metadata%c_gridID, grid_metadata%clonv)
+        CALL gridDefYbounds  (file_metadata%c_gridID, grid_metadata%clatv)
+      END IF
 
       ! edge grid:
-      file_metadata%e_gridID = gridCreate(grid_metadata%structure, grid_metadata%nglb_e)
+      IF (dbg_level >= 2) WRITE (0,*) "# define horizontal edge grid"
+      file_metadata%e_gridID = gridCreate(gridtype, grid_metadata%nglb_e)
       CALL gridDefNvertex  (file_metadata%e_gridID, 4)
       CALL gridDefXname    (file_metadata%e_gridID, 'elon')
       CALL gridDefXlongname(file_metadata%e_gridID, 'edge midpoint longitude')
@@ -328,10 +410,12 @@ CONTAINS
       CALL gridDefYlongname(file_metadata%e_gridID, 'edge midpoint latitude')
       CALL gridDefYunits   (file_metadata%e_gridID, 'radian')
 
-      CALL gridDefXvals    (file_metadata%e_gridID, grid_metadata%elon)
-      CALL gridDefYvals    (file_metadata%e_gridID, grid_metadata%elat)
-      CALL gridDefXbounds  (file_metadata%e_gridID, grid_metadata%elonv)
-      CALL gridDefYbounds  (file_metadata%e_gridID, grid_metadata%elatv)
+      IF (file_metadata%file_type /= FILETYPE_GRB2) THEN
+        CALL gridDefXvals    (file_metadata%e_gridID, grid_metadata%elon)
+        CALL gridDefYvals    (file_metadata%e_gridID, grid_metadata%elat)
+        CALL gridDefXbounds  (file_metadata%e_gridID, grid_metadata%elonv)
+        CALL gridDefYbounds  (file_metadata%e_gridID, grid_metadata%elatv)
+      END IF
 
       ! define grid UUID:
       ! DISABLED for the time being (segfault problem):
@@ -342,6 +426,24 @@ CONTAINS
 
     IF (dbg_level >= 10) WRITE (0,*) "# done."
   END SUBROUTINE define_output_grid
+
+
+  !> deallocate meta-data
+  !
+  SUBROUTINE deallocate_grid_metadata(grid_metadata)
+    TYPE (t_output_grid),   INTENT(INOUT) :: grid_metadata    
+
+    IF (ALLOCATED (grid_metadata%clon )) DEALLOCATE (grid_metadata%clon)
+    IF (ALLOCATED (grid_metadata%clat )) DEALLOCATE (grid_metadata%clat)
+    IF (ALLOCATED (grid_metadata%elon )) DEALLOCATE (grid_metadata%elon)
+    IF (ALLOCATED (grid_metadata%elat )) DEALLOCATE (grid_metadata%elat)
+    IF (ALLOCATED (grid_metadata%clonv)) DEALLOCATE (grid_metadata%clonv)
+    IF (ALLOCATED (grid_metadata%clatv)) DEALLOCATE (grid_metadata%clatv)
+    IF (ALLOCATED (grid_metadata%elonv)) DEALLOCATE (grid_metadata%elonv)
+    IF (ALLOCATED (grid_metadata%elatv)) DEALLOCATE (grid_metadata%elatv)
+    IF (ALLOCATED (grid_metadata%xvals)) DEALLOCATE (grid_metadata%xvals)
+    IF (ALLOCATED (grid_metadata%yvals)) DEALLOCATE (grid_metadata%yvals)
+  END SUBROUTINE deallocate_grid_metadata
 
 
   !> Close output data file
@@ -364,16 +466,8 @@ CONTAINS
       IF(cdiZaxisID(j) /= CDI_UNDEFID) CALL zaxisDestroy(cdiZaxisID(j))
       cdiZaxisID(j) = CDI_UNDEFID
     ENDDO
-    if (ALLOCATED (grid_metadata%clon )) DEALLOCATE (grid_metadata%clon)
-    if (ALLOCATED (grid_metadata%clat )) DEALLOCATE (grid_metadata%clat)
-    if (ALLOCATED (grid_metadata%elon )) DEALLOCATE (grid_metadata%elon)
-    if (ALLOCATED (grid_metadata%elat )) DEALLOCATE (grid_metadata%elat)
-    if (ALLOCATED (grid_metadata%clonv)) DEALLOCATE (grid_metadata%clonv)
-    if (ALLOCATED (grid_metadata%clatv)) DEALLOCATE (grid_metadata%clatv)
-    if (ALLOCATED (grid_metadata%elonv)) DEALLOCATE (grid_metadata%elonv)
-    if (ALLOCATED (grid_metadata%elatv)) DEALLOCATE (grid_metadata%elatv)
-    if (ALLOCATED (grid_metadata%xvals)) DEALLOCATE (grid_metadata%xvals)
-    if (ALLOCATED (grid_metadata%yvals)) DEALLOCATE (grid_metadata%yvals)
+
+    CALL deallocate_grid_metadata(grid_metadata)
 
     CALL streamClose(file_metadata%streamID)
     file_metadata = empty

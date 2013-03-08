@@ -418,6 +418,7 @@ MODULE mo_mpi
     MODULE PROCEDURE p_gatherv_int
     MODULE PROCEDURE p_gatherv_real2D1D
     MODULE PROCEDURE p_gatherv_real3D1D
+    MODULE PROCEDURE p_gatherv_int2D1D
   END INTERFACE
 
   INTERFACE p_max
@@ -6447,6 +6448,29 @@ CONTAINS
      recvbuf(:) = RESHAPE(sendbuf, (/ SIZE(recvbuf) /) )
 #endif
    END SUBROUTINE p_gatherv_real2D1D
+
+
+  SUBROUTINE p_gatherv_int2D1D (sendbuf, sendcount, recvbuf, recvcounts, displs, p_dest, comm)
+    INTEGER,           INTENT(IN)    :: sendbuf(:,:)
+    INTEGER,           INTENT(IN)    :: sendcount
+    INTEGER,           INTENT(INOUT) :: recvbuf(:)
+    INTEGER,           INTENT(IN)    :: recvcounts(:), displs(:)
+    INTEGER,           INTENT(in)    :: p_dest
+    INTEGER,           INTENT(in)    :: comm
+
+#if !defined(NOMPI)
+    CHARACTER(*), PARAMETER :: routine = TRIM("mo_mpi:p_gatherv_int2D1D")
+    INTEGER :: p_comm, p_error
+
+    p_comm = comm
+    CALL MPI_GATHERV(sendbuf, sendcount, p_int,       &    ! sendbuf, sendcount, sendtype
+      &              recvbuf, recvcounts, displs,     &    ! recvbuf, recvcounts, displs
+      &              p_int, p_dest, p_comm_work, p_error)  ! recvtype, root, comm, error
+    IF (p_error /=  MPI_SUCCESS) CALL finish (routine, 'Error in MPI_GATHERV operation!')
+#else
+    recvbuf(:) = RESHAPE(sendbuf, (/ SIZE(recvbuf) /) )
+#endif
+  END SUBROUTINE p_gatherv_int2D1D
 
 
    SUBROUTINE p_gatherv_real3D1D (sendbuf, sendcount, recvbuf, recvcounts, displs, p_dest, comm)

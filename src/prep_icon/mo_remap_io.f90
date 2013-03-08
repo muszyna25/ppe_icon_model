@@ -23,6 +23,7 @@ MODULE mo_remap_io
   INCLUDE 'netcdf.inc'
 
   PRIVATE
+  PUBLIC :: set_default_remap_namelist
   PUBLIC :: read_remap_namelist
   PUBLIC :: open_file, close_file
   PUBLIC :: read_field2D, read_field3D
@@ -36,6 +37,7 @@ MODULE mo_remap_io
   PUBLIC :: s_maxsize
   PUBLIC :: lcompute_vt, lcompute_vn
   PUBLIC :: rbf_vec_scale
+  PUBLIC :: out_filetype
 
 
   CHARACTER(LEN=*), PARAMETER :: modname = 'mo_remap_io'
@@ -44,10 +46,6 @@ MODULE mo_remap_io
   CHARACTER (len=MAX_NAME_LENGTH)    :: out_filename        !< output file name.
   CHARACTER (len=MAX_NAME_LENGTH)    :: in_grid_filename    !< input grid file name.
   CHARACTER (len=MAX_NAME_LENGTH)    :: out_grid_filename   !< output grid file name.
-
-  !> work-around: GRIB edition number of input data file (as long as we cannot
-  !  determine this via CDI)
-  INTEGER                            :: in_file_gribedition
 
   INTEGER :: in_type, out_type !< structure of input/output grid
 
@@ -61,14 +59,23 @@ MODULE mo_remap_io
   LOGICAL  :: lcompute_vn               !< Flag: .TRUE., if the normal wind shall be computed
   LOGICAL  :: lcompute_vt               !< Flag: .TRUE., if the tangential wind shall be computed
 
-  REAL(wp)           :: rbf_vec_scale = 0.05_wp   !< RBF scaling factor
+  ! RBF scaling factor
+  REAL(wp)           :: rbf_vec_scale = 0.05_wp
+
+  ! output file type: 2=FILETYPE_GRB2, 4=FILETYPE_NC2
+  INTEGER            :: out_filetype
+
+  INTEGER, PARAMETER :: CDI_CELL_GRID = 1
+  INTEGER, PARAMETER :: CDI_EDGE_GRID = 2
+  INTEGER, PARAMETER :: CDI_VERT_GRID = 3
+
 
   ! namelist definition: main namelist
   NAMELIST/remap_nml/   in_grid_filename,  in_filename,  in_type,  &
     &                   out_grid_filename, out_filename, out_type, &
     &                   l_have3dbuffer, s_maxsize,                 &
-    &                   in_file_gribedition,                       &
-    &                   lcompute_vt, lcompute_vn, rbf_vec_scale
+    &                   lcompute_vt, lcompute_vn, rbf_vec_scale,   &
+    &                   out_filetype
 
 
 
@@ -79,10 +86,11 @@ MODULE mo_remap_io
   ! library.
   !
   TYPE t_file_metadata
-    INTEGER :: structure = -1
-    INTEGER :: streamID  = -1
-    INTEGER :: vlistID   = -1
-    INTEGER :: ncfileID  = -1
+    INTEGER :: structure   = -1
+    INTEGER :: file_type   = FILETYPE_NC2
+    INTEGER :: streamID    = -1
+    INTEGER :: vlistID     = -1
+    INTEGER :: ncfileID    = -1
     INTEGER :: gribedition = 2
 
     ! CDI internal ID for the gaussian grid or the cells/edges/verts
@@ -94,16 +102,9 @@ MODULE mo_remap_io
 
 CONTAINS
 
-  !> Opens namelist file, reads interpolation config.
-  !
-  SUBROUTINE read_remap_namelist(filename)
-    CHARACTER(LEN=*), INTENT(IN) :: filename !< main namelist file
-    ! local variables
-    CHARACTER(LEN=*), PARAMETER :: routine = TRIM(modname)//'::read_remap_namelist'
-    INTEGER :: istat
-
-    IF (dbg_level >= 5) WRITE (0,*) "# read io namelist"
-    ! default settings
+  !> Sets defaults for namelist parameters
+  !  
+  SUBROUTINE set_default_remap_namelist()
     in_grid_filename  = ""
     in_filename       = ""
     in_type           =  1
@@ -112,10 +113,25 @@ CONTAINS
     out_type          =  2
     l_have3dbuffer    = .FALSE.
     s_maxsize         = 500000
-    in_file_gribedition = -1
     lcompute_vn       = .FALSE.
     lcompute_vt       = .FALSE.
     rbf_vec_scale     = 0.05_wp
+    out_filetype      = FILETYPE_NC2
+  END SUBROUTINE set_default_remap_namelist
+
+
+  !> Opens namelist file, reads interpolation config.
+  !
+  SUBROUTINE read_remap_namelist(filename)
+    CHARACTER(LEN=*), INTENT(IN) :: filename !< main namelist file
+    ! local variables
+    CHARACTER(LEN=*), PARAMETER :: routine = TRIM(modname)//'::read_remap_namelist'
+    INTEGER :: istat
+
+    IF (dbg_level >= 3) WRITE (0,*) "# read io namelist from file ", TRIM(filename), "."
+
+    ! default settings
+    CALL set_default_remap_namelist()
 
     ! read user's (new) specifications
     CALL open_nml(TRIM(filename))
@@ -133,10 +149,7 @@ CONTAINS
       WRITE (0,*) "# RBF vec scale (RBF remapping): ", &
         &         rbf_vec_scale
     END IF
-    ! warn about deprecated parameters:
-    IF (in_file_gribedition /= -1) THEN
-      WRITE (0,*) "Deprecated parameter: in_file_gribedition! This parameter will be removed in future versions!"
-    END IF
+
   END SUBROUTINE read_remap_namelist
 
 
@@ -153,7 +166,7 @@ CONTAINS
     INTEGER,                INTENT(IN)  :: rank0
     ! local variables:
     CHARACTER(LEN=*), PARAMETER    :: routine = TRIM(modname)//'::open_file'
-    INTEGER                        :: ngrids, i, gridID
+    INTEGER                        :: ngrids, i, gridID, ncfileID
     CHARACTER(len=MAX_NAME_LENGTH) :: zname
     LOGICAL                        :: file_exists
 
@@ -183,8 +196,15 @@ CONTAINS
     IF (get_my_mpi_work_id() == rank0) THEN
       SELECT CASE(file_metadata%structure)
       CASE (GRID_TYPE_ICON)
-        IF (dbg_level >= 2)  WRITE (0,*) "# open file '",TRIM(filename),"' (unstructured NetCDF)"
-        CALL nf(nf_open(TRIM(filename), NF_NOWRITE, file_metadata%ncfileID), routine)
+        IF (nf_open(TRIM(filename), NF_NOWRITE, ncfileID) == nf_noerr) THEN
+          file_metadata%ncfileID  = ncfileID
+          file_metadata%file_type = FILETYPE_NC2
+          IF (dbg_level >= 2)  WRITE (0,*) "# open file '",TRIM(filename),"' (unstructured NetCDF)"
+        ELSE
+          file_metadata%ncfileID  = -1
+          file_metadata%file_type = FILETYPE_GRB2
+          IF (dbg_level >= 2)  WRITE (0,*) "# open file '",TRIM(filename),"' (unstructured GRIB2)"
+        END IF
         file_metadata%structure = GRID_TYPE_ICON
         file_metadata%streamID  = streamOpenRead(TRIM(filename))
         file_metadata%vlistID   = streamInqVlist(file_metadata%streamID)
@@ -193,10 +213,26 @@ CONTAINS
         ngrids = vlistNgrids(file_metadata%vlistID)
         LOOP : DO i=1,ngrids
           gridID = vlistGrid(file_metadata%vlistID, i-1)
-          CALL gridInqXname(gridID, zname)
-          IF (tolower(TRIM(zname)) == "clon") file_metadata%c_gridID = gridID
-          IF (tolower(TRIM(zname)) == "elon") file_metadata%e_gridID = gridID
-          IF (tolower(TRIM(zname)) == "vlon") file_metadata%v_gridID = gridID
+          IF (file_metadata%file_type == FILETYPE_GRB2) THEN
+            SELECT CASE(gridInqPosition(gridID))
+            CASE(CDI_CELL_GRID)
+              file_metadata%c_gridID = gridID
+            CASE(CDI_EDGE_GRID)
+              file_metadata%e_gridID = gridID
+            CASE(CDI_VERT_GRID)
+              file_metadata%v_gridID = gridID
+            CASE DEFAULT
+              WRITE (0,*) "gridInqPosition(gridID) = ", gridInqPosition(gridID)
+              CALL finish(routine, "Unknown unstructured grid type (GRIB2)")
+            END SELECT
+          ELSE IF (file_metadata%file_type == FILETYPE_NC2) THEN
+            CALL gridInqXname(gridID, zname)
+            IF (tolower(TRIM(zname)) == "clon") file_metadata%c_gridID = gridID
+            IF (tolower(TRIM(zname)) == "elon") file_metadata%e_gridID = gridID
+            IF (tolower(TRIM(zname)) == "vlon") file_metadata%v_gridID = gridID
+          ELSE
+            CALL finish(routine, "Unknown unstructured grid type")
+          END IF
         END DO LOOP
       CASE (GRID_TYPE_REGULAR)
         IF (dbg_level >= 2)  WRITE (0,*) "# open file '",TRIM(filename),"' (structured)"
@@ -250,7 +286,7 @@ CONTAINS
       ! close file
       SELECT CASE(file_metadata%structure)
       CASE (GRID_TYPE_ICON)
-        CALL nf(nf_close(file_metadata%ncfileID), routine)
+        IF (file_metadata%ncfileID /= -1)  CALL nf(nf_close(file_metadata%ncfileID), routine)
         CALL streamClose(file_metadata%streamID)
       CASE (GRID_TYPE_REGULAR)
         CALL streamClose(file_metadata%streamID)

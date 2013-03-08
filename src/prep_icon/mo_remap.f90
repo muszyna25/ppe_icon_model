@@ -6,7 +6,6 @@
 !
 ! Restrictions of this version:
 !
-! - Land-sea mask not taken into account for interpolation weights.
 ! - Current algorithm is not bit-reproducible (requires unique heap
 !   ordering).
 ! - only 1st order weights for Gaussian->ICON interpolation
@@ -42,10 +41,9 @@ MODULE mo_remap
   USE mo_utilities,         ONLY: tic, toc, wp, nproma, blk_no,                &
     &                             SUCCESS, finish, t_cf_var, t_grib2_var,      &
     &                             tolower
-  USE mo_mpi,               ONLY: stop_mpi
 #endif
 
-  USE mo_mpi,               ONLY: start_mpi, get_my_mpi_work_id, p_n_work
+  USE mo_mpi,               ONLY: get_my_mpi_work_id, p_n_work
   USE mo_gnat_gridsearch,   ONLY: gnat_init_grid                               
   USE mo_remap_config,      ONLY: dbg_level, MAX_NSTENCIL_CONS,                &
     &                             MAX_NSTENCIL_RBF, MIN_NFOREIGN,              &
@@ -71,7 +69,7 @@ MODULE mo_remap
     &                             out_grid_filename, in_type, out_type,        &
     &                             read_remap_namelist,                         &
     &                             lcompute_vn, lcompute_vt, rbf_vec_scale,     &
-    &                             close_file
+    &                             close_file, out_filetype
   USE mo_remap_input,       ONLY: load_metadata_input, read_input_namelist,    &
     &                             n_input_fields, input_field, n_zaxis,        &
     &                             zaxis_metadata, global_metadata,             &
@@ -106,8 +104,8 @@ CONTAINS
   !       a namelist file.
   !
   SUBROUTINE remap_main(namelist_filename, opt_input_cfg_filename)
-    CHARACTER (LEN=*), INTENT(IN)           :: namelist_filename
-    CHARACTER (LEN=*), INTENT(IN), OPTIONAL :: opt_input_cfg_filename
+    CHARACTER (LEN=*), INTENT(IN)           :: namelist_filename         !< name of the file containing the general "remap_nml"
+    CHARACTER (LEN=*), INTENT(IN), OPTIONAL :: opt_input_cfg_filename    !< name of the file containing the "field_nml's"
     ! local variables:
     CHARACTER (len=MAX_NAME_LENGTH) :: input_cfg_filename
     CHARACTER(LEN=*), PARAMETER :: routine = TRIM(modname)//'::remap_main'
@@ -152,7 +150,7 @@ CONTAINS
     nthreads = 1
 !$  nthreads = omp_get_max_threads()
     IF (get_my_mpi_work_id() == rank0) THEN
-      WRITE (0,'(a,i4,a,i4,a)') " # running with ", p_n_work, " MPI processes and ", nthreads, " thread(s)."
+      WRITE (0,'(a,i4,a,i4,a)') " # running with ", p_n_work, " MPI process(es) and ", nthreads, " thread(s)."
     END IF
 
     ! --------------------------------------------------------------------------
@@ -165,12 +163,13 @@ CONTAINS
     CALL read_input_namelist(input_cfg_filename, rank0, lcompute_vn, lcompute_vt)
 
     ! load variable meta-data
+
     CALL open_file(in_filename,       in_type,  in_data,  rank0)
+    CALL load_metadata_input (in_data, rank0, lread_all=.FALSE.)
     CALL open_file(in_grid_filename,  in_type,  in_grid,  rank0)
     CALL open_file(out_grid_filename, out_type, out_grid, rank0)
-    CALL load_metadata_input (in_data, rank0)
     CALL load_metadata_output(out_grid, output_grid, rank0)
-
+    
     ! special case of "u","v" -> "vn":
     IF ((field_id_u /= CONST_UNINITIALIZED)  .AND.   &
       & (field_id_v /= CONST_UNINITIALIZED)) THEN
@@ -188,8 +187,9 @@ CONTAINS
 
     ! load global grid to internal data structure
     IF (get_my_mpi_work_id() == rank0) THEN
-      CALL open_output(out_filename, global_metadata, input_field(:), n_input_fields, &
-        &              zaxis_metadata, n_zaxis, output_grid, out_data, out_grid)
+      CALL open_output(out_filename, global_metadata, input_field(:), n_input_fields,    &
+        &              zaxis_metadata, n_zaxis, output_grid, out_data, out_grid,         &
+        &              in_data%gribedition, out_filetype)
       CALL load_grid(gridA_global, in_data%structure, rank0,  opt_file=in_grid)
       CALL load_grid(gridB_global, out_grid%structure, rank0, opt_file=out_grid)
     ELSE
@@ -454,10 +454,10 @@ CONTAINS
     ! --------------------------------------------------------------------------
 
     CALL finalize_intp_data(intp_data_A, intp_data_B)
-    IF (lcompute_vn) THEN
+    IF (lcompute_vn .AND. ANY(input_field(:)%intp_method == INTP_RBF)) THEN
       CALL finalize_intp_data(intp_data_rbf_vn_u_B, intp_data_rbf_vn_v_B)
     END IF
-    IF (lcompute_vt) THEN
+    IF (lcompute_vt .AND. ANY(input_field(:)%intp_method == INTP_RBF)) THEN
       CALL finalize_intp_data(intp_data_rbf_vt_u_B, intp_data_rbf_vt_v_B)
     END IF
     CALL finalize_gather(comm_data_c_A_cov, comm_data_c_B, comm_data_e_B)

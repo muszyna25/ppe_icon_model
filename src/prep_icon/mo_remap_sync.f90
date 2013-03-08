@@ -46,6 +46,11 @@ MODULE mo_remap_sync
     INTEGER :: npromz    = -1
   END TYPE t_gather
 
+  INTERFACE gather_field2D
+    MODULE PROCEDURE gather_field2D_real
+    MODULE PROCEDURE gather_field2D_int
+  END INTERFACE
+
 CONTAINS
 
   !> Prepare communication data structures for cell-based grid.
@@ -261,13 +266,13 @@ CONTAINS
   !> Gather distributed 2D field data from working PEs in a global
   !  field on rank0.
   !
-  SUBROUTINE gather_field2D(gather, field_in, field_out)
+  SUBROUTINE gather_field2D_real(gather, field_in, field_out)
     REAL(wp),          INTENT(IN)    :: field_in(:,:)    !< input field (size may differ on PEs)
     REAL(wp),          INTENT(INOUT) :: field_out(:,:)   !< global output field
     TYPE(t_gather),    INTENT(IN)    :: gather           !< communication pattern
-#if !defined(NOMPI)
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = TRIM(TRIM(modname)//'::gather_field2D')
+#if !defined(NOMPI)
     INTEGER  :: ierrstat, i, jc,jb
     REAL(wp), ALLOCATABLE :: recv_buf(:)
 
@@ -294,9 +299,54 @@ CONTAINS
     DEALLOCATE(recv_buf, STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")
 #else
+    IF (SIZE(field_out,1) /= SIZE(field_in,1)) CALL finish(routine, "Mismatch dimension 1")
+    IF (SIZE(field_out,2) /= SIZE(field_in,2)) CALL finish(routine, "Mismatch dimension 2")
     field_out(:,:) = field_in(:,:)
 #endif
-  END SUBROUTINE gather_field2D
+  END SUBROUTINE gather_field2D_real
+
+
+  !> Gather distributed 2D field data from working PEs in a global
+  !  field on rank0: INTEGER variant
+  !
+  SUBROUTINE gather_field2D_int(gather, field_in, field_out)
+    INTEGER,           INTENT(IN)    :: field_in(:,:)    !< input field (size may differ on PEs)
+    INTEGER,           INTENT(INOUT) :: field_out(:,:)   !< global output field
+    TYPE(t_gather),    INTENT(IN)    :: gather           !< communication pattern
+    ! local variables
+    CHARACTER(LEN=*), PARAMETER :: routine = TRIM(TRIM(modname)//'::gather_field2D')
+#if !defined(NOMPI)
+    INTEGER  :: ierrstat, i, jc,jb
+    INTEGER, ALLOCATABLE :: recv_buf(:)
+
+    IF (dbg_level >= 11) WRITE (0,*) "# gather data on PE ", gather%rank0
+    ! allocate temporary data structures:
+    ALLOCATE(recv_buf(gather%total_dim), STAT=ierrstat)
+    IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
+
+    ! communicate field data:
+    CALL p_gatherv(field_in, gather%local_dim,                 &
+      &            recv_buf, gather%local_size, gather%displs, &
+      &            gather%rank0, p_comm_work)
+
+    ! map received values to the right (global) positions:
+!$OMP PARALLEL DO PRIVATE(jc,jb)
+    DO i=1,gather%total_dim
+      jc = idx_no(gather%global_idx(i))
+      jb = blk_no(gather%global_idx(i))
+      field_out(jc,jb) = recv_buf(i)
+    END DO
+!$OMP END PARALLEL DO
+
+    ! clean up
+    DEALLOCATE(recv_buf, STAT=ierrstat)
+    IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")
+#else
+    IF (SIZE(field_out,1) /= SIZE(field_in,1)) CALL finish(routine, "Mismatch dimension 1")
+    IF (SIZE(field_out,2) /= SIZE(field_in,2)) CALL finish(routine, "Mismatch dimension 2")
+    field_out(:,:) = field_in(:,:)
+#endif
+  END SUBROUTINE gather_field2D_int
 
 
   !> Gather distributed 3D field data from working PEs in a global

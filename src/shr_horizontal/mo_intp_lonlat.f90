@@ -69,6 +69,7 @@
       &                               t_cartesian_coordinates,                              &
       &                               t_geographical_coordinates
     USE mo_math_constants,      ONLY: pi, pi2, pi_2
+    USE mo_physical_constants,  ONLY: earth_radius
     USE mo_math_utility_solvers, ONLY: solve_chol_v, choldec_v
     USE mo_lonlat_grid,         ONLY: t_lon_lat_grid,                                       &
       &                               compute_lonlat_blocking,                              &
@@ -389,7 +390,7 @@
             new_element%field%info%hor_interp%lonlat_id = i
             ! compute area weights:
 !CDIR NOIEXPAND
-            CALL latlon_compute_area_weights(grid, area_weights)
+            CALL latlon_compute_area_weights(grid, earth_radius, area_weights)
             ! for each local lon-lat point on this PE:
             DO j=1, ptr_int_lonlat%nthis_local_pts
               ! determine block, index
