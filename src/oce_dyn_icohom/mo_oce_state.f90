@@ -3628,7 +3628,7 @@ END SUBROUTINE complete_patchinfo_oce
     INTEGER :: je,jc,jb,jk
     INTEGER :: i_startidx_c, i_endidx_c,i_startidx_e, i_endidx_e
     CHARACTER(len=max_char_length), PARAMETER :: &
-      &      routine = 'mo_oce_state:construct_patch_3D'
+      &      routine = 'mo_oce_state:init_patch_3D'
 
     TYPE(t_patch), POINTER :: patch_2D
     TYPE(t_subset_range), POINTER :: all_cells
@@ -3773,13 +3773,16 @@ END SUBROUTINE complete_patchinfo_oce
          
             ! Partial cell ends at real bathymetry below upper boundary zlev_i(dolic)
             ! at most one dry cell as neighbor is allowed, therefore bathymetry can be much deeper than corrected dolic
-            ! maximum thickness limited be an additional part of the thickness of the underlying cell
+            ! maximum thickness limited to an additional part of the thickness of the underlying cell
             IF (jk < n_zlev) THEN
               p_patch_3D%p_patch_1D(1)%prism_thick_c(jc,jk,jb) = &
                 & MIN(-p_ext_data%oce%bathymetry_c(jc,jb)-v_base%zlev_i(jk), &
                 &      v_base%del_zlev_m(jk)+0.8_wp*v_base%del_zlev_m(jk+1))
             ELSE  ! at lowest level set thickness to real bathymetry
-              p_patch_3D%p_patch_1D(1)%prism_thick_c(jc,jk,jb) = -p_ext_data%oce%bathymetry_c(jc,jb)-v_base%zlev_i(jk)
+              ! maximum thickness limited to a similar factor of the thickness of the current cell
+              p_patch_3D%p_patch_1D(1)%prism_thick_c(jc,jk,jb) = &
+                & MIN(-p_ext_data%oce%bathymetry_c(jc,jb)-v_base%zlev_i(jk), &
+                &      1.8_wp*v_base%del_zlev_m(jk))
             ENDIF
 
             p_patch_3D%p_patch_1D(1)%prism_center_dist_c(jc,jk,jb) = 0.5_wp* &
