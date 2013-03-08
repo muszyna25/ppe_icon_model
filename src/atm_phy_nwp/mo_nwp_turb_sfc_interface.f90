@@ -583,18 +583,15 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
 !     Various variables for VDFOUTER
 
       DO jc = i_startidx, i_endidx
-        zchar  (jc) = 0.018_wp ! default value from IFS if no wave model
+        zchar  (jc) = 0.018_wp                 ! default value from IFS if no wave model
         zucurr (jc) = 0.0_wp
         zvcurr (jc) = 0.0_wp
-        zsigflt(jc) = 0.0_wp   ! just for testing (standard dev. of filtered orogrphy)
-        zz0h   (jc) = 0.0_wp   ! diagnostic z0,h - should be in diagnostic output ???
+        zsigflt(jc) = 0.0_wp                   ! just for testing (standard dev. of filtered orogrphy)
+        zz0h   (jc) = 0.0_wp                   ! diagnostic z0,h - should be in diagnostic output ???
         ztice  (jc) = p_prog_wtr_now%t_ice(jc,jb)
-        ztske1 (jc) = 0.0_wp   ! skin temperature tendency
+        ztske1 (jc) = 0.0_wp                   ! skin temperature tendency
         zsst   (jc) = lnd_diag%t_seasfc(jc,jb) ! SST
         ztskrad(jc) = lnd_prog_now%t_g (jc,jb) ! skin temperature at last radiation step ????
-if (zsst(jc) > 400.0 ) then
-  write(*,*) 'turb_sfc1: ', zsst(jc)
-endif
       ENDDO
 
       DO jk = 1,nlev
@@ -602,13 +599,13 @@ endif
           zsoteu (jc,jk) = 0.0_wp
           zsotev (jc,jk) = 0.0_wp
           zsobeta(jc,jk) = 0.0_wp
-          zae    (jc,jk) = 0.0_wp   ! cloud tendency ???
+          zae    (jc,jk) = 0.0_wp              ! cloud tendency ???
         ENDDO
       ENDDO
 
 !ATTENTION: these tile quantities are TESSEL/IFS type (with ntiles_edmf=8) ????
 
-      DO jt = 1,ntiles_total+ntiles_water    !==ntiles_edmf???
+      DO jt = 1,ntiles_total+ntiles_water      !==ntiles_edmf???
         DO jc = i_startidx, i_endidx
           shfl_s_t(jc,jt) = prm_diag%shfl_s_t (jc,jb,jt) ! should be tile specific !!!
           evap_s_t(jc,jt) = prm_diag%lhfl_s_t (jc,jb,jt) / alv ! evaporation [kg/(m2 s)]  -"-
@@ -892,45 +889,28 @@ endif
  
 ! Diagnostic output variables:  ???? TERRA-tiles or TESSEL-tiles???
 
-      prm_diag%rh_2m (:,:) = 0.0_wp
-      prm_diag%shfl_s(:,:) = 0.0_wp
-      prm_diag%lhfl_s(:,:) = 0.0_wp
-      prm_diag%tch   (:,:) = 0.0_wp
-      prm_diag%tcm   (:,:) = 0.0_wp
-      prm_diag%tfv   (:,:) = 0.0_wp
       DO jc = i_startidx, i_endidx
         prm_diag%shfl_s(jc,jb) = pdifts(jc,nlev+1) 
         prm_diag%lhfl_s(jc,jb) = pdiftq(jc,nlev+1)*alv
+        prm_diag%rh_2m (jc,jb) = 0.0_wp                 !??? needs to be defined
       ENDDO
+      prm_diag%tch   (:,jb) = 0.0_wp
+      prm_diag%tcm   (:,jb) = 0.0_wp
+      prm_diag%tfv   (:,jb) = 0.0_wp
       DO jt = 1, ntiles_total + ntiles_water
         DO jc = i_startidx, i_endidx
-          prm_diag%rh_2m (jc,jb) = prm_diag%rh_2m (jc,jb) + 0.0_wp     !???
-        ! prm_diag%shfl_s(jc,jb) = prm_diag%shfl_s(jc,jb) + shfl_s_t(jc,jt)    * ext_data%atm%frac_t(jc,jb,jt)
-        ! prm_diag%lhfl_s(jc,jb) = prm_diag%lhfl_s(jc,jb) + evap_s_t(jc,jt)*alv* ext_data%atm%frac_t(jc,jb,jt)
-        ! prm_diag%shfl_s(jc,jb) = prm_diag%shfl_s(jc,jb) + shfl_s_t(jc,jt)    * zfrti(jc,jt)   !bad, but needed for EDMF???
-        ! prm_diag%lhfl_s(jc,jb) = prm_diag%lhfl_s(jc,jb) + evap_s_t(jc,jt)*alv* zfrti(jc,jt)   ! ----
-
 !attention: these are all TERRA/ICON tiles (1 - ntiles_total+ntiles_water) ... transfer coefficients
-          prm_diag%tch     (jc,jb) = prm_diag%tch(jc,jb) + tch_ex(jc,jt) * ext_data%atm%frac_t(jc,jb,jt)
-          prm_diag%tcm     (jc,jb) = prm_diag%tcm(jc,jb) + tcm_ex(jc,jt) * ext_data%atm%frac_t(jc,jb,jt)
-          prm_diag%tfv     (jc,jb) = prm_diag%tfv(jc,jb) + tfv_ex(jc,jt) * ext_data%atm%frac_t(jc,jb,jt)
-          prm_diag%tch_t   (jc,jb,jt) = tch_ex(jc,jt)     
-          prm_diag%tcm_t   (jc,jb,jt) = tcm_ex(jc,jt)  
-          prm_diag%tfv_t   (jc,jb,jt) = tfv_ex(jc,jt)   
-
+          prm_diag%tch  (jc,jb) = prm_diag%tch(jc,jb) + tch_ex(jc,jt) * ext_data%atm%frac_t(jc,jb,jt)
+          prm_diag%tcm  (jc,jb) = prm_diag%tcm(jc,jb) + tcm_ex(jc,jt) * ext_data%atm%frac_t(jc,jb,jt)
+          prm_diag%tfv  (jc,jb) = prm_diag%tfv(jc,jb) + tfv_ex(jc,jt) * ext_data%atm%frac_t(jc,jb,jt)
+          prm_diag%tch_t(jc,jb,jt) = tch_ex(jc,jt)     
+          prm_diag%tcm_t(jc,jb,jt) = tcm_ex(jc,jt)  
+          prm_diag%tfv_t(jc,jb,jt) = tfv_ex(jc,jt)   
 !attention: these are all TESSEL/IFS tiles (1-8) ...  fluxes ???
           prm_diag%shfl_s_t(jc,jb,jt) = shfl_s_t(jc,jt)   
           prm_diag%lhfl_s_t(jc,jb,jt) = evap_s_t(jc,jt)*alv 
         ENDDO           
       ENDDO
-
-!      DO jc = i_startidx, i_endidx
-!        IF ( (SUM(shfl_s_t(jc,:))    == 0.0_wp) .or. (SUM(evap_s_t(jc,:))    == 0.0_wp) .or. &
-!             (prm_diag%shfl_s(jc,jb) == 0.0_wp) .or. (prm_diag%lhfl_s(jc,jb) == 0.0_wp) ) THEN
-!          write(*,*) 'turb_sfc3: ', prm_diag%shfl_s(jc,jb), prm_diag%lhfl_s(jc,jb), shfl_s_t(jc,:), evap_s_t(jc,:)*alv, &
-!            & zfrti(jc,:), ext_data%atm%frac_t(jc,jb,:)
-!        ENDIF
-!      ENDDO
 
     ENDIF !inwp_turb
 
@@ -938,7 +918,7 @@ endif
 ! !$OMP END DO NOWAIT
 ! !$OMP END PARALLEL
 
-nstep_turb = nstep_turb + 1
+  nstep_turb = nstep_turb + 1
 
 END SUBROUTINE nwp_turbulence_sfc
 
