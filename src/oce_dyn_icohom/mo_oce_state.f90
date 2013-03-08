@@ -3778,7 +3778,7 @@ END SUBROUTINE complete_patchinfo_oce
               p_patch_3D%p_patch_1D(1)%prism_thick_c(jc,jk,jb) = &
                 & MIN(-p_ext_data%oce%bathymetry_c(jc,jb)-v_base%zlev_i(jk), &
                 &      v_base%del_zlev_m(jk)+0.8_wp*v_base%del_zlev_m(jk+1))
-            ELSE  ! at lowest level set thickness to real bathymetry
+            ELSE
               ! maximum thickness limited to a similar factor of the thickness of the current cell
               p_patch_3D%p_patch_1D(1)%prism_thick_c(jc,jk,jb) = &
                 & MIN(-p_ext_data%oce%bathymetry_c(jc,jb)-v_base%zlev_i(jk), &
