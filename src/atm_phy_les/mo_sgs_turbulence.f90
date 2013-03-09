@@ -100,7 +100,7 @@ MODULE mo_sgs_turbulence
 
     TYPE(t_nh_prog),   INTENT(in)        :: p_nh_prog     !< single nh prognostic state
     TYPE(t_nh_prog),   INTENT(in)        :: p_nh_prog_rcf !< rcf nh prognostic state 
-    TYPE(t_nh_diag),   INTENT(in)        :: p_nh_diag     !< single nh diagnostic state
+    TYPE(t_nh_diag),   INTENT(inout)     :: p_nh_diag     !< single nh diagnostic state
     TYPE(t_nh_metrics),INTENT(in),TARGET :: p_nh_metrics  !< single nh metric state
     TYPE(t_patch),     INTENT(in),TARGET :: p_patch       !< single patch
     TYPE(t_int_state), INTENT(in),TARGET :: p_int         !< single interpolation state
@@ -278,7 +278,8 @@ MODULE mo_sgs_turbulence
     i_endblk   = p_patch%edges%end_blk(rl_end,i_nchdom)
 
 !$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx,vn_vert1,vn_vert2,vn_vert3,vn_vert4,&
-!$OMP            dvt_norm,dvt_tang,wfull_c1,w_full_c2,w_full_v1,w_full_v2), ICON_OMP_RUNTIME_SCHEDULE
+!$OMP            dvt_norm,dvt_tang,w_full_c1,w_full_c2,w_full_v1,w_full_v2,D_22,  &
+!$OMP            D_23,D_33), ICON_OMP_RUNTIME_SCHEDULE
     DO jb = i_startblk,i_endblk
 
        CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
@@ -959,7 +960,7 @@ MODULE mo_sgs_turbulence
         jk = nlev
         !--------------------------------------------------------    
 
-!$OMP DO PRIVATE(jc,jb,i_startidx,i_endidx,tend_hor,flux_up,flux_dn,tend_ver,slfux),ICON_OMP_RUNTIME_SCHEDULE
+!$OMP DO PRIVATE(jc,jb,i_startidx,i_endidx,tend_hor,flux_up,flux_dn,tend_ver),ICON_OMP_RUNTIME_SCHEDULE
         DO jb = i_startblk,i_endblk
 
           CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
