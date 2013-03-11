@@ -34,11 +34,6 @@ if [ %NENS% -gt 0 ]
   else TXTENS=''
 fi
 
-if [ %SIMMODE% -eq 3  -o  %YMD% -lt 20110518 ]
-  then in_file_gribedition=1
-  else in_file_gribedition=2
-fi
-
 
 # grid directory
 GRIDDIR=%SCPERM%/icon_input/grids
@@ -148,7 +143,6 @@ cat > NAMELIST_PREPICON << EOF
  out_type                     = 2
  s_maxsize                    = 500000
  l_have3dbuffer               = .false.
- in_file_gribedition          = ${in_file_gribedition}
 /
 ! DEFINITIONS FOR IFS INPUT DATA
 !
