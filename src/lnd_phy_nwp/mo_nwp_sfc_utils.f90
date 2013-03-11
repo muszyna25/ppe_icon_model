@@ -468,6 +468,45 @@ CONTAINS
         icount_ice = ext_data%atm%spi_count(jb) ! number of sea-ice points in block jb
 
 
+
+        ! optional cold start
+        !
+        ! Note that the use of l_hice_in is intimately related to the use of t_skin 
+        ! to perform a "cold start" initialization of the sea-ice surface temperature. 
+        ! If l_hice_in=.FALSE., the sea-ice thickness is not available. 
+        ! It is then initialized with a meaningful constant value. 
+        ! However, an estimate of the sea-ice surface temperature is still reqired for the cold start 
+        ! and is assumed to be available. This "cold start" sea-ice surface temperature field
+        ! is stored in array t_skin. 
+        ! The only option at the time being is to use the IFS skin tempearature for the cold 
+        ! start initialization.
+
+        IF (.NOT. l_hice_in) THEN
+          DO ic = 1, icount_ice
+            jc = ext_data%atm%idx_lst_spi(ic,jb)
+
+            ! initialize h_ice with a constant of 0.5m
+            !
+
+            p_prog_wtr_now%h_ice(jc,jb) = 1.0_wp            
+            ! for testing purposes: ice thickness parameterized as a linear function of sea-ice fraction
+            ! 
+            !p_prog_wtr_now%h_ice(jc,jb) = 0.5_wp + p_lnd_diag%fr_seaice(jc,jb)*0.75_wp
+            p_prog_wtr_new%h_ice(jc,jb) = p_prog_wtr_now%h_ice(jc,jb)
+
+            ! initialize t_ice with t_skin, which is so far provided by IFS analysis
+            p_prog_wtr_now%t_ice(jc,jb) = p_lnd_diag%t_skin(jc,jb)
+            p_prog_wtr_new%t_ice(jc,jb) = p_lnd_diag%t_skin(jc,jb)
+
+          ENDDO  ! ic
+        ENDIF  ! l_hice_in
+
+
+        ! warm start
+        !
+        ! If l_hice_in=.TRUE., then it is assumed that both the ice thickness and the ice 
+        ! surface temperature are available from the previous ICON run. This actually means 
+        ! a "warm start" of the sea-ice parameterization scheme.
         DO ic = 1, icount_ice
 
           jc = ext_data%atm%idx_lst_spi(ic,jb)
@@ -481,7 +520,7 @@ CONTAINS
         ENDDO  ! jc
 
 
-        CALL seaice_init_nwp ( icount_ice, frsi, t_skin, l_hice_in,      & ! in
+        CALL seaice_init_nwp ( icount_ice, frsi, t_skin,                 & ! in
           &                    tice_now, hice_now, tsnow_now, hsnow_now, & ! inout
           &                    tice_new, hice_new, tsnow_new, hsnow_new  ) ! inout
 

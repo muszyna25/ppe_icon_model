@@ -230,7 +230,6 @@ CONTAINS
                           &  nsigb,                             &
                           &  frsi,                              &
                           &  t_skin,                            &
-                          &  l_hice_in,                         &
                           &  tice_p, hice_p, tsnow_p, hsnow_p,  &
                           &  tice_n, hice_n, tsnow_n, hsnow_n   &
                           &  )
@@ -247,23 +246,6 @@ CONTAINS
     REAL(wp), DIMENSION(:), INTENT(IN)    ::         &
                                           &  frsi       !< sea-ice fraction [-]
  
-!_cdm>
-! Note that the use of l_hice_in is intimately related to the use of t_skin 
-! to perform a "cold start" initialization of the sea-ice surface temperature. 
-! If l_hice_in=.TRUE., then it is assumed that both the ice thickness and the ice surface temperature
-! are available from the previous ICON run. 
-! This actually means a "warm start" of the sea-ice parameterization scheme.
-! If l_hice_in=.FALSE., the sea-ice thickness is not available. 
-! It is then initialized with hice_ini ("thickness of the newly formed sea ice"). 
-! However, an estimate of the sea-ice surface temperature is still reqiered for the cold start 
-! and is assumed to be available. This "cold start" sea-ice surface temperature field
-! is stored in array t_skin. 
-! The only option at the time being is to use the IFS skin tempearature for the cold start initialization.
-!_cdm<
-    LOGICAL, INTENT(IN)                   ::         &
-                                          &  l_hice_in  !< Logical switch, set .TRUE. 
-                                                        !< if the sea-ice thickness is provided as input 
-
     REAL(wp), DIMENSION(:), INTENT(IN)    ::         &
                                           &  t_skin     !< "cold-start" sea-ice surface temperature [K]
 
@@ -310,16 +292,11 @@ CONTAINS
         EXIT GridBoxesWithSeaIce 
       END IF 
 
-      IF ( l_hice_in ) THEN ! sea-ice thickness is provided as input (warm start)
-        ! Create new ice as needed (otherwise do nothing)
-        IF( hice_p(isi) < (hice_min-csmall) ) THEN 
-          hice_p(isi) = hice_ini
-          tice_p(isi) = tf_salt
-        END IF
-      ELSE  ! sea-ice thickness is NOT provided as input (cold start)
-        hice_p(isi) = hice_ini     ! thickness of newly formed sea ice
-        tice_p(isi) = t_skin(isi)  ! IFS skin temperature
-      ENDIF 
+      ! Create new ice as needed (otherwise do nothing)
+      IF( hice_p(isi) < (hice_min-csmall) ) THEN 
+        hice_p(isi) = hice_ini
+        tice_p(isi) = tf_salt
+      END IF
 
       ! Take security measures 
       hice_p(isi) = MAX(MIN(hice_p(isi), hice_max), hice_min) 

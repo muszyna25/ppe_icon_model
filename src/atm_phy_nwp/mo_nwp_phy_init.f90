@@ -160,9 +160,6 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
   REAL(wp)            :: zpres
   REAL(wp)            :: gz0(nproma)
 
-  REAL(wp)            :: z_umfl_s(nproma)  !< aux u-momentum flux at surface [N/m2]
-  REAL(wp)            :: z_vmfl_s(nproma)  !< aux u-momentum flux at surface [N/m2]
-
   CHARACTER(len=16)   :: cur_date     ! current date (iso-Format)
   INTEGER             :: icur_date    ! current date converted to integer
 
@@ -187,7 +184,6 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
   CHARACTER (LEN=80) :: errormsg=''
 
   INTEGER :: khydromet, ktrac
-
 
 
   i_nchdom  = MAX(1,p_patch%n_childdom)
@@ -725,9 +721,8 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
 
 
   !------------------------------------------
-  !< surface initialization
+  !< surface initialization (including seaice)
   !------------------------------------------
-
 
   IF ( atm_phy_nwp_config(jg)%inwp_surface == 1 .AND. .NOT. is_restart_run() ) THEN  ! TERRA
     CALL nwp_surface_init(p_patch, ext_data, p_prog_lnd_now, p_prog_lnd_new, &
