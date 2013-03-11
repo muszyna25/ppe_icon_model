@@ -276,7 +276,7 @@ SUBROUTINE solve_free_sfc_ab_mimetic(p_patch_3D, p_os, p_ext_data, p_sfc_flx, &
 
   !Update prism thickness. The prism-thickness below the surface is
   !not updated it is initialized in construct_hydro_ocean_diag
-  !with z-ccodinate-thickness.
+  !with z-coordinate-thickness.
 
 
   IF(l_edge_based)THEN
@@ -341,10 +341,10 @@ SUBROUTINE solve_free_sfc_ab_mimetic(p_patch_3D, p_os, p_ext_data, p_sfc_flx, &
   !---------------------------------------------------------------------
 
   ! abort condition for elevation and vn:
-  IF ( (maxval(p_os%p_prog(nnew(1))%h)  >  1.e20_wp) .or. &
-    &  (minval(p_os%p_prog(nnew(1))%h)  < -1.e20_wp) .or. &
-    &  (maxval(p_os%p_prog(nold(1))%vn) >  1.e20_wp) .or. &
-    &  (minval(p_os%p_prog(nnew(1))%vn) < -1.e20_wp) ) THEN
+  IF ( (maxval(p_os%p_prog(nnew(1))%h)  >  1.e6_wp) .or. &
+    &  (minval(p_os%p_prog(nnew(1))%h)  < -1.e6_wp) .or. &
+    &  (maxval(p_os%p_prog(nold(1))%vn) >  1.e6_wp) .or. &
+    &  (minval(p_os%p_prog(nnew(1))%vn) < -1.e6_wp) ) THEN
     CALL message('Solve free surface AB mimetic: ',' INSTABLE VN or H - stop now ')
     CALL finish ('Solve free surface AB mimetic: ',' INSTABLE VN or H !!')
   END IF
@@ -390,14 +390,14 @@ SUBROUTINE solve_free_sfc_ab_mimetic(p_patch_3D, p_os, p_ext_data, p_sfc_flx, &
       ! the new gmres_oce uses out of order global sum for efficiency,
       ! when running in p_test_run mode use the old one
       IF(lprecon)THEN
-      !p_os%p_aux%p_rhs_sfc_eq = p_os%p_aux%p_rhs_sfc_eq *patch%cells%area
+        !p_os%p_aux%p_rhs_sfc_eq = p_os%p_aux%p_rhs_sfc_eq *patch%cells%area
 
-      CALL gmres_oce_old( z_h_c(:,:),                 &  ! arg 1 of lhs. x input is the first guess.
+        CALL gmres_oce_old( z_h_c(:,:),       &  ! arg 1 of lhs. x input is the first guess.
           &        lhs_surface_height_ab_mim, &  ! function calculating l.h.s.
           &        p_os%p_diag%thick_e,       &  ! edge thickness for LHS
           &        p_os%p_diag%thick_c,       &  ! p_os%p_diag%thick_c, & 
-                                                ! arg 6 of lhs p_os%p_prog(nold(1))%h,
-                                                ! p_os%p_diag%cons_thick_c(:,1,:),&
+                                                 ! arg 6 of lhs p_os%p_prog(nold(1))%h,
+                                                 ! p_os%p_diag%cons_thick_c(:,1,:),&
           &        p_os%p_prog(nold(1))%h,    &  !arg 2 of lhs !not used
           &        p_patch_3D,                &  !arg 3 of lhs
           &        z_implcoeff,               &  !arg 4 of lhs
@@ -412,12 +412,12 @@ SUBROUTINE solve_free_sfc_ab_mimetic(p_patch_3D, p_os, p_ext_data, p_sfc_flx, &
           &        Jacobi_precon )
 
       ELSEIF(.NOT.lprecon)THEN
-      CALL gmres_oce_old( z_h_c(:,:),                 &  ! arg 1 of lhs. x input is the first guess.
+        CALL gmres_oce_old( z_h_c(:,:),       &  ! arg 1 of lhs. x input is the first guess.
           &        lhs_surface_height_ab_mim, &  ! function calculating l.h.s.
           &        p_os%p_diag%thick_e,       &  ! edge thickness for LHS
           &        p_os%p_diag%thick_c,       &  ! p_os%p_diag%thick_c, & 
-                                                ! arg 6 of lhs p_os%p_prog(nold(1))%h,
-                                                ! p_os%p_diag%cons_thick_c(:,1,:),&
+                                                 ! arg 6 of lhs p_os%p_prog(nold(1))%h,
+                                                 ! p_os%p_diag%cons_thick_c(:,1,:),&
           &        p_os%p_prog(nold(1))%h,    &  !arg 2 of lhs !not used
           &        p_patch_3D,                &  !arg 3 of lhs
           &        z_implcoeff,               &  !arg 4 of lhs

@@ -3792,7 +3792,7 @@ END SUBROUTINE complete_patchinfo_oce
             p_patch_3D%p_patch_1D(1)%inv_prism_center_dist_c(jc,jk,jb)= &
               &  1.0_wp/p_patch_3D%p_patch_1D(1)%prism_center_dist_c(jc,jk,jb)
          
-            ! bottom and column thickness for output
+            ! bottom and column thickness for solver and output
             ! bottom cell thickness at jk=dolic
             p_patch_3D%bottom_thick_c(jc,jb) = p_patch_3D%p_patch_1D(1)%prism_thick_c(jc,jk,jb)
             ! column cell thickness: add upper column without elevation
