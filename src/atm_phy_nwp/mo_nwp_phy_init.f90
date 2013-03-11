@@ -908,14 +908,13 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
       ENDDO
 
 
-!DR: to be re-checked bevore it can be activated
-!!$      ! Note that TKE in turbtran/turbdiff is defined as the turbulence velocity scale
-!!$      ! TVS=SQRT(2*TKE)
-!!$      !
-!!$      DO jk =1,nlevp1
-!!$        p_prog_now%tke(i_startidx:i_endidx,jk,jb)= 0.5_wp                        &
-!!$          &                                * (p_prog_now%tke(i_startidx:i_endidx,jk,jb))**2
-!!$      ENDDO 
+      ! Note that TKE in turbtran/turbdiff is defined as the turbulence velocity scale
+      ! TVS=SQRT(2*TKE)
+      !
+      DO jk =1,nlevp1
+        p_prog_now%tke(i_startidx:i_endidx,jk,jb)= 0.5_wp                        &
+          &                                * (p_prog_now%tke(i_startidx:i_endidx,jk,jb))**2
+      ENDDO 
     ENDDO
 !$OMP END DO
 

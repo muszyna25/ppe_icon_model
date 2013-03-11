@@ -445,7 +445,7 @@ CONTAINS
 
       !Consistency check on output bounds
       IF(output_bounds_sec(1,1) < 0._wp .OR. &
-         output_bounds_sec(2,1) <= output_bounds_sec(1,1) .OR. &
+         output_bounds_sec(2,1) < output_bounds_sec(1,1) .OR. &
          output_bounds_sec(3,1) <= dtime * grid_rescale_factor ) THEN
         CALL finish(routine,'Illegal output_bounds(:,1)')
       ENDIF
@@ -4691,6 +4691,7 @@ CONTAINS
       datetime%hour   = INT(msg(5))
       datetime%minute = INT(msg(6))
       datetime%second = msg(7)
+
 
       sim_time = msg(8)
 

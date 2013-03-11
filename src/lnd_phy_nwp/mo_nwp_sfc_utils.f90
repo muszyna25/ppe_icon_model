@@ -171,8 +171,10 @@ CONTAINS
     INTEGER  :: icount_water        ! total number of sea-water points per block
 
     INTEGER  :: i_count, ic, i_count_snow, isubs_snow
-    REAL(wp), PARAMETER :: small = 1.E-06_wp
     REAL(wp) :: temp
+    REAL(wp), PARAMETER :: small = 1.E-06_wp
+
+    REAL(wp), PARAMETER :: h_ice_coldstart = 1.0_wp   ! sea-ice thickness for cold start [m]
 
   !-------------------------------------------------------------------------
 
@@ -485,10 +487,10 @@ CONTAINS
           DO ic = 1, icount_ice
             jc = ext_data%atm%idx_lst_spi(ic,jb)
 
-            ! initialize h_ice with a constant of 0.5m
+            ! initialize h_ice with a constant of 1.0m
             !
 
-            p_prog_wtr_now%h_ice(jc,jb) = 1.0_wp            
+            p_prog_wtr_now%h_ice(jc,jb) = h_ice_coldstart            
             ! for testing purposes: ice thickness parameterized as a linear function of sea-ice fraction
             ! 
             !p_prog_wtr_now%h_ice(jc,jb) = 0.5_wp + p_lnd_diag%fr_seaice(jc,jb)*0.75_wp
