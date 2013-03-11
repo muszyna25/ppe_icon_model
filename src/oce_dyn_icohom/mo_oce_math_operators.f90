@@ -1487,11 +1487,11 @@ CONTAINS
           IF(p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary)THEN
            ! p_os%p_diag%thick_c(jc,jb) = p_os%p_prog(nold(1))%h(jc,jb)&
            !   & + v_base%zlev_i(v_base%dolic_c(jc,jb)+1)
-           p_os%p_diag%thick_c(jc,jb) = p_os%p_prog(nold(1))%h(jc,jb)&
-              & + p_patch_3D%p_patch_1D(1)%zlev_i(p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)+1)
-           !  prepare for correct partial cells
            !p_os%p_diag%thick_c(jc,jb) = p_os%p_prog(nold(1))%h(jc,jb)&
-           !  & + p_patch_3D%column_thick_c(jc,jb)
+           !   & + p_patch_3D%p_patch_1D(1)%zlev_i(p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)+1)
+           !  prepare for correct partial cells
+           p_os%p_diag%thick_c(jc,jb) = p_os%p_prog(nold(1))%h(jc,jb)&
+             & + p_patch_3D%column_thick_c(jc,jb)
           ELSE
             p_os%p_diag%thick_c(jc,jb) = 0.0_wp
           ENDIF
@@ -1616,11 +1616,11 @@ CONTAINS
 !              p_os%p_diag%h_e(je,jb)=&
 !              &min(p_os%p_prog(nold(1))%h(il_c1,ib_c1),p_os%p_prog(nold(1))%h(il_c2,ib_c2))
 
-              p_os%p_diag%thick_e(je,jb) = p_os%p_diag%h_e(je,jb)&
-              & + p_patch_3D%p_patch_1D(1)%zlev_i(p_patch_3D%p_patch_1D(1)%dolic_e(je,jb)+1)
+              !p_os%p_diag%thick_e(je,jb) = p_os%p_diag%h_e(je,jb)&
+              !& + p_patch_3D%p_patch_1D(1)%zlev_i(p_patch_3D%p_patch_1D(1)%dolic_e(je,jb)+1)
               !  prepare for correct partial cells
-              !p_os%p_diag%thick_e(je,jb) = p_os%p_diag%h_e(je,jb) &
-              !  &                          + p_patch_3D%column_thick_e(je,jb)
+              p_os%p_diag%thick_e(je,jb) = p_os%p_diag%h_e(je,jb) &
+                &                          + p_patch_3D%column_thick_e(je,jb)
 
             ELSE
               p_os%p_diag%h_e(je,jb)    = 0.0_wp
