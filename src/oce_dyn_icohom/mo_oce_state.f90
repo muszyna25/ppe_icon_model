@@ -3765,7 +3765,7 @@ END SUBROUTINE complete_patchinfo_oce
         jk = v_base%dolic_c(jc,jb)
         IF (jk >= min_dolic) THEN
 
-          ! Bottom and column thickness for output
+          ! Bottom and column thickness for horizontally constant prism thickness
           p_patch_3D%bottom_thick_c(jc,jb) = p_patch_3D%p_patch_1D(1)%prism_thick_c(jc,jk,jb)
           p_patch_3D%column_thick_c(jc,jb) = v_base%zlev_i(jk+1)   !  lower bound of cell is at dolic_c+1
          
@@ -3848,9 +3848,12 @@ END SUBROUTINE complete_patchinfo_oce
 
         jk = v_base%dolic_e(je,jb)
         IF (jk >= min_dolic) THEN
+
+          ! Bottom and column thickness for horizontally constant prism thickness
           p_patch_3D%bottom_thick_e(je,jb) = p_patch_3D%p_patch_1D(1)%prism_thick_e(je,jk,jb)
           p_patch_3D%column_thick_e(je,jb) = v_base%zlev_i(jk+1)   !  lower bound is below dolic_e
          
+          ! Preliminary partial cells conform with l_max_bottom=false only
           IF (l_partial_cells) THEN
 
             ! Partial cell ends at real bathymetry below upper boundary zlev_i(dolic)
@@ -3867,16 +3870,19 @@ END SUBROUTINE complete_patchinfo_oce
                 &      (1.0_wp+z_fac_limitthick)*v_base%del_zlev_m(jk))
             ENDIF
 
-            ! no matching prims_center_dist_e ?
+            ! no matching prism_center_dist_e ?
       !     p_patch_3D%p_patch_1D(1)%prism_center_dist_e(je,jk,jb) = 0.5_wp* &
       !       & (v_base%del_zlev_m(jk-1) + p_patch_3D%p_patch_1D(1)%prism_thick_e(je,jk,jb))
             p_patch_3D%p_patch_1D(1)%inv_prism_thick_e(je,jk,jb)      = &
               &  1.0_wp/p_patch_3D%p_patch_1D(1)%prism_thick_e(je,jk,jb)
       !     p_patch_3D%p_patch_1D(1)%inv_prism_center_dist_e(je,jk,jb)= &
       !       &  1.0_wp/p_patch_3D%p_patch_1D(1)%prism_center_dist_e(je,jk,jb)
-         
-            ! bottom and column depth for output
+
+            ! bottom and column thickness for solver and output
+            ! bottom edge thickness at jk=dolic
             p_patch_3D%bottom_thick_e(je,jb) = p_patch_3D%p_patch_1D(1)%prism_thick_e(je,jk,jb)
+            ! column edge thickness: add upper column without elevation
+            p_patch_3D%column_thick_e(je,jb) = v_base%zlev_i(jk) + p_patch_3D%bottom_thick_e(je,jb)
          
           ENDIF ! l_partial_cells
         ENDIF ! jk>=min_dolic
