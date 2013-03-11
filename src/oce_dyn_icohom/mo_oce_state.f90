@@ -3639,6 +3639,7 @@ END SUBROUTINE complete_patchinfo_oce
     INTEGER :: edge_block, edge_index, neighbor
     INTEGER :: land_edges, sea_edges, boundary_edges
     REAL(wp), ALLOCATABLE :: z_sync_v(:,:)
+    REAL(wp), PARAMETER   :: z_fac_limitthick = 0.8_wp  !  limits additional thickness of bottom cell
     
     CHARACTER(*), PARAMETER :: method_name = "mo_oce_state:init_patch_3D"
 
@@ -3775,21 +3776,21 @@ END SUBROUTINE complete_patchinfo_oce
             ! at most one dry cell as neighbor is allowed, therefore bathymetry can be much deeper than corrected dolic
             ! maximum thickness limited to an additional part of the thickness of the underlying cell
             IF (jk < n_zlev) THEN
-              p_patch_3D%p_patch_1D(1)%prism_thick_c(jc,jk,jb) = &
+              p_patch_3D%p_patch_1D(1)%prism_thick_c(jc,jk,jb) =             &
                 & MIN(-p_ext_data%oce%bathymetry_c(jc,jb)-v_base%zlev_i(jk), &
-                &      v_base%del_zlev_m(jk)+0.8_wp*v_base%del_zlev_m(jk+1))
+                &      v_base%del_zlev_m(jk)+z_fac_limitthick*v_base%del_zlev_m(jk+1))
             ELSE
               ! maximum thickness limited to a similar factor of the thickness of the current cell
-              p_patch_3D%p_patch_1D(1)%prism_thick_c(jc,jk,jb) = &
+              p_patch_3D%p_patch_1D(1)%prism_thick_c(jc,jk,jb) =             &
                 & MIN(-p_ext_data%oce%bathymetry_c(jc,jb)-v_base%zlev_i(jk), &
-                &      1.8_wp*v_base%del_zlev_m(jk))
+                &      (1.0_wp+z_fac_limitthick)*v_base%del_zlev_m(jk))
             ENDIF
 
             p_patch_3D%p_patch_1D(1)%prism_center_dist_c(jc,jk,jb) = 0.5_wp* &
               & (v_base%del_zlev_m(jk-1) + p_patch_3D%p_patch_1D(1)%prism_thick_c(jc,jk,jb))
-            p_patch_3D%p_patch_1D(1)%inv_prism_thick_c(jc,jk,jb)      = &
+            p_patch_3D%p_patch_1D(1)%inv_prism_thick_c(jc,jk,jb)      =      &
               &  1.0_wp/p_patch_3D%p_patch_1D(1)%prism_thick_c(jc,jk,jb)
-            p_patch_3D%p_patch_1D(1)%inv_prism_center_dist_c(jc,jk,jb)= &
+            p_patch_3D%p_patch_1D(1)%inv_prism_center_dist_c(jc,jk,jb)=      &
               &  1.0_wp/p_patch_3D%p_patch_1D(1)%prism_center_dist_c(jc,jk,jb)
          
             ! bottom and column thickness for solver and output
@@ -3852,14 +3853,20 @@ END SUBROUTINE complete_patchinfo_oce
          
           IF (l_partial_cells) THEN
 
+            ! Partial cell ends at real bathymetry below upper boundary zlev_i(dolic)
+            ! at most one dry cell as neighbor is allowed, therefore bathymetry can be much deeper than corrected dolic
+            ! maximum thickness limited to an additional part of the thickness of the underlying cell
             IF (jk < n_zlev) THEN
-              p_patch_3D%p_patch_1D(1)%prism_thick_e(je,jk,jb) = &
+              p_patch_3D%p_patch_1D(1)%prism_thick_e(je,jk,jb) =             &
                 & MIN(-p_ext_data%oce%bathymetry_e(je,jb)-v_base%zlev_i(jk), &
-                &      v_base%del_zlev_m(jk)+0.8_wp*v_base%del_zlev_m(jk+1))
-            ELSE  ! at lowest level set thickness to real bathymetry
-              p_patch_3D%p_patch_1D(1)%prism_thick_e(je,jk,jb) = -p_ext_data%oce%bathymetry_e(je,jb)-v_base%zlev_i(jk)
+                &      v_base%del_zlev_m(jk)+z_fac_limitthick*v_base%del_zlev_m(jk+1))
+            ELSE
+              ! maximum thickness limited to a similar factor of the thickness of the current cell
+              p_patch_3D%p_patch_1D(1)%prism_thick_e(je,jk,jb) =             &
+                & MIN(-p_ext_data%oce%bathymetry_e(je,jb)-v_base%zlev_i(jk), &
+                &      (1.0_wp+z_fac_limitthick)*v_base%del_zlev_m(jk))
             ENDIF
-         
+
             ! no matching prims_center_dist_e ?
       !     p_patch_3D%p_patch_1D(1)%prism_center_dist_e(je,jk,jb) = 0.5_wp* &
       !       & (v_base%del_zlev_m(jk-1) + p_patch_3D%p_patch_1D(1)%prism_thick_e(je,jk,jb))
