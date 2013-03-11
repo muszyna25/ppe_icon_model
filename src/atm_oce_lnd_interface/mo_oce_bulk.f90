@@ -139,7 +139,7 @@ CONTAINS
     INTEGER  :: iniyear, curyear, offset
     INTEGER  :: jc, jb, i, no_set
     INTEGER  :: i_startidx_c, i_endidx_c
-    REAL(wp) :: z_tmin, z_relax, rday1, rday2, dtm1, dsec, z_smax
+    REAL(wp) :: z_tmin, z_relax, rday1, rday2, dtm1, dsec, z_smax, z_forc_tracer_old
     !REAL(wp) :: z_c(nproma,n_zlev,p_patch%nblks_c)
     REAL(wp) ::  z_c2(nproma,p_patch_3D%p_patch_2D(1)%nblks_c)
     REAL(wp) ::   Tfw(nproma,p_patch_3D%p_patch_2D(1)%nblks_c)
@@ -1013,13 +1013,18 @@ CONTAINS
             !          &/(relaxation_param*seconds_per_month)
             z_relax = (p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,1,jb)+p_os%p_prog(nold(1))%h(jc,jb)) / &
               &       (relax_2d_mon_S*seconds_per_month)
+            ! 
+            ! If sea ice is present, salinity relaxation is proportional to open water,
+            !   under sea ice, no relaxation is applied, according to the procedure in MPIOM
+            IF (i_sea_ice >= 1) z_relax = (1.0_wp-p_ice%conc(jc,1,jb))*z_relax   !  sea ice class 1
 
+            z_forc_tracer_old              = p_sfc_flx%forc_tracer(jc,jb,2)
             p_sfc_flx%forc_tracer(jc,jb,2) = p_sfc_flx%forc_tracer(jc,jb,2) &
               &                              -z_relax*(p_os%p_prog(nold(1))%tracer(jc,1,jb,2)  &
               &                                        -p_sfc_flx%forc_tracer_relax(jc,jb,2))
 
             ! Diagnosed freshwater flux due to relaxation [m/s]
-            p_sfc_flx%forc_fwrelax(jc,jb) = -p_sfc_flx%forc_tracer(jc,jb,2) &
+            p_sfc_flx%forc_fwrelax(jc,jb) = (z_forc_tracer_old-p_sfc_flx%forc_tracer(jc,jb,2)) &
               &                            / p_os%p_prog(nold(1))%tracer(jc,1,jb,2)
 
           ELSE
