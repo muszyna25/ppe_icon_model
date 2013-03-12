@@ -370,10 +370,14 @@ CONTAINS
         ! apply sum of freshwater forcing to (open) ocean
         !  - in OMIP data: evaporation is negative
         IF (l_forc_freshw) THEN
-          p_sfc_flx%forc_fwbc(:,:) = p_sfc_flx%forc_precip(:,:) + p_sfc_flx%forc_evap(:,:) + p_sfc_flx%forc_runoff(:,:)
+          p_sfc_flx%forc_fwbc(:,:) = (p_sfc_flx%forc_precip(:,:) + p_sfc_flx%forc_evap(:,:) + &
+            &                         p_sfc_flx%forc_runoff(:,:)) * p_patch_3d%wet_c(:,1,:)
+          idt_src=3  ! output print level (1-5, fix)
           CALL dbg_print('UpdSfc: p_sfc_flx%forc_precip'   ,p_sfc_flx%forc_precip   ,str_module,idt_src)
           CALL dbg_print('UpdSfc: p_sfc_flx%forc_evap'     ,p_sfc_flx%forc_evap     ,str_module,idt_src)
           CALL dbg_print('UpdSfc: p_sfc_flx%forc_runoff'   ,p_sfc_flx%forc_runoff   ,str_module,idt_src)
+          idt_src=2  ! output print level (1-5, fix)
+          CALL dbg_print('UpdSfc: p_sfc_flx%forc_fwbc'     ,p_sfc_flx%forc_fwbc     ,str_module,idt_src)
         ENDIF
         !---------------------------------------------------------------------
 
