@@ -1417,6 +1417,7 @@ CONTAINS
     ! this maybe used, so we fill it while not an output of the radiation
     prm_diag%tsfctrad(:,:) = lnd_prog%t_g(:,:)
     CALL recv_rrtm_input( &
+          & ktype      =prm_diag%ktype(:,:)             ,&!< in     type of convection
           & zland      =ext_data%atm%fr_land_smt(:,:)   ,&!< in     land fraction
           & zglac      =ext_data%atm%fr_glac_smt(:,:)   ,&!< in     land glacier fraction
                                 !
@@ -1512,7 +1513,7 @@ CONTAINS
         & zaeq3      = rrtm_data%zaeq3     (:,:,jb)    ,&!< in aerosol urban
         & zaeq4      = rrtm_data%zaeq4     (:,:,jb)    ,&!< in aerosol volcano ashes
         & zaeq5      = rrtm_data%zaeq5     (:,:,jb)    ,&!< in aerosol stratospheric background
-        & dt_rad     = atm_phy_nwp_config(jg)%dt_rad ,&
+        & dt_rad     = atm_phy_nwp_config(jg)%dt_rad   ,&
                               ! output
                               ! ------
                               !
@@ -1531,6 +1532,7 @@ CONTAINS
       CALL timer_start(timer_radiaton_send)
     ENDIF
 
+    ! aclcov is also output but not used
     CALL send_rrtm_output(        &
       & rrtm_data               , &
       & prm_diag%lwflxclr(:,:,:), &!< out terrestrial flux, clear sky, net down

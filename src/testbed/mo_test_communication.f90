@@ -173,6 +173,7 @@ CONTAINS
     DO i=1,testbed_iterations
       CALL timer_start(timer_radiaton_recv)
       CALL recv_rrtm_input( &
+      ktype       = rrtm_local_data%convection_type,&!< in     type of convection
       zland       = rrtm_local_data%fr_land_smt    ,&  !< in     land fraction
       zglac       = rrtm_local_data%fr_glac_smt    ,&  !< in     land glacier fraction
       cos_mu0     = rrtm_local_data%cosmu0         ,&  !< in  cos of zenith angle mu0

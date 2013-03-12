@@ -104,7 +104,8 @@ MODULE mo_rrtm_data_interface
     ! INPUT
     REAL(wp)              :: p_sim_time
     
-    INTEGER, POINTER  :: convection_type(:,:)     ! always zero
+    INTEGER, POINTER  :: convection_type(:,:)    
+    REAL(wp), POINTER  :: recv_convection_type(:,:), send_convection_type(:,:) ! this is for communication
     
     REAL(wp), POINTER ::  fr_land_smt(:,:)   !< fraction land in a grid element        [ ]
                                                          !  = smoothed fr_land
@@ -355,7 +356,6 @@ CONTAINS
     
     CALL allocate_rrtm_model_data(rrtm_data)
 
-    rrtm_data%convection_type(:,:) = 0 ! this is always 0 and will not be communicated
       
   END SUBROUTINE init_rrtm_data
   !-----------------------------------------
@@ -378,6 +378,8 @@ CONTAINS
     !------------------------------------------
     ALLOCATE( &
       & rrtm_data%convection_type(block_size,            no_of_blocks),   &
+      & rrtm_data%recv_convection_type(block_size,       no_of_blocks),   &
+      & rrtm_data%send_convection_type(block_size,       no_of_blocks),   &
       & rrtm_data%fr_land_smt    (block_size,            no_of_blocks),   &
       & rrtm_data%fr_glac_smt    (block_size,            no_of_blocks),   &
       & rrtm_data%cosmu0         (block_size,            no_of_blocks),   &
@@ -412,7 +414,9 @@ CONTAINS
       CALL finish ("allocate_rrtm_model_data",'failed')
     ENDIF
 
-    rrtm_data%convection_type = 0.0_wp
+    rrtm_data%convection_type = 0
+    rrtm_data%recv_convection_type = 0.0_wp
+    rrtm_data%send_convection_type = 0.0_wp
     rrtm_data%fr_land_smt     = 0.0_wp
     rrtm_data%fr_glac_smt     = 0.0_wp
     rrtm_data%cosmu0          = 0.0_wp
@@ -475,6 +479,8 @@ CONTAINS
     !------------------------------------------
     DEALLOCATE( &
       & rrtm_data%convection_type,   &
+      & rrtm_data%recv_convection_type, &
+      & rrtm_data%send_convection_type, &
       & rrtm_data%fr_land_smt    ,   &
       & rrtm_data%fr_glac_smt    ,   &
       & rrtm_data%cosmu0         ,   &
@@ -509,6 +515,7 @@ CONTAINS
 
   !-----------------------------------------------------------
   SUBROUTINE recv_rrtm_input( &
+    & ktype      ,&!< in     type of convection
     & zland      ,&!< in     land fraction
     & zglac      ,&!< in     land glacier fraction
     & cos_mu0    ,&!< in  cos of zenith angle mu0
@@ -535,6 +542,7 @@ CONTAINS
     & patch      ,&!< in
     & rrtm_data)   !< pointer out
     
+    INTEGER,  TARGET ::  ktype(:,:)   !< type of convection    [ ]
     REAL(wp), TARGET ::  zland(:,:)   !< fraction land in a grid element        [ ]
                                                         !  = smoothed fr_land
     REAL(wp), TARGET ::  zglac(:,:)   !< fraction land glacier in a grid element [ ]
@@ -572,6 +580,7 @@ CONTAINS
 
     INTEGER :: recv_comm_pattern
     INTEGER :: recv_fr_land_smt
+    INTEGER :: recv_convection_type
     INTEGER :: recv_tmp
     CHARACTER(*), PARAMETER :: method_name = "recv_rrtm_input"
 
@@ -581,6 +590,15 @@ CONTAINS
     rrtm_data => rrtm_model_data_array(patch%id)
     recv_comm_pattern = rrtm_data%radiation_recv_comm_pattern
    !-----------------------------------
+    rrtm_data%send_convection_type(:,:) = REAL(ktype(:,:),wp)
+    recv_convection_type = new_icon_comm_variable ( &
+      & recv_var = rrtm_data%recv_convection_type, &
+      & send_var = rrtm_data%send_convection_type, &
+      & comm_pattern_index = recv_comm_pattern, &
+      & status   = is_ready,                    &
+      & scope    = until_sync,                  &
+      & name     = "conv_type" )
+    rrtm_data%convection_type(:,:) = NINT(rrtm_data%recv_convection_type(:,:))
    
     recv_fr_land_smt = new_icon_comm_variable ( &
       & recv_var = rrtm_data%fr_land_smt, &

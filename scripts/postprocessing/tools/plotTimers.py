@@ -125,13 +125,13 @@ def writeOldTimerProcsDistribution(outName, logFileName, timerName, counterIndex
 #writeOldTimerProcsDistribution("b5N6_28nodes_max_radiation", logFile, " nwp_radiation ", maxTimeIndex)
 #sys.exit()
 
-def writeTimerProcsDistribution(outName, folderName, filePrefix, timerName, counterIndex):
+def writeTimerProcsDistribution(outName, folderName, timerFilePrefix, timerName, counterIndex):
   
   outFileName=outName+".dat"
   outFile = open(outFileName, 'w')
-  noOfCores=len(glob.glob(folderName+'/'+filePrefix+'*'))
+  noOfCores=len(glob.glob(folderName+'/'+timerFilePrefix+'*'))
   for i in range(noOfCores):
-    fileName=folderName+'/'+filePrefix+str(i).zfill(4)
+    fileName=folderName+'/'+timerFilePrefix+str(i).zfill(4)
    # print "proccessing file:"+fileName
     timerValue = getFileTimer(fileName, timerName, counterIndex)
     if (timerValue > 0.0 ):
@@ -141,13 +141,13 @@ def writeTimerProcsDistribution(outName, folderName, filePrefix, timerName, coun
   return 
 
 
-def getTimeMaxInFiles(folderName, filePrefix, timerName, counterIndex):
+def getTimeMaxInFiles(folderName, timerFilePrefix, timerName, counterIndex):
   
-  noOfCores=len(glob.glob(folderName+'/'+filePrefix+'*'))
+  noOfCores=len(glob.glob(folderName+'/'+timerFilePrefix+'*'))
   maxTime=0.0
   maxProc=-1
   for i in range(noOfCores):
-    fileName=folderName+'/'+filePrefix+str(i).zfill(4)
+    fileName=folderName+'/'+timerFilePrefix+str(i).zfill(4)
    # print "proccessing file:"+fileName
     timerValue = getFileTimer(fileName, timerName, counterIndex)
     if (timerValue > maxTime ):
@@ -369,6 +369,7 @@ def newTimer(timerList):
 
   return len(timerList[0])-1
 
+timerFilePrefix="timer.atmo." # only needed for cores time distribution
 
 timersListTotal=[
 " total"
@@ -408,7 +409,6 @@ timersCommunnication=[
 ]
 
 def stdall_timers_statistics(folders_list, resolution, cores_list, days_list):
-  filePrefix="timer.atmo." # only needed for cores time distribution
   
   (minTimes, meanTimes, maxTimes)=processFolderList(folders_list, timersListNat, totalTimeIndex )
   writeYearsPerDay(resolution, maxTimes, cores_list, days_list, timer_total_index)
@@ -484,16 +484,28 @@ def blizzard_bechmarks_01_03_2013_scaling():
   ##timerName=" radiaton_comp "
   #timerName=" nh_solve.p1 "
 
-  #writeTimerProcsDistribution("53km_241nodes_nh_solve_p1_min",   distibution_folder, filePrefix, timerName, minTimeIndex)
-  #writeTimerProcsDistribution("53km_241nodes_nh_solve_p1_mean",  distibution_folder, filePrefix, timerName, meanTimeIndex)
-  #writeTimerProcsDistribution("53km_241nodes_nh_solve_p1_max",   distibution_folder, filePrefix, timerName, maxTimeIndex)
+  #writeTimerProcsDistribution("53km_241nodes_nh_solve_p1_min",   distibution_folder, timerFilePrefix, timerName, minTimeIndex)
+  #writeTimerProcsDistribution("53km_241nodes_nh_solve_p1_mean",  distibution_folder, timerFilePrefix, timerName, meanTimeIndex)
+  #writeTimerProcsDistribution("53km_241nodes_nh_solve_p1_max",   distibution_folder, timerFilePrefix, timerName, maxTimeIndex)
 
+def thunder_first_tests():
+
+  distibution_folder="nat-ape_barrier_1days_bind_0msg_mkl_iconR2B06-grid_96levels.1decm_0-comm.32nodes.0radsplit.16nproma.512procs"
+  #timerName=" radiaton_comp "
+  timerName=" nh_solve.p1 "
+
+  writeTimerProcsDistribution(timerName.strip()+"_min",   distibution_folder, timerFilePrefix, timerName, minTimeIndex)
+  writeTimerProcsDistribution(timerName.strip()+"_mean",  distibution_folder, timerFilePrefix, timerName, meanTimeIndex)
+  writeTimerProcsDistribution(timerName.strip()+"_max",   distibution_folder, timerFilePrefix, timerName, maxTimeIndex)
+
+
+thunder_first_tests()
+sys.exit()
 
 blizzard_bechmarks_01_03_2013_scaling()
 
 
 
-sys.exit()
 
 
 
@@ -577,11 +589,11 @@ timersList=[
 distibution_folder="nat-ape_10days_1decm_0-comm_4sendrecv.2threads.64nodes.2048procs.10nproma.iconR2B06-grid.96levels"
 #timerName=" radiaton_comp "
 timerName=" nwp_radiation "
-filePrefix="timer.atmo."
+timerFilePrefix="timer.atmo."
 
-writeTimerProcsDistribution("64nodes_min_radiaton_comp",  distibution_folder, filePrefix, timerName, minTimeIndex)
-writeTimerProcsDistribution("64nodes_mean_radiaton_comp",  distibution_folder, filePrefix, timerName, meanTimeIndex)
-writeTimerProcsDistribution("64nodes_max_radiaton_comp",  distibution_folder, filePrefix, timerName, maxTimeIndex)
+writeTimerProcsDistribution("64nodes_min_radiaton_comp",  distibution_folder, timerFilePrefix, timerName, minTimeIndex)
+writeTimerProcsDistribution("64nodes_mean_radiaton_comp",  distibution_folder, timerFilePrefix, timerName, meanTimeIndex)
+writeTimerProcsDistribution("64nodes_max_radiaton_comp",  distibution_folder, timerFilePrefix, timerName, maxTimeIndex)
 
 sys.exit()
 
@@ -733,9 +745,9 @@ nat_days_list=[10]*20
 ##timerName=" nwp_radiation "
 #filePrefix="timer.atmo."
 
-#writeTimerProcsDistribution("2nodes_min_radiaton_comp",  distibution_folder, filePrefix, timerName, minTimeIndex)
-#writeTimerProcsDistribution("2nodes_mean_radiaton_comp",  distibution_folder, filePrefix, timerName, meanTimeIndex)
-#writeTimerProcsDistribution("2nodes_max_radiaton_comp",  distibution_folder, filePrefix, timerName, maxTimeIndex)
+#writeTimerProcsDistribution("2nodes_min_radiaton_comp",  distibution_folder, timerFilePrefix, timerName, minTimeIndex)
+#writeTimerProcsDistribution("2nodes_mean_radiaton_comp",  distibution_folder, timerFilePrefix, timerName, meanTimeIndex)
+#writeTimerProcsDistribution("2nodes_max_radiaton_comp",  distibution_folder, timerFilePrefix, timerName, maxTimeIndex)
 #sys.exit()
 
 #---------------------------------------------------------------
@@ -874,18 +886,18 @@ nat_days_list=[10]*20
 distibution_folder="nat-ape_10days_104decm_1-comm_4sendrecv.2threads.2nodes.64procs.9nproma.iconR2B05-grid_dec-362.64levels"
 timerName=" radiaton_comp "
 #timerName=" nwp_turbulence "
-filePrefix="timer.atmo."
+timerFilePrefix="timer.atmo."
 
-(mTime, mProc)=getTimeMaxInFiles(distibution_folder, filePrefix, timerName, minTimeIndex)
+(mTime, mProc)=getTimeMaxInFiles(distibution_folder, timerFilePrefix, timerName, minTimeIndex)
 print "Max of min ", timerName, ": ", mTime, mProc
-(mTime, mProc)=getTimeMaxInFiles(distibution_folder, filePrefix, timerName, meanTimeIndex)
+(mTime, mProc)=getTimeMaxInFiles(distibution_folder, timerFilePrefix, timerName, meanTimeIndex)
 print "Max of mean ", timerName, ": ", mTime, mProc
-(mTime, mProc)=getTimeMaxInFiles(distibution_folder, filePrefix, timerName, maxTimeIndex)
+(mTime, mProc)=getTimeMaxInFiles(distibution_folder, timerFilePrefix, timerName, maxTimeIndex)
 print "Max of max ", timerName, ": ", mTime, mProc
 
-writeTimerProcsDistribution("2nodes_min_radiaton_comp",  distibution_folder, filePrefix, timerName, minTimeIndex)
-writeTimerProcsDistribution("2nodes_mean_radiaton_comp",  distibution_folder, filePrefix, timerName, meanTimeIndex)
-writeTimerProcsDistribution("2nodes_max_radiaton_comp",  distibution_folder, filePrefix, timerName, maxTimeIndex)
+writeTimerProcsDistribution("2nodes_min_radiaton_comp",  distibution_folder, timerFilePrefix, timerName, minTimeIndex)
+writeTimerProcsDistribution("2nodes_mean_radiaton_comp",  distibution_folder, timerFilePrefix, timerName, meanTimeIndex)
+writeTimerProcsDistribution("2nodes_max_radiaton_comp",  distibution_folder, timerFilePrefix, timerName, maxTimeIndex)
  
 
 sys.exit()
