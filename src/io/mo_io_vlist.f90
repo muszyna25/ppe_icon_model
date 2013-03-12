@@ -2325,51 +2325,51 @@ CONTAINS
   !   END IF 
       IF (irelax_2d_S /= 0 ) THEN
         CALL addVar(TimeVar('forc_fwrelax',&
-        &                   'diagnosed net freshwater flux due to relaxation',&
-!       &                   'm/s',16,128,&
-        &                   'm/month',16,128,&
+        &                   'net freshwater flux due to relaxation',&
+        &                   'm/s',16,128,&
+!       &                   'm/month',16,128,&
         &                   vlistID(k_jg),&
         &                   gridCellID(k_jg),&
         &                   zaxisID_surface(k_jg)),&
         &           k_jg)
       END IF 
       CALL addVar(TimeVar('forc_fwfx',&
-        &                 'diagnosed sum of net freshwater flux',&
-!       &                 'm/s',16,128,&
-        &                 'm/month',16,128,&
+        &                 'sum of forcing net freshwater flux',&
+        &                 'm/s',16,128,&
+!       &                 'm/month',16,128,&
         &                 vlistID(k_jg),&
         &                 gridCellID(k_jg),&
         &                 zaxisID_surface(k_jg)),&
         &         k_jg)
       IF (l_forc_freshw) THEN
         CALL addVar(TimeVar('forc_precip',&
-        &                   'forcing precipitation flux',&
+        &                   'precipitation flux',&
         &                   'm/s',16,128,&
         &                   vlistID(k_jg),&
         &                   gridCellID(k_jg),&
         &                   zaxisID_surface(k_jg)),&
         &           k_jg)
         CALL addVar(TimeVar('forc_evap',&
-        &                   'forcing evaporation flux',&
+        &                   'evaporation flux',&
         &                   'm/s',16,128,&
         &                   vlistID(k_jg),&
         &                   gridCellID(k_jg),&
         &                   zaxisID_surface(k_jg)),&
         &           k_jg)
         CALL addVar(TimeVar('forc_runoff',&
-        &                   'forcing river runoff flux',&
+        &                   'river runoff flux',&
         &                   'm/s',16,128,&
         &                   vlistID(k_jg),&
         &                   gridCellID(k_jg),&
         &                   zaxisID_surface(k_jg)),&
         &           k_jg)
-        CALL addVar(TimeVar('forc_fwbc',&
-        &                   'forcing net freshwater flux from boundary condition',&
-        &                   'm/s',16,128,&
-        &                   vlistID(k_jg),&
-        &                   gridCellID(k_jg),&
-        &                   zaxisID_surface(k_jg)),&
-        &           k_jg)
+   !    CALL addVar(TimeVar('forc_fwbc',&
+   !    &                   'forcing net freshwater flux from boundary condition',&
+   !    &                   'm/s',16,128,&
+   !    &                   vlistID(k_jg),&
+   !    &                   gridCellID(k_jg),&
+   !    &                   zaxisID_surface(k_jg)),&
+   !    &           k_jg)
       END IF 
     END IF  ! tracer>1
    !  CALL addVar(TimeVar('horz_adv',&
