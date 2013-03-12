@@ -89,12 +89,12 @@ CONTAINS
 !!
 SUBROUTINE upscale_rad_input(jg, jgp, nlev_rg, fr_land, fr_glac, emis_rad, &
   cosmu0, albvisdir, albnirdir, albvisdif, albnirdif,                      &
-  tsfc, pres_ifc, pres, temp, acdnc, tot_cld, q_o3,                        &
+  tsfc, ktype, pres_ifc, pres, temp, acdnc, tot_cld, q_o3,                 &
   aeq1, aeq2, aeq3, aeq4, aeq5,                                            &
   rg_fr_land, rg_fr_glac, rg_emis_rad,                                     &
   rg_cosmu0, rg_albvisdir, rg_albnirdir, rg_albvisdif, rg_albnirdif,       &
-  rg_tsfc, rg_pres_ifc, rg_pres, rg_temp, rg_acdnc, rg_tot_cld, rg_q_o3,   &
-  rg_aeq1, rg_aeq2, rg_aeq3, rg_aeq4, rg_aeq5 )
+  rg_tsfc, rg_rtype, rg_pres_ifc, rg_pres, rg_temp, rg_acdnc, rg_tot_cld,  &
+  rg_q_o3, rg_aeq1, rg_aeq2, rg_aeq3, rg_aeq4, rg_aeq5 )
 
   ! Input grid parameters
   INTEGER, INTENT(IN)  :: jg, jgp  ! domain IDs of main and reduced grids
@@ -107,30 +107,36 @@ SUBROUTINE upscale_rad_input(jg, jgp, nlev_rg, fr_land, fr_glac, emis_rad, &
     tsfc(:,:), pres_ifc(:,:,:), pres(:,:,:), temp(:,:,:), acdnc(:,:,:), tot_cld(:,:,:,:), &
     q_o3(:,:,:), aeq1(:,:,:), aeq2(:,:,:), aeq3(:,:,:), aeq4(:,:,:), aeq5(:,:,:)
 
+  INTEGER, INTENT(IN) :: ktype(:,:)
+
   ! Corresponding output fields (on reduced grid)
   REAL(wp), TARGET, INTENT(OUT) ::                                           &
     rg_fr_land(:,:),rg_fr_glac(:,:), rg_emis_rad(:,:),                       &
     rg_cosmu0(:,:), rg_albvisdir(:,:), rg_albnirdir(:,:), rg_albvisdif(:,:), &
-    rg_albnirdif(:,:), rg_tsfc(:,:), rg_pres_ifc(:,:,:), rg_pres(:,:,:),     &
-    rg_temp(:,:,:), rg_acdnc(:,:,:), rg_tot_cld(:,:,:,:), rg_q_o3(:,:,:),    &
-    rg_aeq1(:,:,:),rg_aeq2(:,:,:),rg_aeq3(:,:,:),rg_aeq4(:,:,:),rg_aeq5(:,:,:)
+    rg_albnirdif(:,:), rg_tsfc(:,:), rg_rtype(:,:), rg_pres_ifc(:,:,:),      &
+    rg_pres(:,:,:), rg_temp(:,:,:), rg_acdnc(:,:,:), rg_tot_cld(:,:,:,:),    &
+    rg_q_o3(:,:,:), rg_aeq1(:,:,:), rg_aeq2(:,:,:), rg_aeq3(:,:,:),          &
+    rg_aeq4(:,:,:),rg_aeq5(:,:,:)
+
 
   ! Intermediate storage fields needed in the case of MPI parallelization
   REAL(wp), ALLOCATABLE, TARGET ::                                         &
     z_fr_land(:,:),z_fr_glac(:,:), z_emis_rad(:,:),                        &
     z_cosmu0(:,:), z_albvisdir(:,:), z_albnirdir(:,:), z_albvisdif(:,:),   &
-    z_albnirdif(:,:), z_tsfc(:,:), z_pres_ifc(:,:,:), z_pres(:,:,:),       &
-    z_temp(:,:,:), z_acdnc(:,:,:), z_tot_cld(:,:,:,:), z_q_o3(:,:,:),      &
-    z_aeq1(:,:,:),z_aeq2(:,:,:),z_aeq3(:,:,:),z_aeq4(:,:,:),z_aeq5(:,:,:), &
-    z_aux3d(:,:,:), zrg_aux3d(:,:,:)
+    z_albnirdif(:,:), z_tsfc(:,:), z_rtype(:,:), z_pres_ifc(:,:,:),        &
+    z_pres(:,:,:), z_temp(:,:,:), z_acdnc(:,:,:), z_tot_cld(:,:,:,:),      &
+    z_q_o3(:,:,:), z_aeq1(:,:,:), z_aeq2(:,:,:), z_aeq3(:,:,:),            &
+    z_aeq4(:,:,:),z_aeq5(:,:,:), z_aux3d(:,:,:), zrg_aux3d(:,:,:)
+
 
   ! Pointers to output fields (no MPI) or intermediate fields (MPI)
   REAL(wp), POINTER ::                                                   &
     p_fr_land(:,:),p_fr_glac(:,:), p_emis_rad(:,:),                      &
     p_cosmu0(:,:), p_albvisdir(:,:), p_albnirdir(:,:), p_albvisdif(:,:), &
-    p_albnirdif(:,:), p_tsfc(:,:), p_pres_ifc(:,:,:), p_pres(:,:,:),     &
-    p_temp(:,:,:), p_acdnc(:,:,:), p_tot_cld(:,:,:,:), p_q_o3(:,:,:),    &
-    p_aeq1(:,:,:),p_aeq2(:,:,:),p_aeq3(:,:,:),p_aeq4(:,:,:),p_aeq5(:,:,:)
+    p_albnirdif(:,:), p_tsfc(:,:), p_rtype(:,:), p_pres_ifc(:,:,:),      &
+    p_pres(:,:,:), p_temp(:,:,:), p_acdnc(:,:,:), p_tot_cld(:,:,:,:),    &
+    p_q_o3(:,:,:), p_aeq1(:,:,:), p_aeq2(:,:,:), p_aeq3(:,:,:),          &
+    p_aeq4(:,:,:),p_aeq5(:,:,:)
 
 
   ! Pointers to types needed to minimize code duplication for MPI/no-MPI cases
@@ -214,14 +220,14 @@ SUBROUTINE upscale_rad_input(jg, jgp, nlev_rg, fr_land, fr_glac, emis_rad, &
              z_cosmu0(nproma,nblks_c_lp), z_albvisdir(nproma,nblks_c_lp),               &
              z_albnirdir(nproma,nblks_c_lp), z_albvisdif(nproma,nblks_c_lp),            &
              z_albnirdif(nproma,nblks_c_lp), z_tsfc(nproma,nblks_c_lp),                 &
+             z_rtype(nproma,nblks_c_lp),                                                &
              z_pres_ifc(nproma,nlevp1_rg,nblks_c_lp), z_pres(nproma,nlev_rg,nblks_c_lp),&
              z_temp(nproma,nlev_rg,nblks_c_lp), z_acdnc(nproma,nlev_rg,nblks_c_lp),     &
              z_tot_cld(nproma,nlev_rg,nblks_c_lp,4), z_q_o3(nproma,nlev_rg,nblks_c_lp), &
              z_aeq1(nproma,nlev_rg,nblks_c_lp), z_aeq2(nproma,nlev_rg,nblks_c_lp),      &
              z_aeq3(nproma,nlev_rg,nblks_c_lp), z_aeq4(nproma,nlev_rg,nblks_c_lp),      &
              z_aeq5(nproma,nlev_rg,nblks_c_lp),                                         &
-             z_aux3d(nproma,9,nblks_c_lp), zrg_aux3d(nproma,9,p_patch(jgp)%nblks_c) )
-
+             z_aux3d(nproma,10,nblks_c_lp), zrg_aux3d(nproma,10,p_patch(jgp)%nblks_c) )
   ENDIF
 
   ! Set pointers to either the parent-level variables (non-MPI case) or to the
@@ -236,6 +242,7 @@ SUBROUTINE upscale_rad_input(jg, jgp, nlev_rg, fr_land, fr_glac, emis_rad, &
     p_albvisdif  => z_albvisdif
     p_albnirdif  => z_albnirdif
     p_tsfc       => z_tsfc
+    p_rtype      => z_rtype
     p_pres_ifc   => z_pres_ifc
     p_pres       => z_pres
     p_temp       => z_temp
@@ -257,6 +264,7 @@ SUBROUTINE upscale_rad_input(jg, jgp, nlev_rg, fr_land, fr_glac, emis_rad, &
     p_albvisdif  => rg_albvisdif
     p_albnirdif  => rg_albnirdif
     p_tsfc       => rg_tsfc
+    p_rtype      => rg_rtype
     p_pres_ifc   => rg_pres_ifc
     p_pres       => rg_pres
     p_temp       => rg_temp
@@ -280,6 +288,7 @@ SUBROUTINE upscale_rad_input(jg, jgp, nlev_rg, fr_land, fr_glac, emis_rad, &
     p_albvisdif  = 0._wp
     p_albnirdif  = 0._wp
     p_tsfc       = 0._wp
+    p_rtype      = 0._wp
     p_pres_ifc   = 0._wp
     p_pres       = 0._wp
     p_temp       = 0._wp
@@ -363,6 +372,12 @@ SUBROUTINE upscale_rad_input(jg, jgp, nlev_rg, fr_land, fr_glac, emis_rad, &
         tsfc(iidx(jc,jb,3),iblk(jc,jb,3))*p_fbkwgt(jc,jb,3) + &
         tsfc(iidx(jc,jb,4),iblk(jc,jb,4))*p_fbkwgt(jc,jb,4)
 
+      p_rtype(jc,jb) =                                        &
+        REAL(ktype(iidx(jc,jb,1),iblk(jc,jb,1)),wp)*p_fbkwgt(jc,jb,1) + &
+        REAL(ktype(iidx(jc,jb,2),iblk(jc,jb,2)),wp)*p_fbkwgt(jc,jb,2) + &
+        REAL(ktype(iidx(jc,jb,3),iblk(jc,jb,3)),wp)*p_fbkwgt(jc,jb,3) + &
+        REAL(ktype(iidx(jc,jb,4),iblk(jc,jb,4)),wp)*p_fbkwgt(jc,jb,4)
+
       p_pres_ifc(jc,nlevp1_rg,jb) =                                      &
         pres_ifc(iidx(jc,jb,1),nlevp1,iblk(jc,jb,1))*p_fbkwgt(jc,jb,1) + &
         pres_ifc(iidx(jc,jb,2),nlevp1,iblk(jc,jb,2))*p_fbkwgt(jc,jb,2) + &
@@ -373,15 +388,16 @@ SUBROUTINE upscale_rad_input(jg, jgp, nlev_rg, fr_land, fr_glac, emis_rad, &
 
     IF (l_parallel .AND. jgp == 0) THEN ! combine 2D fields in a 3D field to speed up MPI communication
       DO jc = i_startidx, i_endidx
-        z_aux3d(jc,1,jb) = p_cosmu0(jc,jb)
-        z_aux3d(jc,2,jb) = p_albvisdir(jc,jb)
-        z_aux3d(jc,3,jb) = p_albnirdir(jc,jb)
-        z_aux3d(jc,4,jb) = p_albvisdif(jc,jb)
-        z_aux3d(jc,5,jb) = p_albnirdif(jc,jb)
-        z_aux3d(jc,6,jb) = p_tsfc(jc,jb)
-        z_aux3d(jc,7,jb) = p_fr_land(jc,jb)
-        z_aux3d(jc,8,jb) = p_fr_glac(jc,jb)
-        z_aux3d(jc,9,jb) = p_emis_rad(jc,jb)        
+        z_aux3d(jc, 1,jb) = p_cosmu0(jc,jb)
+        z_aux3d(jc, 2,jb) = p_albvisdir(jc,jb)
+        z_aux3d(jc, 3,jb) = p_albnirdir(jc,jb)
+        z_aux3d(jc, 4,jb) = p_albvisdif(jc,jb)
+        z_aux3d(jc, 5,jb) = p_albnirdif(jc,jb)
+        z_aux3d(jc, 6,jb) = p_tsfc(jc,jb)
+        z_aux3d(jc, 7,jb) = p_fr_land(jc,jb)
+        z_aux3d(jc, 8,jb) = p_fr_glac(jc,jb)
+        z_aux3d(jc, 9,jb) = p_emis_rad(jc,jb)
+        z_aux3d(jc,10,jb) = p_rtype(jc,jb)
       ENDDO
     ENDIF
 
@@ -491,7 +507,7 @@ SUBROUTINE upscale_rad_input(jg, jgp, nlev_rg, fr_land, fr_glac, emis_rad, &
 
   IF (l_parallel .AND. jgp == 0) THEN
 
-    CALL exchange_data_mult(p_pp%comm_pat_loc_to_glb_c_fbk, 6, 5*nlev_rg+10, &
+    CALL exchange_data_mult(p_pp%comm_pat_loc_to_glb_c_fbk, 6, 5*nlev_rg+11, &
                             RECV1=rg_pres_ifc, SEND1=z_pres_ifc,             &
                             RECV2=rg_pres,     SEND2=z_pres,                 &
                             RECV3=rg_temp,     SEND3=z_temp,                 &
@@ -531,6 +547,7 @@ SUBROUTINE upscale_rad_input(jg, jgp, nlev_rg, fr_land, fr_glac, emis_rad, &
         rg_fr_land(jc,jb)   = zrg_aux3d(jc,7,jb)
         rg_fr_glac(jc,jb)   = zrg_aux3d(jc,8,jb)
         rg_emis_rad(jc,jb)  = zrg_aux3d(jc,9,jb)
+        rg_rtype(jc,jb)     = zrg_aux3d(jc,10,jb)
       ENDDO
 
     ENDDO
@@ -538,7 +555,7 @@ SUBROUTINE upscale_rad_input(jg, jgp, nlev_rg, fr_land, fr_glac, emis_rad, &
 !!$OMP END PARALLEL
 
     DEALLOCATE(z_fr_land, z_fr_glac, z_emis_rad, z_cosmu0, z_albvisdir, z_albnirdir, z_albvisdif,&
-      & z_albnirdif, z_tsfc, z_pres_ifc, z_pres, z_temp, z_acdnc, z_tot_cld, z_q_o3,   &
+      & z_albnirdif, z_tsfc, z_rtype, z_pres_ifc, z_pres, z_temp, z_acdnc, z_tot_cld, z_q_o3,   &
       & z_aeq1, z_aeq2, z_aeq3, z_aeq4, z_aeq5, z_aux3d, zrg_aux3d )
 
   ENDIF

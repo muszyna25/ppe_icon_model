@@ -783,6 +783,9 @@ CONTAINS
     REAL(wp), ALLOCATABLE, TARGET:: zrg_albvisdif(:,:)
     REAL(wp), ALLOCATABLE, TARGET:: zrg_albnirdif(:,:)
     REAL(wp), ALLOCATABLE, TARGET:: zrg_tsfc     (:,:)
+    REAL(wp), ALLOCATABLE, TARGET:: zrg_rtype    (:,:) ! type of convection (integer)
+    INTEGER,  ALLOCATABLE, TARGET:: zrg_ktype    (:,:) ! type of convection (real)
+
     REAL(wp), ALLOCATABLE, TARGET:: zrg_pres_ifc (:,:,:)
     REAL(wp), ALLOCATABLE, TARGET:: zrg_pres     (:,:,:)
     REAL(wp), ALLOCATABLE, TARGET:: zrg_temp     (:,:,:)
@@ -896,6 +899,8 @@ CONTAINS
         zrg_albvisdif(nproma,nblks_par_c),             &
         zrg_albnirdif(nproma,nblks_par_c),             &
         zrg_tsfc     (nproma,nblks_par_c),             &
+        zrg_rtype    (nproma,nblks_par_c),             &
+        zrg_ktype    (nproma,nblks_par_c),             &
         zrg_pres_ifc (nproma,nlev_rg+1,nblks_par_c),   &
         zrg_pres     (nproma,nlev_rg  ,nblks_par_c),   &
         zrg_temp     (nproma,nlev_rg  ,nblks_par_c),   &
@@ -954,14 +959,14 @@ CONTAINS
         & nlev_rg, ext_data%atm%fr_land_smt, ext_data%atm%fr_glac_smt,  &
         & ext_data%atm%emis_rad,                                        &
         & prm_diag%cosmu0, albvisdir, albnirdir, prm_diag%albvisdif,    &
-        & albnirdif, prm_diag%tsfctrad, pt_diag%pres_ifc,               &
-        & pt_diag%pres, pt_diag%temp,prm_diag%acdnc, prm_diag%tot_cld,  &
-        & ext_data%atm%o3(:,:,:),                                       &
+        & albnirdif, prm_diag%tsfctrad, prm_diag%ktype,                 &
+        & pt_diag%pres_ifc, pt_diag%pres, pt_diag%temp,prm_diag%acdnc,  &
+        & prm_diag%tot_cld, ext_data%atm%o3(:,:,:),                     &
         & zaeq1, zaeq2, zaeq3, zaeq4, zaeq5,                            &
         & zrg_fr_land, zrg_fr_glac, zrg_emis_rad,                       &
         & zrg_cosmu0, zrg_albvisdir, zrg_albnirdir, zrg_albvisdif,      &
-        & zrg_albnirdif, zrg_tsfc, zrg_pres_ifc, zrg_pres, zrg_temp,    &
-        & zrg_acdnc, zrg_tot_cld, zrg_o3,                               &
+        & zrg_albnirdif, zrg_tsfc, zrg_rtype, zrg_pres_ifc, zrg_pres,   &
+        & zrg_temp, zrg_acdnc, zrg_tot_cld, zrg_o3,                     &
         & zrg_aeq1, zrg_aeq2, zrg_aeq3, zrg_aeq4, zrg_aeq5 )
 
 
@@ -1110,6 +1115,7 @@ CONTAINS
           zrg_albvisdif (1:i_startidx-1,jb) = zrg_albvisdif (i_startidx,jb)
           zrg_albnirdif (1:i_startidx-1,jb) = zrg_albnirdif (i_startidx,jb)
           zrg_tsfc      (1:i_startidx-1,jb) = zrg_tsfc      (i_startidx,jb)
+          zrg_rtype     (1:i_startidx-1,jb) = zrg_rtype     (i_startidx,jb)
           zrg_pres_ifc (1:i_startidx-1,nlev_rg+1,jb) = zrg_pres_ifc (i_startidx,nlev_rg+1,jb)
           DO jk = 1, nlev_rg
             zrg_pres_ifc (1:i_startidx-1,jk,jb) = zrg_pres_ifc (i_startidx,jk,jb)
@@ -1129,6 +1135,10 @@ CONTAINS
           ENDDO
         ENDIF
 
+
+        ! Type of convection is required as INTEGER field
+        zrg_ktype(1:i_endidx,jb) = NINT(zrg_rtype(1:i_endidx,jb))
+
         CALL radiation(               &
                                 !
                                 ! input
@@ -1140,7 +1150,7 @@ CONTAINS
           & klev        =nlev_rg             ,&!< in  number of full levels = number of layers
           & klevp1      =nlev_rg+1           ,&!< in  number of half levels = number of layer ifcs
                                 !
-          & ktype      =prm_diag%ktype(:,jb) ,&!< in     type of convection
+          & ktype       =zrg_ktype(:,jb)     ,&!< in type of convection
                                 !
           & zland       =zrg_fr_land (:,jb)  ,&!< in land mask,     1. over land
           & zglac       =zrg_fr_glac (:,jb)  ,&!< in glacier mask,  1. over land ice
@@ -1192,7 +1202,7 @@ CONTAINS
         & prm_diag%lwflxall, prm_diag%trsolclr, prm_diag%trsolall )
 
       DEALLOCATE (zrg_cosmu0, zrg_albvisdir, zrg_albnirdir, zrg_albvisdif, zrg_albnirdif, &
-        zrg_tsfc, zrg_pres_ifc, zrg_pres, zrg_temp, zrg_o3,                               &
+        zrg_tsfc, zrg_pres_ifc, zrg_pres, zrg_temp, zrg_o3, zrg_ktype,                    &
         zrg_aeq1,zrg_aeq2,zrg_aeq3,zrg_aeq4,zrg_aeq5, zrg_acdnc, zrg_tot_cld,             &
         zrg_aclcov, zrg_lwflxclr, zrg_lwflxall, zrg_trsolclr, zrg_trsolall,               &
         zrg_fr_land,zrg_fr_glac,zrg_emis_rad)
