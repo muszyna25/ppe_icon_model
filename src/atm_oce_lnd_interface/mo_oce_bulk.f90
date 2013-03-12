@@ -352,10 +352,11 @@ CONTAINS
 
         ! provide precipitation, evaporation, runoff flux data for freshwater forcing of ocean 
         !  - not changed via bulk formula, stored in surface flux data
+        !  - Attention: as in MPIOM evaporation is calculated from latent heat flux (which is depentent on current SST)
         p_sfc_flx%forc_precip(:,:) = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,10) + &
           &                          rday2*ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,10)
-        p_sfc_flx%forc_evap  (:,:) = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,11) + &
-          &                          rday2*ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,11)
+        !p_sfc_flx%forc_evap  (:,:) = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,11) + &
+        !  &                          rday2*ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,11)
         p_sfc_flx%forc_runoff(:,:) = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,12) + &
           &                          rday2*ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,12)
 
@@ -370,14 +371,14 @@ CONTAINS
         ! apply sum of freshwater forcing to (open) ocean
         !  - in OMIP data: evaporation is negative
         IF (l_forc_freshw) THEN
-          p_sfc_flx%forc_fwbc(:,:) = (p_sfc_flx%forc_precip(:,:) + p_sfc_flx%forc_evap(:,:) + &
-            &                         p_sfc_flx%forc_runoff(:,:)) * p_patch_3d%wet_c(:,1,:)
+          !p_sfc_flx%forc_fwbc(:,:) = (p_sfc_flx%forc_precip(:,:) + p_sfc_flx%forc_evap(:,:) + &
+          !  &                         p_sfc_flx%forc_runoff(:,:)) * p_patch_3d%wet_c(:,1,:)
           idt_src=3  ! output print level (1-5, fix)
           CALL dbg_print('UpdSfc: p_sfc_flx%forc_precip'   ,p_sfc_flx%forc_precip   ,str_module,idt_src)
-          CALL dbg_print('UpdSfc: p_sfc_flx%forc_evap'     ,p_sfc_flx%forc_evap     ,str_module,idt_src)
+          !CALL dbg_print('UpdSfc: p_sfc_flx%forc_evap'     ,p_sfc_flx%forc_evap     ,str_module,idt_src)
           CALL dbg_print('UpdSfc: p_sfc_flx%forc_runoff'   ,p_sfc_flx%forc_runoff   ,str_module,idt_src)
-          idt_src=2  ! output print level (1-5, fix)
-          CALL dbg_print('UpdSfc: p_sfc_flx%forc_fwbc'     ,p_sfc_flx%forc_fwbc     ,str_module,idt_src)
+          !idt_src=2  ! output print level (1-5, fix)
+          !CALL dbg_print('UpdSfc: p_sfc_flx%forc_fwbc'     ,p_sfc_flx%forc_fwbc     ,str_module,idt_src)
         ENDIF
         !---------------------------------------------------------------------
 
@@ -480,9 +481,9 @@ CONTAINS
           ! sum of flux from sea ice to the ocean is stored in p_sfc_flx%forc_hflx
           !  done in mo_sea_ice:upper_ocean_TS
 
-        ENDIF
+        ENDIF  ! i_sea_ice
 
-      END IF
+      ENDIF  ! i_forc_type == 4
 
       IF (temperature_relaxation == 2)  THEN
 
@@ -530,13 +531,29 @@ CONTAINS
       CALL dbg_print('UpdSfc: Ext data3-t/mon2'  ,z_c2                     ,str_module,idt_src)
       !---------------------------------------------------------------------
 
-      ! bulk formula are calculated globally
-
       IF (i_sea_ice >= 1) THEN
 
         IF (iforc_type == 2 .OR. iforc_type == 5) THEN
+
+          ! bulk formula are calculated globally using specific OMIP or NCEP fluxes
           CALL calc_bulk_flux_oce(p_patch, p_as, p_os , Qatm)
           CALL calc_bulk_flux_ice(p_patch, p_as, p_ice, Qatm)
+
+          ! evaporation results from latent heat flux, as provided by bulk formula using OMIP/NCEP fluxes
+          !IF (l_forc_freshw) THEN
+            !p_sfc_flx%forc_evap(:,:) = Qatm%latw(:,:) / (alv*rho_ref)  ! not yet tested
+            !p_sfc_flx%forc_fwbc(:,:) = (p_sfc_flx%forc_precip(:,:) + p_sfc_flx%forc_evap(:,:) + &
+            !  &                         p_sfc_flx%forc_runoff(:,:)) * p_patch_3d%wet_c(:,1,:)
+            !idt_src=3  ! output print level (1-5, fix)
+            !CALL dbg_print('UpdSfc: p_sfc_flx%forc_evap'     ,p_sfc_flx%forc_evap     ,str_module,idt_src)
+            !idt_src=2  ! output print level (1-5, fix)
+            !CALL dbg_print('UpdSfc: p_sfc_flx%forc_fwbc'     ,p_sfc_flx%forc_fwbc     ,str_module,idt_src)
+          !ENDIF
+
+          ! TODO:
+          !  - specify evaporation over snow/ice/water differently - currently only over open water is considered
+          !  - sum fwbc not yet calculated - forc_evap currently set to zero
+
         ENDIF
         
         IF ( no_tracer >= 2 ) THEN
