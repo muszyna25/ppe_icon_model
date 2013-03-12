@@ -67,7 +67,6 @@ MODULE mo_nh_interface_nwp
   USE mo_loopindices,        ONLY: get_indices_c, get_indices_e
   USE mo_intp_rbf,           ONLY: rbf_vec_interpol_cell
   USE mo_intp,               ONLY: edges2cells_scalar
-  USE mo_grf_intp_data_strc, ONLY: t_gridref_state!,t_gridref_single_state, &
   USE mo_model_domain,       ONLY: t_patch
   USE mo_intp_data_strc,     ONLY: t_int_state
   USE mo_nonhydro_types,     ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
@@ -129,16 +128,15 @@ CONTAINS
                             & dt_loc, dtadv_loc, dt_phy_jg,        & !input
                             & p_sim_time, datetime,                & !input
                             & pt_patch, pt_int_state, p_metrics,   & !input
-                            & pt_par_patch, pt_par_int_state,      & !input
-                            & pt_par_grf_state,                    & !input
+                            & pt_par_patch,                        & !input
                             & ext_data,                            & !input
                             & pt_prog,                             & !inout
                             & pt_prog_now_rcf, pt_prog_rcf,        & !in/inout
                             & pt_diag ,                            & !inout
-                            & prm_diag, prm_nwp_tend,lnd_diag,     &
+                            & prm_diag, prm_nwp_tend, lnd_diag,    &
                             & lnd_prog_now, lnd_prog_new,          & !inout
                             & wtr_prog_now, wtr_prog_new,          & !inout
-                            & p_prog_list                             ) !in  
+                            & p_prog_list                          ) !in  
 
     !>
     ! !INPUT PARAMETERS:
@@ -159,9 +157,6 @@ CONTAINS
     TYPE(t_patch),        TARGET,INTENT(in):: pt_par_patch !<grid/patch info (parent grid)
 
     TYPE(t_int_state),    TARGET,INTENT(in):: pt_int_state      !< interpolation state
-    TYPE(t_int_state),    TARGET,INTENT(in):: pt_par_int_state  !< " for parent grid
-    TYPE(t_gridref_state),TARGET,INTENT(IN):: pt_par_grf_state  !< grid refinement state
-
     TYPE(t_nh_metrics)   ,       INTENT(in):: p_metrics
     TYPE(t_external_data),       INTENT(inout):: ext_data
 
@@ -807,13 +802,13 @@ CONTAINS
       CALL nwp_radiation (lredgrid,              & ! in
            &              p_sim_time,            & ! in
            &              datetime,              & ! in
-           &              pt_patch,pt_par_patch, & ! in
-           &              pt_par_int_state,      & ! in
-           &              pt_par_grf_state,      & ! in
+           &              pt_patch,              & ! in
+           &              pt_par_patch,          & ! in
            &              ext_data,              & ! in
            &              lnd_diag,              & ! in
            &              pt_prog,               & ! inout
-           &              pt_diag,prm_diag,      & ! inout
+           &              pt_diag,               & ! inout
+           &              prm_diag,              & ! inout
            &              lnd_prog_new,          & ! in
            &              wtr_prog_new           ) ! in
       IF (ltimer) CALL timer_stop(timer_nwp_radiation)

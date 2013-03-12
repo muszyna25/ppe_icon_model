@@ -441,8 +441,8 @@ MODULE mo_nh_stepping
 
   TYPE(t_datetime), INTENT(INOUT)      :: datetime
 
-  INTEGER                              :: jstep, jb, nlen, jg, kstep
-  INTEGER                              :: ierr, i_nchdom, jk
+  INTEGER                              :: jstep, jg, kstep
+  INTEGER                              :: ierr
   LOGICAL                              :: l_compute_diagnostic_quants,  &
     &                                     l_vlist_output, l_nml_output, &
     &                                     l_supervise_total_integrals,  &
@@ -1163,8 +1163,6 @@ MODULE mo_nh_stepping
             &                  p_int_state(jg),                    & !in
             &                  p_nh_state(jg)%metrics ,            & !in
             &                  p_patch(jgp),                       & !in
-            &                  p_int_state(jgp),                   & !in
-            &                  p_grf_state(jgp),                   & !in
             &                  ext_data(jg)           ,            & !in
             &                  p_nh_state(jg)%prog(n_new) ,        & !inout
             &                  p_nh_state(jg)%prog(n_now_rcf),     & !in for tke
@@ -1488,8 +1486,6 @@ MODULE mo_nh_stepping
       &                  p_int_state(jg),                    & !in
       &                  p_nh_state(jg)%metrics ,            & !in
       &                  p_patch(jgp),                       & !in
-      &                  p_int_state(jgp),                   & !in
-      &                  p_grf_state(jgp),                   & !in
       &                  ext_data(jg)           ,            & !in
       &                  p_nh_state(jg)%prog(n_now) ,        & !inout
       &                  p_nh_state(jg)%prog(n_now_rcf) ,    & !inout

@@ -48,10 +48,8 @@ MODULE mo_nwp_rrtm_interface
   USE mo_ext_data_types,       ONLY: t_external_data
   USE mo_parallel_config,      ONLY: nproma, p_test_run, test_parallel_radiation
   USE mo_run_config,           ONLY: msg_level, iqv, iqc, iqi
-  USE mo_grf_intp_data_strc,   ONLY: t_gridref_state
   USE mo_impl_constants,       ONLY: min_rlcell_int, icc, io3_ape!, min_rlcell 
   USE mo_impl_constants_grf,   ONLY: grf_bdywidth_c, grf_ovlparea_start_c
-  USE mo_intp_data_strc,       ONLY: t_int_state
   USE mo_kind,                 ONLY: wp
   USE mo_loopindices,          ONLY: get_indices_c
   USE mo_lrtm_par,             ONLY: jpband => nbndlw
@@ -80,8 +78,11 @@ MODULE mo_nwp_rrtm_interface
   PRIVATE
 
 
-  PUBLIC ::  nwp_rrtm_radiation, nwp_rrtm_radiation_reduced, nwp_rrtm_ozon_aerosol
-  PUBLIC ::  nwp_rrtm_radiation_repartition
+  PUBLIC :: nwp_rrtm_ozon_aerosol
+  PUBLIC :: nwp_rrtm_radiation
+  PUBLIC :: nwp_rrtm_radiation_reduced
+  PUBLIC :: nwp_rrtm_radiation_repartition
+
 
   CHARACTER(len=*), PARAMETER:: version = '$Id$'
 
@@ -596,7 +597,6 @@ CONTAINS
     REAL(wp):: albnirdif     (nproma,pt_patch%nblks_c) !<
     REAL(wp):: aclcov        (nproma,pt_patch%nblks_c) !<
 
-    INTEGER :: itype(nproma)   !< type of convection
 
     ! Local scalars:
     REAL(wp):: zsct        ! solar constant (at time of year)
@@ -646,15 +646,11 @@ CONTAINS
       &           CALL message('mo_nwp_rad_interface', 'RRTM radiation on full grid')
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,itype) ICON_OMP_GUIDED_SCHEDULE
+!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx) ICON_OMP_GUIDED_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
         &                         i_startidx, i_endidx, rl_start, rl_end)
-
-
-      ! Loop starts with 1 instead of i_startidx because the start index is missing in RRTM
-      itype(1:i_endidx) = 0 !INT(field%rtype(1:i_endidx,jb))
 
 
       ! It may happen that an MPI patch contains only nest boundary points
@@ -689,7 +685,7 @@ CONTAINS
         & klev       =nlev                 ,&!< in  number of full levels = number of layers
         & klevp1     =nlevp1               ,&!< in  number of half levels = number of layer ifcs
                               !
-        & ktype      =itype                ,&!< in     type of convection
+        & ktype      =prm_diag%ktype(:,jb) ,&!< in     type of convection
                               !
                               ! surface: albedo + temperature
         & zland      =ext_data%atm%fr_land_smt(:,jb)   ,&!< in     land fraction
@@ -744,9 +740,9 @@ CONTAINS
   !! @par Revision History
   !! Initial release by Thorsten Reinhardt, AGeoBw, Offenbach (2011-01-13)
   !!
-  SUBROUTINE nwp_rrtm_radiation_reduced ( p_sim_time,pt_patch,pt_par_patch,               &
-    & pt_par_int_state, pt_par_grf_state,ext_data,zaeq1,zaeq2,zaeq3,zaeq4,zaeq5, &
-    & pt_diag,prm_diag,lnd_prog )
+  SUBROUTINE nwp_rrtm_radiation_reduced ( p_sim_time,pt_patch,pt_par_patch,       &
+    &                                     ext_data,zaeq1,zaeq2,zaeq3,zaeq4,zaeq5, &
+    &                                     pt_diag,prm_diag,lnd_prog )
 
 !    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER::  &
 !      &  routine = 'mo_nwp_rad_interface:'
@@ -758,8 +754,6 @@ CONTAINS
 
     TYPE(t_patch),        TARGET,INTENT(in) :: pt_patch     !<grid/patch info.
     TYPE(t_patch),        TARGET,INTENT(in) :: pt_par_patch !<grid/patch info (parent grid)
-    TYPE(t_int_state),    TARGET,INTENT(in):: pt_par_int_state  !< " for parent grid
-    TYPE(t_gridref_state),TARGET,INTENT(in) :: pt_par_grf_state  !< grid refinement state
     TYPE(t_external_data),INTENT(in):: ext_data
     REAL(wp),             INTENT(in) ::               &
       & zaeq1(nproma,pt_patch%nlev,pt_patch%nblks_c), &
@@ -809,7 +803,6 @@ CONTAINS
     ! Pointer to parent patach or local parent patch for reduced grid
     TYPE(t_patch), POINTER       :: ptr_pp
 
-    INTEGER :: itype(nproma)   !< type of convection
 
     ! Variables for debug output
     REAL(wp) :: max_albvisdir, min_albvisdir, max_albvisdif, min_albvisdif, &
@@ -1093,13 +1086,12 @@ CONTAINS
       ENDIF ! msg_level >= 16
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,i_startidx,i_endidx,itype) ICON_OMP_GUIDED_SCHEDULE
+!$OMP DO PRIVATE(jb,jk,i_startidx,i_endidx) ICON_OMP_GUIDED_SCHEDULE
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_c(ptr_pp, jb, i_startblk, i_endblk, &
           &                         i_startidx, i_endidx, rl_start, rl_end, i_chidx)
 
-        itype(:) = 0
 
         ! It may happen that an MPI patch contains only nest boundary points
         ! In this case, no action is needed
@@ -1148,7 +1140,7 @@ CONTAINS
           & klev        =nlev_rg             ,&!< in  number of full levels = number of layers
           & klevp1      =nlev_rg+1           ,&!< in  number of half levels = number of layer ifcs
                                 !
-          & ktype       =itype               ,&!< in   type of convection
+          & ktype      =prm_diag%ktype(:,jb) ,&!< in     type of convection
                                 !
           & zland       =zrg_fr_land (:,jb)  ,&!< in land mask,     1. over land
           & zglac       =zrg_fr_glac (:,jb)  ,&!< in glacier mask,  1. over land ice
@@ -1241,7 +1233,6 @@ CONTAINS
 
     REAL(wp), POINTER:: albvisdir(:,:), albnirdir(:,:), albnirdif(:,:)
 
-    INTEGER :: itype(nproma)   !< type of convection
 
     ! Local scalars:
     REAL(wp):: zsct        ! solar constant (at time of year)
@@ -1322,15 +1313,12 @@ CONTAINS
         & STAT=return_status)        
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,itype) ICON_OMP_GUIDED_SCHEDULE
+!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx) ICON_OMP_GUIDED_SCHEDULE
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
           &                         i_startidx, i_endidx, rl_start, rl_end)
 
-
-        ! Loop starts with 1 instead of i_startidx because the start index is missing in RRTM
-        itype(1:i_endidx) = 0 !INT(field%rtype(1:i_endidx,jb))
 
 
         ! It may happen that an MPI patch contains only nest boundary points
@@ -1364,7 +1352,7 @@ CONTAINS
           & klev       =nlev                 ,&!< in  number of full levels = number of layers
           & klevp1     =nlevp1               ,&!< in  number of half levels = number of layer ifcs
                                 !
-          & ktype      =itype                ,&!< in     type of convection
+          & ktype      =prm_diag%ktype(:,jb) ,&!< in     type of convection
                                 !
                                 ! surface: albedo + temperature
           & zland      =ext_data%atm%fr_land_smt(:,jb)   ,&!< in     land fraction
@@ -1455,7 +1443,7 @@ CONTAINS
     ENDIF
     
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,itype) ICON_OMP_GUIDED_SCHEDULE
+!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx) ICON_OMP_GUIDED_SCHEDULE
     DO jb = 1, rrtm_data%no_of_blocks
     
       i_endidx = rrtm_data%block_size
