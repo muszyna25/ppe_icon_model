@@ -540,19 +540,18 @@ CONTAINS
           CALL calc_bulk_flux_ice(p_patch, p_as, p_ice, Qatm)
 
           ! evaporation results from latent heat flux, as provided by bulk formula using OMIP/NCEP fluxes
-          !IF (l_forc_freshw) THEN
-            !p_sfc_flx%forc_evap(:,:) = Qatm%latw(:,:) / (alv*rho_ref)  ! not yet tested
-            !p_sfc_flx%forc_fwbc(:,:) = (p_sfc_flx%forc_precip(:,:) + p_sfc_flx%forc_evap(:,:) + &
-            !  &                         p_sfc_flx%forc_runoff(:,:)) * p_patch_3d%wet_c(:,1,:)
-            !idt_src=3  ! output print level (1-5, fix)
-            !CALL dbg_print('UpdSfc: p_sfc_flx%forc_evap'     ,p_sfc_flx%forc_evap     ,str_module,idt_src)
-            !idt_src=2  ! output print level (1-5, fix)
-            !CALL dbg_print('UpdSfc: p_sfc_flx%forc_fwbc'     ,p_sfc_flx%forc_fwbc     ,str_module,idt_src)
-          !ENDIF
+          IF (l_forc_freshw) THEN
+            p_sfc_flx%forc_evap(:,:) = Qatm%latw(:,:) / (alv*rho_ref)  ! not yet tested
+            p_sfc_flx%forc_fwbc(:,:) = (p_sfc_flx%forc_precip(:,:) + p_sfc_flx%forc_evap(:,:) + &
+              &                         p_sfc_flx%forc_runoff(:,:))*p_patch_3d%wet_c(:,1,:)
+            idt_src=3  ! output print level (1-5, fix)
+            CALL dbg_print('UpdSfc: p_sfc_flx%forc_evap'     ,p_sfc_flx%forc_evap     ,str_module,idt_src)
+            idt_src=2  ! output print level (1-5, fix)
+            CALL dbg_print('UpdSfc: p_sfc_flx%forc_fwbc'     ,p_sfc_flx%forc_fwbc     ,str_module,idt_src)
+          ENDIF
 
           ! TODO:
           !  - specify evaporation over snow/ice/water differently - currently only over open water is considered
-          !  - sum fwbc not yet calculated - forc_evap currently set to zero
 
         ENDIF
         
