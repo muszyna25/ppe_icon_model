@@ -130,7 +130,7 @@ MODULE mo_sgs_turbulence
               diff_smag_e(nproma,nlev,p_patch%nblks_e),    &
               theta(nproma,nlev,p_patch%nblks_c),          &
               theta_v(nproma,nlev,p_patch%nblks_c),        &
-              rho_e(nproma,nlev,p_patch%nblks_e),          &
+              rho_e(nproma,nlev,p_patch%nblks_e)           &
              )
 
     !Initialize
