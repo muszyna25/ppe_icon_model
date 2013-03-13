@@ -58,7 +58,7 @@ MODULE mo_nh_interface_nwp
 
  ! USE mo_timer,              ONLY: timer_physics, timer_start, timer_stop, &
   USE mo_timer 
-  USE mo_exception,          ONLY: message, message_text !, finish
+  USE mo_exception,          ONLY: message, message_text, finish
   USE mo_impl_constants,     ONLY: itconv, itccov, itrad, itgscp,         &
     &                              itsatad, itupdate, itturb, itsfc, itradheat, &
     &                              itsso, itgwd, itfastphy, icc,          &
@@ -442,10 +442,62 @@ CONTAINS
 
     ENDIF
 
-    IF (  lcall_phy_jg(itturb) .AND. atm_phy_nwp_config(jg)%inwp_turb > 2) THEN
+
+    !For turbulence schemes NOT including the call to the surface scheme
+    IF ( lcall_phy_jg(itsfc) ) THEN
+
+      SELECT CASE (atm_phy_nwp_config(jg)%inwp_turb)
+
+       CASE(1,2,5)  
+
+         !> as pressure is needed only for an approximate adiabatic extrapolation
+         !! of the temperature at the lowest model level towards ground level,
+         !! a recalculation is not required
+         CALL nwp_surface    (  dt_phy_jg(itfastphy),              & !>input
+                               & pt_patch,                         & !>input
+                               & ext_data,                         & !>input
+                               & pt_prog_rcf,                      & !>in/inout rcf=reduced calling freq.
+                               & pt_diag ,                         & !>inout
+                               & prm_diag,                         & !>inout 
+                               & lnd_prog_now, lnd_prog_new,       & !>inout
+                               & wtr_prog_now, wtr_prog_new,       & !>inout
+                               & lnd_diag                          ) !>input
+
+      CASE DEFAULT
+
+        CALL finish('mo_nh_interface_nwp:','this turbulence scheme does not need surface scheme')
+     
+      END SELECT      
+
+    END IF   
+
+
+    !Call to turbulent parameterization schemes
+    IF (  lcall_phy_jg(itturb) ) THEN
+
       IF (timers_level > 1) CALL timer_start(timer_nwp_turbulence)
 
-        ! Turbulence schemes including the call to the surface scheme
+      SELECT CASE (atm_phy_nwp_config(jg)%inwp_turb)
+       
+      !Turbulence schemes NOT including the call to the surface scheme
+      CASE(1,2,5)  
+
+        ! compute turbulent diffusion (atmospheric column)
+        CALL nwp_turbdiff   (  dt_phy_jg(itfastphy),              & !>in
+                              & pt_patch, p_metrics,              & !>in
+                              & pt_int_state,                     & !>in
+                              & ext_data,                         & !>in
+                              & pt_prog,                          & !>in
+                              & pt_prog_now_rcf, pt_prog_rcf,     & !>in/inout
+                              & pt_diag ,                         & !>inout
+                              & prm_diag,prm_nwp_tend,            & !>inout
+                              & wtr_prog_now,                     & !>in
+                              & lnd_prog_now,                     & !>in 
+                              & lnd_diag                          ) !>in
+
+      !Turbulence schemes including the call to the surface scheme
+      CASE(3,4)
+
         CALL nwp_turbulence_sfc (  dt_phy_jg(itfastphy),              & !>input
                                   & pt_patch, p_metrics,              & !>input
                                   & ext_data,                         & !>input
@@ -457,49 +509,16 @@ CONTAINS
                                   & wtr_prog_now, wtr_prog_new,       & !>inout
                                   & lnd_diag                          ) !>inout
 
-      IF (timers_level > 1) CALL timer_stop(timer_nwp_turbulence)
-    ENDIF !lcall(itturb)
+      CASE DEFAULT
 
+        CALL finish('mo_nh_interface_nwp:','unknown choice of turbulence scheme')
 
-    IF ( lcall_phy_jg(itsfc) .AND. atm_phy_nwp_config(jg)%inwp_turb <= 2 ) THEN
-
-      !> as pressure is needed only for an approximate adiabatic extrapolation
-      !! of the temperature at the lowest model level towards ground level,
-      !! a recalculation is not required
-
-      CALL nwp_surface    (  dt_phy_jg(itfastphy),              & !>input
-                            & pt_patch,                         & !>input
-                            & ext_data,                         & !>input
-                            & pt_prog_rcf,                      & !>in/inout rcf=reduced calling freq.
-                            & pt_diag ,                         & !>inout
-                            & prm_diag,                         & !>inout 
-                            & lnd_prog_now, lnd_prog_new,       & !>inout
-                            & wtr_prog_now, wtr_prog_new,       & !>inout
-                            & lnd_diag                          ) !>input
-
-    ENDIF
-
-
-    IF ( lcall_phy_jg(itturb) .AND. atm_phy_nwp_config(jg)%inwp_turb <= 2 ) THEN
-
-      ! Turbulence schemes not including the call to the surface scheme
-      IF (timers_level > 1) CALL timer_start(timer_nwp_turbulence)
-
-      !
-      ! compute turbulent diffusion (atmospheric column)
-      CALL nwp_turbdiff   (  dt_phy_jg(itfastphy),              & !>in
-                            & pt_patch, p_metrics,              & !>in
-                            & ext_data,                         & !>in
-                            & pt_prog,                          & !>in
-                            & pt_prog_now_rcf, pt_prog_rcf,     & !>in/inout
-                            & pt_diag ,                         & !>inout
-                            & prm_diag,prm_nwp_tend,            & !>inout
-                            & wtr_prog_now,                     & !>in
-                            & lnd_prog_now,                     & !>in 
-                            & lnd_diag                          ) !>in
+      END SELECT      
 
       IF (timers_level > 1) CALL timer_stop(timer_nwp_turbulence)
-    ENDIF !lcall(itturb)
+
+    END IF
+
 
     !-------------------------------------------------------------------------
     !  prognostic microphysic and precipitation scheme
