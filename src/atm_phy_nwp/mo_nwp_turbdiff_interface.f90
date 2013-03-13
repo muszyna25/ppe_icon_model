@@ -49,6 +49,7 @@ MODULE mo_nwp_turbdiff_interface
   USE mo_kind,                 ONLY: wp
   USE mo_exception,            ONLY: message, message_text, finish
   USE mo_model_domain,         ONLY: t_patch
+  USE mo_intp_data_strc,       ONLY: t_int_state
   USE mo_impl_constants,       ONLY: min_rlcell_int
   USE mo_impl_constants_grf,   ONLY: grf_bdywidth_c
   USE mo_loopindices,          ONLY: get_indices_c
@@ -64,6 +65,7 @@ MODULE mo_nwp_turbdiff_interface
   USE mo_data_turbdiff,        ONLY: get_turbdiff_param
   USE src_turbdiff,            ONLY: turbdiff
   USE mo_gme_turbdiff,         ONLY: partura, progimp_turb
+  USE mo_sgs_turbulence,       ONLY: drive_subgrid_diffusion
 
   IMPLICIT NONE
 
@@ -80,6 +82,7 @@ CONTAINS
 SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
                           & p_patch,                          & !>in
                           & p_metrics,                        & !>in
+                          & p_int,                            & !>in
                           & ext_data,                         & !>in
                           & p_prog,                           & !>in
                           & p_prog_now_rcf,                   & !>in
@@ -92,6 +95,7 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
 
 
   TYPE(t_patch),        TARGET,INTENT(in)   :: p_patch        !!<grid/patch info.
+  TYPE(t_int_state),    INTENT(in),TARGET   :: p_int          !< single interpolation state
   TYPE(t_external_data),       INTENT(in)   :: ext_data        !< external data
   TYPE(t_nh_metrics)          ,INTENT(in)   :: p_metrics
   TYPE(t_nh_prog),      TARGET,INTENT(in)   :: p_prog          !<the prog vars
@@ -101,7 +105,7 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
   TYPE(t_nwp_phy_diag),        INTENT(inout):: prm_diag        !< atm phys vars
   TYPE(t_nwp_phy_tend), TARGET,INTENT(inout):: prm_nwp_tend    !< atm tend vars
   TYPE(t_wtr_prog),            INTENT(in)   :: wtr_prog_now    !< prog vars for wtr
-  TYPE(t_lnd_prog),            INTENT(in)   :: lnd_prog_now    !< prog vars for sfc
+  TYPE(t_lnd_prog),            INTENT(inout):: lnd_prog_now    !< prog vars for sfc
   TYPE(t_lnd_diag),            INTENT(inout):: lnd_diag        !< diag vars for sfc
   REAL(wp),                    INTENT(in)   :: tcall_turb_jg   !< time interval for 
                                                                !< turbulence
@@ -155,6 +159,18 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
   IF ( atm_phy_nwp_config(jg)%inwp_turb == 1 ) THEN
      CALL get_turbdiff_param(jg)
   ENDIF
+
+ 
+  !For 3D turbulence the whole patch needs to be passed. Therefore, this call
+  !is made outside the block loop next. However, the tendencies it calculates
+  !is then used inside the block loop (see at the end) to update u,v,t,qv,qc
+  IF ( atm_phy_nwp_config(jg)%inwp_turb == 5 )THEN
+    CALL message('mo_nwp_turbdiff:', '3D turbulence')
+    CALL drive_subgrid_diffusion(p_prog, p_prog_rcf, p_diag, p_metrics, p_patch, &
+                                 p_int, lnd_prog_now, lnd_diag, prm_diag,        &
+                                 prm_nwp_tend)
+  END IF
+
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,ierrstat,errormsg,eroutine,z_tvs)  &
