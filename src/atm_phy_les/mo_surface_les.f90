@@ -60,7 +60,7 @@ MODULE mo_surface_les
   USE mo_sync,                ONLY: SYNC_E, SYNC_C, SYNC_V, sync_patch_array
   USE mo_physical_constants,  ONLY: cpd, rcvd, p0ref, grav, alv, rd
   USE mo_nwp_lnd_types,       ONLY: t_lnd_prog, t_lnd_diag 
-  USE mo_nh_torus_exp,        ONLY: shflx_cbl, lhflx_cbl, set_sst_cbl, ufric_cbl
+  USE mo_nh_torus_exp,        ONLY: shflx_cbl, lhflx_cbl, set_sst_cbl
   USE mo_satad,               ONLY: sat_pres_water, &  !! saturation vapor pressure w.r.t. water
     &                               spec_humi !,qsat_rho !! Specific humidity
   USE mo_nwp_phy_types,       ONLY: t_nwp_phy_diag, t_nwp_phy_tend
@@ -100,7 +100,7 @@ MODULE mo_surface_les
     TYPE(t_nwp_phy_diag),   INTENT(inout):: prm_diag      !< atm phys vars
     REAL(wp),          INTENT(in)        :: theta(:,:,:)  !pot temp  
 
-    REAL(wp) :: rhos, th0_srf, obukhov_length
+    REAL(wp) :: rhos, th0_srf, obukhov_length, z_mc, ustar, mwind, bflux
     INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
     INTEGER :: rl_start, rl_end
     INTEGER :: jk, jb, jc
@@ -110,15 +110,12 @@ MODULE mo_surface_les
     nlev = p_patch%nlev
     i_nchdom   = MAX(1,p_patch%n_childdom)
 
-    !Get mean wind at cell center at first level near surface
-    !CALL rbf_vec_interpol_cell(p_nh_diag%vn, p_patch, p_int, u_nlev, v_nlev, opt_slev=nlev, &
-    !                           opt_elev=nlev, opt_rlend=min_rlcell_int-1)
 
     !SELECT CASE(isrfc_type)
 
-    !Prescribed friction velocity and latend/sensible heat fluxes: get ustar, theta_start, etc
-    !and surface temperature / moisture
+    !Prescribed latent/sensible heat fluxes: get ustar and surface temperature / moisture
     !CASE(1)
+      
       rl_start = 2
       rl_end   = min_rlcell_int-1
       i_startblk = p_patch%cells%start_blk(rl_start,1)
@@ -126,31 +123,43 @@ MODULE mo_surface_les
 
       jk = nlev
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jc,jb,i_startidx,i_endidx,th0_srf,obukhov_length,rhos),ICON_OMP_RUNTIME_SCHEDULE
+!$OMP DO PRIVATE(jc,jb,i_startidx,i_endidx,th0_srf,bflux,mwind,ustar,z_mc, &
+!$OMP            obukhov_length,rhos),ICON_OMP_RUNTIME_SCHEDULE
       DO jb = i_startblk,i_endblk
          CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
                             i_startidx, i_endidx, rl_start, rl_end)
          DO jc = i_startidx, i_endidx
 
-            !Get surface temperature using theta at nlev            
+            !Get reference surface temperature
             th0_srf  = p_nh_metrics%theta_ref_ic(jc,nlev+1,jb)
 
+            !Buoyancy flux
+            bflux = grav*(shflx_cbl+0.61_wp* th0_srf*lhflx_cbl)/th0_srf
+
+            !Mean wind at nlev
+            mwind  = MAX( min_wind, SQRT(p_nh_diag%u(jc,jk,jb)**2+p_nh_diag%v(jc,jk,jb)**2) )
+           
+            !Z height
+            z_mc = p_nh_metrics%z_mc(jc,nlev,jb)             
+
+            !Now diagnose friction velocity (ustar)
+            ustar = diag_ustar(z_mc,zrough,bflux,mwind)
+
             !"-" sign in the begining because ustar*thstar = -shflx
-            obukhov_length = -ufric_cbl**3 * th0_srf * rkarman / &
-                         (grav*(shflx_cbl+0.61_wp*th0_srf*lhflx_cbl))
+            obukhov_length = -ustar**3 * rkarman / bflux
  
-            p_prog_lnd_now%t_g(jc,jb) = theta(jc,jb,jk) + shflx_cbl / ufric_cbl * &
-                 factor_unstable_heat(zrough, p_nh_metrics%z_mc(jc,nlev,jb),obukhov_length) 
+            p_prog_lnd_now%t_g(jc,jb) = theta(jc,jk,jb) + shflx_cbl / ustar * &
+                                        businger_heat(zrough,z_mc,obukhov_length) 
 
             !Get surface qv using t_g: saturation value
             p_diag_lnd%qv_s(jc,jb) =    &
-                spec_humi(sat_pres_water(p_prog_lnd_now%t_g (jc,jb)),p_nh_diag%pres_sfc(jc,jb)) 
+                spec_humi(sat_pres_water(p_prog_lnd_now%t_g(jc,jb)),p_nh_diag%pres_sfc(jc,jb)) 
 
             !Get surface fluxes
             rhos   =  p_nh_diag%pres_sfc(jc,jb)/(rd * p_prog_lnd_now%t_g(jc,jb))  
             prm_diag%shfl_s(jc,jb)  = shflx_cbl * rhos * cpd
             prm_diag%lhfl_s(jc,jb)  = lhflx_cbl * rhos * alv
-            prm_diag%umfl_s(jc,jb)  = ufric_cbl**2 * rhos
+            prm_diag%umfl_s(jc,jb)  = ustar**2  * rhos
 
          END DO  
       END DO
@@ -169,47 +178,86 @@ MODULE mo_surface_les
   END SUBROUTINE surface_conditions
 
   !>
-  !! factor_unstable_heat
+  !! factor_heat
   !!------------------------------------------------------------------------
-  !! Businger Dyer similarity profile for neutral and unstable case:
+  !! Businger Dyer similarity profile for neutral and unstable case for scalars
+  !! Stable case is still to be done
   !! Beniot, On the integral of the surface layer profile-gradient functions (JAM), 1977
   !!------------------------------------------------------------------------
   !! @par Revision History
   !! Initial release by Anurag Dipankar, MPI-M (2013-02-06)
-  ELEMENTAL FUNCTION  factor_unstable_heat(z0, z1, L) RESULT(factor)
+  FUNCTION businger_heat(z0, z1, L) RESULT(factor)
      REAL(wp), INTENT(IN) :: z0, z1, L
      REAL(wp) :: factor, zeta, zeta0, lamda, lamda0
 
-     zeta   = z1/L 
-     zeta0  = z0/L 
-     lamda  = SQRT(1._wp - 9._wp*zeta)  
-     lamda0 = SQRT(1._wp - 9._wp*zeta0)  
-        
-     factor = 0.74_wp * ( LOG(z1/z0) + 2._wp*(LOG(1._wp+lamda0)-LOG(1._wp-lamda)) ) &
-              * rkarman
+     IF(L > 0._wp)THEN !Stable
 
-  END FUNCTION factor_unstable_heat 
+       !To be done
+
+     ELSE !unstable or neutral
+       zeta   = z1/L 
+       zeta0  = z0/L 
+       lamda  = SQRT(1._wp - 9._wp*zeta)  
+       lamda0 = SQRT(1._wp - 9._wp*zeta0)  
+        
+       factor = 0.74_wp * ( LOG(z1/z0) + 2._wp*(LOG(1._wp+lamda0)-LOG(1._wp+lamda)) ) &
+                * rkarman
+     END IF 
+
+  END FUNCTION businger_heat 
+
   !>
-  !! factor_unstable_mom
+  !! factor_mom
   !!------------------------------------------------------------------------
-  !! Businger Dyer similarity profile for neutral and unstable case:
+  !! Businger Dyer similarity profile for neutral and unstable case for velocities
   !! Beniot, On the integral of the surface layer profile-gradient functions (JAM), 1977
   !!------------------------------------------------------------------------
-  ELEMENTAL FUNCTION  factor_unstable_mom(z0, z1, L) RESULT(factor)
+  FUNCTION businger_mom(z0, z1, L) RESULT(factor)
      REAL(wp), INTENT(IN) :: z0, z1, L
      REAL(wp) :: factor, zeta, zeta0, lamda, lamda0
 
-     zeta   = z1/L 
-     zeta0  = z0/L 
-     lamda  = SQRT(SQRT(1._wp - 15._wp*zeta))  
-     lamda0 = SQRT(SQRT(1._wp - 15._wp*zeta0))  
-        
-     factor = rkarman * ( LOG(z1/z0) + LOG((1._wp+lamda0**2)*(1._wp+lamda0)**2) - &
-                          LOG((1._wp+lamda**2)*(1._wp+lamda)**2) + 2._wp * (      &
-                          ATAN(lamda) - ATAN(lamda0) )  )
+     IF(L > 0._wp)THEN !Stable
 
-  END FUNCTION factor_unstable_mom
-   
+       !To be done
+
+     ELSE !unstable or neutral
+       zeta   = z1/L 
+       zeta0  = z0/L 
+       lamda  = SQRT(SQRT(1._wp - 15._wp*zeta))  
+       lamda0 = SQRT(SQRT(1._wp - 15._wp*zeta0))  
+        
+       factor = rkarman * ( LOG(z1/z0) + LOG((1._wp+lamda0**2)*(1._wp+lamda0)**2) - &
+                            LOG((1._wp+lamda**2)*(1._wp+lamda)**2) + 2._wp * (      &
+                            ATAN(lamda) - ATAN(lamda0) )  )
+     END IF
+
+  END FUNCTION businger_mom 
+
+  !>
+  !! diagnose ustar
+  !!------------------------------------------------------------------------
+  FUNCTION  diag_ustar(z1, z0, bflux, wind) RESULT(ustar)
+     REAL(wp), INTENT(IN) :: z1, z0, bflux, wind
+
+     REAL(wp) :: ustar, L
+     INTEGER  :: ITERATE      
+
+     !First guess       
+     ustar = wind / (rkarman * LOG(z1/z0))
+
+     IF(bflux > 0._wp)THEN   !Unstable case
+       DO ITERATE = 1 , 4
+          L = -ustar**3 * rkarman / bflux
+          ustar = wind / businger_mom(z0,z1,L)
+       END DO
+     ELSEIF(bflux < 0._wp)THEN!Stable case
+      
+      !To be done
+
+     END IF
+        
+  END FUNCTION diag_ustar
+ 
 !-------------------------------------------------------------------------------
      
 END MODULE mo_surface_les
