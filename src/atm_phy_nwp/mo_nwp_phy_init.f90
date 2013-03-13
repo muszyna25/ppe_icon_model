@@ -1059,6 +1059,20 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
     ! paranoia: Make sure that rcld is initialized  (needed by cloud cover scheme)
     prm_diag%rcld(:,:,:)    = 0._wp
 !$OMP END PARALLEL WORKSHARE
+
+  !For 3D Smagorinsky turbulence model
+  ELSE IF (  atm_phy_nwp_config(jg)%inwp_turb == 5 ) THEN
+
+    IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'init Smagorinsky turbulence')
+
+    IF (turbdiff_config(jg)%lconst_z0) THEN
+      ! for idealized tests
+      prm_diag%gz0(:,:) = grav * turbdiff_config(jg)%const_z0
+    ELSE 
+      ! default
+      prm_diag%gz0(:,:) = grav * ext_data%atm%z0(:,:)
+    ENDIF
+
   ENDIF
 
 

@@ -448,7 +448,7 @@ CONTAINS
 
       SELECT CASE (atm_phy_nwp_config(jg)%inwp_turb)
 
-       CASE(1,2,5)  
+      CASE(1,2,5)  
 
          !> as pressure is needed only for an approximate adiabatic extrapolation
          !! of the temperature at the lowest model level towards ground level,
