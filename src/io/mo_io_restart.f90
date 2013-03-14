@@ -602,8 +602,6 @@ CONTAINS
           END SELECT
         ENDDO
 
-
-
         !
         ! 4. add vertical grid descriptions
         !
@@ -723,15 +721,12 @@ CONTAINS
         ENDDO
 
 
-
-
         !
         ! 5. restart does contain absolute time 
         !
         var_lists(i)%p%cdiTaxisID = taxisCreate(TAXIS_ABSOLUTE)
         CALL vlistDefTaxis(var_lists(i)%p%cdiVlistID, var_lists(i)%p%cdiTaxisID)
       ENDIF
-
 
       !
       ! add variables
@@ -808,6 +803,7 @@ CONTAINS
     CALL message('','')
     !
   END SUBROUTINE open_writing_restart_files
+  
   !------------------------------------------------------------------------------------------------
   !
   ! define variables and attributes
@@ -955,6 +951,7 @@ CONTAINS
     ENDDO for_all_list_elements
     !
   END SUBROUTINE addVarListToVlist
+  
   !------------------------------------------------------------------------------------------------
   !
   SUBROUTINE close_writing_restart_files
@@ -1029,6 +1026,7 @@ CONTAINS
     private_restart_time = ''
     !
   END SUBROUTINE close_writing_restart_files
+  
   !------------------------------------------------------------------------------------------------
   !
   ! loop over all var_lists for restart
@@ -1090,6 +1088,7 @@ CONTAINS
   CALL message('','Finished Write netCDF2 restart for : '//TRIM(private_restart_time))
     !
   END SUBROUTINE write_restart
+  
   !------------------------------------------------------------------------------------------------
   !
   ! set time for restart in cdi format
@@ -1125,6 +1124,7 @@ CONTAINS
     END SUBROUTINE get_date_components
     !
   END SUBROUTINE write_time_to_restart
+  
   !------------------------------------------------------------------------------------------------
   !
   ! write variables of a list for restart
@@ -1283,6 +1283,7 @@ CONTAINS
     END DO for_all_list_elements
     !
   END SUBROUTINE write_restart_var_list
+  
   !------------------------------------------------------------------------------------------------
   !
   ! finally write data ...
@@ -1302,6 +1303,7 @@ CONTAINS
     CALL streamWriteVar(fileID, varID, array, nmiss)
     !
   END SUBROUTINE write_var
+  
   !------------------------------------------------------------------------------------------------
   !
   ! deallocate module variables
@@ -1383,6 +1385,7 @@ CONTAINS
     lrestart_initialised = .FALSE.
     !
   END SUBROUTINE finish_restart
+  
   !------------------------------------------------------------------------------------------------
   !
   SUBROUTINE read_restart_files(p_patch)
