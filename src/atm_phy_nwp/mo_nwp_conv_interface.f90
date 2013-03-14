@@ -56,6 +56,7 @@ MODULE mo_nwp_conv_interface
   USE mo_cumaster,             ONLY: cumastrn
   USE mo_ext_data_types,       ONLY: t_external_data
   USE mo_icoham_sfc_indices,   ONLY: nsfc_type, iwtr, iice, ilnd
+  USE mo_cuparameters,         ONLY: lmfscv
 
   IMPLICIT NONE
 
@@ -126,6 +127,12 @@ CONTAINS
 
     i_startblk = p_patch%cells%start_blk(rl_start,1)
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
+
+
+    ! for EDMF DUALM: turn off Tiedtke shallow convection 
+    IF ( atm_phy_nwp_config(jg)%inwp_turb == 3 ) THEN
+      lmfscv = .FALSE.       ! shallow convection off
+    ENDIF
 
  
 
