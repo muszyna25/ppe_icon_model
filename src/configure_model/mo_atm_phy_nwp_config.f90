@@ -223,6 +223,10 @@ SUBROUTINE configure_atm_phy_nwp( n_dom, pat_level, ltestcase, dtime_adv )
         dt_phy(jg,itccov) = atm_phy_nwp_config(jg)% dt_fastphy ! sec
       ENDIF
 
+      ! For EDMF DUALM cloud cover is called every turbulence time step
+      IF ( atm_phy_nwp_config(jg)%inwp_turb == 3 ) THEN
+        dt_phy(jg,itccov) = atm_phy_nwp_config(jg)% dt_fastphy ! sec
+      ENDIF
 
       ! Fast physics
       !
