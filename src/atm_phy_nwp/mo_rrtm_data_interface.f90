@@ -54,9 +54,10 @@ MODULE mo_rrtm_data_interface
   USE mo_parallel_config,     ONLY: parallel_radiation_mode, radiation_division_file_name, &
     & nproma, division_method, ext_div_medial_redrad, ext_div_medial_redrad_cluster,       &
     & div_from_file, use_icon_comm
-  USE mo_mpi,                 ONLY: my_process_is_mpi_seq, my_process_is_mpi_workroot,         &
+  USE mo_mpi,                 ONLY: my_process_is_mpi_seq, get_my_mpi_work_communicator,       &
     & num_work_procs, get_my_mpi_work_id, get_my_mpi_work_comm_size, get_mpi_all_workroot_id,  &
-    & get_my_mpi_work_communicator, p_bcast
+    & p_bcast
+   
   USE mo_icon_comm_lib,       ONLY: new_icon_comm_pattern, inverse_of_icon_comm_pattern,   &
     & print_grid_comm_pattern, new_icon_comm_variable, is_ready, until_sync, icon_comm_sync_all, &
     & print_grid_comm_stats

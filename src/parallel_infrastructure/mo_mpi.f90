@@ -76,6 +76,7 @@ MODULE mo_mpi
 
   PUBLIC :: process_mpi_io_size
   PUBLIC :: process_mpi_stdio_id
+  PUBLIC :: process_mpi_root_id
   
   ! Main communication methods
   PUBLIC :: global_mpi_barrier
@@ -153,7 +154,6 @@ MODULE mo_mpi
   ! dummy arguments for function calls:
   INTEGER, PARAMETER :: MPI_ANY_SOURCE = 0
 #endif
-
 
   ! public parallel run information
   CHARACTER(len=64) :: global_mpi_name
@@ -628,7 +628,8 @@ CONTAINS
   !------------------------------------------------------------------------------
   !>
   LOGICAL FUNCTION my_process_is_mpi_workroot()
-    my_process_is_mpi_workroot = (my_process_mpi_all_id == process_mpi_all_workroot_id)
+!     my_process_is_mpi_workroot = (my_process_mpi_all_id == process_mpi_all_workroot_id)
+    my_process_is_mpi_workroot = (p_pe_work == process_mpi_root_id)
   END FUNCTION my_process_is_mpi_workroot
   !------------------------------------------------------------------------------
   

@@ -66,8 +66,7 @@ MODULE mo_ext_decompose_patches
 #endif
   USE mo_mpi,                ONLY: p_comm_work, my_process_is_mpi_test, &
     & my_process_is_mpi_seq, process_mpi_all_test_id, process_mpi_all_workroot_id, &
-    & my_process_is_mpi_workroot, p_pe_work, p_n_work,                  &
-    & get_my_mpi_all_id, my_process_is_mpi_parallel
+    & p_pe_work, p_n_work,  get_my_mpi_all_id, my_process_is_mpi_parallel
 
   USE mo_parallel_config,       ONLY:  nproma, p_test_run, ldiv_phys_dom, &
     & division_method, division_file_name, n_ghost_rows, div_from_file,   &

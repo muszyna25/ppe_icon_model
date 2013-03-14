@@ -1379,7 +1379,7 @@ CONTAINS
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
 
     ! allocate temporary fields:
-    IF (my_process_is_mpi_test() .OR. my_process_is_mpi_workroot()) THEN
+    IF ( my_process_is_mpi_workroot()) THEN
       ALLOCATE(r_tmp_lon (nproma, nblks_glb), r_tmp_lat (nproma, nblks_glb), STAT=ierrstat)
     ELSE
       ALLOCATE(r_tmp_lon (nproma, nblks_loc), r_tmp_lat (nproma, nblks_loc), STAT=ierrstat)
@@ -1395,29 +1395,7 @@ CONTAINS
           r_tmp_lat(jc,jb) = in_lonlat(jc,jb)%lat
         END DO
       END DO
-    ENDIF
-    ! gather data on work root
-    IF(.NOT. my_process_is_mpi_seq()) THEN
-      CALL exchange_data(p_pat, RECV=r_tmp_lon,  SEND=r_tmp_lon )
-      CALL exchange_data(p_pat, RECV=r_tmp_lat,  SEND=r_tmp_lat )
-    END IF
-    ! on work root: reshape into 1D arrays:
-    IF ( my_process_is_mpi_workroot() ) THEN
-      out_lonlat%lon(:)  = RESHAPE(r_tmp_lon(:,:), (/ nproma*nblks_glb /))
-      out_lonlat%lat(:)  = RESHAPE(r_tmp_lat(:,:), (/ nproma*nblks_glb /))
-    END IF
-
-    !-- part 2: exchange vertex lon/lat coordinates:
-    DO idim=1,dim3
-      IF (.NOT. my_process_is_mpi_test()) THEN
-        ! copy coordinates into sender array:
-        DO jb=1,nblks_loc
-          DO jc=1,nproma
-            r_tmp_lon(jc,jb) = lonv(jc,jb,idim)
-            r_tmp_lat(jc,jb) = latv(jc,jb,idim)
-          END DO
-        END DO
-      ENDIF
+    
       ! gather data on work root
       IF(.NOT. my_process_is_mpi_seq()) THEN
         CALL exchange_data(p_pat, RECV=r_tmp_lon,  SEND=r_tmp_lon )
@@ -1425,10 +1403,33 @@ CONTAINS
       END IF
       ! on work root: reshape into 1D arrays:
       IF ( my_process_is_mpi_workroot() ) THEN
-        out_lonlat%lonv(idim,:) = RESHAPE(r_tmp_lon(:,:), (/ nproma*nblks_glb /))
-        out_lonlat%latv(idim,:) = RESHAPE(r_tmp_lat(:,:), (/ nproma*nblks_glb /))
+        out_lonlat%lon(:)  = RESHAPE(r_tmp_lon(:,:), (/ nproma*nblks_glb /))
+        out_lonlat%lat(:)  = RESHAPE(r_tmp_lat(:,:), (/ nproma*nblks_glb /))
       END IF
-    END DO ! idim
+          
+      !-- part 2: exchange vertex lon/lat coordinates:
+      DO idim=1,dim3
+        ! copy coordinates into sender array:
+        DO jb=1,nblks_loc
+          DO jc=1,nproma
+            r_tmp_lon(jc,jb) = lonv(jc,jb,idim)
+            r_tmp_lat(jc,jb) = latv(jc,jb,idim)
+          END DO
+        END DO
+          
+        ! gather data on work root
+        IF(.NOT. my_process_is_mpi_seq()) THEN
+          CALL exchange_data(p_pat, RECV=r_tmp_lon,  SEND=r_tmp_lon )
+          CALL exchange_data(p_pat, RECV=r_tmp_lat,  SEND=r_tmp_lat )
+        END IF
+        ! on work root: reshape into 1D arrays:
+        IF ( my_process_is_mpi_workroot() ) THEN
+          out_lonlat%lonv(idim,:) = RESHAPE(r_tmp_lon(:,:), (/ nproma*nblks_glb /))
+          out_lonlat%latv(idim,:) = RESHAPE(r_tmp_lat(:,:), (/ nproma*nblks_glb /))
+        END IF
+      END DO ! idim
+    
+    ENDIF !  (.NOT. my_process_is_mpi_test())
 
     ! clean up
     DEALLOCATE(r_tmp_lon, r_tmp_lat, STAT=ierrstat)
@@ -3625,7 +3626,7 @@ CONTAINS
         nblks = (n_points-1)/nproma + 1
 
         IF (idata_type == iREAL) THEN
-          IF(my_process_is_mpi_test() .OR. my_process_is_mpi_workroot()) THEN
+          IF(my_process_is_mpi_workroot()) THEN
             ALLOCATE(r_tmp(nproma,nlevs,nblks))
           ELSE
             ! Dimensions 1 and 2 of r_tmp must always be nproma and nlevs,
@@ -3645,7 +3646,7 @@ CONTAINS
           ENDIF
         END IF
         IF (idata_type == iINTEGER) THEN
-          IF(my_process_is_mpi_test() .OR. my_process_is_mpi_workroot()) THEN
+          IF(my_process_is_mpi_workroot()) THEN
             ALLOCATE(i_tmp(nproma,nlevs,nblks))
           ELSE
             ! Dimensions 1 and 2 of r_tmp must always be nproma and nlevs,
@@ -3665,7 +3666,7 @@ CONTAINS
           ENDIF
         END IF
 
-        IF(my_process_is_mpi_test() .OR. my_process_is_mpi_workroot()) THEN
+        IF(my_process_is_mpi_workroot()) THEN
 
           ! De-block the array
           IF(use_sp_output) THEN
@@ -3752,7 +3753,7 @@ CONTAINS
         IF (ALLOCATED(r_tmp))  DEALLOCATE(r_tmp)
         IF (ALLOCATED(i_tmp))  DEALLOCATE(i_tmp)
 
-        IF(my_process_is_mpi_test() .OR. my_process_is_mpi_workroot()) THEN
+        IF(my_process_is_mpi_workroot()) THEN
           IF(use_sp_output) THEN
             DEALLOCATE(r_out_sp, STAT=ierrstat)
           ELSE

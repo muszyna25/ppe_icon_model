@@ -135,6 +135,7 @@ MODULE mo_meteogram_output
     &                                 my_process_is_mpi_workroot,         &
     &                                 my_process_is_mpi_ioroot,           &
     &                                 my_process_is_io,                   &
+    &                                 my_process_is_mpi_test,             &
     &                                 p_real_dp_byte,                     &
     &                                 MPI_ANY_SOURCE,                     &
     &                                 process_mpi_io_size,                &
@@ -652,8 +653,9 @@ CONTAINS
 
     ! PE collecting variable info to send it to pure I/O PEs.
     ! (only relevant if pure I/O PEs exist)
-    l_is_varlist_sender = (process_mpi_io_size > 0) .AND.  &
-      &                   my_process_is_mpi_workroot()
+    l_is_varlist_sender = (process_mpi_io_size > 0)    .AND.  &
+      &                   my_process_is_mpi_workroot() .AND.  &
+      &             .NOT. my_process_is_mpi_test()
 
     ! Flag. True, if this PE is a pure I/O PE without own patch data:
     l_pure_io_pe        = (process_mpi_io_size > 0) .AND.  &
