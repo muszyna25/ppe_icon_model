@@ -268,8 +268,8 @@ CONTAINS
     CALL rot_vertex_ocean_3d( p_patch_3D, vn, p_vn_dual, p_op_coeff, vort_v)
     CALL sync_patch_array(SYNC_V, p_patch, vort_v)
 
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,je,i_startidx_e,i_endidx_e,il_v1,ib_v1,il_v2,ib_v2, u_v1_cc, u_v2_cc)
+! !$OMP PARALLEL
+! !$OMP DO PRIVATE(jb,jk,je,i_startidx_e,i_endidx_e,il_v1,ib_v1,il_v2,ib_v2, u_v1_cc, u_v2_cc)
     DO jb = all_edges%start_block, all_edges%end_block
       CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
 
@@ -307,8 +307,8 @@ CONTAINS
         END DO edge_idx_loop
       END DO level_loop
     END DO ! jb = all_edges%start_block, all_edges%end_block
-!$OMP END DO NOWAIT
-!$OMP END PARALLEL
+! !$OMP END DO NOWAIT
+! !$OMP END PARALLEL
   ! LL: no sync required
 
   END SUBROUTINE nonlinear_coriolis_3d_old
@@ -352,8 +352,8 @@ CONTAINS
     CALL sync_patch_array(SYNC_V, p_patch, vort_v)
 
 
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,je,i_startidx_e,i_endidx_e)
+! !$OMP PARALLEL
+! !$OMP DO PRIVATE(jb,jk,je,i_startidx_e,i_endidx_e)
     DO jb = all_edges%start_block, all_edges%end_block
       CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
 
@@ -391,8 +391,8 @@ CONTAINS
         END DO edge_idx_loop
       END DO level_loop
     END DO ! jb = all_edges%start_block, all_edges%end_block
-!$OMP END DO NOWAIT
-!$OMP END PARALLEL
+! !$OMP END DO NOWAIT
+! !$OMP END PARALLEL
   ! LL: no sync required
 
   END SUBROUTINE nonlinear_coriolis_3d

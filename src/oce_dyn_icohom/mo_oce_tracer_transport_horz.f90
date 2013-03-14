@@ -965,8 +965,8 @@ END SUBROUTINE advect_diffuse_flux_horz
     z_mflx_low      (1:nproma,1:n_zlev,1:p_patch%nblks_e) = 0.0_wp
 
 
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,je,jk,i_startidx,i_endidx)
+! !$OMP PARALLEL
+! !$OMP DO PRIVATE(jb,je,jk,i_startidx,i_endidx)
     DO jb = edges_in_domain%start_block, edges_in_domain%end_block
       CALL get_index_range(edges_in_domain, jb, i_startidx, i_endidx)
 #ifdef __LOOP_EXCHANGE
@@ -993,13 +993,13 @@ END SUBROUTINE advect_diffuse_flux_horz
         END DO  ! end loop over edges
       END DO  ! end loop over levels
     END DO  ! end loop over blocks
-!$OMP END DO
+! !$OMP END DO
    CALL sync_patch_array(SYNC_E, p_patch,z_mflx_low)
    CALL sync_patch_array(SYNC_E, p_patch, z_anti)
    
 
 
-!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx)
+! !$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx)
     DO jb = cells_in_domain%start_block, cells_in_domain%end_block
       CALL get_index_range(cells_in_domain, jb, i_startidx, i_endidx)
 #ifdef __LOOP_EXCHANGE
@@ -1061,16 +1061,16 @@ END SUBROUTINE advect_diffuse_flux_horz
         ENDDO
       ENDDO
     ENDDO
-!$OMP END DO
-!$OMP END PARALLEL
+! !$OMP END DO
+! !$OMP END PARALLEL
 
     ! 4. Limit the antidiffusive fluxes z_mflx_anti, such that the updated tracer
     !    field is free of any new extrema.
     CALL sync_patch_array(SYNC_C1, p_patch,  z_tracer_max)
     CALL sync_patch_array(SYNC_C1, p_patch,  z_tracer_min)
 
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,z_max,p_p,z_min,p_m)
+! !$OMP PARALLEL
+! !$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,z_max,p_p,z_min,p_m)
     DO jb = cells_in_domain%start_block, cells_in_domain%end_block
       CALL get_index_range(cells_in_domain, jb, i_startidx, i_endidx)
 #ifdef __LOOP_EXCHANGE
@@ -1123,8 +1123,8 @@ END SUBROUTINE advect_diffuse_flux_horz
         ENDDO
       ENDDO
     ENDDO
-!$OMP END DO
-!$OMP END PARALLEL
+! !$OMP END DO
+! !$OMP END PARALLEL
     ! Synchronize r_m and r_p
     CALL sync_patch_array(SYNC_C1, p_patch, r_m)
     CALL sync_patch_array(SYNC_C1, p_patch, r_p)
@@ -1133,8 +1133,8 @@ END SUBROUTINE advect_diffuse_flux_horz
     !    multiply the antidiffusive flux at the edge.
     !    At the end, compute new, limited fluxes which are then passed to the main
     !    program. Note that p_mflx_tracer_h now denotes the LIMITED flux.
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx,r_frac,z_signum)
+! !$OMP PARALLEL
+! !$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx,r_frac,z_signum)
     DO jb = edges_in_domain%start_block, edges_in_domain%end_block
       CALL get_index_range(edges_in_domain, jb, i_startidx, i_endidx)
 #ifdef __LOOP_EXCHANGE
@@ -1166,8 +1166,8 @@ END SUBROUTINE advect_diffuse_flux_horz
         END DO
       ENDDO
     ENDDO
-!$OMP END DO
-!$OMP END PARALLEL
+! !$OMP END DO
+! !$OMP END PARALLEL
   END SUBROUTINE hflx_limiter_oce_mo
   !-------------------------------------------------------------------------
   !>
@@ -1282,8 +1282,8 @@ END SUBROUTINE advect_diffuse_flux_horz
       z_anti          (1:nproma,1:n_zlev,1:p_patch%nblks_e) = 0.0_wp
       z_mflx_low      (1:nproma,1:n_zlev,1:p_patch%nblks_e) = 0.0_wp
 
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,je,jk,i_startidx,i_endidx)
+! !$OMP PARALLEL
+! !$OMP DO PRIVATE(jb,je,jk,i_startidx,i_endidx)
     DO jb = edges_in_domain%start_block, edges_in_domain%end_block
       CALL get_index_range(edges_in_domain, jb, i_startidx, i_endidx)
 #ifdef __LOOP_EXCHANGE
@@ -1310,14 +1310,14 @@ END SUBROUTINE advect_diffuse_flux_horz
         END DO  ! end loop over edges
       END DO  ! end loop over levels
     END DO  ! end loop over blocks
-!$OMP END DO
+! !$OMP END DO
 
    CALL sync_patch_array(SYNC_E, p_patch,z_mflx_low)
    CALL sync_patch_array(SYNC_E, p_patch, z_anti)
 
 
 
-!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx)
+! !$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx)
     DO jb = cells_in_domain%start_block, cells_in_domain%end_block
       CALL get_index_range(cells_in_domain, jb, i_startidx, i_endidx)
 #ifdef __LOOP_EXCHANGE
@@ -1379,16 +1379,16 @@ END SUBROUTINE advect_diffuse_flux_horz
         ENDDO
       ENDDO
     ENDDO
-!$OMP END DO
-!$OMP END PARALLEL
+! !$OMP END DO
+! !$OMP END PARALLEL
 
     ! 4. Limit the antidiffusive fluxes z_mflx_anti, such that the updated tracer
     !    field is free of any new extrema.
     CALL sync_patch_array(SYNC_C1, p_patch, z_tracer_max)
     CALL sync_patch_array(SYNC_C1, p_patch, z_tracer_min)
 
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,z_max,p_p,z_min,p_m)
+! !$OMP PARALLEL
+! !$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,z_max,p_p,z_min,p_m)
     DO jb = cells_in_domain%start_block, cells_in_domain%end_block
       CALL get_index_range(cells_in_domain, jb, i_startidx, i_endidx)
 #ifdef __LOOP_EXCHANGE
@@ -1440,8 +1440,8 @@ END SUBROUTINE advect_diffuse_flux_horz
         ENDDO
       ENDDO
     ENDDO
-!$OMP END DO
-!$OMP END PARALLEL
+! !$OMP END DO
+! !$OMP END PARALLEL
     ! Synchronize r_m and r_p
     CALL sync_patch_array(SYNC_C1, p_patch, r_m)
     CALL sync_patch_array(SYNC_C1, p_patch, r_p)
@@ -1450,8 +1450,8 @@ END SUBROUTINE advect_diffuse_flux_horz
     !    multiply the antidiffusive flux at the edge.
     !    At the end, compute new, limited fluxes which are then passed to the main
     !    program. Note that p_mflx_tracer_h now denotes the LIMITED flux.
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx,r_frac,z_signum)
+! !$OMP PARALLEL
+! !$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx,r_frac,z_signum)
     DO jb = edges_in_domain%start_block, edges_in_domain%end_block
       CALL get_index_range(edges_in_domain, jb, i_startidx, i_endidx)
 #ifdef __LOOP_EXCHANGE
@@ -1483,8 +1483,8 @@ END SUBROUTINE advect_diffuse_flux_horz
         END DO
       ENDDO
     ENDDO
-!$OMP END DO
-!$OMP END PARALLEL
+! !$OMP END DO
+! !$OMP END PARALLEL
 
   END SUBROUTINE hflx_limiter_oce_mo_mimetic
 

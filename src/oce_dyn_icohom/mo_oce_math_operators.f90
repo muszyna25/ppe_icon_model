@@ -345,12 +345,12 @@ CONTAINS
 #ifndef __SX__
     IF (ltimer) CALL timer_start(timer_grad)
 #endif
-!$OMP PARALLEL
+! !$OMP PARALLEL
     ! The special treatment of 2D fields is essential for efficiency on the NEC
 
 #ifdef __SX__
     IF (slev > 1) THEN
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,je,jk)
+! !$OMP DO PRIVATE(jb,i_startidx,i_endidx,je,jk)
     DO jb = edges_in_domain%start_block, edges_in_domain%end_block
       CALL get_index_range(edges_in_domain, jb, i_startidx, i_endidx)
 #ifdef _URD2
@@ -367,11 +367,11 @@ CONTAINS
           ENDDO
         END DO
       END DO
-!$OMP END DO
+! !$OMP END DO
     ELSE
 #endif
 
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,je,jk)
+! !$OMP DO PRIVATE(jb,i_startidx,i_endidx,je,jk)
     DO jb = edges_in_domain%start_block, edges_in_domain%end_block
       CALL get_index_range(edges_in_domain, jb, i_startidx, i_endidx)
 #ifdef _URD
@@ -388,13 +388,13 @@ CONTAINS
           ENDDO
         END DO
       END DO
-!$OMP END DO
+! !$OMP END DO
 #ifdef __SX__
     ENDIF
 #endif
 
 
-!$OMP END PARALLEL
+! !$OMP END PARALLEL
 #ifndef __SX__
     IF (ltimer) CALL timer_stop(timer_grad)
 #endif
@@ -472,12 +472,12 @@ CONTAINS
 #ifndef __SX__
     IF (ltimer) CALL timer_start(timer_div)
 #endif
-!$OMP PARALLEL
+! !$OMP PARALLEL
 
     iidx => p_patch%cells%edge_idx
     iblk => p_patch%cells%edge_blk
 
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk)
+! !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk)
     DO jb = all_cells%start_block, all_cells%end_block
       CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
 #ifdef __SX__
@@ -510,9 +510,9 @@ CONTAINS
         END DO
       END DO
     END DO
-!$OMP END DO
+! !$OMP END DO
 
-!$OMP END PARALLEL
+! !$OMP END PARALLEL
 #ifndef __SX__
     IF (ltimer) CALL timer_stop(timer_div)
 #endif
@@ -577,12 +577,12 @@ CONTAINS
 #ifndef __SX__
     IF (ltimer) CALL timer_start(timer_div)
 #endif
-!$OMP PARALLEL
+! !$OMP PARALLEL
 
     iidx => p_patch%cells%edge_idx
     iblk => p_patch%cells%edge_blk
 
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc)
+! !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc)
     DO jb = all_cells%start_block, all_cells%end_block
       CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
 #ifdef __SX__
@@ -614,9 +614,9 @@ CONTAINS
             & vec_e(iidx(jc,jb,3),iblk(jc,jb,3)) * div_coeff(jc,level,jb,3)
         END DO
     END DO
-!$OMP END DO
+! !$OMP END DO
 
-!$OMP END PARALLEL
+! !$OMP END PARALLEL
 #ifndef __SX__
     IF (ltimer) CALL timer_stop(timer_div)
 #endif
@@ -670,9 +670,9 @@ CONTAINS
 #ifndef __SX__
     IF (ltimer) CALL timer_start(timer_grad)
 #endif
-!$OMP PARALLEL
+! !$OMP PARALLEL
     ! The special treatment of 2D fields is essential for efficiency on the NEC
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,je)
+! !$OMP DO PRIVATE(jb,i_startidx,i_endidx,je)
     DO jb = edges_in_domain%start_block, edges_in_domain%end_block
       CALL get_index_range(edges_in_domain, jb, i_startidx, i_endidx)
 #ifdef _URD
@@ -688,8 +688,8 @@ CONTAINS
           & * grad_coeff(je,jb)
       END DO
     END DO
-!$OMP END DO
-!$OMP END PARALLEL
+! !$OMP END DO
+! !$OMP END PARALLEL
 #ifndef __SX__
     IF (ltimer) CALL timer_stop(timer_grad)
 #endif

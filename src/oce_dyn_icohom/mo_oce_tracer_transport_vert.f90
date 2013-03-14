@@ -596,9 +596,9 @@ return
     !
     ! 1. Calculate Courant number for weta>0 (w<0) and weta<0 (w>0)
     !
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,ikm1,z_weta_dt,ikp1_ic,ikp1, &
-!$OMP            z_slope_u,z_slope_l,ikp2)
+! !$OMP PARALLEL
+! !$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,ikm1,z_weta_dt,ikp1_ic,ikp1, &
+! !$OMP            z_slope_u,z_slope_l,ikp2)
     DO jb = cells_in_domain%start_block, cells_in_domain%end_block
       CALL get_index_range(cells_in_domain, jb, i_startidx, i_endidx)
 
@@ -759,8 +759,8 @@ return
       END DO ! end loop over vertical levels
 
     END DO
-!$OMP END DO
-!$OMP END PARALLEL
+! !$OMP END DO
+! !$OMP END PARALLEL
 
     CALL sync_patch_array(SYNC_C, p_patch, z_face)
     CALL sync_patch_array(SYNC_C, p_patch, z_face_up)
@@ -788,8 +788,8 @@ return
       IF (ltimer) CALL timer_stop(timer_ppm_slim)
     ELSE
 !      ! simply copy face values to 'face_up' and 'face_low' arrays
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jk,ikp1,jb,i_startidx,i_endidx)
+! !$OMP PARALLEL
+! !$OMP DO PRIVATE(jk,ikp1,jb,i_startidx,i_endidx)
       DO jb = cells_in_domain%start_block, cells_in_domain%end_block
         CALL get_index_range(cells_in_domain, jb, i_startidx, i_endidx)
         DO jk = slev, n_zlev
@@ -805,18 +805,18 @@ return
           ENDIF
         ENDDO
       ENDDO
-!$OMP ENDDO
-!$OMP END PARALLEL
+! !$OMP ENDDO
+! !$OMP END PARALLEL
     ENDIF
 
 
-!$OMP PARALLEL
+! !$OMP PARALLEL
     ! 5b. extrapolation using piecewise parabolic approx. of the transported
     ! quantity to the edge and finally, calculation of the upwind fluxes
     !
 
-!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,z_lext_1,z_lext_2,ikm1,z_delta_m, &
-!$OMP            z_delta_p,z_a11,z_a12)
+! !$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,z_lext_1,z_lext_2,ikm1,z_delta_m, &
+! !$OMP            z_delta_p,z_a11,z_a12)
     DO jb = cells_in_domain%start_block, cells_in_domain%end_block
       CALL get_index_range(cells_in_domain, jb, i_startidx, i_endidx)
 
@@ -870,8 +870,8 @@ return
       p_upflux(i_startidx:i_endidx,nlevp1,jb) = 0.0_wp
       !
     ENDDO ! end loop over blocks
-!$OMP END DO
-!$OMP END PARALLEL
+! !$OMP END DO
+! !$OMP END PARALLEL
 
 
       CALL sync_patch_array(SYNC_C, p_patch, p_upflux)
@@ -939,8 +939,8 @@ return
     ! check optional arguments
     slev = 1
     nlev = n_zlev
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,jc,i_startidx_c,i_endidx_c,ikp1,z_delta,z_a6i)
+! !$OMP PARALLEL
+! !$OMP DO PRIVATE(jb,jk,jc,i_startidx_c,i_endidx_c,ikp1,z_delta,z_a6i)
     DO jb = cells_in_domain%start_block, cells_in_domain%end_block
       CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
         DO jc = i_startidx_c, i_endidx_c
@@ -977,8 +977,8 @@ return
         END DO
       END DO
     END DO
-!$OMP END DO
-!$OMP END PARALLEL
+! !$OMP END DO
+! !$OMP END PARALLEL
 
   END SUBROUTINE v_ppm_slimiter_mo
  !-------------------------------------------------------------------------
@@ -1048,8 +1048,8 @@ return
    z_signum(1:nproma)    = 0.0_wp
 
 
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,jkp1,p_m,r_m,jkm1,z_signum)
+! !$OMP PARALLEL
+! !$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,jkp1,p_m,r_m,jkm1,z_signum)
    DO jb = cells_in_domain%start_block, cells_in_domain%end_block
      CALL get_index_range(cells_in_domain, jb, i_startidx, i_endidx)
      !
@@ -1113,8 +1113,8 @@ return
        ENDDO
      ENDDO
    ENDDO
-!$OMP END DO NOWAIT
-!$OMP END PARALLEL
+! !$OMP END DO NOWAIT
+! !$OMP END PARALLEL
 
 
   END SUBROUTINE vflx_limiter_pd_oce

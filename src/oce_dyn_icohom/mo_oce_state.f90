@@ -2976,7 +2976,7 @@ TYPE(t_cartesian_coordinates) :: cc_ev3, cc_ev4
 
 i_nchdom   = MAX(1,ptr_patch%n_childdom)
 
-!$OMP PARALLEL  PRIVATE(rl_start,rl_end,i_startblk,i_endblk)
+! !$OMP PARALLEL  PRIVATE(rl_start,rl_end,i_startblk,i_endblk)
 rl_start = 1
 rl_end = min_rlcell
 
@@ -2999,7 +2999,7 @@ i_endblk   = ptr_patch%edges%end_blk(rl_end,i_nchdom)
 ! In addition, the fields for the inverse primal and dual edge lengths are
 ! initialized here.
 !
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,je) ICON_OMP_DEFAULT_SCHEDULE
+! !$OMP DO PRIVATE(jb,i_startidx,i_endidx,je) ICON_OMP_DEFAULT_SCHEDULE
 DO jb = i_startblk, i_endblk
 
   CALL get_indices_e(ptr_patch, jb, i_startblk, i_endblk, &
@@ -3016,7 +3016,7 @@ DO jb = i_startblk, i_endblk
   ENDDO
 
 END DO !block loop
-!$OMP END DO
+! !$OMP END DO
 
 rl_start = 2
 rl_end = min_rledge
@@ -3027,7 +3027,7 @@ i_endblk   = ptr_patch%edges%end_blk(rl_end,i_nchdom)
 
 ! Initialization of lateral boundary points
 IF (ptr_patch%id > 1) THEN
-!$OMP WORKSHARE
+! !$OMP WORKSHARE
   ptr_patch%edges%inv_dual_edge_length(:,1:i_startblk)    = 0._wp
   ptr_patch%edges%vertex_idx(:,1:i_startblk,3)            = 0
   ptr_patch%edges%vertex_idx(:,1:i_startblk,4)            = 0
@@ -3042,14 +3042,14 @@ IF (ptr_patch%id > 1) THEN
   ptr_patch%edges%dual_normal_cell  (:,1:i_startblk,:)%v2 = 0._wp
   ptr_patch%edges%primal_normal_vert(:,1:i_startblk,:)%v2 = 0._wp
   ptr_patch%edges%dual_normal_vert  (:,1:i_startblk,:)%v2 = 0._wp
-!$OMP END WORKSHARE
+! !$OMP END WORKSHARE
 ENDIF
 !
 ! loop through all patch edges
 !
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,je,ilc1,ibc1,ilv1,ibv1,ilc2,ibc2,ilv2, &
-!$OMP            ibv2,ilv3,ibv3,ilv4,ibv4,z_nu,z_nv,z_lon,z_lat,z_nx1,z_nx2,   &
-!$OMP            cc_ev3,cc_ev4,z_norm) ICON_OMP_DEFAULT_SCHEDULE
+! !$OMP DO PRIVATE(jb,i_startidx,i_endidx,je,ilc1,ibc1,ilv1,ibv1,ilc2,ibc2,ilv2, &
+! !$OMP            ibv2,ilv3,ibv3,ilv4,ibv4,z_nu,z_nv,z_lon,z_lat,z_nx1,z_nx2,   &
+! !$OMP            cc_ev3,cc_ev4,z_norm) ICON_OMP_DEFAULT_SCHEDULE
 DO jb = i_startblk, i_endblk
 
   CALL get_indices_e(ptr_patch, jb, i_startblk, i_endblk, &
@@ -3304,9 +3304,9 @@ DO jb = i_startblk, i_endblk
   ENDDO
 
 END DO !block loop
-!$OMP END DO NOWAIT
+! !$OMP END DO NOWAIT
 
-!$OMP END PARALLEL
+! !$OMP END PARALLEL
 
   ! primal_normal_cell must be sync'd before next loop,
   ! so do a sync for all above calculated quantities
