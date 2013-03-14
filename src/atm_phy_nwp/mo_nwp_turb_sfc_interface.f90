@@ -871,22 +871,31 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
 
 
 ! Turbulence updating strategy:
-! * Update T, QV, QC, QI with turbulence tendencies
+! * Update T, prognostic QV, QC, QI and diagnostic CC with turbulence tendencies
+! * Set diagnostic QV, QC, QI equal to prognostic values
 ! * Give U, V tendencies to dynamics
 
       DO jk = 1, nlev
         DO jc = i_startidx, i_endidx
-          p_prog_rcf%tracer(jc,jk,jb,iqv) = MAX(0._wp, p_prog_rcf%tracer(jc,jk,jb,iqv) &
-                        & + tcall_turb_jg * prm_nwp_tend%ddt_tracer_turb(jc,jk,jb,iqv))
-          p_prog_rcf%tracer(jc,jk,jb,iqc) = MAX(0._wp, p_prog_rcf%tracer(jc,jk,jb,iqc) &
-                        & + tcall_turb_jg * prm_nwp_tend%ddt_tracer_turb(jc,jk,jb,iqc))
-          p_prog_rcf%tracer(jc,jk,jb,iqi) = MAX(0._wp, p_prog_rcf%tracer(jc,jk,jb,iqi) &
-                        & + tcall_turb_jg * prm_nwp_tend%ddt_tracer_turb(jc,jk,jb,iqi))
-          p_diag%temp(jc,jk,jb) =                          p_diag%temp(jc,jk,jb) &
-                        & + tcall_turb_jg * prm_nwp_tend%ddt_temp_turb(jc,jk,jb)
+          p_diag%temp      (jc,jk,jb)     =                      p_diag%temp(jc,jk,jb) &
+                            & + tcall_turb_jg *   prm_nwp_tend%ddt_temp_turb(jc,jk,jb)
+
+          p_prog_rcf%tracer(jc,jk,jb,iqv) =     MAX(0._wp, p_prog_rcf%tracer(jc,jk,jb,iqv) &
+                            & + tcall_turb_jg * prm_nwp_tend%ddt_tracer_turb(jc,jk,jb,iqv))
+          p_prog_rcf%tracer(jc,jk,jb,iqc) =     MAX(0._wp, p_prog_rcf%tracer(jc,jk,jb,iqc) &
+                            & + tcall_turb_jg * prm_nwp_tend%ddt_tracer_turb(jc,jk,jb,iqc))
+          p_prog_rcf%tracer(jc,jk,jb,iqi) =     MAX(0._wp, p_prog_rcf%tracer(jc,jk,jb,iqi) &
+                            & + tcall_turb_jg * prm_nwp_tend%ddt_tracer_turb(jc,jk,jb,iqi))
+
+          prm_diag%tot_cld (jc,jk,jb,iqv) = p_prog_rcf%tracer(jc,jk,jb,iqv)
+          prm_diag%tot_cld (jc,jk,jb,iqc) = p_prog_rcf%tracer(jc,jk,jb,iqc)
+          prm_diag%tot_cld (jc,jk,jb,iqi) = p_prog_rcf%tracer(jc,jk,jb,iqi)
+          prm_diag%tot_cld (jc,jk,jb,icc) = MIN(MAX(0._wp,  prm_diag%tot_cld(jc,jk,jb,icc) &
+                            & + tcall_turb_jg *                          zae(jc,jk)), 1._wp)
         ENDDO
       ENDDO
  
+
 ! Diagnostic output variables:  ???? TERRA-tiles or TESSEL-tiles???
 
       DO jc = i_startidx, i_endidx
@@ -895,9 +904,9 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
         prm_diag%qhfl_s(jc,jb) = pdiftq(jc,nlev+1)
         prm_diag%rh_2m (jc,jb) = 0.0_wp                 !??? needs to be defined
       ENDDO
-      prm_diag%tch   (:,jb) = 0.0_wp
-      prm_diag%tcm   (:,jb) = 0.0_wp
-      prm_diag%tfv   (:,jb) = 0.0_wp
+      prm_diag%tch(:,jb) = 0.0_wp
+      prm_diag%tcm(:,jb) = 0.0_wp
+      prm_diag%tfv(:,jb) = 0.0_wp
       DO jt = 1, ntiles_total + ntiles_water
         DO jc = i_startidx, i_endidx
 !attention: these are all TERRA/ICON tiles (1 - ntiles_total+ntiles_water) ... transfer coefficients
