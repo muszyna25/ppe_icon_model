@@ -60,16 +60,18 @@ $hosts = {
 # * local builds start with 'local'
 # * remote builds start with 'remote'
 $builds = {
-  :localGcc    => {:host => :thingol ,:subdir => 'gcc'},
-  :localGprof  => {:host => :thingol ,:subdir => 'gprof'},
-  :localNag    => {:host => :thingol ,:subdir => 'nag',  :CC => 'nag'},
-  :localTest   => {:host => :thingol ,:subdir => 'test', :CC => 'nag'},
-  :remoteDef   => {:host => :thunder4,:subdir => 'test'},
-  :remoteGccHi => {:host => :thunder5,:subdir => 'gcc',  :CC => 'gcc', :FLAGS => 'hiopt'},
-  :remoteNag   => {:host => :thunder4,:subdir => 'nag',  :CC => 'nag'},
-  :remoteIntel => {:host => :thunder5,:subdir => 'intel',:CC => 'intel'},
-  :remoteXlf   => {:host => :passat  ,:subdir => 'default'},
-  :remoteXlfHi => {:host => :passat  ,:subdir => 'hiopt',:FLAGS => 'hiopt'}
+  :localGcc          => {:host => :thingol ,:subdir => 'gcc'},
+  :localGprof        => {:host => :thingol ,:subdir => 'gprof'},
+  :localOpenMP       => {:host => :thingol ,:subdir => 'openmp',:FLAGS => 'hiopt',:openmp => true},
+  :localNag          => {:host => :thingol ,:subdir => 'nag',  :CC => 'nag'},
+  :localTest         => {:host => :thingol ,:subdir => 'test', :CC => 'nag'},
+  :remoteDef         => {:host => :thunder4,:subdir => 'test'},
+  :remoteGccHi       => {:host => :thunder5,:subdir => 'gcc',  :CC => 'gcc', :FLAGS => 'hiopt'},
+  :remoteGccHiOpenMP => {:host => :thunder5,:subdir => 'gcc-opemp',  :CC => 'gcc', :FLAGS => 'hiopt',:openmp => true},
+  :remoteNag         => {:host => :thunder4,:subdir => 'nag',  :CC => 'nag'},
+  :remoteIntel       => {:host => :thunder5,:subdir => 'intel',:CC => 'intel'},
+  :remoteXlf         => {:host => :passat  ,:subdir => 'default'},
+  :remoteXlfHi       => {:host => :passat  ,:subdir => 'hiopt',:FLAGS => 'hiopt'}
 }
 # ============================================================================
 
@@ -140,13 +142,15 @@ $configureCall = lambda {|build|
   configureCall << './configure'
   configureCall << " --with-fortran=#{$builds[build][:CC]}" unless $builds[build][:CC].nil?
   configureCall << " --with-flags=#{$builds[build][:FLAGS]}" unless $builds[build][:FLAGS].nil?
+  configureCall << " --with-openmp" unless $builds[build][:openmp].nil?
   configureCall << " ;"
   configureCall
 }
 
 # exclude files for a build
 $excludeFiles = lambda {|build|
-  list = "--exclude='experiments/**/*nc*' --exclude='**/*.o'  --exclude='build/*' --exclude='**/*.run' --exclude=config/mh-config-use --exclude='config.*' --exclude=Makefile --exclude=build_command"
+  list = "--exclude='.git/*'"
+  list << " --exclude='experiments/**/*nc*' --exclude='**/*.o'  --exclude='build/*' --exclude='**/*.run' --exclude=config/mh-config-use --exclude=config.log --exclude=Makefile --exclude=build_command"
   list << " --exclude=config/mh-override " if isRemote?(build)
   list
 }
