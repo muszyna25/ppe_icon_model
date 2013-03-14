@@ -434,14 +434,8 @@ CONTAINS
            atm_phy_nwp_config(1)%inwp_surface    /=0)     &
             CALL finish(TRIM(routine), 'all physics processes must be turned off for CBL test')
 
-       IF(atm_phy_nwp_config(1)%inwp_turb==0 .OR. atm_phy_nwp_config(1)%inwp_turb>2) &
-            CALL message(TRIM(routine),'WARNING!! inwp_turb is either off or > 2!')
-
-       IF(.NOT.turbdiff_config(1)%lconst_z0)  &
-            CALL message(TRIM(routine),'WARNING!! roughness length is not homogeneous!')
-
-       IF(atm_phy_nwp_config(1)%inwp_turb/=2 .AND. .NOT.set_sst_cbl) &
-            CALL finish(TRIM(routine),'STOPPING!! for fixed flux only inwp_turb =2 works')
+       IF(atm_phy_nwp_config(1)%inwp_turb/=5 .AND. .NOT.set_sst_cbl) &
+            CALL finish(TRIM(routine),'STOPPING!! for fixed flux only inwp_turb=5 works')
     ENDIF     
 
     !--------------------------------------------------------------------

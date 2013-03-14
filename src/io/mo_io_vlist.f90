@@ -3221,7 +3221,8 @@ CONTAINS
       !AD> 
       CASE ('Z0')
         IF (atm_phy_nwp_config(jg)%inwp_turb.EQ.1 .OR.  &
-         &  atm_phy_nwp_config(jg)%inwp_turb.EQ.2) THEN
+         &  atm_phy_nwp_config(jg)%inwp_turb.EQ.2 .OR.  &
+         &  atm_phy_nwp_config(jg)%inwp_turb.EQ.5 ) THEN
                                 ptr2 => dup2(prm_diag(jg)%gz0(:,:)/grav); delete = .TRUE.
                               ELSE
                                 ptr2 => prm_diag(jg)%z0m(:,:)

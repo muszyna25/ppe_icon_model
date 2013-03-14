@@ -58,7 +58,7 @@ MODULE mo_surface_les
   USE mo_impl_constants    ,  ONLY: min_rledge, min_rlcell, min_rlvert, &
                                     min_rledge_int, min_rlcell_int, min_rlvert_int
   USE mo_sync,                ONLY: SYNC_E, SYNC_C, SYNC_V, sync_patch_array
-  USE mo_physical_constants,  ONLY: cpd, rcvd, p0ref, grav, alv, rd
+  USE mo_physical_constants,  ONLY: cpd, rcvd, p0ref, grav, alv, rd, rgrav
   USE mo_nwp_lnd_types,       ONLY: t_lnd_prog, t_lnd_diag 
   USE mo_nh_torus_exp,        ONLY: shflx_cbl, lhflx_cbl, set_sst_cbl
   USE mo_satad,               ONLY: sat_pres_water, &  !! saturation vapor pressure w.r.t. water
@@ -74,7 +74,7 @@ MODULE mo_surface_les
   PUBLIC :: surface_conditions, min_wind, rkarman
 
   REAL(wp), PARAMETER :: min_wind = 0.1_wp
-  REAL(wp), PARAMETER :: zrough  = 0.0003_wp, rkarman = 2.5_wp
+  REAL(wp), PARAMETER :: rkarman = 2.5_wp
 
   CONTAINS
 
@@ -101,6 +101,7 @@ MODULE mo_surface_les
     REAL(wp),          INTENT(in)        :: theta(:,:,:)  !pot temp  
 
     REAL(wp) :: rhos, th0_srf, obukhov_length, z_mc, ustar, mwind, bflux
+    REAL(wp) :: zrough
     INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
     INTEGER :: rl_start, rl_end
     INTEGER :: jk, jb, jc
@@ -124,11 +125,14 @@ MODULE mo_surface_les
       jk = nlev
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jc,jb,i_startidx,i_endidx,th0_srf,bflux,mwind,ustar,z_mc, &
-!$OMP            obukhov_length,rhos),ICON_OMP_RUNTIME_SCHEDULE
+!$OMP            zrough,obukhov_length,rhos),ICON_OMP_RUNTIME_SCHEDULE
       DO jb = i_startblk,i_endblk
          CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
                             i_startidx, i_endidx, rl_start, rl_end)
          DO jc = i_startidx, i_endidx
+
+            !Roughness length
+            zrough = prm_diag%gz0(jc,jb) * rgrav
 
             !Get reference surface temperature
             th0_srf  = p_nh_metrics%theta_ref_ic(jc,nlev+1,jb)
