@@ -82,6 +82,7 @@ MODULE mo_solve_nonhydro
   USE mo_icon_comm_lib,     ONLY: icon_comm_sync
   USE mo_nh_testcases,      ONLY: nh_test_name
   USE mo_nh_torus_exp,      ONLY: vt_geostrophic
+  USE mo_nh_dcmip_gw,       ONLY: fcfugal
 
   IMPLICIT NONE
 
@@ -495,18 +496,30 @@ MODULE mo_solve_nonhydro
            (p_int%c_lin_e(je,1,jb)*z_w_con_c_full(icidx(je,jb,1),jk,icblk(je,jb,1)) + &
             p_int%c_lin_e(je,2,jb)*z_w_con_c_full(icidx(je,jb,2),jk,icblk(je,jb,2)))* &
            (p_diag%vn_ie(je,jk,jb) - p_diag%vn_ie(je,jk+1,jb))/   &
-            p_metrics%ddqz_z_full_e(je,jk,jb) )
+            p_metrics%ddqz_z_full_e(je,jk,jb) ) 
         ENDDO
       ENDDO
 
-      !Add geostrophic wind for torus geometry
-      IF(ltestcase .AND. nh_test_name=='CBL')THEN  
-        DO jk = 1 , nlev
-          DO je = i_startidx, i_endidx                   
-            p_diag%ddt_vn_adv(je,jk,jb,ntnd) = p_diag%ddt_vn_adv(je,jk,jb,ntnd) + &
+      IF( ltestcase )THEN
+
+        !Add geostrophic wind for torus geometry
+        IF ( nh_test_name=='CBL' ) THEN  
+          DO jk = 1, nlev
+            DO je = i_startidx, i_endidx                   
+              p_diag%ddt_vn_adv(je,jk,jb,ntnd) = p_diag%ddt_vn_adv(je,jk,jb,ntnd) + &
                     p_patch%edges%f_e(je,jb) * vt_geostrophic(je,jk,jb) 
+            END DO
           END DO
-        END DO
+
+        ! Add centrifugal force for idealized gravity wave test
+        ELSE IF (nh_test_name=='dcmip_gw_32') THEN
+          DO jk = 1, nlev
+            DO je = i_startidx, i_endidx
+              p_diag%ddt_vn_adv(je,jk,jb,ntnd) = p_diag%ddt_vn_adv(je,jk,jb,ntnd) &
+                &                              + fcfugal(je,jb)
+            ENDDO
+          ENDDO
+        ENDIF
       END IF
 
     ENDDO

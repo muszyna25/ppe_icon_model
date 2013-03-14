@@ -187,7 +187,6 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
 !$OMP DO PRIVATE(jb,jt,jc,ic,ilist,i_startidx,i_endidx,i_count,ierrstat,errormsg,eroutine,      &
 !$OMP lc_class,z_tvs,z0_mod,gz0_t,tcm_t,tch_t,tfm_t,tfh_t,tfv_t,t_g_t,qv_s_t,t_2m_t,qv_2m_t,    &  
 !$OMP td_2m_t,rh_2m_t,u_10m_t,v_10m_t,tvs_t,pres_sfc_t,u_t,v_t,temp_t,pres_t,qv_t,qc_t,tkvm_t,  &
-!!$OMP tkvh_t,z_ifc_t,w_t,rcld_t,sai_t,fr_land_t,depth_lk_t,h_ice_t,area_frac,shfl_s_t,lhfl_s_t, &
 !$OMP tkvh_t,z_ifc_t,rcld_t,sai_t,fr_land_t,depth_lk_t,h_ice_t,area_frac,shfl_s_t,lhfl_s_t, &
 !$OMP qhfl_s_t) ICON_OMP_GUIDED_SCHEDULE
 
@@ -404,7 +403,7 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
             tkvm_t(ic,1:2,jt)  = prm_diag%tkvm(jc,nlev:nlevp1,jb)
             tkvh_t(ic,1:2,jt)  = prm_diag%tkvh(jc,nlev:nlevp1,jb)
 
-!DR: to be re-checked bevore it can be activated
+!DR: to be re-checked before it can be activated
 !!$            tvs_t(ic,1:2,1,jt) = z_tvs(jc,nlev-1:nlev,1)
 !!$            tvs_t(ic,3,1,jt)   = prm_diag%tvs_s_t(jc,jb,jt)      ! tile-specific for lowest level   
 !!$                                 ! z_tvs(jc,nlevp1,1) 

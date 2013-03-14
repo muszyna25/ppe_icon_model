@@ -1817,12 +1817,13 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
       & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc,        &
       & ldims=shape3dkp1 )
 
-   ! &      diag%edr(nproma,nlevp1,nblks_c)
-    cf_desc    = t_cf_var('edr', '', 'eddy dissipation rate', DATATYPE_FLT32)
-    grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( diag_list, 'edr', diag%edr,                               &
-      & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc,        &
-      & ldims=shape3dkp1, lrestart=.FALSE. ) 
+! SO FAR UNUSED
+!!$   ! &      diag%edr(nproma,nlevp1,nblks_c)
+!!$    cf_desc    = t_cf_var('edr', '', 'eddy dissipation rate', DATATYPE_FLT32)
+!!$    grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+!!$    CALL add_var( diag_list, 'edr', diag%edr,                               &
+!!$      & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc,        &
+!!$      & ldims=shape3dkp1, lrestart=.FALSE. ) 
 
 
     !------------------

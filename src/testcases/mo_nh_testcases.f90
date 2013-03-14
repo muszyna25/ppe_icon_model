@@ -85,7 +85,8 @@ MODULE mo_nh_testcases
                                    & qv_max_wk, u_infty_wk,                       &
                                    & bubctr_lat, bubctr_lon, bubctr_z,            &
                                    & bub_hor_width, bub_ver_width, bub_amp
-  USE mo_nh_dcmip_gw,          ONLY: init_nh_dcmip_gw, init_nh_gw_analyt
+  USE mo_nh_dcmip_gw,          ONLY: init_nh_dcmip_gw, init_nh_gw_analyt,         &
+                                   & gw_clat, gw_u0, gw_delta_temp
   USE mo_nh_dcmip_schaer,      ONLY: init_nh_prog_dcmip_schaer,lshear_dcmip,      &
                                    & init_nh_topo_dcmip_schaer
   USE mo_nh_dcmip_rest_atm,   ONLY : init_nh_topo_dcmip_rest_atm,                 &
@@ -166,7 +167,7 @@ MODULE mo_nh_testcases
                             tgr_poly, rh_poly, rhgr_poly, lshear_dcmip,      &
                             lcoupled_rho, sst_cbl, is_dry_cbl, ugeo, vgeo,   &
                             umean, vmean, shflx_cbl, set_sst_cbl, lhflx_cbl, &
-                            ufric_cbl
+                            ufric_cbl, gw_clat, gw_u0, gw_delta_temp
 
   PUBLIC :: read_nh_testcase_namelist, layer_thickness, init_nh_testtopo,    &
     &       init_nh_testcase, n_flat_level, nh_test_name,                    &
@@ -332,6 +333,11 @@ MODULE mo_nh_testcases
     lhflx_cbl  = 0._wp 
     set_sst_cbl = .FALSE.
     ufric_cbl  = 0.28_wp
+
+    ! for dcmip_gw_3X test cases
+    gw_u0      = 0.0_wp      ! maximum amplitude of the zonal wind [m s^-1]
+    gw_clat    = 90._wp      ! center of temperature/density perturbation  [deg]
+    gw_delta_temp = 0.01_wp  ! Max amplitude of perturbation [K]
 
     CALL open_nml(TRIM(filename))
     CALL position_nml ('nh_testcase_nml', status=i_status)

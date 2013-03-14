@@ -214,8 +214,8 @@ MODULE mo_nonhydro_types
 
   TYPE t_nh_ref
     REAL(wp), POINTER ::    &
-      vn_ref(:,:,:),        & !! orthogonal normal wind (nproma,nlev,nblks_e)         [m/s]
-      w_ref(:,:,:)             !> orthogonal vertical wind (nproma,nlevp1,nblks_c)    [m/s]
+      vn_ref  (:,:,:),      & !! orthogonal normal wind (nproma,nlev,nblks_e)      [m/s]
+      w_ref   (:,:,:)         !> orthogonal vertical wind (nproma,nlevp1,nblks_c)  [m/s]
   END TYPE t_nh_ref
 
 
