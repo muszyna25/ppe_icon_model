@@ -76,7 +76,7 @@ MODULE mo_nh_interface_nwp
   USE mo_nwp_phy_types,      ONLY: t_nwp_phy_diag, t_nwp_phy_tend
   USE mo_parallel_config,    ONLY: nproma, p_test_run, use_icon_comm, use_physics_barrier
 
-  USE mo_run_config,         ONLY: ntracer, iqv, iqc, iqi, iqr, iqs,          &
+  USE mo_run_config,         ONLY: ntracer, iqv, iqc, iqi, iqr, iqs, iqtvar,    &
     &                              msg_level, ltimer, timers_level, nqtendphy
   USE mo_io_config,          ONLY: lflux_avg
   USE mo_physical_constants, ONLY: rd, rd_o_cpd, vtmpc1, p0ref, rcvd, cpd
@@ -215,6 +215,9 @@ CONTAINS
     ! Variables for dpsdt diagnostic
     REAL(wp) :: dps_blk(pt_patch%nblks_c), dpsdt_avg
     INTEGER  :: npoints_blk(pt_patch%nblks_c), npoints
+
+    ! Variables for EDMF DUALM
+    REAL(wp) :: qtvar(nproma,pt_patch%nlev)
 
     ! communication ids, these do not need to be different variables,
     ! since they are not treated individualy
@@ -769,19 +772,26 @@ CONTAINS
       !-------------------------------------------------------------------------
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx) ICON_OMP_GUIDED_SCHEDULE
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,qtvar) ICON_OMP_GUIDED_SCHEDULE
       DO jb = i_startblk, i_endblk
         !
         CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
 &                       i_startidx, i_endidx, rl_start, rl_end)
 
+        IF ( atm_phy_nwp_config(jg)%inwp_turb == 3 ) THEN 
+          qtvar(:,:) = pt_prog_rcf%tracer(:,:,jb,iqtvar)        ! EDMF DUALM
+        ELSE
+          qtvar(:,:) = 0.0_wp                                   ! other turb schemes
+        ENDIF
 
         IF (timers_level > 2) CALL timer_start(timer_cover_koe)
+
         CALL cover_koe &
 &             (kidia  = i_startidx ,   kfdia  = i_endidx  ,       & !! in:  horizonal begin, end indices
 &              klon = nproma,  kstart = kstart_moist(jg)  ,       & !! in:  horiz. and vert. vector length
 &              klev   = nlev,                                     &
 &              icldscheme = atm_phy_nwp_config(jg)%inwp_cldcover ,& !! in:  cloud cover option
+&              inwp_turb  = atm_phy_nwp_config(jg)%inwp_turb,     & !! in:  turbulence scheme number
 &              tt     = pt_diag%temp         (:,:,jb)     ,       & !! in:  temperature at full levels
 &              pp     = pt_diag%pres         (:,:,jb)     ,       & !! in:  pressure at full levels
 &              ps     = pt_diag%pres_sfc     (:,jb)       ,       & !! in:  surface pressure at full levels
@@ -798,10 +808,12 @@ CONTAINS
 &              qv     = pt_prog_rcf%tracer   (:,:,jb,iqv) ,       & !! in:  spec. humidity
 &              qc     = pt_prog_rcf%tracer   (:,:,jb,iqc) ,       & !! in:  cloud water
 &              qi     = pt_prog_rcf%tracer   (:,:,jb,iqi) ,       & !! in:  cloud ice
+&              qtvar  = qtvar                             ,       & !! in:  qtvar
 &              cc_tot = prm_diag%tot_cld     (:,:,jb,icc) ,       & !! out: cloud diagnostics
 &              qv_tot = prm_diag%tot_cld     (:,:,jb,iqv) ,       & !! out: qv       -"-
 &              qc_tot = prm_diag%tot_cld     (:,:,jb,iqc) ,       & !! out: clw      -"-
 &              qi_tot = prm_diag%tot_cld     (:,:,jb,iqi) )         !! out: ci       -"-
+
         IF (timers_level > 2) CALL timer_stop(timer_cover_koe)
 
       ENDDO
