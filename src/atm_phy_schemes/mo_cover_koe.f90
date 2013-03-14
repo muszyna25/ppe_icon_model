@@ -333,21 +333,36 @@ CASE( 1 )
      !qc_conv(jl,jk) = 0.0_wp
      !qi_conv(jl,jk) = 0.0_wp
 
-      IF ( (inwp_turb == 3) .AND. &
-         & (sqrt(qtvar(jl,jk)) / (MAX((qv(jl,jk)+qc(jl,jk)+qi(jl,jk)),0.000001_wp)) > 0.01_wp) ) THEN
-! for EDMF DUALM: take values written within EDMF - only done within high qtvar grid points
-        cc_tot(jl,jk) = cc_tot(jl,jk)
-        qc_tot(jl,jk) = qc_tot(jl,jk)
-        qi_tot(jl,jk) = qi_tot(jl,jk)
-      ELSE 
-! combination strat/conv cloud
-        cc_tot(jl,jk)  = max( cc_turb(jl,jk), cc_conv(jl,jk) )
-        qc_tot(jl,jk)  = max( qc_turb(jl,jk), qc_conv(jl,jk) )
-        qi_tot(jl,jk)  = max( qi_turb(jl,jk), qi_conv(jl,jk) )
-      ENDIF
 
     ENDDO
   ENDDO
+
+  IF (inwp_turb == 3) THEN
+    DO jk = kstart,klev
+      DO jl = kidia,kfdia
+        IF (sqrt(qtvar(jl,jk)) / (MAX((qv(jl,jk)+qc(jl,jk)+qi(jl,jk)),0.000001_wp)) > 0.01_wp) THEN
+! for EDMF DUALM: take values written within EDMF - only done within high qtvar grid points
+          cc_tot(jl,jk) = cc_tot(jl,jk)
+          qc_tot(jl,jk) = qc_tot(jl,jk)
+          qi_tot(jl,jk) = qi_tot(jl,jk)
+        ELSE 
+! combination strat/conv cloud
+          cc_tot(jl,jk)  = max( cc_turb(jl,jk), cc_conv(jl,jk) )
+          qc_tot(jl,jk)  = max( qc_turb(jl,jk), qc_conv(jl,jk) )
+          qi_tot(jl,jk)  = max( qi_turb(jl,jk), qi_conv(jl,jk) )
+        ENDIF
+      ENDDO
+    ENDDO
+  ELSE ! use always combination of strat/conv cloud
+    DO jk = kstart,klev
+      DO jl = kidia,kfdia
+        cc_tot(jl,jk)  = max( cc_turb(jl,jk), cc_conv(jl,jk) )
+        qc_tot(jl,jk)  = max( qc_turb(jl,jk), qc_conv(jl,jk) )
+        qi_tot(jl,jk)  = max( qi_turb(jl,jk), qi_conv(jl,jk) )
+      ENDDO
+    ENDDO
+  ENDIF
+
 
 !-----------------------------------------------------------------------
 
@@ -480,13 +495,13 @@ DO jk = kstart,klev
     ENDIF
 
 !debug
-IF ( (cc_tot(jl,jk) > 1.0) .OR. (cc_tot(jl,jk) < 0.0)  .OR. &
-  &  (qv_tot(jl,jk) > 1.0) .OR. (qv_tot(jl,jk) < 0.0)  .OR. &
-  &  (qc_tot(jl,jk) > 1.0) .OR. (qc_tot(jl,jk) < 0.0)  .OR. &
-  &  (qi_tot(jl,jk) > 1.0) .OR. (qi_tot(jl,jk) < 0.0) ) THEN
-  write(*,*) 'cover_koe1: ', jk, t_g(jl), &
-    & qv_tot(jl,jk), qc_tot(jl,jk), qi_tot(jl,jk), cc_tot(jl,jk), qtvar(jl,jk)
-ENDIF
+!IF ( (cc_tot(jl,jk) > 1.0) .OR. (cc_tot(jl,jk) < 0.0)  .OR. &
+!  &  (qv_tot(jl,jk) > 1.0) .OR. (qv_tot(jl,jk) < 0.0)  .OR. &
+!  &  (qc_tot(jl,jk) > 1.0) .OR. (qc_tot(jl,jk) < 0.0)  .OR. &
+!  &  (qi_tot(jl,jk) > 1.0) .OR. (qi_tot(jl,jk) < 0.0) ) THEN
+!  write(*,*) 'cover_koe1: ', jk, t_g(jl), &
+!    & qv_tot(jl,jk), qc_tot(jl,jk), qi_tot(jl,jk), cc_tot(jl,jk), qtvar(jl,jk)
+!ENDIF
 !xxxxx
 
   ENDDO
