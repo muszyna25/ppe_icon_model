@@ -16,6 +16,7 @@
 !! @par Revision History
 !!  first implementation by Kristina Froehlich, DWD (2009-06-12)
 !!  Call nwp_diagnosis with ih_clch, ih_clcm by Helmut Frank, DWD (2013-01-18)
+!!  Calculate gusts in 6 hours               by Helmut Frank, DWD (2013-03-13)
 !!
 !! $Id: n/a$
 !!
@@ -652,6 +653,31 @@ CONTAINS
 
 
     IF (  (lcall_phy_jg(itturb) .OR. linit) .AND. atm_phy_nwp_config(jg)%inwp_turb <= 2 ) THEN
+!
+!     Reset max. gust every 6 hours
+!
+      IF ( MOD(p_sim_time,21600._wp) > 1.e-6_wp .AND. MOD(p_sim_time,21600._wp) <= dt_phy_jg(itfastphy) ) THEN
+
+        ! exclude boundary interpolation zone of nested domains
+        rl_start = grf_bdywidth_c+1
+        rl_end   = min_rlcell_int
+
+        i_startblk = pt_patch%cells%start_blk(rl_start,1)
+        i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,i_startidx, i_endidx) ICON_OMP_DEFAULT_SCHEDULE
+        DO jb = i_startblk, i_endblk
+          CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
+            &             i_startidx, i_endidx, rl_start, rl_end)
+
+            prm_diag%dyn_gust(i_startidx:i_endidx,jb) = 0._wp
+            prm_diag%gust10  (i_startidx:i_endidx,jb) = 0._wp
+        END DO
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+      END IF
+
       IF (timers_level > 1) CALL timer_start(timer_nwp_turbulence)
 
       ! compute turbulent transfer coefficients (atmosphere-surface interface)
@@ -718,6 +744,28 @@ CONTAINS
     !-------------------------------------------------------------------------
 
     IF ( lcall_phy_jg(itconv)  ) THEN
+
+!     Reset max. gust every 6 hours
+      IF ( MOD(p_sim_time,21600._wp) > 1.e-6_wp .AND. MOD(p_sim_time,21600._wp) <= dt_phy_jg(itconv) ) THEN
+
+        ! exclude boundary interpolation zone of nested domains
+        rl_start = grf_bdywidth_c+1
+        rl_end   = min_rlcell_int
+
+        i_startblk = pt_patch%cells%start_blk(rl_start,1)
+        i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,i_startidx, i_endidx) ICON_OMP_DEFAULT_SCHEDULE
+        DO jb = i_startblk, i_endblk
+          CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
+            &             i_startidx, i_endidx, rl_start, rl_end)
+
+          prm_diag%con_gust(i_startidx:i_endidx,jb) = 0._wp
+        END DO
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+      END IF
 
       IF (msg_level >= 15) &
 &           CALL message('mo_nh_interface', 'convection')

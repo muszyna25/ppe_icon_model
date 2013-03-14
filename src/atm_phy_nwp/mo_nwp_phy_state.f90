@@ -34,6 +34,7 @@ MODULE mo_nwp_phy_state
 !! Memory allocation method changed from explicit allocation to Luis' 
 !! infrastructure by Kristina Froehlich (MPI-M, 2011-04-27)
 !! Added clch, clcm, clcl, hbas_con, htop_con by Helmut Frank (DWD, 2013-01-17)
+!! Added hzerocl, gust10                      by Helmut Frank (DWD, 2013-03-13)
 !!
 !! @par Copyright
 !! 2002-2009 by DWD and MPI-M
@@ -455,12 +456,29 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
                 & in_group=groups("additional_precip_vars"),                  &
                 & hor_interp=create_hor_interp_metadata(hor_intp_type=HINTP_TYPE_LONLAT_NNB ) )
 
-    ! &      diag%con_gust(nproma,nblks_c)
-    cf_desc    = t_cf_var('con_gust', 'm s-1 ', 'convective gusts', DATATYPE_FLT32)
+    ! &      diag%gust10(nproma,nblks_c)
+    cf_desc    = t_cf_var('gust', 'm s-1 ', 'gust at 10 m', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var( 0, 2, 22, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( diag_list, 'vmax_10m', diag%gust10,                          &
+                & GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_10M, cf_desc, grib2_desc,  &
+                & ldims=shape2d, lrestart=.TRUE., in_group=groups("pbl_vars"), &
+                & isteptype=TSTEP_MAX )
+
+    ! &      diag%dyn_gust(nproma,nblks_c)
+    cf_desc    = t_cf_var('dyn_gust', 'm s-1 ', 'maximum 10m dynamical gust', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( diag_list, 'con_gust', diag%con_gust,                       &
-                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
-                & ldims=shape2d, lrestart=.FALSE. )
+    CALL add_var( diag_list, 'vgust_dyn', diag%dyn_gust,                       &
+                & GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_10M, cf_desc, grib2_desc,  &
+                & ldims=shape2d, lrestart=.TRUE., isteptype=TSTEP_MAX,         &
+                & loutput=.FALSE.)
+
+    ! &      diag%con_gust(nproma,nblks_c)
+    cf_desc    = t_cf_var('con_gust', 'm s-1 ', 'maximum 10m convective gust', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( diag_list, 'vgust_con', diag%con_gust,                       &
+                & GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_10M, cf_desc, grib2_desc,   &
+                & ldims=shape2d, lrestart=.TRUE., isteptype=TSTEP_MAX,         &
+                & loutput=.FALSE.)
    
     ! &      diag%rain_upd(nproma,nblks_c)
     cf_desc    = t_cf_var('rain_upd', 'kg m-2 s-1', 'rain in updroughts', DATATYPE_FLT32)
@@ -1217,7 +1235,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
         grib2_desc = t_grib2_var(0, 0, 0, ibits, GRID_REFERENCE, GRID_CELL)
         CALL add_var( diag_list, 'tmax_2m', diag%tmax_2m,                     &
           & GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_2M, cf_desc, grib2_desc,        &
-          & ldims=shape2d, lrestart=.FALSE.,                                  &
+          & ldims=shape2d, lrestart=.TRUE.,                                   &
           & isteptype=TSTEP_MAX )
 
         ! &      diag%tmin_2m(nproma,nblks_c)
@@ -1225,7 +1243,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
         grib2_desc = t_grib2_var(0, 0, 0, ibits, GRID_REFERENCE, GRID_CELL)
         CALL add_var( diag_list, 'tmin_2m', diag%tmin_2m,                     &
           & GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_2M, cf_desc, grib2_desc,        &
-          & ldims=shape2d, lrestart=.FALSE.,                                  &
+          & ldims=shape2d, lrestart=.TRUE.,                                   &
           & isteptype=TSTEP_MIN )
 
 
@@ -1833,6 +1851,14 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
                     & new_element=var_diag_rh,                                       &
                     & l_pp_scheduler_task=TASK_COMPUTE_RH )
     END IF
+
+
+        !  Height of 0 deg C level
+        cf_desc    = t_cf_var('hzerocl', '', 'height_of_0_deg_C_level', DATATYPE_FLT32)
+        grib2_desc = t_grib2_var(0, 3, 6, ibits, GRID_REFERENCE, GRID_CELL)
+        CALL add_var( diag_list, 'hzerocl', diag%hzerocl,                         &
+          & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,              &
+          & ldims=shape2d, lrestart=.FALSE.)
 
     CALL message('mo_nwp_phy_state:construct_nwp_phy_diag', &
                  'construction of NWP physical fields finished')  

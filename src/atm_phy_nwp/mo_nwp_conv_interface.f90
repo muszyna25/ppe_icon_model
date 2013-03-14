@@ -9,6 +9,7 @@
 !!
 !! @par Revision History
 !! Initial Kristina Froehlich, DWD, Offenbach (2010-01-25)
+!! Add gust   by Helmut Frank, DWD, Offenbach (2013-03-13)
 !!
 !! @par Copyright
 !! 2002-2011 by DWD and MPI-M
@@ -280,7 +281,8 @@ CONTAINS
 &            pmflxr =      prm_diag%rain_con_rate_3d(:,:,jb)                  ,& !! OUT
 &            pmflxs =      prm_diag%snow_con_rate_3d(:,:,jb)                  ,& !! OUT
 &            prain  =      prm_diag%rain_upd (:,jb)                           ,& !! OUT
-&            pcape =       prm_diag%cape     (:,jb)                           ) !! OUT
+&            pcape  =      prm_diag%cape     (:,jb)                           ,& !! OUT
+&            pvddraf=      prm_diag%con_gust (:,jb)                           )  !! OUT
 
 
         ! Postprocessing on some fields
@@ -327,6 +329,10 @@ CONTAINS
           prm_diag%snow_con_rate(i_startidx:i_endidx,jb) =                                &
             &                    prm_diag%snow_con_rate_3d(i_startidx:i_endidx,nlevp1,jb)
 
+
+!         10 m gust: Max. of convective and dynamic gust
+          prm_diag%gust10(i_startidx:i_endidx,jb) = MAX( prm_diag%gust10  (i_startidx:i_endidx,jb),  &
+            &                                            prm_diag%con_gust(i_startidx:i_endidx,jb) )
 
         ENDIF !inwp_conv
 

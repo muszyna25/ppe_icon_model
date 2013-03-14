@@ -30,6 +30,7 @@
 !! Memory allocation method changed from explicit allocation to Luis' 
 !! infrastructure by Kristina Froehlich (MPI-M, 2011-04-27)
 !! Added clch, clcm, clcl, hbas_con, htop_con by Helmut Frank (DWD, 2013-01-17)
+!! Added hzerocl and gusts                    by Helmut Frank (DWD, 2013-03-13)
 !!
 !! @par Copyright
 !! 2002-2009 by DWD and MPI-M
@@ -106,8 +107,8 @@ MODULE mo_nwp_phy_types
     TYPE(t_ptr_2d3d),ALLOCATABLE :: tfv_t_ptr(:) !< pointer array: laminar reduction factor for evaporation
     TYPE(t_ptr_2d3d),ALLOCATABLE :: gz0_t_ptr(:) !< pointer array: roughness length * gravity
 
-    TYPE(t_ptr_2d3d),ALLOCATABLE :: u_10m_t_ptr(:) !< pointer array: zonal wind at 2am
-    TYPE(t_ptr_2d3d),ALLOCATABLE :: v_10m_t_ptr(:) !< pointer array: meridional wind at 2m
+    TYPE(t_ptr_2d3d),ALLOCATABLE :: u_10m_t_ptr(:) !< pointer array: zonal wind at 10m
+    TYPE(t_ptr_2d3d),ALLOCATABLE :: v_10m_t_ptr(:) !< pointer array: meridional wind at 10m
     TYPE(t_ptr_2d3d),ALLOCATABLE :: shfl_s_t_ptr(:) !< pointer array: surface sensible heat flux 
     TYPE(t_ptr_2d3d),ALLOCATABLE :: lhfl_s_t_ptr(:) !< pointer array: surface latent heat flux
     TYPE(t_ptr_2d3d),ALLOCATABLE :: qhfl_s_t_ptr(:) !< pointer array: surface moisture flux
@@ -147,6 +148,7 @@ MODULE mo_nwp_phy_types
       &  rain_upd(:,:),        & !! total precipitation produced in updrafts [kg/m2/s]
       &  hbas_con(:,:),        & !! height of base of convection [m]
       &  htop_con(:,:),        & !! height of top of convection [m]
+      &  hzerocl(:,:),         & !! height of 0 deg C level [m]
       &  shfl_s(:,:),          & !! sensible heat flux (surface) ( W/m2)
       &  shfl_s_t(:,:,:),      & !! sensible heat flux (surface) ( W/m2)
       &  lhfl_s(:,:),          & !! latent   heat flux (surface) ( W/m2)
@@ -228,6 +230,8 @@ MODULE mo_nwp_phy_types
       v_10m (:,:)     ,    & !! meridional wind in 10m                        ( m/s )
       u_10m_s6avg (:,:),   & !! 6 hourly sample 10m zonal wind  average       ( m/s )
       v_10m_s6avg (:,:),   & !! 6 hourly sample 10m  meridional wind average  ( m/s )
+      dyn_gust(:,:),       & !! dynamic gust at 10m                           ( m/s )
+      gust10(:,:),         & !! max. gust at 10m                              ( m/s )
       edr   (:,:,:)    ,   & !! eddy dissipation rate
       tcm_t(:,:,:)     ,   & !! turbulent transfer coefficients for momentum    --
       tch_t(:,:,:)     ,   & !! turbulent transfer coefficients for heat        --

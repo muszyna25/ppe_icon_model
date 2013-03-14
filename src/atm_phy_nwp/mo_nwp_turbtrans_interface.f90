@@ -11,6 +11,7 @@
 !!
 !! @par Revision History
 !! Initial Kristina Froehlich, DWD, Offenbach (2010-01-25)
+!! Added gust calculation by Helmut Frank, DWD, Offenbach (2013-03-13)
 !!
 !! @par Copyright
 !! 2002-2011 by DWD and MPI-M
@@ -77,6 +78,8 @@ MODULE mo_nwp_turbtrans_interface
   PUBLIC  ::  nwp_turbtrans
 
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
+
+  REAL(KIND=wp), PARAMETER :: gust_factor = 3.0_wp * 2.4_wp
 
 CONTAINS
   !!
@@ -148,6 +151,10 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
   REAL(wp) :: tvs_t(nproma,3,1,ntiles_total+ntiles_water)
 
   INTEGER, POINTER :: ilist(:)  ! pointer to tile index list
+
+  REAL(KIND=wp), PARAMETER :: area_min_gusts = 0.05_wp  ! minimum area fraction of tile to calculate
+                                                        ! dynamic gust for the tile, i.e. do not calculate
+                                                        ! max. gusts for tiny fractions of a grid box
 
 !--------------------------------------------------------------
 
@@ -325,6 +332,15 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
         prm_diag%tfv(i_startidx:i_endidx,jb)   = prm_diag%tfv_t(i_startidx:i_endidx,jb,1)
         prm_diag%u_10m(i_startidx:i_endidx,jb) = prm_diag%u_10m_t(i_startidx:i_endidx,jb,1)
         prm_diag%v_10m(i_startidx:i_endidx,jb) = prm_diag%v_10m_t(i_startidx:i_endidx,jb,1)
+
+      ! dynamic gusts
+        prm_diag%dyn_gust(i_startidx:i_endidx,jb) = MAX(                               &
+          &               nwp_dyn_gust( prm_diag%u_10m(i_startidx:i_endidx,jb),        &
+          &                             prm_diag%v_10m(i_startidx:i_endidx,jb),        &
+          &                             prm_diag%tcm  (i_startidx:i_endidx,jb),        &
+          &                             p_diag%u      (i_startidx:i_endidx,nlev,jb),   &
+          &                             p_diag%v      (i_startidx:i_endidx,nlev,jb)),  &
+          &               prm_diag%dyn_gust(i_startidx:i_endidx,jb) )
 
       ELSE ! tile approach used
 
@@ -514,6 +530,14 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
             prm_diag%tkvm_s_t(jc,jb,jt) = tkvm_t(ic,2,jt) ! needed as input for turbtran
             prm_diag%tkvh_s_t(jc,jb,jt) = tkvh_t(ic,2,jt) ! needed as input for turbtran
 
+!           calculate dynamic gusts only for area fractions > area_min_gusts
+            IF ( area_frac > area_min_gusts) &
+          &   prm_diag%dyn_gust(jc,jb) = MAX( nwp_dyn_gust1(prm_diag%u_10m_t(jc,jb,jt),   &
+          &                                                 prm_diag%v_10m_t(jc,jb,jt),   &
+          &                                                 prm_diag%tcm_t  (jc,jb,jt),   &
+          &                                                 p_diag%u      (jc,nlev,jb),   &
+          &                                                 p_diag%v      (jc,nlev,jb)),  &
+          &                                   prm_diag%dyn_gust(jc,jb) )
 
           ENDDO
 
@@ -543,7 +567,6 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
         &           gz0=prm_diag%gz0(:,jb)                                              ) !inout
 
 
-
       !DR inside "nearsfc", lhfl_s is converted to qhfl_s via 
       !DR qhfl_s = lhfl_s/lh_v. This is incorrect over snow and ice. 
       !DR Shouldn't we simply pass qhfl_s ? 
@@ -566,6 +589,15 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
         &           u_10m=prm_diag%u_10m(:,jb), v_10m=prm_diag%v_10m(:,jb)          ) !out
 
 
+      ! dynamic gusts
+      prm_diag%dyn_gust(i_startidx:i_endidx,jb) = MAX(                               &
+        &               nwp_dyn_gust( prm_diag%u_10m(i_startidx:i_endidx,jb),        &
+        &                             prm_diag%v_10m(i_startidx:i_endidx,jb),        &
+        &                             prm_diag%tcm  (i_startidx:i_endidx,jb),        &
+        &                             p_diag%u      (i_startidx:i_endidx,nlev,jb),   &
+        &                             p_diag%v      (i_startidx:i_endidx,nlev,jb) ), &
+        &               prm_diag%dyn_gust(i_startidx:i_endidx,jb) )
+
 
       DO jt = 1, ntiles_total+ntiles_water
         DO jc = i_startidx, i_endidx
@@ -585,10 +617,62 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
 
     ENDIF !inwp_turb
 
+    prm_diag%gust10(i_startidx:i_endidx,jb) = MAX(                        &
+          &                   prm_diag%gust10  (i_startidx:i_endidx,jb),  &
+          &                   prm_diag%dyn_gust(i_startidx:i_endidx,jb))
+
   ENDDO ! jb
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
 END SUBROUTINE nwp_turbtrans
+
+  !-------------------------------------------------------------------------
+  !!
+  !! Calculate dynamic gusts as in near_surface of COSMO code
+  !!     gust = ff10m + gust_factor * ustar
+  !! where ff10m is the 10 m wind and the friction velocity ustar = SQRT(tcm)*ff1
+  !!
+  !! @par Revision History
+  !! Developed by Helmut Frank, DWD (2013-03-13)
+  !!
+
+  FUNCTION nwp_dyn_gust( u_10m, v_10m, tcm, u1, v1) RESULT( vgust_dyn)
+
+    REAL(KIND=wp), INTENT(IN) :: u_10m(:), &    ! zonal wind component at 10 m above ground [m/s]
+      &                          v_10m(:), &    ! meridional wind component at 10 m above ground [m/s]
+      &                          tcm(:)  , &    ! transfer coefficient for momentum at surface
+      &                          u1(:)   , &    ! zonal wind at lowest model layer above ground [m/s]
+      &                          v1(:)          ! meridional wind at lowest model layer above ground [m/s]
+    REAL(KIND=wp) :: vgust_dyn(SIZE(u_10m))     ! dynamic gust at 10 m above ground [m/s]
+
+    REAL(KIND=wp) :: ff10m(SIZE(u_10m)),  &
+                     ustar(SIZE(u_10m))
+!   REAL(KIND=wp), PARAMETER :: gust_factor = 3.0_wp * 2.4_wp
+
+    ff10m(:) = SQRT( u_10m(:)**2 + v_10m(:)**2)
+    ustar(:) = SQRT( MAX( tcm(:), 5.e-4_wp) * ( u1(:)**2 + v1(:)**2) )
+    vgust_dyn(:) = ff10m(:) + gust_factor*ustar(:)
+
+  END FUNCTION nwp_dyn_gust
+
+
+  FUNCTION nwp_dyn_gust1( u_10m, v_10m, tcm, u1, v1) RESULT( vgust_dyn)
+
+    REAL(KIND=wp), INTENT(IN) :: u_10m, &    ! zonal wind component at 10 m above ground [m/s]
+      &                          v_10m, &    ! meridional wind component at 10 m above ground [m/s]
+      &                          tcm  , &    ! transfer coefficient for momentum at surface
+      &                          u1   , &    ! zonal wind at lowest model layer above ground [m/s]
+      &                          v1          ! meridional wind at lowest model layer above ground [m/s]
+    REAL(KIND=wp) :: vgust_dyn               ! dynamic gust at 10 m above ground [m/s]
+
+    REAL(KIND=wp) :: ff10m, ustar
+!   REAL(KIND=wp), PARAMETER :: gust_factor = 3.0_wp * 2.4_wp
+
+    ff10m = SQRT( u_10m**2 + v_10m**2)
+    ustar = SQRT( MAX( tcm, 5.e-4_wp) * ( u1**2 + v1**2) )
+    vgust_dyn = ff10m + gust_factor*ustar
+
+  END FUNCTION nwp_dyn_gust1
 
 END MODULE mo_nwp_turbtrans_interface

@@ -66,7 +66,7 @@ MODULE mo_nwp_diagnosis
   USE mo_time_config,        ONLY: time_config
   USE mo_lnd_nwp_config,     ONLY: nlev_soil
   USE mo_physical_constants, ONLY: lh_v     => alv, &      !! latent heat of vapourization
-                                   rd, cpd, rcvd
+                                   rd, cpd, rcvd, tmelt
   USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config
   USE mo_io_config,          ONLY: lflux_avg
   USE mo_sync,               ONLY: global_max, global_min
@@ -93,6 +93,7 @@ CONTAINS
   !! @par Revision History
   !! Add calculation of high-, mid-, and low-level cloud cover, height
   !! of base and top of convection  by Helmut Frank, DWD (2013-01-17)
+  !! Add height of 0 deg C level    by Helmut Frank, DWD (2013-03-11)
   !!
   !!
   SUBROUTINE nwp_diagnosis(lcall_phy_jg,                  & !input
@@ -148,6 +149,8 @@ CONTAINS
     REAL(wp):: clearsky(nproma)
     REAL(wp), PARAMETER:: eps_clc = 1.e-7_wp
 
+    REAL(wp), PARAMETER :: zundef = -999._wp   ! undefined value for 0 deg C level
+
     ! local variables related to the blocking
 
     i_nchdom  = MAX(1,pt_patch%n_childdom)
@@ -166,7 +169,7 @@ CONTAINS
     i_startblk = pt_patch%cells%start_blk(rl_start,1)
     i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
     
-! if cloud cover is call, vertical integration of cloud content(for iqv, iqc, iqi)
+! if cloud cover is called, vertical integration of cloud content(for iqv, iqc, iqi)
 
 !$OMP PARALLEL PRIVATE(l_s6avg,p_sim_time_s6)
 
@@ -369,6 +372,35 @@ CONTAINS
     ENDDO ! nblks   
 !$OMP END DO
 
+!  height of 0 deg C level "hzerocl". Not higher than htop_moist_proc
+ 
+!$OMP DO PRIVATE(jb, i_startidx,i_endidx,jc,jk) ICON_OMP_DEFAULT_SCHEDULE
+    DO jb = i_startblk, i_endblk
+
+      CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
+        & i_startidx, i_endidx, rl_start, rl_end)
+
+!     Surface temperature below 0 deg C
+      WHERE( pt_diag%temp(i_startidx:i_endidx,nlev,jb) < tmelt)
+        prm_diag%hzerocl(i_startidx:i_endidx,jb) = zundef
+      ELSE WHERE
+        prm_diag%hzerocl(i_startidx:i_endidx,jb) = 0._wp
+      END WHERE
+      DO jk = nlev, kstart_moist, -1
+        DO jc = i_startidx, i_endidx 
+          IF ( prm_diag%hzerocl(jc,jb) /= 0._wp) THEN
+            CYCLE
+          ELSE IF ( pt_diag%temp(jc,jk  ,jb) >= tmelt .AND. &
+           &        pt_diag%temp(jc,jk-1,jb) <  tmelt ) THEN
+            prm_diag%hzerocl(jc,jb) = p_metrics%z_ifc(jc,jk-1,jb) -  &
+           &      ( p_metrics%z_ifc(jc,jk-1,jb) - p_metrics%z_ifc(jc,jk,jb) )*  &
+           &      (    pt_diag%temp(jc,jk-1,jb) - tmelt ) /                     &
+           &      (    pt_diag%temp(jc,jk-1,jb) - pt_diag%temp(jc,jk,jb) )
+          END IF
+        ENDDO
+      ENDDO
+    ENDDO ! nblks   
+!$OMP END DO
 
 ! average from the model start of total precipitation rate ,
 !         convective precipitation rate and grid-scale precipitation rate

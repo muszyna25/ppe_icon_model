@@ -1521,9 +1521,9 @@ REAL (KIND=ireals) :: &
                   tke(i,ke,nvor)=q0
 
                   wert=lm*q0*SQRT(fm2)
-                  gz0(i)=MAX( grav*len_min, alpha0*wert )
-!                 gz0(i)=MAX( grav*len_min, &
-!                               alpha0*wert+alpha1*grav*con_m/SQRT(wert) )
+!hf               gz0(i)=MAX( grav*len_min, alpha0*wert )
+                  gz0(i)=MAX( grav*len_min, &
+                                alpha0*wert+alpha1*grav*con_m/SQRT(wert) )
                END IF
             END IF
 
@@ -1877,8 +1877,8 @@ REAL (KIND=ireals) :: &
                ELSE
                   velh=(tke(i,ke1,ntur)+tke(i,ke,ntur))*z1d2
                   wert=tcm(i)*vel_2d(i)*SQRT(vel_2d(i)**2+velh**2)
-                  gz0(i)=MAX( grav*len_min, alpha0*wert )
-!                 gz0(i)=MAX( grav*len_min, alpha0*wert+grav*alpha1*con_m/SQRT(wert) )
+!hf               gz0(i)=MAX( grav*len_min, alpha0*wert )
+                  gz0(i)=MAX( grav*len_min, alpha0*wert+grav*alpha1*con_m/SQRT(wert) )
                END IF
                !Ueber See gibt es keinen synoptischen Garten
                z0d_2d(i)=z0m_2d(i)
