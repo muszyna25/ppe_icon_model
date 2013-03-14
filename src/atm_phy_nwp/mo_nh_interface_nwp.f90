@@ -465,10 +465,7 @@ CONTAINS
                                & lnd_prog_now, lnd_prog_new,       & !>inout
                                & wtr_prog_now, wtr_prog_new,       & !>inout
                                & lnd_diag                          ) !>input
-
-      CASE DEFAULT
-
-        CALL finish('mo_nh_interface_nwp:','this turbulence scheme does not need surface scheme')
+      !for inwp_turb=3or4 the surface scheme is called within the turbulence/sfc interface 
      
       END SELECT      
 
