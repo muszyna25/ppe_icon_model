@@ -7,7 +7,7 @@ MODULE mo_gather_scatter
   !
   USE mo_kind,          ONLY: wp
 #ifndef NOMPI
-  USE mo_mpi,           ONLY: p_io, p_bcast, p_comm_work, &
+  USE mo_mpi,           ONLY: process_mpi_root_id, p_bcast, p_comm_work, &
                               my_process_is_mpi_seq 
   USE mo_model_domain,  ONLY: t_patch
   USE mo_communication, ONLY: idx_no, blk_no, exchange_data
@@ -1026,7 +1026,7 @@ CONTAINS
     !
     INTEGER :: j, jl, jb
     !
-    CALL p_bcast(in_array, p_io, p_comm_work)
+    CALL p_bcast(in_array, process_mpi_root_id, p_comm_work)
     !
     out_array(:,:) = 0.0_wp
     !
@@ -1045,7 +1045,7 @@ CONTAINS
     !
     INTEGER :: j, jl, jb, jk
     !
-    CALL p_bcast(in_array, p_io, p_comm_work)
+    CALL p_bcast(in_array, process_mpi_root_id, p_comm_work)
     !
     out_array(:,:,:) = 0.0_wp
     !
@@ -1069,7 +1069,7 @@ CONTAINS
     !
     INTEGER :: j, jl, jb
     !
-    CALL p_bcast(in_array, p_io, p_comm_work)
+    CALL p_bcast(in_array, process_mpi_root_id, p_comm_work)
     !
     out_array(:,:) = 0
     !
@@ -1088,7 +1088,7 @@ CONTAINS
     !
     INTEGER :: j, jl, jb, jk
     !
-    CALL p_bcast(in_array, p_io, p_comm_work)
+    CALL p_bcast(in_array, process_mpi_root_id, p_comm_work)
     !
     out_array(:,:,:) = 0
     !
@@ -1112,7 +1112,7 @@ CONTAINS
     !
     INTEGER :: j, jl, jb
     !
-    CALL p_bcast(in_array, p_io, p_comm_work)
+    CALL p_bcast(in_array, process_mpi_root_id, p_comm_work)
     !
     out_array(:,:) = .FALSE.
     !
@@ -1131,7 +1131,7 @@ CONTAINS
     !
     INTEGER :: j, jl, jb, jk
     !
-    CALL p_bcast(in_array, p_io, p_comm_work)
+    CALL p_bcast(in_array, process_mpi_root_id, p_comm_work)
     !
     out_array(:,:,:) = .FALSE.
     !

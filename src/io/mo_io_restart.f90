@@ -32,7 +32,8 @@ MODULE mo_io_restart
 #ifndef NOMPI
   USE mo_model_domain,          ONLY: t_patch
 #endif
-  USE mo_mpi,                   ONLY: my_process_is_stdio
+  USE mo_mpi,                   ONLY: my_process_is_mpi_workroot, &
+    & my_process_is_mpi_test
   
   !
   IMPLICIT NONE
@@ -419,6 +420,8 @@ CONTAINS
     REAL(wp) :: real_attribute
     INTEGER :: int_attribute
     LOGICAL :: bool_attribute
+
+    IF (my_process_is_mpi_test()) RETURN
     !
     ! first set restart file name
     !
@@ -469,7 +472,7 @@ CONTAINS
       restart_filename = basename//'_'//TRIM(private_restart_time) &
            &                     //'_'//TRIM(var_lists(i)%p%model_type)//'.nc'
       !
-      IF (my_process_is_stdio()) THEN
+      IF (my_process_is_mpi_workroot()) THEN
         SELECT CASE (var_lists(i)%p%restart_type)
         CASE (FILETYPE_NC2)
           var_lists(i)%p%cdiFileID_restart = streamOpenWrite(restart_filename, FILETYPE_NC2)
@@ -733,7 +736,7 @@ CONTAINS
       !
       ! add variables
       !
-      IF (my_process_is_stdio()) THEN
+      IF (my_process_is_mpi_workroot()) THEN
         !
         CALL addVarListToVlist(var_lists(i), var_lists(i)%p%cdiVlistID)
         !
@@ -783,7 +786,7 @@ CONTAINS
           !
           ! add variables to already existing cdi vlists
           !
-          IF (my_process_is_stdio()) THEN
+          IF (my_process_is_mpi_workroot()) THEN
             !
             CALL addVarListToVlist(var_lists(j), var_lists(j)%p%cdiVlistID)
             !
@@ -796,7 +799,7 @@ CONTAINS
       ENDDO
 
       !
-      IF (my_process_is_stdio() .AND. var_lists(i)%p%first) THEN
+      IF (my_process_is_mpi_workroot() .AND. var_lists(i)%p%first) THEN
         CALL streamDefVlist(var_lists(i)%p%cdiFileID_restart, var_lists(i)%p%cdiVlistID)
       ENDIF
       !
@@ -961,6 +964,8 @@ CONTAINS
     !
     CHARACTER(len=80) :: linkname
     INTEGER :: i, j, iret, fileID, vlistID
+    
+    IF (my_process_is_mpi_test()) RETURN
     !
     CALL message('',separator)
     CALL message('','')
@@ -973,7 +978,7 @@ CONTAINS
     close_all_lists: DO i = 1, nvar_lists
       !
       IF (var_lists(i)%p%restart_opened) THEN
-        IF (my_process_is_stdio() .AND. var_lists(i)%p%first) THEN
+        IF (my_process_is_mpi_workroot() .AND. var_lists(i)%p%first) THEN
           !
           fileID = var_lists(i)%p%cdiFileID_restart
           !
@@ -1037,6 +1042,8 @@ CONTAINS
     INTEGER :: i,j
     LOGICAL :: write_info
     !
+    IF (my_process_is_mpi_test()) RETURN
+    
     write_info   = .TRUE.
     !
     ! pick up first stream associated with each file
@@ -1060,7 +1067,7 @@ CONTAINS
         !
         ! write time information to netCDF file
         !
-        IF (my_process_is_stdio()) THEN
+        IF (my_process_is_mpi_workroot()) THEN
           CALL write_time_to_restart(var_lists(i))
         ENDIF
         !
@@ -1165,7 +1172,7 @@ CONTAINS
       ! retrieve information from actual linked list element
       !
       info => element%field%info 
-      IF (my_process_is_stdio()) THEN
+      IF (my_process_is_mpi_workroot()) THEN
         write (0,*)'Var:',info%name
       ENDIF
       !
@@ -1265,7 +1272,7 @@ CONTAINS
       !
       ! write data
       !
-      IF (my_process_is_stdio()) THEN
+      IF (my_process_is_mpi_workroot()) THEN
         CALL write_var (this_list, info, r5d)
       END IF
       !
@@ -1302,6 +1309,8 @@ CONTAINS
   SUBROUTINE finish_restart
 
     INTEGER :: i
+    
+    IF (my_process_is_mpi_test()) RETURN
 
     for_all_var_lists: DO i = 1, nvar_lists    
       IF (var_lists(i)%p%cdiFileID_restart >= 0) THEN
@@ -1514,7 +1523,7 @@ CONTAINS
                   CALL finish('','allocation of r5d failed ...')
                 ENDIF
                 !
-                IF (my_process_is_stdio()) THEN
+                IF (my_process_is_mpi_workroot()) THEN
                   CALL streamReadVar(fileID, varID, r5d, nmiss)
                 END IF
                 CALL p_barrier(comm=p_comm_work)
@@ -1558,7 +1567,7 @@ CONTAINS
                 !
                 IF (ASSOCIATED (r5d)) DEALLOCATE (r5d)
                 !
-                IF (my_process_is_stdio()) THEN
+                IF (my_process_is_mpi_workroot()) THEN
                   write (0,*) ' ... read ',TRIM(element%field%info%name)
                 ENDIF
                 CYCLE for_all_vars
