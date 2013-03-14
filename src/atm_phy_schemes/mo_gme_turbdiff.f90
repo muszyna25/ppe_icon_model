@@ -1056,7 +1056,7 @@ SUBROUTINE parturs( zsurf, z1 , u1   , v1     , t1   ,           &
           zag2(j1,ke) =  zagat*( qv(j1,ke-1) - qv(j1,ke)) &
             &          - zagct*( qv_s(j1   ) - qv(j1,ke)) 
           zag3(j1,ke) =  zagat*( qc(j1,ke-1) - qc(j1,ke)) &
-            &          - zagct*  qc(j1,ke)
+            &          + zagct*  qc(j1,ke)
 !         zag4(j1,ke) =  zagat*( qi(j1,ke-1) - qi(j1,ke)) &
 !           &          - zagct*  qi(j1,ke)
 
