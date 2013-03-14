@@ -3,7 +3,7 @@
 @PROCESS noopt
 #endif
 
-MODULE mo_io_distribute
+MODULE mo_gather_scatter
   !
   USE mo_kind,          ONLY: wp
 #ifndef NOMPI
@@ -1482,6 +1482,7 @@ CONTAINS
     ENDIF
     !
   END SUBROUTINE reorder_foreward_l2d
+  
   !
   SUBROUTINE reorder_foreward_l3d(in, out)
     LOGICAL, INTENT(in)    :: in(:,:)
@@ -1519,7 +1520,7 @@ CONTAINS
     ENDIF
     !
   END SUBROUTINE reorder_foreward_l3d
-  !
+
+
   !------------------------------------------------------------------------------------------------
-  !
-END MODULE mo_io_distribute
+END MODULE mo_gather_scatter

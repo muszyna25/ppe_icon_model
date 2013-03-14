@@ -100,9 +100,6 @@ END INTERFACE
 CONTAINS
 
 !-------------------------------------------------------------------------
-!
-!
-
 !>
 !!               Wrapper for nf_open.
 !!
@@ -113,7 +110,6 @@ CONTAINS
 !!
 INTEGER FUNCTION p_nf_open(path, omode, ncid)
 
-!
    CHARACTER*(*), INTENT(IN) :: path
    INTEGER, INTENT(IN) :: omode
    INTEGER, INTENT(OUT) :: ncid
@@ -135,9 +131,6 @@ INTEGER FUNCTION p_nf_open(path, omode, ncid)
 END FUNCTION p_nf_open
 
 !-------------------------------------------------------------------------
-!
-!
-
 !>
 !!               Wrapper for nf_close.
 !!
@@ -152,9 +145,6 @@ INTEGER FUNCTION p_nf_close(ncid)
    INTEGER, INTENT(IN) :: ncid
 
    INTEGER :: res
-
-
-!-----------------------------------------------------------------------
 
    IF(p_pe == p_io) THEN
       res = nf_close(ncid)
@@ -186,9 +176,6 @@ INTEGER FUNCTION p_nf_inq_dimid(ncid, name, dimid)
 
    INTEGER :: res
 
-
-!-----------------------------------------------------------------------
-
    IF(p_pe == p_io) THEN
       res = nf_inq_dimid(ncid, name, dimid)
    ENDIF
@@ -201,9 +188,6 @@ INTEGER FUNCTION p_nf_inq_dimid(ncid, name, dimid)
 END FUNCTION p_nf_inq_dimid
 
 !-------------------------------------------------------------------------
-!
-!
-
 !>
 !!               Wrapper for nf_inq_dimlen.
 !!
@@ -235,9 +219,6 @@ INTEGER FUNCTION p_nf_inq_dimlen(ncid, dimid, len)
 END FUNCTION p_nf_inq_dimlen
 
 !-------------------------------------------------------------------------
-!
-!
-
 !>
 !!               Wrapper for nf_inq_varid.
 !!
@@ -256,8 +237,6 @@ INTEGER FUNCTION p_nf_inq_varid(ncid, name, varid)
    INTEGER :: res
 
 
-!-----------------------------------------------------------------------
-
    IF(p_pe == p_io) THEN
       res = nf_inq_varid(ncid, name, varid)
    ENDIF
@@ -270,9 +249,6 @@ INTEGER FUNCTION p_nf_inq_varid(ncid, name, varid)
 END FUNCTION p_nf_inq_varid
 
 !-------------------------------------------------------------------------
-!
-!
-
 !>
 !!               Wrapper for nf_get_att_text.
 !!
@@ -287,8 +263,6 @@ INTEGER FUNCTION p_nf_get_att_text(ncid, varid, name, tval)
   
   INTEGER :: res
   
-  !-----------------------------------------------------------------------
-
   IF (p_pe == p_io) THEN
     res = nf_get_att_text(ncid, varid, name, tval)
   ENDIF
@@ -368,7 +342,6 @@ END FUNCTION p_nf_get_att_double_array
 !!
 INTEGER FUNCTION p_nf_get_att_int_0(ncid, varid, name, ivals)
 
-!
    INTEGER, INTENT(IN) :: ncid, varid
    CHARACTER*(*), INTENT(IN) :: name
    INTEGER, INTENT(OUT) :: ivals
@@ -390,9 +363,6 @@ INTEGER FUNCTION p_nf_get_att_int_0(ncid, varid, name, ivals)
 END FUNCTION p_nf_get_att_int_0
 
 !-------------------------------------------------------------------------
-!
-!
-
 !>
 !!               Wrapper for nf_get_att_int.
 !!
@@ -435,9 +405,6 @@ INTEGER FUNCTION p_nf_get_att_int_1(ncid, varid, name, ivals)
 END FUNCTION p_nf_get_att_int_1
 
 !-------------------------------------------------------------------------
-!
-!
-
 !>
 !!               Wrapper for nf_get_var_int.
 !!
@@ -448,14 +415,11 @@ END FUNCTION p_nf_get_att_int_1
 !!
 INTEGER FUNCTION p_nf_get_var_int(ncid, varid, ivals)
 
-!
    INTEGER, INTENT(IN) :: ncid, varid
    INTEGER, INTENT(OUT) :: ivals(*)
 
    INTEGER :: res, len, ndims, dimids(NF_MAX_VAR_DIMS), dimlen, i
 
-
-!-----------------------------------------------------------------------
 
    IF(p_pe == p_io) THEN
 
@@ -494,9 +458,6 @@ INTEGER FUNCTION p_nf_get_var_int(ncid, varid, ivals)
 END FUNCTION p_nf_get_var_int
 
 !-------------------------------------------------------------------------
-!
-!
-
 !>
 !!               Wrapper for nf_get_var_double.
 !!
@@ -512,9 +473,6 @@ INTEGER FUNCTION p_nf_get_var_double(ncid, varid, dvals)
    REAL(dp), INTENT(OUT) :: dvals(*)
 
    INTEGER :: res, len, ndims, dimids(NF_MAX_VAR_DIMS), dimlen, i
-
-
-!-----------------------------------------------------------------------
 
    IF(p_pe == p_io) THEN
 
@@ -553,9 +511,6 @@ INTEGER FUNCTION p_nf_get_var_double(ncid, varid, dvals)
 END FUNCTION p_nf_get_var_double
 
 !-------------------------------------------------------------------------
-!
-!
-
 !>
 !!               Wrapper for nf_get_vara_double.
 !!
@@ -572,8 +527,6 @@ INTEGER FUNCTION p_nf_get_vara_double(ncid, varid, start, count, dvals)
 
    INTEGER :: res, len, ndims, dimids(NF_MAX_VAR_DIMS), i
 
-
-!-----------------------------------------------------------------------
 
    IF(p_pe == p_io) THEN
 

@@ -1292,6 +1292,10 @@ src/io/mo_dump_restore.f90 -text
 src/io/mo_grib1.f90 -text
 src/io/mo_grib2.f90 -text
 src/io/mo_io_async.f90 -text
+src/io/mo_io_restart.f90 -text
+src/io/mo_io_restart_attributes.f90 -text
+src/io/mo_io_restart_namelist.f90 -text
+src/io/mo_io_units.f90 -text
 src/io/mo_io_util.f90 -text
 src/io/mo_io_vlist.f90 -text
 src/io/mo_mtgrm_output.f90 -text
@@ -1366,6 +1370,7 @@ src/parallel_infrastructure/mo_communication.f90 -text
 src/parallel_infrastructure/mo_complete_subdivision.f90 -text
 src/parallel_infrastructure/mo_decomposition_tools.f90 -text
 src/parallel_infrastructure/mo_ext_decompose_patches.f90 -text
+src/parallel_infrastructure/mo_gather_scatter.f90 svneol=native#text/plain
 src/parallel_infrastructure/mo_icon_comm_interface.f90 -text
 src/parallel_infrastructure/mo_icon_comm_lib.f90 -text
 src/parallel_infrastructure/mo_mpi.f90 -text
@@ -1400,11 +1405,6 @@ src/shared/mo_gnat_gridsearch.f90 -text
 src/shared/mo_grid_subset.f90 -text
 src/shared/mo_impl_constants.f90 -text
 src/shared/mo_impl_constants_grf.f90 -text
-src/shared/mo_io_distribute.f90 svneol=native#text/plain
-src/shared/mo_io_restart.f90 -text
-src/shared/mo_io_restart_attributes.f90 -text
-src/shared/mo_io_restart_namelist.f90 -text
-src/shared/mo_io_units.f90 -text
 src/shared/mo_kind.f90 -text
 src/shared/mo_linked_list.f90 -text
 src/shared/mo_loopindices.f90 -text
