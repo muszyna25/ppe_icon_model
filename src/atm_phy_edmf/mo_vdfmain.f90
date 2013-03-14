@@ -1586,6 +1586,7 @@ ENDDO
 !    PVAR(JL,JK) = 0._JPRB
 !  ENDDO
 !ENDDO
+!xxx
 
 DO JL=KIDIA,KFDIA
   PVAR(JL,1)    = 0._JPRB
@@ -1593,7 +1594,7 @@ DO JL=KIDIA,KFDIA
   ZTAU(JL,1)    = 0._JPRB
   ZTAU(JL,KLEV) = 0._JPRB
 ENDDO
-!xxx
+
 
 ZDQTDZ(:,:)  = 0._JPRB
 
