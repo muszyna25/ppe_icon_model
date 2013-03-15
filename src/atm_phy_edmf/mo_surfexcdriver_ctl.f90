@@ -418,7 +418,7 @@ REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON)                          :: &
   t_ice          ,h_ice          ,t_snow_si      ,h_snow_si
 REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON)                          :: &
   fr_seaice
-REAL(KIND=JPRB)  ,INTENT(OUT)    ,DIMENSION(KLON,ntiles_total+ntiles_water):: &
+REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,ntiles_total+ntiles_water):: &
   shfl_soil_ex   ,lhfl_soil_ex   ,shfl_snow_ex   ,lhfl_snow_ex  
 TYPE(t_external_data), INTENT(INOUT)                                       :: &
   ext_data
@@ -521,6 +521,7 @@ IF ( KSTEP == 0 .AND. CDCONF /= 'T' ) THEN
   ENDIF
 ENDIF
 
+!debug
 DO JT=1,KTILES
   DO JL=KIDIA,KFDIA
     if ( (PTSKTI(JL,JT) > 400.0)  .or. (PTSKTI(JL,JT) < 100.0  ) ) then
@@ -528,6 +529,7 @@ DO JT=1,KTILES
     endif
   ENDDO
 ENDDO
+!xxxxx
 
 !*         1.2  UPDATE Z0
 
@@ -688,12 +690,6 @@ DO JTILE=1,KTILES
   ENDDO
 ENDDO
 
-! DO JL=KIDIA,KFDIA
-!   if ( PSST(JL) > 294.95599 .and. PSST(JL) < 294.95600 ) THEN
-!     write(*,*) 'surfexc5: ', PSST(JL), PCFQTI(JL,1), ZBUOMTI(JL,1), ZZDLTI(JL,1), &
-!       ZZ0MTI(JL,1),ZZ0HTI(JL,1),ZZ0QTI(JL,1), KSTEP, PEVAPTI(JL,1), PAHFSTI(JL,1)
-!   endif
-! ENDDO
 
 !*         3.2  EQUIVALENT EVAPOTRANSPIRATION EFFICIENCY COEFFICIENT
 

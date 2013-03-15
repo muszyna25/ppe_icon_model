@@ -657,11 +657,13 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
         zfrti(jc,2) = ext_data%atm%frac_t(jc,jb,isub_seaice)     ! sea ice fraction
       ENDDO
 
+!debug
       DO jc = i_startidx, i_endidx
         IF ( (SUM(zfrti(jc,:)) > 1.01_wp) .or. (SUM(zfrti(jc,:)) < 0.99_wp) ) THEN
           write(*,*) 'turb_sfc2: ', ext_data%atm%llsm_atm_c(jc,jb), zfrti(jc,:), ext_data%atm%frac_t(jc,jb,:)
         ENDIF
       ENDDO
+!xxxxx
 
       DO jk = 1,nlev_soil-1
         DO jc = i_startidx, i_endidx
@@ -878,23 +880,22 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
       DO jk = 1, nlev
         DO jc = i_startidx, i_endidx
           p_diag%temp      (jc,jk,jb)     =                      p_diag%temp(jc,jk,jb) &
-                            & + tcall_turb_jg *   prm_nwp_tend%ddt_temp_turb(jc,jk,jb)
+                        & + tcall_turb_jg *   prm_nwp_tend%ddt_temp_turb(jc,jk,jb)
 
-          p_prog_rcf%tracer(jc,jk,jb,iqv) =     MAX(0._wp, p_prog_rcf%tracer(jc,jk,jb,iqv) &
-                            & + tcall_turb_jg * prm_nwp_tend%ddt_tracer_turb(jc,jk,jb,iqv))
-          p_prog_rcf%tracer(jc,jk,jb,iqc) =     MAX(0._wp, p_prog_rcf%tracer(jc,jk,jb,iqc) &
-                            & + tcall_turb_jg * prm_nwp_tend%ddt_tracer_turb(jc,jk,jb,iqc))
-          p_prog_rcf%tracer(jc,jk,jb,iqi) =     MAX(0._wp, p_prog_rcf%tracer(jc,jk,jb,iqi) &
-                            & + tcall_turb_jg * prm_nwp_tend%ddt_tracer_turb(jc,jk,jb,iqi))
+          p_prog_rcf%tracer(jc,jk,jb,iqv) = MAX(p_prog_rcf%tracer(jc,jk,jb,iqv) &
+                 & + tcall_turb_jg * prm_nwp_tend%ddt_tracer_turb(jc,jk,jb,iqv), 0._wp)
+          p_prog_rcf%tracer(jc,jk,jb,iqc) = MAX(p_prog_rcf%tracer(jc,jk,jb,iqc) &
+                 & + tcall_turb_jg * prm_nwp_tend%ddt_tracer_turb(jc,jk,jb,iqc), 0._wp)
+          p_prog_rcf%tracer(jc,jk,jb,iqi) = MAX(p_prog_rcf%tracer(jc,jk,jb,iqi) &
+                 & + tcall_turb_jg * prm_nwp_tend%ddt_tracer_turb(jc,jk,jb,iqi), 0._wp)
 
-          prm_diag%tot_cld (jc,jk,jb,iqv) = p_prog_rcf%tracer(jc,jk,jb,iqv)
-          prm_diag%tot_cld (jc,jk,jb,iqc) = p_prog_rcf%tracer(jc,jk,jb,iqc)
-          prm_diag%tot_cld (jc,jk,jb,iqi) = p_prog_rcf%tracer(jc,jk,jb,iqi)
-          prm_diag%tot_cld (jc,jk,jb,icc) = MIN(MAX(0._wp,  prm_diag%tot_cld(jc,jk,jb,icc) &
-                            & + tcall_turb_jg *                          zae(jc,jk)), 1._wp)
+          prm_diag%tot_cld (jc,jk,jb,iqv) =        p_prog_rcf%tracer(jc,jk,jb,iqv)
+          prm_diag%tot_cld (jc,jk,jb,iqc) =        p_prog_rcf%tracer(jc,jk,jb,iqc)
+          prm_diag%tot_cld (jc,jk,jb,iqi) =        p_prog_rcf%tracer(jc,jk,jb,iqi)
+          prm_diag%tot_cld (jc,jk,jb,icc) = MIN(MAX(prm_diag%tot_cld(jc,jk,jb,icc) &
+                 & + tcall_turb_jg * zae(jc,jk), 0._wp), 1._wp)
         ENDDO
       ENDDO
- 
 
 ! Diagnostic output variables:  ???? TERRA-tiles or TESSEL-tiles???
 

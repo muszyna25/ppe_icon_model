@@ -863,12 +863,21 @@ DO JL=KIDIA,KFDIA
   ENDIF
 ENDDO
 
+! use sea ice fluxes from previous step for sea ice calculation in the surface interface
+DO JL=KIDIA,KFDIA
+  shfl_soil_t(jl,isub_seaice) = PAHFSTI(jl,2)
+  lhfl_soil_t(jl,isub_seaice) = ZAHFLTI(jl,2)
+  shfl_snow_t(jl,isub_seaice) = PAHFSTI(jl,2)   !snow over sea ice not used currently
+  lhfl_snow_t(jl,isub_seaice) = ZAHFLTI(jl,2)
+ENDDO
 
+!debug
 DO JL=KIDIA,KFDIA
  if ( PTSKM1M(JL) > 400.0 .or. PTSKM1M(JL) < 100.0 ) then
   write(*,*) 'vdfmain1: ', JL, JB, PTSKM1M(JL), PTM1(JL,KLEV), PTM1(JL,KLEV-1)
  endif
 ENDDO
+!xxxxx
 
 CALL SURFEXCDRIVER( &
   ! TERRA data
@@ -993,11 +1002,13 @@ DO JL=KIDIA,KFDIA
 ENDDO
 
 
+!debug
 DO JL=KIDIA,KFDIA
  if ( PTSKM1M(JL) > 400.0 .or. PTSKM1M(JL) < 100.0) then
   write(*,*) 'vdfmain2: ', PTSKM1M(JL), PTM1(JL,KLEV), PTM1(JL,KLEV-1)
  endif
 ENDDO
+!xxxxx
 
 
 !     ------------------------------------------------------------------
@@ -1278,13 +1289,15 @@ ZSOC(KIDIA:KFDIA,1:KLEV)=PSOBETA(KIDIA:KFDIA,1:KLEV)*ZHU1
 !              & ZTOFDC,PSOTEU,PSOTEV,ZSOC  , &
 !              & PVOM , PVOL , ZUCURR,ZVCURR, ZUDIF  , ZVDIF , ZTAUX, ZTAUY)
 
-DO JL=KIDIA,KFDIA
-  if (zuuh(jl,klev-1,1) > 100.0  .or. zvuh(jl,klev-1,1)   > 100.0 .or. &
-      zcfm(jl,klev)     > 1000.0 .or. zmflxm(jl,klev-1,1) > 1000.0  ) THEN
+!debug
+!DO JL=KIDIA,KFDIA
+!  if (zuuh(jl,klev-1,1) > 100.0  .or. zvuh(jl,klev-1,1)   > 100.0 .or. &
+!      zcfm(jl,klev)     > 1000.0 .or. zmflxm(jl,klev-1,1) > 1000.0  ) THEN
 !    write(*,*) 'vdfmain before vdfdifm', zuuh(jl,klev-1,1), zvuh(jl,klev-1,1), &
 !      zcfm(jl,klev), zmflxm(jl,klev-1,1)
-  endif
-ENDDO
+!  endif
+!ENDDO
+!xxxxx
 
 !...fully upstream M (phi_up - phi_bar) term
 CALL VDFDIFM (KIDIA, KFDIA, KLON , KLEV  , IDRAFT , ITOP  , &
@@ -1318,14 +1331,6 @@ CALL VDFDIFH (KIDIA  , KFDIA  , KLON   , KLEV   , IDRAFT , ITOP   , KTILES, &
             & ZDQSTI , PTSKTI , PTSKRAD, PTSAM1M(1,1)    , PTSNOW , t_ice , PSST, &
             & ZTSKTIP1,ZSLGE  , PTE    , ZQTE, &
             & PEVAPTI, PAHFSTI, ZAHFLTI, ZSTR   , ZG0)
-
-! store sea ice fluxes for sea ice calculation in the surface interface
-DO JL=KIDIA,KFDIA
-  shfl_soil_t(jl,isub_seaice) = PAHFSTI(jl,2)
-  lhfl_soil_t(jl,isub_seaice) = ZAHFLTI(jl,2)
-  shfl_snow_t(jl,isub_seaice) = PAHFSTI(jl,2)   !snow over sea ice not used currently
-  lhfl_snow_t(jl,isub_seaice) = ZAHFLTI(jl,2)
-ENDDO
 
 !DO JL=KIDIA,KFDIA
 !  IF ( (SUM(PAHFSTI(JL,:)) == 0.0) .or. (SUM(PEVAPTI(JL,:)) == 0.0) .or. &
@@ -1428,11 +1433,13 @@ CALL VDFFBLEND(KIDIA,KFDIA,KLON,KLEV, &
 !ENDDO
 !xxx
 
+!debug
 DO JL=KIDIA,KFDIA
  if ( PTSKM1M(JL) > 400.0 .or. PTSKM1M(JL) < 100.0  ) then
   write(*,*) 'vdfmain3: ', PTSKM1M(JL), PTM1(JL,KLEV), PTM1(JL,KLEV-1), PFRTI(JL,1)
  endif
 ENDDO
+!xxxxx
 
 CALL SURFPP( KIDIA=KIDIA,KFDIA=KFDIA,KLON=KLON,KTILES=KTILES, &
  & KDHVTLS=KDHVTLS,KDHFTLS=KDHFTLS, &
