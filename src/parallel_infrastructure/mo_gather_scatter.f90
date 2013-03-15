@@ -7,11 +7,11 @@ MODULE mo_gather_scatter
   !
   USE mo_kind,          ONLY: wp
 #ifndef NOMPI
-  USE mo_mpi,           ONLY: process_mpi_root_id, p_bcast, p_comm_work, &
-                              my_process_is_mpi_seq 
-  USE mo_model_domain,  ONLY: t_patch
   USE mo_communication, ONLY: idx_no, blk_no, exchange_data
 #endif
+  USE mo_model_domain,  ONLY: t_patch
+  USE mo_mpi,           ONLY: process_mpi_root_id, p_bcast, p_comm_work, &
+                              my_process_is_mpi_seq 
   !
   IMPLICIT NONE
   !
@@ -56,6 +56,7 @@ MODULE mo_gather_scatter
   !
   INTERFACE scatter_cells
     MODULE PROCEDURE scatter_cells_r2d
+    MODULE PROCEDURE scatter_REAL_CELLS_2D
     MODULE PROCEDURE scatter_cells_r3d
     MODULE PROCEDURE scatter_cells_i2d
     MODULE PROCEDURE scatter_cells_i3d
@@ -701,6 +702,21 @@ CONTAINS
   !================================================================================================
   ! REAL SECTION ----------------------------------------------------------------------------------
   !
+  SUBROUTINE scatter_REAL_CELLS_2D(in_array, out_array, p_patch)
+    REAL(wp), POINTER                   :: in_array(:)
+    REAL(wp), POINTER                   :: out_array(:,:)
+    TYPE(t_patch), INTENT(in)           :: p_patch
+
+    IF (my_process_is_mpi_seq()) THEN
+      CALL reorder(in_array, out_array)
+#ifndef NOMPI
+    ELSE
+      CALL scatter_array_r2d(in_array, out_array, p_patch%cells%glb_index)
+#endif
+    ENDIF
+  
+  END SUBROUTINE scatter_REAL_CELLS_2D
+  
   SUBROUTINE scatter_cells_r2d(in_array, out_array, p_patch)
     REAL(wp), POINTER                      :: in_array(:,:,:,:,:)
     REAL(wp), POINTER                      :: out_array(:,:)

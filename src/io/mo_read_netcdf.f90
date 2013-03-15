@@ -41,6 +41,8 @@ MODULE mo_read_netcdf
   USE mo_model_domain,       ONLY: t_patch
   USE mo_exception,          ONLY: message_text, message, warning, finish, em_warn
   USE mo_impl_constants,     ONLY: success, max_char_length
+  USE mo_parallel_config,    ONLY: nproma
+  USE mo_io_units,           ONLY: filename_max
 
 IMPLICIT NONE
 
@@ -53,37 +55,62 @@ IMPLICIT NONE
   PUBLIC :: read_netcdf_cells_2D
 
   INTERFACE read_netcdf_cells_2D
-    MODULE PROCEDURE read_netcdf_REAL_CELLS_2D
+    MODULE PROCEDURE read_netcdf_REAL_CELLS_2D_filename
+    MODULE PROCEDURE read_netcdf_REAL_CELLS_2D_fileid
   END INTERFACE
 
+  INTEGER, PARAMETER :: MAX_VAR_DIMS = NF_MAX_VAR_DIMS
 !-------------------------------------------------------------------------
 
 CONTAINS
 
   !-------------------------------------------------------------------------
   !>
-  INTEGER FUNCTION read_netcdf_REAL_CELLS_2D(filename, variable_name, fill_array, patch)
+  INTEGER FUNCTION read_netcdf_REAL_CELLS_2D_filename(filename, variable_name, fill_array, patch)
     CHARACTER(LEN=*), INTENT(IN) :: filename
     CHARACTER(LEN=*), INTENT(IN) :: variable_name
-    REAL(wp), POINTER :: fill_array(:,:)
-    TYPE(t_patch) :: patch
+    REAL(wp), POINTER            :: fill_array(:,:)
+    TYPE(t_patch)                :: patch
+
+    INTEGER :: ncid
+    INTEGER :: return_status    
+    CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_read_netcdf:read_netcdf_REAL_CELLS_2D_filename'
+
+    ncid = netcdf_open_input(filename)
+    read_netcdf_REAL_CELLS_2D_filename = &
+      & read_netcdf_REAL_CELLS_2D_fileid(ncid, variable_name, fill_array, patch)
+    return_status = netcdf_close(ncid)
+                              
+  END FUNCTION read_netcdf_REAL_CELLS_2D_filename
+  !-------------------------------------------------------------------------
+  
+  !-------------------------------------------------------------------------
+  !>
+  INTEGER FUNCTION read_netcdf_REAL_CELLS_2D_fileid(ncid, variable_name, fill_array, patch)
+    INTEGER, INTENT(IN)          :: ncid
+    CHARACTER(LEN=*), INTENT(IN) :: variable_name
+    REAL(wp), POINTER            :: fill_array(:,:)
+    TYPE(t_patch)                :: patch
 
     INTEGER :: total_number_of_cells
-    INTEGER :: ncid, varid, var_type, var_dims
-    INTEGER :: var_size(NF_MAX_VAR_DIMS)
+    INTEGER :: varid, var_type, var_dims
+    INTEGER :: var_size(MAX_VAR_DIMS)
     INTEGER :: return_status
     REAL(wp), POINTER :: tmp_array(:)
     
-    CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_read_netcdf:read_netcdf_REAL_CELLS_2D'
+    CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_read_netcdf:read_netcdf_REAL_CELLS_2D_fileid'
 
     total_number_of_cells = patch%n_patch_cells_g
     
     IF( my_process_is_mpi_workroot()  ) THEN
-      ncid = netcdf_open_input(filename)
       CALL nf(netcdf_inq_var(ncid, variable_name, varid, var_type, var_dims, var_size))
       
-      IF (var_dims /= 1 .OR. var_size(1) /= total_number_of_cells) &
-        & CALL finish(method_name, "Dimensions mismatch")
+      IF (var_dims /= 1 .OR. var_size(1) /= total_number_of_cells) THEN
+        write(0,*) "var_dims = ", var_dims, " var_size=", var_size, &
+          & " total_number_of_cells=", total_number_of_cells
+        CALL finish(method_name, "Dimensions mismatch")
+      ENDIF
+      
     ENDIF
     
     ALLOCATE( tmp_array(total_number_of_cells), stat=return_status )
@@ -93,14 +120,20 @@ CONTAINS
     
     IF( my_process_is_mpi_workroot()) THEN
       CALL nf(nf_get_var_double(ncid, varid, tmp_array(:)))
-      CALL nf(netcdf_close(ncid))
+    ENDIF
+
+    IF (.NOT. ASSOCIATED(fill_array)) THEN
+      ALLOCATE( fill_array(nproma, patch%nblks_c), stat=return_status )
+      IF (return_status /= success) THEN
+        CALL finish (method_name, 'ALLOCATE( fill_array )')
+      ENDIF
     ENDIF
     
     CALL scatter_cells(tmp_array, fill_array, patch)
     
     DEALLOCATE(tmp_array)    
                               
-  END FUNCTION read_netcdf_REAL_CELLS_2D
+  END FUNCTION read_netcdf_REAL_CELLS_2D_fileid
   !-------------------------------------------------------------------------
   
   !-------------------------------------------------------------------------
@@ -142,21 +175,28 @@ CONTAINS
     CHARACTER(LEN=*), INTENT(IN) :: name
     
     INTEGER, INTENT(OUT) :: varid, var_type, var_dims
-    INTEGER, INTENT(OUT) :: var_size(NF_MAX_VAR_DIMS)
+    INTEGER, INTENT(OUT) :: var_size(MAX_VAR_DIMS)
 
-    INTEGER :: number_of_attributes  
-    CHARACTER, POINTER :: NULL_CHAR_POINTER
-    INTEGER :: res
+    INTEGER  :: number_of_attributes  
+    INTEGER :: var_dims_reference(MAX_VAR_DIMS)
+    CHARACTER(LEN=filename_max) :: check_var_name
+    INTEGER :: i, return_status
 
     netcdf_inq_var = -1
     IF ( .NOT. my_process_is_mpi_workroot() ) RETURN
 
-    NULLIFY(NULL_CHAR_POINTER)
 
     netcdf_inq_var = nf_inq_varid(ncid, name, varid)
     CALL nf(netcdf_inq_var)
-    netcdf_inq_var = nf_inq_var (ncid, varid, NULL_CHAR_POINTER, var_type, var_dims, var_size, number_of_attributes)
-    
+    netcdf_inq_var = nf_inq_var (ncid, varid, check_var_name, var_type, var_dims, &
+      & var_dims_reference, number_of_attributes)
+    DO i=1, var_dims
+!       return_status = nf_inq_dimlen(ncid, var_dims_reference(i), var_size(i))
+      CALL nf(nf_inq_dimlen(ncid, var_dims_reference(i), var_size(i)))
+    ENDDO
+!     write(0,*) " Read var_dims, var_size:",  var_dims, var_size
+!     write(0,*) " check_var_name:",  check_var_name
+!     write(0,*) " name:", name    
     CALL nf(netcdf_inq_var)
 
   END FUNCTION netcdf_inq_var
