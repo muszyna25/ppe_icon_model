@@ -321,7 +321,12 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
          DO ic=1, ext_data%atm%lp_count(jb)
            jc = ext_data%atm%idx_lst_lp(ic,jb)
            p_prog_lnd_now%t_g(jc,jb) = p_diag_lnd%t_skin(jc,jb)
-           p_diag_lnd%qv_s    (jc,jb)    = 0.001_wp
+           !p_diag_lnd%qv_s    (jc,jb)    = 0.001_wp
+           !DR not clear to me, whether this is OK, or whether we can do better
+           p_diag_lnd%qv_s(jc,jb) = &
+             &  spec_humi(sat_pres_water(p_prog_lnd_now%t_g (jc,jb)),p_diag%pres_sfc(jc,jb))  
+           p_diag_lnd%qv_s(jc,jb) = MIN (p_diag_lnd%qv_s(jc,jb), &
+             &                    p_prog%tracer(jc,nlev,jb,iqv)) 
          END DO
 
          DO jc = i_startidx, i_endidx

@@ -587,7 +587,7 @@ CONTAINS
 
           i_count = ext_data%atm%gp_count_t(jb,isubs)
           i_count_snow = ext_data%atm%gp_count_t(jb,isubs_snow)
-
+!CDIR NODEP,VOVERTAKE,VOB
           DO ic = 1, i_count_snow
             jc = ext_data%atm%idx_lst_t(ic,jb,isubs_snow)
 
