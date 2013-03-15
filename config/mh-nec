@@ -74,6 +74,7 @@ INLINE   = $INLINE -pi expin=../../../src/atm_phy_edmf/mo_edmf_param.f90
 INLINE   = $INLINE -pi expin=../../../src/atm_phy_edmf/mo_vdfthermo.f90
 INLINE   = $INLINE -pi expin=../../../src/atm_phy_edmf/mo_vdfpdftable.f90
 INLINE   = $INLINE -pi expin=../../../src/atm_phy_edmf/mo_vdfsat.f90
+INLINE   = $INLINE -pi expin=../../../src/atm_phy_nwp/mo_util_phys.f90
 INLINE   = $INLINE -pi rexp=tracer_q1_q2,tracer_q3,disp_new,dxg,regrot,turnwi
 INLINE   = $INLINE -pi rexp=init_pure_adv_wind,init_pure_adv_tracers
 INLINE   = $INLINE -pi rexp=global_sum_array2,laxfr_upflux
@@ -84,6 +85,7 @@ INLINE   = $INLINE -pi rexp=idx_no,blk_no,idx_1d
 INLINE   = $INLINE -pi rexp=foealfa,vdfthermo,psimu,phihs,phims,psihu,psihs,vdfpdftable,psims,foeew,foedesu,vdfsat
 INLINE   = $INLINE -pi rexp=qsat_rho,sat_pres_water
 INLINE   = $INLINE -pi rexp=p_wait
+INLINE   = $INLINE -pi rexp=nwp_dyn_gust1
 
 # standard flags for C compiler
 CFLAGS  = -Chopt -DHAVE_LIBNETCDF -DHAVE_CF_INTERFACE -DHAVE_LIBGRIB -DHAVE_LIBGRIB_API -I/usr/local/pkg-sx9/grib_api/prerelease-1.9.18-1/include
