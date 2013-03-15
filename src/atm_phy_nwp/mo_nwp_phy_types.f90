@@ -107,8 +107,11 @@ MODULE mo_nwp_phy_types
     TYPE(t_ptr_2d3d),ALLOCATABLE :: tfv_t_ptr(:) !< pointer array: laminar reduction factor for evaporation
     TYPE(t_ptr_2d3d),ALLOCATABLE :: gz0_t_ptr(:) !< pointer array: roughness length * gravity
 
-    TYPE(t_ptr_2d3d),ALLOCATABLE :: u_10m_t_ptr(:) !< pointer array: zonal wind at 10m
-    TYPE(t_ptr_2d3d),ALLOCATABLE :: v_10m_t_ptr(:) !< pointer array: meridional wind at 10m
+    TYPE(t_ptr_2d3d),ALLOCATABLE :: tvs_s_t_ptr(:)  !< pointer array: turbulent velocity scale at surface
+    TYPE(t_ptr_2d3d),ALLOCATABLE :: tkvm_s_t_ptr(:) !< pointer array: exchange coefficient for momentum at surface
+    TYPE(t_ptr_2d3d),ALLOCATABLE :: tkvh_s_t_ptr(:) !< pointer array: exchange coefficient for heat at surface
+    TYPE(t_ptr_2d3d),ALLOCATABLE :: u_10m_t_ptr(:)  !< pointer array: zonal wind at 10m
+    TYPE(t_ptr_2d3d),ALLOCATABLE :: v_10m_t_ptr(:)  !< pointer array: meridional wind at 10m
     TYPE(t_ptr_2d3d),ALLOCATABLE :: shfl_s_t_ptr(:) !< pointer array: surface sensible heat flux 
     TYPE(t_ptr_2d3d),ALLOCATABLE :: lhfl_s_t_ptr(:) !< pointer array: surface latent heat flux
     TYPE(t_ptr_2d3d),ALLOCATABLE :: qhfl_s_t_ptr(:) !< pointer array: surface moisture flux

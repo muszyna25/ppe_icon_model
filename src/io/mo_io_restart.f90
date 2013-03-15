@@ -1171,14 +1171,13 @@ CONTAINS
       !
       ! retrieve information from actual linked list element
       !
-      info => element%field%info 
-      IF (my_process_is_mpi_workroot()) THEN
-        write (0,*)'Var:',info%name
-      ENDIF
+      info => element%field%info
+
       !
       ! skip this field ?
       !
       IF (.NOT. info%lrestart) CYCLE
+
       !
       ! skip this field because of wrong time index ?
       !
@@ -1273,6 +1272,7 @@ CONTAINS
       ! write data
       !
       IF (my_process_is_mpi_workroot()) THEN
+        write (0,*)' ... write ',info%name
         CALL write_var (this_list, info, r5d)
       END IF
       !

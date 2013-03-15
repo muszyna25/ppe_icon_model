@@ -66,6 +66,7 @@ MODULE mo_nwp_turbtrans_interface
   USE src_turbdiff,            ONLY: turbtran
   USE mo_satad,                ONLY: sat_pres_water, spec_humi  
   USE mo_gme_turbdiff,         ONLY: parturs, nearsfc
+  USE mo_util_phys,            ONLY: nwp_dyn_gust, nwp_dyn_gust1
   USE mo_run_config,           ONLY: ltestcase
   USE mo_nh_testcases,         ONLY: nh_test_name
   USE mo_lnd_nwp_config,       ONLY: ntiles_total, ntiles_water, isub_water, &
@@ -78,8 +79,6 @@ MODULE mo_nwp_turbtrans_interface
   PUBLIC  ::  nwp_turbtrans
 
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
-
-  REAL(KIND=wp), PARAMETER :: gust_factor = 3.0_wp * 2.4_wp
 
 CONTAINS
   !!
@@ -151,10 +150,6 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
   REAL(wp) :: tvs_t(nproma,3,1,ntiles_total+ntiles_water)
 
   INTEGER, POINTER :: ilist(:)  ! pointer to tile index list
-
-  REAL(KIND=wp), PARAMETER :: area_min_gusts = 0.05_wp  ! minimum area fraction of tile to calculate
-                                                        ! dynamic gust for the tile, i.e. do not calculate
-                                                        ! max. gusts for tiny fractions of a grid box
 
 !--------------------------------------------------------------
 
@@ -381,6 +376,8 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
 
           ! Copy input fields to the local re-indexed variables
           ! It remains to be determined which of the model levels are actually needed for non-init calls
+          !
+          !MR: Hauptflaechengroessen nur fuer level nlev
           DO ic = 1, i_count
             jc = ilist(ic)
             gz0_t(ic,jt)       = prm_diag%gz0_t(jc,jb,jt)
@@ -389,30 +386,22 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
             sai_t(ic,jt)       = ext_data%atm%sai_t(jc,jb,jt)
             z_ifc_t(ic,1:3,jt) = p_metrics%z_ifc(jc,nlev-1:nlevp1,jb)
             pres_sfc_t(ic,jt)  = p_diag%pres_sfc(jc,jb)
-!MR: Hauptflaechengroessen nur fuer level nlev
             u_t(ic,1:2,jt)     = p_diag%u(jc,nlev-1:nlev,jb)
             v_t(ic,1:2,jt)     = p_diag%v(jc,nlev-1:nlev,jb)
             temp_t(ic,1:2,jt)  = p_diag%temp(jc,nlev-1:nlev,jb)
             pres_t(ic,1:2,jt)  = p_diag%pres(jc,nlev-1:nlev,jb)
             qv_t(ic,1:2,jt)    = p_prog_rcf%tracer(jc,nlev-1:nlev,jb,iqv)
             qc_t(ic,1:2,jt)    = p_prog_rcf%tracer(jc,nlev-1:nlev,jb,iqc)
-!MR: tkvm, tkvh: benoetigt fuer nlev, nlev+1 als Nebenflaechengroessen (done), 
-!MR: fuer nlev+1 sogar tile-spezifisch
-!MR: tke: ausserhalb der Initialisierung nur fuer ke1 noetig, dort aber tilespezifisch
-            tvs_t(ic,1:3,1,jt) = z_tvs(jc,nlev-1:nlevp1,1)
-            tkvm_t(ic,1:2,jt)  = prm_diag%tkvm(jc,nlev:nlevp1,jb)
-            tkvh_t(ic,1:2,jt)  = prm_diag%tkvh(jc,nlev:nlevp1,jb)
+!!$            tvs_t(ic,1:3,1,jt) = z_tvs(jc,nlev-1:nlevp1,1)
+!!$            tkvm_t(ic,1:2,jt)  = prm_diag%tkvm(jc,nlev:nlevp1,jb)
+!!$            tkvh_t(ic,1:2,jt)  = prm_diag%tkvh(jc,nlev:nlevp1,jb)
 
-!DR: to be re-checked before it can be activated
-!!$            tvs_t(ic,1:2,1,jt) = z_tvs(jc,nlev-1:nlev,1)
-!!$            tvs_t(ic,3,1,jt)   = prm_diag%tvs_s_t(jc,jb,jt)      ! tile-specific for lowest level   
-!!$                                 ! z_tvs(jc,nlevp1,1) 
-!!$            tkvm_t(ic,1,jt)    = prm_diag%tkvm(jc,nlev,jb)
-!!$            tkvm_t(ic,2,jt)    = prm_diag%tkvm_s_t(jc,jb,jt)     ! tile-specific for lowest level       
-!!$                                 ! prm_diag%tkvm(jc,nlevp1,jb)
-!!$            tkvh_t(ic,1,jt)    = prm_diag%tkvh(jc,nlev,jb)
-!!$            tkvh_t(ic,2,jt)    = prm_diag%tkvh_s_t(jc,jb,jt)     ! tile-specific for lowest level        
-!!$                                 ! prm_diag%tkvh(jc,nlevp1,jb)
+            tvs_t(ic,1:2,1,jt) = z_tvs(jc,nlev-1:nlev,1)
+            tvs_t(ic,3,1,jt)   = prm_diag%tvs_s_t(jc,jb,jt)      ! tile-specific for lowest level   
+            tkvm_t(ic,1,jt)    = prm_diag%tkvm(jc,nlev,jb)
+            tkvm_t(ic,2,jt)    = prm_diag%tkvm_s_t(jc,jb,jt)     ! tile-specific for lowest level       
+            tkvh_t(ic,1,jt)    = prm_diag%tkvh(jc,nlev,jb)
+            tkvh_t(ic,2,jt)    = prm_diag%tkvh_s_t(jc,jb,jt)     ! tile-specific for lowest level        
 
 !MR: rcld: benoetigt nur fuer level nlev (als Nebenflaechenvariable)
             rcld_t(ic,1:3,jt)  = prm_diag%rcld(jc,nlev-1:nlevp1,jb)
@@ -529,14 +518,13 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
             prm_diag%tkvm_s_t(jc,jb,jt) = tkvm_t(ic,2,jt) ! needed as input for turbtran
             prm_diag%tkvh_s_t(jc,jb,jt) = tkvh_t(ic,2,jt) ! needed as input for turbtran
 
-!           calculate dynamic gusts only for area fractions > area_min_gusts
-            IF ( area_frac > area_min_gusts) &
-          &   prm_diag%dyn_gust(jc,jb) = MAX( nwp_dyn_gust1(prm_diag%u_10m_t(jc,jb,jt),   &
-          &                                                 prm_diag%v_10m_t(jc,jb,jt),   &
-          &                                                 prm_diag%tcm_t  (jc,jb,jt),   &
-          &                                                 p_diag%u      (jc,nlev,jb),   &
-          &                                                 p_diag%v      (jc,nlev,jb)),  &
-          &                                   prm_diag%dyn_gust(jc,jb) )
+            ! maximum gust
+            prm_diag%dyn_gust(jc,jb) = MAX( nwp_dyn_gust1(prm_diag%u_10m_t(jc,jb,jt),   &
+              &                                           prm_diag%v_10m_t(jc,jb,jt),   &
+              &                                           prm_diag%tcm_t  (jc,jb,jt),   &
+              &                                           p_diag%u      (jc,nlev,jb),   &
+              &                                           p_diag%v      (jc,nlev,jb)),  &
+              &                              prm_diag%dyn_gust(jc,jb) )
 
           ENDDO
 
@@ -625,53 +613,5 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
 !$OMP END PARALLEL
 
 END SUBROUTINE nwp_turbtrans
-
-  !-------------------------------------------------------------------------
-  !!
-  !! Calculate dynamic gusts as in near_surface of COSMO code
-  !!     gust = ff10m + gust_factor * ustar
-  !! where ff10m is the 10 m wind and the friction velocity ustar = SQRT(tcm)*ff1
-  !!
-  !! @par Revision History
-  !! Developed by Helmut Frank, DWD (2013-03-13)
-  !!
-
-  FUNCTION nwp_dyn_gust( u_10m, v_10m, tcm, u1, v1) RESULT( vgust_dyn)
-
-    REAL(KIND=wp), INTENT(IN) :: u_10m(:), &    ! zonal wind component at 10 m above ground [m/s]
-      &                          v_10m(:), &    ! meridional wind component at 10 m above ground [m/s]
-      &                          tcm(:)  , &    ! transfer coefficient for momentum at surface
-      &                          u1(:)   , &    ! zonal wind at lowest model layer above ground [m/s]
-      &                          v1(:)          ! meridional wind at lowest model layer above ground [m/s]
-    REAL(KIND=wp) :: vgust_dyn(SIZE(u_10m))     ! dynamic gust at 10 m above ground [m/s]
-
-    REAL(KIND=wp) :: ff10m(SIZE(u_10m)),  &
-                     ustar(SIZE(u_10m))
-!   REAL(KIND=wp), PARAMETER :: gust_factor = 3.0_wp * 2.4_wp
-
-    ff10m(:) = SQRT( u_10m(:)**2 + v_10m(:)**2)
-    ustar(:) = SQRT( MAX( tcm(:), 5.e-4_wp) * ( u1(:)**2 + v1(:)**2) )
-    vgust_dyn(:) = ff10m(:) + gust_factor*ustar(:)
-
-  END FUNCTION nwp_dyn_gust
-
-
-  FUNCTION nwp_dyn_gust1( u_10m, v_10m, tcm, u1, v1) RESULT( vgust_dyn)
-
-    REAL(KIND=wp), INTENT(IN) :: u_10m, &    ! zonal wind component at 10 m above ground [m/s]
-      &                          v_10m, &    ! meridional wind component at 10 m above ground [m/s]
-      &                          tcm  , &    ! transfer coefficient for momentum at surface
-      &                          u1   , &    ! zonal wind at lowest model layer above ground [m/s]
-      &                          v1          ! meridional wind at lowest model layer above ground [m/s]
-    REAL(KIND=wp) :: vgust_dyn               ! dynamic gust at 10 m above ground [m/s]
-
-    REAL(KIND=wp) :: ff10m, ustar
-!   REAL(KIND=wp), PARAMETER :: gust_factor = 3.0_wp * 2.4_wp
-
-    ff10m = SQRT( u_10m**2 + v_10m**2)
-    ustar = SQRT( MAX( tcm, 5.e-4_wp) * ( u1**2 + v1**2) )
-    vgust_dyn = ff10m + gust_factor*ustar
-
-  END FUNCTION nwp_dyn_gust1
 
 END MODULE mo_nwp_turbtrans_interface

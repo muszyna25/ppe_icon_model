@@ -1521,6 +1521,20 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
           & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape3dsubsw, &
           & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
 
+        ! fill the separate variables belonging to the container tvs_s_t
+        ALLOCATE(diag%tvs_s_t_ptr(ntiles_total+ntiles_water))
+        DO jsfc = 1,ntiles_total+ntiles_water
+          WRITE(csfc,'(i1)') jsfc
+          CALL add_ref( diag_list, 'tvs_s_t',                                &
+             & 'tvs_s_t_'//TRIM(ADJUSTL(csfc)),                              &
+             & diag%tvs_s_t_ptr(jsfc)%p_2d,                                  &
+             & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                           &
+             & t_cf_var('tvs_s_t_'//TRIM(csfc), '', '', DATATYPE_FLT32),     &
+             & t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL), &
+             & ldims=shape2d, lrestart=.TRUE., loutput=.FALSE.)
+        ENDDO
+
+
 
         ! &      diag%tkvm_s_t(nproma,nblks_c,ntiles_total+ntiles_water)
         cf_desc    = t_cf_var('tkvm_s_t', 'm s-2 ',                                       &
@@ -1531,6 +1545,19 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
           & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape3dsubsw, &
           & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
 
+        ! fill the separate variables belonging to the container tkvm_s_t
+        ALLOCATE(diag%tkvm_s_t_ptr(ntiles_total+ntiles_water))
+        DO jsfc = 1,ntiles_total+ntiles_water
+          WRITE(csfc,'(i1)') jsfc
+          CALL add_ref( diag_list, 'tkvm_s_t',                                &
+             & 'tkvm_s_t_'//TRIM(ADJUSTL(csfc)),                              &
+             & diag%tkvm_s_t_ptr(jsfc)%p_2d,                                  &
+             & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                            &
+             & t_cf_var('tkvm_s_t_'//TRIM(csfc), '', '', DATATYPE_FLT32),     &
+             & t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),  &
+             & ldims=shape2d, lrestart=.TRUE., loutput=.FALSE.)
+        ENDDO
+
 
         ! &      diag%tkvh_s_t(nproma,nblks_c,ntiles_total+ntiles_water)
         cf_desc    = t_cf_var('tkvh_s_t', 'm s-2 ',                                      &
@@ -1540,6 +1567,19 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
         CALL add_var( diag_list, 'tkvh_s_t', diag%tkvh_s_t,                              &
           & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape3dsubsw, &
           & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
+
+        ! fill the separate variables belonging to the container tkvm_s_t
+        ALLOCATE(diag%tkvh_s_t_ptr(ntiles_total+ntiles_water))
+        DO jsfc = 1,ntiles_total+ntiles_water
+          WRITE(csfc,'(i1)') jsfc
+          CALL add_ref( diag_list, 'tkvh_s_t',                                &
+             & 'tkvh_s_t_'//TRIM(ADJUSTL(csfc)),                              &
+             & diag%tkvh_s_t_ptr(jsfc)%p_2d,                                  &
+             & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                            &
+             & t_cf_var('tkvh_s_t_'//TRIM(csfc), '', '', DATATYPE_FLT32),     &
+             & t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),  &
+             & ldims=shape2d, lrestart=.TRUE., loutput=.FALSE.)
+        ENDDO
 
 
         ! &      diag%u_10m_t(nproma,nblks_c,ntiles_total+ntiles_water)
