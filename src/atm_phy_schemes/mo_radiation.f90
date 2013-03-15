@@ -661,8 +661,8 @@ CONTAINS
     !
     ! --- cloud cover
     !
-    cld_frc_sec(1:jce,:) = MAX(cld_frc(1:jce,:),0.0_wp)
-    !
+    cld_frc_sec(1:jce,:) = MIN(MAX(cld_frc(1:jce,:),0.0_wp),1.0_wp)
+     
     cld_cvr(1:jce) = 1.0_wp - cld_frc_sec(1:jce,1)
     DO jk = 2, klev
       cld_cvr(1:jce) = cld_cvr(1:jce)                                                &
