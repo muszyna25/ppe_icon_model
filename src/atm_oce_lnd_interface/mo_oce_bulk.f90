@@ -59,7 +59,7 @@ USE mo_mpi,                 ONLY: my_process_is_stdio, p_io, p_bcast, &
   &                               p_comm_work_test, p_comm_work
 USE mo_parallel_config,     ONLY: p_test_run
 !USE mo_util_string,         ONLY: t_keyword_list
-USE mo_util_netcdf,         ONLY: read_netcdf_data
+USE mo_netcdf_read,         ONLY: read_netcdf_data
 USE mo_datetime,            ONLY: t_datetime
 USE mo_time_config,         ONLY: time_config
 USE mo_ext_data_types,      ONLY: t_external_data

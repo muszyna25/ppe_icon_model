@@ -72,7 +72,7 @@ USE mo_exception,          ONLY: finish, message, message_text
 USE mo_util_dbg_prnt,      ONLY: dbg_print, c_i, c_b
 USE mo_model_domain,       ONLY: t_patch, t_patch_3D
 USE mo_ext_data_types,     ONLY: t_external_data
-USE mo_util_netcdf,        ONLY: read_netcdf_data
+USE mo_netcdf_read,        ONLY: read_netcdf_data
 USE mo_sea_ice_types,      ONLY: t_sfc_flx
 USE mo_oce_state,          ONLY: t_hydro_ocean_state!, v_base
 USE mo_scalar_product,     ONLY: map_edges2cell_3D, calc_scalar_product_veloc_3D

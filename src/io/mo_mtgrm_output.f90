@@ -156,7 +156,7 @@ MODULE mo_meteogram_output
     &                                 cpd, p0ref, rd
   USE mo_satad,                 ONLY: sat_pres_water
   USE mo_util_string,           ONLY: int2string
-  USE mo_util_netcdf,           ONLY: nf
+  USE mo_netcdf_read,           ONLY: nf
   ! TODO[FP] : When using an already built GNAT, not all of the
   ! following USEs will be necessary:
   USE mo_gnat_gridsearch,       ONLY: gnat_init_grid, gnat_destroy, gnat_tree,&

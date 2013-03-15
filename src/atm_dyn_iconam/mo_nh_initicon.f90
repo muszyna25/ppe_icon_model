@@ -69,11 +69,11 @@ MODULE mo_nh_initicon
   USE mo_exception,           ONLY: message, finish, message_text
   USE mo_grid_config,         ONLY: n_dom, nroot
   USE mo_mpi,                 ONLY: p_pe, p_io, p_bcast, p_comm_work_test, p_comm_work
-  USE mo_util_netcdf,         ONLY: read_netcdf_data, read_netcdf_data_single, nf
+  USE mo_netcdf_read,         ONLY: read_netcdf_data, read_netcdf_data_single, nf
   USE mo_util_grib,           ONLY: read_grib_2d, read_grib_3d, get_varID
-  USE mo_io_config,           ONLY: lkeep_in_sync
-  USE mo_io_util,             ONLY: gather_array1, gather_array2, outvar_desc,    &
-    &                               GATHER_C, GATHER_E, GATHER_V, num_output_vars
+!  USE mo_io_config,           ONLY: lkeep_in_sync
+!  USE mo_io_util,             ONLY: gather_array1, gather_array2, outvar_desc,    &
+!    &                               GATHER_C, GATHER_E, GATHER_V, num_output_vars
   USE mo_nh_init_utils,       ONLY: hydro_adjust, convert_thdvars, interp_uv_2_vn, init_w
   USE mo_util_phys,           ONLY: virtual_temp
   USE mo_util_string,         ONLY: tolower

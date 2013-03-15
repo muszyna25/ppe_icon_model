@@ -7,7 +7,7 @@ MODULE mo_remap_io
   USE mo_impl_constants,     ONLY: MAX_CHAR_LENGTH
   USE mo_exception,          ONLY: finish
   USE mo_util_string,        ONLY: tolower
-  USE mo_util_netcdf,        ONLY: nf
+  USE mo_netcdf_read,        ONLY: nf
 #else
   USE mo_utilities,     ONLY: wp, nnml, POSITIONED, tolower, nf, position_nml, &
     &                         open_nml, close_nml, finish

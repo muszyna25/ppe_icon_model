@@ -17,9 +17,8 @@ MODULE mo_remap_grid_icon
   USE mo_math_constants,     ONLY: pi, pi_180
   USE mo_math_utilities,     ONLY: t_cartesian_coordinates, gvec2cvec, &
     &                        t_geographical_coordinates
-  USE mo_model_domain,       ONLY: t_tangent_vectors
-  USE mo_util_netcdf,        ONLY: nf
-  USE mo_model_domain,       ONLY: t_patch
+  USE mo_model_domain,       ONLY: t_patch, t_tangent_vectors
+  USE mo_netcdf_read,        ONLY: nf
 #else
   USE mo_utilities,    ONLY: wp, nproma, SUCCESS, t_patch,    &
     &                        finish, idx_no, blk_no, pi_180,  &
