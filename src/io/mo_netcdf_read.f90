@@ -101,6 +101,13 @@ CONTAINS
     
     CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_netcdf_read:netcdf_read_REAL_CELLS_2D_fileid'
 
+
+    ! LEONIDAS, CAN YOU PLEASE HAVE A LOOK
+
+    ! trivial return value.
+    netcdf_read_REAL_CELLS_2D_fileid = 0
+
+
     total_number_of_cells = patch%n_patch_cells_g
     
     IF( my_process_is_mpi_workroot()  ) THEN
@@ -131,7 +138,7 @@ CONTAINS
     ENDIF
     
     CALL scatter_cells(tmp_array, fill_array, patch)
-    
+
     DEALLOCATE(tmp_array)    
                               
   END FUNCTION netcdf_read_REAL_CELLS_2D_fileid
