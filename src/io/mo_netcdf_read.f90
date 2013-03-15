@@ -33,7 +33,7 @@
 !! software.
 !!
 !!
-MODULE mo_read_netcdf
+MODULE mo_netcdf_read
 
   USE mo_kind
   USE mo_mpi
@@ -52,11 +52,12 @@ IMPLICIT NONE
 
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
-  PUBLIC :: read_netcdf_cells_2D
+  PUBLIC :: netcdf_open_input, netcdf_close
+  PUBLIC :: netcdf_read_cells_2D
 
-  INTERFACE read_netcdf_cells_2D
-    MODULE PROCEDURE read_netcdf_REAL_CELLS_2D_filename
-    MODULE PROCEDURE read_netcdf_REAL_CELLS_2D_fileid
+  INTERFACE netcdf_read_cells_2D
+    MODULE PROCEDURE netcdf_read_REAL_CELLS_2D_filename
+    MODULE PROCEDURE netcdf_read_REAL_CELLS_2D_fileid
   END INTERFACE
 
   INTEGER, PARAMETER :: MAX_VAR_DIMS = NF_MAX_VAR_DIMS
@@ -66,7 +67,7 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   !>
-  INTEGER FUNCTION read_netcdf_REAL_CELLS_2D_filename(filename, variable_name, fill_array, patch)
+  INTEGER FUNCTION netcdf_read_REAL_CELLS_2D_filename(filename, variable_name, fill_array, patch)
     CHARACTER(LEN=*), INTENT(IN) :: filename
     CHARACTER(LEN=*), INTENT(IN) :: variable_name
     REAL(wp), POINTER            :: fill_array(:,:)
@@ -74,19 +75,19 @@ CONTAINS
 
     INTEGER :: ncid
     INTEGER :: return_status    
-    CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_read_netcdf:read_netcdf_REAL_CELLS_2D_filename'
+    CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_netcdf_read:netcdf_read_REAL_CELLS_2D_filename'
 
     ncid = netcdf_open_input(filename)
-    read_netcdf_REAL_CELLS_2D_filename = &
-      & read_netcdf_REAL_CELLS_2D_fileid(ncid, variable_name, fill_array, patch)
+    netcdf_read_REAL_CELLS_2D_filename = &
+      & netcdf_read_REAL_CELLS_2D_fileid(ncid, variable_name, fill_array, patch)
     return_status = netcdf_close(ncid)
                               
-  END FUNCTION read_netcdf_REAL_CELLS_2D_filename
+  END FUNCTION netcdf_read_REAL_CELLS_2D_filename
   !-------------------------------------------------------------------------
   
   !-------------------------------------------------------------------------
   !>
-  INTEGER FUNCTION read_netcdf_REAL_CELLS_2D_fileid(ncid, variable_name, fill_array, patch)
+  INTEGER FUNCTION netcdf_read_REAL_CELLS_2D_fileid(ncid, variable_name, fill_array, patch)
     INTEGER, INTENT(IN)          :: ncid
     CHARACTER(LEN=*), INTENT(IN) :: variable_name
     REAL(wp), POINTER            :: fill_array(:,:)
@@ -98,7 +99,7 @@ CONTAINS
     INTEGER :: return_status
     REAL(wp), POINTER :: tmp_array(:)
     
-    CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_read_netcdf:read_netcdf_REAL_CELLS_2D_fileid'
+    CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_netcdf_read:netcdf_read_REAL_CELLS_2D_fileid'
 
     total_number_of_cells = patch%n_patch_cells_g
     
@@ -133,7 +134,7 @@ CONTAINS
     
     DEALLOCATE(tmp_array)    
                               
-  END FUNCTION read_netcdf_REAL_CELLS_2D_fileid
+  END FUNCTION netcdf_read_REAL_CELLS_2D_fileid
   !-------------------------------------------------------------------------
   
   !-------------------------------------------------------------------------
@@ -219,14 +220,14 @@ CONTAINS
     IF (lsilent) RETURN
     IF (STATUS /= nf_noerr) THEN
       IF (lwarnonly) THEN
-        CALL message('mo_read_netcdf error', nf_strerror(STATUS), &
+        CALL message('mo_netcdf_read error', nf_strerror(STATUS), &
           & level=em_warn)
       ELSE
-        CALL finish('mo_read_netcdf', nf_strerror(STATUS))
+        CALL finish('mo_netcdf_read', nf_strerror(STATUS))
       ENDIF
     ENDIF
     
   END SUBROUTINE nf
   !-------------------------------------------------------------------------
 
-END MODULE mo_read_netcdf
+END MODULE mo_netcdf_read
