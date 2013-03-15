@@ -25,11 +25,7 @@ echo "PREPICON_SST_ICE.SMS"
 SCRIPTDIR=%SCPERM%/icon-dev/scripts
 SSTICEDIR=%SCPERMIII%/icon_input/sstice/%YYYY%
 
-
-
 export SSTICEDIR
-
-
 
 # grid directory
 GRIDDIR=%SCPERM%/icon_input/grids
@@ -43,8 +39,10 @@ cd ${SSTICEDIR}
 
 # Important: ==================================
 # export the DWD GRIB short names:
+dwd_grib_api=/home/ms/de/dwd/grib_api
 # export GRIB_DEFINITION_PATH="%SCSOFT%/software/grib_api/release/share-1.9.9/definitions.edzw:/usr/local/lib/metaps/lib/grib_api/1.9.9/share/definitions"
-export GRIB_DEFINITION_PATH="%SCSOFT%/software/grib_api/release/share-1.9.9/definitions.edzw:/usr/local/lib/metaps/lib/grib_api/current/share/definitions"
+#export GRIB_DEFINITION_PATH="%SCSOFT%/software/grib_api/release/share-1.9.9/definitions.edzw:/usr/local/lib/metaps/lib/grib_api/current/share/definitions"
+export GRIB_DEFINITION_PATH="/usr/local/lib/metaps/lib/grib_api/1.10.4/share/definitions:${dwd_grib_api}/definitions.edzw-1.9.16"
 # =============================================
 
 ICON_GRIDFILE="icon%RES%_DOM01.nc"
