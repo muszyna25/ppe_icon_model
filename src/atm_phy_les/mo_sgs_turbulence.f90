@@ -292,8 +292,14 @@ MODULE mo_sgs_turbulence
     ! RBF reconstruction of tangential wind at level interface
     ! p_nh_diag%vn_ie is used that is computed in mo_solve_nonhydro
     ! therefore, sgs_turbulence better be called after that!
-    CALL sync_patch_array(SYNC_E, p_patch, p_nh_diag%vn_ie)
-    CALL rbf_vec_interpol_edge(p_nh_diag%vn_ie, p_patch, p_int, vt_ie, opt_rlend=min_rledge_int-1)
+   
+    !temporary store vn_ie in vt_ie and then do the syncing and interpolation
+
+!$OMP PARALLEL WORKSHARE
+    vt_ie(:,:,:) = p_nh_diag%vn_ie(:,:,:)
+!$OMP END PARALLEL WORKSHARE
+    CALL sync_patch_array(SYNC_E, p_patch, vt_ie)
+    CALL rbf_vec_interpol_edge(vt_ie, p_patch, p_int, vt_ie, opt_rlend=min_rledge_int-1)
 
     !--------------------------------------------------------------------------
     !2) Compute horizontal strain rate tensor at full levels

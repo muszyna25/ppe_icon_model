@@ -43,11 +43,11 @@ dt_restart=`expr ${ndays_restart} \* 86400`
 #
 #-----------------------------------------------------------------------------
 # model timing
-dtime=0.05
-dt_diag=`expr 1 \* 60 `    # output each 1 min
-dt_file=`expr 1 \* 3600 `    # 1 hour per file
-dt_data=`expr 1 \* 900 `     # output every 15 mins
-dt_checkpoint=`expr 1 \* 1800 `  # write restart file every 1/2 hours
+dtime=0.15
+dt_diag=`expr 1 \* 60 `      # output each 1 min
+dt_file=`expr 1 \* 1800 `    # 1/2 hour per file
+dt_data=`expr 1 \* 1800 `    # output every 30 mins
+dt_checkpoint=`expr 1 \* 3600 `  # write restart file every 1/2 hours
 #
 #-----------------------------------------------------------------------------
 # model parameters
@@ -57,7 +57,7 @@ atmo_model_equations=3 # equation system
 #                     3=non-hydrost. atm.,
 #                    -1=shallow water model
 #                    -2=hydrost. ocean
-nlev=64           # nlev = number of full levels
+nlev=48           # nlev = number of full levels
 iforcing=3        # 3 for inwp forcing; 0 for no forcing
 #
 #-----------------------------------------------------------------------------
@@ -97,7 +97,7 @@ cat > ${atmo_namelist} << EOF
  ltimer      = .true.       ! 
  timers_level = 100         !
  msg_level   = 12          ! detailed report during integration
- output      = 'vlist','totint'      
+ output      = 'nml','totint'      
 /
 &dynamics_nml
  iequations  = ${atmo_model_equations}       ! 1: hydrost. atmosphere
@@ -113,26 +113,26 @@ cat > ${atmo_namelist} << EOF
  vgeo              =  0.0, 0.0
  umean             =  0.0, 0.0
  vmean             =  0.0, 0.0
- shflx_cbl         =  0.112   !surface heat flux as rho_s*(<w'\theta'>), rho_s = 1.2
- lhflx_cbl         =  0.0     !latent heat flux as rho_s*(<w'q'>), rho_s = 1.2
- ufric_cbl         =  0.28    
+ !sst_cbl           =  305.0
+ shflx_cbl         =  0.1  ! kinematic surface heat flux
+ lhflx_cbl         =  0.0  ! knematic latent heat flux 
 /
 &diffusion_nml
- lhdiff_temp  = .TRUE.
- lhdiff_vn    = .TRUE.
+ lhdiff_temp  = .FALSE.
+ lhdiff_vn    = .FALSE.
 /
 &nwp_phy_nml
 inwp_gscp       = 0
 inwp_convection = 0
 inwp_radiation  = 0
 inwp_cldcover   = 0
-inwp_turb       = 2 !1 doesn't give correct surface fluxes!
+inwp_turb       = 5
 inwp_satad      = 0
 inwp_surface    = 0
 /
 &turbdiff_nml
 lconst_z0 = .TRUE.
-const_z0  = 0.1
+const_z0  = 0.0003
 /
 &transport_nml
  ihadv_tracer = 0,0,0,0,0,0,0
@@ -145,22 +145,36 @@ const_z0  = 0.1
  rayleigh_coeff  = 0.10     ! Rayleigh coefficient for damping in upper levels
  vwind_offctr    = 0.4      ! off-centering for time differencing (like alpha in turb)
  l_open_ubc      = .false.  ! top open upper boundary condition. might help to go higher
- damp_height     = 2700      ! damping height, keep top 5-10 levels for damping
+ damp_height     = 2000      ! damping height, keep top 5-10 levels for damping
 /
 &sleve_nml                   ! vertical grid standard output for message level >= 15
  min_lay_thckn   = 0.        ! lowest level thickness (between half-levels), set 0 to do equal spacing
- top_height      = 3200
+ top_height      = 2400
  stretch_fac     = 0.9       ! stretching towards model top (1.0 default; smaller - bigger top level thickness)
 /
 &io_nml
- out_expname      = '${EXPNAME}'     ! file name base
- dt_data          = ${dt_data}       ! write output every 96 hours
- dt_diag          = ${dt_diag}
- dt_file          = ${dt_file}
+! out_expname      = '${EXPNAME}'     ! file name base
+! dt_data          = ${dt_data}       ! write output every 96 hours
+! dt_diag          = ${dt_diag}
+! dt_file          = ${dt_file}
  dt_checkpoint    = ${dt_checkpoint} ! [s] trigger new restart file
- lkeep_in_sync    = .TRUE.           ! sync stream after each timestep
- lwrite_surface   = .TRUE.
- lwrite_tke       = .TRUE.
+! lkeep_in_sync    = .FALSE.          !sync output stream each timestep
+! lwrite_surface   = .TRUE.
+! lwrite_tke       = .TRUE.
+! lwrite_tend_phy  = .TRUE.
+/
+&output_nml
+ namespace        = 'DWD'
+ filetype         = 4
+ dom              = -1
+ output_time_unit = 1
+ output_bounds    = 0.,7200.,1800.   !start, end, increment
+ steps_per_file   = 1
+ include_last     = .TRUE.
+ remap            = 0   ! triangular grid
+ output_filename  = '${EXPNAME}_tri'
+ output_grid      = .TRUE.
+ ml_varlist       = 'u','v','w','temp','theta_v','pres_sfc','pres','tkvh','z_ifc','z_mc','rho'
 /
 EOF
 #-----------------------------------------------------------------------------
