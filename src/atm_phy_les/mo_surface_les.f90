@@ -135,7 +135,7 @@ MODULE mo_surface_les
             zrough = prm_diag%gz0(jc,jb) * rgrav
 
             !Get reference surface temperature
-            th0_srf  = p_nh_metrics%theta_ref_ic(jc,nlev+1,jb)
+            th0_srf  = p_nh_metrics%theta_ref_ic(jc,jk+1,jb)
 
             !Buoyancy flux
             bflux = grav*(shflx_cbl+0.61_wp* th0_srf*lhflx_cbl)/th0_srf
@@ -144,7 +144,7 @@ MODULE mo_surface_les
             mwind  = MAX( min_wind, SQRT(p_nh_diag%u(jc,jk,jb)**2+p_nh_diag%v(jc,jk,jb)**2) )
            
             !Z height
-            z_mc = p_nh_metrics%z_mc(jc,nlev,jb)             
+            z_mc = p_nh_metrics%z_mc(jc,jk,jb)             
 
             !Now diagnose friction velocity (ustar)
             ustar = diag_ustar(z_mc,zrough,bflux,mwind)

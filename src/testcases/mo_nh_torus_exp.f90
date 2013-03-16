@@ -255,10 +255,11 @@ MODULE mo_nh_torus_exp
 
         ptr_nh_prog%vn(je,jk,jb) = ptr_int%c_lin_e(je,1,jb)*zvn1 + &
                                    ptr_int%c_lin_e(je,2,jb)*zvn2
+
+        ptr_nh_ref%vn_ref(je,jk,jb) = ptr_nh_prog%vn(je,jk,jb)
       END DO
      END DO
     END DO     
-    ptr_nh_ref%vn_ref = ptr_nh_prog%vn
     
     !W wind and reference
     ptr_nh_prog%w  = 0._wp; ptr_nh_ref%w_ref  = ptr_nh_prog%w
