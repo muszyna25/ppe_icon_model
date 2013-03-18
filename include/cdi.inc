@@ -1,10 +1,10 @@
 ! This file was automatically generated, don't edit!
 !
-! Fortran interface for CDI library version 1.5.9
+! Fortran interface for CDI library version 1.6.0
 !
 ! Author:
 ! -------
-! Uwe Schulzweida, MPI-MET, Hamburg,   December 2012
+! Uwe Schulzweida, MPI-MET, Hamburg,   March 2013
 !
 
       INTEGER    CDI_MAX_NAME          
@@ -260,8 +260,14 @@
       PARAMETER (ZAXIS_SEA_BOTTOM       = 14)
       INTEGER    ZAXIS_ATMOSPHERE      
       PARAMETER (ZAXIS_ATMOSPHERE       = 15)
+      INTEGER    ZAXIS_CLOUD_BASE      
+      PARAMETER (ZAXIS_CLOUD_BASE       = 16)
+      INTEGER    ZAXIS_CLOUD_TOP       
+      PARAMETER (ZAXIS_CLOUD_TOP        = 17)
+      INTEGER    ZAXIS_ISOTHERM_ZERO   
+      PARAMETER (ZAXIS_ISOTHERM_ZERO    = 18)
       INTEGER    ZAXIS_REFERENCE       
-      PARAMETER (ZAXIS_REFERENCE        = 16)
+      PARAMETER (ZAXIS_REFERENCE        = 19)
 !
 !  TIME types
 !
@@ -455,6 +461,12 @@
 !                                     INTEGER         pdis)
       EXTERNAL        cdiEncodeParam
 
+!
+!  date format:  YYYYMMDD
+!
+!
+!  time format:    hhmmss
+!
 !                     cdiDecodeDate
 !                                    (INTEGER         date,
 !                                     INTEGER         year,
@@ -974,40 +986,6 @@
 !                                     INTEGER         varID)
       EXTERNAL        vlistInqVarInstitut
 
-!                     vlistDefVarIntKey
-!                                    (INTEGER         vlistID, 
-!				      INTEGER         varID, 
-!                                     CHARACTER*(*)   name, 
-!                                     INTEGER         value)
-      EXTERNAL        vlistDefVarIntKey
-
-
-!                     vlistDefVarDblKey
-!                                    (INTEGER         vlistID, 
-!				      INTEGER         varID, 
-!                                     CHARACTER*(*)   name, 
-!                                     DOUBLEPRECISION value)
-      EXTERNAL        vlistDefVarDblKey
-
-!                     vlistInqVarRawBegin
-!                                     (INTEGER        streamID, 
-!                                      INTEGER        varID)
-      EXTERNAL        vlistInqVarRawBegin
-
-      DOUBLEPRECISION vlistInqVarDblKey
-!                                     (INTEGER        streamID, 
-!				       CHARACTER*(*)  name)
-      EXTERNAL        vlistInqVarDblKey
-
-      INTEGER         vlistInqVarIntKey
-!                                     (INTEGER        streamID, 
-!				       CHARACTER*(*)  name)
-      EXTERNAL        vlistInqVarIntKey
-
-!                     vlistInqVarRawEnd
-!                                     (INTEGER        streamID)
-      EXTERNAL        vlistInqVarRawEnd
-
 !                     vlistDefVarModel
 !                                    (INTEGER         vlistID,
 !                                     INTEGER         varID,
@@ -1206,6 +1184,61 @@
       EXTERNAL        vlistInqVarEnsemble
 
 !
+!  ----------------------------------
+!
+!
+!  Local change: 2013-01-28, FP (DWD)
+!
+!
+!  ----------------------------------
+!
+!                     vlistDefVarIntKey
+!                                    (INTEGER         vlistID,
+!                                     INTEGER         varID,
+!                                     CHARACTER*(*)   name,
+!                                     INTEGER         value)
+      EXTERNAL        vlistDefVarIntKey
+
+!                     vlistDefVarDblKey
+!                                    (INTEGER         vlistID,
+!                                     INTEGER         varID,
+!                                     CHARACTER*(*)   name,
+!                                     DOUBLEPRECISION value)
+      EXTERNAL        vlistDefVarDblKey
+
+
+
+!
+!  ----------------------------------
+!
+!
+!  Local change: 2013-02-18, FP (DWD)
+!
+!
+!  ----------------------------------
+!
+!                     vlistInqVarRawBegin
+!                                    (INTEGER         streamID,
+!                                     INTEGER         varID)
+      EXTERNAL        vlistInqVarRawBegin
+
+!                     vlistInqVarRawEnd
+!                                    (INTEGER         streamID)
+      EXTERNAL        vlistInqVarRawEnd
+
+!DR local change:
+      DOUBLEPRECISION vlistInqVarDblKey
+!                                     (INTEGER        streamID, 
+!				       CHARACTER*(*)  name)
+      EXTERNAL        vlistInqVarDblKey
+
+      INTEGER         vlistInqVarIntKey
+!                                     (INTEGER        streamID, 
+!				       CHARACTER*(*)  name)
+      EXTERNAL        vlistInqVarIntKey
+
+
+!
 !  VLIST attributes
 !
       INTEGER         vlistInqNatts
@@ -1319,9 +1352,6 @@
 !                                    (INTEGER         gridID,
 !                                     INTEGER         opt)
       EXTERNAL        gridPrint
-
-      INTEGER         gridSize
-      EXTERNAL        gridSize
 
       INTEGER         gridCreate
 !                                    (INTEGER         gridtype,
@@ -1784,9 +1814,6 @@
 !                     zaxisPrint
 !                                    (INTEGER         zaxisID)
       EXTERNAL        zaxisPrint
-
-      INTEGER         zaxisSize
-      EXTERNAL        zaxisSize
 
 !                     zaxisDefLevels
 !                                    (INTEGER         zaxisID,
