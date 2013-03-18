@@ -211,12 +211,20 @@ CONTAINS
     ! determine length of months and position within current month
 
     date_monm1%calendar = next_date%calendar
-    date_monm1%year     = yr;  date_monm1%month    = imm1; date_monm1%day      = 1
-    date_monm1%hour     = 0;   date_monm1%minute   = 0;    date_monm1%second   = 0;
+    IF (imm1 ==  0) THEN
+      date_monm1%year = yr-1;  date_monm1%month = 12;   date_monm1%day = 1;
+    ELSE
+      date_monm1%year = yr;    date_monm1%month = imm1; date_monm1%day = 1;
+    ENDIF
+    date_monm1%hour = 0;   date_monm1%minute = 0; date_monm1%second   = 0;
     CALL date_to_time(date_monm1)
 
     date_monp1%calendar = next_date%calendar
-    date_monp1%year     = yr;  date_monp1%month    = imp1; date_monp1%day      = 1
+    IF (imp1 == 13) THEN
+      date_monp1%year = yr+1;  date_monp1%month = 1;    date_monp1%day = 1;
+    ELSE
+      date_monp1%year = yr;    date_monp1%month = imp1; date_monp1%day = 1;
+    ENDIF
     date_monp1%hour     = 0;   date_monp1%minute   = 0;    date_monp1%second   = 0;
     CALL date_to_time(date_monp1)
 
