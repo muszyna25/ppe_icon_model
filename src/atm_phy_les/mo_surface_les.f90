@@ -52,7 +52,7 @@ MODULE mo_surface_les
                                     cells2verts_scalar, cells2edges_scalar, &
                                     edges2cells_scalar, verts2cells_scalar, &
                                     edges2cells_vector
-  USE mo_parallel_config,     ONLY: nproma
+  USE mo_parallel_config,     ONLY: nproma, p_test_run
   USE mo_run_config,          ONLY: ltimer
   USE mo_loopindices,         ONLY: get_indices_e, get_indices_c, get_indices_v
   USE mo_impl_constants    ,  ONLY: min_rledge, min_rlcell, min_rlvert, &
@@ -101,7 +101,7 @@ MODULE mo_surface_les
     REAL(wp),          INTENT(in)        :: theta(:,:,:)  !pot temp  
 
     REAL(wp) :: rhos, th0_srf, obukhov_length, z_mc, ustar, mwind, bflux
-    REAL(wp) :: zrough
+    REAL(wp) :: zrough, pres_sfc(nproma,p_patch%nblks_c)
     INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
     INTEGER :: rl_start, rl_end
     INTEGER :: jk, jb, jc
@@ -111,6 +111,16 @@ MODULE mo_surface_les
     nlev = p_patch%nlev
     i_nchdom   = MAX(1,p_patch%n_childdom)
 
+    !Pres_sfc from previous calls are not synced. Therefore, I sync it here locally
+    IF (p_test_run) THEN
+       pres_sfc(:,:) = 0._wp
+    ENDIF
+
+!$OMP PARALLEL WORKSHARE
+    pres_sfc(:,:) = p_nh_diag%pres_sfc(:,:)
+!$OMP END PARALLEL WORKSHARE
+
+    CALL sync_patch_array(SYNC_C, p_patch, pres_sfc)
 
     !SELECT CASE(isrfc_type)
 
@@ -157,10 +167,10 @@ MODULE mo_surface_les
 
             !Get surface qv using t_g: saturation value
             p_diag_lnd%qv_s(jc,jb) =    &
-                spec_humi(sat_pres_water(p_prog_lnd_now%t_g(jc,jb)),p_nh_diag%pres_sfc(jc,jb)) 
+                spec_humi(sat_pres_water(p_prog_lnd_now%t_g(jc,jb)),pres_sfc(jc,jb)) 
 
             !Get surface fluxes
-            rhos   =  p_nh_diag%pres_sfc(jc,jb)/(rd * p_prog_lnd_now%t_g(jc,jb))  
+            rhos   =  pres_sfc(jc,jb)/(rd * p_prog_lnd_now%t_g(jc,jb))  
             prm_diag%shfl_s(jc,jb)  = shflx_cbl * rhos * cpd
             prm_diag%lhfl_s(jc,jb)  = lhflx_cbl * rhos * alv
             prm_diag%umfl_s(jc,jb)  = ustar**2  * rhos

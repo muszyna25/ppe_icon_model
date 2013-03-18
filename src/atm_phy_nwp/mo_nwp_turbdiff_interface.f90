@@ -166,9 +166,17 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
   !is then used inside the block loop (see at the end) to update u,v,t,qv,qc
   IF ( atm_phy_nwp_config(jg)%inwp_turb == 5 )THEN
     CALL message('mo_nwp_turbdiff:', '3D turbulence')
-    CALL drive_subgrid_diffusion(p_prog, p_prog_rcf, p_diag, p_metrics, p_patch, &
-                                 p_int, lnd_prog_now, lnd_diag, prm_diag,        &
-                                 prm_nwp_tend)
+    CALL drive_subgrid_diffusion(p_prog,       & !in
+                                 p_prog_rcf,   & !in
+                                 p_diag,       & !in
+                                 p_metrics,    & !in
+                                 p_patch,      & !in
+                                 p_int,        & !in
+                                 lnd_prog_now, & !inout
+                                 lnd_diag,     & !inout
+                                 prm_diag,     & !inout
+                                 prm_nwp_tend  & !inout
+                                 )
   END IF
 
 
