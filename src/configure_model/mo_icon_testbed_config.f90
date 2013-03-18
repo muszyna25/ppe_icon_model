@@ -42,13 +42,14 @@ MODULE mo_icon_testbed_config
   
   ! Exported parameters
   PUBLIC :: null_model, test_coupler_model, test_jitter_model, test_halo_communication, &
-    & test_radiation_communication
+    & test_radiation_communication, test_netcdf_read_model
     
   ! Exported variables
   PUBLIC :: testbed_model
   PUBLIC :: testbed_iterations
   PUBLIC :: calculate_iterations
   PUBLIC :: no_of_blocks, no_of_layers
+  PUBLIC :: o3_filename
   
   ! ---------------
   ! the tesbed modes
@@ -57,12 +58,17 @@ MODULE mo_icon_testbed_config
   INTEGER, PARAMETER :: test_jitter_model   = 3  ! test the jitter
   INTEGER, PARAMETER :: test_halo_communication  = 4  ! test the mpi communication
   INTEGER, PARAMETER :: test_radiation_communication  = 5  ! test the mpi communication
+  INTEGER, PARAMETER :: test_netcdf_read_model = 6
   
+
   INTEGER  :: testbed_model
   ! ---------------
   INTEGER  :: testbed_iterations
   INTEGER  :: calculate_iterations
   INTEGER  :: no_of_blocks, no_of_layers
+
+  CHARACTER(LEN=filename_max) :: o3_filename
+
 
 CONTAINS
   

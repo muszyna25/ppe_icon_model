@@ -12,8 +12,8 @@
 !!
 !!
 !! @par Revision History
-!! Moved here from mo_ext_data by Daniel reinert, DWD (2012-02-01)
-!! Moved from  mo_util_netcdf, added netcdf_read_oncells_2D, by L. Linardakis, (2013-03-15)
+!! Moved to mo_util_netcd from mo_ext_data by Daniel reinert, DWD (2012-02-01)
+!! Moved from mo_util_netcdf, added netcdf_read_oncells, by L. Linardakis, (2013-03-15)
 !!
 !! @par Copyright
 !! 2002-2007 by DWD and MPI-M
@@ -90,8 +90,8 @@ MODULE mo_netcdf_read
   END INTERFACE read_netcdf_data_single
 
   INTERFACE netcdf_read_oncells_3D_time
-    MODULE PROCEDURE netcdf_read_REAL_ONCELLS_2D_filename
-    MODULE PROCEDURE netcdf_read_REAL_ONCELLS_2D_fileid
+    MODULE PROCEDURE netcdf_read_REAL_ONCELLS_3D_time_filename
+    MODULE PROCEDURE netcdf_read_REAL_ONCELLS_3D_time_fileid
   END INTERFACE netcdf_read_oncells_3D_time
 
   INTERFACE netcdf_read_oncells_2D
@@ -101,8 +101,8 @@ MODULE mo_netcdf_read
 
   INTEGER, PARAMETER :: MAX_VAR_DIMS = 16 ! NF_MAX_VAR_DIMS
   !-------------------------------------------------------------------------
-  CHARACTER(LEN=*), PARAMETER :: std_cells_dim_name_1 = 'ncells'
-  CHARACTER(LEN=*), PARAMETER :: std_cells_dim_name_2 = 'cell'
+  CHARACTER(LEN=*), PARAMETER :: std_cells_dim_name_1 = 'cell'
+  CHARACTER(LEN=*), PARAMETER :: std_cells_dim_name_2 = 'ncells'
   CHARACTER(LEN=*), PARAMETER :: std_time_dim_name_1  = 'time'
 
 CONTAINS
@@ -209,8 +209,8 @@ CONTAINS
   
   !-------------------------------------------------------------------------
   !>
-  ! By default the netcdf input has the structure:
-  !       O3(time, levels, ncells)
+  ! By default the netcdf input has the structure as printed from ncdump :
+  !      c-style(ncdump): O3(time, levels, ncells) fortran-style: O3(ncells, levels, time)
   ! The fill_array  has the structure:
   !       fill_array(nproma, levels, blocks, time)
   ! This should be adapatble (needs further work)
@@ -247,16 +247,17 @@ CONTAINS
       ENDIF
 
       ! check if the input has the right shape/size
-      IF (.NOT. check_is_cell_dim_name(var_dim_name(3))) THEN
-        WRITE(message_text,*) variable_name, "dim_name(3) /= std_cells_dim_name"
+      IF (.NOT. check_is_cell_dim_name(var_dim_name(1))) THEN
+        write(0,*) var_dim_name(3)
+        WRITE(message_text,*) variable_name, " ", TRIM(var_dim_name(3)), " /= std_cells_dim_name"
         CALL finish(method_name, message_text)
       ENDIF
-      IF (.NOT. check_is_time_dim_name(var_dim_name(1))) THEN
+      IF (.NOT. check_is_time_dim_name(var_dim_name(3))) THEN
         WRITE(message_text,*) variable_name, "dim_name(1) /= std_time_dim_name"
         CALL finish(method_name, message_text)
       ENDIF
 
-      IF ( var_size(3) /= total_number_of_cells) THEN
+      IF ( var_size(1) /= total_number_of_cells) THEN
         WRITE(0,*) variable_name, ": var_dims = ", var_dims, " var_size=", var_size, &
           & " total_number_of_cells=", total_number_of_cells
         CALL finish(method_name, "Dimensions mismatch")
@@ -267,7 +268,7 @@ CONTAINS
     ! we need to sync the var_size...
     CALL broadcast_array(var_size(1:3))
     file_vertical_levels = var_size(2)
-    file_time_steps      = var_size(1)
+    file_time_steps      = var_size(3)
 
     ALLOCATE( tmp_array(total_number_of_cells, file_vertical_levels, file_time_steps), stat=return_status )
     IF (return_status /= success) THEN
@@ -328,7 +329,7 @@ CONTAINS
   LOGICAL FUNCTION check_is_cell_dim_name(dim_name)
     CHARACTER(LEN=*), INTENT(IN) :: dim_name
 
-    SELECT CASE (dim_name)
+    SELECT CASE (TRIM(dim_name))
       CASE (std_cells_dim_name_1, std_cells_dim_name_2)
         check_is_cell_dim_name = .TRUE.
       CASE default
@@ -343,7 +344,7 @@ CONTAINS
   LOGICAL FUNCTION check_is_time_dim_name(dim_name)
     CHARACTER(LEN=*), INTENT(IN) :: dim_name
 
-    SELECT CASE (dim_name)
+    SELECT CASE (TRIM(dim_name))
       CASE (std_time_dim_name_1)
         check_is_time_dim_name = .TRUE.
       CASE default

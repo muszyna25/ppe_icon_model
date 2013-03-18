@@ -1,9 +1,5 @@
 !>
-!!     Contains namelists for parallel run control.
-!!
-!!
 !! @par Revision History
-!! Initial version by Rainer Johanni, Nov 2009
 !!
 !! @par Copyright
 !! 2002-2011 by DWD and MPI-M
@@ -46,6 +42,7 @@ MODULE mo_icon_testbed_nml
     & config_calculate_iterations => calculate_iterations,&
     & config_no_of_blocks         => no_of_blocks,        &
     & config_no_of_layers         => no_of_layers,        &
+    & config_o3_filename          => o3_filename,         &
     & null_model
     
   IMPLICIT NONE
@@ -54,16 +51,11 @@ MODULE mo_icon_testbed_nml
 
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
-
        
   CONTAINS
   
   !-------------------------------------------------------------------------
   !>
-  !! @par Revision History
-  !! Initial version by Rainer Johanni, Nov 2009
-  !! Adapted for I/O PEs, Rainer Johanni, Nov 2010
-  !! Leonidas Linardakis, namelist restructuring, Jul 2011
   SUBROUTINE read_icon_testbed_namelist( filename )
 
     ! ------------------------------------------------------------------------
@@ -72,9 +64,10 @@ MODULE mo_icon_testbed_nml
     INTEGER :: calculate_iterations
     INTEGER  :: no_of_blocks, no_of_layers
 
+   CHARACTER(LEN=filename_max) :: o3_filename
     
     NAMELIST /testbed_nml/ testbed_model, testbed_iterations, calculate_iterations, &
-      & no_of_blocks, no_of_layers
+      & no_of_blocks, no_of_layers, o3_filename
 
     CHARACTER(LEN=*), INTENT(IN) :: filename
     INTEGER :: istat
@@ -107,6 +100,7 @@ MODULE mo_icon_testbed_nml
     config_calculate_iterations = calculate_iterations
     config_no_of_blocks         = no_of_blocks
     config_no_of_layers         = no_of_layers
+    config_o3_filename          = o3_filename
     
   END SUBROUTINE read_icon_testbed_namelist
   !-------------------------------------------------------------------------

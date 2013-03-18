@@ -42,7 +42,6 @@ MODULE mo_test_communication
   USE mo_parallel_config,     ONLY: nproma, icon_comm_method
 
   USE mo_master_control,      ONLY: get_my_process_name, get_my_model_no
-  USE mo_icon_testbed_config, ONLY: testbed_iterations, calculate_iterations
 
   USE mo_model_domain,        ONLY: p_patch
   USE mo_atmo_model,          ONLY: construct_atmo_model, destruct_atmo_model
@@ -63,7 +62,7 @@ MODULE mo_test_communication
     & init_rrtm_model_repart
 
   USE mo_icon_testbed_config, ONLY: testbed_model, test_halo_communication, &
-    & test_radiation_communication
+    & test_radiation_communication, testbed_iterations, calculate_iterations
 
 
 !-------------------------------------------------------------------------
