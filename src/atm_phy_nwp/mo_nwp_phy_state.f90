@@ -96,7 +96,9 @@ USE mo_cdi_constants,       ONLY: GRID_UNSTRUCTURED_CELL, GRID_REFERENCE,       
   &                               ZA_TOA, ZA_DEPTH_BELOW_LAND, DATATYPE_FLT32,  &
   &                               DATATYPE_PACK16, FILETYPE_NC2, TSTEP_INSTANT, &
   &                               TSTEP_ACCUM, TSTEP_AVG, TSTEP_MAX, TSTEP_MIN, &
-  &                               ZA_PRESSURE_0, ZA_PRESSURE_400, ZA_PRESSURE_800
+  &                               ZA_PRESSURE_0, ZA_PRESSURE_400,               &
+  &                               ZA_PRESSURE_800, ZA_CLOUD_BASE, ZA_CLOUD_TOP, &
+  &                               ZA_ISOTHERM_ZERO
 
 IMPLICIT NONE
 PRIVATE
@@ -740,7 +742,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
         cf_desc    = t_cf_var('hbas_con', '', 'height_of_convective_cloud_base', DATATYPE_FLT32)
         grib2_desc = t_grib2_var(0, 6, 26, ibits, GRID_REFERENCE, GRID_CELL)
         CALL add_var( diag_list, 'hbas_con', diag%hbas_con,                       &
-          & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,              &
+          & GRID_UNSTRUCTURED_CELL, ZA_CLOUD_BASE, cf_desc, grib2_desc,           &
           & ldims=shape2d, lrestart=.FALSE.,                                      &
           & hor_interp=create_hor_interp_metadata(hor_intp_type=HINTP_TYPE_LONLAT_NNB ))
 
@@ -748,7 +750,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
         cf_desc    = t_cf_var('htop_con', '', 'height_of_convective_cloud_top', DATATYPE_FLT32)
         grib2_desc = t_grib2_var(0, 6, 27, ibits, GRID_REFERENCE, GRID_CELL)
         CALL add_var( diag_list, 'htop_con', diag%htop_con,                       &
-          & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,              &
+          & GRID_UNSTRUCTURED_CELL, ZA_CLOUD_TOP, cf_desc, grib2_desc,            &
           & ldims=shape2d, lrestart=.FALSE.,                                      &
           & hor_interp=create_hor_interp_metadata(hor_intp_type=HINTP_TYPE_LONLAT_NNB ))
 
@@ -1898,7 +1900,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
         cf_desc    = t_cf_var('hzerocl', '', 'height_of_0_deg_C_level', DATATYPE_FLT32)
         grib2_desc = t_grib2_var(0, 3, 6, ibits, GRID_REFERENCE, GRID_CELL)
         CALL add_var( diag_list, 'hzerocl', diag%hzerocl,                         &
-          & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,              &
+          & GRID_UNSTRUCTURED_CELL, ZA_ISOTHERM_ZERO, cf_desc, grib2_desc,        &
           & ldims=shape2d, lrestart=.FALSE.)
 
     CALL message('mo_nwp_phy_state:construct_nwp_phy_diag', &
