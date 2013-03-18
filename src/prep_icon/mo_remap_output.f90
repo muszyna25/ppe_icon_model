@@ -22,7 +22,7 @@ MODULE mo_remap_output
     &                         MAX_NAME_LENGTH
   USE mo_remap_shared,  ONLY: t_grid, GRID_TYPE_REGULAR, GRID_TYPE_ICON
   USE mo_remap_input,   ONLY: t_field_metadata, t_global_metadata, t_zaxis_metadata, &
-    &                         CELL_GRID, EDGE_GRID
+    &                         CELL_GRID, EDGE_GRID, INTP_NONE
   USE mo_remap_io,      ONLY: t_file_metadata
 
   IMPLICIT NONE
@@ -285,6 +285,8 @@ CONTAINS
 
     IF (dbg_level >= 5) WRITE (0,*) "# define variables"
     DO i=1,nfields
+      IF (field_metadata(i)%intp_method == INTP_NONE) CYCLE
+
       ! find z-axis for this variable
       iaxis = -1
       DO j=1,n_zaxis
