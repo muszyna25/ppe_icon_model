@@ -2228,7 +2228,7 @@ CONTAINS
           ELSE IF (ext_data(jg)%atm%z0_lcc(ilu) >= 0.1) THEN
             ext_data(jg)%atm%z0_lcc_min(ilu) = 0.3_wp*ext_data(jg)%atm%z0_lcc(ilu) ! 30% for nominal roughness lengths > 10 cm
           ELSE
-            ext_data(jg)%atm%z0_lcc_min(ilu) = MAX(0.005, 0.1_wp*ext_data(jg)%atm%z0_lcc(ilu)) ! 10% otherwise, but at least 5 mm
+            ext_data(jg)%atm%z0_lcc_min(ilu) = MAX(0.005_wp, 0.1_wp*ext_data(jg)%atm%z0_lcc(ilu)) ! 10% otherwise, but at least 5 mm
           ENDIF
         ENDDO
 
