@@ -1065,6 +1065,7 @@ src/atm_phy_echam/mo_echam_phy_interface.f90 -text
 src/atm_phy_echam/mo_echam_phy_main.f90 -text
 src/atm_phy_echam/mo_echam_phy_memory.f90 -text
 src/atm_phy_echam/mo_echam_vdiff_params.f90 -text
+src/atm_phy_echam/mo_greenhouse_gases.f90 -text
 src/atm_phy_echam/mo_gw_hines.f90 -text
 src/atm_phy_echam/mo_icoham_sfc_indices.f90 -text
 src/atm_phy_echam/mo_jsbach_hydrology.f90 -text

@@ -77,8 +77,12 @@ PROGRAM control_model
   CHARACTER(len=filename_max) :: my_namelist_filename
   CHARACTER(len=filename_max) :: master_namelist_filename="icon_master.namelist"
 
-  INTEGER :: core_dump_flag, signals(1)
+#if defined (__xlC__)
+  INTEGER :: core_dump_flag
+  INTEGER :: signals(1)
   INTEGER :: iret
+#endif
+
 
   !declaration of OpenMP Runtime Library Routines:
 ! !$  INTEGER omp_get_max_threads
