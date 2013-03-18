@@ -47,7 +47,7 @@ MODULE mo_netcdf_read
 
   USE mo_kind
   USE mo_mpi
-  USE mo_gather_scatter,     ONLY: scatter_cells
+  USE mo_gather_scatter,     ONLY: scatter_cells, scatter_cells_3D_time, broadcast_array
   USE mo_model_domain,       ONLY: t_patch
   USE mo_exception,          ONLY: message_text, message, warning, finish, em_warn
   USE mo_impl_constants,     ONLY: success, max_char_length
@@ -74,6 +74,7 @@ MODULE mo_netcdf_read
   PUBLIC :: nf
   PUBLIC :: netcdf_open_input, netcdf_close
   PUBLIC :: netcdf_read_ONCELLS_2D
+  PUBLIC :: netcdf_read_oncells_3D_time
 
   INTERFACE read_netcdf_data
     MODULE PROCEDURE read_netcdf_2d
@@ -88,13 +89,21 @@ MODULE mo_netcdf_read
     MODULE PROCEDURE read_netcdf_3d_single
   END INTERFACE read_netcdf_data_single
 
+  INTERFACE netcdf_read_oncells_3D_time
+    MODULE PROCEDURE netcdf_read_REAL_ONCELLS_2D_filename
+    MODULE PROCEDURE netcdf_read_REAL_ONCELLS_2D_fileid
+  END INTERFACE netcdf_read_oncells_3D_time
+
   INTERFACE netcdf_read_oncells_2D
     MODULE PROCEDURE netcdf_read_REAL_ONCELLS_2D_filename
     MODULE PROCEDURE netcdf_read_REAL_ONCELLS_2D_fileid
   END INTERFACE netcdf_read_oncells_2D
 
-  INTEGER, PARAMETER :: MAX_VAR_DIMS = NF_MAX_VAR_DIMS
+  INTEGER, PARAMETER :: MAX_VAR_DIMS = 16 ! NF_MAX_VAR_DIMS
   !-------------------------------------------------------------------------
+  CHARACTER(LEN=*), PARAMETER :: std_cells_dim_name_1 = 'ncells'
+  CHARACTER(LEN=*), PARAMETER :: std_cells_dim_name_2 = 'cell'
+  CHARACTER(LEN=*), PARAMETER :: std_time_dim_name_1  = 'time'
 
 CONTAINS
 
@@ -104,7 +113,7 @@ CONTAINS
     CHARACTER(LEN=*), INTENT(IN) :: filename
     CHARACTER(LEN=*), INTENT(IN) :: variable_name
     REAL(wp), POINTER            :: fill_array(:,:)
-    TYPE(t_patch)                :: patch
+    TYPE(t_patch), TARGET        :: patch
 
     INTEGER :: ncid
     INTEGER :: return_status    
@@ -120,37 +129,58 @@ CONTAINS
   
   !-------------------------------------------------------------------------
   !>
-  INTEGER FUNCTION netcdf_read_REAL_ONCELLS_2D_fileid(ncid, variable_name, fill_array, patch)
+  INTEGER FUNCTION netcdf_read_REAL_ONCELLS_3D_time_filename(filename, variable_name, fill_array, patch)
+    CHARACTER(LEN=*), INTENT(IN) :: filename
+    CHARACTER(LEN=*), INTENT(IN) :: variable_name
+    REAL(wp), POINTER            :: fill_array(:,:,:,:)
+    TYPE(t_patch), TARGET        :: patch
+
+    INTEGER :: ncid
+    INTEGER :: return_status
+    CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_netcdf_read:netcdf_read_REAL_ONCELLS_2D_filename'
+
+    ncid = netcdf_open_input(filename)
+    netcdf_read_REAL_ONCELLS_3D_time_filename = &
+      & netcdf_read_REAL_ONCELLS_3D_time_fileid(ncid, variable_name, fill_array, patch)
+    return_status = netcdf_close(ncid)
+
+  END FUNCTION netcdf_read_REAL_ONCELLS_3D_time_filename
+  !-------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------
+  !>
+   INTEGER FUNCTION netcdf_read_REAL_ONCELLS_2D_fileid(ncid, variable_name, fill_array, patch)
     INTEGER, INTENT(IN)          :: ncid
     CHARACTER(LEN=*), INTENT(IN) :: variable_name
     REAL(wp), POINTER            :: fill_array(:,:)
-    TYPE(t_patch)                :: patch
+    TYPE(t_patch), TARGET        :: patch
 
     INTEGER :: total_number_of_cells
     INTEGER :: varid, var_type, var_dims
     INTEGER :: var_size(MAX_VAR_DIMS)
+    CHARACTER(LEN=filename_max) :: var_dim_name(MAX_VAR_DIMS)
     INTEGER :: return_status
     REAL(wp), POINTER :: tmp_array(:)
     
     CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_netcdf_read:netcdf_read_REAL_ONCELLS_2D_fileid'
 
-
-    ! LEONIDAS, CAN YOU PLEASE HAVE A LOOK
-
     ! trivial return value.
     netcdf_read_REAL_ONCELLS_2D_fileid = 0
-
 
     total_number_of_cells = patch%n_patch_cells_g
     
     IF( my_process_is_mpi_workroot()  ) THEN
-      CALL nf(netcdf_inq_var(ncid, variable_name, varid, var_type, var_dims, var_size), variable_name)
+      return_status = netcdf_inq_var(ncid, variable_name, varid, var_type, var_dims, var_size, var_dim_name)
       
+      ! check if the dims look ok
       IF (var_dims /= 1 .OR. var_size(1) /= total_number_of_cells) THEN
         write(0,*) "var_dims = ", var_dims, " var_size=", var_size, &
           & " total_number_of_cells=", total_number_of_cells
         CALL finish(method_name, "Dimensions mismatch")
       ENDIF
+
+      IF (.NOT. check_is_cell_dim_name(var_dim_name(1))) &
+         CALL warning(method_name, "dim_name /= std_cells_dim_name")
 
     ENDIF
     
@@ -177,6 +207,91 @@ CONTAINS
   END FUNCTION netcdf_read_REAL_ONCELLS_2D_fileid
   !-------------------------------------------------------------------------
   
+  !-------------------------------------------------------------------------
+  !>
+  ! By default the netcdf input has the structure:
+  !       O3(time, levels, ncells)
+  ! The fill_array  has the structure:
+  !       fill_array(nproma, levels, blocks, time)
+  ! This should be adapatble (needs further work)
+  INTEGER FUNCTION netcdf_read_REAL_ONCELLS_3D_time_fileid(ncid, variable_name, fill_array, patch)
+    INTEGER, INTENT(IN)          :: ncid
+    CHARACTER(LEN=*), INTENT(IN) :: variable_name
+    REAL(wp), POINTER            :: fill_array(:,:,:,:)
+    TYPE(t_patch), TARGET        :: patch
+
+    INTEGER :: total_number_of_cells
+    INTEGER :: varid, var_type, var_dims
+    INTEGER, TARGET :: var_size(MAX_VAR_DIMS)
+    CHARACTER(LEN=filename_max) :: var_dim_name(MAX_VAR_DIMS)
+
+    INTEGER :: file_vertical_levels, file_time_steps
+
+    INTEGER :: return_status
+    REAL(wp), POINTER :: tmp_array(:,:,:)
+
+    CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_netcdf_read:netcdf_read_REAL_ONCELLS_3D_time_fileid'
+
+    ! trivial return value.
+    netcdf_read_REAL_ONCELLS_3D_time_fileid = 0
+
+    total_number_of_cells = patch%n_patch_cells_g
+
+    IF( my_process_is_mpi_workroot()  ) THEN
+      return_status = netcdf_inq_var(ncid, variable_name, varid, var_type, var_dims, var_size, var_dim_name)
+
+      ! check if we have indeed 3 dimensions
+      IF (var_dims /= 3 ) THEN
+        WRITE(0,*) variable_name, ": var_dims = ", var_dims
+        CALL finish(method_name, "Dimensions mismatch")
+      ENDIF
+
+      ! check if the input has the right shape/size
+      IF (.NOT. check_is_cell_dim_name(var_dim_name(3))) THEN
+        WRITE(message_text,*) variable_name, "dim_name(3) /= std_cells_dim_name"
+        CALL finish(method_name, message_text)
+      ENDIF
+      IF (.NOT. check_is_time_dim_name(var_dim_name(1))) THEN
+        WRITE(message_text,*) variable_name, "dim_name(1) /= std_time_dim_name"
+        CALL finish(method_name, message_text)
+      ENDIF
+
+      IF ( var_size(3) /= total_number_of_cells) THEN
+        WRITE(0,*) variable_name, ": var_dims = ", var_dims, " var_size=", var_size, &
+          & " total_number_of_cells=", total_number_of_cells
+        CALL finish(method_name, "Dimensions mismatch")
+      ENDIF
+
+    ENDIF
+
+    ! we need to sync the var_size...
+    CALL broadcast_array(var_size(1:3))
+    file_vertical_levels = var_size(2)
+    file_time_steps      = var_size(1)
+
+    ALLOCATE( tmp_array(total_number_of_cells, file_vertical_levels, file_time_steps), stat=return_status )
+    IF (return_status /= success) THEN
+      CALL finish (method_name, 'ALLOCATE( tmp_array )')
+    ENDIF
+
+    IF( my_process_is_mpi_workroot()) THEN
+      CALL nf(nf_get_var_double(ncid, varid, tmp_array(:,:,:)), variable_name)
+    ENDIF
+
+    IF (.NOT. ASSOCIATED(fill_array)) THEN
+      ALLOCATE( fill_array(nproma, file_vertical_levels, patch%nblks_c, file_time_steps), stat=return_status )
+      IF (return_status /= success) THEN
+        CALL finish (method_name, 'ALLOCATE( fill_array )')
+      ENDIF
+    ENDIF
+
+    CALL scatter_cells_3D_time(tmp_array, fill_array, patch)
+
+    DEALLOCATE(tmp_array)
+
+  END FUNCTION netcdf_read_REAL_ONCELLS_3D_time_fileid
+  !-------------------------------------------------------------------------
+
   !-------------------------------------------------------------------------
   !>
   INTEGER FUNCTION netcdf_open_input(filename)
@@ -208,15 +323,45 @@ CONTAINS
   END FUNCTION netcdf_close
   !-------------------------------------------------------------------------
   
+  !-------------------------------------------------------------------------
+  !>
+  LOGICAL FUNCTION check_is_cell_dim_name(dim_name)
+    CHARACTER(LEN=*), INTENT(IN) :: dim_name
+
+    SELECT CASE (dim_name)
+      CASE (std_cells_dim_name_1, std_cells_dim_name_2)
+        check_is_cell_dim_name = .TRUE.
+      CASE default
+        check_is_cell_dim_name = .FALSE.
+    END SELECT
+
+  END FUNCTION check_is_cell_dim_name
+  !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
   !>
-  INTEGER FUNCTION netcdf_inq_var(ncid, name, varid, var_type, var_dims, var_size)
+  LOGICAL FUNCTION check_is_time_dim_name(dim_name)
+    CHARACTER(LEN=*), INTENT(IN) :: dim_name
+
+    SELECT CASE (dim_name)
+      CASE (std_time_dim_name_1)
+        check_is_time_dim_name = .TRUE.
+      CASE default
+        check_is_time_dim_name = .FALSE.
+    END SELECT
+
+  END FUNCTION check_is_time_dim_name
+  !-------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------
+  !>
+  INTEGER FUNCTION netcdf_inq_var(ncid, name, varid, var_type, var_dims, var_size, var_dim_name)
     INTEGER, INTENT(IN) :: ncid
     CHARACTER(LEN=*), INTENT(IN) :: name
     
     INTEGER, INTENT(OUT) :: varid, var_type, var_dims
     INTEGER, INTENT(OUT) :: var_size(MAX_VAR_DIMS)
+    CHARACTER(LEN=filename_max), INTENT(OUT) :: var_dim_name(MAX_VAR_DIMS)
 
     INTEGER  :: number_of_attributes  
     INTEGER :: var_dims_reference(MAX_VAR_DIMS)
@@ -233,8 +378,8 @@ CONTAINS
       & var_dims_reference, number_of_attributes)
     CALL nf(netcdf_inq_var, check_var_name)
     DO i=1, var_dims
-!       return_status = nf_inq_dimlen(ncid, var_dims_reference(i), var_size(i))
-      CALL nf(nf_inq_dimlen(ncid, var_dims_reference(i), var_size(i)), check_var_name)
+      CALL nf(nf_inq_dimlen (ncid, var_dims_reference(i), var_size(i)),     check_var_name)
+      CALL nf(nf_inq_dimname(ncid, var_dims_reference(i), var_dim_name(i)), check_var_name)
     ENDDO
 !     write(0,*) " Read var_dims, var_size:",  var_dims, var_size
 !     write(0,*) " check_var_name:",  check_var_name

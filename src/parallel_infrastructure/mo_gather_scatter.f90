@@ -6,9 +6,7 @@
 MODULE mo_gather_scatter
   !
   USE mo_kind,          ONLY: wp
-#ifndef NOMPI
   USE mo_communication, ONLY: idx_no, blk_no, exchange_data
-#endif
   USE mo_model_domain,  ONLY: t_patch
   USE mo_mpi,           ONLY: process_mpi_root_id, p_bcast, p_comm_work, &
                               my_process_is_mpi_seq 
@@ -17,16 +15,25 @@ MODULE mo_gather_scatter
   !
   PRIVATE
   !
+  PUBLIC :: broadcast_array
+  !
   PUBLIC :: gather_cells
   PUBLIC :: gather_edges
   PUBLIC :: gather_vertices
   !
   PUBLIC :: scatter_cells
+  PUBLIC :: scatter_cells_3D_time
   PUBLIC :: scatter_edges
   PUBLIC :: scatter_vertices
   !
   !------------------------------------------------------------------------------------------------
   !
+
+  INTERFACE broadcast_array
+    MODULE PROCEDURE broadcast_real_array_1D
+    MODULE PROCEDURE broadcast_int_array_1D
+  END INTERFACE broadcast_array
+
   INTERFACE gather_cells
     MODULE PROCEDURE gather_cells_r2d
     MODULE PROCEDURE gather_cells_r3d
@@ -54,9 +61,13 @@ MODULE mo_gather_scatter
     MODULE PROCEDURE gather_vertices_l3d
   END INTERFACE gather_vertices
   !
+  INTERFACE scatter_cells_3D_time
+    MODULE PROCEDURE scatter_real_cells_3D_time
+  END INTERFACE scatter_cells_3D_time
+
   INTERFACE scatter_cells
     MODULE PROCEDURE scatter_cells_r2d
-    MODULE PROCEDURE scatter_REAL_CELLS_2D
+    MODULE PROCEDURE scatter_real_cells_2D ! a more simple version with 1D input
     MODULE PROCEDURE scatter_cells_r3d
     MODULE PROCEDURE scatter_cells_i2d
     MODULE PROCEDURE scatter_cells_i3d
@@ -301,6 +312,8 @@ CONTAINS
 #endif
   END SUBROUTINE gather_vertices_r3d
   !
+
+
   !================================================================================================
   ! INTEGER SECTION -------------------------------------------------------------------------------
   !
@@ -400,6 +413,7 @@ CONTAINS
     CALL reorder(in_array, i1d)
 #endif
   END SUBROUTINE gather_edges_i2d
+
   !
   SUBROUTINE gather_edges_i3d(in_array, out_array, p_patch)
     INTEGER,                   INTENT(in) :: in_array(:,:,:)
@@ -702,7 +716,52 @@ CONTAINS
   !================================================================================================
   ! REAL SECTION ----------------------------------------------------------------------------------
   !
-  SUBROUTINE scatter_REAL_CELLS_2D(in_array, out_array, p_patch)
+
+  !--------------------------------------------------------------------------------------
+  !>
+  SUBROUTINE broadcast_real_array_1D(in_array)
+    REAL(wp), TARGET  :: in_array(:)
+
+    IF (my_process_is_mpi_seq()) RETURN
+#ifndef NOMPI
+    CALL p_bcast(in_array, process_mpi_root_id, p_comm_work)
+#endif
+  END SUBROUTINE broadcast_real_array_1D
+  !--------------------------------------------------------------------------------------
+
+  !--------------------------------------------------------------------------------------
+  !>
+  SUBROUTINE broadcast_int_array_1D(in_array)
+    INTEGER, TARGET  :: in_array(:)
+
+    IF (my_process_is_mpi_seq()) RETURN
+#ifndef NOMPI
+    CALL p_bcast(in_array, process_mpi_root_id, p_comm_work)
+#endif
+  END SUBROUTINE broadcast_int_array_1D
+  !--------------------------------------------------------------------------------------
+
+  !--------------------------------------------------------------------------------------
+  !>
+  SUBROUTINE scatter_real_cells_3D_time(in_array, out_array, p_patch)
+    REAL(wp), POINTER                   :: in_array(:,:,:)
+    REAL(wp), POINTER                   :: out_array(:,:,:,:)
+    TYPE(t_patch), INTENT(in)           :: p_patch
+
+!    IF (my_process_is_mpi_seq()) THEN
+!      CALL reorder(in_array, out_array)
+!#ifndef NOMPI
+!    ELSE
+      CALL scatter_array_r4d(in_array, out_array, p_patch%cells%glb_index)
+!#endif
+!    ENDIF
+  
+  END SUBROUTINE scatter_real_cells_3D_time
+  !--------------------------------------------------------------------------------------
+
+  !--------------------------------------------------------------------------------------
+  !>
+  SUBROUTINE scatter_real_cells_2D(in_array, out_array, p_patch)
     REAL(wp), POINTER                   :: in_array(:)
     REAL(wp), POINTER                   :: out_array(:,:)
     TYPE(t_patch), INTENT(in)           :: p_patch
@@ -715,8 +774,11 @@ CONTAINS
 #endif
     ENDIF
   
-  END SUBROUTINE scatter_REAL_CELLS_2D
-  
+  END SUBROUTINE scatter_real_cells_2D
+  !--------------------------------------------------------------------------------------
+
+  !--------------------------------------------------------------------------------------
+  !>
   SUBROUTINE scatter_cells_r2d(in_array, out_array, p_patch)
     REAL(wp), POINTER                      :: in_array(:,:,:,:,:)
     REAL(wp), POINTER                      :: out_array(:,:)
@@ -1028,9 +1090,38 @@ CONTAINS
     CALL scatter_array_l3d(l2d, out_array, p_patch%verts%glb_index)
 #endif
   END SUBROUTINE scatter_vertices_l3d
-  !
+  !--------------------------------------------------------------------------------------
+
+  !--------------------------------------------------------------------------------------
+  !>
+  ! standard input array shape: (cells, vertical_levels, file_time_steps)
+  ! standard output array shape: (nproma, vertical_levels, blocks, file_time_steps)
+  SUBROUTINE scatter_array_r4d (in_array, out_array, global_index)
+    REAL(wp), INTENT(inout) :: in_array(:,:,:)
+    REAL(wp), INTENT(out)   :: out_array(:,:,:,:)
+    INTEGER,  INTENT(in)    :: global_index(:)
+
+    INTEGER :: j, jl, jb, jk, time_step
+
+    ! this has internal check if sequential
+    CALL p_bcast(in_array, process_mpi_root_id, p_comm_work)
+
+    out_array(:,:,:,:) = 0.0_wp
+
+    DO time_step=1, SIZE(in_array,3)
+      DO jk = 1,    SIZE(out_array,2)
+        DO j = 1,   SIZE(global_index)
+          jb = blk_no(j)
+          jl = idx_no(j)
+          out_array(jl, jk, jb, time_step) = in_array(global_index(j), jk, time_step)
+        ENDDO
+      ENDDO
+    ENDDO
+
+  END SUBROUTINE scatter_array_r4d
+  !--------------------------------------------------------------------------------------
+
   !------------------------------------------------------------------------------------------------
-  !
 #ifndef NOMPI
   !================================================================================================
   ! REAL SECTION ----------------------------------------------------------------------------------
@@ -1054,6 +1145,10 @@ CONTAINS
     !
   END SUBROUTINE scatter_array_r2d
   !
+
+
+  !--------------------------------------------------------------------------------------
+  !>
   SUBROUTINE scatter_array_r3d (in_array, out_array, global_index)
     REAL(wp), INTENT(inout) :: in_array(:,:)
     REAL(wp), INTENT(out)   :: out_array(:,:,:)
@@ -1074,7 +1169,8 @@ CONTAINS
     ENDDO
     !
   END SUBROUTINE scatter_array_r3d
-  !
+  !--------------------------------------------------------------------------------------
+
   !================================================================================================
   ! INTEGER SECTION -------------------------------------------------------------------------------
   !

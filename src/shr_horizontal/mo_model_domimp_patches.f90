@@ -132,7 +132,7 @@ MODULE mo_model_domimp_patches
   USE mo_master_control,     ONLY: my_process_is_ocean
   USE mo_impl_constants_grf, ONLY: grf_bdyintp_start_c, grf_bdyintp_start_e
   USE mo_loopindices,        ONLY: get_indices_c, get_indices_e
-  USE mo_mpi,                ONLY: my_process_is_mpi_parallel, p_comm_work
+  USE mo_mpi,                ONLY: my_process_is_mpi_parallel, p_comm_work! , p_barrier
   USE mo_sync,               ONLY: disable_sync_checks, enable_sync_checks
   USE mo_communication,      ONLY: idx_no, blk_no
   USE mo_util_uuid,          ONLY: uuid_string_length, uuid_parse
@@ -146,6 +146,8 @@ MODULE mo_model_domimp_patches
   USE mo_math_constants,     ONLY: pi, pi_2
   USE mo_grid_subset,        ONLY: t_subset_range, get_index_range
   
+!  USE mo_netcdf_read,        ONLY: netcdf_read_oncells_2D
+
 #ifndef NOMPI
   ! The USE statement below lets this module use the routines from
   ! mo_read_netcdf_parallel where only 1 processor is reading
@@ -1366,6 +1368,9 @@ CONTAINS
     
     TYPE(t_patch), POINTER :: p_p, patch0
     
+!    REAL(wp), POINTER :: tmp_check_array(:,:)
+!    REAL(wp) :: max_diff
+
     CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_model_domimp_patches/read_remaining_patch'
     !-----------------------------------------------------------------------
     
@@ -1373,7 +1378,6 @@ CONTAINS
       & 'Read gridmap file '//TRIM(patch%grid_filename))
     
     CALL nf(nf_open(TRIM(patch%grid_filename), nf_nowrite, ncid))
-    
             
     !-------------------------------------------------
     !
@@ -1439,6 +1443,16 @@ CONTAINS
         & p_p%cells%area(:,:) )
     ENDDO
     
+!    NULLIFY(tmp_check_array)
+!    ist = netcdf_read_oncells_2D(ncid, "cell_area_p", tmp_check_array, patch)
+!    max_diff = MAXVAL(ABS(tmp_check_array(:,:) - patch%cells%area(:,:)))
+!    IF (max_diff > 0.0_wp) THEN
+!      CALL finish("check netcdf_read_oncells_2D", "Failed")
+!    ENDIF
+!    CALL p_barrier()
+!    CALL finish("check netcdf_read_oncells_2D", "Works!")
+
+
     ! p_p%edges%phys_id(:,:)
     CALL nf(nf_inq_varid(ncid, 'phys_edge_id', varid))
     CALL nf(nf_get_var_int(ncid, varid, array_e_int(:,1)))
