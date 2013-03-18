@@ -277,6 +277,8 @@ MODULE mo_nonhydro_types
    REAL(wp), POINTER :: wgtfacq1_c(:,:,:)
    ! weighting factor for quadratic interpolation to model top (nproma,3,nblks_e)
    REAL(wp), POINTER :: wgtfacq1_e(:,:,:)
+   ! Coefficients for improved discretization of horizontal kinetic energy gradient (nproma,2,nblks_e)
+   REAL(wp), POINTER :: coeff_gradekin(:,:,:)
    ! Inverse layer thickness of full levels (nproma,nlev,nblks_c)
    REAL(wp), POINTER :: inv_ddqz_z_full(:,:,:)
    ! Inverse distance between full levels jk+1 and jk-1 (nproma,nlev,nblks_c)

@@ -1930,7 +1930,7 @@ MODULE mo_nonhydro_state
     INTEGER :: shape2d_c(2), shape3d_c(3), shape3d_e(3),               &
       &        shape3d_v(3), shape3d_chalf(3), shape3d_ehalf(3),       &
       &        shape2d_ccubed(3), shape2d_ecubed(3), shape3d_vhalf(3), & 
-      &        shape3d_esquared(4), shape3d_e8(4)
+      &        shape2d_esquared(3), shape3d_esquared(4), shape3d_e8(4)
     INTEGER :: ibits         !< "entropy" of horizontal slice
     INTEGER :: ist
     !--------------------------------------------------------------
@@ -1946,7 +1946,8 @@ MODULE mo_nonhydro_state
     ibits = DATATYPE_PACK16   ! "entropy" of horizontal slice
 
     ! predefined array shapes
-    shape2d_c        = (/nproma,          nblks_c    /)     
+    shape2d_c        = (/nproma,          nblks_c    /) 
+    shape2d_esquared = (/nproma, 2      , nblks_e    /)    
     shape2d_ccubed   = (/nproma, 3      , nblks_c    /)     
     shape2d_ecubed   = (/nproma, 3      , nblks_e    /)     
     shape3d_c        = (/nproma, nlev   , nblks_c    /)     
@@ -2253,6 +2254,17 @@ MODULE mo_nonhydro_state
                   & ldims=shape2d_ecubed, loutput=.FALSE.,                      &
                   & isteptype=TSTEP_CONSTANT )
 
+      ! coefficients for more accurate discretization of grad(E_kin)
+      ! coeff_gradekin   p_metrics%coeff_gradekin(nproma,2,nblks_e)
+      !
+      cf_desc    = t_cf_var('coefficients', '-',                        &
+      &                     'coefficients for kinetic energy gradient', &
+      &                     DATATYPE_FLT32)
+      grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_EDGE)
+      CALL add_var( p_metrics_list, 'coeff_gradekin', p_metrics%coeff_gradekin, &
+                  & GRID_UNSTRUCTURED_EDGE, ZA_HYBRID, cf_desc, grib2_desc,     &
+                  & ldims=shape2d_esquared, loutput=.FALSE.,                    &
+                  & isteptype=TSTEP_CONSTANT )
 
       ! Inverse layer thickness of full levels
       ! inv_ddqz_z_full   p_metrics%inv_ddqz_z_full(nproma,nlev,nblks_c)

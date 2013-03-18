@@ -371,6 +371,16 @@ MODULE mo_vertical_grid
           ENDDO
         ENDIF
 
+        ! Coefficients for improved calculation of kinetic energy gradient
+        IF (p_patch(jg)%cell_type == 3) THEN
+          DO je = i_startidx, i_endidx
+            p_nh(jg)%metrics%coeff_gradekin(je,1,jb) = p_patch(jg)%edges%edge_cell_length(je,jb,2) / &
+              p_patch(jg)%edges%edge_cell_length(je,jb,1) * p_patch(jg)%edges%inv_dual_edge_length(je,jb)
+            p_nh(jg)%metrics%coeff_gradekin(je,2,jb) = p_patch(jg)%edges%edge_cell_length(je,jb,1) / &
+              p_patch(jg)%edges%edge_cell_length(je,jb,2) * p_patch(jg)%edges%inv_dual_edge_length(je,jb)
+          ENDDO
+        ENDIF
+
       ENDDO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL

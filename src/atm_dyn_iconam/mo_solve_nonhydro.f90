@@ -341,9 +341,10 @@ MODULE mo_solve_nonhydro
              + p_int%c_lin_e(je,2,jb) * p_prog%w(icidx(je,jb,2),jk,icblk(je,jb,2)) )
 
             ! Compute horizontal gradient of horizontal kinetic energy
-            z_ddxn_ekin_e(je,jk,jb) = p_patch%edges%inv_dual_edge_length(je,jb) *  &
-             (p_diag%e_kinh(icidx(je,jb,2),jk,icblk(je,jb,2)) -                    &
-              p_diag%e_kinh(icidx(je,jb,1),jk,icblk(je,jb,1)) )
+            z_ddxn_ekin_e(je,jk,jb) = z_kin_hor_e(je,jk,jb) *                                     &
+             (p_metrics%coeff_gradekin(je,1,jb) - p_metrics%coeff_gradekin(je,2,jb)) +            &
+              p_metrics%coeff_gradekin(je,2,jb)*p_diag%e_kinh(icidx(je,jb,2),jk,icblk(je,jb,2)) - &
+              p_metrics%coeff_gradekin(je,1,jb)*p_diag%e_kinh(icidx(je,jb,1),jk,icblk(je,jb,1)) 
           ENDDO
         ENDDO
       ELSE ! do not compute w tendency
@@ -356,9 +357,10 @@ MODULE mo_solve_nonhydro
           DO je = i_startidx, i_endidx
 #endif
             ! Compute horizontal gradient of horizontal kinetic energy
-            z_ddxn_ekin_e(je,jk,jb) = p_patch%edges%inv_dual_edge_length(je,jb) *  &
-             (p_diag%e_kinh(icidx(je,jb,2),jk,icblk(je,jb,2)) -                    &
-              p_diag%e_kinh(icidx(je,jb,1),jk,icblk(je,jb,1)) )
+            z_ddxn_ekin_e(je,jk,jb) = z_kin_hor_e(je,jk,jb) *                                     &
+             (p_metrics%coeff_gradekin(je,1,jb) - p_metrics%coeff_gradekin(je,2,jb)) +            &
+              p_metrics%coeff_gradekin(je,2,jb)*p_diag%e_kinh(icidx(je,jb,2),jk,icblk(je,jb,2)) - &
+              p_metrics%coeff_gradekin(je,1,jb)*p_diag%e_kinh(icidx(je,jb,1),jk,icblk(je,jb,1)) 
           ENDDO
         ENDDO
       ENDIF
