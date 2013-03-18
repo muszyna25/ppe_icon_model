@@ -1173,6 +1173,7 @@ CONTAINS
       ! Storage for table values - not sure if these dimensions are supported by add_var
       ! The dimension (num_lcc) is currently hard-wired to 23
        ALLOCATE(p_ext_atm%z0_lcc(num_lcc),         & ! Land-cover related roughness length
+                p_ext_atm%z0_lcc_min(num_lcc),     & ! Minimum land-cover related roughness length
                 p_ext_atm%plcovmax_lcc(num_lcc),   & ! Maximum plant cover fraction for each land-cover class
                 p_ext_atm%laimax_lcc(num_lcc),     & ! Maximum leaf area index for each land-cover class
                 p_ext_atm%rootdmax_lcc(num_lcc),   & ! Maximum root depth each land-cover class
@@ -2219,6 +2220,18 @@ CONTAINS
           ENDDO
         ENDIF
 
+        ! Derived parameter: minimum allowed land-cover related roughness length in the 
+        ! presence of low ndvi and/or snow cover
+        DO ilu = 1, num_lcc
+          IF (ilu == ext_data(jg)%atm%i_lc_urban .OR. ilu == ext_data(jg)%atm%i_lc_water) THEN
+            ext_data(jg)%atm%z0_lcc_min(ilu) = ext_data(jg)%atm%z0_lcc(ilu) ! no reduction in urban regions and over water
+          ELSE IF (ext_data(jg)%atm%z0_lcc(ilu) >= 0.1) THEN
+            ext_data(jg)%atm%z0_lcc_min(ilu) = 0.3_wp*ext_data(jg)%atm%z0_lcc(ilu) ! 30% for nominal roughness lengths > 10 cm
+          ELSE
+            ext_data(jg)%atm%z0_lcc_min(ilu) = MAX(0.005, 0.1_wp*ext_data(jg)%atm%z0_lcc(ilu)) ! 10% otherwise, but at least 5 mm
+          ENDIF
+        ENDDO
+
         !-------------------------------------------------------
         !
         ! Read topography for triangle centers and vertices
@@ -3238,20 +3251,19 @@ CONTAINS
                  ! root depth
                  ext_data(jg)%atm%rootdp_t (jc,jb,i_lu)  = ext_data(jg)%atm%rootdmax_lcc(lu_subs)
                  ! plant cover
-                 ext_data(jg)%atm%plcov_t  (jc,jb,i_lu)  =    &
-                   &         ptr_ndvi_mrat(jc,jb) * ext_data(jg)%atm%plcovmax_lcc(lu_subs)
-                 ! max leaf area index
-                 ext_data(jg)%atm%tai_t    (jc,jb,i_lu)  =    &
-                   &  ptr_ndvi_mrat(jc,jb)**2 *ext_data(jg)%atm%plcovmax_lcc(lu_subs)  &
-                   &     * ext_data(jg)%atm%laimax_lcc(lu_subs)
+                 ext_data(jg)%atm%plcov_t  (jc,jb,i_lu)  = ptr_ndvi_mrat(jc,jb) &
+                   & *  ext_data(jg)%atm%plcovmax_lcc(lu_subs)
+                 ! total area index
+                 ext_data(jg)%atm%tai_t    (jc,jb,i_lu)  = ext_data(jg)%atm%plcov_t(jc,jb,i_lu) &
+                   & * ptr_ndvi_mrat(jc,jb) * ext_data(jg)%atm%laimax_lcc(lu_subs)
 
-                 ! max leaf area index
+                 ! surface area index
                  ext_data(jg)%atm%sai_t    (jc,jb,i_lu)  = c_lnd+ ext_data(jg)%atm%tai_t (jc,jb,i_lu)
 
-                 ! max leaf area index
+                 ! evaporative soil area index
                  ext_data(jg)%atm%eai_t    (jc,jb,i_lu)  = c_soil
 
-                 ! minimal stomata resistence
+                 ! minimal stomata resistance
                  ext_data(jg)%atm%rsmin2d_t(jc,jb,i_lu)  = ext_data(jg)%atm%stomresmin_lcc(lu_subs)
     
                  ! soil type

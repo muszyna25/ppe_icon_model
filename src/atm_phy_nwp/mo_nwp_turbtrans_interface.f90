@@ -241,18 +241,19 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
           ! 2. snow_covered and snow_free areas combined in one tile
           jc = ext_data%atm%idx_lst_t(ic,jb,jt)
           lc_class = MAX(1,ext_data%atm%lc_class_t(jc,jb,jt)) ! to avoid segfaults
-          IF (ext_data%atm%z0_lcc(lc_class) >= 0.25_wp .AND. lc_class /= ext_data%atm%i_lc_urban) THEN
-            ! for forest-type vegetation, reduce roughness length when the vegetation is sparse
-            z0_mod = ext_data%atm%z0_lcc(lc_class) * SQRT(MAX(0.0625_wp,ext_data%atm%ndvi_mrat(jc,jb)))
-          ELSE
-            z0_mod = ext_data%atm%z0_lcc(lc_class)
+          ! Reduction of land-cover related roughness length when the vegetation is below 75%
+          IF (ext_data%atm%z0_lcc(lc_class) >= 0.5_wp) THEN ! high vegetation; maximum reduction to 40%
+            z0_mod = ext_data%atm%z0_lcc(lc_class) * SQRT( MAX(0.16_wp, &
+              MIN(1._wp,1.3333_wp*ext_data%atm%plcov_t(jc,jb,jt)) ))
+          ELSE ! lower vegetation, maximum reduction to 70%
+            z0_mod = ext_data%atm%z0_lcc(lc_class) * SQRT( MAX(0.5_wp, &
+              MIN(1._wp,1.3333_wp*ext_data%atm%plcov_t(jc,jb,jt)) ))
           ENDIF
-          ! Modify roughness length depending on snow cover. Snow is assumed to have a roughness
-          ! length of 5 mm (= 0.5*z0_lcc(i_lc_si)), but the final roughness length is limited
-          ! to 10% of the basic land-cover roughness length or 20% of the reduced roughness length
-          prm_diag%gz0_t(jc,jb,jt) = grav * MAX(0.1_wp*ext_data%atm%z0_lcc(lc_class), &
-            0.2_wp*z0_mod, (1._wp-lnd_diag%snowfrac_t(jc,jb,jt)**2)*z0_mod +          &
-            lnd_diag%snowfrac_t(jc,jb,jt)**2*0.5_wp*ext_data%atm%z0_lcc(i_lc_si) )
+          ! ensure that z0 does not fall below the minimum allowed value
+          z0_mod = MAX(z0_mod,ext_data%atm%z0_lcc_min(lc_class))
+          ! Modify roughness length depending on snow cover
+          prm_diag%gz0_t(jc,jb,jt) = grav *( (1._wp-lnd_diag%snowfrac_t(jc,jb,jt)**2)*z0_mod + &
+            lnd_diag%snowfrac_t(jc,jb,jt)**2*ext_data%atm%z0_lcc_min(lc_class) )
         ENDDO
       ENDDO
       IF (ntiles_total == 1) THEN

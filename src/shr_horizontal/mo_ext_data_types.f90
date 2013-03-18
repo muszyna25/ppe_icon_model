@@ -310,6 +310,8 @@ MODULE mo_ext_data_types
     !  have a different order of the landcover classes)
     REAL(wp), POINTER ::  &    !< Land-cover related roughness length   [m]
       & z0_lcc(:)              ! index1=1,23
+    REAL(wp), POINTER ::  &    !< Minimum land-cover related roughness length   [m]
+      & z0_lcc_min(:)          ! index1=1,23
     REAL(wp), POINTER ::  &    !< Maximum plant cover fraction for each land-cover class  [ ]
       & plcovmax_lcc(:)        ! index1=1,23
     REAL(wp), POINTER ::  &    !< Maximum leaf area index for each land-cover class  [ ]

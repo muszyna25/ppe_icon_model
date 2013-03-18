@@ -2379,14 +2379,13 @@ CONTAINS
                lu_subs = ext_data(jg)%atm%lc_class_t(jc,jb,jt)
                  IF (lu_subs < 0) CYCLE
                  ! plant cover
-                 ext_data(jg)%atm%plcov_t  (jc,jb,jt)  =    &
-                   &         ext_data(jg)%atm%ndvi_mrat(jc,jb) * ext_data(jg)%atm%plcovmax_lcc(lu_subs)
-                 ! max leaf area index
-                 ext_data(jg)%atm%tai_t    (jc,jb,jt)  =    &
-                   &  ext_data(jg)%atm%ndvi_mrat(jc,jb)**2 *ext_data(jg)%atm%plcovmax_lcc(lu_subs)  &
-                   &     * ext_data(jg)%atm%laimax_lcc(lu_subs)
+                 ext_data(jg)%atm%plcov_t  (jc,jb,jt)  = ext_data(jg)%atm%ndvi_mrat(jc,jb)   &
+                   & * ext_data(jg)%atm%plcovmax_lcc(lu_subs)
+                 ! total area index
+                 ext_data(jg)%atm%tai_t    (jc,jb,jt)  = ext_data(jg)%atm%plcov_t(jc,jb,jt)  &
+                   & * ext_data(jg)%atm%ndvi_mrat(jc,jb) * ext_data(jg)%atm%laimax_lcc(lu_subs)
 
-                 ! max leaf area index
+                 ! surface area index
                  ext_data(jg)%atm%sai_t    (jc,jb,jt)  = c_lnd+ ext_data(jg)%atm%tai_t (jc,jb,jt)     
 
 

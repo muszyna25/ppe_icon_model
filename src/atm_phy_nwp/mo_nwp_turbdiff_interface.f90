@@ -299,6 +299,11 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
 !DR NOTE: computation of sensible and latent heat fluxes (over non-land points) should be 
 !DR moved either to the turbtran interface, or the surface interface!!
 
+      DO jc = i_startidx, i_endidx
+        prm_diag%shfl_s(jc,jb) = prm_diag%shfl_s_t(jc,jb,1)
+        prm_diag%lhfl_s(jc,jb) = prm_diag%lhfl_s_t(jc,jb,1)
+        prm_diag%qhfl_s(jc,jb) = prm_diag%qhfl_s_t(jc,jb,1)
+      ENDDO
 
     ENDIF !inwp_turb
 
