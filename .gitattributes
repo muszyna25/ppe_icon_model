@@ -1,6 +1,4 @@
 * text=auto !eol
-/.autotools -text
-/Makefile -text
 /Makefile.in -text
 /README -text
 /aclocal.m4 -text
@@ -46,10 +44,8 @@ blas/lsame.f -text
 blas/xerbla.f -text
 /build_ICON_ECMWF -text
 /build_all -text
-/build_command -text
 /build_command.ecmwf -text
 config/config.guess -text
-config/config.h -text svneol=unset#text/plain
 config/config.h.SX -text
 config/config.h.in -text
 config/config.sub -text
@@ -58,13 +54,11 @@ config/create_target_header -text
 config/install-sh -text
 config/make_target_runscript -text
 config/mh-aix -text
-config/mh-config-use -text
 config/mh-cygwin -text
 config/mh-darwin -text
 config/mh-linux -text
 config/mh-nec -text
 config/missing -text
-config/set-up.info -text
 /configure -text
 /configure.ac -text
 /create_builds -text
