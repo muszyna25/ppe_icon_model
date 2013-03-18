@@ -791,7 +791,7 @@ CONTAINS
       CALL nf(nf_put_att_text  (ncid, nf_global, 'institution', 59, &
         & 'Max Planck Institute for Meteorology/Deutscher Wetterdienst'))
       CALL nf(nf_put_att_text  (ncid, nf_global, 'source', 10, 'icon-dev'))
-      CALL nf(nf_put_att_text  (ncid, nf_global, 'uuid' , uuid_string_length, TRIM(uuid_string)))
+      CALL nf(nf_put_att_text  (ncid, nf_global, 'uuidOfHGrid' , uuid_string_length, TRIM(uuid_string)))
       CALL nf(nf_put_att_text  (ncid, nf_global, 'grid_mapping_name' , 18, 'lat_long_on_sphere'))
       CALL nf(nf_put_att_text  (ncid, nf_global, 'crs_id' , 28, 'urn:ogc:def:cs:EPSG:6.0:6422'))
       CALL nf(nf_put_att_text  (ncid, nf_global, 'crs_name',30,'Spherical 2D Coordinate System'))
