@@ -457,8 +457,8 @@ set_run_target_thunder()
 # thunder batch job parameters
 #-----------------------------------------------------------------------------
 #SBATCH --job-name=$job_name
-#SBATCH --output=LOG.$job_name-%j.o
-#SBATCH --error=LOG.$job_name-%j.o
+#SBATCH --output=LOG.$job_name.%j.out
+#SBATCH --error=LOG.$job_name.%j.err
 #SBATCH --partition=$queue
 #SBATCH --workdir=$output_folder
 #SBATCH --nodes=$use_nodes
