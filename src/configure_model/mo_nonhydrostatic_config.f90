@@ -146,8 +146,7 @@ CONTAINS
 
     REAL(wp), PARAMETER :: hbase_clch = 7185.44_wp  ! height in m of 400 hPa level in US standard atmosphere
     REAL(wp), PARAMETER :: hbase_clcm = 1948.99_wp  ! height in m of 800 hPa level in US standard atmosphere
-    REAL(wp), PARAMETER :: kstart_moist_default = 2 ! AD: default value for kstart_moist- keeping it greater than 1
-              					    ! to avoid run time error in special case of dry CBL
+
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
       &  routine = 'mo_nonhydrostatic_config:configure_nonhydrostatic'
@@ -155,7 +154,7 @@ CONTAINS
     !-----------------------------------------------------------------------
 
     ! Determine start level for moist physics processes (specified by htop_moist_proc)
-    kstart_moist(jg) = kstart_moist_default
+    kstart_moist(jg) = 1
     DO jk = 1, nlev
       jk1 = jk + nshift_total
       IF (0.5_wp*(vct_a(jk1)+vct_a(jk1+1)) < htop_moist_proc) THEN
@@ -164,7 +163,7 @@ CONTAINS
       ENDIF
     ENDDO
 
-    IF ( kstart_moist(jg) >= kstart_moist_default ) THEN
+    IF ( kstart_moist(jg) >= 1 ) THEN
       WRITE(message_text,'(2(a,i4))') 'Domain', jg, &
         '; computation of moist physics processes starts in layer ', kstart_moist(jg)
       CALL message(TRIM(routine),message_text)
