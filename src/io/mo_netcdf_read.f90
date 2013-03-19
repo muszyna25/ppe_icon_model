@@ -47,7 +47,7 @@ MODULE mo_netcdf_read
 
   USE mo_kind
   USE mo_mpi
-  USE mo_gather_scatter,     ONLY: scatter_cells, scatter_cells_3D_time, broadcast_array
+  USE mo_gather_scatter,     ONLY: scatter_cells, scatter_cells_3D_time, gather_cells_3D_time, broadcast_array
   USE mo_model_domain,       ONLY: t_patch
   USE mo_exception,          ONLY: message_text, message, warning, finish, em_warn
   USE mo_impl_constants,     ONLY: success, max_char_length
@@ -73,8 +73,9 @@ MODULE mo_netcdf_read
   PUBLIC :: read_netcdf_lu
   PUBLIC :: nf
   PUBLIC :: netcdf_open_input, netcdf_close
-  PUBLIC :: netcdf_read_ONCELLS_2D
+  PUBLIC :: netcdf_read_oncells_2d
   PUBLIC :: netcdf_read_oncells_3D_time
+  PUBLIC :: netcdf_write_oncells_3D_time
 
   INTERFACE read_netcdf_data
     MODULE PROCEDURE read_netcdf_2d
@@ -88,6 +89,11 @@ MODULE mo_netcdf_read
   INTERFACE read_netcdf_data_single
     MODULE PROCEDURE read_netcdf_3d_single
   END INTERFACE read_netcdf_data_single
+
+  INTERFACE netcdf_write_oncells_3D_time
+    MODULE PROCEDURE netcdf_write_REAL_ONCELLS_3D_time_filename
+    MODULE PROCEDURE netcdf_write_REAL_ONCELLS_3D_time_fileid
+  END INTERFACE netcdf_write_oncells_3D_time
 
   INTERFACE netcdf_read_oncells_3D_time
     MODULE PROCEDURE netcdf_read_REAL_ONCELLS_3D_time_filename
@@ -115,14 +121,14 @@ CONTAINS
     REAL(wp), POINTER            :: fill_array(:,:)
     TYPE(t_patch), TARGET        :: patch
 
-    INTEGER :: ncid
+    INTEGER :: file_id
     INTEGER :: return_status    
     CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_netcdf_read:netcdf_read_REAL_ONCELLS_2D_filename'
 
-    ncid = netcdf_open_input(filename)
+    file_id = netcdf_open_input(filename)
     netcdf_read_REAL_ONCELLS_2D_filename = &
-      & netcdf_read_REAL_ONCELLS_2D_fileid(ncid, variable_name, fill_array, patch)
-    return_status = netcdf_close(ncid)
+      & netcdf_read_REAL_ONCELLS_2D_fileid(file_id, variable_name, fill_array, patch)
+    return_status = netcdf_close(file_id)
                               
   END FUNCTION netcdf_read_REAL_ONCELLS_2D_filename
   !-------------------------------------------------------------------------
@@ -135,22 +141,123 @@ CONTAINS
     REAL(wp), POINTER            :: fill_array(:,:,:,:)
     TYPE(t_patch), TARGET        :: patch
 
-    INTEGER :: ncid
+    INTEGER :: file_id
     INTEGER :: return_status
     CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_netcdf_read:netcdf_read_REAL_ONCELLS_2D_filename'
 
-    ncid = netcdf_open_input(filename)
+    file_id = netcdf_open_input(filename)
     netcdf_read_REAL_ONCELLS_3D_time_filename = &
-      & netcdf_read_REAL_ONCELLS_3D_time_fileid(ncid, variable_name, fill_array, patch)
-    return_status = netcdf_close(ncid)
+      & netcdf_read_REAL_ONCELLS_3D_time_fileid(file_id, variable_name, fill_array, patch)
+    return_status = netcdf_close(file_id)
 
   END FUNCTION netcdf_read_REAL_ONCELLS_3D_time_filename
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
   !>
-   INTEGER FUNCTION netcdf_read_REAL_ONCELLS_2D_fileid(ncid, variable_name, fill_array, patch)
-    INTEGER, INTENT(IN)          :: ncid
+  ! this function is meant only for checking the read methods
+  ! Do not use for regular output
+  INTEGER FUNCTION netcdf_write_REAL_ONCELLS_3D_time_filename(filename, variable_name, write_array, patch)
+    CHARACTER(LEN=*), INTENT(IN) :: filename
+    CHARACTER(LEN=*), INTENT(IN) :: variable_name
+    REAL(wp), POINTER            :: write_array(:,:,:,:)
+    TYPE(t_patch), TARGET        :: patch
+
+    INTEGER :: file_id
+    INTEGER :: return_status
+    CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_netcdf_read:netcdf_write_REAL_ONCELLS_3D_time_filename'
+
+    netcdf_write_REAL_ONCELLS_3D_time_filename = 0
+
+    file_id = netcdf_open_output(filename)
+
+    netcdf_write_REAL_ONCELLS_3D_time_filename = &
+      & netcdf_write_REAL_ONCELLS_3D_time_fileid(file_id, variable_name, write_array, patch)
+
+    return_status = netcdf_close(file_id)
+
+  END FUNCTION netcdf_write_REAL_ONCELLS_3D_time_filename
+  !-------------------------------------------------------------------------
+
+
+  !-------------------------------------------------------------------------
+  !>
+  ! this function is meant only for checking the read methods
+  ! Do not use for regular output
+  INTEGER FUNCTION netcdf_write_REAL_ONCELLS_3D_time_fileid(file_id, variable_name, write_array, patch)
+    INTEGER, INTENT(IN)  :: file_id
+    CHARACTER(LEN=*), INTENT(IN) :: variable_name
+    REAL(wp),      POINTER       :: write_array(:,:,:,:)
+    TYPE(t_patch), TARGET        :: patch
+
+    REAL(wp), POINTER            :: output_array(:,:,:)
+    INTEGER :: total_number_of_cells, array_vertical_levels, array_time_steps
+    INTEGER :: dim_number_of_cells, dim_vertical_levels, dim_array_time_steps
+    INTEGER :: output_shape(3), dim_write_shape(3), diff_shape(3)
+    INTEGER :: variable_id
+
+    INTEGER                      :: return_status
+!    INTEGER                      :: i,j,t
+    CHARACTER(LEN=*), PARAMETER  :: method_name = 'mo_netcdf_read:netcdf_write_REAL_ONCELLS_3D_time_fileid'
+
+    netcdf_write_REAL_ONCELLS_3D_time_fileid = 0
+
+    CALL gather_cells_3D_time(write_array, output_array, patch)
+    !----------------------------------------------------------------------
+    ! Write only from mpi_workroot
+    IF( my_process_is_mpi_workroot()  ) THEN
+
+      ! Write Dimensions
+      total_number_of_cells = patch%n_patch_cells_g
+      array_vertical_levels = SIZE(write_array, 2)
+      array_time_steps      = SIZE(write_array, 4)
+      output_shape          = (/ total_number_of_cells, array_vertical_levels, array_time_steps /)
+      diff_shape            = (SHAPE(output_array) - output_shape)
+
+      IF ( MAXVAL(ABS( diff_shape)) /= 0 ) THEN
+        WRITE(0,*) " gather array shape:", SHAPE(output_array)
+        WRITE(0,*) " computed array shape:", output_shape
+        CALL finish(method_name, "gather array shape is nor correct")
+      ENDIF
+
+      CALL nf(nf_def_dim(file_id, 'ncells',  total_number_of_cells,  dim_number_of_cells),  variable_name)
+      CALL nf(nf_def_dim(file_id, 'plev',    array_vertical_levels,  dim_vertical_levels),  variable_name)
+      CALL nf(nf_def_dim(file_id, 'time',    array_time_steps,       dim_array_time_steps), variable_name)
+      dim_write_shape = (/ dim_number_of_cells, dim_vertical_levels,  dim_array_time_steps /)
+
+      ! define variable
+      ! WRITE(0,*) " define variable:", variable_name
+!      CALL nf(nf_def_var(file_id, variable_name, nf_double, 3, dim_write_shape,&
+!        & variable_id), variable_name)
+      CALL nf(nf_def_var(file_id, variable_name, nf_float, 3, dim_write_shape,&
+        & variable_id), variable_name)
+
+      CALL nf(nf_enddef(file_id), variable_name)
+
+!      DO t=1, array_time_steps
+!        DO i=1, total_number_of_cells
+!          DO j=1, array_vertical_levels
+!            write(0,*) t,i,j, ":", output_array(i,j,t)
+!          ENDDO
+!        ENDDO
+!      ENDDO
+      ! write array
+      ! WRITE(0,*) " write array..."
+      CALL nf(nf_put_var_double(file_id, variable_id, output_array(:,:,:)), variable_name)
+      ! CALL nf(nf_put_var_real(file_id, variable_id, REAL(output_array(:,:,:))), variable_name)
+
+      ! Clean-up
+      DEALLOCATE(output_array)
+
+    ENDIF
+
+  END FUNCTION netcdf_write_REAL_ONCELLS_3D_time_fileid
+  !-------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------
+  !>
+   INTEGER FUNCTION netcdf_read_REAL_ONCELLS_2D_fileid(file_id, variable_name, fill_array, patch)
+    INTEGER, INTENT(IN)          :: file_id
     CHARACTER(LEN=*), INTENT(IN) :: variable_name
     REAL(wp), POINTER            :: fill_array(:,:)
     TYPE(t_patch), TARGET        :: patch
@@ -170,7 +277,7 @@ CONTAINS
     total_number_of_cells = patch%n_patch_cells_g
     
     IF( my_process_is_mpi_workroot()  ) THEN
-      return_status = netcdf_inq_var(ncid, variable_name, varid, var_type, var_dims, var_size, var_dim_name)
+      return_status = netcdf_inq_var(file_id, variable_name, varid, var_type, var_dims, var_size, var_dim_name)
       
       ! check if the dims look ok
       IF (var_dims /= 1 .OR. var_size(1) /= total_number_of_cells) THEN
@@ -190,7 +297,7 @@ CONTAINS
     ENDIF
     
     IF( my_process_is_mpi_workroot()) THEN
-      CALL nf(nf_get_var_double(ncid, varid, tmp_array(:)), variable_name)
+      CALL nf(nf_get_var_double(file_id, varid, tmp_array(:)), variable_name)
     ENDIF
 
     IF (.NOT. ASSOCIATED(fill_array)) THEN
@@ -209,13 +316,13 @@ CONTAINS
   
   !-------------------------------------------------------------------------
   !>
-  ! By default the netcdf input has the structure as printed from ncdump :
+  ! By default the netcdf input has the structure :
   !      c-style(ncdump): O3(time, levels, ncells) fortran-style: O3(ncells, levels, time)
   ! The fill_array  has the structure:
   !       fill_array(nproma, levels, blocks, time)
   ! This should be adapatble (needs further work)
-  INTEGER FUNCTION netcdf_read_REAL_ONCELLS_3D_time_fileid(ncid, variable_name, fill_array, patch)
-    INTEGER, INTENT(IN)          :: ncid
+  INTEGER FUNCTION netcdf_read_REAL_ONCELLS_3D_time_fileid(file_id, variable_name, fill_array, patch)
+    INTEGER, INTENT(IN)          :: file_id
     CHARACTER(LEN=*), INTENT(IN) :: variable_name
     REAL(wp), POINTER            :: fill_array(:,:,:,:)
     TYPE(t_patch), TARGET        :: patch
@@ -238,7 +345,7 @@ CONTAINS
     total_number_of_cells = patch%n_patch_cells_g
 
     IF( my_process_is_mpi_workroot()  ) THEN
-      return_status = netcdf_inq_var(ncid, variable_name, varid, var_type, var_dims, var_size, var_dim_name)
+      return_status = netcdf_inq_var(file_id, variable_name, varid, var_type, var_dims, var_size, var_dim_name)
 
       ! check if we have indeed 3 dimensions
       IF (var_dims /= 3 ) THEN
@@ -276,7 +383,7 @@ CONTAINS
     ENDIF
 
     IF( my_process_is_mpi_workroot()) THEN
-      CALL nf(nf_get_var_double(ncid, varid, tmp_array(:,:,:)), variable_name)
+      CALL nf(nf_get_var_double(file_id, varid, tmp_array(:,:,:)), variable_name)
     ENDIF
 
     IF (.NOT. ASSOCIATED(fill_array)) THEN
@@ -295,30 +402,50 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   !>
+  INTEGER FUNCTION netcdf_open_output(filename)
+    CHARACTER(LEN=*), INTENT(IN) :: filename
+
+    INTEGER :: file_id, old_mode
+
+    IF( my_process_is_mpi_workroot()  ) THEN
+      CALL nf(nf_set_default_format(nf_format_64bit, old_mode), TRIM(filename))
+      CALL nf(nf_create(TRIM(filename), nf_clobber, file_id), TRIM(filename))
+      CALL nf(nf_set_fill(file_id, nf_nofill, old_mode), TRIM(filename))
+    ELSE
+        file_id = -1 ! set it to an invalid value
+    ENDIF
+
+    netcdf_open_output = file_id
+
+  END FUNCTION netcdf_open_output
+  !-------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------
+  !>
   INTEGER FUNCTION netcdf_open_input(filename)
     CHARACTER(LEN=*), INTENT(IN) :: filename
 
-    INTEGER :: ncid
+    INTEGER :: file_id
 
     IF( my_process_is_mpi_workroot()  ) THEN
-        CALL nf(nf_open(TRIM(filename), nf_nowrite, ncid), TRIM(filename))
+      CALL nf(nf_open(TRIM(filename), nf_nowrite, file_id), TRIM(filename))
     ELSE
-        ncid = -1 ! set it to an invalid value
+      file_id = -1 ! set it to an invalid value
     ENDIF
 
-    netcdf_open_input = ncid
+    netcdf_open_input = file_id
     
   END FUNCTION netcdf_open_input
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
   !>
-  INTEGER FUNCTION netcdf_close(ncid)
-    INTEGER, INTENT(IN) :: ncid
+  INTEGER FUNCTION netcdf_close(file_id)
+    INTEGER, INTENT(IN) :: file_id
 
     netcdf_close = -1
     IF( my_process_is_mpi_workroot()  ) THEN
-        netcdf_close = nf_close(ncid)
+        netcdf_close = nf_close(file_id)
     ENDIF
 
   END FUNCTION netcdf_close
@@ -356,8 +483,8 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   !>
-  INTEGER FUNCTION netcdf_inq_var(ncid, name, varid, var_type, var_dims, var_size, var_dim_name)
-    INTEGER, INTENT(IN) :: ncid
+  INTEGER FUNCTION netcdf_inq_var(file_id, name, varid, var_type, var_dims, var_size, var_dim_name)
+    INTEGER, INTENT(IN) :: file_id
     CHARACTER(LEN=*), INTENT(IN) :: name
     
     INTEGER, INTENT(OUT) :: varid, var_type, var_dims
@@ -373,14 +500,14 @@ CONTAINS
     IF ( .NOT. my_process_is_mpi_workroot() ) RETURN
 
 
-    netcdf_inq_var = nf_inq_varid(ncid, name, varid)
+    netcdf_inq_var = nf_inq_varid(file_id, name, varid)
     CALL nf(netcdf_inq_var, name)
-    netcdf_inq_var = nf_inq_var (ncid, varid, check_var_name, var_type, var_dims, &
+    netcdf_inq_var = nf_inq_var (file_id, varid, check_var_name, var_type, var_dims, &
       & var_dims_reference, number_of_attributes)
     CALL nf(netcdf_inq_var, check_var_name)
     DO i=1, var_dims
-      CALL nf(nf_inq_dimlen (ncid, var_dims_reference(i), var_size(i)),     check_var_name)
-      CALL nf(nf_inq_dimname(ncid, var_dims_reference(i), var_dim_name(i)), check_var_name)
+      CALL nf(nf_inq_dimlen (file_id, var_dims_reference(i), var_size(i)),     check_var_name)
+      CALL nf(nf_inq_dimname(file_id, var_dims_reference(i), var_dim_name(i)), check_var_name)
     ENDDO
 !     write(0,*) " Read var_dims, var_size:",  var_dims, var_size
 !     write(0,*) " check_var_name:",  check_var_name
@@ -397,12 +524,12 @@ CONTAINS
   !! Initial revision by Daniel Reinert, DWD (2010-07-14)
   !! Adapted for parallel runs by Rainer Johanni (2010-12-07)
   !!
-  SUBROUTINE read_netcdf_2d (ncid, varname, glb_arr_len, loc_arr_len, glb_index, var_out)
+  SUBROUTINE read_netcdf_2d (file_id, varname, glb_arr_len, loc_arr_len, glb_index, var_out)
 
     CHARACTER(len=*), INTENT(IN)  ::  &  !< Var name of field to be read
       &  varname
 
-    INTEGER, INTENT(IN) :: ncid          !< id of netcdf file
+    INTEGER, INTENT(IN) :: file_id          !< id of netcdf file
     INTEGER, INTENT(IN) :: glb_arr_len   !< length of 1D field (global)
     INTEGER, INTENT(IN) :: loc_arr_len   !< length of 1D field (local)
     INTEGER, INTENT(IN) :: glb_index(:)  !< Index mapping local to global
@@ -415,10 +542,9 @@ CONTAINS
 
     INTEGER :: varid, mpi_comm, j, jl, jb
     REAL(wp):: z_dummy_array(glb_arr_len)!< local dummy array
-  !-------------------------------------------------------------------------
 
     ! Get var ID
-    IF( my_process_is_stdio()) CALL nf(nf_inq_varid(ncid, TRIM(varname), varid), routine)
+    IF( my_process_is_stdio()) CALL nf(nf_inq_varid(file_id, TRIM(varname), varid), routine)
 
     IF(p_test_run) THEN
       mpi_comm = p_comm_work_test
@@ -428,7 +554,7 @@ CONTAINS
 
     ! I/O PE reads and broadcasts data
 
-    IF(my_process_is_stdio()) CALL nf(nf_get_var_double(ncid, varid, z_dummy_array(:)), routine)
+    IF(my_process_is_stdio()) CALL nf(nf_get_var_double(file_id, varid, z_dummy_array(:)), routine)
     CALL p_bcast(z_dummy_array, p_io, mpi_comm)
 
     var_out(:,:) = 0._wp
@@ -443,7 +569,7 @@ CONTAINS
     ENDDO
 
   END SUBROUTINE read_netcdf_2d
-
+  !-------------------------------------------------------------------------
 
 
   !-------------------------------------------------------------------------
@@ -454,12 +580,12 @@ CONTAINS
   !! Initial revision by Daniel Reinert, DWD (2010-07-14)
   !! Adapted for parallel runs by Rainer Johanni (2010-12-07)
   !!
-  SUBROUTINE read_netcdf_2d_int (ncid, varname, glb_arr_len, loc_arr_len, glb_index, var_out)
+  SUBROUTINE read_netcdf_2d_int (file_id, varname, glb_arr_len, loc_arr_len, glb_index, var_out)
 
     CHARACTER(len=*), INTENT(IN)  ::  &  !< Var name of field to be read
       &  varname
 
-    INTEGER, INTENT(IN) :: ncid          !< id of netcdf file
+    INTEGER, INTENT(IN) :: file_id          !< id of netcdf file
     INTEGER, INTENT(IN) :: glb_arr_len   !< length of 1D field (global)
     INTEGER, INTENT(IN) :: loc_arr_len   !< length of 1D field (local)
     INTEGER, INTENT(IN) :: glb_index(:)  !< Index mapping local to global
@@ -475,7 +601,7 @@ CONTAINS
   !-------------------------------------------------------------------------
 
     ! Get var ID
-    IF( my_process_is_stdio()) CALL nf(nf_inq_varid(ncid, TRIM(varname), varid), routine)
+    IF( my_process_is_stdio()) CALL nf(nf_inq_varid(file_id, TRIM(varname), varid), routine)
 
     IF(p_test_run) THEN
       mpi_comm = p_comm_work_test
@@ -485,7 +611,7 @@ CONTAINS
 
     ! I/O PE reads and broadcasts data
 
-    IF( my_process_is_stdio()) CALL nf(nf_get_var_int(ncid, varid, z_dummy_array(:)), routine)
+    IF( my_process_is_stdio()) CALL nf(nf_get_var_int(file_id, varid, z_dummy_array(:)), routine)
     CALL p_bcast(z_dummy_array, p_io, mpi_comm)
 
     var_out(:,:) = 0
@@ -500,7 +626,7 @@ CONTAINS
     ENDDO
 
   END SUBROUTINE read_netcdf_2d_int
-
+  !-------------------------------------------------------------------------
 
 
   !-------------------------------------------------------------------------
@@ -512,13 +638,13 @@ CONTAINS
   !! Adapted for parallel runs by Rainer Johanni (2010-12-07)
   !! Adapted for 3 D by Guenther Zaengl, DWD (2011-07-11)
   !!
-  SUBROUTINE read_netcdf_3d (ncid, varname, glb_arr_len, loc_arr_len, glb_index, &
+  SUBROUTINE read_netcdf_3d (file_id, varname, glb_arr_len, loc_arr_len, glb_index, &
     &                        nlevs, var_out)
 
     CHARACTER(len=*), INTENT(IN)  ::  &  !< Var name of field to be read
       &  varname
 
-    INTEGER, INTENT(IN) :: ncid          !< id of netcdf file
+    INTEGER, INTENT(IN) :: file_id          !< id of netcdf file
     INTEGER, INTENT(IN) :: nlevs         !< vertical levels of netcdf file
     INTEGER, INTENT(IN) :: glb_arr_len   !< length of 1D field (global)
     INTEGER, INTENT(IN) :: loc_arr_len   !< length of 1D field (local)
@@ -536,7 +662,7 @@ CONTAINS
     !-------------------------------------------------------------------------
 
     ! Get var ID
-    IF(my_process_is_stdio()) CALL nf(nf_inq_varid(ncid, TRIM(varname), varid), routine)
+    IF(my_process_is_stdio()) CALL nf(nf_inq_varid(file_id, TRIM(varname), varid), routine)
 
     IF(p_test_run) THEN
       mpi_comm = p_comm_work_test
@@ -546,7 +672,7 @@ CONTAINS
 
     ! I/O PE reads and broadcasts data
 
-    IF(my_process_is_stdio()) CALL nf(nf_get_var_double(ncid, varid, z_dummy_array(:,:)), routine)
+    IF(my_process_is_stdio()) CALL nf(nf_get_var_double(file_id, varid, z_dummy_array(:,:)), routine)
     CALL p_bcast(z_dummy_array, p_io, mpi_comm)
 
     var_out(:,:,:) = 0._wp
@@ -564,9 +690,10 @@ CONTAINS
      ENDDO
 
   END SUBROUTINE read_netcdf_3d
+  !-------------------------------------------------------------------------
 
 
- !-------------------------------------------------------------------------
+  !-------------------------------------------------------------------------
   !>
   !! Read 3D dataset from netcdf file in SINGLE PRECISION
   !!
@@ -574,13 +701,13 @@ CONTAINS
   !! Initial revision by F. Prill, DWD (2012-02-15)
   !! Optional switch to read 3D field in 2D slices: F. Prill, DWD (2012-12-19)
   !!
-  SUBROUTINE read_netcdf_3d_single (ncid, varname, glb_arr_len, loc_arr_len, glb_index, &
+  SUBROUTINE read_netcdf_3d_single (file_id, varname, glb_arr_len, loc_arr_len, glb_index, &
     &                               nlevs, var_out, opt_lvalue_add)
 
     CHARACTER(len=*), INTENT(IN)  ::  &  !< Var name of field to be read
       &  varname
 
-    INTEGER, INTENT(IN) :: ncid          !< id of netcdf file
+    INTEGER, INTENT(IN) :: file_id          !< id of netcdf file
     INTEGER, INTENT(IN) :: nlevs         !< vertical levels of netcdf file
     INTEGER, INTENT(IN) :: glb_arr_len   !< length of 1D field (global)
     INTEGER, INTENT(IN) :: loc_arr_len   !< length of 1D field (local)
@@ -622,12 +749,12 @@ CONTAINS
 
     ! Get var ID
     IF(my_process_is_stdio()) THEN
-      CALL nf(nf_inq_varid(ncid, TRIM(varname), varid), routine)
+      CALL nf(nf_inq_varid(file_id, TRIM(varname), varid), routine)
 
       ! Check variable dimensions:
-      CALL nf(NF_INQ_VARDIMID(ncid, varid, dims(:)), routine)
+      CALL nf(NF_INQ_VARDIMID(file_id, varid, dims(:)), routine)
       DO j=1,3
-        CALL nf(NF_INQ_DIMLEN  (ncid, dims(j), dimlen(j)), routine)
+        CALL nf(NF_INQ_DIMLEN  (file_id, dims(j), dimlen(j)), routine)
       END DO
       IF ((dimlen(1) /= glb_arr_len) .OR.  &
         & (dimlen(2) /= nlevs)) THEN
@@ -649,7 +776,7 @@ CONTAINS
       !-- 3D buffer implementation
 
       IF(my_process_is_stdio()) THEN
-        CALL nf(nf_get_var_real(ncid, varid, tmp_buf(:,:)), routine)
+        CALL nf(nf_get_var_real(file_id, varid, tmp_buf(:,:)), routine)
       END IF
       ! broadcast data:
       CALL p_bcast(tmp_buf, p_io, mpi_comm)
@@ -679,7 +806,7 @@ CONTAINS
       DO jk=1,nlevs
         istart = (/ 1,jk,itime /)
         IF(my_process_is_stdio()) THEN
-          CALL nf(nf_get_vara_real(ncid, varid, &
+          CALL nf(nf_get_vara_real(file_id, varid, &
             &     istart, icount, tmp_buf(:,:)), routine)
         END IF
 
@@ -712,13 +839,13 @@ CONTAINS
 
   !-------------------------------------------------------------------------
 
-  SUBROUTINE read_netcdf_aero (ncid, ntime, varname, glb_arr_len, &
+  SUBROUTINE read_netcdf_aero (file_id, ntime, varname, glb_arr_len, &
        &                     loc_arr_len, glb_index, var_out)
 
     CHARACTER(len=*), INTENT(IN)  ::  &  !< Var name of field to be read
       &  varname
 
-    INTEGER, INTENT(IN) :: ncid          !< id of netcdf file
+    INTEGER, INTENT(IN) :: file_id       !< id of netcdf file
     INTEGER, INTENT(IN) :: ntime         !< time levels of netcdf file
     INTEGER, INTENT(IN) :: glb_arr_len   !< length of 1D field (global)
     INTEGER, INTENT(IN) :: loc_arr_len   !< length of 1D field (local)
@@ -735,7 +862,7 @@ CONTAINS
   !-------------------------------------------------------------------------
 
     ! Get var ID
-    IF(my_process_is_stdio()) CALL nf(nf_inq_varid(ncid, TRIM(varname), varid), routine)
+    IF(my_process_is_stdio()) CALL nf(nf_inq_varid(file_id, TRIM(varname), varid), routine)
 
     IF(p_test_run) THEN
       mpi_comm = p_comm_work_test
@@ -746,7 +873,7 @@ CONTAINS
 
     ! I/O PE reads and broadcasts data
 
-    IF(my_process_is_stdio()) CALL nf(nf_get_var_double(ncid, varid, z_dummy_array(:,:)), routine)
+    IF(my_process_is_stdio()) CALL nf(nf_get_var_double(file_id, varid, z_dummy_array(:,:)), routine)
     CALL p_bcast(z_dummy_array, p_io , mpi_comm)
 
     var_out(:,:,:) = 0._wp
@@ -773,13 +900,13 @@ CONTAINS
   ! and read_netcdf_lu can be merged into a single routine in the near
   ! future.
 
-  SUBROUTINE read_netcdf_lu (ncid, varname, glb_arr_len,            &
+  SUBROUTINE read_netcdf_lu (file_id, varname, glb_arr_len,            &
        &                     loc_arr_len, glb_index, nslice, var_out)
 
     CHARACTER(len=*), INTENT(IN)  ::  &  !< Var name of field to be read
       &  varname
 
-    INTEGER, INTENT(IN) :: ncid          !< id of netcdf file
+    INTEGER, INTENT(IN) :: file_id          !< id of netcdf file
     INTEGER, INTENT(IN) :: nslice        !< slices o netcdf field
     INTEGER, INTENT(IN) :: glb_arr_len   !< length of 1D field (global)
     INTEGER, INTENT(IN) :: loc_arr_len   !< length of 1D field (local)
@@ -798,7 +925,7 @@ CONTAINS
 
 
     ! Get var ID
-    IF(my_process_is_stdio()) CALL nf(nf_inq_varid(ncid, TRIM(varname), varid), routine)
+    IF(my_process_is_stdio()) CALL nf(nf_inq_varid(file_id, TRIM(varname), varid), routine)
 
     IF(p_test_run) THEN
       mpi_comm = p_comm_work_test
@@ -810,7 +937,7 @@ CONTAINS
 
     ! I/O PE reads and broadcasts data
 
-    IF(my_process_is_stdio()) CALL nf(nf_get_var_double(ncid, varid, z_dummy_array(:,:)), routine)
+    IF(my_process_is_stdio()) CALL nf(nf_get_var_double(file_id, varid, z_dummy_array(:,:)), routine)
     CALL p_bcast(z_dummy_array, p_io , mpi_comm)
 
     var_out(:,:,:) = 0._wp
@@ -840,14 +967,14 @@ CONTAINS
   !! Adapted for parallel runs by Rainer Johanni (2010-12-07)
   !! Adapted for 4 D by Kristina Froehlich, MPI-M (2011-06-16)
   !!
-  SUBROUTINE read_netcdf_4d (ncid, varname, glb_arr_len, &
+  SUBROUTINE read_netcdf_4d (file_id, varname, glb_arr_len, &
        &                     loc_arr_len, glb_index, &
        &                     nlevs, ntime,      var_out)
 
     CHARACTER(len=*), INTENT(IN)  ::  &  !< Var name of field to be read
       &  varname
 
-    INTEGER, INTENT(IN) :: ncid          !< id of netcdf file
+    INTEGER, INTENT(IN) :: file_id          !< id of netcdf file
     INTEGER, INTENT(IN) :: nlevs         !< vertical levels of netcdf file
     INTEGER, INTENT(IN) :: ntime         !< time levels of netcdf file
     INTEGER, INTENT(IN) :: glb_arr_len   !< length of 1D field (global)
@@ -866,7 +993,7 @@ CONTAINS
     !-------------------------------------------------------------------------
 
     ! Get var ID
-    IF(my_process_is_stdio()) CALL nf(nf_inq_varid(ncid, TRIM(varname), varid), routine)
+    IF(my_process_is_stdio()) CALL nf(nf_inq_varid(file_id, TRIM(varname), varid), routine)
 
     IF(p_test_run) THEN
       mpi_comm = p_comm_work_test
@@ -877,7 +1004,7 @@ CONTAINS
     ! I/O PE reads and broadcasts data
 
     write(0,*) ' ncep set ',varname,': begin of read - whole time array'
-    IF(my_process_is_stdio()) CALL nf(nf_get_var_double(ncid, varid, z_dummy_array(:,:,:)), routine)
+    IF(my_process_is_stdio()) CALL nf(nf_get_var_double(file_id, varid, z_dummy_array(:,:,:)), routine)
     CALL p_bcast(z_dummy_array, p_io , mpi_comm)
 
     var_out(:,:,:,:) = 0._wp
@@ -908,14 +1035,14 @@ CONTAINS
   !! Adapted for parallel runs by Rainer Johanni (2010-12-07)
   !! Adapted for time periods by Stephan Lorenz, MPI-M (2012-02-22)
   !!
-  SUBROUTINE read_netcdf_time (ncid, varname, glb_arr_len, &
+  SUBROUTINE read_netcdf_time (file_id, varname, glb_arr_len, &
        &                       loc_arr_len, glb_index,     &
        &                       ntime, nstart, ncount, var_out)
 
     CHARACTER(len=*), INTENT(IN)  ::  &  !< Var name of field to be read
       &  varname
 
-    INTEGER, INTENT(IN) :: ncid          !< id of netcdf file
+    INTEGER, INTENT(IN) :: file_id          !< id of netcdf file
     INTEGER, INTENT(IN) :: glb_arr_len   !< length of 1D field (global)
     INTEGER, INTENT(IN) :: loc_arr_len   !< length of 1D field (local)
     INTEGER, INTENT(IN) :: glb_index(:)  !< Index mapping local to global
@@ -935,7 +1062,7 @@ CONTAINS
     !-------------------------------------------------------------------------
 
     ! Get var ID
-    IF(my_process_is_stdio()) CALL nf(nf_inq_varid(ncid, TRIM(varname), varid), routine)
+    IF(my_process_is_stdio()) CALL nf(nf_inq_varid(file_id, TRIM(varname), varid), routine)
 
     IF(p_test_run) THEN
       mpi_comm = p_comm_work_test
@@ -950,7 +1077,7 @@ CONTAINS
     !write(0,*) ' ncep set ',varname,': begin of read - time period'
     !write(0,*) ' nstart, ncount: ',nstart, ncount
 
-    IF(my_process_is_stdio()) CALL nf(nf_get_vara_double(ncid, varid, &
+    IF(my_process_is_stdio()) CALL nf(nf_get_vara_double(file_id, varid, &
       &                               nstart(:), ncount(:), z_dummy_array(:,:)), routine)
     CALL p_bcast(z_dummy_array, p_io , mpi_comm)
 

@@ -2,14 +2,50 @@
 @PROCESS smp=noopt
 @PROCESS noopt
 #endif
-
+!>
+!! This module provides basic MPI gather scatter
+!!
+!!
+!! @author Luis Kornblueh, MPI
+!! @author Leonidas Loinardakis, MPI
+!!
+!! @par Revision History
+!!
+!! @par Copyright
+!! 2002-2007 by DWD and MPI-M
+!! This software is provided for non-commercial use only.
+!! See the LICENSE and the WARRANTY conditions.
+!!
+!! @par License
+!! The use of ICON is hereby granted free of charge for an unlimited time,
+!! provided the following rules are accepted and applied:
+!! <ol>
+!! <li> You may use or modify this code for your own non commercial and non
+!!    violent purposes.
+!! <li> The code may not be re-distributed without the consent of the authors.
+!! <li> The copyright notice and statement of authorship must appear in all
+!!    copies.
+!! <li> You accept the warranty conditions (see WARRANTY).
+!! <li> In case you intend to use the code commercially, we oblige you to sign
+!!    an according license agreement with DWD and MPI-M.
+!! </ol>
+!!
+!! @par Warranty
+!! This code has been tested up to a certain level. Defects and weaknesses,
+!! which may be included in the code, do not establish any warranties by the
+!! authors.
+!! The authors do not make any warranty, express or implied, or assume any
+!! liability or responsibility for the use, acquisition or application of this
+!! software.
+!!
 MODULE mo_gather_scatter
   !
   USE mo_kind,          ONLY: wp
   USE mo_communication, ONLY: idx_no, blk_no, exchange_data
   USE mo_model_domain,  ONLY: t_patch
   USE mo_mpi,           ONLY: process_mpi_root_id, p_bcast, p_comm_work, &
-                              my_process_is_mpi_seq 
+                              my_process_is_mpi_seq, my_process_is_mpi_workroot
+  USE mo_exception,     ONLY: message_text, message, warning, finish, em_warn
   !
   IMPLICIT NONE
   !
@@ -22,7 +58,7 @@ MODULE mo_gather_scatter
   PUBLIC :: gather_vertices
   !
   PUBLIC :: scatter_cells
-  PUBLIC :: scatter_cells_3D_time
+  PUBLIC :: scatter_cells_3D_time, gather_cells_3D_time
   PUBLIC :: scatter_edges
   PUBLIC :: scatter_vertices
   !
@@ -60,7 +96,12 @@ MODULE mo_gather_scatter
     MODULE PROCEDURE gather_vertices_l2d
     MODULE PROCEDURE gather_vertices_l3d
   END INTERFACE gather_vertices
-  !
+
+
+  INTERFACE gather_cells_3D_time
+    MODULE PROCEDURE gather_real_cells_3D_time
+  END INTERFACE gather_cells_3D_time
+
   INTERFACE scatter_cells_3D_time
     MODULE PROCEDURE scatter_real_cells_3D_time
   END INTERFACE scatter_cells_3D_time
@@ -116,6 +157,59 @@ CONTAINS
   !================================================================================================
   ! REAL SECTION ----------------------------------------------------------------------------------
   !
+
+  !--------------------------------------------------------------------
+  !>
+  SUBROUTINE gather_real_cells_3D_time(in_array, out_array, patch)
+    REAL(wp), POINTER  :: in_array(:,:,:,:)
+    REAL(wp), POINTER  :: out_array(:,:,:)
+    TYPE(t_patch), TARGET :: patch
+
+    REAL(wp), POINTER :: tmp_array(:,:,:)
+    INTEGER :: n1, n2, n3, n4, total_number_of_cells, timestep
+
+    n1 = SIZE(in_array, 1)
+    n2 = SIZE(in_array, 2)
+    total_number_of_cells = patch%n_patch_cells_g
+    n3 = (total_number_of_cells - 1) / n1 + 1  ! these are the number of blocks for all the cells
+    n4 = SIZE(in_array, 4)
+
+    IF (.NOT. my_process_is_mpi_seq()) THEN
+
+      IF (my_process_is_mpi_workroot()) THEN
+         ALLOCATE(tmp_array(n1, n2, n3), out_array(total_number_of_cells, n2, n4))
+      ELSE
+        ! ALLOCATE(tmp_array(n1, 1, 1))  ! it's weird but the exchange data requires nproma as first dimension
+         ALLOCATE(tmp_array(n1, n2, n3)) ! it's more weird...
+         NULLIFY(out_array)
+      ENDIF
+
+      ! for each timestep exchange and fill the output array
+      DO timestep = 1, n4
+        CALL exchange_data(patch%comm_pat_gather_c, RECV=tmp_array, SEND=in_array(:,:,:,timestep))
+        IF (my_process_is_mpi_workroot()) THEN
+          CALL reshape2_without_block_real_3D(tmp_array, out_array(:, :, timestep ))
+        ENDIF
+      ENDDO
+
+      DEALLOCATE(tmp_array)
+
+    ELSE
+
+      ! this a sequential run
+      ALLOCATE( out_array(total_number_of_cells, n2, n4))
+      DO timestep = 1, n4
+        CALL reshape2_without_block_real_3D(in_array(:,:,:,timestep), out_array(:, :,timestep ))
+      ENDDO
+
+    ENDIF
+
+  END SUBROUTINE gather_real_cells_3D_time
+  !--------------------------------------------------------------------
+
+
+  !--------------------------------------------------------------------
+  !>
   SUBROUTINE gather_cells_r2d(in_array, out_array, p_patch)
     REAL(wp),                   INTENT(in) :: in_array(:,:)
     REAL(wp), POINTER                      :: out_array(:,:,:,:,:) 
@@ -148,10 +242,14 @@ CONTAINS
     CALL reorder(in_array, r1d)
 #endif
   END SUBROUTINE gather_cells_r2d
-  !
+  !--------------------------------------------------------------------
+
+
+  !--------------------------------------------------------------------
+  !>
   SUBROUTINE gather_cells_r3d(in_array, out_array, p_patch)
     REAL(wp),                   INTENT(in) :: in_array(:,:,:)
-    REAL(wp), POINTER                      :: out_array(:,:,:,:,:)
+    REAL(wp), TARGET                       :: out_array(:,:,:,:,:)
 #ifndef NOMPI
     TYPE(t_patch),    OPTIONAL, INTENT(in) :: p_patch
 #else
@@ -181,7 +279,11 @@ CONTAINS
     CALL reorder(in_array, r2d)
 #endif
   END SUBROUTINE gather_cells_r3d
-  !
+  !--------------------------------------------------------------------
+
+
+  !--------------------------------------------------------------------
+  !>
   SUBROUTINE gather_edges_r2d(in_array, out_array, p_patch)
     REAL(wp),                   INTENT(in) :: in_array(:,:)
     REAL(wp), POINTER                      :: out_array(:,:,:,:,:) 
@@ -748,13 +850,7 @@ CONTAINS
     REAL(wp), POINTER                   :: out_array(:,:,:,:)
     TYPE(t_patch), INTENT(in)           :: p_patch
 
-!    IF (my_process_is_mpi_seq()) THEN
-!      CALL reorder(in_array, out_array)
-!#ifndef NOMPI
-!    ELSE
-      CALL scatter_array_r4d(in_array, out_array, p_patch%cells%glb_index)
-!#endif
-!    ENDIF
+    CALL scatter_array_r4d(in_array, out_array, p_patch%cells%glb_index)
   
   END SUBROUTINE scatter_real_cells_3D_time
   !--------------------------------------------------------------------------------------
@@ -1121,6 +1217,88 @@ CONTAINS
   END SUBROUTINE scatter_array_r4d
   !--------------------------------------------------------------------------------------
 
+  !--------------------------------------------------------------------------------------
+  !>
+  SUBROUTINE reshape2_without_block_real_3D(in, out)
+    REAL(wp), TARGET  :: in(:,:,:)
+    REAL(wp), TARGET  :: out(:,:)
+
+    INTEGER :: in_block_size, in_blocks, out_size, in_levels, out_levels
+    INTEGER :: block, level, blk_index, out_index, end_index
+
+    CHARACTER(LEN=*), PARAMETER  :: method_name = 'mo_gather_scatter:reshape2_without_block_real_3D'
+
+    in_block_size  = SIZE(in,1)
+    in_blocks      = SIZE(in,3)
+    out_size       = SIZE(out,1)
+
+    in_levels  = SIZE(in,2)
+    out_levels = SIZE(out,2)
+
+    IF (in_levels /= out_levels) &
+      CALL finish(method_name, "in_levels /= out_levels")
+
+    DO level=1, in_levels
+      DO block=1, in_blocks - 1
+        DO blk_index = 1, in_block_size
+          out_index =  (block-1) * in_block_size + blk_index
+          out(out_index, level) = in(blk_index, level, block)
+          ! write(0,*) "reshape:", out_index, block, blk_index, level, out(out_index, level)
+        ENDDO
+      ENDDO
+    ENDDO
+
+    ! fill the last block
+    block = in_blocks
+    end_index = out_size - (in_blocks-1) * in_block_size
+    DO level=1, in_levels
+      DO blk_index = 1, end_index
+        out_index =  (block-1) * in_block_size + blk_index
+        out(out_index, level) = in(blk_index, level, block)
+        ! write(0,*) "reshape:", out_index, block, blk_index, level, out(out_index, level)
+      ENDDO
+    ENDDO
+
+  END SUBROUTINE reshape2_without_block_real_3D
+  !-----------------------------------------------------------------
+
+  !-----------------------------------------------------------------
+  !>
+  SUBROUTINE reorder_backward_r3d(in, out)
+    REAL(wp), TARGET  :: in(:,:,:)
+    REAL(wp), TARGET  :: out(:,:)
+    !
+    LOGICAL, ALLOCATABLE    :: lmask(:)
+    INTEGER ::isize_in, isize_out, isize_lev
+    INTEGER :: idiscrep, k
+    !
+    isize_in  = SIZE(in,1)*SIZE(in,3)
+    isize_out = SIZE(out,1)
+    isize_lev = SIZE(in,2)
+    idiscrep = isize_in - isize_out
+    !
+    IF (idiscrep /= 0 )THEN
+      ALLOCATE (lmask(isize_in))
+      lmask(1:isize_out) = .TRUE.
+      lmask(isize_out+1:isize_in) = .FALSE.
+    ENDIF
+    !
+    DO k = 1, isize_lev
+      IF (idiscrep /= 0 )THEN
+        out(:,k) = PACK(RESHAPE(in(:,k,:),(/isize_in/)),lmask)
+      ELSE
+        out(:,k) =      RESHAPE(in(:,k,:),(/isize_out/))
+      ENDIF
+    ENDDO
+    !
+    IF (idiscrep /= 0 )THEN
+      DEALLOCATE (lmask)
+    ENDIF
+    !
+  END SUBROUTINE reorder_backward_r3d
+  !-----------------------------------------------------------------
+
+
   !------------------------------------------------------------------------------------------------
 #ifndef NOMPI
   !================================================================================================
@@ -1286,40 +1464,10 @@ CONTAINS
     ENDIF
     !
   END SUBROUTINE reorder_backward_r2d
-  !
-  SUBROUTINE reorder_backward_r3d(in, out)
-    REAL(wp), INTENT(in)    :: in(:,:,:)
-    REAL(wp), INTENT(inout) :: out(:,:)
-    !
-    LOGICAL, ALLOCATABLE    :: lmask(:)
-    INTEGER ::isize_in, isize_out, isize_lev
-    INTEGER :: idiscrep, k
-    !
-    isize_in  = SIZE(in,1)*SIZE(in,3)
-    isize_out = SIZE(out,1)
-    isize_lev = SIZE(in,2)
-    idiscrep = isize_in-isize_out
-    !
-    IF (idiscrep /= 0 )THEN
-      ALLOCATE (lmask(isize_in))
-      lmask(1:isize_out) = .TRUE.
-      lmask(isize_out+1:isize_in) = .FALSE.
-    ENDIF
-    !
-    DO k = 1, isize_lev
-      IF (idiscrep /= 0 )THEN
-        out(:,k) = PACK(RESHAPE(in(:,k,:),(/isize_in/)),lmask)
-      ELSE
-        out(:,k) =      RESHAPE(in(:,k,:),(/isize_out/))
-      ENDIF
-    ENDDO
-    !   
-    IF (idiscrep /= 0 )THEN
-      DEALLOCATE (lmask)
-    ENDIF
-    !
-  END SUBROUTINE reorder_backward_r3d
-  !
+  !-----------------------------------------------------------------
+
+  !-----------------------------------------------------------------
+  !>
   SUBROUTINE reorder_foreward_r2d(in, out)
     REAL(wp), INTENT(in)    :: in(:)
     REAL(wp), INTENT(inout) :: out(:,:)

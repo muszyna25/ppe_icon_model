@@ -55,6 +55,7 @@ PRIVATE
 
 PUBLIC :: test_netcdf_read
 
+
 CONTAINS
   
   !-------------------------------------------------------------------------
@@ -78,16 +79,24 @@ CONTAINS
     CALL construct_atmo_model(namelist_filename,shr_namelist_filename)
     CALL construct_atmo_hydrostatic()
     !---------------------------------------------------------------------
+
+
+    !---------------------------------------------------------------------
+    ! read o3
     CALL message(method_name,   o3_filename)
     NULLIFY(test_o3)
     return_status = netcdf_read_oncells_3D_time(o3_filename, "O3", test_o3, p_patch(1))
     write(0,*) "shape of o3 array:", SHAPE(test_o3)
-    write(0,*) "o3(1,1,1,1)=", test_o3(1,1,1,1)
+    !write(0,*) "o3(1,1,1,1)=", test_o3(1,1,1,1)
+    !---------------------------------------------------------------------
+    ! write the o3 array to output for comparing
+    return_status = netcdf_write_oncells_3d_time("O3_test.nc", "O3", test_o3, p_patch(1))
+    DEALLOCATE(test_o3)
+    !---------------------------------------------------------------------
+
 
     !---------------------------------------------------------------------
     ! Carry out the shared clean-up processes
-    !---------------------------------------------------------------------
-    DEALLOCATE(test_o3)
     CALL destruct_atmo_hydrostatic()
     CALL destruct_atmo_model()
      
