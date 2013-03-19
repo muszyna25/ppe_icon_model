@@ -1482,245 +1482,245 @@ SUBROUTINE calc_normal_velocity_ab_mimetic(p_patch_3D,p_os, p_op_coeff, p_ext_da
   !CALL message (TRIM(routine), 'end')
 
 END SUBROUTINE calc_normal_velocity_ab_mimetic
-!-------------------------------------------------------------------------
-!
-!  
-!>
-!! Computation of new vertical velocity using continuity equation
+  !-------------------------------------------------------------------------
+  !
+  !  
+  !>
+  !! Computation of new vertical velocity using continuity equation
 
-!! Calculate diagnostic vertical velocity from horizontal velocity using the
-!! incommpressibility condition in the continuity equation.
-!! vertical velocity is integrated from bottom to top
-!! vertical velocity is negative for positive divergence
-!! of horizontal velocity
-!! 
-!! @par Revision History
-!! Developed  by  Peter Korn,   MPI-M (2006).
-!!  Modified by Stephan Lorenz, MPI-M (2010-06)
-!TODO review
-SUBROUTINE calc_vert_velocity_mim_bottomup( p_patch_3D, p_os, p_diag,p_op_coeff,pw_c )
-!
-TYPE(t_patch_3D), TARGET, INTENT(IN) :: p_patch_3D       ! patch on which computation is performed
-TYPE(t_hydro_ocean_state)         :: p_os
-TYPE(t_hydro_ocean_diag)          :: p_diag
-TYPE(t_operator_coeff),INTENT(IN) :: p_op_coeff
-REAL(wp),         INTENT(INOUT)   :: pw_c (nproma,n_zlev+1,p_patch_3D%p_patch_2D(1)%nblks_c) ! vertical velocity on cells
-!
-!
-! Local variables
-INTEGER :: jc, jk, jb, je
-INTEGER :: z_dolic
-INTEGER :: i_startidx, i_endidx
-REAL(wp) :: div_depth_int(nproma,p_patch_3D%p_patch_2D(1)%nblks_c)
-REAL(wp) :: z_vn_e(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
-REAL(wp) :: z_c(nproma,p_patch_3D%p_patch_2D(1)%nblks_c)
-TYPE(t_subset_range), POINTER :: cells_in_domain, edges_in_domain
-TYPE(t_patch), POINTER :: p_patch
+  !! Calculate diagnostic vertical velocity from horizontal velocity using the
+  !! incommpressibility condition in the continuity equation.
+  !! vertical velocity is integrated from bottom to top
+  !! vertical velocity is negative for positive divergence
+  !! of horizontal velocity
+  !! 
+  !! @par Revision History
+  !! Developed  by  Peter Korn,   MPI-M (2006).
+  !!  Modified by Stephan Lorenz, MPI-M (2010-06)
+  !TODO review
+  SUBROUTINE calc_vert_velocity_mim_bottomup( p_patch_3D, p_os, p_diag,p_op_coeff,pw_c )
 
-!-----------------------------------------------------------------------  
-p_patch         => p_patch_3D%p_patch_2D(1)
-cells_in_domain => p_patch%cells%in_domain
-edges_in_domain => p_patch%edges%in_domain
-
-! due to nag -nan compiler-option:
-pw_c(1:nproma,1:n_zlev+1,1:p_patch%nblks_c) = 0.0_wp
-div_depth_int(1:nproma,1:p_patch%nblks_c)   = 0.0_wp
-z_c          (1:nproma,1:p_patch%nblks_c)   = 0.0_wp
-!------------------------------------------------------------------
-! Step 1) Calculate divergence of horizontal velocity at all levels
-!------------------------------------------------------------------
-
-! !-------------------------------------------------------------------------------
-IF(l_EDGE_BASED )THEN
-! !-------------------------------------------------------------------------------
-  DO jb = edges_in_domain%start_block, edges_in_domain%end_block
-    CALL get_index_range(edges_in_domain, jb, i_startidx, i_endidx)
-    DO jk = 1, n_zlev
-      DO je = i_startidx, i_endidx
-        p_os%p_diag%mass_flx_e(je,jk,jb) = p_diag%vn_time_weighted(je,jk,jb)&
-        &* p_patch_3D%p_patch_1D(1)%prism_thick_e(je,jk,jb)
+    TYPE(t_patch_3D), TARGET, INTENT(IN) :: p_patch_3D       ! patch on which computation is performed
+    TYPE(t_hydro_ocean_state)         :: p_os
+    TYPE(t_hydro_ocean_diag)          :: p_diag
+    TYPE(t_operator_coeff),INTENT(IN) :: p_op_coeff
+    REAL(wp),         INTENT(INOUT)   :: pw_c (nproma,n_zlev+1,p_patch_3D%p_patch_2D(1)%nblks_c) ! vertical velocity on cells
+    !
+    !
+    ! Local variables
+    INTEGER :: jc, jk, jb, je
+    INTEGER :: z_dolic
+    INTEGER :: i_startidx, i_endidx
+    REAL(wp) :: div_depth_int(nproma,p_patch_3D%p_patch_2D(1)%nblks_c)
+    REAL(wp) :: z_vn_e(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
+    REAL(wp) :: z_c(nproma,p_patch_3D%p_patch_2D(1)%nblks_c)
+    TYPE(t_subset_range), POINTER :: cells_in_domain, edges_in_domain
+    TYPE(t_patch), POINTER :: p_patch
+    
+    !-----------------------------------------------------------------------  
+    p_patch         => p_patch_3D%p_patch_2D(1)
+    cells_in_domain => p_patch%cells%in_domain
+    edges_in_domain => p_patch%edges%in_domain
+    
+    ! due to nag -nan compiler-option:
+    pw_c(1:nproma,1:n_zlev+1,1:p_patch%nblks_c) = 0.0_wp
+    div_depth_int(1:nproma,1:p_patch%nblks_c)   = 0.0_wp
+    z_c          (1:nproma,1:p_patch%nblks_c)   = 0.0_wp
+    !------------------------------------------------------------------
+    ! Step 1) Calculate divergence of horizontal velocity at all levels
+    !------------------------------------------------------------------
+    
+    ! !-------------------------------------------------------------------------------
+    IF(l_EDGE_BASED )THEN
+    ! !-------------------------------------------------------------------------------
+      DO jb = edges_in_domain%start_block, edges_in_domain%end_block
+        CALL get_index_range(edges_in_domain, jb, i_startidx, i_endidx)
+        DO jk = 1, n_zlev
+          DO je = i_startidx, i_endidx
+            p_os%p_diag%mass_flx_e(je,jk,jb) = p_diag%vn_time_weighted(je,jk,jb)&
+            &* p_patch_3D%p_patch_1D(1)%prism_thick_e(je,jk,jb)
+          END DO
+        END DO
       END DO
-    END DO
-  END DO
-
-  CALL div_oce_3D( p_os%p_diag%mass_flx_e,    &
-                 & p_patch,                   &
-                 & p_op_coeff%div_coeff,      &
-                 & p_os%p_diag%div_mass_flx_c,&
-                 & subset_range=cells_in_domain)
+    
+      CALL div_oce_3D( p_os%p_diag%mass_flx_e,    &
+                     & p_patch,                   &
+                     & p_op_coeff%div_coeff,      &
+                     & p_os%p_diag%div_mass_flx_c,&
+                     & subset_range=cells_in_domain)
 
 
-  DO jb = cells_in_domain%start_block, cells_in_domain%end_block
-    CALL get_index_range(cells_in_domain, jb, i_startidx, i_endidx)
-    DO jc = i_startidx, i_endidx
-
-      z_dolic = p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)
-
-      !use bottom boundary condition for vertical velocity at bottom
-      !of prism
-      pw_c(jc,z_dolic+1,jb)=0.0_wp
-      DO jk = z_dolic, 1, -1
-        !IF(p_patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
-        pw_c(jc,jk,jb) = pw_c(jc,jk+1,jb) - p_os%p_diag%div_mass_flx_c(jc,jk,jb)
-        !ENDIF
+      DO jb = cells_in_domain%start_block, cells_in_domain%end_block
+        CALL get_index_range(cells_in_domain, jb, i_startidx, i_endidx)
+        DO jc = i_startidx, i_endidx
+    
+          z_dolic = p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)
+    
+          !use bottom boundary condition for vertical velocity at bottom
+          !of prism
+          pw_c(jc,z_dolic+1,jb)=0.0_wp
+          DO jk = z_dolic, 1, -1
+            !IF(p_patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
+            pw_c(jc,jk,jb) = pw_c(jc,jk+1,jb) - p_os%p_diag%div_mass_flx_c(jc,jk,jb)
+            !ENDIF
+          END DO
+        END DO
       END DO
-    END DO
-  END DO
-
-! !-------------------------------------------------------------------------------
-ELSEIF(.NOT.l_EDGE_BASED)THEN
-! !-------------------------------------------------------------------------------
-
-  CALL map_edges2edges_viacell_3d_const_z( p_patch_3D, p_diag%vn_time_weighted, p_op_coeff, p_os%p_diag%mass_flx_e)
-
-
-  CALL sync_patch_array(SYNC_E,p_patch,p_os%p_diag%mass_flx_e)
-
-  CALL div_oce_3D( p_os%p_diag%mass_flx_e,      &
-                 & p_patch,p_op_coeff%div_coeff,&
-                 & p_os%p_diag%div_mass_flx_c,  &
-                 & subset_range=cells_in_domain)
-  CALL sync_patch_array(SYNC_C,p_patch,p_os%p_diag%div_mass_flx_c)
-
-  DO jb = cells_in_domain%start_block, cells_in_domain%end_block
-    CALL get_index_range(cells_in_domain, jb, i_startidx, i_endidx)
-    DO jc = i_startidx, i_endidx
-
-      z_dolic = p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)
-
-      !use bottom boundary condition for vertical velocity at bottom
-      !of prism
-      pw_c(jc,z_dolic+1,jb)=0.0_wp
-      DO jk = z_dolic, 1, -1
-        !IF(p_patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
-        pw_c(jc,jk,jb) = pw_c(jc,jk+1,jb) - p_os%p_diag%div_mass_flx_c(jc,jk,jb)
-        !ENDIF
+    
+    ! !-------------------------------------------------------------------------------
+    ELSEIF(.NOT.l_EDGE_BASED)THEN
+    ! !-------------------------------------------------------------------------------
+    
+      CALL map_edges2edges_viacell_3d_const_z( p_patch_3D, p_diag%vn_time_weighted, p_op_coeff, p_os%p_diag%mass_flx_e)
+    
+    
+      CALL sync_patch_array(SYNC_E,p_patch,p_os%p_diag%mass_flx_e)
+    
+      CALL div_oce_3D( p_os%p_diag%mass_flx_e,      &
+                     & p_patch,p_op_coeff%div_coeff,&
+                     & p_os%p_diag%div_mass_flx_c,  &
+                     & subset_range=cells_in_domain)
+      CALL sync_patch_array(SYNC_C,p_patch,p_os%p_diag%div_mass_flx_c)
+    
+      DO jb = cells_in_domain%start_block, cells_in_domain%end_block
+        CALL get_index_range(cells_in_domain, jb, i_startidx, i_endidx)
+        DO jc = i_startidx, i_endidx
+    
+          z_dolic = p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)
+    
+          !use bottom boundary condition for vertical velocity at bottom
+          !of prism
+          pw_c(jc,z_dolic+1,jb)=0.0_wp
+          DO jk = z_dolic, 1, -1
+            !IF(p_patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
+            pw_c(jc,jk,jb) = pw_c(jc,jk+1,jb) - p_os%p_diag%div_mass_flx_c(jc,jk,jb)
+            !ENDIF
+          END DO
+        END DO
       END DO
+    ENDIF
+    
+    
+    IF(l_RIGID_LID)THEN
+      pw_c(:,1,:) = 0.0_wp
+    ENDIF
+    CALL sync_patch_array(SYNC_C,p_patch,pw_c)
+    
+    !  DO jk=1,n_zlev
+    !  write(*,*)'vert veloc',jk,minval(pw_c(:,jk,:)),maxval(pw_c(:,jk,:))
+    !  END DO
+    !  DO jk=1,n_zlev
+    !  write(*,*)'div-mass-flux',jk,minval(p_os%p_diag%div_mass_flx_c(:,jk,:)),&
+    !  &maxval(p_os%p_diag%div_mass_flx_c(:,jk,:))
+    !  END DO
+    
+    z_c(:,:) = ((p_os%p_prog(nnew(1))%h(:,:)-p_os%p_prog(nold(1))%h(:,:))/dtime - pw_c(:,1,:))*p_patch_3D%wet_c(:,1,:)
+    !write(*,*)'difference d_t height - vert veloc:',&
+    !&maxval(((p_os%p_prog(nnew(1))%h-p_os%p_prog(nold(1))%h)/dtime - pw_c(:,1,:))*p_patch_3D%wet_c(:,1,:))
+    !---------DEBUG DIAGNOSTICS-------------------------------------------
+    idt_src=1  ! output print level (1-5, fix)
+    CALL dbg_print('CalcVertVelMimBU: d_t/dt-w',z_c                       ,str_module,idt_src)
+    idt_src=3  ! output print level (1-5, fix)
+    CALL dbg_print('CalcVertVelMimBU: pw_c =W' ,pw_c                      ,str_module,idt_src)
+    idt_src=4  ! output print level (1-5, fix)
+    CALL dbg_print('CalcVertVelMimBU: mass flx',p_os%p_diag%mass_flx_e,    str_module,idt_src)
+    CALL dbg_print('CalcVertVelMimBU: div mass',p_os%p_diag%div_mass_flx_c,str_module,idt_src)
+    !---------------------------------------------------------------------
+
+  END SUBROUTINE calc_vert_velocity_mim_bottomup
+  !-------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------
+  !!  mpi parallelized, the result is NOT synced. Should be done in the calling method if required
+  FUNCTION inverse_primal_flip_flop(p_patch, p_patch_3D, p_op_coeff, rhs_e, h_e) result(inv_flip_flop_e)
+    !
+    TYPE(t_patch), TARGET :: p_patch 
+    TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: p_patch_3D
+    TYPE(t_operator_coeff),INTENT(IN)             :: p_op_coeff
+    REAL(wp)      :: rhs_e(:,:,:)!(nproma,n_zlev,p_patch%nblks_e)
+    REAL(wp)      :: h_e(:,:)  !(nproma,p_patch%nblks_e)
+    REAL(wp)      :: inv_flip_flop_e(SIZE(rhs_e,1),SIZE(rhs_e,2),SIZE(rhs_e,3))
+    !
+    !LOCAL VARIABLES
+    INTEGER,PARAMETER :: nmax_iter= 800 ! maximum number of iterations
+    REAL(wp) :: zimpl_coeff = 1.0_wp    !COEFF has to be set appropriately !!!!
+    REAL(wp) :: zimpl_prime_coeff
+    INTEGER  :: n_iter                  ! number of iterations
+    REAL(wp) :: tolerance               ! (relative or absolute) tolerance
+    REAL(wp) :: z_residual(nmax_iter)
+    LOGICAL  :: lmax_iter               ! true if reached m iterations
+    !LOGICAL  :: lverbose = .TRUE.
+    !CHARACTER(len=MAX_CHAR_LENGTH) :: string
+    REAL(wp) :: rhstemp(nproma,p_patch%nblks_e)
+    REAL(wp), ALLOCATABLE :: inv_flip_flop_e2(:,:)!(nproma,p_patch%nblks_e)
+    REAL(wp) :: z_e(nproma,n_zlev,p_patch%nblks_e)
+    INTEGER :: jk
+    !INTEGER :: i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e
+    !-----------------------------------------------------------------------
+
+    tolerance                = 1.0e-12_wp  ! solver_tolerance
+    inv_flip_flop_e(:,:,:)   = 0.0_wp
+    zimpl_prime_coeff = (1.0_wp-zimpl_coeff)
+
+    rhstemp(:,:)          = 0.0_wp
+
+    DO jk=1, n_zlev
+      rhstemp(:,:) = rhs_e(:,jk,:)&
+      & -zimpl_coeff*lhs_primal_flip_flop(inv_flip_flop_e(:,jk,:), p_patch, p_patch_3D, p_op_coeff,jk,zimpl_coeff, h_e)
+
+      If (maxval (ABS (rhstemp (:,:))) <= tolerance) THEN
+        inv_flip_flop_e(:,jk,:) = lhs_primal_flip_flop(inv_flip_flop_e(:,jk,:), p_patch, p_patch_3D, p_op_coeff,jk,zimpl_coeff, h_e)
+        print*, "Inv_flipflop GMRES solved by initial guess!",&
+          & jk,MAXVAL(rhstemp(:,:)), MINVAL(rhstemp(:,:)),MAXVAL(rhs_e(:,jk,:)), MINVAL(rhs_e(:,jk,:))
+      ELSE
+        inv_flip_flop_e(:,jk,:)= 0.0_wp!rhs_e(:,jk,:)
+        !write(*,*)'RHS', maxvaL(rhs_e(:,jk,:)),minvaL(rhs_e(:,jk,:))
+
+        CALL gmres( inv_flip_flop_e(:,jk,:), &  ! arg 1 of lhs. x input is the first guess.
+        &        lhs_primal_flip_flop,      &  ! function calculating l.h.s.
+        &        h_e,                       &  ! edge thickness for LHS
+        &        jk,                        &
+        &        p_patch, p_patch_3D,       &  !arg 3 of lhs 
+        &        zimpl_coeff,               &  !arg 4 of lhs
+        &        p_op_coeff,                &
+        &        rhs_e(:,jk,:),             &  ! right hand side as input
+        &        tolerance,                 &  ! relative tolerance
+        &        .FALSE.,                   &  ! NOT absolute tolerance
+        &        nmax_iter,                 &  ! max. # of iterations to do
+        &        lmax_iter,                 &  ! out: .true. = not converged
+        &        n_iter,                    &  ! out: # of iterations done
+        &        z_residual)                  ! inout: the residual (array)  
+
+        rhstemp(:,:) = rhs_e(:,jk,:)-lhs_primal_flip_flop(inv_flip_flop_e(:,jk,:),p_patch, p_patch_3D,p_op_coeff,&
+          &            jk,zimpl_coeff,h_e)
+        !WRITE(*,*)'max/min residual of inverse primal-flip-flop:',&
+        !  &        jk, maxval(rhstemp),minval(rhstemp) 
+        idt_src=2  ! output print level (1-5, fix)
+        CALL dbg_print('residual of inv_flip_flop'   ,rhstemp ,str_module,idt_src)
+        !write(*,*)'sol', maxvaL(inv_flip_flop_e(:,jk,:)),minvaL(inv_flip_flop_e(:,jk,:))
+        z_e(:,jk,:)=rhstemp(:,:)
+        If (maxval (ABS (rhstemp (:,:))) >= tolerance) lmax_iter = .true.
+          idt_src=1
+          IF (idbg_mxmn >= idt_src) THEN
+            IF (lmax_iter) THEN
+              WRITE (0, '(1x,a, I4.2, 1x, a,E8.2,1x, a,E8.2,1x, E8.2, 1x, a)') &
+              &'Inv_flipflop GMRES #Iter', n_iter, 'Tol ',tolerance, 'Res ',&
+              &  ABS(z_residual(n_iter)),MAXVAL (ABS(rhstemp(:,:))), 'GMRES PROBLEM!!!!!!!!!!!!'
+            ELSE
+              WRITE (0, '(1x,a, I4.2, 1x, a,E8.2,1x, a,E8.2,1x, E8.2)') &
+              &'Inv_flipflop GMRES #Iter', n_iter, 'Tol ',tolerance, 'Res ',&
+              &  ABS(z_residual(n_iter)),MAXVAL (ABS(rhstemp(:,:)))
+            ENDIF
+          ENDIF
+       END IF
     END DO
-  END DO
-ENDIF
 
+  END FUNCTION inverse_primal_flip_flop
+  !--------------------------------------------------------------------
 
-IF(l_RIGID_LID)THEN
-  pw_c(:,1,:) = 0.0_wp
-ENDIF
-CALL sync_patch_array(SYNC_C,p_patch,pw_c)
-
-!  DO jk=1,n_zlev
-!  write(*,*)'vert veloc',jk,minval(pw_c(:,jk,:)),maxval(pw_c(:,jk,:))
-!  END DO
-!  DO jk=1,n_zlev
-!  write(*,*)'div-mass-flux',jk,minval(p_os%p_diag%div_mass_flx_c(:,jk,:)),&
-!  &maxval(p_os%p_diag%div_mass_flx_c(:,jk,:))
-!  END DO
-
-z_c(:,:) = ((p_os%p_prog(nnew(1))%h(:,:)-p_os%p_prog(nold(1))%h(:,:))/dtime - pw_c(:,1,:))*p_patch_3D%wet_c(:,1,:)
-!write(*,*)'difference d_t height - vert veloc:',&
-!&maxval(((p_os%p_prog(nnew(1))%h-p_os%p_prog(nold(1))%h)/dtime - pw_c(:,1,:))*p_patch_3D%wet_c(:,1,:))
-!---------DEBUG DIAGNOSTICS-------------------------------------------
-idt_src=1  ! output print level (1-5, fix)
-CALL dbg_print('CalcVertVelMimBU: d_t/dt-w',z_c                       ,str_module,idt_src)
-idt_src=3  ! output print level (1-5, fix)
-CALL dbg_print('CalcVertVelMimBU: pw_c =W' ,pw_c                      ,str_module,idt_src)
-idt_src=4  ! output print level (1-5, fix)
-CALL dbg_print('CalcVertVelMimBU: mass flx',p_os%p_diag%mass_flx_e,    str_module,idt_src)
-CALL dbg_print('CalcVertVelMimBU: div mass',p_os%p_diag%div_mass_flx_c,str_module,idt_src)
-!---------------------------------------------------------------------
-
-END SUBROUTINE calc_vert_velocity_mim_bottomup
-!-------------------------------------------------------------------------
-
-!-------------------------------------------------------------------------
-!!  mpi parallelized, the result is NOT synced. Should be done in the calling method if required
-FUNCTION inverse_primal_flip_flop(p_patch, p_patch_3D, p_op_coeff, rhs_e, h_e) result(inv_flip_flop_e)
-   !
-   TYPE(t_patch), TARGET :: p_patch 
-   TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: p_patch_3D
-   TYPE(t_operator_coeff),INTENT(IN)             :: p_op_coeff
-   REAL(wp)      :: rhs_e(:,:,:)!(nproma,n_zlev,p_patch%nblks_e)
-   REAL(wp)      :: h_e(:,:)  !(nproma,p_patch%nblks_e)
-   REAL(wp)      :: inv_flip_flop_e(SIZE(rhs_e,1),SIZE(rhs_e,2),SIZE(rhs_e,3))
-   !
-   !LOCAL VARIABLES
-   INTEGER,PARAMETER :: nmax_iter= 800 ! maximum number of iterations
-   REAL(wp) :: zimpl_coeff = 1.0_wp    !COEFF has to be set appropriately !!!!
-   REAL(wp) :: zimpl_prime_coeff
-   INTEGER  :: n_iter                  ! number of iterations
-   REAL(wp) :: tolerance               ! (relative or absolute) tolerance
-   REAL(wp) :: z_residual(nmax_iter)
-   LOGICAL  :: lmax_iter               ! true if reached m iterations
-   !LOGICAL  :: lverbose = .TRUE.
-   !CHARACTER(len=MAX_CHAR_LENGTH) :: string
-   REAL(wp) :: rhstemp(nproma,p_patch%nblks_e)
-   REAL(wp), ALLOCATABLE :: inv_flip_flop_e2(:,:)!(nproma,p_patch%nblks_e)
-   REAL(wp) :: z_e(nproma,n_zlev,p_patch%nblks_e)
-   INTEGER :: jk
-   !INTEGER :: i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e
-   !-----------------------------------------------------------------------
-
-   tolerance                = 1.0e-12_wp  ! solver_tolerance
-   inv_flip_flop_e(:,:,:)   = 0.0_wp
-   zimpl_prime_coeff = (1.0_wp-zimpl_coeff)
-
-   rhstemp(:,:)          = 0.0_wp
-
-   DO jk=1, n_zlev
-     rhstemp(:,:) = rhs_e(:,jk,:)&
-     & -zimpl_coeff*lhs_primal_flip_flop(inv_flip_flop_e(:,jk,:), p_patch, p_patch_3D, p_op_coeff,jk,zimpl_coeff, h_e)
-
-     If (maxval (ABS (rhstemp (:,:))) <= tolerance) THEN
-       inv_flip_flop_e(:,jk,:) = lhs_primal_flip_flop(inv_flip_flop_e(:,jk,:), p_patch, p_patch_3D, p_op_coeff,jk,zimpl_coeff, h_e)
-       print*, "Inv_flipflop GMRES solved by initial guess!",&
-         & jk,MAXVAL(rhstemp(:,:)), MINVAL(rhstemp(:,:)),MAXVAL(rhs_e(:,jk,:)), MINVAL(rhs_e(:,jk,:))
-     ELSE
-       inv_flip_flop_e(:,jk,:)= 0.0_wp!rhs_e(:,jk,:)
-       !write(*,*)'RHS', maxvaL(rhs_e(:,jk,:)),minvaL(rhs_e(:,jk,:))
-
-       CALL gmres( inv_flip_flop_e(:,jk,:), &  ! arg 1 of lhs. x input is the first guess.
-       &        lhs_primal_flip_flop,      &  ! function calculating l.h.s.
-       &        h_e,                       &  ! edge thickness for LHS
-       &        jk,                        &
-       &        p_patch, p_patch_3D,       &  !arg 3 of lhs 
-       &        zimpl_coeff,               &  !arg 4 of lhs
-       &        p_op_coeff,                &
-       &        rhs_e(:,jk,:),             &  ! right hand side as input
-       &        tolerance,                 &  ! relative tolerance
-       &        .FALSE.,                   &  ! NOT absolute tolerance
-       &        nmax_iter,                 &  ! max. # of iterations to do
-       &        lmax_iter,                 &  ! out: .true. = not converged
-       &        n_iter,                    &  ! out: # of iterations done
-       &        z_residual)                  ! inout: the residual (array)  
-
-       rhstemp(:,:) = rhs_e(:,jk,:)-lhs_primal_flip_flop(inv_flip_flop_e(:,jk,:),p_patch, p_patch_3D,p_op_coeff,&
-         &            jk,zimpl_coeff,h_e)
-      !WRITE(*,*)'max/min residual of inverse primal-flip-flop:',&
-      !  &        jk, maxval(rhstemp),minval(rhstemp) 
-       idt_src=2  ! output print level (1-5, fix)
-       CALL dbg_print('residual of inv_flip_flop'   ,rhstemp ,str_module,idt_src)
-!write(*,*)'sol', maxvaL(inv_flip_flop_e(:,jk,:)),minvaL(inv_flip_flop_e(:,jk,:))
-       z_e(:,jk,:)=rhstemp(:,:)
-       If (maxval (ABS (rhstemp (:,:))) >= tolerance) lmax_iter = .true.
-         idt_src=1
-         IF (idbg_mxmn >= idt_src) THEN
-           IF (lmax_iter) THEN
-             WRITE (0, '(1x,a, I4.2, 1x, a,E8.2,1x, a,E8.2,1x, E8.2, 1x, a)') &
-             &'Inv_flipflop GMRES #Iter', n_iter, 'Tol ',tolerance, 'Res ',&
-             &  ABS(z_residual(n_iter)),MAXVAL (ABS(rhstemp(:,:))), 'GMRES PROBLEM!!!!!!!!!!!!'
-           ELSE
-             WRITE (0, '(1x,a, I4.2, 1x, a,E8.2,1x, a,E8.2,1x, E8.2)') &
-             &'Inv_flipflop GMRES #Iter', n_iter, 'Tol ',tolerance, 'Res ',&
-             &  ABS(z_residual(n_iter)),MAXVAL (ABS(rhstemp(:,:)))
-           ENDIF
-         ENDIF
-      END IF
-   END DO
-
-   END FUNCTION inverse_primal_flip_flop
-   !--------------------------------------------------------------------
-
-   !--------------------------------------------------------------------
-   !!  mpi parallelized LL, results is valid only in in_domain edges
-   FUNCTION lhs_primal_flip_flop( x, p_patch, p_patch_3D, p_op_coeff,jk,coeff, h_e) RESULT(llhs)
+  !--------------------------------------------------------------------
+  !!  mpi parallelized LL, results is valid only in in_domain edges
+  FUNCTION lhs_primal_flip_flop( x, p_patch, p_patch_3D, p_op_coeff,jk,coeff, h_e) RESULT(llhs)
     !
     TYPE(t_patch), TARGET, INTENT(in)             :: p_patch
     TYPE(t_patch_3D ),TARGET, INTENT(IN)          :: p_patch_3D
@@ -1752,8 +1752,8 @@ FUNCTION inverse_primal_flip_flop(p_patch, p_patch_3D, p_op_coeff, rhs_e, h_e) r
 
 
     llhs(:,:) = coeff * z_e(:,1,:)
-  !write(*,*)'max/min in', maxval(x(:,:)),minval(x(:,:)) 
-  !rite(*,*)'max/min LHS', maxval(llhs(:,:)),minval(llhs(:,:)) 
+    !write(*,*)'max/min in', maxval(x(:,:)),minval(x(:,:)) 
+    !rite(*,*)'max/min LHS', maxval(llhs(:,:)),minval(llhs(:,:)) 
 
   END FUNCTION lhs_primal_flip_flop
   !--------------------------------------------------------------------
