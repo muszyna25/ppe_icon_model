@@ -1601,9 +1601,10 @@ ELSEIF(.NOT.l_EDGE_BASED)THEN
 ENDIF
 
 
-z_c(:,:) = ((p_os%p_prog(nnew(1))%h(:,:)-p_os%p_prog(nold(1))%h(:,:))/dtime - pw_c(:,1,:))*p_patch_3D%wet_c(:,1,:)
-!write(*,*)'difference d_t height - vert veloc:',&
-!&maxval((p_os%p_prog(nnew(1))%h-p_os%p_prog(nold(1))%h)/dtime - pw_c(:,1,:))
+IF(l_RIGID_LID)THEN
+  pw_c(:,1,:) = 0.0_wp
+ENDIF
+CALL sync_patch_array(SYNC_C,p_patch,pw_c)
 
 !  DO jk=1,n_zlev
 !  write(*,*)'vert veloc',jk,minval(pw_c(:,jk,:)),maxval(pw_c(:,jk,:))
@@ -1613,14 +1614,12 @@ z_c(:,:) = ((p_os%p_prog(nnew(1))%h(:,:)-p_os%p_prog(nold(1))%h(:,:))/dtime - pw
 !  &maxval(p_os%p_diag%div_mass_flx_c(:,jk,:))
 !  END DO
 
-
-IF(l_RIGID_LID)THEN
-  pw_c(:,1,:) = 0.0_wp
-ENDIF
-CALL sync_patch_array(SYNC_C,p_patch,pw_c)
+z_c(:,:) = ((p_os%p_prog(nnew(1))%h(:,:)-p_os%p_prog(nold(1))%h(:,:))/dtime - pw_c(:,1,:))*p_patch_3D%wet_c(:,1,:)
+!write(*,*)'difference d_t height - vert veloc:',&
+!&maxval(((p_os%p_prog(nnew(1))%h-p_os%p_prog(nold(1))%h)/dtime - pw_c(:,1,:))*p_patch_3D%wet_c(:,1,:))
 !---------DEBUG DIAGNOSTICS-------------------------------------------
 idt_src=1  ! output print level (1-5, fix)
-CALL dbg_print('CalcVertVelMimBU: d_t/dt-w',pw_c                      ,str_module,idt_src)
+CALL dbg_print('CalcVertVelMimBU: d_t/dt-w',z_c                       ,str_module,idt_src)
 idt_src=3  ! output print level (1-5, fix)
 CALL dbg_print('CalcVertVelMimBU: pw_c =W' ,pw_c                      ,str_module,idt_src)
 idt_src=4  ! output print level (1-5, fix)
