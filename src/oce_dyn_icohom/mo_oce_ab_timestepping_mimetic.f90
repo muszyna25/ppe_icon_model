@@ -166,6 +166,7 @@ SUBROUTINE solve_free_sfc_ab_mimetic(p_patch_3D, p_os, p_ext_data, p_sfc_flx, &
   INTEGER,PARAMETER :: nmax_iter   = 200      ! maximum number of iterations
   REAL(wp) :: tolerance =0.0_wp               ! (relative or absolute) tolerance
   INTEGER  :: n_iter                          ! actual number of iterations 
+  INTEGER  :: iter_sum                        ! sum of iterations 
   INTEGER  :: jc,jb,je   ! ,jk,il_v1,il_v2,ib_v1,ib_v2
   INTEGER  :: i_startidx_c, i_endidx_c
   INTEGER  :: i_startidx_e, i_endidx_e
@@ -352,7 +353,7 @@ SUBROUTINE solve_free_sfc_ab_mimetic(p_patch_3D, p_os, p_ext_data, p_sfc_flx, &
         IF (idbg_mxmn >= idt_src) THEN
           WRITE(string,'(a,i4,a,e28.20)') &
             'iteration =', n_iter,', residual =', ABS(zresidual(n_iter))
-          CALL message('GMRES surface height',TRIM(string))
+          CALL message('GMRES_oce_old: surface height',TRIM(string))
         ENDIF
       ENDIF
       
@@ -368,6 +369,7 @@ SUBROUTINE solve_free_sfc_ab_mimetic(p_patch_3D, p_os, p_ext_data, p_sfc_flx, &
       tolerance = solver_start_tolerance
       residual_norm = solver_tolerance + 1.0_wp
       gmres_restart_iterations = 0
+      iter_sum                 = 0
       ! write(0,*) tolerance, solver_tolerance, residual_norm, gmres_restart_iterations, solver_max_restart_iterations
       DO  WHILE(residual_norm >= solver_tolerance .AND. gmres_restart_iterations < solver_max_restart_iterations)
 
@@ -388,17 +390,20 @@ SUBROUTINE solve_free_sfc_ab_mimetic(p_patch_3D, p_os, p_ext_data, p_sfc_flx, &
           &        zresidual )
 
 
-        ! output print level idt_src used for GMRES output with call message:
         IF(n_iter==0) THEN
           residual_norm = 0.0_wp
         ELSE
           residual_norm =  ABS(zresidual(n_iter))
         ENDIF
-!        IF (idbg_mxmn >= idt_src) THEN
+
+        iter_sum = iter_sum + n_iter
+        ! output print level idt_src used for GMRES output with call message:
+        idt_src=2
+        IF (idbg_mxmn >= idt_src) THEN
           WRITE(string,'(a,i4,a,e28.20)') &
             'gmres iteration =', n_iter,', residual =', residual_norm
-          CALL message('GMRES surface height',TRIM(string))
-!        ENDIF
+          CALL message('GMRES_oce_new: surface height',TRIM(string))
+        ENDIF
 
         IF (tolerance > solver_tolerance) &
           tolerance = MAX(tolerance * solver_tolerance_decrease_ratio, solver_tolerance)
@@ -406,6 +411,14 @@ SUBROUTINE solve_free_sfc_ab_mimetic(p_patch_3D, p_os, p_ext_data, p_sfc_flx, &
         gmres_restart_iterations = gmres_restart_iterations + 1
 
       END DO ! WHILE(tolerance >= solver_tolerance)
+
+      ! output of sum of iterations every timestep
+      idt_src=0
+      IF (idbg_mxmn >= idt_src) THEN
+        WRITE(string,'(a,i4,a,e28.20)') &
+          'SUM of gmres iteration =', iter_sum,', residual =', residual_norm
+        CALL message('GMRES surface height',TRIM(string))
+      ENDIF
  
       IF (residual_norm > solver_tolerance) &
           CALL finish('GMRES solver surface equation: ','NOT YET CONVERGED !!')
