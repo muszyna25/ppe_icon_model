@@ -378,7 +378,7 @@ CONTAINS
       ! Set all variables in output_nml to their default values
 
       filetype           = FILETYPE_NC2 ! NetCDF
-      namespace          = 'ECMWF'
+      namespace          = 'DWD'
       mode               = 2
       taxis_tunit        = TUNIT_HOUR
       dom(:)             = -1
