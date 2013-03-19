@@ -386,7 +386,8 @@ CONTAINS
       ELSE WHERE
         prm_diag%hzerocl(i_startidx:i_endidx,jb) = 0._wp
       END WHERE
-      DO jk = nlev, kstart_moist, -1
+      !AD(MPIM): ending the loop at kstart_moist+1 to avoid runtime error in dry case
+      DO jk = nlev, kstart_moist+1, -1
         DO jc = i_startidx, i_endidx 
           IF ( prm_diag%hzerocl(jc,jb) /= 0._wp) THEN
             CYCLE
