@@ -277,7 +277,7 @@ run_scripts_submit()
 
   for EXP_FILE in $EXP_FILES
   do 
-    run_command="$submit $sync ./$EXP_FILE"
+    run_command="$submit ./$EXP_FILE"
 
     echo "---------------------------------------------------------"
     echo " Submit new Script: ${EXP_FILE} at $(date)"
@@ -417,53 +417,11 @@ echo "use_account_no=mh0287" >> ./config/set-up.info
 #------------------------------------------------------------------------------\
 # read set-up info
 . ./config/set-up.info
-submit=$use_submit
+submit=$use_sync_submit
 
 # define different parameter for SGE sync
 # MPI -sync y
 # DWD -W block=true
-
-if   [ "x${submit}" != "x" ]
-then
-  case ${submit} in
-
-    qsub)
-      case ${use_site} in
-        dwd.de)
-          sync="-W block=true"
-        ;;
-        *)
-          sync="-sync y"
-        ;;
-      esac
-    ;;
-
-    llsubmit)
-      sync="-s"
-    ;;
-
-    qsubw)
-      sync=""
-    ;;
-
-    nqsub)
-      echo "====================================================================================== "
-      echo "                  "
-      echo "The job is not send to the SX9 because of problems in "
-      echo "synchronizing jobs by using nqsub "
-      echo "                  "
-      echo "====================================================================================== "
-      stop_on_error 1
-      exit 1
-      ;;
-
-    *)
-      echo "Unkown submit : $submit"
-      stop_on_error 1
-      exit 1
-    ;;
-  esac
-fi
 
 #-----------------------------------------------------------------------------
 # load ../setting if exists  
