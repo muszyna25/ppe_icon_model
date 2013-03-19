@@ -1513,23 +1513,25 @@ INTEGER :: z_dolic
 INTEGER :: i_startidx, i_endidx
 REAL(wp) :: div_depth_int(nproma,p_patch_3D%p_patch_2D(1)%nblks_c)
 REAL(wp) :: z_vn_e(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
+REAL(wp) :: z_c(nproma,p_patch_3D%p_patch_2D(1)%nblks_c)
 TYPE(t_subset_range), POINTER :: cells_in_domain, edges_in_domain
 TYPE(t_patch), POINTER :: p_patch
+
 !-----------------------------------------------------------------------  
- p_patch         => p_patch_3D%p_patch_2D(1)
- cells_in_domain => p_patch%cells%in_domain
- edges_in_domain => p_patch%edges%in_domain
+p_patch         => p_patch_3D%p_patch_2D(1)
+cells_in_domain => p_patch%cells%in_domain
+edges_in_domain => p_patch%edges%in_domain
 
 ! due to nag -nan compiler-option:
-  pw_c(1:nproma,1:n_zlev+1,1:p_patch%nblks_c) = 0.0_wp
-  div_depth_int(1:nproma,1:p_patch%nblks_c)   = 0.0_wp
+pw_c(1:nproma,1:n_zlev+1,1:p_patch%nblks_c) = 0.0_wp
+div_depth_int(1:nproma,1:p_patch%nblks_c)   = 0.0_wp
+z_c          (1:nproma,1:p_patch%nblks_c)   = 0.0_wp
 !------------------------------------------------------------------
 ! Step 1) Calculate divergence of horizontal velocity at all levels
 !------------------------------------------------------------------
 
 ! !-------------------------------------------------------------------------------
 IF(l_EDGE_BASED )THEN
-
 ! !-------------------------------------------------------------------------------
   DO jb = edges_in_domain%start_block, edges_in_domain%end_block
     CALL get_index_range(edges_in_domain, jb, i_startidx, i_endidx)
@@ -1572,13 +1574,13 @@ ELSEIF(.NOT.l_EDGE_BASED)THEN
   CALL map_edges2edges_viacell_3d_const_z( p_patch_3D, p_diag%vn_time_weighted, p_op_coeff, p_os%p_diag%mass_flx_e)
 
 
- CALL sync_patch_array(SYNC_E,p_patch,p_os%p_diag%mass_flx_e)
+  CALL sync_patch_array(SYNC_E,p_patch,p_os%p_diag%mass_flx_e)
 
- CALL div_oce_3D( p_os%p_diag%mass_flx_e,      &
-                & p_patch,p_op_coeff%div_coeff,&
-                & p_os%p_diag%div_mass_flx_c,  &
-                & subset_range=cells_in_domain)
- CALL sync_patch_array(SYNC_C,p_patch,p_os%p_diag%div_mass_flx_c)
+  CALL div_oce_3D( p_os%p_diag%mass_flx_e,      &
+                 & p_patch,p_op_coeff%div_coeff,&
+                 & p_os%p_diag%div_mass_flx_c,  &
+                 & subset_range=cells_in_domain)
+  CALL sync_patch_array(SYNC_C,p_patch,p_os%p_diag%div_mass_flx_c)
 
   DO jb = cells_in_domain%start_block, cells_in_domain%end_block
     CALL get_index_range(cells_in_domain, jb, i_startidx, i_endidx)
@@ -1596,11 +1598,12 @@ ELSEIF(.NOT.l_EDGE_BASED)THEN
       END DO
     END DO
   END DO
- ENDIF
+ENDIF
 
 
-write(*,*)'difference d_t height - vert veloc:',&
-&maxval((p_os%p_prog(nnew(1))%h-p_os%p_prog(nold(1))%h)/dtime - pw_c(:,1,:))
+z_c(:,:) = (p_os%p_prog(nnew(1))%h(:,:)-p_os%p_prog(nold(1))%h(:,:))/dtime - pw_c(:,1,:)
+!write(*,*)'difference d_t height - vert veloc:',&
+!&maxval((p_os%p_prog(nnew(1))%h-p_os%p_prog(nold(1))%h)/dtime - pw_c(:,1,:))
 
 !  DO jk=1,n_zlev
 !  write(*,*)'vert veloc',jk,minval(pw_c(:,jk,:)),maxval(pw_c(:,jk,:))
@@ -1616,11 +1619,13 @@ IF(l_RIGID_LID)THEN
 ENDIF
 CALL sync_patch_array(SYNC_C,p_patch,pw_c)
 !---------DEBUG DIAGNOSTICS-------------------------------------------
+idt_src=1  ! output print level (1-5, fix)
+CALL dbg_print('CalcVertVelMimBU: d_t/dt-w',pw_c                      ,str_module,idt_src)
+idt_src=3  ! output print level (1-5, fix)
+CALL dbg_print('CalcVertVelMimBU: pw_c =W' ,pw_c                      ,str_module,idt_src)
 idt_src=4  ! output print level (1-5, fix)
 CALL dbg_print('CalcVertVelMimBU: mass flx',p_os%p_diag%mass_flx_e,    str_module,idt_src)
 CALL dbg_print('CalcVertVelMimBU: div mass',p_os%p_diag%div_mass_flx_c,str_module,idt_src)
-idt_src=3  ! output print level (1-5, fix)
-CALL dbg_print('CalcVertVelMimBU: pw_c =W' ,pw_c                      ,str_module,idt_src)
 !---------------------------------------------------------------------
 
 END SUBROUTINE calc_vert_velocity_mim_bottomup
