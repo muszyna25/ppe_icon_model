@@ -450,11 +450,13 @@ SUBROUTINE advect_individual_tracer_ab(p_patch_3D, trac_old,               &
   !content_old=content
   !write(*,*)'content before h-adv',content_old 
 
-  CALL advect_diffuse_flux_horz( p_patch_3D,       &
-                               & trac_old,         &
-                               & p_os,             &
-                               & p_op_coeff,       &
-                               & K_h,              &
+  CALL advect_diffuse_flux_horz( p_patch_3D,            &
+                               & trac_old,              &
+                               & p_os,                  &
+                               & p_op_coeff,            &
+                               & K_h,                   &
+                               & p_os%p_prog(nold(1))%h,&
+                               & p_os%p_prog(nnew(1))%h,&
                                & flux_horz)
 
   !---------DEBUG DIAGNOSTICS-------------------------------------------
@@ -486,7 +488,6 @@ SUBROUTINE advect_individual_tracer_ab(p_patch_3D, trac_old,               &
                              & bc_top_tracer,     &
                              & bc_bot_tracer,     &
                              & flux_vert,         &
-                             !& z_cellthick_intmed,&
                              & tracer_id)
 
     !---------DEBUG DIAGNOSTICS-------------------------------------------

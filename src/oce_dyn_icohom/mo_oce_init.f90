@@ -1824,7 +1824,8 @@ CONTAINS
       DO jb = all_cells%start_block, all_cells%end_block
         CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
         DO jc = i_startidx_c, i_endidx_c
-
+          DO jk=1,n_zlev
+          IF ( p_patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
           !latitude given in radians
            z_lon_deg = p_patch%cells%center(jc,jb)%lon*rad2deg
            !Impose emperature profile. Profile
@@ -1835,10 +1836,12 @@ CONTAINS
 !              p_os%p_prog(nold(1))%tracer(jc,1:n_zlev,jb,1) = 10.0_wp
 !            ENDIF
            IF((z_lon_deg-basin_center_lon)>=0.0_wp)THEN
-             p_os%p_prog(nold(1))%tracer(jc,1:n_zlev,jb,1) = 5.0_wp
-           ELSEIF((z_lon_deg-basin_center_lon)<0.0_wp)THEN
              p_os%p_prog(nold(1))%tracer(jc,1:n_zlev,jb,1) = 10.0_wp
+           ELSEIF((z_lon_deg-basin_center_lon)<0.0_wp)THEN
+             p_os%p_prog(nold(1))%tracer(jc,1:n_zlev,jb,1) = 5.0_wp
            ENDIF
+          ENDIF
+          END DO
         END DO
       END DO
 

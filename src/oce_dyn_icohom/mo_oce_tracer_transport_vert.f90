@@ -81,7 +81,6 @@ PRIVATE :: central_vflux_oce
 !PRIVATE :: mimetic_vflux_oce
 PRIVATE :: upwind_vflux_ppm
 PRIVATE :: v_ppm_slimiter_mo
-PRIVATE :: apply_tracer_flux_top_layer_oce
 PRIVATE :: laxfr_upflux_v
 
 CONTAINS
@@ -99,17 +98,15 @@ CONTAINS
                                  & bc_top_tracer,        &
                                  & bc_bot_tracer,        &
                                  & flux_div_vert,        &
-                                 !& cell_thick_intermed_c,&
                                  & tracer_id)
 
     !TYPE(t_patch), TARGET, INTENT(IN) :: p_patch
-    TYPE(t_patch_3D ),TARGET               :: p_patch_3D
+    TYPE(t_patch_3D ),TARGET          :: p_patch_3D
     REAL(wp), INTENT(INOUT)           :: trac_old(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)
     TYPE(t_hydro_ocean_state), TARGET :: p_os
     REAL(wp)                          :: bc_top_tracer(nproma, p_patch_3D%p_patch_2D(1)%nblks_c)
     REAL(wp)                          :: bc_bot_tracer(nproma, p_patch_3D%p_patch_2D(1)%nblks_c)
     REAL(wp), INTENT(INOUT)           :: flux_div_vert(nproma,n_zlev, p_patch_3D%p_patch_2D(1)%nblks_c) !new tracer
-    !REAL(wp), INTENT(INOUT)           :: cell_thick_intermed_c(nproma,n_zlev, p_patch_3D%p_patch_2D(1)%nblks_c)
     INTEGER, INTENT(IN)               :: tracer_id
 
     !Local variables
@@ -166,7 +163,6 @@ CONTAINS
                            & p_os%p_diag%w_time_weighted,&
                            & dtime, 1 ,                  & 
                            & p_patch_3D%p_patch_1D(1)%prism_thick_c,  &
-!                            & p_os%p_diag%prism_thick_c,  &
                            & z_adv_flux_v, tracer_id)
 #endif
     CASE DEFAULT
@@ -182,15 +178,13 @@ CONTAINS
       CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
       DO jc = i_startidx_c, i_endidx_c
 
-        z_dolic = p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb) !v_base%dolic_c(jc,jb)
+        z_dolic = p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)
         IF(z_dolic>0)THEN
           DO jk = 1, z_dolic!-1
-         !IF ( v_base%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
          IF ( p_patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
             ! positive vertical divergence in direction of w (upward positive)
               flux_div_vert(jc,jk,jb) = z_adv_flux_v(jc,jk,  jb) &
                                       &-z_adv_flux_v(jc,jk+1,jb)
-!            flux_div_vert(jc,jk,jb) = z_adv_flux_v(jc,jk,jb) 
           END IF
         ENDDO
         ENDIF
@@ -207,70 +201,10 @@ CONTAINS
     CALL dbg_print('AdvVert: adv_flux_v'     ,z_adv_flux_v                ,str_module,idt_src)
     CALL dbg_print('AdvVert: flux_div_vert'  ,flux_div_vert                ,str_module,idt_src)
     !---------------------------------------------------------------------
-
-
-
   END SUBROUTINE advect_flux_vertical
   !-------------------------------------------------------------------------
 
 
-  !-------------------------------------------------------------------------
-  !! First order upwind scheme for vertical tracer advection
-  !!
-  !!
-  !! @par Revision History
-  !! Seperated from vertical flux calculation
-  !!
-  !! mpi parallelized, no sync
-  SUBROUTINE apply_tracer_flux_top_layer_oce( p_patch_3D, pvar_c, pw_c,pupflux_i, tracer_id )
-
-    TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: p_patch_3D
-    REAL(wp), INTENT(INOUT)           :: pvar_c(nproma,n_zlev, p_patch_3D%p_patch_2D(1)%nblks_c)     !< advected cell centered variable
-    REAL(wp), INTENT(INOUT)           :: pw_c(nproma,n_zlev+1, p_patch_3D%p_patch_2D(1)%nblks_c)     !< vertical velocity on cells 
-    REAL(wp), INTENT(INOUT)           :: pupflux_i(nproma,n_zlev+1, p_patch_3D%p_patch_2D(1)%nblks_c)!< flux dim: (nproma,n_zlev+1,nblks_c)
-    INTEGER, INTENT(IN)               :: tracer_id
-
-   TYPE(t_patch), POINTER :: p_patch
-    !-------------------------------------------------------------------------
-pupflux_i(:,1,:)=0.0_wp
-return
-
-    CALL sync_patch_array(SYNC_C, p_patch, pvar_c)
-    CALL sync_patch_array(SYNC_C, p_patch, pw_c)
-    !CALL sync_patch_array(SYNC_C, p_patch, pupflux_i)
-
-
-
-    !fluxes at first layer
-    !temperature has tracer_id=1 
-    IF(tracer_id==1)THEN
-      IF(temperature_relaxation/=0)THEN
-        !WHERE ( v_base%lsm_c(:,1,:) <= sea_boundary )
-        WHERE ( p_patch_3D%lsm_c(:,1,:) <= sea_boundary )
-          pupflux_i(:,1,:) = pvar_c(:,1,:)*pw_c(:,1,:)
-        END WHERE
-      ELSEIF(temperature_relaxation==0)THEN
-       !WHERE ( v_base%lsm_c(:,1,:) <= sea_boundary )
-       WHERE ( p_patch_3D%lsm_c(:,1,:) <= sea_boundary )
-        pupflux_i(:,1,:) = pvar_c(:,1,:)*pw_c(:,1,:)!0.0_wp
-       END WHERE
-      ENDIF
-    !salinity has tracer_id=2 
-    ELSEIF(tracer_id==2)THEN
-      IF(irelax_2d_S/=0)THEN
-       !WHERE ( v_base%lsm_c(:,1,:) <= sea_boundary )
-       WHERE ( p_patch_3D%lsm_c(:,1,:) <= sea_boundary )
-        pupflux_i(:,1,:) = pvar_c(:,1,:)*pw_c(:,1,:)
-       END WHERE
-      ELSEIF(irelax_2d_S==0)THEN
-       !WHERE ( v_base%lsm_c(:,1,:) <= sea_boundary )
-       WHERE ( p_patch_3D%lsm_c(:,1,:) <= sea_boundary )
-        pupflux_i(:,1,:) = pvar_c(:,1,:)*pw_c(:,1,:)!0.0_wp
-       END WHERE
-      ENDIF
-    ENDIF
-
-  END SUBROUTINE apply_tracer_flux_top_layer_oce
   !-------------------------------------------------------------------------
   !! First order upwind scheme for vertical tracer advection
   !!
@@ -315,7 +249,6 @@ return
         z_dolic = p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)!v_base%dolic_c(jc,jb)
         !IF(z_dolic>=MIN_DOLIC)THEN
         DO jk = 2, z_dolic
-          !IF ( v_base%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
           IF ( p_patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
             jkm1 = jk - 1
             ! calculate vertical tracer flux using upwind method
@@ -326,11 +259,10 @@ return
           !! no fluxes at bottom boundary !pupflux_i(jc,z_dolic+1,jb) = 0.0_wp
         ENDDO
         !zero advective flux at bottom boundary
-        pupflux_i(jc,z_dolic+1,jb)=0.0_wp
+        !pupflux_i(jc,z_dolic+1,jb)=0.0_wp
       END DO
     END DO 
 
-    CALL apply_tracer_flux_top_layer_oce(p_patch_3D, pvar_c, pw_c, pupflux_i, tracer_id )
 #endif
   END SUBROUTINE upwind_vflux_oce
   !-------------------------------------------------------------------------
@@ -437,7 +369,6 @@ return
 ! !            END DO ! end cell loop
 ! !        END DO ! end level loop
 ! !      END DO ! end block loop
-!     CALL apply_tracer_flux_top_layer_oce( p_patch, pvar_c, pw_c, pupflux_i, tracer_id )
 !   END SUBROUTINE mimetic_vflux_oce
   !-------------------------------------------------------------------------
   !>
@@ -474,7 +405,6 @@ return
           z_dolic = p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)!v_base%dolic_c(jc,jb)
           !IF(z_dolic>=MIN_DOLIC)THEN
           DO jk = 2, z_dolic
-            !IF ( v_base%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
             IF ( p_patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
               ! index of top half level
               jkm1 = jk - 1
@@ -487,15 +417,12 @@ return
                 !&          *( pvar_c(jc,jkm1,jb) -pvar_c(jc,jk,jb))
             ENDIF 
            !zero advective flux at bottom boundary
-           c_flux_i(jc,z_dolic+1,jb)=0.0_wp
+           !c_flux_i(jc,z_dolic+1,jb)=0.0_wp
 
-    !      ! #slo# zero advective flux at top boundary
-    !      c_flux_i(jc,1,jb)=0.0_wp
         ENDDO
       END DO
     END DO
 
-    CALL apply_tracer_flux_top_layer_oce( p_patch_3D,pvar_c, pw_c, c_flux_i, tracer_id )
 #endif
   END SUBROUTINE central_vflux_oce
   !------------------------------------------------------------------------
@@ -603,10 +530,10 @@ return
       CALL get_index_range(cells_in_domain, jb, i_startidx, i_endidx)
 
       ! Courant number at top and bottom
-      !z_cfl_p(i_startidx:i_endidx,slev,jb)   = 0._wp
-      !z_cfl_m(i_startidx:i_endidx,slev,jb)   = 0._wp
-      !z_cfl_p(i_startidx:i_endidx,nlevp1,jb) = 0._wp
-      !z_cfl_m(i_startidx:i_endidx,nlevp1,jb) = 0._wp
+      z_cfl_p(i_startidx:i_endidx,slev,jb)   = 0._wp
+      z_cfl_m(i_startidx:i_endidx,slev,jb)   = 0._wp
+      z_cfl_p(i_startidx:i_endidx,nlevp1,jb) = 0._wp
+      z_cfl_m(i_startidx:i_endidx,nlevp1,jb) = 0._wp
 
       DO jk = slevp1, n_zlev
         ! index of top half level
@@ -617,14 +544,13 @@ return
           ! z_cfl_p for weta <0 (w >0)
           !z_weta_dt = 0.0_wp
 
-            !IF ( v_base%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
             IF ( p_patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
                z_weta_dt = ABS(p_w(jc,jk,jb)) * p_dtime
  
               z_cfl_m(jc,jk,jb) = z_weta_dt &
-              &/ p_patch_3D%p_patch_1D(1)%del_zlev_m(ikm1)!v_base%del_zlev_m(ikm1)!p_cellhgt_mc_now(jc,ikm1,jb)
+              &/ p_cellhgt_mc_now(jc,ikm1,jb) !p_patch_3D%p_patch_1D(1)%del_zlev_m(ikm1)!
               z_cfl_p(jc,jk,jb) = z_weta_dt &
-              &/ p_patch_3D%p_patch_1D(1)%del_zlev_m(jk)!v_base%del_zlev_m(jk)!p_cellhgt_mc_now(jc,jk,jb)
+              &/ p_cellhgt_mc_now(jc,jk,jb)!p_patch_3D%p_patch_1D(1)%del_zlev_m(jk)!
             ENDIF
         END DO ! end loop over cells
       ENDDO ! end loop over vertical levels
@@ -641,18 +567,16 @@ return
         ikp1    = MIN( ikp1_ic, n_zlev )
 
         DO jc = i_startidx, i_endidx
-          !IF ( v_base%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
-          IF ( p_patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
+          !IF ( p_patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
             z_slope_u = 2._wp * (p_cc(jc,jk,jb) - p_cc(jc,ikm1,jb))
-          ELSE
-            z_slope_u = 0.0_wp
-          ENDIF
-          !IF ( v_base%lsm_c(jc,ikp1,jb) <= sea_boundary ) THEN
-          IF ( p_patch_3D%lsm_c(jc,ikp1,jb) <= sea_boundary ) THEN
+          !ELSE
+          !  z_slope_u = 0.0_wp
+          !ENDIF
+          !IF ( p_patch_3D%lsm_c(jc,ikp1,jb) <= sea_boundary ) THEN
             z_slope_l = 2._wp * (p_cc(jc,ikp1,jb) - p_cc(jc,jk,jb))
-          ELSE
-            z_slope_l = 0.0_wp
-          ENDIF
+          !ELSE
+          !  z_slope_l = 0.0_wp
+          !ENDIF
 
           IF ((z_slope_u * z_slope_l) > 0._wp) THEN
 
@@ -688,7 +612,6 @@ return
       ! face values are set to the tracer values of the corresponding cell centers
       !
       DO jc = i_startidx, i_endidx
-        !IF ( v_base%lsm_c(jc,slevp1,jb) <= sea_boundary ) THEN
         IF ( p_patch_3D%lsm_c(jc,slevp1,jb) <= sea_boundary ) THEN
         z_face(jc,slevp1,jb) = p_cc(jc,slev,jb)*(1._wp - (p_cellhgt_mc_now(jc,slev,jb)&
           &       / p_cellhgt_mc_now(jc,slevp1,jb))) + (p_cellhgt_mc_now(jc,slev,jb)  &
@@ -698,7 +621,6 @@ return
         ELSE
         z_face(jc,slevp1,jb) = 0.0_wp
         ENDIF 
-        !IF ( v_base%lsm_c(jc,n_zlev,jb) <= sea_boundary ) THEN
         IF ( p_patch_3D%lsm_c(jc,n_zlev,jb) <= sea_boundary ) THEN
         z_face(jc,n_zlev,jb) = p_cc(jc,n_zlev-1,jb)*( 1._wp                               &
           &       - (p_cellhgt_mc_now(jc,n_zlev-1,jb) / p_cellhgt_mc_now(jc,n_zlev,jb)))  &
@@ -709,13 +631,11 @@ return
         ELSE
           z_face(jc,n_zlev,jb) = 0.0_wp
         ENDIF
-        !IF ( v_base%lsm_c(jc,slev,jb) <= sea_boundary ) THEN
         IF ( p_patch_3D%lsm_c(jc,slev,jb) <= sea_boundary ) THEN
           z_face(jc,slev,jb) = p_cc(jc,slev,jb)
         ELSE
           z_face(jc,slev,jb) = 0.0_wp
         ENDIF
-        !IF ( v_base%lsm_c(jc,n_zlev,jb) <= sea_boundary ) THEN
         IF ( p_patch_3D%lsm_c(jc,n_zlev,jb) <= sea_boundary ) THEN
           z_face(jc,nlevp1,jb) = p_cc(jc,n_zlev,jb)
         ELSE
@@ -731,7 +651,6 @@ return
         ikp1 = jk + 1
         ikp2 = jk + 2
         DO jc = i_startidx, i_endidx
-          !IF ( v_base%lsm_c(jc,ikp2,jb) <= sea_boundary ) THEN
           IF ( p_patch_3D%lsm_c(jc,ikp2,jb) <= sea_boundary ) THEN
           z_face(jc,ikp1,jb) = p_cc(jc,jk,jb) &
             &  + (p_cellhgt_mc_now(jc,jk,jb)                                          &
@@ -829,7 +748,6 @@ return
         ! index of top half level
         ikm1 = jk -1
         DO jc = i_startidx, i_endidx
-        !IF ( v_base%lsm_c(jc,jk,jb) <= sea_boundary ) THEN 
         IF ( p_patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN          
           ! linear extrapolated values
           ! for the height based coordinate system multiplication by coeff_grid
@@ -876,9 +794,7 @@ return
 
       CALL sync_patch_array(SYNC_C, p_patch, p_upflux)
 
-      CALL apply_tracer_flux_top_layer_oce( p_patch_3D,p_cc, p_w, p_upflux,&
-                                         & tracer_id )
-      !
+
       ! 6. If desired, apply a flux limiter to limit computed fluxes.
       !    These flux limiters are based on work by Zalesak (1979)
       !    positive-definite (pd) limiter      !
@@ -934,9 +850,7 @@ return
     !-----------------------------------------------------------------------
     p_patch         => p_patch_3D%p_patch_2D(1)
     cells_in_domain => p_patch%cells%in_domain
-!write(*,*)'dolic_c3',maxval(p_patch_3D%p_patch_1D(1)%dolic_c),minval(p_patch_3D%p_patch_1D(1)%dolic_c)
-!write(*,*)'dolic_e3',maxval(p_patch_3D%p_patch_1D(1)%dolic_e),minval(p_patch_3D%p_patch_1D(1)%dolic_e)
-    ! check optional arguments
+
     slev = 1
     nlev = n_zlev
 ! !$OMP PARALLEL
@@ -951,7 +865,6 @@ return
           ! index of bottom half level
           ikp1 = jk + 1
 
-          !IF ( v_base%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
           IF ( p_patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
             z_delta   = p_face(jc,ikp1,jb) - p_face(jc,jk,jb)
             z_a6i     = 6._wp * (p_cc(jc,jk,jb)                           &
@@ -1059,7 +972,7 @@ return
        jkp1 = jk+1
 
        DO jc = i_startidx, i_endidx
-         !IF ( v_base%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
+
          IF ( p_patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
            ! Sum of all outgoing fluxes out of cell jk
            p_m(jc) = p_dtime                                  &
@@ -1078,7 +991,7 @@ return
 
  
      DO jc = i_startidx, i_endidx
-       !IF ( v_base%lsm_c(jc,elev,jb) <= sea_boundary ) THEN
+ 
        IF ( p_patch_3D%lsm_c(jc,elev,jb) <= sea_boundary ) THEN
          ! Sum of all outgoing fluxes out of cell jk
          p_m(jc) = p_dtime                                  &
@@ -1100,7 +1013,7 @@ return
      DO jk = slev+1, elev
      jkm1 = jk-1
        DO jc = i_startidx, i_endidx
-         !IF ( v_base%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
+
          IF ( p_patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
            ! p_mflx_tracer_v(k-1/2) > 0: flux directed from cell k-1 -> k
            ! p_mflx_tracer_v(k-1/2) < 0: flux directed from cell k   -> k-1
