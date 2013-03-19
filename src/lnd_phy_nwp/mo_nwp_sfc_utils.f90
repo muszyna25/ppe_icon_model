@@ -753,7 +753,7 @@ CONTAINS
     INTEGER :: i_startblk, i_endblk    !> blocks
     INTEGER :: i_startidx, i_endidx    !< slices
     INTEGER :: i_nchdom                !< number of child domains
-    INTEGER :: jc, jb, jk, isubs
+    INTEGER :: jc, jb, jk, isubs, ic
 
     REAL(wp) :: tilefrac ! fractional area covered by tile
 
@@ -769,7 +769,7 @@ CONTAINS
 
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,isubs,jk,tilefrac) ICON_OMP_GUIDED_SCHEDULE
+!$OMP DO PRIVATE(jb,jc,ic,i_startidx,i_endidx,isubs,jk,tilefrac) ICON_OMP_GUIDED_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -917,6 +917,26 @@ CONTAINS
 
         ENDDO  ! isubs
       ENDIF  ! ntiles_total == 1
+
+
+      ! Quick hack, to have nonzero values over non-landpoints, even though these fields are 
+      ! actually not defined over sea and lake points
+      !
+      DO ic = 1, ext_data%atm%sp_count(jb)
+
+        jc = ext_data%atm%idx_lst_sp(ic,jb)
+
+        lnd_diag%t_s (jc,jb)   = lnd_diag%t_seasfc(jc,jb)
+        lnd_diag%t_so(jc,1,jb) = lnd_diag%t_seasfc(jc,jb) 
+      ENDDO
+
+      DO ic = 1, ext_data%atm%fp_count(jb)
+
+        jc = ext_data%atm%idx_lst_fp(ic,jb)
+
+        lnd_diag%t_s (jc,jb)   = lnd_diag%t_seasfc(jc,jb)
+        lnd_diag%t_so(jc,1,jb) = lnd_diag%t_seasfc(jc,jb) 
+      ENDDO
 
     ENDDO  ! jb
 !$OMP END DO
