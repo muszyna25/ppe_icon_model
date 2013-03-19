@@ -99,7 +99,7 @@ CONTAINS
                                  & bc_top_tracer,        &
                                  & bc_bot_tracer,        &
                                  & flux_div_vert,        &
-                                 & cell_thick_intermed_c,&
+                                 !& cell_thick_intermed_c,&
                                  & tracer_id)
 
     !TYPE(t_patch), TARGET, INTENT(IN) :: p_patch
@@ -109,7 +109,7 @@ CONTAINS
     REAL(wp)                          :: bc_top_tracer(nproma, p_patch_3D%p_patch_2D(1)%nblks_c)
     REAL(wp)                          :: bc_bot_tracer(nproma, p_patch_3D%p_patch_2D(1)%nblks_c)
     REAL(wp), INTENT(INOUT)           :: flux_div_vert(nproma,n_zlev, p_patch_3D%p_patch_2D(1)%nblks_c) !new tracer
-    REAL(wp), INTENT(INOUT)           :: cell_thick_intermed_c(nproma,n_zlev, p_patch_3D%p_patch_2D(1)%nblks_c)
+    !REAL(wp), INTENT(INOUT)           :: cell_thick_intermed_c(nproma,n_zlev, p_patch_3D%p_patch_2D(1)%nblks_c)
     INTEGER, INTENT(IN)               :: tracer_id
 
     !Local variables

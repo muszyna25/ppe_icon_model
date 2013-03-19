@@ -508,18 +508,6 @@ CONTAINS
 
       IF (is_restart_run()) CALL update_time_indices(1)
     ELSE
-      ! CALL rbf_vec_interpol_edge( p_os%p_prog(nold(1))%vn,&
-      !                           & p_patch,                &
-      !                           & p_int,                  &
-      !                           & p_os%p_diag%vt)
-      ! CALL rbf_vec_interpol_cell( p_os%p_prog(nold(1))%vn,&
-      !                           & p_patch,&
-      !                           & p_int,&
-      !                           & p_os%p_diag%u,  &
-      !                           & p_os%p_diag%v)
-
-      !add calculation of kinetic energy
-
     ENDIF
 
     !---------Debug Diagnostics-------------------------------------------
@@ -972,9 +960,6 @@ CONTAINS
         CALL message(TRIM(routine), 'Simple Initialization of testcases (31)')
         CALL message(TRIM(routine), ' - here: external gravity wave')
 
-        ! #slo# 2011-01-07: init elevation for simple 3-d SW-like test mode
-        !all other prognostic variables: vn, s, t are initialized identical zero
-        !CALL message(TRIM(routine), 'Simple Initialization of h')
 
         DO jb = all_cells%start_block, all_cells%end_block
           CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
@@ -1167,9 +1152,6 @@ CONTAINS
               END DO
               ENDIF
             END IF
-! IF(p_os%p_prog(nold(1))%tracer(jc,1,jb,1)/=20)THEN
-!   write(123,*)'temp init',jc,jb,jk,p_os%p_prog(nold(1))%tracer(jc,:,jb,1)
-! ENDIF
           END DO
         END DO
         DO jk = 1, n_zlev
@@ -1291,200 +1273,6 @@ CONTAINS
 ! !       END IF ! no_tracer > 0
 !----------------End of old version------------------------------------
 
-!-----------------------------------------------------------------------------------------------
-!                Code below is not finished (PK)---------------
-! !    CASE (36)
-! !       !flow aganst isolated seamount of Gaussian profile
-! !       !the parameters: position, height and extend of seamount
-! !       z_H_0    = v_base%zlev_i(n_zlev+1) !4000.0
-! !       z_perlat = basin_center_lat + 0.1_wp*basin_height_deg
-! !       z_perlon =  basin_center_lon +0.1_wp*basin_width_deg
-! !       z_permax = v_base%zlev_i(n_zlev+1) - v_base%zlev_i(2)
-! !       z_perwid = 0.1_wp!*basin_width_deg!1000.1_wp!1.5_wp
-! !       !Step 1: define profile of seamount, i.e. bathymetry from analytical formula
-! !       !This step overwrites some of the information that was created by sbr "fill vertical domain".
-! !       !The vertical grid spacing is unchanged and as specified in the namelist.
-! !       !1a) bathymetry at edges
-! !       DO jb = i_startblk_c, i_endblk_c
-! !         CALL get_indices_c(p_patch, jb, i_startblk_c, i_endblk_c, &
-! !          &                i_startidx_c, i_endidx_c, rl_start, rl_end_c)
-! !         DO jc = i_startidx_c, i_endidx_c
-! !           z_lat = p_patch%cells%center(jc,jb)%lat
-! !           z_lon = p_patch%cells%center(jc,jb)%lon
-! !           z_dst = sqrt((z_lat-z_perlat*deg2rad)**2+(z_lon-z_perlon*deg2rad)**2)
-! !           p_ext_data%oce%bathymetry_c(jc,jb)= z_H_0 &
-! !           &-z_permax*exp(-(z_dst/z_perwid)**2)
-! !          END DO
-! !       END DO
-! !       !ab) the edges
-! !       DO jb = i_startblk_e, i_endblk_e
-! !         CALL get_indices_e(p_patch, jb, i_startblk_e, i_endblk_e, &
-! !          &                i_startidx_e, i_endidx_e, rl_start, rl_end_e)
-! !         DO je = i_startidx_e, i_endidx_e
-! !           ic1 = p_patch%edges%cell_idx(je,jb,1)
-! !           ib1 = p_patch%edges%cell_blk(je,jb,1)
-! !           ic2 = p_patch%edges%cell_idx(je,jb,2)
-! !           ib2 = p_patch%edges%cell_blk(je,jb,2)
-! !           DO jk=1,n_zlev
-! !             p_ext_data%oce%bathymetry_e(je,jb) = 0.5_wp*(p_ext_data%oce%bathymetry_c(ic1,ib1)&
-! !                                                 &        +p_ext_data%oce%bathymetry_c(ic2,ib2))
-! !           END DO
-! !          END DO
-! !       END DO
-! !        !Step 2: create land-sea mask for edges and cells from bathymetry
-! !        !2a) the cells
-! !        DO jb = i_startblk_c, i_endblk_c
-! !          CALL get_indices_c(p_patch, jb, i_startblk_c, i_endblk_c, &
-! !           &                i_startidx_c, i_endidx_c, rl_start, rl_end_c)
-! !          DO jc = i_startidx_c, i_endidx_c
-! !            DO jk=1,n_zlev
-! !              !IF position of z-coordinate surface is above seamount: cell ist wet
-! !              IF(v_base%zlev_m(jk)<= p_ext_data%oce%bathymetry_c(jc,jb))THEN
-! !                v_base%lsm_c(jc,jk,jb) = -2
-! !              ELSE
-! !                v_base%lsm_c(jc,jk,jb) = 2
-! !              ENDIF
-! !            END DO
-! !          END DO
-! !        END DO
-! !        !2b) the edges
-! !        DO jb = i_startblk_e, i_endblk_e
-! !          CALL get_indices_e(p_patch, jb, i_startblk_e, i_endblk_e, &
-! !           &                i_startidx_e, i_endidx_e, rl_start, rl_end_e)
-! !          DO je = i_startidx_e, i_endidx_e
-! !            ic1 = p_patch%edges%cell_idx(je,jb,1)
-! !            ib1 = p_patch%edges%cell_blk(je,jb,1)
-! !            ic2 = p_patch%edges%cell_idx(je,jb,2)
-! !            ib2 = p_patch%edges%cell_blk(je,jb,2)
-! !            DO jk=1,n_zlev
-! !              !get neighbor cells: if both have different type, the edge is boundary, if they are
-! !              !of the same type, this type is assigned to the edge
-! ! !               IF(   v_base%lsm_c(ic1,jk,ib1)&
-! ! !                  &==v_base%lsm_c(ic2,jk,ib2) )THEN
-! ! !                 v_base%lsm_e(je,jk,jb) = v_base%lsm_c(ic1,jk,ib1)
-! ! !               ELSE
-! ! !                 v_base%lsm_e(je,jk,jb) = boundary
-! ! !               ENDIF
-! !              IF(v_base%zlev_m(jk)<= p_ext_data%oce%bathymetry_e(je,jb))THEN
-! !                v_base%lsm_e(je,jk,jb) = -2
-! !              ELSE
-! !                v_base%lsm_e(je,jk,jb) = 2
-! !              ENDIF
-! !            END DO
-! !           END DO
-! !        END DO
-! !        !loop over cells and check if all edges are wet or not, in
-! !        !the later case the cell is a boundary cell
-! !        DO jb = i_startblk_c, i_endblk_c
-! !          CALL get_indices_c(p_patch, jb, i_startblk_c, i_endblk_c, &
-! !           &                i_startidx_c, i_endidx_c, rl_start, rl_end_c)
-! !          DO jc = i_startidx_c, i_endidx_c
-! !            ile1 = p_patch%cells%edge_idx(jc,jb,1)
-! !            ibe1 = p_patch%cells%edge_blk(jc,jb,1)
-! !            ile2 = p_patch%cells%edge_idx(jc,jb,2)
-! !            ibe2 = p_patch%cells%edge_blk(jc,jb,2)
-! !            ile3 = p_patch%cells%edge_idx(jc,jb,3)
-! !            ibe3 = p_patch%cells%edge_blk(jc,jb,3)
-! !            DO jk=1,n_zlev
-! !              i_ctr=0
-! !              !CALL finish(TRIM(routine), 'CHOSEN FORCING OPTION NOT SUPPORTED - TERMINATE')
-! !              IF(v_base%lsm_c(jc,jk,jb) == -2)THEN
-! !                IF(v_base%lsm_e(ile1,jk,ibe1) == 2)i_ctr=i_ctr+1
-! !                IF(v_base%lsm_e(ile2,jk,ibe2) == 2)i_ctr=i_ctr+1
-! !                IF(v_base%lsm_e(ile3,jk,ibe3) == 2)i_ctr=i_ctr+1
-! !                SELECT CASE(i_ctr)
-! !                  CASE(0)
-! !                   !do nothing
-! !                  CASE(1)
-! !                    !cell is a boundary cell
-! !                    v_base%lsm_c(jc,jk,jb) = -1
-! !                  CASE(2)
-! !                    !cell becomes a land cell
-! !                    v_base%lsm_c(jc,jk,jb) = 2
-! !                  CASE(3)
-! !                    !cell becomes a land cell
-! !                    v_base%lsm_c(jc,jk,jb) = 2
-! !                END SELECT
-! !              ELSEIF(v_base%lsm_c(jc,jk,jb) == 2)THEN
-! !                IF(v_base%lsm_e(ile1,jk,ibe1) == -2)i_ctr=i_ctr+1
-! !                IF(v_base%lsm_e(ile2,jk,ibe2) == -2)i_ctr=i_ctr+1
-! !                IF(v_base%lsm_e(ile3,jk,ibe3) == -2)i_ctr=i_ctr+1
-! !                SELECT CASE(i_ctr)
-! !                  CASE(0)
-! !                   !do nothing
-! !                  CASE(1)
-! !                    !cell is a boundary cell
-! !                    v_base%lsm_c(jc,jk,jb) = 1
-! !                  CASE(2)
-! !                    !cell becomes a wet cell
-! !                    v_base%lsm_c(jc,jk,jb) = -2
-! !                  CASE(3)
-! !                    !cell becomes a wet cell
-! !                    v_base%lsm_c(jc,jk,jb) = -2
-! !                END SELECT
-! !              ENDIF
-! !            END DO
-! !          END DO
-! !        END DO
-! !        !check for boundary edges
-! !        DO jb = i_startblk_e, i_endblk_e
-! !          CALL get_indices_e(p_patch, jb, i_startblk_e, i_endblk_e, &
-! !           &                i_startidx_e, i_endidx_e, rl_start, rl_end_e)
-! !          DO je = i_startidx_e, i_endidx_e
-! !            ic1 = p_patch%edges%cell_idx(je,jb,1)
-! !            ib1 = p_patch%edges%cell_blk(je,jb,1)
-! !            ic2 = p_patch%edges%cell_idx(je,jb,2)
-! !            ib2 = p_patch%edges%cell_blk(je,jb,2)
-! !            DO jk=1,n_zlev
-! !              !get neighbor cells: if both have different type, the edge is boundary, if they are
-! !              !of the same type, this type is assigned to the edge
-! !                IF(   v_base%lsm_c(ic1,jk,ib1)&
-! !                   &==v_base%lsm_c(ic2,jk,ib2) )THEN
-! !                  v_base%lsm_e(je,jk,jb) = v_base%lsm_c(ic1,jk,ib1)
-! !                ELSE
-! !                  v_base%lsm_e(je,jk,jb) = -1
-! !                ENDIF
-! !            END DO
-! !           END DO
-! !        END DO
-! !        !Step 3: create 3D-lsm (=dolic_c)
-! !        !CALL fill_vertical_ocean_domain(p_patch)
-! !        DO jb = i_startblk_c, i_endblk_c
-! !          CALL get_indices_c(p_patch, jb, i_startblk_c, i_endblk_c, &
-! !           &                i_startidx_c, i_endidx_c, rl_start, rl_end_c)
-! !          DO jc = i_startidx_c, i_endidx_c
-! !            p_os%p_prog(nold(1))%tracer(jc,:,jb,1)=20.0_wp
-! !            !z_dolic = p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)
-! !            !IF (z_dolic > 0) THEN
-! !              DO jk = 1, n_zlev!z_dolic
-! !                p_os%p_prog(nold(1))%tracer(jc,jk,jb,1)     &
-! !                 & = p_os%p_prog(nold(1))%tracer(jc,jk,jb,1)&
-! !                 & - v_base%zlev_m(jk)*15.0_wp/8000.0_wp
-! !                p_os%p_prog(nnew(1))%tracer(jc,jk,jb,1) &
-! !                &= p_os%p_prog(nold(1))%tracer(jc,jk,jb,1)
-! !              END DO
-! !            !END IF
-! !          END DO
-! !        END DO
-! !     !init normal velocity
-! !       DO jb = i_startblk_e, i_endblk_e
-! !         CALL get_indices_e(p_patch, jb, i_startblk_e, i_endblk_e,&
-! !                     & i_startidx_e, i_endidx_e, rl_start, rl_end_e)
-! !         DO je = i_startidx_e, i_endidx_e
-! !           z_lat = p_patch%edges%center(je,jb)%lat
-! !           z_lon = p_patch%edges%center(je,jb)%lon
-! !           IF(v_base%lsm_e(je,1,jb)<=sea_boundary)THEN
-! !             p_os%p_prog(nold(1))%vn(je,1,jb) = &
-! !             &   (test5_u(z_lon, z_lat,0.0_wp)*p_patch%edges%primal_normal(je,jb)%v1  &
-! !             & + test5_v(z_lon, z_lat,0.0_wp)*p_patch%edges%primal_normal(je,jb)%v2)/30.0_wp
-! !             ! write(*,*)'vn', je,jb,p_os%p_prog(nold(1))%vn(je,1,jb),z_lon, z_lat
-! !             p_os%p_prog(nnew(1))%vn(je,1,jb) = p_os%p_prog(nold(1))%vn(je,1,jb)
-! !             p_os%p_diag%h_e(je,jb) = 1.0_wp
-! !             p_os%p_prog(nold(1))%vn(je,1:n_zlev,jb) = p_os%p_prog(nold(1))%vn(je,1,jb)
-! !             p_os%p_prog(nnew(1))%vn(je,1:n_zlev,jb) = p_os%p_prog(nold(1))%vn(je,1:n_zlev,jb)
-! !           ENDIF
-! !         END DO
-! !       END DO
 
     CASE (40)
     ! Temperature profile depends on latitude and depth
@@ -2020,6 +1808,37 @@ CONTAINS
               ENDIF
             ENDIF
           END DO
+        END DO
+      END DO
+    CASE(53)
+      CALL message(TRIM(routine), 'LOCK exchange (53)')
+      p_os%p_prog(nold(1))%h  = 0.0_wp
+      p_os%p_prog(nold(1))%vn = 0.0_wp
+      p_os%p_prog(nnew(1))%vn = 0.0_wp
+      IF(no_tracer>0)THEN
+        p_os%p_prog(nold(1))%tracer(:,1,:,1) = 0.0_wp
+        p_os%p_prog(nnew(1))%tracer(:,1,:,1) = 0.0_wp
+      ELSE
+        CALL finish(TRIM(routine), 'Number of tracers =0 is inappropriate for this test - TERMINATE')
+      ENDIF
+      DO jb = all_cells%start_block, all_cells%end_block
+        CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+        DO jc = i_startidx_c, i_endidx_c
+
+          !latitude given in radians
+           z_lon_deg = p_patch%cells%center(jc,jb)%lon*rad2deg
+           !Impose emperature profile. Profile
+           !depends on latitude only
+!            IF(abs(z_lat_deg-basin_center_lat)>=0.0_wp*basin_height_deg)THEN
+!              p_os%p_prog(nold(1))%tracer(jc,1:n_zlev,jb,1) = 5.0_wp
+!            ELSEIF(abs(z_lat_deg-basin_center_lat)<0.0_wp*basin_height_deg)THEN
+!              p_os%p_prog(nold(1))%tracer(jc,1:n_zlev,jb,1) = 10.0_wp
+!            ENDIF
+           IF((z_lon_deg-basin_center_lon)>=0.0_wp)THEN
+             p_os%p_prog(nold(1))%tracer(jc,1:n_zlev,jb,1) = 5.0_wp
+           ELSEIF((z_lon_deg-basin_center_lon)<0.0_wp)THEN
+             p_os%p_prog(nold(1))%tracer(jc,1:n_zlev,jb,1) = 10.0_wp
+           ENDIF
         END DO
       END DO
 

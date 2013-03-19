@@ -78,7 +78,7 @@ USE mo_oce_state,              ONLY: t_hydro_ocean_state, &
   &                                  construct_hydro_ocean_state, destruct_hydro_ocean_state, &
   &                                  init_coriolis_oce, init_oce_config, &
   &                                  set_lateral_boundary_values, construct_patch_3D, init_patch_3D
-USE mo_oce_math_operators,     ONLY: height_related_quantities
+USE mo_oce_math_operators,     ONLY: height_related_quantities, calc_thickness
 USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff, allocate_exp_coeff,par_init_operator_coeff,&
   &                                  update_diffusion_matrices
 USE mo_scalar_product,         ONLY: calc_scalar_product_veloc_3D
@@ -105,13 +105,11 @@ USE mo_output,                 ONLY: init_output_files, write_output, &
 USE mo_name_list_output_config,ONLY: is_any_output_file_active, use_async_name_list_io
 USE mo_name_list_output,       ONLY: write_name_list_output, istime4name_list_output, &
   &                                  output_file
-USE mo_oce_diagnostics,        ONLY: &!calculate_oce_diagnostics,&
+USE mo_oce_diagnostics,        ONLY: calculate_oce_diagnostics,&
   &                                  construct_oce_diagnostics,&
   &                                  destruct_oce_diagnostics, t_oce_timeseries, &
   &                                  calc_moc, calc_psi
 USE mo_oce_ab_timestepping_mimetic, ONLY: init_ho_lhs_fields_mimetic
-
-
 USE mo_mpi,                    ONLY: my_process_is_mpi_all_parallel
 
 
@@ -192,7 +190,7 @@ CONTAINS
 
 
   IF (idiag_oce == 1) &
-    & CALL construct_oce_diagnostics( p_patch,p_patch_3D, p_os(jg), oce_ts)
+    & CALL construct_oce_diagnostics( p_patch_3D, p_os(jg), oce_ts)
 
   ! IF (ltimer) CALL timer_start(timer_total)
   CALL timer_start(timer_total)
@@ -221,7 +219,8 @@ CONTAINS
     CALL message (TRIM(routine), message_text)
 
     IF(itestcase_oce==28)THEN
-      CALL height_related_quantities( p_patch_3D, p_os(jg), p_ext_data(jg))
+      CALL calc_thickness( p_patch_3D, p_os(jg), p_ext_data(jg))
+      !CALL height_related_quantities( p_patch_3D, p_os(jg), p_ext_data(jg))
       CALL calc_vert_velocity(p_patch_3D, p_os(jg),p_op_coeff)
       CALL advect_tracer_ab( p_patch_3D, p_os(jg),  &
                            & p_phys_param,p_sfc_flx,&
@@ -235,13 +234,8 @@ CONTAINS
 
       IF(.NOT.l_STAGGERED_TIMESTEP)THEN
 
-        CALL height_related_quantities( p_patch_3D, p_os(jg), p_ext_data(jg))
-
-        !This is required in top boundary condition for
-        !vertical velocity: the time derivative of the surface height
-        !is used there and needs special treatment in the first timestep.
-        !see sbr top_bound_cond_vert_veloc in mo_ho_boundcond
-        p_os(jg)%p_prog(nnew(1))%h = p_os(jg)%p_prog(nold(1))%h
+        CALL calc_thickness( p_patch_3D, p_os(jg), p_ext_data(jg))
+        !CALL height_related_quantities( p_patch_3D, p_os(jg), p_ext_data(jg))
 
         CALL set_lateral_boundary_values( p_patch_3D, p_os(jg)%p_prog(nold(1))%vn)
         CALL sync_patch_array(sync_e,  p_patch_3D%p_patch_2D(jg),  p_os(jg)%p_prog(nold(1))%vn)
@@ -398,7 +392,7 @@ CONTAINS
   !
   SUBROUTINE prepare_ho_integration(p_patch_3D, p_os, p_ext_data, p_sfc_flx, &
                                   & p_phys_param, p_as,&
-                                  & p_atm_f, p_ice, p_op_coeff)!, p_int)
+                                  & p_atm_f, p_ice, p_op_coeff)
 
     TYPE(t_patch_3D ),TARGET, INTENT(INOUT)  :: p_patch_3D
     TYPE(t_hydro_ocean_state),    INTENT(INOUT)  :: p_os(n_dom)
@@ -409,7 +403,6 @@ CONTAINS
     TYPE(t_atmos_fluxes ),        INTENT(INOUT)  :: p_atm_f
     TYPE (t_sea_ice),             INTENT(INOUT)  :: p_ice
     TYPE(t_operator_coeff),       INTENT(INOUT)  :: p_op_coeff
-   ! TYPE(t_int_state),TARGET,     INTENT(inout)  :: p_int(n_dom)
 
     ! local variables
     INTEGER :: jg
