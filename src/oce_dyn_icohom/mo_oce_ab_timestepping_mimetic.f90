@@ -1601,7 +1601,7 @@ ELSEIF(.NOT.l_EDGE_BASED)THEN
 ENDIF
 
 
-z_c(:,:) = (p_os%p_prog(nnew(1))%h(:,:)-p_os%p_prog(nold(1))%h(:,:))/dtime - pw_c(:,1,:)
+z_c(:,:) = ((p_os%p_prog(nnew(1))%h(:,:)-p_os%p_prog(nold(1))%h(:,:))/dtime - pw_c(:,1,:))*p_patch_3D%wet_c(:,1,:)
 !write(*,*)'difference d_t height - vert veloc:',&
 !&maxval((p_os%p_prog(nnew(1))%h-p_os%p_prog(nold(1))%h)/dtime - pw_c(:,1,:))
 
