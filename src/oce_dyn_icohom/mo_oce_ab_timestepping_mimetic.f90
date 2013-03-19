@@ -417,7 +417,7 @@ SUBROUTINE solve_free_sfc_ab_mimetic(p_patch_3D, p_os, p_ext_data, p_sfc_flx, &
       IF (idbg_mxmn >= idt_src) THEN
         WRITE(string,'(a,i4,a,e28.20)') &
           'SUM of gmres iteration =', iter_sum,', residual =', residual_norm
-        CALL message('GMRES surface height',TRIM(string))
+        CALL message('GMRES_oce_new: surface height',TRIM(string))
       ENDIF
  
       IF (residual_norm > solver_tolerance) &
