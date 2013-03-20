@@ -7,7 +7,7 @@
 !!
 !!
 !! @author Luis Kornblueh, MPI
-!! @author Leonidas Loinardakis, MPI
+!! @author Leonidas Linardakis, MPI
 !!
 !! @par Revision History
 !!
@@ -58,6 +58,8 @@ MODULE mo_gather_scatter
   PUBLIC :: gather_vertices
   !
   PUBLIC :: scatter_cells
+  PUBLIC :: scatter_cells_2D,      gather_cells_2D
+  PUBLIC :: scatter_cells_2D_time, gather_cells_2D_time
   PUBLIC :: scatter_cells_3D_time, gather_cells_3D_time
   PUBLIC :: scatter_edges
   PUBLIC :: scatter_vertices
@@ -69,6 +71,32 @@ MODULE mo_gather_scatter
     MODULE PROCEDURE broadcast_real_array_1D
     MODULE PROCEDURE broadcast_int_array_1D
   END INTERFACE broadcast_array
+
+  INTERFACE scatter_cells_2D
+    MODULE PROCEDURE scatter_real_cells_2D_noblocks_2blocks
+  END INTERFACE scatter_cells_2D
+
+  INTERFACE scatter_cells_2D_time
+    MODULE PROCEDURE scatter_real_cells_2D_time_noblocks_2blocks
+  END INTERFACE scatter_cells_2D_time
+
+  INTERFACE scatter_cells_3D_time
+    MODULE PROCEDURE scatter_real_cells_3D_time_noblocks_2blocks
+  END INTERFACE scatter_cells_3D_time
+
+  INTERFACE gather_cells_2D
+    MODULE PROCEDURE gather_real_cells_2D_blocks_2noblocks
+  END INTERFACE gather_cells_2D
+
+  INTERFACE gather_cells_2D_time
+    MODULE PROCEDURE gather_real_cells_2D_time_blocks_2noblocks
+  END INTERFACE gather_cells_2D_time
+
+  INTERFACE gather_cells_3D_time
+    MODULE PROCEDURE gather_real_cells_3D_time_blocks_2noblocks
+  END INTERFACE gather_cells_3D_time
+
+
 
   INTERFACE gather_cells
     MODULE PROCEDURE gather_cells_r2d
@@ -97,18 +125,8 @@ MODULE mo_gather_scatter
     MODULE PROCEDURE gather_vertices_l3d
   END INTERFACE gather_vertices
 
-
-  INTERFACE gather_cells_3D_time
-    MODULE PROCEDURE gather_real_cells_3D_time
-  END INTERFACE gather_cells_3D_time
-
-  INTERFACE scatter_cells_3D_time
-    MODULE PROCEDURE scatter_real_cells_3D_time
-  END INTERFACE scatter_cells_3D_time
-
   INTERFACE scatter_cells
     MODULE PROCEDURE scatter_cells_r2d
-    MODULE PROCEDURE scatter_real_cells_2D ! a more simple version with 1D input
     MODULE PROCEDURE scatter_cells_r3d
     MODULE PROCEDURE scatter_cells_i2d
     MODULE PROCEDURE scatter_cells_i3d
@@ -157,10 +175,155 @@ CONTAINS
   !================================================================================================
   ! REAL SECTION ----------------------------------------------------------------------------------
   !
+  !--------------------------------------------------------------------------------------
+  !>
+  SUBROUTINE broadcast_int_array_1D(in_array)
+    INTEGER, TARGET  :: in_array(:)
+
+    IF (my_process_is_mpi_seq()) RETURN
+#ifndef NOMPI
+    CALL p_bcast(in_array, process_mpi_root_id, p_comm_work)
+#endif
+  END SUBROUTINE broadcast_int_array_1D
+  !--------------------------------------------------------------------------------------
+
+  !--------------------------------------------------------------------------------------
+  !>
+  SUBROUTINE scatter_real_cells_2D_time_noblocks_2blocks(in_array, out_array, p_patch)
+    REAL(wp), POINTER                   :: in_array(:,:)
+    REAL(wp), POINTER                   :: out_array(:,:,:)
+    TYPE(t_patch), INTENT(in)           :: p_patch
+
+    CALL scatter_array_r2d_time(in_array, out_array, p_patch%cells%glb_index)
+
+  END SUBROUTINE scatter_real_cells_2D_time_noblocks_2blocks
+  !--------------------------------------------------------------------------------------
+
+  !--------------------------------------------------------------------------------------
+  !>
+  SUBROUTINE scatter_real_cells_3D_time_noblocks_2blocks(in_array, out_array, p_patch)
+    REAL(wp), POINTER                   :: in_array(:,:,:)
+    REAL(wp), POINTER                   :: out_array(:,:,:,:)
+    TYPE(t_patch), INTENT(in)           :: p_patch
+
+    CALL scatter_array_r4d(in_array, out_array, p_patch%cells%glb_index)
+
+  END SUBROUTINE scatter_real_cells_3D_time_noblocks_2blocks
+  !--------------------------------------------------------------------------------------
+
+  !--------------------------------------------------------------------------------------
+  !>
+  SUBROUTINE scatter_real_cells_2D_noblocks_2blocks(in_array, out_array, p_patch)
+    REAL(wp), POINTER                   :: in_array(:)
+    REAL(wp), POINTER                   :: out_array(:,:)
+    TYPE(t_patch), INTENT(in)           :: p_patch
+
+    IF (my_process_is_mpi_seq()) THEN
+      CALL reorder(in_array, out_array)
+#ifndef NOMPI
+    ELSE
+      CALL scatter_array_r2d(in_array, out_array, p_patch%cells%glb_index)
+#endif
+    ENDIF
+
+  END SUBROUTINE scatter_real_cells_2D_noblocks_2blocks
+  !--------------------------------------------------------------------------------------
+
 
   !--------------------------------------------------------------------
   !>
-  SUBROUTINE gather_real_cells_3D_time(in_array, out_array, patch)
+  SUBROUTINE gather_real_cells_2D_blocks_2noblocks(in_array, out_array, patch)
+    REAL(wp), POINTER  :: in_array(:,:)
+    REAL(wp), POINTER  :: out_array(:)
+    TYPE(t_patch), TARGET :: patch
+
+    REAL(wp), POINTER :: tmp_array(:,:)
+    INTEGER :: n1, n2, n3, total_number_of_cells
+
+    n1 = SIZE(in_array, 1)
+    n2 = SIZE(in_array, 2)
+    total_number_of_cells = patch%n_patch_cells_g
+    n3 = (total_number_of_cells - 1) / n1 + 1  ! these are the number of blocks for all the cells
+
+    IF (.NOT. my_process_is_mpi_seq()) THEN
+
+      IF (my_process_is_mpi_workroot()) THEN
+        ALLOCATE(tmp_array(n1, n3), out_array(total_number_of_cells))
+      ELSE
+        ! ALLOCATE(tmp_array(n1, 1, 1))  ! it's weird but the exchange data requires nproma as first dimension
+        ALLOCATE(tmp_array(n1, n3)) ! it's more weird...
+        NULLIFY(out_array)
+      ENDIF
+
+      CALL exchange_data(patch%comm_pat_gather_c, RECV=tmp_array, SEND=in_array(:,:))
+      IF (my_process_is_mpi_workroot()) THEN
+        CALL reshape_2D_block_2noblock(tmp_array, out_array(:))
+      ENDIF
+
+      DEALLOCATE(tmp_array)
+
+    ELSE
+
+      ! this a sequential run
+      ALLOCATE( out_array(total_number_of_cells))
+      CALL reshape_2D_block_2noblock(in_array(:,:), out_array(:))
+
+    ENDIF
+
+  END SUBROUTINE gather_real_cells_2D_blocks_2noblocks
+  !--------------------------------------------------------------------
+
+  !--------------------------------------------------------------------
+  !>
+  SUBROUTINE gather_real_cells_2D_time_blocks_2noblocks(in_array, out_array, patch)
+    REAL(wp), POINTER  :: in_array(:,:,:)
+    REAL(wp), POINTER  :: out_array(:,:)
+    TYPE(t_patch), TARGET :: patch
+
+    REAL(wp), POINTER :: tmp_array(:,:)
+    INTEGER :: n1, n3, n4, total_number_of_cells, timestep
+
+    n1 = SIZE(in_array, 1)
+    total_number_of_cells = patch%n_patch_cells_g
+    n3 = (total_number_of_cells - 1) / n1 + 1  ! these are the number of blocks for all the cells
+    n4 = SIZE(in_array, 3)  ! timesteps
+
+    IF (.NOT. my_process_is_mpi_seq()) THEN
+
+      IF (my_process_is_mpi_workroot()) THEN
+         ALLOCATE(tmp_array(n1, n3), out_array(total_number_of_cells, n4))
+      ELSE
+        ! ALLOCATE(tmp_array(n1, 1, 1))  ! it's weird but the exchange data requires nproma as first dimension
+         ALLOCATE(tmp_array(n1, n3)) ! it's more weird...
+         NULLIFY(out_array)
+      ENDIF
+
+      ! for each timestep exchange and fill the output array
+      DO timestep = 1, n4
+        CALL exchange_data(patch%comm_pat_gather_c, RECV=tmp_array, SEND=in_array(:,:,timestep))
+        IF (my_process_is_mpi_workroot()) THEN
+          CALL reshape_2D_block_2noblock(tmp_array, out_array(:, timestep ))
+        ENDIF
+      ENDDO
+
+      DEALLOCATE(tmp_array)
+
+    ELSE
+
+      ! this a sequential run
+      ALLOCATE( out_array(total_number_of_cells, n4))
+      DO timestep = 1, n4
+        CALL reshape_2D_block_2noblock(in_array(:, :, timestep), out_array(:, timestep ))
+      ENDDO
+
+    ENDIF
+
+  END SUBROUTINE gather_real_cells_2D_time_blocks_2noblocks
+  !--------------------------------------------------------------------
+
+  !--------------------------------------------------------------------
+  !>
+  SUBROUTINE gather_real_cells_3D_time_blocks_2noblocks(in_array, out_array, patch)
     REAL(wp), POINTER  :: in_array(:,:,:,:)
     REAL(wp), POINTER  :: out_array(:,:,:)
     TYPE(t_patch), TARGET :: patch
@@ -188,7 +351,7 @@ CONTAINS
       DO timestep = 1, n4
         CALL exchange_data(patch%comm_pat_gather_c, RECV=tmp_array, SEND=in_array(:,:,:,timestep))
         IF (my_process_is_mpi_workroot()) THEN
-          CALL reshape2_without_block_real_3D(tmp_array, out_array(:, :, timestep ))
+          CALL reshape_3D_block_2noblock(tmp_array, out_array(:, :, timestep ))
         ENDIF
       ENDDO
 
@@ -199,12 +362,12 @@ CONTAINS
       ! this a sequential run
       ALLOCATE( out_array(total_number_of_cells, n2, n4))
       DO timestep = 1, n4
-        CALL reshape2_without_block_real_3D(in_array(:,:,:,timestep), out_array(:, :,timestep ))
+        CALL reshape_3D_block_2noblock(in_array(:,:,:,timestep), out_array(:, :,timestep ))
       ENDDO
 
     ENDIF
 
-  END SUBROUTINE gather_real_cells_3D_time
+  END SUBROUTINE gather_real_cells_3D_time_blocks_2noblocks
   !--------------------------------------------------------------------
 
 
@@ -821,6 +984,167 @@ CONTAINS
 
   !--------------------------------------------------------------------------------------
   !>
+  SUBROUTINE scatter_array_r3d (in_array, out_array, global_index)
+    REAL(wp), POINTER :: in_array(:,:)
+    REAL(wp), POINTER :: out_array(:,:,:)
+    INTEGER           :: global_index(:)
+
+    INTEGER :: j, jl, jb, jk
+
+    CALL p_bcast(in_array, process_mpi_root_id, p_comm_work)
+
+    out_array(:,:,:) = 0.0_wp
+
+    DO jk = 1, SIZE(out_array,2)
+      DO j = 1, SIZE(global_index)
+        jb = blk_no(j)
+        jl = idx_no(j)
+        out_array(jl,jk,jb) = in_array(global_index(j),jk)
+      ENDDO
+    ENDDO
+    !
+  END SUBROUTINE scatter_array_r3d
+  !--------------------------------------------------------------------------------------
+
+  !--------------------------------------------------------------------------------------
+  !>
+  ! standard input array shape: (cells, vertical_levels, file_time_steps)
+  ! standard output array shape: (nproma, vertical_levels, blocks, file_time_steps)
+  SUBROUTINE scatter_array_r2d_time (in_array, out_array, global_index)
+    REAL(wp), POINTER :: in_array(:,:)
+    REAL(wp), POINTER :: out_array(:,:,:)
+    INTEGER           :: global_index(:)
+
+    INTEGER :: j, jl, jb, time_step
+
+    ! this has internal check if sequential
+    CALL p_bcast(in_array, process_mpi_root_id, p_comm_work)
+
+    out_array(:,:,:) = 0.0_wp
+
+    DO time_step=1, SIZE(in_array,2)
+      DO j = 1,   SIZE(global_index)
+        jb = blk_no(j)
+        jl = idx_no(j)
+        out_array(jl, jb, time_step) = in_array(global_index(j), time_step)
+      ENDDO
+    ENDDO
+
+  END SUBROUTINE scatter_array_r2d_time
+  !--------------------------------------------------------------------------------------
+
+  !--------------------------------------------------------------------------------------
+  !>
+  ! standard input array shape: (cells, vertical_levels, file_time_steps)
+  ! standard output array shape: (nproma, vertical_levels, blocks, file_time_steps)
+  SUBROUTINE scatter_array_r4d (in_array, out_array, global_index)
+    REAL(wp), POINTER :: in_array(:,:,:)
+    REAL(wp), POINTER :: out_array(:,:,:,:)
+    INTEGER            :: global_index(:)
+
+    INTEGER :: j, jl, jb, jk, time_step
+
+    ! this has internal check if sequential
+    CALL p_bcast(in_array, process_mpi_root_id, p_comm_work)
+
+    out_array(:,:,:,:) = 0.0_wp
+
+    DO time_step=1, SIZE(in_array,3)
+      DO jk = 1,    SIZE(out_array,2)
+        DO j = 1,   SIZE(global_index)
+          jb = blk_no(j)
+          jl = idx_no(j)
+          out_array(jl, jk, jb, time_step) = in_array(global_index(j), jk, time_step)
+        ENDDO
+      ENDDO
+    ENDDO
+
+  END SUBROUTINE scatter_array_r4d
+  !--------------------------------------------------------------------------------------
+
+  !--------------------------------------------------------------------------------------
+  !>
+  SUBROUTINE reshape_2D_block_2noblock(in, out)
+    REAL(wp), TARGET  :: in(:,:)
+    REAL(wp), TARGET  :: out(:)
+
+    INTEGER :: in_block_size, in_blocks, out_size, in_levels, out_levels
+    INTEGER :: block, blk_index, out_index, end_index
+
+    CHARACTER(LEN=*), PARAMETER  :: method_name = 'mo_gather_scatter:reshape_2D_block_2noblock'
+
+    in_block_size  = SIZE(in,1)
+    in_blocks      = SIZE(in,2)
+    out_size       = SIZE(out,1)
+
+    DO block=1, in_blocks - 1
+      DO blk_index = 1, in_block_size
+        out_index =  (block-1) * in_block_size + blk_index
+        out(out_index) = in(blk_index, block)
+      ENDDO
+    ENDDO
+
+    ! fill the last block
+    block = in_blocks
+    end_index = out_size - (in_blocks-1) * in_block_size
+    DO blk_index = 1, end_index
+      out_index =  (block-1) * in_block_size + blk_index
+      out(out_index) = in(blk_index,block)
+      ! write(0,*) "reshape:", out_index, block, blk_index, level, out(out_index, level)
+    ENDDO
+
+  END SUBROUTINE reshape_2D_block_2noblock
+  !-----------------------------------------------------------------
+
+
+  !--------------------------------------------------------------------------------------
+  !>
+  SUBROUTINE reshape_3D_block_2noblock(in, out)
+    REAL(wp), TARGET  :: in(:,:,:)
+    REAL(wp), TARGET  :: out(:,:)
+
+    INTEGER :: in_block_size, in_blocks, out_size, in_levels, out_levels
+    INTEGER :: block, level, blk_index, out_index, end_index
+
+    CHARACTER(LEN=*), PARAMETER  :: method_name = 'mo_gather_scatter:reshape_3D_block_2noblock'
+
+    in_block_size  = SIZE(in,1)
+    in_blocks      = SIZE(in,3)
+    out_size       = SIZE(out,1)
+
+    in_levels  = SIZE(in,2)
+    out_levels = SIZE(out,2)
+
+    IF (in_levels /= out_levels) &
+      CALL finish(method_name, "in_levels /= out_levels")
+
+    DO level=1, in_levels
+      DO block=1, in_blocks - 1
+        DO blk_index = 1, in_block_size
+          out_index =  (block-1) * in_block_size + blk_index
+          out(out_index, level) = in(blk_index, level, block)
+          ! write(0,*) "reshape:", out_index, block, blk_index, level, out(out_index, level)
+        ENDDO
+      ENDDO
+    ENDDO
+
+    ! fill the last block
+    block = in_blocks
+    end_index = out_size - (in_blocks-1) * in_block_size
+    DO level=1, in_levels
+      DO blk_index = 1, end_index
+        out_index =  (block-1) * in_block_size + blk_index
+        out(out_index, level) = in(blk_index, level, block)
+        ! write(0,*) "reshape:", out_index, block, blk_index, level, out(out_index, level)
+      ENDDO
+    ENDDO
+
+  END SUBROUTINE reshape_3D_block_2noblock
+  !-----------------------------------------------------------------
+
+
+  !--------------------------------------------------------------------------------------
+  !>
   SUBROUTINE broadcast_real_array_1D(in_array)
     REAL(wp), TARGET  :: in_array(:)
 
@@ -829,48 +1153,6 @@ CONTAINS
     CALL p_bcast(in_array, process_mpi_root_id, p_comm_work)
 #endif
   END SUBROUTINE broadcast_real_array_1D
-  !--------------------------------------------------------------------------------------
-
-  !--------------------------------------------------------------------------------------
-  !>
-  SUBROUTINE broadcast_int_array_1D(in_array)
-    INTEGER, TARGET  :: in_array(:)
-
-    IF (my_process_is_mpi_seq()) RETURN
-#ifndef NOMPI
-    CALL p_bcast(in_array, process_mpi_root_id, p_comm_work)
-#endif
-  END SUBROUTINE broadcast_int_array_1D
-  !--------------------------------------------------------------------------------------
-
-  !--------------------------------------------------------------------------------------
-  !>
-  SUBROUTINE scatter_real_cells_3D_time(in_array, out_array, p_patch)
-    REAL(wp), POINTER                   :: in_array(:,:,:)
-    REAL(wp), POINTER                   :: out_array(:,:,:,:)
-    TYPE(t_patch), INTENT(in)           :: p_patch
-
-    CALL scatter_array_r4d(in_array, out_array, p_patch%cells%glb_index)
-  
-  END SUBROUTINE scatter_real_cells_3D_time
-  !--------------------------------------------------------------------------------------
-
-  !--------------------------------------------------------------------------------------
-  !>
-  SUBROUTINE scatter_real_cells_2D(in_array, out_array, p_patch)
-    REAL(wp), POINTER                   :: in_array(:)
-    REAL(wp), POINTER                   :: out_array(:,:)
-    TYPE(t_patch), INTENT(in)           :: p_patch
-
-    IF (my_process_is_mpi_seq()) THEN
-      CALL reorder(in_array, out_array)
-#ifndef NOMPI
-    ELSE
-      CALL scatter_array_r2d(in_array, out_array, p_patch%cells%glb_index)
-#endif
-    ENDIF
-  
-  END SUBROUTINE scatter_real_cells_2D
   !--------------------------------------------------------------------------------------
 
   !--------------------------------------------------------------------------------------
@@ -1187,81 +1469,6 @@ CONTAINS
 #endif
   END SUBROUTINE scatter_vertices_l3d
   !--------------------------------------------------------------------------------------
-
-  !--------------------------------------------------------------------------------------
-  !>
-  ! standard input array shape: (cells, vertical_levels, file_time_steps)
-  ! standard output array shape: (nproma, vertical_levels, blocks, file_time_steps)
-  SUBROUTINE scatter_array_r4d (in_array, out_array, global_index)
-    REAL(wp), INTENT(inout) :: in_array(:,:,:)
-    REAL(wp), INTENT(out)   :: out_array(:,:,:,:)
-    INTEGER,  INTENT(in)    :: global_index(:)
-
-    INTEGER :: j, jl, jb, jk, time_step
-
-    ! this has internal check if sequential
-    CALL p_bcast(in_array, process_mpi_root_id, p_comm_work)
-
-    out_array(:,:,:,:) = 0.0_wp
-
-    DO time_step=1, SIZE(in_array,3)
-      DO jk = 1,    SIZE(out_array,2)
-        DO j = 1,   SIZE(global_index)
-          jb = blk_no(j)
-          jl = idx_no(j)
-          out_array(jl, jk, jb, time_step) = in_array(global_index(j), jk, time_step)
-        ENDDO
-      ENDDO
-    ENDDO
-
-  END SUBROUTINE scatter_array_r4d
-  !--------------------------------------------------------------------------------------
-
-  !--------------------------------------------------------------------------------------
-  !>
-  SUBROUTINE reshape2_without_block_real_3D(in, out)
-    REAL(wp), TARGET  :: in(:,:,:)
-    REAL(wp), TARGET  :: out(:,:)
-
-    INTEGER :: in_block_size, in_blocks, out_size, in_levels, out_levels
-    INTEGER :: block, level, blk_index, out_index, end_index
-
-    CHARACTER(LEN=*), PARAMETER  :: method_name = 'mo_gather_scatter:reshape2_without_block_real_3D'
-
-    in_block_size  = SIZE(in,1)
-    in_blocks      = SIZE(in,3)
-    out_size       = SIZE(out,1)
-
-    in_levels  = SIZE(in,2)
-    out_levels = SIZE(out,2)
-
-    IF (in_levels /= out_levels) &
-      CALL finish(method_name, "in_levels /= out_levels")
-
-    DO level=1, in_levels
-      DO block=1, in_blocks - 1
-        DO blk_index = 1, in_block_size
-          out_index =  (block-1) * in_block_size + blk_index
-          out(out_index, level) = in(blk_index, level, block)
-          ! write(0,*) "reshape:", out_index, block, blk_index, level, out(out_index, level)
-        ENDDO
-      ENDDO
-    ENDDO
-
-    ! fill the last block
-    block = in_blocks
-    end_index = out_size - (in_blocks-1) * in_block_size
-    DO level=1, in_levels
-      DO blk_index = 1, end_index
-        out_index =  (block-1) * in_block_size + blk_index
-        out(out_index, level) = in(blk_index, level, block)
-        ! write(0,*) "reshape:", out_index, block, blk_index, level, out(out_index, level)
-      ENDDO
-    ENDDO
-
-  END SUBROUTINE reshape2_without_block_real_3D
-  !-----------------------------------------------------------------
-
   !-----------------------------------------------------------------
   !>
   SUBROUTINE reorder_backward_r3d(in, out)
@@ -1323,31 +1530,6 @@ CONTAINS
     !
   END SUBROUTINE scatter_array_r2d
   !
-
-
-  !--------------------------------------------------------------------------------------
-  !>
-  SUBROUTINE scatter_array_r3d (in_array, out_array, global_index)
-    REAL(wp), INTENT(inout) :: in_array(:,:)
-    REAL(wp), INTENT(out)   :: out_array(:,:,:)
-    INTEGER,  INTENT(in)    :: global_index(:)
-    !
-    INTEGER :: j, jl, jb, jk
-    !
-    CALL p_bcast(in_array, process_mpi_root_id, p_comm_work)
-    !
-    out_array(:,:,:) = 0.0_wp
-    !
-    DO jk = 1, SIZE(out_array,2)
-      DO j = 1, SIZE(global_index)
-        jb = blk_no(j)
-        jl = idx_no(j)
-        out_array(jl,jk,jb) = in_array(global_index(j),jk)
-      ENDDO
-    ENDDO
-    !
-  END SUBROUTINE scatter_array_r3d
-  !--------------------------------------------------------------------------------------
 
   !================================================================================================
   ! INTEGER SECTION -------------------------------------------------------------------------------

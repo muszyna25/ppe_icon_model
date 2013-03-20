@@ -72,7 +72,6 @@ CONTAINS
     CHARACTER(*), PARAMETER :: method_name = "test_netcdf_read"
 
     !---------------------------------------------------------------------
-
     ltimer = .false.
     timers_level = 0
     activate_sync_timers = .false.
@@ -82,6 +81,7 @@ CONTAINS
 
 
     !---------------------------------------------------------------------
+    ! test O3
     ! read o3
     CALL message(method_name,   o3_filename)
     NULLIFY(test_o3)
