@@ -296,7 +296,7 @@ CONTAINS
                     ! water and land, as long as no ice routines are implemented 
                     ! in the ECHAM-physics
 
-!$OMP PARALLEL DO PRIVATE(jb,jc,jcs,jce,zlat) ICON_OMP_DEFAULT_SCHEDULE
+!!!OMP PARALLEL DO PRIVATE(jb,jc,jcs,jce,zlat) ICON_OMP_DEFAULT_SCHEDULE
           INQUIRE (file=slm_fn, exist=lexist)
           IF (lexist) THEN
                 return_status = netcdf_read_oncells_2D(slm_fn,'slm', field% lsmask, p_patch(jg)) 
@@ -312,7 +312,7 @@ CONTAINS
             field% glac  (jcs:jce,jb) = 0._wp   ! zero glacier fraction
             field% seaice(jcs:jce,jb) = 0._wp   ! zero sea ice fraction
           END DO
-!$OMP END PARALLEL DO
+!!!OMP END PARALLEL DO
 
         CASE('APE') !Note that there is only one surface type in this case
                     !except ljsbach=.true. with land and ocean (two surface types)
