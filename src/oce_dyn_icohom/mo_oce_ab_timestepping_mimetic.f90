@@ -1506,7 +1506,7 @@ END SUBROUTINE calc_normal_velocity_ab_mimetic
     !
     ! Local variables
     INTEGER :: jc, jk, jb, je
-    INTEGER :: z_dolic
+    INTEGER :: z_dolic, z_abort
     INTEGER :: i_startidx, i_endidx
     REAL(wp) :: div_depth_int(nproma,p_patch_3D%p_patch_2D(1)%nblks_c)
     REAL(wp) :: z_vn_e(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
@@ -1595,8 +1595,8 @@ END SUBROUTINE calc_normal_velocity_ab_mimetic
           END DO
         END DO
       END DO
-    ENDIF
-    
+
+    ENDIF  !  (l_EDGE_BASED)
     
     IF(l_RIGID_LID)THEN
       pw_c(:,1,:) = 0.0_wp
@@ -1614,15 +1614,28 @@ END SUBROUTINE calc_normal_velocity_ab_mimetic
     z_c(:,:) = ((p_os%p_prog(nnew(1))%h(:,:)-p_os%p_prog(nold(1))%h(:,:))/dtime - pw_c(:,1,:))*p_patch_3D%wet_c(:,1,:)
     !write(*,*)'difference d_t height - vert veloc:',&
     !&maxval(((p_os%p_prog(nnew(1))%h-p_os%p_prog(nold(1))%h)/dtime - pw_c(:,1,:))*p_patch_3D%wet_c(:,1,:))
+
     !---------DEBUG DIAGNOSTICS-------------------------------------------
     idt_src=1  ! output print level (1-5, fix)
-    CALL dbg_print('CalcVertVelMimBU: d_t/dt-w',z_c                       ,str_module,idt_src)
+    CALL dbg_print('CalcVertVelMimBU: d_h/dt-w',z_c                       ,str_module,idt_src)
     idt_src=3  ! output print level (1-5, fix)
     CALL dbg_print('CalcVertVelMimBU: pw_c =W' ,pw_c                      ,str_module,idt_src)
     idt_src=4  ! output print level (1-5, fix)
     CALL dbg_print('CalcVertVelMimBU: mass flx',p_os%p_diag%mass_flx_e,    str_module,idt_src)
     CALL dbg_print('CalcVertVelMimBU: div mass',p_os%p_diag%div_mass_flx_c,str_module,idt_src)
     !---------------------------------------------------------------------
+
+    ! Abort if largest mismatch in surface elevation due to solution of gmres-solver is > 1mm/year
+    !   criterion is 1mm/year * dtime = 3.17e-11 m/s * dtime
+    z_abort = 3.17e-11_wp*dtime
+    IF (MAXVAL(z_c(:,:)) > z_abort) THEN
+      write(0,*) ' MISMATCH IN SURFACE EQUATION:'
+      write(0,*) ' Elevation change does not match vertical velocity'
+      write(0,*) ' (h_new-h_old)/dtime - w = ',                                           &
+        &        MAXVAL(z_c(:,:))
+      CALL finish(TRIM('mo_oce_ab_timestepping_mimetic:calc_vert_velocity_mim_bottomup'), &
+        &            'MISMATCH in surface equation')
+    ENDIF
 
   END SUBROUTINE calc_vert_velocity_mim_bottomup
   !-------------------------------------------------------------------------
