@@ -602,6 +602,31 @@ DO jg = 1,n_dom
 
         ext_data(jg)%atm%topography_c = 0._wp
 
+     CASE ('AMIP')
+        ! Initial conditions are the same as for the 'JWw-Moist' case
+
+        !
+          CALL init_hydro_state_prog_jwtest(pt_patch(jg), &
+              & pt_hydro_state(jg)%prog(nnow(jg)),       &
+              & pt_hydro_state(jg)%diag,  ext_data(jg),  &
+              & rotate_axis_deg,                         &
+              & lrh_linear_pres, rh_at_1000hpa )
+        !
+           CALL message(TRIM(routine),'Initial state used in &
+                & the AMIP test: JW steady')
+        
+        pt_hydro_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqv+1:) = 0._wp
+
+        IF (.NOT.ltwotime) CALL copy_prog_state(  &
+             & pt_hydro_state(jg)%prog(nnow(jg)), & !in
+             & pt_hydro_state(jg)%prog(nold(jg)), & !out
+             & .FALSE.,     &! copy temp rather than theta
+             & ltransport )  ! copy tracer field if transport is on.
+
+        ! Surface geopotential height is constantly zero.
+
+        ext_data(jg)%atm%topography_c = 0._wp
+
      CASE default
        CALL finish(TRIM(routine),'unknown choice of TESTTYPE')
      END SELECT

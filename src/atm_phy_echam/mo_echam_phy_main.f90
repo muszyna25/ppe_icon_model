@@ -220,7 +220,7 @@ CONTAINS
     datetime = time_config%cur_datetime
 
     ! update prescribed SST
-    IF (phy_config%ljsbach) THEN
+    IF (phy_config%ljsbach .AND. .NOT.phy_config%lamip ) THEN
        cur_month = datetime%month
        pre_month = cur_month - 1
        IF (cur_month == 1) pre_month = 12

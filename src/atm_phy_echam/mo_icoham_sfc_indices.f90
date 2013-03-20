@@ -76,6 +76,17 @@ CONTAINS
 
     IF (ltestcase) THEN
       SELECT CASE(TRIM(ctest_name))
+      CASE('AMIP')
+      ! Amip simulation, no ice;
+      ! preliminary, until ECHAM-code contains ice
+      ! will be default in the future
+
+        iwtr      = 1
+        ilnd      = 2
+        nsfc_type = 2
+        igbm      = 0
+        iice      = 999
+
       CASE('APE')
       ! Aqua-planet simulation, no land, no ice;
       ! No needed to distinguish the aggregated grid-box mean

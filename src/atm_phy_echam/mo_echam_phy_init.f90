@@ -42,9 +42,11 @@
 MODULE mo_echam_phy_init
 
   USE mo_kind,                 ONLY: wp
-  USE mo_exception,            ONLY: finish
+  USE mo_exception,            ONLY: finish, message, message_text
 
   USE mo_sync,                 ONLY: sync_c, sync_patch_array
+
+  USE mo_netcdf_read,          ONLY: netcdf_read_oncells_2D
 
   ! model configuration
   USE mo_dynamics_config,      ONLY: nnow 
@@ -261,6 +263,10 @@ CONTAINS
     REAL(wp), ALLOCATABLE :: buffer(:,:)
 
     INTEGER               :: info, ierror !< return values form cpl_put/get calls
+    INTEGER               :: return_status
+
+    CHARACTER(len=*), PARAMETER :: slm_fn = 'bc_slm.nc'
+    LOGICAL       :: lexist
 
     ! total number of domains/ grid levels
 
@@ -286,6 +292,28 @@ CONTAINS
 
       IF (ltestcase) THEN
         SELECT CASE (ctest_name)
+        CASE('AMIP') !Note that there are only two surface types in this case
+                    ! water and land, as long as no ice routines are implemented 
+                    ! in the ECHAM-physics
+
+!$OMP PARALLEL DO PRIVATE(jb,jc,jcs,jce,zlat) ICON_OMP_DEFAULT_SCHEDULE
+          INQUIRE (file=slm_fn, exist=lexist)
+          IF (lexist) THEN
+                return_status = netcdf_read_oncells_2D(slm_fn,'slm', field% lsmask, p_patch(jg)) 
+          ELSE
+            WRITE (message_text,*) 'Could not open file ',slm_fn
+            CALL message('',message_text)
+            CALL finish ('initcond_echam_phy:read slm ', 'run terminated.')
+          ENDIF
+          DO jb = jbs,nblks_c
+            CALL get_indices_c( p_patch(jg), jb,jbs,nblks_c, jcs,jce, 2)
+            field% tsfc_tile(jcs:jce,jb,iwtr) = tmelt
+            field% tsfc_tile(jcs:jce,jb,ilnd) = tmelt
+            field% glac  (jcs:jce,jb) = 0._wp   ! zero glacier fraction
+            field% seaice(jcs:jce,jb) = 0._wp   ! zero sea ice fraction
+          END DO
+!$OMP END PARALLEL DO
+
         CASE('APE') !Note that there is only one surface type in this case
                     !except ljsbach=.true. with land and ocean (two surface types)
 

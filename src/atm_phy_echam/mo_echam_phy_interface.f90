@@ -341,7 +341,8 @@ CONTAINS
       CALL read_amip_bc(datetime%year, p_patch)
       CALL amip_time_weights(datetime)
       CALL amip_time_interpolation(prm_field(jg)%seaice(:,:), &
-           &                       prm_field(jg)%tsfc_tile(:,:,:), &
+!           &                       prm_field(jg)%tsfc_tile(:,:,:), &
+           &                       prm_field(jg)%tsurfw(:,:), &
            &                       prm_field(jg)%lsmask(:,:))
     ENDIF
 

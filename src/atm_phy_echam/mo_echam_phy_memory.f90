@@ -61,7 +61,7 @@ MODULE mo_echam_phy_memory
   USE mo_advection_config,    ONLY: advection_config
   USE mo_icoham_sfc_indices,  ONLY: nsfc_type, iice
 !   USE mo_echam_phy_nml,       ONLY: lvdiff
-   USE mo_echam_phy_config,   ONLY: get_lvdiff, get_ljsbach
+   USE mo_echam_phy_config,   ONLY: get_lvdiff, get_ljsbach, get_lamip
 !   USE mo_echam_phy_config,    ONLY: echam_phy_config
   USE mo_model_domain,        ONLY: t_patch
 
@@ -223,6 +223,14 @@ MODULE mo_echam_phy_memory
                              !< interface of the lowest model layer.
                              !< Computed in "vdiff" by getting the square root of
                              !< thvvar(:,nlev-1,:). Used by "cucall".
+
+    ! AMIP-sst and ice, preliminary 3 compartiments for water/ice/land for surface temp.
+    REAL(wp),POINTER :: &
+      & tsurfw (:,  :),     &!< sst as read in from amip input (==tsw)
+      & tsurfi (:,  :),     &!< ice surface temperature
+      & tsurfl (:,  :),     &!< land surface temperature
+      & seaice (:,  :)       !< sea ice as read in from amip input
+
 !!$ TR
 !! JSBACH for testing (energy balance)
      REAL(wp),POINTER ::       &   
@@ -363,7 +371,7 @@ MODULE mo_echam_phy_memory
     REAL(wp),POINTER :: &
       & lsmask(:,:),        &!< land-sea mask. (1. = land, 0. = sea/lakes) (slm in memory_g3b)
       & glac  (:,:),        &!< fraction of land covered by glaciers (glac in memory_g3b)
-      & seaice(:,:),        &!< ice cover given as the fraction of (1- slm) (seaice in memory_g3b)
+!      & seaice(:,:),        &!< ice cover given as the fraction of (1- slm) (seaice in memory_g3b)
       & icefrc(:,:),        &!< ice cover given as the fraction of grid box (friac  in memory_g3b)
       & tsfc_tile (:,:,:),  &!< surface temperature over land/water/ice (tsw/l/i in memory_g3b)
       & tsfc      (:,  :),  &!< surface temperature, grid box mean
@@ -901,6 +909,29 @@ CONTAINS
     grib2_desc = t_grib2_var(0, 5, 5, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( field_list, prefix//'lwflxtoa_avg', field%lwflxtoa_avg,                &
               & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d) 
+
+    IF (get_lamip()) THEN
+    cf_desc    = t_cf_var('tsurfw', '', '', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( field_list, prefix//'water surface_temperature', field%tsurfw,      &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
+
+    cf_desc    = t_cf_var('tsurfi', '', '', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( field_list, prefix//'ice surface_temperature', field%tsurfi,      &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
+
+    cf_desc    = t_cf_var('tsurfl', '', '', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( field_list, prefix//'land surface_temperature', field%tsurfl,      &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
+
+    cf_desc    = t_cf_var('seaice', '', '', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( field_list, prefix//'seaice', field%seaice,      &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
+
+    END IF
 
     IF (get_ljsbach()) THEN
 !!$ TR: variables for JSBACH testing (energy balance)
@@ -1665,7 +1696,8 @@ CONTAINS
                 & t_cf_var('tsfc_tile', '', 'skin temperature', DATATYPE_FLT32), &
                 & t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
                 & ldims=shapesfc,                                              &
-                & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.         )
+!                & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.         )
+                & lcontainer=.TRUE., lrestart=.FALSE.         )
 
     ALLOCATE(field%tsfc_tile_ptr(ksfc_type))
     DO jsfc = 1,ksfc_type

@@ -1170,6 +1170,8 @@ CONTAINS
           &                   vlistID(k_jg),gridCellID(k_jg),zaxisID_surface(k_jg)),&
           &           k_jg)
 
+
+
 !!$ TR JSBACH output for testing
       IF (echam_phy_config%ljsbach) THEN
 
@@ -1345,6 +1347,32 @@ CONTAINS
 
         END SELECT !iforcing
       ENDIF !lwrite_precip
+
+        SELECT CASE (iforcing)
+        CASE (iecham)
+           IF (echam_phy_config%lamip) THEN
+               CALL addVar(TimeVar('tsurfw',&
+               &                   'surface temperature of water',&
+               &                   'K', 103, 128,&
+               &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+               &           k_jg)
+               CALL addVar(TimeVar('tsurfi',&
+               &                   'surface temperature of ice',&
+               &                   'K', 102, 128,&
+               &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+               &           k_jg)
+               CALL addVar(TimeVar('tsurfl',&
+               &                   'surface temperature of land',&
+               &                   'K', 139, 128,&
+               &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+               &           k_jg)
+               CALL addVar(TimeVar('seaice',&
+               &                   'ice cover (fraction of 1-SLM) ',&
+               &                   'K', 210, 128,&
+               &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+               &           k_jg)
+           END IF ! lamip
+         END SELECT !iforcing
 
       ! cloud
       IF(lwrite_cloud ) THEN
@@ -2883,6 +2911,10 @@ CONTAINS
       CASE ('qvi');             ptr2 => prm_field(jg)%qvi (:,:);   reset = .TRUE.
       CASE ('xlvi');            ptr2 => prm_field(jg)%xlvi(:,:);   reset = .TRUE.
       CASE ('xivi');            ptr2 => prm_field(jg)%xivi(:,:);   reset = .TRUE.
+      CASE ('tsurfw');          ptr2 => prm_field(jg)%tsurfw(:,:)
+      CASE ('tsurfi');          ptr2 => prm_field(jg)%tsurfi(:,:)
+      CASE ('tsurfl');          ptr2 => prm_field(jg)%tsurfl(:,:)
+      CASE ('seaice');          ptr2 => prm_field(jg)%seaice(:,:)
 !!$ TR: JSBACH testing
       CASE ('surface_temperature');  ptr2 => prm_field(jg)%surface_temperature
       CASE ('surface_temperature_old');  ptr2 => prm_field(jg)%surface_temperature_old

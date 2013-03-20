@@ -149,6 +149,10 @@ if [ $run_atmo = "true" ] ;  then
    else
      cp -f ${DATADIR}/external/ape_ozone/ape_o3_R2B04_1Pa_spr0.90-cell.nc ${EXPDIR}/o3_icon_DOM01.nc
    fi
+   INIDATA=/pool/data/ICON/import/initial
+   cp -f $INIDATA/r2b4_amip/oce/bc_sic_pcmdi_1870-2010.nc ${EXPDIR}/icon_amip2sic_1870-2010.nc
+   cp -f $INIDATA/r2b4_amip/oce/bc_sst_pcmdi_1870-2010.nc ${EXPDIR}/icon_amip2sst_1870-2010.nc
+   cp -f /scratch/mpi/mh0287/users/m214002/ICON-pooltest/bc_slm.nc  ${EXPDIR}/bc_slm.nc
 #   cp -f ${DATADIR}/external/ape_ozone/ape_o3_R2B04_hex_1Pa_c.nc ${EXPDIR}/o3_icon_DOM01.nc
 #   check_error $? "cp -f ${DATADIR}/external/ape_ozone/ape_o3_R2B04_1Pa.nc ${EXPDIR}/o3_icon_DOM01.nc"
 

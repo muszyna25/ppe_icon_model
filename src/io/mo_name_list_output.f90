@@ -286,11 +286,9 @@ MODULE mo_name_list_output
 
 
   ! fields for which typeOfSecondFixedSurface must be re-set
-  CHARACTER(LEN=12), PARAMETER :: sfs_name_list(5) =(/"z_ifc       ", "topography_c", &
-    &                                                 "hbas_con    ", "htop_con    ", &
-    &                                                 "hzerocl     "   /)
+  CHARACTER(LEN=12), PARAMETER :: sfs_name_list(2) =(/"z_ifc       ", "topography_c"/)
   ! typeOfSecondFixedSurface to be used
-  INTEGER          , PARAMETER :: second_tos(5)    =(/101, 101, 101, 101, 101/)
+  INTEGER          , PARAMETER :: second_tos(2)    =(/101, 101/)
 
 CONTAINS
   
@@ -378,7 +376,7 @@ CONTAINS
       ! Set all variables in output_nml to their default values
 
       filetype           = FILETYPE_NC2 ! NetCDF
-      namespace          = 'DWD'
+      namespace          = 'ECMWF'
       mode               = 2
       taxis_tunit        = TUNIT_HOUR
       dom(:)             = -1
@@ -448,7 +446,7 @@ CONTAINS
       !Consistency check on output bounds
       IF(output_bounds_sec(1,1) < 0._wp .OR. &
          output_bounds_sec(2,1) < output_bounds_sec(1,1) .OR. &
-         output_bounds_sec(3,1) <= dtime * grid_rescale_factor ) THEN
+         output_bounds_sec(3,1) < dtime * grid_rescale_factor ) THEN
         CALL finish(routine,'Illegal output_bounds(:,1)')
       ENDIF
 
@@ -2079,31 +2077,6 @@ CONTAINS
     ! atm (pressure) height, ocean depth
     IF (iequations/=ihs_ocean) THEN ! atm 
 
-      ! CLOUD BASE LEVEL
-      !
-      of%cdiZaxisID(ZA_cloud_base)      = zaxisCreate(ZAXIS_CLOUD_BASE, 1)
-      ALLOCATE(levels(1))
-      levels(1) = 0.0_dp
-      CALL zaxisDefLevels(of%cdiZaxisID(ZA_cloud_base), levels)
-      DEALLOCATE(levels)
-
-      ! CLOUD TOP LEVEL
-      !
-      of%cdiZaxisID(ZA_cloud_top)      = zaxisCreate(ZAXIS_CLOUD_TOP, 1)
-      ALLOCATE(levels(1))
-      levels(1) = 0.0_dp
-      CALL zaxisDefLevels(of%cdiZaxisID(ZA_cloud_top), levels)
-      DEALLOCATE(levels)
-
-      ! LEVEL of 0°C isotherm
-      !
-      of%cdiZaxisID(ZA_isotherm_zero)      = zaxisCreate(ZAXIS_ISOTHERM_ZERO, 1)
-      ALLOCATE(levels(1))
-      levels(1) = 0.0_dp
-      CALL zaxisDefLevels(of%cdiZaxisID(ZA_isotherm_zero), levels)
-      DEALLOCATE(levels)
-
-
       nlev   = num_lev(of%log_patch_id)
       nlevp1 = num_levp1(of%log_patch_id)
       ! introduce temporary variable znlev_soil, since global variable nlev_soil 
@@ -2981,7 +2954,6 @@ CONTAINS
         ! additional special treatment needed for
         ! HBAS_CON: typeOfSecondFixedSurface = 101
         ! HTOP_CON: typeOfSecondFixedSurface = 101
-        ! HZEROCL : typeOfSecondFixedSurface = 101
         ! CLCL    : typeOfSecondFixedSurface = 1
         IF ( get_id(TRIM(info%name)) /= -1 ) THEN
           CALL vlistDefVarIntKey(vlistID, varID, "typeOfSecondFixedSurface", &
@@ -3196,7 +3168,7 @@ CONTAINS
     TYPE (t_output_file), INTENT(IN) :: of
     ! local variables
     CHARACTER(LEN=*), PARAMETER   :: routine = modname//"::write_ready_file"
-    INTEGER                       :: iunit
+    INTEGER                       :: iunit, idx
 
     IF (msg_level >= 6) THEN
       WRITE (message_text,*) "Write ready file ", TRIM(of%rdy_filename)
