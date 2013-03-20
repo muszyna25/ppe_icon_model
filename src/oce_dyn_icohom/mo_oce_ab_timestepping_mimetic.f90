@@ -349,7 +349,7 @@ SUBROUTINE solve_free_sfc_ab_mimetic(p_patch_3D, p_os, p_ext_data, p_sfc_flx, &
       ELSE
         ! output print level idt_src used for GMRES output with call message:
         IF(n_iter==0)n_iter=1
-        idt_src=0
+        idt_src=2
         IF (idbg_mxmn >= idt_src) THEN
           WRITE(string,'(a,i4,a,e28.20)') &
             'iteration =', n_iter,', residual =', ABS(zresidual(n_iter))
@@ -362,6 +362,8 @@ SUBROUTINE solve_free_sfc_ab_mimetic(p_patch_3D, p_os, p_ext_data, p_sfc_flx, &
       ELSEIF(.NOT.lprecon)THEN
         p_os%p_prog(nnew(1))%h = z_h_c
       ENDIF
+
+      iter_sum = n_iter*n_iter
 
     ELSE
     
@@ -1506,11 +1508,12 @@ END SUBROUTINE calc_normal_velocity_ab_mimetic
     !
     ! Local variables
     INTEGER :: jc, jk, jb, je
-    INTEGER :: z_dolic, z_abort
+    INTEGER :: z_dolic
     INTEGER :: i_startidx, i_endidx
     REAL(wp) :: div_depth_int(nproma,p_patch_3D%p_patch_2D(1)%nblks_c)
     REAL(wp) :: z_vn_e(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
     REAL(wp) :: z_c(nproma,p_patch_3D%p_patch_2D(1)%nblks_c)
+    REAL(wp) :: z_abort
     TYPE(t_subset_range), POINTER :: cells_in_domain, edges_in_domain
     TYPE(t_patch), POINTER :: p_patch
     
@@ -1627,12 +1630,12 @@ END SUBROUTINE calc_normal_velocity_ab_mimetic
 
     ! Abort if largest mismatch in surface elevation due to solution of gmres-solver is > 1mm/year
     !   criterion is 1mm/year * dtime = 3.17e-11 m/s * dtime
+    ! TODO: additional delta_h due to freshwater must be subtracted here!
     z_abort = 3.17e-11_wp*dtime
     IF (MAXVAL(z_c(:,:)) > z_abort) THEN
       write(0,*) ' MISMATCH IN SURFACE EQUATION:'
       write(0,*) ' Elevation change does not match vertical velocity'
-      write(0,*) ' (h_new-h_old)/dtime - w = ',                                           &
-        &        MAXVAL(z_c(:,:))
+      write(0,*) ' (h_new-h_old)/dtime - w = ', MAXVAL(z_c(:,:))
       CALL finish(TRIM('mo_oce_ab_timestepping_mimetic:calc_vert_velocity_mim_bottomup'), &
         &            'MISMATCH in surface equation')
     ENDIF
