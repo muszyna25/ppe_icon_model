@@ -804,7 +804,7 @@ CONTAINS
       gas_initialized = .TRUE.
     CASE (1)
       IF (PRESENT(gas_val)) THEN
-        gas_profile(1:jce,:) = MAX(gas_val(1:jce,:), 0.0_wp)
+        gas_profile(1:jce,:) = MAX(gas_val(1:jce,:), EPSILON(1.0_wp))
         gas_initialized = .TRUE.
       END IF
     CASE (2)
@@ -825,7 +825,22 @@ CONTAINS
       END IF
     CASE (4)
       IF (PRESENT(gas_scenario)) THEN
-        gas_profile(1:jce,:) = gas_scenario
+        ! TODO: (Hauke Schmidt)
+        ! If the respective parameters are present, a vertical
+        ! profile is calculated as in option (3). This allows a seamless
+        ! continuation of preindustrial control with scenarios. The treatment here is
+        ! inconsistent with having two different options for the constant
+        ! concentration cases (2 without and 3 with profile). However, instead
+        ! of adding a fifth option, it seems more advisable to clean up the
+        ! complete handling of radiation switches (including ighg), later.
+        IF (PRESENT(xp) .AND. PRESENT(pressure)) THEN
+          zx_m = (gas_scenario+xp(1)*gas_scenario)*0.5_wp
+          zx_d = (gas_scenario-xp(1)*gas_scenario)*0.5_wp
+          gas_profile(1:jce,:)=(1._wp-(zx_d/zx_m)*TANH(LOG(pressure(1:jce,:)   &
+            &                     /xp(2)) /xp(3))) * zx_m
+        ELSE
+          gas_profile(1:jce,:) = gas_scenario
+        END IF
         gas_initialized = .TRUE.
       ELSE IF (PRESENT(gas_scenario_v)) THEN
         gas_profile(1:jce,:) = gas_scenario_v(1:jce,:)

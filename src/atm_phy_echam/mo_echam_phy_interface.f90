@@ -317,6 +317,8 @@ CONTAINS
       ztime_radheat = 2._wp*pi * datetime%daytim 
       ztime_radtran = 2._wp*pi * datetime_radtran%daytim
 
+    !TODO: Luis Kornblueh
+    ! add interpolation of greenhouse gases here, only if radiation is going to be calculated
 !      IF (ltrig_rad) THEN
 !        CALL message('mo_echam_phy_interface:physc','Radiative transfer called at:')
 !        CALL print_datetime(datetime)
