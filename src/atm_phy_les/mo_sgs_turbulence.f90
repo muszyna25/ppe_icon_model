@@ -492,7 +492,7 @@ MODULE mo_sgs_turbulence
                          p_nh_metrics%ddqz_z_full_e(je,jk,jb))**(1._wp/3._wp) 
 
            mixing_length_sq = (les_filter*smag_const*z_me(je,jk,jb)*rkarman)**2    &
-                      / ((les_filter*smag_const)**2+(z_me(je,jk,jb)*rkarman)**2)
+                      / ((les_filter)**2+(z_me(je,jk,jb)*rkarman)**2)
 
            brunt_vaisala_frq = grav * (theta_v_ie(je,jk,jb)-theta_v_ie(je,jk+1,jb)) / &
                               (theta_v_e(je,jk,jb)*p_nh_metrics%ddqz_z_full_e(je,jk,jb)) 

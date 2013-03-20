@@ -145,7 +145,7 @@ MODULE mo_surface_les
             zrough = prm_diag%gz0(jc,jb) * rgrav
 
             !Get reference surface temperature
-            th0_srf  = p_nh_metrics%theta_ref_ic(jc,jk+1,jb)
+            th0_srf = p_prog_lnd_now%t_g(jc,jb)
 
             !Buoyancy flux
             bflux = grav*(shflx_cbl+0.61_wp* th0_srf*lhflx_cbl)/th0_srf
