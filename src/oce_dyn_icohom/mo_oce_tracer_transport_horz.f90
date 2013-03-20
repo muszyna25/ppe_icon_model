@@ -289,7 +289,7 @@ SUBROUTINE advect_diffuse_flux_horz( p_patch_3D,          &
 
   !Flux limiting process, dependent on tracer configuration
   IF(FLUX_CALCULATION_HORZ/=UPWIND)THEN
-z_adv_flux_h2=z_adv_flux_h
+    !z_adv_flux_h2=z_adv_flux_h
 
     CALL hflx_limiter_oce_mo( p_patch_3D,             &
                             & trac_old,               &
@@ -297,15 +297,15 @@ z_adv_flux_h2=z_adv_flux_h
                             & z_adv_flux_h,           &
                             & p_op_coeff,             & 
                             & h_old,h_new)     
-    DO jb = edges_in_domain%start_block, edges_in_domain%end_block
-      CALL get_index_range(edges_in_domain, jb, i_startidx_e, i_endidx_e)
-      DO jk = 1, n_zlev
-        DO je = i_startidx_e, i_endidx_e
-          write(123,*)'before after limiter',je,jk,jb, z_adv_flux_h2(je,jk,jb),z_adv_flux_h(je,jk,jb),&
-         &z_adv_flux_h2(je,jk,jb)-z_adv_flux_h(je,jk,jb)
-        END DO
-      END DO
-    END DO 
+    !DO jb = edges_in_domain%start_block, edges_in_domain%end_block
+    !  CALL get_index_range(edges_in_domain, jb, i_startidx_e, i_endidx_e)
+    !  DO jk = 1, n_zlev
+    !    DO je = i_startidx_e, i_endidx_e
+    !      write(123,*)'before after limiter',je,jk,jb, z_adv_flux_h2(je,jk,jb),z_adv_flux_h(je,jk,jb),&
+    !     &z_adv_flux_h2(je,jk,jb)-z_adv_flux_h(je,jk,jb)
+    !    END DO
+    !  END DO
+    !END DO 
   ENDIF
   IF (ltimer) CALL timer_stop(timer_hflx_lim)
 
