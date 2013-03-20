@@ -321,7 +321,7 @@ case "$ac_sitename" in
                 load_modules="ncl/6.0.0-gccsys" "cdo/default" "jdk" "${load_modules}"
                 make_command="make" "-j" "4"
                 submit="sbatch"
-                sync_submit=srun
+                sync_submit=srunjob
                 case "$fortran_compiler" in
                     default|gcc)
                       MPIROOT = $software_tree/mpi/openmpi_ib-1.6.2-static-gcc46
