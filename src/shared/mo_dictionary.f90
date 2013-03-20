@@ -254,7 +254,6 @@ CONTAINS
     CHARACTER(LEN=DICT_MAX_STRLEN) :: key, val
     LOGICAL                        :: valid
 
-    write (0,*) "load dictionary"
     iunit = find_next_free_unit(10,99)
     OPEN (unit=iunit,file=filename,access='SEQUENTIAL', &
       &  form='FORMATTED', action='READ', status='OLD', IOSTAT=ist)

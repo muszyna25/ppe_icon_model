@@ -38,13 +38,14 @@ MODULE mo_name_list_output
     &                                 grid_rescale_factor, start_time, end_time
   USE mo_grid_levels,           ONLY: check_orientation
   USE mo_grib2,                 ONLY: t_grib2_var
+  USE mo_cf_convention,         ONLY: t_cf_var
   USE mo_cdi_constants          ! We need all
   USE mo_io_units,              ONLY: filename_max, nnml, nnml_output, find_next_free_unit
   USE mo_io_config,             ONLY: out_varnames_map_file, varnames_map_file
   USE mo_gribout_config,        ONLY: gribout_config, t_gribout_config
   USE mo_exception,             ONLY: finish, message, message_text
   USE mo_namelist,              ONLY: position_nml, positioned, open_nml, close_nml
-  USE mo_var_metadata,          ONLY: t_var_metadata, VARNAME_LEN
+  USE mo_var_metadata,          ONLY: t_var_metadata, VARNAME_LEN, POST_OP_NONE
   USE mo_linked_list,           ONLY: t_var_list, t_list_element
   USE mo_var_list,              ONLY: nvar_lists, max_var_lists, var_lists,     &
     &                                 new_var_list, get_all_var_names,          &
@@ -120,6 +121,8 @@ MODULE mo_name_list_output
     &                               dict_loadfile, dict_get, DICT_MAX_STRLEN
   USE mo_fortran_tools,       ONLY: assign_if_present
   USE mo_io_units,            ONLY: find_next_free_unit
+  ! post-ops
+  USE mo_post_op,             ONLY: perform_post_op
 
 
   IMPLICIT NONE
@@ -731,6 +734,7 @@ CONTAINS
     TYPE (t_output_file), POINTER      :: p_of
     TYPE(t_list_element), POINTER      :: element
     REAL(wp), ALLOCATABLE              :: lonv(:,:,:), latv(:,:,:)
+    TYPE(t_cf_var), POINTER            :: this_cf
 
     l_print_list = .FALSE.
     i_sample     = 1
@@ -753,10 +757,17 @@ CONTAINS
           element => var_lists(i)%p%first_list_element
           DO
             IF(.NOT. ASSOCIATED(element)) EXIT
+
+            IF (element%field%info%post_op%lnew_cf) THEN
+              this_cf => element%field%info%post_op%new_cf
+            ELSE
+              this_cf => element%field%info%cf
+            END IF
+
             WRITE (message_text,'(a,a,l1,a,a)') &
                  &     '    ',element%field%info%name,              &
                  &            element%field%info%loutput, '  ',     &
-                 &            trim(element%field%info%cf%long_name)
+                 &            TRIM(this_cf%long_name)
             CALL message('',message_text)
             ! WRITE (message_text,'(a,a,i4,i4,i4)') &
             !      &     '    ',element%field%info%name,              &
@@ -1123,6 +1134,7 @@ CONTAINS
     TYPE(t_var_desc), POINTER ::  p_var_desc               !< variable descriptor (pointer)
 
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::add_varlist_to_output_file"
+    TYPE(t_cf_var), POINTER     :: this_cf
 
     ! Get the number of variables in varlist
     DO ivar = 1, SIZE(varlist)
@@ -1252,10 +1264,17 @@ CONTAINS
             element => var_lists(i)%p%first_list_element
             DO
               IF(.NOT. ASSOCIATED(element)) EXIT
+
+              IF (element%field%info%post_op%lnew_cf) THEN
+                this_cf => element%field%info%post_op%new_cf
+              ELSE
+                this_cf => element%field%info%cf
+              END IF
+
               WRITE (message_text,'(a,a,l1,a,a)') &
                    &     '    ',element%field%info%name,              &
                    &            element%field%info%loutput, '  ',     &
-                   &            trim(element%field%info%cf%long_name)
+                   &            TRIM(this_cf%long_name)
               CALL message('',message_text)
               element => element%next_list_element
             ENDDO
@@ -1990,7 +2009,7 @@ CONTAINS
       CALL gridDefYlongname(of%cdiCellGridID, 'center latitude')
       CALL gridDefYunits(of%cdiCellGridID, 'radian')
       !
-      CALL gridDefUUID(of%cdiCellGridID, patch_info(i_dom)%grid_uuid%data)
+      !       CALL gridDefUUID(of%cdiCellGridID, patch_info(i_dom)%grid_uuid%data)
       !
       ! works, but makes no sense, yet. Proper grid numbers still missing
       CALL gridDefNumber(of%cdiCellGridID, 42)
@@ -2011,7 +2030,7 @@ CONTAINS
       CALL gridDefYlongname(of%cdiVertGridID, 'vertex latitude')
       CALL gridDefYunits(of%cdiVertGridID, 'radian')
       !
-      CALL gridDefUUID(of%cdiVertGridID, patch_info(i_dom)%grid_uuid%data)
+      !     CALL gridDefUUID(of%cdiVertGridID, patch_info(i_dom)%grid_uuid%data)
       !
       ! works, but makes no sense, yet. Proper grid numbers still missing
       CALL gridDefNumber(of%cdiVertGridID, 42)
@@ -2032,7 +2051,7 @@ CONTAINS
       CALL gridDefYlongname(of%cdiEdgeGridID, 'edge midpoint latitude')
       CALL gridDefYunits(of%cdiEdgeGridID, 'radian')
       !
-      CALL gridDefUUID(of%cdiEdgeGridID, patch_info(i_dom)%grid_uuid%data)
+      !     CALL gridDefUUID(of%cdiEdgeGridID, patch_info(i_dom)%grid_uuid%data)
       !
       ! works, but makes no sense, yet. Proper grid numbers still missing
       CALL gridDefNumber(of%cdiEdgeGridID, 42)
@@ -2887,6 +2906,7 @@ CONTAINS
     INTEGER                        :: iv, vlistID, varID, gridID, &
       &                               zaxisID, nlev, nlevp1
     CHARACTER(LEN=DICT_MAX_STRLEN) :: mapped_name
+    TYPE(t_cf_var), POINTER        :: this_cf
 
     vlistID = of%cdiVlistID
     nlev   = num_lev(of%log_patch_id)
@@ -2934,20 +2954,38 @@ CONTAINS
       info%cdiVarID   = varID
 
       CALL vlistDefVarName(vlistID, varID, TRIM(mapped_name))
+      IF (info%post_op%lnew_cf) THEN
+        this_cf => info%post_op%new_cf
+      ELSE
+        this_cf => info%cf
+      END IF
 
-      IF (info%cf%long_name /= '') CALL vlistDefVarLongname(vlistID, varID, info%cf%long_name)
-      IF (info%cf%units /= '') CALL vlistDefVarUnits(vlistID, varID, info%cf%units)
+      IF (this_cf%long_name /= '') CALL vlistDefVarLongname(vlistID, varID, this_cf%long_name)
+      IF (this_cf%units /= '')     CALL vlistDefVarUnits(vlistID, varID,    this_cf%units)
 
       ! Currently only real valued variables are allowed, so we can always use info%missval%rval
       IF (info%lmiss) CALL vlistDefVarMissval(vlistID, varID, info%missval%rval)
 
       ! Set GRIB2 Triplet
-      CALL vlistDefVarParam(vlistID, varID,                                              &
-           &  cdiEncodeParam(info%grib2%number, info%grib2%category, info%grib2%discipline) )
-
+      IF (info%post_op%lnew_grib2) THEN
+        CALL vlistDefVarParam(vlistID, varID,                   &
+          &  cdiEncodeParam(info%post_op%new_grib2%number,      &
+          &                 info%post_op%new_grib2%category,    &
+          &                 info%post_op%new_grib2%discipline) )
+        IF ( of%output_type == FILETYPE_GRB2 ) THEN
+          CALL vlistDefVarDatatype(vlistID, varID, info%post_op%new_grib2%bits)
+        END IF
+      ELSE
+        CALL vlistDefVarParam(vlistID, varID,                   &
+          &  cdiEncodeParam(info%grib2%number,                  &
+          &                 info%grib2%category,                &
+          &                 info%grib2%discipline) )
+        IF ( of%output_type == FILETYPE_GRB2 ) THEN
+          CALL vlistDefVarDatatype(vlistID, varID, info%grib2%bits)
+        END IF
+      END IF
+      
       IF ( of%output_type == FILETYPE_GRB2 ) THEN
-        CALL vlistDefVarDatatype(vlistID, varID, info%grib2%bits)
-
         ! For HHL/z_ifc, HSURF/topography_c set "typeOfSecondFixedSurface = 101 (mean sea level)"
         ! that is, a Fortran equivalent of:
         ! GRIB_CHECK(grib_set_long(gh, "typeOfSecondFixedSurface", 101), 0);
@@ -2966,7 +3004,7 @@ CONTAINS
         ENDIF        
 
       ELSE ! NetCDF
-        CALL vlistDefVarDatatype(vlistID, varID, info%cf%datatype)
+        CALL vlistDefVarDatatype(vlistID, varID, this_cf%datatype)
       ENDIF
 
       ! GRIB2 Quick hack: Set additional GRIB2 keys      
@@ -3451,8 +3489,8 @@ CONTAINS
     INTEGER(i8)                    :: ioff
     TYPE (t_var_metadata), POINTER :: info
     TYPE(t_reorder_info),  POINTER :: p_ri
-    REAL(wp),              POINTER :: r_ptr(:,:,:)
-    INTEGER,               POINTER :: i_ptr(:,:,:)
+    REAL(wp),          ALLOCATABLE :: r_ptr(:,:,:)
+    INTEGER,           ALLOCATABLE :: i_ptr(:,:,:)
     REAL(wp),          ALLOCATABLE :: r_tmp(:,:,:), r_out_recv(:,:)
     INTEGER,           ALLOCATABLE :: i_tmp(:,:,:)
     REAL(sp),          ALLOCATABLE :: r_out_sp(:,:)
@@ -3491,8 +3529,6 @@ CONTAINS
         CALL finish(routine,'1st dim is not nproma: '//TRIM(info%name))
 
       idata_type = iUNKNOWN
-      r_ptr => NULL()
-      i_ptr => NULL()
 
       ! For time level dependent elements: set time level and check if
       ! time level is present:
@@ -3553,15 +3589,23 @@ CONTAINS
           CALL finish(routine, "Internal error!")
         ENDIF
       CASE (3)
-        ! Just set a pointer to the array
+        ! 3D fields: Here we could just set a pointer to the
+        ! array... if there were no post-ops
+        IF (idata_type == iREAL)    ALLOCATE(r_ptr(info%used_dimensions(1), &
+          &                                        info%used_dimensions(2), &
+          &                                        info%used_dimensions(3)))
+        IF (idata_type == iINTEGER) ALLOCATE(i_ptr(info%used_dimensions(1), &
+          &                                        info%used_dimensions(2), &
+          &                                        info%used_dimensions(3)))
+
         IF(ASSOCIATED(of%var_desc(iv)%r_ptr)) THEN
-          r_ptr => of%var_desc(iv)%r_ptr(:,:,:,nindex,1)
+          r_ptr = of%var_desc(iv)%r_ptr(:,:,:,nindex,1)
         ELSE IF (ASSOCIATED(of%var_desc(iv)%i_ptr)) THEN
-          i_ptr => of%var_desc(iv)%i_ptr(:,:,:,nindex,1)
+          i_ptr = of%var_desc(iv)%i_ptr(:,:,:,nindex,1)
         ELSE IF (ASSOCIATED(of%var_desc(iv)%tlev_rptr(tl)%p)) THEN
-          r_ptr => of%var_desc(iv)%tlev_rptr(tl)%p(:,:,:,nindex,1)
+          r_ptr = of%var_desc(iv)%tlev_rptr(tl)%p(:,:,:,nindex,1)
         ELSE IF (ASSOCIATED(of%var_desc(iv)%tlev_iptr(tl)%p)) THEN
-          i_ptr => of%var_desc(iv)%tlev_iptr(tl)%p(:,:,:,nindex,1)
+          i_ptr = of%var_desc(iv)%tlev_iptr(tl)%p(:,:,:,nindex,1)
         ELSE
           CALL finish(routine, "Internal error!")
         ENDIF
@@ -3575,6 +3619,15 @@ CONTAINS
         CALL message(routine, info%name)
         CALL finish(routine,'dimension not set.')        
       END SELECT
+
+      ! --------------------------------------------------------
+      ! Perform post-ops (small arithmetic operations on fields)
+      ! --------------------------------------------------------
+
+      IF (of%var_desc(iv)%info%post_op%ipost_op_type /= POST_OP_NONE) THEN
+        IF (idata_type == iINTEGER) CALL finish(routine, "Not yet implemented!")
+        CALL perform_post_op(of%var_desc(iv)%info%post_op, r_ptr)
+      END IF
 
       IF(info%ndims == 2) THEN
         nlevs = 1
@@ -3799,10 +3852,8 @@ CONTAINS
       END IF
 
       ! clean up
-      IF(info%ndims == 2) THEN
-        IF (ASSOCIATED(r_ptr)) DEALLOCATE(r_ptr)
-        IF (ASSOCIATED(i_ptr)) DEALLOCATE(i_ptr)
-      END IF
+      IF (ALLOCATED(r_ptr)) DEALLOCATE(r_ptr)
+      IF (ALLOCATED(i_ptr)) DEALLOCATE(i_ptr)
 
     ENDDO
 

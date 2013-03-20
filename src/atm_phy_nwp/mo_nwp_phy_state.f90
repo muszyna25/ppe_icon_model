@@ -84,7 +84,8 @@ USE mo_lnd_nwp_config,      ONLY: ntiles_total, ntiles_water, nlev_soil
 USE mo_var_list,            ONLY: default_var_list_settings, &
   &                               add_var, add_ref, new_var_list, delete_var_list,  &
   &                               create_vert_interp_metadata, groups, vintp_types, &
-  &                               create_hor_interp_metadata
+  &                               create_hor_interp_metadata, post_op
+USE mo_var_metadata,        ONLY: POST_OP_SCALE
 USE mo_nwp_parameters,      ONLY: t_phy_params
 USE mo_cf_convention,       ONLY: t_cf_var
 USE mo_grib2,               ONLY: t_grib2_var
@@ -99,6 +100,7 @@ USE mo_cdi_constants,       ONLY: GRID_UNSTRUCTURED_CELL, GRID_REFERENCE,       
   &                               ZA_PRESSURE_0, ZA_PRESSURE_400,               &
   &                               ZA_PRESSURE_800, ZA_CLOUD_BASE, ZA_CLOUD_TOP, &
   &                               ZA_ISOTHERM_ZERO
+USE mo_physical_constants,  ONLY: grav
 
 IMPLICIT NONE
 PRIVATE
@@ -264,7 +266,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
 
     INTEGER :: n_updown = 7 !> number of up/downdrafts variables
 
-    TYPE(t_cf_var)    ::    cf_desc
+    TYPE(t_cf_var)    ::    cf_desc, new_cf_desc
     TYPE(t_grib2_var) :: grib2_desc
 
     INTEGER :: shape2d(2), shape3d(3), shapesfc(3), shape3dsubs(3), shape3dsubsw(3)
@@ -278,6 +280,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
     CHARACTER(len=10) :: varunits  ! variable units, depending on "lflux_avg"
     INTEGER :: a_steptype
     TYPE(t_list_element), POINTER    :: var_diag_rh
+    TYPE(t_list_element), POINTER  :: new_element ! pointer to new var list element
  
     ibits = DATATYPE_PACK16 ! bits "entropy" of horizontal slice
 
@@ -1186,13 +1189,15 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
 
 
         ! &      diag%gz0(nproma,nblks_c)
-        cf_desc    = t_cf_var('gz0', 'm2 s-2 ','roughness length times gravity', DATATYPE_FLT32)
+        cf_desc     = t_cf_var('gz0', 'm2 s-2 ','roughness length times gravity', DATATYPE_FLT32)
+        new_cf_desc = t_cf_var( 'z0',       'm','roughness length',               DATATYPE_FLT32)
         grib2_desc = t_grib2_var(2, 0, 1, ibits, GRID_REFERENCE, GRID_CELL)
         CALL add_var( diag_list, 'gz0', diag%gz0,                             &
           & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,          &
-          & ldims=shape2d )
+          & ldims=shape2d,                                                    &
+          & post_op=post_op(POST_OP_SCALE, arg1=1._wp/grav, &
+          &                 new_cf=new_cf_desc), new_element=new_element )
         diag%gz0(:,:)=0.01_wp
-
 
         ! &      diag%sai(nproma,nblks_c)
         cf_desc    = t_cf_var('sai', ' ','surface area index', DATATYPE_FLT32)

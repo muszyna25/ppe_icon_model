@@ -9,6 +9,11 @@ MODULE mo_var_metadata
 
   PRIVATE
 
+  ! ---------------------------------------------------------------
+  ! CONSTANTS
+  ! ---------------------------------------------------------------
+
+
   ! maximum string length for variable names
   INTEGER, PARAMETER :: VARNAME_LEN = 32
 
@@ -35,6 +40,27 @@ MODULE mo_var_metadata
     &  "SNOW_VARS             ",  &
     &  "DWD_ANA_VARS          "/)
 
+
+  ! list of vertical interpolation types
+  ! 
+  ! A variable can have any combination of this which means that it
+  ! can be interpolated vertically in these different ways.
+  CHARACTER(len=VARNAME_LEN), PARAMETER :: VINTP_TYPE_LIST(3) = &
+    (/ "Z                     ",  &
+    &  "P                     ",  &
+    &  "I                     " /)
+
+
+  ! list of available post-op's (small arithmetic operations on
+  ! fields). The implementation is placed in "mo_post_op.f90".o
+  INTEGER, PARAMETER, PUBLIC   :: POST_OP_NONE      = -1  !< trivial post-op ("do nothing")
+  INTEGER, PARAMETER, PUBLIC   :: POST_OP_SCALE     =  1  !< multiply by scalar factor "arg1"
+
+  ! ---------------------------------------------------------------
+  ! TYPE DEFINITIONS
+  ! ---------------------------------------------------------------
+
+
   TYPE t_union_vals
     REAL(dp) :: rval
     INTEGER  :: ival
@@ -60,15 +86,6 @@ MODULE mo_var_metadata
   END TYPE t_tracer_meta
 
 
-  ! list of vertical interpolation types
-  ! 
-  ! A variable can have any combination of this which means that it
-  ! can be interpolated vertically in these different ways.
-  CHARACTER(len=VARNAME_LEN), PARAMETER :: VINTP_TYPE_LIST(3) = &
-    (/ "Z                     ",  &
-    &  "P                     ",  &
-    &  "I                     " /)
-
   !> data specific for pz-level interpolation.
   TYPE t_vert_interp_meta
     ! meta data containing the groups to which a variable belongs
@@ -80,11 +97,34 @@ MODULE mo_var_metadata
     REAL(wp) :: lower_limit, extrapol_dist
   END TYPE t_vert_interp_meta
 
+
   !> data specific for horizontal interpolation.
   TYPE t_hor_interp_meta
     INTEGER :: hor_intp_type ! NONE/LONLAT
     INTEGER :: lonlat_id     ! lon-lat grid (ID in global list)
   END TYPE t_hor_interp_meta
+
+
+  !> This type defines small arithmetic operations ("post-ops") as
+  !  post-processing tasks.
+  !
+  !  These post-processing tasks are restricted to point-wise
+  !  operations (no halo synchronization) of a single field, like
+  !  value scaling.
+  !
+  !  @note The "post-ops" are performed at output time and DO NOT
+  !        MODIFY THE FIELD ITSELF.
+  !
+  TYPE t_post_op_meta
+    INTEGER                    :: ipost_op_type         !< type of post-processing operation
+    !
+    LOGICAL                    :: lnew_cf
+    TYPE(t_cf_var)             :: new_cf                !< CF information of modified field
+    LOGICAL                    :: lnew_grib2
+    TYPE(t_grib2_var)          :: new_grib2             !< GRIB2 information of modified field
+    !
+    REAL(wp)                   :: arg1                  !< post-op argument (e.g. scaling factor)
+  END TYPE t_post_op_meta
 
 
   TYPE t_var_metadata
@@ -93,7 +133,6 @@ MODULE mo_var_metadata
     CHARACTER(len=VARNAME_LEN) :: name                  ! variable name  
     !
     TYPE(t_cf_var)             :: cf                    ! CF convention information 
-    TYPE(t_grib1_var)          :: grib1                 ! GRIB1 related information
     TYPE(t_grib2_var)          :: grib2                 ! GRIB2 related information
     !
     LOGICAL                    :: allocated             ! allocation status
@@ -133,6 +172,10 @@ MODULE mo_var_metadata
     !
     TYPE(t_tracer_meta)        :: tracer                ! metadata for tracer fields
     !
+    ! Metadata for "post-ops" (small arithmetic operations)
+    !
+    TYPE (t_post_op_meta)      :: post_op               !<  "post-op" (small arithmetic operations) for this variable
+    !
     ! Metadata for vertical/horizontal interpolation
     !
     ! Note that setting these parameters to non-default values does
@@ -152,13 +195,16 @@ MODULE mo_var_metadata
 
   END TYPE t_var_metadata
 
+  PUBLIC :: VINTP_TYPE_LIST
+  PUBLIC :: VARNAME_LEN
+
   PUBLIC :: t_union_vals
   PUBLIC :: t_var_metadata
   PUBLIC :: t_tracer_meta
-  PUBLIC :: VINTP_TYPE_LIST
   PUBLIC :: t_vert_interp_meta
   PUBLIC :: t_hor_interp_meta
-  PUBLIC :: VARNAME_LEN
+  PUBLIC :: t_post_op_meta
+
   PUBLIC :: var_groups
 
 END MODULE mo_var_metadata
