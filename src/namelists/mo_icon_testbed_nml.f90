@@ -42,7 +42,8 @@ MODULE mo_icon_testbed_nml
     & config_calculate_iterations => calculate_iterations,&
     & config_no_of_blocks         => no_of_blocks,        &
     & config_no_of_layers         => no_of_layers,        &
-    & config_o3_filename          => o3_filename,         &
+    & config_testfile_3D_time          => testfile_3D_time,         &
+    & config_testfile_2D_time         => testfile_2D_time,        &
     & null_model
     
   IMPLICIT NONE
@@ -64,10 +65,10 @@ MODULE mo_icon_testbed_nml
     INTEGER :: calculate_iterations
     INTEGER  :: no_of_blocks, no_of_layers
 
-   CHARACTER(LEN=filename_max) :: o3_filename
+   CHARACTER(LEN=filename_max) :: testfile_3D_time(2), testfile_2D_time(2)
     
     NAMELIST /testbed_nml/ testbed_model, testbed_iterations, calculate_iterations, &
-      & no_of_blocks, no_of_layers, o3_filename
+      & no_of_blocks, no_of_layers, testfile_3D_time, testfile_2D_time
 
     CHARACTER(LEN=*), INTENT(IN) :: filename
     INTEGER :: istat
@@ -82,6 +83,9 @@ MODULE mo_icon_testbed_nml
     calculate_iterations = 10
     no_of_blocks         = 16
     no_of_layers         = 80
+    testfile_3D_time     = ""
+    testfile_2D_time     = ""
+
     !--------------------------------------------------------------------
     ! Read user's (new) specifications (Done so far by all MPI processes) 
     !--------------------------------------------------------------------
@@ -100,7 +104,8 @@ MODULE mo_icon_testbed_nml
     config_calculate_iterations = calculate_iterations
     config_no_of_blocks         = no_of_blocks
     config_no_of_layers         = no_of_layers
-    config_o3_filename          = o3_filename
+    config_testfile_3D_time     = testfile_3D_time
+    config_testfile_2D_time     = testfile_2D_time
     
   END SUBROUTINE read_icon_testbed_namelist
   !-------------------------------------------------------------------------

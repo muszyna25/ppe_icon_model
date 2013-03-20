@@ -53,8 +53,10 @@ namelist_filename=$1
 cat > $namelist_filename << EOF
 &testbed_nml
   testbed_model       = 6  ! test_netcdf_read_model
-!  o3_filename         = "/pool/data/ICON/import/initial/r2b4_amip/atm/bc_ozone_cmip5/bc_ozone_cmip5_1970.nc"
-  o3_filename         = "../../grids/bc_ozone_cmip5_1970.nc"
+!  testfile_3D_time   = "/pool/data/ICON/import/initial/r2b4_amip/atm/bc_ozone_cmip5/bc_ozone_cmip5_1970.nc", "O3"
+  testfile_3D_time    = "../../grids/bc_ozone_cmip5_1970.nc", "O3"
+!  testfile_2D_time   = "/pool/data/ICON/import/initial/r2b4_amip/oce/bc_sst_pcmdi_1870-2010.nc"
+  testfile_2D_time    = "../../grids/bc_sst_pcmdi_1870-2010.nc", "sst"
 /
 &parallel_nml
  nproma         = ${nproma}

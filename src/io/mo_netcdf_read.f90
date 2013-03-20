@@ -48,7 +48,7 @@ MODULE mo_netcdf_read
   USE mo_kind
   USE mo_mpi
   USE mo_gather_scatter,     ONLY: scatter_cells_2D, scatter_cells_2D_time, scatter_cells_3D_time, &
-    & gather_cells_3D_time, gather_cells_2D, broadcast_array
+    & gather_cells_2D, gather_cells_2D_time,  gather_cells_3D_time, broadcast_array
   USE mo_model_domain,       ONLY: t_patch
   USE mo_exception,          ONLY: message_text, message, warning, finish, em_warn
   USE mo_impl_constants,     ONLY: success, max_char_length
@@ -76,12 +76,14 @@ MODULE mo_netcdf_read
   PUBLIC :: netcdf_open_input, netcdf_close
 
   PUBLIC :: netcdf_read_oncells_2d
+  PUBLIC :: netcdf_read_oncells_2D_time
   PUBLIC :: netcdf_read_oncells_3D_time
 
   !--------------------------------------------------------
   !>
   ! use only for testing, these routines are NOT for output
   PUBLIC :: netcdf_write_oncells_2D
+  PUBLIC :: netcdf_write_oncells_2D_time
   PUBLIC :: netcdf_write_oncells_3D_time
   !--------------------------------------------------------
 
@@ -113,11 +115,15 @@ MODULE mo_netcdf_read
     MODULE PROCEDURE netcdf_read_REAL_ONCELLS_3D_time_fileid
   END INTERFACE netcdf_read_oncells_3D_time
 
-
-   INTERFACE netcdf_write_oncells_2D
+  INTERFACE netcdf_write_oncells_2D
     MODULE PROCEDURE netcdf_write_REAL_ONCELLS_2D_filename
     MODULE PROCEDURE netcdf_write_REAL_ONCELLS_2D_fileid
   END INTERFACE netcdf_write_oncells_2D
+
+  INTERFACE netcdf_write_oncells_2D_time
+    MODULE PROCEDURE netcdf_write_REAL_ONCELLS_2D_time_filename
+    MODULE PROCEDURE netcdf_write_REAL_ONCELLS_2D_time_fileid
+  END INTERFACE netcdf_write_oncells_2D_time
 
   INTERFACE netcdf_write_oncells_3D_time
     MODULE PROCEDURE netcdf_write_REAL_ONCELLS_3D_time_filename
@@ -156,6 +162,28 @@ CONTAINS
   
   !-------------------------------------------------------------------------
   !>
+  INTEGER FUNCTION netcdf_read_REAL_ONCELLS_2D_time_filename(filename, variable_name, fill_array, patch, &
+    & start_timestep, end_timestep )
+    CHARACTER(LEN=*), INTENT(IN) :: filename
+    CHARACTER(LEN=*), INTENT(IN) :: variable_name
+    REAL(wp), POINTER            :: fill_array(:,:,:)
+    TYPE(t_patch), TARGET        :: patch
+    INTEGER, INTENT(in), OPTIONAL:: start_timestep, end_timestep
+
+    INTEGER :: file_id
+    INTEGER :: return_status
+    CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_netcdf_read:netcdf_read_REAL_ONCELLS_2D_time_filename'
+
+    file_id = netcdf_open_input(filename)
+    netcdf_read_REAL_ONCELLS_2D_time_filename = &
+      & netcdf_read_REAL_ONCELLS_2D_time_fileid(file_id, variable_name, fill_array, patch, start_timestep, end_timestep)
+    return_status = netcdf_close(file_id)
+
+  END FUNCTION netcdf_read_REAL_ONCELLS_2D_time_filename
+  !-------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------
+  !>
   INTEGER FUNCTION netcdf_read_REAL_ONCELLS_3D_time_filename(filename, variable_name, fill_array, patch, &
     & start_timestep, end_timestep )
     CHARACTER(LEN=*), INTENT(IN) :: filename
@@ -170,33 +198,12 @@ CONTAINS
 
     file_id = netcdf_open_input(filename)
     netcdf_read_REAL_ONCELLS_3D_time_filename = &
-      & netcdf_read_REAL_ONCELLS_3D_time_fileid(file_id, variable_name, fill_array, patch)
+      & netcdf_read_REAL_ONCELLS_3D_time_fileid(file_id, variable_name, fill_array, patch, start_timestep, end_timestep)
     return_status = netcdf_close(file_id)
 
   END FUNCTION netcdf_read_REAL_ONCELLS_3D_time_filename
   !-------------------------------------------------------------------------
 
-  !-------------------------------------------------------------------------
-  !>
-  INTEGER FUNCTION netcdf_read_REAL_ONCELLS_2D_time_filename(filename, variable_name, fill_array, patch, &
-    & start_timestep, end_timestep )
-    CHARACTER(LEN=*), INTENT(IN) :: filename
-    CHARACTER(LEN=*), INTENT(IN) :: variable_name
-    REAL(wp), POINTER            :: fill_array(:,:,:)
-    TYPE(t_patch), TARGET        :: patch
-    INTEGER, INTENT(in), OPTIONAL:: start_timestep, end_timestep
-
-    INTEGER :: file_id
-    INTEGER :: return_status
-    CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_netcdf_read:netcdf_read_REAL_ONCELLS_2D_filename'
-
-    file_id = netcdf_open_input(filename)
-    netcdf_read_REAL_ONCELLS_2D_time_filename = &
-      & netcdf_read_REAL_ONCELLS_2D_time_fileid(file_id, variable_name, fill_array, patch)
-    return_status = netcdf_close(file_id)
-
-  END FUNCTION netcdf_read_REAL_ONCELLS_2D_time_filename
-  !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
   !>
@@ -302,12 +309,12 @@ CONTAINS
 
       ! check if the input has the right shape/size
       IF (.NOT. check_is_cell_dim_name(var_dim_name(1))) THEN
-        write(0,*) var_dim_name(3)
-        WRITE(message_text,*) variable_name, " ", TRIM(var_dim_name(3)), " /= std_cells_dim_name"
+        write(0,*) var_dim_name(1)
+        WRITE(message_text,*) variable_name, " ", TRIM(var_dim_name(1)), " /= std_cells_dim_name"
         CALL finish(method_name, message_text)
       ENDIF
       IF (.NOT. check_is_time_dim_name(var_dim_name(2))) THEN
-        WRITE(message_text,*) variable_name, "dim_name(1) /= std_time_dim_name"
+        WRITE(message_text,*) variable_name, "dim_name(2) /= std_time_dim_name"
         CALL finish(method_name, message_text)
       ENDIF
 
@@ -320,8 +327,8 @@ CONTAINS
     ENDIF
 
     ! we need to sync the var_size...
-    CALL broadcast_array(var_size(1:1))
-    file_time_steps      = var_size(3)
+    CALL broadcast_array(var_size(1:2))
+    file_time_steps      = var_size(2)
 
     ! calculate time range
     IF (PRESENT(start_timestep)) THEN
@@ -336,6 +343,7 @@ CONTAINS
     ENDIF
     use_time_range = (start_time /= 1) .OR. (end_time /= file_time_steps)
     time_steps = end_time - start_time + 1
+!    write(0,*) "start,end time=", start_time, end_time
     IF (time_steps < 1) &
       & CALL finish(method_name, "time_steps < 1")
     !-----------------------
@@ -415,7 +423,7 @@ CONTAINS
         CALL finish(method_name, message_text)
       ENDIF
       IF (.NOT. check_is_time_dim_name(var_dim_name(3))) THEN
-        WRITE(message_text,*) variable_name, "dim_name(1) /= std_time_dim_name"
+        WRITE(message_text,*) variable_name, "dim_name(3) /= std_time_dim_name"
         CALL finish(method_name, message_text)
       ENDIF
 
@@ -1180,10 +1188,58 @@ CONTAINS
 
 
   !-------------------------------------------------------------------------
+  ! these functions is meant only for checking the read methods
+  ! Do not use for regular output
   !-------------------------------------------------------------------------
   !>
-  ! this function is meant only for checking the read methods
-  ! Do not use for regular output
+  INTEGER FUNCTION netcdf_write_REAL_ONCELLS_2D_filename(filename, variable_name, write_array, patch)
+    CHARACTER(LEN=*), INTENT(IN) :: filename
+    CHARACTER(LEN=*), INTENT(IN) :: variable_name
+    REAL(wp), POINTER            :: write_array(:,:)
+    TYPE(t_patch), TARGET        :: patch
+
+    INTEGER :: file_id
+    INTEGER :: return_status
+    CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_netcdf_read:netcdf_write_REAL_ONCELLS_2D_filename'
+
+    netcdf_write_REAL_ONCELLS_2D_filename = 0
+
+    file_id = netcdf_open_output(filename)
+
+    netcdf_write_REAL_ONCELLS_2D_filename = &
+      & netcdf_write_REAL_ONCELLS_2D_fileid(file_id, variable_name, write_array, patch)
+
+    return_status = netcdf_close(file_id)
+
+  END FUNCTION netcdf_write_REAL_ONCELLS_2D_filename
+  !-------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------
+  !>
+  INTEGER FUNCTION netcdf_write_REAL_ONCELLS_2D_time_filename(filename, variable_name, write_array, patch)
+    CHARACTER(LEN=*), INTENT(IN) :: filename
+    CHARACTER(LEN=*), INTENT(IN) :: variable_name
+    REAL(wp), POINTER            :: write_array(:,:,:)
+    TYPE(t_patch), TARGET        :: patch
+
+    INTEGER :: file_id
+    INTEGER :: return_status
+    CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_netcdf_read:netcdf_write_REAL_ONCELLS_3D_time_filename'
+
+    netcdf_write_REAL_ONCELLS_2D_time_filename = 0
+
+    file_id = netcdf_open_output(filename)
+
+    netcdf_write_REAL_ONCELLS_2D_time_filename = &
+      & netcdf_write_REAL_ONCELLS_2D_time_fileid(file_id, variable_name, write_array, patch)
+
+    return_status = netcdf_close(file_id)
+
+  END FUNCTION netcdf_write_REAL_ONCELLS_2D_time_filename
+  !-------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------
+  !>
   INTEGER FUNCTION netcdf_write_REAL_ONCELLS_3D_time_filename(filename, variable_name, write_array, patch)
     CHARACTER(LEN=*), INTENT(IN) :: filename
     CHARACTER(LEN=*), INTENT(IN) :: variable_name
@@ -1206,6 +1262,133 @@ CONTAINS
   END FUNCTION netcdf_write_REAL_ONCELLS_3D_time_filename
   !-------------------------------------------------------------------------
 
+  !-------------------------------------------------------------------------
+  !>
+  ! this function is meant only for checking the read methods
+  ! Do not use for regular output
+  INTEGER FUNCTION netcdf_write_REAL_ONCELLS_2D_fileid(file_id, variable_name, write_array, patch)
+    INTEGER, INTENT(IN)  :: file_id
+    CHARACTER(LEN=*), INTENT(IN) :: variable_name
+    REAL(wp),      POINTER       :: write_array(:,:)
+    TYPE(t_patch), TARGET        :: patch
+
+    REAL(wp), POINTER            :: output_array(:)
+    INTEGER :: total_number_of_cells, array_vertical_levels, array_time_steps
+    INTEGER :: dim_number_of_cells, dim_vertical_levels, dim_array_time_steps
+    INTEGER :: output_shape(1), dim_write_shape(1), diff_shape(1)
+    INTEGER :: variable_id
+
+    INTEGER                      :: return_status
+!    INTEGER                      :: i,j,t
+    CHARACTER(LEN=*), PARAMETER  :: method_name = 'mo_netcdf_read:netcdf_write_REAL_ONCELLS_3D_time_fileid'
+
+    netcdf_write_REAL_ONCELLS_2D_fileid = 0
+
+    CALL gather_cells_2D(write_array, output_array, patch)
+    !----------------------------------------------------------------------
+    ! Write only from mpi_workroot
+    IF( my_process_is_mpi_workroot()  ) THEN
+
+      ! Write Dimensions
+      total_number_of_cells = patch%n_patch_cells_g
+      output_shape          = (/ total_number_of_cells /)
+      diff_shape            = (SHAPE(output_array) - output_shape)
+
+      IF ( MAXVAL(ABS( diff_shape)) /= 0 ) THEN
+        WRITE(0,*) " gather array shape:", SHAPE(output_array)
+        WRITE(0,*) " computed array shape:", output_shape
+        CALL finish(method_name, "gather array shape is nor correct")
+      ENDIF
+
+      CALL nf(nf_def_dim(file_id, 'ncells',  total_number_of_cells,  dim_number_of_cells),  variable_name)
+      dim_write_shape = (/ dim_number_of_cells /)
+
+      ! define variable
+      ! WRITE(0,*) " define variable:", variable_name
+!      CALL nf(nf_def_var(file_id, variable_name, nf_double, 1, dim_write_shape,&
+!        & variable_id), variable_name)
+      CALL nf(nf_def_var(file_id, variable_name, nf_float, 1, dim_write_shape,&
+        & variable_id), variable_name)
+
+      CALL nf(nf_enddef(file_id), variable_name)
+
+!      DO t=1, array_time_steps
+      ! write array
+      ! WRITE(0,*) " write array..."
+      CALL nf(nf_put_var_double(file_id, variable_id, output_array(:)), variable_name)
+      ! CALL nf(nf_put_var_real(file_id, variable_id, REAL(output_array(:,:,:))), variable_name)
+
+      ! Clean-up
+      DEALLOCATE(output_array)
+
+    ENDIF
+
+  END FUNCTION netcdf_write_REAL_ONCELLS_2D_fileid
+  !-------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------
+  !>
+  ! this function is meant only for checking the read methods
+  ! Do not use for regular output
+  INTEGER FUNCTION netcdf_write_REAL_ONCELLS_2D_time_fileid(file_id, variable_name, write_array, patch)
+    INTEGER, INTENT(IN)  :: file_id
+    CHARACTER(LEN=*), INTENT(IN) :: variable_name
+    REAL(wp),      POINTER       :: write_array(:,:,:)
+    TYPE(t_patch), TARGET        :: patch
+
+    REAL(wp), POINTER            :: output_array(:,:)
+    INTEGER :: total_number_of_cells, array_vertical_levels, array_time_steps
+    INTEGER :: dim_number_of_cells, dim_vertical_levels, dim_array_time_steps
+    INTEGER :: output_shape(2), dim_write_shape(2), diff_shape(2)
+    INTEGER :: variable_id
+
+    INTEGER                      :: return_status
+!    INTEGER                      :: i,j,t
+    CHARACTER(LEN=*), PARAMETER  :: method_name = 'mo_netcdf_read:netcdf_write_REAL_ONCELLS_3D_time_fileid'
+
+    netcdf_write_REAL_ONCELLS_2D_time_fileid = 0
+
+    CALL gather_cells_2D_time(write_array, output_array, patch)
+    !----------------------------------------------------------------------
+    ! Write only from mpi_workroot
+    IF( my_process_is_mpi_workroot()  ) THEN
+
+      ! Write Dimensions
+      total_number_of_cells = patch%n_patch_cells_g
+      array_time_steps      = SIZE(write_array, 3)
+      output_shape          = (/ total_number_of_cells, array_time_steps /)
+      diff_shape            = (SHAPE(output_array) - output_shape)
+
+      IF ( MAXVAL(ABS( diff_shape)) /= 0 ) THEN
+        WRITE(0,*) " gather array shape:", SHAPE(output_array)
+        WRITE(0,*) " computed array shape:", output_shape
+        CALL finish(method_name, "gather array shape is nor correct")
+      ENDIF
+
+      CALL nf(nf_def_dim(file_id, 'ncells',  total_number_of_cells,  dim_number_of_cells),  variable_name)
+      CALL nf(nf_def_dim(file_id, 'time',    array_time_steps,       dim_array_time_steps), variable_name)
+      dim_write_shape = (/ dim_number_of_cells, dim_array_time_steps /)
+
+      ! define variable
+      ! WRITE(0,*) " define variable:", variable_name
+!      CALL nf(nf_def_var(file_id, variable_name, nf_double, 2, dim_write_shape,&
+!        & variable_id), variable_name)
+      CALL nf(nf_def_var(file_id, variable_name, nf_float, 2, dim_write_shape,&
+        & variable_id), variable_name)
+
+      CALL nf(nf_enddef(file_id), variable_name)
+
+      ! WRITE(0,*) " write array..."
+      CALL nf(nf_put_var_double(file_id, variable_id, output_array(:,:)), variable_name)
+      ! CALL nf(nf_put_var_real(file_id, variable_id, REAL(output_array(:,:,:))), variable_name)
+
+      ! Clean-up
+      DEALLOCATE(output_array)
+
+    ENDIF
+
+  END FUNCTION netcdf_write_REAL_ONCELLS_2D_time_fileid
+  !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
   !>
@@ -1281,96 +1464,6 @@ CONTAINS
   END FUNCTION netcdf_write_REAL_ONCELLS_3D_time_fileid
   !-------------------------------------------------------------------------
 
-  !-------------------------------------------------------------------------
-  !>
-  ! this function is meant only for checking the read methods
-  ! Do not use for regular output
-  INTEGER FUNCTION netcdf_write_REAL_ONCELLS_2D_filename(filename, variable_name, write_array, patch)
-    CHARACTER(LEN=*), INTENT(IN) :: filename
-    CHARACTER(LEN=*), INTENT(IN) :: variable_name
-    REAL(wp), POINTER            :: write_array(:,:)
-    TYPE(t_patch), TARGET        :: patch
-
-    INTEGER :: file_id
-    INTEGER :: return_status
-    CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_netcdf_read:netcdf_write_REAL_ONCELLS_2D_filename'
-
-    netcdf_write_REAL_ONCELLS_2D_filename = 0
-
-    file_id = netcdf_open_output(filename)
-
-    netcdf_write_REAL_ONCELLS_2D_filename = &
-      & netcdf_write_REAL_ONCELLS_2D_fileid(file_id, variable_name, write_array, patch)
-
-    return_status = netcdf_close(file_id)
-
-  END FUNCTION netcdf_write_REAL_ONCELLS_2D_filename
-  !-------------------------------------------------------------------------
-
-
-  !-------------------------------------------------------------------------
-  !>
-  ! this function is meant only for checking the read methods
-  ! Do not use for regular output
-  INTEGER FUNCTION netcdf_write_REAL_ONCELLS_2D_fileid(file_id, variable_name, write_array, patch)
-    INTEGER, INTENT(IN)  :: file_id
-    CHARACTER(LEN=*), INTENT(IN) :: variable_name
-    REAL(wp),      POINTER       :: write_array(:,:)
-    TYPE(t_patch), TARGET        :: patch
-
-    REAL(wp), POINTER            :: output_array(:)
-    INTEGER :: total_number_of_cells, array_vertical_levels, array_time_steps
-    INTEGER :: dim_number_of_cells, dim_vertical_levels, dim_array_time_steps
-    INTEGER :: output_shape(1), dim_write_shape(1), diff_shape(1)
-    INTEGER :: variable_id
-
-    INTEGER                      :: return_status
-!    INTEGER                      :: i,j,t
-    CHARACTER(LEN=*), PARAMETER  :: method_name = 'mo_netcdf_read:netcdf_write_REAL_ONCELLS_3D_time_fileid'
-
-    netcdf_write_REAL_ONCELLS_2D_fileid = 0
-
-    CALL gather_cells_2D(write_array, output_array, patch)
-    !----------------------------------------------------------------------
-    ! Write only from mpi_workroot
-    IF( my_process_is_mpi_workroot()  ) THEN
-
-      ! Write Dimensions
-      total_number_of_cells = patch%n_patch_cells_g
-      output_shape          = (/ total_number_of_cells /)
-      diff_shape            = (SHAPE(output_array) - output_shape)
-
-      IF ( MAXVAL(ABS( diff_shape)) /= 0 ) THEN
-        WRITE(0,*) " gather array shape:", SHAPE(output_array)
-        WRITE(0,*) " computed array shape:", output_shape
-        CALL finish(method_name, "gather array shape is nor correct")
-      ENDIF
-
-      CALL nf(nf_def_dim(file_id, 'ncells',  total_number_of_cells,  dim_number_of_cells),  variable_name)
-      dim_write_shape = (/ dim_number_of_cells /)
-
-      ! define variable
-      ! WRITE(0,*) " define variable:", variable_name
-!      CALL nf(nf_def_var(file_id, variable_name, nf_double, 1, dim_write_shape,&
-!        & variable_id), variable_name)
-      CALL nf(nf_def_var(file_id, variable_name, nf_float, 1, dim_write_shape,&
-        & variable_id), variable_name)
-
-      CALL nf(nf_enddef(file_id), variable_name)
-
-!      DO t=1, array_time_steps
-      ! write array
-      ! WRITE(0,*) " write array..."
-      CALL nf(nf_put_var_double(file_id, variable_id, output_array(:)), variable_name)
-      ! CALL nf(nf_put_var_real(file_id, variable_id, REAL(output_array(:,:,:))), variable_name)
-
-      ! Clean-up
-      DEALLOCATE(output_array)
-
-    ENDIF
-
-  END FUNCTION netcdf_write_REAL_ONCELLS_2D_fileid
-  !-------------------------------------------------------------------------
 
 
   !-------------------------------------------------------------------------

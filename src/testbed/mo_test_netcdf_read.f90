@@ -42,7 +42,7 @@ MODULE mo_test_netcdf_read
   USE mo_parallel_config,     ONLY: nproma, icon_comm_method
 
   USE mo_master_control,      ONLY: get_my_process_name, get_my_model_no
-  USE mo_icon_testbed_config, ONLY: testbed_model, o3_filename
+  USE mo_icon_testbed_config, ONLY: testbed_model, testfile_3D_time, testfile_2D_time
 
   USE mo_model_domain,        ONLY: p_patch
   USE mo_atmo_model,          ONLY: construct_atmo_model, destruct_atmo_model
@@ -66,7 +66,8 @@ CONTAINS
     CHARACTER(LEN=*), INTENT(in) :: namelist_filename
     CHARACTER(LEN=*), INTENT(in) :: shr_namelist_filename
     
-    REAL(wp), POINTER :: test_o3(:,:,:,:)  ! is (nproma, vertical_levels, blocks, time (months))
+    REAL(wp), POINTER :: fill_3D_time_array(:,:,:,:)   ! is (nproma, vertical_levels, blocks, time (months))
+    REAL(wp), POINTER :: fill_2D_time_array(:,:,:)    ! is (nproma, blocks, time )
     INTEGER :: return_status
 
     CHARACTER(*), PARAMETER :: method_name = "test_netcdf_read"
@@ -79,19 +80,31 @@ CONTAINS
     CALL construct_atmo_hydrostatic()
     !---------------------------------------------------------------------
 
+    !---------------------------------------------------------------------
+    ! test sst
+    ! read sst
+    CALL message(method_name,   testfile_2D_time(1))
+    NULLIFY(fill_2D_time_array)
+    return_status = netcdf_read_oncells_2D_time(testfile_2D_time(1), TRIM(testfile_2D_time(2)), fill_2D_time_array, p_patch(1), &
+      & start_timestep=2, end_timestep=2)
+    ! write(0,*) "shape of ", TRIM(testfile_2D_time(2)), ":", SHAPE(fill_2D_time_array)
+    !---------------------------------------------------------------------
+    ! write the sst array to output for comparing
+    return_status = netcdf_write_oncells_2d_time("testfile_2D_time.nc", TRIM(testfile_2D_time(2)), fill_2D_time_array, p_patch(1))
+    DEALLOCATE(fill_2D_time_array)
+    !---------------------------------------------------------------------
 
     !---------------------------------------------------------------------
     ! test O3
     ! read o3
-    CALL message(method_name,   o3_filename)
-    NULLIFY(test_o3)
-    return_status = netcdf_read_oncells_3D_time(o3_filename, "O3", test_o3, p_patch(1))
-    write(0,*) "shape of o3 array:", SHAPE(test_o3)
-    !write(0,*) "o3(1,1,1,1)=", test_o3(1,1,1,1)
+    CALL message(method_name,   testfile_3D_time(1))
+    NULLIFY(fill_3D_time_array)
+    return_status = netcdf_read_oncells_3D_time(testfile_3D_time(1), testfile_3D_time(2), fill_3D_time_array, p_patch(1))
+    ! write(0,*) "shape of ", TRIM(testfile_3D_time(2)), ":", SHAPE(fill_3D_time_array)
     !---------------------------------------------------------------------
     ! write the o3 array to output for comparing
-    return_status = netcdf_write_oncells_3d_time("O3_test.nc", "O3", test_o3, p_patch(1))
-    DEALLOCATE(test_o3)
+    return_status = netcdf_write_oncells_3d_time("testfile_3D_time.nc", TRIM(testfile_3D_time(2)), fill_3D_time_array, p_patch(1))
+    DEALLOCATE(fill_3D_time_array)
     !---------------------------------------------------------------------
 
 

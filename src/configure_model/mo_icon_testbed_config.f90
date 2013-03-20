@@ -49,7 +49,7 @@ MODULE mo_icon_testbed_config
   PUBLIC :: testbed_iterations
   PUBLIC :: calculate_iterations
   PUBLIC :: no_of_blocks, no_of_layers
-  PUBLIC :: o3_filename
+  PUBLIC :: testfile_3D_time, testfile_2D_time
   
   ! ---------------
   ! the tesbed modes
@@ -67,7 +67,7 @@ MODULE mo_icon_testbed_config
   INTEGER  :: calculate_iterations
   INTEGER  :: no_of_blocks, no_of_layers
 
-  CHARACTER(LEN=filename_max) :: o3_filename
+  CHARACTER(LEN=filename_max) :: testfile_3D_time(2), testfile_2D_time(2)
 
 
 CONTAINS
