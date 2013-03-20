@@ -297,14 +297,15 @@ CONTAINS
                     ! in the ECHAM-physics
 
 !!!OMP PARALLEL DO PRIVATE(jb,jc,jcs,jce,zlat) ICON_OMP_DEFAULT_SCHEDULE
-          INQUIRE (file=slm_fn, exist=lexist)
-          IF (lexist) THEN
-                return_status = netcdf_read_oncells_2D(slm_fn,'slm', field% lsmask, p_patch(jg)) 
-          ELSE
-            WRITE (message_text,*) 'Could not open file ',slm_fn
-            CALL message('',message_text)
-            CALL finish ('initcond_echam_phy:read slm ', 'run terminated.')
-          ENDIF
+!          INQUIRE (file=slm_fn, exist=lexist)
+!          IF (lexist) THEN
+           ! by default it will create an error if it cannot open/read the file
+           return_status = netcdf_read_oncells_2D(slm_fn,'slm', field% lsmask, p_patch(jg))
+!          ELSE
+!            WRITE (message_text,*) 'Could not open file ',slm_fn
+!            CALL message('',message_text)
+!            CALL finish ('initcond_echam_phy:read slm ', 'run terminated.')
+!          ENDIF
           DO jb = jbs,nblks_c
             CALL get_indices_c( p_patch(jg), jb,jbs,nblks_c, jcs,jce, 2)
             field% tsfc_tile(jcs:jce,jb,iwtr) = tmelt
