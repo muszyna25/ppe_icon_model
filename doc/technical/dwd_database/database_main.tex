@@ -1,7 +1,7 @@
 \documentclass[a4paper,twoside,10pt]{book}
 
 \usepackage{a4,amssymb,amsxtra,alltt}
-%\usepackage[german]{babel}
+\usepackage[english]{babel}
 \usepackage{float}
 \usepackage[utf8]{inputenc}
 \usepackage{graphics,graphicx}
@@ -9,23 +9,23 @@
 \usepackage{fancyhdr}
 \usepackage{geometry}
 \usepackage{amsthm}        %--- Theorem-Package
-%\usepackage{pdftricks}    %--- for drawing arrows, frames, etc in Latex
-%\begin{psinputs}
+% \usepackage{pdftricks}    %--- for drawing arrows, frames, etc in Latex
+% \begin{psinputs}
 \usepackage{pstricks}      %--- for drawing arrows, frames etc in Latex
-%\end{psinputs}
+% \end{psinputs}
 \usepackage[nottoc]{tocbibind}     %--- adds bibliography to toc 
-                                   %--- but without toc itself [nottoc] 
+% --- but without toc itself [nottoc] 
 \usepackage[numbers,round,authoryear]{natbib} %--- creates bibliography; author-year with curly brackets within the text
-%\usepackage[  %--- no numbering of positions 
-%            toc,           %--- let it appear in the document's table of contents
-%            style=mylong3colheader %--- see glossaries Documentation for a list of available styles
-%            ]{glossaries}  %--- use the glossary package
+% \usepackage[  %--- no numbering of positions 
+% toc,           %--- let it appear in the document's table of contents
+% style=mylong3colheader %--- see glossaries Documentation for a list of available styles
+% ]{glossaries}  %--- use the glossary package
 \geometry{a4paper,textwidth=15.8cm,textheight=23.0cm,twoside,rmargin=0.96in} %--- Variation Randbereiche
-%\usepackage{colortbl,tabularx,longtable,lscape}
+% \usepackage{colortbl,tabularx,longtable,lscape}
 \usepackage{epsfig}
-%\usepackage{subfigure}  %--- simplifies putting pictures side by side
+% \usepackage{subfigure}  %--- simplifies putting pictures side by side
 \usepackage{layout}      %--- overview about boundaries and widths
-                         % usage: write \layout somewhere in the document
+% usage: write \layout somewhere in the document
 \usepackage{longtable, lscape}
 \usepackage{setspace}
 \usepackage{multirow}
@@ -39,34 +39,34 @@
 % Fortran environment
 \lstnewenvironment{fortran}%
 {\lstset{language=[95]Fortran,%
-basicstyle=\ttfamily\footnotesize\color{darkgreen},%
-commentstyle=\ttfamily\color{blue},%
-emptylines=0,%
-keywordstyle=\color{black}\ttfamily\bfseries,%
-backgroundcolor=\color{darkgrey!5},
-framexleftmargin=4mm,%
-frame=shadowbox,%
-rulesepcolor=\color{darkgreen}}}
+    basicstyle=\ttfamily\footnotesize\color{darkgreen},%
+    commentstyle=\ttfamily\color{blue},%
+    emptylines=0,%
+    keywordstyle=\color{black}\ttfamily\bfseries,%
+    backgroundcolor=\color{darkgrey!5},
+    framexleftmargin=4mm,%
+    frame=shadowbox,%
+    rulesepcolor=\color{darkgreen}}}
 {}
 
 
 
 \newcolumntype{x}[1]{%
->{\centering\hspace{0pt}}p{#1}}%
+  >{\centering\hspace{0pt}}p{#1}}%
 
 
-%---------- Glossary: All the stuff and more ----------%
-%\newglossary{symbolslist}{sym}{sbl}{Symbolverzeichnis} % define new glossary i.e. a list of symbols
-%\makeglossaries
+% ---------- Glossary: All the stuff and more ----------%
+% \newglossary{symbolslist}{sym}{sbl}{Symbolverzeichnis} % define new glossary i.e. a list of symbols
+% \makeglossaries
 
-%\input{./text/listofsymbols}  %--- include defined symbols
-
-
-
+% \input{./text/listofsymbols}  %--- include defined symbols
 
 
 
-%---------- Definition des Styles von Theoremen ----------%
+
+
+
+% ---------- Definition des Styles von Theoremen ----------%
 \theoremstyle{plain}
 \newtheorem*{thrm}{Theorem}  %--- define new theorem-style
 
@@ -75,7 +75,7 @@ rulesepcolor=\color{darkgreen}}}
 
 
 
-%---------------bold caption for figures-------------------------%
+% ---------------bold caption for figures-------------------------%
 \makeatletter
 \long\def\@makecaption#1#2{%
   \fontfamily{cmr}
@@ -83,25 +83,25 @@ rulesepcolor=\color{darkgreen}}}
   \fontshape{sl}
   \fontsize{10pt}{11pt}
   \selectfont
-   \vskip 10\p@
-   \setbox\@tempboxa\hbox{{\bf#1:} #2}%
-   \ifdim \wd\@tempboxa >\hsize
-    {\bf #1:} #2\par
-     \else
-       \hbox to\hsize{\hfil\box\@tempboxa\hfil}%
-   \fi}
+  \vskip 10\p@
+  \setbox\@tempboxa\hbox{{\bf#1:} #2}%
+  \ifdim \wd\@tempboxa >\hsize
+  {\bf #1:} #2\par
+  \else
+  \hbox to\hsize{\hfil\box\@tempboxa\hfil}%
+  \fi}
 \makeatother
-%----------------------------------------------------------------%
+% ----------------------------------------------------------------%
 
 
 
 
 \includeonly{./title_toc,
-             ./GRIB2_output_tables}
+  ./GRIB2_output_tables}
 
 
 
-%------------------ start of document -----------------------%
+% ------------------ start of document -----------------------%
 \begin{document}
 
 \setcounter{tocdepth}{3}     %--- maximum toc depth
@@ -109,48 +109,48 @@ rulesepcolor=\color{darkgreen}}}
 \pagestyle{fancy}
 \fancyhead{}
 \fancyfoot{}
-%--- Seitenzahl bei geraden/linken Seiten nach links/aussen
-%--- Seitenzahl bei ungeraden/rechten Seiten nach rechts/aussen
+% --- Seitenzahl bei geraden/linken Seiten nach links/aussen
+% --- Seitenzahl bei ungeraden/rechten Seiten nach rechts/aussen
 \fancyhead[EL,OR]{\thepage}
-%--- Kapitel/Abschnitt bei geraden/linken Seiten rechts/aussen
+% --- Kapitel/Abschnitt bei geraden/linken Seiten rechts/aussen
 \fancyhead[ER]{\leftmark}
-%--- Unterkapitel/Unterabschnitt bei ungeraden/rechten Seiten links/aussen
+% --- Unterkapitel/Unterabschnitt bei ungeraden/rechten Seiten links/aussen
 \fancyhead[OL]{\rightmark}
 
 \renewcommand{\chaptermark}[1]{%
-\markboth{\chaptername
-\ \thechapter.\ #1}{}}
+  \markboth{\chaptername
+    \ \thechapter.\ #1}{}}
 
 \renewcommand{\sectionmark}[1]{
-\markright{\thesection.\ #1}
+  \markright{\thesection.\ #1}
 }
 
 
-%--- Erhoehung des vertikalen Abstandes zwischen den Zeilen eines Arrays
+% --- Erhoehung des vertikalen Abstandes zwischen den Zeilen eines Arrays
 \renewcommand{\arraystretch}{1.5}
 
-%--- Auswahl der Formatierung des Literaturverzeichnisses (deutsche Version), erstellt mit custom-bib package
-%\bibliographystyle{plain}
-%\bibliographystyle{diss_bibstyle.bst}
-\bibliographystyle{jas99}
+% --- Auswahl der Formatierung des Literaturverzeichnisses (deutsche Version), erstellt mit custom-bib package
+% \bibliographystyle{plain}
+% \bibliographystyle{diss_bibstyle.bst}
+% \bibliographystyle{jas99}
 
-%--- search path for figures
+% --- search path for figures
 \graphicspath{{./pics/}}
-%----------------------------------------------------------------%
+% ----------------------------------------------------------------%
 
 \frontmatter     %--- aendert Zahlen von Arabisch auf roemisch
 
-%---------------- Generate title page ---------------------%
+% ---------------- Generate title page ---------------------%
 \begin{titlepage}
-\include{./title_toc}
+  \include{./title_toc}
 \end{titlepage}
-%----------------------------------------------------------------%
+% ----------------------------------------------------------------%
 
 \tableofcontents              %--- generate table of contents
 
 % remove chapter number from header for abstracts
 \renewcommand{\chaptermark}[1] {
-\markboth{#1}{}
+  \markboth{#1}{}
 }
 
 % sign function
@@ -159,39 +159,39 @@ rulesepcolor=\color{darkgreen}}}
 
 % use default again
 \renewcommand{\chaptermark}[1]{%
-\markboth{\chaptername
-\ \thechapter.\ #1}{}}
+  \markboth{\chaptername
+    \ \thechapter.\ #1}{}}
 
 \mainmatter                   %--- Zurcksetzen der Nummerierung auf arabisch
 
 
-%---------- Einbinden der verschiedenen Teildokumente -----------%
+% ---------- Einbinden der verschiedenen Teildokumente -----------%
 \include{./GRIB2_output_tables}
-%----------------------------------------------------------------%
+% ----------------------------------------------------------------%
 
 \appendix
-%\include{./text/appendix}  %--- Einbinden der Appendix
+% \include{./text/appendix}  %--- Einbinden der Appendix
 
-%\listoffigures                    %--- Erstellung des Figurenverzeichnisses
+% \listoffigures                    %--- Erstellung des Figurenverzeichnisses
 
-%\glsaddall
-%\printglossary[type=symbolslist]  %--- Erstellung des Symbolverzeichnisses
+% \glsaddall
+% \printglossary[type=symbolslist]  %--- Erstellung des Symbolverzeichnisses
 
-%\backmatter
-%\bibliography{/home/dreinert/Documents/bibliography/litera.bib,/home/dreinert/Documents/bibliography/litera_notprinted.bib} %--- Erstellen der Liste aller Referenzen
+% \backmatter
+% \bibliography{/home/dreinert/Documents/bibliography/litera.bib,/home/dreinert/Documents/bibliography/litera_notprinted.bib} %--- Erstellen der Liste aller Referenzen
 \bibliography{litera.bib} %--- Create list of references
 
 % remove chapter number from header for Acknowledgements
 \renewcommand{\chaptermark}[1] {
-\markboth{#1}{}
+  \markboth{#1}{}
 }
-%--- Danksagung ---
-%\include{./text/danksagung}
+% --- Danksagung ---
+% \include{./text/danksagung}
 
 % use default again
 \renewcommand{\chaptermark}[1]{%
-\markboth{\chaptername
-\ \thechapter.\ #1}{}}
+  \markboth{\chaptername
+    \ \thechapter.\ #1}{}}
 
 
 \end{document}

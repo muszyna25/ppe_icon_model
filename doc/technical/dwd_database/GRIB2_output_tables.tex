@@ -11,16 +11,16 @@ In GRIB2, a variable is uniquely defined by the following set of metadata:
  \item \emph{typeOfFirstfixedSurface} and \emph{typeOfSecondFixedSurface} (see GRIB2 code table 4.5)
  \item \emph{stepType} (instant, accum, avg, max, min, diff, rms, sd, cov, \dots)
 \end{itemize}
-In the following, \emph{typeOfFirstFixedSurface} and \emph{typeOfSecondFixedSurface} will be abbreviated by \emph{Lev-Typ 1/2}.
+In the following, \emph{typeOfFirstFixedSurface} and \emph{typeOfSecondFixedSurface} will be abbreviated by \emph{Lev-Typ~1/2}.
 
-\section{Output fields which are no longer available}
+\section{Deprecated output fields}
 With the launch of ICON, the following output fields will no longer be available:
 
 \begin{itemize}
- \item \textbf{OMEGA} [Pa/s]: Verical velocity in pressure coordinates $\omega=\frac{\mathrm{d}p}{\mathrm{d}t}$
+ \item \textbf{OMEGA} [Pa/s]: Vertical velocity in pressure coordinates $\omega=\frac{\mathrm{d}p}{\mathrm{d}t}$
  \item \textbf{BAS\_CON} [\textendash]: Level index of convective cloud base
  \item \textbf{TOP\_CON} [\textendash]: Level index of convective cloud top
- \item \textbf{T\_S} [K]: Temperature at soil-atmosphere-, or soil-snow-interface. Note that $\mathrm{T\_S} = \mathrm{T\_SO(0)}$, thus $\mathrm{T\_S}$ is redundant.
+ \item \textbf{T\_S} [K]: Temperature at the soil-atmosphere-, or soil-snow-interface. Note that $\mathrm{T\_S} = \mathrm{T\_SO(0)}$, thus $\mathrm{T\_S}$ is redundant.
  \item \textbf{W\_G1} [mm H2O]: Soil water content in upper layer ($0$ to $10\,\mathrm{cm}$) 
  \item \textbf{W\_G2} [mm H2O]: Soil water content in middle layer ($10$ to $100\,\mathrm{cm}$)
 \end{itemize}
@@ -37,7 +37,7 @@ New output fields that will become available with the launch of ICON are:
 \section{Available output fields listed in tabular form}
 
 \begin{table}[H]
-\caption{Hybrid multi-layer forecast ($VV>0$) and initialized analysis ($VV=0$) products}
+\caption{Hybrid multi-layer forecast ($VV>0$) and initialised analysis ($VV=0$) products}
  \begin{tabular}{p{2.0cm}p{5.0cm}p{0.8cm}p{0.8cm}p{0.8cm}p{0.9cm}p{1cm}p{1cm}}
   \toprule
 \multicolumn{1}{c}{\begin{sideways}\textbf{ShortName}\end{sideways}}    &      \multicolumn{1}{c}{\rb{\textbf{Description}}}    & \begin{sideways}\textbf{Discipline}\end{sideways} & \begin{sideways}\bf{Category}\end{sideways} & \begin{sideways}\bf{Number}\end{sideways}  & \begin{sideways}\bf{Lev-Typ}\end{sideways}  & \begin{sideways}\bf{stepType}\end{sideways} &\begin{sideways}\bf{Unit}\end{sideways}\\
@@ -57,13 +57,13 @@ CLC                        &  Cloud cover                       &              0
   \bottomrule
  \end{tabular}
 \end{table}
-\footnotetext[1]{for the time being, eronneously encoded as mixing ratios instead of specific quantities}
+\footnotetext[1]{for the time being, erroneously encoded as mixing ratios instead of specific quantities}
 \footnotetext[2]{not clear yet, whether ozone will be provided as output field}
 
 
 
 \begin{longtable}{p{2.0cm}p{5.0cm}p{0.8cm}p{0.8cm}p{0.8cm}p{0.9cm}p{1cm}p{1cm}}
-\caption[]{Single-layer forecast ($VV>0$) and initialized analysis ($VV=0$) products}\\
+\caption[]{Single-layer forecast ($VV>0$) and initialised analysis ($VV=0$) products}\\
   \toprule
 \multicolumn{1}{c}{\begin{sideways}\textbf{ShortName}\end{sideways}}  &  \multicolumn{1}{c}{\rb{\textbf{Description}}}  & \begin{sideways}\textbf{Discipline}\end{sideways} & \begin{sideways}\bf{Category}\end{sideways} & \begin{sideways}\bf{Number}\end{sideways}  & \begin{sideways}\bf{Lev-Typ}\end{sideways}  & \begin{sideways}\bf{stepType}\end{sideways} &\begin{sideways}\bf{Unit}\end{sideways}\\
 \midrule
@@ -127,7 +127,7 @@ H\_SNOW                        &  Snow depth                                    
 
 
 \begin{longtable}{p{2.0cm}p{5.0cm}p{0.8cm}p{0.8cm}p{0.8cm}p{0.9cm}p{1cm}p{1cm}}
-\caption[]{Multi-layer forecast ($VV>0$) and initialized analysis ($VV=0$) products of the soil model}\\
+\caption[]{Multi-layer forecast ($VV>0$) and initialised analysis ($VV=0$) products of the soil model}\\
   \toprule
 \multicolumn{1}{c}{\begin{sideways}\textbf{ShortName}\end{sideways}}  &  \multicolumn{1}{c}{\rb{\textbf{Description}}}  & \begin{sideways}\textbf{Discipline}\end{sideways} & \begin{sideways}\bf{Category}\end{sideways} & \begin{sideways}\bf{Number}\end{sideways}  & \begin{sideways}\bf{Lev-Typ}\end{sideways}  & \begin{sideways}\bf{stepType}\end{sideways} &\begin{sideways}\bf{Unit}\end{sideways}\\
 \midrule
@@ -145,18 +145,18 @@ W\_SO\_ICE                     &  Soil ice content integrated over individual so
 \end{longtable}
 
 Soil temperature is defined at the soil depths given in Table \ref{tab_soillayer} (column 2). Levels $1$ to $8$ define the full levels of the soil model. A zero gradient 
-condition is assumed between level $0$ and $1$, meaning that temperatures at the surface-atmosphere interface are set equal to the temperature at the first full level depth.
-($0.5\,\mathrm{cm}$). Temperatures are prognosed for level $1$ to $7$. At the lowermost level ($1458\,\mathrm{cm}$) the temperature is fixed to the climatological 
+condition is assumed between levels $0$ and $1$, meaning that temperatures at the surface-atmosphere interface are set equal to the temperature at the first full level depth.
+($0.5\,\mathrm{cm}$). Temperatures are prognosed for levels $1$ to $7$. At the lowermost level ($1458\,\mathrm{cm}$) the temperature is fixed to the climatological 
 average $2\,\mathrm{m}$-temperature.
 
-Soil moisture $\mathrm{W\_SO}$ is prognosed for layer $1$ to $6$. In the two lowermost layers $\mathrm{W\_SO}$ is time constant.
+Soil moisture $\mathrm{W\_SO}$ is prognosed for layers $1$ to $6$. In the two lowermost layers $\mathrm{W\_SO}$ is time constant.
 
 \begin{table}
 \center
 \caption{Soil model: vertical distribution of levels and layers}\label{tab_soillayer}
  \begin{tabular}{>{\centering\arraybackslash}p{2.0cm}>{\centering\arraybackslash}p{2.5cm}|>{\centering\arraybackslash}p{2.5cm}>{\centering\arraybackslash}p{5.0cm}}
  \toprule
-  \bf{level nr.}       &  \bf{depth [cm]}        &   \bf{layer nr.}        & \bf{upper/lower bounds [cm]} \\
+  \bf{level no.}       &  \bf{depth [cm]}        &   \bf{layer no.}        & \bf{upper/lower bounds [cm]} \\
  \midrule
          0             &     $0.0$               &                         &                                     \\
          1             &     $0.5$               &         1               &     $0.0$\, \textemdash\, $1.0$     \\
