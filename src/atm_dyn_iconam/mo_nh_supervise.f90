@@ -388,6 +388,16 @@ CONTAINS
         & max_vn, max_vn_level, max_vn_process,        &
         & max_w, max_w_level, max_w_process )
 
+    IF (my_process_is_stdio()) THEN
+      IF (check_total_quant_fileid >= 0) THEN
+        WRITE(check_total_quant_fileid,'(i8,2e20.12)') &
+          &  k_step, max_vn, max_w
+        IF (k_step == nsteps) THEN
+          CLOSE(check_total_quant_fileid)
+          check_total_quant_fileid = -1
+        ENDIF
+      ENDIF
+    ENDIF
 
   END SUBROUTINE supervise_total_integrals_nh
   !-------------------------------------------------------------------------
@@ -404,13 +414,9 @@ CONTAINS
     IF (istat/=SUCCESS) THEN
       CALL finish('supervise_total_integrals_nh','could not open datafile')
     ENDIF
-    WRITE (n_file_ti,'(A8,6A20)')'TIMESTEP',&
-      '            m/m0 -1,',&
-      '            e/e0 -1,',&
-      '             % kine,',&
-      '             % inne,',&
-      '             % pote,',&
-      '    mean surf press.'
+    WRITE (n_file_ti,'(A8,2A20)')'TIMESTEP',&
+      '            Max vn,',&
+      '            Max w'
 
     ! Open the datafile for tracer diagnostic
     IF (ltransport .OR. ( iforcing == inwp ) ) THEN
