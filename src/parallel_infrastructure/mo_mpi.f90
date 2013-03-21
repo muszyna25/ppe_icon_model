@@ -16,7 +16,7 @@ MODULE mo_mpi
 
   USE mo_kind
   USE mo_io_units, ONLY: nerr
-  
+
   IMPLICIT NONE
 
   PRIVATE                          ! all declarations are private
@@ -41,9 +41,9 @@ MODULE mo_mpi
   PUBLIC :: set_comm_input_bcast
   ! set other parameters
   PUBLIC :: set_process_mpi_name
-  
+
   PUBLIC :: push_glob_comm, pop_glob_comm, get_glob_proc0
-  
+
   ! Logical functions
   PUBLIC :: run_is_global_mpi_parallel
   PUBLIC :: my_process_is_stdio, my_process_is_mpi_parallel, my_process_is_mpi_all_parallel
@@ -56,7 +56,7 @@ MODULE mo_mpi
   PUBLIC :: get_my_mpi_all_comm_size   ! this is the the size of the communicator for the specific component
   PUBLIC :: get_my_mpi_work_communicator   ! the communicator for the workers of this component
   PUBLIC :: get_my_mpi_work_comm_size   ! this is the the size of the workers
-  
+
   PUBLIC :: get_mpi_all_workroot_id, get_my_global_mpi_id, get_my_mpi_all_id
   PUBLIC :: get_mpi_all_ioroot_id
   PUBLIC :: get_my_mpi_work_id
@@ -68,8 +68,8 @@ MODULE mo_mpi
   PUBLIC :: process_mpi_all_test_id, process_mpi_all_workroot_id, &
     &       process_mpi_all_ioroot_id
 
-  
-  
+
+
   PUBLIC :: p_comm_work, p_comm_work_test
   PUBLIC :: p_comm_work_2_io, p_comm_input_bcast, p_comm_work_io
   PUBLIC :: p_communicator_a, p_communicator_b, p_communicator_d
@@ -77,7 +77,7 @@ MODULE mo_mpi
   PUBLIC :: process_mpi_io_size
   PUBLIC :: process_mpi_stdio_id
   PUBLIC :: process_mpi_root_id
-  
+
   ! Main communication methods
   PUBLIC :: global_mpi_barrier
   PUBLIC :: work_mpi_barrier
@@ -142,7 +142,7 @@ MODULE mo_mpi
  ! MPI call inherent variables
   INTEGER :: p_error                     ! MPI error number
   INTEGER :: p_status(MPI_STATUS_SIZE)   ! standard information of MPI_RECV
-  
+
   INTEGER, ALLOCATABLE, SAVE :: p_request(:) ! request values for non blocking calls
   INTEGER :: p_irequest ! the first p_irequest values of p_request are in use
   INTEGER :: p_mrequest ! actual size of p_request
@@ -150,7 +150,7 @@ MODULE mo_mpi
   INTEGER, PARAMETER :: p_address_kind = MPI_ADDRESS_KIND
 #else
   INTEGER, PARAMETER :: p_address_kind = i8    ! should not get touched at all
-  INTEGER, PARAMETER :: MPI_COMM_NULL  = 0    
+  INTEGER, PARAMETER :: MPI_COMM_NULL  = 0
   ! dummy arguments for function calls:
   INTEGER, PARAMETER :: MPI_ANY_SOURCE = 0
 #endif
@@ -163,14 +163,14 @@ MODULE mo_mpi
   INTEGER, PARAMETER :: process_mpi_root_id = 0
   INTEGER, PARAMETER :: default_comm_type = 1
   INTEGER, PARAMETER :: null_comm_type = 0
-  
+
   ! communicator sets
   ! this is the global communicator
-  INTEGER :: global_mpi_communicator  ! replaces MPI_COMM_WORLD 
+  INTEGER :: global_mpi_communicator  ! replaces MPI_COMM_WORLD
   INTEGER :: global_mpi_size          ! total number of processes in global world
   INTEGER :: my_global_mpi_id         ! process id in global world
   LOGICAL :: is_global_mpi_parallel
-  
+
   ! this is the communicator for the whole component (atmo/ocean/etc)
   INTEGER :: process_mpi_all_comm     ! communicator in the whole model-component
   INTEGER :: process_mpi_all_size     ! total number of processes in the whole model-component
@@ -179,23 +179,23 @@ MODULE mo_mpi
   INTEGER :: process_mpi_all_ioroot_id    ! the first I/O process
   INTEGER :: process_mpi_all_test_id  ! the test process in component
 
-  
+
   LOGICAL :: process_is_mpi_parallel
   LOGICAL :: process_is_stdio
   LOGICAL :: is_mpi_test_run = .false.
   LOGICAL :: is_openmp_test_run = .false.
-  
-  
+
+
   ! this is the local work communicator (computation, i/o, etc)
 !   INTEGER :: process_mpi_local_comm     ! communicator in the work group
 !   INTEGER :: process_mpi_local_size     ! total number of processes in the whole model-component
 !   INTEGER :: my_process_mpi_local_id
-  
+
   INTEGER :: my_mpi_function  ! test, or work, or i/o
   INTEGER, PARAMETER :: test_mpi_process = 1
   INTEGER, PARAMETER :: work_mpi_process = 2
   INTEGER, PARAMETER :: io_mpi_process = 3
-  
+
   !------------------------------------------------------------
   ! Processor distribution:
   ! num_test_procs: 0 or 1
@@ -239,7 +239,7 @@ MODULE mo_mpi
 
   INTEGER :: p_pe     = 0     ! this is the PE number of this task
   INTEGER :: p_io     = 0     ! PE number of PE handling IO
-  
+
 ! non blocking calls
 
   ! module intrinsic names
@@ -477,10 +477,10 @@ CONTAINS
     get_mpi_time = 0.0_dp
 #else
     get_mpi_time = MPI_Wtime()
-#endif    
+#endif
   END FUNCTION get_mpi_time
   !------------------------------------------------------------------------------
-  
+
   !------------------------------------------------------------------------------
   REAL(dp) FUNCTION ellapsed_mpi_time(start_time)
     REAL(dp), INTENT(in) :: start_time
@@ -488,14 +488,14 @@ CONTAINS
     ellapsed_mpi_time = 0.0_dp
 #else
     ellapsed_mpi_time = MPI_Wtime() - start_time
-#endif    
+#endif
   END FUNCTION ellapsed_mpi_time
   !------------------------------------------------------------------------------
 
   !------------------------------------------------------------------------------
   SUBROUTINE set_process_mpi_name(name)
     CHARACTER(len=*), INTENT(in) ::name
-    
+
     process_mpi_name = TRIM(name)
 
   END SUBROUTINE set_process_mpi_name
@@ -520,19 +520,19 @@ CONTAINS
     get_my_mpi_all_comm_size = process_mpi_all_size
   END FUNCTION get_my_mpi_all_comm_size
   !------------------------------------------------------------------------------
-  
+
   !------------------------------------------------------------------------------
   INTEGER FUNCTION get_my_mpi_all_id()
     get_my_mpi_all_id = my_process_mpi_all_id
   END FUNCTION get_my_mpi_all_id
   !------------------------------------------------------------------------------
-  
+
   !------------------------------------------------------------------------------
   INTEGER FUNCTION get_mpi_all_workroot_id()
     get_mpi_all_workroot_id = process_mpi_all_workroot_id
   END FUNCTION get_mpi_all_workroot_id
   !------------------------------------------------------------------------------
-  
+
   !------------------------------------------------------------------------------
   INTEGER FUNCTION get_mpi_all_ioroot_id()
     get_mpi_all_ioroot_id = process_mpi_all_ioroot_id
@@ -556,7 +556,7 @@ CONTAINS
   END FUNCTION get_my_mpi_work_id
   !------------------------------------------------------------------------------
 
- 
+
 
   !------------------------------------------------------------------------------
   LOGICAL FUNCTION my_process_is_stdio()
@@ -573,7 +573,7 @@ CONTAINS
      my_process_is_io = (my_mpi_function == io_mpi_process)
   END FUNCTION my_process_is_io
   !------------------------------------------------------------------------------
-  
+
   !------------------------------------------------------------------------------
   !>
   LOGICAL FUNCTION my_process_is_mpi_ioroot()
@@ -605,7 +605,7 @@ CONTAINS
     my_process_is_mpi_all_parallel = (process_mpi_all_size > 1)
   END FUNCTION my_process_is_mpi_all_parallel
   !------------------------------------------------------------------------------
-  
+
   !------------------------------------------------------------------------------
   !>
   ! If is mpi all parallel
@@ -613,7 +613,7 @@ CONTAINS
     my_process_is_mpi_all_seq = (process_mpi_all_size <= 1)
   END FUNCTION my_process_is_mpi_all_seq
   !------------------------------------------------------------------------------
-  
+
   !------------------------------------------------------------------------------
   !>
   !! If is not mpi work paralellel or this is a test process
@@ -624,7 +624,7 @@ CONTAINS
     my_process_is_mpi_seq = .NOT. process_is_mpi_parallel
   END FUNCTION my_process_is_mpi_seq
   !------------------------------------------------------------------------------
- 
+
   !------------------------------------------------------------------------------
   !>
   LOGICAL FUNCTION my_process_is_mpi_workroot()
@@ -632,8 +632,8 @@ CONTAINS
     my_process_is_mpi_workroot = (p_pe_work == process_mpi_root_id)
   END FUNCTION my_process_is_mpi_workroot
   !------------------------------------------------------------------------------
-  
- 
+
+
   !------------------------------------------------------------------------------
   !>
   ! If is not mpi paralellel or is a test process
@@ -641,7 +641,7 @@ CONTAINS
     run_is_global_mpi_parallel = is_global_mpi_parallel
   END FUNCTION run_is_global_mpi_parallel
   !------------------------------------------------------------------------------
-  
+
   !------------------------------------------------------------------------------
   SUBROUTINE print_info_stderr (name, text)
     CHARACTER (len=*), INTENT(in) :: name
@@ -650,11 +650,11 @@ CONTAINS
     IF (my_process_is_stdio() ) THEN
       WRITE (nerr,'(a,a,a)') TRIM(name), ": ", TRIM(text)
     ENDIF
-  
+
   END SUBROUTINE print_info_stderr
   !------------------------------------------------------------------------------
-  
-  
+
+
   !------------------------------------------------------------------------------
   SUBROUTINE finish (name, text)
     CHARACTER (len=*), INTENT(in) :: name
@@ -662,7 +662,7 @@ CONTAINS
 
     WRITE (nerr,'(i4.4,a,a,a,a)') my_global_mpi_id, ": ", TRIM(name), ": ", TRIM(text)
     CALL p_abort
-      
+
   END SUBROUTINE finish
   !------------------------------------------------------------------------------
 
@@ -672,44 +672,44 @@ CONTAINS
   !> Pushes the communicator and proc0 onto the communicator stack.
   !! The communicator stack is needed for global sums if the processor
   !! set is split among different 1st level patches.
-  
+
   SUBROUTINE push_glob_comm(comm, proc0)
     INTEGER, INTENT(IN) :: comm, proc0
-    
+
     ! Safety check
     IF(comm_lev>=max_lev) &
       CALL finish('push_glob_comm','max_lev exceeded')
-    
+
     comm_lev = comm_lev+1
     glob_comm(comm_lev) = comm
     comm_proc0(comm_lev) = proc0
-    
+
   END SUBROUTINE push_glob_comm
-  
+
   !-------------------------------------------------------------------------
   !
   !> Pops one level of the communicator stack
-  
+
   SUBROUTINE pop_glob_comm()
-    
+
     ! Safety check
     IF(comm_lev<=0) &
       CALL finish('pop_glob_comm','stack empty')
-    
+
     comm_lev = comm_lev-1
-    
+
   END SUBROUTINE pop_glob_comm
-  
-  
+
+
   !-------------------------------------------------------------------------
   !
   !> @return current top of communicator stack
-  
+
   FUNCTION get_glob_proc0()
     INTEGER :: get_glob_proc0
     get_glob_proc0 = comm_proc0(comm_lev)
   END FUNCTION get_glob_proc0
-  
+
 
   !------------------------------------------------------------------------------
   !>
@@ -726,7 +726,7 @@ CONTAINS
     INTEGER :: comm_type
 
     comm_type = default_comm_type
-    
+
     IF (PRESENT(comm_flag)) THEN
        comm_type = comm_flag
     ENDIF
@@ -740,13 +740,13 @@ CONTAINS
       ELSE
         p_comm_input_bcast = MPI_COMM_NULL ! Must not be used!
       ENDIF
-    
+
     CASE default
-    
+
       IF (my_process_is_io()) THEN
         ! I/O PEs never participate in reading
         p_comm_input_bcast = MPI_COMM_NULL
-      ELSE      
+      ELSE
         IF(is_mpi_test_run) THEN
           ! Test PE reads and broadcasts to workers
           p_comm_input_bcast = p_comm_work_test
@@ -758,21 +758,21 @@ CONTAINS
 
     END SELECT
 #endif
-    
+
   END SUBROUTINE set_comm_input_bcast
   !-------------------------------------------------------------------------
-  
+
   !-------------------------------------------------------------------------
   SUBROUTINE set_mpi_work_communicators(p_test_run, l_test_openmp, num_io_procs)
     LOGICAL,INTENT(INOUT) :: p_test_run, l_test_openmp
     INTEGER,INTENT(INOUT) :: num_io_procs
-    
+
 !   !local variables
     INTEGER :: my_color, peer_comm, p_error
     CHARACTER(*), PARAMETER :: method_name = "set_mpi_work_communicators"
 
 
-     
+
 ! check l_test_openmp
 #ifndef _OPENMP
     IF (l_test_openmp) THEN
@@ -811,7 +811,7 @@ CONTAINS
 #else
 
     ! A run on 1 PE is never a verification run,
-    ! correct this if the user should set it differently    
+    ! correct this if the user should set it differently
     IF (process_mpi_all_size < 2) THEN
       IF (p_test_run) THEN
         CALL print_info_stderr(method_name, &
@@ -828,8 +828,8 @@ CONTAINS
         num_io_procs = 0
       ENDIF
     ENDIF
-    IF(num_io_procs < 0) num_io_procs = 0 ! for safety only  
-    
+    IF(num_io_procs < 0) num_io_procs = 0 ! for safety only
+
     ! -----------------------------------------
     ! Set if test
     IF(p_test_run) THEN
@@ -839,11 +839,11 @@ CONTAINS
       num_test_procs = 0
       p_test_pe = -1
     ENDIF
-        
+
     ! -----------------------------------------
     ! how many work processors?
     num_work_procs = process_mpi_all_size - num_test_procs - num_io_procs
-    
+
     ! Check if there are sufficient PEs at all
     IF(num_work_procs < 1) THEN
       CALL finish(method_name, &
@@ -860,7 +860,7 @@ CONTAINS
     ! Everything seems ok. Proceed to setup the communicators and ids
     ! Set up p_test_pe, p_work_pe0, p_io_pe0 which are identical on all PEs
     p_work_pe0 = num_test_procs
-    p_io_pe0   = num_test_procs + num_work_procs   
+    p_io_pe0   = num_test_procs + num_work_procs
 
     ! Set up p_n_work and p_pe_work which are NOT identical on all PEs
     IF(p_pe < p_work_pe0) THEN
@@ -922,7 +922,7 @@ CONTAINS
       p_comm_work_io = MPI_COMM_NULL
     ENDIF
 
-    
+
 !     The following is moved to set_comm_input_bcast
 !     ! Set p_comm_input_bcast, the communicator for broadcasting the NetCDF input
 !     IF(lrestore_states) THEN
@@ -979,7 +979,7 @@ CONTAINS
     IF (l_test_openmp .AND. p_pe == p_test_pe) CALL OMP_SET_NUM_THREADS(1)
     IF (p_pe >= p_io_pe0) CALL OMP_SET_NUM_THREADS(1)
 #endif
-  
+
 #endif
 
     ! fill some derived variables
@@ -1003,20 +1003,20 @@ CONTAINS
     is_openmp_test_run = l_test_openmp
 
     ! fill other default
-    CALL set_comm_input_bcast()    
-    
+    CALL set_comm_input_bcast()
+
   END SUBROUTINE set_mpi_work_communicators
   !-------------------------------------------------------------------------
-  
+
   !------------------------------------------------------------------------------
   !>
   SUBROUTINE set_default_mpi_work_variables()
-    
+
     ! fill some derived variables
     process_is_stdio = (my_process_mpi_all_id == process_mpi_stdio_id)
     process_is_mpi_parallel = (process_mpi_all_size > 1)
     my_mpi_function = work_mpi_process
-    
+
     process_mpi_all_test_id     = -1
     process_mpi_all_workroot_id = 0
     process_mpi_io_size         = 0
@@ -1025,12 +1025,12 @@ CONTAINS
 
 !     process_mpi_local_comm  = process_mpi_all_comm
 !     process_mpi_local_size  = process_mpi_all_size
-!     my_process_mpi_local_id = my_process_mpi_all_id         
+!     my_process_mpi_local_id = my_process_mpi_all_id
 
     ! set some of the old variables
     ! should be removed once the old variables are cleaned
     p_pe           = my_process_mpi_all_id
-    p_io           = 0 
+    p_io           = 0
     num_test_procs = 0
     num_work_procs = process_mpi_all_size
     p_test_pe      = -1
@@ -1038,7 +1038,7 @@ CONTAINS
     p_io_pe0       = process_mpi_all_size    ! Number of I/O PE 0 within all PEs (process_mpi_all_size if no I/O PEs)
     p_n_work       = process_mpi_all_size
     p_pe_work      = my_process_mpi_all_id
-    
+
     p_comm_work             = process_mpi_all_comm
     p_comm_input_bcast      = process_mpi_all_comm
     p_comm_work_io          = MPI_COMM_NULL
@@ -1052,7 +1052,7 @@ CONTAINS
       WRITE (nerr,'(a,a,i6,a)') TRIM(process_mpi_name), &
         '  runs on ', process_mpi_all_size, ' mpi processes.'
     END IF
-    
+
   END SUBROUTINE set_default_mpi_work_variables
   !------------------------------------------------------------------------------
 
@@ -1068,7 +1068,7 @@ CONTAINS
     CHARACTER(len=*), PARAMETER :: method_name = 'split_process_mpi_communicator'
 #ifdef NOMPI
     RETURN
-#else    
+#else
     !--------------------------------------------
     ! check if mpi is initialized
     CALL MPI_INITIALIZED(l_mpi_is_initialised, p_error)
@@ -1078,7 +1078,7 @@ CONTAINS
       STOP
     END IF
     !--------------------------------------------
-    ! split global_mpi_communicator 
+    ! split global_mpi_communicator
     CALL MPI_Comm_split(global_mpi_communicator, component_no, my_global_mpi_id, &
       & new_communicator, p_error)
     IF (p_error /= MPI_SUCCESS) THEN
@@ -1107,11 +1107,11 @@ CONTAINS
     process_mpi_all_comm    = new_communicator
     process_mpi_all_size    = 1
     my_process_mpi_all_id   = 0
-    
+
 #else
     ! since here we define the process all communicator
     ! the work communicator is identical to the all communicator
-    ! and the no test or i/o processes are present    
+    ! and the no test or i/o processes are present
     CALL MPI_INITIALIZED(l_mpi_is_initialised, p_error)
 
     IF (p_error /= MPI_SUCCESS) THEN
@@ -1126,7 +1126,7 @@ CONTAINS
        STOP
     ENDIF
 
-    IF ( process_mpi_all_comm /= MPI_COMM_NULL) THEN   
+    IF ( process_mpi_all_comm /= MPI_COMM_NULL) THEN
       ! free original communicator
       CALL MPI_COMM_FREE(process_mpi_all_comm, p_error)
       IF (p_error /= MPI_SUCCESS) THEN
@@ -1177,18 +1177,18 @@ CONTAINS
 !        WRITE (nerr,'(a,i4)') ' Error =  ', p_error
 !        CALL p_abort
 !     END IF
-! 
+!
 !     CALL MPI_COMM_DUP(process_mpi_all_comm,p_comm_work_test,p_error)
 !     IF (p_error /= MPI_SUCCESS) THEN
 !        WRITE (nerr,'(a,a)') method_name, ' MPI_COMM_DUP failed for p_comm_work_test.'
 !        WRITE (nerr,'(a,i4)') ' Error =  ', p_error
 !        CALL p_abort
 !     END IF
-   
+
 #endif
 
     CALL set_default_mpi_work_variables()
-        
+
   END SUBROUTINE set_process_mpi_communicator
   !------------------------------------------------------------------------------
 
@@ -1248,12 +1248,12 @@ CONTAINS
 #endif
     CHARACTER(len=*), PARAMETER :: method_name = 'start_mpi'
 
-    
+
 ! #ifdef _OPENMP
 !     global_no_of_threads = 1
 ! #endif
 
-    
+
     ! start MPI
 #ifndef NOMPI
 #ifdef _OPENMP
@@ -1270,7 +1270,7 @@ CONTAINS
        WRITE (nerr,'(a,i4)') ' Error =  ', p_error
        STOP
     END IF
-    
+
 #ifdef _OPENMP
     ! Check if MPI_INIT_THREAD returned at least MPI_THREAD_FUNNELED in "provided"
 #ifdef __MULTIPLE_MPI_THREADS
@@ -1301,7 +1301,7 @@ CONTAINS
       yname = '(unnamed)'
     END IF
     global_mpi_name = TRIM(yname)
-    
+
     ! create communicator for this process alone before
     ! potentially joining MPI2
 #if defined (__prism) && defined (use_comm_MPI1)
@@ -1349,7 +1349,7 @@ CONTAINS
        WRITE (nerr,'(/,a,a,a)') ' ', &
             TRIM(yname), ' MPI interface runtime information:'
     END IF
-    
+
 #ifdef DEBUG
     WRITE (nerr,'(a,a,i4,a)') method_name, ' PE ', my_global_mpi_id, ' started.'
 #endif
@@ -1359,7 +1359,7 @@ CONTAINS
 
     IF (p_error /= MPI_SUCCESS) THEN
        WRITE (nerr,'(a,a,i4,a)') method_name ,' PE: ', my_global_mpi_id, &
-       &  ' MPI_COMM_SIZE failed.'                                         
+       &  ' MPI_COMM_SIZE failed.'
        WRITE (nerr,'(a,i4)') ' Error =  ', p_error
        CALL p_abort
     END IF
@@ -1368,7 +1368,7 @@ CONTAINS
     p_mrequest = p_request_alloc_size
     ALLOCATE(p_request(p_mrequest))
     p_irequest = 0
-    
+
     ! lets check the available MPI version
     CALL MPI_GET_VERSION (version, subversion, p_error)
 
@@ -1430,7 +1430,7 @@ CONTAINS
     global_mpi_size  = 1        ! total number of processes in global world
     my_global_mpi_id = 0        ! process id in global world
     is_global_mpi_parallel = .false.
-    process_mpi_name = 'uknown'    
+    process_mpi_name = 'uknown'
     process_mpi_all_comm = MPI_COMM_NULL
 
 #endif
@@ -1460,9 +1460,9 @@ CONTAINS
         WRITE (nerr,'(/,a,a)') method_name,': Running globally OpenMP mode.'
       ENDIF
     ENDIF
-    WRITE (nerr,'(a, a, i3, a, i3)') method_name,': PE:', my_global_mpi_id, &
+    WRITE (nerr,'(a, a, i5, a, i0)') method_name,': PE:', my_global_mpi_id, &
       & ' global_no_of_threads is ', global_no_of_threads
-    
+
 #endif
 
 
@@ -1474,17 +1474,17 @@ CONTAINS
 !     ! started via MPI dynamic process creation. So we have to check
 !     ! the environment variable too.
 !     IF (my_global_mpi_id == 0) THEN
-! 
+!
 !       IF (is_global_mpi_parallel) THEN
 !         WRITE (nerr,'(/,a)') ' Running globally hybrid OpenMP-MPI mode.'
 !       ELSE
 !         WRITE (nerr,'(/,a)') ' Running globally OpenMP mode.'
 !       ENDIF
-! 
+!
 !       env_name = toupper(TRIM(yname)) // '_THREADS'
 ! #ifdef __SX__
 !       CALL getenv(TRIM(env_name), thread_num)
-! 
+!
 !       IF (thread_num /= ' ') THEN
 ! #else
 !       CALL get_environment_variable(name=TRIM(env_name), value=thread_num, &
@@ -1500,7 +1500,7 @@ CONTAINS
 !          global_no_of_threads = omp_get_max_threads()
 !        ENDIF
 !     ENDIF ! (my_global_mpi_id == 0)
-! 
+!
 ! #ifndef NOMPI
 !     ! Make number of threads from environment available to all model PEs
 !     CALL MPI_BCAST (global_no_of_threads, 1, MPI_INTEGER, 0, global_mpi_communicator, p_error)
@@ -1508,7 +1508,7 @@ CONTAINS
 !     ! Inform on OpenMP thread usage
 ! !     CALL OMP_SET_NUM_THREADS(threads)
 ! !     threads = OMP_GET_MAX_THREADS()
-! 
+!
 !     IF (my_global_mpi_id == 0) THEN
 !        WRITE (nerr,*)
 !        WRITE (nerr,'(1x,a,i3)') ' global_no_of_threads is ', global_no_of_threads
@@ -1519,7 +1519,7 @@ CONTAINS
     ! by default, the global communicator is the process communicator
     CALL set_process_mpi_name(global_mpi_name)
     CALL set_process_mpi_communicator(global_mpi_communicator)
-    
+
   END SUBROUTINE start_mpi
   !------------------------------------------------------------------------------
 
@@ -3551,7 +3551,7 @@ CONTAINS
 
   !================================================================================================
   ! CHARACTER SECTION -----------------------------------------------------------------------------
-  ! 
+  !
   SUBROUTINE p_irecv_char (t_buffer, p_source, p_tag, p_count, comm)
 
     CHARACTER(len=*), INTENT(inout) :: t_buffer
@@ -3589,7 +3589,7 @@ CONTAINS
   END SUBROUTINE p_irecv_char
   !================================================================================================
   ! REAL SECTION ----------------------------------------------------------------------------------
-  ! 
+  !
   SUBROUTINE p_irecv_real (t_buffer, p_source, p_tag, p_count, comm)
 
     REAL(dp),  INTENT(inout) :: t_buffer
@@ -3774,7 +3774,7 @@ CONTAINS
   END SUBROUTINE p_irecv_real_4d
   !================================================================================================
   ! INTEGER SECTION -------------------------------------------------------------------------------
-  ! 
+  !
   SUBROUTINE p_irecv_int (t_buffer, p_source, p_tag, p_count, comm)
 
     INTEGER, INTENT(inout) :: t_buffer
@@ -3960,7 +3960,7 @@ CONTAINS
 
   !================================================================================================
   ! LOGICAL SECTION -------------------------------------------------------------------------------
-  ! 
+  !
   SUBROUTINE p_irecv_bool (t_buffer, p_source, p_tag, p_count, comm)
 
     LOGICAL, INTENT(inout) :: t_buffer
@@ -4241,7 +4241,7 @@ CONTAINS
 #endif
 #endif
   END SUBROUTINE p_pack_real_1d
-  
+
 
   SUBROUTINE p_pack_string (t_var, t_buffer, p_buf_size, p_pos, comm)
 
@@ -4393,7 +4393,7 @@ CONTAINS
 #endif
 #endif
   END SUBROUTINE p_unpack_real_1d
-  
+
 
   SUBROUTINE p_unpack_string (t_buffer, p_buf_size, p_pos, t_var, comm)
 
@@ -5679,7 +5679,7 @@ CONTAINS
   !------------------------------------------------------
 
   !------------------------------------------------------
-  SUBROUTINE global_mpi_barrier 
+  SUBROUTINE global_mpi_barrier
 #ifndef NOMPI
     CALL MPI_BARRIER (global_mpi_communicator, p_error)
 
@@ -5696,7 +5696,7 @@ CONTAINS
   !------------------------------------------------------
 
   !------------------------------------------------------
-  SUBROUTINE work_mpi_barrier 
+  SUBROUTINE work_mpi_barrier
 #ifndef NOMPI
     CALL MPI_BARRIER (p_comm_work, p_error)
 
@@ -6281,7 +6281,7 @@ CONTAINS
   !
   ! @param[in] root Optional root PE, otherwise we perform an
   !                 ALL-TO-ALL operation
-  SUBROUTINE p_allreduce_max_int_1d (zfield, comm, root) 
+  SUBROUTINE p_allreduce_max_int_1d (zfield, comm, root)
     INTEGER, INTENT(inout) :: zfield(:)
     INTEGER, INTENT(in) :: comm
     INTEGER, INTENT(in), OPTIONAL :: root
@@ -6380,17 +6380,17 @@ CONTAINS
      INTEGER,           INTENT(inout) :: sendbuf, recvbuf(:)
      INTEGER,           INTENT(in) :: p_dest
      INTEGER, OPTIONAL, INTENT(in) :: comm
-     
+
 #ifndef NOMPI
      CHARACTER(*), PARAMETER :: routine = TRIM("mo_mpi:p_gather_int")
      INTEGER :: p_comm
-     
+
      IF (PRESENT(comm)) THEN
        p_comm = comm
      ELSE
        p_comm = process_mpi_all_comm
      ENDIF
-     
+
      CALL MPI_GATHER(sendbuf, 1, MPI_INTEGER, &
        &             recvbuf, 1, MPI_INTEGER, &
        &             p_dest, p_comm, p_error)
@@ -6407,17 +6407,17 @@ CONTAINS
      INTEGER,           INTENT(inout) :: recvbuf(:), recvcounts(:), displs(:)
      INTEGER,           INTENT(in)    :: p_dest
      INTEGER, OPTIONAL, INTENT(in)    :: comm
-     
+
 #ifndef NOMPI
      CHARACTER(*), PARAMETER :: routine = TRIM("mo_mpi:p_gatherv_int")
      INTEGER :: p_comm
-     
+
      IF (PRESENT(comm)) THEN
        p_comm = comm
      ELSE
        p_comm = process_mpi_all_comm
      ENDIF
-     
+
      CALL MPI_GATHERV(sendbuf, sendcount,  MPI_INTEGER, &
        &              recvbuf, recvcounts, displs, MPI_INTEGER, &
        &              p_dest, p_comm, p_error)
@@ -6425,9 +6425,9 @@ CONTAINS
 #else
      recvbuf((displs(1)+1):(displs(1)+sendcount)) = sendbuf(1:sendcount)
 #endif
-   END SUBROUTINE p_gatherv_int 
+   END SUBROUTINE p_gatherv_int
 
-   
+
    SUBROUTINE p_gatherv_real2D1D (sendbuf, sendcount, recvbuf, recvcounts, displs, p_dest, comm)
      REAL(dp),          INTENT(IN)    :: sendbuf(:,:)
      INTEGER,           INTENT(IN)    :: sendcount
@@ -6511,7 +6511,7 @@ CONTAINS
 
      p_comm = comm
      CALL MPI_SCATTERV(sendbuf, sendcounts, displs,   &           ! sendbuf, sendcount, displs
-       &               p_real_dp, recvbuf, recvcount, &           ! sendtype, recvbuf, recvcounts, 
+       &               p_real_dp, recvbuf, recvcount, &           ! sendtype, recvbuf, recvcounts,
        &               p_real_dp, p_dest, p_comm_work, p_error)   ! recvtype, root, comm, error
      IF (p_error /=  MPI_SUCCESS) CALL finish (routine, 'Error in MPI_SCATTERV operation!')
 #else
@@ -6519,17 +6519,17 @@ CONTAINS
 #endif
    END SUBROUTINE p_scatterv_real1D2D
 
-   
+
    SUBROUTINE p_allreduce_minloc(array, ntotal, comm)
 
-     INTEGER,           INTENT(IN)    :: ntotal     
+     INTEGER,           INTENT(IN)    :: ntotal
      REAL,              INTENT(INOUT) :: array(2,ntotal)
      INTEGER, OPTIONAL, INTENT(IN)    :: comm
-     
+
 #ifndef NOMPI
      INTEGER :: p_comm, ierr
      CHARACTER(*), PARAMETER :: routine = TRIM("mo_mpi:p_allreduce_minloc")
-     
+
      IF (PRESENT(comm)) THEN
        p_comm = comm
      ELSE
@@ -6547,15 +6547,15 @@ CONTAINS
 
    !-------------------------------------------------------------------------
    !> Collects a 2D integer array, organized as (nproma, nblks), and returns
-   !  the global array. From each PE we may receive a different number of 
+   !  the global array. From each PE we may receive a different number of
    !  entries. The ordering of the array is defined by the argument "iowner".
    !
    SUBROUTINE p_gather_field_2d_int(total_dim, nlocal_pts, owner, array)
 
-     INTEGER, INTENT(IN)     :: total_dim              ! dimension of global vector             
-     INTEGER, INTENT(IN)     :: nlocal_pts(:)          ! number of points located on each patch 
-     INTEGER, INTENT(IN)     :: owner(:)               ! for each point: owning process         
-     INTEGER, INTENT(INOUT)  :: array(:,:)             ! gathered output data                   
+     INTEGER, INTENT(IN)     :: total_dim              ! dimension of global vector
+     INTEGER, INTENT(IN)     :: nlocal_pts(:)          ! number of points located on each patch
+     INTEGER, INTENT(IN)     :: owner(:)               ! for each point: owning process
+     INTEGER, INTENT(INOUT)  :: array(:,:)             ! gathered output data
 
      !-----------------------------------------------------------------------
 
@@ -6575,15 +6575,15 @@ CONTAINS
 
    !-------------------------------------------------------------------------
    !> Collects a 3D integer array, organized as (:,nproma, nblks), and returns
-   !  the global array. From each PE we may receive a different number of 
-   !  entries. The ordering of the array is defined by the argument "iowner". 
+   !  the global array. From each PE we may receive a different number of
+   !  entries. The ordering of the array is defined by the argument "iowner".
    !
    SUBROUTINE p_gather_field_3d_int(total_dim, nlocal_pts, owner, array)
 
-     INTEGER,  INTENT(IN)    :: total_dim              ! dimension of global vector             
-     INTEGER,  INTENT(IN)    :: nlocal_pts(:)          ! number of points located on each patch 
-     INTEGER,  INTENT(IN)    :: owner(:)               ! for each point: owning process         
-     INTEGER,  INTENT(INOUT) :: array(:,:,:)           ! gathered output data                   
+     INTEGER,  INTENT(IN)    :: total_dim              ! dimension of global vector
+     INTEGER,  INTENT(IN)    :: nlocal_pts(:)          ! number of points located on each patch
+     INTEGER,  INTENT(IN)    :: owner(:)               ! for each point: owning process
+     INTEGER,  INTENT(INOUT) :: array(:,:,:)           ! gathered output data
 
      !-----------------------------------------------------------------------
 
@@ -6603,15 +6603,15 @@ CONTAINS
 
    !-------------------------------------------------------------------------
    !> Collects a 3D REAL array, organized as (:,nproma, nblks), and returns
-   !  the global array. From each PE we may receive a different number of 
-   !  entries. The ordering of the array is defined by the argument "iowner". 
+   !  the global array. From each PE we may receive a different number of
+   !  entries. The ordering of the array is defined by the argument "iowner".
    !
    SUBROUTINE p_gather_field_3d(total_dim, nlocal_pts, owner, array)
 
-     INTEGER,  INTENT(IN)    :: total_dim               ! dimension of global vector             
-     INTEGER,  INTENT(IN)    :: nlocal_pts(:)           ! number of points located on each patch 
-     INTEGER,  INTENT(IN)    :: owner(:)                ! for each point: owning process         
-     REAL(dp), INTENT(INOUT) :: array(:,:,:)            ! gathered output data                   
+     INTEGER,  INTENT(IN)    :: total_dim               ! dimension of global vector
+     INTEGER,  INTENT(IN)    :: nlocal_pts(:)           ! number of points located on each patch
+     INTEGER,  INTENT(IN)    :: owner(:)                ! for each point: owning process
+     REAL(dp), INTENT(INOUT) :: array(:,:,:)            ! gathered output data
 
      !-----------------------------------------------------------------------
 
@@ -6632,15 +6632,15 @@ CONTAINS
 
    !-------------------------------------------------------------------------
    !> Collects a 4D REAL array, organized as (:,:,nproma, nblks), and returns
-   !  the global array. From each PE we may receive a different number of 
-   !  entries. The ordering of the array is defined by the argument "iowner". 
+   !  the global array. From each PE we may receive a different number of
+   !  entries. The ordering of the array is defined by the argument "iowner".
    !
    SUBROUTINE p_gather_field_4d(total_dim, nlocal_pts, owner, array)
 
      INTEGER,  INTENT(IN)    :: total_dim                ! dimension of global vector
      INTEGER,  INTENT(IN)    :: nlocal_pts(:)            ! number of points located on each patch
      INTEGER,  INTENT(IN)    :: owner(:)                 ! for each point: owning process
-     REAL(dp), INTENT(INOUT) :: array(:,:,:,:)           ! gathered output data                   
+     REAL(dp), INTENT(INOUT) :: array(:,:,:,:)           ! gathered output data
 
      !-----------------------------------------------------------------------
 
@@ -6675,8 +6675,8 @@ CONTAINS
 #endif
 
    END SUBROUTINE p_gather_field_4d
-   
-   
+
+
    ! Commits a user-defined MPI type
    !
    FUNCTION p_commit_type_struct(oldtypes, blockcounts) RESULT(newtype)
@@ -6684,11 +6684,11 @@ CONTAINS
      INTEGER, INTENT(IN) :: oldtypes(2), blockcounts(2)
 #if !defined(NOMPI)
      INTEGER :: ierr, offsets(2), extent
-     ! define structured type and commit it  
-     CALL MPI_TYPE_EXTENT(oldtypes(1), extent, ierr) 
+     ! define structured type and commit it
+     CALL MPI_TYPE_EXTENT(oldtypes(1), extent, ierr)
      offsets(:) = (/ 0, extent /)
-     CALL MPI_TYPE_STRUCT(2, blockcounts, offsets, oldtypes, newtype, ierr) 
-     CALL MPI_TYPE_COMMIT(newtype, ierr) 
+     CALL MPI_TYPE_STRUCT(2, blockcounts, offsets, oldtypes, newtype, ierr)
+     CALL MPI_TYPE_COMMIT(newtype, ierr)
 #else
      newtype = 0
 #endif
