@@ -70,8 +70,8 @@ USE mo_timer,                     ONLY: timer_start, timer_stop, timer_ab_expl, 
   &                                     timer_ab_rhs4sfc, timer_lhs
 USE mo_dynamics_config,           ONLY: nold, nnew
 USE mo_physical_constants,        ONLY: grav
-USE mo_oce_state,                 ONLY: t_hydro_ocean_state, t_hydro_ocean_diag,&
-  &                                     set_lateral_boundary_values, is_initial_timestep
+USE mo_oce_state,                 ONLY: t_hydro_ocean_state, t_hydro_ocean_diag, is_initial_timestep !,&
+! &                                     set_lateral_boundary_values
 USE mo_model_domain,              ONLY: t_patch, t_patch_3D
 USE mo_ext_data_types,            ONLY: t_external_data
 USE mo_gmres,                     ONLY: gmres, gmres_oce_old
@@ -81,13 +81,12 @@ USE mo_oce_boundcond,             ONLY: bot_bound_cond_horz_veloc, top_bound_con
 USE mo_oce_thermodyn,             ONLY: calc_density, calc_internal_press
 USE mo_oce_physics,               ONLY: t_ho_params
 USE mo_sea_ice_types,             ONLY: t_sfc_flx
-USE mo_scalar_product,            ONLY: map_cell2edges_3D,map_edges2edges_viacell_3d,&
+USE mo_scalar_product,            ONLY: map_edges2edges_viacell_3d, & ! map_cell2edges_3D,&
   &                                     calc_scalar_product_veloc_3D,&
-  &                                     nonlinear_coriolis_3d, nonlinear_coriolis_3d_old,&
+!  &                                     nonlinear_coriolis_3d, nonlinear_coriolis_3d_old,&
   &                                     map_edges2edges_viacell_3d_const_z
 USE mo_oce_math_operators,        ONLY: div_oce_3D, grad_fd_norm_oce_3D,&
-  &                                     grad_fd_norm_oce_2d_3D, calc_thickness, &
-  &                                     height_related_quantities
+  &                                     grad_fd_norm_oce_2d_3D, calc_thickness! , height_related_quantities
 USE mo_oce_veloc_advection,       ONLY: veloc_adv_horz_mimetic, veloc_adv_vert_mimetic
  
 USE mo_oce_diffusion,             ONLY: velocity_diffusion,& 
@@ -311,9 +310,9 @@ SUBROUTINE solve_free_sfc_ab_mimetic(p_patch_3D, p_os, p_ext_data, p_sfc_flx, &
           &        p_os%p_diag%thick_c,       &  ! p_os%p_diag%thick_c, & 
                                                  ! arg 6 of lhs p_os%p_prog(nold(1))%h,
                                                  ! p_os%p_diag%cons_thick_c(:,1,:),&
-          &        p_os%p_prog(nold(1))%h,    &  !arg 2 of lhs !not used
-          &        p_patch_3D,                &  !arg 3 of lhs
-          &        z_implcoeff,               &  !arg 4 of lhs
+          &        p_os%p_prog(nold(1))%h,    &  ! arg 2 of lhs !not used
+          &        p_patch_3D,                &  ! arg 3 of lhs
+          &        z_implcoeff,               &  ! arg 4 of lhs
           &        p_op_coeff,                &
           &        p_os%p_aux%p_rhs_sfc_eq,   &  ! right hand side as input
           &        tolerance,                 &  ! relative tolerance
@@ -321,7 +320,7 @@ SUBROUTINE solve_free_sfc_ab_mimetic(p_patch_3D, p_os, p_ext_data, p_sfc_flx, &
           &        nmax_iter,                 &  ! max. # of iterations to do
           &        l_maxiter,                 &  ! out: .true. = not converged
           &        n_iter,                    &  ! out: # of iterations done
-          &        zresidual,                 & ! inout: the residual (array)  
+          &        zresidual,                 &  ! inout: the residual (array)  
           &        Jacobi_precon )
 
       ELSEIF(.NOT.lprecon)THEN
@@ -331,9 +330,9 @@ SUBROUTINE solve_free_sfc_ab_mimetic(p_patch_3D, p_os, p_ext_data, p_sfc_flx, &
           &        p_os%p_diag%thick_c,       &  ! p_os%p_diag%thick_c, & 
                                                  ! arg 6 of lhs p_os%p_prog(nold(1))%h,
                                                  ! p_os%p_diag%cons_thick_c(:,1,:),&
-          &        p_os%p_prog(nold(1))%h,    &  !arg 2 of lhs !not used
-          &        p_patch_3D,                &  !arg 3 of lhs
-          &        z_implcoeff,               &  !arg 4 of lhs
+          &        p_os%p_prog(nold(1))%h,    &  ! arg 2 of lhs !not used
+          &        p_patch_3D,                &  ! arg 3 of lhs
+          &        z_implcoeff,               &  ! arg 4 of lhs
           &        p_op_coeff,                &
           &        p_os%p_aux%p_rhs_sfc_eq,   &  ! right hand side as input
           &        tolerance,                 &  ! relative tolerance
@@ -345,7 +344,7 @@ SUBROUTINE solve_free_sfc_ab_mimetic(p_patch_3D, p_os, p_ext_data, p_sfc_flx, &
       ENDIF
       
       IF (l_maxiter) THEN
-        CALL finish('GMRES solver surface equation: ','NOT YET CONVERGED !!')
+        CALL finish('GMRES_oce_old: solver surface equation: ','NOT YET CONVERGED !!')
       ELSE
         ! output print level idt_src used for GMRES output with call message:
         IF(n_iter==0)n_iter=1
@@ -375,20 +374,20 @@ SUBROUTINE solve_free_sfc_ab_mimetic(p_patch_3D, p_os, p_ext_data, p_sfc_flx, &
       ! write(0,*) tolerance, solver_tolerance, residual_norm, gmres_restart_iterations, solver_max_restart_iterations
       DO  WHILE(residual_norm >= solver_tolerance .AND. gmres_restart_iterations < solver_max_restart_iterations)
 
-        CALL gmres( z_h_c(:,:),                 &  ! arg 1 of lhs. x input is the first guess.
-          &        lhs_surface_height_ab_mim, &  ! function calculating l.h.s.
-          &        p_os%p_diag%thick_e,       &  ! edge thickness for LHS
-          &        p_os%p_diag%thick_c,       &  ! p_os%p_diag%thick_c, & 
-          &        p_os%p_prog(nold(1))%h,    &  !arg 2 of lhs !not used
-          &        p_patch_3D,                &  !arg 3 of lhs
-          &        z_implcoeff,               &  !arg 4 of lhs
-          &        p_op_coeff,                &
-          &        p_os%p_aux%p_rhs_sfc_eq,   &  ! right hand side as input
+        CALL gmres( z_h_c(:,:),                   &  ! arg 1 of lhs. x input is the first guess.
+          &        lhs_surface_height_ab_mim,     &  ! function calculating l.h.s.
+          &        p_os%p_diag%thick_e,           &  ! edge thickness for LHS
+          &        p_os%p_diag%thick_c,           &  ! p_os%p_diag%thick_c, & 
+          &        p_os%p_prog(nold(1))%h,        &  ! arg 2 of lhs !not used
+          &        p_patch_3D,                    &  ! arg 3 of lhs
+          &        z_implcoeff,                   &  ! arg 4 of lhs
+          &        p_op_coeff,                    & 
+          &        p_os%p_aux%p_rhs_sfc_eq,       &  ! right hand side as input
           &        tolerance,                     &  ! tolerance
           &        use_absolute_solver_tolerance, &  ! absolute/relative tolerance
           &        solver_max_iter_per_restart,   &  ! max. # of iterations to do
-          &        l_maxiter,                 &  ! out: .true. = not converged
-          &        n_iter,                    &  ! out: # of iterations done
+          &        l_maxiter,                     &  ! out: .true. = not converged
+          &        n_iter,                        &  ! out: # of iterations done
           &        zresidual )
 
 
@@ -423,7 +422,7 @@ SUBROUTINE solve_free_sfc_ab_mimetic(p_patch_3D, p_os, p_ext_data, p_sfc_flx, &
       ENDIF
  
       IF (residual_norm > solver_tolerance) &
-          CALL finish('GMRES solver surface equation: ','NOT YET CONVERGED !!')
+          CALL finish('GMRES_oce_new: solver surface equation: ','NOT YET CONVERGED !!')
 
       p_os%p_prog(nnew(1))%h = z_h_c
 
@@ -1511,7 +1510,7 @@ END SUBROUTINE calc_normal_velocity_ab_mimetic
     INTEGER :: z_dolic
     INTEGER :: i_startidx, i_endidx
     REAL(wp) :: div_depth_int(nproma,p_patch_3D%p_patch_2D(1)%nblks_c)
-    REAL(wp) :: z_vn_e(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
+    !REAL(wp) :: z_vn_e(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
     REAL(wp) :: z_c(nproma,p_patch_3D%p_patch_2D(1)%nblks_c)
     REAL(wp) :: z_abort
     TYPE(t_subset_range), POINTER :: cells_in_domain, edges_in_domain
@@ -1665,7 +1664,7 @@ END SUBROUTINE calc_normal_velocity_ab_mimetic
     !LOGICAL  :: lverbose = .TRUE.
     !CHARACTER(len=MAX_CHAR_LENGTH) :: string
     REAL(wp) :: rhstemp(nproma,p_patch%nblks_e)
-    REAL(wp), ALLOCATABLE :: inv_flip_flop_e2(:,:)!(nproma,p_patch%nblks_e)
+    !REAL(wp), ALLOCATABLE :: inv_flip_flop_e2(:,:)!(nproma,p_patch%nblks_e)
     REAL(wp) :: z_e(nproma,n_zlev,p_patch%nblks_e)
     INTEGER :: jk
     !INTEGER :: i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e

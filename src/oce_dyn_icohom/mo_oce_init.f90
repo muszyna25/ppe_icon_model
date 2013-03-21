@@ -75,8 +75,8 @@ USE mo_ext_data_types,     ONLY: t_external_data
 USE mo_netcdf_read,        ONLY: read_netcdf_data
 USE mo_sea_ice_types,      ONLY: t_sfc_flx
 USE mo_oce_state,          ONLY: t_hydro_ocean_state!, v_base
-USE mo_scalar_product,     ONLY: map_edges2cell_3D, calc_scalar_product_veloc_3D
-USE mo_oce_math_operators, ONLY: grad_fd_norm_oce_2D_3D, grad_fd_norm_oce_3D !,&
+USE mo_scalar_product,     ONLY: calc_scalar_product_veloc_3D !, map_edges2cell_3D
+USE mo_oce_math_operators, ONLY: grad_fd_norm_oce_3D !, grad_fd_norm_oce_2D_3D,&
 !  &                              height_related_quantities
 USE mo_oce_thermodyn,      ONLY: convert_insitu2pot_temp_func
 USE mo_oce_ab_timestepping,ONLY: update_time_indices! , calc_vert_velocity
@@ -2117,7 +2117,7 @@ FUNCTION geo_balance_mim(p_patch, h_e,grad_coeff, rhs_e) result(vn_e)
  ! REAL(wp) :: z_residual(nmax_iter)
    LOGICAL  :: lmax_iter               ! true if reached m iterations
  ! LOGICAL  :: lverbose = .TRUE.
-   INTEGER  :: jk
+ ! INTEGER  :: jk
    REAL(wp) :: rhstemp(nproma,p_patch%nblks_e)
    REAL(wp), ALLOCATABLE :: vn_e2(:,:)!(nproma,p_patch%nblks_e)
  ! INTEGER :: i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e
@@ -2145,8 +2145,8 @@ FUNCTION geo_balance_mim(p_patch, h_e,grad_coeff, rhs_e) result(vn_e)
 
       !  rhstemp(:,:) = rhs_e(:,:)-lhs_geo_balance_mim(vn_e2(:,:),p_patch, jk,&
       !    &            zimpl_coeff,grad_coeff, h_e)
-       WRITE(*,*)'max/min residual of inverse primal-flip-flop:',&
-      &jk, maxval(rhstemp),minval(rhstemp)
+      ! WRITE(*,*)'max/min residual of inverse primal-flip-flop:',&
+      !&jk, maxval(rhstemp),minval(rhstemp)
 
         If (maxval (ABS (rhstemp (:,:))) >= tolerance) lmax_iter = .true.
 !          IF (lverbose) THEN
