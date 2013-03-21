@@ -61,7 +61,7 @@ MODULE mo_echam_phy_interface
      & icon_comm_var_is_ready, icon_comm_sync, icon_comm_sync_all, is_ready, until_sync
   
   USE mo_run_config,        ONLY: nlev, ltimer, ntracer
-  USE mo_radiation_config,  ONLY: izenith
+  USE mo_radiation_config,  ONLY: ighg, izenith
   USE mo_loopindices,       ONLY: get_indices_c, get_indices_e
   USE mo_impl_constants_grf,ONLY: grf_bdywidth_e, grf_bdywidth_c
   USE mo_eta_coord_diag,    ONLY: half_level_pressure, full_level_pressure
@@ -78,6 +78,7 @@ MODULE mo_echam_phy_interface
 
   USE mo_icoham_sfc_indices, ONLY: iwtr, iice
   USE mo_amip_bc,            ONLY: read_amip_bc, amip_time_weights, amip_time_interpolation
+  USE mo_greenhouse_gases,   ONLY: read_ghg_bc, ghg_time_interpolation, ghg_file_read
 
   IMPLICIT NONE
   PRIVATE
@@ -319,6 +320,10 @@ CONTAINS
 
     !TODO: Luis Kornblueh
     ! add interpolation of greenhouse gases here, only if radiation is going to be calculated
+    IF (ltrig_rad .AND. (ighg > 0)) THEN
+      IF (.NOT. ghg_file_read) CALL read_ghg_bc(ighg)
+      CALL ghg_time_interpolation(datetime)
+    ENDIF
 !      IF (ltrig_rad) THEN
 !        CALL message('mo_echam_phy_interface:physc','Radiative transfer called at:')
 !        CALL print_datetime(datetime)

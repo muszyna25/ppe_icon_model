@@ -40,6 +40,8 @@ MODULE mo_greenhouse_gases
   PUBLIC :: ghg_no_cfc
   PUBLIC :: ghg_co2mmr, ghg_ch4mmr, ghg_n2ommr, ghg_cfcvmr
 
+  PUBLIC :: ghg_file_read
+
   INTEGER, PARAMETER :: ghg_no_cfc = 2
   CHARACTER(len=*), PARAMETER :: ghg_cfc_names(ghg_no_cfc) = (/ "CFC_11", "CFC_12" /)
 
@@ -71,6 +73,9 @@ CONTAINS
     ENDIF
 
     SELECT CASE(ighg) ! select scenario
+    CASE (0) 
+      CALL message('','Use predefined greenhouse gases secenario from 1990 based on CMIP5')
+      RETURN  
     CASE (1)
       CALL nf_check(p_nf_open('greenhouse_gases.nc', nf_read, ncid))
       CALL nf_check(p_nf_inq_dimid (ncid, 'time', ndimid)) 
