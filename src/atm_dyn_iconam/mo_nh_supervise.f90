@@ -414,9 +414,13 @@ CONTAINS
     IF (istat/=SUCCESS) THEN
       CALL finish('supervise_total_integrals_nh','could not open datafile')
     ENDIF
-    WRITE (n_file_ti,'(A8,2A20)')'TIMESTEP',&
-      '            Max vn,',&
-      '            Max w'
+    WRITE (n_file_ti,'(A8,6A20)')'TIMESTEP',&
+      '            m/m0 -1,',&
+      '            e/e0 -1,',&
+      '             % kine,',&
+      '             % inne,',&
+      '             % pote,',&
+      '    mean surf press.'
 
     ! Open the datafile for tracer diagnostic
     IF (ltransport .OR. ( iforcing == inwp ) ) THEN
@@ -454,14 +458,10 @@ CONTAINS
     IF (istat/=SUCCESS) THEN
       CALL finish('supervise_total_integrals_nh','could not open check_global_quantities.dat')
     ENDIF
-    WRITE (check_total_quant_fileid, '(A8,6A20)') &
-      'TIMESTEP',&
-      '            m/m0 -1,',&
-      '            e/e0 -1,',&
-      '             % kine,',&
-      '             % inne,',&
-      '             % pote,',&
-      '    mean surf press.'
+    WRITE (check_total_quant_fileid, '(A8,2A20)') &
+      'TIMESTEP',           &
+      '            Max vn,',&
+      '            Max w'
 
   END SUBROUTINE open_total_integral_files
 
