@@ -118,7 +118,6 @@ MODULE mo_nwp_phy_init
 
   USE mo_datetime,            ONLY: iso8601
   USE mo_time_config,         ONLY: time_config
-  USE mo_nh_torus_exp,        ONLY: sst_cbl, is_dry_cbl, set_sst_cbl
 
   IMPLICIT NONE
 
@@ -247,25 +246,6 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
                                      &     p_prog%tracer(jc,nlev,jb,iqv)) 
         END DO
  
-      ELSE IF (ltestcase .AND. nh_test_name == 'CBL' ) THEN !
-        
-        IF(set_sst_cbl)THEN !prescribe SST
-          p_prog_lnd_now%t_g(i_startidx:i_endidx,jb)  = sst_cbl
-          p_prog_lnd_new%t_g(i_startidx:i_endidx,jb)  = sst_cbl
-        ELSE !prescribes flux to just assign nlev values temporarily
-          p_prog_lnd_now%t_g(i_startidx:i_endidx,jb)  =  p_prog%theta_v(i_startidx:i_endidx,nlev,jb)
-          p_prog_lnd_new%t_g(i_startidx:i_endidx,jb)  =  p_prog_lnd_now%t_g(i_startidx:i_endidx,jb)
-        END IF
-
-        IF(is_dry_cbl)THEN
-           p_diag_lnd%qv_s(i_startidx:i_endidx,jb)  =  p_prog%tracer(i_startidx:i_endidx,nlev,jb,iqv)
-        ELSE
-          DO jc = i_startidx, i_endidx
-             p_diag_lnd%qv_s(jc,jb)  = &
-                spec_humi(sat_pres_water(p_prog_lnd_now%t_g (jc,jb)),p_diag%pres_sfc(jc,jb))
-          END DO
-        END IF
-
       ELSE IF (ltestcase) THEN ! any other testcase
 
         ! t_g  =  t(nlev)
