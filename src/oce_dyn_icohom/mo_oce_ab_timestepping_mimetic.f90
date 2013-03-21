@@ -1085,55 +1085,63 @@ TYPE(t_patch), POINTER :: patch_horz
     ENDIF
   ENDIF
 
-! !-------------------------------------------------------------------------------
-IF (l_edge_based) THEN
-! !-------------------------------------------------------------------------------
+  !
+  ! calculate depth-integrated velocity z_e
+  !  - edge-based and cell-based
+  !  - 3d and 2d (surface)
+  
+  ! !-------------------------------------------------------------------------------
+  IF (l_edge_based) THEN
+  ! !-------------------------------------------------------------------------------
 
-  IF( iswm_oce /= 1 ) THEN !the 3D case
+    IF( iswm_oce /= 1 ) THEN !the 3D case
 
-    !calculate depth-integrated velocity 
-    DO jb = all_edges%start_block, all_edges%end_block
-      CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
-      DO je = i_startidx_e, i_endidx_e
-        i_dolic_e =  p_patch_3D%p_patch_1D(1)%dolic_e(je,jb)
-        DO jk=1,i_dolic_e 
-          z_e(je,jk,jb)= z_vn_ab(je,jk,jb)*p_patch_3D%p_patch_1D(1)%prism_thick_e(je,jk,jb)
-        END DO
-      ENDDO
-    END DO
+      DO jb = all_edges%start_block, all_edges%end_block
+        CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
+        DO je = i_startidx_e, i_endidx_e
+          i_dolic_e =  p_patch_3D%p_patch_1D(1)%dolic_e(je,jb)
+          DO jk=1,i_dolic_e 
+            z_e(je,jk,jb)= z_vn_ab(je,jk,jb)*p_patch_3D%p_patch_1D(1)%prism_thick_e(je,jk,jb)
+          END DO
+        ENDDO
+      END DO
 
-  ELSEIF( iswm_oce == 1 ) THEN
+    ELSEIF( iswm_oce == 1 ) THEN
 
-    DO jb = all_edges%start_block, all_edges%end_block
-      CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
-      DO je = i_startidx_e, i_endidx_e
-        i_dolic_e =  p_patch_3D%p_patch_1D(1)%dolic_e(je,jb)
-        DO jk=1,i_dolic_e 
-          z_e(je,jk,jb)= z_vn_ab(je,jk,jb)*p_os%p_diag%thick_e(je,jb)
-        END DO
-      ENDDO
-    END DO
+      DO jb = all_edges%start_block, all_edges%end_block
+        CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
+        DO je = i_startidx_e, i_endidx_e
+          i_dolic_e =  p_patch_3D%p_patch_1D(1)%dolic_e(je,jb)
+          DO jk=1,i_dolic_e 
+            z_e(je,jk,jb)= z_vn_ab(je,jk,jb)*p_os%p_diag%thick_e(je,jb)
+          END DO
+        ENDDO
+      END DO
 
-  ENDIF
+    ENDIF
+  
+  ! !-------------------------------------------------------------------------------
+  ELSEIF(.NOT. l_edge_based)THEN!NOT EDGE-BASED
+  ! !-------------------------------------------------------------------------------  
 
-! !-------------------------------------------------------------------------------
-ELSEIF(.NOT. l_edge_based)THEN!NOT EDGE-BASED
-! !-------------------------------------------------------------------------------  
-  IF( iswm_oce /= 1 ) THEN !the 3D case
-    CALL map_edges2edges_viacell_3d_const_z( p_patch_3D, z_vn_ab, p_op_coeff, z_e )
+    IF( iswm_oce /= 1 ) THEN !the 3D case
 
-  ELSEIF( iswm_oce == 1 ) THEN
-!      CALL map_edges2edges_viacell_3D( p_patch_3D,    &
-!                                      & z_vn_ab(:,1,:),&
-!                                      & p_op_coeff,    &
-!                                      & z_e(:,1,:),    &
-!                                      & p_os%p_diag%thick_c, level=1)
+      CALL map_edges2edges_viacell_3d_const_z( p_patch_3D, z_vn_ab, p_op_coeff, z_e )
+  
+    ELSEIF( iswm_oce == 1 ) THEN
+  !    CALL map_edges2edges_viacell_3D( p_patch_3D,    &
+  !                                    & z_vn_ab(:,1,:),&
+  !                                    & p_op_coeff,    &
+  !                                    & z_e(:,1,:),    &
+  !                                    & p_os%p_diag%thick_c, level=1)
       CALL map_edges2edges_viacell_3d_const_z( p_patch_3D, z_vn_ab(:,1,:), p_op_coeff, z_e(:,1,:) )
-  ENDIF!( iswm_oce == 1 )
 
-ENDIF!EDGE-BASED
+    ENDIF!( iswm_oce == 1 )
+
+  ENDIF!EDGE-BASED
+
   CALL div_oce_3d( z_e, patch_horz,p_op_coeff%div_coeff, div_z_c, subset_range=cells_in_domain )
-
+  
   DO jb = all_cells%start_block, all_cells%end_block
     CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
     DO jc = i_startidx_c, i_endidx_c
@@ -1161,6 +1169,7 @@ ENDIF!EDGE-BASED
     END DO
 
   ELSEIF(.NOT.l_forc_freshw)THEN
+
     DO jb = cells_in_domain%start_block, cells_in_domain%end_block
       CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
       DO jc = i_startidx_c, i_endidx_c
@@ -1172,16 +1181,14 @@ ENDIF!EDGE-BASED
     END DO
   ENDIF
 
-
- CALL sync_patch_array(SYNC_C, patch_horz, p_os%p_aux%p_rhs_sfc_eq )
-
+  CALL sync_patch_array(SYNC_C, patch_horz, p_os%p_aux%p_rhs_sfc_eq )
 
   !---------DEBUG DIAGNOSTICS-------------------------------------------
   idt_src=3  ! output print level (1-5, fix)
   CALL dbg_print('RHS thick_e'               ,p_os%p_diag%thick_e      ,str_module,idt_src)
   CALL dbg_print('RHS z_vn_ab'               ,z_vn_ab                  ,str_module,idt_src) 
   CALL dbg_print('RHS z_e'                   ,z_e                      ,str_module,idt_src)
-  CALL dbg_print('RHS div_z_depth_int_c' ,div_z_depth_int_c        ,str_module,idt_src)
+  CALL dbg_print('RHS div_z_depth_int_c'     ,div_z_depth_int_c        ,str_module,idt_src)
   idt_src=2  ! output print level (1-5, fix)
   CALL dbg_print('RHS final'                 ,p_os%p_aux%p_rhs_sfc_eq  ,str_module,idt_src)
   !---------------------------------------------------------------------
