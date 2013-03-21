@@ -106,7 +106,7 @@ MODULE mo_name_list_output
   &                                     l_output_phys_patch,     &
   &                                     max_bounds,              &
   &                                     max_levels,              &
-  &                                     vname_len,               &  
+  &                                     vname_len,               &
   &                                     t_output_name_list,      &
   &                                     first_output_name_list,  &
   &                                     t_output_file,           &
@@ -202,8 +202,8 @@ MODULE mo_name_list_output
     ! pointer to communication pattern for GATHER operation;
     ! corresponds to physical or logical patch, depending on
     ! "l_output_phys_patch"
-    TYPE(t_comm_pattern),  POINTER :: p_pat_c, p_pat_v, p_pat_e 
-    
+    TYPE(t_comm_pattern),  POINTER :: p_pat_c, p_pat_v, p_pat_e
+
     ! global number of points, corresponds to physical or logical
     ! patch, depending on "l_output_phys_patch"
     INTEGER :: nblks_glb_c, nblks_glb_v, nblks_glb_e
@@ -263,7 +263,7 @@ MODULE mo_name_list_output
   LOGICAL :: l_grid_info_from_file
 
   !------------------------------------------------------------------------------------------------
-  ! local copy of iadv_rcf, reducing dependencies and core specialities 
+  ! local copy of iadv_rcf, reducing dependencies and core specialities
   INTEGER :: i_sample
   !------------------------------------------------------------------------------------------------
 
@@ -294,14 +294,14 @@ MODULE mo_name_list_output
   INTEGER          , PARAMETER :: second_tos(2)    =(/101, 101/)
 
 CONTAINS
-  
+
   !------------------------------------------------------------------------------------------------
   !> Read configuration for namelist controlled output module.
   !
   !  The name is a bit strange, but if follows the convention to read
   !  namelists with a routine called read_XXX_namelist (plural is
   !  used here since several namelists are read).
-  ! 
+  !
   !  Please note the difference between name_list and namelist!
   !
   SUBROUTINE read_name_list_output_namelists( filename )
@@ -405,7 +405,7 @@ CONTAINS
       north_pole(:)      = (/ 0._wp, 90._wp /)
 
       !------------------------------------------------------------------
-      !  If this is a resumed integration, overwrite the defaults above 
+      !  If this is a resumed integration, overwrite the defaults above
       !  by values used in the previous integration.
       !  RJ: Disabled:
       !  The output_nml namelists need not be written to the restart files.
@@ -425,7 +425,7 @@ CONTAINS
         WRITE(message_text,'(a,i0)') 'Read error in namelist "output_nml", status = ', istat
         CALL finish(routine, message_text)
       ENDIF
-      
+
       nnamelists = nnamelists+1
       ! Check input
 
@@ -542,7 +542,7 @@ CONTAINS
         p_onl%il_varlist(i) = dict_get(varnames_dict, p_onl%il_varlist(i), &
           &                            default=p_onl%il_varlist(i))
       END DO
-      
+
       ! allow case-insensitive variable names:
       DO i=1,max_var_ml
         p_onl%ml_varlist(i) = tolower(p_onl%ml_varlist(i))
@@ -556,7 +556,7 @@ CONTAINS
       DO i=1,max_var_il
         p_onl%il_varlist(i) = tolower(p_onl%il_varlist(i))
       END DO
-      
+
       ! If "remap=1": lon-lat interpolation requested
       IF(remap/=REMAP_NONE .AND. remap/=REMAP_REGULAR_LATLON) &
         CALL finish(routine,'Unsupported value for remap')
@@ -572,7 +572,7 @@ CONTAINS
         IF(reg_lon_def(2)<=0._wp) CALL finish(routine,'Illegal LON increment')
         IF(reg_lat_def(2)==0._wp) CALL finish(routine,'Illegal LAT increment')
         IF(reg_lon_def(3)<=reg_lon_def(1)) CALL finish(routine,'end lon <= start lon')
-        
+
         lonlat%grid%lon_dim = INT( (reg_lon_def(3)-reg_lon_def(1))/reg_lon_def(2) ) + 1
         lonlat%grid%lat_dim = INT( (reg_lat_def(3)-reg_lat_def(1))/reg_lat_def(2) ) + 1
 
@@ -640,7 +640,7 @@ CONTAINS
     p_onl => first_output_name_list
     DO
       IF(.NOT.ASSOCIATED(p_onl)) EXIT
-      
+
       ! process i_typ=ml_varlist, pl_varlist, hl_varlist, il_varlist:
       DO i_typ = 1, 4
 
@@ -695,13 +695,13 @@ CONTAINS
         END DO
         nvars = nvars - 1
 
-        IF (i_typ == 1)  p_onl%ml_varlist(1:nvars) = varlist(1:nvars) 
+        IF (i_typ == 1)  p_onl%ml_varlist(1:nvars) = varlist(1:nvars)
         IF (i_typ == 2)  p_onl%pl_varlist(1:nvars) = varlist(1:nvars)
         IF (i_typ == 3)  p_onl%hl_varlist(1:nvars) = varlist(1:nvars)
         IF (i_typ == 4)  p_onl%il_varlist(1:nvars) = varlist(1:nvars)
       END DO ! i_typ = 1,4
       p_onl => p_onl%next
-      
+
     END DO ! p_onl
 
     DEALLOCATE(varlist, grp_vars, new_varlist, STAT=ierrstat)
@@ -726,7 +726,7 @@ CONTAINS
 
     ! local variables:
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::init_name_list_output"
-    
+
     LOGICAL                            :: l_print_list ! Flag. Enables  a list of all variables
     INTEGER                            :: i, j, nfiles, i_typ, nvl, vl_list(max_var_lists), jp
     INTEGER                            :: idom, ierrstat, jg, idom_log
@@ -861,10 +861,10 @@ CONTAINS
 
       ! Go over all output domains
       DO idom = 1, n_dom_out
-        
+
         ! logical domain ID
         idom_log = patch_info(idom)%log_patch_id
-        
+
         !-- collect domain data on working PE 0
         ! --cells
         ALLOCATE(lonv(nproma, p_patch(idom_log)%nblks_c, global_cell_type), &
@@ -880,7 +880,7 @@ CONTAINS
           &                    global_cell_type,                    &
           &                    patch_info(idom)%p_pat_c)
         DEALLOCATE(lonv, latv, STAT=ierrstat)
-        IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')        
+        IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
 
         !-- edges
         ALLOCATE(lonv(nproma, p_patch(idom_log)%nblks_e, 4), &
@@ -896,7 +896,7 @@ CONTAINS
           &                    4,                                   &
           &                    patch_info(idom)%p_pat_e)
         DEALLOCATE(lonv, latv, STAT=ierrstat)
-        IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')        
+        IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
 
         !-- verts
         ALLOCATE(lonv(nproma, p_patch(idom_log)%nblks_v, 9-global_cell_type), &
@@ -912,8 +912,8 @@ CONTAINS
           &                    9-global_cell_type,                  &
           &                    patch_info(idom)%p_pat_v)
         DEALLOCATE(lonv, latv, STAT=ierrstat)
-        IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')        
-        
+        IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
+
       END DO
     END IF
 
@@ -948,7 +948,7 @@ CONTAINS
 
     ! Set the number of domains in output and the patch reorder information
     CALL set_patch_info
-    
+
     ! Get the number of output files needed (by counting the domains per name list)
 
     p_onl => first_output_name_list
@@ -1094,7 +1094,7 @@ CONTAINS
     ENDDO
 
     ! Set ID of process doing I/O
-  
+
     DO i = 1, nfiles
       IF(use_async_name_list_io) THEN
         ! Asynchronous I/O
@@ -1141,7 +1141,7 @@ CONTAINS
       IF(varlist(ivar) == ' ') EXIT ! Last one reached
     ENDDO
 
-    ! Allocate a list of variable descriptors: 
+    ! Allocate a list of variable descriptors:
     p_of%max_vars = ivar-1
     p_of%num_vars = 0
     ALLOCATE(p_of%var_desc(p_of%max_vars))
@@ -1280,13 +1280,13 @@ CONTAINS
             ENDDO
           ENDIF
         ENDDO
-        
+
         CALL finish(routine,'Output name list variable not found: '//TRIM(varlist(ivar)))
       ENDIF
 
       ! append variable descriptor to list
       CALL add_var_desc(p_of, var_desc)
-      
+
     ENDDO ! ivar = 1,(ivar-1)
 
   END SUBROUTINE add_varlist_to_output_file
@@ -1404,7 +1404,7 @@ CONTAINS
       ALLOCATE(r_tmp_lon (nproma, nblks_loc), r_tmp_lat (nproma, nblks_loc), STAT=ierrstat)
     ENDIF
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
-    
+
     !-- part 1: exchange lon/lat coordinates:
     IF (.NOT. my_process_is_mpi_test()) THEN
       ! copy coordinates into sender array:
@@ -1414,7 +1414,7 @@ CONTAINS
           r_tmp_lat(jc,jb) = in_lonlat(jc,jb)%lat
         END DO
       END DO
-    
+
       ! gather data on work root
       IF(.NOT. my_process_is_mpi_seq()) THEN
         CALL exchange_data(p_pat, RECV=r_tmp_lon,  SEND=r_tmp_lon )
@@ -1425,7 +1425,7 @@ CONTAINS
         out_lonlat%lon(:)  = RESHAPE(r_tmp_lon(:,:), (/ nproma*nblks_glb /))
         out_lonlat%lat(:)  = RESHAPE(r_tmp_lat(:,:), (/ nproma*nblks_glb /))
       END IF
-          
+
       !-- part 2: exchange vertex lon/lat coordinates:
       DO idim=1,dim3
         ! copy coordinates into sender array:
@@ -1435,7 +1435,7 @@ CONTAINS
             r_tmp_lat(jc,jb) = latv(jc,jb,idim)
           END DO
         END DO
-          
+
         ! gather data on work root
         IF(.NOT. my_process_is_mpi_seq()) THEN
           CALL exchange_data(p_pat, RECV=r_tmp_lon,  SEND=r_tmp_lon )
@@ -1447,7 +1447,7 @@ CONTAINS
           out_lonlat%latv(idim,:) = RESHAPE(r_tmp_lat(:,:), (/ nproma*nblks_glb /))
         END IF
       END DO ! idim
-    
+
     ENDIF !  (.NOT. my_process_is_mpi_test())
 
     ! clean up
@@ -1507,7 +1507,7 @@ CONTAINS
         END DO
       END DO
     END DO
-    
+
   END SUBROUTINE cf_1_1_grid_cells
 
 
@@ -1600,7 +1600,7 @@ CONTAINS
         END IF
       END DO
     ENDDO
-    
+
   END SUBROUTINE cf_1_1_grid_edges
 
 
@@ -1621,7 +1621,7 @@ CONTAINS
     rl_end     = min_rlvert
     i_nchdom   = MAX(1,p_patch%n_childdom)
     i_startblk = p_patch%verts%start_blk(rl_start,1)
-    i_endblk   = p_patch%verts%end_blk(rl_end,i_nchdom)    
+    i_endblk   = p_patch%verts%end_blk(rl_end,i_nchdom)
 
     lonv(:,:,:) = 0.0_wp
     latv(:,:,:) = 0.0_wp
@@ -1809,7 +1809,7 @@ CONTAINS
     TYPE(t_reorder_info), INTENT(INOUT) :: p_ri ! Result: reorder info
 
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::set_reorder_info_lonlat"
-    INTEGER :: ierrstat, i, jc, jb, this_pe, mpierr, & 
+    INTEGER :: ierrstat, i, jc, jb, this_pe, mpierr, &
     &          ioffset, gidx
 
     ! Just for safety
@@ -1906,7 +1906,7 @@ CONTAINS
     TYPE(t_datetime)              :: ini_datetime
 
     IF (of%output_type == FILETYPE_GRB2) THEN
-      ! since the current CDI-version does not fully support "GRID_UNSTRUCTURED", the 
+      ! since the current CDI-version does not fully support "GRID_UNSTRUCTURED", the
       ! grid type is changed to "GRID_REFERENCE".
       gridtype = GRID_REFERENCE
     ELSE
@@ -1921,7 +1921,7 @@ CONTAINS
     !
     ! The following sections add the file global properties collected in init_name_list_output
     !
-    ! 1. create cdi vlist 
+    ! 1. create cdi vlist
     !
     of%cdiVlistID = vlistCreate()
 
@@ -2014,7 +2014,7 @@ CONTAINS
       ! works, but makes no sense, yet. Proper grid numbers still missing
       CALL gridDefNumber(of%cdiCellGridID, 42)
       !
-      ! not clear whether meta-info GRID_CELL or GRID_UNSTRUCTURED_CELL should be used    
+      ! not clear whether meta-info GRID_CELL or GRID_UNSTRUCTURED_CELL should be used
       CALL gridDefPosition(of%cdiCellGridID, GRID_CELL)
 
       ! Verts
@@ -2035,7 +2035,7 @@ CONTAINS
       ! works, but makes no sense, yet. Proper grid numbers still missing
       CALL gridDefNumber(of%cdiVertGridID, 42)
       !
-      ! not clear whether meta-info GRID_VERTEX or GRID_UNSTRUCTURED_VERTEX should be used  
+      ! not clear whether meta-info GRID_VERTEX or GRID_UNSTRUCTURED_VERTEX should be used
       CALL gridDefPosition(of%cdiVertGridID, GRID_VERTEX)
 
       ! Edges
@@ -2056,7 +2056,7 @@ CONTAINS
       ! works, but makes no sense, yet. Proper grid numbers still missing
       CALL gridDefNumber(of%cdiEdgeGridID, 42)
       !
-      ! not clear whether meta-info GRID_EDGE or GRID_UNSTRUCTURED_EDGE should be used  
+      ! not clear whether meta-info GRID_EDGE or GRID_UNSTRUCTURED_EDGE should be used
       CALL gridDefPosition(of%cdiEdgeGridID, GRID_EDGE)
 
       of%cdiLonLatGridID = CDI_UNDEFID
@@ -2071,13 +2071,13 @@ CONTAINS
           ELSE IF (.NOT. my_process_is_mpi_test()) THEN
             CALL set_grid_info_netcdf(of)
           END IF
-        CASE (FILETYPE_GRB2) 
+        CASE (FILETYPE_GRB2)
           ! handled later...
         CASE DEFAULT
           CALL finish(routine, "Unknown grid type")
         END SELECT
       END IF
-        
+
     ENDIF
 
     !
@@ -2094,13 +2094,13 @@ CONTAINS
     DEALLOCATE(levels)
 
     ! atm (pressure) height, ocean depth
-    IF (iequations/=ihs_ocean) THEN ! atm 
+    IF (iequations/=ihs_ocean) THEN ! atm
 
       nlev   = num_lev(of%log_patch_id)
       nlevp1 = num_levp1(of%log_patch_id)
-      ! introduce temporary variable znlev_soil, since global variable nlev_soil 
-      ! is unknown to the I/O-Processor. Otherwise receive_patch_configuration in 
-      ! mo_io_async complains about mismatch of levels. 
+      ! introduce temporary variable znlev_soil, since global variable nlev_soil
+      ! is unknown to the I/O-Processor. Otherwise receive_patch_configuration in
+      ! mo_io_async complains about mismatch of levels.
       znlev_soil = SIZE(zml_soil)
 
       ! HYBRID_LAYER
@@ -2333,7 +2333,7 @@ CONTAINS
 
 
     !
-    ! 5. output does contain absolute time 
+    ! 5. output does contain absolute time
     !
     SELECT CASE (of%name_list%mode)
     CASE (1)  ! forecast mode
@@ -2348,9 +2348,9 @@ CONTAINS
      ini_datetime = time_config%ini_datetime
      CALL taxisDefCalendar (of%cdiTaxisID, time_config%calendar)
      idate = cdiEncodeDate(ini_datetime%year, ini_datetime%month, ini_datetime%day)
-     itime = cdiEncodeTime(ini_datetime%hour, ini_datetime%minute, & 
+     itime = cdiEncodeTime(ini_datetime%hour, ini_datetime%minute, &
                            NINT(ini_datetime%second))
-     !WRITE(6,'(a,i,a)')'calendar ', time_config%calendar, & 
+     !WRITE(6,'(a,i,a)')'calendar ', time_config%calendar, &
      !                & 'julian_gregorian 0 -  proleptic_gregorian 1 -  cly360 2'
      CALL taxisDefRdate (of%cdiTaxisID, idate )
      CALL taxisDefRtime (of%cdiTaxisID, itime )
@@ -2362,7 +2362,7 @@ CONTAINS
     CASE DEFAULT
      of%cdiTaxisID = taxisCreate(TAXIS_ABSOLUTE)
     END SELECT
-     
+
     !
     CALL vlistDefTaxis(of%cdiVlistID, of%cdiTaxisID)
 
@@ -2454,14 +2454,14 @@ CONTAINS
           CALL vlistDefVarDatatype(vlistID,  of%cdi_grb2(idx(igrid),i), grid_coord_grib2(i)%bits)
           CALL vlistDefVarTsteptype(vlistID, of%cdi_grb2(idx(igrid),i), TSTEP_CONSTANT)
           CALL vlistDefVarName(vlistID,      of%cdi_grb2(idx(igrid),i), TRIM(grid_coord_name(i)))
-          
+
           ! Set GRIB2 Triplet
           CALL vlistDefVarParam( vlistID, of%cdi_grb2(idx(igrid),i),  &
             &  cdiEncodeParam(grid_coord_grib2(i)%number,             &
             &                 grid_coord_grib2(i)%category,           &
             &                 grid_coord_grib2(i)%discipline) )
 
-          ! GRIB2 Quick hack: Set additional GRIB2 keys      
+          ! GRIB2 Quick hack: Set additional GRIB2 keys
           CALL set_additional_GRIB2_keys(vlistID, of%cdi_grb2(idx(igrid),i), &
             &                            gribout_config(of%phys_patch_id),   &
             &                            0, of%name_list%namespace)
@@ -2481,7 +2481,7 @@ CONTAINS
           &                 grid_coord_grib2(i)%category,          &
           &                 grid_coord_grib2(i)%discipline) )
 
-        ! GRIB2 Quick hack: Set additional GRIB2 keys      
+        ! GRIB2 Quick hack: Set additional GRIB2 keys
         CALL set_additional_GRIB2_keys(vlistID, of%cdi_grb2(ILATLON,i), &
           &                            gribout_config(of%phys_patch_id), &
           &                            0, of%name_list%namespace)
@@ -2631,7 +2631,7 @@ CONTAINS
     CASE (6)
       CALL nf(nf_inq_varid(ncid, 'vlon', varid))
     END SELECT
-    
+
     ALLOCATE(clon(i_nc))
     CALL nf(nf_get_var_double(ncid, varid, clon))
     CALL reorder1(patch_info(i_dom)%cells%n_glb, patch_info(i_dom)%cells%log_dom_index, clon)
@@ -2645,14 +2645,14 @@ CONTAINS
     CASE (6)
       CALL nf(nf_inq_varid(ncid, 'vlat', varid))
     END SELECT
-    
+
     ALLOCATE(clat(i_nc))
     CALL nf(nf_get_var_double(ncid, varid, clat))
     CALL reorder1(patch_info(i_dom)%cells%n_glb, patch_info(i_dom)%cells%log_dom_index, clat)
 
     CALL gridDefYvals(of%cdiCellGridID, clat)
     DEALLOCATE(clat)
-    
+
 
     SELECT CASE (global_cell_type)
     CASE (3)
@@ -2660,7 +2660,7 @@ CONTAINS
     CASE (6)
       CALL nf(nf_inq_varid(ncid, 'vlon_vertices', varid))
     END SELECT
-    
+
     ALLOCATE(clonv(global_cell_type, i_nc))
     CALL nf(nf_get_var_double(ncid, varid, clonv))
     CALL reorder2(patch_info(i_dom)%cells%n_glb, patch_info(i_dom)%cells%log_dom_index, clonv)
@@ -2822,9 +2822,9 @@ CONTAINS
   ! GRIB2 Quick hack
   ! ----------------
   !
-  ! Set additional GRIB2 keys. These are added to each single variable, even though 
+  ! Set additional GRIB2 keys. These are added to each single variable, even though
   ! adding it to the vertical or horizontal grid description may be more elegant.
-  ! 
+  !
   SUBROUTINE set_additional_GRIB2_keys(vlistID, varID, grib_conf, tileidx, namespace)
     INTEGER,                INTENT(IN) :: vlistID, varID
     TYPE(t_gribout_config), INTENT(IN) :: grib_conf
@@ -2848,7 +2848,7 @@ CONTAINS
       month = 1
       year  = 1
       hour  = 1
-      minute= 1 
+      minute= 1
     ENDIF
 
     ! Load correct tables ans activate section 2
@@ -2948,7 +2948,7 @@ CONTAINS
       ! Search name mapping for name in NetCDF file
       mapped_name = TRIM(dict_get(out_varnames_dict, info%name, default=info%name))
 
-      ! note that an explicit call of vlistDefVarTsteptype is obsolete, since 
+      ! note that an explicit call of vlistDefVarTsteptype is obsolete, since
       ! isteptype is already defined via vlistDefVar
       varID = vlistDefVar(vlistID, gridID, zaxisID, info%isteptype)
       info%cdiVarID   = varID
@@ -2984,7 +2984,7 @@ CONTAINS
           CALL vlistDefVarDatatype(vlistID, varID, info%grib2%bits)
         END IF
       END IF
-      
+
       IF ( of%output_type == FILETYPE_GRB2 ) THEN
         ! For HHL/z_ifc, HSURF/topography_c set "typeOfSecondFixedSurface = 101 (mean sea level)"
         ! that is, a Fortran equivalent of:
@@ -2995,25 +2995,25 @@ CONTAINS
         ! CLCL    : typeOfSecondFixedSurface = 1
         IF ( get_id(TRIM(info%name)) /= -1 ) THEN
           CALL vlistDefVarIntKey(vlistID, varID, "typeOfSecondFixedSurface", &
-            &                    second_tos(get_id(TRIM(info%name)))) 
+            &                    second_tos(get_id(TRIM(info%name))))
         ENDIF
 
         ! Quick hack: shortName.def should be revised, instead
         IF ( TRIM(info%name)=='qv_s' ) THEN
-          CALL vlistDefVarIntKey(vlistID, varID, "scaleFactorOfFirstFixedSurface", 0) 
-        ENDIF        
+          CALL vlistDefVarIntKey(vlistID, varID, "scaleFactorOfFirstFixedSurface", 0)
+        ENDIF
 
       ELSE ! NetCDF
         CALL vlistDefVarDatatype(vlistID, varID, this_cf%datatype)
       ENDIF
 
-      ! GRIB2 Quick hack: Set additional GRIB2 keys      
+      ! GRIB2 Quick hack: Set additional GRIB2 keys
       CALL set_additional_GRIB2_keys(vlistID, varID, gribout_config(of%phys_patch_id), &
         &                            get_var_tileidx(TRIM(info%name)), of%name_list%namespace)
 
       !!!!!!! OBSOLETE !!!!!!!!
       !Set typeOfStatisticalProcessing
-      !Note: instead of calling vlistDefVarTsteptype, one should probably replace 
+      !Note: instead of calling vlistDefVarTsteptype, one should probably replace
       !info%cdiTimeID in the call of vlistDefVar by info%isteptype
       !CALL vlistDefVarTsteptype(vlistID, varID, info%isteptype)
 
@@ -3025,11 +3025,11 @@ CONTAINS
 
   !------------------------------------------------------------------------------------------------
   !> FUNCTION get_id:
-  !  Search for name in String-Array sfs_name_list containing all variables for which 
-  !  typeOfSecondFixedSurface must be re-set. Returns variable-ID which is used to determine 
-  !  the proper typeOfSecondFixedSurface from second_tos. 
+  !  Search for name in String-Array sfs_name_list containing all variables for which
+  !  typeOfSecondFixedSurface must be re-set. Returns variable-ID which is used to determine
+  !  the proper typeOfSecondFixedSurface from second_tos.
   !  If no match is found, get_id is set to -1.
-  ! 
+  !
   !
   FUNCTION get_id(in_str)
     INTEGER                      :: get_id, iname
@@ -3042,7 +3042,7 @@ CONTAINS
         get_id = iname
         EXIT LOOP_GROUPS
       END IF
-    END DO LOOP_GROUPS 
+    END DO LOOP_GROUPS
   END FUNCTION get_id
 
 
@@ -3072,7 +3072,7 @@ CONTAINS
     !
     ! check output file type
     !
-    SELECT CASE (of%output_type)       
+    SELECT CASE (of%output_type)
     CASE (FILETYPE_NC)
       CALL finish(routine,'netCDF classic not supported')
     CASE (FILETYPE_NC2, FILETYPE_NC4)
@@ -3196,9 +3196,9 @@ CONTAINS
   !  starts reading its input data. Implicity, this assumes that a
   !  file system creates (and closes) files in the same order as they
   !  are written by the program.
-  ! 
+  !
   !  Implementation of "ready files" in ICON:
-  ! 
+  !
   !   "Ready files" get the name of the corresponding output file,
   !   with extension ".rdy".
   !
@@ -3242,7 +3242,7 @@ CONTAINS
         & (of%name_list%filetype == FILETYPE_GRB2)) THEN
         CALL write_grid_info_grb2(of)
       END IF
-      
+
       CALL streamClose(of%cdiFileID)
 
       ! write a "ready file", if required:
@@ -3455,7 +3455,7 @@ CONTAINS
     DO i = 1, SIZE(output_file)
       IF (sim_time > output_file(i)%end_time) CALL close_output_file(output_file(i))
     ENDDO
-    
+
     IF (ltimer) CALL timer_stop(timer_write_output)
 
   END SUBROUTINE write_name_list_output
@@ -3463,7 +3463,7 @@ CONTAINS
 
   !------------------------------------------------------------------------------------------------
   !> Write a output name list
-  ! 
+  !
   SUBROUTINE write_name_list(of, l_first_write)
 
 #ifndef NOMPI
@@ -3543,7 +3543,7 @@ CONTAINS
         IF(tl<=0 .OR. tl>max_time_levels) &
           CALL finish(routine, 'Illegal time level in nnow()/nnow_rcf()')
         ! Check if present
-        IF (.NOT. ASSOCIATED(of%var_desc(iv)%tlev_rptr(tl)%p)   .AND.   &  
+        IF (.NOT. ASSOCIATED(of%var_desc(iv)%tlev_rptr(tl)%p)   .AND.   &
           & .NOT. ASSOCIATED(of%var_desc(iv)%tlev_iptr(tl)%p)) THEN
           CALL finish(routine,'Actual timelevel not in '//TRIM(info%name))
         END IF
@@ -3552,8 +3552,8 @@ CONTAINS
         ! be a valid array subscript):
         tl = 1
       ENDIF
-      
-      IF (info%lcontained) THEN 
+
+      IF (info%lcontained) THEN
         nindex = info%ncontained
       ELSE
         nindex = 1
@@ -3615,9 +3615,9 @@ CONTAINS
       CASE (5)
         CALL message(routine, info%name)
         CALL finish(routine,'5d arrays not handled yet.')
-      CASE DEFAULT 
+      CASE DEFAULT
         CALL message(routine, info%name)
-        CALL finish(routine,'dimension not set.')        
+        CALL finish(routine,'dimension not set.')
       END SELECT
 
       ! --------------------------------------------------------
@@ -3820,7 +3820,7 @@ CONTAINS
         ! ------------------------
         ! Asynchronous I/O is used
         ! ------------------------
-        ! 
+        !
         ! just copy the OWN DATA points to the memory window
 
         DO jk = 1, nlevs
@@ -3940,7 +3940,7 @@ CONTAINS
     END DO
 
     ! Initialize name list output, this is a collective call for all PEs
-    
+
     CALL init_name_list_output(isample=isample)
 
     ! Tell the compute PEs that we are ready to work
@@ -3956,7 +3956,7 @@ CONTAINS
     ! Enter I/O loop
 
     DO
-      
+
       ! Wait for a message from the compute PEs to start
       CALL async_io_wait_for_start(done, datetime, sim_time, last_step)
 
@@ -4206,7 +4206,7 @@ CONTAINS
         dim_e =                  4
         dim_v = 9-global_cell_type
 
-        IF(my_process_is_io()) THEN    
+        IF(my_process_is_io()) THEN
           ALLOCATE(patch_info(idom)%grid_c%lon(nproma*patch_info(idom)%nblks_glb_c),  &
             &      patch_info(idom)%grid_c%lat(nproma*patch_info(idom)%nblks_glb_c),  &
             &      patch_info(idom)%grid_c%lonv(nproma*patch_info(idom)%nblks_glb_c, dim_c), &
@@ -4595,7 +4595,7 @@ CONTAINS
         ALLOCATE(var3_dp(p_ri%n_glb,nlevs), STAT=ierrstat) ! Must be allocated to exact size
       ENDIF
       IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
- 
+
       DO jk = 1, nlevs
         nv_off = 0
         DO np = 0, num_work_procs-1
@@ -4648,7 +4648,7 @@ CONTAINS
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
 
     CALL date_and_time(TIME=ctime)
-    print '(a,i0,a)','#################### I/O PE ',p_pe,' done at '//ctime
+    WRITE(0, '(a,i0,a)') '#################### I/O PE ',p_pe,' done at '//ctime
     ! Convert mb_get/mb_wr to MB
     mb_get = mb_get*8*1.d-6
     mb_wr  = mb_wr*4*1.d-6 ! 4 byte since dp output is implicitly converted to sp
