@@ -531,13 +531,15 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
                 &    hor_intp_type=HINTP_TYPE_LONLAT_NNB ) )
 
    ! &      diag%tot_cld_vi(nproma,nblks_c,4)
-    cf_desc    = t_cf_var('tot_cld_vi', 'unit ','vertical integr total cloud variables', &
-         &                DATATYPE_FLT32)
-    grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+    cf_desc     = t_cf_var('tot_cld_vi', 'unit ','vertical integr total cloud variables', DATATYPE_FLT32)
+    new_cf_desc = t_cf_var('tot_cld_vi', '% ',   'vertical integr total cloud variables', DATATYPE_FLT32)
+    grib2_desc   = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, 'tot_cld_vi', diag%tot_cld_vi,                   &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
                 &                                 ldims=(/nproma,kblks,4/),   &
-                  & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
+                & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.,       &
+                & post_op=post_op(POST_OP_SCALE, arg1=100._wp,                &
+                &                 new_cf=new_cf_desc) )
 
     ! fill the seperate variables belonging to the container tot_cld_vi
     ALLOCATE( diag%tci_ptr(kcloud))
@@ -718,28 +720,37 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
           & ldims=shape3d, lrestart=.FALSE. )
 
         ! &      diag%clch(nproma,nblks_c)
-        cf_desc    = t_cf_var('clch', '', 'high_level_clouds', DATATYPE_FLT32)
-        grib2_desc = t_grib2_var(0, 6, 22, ibits, GRID_REFERENCE, GRID_CELL)
+        cf_desc      = t_cf_var('clch', '', 'high_level_clouds',  DATATYPE_FLT32)
+        new_cf_desc  = t_cf_var('clch', '%', 'high_level_clouds', DATATYPE_FLT32)
+        grib2_desc   = t_grib2_var(0, 6, 22, ibits, GRID_REFERENCE, GRID_CELL)
         CALL add_var( diag_list, 'clch', diag%clch,                               &
           & GRID_UNSTRUCTURED_CELL, ZA_PRESSURE_0, cf_desc, grib2_desc,           &
           & ldims=shape2d, lrestart=.FALSE.,                                      &
-          & hor_interp=create_hor_interp_metadata(hor_intp_type=HINTP_TYPE_LONLAT_NNB ))
+          & hor_interp=create_hor_interp_metadata(hor_intp_type=HINTP_TYPE_LONLAT_NNB ), &
+          & post_op=post_op(POST_OP_SCALE, arg1=100._wp,                          &
+          &                 new_cf=new_cf_desc))
 
         ! &      diag%clcm(nproma,nblks_c)
-        cf_desc    = t_cf_var('clcm', '', 'mid_level_clouds', DATATYPE_FLT32)
-        grib2_desc = t_grib2_var(0, 6, 22, ibits, GRID_REFERENCE, GRID_CELL)
+        cf_desc      = t_cf_var('clcm', '',  'mid_level_clouds', DATATYPE_FLT32)
+        new_cf_desc  = t_cf_var('clcm', '%', 'mid_level_clouds', DATATYPE_FLT32)
+        grib2_desc   = t_grib2_var(0, 6, 22, ibits, GRID_REFERENCE, GRID_CELL)
         CALL add_var( diag_list, 'clcm', diag%clcm,                               &
           & GRID_UNSTRUCTURED_CELL, ZA_PRESSURE_400, cf_desc, grib2_desc,         &
           & ldims=shape2d, lrestart=.FALSE.,                                      &
-          & hor_interp=create_hor_interp_metadata(hor_intp_type=HINTP_TYPE_LONLAT_NNB ))
+          & hor_interp=create_hor_interp_metadata(hor_intp_type=HINTP_TYPE_LONLAT_NNB ), &
+          & post_op=post_op(POST_OP_SCALE, arg1=100._wp,                          &
+          &                 new_cf=new_cf_desc))
 
         ! &      diag%clcl(nproma,nblks_c)
-        cf_desc    = t_cf_var('clcl', '', 'low_level_clouds', DATATYPE_FLT32)
-        grib2_desc = t_grib2_var(0, 6, 22, ibits, GRID_REFERENCE, GRID_CELL)
+        cf_desc      = t_cf_var('clcl', '',  'low_level_clouds', DATATYPE_FLT32)
+        new_cf_desc  = t_cf_var('clcl', '%', 'low_level_clouds', DATATYPE_FLT32)
+        grib2_desc   = t_grib2_var(0, 6, 22, ibits, GRID_REFERENCE, GRID_CELL)
         CALL add_var( diag_list, 'clcl', diag%clcl,                               &
           & GRID_UNSTRUCTURED_CELL, ZA_PRESSURE_800, cf_desc, grib2_desc,         &
           & ldims=shape2d, lrestart=.FALSE.,                                      &
-          & hor_interp=create_hor_interp_metadata(hor_intp_type=HINTP_TYPE_LONLAT_NNB ))
+          & hor_interp=create_hor_interp_metadata(hor_intp_type=HINTP_TYPE_LONLAT_NNB ), &
+          & post_op=post_op(POST_OP_SCALE, arg1=100._wp,                          &
+          &                 new_cf=new_cf_desc))
 
         ! &      diag%hbas_con(nproma,nblks_c)
         cf_desc    = t_cf_var('hbas_con', '', 'height_of_convective_cloud_base', DATATYPE_FLT32)
