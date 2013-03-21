@@ -402,6 +402,8 @@ REAL (KIND=ireals) :: &
 !   z2d3=z2/z3,&
     z3d2=z3/z2
 
+REAL (KIND=ireals), PARAMETER :: ustmin = 1.e-8_ireals
+
 INTEGER (KIND=iintegers) :: &
     istat=0, ilocstat=0
 
@@ -1520,7 +1522,7 @@ REAL (KIND=ireals) :: &
 
                   tke(i,ke,nvor)=q0
 
-                  wert=lm*q0*SQRT(fm2)
+                  wert=MAX(ustmin,lm*q0*SQRT(fm2))
 !hf               gz0(i)=MAX( grav*len_min, alpha0*wert )
                   gz0(i)=MAX( grav*len_min, &
                                 alpha0*wert+alpha1*grav*con_m/SQRT(wert) )
@@ -1876,7 +1878,7 @@ REAL (KIND=ireals) :: &
                   gz0(i)=grav*z0_ice
                ELSE
                   velh=(tke(i,ke1,ntur)+tke(i,ke,ntur))*z1d2
-                  wert=tcm(i)*vel_2d(i)*SQRT(vel_2d(i)**2+velh**2)
+                  wert=MAX(ustmin,tcm(i)*vel_2d(i)*SQRT(vel_2d(i)**2+velh**2))
 !hf               gz0(i)=MAX( grav*len_min, alpha0*wert )
                   gz0(i)=MAX( grav*len_min, alpha0*wert+grav*alpha1*con_m/SQRT(wert) )
                END IF
@@ -3581,7 +3583,7 @@ REAL (KIND=ireals) :: &
 
                   q0=MAX( vel_min, SQRT(d_m*l_turb*wert) )
 
-                  wert=lm*q0*SQRT(fm2) 
+                  wert=MAX(ustmin,lm*q0*SQRT(fm2))
                   gz0(i)=MAX( grav*len_min, alpha0*wert+alpha1*grav*con_m/SQRT(wert) )
                END IF
             END IF   
@@ -4422,7 +4424,7 @@ REAL (KIND=ireals) :: &
                ELSE
 !                 Berechnung der Schubspannung:
 
-                  wert=tcm(i)*vh0(i)*SQRT(vh0(i)**2+tke(i,ke1,ntur)**2)
+                  wert=MAX(ustmin,tcm(i)*vh0(i)*SQRT(vh0(i)**2+tke(i,ke1,ntur)**2))
                   
 !                 grav*z0 mittels Charnock-Formel: 
 
