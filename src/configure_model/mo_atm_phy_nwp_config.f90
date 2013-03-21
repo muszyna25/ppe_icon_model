@@ -47,6 +47,7 @@ MODULE mo_atm_phy_nwp_config
     &                               itrad, itradheat, itsso, itgscp, itsatad,  &
     &                               itupdate, itturb, itsfc, itgwd, itfastphy, &
     &                               iphysproc, iphysproc_short
+  USE mo_math_constants,      ONLY: dbl_eps
   USE mo_exception,           ONLY: message, message_text !, finish
 
   USE mo_icoham_sfc_indices,  ONLY: init_sfc_indices
@@ -247,7 +248,7 @@ SUBROUTINE configure_atm_phy_nwp( n_dom, pat_level, ltestcase, dtime_adv )
     !
     ! DR: a clean implementation would require to put the following lines into 
     ! a jg-loop.
-    IF( MOD( dtime_adv,atm_phy_nwp_config(1)%dt_conv) /= 0._wp )  THEN
+    IF( MOD( dtime_adv,atm_phy_nwp_config(1)%dt_conv) > 10._wp*dbl_eps )  THEN
       WRITE(message_text,'(a,2F9.1)') &
         &'WARNING: convective and advective timesteps not synchronized: ', &
         & dt_phy(1,itconv), dtime_adv
