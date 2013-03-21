@@ -1,0 +1,173 @@
+\chapter{Available output fields in GRIB2-format}
+
+% shifting table captions...
+\newcommand{\rb}[1]{\raisebox{4.0ex}[0pt]{#1}}
+
+In GRIB2, a variable is uniquely defined by the following set of metadata:
+\begin{itemize}
+ \item \emph{Discipline} (see GRIB2 code table 4.2)
+ \item \emph{ParameterCategory} (see GRIB2 code table 4.2)
+ \item \emph{ParameterNumber} (see GRIB2 code table 4.2)
+ \item \emph{typeOfFirstfixedSurface} and \emph{typeOfSecondFixedSurface} (see GRIB2 code table 4.5)
+ \item \emph{stepType} (instant, accum, avg, max, min, diff, rms, sd, cov, \dots)
+\end{itemize}
+In the following, \emph{typeOfFirstFixedSurface} and \emph{typeOfSecondFixedSurface} will be abbreviated by \emph{Lev-Typ 1/2}.
+
+\section{Output fields which are no longer available}
+With the launch of ICON, the following output fields will no longer be available:
+
+\begin{itemize}
+ \item \textbf{OMEGA} [Pa/s]: Verical velocity in pressure coordinates $\omega=\frac{\mathrm{d}p}{\mathrm{d}t}$
+ \item \textbf{BAS\_CON} [\textendash]: Level index of convective cloud base
+ \item \textbf{TOP\_CON} [\textendash]: Level index of convective cloud top
+ \item \textbf{T\_S} [K]: Temperature at soil-atmosphere-, or soil-snow-interface. Note that $\mathrm{T\_S} = \mathrm{T\_SO(0)}$, thus $\mathrm{T\_S}$ is redundant.
+ \item \textbf{W\_G1} [mm H2O]: Soil water content in upper layer ($0$ to $10\,\mathrm{cm}$) 
+ \item \textbf{W\_G2} [mm H2O]: Soil water content in middle layer ($10$ to $100\,\mathrm{cm}$)
+\end{itemize}
+
+
+\section{New output fields}
+New output fields that will become available with the launch of ICON are:
+\begin{itemize}
+ \item \textbf{W} $[m/s]$: vertical velocity in height coordinates $w=\frac{\mathrm{d}z}{\mathrm{d}t}$
+ \item \textbf{DEN} $[kg/m^{3}]$: density of moist air
+\end{itemize}
+
+
+\section{Available output fields listed in tabular form}
+
+\begin{table}[H]
+\caption{Hybrid multi-layer forecast ($VV>0$) and initialized analysis ($VV=0$) products}
+ \begin{tabular}{p{2.0cm}p{5.0cm}p{0.8cm}p{0.8cm}p{0.8cm}p{0.9cm}p{1cm}p{1cm}}
+  \toprule
+\multicolumn{1}{c}{\begin{sideways}\textbf{ShortName}\end{sideways}}    &      \multicolumn{1}{c}{\rb{\textbf{Description}}}    & \begin{sideways}\textbf{Discipline}\end{sideways} & \begin{sideways}\bf{Category}\end{sideways} & \begin{sideways}\bf{Number}\end{sideways}  & \begin{sideways}\bf{Lev-Typ}\end{sideways}  & \begin{sideways}\bf{stepType}\end{sideways} &\begin{sideways}\bf{Unit}\end{sideways}\\
+\midrule
+U                          &  Zonal wind                       &               0                                   &                     2                       &                    2                       &                 105                         &                      inst                   &        $\mathrm{m\,s^{-1}}$   \\ 
+V                          &  Meridional wind                  &               0                                   &                     2                       &                    3                       &                 105                         &                      inst                   &        $\mathrm{m\,s^{-1}}$   \\
+W                          &  Vertical wind                    &               0                                   &                     2                       &                    9                       &                 105                         &                      inst                   &        $\mathrm{m\,s^{-1}}$   \\
+T                          &  Temperature                      &               0                                   &                     0                       &                    0                       &                 105                         &                      inst                   &        $\mathrm{K}$          \\
+DEN                        &  Density of moist air             &               0                                   &                     3                       &                    10                      &                 105                         &                      inst                   &        $\mathrm{kg\,m^{-3}}$ \\
+QV                         &  Specific humidity                &               0                                   &                     1                       &                    0                       &                 105                         &                      inst                   &        $\mathrm{kg\,kg^{-1}}$ \\
+QC                         &  \textcolor{red}{Cloud mixing ratio}\footnotemark[1]&             0                   &                     1                       &                    22                      &                 105                         &                      inst                   &        $\mathrm{kg\,kg^{-1}}$ \\
+QI                         &  \textcolor{red}{Cloud ice mixing ratio}\footnotemark[1]&         0                   &                     1                       &                    82                      &                 105                         &                      inst                   &        $\mathrm{kg\,kg^{-1}}$ \\
+QR                         &  \textcolor{red}{Rain mixing ratio}\footnotemark[1]&              0                   &                     1                       &                    24                      &                 105                         &                      inst                   &        $\mathrm{kg\,kg^{-1}}$ \\
+QS                         &  \textcolor{red}{Snow mixing ratio}\footnotemark[1]&              0                   &                     1                       &                    25                      &                 105                         &                      inst                   &        $\mathrm{kg\,kg^{-1}}$ \\
+CLC                        &  Cloud cover                       &              0                                   &                     6                       &                    22                      &                 105                         &                      inst                   &        $\mathrm{\%}$ \\
+\textcolor{gray}{O3}       &  \textcolor{gray}{Ozone mixing ratio}\footnotemark[2] &              \textcolor{gray}{0}              &        \textcolor{gray}{14}                 &      \textcolor{gray}{1}                   &     \textcolor{gray}{105}                   &     \textcolor{gray}{inst}                  &        \textcolor{gray}{$\mathrm{kg\,kg^{-1}}$} \\                                             
+  \bottomrule
+ \end{tabular}
+\end{table}
+\footnotetext[1]{for the time being, eronneously encoded as mixing ratios instead of specific quantities}
+\footnotetext[2]{not clear yet, whether ozone will be provided as output field}
+
+
+
+\begin{longtable}{p{2.0cm}p{5.0cm}p{0.8cm}p{0.8cm}p{0.8cm}p{0.9cm}p{1cm}p{1cm}}
+\caption[]{Single-layer forecast ($VV>0$) and initialized analysis ($VV=0$) products}\\
+  \toprule
+\multicolumn{1}{c}{\begin{sideways}\textbf{ShortName}\end{sideways}}  &  \multicolumn{1}{c}{\rb{\textbf{Description}}}  & \begin{sideways}\textbf{Discipline}\end{sideways} & \begin{sideways}\bf{Category}\end{sideways} & \begin{sideways}\bf{Number}\end{sideways}  & \begin{sideways}\bf{Lev-Typ}\end{sideways}  & \begin{sideways}\bf{stepType}\end{sideways} &\begin{sideways}\bf{Unit}\end{sideways}\\
+\midrule
+\endfirsthead
+\caption[]{\emph{continued}}\\
+\midrule
+\endhead
+\hline \multicolumn{8}{r}{\textit{Continued on next page}} \\
+\endfoot
+\endlastfoot
+PS                             &  Surface pressure (not reduced)                                                        &               0                                   &                     3                       &                    1                       &                 1                           &                      inst                   &        $\mathrm{Pa}$   \\ 
+T\_SNOW                        &  Temperature of the snow surface                                                       &               0                                   &                     0                       &                    18                      &                 1                           &                      inst                   &        $\mathrm{K}$    \\
+T\_G                           &  Ground temperature (temperature at sfc-atm interface)                                 &               0                                   &                     0                       &                    0                       &                 1                           &                      inst                   &        $\mathrm{K}$    \\
+QV\_S                          &  Surface specific humidity                                                             &               0                                   &                     1                       &                    0                       &                 1                           &                      inst                   &        $\mathrm{kg\,kg^{-1}}$    \\
+W\_SNOW                        &  Snow depth water equivalent                                                           &               0                                   &                     1                       &                    60                      &                 1                           &                      inst                   &        $\mathrm{kg\,m^{-2}}$    \\
+W\_I                           &  Plant canopy surface water                                                            &               2                                   &                     0                       &                    13                      &                 1                           &                      inst                   &        $\mathrm{kg\,m^{-2}}$    \\
+TCM                            &  Turbulent transfer coefficient for momentum (surface)                                 &               0                                   &                     2                       &                    29                      &                 1                           &                      inst                   &        $\mathrm{--}$    \\ 
+TCH                            &  Turbulent transfer coefficient for heat and moisture (surface)                        &               0                                   &                     0                       &                    19                      &                 1                           &                      inst                   &        $\mathrm{--}$    \\
+ASOB\_S                        &  Net short-wave radiation flux at surface (average since model start)                  &               0                                   &                     4                       &                     9                      &                 1                           &                      avg                    &        $\mathrm{W\,m^{-2}}$    \\
+ATHB\_S                        &  Net long-wave radiation flux at surface (average since model start)                   &               0                                   &                     5                       &                     5                      &                 1                           &                      avg                    &        $\mathrm{W\,m^{-2}}$    \\
+ASOB\_T                        &  Net short-wave radiation flux at TOA (average since model start)                      &               0                                   &                     4                       &                     9                      &                 8                           &                      avg                    &        $\mathrm{W\,m^{-2}}$    \\
+ATHB\_T                        &  Net long-wave radiation flux at TOA (average since model start)                       &               0                                   &                     5                       &                     5                      &                 8                           &                      avg                    &        $\mathrm{W\,m^{-2}}$    \\ 
+ALB\_RAD                       &  Surface albedo for visible range, diffuse                                             &               0                                   &                    19                       &                     1                      &                 1                           &                      inst                   &        $\mathrm{\%}$    \\
+RAIN\_GSP                      &  Large scale rain (accumulated since model start)                                      &               0                                   &                     1                       &                    77                      &                 1                           &                      accu                   &        $\mathrm{kg\,m^{-2}}$    \\
+SNOW\_GSP                      &  Large snowfall water equivalent (accumulated since model start)                       &               0                                   &                     1                       &                    56                      &                 1                           &                      accu                   &        $\mathrm{kg\,m^{-2}}$    \\
+RAIN\_CON                      &  Convective rain (accumulated since model start)                                       &               0                                   &                     1                       &                    76                      &                 1                           &                      accu                   &        $\mathrm{kg\,m^{-2}}$    \\
+SNOW\_CON                      &  Convective snowfall water equivalent (accumulated since model start)                  &               0                                   &                     1                       &                    55                      &                 1                           &                      accu                   &        $\mathrm{kg\,m^{-2}}$    \\
+TOT\_PREC                      &  Total precipitation (accumulated since model start)                                   &               0                                   &                     1                       &                    52                      &                 1                           &                      accu                   &        $\mathrm{kg\,m^{-2}}$  \\
+\textcolor{gray}{RUNOFF\_S}    &  \textcolor{gray}{Surface water runoff (accumulated since model start)}\footnotemark[3]&               \textcolor{gray}{2}                 &                     \textcolor{gray}{0}     &                     \textcolor{gray}{5}    &                 \textcolor{gray}{1}         &                      \textcolor{gray}{accu} &        \textcolor{gray}{$\mathrm{kg\,m^{-2}}$}  \\
+\textcolor{gray}{RUNOFF\_G}    &  \textcolor{gray}{Soil water runoff (accumulated since model start)}\footnotemark[3]   &               \textcolor{gray}{2}                 &                     \textcolor{gray}{0}     &                     \textcolor{gray}{5}    &                 \textcolor{gray}{1}         &                      \textcolor{gray}{accu} &        \textcolor{gray}{$\mathrm{kg\,m^{-2}}$}  \\                                      
+U\_10M                         &  Zonal wind at 10m above ground                                                        &               0                                   &                     2                       &                     2                      &               103                           &                      inst                   &        $\mathrm{m\,s^{-1}}$  \\
+V\_10M                         &  Meridional wind at 10m above ground                                                   &               0                                   &                     2                       &                     3                      &               103                           &                      inst                   &        $\mathrm{m\,s^{-1}}$  \\
+T\_2M                          &  Temperature at 2m above ground                                                        &               0                                   &                     0                       &                     0                      &               103                           &                      inst                   &        $\mathrm{K}$          \\
+TD\_2M                         &  Dew point temperature at 2m above ground                                              &               0                                   &                     0                       &                     6                      &               103                           &                      inst                   &        $\mathrm{K}$          \\
+Z0                             &  Surface roughness (above land and water)                                              &               2                                   &                     0                       &                     1                      &                 1                           &                      inst                   &        $\mathrm{m}$          \\
+CLCT                           &  Total cloud cover                                                                     &               0                                   &                     6                       &                     1                      &                 1                           &                      inst                   &        $\mathrm{\%}$          \\
+\textcolor{gray}{CLCH}         &  \textcolor{gray}{High level clouds}\footnotemark[3]                                   &               \textcolor{gray}{0}                 &                     \textcolor{gray}{6}     &                    \textcolor{gray}{1}     &                 \textcolor{gray}{100}       &                      inst                   &        $\mathrm{\%}$          \\
+\textcolor{gray}{CLCM}         &  \textcolor{gray}{Mid level clouds}\footnotemark[3]                                    &               \textcolor{gray}{0}                 &                     \textcolor{gray}{6}     &                    \textcolor{gray}{1}     &                 \textcolor{gray}{100}       &                      inst                   &        $\mathrm{\%}$          \\
+\textcolor{gray}{CLCL}         &  \textcolor{gray}{Low level clouds}\footnotemark[3]                                    &               \textcolor{gray}{0}                 &                     \textcolor{gray}{6}     &                    \textcolor{gray}{1}     &                 \textcolor{gray}{100}       &                      inst                   &        $\mathrm{\%}$          \\
+TQV                            &  Total column integrated water vapour                                                  &               0                                   &                     1                       &                    64                      &                 1                           &                      inst                   &        $\mathrm{kg\,m^{-2}}$  \\
+TQC                            &  Total column integrated cloud water                                                   &               0                                   &                     1                       &                    69                      &                 1                           &                      inst                   &        $\mathrm{kg\,m^{-2}}$  \\
+TQI                            &  Total column integrated cloud ice                                                     &               0                                   &                     1                       &                    70                      &                 1                           &                      inst                   &        $\mathrm{kg\,m^{-2}}$  \\
+\textcolor{gray}{TQR}          &  \textcolor{gray}{Total column integrated rain}\footnotemark[3]                        &               \textcolor{gray}{0}                 &                     \textcolor{gray}{1}     &                    \textcolor{gray}{45}    &                 \textcolor{gray}{1}         &                      \textcolor{gray}{inst} &        \textcolor{gray}{$\mathrm{kg\,m^{-2}}$}  \\
+\textcolor{gray}{TQS}          &  \textcolor{gray}{Total column integrated snow}\footnotemark[3]                        &               \textcolor{gray}{0}                 &                     \textcolor{gray}{1}     &                    \textcolor{gray}{46}    &                 \textcolor{gray}{1}         &                      \textcolor{gray}{inst} &        \textcolor{gray}{$\mathrm{kg\,m^{-2}}$}  \\
+HBAS\_CON                      &  Height of convective cloud base above msl                                             &               0                                   &                     6                       &                    26                      &                 2                           &                      inst                   &        $\mathrm{m}$  \\
+HTOP\_CON                      &  Height of convective cloud top above msl                                              &               0                                   &                     6                       &                    27                      &                 3                           &                      inst                   &        $\mathrm{m}$  \\
+HZEROCL                        &  Height of 0 degree Celsius isotherm above msl                                         &               0                                   &                     3                       &                     6                      &                 4                           &                      inst                   &        $\mathrm{m}$  \\
+ASHFL\_S                       &  Sensible heat net flux at surface (average since model start)                         &               0                                   &                     0                       &                    11                      &                 1                           &                      avg                    &        $\mathrm{W\,m^{-2}}$  \\
+ALHFL\_S                       &  Latent heat net flux at surface (average since model start)                           &               0                                   &                     0                       &                    10                      &                 1                           &                      avg                    &        $\mathrm{W\,m^{-2}}$  \\
+FR\_ICE                        &  Sea ice cover  (possible range: $[0,1]$)                                              &              10                                   &                     2                       &                     0                      &                 1                           &                      inst                   &        $\mathrm{\textendash}$  \\
+T\_ICE                         &  Sea ice temperature (at ice-atm interface)                                            &              10                                   &                     2                       &                     8                      &                 1                           &                      inst                   &        $\mathrm{K}$  \\
+H\_ICE                         &  Sea ice thickness (Max: $3\,\mathrm{m}$)                                              &              10                                   &                     2                       &                     1                      &                 1                           &                      inst                   &        $\mathrm{m}$  \\
+FRESHSNW                       &  Fresh snow factor (weighting function for albedo indicating freshness of snow)        &               0                                   &                     1                       &                   203                      &                 1                           &                      inst                   &        $\mathrm{\textendash}$  \\
+RHO\_SNOW                      &  Snow density                                                                          &               0                                   &                     1                       &                    61                      &                 1                           &                      inst                   &        $\mathrm{kg\,m^{-3}}$  \\
+H\_SNOW                        &  Snow depth                                                                            &               0                                   &                     1                       &                    11                      &                 1                           &                      inst                   &        $\mathrm{m}$  \\
+  \bottomrule
+\end{longtable}
+
+\footnotetext[3]{Output fields not yet available, but planned.}
+
+
+
+\begin{longtable}{p{2.0cm}p{5.0cm}p{0.8cm}p{0.8cm}p{0.8cm}p{0.9cm}p{1cm}p{1cm}}
+\caption[]{Multi-layer forecast ($VV>0$) and initialized analysis ($VV=0$) products of the soil model}\\
+  \toprule
+\multicolumn{1}{c}{\begin{sideways}\textbf{ShortName}\end{sideways}}  &  \multicolumn{1}{c}{\rb{\textbf{Description}}}  & \begin{sideways}\textbf{Discipline}\end{sideways} & \begin{sideways}\bf{Category}\end{sideways} & \begin{sideways}\bf{Number}\end{sideways}  & \begin{sideways}\bf{Lev-Typ}\end{sideways}  & \begin{sideways}\bf{stepType}\end{sideways} &\begin{sideways}\bf{Unit}\end{sideways}\\
+\midrule
+%\endfirsthead
+%\caption[]{\emph{continued}}\\
+%\midrule
+\endhead
+\hline \multicolumn{8}{r}{\textit{Continued on next page}} \\
+\endfoot
+\endlastfoot
+T\_SO                          &  Soil temperature                                                                      &               2                                   &                     3                       &                    18                       &               106                           &                      inst                   &        $\mathrm{K}$   \\
+W\_SO                          &  Soil moisture integrated over individual soil layers  (ice + liquid)                  &               2                                   &                     3                       &                    20                       &               106                           &                      inst                   &        $\mathrm{kg\,m^{-2}}$   \\
+W\_SO\_ICE                     &  Soil ice content integrated over individual soil layers                               &               2                                   &                     3                       &                    22                       &               106                           &                      inst                   &        $\mathrm{kg\,m^{-2}}$   \\
+  \bottomrule
+\end{longtable}
+
+Soil temperature is defined at the soil depths given in Table \ref{tab_soillayer} (column 2). Levels $1$ to $8$ define the full levels of the soil model. A zero gradient 
+condition is assumed between level $0$ and $1$, meaning that temperatures at the surface-atmosphere interface are set equal to the temperature at the first full level depth.
+($0.5\,\mathrm{cm}$). Temperatures are prognosed for level $1$ to $7$. At the lowermost level ($1458\,\mathrm{cm}$) the temperature is fixed to the climatological 
+average $2\,\mathrm{m}$-temperature.
+
+Soil moisture $\mathrm{W\_SO}$ is prognosed for layer $1$ to $6$. In the two lowermost layers $\mathrm{W\_SO}$ is time constant.
+
+\begin{table}
+\center
+\caption{Soil model: vertical distribution of levels and layers}\label{tab_soillayer}
+ \begin{tabular}{>{\centering\arraybackslash}p{2.0cm}>{\centering\arraybackslash}p{2.5cm}|>{\centering\arraybackslash}p{2.5cm}>{\centering\arraybackslash}p{5.0cm}}
+ \toprule
+  \bf{level nr.}       &  \bf{depth [cm]}        &   \bf{layer nr.}        & \bf{upper/lower bounds [cm]} \\
+ \midrule
+         0             &     $0.0$               &                         &                                     \\
+         1             &     $0.5$               &         1               &     $0.0$\, \textemdash\, $1.0$     \\
+         2             &     $2.0$               &         2               &     $1.0$\, \textemdash\, $3.0$     \\
+         3             &     $6.0$               &         3               &     $3.0$\, \textemdash\, $9.0$     \\
+         4             &     $18.0$              &         4               &     $9.0$\, \textemdash\, $27.0$    \\
+         5             &     $54.0$              &         5               &    $27.0$\, \textemdash\, $81.0$    \\
+         6             &     $162.0$             &         6               &    $81.0$\, \textemdash\, $243.0$   \\
+         7             &     $486.0$             &         7               &   $243.0$\, \textemdash\, $729.0$   \\
+         8             &     $1458.0$            &         8               &   $729.0$\, \textemdash\, $2187.0$  \\
+ \bottomrule
+ \end{tabular}
+\end{table}
+

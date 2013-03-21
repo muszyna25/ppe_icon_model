@@ -1,0 +1,197 @@
+\documentclass[a4paper,twoside,10pt]{book}
+
+\usepackage{a4,amssymb,amsxtra,alltt}
+%\usepackage[german]{babel}
+\usepackage{float}
+\usepackage[utf8]{inputenc}
+\usepackage{graphics,graphicx}
+\usepackage{amsmath,amsbsy,bm}
+\usepackage{fancyhdr}
+\usepackage{geometry}
+\usepackage{amsthm}        %--- Theorem-Package
+%\usepackage{pdftricks}    %--- for drawing arrows, frames, etc in Latex
+%\begin{psinputs}
+\usepackage{pstricks}      %--- for drawing arrows, frames etc in Latex
+%\end{psinputs}
+\usepackage[nottoc]{tocbibind}     %--- adds bibliography to toc 
+                                   %--- but without toc itself [nottoc] 
+\usepackage[numbers,round,authoryear]{natbib} %--- creates bibliography; author-year with curly brackets within the text
+%\usepackage[  %--- no numbering of positions 
+%            toc,           %--- let it appear in the document's table of contents
+%            style=mylong3colheader %--- see glossaries Documentation for a list of available styles
+%            ]{glossaries}  %--- use the glossary package
+\geometry{a4paper,textwidth=15.8cm,textheight=23.0cm,twoside,rmargin=0.96in} %--- Variation Randbereiche
+%\usepackage{colortbl,tabularx,longtable,lscape}
+\usepackage{epsfig}
+%\usepackage{subfigure}  %--- simplifies putting pictures side by side
+\usepackage{layout}      %--- overview about boundaries and widths
+                         % usage: write \layout somewhere in the document
+\usepackage{longtable, lscape}
+\usepackage{setspace}
+\usepackage{multirow}
+\usepackage{tabularx}
+\usepackage{colortbl}
+\usepackage{booktabs}    % to give tables a more professional look
+\usepackage{rotating}    % rotate column labels
+\usepackage{xcolor}
+\usepackage{listings}
+
+% Fortran environment
+\lstnewenvironment{fortran}%
+{\lstset{language=[95]Fortran,%
+basicstyle=\ttfamily\footnotesize\color{darkgreen},%
+commentstyle=\ttfamily\color{blue},%
+emptylines=0,%
+keywordstyle=\color{black}\ttfamily\bfseries,%
+backgroundcolor=\color{darkgrey!5},
+framexleftmargin=4mm,%
+frame=shadowbox,%
+rulesepcolor=\color{darkgreen}}}
+{}
+
+
+
+\newcolumntype{x}[1]{%
+>{\centering\hspace{0pt}}p{#1}}%
+
+
+%---------- Glossary: All the stuff and more ----------%
+%\newglossary{symbolslist}{sym}{sbl}{Symbolverzeichnis} % define new glossary i.e. a list of symbols
+%\makeglossaries
+
+%\input{./text/listofsymbols}  %--- include defined symbols
+
+
+
+
+
+
+%---------- Definition des Styles von Theoremen ----------%
+\theoremstyle{plain}
+\newtheorem*{thrm}{Theorem}  %--- define new theorem-style
+
+
+
+
+
+
+%---------------bold caption for figures-------------------------%
+\makeatletter
+\long\def\@makecaption#1#2{%
+  \fontfamily{cmr}
+  \fontseries{m}
+  \fontshape{sl}
+  \fontsize{10pt}{11pt}
+  \selectfont
+   \vskip 10\p@
+   \setbox\@tempboxa\hbox{{\bf#1:} #2}%
+   \ifdim \wd\@tempboxa >\hsize
+    {\bf #1:} #2\par
+     \else
+       \hbox to\hsize{\hfil\box\@tempboxa\hfil}%
+   \fi}
+\makeatother
+%----------------------------------------------------------------%
+
+
+
+
+\includeonly{./title_toc,
+             ./GRIB2_output_tables}
+
+
+
+%------------------ start of document -----------------------%
+\begin{document}
+
+\setcounter{tocdepth}{3}     %--- maximum toc depth
+
+\pagestyle{fancy}
+\fancyhead{}
+\fancyfoot{}
+%--- Seitenzahl bei geraden/linken Seiten nach links/aussen
+%--- Seitenzahl bei ungeraden/rechten Seiten nach rechts/aussen
+\fancyhead[EL,OR]{\thepage}
+%--- Kapitel/Abschnitt bei geraden/linken Seiten rechts/aussen
+\fancyhead[ER]{\leftmark}
+%--- Unterkapitel/Unterabschnitt bei ungeraden/rechten Seiten links/aussen
+\fancyhead[OL]{\rightmark}
+
+\renewcommand{\chaptermark}[1]{%
+\markboth{\chaptername
+\ \thechapter.\ #1}{}}
+
+\renewcommand{\sectionmark}[1]{
+\markright{\thesection.\ #1}
+}
+
+
+%--- Erhoehung des vertikalen Abstandes zwischen den Zeilen eines Arrays
+\renewcommand{\arraystretch}{1.5}
+
+%--- Auswahl der Formatierung des Literaturverzeichnisses (deutsche Version), erstellt mit custom-bib package
+%\bibliographystyle{plain}
+%\bibliographystyle{diss_bibstyle.bst}
+\bibliographystyle{jas99}
+
+%--- search path for figures
+\graphicspath{{./pics/}}
+%----------------------------------------------------------------%
+
+\frontmatter     %--- aendert Zahlen von Arabisch auf roemisch
+
+%---------------- Generate title page ---------------------%
+\begin{titlepage}
+\include{./title_toc}
+\end{titlepage}
+%----------------------------------------------------------------%
+
+\tableofcontents              %--- generate table of contents
+
+% remove chapter number from header for abstracts
+\renewcommand{\chaptermark}[1] {
+\markboth{#1}{}
+}
+
+% sign function
+\newcommand{\sgn}{\operatorname{sgn}}
+
+
+% use default again
+\renewcommand{\chaptermark}[1]{%
+\markboth{\chaptername
+\ \thechapter.\ #1}{}}
+
+\mainmatter                   %--- Zurcksetzen der Nummerierung auf arabisch
+
+
+%---------- Einbinden der verschiedenen Teildokumente -----------%
+\include{./GRIB2_output_tables}
+%----------------------------------------------------------------%
+
+\appendix
+%\include{./text/appendix}  %--- Einbinden der Appendix
+
+%\listoffigures                    %--- Erstellung des Figurenverzeichnisses
+
+%\glsaddall
+%\printglossary[type=symbolslist]  %--- Erstellung des Symbolverzeichnisses
+
+%\backmatter
+%\bibliography{/home/dreinert/Documents/bibliography/litera.bib,/home/dreinert/Documents/bibliography/litera_notprinted.bib} %--- Erstellen der Liste aller Referenzen
+\bibliography{litera.bib} %--- Create list of references
+
+% remove chapter number from header for Acknowledgements
+\renewcommand{\chaptermark}[1] {
+\markboth{#1}{}
+}
+%--- Danksagung ---
+%\include{./text/danksagung}
+
+% use default again
+\renewcommand{\chaptermark}[1]{%
+\markboth{\chaptername
+\ \thechapter.\ #1}{}}
+
+
+\end{document}
