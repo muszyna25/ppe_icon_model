@@ -75,7 +75,7 @@ USE mo_oce_state,                 ONLY: t_hydro_ocean_state, t_hydro_ocean_diag,
 USE mo_model_domain,              ONLY: t_patch, t_patch_3D
 USE mo_ext_data_types,            ONLY: t_external_data
 USE mo_gmres,                     ONLY: gmres, gmres_oce_old
-USE mo_exception,                 ONLY: message, finish!, message_text
+USE mo_exception,                 ONLY: message, finish, message_text
 USE mo_util_dbg_prnt,             ONLY: dbg_print
 USE mo_oce_boundcond,             ONLY: bot_bound_cond_horz_veloc, top_bound_cond_horz_veloc
 USE mo_oce_thermodyn,             ONLY: calc_density, calc_internal_press
@@ -1639,9 +1639,12 @@ END SUBROUTINE calc_normal_velocity_ab_mimetic
     ! TODO: additional delta_h due to freshwater must be subtracted here!
     z_abort = 3.17e-11_wp*dtime
     IF (MAXVAL(z_c(:,:)) > z_abort) THEN
-      write(0,*) ' MISMATCH IN SURFACE EQUATION:'
-      write(0,*) ' Elevation change does not match vertical velocity'
-      write(0,*) ' (h_new-h_old)/dtime - w = ', MAXVAL(z_c(:,:))
+      CALL message('mo_oce_ab_timestepping_mimetic:calc_vert_velocity_mim_bottomup', &
+        &          'MISMATCH IN SURFACE EQUATION:')
+      CALL message('mo_oce_ab_timestepping_mimetic:calc_vert_velocity_mim_bottomup', &
+        &          'Elevation change does not match vertical velocity')
+      WRITE(message_text,'(a,e25.18)') ' (h_new-h_old)/dtime - w = ', MAXVAL(z_c(:,:))
+      CALL message ('mo_oce_ab_timestepping_mimetic:calc_vert_velocity_mim_bottomup', message_text)
       CALL finish(TRIM('mo_oce_ab_timestepping_mimetic:calc_vert_velocity_mim_bottomup'), &
         &            'MISMATCH in surface equation')
     ENDIF
