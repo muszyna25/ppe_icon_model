@@ -59,7 +59,7 @@ USE mo_master_control,      ONLY: is_restart_run, get_my_process_name, get_my_mo
 USE mo_io_async,            ONLY: vlist_io_main_proc, &            ! main procedure for I/O PEs
                                   use_async_vlist_io
 USE mo_name_list_output,    ONLY: name_list_io_main_proc
-USE mo_name_list_output_config, ONLY: use_async_name_list_io, name_list_output_active
+USE mo_name_list_output_config, ONLY: use_async_name_list_io
 
 
 ! Control parameters: run control, dynamics, i/o
@@ -368,29 +368,41 @@ CONTAINS
       ! Decide whether async vlist or name_list IO is to be used,
       ! only one of both may be enabled!
 
-      ! Currently, async name_list IO is used if at least one name_list was read
-      IF(name_list_output_active) THEN
+      IF (output_mode%l_nml) THEN
+        ! -----------------------------------------
+        ! asynchronous I/O
+        ! -----------------------------------------
+        !
         use_async_name_list_io = .TRUE.
-        CALL message('','asynchronous namelist I/O scheme is enabled.')
+        CALL message(routine,'asynchronous namelist I/O scheme is enabled.')
+        ! consistency check
+        IF (output_mode%l_vlist) THEN
+          output_mode%l_vlist = .FALSE.
+          CALL message(routine,'vlist I/O scheme has been disabled because combining it&
+            & with namelist I/O is not possible for asynchronous output.')
+        ENDIF
         IF (my_process_is_io() .AND. (.NOT. my_process_is_mpi_test())) THEN
           CALL name_list_io_main_proc(isample=iadv_rcf)
         END IF
-        IF (output_mode%l_vlist) THEN
-          output_mode%l_vlist = .FALSE.
-          CALL message('','vlist I/O scheme has been disabled because combining it&
-            & with namelist I/O is not possible for asynchronous output.')
-        ENDIF
-      ELSE
+      ELSE  IF (output_mode%l_vlist) THEN
         use_async_vlist_io = .TRUE.
-        CALL message('','asynchronous vlist I/O scheme is enabled.')
+        CALL message(routine,'asynchronous vlist I/O scheme is enabled.')
         IF (my_process_is_io()) CALL vlist_io_main_proc
+      ELSE IF (my_process_is_io() .AND. (.NOT. my_process_is_mpi_test())) THEN
+        ! Shut down MPI
+        CALL p_stop
+        STOP
       ENDIF
     ELSE
-      IF(name_list_output_active) THEN
-        CALL message('','synchronous namelist I/O scheme is enabled.')
+      ! -----------------------------------------
+      ! non-asynchronous I/O (performed by PE #0)
+      ! -----------------------------------------
+      !
+      IF (output_mode%l_nml) THEN
+        CALL message(routine,'synchronous namelist I/O scheme is enabled.')
       ENDIF
       IF (output_mode%l_vlist) THEN
-        CALL message('','synchronous vlist I/O scheme is enabled.')
+        CALL message(routine,'synchronous vlist I/O scheme is enabled.')
       ENDIF
     ENDIF
 

@@ -101,8 +101,7 @@ MODULE mo_name_list_output
   USE mo_communication,         ONLY: exchange_data, t_comm_pattern, idx_no, blk_no
   USE mo_math_utilities,        ONLY: t_geographical_coordinates
   USE mo_math_constants,        ONLY: pi, pi_180
-  USE mo_name_list_output_config, ONLY: name_list_output_active, &
-  &                                     use_async_name_list_io,  &
+  USE mo_name_list_output_config, ONLY: use_async_name_list_io,  &
   &                                     l_output_phys_patch,     &
   &                                     max_bounds,              &
   &                                     max_levels,              &
@@ -362,7 +361,6 @@ CONTAINS
 
     p_onl => NULL()
     first_output_name_list => NULL()
-    name_list_output_active = .FALSE.
     nnamelists = 0
     lrewind = .TRUE.
 
@@ -371,6 +369,11 @@ CONTAINS
     DO
       CALL position_nml ('output_nml', lrewind=lrewind, status=istat)
       IF(istat /= POSITIONED) THEN
+
+        ! if no "output_nml" has been found at all, we disable this
+        ! mode (i.e. the user's namelist settings were inconsistent).
+        IF (.NOT.ASSOCIATED(first_output_name_list))  output_mode%l_nml = .FALSE.
+
         CALL close_nml
         RETURN
       ENDIF
@@ -475,7 +478,6 @@ CONTAINS
         ! Allocate first name_list
         ALLOCATE(first_output_name_list)
         p_onl => first_output_name_list
-        name_list_output_active = .TRUE.
       ELSE
         ! This is not the first one, p_onl points to the last one which was created
         ALLOCATE(p_onl%next)
