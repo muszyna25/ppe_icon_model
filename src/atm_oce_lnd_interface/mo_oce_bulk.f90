@@ -155,11 +155,12 @@ CONTAINS
     REAL(wp), ALLOCATABLE :: buffer(:,:)
     REAL(wp), PARAMETER   :: seconds_per_month = 2.592e6_wp !TODO: use real month lenght
     TYPE(t_patch), POINTER:: p_patch 
-    TYPE(t_subset_range), POINTER :: all_cells
+    TYPE(t_subset_range), POINTER :: all_cells, cells_in_domain
     !-----------------------------------------------------------------------
     p_patch   => p_patch_3D%p_patch_2D(1)
     !-------------------------------------------------------------------------
     all_cells => p_patch%cells%all
+    cells_in_domain => p_patch%cells%in_domain
 
     SELECT CASE (iforc_oce)
 
@@ -1151,6 +1152,16 @@ CONTAINS
       CALL dbg_print('UpdSfc: sum-fwfx[m/s]',p_sfc_flx%forc_fwfx     ,str_module,idt_src)
       !---------------------------------------------------------------------
     END IF
+    
+    !! apply additional volume flux to surface elevation - to h_old before explicit term
+    !IF (l_forc_freshw) THEN
+    !  DO jb = cells_in_domain%start_block, cells_in_domain%end_block
+    !    CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
+    !    DO jc = i_startidx_c, i_endidx_c
+    !      p_os%p_prog(nold(1))%h(jc,jb) = p_os%p_prog(nold(1))%h(jc,jb) + p_sfc_flx%forc_fwfx(jc,jb)*dtime
+    !    END DO
+    !  END DO
+    !END IF
 
   END SUBROUTINE update_sfcflx
 

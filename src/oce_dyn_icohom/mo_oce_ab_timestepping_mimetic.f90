@@ -1155,20 +1155,20 @@ TYPE(t_patch), POINTER :: patch_horz
   END DO
 
   !-------------------------------------------------------------------------
-  ! Apply net surface freshwater flux to elevation
-  IF(l_forc_freshw)THEN
-    DO jb = cells_in_domain%start_block, cells_in_domain%end_block
-      CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
-      DO jc = i_startidx_c, i_endidx_c
-        IF(p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary)THEN
-          p_os%p_aux%p_rhs_sfc_eq(jc,jb) = ((p_os%p_prog(nold(1))%h(jc,jb)     &
-                                         & - dtime*(div_z_depth_int_c(jc,jb) + &
-                                         &          p_sfc_flx%forc_fwfx(jc,jb)) )/gdt2)
-        ENDIF
-      ENDDO
-    END DO
+  ! Apply net surface freshwater flux to elevation - incorrect?
+ !IF(l_forc_freshw)THEN
+ !  DO jb = cells_in_domain%start_block, cells_in_domain%end_block
+ !    CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
+ !    DO jc = i_startidx_c, i_endidx_c
+ !      IF(p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary)THEN
+ !        p_os%p_aux%p_rhs_sfc_eq(jc,jb) = ((p_os%p_prog(nold(1))%h(jc,jb)     &
+ !                                       & - dtime*(div_z_depth_int_c(jc,jb) + &
+ !                                       &          p_sfc_flx%forc_fwfx(jc,jb)) )/gdt2)
+ !      ENDIF
+ !    ENDDO
+ !  END DO
 
-  ELSEIF(.NOT.l_forc_freshw)THEN
+ !ELSEIF(.NOT.l_forc_freshw)THEN
 
     DO jb = cells_in_domain%start_block, cells_in_domain%end_block
       CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
@@ -1179,7 +1179,7 @@ TYPE(t_patch), POINTER :: patch_horz
         ENDIF
       ENDDO
     END DO
-  ENDIF
+ !ENDIF
 
   CALL sync_patch_array(SYNC_C, patch_horz, p_os%p_aux%p_rhs_sfc_eq )
 

@@ -51,7 +51,7 @@ USE mo_ocean_nml,                 ONLY: n_zlev, no_tracer, &
   &                                     irelax_3d_T, relax_3d_mon_T, irelax_3d_S, relax_3d_mon_S, &
   &                                     expl_vertical_tracer_diff, iswm_oce, l_edge_based,    &
   &                                     FLUX_CALCULATION_HORZ, FLUX_CALCULATION_VERT, &
-  &                                     MIMETIC_MIURA
+  &                                     MIMETIC_MIURA, l_forc_freshw
 USE mo_util_dbg_prnt,             ONLY: dbg_print
 USE mo_parallel_config,           ONLY: nproma
 USE mo_dynamics_config,           ONLY: nold, nnew
@@ -111,6 +111,7 @@ SUBROUTINE advect_tracer_ab(p_patch_3D, p_os, p_param, p_sfc_flx,p_op_coeff, tim
 
   !Local variables
   INTEGER  :: i_no_t, jk
+  INTEGER  :: i_startidx_c, i_endidx_c, jc, jb
   REAL(wp) :: z_relax!, delta_z
   REAL(wp) :: content(1:no_tracer), content_old(1:no_tracer), content_first(1:no_tracer)
   INTEGER  :: iloc(2)
@@ -289,6 +290,17 @@ SUBROUTINE advect_tracer_ab(p_patch_3D, p_os, p_param, p_sfc_flx,p_op_coeff, tim
 
     END DO
   ENDIF
+    
+  ! apply additional volume flux to surface elevation - to h_new after tracer advection
+  IF (l_forc_freshw) THEN
+    DO jb = cells_in_domain%start_block, cells_in_domain%end_block
+      CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
+      DO jc = i_startidx_c, i_endidx_c
+        p_os%p_prog(nnew(1))%h(jc,jb) = p_os%p_prog(nnew(1))%h(jc,jb) + p_sfc_flx%forc_fwfx(jc,jb)*dtime
+      END DO
+    END DO
+  END IF
+  CALL dbg_print('aft. AdvIndivTrac: h-new   ',p_os%p_prog(nnew(1))%h   ,str_module,idt_src)
 
 END SUBROUTINE advect_tracer_ab
 !-------------------------------------------------------------------------
