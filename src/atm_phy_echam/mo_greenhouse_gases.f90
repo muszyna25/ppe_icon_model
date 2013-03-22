@@ -77,7 +77,7 @@ CONTAINS
       CALL message('','Use predefined greenhouse gases secenario from 1990 based on CMIP5')
       RETURN  
     CASE (1)
-      CALL nf_check(p_nf_open('greenhouse_gases.nc', nf_read, ncid))
+      CALL nf_check(p_nf_open('bc_greenhouse.nc', nf_read, ncid))
       CALL nf_check(p_nf_inq_dimid (ncid, 'time', ndimid)) 
       CALL nf_check(p_nf_inq_dimlen (ncid, ndimid, ghg_no_years))
     CASE DEFAULT
