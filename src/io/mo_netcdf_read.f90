@@ -156,10 +156,12 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   !>
-  INTEGER FUNCTION netcdf_read_REAL_ONCELLS_2D_filename(filename, variable_name, fill_array, patch)
+  FUNCTION netcdf_read_REAL_ONCELLS_2D_filename(filename, variable_name, fill_array, patch)
+    REAL(wp), POINTER :: netcdf_read_REAL_ONCELLS_2D_filename(:,:)
+
     CHARACTER(LEN=*), INTENT(IN) :: filename
     CHARACTER(LEN=*), INTENT(IN) :: variable_name
-    REAL(wp), POINTER            :: fill_array(:,:)
+    define_fill_target           :: fill_array(:,:)
     TYPE(t_patch), TARGET        :: patch
 
     INTEGER :: file_id
@@ -167,8 +169,9 @@ CONTAINS
     CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_netcdf_read:netcdf_read_REAL_ONCELLS_2D_filename'
 
     file_id = netcdf_open_input(filename)
-    netcdf_read_REAL_ONCELLS_2D_filename = &
-      & netcdf_read_REAL_ONCELLS_2D_fileid(file_id, variable_name, fill_array, patch)
+    netcdf_read_REAL_ONCELLS_2D_filename => &
+      & netcdf_read_REAL_ONCELLS_2D_fileid( &
+      & file_id=file_id, variable_name=variable_name, fill_array=fill_array, patch=patch)
     return_status = netcdf_close(file_id)
                               
   END FUNCTION netcdf_read_REAL_ONCELLS_2D_filename
@@ -247,7 +250,7 @@ CONTAINS
     CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_netcdf_read:netcdf_read_REAL_ONCELLS_3D_time_filename'
 
     file_id = netcdf_open_input(filename)
-    netcdf_read_REAL_ONCELLS_3D_time_filename = &
+    netcdf_read_REAL_ONCELLS_3D_time_filename => &
       & netcdf_read_REAL_ONCELLS_3D_time_fileid(&
       & file_id=file_id,                        &
       & variable_name=variable_name,            &
@@ -293,10 +296,13 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   !>
-   INTEGER FUNCTION netcdf_read_REAL_ONCELLS_2D_fileid(file_id, variable_name, fill_array, patch)
+  FUNCTION netcdf_read_REAL_ONCELLS_2D_fileid(file_id, variable_name, fill_array, patch)
+
+    REAL(wp), POINTER            :: netcdf_read_REAL_ONCELLS_2D_fileid(:,:)
+
     INTEGER, INTENT(IN)          :: file_id
     CHARACTER(LEN=*), INTENT(IN) :: variable_name
-    REAL(wp), POINTER            :: fill_array(:,:)
+    define_fill_target           :: fill_array(:,:)
     TYPE(t_patch), TARGET        :: patch
 
     INTEGER :: total_number_of_cells
@@ -309,7 +315,7 @@ CONTAINS
     CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_netcdf_read:netcdf_read_REAL_ONCELLS_2D_fileid'
 
     ! trivial return value.
-    netcdf_read_REAL_ONCELLS_2D_fileid = 0
+    NULLIFY(netcdf_read_REAL_ONCELLS_2D_fileid)
 
     total_number_of_cells = patch%n_patch_cells_g
     
@@ -337,14 +343,23 @@ CONTAINS
       CALL nf(nf_get_var_double(file_id, varid, tmp_array(:)), variable_name)
     ENDIF
 
-    IF (.NOT. ASSOCIATED(fill_array)) THEN
-      ALLOCATE( fill_array(nproma, patch%nblks_c), stat=return_status )
+    IF (PRESENT(fill_array)) THEN
+      netcdf_read_REAL_ONCELLS_2D_fileid => fill_array
+      IF (.NOT. ASSOCIATED(netcdf_read_REAL_ONCELLS_2D_fileid)) THEN
+        CALL warning(method_name, "fill_array is not allocated")
+        ALLOCATE( netcdf_read_REAL_ONCELLS_2D_fileid(nproma, patch%nblks_c), stat=return_status )
+        IF (return_status /= success) THEN
+          CALL finish (method_name, 'ALLOCATE( netcdf_read_REAL_ONCELLS_2D_fileid )')
+        ENDIF
+      ENDIF
+    ELSE
+      ALLOCATE( netcdf_read_REAL_ONCELLS_2D_fileid(nproma, patch%nblks_c), stat=return_status )
       IF (return_status /= success) THEN
-        CALL finish (method_name, 'ALLOCATE( fill_array )')
+        CALL finish (method_name, 'ALLOCATE( netcdf_read_REAL_ONCELLS_2D_fileid )')
       ENDIF
     ENDIF
     
-    CALL scatter_cells_2D(tmp_array, fill_array, patch)
+    CALL scatter_cells_2D(tmp_array, netcdf_read_REAL_ONCELLS_2D_fileid, patch)
 
     DEALLOCATE(tmp_array)    
                               
@@ -519,7 +534,7 @@ CONTAINS
     TYPE(t_patch), TARGET        :: patch
     INTEGER, INTENT(in), OPTIONAL:: start_timestep, end_timestep
 
-    netcdf_read_REAL_ONCELLS_3D_time_fileid = netcdf_read_REAL_ONCELLS_3D_extdim_fileid(&
+    netcdf_read_REAL_ONCELLS_3D_time_fileid => netcdf_read_REAL_ONCELLS_3D_extdim_fileid(&
       & file_id=file_id,                        &
       & variable_name=variable_name,            &
       & fill_array=fill_array,                  &

@@ -210,10 +210,10 @@ CONTAINS
     REAL(wp), POINTER                   :: out_array(:,:,:,:)
     TYPE(t_patch), INTENT(in)           :: p_patch
 
-    WRITE(0,*) "LBOUND(in_array,3)= ", LBOUND(in_array,3)
-    WRITE(0,*) "UBOUND(in_array,3)= ", UBOUND(in_array,3)
-    WRITE(0,*) "LBOUND(out_array,4)= ", LBOUND(out_array,4)
-    WRITE(0,*) "UBOUND(out_array,4)= ", UBOUND(out_array,4)
+!    WRITE(0,*) "LBOUND(in_array,3)= ", LBOUND(in_array,3)
+!    WRITE(0,*) "UBOUND(in_array,3)= ", UBOUND(in_array,3)
+!    WRITE(0,*) "LBOUND(out_array,4)= ", LBOUND(out_array,4)
+!    WRITE(0,*) "UBOUND(out_array,4)= ", UBOUND(out_array,4)
     CALL scatter_array_r4d(in_array, out_array, p_patch%cells%glb_index)
 
   END SUBROUTINE scatter_real_cells_3D_time_noblocks_2blocks

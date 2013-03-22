@@ -1162,8 +1162,68 @@ create_blizzard_test_01_03_2013()
 
 }
 #====================================================
-  
-  create_blizzard_test_01_03_2013
+
+#==============================================================================
+create_thunder_test_01_03_2013()
+{
+  set_default_parameters
+  cpcommand="ln -s "
+  run="true"
+  msg_level=0
+
+  mpi_procs_pernode=16
+  openmp_threads=1
+
+  ndays=6
+
+  # grids_folder=/work/mh0287/leonidas.public/grids/grids.spr
+  nlevels=96
+  top_of_atmo=80000.
+  damp_height=60000.
+  itime_scheme=4
+  advection_substepping=5
+  use_dycore_barrier='.true.'
+  setup_name='nat-ape_6days'
+  grids_folder=""
+  restart=".false."
+  #==============================================================================
+  # old parallelization methods
+  use_icon_comm=".false."
+  iorder_sendrecv=1
+  icon_comm_method=0
+  parallel_radiation_mode=0
+  redrad_split_factor=0
+  division_method=1
+
+  #---------------------------------
+  dt_rad=1800
+  nodes_list=( 32 )
+  #---------------------------------
+
+  setup_grid="iconR2B06-grid"
+  dtime=72
+  vwind_implicitness=0.4
+
+  nproma_list=(16 )
+  # create_strong_scaling "$setup_grid" "$setup_name"
+ 
+  #---------------------------------
+  setup_grid="iconR2B07-grid"
+  dtime=36
+  vwind_implicitness=0.35
+
+  nproma_list=( 16 )
+  create_strong_scaling "$setup_grid" "$setup_name"
+  #---------------------------------
+
+  #---------------------------------
+  # end
+  #---------------------------------
+
+}
+#====================================================
+  create_thunder_test_01_03_2013
+  # create_blizzard_test_01_03_2013
   exit
   
   

@@ -263,7 +263,7 @@ CONTAINS
     REAL(wp), ALLOCATABLE :: buffer(:,:)
 
     INTEGER               :: info, ierror !< return values form cpl_put/get calls
-    INTEGER               :: return_status
+    REAL(wp), POINTER     :: return_pointer(:,:)
 
     CHARACTER(len=*), PARAMETER :: land_frac_fn = 'bc_land_frac.nc'
     LOGICAL       :: lexist
@@ -300,7 +300,11 @@ CONTAINS
 !          INQUIRE (file=land_frac_fn, exist=lexist)
 !          IF (lexist) THEN
            ! by default it will create an error if it cannot open/read the file
-           return_status = netcdf_read_oncells_2D(land_frac_fn,'land', field% lsmask, p_patch(jg))
+           return_pointer => netcdf_read_oncells_2D( &
+             & filename      =land_frac_fn,        &
+             & variable_name ='land',              &
+             & fill_array    = field% lsmask,      &
+             & patch         = p_patch(jg))
 !          ELSE
 !            WRITE (message_text,*) 'Could not open file ',land_frac_fn
 !            CALL message('',message_text)
