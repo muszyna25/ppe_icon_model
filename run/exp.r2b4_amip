@@ -140,7 +140,7 @@ cat > ${atmo_namelist} << EOF
  irad_cfc11 = 0             ! switch off cfc11
  irad_cfc12 = 0             ! switch off cfc12
  irad_aero  = 0             ! switch off aerosols
- izenith    = 3             ! circular orbit, no seasonal cycle but with diurnal cycle 
+ izenith    = 4             ! seasonal and diurnal cycle 
 /
 EOF
 #

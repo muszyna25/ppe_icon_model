@@ -334,21 +334,28 @@ CONTAINS
 
        SELECT CASE(izenith)  
        CASE(0)
-       ! for testing: provisional setting of cos(zenith angle) and TSI
-       ! The global mean insolation is TSI/4 (ca. 340 W/m2)
-      !   ztsi = tsi/4._wp ! scale ztsi by 1/4 to get the correct global mean insolation
-         ztsi = tsi/4._wp
+       ! local insolation = constant = global mean insolation (ca. 340 W/m2)
+       ! zenith angle = 0,
+         ztsi = tsi/4._wp ! scale ztsi by 1/4 to get the correct global mean insolation
        CASE(1)
-       ! circular non-seasonal orbit, zenith angle dependent on latitude only,
-       ! no diurnal cycle (always at 12:00 local time --> sin(time of day)=1 )
+       ! circular non-seasonal orbit,
+       ! perpetual equinox,
+       ! no diurnal cycle,
+       ! local time always 12:00
+       ! --> sin(time of day)=1 ) and zenith angle depends on latitude only
          ztsi = tsi/pi ! because sun is always in local noon, the TSI needs to be
        !               ! scaled by 1/pi to get the correct global mean insolation
        CASE(2)
-       ! circular non-seasonal orbit, no diurnal cycle
-       ! at 07:14:15 or 16:45:45 local time (--> sin(time of day)=1/pi )
+       ! circular non-seasonal orbit,
+       ! perpetual equinox,
+       ! no diurnal cycle,
+       ! local time always  07:14:15 or 16:45:45
+       ! --> sin(time of day)=1/pi and zenith angle depends on latitude only
          ztsi = tsi
        CASE(3) 
-       ! circular non-seasonal orbit, with diurnal cycle
+       ! circular non-seasonal orbit,
+       ! perpetual equinox,
+       ! with diurnal cycle,
          ztsi = tsi
        CASE(4)
        ! elliptical seasonal orbit, with diurnal cycle
@@ -380,35 +387,44 @@ CONTAINS
           ! to do (for implementing seasonal cycle):
           ! - compute orbit position at ptime_radtran
 
-          SELECT CASE(izenith)  
+          SELECT CASE(izenith)
+
           CASE(0)
-          ! for testing: provisional setting of cos(zenith angle) and TSI
-          ! The global mean insolation is TSI/4 (ca. 340 W/m2)
+          ! local insolation = constant = global mean insolation (ca. 340 W/m2)
+          ! zenith angle = 0,
 
             field%cosmu0(jcs:jce,jb) = 1._wp ! sun in zenith everywhere
 
           CASE(1)
-          ! circular non-seasonal orbit, zenith angle dependent on latitude only,
-          ! no diurnal cycle (always at 12:00 local time --> sin(time of day)=1 )
+          ! circular non-seasonal orbit,
+          ! perpetual equinox,
+          ! no diurnal cycle,
+          ! local time always 12:00
+          ! --> sin(time of day)=1 ) and zenith angle depends on latitude only
 
             field%cosmu0(jcs:jce,jb) = COS( p_patch(jg)%cells%center(jcs:jce,jb)%lat )
            
           CASE(2)
-          ! circular non-seasonal orbit, no diurnal cycle
-          ! at 07:14:15 or 16:45:45 local time (--> sin(time of day)=1/pi )
+          ! circular non-seasonal orbit,
+          ! perpetual equinox,
+          ! no diurnal cycle,
+          ! local time always  07:14:15 or 16:45:45
+          ! --> sin(time of day)=1/pi and zenith angle depends on latitude only
 
             field%cosmu0(jcs:jce,jb) = COS( p_patch(jg)%cells%center(jcs:jce,jb)%lat )/pi
 
           CASE(3) 
-          ! circular non-seasonal orbit, with diurnal cycle
+          ! circular non-seasonal orbit,
+          ! perpetual equinox,
+          ! with diurnal cycle,
 
             field%cosmu0(jcs:jce,jb) = -COS( p_patch(jg)%cells%center(jcs:jce,jb)%lat ) &
                                      & *COS( p_patch(jg)%cells%center(jcs:jce,jb)%lon   &
                                      &      +ptime_radtran )
 
           CASE(4)
-          ! elliptical, seasonal orbit, with diurnal cycle
-          ! to be used in AMIP simulations
+          ! elliptical seasonal orbit,
+          !  with diurnal cycle
 
             zleapfrac = 0.681_wp + 0.2422_wp * REAL(datetime%year - 1949,wp) - &
                         REAL((datetime%year - 1949) / 4,wp)
