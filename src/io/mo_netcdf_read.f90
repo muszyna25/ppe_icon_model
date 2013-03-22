@@ -43,6 +43,10 @@
 !! software.
 !!
 !!
+!#define define_fill_target REAL(wp), TARGET, ALLOCATABLE, OPTIONAL
+!#define define_fill_target REAL(wp), POINTER, OPTIONAL
+#define define_fill_target REAL(wp), TARGET, OPTIONAL
+
 MODULE mo_netcdf_read
 
   USE mo_kind
@@ -172,11 +176,14 @@ CONTAINS
   
   !-------------------------------------------------------------------------
   !>
-  INTEGER FUNCTION netcdf_read_REAL_ONCELLS_2D_time_filename(filename, variable_name, fill_array, patch, &
+  FUNCTION netcdf_read_REAL_ONCELLS_2D_time_filename(filename, variable_name, fill_array, patch, &
     & start_timestep, end_timestep )
+
+    REAL(wp), POINTER            :: netcdf_read_REAL_ONCELLS_2D_time_filename(:,:,:)
+
     CHARACTER(LEN=*), INTENT(IN) :: filename
     CHARACTER(LEN=*), INTENT(IN) :: variable_name
-    REAL(wp), POINTER            :: fill_array(:,:,:)
+    define_fill_target   :: fill_array(:,:,:)
     TYPE(t_patch), TARGET        :: patch
     INTEGER, INTENT(in), OPTIONAL:: start_timestep, end_timestep
 
@@ -185,20 +192,25 @@ CONTAINS
     CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_netcdf_read:netcdf_read_REAL_ONCELLS_2D_time_filename'
 
     file_id = netcdf_open_input(filename)
-    netcdf_read_REAL_ONCELLS_2D_time_filename = &
-      & netcdf_read_REAL_ONCELLS_2D_time_fileid(file_id, variable_name, fill_array, patch, start_timestep, end_timestep)
+    netcdf_read_REAL_ONCELLS_2D_time_filename =>   &
+      & netcdf_read_REAL_ONCELLS_2D_time_fileid(file_id=file_id, variable_name=variable_name, &
+      & fill_array=fill_array, patch=patch, start_timestep=start_timestep, end_timestep=end_timestep)
     return_status = netcdf_close(file_id)
 
   END FUNCTION netcdf_read_REAL_ONCELLS_2D_time_filename
   !-------------------------------------------------------------------------
 
+
   !-------------------------------------------------------------------------
   !>
-  INTEGER FUNCTION netcdf_read_REAL_ONCELLS_2D_extdim_filename(filename, variable_name, fill_array, patch, &
+  FUNCTION netcdf_read_REAL_ONCELLS_2D_extdim_filename(filename, variable_name, fill_array, patch, &
     & start_extdim, end_extdim, extdim_name )
+
+    REAL(wp), POINTER            :: netcdf_read_REAL_ONCELLS_2D_extdim_filename(:,:,:)
+
     CHARACTER(LEN=*), INTENT(IN) :: filename
     CHARACTER(LEN=*), INTENT(IN) :: variable_name
-    REAL(wp), POINTER            :: fill_array(:,:,:)
+    define_fill_target   :: fill_array(:,:,:)
     TYPE(t_patch), TARGET        :: patch
     INTEGER, INTENT(in), OPTIONAL:: start_extdim, end_extdim
     CHARACTER(LEN=*), INTENT(IN), OPTIONAL :: extdim_name
@@ -208,9 +220,10 @@ CONTAINS
     CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_netcdf_read:netcdf_read_REAL_ONCELLS_2D_extdim_filename'
 
     file_id = netcdf_open_input(filename)
-    netcdf_read_REAL_ONCELLS_2D_extdim_filename = &
-      & netcdf_read_REAL_ONCELLS_2D_extdim_fileid(file_id, variable_name, fill_array, patch, &
-      & start_extdim, end_extdim, extdim_name )
+    netcdf_read_REAL_ONCELLS_2D_extdim_filename => &
+      & netcdf_read_REAL_ONCELLS_2D_extdim_fileid(file_id=file_id, variable_name=variable_name, &
+      & fill_array=fill_array, patch=patch, &
+      & start_extdim=start_extdim, end_extdim=end_extdim, extdim_name=extdim_name )
     return_status = netcdf_close(file_id)
 
   END FUNCTION netcdf_read_REAL_ONCELLS_2D_extdim_filename
@@ -218,11 +231,14 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   !>
-  INTEGER FUNCTION netcdf_read_REAL_ONCELLS_3D_time_filename(filename, variable_name, fill_array, patch, &
+  FUNCTION netcdf_read_REAL_ONCELLS_3D_time_filename(filename, variable_name, fill_array, patch, &
     & start_timestep, end_timestep )
+
+    REAL(wp), POINTER :: netcdf_read_REAL_ONCELLS_3D_time_filename(:,:,:,:)
+
     CHARACTER(LEN=*), INTENT(IN) :: filename
     CHARACTER(LEN=*), INTENT(IN) :: variable_name
-    REAL(wp), POINTER            :: fill_array(:,:,:,:)
+    define_fill_target           :: fill_array(:,:,:,:)
     TYPE(t_patch), TARGET        :: patch
     INTEGER, INTENT(in), OPTIONAL:: start_timestep, end_timestep
 
@@ -232,7 +248,12 @@ CONTAINS
 
     file_id = netcdf_open_input(filename)
     netcdf_read_REAL_ONCELLS_3D_time_filename = &
-      & netcdf_read_REAL_ONCELLS_3D_time_fileid(file_id, variable_name, fill_array, patch, start_timestep, end_timestep)
+      & netcdf_read_REAL_ONCELLS_3D_time_fileid(&
+      & file_id=file_id,                        &
+      & variable_name=variable_name,            &
+      & fill_array=fill_array,                  &
+      &  patch=patch,                           &
+      & start_timestep=start_timestep,  end_timestep=end_timestep)
     return_status = netcdf_close(file_id)
 
   END FUNCTION netcdf_read_REAL_ONCELLS_3D_time_filename
@@ -240,11 +261,14 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   !>
-  INTEGER FUNCTION netcdf_read_REAL_ONCELLS_3D_extdim_filename(filename, variable_name, fill_array, patch, &
+  FUNCTION netcdf_read_REAL_ONCELLS_3D_extdim_filename(filename, variable_name, fill_array, patch, &
     & start_extdim, end_extdim, extdim_name )
+
+    REAL(wp), POINTER :: netcdf_read_REAL_ONCELLS_3D_extdim_filename(:,:,:,:)
+
     CHARACTER(LEN=*), INTENT(IN) :: filename
     CHARACTER(LEN=*), INTENT(IN) :: variable_name
-    REAL(wp), POINTER            :: fill_array(:,:,:,:)
+    define_fill_target             :: fill_array(:,:,:,:)
     TYPE(t_patch), TARGET        :: patch
     INTEGER, INTENT(in), OPTIONAL:: start_extdim, end_extdim
     CHARACTER(LEN=*), INTENT(IN), OPTIONAL :: extdim_name
@@ -254,9 +278,13 @@ CONTAINS
     CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_netcdf_read:netcdf_read_REAL_ONCELLS_3D_extdim_filename'
 
     file_id = netcdf_open_input(filename)
-    netcdf_read_REAL_ONCELLS_3D_extdim_filename = &
-      & netcdf_read_REAL_ONCELLS_3D_extdim_fileid(file_id, variable_name, fill_array, patch, &
-      & start_extdim, end_extdim, extdim_name )
+    netcdf_read_REAL_ONCELLS_3D_extdim_filename => netcdf_read_REAL_ONCELLS_3D_extdim_fileid( &
+      & file_id=file_id,                          &
+      & variable_name=variable_name,              &
+      & fill_array=fill_array,                    &
+      &  patch=patch,                             &
+      & start_extdim=start_extdim,  end_extdim=end_extdim, &
+      & extdim_name=extdim_name)
     return_status = netcdf_close(file_id)
 
   END FUNCTION netcdf_read_REAL_ONCELLS_3D_extdim_filename
@@ -329,16 +357,18 @@ CONTAINS
   !      c-style(ncdump): O3(time, ncells) fortran-style: O3(ncells, time)
   ! The fill_array  has the structure:
   !       fill_array(nproma, blocks, time)
-  INTEGER FUNCTION netcdf_read_REAL_ONCELLS_2D_time_fileid(file_id, variable_name, fill_array, patch, &
+  FUNCTION netcdf_read_REAL_ONCELLS_2D_time_fileid(file_id, variable_name, fill_array, patch, &
     & start_timestep, end_timestep)
+    REAL(wp), POINTER            :: netcdf_read_REAL_ONCELLS_2D_time_fileid(:,:,:)
+
     INTEGER, INTENT(IN)          :: file_id
     CHARACTER(LEN=*), INTENT(IN) :: variable_name
-    REAL(wp), POINTER            :: fill_array(:,:,:)
+    define_fill_target   :: fill_array(:,:,:)
     TYPE(t_patch), TARGET        :: patch
     INTEGER, INTENT(in), OPTIONAL:: start_timestep, end_timestep
 
-    netcdf_read_REAL_ONCELLS_2D_time_fileid = netcdf_read_REAL_ONCELLS_2D_extdim_fileid(&
-      & file_id, variable_name, fill_array, patch, &
+    netcdf_read_REAL_ONCELLS_2D_time_fileid => netcdf_read_REAL_ONCELLS_2D_extdim_fileid(&
+      & file_id=file_id, variable_name=variable_name, fill_array=fill_array, patch=patch, &
       & start_extdim=start_timestep, end_extdim=end_timestep, extdim_name="time" )
 
   END FUNCTION netcdf_read_REAL_ONCELLS_2D_time_fileid
@@ -350,12 +380,14 @@ CONTAINS
   !      c-style(ncdump): O3(time, ncells) fortran-style: O3(ncells, time)
   ! The fill_array  has the structure:
   !       fill_array(nproma, blocks, time)
-  INTEGER FUNCTION netcdf_read_REAL_ONCELLS_2D_extdim_fileid(file_id, variable_name, fill_array, patch, &
+  FUNCTION netcdf_read_REAL_ONCELLS_2D_extdim_fileid(file_id, variable_name, fill_array, patch, &
     & start_extdim, end_extdim, extdim_name )
+
+    REAL(wp), POINTER            :: netcdf_read_REAL_ONCELLS_2D_extdim_fileid(:,:,:)
 
     INTEGER, INTENT(IN)          :: file_id
     CHARACTER(LEN=*), INTENT(IN) :: variable_name
-    REAL(wp), POINTER            :: fill_array(:,:,:)
+    define_fill_target   :: fill_array(:,:,:)
     TYPE(t_patch), TARGET        :: patch
     INTEGER, INTENT(in), OPTIONAL:: start_extdim, end_extdim
     CHARACTER(LEN=*), INTENT(IN), OPTIONAL :: extdim_name
@@ -366,6 +398,7 @@ CONTAINS
     CHARACTER(LEN=filename_max) :: var_dim_name(MAX_VAR_DIMS)
 
     INTEGER :: file_time_steps, time_steps, start_time, end_time
+    INTEGER :: start_allocated_step, end_allocated_step
     LOGICAL :: use_time_range
     INTEGER :: start_read_index(2), count_read_index(2)
 
@@ -374,9 +407,7 @@ CONTAINS
 
     CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_netcdf_read:netcdf_read_REAL_ONCELLS_2D_extdim_fileid'
 
-    ! trivial return value.
-    netcdf_read_REAL_ONCELLS_2D_extdim_fileid = 0
-
+    NULLIFY(netcdf_read_REAL_ONCELLS_2D_extdim_fileid)
     total_number_of_cells = patch%n_patch_cells_g
 
     IF( my_process_is_mpi_workroot()  ) THEN
@@ -431,27 +462,39 @@ CONTAINS
     IF (time_steps < 1) &
       & CALL finish(method_name, "ext dim size < 1")
     !-----------------------
-
-    ALLOCATE( tmp_array(total_number_of_cells, time_steps), stat=return_status )
+    IF (PRESENT(fill_array)) THEN
+      netcdf_read_REAL_ONCELLS_2D_extdim_fileid => fill_array
+      IF (.NOT. ASSOCIATED(netcdf_read_REAL_ONCELLS_2D_extdim_fileid)) THEN
+        CALL warning(method_name, "fill_array is not allocated")
+        ALLOCATE( netcdf_read_REAL_ONCELLS_2D_extdim_fileid(nproma, patch%nblks_c, time_steps), stat=return_status )
+        IF (return_status /= success) THEN
+          CALL finish (method_name, 'ALLOCATE( netcdf_read_REAL_ONCELLS_2D_extdim_fileid )')
+        ENDIF
+      ENDIF
+    ELSE
+      ALLOCATE( netcdf_read_REAL_ONCELLS_2D_extdim_fileid(nproma, patch%nblks_c, time_steps), stat=return_status )
+      IF (return_status /= success) THEN
+        CALL finish (method_name, 'ALLOCATE( netcdf_read_REAL_ONCELLS_2D_extdim_fileid )')
+      ENDIF
+    ENDIF
+    start_allocated_step = LBOUND(netcdf_read_REAL_ONCELLS_2D_extdim_fileid, 3)
+    end_allocated_step   = UBOUND(netcdf_read_REAL_ONCELLS_2D_extdim_fileid, 3)
+    ALLOCATE( tmp_array(total_number_of_cells, start_allocated_step:end_allocated_step), stat=return_status )
     IF (return_status /= success) THEN
       CALL finish (method_name, 'ALLOCATE( tmp_array )')
     ENDIF
+    IF (SIZE(netcdf_read_REAL_ONCELLS_2D_extdim_fileid,3) < time_steps) &
+      CALL finish(method_name, "allocated size < time_steps")
+    !-----------------------
 
     IF( my_process_is_mpi_workroot()) THEN
   !    CALL nf(nf_get_var_double(file_id, varid, tmp_array(:,:)), variable_name)
       start_read_index = (/ 1, start_time /)
-      count_read_index      = (/ total_number_of_cells, end_time /)
+      count_read_index      = (/ total_number_of_cells, time_steps /)
       CALL nf(nf_get_vara_double(file_id, varid, start_read_index, count_read_index, tmp_array(:,:)), variable_name)
     ENDIF
 
-    IF (.NOT. ASSOCIATED(fill_array)) THEN
-      ALLOCATE( fill_array(nproma, patch%nblks_c, time_steps), stat=return_status )
-      IF (return_status /= success) THEN
-        CALL finish (method_name, 'ALLOCATE( fill_array )')
-      ENDIF
-    ENDIF
-
-    CALL scatter_cells_2D_time(tmp_array, fill_array, patch)
+    CALL scatter_cells_2D_time(tmp_array, netcdf_read_REAL_ONCELLS_2D_extdim_fileid, patch)
 
     DEALLOCATE(tmp_array)
 
@@ -465,17 +508,24 @@ CONTAINS
   !      c-style(ncdump): O3(time, levels, ncells) fortran-style: O3(ncells, levels, time)
   ! The fill_array  has the structure:
   !       fill_array(nproma, levels, blocks, time)
-  INTEGER FUNCTION netcdf_read_REAL_ONCELLS_3D_time_fileid(file_id, variable_name, fill_array, patch, &
+  FUNCTION netcdf_read_REAL_ONCELLS_3D_time_fileid(file_id, variable_name, fill_array, patch, &
     & start_timestep, end_timestep)
+
+    REAL(wp), POINTER  :: netcdf_read_REAL_ONCELLS_3D_time_fileid(:,:,:,:)
+
     INTEGER, INTENT(IN)          :: file_id
     CHARACTER(LEN=*), INTENT(IN) :: variable_name
-    REAL(wp), POINTER            :: fill_array(:,:,:,:)
+    define_fill_target            :: fill_array(:,:,:,:)
     TYPE(t_patch), TARGET        :: patch
     INTEGER, INTENT(in), OPTIONAL:: start_timestep, end_timestep
 
     netcdf_read_REAL_ONCELLS_3D_time_fileid = netcdf_read_REAL_ONCELLS_3D_extdim_fileid(&
-      & file_id, variable_name, fill_array, patch, &
-      & start_extdim=start_timestep, end_extdim=end_timestep, extdim_name="time" )
+      & file_id=file_id,                        &
+      & variable_name=variable_name,            &
+      & fill_array=fill_array,                  &
+      & patch=patch,                            &
+      & start_extdim=start_timestep,  end_extdim=end_timestep, &
+      & extdim_name="time")
 
   END FUNCTION netcdf_read_REAL_ONCELLS_3D_time_fileid
   !-------------------------------------------------------------------------
@@ -486,11 +536,14 @@ CONTAINS
   !      c-style(ncdump): O3(time, levels, ncells) fortran-style: O3(ncells, levels, time)
   ! The fill_array  has the structure:
   !       fill_array(nproma, levels, blocks, time)
-  INTEGER FUNCTION netcdf_read_REAL_ONCELLS_3D_extdim_fileid(file_id, variable_name, fill_array, patch, &
+  FUNCTION netcdf_read_REAL_ONCELLS_3D_extdim_fileid(file_id, variable_name, fill_array, patch, &
     & start_extdim, end_extdim, extdim_name )
+
+    REAL(wp), POINTER  :: netcdf_read_REAL_ONCELLS_3D_extdim_fileid(:,:,:,:)
+
     INTEGER, INTENT(IN)          :: file_id
     CHARACTER(LEN=*), INTENT(IN) :: variable_name
-    REAL(wp), POINTER            :: fill_array(:,:,:,:)
+    define_fill_target           :: fill_array(:,:,:,:)
     TYPE(t_patch), TARGET        :: patch
     INTEGER, INTENT(in), OPTIONAL:: start_extdim, end_extdim
     CHARACTER(LEN=*), INTENT(IN), OPTIONAL :: extdim_name
@@ -501,7 +554,8 @@ CONTAINS
     CHARACTER(LEN=filename_max) :: var_dim_name(MAX_VAR_DIMS)
 
     INTEGER :: file_vertical_levels, file_time_steps, time_steps, start_time, end_time
-    LOGICAL :: use_time_range
+    INTEGER :: start_allocated_step, end_allocated_step
+ !   LOGICAL :: use_time_range
     INTEGER :: start_read_index(3), count_read_index(3)
 
     INTEGER :: return_status
@@ -509,7 +563,7 @@ CONTAINS
 
     CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_netcdf_read:netcdf_read_REAL_ONCELLS_3D_extdim_fileid'
 
-    netcdf_read_REAL_ONCELLS_3D_extdim_fileid = 0
+    NULLIFY(netcdf_read_REAL_ONCELLS_3D_extdim_fileid)
 
     total_number_of_cells = patch%n_patch_cells_g
 
@@ -560,32 +614,53 @@ CONTAINS
     ELSE
       end_time = file_time_steps
     ENDIF
-    use_time_range = (start_time /= 1) .OR. (end_time /= file_time_steps)
+  !  use_time_range = (start_time /= 1) .OR. (end_time /= file_time_steps)
+    write(0,*) "start,end time=", start_time, end_time
     time_steps = end_time - start_time + 1
     IF (time_steps < 1) &
       & CALL finish(method_name, "extdim size < 1")
     !-----------------------
-
-    ALLOCATE( tmp_array(total_number_of_cells, file_vertical_levels, time_steps), stat=return_status )
+    !-----------------------
+    IF (PRESENT(fill_array)) THEN
+      netcdf_read_REAL_ONCELLS_3D_extdim_fileid => fill_array
+      IF (.NOT. ASSOCIATED(netcdf_read_REAL_ONCELLS_3D_extdim_fileid)) THEN
+        CALL warning(method_name, "fill_array is not allocated")
+        ALLOCATE( netcdf_read_REAL_ONCELLS_3D_extdim_fileid(nproma, file_vertical_levels, patch%nblks_c, time_steps), &
+          & stat=return_status )
+        IF (return_status /= success) THEN
+          CALL finish (method_name, 'ALLOCATE( netcdf_read_REAL_ONCELLS_3D_extdim_fileid )')
+        ENDIF
+      ENDIF
+    ELSE
+      ALLOCATE( netcdf_read_REAL_ONCELLS_3D_extdim_fileid(nproma, file_vertical_levels, patch%nblks_c, time_steps), &
+      & stat=return_status )
+      IF (return_status /= success) THEN
+        CALL finish (method_name, 'ALLOCATE( netcdf_read_REAL_ONCELLS_3D_extdim_fileid )')
+      ENDIF
+    ENDIF
+    start_allocated_step = LBOUND(netcdf_read_REAL_ONCELLS_3D_extdim_fileid, 4)
+    end_allocated_step   = UBOUND(netcdf_read_REAL_ONCELLS_3D_extdim_fileid, 4)
+    ALLOCATE( tmp_array(total_number_of_cells, file_vertical_levels, start_allocated_step:end_allocated_step), stat=return_status )
     IF (return_status /= success) THEN
       CALL finish (method_name, 'ALLOCATE( tmp_array )')
     ENDIF
 
+    IF (SIZE(netcdf_read_REAL_ONCELLS_3D_extdim_fileid,4) < time_steps) &
+      CALL finish(method_name, "allocated size < time_steps")
+
+    IF (file_vertical_levels /= SIZE(netcdf_read_REAL_ONCELLS_3D_extdim_fileid,2)) &
+      CALL finish(method_name, 'file_vertical_levels /= SIZE(fill_array,2)')
+    !-----------------------
+
     IF( my_process_is_mpi_workroot()) THEN
   !    CALL nf(nf_get_var_double(file_id, varid, tmp_array(:,:,:)), variable_name)
       start_read_index = (/ 1, 1, start_time /)
-      count_read_index      = (/ total_number_of_cells, file_vertical_levels, end_time /)
+      count_read_index      = (/ total_number_of_cells, file_vertical_levels, time_steps /)
       CALL nf(nf_get_vara_double(file_id, varid, start_read_index, count_read_index, tmp_array(:,:,:)), variable_name)
     ENDIF
 
-    IF (.NOT. ASSOCIATED(fill_array)) THEN
-      ALLOCATE( fill_array(nproma, file_vertical_levels, patch%nblks_c, time_steps), stat=return_status )
-      IF (return_status /= success) THEN
-        CALL finish (method_name, 'ALLOCATE( fill_array )')
-      ENDIF
-    ENDIF
 
-    CALL scatter_cells_3D_time(tmp_array, fill_array, patch)
+    CALL scatter_cells_3D_time(tmp_array, netcdf_read_REAL_ONCELLS_3D_extdim_fileid, patch)
 
     DEALLOCATE(tmp_array)
 

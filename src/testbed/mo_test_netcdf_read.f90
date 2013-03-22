@@ -43,7 +43,7 @@ MODULE mo_test_netcdf_read
   USE mo_master_control,      ONLY: get_my_process_name, get_my_model_no
   USE mo_icon_testbed_config, ONLY: testbed_model, testfile_3D_time, testfile_2D_time
 
-  USE mo_model_domain,        ONLY: p_patch
+  USE mo_model_domain,        ONLY: t_patch, p_patch
   USE mo_atmo_model,          ONLY: construct_atmo_model, destruct_atmo_model
   USE mo_atmo_hydrostatic,    ONLY: construct_atmo_hydrostatic, destruct_atmo_hydrostatic
   USE mo_netcdf_read
@@ -64,10 +64,11 @@ CONTAINS
 
     CHARACTER(LEN=*), INTENT(in) :: namelist_filename
     CHARACTER(LEN=*), INTENT(in) :: shr_namelist_filename
-    
+
+    TYPE(t_patch), POINTER   :: patch
     REAL(wp), POINTER :: fill_3D_time_array(:,:,:,:)   ! is (nproma, vertical_levels, blocks, time (months))
-    REAL(wp), POINTER :: fill_2D_time_array(:,:,:)    ! is (nproma, blocks, time )
-    INTEGER :: return_status
+    REAL(wp), POINTER :: fill_2D_time_array(:,:,:),  point_2D_time(:,:,:)   ! is (nproma, blocks, time )
+    INTEGER :: levels, return_status
 
     CHARACTER(*), PARAMETER :: method_name = "test_netcdf_read"
 
@@ -77,34 +78,76 @@ CONTAINS
     activate_sync_timers = .false.
     CALL construct_atmo_model(namelist_filename,shr_namelist_filename)
     CALL construct_atmo_hydrostatic()
+    patch => p_patch(1)
+    levels  = patch%nlev
     !---------------------------------------------------------------------
 
     !---------------------------------------------------------------------
     ! test sst
-    ! read sst
     CALL message(method_name,   testfile_2D_time(1))
-    NULLIFY(fill_2D_time_array)
-    return_status = netcdf_read_oncells_2D_time(testfile_2D_time(1), TRIM(testfile_2D_time(2)), fill_2D_time_array, p_patch(1), &
-      & start_timestep=2, end_timestep=2)
+
+    !---------------------------------------------------------------------
+    ! will read all timesteps in the file
+    fill_2D_time_array => netcdf_read_oncells_2D_time(   &
+      & filename=testfile_2D_time(1),              &
+      & variable_name=TRIM(testfile_2D_time(2)),   &
+      & patch=patch)
+
+    ! here the fill_2D_time_array is allocated and filled
+    ! write the sst array to output ONLY for comparing
+    return_status = netcdf_write_oncells_2d_time("testfile_2D_time_alltimes.nc", TRIM(testfile_2D_time(2)), &
+      & fill_2D_time_array, patch)
+    DEALLOCATE(fill_2D_time_array)
+    !---------------------------------------------------------------------
+
+    ! Example of reading selective timesteps with explicit shape
+    ! say 13 months
+    ALLOCATE(fill_2D_time_array(nproma, patch%nblks_c, 0:13 ))
+    point_2D_time => netcdf_read_oncells_2D_time(   &
+      & filename=testfile_2D_time(1),               &
+      & variable_name=TRIM(testfile_2D_time(2)),    &
+      & fill_array=fill_2D_time_array(:,:,0:),      &
+      & patch=patch,                                &
+      & start_timestep=12, end_timestep=12)
+    point_2D_time => netcdf_read_oncells_2D_time(   &
+      & filename=testfile_2D_time(1),               &
+      & variable_name=TRIM(testfile_2D_time(2)),    &
+      & fill_array=fill_2D_time_array(:,:,1:),      &
+      & patch=patch,                                &
+      & start_timestep=1,  end_timestep=12)
+    point_2D_time => netcdf_read_oncells_2D_time(   &
+      & filename=testfile_2D_time(1),               &
+      & variable_name=TRIM(testfile_2D_time(2)),    &
+      & fill_array=fill_2D_time_array(:,:,13:),     &
+      & patch=patch,                                &
+      & start_timestep=1, end_timestep=1)
     ! write(0,*) "shape of ", TRIM(testfile_2D_time(2)), ":", SHAPE(fill_2D_time_array)
     !---------------------------------------------------------------------
     ! write the sst array to output for comparing
-    return_status = netcdf_write_oncells_2d_time("testfile_2D_time.nc", TRIM(testfile_2D_time(2)), fill_2D_time_array, p_patch(1))
+    return_status = netcdf_write_oncells_2d_time("testfile_2D_14times.nc", TRIM(testfile_2D_time(2)), &
+      & fill_2D_time_array, patch)
     DEALLOCATE(fill_2D_time_array)
     !---------------------------------------------------------------------
 
     !---------------------------------------------------------------------
     ! test O3
-    ! read o3
     CALL message(method_name,   testfile_3D_time(1))
-    NULLIFY(fill_3D_time_array)
-    return_status = netcdf_read_oncells_3D_time(testfile_3D_time(1), testfile_3D_time(2), fill_3D_time_array, p_patch(1))
-    ! write(0,*) "shape of ", TRIM(testfile_3D_time(2)), ":", SHAPE(fill_3D_time_array)
+    fill_3D_time_array => netcdf_read_oncells_3D_time(   &
+      & filename=testfile_3D_time(1),              &
+      & variable_name=TRIM(testfile_3D_time(2)),   &
+      & patch=patch)
     !---------------------------------------------------------------------
     ! write the o3 array to output for comparing
-    return_status = netcdf_write_oncells_3d_time("testfile_3D_time.nc", TRIM(testfile_3D_time(2)), fill_3D_time_array, p_patch(1))
+    CALL message(method_name,   "write testfile_3D_time(1)")
+    return_status = netcdf_write_oncells_3d_time(  &
+      & filename=testfile_3D_time(1),              &
+      & variable_name=TRIM(testfile_3D_time(2)),   &
+      & write_array=fill_3D_time_array,            &
+      & patch=patch)
     DEALLOCATE(fill_3D_time_array)
     !---------------------------------------------------------------------
+!    NULLIFY(fill_3D_time_array)
+!    ALLOCATE(fill_3D_time_array(nproma, levels,  patch%nblks_c, 0:0 ))
 
 
     !---------------------------------------------------------------------

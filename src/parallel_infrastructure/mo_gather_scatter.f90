@@ -194,6 +194,10 @@ CONTAINS
     REAL(wp), POINTER                   :: out_array(:,:,:)
     TYPE(t_patch), INTENT(in)           :: p_patch
 
+!    WRITE(0,*) "LBOUND(in_array,2)= ", LBOUND(in_array,2)
+!    WRITE(0,*) "UBOUND(in_array,2)= ", UBOUND(in_array,2)
+!    WRITE(0,*) "LBOUND(out_array,3)= ", LBOUND(out_array,3)
+!    WRITE(0,*) "UBOUND(out_array,3)= ", UBOUND(out_array,3)
     CALL scatter_array_r2d_time(in_array, out_array, p_patch%cells%glb_index)
 
   END SUBROUTINE scatter_real_cells_2D_time_noblocks_2blocks
@@ -206,6 +210,10 @@ CONTAINS
     REAL(wp), POINTER                   :: out_array(:,:,:,:)
     TYPE(t_patch), INTENT(in)           :: p_patch
 
+    WRITE(0,*) "LBOUND(in_array,3)= ", LBOUND(in_array,3)
+    WRITE(0,*) "UBOUND(in_array,3)= ", UBOUND(in_array,3)
+    WRITE(0,*) "LBOUND(out_array,4)= ", LBOUND(out_array,4)
+    WRITE(0,*) "UBOUND(out_array,4)= ", UBOUND(out_array,4)
     CALL scatter_array_r4d(in_array, out_array, p_patch%cells%glb_index)
 
   END SUBROUTINE scatter_real_cells_3D_time_noblocks_2blocks
@@ -281,17 +289,18 @@ CONTAINS
     TYPE(t_patch), TARGET :: patch
 
     REAL(wp), POINTER :: tmp_array(:,:)
-    INTEGER :: n1, n3, n4, total_number_of_cells, timestep
+    INTEGER :: n1, n3, total_number_of_cells, timestep, start_timestep, end_timestep
 
     n1 = SIZE(in_array, 1)
     total_number_of_cells = patch%n_patch_cells_g
     n3 = (total_number_of_cells - 1) / n1 + 1  ! these are the number of blocks for all the cells
-    n4 = SIZE(in_array, 3)  ! timesteps
+    start_timestep = LBOUND(in_array, 3)
+    end_timestep   = UBOUND(in_array, 3)
 
     IF (.NOT. my_process_is_mpi_seq()) THEN
 
       IF (my_process_is_mpi_workroot()) THEN
-         ALLOCATE(tmp_array(n1, n3), out_array(total_number_of_cells, n4))
+         ALLOCATE(tmp_array(n1, n3), out_array(total_number_of_cells, start_timestep:end_timestep))
       ELSE
         ! ALLOCATE(tmp_array(n1, 1, 1))  ! it's weird but the exchange data requires nproma as first dimension
          ALLOCATE(tmp_array(n1, n3)) ! it's more weird...
@@ -299,7 +308,7 @@ CONTAINS
       ENDIF
 
       ! for each timestep exchange and fill the output array
-      DO timestep = 1, n4
+      DO timestep =  start_timestep, end_timestep
         CALL exchange_data(patch%comm_pat_gather_c, RECV=tmp_array, SEND=in_array(:,:,timestep))
         IF (my_process_is_mpi_workroot()) THEN
           CALL reshape_2D_block_2noblock(tmp_array, out_array(:, timestep ))
@@ -311,8 +320,8 @@ CONTAINS
     ELSE
 
       ! this a sequential run
-      ALLOCATE( out_array(total_number_of_cells, n4))
-      DO timestep = 1, n4
+      ALLOCATE( out_array(total_number_of_cells, start_timestep:end_timestep))
+      DO timestep =  start_timestep, end_timestep
         CALL reshape_2D_block_2noblock(in_array(:, :, timestep), out_array(:, timestep ))
       ENDDO
 
@@ -329,18 +338,19 @@ CONTAINS
     TYPE(t_patch), TARGET :: patch
 
     REAL(wp), POINTER :: tmp_array(:,:,:)
-    INTEGER :: n1, n2, n3, n4, total_number_of_cells, timestep
+    INTEGER :: n1, n2, n3, total_number_of_cells, timestep, start_timestep, end_timestep
 
     n1 = SIZE(in_array, 1)
     n2 = SIZE(in_array, 2)
     total_number_of_cells = patch%n_patch_cells_g
     n3 = (total_number_of_cells - 1) / n1 + 1  ! these are the number of blocks for all the cells
-    n4 = SIZE(in_array, 4)
+    start_timestep = LBOUND(in_array, 4)
+    end_timestep   = UBOUND(in_array, 4)
 
     IF (.NOT. my_process_is_mpi_seq()) THEN
 
       IF (my_process_is_mpi_workroot()) THEN
-         ALLOCATE(tmp_array(n1, n2, n3), out_array(total_number_of_cells, n2, n4))
+         ALLOCATE(tmp_array(n1, n2, n3), out_array(total_number_of_cells, n2, start_timestep:end_timestep))
       ELSE
         ! ALLOCATE(tmp_array(n1, 1, 1))  ! it's weird but the exchange data requires nproma as first dimension
          ALLOCATE(tmp_array(n1, n2, n3)) ! it's more weird...
@@ -348,7 +358,7 @@ CONTAINS
       ENDIF
 
       ! for each timestep exchange and fill the output array
-      DO timestep = 1, n4
+      DO timestep = start_timestep, end_timestep
         CALL exchange_data(patch%comm_pat_gather_c, RECV=tmp_array, SEND=in_array(:,:,:,timestep))
         IF (my_process_is_mpi_workroot()) THEN
           CALL reshape_3D_block_2noblock(tmp_array, out_array(:, :, timestep ))
@@ -360,8 +370,8 @@ CONTAINS
     ELSE
 
       ! this a sequential run
-      ALLOCATE( out_array(total_number_of_cells, n2, n4))
-      DO timestep = 1, n4
+      ALLOCATE( out_array(total_number_of_cells, n2, start_timestep:end_timestep))
+      DO timestep =  start_timestep, end_timestep
         CALL reshape_3D_block_2noblock(in_array(:,:,:,timestep), out_array(:, :,timestep ))
       ENDDO
 
@@ -1022,7 +1032,7 @@ CONTAINS
 
     out_array(:,:,:) = 0.0_wp
 
-    DO time_step=1, SIZE(in_array,2)
+    DO time_step=LBOUND(in_array,2), UBOUND(in_array,2)
       DO j = 1,   SIZE(global_index)
         jb = blk_no(j)
         jl = idx_no(j)
@@ -1049,7 +1059,7 @@ CONTAINS
 
     out_array(:,:,:,:) = 0.0_wp
 
-    DO time_step=1, SIZE(in_array,3)
+    DO time_step=LBOUND(in_array,3), UBOUND(in_array,3)
       DO jk = 1,    SIZE(out_array,2)
         DO j = 1,   SIZE(global_index)
           jb = blk_no(j)
