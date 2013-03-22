@@ -2071,28 +2071,28 @@ CONTAINS
 
       i_lev = p_patch(jg)%level
 
-      IF(my_process_is_stdio()) &
-        CALL nf(nf_open(TRIM(p_patch(jg)%grid_filename), NF_NOWRITE, ncid), routine)
-
-      IF (p_patch(jg)%cell_type == 3) THEN     ! triangular grid
-
-        ! get land-sea-mask on cells, integer marks are:
-        ! inner sea (-2), boundary sea (-1, cells and vertices), boundary (0, edges),
-        ! boundary land (1, cells and vertices), inner land (2)
-        CALL read_netcdf_data (ncid, 'cell_sea_land_mask', p_patch(jg)%n_patch_cells_g, &
-          &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-          &                     ext_data(jg)%atm%lsm_ctr_c)
-
-        ! get topography [m]
-        CALL read_netcdf_data (ncid, 'cell_elevation', p_patch(jg)%n_patch_cells_g, &
-          &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-          &                     ext_data(jg)%atm%elevation_c)
-        ext_data(jg)%atm%elevation_c(:,:) = MAX(0._wp, ext_data(jg)%atm%elevation_c(:,:))
-        ext_data(jg)%atm%topography_c(:,:) = 0._wp
-
-      ENDIF
-
-      IF( my_process_is_stdio()) CALL nf(nf_close(ncid), routine)
+!      IF(my_process_is_stdio()) &
+!        CALL nf(nf_open(TRIM(p_patch(jg)%grid_filename), NF_NOWRITE, ncid), routine)
+!
+!      IF (p_patch(jg)%cell_type == 3) THEN     ! triangular grid
+!
+!        ! get land-sea-mask on cells, integer marks are:
+!        ! inner sea (-2), boundary sea (-1, cells and vertices), boundary (0, edges),
+!        ! boundary land (1, cells and vertices), inner land (2)
+!        CALL read_netcdf_data (ncid, 'cell_sea_land_mask', p_patch(jg)%n_patch_cells_g, &
+!          &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+!          &                     ext_data(jg)%atm%lsm_ctr_c)
+!
+!        ! get topography [m]
+!        CALL read_netcdf_data (ncid, 'cell_elevation', p_patch(jg)%n_patch_cells_g, &
+!          &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+!          &                     ext_data(jg)%atm%elevation_c)
+!        ext_data(jg)%atm%elevation_c(:,:) = MAX(0._wp, ext_data(jg)%atm%elevation_c(:,:))
+!        ext_data(jg)%atm%topography_c(:,:) = 0._wp
+!
+!      ENDIF
+!
+!      IF( my_process_is_stdio()) CALL nf(nf_close(ncid), routine)
 
       IF(my_process_is_stdio()) CALL nf(nf_open('sst.nc', NF_NOWRITE, ncid), routine)
 

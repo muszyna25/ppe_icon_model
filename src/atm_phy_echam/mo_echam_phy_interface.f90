@@ -348,6 +348,7 @@ CONTAINS
       CALL amip_time_interpolation(prm_field(jg)%seaice(:,:), &
 !           &                       prm_field(jg)%tsfc_tile(:,:,:), &
            &                       prm_field(jg)%tsurfw(:,:), &
+           &                       prm_field(jg)%siced(:,:), &
            &                       prm_field(jg)%lsmask(:,:))
     ENDIF
 

@@ -229,6 +229,7 @@ MODULE mo_echam_phy_memory
       & tsurfw (:,  :),     &!< sst as read in from amip input (==tsw)
       & tsurfi (:,  :),     &!< ice surface temperature
       & tsurfl (:,  :),     &!< land surface temperature
+      & siced  (:,  :),     &!< ice depth
       & seaice (:,  :)       !< sea ice as read in from amip input
 
 !!$ TR
@@ -924,6 +925,11 @@ CONTAINS
     cf_desc    = t_cf_var('tsurfl', '', '', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( field_list, prefix//'land surface_temperature', field%tsurfl,      &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
+
+    cf_desc    = t_cf_var('siced', '', '', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( field_list, prefix//'siced', field%siced,      &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
 
     cf_desc    = t_cf_var('seaice', '', '', DATATYPE_FLT32)

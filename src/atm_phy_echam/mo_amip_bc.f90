@@ -275,8 +275,9 @@ CONTAINS
     
   END SUBROUTINE amip_time_weights
 
-  SUBROUTINE amip_time_interpolation(seaice, tsw, slf)
+  SUBROUTINE amip_time_interpolation(seaice, tsw, siced, slf)
     REAL(dp), INTENT(out) :: seaice(:,:) 
+    REAL(dp), INTENT(out) :: siced(:,:) 
     REAL(dp), INTENT(out) :: tsw(:,:) 
     REAL(dp), INTENT(in) :: slf(:,:) 
 
@@ -300,9 +301,12 @@ CONTAINS
       !   tsw(:,:)=MAX(zts(:,:), tf_salt)
       ! END IF
       tsw(:,:) = MERGE(tf_salt, MAX(zts(:,:), tf_salt), seaice(:,:) > 0.0_dp) 
+    !TODO: preliminary fixed value for sea ice depth
+      siced(:,:) = MERGE(1.5_dp, 0.0_dp, seaice(:,:) > 0.0_dp) 
     ELSEWHERE                                  ! land
       seaice(:,:) = 0.0_dp
-      !TODO check tsw/i/l sequence,dummy setting to some reasonable value for land and ice
+      siced(:,:)  = 0.0_dp
+      !TODO: check tsw/i/l sequence,dummy setting to some reasonable value for land and ice
       tsw(:,:) = tmelt
     ENDWHERE
 
