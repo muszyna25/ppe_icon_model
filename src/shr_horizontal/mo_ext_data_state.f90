@@ -105,9 +105,9 @@ MODULE mo_ext_data_state
   USE mo_cdi_constants,      ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE, &
     &                              GRID_UNSTRUCTURED_VERT, GRID_REFERENCE,         &
     &                              GRID_CELL, GRID_EDGE, GRID_VERTEX, ZA_SURFACE,  &
-    &                              ZA_HYBRID, ZA_PRESSURE, DATATYPE_FLT32,         &
-    &                              DATATYPE_PACK16, FILETYPE_NC2, TSTEP_CONSTANT,  &
-    &                              TSTEP_MAX
+    &                              ZA_HYBRID, ZA_PRESSURE, ZA_HEIGHT_2M,           &
+    &                              DATATYPE_FLT32, DATATYPE_PACK16, FILETYPE_NC2,  &
+    &                              TSTEP_CONSTANT, TSTEP_MAX
 
   USE mo_master_control,        ONLY: is_restart_run
 
@@ -1206,14 +1206,16 @@ CONTAINS
 
 
       ! Climat. temperature
+      ! Climat. temperature 2m above ground. However, this temperature is used 
+      ! to initialize the climatological layer of the soil model (lowermost layer)
       !
       ! t_cl         p_ext_atm%t_cl(nproma,nblks_c)
       cf_desc    = t_cf_var('soil_temperature', 'K',                  &
         &                   'CRU near surface temperature climatology', DATATYPE_FLT32)
-      grib2_desc = t_grib2_var( 2, 3, 18, ibits, GRID_REFERENCE, GRID_CELL)
-      CALL add_var( p_ext_atm_list, 't_cl', p_ext_atm%t_cl,         &
-        &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
-        &           grib2_desc, ldims=shape2d_c, loutput=.FALSE.  )
+      grib2_desc = t_grib2_var( 0, 0, 0, ibits, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( p_ext_atm_list, 't_cl', p_ext_atm%t_cl,           &
+        &           GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_2M, cf_desc,    &
+        &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.  )
 
 
       ! longwave surface emissivity

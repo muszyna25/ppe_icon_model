@@ -567,7 +567,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
       & 'tqi', diag%tci_ptr(3)%p_2d,                               &
       & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                        &
       & t_cf_var('tqi', 'kg m**-2',                                &
-      & 'total_column-integrated_cloud_water', DATATYPE_FLT32),    &
+      & 'total_column-integrated_cloud_ice', DATATYPE_FLT32),      &
       & t_grib2_var(0, 1, 70, ibits, GRID_REFERENCE, GRID_CELL),   &
       & ldims=shape2d, lrestart=.FALSE., in_group=groups("additional_precip_vars"))
     
