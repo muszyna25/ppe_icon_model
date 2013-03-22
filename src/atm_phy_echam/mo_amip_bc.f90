@@ -31,8 +31,8 @@ MODULE mo_amip_bc
   REAL(dp), ALLOCATABLE :: sst(:,:,:)
   REAL(dp), ALLOCATABLE :: sic(:,:,:)
   
-  CHARACTER(len=*), PARAMETER :: amip_sst_fn = 'icon_amip2sst_1870-2010.nc'
-  CHARACTER(len=*), PARAMETER :: amip_sic_fn = 'icon_amip2sic_1870-2010.nc'
+  CHARACTER(len=*), PARAMETER :: sst_fn = 'bc_sst.nc'
+  CHARACTER(len=*), PARAMETER :: sic_fn = 'bc_sic.nc'
 
   ! weighting factors and indices for time interpolation
 
@@ -62,14 +62,14 @@ CONTAINS
     IF (my_process_is_io()) THEN
     
       WRITE(message_text,'(a,a,a,i0)') &
-           'Read AMIP SST from ', amip_sst_fn, ' for ', year
+           'Read AMIP SST from ', sst_fn, ' for ', year
       CALL message('',message_text)
       
-      INQUIRE (file=amip_sst_fn, exist=lexist)
+      INQUIRE (file=sst_fn, exist=lexist)
       IF (lexist) THEN
-        CALL read_amip_data(amip_sst_fn, year, zin)
+        CALL read_amip_data(sst_fn, year, zin)
       ELSE
-        WRITE (message_text,*) 'Could not open file ',amip_sst_fn
+        WRITE (message_text,*) 'Could not open file ',sst_fn
         CALL message('',message_text)
         CALL finish ('mo_amip_bc:read_amip_bc', 'run terminated.')
       ENDIF
@@ -93,14 +93,14 @@ CONTAINS
     IF (my_process_is_io()) THEN
 
       WRITE(message_text,'(a,a,a,i0)') &
-           'Read AMIP sea ice from ', amip_sic_fn, ' for ', year
+           'Read AMIP sea ice from ', sic_fn, ' for ', year
       CALL message('',message_text)
       
-      INQUIRE (file=amip_sic_fn, exist=lexist)
+      INQUIRE (file=sic_fn, exist=lexist)
       IF (lexist) THEN
-        CALL read_amip_data(amip_sic_fn, year, zin)
+        CALL read_amip_data(sic_fn, year, zin)
       ELSE
-        WRITE (message_text,*) 'Could not open file ', amip_sic_fn
+        WRITE (message_text,*) 'Could not open file ', sic_fn
         CALL message('',message_text)
         CALL finish ('mo_amip_bc:read_amip_bc', 'run terminated.')
       ENDIF
