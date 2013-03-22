@@ -11,23 +11,27 @@ In GRIB2, a variable is uniquely defined by the following set of metadata:
  \item \emph{typeOfFirstfixedSurface} and \emph{typeOfSecondFixedSurface} (see GRIB2 code table 4.5)
  \item \emph{stepType} (instant, accum, avg, max, min, diff, rms, sd, cov, \dots)
 \end{itemize}
+A documentation of the official WMO GRIB2 code tables can be found here: \url{http://www.wmo.int/pages/prog/www/WMOCodes/WMO306_vI2/LatestVERSION/WMO306_vI2_GRIB2_CodeFlag_en.pdf}\\
 In the following, \emph{typeOfFirstFixedSurface} and \emph{typeOfSecondFixedSurface} will be abbreviated by \emph{Lev-Typ~1/2}.
+
+
 
 \section{Deprecated output fields}
 With the launch of ICON, the following output fields will no longer be available:
 
 \begin{itemize}
- \item \textbf{OMEGA} [Pa/s]: Vertical velocity in pressure coordinates $\omega=\frac{\mathrm{d}p}{\mathrm{d}t}$
- \item \textbf{BAS\_CON} [\textendash]: Level index of convective cloud base
- \item \textbf{TOP\_CON} [\textendash]: Level index of convective cloud top
+ \item \textbf{OMEGA} [Pa/s]: Vertical velocity in pressure coordinates $\omega=\frac{\mathrm{d}p}{\mathrm{d}t}$. Since ICON is a nonhydrostatic model, the vertical velocity 
+                              \textbf{W} [$\mathrm{m/s}$] is provided, instead (see Section \ref{sec_newout}).
+ \item \textbf{BAS\_CON} [\textendash]: Level index of convective cloud base. Instead, \textbf{HBAS\_CON} [m] should be used.
+ \item \textbf{TOP\_CON} [\textendash]: Level index of convective cloud top. Instead, \textbf{HTOP\_CON} [m] should be used.
  \item \textbf{T\_S} [K]: Temperature at the soil-atmosphere-, or soil-snow-interface. Note that $\mathrm{T\_S} = \mathrm{T\_SO(0)}$, thus $\mathrm{T\_S}$ is redundant.
  \item \textbf{W\_G1}, \textbf{W\_G2}  [mm H2O]: Soil water content in upper layer ($0$ to $10\,\mathrm{cm}$) and middle layer ($10$ to $100\,\mathrm{cm}$), respectively. 
                                                  If needed, these fields can be derived from \textbf{W\_SO}.
- 
 \end{itemize}
 
 
-\section{New output fields}
+
+\section{New output fields}\label{sec_newout}
 New output fields that will become available with the launch of ICON are:
 \begin{itemize}
  \item \textbf{W} $[m/s]$: vertical velocity in height coordinates $w=\frac{\mathrm{d}z}{\mathrm{d}t}$
@@ -35,10 +39,40 @@ New output fields that will become available with the launch of ICON are:
 \end{itemize}
 
 
+
 \section{Available output fields listed in tabular form}
 
+\subsection{Time-constant (external parameter) fields}
+
 \begin{table}[H]
-\caption{Hybrid multi-layer forecast ($VV>0$) and initialised analysis ($VV=0$) products}
+\caption{Time-constant fields (Date D=000000)}
+ \begin{tabular}{p{2.0cm}p{5.0cm}p{0.7cm}p{0.7cm}p{0.7cm}p{1.4cm}p{1cm}p{1cm}}
+  \toprule
+\multicolumn{1}{c}{\begin{sideways}\textbf{ShortName}\end{sideways}}  &  \multicolumn{1}{c}{\rb{\textbf{Description}}}  & \begin{sideways}\textbf{Discipline}\end{sideways} & \begin{sideways}\bf{Category}\end{sideways} & \begin{sideways}\bf{Number}\end{sideways}  & \begin{sideways}\bf{Lev-Typ 1/2}\end{sideways}  & \begin{sideways}\bf{stepType}\end{sideways} &\begin{sideways}\bf{Unit}\end{sideways}\\
+\midrule
+FIS                           &  Surface geopotential                                                                   &               0                                   &                       3                     &                    4                       &                 1/--                            &                      inst                   &        $\mathrm{m^{2}\,s^{-2}}$   \\
+RLAT                          &  Geographical latitude                                                                  &               0                                   &                     191                     &                    1                       &                 1/--                            &                      inst                   &        $\mathrm{Deg.\, N}$   \\
+RLON                          &  Geographical longitude                                                                 &               0                                   &                     191                     &                    2                       &                 1/--                            &                      inst                   &        $\mathrm{Deg.\, E}$   \\
+FR\_LAND                      &  Land fraction (possible range [$0,1$])                                                 &               2                                   &                       0                     &                    0                       &                 1/--                            &                      inst                   &        $1$ \\
+ROOTDP                        &  Root depth of vegetation                                                               &               2                                   &                       0                     &                   32                       &                 1/--                            &                      inst                   &        $\mathrm{m}$ \\
+EMIS\_RAD                     &  Longwave surface emissivity                                                            &               2                                   &                       3                     &                  199                       &                 1/--                            &                      inst                   &        $1$ \\
+RSMIN                         &  Minimum stomatal resistance                                                            &               2                                   &                       0                     &                   16                       &                 1/--                            &                      inst                   &        $\mathrm{s\,m^{-1}}$ \\
+SSO\_STDH                     &  Standard deviation of sub-grid scale orography                                         &               0                                   &                       3                     &                   20                       &                 1/--                            &                      inst                   &        $\mathrm{m}$ \\
+SSO\_GAMMA                    &  Anisotropy of sub-gridscale orography                                                  &               0                                   &                       3                     &                   24                       &                 1/--                            &                      inst                   &        $1$ \\
+SSO\_THETA                    &  Angle of sub-gridscale orography                                                       &               0                                   &                       3                     &                   21                       &                 1/--                            &                      inst                   &        $\mathrm{rad}$ \\
+SSO\_SIGMA                    &  Slope of sub-gridscale orography                                                       &               0                                   &                       3                     &                   22                       &                 1/--                            &                      inst                   &        $1$ \\
+PLCOV\_MX                     &  Plant covering degree in the vegetation phase                                          &               2                                   &                       0                     &                    4                       &                 1/--                            &                      max                    &        $1$ \\
+T\_2M\_CL                     &  Climatological $2\,\mathrm{m}$ temperature (used as lower bc.\ for soil model)         &               0                                   &                       0                     &                    0                       &               103/--                            &                      inst                   &        $\mathrm{K}$ \\
+  \bottomrule
+ \end{tabular}
+\end{table}
+
+
+
+\subsection{Multi-level fields on native hybrid vertical levels}
+
+\begin{table}[H]
+\caption{Hybrid multi-level forecast ($VV>0$) and initialised analysis ($VV=0$) products}
  \begin{tabular}{p{2.0cm}p{5.0cm}p{0.7cm}p{0.7cm}p{0.7cm}p{1.4cm}p{1cm}p{1cm}}
   \toprule
 \multicolumn{1}{c}{\begin{sideways}\textbf{ShortName}\end{sideways}}  &  \multicolumn{1}{c}{\rb{\textbf{Description}}}  & \begin{sideways}\textbf{Discipline}\end{sideways} & \begin{sideways}\bf{Category}\end{sideways} & \begin{sideways}\bf{Number}\end{sideways}  & \begin{sideways}\bf{Lev-Typ 1/2}\end{sideways}  & \begin{sideways}\bf{stepType}\end{sideways} &\begin{sideways}\bf{Unit}\end{sideways}\\
@@ -63,8 +97,33 @@ CLC                        &  Cloud cover                                       
 
 
 
+\subsection{Multi-level fields interpolated to pressure levels}
+
+The following pressure levels are available: $1000$, $950$, $925$, $900$, $850$, $700$, $500$, $400$, $300$, $250$, $200$, $150$, $100$, $50$, $10$, $\mathrm{hPa}$.
+
+\begin{table}[H]
+\caption{Multi-level forecast ($VV>0$) and initialised analysis ($VV=0$) products interpolated to pressure levels}
+ \begin{tabular}{p{2.0cm}p{5.0cm}p{0.7cm}p{0.7cm}p{0.7cm}p{1.4cm}p{1cm}p{1cm}}
+  \toprule
+\multicolumn{1}{c}{\begin{sideways}\textbf{ShortName}\end{sideways}}  &  \multicolumn{1}{c}{\rb{\textbf{Description}}}  & \begin{sideways}\textbf{Discipline}\end{sideways} & \begin{sideways}\bf{Category}\end{sideways} & \begin{sideways}\bf{Number}\end{sideways}  & \begin{sideways}\bf{Lev-Typ 1/2}\end{sideways}  & \begin{sideways}\bf{stepType}\end{sideways} &\begin{sideways}\bf{Unit}\end{sideways}\\
+\midrule
+FI                         &  Geopotential                                                                              &               0                                   &                     3                       &                    4                       &                 100/--                          &                      inst                   &        $\mathrm{m^{2}\,s^{-2}}$   \\
+U                          &  Zonal wind                                                                                &               0                                   &                     2                       &                    2                       &                 100/--                          &                      inst                   &        $\mathrm{m\,s^{-1}}$   \\ 
+V                          &  Meridional wind                                                                           &               0                                   &                     2                       &                    3                       &                 100/--                          &                      inst                   &        $\mathrm{m\,s^{-1}}$   \\
+W                          &  Vertical wind                                                                             &               0                                   &                     2                       &                    9                       &                 100/--                          &                      inst                   &        $\mathrm{m\,s^{-1}}$   \\
+T                          &  Temperature                                                                               &               0                                   &                     0                       &                    0                       &                 100/--                          &                      inst                   &        $\mathrm{K}$          \\
+RELHUM                     &  Relative humidity (with respect to water)                                                 &               0                                   &                     1                       &                    1                       &                 100/--                          &                      inst                   &        $\mathrm{\%}$ \\
+  \bottomrule
+ \end{tabular}
+\end{table}
+
+
+
+
+\subsection{Single-level fields}
+
 \begin{longtable}{p{2.0cm}p{5.0cm}p{0.7cm}p{0.7cm}p{0.7cm}p{1.4cm}p{1cm}p{1cm}}
-\caption[]{Single-layer forecast ($VV>0$) and initialised analysis ($VV=0$) products}\\
+\caption[]{Single-level forecast ($VV>0$) and initialised analysis ($VV=0$) products}\\
   \toprule
 \multicolumn{1}{c}{\begin{sideways}\textbf{ShortName}\end{sideways}}  &  \multicolumn{1}{c}{\rb{\textbf{Description}}}  & \begin{sideways}\textbf{Discipline}\end{sideways} & \begin{sideways}\bf{Category}\end{sideways} & \begin{sideways}\bf{Number}\end{sideways}  & \begin{sideways}\bf{Lev-Typ 1/2}\end{sideways}  & \begin{sideways}\bf{stepType}\end{sideways} &\begin{sideways}\bf{Unit}\end{sideways}\\
 \midrule
@@ -81,8 +140,8 @@ T\_G                           &  Ground temperature (temperature at sfc-atm int
 QV\_S                          &  Surface specific humidity                                                             &               0                                   &                     1                       &                    0                       &                 1/--                            &                      inst                   &        $\mathrm{kg\,kg^{-1}}$    \\
 W\_SNOW                        &  Snow depth water equivalent                                                           &               0                                   &                     1                       &                    60                      &                 1/--                            &                      inst                   &        $\mathrm{kg\,m^{-2}}$    \\
 W\_I                           &  Plant canopy surface water                                                            &               2                                   &                     0                       &                    13                      &                 1/--                            &                      inst                   &        $\mathrm{kg\,m^{-2}}$    \\
-TCM                            &  Turbulent transfer coefficient for momentum (surface)                                 &               0                                   &                     2                       &                    29                      &                 1/--                            &                      inst                   &        $\mathrm{--}$    \\ 
-TCH                            &  Turbulent transfer coefficient for heat and moisture (surface)                        &               0                                   &                     0                       &                    19                      &                 1/--                            &                      inst                   &        $\mathrm{--}$    \\
+TCM                            &  Turbulent transfer coefficient for momentum (surface)                                 &               0                                   &                     2                       &                    29                      &                 1/--                            &                      inst                   &        $1$    \\ 
+TCH                            &  Turbulent transfer coefficient for heat and moisture (surface)                        &               0                                   &                     0                       &                    19                      &                 1/--                            &                      inst                   &        $1$    \\
 ASOB\_S                        &  Net short-wave radiation flux at surface (average since model start)                  &               0                                   &                     4                       &                     9                      &                 1/--                            &                      avg                    &        $\mathrm{W\,m^{-2}}$    \\
 ATHB\_S                        &  Net long-wave radiation flux at surface (average since model start)                   &               0                                   &                     5                       &                     5                      &                 1/--                            &                      avg                    &        $\mathrm{W\,m^{-2}}$    \\
 ASOB\_T                        &  Net short-wave radiation flux at TOA (average since model start)                      &               0                                   &                     4                       &                     9                      &                 8/--                            &                      avg                    &        $\mathrm{W\,m^{-2}}$    \\
@@ -115,10 +174,10 @@ HTOP\_CON                      &  Height of convective cloud top above msl      
 HZEROCL                        &  Height of 0 degree Celsius isotherm above msl                                         &               0                                   &                     3                       &                     6                      &                 4/101                           &                      inst                   &        $\mathrm{m}$  \\
 ASHFL\_S                       &  Sensible heat net flux at surface (average since model start)                         &               0                                   &                     0                       &                    11                      &                 1/--                            &                      avg                    &        $\mathrm{W\,m^{-2}}$  \\
 ALHFL\_S                       &  Latent heat net flux at surface (average since model start)                           &               0                                   &                     0                       &                    10                      &                 1/--                            &                      avg                    &        $\mathrm{W\,m^{-2}}$  \\
-FR\_ICE                        &  Sea ice cover  (possible range: $[0,1]$)                                              &              10                                   &                     2                       &                     0                      &                 1/--                            &                      inst                   &        $\mathrm{\textendash}$  \\
+FR\_ICE                        &  Sea ice cover  (possible range: $[0,1]$)                                              &              10                                   &                     2                       &                     0                      &                 1/--                            &                      inst                   &        $\mathrm{1}$  \\
 T\_ICE                         &  Sea ice temperature (at ice-atm interface)                                            &              10                                   &                     2                       &                     8                      &                 1/--                            &                      inst                   &        $\mathrm{K}$  \\
 H\_ICE                         &  Sea ice thickness (Max: $3\,\mathrm{m}$)                                              &              10                                   &                     2                       &                     1                      &                 1/--                            &                      inst                   &        $\mathrm{m}$  \\
-FRESHSNW                       &  Fresh snow factor (weighting function for albedo indicating freshness of snow)        &               0                                   &                     1                       &                   203                      &                 1/--                            &                      inst                   &        $\mathrm{\textendash}$  \\
+FRESHSNW                       &  Fresh snow factor (weighting function for albedo indicating freshness of snow)        &               0                                   &                     1                       &                   203                      &                 1/--                            &                      inst                   &        $\mathrm{1}$  \\
 RHO\_SNOW                      &  Snow density                                                                          &               0                                   &                     1                       &                    61                      &                 1/--                            &                      inst                   &        $\mathrm{kg\,m^{-3}}$  \\
 H\_SNOW                        &  Snow depth                                                                            &               0                                   &                     1                       &                    11                      &                 1/--                            &                      inst                   &        $\mathrm{m}$  \\
   \bottomrule
@@ -128,8 +187,9 @@ H\_SNOW                        &  Snow depth                                    
 
 
 
+
 \begin{longtable}{p{2.0cm}p{5.0cm}p{0.7cm}p{0.7cm}p{0.7cm}p{1.4cm}p{1cm}p{1cm}}
-\caption[]{Multi-layer forecast ($VV>0$) and initialised analysis ($VV=0$) products of the soil model}\\
+\caption[]{Multi-level forecast ($VV>0$) and initialised analysis ($VV=0$) products of the soil model}\\
   \toprule
 \multicolumn{1}{c}{\begin{sideways}\textbf{ShortName}\end{sideways}}  &  \multicolumn{1}{c}{\rb{\textbf{Description}}}  & \begin{sideways}\textbf{Discipline}\end{sideways} & \begin{sideways}\bf{Category}\end{sideways} & \begin{sideways}\bf{Number}\end{sideways}  & \begin{sideways}\bf{Lev-Typ 1/2}\end{sideways}  & \begin{sideways}\bf{stepType}\end{sideways} &\begin{sideways}\bf{Unit}\end{sideways}\\
 \midrule
@@ -173,3 +233,16 @@ Soil moisture $\mathrm{W\_SO}$ is prognosed for layers $1$ to $6$. In the two lo
  \end{tabular}
 \end{table}
 
+
+
+\subsection{Surface fields interpolated to msl}
+\begin{table}[H]
+\caption{Forecast ($VV>0$) and initialised analysis ($VV=0$) products interpolated to msl}
+ \begin{tabular}{p{2.0cm}p{5.0cm}p{0.7cm}p{0.7cm}p{0.7cm}p{1.4cm}p{1cm}p{1cm}}
+  \toprule
+\multicolumn{1}{c}{\begin{sideways}\textbf{ShortName}\end{sideways}}  &  \multicolumn{1}{c}{\rb{\textbf{Description}}}  & \begin{sideways}\textbf{Discipline}\end{sideways} & \begin{sideways}\bf{Category}\end{sideways} & \begin{sideways}\bf{Number}\end{sideways}  & \begin{sideways}\bf{Lev-Typ 1/2}\end{sideways}  & \begin{sideways}\bf{stepType}\end{sideways} &\begin{sideways}\bf{Unit}\end{sideways}\\
+\midrule
+PMSL                       &  Surface pressure reduced to msl                                                           &               0                                   &                     3                       &                    1                       &                 101/--                          &                      inst                   &        $\mathrm{Pa}$   \\
+  \bottomrule
+ \end{tabular}
+\end{table}

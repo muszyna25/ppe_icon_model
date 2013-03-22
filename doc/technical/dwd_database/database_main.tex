@@ -34,6 +34,18 @@
 \usepackage{rotating}    % rotate column labels
 \usepackage{xcolor}
 \usepackage{listings}
+\usepackage{hyperref}    % ability to create hyperlinks within the document
+
+
+
+% define some colors
+\definecolor{darkred}{rgb}{0.5,0,0}
+\definecolor{darkblue}{rgb}{0,0,0.5}
+%\definecolor{darkgreen}{rgb}{0,0.5,0}
+
+% customize hyperref
+\hypersetup{colorlinks, linkcolor=darkblue, urlcolor=darkred}
+
 
 % Fortran environment
 \lstnewenvironment{fortran}%

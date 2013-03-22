@@ -823,7 +823,7 @@ CONTAINS
       grib2_desc = t_grib2_var( 0, 3, 20, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'sso_stdh', p_ext_atm%sso_stdh, &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
-        &           grib2_desc, ldims=shape2d_c, loutput=.FALSE.,   &
+        &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,    &
         &           isteptype=TSTEP_CONSTANT )
 
 
@@ -833,10 +833,10 @@ CONTAINS
       ! sso_gamma    p_ext_atm%sso_gamma(nproma,nblks_c)
       cf_desc    = t_cf_var('anisotropy_factor', '-',&
         &                   'Anisotropy of sub-gridscale orography', DATATYPE_FLT32)
-      grib2_desc = t_grib2_var( 0, 3, 20, ibits, GRID_REFERENCE, GRID_CELL)
+      grib2_desc = t_grib2_var( 0, 3, 24, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'sso_gamma', p_ext_atm%sso_gamma, &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,      &
-        &           grib2_desc, ldims=shape2d_c, loutput=.FALSE.,     &
+        &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,      &
         &           isteptype=TSTEP_CONSTANT )
 
 
@@ -849,7 +849,7 @@ CONTAINS
       grib2_desc = t_grib2_var( 0, 3, 21, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'sso_theta', p_ext_atm%sso_theta, &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,      &
-        &           grib2_desc, ldims=shape2d_c, loutput=.FALSE.,     &
+        &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,      &
         &           isteptype=TSTEP_CONSTANT )
 
 
@@ -1023,7 +1023,8 @@ CONTAINS
       grib2_desc = t_grib2_var( 2, 0, 16, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'rsmin', p_ext_atm%rsmin,       &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
-        &           grib2_desc, ldims=shape2d_c )
+        &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,    &
+        &           isteptype=TSTEP_CONSTANT )
 
       ! rsmin2d_t        p_ext_atm%rsmin2d_t(nproma,nblks_c,ntiles_total)
       cf_desc    = t_cf_var('RSMIN', 's m-1', 'Minimal stomata resistence', DATATYPE_FLT32)
@@ -1215,17 +1216,19 @@ CONTAINS
       grib2_desc = t_grib2_var( 0, 0, 0, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_list, 't_cl', p_ext_atm%t_cl,           &
         &           GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_2M, cf_desc,    &
-        &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.  )
+        &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,      &
+        &           isteptype=TSTEP_CONSTANT )
 
 
       ! longwave surface emissivity
       !
       ! emis_rad     p_ext_atm%emis_rad(nproma,nblks_c)
       cf_desc    = t_cf_var('emis_rad', '-', 'longwave surface emissivity', DATATYPE_FLT32)
-      grib2_desc = t_grib2_var( 2, 3, 196, ibits, GRID_REFERENCE, GRID_CELL)
+      grib2_desc = t_grib2_var( 2, 3, 199, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'emis_rad', p_ext_atm%emis_rad, &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
-        &           grib2_desc, ldims=shape2d_c, loutput=.FALSE. )
+        &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,    &
+        &           isteptype=TSTEP_CONSTANT )
 
 
       ! landuse class fraction
@@ -1243,7 +1246,7 @@ CONTAINS
       !
       ! emis_rad     p_ext_atm%emis_rad(nproma,nblks_c)
       cf_desc    = t_cf_var('emis_rad', '-', 'longwave surface emissivity', DATATYPE_FLT32)
-      grib2_desc = t_grib2_var( 2, 3, 196, ibits, GRID_REFERENCE, GRID_CELL)
+      grib2_desc = t_grib2_var( 2, 3, 199, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'emis_rad', p_ext_atm%emis_rad, &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
         &           grib2_desc, ldims=shape2d_c, loutput=.FALSE. )
@@ -1258,7 +1261,7 @@ CONTAINS
       !
       ! emis_rad     p_ext_atm%emis_rad(nproma,nblks_c)
       cf_desc    = t_cf_var('emis_rad', '-', 'longwave surface emissivity', DATATYPE_FLT32)
-      grib2_desc = t_grib2_var( 2, 3, 196, ibits, GRID_REFERENCE, GRID_CELL)
+      grib2_desc = t_grib2_var( 2, 3, 199, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'emis_rad', p_ext_atm%emis_rad, &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
         &           grib2_desc, ldims=shape2d_c, loutput=.FALSE. )     
@@ -3468,6 +3471,7 @@ CONTAINS
         ext_data(jg)%atm%plcov (:,jb) = 0._wp
         ext_data(jg)%atm%rootdp(:,jb) = 0._wp
         ext_data(jg)%atm%lai   (:,jb) = 0._wp
+        ext_data(jg)%atm%rsmin (:,jb) = 0._wp
 
         DO jt = 1, ntiles_total
           i_count = ext_data(jg)%atm%gp_count_t(jb,jt)
@@ -3487,6 +3491,9 @@ CONTAINS
             ext_data(jg)%atm%lai(jc,jb) = ext_data(jg)%atm%lai(jc,jb)           &
               &             + ( ext_data(jg)%atm%tai_t(jc,jb,jt)                &
               &             /(ext_data(jg)%atm%plcov_t(jc,jb,jt)+dbl_eps) * area_frac )
+
+            ext_data(jg)%atm%rsmin(jc,jb) = ext_data(jg)%atm%rsmin(jc,jb)       &
+              &              + ext_data(jg)%atm%rsmin2d_t(jc,jb,jt) * area_frac
 
           ENDDO  !ic
 
