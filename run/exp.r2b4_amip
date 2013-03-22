@@ -55,7 +55,8 @@ iforcing=2      # ECHAM physics
 #
 #-----------------------------------------------------------------------------
 # the grid files
-atmo_dyn_grids='iconR2B04-ocean_etopo40_planet.nc'
+grids_folder=/pool/data/ICON/grids/private/r2b4_amip
+atmo_dyn_grids='r2b4_amip.nc'
 #
 #-----------------------------------------------------------------------------
 
