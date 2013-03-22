@@ -300,7 +300,7 @@ SUBROUTINE advect_tracer_ab(p_patch_3D, p_os, p_param, p_sfc_flx,p_op_coeff, tim
       END DO
     END DO
   END IF
-  CALL dbg_print('aft. AdvIndivTrac: h-new   ',p_os%p_prog(nnew(1))%h   ,str_module,idt_src)
+  CALL dbg_print('aft. AdvTracer: h-new (fwf)',p_os%p_prog(nnew(1))%h   ,str_module,idt_src)
 
 END SUBROUTINE advect_tracer_ab
 !-------------------------------------------------------------------------
