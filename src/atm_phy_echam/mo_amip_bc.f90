@@ -13,7 +13,7 @@ MODULE mo_amip_bc
   
   USE mo_kind,               ONLY: dp
   USE mo_exception,          ONLY: finish, message, message_text
-  USE mo_mpi,                ONLY: my_process_is_io, p_io, p_comm_work, p_bcast
+  USE mo_mpi,                ONLY: my_process_is_stdio, p_io, p_comm_work, p_bcast
   USE mo_model_domain,       ONLY: t_patch
   USE mo_communication,      ONLY: idx_no, blk_no
   USE mo_parallel_config,    ONLY: nproma
@@ -59,7 +59,7 @@ CONTAINS
     
     INTEGER :: j, k, jl, jb
     
-    IF (my_process_is_io()) THEN
+    IF (my_process_is_stdio()) THEN
     
       WRITE(message_text,'(a,a,a,i0)') &
            'Read AMIP SST from ', sst_fn, ' for ', year
@@ -90,7 +90,7 @@ CONTAINS
       ENDDO
     ENDDO
 
-    IF (my_process_is_io()) THEN
+    IF (my_process_is_stdio()) THEN
 
       WRITE(message_text,'(a,a,a,i0)') &
            'Read AMIP sea ice from ', sic_fn, ' for ', year
@@ -288,8 +288,8 @@ CONTAINS
 
     !TODO: missing siced needs to be added
 
-    WHERE (slf(:,:) < 1.0_dp)
-      zic(:,:) = zic(:,:)*0.01_dp               ! assuming input data is in percent
+    WHERE (slf(:,:) < 0.5_dp)
+      seaice(:,:) = zic(:,:)*0.01_dp               ! assuming input data is in percent
       ! seaice(:,:) = MAX(0.0_dp, MIN(0.99_dp, zic(:,:)))
       seaice(:,:) = MERGE(0.99_dp, seaice(:,:), seaice(:,:) > 0.99_dp)
       ! IF (seaice(:,:) <= 0.01_dp) seaice(:,:) = 0.0_dp
