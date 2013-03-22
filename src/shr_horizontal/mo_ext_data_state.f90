@@ -862,7 +862,7 @@ CONTAINS
       grib2_desc = t_grib2_var( 0, 3, 22, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'sso_sigma', p_ext_atm%sso_sigma, &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,      &
-        &           grib2_desc, ldims=shape2d_c, loutput=.FALSE.,     &
+        &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,      &
         &           isteptype=TSTEP_CONSTANT )
 
 
