@@ -462,9 +462,9 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
                 & hor_interp=create_hor_interp_metadata(hor_intp_type=HINTP_TYPE_LONLAT_NNB ) )
 
     ! &      diag%gust10(nproma,nblks_c)
-    cf_desc    = t_cf_var('gust', 'm s-1 ', 'gust at 10 m', DATATYPE_FLT32)
+    cf_desc    = t_cf_var('gust10', 'm s-1 ', 'gust at 10 m', DATATYPE_FLT32)
     grib2_desc = t_grib2_var( 0, 2, 22, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( diag_list, 'vmax_10m', diag%gust10,                          &
+    CALL add_var( diag_list, 'gust10', diag%gust10,                            &
                 & GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_10M, cf_desc, grib2_desc,  &
                 & ldims=shape2d, lrestart=.TRUE., in_group=groups("pbl_vars"), &
                 & isteptype=TSTEP_MAX )
@@ -1514,7 +1514,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
         ! &      diag%gz0_t(nproma,nblks_c,ntiles_total+ntiles_water)
         cf_desc    = t_cf_var('gz0_t', 'm2 s-2 ', 'tile-based roughness length times gravity', &
              &                DATATYPE_FLT32)
-        grib2_desc = t_grib2_var(0, 0, 11, ibits, GRID_REFERENCE, GRID_CELL)
+        grib2_desc = t_grib2_var(2, 0, 1, ibits, GRID_REFERENCE, GRID_CELL)
         CALL add_var( diag_list, 'gz0_t', diag%gz0_t,                                    &
           & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape3dsubsw, &
           & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
@@ -1528,7 +1528,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
              & diag%gz0_t_ptr(jsfc)%p_2d,                                 &
              & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                        &
              & t_cf_var('gz0_t_'//TRIM(csfc), '', '', DATATYPE_FLT32),    &
-             & t_grib2_var(0, 4, 0, ibits, GRID_REFERENCE, GRID_CELL),    &
+             & t_grib2_var(2, 0, 1, ibits, GRID_REFERENCE, GRID_CELL),    &
              & ldims=shape2d, lrestart=.TRUE., loutput=.TRUE.)
         ENDDO
 

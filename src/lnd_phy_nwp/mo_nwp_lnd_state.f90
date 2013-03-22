@@ -716,7 +716,7 @@ MODULE mo_nwp_lnd_state
     ! & p_prog_lnd%dzh_snow_t(nproma,nlev_snow,nblks_c,ntiles_total)
     cf_desc    = t_cf_var('dzh_snow_t', 'm', 'layer thickness between half levels in snow', &
          &                DATATYPE_FLT32)
-    grib2_desc = t_grib2_var(2, 0, 14, ibits, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( prog_list, vname_prefix//'dzh_snow_t'//suffix,                 &
          & p_prog_lnd%dzh_snow_t, GRID_UNSTRUCTURED_CELL, ZA_GENERIC_SNOW,       &
          & cf_desc, grib2_desc, ldims=shape4d_snow_subs,                         &
@@ -1094,7 +1094,7 @@ MODULE mo_nwp_lnd_state
     cf_desc    = t_cf_var('dzh_snow', 'm', &
          &                'weighted layer thickness between half levels in snow', &
          &                DATATYPE_FLT32)
-    grib2_desc = t_grib2_var(2, 0, 14, ibits, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, vname_prefix//'dzh_snow',                           &
          & p_diag_lnd%dzh_snow, GRID_UNSTRUCTURED_CELL, ZA_GENERIC_SNOW,         &
          & cf_desc, grib2_desc, ldims=(/nproma, nlev_snow, kblks/),              &
@@ -1102,8 +1102,8 @@ MODULE mo_nwp_lnd_state
          & in_group=groups("multisnow_vars", "snow_vars"))
 
     ! & p_diag_lnd%h_snow(nproma,nblks_c)
-    cf_desc    = t_cf_var('h_snow', 'm', 'weighted snow height', DATATYPE_FLT32)
-    grib2_desc = t_grib2_var(2, 0, 14, ibits, GRID_REFERENCE, GRID_CELL)
+    cf_desc    = t_cf_var('h_snow', 'm', 'weighted snow depth', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var(0, 1, 11, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, vname_prefix//'h_snow', p_diag_lnd%h_snow,        &
            & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,          &
            & ldims=shape2d, lrestart=.FALSE., loutput=.TRUE. )    
@@ -1118,7 +1118,7 @@ MODULE mo_nwp_lnd_state
 
     ! & p_diag_lnd%snowfrac(nproma,nblks_c)
     cf_desc    = t_cf_var('snowfrac', '- ', 'snow-cover fraction', DATATYPE_FLT32)
-    grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = t_grib2_var(0, 1, 42, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, vname_prefix//'snowfrac', p_diag_lnd%snowfrac,       &
            & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,             &
            & ldims=shape2d, lrestart=.FALSE., loutput=.TRUE.,                     &
@@ -1143,7 +1143,7 @@ MODULE mo_nwp_lnd_state
 !tiled variables
     ! & p_diag_lnd%h_snow_t(nproma,nblks_c,ntiles_total)
     cf_desc    = t_cf_var('h_snow_t', 'm', 'snow height', DATATYPE_FLT32)
-    grib2_desc = t_grib2_var(2, 0, 14, ibits, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = t_grib2_var(0, 1, 11, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, vname_prefix//'h_snow_t', p_diag_lnd%h_snow_t,    &
            & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,          &
            & ldims=shape3d_subs, lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE. )  
@@ -1157,7 +1157,7 @@ MODULE mo_nwp_lnd_state
                & p_diag_lnd%h_snow_ptr(jsfc)%p_2d,                             &
                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                           &
                & t_cf_var('h_snow_t_'//csfc, '', '', DATATYPE_FLT32),          &
-               & t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL), &
+               & t_grib2_var(0, 1, 11, ibits, GRID_REFERENCE, GRID_CELL),      &
                & ldims=shape2d, in_group=groups("land_tile_vars") )
       ENDDO
 
@@ -1201,7 +1201,7 @@ MODULE mo_nwp_lnd_state
                  & p_diag_lnd%snowfrac_ptr(jsfc)%p_2d,                           &
                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                           &
                  & t_cf_var('snowfrac_t_'//csfc, '', '', DATATYPE_FLT32),        &
-                 & t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL), &
+                 & t_grib2_var(0, 1, 42, ibits, GRID_REFERENCE, GRID_CELL),      &
                  & ldims=shape2d, in_group=groups("land_tile_vars") )
       END DO
 

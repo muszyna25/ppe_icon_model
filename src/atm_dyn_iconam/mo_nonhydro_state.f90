@@ -91,8 +91,8 @@ MODULE mo_nonhydro_state
     &                                GRID_UNSTRUCTURED_VERT, GRID_REFERENCE,         &
     &                                GRID_CELL, GRID_EDGE, GRID_VERTEX, ZA_HYBRID,   &
     &                                ZA_HYBRID_HALF, ZA_HYBRID_HALF_HHL, ZA_SURFACE, &
-    &                                DATATYPE_FLT32, DATATYPE_PACK16, FILETYPE_NC2,  &
-    &                                TSTEP_CONSTANT
+    &                                ZA_MEANSEA, DATATYPE_FLT32, DATATYPE_PACK16,    &
+    &                                FILETYPE_NC2, TSTEP_CONSTANT
 
   IMPLICIT NONE
 
@@ -1053,7 +1053,7 @@ MODULE mo_nonhydro_state
         &                   'mean sea level pressure', DATATYPE_FLT32)
       grib2_desc = t_grib2_var(0, 3, 1, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_diag_list, 'pres_msl', p_diag%pres_msl,                     &
-        &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,      &
+        &           GRID_UNSTRUCTURED_CELL, ZA_MEANSEA, cf_desc, grib2_desc,      &
         &           ldims=shape2d_c, lrestart=.FALSE.,                            &
         &           l_pp_scheduler_task=TASK_INTP_MSL )
     END IF

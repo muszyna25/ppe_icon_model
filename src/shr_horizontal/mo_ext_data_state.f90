@@ -2330,10 +2330,6 @@ CONTAINS
               &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
               &                     nclass_lu(jg), ext_data(jg)%atm%lu_class_fraction )
 
-            CALL read_netcdf_data (ncid, 'ICE', p_patch(jg)%n_patch_cells_g,                &
-              &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-              &                     ext_data(jg)%atm%fr_ice)
-
            
             IF ( l_emiss ) THEN
               CALL read_netcdf_data (ncid, 'EMIS_RAD', p_patch(jg)%n_patch_cells_g,           &
