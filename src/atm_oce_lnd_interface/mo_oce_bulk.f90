@@ -1153,15 +1153,17 @@ CONTAINS
       !---------------------------------------------------------------------
     END IF
     
-    !! apply additional volume flux to surface elevation - to h_old before explicit term
-    !IF (l_forc_freshw) THEN
-    !  DO jb = cells_in_domain%start_block, cells_in_domain%end_block
-    !    CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
-    !    DO jc = i_startidx_c, i_endidx_c
-    !      p_os%p_prog(nold(1))%h(jc,jb) = p_os%p_prog(nold(1))%h(jc,jb) + p_sfc_flx%forc_fwfx(jc,jb)*dtime
-    !    END DO
-    !  END DO
-    !END IF
+    ! apply additional volume flux to surface elevation - add to h_old before explicit term
+    IF (l_forc_freshw) THEN
+      DO jb = cells_in_domain%start_block, cells_in_domain%end_block
+        CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
+        DO jc = i_startidx_c, i_endidx_c
+          p_os%p_prog(nold(1))%h(jc,jb) = p_os%p_prog(nold(1))%h(jc,jb) + p_sfc_flx%forc_fwfx(jc,jb)*dtime
+        END DO
+      END DO
+      idt_src=1  ! output print level (1-5, fix)
+      CALL dbg_print('UpdSfc: h-old+fwf    ',p_os%p_prog(nold(1))%h  ,str_module,idt_src)
+    END IF
 
   END SUBROUTINE update_sfcflx
 

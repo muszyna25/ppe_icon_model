@@ -291,16 +291,16 @@ SUBROUTINE advect_tracer_ab(p_patch_3D, p_os, p_param, p_sfc_flx,p_op_coeff, tim
     END DO
   ENDIF
     
-  ! apply additional volume flux to surface elevation - to h_new after tracer advection
-  IF (l_forc_freshw) THEN
-    DO jb = cells_in_domain%start_block, cells_in_domain%end_block
-      CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
-      DO jc = i_startidx_c, i_endidx_c
-        p_os%p_prog(nnew(1))%h(jc,jb) = p_os%p_prog(nnew(1))%h(jc,jb) + p_sfc_flx%forc_fwfx(jc,jb)*dtime
-      END DO
-    END DO
-  END IF
-  CALL dbg_print('aft. AdvTracer: h-new (fwf)',p_os%p_prog(nnew(1))%h   ,str_module,idt_src)
+  !! apply additional volume flux to surface elevation - add to h_new after tracer advection
+  !IF (l_forc_freshw) THEN
+  !  DO jb = cells_in_domain%start_block, cells_in_domain%end_block
+  !    CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
+  !    DO jc = i_startidx_c, i_endidx_c
+  !      p_os%p_prog(nnew(1))%h(jc,jb) = p_os%p_prog(nnew(1))%h(jc,jb) + p_sfc_flx%forc_fwfx(jc,jb)*dtime
+  !    END DO
+  !  END DO
+  !END IF
+  !CALL dbg_print('aft. AdvTracer: h-new (fwf)',p_os%p_prog(nnew(1))%h   ,str_module,idt_src)
 
 END SUBROUTINE advect_tracer_ab
 !-------------------------------------------------------------------------
