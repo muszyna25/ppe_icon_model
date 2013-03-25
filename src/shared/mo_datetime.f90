@@ -1,3 +1,6 @@
+#ifdef __xlC__
+@PROCESS STRICT
+#endif
 !>
 !! This modules contains a data structure for calendar date and timeinformation
 !!
