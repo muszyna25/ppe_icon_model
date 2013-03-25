@@ -1,0 +1,857 @@
+#!/bin/bash
+#=============================================================================
+#=============================================================================
+#
+# ICON run script. Created by ./config/make_target_runscript
+# target machine is thunder
+# target use_compiler is gcc
+# with mpi=yes
+# with openmp=no
+# memory_model=large
+# submit with sbatch
+# 
+#=============================================================================
+set -x
+#-----------------------------------------------------------------------------
+check_error()
+{
+    # Check if the first parameter (return status) is not OK
+    # Arguments:
+    #   $1 = error status: 0 = OK, not 0 = ERROR
+    #   $2 = error message
+
+    if [ "${STATUS_FILE}" = "" ]
+    then
+      STATUS_FILE=${basedir}/.status.file
+    fi
+    
+    echo "$1" > ${STATUS_FILE}
+    echo "$1" > ${basedir}/run/${job_name}.status
+
+    if [ $1 != 0 ] 
+    then
+        echo "QSUBW_ERROR: JOB_%HOSTNAME%_%PID%: RC = "
+        echo "check_error()"
+        echo "   ERROR : $2"
+        exit $1
+    fi
+
+}
+
+warning()
+{
+    # Warning if the first parameter (return status) is not OK
+    # Arguments:
+    #   $1 = error status: 0 = OK, not 0 = ERROR
+    #   $2 = error message
+    if [ $1 != 0 ]
+    then
+        echo "   WARNING : $2"
+    fi
+}
+
+#-----------------------------------------------------------------------------
+# target parameters
+# ----------------------------
+site="zmaw.de"
+target="thunder"
+compiler="gcc"
+loadmodule="gcc/4.6.3 openmpi_ib/1.6.2-static-gcc46 ncl/6.0.0-gccsys cdo/default jdk "
+with_mpi="yes"
+with_openmp="no"
+job_name="exp.r2b4_amip.run"
+submit="sbatch"
+# ----------------------------
+# restart specifics
+# ----------------------------
+export F_NORCW=65535
+# ----------------------------
+nproma=32
+#-----------------------------------------------------------------------------
+# MPI variables
+# ----------------------------
+mpi_root=/sw/squeeze-x64/mpi/openmpi_ib-1.6.2-static-gcc46
+no_of_nodes=1
+mpi_procs_pernode=1
+mpi_total_procs=1
+start="/sw/squeeze-x64/mpi/openmpi_ib-1.6.2-static-gcc46/bin/mpiexec -n $mpi_total_procs"
+START="$start"
+# ----------------------------
+# openmp environment variables
+# ----------------------------
+export OMP_NUM_THREADS=1
+export ICON_THREADS=1
+export OMP_SCHEDULE=dynamic,1
+export OMP_DYNAMIC="false"
+export OMP_STACKSIZE=32M
+#----------------------------------
+ulimit -s unlimited
+#-----------------------------------------------------------------------------
+# absolute paths of directories
+calldir=$(pwd)
+thisdir=$(pwd)
+basedir=${thisdir%/*}                   # determine base directory
+if [[  "thunder" = "dole"  ]] ; then
+    basedir=/scratch/m214002/trunk/icon-dev
+    calldir=$basedir
+    thisdir=$basedir
+fi
+# cd $(dirname $0)
+bindir="${basedir}/build/x86_64-unknown-linux-gnu/bin"   # binaries
+BUILDDIR=build/x86_64-unknown-linux-gnu
+MODEL_BASE_PATH=$basedir
+ICON_BASE_PATH=$basedir
+export ICON_BASE_PATH
+# ICON_RUN_PATH=$ICON_BASE_PATH/run
+#-----------------------------------------------------------------------------
+# load ../setting if exists  
+if [ -a ../setting ]
+then
+  echo "Load Setting"
+  . ../setting
+fi
+#-----------------------------------------------------------------------------
+#=============================================================================
+# load profile
+if [ -a  /sw/share/Modules/init/bash ] ; then
+source /sw/share/Modules/init/bash
+#=============================================================================
+#=============================================================================
+# load modules
+module purge
+module load "$loadmodule"
+module list
+#=============================================================================
+fi
+#=============================================================================
+export LD_LIBRARY_PATH=/sw/squeeze-x64/netcdf-4.1.3-static-gcc46/lib:$LD_LIBRARY_PATH
+#=============================================================================
+EXPNAME=r2b4_amip
+mpi_procs=32
+cdo="cdo"
+cdo_diff="cdo diffn"
+#=============================================================================
+# =====================================
+# thunder batch job parameters
+#-----------------------------------------------------------------------------
+#SBATCH --job-name=exp.r2b4_amip.run
+#SBATCH --output=LOG.exp.r2b4_amip.run.%j.out
+#SBATCH --error=LOG.exp.r2b4_amip.run.%j.err
+#SBATCH --partition=mpi-compute
+#SBATCH --workdir=/scratch/mpi/mh0287/users/m214002/icon-dev/run
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=16
+#========================================
+#=============================================================================
+#
+# This section of the run script containes the specifications of the experiment.
+# The specifications are passed by namelist to the program.
+# For a complete list see Namelist_overview.pdf
+#
+# Leonidas Linardakis, MPI-M, 2011-17
+# Hui Wan, MPI-M, 2011-02-16
+#
+#-----------------------------------------------------------------------------
+#
+# Basic specifications of the simulation
+# --------------------------------------
+#
+# These variables are set in the header section of the completed run script:
+#
+# EXPNAME = experiment name
+# NPROMA  = array blocking length / inner loop length
+#-----------------------------------------------------------------------------
+#
+#-----------------------------------------------------------------------------
+# The following values must be set here as shell variables so that they can be used
+# also in the executing section of the completed run script
+#
+#-----------------------------------------------------------------------------
+# the namelist filename
+atmo_namelist=NAMELIST_${EXPNAME}
+#
+#-----------------------------------------------------------------------------
+# global timing
+start_date="1978-07-01T00:00:00Z"
+ndays_restart=10                            # restart every 10 days
+dt_restart=`expr ${ndays_restart} \* 86400`
+#
+#-----------------------------------------------------------------------------
+# model timing
+dtime=300
+ndays=10
+nsteps=`expr ${ndays} \* 86400 / ${dtime}`
+dt_diag=`expr 6 \* 3600  `   # global integral output each 6 hours
+dt_file=`expr 1 \* 86400 `   # 1 day per file
+#dt_data=`expr 6 \* 3600  `   # write output every 6 hour
+dt_data=300.  # write output every 6 hour
+dt_rad=3600.                 # compute radiative transfer every other hour
+dt_checkpoint=`expr 5 \* 86400 `  # write restart file every 5 days 
+#
+#-----------------------------------------------------------------------------
+# model parameters
+atmo_model_equations=1 # equation system
+#                     1=hydrost. atm.
+#                     2=non-hydrost. atm., 
+#                    -1=shallow water model
+#                    -2=hydrost. ocean
+nlev=31              # nlev = number of full levels
+iforcing=2      # ECHAM physics
+#
+#-----------------------------------------------------------------------------
+## the grid files
+#grids_folder=/pool/data/ICON/grids/private/r2b4_amip
+#atmo_dyn_grids='r2b4_amip.nc'
+atmo_dyn_grids='iconR2B04-ocean_etopo40_planet.nc'
+#
+#-----------------------------------------------------------------------------
+
+
+
+#-----------------------------------------------------------------------------
+# write ICON namelist parameters
+# ------------------------
+# For a complete list see Namelist_overview and Namelist_overview.pdf
+#
+cat > ${atmo_namelist} << EOF
+!
+&parallel_nml
+ nproma         = ${nproma}
+ p_test_run     = .false.
+ l_test_openmp  = .false.
+ l_log_checks   = .false.
+/
+&grid_nml
+ cell_type = 3            ! triangular cells
+ dynamics_grid_filename = "${atmo_dyn_grids}",
+/
+&run_nml
+ num_lev     = ${nlev},      ! number of full levels of vertical grid
+ output      = 'vlist'
+ nsteps      = ${nsteps}    ! number of steps length of run
+ dtime       = ${dtime}     ! [s] timestep in seconds
+ ltestcase   = .TRUE.       ! run testcase                 --> testcase_ctl
+ ldynamics   = .TRUE.       ! dynamics                     --> dynamics_ctl, diffusion_ctl
+ ltransport  = .TRUE.       ! switch on tracer transport   --> transport_ctl
+ ntracer     = 5            ! number of tracers
+ iforcing    = ${iforcing}  ! ECHAM physics                --> echam_phy_nml
+ msg_level   = 10           ! detailed report during integration 
+! activate_sync_timers = .TRUE.
+/
+&ha_testcase_nml
+ ctest_name  = 'AMIP'  ! test case identifier
+ lrh_linear_pres = .TRUE.   ! initial RH is a linear function of pressure
+ rh_at_1000hpa   = 0.30     ! [] initial rel. humidity at 1000 hPa 
+/
+&io_nml
+ out_expname      = '${EXPNAME}'     ! file name base
+ dt_data          = ${dt_data}       ! [s] write output
+ dt_file          = ${dt_file}       ! [s] trigger new output file
+ dt_checkpoint    = ${dt_checkpoint} ! [s] trigger new restart file
+ lwrite_radiation = .TRUE.           ! add radiation fields to output
+ lwrite_cloud     = .TRUE.           ! add cloud fraction to output
+ lwrite_precip    = .TRUE.           ! add precipitation to output
+ lwrite_pres      = .FALSE.          ! remove pressure from output
+ lkeep_in_sync    = .TRUE.           ! sync after each timestep
+/
+&dynamics_nml
+ iequations  = ${atmo_model_equations}    ! 1: hydrost. atmosphere
+/
+&ha_dyn_nml
+ ldry_dycore = .FALSE.      ! moist dynamical core
+/
+&diffusion_nml
+ hdiff_order = 24      ! 2nd order near model top, 4th order on the other levels
+ k2_klev_max = 3       ! the 3 highest model levels use 2nd order diffusion
+/
+&transport_nml
+ ctracer_list='vwi45'       ! water vapour, cloud water, cloud ice, constant field, dummy for ozone
+/
+&echam_phy_nml
+ lcover = .FALSE.
+ lcond  = .TRUE.
+ lconv  = .TRUE.
+ lvdiff = .TRUE.
+ lrad   = .TRUE.
+ ljsbach = .TRUE.
+ dt_rad  = ${dt_rad}     ! [s] compute radiative transfer every other hour
+/
+&echam_conv_nml
+/
+&radiation_nml
+ irad_h2o   = 1             ! prognostic vapor, liquid and ice
+ irad_co2   = 2             ! constant co2 vmr
+ irad_ch4   = 0             ! switch off ch4
+ irad_n2o   = 0             ! switch off n2o
+ irad_o3    = 0             ! switch off o3
+ irad_o2    = 0             ! switch off o2
+ irad_cfc11 = 0             ! switch off cfc11
+ irad_cfc12 = 0             ! switch off cfc12
+ irad_aero  = 0             ! switch off aerosols
+ izenith    = 3             ! circular orbit, no seasonal cycle but with diurnal cycle 
+/
+EOF
+#
+#!/bin/ksh
+#=============================================================================
+#
+# This section of the run script prepares and starts the model integration. 
+#
+# bindir and START must be defined as environment variables or
+# they must be substituted with appropriate values.
+#
+# Marco Giorgetta, MPI-M, 2010-04-21
+#
+#-----------------------------------------------------------------------------
+#
+# directories definition
+#
+ICONDIR=${ICON_BASE_PATH}
+RUNSCRIPTDIR=${ICONDIR}/run
+if [ x$grids_folder = x ] ; then
+   HGRIDDIR=${ICONDIR}/grids
+else
+   HGRIDDIR=$grids_folder
+fi
+EXPDIR=${ICONDIR}/experiments/${EXPNAME}
+# data directories
+DATADIR=${ICONDIR}/data
+#-----------------------------------------------------------------------------
+# set up the model lists if they do not exist
+# this works for subngle model runs
+# for coupled runs the lists should be declared explicilty
+if [ x$namelist_list = x ]; then
+#  minrank_list=(        0           )
+#  maxrank_list=(     65535          )
+#  incrank_list=(        1           )
+  minrank_list[0]=0
+  maxrank_list[0]=65535
+  incrank_list[0]=1
+  if [ x$atmo_namelist != x ]; then
+    # this is the atmo model
+    namelist_list[0]="$atmo_namelist"
+    modelname_list[0]="atmo"
+    modeltype_list[0]=1
+    run_atmo="true"
+  elif [ x$ocean_namelist != x ]; then
+    # this is the ocean model
+    namelist_list[0]="$ocean_namelist"
+    modelname_list[0]="ocean"
+    modeltype_list[0]=2
+  elif [ x$testbed_namelist != x ]; then
+    # this is the testbed model
+    namelist_list[0]="$testbed_namelist"
+    modelname_list[0]="testbed"
+    modeltype_list[0]=99
+  else
+    check_error 1 "No namelist is defined"
+  fi 
+fi
+
+#-----------------------------------------------------------------------------
+
+
+#-----------------------------------------------------------------------------
+#
+# experiment directory, with plenty of space, create if new
+#
+if [ ! -d ${EXPDIR} ] ;  then
+  mkdir -p ${EXPDIR}
+fi
+#
+ls -ld ${EXPDIR}
+if [ ! -d ${EXPDIR} ] ;  then
+    mkdir ${EXPDIR}
+#else
+#   rm -rf ${EXPDIR}
+#   mkdir  ${EXPDIR}
+fi
+ls -ld ${EXPDIR}
+check_error $? "${EXPDIR} does not exist?"
+
+
+#-----------------------------------------------------------------------------
+# set some default values and derive some run parameteres
+restart=${restart:=".false."}
+#AUTOMATIC_RESTART_SETUP:
+#END AUTOMATIC_RESTART_SETUP
+#
+# fill some checks
+
+run_atmo=${run_atmo="false"}
+if [ x$atmo_namelist != x ]; then
+  run_atmo="true"
+fi
+run_ocean=${run_ocean="false"}
+if [ x$ocean_namelist != x ]; then
+  run_ocean="true"
+fi
+
+#-----------------------------------------------------------------------------
+
+#-----------------------------------------------------------------------------
+#
+# get grid files
+#
+#atmo_grids="${atmo_dyn_grids} ${atmo_rad_grids}"
+# ocean grid provided below
+#all_grids="${atmo_grids} ${ocean_grids}"
+all_grids="${atmo_dyn_grids} ${atmo_rad_grids}"
+if [ ${atmo_dyn_grids} = 'iconR2B04-ocean_etopo40_planet.nc' ] ; then
+ # provide $HGRIDDIR since atmosphere/JSBACH model is run with grid used by the ocean
+ if [ ! -d ${HGRIDDIR} ] ;  then
+   mkdir -p ${HGRIDDIR}
+ fi 
+ ln -s /pool/data/ICON/ocean_data/ocean_grid/${atmo_dyn_grids} ${HGRIDDIR}/${atmo_dyn_grids}
+ rm ${EXPDIR}/sst.nc
+ ln -s /pool/data/ICON/ocean_data/ocean_forcing/omip4icon-R2B04-annual.nc ${EXPDIR}/sst.nc
+ rm ${EXPDIR}/sst_mon.nc
+ ln -s /pool/data/ICON/ocean_data/ocean_forcing/omip4icon-R2B04-monmean.nc ${EXPDIR}/sst_mon.nc
+ rm ${EXPDIR}/extpar_${atmo_dyn_grids}
+ ln -s /pf/m/m212070/jsbach_R2B04_v1.nc ${EXPDIR}/extpar_${atmo_dyn_grids}
+fi
+for gridfile in ${all_grids}; do
+  ls -l ${HGRIDDIR}/$gridfile
+  check_error $? "${HGRIDDIR}/$gridfile does not exist."
+ # rm ${EXPDIR}/$gridfile
+ # ln -s ${HGRIDDIR}/${gridfile} ${EXPDIR}/${gridfile}
+ # echo $division_method
+  name="`echo $gridfile | cut -d '.' -f1`"
+  rm ${EXPDIR}/${name}.*
+  ln -s ${HGRIDDIR}/${name}.* ${EXPDIR}
+ # if [ x$division_method = x0 ] ; then
+ #    name="`echo $gridfile | cut -d '.' -f1`".cell_domain_ids
+ #    if [ -r ${HGRIDDIR}/$name ] ; then
+ #      ln -s ${HGRIDDIR}/$name ${EXPDIR}/$name
+ #    fi
+ # fi 
+done
+#-----------------------------------------------------------------------------
+
+#-----------------------------------------------------------------------------
+if [ $run_atmo = "true" ] ;  then
+   # =======================================================
+   #
+   # model constants
+   # ---------------
+   cp -f ${DATADIR}/rrtmg_lw.nc           ${EXPDIR} # LW radiation constants
+   cp -f ${DATADIR}/ECHAM6_CldOptProps.nc ${EXPDIR} # cloud optical properties
+   
+   INIDATA=/pool/data/ICON/input/r0001
+
+   # APE ozone
+   if [ x$ozon_file != "x" ] ;  then
+     cp -f ${DATADIR}/external/ape_ozone/$ozon_file ${EXPDIR}/o3_icon_DOM01.nc
+   else
+     cp -f ${DATADIR}/external/ape_ozone/ape_o3_R2B04_1Pa_spr0.90-cell.nc ${EXPDIR}/o3_icon_DOM01.nc
+   fi
+   cp -f $INIDATA/r2b4_amip/oce/bc_sic_pcmdi_1870-2010.nc ${EXPDIR}/bc_sic.nc
+   cp -f $INIDATA/r2b4_amip/oce/bc_sst_pcmdi_1870-2010.nc ${EXPDIR}/bc_sst.nc
+   cp -f $INIDATA/r2b4_amip/lnd/bc_land_frac.nc ${EXPDIR}/bc_land_frac.nc
+
+   #cp -f /pf/m/m212070/jsbach_R2B04_v1.nc ${EXPDIR}/extpar_${atmo_dyn_grids}
+   #
+   # =======================================================
+   # vertical grid
+   # -------------
+   VGRIDDIR=${ICONDIR}/vertical_coord_tables
+   if [[ $atmo_model_equations = 3 ]] ; then
+      VGRIDNAME=atm_hyb_sz_${nlev}
+      rm  ${EXPDIR}/${VGRIDNAME}
+      ln -s ${VGRIDDIR}/${VGRIDNAME} ${EXPDIR}/${VGRIDNAME}
+      warning $? "ln -s ${VGRIDDIR}/${VGRIDNAME} failed"
+   else
+     VGRIDNAME=atm_hyb_sp_${nlev}
+     rm ${EXPDIR}/${VGRIDNAME}
+     ln -s ${VGRIDDIR}/${VGRIDNAME} ${EXPDIR}/${VGRIDNAME}
+     check_error $? "ln -s ${VGRIDDIR}/${VGRIDNAME}"
+   fi
+fi
+#-----------------------------------------------------------------------------
+
+#-----------------------------------------------------------------------------
+if [[ $run_ocean = 'true' ]]; then
+
+   # =======================================================
+   #
+   # Main pool directories to provide ocean input data:
+   #   all files for ocean init/forcing from pool will be copied to $HGRIDDIR
+   # --------------------------------------------------
+   POOL_ICON=/pool/data/ICON
+   POOL_GRID=${POOL_ICON}/ocean_data/ocean_grid
+   POOL_FORC=${POOL_ICON}/ocean_data/ocean_forcing
+   POOL_INIT=${POOL_ICON}/ocean_data/ocean_init
+
+   if [ -z "${ocean_grid_desc}" ]; then
+     ocean_grid_desc="R${R}B0${B}"
+   fi
+   # provide $HGRIDDIR since ocean model can be run without grid generator
+   if [ ! -d ${HGRIDDIR} ] ;  then
+     mkdir -p ${HGRIDDIR}
+   fi
+    
+   # DWD systems: $POOL_ICON does not exist
+   if [ "x$BB_SYSTEM" = "xhpc" -o "x$BB_SYSTEM" = "xnec" ] ; then
+      LOC='othr'
+   fi
+
+   # =======================================================
+   #
+   # provide ocean grid file
+   # -----------------------
+   if [[ "x$LOC" = "xPOOL" ]] ; then
+     OCEGRID=${POOL_GRID}/$ocean_grids
+     ls -l $OCEGRID
+     #check_error $? "$OCEGRID does not exist."
+     if [ $? -eq 0 ]; then
+       rm ${HGRIDDIR}/$ocean_grids
+       cp -p $OCEGRID ${HGRIDDIR}/$ocean_grids
+       chmod u+w ${HGRIDDIR}/$ocean_grids
+     else
+       echo "WARNING: $OCEGRID does not exist - proceed from local disk"
+     fi
+   fi
+   # copy file to EXPDIR
+   rm ${EXPDIR}/$ocean_grids
+   ln -s ${HGRIDDIR}/$ocean_grids ${EXPDIR}/$ocean_grids
+   check_error $? "ln -s ${HGRIDDIR}/$ocean_grids"
+
+   # =======================================================
+   #
+   # provide netcdf file for reading ocean forcing fluxes
+   # ----------------------------------------------------
+   if [[ "x$iforc" = "x12" ]] ; then
+     # filename on EXPDIR read by ocean model
+     FLUXNAME=iconR${R}B0${B}-flux.nc
+
+     # general filename: OMIP annual file
+     if [[ "x$iforc_len" = "x1" ]] ; then
+       FORCNAME=omip4icon-${ocean_grid_desc}-annual.nc
+     # filename for OMIP 12 sets of monthly means
+     elif [[ "x$iforc_len" = "x12" ]] ; then
+       FORCNAME=omip4icon-${ocean_grid_desc}-monmean.nc
+       # provide netcdf file for NCEP ocean forcing - length of 12 months for annual reading
+       if [[ "x$iforc_type" = "x5" ]] ; then
+         FORCNAME=ncep4icon_${ocean_grid_desc}.nc
+       fi
+     # filename for OMIP 365 sets of daily data
+     elif [[ "x$iforc_len" = "x365" ]] ; then
+       FORCNAME=omip4icon-${ocean_grid_desc}-daily.nc
+     fi
+     rm ${EXPDIR}/${FLUXNAME}
+
+     # copy file from pool to grids directory $HGRIDDIR
+     if [[ "x$LOC" = "xPOOL" ]] ; then
+       FLUXFILE=${POOL_FORC}/$FORCNAME
+       ls -l $FLUXFILE
+       #check_error $? "$FLUXFILE does not exist."
+       if [ $? -eq 0 ]; then
+         rm ${HGRIDDIR}/$FORCNAME
+         cp -p $FLUXFILE ${HGRIDDIR}/$FORCNAME
+       else
+         echo "WARNING: $FLUXFILE does not exist - proceed from local disk"
+       fi
+     fi
+     # copy file to EXPDIR
+     rm ${EXPDIR}/${FLUXNAME}
+     ln -s ${HGRIDDIR}/${FORCNAME} ${EXPDIR}/${FLUXNAME}
+     check_error $? "ln -s ${HGRIDDIR}/${FORCNAME}"
+   fi
+
+   # =======================================================
+   #
+   # provide netcdf file for initialization of ocean prognostic variables
+   # --------------------------------------------------------------------
+   if [[ "x$init_oce" = "x1" ]] ; then
+
+     PROGNAME=iconR${R}B0${B}-prog.nc
+     OININAME=ts_phc_annual-icon${ocean_grid_desc}-${init_oce_suff}
+     RESTARTNAME=restart_500y_dailyOmip_noIce_icon${ocean_grid_desc}-${init_oce_suff}
+
+     # copy file from pool to grids directory $HGRIDDIR
+     if [[ "x$LOC" = "xPOOL" ]] ; then
+       INITFILE=${POOL_INIT}/$OININAME
+       ls -l $INITFILE
+       #check_error $? "$INITFILE does not exist."
+       if [ $? -eq 0 ]; then
+         rm ${HGRIDDIR}/$OININAME
+         cp -p $INITFILE ${HGRIDDIR}/$OININAME
+       else
+         echo "WARNING: $INITFILE does not exist - proceed from local disk"
+       fi
+     fi
+
+     # copy file to EXPDIR
+     rm ${EXPDIR}/${PROGNAME}
+     ln -s ${HGRIDDIR}/${OININAME} ${EXPDIR}/${PROGNAME}
+     check_error $? "ln -s ${HGRIDDIR}/${OININAME}"
+
+     # link to fixed restart file for buildbot:
+     if [ -f ${POOL_INIT}/${RESTARTNAME} ]; then
+       # direct link to it from the experiment dir
+       ln -s ${POOL_INIT}/${RESTARTNAME} ${EXPDIR}/restart_oce.nc
+       #create default restart.info
+       if [ ! -f "${EXPDIR}/restart.info" ];then
+         echo "Create default ${EXPDIR}/restart.info"
+         echo "gridspec: grid_D01_atm.nc ! here should be the physical filename including path" > ${EXPDIR}/restart.info
+       else
+         echo "Found ${EXPDIR}/restart.info"
+       fi
+     else
+       echo "WARNING: Cannot find restart file: ${RESTARTNAME}"
+     fi
+   fi
+   # =======================================================
+   #
+   # provide netcdf file for initialization of temperature/salinity relaxation
+   # -------------------------------------------------------------------------
+   if [[ "x$init_relax" = "x1" ]] ; then
+
+     RELAXNAME=iconR${R}B0${B}-relax.nc
+     ORELNAME=ts_surf_annual-icon${ocean_grid_desc}-${init_rel_suff}
+
+     # copy file from pool to grids directory $HGRIDDIR
+     if [[ "x$LOC" = "xPOOL" ]] ; then
+       ORELFILE=${POOL_INIT}/$ORELNAME
+       ls -l $ORELFILE
+       #check_error $? "$ORELFILE does not exist."
+       if [ $? -eq 0 ]; then
+         rm ${HGRIDDIR}/$ORELNAME
+         cp -p $ORELFILE ${HGRIDDIR}/$ORELNAME
+       else
+         echo "WARNING: $ORELFILE does not exist - proceed from local disk"
+       fi
+     fi
+     
+     # copy file to EXPDIR
+     rm ${EXPDIR}/${RELAXNAME}
+     ln -s ${HGRIDDIR}/${ORELNAME} ${EXPDIR}/${RELAXNAME}
+     check_error $? "ln -s ${HGRIDDIR}/${ORELNAME}"
+     
+   fi
+fi
+
+#-----------------------------------------------------------------------------
+
+cd ${EXPDIR}
+
+#-----------------------------------------------------------------------------
+# get restart files
+# try copying instead of linking
+#
+#if  [ x$restart_from_folder != "x" ] ; then
+#  cp ${ICONDIR}/experiments/${restart_from_folder}/restart.info      ${EXPDIR}/restart.info
+#  ln -s ${ICONDIR}/experiments/${restart_from_folder}/restart_atm.nc ${EXPDIR}/restart_atm.nc
+#  ln -s ${ICONDIR}/experiments/${restart_from_folder}/restart_oce.nc ${EXPDIR}/restart_oce.nc
+#fi
+
+if  [ x$restart_atmo_from != "x" ] ; then
+  rm -f restart_atm.nc
+#  ln -s ${ICONDIR}/experiments/${restart_from_folder}/${restart_atmo_from} ${EXPDIR}/restart_atm.nc
+  cp ${ICONDIR}/experiments/${restart_from_folder}/${restart_atmo_from} cp_restart_atm.nc
+  ln -s cp_restart_atm.nc restart_atm.nc
+  cp ${ICONDIR}/experiments/${restart_from_folder}/restart.info .
+  restart=".true."
+fi
+if  [ x$restart_ocean_from != "x" ] ; then
+  rm -f restart_oce.nc
+#  ln -s ${ICONDIR}/experiments/${restart_from_folder}/${restart_ocean_from} ${EXPDIR}/restart_oce.nc
+  cp ${ICONDIR}/experiments/${restart_from_folder}/${restart_ocean_from} cp_restart_oce.nc
+  ln -s cp_restart_oce.nc restart_oce.nc
+  cp ${ICONDIR}/experiments/${restart_from_folder}/restart.info .
+  restart=".true."
+fi
+#-----------------------------------------------------------------------------
+
+
+
+#-----------------------------------------------------------------------------
+#
+# create ICON master namelist
+# ------------------------
+# For a complete list see Namelist_overview and Namelist_overview.pdf
+
+#-----------------------------------------------------------------------------
+# create master_namelist
+master_namelist=icon_master.namelist
+if [ x$end_date = x ]; then
+cat > $master_namelist << EOF
+&master_nml
+ lrestart            = $restart
+/
+&time_nml
+ ini_datetime_string = "$start_date"
+ dt_restart          = $dt_restart
+/
+EOF
+else
+cat > $master_namelist << EOF
+&master_nml
+ lrestart            = $restart
+/
+&time_nml
+ ini_datetime_string = "$start_date"
+ end_datetime_string = "$end_date"
+ dt_restart          = $dt_restart
+/
+EOF
+fi
+#-----------------------------------------------------------------------------
+
+
+#-----------------------------------------------------------------------------
+# add model component to master_namelist
+add_component_to_master_namelist()
+{
+    
+  model_namelist_filename="$1"
+  model_name=$2
+  model_type=$3
+  model_min_rank=$4
+  model_max_rank=$5
+  model_inc_rank=$6
+  
+cat >> $master_namelist << EOF
+&master_model_nml
+  model_name="$model_name"
+  model_namelist_filename="$model_namelist_filename"
+  model_restart_info_filename=""
+  model_type=$model_type
+  model_min_rank=$model_min_rank
+  model_max_rank=$model_max_rank
+  model_inc_rank=$model_inc_rank
+/
+EOF
+
+#-----------
+#get namelist
+  if [ -f ${RUNSCRIPTDIR}/$model_namelist_filename ] ; then
+    mv -f ${RUNSCRIPTDIR}/$model_namelist_filename ${EXPDIR}
+    check_error $? "cp -f ${RUNSCRIPTDIR}/$model_namelist_filename"
+  else
+    check_error 1 "${RUNSCRIPTDIR}/$model_namelist_filename does not exist"
+  fi  
+
+}
+#-----------------------------------------------------------------------------
+
+
+no_of_models=${#namelist_list[*]}
+echo "no_of_models=$no_of_models"
+
+j=0
+while [ $j -lt ${no_of_models} ]
+do
+  add_component_to_master_namelist "${namelist_list[$j]}" "${modelname_list[$j]}" ${modeltype_list[$j]} ${minrank_list[$j]} ${maxrank_list[$j]} ${incrank_list[$j]}
+  j=`expr ${j} + 1`
+done
+
+#-----------------------------------------------------------------------------
+
+
+#-----------------------------------------------------------------------------
+#
+#  get model
+#
+export MODEL=${bindir}/control_model
+#
+ls -l ${MODEL}
+check_error $? "${MODEL} does not exist?"
+#-----------------------------------------------------------------------------
+#-----------------------------------------------------------------------------
+#
+# start experiment
+#
+cd ${EXPDIR}
+
+rm -f finish.status
+#
+#if [ x$target = "xblizzard" ] ; then
+#  run_model
+#else
+  date
+  ${START} ${MODEL}
+  date
+#fi
+#
+if [ -r finish.status ] ; then
+  check_error 0 "${START} ${MODEL}"
+else
+  check_error -1 "${START} ${MODEL}"
+fi
+#
+#-----------------------------------------------------------------------------
+#
+finish_status=`cat finish.status`
+echo $finish_status
+echo "============================"
+echo "Script run successfully: $finish_status"
+echo "============================"
+#-----------------------------------------------------------------------------
+
+
+#-----------------------------------------------------------------------------
+namelist_list=""
+#-----------------------------------------------------------------------------
+# check if we have to restart, ie resubmit
+#   Note: this is a different mechanism from checking the restart
+if [ $finish_status = "RESTART" ] ; then
+  echo "restart next experiment..."
+  cd $RUNSCRIPTDIR
+  this_script="${RUNSCRIPTDIR}/${job_name}"
+  echo 'this_script: ' "$this_script"
+  perl -pi -e 's/(^#AUTOMATIC_RESTART_SETUP.*)/\1\nrestart=\.true\./' "${this_script}"
+  ${submit} $this_script
+fi
+
+
+#-----------------------------------------------------------------------------
+# check if we test the restart mechanism
+get_last_1_restart()
+{
+  model_restart_param=$1
+  restart_list=`ls restart.*${model_restart_param}.nc`
+  
+  last_restart=""
+  last_1_restart=""  
+  for restart_file in $restart_list
+  do
+    last_1_restart=$last_restart
+    last_restart=$restart_file
+
+    echo $restart_file $last_restart $last_1_restart
+  done  
+}
+
+
+restart_atmo_from=""
+restart_ocean_from=""
+if [ x$test_restart = "xtrue" ] ; then
+  # follows a restart run in the same script
+  # set up the restart parameters
+  restart_from_folder=${EXPNAME}
+  # get the previous from last rstart file for atmo
+  get_last_1_restart "atm"
+  if [ x$last_1_restart != x ] ; then
+    restart_atmo_from=$last_1_restart
+  fi
+  get_last_1_restart "oce"
+  if [ x$last_1_restart != x ] ; then
+    restart_ocean_from=$last_1_restart
+  fi
+  
+  EXPNAME=${EXPNAME}_restart
+  test_restart="false"
+fi
+
+#-----------------------------------------------------------------------------
+
+cd $RUNSCRIPTDIR
+
+#-----------------------------------------------------------------------------
+
+	
+# exit 0
+#
+# vim:ft=sh
+#-----------------------------------------------------------------------------
