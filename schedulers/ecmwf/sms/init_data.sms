@@ -51,8 +51,8 @@ cd ${IFSDATADIR}
 # export the DWD GRIB short names:
 dwd_grib_api=/home/ms/de/dwd/grib_api
 # export GRIB_DEFINITION_PATH="%SCSOFT%/software/grib_api/release/share-1.9.9/definitions.edzw:/usr/local/lib/metaps/lib/grib_api/1.9.9/share/definitions"
-#export GRIB_DEFINITION_PATH="%SCSOFT%/software/grib_api/release/share-1.9.9/definitions.edzw:/usr/local/lib/metaps/lib/grib_api/current/share/definitions"
-export GRIB_DEFINITION_PATH="/usr/local/lib/metaps/lib/grib_api/1.10.4/share/definitions:${dwd_grib_api}/definitions.edzw-1.9.16"
+# export GRIB_DEFINITION_PATH="%SCSOFT%/software/grib_api/release/share-1.9.9/definitions.edzw:/usr/local/lib/metaps/lib/grib_api/current/share/definitions"
+export GRIB_DEFINITION_PATH="${dwd_grib_api}/definitions.edzw-1.9.16:/usr/local/lib/metaps/lib/grib_api/1.10.4/share/definitions"
 # =============================================
 
 IFS_FILENAME_GRB="ifs_oper_*_%YMD%%INIHOUR%.grb"
@@ -349,14 +349,12 @@ fi
 
 IFSDATADIR2=%SCTEMP%/%SUITE%/%EXPNUM2%/input/%YMD%%INIHOUR%${DIRENS}
 
-if [ -f ${IFSDATADIR2}/${IFS_FILENAME_NC} ] ; then
+if [ -f ${IFSDATADIR2}/${IFS_FILENAME_NC}  -a  %EXPNUM% -ne %EXPNUM2% ] ; then
   echo 'ifs2icon file can be copied - no prepicon!'
   ls -l ${IFSDATADIR2}/${IFS_FILENAME_NC}
   sleep 120
   ls -l ${IFSDATADIR2}/${IFS_FILENAME_NC}
-  if [ %EXPNUM% -ne %EXPNUM2% ] ; then
-   cp    ${IFSDATADIR2}/${IFS_FILENAME_NC} .     # copy old ifs2icon file
-  fi
+  cp    ${IFSDATADIR2}/${IFS_FILENAME_NC} .     # copy old ifs2icon file
 else
   cp -p ${outbasedir}/bin/prep_icon ./prep_icon
   export USE_SIGNAL_HANDLING=yes
