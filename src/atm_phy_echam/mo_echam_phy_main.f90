@@ -280,11 +280,9 @@ CONTAINS
     END DO
 
     ! 3.4 Merge three pieces of information into one array for vdiff
-    IF (phy_config%lvdiff) THEN
-      IF (ilnd.LE.nsfc_type) zfrc(jcs:jce,ilnd) = zfrl(jcs:jce)
-      IF (iwtr.LE.nsfc_type) zfrc(jcs:jce,iwtr) = zfrw(jcs:jce)
-      IF (iice.LE.nsfc_type) zfrc(jcs:jce,iice) = zfri(jcs:jce)
-    ENDIF
+    IF (ilnd.LE.nsfc_type) zfrc(jcs:jce,ilnd) = zfrl(jcs:jce)
+    IF (iwtr.LE.nsfc_type) zfrc(jcs:jce,iwtr) = zfrw(jcs:jce)
+    IF (iice.LE.nsfc_type) zfrc(jcs:jce,iice) = zfri(jcs:jce)
 
     !!3.9 DETERMINE TROPOPAUSE HEIGHT AND MASS BUDGETS--------------------
     !     (Needed only for sub-models. Note: sequence of arguments
@@ -373,8 +371,8 @@ CONTAINS
             ztemperature_rad(jcs:jce) = field% tsfc_tile(jcs:jce,jb,iwtr)
          ENDWHERE
        ELSE
-         ztemperature_rad(:) = zfrc(:,1)*field%tsfc_tile(:,jb,1)**4
-         DO jsfc=2,nsfc_type
+         ztemperature_rad(:) = 0._wp
+         DO jsfc=1,nsfc_type
            ztemperature_rad(:) = ztemperature_rad(:) + zfrc(:,jsfc)*field%tsfc_tile(:,jb,jsfc)**4
          ENDDO
          ztemperature_rad(:) = ztemperature_rad(:)**0.25_wp
