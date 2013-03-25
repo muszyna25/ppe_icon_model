@@ -1908,7 +1908,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
                     &             vert_intp_type=vintp_types("P","Z","I"),           &
                     &             vert_intp_method=VINTP_METHOD_LIN,                 &
                     &             l_loglin=.FALSE.,                                  &
-                    &             l_extrapol=.TRUE., l_pd_limit=.TRUE.,              &
+                    &             l_extrapol=.FALSE., l_pd_limit=.TRUE.,             &
                     &             lower_limit=0._wp ),                               &
                     & new_element=var_diag_rh,                                       &
                     & l_pp_scheduler_task=TASK_COMPUTE_RH )
