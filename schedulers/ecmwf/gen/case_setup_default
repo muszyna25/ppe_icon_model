@@ -227,6 +227,9 @@ cat > ${atmo_namelist} << EOF
                       60.00,  80.00, 'Snow Test Russia',
                       46.81,   6.94, 'Payerne',
                       67.36,  26.64, 'Sodankyla',
+                      54.015,  6.588,'FINO1',
+                      55.007, 13.154,'FINO2',
+                      55.195,  7.158,'FINO3'
 /
 &nwp_phy_nml
  inwp_gscp                    = 1   ! 1: default, or 10
