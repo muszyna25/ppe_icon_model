@@ -540,8 +540,17 @@ CALL VUPDZ0(KIDIA,KFDIA,KLON,KTILES,KSTEP,CDCONF,&
    & PUSTRTI,PVSTRTI,PAHFSTI,PEVAPTI,&
    & PHLICE,& 
    & PTSKTI,PCHAR,PUCURR,PVCURR,&
-   & ZZ0MTI,ZZ0HTI,ZZ0QTI,ZBUOMTI,ZZDLTI,ZRAQTI)  
+   & ZZ0MTI,ZZ0HTI,ZZ0QTI,ZBUOMTI,ZZDLTI,ZRAQTI)
 
+!debug
+DO JTILE=1,KTILES
+  DO JL=KIDIA,KFDIA
+    IF ( ZZ0MTI(JL,JTILE) < 0.0_JPRB .OR. ZZ0MTI(JL,JTILE) > 10.0_JPRB ) THEN
+      write(*,*) 'surfexc2: ', ZZ0MTI(JL,JTILE)
+    ENDIF
+  ENDDO
+ENDDO
+!xxxxx
 
 !*         1.3  FIND DOMINANT SURFACE TYPE and DOMINANT LOW
 !*              parameters for postprocessing
@@ -850,14 +859,15 @@ ENDIF
 IF (msg_level >= 15) THEN
   DO JTILE=1,KTILES
     DO JL=KIDIA,KFDIA
-      IF ( ABS( shfl_soil_ex(jl,jtile) * (1-snowfrac_ex(jl,jtile)))  >  400.0_JPRB  .OR. & 
-           ABS( shfl_snow_ex(jl,jtile) *    snowfrac_ex(jl,jtile) )  >  400.0_JPRB  .OR. & 
+      IF ( ABS( shfl_soil_ex(jl,jtile) * (1-snowfrac_ex(jl,jtile)))  >  500.0_JPRB  .OR. & 
+           ABS( shfl_snow_ex(jl,jtile) *    snowfrac_ex(jl,jtile) )  >  500.0_JPRB  .OR. & 
            ABS( lhfl_soil_ex(jl,jtile) * (1-snowfrac_ex(jl,jtile)))  > 2000.0_JPRB  .OR. & 
            ABS( lhfl_snow_ex(jl,jtile) *    snowfrac_ex(jl,jtile) )  > 2000.0_JPRB  ) THEN
-         write(*,*) 'surfexc: SHF-soil,-snow,LHF-soil,-snow', &
+         write(*,*) 'surfexc3: SHF-soil,-snow,LHF-soil,-snow', &
            jl, jtile, snowfrac_ex(jl,jtile), &
            shfl_soil_ex(jl,jtile), shfl_snow_ex(jl,jtile), &
-           lhfl_soil_ex(jl,jtile), lhfl_snow_ex(jl,jtile)
+           lhfl_soil_ex(jl,jtile), lhfl_snow_ex(jl,jtile), &
+           t_g_ex(jl,jtile), PTMLEV(jl), qv_s_ex(jl,jtile), PQMLEV(jl) 
       ENDIF
     ENDDO
   ENDDO

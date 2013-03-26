@@ -391,7 +391,7 @@ CONTAINS
         lhfl_soil_t (jc,isubs) = 0.0_wp
         shfl_snow_t (jc,isubs) = 0.0_wp
         lhfl_snow_t (jc,isubs) = 0.0_wp
-        snowfrac_lc_t(jc,isubs) = 0.0_wp
+        snowfrac_lc_t(jc,isubs)= 0.0_wp
         snowfrac_t  (jc,isubs) = 0.0_wp
       ENDDO
     ENDDO
@@ -986,14 +986,6 @@ endif
     !
     IF ( (atm_phy_nwp_config(jg)%inwp_surface == 1) .AND. (lseaice) ) THEN
 
-    ! sea ice flux calculation
-!      DO jc = i_startidx, i_endidx
-!        shfl_soil_ex(jc,isub_seaice) = 1 !?
-!        lhfl_soil_ex(jc,isub_seaice) = 1 !?
-!        shfl_snow_ex(jc,isub_seaice) = 0.0_wp    ! snow over sea ice ignored for the moment
-!        lhfl_snow_ex(jc,isub_seaice) = 0.0_wp   
-!      ENDDO
-
       CALL nwp_seaice(ext_data    , jb          , tcall_sfc_jg,                      &
                    &  t_g_ex      , qv_s_ex     , ps_ex       , sobs_ex  , thbs_ex,  &
                    &  shfl_soil_ex, lhfl_soil_ex,                                    &
@@ -1124,16 +1116,15 @@ endif
       DO ic = 1, i_count
         jc = ext_data%atm%idx_lst_spi(ic,jb)
 
-        shfl_s   (ic) = shfl_soil_ex(jc,isub_seaice)     ! sensible heat flux at sfc       [W/m^2]
-        lhfl_s   (ic) = lhfl_soil_ex(jc,isub_seaice)     ! latent heat flux at sfc         [W/m^2]
-        lwflxsfc (ic) = thbs_ex     (jc,isub_seaice)     ! net lw radiation flux at sfc    [W/m^2]
-        swflxsfc (ic) = sobs_ex     (jc,isub_seaice)     ! net solar radiation flux at sfc [W/m^2]
+        shfl_s   (ic) = shfl_soil_ex(jc,isub_seaice)  ! sensible heat flux at sfc       [W/m^2]
+        lhfl_s   (ic) = lhfl_soil_ex(jc,isub_seaice)  ! latent heat flux at sfc         [W/m^2]
+        lwflxsfc (ic) = thbs_ex     (jc,isub_seaice)  ! net lw radiation flux at sfc    [W/m^2]
+        swflxsfc (ic) = sobs_ex     (jc,isub_seaice)  ! net solar radiation flux at sfc [W/m^2]
         tice_now (ic) = t_ice_ex    (jc)
         hice_now (ic) = h_ice_ex    (jc)
         tsnow_now(ic) = t_snow_si_ex(jc)
         hsnow_now(ic) = h_snow_si_ex(jc)
       ENDDO  ! ic
-
 
       ! call seaice time integration scheme
       !
@@ -1141,16 +1132,16 @@ endif
         &   dtime   = dtime,           &
         &   nproma  = nproma,          & !in
         &   nsigb   = i_count,         & !in
-        &   qsen    = shfl_s(:),       & !in 
-        &   qlat    = lhfl_s(:),       & !in
-        &   qlwrnet = lwflxsfc(:),     & !in
-        &   qsolnet = swflxsfc(:),     & !in
-        &   tice_p  = tice_now(:),     & !in
-        &   hice_p  = hice_now(:),     & !in
+        &   qsen    = shfl_s   (:),    & !in 
+        &   qlat    = lhfl_s   (:),    & !in
+        &   qlwrnet = lwflxsfc (:),    & !in
+        &   qsolnet = swflxsfc (:),    & !in
+        &   tice_p  = tice_now (:),    & !in
+        &   hice_p  = hice_now (:),    & !in
         &   tsnow_p = tsnow_now(:),    & !in    ! DUMMY: not used yet
         &   hsnow_p = hsnow_now(:),    & !in    ! DUMMY: not used yet
-        &   tice_n  = tice_new(:),     & !out
-        &   hice_n  = hice_new(:),     & !out
+        &   tice_n  = tice_new (:),    & !out
+        &   hice_n  = hice_new (:),    & !out
         &   tsnow_n = tsnow_new(:),    & !out   ! DUMMY: not used yet
         &   hsnow_n = hsnow_new(:)     ) !out   ! DUMMY: not used yet
       ! optional arguments dticedt, dhicedt, dtsnowdt, dhsnowdt (tendencies) are neglected

@@ -660,7 +660,8 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
 !debug
       DO jc = i_startidx, i_endidx
         IF ( (SUM(zfrti(jc,:)) > 1.01_wp) .or. (SUM(zfrti(jc,:)) < 0.99_wp) ) THEN
-          write(*,*) 'turb_sfc2: ', ext_data%atm%llsm_atm_c(jc,jb), zfrti(jc,:), ext_data%atm%frac_t(jc,jb,:)
+          write(*,*) 'turb_sfc1: ', ext_data%atm%llsm_atm_c(jc,jb), zfrti(jc,:), '|', &
+            & ext_data%atm%frac_t(jc,jb,:), '|', ext_data%atm%lc_class_t(jc,jb,:)
         ENDIF
       ENDDO
 !xxxxx
