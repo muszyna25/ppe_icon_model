@@ -1377,6 +1377,56 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
         ENDDO
 
 
+
+
+        ! &      diag%ustr_s_t(nproma,nblks_c,ntiles_total+ntiles_water)
+        cf_desc    = t_cf_var('ustr_s_t', 'm2 s-2 ', 'tile-based surface U stress',        &
+             &                DATATYPE_FLT32)
+        grib2_desc = t_grib2_var(0, 2, 17, ibits, GRID_REFERENCE, GRID_CELL)
+        CALL add_var( diag_list, 'ustr_s_t', diag%ustr_s_t,                                &
+          & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape3dsubsw,   &
+          & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
+
+        ! fill the separate variables belonging to the container ustr_s_t
+        ALLOCATE(diag%ustr_s_t_ptr(ntiles_total+ntiles_water))
+        DO jsfc = 1,ntiles_total+ntiles_water
+          WRITE(csfc,'(i1)') jsfc
+          CALL add_ref( diag_list, 'ustr_s_t',                            &
+             & 'ustr_s_t_'//TRIM(ADJUSTL(csfc)),                          &
+             & diag%ustr_s_t_ptr(jsfc)%p_2d,                              &
+             & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                        & 
+             & t_cf_var('ustr_s_t_'//TRIM(csfc), '', '', DATATYPE_FLT32), &
+             & t_grib2_var(0, 2, 17, ibits, GRID_REFERENCE, GRID_CELL),   & 
+             & ldims=shape2d, lrestart=.TRUE., loutput=.TRUE.)
+        ENDDO
+
+
+
+
+        ! &      diag%vstr_s_t(nproma,nblks_c,ntiles_total+ntiles_water)
+        cf_desc    = t_cf_var('vstr_s_t', 'm2 s-2 ', 'tile-based surface V stress',        &
+             &                DATATYPE_FLT32)
+        grib2_desc = t_grib2_var(0, 2, 18, ibits, GRID_REFERENCE, GRID_CELL)
+        CALL add_var( diag_list, 'vstr_s_t', diag%vstr_s_t,                                &
+          & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape3dsubsw,   &
+          & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
+
+        ! fill the separate variables belonging to the container vstr_s_t
+        ALLOCATE(diag%vstr_s_t_ptr(ntiles_total+ntiles_water))
+        DO jsfc = 1,ntiles_total+ntiles_water
+          WRITE(csfc,'(i1)') jsfc
+          CALL add_ref( diag_list, 'vstr_s_t',                            &
+             & 'vstr_s_t_'//TRIM(ADJUSTL(csfc)),                          &
+             & diag%vstr_s_t_ptr(jsfc)%p_2d,                              &
+             & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                        & 
+             & t_cf_var('vstr_s_t_'//TRIM(csfc), '', '', DATATYPE_FLT32), &
+             & t_grib2_var(0, 2, 18, ibits, GRID_REFERENCE, GRID_CELL),   & 
+             & ldims=shape2d, lrestart=.TRUE., loutput=.TRUE.)
+        ENDDO
+
+
+
+
         ! &      diag%lhfl_bs_t(nproma,nblks_c,ntiles_total)
         cf_desc    = t_cf_var('lhfl_bs_t', 'W m-2 ', 'tile-based latent heat flux from bare soil', &
           &                   DATATYPE_FLT32)
