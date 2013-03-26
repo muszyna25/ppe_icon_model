@@ -106,7 +106,7 @@ case $user in
 	basedir=/home/zmaw/m214089/Projects/eclipse/icon/icon
 	;;
     Monika)
-	basedir=/scratch/m214002/trunk/icon-dev
+	basedir=/scratch/mpi/mh0287/users/m214002/icon-dev
 	;;
 esac
 
@@ -146,8 +146,9 @@ iforcing=2
 
 # the grid files
 grids_folder=/pool/data/ICON/grids/private/r2b4_amip
-atmo_dyn_grids='r2b4_amip.nc'
-#atmo_dyn_grids='iconR2B04-ocean_etopo40_planet.nc'
+#atmo_dyn_grids='r2b4_amip.nc'
+#grids_folder=$basedir/grids
+atmo_dyn_grids='iconR2B04-ocean_etopo40_planet.nc'
 
 #__________________________________________________________________________________________________
 # target parameters
@@ -325,31 +326,6 @@ else
 fi
 
 all_grids="${atmo_dyn_grids} ${atmo_rad_grids:-}"
-
-#if [[ ${atmo_dyn_grids} = 'r2b4_amip.nc' ]]
-#then
-#    # provide $HGRIDDIR since atmosphere/JSBACH model is run with grid used by the ocean
-#    if [[ ! -d ${HGRIDDIR} ]]
-#    then
-#   	mkdir -p ${HGRIDDIR}
-#    fi
-#    if [[ ! -e ${HGRIDDIR}/${atmo_dyn_grids} ]]
-#    then
-#    	ln -s /pool/data/ICON/ocean_data/ocean_grid/${atmo_dyn_grids} ${HGRIDDIR}/${atmo_dyn_grids}
-#    fi
-# 
-#    rm ${EXPDIR}/sst.nc
-#    ln -s /pool/data/ICON/ocean_data/ocean_forcing/omip4icon-R2B04-annual.nc ${EXPDIR}/sst.nc
-# 
-#    rm ${EXPDIR}/sst_mon.nc
-#    ln -s /pool/data/ICON/ocean_data/ocean_forcing/omip4icon-R2B04-monmean.nc ${EXPDIR}/sst_mon.nc
-# 
-#    if [[ -e ${EXPDIR}/extpar_${atmo_dyn_grids} ]]
-#    then
-# 	rm ${EXPDIR}/extpar_${atmo_dyn_grids}
-#    fi
-#    ln -s /home/zmaw/m212070/jsbach_R2B04_v1.nc ${EXPDIR}/extpar_${atmo_dyn_grids}
-#fi
 
 for gridfile in ${all_grids}
 do
