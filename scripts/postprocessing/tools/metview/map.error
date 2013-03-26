@@ -209,17 +209,22 @@ for nd=1 to ndays do
 # source_sfc_ifs='/uwork1/mkoehler/ifs.data/oper/ifs_oper_2x2_20110101-20.sfc.grb'
 
   mntxt = parse(tailfile, "_")
+  
 
   if lmonth = 0 then
     source_ini_icon = datafile&inidate&initime&'_DOM01_0001_'&varfile&'_'&levtype&'.grb'
     source_ver_icon = datafile&verdate&vertime&'_DOM01_0001_'&varfile2&'_'&levtype&'.grb'
     source_pl_ifs ='/scratch/ms/de/deia/ifs_data/ifs_oper_1x1_'&yyyymm&'.pl.grb'
     source_sfc_ifs='/scratch/ms/de/deia/ifs_data/ifs_oper_1x1_'&yyyymm&'.sfc.grb'
+    nfc = ndays
   else
     source_ini_icon = datafile&yyyymm&'_DOM01_0001_'&varfile&'_'&levtype&tailfile
     source_ver_icon = datafile&yyyymm&'_DOM01_0001_'&varfile2&'_'&levtype&tailfile 
     source_pl_ifs ='/scratch/ms/de/deia/ifs_data/ifs_oper_1x1_'&yyyymm&'.pl.' &mntxt[3]
     source_sfc_ifs='/scratch/ms/de/deia/ifs_data/ifs_oper_1x1_'&yyyymm&'.sfc.'&mntxt[3]
+    nfc = parse(mntxt[3], "-")
+    nfc = parse(nfc[2],".")
+    nfc = nfc[1]
   end if
 
 
@@ -416,13 +421,14 @@ for k=k1 to k2 by k3 do
     statistic = statistic&'   RMS:  '&rms
     append (plotdir&"/scores_"&expnum&".txt", 
       varname, tab, levtype,' level: ', k, tab, 'inidatetime: ', firstinidate, initime, 
-      '   step: ', step, '   ndays: ', ndays, tab, statistic, newline)
+      '   step: ', step, '   nfc: ', nfc, tab, statistic, newline)
   end if
+  statistic = statistic & '   Mem:  '&nfc  
 
-  if levtype = 'pl' then
-    title1   = title&'    L'&k
+  if levtype = 'pl' or levtype = 'ml' then
+    title1 = title&'    L'&k
   else
-    title1   = title&'    L'&k  
+    title1 = title 
   end if
 
 

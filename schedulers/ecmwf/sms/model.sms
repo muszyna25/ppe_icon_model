@@ -109,8 +109,11 @@ fi
 # copy binary and execute in parallel
 cp -p ${outbasedir}/bin/control_model ./icon.exe
 
-# copy binary alternatively from individual user
+# copy binary alternatively from individual user - option 1 - automatic - applies to all runs
 #cp -p /perm/ms/de/dei2/icon-dev/build/rs6000-ibm-aix/bin/control_model ./icon.exe
+
+# copy binary alternatively from individual user - option 2 - by hand (replace expid XXX)
+# cp /perm/ms/de/dei2/icon-dev/build/rs6000-ibm-aix/bin/control_model /scratch/ms/de/deia/icon/dei2/XXX/output/bin
 
 echo "job::start"
 date
