@@ -112,7 +112,8 @@ for gridfile in ${atmo_rad_grids}; do
 done
 
 
-# ---
+#-----------------------------------------------------------------------------
+# output variables
 
 ml_varlist="'temp','u','v','w','pres','pres_sfc', 'pres_msl', 
 'qv','qc','qi','qr','qs','o3','tot_cc','tot_qv','tot_qc','tot_qi', 
@@ -161,7 +162,7 @@ cat > ${atmo_namelist} << EOF
  zpbl2                        = 1000. 
 /
 &io_nml
- lflux_avg                    = .FALSE.    
+ lflux_avg                    = .FALSE.     ! false: accumulated fluxes
 /
 &run_nml
  num_lev                      = 90
