@@ -929,6 +929,7 @@ scripts/postprocessing/tools/metview/paperclose.pro -text
 scripts/postprocessing/tools/metview/paperopenl.pro -text
 scripts/postprocessing/tools/metview/scores.pro -text
 scripts/postprocessing/tools/metview/zonal.error -text
+scripts/postprocessing/tools/mocTimeseries.sh -text
 scripts/postprocessing/tools/movieMaker.sh -text
 scripts/postprocessing/tools/mtgrm_ascii.ncl -text
 scripts/postprocessing/tools/mtgrm_cosmo.ncl -text
