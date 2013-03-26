@@ -1376,6 +1376,56 @@ CONTAINS
                &                   'm', 211, 128,&
                &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
                &           k_jg)
+               CALL addVar(TimeVar('glac',&
+               &                   'glacier mask ',&
+               &                   'm', 232, 128,&
+               &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+               &           k_jg)
+               CALL addVar(TimeVar('alb',&
+               &                   'surface background albedo ',&
+               &                   ' ', 174, 128,&
+               &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+               &           k_jg)
+               CALL addVar(TimeVar('z0m',&
+               &                   'roughness length ',&
+               &                   'm', 173, 128,&
+               &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+               &           k_jg)
+               CALL addVar(TimeVar('alake',&
+               &                   'lake mask ',&
+               &                   'm', 127, 128,&
+               &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+               &           k_jg)
+               CALL addVar(TimeVar('orostd',&
+               &                   'Orographic standard deviation ',&
+               &                   'm', 40, 128,&
+               &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+               &           k_jg)
+               CALL addVar(TimeVar('orosig',&
+               &                   'Orographic slope ',&
+               &                   'degree', 41, 128,&
+               &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+               &           k_jg)
+               CALL addVar(TimeVar('orogam',&
+               &                   'Orographic anisotropy ',&
+               &                   'degree', 42, 128,&
+               &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+               &           k_jg)
+               CALL addVar(TimeVar('orothe',&
+               &                   'Orographic angle ',&
+               &                   'degree', 43, 128,&
+               &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+               &           k_jg)
+               CALL addVar(TimeVar('oropic',&
+               &                   'Orographic peacks elevation ',&
+               &                   'm', 44, 128,&
+               &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+               &           k_jg)
+               CALL addVar(TimeVar('oroval',&
+               &                   'Orographic valleys elevation ',&
+               &                   'm', 45, 128,&
+               &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+               &           k_jg)
            END IF ! lamip
          END SELECT !iforcing
 
@@ -2921,6 +2971,17 @@ CONTAINS
       CASE ('tsurfl');          ptr2 => prm_field(jg)%tsurfl(:,:)
       CASE ('seaice');          ptr2 => prm_field(jg)%seaice(:,:)
       CASE ('siced');           ptr2 => prm_field(jg)%siced(:,:)
+      CASE ('alake');           ptr2 => prm_field(jg)%alake(:,:)
+      CASE ('z0m');             ptr2 => prm_field(jg)%z0m(:,:)
+      CASE ('glac');            ptr2 => prm_field(jg)%glac(:,:)
+      CASE ('alb');             ptr2 => prm_field(jg)%alb(:,:)
+      CASE ('orostd');          ptr2 => prm_field(jg)%orostd(:,:)
+      CASE ('orosig');          ptr2 => prm_field(jg)%orosig(:,:)
+      CASE ('orogam');          ptr2 => prm_field(jg)%orogam(:,:)
+      CASE ('orothe');          ptr2 => prm_field(jg)%orothe(:,:)
+      CASE ('oropic');          ptr2 => prm_field(jg)%oropic(:,:)
+      CASE ('oroval');          ptr2 => prm_field(jg)%oroval(:,:)
+
 !!$ TR: JSBACH testing
       CASE ('surface_temperature');  ptr2 => prm_field(jg)%surface_temperature
       CASE ('surface_temperature_old');  ptr2 => prm_field(jg)%surface_temperature_old

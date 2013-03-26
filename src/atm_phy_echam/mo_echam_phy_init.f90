@@ -266,6 +266,8 @@ CONTAINS
     REAL(wp), POINTER     :: return_pointer(:,:)
 
     CHARACTER(len=*), PARAMETER :: land_frac_fn = 'bc_land_frac.nc'
+    CHARACTER(len=*), PARAMETER :: land_phys_fn = 'bc_land_phys.nc'
+    CHARACTER(len=*), PARAMETER :: land_sso_fn  = 'bc_land_sso.nc'
     LOGICAL       :: lexist
 
     ! total number of domains/ grid levels
@@ -297,24 +299,69 @@ CONTAINS
                     ! in the ECHAM-physics
 
 !!!OMP PARALLEL DO PRIVATE(jb,jc,jcs,jce,zlat) ICON_OMP_DEFAULT_SCHEDULE
-!          INQUIRE (file=land_frac_fn, exist=lexist)
-!          IF (lexist) THEN
            ! by default it will create an error if it cannot open/read the file
            return_pointer => netcdf_read_oncells_2D( &
              & filename      =land_frac_fn,        &
              & variable_name ='land',              &
              & fill_array    = field% lsmask,      &
              & patch         = p_patch(jg))
-!          ELSE
-!            WRITE (message_text,*) 'Could not open file ',land_frac_fn
-!            CALL message('',message_text)
-!            CALL finish ('initcond_echam_phy:read land_frac ', 'run terminated.')
-!          ENDIF
+           return_pointer => netcdf_read_oncells_2D( &
+             & filename      =land_frac_fn,        &
+             & variable_name ='glac',              &
+             & fill_array    = field% glac,        &
+             & patch         = p_patch(jg))
+           return_pointer => netcdf_read_oncells_2D( &
+             & filename      =land_frac_fn,        &
+             & variable_name ='lake',              &
+             & fill_array    = field% alake,       &
+             & patch         = p_patch(jg))
+     ! roughness length and background albedo
+           return_pointer => netcdf_read_oncells_2D( &
+             & filename      =land_phys_fn,        &
+             & variable_name ='z0',                &
+             & fill_array    = field% z0m,         &
+             & patch         = p_patch(jg))
+           return_pointer => netcdf_read_oncells_2D( &
+             & filename      =land_phys_fn,        &
+             & variable_name ='alb',               &
+             & fill_array    = field% alb,         &
+             & patch         = p_patch(jg))
+     ! orography
+           return_pointer => netcdf_read_oncells_2D( &
+             & filename      =land_sso_fn,         &
+             & variable_name ='orostd',            &
+             & fill_array    = field% orostd,      &
+             & patch         = p_patch(jg))
+           return_pointer => netcdf_read_oncells_2D( &
+             & filename      =land_sso_fn,         &
+             & variable_name ='orosig',            &
+             & fill_array    = field% orosig,      &
+             & patch         = p_patch(jg))
+           return_pointer => netcdf_read_oncells_2D( &
+             & filename      =land_sso_fn,         &
+             & variable_name ='orogam',            &
+             & fill_array    = field% orogam,      &
+             & patch         = p_patch(jg))
+           return_pointer => netcdf_read_oncells_2D( &
+             & filename      =land_sso_fn,         &
+             & variable_name ='orothe',            &
+             & fill_array    = field% orothe,      &
+             & patch         = p_patch(jg))
+           return_pointer => netcdf_read_oncells_2D( &
+             & filename      =land_sso_fn,         &
+             & variable_name ='oropic',            &
+             & fill_array    = field% oropic,      &
+             & patch         = p_patch(jg))
+           return_pointer => netcdf_read_oncells_2D( &
+             & filename      =land_sso_fn,         &
+             & variable_name ='oroval',            &
+             & fill_array    = field% oroval,      &
+             & patch         = p_patch(jg))
+
           DO jb = jbs,nblks_c
             CALL get_indices_c( p_patch(jg), jb,jbs,nblks_c, jcs,jce, 2)
             field% tsfc_tile(jcs:jce,jb,iwtr) = tmelt
             field% tsfc_tile(jcs:jce,jb,ilnd) = tmelt
-            field% glac  (jcs:jce,jb) = 0._wp   ! zero glacier fraction
             field% seaice(jcs:jce,jb) = 0._wp   ! zero sea ice fraction
           END DO
 !!!OMP END PARALLEL DO

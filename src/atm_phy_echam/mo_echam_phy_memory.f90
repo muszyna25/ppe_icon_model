@@ -230,7 +230,18 @@ MODULE mo_echam_phy_memory
       & tsurfi (:,  :),     &!< ice surface temperature
       & tsurfl (:,  :),     &!< land surface temperature
       & siced  (:,  :),     &!< ice depth
+      & alake  (:,  :),     &!< lake mask
+      & alb    (:,  :),     &!< surface background albedo
       & seaice (:,  :)       !< sea ice as read in from amip input
+
+    ! orography
+    REAL(wp),POINTER :: &
+      & orostd (:,  :),     &!< Orographic standard deviation
+      & orosig (:,  :),     &!< Orographic slope
+      & orogam (:,  :),     &!< Orographic anisotropy
+      & orothe (:,  :),     &!< Orographic angle
+      & oropic (:,  :),     &!< Orographic peacks elevation
+      & oroval (:,  :)       !< Orographic valleys elevation
 
 !!$ TR
 !! JSBACH for testing (energy balance)
@@ -937,6 +948,45 @@ CONTAINS
     CALL add_var( field_list, prefix//'seaice', field%seaice,      &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
 
+    cf_desc    = t_cf_var('alake', '', '', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( field_list, prefix//'alake', field%alake,      &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
+
+    cf_desc    = t_cf_var('alb', '', '', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( field_list, prefix//'alb', field%alb,      &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
+
+    cf_desc    = t_cf_var('orostd', '', '', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( field_list, prefix//'orostd', field%orostd,      &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
+
+    cf_desc    = t_cf_var('orosig', '', '', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( field_list, prefix//'orosig', field%orosig,      &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
+
+    cf_desc    = t_cf_var('orogam', '', '', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( field_list, prefix//'orogam', field%orogam,      &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
+
+    cf_desc    = t_cf_var('orothe', '', '', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( field_list, prefix//'orothe', field%orothe,      &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
+
+    cf_desc    = t_cf_var('oropic', '', '', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( field_list, prefix//'oropic', field%oropic,      &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
+
+    cf_desc    = t_cf_var('oroval', '', '', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( field_list, prefix//'oroval', field%oroval,      &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
     END IF
 
     IF (get_ljsbach()) THEN
@@ -1680,6 +1730,13 @@ CONTAINS
          &                DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( field_list, prefix//'seaice', field%seaice,                 &
+              & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
+
+    ! &       field% alake (nproma, nblks),                 &
+    cf_desc    = t_cf_var('alake', '', 'fraction of lakes', &
+         &                DATATYPE_FLT32)
+    grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( field_list, prefix//'alake', field%alake,                 &
               & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
 
     ! &       field% icefrc (nproma, nblks),                 &

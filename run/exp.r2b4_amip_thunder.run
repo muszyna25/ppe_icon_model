@@ -403,10 +403,10 @@ if [ ${atmo_dyn_grids} = 'iconR2B04-ocean_etopo40_planet.nc' ] ; then
    mkdir -p ${HGRIDDIR}
  fi 
  ln -s /pool/data/ICON/ocean_data/ocean_grid/${atmo_dyn_grids} ${HGRIDDIR}/${atmo_dyn_grids}
- rm ${EXPDIR}/sst.nc
- ln -s /pool/data/ICON/ocean_data/ocean_forcing/omip4icon-R2B04-annual.nc ${EXPDIR}/sst.nc
- rm ${EXPDIR}/sst_mon.nc
- ln -s /pool/data/ICON/ocean_data/ocean_forcing/omip4icon-R2B04-monmean.nc ${EXPDIR}/sst_mon.nc
+# rm ${EXPDIR}/sst.nc
+# ln -s /pool/data/ICON/ocean_data/ocean_forcing/omip4icon-R2B04-annual.nc ${EXPDIR}/sst.nc
+# rm ${EXPDIR}/sst_mon.nc
+# ln -s /pool/data/ICON/ocean_data/ocean_forcing/omip4icon-R2B04-monmean.nc ${EXPDIR}/sst_mon.nc
  rm ${EXPDIR}/extpar_${atmo_dyn_grids}
  ln -s /pf/m/m212070/jsbach_R2B04_v1.nc ${EXPDIR}/extpar_${atmo_dyn_grids}
 fi
@@ -448,6 +448,8 @@ if [ $run_atmo = "true" ] ;  then
    cp -f $INIDATA/r2b4_amip/oce/bc_sic_pcmdi_1870-2010.nc ${EXPDIR}/bc_sic.nc
    cp -f $INIDATA/r2b4_amip/oce/bc_sst_pcmdi_1870-2010.nc ${EXPDIR}/bc_sst.nc
    cp -f $INIDATA/r2b4_amip/lnd/bc_land_frac.nc ${EXPDIR}/bc_land_frac.nc
+   cp -f $INIDATA/r2b4_amip/lnd/bc_land_phys.nc ${EXPDIR}/bc_land_phys.nc
+   cp -f $INIDATA/r2b4_amip/lnd/bc_land_sso.nc ${EXPDIR}/bc_land_sso.nc
 
    #cp -f /pf/m/m212070/jsbach_R2B04_v1.nc ${EXPDIR}/extpar_${atmo_dyn_grids}
    #

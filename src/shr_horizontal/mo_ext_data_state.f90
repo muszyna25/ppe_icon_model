@@ -268,7 +268,8 @@ CONTAINS
       CALL message( TRIM(routine),'Running with analytical topography' )
 
       ! call read_ext_data_atm to read land-sea mask for JSBACH and to read O3
-      IF (echam_phy_config%ljsbach .OR. irad_o3 == io3_clim .OR. irad_o3 == io3_ape &
+!      IF (echam_phy_config%ljsbach .OR. irad_o3 == io3_clim .OR. irad_o3 == io3_ape &
+      IF (irad_o3 == io3_clim .OR. irad_o3 == io3_ape &
         & .OR. sstice_mode == 2) THEN
         CALL read_ext_data_atm (p_patch, ext_data, nlev_o3)
       END IF 
