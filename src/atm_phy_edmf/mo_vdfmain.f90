@@ -1218,7 +1218,7 @@ CALL VDFEXCU(KIDIA  , KFDIA  , KLON   , KLEV    , IDRAFT  , ZTMST  , PZ0M   , &
   ENDDO
 
 
-  ! integrate dynamical and radiative tendencies
+  ! integrate dynamical and radiative tendencies (attention: ICON needs that input!!!)
 
   DO JK=KLEV,1,-1
     DO JL=KIDIA,KFDIA
@@ -1836,7 +1836,7 @@ ENDDO
         ZLUPD(JL,JK) = ZQLAV(JL,JK) * ZALFAW(JL,JK) 
         ZIUPD(JL,JK) = ZQLAV(JL,JK) * ( 1.0_JPRB - ZALFAW(JL,JK))
 
-        ELSE
+      ELSE
       
         !-- outside PBL, maintain tendencies from rad+dyn ---
         ZAUPD(JL,JK) = PAM1(JL,JK) + PAE(JL,JK)*ZTMST

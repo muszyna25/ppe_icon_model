@@ -489,7 +489,7 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
         DO jk = 1, nlev
           DO jc = i_startidx, i_endidx
             p_prog_rcf%tracer(jc,jk,jb,jt) =MAX(0._wp, p_prog_rcf%tracer(jc,jk,jb,jt)  &
-                 &             + tcall_turb_jg*prm_nwp_tend%ddt_tracer_turb(jc,jk,jb,jt))
+                 &          + tcall_turb_jg*prm_nwp_tend%ddt_tracer_turb(jc,jk,jb,jt))
           ENDDO
         ENDDO
       ENDDO
@@ -611,8 +611,8 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
           evap_s_t(jc,jt) = prm_diag%lhfl_s_t (jc,jb,jt) / alv ! evaporation [kg/(m2 s)]  -"-
          !tskin_t (jc,jt) = lnd_prog_now%t_g_t(jc,jb,jt) ! should be tile specific, and prognostic !!!
           tskin_t (jc,jt) = 0.0_wp                       ! not needed as TSK is transferren in t_g_ex
-          ustr_s_t(jc,jt) = 0.0_wp                       ! prognostic surface stress U  !!!
-          vstr_s_t(jc,jt) = 0.0_wp                       ! prognostic surface stress V  !!!
+          ustr_s_t(jc,jt) = prm_diag%ustr_s_t (jc,jb,jt) ! prognostic surface stress U  !!!
+          vstr_s_t(jc,jt) = prm_diag%vstr_s_t (jc,jb,jt) ! prognostic surface stress V  !!!
         ENDDO
       ENDDO
 
@@ -683,6 +683,7 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
       ENDDO
 
 !     Tendencies are set to include dynamics and radiation
+!     Question: should SSO tendendies be included in "ddt_u_turb"?
 !     ATTENTION: currently for simplicity all input tendencies = 0
 !                when updated after vdfouter difference needed (see convection)
 
@@ -876,11 +877,11 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
 ! Turbulence updating strategy:
 ! * Update T, prognostic QV, QC, QI and diagnostic CC with turbulence tendencies
 ! * Set diagnostic QV, QC, QI equal to prognostic values
-! * Give U, V tendencies to dynamics
+! * Give U, V tendencies to dynamics (but see below)
 
       DO jk = 1, nlev
         DO jc = i_startidx, i_endidx
-          p_diag%temp      (jc,jk,jb)     =                      p_diag%temp(jc,jk,jb) &
+          p_diag%temp      (jc,jk,jb)     =                  p_diag%temp(jc,jk,jb) &
                         & + tcall_turb_jg *   prm_nwp_tend%ddt_temp_turb(jc,jk,jb)
 
           p_prog_rcf%tracer(jc,jk,jb,iqv) = MAX(p_prog_rcf%tracer(jc,jk,jb,iqv) &
@@ -895,8 +896,20 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
           prm_diag%tot_cld (jc,jk,jb,iqi) =        p_prog_rcf%tracer(jc,jk,jb,iqi)
           prm_diag%tot_cld (jc,jk,jb,icc) = MIN(MAX(prm_diag%tot_cld(jc,jk,jb,icc) &
                  & + tcall_turb_jg * zae(jc,jk), 0._wp), 1._wp)
+
+! Update wind speed with turbulence tendencies:
+! Note: the update of wind speed is done here in order to pass u and v at the correct time level
+! to the convection scheme. However, the update of the prognostic variable vn
+! is done at the end of the NWP interface by first interpolating the u/v tendencies to the 
+! velocity points (in order to minimize interpolation errors) and then adding the tendencies
+! to vn.
+! VN is updated in nwp_nh_interface (for efficiency reasons)
+
+          p_diag%u(jc,jk,jb) = p_diag%u(jc,jk,jb) + tcall_turb_jg*prm_nwp_tend%ddt_u_turb(jc,jk,jb)
+          p_diag%v(jc,jk,jb) = p_diag%v(jc,jk,jb) + tcall_turb_jg*prm_nwp_tend%ddt_v_turb(jc,jk,jb)
         ENDDO
       ENDDO
+
 
 ! Diagnostic output variables:  ???? TERRA-tiles or TESSEL-tiles???
 
@@ -921,6 +934,8 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
 !attention: these are all TESSEL/IFS tiles (1-8) ...  fluxes ???
           prm_diag%shfl_s_t(jc,jb,jt) = shfl_s_t(jc,jt)   
           prm_diag%lhfl_s_t(jc,jb,jt) = evap_s_t(jc,jt)*alv 
+          prm_diag%ustr_s_t(jc,jb,jt) = ustr_s_t(jc,jt) ! prognostic surface stress U
+          prm_diag%vstr_s_t(jc,jb,jt) = vstr_s_t(jc,jt) ! prognostic surface stress V
         ENDDO           
       ENDDO
 
