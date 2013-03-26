@@ -71,8 +71,8 @@ check_error()
 }
 
 # Arguments:
-#   $1 = error status: 0 = OK, not 0 = ERROR
-#   $2 = error message
+#   $1 = warning level: 0 = OK, not 0 = ERROR
+#   $2 = warning message
 warning()
 {
     if [ $1 != 0 ]
@@ -91,6 +91,9 @@ case $userid in
     1489)
 	user="Luis"
 	;;
+    1836)
+	user="Sebastian"
+	;;
     *)
 	user="Unknown"
 	echo "Please, adapt the necessary setups ..."
@@ -103,10 +106,22 @@ esac
 
 case $user in
     Luis)
-	basedir=/home/zmaw/m214089/Projects/eclipse/icon/icon
+	case $(hostname) in
+	    thunder*)
+		basedir=/scratch/mpi/mh0033/m214089/Projects/icon-dev
+		;;
+	    wanglung*)
+		basedir=/home/zmaw/m214089/Projects/eclipse/icon/icon
+		;;
+	esac
 	;;
     Monika)
 	basedir=/scratch/mpi/mh0287/users/m214002/icon-dev
+	;;
+    Sebastian)
+	basedir=""
+	redln "Add the base directory of ICON here ..."
+	exit 1
 	;;
 esac
 
@@ -146,6 +161,8 @@ iforcing=2
 
 # the grid files
 grids_folder=/pool/data/ICON/grids/private/r2b4_amip
+grids_folder=/scratch/mpi/mh0287/users/m214002/icon-dev/grids
+warning 1 "For the time being thunder reference for grid. Updated in pool by 2013-03-26."
 #atmo_dyn_grids='r2b4_amip.nc'
 #grids_folder=$basedir/grids
 atmo_dyn_grids='iconR2B04-ocean_etopo40_planet.nc'
@@ -178,25 +195,34 @@ export OMP_STACKSIZE=32M
 
 case $user in
     Luis)
-	mpi_root=/opt/local
+	case $(hostname) in
+	    thunder*)
+		mpi_root=/sw/squeeze-x64/mpi/openmpi_ib-1.6.2-static-nag52
+		mpiexec_cmd="mpiexec" 
+		;;
+	    wanglung*)
+		mpi_root=/opt/local
+		mpiexec_cmd="openmpiexec" 
+		;;
+	esac
+
 	;;
     Monika)
 	mpi_root=/sw/squeeze-x64/mpi/openmpi_ib-1.6.2-static-gcc46
+	mpiexec_cmd="mpiexec" 
+	;;
+    Sebastian)
+	mpi_root=""
+	mpiexec_cmd=""
+	redln "Add mpi_root directory here ..."
+	redln "Add mpiexe´c cmd here ..."
+	exit 1
 	;;
 esac
 
 no_of_nodes=1
 mpi_procs_pernode=1
 (( mpi_total_procs = no_of_nodes * mpi_procs_pernode ))
-
-case $user in
-    Luis)
-	mpiexec_cmd="openmpiexec" 
-	;;
-    Monika)
-	mpiexec_cmd="mpiexec" 
-	;;
-esac
 
 if [[ "$(os)" = "Linux" ]]
 then
