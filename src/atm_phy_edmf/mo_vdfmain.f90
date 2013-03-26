@@ -866,9 +866,9 @@ ENDDO
 ! use sea ice fluxes from previous step for sea ice calculation in the surface interface
 DO JL=KIDIA,KFDIA
   shfl_soil_t(jl,isub_seaice) = PAHFSTI(jl,2)
-  lhfl_soil_t(jl,isub_seaice) = ZAHFLTI(jl,2)
+  lhfl_soil_t(jl,isub_seaice) = PEVAPTI(jl,2) * RLVTT
   shfl_snow_t(jl,isub_seaice) = PAHFSTI(jl,2)   !snow over sea ice not used currently
-  lhfl_snow_t(jl,isub_seaice) = ZAHFLTI(jl,2)
+  lhfl_snow_t(jl,isub_seaice) = PEVAPTI(jl,2) * RLVTT
 ENDDO
 
 !debug
