@@ -259,7 +259,7 @@ run_scripts_nosubmit()
 run_scripts_submit()
 {
 
-  if [ $submit = "nqsub" ] 
+  if [ "_$submit" = "_nqsub" ] 
   then
     echo "====================================================================================== "
     echo "                  "
