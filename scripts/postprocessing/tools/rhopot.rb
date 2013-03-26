@@ -125,8 +125,14 @@ def computeRhopot(ifile,ofile=nil)
     Cdo.rhopot(0,:input => ifile,:output => ofile)
   else
     # remove all codes so that adisit can use names
-    system("ncatted -O -a code,,d,, #{ifile}")
-    Cdo.rhopot(0,:input => "-adisit #{ifile}",:output => ofile)
+    #  use ncatted (fast in-place edit) + mv (new filename to mark, that code
+    #  attribute is removed)
+    nocodeFile=ifile+'noCode'
+    if not File.exist?(nocodeFile)
+      puts IO.popen("ncatted -O -a code,,d,, #{ifile}").read
+      puts IO.popen("mv #{ifile} #{nocodeFile}").read
+    end
+    Cdo.rhopot(0,:input => "-adisit #{nocodeFile}",:output => ofile)
   end
 end
 #==============================================================================
@@ -180,8 +186,8 @@ experimentFiles.each {|experiment, files|
     puts "Computing initial value file: #{initFile}"
     # create a separate File with the initial values
     if not File.exist?(initFile) or not Cdo.showname(:input => initFile).flatten.first.split(' ').include?("rhopot")
-      initTS     = Cdo.selname('T,S',:input => "-seltimestep,1 #{files[0]}",:options => '-r -f nc')
-      initRhopot = computeRhopot(initTS)
+      initTS     = Cdo.selname('T,S',:input => "-seltimestep,1 #{files[0]}",:options => '-r -f nc',:output => "initTS_#{experiment}")
+      initRhopot = computeRhopot(initTS,"initRhopot_#{experiment}")
       merged = Cdo.merge(:input => [initTS,initRhopot].join(' '))
       FileUtils.cp(merged,initFile)
     end
