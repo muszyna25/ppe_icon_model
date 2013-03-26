@@ -4559,6 +4559,7 @@ SUBROUTINE terra_multlay_init (                &
                   t_s_now          , & ! temperature of the ground surface             (  K  )
                   t_s_new          , & ! temperature of the ground surface             (  K  )
                   w_snow_now       , & ! water content of snow                         (m H2O)
+                  h_snow           , & ! snow height                                   (m H2O)
                   rho_snow_now     , & ! snow density                                  (kg/m**3)
                   rho_snow_mult_now, & ! snow density                                  (kg/m**3)
                   t_so_now         , & ! soil temperature (main level)                 (  K  )
@@ -4609,6 +4610,8 @@ SUBROUTINE terra_multlay_init (                &
   REAL    (KIND = ireals), DIMENSION(ie), INTENT(INOUT) :: &
                   w_snow_now       , & ! water content of snow                         (m H2O)
                   rho_snow_now         ! snow density                                  (kg/m**3)
+  REAL    (KIND = ireals), DIMENSION(ie), INTENT(OUT) :: &
+                  h_snow               ! snow height                                   (m H2O)
   REAL    (KIND = ireals), DIMENSION(ie,ke_snow), INTENT(INOUT) :: &
                   rho_snow_mult_now    ! snow density                                  (kg/m**3)
   REAL    (KIND = ireals), DIMENSION(ie,0:ke_soil+1), INTENT(INOUT) :: &
@@ -4702,8 +4705,6 @@ SUBROUTINE terra_multlay_init (                &
 
   REAL    (KIND = ireals) :: &
 !
-    h_snow_now (ie)    , & ! snow height  (m)  
-    h_snow_new (ie)    , & ! snow height  (m)  
     zmls     (ke_soil+1)  , & ! depth of soil main level
     zzhls    (ke_soil+1)  , & ! depth of the half level soil layers in m
     zdzhs    (ke_soil+1)  , & ! layer thickness between half levels
@@ -5092,24 +5093,27 @@ SUBROUTINE terra_multlay_init (                &
     IF(lmulti_snow) THEN
         DO i = istarts, iends
 !          IF(llandmask(i)) THEN   ! for land-points only
-            h_snow_new(i) = 0.0_ireals
+            h_snow(i) = 0.0_ireals
             DO ksn = 1,ke_snow
               zdzh_snow(i,ksn) = dzh_snow_now(i,ksn)
-              h_snow_new(i) = h_snow_new(i) + zdzh_snow(i,ksn)
+              h_snow(i) = h_snow(i) + zdzh_snow(i,ksn)
             END DO
-            h_snow_now(i) = h_snow_new(i)
 
-            zhh_snow(i,1) = - h_snow_now(i) + dzh_snow_now(i,1)
+            zhh_snow(i,1) = - h_snow(i) + dzh_snow_now(i,1)
             DO ksn = 2,ke_snow
               zhh_snow(i,ksn) = zhh_snow(i,ksn-1) + dzh_snow_now(i,ksn)
             END DO
 
-            zhm_snow(i,1) = (-h_snow_now(i) + zhh_snow(i,1))/2._ireals
+            zhm_snow(i,1) = (-h_snow(i) + zhh_snow(i,1))/2._ireals
             DO ksn = 2,ke_snow
               zhm_snow(i,ksn) = (zhh_snow(i,ksn) + zhh_snow(i,ksn-1))/2._ireals
             END DO
 !          ENDIF    ! llandmask
         END DO
+    ELSE
+      DO i = istarts, iends
+        h_snow(i) = w_snow_now(i)/rho_snow_now(i)*rho_w
+      END DO
     END IF
 
 !!$ ENDIF             ! ntstep = 0
@@ -5126,7 +5130,7 @@ SUBROUTINE terra_multlay_init (                &
               write(0,*) "t_s",t_s_now(i),t_s_new(i)
               write(0,*) "t_snow",t_snow_now(i)
               write(0,*) "w_snow",w_snow_now(i)
-              write(0,*) "h_snow",h_snow_now(i),h_snow_new(i)
+              write(0,*) "h_snow",h_snow(i)
               write(0,*) "t_so",t_so_now(i,:),t_so_new(i,:)
            END IF
          END DO
