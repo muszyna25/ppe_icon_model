@@ -5,13 +5,11 @@ this_script="$(pwd -P)/${0##*/}"
 #__________________________________________________________________________________________________
 # thunder batch job parameters
 #
-#SBATCH --job-name=exp.r2b4_amip.run
+#SBATCH --job-name=lkm0099
 #SBATCH --output=LOG.exp.r2b4_amip.run.%j.out
 #SBATCH --error=LOG.exp.r2b4_amip.run.%j.out
 #SBATCH --partition=mpi-compute
-#SBATCH --workdir=/home/zmaw//m214089/Projects/eclipse/icon/icon/run
-##SBATCH --workdir=/scratch/mpi/mh0287/users/m214002/icon-dev/run
-#SBATCH --nodes=1
+#SBATCH --nodes=4
 #SBATCH --ntasks-per-node=16
 #__________________________________________________________________________________________________
 #
@@ -107,7 +105,7 @@ esac
 case $user in
     Luis)
 	case $(hostname) in
-	    thunder*)
+	    thunder*|ctc*)
 		basedir=/scratch/mpi/mh0033/m214089/Projects/icon-dev
 		;;
 	    wanglung*)
@@ -128,10 +126,14 @@ esac
 blueln "__________________________________________________________________________________________"
 blueln "ICON base directory: $basedir" 
 blueln "User: $user"
+blueln "Running: $SLURM_JOB_NAME"
+blueln "Number of nodes: $SLURM_NNODES"
+blueln "Tasks per node: $SLURM_TASKS_PER_NODE"
 
 # ICON experiment name and runtime directory
 
-EXPNAME=r2b4_amip
+EXPNAME=lkm0099
+
 EXPDIR=${basedir}/experiments/${EXPNAME}
 if [[ -d $EXPDIR ]]
 then
@@ -184,10 +186,12 @@ job_name="exp.r2b4_amip.run"
 #__________________________________________________________________________________________________
 # runtime options (nproma, MPI, OpenMP, limits)
 
-if [[ "${ENVIRONMENT:-}" = "BATCH" ]]
+if [[ ${ENVIRONMENT:-} = BATCH ]]
 then
-	greenln "Run in batch mode"
+    greenln "Run in batch mode"
     submit=sbatch
+    greenln "Submit directory: $SLURM_SUBMIT_DIR"
+    greenln "Nodelist: $SLURM_NODELIST"
 else
     greenln "Run interactively"
     submit=""
@@ -208,7 +212,7 @@ greenln "                 OMP_STACKSIZE = OMP_STACKSIZE"
 case $user in
     Luis)
 	case $(hostname) in
-	    thunder*)
+	    thunder*|ctc*)
 		mpi_root=/sw/squeeze-x64/mpi/openmpi_ib-1.6.2-static-nag52
 		mpiexec_cmd="mpiexec" 
 		;;
@@ -232,8 +236,8 @@ case $user in
 	;;
 esac
  
-no_of_nodes=1
-mpi_procs_pernode=8
+no_of_nodes=4
+mpi_procs_pernode=16
 (( mpi_total_procs = no_of_nodes * mpi_procs_pernode ))
 
 greenln "   MPI setup:"
@@ -433,7 +437,14 @@ cp -f $INIDATA/r2b4_amip/lnd/bc_land_frac.nc ${EXPDIR}/bc_land_frac.nc
 cp -f $INIDATA/r2b4_amip/lnd/bc_land_phys.nc ${EXPDIR}/bc_land_phys.nc
 cp -f $INIDATA/r2b4_amip/lnd/bc_land_sso.nc ${EXPDIR}/bc_land_sso.nc
 
-cp -f /home/zmaw/m212070/jsbach_R2B04_v1.nc ${EXPDIR}/extpar_${atmo_dyn_grids}
+if [[ ${ENVIRONMENT:-} = BATCH ]]
+then
+    ls -l ${basedir}/jsbach_R2B04_v1.nc
+    check_error $? "copy /home/zmaw/m212070/jsbach_R2B04_v1.nc to $basedir (201303-27)."
+    cp -f ${basedir}/jsbach_R2B04_v1.nc ${EXPDIR}/extpar_${atmo_dyn_grids}
+else
+    cp -f /home/zmaw/m212070/jsbach_R2B04_v1.nc ${EXPDIR}/extpar_${atmo_dyn_grids}
+fi
 
 #__________________________________________________________________________________________________
 # change to experiments directory
