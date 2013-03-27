@@ -13,7 +13,8 @@ MODULE mo_amip_bc
   
   USE mo_kind,               ONLY: dp
   USE mo_exception,          ONLY: finish, message, message_text
-  USE mo_mpi,                ONLY: my_process_is_stdio, p_io, p_comm_work, p_bcast
+  USE mo_mpi,                ONLY: my_process_is_stdio
+  USE mo_gather_scatter,     ONLY: scatter_cells_2D_time
   USE mo_model_domain,       ONLY: t_patch
   USE mo_communication,      ONLY: idx_no, blk_no
   USE mo_parallel_config,    ONLY: nproma
@@ -28,8 +29,8 @@ MODULE mo_amip_bc
 
   INCLUDE 'cdi.inc'
   
-  REAL(dp), ALLOCATABLE :: sst(:,:,:)
-  REAL(dp), ALLOCATABLE :: sic(:,:,:)
+  REAL(dp), POINTER :: sst(:,:,:) => NULL()
+  REAL(dp), POINTER :: sic(:,:,:) => NULL()
   
   CHARACTER(len=*), PARAMETER :: sst_fn = 'bc_sst.nc'
   CHARACTER(len=*), PARAMETER :: sic_fn = 'bc_sic.nc'
@@ -86,18 +87,11 @@ CONTAINS
     ENDIF
 
     ! local
-    IF (.NOT. ALLOCATED(sst)) ALLOCATE (sst(nproma, p_patch%nblks_c, 0:13))      
+    IF (.NOT. ASSOCIATED(sst)) ALLOCATE (sst(nproma, p_patch%nblks_c, 0:13))
     ! global
     IF (.NOT. ASSOCIATED(zin)) ALLOCATE(zin(p_patch%n_patch_cells_g, 0:13))
     
-    CALL p_bcast(zin(:,:), p_io, p_comm_work)
-    DO k = 0, 13
-      DO j = 1, SIZE(p_patch%cells%glb_index)
-        jb = blk_no(j)
-        jl = idx_no(j)
-        sst(jl,jb,k) = zin(p_patch%cells%glb_index(j),k)
-      ENDDO
-    ENDDO
+    CALL scatter_cells_2D_time(zin, sst, p_patch)
 
     IF (my_process_is_stdio()) THEN
 
@@ -117,17 +111,10 @@ CONTAINS
     ENDIF
 
     ! local
-    IF (.NOT. ALLOCATED(sic)) ALLOCATE (sic(nproma, p_patch%nblks_c, 0:13))      
+    IF (.NOT. ASSOCIATED(sic)) ALLOCATE (sic(nproma, p_patch%nblks_c, 0:13))
     ! global part done before
 
-    CALL p_bcast(zin(:,:), p_io, p_comm_work)
-    DO k = 0, 13
-      DO j = 1, SIZE(p_patch%cells%glb_index)
-        jb = blk_no(j)
-        jl = idx_no(j)
-        sic(jl,jb,k) = zin(p_patch%cells%glb_index(j),k)
-      ENDDO
-    ENDDO
+    CALL scatter_cells_2D_time(zin, sic, p_patch)
     
     IF (ASSOCIATED(zin)) DEALLOCATE(zin)
     
