@@ -142,7 +142,7 @@ blueln "Experiment: $EXPNAME"
 blueln "Experiment directory: $EXPDIR"
 
 # global timing
-start_date="1978-07-01T00:00:00Z"
+start_date="1978-01-01T00:00:00Z"
 ndays_restart=10                            # restart every 10 days
 (( dt_restart = ndays_restart * 86400 ))
 
@@ -338,7 +338,12 @@ cat > ${runscriptdir}/${atmo_namelist} << EOF
  irad_cfc11 = 0             ! switch off cfc11
  irad_cfc12 = 0             ! switch off cfc12
  irad_aero  = 0             ! switch off aerosols
- izenith    = 3             ! circular orbit, no seasonal cycle but with diurnal cycle 
+ izenith    = 4             ! seasonal and diurnal cycle
+ vmr_co2    =  353.9e-06    ! CMIP5 value of 1990
+ vmr_ch4    = 1693.6e-09    ! CMIP5 value of 1990
+ vmr_n2o    =  309.5e-09    ! CMIP5 value of 1990
+ vmr_cfc11  =  252.8e-12    ! CMIP5 value of 1990
+ vmr_cfc12  =  466.2e-12    ! CMIP5 value of 1990
 /
 EOF
 

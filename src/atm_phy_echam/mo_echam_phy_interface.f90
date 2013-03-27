@@ -352,6 +352,7 @@ CONTAINS
            &                       prm_field(jg)%tsurfw(:,:), &
            &                       prm_field(jg)%siced(:,:), &
            &                       prm_field(jg)%lsmask(:,:))
+      prm_field(jg)%tsfc_tile(:,:,iwtr) = prm_field(jg)%tsurfw(:,:)
     ENDIF
 
 !    WRITE(0,*)'radiation=',ltrig_rad, dt_rad

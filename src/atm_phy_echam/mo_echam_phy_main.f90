@@ -238,6 +238,9 @@ CONTAINS
        END IF
     END IF
 
+    field%tsurfl(:,:) = field%tsfc_tile(:,:,ilnd)
+!    field%tsurfi(:,:) = field%tsfc_tile(:,:,iice)
+
     !------------------------------------------------------------
     ! 3. COMPUTE SOME FIELDS NEEDED BY THE PHYSICAL ROUTINES.
     !------------------------------------------------------------
