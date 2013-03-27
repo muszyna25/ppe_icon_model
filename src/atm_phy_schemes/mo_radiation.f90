@@ -80,7 +80,7 @@ MODULE mo_radiation
     &                                irad_cfc11, vmr_cfc11,   &
     &                                irad_cfc12, vmr_cfc12,   &
     &                                irad_aero,               &
-    &                                izenith
+    &                                ighg, izenith
   USE mo_lnd_nwp_config,       ONLY: isub_seaice
 
 !!$  USE mo_greenhouse_gases,     ONLY: ghg_co2mmr, ghg_mmr_ch4, ghg_n2ommr, ghg_cfcvmr

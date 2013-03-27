@@ -351,6 +351,7 @@ cat > ${runscriptdir}/${atmo_namelist} << EOF
  irad_cfc11 = 0             ! switch off cfc11
  irad_cfc12 = 0             ! switch off cfc12
  irad_aero  = 0             ! switch off aerosols
+ ighg       = 1             ! select CMIP5 standard greenhouse gas scenario (as in ECHAM6 AMIP) 
  izenith    = 4             ! seasonal and diurnal cycle
  vmr_co2    =  353.9e-06    ! CMIP5 value of 1990
  vmr_ch4    = 1693.6e-09    ! CMIP5 value of 1990
@@ -429,9 +430,11 @@ fi
 # model constants
 
 cp -f ${icondatadir}/rrtmg_lw.nc           ${EXPDIR} # LW radiation constants
-cp -f ${icondatadir}/ECHAM6_CldOptProps.nc ${EXPDIR} # cloud optical properties
+cp -f ${icondatadir}/ECHAM6_CldOptProps.nc ${EXPDIR} # cloud optical properties   
    
 INIDATA=/pool/data/ICON/input/r0001
+
+cp -f $INIDATA/global/atm/bc_greenhouse_rcp45_1765-2500.nc ${EXPDIR}/bc_greenhouse_gases.nc
 
 # APE ozone
 if [[ x${ozon_file:-} != "x" ]]
