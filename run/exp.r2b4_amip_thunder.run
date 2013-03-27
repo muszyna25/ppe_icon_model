@@ -125,6 +125,10 @@ case $user in
 	;;
 esac
 
+blueln "__________________________________________________________________________________________"
+blueln "ICON base directory: $basedir" 
+blueln "User: $user"
+
 # ICON experiment name and runtime directory
 
 EXPNAME=r2b4_amip
@@ -133,6 +137,9 @@ if [[ -d $EXPDIR ]]
 then
     rm -rf $EXPDIR
 fi
+
+blueln "Experiment: $EXPNAME"
+blueln "Experiment directory: $EXPDIR"
 
 # global timing
 start_date="1978-07-01T00:00:00Z"
@@ -154,18 +161,18 @@ ndays=$ndays_restart
 atmo_model_equations=1
 
 # nlev = number of full levels
-nlev=31              
+nlev=47              
 
 # ECHAM physics
 iforcing=2
 
 # the grid files
 grids_folder=/pool/data/ICON/grids/private/r2b4_amip
-grids_folder=/scratch/mpi/mh0287/users/m214002/icon-dev/grids
-warning 1 "For the time being thunder reference for grid. Updated in pool by 2013-03-26."
 #atmo_dyn_grids='r2b4_amip.nc'
-#grids_folder=$basedir/grids
-atmo_dyn_grids='iconR2B04-ocean_etopo40_planet.nc'
+atmo_dyn_grids="iconR2B04-ocean_etopo40_planet.nc"
+
+blueln "Grid directory: $grids_folder"
+blueln "Grid file: $atmo_dyn_grids"
 
 #__________________________________________________________________________________________________
 # target parameters
@@ -179,19 +186,24 @@ job_name="exp.r2b4_amip.run"
 
 if [[ "${ENVIRONMENT:-}" = "BATCH" ]]
 then
+	greenln "Run in batch mode"
     submit=sbatch
 else
+    greenln "Run interactively"
     submit=""
 fi
 
 nproma=32
+greenln "   nproma = $nproma"
 
 export OMP_NUM_THREADS=1
 export ICON_THREADS=1
 export OMP_SCHEDULE=dynamic,1
 export OMP_DYNAMIC="false"
 export OMP_STACKSIZE=32M
-
+greenln "   OpenMP setup: OMP_NUM_THREADS = $OMP_NUM_THREADS"
+greenln "                 OMP_SCHEDULE = $OMP_SCHEDULE" 
+greenln "                 OMP_STACKSIZE = OMP_STACKSIZE"
 
 case $user in
     Luis)
@@ -215,14 +227,19 @@ case $user in
 	mpi_root=""
 	mpiexec_cmd=""
 	redln "Add mpi_root directory here ..."
-	redln "Add mpiexe´c cmd here ..."
+	redln "Add mpiexec cmd here ..."
 	exit 1
 	;;
 esac
-
+ 
 no_of_nodes=1
-mpi_procs_pernode=1
+mpi_procs_pernode=8
 (( mpi_total_procs = no_of_nodes * mpi_procs_pernode ))
+
+greenln "   MPI setup:"
+greenln "                 MPI root = $mpi_root"
+greenln "                 MPI exec = $mpiexec_cmd"
+greenln "                 MPI tasks = $mpi_total_procs" 
 
 if [[ "$(os)" = "Linux" ]]
 then
@@ -557,6 +574,7 @@ fi
 
 cd $runscriptdir
 
+blueln "__________________________________________________________________________________________"
 #__________________________________________________________________________________________________
 #
 exit 0
