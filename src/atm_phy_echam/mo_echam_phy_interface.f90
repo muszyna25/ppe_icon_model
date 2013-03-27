@@ -77,7 +77,8 @@ MODULE mo_echam_phy_interface
   USE mo_icon_cpl_restart,   ONLY: icon_cpl_write_restart
 
   USE mo_icoham_sfc_indices, ONLY: iwtr, iice
-  USE mo_amip_bc,            ONLY: read_amip_bc, amip_time_weights, amip_time_interpolation
+  USE mo_amip_bc,            ONLY: read_amip_bc, amip_time_weights, amip_time_interpolation, &
+    &                              get_current_amip_bc_year
   USE mo_greenhouse_gases,   ONLY: read_ghg_bc, ghg_time_interpolation, ghg_file_read
 
   IMPLICIT NONE
@@ -338,12 +339,13 @@ CONTAINS
 
     ! Read and interpolate SST for AMIP simulations; prescribed ozone and
     ! aerosol concentrations.
-    !LK: this is not checked for correctness yet!
-    !TODO  read only at begin of year
+    !LK:
     !TODO: pass timestep as argument
-    !TODO: lsmask == slm and is not slf! 
+    !COMMENT: lsmask == slm and is not slf!
     IF (phy_config%lamip) THEN
-      CALL read_amip_bc(datetime%year, p_patch)
+      IF (datetime%year /= get_current_amip_bc_year()) THEN
+        CALL read_amip_bc(datetime%year, p_patch)
+      ENDIF
       CALL amip_time_weights(datetime)
       CALL amip_time_interpolation(prm_field(jg)%seaice(:,:), &
 !           &                       prm_field(jg)%tsfc_tile(:,:,:), &

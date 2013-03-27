@@ -43,6 +43,7 @@ MODULE mo_echam_phy_init
 
   USE mo_kind,                 ONLY: wp
   USE mo_exception,            ONLY: finish, message, message_text
+  USE mo_datetime,             ONLY: t_datetime
 
   USE mo_sync,                 ONLY: sync_c, sync_patch_array
 
@@ -103,9 +104,13 @@ MODULE mo_echam_phy_init
   USE mo_timer,                ONLY: ltimer, timers_level, timer_start, timer_stop, &
     & timer_prep_echam_phy
 
+  ! for AMIP boundary conditions
+  USE mo_amip_bc,            ONLY: read_amip_bc, amip_time_weights, amip_time_interpolation
 
   IMPLICIT NONE
+
   PRIVATE
+
   PUBLIC  :: init_echam_phy, initcond_echam_phy
   PUBLIC  :: additional_restart_init
 
@@ -122,13 +127,14 @@ CONTAINS
   !! name change to init_echam_phy by Levi Silvers
   !!
   SUBROUTINE init_echam_phy( p_patch, ltestcase, ctest_name, &
-                                nlev, vct_a, vct_b, ceta        )
+                                nlev, vct_a, vct_b, ceta, current_date)
 
-    TYPE(t_patch),   INTENT(IN) :: p_patch(:)
-    LOGICAL,         INTENT(IN) :: ltestcase
-    CHARACTER(LEN=*),INTENT(IN) :: ctest_name
-    INTEGER,         INTENT(IN) :: nlev
-    REAL(wp),        INTENT(IN) :: vct_a(:), vct_b(:), ceta(:)
+    TYPE(t_patch),   INTENT(in) :: p_patch(:)
+    LOGICAL,         INTENT(in) :: ltestcase
+    CHARACTER(LEN=*),INTENT(in) :: ctest_name
+    INTEGER,         INTENT(in) :: nlev
+    REAL(wp),        INTENT(in) :: vct_a(:), vct_b(:), ceta(:)
+    TYPE(t_datetime),INTENT(in) :: current_date
 
     INTEGER :: khydromet, ktrac
     INTEGER :: jg, ndomain
@@ -210,6 +216,7 @@ CONTAINS
     CALL construct_echam_phy_state( ntracer, p_patch )
 
 
+
     ! general 
    !--------------------------------------------------------------
     !< characteristic gridlength needed by sso and sometimes by
@@ -223,6 +230,21 @@ CONTAINS
 !       CALL sphere_cell_mean_char_length (p_patch(jg)%n_patch_cells_g, &
 !         & mean_charlen(jg))
     ENDDO
+
+    ! read initial time varying boundary conditions
+
+    IF (phy_config%lamip) THEN
+      CALL read_amip_bc(current_date%year, p_patch(1))
+      CALL amip_time_weights(current_date)
+      DO jg= 1,ndomain
+        CALL amip_time_interpolation(prm_field(jg)%seaice(:,:), &
+!           &                        prm_field(jg)%tsfc_tile(:,:,:), &
+           &                         prm_field(jg)%tsurfw(:,:), &
+           &                         prm_field(jg)%siced(:,:), &
+           &                         prm_field(jg)%lsmask(:,:))
+      ENDDO
+    ENDIF
+
     
     IF (timers_level > 1) CALL timer_stop(timer_prep_echam_phy)
 
@@ -268,7 +290,6 @@ CONTAINS
     CHARACTER(len=*), PARAMETER :: land_frac_fn = 'bc_land_frac.nc'
     CHARACTER(len=*), PARAMETER :: land_phys_fn = 'bc_land_phys.nc'
     CHARACTER(len=*), PARAMETER :: land_sso_fn  = 'bc_land_sso.nc'
-    LOGICAL       :: lexist
 
     ! total number of domains/ grid levels
 

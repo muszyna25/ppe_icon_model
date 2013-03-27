@@ -45,9 +45,18 @@ MODULE mo_amip_bc
   PUBLIC :: read_amip_bc
   PUBLIC :: amip_time_weights
   PUBLIC :: amip_time_interpolation
+  PUBLIC :: get_current_amip_bc_year
+
+  INTEGER, SAVE :: current_year = -1
 
 CONTAINS
   
+  FUNCTION get_current_amip_bc_year() RESULT(this_year)
+    INTEGER :: this_year
+    this_year = current_year
+    RETURN
+  END FUNCTION get_current_amip_bc_year
+
   SUBROUTINE read_amip_bc(year, p_patch)
 
     INTEGER,       INTENT(in) :: year
@@ -122,6 +131,8 @@ CONTAINS
     
     IF (ASSOCIATED(zin)) DEALLOCATE(zin)
     
+    current_year = year
+
   END SUBROUTINE read_amip_bc
   
   SUBROUTINE read_amip_data(fn, y, zin)
@@ -309,6 +320,8 @@ CONTAINS
       !TODO: check tsw/i/l sequence,dummy setting to some reasonable value for land and ice
       tsw(:,:) = tmelt
     ENDWHERE
+
+    CALL message('','Interpolated AMIP SST and sea ice.')
 
   END SUBROUTINE amip_time_interpolation
 

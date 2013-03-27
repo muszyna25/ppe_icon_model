@@ -94,6 +94,7 @@ CONTAINS
     ! Initialize parameters and solvers;
     ! Allocate memory for model state vectors.
     !------------------------------------------------------------------
+
     CALL construct_atmo_hydrostatic()
 
     !------------------------------------------------------------------
@@ -149,10 +150,9 @@ CONTAINS
 
     IF (iforcing==IECHAM.OR.iforcing==ILDF_ECHAM) THEN
       CALL init_echam_phy( p_patch(1:), ltestcase, ctest_name, &
-                            & nlev, vct_a, vct_b, ceta )
+                            & nlev, vct_a, vct_b, ceta, time_config%cur_datetime )
     END IF
 
-    
     !------------------------------------------------------------------
     ! Set initial conditions for time integration.
     !------------------------------------------------------------------
