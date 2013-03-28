@@ -4950,6 +4950,12 @@ SUBROUTINE terra_multlay_init (                &
 !               ENDIF
 !               IF ( t_so_now(i,kso) <= t0_melt) EXIT
 !             ENDDO
+            t_snow_now(i) = MIN( t0_melt, t_snow_now(i))
+            IF(lmulti_snow) THEN
+              DO ksn = 0, ke_snow
+                t_snow_mult_now(i) = MIN( t0_melt, t_snow_mult_now(i))
+              END DO
+            END IF 
           ENDIF
 
           t_s_now(i) = t_so_now(i,0)
