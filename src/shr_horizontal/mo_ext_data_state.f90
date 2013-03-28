@@ -405,7 +405,7 @@ CONTAINS
     IF (iequations/=ihs_ocean) THEN  ! atmosphere model ---------------------
 
       ! Build external data list for constant-in-time fields for the atm model
-      write(*,*) 'create new external data list for atmosphere'
+      !write(*,*) 'create new external data list for atmosphere'
       DO jg = 1, n_dom
         WRITE(listname,'(a,i2.2)') 'ext_data_atm_D',jg
         CALL new_ext_data_atm_list(p_patch(jg), ext_data(jg)%atm,       &

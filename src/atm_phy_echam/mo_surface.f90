@@ -195,7 +195,7 @@ CONTAINS
 
     !! added as JSBACH input
     INTEGER, OPTIONAL,INTENT(IN) :: nblock
-    INTEGER, OPTIONAL,INTENT(IN) :: lsm(kbdim)
+    REAL(wp),OPTIONAL,INTENT(IN) :: lsm(kbdim)
     REAL(wp),OPTIONAL,INTENT(IN) :: pu        (kbdim)              ! zonal wind lowest level
     REAL(wp),OPTIONAL,INTENT(IN) :: pv        (kbdim)              ! meridional wind lowest level
     REAL(wp),OPTIONAL,INTENT(IN) :: ptemp     (kbdim)              ! temperature of lowest atmospheric level
@@ -289,6 +289,7 @@ CONTAINS
 ! locals
 
     LOGICAL  :: lfland(kbdim)
+    INTEGER  :: ilsm(kbdim)
     REAL(wp)  :: surface_temperature_last(kbdim)
     INTEGER  :: jsfc, jk, jkm1, im, k
     REAL(wp) :: se_sum(kbdim), qv_sum(kbdim), wgt_sum(kbdim), wgt(kbdim)
@@ -340,10 +341,16 @@ CONTAINS
     lwup(1:kproma) = 0.996_wp * 5.67e-8_wp * ptsfc_tile(1:kproma,idx_lnd)**4
     surface_temperature_last(1:kproma) = surface_temperature(1:kproma)
 
+    WHERE (lsm(:) > 0.5_wp)
+      ilsm(:) = 1
+    ELSEWHERE
+      ilsm(:) = 0
+    ENDWHERE
+
     CALL jsbach_inter_1d (kdim = kproma,                                   &
                           kblock = nblock,                                 &
                           kland = COUNT(lfland(1:kproma)),                 &
-                          mask_land = lsm(1:kproma),                       &
+                          mask_land = ilsm(1:kproma),                       &
                           delta_time = pdtime,                             &
                           time_step_len = psteplen,                        &
                           time_steps_soil = time_steps_soil(1:kproma),     &
@@ -424,7 +431,7 @@ CONTAINS
 
 
     ! calculate effective temperature for use in radheat
-    WHERE (lsm(1:kproma) > 0) 
+    WHERE (lsm(1:kproma) > 0.5_wp) 
       surface_temperature_eff(1:kproma) = (surface_temperature_last(1:kproma) ** 3 *  &
                                           (4._wp*surface_temperature_rad(1:kproma) -  &
                                           3._wp * surface_temperature_last(1:kproma)))**0.25

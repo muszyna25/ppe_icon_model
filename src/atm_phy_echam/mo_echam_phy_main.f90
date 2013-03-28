@@ -368,7 +368,7 @@ CONTAINS
        END SELECT
 
        IF (phy_config%ljsbach) THEN
-         WHERE (ext_data(jg)%atm%lsm_ctr_c(jcs:jce,jb) > 0)
+         WHERE (field%lsmask(jcs:jce,jb) > 0.5_wp)
             ztemperature_rad(jcs:jce) = field%surface_temperature_rad(jcs:jce,jb) ! radiative sfc temp. [K]
          ELSEWHERE
             ztemperature_rad(jcs:jce) = field% tsfc_tile(jcs:jce,jb,iwtr)
@@ -902,7 +902,7 @@ CONTAINS
                        & zqhflx,                          &! out, for "cucall"
                        !! optional
                        & nblock = jb,                  &! in
-                       & lsm = ext_data(jg)%atm%lsm_ctr_c(:,jb), &!< in, land-sea mask
+                       & lsm = field%lsmask(:,jb), &!< in, land-sea mask
                        & pu = field% u(:,nlev,jb),     &! in, um1
                        & pv = field% v(:,nlev,jb),     &! in, vm1
                        & ptemp = field% temp(:,nlev,jb), &! in, tm1
@@ -979,6 +979,7 @@ CONTAINS
 !         MIN(1._wp,field%time_steps_soil(jcs:jce,jb) / 200000._wp)
        field%swnet(jcs:jce,jb) = ext_data(jg)%atm%topography_c(jcs:jce,jb)
 !        field%swnet(jcs:jce,jb) = field%tsfc_tile(jcs:jce,jb,iwtr)
+        field%tsurfl(jcs:jce,jb) = field%tsfc_tile(jcs:jce,jb,ilnd)
 
     ELSE
     CALL update_surface( vdiff_config%lsfc_heat_flux,  &! in
