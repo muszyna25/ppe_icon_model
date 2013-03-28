@@ -66,7 +66,7 @@ MODULE mo_echam_phy_init
 !   USE mo_math_utilities,      ONLY: sphere_cell_mean_char_length
 
   ! radiation
-  USE mo_radiation_config,     ONLY: ssi, tsi
+  USE mo_radiation_config,     ONLY: ssi, tsi, ighg
   USE mo_srtm_config,          ONLY: setup_srtm, ssi_amip
   USE mo_lrtm_setup,           ONLY: lrtm_setup
   USE mo_newcld_optics,        ONLY: setup_newcld_optics
@@ -105,7 +105,8 @@ MODULE mo_echam_phy_init
     & timer_prep_echam_phy
 
   ! for AMIP boundary conditions
-  USE mo_amip_bc,            ONLY: read_amip_bc, amip_time_weights, amip_time_interpolation
+  USE mo_amip_bc,              ONLY: read_amip_bc, amip_time_weights, amip_time_interpolation
+  USE mo_greenhouse_gases,     ONLY: read_ghg_bc, ghg_time_interpolation, ghg_file_read
 
   IMPLICIT NONE
 
@@ -307,6 +308,11 @@ CONTAINS
       ENDDO
     ! read initial time varying boundary conditions
 
+      ! add interpolation of greenhouse gases here, only if radiation is going to be calculated
+      IF (ighg > 0) THEN
+        IF (.NOT. ghg_file_read) CALL read_ghg_bc(ighg)
+        CALL ghg_time_interpolation(current_date)
+      ENDIF
       CALL read_amip_bc(current_date%year, p_patch(1))
       CALL amip_time_weights(current_date)
       DO jg= 1,ndomain

@@ -132,7 +132,7 @@ CONTAINS
     ! interpolation in time
 
     zsecref = REAL(radiation_date%yealen * idaylen, wp)
-    zsecnow = REAL(((radiation_date%yeaday - 1) * idaylen), wp) + radiation_date%second
+    zsecnow = REAL(((radiation_date%yeaday - 1) * idaylen), wp) + radiation_date%daysec
 
     iyear =  radiation_date%year - INT(ghg_base_year) + 1   ! set right index to access in ghg fields
     iyearm = iyear - 1

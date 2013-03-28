@@ -83,6 +83,7 @@ MODULE mo_echam_phy_main
   USE mo_gw_hines,            ONLY: gw_hines
   ! provisional to get coordinates
   USE mo_model_domain,        ONLY: p_patch
+  USE mo_orbit,               ONLY: orbit_vsop87
 
   IMPLICIT NONE
   PRIVATE
@@ -193,6 +194,8 @@ CONTAINS
     REAL(wp) :: zyearfrac
     REAL(wp) :: zdeclination_sun
     REAL(wp) :: ztime_dateline
+
+    REAL(wp) :: zdoy, zra, zdec, zdis, zen1, zen2, zen3
 
 !!$    REAL(wp) :: zo3_timint(nbdim,nlev_o3) !< intermediate value of ozon 
 
@@ -447,9 +450,21 @@ CONTAINS
             field%cosmu0(jcs:jce,jb) = SIN(zdeclination_sun) * SIN(p_patch(jg)%cells%center(jcs:jce,jb)%lat) + &
                                        COS(zdeclination_sun) * COS(p_patch(jg)%cells%center(jcs:jce,jb)%lat) * &
                                        COS(ztime_dateline + p_patch(jg)%cells%center(jcs:jce,jb)%lon)
-
+!LK          CASE(5)
           END SELECT
 
+!          zdoy = REAL(datetime%calday, wp) + datetime%caltime
+!          CALL orbit_vsop87 (zdoy, zra, zdec, zdis)
+!          write(0,*) 'LK: ', zdoy, zra, zdec, zdis
+!          time_of_day = datetime%daytim * 2 * pi
+          ! flx_ratio = 1.0_wp/dist_sun**2
+!          zen1 = SIN(zdec)
+!          zen2 = COS(zdec)*COS(time_of_day)
+!          zen3 = COS(zdec)*SIN(time_of_day)
+!LK          field%cosmu0(jcs:jce,jb) = &
+!               &  zen1*sin(p_patch(jg)%cells%center(jcs:jce,jb)%lat) &
+!               & -zen2*cos(p_patch(jg)%cells%center(jcs:jce,jb)%lat)*cos(p_patch(jg)%cells%center(jcs:jce,jb)%lon) &
+!               & +zen3*cos(p_patch(jg)%cells%center(jcs:jce,jb)%lat)*sin(p_patch(jg)%cells%center(jcs:jce,jb)%lon)
 
           SELECT CASE(irad_o3)
             CASE default

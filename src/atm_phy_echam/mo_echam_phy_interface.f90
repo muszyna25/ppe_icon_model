@@ -307,30 +307,35 @@ CONTAINS
 
     IF (phy_config%lrad) THEN
 
+      ! different to echam the time for which the radiation has to be calculated has
+      ! not to be adjusted by pdtime because the middle of the time interval is hit
+      ! perfectly. Only the first one is slightly of centered! Do not correct.
+
       datetime_radtran = datetime                ! copy current date and time
-      dsec = 0.5_wp*(phy_config%dt_rad - pdtime)              ! [s] time increment for zenith angle computation
+      dsec = 0.5_wp*phy_config%dt_rad            ! [s] time increment for zenith angle computation
       CALL add_time(dsec,0,0,0,datetime_radtran) ! add time increment to get date and
       !                                          ! time information for the zenith angle comp.
 
       ltrig_rad   = ( l1st_phy_call.AND.(.NOT.lrestart)            ).OR. &
                     ( MOD(NINT(datetime%daysec),NINT(phy_config%dt_rad)) == 0 )
+      ! IF (ltrig_rad) THEN
+      !   CALL message('mo_echam_phy_interface:physc','Radiative transfer called at:')
+      !   CALL print_datetime(datetime)
+      !   CALL message('mo_echam_phy_interface:physc','Radiative transfer computed for:')
+      !   CALL print_datetime(datetime_radtran)
+      ! ENDIF
+
       l1st_phy_call = .FALSE.
 
       ztime_radheat = 2._wp*pi * datetime%daytim 
       ztime_radtran = 2._wp*pi * datetime_radtran%daytim
 
-    !TODO: Luis Kornblueh
-    ! add interpolation of greenhouse gases here, only if radiation is going to be calculated
-    IF (ltrig_rad .AND. (ighg > 0)) THEN
-      IF (.NOT. ghg_file_read) CALL read_ghg_bc(ighg)
-      CALL ghg_time_interpolation(datetime)
-    ENDIF
-!      IF (ltrig_rad) THEN
-!        CALL message('mo_echam_phy_interface:physc','Radiative transfer called at:')
-!        CALL print_datetime(datetime)
-!        CALL message('mo_echam_phy_interface:physc','Radiative transfer computed for:')
-!        CALL print_datetime(datetime_radtran)
-!      ENDIF
+      !TODO: Luis Kornblueh
+      ! add interpolation of greenhouse gases here, only if radiation is going to be calculated
+      IF (ltrig_rad .AND. (ighg > 0)) THEN
+        CALL ghg_time_interpolation(datetime_radtran)
+      ENDIF
+
     ELSE
       ltrig_rad = .FALSE.
       ztime_radheat = 0._wp
