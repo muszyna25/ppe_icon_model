@@ -98,7 +98,7 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
   TYPE(t_int_state),    INTENT(in),TARGET   :: p_int          !< single interpolation state
   TYPE(t_external_data),       INTENT(in)   :: ext_data        !< external data
   TYPE(t_nh_metrics)          ,INTENT(in)   :: p_metrics
-  TYPE(t_nh_prog),      TARGET,INTENT(in)   :: p_prog          !<the prog vars
+  TYPE(t_nh_prog),      TARGET,INTENT(inout):: p_prog          !<the prog vars
   TYPE(t_nh_prog),      TARGET,INTENT(in)   :: p_prog_now_rcf  !<progs with red.
   TYPE(t_nh_prog),      TARGET,INTENT(inout):: p_prog_rcf      !<call freq
   TYPE(t_nh_diag),      TARGET,INTENT(inout):: p_diag          !<the diag vars
@@ -166,7 +166,7 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
   !is then used inside the block loop (see at the end) to update u,v,t,qv,qc
   IF ( atm_phy_nwp_config(jg)%inwp_turb == 5 )THEN
     CALL message('mo_nwp_turbdiff:', '3D turbulence')
-    CALL drive_subgrid_diffusion(p_prog,       & !in
+    CALL drive_subgrid_diffusion(p_prog,       & !inout for w (it is updated inside)
                                  p_prog_rcf,   & !in
                                  p_diag,       & !in
                                  p_metrics,    & !in
@@ -175,7 +175,8 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
                                  lnd_prog_now, & !inout
                                  lnd_diag,     & !inout
                                  prm_diag,     & !inout
-                                 prm_nwp_tend  & !inout
+                                 prm_nwp_tend, & !inout
+                                 tcall_turb_jg & !in
                                  )
   END IF
 

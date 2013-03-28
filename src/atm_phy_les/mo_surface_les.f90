@@ -58,7 +58,7 @@ MODULE mo_surface_les
   USE mo_impl_constants    ,  ONLY: min_rledge, min_rlcell, min_rlvert, &
                                     min_rledge_int, min_rlcell_int, min_rlvert_int
   USE mo_sync,                ONLY: SYNC_E, SYNC_C, SYNC_V, sync_patch_array
-  USE mo_physical_constants,  ONLY: cpd, rcvd, p0ref, grav, alv, rd, rgrav
+  USE mo_physical_constants,  ONLY: cpd, rcvd, p0ref, grav, alv, rd, rgrav, rd_o_cpd
   USE mo_nwp_lnd_types,       ONLY: t_lnd_prog, t_lnd_diag 
   USE mo_nh_torus_exp,        ONLY: shflx_cbl, lhflx_cbl, set_sst_cbl
   USE mo_satad,               ONLY: sat_pres_water, &  !! saturation vapor pressure w.r.t. water
@@ -89,7 +89,8 @@ MODULE mo_surface_les
   !! @par Revision History
   !! Initial release by Anurag Dipankar, MPI-M (2013-02-06)
   SUBROUTINE  surface_conditions(p_nh_metrics, p_patch, p_nh_diag, p_int, &
-                                 p_prog_lnd_now, p_diag_lnd, prm_diag, theta)
+                                 p_prog_lnd_now, p_diag_lnd, prm_diag,    &
+                                 theta, theta_sfc)
 
     TYPE(t_nh_metrics),INTENT(in),TARGET :: p_nh_metrics  !< single nh metric state
     TYPE(t_patch),     INTENT(in),TARGET :: p_patch    !< single patch
@@ -99,9 +100,10 @@ MODULE mo_surface_les
     TYPE(t_lnd_diag),  INTENT(inout)     :: p_diag_lnd    !<land diag state 
     TYPE(t_nwp_phy_diag),   INTENT(inout):: prm_diag      !< atm phys vars
     REAL(wp),          INTENT(in)        :: theta(:,:,:)  !pot temp  
-
+    REAL(wp),          INTENT(out)       :: theta_sfc(:,:)!sfc pot temp  
+ 
     REAL(wp) :: rhos, th0_srf, obukhov_length, z_mc, ustar, mwind, bflux
-    REAL(wp) :: zrough, pres_sfc(nproma,p_patch%nblks_c)
+    REAL(wp) :: zrough, pres_sfc(nproma,p_patch%nblks_c), exner
     INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
     INTEGER :: rl_start, rl_end
     INTEGER :: jk, jb, jc
@@ -135,17 +137,20 @@ MODULE mo_surface_les
       jk = nlev
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jc,jb,i_startidx,i_endidx,th0_srf,bflux,mwind,ustar,z_mc, &
-!$OMP            zrough,obukhov_length,rhos),ICON_OMP_RUNTIME_SCHEDULE
+!$OMP            exner,zrough,obukhov_length,rhos),ICON_OMP_RUNTIME_SCHEDULE
       DO jb = i_startblk,i_endblk
          CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
                             i_startidx, i_endidx, rl_start, rl_end)
          DO jc = i_startidx, i_endidx
 
+            !Surface exner
+            exner = EXP( rd_o_cpd*LOG(pres_sfc(jc,jb)/p0ref) )
+
             !Roughness length
             zrough = prm_diag%gz0(jc,jb) * rgrav
 
-            !Get reference surface temperature
-            th0_srf = p_prog_lnd_now%t_g(jc,jb)
+            !Get reference surface pot. temperature
+            th0_srf = p_prog_lnd_now%t_g(jc,jb) / exner
 
             !Buoyancy flux
             bflux = grav*(shflx_cbl+0.61_wp* th0_srf*lhflx_cbl)/th0_srf
@@ -162,15 +167,22 @@ MODULE mo_surface_les
             !"-" sign in the begining because ustar*thstar = -shflx
             obukhov_length = -ustar**3 * rkarman / bflux
  
-            p_prog_lnd_now%t_g(jc,jb) = theta(jc,jk,jb) + shflx_cbl / ustar * &
-                                        businger_heat(zrough,z_mc,obukhov_length) 
+            theta_sfc(jc,jb) = theta(jc,jk,jb) + shflx_cbl / ustar * &
+                               businger_heat(zrough,z_mc,obukhov_length) 
+
+            p_prog_lnd_now%t_g(jc,jb) = theta_sfc(jc,jb) * exner
 
             !Get surface qv using t_g: saturation value
-            p_diag_lnd%qv_s(jc,jb) =    &
-                spec_humi(sat_pres_water(p_prog_lnd_now%t_g(jc,jb)),pres_sfc(jc,jb)) 
+            IF(lhflx_cbl==0._wp)THEN
+               p_diag_lnd%qv_s(:,:) = 0._wp
+            ELSE
+               p_diag_lnd%qv_s(jc,jb) =    &
+                   spec_humi(sat_pres_water(p_prog_lnd_now%t_g(jc,jb)),pres_sfc(jc,jb)) 
+            END IF
 
             !Get surface fluxes
-            rhos   =  pres_sfc(jc,jb)/(rd * p_prog_lnd_now%t_g(jc,jb))  
+            rhos   =  pres_sfc(jc,jb)/( rd * &
+                      p_prog_lnd_now%t_g(jc,jb)*(1._wp+0.61_wp*p_diag_lnd%qv_s(jc,jb)) )  
             prm_diag%shfl_s(jc,jb)  = shflx_cbl * rhos * cpd
             prm_diag%lhfl_s(jc,jb)  = lhflx_cbl * rhos * alv
             prm_diag%umfl_s(jc,jb)  = ustar**2  * rhos
@@ -180,7 +192,6 @@ MODULE mo_surface_les
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
-      IF(lhflx_cbl==0._wp) p_diag_lnd%qv_s(:,:) = 0._wp
   
     !CASE(2)
      !Fix SST type
