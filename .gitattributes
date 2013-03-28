@@ -61,6 +61,7 @@ config/mh-nec -text
 config/missing -text
 /configure -text
 /configure.ac -text
+contrib/monika/remap.sh -text
 /create_builds -text
 data/ECHAM6_CldOptProps.nc -text
 data/external/etopo40.cdf -text
