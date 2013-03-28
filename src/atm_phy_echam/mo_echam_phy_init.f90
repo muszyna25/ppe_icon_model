@@ -136,8 +136,14 @@ CONTAINS
     REAL(wp),        INTENT(in) :: vct_a(:), vct_b(:), ceta(:)
     TYPE(t_datetime),INTENT(in) :: current_date
 
+    REAL(wp), POINTER     :: return_pointer(:,:)
+
     INTEGER :: khydromet, ktrac
     INTEGER :: jg, ndomain
+
+    CHARACTER(len=*), PARAMETER :: land_frac_fn = 'bc_land_frac.nc'
+    CHARACTER(len=*), PARAMETER :: land_phys_fn = 'bc_land_phys.nc'
+    CHARACTER(len=*), PARAMETER :: land_sso_fn  = 'bc_land_sso.nc'
 
 
     IF (timers_level > 1) CALL timer_start(timer_prep_echam_phy)
@@ -231,9 +237,76 @@ CONTAINS
 !         & mean_charlen(jg))
     ENDDO
 
+    IF (phy_config%lamip) THEN
+!!!OMP PARALLEL DO PRIVATE(jb,jc,jcs,jce,zlat) ICON_OMP_DEFAULT_SCHEDULE
+      DO jg= 1,ndomain
+           ! by default it will create an error if it cannot open/read the file
+           return_pointer => netcdf_read_oncells_2D( &
+             & filename      =land_frac_fn,        &
+             & variable_name ='land',              &
+             & fill_array    = prm_field(jg)% lsmask(:,:),      &
+             & patch         = p_patch(jg))
+           return_pointer => netcdf_read_oncells_2D( &
+             & filename      =land_frac_fn,        &
+             & variable_name ='glac',              &
+             & fill_array    = prm_field(jg)% glac(:,:),        &
+             & patch         = p_patch(jg))
+           return_pointer => netcdf_read_oncells_2D( &
+             & filename      =land_frac_fn,        &
+             & variable_name ='lake',              &
+             & fill_array    = prm_field(jg)% alake(:,:),       &
+             & patch         = p_patch(jg))
+     ! roughness length and background albedo
+           return_pointer => netcdf_read_oncells_2D( &
+             & filename      =land_phys_fn,        &
+             & variable_name ='z0',                &
+             & fill_array    = prm_field(jg)% z0m(:,:),         &
+             & patch         = p_patch(jg))
+           return_pointer => netcdf_read_oncells_2D( &
+             & filename      =land_phys_fn,        &
+             & variable_name ='alb',               &
+             & fill_array    = prm_field(jg)% alb(:,:),         &
+             & patch         = p_patch(jg))
+     ! orography
+           return_pointer => netcdf_read_oncells_2D( &
+             & filename      =land_sso_fn,         &
+             & variable_name ='orostd',            &
+             & fill_array    = prm_field(jg)% orostd(:,:),      &
+             & patch         = p_patch(jg))
+           return_pointer => netcdf_read_oncells_2D( &
+             & filename      =land_sso_fn,         &
+             & variable_name ='orosig',            &
+             & fill_array    = prm_field(jg)% orosig(:,:),      &
+             & patch         = p_patch(jg))
+           return_pointer => netcdf_read_oncells_2D( &
+             & filename      =land_sso_fn,         &
+             & variable_name ='orogam',            &
+             & fill_array    = prm_field(jg)% orogam(:,:),      &
+             & patch         = p_patch(jg))
+           return_pointer => netcdf_read_oncells_2D( &
+             & filename      =land_sso_fn,         &
+             & variable_name ='orothe',            &
+             & fill_array    = prm_field(jg)% orothe(:,:),      &
+             & patch         = p_patch(jg))
+           return_pointer => netcdf_read_oncells_2D( &
+             & filename      =land_sso_fn,         &
+             & variable_name ='oropic',            &
+             & fill_array    = prm_field(jg)% oropic(:,:),      &
+             & patch         = p_patch(jg))
+           return_pointer => netcdf_read_oncells_2D( &
+             & filename      =land_sso_fn,         &
+             & variable_name ='oroval',            &
+             & fill_array    = prm_field(jg)% oroval(:,:),      &
+             & patch         = p_patch(jg))
+         ENDDO
+!!!OMP END PARALLEL DO
+
+    ! add lake mask to land sea mask to remove lakes again
+      DO jg= 1,ndomain
+        prm_field(jg)%lsmask(:,:) = prm_field(jg)%lsmask(:,:) + prm_field(jg)%alake(:,:)
+      ENDDO
     ! read initial time varying boundary conditions
 
-    IF (phy_config%lamip) THEN
       CALL read_amip_bc(current_date%year, p_patch(1))
       CALL amip_time_weights(current_date)
       DO jg= 1,ndomain
@@ -242,9 +315,11 @@ CONTAINS
            &                         prm_field(jg)%tsurfw(:,:), &
            &                         prm_field(jg)%siced(:,:), &
            &                         prm_field(jg)%lsmask(:,:))
+        prm_field(jg)%tsfc_tile(:,:,iwtr) = prm_field(jg)%tsurfw(:,:)
+        prm_field(jg)%tsfc_tile(:,:,ilnd) = prm_field(jg)%tsurfw(:,:)
       ENDDO
-    ENDIF
 
+    ENDIF    ! phy_config%lamip
     
     IF (timers_level > 1) CALL timer_stop(timer_prep_echam_phy)
 
@@ -285,11 +360,6 @@ CONTAINS
     REAL(wp), ALLOCATABLE :: buffer(:,:)
 
     INTEGER               :: info, ierror !< return values form cpl_put/get calls
-    REAL(wp), POINTER     :: return_pointer(:,:)
-
-    CHARACTER(len=*), PARAMETER :: land_frac_fn = 'bc_land_frac.nc'
-    CHARACTER(len=*), PARAMETER :: land_phys_fn = 'bc_land_phys.nc'
-    CHARACTER(len=*), PARAMETER :: land_sso_fn  = 'bc_land_sso.nc'
 
     ! total number of domains/ grid levels
 
@@ -315,78 +385,6 @@ CONTAINS
 
       IF (ltestcase) THEN
         SELECT CASE (ctest_name)
-        CASE('AMIP') !Note that there are only two surface types in this case
-                    ! water and land, as long as no ice routines are implemented 
-                    ! in the ECHAM-physics
-
-!!!OMP PARALLEL DO PRIVATE(jb,jc,jcs,jce,zlat) ICON_OMP_DEFAULT_SCHEDULE
-           ! by default it will create an error if it cannot open/read the file
-           return_pointer => netcdf_read_oncells_2D( &
-             & filename      =land_frac_fn,        &
-             & variable_name ='land',              &
-             & fill_array    = field% lsmask,      &
-             & patch         = p_patch(jg))
-           return_pointer => netcdf_read_oncells_2D( &
-             & filename      =land_frac_fn,        &
-             & variable_name ='glac',              &
-             & fill_array    = field% glac,        &
-             & patch         = p_patch(jg))
-           return_pointer => netcdf_read_oncells_2D( &
-             & filename      =land_frac_fn,        &
-             & variable_name ='lake',              &
-             & fill_array    = field% alake,       &
-             & patch         = p_patch(jg))
-     ! roughness length and background albedo
-           return_pointer => netcdf_read_oncells_2D( &
-             & filename      =land_phys_fn,        &
-             & variable_name ='z0',                &
-             & fill_array    = field% z0m,         &
-             & patch         = p_patch(jg))
-           return_pointer => netcdf_read_oncells_2D( &
-             & filename      =land_phys_fn,        &
-             & variable_name ='alb',               &
-             & fill_array    = field% alb,         &
-             & patch         = p_patch(jg))
-     ! orography
-           return_pointer => netcdf_read_oncells_2D( &
-             & filename      =land_sso_fn,         &
-             & variable_name ='orostd',            &
-             & fill_array    = field% orostd,      &
-             & patch         = p_patch(jg))
-           return_pointer => netcdf_read_oncells_2D( &
-             & filename      =land_sso_fn,         &
-             & variable_name ='orosig',            &
-             & fill_array    = field% orosig,      &
-             & patch         = p_patch(jg))
-           return_pointer => netcdf_read_oncells_2D( &
-             & filename      =land_sso_fn,         &
-             & variable_name ='orogam',            &
-             & fill_array    = field% orogam,      &
-             & patch         = p_patch(jg))
-           return_pointer => netcdf_read_oncells_2D( &
-             & filename      =land_sso_fn,         &
-             & variable_name ='orothe',            &
-             & fill_array    = field% orothe,      &
-             & patch         = p_patch(jg))
-           return_pointer => netcdf_read_oncells_2D( &
-             & filename      =land_sso_fn,         &
-             & variable_name ='oropic',            &
-             & fill_array    = field% oropic,      &
-             & patch         = p_patch(jg))
-           return_pointer => netcdf_read_oncells_2D( &
-             & filename      =land_sso_fn,         &
-             & variable_name ='oroval',            &
-             & fill_array    = field% oroval,      &
-             & patch         = p_patch(jg))
-
-          DO jb = jbs,nblks_c
-            CALL get_indices_c( p_patch(jg), jb,jbs,nblks_c, jcs,jce, 2)
-            field% tsfc_tile(jcs:jce,jb,iwtr) = tmelt
-            field% tsfc_tile(jcs:jce,jb,ilnd) = tmelt
-            field% seaice(jcs:jce,jb) = 0._wp   ! zero sea ice fraction
-          END DO
-!!!OMP END PARALLEL DO
-
         CASE('APE') !Note that there is only one surface type in this case
                     !except ljsbach=.true. with land and ocean (two surface types)
 
