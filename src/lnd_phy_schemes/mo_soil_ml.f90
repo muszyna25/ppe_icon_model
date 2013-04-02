@@ -4953,7 +4953,7 @@ SUBROUTINE terra_multlay_init (                &
             t_snow_now(i) = MIN( t0_melt, t_snow_now(i))
             IF(lmulti_snow) THEN
               DO ksn = 0, ke_snow
-                t_snow_mult_now(i) = MIN( t0_melt, t_snow_mult_now(i))
+                t_snow_mult_now(i,ksn) = MIN( t0_melt, t_snow_mult_now(i,ksn))
               END DO
             END IF 
           ENDIF
