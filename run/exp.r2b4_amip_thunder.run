@@ -9,8 +9,8 @@ this_script="$(pwd -P)/${0##*/}"
 #SBATCH --output=LOG.exp.r2b4_amip.run.%j.out
 #SBATCH --error=LOG.exp.r2b4_amip.run.%j.out
 #SBATCH --partition=mpi-compute
-#SBATCH --nodes=1
-#SBATCH --ntasks-per-node=8
+#SBATCH --nodes=4
+#SBATCH --ntasks-per-node=16
 #__________________________________________________________________________________________________
 #
 # ICON AMIP run script.
@@ -138,10 +138,6 @@ fi
 EXPNAME=lkm0099
 
 EXPDIR=${basedir}/experiments/${EXPNAME}
-if [[ -d $EXPDIR ]]
-then
-    rm -rf $EXPDIR
-fi
 
 blueln "Experiment: $EXPNAME"
 blueln "Experiment directory: $EXPDIR"
@@ -239,14 +235,14 @@ case $user in
 	;;
 esac
  
-if [[ ${ENVIRONMENT:-} = BATCH ]]
-then
-    no_of_nodes=$SLURM_NNODES
-    mpi_procs_pernode=$SLURM_TASKS_PER_NODE
-else
-    no_of_nodes=1
-    mpi_procs_pernode=8
-fi
+#if [[ ${ENVIRONMENT:-} = BATCH ]]
+#then
+#    no_of_nodes=$SLURM_NNODES
+#    mpi_procs_pernode=$SLURM_TASKS_PER_NODE
+#else
+    no_of_nodes=4
+    mpi_procs_pernode=16
+#fi
 (( mpi_total_procs = no_of_nodes * mpi_procs_pernode ))
 
 greenln "   MPI setup:"
@@ -299,7 +295,6 @@ cat > ${runscriptdir}/${atmo_namelist} << EOF
  ntracer     = 5            ! number of tracers
  iforcing    = ${iforcing}  ! ECHAM physics                --> echam_phy_nml
  msg_level   = 10           ! detailed report during integration 
-! activate_sync_timers = .TRUE.
 /
 &ha_testcase_nml
  ctest_name  = 'AMIP'  ! test case identifier
@@ -353,11 +348,11 @@ cat > ${runscriptdir}/${atmo_namelist} << EOF
  irad_aero  = 0             ! switch off aerosols
  ighg       = 1             ! select CMIP5 standard greenhouse gas scenario (as in ECHAM6 AMIP) 
  izenith    = 4             ! seasonal and diurnal cycle
- vmr_co2    =  353.9e-06    ! CMIP5 value of 1990
- vmr_ch4    = 1693.6e-09    ! CMIP5 value of 1990
- vmr_n2o    =  309.5e-09    ! CMIP5 value of 1990
- vmr_cfc11  =  252.8e-12    ! CMIP5 value of 1990
- vmr_cfc12  =  466.2e-12    ! CMIP5 value of 1990
+! vmr_co2    =  353.9e-06    ! CMIP5 value of 1990
+! vmr_ch4    = 1693.6e-09    ! CMIP5 value of 1990
+! vmr_n2o    =  309.5e-09    ! CMIP5 value of 1990
+! vmr_cfc11  =  252.8e-12    ! CMIP5 value of 1990
+! vmr_cfc12  =  466.2e-12    ! CMIP5 value of 1990
 /
 EOF
 
@@ -585,6 +580,7 @@ else
 fi
 
 finish_status=$(cat finish.status)
+finish_status=${finish_status//[[:space:]]/}
 greenln $finish_status
 greenln "============================"
 greenln "Script run successfully: $finish_status"
@@ -595,12 +591,12 @@ greenln "============================"
 
 if [[ "${finish_status}" = "RESTART" ]]
 then
-    greenln "restart next experiment..."
-    perl -pi -e 's/(^#AUTOMATIC_RESTART_SETUP.*)/\1\nrestart=\.true\./' "${this_script}"
-    ${submit} $this_script
+    cd $runscriptdir
+    greenln "restart next job..."
+    perl -pi -e 's/(^#AUTOMATIC_RESTART_SETUP.*)/\1\nrestart=\.true\./' exp.r2b4_amip_thunder.run
+    ${submit} exp.r2b4_amip_thunder.run
 fi
 
-cd $runscriptdir
 
 blueln "__________________________________________________________________________________________"
 #__________________________________________________________________________________________________
