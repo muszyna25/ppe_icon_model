@@ -51,22 +51,22 @@
 
 void cf_pbopen(int *unit, char *name, char *mode, int *iret);
 FCALLSCSUB4(cf_pbopen, PBOPEN, pbopen,
-	    PINT, STRING, STRING, PINT)
+            PINT, STRING, STRING, PINT)
 void cf_pbseek(int *unit, int *offset, int *whence, int *iret);
 FCALLSCSUB4(cf_pbseek, PBSEEK, pbseek,
-	    PINT, PINT, PINT, PINT)
+            PINT, PINT, PINT, PINT)
 void cf_pbread(int *unit, void *buffer, int *nbytes, int *iret);
 FCALLSCSUB4(cf_pbread, PBREAD, pbread,
-	    PINT, PVOID, PINT, PINT)
+            PINT, PVOID, PINT, PINT)
 void cf_pbwrite(int *unit, void *buffer, int *nbytes, int *iret);
 FCALLSCSUB4(cf_pbwrite, PBWRITE, pbwrite,
-	    PINT, PVOID, PINT, PINT)
+            PINT, PVOID, PINT, PINT)
 void cf_pbclose(int *unit, int *iret);
 FCALLSCSUB2(cf_pbclose, PBCLOSE, pbclose,
-	    PINT, PINT)
+            PINT, PINT)
 void cf_pbflush(int *unit);
 FCALLSCSUB1(cf_pbflush, PBFLUSH, pbflush,
-	    PINT)
+            PINT)
 
 /****************************************************************************/
 
@@ -306,24 +306,24 @@ void cf_pbopen(int *unit, char *name, char *mode, int *iret)
     if( ! sizeSet ) {
       envSize = getenv("PBIO_BUFSIZE");
       if( envSize )
-	{
-	  int loop;
-	  for( loop = 0; loop < strlen(envSize) ; loop++ ) {
-	    if( ! isdigit(envSize[loop]) ) {
-	      printf("Invalid number string in PBIO_BUFSIZE: %s\n", envSize);
-	      printf("PBIO_BUFSIZE must comprise only digits [0-9].\n");
-	      exit(1);
-	    }
-	  }
-	  size = atol( envSize );
-	}
+        {
+          int loop;
+          for( loop = 0; loop < strlen(envSize) ; loop++ ) {
+            if( ! isdigit(envSize[loop]) ) {
+              printf("Invalid number string in PBIO_BUFSIZE: %s\n", envSize);
+              printf("PBIO_BUFSIZE must comprise only digits [0-9].\n");
+              exit(1);
+            }
+          }
+          size = atol( envSize );
+        }
       else
-	{
-	  struct stat filestat;
-	  if ( stat(name, &filestat) != 0 )
-	    perror(name);
-	  size = 4*filestat.st_blksize;
-	}
+        {
+          struct stat filestat;
+          if ( stat(name, &filestat) != 0 )
+            perror(name);
+          size = 4*filestat.st_blksize;
+        }
       if( size < 0 ) {
         printf("Invalid buffer size in PBIO_BUFSIZE: %s\n", envSize);
         printf("Buffer size defined by PBIO_BUFSIZE must be positive.\n");
@@ -557,7 +557,7 @@ void cf_pbclose(int *unit, int *iret)
 void cf_pbflush(int *unit)
 {
 /*
-// Purpose:	Flushes file.
+// Purpose:        Flushes file.
 */
   if( DEBUG )
     printf("PBIO_FLUSH: fptable slot = %d\n", *unit);

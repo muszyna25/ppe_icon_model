@@ -136,9 +136,9 @@ void util_get_maxrss(int* maxrss)
     /* get resource usage */
     usage.ru_maxrss = 0;
     if ( getrusage(RUSAGE_SELF, &usage) == -1 )
-	*maxrss = 0; /* Error */
+        *maxrss = 0; /* Error */
     else
-	*maxrss = (int) (usage.ru_maxrss/1024);
+        *maxrss = (int) (usage.ru_maxrss/1024);
 
 #else
     /* do nothing */

@@ -29,7 +29,7 @@
 #endif
 
 #ifdef __linux__
-#define _SVID_SOURCE	
+#define _SVID_SOURCE        
 #endif
 
 /* required here for clean load of Darwin header files */

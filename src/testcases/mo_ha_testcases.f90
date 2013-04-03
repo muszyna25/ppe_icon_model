@@ -59,7 +59,7 @@ MODULE mo_ha_testcases
 !-------------------------------------------------------------------------  
 !  
 !    ProTeX FORTRAN source: Style 2  
-!    modified for ICON project, DWD/MPI-M 2004			    
+!    modified for ICON project, DWD/MPI-M 2004                            
 !  
 !-------------------------------------------------------------------------  
 !  

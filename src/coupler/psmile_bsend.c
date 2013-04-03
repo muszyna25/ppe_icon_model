@@ -86,16 +86,16 @@ static int           *dblen  = NULL;
    Internal functions
    ----------------------------------------------------------------------- */
 
-	void psmile_bsend_init (INTEGER *ftypes, INTEGER *flengths,
+        void psmile_bsend_init (INTEGER *ftypes, INTEGER *flengths,
                                 INTEGER *number_of_ftypes, INTEGER *ierror);
 
         void psmile_bsend (void *buf, INTEGER *lenbuf, INTEGER *dtype,
                            INTEGER *dest, INTEGER *tag, INTEGER *comm,
-		           INTEGER *ierror);
+                           INTEGER *ierror);
 
-static	void	error_in_testany (int imin, int ind, int error);
-static	int 	free_buffers (long long len_bytes, int free_memory);
-static 	int  	release_buffer (int i, long long len_bytes, int *imin,
+static        void        error_in_testany (int imin, int ind, int error);
+static        int         free_buffers (long long len_bytes, int free_memory);
+static         int          release_buffer (int i, long long len_bytes, int *imin,
                                 int free_memory);
 
 /* -----------------------------------------------------------------------
@@ -110,7 +110,7 @@ static 	int  	release_buffer (int i, long long len_bytes, int *imin,
 
 void psmile_bsend (void *buf, INTEGER *lenbuf, INTEGER *dtype,
                    INTEGER *dest, INTEGER *tag, INTEGER *comm,
-		   INTEGER *ierror)
+                   INTEGER *ierror)
 
 #else
 
@@ -216,7 +216,7 @@ INTEGER *lenbuf, *dtype, *dest, *tag, *comm, *ierror;
 #ifdef VERBOSE_COMM
 #define VERBOSE_COMM
    fprintf (stdout, "-> %d; tag %d comm %d lenbuf %d %lld\n", 
-	            *dest, *tag, *comm, *lenbuf, len_bytes);
+                    *dest, *tag, *comm, *lenbuf, len_bytes);
    fflush (stdout);
 #else /* VERBOSE_COMM */
  
@@ -225,7 +225,7 @@ INTEGER *lenbuf, *dtype, *dest, *tag, *comm, *ierror;
       int rank;
       MPI_Comm_rank (commc, &rank);
       fprintf (stderr, "(%d)-> psmile_bsend: dest = %d, tag = %d, comm %d, lenbuf %d\n",
-	       rank, *dest, *tag, *comm, *lenbuf);
+               rank, *dest, *tag, *comm, *lenbuf);
    }
 #endif /* DEBUG */
 #endif /* VERBOSE_COMM */
@@ -238,7 +238,7 @@ INTEGER *lenbuf, *dtype, *dest, *tag, *comm, *ierror;
  
    if (len_bytes <= PSMILE_SEND_LENBUF) {
       *ierror = MPI_Send (buf, (int) *lenbuf, dtypec,
-	                       (int) *dest,   (int) *tag,   commc);
+                               (int) *dest,   (int) *tag,   commc);
 
       return;
    }
@@ -252,7 +252,7 @@ INTEGER *lenbuf, *dtype, *dest, *tag, *comm, *ierror;
       MPI_Request lrequest;
 
       *ierror = MPI_Isend (buf, (int) *lenbuf, dtypec,
-	                   (int) *dest, (int) *tag, commc, &lrequest);
+                           (int) *dest, (int) *tag, commc, &lrequest);
       if (*ierror != MPI_SUCCESS) return;
  
       *ierror = MPI_Request_free (&lrequest);
@@ -277,7 +277,7 @@ INTEGER *lenbuf, *dtype, *dest, *tag, *comm, *ierror;
       int free_memory = nalloc > n_to_free || dalloc > dfree;
 
       if (free_memory) {
-	 imin = free_buffers (len_bytes, free_memory);
+         imin = free_buffers (len_bytes, free_memory);
          ASSERT2 (imin < nalloc, imin, nalloc);
       }
 
@@ -289,63 +289,63 @@ INTEGER *lenbuf, *dtype, *dest, *tag, *comm, *ierror;
       ============================================================== */
  
       if (imin == -1) {
-	 if (nalloc == max_alloc) {
-	    register int i;
-	    max_alloc += 32;
-	    if (nalloc == 0) {
-	       requests = (MPI_Request *) MALLOC (max_alloc * sizeof(MPI_Request));
-	       buffers  = (void **)     MALLOC (max_alloc * sizeof(void *));
-	       lengths  = (long long *) MALLOC (max_alloc * sizeof(long long));
-	    }
-	    else {
-	       requests = (MPI_Request *) realloc (requests, max_alloc * sizeof(MPI_Request));
-	       buffers  = (void **)       realloc (buffers, max_alloc * sizeof(void *));
-	       lengths  = (long long *)   realloc (lengths, max_alloc * sizeof(long long));
-	    }
+         if (nalloc == max_alloc) {
+            register int i;
+            max_alloc += 32;
+            if (nalloc == 0) {
+               requests = (MPI_Request *) MALLOC (max_alloc * sizeof(MPI_Request));
+               buffers  = (void **)     MALLOC (max_alloc * sizeof(void *));
+               lengths  = (long long *) MALLOC (max_alloc * sizeof(long long));
+            }
+            else {
+               requests = (MPI_Request *) realloc (requests, max_alloc * sizeof(MPI_Request));
+               buffers  = (void **)       realloc (buffers, max_alloc * sizeof(void *));
+               lengths  = (long long *)   realloc (lengths, max_alloc * sizeof(long long));
+            }
 
-	    if (! requests || ! buffers || ! lengths) {
-	       fprintf (stderr, "pmsile_bsend: Cannot allocate %d bytes in order to allocate requests\n",
-		       max_alloc*(sizeof(MPI_Request)+sizeof(void *)+sizeof(long long)));
+            if (! requests || ! buffers || ! lengths) {
+               fprintf (stderr, "pmsile_bsend: Cannot allocate %d bytes in order to allocate requests\n",
+                       max_alloc*(sizeof(MPI_Request)+sizeof(void *)+sizeof(long long)));
                *ierror = MAX (1307, MPI_ERR_LASTCODE+10);
-	       return;
-	    }
+               return;
+            }
 
             /* Initialize newly allocated parts of control vectors */
 #pragma vdir vector
-	    for (i=nalloc; i < max_alloc; i++) {
-	       requests[i] = MPI_REQUEST_NULL;
-	       buffers[i] = (void *) NULL;
-	       lengths[i] = 0;
-	    }
-	 }
+            for (i=nalloc; i < max_alloc; i++) {
+               requests[i] = MPI_REQUEST_NULL;
+               buffers[i] = (void *) NULL;
+               lengths[i] = 0;
+            }
+         }
 
          /* Allocate a new buffer */
  
 allocate_buffer:
-	 buffers [nalloc] = (void *) MALLOC (len_bytes);
-	 if (buffers [nalloc] == NULL) {
+         buffers [nalloc] = (void *) MALLOC (len_bytes);
+         if (buffers [nalloc] == NULL) {
             if (! free_memory) {
-	       /* Try to free buffers */
+               /* Try to free buffers */
                free_memory = 1;
-	       imin = free_buffers (len_bytes, free_memory);
+               imin = free_buffers (len_bytes, free_memory);
                if (imin == -1) goto allocate_buffer;
                ASSERT2 (imin < nalloc, imin, nalloc);
-	    }
-	    else {
-	       fprintf (stderr, "pmsile_bsend: Cannot allocate %lld bytes in order to send buffer\n",
-		       len_bytes);
+            }
+            else {
+               fprintf (stderr, "pmsile_bsend: Cannot allocate %lld bytes in order to send buffer\n",
+                       len_bytes);
                *ierror = MAX (1307, MPI_ERR_LASTCODE+10);
-	       return;
-	    }
-	 }
-	 else {
+               return;
+            }
+         }
+         else {
             /* Store data of buffer newly allocated */
 
             imin = nalloc;
             nalloc ++;
             dalloc += len_bytes;
             lengths [ imin] = len_bytes;
-	 }
+         }
       }
 
       /* Internal Control */
@@ -423,7 +423,7 @@ INTEGER *ftypes, *flengths, *number_of_ftypes, *ierror;
       dbsend = (int *) MALLOC (ndbsnd*sizeof(int));
       if (! dbsend) {
          fprintf (stderr, "Error in psmile_bsend_init: Cannot allocate %d bytes\n",
-	                  ndbsnd*sizeof(int));
+                          ndbsnd*sizeof(int));
          *ierror = PRISM_Error_Alloc;
          return;
       }
@@ -442,7 +442,7 @@ INTEGER *ftypes, *flengths, *number_of_ftypes, *ierror;
       dbsend = (int *) MALLOC ((ndbsnd+2*n_ftypes)*sizeof(int));
       if (! dbsend) {
          fprintf (stderr, "Error in psmile_bsend_init: Cannot allocate %d bytes\n",
-	                  (ndbsnd+2*n_ftypes)*sizeof(int));
+                          (ndbsnd+2*n_ftypes)*sizeof(int));
          *ierror = PRISM_Error_Alloc;
          return;
       }
@@ -450,7 +450,7 @@ INTEGER *ftypes, *flengths, *number_of_ftypes, *ierror;
       num = (int *) MALLOC (ndbsnd*sizeof(int));
       if (! num) {
          fprintf (stderr, "Error in psmile_bsend_init: Cannot allocate %d bytes\n",
-	                  ndbsnd*sizeof(int));
+                          ndbsnd*sizeof(int));
          *ierror = PRISM_Error_Alloc;
          return;
       }
@@ -484,7 +484,7 @@ INTEGER *ftypes, *flengths, *number_of_ftypes, *ierror;
 #pragma vdir vector
       for (i = 0; i < n_ftypes; i++) {
          j = ftypes[i] % N_HASH;
-	 k = dbsend[j] + num[j]; /* Index in dbtype and dblen */
+         k = dbsend[j] + num[j]; /* Index in dbtype and dblen */
          num[j] ++;
 
          dbtype[k] = ftypes[i];
@@ -559,7 +559,7 @@ int free_buffers (long long len_bytes, int free_memory)
 
       ibeg = release_buffer (i, len_bytes, &imin, free_memory);
       if (imin >= 0 && lengths[imin] == len_bytes) {
-	 return imin;
+         return imin;
       }
 
    } /* end while */
@@ -618,7 +618,7 @@ int free_buffers (long long len_bytes, int free_memory)
 
    Returns next index to be controlled; i.e. it returns
     (*) I if buffer with index I was removed and
-	     the index was filled by the last buffer
+             the index was filled by the last buffer
     (*) I++ otherwise.
    ========================================================================= */
 
@@ -645,7 +645,7 @@ static int release_buffer (int i, long long len_bytes, int *imin,
          requests [i] = requests [nalloc];
 
 #ifdef PRISM_ASSERTION
-	 /* for the Assertions */
+         /* for the Assertions */
          requests [nalloc] = MPI_REQUEST_NULL;
 #endif
       }
@@ -703,13 +703,13 @@ static void error_in_testany (int ibeg, int ind, int error)
 {
    register int i;
    fprintf (stderr, "\nError in MPI_Testany () called form psmile_bsend: error %d\n",
-	           error);
+                   error);
    fprintf (stderr, "ind %d request %d nalloc %d ibeg %d:\n",
-	             ind, requests[ind], nalloc, ibeg);
+                     ind, requests[ind], nalloc, ibeg);
  
    for (i=0; i < nalloc; i++) {
       fprintf (stderr, "i = %d, start 0x%p len %lld, request %d\n",
-	               i, buffers [i], lengths [i], requests[i]);
+                       i, buffers [i], lengths [i], requests[i]);
    }
  
    /* Set ``requests [i]'' to NULL to avoid indefinite loop */

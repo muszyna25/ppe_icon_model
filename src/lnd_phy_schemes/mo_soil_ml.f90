@@ -4476,8 +4476,8 @@ ENDIF
      DO ic=1,icount_snow
        i=melt_list(ic) 
 
-!	IF (w_snow_now(i) > 1.E-4_ireals.AND.t(i)> 285._ireals) THEN
-	IF (i == 48 .AND. soiltyp_subs(i).eq.3 .AND. plcov(i).GT.0.8286 .AND. plcov(i).LT.0.8287) THEN
+!        IF (w_snow_now(i) > 1.E-4_ireals.AND.t(i)> 285._ireals) THEN
+        IF (i == 48 .AND. soiltyp_subs(i).eq.3 .AND. plcov(i).GT.0.8286 .AND. plcov(i).LT.0.8287) THEN
 
 !        IF ((t_snow_new(i) > t0_melt .AND. w_snow_new(i) > zepsi).OR.&
 !   (w_snow_new(i) <= zepsi .OR. w_snow_new(i) > zepsi .AND. t_s_new(i) > t0_melt+15.0_ireals .AND. & 

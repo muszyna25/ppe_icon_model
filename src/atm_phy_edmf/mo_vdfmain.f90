@@ -1098,7 +1098,7 @@ DO JL=KIDIA,KFDIA
           ZCLDBASE(JL) = ZZPLCL(JL,3)
           ZCLDTOP(JL)  = ZZPTOP(JL,3)
           KVARTOP(JL)  = IPTOP(JL,3)
-	  
+          
       CASE(3)
           !Shallow cumulus
           PZINV(JL)    = ZZPLCL(JL,3)
@@ -1106,7 +1106,7 @@ DO JL=KIDIA,KFDIA
           ZCLDBASE(JL) = ZZPLCL(JL,3)
           ZCLDTOP(JL)  = ZZPTOP(JL,3)
           KVARTOP(JL)  = IPTOP(JL,1)
-		
+                
       CASE(4)
           !Deep cumulus - only do a dry subcloud ML
           PZINV(JL)    = ZZPTOP(JL,2)

@@ -294,10 +294,10 @@ IF (LEOCWA) then
         ELSE
           ZPHI=1._JPRB/SQRT(1._JPRB-16._JPRB*ZDL)
         ENDIF 
-	
+        
         ZZ=1.0_JPRB+ZCON4*PTMST*ZUST(JL)/ZPHI
         ZDWARM(JL)=MAX(0.0_JPRB,(ZDSST+ZCON5*ZSRD*PTMST)/ZZ)
-	
+        
     ENDDO
   ENDIF
 ENDIF

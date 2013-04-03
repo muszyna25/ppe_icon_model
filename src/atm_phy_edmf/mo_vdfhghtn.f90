@@ -272,9 +272,9 @@ REAL(KIND=JPRB) ::    ZWSTARCAPE(KLON), ZMSEFLUX(KLON), ZMSESFC(KLON), ZWSTARMSE
 !--- updraft parameters ---
 REAL(KIND=JPRB) ::    ZWU2H (KLON,0:KLEV,KDRAFT), ZWUH, &
                     & ZQCUH (KLON,0:KLEV,KDRAFT), ZQUH  (KLON,0:KLEV,KDRAFT), &
-		    & ZTUH  (KLON,0:KLEV,KDRAFT), ZEPS  (KLON,0:KLEV,KDRAFT), &
-		    & ZFRAC (KLON,0:KLEV,KDRAFT), &
-		    & ZBUOF (KLON,KLEV,KDRAFT)  , ZMCLD (KLON)              , &
+                    & ZTUH  (KLON,0:KLEV,KDRAFT), ZEPS  (KLON,0:KLEV,KDRAFT), &
+                    & ZFRAC (KLON,0:KLEV,KDRAFT), &
+                    & ZBUOF (KLON,KLEV,KDRAFT)  , ZMCLD (KLON)              , &
                     & ZABULK(KLON,0:KLEV) , ZWBULK(KLON,0:KLEV)  , &
                     & ZQTBULK(KLON,0:KLEV), ZSLGBULK(KLON,0:KLEV), &
                     & ZUBULK(KLON,0:KLEV) , ZVBULK(KLON,0:KLEV)  , &
@@ -311,7 +311,7 @@ REAL(KIND=JPRB) ::    ZTAUEPS , ZCLDDEPTH     , &
                     & ZTVLIM  , ZCLDDEPTHDP   , ZDZCLOUD(KLON) , ZW2H       , &
                     & ZZFUNC  , ZZFUNC3(KLON) , ZDHRI(KLON)    , ZDHCL      , &
                     & ZDTHVDZ , ZREPUST       , ZGHM1
-		    
+                    
 REAL(KIND=JPRB) ::    ZZI(KLON)
 
 INTEGER(KIND=JPIM) :: IZI(KLON,KDRAFT)
@@ -570,7 +570,7 @@ ENDDO
                 & +   PVM1(JL,JK)    *(PGEOH(JL,JK  )-PGEOH(JL,JK+1)) &
                 &   )                /(ZGHM1-PGEOH(JL,JK+1))
 
-    !calculate T at half levels from sl, for later use in density calculations		
+    !calculate T at half levels from sl, for later use in density calculations                
     !ZTENH        = ( ZSLGENH (JL,JK) - PGEOH(JL,JK) &
     !                   & + RLVTT*ZQLENH(JL,JK) + RLSTT*ZQIENH(JL,JK) &
     !                   & ) / RCPD
@@ -686,18 +686,18 @@ ENDDO
   !*
   CALL VDFPARCEL (KIDIA   , KFDIA   , KLON    , KLEV    , KDRAFT  , &
                 & PGEOH   , PGEOM1  , PAPHM1  , &
-		& PUM1    , PVM1    , ZQTM1   , ZSLGM1  , ZTVEN   , &
-		& PUUH    , PVUH    , PSLGUH  , PQTUH   , ZWU2H   , ZQCUH  , ZBUOF , & 
-		& ZQUH    , ZTUH    , ZEPS    , ZFACEXC , &
-		& PZPLCL  , KPLCL   , PZPTOP  , KPTOP   , KPLZB   , &
-		& JD      , ZUPGENL , ZUPGENN , &
+                & PUM1    , PVM1    , ZQTM1   , ZSLGM1  , ZTVEN   , &
+                & PUUH    , PVUH    , PSLGUH  , PQTUH   , ZWU2H   , ZQCUH  , ZBUOF , & 
+                & ZQUH    , ZTUH    , ZEPS    , ZFACEXC , &
+                & PZPLCL  , KPLCL   , PZPTOP  , KPTOP   , KPLZB   , &
+                & JD      , ZUPGENL , ZUPGENN , &
 !amk: for convective preconditioning
                 & PVAR    , &
 !xxx
 !amk
                 & LDLAND , &   
 !xxx
-		& ZTAUEPS , PVERVEL , ZW2THRESH, LLDONE , KPBLTYPE)  
+                & ZTAUEPS , PVERVEL , ZW2THRESH, LLDONE , KPBLTYPE)  
 
 
 
@@ -727,7 +727,7 @@ ENDDO
             
         IF (ZDZCLOUD(JL)>ZCLDDEPTHDP .AND. .NOT.LLMASSCAP ) THEN
         
-	  !deep convection
+          !deep convection
           KPBLTYPE(JL) = 4
           
         ELSE
@@ -739,7 +739,7 @@ ENDDO
           ENDIF  
           
         ENDIF
-	
+        
       ENDIF
 
     ENDIF !KPBLTYPE /=0
@@ -751,10 +751,10 @@ ENDDO
   !*        IF SHALLOW CUMULUS IS DIAGNOSED, KPBLTYPE WILL BE SET TO 3
   !*
   CALL VDFSTCUCRIT ( KIDIA   , KFDIA   , KLON  , KLEV  , KDRAFT  , &
-		  &  PTM1    , ZSLGM1  , ZQTM1 , PAPM1 , PGEOM1  , &
-		  &  ZSTABTHRESH, ZEISTHRESH, ZCLDDEPTH, ZBIRTHRESH, &
+                  &  PTM1    , ZSLGM1  , ZQTM1 , PAPM1 , PGEOM1  , &
+                  &  ZSTABTHRESH, ZEISTHRESH, ZCLDDEPTH, ZBIRTHRESH, &
                   &  ZDZCLOUD, PZPLCL  , &
-		  &  KPTOP   , KPBLTYPE, LDNODECP, &
+                  &  KPTOP   , KPBLTYPE, LDNODECP, &
                   &  ZSTABILITY )
     
   
@@ -778,26 +778,26 @@ ENDDO
           !Dry convective PBL - Inversion height
           ZZI(JL)   = PZPTOP(JL,1)
           IZI(JL,1) = KPTOP(JL,1)
-		
+                
         CASE(2)
           !Stratocumulus - Inversion height
           !CAUTION: During decoupling in the intermediate regime (e.g. ASTEX/ATEX) the
-	  !   relevant ML scaling height changes from PBL inversion to level of minimum
+          !   relevant ML scaling height changes from PBL inversion to level of minimum
           !   buoyancy flux. In the current setup this is not modelled yet!
           ZZI(JL)   = PZPTOP(JL,1)
           IZI(JL,1) = KPTOP(JL,1)
-	  
+          
         CASE(3)
           !Shallow cumulus - Level of minimum buoyancy flux
-	  !Assume that the moist updraft LCL is very close to this level
+          !Assume that the moist updraft LCL is very close to this level
           ZZI(JL)   = PZPLCL(JL,1)
           IZI(JL,1) = KPLCL(JL,1)
-	  
+          
         CASE(4)
           !Deep cumulus - Only do a dry parcel up to cloud base
           ZZI(JL)   = PZPLCL(JL,1)
           IZI(JL,1) = KPLCL(JL,1)
-		
+                
       END SELECT
 
       !--- Mixed layer convective velocity scale ---
@@ -923,23 +923,23 @@ ENDIF
       SELECT CASE (KPBLTYPE(JL))
     
         CASE(1)
-	
+        
           !Dry convective PBL
-	  !Set area fraction of moist group to zero
+          !Set area fraction of moist group to zero
           ZFRACB(JL,3) = 0._JPRB
 
         CASE(2)
-	
+        
           !Stratocumulus
-	  !Set area fraction of moist group to ZFRACMAX
+          !Set area fraction of moist group to ZFRACMAX
           ZFRACB(JL,3) = ZFRACMAX
 
         CASE(3)
-	  
+          
           !Shallow cumulus
           !Flexible updraft area fractions
 
-	  !-- Transition layer depth, Scale II: Cumulus condensation depth-scale --
+          !-- Transition layer depth, Scale II: Cumulus condensation depth-scale --
           !
           ZDHCL = MIN(200._JPRB, 0.1_JPRB * ZDZCLOUD(JL))
           ZDHCL = MAX(ZDHCL,0._JPRB)
@@ -965,7 +965,7 @@ ENDIF
           IF (ZFRACB(JL,3).EQ.0._JPRB) THEN
             KPBLTYPE(JL)=1
           ENDIF
-	  
+          
 IF ( LLDIAG ) THEN
     PEXTRA(JL,32,41) = ZZFUNC         ! cum. fraction: 0.1cloud scale<200 / h * 0.25
     PEXTRA(JL,33,41) = ZZFUNC3(JL)    ! cum. fraction: transition layer depth closure
@@ -998,9 +998,9 @@ ENDIF
 
 
         CASE(4)
-	
+        
           !Deep cumulus
-	  !Set area fraction of moist group to zero (only allow updraft transport in dry mixed layer)
+          !Set area fraction of moist group to zero (only allow updraft transport in dry mixed layer)
           ZFRACB(JL,3) = 0._JPRB
 
       END SELECT !KPBLTYPE
@@ -1034,24 +1034,24 @@ ENDIF
         
         !-- Get the PDF scaling factor --
         SELECT CASE (JD)
-  	  
+            
         CASE(2)
-	    !lower part of top ZFRACMAX %
+            !lower part of top ZFRACMAX %
             ZDUMFRAC = ZFRACMAX - ZFRACB(JL,2)
             CALL VDFPDFTABLE(ZDUMFRAC , ZFACEXC(JL,2), ZDUMR, ZDUMR, 0)
             ZFACEXC(JL,2) = ( ZFRACMAX * ZFACMAXEXC - ZDUMFRAC * ZFACEXC(JL,2) ) / ZFRACB(JL,2)
-		    
+                    
           CASE(3)
-	    !upper part of top ZFRACMAX %
+            !upper part of top ZFRACMAX %
             ZDUMFRAC = ZFRACB(JL,JD)
             CALL VDFPDFTABLE(ZDUMFRAC , ZFACEXC(JL,3), ZDUMR, ZDUMR, 0)
 
 !amk ... optional 2x ZFACEXC: stronger parcels (1: test and 3: cloudy)
 !           ZFACEXC(JL,3) = ZFACEXC(JL,3) * 2.0_JPRB
 !xxx
-	    
+            
           END SELECT
-	
+        
       ENDIF !KPBLTYPE & ZFRACB
 
     ENDDO !JL
@@ -1104,18 +1104,18 @@ ENDIF
     !-- Release the updraft --
     CALL VDFPARCEL (KIDIA   , KFDIA   , KLON    , KLEV    , KDRAFT  , &
                   & PGEOH   , PGEOM1  , PAPHM1  , &
-		  & PUM1    , PVM1    , ZQTM1   , ZSLGM1  , ZTVEN   , &
-		  & PUUH    , PVUH    , PSLGUH  , PQTUH   , ZWU2H   , ZQCUH  , ZBUOF , & 
-		  & ZQUH    , ZTUH    , ZEPS    , ZFACEXC , &
-		  & PZPLCL  , KPLCL   , PZPTOP  , KPTOP   , KPLZB   , &
-		  & JD      , ZUPGENL , ZUPGENN , &
+                  & PUM1    , PVM1    , ZQTM1   , ZSLGM1  , ZTVEN   , &
+                  & PUUH    , PVUH    , PSLGUH  , PQTUH   , ZWU2H   , ZQCUH  , ZBUOF , & 
+                  & ZQUH    , ZTUH    , ZEPS    , ZFACEXC , &
+                  & PZPLCL  , KPLCL   , PZPTOP  , KPTOP   , KPLZB   , &
+                  & JD      , ZUPGENL , ZUPGENN , &
 !amk: for convective preconditioning
                   & PVAR    , &
 !xxx
 !amk
                   & LDLAND , &   
 !xxx
-		  & ZTAUEPS , PVERVEL , ZW2THRESH, LLDONE , KPBLTYPE)  
+                  & ZTAUEPS , PVERVEL , ZW2THRESH, LLDONE , KPBLTYPE)  
     
   ENDDO !JD 
 
@@ -1264,7 +1264,7 @@ ENDIF
       CASE(2)
         !Stratocumulus - no dry parcel
         IZI(JL,3) = KPLCL(JL,3)+1      !half level below lcl
-	  
+          
       CASE(3)
         !Shallow cumulus - both dry and moist
         IZI(JL,3) = KPLCL(JL,3)+1    !half level below lcl
@@ -1291,7 +1291,7 @@ ENDIF
 
         IF ( KPBLTYPE(JL)/=0 .AND. ZFRACB(JL,JD)>0._JPRB) THEN
           IF (JK>=IZI(JL,JD) ) THEN
-	  
+          
             ZWUH = MAX( ZWU2H(JL,JK,JD),0._JPRB )
             ZWUH = ZWUH**0.5_JPRB
             PMFLX(JL,JK,JD)  = ZFRACB(JL,JD) * ZWUH * ZRHOH(JL,JK)
@@ -1304,7 +1304,7 @@ ENDIF
             
           ENDIF
         ENDIF
-	
+        
       ENDDO !JL
     
     ENDDO !JK
@@ -1390,7 +1390,7 @@ ENDIF
             PVUH(JL,JK,3)   = ( PVUH(JL,JK+1,3)   - ZVENH(JL,JK+1)   ) + ZVENH(JL,JK)
             
           ENDIF
-	  
+          
           !make sure that updraft #2 does not do any flux here
           PMFLX(JL,JK,2)  = 0._JPRB
           ZFRAC(JL,JK,2)  = 0._JPRB
@@ -1400,8 +1400,8 @@ ENDIF
           PVUH(JL,JK,2)   = 0._JPRB
           
         ENDIF
-	
-	
+        
+        
         !--- limit mass flux covering 50% area (M<rho*w,up*0.5) ---
         !    (detrainment is initiated if strong w,up slowdown)
 
@@ -1441,12 +1441,12 @@ ENDIF
         
       IF (JK >= KPTOP(JL,1) .AND. JK<=KPLCL(JL,3) ) THEN  
 !     IF (JK >  KPTOP(JL,1) .AND. JK<=KPLCL(JL,3) ) THEN  
-	
+        
         ZDZ   =  (   PGEOH(JL,JK-1)   - PGEOH(JL,JK)   ) * ZRG 
         
         ZDMDZ = -(   PMFLX(JL,JK-1,3) - PMFLX(JL,JK,3) &
-!	         & + PMFLX(JL,JK-1,2) - PMFLX(JL,JK,2) &  
-		 & ) / ZDZ
+!                 & + PMFLX(JL,JK-1,2) - PMFLX(JL,JK,2) &  
+                 & ) / ZDZ
         
         IF (JK==KPTOP(JL,1)+1) THEN
           ZDMDZ = PMFLX(JL,JK,3) / ZDZ
@@ -1456,9 +1456,9 @@ ENDIF
                         
         PDETR(JL,JK) = ZDMDZ + PMFLX(JL,JK,3) /  &
           &            ( ZTAUEPS * MAX(0.0001_JPRB,ZWU2H(JL,JK,3))**0.5_JPRB )  
-	
+        
       ENDIF
-      	
+              
       ENDIF
     ENDDO !JL
   ENDDO !JK
@@ -1489,7 +1489,7 @@ ENDIF
             ZMFS(JL,JD) = MIN(ZMFS(JL,JD),ZMFMAX/PMFLX(JL,JK,JD))
           ENDIF
           
-!	  PMFLX(JL,JK,JD) = MIN( ZMFMAX, PMFLX(JL,JK,JD) )  !correct level by level
+!          PMFLX(JL,JK,JD) = MIN( ZMFMAX, PMFLX(JL,JK,JD) )  !correct level by level
           
         ENDIF
       ENDDO
@@ -1598,7 +1598,7 @@ ENDIF
         
         !  Remove all mass flux at and above top layer of updraft
         ITOP = MAX( KPTOP(JL,JD), KPTOP(JL,3) )
-	
+        
         IF ( JK <= ITOP ) THEN
           
           LLWIPE=.TRUE.    

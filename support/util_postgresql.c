@@ -20,7 +20,7 @@ int open_db_connection(char *connectionInfo)
   if (PQstatus(connection) != CONNECTION_OK)
     {
       fprintf(stderr, "Connection not established: %s\n", 
-	      PQerrorMessage(connection));
+              PQerrorMessage(connection));
       PQfinish(connection);
       return failed;
     }
@@ -67,7 +67,7 @@ int insert_db_query(char *query)
   if (PQresultStatus(res) != PGRES_COMMAND_OK)
     {
       fprintf(stderr, "Insertion of query failed: %s\n", 
-	      PQerrorMessage(connection));
+              PQerrorMessage(connection));
       PQclear(res);
       /* PQfinish(connection); */
       return failed;

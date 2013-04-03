@@ -14,11 +14,11 @@
 
 void cf_util_reshape(double *dest, double *source, int amount);
 FCALLSCSUB3(cf_util_reshape, UTIL_RESHAPE, util_reshape,
-	    PDOUBLE, PDOUBLE, INT)
+            PDOUBLE, PDOUBLE, INT)
 
 void cf_util_reshape2(double *dest, double *source, int ddim, int sdim);
 FCALLSCSUB4(cf_util_reshape2, UTIL_RESHAPE2, util_reshape2,
-	    PDOUBLE, PDOUBLE, INT, INT)
+            PDOUBLE, PDOUBLE, INT, INT)
 
 /****************************************************************************/
 

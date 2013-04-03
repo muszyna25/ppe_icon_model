@@ -32,19 +32,19 @@
 
 void cf_util_cray2ieee(double *dcrayf, double *dieeef, int nf);
 FCALLSCSUB3(cf_util_cray2ieee, UTIL_CRAY2IEEE, util_cray2ieee,
-	    PDOUBLE, PDOUBLE, INT)
+            PDOUBLE, PDOUBLE, INT)
 
 void cf_util_ieee2cray(double *dieeef, double *dcrayf, int nf);
 FCALLSCSUB3(cf_util_ieee2cray, UTIL_IEEE2CRAY, util_ieee2cray,
-	    PDOUBLE, PDOUBLE, INT)
+            PDOUBLE, PDOUBLE, INT)
 
 void cf_util_i8toi4(double *dint64, int *int32, int ni);
 FCALLSCSUB3(cf_util_i8toi4, UTIL_I8TOI4, util_i8toi4,
-	    PDOUBLE, PINT, INT)
+            PDOUBLE, PINT, INT)
 
 void cf_util_i4toi8(int *int32, double *dint64, int ni);
 FCALLSCSUB3(cf_util_i4toi8, UTIL_I4TOI8, util_i4toi8,
-	    PINT, PDOUBLE, INT)
+            PINT, PDOUBLE, INT)
 
 
 
@@ -63,9 +63,9 @@ FCALLSCSUB3(cf_util_i4toi8, UTIL_I4TOI8, util_i4toi8,
  *  Convert Floating point, Cray to IEEE 64-bit
  *
  *
- *	input : cf	Cray Floating point numbers
- *		nf	Number of elements in cf
- *	output: ieeef	IEEE Floating point numbers
+ *        input : cf        Cray Floating point numbers
+ *                nf        Number of elements in cf
+ *        output: ieeef        IEEE Floating point numbers
  *
  *  Format :
  *            sign  exponent  mantissa
@@ -106,7 +106,7 @@ void cf_util_cray2ieee(double *dcrayf, double *dieeef, int nf)
        |
         ((((*(crayf+i) >> 48) & mask2)-cray_expbias+ieee_expbias-1) << 52)
        |
-    	((*(crayf+i) << 5) & mask3);
+            ((*(crayf+i) << 5) & mask3);
   }
   /*
    * handle 0.0, underflow and overflow :
@@ -126,7 +126,7 @@ void cf_util_cray2ieee(double *dcrayf, double *dieeef, int nf)
     if ((((*(crayf+i) >> 48) & mask2)-cray_expbias+ieee_expbias-1) < 0) {
       *(ieeef+i) = 0;
     } else if ((((*(crayf+i) >> 48) & mask2)-cray_expbias+ieee_expbias-1) 
-	       > mask4) {
+               > mask4) {
 /*    *(ieeef+i) = indef;  */
       *(ieeef+i) = 0;
     }
@@ -139,12 +139,12 @@ void cf_util_cray2ieee(double *dcrayf, double *dieeef, int nf)
 /*
  *  Convert Floating point, IEEE 64-bit, to Cray Floating point
  *
- *	input : ieeef	IEEE Floating point numbers (double precision)
- *		nf	Number of elements in ieeef
- *	output: crayf	Cray Floating point numbers
+ *        input : ieeef        IEEE Floating point numbers (double precision)
+ *                nf        Number of elements in ieeef
+ *        output: crayf        Cray Floating point numbers
  *
  *  Format :
- *            sign  exponent  mantissa	unused
+ *            sign  exponent  mantissa        unused
  *  IEEE :     1      11        52
  *  Cray :     1      15        48
  */
@@ -176,10 +176,10 @@ void cf_util_ieee2cray(double *dieeef, double *dcrayf, int nf)
       *(crayf+i) = 0;
     } else {
       *(crayf+i) = (*(ieeef+i) & mask1)
-	 |
- 	  ((((*(ieeef+i) >> 52) & mask4)-ieee_expbias+cray_expbias+1) << 48)
- 	 |
- 	  (((*(ieeef+i) & mask3)+implied) >> 5);
+         |
+           ((((*(ieeef+i) >> 52) & mask4)-ieee_expbias+cray_expbias+1) << 48)
+          |
+           (((*(ieeef+i) & mask3)+implied) >> 5);
     }
   }
 
@@ -198,7 +198,7 @@ void cf_util_i8toi4(double *dint64, int *int32, int ni)
 #ifdef DEBUG
     if ( (*(int64+i) > INT_MAX) ||  (*(int64+i) < INT_MIN)) {
       fprintf (stderr, 
-	       "Integer out of range. Converted number contains nonsens\n");
+               "Integer out of range. Converted number contains nonsens\n");
     }
 #endif
     /*

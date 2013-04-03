@@ -34,10 +34,10 @@ int util_islink(char *path)
   else
     {
       if (errno == EINVAL)
-	{
-	  /* file is not a link ... */
-	  iret = 0;
-	}
+        {
+          /* file is not a link ... */
+          iret = 0;
+        }
     }
 
   free(buf);
@@ -63,7 +63,7 @@ int util_tmpnam(char *filename)
 
   ptr = tmpnam(filename);
   
-  strcat(filename, pid_string); 	  
+  strcat(filename, pid_string);           
 
   return strlen(filename);
 }

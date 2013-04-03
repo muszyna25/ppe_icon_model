@@ -493,18 +493,18 @@ return cstr; }
 
 #ifdef vmsFortran
 typedef struct dsc$descriptor_s fstring;
-#define DSC$DESCRIPTOR_A(DIMCT)  		                               \
+#define DSC$DESCRIPTOR_A(DIMCT)                                                 \
 struct {                                                                       \
-  unsigned short dsc$w_length;	        unsigned char	 dsc$b_dtype;	       \
-  unsigned char	 dsc$b_class;	                 char	*dsc$a_pointer;	       \
-           char	 dsc$b_scale;	        unsigned char	 dsc$b_digits;         \
+  unsigned short dsc$w_length;                unsigned char         dsc$b_dtype;               \
+  unsigned char         dsc$b_class;                         char        *dsc$a_pointer;               \
+           char         dsc$b_scale;                unsigned char         dsc$b_digits;         \
   struct {                                                                     \
-    unsigned		       : 3;	  unsigned dsc$v_fl_binscale : 1;      \
+    unsigned                       : 3;          unsigned dsc$v_fl_binscale : 1;      \
     unsigned dsc$v_fl_redim    : 1;       unsigned dsc$v_fl_column   : 1;      \
     unsigned dsc$v_fl_coeff    : 1;       unsigned dsc$v_fl_bounds   : 1;      \
-  } dsc$b_aflags;	                                                       \
-  unsigned char	 dsc$b_dimct;	        unsigned long	 dsc$l_arsize;	       \
-           char	*dsc$a_a0;	                 long	 dsc$l_m [DIMCT];      \
+  } dsc$b_aflags;                                                               \
+  unsigned char         dsc$b_dimct;                unsigned long         dsc$l_arsize;               \
+           char        *dsc$a_a0;                         long         dsc$l_m [DIMCT];      \
   struct {                                                                     \
     long dsc$l_l;                         long dsc$l_u;                        \
   } dsc$bounds [DIMCT];                                                        \
@@ -1457,9 +1457,9 @@ do{VVCF(T1,A1,B1)  VVCF(T2,A2,B2)  VVCF(T3,A3,B3)  VVCF(T4,A4,B4)  VVCF(T5,A5,B5
 #define    DOUBLE_cfPU(A)   CFextern DOUBLE_PRECISION  FCALLSC_QUALIFIER A
 #if ! (defined(FLOATFUNCTIONTYPE)&&defined(ASSIGNFLOAT)&&defined(RETURNFLOAT))
 #define     FLOAT_cfPU(A)   CFextern FORTRAN_REAL      FCALLSC_QUALIFIER A
-#else				   	                   
+#else                                                              
 #define     FLOAT_cfPU(A)   CFextern FLOATFUNCTIONTYPE FCALLSC_QUALIFIER A
-#endif				   	                   
+#endif                                                              
 #define       INT_cfPU(A)   CFextern int   FCALLSC_QUALIFIER   A
 #define   LOGICAL_cfPU(A)   CFextern int   FCALLSC_QUALIFIER   A
 #define      LONG_cfPU(A)   CFextern long  FCALLSC_QUALIFIER   A
@@ -1555,7 +1555,7 @@ do{VVCF(T1,A1,B1)  VVCF(T2,A2,B2)  VVCF(T3,A3,B3)  VVCF(T4,A4,B4)  VVCF(T5,A5,B5
 #define    ROUTINE_cfB(T,A) (cfCAST_FUNCTION)A
 #define    ZTRINGV_cfB(T,A) (char *)   A
 #define   PZTRINGV_cfB(T,A) (char *)   A
-                                                              	
+                                                                      
 #define SCF(TN,NAME,I,A)    _(TN,_cfSTR)(3,S,NAME,I,A,0,0)
 #define  DEFAULT_cfS(M,I,A)
 #define  LOGICAL_cfS(M,I,A)
@@ -2365,4 +2365,4 @@ string. */
 #endif
 
 
-#endif	 /* __CFORTRAN_LOADED */
+#endif         /* __CFORTRAN_LOADED */
