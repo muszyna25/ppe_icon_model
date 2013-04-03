@@ -513,7 +513,7 @@ MODULE mo_sgs_turbulence
                     p_nh_diag%v(jcn,jkm1,jbn)*p_patch%edges%primal_normal_cell(je,jb,2)%v2
 
           D_31c(jcn,jk,jbn) = (vn_jkm1 - vn_jk)/p_nh_metrics%ddqz_z_half(jcn,jk,jbn) + &
-                              (w_vert(ividx(je,jb,4),jk,ivblk(je,jb,4)-INT(w_ie(je,jk,jb)))) * &
+                              (w_vert(ividx(je,jb,4),jk,ivblk(je,jb,4))-w_ie(je,jk,jb)) * &
                                p_patch%edges%inv_vert_vert_length(je,jb)*2.0_wp
   
 
