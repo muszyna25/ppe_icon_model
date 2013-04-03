@@ -1075,8 +1075,8 @@ CONTAINS
       iend       = MIN(iv_nblks, istart+ichunksize-1)
       IF (iend >= istart) THEN
         ichunksize = iend - istart + 1
-        CALL gnat_query_list_new(tree, v, iv_nproma, iv_nblks, iv_npromz, ichunksize, &
-          &                      istart, r, min_dist, min_node_idx)
+        CALL gnat_query_list(tree, v, iv_nproma, iv_nblks, iv_npromz, ichunksize, &
+          &                  istart, r, min_dist, min_node_idx)
       END IF
 !$OMP END PARALLEL
     ELSE
