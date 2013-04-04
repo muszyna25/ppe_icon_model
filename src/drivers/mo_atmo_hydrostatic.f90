@@ -193,7 +193,13 @@ CONTAINS
       CALL init_output_files(jfile, lclose=.FALSE.)
       IF (lwrite_initial) THEN
         IF (output_mode%l_nml) THEN
-          CALL write_name_list_output( time_config%cur_datetime, 0._wp, .FALSE. )
+          ! Mis-use optional parameter last_step=.TRUE to force output of initial state.
+          ! If one wants e.g. one day of 6-hrly data per output file (i.e. 4 steps) ending at 00:00,
+          ! one has to set the first value of output_bounds namelist variable to 06:00, but then the
+          ! initial state is now written because sim_time=0._wp is lower than start time of output_bounds.
+          ! This should be replaced by an explicit handling of "first_step" similar to "last_step" in
+          ! mo_name_list_output, similar to lwrite_inital for vlist output.
+          CALL write_name_list_output( time_config%cur_datetime, 0._wp, .TRUE. )
         ENDIF
 
         IF (output_mode%l_vlist) THEN        
