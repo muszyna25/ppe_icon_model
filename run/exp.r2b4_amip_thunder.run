@@ -92,6 +92,9 @@ case $userid in
     1836)
 	user="Sebastian"
 	;;
+    1205)
+	user="Reiner"
+	;;
     *)
 	user="Unknown"
 	echo "Please, adapt the necessary setups ..."
@@ -120,6 +123,16 @@ case $user in
 	basedir=""
 	redln "Add the base directory of ICON here ..."
 	exit 1
+	;;
+    Reiner)
+	case $(hostname) in
+	    thunder*|ctc*)
+		basedir=/scratch/mpi/mj0060/m212005/icon-dev
+		;;
+	    ulme*)
+		basedir=/scratch/local1/m212005/git/icon
+		;;
+	esac
 	;;
 esac
 
@@ -153,7 +166,7 @@ ndays=$ndays_restart
 (( nsteps = ndays * 86400 / dtime ))
 (( dt_diag = 6 * 3600 ))            # global integral output each 6 hours
 (( dt_file = 86400 ))               # 1 day per file
-(( dt_data = 6 * 3300 ))            # write output every 6 hour
+(( dt_data = 6 * 3600 ))            # write output every 6 hour
 (( dt_rad = 3600 ))                 # compute radiative transfer every other hour
 (( dt_checkpoint = 5 * 86400 ))     # write restart file every 5 days 
 
@@ -233,6 +246,19 @@ case $user in
 	redln "Add mpiexec cmd here ..."
 	exit 1
 	;;
+    Reiner)
+	case $(hostname) in
+	    thunder*|ctc*)
+		mpi_root=/sw/squeeze-x64/mpi/openmpi_ib-1.6.2-static-gcc46
+		mpiexec_cmd="mpiexec" 
+		;;
+	    ulme*)
+		mpi_root=/sw/squeeze-x64/mpi/mpich2-1.4.1p1-static-gcc45
+		mpiexec_cmd="mpiexec" 
+		;;
+	esac
+
+	;;
 esac
  
 #if [[ ${ENVIRONMENT:-} = BATCH ]]
@@ -264,10 +290,19 @@ icondatadir=$basedir/data
 # models directory
 bindir="${basedir}/build/$(system ${basedir})/bin"   # binaries
 
+#__________________________________________________________________________________________________
+# experiment directory, with plenty of space, create if new
+
+if [[ ! -d ${EXPDIR} ]] ;  then
+  mkdir -p ${EXPDIR}
+  check_error $? "$LINENO: ${EXPDIR} could not be created ..."
+fi
+
 export ICON_BASE_PATH=$basedir
 
 # the namelist filename
 atmo_namelist=NAMELIST_${EXPNAME}
+jsbach_namelist=NAMELIST_jsbach_${EXPNAME}
 
 #__________________________________________________________________________________________________
 # write ICON namelist parameters
@@ -286,7 +321,7 @@ cat > ${runscriptdir}/${atmo_namelist} << EOF
 /
 &run_nml
  num_lev     = ${nlev},      ! number of full levels of vertical grid
- output      = 'vlist'
+ output      = 'vlist', 'nml'
  nsteps      = ${nsteps}    ! number of steps length of run
  dtime       = ${dtime}     ! [s] timestep in seconds
  ltestcase   = .TRUE.       ! run testcase                 --> testcase_ctl
@@ -354,15 +389,47 @@ cat > ${runscriptdir}/${atmo_namelist} << EOF
 ! vmr_cfc11  =  252.8e-12    ! CMIP5 value of 1990
 ! vmr_cfc12  =  466.2e-12    ! CMIP5 value of 1990
 /
+&output_nml
+ namespace        = 'MPIMET'
+ filetype         = 4
+ dom              = -1
+ output_time_unit = 3 ! hours
+ output_bounds    = 6.,48.,6.   !start, end, increment
+ steps_per_file   = 4
+ include_last     = .TRUE.
+ remap            = 0   ! triangular grid
+ output_filename  = "${EXPNAME}_`basename ${atmo_dyn_grids} .nc | sed 's/icon/jsbach/'`"
+ output_grid      = .TRUE.
+ ml_varlist       = 'fract', 'alb_vis_srf', 'alb_nir_srf', 'swrad_srf_net', 't_srf', 'lai', 's_srf', 'qsat_srf'
+                    'canopy_cond', 'ws_l', 'water_stress', 'ws_root', 'ws_fc_root', 'albedo_srf'
+ !map_file         ="mapfile_dcmip.txt"
+/
 EOF
 
-#__________________________________________________________________________________________________
-# experiment directory, with plenty of space, create if new
+cat > ${EXPDIR}/${jsbach_namelist} <<EOF
+&jsb_model_nml
+  usecase = 'jsbach_lite'
+/
 
-if [[ ! -d ${EXPDIR} ]] ;  then
-  mkdir -p ${EXPDIR}
-  check_error $? "$LINENO: ${EXPDIR} could not be created ..."
-fi
+&jsb_srf_nml
+  bc_filename = 'bc_srf.nc'
+  ic_filename = 'ic_srf.nc'
+/
+
+&jsb_soil_nml
+  active = .TRUE.
+  nsoil_energy = 5
+  nsoil_water = 5
+  bc_filename = 'bc_soil.nc'
+  ic_filename = 'ic_soil.nc'
+/
+
+&jsb_veg_nml
+  active = .TRUE.
+  bc_filename = 'bc_veg.nc'
+  ic_filename = 'ic_veg.nc'
+/
+EOF
 
 #__________________________________________________________________________________________________
 # set some default values and derive some run parameteres
@@ -449,8 +516,12 @@ then
     ls -l ${basedir}/jsbach_R2B04_v1.nc
     check_error $? "copy /home/zmaw/m212070/jsbach_R2B04_v1.nc to $basedir (201303-27)."
     cp -f ${basedir}/jsbach_R2B04_v1.nc ${EXPDIR}/extpar_${atmo_dyn_grids}
+    ls -l ${basedir}/bc_veg.nc
+    check_error $? "copy /home/zmaw/m212005/data/icon/r2b4/\* to $basedir (2013-04-02)."
+    cp -f ${basedir}/ic_srf.nc ${basedir}/bc_*.nc ${EXPDIR}/
 else
     cp -f /home/zmaw/m212070/jsbach_R2B04_v1.nc ${EXPDIR}/extpar_${atmo_dyn_grids}
+    cp -f cp -f ${basedir}/ic_srf.nc ${basedir}/bc_*.nc ${EXPDIR}/
 fi
 
 #__________________________________________________________________________________________________
@@ -474,6 +545,8 @@ fi
 # create master_namelist
 
 master_namelist=icon_master.namelist
+jsbach_master_namelist=jsbach_master.namelist
+
 if [[ "x${end_date:-}" = "x" ]] 
 then
 
@@ -497,7 +570,22 @@ cat > $master_namelist << EOF
  dt_restart          = $dt_restart
  /
 EOF
+
 fi
+
+cat > ${EXPDIR}/$jsbach_master_namelist << EOF
+&jsb_control_nml
+ is_standalone      = .false.
+ restart_jsbach     = .false.
+/
+
+&jsb_model_nml
+ model_name = 'JSBACHlite'
+ model_shortname = 'lite'
+ model_description = 'JSBACH-lite model'
+ model_namelist_filename = "${jsbach_namelist}"
+/
+EOF
 
 minrank_list[0]=0
 maxrank_list[0]=65535

@@ -97,7 +97,7 @@ CONTAINS
   SUBROUTINE physc( jg,jb,jcs,jce,nbdim,pdtime,psteplen,  &
                   & ltrig_rad,ptime_radtran,ptime_radheat )
 
-    INTEGER, INTENT(IN) :: jg             !< grid level/domain index 
+    INTEGER, INTENT(IN) :: jg             !< grid level/domain index
     INTEGER, INTENT(IN) :: jb             !< block index
     INTEGER, INTENT(IN) :: jcs, jce       !< start/end column index within this block
     INTEGER, INTENT(IN) :: nbdim          !< size of this block
@@ -107,12 +107,12 @@ CONTAINS
     LOGICAL, INTENT(IN) :: ltrig_rad      !< perform radiative transfer computation
     REAL(wp),INTENT(IN) :: ptime_radtran  !< time instance of the radiative transfer
                                           !< computation, scaled into radians
-    REAL(wp),INTENT(IN) :: ptime_radheat  !< time instance of the radiative heating 
+    REAL(wp),INTENT(IN) :: ptime_radheat  !< time instance of the radiative heating
                                           !< computation, scaled into radians
     ! Local variables
 
     TYPE(t_datetime)                   :: datetime
-    TYPE(t_echam_phy_field),   POINTER :: field 
+    TYPE(t_echam_phy_field),   POINTER :: field
     TYPE(t_echam_phy_tend) ,   POINTER :: tend
     TYPE(t_external_atmos_td) ,POINTER :: atm_td
 
@@ -336,7 +336,7 @@ CONTAINS
     !-------------------------------------------------------------------
     IF (phy_config%lrad) THEN
 
-       SELECT CASE(izenith)  
+       SELECT CASE(izenith)
        CASE(0)
        ! local insolation = constant = global mean insolation (ca. 340 W/m2)
        ! zenith angle = 0,
@@ -356,7 +356,7 @@ CONTAINS
        ! local time always  07:14:15 or 16:45:45
        ! --> sin(time of day)=1/pi and zenith angle depends on latitude only
          ztsi = tsi
-       CASE(3) 
+       CASE(3)
        ! circular non-seasonal orbit,
        ! perpetual equinox,
        ! with diurnal cycle,
@@ -407,7 +407,7 @@ CONTAINS
           ! --> sin(time of day)=1 ) and zenith angle depends on latitude only
 
             field%cosmu0(jcs:jce,jb) = COS( p_patch(jg)%cells%center(jcs:jce,jb)%lat )
-           
+
           CASE(2)
           ! circular non-seasonal orbit,
           ! perpetual equinox,
@@ -417,7 +417,7 @@ CONTAINS
 
             field%cosmu0(jcs:jce,jb) = COS( p_patch(jg)%cells%center(jcs:jce,jb)%lat )/pi
 
-          CASE(3) 
+          CASE(3)
           ! circular non-seasonal orbit,
           ! perpetual equinox,
           ! with diurnal cycle,
@@ -470,7 +470,7 @@ CONTAINS
             CASE default
               CALL finish('radiation','o3: this "irad_o3" is not supported')
             CASE(0)
-              field% o3(:,:,jb)= 0._wp              
+              field% o3(:,:,jb)= 0._wp
             CASE(io3_clim, io3_ape)
 
               IF(irad_o3 == io3_ape) THEN
@@ -490,7 +490,7 @@ CONTAINS
                              & phoz = atm_td%phoz(:),                 &! in o3-levs
                              & ppf = field% presm_new (:,:,jb),       &! in  app1
                              & pph = field% presi_new (:,:,jb),       &! in  aphp1
-                             & o3_time_int = atm_td%o3(:,:,jb,selmon),&! in 
+                             & o3_time_int = atm_td%o3(:,:,jb,selmon),&! in
                              & o3_clim     = field% o3(:,:,jb)        )! OUT
 
 !              IF (jb == 1) THEN
@@ -640,7 +640,7 @@ CONTAINS
       ! - compute orbit position at ptime_radheat
 
       ! - solar incoming flux at TOA
-    
+
 !!$ TR      field% cosmu0(jcs:jce,jb) = -COS( p_patch(jg)%cells%center(jcs:jce,jb)%lat ) &
 !!$ TR                                & *COS( p_patch(jg)%cells%center(jcs:jce,jb)%lon   &
 !!$ TR                                &      +ptime_radheat )
@@ -880,7 +880,7 @@ CONTAINS
 
     ! 5.4 Surface processes that provide time-dependent lower boundary
     !     condition for wind, temperature, tracer concentraion, etc.
-    !KF To avoid 
+    !KF To avoid
         field% lhflx_tile(:,jb,:) = 0._wp
         field% shflx_tile(:,jb,:) = 0._wp
         field% evap_tile (:,jb,:) = 0._wp
@@ -889,13 +889,13 @@ CONTAINS
     CALL update_surface( vdiff_config%lsfc_heat_flux,  &! in
                        & vdiff_config%lsfc_mom_flux,   &! in
                        & pdtime, psteplen,             &! in, time steps
-                       & jce, nbdim, field%kice,       &! in
-                       & nlev, nsfc_type,              &! in 
+                       & jg, jce, nbdim, field%kice,   &! in
+                       & nlev, nsfc_type,              &! in
                        & iwtr, iice, ilnd,             &! in, indices of surface types
                        & zfrc(:,:),                    &! in, area fraction
-                       & field% cfh_tile(:,jb,:),      &! in, from "vdiff_down" 
-                       & field% cfm_tile(:,jb,:),      &! in, from "vdiff_down" 
-                       & zfactor_sfc(:),               &! in, from "vdiff_down" 
+                       & field% cfh_tile(:,jb,:),      &! in, from "vdiff_down"
+                       & field% cfm_tile(:,jb,:),      &! in, from "vdiff_down"
+                       & zfactor_sfc(:),               &! in, from "vdiff_down"
                        & field% ocu (:,jb),            &! in, ocean sfc velocity, u-component
                        & field% ocv (:,jb),            &! in, ocean sfc velocity, v-component
                        & zaa, zaa_btm, zbb, zbb_btm,   &! inout
@@ -1000,13 +1000,13 @@ CONTAINS
     CALL update_surface( vdiff_config%lsfc_heat_flux,  &! in
                        & vdiff_config%lsfc_mom_flux,   &! in
                        & pdtime, psteplen,             &! in, time steps
-                       & jce, nbdim, field%kice,       &! in
-                       & nlev, nsfc_type,              &! in 
+                       & jg, jce, nbdim, field%kice,   &! in
+                       & nlev, nsfc_type,              &! in
                        & iwtr, iice, ilnd,             &! in, indices of surface types
                        & zfrc(:,:),                    &! in, area fraction
-                       & field% cfh_tile(:,jb,:),      &! in, from "vdiff_down" 
-                       & field% cfm_tile(:,jb,:),      &! in, from "vdiff_down" 
-                       & zfactor_sfc(:),               &! in, from "vdiff_down" 
+                       & field% cfh_tile(:,jb,:),      &! in, from "vdiff_down"
+                       & field% cfm_tile(:,jb,:),      &! in, from "vdiff_down"
+                       & zfactor_sfc(:),               &! in, from "vdiff_down"
                        & field% ocu (:,jb),            &! in, ocean sfc velocity, u-component
                        & field% ocv (:,jb),            &! in, ocean sfc velocity, v-component
                        & zaa, zaa_btm, zbb, zbb_btm,   &! inout
@@ -1377,7 +1377,7 @@ CONTAINS
          &                               + (field% rsfl (jcs:jce,jb)+field% ssfl (jcs:jce,jb) &
          &                               +  field% rsfc (jcs:jce,jb)+field% ssfc (jcs:jce,jb)) &
          &                               * pdtime
-       
+
 
     ! KF accumulated net TOA and surface radiation fluxes
 

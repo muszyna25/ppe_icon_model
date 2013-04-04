@@ -93,7 +93,7 @@ MODULE mo_name_list_output
   USE mo_master_nml,            ONLY: model_base_dir
   USE mo_ocean_nml,             ONLY: n_zlev
   USE mo_oce_state,             ONLY: set_zlev
-
+  USE mo_lnd_jsbach_config,     ONLY: lnd_jsbach_config
   USE mo_util_string,           ONLY: toupper, t_keyword_list, associate_keyword,  &
     &                                 with_keywords, insert_group, MAX_STRING_LEN, &
     &                                 tocompact, tolower, int2string
@@ -1901,6 +1901,7 @@ CONTAINS
     CHARACTER(LEN=*), PARAMETER   :: routine = modname//"::setup_output_vlist"
     INTEGER                       :: k, nlev, nlevp1, nplev, nzlev, nilev, nzlevp1, znlev_soil, &
       &                              i_dom, ll_dim(2), gridtype, idate, itime
+    INTEGER                       :: nsoil_jsbach ! JSBACH number of soil layers
     REAL(wp), ALLOCATABLE         :: levels_i(:), levels_m(:), p_lonlat(:)
     REAL(dp), ALLOCATABLE         :: levels(:), lbounds(:), ubounds(:)
     TYPE(t_lon_lat_data), POINTER :: lonlat
@@ -2100,6 +2101,7 @@ CONTAINS
 
       nlev   = num_lev(of%log_patch_id)
       nlevp1 = num_levp1(of%log_patch_id)
+
       ! introduce temporary variable znlev_soil, since global variable nlev_soil
       ! is unknown to the I/O-Processor. Otherwise receive_patch_configuration in
       ! mo_io_async complains about mismatch of levels.
@@ -2173,18 +2175,36 @@ CONTAINS
 
       !(DEPTH_BELOW_LAND_LAYER)
       !
-      of%cdiZaxisID(ZA_depth_below_land) = zaxisCreate(ZAXIS_DEPTH_BELOW_LAND, znlev_soil)
-      ALLOCATE(lbounds(znlev_soil), ubounds(znlev_soil), levels(znlev_soil))
-      lbounds(1) = 0._dp   ! surface
-      DO k = 2, znlev_soil
-        lbounds(k)   = REAL((zml_soil(k-1) + (zml_soil(k-1) - lbounds(k-1))),dp)
-      ENDDO
-      DO k = 1, znlev_soil
-        ubounds(k) = REAL((zml_soil(k) + (zml_soil(k) - lbounds(k))),dp)
-        levels(k)  = REAL(zml_soil(k)*1000._wp,dp)
-      ENDDO
-      ubounds(:) = ubounds(:) * 1000._dp        ! in mm
-      lbounds(:) = lbounds(:) * 1000._dp        ! in mm
+      IF (ALLOCATED(lnd_jsbach_config)) THEN     ! For JSBACH
+        nsoil_jsbach = lnd_jsbach_config(i_dom)%nsoil
+        of%cdiZaxisID(ZA_depth_below_land) = zaxisCreate(ZAXIS_DEPTH_BELOW_LAND, nsoil_jsbach)
+        ALLOCATE(levels(nsoil_jsbach), lbounds(nsoil_jsbach), ubounds(nsoil_jsbach))
+        levels = 0._wp
+        levels(1) = REAL(1000._wp * lnd_jsbach_config(i_dom)%zlev_soil(1), dp)
+        DO k = 2,nsoil_jsbach
+          levels(k) = levels(k-1) + REAL(1000._wp * lnd_jsbach_config(i_dom)%zlev_soil(k), dp)
+        END DO
+        lbounds(1) = 0._dp  ! surface
+        DO k = 2,nsoil_jsbach
+          lbounds(k) = REAL((levels(k-1) + (levels(k-1) - lbounds(k-1))), dp)
+        END DO
+        DO k = 1,nsoil_jsbach
+          ubounds(k) = REAL((levels(k) + (levels(k) - lbounds(k))), dp)
+        END DO
+      ELSE                                       ! For TERRA
+        of%cdiZaxisID(ZA_depth_below_land) = zaxisCreate(ZAXIS_DEPTH_BELOW_LAND, znlev_soil)
+        ALLOCATE(lbounds(znlev_soil), ubounds(znlev_soil), levels(znlev_soil))
+        lbounds(1) = 0._dp   ! surface
+        DO k = 2, znlev_soil
+          lbounds(k)   = REAL((zml_soil(k-1) + (zml_soil(k-1) - lbounds(k-1))),dp)
+        ENDDO
+        DO k = 1, znlev_soil
+          ubounds(k) = REAL((zml_soil(k) + (zml_soil(k) - lbounds(k))),dp)
+          levels(k)  = REAL(zml_soil(k)*1000._wp,dp)
+        ENDDO
+        ubounds(:) = ubounds(:) * 1000._dp        ! in mm
+        lbounds(:) = lbounds(:) * 1000._dp        ! in mm
+      END IF
       CALL zaxisDefLbounds(of%cdiZaxisID(ZA_depth_below_land), lbounds) !necessary for GRIB2
       CALL zaxisDefUbounds(of%cdiZaxisID(ZA_depth_below_land), ubounds) !necessary for GRIB2
       CALL zaxisDefLevels (of%cdiZaxisID(ZA_depth_below_land), levels)  !necessary for NetCDF

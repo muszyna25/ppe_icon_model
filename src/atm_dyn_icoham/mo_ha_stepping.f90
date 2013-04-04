@@ -60,6 +60,7 @@ MODULE mo_ha_stepping
                                   & ldynamics, ltransport, msg_level,   &
                                   & ltestcase, output_mode
   USE mo_master_control,      ONLY: is_restart_run
+  USE mo_lnd_jsbach_config,   ONLY: lnd_jsbach_config
   USE mo_ha_testcases,        ONLY: init_testcase
   USE mo_si_correction,       ONLY: init_si_params
   USE mo_ha_rungekutta,       ONLY: init_RungeKutta
@@ -109,12 +110,12 @@ CONTAINS
     CALL configure_ha_dyn
 
     SELECT CASE (ha_dyn_config%itime_scheme)
-    CASE (LEAPFROG_SI) 
+    CASE (LEAPFROG_SI)
       CALL init_si_params( ha_dyn_config%lsi_3d,            &
                            ha_dyn_config%si_offctr,         &
                            ha_dyn_config%si_cmin,           &
                            lshallow_water                   )
-    CASE (RK4,SSPRK54) 
+    CASE (RK4,SSPRK54)
       CALL init_RungeKutta(ha_dyn_config%itime_scheme)
     END SELECT
 
@@ -196,9 +197,9 @@ CONTAINS
      CALL update_dyn_output( p_patch(jg), p_int_state(jg),  &! in
                              p_hydro_state(jg)%prog_out,    &! in
                              p_hydro_state(jg)%diag_out )    ! inout
-     
+
      IF (use_icon_comm) CALL icon_comm_sync_all()
-   
+
      ! Fill boundary cells of nested domains
      DO jn = 1, p_patch(jg)%n_childdom
        jgc = p_patch(jg)%child_id(jn)
@@ -285,9 +286,9 @@ CONTAINS
     !--------------------------------------------------------------------------
     ! Time integration from time step n to n+1
     !--------------------------------------------------------------------------
-    ! Whether to apply a special initial treatment for 
-    ! 3-time-level schemes. In case of a restart run, the treatment is 
-    ! not necessary, thus the variable is set to .TRUE. 
+    ! Whether to apply a special initial treatment for
+    ! 3-time-level schemes. In case of a restart run, the treatment is
+    ! not necessary, thus the variable is set to .TRUE.
 
     l_3tl_init(1:n_dom) = (.NOT.ltwotime).AND.(.NOT.is_restart_run()).AND.(jstep==1)
 
@@ -296,7 +297,7 @@ CONTAINS
     ! of nested domains with recursively halved time steps
 
     CALL process_grid( p_patch, p_hydro_state, p_int_state, p_grf_state,    &
-      &                ext_data, 1, jstep, l_3tl_init, dtime, sim_time,     & 
+      &                ext_data, 1, jstep, l_3tl_init, dtime, sim_time,     &
       &                1, datetime )
 
     !--------------------------------------------------------------------------
@@ -353,9 +354,9 @@ CONTAINS
           &                     p_hydro_state(jg)%prog_out,   &! in
           &                     p_hydro_state(jg)%diag_out )   ! inout
       ENDDO
-      
+
       IF (ltimer) CALL timer_start(timer_intrp_diagn)
-      
+
       ! Interpolate diagnostic variables to nest boundaries
       IF (n_dom > 1) THEN
         DO jg = 1, n_dom-1
@@ -404,8 +405,9 @@ CONTAINS
     !--------------------------------------------------------------------------
     IF (is_checkpoint_time(jstep,n_checkpoint,nsteps)) THEN
       DO jg = 1, n_dom
-        CALL create_restart_file( p_patch(jg), datetime,         &
-                                & jfile, l_have_output, vct  )
+        CALL create_restart_file( p_patch(jg), datetime,                        &
+                                & jfile, l_have_output, vct,                    &
+                                & opt_depth_lnd = lnd_jsbach_config(jg)%nsoil )
       END DO
 
       ! Create the master (meta) file in ASCII format which contains
@@ -420,4 +422,3 @@ CONTAINS
   END SUBROUTINE perform_ha_stepping
 
 END MODULE mo_ha_stepping
-

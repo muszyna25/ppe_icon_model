@@ -61,7 +61,7 @@ MODULE mo_nml_crosscheck
   USE mo_io_config,          ONLY: dt_checkpoint, lflux_avg,inextra_2d,       &
     &                              inextra_3d, lwrite_cloud, lwrite_extra,    &
     &                              lwrite_omega, lwrite_precip, lwrite_pres,  &
-    &                              lwrite_radiation,lwrite_surface,lwrite_tend_phy,& 
+    &                              lwrite_radiation,lwrite_surface,lwrite_tend_phy,&
     &                              lwrite_tke,lwrite_z3
   USE mo_parallel_config,    ONLY: check_parallel_configuration,              &
     &                              num_io_procs, itype_comm
@@ -89,7 +89,6 @@ MODULE mo_nml_crosscheck
 
 
   USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config, configure_atm_phy_nwp
-  USE mo_lnd_jsbach_config,  ONLY: lnd_jsbach_config, configure_lnd_jsbach
   USE mo_echam_phy_config,   ONLY: echam_phy_config, configure_echam_phy
   USE mo_radiation_config
   USE mo_echam_conv_config,  ONLY: echam_conv_config, configure_echam_convection
@@ -103,7 +102,7 @@ MODULE mo_nml_crosscheck
   USE mo_meteogram_config,   ONLY: check_meteogram_configuration
   USE mo_master_control,     ONLY: is_restart_run, get_my_process_type,      &
     & testbed_process,  atmo_process, ocean_process, radiation_process
-  
+
   USE mo_art_config,         ONLY: art_config
   USE mo_prepicon_config,    ONLY: i_oper_mode
   USE mo_nh_torus_exp,       ONLY: set_sst_cbl
@@ -122,8 +121,8 @@ CONTAINS
   !>
   !! Check and, if necessary, adapt simulation lengths
   !!
-  !! Check and, if necessary, adapt dt_restart and dt_checkpoint. 
-  !! - i.e. makes sure that dt_restart and dt_checkpoint are synchronized 
+  !! Check and, if necessary, adapt dt_restart and dt_checkpoint.
+  !! - i.e. makes sure that dt_restart and dt_checkpoint are synchronized
   !! with a transport event.
   !!
   !!
@@ -135,7 +134,7 @@ CONTAINS
     REAL(wp):: cur_datetime_calsec, end_datetime_calsec, length_sec
     INTEGER :: jg
     CHARACTER(len=*), PARAMETER :: routine =  'resize_simulation_length'
-    
+
     !----------------------------
     ! rescale timestep
     dtime     = dtime     * grid_rescale_factor
@@ -143,7 +142,7 @@ CONTAINS
       dtime_adv = dtime_adv * grid_rescale_factor
       echam_phy_config%dt_rad = &
         & echam_phy_config%dt_rad * grid_rescale_factor
-        
+
       DO jg=1,max_dom
         atm_phy_nwp_config(jg)%dt_conv = &
           atm_phy_nwp_config(jg)%dt_conv * grid_rescale_factor
@@ -163,7 +162,7 @@ CONTAINS
     IF (i_oper_mode /= MODE_REMAP) THEN
       !
       IF (nsteps/=0) THEN   ! User specified a value
-        
+
         length_sec = REAL(nsteps,wp)*dtime
         time_config%end_datetime = time_config%cur_datetime
         CALL add_time(length_sec,0,0,0,time_config%end_datetime)
@@ -184,7 +183,7 @@ CONTAINS
         !    &                   *REAL(end_datetime%daylen,wp)
         !  nsteps=INT((end_datetime_calsec-cur_datetime_calsec)/dtime)
         !-------------------------
-        
+
       ELSE
         ! Compute nsteps from cur_datetime, end_datetime and dtime
         !
@@ -205,8 +204,8 @@ CONTAINS
 
     END IF
 
-    IF (iequations/=ihs_ocean) THEN ! atm (ocean does not know iadv_rcf) 
-      ! Check whether the end of the restart cycle is synchronized with a transport 
+    IF (iequations/=ihs_ocean) THEN ! atm (ocean does not know iadv_rcf)
+      ! Check whether the end of the restart cycle is synchronized with a transport
       ! event. If not, adapt dt_restart accordingly.
       ! dtime_adv not available at this point. Thus we need to use iadv_rcf*dtime
       !
@@ -215,12 +214,12 @@ CONTAINS
           &   REAL(NINT(time_config%dt_restart/(REAL(iadv_rcf,wp)*dtime)),wp) &
           &   * REAL(iadv_rcf,wp)*dtime
         WRITE(message_text,'(a)') &
-          &  'length of restart cycle dt_restart synchronized with transport event' 
+          &  'length of restart cycle dt_restart synchronized with transport event'
         CALL message(routine, message_text)
       ENDIF
     ENDIF
 
- 
+
     ! Length of this integration is limited by length of the restart cycle.
     !
     IF (nsteps > INT(time_config%dt_restart/dtime)) THEN
@@ -228,7 +227,7 @@ CONTAINS
       restart_experiment = .TRUE.
     ELSE
       restart_experiment = .FALSE.
-    ENDIF    
+    ENDIF
 !     nsteps = MIN(nsteps,INT(time_config%dt_restart/dtime))
 
 
@@ -257,7 +256,7 @@ CONTAINS
     dt_checkpoint = MIN(dt_checkpoint,time_config%dt_restart)
 
 
-    IF (iequations/=ihs_ocean) THEN ! atm (ocean does not know iadv_rcf) 
+    IF (iequations/=ihs_ocean) THEN ! atm (ocean does not know iadv_rcf)
       ! Check whether checkpointing is synchronized with a transport event.
       ! If not, adapt dt_checkpoint accordingly.
       ! dtime_adv not available at this point. Thus we need to use iadv_rcf*dtime
@@ -266,7 +265,7 @@ CONTAINS
         dt_checkpoint = REAL(NINT(dt_checkpoint/(REAL(iadv_rcf,wp)*dtime)),wp) &
           &           * REAL(iadv_rcf,wp)*dtime
         WRITE(message_text,'(a)') &
-          &  'length of checkpoint cycle dt_checkpoint synchronized with transport event' 
+          &  'length of checkpoint cycle dt_checkpoint synchronized with transport event'
         CALL message(routine, message_text)
       ENDIF
     ENDIF
@@ -357,7 +356,7 @@ CONTAINS
         ha_dyn_config%ldry_dycore = .TRUE.
       END SELECT
 
-    END SELECT 
+    END SELECT
 
     lshallow_water = (iequations==ISHALLOW_WATER)
 
@@ -383,33 +382,33 @@ CONTAINS
     IF ((TRIM(ctest_name)=='SV') .AND. ntracer /= 2 ) THEN
       CALL finish(TRIM(routine), &
         & 'ntracer MUST be 2 for the stationary vortex test case')
-    ENDIF 
+    ENDIF
 
     IF ((TRIM(ctest_name)=='DF1') .AND. ntracer == 1 ) THEN
       CALL finish(TRIM(routine), &
         & 'ntracer MUST be >=2 for the deformational flow test case 1')
-    ENDIF 
+    ENDIF
 
     IF ((TRIM(ctest_name)=='DF2') .AND. ntracer == 1 ) THEN
       CALL finish(TRIM(routine), &
         & 'ntracer MUST be >=2 for the deformational flow test case 2')
-    ENDIF 
+    ENDIF
 
     IF ((TRIM(ctest_name)=='DF3') .AND. ntracer == 1 ) THEN
       CALL finish(TRIM(routine), &
         & 'ntracer MUST be >=2 for the deformational flow test case 3')
-    ENDIF 
+    ENDIF
 
     IF ((TRIM(ctest_name)=='DF4') .AND. ntracer == 1 ) THEN
       CALL finish(TRIM(routine), &
         & 'ntracer MUST be >=2 for the deformational flow test case 4')
-    ENDIF     
+    ENDIF
 
     IF ((TRIM(ctest_name)=='APE') .AND. (TRIM(ape_sst_case)=='sst_ice')  ) THEN
       IF (.NOT. lflux_avg)&
       CALL finish(TRIM(routine), &
         & 'lflux_avg must be set true to run this setup')
-    ENDIF     
+    ENDIF
 
     !--------------------------------------------------------------------
     ! Testcases (nonhydrostatic)
@@ -423,11 +422,11 @@ CONTAINS
       & ( ANY(atm_phy_nwp_config(:)%inwp_surface == 1 ) )) THEN
       CALL finish(TRIM(routine), &
         & 'surface scheme must be switched off, when running the APE test')
-    ENDIF     
+    ENDIF
 
     IF (TRIM(nh_test_name)=='CBL') THEN
-       IF( atm_phy_nwp_config(1)%inwp_gscp       /=0 .OR. & 
-           atm_phy_nwp_config(1)%inwp_convection /=0 .OR. & 
+       IF( atm_phy_nwp_config(1)%inwp_gscp       /=0 .OR. &
+           atm_phy_nwp_config(1)%inwp_convection /=0 .OR. &
            atm_phy_nwp_config(1)%inwp_radiation  /=0 .OR. &
            atm_phy_nwp_config(1)%inwp_cldcover   /=0 .OR. &
            atm_phy_nwp_config(1)%inwp_satad      /=0 .OR. &
@@ -436,7 +435,7 @@ CONTAINS
 
        IF(atm_phy_nwp_config(1)%inwp_turb/=5 .AND. .NOT.set_sst_cbl) &
             CALL finish(TRIM(routine),'STOPPING!! for fixed flux only inwp_turb=5 works')
-    ENDIF     
+    ENDIF
 
     !--------------------------------------------------------------------
     ! Shallow water
@@ -474,9 +473,9 @@ CONTAINS
     ! NWP physics
     !--------------------------------------------------------------------
     IF (iforcing==inwp) THEN
-    
+
  !     CALL configure_atm_phy_nwp(n_dom,ltestcase)
- 
+
       DO jg =1,n_dom
 
         IF( atm_phy_nwp_config(jg)%inwp_satad == 0       .AND. &
@@ -500,7 +499,7 @@ CONTAINS
           CALL message(TRIM(routine),' WARNING! NWP forcing set but '//  &
                       'idealized (horizontally homogeneous) roughness '//&
                       'length z0 selected!')
-        ENDIF 
+        ENDIF
 
         ! check radiation scheme in relation to chosen ozone and irad_aero=6 to itopo
 
@@ -516,7 +515,7 @@ CONTAINS
           IF ( ( irad_aero == 6 ) .AND. ( itopo /=1 ) ) THEN
             CALL finish(TRIM(routine),'irad_aero=6 requires itopo=1')
           ENDIF
-          
+
         ELSE
 
           SELECT CASE (irad_o3)
@@ -524,7 +523,7 @@ CONTAINS
             irad_o3 = 0
             CALL message(TRIM(routine),'running without radiation => irad_o3 reset to 0')
           END SELECT
-          
+
         ENDIF !inwp_radiation
 
         !! check microphysics scheme
@@ -532,12 +531,12 @@ CONTAINS
           &   atm_phy_nwp_config(jg)%mu_rain > 5.0)  THEN
           CALL finish(TRIM(routine),'mu_rain requires: 0 < mu_rain < 5')
         END IF
-        
+
         IF (  atm_phy_nwp_config(jg)%mu_snow < 0.0   .OR. &
           &   atm_phy_nwp_config(jg)%mu_snow > 5.0)  THEN
           CALL finish(TRIM(routine),'mu_snow requires: 0 < mu_snow < 5')
-        END IF ! microphysics 
-        
+        END IF ! microphysics
+
       ENDDO
     END IF
 
@@ -561,8 +560,8 @@ CONTAINS
       iqc    = 2     !! cloud water
       iqi    = 3     !! ice
       ico2   = 4     !! CO2
-      iqt    = 4     !! starting index of non-water species 
-      nqtendphy = 0  !! number of water species for which convective and turbulent 
+      iqt    = 4     !! starting index of non-water species
+      nqtendphy = 0  !! number of water species for which convective and turbulent
                      !! tendencies are stored
 
     CASE (INWP)
@@ -585,21 +584,21 @@ CONTAINS
           CALL message(TRIM(routine),message_text)
         ENDIF
       enddo
-      
+
       iqv    = 1     !> water vapour
       iqc    = 2     !! cloud water
       iqi    = 3     !! ice
       iqr    = 4     !! rain water
       iqs    = 5     !! snow
       iqtvar = 6     !! qt variance
-      
-      ! Note: Indices for additional tracers are assigned automatically 
+
+      ! Note: Indices for additional tracers are assigned automatically
       ! via add_tracer_ref in mo_nonhydro_state.
 
       iqt    = 6     !! start index of other tracers than hydrometeors
-      nqtendphy = 3  !! number of water species for which convective and turbulent 
+      nqtendphy = 3  !! number of water species for which convective and turbulent
                      !! tendencies are stored
-     
+
     CASE default
 
       iqv    = 1     !> water vapour
@@ -607,7 +606,7 @@ CONTAINS
       iqi    = 3     !! ice
       ico2   = 5     !! CO2
       iqt    = 4     !! starting index of non-water species
-      nqtendphy = 0  !! number of water species for which convective and turbulent 
+      nqtendphy = 0  !! number of water species for which convective and turbulent
                      !! tendencies are stored
 
     END SELECT
@@ -639,13 +638,13 @@ CONTAINS
       !...........................................................
       ! Other types of adiabatic forcing
       !...........................................................
-      
+
         IF ( i_listlen < ntracer .AND. i_listlen /= 0 ) THEN
           ntracer = i_listlen
           CALL message(TRIM(routine),'number of tracers is adjusted according to given list')
         END IF
 
-      
+
         IF ((iforcing==IECHAM).AND.(echam_phy_config%lrad)) THEN
           IF ( izenith > 4)  &
             CALL finish(TRIM(routine), 'Coose a valid case for rad_nml: izenith.')
@@ -800,7 +799,7 @@ CONTAINS
 
       IF (itype_comm == 3 .AND. diffusion_config(jg)%hdiff_order /= 5)  &
         CALL finish(TRIM(routine), 'itype_comm=3 requires hdiff_order = 5')
- 
+
       IF (itype_comm == 3 .AND. (diffusion_config(jg)%itype_vn_diffu > 1 .OR. &
         diffusion_config(jg)%itype_t_diffu > 1) )                             &
         CALL finish(TRIM(routine), 'itype_comm=3 requires itype_t/vn_diffu = 1')
@@ -840,21 +839,21 @@ CONTAINS
 
     CASE (inoforcing,iheldsuarez,ildf_dry)
        lwrite_tend_phy  = .FALSE.
-       lwrite_radiation = .FALSE.                                                         
-       lwrite_precip    = .FALSE.                                                         
-       lwrite_cloud     = .FALSE.                                                        
-       lwrite_tke       = .FALSE.                                                        
-       lwrite_surface   = .FALSE.                                                        
+       lwrite_radiation = .FALSE.
+       lwrite_precip    = .FALSE.
+       lwrite_cloud     = .FALSE.
+       lwrite_tke       = .FALSE.
+       lwrite_surface   = .FALSE.
     CASE DEFAULT
     END SELECT
-  
+
     IF (( inextra_2D > 0) .OR. (inextra_3D > 0) ) THEN
       lwrite_extra = .TRUE.
       WRITE(message_text,'(a,2I4,a,L4)') &
         &'inextra is',inextra_2d,inextra_3d ,' lwrite_extra has been set', lwrite_extra
       CALL message('io_namelist', TRIM(message_text))
     ENDIF
-  
+
     IF (inextra_2D == 0 .AND. inextra_3D == 0 .AND. lwrite_extra) &
       CALL finish('io_namelist','need to specify number of fields for extra output')
 
@@ -901,4 +900,3 @@ CONTAINS
 !  END SUBROUTINE atmospheric_configuration
 
 END MODULE mo_nml_crosscheck
-

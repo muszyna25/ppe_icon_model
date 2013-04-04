@@ -36,7 +36,7 @@
 !!
 MODULE mo_read_namelists
 
-  USE mo_mpi                 ,ONLY: my_process_is_stdio 
+  USE mo_mpi                 ,ONLY: my_process_is_stdio
   USE mo_namelist            ,ONLY: open_nml_output, close_nml_output
 
   USE mo_time_nml            ,ONLY: read_time_namelist
@@ -55,9 +55,9 @@ MODULE mo_read_namelists
   USE mo_sleve_nml           ,ONLY: read_sleve_namelist
 
   USE mo_dynamics_nml        ,ONLY: read_dynamics_namelist
-  USE mo_ha_dyn_nml          ,ONLY: read_ha_dyn_namelist 
+  USE mo_ha_dyn_nml          ,ONLY: read_ha_dyn_namelist
   USE mo_nonhydrostatic_nml  ,ONLY: read_nonhydrostatic_namelist
-  USE mo_diffusion_nml       ,ONLY: read_diffusion_namelist 
+  USE mo_diffusion_nml       ,ONLY: read_diffusion_namelist
 
   USE mo_advection_nml       ,ONLY: read_transport_namelist
 
@@ -69,11 +69,10 @@ MODULE mo_read_namelists
   USE mo_echam_conv_nml      ,ONLY: read_echam_conv_namelist
   USE mo_gw_hines_nml        ,ONLY: read_gw_hines_namelist
   USE mo_lnd_nwp_nml         ,ONLY: read_nwp_lnd_namelist
-  USE mo_lnd_jsbach_nml      ,ONLY: read_lnd_jsbach_namelist
   USE mo_art_nml             ,ONLY: read_art_namelist
 
   USE mo_initicon_nml        ,ONLY: read_initicon_namelist
-  USE mo_ha_testcases        ,ONLY: read_ha_testcase_namelist 
+  USE mo_ha_testcases        ,ONLY: read_ha_testcase_namelist
   USE mo_nh_testcases        ,ONLY: read_nh_testcase_namelist
 
   USE mo_extpar_nml          ,ONLY: read_extpar_namelist
@@ -163,7 +162,6 @@ CONTAINS
     CALL read_echam_conv_namelist     (TRIM(atm_namelist_filename))
     CALL read_gw_hines_namelist       (TRIM(atm_namelist_filename))
     CALL read_nwp_lnd_namelist        (TRIM(atm_namelist_filename))
-    CALL read_lnd_jsbach_namelist     (TRIM(atm_namelist_filename))
     CALL read_sea_ice_namelist        (TRIM(atm_namelist_filename))
     CALL read_art_namelist            (TRIM(atm_namelist_filename))
 
@@ -259,7 +257,7 @@ CONTAINS
     ! More namelists from the old setup
     !
     CALL setup_ocean_nml              (TRIM(oce_namelist_filename))
-    
+
     ! Sea ice namelist
     !
     CALL read_sea_ice_namelist        (TRIM(oce_namelist_filename))
@@ -339,7 +337,6 @@ CONTAINS
     CALL read_echam_conv_namelist     (TRIM(cpl_dummy_namelist))
     CALL read_gw_hines_namelist       (TRIM(cpl_dummy_namelist))
     CALL read_nwp_lnd_namelist        (TRIM(cpl_dummy_namelist))
-    CALL read_lnd_jsbach_namelist     (TRIM(cpl_dummy_namelist))
     CALL read_sea_ice_namelist        (TRIM(cpl_dummy_namelist))
 
     ! Initial conditions
@@ -367,4 +364,3 @@ CONTAINS
   !-------------------------------------------------------------------------
 
 END MODULE mo_read_namelists
-

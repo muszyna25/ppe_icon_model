@@ -43,6 +43,7 @@ MODULE mo_surface
                                 & nmatrix, nvar_vdiff,              &
                                 & matrix_to_richtmyer_coeff
   USE mo_jsbach_interface_icon,ONLY: jsbach_inter_1d
+  USE mo_jsb_interface,     ONLY: jsbach_interface
   USE mo_icoham_sfc_indices,ONLY: nsfc_type
   USE mo_sea_ice,           ONLY: ice_fast
   USE mo_physical_constants,ONLY: rhos, rhoi, Tf, alf, albedoW, zemiss_def, stbo, tmelt
@@ -56,6 +57,7 @@ CONTAINS
   !!
   SUBROUTINE update_surface( lsfc_heat_flux, lsfc_mom_flux,     &! in
                            & pdtime, psteplen,                  &! in
+                           & jg,                                &! in
                            & kproma, kbdim,                     &! in
                            & kice,                              &! in
                            & klev, ksfc_type,                   &! in
@@ -162,6 +164,7 @@ CONTAINS
 
     LOGICAL, INTENT(IN) :: lsfc_heat_flux, lsfc_mom_flux
     REAL(wp),INTENT(IN) :: pdtime, psteplen
+    INTEGER, INTENT(IN) :: jg
     INTEGER, INTENT(IN) :: kproma, kbdim
     INTEGER, INTENT(IN) :: klev, ksfc_type
     INTEGER, INTENT(IN) :: idx_wtr, idx_ice, idx_lnd
@@ -285,7 +288,7 @@ CONTAINS
     REAL(wp),OPTIONAL,INTENT(INOUT) :: albnirdif_wtr(kbdim)
     REAL(wp),OPTIONAL,INTENT(OUT)   :: pswflx_wtr(kbdim)
     REAL(wp),OPTIONAL,INTENT(OUT)   :: plwflx_wtr(kbdim)
-                                               
+
 ! locals
 
     LOGICAL  :: lfland(kbdim)
@@ -346,6 +349,35 @@ CONTAINS
     ELSEWHERE
       ilsm(:) = 0
     ENDWHERE
+
+    CALL jsbach_interface ( jg, nblock, 1, kproma, pdtime, psteplen,         & ! in
+      & t_air            = ptemp(1:kproma),                                  & ! in
+      & q_air            = pq(1:kproma),                                     & ! in
+      & rain             = prsfl(1:kproma) + prsfc(1:kproma),                & ! in
+      & snow             = pssfl(1:kproma) + pssfc(1:kproma),                & ! in
+      & wind_air         = SQRT(pu(1:kproma)**2 + pv(1:kproma)**2),          & ! in
+      & wind_10m         = SQRT(pu(1:kproma)**2 + pv(1:kproma)**2),          & ! in, temporary
+      & lwrad_srf_down   = pemterall(1:kproma) + lwup(1:kproma),             & ! in
+      & swrad_srf_down   = ptrsolall(1:kproma),                              & ! in
+      & press_srf        = presi_old(1:kproma),                              & ! in
+      & drag_srf         = pfac_sfc(1:kproma) + pcfh_tile(1:kproma,idx_lnd), & ! in
+      & t_acoef          = zen_h(1:kproma, idx_lnd),                         & ! in
+      & t_bcoef          = zfn_h(1:kproma, idx_lnd),                         & ! in
+      & q_acoef          = zen_qv(1:kproma, idx_lnd),                        & ! in
+      & q_bcoef          = zfn_qv(1:kproma, idx_lnd),                        & ! in
+      & cos_zenith_angle = pcosmu0(1:kproma),                                & ! in
+      & t_srf            = surface_temperature(1:kproma),                    & ! out
+      & t_rad_srf        = surface_temperature_rad(1:kproma),                & ! out
+      & qsat_srf         = sat_surface_specific_humidity(1:kproma),          & ! out
+      & fact_q_air       = pcair(1:kproma),                                  & ! out
+      & fact_qsat_srf    = pcsat(1:kproma),                                  & ! out
+!!$                          & zh_srf           =
+!!$                          & zm_srf           =
+      & alb_vis_dir      = albvisdir(1:kproma),                              & ! out
+      & alb_nir_dir      = albnirdir(1:kproma),                              & ! out
+      & alb_vis_dif      = albvisdif(1:kproma),                              & ! out
+      & alb_nir_dif      = albnirdif(1:kproma)                               & ! out
+      )
 
     CALL jsbach_inter_1d (kdim = kproma,                                   &
                           kblock = nblock,                                 &
@@ -431,7 +463,7 @@ CONTAINS
 
 
     ! calculate effective temperature for use in radheat
-    WHERE (lsm(1:kproma) > 0.5_wp) 
+    WHERE (lsm(1:kproma) > 0.5_wp)
       surface_temperature_eff(1:kproma) = (surface_temperature_last(1:kproma) ** 3 *  &
                                           (4._wp*surface_temperature_rad(1:kproma) -  &
                                           3._wp * surface_temperature_last(1:kproma)))**0.25
@@ -461,7 +493,7 @@ CONTAINS
       zcs(1:kproma,idx_lnd) = pcsat(1:kproma)
     END IF
 
-    ! CALL sea_ice_thermodynamics ? 
+    ! CALL sea_ice_thermodynamics ?
 
     !===================================================================
     ! AFTER CALLING land/ocean/ice model
@@ -612,7 +644,7 @@ CONTAINS
         &   hi,                 &
         &   hs,                 &
         &   Qtop,               &
-        &   Qbot,               & 
+        &   Qbot,               &
         &   swflx_ice,          &
         &   nonsolar_ice,       &
         &   dnonsolardT,        &
