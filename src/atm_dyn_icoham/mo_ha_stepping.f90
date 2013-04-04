@@ -54,7 +54,7 @@ MODULE mo_ha_stepping
   USE mo_grid_config,         ONLY: n_dom
   USE mo_dynamics_config,     ONLY: lshallow_water, ltwotime, nnow, nold
   USE mo_ha_dyn_config,       ONLY: ha_dyn_config, configure_ha_dyn
-  USE mo_io_config,           ONLY: is_output_time, l_diagtime,  &
+  USE mo_io_config,           ONLY: is_output_time, l_diagtime, l_outputtime, &
                                   & is_checkpoint_time
   USE mo_run_config,          ONLY: nsteps, dtime, ntracer,  &
                                   & ldynamics, ltransport, msg_level,   &
@@ -78,7 +78,7 @@ MODULE mo_ha_stepping
   USE mo_sync,                ONLY: global_max
   USE mo_vertical_coord_table,ONLY: vct
   USE mo_io_restart,          ONLY: write_restart_info_file
-  
+
   USE mo_icon_comm_lib,       ONLY: icon_comm_sync_all
   USE mo_parallel_config,     ONLY: use_icon_comm
   USE mo_name_list_output,    ONLY: write_name_list_output, istime4name_list_output
@@ -240,6 +240,7 @@ CONTAINS
   REAL(wp), DIMENSION(:,:,:), POINTER     :: p_vn  => NULL()
   REAL(wp) :: sim_time(n_dom)
   INTEGER  :: jg, jn, jgc, jstep
+  LOGICAL  :: l_vlist_output, l_nml_output
   LOGICAL  :: l_3tl_init(n_dom)
 
 #ifdef _OPENMP
@@ -282,32 +283,6 @@ CONTAINS
     ENDIF
 
     !--------------------------------------------------------------------------
-    ! Set output flags
-    !--------------------------------------------------------------------------
-    ! The integration cycle "jstep" computes the atmospheric state variables
-    ! at the new time step (n+1) using the already known step n (and possibly
-    ! n-1, n-2, ... as well, depending on the user's choice of time stepping
-    ! scheme). In some schemes (e.g. leapfrog), the step n values will be
-    ! modified within this integration cycle. Therefore at the end of the
-    ! cycle, we write out variables of time step n rather than n+1.
-
-! LL: this is replaced by the function is_output_time()
-!     IF ( MOD(jstep-1,n_io)==0 .AND. jstep/=1 ) THEN
-!       is_output_time(jstep)       = .TRUE. ! Output at the end of the time step
-!       lprepare_output(:) = .TRUE. ! Prepare output values on all grid levels
-!     ELSE
-!       is_output_time(jstep)       = .FALSE.
-!       lprepare_output(:) = .FALSE.
-!     ENDIF
-
-    IF ( MOD(jstep-1,n_diag)==0 .OR. jstep==nsteps ) THEN
-      l_diagtime = .TRUE. ! Diagnostic output is done at the end of the
-    ELSE                  ! time step
-      l_diagtime = .FALSE.
-    ENDIF
-    IF(.NOT.ldynamics.AND.lshallow_water)l_diagtime=.FALSE.
-
-    !--------------------------------------------------------------------------
     ! Time integration from time step n to n+1
     !--------------------------------------------------------------------------
     ! Whether to apply a special initial treatment for 
@@ -329,13 +304,36 @@ CONTAINS
     ! resolution). Set model time.
     !--------------------------------------------------------------------------
     CALL add_time(dtime,0,0,0,datetime)
-    ! Not nice, but the name list output requires this
-    sim_time(1) = MODULO(sim_time(1) + dtime, 86400.0_wp)    
-    
+!!$    ! Not nice, but the name list output requires this
+!!$    sim_time(1) = MODULO(sim_time(1) + dtime, 86400.0_wp)
+    sim_time(1) = sim_time(1) + dtime   ! RS: is this correct? process_grid already advances sim_time by dtime !
+
     !--------------------------------------------------------------------------
-    ! Write output (prognostic and diagnostic variables) 
+    ! Set output flags
     !--------------------------------------------------------------------------
-    IF (is_output_time(jstep) .OR. istime4name_list_output(sim_time(1))) THEN 
+    ! The integration cycle "jstep" computes the atmospheric state variables
+    ! at the new time step (n+1) using the already known step n (and possibly
+    ! n-1, n-2, ... as well, depending on the user's choice of time stepping
+    ! scheme). In some schemes (e.g. leapfrog), the step n values will be
+    ! modified within this integration cycle. Therefore at the end of the
+    ! cycle, we write out variables of time step n rather than n+1.
+    l_vlist_output = output_mode%l_vlist .AND. &
+      & ((jstep==nsteps) .OR. is_output_time(jstep))
+    l_nml_output   = output_mode%l_nml     .AND. &
+      & ((jstep==nsteps) .OR. istime4name_list_output(sim_time(1)))
+    l_outputtime = l_vlist_output .OR. l_nml_output
+
+    IF ( MOD(jstep-1,n_diag)==0 .OR. jstep==nsteps ) THEN
+      l_diagtime = .TRUE. ! Diagnostic output is done at the end of the
+    ELSE                  ! time step
+      l_diagtime = .FALSE.
+    ENDIF
+    IF(.NOT.ldynamics.AND.lshallow_water)l_diagtime=.FALSE.
+
+    !--------------------------------------------------------------------------
+    ! Write output (prognostic and diagnostic variables)
+    !--------------------------------------------------------------------------
+    IF (l_outputtime) THEN
 
       !====================
       ! Prepare for output
@@ -371,22 +369,24 @@ CONTAINS
         ENDDO
       ENDIF
 
-      IF (output_mode%l_nml) THEN
+      IF (l_nml_output) THEN
+        CALL message(TRIM(routine),'Output (name_list) at:')
+        CALL print_datetime(datetime)
         CALL write_name_list_output( datetime, sim_time(1), jstep==nsteps )
       ENDIF
-      IF (output_mode%l_vlist) THEN
+      IF (l_vlist_output) THEN
+        CALL message(TRIM(routine),'Output (vlist) at:')
+        CALL print_datetime(datetime)
         CALL write_output( datetime )
         l_have_output = .TRUE.
       ENDIF
-      CALL message(TRIM(routine),'Output at:')
-      CALL print_datetime(datetime)
-      
+
       IF (ltimer) CALL timer_stop(timer_intrp_diagn)
 
     ENDIF !is_output_time(jstep)
 
     ! If it's time, close the current output file and trigger a new one
-    IF (jstep/=1.AND.(MOD(jstep-1,n_file)==0).AND.jstep/=nsteps) THEN
+    IF (output_mode%l_vlist .AND. jstep/=1 .AND. (MOD(jstep-1,n_file)==0) .AND. jstep/=nsteps) THEN
       jfile = jfile +1
       CALL init_output_files(jfile,lclose=l_have_output)
     ENDIF
