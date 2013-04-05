@@ -1625,7 +1625,7 @@ END SUBROUTINE calc_normal_velocity_ab_mimetic
     !---------DEBUG DIAGNOSTICS-------------------------------------------
     idt_src=1  ! output print level (1-5, fix)
     CALL dbg_print('CalcVertVelMimBU: d_h/dt-w',z_c                       ,str_module,idt_src)
-    idt_src=3  ! output print level (1-5, fix)
+    idt_src=2  ! output print level (1-5, fix)
     CALL dbg_print('CalcVertVelMimBU: pw_c =W' ,pw_c                      ,str_module,idt_src)
     idt_src=4  ! output print level (1-5, fix)
     CALL dbg_print('CalcVertVelMimBU: mass flx',p_os%p_diag%mass_flx_e,    str_module,idt_src)
