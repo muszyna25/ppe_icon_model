@@ -129,6 +129,7 @@ MODULE mo_model_domimp_patches
     & is_plane_torus, grid_sphere_radius,                 &
     & use_duplicated_connectivity! ,  use_dummy_cell_closure
   USE mo_dynamics_config,    ONLY: lcoriolis
+  USE mo_run_config,         ONLY: center, subcenter, number_of_grid_used
   USE mo_master_control,     ONLY: my_process_is_ocean
   USE mo_impl_constants_grf, ONLY: grf_bdyintp_start_c, grf_bdyintp_start_e
   USE mo_loopindices,        ONLY: get_indices_c, get_indices_e
@@ -166,7 +167,7 @@ MODULE mo_model_domimp_patches
     & nf_get_var_int     => p_nf_get_var_int,        &
     & nf_get_var_double  => p_nf_get_var_double
 #endif
-  
+
   IMPLICIT NONE
   
   PRIVATE
@@ -832,12 +833,12 @@ CONTAINS
     
     CHARACTER(LEN=uuid_string_length) :: uuid_string
     
-    ! status variable
-    INTEGER :: ist
+    ! status variables
+    INTEGER :: ist, netcd_status
     
     INTEGER :: ncid, dimid, varid, max_cell_connectivity, max_verts_connectivity
     INTEGER :: ji
-    INTEGER :: jc, je, jcv, jce, ilc, ibc
+    INTEGER :: jc, je, ilc, ibc
     INTEGER :: icheck, ilev, igrid_level, igrid_id, iparent_id, i_max_childdom, ipar_id
     INTEGER :: block_size    
     !-----------------------------------------------------------------------
@@ -872,6 +873,53 @@ CONTAINS
     CALL uuid_parse(uuid_string, patch%grid_uuid)
     WRITE(message_text,'(a,a)') 'grid uuid: ', TRIM(uuid_string)
     CALL message  (TRIM(method_name), message_text)
+
+
+    ! Read additional grid identifiers
+    ! center
+    ! subcenter
+    ! number_of_grid_used
+    netcd_status = nf_get_att_int(ncid, nf_global, 'center', center(ig))
+    IF (netcd_status == nf_noerr) THEN 
+      WRITE(message_text,'(a,i4,a,i4)') &
+        & 'generating center of patch ', ig, ': ',center(ig)
+      CALL message  (TRIM(method_name), TRIM(message_text))
+    ELSE
+      WRITE(message_text,'(a,i4,a,i4)') &
+        & 'WARNING: generating center of patch ', ig, ' not found'
+      CALL message  (TRIM(method_name), TRIM(message_text))
+      ! set default value
+      center(ig) = 78    ! DWD
+    ENDIF
+    
+    netcd_status = nf_get_att_int(ncid, nf_global, 'subcenter', subcenter(ig))
+    IF (netcd_status == nf_noerr) THEN 
+      WRITE(message_text,'(a,i4,a,i4)') &
+        & 'generating subcenter of patch ', ig, ': ',subcenter(ig)
+      CALL message  (TRIM(method_name), TRIM(message_text))
+    ELSE
+      WRITE(message_text,'(a,i4,a,i4)') &
+        & 'WARNING: generating subcenter of patch ', ig, ' not found'
+      CALL message  (TRIM(method_name), TRIM(message_text))
+      ! set default value
+      subcenter(ig) = 255
+    ENDIF
+
+    netcd_status = nf_get_att_int(ncid, nf_global, 'number_of_grid_used', &
+      &            number_of_grid_used(ig))
+    IF (netcd_status == nf_noerr) THEN 
+      WRITE(message_text,'(a,i4,a,i4)') &
+        & 'number_of_grid_used of patch ', ig, ': ',number_of_grid_used(ig)
+      CALL message  (TRIM(method_name), TRIM(message_text))
+    ELSE
+      WRITE(message_text,'(a,i4,a,i4)') &
+        & 'WARNING: number_of_grid_used of patch ', ig, ' not found'
+      CALL message  (TRIM(method_name), TRIM(message_text))
+      ! set default value
+      number_of_grid_used(ig) = 42
+    ENDIF
+
+
     
     CALL nf(nf_get_att_int(ncid, nf_global, 'grid_root', icheck))
     IF (icheck /= nroot) THEN
@@ -1840,11 +1888,8 @@ CONTAINS
       & array_e_real(:,:), &
       & array_v_real(:,:)
     
-    ! status variable
-    INTEGER :: ist
-    
     INTEGER :: varid
-    INTEGER :: ip, ji, jv
+    INTEGER :: ip
 
     INTEGER :: return_status
     
@@ -2015,8 +2060,6 @@ CONTAINS
     TYPE(t_patch), INTENT(inout), TARGET ::  patch  ! patch data structure
     INTEGER,       INTENT(in)    ::  n_lp     ! Number of local parents on the same level
     INTEGER,       INTENT(in)    ::  id_lp(:) ! IDs of local parents on the same level
-    
-    INTEGER :: return_status
     
     TYPE(t_patch), POINTER :: p_p
 

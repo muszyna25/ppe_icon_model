@@ -54,6 +54,7 @@ MODULE mo_run_config
   PUBLIC :: iqv, iqc, iqi, iqs, iqr, iqtvar, nqtendphy, iqt, ico2
   PUBLIC :: iash1,iash2,iash3,iash4,iash5,iash6 !K.L. Running index for Volcanic Ash in ICON-ART 
   PUBLIC :: iash1_conv,iash2_conv,iash3_conv,iash4_conv,iash5_conv,iash6_conv !K.L. Running index for convection 
+  PUBLIC :: center, subcenter, number_of_grid_used   ! non-namelist variables
   PUBLIC :: check_epsilon, test_mode
   PUBLIC :: configure_run, l_one_file_per_patch, ldump_dd, lread_dd, nproc_dd
   PUBLIC :: dump_filename, dd_filename, lonlat_dump_filename
@@ -93,6 +94,7 @@ MODULE mo_run_config
     INTEGER :: test_mode
 
     INTEGER :: msg_level       !< how much printout is generated during runtime
+
  
     !> output mode (string)
     !  one or multiple of "none", "vlist", "nml", "totint"
@@ -101,6 +103,15 @@ MODULE mo_run_config
 
     ! dump/restore file names, may contain keywords
     CHARACTER(LEN=filename_max) :: dump_filename, dd_filename, lonlat_dump_filename
+
+
+    ! Non-Namelist variables
+    ! These are read from the grid file in mo_model_domimp_patches/read_basic_patch
+    ! 
+    INTEGER :: center   (MAX_DOM)            !< patch generating center
+    INTEGER :: subcenter(MAX_DOM)            !< patch generating subcenter
+    INTEGER :: number_of_grid_used(MAX_DOM)  !< Number of grid used (GRIB2 key)
+
 
     ! Derived variables
     !
@@ -152,7 +163,10 @@ CONTAINS
   !>
   !!
   !! Assign value to components of the run configuration state that have no
-  !! corresponding namelist variable. 
+  !! corresponding namelist variable.
+  !!
+  !! Exceptions: center, subcenter and number_of_grid_used are set in
+  !! mo_model_domimp_patches/read_basic_patch 
   !!
   SUBROUTINE configure_run( opt_iadv_rcf )
 

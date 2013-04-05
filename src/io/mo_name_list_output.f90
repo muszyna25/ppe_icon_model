@@ -80,7 +80,8 @@ MODULE mo_name_list_output
   USE mo_vertical_coord_table,  ONLY: vct
   USE mo_dynamics_config,       ONLY: iequations, nnow, nnow_rcf
   USE mo_run_config,            ONLY: num_lev, num_levp1, dtime, ldump_states, ldump_dd, &
-    &                                 msg_level, output_mode, ltestcase
+    &                                 msg_level, output_mode, ltestcase, center, subcenter, &
+    &                                 number_of_grid_used
   USE mo_nh_pzlev_config,       ONLY: nh_pzlev_config
   USE mo_lnd_nwp_config,        ONLY: nlev_snow
   USE mo_datetime,              ONLY: t_datetime, cly360day_to_date
@@ -217,8 +218,17 @@ MODULE mo_name_list_output
     ! thus not present in the patch description
     CHARACTER(LEN=filename_max) :: grid_filename
 
-    ! uuid of grid
+    ! uuid of grid (provided by grid file)
     TYPE(t_uuid) :: grid_uuid
+
+    ! generating center (provided by grid file)
+    INTEGER :: center
+
+    ! generating subcenter (provided by grid file)
+    INTEGER :: subcenter
+
+    ! Number of grid used (provided by grid file)
+    INTEGER :: number_of_grid_used
 
   END TYPE t_patch_info
 
@@ -1323,6 +1333,12 @@ CONTAINS
         patch_info(jp)%grid_filename = TRIM(p_patch(jl)%grid_filename)
         ! Set UUID on work and test PE
         patch_info(jp)%grid_uuid = p_patch(jl)%grid_uuid
+        ! Set information about generating center on work and test PE
+        patch_info(jp)%center = center(jl)
+        ! Set information about generating subcenter on work and test PE
+        patch_info(jp)%subcenter = subcenter(jl)
+        ! Set information about numberOfGridUsed on work and test PE
+        patch_info(jp)%number_of_grid_used = number_of_grid_used(jl)
       ENDIF
 #ifndef NOMPI
       IF(use_async_name_list_io .AND. .NOT. my_process_is_mpi_test()) THEN
@@ -1333,6 +1349,9 @@ CONTAINS
         CALL p_bcast(patch_info(jp)%grid_filename, bcast_root, p_comm_work_2_io)
         CALL p_bcast(patch_info(jp)%grid_uuid%data, SIZE(patch_info(jp)%grid_uuid%data),  &
           &          bcast_root, p_comm_work_2_io)
+        CALL p_bcast(patch_info(jp)%center,              bcast_root, p_comm_work_2_io)
+        CALL p_bcast(patch_info(jp)%subcenter,           bcast_root, p_comm_work_2_io)
+        CALL p_bcast(patch_info(jp)%number_of_grid_used, bcast_root, p_comm_work_2_io)
       ENDIF
 #endif
 
@@ -1935,7 +1954,13 @@ CONTAINS
     ! define output generating institute
     !
     ! get instID
+!DR    of%cdiInstID = institutInq(patch_info(i_dom)%center, patch_info(i_dom)%subcenter, &
+!DR      &            "", "")
+
+    ! workaround as long as inquiring the Insitute ID from (center/subcenter) 
+    ! does not work.
     of%cdiInstID = institutInq(0, 0, TRIM(of%name_list%namespace), "")
+
     CALL vlistDefInstitut(of%cdiVlistID,of%cdiInstID)
 
 
@@ -2012,10 +2037,11 @@ CONTAINS
       CALL gridDefYlongname(of%cdiCellGridID, 'center latitude')
       CALL gridDefYunits(of%cdiCellGridID, 'radian')
       !
-      !       CALL gridDefUUID(of%cdiCellGridID, patch_info(i_dom)%grid_uuid%data)
+      CALL gridDefUUID(of%cdiCellGridID, patch_info(i_dom)%grid_uuid%data)
       !
       ! works, but makes no sense, yet. Proper grid numbers still missing
-      CALL gridDefNumber(of%cdiCellGridID, 42)
+      CALL gridDefNumber(of%cdiCellGridID, patch_info(i_dom)%number_of_grid_used)
+
       !
       ! not clear whether meta-info GRID_CELL or GRID_UNSTRUCTURED_CELL should be used
       CALL gridDefPosition(of%cdiCellGridID, GRID_CELL)
@@ -2033,10 +2059,11 @@ CONTAINS
       CALL gridDefYlongname(of%cdiVertGridID, 'vertex latitude')
       CALL gridDefYunits(of%cdiVertGridID, 'radian')
       !
-      !     CALL gridDefUUID(of%cdiVertGridID, patch_info(i_dom)%grid_uuid%data)
+      CALL gridDefUUID(of%cdiVertGridID, patch_info(i_dom)%grid_uuid%data)
       !
       ! works, but makes no sense, yet. Proper grid numbers still missing
-      CALL gridDefNumber(of%cdiVertGridID, 42)
+      CALL gridDefNumber(of%cdiVertGridID, patch_info(i_dom)%number_of_grid_used)
+
       !
       ! not clear whether meta-info GRID_VERTEX or GRID_UNSTRUCTURED_VERTEX should be used
       CALL gridDefPosition(of%cdiVertGridID, GRID_VERTEX)
@@ -2054,10 +2081,11 @@ CONTAINS
       CALL gridDefYlongname(of%cdiEdgeGridID, 'edge midpoint latitude')
       CALL gridDefYunits(of%cdiEdgeGridID, 'radian')
       !
-      !     CALL gridDefUUID(of%cdiEdgeGridID, patch_info(i_dom)%grid_uuid%data)
+      CALL gridDefUUID(of%cdiEdgeGridID, patch_info(i_dom)%grid_uuid%data)
       !
       ! works, but makes no sense, yet. Proper grid numbers still missing
-      CALL gridDefNumber(of%cdiEdgeGridID, 42)
+      CALL gridDefNumber(of%cdiEdgeGridID, patch_info(i_dom)%number_of_grid_used)
+
       !
       ! not clear whether meta-info GRID_EDGE or GRID_UNSTRUCTURED_EDGE should be used
       CALL gridDefPosition(of%cdiEdgeGridID, GRID_EDGE)
