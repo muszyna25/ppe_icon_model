@@ -184,7 +184,8 @@ CONTAINS
     NAMELIST /grid_options/ x_rot_angle, y_rot_angle, z_rot_angle, &
       & itype_optimize, l_c_grid, maxlev_optim, &
       & beta_spring
-    NAMELIST /grid_metadata/ number_of_grid_used, centre, subcentre
+    NAMELIST /grid_metadata/ number_of_grid_used, centre, subcentre, &
+      & annotate_level
     NAMELIST /plane_options/tria_arc_km
 
     ! set default values for grid_options
