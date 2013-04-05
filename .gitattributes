@@ -61,6 +61,11 @@ config/mh-nec -text
 config/missing -text
 /configure -text
 /configure.ac -text
+contrib/grid_tools/Makefile -text
+contrib/grid_tools/icon_grid_get.c -text
+contrib/grid_tools/test.xml -text
+contrib/grid_tools/xml_scan.h -text
+contrib/grid_tools/xml_scan.rl -text
 contrib/monika/remap.sh -text
 contrib/xmlparse/Makefile -text
 contrib/xmlparse/xml_scan.c -text
