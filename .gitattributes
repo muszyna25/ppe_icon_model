@@ -62,6 +62,9 @@ config/missing -text
 /configure -text
 /configure.ac -text
 contrib/monika/remap.sh -text
+contrib/xmlparse/Makefile -text
+contrib/xmlparse/xml_scan.c -text
+contrib/xmlparse/xml_scan.rl -text
 /create_builds -text
 data/ECHAM6_CldOptProps.nc -text
 data/external/etopo40.cdf -text
