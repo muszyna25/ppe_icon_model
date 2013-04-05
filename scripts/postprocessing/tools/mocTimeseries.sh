@@ -12,7 +12,7 @@ if [[ ! -z "$2" ]]; then
 fi
 
 # calculate the moc timeseries in 1000 depth
-if [[ "20" = $(cdo nlevel $(ls -1 $mocPattern | head -n 1)) ]]; then
+if [[ "20" = $(cdo nlevel -selvar,$mocVar $(ls -1 $mocPattern | head -n 1)) ]]; then
 cdo -f nc -r -outputkey,date,value -fldmean -selname,$mocVar -mulc,1.e-9 -sellonlatbox,0,1,40,60 -sellevel,1000 -yearmean -setgrid,r1x180 -cat "${mocPattern}"  > moc.dat
 else
 cdo -f nc -r -outputkey,date,value -fldmean -selname,$mocVar -mulc,1.e-9 -sellonlatbox,0,1,40,60 -intlevel,1000 -sellevel,900/1100 -yearmean -setgrid,r1x180 -cat "${mocPattern}"  > moc.dat
