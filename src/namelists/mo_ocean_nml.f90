@@ -176,17 +176,20 @@ MODULE mo_ocean_nml
   REAL(wp) :: ab_const              = 0.1_wp     ! Adams-Bashforth constant
   REAL(wp) :: ab_beta               = 0.6_wp     ! Parameter in semi-implicit timestepping
   REAL(wp) :: ab_gam                = 0.6_wp     ! Parameter in semi-implicit timestepping
-  REAL(wp) :: solver_tolerance      = 1.e-6_wp   ! Maximum value allowed for solver tolerance
-  REAL(wp) :: solver_start_tolerance  = -1.0_wp  ! For restarting gmres
-  INTEGER  :: solver_max_restart_iterations = 100 ! For restarting gmres
-  INTEGER  :: solver_max_iter_per_restart = 200 ! For restarting gmres
-  REAL(wp) :: solver_tolerance_decrease_ratio   = 0.1_wp  ! For restarting gmres, must be < 1
-  LOGICAL  :: use_absolute_solver_tolerance  = .false.   ! Maximum value allowed for solver tolerance
+  ! parameters for gmres solver
+  REAL(wp) :: solver_tolerance                 = 1.e-6_wp   ! Maximum value allowed for solver tolerance
+  REAL(wp) :: solver_start_tolerance           = -1.0_wp
+  INTEGER  :: solver_max_restart_iterations    = 100       ! For restarting gmres
+  INTEGER  :: solver_max_iter_per_restart      = 200       ! For inner loop after restart
+  REAL(wp) :: solver_tolerance_decrease_ratio  = 0.1_wp    ! For restarting gmres, must be < 1
+  LOGICAL  :: use_absolute_solver_tolerance    = .false.   ! Maximum value allowed for solver tolerance
+  REAL(wp) :: dhdtw_abort           = 3.2e-11_wp ! abort criterion for gmres solution (~1mm/year)
                                                 
-  INTEGER :: EOS_TYPE               = 2          ! 1=linear EOS,2=(nonlinear, from MPIOM)
+  INTEGER  :: EOS_TYPE              = 2          ! 1=linear EOS,2=(nonlinear, from MPIOM)
                                                  ! 3=nonlinear Jacket-McDoudgall-formulation (not yet recommended)
-  INTEGER :: density_computation    = 1          ! 1 = calc_density_MPIOM_func,2 = calc_density_MPIOM_elemental, 3 = calc_density_MPIOM_elemental_wrap
-  INTEGER :: no_tracer              = 2          ! number of tracers 
+  INTEGER  :: density_computation   = 1          ! 1 = calc_density_MPIOM_func,2 = calc_density_MPIOM_elemental,
+                                                 ! 3 = calc_density_MPIOM_elemental_wrap
+  INTEGER  :: no_tracer             = 2          ! number of tracers 
                                                 
   ! more ocean parameters, not yet well placed
   INTEGER  :: expl_vertical_velocity_diff = 1    ! 0=explicit, 1 = implicit  
@@ -281,6 +284,7 @@ MODULE mo_ocean_nml
     &                 expl_vertical_tracer_diff,                           &
     &                 veloc_diffusion_order,veloc_diffusion_form,          &
     &                 FLUX_CALCULATION_HORZ, FLUX_CALCULATION_VERT,        &
+    &                 dhdtw_abort,                                         &
     &                 use_absolute_solver_tolerance, solver_start_tolerance, &
     &                 solver_tolerance_decrease_ratio,                     &
     &                 solver_max_restart_iterations,                       &

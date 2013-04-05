@@ -62,7 +62,7 @@ USE mo_ocean_nml,                 ONLY: n_zlev, solver_tolerance, l_inverse_flip
   &                                     use_absolute_solver_tolerance, solver_start_tolerance, &
   &                                     solver_tolerance_decrease_ratio,                  &
   &                                     solver_max_restart_iterations,                    &
-  &                                     solver_max_iter_per_restart,                      &
+  &                                     solver_max_iter_per_restart, dhdtw_abort,         &
   &                                     l_forc_freshw
 
 USE mo_run_config,                ONLY: dtime, ltimer
@@ -1621,8 +1621,6 @@ END SUBROUTINE calc_normal_velocity_ab_mimetic
     !  END DO
     
     z_c(:,:) = ((p_os%p_prog(nnew(1))%h(:,:)-p_os%p_prog(nold(1))%h(:,:))/dtime - pw_c(:,1,:))*p_patch_3D%wet_c(:,1,:)
-    !write(*,*)'difference d_t height - vert veloc:',&
-    !&maxval(((p_os%p_prog(nnew(1))%h-p_os%p_prog(nold(1))%h)/dtime - pw_c(:,1,:))*p_patch_3D%wet_c(:,1,:))
 
     !---------DEBUG DIAGNOSTICS-------------------------------------------
     idt_src=1  ! output print level (1-5, fix)
@@ -1636,14 +1634,14 @@ END SUBROUTINE calc_normal_velocity_ab_mimetic
 
     ! Abort if largest mismatch in surface elevation due to solution of gmres-solver is > 1mm/year
     !   criterion is 1mm/year * dtime = 3.17e-11 m/s * dtime
-    ! TODO: additional delta_h due to freshwater must be subtracted here!
-    z_abort = 3.17e-11_wp*dtime
-    IF (MAXVAL(z_c(:,:)) > z_abort) THEN
+    z_abort = dhdtw_abort*dtime
+    IF (MAXVAL(ABS(z_c(:,:))) > z_abort) THEN
       CALL message('mo_oce_ab_timestepping_mimetic:calc_vert_velocity_mim_bottomup', &
         &          'MISMATCH IN SURFACE EQUATION:')
       CALL message('mo_oce_ab_timestepping_mimetic:calc_vert_velocity_mim_bottomup', &
         &          'Elevation change does not match vertical velocity')
-      WRITE(message_text,'(a,e25.18)') ' (h_new-h_old)/dtime - w = ', MAXVAL(z_c(:,:))
+      WRITE(message_text,'(2(a,e20.12))') ' (h_new-h_old)/dtime - w = ', MAXVAL(ABS(z_c(:,:))), &
+        &           ' z_abort=', z_abort
       CALL message ('mo_oce_ab_timestepping_mimetic:calc_vert_velocity_mim_bottomup', message_text)
       CALL finish(TRIM('mo_oce_ab_timestepping_mimetic:calc_vert_velocity_mim_bottomup'), &
         &            'MISMATCH in surface equation')
