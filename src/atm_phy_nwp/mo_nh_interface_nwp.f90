@@ -76,7 +76,7 @@ MODULE mo_nh_interface_nwp
   USE mo_ext_data_types,     ONLY: t_external_data
   USE mo_nwp_phy_types,      ONLY: t_nwp_phy_diag, t_nwp_phy_tend
   USE mo_parallel_config,    ONLY: nproma, p_test_run, use_icon_comm, use_physics_barrier
-
+  USE mo_diffusion_config,   ONLY: diffusion_config
   USE mo_run_config,         ONLY: ntracer, iqv, iqc, iqi, iqr, iqs, iqtvar,    &
     &                              msg_level, ltimer, timers_level, nqtendphy
   USE mo_io_config,          ONLY: lflux_avg
@@ -223,7 +223,7 @@ CONTAINS
     ! communication ids, these do not need to be different variables,
     ! since they are not treated individualy
     INTEGER :: ddt_u_tot_comm, ddt_v_tot_comm, z_ddt_u_tot_comm, z_ddt_v_tot_comm, &
-      & tracers_comm, tempv_comm, exner_old_comm
+      & tracers_comm, tempv_comm, exner_old_comm, w_comm
 
     IF (ltimer) CALL timer_start(timer_physics)
 
@@ -1249,10 +1249,17 @@ CONTAINS
           exner_old_comm = new_icon_comm_variable(pt_diag%exner_old, &
             & pt_patch%sync_cells_not_in_domain, &
             & status=is_ready, scope=until_sync, name="pt_diag%exner_old")
+          IF (diffusion_config(jg)%lhdiff_w) &
+            w_comm = new_icon_comm_variable(pt_prog%w, &
+              & pt_patch%sync_cells_not_in_domain, &
+              & status=is_ready, scope=until_sync, name="pt_prog%w")
         ENDIF
 
       ELSE
-        IF (lhdiff_rcf) THEN
+        IF (lhdiff_rcf .AND. diffusion_config(jg)%lhdiff_w) THEN
+          CALL sync_patch_array_mult(SYNC_C, pt_patch, ntracer+3, pt_diag%tempv, pt_prog%w, &
+                                     pt_diag%exner_old, f4din=pt_prog_rcf%tracer)
+        ELSE IF (lhdiff_rcf) THEN
           CALL sync_patch_array_mult(SYNC_C, pt_patch, ntracer+2, pt_diag%tempv, &
                                      pt_diag%exner_old, f4din=pt_prog_rcf%tracer)
         ELSE

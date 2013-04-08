@@ -2607,6 +2607,12 @@ Diffusion on the horizontal wind field&
 \tabularnewline
 
 \hline 
+lhdiff\_w&
+L& .TRUE. & &
+Diffusion on the vertical wind field&
+\tabularnewline
+
+\hline 
 hdiff\_order&
 I& 4 (hydro) \\ 5 (NH)& &
 Order of $\nabla$ operator for diffusion:& \tabularnewline
@@ -2667,15 +2673,21 @@ hdiff\_order = 24 or 42, and run\_nml:iequation = 1 or 2.
 
 \hline 
 hdiff\_efdt\_ratio&
-R& 1.0 & &
+R& 1.0 (hydro) \\ 15.0 (NH) & &
 ratio of e-folding time to time step (or 2{*} time step when using
 a 3 time level time stepping scheme) (only for triangles currently; 
 for triangular NH model, values between 10 and 20 are recommended when using hdiff\_order=5) &
 \tabularnewline
 
 \hline 
+hdiff\_w\_efdt\_ratio&
+R& 15.0  & &
+ratio of e-folding time to time step for diffusion on vertical wind speed & iequations=3
+\tabularnewline
+
+\hline 
 hdiff\_min\_efdt\_ratio&
-R& 1.0 (hydro) \\ 15.0 (NH) & &
+R& 1.0 & &
 minimum value of hdiff\_efdt\_ratio near model top & iequations=3 .AND. cell\_type=3 .AND. hdiff\_order=4
 \tabularnewline
 

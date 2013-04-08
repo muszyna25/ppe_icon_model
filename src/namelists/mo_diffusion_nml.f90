@@ -78,6 +78,7 @@ MODULE mo_diffusion_nml
                           ! 4th order linear diffusion is applied. 
 
   REAL(wp) :: hdiff_efdt_ratio      ! ratio of e-folding time to (2*)time step
+  REAL(wp) :: hdiff_w_efdt_ratio    ! ratio of e-folding time to time step for w diffusion (NH only)
   REAL(wp) :: hdiff_min_efdt_ratio  ! minimum value of hdiff_efdt_ratio 
                                     ! (for upper sponge layer)
   REAL(wp) :: hdiff_tv_ratio        ! the ratio of diffusion coefficient: temp:mom
@@ -87,12 +88,14 @@ MODULE mo_diffusion_nml
   INTEGER  :: itype_vn_diffu        ! options for discretizing the Smagorinsky momentum diffusion
   INTEGER  :: itype_t_diffu         ! options for discretizing the Smagorinsky temperature diffusion
   LOGICAL :: lhdiff_temp   ! if .TRUE., apply horizontal diffusion to temp.
-  LOGICAL :: lhdiff_vn     ! if .TRUE., apply horizontal diffusion to momentum.
+  LOGICAL :: lhdiff_vn     ! if .TRUE., apply horizontal diffusion to horizontal momentum.
+  LOGICAL :: lhdiff_w      ! if .TRUE., apply horizontal diffusion to vertical momentum.
 
   NAMELIST/diffusion_nml/ hdiff_order, k2_klev_max, k2_pres_max,              &
                           hdiff_efdt_ratio, hdiff_min_efdt_ratio,             &
                           hdiff_tv_ratio, hdiff_smag_fac, hdiff_multfac,      &
-                          lhdiff_temp, lhdiff_vn, itype_vn_diffu, itype_t_diffu
+                          lhdiff_temp, lhdiff_vn, itype_vn_diffu,             &
+                          itype_t_diffu, hdiff_w_efdt_ratio, lhdiff_w
 
 CONTAINS
   !-------------------------------------------------------------------------
@@ -124,6 +127,7 @@ CONTAINS
     !-----------------------
     lhdiff_temp          = .TRUE.
     lhdiff_vn            = .TRUE.
+    lhdiff_w             = .TRUE.
 
     IF (iequations == 3) THEN
       hdiff_order          = 5
@@ -136,6 +140,7 @@ CONTAINS
     ENDIF
 
     hdiff_min_efdt_ratio = 1.0_wp
+    hdiff_w_efdt_ratio   = 15.0_wp
     hdiff_multfac        = 1.0_wp
     hdiff_tv_ratio       = 1.0_wp
     itype_vn_diffu       = 1
@@ -173,6 +178,7 @@ CONTAINS
       CALL message(TRIM(routine),'Horizontal diffusion switched off.')
       lhdiff_temp = .FALSE.
       lhdiff_vn   = .FALSE.
+      lhdiff_w    = .FALSE.
 
     CASE(2,3,4,5,24,42)
 
@@ -200,10 +206,12 @@ CONTAINS
     !----------------------------------------------------
     diffusion_config(:)% lhdiff_temp          =  lhdiff_temp
     diffusion_config(:)% lhdiff_vn            =  lhdiff_vn
+    diffusion_config(:)% lhdiff_w             =  lhdiff_w
     diffusion_config(:)% hdiff_order          =  hdiff_order
     diffusion_config(:)% k2_klev_max          =  k2_klev_max
     diffusion_config(:)% k2_pres_max          =  k2_pres_max
     diffusion_config(:)% hdiff_efdt_ratio     =  hdiff_efdt_ratio
+    diffusion_config(:)% hdiff_w_efdt_ratio   =  hdiff_w_efdt_ratio
     diffusion_config(:)% hdiff_min_efdt_ratio =  hdiff_min_efdt_ratio
     diffusion_config(:)% hdiff_smag_fac       =  hdiff_smag_fac
     diffusion_config(:)% hdiff_multfac        =  hdiff_multfac

@@ -86,6 +86,7 @@ MODULE mo_diffusion_config
                             ! 4th order linear diffusion is applied. 
 
     REAL(wp) :: hdiff_efdt_ratio      ! ratio of e-folding time to (2*)time step
+    REAL(wp) :: hdiff_w_efdt_ratio    ! ratio of e-folding time to time step for w diffusion (NH only)
     REAL(wp) :: hdiff_min_efdt_ratio  ! minimum value of hdiff_efdt_ratio 
                                       ! (for upper sponge layer)
     REAL(wp) :: hdiff_tv_ratio        ! the ratio of diffusion coefficient: temp:mom
@@ -97,15 +98,16 @@ MODULE mo_diffusion_config
 
     LOGICAL :: lhdiff_temp   ! if .TRUE., apply horizontal diffusion to temp.
     LOGICAL :: lhdiff_vn     ! if .TRUE., apply horizontal diffusion to momentum.
+    LOGICAL :: lhdiff_w      ! if .TRUE., apply horizontal diffusion to vertical momentum.
 
     ! variables not from namelist
 
-    REAL(wp) :: k6, k4, k2  ! numerical diffusion coefficients
-                            ! Values for these parameters are not directly
-                            ! specified by the user, but derived from the ratio 
-                            ! between the e-folding time and the model time step
-                            ! (hdiff_efdt_ratio above), and the horizontal 
-                            ! resolution of the model
+    REAL(wp) :: k6, k4, k2, k4w  ! numerical diffusion coefficients
+                                 ! Values for these parameters are not directly
+                                 ! specified by the user, but derived from the ratio 
+                                 ! between the e-folding time and the model time step
+                                 ! (hdiff_efdt_ratio above), and the horizontal 
+                                 ! resolution of the model
 
     INTEGER ik2s, ik2e, ik4s, ik4e  ! indices defining to which vertical levels
                                     ! 2nd and 4th linear diffusion are applied.
@@ -251,6 +253,8 @@ CONTAINS
       diffusion_config(1)%k4 = 1._wp/ (diffusion_config(1)%hdiff_efdt_ratio*64._wp)
       diffusion_config(1)%k6 = 1._wp/ (diffusion_config(1)%hdiff_efdt_ratio*512._wp)
   
+      diffusion_config(:)%k4w = 1._wp/(diffusion_config(1)%hdiff_w_efdt_ratio*36._wp)
+
       DO jg = 2, n_dom
 
          jgp = dynamics_parent_grid_id(jg)
