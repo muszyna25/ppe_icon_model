@@ -247,7 +247,8 @@ CONTAINS
 
     CHARACTER(len=LEN(message_text)) :: write_text
 
-    CHARACTER*10 ctime
+    CHARACTER(len=10) :: ctime
+    CHARACTER(len=8)  :: cdate
  
     IF (PRESENT(all_print)) THEN
       lprint = all_print
@@ -325,9 +326,9 @@ CONTAINS
 
     IF (lactive) THEN
       IF (msg_timestamp) THEN
-        CALL DATE_AND_TIME(time=ctime)
-        WRITE(iout,'(1x,a)') ctime//':'//TRIM(write_text)
-        IF (l_log) WRITE(nlog,'(1x,a)') ctime//':'//TRIM(write_text)
+        CALL DATE_AND_TIME(date=cdate,time=ctime)
+        WRITE(iout,'(a)') '['//cdate//' '//ctime//'] '//TRIM(write_text)
+        IF (l_log) WRITE(nlog,'(a)') '['//cdate//' '//ctime//']: '//TRIM(write_text)
       ELSE
         WRITE(iout,'(1x,a)') TRIM(write_text)
         IF (l_log) WRITE(nlog,'(1x,a)') TRIM(write_text)
