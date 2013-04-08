@@ -108,9 +108,9 @@ MODULE mo_run_config
     ! Non-Namelist variables
     ! These are read from the grid file in mo_model_domimp_patches/read_basic_patch
     ! 
-    INTEGER :: center   (MAX_DOM)            !< patch generating center
-    INTEGER :: subcenter(MAX_DOM)            !< patch generating subcenter
-    INTEGER :: number_of_grid_used(MAX_DOM)  !< Number of grid used (GRIB2 key)
+    INTEGER :: center   (0:MAX_DOM)            !< patch generating center
+    INTEGER :: subcenter(0:MAX_DOM)            !< patch generating subcenter
+    INTEGER :: number_of_grid_used(0:MAX_DOM)  !< Number of grid used (GRIB2 key)
 
 
     ! Derived variables
