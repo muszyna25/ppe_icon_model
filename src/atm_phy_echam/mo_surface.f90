@@ -294,6 +294,12 @@ CONTAINS
     LOGICAL  :: lfland(kbdim)
     INTEGER  :: ilsm(kbdim)
     REAL(wp)  :: surface_temperature_last(kbdim)
+    REAL(wp)  :: pcair_temp(kbdim), pcsat_temp(kbdim)
+    REAL(wp)  :: surface_temperature_temp(kbdim)
+    REAL(wp)  :: surface_temperature_rad_temp(kbdim)
+    REAL(wp)  :: sat_surface_specific_humidity_temp(kbdim)
+    REAL(wp) :: albvisdir_temp(kbdim), albnirdir_temp(kbdim)
+    REAL(wp) :: albvisdif_temp(kbdim), albnirdif_temp(kbdim)
     INTEGER  :: jsfc, jk, jkm1, im, k
     REAL(wp) :: se_sum(kbdim), qv_sum(kbdim), wgt_sum(kbdim), wgt(kbdim)
     REAL(wp) :: zca(kbdim,ksfc_type), zcs(kbdim,ksfc_type)
@@ -366,17 +372,17 @@ CONTAINS
       & q_acoef          = zen_qv(1:kproma, idx_lnd),                        & ! in
       & q_bcoef          = zfn_qv(1:kproma, idx_lnd),                        & ! in
       & cos_zenith_angle = pcosmu0(1:kproma),                                & ! in
-      & t_srf            = surface_temperature(1:kproma),                    & ! out
-      & t_rad_srf        = surface_temperature_rad(1:kproma),                & ! out
-      & qsat_srf         = sat_surface_specific_humidity(1:kproma),          & ! out
-      & fact_q_air       = pcair(1:kproma),                                  & ! out
-      & fact_qsat_srf    = pcsat(1:kproma),                                  & ! out
+      & t_srf            = surface_temperature_temp(1:kproma),                    & ! out
+      & t_rad_srf        = surface_temperature_rad_temp(1:kproma),                & ! out
+      & qsat_srf         = sat_surface_specific_humidity_temp(1:kproma),          & ! out
+      & fact_q_air       = pcair_temp(1:kproma),                                  & ! out
+      & fact_qsat_srf    = pcsat_temp(1:kproma),                                  & ! out
 !!$                          & zh_srf           =
 !!$                          & zm_srf           =
-      & alb_vis_dir      = albvisdir(1:kproma),                              & ! out
-      & alb_nir_dir      = albnirdir(1:kproma),                              & ! out
-      & alb_vis_dif      = albvisdif(1:kproma),                              & ! out
-      & alb_nir_dif      = albnirdif(1:kproma)                               & ! out
+      & alb_vis_dir      = albvisdir_temp(1:kproma),                              & ! out
+      & alb_nir_dir      = albnirdir_temp(1:kproma),                              & ! out
+      & alb_vis_dif      = albvisdif_temp(1:kproma),                              & ! out
+      & alb_nir_dif      = albnirdif_temp(1:kproma)                               & ! out
       )
 
     CALL jsbach_inter_1d (kdim = kproma,                                   &
