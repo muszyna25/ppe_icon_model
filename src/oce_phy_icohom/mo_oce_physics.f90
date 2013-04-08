@@ -61,7 +61,7 @@ USE mo_ocean_nml,           ONLY: n_zlev, bottom_drag_coeff, k_veloc_h, k_veloc_
 USE mo_parallel_config,     ONLY: nproma
 USE mo_model_domain,        ONLY: t_patch, t_patch_3D
 USE mo_impl_constants,      ONLY: success, max_char_length, MIN_DOLIC, SEA
-USE mo_exception,           ONLY: message, finish
+USE mo_exception,           ONLY: message, message_text, finish
 USE mo_util_dbg_prnt,       ONLY: dbg_print
 USE mo_oce_state,           ONLY: t_hydro_ocean_state, oce_config!, v_base
 USE mo_physical_constants,  ONLY: grav, rho_ref, SItodBar,sal_ref
@@ -194,7 +194,9 @@ CONTAINS
         ENDIF
 
         p_phys_param%K_veloc_h(:,:,:) = p_phys_param%K_veloc_h_back
-        write(0,*)'lower bound of diffusivity:',z_lower_bound_diff
+        !write(0,*)'lower bound of diffusivity:',z_lower_bound_diff
+        WRITE(message_text,'(a,g25.16)') 'Lower bound of diffusivity:',z_lower_bound_diff
+        CALL message ('init_ho_params', message_text)
 
       CASE(2)!calculate uniform viscosity coefficient, according to Munk criterion
 
