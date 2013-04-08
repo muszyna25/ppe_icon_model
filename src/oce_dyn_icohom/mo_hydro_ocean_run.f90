@@ -306,14 +306,14 @@ CONTAINS
 
    ! Actually diagnostics for 3D not implemented, PK March 2011
 !TODO re-enable
-   !IF (idiag_oce == 1 ) THEN
-   !  CALL calculate_oce_diagnostics( p_patch(jg),p_patch_3D,    &
-   !                                & p_os(jg),&
-   !                                & p_sfc_flx,     &
-   !                                & p_phys_param,  &
-   !                                & jstep,         &
-   !                                & oce_ts)
-   !ENDIF
+   IF (idiag_oce == 1 ) THEN
+     CALL calculate_oce_diagnostics( p_patch_3D,    &
+                                   & p_os(jg),      &
+                                   & p_sfc_flx,     &
+                                   & p_phys_param,  &
+                                   & jstep,         &
+                                   & oce_ts)
+   ENDIF
 
     ! One integration cycle finished on the lowest grid level (coarsest
     ! resolution). Set model time.

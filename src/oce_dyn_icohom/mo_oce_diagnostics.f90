@@ -68,6 +68,7 @@ MODULE mo_oce_diagnostics
   USE mo_grib2
   USE mo_cdi_constants
   USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff
+  USE mo_io_units,           ONLY: find_next_free_unit
 IMPLICIT NONE
 
 !PRIVATE
@@ -116,11 +117,10 @@ CONTAINS
 ! @par Revision History
 ! Developed  by  Peter Korn, MPI-M (2010).
 ! 
-SUBROUTINE calculate_oce_diagnostics(p_patch_3D, p_os, p_op_coeff,p_sfc_flx, p_phys_param, timestep, oce_ts)
+SUBROUTINE calculate_oce_diagnostics(p_patch_3D, p_os, p_sfc_flx, p_phys_param, timestep, oce_ts)
 !
 TYPE(t_patch_3D ),TARGET, INTENT(INOUT)    :: p_patch_3D
 TYPE(t_hydro_ocean_state), TARGET          :: p_os
-TYPE(t_operator_coeff)                     :: p_op_coeff
 TYPE(t_sfc_flx), INTENT(INOUT)             :: p_sfc_flx
 TYPE (t_ho_params)                         :: p_phys_param
 INTEGER                                    :: timestep
@@ -129,7 +129,7 @@ TYPE(t_oce_timeseries),POINTER             :: oce_ts
 !Local variables
 INTEGER :: i_startidx_c, i_endidx_c!,i_startblk_c, i_endblk_c,
 INTEGER :: jk,jc,jb!,je
-INTEGER :: i_no_t, i !, z_dolic
+INTEGER :: i_no_t, i, ist,iunit
 REAL(wp) :: prism_vol
 REAL(wp) :: z_w
 INTEGER  :: referenz_timestep
@@ -227,7 +227,7 @@ ELSEIF(iswm_oce==1)THEN
     DO jc =  i_startidx_c, i_endidx_c
       IF ( p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary ) THEN
         prism_vol = p_patch%cells%area(jc,jb)*p_patch_3D%p_patch_1D(1)%prism_thick_c(jc,1,jb)
-        prism_vol = p_op_coeff%fixed_vol_norm(jc,1,jb)*p_patch_3D%p_patch_1D(1)%prism_thick_c(jc,1,jb)!p_os%p_prog(nold(1))%h(jc,jb)
+        !prism_vol = p_op_coeff%fixed_vol_norm(jc,1,jb)*p_patch_3D%p_patch_1D(1)%prism_thick_c(jc,1,jb)!p_os%p_prog(nold(1))%h(jc,jb)
         ptr_monitor%volume = ptr_monitor%volume + prism_vol
 
 
@@ -264,27 +264,29 @@ ELSEIF(iswm_oce==1)THEN
 !   ptr_monitor%total_energy = ptr_monitor%pot_energy + ptr_monitor%kin_energy
 ENDIF
 
+iunit = find_next_free_unit(10,99)
+OPEN (unit=iunit,file='oce_diagnostics.txt',IOSTAT=ist)
 DO i=timestep,timestep
-  write(0,*)'ACTUAL VALUES OF VOLUME NORMALIZED BY INITIAL VALUE:          ', i,&
+  write(iunit,*)'ACTUAL VALUES OF VOLUME NORMALIZED BY INITIAL VALUE:          ', i,&
   &oce_ts%oce_diagnostics(i)%volume/oce_ts%oce_diagnostics(1)%volume
 
   IF(oce_ts%oce_diagnostics(1)%kin_energy/=0.0_wp)THEN
-    write(0,*)'ACTUAL VALUES OF KINETIC ENERGY NORMALIZED BY INITIAL VALUE:  ',  i,&
+    write(iunit,*)'ACTUAL VALUES OF KINETIC ENERGY NORMALIZED BY INITIAL VALUE:  ',  i,&
     &oce_ts%oce_diagnostics(i)%kin_energy/ oce_ts%oce_diagnostics(1)%kin_energy
   ENDIF
 
   IF(oce_ts%oce_diagnostics(1)%pot_energy/=0.0_wp)THEN
-    write(0,*)'ACTUAL VALUES OF POTENTIAL ENERGY NORMALIZED BY INITIAL VALUE:',i,&
+    write(iunit,*)'ACTUAL VALUES OF POTENTIAL ENERGY NORMALIZED BY INITIAL VALUE:',i,&
     &oce_ts%oce_diagnostics(i)%pot_energy/ oce_ts%oce_diagnostics(1)%pot_energy
   ENDIF
 
   IF(oce_ts%oce_diagnostics(1)%total_energy/=0.0_wp)THEN
-    write(0,*)'ACTUAL VALUES OF TOTAL ENERGY NORMALIZED BY INITIAL VALUE:    ',i,&
+    write(iunit,*)'ACTUAL VALUES OF TOTAL ENERGY NORMALIZED BY INITIAL VALUE:    ',i,&
     &oce_ts%oce_diagnostics(i)%total_energy/ oce_ts%oce_diagnostics(1)%total_energy
   ENDIF
   DO i_no_t=1, no_tracer
     IF(oce_ts%oce_diagnostics(1)%tracer_content(i_no_t)/=0.0_wp)THEN
-      write(0,*)'ACTUAL VALUES OF TOTAL TRACER CONTENT:                        ',i_no_t,i,&
+      write(iunit,*)'ACTUAL VALUES OF TOTAL TRACER CONTENT:                        ',i_no_t,i,&
       &oce_ts%oce_diagnostics(i)%tracer_content(i_no_t)&
       &/ oce_ts%oce_diagnostics(1)%tracer_content(i_no_t)
 
@@ -314,7 +316,7 @@ END DO
 !     ENDIF
 
     IF(oce_ts%oce_diagnostics(1)%total_energy/=0.0_wp)THEN
-      write(1234,*)'ACTUAL VALUES OF TOTAL ENERGY NORMALIZED BY INITIAL VALUE:    ',i,&
+      write(iunit,*)'ACTUAL VALUES OF TOTAL ENERGY NORMALIZED BY INITIAL VALUE:    ',i,&
       &oce_ts%oce_diagnostics(i)%total_energy&
       &/ oce_ts%oce_diagnostics(referenz_timestep)%total_energy,&
 & (oce_ts%oce_diagnostics(i)%total_energy/ oce_ts%oce_diagnostics(referenz_timestep)%total_energy&
@@ -322,12 +324,13 @@ END DO
     ENDIF
      DO i_no_t=1, no_tracer
        IF(oce_ts%oce_diagnostics(1)%tracer_content(i_no_t)/=0.0_wp)THEN
-         write(1234,*)'ACTUAL VALUES OF TOTAL TRACER CONTENT:                        ',i_no_t,i,&
+         write(iunit,*)'ACTUAL VALUES OF TOTAL TRACER CONTENT:                        ',i_no_t,i,&
          &oce_ts%oce_diagnostics(i)%tracer_content(i_no_t)&
          &/ oce_ts%oce_diagnostics(referenz_timestep)%tracer_content(i_no_t)
        ENDIF
     END DO
   END DO
+    CLOSE(unit=iunit)
 !ENDIF
 !CALL message (TRIM(routine), 'end')
 END SUBROUTINE calculate_oce_diagnostics
