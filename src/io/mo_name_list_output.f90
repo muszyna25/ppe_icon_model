@@ -2040,7 +2040,8 @@ CONTAINS
       CALL gridDefUUID(of%cdiCellGridID, patch_info(i_dom)%grid_uuid%data)
       !
       ! works, but makes no sense, yet. Proper grid numbers still missing
-      CALL gridDefNumber(of%cdiCellGridID, patch_info(i_dom)%number_of_grid_used)
+!DR      CALL gridDefNumber(of%cdiCellGridID, patch_info(i_dom)%number_of_grid_used)
+      CALL gridDefNumber(of%cdiCellGridID, 42)
 
       !
       ! not clear whether meta-info GRID_CELL or GRID_UNSTRUCTURED_CELL should be used
@@ -2062,7 +2063,8 @@ CONTAINS
       CALL gridDefUUID(of%cdiVertGridID, patch_info(i_dom)%grid_uuid%data)
       !
       ! works, but makes no sense, yet. Proper grid numbers still missing
-      CALL gridDefNumber(of%cdiVertGridID, patch_info(i_dom)%number_of_grid_used)
+!DR      CALL gridDefNumber(of%cdiVertGridID, patch_info(i_dom)%number_of_grid_used)
+      CALL gridDefNumber(of%cdiVertGridID, 42)
 
       !
       ! not clear whether meta-info GRID_VERTEX or GRID_UNSTRUCTURED_VERTEX should be used
@@ -2084,7 +2086,8 @@ CONTAINS
       CALL gridDefUUID(of%cdiEdgeGridID, patch_info(i_dom)%grid_uuid%data)
       !
       ! works, but makes no sense, yet. Proper grid numbers still missing
-      CALL gridDefNumber(of%cdiEdgeGridID, patch_info(i_dom)%number_of_grid_used)
+!DR      CALL gridDefNumber(of%cdiEdgeGridID, patch_info(i_dom)%number_of_grid_used)
+      CALL gridDefNumber(of%cdiEdgeGridID, 42)
 
       !
       ! not clear whether meta-info GRID_EDGE or GRID_UNSTRUCTURED_EDGE should be used
