@@ -238,6 +238,15 @@ MODULE mo_gridref
   !
 
   !-------------------------------------------------------------------------
+  ! meta data descriptors
+  CHARACTER(len=*), PARAMETER :: uri_pathname = 'http://icon-downloads.mpimet.mpg.de/grids/public/'
+  INTEGER :: number_of_grid_used     ! index for reference to xml table for grib2, 0 for private use
+  INTEGER :: centre                  ! centre running the grid generator: 78 - edzw (DWD), 252 - MPIM
+  INTEGER :: subcentre               ! subcentre to be assigned by centre, usually 0
+  !
+  INTEGER :: annotate_level          ! which grid level to annotate
+  !
+  !-------------------------------------------------------------------------
 
 CONTAINS
 
@@ -263,6 +272,8 @@ CONTAINS
     NAMELIST /gridref_ini/ grid_root, start_lev, n_dom, parent_id, l_plot,   &
       & l_circ, l_rotate, radius, center_lon, center_lat, n_phys_dom,        &
       & hwidth_lon, hwidth_lat, write_hierarchy, bdy_indexing_depth, logical_id
+    NAMELIST /gridref_metadata/ number_of_grid_used, centre, subcentre, &
+      & annotate_level
 
     ! set default values for gridref_ini
     grid_root  = 2
@@ -291,6 +302,11 @@ CONTAINS
     hwidth_lat = 20.0_wp
     hwidth_lon = 20.0_wp
 
+    ! set default values for grid_options
+    number_of_grid_used = 0
+    centre = 65535                ! missing value from WMO common code table C-11
+    subcentre = 0
+    annotate_level = start_lev    ! level to annotate, to allow definition of higher level nests
 
     ! copy default values to "default" variables
     grid_root_d  = grid_root
@@ -321,6 +337,11 @@ CONTAINS
     CALL position_nml('gridref_ini',STATUS=i_status)
     IF (i_status == positioned) THEN
       READ (nnml,gridref_ini)
+    ENDIF
+
+    CALL position_nml('gridref_metadata', STATUS=i_status)
+    IF (i_status == positioned) THEN
+      READ (nnml,gridref_metadata)
     ENDIF
 
     CLOSE(nnml)
@@ -422,62 +443,62 @@ CONTAINS
 
     CALL message ('', '')
     WRITE(message_text,'(a)')'Namelist Group: gridref_ini'
-    CALL message ('', TRIM(message_text))
+    CALL message ('', message_text)
     WRITE(message_text,'(a)')'-----------------------------'
-    CALL message ('', TRIM(message_text))
+    CALL message ('', message_text)
     WRITE(message_text,'(t7,a,t28,a,t43,a,t59,a )') 'Variable', 'Actual Value','Default Value'
-    CALL message ('', TRIM(message_text))
+    CALL message ('', message_text)
     WRITE(message_text,'(t8,a,t28,i12,t44,i12,t60,a3)') 'grid_root', grid_root, grid_root_d
-    CALL message ('', TRIM(message_text))
+    CALL message ('', message_text)
     WRITE(message_text,'(t8,a,t28,i12,t44,i12,t60,a3)') 'start_lev', start_lev, start_lev_d
-    CALL message ('', TRIM(message_text))
+    CALL message ('', message_text)
     WRITE(message_text,'(t8,a,t28,i12,t44,i12,t60,a3)') 'n_dom', n_dom, n_dom_d
-    CALL message ('', TRIM(message_text))
+    CALL message ('', message_text)
     WRITE(message_text,'(t8,a,t28,i12,t44,i12,t60,a3)') 'n_phys_dom', n_phys_dom, n_phys_dom_d
-    CALL message ('', TRIM(message_text))
+    CALL message ('', message_text)
     WRITE(message_text,'(t8,a,t28,l12,t44,l12,t60,a3)') 'l_circ',l_circ, l_circ_d
-    CALL message ('', TRIM(message_text))
+    CALL message ('', message_text)
     WRITE(message_text,'(t8,a,t28,l12,t44,l12,t60,a3)') 'l_rotate',l_rotate, l_rotate_d
-    CALL message ('', TRIM(message_text))
+    CALL message ('', message_text)
     WRITE(message_text,'(t8,a,t28,i12,t44,i12,t60,a3)') 'bdy_indexing_depth', &
                                                          bdy_indexing_depth, bdy_indexing_depth_d
-    CALL message ('', TRIM(message_text))
+    CALL message ('', message_text)
     WRITE(message_text,'(t8,a,t28,i12,t44,i12,t60,a3)') 'write_hierarchy', &
                                                          write_hierarchy, write_hierarchy_d
-    CALL message ('', TRIM(message_text))
+    CALL message ('', message_text)
 
     DO i = 2, n_phys_dom
       j = i - 1
       WRITE(message_text,'(a)')''
-      CALL message ('', TRIM(message_text))
+      CALL message ('', message_text)
       WRITE(message_text,'(a,i3)')'Domain-specific settings for nest', j
-      CALL message ('', TRIM(message_text))
+      CALL message ('', message_text)
       WRITE(message_text,'(a)')'--------------------------------'
-      CALL message ('', TRIM(message_text))
+      CALL message ('', message_text)
       WRITE(message_text,'(t7,a,t28,a,t43,a,t59,a )') &
         & 'Variable', 'Actual Value', 'Default Value'
-      CALL message ('', TRIM(message_text))
+      CALL message ('', message_text)
       WRITE(message_text,'(t8,a,t28,i12,t44,i12,t60,a3)') &
         & 'parent_id',parent_id(j), parent_id_d(j)
-      CALL message ('', TRIM(message_text))
+      CALL message ('', message_text)
       WRITE(message_text,'(t8,a,t28,i12,t44,i12,t60,a3)') &
         & 'logical_id',logical_id(j), logical_id_d(j)
-      CALL message ('', TRIM(message_text))
+      CALL message ('', message_text)
       WRITE(message_text,'(t8,a,t28,f12.4,t44,f12.4,t60,a3)') &
         & 'radius', radius(j), radius_d(j)
-      CALL message ('', TRIM(message_text))
+      CALL message ('', message_text)
       WRITE(message_text,'(t8,a,t28,f12.4,t44,f12.4,t60,a3)') &
         & 'center_lat', center_lat(j), center_lat_d(j)
-      CALL message ('', TRIM(message_text))
+      CALL message ('', message_text)
       WRITE(message_text,'(t8,a,t28,f12.4,t44,f12.4,t60,a3)') &
         & 'center_lon', center_lon(j), center_lon_d(j)
-      CALL message ('', TRIM(message_text))
+      CALL message ('', message_text)
       WRITE(message_text,'(t8,a,t28,f12.4,t44,f12.4,t60,a3)') &
         & 'hwidth_lat', hwidth_lat(j), hwidth_lat_d(j)
-      CALL message ('', TRIM(message_text))
+      CALL message ('', message_text)
       WRITE(message_text,'(t8,a,t28,f12.4,t44,f12.4,t60,a3)') &
         & 'hwidth_lon', hwidth_lon(j), hwidth_lon_d(j)
-      CALL message ('', TRIM(message_text))
+      CALL message ('', message_text)
       CALL message ('', '')
     ENDDO
 
@@ -2386,8 +2407,8 @@ CONTAINS
     WRITE(filename,'(a,i0,2(a,i2.2),a)') &
       & 'iconR', grid_root, 'B', p%level, '_DOM', dom_id, '.nc'
 
-    WRITE(message_text,'(a,a)') 'Write gridmap file: ', TRIM(filename)
-    CALL message ('', TRIM(message_text))
+    WRITE(message_text,'(a,a)') 'Write ICON grid file: ', TRIM(filename)
+    CALL message ('', message_text)
 
 #ifdef __SX__
     command_line = ''
@@ -2411,6 +2432,15 @@ CONTAINS
       & 'Max Planck Institute for Meteorology/Deutscher Wetterdienst'))
     CALL nf(nf_put_att_text    (ncid, nf_global, 'source', 10, 'icon-dev'))
     CALL nf(nf_put_att_text    (ncid, nf_global, 'uuidOfHGrid' , uuid_string_length, TRIM(uuid_string)))
+
+    IF (number_of_grid_used == 0) THEN
+      CALL message('','number_of_grid_used is 0 and cannot be added to the ICON master grid table')
+    ENDIF
+    CALL nf(nf_put_att_int   (ncid, nf_global, 'number_of_grid_used', nf_int, 1, number_of_grid_used+dom_id-1))
+    CALL nf(nf_put_att_text  (ncid, nf_global, 'ICON_grid_file_uri' , &
+         &                                      LEN_TRIM(uri_pathname//TRIM(filename)), TRIM(uri_pathname//TRIM(filename))))
+    CALL nf(nf_put_att_int     (ncid, nf_global, 'centre', nf_int, 1, centre))
+    CALL nf(nf_put_att_int     (ncid, nf_global, 'subcentre', nf_int, 1, subcentre))
     CALL nf(nf_put_att_text    (ncid, nf_global, 'grid_mapping_name' , 18, 'lat_long_on_sphere'))
     CALL nf(nf_put_att_text    (ncid, nf_global, 'crs_id' , 28, 'urn:ogc:def:cs:EPSG:6.0:6422'))
     CALL nf(nf_put_att_text    (ncid, nf_global, 'crs_name', 30,'Spherical 2D Coordinate System'))
@@ -3123,7 +3153,7 @@ CONTAINS
       & 'iconR', grid_root, 'B', g%level, '.nc'
 
     WRITE(message_text,'(a,a)') 'Write gridmap file: ', TRIM(filename)
-    CALL message ('', TRIM(message_text))
+    CALL message ('', message_text)
 
 #ifdef __SX__
     command_line = ''
@@ -3392,17 +3422,17 @@ CONTAINS
 
       WRITE(message_text,'(a,3i5)')'domain ID, parent grid level, nest level, ',&
         & nest_id,ilev,nest_lev
-      CALL message ('', TRIM(message_text))
+      CALL message ('', message_text)
 
       ALLOCATE(ptr_list%ip(1:4*i_nc), ptr_inv_list%ip(1:4*i_nc), stat=ist)
       IF(ist/=0)THEN
         WRITE(message_text,'(a,i5)')'allocate list failed', ist
-        CALL message ('', TRIM(message_text))
+        CALL message ('', message_text)
       ENDIF
       ALLOCATE(ptr_parent_list%ip(1:i_nc), ptr_inv_parent_list%ip(1:i_nc), stat=ist)
       IF(ist/=0)THEN
         WRITE(message_text,'(a,i5)')'allocate parent list failed', ist
-        CALL message ('', TRIM(message_text))
+        CALL message ('', message_text)
       ENDIF
 
       cc=>gg(ilev)%cells
@@ -4047,10 +4077,10 @@ CONTAINS
       ENDDO
 
       WRITE(message_text,'(a,i5)')'diagnostic output for physical domain ', nest_id
-      CALL message ('', TRIM(message_text))
+      CALL message ('', message_text)
       WRITE(message_text,'(a,2i9)')'number of grid points and parent grid points:', &
         & n_phys_patch_count(nest_id),n_phys_parent_count(nest_id)
-      CALL message ('', TRIM(message_text))
+      CALL message ('', message_text)
 
       IF (n_phys_patch_count(nest_id) < 250 ) THEN
         CALL finish ('setup_index_lists', &
@@ -4123,12 +4153,12 @@ CONTAINS
       ALLOCATE(ptr_list%ip(1:4*i_nc), ptr_inv_list%ip(1:4*i_nc), stat=ist)
       IF(ist/=0)THEN
         WRITE(message_text,'(a,i5)')'allocate list failed', ist
-        CALL message ('', TRIM(message_text))
+        CALL message ('', message_text)
       ENDIF
       ALLOCATE(ptr_parent_list%ip(1:i_nc), ptr_inv_parent_list%ip(1:i_nc), stat=ist)
       IF(ist/=0)THEN
         WRITE(message_text,'(a,i5)')'allocate parent list failed', ist
-        CALL message ('', TRIM(message_text))
+        CALL message ('', message_text)
       ENDIF
 
       ptr_list%ip(:) = 0
@@ -4226,11 +4256,11 @@ CONTAINS
       ENDDO
 
       WRITE(message_text,'(a,i5)')'diagnostic output for logical domain ', idom
-      CALL message ('', TRIM(message_text))
+      CALL message ('', message_text)
       WRITE(message_text,'(a,2i9,i5)') &
         & 'number of grid points, parent grid points and physical domains:', &
         & n_patch_count(idom),n_parent_count(idom),n_physdom(idom)
-      CALL message ('', TRIM(message_text))
+      CALL message ('', message_text)
 
     ENDDO dom_loop
 
