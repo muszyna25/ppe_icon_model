@@ -22,6 +22,10 @@
 
 echo "INIT_SVN.SMS"
 
+#use new SVN version
+export PATH=/usr/local/apps/subversion/subversion-1.6.11/bin:$PATH
+
+
 #if [ "%SVN_UPDATE%" -eq "1" ]
 #then
 

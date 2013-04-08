@@ -20,11 +20,15 @@
 
 # -------------------------------------------------
 
+echo "INIT_BUILD.SMS"
+
 module swap fortran fortran/xlf/14.1.0.2
 
 arch=rs6000-ibm-aix
 
-echo "INIT_BUILD.SMS"
+#use new SVN version
+export PATH=/usr/local/apps/subversion/subversion-1.6.11/bin:$PATH
+
 
 # Change directory ----------------------------
 cd %SCPERMIII%
