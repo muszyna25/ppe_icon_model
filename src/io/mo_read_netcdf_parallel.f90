@@ -9,7 +9,7 @@
 !!
 !! @par Revision History
 !! Initial version by Rainer Johanni, Nov 2009
-!! Added p_comm_work by Rainer Johanni, Oct 2010
+!! Added p_comm_input_bcast by Rainer Johanni, Oct 2010
 !! CLeanup and adjustment to most recent mpi driving policy by Luis Kornblueh, Mar 2013
 !!
 !! @par Copyright
@@ -52,7 +52,7 @@ MODULE mo_read_netcdf_parallel
 !
 
 USE mo_kind, ONLY: dp
-USE mo_mpi,  ONLY: my_process_is_stdio, p_io, p_bcast, p_comm_work
+USE mo_mpi,  ONLY: p_pe, p_io, p_bcast, p_comm_input_bcast
 
 IMPLICIT NONE
 
@@ -105,7 +105,7 @@ CONTAINS
 !!
 !! @par Revision History
 !! Initial version by Rainer Johanni, Nov 2009
-!! Added p_comm_work by Rainer Johanni, Oct 2010
+!! Added p_comm_input_bcast by Rainer Johanni, Oct 2010
 !!
 INTEGER FUNCTION p_nf_open(path, omode, ncid)
 
@@ -118,13 +118,13 @@ INTEGER FUNCTION p_nf_open(path, omode, ncid)
 
 !-----------------------------------------------------------------------
 
-   IF (my_process_is_stdio()) THEN
+   IF (p_pe == p_io) THEN
       res = nf_open(path, omode, ncid)
    ELSE
       ncid = -1 ! set it to an invalid value
    ENDIF
 
-   CALL p_bcast(res, p_io, p_comm_work)
+   CALL p_bcast(res, p_io, p_comm_input_bcast)
    p_nf_open = res
 
 END FUNCTION p_nf_open
@@ -136,7 +136,7 @@ END FUNCTION p_nf_open
 !!
 !! @par Revision History
 !! Initial version by Rainer Johanni, Nov 2009
-!! Added p_comm_work by Rainer Johanni, Oct 2010
+!! Added p_comm_input_bcast by Rainer Johanni, Oct 2010
 !!
 INTEGER FUNCTION p_nf_close(ncid)
 
@@ -145,11 +145,11 @@ INTEGER FUNCTION p_nf_close(ncid)
 
    INTEGER :: res
 
-   IF (my_process_is_stdio()) THEN
+   IF (p_pe == p_io) THEN
       res = nf_close(ncid)
    ENDIF
 
-   CALL p_bcast(res, p_io, p_comm_work)
+   CALL p_bcast(res, p_io, p_comm_input_bcast)
    p_nf_close = res
 
 END FUNCTION p_nf_close
@@ -164,7 +164,7 @@ END FUNCTION p_nf_close
 !!
 !! @par Revision History
 !! Initial version by Rainer Johanni, Nov 2009
-!! Added p_comm_work by Rainer Johanni, Oct 2010
+!! Added p_comm_input_bcast by Rainer Johanni, Oct 2010
 !!
 INTEGER FUNCTION p_nf_inq_dimid(ncid, name, dimid)
 
@@ -175,14 +175,14 @@ INTEGER FUNCTION p_nf_inq_dimid(ncid, name, dimid)
 
    INTEGER :: res
 
-   IF (my_process_is_stdio()) THEN
+   IF (p_pe == p_io) THEN
       res = nf_inq_dimid(ncid, name, dimid)
    ENDIF
 
-   CALL p_bcast(res, p_io, p_comm_work)
+   CALL p_bcast(res, p_io, p_comm_input_bcast)
    p_nf_inq_dimid = res
 
-   CALL p_bcast(dimid, p_io, p_comm_work)
+   CALL p_bcast(dimid, p_io, p_comm_input_bcast)
 
 END FUNCTION p_nf_inq_dimid
 
@@ -193,7 +193,7 @@ END FUNCTION p_nf_inq_dimid
 !!
 !! @par Revision History
 !! Initial version by Rainer Johanni, Nov 2009
-!! Added p_comm_work by Rainer Johanni, Oct 2010
+!! Added p_comm_input_bcast by Rainer Johanni, Oct 2010
 !!
 INTEGER FUNCTION p_nf_inq_dimlen(ncid, dimid, len)
 
@@ -206,14 +206,14 @@ INTEGER FUNCTION p_nf_inq_dimlen(ncid, dimid, len)
 
 !-----------------------------------------------------------------------
 
-   IF (my_process_is_stdio()) THEN
+   IF (p_pe == p_io) THEN
       res = nf_inq_dimlen(ncid, dimid, len)
    ENDIF
 
-   CALL p_bcast(res, p_io, p_comm_work)
+   CALL p_bcast(res, p_io, p_comm_input_bcast)
    p_nf_inq_dimlen = res
 
-   CALL p_bcast(len, p_io, p_comm_work)
+   CALL p_bcast(len, p_io, p_comm_input_bcast)
 
 END FUNCTION p_nf_inq_dimlen
 
@@ -224,7 +224,7 @@ END FUNCTION p_nf_inq_dimlen
 !!
 !! @par Revision History
 !! Initial version by Rainer Johanni, Nov 2009
-!! Added p_comm_work by Rainer Johanni, Oct 2010
+!! Added p_comm_input_bcast by Rainer Johanni, Oct 2010
 !!
 INTEGER FUNCTION p_nf_inq_varid(ncid, name, varid)
 
@@ -236,14 +236,14 @@ INTEGER FUNCTION p_nf_inq_varid(ncid, name, varid)
    INTEGER :: res
 
 
-   IF (my_process_is_stdio()) THEN
+   IF (p_pe == p_io) THEN
       res = nf_inq_varid(ncid, name, varid)
    ENDIF
 
-   CALL p_bcast(res, p_io, p_comm_work)
+   CALL p_bcast(res, p_io, p_comm_input_bcast)
    p_nf_inq_varid = res
 
-   CALL p_bcast(varid, p_io, p_comm_work)
+   CALL p_bcast(varid, p_io, p_comm_input_bcast)
 
 END FUNCTION p_nf_inq_varid
 
@@ -262,14 +262,14 @@ INTEGER FUNCTION p_nf_get_att_text(ncid, varid, name, tval)
   
   INTEGER :: res
   
-  IF  (my_process_is_stdio()) THEN
+  IF  (p_pe == p_io) THEN
     res = nf_get_att_text(ncid, varid, name, tval)
   ENDIF
 
-  CALL p_bcast(res, p_io, p_comm_work)
+  CALL p_bcast(res, p_io, p_comm_input_bcast)
   p_nf_get_att_text = res
   
-  CALL p_bcast(tval, p_io, p_comm_work)
+  CALL p_bcast(tval, p_io, p_comm_input_bcast)
 
 END FUNCTION p_nf_get_att_text
 !-----------------------------------------------------------
@@ -290,14 +290,14 @@ INTEGER FUNCTION p_nf_get_att_double_single(ncid, varid, name, dvalue)
 
    INTEGER :: res
 
-   IF (my_process_is_stdio()) THEN
+   IF (p_pe == p_io) THEN
       res = nf_get_att_double(ncid, varid, name, dvalue)
    ENDIF
 
-   CALL p_bcast(res, p_io, p_comm_work)
+   CALL p_bcast(res, p_io, p_comm_input_bcast)
    p_nf_get_att_double_single = res
 
-   CALL p_bcast(dvalue, p_io, p_comm_work)
+   CALL p_bcast(dvalue, p_io, p_comm_input_bcast)
 
 END FUNCTION p_nf_get_att_double_single
 !-----------------------------------------------------------------------
@@ -318,14 +318,14 @@ INTEGER FUNCTION p_nf_get_att_double_array(ncid, varid, name, dvalue)
 
    INTEGER :: res
 
-   IF (my_process_is_stdio()) THEN
+   IF (p_pe == p_io) THEN
       res = nf_get_att_double(ncid, varid, name, dvalue)
    ENDIF
 
-   CALL p_bcast(res, p_io, p_comm_work)
+   CALL p_bcast(res, p_io, p_comm_input_bcast)
    p_nf_get_att_double_array = res
 
-   CALL p_bcast(dvalue, p_io, p_comm_work)
+   CALL p_bcast(dvalue, p_io, p_comm_input_bcast)
 
 END FUNCTION p_nf_get_att_double_array
 !-----------------------------------------------------------------------
@@ -337,7 +337,7 @@ END FUNCTION p_nf_get_att_double_array
 !!
 !! @par Revision History
 !! Initial version by Rainer Johanni, Nov 2009
-!! Added p_comm_work by Rainer Johanni, Oct 2010
+!! Added p_comm_input_bcast by Rainer Johanni, Oct 2010
 !!
 INTEGER FUNCTION p_nf_get_att_int_0(ncid, varid, name, ivals)
 
@@ -350,14 +350,14 @@ INTEGER FUNCTION p_nf_get_att_int_0(ncid, varid, name, ivals)
 
 !-----------------------------------------------------------------------
 
-   IF (my_process_is_stdio()) THEN
+   IF (p_pe == p_io) THEN
       res = nf_get_att_int(ncid, varid, name, ivals)
    ENDIF
 
-   CALL p_bcast(res, p_io, p_comm_work)
+   CALL p_bcast(res, p_io, p_comm_input_bcast)
    p_nf_get_att_int_0 = res
 
-   CALL p_bcast(ivals, p_io, p_comm_work)
+   CALL p_bcast(ivals, p_io, p_comm_input_bcast)
 
 END FUNCTION p_nf_get_att_int_0
 
@@ -368,7 +368,7 @@ END FUNCTION p_nf_get_att_int_0
 !!
 !! @par Revision History
 !! Initial version by Rainer Johanni, Nov 2009
-!! Added p_comm_work by Rainer Johanni, Oct 2010
+!! Added p_comm_input_bcast by Rainer Johanni, Oct 2010
 !!
 INTEGER FUNCTION p_nf_get_att_int_1(ncid, varid, name, ivals)
 
@@ -382,14 +382,14 @@ INTEGER FUNCTION p_nf_get_att_int_1(ncid, varid, name, ivals)
 
 !-----------------------------------------------------------------------
 
-   IF (my_process_is_stdio()) THEN
+   IF (p_pe == p_io) THEN
       ! First get the length of the attribute
       res = nf_inq_attlen (ncid, varid, name, len)
       IF(res == nf_noerr) &
          res = nf_get_att_int(ncid, varid, name, ivals)
    ENDIF
 
-   CALL p_bcast(res, p_io, p_comm_work)
+   CALL p_bcast(res, p_io, p_comm_input_bcast)
    p_nf_get_att_int_1 = res
 
    ! If there was an error, don't try to broadcast the values
@@ -398,8 +398,8 @@ INTEGER FUNCTION p_nf_get_att_int_1(ncid, varid, name, ivals)
 
    ! Broadcast number of values and values themselves
 
-   CALL p_bcast(len, p_io, p_comm_work)
-   CALL p_bcast(ivals(1:len), p_io, p_comm_work)
+   CALL p_bcast(len, p_io, p_comm_input_bcast)
+   CALL p_bcast(ivals(1:len), p_io, p_comm_input_bcast)
 
 END FUNCTION p_nf_get_att_int_1
 
@@ -410,7 +410,7 @@ END FUNCTION p_nf_get_att_int_1
 !!
 !! @par Revision History
 !! Initial version by Rainer Johanni, Nov 2009
-!! Added p_comm_work by Rainer Johanni, Oct 2010
+!! Added p_comm_input_bcast by Rainer Johanni, Oct 2010
 !!
 INTEGER FUNCTION p_nf_get_var_int(ncid, varid, ivals)
 
@@ -420,7 +420,7 @@ INTEGER FUNCTION p_nf_get_var_int(ncid, varid, ivals)
    INTEGER :: res, len, ndims, dimids(NF_MAX_VAR_DIMS), dimlen, i
 
 
-   IF (my_process_is_stdio()) THEN
+   IF (p_pe == p_io) THEN
 
       ! First get the length of the array
 
@@ -442,7 +442,7 @@ INTEGER FUNCTION p_nf_get_var_int(ncid, varid, ivals)
 
 9999 CONTINUE
 
-   CALL p_bcast(res, p_io, p_comm_work)
+   CALL p_bcast(res, p_io, p_comm_input_bcast)
    p_nf_get_var_int = res
 
    ! If there was an error, don't try to broadcast the values
@@ -451,8 +451,8 @@ INTEGER FUNCTION p_nf_get_var_int(ncid, varid, ivals)
 
    ! Broadcast number of values and values themselves
 
-   CALL p_bcast(len, p_io, p_comm_work)
-   CALL p_bcast(ivals(1:len), p_io, p_comm_work)
+   CALL p_bcast(len, p_io, p_comm_input_bcast)
+   CALL p_bcast(ivals(1:len), p_io, p_comm_input_bcast)
 
 END FUNCTION p_nf_get_var_int
 
@@ -463,7 +463,7 @@ END FUNCTION p_nf_get_var_int
 !!
 !! @par Revision History
 !! Initial version by Rainer Johanni, Nov 2009
-!! Added p_comm_work by Rainer Johanni, Oct 2010
+!! Added p_comm_input_bcast by Rainer Johanni, Oct 2010
 !!
 INTEGER FUNCTION p_nf_get_var_double(ncid, varid, dvals)
 
@@ -473,7 +473,7 @@ INTEGER FUNCTION p_nf_get_var_double(ncid, varid, dvals)
 
    INTEGER :: res, len, ndims, dimids(NF_MAX_VAR_DIMS), dimlen, i
 
-   IF (my_process_is_stdio()) THEN
+   IF (p_pe == p_io) THEN
 
       ! First get the length of the array
 
@@ -495,7 +495,7 @@ INTEGER FUNCTION p_nf_get_var_double(ncid, varid, dvals)
 
 9999 CONTINUE
 
-   CALL p_bcast(res, p_io, p_comm_work)
+   CALL p_bcast(res, p_io, p_comm_input_bcast)
    p_nf_get_var_double = res
 
    ! If there was an error, don't try to broadcast the values
@@ -504,8 +504,8 @@ INTEGER FUNCTION p_nf_get_var_double(ncid, varid, dvals)
 
    ! Broadcast number of values and values themselves
 
-   CALL p_bcast(len, p_io, p_comm_work)
-   CALL p_bcast(dvals(1:len), p_io, p_comm_work)
+   CALL p_bcast(len, p_io, p_comm_input_bcast)
+   CALL p_bcast(dvals(1:len), p_io, p_comm_input_bcast)
 
 END FUNCTION p_nf_get_var_double
 
@@ -516,7 +516,7 @@ END FUNCTION p_nf_get_var_double
 !!
 !! @par Revision History
 !! Initial version by Marco Giorgetta, Sept 2010
-!! Added p_comm_work by Rainer Johanni, Oct 2010
+!! Added p_comm_input_bcast by Rainer Johanni, Oct 2010
 !!
 INTEGER FUNCTION p_nf_get_vara_double(ncid, varid, start, count, dvals)
 
@@ -527,7 +527,7 @@ INTEGER FUNCTION p_nf_get_vara_double(ncid, varid, start, count, dvals)
    INTEGER :: res, len, ndims, dimids(NF_MAX_VAR_DIMS), i
 
 
-   IF (my_process_is_stdio()) THEN
+   IF (p_pe == p_io) THEN
 
       ! First get the length of the array
 
@@ -547,7 +547,7 @@ INTEGER FUNCTION p_nf_get_vara_double(ncid, varid, start, count, dvals)
 
 9999 CONTINUE
 
-   CALL p_bcast(res, p_io, p_comm_work)
+   CALL p_bcast(res, p_io, p_comm_input_bcast)
    p_nf_get_vara_double = res
 
    ! If there was an error, don't try to broadcast the values
@@ -556,8 +556,8 @@ INTEGER FUNCTION p_nf_get_vara_double(ncid, varid, start, count, dvals)
 
    ! Broadcast number of values and values themselves
 
-   CALL p_bcast(len, p_io, p_comm_work)
-   CALL p_bcast(dvals(1:len), p_io, p_comm_work)
+   CALL p_bcast(len, p_io, p_comm_input_bcast)
+   CALL p_bcast(dvals(1:len), p_io, p_comm_input_bcast)
 
 END FUNCTION p_nf_get_vara_double
 
