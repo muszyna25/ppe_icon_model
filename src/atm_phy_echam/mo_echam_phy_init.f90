@@ -281,7 +281,7 @@ CONTAINS
              & patch         = p_patch(jg))
            return_pointer => netcdf_read_oncells_2D( &
              & filename      =land_phys_fn,        &
-             & variable_name ='alb',               &
+             & variable_name ='albedo',            &
              & fill_array    = prm_field(jg)% alb(:,:),         &
              & patch         = p_patch(jg))
      ! orography
