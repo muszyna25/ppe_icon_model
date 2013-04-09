@@ -158,51 +158,6 @@ then
     blueln "Tasks per node: $SLURM_TASKS_PER_NODE"
 fi
 
-# ICON experiment name and runtime directory
-
-EXPNAME=r2b4_amip
-
-EXPDIR=${basedir}/experiments/${EXPNAME}
-
-blueln "Experiment name     : $EXPNAME"
-blueln "Experiment directory: $EXPDIR"
-
-# define model timing
-dtime=300                            # time step [s]
-start_date="1978-01-01T00:00:00Z"    # start of experiment
-end_date="1978-01-03T00:00:00Z"      # stop of experiment
-ndays=2                              # experiment duration 
-ndays_restart=1                      # restart every 10 days
-
-# derived model timings
-(( dt_restart = ndays_restart * 86400 ))
-dt_restart=3600
-(( nsteps = ndays * 86400 / dtime ))
-(( dt_diag = 6 * 3600 ))             # global integral output each 6 hours
-(( dt_file = 86400 ))                # 1 day per file
-(( dt_data = 6 * 3600 ))             # write output every 6 hour
-(( dt_rad = 3600 ))                  # compute radiative transfer every other hour
-(( dt_checkpoint = 5 * 86400 ))      # write restart file every 5 days 
-
-# model parameters
-# 1 = hydrost. atm., 2 = non-hydrost. atm., -1 = shallow water model, -2 = hydrost. ocean
-atmo_model_equations=1
-
-# nlev = number of full levels
-nlev=47              
-
-# ECHAM physics
-iforcing=2
-
-# the grid files
-#grids_folder=/pool/data/ICON/grids/private/r2b4_amip
-grids_folder=/home/zmaw/m214089/icon
-atmo_dyn_grids='r2b4_amip.nc'
-#atmo_dyn_grids="iconR2B04-ocean_etopo40_planet.nc"
-
-blueln "Grid directory: $grids_folder"
-blueln "Grid file     : $atmo_dyn_grids"
-
 #__________________________________________________________________________________________________
 # target parameters
 
@@ -319,19 +274,66 @@ bindir="${basedir}/build/$(system ${basedir})/bin"   # binaries
 #__________________________________________________________________________________________________
 # experiment directory, with plenty of space, create if new
 
+# ICON experiment name and runtime directory
+
+EXPNAME=r2b4_amip
+
+EXPDIR=${basedir}/experiments/${EXPNAME}
+
+blueln "Experiment name     : $EXPNAME"
+blueln "Experiment directory: $EXPDIR"
+
 if [[ ! -d ${EXPDIR} ]] ;  then
   mkdir -p ${EXPDIR}
   check_error $? "$LINENO: ${EXPDIR} could not be created ..."
 fi
 
+#__________________________________________________________________________________________________
+# grid files
+
+
 export ICON_BASE_PATH=$basedir
 
-# the namelist filename
-atmo_namelist=NAMELIST_${EXPNAME}
-jsbach_namelist=NAMELIST_jsbach_${EXPNAME}
+#__________________________________________________________________________________________________
+# define the experiment: set variables for ICON namelist
+
+# horizontal grid(s)
+#grids_folder=/pool/data/ICON/grids/private/r2b4_amip
+grids_folder=/home/zmaw/m214089/icon
+atmo_dyn_grids='r2b4_amip.nc'
+
+blueln "Grid directory: $grids_folder"
+blueln "Grid file     : $atmo_dyn_grids"
+
+# vertical grid
+nlev=47              
+
+# define model timing
+dtime=300                            # time step [s]
+start_date="1978-01-01T00:00:00Z"    # start of experiment
+end_date="1978-01-03T00:00:00Z"      # stop of experiment
+ndays=2                              # experiment duration 
+ndays_restart=1                      # restart every 10 days
+
+# derived model timings
+(( dt_restart = ndays_restart * 86400 ))
+dt_restart=3600
+(( nsteps = ndays * 86400 / dtime ))
+(( dt_diag = 6 * 3600 ))             # global integral output each 6 hours
+(( dt_file = 86400 ))                # 1 day per file
+(( dt_data = 6 * 3600 ))             # write output every 6 hour
+(( dt_rad = 3600 ))                  # compute radiative transfer every other hour
+(( dt_checkpoint = 5 * 86400 ))      # write restart file every 5 days 
+
+# dynamical core
+# 1 = hydrost. atm., 2 = non-hydrost. atm.
+atmo_model_equations=1
 
 #__________________________________________________________________________________________________
-# write ICON namelist parameters
+# define the experiment: write ICON namelist parameters
+
+atmo_namelist=NAMELIST_${EXPNAME}
+jsbach_namelist=NAMELIST_jsbach_${EXPNAME}
 
 cat > ${runscriptdir}/${atmo_namelist} << EOF
 !
@@ -354,7 +356,7 @@ cat > ${runscriptdir}/${atmo_namelist} << EOF
  ldynamics        = .TRUE.       ! dynamics                     --> dynamics_ctl, diffusion_ctl
  ltransport       = .TRUE.       ! switch on tracer transport   --> transport_ctl
  ntracer          = 5            ! number of tracers
- iforcing         = ${iforcing}  ! ECHAM physics                --> echam_phy_nml
+ iforcing         = 2            ! ECHAM physics                --> echam_phy_nml
  msg_level        = 10           ! detailed report during integration 
 /
 &ha_testcase_nml
