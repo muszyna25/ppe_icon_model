@@ -679,7 +679,6 @@ run/exp.oce_test_numeric -text
 run/exp.oce_test_parallel -text
 run/exp.ozon -text
 run/exp.pure_adv -text
-run/exp.r2b4_amip -text
 run/exp.r2b4_amip_thunder.run -text
 run/exp.sl_lsmfl -text
 run/exp.test_couple_atmo-ocean -text
