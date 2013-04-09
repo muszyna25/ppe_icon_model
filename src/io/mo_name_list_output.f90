@@ -54,7 +54,7 @@ MODULE mo_name_list_output
     &                                 get_var_tileidx
   USE mo_var_list_element,      ONLY: level_type_ml, level_type_pl, level_type_hl, &
     &                                 level_type_il, lev_type_str
-  USE mo_util_uuid,             ONLY: t_uuid
+  USE mo_util_uuid,             ONLY: t_uuid, uuid2char, uuid_data_length
   ! MPI Communication routines
   USE mo_mpi,                   ONLY: p_send, p_recv, p_bcast, p_barrier, p_stop, &
     &                                 get_my_mpi_work_id, p_max,                  &
@@ -123,7 +123,6 @@ MODULE mo_name_list_output
   USE mo_io_units,            ONLY: find_next_free_unit
   ! post-ops
   USE mo_post_op,             ONLY: perform_post_op
-
 
   IMPLICIT NONE
 
@@ -1917,15 +1916,16 @@ CONTAINS
   SUBROUTINE setup_output_vlist(of)
     TYPE(t_output_file), INTENT(INOUT) :: of
     ! local variables
-    CHARACTER(LEN=*), PARAMETER   :: routine = modname//"::setup_output_vlist"
-    INTEGER                       :: k, nlev, nlevp1, nplev, nzlev, nilev, nzlevp1, znlev_soil, &
-      &                              i_dom, ll_dim(2), gridtype, idate, itime
-    INTEGER                       :: nsoil_jsbach ! JSBACH number of soil layers
-    REAL(wp), ALLOCATABLE         :: levels_i(:), levels_m(:), p_lonlat(:)
-    REAL(dp), ALLOCATABLE         :: levels(:), lbounds(:), ubounds(:)
-    TYPE(t_lon_lat_data), POINTER :: lonlat
-    LOGICAL                       :: lwrite_pzlev
-    TYPE(t_datetime)              :: ini_datetime
+    CHARACTER(LEN=*), PARAMETER     :: routine = modname//"::setup_output_vlist"
+    INTEGER                         :: k, nlev, nlevp1, nplev, nzlev, nilev, nzlevp1, znlev_soil, &
+      &                                i_dom, ll_dim(2), gridtype, idate, itime
+    INTEGER                         :: nsoil_jsbach ! JSBACH number of soil layers
+    REAL(wp), ALLOCATABLE           :: levels_i(:), levels_m(:), p_lonlat(:)
+    REAL(dp), ALLOCATABLE           :: levels(:), lbounds(:), ubounds(:)
+    TYPE(t_lon_lat_data), POINTER   :: lonlat
+    LOGICAL                         :: lwrite_pzlev
+    TYPE(t_datetime)                :: ini_datetime
+    CHARACTER(len=uuid_data_length) :: uuid_string
 
     IF (of%output_type == FILETYPE_GRB2) THEN
       ! since the current CDI-version does not fully support "GRID_UNSTRUCTURED", the
@@ -2037,7 +2037,8 @@ CONTAINS
       CALL gridDefYlongname(of%cdiCellGridID, 'center latitude')
       CALL gridDefYunits(of%cdiCellGridID, 'radian')
       !
-      CALL gridDefUUID(of%cdiCellGridID, patch_info(i_dom)%grid_uuid%data)
+!LK     CALL uuid2char(patch_info(i_dom)%grid_uuid, uuid_string)
+!LK     CALL gridDefUUID(of%cdiCellGridID, uuid_string)
       !
       ! works, but makes no sense, yet. Proper grid numbers still missing
 !DR      CALL gridDefNumber(of%cdiCellGridID, patch_info(i_dom)%number_of_grid_used)
@@ -2060,7 +2061,8 @@ CONTAINS
       CALL gridDefYlongname(of%cdiVertGridID, 'vertex latitude')
       CALL gridDefYunits(of%cdiVertGridID, 'radian')
       !
-      CALL gridDefUUID(of%cdiVertGridID, patch_info(i_dom)%grid_uuid%data)
+!LK      CALL uuid2char(patch_info(i_dom)%grid_uuid, uuid_string)
+!LK      CALL gridDefUUID(of%cdiVertGridID, uuid_string)
       !
       ! works, but makes no sense, yet. Proper grid numbers still missing
 !DR      CALL gridDefNumber(of%cdiVertGridID, patch_info(i_dom)%number_of_grid_used)
@@ -2083,7 +2085,8 @@ CONTAINS
       CALL gridDefYlongname(of%cdiEdgeGridID, 'edge midpoint latitude')
       CALL gridDefYunits(of%cdiEdgeGridID, 'radian')
       !
-      CALL gridDefUUID(of%cdiEdgeGridID, patch_info(i_dom)%grid_uuid%data)
+!LK      CALL uuid2char(patch_info(i_dom)%grid_uuid, uuid_string)
+!LK      CALL gridDefUUID(of%cdiEdgeGridID, uuid_string)
       !
       ! works, but makes no sense, yet. Proper grid numbers still missing
 !DR      CALL gridDefNumber(of%cdiEdgeGridID, patch_info(i_dom)%number_of_grid_used)
