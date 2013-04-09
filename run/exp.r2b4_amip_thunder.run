@@ -160,11 +160,11 @@ fi
 
 # ICON experiment name and runtime directory
 
-EXPNAME=lkm0099
+EXPNAME=r2b4_amip
 
 EXPDIR=${basedir}/experiments/${EXPNAME}
 
-blueln "Experiment: $EXPNAME"
+blueln "Experiment name     : $EXPNAME"
 blueln "Experiment directory: $EXPDIR"
 
 # define model timing
@@ -199,7 +199,7 @@ atmo_dyn_grids='r2b4_amip.nc'
 #atmo_dyn_grids="iconR2B04-ocean_etopo40_planet.nc"
 
 blueln "Grid directory: $grids_folder"
-blueln "Grid file: $atmo_dyn_grids"
+blueln "Grid file     : $atmo_dyn_grids"
 
 #__________________________________________________________________________________________________
 # target parameters
