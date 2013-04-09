@@ -10647,7 +10647,7 @@ void varDefZAxisReference(int nlev, int nvgrid, char *uuid)
 {
   numberOfVerticalLevels = nlev;
   numberOfVerticalGrid = nvgrid;
-  strncpy(uuidVGrid, uuid, 16);
+  memcpy(uuidVGrid, uuid, 16);
 }
 
 
@@ -21651,7 +21651,7 @@ char *gridInqUUID(int gridID, char *uuid)
 
   grid_check_ptr(gridID, gridptr);
 
-  strncpy(uuid, gridptr->uuid, 16);
+  memcpy(uuid, gridptr->uuid, 16);
 
   return (uuid);
 }
@@ -21671,7 +21671,7 @@ void gridDefUUID(int gridID, const char *uuid)
 
   grid_check_ptr(gridID, gridptr);
 
-  strncpy(gridptr->uuid, uuid, 16);
+  memcpy(gridptr->uuid, uuid, 16);
 
   return;
 }
@@ -22994,7 +22994,7 @@ void zaxisDefUUID(int zaxisID, const char *uuid)
 
   zaxis_check_ptr(zaxisID, zaxisptr);
 
-  strncpy(zaxisptr->uuid, uuid, 16);
+  memcpy(zaxisptr->uuid, uuid, 16);
 
   return;
 }
@@ -23022,7 +23022,7 @@ char *zaxisInqUUID(int zaxisID, char *uuid)
 
   zaxis_check_ptr(zaxisID, zaxisptr);
 
-  strncpy(uuid, zaxisptr->uuid, 16);
+  memcpy(uuid, zaxisptr->uuid, 16);
 
   return (uuid);
 }
@@ -31091,7 +31091,7 @@ void gribapiGetGrid(grib_handle *gh, grid_t *grid)
             len = (size_t) 16;
             if ( grib_get_bytes(gh, "uuidOfHGrid", (unsigned char *) uuid, &len) == 0)
               {
-                strncpy(grid->uuid, uuid, 16);
+                memcpy(grid->uuid, uuid, 16);
               }
           }
         break;
