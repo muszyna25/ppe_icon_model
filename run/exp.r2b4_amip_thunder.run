@@ -189,8 +189,8 @@ iforcing=2
 
 # the grid files
 grids_folder=/pool/data/ICON/grids/private/r2b4_amip
-#atmo_dyn_grids='r2b4_amip.nc'
-atmo_dyn_grids="iconR2B04-ocean_etopo40_planet.nc"
+atmo_dyn_grids='r2b4_amip.nc'
+#atmo_dyn_grids="iconR2B04-ocean_etopo40_planet.nc"
 
 blueln "Grid directory: $grids_folder"
 blueln "Grid file: $atmo_dyn_grids"
@@ -412,7 +412,7 @@ cat > ${runscriptdir}/${atmo_namelist} << EOF
  filetype         = 4
  dom              = -1
  output_time_unit = 3 ! hours
- output_bounds    = 6.,48.,6.   !start, end, increment
+ output_bounds    = 6.,240.,6.   !start, end, increment
  steps_per_file   = 4
  include_last     = .TRUE.
  remap            = 0   ! triangular grid
@@ -525,16 +525,17 @@ else
 fi
 cp -f $INIDATA/r2b4_amip/oce/bc_sic_pcmdi_1870-2010.nc ${EXPDIR}/bc_sic.nc
 cp -f $INIDATA/r2b4_amip/oce/bc_sst_pcmdi_1870-2010.nc ${EXPDIR}/bc_sst.nc
-cp -f $INIDATA/r2b4_amip/lnd/bc_land_frac.nc ${EXPDIR}/bc_land_frac.nc
-cp -f $INIDATA/r2b4_amip/lnd/bc_land_phys.nc ${EXPDIR}/bc_land_phys.nc
-cp -f $INIDATA/r2b4_amip/lnd/bc_land_sso.nc ${EXPDIR}/bc_land_sso.nc
+#cp -f $INIDATA/r2b4_amip/lnd/bc_land_frac.nc ${EXPDIR}/bc_land_frac.nc
+#cp -f $INIDATA/r2b4_amip/lnd/bc_land_phys.nc ${EXPDIR}/bc_land_phys.nc
+#cp -f $INIDATA/r2b4_amip/lnd/bc_land_sso.nc ${EXPDIR}/bc_land_sso.nc
 
 #ls -l ${basedir}/jsbach_R2B04_v1.nc > /dev/null 2>&1
 #check_error $? "copy /home/zmaw/m212070/jsbach_R2B04_v1.nc to $basedir (2013-03-27)."
 #cp -f ${basedir}/jsbach_R2B04_v1.nc ${EXPDIR}/extpar_${atmo_dyn_grids}
 ls -l /home/zmaw/m212005/icon/r2b4_amip/bc_veg.nc > /dev/null 2>&1 || check_error $? "cannot copy /home/zmaw/m212005/icon/r2b4_amip/\* to $EXPDIR."
-cp -f /home/zmaw/m212005/icon/r2b4_amip/ic_srf.nc /home/zmaw/m212005/icon/r2b4_amip/bc_*.nc ${EXPDIR}/
-
+cp -f /home/zmaw/m212005/icon/r2b4_amip/ic_srf.nc ${EXPDIR}/
+cp -f /home/zmaw/m212005/icon/r2b4_amip/bc_*.nc ${EXPDIR}/
+cp -f /home/zmaw/m212005/icon/r2b4_amip/extpar_${atmo_dyn_grids} ${EXPDIR}/
 #__________________________________________________________________________________________________
 # change to experiments directory
 
