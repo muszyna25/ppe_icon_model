@@ -41,7 +41,7 @@ MODULE mo_name_list_output
   USE mo_cf_convention,         ONLY: t_cf_var
   USE mo_cdi_constants          ! We need all
   USE mo_io_units,              ONLY: filename_max, nnml, nnml_output, find_next_free_unit
-  USE mo_io_config,             ONLY: out_varnames_map_file, varnames_map_file
+  USE mo_io_config,             ONLY: out_varnames_map_file, varnames_map_file, lkeep_in_sync
   USE mo_gribout_config,        ONLY: gribout_config, t_gribout_config
   USE mo_exception,             ONLY: finish, message, message_text
   USE mo_namelist,              ONLY: position_nml, positioned, open_nml, close_nml
@@ -3853,6 +3853,7 @@ CONTAINS
           ELSE
             CALL streamWriteVar(of%cdiFileID, info%cdiVarID, r_out_dp, 0)
           ENDIF
+          IF (lkeep_in_sync) CALL streamSync(of%cdiFileID)
         ENDIF
 
         ! clean up
