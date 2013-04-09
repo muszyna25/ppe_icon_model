@@ -422,10 +422,12 @@ cat > ${runscriptdir}/${atmo_namelist} << EOF
  steps_per_file   = 4
  include_last     = .TRUE.
  remap            = 0   ! triangular grid
- output_filename  = "${EXPNAME}_`basename ${atmo_dyn_grids} .nc | sed 's/icon/jsbach/'`"
+ output_filename  = "${EXPNAME}_`basename ${atmo_dyn_grids} .nc`_jsbach"
  output_grid      = .TRUE.
  ml_varlist       = 'fract', 'alb_vis_srf', 'alb_nir_srf', 'swrad_srf_net', 't_srf', 'lai', 's_srf', 'qsat_srf'
-                    'canopy_cond', 'ws_l', 'water_stress', 'ws_root', 'ws_fc_root', 'albedo_srf'
+                    'canopy_cond', 'ws_l', 'ws', 'water_stress', 'ws_root', 'ws_fc_root', 'albedo_srf', 'sensible_hflx'
+                    'evapotrans', 'fact_qsat_srf', 'fact_q_air', 't_srf_unfilt', 't_srf_unfilt_old', 't_srf_old'
+                    't_soil', 'wsn_srf', 'wsr_srf'
  !map_file         ="mapfile_dcmip.txt"
 /
 EOF
@@ -437,6 +439,7 @@ cat > ${EXPDIR}/${jsbach_namelist} <<EOF
 
 &jsb_srf_nml
   bc_filename     = 'bc_srf.nc'
+  bc_sso_filename = 'bc_land_sso.nc'
   ic_filename     = 'ic_srf.nc'
 /
 
