@@ -109,6 +109,7 @@ PUBLIC  :: update_sfcflx
 
 ! private implementation
 PRIVATE :: update_sfcflx_analytical
+PRIVATE :: balance_elevation
 
 
 CONTAINS
@@ -1140,9 +1141,10 @@ CONTAINS
 
     ENDIF
 
-    ! Sum of freshwater flux F = P - E + R + F_relax in [m/s] (independent of L_forc_frehsw)
+    ! Sum of freshwater flux F = P - E + R + F_relax in [m/s] (independent of l_forc_frehsw)
     IF (no_tracer >1) THEN
       p_sfc_flx%forc_fwfx(:,:) = (p_sfc_flx%forc_fwbc(:,:) + p_sfc_flx%forc_fwrelax(:,:))
+
       !---------DEBUG DIAGNOSTICS-------------------------------------------
       idt_src=1  ! output print level (1-5, fix)
       CALL dbg_print('UpdSfc: sum-fwfx[m/s]',p_sfc_flx%forc_fwfx     ,str_module,idt_src)
@@ -1152,6 +1154,8 @@ CONTAINS
     ! apply additional volume flux to surface elevation
     !  - add to h_old before explicit term
     !  - no change in salt concentration
+    !  - volume flux is considered for l_forc_freshw=true only
+    !    i.e. for salinity relaxation only, no volume flux is applied
     IF (l_forc_freshw) THEN
       DO jb = cells_in_domain%start_block, cells_in_domain%end_block
         CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
@@ -1161,6 +1165,16 @@ CONTAINS
       END DO
       idt_src=1  ! output print level (1-5, fix)
       CALL dbg_print('UpdSfc: h-old+fwf    ',p_os%p_prog(nold(1))%h  ,str_module,idt_src)
+    
+      ! apply volume flux correction: 
+      !  - sea level is balanced to zero over ocean surface
+      !  - correction applied daily
+      IF (dsec < dtime) THEN
+        CALL balance_elevation(p_patch_3D, p_os%p_prog(nold(1))%h)
+        idt_src=1  ! output print level (1-5, fix)
+        CALL dbg_print('UpdSfc: h-old+corr   ',p_os%p_prog(nold(1))%h  ,str_module,idt_src)
+      END IF
+
     END IF
 
   END SUBROUTINE update_sfcflx
@@ -1646,6 +1660,62 @@ CONTAINS
     END SELECT
 
   END SUBROUTINE update_sfcflx_analytical
+
+  !-------------------------------------------------------------------------
+  !>
+  !! Balance sea level to zero over global ocean
+  !!
+  !! Balance sea level to zero over global ocean
+  !! This routine uses parts of mo_oce_diagnostics
+  !!
+  !! @par Revision History
+  !! Initial revision by Stephan Lorenz, MPI (2013-04)
+  !!
+  !!
+  SUBROUTINE balance_elevation (p_patch_3D, h_old)
+
+    TYPE(t_patch_3D ),TARGET, INTENT(IN)    :: p_patch_3D
+    REAL(wp), INTENT(INOUT)                 :: h_old(1:nproma,1:p_patch_3D%p_patch_2D(1)%nblks_c)
+
+    TYPE(t_patch), POINTER                  :: p_patch
+    TYPE(t_subset_range), POINTER           :: all_cells, cells_in_domain
+
+    INTEGER  :: i_startidx_c, i_endidx_c
+    INTEGER  :: jc, jb
+    REAL(wp) :: ocean_are, glob_slev, corr_slev
+
+    p_patch         => p_patch_3D%p_patch_2D(1)
+    all_cells       => p_patch%cells%all
+    cells_in_domain => p_patch%cells%in_domain
+ 
+    ocean_are = 0.0_wp
+    glob_slev = 0.0_wp
+
+    DO jb = cells_in_domain%start_block, cells_in_domain%end_block
+      CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
+      DO jc =  i_startidx_c, i_endidx_c
+        IF ( p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary ) THEN
+          ocean_are = ocean_are + p_patch%cells%area(jc,jb)
+          glob_slev = glob_slev + p_patch%cells%area(jc,jb)*h_old(jc,jb)
+        END IF
+      END DO
+    END DO
+
+    corr_slev = glob_slev/ocean_are
+
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+      DO jc =  i_startidx_c, i_endidx_c
+        IF ( p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary ) THEN
+          ! subtract or scale?
+          h_old(jc,jb) = h_old(jc,jb) - corr_slev
+          !h_old(jc,jb) = h_old(jc,jb) * (1.0_wp - corr_slev)
+          !h_old(jc,jb) = h_old(jc,jb) - h_old(jc,jb)*corr_slev
+        END IF
+      END DO
+    END DO
+
+  END SUBROUTINE balance_elevation
 
   !-------------------------------------------------------------------------
   !>
