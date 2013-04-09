@@ -170,7 +170,7 @@ blueln "Experiment directory: $EXPDIR"
 # define model timing
 dtime=300                            # time step [s]
 start_date="1978-01-01T00:00:00Z"    # start of experiment
-stop_date="1978-01-03T00:00:00Z"     # stop of experiment
+end_date="1978-01-03T00:00:00Z"      # stop of experiment
 ndays=2                              # experiment duration 
 ndays_restart=1                      # restart every 10 days
 
