@@ -40,7 +40,8 @@
 MODULE mo_vdiff_downward_sweep
 
   USE mo_kind,               ONLY: wp
-  USE mo_turbulence_diag,    ONLY: atm_exchange_coeff, sfc_exchange_coeff
+  USE mo_turbulence_diag,    ONLY: atm_exchange_coeff, sfc_exchange_coeff,  &
+                                   sfc_exchange_coeff_amip
   USE mo_vdiff_solver,       ONLY: nvar_vdiff, nmatrix, ih, iqv, imh, imqv, &
                                  & matrix_setup_elim, rhs_setup, rhs_elim
   USE mo_echam_phy_config,   ONLY: phy_config => echam_phy_config
@@ -148,6 +149,9 @@ CONTAINS
     REAL(wp),INTENT(OUT) :: pqsat_tile(kbdim,ksfc_type) !< saturation specific 
                                                         !< humidity at sfc.
                                                         !< (step t-dt)
+!! TODO: ME
+!!    REAL(wp),INTENT(OUT) :: pcpt_sfc  (kbdim,ksfc_type) !< dry static energy
+!    REAL(wp) :: pcpt_sfc  (kbdim,ksfc_type) !< dry static energy
 
     INTEGER, INTENT(OUT) :: ihpbl (kbdim)  !< PBL height given as level index
     REAL(wp),INTENT(OUT) :: pghpbl(kbdim)  !< geopotential height of PBL top
@@ -244,7 +248,38 @@ CONTAINS
     !    Get boundary condition for TKE and variance of theta_v.
     !-----------------------------------------------------------------------
 
-    IF (phy_config%ljsbach) THEN  
+! TODO: ME has to be checked:
+!
+    IF (phy_config%lamip) THEN  
+    CALL sfc_exchange_coeff_amip( kproma, kbdim, ksfc_type,         &! in
+                           & idx_wtr, idx_ice, idx_lnd,             &! in
+!                           & lsfc_mom_flux, lsfc_heat_flux,         &! in
+                           & pz0m_tile(:,:),  ptsfc_tile(:,:),      &! in
+                           & pfrc(:,:),       pghpbl(:),            &! in
+                           & pocu(:),         pocv(:),   ppsfc(:),  &! in
+                           & pum1(:,klev),    pvm1  (:,klev),       &! in
+                           & ptm1(:,klev),    pgeom1(:,klev),       &! in
+                           & pqm1(:,klev),    pxm1  (:,klev),       &! in
+                           & zqsat_b  (:),    zlh_b    (:),         &! in
+                           & ztheta_b (:),    zthetav_b(:),         &! in
+                           & zthetal_b(:),    paclc (:,klev),       &! in
+                           & pzthvvar(:,klevm1),                    &! in
+!                           & zhsoil, az0lh,                         &! in
+                           & pcsat(:),                              &! in
+                           & pcair(:),                              &! in
+                           & pqsat_tile(:,:), pcpt_tile(:,:),       &! out
+                           & pri    (:,klev),                       &! out
+                           & pcfm   (:,klev), pcfm_tile(:,:),       &! out
+                           & pcfh   (:,klev), pcfh_tile(:,:),       &! out
+                           & pcfv   (:,klev),                       &! out
+                           & pcftke (:,klev), pcfthv  (:,klev),     &! out
+                           & zfactor(:,klev), prhoh   (:,klev),     &! out
+                           & pztkevn(:,klev), pzthvvar(:,klev),     &! out
+                           & pqshear(:,klev),                       &! out, for "vdiff_tendencies"
+                           & pustar(:),                             &! out, for "atm_exchange_coeff" at next time step
+                           & pch_tile(:,:))                          ! out
+
+    ELSE IF (phy_config%ljsbach .AND. .NOT. phy_config%lamip) THEN  
     CALL sfc_exchange_coeff( kproma, kbdim, ksfc_type,              &! in
                            & idx_wtr, idx_ice, idx_lnd,             &! in
                            & lsfc_mom_flux, lsfc_heat_flux,         &! in

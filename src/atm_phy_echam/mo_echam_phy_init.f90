@@ -338,7 +338,18 @@ CONTAINS
            &                         prm_field(jg)%siced(:,:), &
            &                         prm_field(jg)%lsmask(:,:))
         prm_field(jg)%tsfc_tile(:,:,iwtr) = prm_field(jg)%tsurfw(:,:)
+! TODO: ME preliminary setting for ice
+        prm_field(jg)%tsfc_tile(:,:,iice) = prm_field(jg)%tsurfw(:,:)
         prm_field(jg)%tsfc_tile(:,:,ilnd) = prm_field(jg)%tsurfw(:,:)
+! TODO: ME preliminary setting for ice
+        prm_field(jg)% albvisdir_ice(:,:,:) = albi ! albedo in the visible range for direct radiation
+        prm_field(jg)% albnirdir_ice(:,:,:) = albi ! albedo in the NIR range for direct radiation 
+        prm_field(jg)% albvisdif_ice(:,:,:) = albi ! albedo in the visible range for diffuse radiation
+        prm_field(jg)% albnirdif_ice(:,:,:) = albi ! albedo in the NIR range for diffuse radiation
+        prm_field(jg)% albvisdir_wtr(:,:) = albedoW ! albedo in the visible range for direct radiation
+        prm_field(jg)% albnirdir_wtr(:,:) = albedoW ! albedo in the NIR range for direct radiation 
+        prm_field(jg)% albvisdif_wtr(:,:) = albedoW ! ! albedo in the visible range for diffuse radiation
+        prm_field(jg)% albnirdif_wtr(:,:) = albedoW ! albedo in the NIR range for diffuse radiation
       ENDDO
 
     ENDIF    ! phy_config%lamip
