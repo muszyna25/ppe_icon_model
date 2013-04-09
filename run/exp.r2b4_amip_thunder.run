@@ -93,6 +93,9 @@ case $userid in
     1402)
 	user="Monika"
 	;;
+    1417)
+	user="Marco"
+	;;
     1489)
 	user="Luis"
 	;;
@@ -124,6 +127,9 @@ case $user in
 	;;
     Monika)
 	basedir=/scratch/mpi/mh0287/users/m214002/icon-dev
+	;;
+    Marco)
+	basedir=/scratch/mpi/mh0287/users/m214017/svn/trunk/icon-dev
 	;;
     Sebastian)
 	basedir=""
@@ -241,7 +247,7 @@ case $user in
 	esac
 
 	;;
-    Monika)
+    Monika|Marco)
 	mpi_root=/sw/squeeze-x64/mpi/openmpi_ib-1.6.2-static-gcc46
 	mpiexec_cmd="mpiexec" 
 	;;
