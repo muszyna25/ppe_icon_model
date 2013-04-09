@@ -25,11 +25,12 @@ this_script="$(pwd -P)/${0##*/}"
 set -eu
 
 #__________________________________________________________________________________________________
-# function section
+# function definitions
 
 red=$(tput setaf 1) 
 green=$(tput setaf 2)
 blue=$(tput setaf 4) 
+
 bgcolor=$(tput sgr0)
 
 redln() { echo "${red}${1}${bgcolor}"; }
@@ -38,6 +39,7 @@ greenln() { echo "${green}${1}${bgcolor}"; }
 
 os() { echo $(uname -s); }
 fqdn() { echo $(perl -l -mNet::Domain -e 'print Net::Domain::hostfqdn()'); }
+
 # Argument:
 #   $1 = ICON base directory
 system() { echo $(${1}/config/config.guess); }
@@ -81,6 +83,11 @@ warning()
 
 #__________________________________________________________________________________________________
 # settings:
+
+redln "___________________________________________________________________________________________"
+printenv | sort
+redln "___________________________________________________________________________________________"
+
 userid=$(id -u)
 case $userid in
     1402)
@@ -103,7 +110,6 @@ case $userid in
 esac
 
 # ICON base path:
-# - Luis, wanglung
 
 case $user in
     Luis)
@@ -155,20 +161,21 @@ EXPDIR=${basedir}/experiments/${EXPNAME}
 blueln "Experiment: $EXPNAME"
 blueln "Experiment directory: $EXPDIR"
 
-# global timing
-start_date="1978-01-01T00:00:00Z"
-ndays_restart=10                            # restart every 10 days
-(( dt_restart = ndays_restart * 86400 ))
+# define model timing
+dtime=300                            # time step [s]
+start_date="1978-01-01T00:00:00Z"    # start of experiment
+stop_date="1978-01-03T00:00:00Z"     # stop of experiment
+ndays=2                              # experiment duration 
+ndays_restart=1                      # restart every 10 days
 
-# model timing
-dtime=300
-ndays=$ndays_restart
+# derived model timings
+(( dt_restart = ndays_restart * 86400 ))
 (( nsteps = ndays * 86400 / dtime ))
-(( dt_diag = 6 * 3600 ))            # global integral output each 6 hours
-(( dt_file = 86400 ))               # 1 day per file
-(( dt_data = 6 * 3600 ))            # write output every 6 hour
-(( dt_rad = 3600 ))                 # compute radiative transfer every other hour
-(( dt_checkpoint = 5 * 86400 ))     # write restart file every 5 days 
+(( dt_diag = 6 * 3600 ))             # global integral output each 6 hours
+(( dt_file = 86400 ))                # 1 day per file
+(( dt_data = 6 * 3600 ))             # write output every 6 hour
+(( dt_rad = 3600 ))                  # compute radiative transfer every other hour
+(( dt_checkpoint = 5 * 86400 ))      # write restart file every 5 days 
 
 # model parameters
 # 1 = hydrost. atm., 2 = non-hydrost. atm., -1 = shallow water model, -2 = hydrost. ocean
@@ -194,7 +201,6 @@ blueln "Grid file: $atmo_dyn_grids"
 site=$(fqdn); site=${site#*.*.};
 target=$(fqdn); target=${target%%.*}
 job_name="exp.r2b4_amip.run"
-
 #__________________________________________________________________________________________________
 # runtime options (nproma, MPI, OpenMP, limits)
 
@@ -266,8 +272,20 @@ esac
 #    no_of_nodes=$SLURM_NNODES
 #    mpi_procs_pernode=$SLURM_TASKS_PER_NODE
 #else
-    no_of_nodes=4
-    mpi_procs_pernode=16
+case $(hostname) in
+    wanglung*|thunder*)
+        no_of_nodes=1
+        mpi_procs_pernode=8
+        ;;
+    ctc*)
+        no_of_nodes=4
+        mpi_procs_pernode=16
+        ;;    
+    *)
+	    no_of_nodes=1
+        mpi_procs_pernode=2
+        ;;
+esac
 #fi
 (( mpi_total_procs = no_of_nodes * mpi_procs_pernode ))
 
@@ -320,21 +338,21 @@ cat > ${runscriptdir}/${atmo_namelist} << EOF
  dynamics_grid_filename = "${atmo_dyn_grids}",
 /
 &run_nml
- num_lev     = ${nlev},      ! number of full levels of vertical grid
- output      = 'vlist', 'nml'
- nsteps      = ${nsteps}    ! number of steps length of run
- dtime       = ${dtime}     ! [s] timestep in seconds
- ltestcase   = .TRUE.       ! run testcase                 --> testcase_ctl
- ldynamics   = .TRUE.       ! dynamics                     --> dynamics_ctl, diffusion_ctl
- ltransport  = .TRUE.       ! switch on tracer transport   --> transport_ctl
- ntracer     = 5            ! number of tracers
- iforcing    = ${iforcing}  ! ECHAM physics                --> echam_phy_nml
- msg_level   = 10           ! detailed report during integration 
+ num_lev          = ${nlev},      ! number of full levels of vertical grid
+ output           = 'vlist', 'nml'
+ nsteps           = ${nsteps}    ! number of steps length of run
+ dtime            = ${dtime}     ! [s] timestep in seconds
+ ltestcase        = .TRUE.       ! run testcase                 --> testcase_ctl
+ ldynamics        = .TRUE.       ! dynamics                     --> dynamics_ctl, diffusion_ctl
+ ltransport       = .TRUE.       ! switch on tracer transport   --> transport_ctl
+ ntracer          = 5            ! number of tracers
+ iforcing         = ${iforcing}  ! ECHAM physics                --> echam_phy_nml
+ msg_level        = 10           ! detailed report during integration 
 /
 &ha_testcase_nml
- ctest_name  = 'AMIP'  ! test case identifier
- lrh_linear_pres = .TRUE.   ! initial RH is a linear function of pressure
- rh_at_1000hpa   = 0.30     ! [] initial rel. humidity at 1000 hPa 
+ ctest_name       = 'AMIP'  ! test case identifier
+ lrh_linear_pres  = .TRUE.   ! initial RH is a linear function of pressure
+ rh_at_1000hpa    = 0.30     ! [] initial rel. humidity at 1000 hPa 
 /
 &io_nml
  out_expname      = '${EXPNAME}'     ! file name base
@@ -348,41 +366,41 @@ cat > ${runscriptdir}/${atmo_namelist} << EOF
  lkeep_in_sync    = .TRUE.           ! sync after each timestep
 /
 &dynamics_nml
- iequations  = ${atmo_model_equations}    ! 1: hydrost. atmosphere
+ iequations       = ${atmo_model_equations}    ! 1: hydrost. atmosphere
 /
 &ha_dyn_nml
- ldry_dycore = .FALSE.      ! moist dynamical core
+ ldry_dycore      = .FALSE.      ! moist dynamical core
 /
 &diffusion_nml
- hdiff_order = 24      ! 2nd order near model top, 4th order on the other levels
- k2_klev_max = 3       ! the 3 highest model levels use 2nd order diffusion
+ hdiff_order      = 24      ! 2nd order near model top, 4th order on the other levels
+ k2_klev_max      = 3       ! the 3 highest model levels use 2nd order diffusion
 /
 &transport_nml
- ctracer_list='vwi45'       ! water vapour, cloud water, cloud ice, constant field, dummy for ozone
+ ctracer_list     = 'vwi45'       ! water vapour, cloud water, cloud ice, constant field, dummy for ozone
 /
 &echam_phy_nml
- lcover = .FALSE.
- lcond  = .TRUE.
- lconv  = .TRUE.
- lvdiff = .TRUE.
- lrad   = .TRUE.
- ljsbach = .TRUE.
- dt_rad  = ${dt_rad}     ! [s] compute radiative transfer every other hour
+ lcover           = .FALSE.
+ lcond            = .TRUE.
+ lconv            = .TRUE.
+ lvdiff           = .TRUE.
+ lrad             = .TRUE.
+ ljsbach          = .TRUE.
+ dt_rad           = ${dt_rad}     ! [s] compute radiative transfer every other hour
 /
 &echam_conv_nml
 /
 &radiation_nml
- irad_h2o   = 1             ! prognostic vapor, liquid and ice
- irad_co2   = 2             ! constant co2 vmr
- irad_ch4   = 0             ! switch off ch4
- irad_n2o   = 0             ! switch off n2o
- irad_o3    = 0             ! switch off o3
- irad_o2    = 0             ! switch off o2
- irad_cfc11 = 0             ! switch off cfc11
- irad_cfc12 = 0             ! switch off cfc12
- irad_aero  = 0             ! switch off aerosols
- ighg       = 1             ! select CMIP5 standard greenhouse gas scenario (as in ECHAM6 AMIP) 
- izenith    = 4             ! seasonal and diurnal cycle
+ irad_h2o         = 1             ! prognostic vapor, liquid and ice
+ irad_co2         = 2             ! constant co2 vmr
+ irad_ch4         = 0             ! switch off ch4
+ irad_n2o         = 0             ! switch off n2o
+ irad_o3          = 0             ! switch off o3
+ irad_o2          = 0             ! switch off o2
+ irad_cfc11       = 0             ! switch off cfc11
+ irad_cfc12       = 0             ! switch off cfc12
+ irad_aero        = 0             ! switch off aerosols
+ ighg             = 1             ! select CMIP5 standard greenhouse gas scenario (as in ECHAM6 AMIP) 
+ izenith          = 4             ! seasonal and diurnal cycle
 ! vmr_co2    =  353.9e-06    ! CMIP5 value of 1990
 ! vmr_ch4    = 1693.6e-09    ! CMIP5 value of 1990
 ! vmr_n2o    =  309.5e-09    ! CMIP5 value of 1990
@@ -408,26 +426,26 @@ EOF
 
 cat > ${EXPDIR}/${jsbach_namelist} <<EOF
 &jsb_model_nml
-  usecase = 'jsbach_lite'
+  usecase         = 'jsbach_lite'
 /
 
 &jsb_srf_nml
-  bc_filename = 'bc_srf.nc'
-  ic_filename = 'ic_srf.nc'
+  bc_filename     = 'bc_srf.nc'
+  ic_filename     = 'ic_srf.nc'
 /
 
 &jsb_soil_nml
-  active = .TRUE.
-  nsoil_energy = 5
-  nsoil_water = 5
-  bc_filename = 'bc_soil.nc'
-  ic_filename = 'ic_soil.nc'
+  active          = .TRUE.
+  nsoil_energy    = 5
+  nsoil_water     = 5
+  bc_filename     = 'bc_soil.nc'
+  ic_filename     = 'ic_soil.nc'
 /
 
 &jsb_veg_nml
-  active = .TRUE.
-  bc_filename = 'bc_veg.nc'
-  ic_filename = 'ic_veg.nc'
+  active          = .TRUE.
+  bc_filename     = 'bc_veg.nc'
+  ic_filename     = 'ic_veg.nc'
 /
 EOF
 
@@ -511,18 +529,11 @@ cp -f $INIDATA/r2b4_amip/lnd/bc_land_frac.nc ${EXPDIR}/bc_land_frac.nc
 cp -f $INIDATA/r2b4_amip/lnd/bc_land_phys.nc ${EXPDIR}/bc_land_phys.nc
 cp -f $INIDATA/r2b4_amip/lnd/bc_land_sso.nc ${EXPDIR}/bc_land_sso.nc
 
-if [[ ${ENVIRONMENT:-} = BATCH ]]
-then
-    ls -l ${basedir}/jsbach_R2B04_v1.nc
-    check_error $? "copy /home/zmaw/m212070/jsbach_R2B04_v1.nc to $basedir (201303-27)."
-    cp -f ${basedir}/jsbach_R2B04_v1.nc ${EXPDIR}/extpar_${atmo_dyn_grids}
-    ls -l ${basedir}/bc_veg.nc
-    check_error $? "copy /home/zmaw/m212005/data/icon/r2b4/\* to $basedir (2013-04-02)."
-    cp -f ${basedir}/ic_srf.nc ${basedir}/bc_*.nc ${EXPDIR}/
-else
-    cp -f /home/zmaw/m212070/jsbach_R2B04_v1.nc ${EXPDIR}/extpar_${atmo_dyn_grids}
-    cp -f cp -f ${basedir}/ic_srf.nc ${basedir}/bc_*.nc ${EXPDIR}/
-fi
+#ls -l ${basedir}/jsbach_R2B04_v1.nc > /dev/null 2>&1
+#check_error $? "copy /home/zmaw/m212070/jsbach_R2B04_v1.nc to $basedir (2013-03-27)."
+#cp -f ${basedir}/jsbach_R2B04_v1.nc ${EXPDIR}/extpar_${atmo_dyn_grids}
+ls -l /home/zmaw/m212005/icon/r2b4_amip/bc_veg.nc > /dev/null 2>&1 || check_error $? "cannot copy /home/zmaw/m212005/icon/r2b4_amip/\* to $EXPDIR."
+cp -f /home/zmaw/m212005/icon/r2b4_amip/ic_srf.nc /home/zmaw/m212005/icon/r2b4_amip/bc_*.nc ${EXPDIR}/
 
 #__________________________________________________________________________________________________
 # change to experiments directory
@@ -643,7 +654,7 @@ do
 done
 
 #__________________________________________________________________________________________________
-# get model
+# get model and run
 
 export MODEL=${bindir}/control_model
 
