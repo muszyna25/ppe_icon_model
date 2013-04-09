@@ -49,13 +49,6 @@
 !!  - functions func_f and dxg moved from here to mo_interpolation
 !!  Modification by Daniel Reinert, DWD, (2009-07-20)
 !!  - added subroutine qrdec
-!!  Modification by Daniel Reinert, DWD, (2009-10-30)
-!!  - added subroutine gnomonic_proj which uses a gnomonic projection in
-!!    order to project a point (lat_1,lon_1) onto a tangent plane with
-!!    the origin at (lat_0,lon_0). The results are the local cartesian
-!!    coordinates (x_1,y_1)
-!!  - added subroutine orthogr_proj. performs orthographic projection of
-!!    point (lat_1,lon_1) onto a tangent plane with the origin at (lat_0,lon_0).
 !!  Modification by Daniel Reinert, DWD, (2012-04-04)
 !!  - added function which can be used to check whether to line segments
 !!    intersect (in 2D cartesian system)

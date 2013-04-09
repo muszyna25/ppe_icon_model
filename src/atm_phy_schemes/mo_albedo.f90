@@ -55,8 +55,8 @@ MODULE mo_albedo
   USE mo_loopindices,          ONLY: get_indices_c
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
   USE mo_radiation_config,     ONLY: rad_csalbw
-  USE mo_lnd_nwp_config,       ONLY: ntiles_total, ntiles_water, lseaice,     &
-    &                                isub_water, isub_lake, isub_seaice
+  USE mo_lnd_nwp_config,       ONLY: ntiles_total, ntiles_water, ntiles_lnd,  &
+    &                                lseaice,isub_water, isub_lake, isub_seaice
   USE mo_phyparam_soil,        ONLY: csalb, csalb_snow_fe, csalb_snow_fd,     &
     &                                csalb_snow_min, csalb_snow_max, cf_snow, &
     &                                csalb_p
@@ -103,7 +103,10 @@ CONTAINS
     TYPE(t_nwp_phy_diag),   INTENT(inout):: prm_diag
 
     ! Local scalars:
-    REAL(wp):: zvege, zsnow, zsalb_snow, zsnow_alb
+    REAL(wp):: zvege                   !< plant cover fraction
+    REAL(wp):: zsnow                   !< snow cover fraction
+    REAL(wp):: zsalb_snow              !< snow albedo (predictor)
+    REAL(wp):: zsnow_alb               !< snow albedo (corrector)
 
     INTEGER :: jg                      !< patch ID
     INTEGER :: jb, jc, ic, jt          !< loop indices
@@ -112,6 +115,7 @@ CONTAINS
     INTEGER :: i_startidx, i_endidx    !< slices
     INTEGER :: i_nchdom                !< domain index
     INTEGER :: ist
+    INTEGER :: ilu                     !< land cover class
     INTEGER :: i_count_lnd             !< number of land points
     INTEGER :: i_count_sea             !< number of sea points
     INTEGER :: i_count_flk             !< number of lake points
@@ -130,8 +134,8 @@ CONTAINS
 
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jt,jc,ic,i_startidx,i_endidx,ist,zvege,zsnow, &
-!$OMP            zsalb_snow,zsnow_alb,i_count_lnd,i_count_sea,    &
+!$OMP DO PRIVATE(jb,jt,jc,ic,i_startidx,i_endidx,ist,zvege,zsnow,  &
+!$OMP            zsalb_snow,zsnow_alb,ilu,i_count_lnd,i_count_sea, &
 !$OMP            i_count_flk,i_count_seaice) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
@@ -173,33 +177,90 @@ CONTAINS
             prm_diag%albvisdif_t(jc,jb,jt) = csalb(ist)&
               &                         - rad_csalbw(ist)*lnd_prog%w_so_t(jc,1,jb,jt)
 
+          ENDDO  ! ic
 
-            ! Account for Snow cover and vegetation
-            !---------------------------------------
-            zvege= 0.0_wp
-            zsnow= 0.0_wp
 
-            ! consider effects of aging on solar snow albedo
-            !
-            zsalb_snow = csalb_snow_min + &
-              & lnd_diag%freshsnow_t(jc,jb,jt)*(csalb_snow_max-csalb_snow_min)
-            zsnow_alb = zsalb_snow*(1._wp-ext_data%atm%for_e(jc,jb)-ext_data%atm%for_d(jc,jb)) &
-              + csalb_snow_fe * ext_data%atm%for_e(jc,jb)                       &
-              + csalb_snow_fd * ext_data%atm%for_d(jc,jb)
+          ! Account for Snow cover and vegetation
+          !---------------------------------------
+          IF (ntiles_lnd > 1) THEN     ! tile approach
 
-            ! account for snow cover and plant cover and compute final solar
-            ! snow albedo
-            !
-            zvege = ext_data%atm%plcov_t(jc,jb,jt)
-            IF (lnd_prog%w_snow_t(jc,jb,jt) > 0.0_wp) THEN
-              zsnow = MIN(1.0_wp, lnd_prog%w_snow_t(jc,jb,jt) / cf_snow)
-            ENDIF
 
-            prm_diag%albvisdif_t(jc,jb,jt) = zsnow * zsnow_alb            &
-              &  + (1.0_wp - zsnow) * (zvege * csalb_p + (1.0_wp - zvege) &
-              &  * prm_diag%albvisdif_t(jc,jb,jt))
+!CDIR NODEP,VOVERTAKE,VOB
+            DO ic = 1, i_count_lnd
 
-          ENDDO
+              jc = ext_data%atm%idx_lst_t(ic,jb,jt)
+
+              zsnow= 0.0_wp
+
+              ! 1. consider effects of aging on solar snow albedo
+              !
+              zsalb_snow = csalb_snow_min + &
+                & lnd_diag%freshsnow_t(jc,jb,jt)*(csalb_snow_max-csalb_snow_min)
+
+              ! special treatment for forests and artificial surfaces
+              ! - aging of snow not considered
+              ! - instead, snow albedo is limited to land-class specific value
+
+              ! get land cover class
+              ilu = ext_data%atm%lc_class_t(jc,jb,jt) 
+              zsnow_alb = MIN(zsalb_snow, ABS(ext_data%atm%snowalb_lcc(ilu)))
+
+
+              ! 2. account for plant cover and snow cover
+              !
+              ! plant cover
+              zvege = ext_data%atm%plcov_t(jc,jb,jt)
+              IF (lnd_prog%w_snow_t(jc,jb,jt) > 0.0_wp) THEN
+                ! snow cover
+                zsnow = MIN(1.0_wp, lnd_prog%w_snow_t(jc,jb,jt) / cf_snow)
+              ENDIF
+
+              ! 3. compute final solar snow albedo
+              !
+              prm_diag%albvisdif_t(jc,jb,jt) = zsnow * zsnow_alb        &  ! snow covered
+                &  + (1.0_wp - zsnow) * (zvege * csalb_p                &  ! snow-free with vege
+                &  + (1.0_wp - zvege) * prm_diag%albvisdif_t(jc,jb,jt))    ! snow-free bare
+
+            ENDDO  ! ic
+
+
+          ELSE  ! without tiles
+
+!CDIR NODEP,VOVERTAKE,VOB
+            DO ic = 1, i_count_lnd
+
+              jc = ext_data%atm%idx_lst_t(ic,jb,jt)
+
+              zsnow= 0.0_wp
+
+              ! 1. consider effects of aging on solar snow albedo
+              !
+              zsalb_snow = csalb_snow_min + &
+                & lnd_diag%freshsnow_t(jc,jb,jt)*(csalb_snow_max-csalb_snow_min)
+
+              ! special treatment for forests
+              zsnow_alb = zsalb_snow*(1._wp-ext_data%atm%for_e(jc,jb)-ext_data%atm%for_d(jc,jb)) &
+                + csalb_snow_fe * ext_data%atm%for_e(jc,jb)                       &
+                + csalb_snow_fd * ext_data%atm%for_d(jc,jb)
+
+              ! 2. account for plant cover and snow cover
+              !
+              ! plant cover
+              zvege = ext_data%atm%plcov_t(jc,jb,jt)
+              IF (lnd_prog%w_snow_t(jc,jb,jt) > 0.0_wp) THEN
+                ! snow cover
+                zsnow = MIN(1.0_wp, lnd_prog%w_snow_t(jc,jb,jt) / cf_snow)
+              ENDIF
+
+              ! 3. compute final solar snow albedo
+              !
+              prm_diag%albvisdif_t(jc,jb,jt) = zsnow * zsnow_alb        &  ! snow covered
+                &  + (1.0_wp - zsnow) * (zvege * csalb_p                &  ! snow-free with vege
+                &  + (1.0_wp - zvege) * prm_diag%albvisdif_t(jc,jb,jt))    ! snow-free bare
+
+            ENDDO  ! ic
+
+          ENDIF ! ntiles_lnd
 
         ENDDO  !ntiles
 
