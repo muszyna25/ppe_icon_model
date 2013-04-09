@@ -78,6 +78,7 @@ CONTAINS
       INQUIRE (file=sst_fn, exist=lexist)
       IF (lexist) THEN
         CALL read_amip_data(sst_fn, year, zin)
+write (0,*) 'LK: sst = ', SUM(zin)
       ELSE
         WRITE (message_text,*) 'Could not open file ',sst_fn
         CALL message('',message_text)
@@ -102,6 +103,7 @@ CONTAINS
       INQUIRE (file=sic_fn, exist=lexist)
       IF (lexist) THEN
         CALL read_amip_data(sic_fn, year, zin)
+ write (0,*) 'LK: sic = ', SUM(zin)
       ELSE
         WRITE (message_text,*) 'Could not open file ', sic_fn
         CALL message('',message_text)
@@ -307,6 +309,9 @@ CONTAINS
       !TODO: check tsw/i/l sequence,dummy setting to some reasonable value for land and ice
       tsw(:,:) = tmelt
     ENDWHERE
+
+write(0,*) 'LK: sst = ', SUM(tsw)
+write(0,*) 'LK: sic = ', SUM(seaice)
 
     CALL message('','Interpolated AMIP SST and sea ice.')
 

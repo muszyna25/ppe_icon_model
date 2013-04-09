@@ -897,40 +897,39 @@ CONTAINS
 
     WRITE(message_text,'(a,i1)') &
       &   'Calendar index : ',datetime%calendar
-    CALL message('mo_datetime/print_calendar', message_text)
+    CALL message('', message_text)
     !
     SELECT CASE (datetime%calendar)
     CASE (julian_gregorian)
       WRITE(message_text,'(a)')  &
         & 'Calendar       : Julian Gregorian'
-      CALL message('mo_datetime/print_calendar', message_text)
+      CALL message('', message_text)
       !
       WRITE(message_text,'(a)')  &
         & 'Time Base      : (-4712)-01-01, 12:00 UT'
-      CALL message('mo_datetime/print_calendar', message_text)
+      CALL message('', message_text)
       !
     CASE (proleptic_gregorian)
       WRITE(message_text,'(a)')  &
         & 'Calendar       : Proleptic Gregorian'
-      CALL message('mo_datetime/print_calendar', message_text)
+      CALL message('', message_text)
       !
       WRITE(message_text,'(a)')  &
         & 'Time Base      : (-4712)-01-01, 12:00 UT'
-      CALL message('mo_datetime/print_calendar', message_text)
+      CALL message('', message_text)
       !
     CASE (cly360)
       WRITE(message_text,'(a)')  &
         & 'Calendar       : Constant 30 dy/mo and 360 dy/yr'
-      CALL message('mo_datetime/print_calendar', message_text)
+      CALL message('', message_text)
       !
       WRITE(message_text,'(a)')  &
         & 'Time Base      : 0000-01-01, 00:00 UT'
-      CALL message('mo_datetime/print_calendar', message_text)
+      CALL message('', message_text)
       !
     END SELECT
     !
-    WRITE(message_text,'(a)') ' '
-    CALL message('mo_datetime/print_calendar', message_text)
+    CALL message('', '')
 
   END SUBROUTINE print_calendar
 
@@ -950,19 +949,12 @@ CONTAINS
     ! - year, month, day, hour, minute, second
     ! - time
     !
-      
-    WRITE(message_text,'(a,i6,a,i2.2,a,i2.2,a,i2.2,a,i2.2,a,f9.6,a)') &
+    WRITE(message_text,'(a,i6,a,i2.2,a,i2.2,a,i2.2,a,i2.2,a,f9.6,a,a,i9,a,f15.13)') &
       & 'Date/time      : ',datetime%year,'-',datetime%month,'-',datetime%day, &
-      & '/',datetime%hour,':',datetime%minute,':',datetime%second,' UT'
-    CALL message('mo_datetime/print_datetime', message_text)
-    !
-    WRITE(message_text,'(a,i9,a,f15.13)') &
+      & '/',datetime%hour,':',datetime%minute,':',datetime%second,' UT, ', &
       & 'Cal. day+dayfrc: ',datetime%calday,'+',datetime%caltime
-    CALL message('mo_datetime/print_datetime', message_text)
+    CALL message('', message_text)
     !
-    WRITE(message_text,'(a)') ' '
-    CALL message('mo_datetime/print_datetime', message_text)
-
   END SUBROUTINE print_datetime
 
   !----------------------------------------------------------------------------

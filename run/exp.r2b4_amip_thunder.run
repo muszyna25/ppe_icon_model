@@ -22,7 +22,7 @@ this_script="$(pwd -P)/${0##*/}"
 #__________________________________________________________________________________________________
 # set error checking
 
-set -eu
+set -eux
 
 #__________________________________________________________________________________________________
 # function definitions
@@ -176,6 +176,7 @@ ndays_restart=1                      # restart every 10 days
 
 # derived model timings
 (( dt_restart = ndays_restart * 86400 ))
+dt_restart=3600
 (( nsteps = ndays * 86400 / dtime ))
 (( dt_diag = 6 * 3600 ))             # global integral output each 6 hours
 (( dt_file = 86400 ))                # 1 day per file
@@ -194,7 +195,8 @@ nlev=47
 iforcing=2
 
 # the grid files
-grids_folder=/pool/data/ICON/grids/private/r2b4_amip
+#grids_folder=/pool/data/ICON/grids/private/r2b4_amip
+grids_folder=/home/zmaw/m214089/icon
 atmo_dyn_grids='r2b4_amip.nc'
 #atmo_dyn_grids="iconR2B04-ocean_etopo40_planet.nc"
 
@@ -700,10 +702,9 @@ greenln "============================"
 
 if [[ "${finish_status}" = "RESTART" ]]
 then
-    cd $runscriptdir
     greenln "restart next job..."
-    perl -pi -e 's/(^#AUTOMATIC_RESTART_SETUP.*)/\1\nrestart=\.true\./' exp.r2b4_amip_thunder.run
-    ${submit} exp.r2b4_amip_thunder.run
+    perl -pi -e 's/(^#AUTOMATIC_RESTART_SETUP.*)/\1\nrestart=\.true\./' $runscriptdir/exp.r2b4_amip_thunder.run
+    ${submit} $runscriptdir/exp.r2b4_amip_thunder.run
 fi
 
 
