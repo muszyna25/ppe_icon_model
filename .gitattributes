@@ -967,10 +967,11 @@ scripts/postprocessing/tools/splitHemisphere.rb -text
 scripts/postprocessing/tools/xsec.py -text
 scripts/preprocessing/IFS2ICON_README.TXT -text
 scripts/preprocessing/estimate.py -text
+scripts/preprocessing/gauss_to_icon.ksh -text
+scripts/preprocessing/icon_pre_lnd_atm.ksh -text
 scripts/preprocessing/ifs2icon-hs.conf -text
 scripts/preprocessing/ifs2icon.conf -text
 scripts/preprocessing/ifs2icon.rb -text
-scripts/preprocessing/jsbach_to_icon.ksh -text
 scripts/preprocessing/mars4icon.all -text
 scripts/preprocessing/mars4icon_e4_sst -text
 scripts/preprocessing/mars4icon_ei_ci -text
