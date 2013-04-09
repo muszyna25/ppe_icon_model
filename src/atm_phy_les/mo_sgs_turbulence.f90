@@ -178,7 +178,8 @@ MODULE mo_sgs_turbulence
     CALL sync_patch_array(SYNC_C, p_patch, theta_v)
          
     CALL surface_conditions(p_nh_metrics, p_patch, p_nh_diag, p_int, &
-                            p_prog_lnd_now, p_diag_lnd, prm_diag, theta, theta_sfc)
+                            p_prog_lnd_now, p_diag_lnd, prm_diag,    &
+                            theta, theta_sfc, p_nh_prog%tracer(:,:,:,iqv))
 
     CALL smagorinsky_model(p_nh_prog, p_nh_diag, p_nh_metrics, p_patch, p_int, prm_diag, &
                            theta_v, theta_sfc, p_diag_lnd%qv_s)
@@ -192,6 +193,10 @@ MODULE mo_sgs_turbulence
     CALL diffuse_scalar(theta, p_nh_metrics, p_patch, p_int, p_nh_diag,  &
                         prm_nwp_tend%ddt_temp_turb, p_nh_prog%exner,     &
                         prm_diag, p_nh_prog%rho, dt, 'theta')
+
+    !CALL diffuse_scalar(p_nh_prog%tracer(:,:,:,iqv), p_nh_metrics, p_patch, p_int, &
+    !                    p_nh_diag, prm_nwp_tend%ddt_tracer_turb(:,:,:,iqv),        &
+    !                    p_nh_prog%exner, prm_diag, p_nh_prog%rho, dt, 'qv')
 
     !For qv and qc
 !$OMP PARALLEL WORKSHARE
@@ -1346,7 +1351,7 @@ MODULE mo_sgs_turbulence
       sflux(:,:) = prm_diag%shfl_s(:,:) * rcpd
 !$OMP END PARALLEL WORKSHARE
 
-    ELSE
+    ELSEIF(TRIM(scalar_name)=='qv')THEN
 
 !$OMP PARALLEL WORKSHARE
       fac(:,:,:) = 1._wp / rho(:,:,:)

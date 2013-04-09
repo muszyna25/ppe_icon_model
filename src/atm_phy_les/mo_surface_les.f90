@@ -62,7 +62,7 @@ MODULE mo_surface_les
   USE mo_nwp_lnd_types,       ONLY: t_lnd_prog, t_lnd_diag 
   USE mo_nh_torus_exp,        ONLY: shflx_cbl, lhflx_cbl, set_sst_cbl
   USE mo_satad,               ONLY: sat_pres_water, &  !! saturation vapor pressure w.r.t. water
-    &                               spec_humi !,qsat_rho !! Specific humidity
+    &                               spec_humi          !! Specific humidity
   USE mo_nwp_phy_types,       ONLY: t_nwp_phy_diag, t_nwp_phy_tend
 
   IMPLICIT NONE
@@ -90,7 +90,7 @@ MODULE mo_surface_les
   !! Initial release by Anurag Dipankar, MPI-M (2013-02-06)
   SUBROUTINE  surface_conditions(p_nh_metrics, p_patch, p_nh_diag, p_int, &
                                  p_prog_lnd_now, p_diag_lnd, prm_diag,    &
-                                 theta, theta_sfc)
+                                 theta, theta_sfc, qv)
 
     TYPE(t_nh_metrics),INTENT(in),TARGET :: p_nh_metrics  !< single nh metric state
     TYPE(t_patch),     INTENT(in),TARGET :: p_patch    !< single patch
@@ -101,6 +101,7 @@ MODULE mo_surface_les
     TYPE(t_nwp_phy_diag),   INTENT(inout):: prm_diag      !< atm phys vars
     REAL(wp),          INTENT(in)        :: theta(:,:,:)  !pot temp  
     REAL(wp),          INTENT(out)       :: theta_sfc(:,:)!sfc pot temp  
+    REAL(wp),          INTENT(in)        :: qv(:,:,:)     !spec humidity
  
     REAL(wp) :: rhos, th0_srf, obukhov_length, z_mc, ustar, mwind, bflux
     REAL(wp) :: zrough, pres_sfc(nproma,p_patch%nblks_c), exner
@@ -172,13 +173,9 @@ MODULE mo_surface_les
 
             p_prog_lnd_now%t_g(jc,jb) = theta_sfc(jc,jb) * exner
 
-            !Get surface qv using t_g: saturation value
-            IF(lhflx_cbl==0._wp)THEN
-               p_diag_lnd%qv_s(:,:) = 0._wp
-            ELSE
-               p_diag_lnd%qv_s(jc,jb) =    &
-                   spec_humi(sat_pres_water(p_prog_lnd_now%t_g(jc,jb)),pres_sfc(jc,jb)) 
-            END IF
+            !Get surface qv 
+            p_diag_lnd%qv_s(jc,jb) = qv(jc,jk,jb) + lhflx_cbl / ustar * &
+                                     businger_heat(zrough,z_mc,obukhov_length) 
 
             !Get surface fluxes
             rhos   =  pres_sfc(jc,jb)/( rd * &

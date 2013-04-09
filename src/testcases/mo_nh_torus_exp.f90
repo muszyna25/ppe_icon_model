@@ -65,6 +65,7 @@ MODULE mo_nh_torus_exp
   USE mo_nh_init_utils,       ONLY: init_w
   USE mo_run_config,          ONLY: iqv, iqc
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_e, grf_bdywidth_c
+  USE mo_satad,               ONLY: spec_humi, sat_pres_water
 
   IMPLICIT NONE
   
@@ -75,9 +76,10 @@ MODULE mo_nh_torus_exp
 
   !DEFINED PARAMETERS:
   REAL(wp), PARAMETER :: zp0     = 100000._wp !< surface pressure
-  REAL(wp), PARAMETER :: zh0     = 0._wp   !< height (m) above which temperature increases
+  REAL(wp), PARAMETER :: zh0     = 0._wp      !< height (m) above which temperature increases
   REAL(wp), PARAMETER :: dtdz    = 0.003_wp   !< lapse rate
   REAL(wp), PARAMETER :: zt0     = 300._wp
+  REAL(wp), PARAMETER :: lambda  = 1500._wp   !moist height from Stevens(2007)
 
   REAL(wp) :: sst_cbl, ugeo(2), vgeo(2)   !u/vgeo(1) = constant, u/vgeo(2) = gradient
   REAL(wp) :: umean(2), vmean(2)          !u/vmean(1) = constant, u/vmean(2) = gradient
@@ -159,6 +161,9 @@ MODULE mo_nh_torus_exp
     ! init surface pressure
     ptr_nh_diag%pres_sfc(:,:) = zp0
 
+    ! Tracers: all zero by default
+    ptr_nh_prog%tracer(:,:,:,:) = 0._wp
+
     DO jb = 1, nblks_c
 
       IF (jb /= nblks_c) THEN
@@ -167,10 +172,21 @@ MODULE mo_nh_torus_exp
          nlen = npromz_c
       ENDIF
  
+        !Tracers
+        IF(.NOT.is_dry_cbl)THEN
+          DO jk = 1, nlev
+            ptr_nh_prog%tracer(1:nlen,jk,jb,iqv) = 0.8_wp * spec_humi(sat_pres_water(zt0),zp0) * &
+                      EXP(-ptr_metrics%z_mc(1:nlen,jk,jb)/lambda)
+          END DO
+        END IF
+
         DO jk = 1, nlev
-         ! init virtual potential temperature
-         ptr_nh_prog%theta_v(1:nlen,jk,jb) = zt0 + &
-                        max(0._wp, (ptr_metrics%z_mc(1:nlen,jk,jb)-zh0)*dtdz)
+         ! init potential temperature
+         z_help(1:nlen) = zt0 + max(0._wp, (ptr_metrics%z_mc(1:nlen,jk,jb)-zh0)*dtdz)
+
+         ! virtual potential temperature
+         ptr_nh_prog%theta_v(1:nlen,jk,jb) = z_help(1:nlen) * ( 1._wp + &
+             0.61_wp*ptr_nh_prog%tracer(1:nlen,jk,jb,iqv) - ptr_nh_prog%tracer(1:nlen,jk,jb,iqc) ) 
         END DO
 
         !Get hydrostatic pressure and exner at lowest level
@@ -264,16 +280,6 @@ MODULE mo_nh_torus_exp
     !W wind and reference
     ptr_nh_prog%w  = 0._wp; ptr_nh_ref%w_ref  = ptr_nh_prog%w
 
-
-    ! Tracers set to 0 for DRY case
-    !fix specific humidity as it was causing trouble in src_turdiff in calculating T_dewpoint
-    IF(is_dry_cbl)THEN 
-      ptr_nh_prog%tracer(:,:,:,iqv)  =  0.0_wp 
-      ptr_nh_prog%tracer(:,:,:,iqc:) =  0.0_wp
-    ELSE
-      CALL finish('mo_nh_torus_exp: init_nh_state_cbl:',  &
-        &      '   moist CBL not implemented yet- Stopping!')
-    END IF 
 
   END SUBROUTINE init_nh_state_cbl
 
