@@ -354,6 +354,7 @@ CONTAINS
         ! provide precipitation, evaporation, runoff flux data for freshwater forcing of ocean 
         !  - not changed via bulk formula, stored in surface flux data
         !  - Attention: as in MPIOM evaporation is calculated from latent heat flux (which is depentent on current SST)
+        !               therefore not applied here
         p_sfc_flx%forc_precip(:,:) = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,10) + &
           &                          rday2*ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,10)
         !p_sfc_flx%forc_evap  (:,:) = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,11) + &
@@ -369,13 +370,10 @@ CONTAINS
         CALL dbg_print('UpdSfc: Ext data4-ta/mon2' ,z_c2                     ,str_module,idt_src)
         CALL dbg_print('UpdSfc: p_as%tafo'         ,p_as%tafo                ,str_module,idt_src)
 
-        ! apply sum of freshwater forcing to (open) ocean
-        !  - in OMIP data: evaporation is negative
         IF (l_forc_freshw) THEN
           idt_src=3  ! output print level (1-5, fix)
           CALL dbg_print('UpdSfc: p_sfc_flx%forc_precip'   ,p_sfc_flx%forc_precip   ,str_module,idt_src)
           CALL dbg_print('UpdSfc: p_sfc_flx%forc_runoff'   ,p_sfc_flx%forc_runoff   ,str_module,idt_src)
-          !CALL dbg_print('UpdSfc: p_sfc_flx%forc_evap'     ,p_sfc_flx%forc_evap     ,str_module,idt_src)
         ENDIF
         !---------------------------------------------------------------------
 
@@ -1142,9 +1140,7 @@ CONTAINS
 
     ENDIF
 
-    ! Sum of freshwater flux is P - E + R plus additional relaxation condition in [m/s]:
-    ! this flux is applied as volume condition in surface equation in fill_rhs4surface_eq_ab
-
+    ! Sum of freshwater flux F = P - E + R + F_relax in [m/s] (independent of L_forc_frehsw)
     IF (no_tracer >1) THEN
       p_sfc_flx%forc_fwfx(:,:) = (p_sfc_flx%forc_fwbc(:,:) + p_sfc_flx%forc_fwrelax(:,:))
       !---------DEBUG DIAGNOSTICS-------------------------------------------
@@ -1153,7 +1149,9 @@ CONTAINS
       !---------------------------------------------------------------------
     END IF
     
-    ! apply additional volume flux to surface elevation - add to h_old before explicit term
+    ! apply additional volume flux to surface elevation
+    !  - add to h_old before explicit term
+    !  - no change in salt concentration
     IF (l_forc_freshw) THEN
       DO jb = cells_in_domain%start_block, cells_in_domain%end_block
         CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
