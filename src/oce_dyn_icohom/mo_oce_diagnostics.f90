@@ -304,7 +304,7 @@ SUBROUTINE construct_oce_diagnostics( p_patch_3D, p_os, oce_ts )
   diag_unit = find_next_free_unit(10,99)
   OPEN (unit=diag_unit,file='oce_diagnostics.txt',IOSTAT=ist)
   !HEADER
-  write(diag_unit,'(a)')'step volume kin_energy pot_energy total_enery &
+  write(diag_unit,'(a)')'step volume kin_energy pot_energy total_energy &
     &total_temp total_salinity absolute_vertical_velocity'
 
   CALL message (TRIM(routine), 'end')
