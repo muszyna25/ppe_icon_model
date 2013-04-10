@@ -216,7 +216,7 @@ SUBROUTINE calculate_oce_diagnostics(p_patch_3D, p_os, p_sfc_flx, p_phys_param, 
           IF (jk /= 1) cycle
           ! sum of top layer vertical velocities abolsute values
           monitor%absolute_vertical_velocity = &
-            & monitor%absolute_vertical_velocity + abs(p_os%p_diag%w(jc,jk,jb))
+            & monitor%absolute_vertical_velocity + abs(p_os%p_diag%w(jc,jk,jb))*prism_vol
         END DO
       END DO
     END DO
@@ -226,20 +226,18 @@ SUBROUTINE calculate_oce_diagnostics(p_patch_3D, p_os, p_sfc_flx, p_phys_param, 
   ! write things to diagnostics output file
   real_fmt   = 'g12.4'
   fmt_string = '(i5.5,4'//TRIM(real_fmt)//')'
-
-  ! write
-  !  volumne + energy
+  ! * volumne + energy
   write(line,fmt_string) &
     & timestep, &
     & monitor%volume, &
     & monitor%kin_energy, &
     & monitor%pot_energy, &
     & monitor%total_energy
-  !  tracers
+  ! * tracers
   DO i_no_t=1,no_tracer
     write(line,'(a,'//TRIM(real_fmt)//')') TRIM(line),monitor%tracer_content(i_no_t)
   END DO
-  !  top layer vertical veloc
+  ! * top layer vertical veloc
   write(line,'(a,'//TRIM(real_fmt)//')') TRIM(line),monitor%absolute_vertical_velocity
   write(diag_unit,'(a)') TRIM(line)
 
