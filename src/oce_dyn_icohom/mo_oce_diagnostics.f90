@@ -97,6 +97,7 @@ TYPE t_oce_monitor
     REAL(wp) :: vorticity
     REAL(wp) :: enstrophy
     REAL(wp) :: potential_enstrophy
+    REAL(wp) :: absolute_vertical_velocity
     REAL(wp), ALLOCATABLE :: tracer_content(:)
 
 END TYPE t_oce_monitor
@@ -210,6 +211,12 @@ SUBROUTINE calculate_oce_diagnostics(p_patch_3D, p_os, p_sfc_flx, p_phys_param, 
             monitor%tracer_content(i_no_t) = &
               & monitor%tracer_content(i_no_t) + prism_vol*p_os%p_prog(nold(1))%tracer(jc,jk,jb,i_no_t)
           END DO
+
+          ! top level diagnostics
+          IF (jk /= 1) cycle
+          ! sum of top layer vertical velocities abolsute values
+          monitor%absolute_vertical_velocity = &
+            & monitor%absolute_vertical_velocity + abs(p_os%p_diag%w(jc,jk,jb))
         END DO
       END DO
     END DO
@@ -220,14 +227,20 @@ SUBROUTINE calculate_oce_diagnostics(p_patch_3D, p_os, p_sfc_flx, p_phys_param, 
   real_fmt   = 'g12.4'
   fmt_string = '(i5.5,4'//TRIM(real_fmt)//')'
 
-  write(line,fmt_string) timestep, &
+  ! write
+  !  volumne + energy
+  write(line,fmt_string) &
+    & timestep, &
     & monitor%volume, &
     & monitor%kin_energy, &
     & monitor%pot_energy, &
     & monitor%total_energy
+  !  tracers
   DO i_no_t=1,no_tracer
     write(line,'(a,'//TRIM(real_fmt)//')') TRIM(line),monitor%tracer_content(i_no_t)
   END DO
+  !  top layer vertical veloc
+  write(line,'(a,'//TRIM(real_fmt)//')') TRIM(line),monitor%absolute_vertical_velocity
   write(diag_unit,'(a)') TRIM(line)
 
 END SUBROUTINE calculate_oce_diagnostics
@@ -264,12 +277,13 @@ SUBROUTINE construct_oce_diagnostics( p_patch_3D, p_os, oce_ts )
 
   ALLOCATE(oce_ts%oce_diagnostics(0:nsteps))
 
-  oce_ts%oce_diagnostics(0:nsteps)%volume              = 0.0_wp
-  oce_ts%oce_diagnostics(0:nsteps)%kin_energy          = 0.0_wp
-  oce_ts%oce_diagnostics(0:nsteps)%pot_energy          = 0.0_wp
-  oce_ts%oce_diagnostics(0:nsteps)%total_energy        = 0.0_wp
-  oce_ts%oce_diagnostics(0:nsteps)%vorticity           = 0.0_wp
-  oce_ts%oce_diagnostics(0:nsteps)%potential_enstrophy = 0.0_wp
+  oce_ts%oce_diagnostics(0:nsteps)%volume                     = 0.0_wp
+  oce_ts%oce_diagnostics(0:nsteps)%kin_energy                 = 0.0_wp
+  oce_ts%oce_diagnostics(0:nsteps)%pot_energy                 = 0.0_wp
+  oce_ts%oce_diagnostics(0:nsteps)%total_energy               = 0.0_wp
+  oce_ts%oce_diagnostics(0:nsteps)%vorticity                  = 0.0_wp
+  oce_ts%oce_diagnostics(0:nsteps)%potential_enstrophy        = 0.0_wp
+  oce_ts%oce_diagnostics(0:nsteps)%absolute_vertical_velocity = 0.0_wp
 
   DO i=0,nsteps 
     ALLOCATE(oce_ts%oce_diagnostics(i)%tracer_content(1:no_tracer))
@@ -280,7 +294,8 @@ SUBROUTINE construct_oce_diagnostics( p_patch_3D, p_os, oce_ts )
   diag_unit = find_next_free_unit(10,99)
   OPEN (unit=diag_unit,file='oce_diagnostics.txt',IOSTAT=ist)
   !HEADER
-  write(diag_unit,'(a)')'step volume kin_energy pot_energy total_enery total_temp total_salinity'
+  write(diag_unit,'(a)')'step volume kin_energy pot_energy total_enery &
+    &total_temp total_salinity absolute_vertical_velocity'
 
   CALL message (TRIM(routine), 'end')
 END SUBROUTINE construct_oce_diagnostics
