@@ -303,8 +303,7 @@ cd $EXPDIR
 # define the experiment: set variables for ICON namelist
 
 # horizontal grid(s)
-#grids_folder=/pool/data/ICON/grids/private/r2b4_amip
-grids_folder=/home/zmaw/m214089/icon
+grids_folder=/pool/data/ICON/grids/private/r2b4_amip
 atmo_dyn_grids='r2b4_amip.nc'
 
 blueln "Grid directory: $grids_folder"
