@@ -141,7 +141,7 @@ case $user in
 	basedir=/scratch/mpi/mh0287/users/m214002/icon-dev
 	;;
     Marco)
-	basedir=/scratch/mpi/mh0287/users/m214017/svn/trunk/icon-dev
+	basedir=/scratch/mpi/mh0287/users/m214017/svn/icon/trunk/icon-dev
 	;;
     Sebastian)
 	basedir=""
