@@ -386,7 +386,12 @@ ZVERVELCRIT = 0.3_JPRB
         PEPS(JL,JK+1,2)  = 1.0_JPRB / ( ZWUH(JL,JK+1) * ZTAUEPS(JL,JK) )  & ! eps=1/(w,up*tau)
                        & + 0.4_JPRB / ( PGEOM1(JL,JK+1)*ZRG )               !    +0.4/z   (Pier LES)  
 !xxx
-        
+
+!test: always use +0.4/z
+!        PEPS(JL,JK+1,KD) = 1.0_JPRB / ( ZWUH(JL,JK+1) * ZTAUEPS(JL,JK) )  & ! eps=1/(w,up*tau)
+!                       & + 0.4_JPRB / ( PGEOM1(JL,JK+1)*ZRG )               !    +0.4/z   (Pier LES)  
+!xxxx     
+   
         !RN numerical entrainment limiter: maximally c_e/Dz
         ZDZ           = (PGEOH(JL,JK) - PGEOH(JL,JK+1))*ZRG
         PEPS(JL,JK+1,KD) = MIN( ZEPSCFLFAC/ZDZ, PEPS(JL,JK+1,KD) )
@@ -397,8 +402,11 @@ ZVERVELCRIT = 0.3_JPRB
  
         ZMIX(JL,JK+1) = exp( - ZDZ * PEPS(JL,JK+1,KD) )
 
+!xmk
         IF (  ( KD .EQ. 1 .OR. KD .EQ. 3 ) .AND. &              ! for test or cloud parcels
           &     JK .LE. KPLCL(JL,KD)  ) THEN                    ! if above LCL
+!       IF ( .FALSE. ) THEN                                     ! turn off preconditioning
+!xxx
 
 !xmk ... qt convective preconditioning (Olaf Stiller's idea)
 
