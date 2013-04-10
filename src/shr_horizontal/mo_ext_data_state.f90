@@ -3254,10 +3254,10 @@ CONTAINS
                  ext_data(jg)%atm%rootdp_t (jc,jb,i_lu)  = ext_data(jg)%atm%rootdmax_lcc(lu_subs)
                  ! plant cover
                  ext_data(jg)%atm%plcov_t  (jc,jb,i_lu)  = ptr_ndvi_mrat(jc,jb) &
-                   & *  ext_data(jg)%atm%plcovmax_lcc(lu_subs)
+                   & * MIN(ext_data(jg)%atm%ndvi_max(jc,jb),ext_data(jg)%atm%plcovmax_lcc(lu_subs))
                  ! total area index
                  ext_data(jg)%atm%tai_t    (jc,jb,i_lu)  = ext_data(jg)%atm%plcov_t(jc,jb,i_lu) &
-                   & * ptr_ndvi_mrat(jc,jb) * ext_data(jg)%atm%laimax_lcc(lu_subs)
+                   & * ext_data(jg)%atm%laimax_lcc(lu_subs)
 
                  ! surface area index
                  ext_data(jg)%atm%sai_t    (jc,jb,i_lu)  = c_lnd+ ext_data(jg)%atm%tai_t (jc,jb,i_lu)
