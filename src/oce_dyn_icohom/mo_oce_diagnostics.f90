@@ -183,47 +183,34 @@ SUBROUTINE calculate_oce_diagnostics(p_patch_3D, p_os, p_sfc_flx, p_phys_param, 
     CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
       !We are dealing with the surface layer first
       DO jc =  i_startidx_c, i_endidx_c
-        !z_dolic = v_base%dolic_c(jc,jb)
-        !IF ( z_dolic>=MIN_DOLIC)THEN 
-        DO jk=1,n_zlev!z_dolic
+        DO jk=1,p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)
+          !local volume
+          prism_vol      = p_patch%cells%area(jc,jb)*p_patch_3D%p_patch_1D(1)%prism_thick_c(jc,1,jb)
 
-          IF ( p_patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
+          !Fluid volume
+          monitor%volume = monitor%volume + prism_vol
 
-                   !delta_z = p_patch_vert%del_zlev_m(jk)! 
-                   !IF (jk == 1) THEN
-                   !  delta_z =p_patch_vert%del_zlev_m(jk)&
-                   !         & + p_os%p_prog(nnew(1))%h(jc,jb)
-                   !ENDIF
-            prism_vol = p_patch%cells%area(jc,jb)*p_patch_3D%p_patch_1D(1)%prism_thick_c(jc,1,jb)!delta_z
+          !kinetic energy
+          monitor%kin_energy = monitor%kin_energy + p_os%p_diag%kin(jc,jk,jb)*prism_vol
 
-                  !Fluid volume 
-            monitor%volume = monitor%volume + prism_vol
-
-                  !kinetic energy
-            monitor%kin_energy = monitor%kin_energy+ p_os%p_diag%kin(jc,jk,jb)*prism_vol
-
-                  !Potential energy
-            IF(jk==1)THEN
-              z_w = (p_os%p_diag%w(jc,jk,jb)*p_os%p_prog(nold(1))%h(jc,jb)&
-                & +p_os%p_diag%w(jc,jk+1,jb)*0.5_wp*p_patch_3D%p_patch_1D(1)%del_zlev_i(jk))&
-                &/(0.5_wp*p_patch_3D%p_patch_1D(1)%del_zlev_i(jk)+p_os%p_prog(nold(1))%h(jc,jb))
-            ELSEIF(jk>1.AND.jk<n_zlev)THEN
-              z_w = (p_os%p_diag%w(jc,jk,jb)*p_patch_3D%p_patch_1D(1)%del_zlev_i(jk)&
-                & +p_os%p_diag%w(jc,jk+1,jb)*p_patch_3D%p_patch_1D(1)%del_zlev_i(jk+1))&
-                &/(p_patch_3D%p_patch_1D(1)%del_zlev_i(jk)+p_patch_3D%p_patch_1D(1)%del_zlev_i(jk+1))
-            ENDIF 
-
-            monitor%pot_energy = monitor%pot_energy&
-              &+ grav*z_w* p_os%p_diag%rho(jc,jk,jb)* prism_vol
-
-                  !Tracer content
-            DO i_no_t=1, no_tracer
-            monitor%tracer_content(i_no_t) = monitor%tracer_content(i_no_t)&
-              & + prism_vol*p_os%p_prog(nold(1))%tracer(jc,jk,jb,i_no_t)
-            END DO
+          !Potential energy
+          IF(jk==1)THEN
+            z_w = (p_os%p_diag%w(jc,jk,jb)*p_os%p_prog(nold(1))%h(jc,jb)&
+              & +p_os%p_diag%w(jc,jk+1,jb)*0.5_wp*p_patch_3D%p_patch_1D(1)%del_zlev_i(jk))&
+              &/(0.5_wp*p_patch_3D%p_patch_1D(1)%del_zlev_i(jk)+p_os%p_prog(nold(1))%h(jc,jb))
+          ELSEIF(jk>1.AND.jk<n_zlev)THEN
+            z_w = (p_os%p_diag%w(jc,jk,jb)*p_patch_3D%p_patch_1D(1)%del_zlev_i(jk)&
+              & +p_os%p_diag%w(jc,jk+1,jb)*p_patch_3D%p_patch_1D(1)%del_zlev_i(jk+1))&
+              &/(p_patch_3D%p_patch_1D(1)%del_zlev_i(jk)+p_patch_3D%p_patch_1D(1)%del_zlev_i(jk+1))
           ENDIF
+          monitor%pot_energy = monitor%pot_energy + grav*z_w* p_os%p_diag%rho(jc,jk,jb)* prism_vol
+
+          !Tracer content
+          DO i_no_t=1, no_tracer
+            monitor%tracer_content(i_no_t) = &
+              & monitor%tracer_content(i_no_t) + prism_vol*p_os%p_prog(nold(1))%tracer(jc,jk,jb,i_no_t)
+          END DO
         END DO
-        !ENDIF
       END DO
     END DO
 
