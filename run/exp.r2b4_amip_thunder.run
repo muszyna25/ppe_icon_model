@@ -2,10 +2,12 @@
 #__________________________________________________________________________________________________
 #
 this_script="$(pwd -P)/${0##*/}"
+#
+job_name=exp.r2b4_amip_thunder.run
 #__________________________________________________________________________________________________
 # thunder batch job parameters
 #
-#SBATCH --job-name=lkm0099
+#SBATCH --job-name=exp.r2b4_amip_thunder.run
 #SBATCH --output=LOG.exp.r2b4_amip.run.%j.out
 #SBATCH --error=LOG.exp.r2b4_amip.run.%j.out
 #SBATCH --partition=mpi-compute
@@ -176,7 +178,7 @@ fi
 
 site=$(fqdn); site=${site#*.*.};
 target=$(fqdn); target=${target%%.*}
-job_name="exp.r2b4_amip.run"
+
 #__________________________________________________________________________________________________
 # runtime options (nproma, MPI, OpenMP, limits)
 
@@ -693,8 +695,8 @@ greenln "============================"
 if [[ "${finish_status}" = "RESTART" ]]
 then
     greenln "restart next job..."
-    perl -pi -e 's/(^#AUTOMATIC_RESTART_SETUP.*)/\1\nrestart=\.true\./' $basedir/run/exp.r2b4_amip_thunder.run
-    ${submit} $basedir/run/exp.r2b4_amip_thunder.run
+    perl -pi -e 's/(^#AUTOMATIC_RESTART_SETUP.*)/\1\nrestart=\.true\./' $this_script
+    ${submit} $this_script
 fi
 
 
