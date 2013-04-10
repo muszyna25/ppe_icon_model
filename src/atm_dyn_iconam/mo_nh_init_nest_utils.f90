@@ -833,8 +833,10 @@ MODULE mo_nh_init_nest_utils
         ENDDO
         DO jt = ntiles_total+1, ntiles_total+ntiles_water
           DO jc = i_startidx, i_endidx
-            p_child_lprog%t_g_t(jc,jb,jt) = p_child_lprog%t_g(jc,jb)
+            p_child_lprog%t_g_t(jc,jb,jt)  = p_child_lprog%t_g(jc,jb)
             p_child_lprog2%t_g_t(jc,jb,jt) = p_child_lprog%t_g(jc,jb)
+            p_child_lprog%t_s_t(jc,jb,jt)  = p_child_ldiag%t_s(jc,jb)
+            p_child_lprog2%t_s_t(jc,jb,jt) = p_child_ldiag%t_s(jc,jb)
             p_child_ldiag%qv_s_t(jc,jb,jt) = p_child_ldiag%qv_s(jc,jb)
           ENDDO
         ENDDO

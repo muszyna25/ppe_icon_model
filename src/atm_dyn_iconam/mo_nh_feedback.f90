@@ -680,6 +680,8 @@ IF (.NOT. l_parallel) THEN
     DO jt = ntiles+1, ntiles+ntiles_h2o
       p_lndp%t_g_t(i_startidx:i_endidx,jb,jt)    = p_lndp%t_g_t(i_startidx:i_endidx,jb,jt)   + &
         relfac*diff_tg(i_startidx:i_endidx,jb)
+      p_lndp%t_s_t(i_startidx:i_endidx,jb,jt)    = p_lndp%t_s_t(i_startidx:i_endidx,jb,jt)   + &
+        relfac*diff_tg(i_startidx:i_endidx,jb)
     ENDDO
     IF (lseaice) THEN
       p_wtrp%t_ice(i_startidx:i_endidx,jb)     = p_wtrp%t_ice(i_startidx:i_endidx,jb)   + &
@@ -936,6 +938,8 @@ ENDIF
     ENDDO
     DO jt = ntiles+1, ntiles+ntiles_h2o
       p_lndp%t_g_t(i_startidx:i_endidx,jb,jt)    = p_lndp%t_g_t(i_startidx:i_endidx,jb,jt)   + &
+        relfac*diff_tg(i_startidx:i_endidx,jb)
+      p_lndp%t_s_t(i_startidx:i_endidx,jb,jt)    = p_lndp%t_s_t(i_startidx:i_endidx,jb,jt)   + &
         relfac*diff_tg(i_startidx:i_endidx,jb)
     ENDDO
     IF (lseaice) THEN
@@ -1792,6 +1796,7 @@ ENDIF
     DO jt = ntiles+1, ntiles+ntiles_h2o
       DO jc = i_startidx,i_endidx
         p_lndp%t_g_t(jc,jb,jt)    = p_lndp%t_g_t(jc,jb,jt)    + relfac*diff_tg(jc,jb)
+        p_lndp%t_s_t(jc,jb,jt)    = p_lndp%t_s_t(jc,jb,jt)    + relfac*diff_tg(jc,jb)
       ENDDO
     ENDDO
     IF (lseaice) THEN

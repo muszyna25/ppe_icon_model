@@ -50,7 +50,7 @@ MODULE mo_nwp_sfc_utils
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
   USE mo_lnd_nwp_config,      ONLY: nlev_soil, nlev_snow, ntiles_total, ntiles_water, &
     &                               lseaice, llake, lmulti_snow, idiag_snowfrac, ntiles_lnd, &
-    &                               lsnowtile, isub_water, isub_seaice
+    &                               lsnowtile, isub_water, isub_seaice, isub_lake
   USE mo_initicon_config,     ONLY: l_hice_in
   USE mo_soil_ml,             ONLY: terra_multlay_init
   USE mo_seaice_nwp,          ONLY: seaice_init_nwp, hice_min, frsi_min, hice_ini
@@ -212,6 +212,35 @@ CONTAINS
             p_lnd_diag%qv_s_t(jc,jb,isubs)    = p_lnd_diag%qv_s(jc,jb)
           END DO 
         END DO
+
+        ! t_s_t: special initialization for open water and sea-ice tiles
+        ! proper values are needed to perform surface analysis 
+        ! open water points: set it to SST
+        ! lake points      : set it to tskin
+        ! sea-ice points   : set it to t_melt
+        !
+        ! Note that after aggregation, t_s is copied to t_so(1)
+        DO ic = 1, ext_data%atm%spw_count(jb)
+
+          jc = ext_data%atm%idx_lst_spw(ic,jb)
+          p_prog_lnd_now%t_s_t(jc,jb,isub_water) = p_lnd_diag%t_seasfc(jc,jb)
+          p_prog_lnd_new%t_s_t(jc,jb,isub_water) = p_lnd_diag%t_seasfc(jc,jb)
+        ENDDO
+
+        DO ic = 1, ext_data%atm%fp_count(jb)
+
+          jc = ext_data%atm%idx_lst_fp(ic,jb)
+          p_prog_lnd_now%t_s_t(jc,jb,isub_lake) = p_lnd_diag%t_seasfc(jc,jb)  
+          p_prog_lnd_new%t_s_t(jc,jb,isub_lake) = p_lnd_diag%t_seasfc(jc,jb)         
+        ENDDO
+
+        DO ic = 1, ext_data%atm%spi_count(jb)
+
+          jc = ext_data%atm%idx_lst_spi(ic,jb)
+          p_prog_lnd_now%t_s_t(jc,jb,isub_seaice) = tf_salt  
+          p_prog_lnd_new%t_s_t(jc,jb,isub_seaice) = tf_salt         
+        ENDDO
+
       ENDIF
 
 
@@ -794,7 +823,6 @@ CONTAINS
           lnd_diag%runoff_s (jc,jb) = lnd_diag%runoff_s_t (jc,jb,1)
           lnd_diag%runoff_g (jc,jb) = lnd_diag%runoff_g_t (jc,jb,1)
           lnd_diag%rstom    (jc,jb) = lnd_diag%rstom_t    (jc,jb,1)
-          lnd_diag%t_so(jc,nlev_soil+1,jb) = lnd_prog%t_so_t(jc,nlev_soil+1,jb,1)
 
           IF(lmulti_snow) THEN
             lnd_diag%t_snow_mult(jc,nlev_snow+1,jb) = lnd_prog%t_snow_mult_t(jc,nlev_snow+1,jb,1)
@@ -803,9 +831,9 @@ CONTAINS
 
         DO jk=1,nlev_soil
           DO jc = i_startidx, i_endidx
-            lnd_diag%t_so    (jc,jk,jb) = lnd_prog%t_so_t    (jc,jk,jb,1)
-            lnd_diag%w_so    (jc,jk,jb) = lnd_prog%w_so_t    (jc,jk,jb,1)
-            lnd_diag%w_so_ice(jc,jk,jb) = lnd_prog%w_so_ice_t(jc,jk,jb,1)
+            lnd_diag%t_so    (jc,jk+1,jb) = lnd_prog%t_so_t    (jc,jk+1,jb,1)
+            lnd_diag%w_so    (jc,jk,  jb) = lnd_prog%w_so_t    (jc,jk,  jb,1)
+            lnd_diag%w_so_ice(jc,jk,  jb) = lnd_prog%w_so_ice_t(jc,jk,  jb,1)
           ENDDO
         ENDDO
 
@@ -852,14 +880,14 @@ CONTAINS
         ENDIF
 
 
+        ! Aggregate fields without water tiles
+        !
         DO isubs = 1,ntiles_total
           DO jc = i_startidx, i_endidx
             tilefrac = ext_data%atm%frac_t(jc,jb,isubs)
 
             lnd_diag%t_snow(jc,jb)    = lnd_diag%t_snow(jc,jb) + tilefrac    &
               &                         * lnd_prog%t_snow_t(jc,jb,isubs)
-            lnd_diag%t_s(jc,jb)       = lnd_diag%t_s(jc,jb) + tilefrac       &
-              &                         * lnd_prog%t_s_t(jc,jb,isubs)
             lnd_diag%w_snow(jc,jb)    = lnd_diag%w_snow(jc,jb) + tilefrac    &
               &                         * lnd_prog%w_snow_t(jc,jb,isubs)
             lnd_diag%rho_snow(jc,jb)  = lnd_diag%rho_snow(jc,jb) + tilefrac  &
@@ -878,8 +906,6 @@ CONTAINS
               &                         * lnd_diag%runoff_g_t(jc,jb,isubs)
             lnd_diag%rstom(jc,jb)     = lnd_diag%rstom(jc,jb) + tilefrac     &
               &                         * lnd_diag%rstom_t(jc,jb,isubs)
-            lnd_diag%t_so(jc,nlev_soil+1,jb) = lnd_diag%t_so(jc,nlev_soil+1,jb) + tilefrac * &
-                                               lnd_prog%t_so_t(jc,nlev_soil+1,jb,isubs)
 
             IF(lmulti_snow) THEN
               lnd_diag%t_snow_mult(jc,nlev_snow+1,jb) = lnd_diag%t_snow_mult(jc,nlev_snow+1,jb)+ &
@@ -891,8 +917,8 @@ CONTAINS
             DO jc = i_startidx, i_endidx
               tilefrac = ext_data%atm%frac_t(jc,jb,isubs)
 
-              lnd_diag%t_so(jc,jk,jb)      = lnd_diag%t_so(jc,jk,jb) + tilefrac &
-                                             * lnd_prog%t_so_t(jc,jk,jb,isubs)
+              lnd_diag%t_so(jc,jk+1,jb)    = lnd_diag%t_so(jc,jk+1,jb) + tilefrac &
+                                             * lnd_prog%t_so_t(jc,jk+1,jb,isubs)
               lnd_diag%w_so(jc,jk,jb)      = lnd_diag%w_so(jc,jk,jb) + tilefrac  &
                                              * lnd_prog%w_so_t(jc,jk,jb,isubs)
               lnd_diag%w_so_ice(jc,jk,jb)  = lnd_diag%w_so_ice(jc,jk,jb) + tilefrac  &
@@ -920,27 +946,23 @@ CONTAINS
           ENDIF
 
         ENDDO  ! isubs
+
+
+        ! Aggregate fields with water tiles
+        DO isubs = 1,ntiles_total + ntiles_water
+          DO jc = i_startidx, i_endidx
+            tilefrac = ext_data%atm%frac_t(jc,jb,isubs)
+
+            lnd_diag%t_s(jc,jb)       = lnd_diag%t_s(jc,jb) + tilefrac       &
+              &                         * lnd_prog%t_s_t(jc,jb,isubs)
+          ENDDO
+        ENDDO
+
+
+        ! fill t_so(1) with t_s
+        lnd_diag%t_so(i_startidx:i_endidx,1,jb) = lnd_diag%t_s(i_startidx:i_endidx,jb)
+
       ENDIF  ! ntiles_total == 1
-
-
-      ! Quick hack, to have nonzero values over non-landpoints, even though these fields are 
-      ! actually not defined over sea and lake points
-      !
-      DO ic = 1, ext_data%atm%sp_count(jb)
-
-        jc = ext_data%atm%idx_lst_sp(ic,jb)
-
-        lnd_diag%t_s (jc,jb)   = lnd_diag%t_seasfc(jc,jb)
-        lnd_diag%t_so(jc,1,jb) = lnd_diag%t_seasfc(jc,jb) 
-      ENDDO
-
-      DO ic = 1, ext_data%atm%fp_count(jb)
-
-        jc = ext_data%atm%idx_lst_fp(ic,jb)
-
-        lnd_diag%t_s (jc,jb)   = lnd_diag%t_seasfc(jc,jb)
-        lnd_diag%t_so(jc,1,jb) = lnd_diag%t_seasfc(jc,jb) 
-      ENDDO
 
     ENDDO  ! jb
 !$OMP END DO

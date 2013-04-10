@@ -424,6 +424,28 @@ MODULE mo_nwp_lnd_state
       ENDDO
 
 
+    ! & p_prog_lnd%t_s_t(nproma,nblks_c,ntiles_total+ntiles_water)
+    cf_desc    = t_cf_var('t_s_t', 'K', 'temperature of ground surface', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var(2, 3, 18, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( prog_list, vname_prefix//'t_s_t'//suffix, p_prog_lnd%t_s_t,  &
+         & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,            &
+         & ldims=shape3d_subsw, lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE. )  
+
+    ! fill the separate variables belonging to the container t_s
+    ALLOCATE(p_prog_lnd%t_s_ptr(ntiles_total+ntiles_water))
+    DO jsfc = 1,ntiles_total+ntiles_water
+      WRITE(csfc,'(i2)') jsfc  
+      CALL add_ref( prog_list, vname_prefix//'t_s_t'//suffix,              &
+           & vname_prefix//'t_s_t_'//TRIM(ADJUSTL(csfc))//suffix,          &
+           & p_prog_lnd%t_s_ptr(jsfc)%p_2d,                                &
+           & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                           &
+           & t_cf_var('t_s_t_'//csfc, '', '', DATATYPE_FLT32),             &
+           & t_grib2_var(2, 3, 18, ibits, GRID_REFERENCE, GRID_CELL),      &
+           & ldims=shape2d,                                                &
+           & tlev_source=1, in_group=groups("land_tile_vars") ) ! for output take field from nnow_rcf slice
+    ENDDO
+
+
 
     ! & p_prog_lnd%t_snow_t(nproma,nblks_c,ntiles_total)
     cf_desc    = t_cf_var('t_snow_t', 'K', 'temperature of the snow-surface', &
@@ -477,28 +499,6 @@ MODULE mo_nwp_lnd_state
       ENDDO
     ENDIF 
 
-
-
-    ! & p_prog_lnd%t_s_t(nproma,nblks_c,ntiles_total)
-    cf_desc    = t_cf_var('t_s_t', 'K', 'temperature of ground surface', DATATYPE_FLT32)
-    grib2_desc = t_grib2_var(2, 3, 18, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( prog_list, vname_prefix//'t_s_t'//suffix, p_prog_lnd%t_s_t,  &
-         & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,            &
-         & ldims=shape3d_subs, lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE. )  
-
-    ! fill the separate variables belonging to the container t_s
-    ALLOCATE(p_prog_lnd%t_s_ptr(ntiles_total))
-    DO jsfc = 1,ntiles_total
-      WRITE(csfc,'(i2)') jsfc  
-      CALL add_ref( prog_list, vname_prefix//'t_s_t'//suffix,              &
-           & vname_prefix//'t_s_t_'//TRIM(ADJUSTL(csfc))//suffix,          &
-           & p_prog_lnd%t_s_ptr(jsfc)%p_2d,                                &
-           & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                           &
-           & t_cf_var('t_s_t_'//csfc, '', '', DATATYPE_FLT32),             &
-           & t_grib2_var(2, 3, 18, ibits, GRID_REFERENCE, GRID_CELL),      &
-           & ldims=shape2d,                                                &
-           & tlev_source=1, in_group=groups("land_tile_vars") ) ! for output take field from nnow_rcf slice
-    ENDDO
 
 
     ! & p_prog_lnd%rho_snow_t(nproma,nblks_c,ntiles_total)
