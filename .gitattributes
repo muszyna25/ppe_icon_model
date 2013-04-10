@@ -948,6 +948,7 @@ scripts/postprocessing/tools/mtgrm_plot.s -text
 scripts/postprocessing/tools/mtgrm_plot_sfc.ncl -text
 scripts/postprocessing/tools/namelist_postpro.ncl -text
 scripts/postprocessing/tools/namelist_postpro_driver.bash -text
+scripts/postprocessing/tools/oceDiag.gp -text
 scripts/postprocessing/tools/plotIconSphereGrid.ncl -text
 scripts/postprocessing/tools/plotNestedGrids.ncl -text
 scripts/postprocessing/tools/plotOceanGrid.ncl -text
