@@ -336,8 +336,8 @@ atmo_model_equations=1
 #__________________________________________________________________________________________________
 # define the experiment: write ICON namelist parameters
 
-atmo_namelist=NAMELIST_${EXPNAME}
-jsbach_namelist=NAMELIST_jsbach_${EXPNAME}
+atmo_namelist=NAMELIST_${EXPNAME}_atmo
+land_namelist=NAMELIST_${EXPNAME}_land
 
 cat > ${basedir}/run/${atmo_namelist} << EOF
 !
@@ -440,7 +440,7 @@ cat > ${basedir}/run/${atmo_namelist} << EOF
 /
 EOF
 
-cat > ${EXPDIR}/${jsbach_namelist} <<EOF
+cat > ${EXPDIR}/${land_namelist} <<EOF
 &jsb_model_nml
   usecase         = 'jsbach_lite'
 /
@@ -607,7 +607,7 @@ cat > ${EXPDIR}/$jsbach_master_namelist << EOF
  model_name = 'JSBACHlite'
  model_shortname = 'lite'
  model_description = 'JSBACH-lite model'
- model_namelist_filename = "${jsbach_namelist}"
+ model_namelist_filename = "${land_namelist}"
 /
 EOF
 
