@@ -241,7 +241,9 @@ MODULE mo_ocean_nml
   REAL(wp) :: relax_3d_mon_T        = 1.0_wp     ! strength of 3-dim relaxation for temperature in months
   INTEGER  :: irelax_3d_S           = 0          ! 0: no 3-dim relax.,  3: use initial S read with init_oce_prog=1
   REAL(wp) :: relax_3d_mon_S        = 1.0_wp     ! strength of 3-dim relaxation for salinity in months
-  LOGICAL  :: l_forc_freshw         = .FALSE.    ! .TRUE. apply freshwater forcing boundary condition (OMIP only)
+  LOGICAL  :: l_forc_freshw         = .FALSE.    ! .TRUE.: apply freshwater forcing boundary condition
+  LOGICAL  :: limit_elevation       = .FALSE.    ! .TRUE.: balance sea level elevation
+  REAL(wp) :: seaice_limit          = 0.5_wp     ! limit sea ice to fraction of surface layer thickness (1.0: no limit)
                                                 
   INTEGER  :: coriolis_type         = 1          ! 0=zero Coriolis, the non-rotating case
                                                  ! 1=full varying Coriolis
@@ -308,7 +310,7 @@ MODULE mo_ocean_nml
     &                 temperature_relaxation, relaxation_param,            &
     &                 irelax_2d_S, relax_2d_mon_S,&!relax_2d_T, relax_2d_mon_T, &
     &                 irelax_3d_S, relax_3d_mon_S, irelax_3d_T, relax_3d_mon_T, &
-    &                 l_forc_freshw
+    &                 l_forc_freshw, limit_elevation, seaice_limit 
 
 
   ! ------------------------------------------------------------------------
@@ -438,6 +440,23 @@ MODULE mo_ocean_nml
        iforc_oce = FORCING_FROM_COUPLED_FLUX
        CALL message(TRIM(routine),'WARNING, iforc_oce set to 14 for coupled experiment')
      END IF
+
+     IF (solver_start_tolerance <= 0.0_wp) THEN
+       solver_start_tolerance = solver_tolerance
+       solver_tolerance_decrease_ratio  = 0.1_wp ! must be < 1
+     ENDIF
+
+     IF (l_forc_freshw) THEN
+       limit_elevation = .TRUE.
+       CALL message(TRIM(routine),'WARNING, limit_elevation set to .TRUE. with l_forc_freshw=.TRUE.')
+     END IF
+
+     IF ( is_coupled_run() ) THEN
+       limit_elevation = .FALSE.
+       CALL message(TRIM(routine),'WARNING, limit_elevation set to .FALSE. for coupled experiment')
+       seaice_limit = 1.0_wp
+       CALL message(TRIM(routine),'WARNING, seaice_limit set to 1.0 - no limit for coupled experiment')
+     END IF
  
      ! write the contents of the namelist to an ASCII file
      IF(my_process_is_stdio()) WRITE(nnml_output,nml=ocean_dynamics_nml)
@@ -471,10 +490,6 @@ MODULE mo_ocean_nml
      ! write the contents of the namelist to an ASCII file
      IF(my_process_is_stdio()) WRITE(nnml_output,nml=octst_nml)
 
-     IF (solver_start_tolerance <= 0.0_wp) THEN
-       solver_start_tolerance = solver_tolerance
-       solver_tolerance_decrease_ratio  = 0.1_wp ! must be < 1
-     ENDIF
 END SUBROUTINE setup_ocean_nml
 
 END MODULE mo_ocean_nml

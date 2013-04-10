@@ -72,7 +72,8 @@ USE mo_ocean_nml,           ONLY: iforc_oce, iforc_type, iforc_len, itestcase_oc
   &                               relax_2d_mon_s, temperature_relaxation, irelax_2d_S,     &
   &                               NO_FORCING, ANALYT_FORC, FORCING_FROM_FILE_FLUX,         &
   &                               FORCING_FROM_FILE_FIELD, FORCING_FROM_COUPLED_FLUX,      &
-  &                               FORCING_FROM_COUPLED_FIELD, i_sea_ice, l_forc_freshw
+  &                               FORCING_FROM_COUPLED_FIELD, i_sea_ice, l_forc_freshw,    &
+  &                               limit_elevation, seaice_limit
 USE mo_dynamics_config,     ONLY: nold
 USE mo_model_domain,        ONLY: t_patch, t_patch_3D
 USE mo_util_dbg_prnt,       ONLY: dbg_print
@@ -598,19 +599,20 @@ CONTAINS
 
         CALL ice_slow(p_patch, p_os, p_ice, Qatm, p_sfc_flx)
 
-        ! #slo# 2013-02:
-        ! limit sea ice thickness to 50% of surface layer depth
-        !   - hardcoded for all cases - ATTENTION - NOT FOR COUPLING / HEAT BUDGET
+        ! limit sea ice thickness to seaice_limit of surface layer depth, without elevation
+        !   - no energy balance correction
         !   - number of ice classes currently kice=1 - sum of classes must be limited
         !   - only sea ice, no snow is considered
 
-        z_smax = 0.5*p_patch_3D%p_patch_1D(1)%del_zlev_m(1)
-        DO jb = all_cells%start_block, all_cells%end_block
-          CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
-          DO jc = i_startidx_c, i_endidx_c
-            p_ice%hi(jc,:,jb) = min(p_ice%hi(jc,:,jb), z_smax)
+        IF (seaice_limit < 0.999999_wp) THEN
+          z_smax = seaice_limit*p_patch_3D%p_patch_1D(1)%del_zlev_m(1)
+          DO jb = all_cells%start_block, all_cells%end_block
+            CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+            DO jc = i_startidx_c, i_endidx_c
+              p_ice%hi(jc,:,jb) = MIN(p_ice%hi(jc,:,jb), z_smax)
+            END DO
           END DO
-        END DO
+        END IF
 
       ELSE   !  no sea ice
 
@@ -1165,16 +1167,15 @@ CONTAINS
       END DO
       idt_src=1  ! output print level (1-5, fix)
       CALL dbg_print('UpdSfc: h-old+fwf    ',p_os%p_prog(nold(1))%h  ,str_module,idt_src)
+    END IF
     
-      ! apply volume flux correction: 
-      !  - sea level is balanced to zero over ocean surface
-      !  - correction applied daily
-      IF (dsec < dtime) THEN
-        CALL balance_elevation(p_patch_3D, p_os%p_prog(nold(1))%h)
-        idt_src=1  ! output print level (1-5, fix)
-        CALL dbg_print('UpdSfc: h-old+corr   ',p_os%p_prog(nold(1))%h  ,str_module,idt_src)
-      END IF
-
+    ! apply volume flux correction: 
+    !  - sea level is balanced to zero over ocean surface
+    !  - correction applied daily
+    IF (limit_elevation .AND. dsec < dtime) THEN
+      CALL balance_elevation(p_patch_3D, p_os%p_prog(nold(1))%h)
+      idt_src=1  ! output print level (1-5, fix)
+      CALL dbg_print('UpdSfc: h-old+corr   ',p_os%p_prog(nold(1))%h  ,str_module,idt_src)
     END IF
 
   END SUBROUTINE update_sfcflx
