@@ -243,6 +243,9 @@ CONTAINS
                            & zqsat_b(:),  zlh_b(:),                   &! out, for "sfc_exchange_coeff"
                            & pri(:,1:klevm1), pmixlen(:,1:klevm1)     )! out, for output
 
+    !TODO: LK check - intent out problem only 1:klevm1 is getting set
+    pmixlen(:,klev) = -999._wp
+
     !-----------------------------------------------------------------------
     ! 2. Compute exchange coefficients at the air-sea/ice/land interface.
     !    Get boundary condition for TKE and variance of theta_v.
