@@ -50,7 +50,7 @@ MODULE mo_oce_diagnostics
   USE mo_run_config,         ONLY: dtime, nsteps
   USE mo_physical_constants, ONLY: grav, rho_ref
   USE mo_oce_state,          ONLY: t_hydro_ocean_state, t_hydro_ocean_diag,&! v_base, &
-    &                              set_lateral_boundary_values, t_ocean_diagnostics
+    &                              set_lateral_boundary_values
   USE mo_model_domain,       ONLY: t_patch, t_patch_3D,t_patch_vert
   USE mo_ext_data_types,     ONLY: t_external_data
   USE mo_exception,          ONLY: message, finish, message_text
@@ -134,7 +134,7 @@ INTEGER :: jk,jc,jb!,je
 INTEGER :: i_no_t, i
 REAL(wp) :: prism_vol
 REAL(wp) :: z_w
-INTEGER  :: referenz_timestep
+INTEGER  :: reference_timestep
 TYPE(t_patch), POINTER     :: p_patch
 !TYPE(t_patch_vert),POINTER :: p_patch_vert
 TYPE(t_subset_range), POINTER :: all_cells 
@@ -266,37 +266,26 @@ ELSEIF(iswm_oce==1)THEN
 !   ptr_monitor%total_energy = ptr_monitor%pot_energy + ptr_monitor%kin_energy
 ENDIF
 
+reference_timestep=1
 DO i=timestep,timestep
-  write(diag_unit,*)'ACTUAL VALUES OF VOLUME NORMALIZED BY INITIAL VALUE:          ', i,&
-  &oce_ts%oce_diagnostics(i)%volume/oce_ts%oce_diagnostics(1)%volume
+  write(diag_unit,'(i5.5,4f12.4)') i, &
+    & oce_ts%oce_diagnostics(i)%volume/oce_ts%oce_diagnostics(reference_timestep)%volume, &
+    & oce_ts%oce_diagnostics(i)%kin_energy/oce_ts%oce_diagnostics(reference_timestep)%kin_energy, &
+    & oce_ts%oce_diagnostics(i)%pot_energy/oce_ts%oce_diagnostics(reference_timestep)%pot_energy, &
+     &oce_ts%oce_diagnostics(i)%total_energy/oce_ts%oce_diagnostics(reference_timestep)%total_energy
 
-  IF(oce_ts%oce_diagnostics(1)%kin_energy/=0.0_wp)THEN
-    write(diag_unit,*)'ACTUAL VALUES OF KINETIC ENERGY NORMALIZED BY INITIAL VALUE:  ',  i,&
-    &oce_ts%oce_diagnostics(i)%kin_energy/ oce_ts%oce_diagnostics(1)%kin_energy
-  ENDIF
+ !DO i_no_t=1, no_tracer
+ !  IF(oce_ts%oce_diagnostics(1)%tracer_content(i_no_t)/=0.0_wp)THEN
+ !    write(diag_unit,*)'ACTUAL VALUES OF TOTAL TRACER CONTENT:                        ',i_no_t,i,&
+ !    &oce_ts%oce_diagnostics(i)%tracer_content(i_no_t)&
+ !    &/ oce_ts%oce_diagnostics(1)%tracer_content(i_no_t)
 
-  IF(oce_ts%oce_diagnostics(1)%pot_energy/=0.0_wp)THEN
-    write(diag_unit,*)'ACTUAL VALUES OF POTENTIAL ENERGY NORMALIZED BY INITIAL VALUE:',i,&
-    &oce_ts%oce_diagnostics(i)%pot_energy/ oce_ts%oce_diagnostics(1)%pot_energy
-  ENDIF
-
-  IF(oce_ts%oce_diagnostics(1)%total_energy/=0.0_wp)THEN
-    write(diag_unit,*)'ACTUAL VALUES OF TOTAL ENERGY NORMALIZED BY INITIAL VALUE:    ',i,&
-    &oce_ts%oce_diagnostics(i)%total_energy/ oce_ts%oce_diagnostics(1)%total_energy
-  ENDIF
-  DO i_no_t=1, no_tracer
-    IF(oce_ts%oce_diagnostics(1)%tracer_content(i_no_t)/=0.0_wp)THEN
-      write(diag_unit,*)'ACTUAL VALUES OF TOTAL TRACER CONTENT:                        ',i_no_t,i,&
-      &oce_ts%oce_diagnostics(i)%tracer_content(i_no_t)&
-      &/ oce_ts%oce_diagnostics(1)%tracer_content(i_no_t)
-
-  ENDIF
-END DO
+ !ENDIF
+! END DO
 END DO
 
 
 !IF(timestep==nsteps)THEN
-  referenz_timestep=1
   !DO i=referenz_timestep,timestep
   DO i=timestep,timestep
 !     write(1234,*)'ACTUAL VALUES OF VOLUME NORMALIZED BY INITIAL VALUE:          ', i,&
@@ -315,20 +304,20 @@ END DO
 !       &/ oce_ts%oce_diagnostics(referenz_timestep)%pot_energy
 !     ENDIF
 
-    IF(oce_ts%oce_diagnostics(1)%total_energy/=0.0_wp)THEN
-      write(diag_unit,*)'ACTUAL VALUES OF TOTAL ENERGY NORMALIZED BY INITIAL VALUE:    ',i,&
-      &oce_ts%oce_diagnostics(i)%total_energy&
-      &/ oce_ts%oce_diagnostics(referenz_timestep)%total_energy,&
-& (oce_ts%oce_diagnostics(i)%total_energy/ oce_ts%oce_diagnostics(referenz_timestep)%total_energy&
-&-oce_ts%oce_diagnostics(i-1)%total_energy/ oce_ts%oce_diagnostics(referenz_timestep)%total_energy)/dtime
-    ENDIF
-     DO i_no_t=1, no_tracer
-       IF(oce_ts%oce_diagnostics(1)%tracer_content(i_no_t)/=0.0_wp)THEN
-         write(diag_unit,*)'ACTUAL VALUES OF TOTAL TRACER CONTENT:                        ',i_no_t,i,&
-         &oce_ts%oce_diagnostics(i)%tracer_content(i_no_t)&
-         &/ oce_ts%oce_diagnostics(referenz_timestep)%tracer_content(i_no_t)
-       ENDIF
-    END DO
+!    IF(oce_ts%oce_diagnostics(1)%total_energy/=0.0_wp)THEN
+!      write(diag_unit,*)'ACTUAL VALUES OF TOTAL ENERGY NORMALIZED BY INITIAL VALUE:    ',i,&
+!      &oce_ts%oce_diagnostics(i)%total_energy&
+!      &/ oce_ts%oce_diagnostics(referenz_timestep)%total_energy,&
+!& (oce_ts%oce_diagnostics(i)%total_energy/ oce_ts%oce_diagnostics(referenz_timestep)%total_energy&
+!&-oce_ts%oce_diagnostics(i-1)%total_energy/ oce_ts%oce_diagnostics(referenz_timestep)%total_energy)/dtime
+!    ENDIF
+!     DO i_no_t=1, no_tracer
+!       IF(oce_ts%oce_diagnostics(1)%tracer_content(i_no_t)/=0.0_wp)THEN
+!         write(diag_unit,*)'ACTUAL VALUES OF TOTAL TRACER CONTENT:                        ',i_no_t,i,&
+!         &oce_ts%oce_diagnostics(i)%tracer_content(i_no_t)&
+!         &/ oce_ts%oce_diagnostics(referenz_timestep)%tracer_content(i_no_t)
+!       ENDIF
+!    END DO
   END DO
 !ENDIF
 !CALL message (TRIM(routine), 'end')
@@ -344,82 +333,47 @@ END SUBROUTINE calculate_oce_diagnostics
 !! Developed  by  Peter Korn, MPI-M (2011).
 !! 
 SUBROUTINE construct_oce_diagnostics( p_patch_3D, p_os, oce_ts )
-!
-TYPE(t_patch_3D ),TARGET, INTENT(INOUT) :: p_patch_3D
-TYPE(t_hydro_ocean_state), TARGET       :: p_os
-TYPE(t_oce_timeseries),POINTER          :: oce_ts
-!
-!local variables
-INTEGER :: i,ist
-REAL(wp) :: delta_z, prism_vol
-TYPE(t_oce_monitor), POINTER :: ptr_monitor
-CHARACTER(len=max_char_length), PARAMETER :: &
-       & routine = ('mo_oce_diagnostics:construct_oce_diagnostics')
-!-----------------------------------------------------------------------
-TYPE(t_patch), POINTER              :: p_patch
-CHARACTER(len=max_char_length)      :: listname
-!TYPE(t_subset_range), POINTER       :: all_cells
-TYPE(t_ocean_diagnostics), POINTER  :: ocean_diagnostics
-INTEGER :: nblks_c,nblks_e,nblks_v
-!-----------------------------------------------------------------------
+  TYPE(t_patch_3D ),TARGET, INTENT(INOUT) :: p_patch_3D
+  TYPE(t_hydro_ocean_state), TARGET       :: p_os
+  TYPE(t_oce_timeseries),POINTER          :: oce_ts
+
+  !local variables
+  INTEGER :: i,ist
+  REAL(wp) :: delta_z, prism_vol
+  TYPE(t_oce_monitor), POINTER :: ptr_monitor
+  CHARACTER(len=max_char_length), PARAMETER :: &
+    & routine = ('mo_oce_diagnostics:construct_oce_diagnostics')
+  !-----------------------------------------------------------------------
+  TYPE(t_patch), POINTER              :: p_patch
+  CHARACTER(len=max_char_length)      :: listname
+  INTEGER :: nblks_c,nblks_e,nblks_v
+  !-----------------------------------------------------------------------
   p_patch   => p_patch_3D%p_patch_2D(1)
-  !all_cells    => p_patch_3D%p_patch_2D(1)%cells%all
 
   CALL message (TRIM(routine), 'start')
   ALLOCATE(oce_ts)
 
   ALLOCATE(oce_ts%oce_diagnostics(0:nsteps))
 
-   oce_ts%oce_diagnostics(0:nsteps)%volume              = 0.0_wp
-   oce_ts%oce_diagnostics(0:nsteps)%kin_energy          = 0.0_wp
-   oce_ts%oce_diagnostics(0:nsteps)%pot_energy          = 0.0_wp
-   oce_ts%oce_diagnostics(0:nsteps)%total_energy        = 0.0_wp
-   oce_ts%oce_diagnostics(0:nsteps)%vorticity           = 0.0_wp
-   oce_ts%oce_diagnostics(0:nsteps)%potential_enstrophy = 0.0_wp
+  oce_ts%oce_diagnostics(0:nsteps)%volume              = 0.0_wp
+  oce_ts%oce_diagnostics(0:nsteps)%kin_energy          = 0.0_wp
+  oce_ts%oce_diagnostics(0:nsteps)%pot_energy          = 0.0_wp
+  oce_ts%oce_diagnostics(0:nsteps)%total_energy        = 0.0_wp
+  oce_ts%oce_diagnostics(0:nsteps)%vorticity           = 0.0_wp
+  oce_ts%oce_diagnostics(0:nsteps)%potential_enstrophy = 0.0_wp
 
-   DO i=0,nsteps 
-     ALLOCATE(oce_ts%oce_diagnostics(i)%tracer_content(1:no_tracer))
-     oce_ts%oce_diagnostics(i)%tracer_content(1:no_tracer) = 0.0_wp
-   END DO
-! write(*,*)'INITIAL VALUES OF VOLUME          :',oce_ts%oce_diagnostics(0)%volume
-! write(*,*)'INIIAL VALUES OF KINETIC ENERGY   :',oce_ts%oce_diagnostics(0)%kin_energy
-! write(*,*)'INITIAL VALUES OF POTENTIAL ENERGY:',oce_ts%oce_diagnostics(0)%pot_energy
-! write(*,*)'INITIAL VALUES OF TOTAL ENERGY    :',oce_ts%oce_diagnostics(0)%total_energy
-! 
-!ram create a separate diagnostics varlist
+  DO i=0,nsteps 
+    ALLOCATE(oce_ts%oce_diagnostics(i)%tracer_content(1:no_tracer))
+    oce_ts%oce_diagnostics(i)%tracer_content(1:no_tracer) = 0.0_wp
+  END DO
 
-ALLOCATE(ocean_diagnostics)
-      ! construction loop: create components of state array
-      ! !TODO organize var_lists for the multiple timesteps of prog. state
-      WRITE(listname,'(a)')  'ocean_diagnostics_list'
-      CALL new_var_list(ocean_diagnostics_list, listname, patch_id=p_patch%id)
-      CALL default_var_list_settings( ocean_diagnostics_list, &
-                                    & lrestart=.FALSE.,model_type='oce',loutput=.TRUE. )
-     !CALL default_var_list_settings( ocean_diagnostics_list,            &
-     !                              & lrestart=.TRUE.,           &
-     !                              & model_type='oce' )
-    !all_cells => p_patch%cells%all
+  ! open textfile for global timeseries
+  diag_unit = find_next_free_unit(10,99)
+  OPEN (unit=diag_unit,file='oce_diagnostics.txt',IOSTAT=ist)
+  !HEADER
+  write(diag_unit,'(a)')'step volume kin_enery pot_energy total_enery total_temp total_salinity'
 
-    ! determine size of arrays
-    nblks_c = p_patch%nblks_c
-    nblks_e = p_patch%nblks_e
-    nblks_v = p_patch%nblks_v
-
-    CALL add_var(ocean_diagnostics_list, 'volume', ocean_diagnostics%volume , GRID_UNSTRUCTURED_CELL,&
-    &            ZA_SURFACE, &
-    &            t_cf_var('volume', 'm^3', 'volume', DATATYPE_FLT32),&
-    &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
-    &            ldims=(/nproma,nblks_c/))
-    CALL add_var(ocean_diagnostics_list, 'kin_energy', ocean_diagnostics%kin_energy , &
-        & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-    &            t_cf_var('kin_energy', 'J', 'kinetic_energy', DATATYPE_FLT32),&
-    &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
-    &            ldims=(/nproma,nblks_c/))
-
-CALL message (TRIM(routine), 'end')
-! open textfile for global timeseries
-diag_unit = find_next_free_unit(10,99)
-OPEN (unit=diag_unit,file='oce_diagnostics.txt',IOSTAT=ist)
+  CALL message (TRIM(routine), 'end')
 END SUBROUTINE construct_oce_diagnostics
 !-------------------------------------------------------------------------  
 !
