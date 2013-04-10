@@ -988,15 +988,13 @@ DO JL=KIDIA,KFDIA
     ZRHO = PAPHM1(JL,KLEV)/( RD*PTM1(JL,KLEV)*(1.0_JPRB+RETV*PQM1(JL,KLEV)) )
     ZKHFL(JL) = ZEXTSHF(JL) / ZRHO / RCPD
     ZKQFL(JL) = ZEXTLHF(JL) / ZRHO / RLVTT
-   !ZKMFL(JL) = ??? done by TESSEL???
+   !ZKMFL(JL) = calculated as mean of TESSEL tiles in surfexcdriver
   END IF
 
 ! test: fixed surface fluxes
 
    !ZEXTSHF(JL) = -15.0_JPRB
    !ZEXTLHF(JL) = -60.0_JPRB
-   !ZEXTSHF(JL) = 0.0_JPRB  ! testing???
-   !ZEXTLHF(JL) = 0.0_JPRB  ! - " -
    !ZKMFL(JL)   = 0.0_JPRB  ! - " -      (0 is bad idea!!!)
 
 ENDDO

@@ -1009,7 +1009,7 @@ endif
     ! Loop over all points (land AND water points)  !!
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-    !aggregation ofr shfl_s and lhfs_s done in turb_sfc_interface
+    !aggregation of shfl_s and lhfs_s done in turb_sfc_interface
 
     IF (ntiles_total == 1) THEN 
       DO jc = i_startidx, i_endidx
