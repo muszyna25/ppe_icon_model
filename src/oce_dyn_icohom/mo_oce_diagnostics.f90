@@ -143,7 +143,7 @@ SUBROUTINE calculate_oce_diagnostics(p_patch_3D, p_os, p_sfc_flx, p_phys_param, 
   CHARACTER(len=1024) :: fmt_string,real_fmt
 
   !-----------------------------------------------------------------------
-  all_cells    => p_patch_3D%p_patch_2D(1)%cells%all
+  all_cells    => p_patch_3D%p_patch_2D(1)%cells%owned
   p_patch      => p_patch_3D%p_patch_2D(1)
 
   !-----------------------------------------------------------------------
