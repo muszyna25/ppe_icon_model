@@ -38,6 +38,7 @@ MODULE mo_oce_diagnostics
   USE mo_grid_subset,        ONLY: t_subset_range, get_index_range
   USE mo_mpi,                ONLY: my_process_is_stdio, p_field_sum, &
     &                              p_comm_work_test, p_comm_work, p_io, p_bcast
+  USE mo_sync,               ONLY: global_sum_array
   USE mo_math_utilities,     ONLY: t_cartesian_coordinates!, gc2cc
   USE mo_math_constants,     ONLY: rad2deg
   USE mo_impl_constants,     ONLY: sea_boundary,sea, &
@@ -137,14 +138,14 @@ SUBROUTINE calculate_oce_diagnostics(p_patch_3D, p_os, p_sfc_flx, p_phys_param, 
   INTEGER  :: reference_timestep
   TYPE(t_patch), POINTER     :: p_patch
 
-  TYPE(t_subset_range), POINTER :: all_cells 
+  TYPE(t_subset_range), POINTER :: owned_cells
   TYPE(t_oce_monitor),  POINTER :: monitor
-  CHARACTER(len=1024) :: line
-  CHARACTER(len=1024) :: fmt_string,real_fmt
+  CHARACTER(len=1024)           :: line
+  CHARACTER(len=1024)           :: fmt_string, real_fmt
 
   !-----------------------------------------------------------------------
-  all_cells    => p_patch_3D%p_patch_2D(1)%cells%owned
-  p_patch      => p_patch_3D%p_patch_2D(1)
+  owned_cells => p_patch_3D%p_patch_2D(1)%cells%owned
+  p_patch     => p_patch_3D%p_patch_2D(1)
 
   !-----------------------------------------------------------------------
 
@@ -154,8 +155,8 @@ SUBROUTINE calculate_oce_diagnostics(p_patch_3D, p_os, p_sfc_flx, p_phys_param, 
   SELECT CASE (iswm_oce)
   CASE (1) ! shallow water mode
     !Potential energy in SW-casep_patch%patch_oce%del_zlev_m(1)
-    DO jb = all_cells%start_block, all_cells%end_block
-      CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+    DO jb = owned_cells%start_block,owned_cells%end_block
+      CALL get_index_range(owned_cells, jb, i_startidx_c, i_endidx_c)
 
       DO jc =  i_startidx_c, i_endidx_c
         IF ( p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary ) THEN
@@ -180,8 +181,8 @@ SUBROUTINE calculate_oce_diagnostics(p_patch_3D, p_os, p_sfc_flx, p_phys_param, 
     END DO
 
   CASE DEFAULT !3D model
-    DO jb = all_cells%start_block, all_cells%end_block
-    CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+    DO jb = owned_cells%start_block, owned_cells%end_block
+    CALL get_index_range(owned_cells, jb, i_startidx_c, i_endidx_c)
       !We are dealing with the surface layer first
       DO jc =  i_startidx_c, i_endidx_c
         DO jk=1,p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)
@@ -222,6 +223,17 @@ SUBROUTINE calculate_oce_diagnostics(p_patch_3D, p_os, p_sfc_flx, p_phys_param, 
     END DO
 
   END SELECT
+
+  ! compute global sums {
+  monitor%volume                     = global_sum_array(monitor%volume)
+  monitor%kin_energy                 = global_sum_array(monitor%kin_energy)
+  monitor%pot_energy                 = global_sum_array(monitor%pot_energy)
+  monitor%total_energy               = global_sum_array(monitor%total_energy)
+  monitor%absolute_vertical_velocity = global_sum_array(monitor%absolute_vertical_velocity)
+  DO i_no_t=1,no_tracer
+   monitor%tracer_content(i_no_t) = global_sum_array(monitor%tracer_content(i_no_t))
+  END DO
+  ! }
 
   ! write things to diagnostics output file
   real_fmt   = 'g12.4'
