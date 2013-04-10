@@ -25,9 +25,6 @@ this_script="$(pwd -P)/${0##*/}"
 restart=${restart:=".false."}
 #
 #AUTOMATIC_RESTART_SETUP:
-restart=.true.
-restart=.true.
-restart=.true.
 #END AUTOMATIC_RESTART_SETUP
 #__________________________________________________________________________________________________
 # set error checking
