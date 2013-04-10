@@ -52,10 +52,10 @@ MODULE mo_oce_bulk
 USE mo_kind,                ONLY: wp
 USE mo_parallel_config,     ONLY: nproma
 USE mo_run_config,          ONLY: dtime, ltimer
-USE mo_sync,                ONLY: sync_c, sync_patch_array
+USE mo_sync,                ONLY: sync_c, sync_patch_array, global_sum_array
 USE mo_timer,               ONLY: timer_start, timer_stop, timer_coupling
 USE mo_io_units,            ONLY: filename_max
-USE mo_mpi,                 ONLY: my_process_is_stdio, p_io, p_bcast, &
+USE mo_mpi,                 ONLY: my_process_is_stdio, p_io, p_bcast,                   &
   &                               p_comm_work_test, p_comm_work
 USE mo_parallel_config,     ONLY: p_test_run
 !USE mo_util_string,         ONLY: t_keyword_list
@@ -1701,7 +1701,7 @@ CONTAINS
 
     INTEGER  :: i_startidx_c, i_endidx_c
     INTEGER  :: jc, jb
-    REAL(wp) :: ocean_are, glob_slev, corr_slev
+    REAL(wp) :: glb_sum, ocean_are, glob_slev, corr_slev
 
     p_patch         => p_patch_3D%p_patch_2D(1)
     all_cells       => p_patch%cells%all
@@ -1720,6 +1720,11 @@ CONTAINS
       END DO
     END DO
 
+    ! parallelize
+    glb_sum   = global_sum_array(ocean_are)
+    ocean_are = glb_sum
+    glb_sum   = global_sum_array(glob_slev)
+    glob_slev = glb_sum
     corr_slev = glob_slev/ocean_are
 
     DO jb = all_cells%start_block, all_cells%end_block
