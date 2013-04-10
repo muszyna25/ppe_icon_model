@@ -76,6 +76,8 @@ IMPLICIT NONE
 ! !VERSION CONTROL:
 CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
+INTEGER :: diag_unit = -1 ! file handle for the global timeseries output
+
 !
 ! PUBLIC INTERFACE
 !
@@ -129,7 +131,7 @@ TYPE(t_oce_timeseries),POINTER             :: oce_ts
 !Local variables
 INTEGER :: i_startidx_c, i_endidx_c!,i_startblk_c, i_endblk_c,
 INTEGER :: jk,jc,jb!,je
-INTEGER :: i_no_t, i, ist,iunit
+INTEGER :: i_no_t, i
 REAL(wp) :: prism_vol
 REAL(wp) :: z_w
 INTEGER  :: referenz_timestep
@@ -264,29 +266,27 @@ ELSEIF(iswm_oce==1)THEN
 !   ptr_monitor%total_energy = ptr_monitor%pot_energy + ptr_monitor%kin_energy
 ENDIF
 
-iunit = find_next_free_unit(10,99)
-OPEN (unit=iunit,file='oce_diagnostics.txt',IOSTAT=ist)
 DO i=timestep,timestep
-  write(iunit,*)'ACTUAL VALUES OF VOLUME NORMALIZED BY INITIAL VALUE:          ', i,&
+  write(diag_unit,*)'ACTUAL VALUES OF VOLUME NORMALIZED BY INITIAL VALUE:          ', i,&
   &oce_ts%oce_diagnostics(i)%volume/oce_ts%oce_diagnostics(1)%volume
 
   IF(oce_ts%oce_diagnostics(1)%kin_energy/=0.0_wp)THEN
-    write(iunit,*)'ACTUAL VALUES OF KINETIC ENERGY NORMALIZED BY INITIAL VALUE:  ',  i,&
+    write(diag_unit,*)'ACTUAL VALUES OF KINETIC ENERGY NORMALIZED BY INITIAL VALUE:  ',  i,&
     &oce_ts%oce_diagnostics(i)%kin_energy/ oce_ts%oce_diagnostics(1)%kin_energy
   ENDIF
 
   IF(oce_ts%oce_diagnostics(1)%pot_energy/=0.0_wp)THEN
-    write(iunit,*)'ACTUAL VALUES OF POTENTIAL ENERGY NORMALIZED BY INITIAL VALUE:',i,&
+    write(diag_unit,*)'ACTUAL VALUES OF POTENTIAL ENERGY NORMALIZED BY INITIAL VALUE:',i,&
     &oce_ts%oce_diagnostics(i)%pot_energy/ oce_ts%oce_diagnostics(1)%pot_energy
   ENDIF
 
   IF(oce_ts%oce_diagnostics(1)%total_energy/=0.0_wp)THEN
-    write(iunit,*)'ACTUAL VALUES OF TOTAL ENERGY NORMALIZED BY INITIAL VALUE:    ',i,&
+    write(diag_unit,*)'ACTUAL VALUES OF TOTAL ENERGY NORMALIZED BY INITIAL VALUE:    ',i,&
     &oce_ts%oce_diagnostics(i)%total_energy/ oce_ts%oce_diagnostics(1)%total_energy
   ENDIF
   DO i_no_t=1, no_tracer
     IF(oce_ts%oce_diagnostics(1)%tracer_content(i_no_t)/=0.0_wp)THEN
-      write(iunit,*)'ACTUAL VALUES OF TOTAL TRACER CONTENT:                        ',i_no_t,i,&
+      write(diag_unit,*)'ACTUAL VALUES OF TOTAL TRACER CONTENT:                        ',i_no_t,i,&
       &oce_ts%oce_diagnostics(i)%tracer_content(i_no_t)&
       &/ oce_ts%oce_diagnostics(1)%tracer_content(i_no_t)
 
@@ -316,7 +316,7 @@ END DO
 !     ENDIF
 
     IF(oce_ts%oce_diagnostics(1)%total_energy/=0.0_wp)THEN
-      write(iunit,*)'ACTUAL VALUES OF TOTAL ENERGY NORMALIZED BY INITIAL VALUE:    ',i,&
+      write(diag_unit,*)'ACTUAL VALUES OF TOTAL ENERGY NORMALIZED BY INITIAL VALUE:    ',i,&
       &oce_ts%oce_diagnostics(i)%total_energy&
       &/ oce_ts%oce_diagnostics(referenz_timestep)%total_energy,&
 & (oce_ts%oce_diagnostics(i)%total_energy/ oce_ts%oce_diagnostics(referenz_timestep)%total_energy&
@@ -324,13 +324,12 @@ END DO
     ENDIF
      DO i_no_t=1, no_tracer
        IF(oce_ts%oce_diagnostics(1)%tracer_content(i_no_t)/=0.0_wp)THEN
-         write(iunit,*)'ACTUAL VALUES OF TOTAL TRACER CONTENT:                        ',i_no_t,i,&
+         write(diag_unit,*)'ACTUAL VALUES OF TOTAL TRACER CONTENT:                        ',i_no_t,i,&
          &oce_ts%oce_diagnostics(i)%tracer_content(i_no_t)&
          &/ oce_ts%oce_diagnostics(referenz_timestep)%tracer_content(i_no_t)
        ENDIF
     END DO
   END DO
-    CLOSE(unit=iunit)
 !ENDIF
 !CALL message (TRIM(routine), 'end')
 END SUBROUTINE calculate_oce_diagnostics
@@ -351,7 +350,7 @@ TYPE(t_hydro_ocean_state), TARGET       :: p_os
 TYPE(t_oce_timeseries),POINTER          :: oce_ts
 !
 !local variables
-INTEGER :: i
+INTEGER :: i,ist
 REAL(wp) :: delta_z, prism_vol
 TYPE(t_oce_monitor), POINTER :: ptr_monitor
 CHARACTER(len=max_char_length), PARAMETER :: &
@@ -418,6 +417,9 @@ ALLOCATE(ocean_diagnostics)
     &            ldims=(/nproma,nblks_c/))
 
 CALL message (TRIM(routine), 'end')
+! open textfile for global timeseries
+diag_unit = find_next_free_unit(10,99)
+OPEN (unit=diag_unit,file='oce_diagnostics.txt',IOSTAT=ist)
 END SUBROUTINE construct_oce_diagnostics
 !-------------------------------------------------------------------------  
 !
@@ -444,6 +446,8 @@ CHARACTER(len=max_char_length), PARAMETER :: &
    END DO
    DEALLOCATE(oce_ts%oce_diagnostics)
    DEALLOCATE(oce_ts)
+   ! close the global diagnostics text file
+   CLOSE(unit=diag_unit)
 
 CALL message (TRIM(routine), 'end')
 END SUBROUTINE destruct_oce_diagnostics
