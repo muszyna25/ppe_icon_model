@@ -2037,8 +2037,8 @@ CONTAINS
       CALL gridDefYlongname(of%cdiCellGridID, 'center latitude')
       CALL gridDefYunits(of%cdiCellGridID, 'radian')
       !
-!LK     CALL uuid2char(patch_info(i_dom)%grid_uuid, uuid_string)
-!LK     CALL gridDefUUID(of%cdiCellGridID, uuid_string)
+      CALL uuid2char(patch_info(i_dom)%grid_uuid, uuid_string)
+      CALL gridDefUUID(of%cdiCellGridID, uuid_string)
       !
       ! works, but makes no sense, yet. Proper grid numbers still missing
 !DR      CALL gridDefNumber(of%cdiCellGridID, patch_info(i_dom)%number_of_grid_used)
@@ -2061,8 +2061,8 @@ CONTAINS
       CALL gridDefYlongname(of%cdiVertGridID, 'vertex latitude')
       CALL gridDefYunits(of%cdiVertGridID, 'radian')
       !
-!LK      CALL uuid2char(patch_info(i_dom)%grid_uuid, uuid_string)
-!LK      CALL gridDefUUID(of%cdiVertGridID, uuid_string)
+      CALL uuid2char(patch_info(i_dom)%grid_uuid, uuid_string)
+      CALL gridDefUUID(of%cdiVertGridID, uuid_string)
       !
       ! works, but makes no sense, yet. Proper grid numbers still missing
 !DR      CALL gridDefNumber(of%cdiVertGridID, patch_info(i_dom)%number_of_grid_used)
@@ -2085,8 +2085,8 @@ CONTAINS
       CALL gridDefYlongname(of%cdiEdgeGridID, 'edge midpoint latitude')
       CALL gridDefYunits(of%cdiEdgeGridID, 'radian')
       !
-!LK      CALL uuid2char(patch_info(i_dom)%grid_uuid, uuid_string)
-!LK      CALL gridDefUUID(of%cdiEdgeGridID, uuid_string)
+      CALL uuid2char(patch_info(i_dom)%grid_uuid, uuid_string)
+      CALL gridDefUUID(of%cdiEdgeGridID, uuid_string)
       !
       ! works, but makes no sense, yet. Proper grid numbers still missing
 !DR      CALL gridDefNumber(of%cdiEdgeGridID, patch_info(i_dom)%number_of_grid_used)
