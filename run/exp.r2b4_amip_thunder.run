@@ -282,15 +282,17 @@ fi
 
 EXPNAME=r2b4_amip
 
-EXPDIR=${basedir}/experiments/${EXPNAME}
+EXPDIR=$basedir/experiments/$EXPNAME
 
 blueln "Experiment name     : $EXPNAME"
 blueln "Experiment directory: $EXPDIR"
 
-if [[ ! -d ${EXPDIR} ]] ;  then
-  mkdir -p ${EXPDIR}
-  check_error $? "$LINENO: ${EXPDIR} could not be created ..."
+if [[ ! -d $EXPDIR ]] ;  then
+  mkdir -p $EXPDIR
+  check_error $? "$LINENO: $EXPDIR could not be created ..."
 fi
+
+cd $EXPDIR
 
 #__________________________________________________________________________________________________
 # grid files
@@ -440,7 +442,7 @@ cat > ${basedir}/run/${atmo_namelist} << EOF
 /
 EOF
 
-cat > ${EXPDIR}/${land_namelist} <<EOF
+cat > ${land_namelist} <<EOF
 &jsb_model_nml
   usecase         = 'jsbach_lite'
 /
@@ -478,11 +480,11 @@ do
     # check if input file exists
     ls -l ${HGRIDDIR}/$gridfile > /dev/null
     check_error $? "$LINENO: ${HGRIDDIR}/$gridfile does not exist."
-    if [[ -e ${EXPDIR}/$gridfile ]]
+    if [[ -e $gridfile ]]
     then
-	rm ${EXPDIR}/$gridfile
+	rm $gridfile
     fi
-    ln -s ${HGRIDDIR}/$gridfile ${EXPDIR}/${gridfile}
+    ln -s ${HGRIDDIR}/$gridfile $gridfile
 done
 #
 #__________________________________________________________________________________________________
@@ -492,19 +494,19 @@ VGRIDDIR=${basedir}/vertical_coord_tables
 if [[ $atmo_model_equations = 3 ]]
 then
     VGRIDNAME=atm_hyb_sz_${nlev}
-    if [[ -e ${EXPDIR}/${VGRIDNAME} ]]
+    if [[ -e ${VGRIDNAME} ]]
     then
-	rm  ${EXPDIR}/${VGRIDNAME}
+	rm  ${VGRIDNAME}
     fi
-    ln -s ${VGRIDDIR}/${VGRIDNAME} ${EXPDIR}/${VGRIDNAME}
+    ln -s ${VGRIDDIR}/${VGRIDNAME} ${VGRIDNAME}
     warning $? "ln -s ${VGRIDDIR}/${VGRIDNAME} failed"
 else
     VGRIDNAME=atm_hyb_sp_${nlev}
-    if [[ -e ${EXPDIR}/${VGRIDNAME} ]]
+    if [[ -e ${VGRIDNAME} ]]
     then
-	rm ${EXPDIR}/${VGRIDNAME}
+	rm ${VGRIDNAME}
     fi
-    ln -s ${VGRIDDIR}/${VGRIDNAME} ${EXPDIR}/${VGRIDNAME}
+    ln -s ${VGRIDDIR}/${VGRIDNAME} ${VGRIDNAME}
     check_error $? "ln -s ${VGRIDDIR}/${VGRIDNAME}"
 fi
 
@@ -525,33 +527,28 @@ cp -f ${basedir}/data/ECHAM6_CldOptProps.nc ${EXPDIR} # cloud optical properties
 
 INIDATA=/pool/data/ICON/input/r0001
 
-cp -f $INIDATA/global/atm/bc_greenhouse_rcp45_1765-2500.nc ${EXPDIR}/bc_greenhouse_gases.nc
+cp -f $INIDATA/global/atm/bc_greenhouse_rcp45_1765-2500.nc bc_greenhouse_gases.nc
 
 # - ozone
 #   !still wrong APE ozone!
-cp -f ${basedir}/data/external/ape_ozone/ape_o3_R2B04_1Pa_spr0.90-cell.nc ${EXPDIR}/o3_icon_DOM01.nc
+cp -f ${basedir}/data/external/ape_ozone/ape_o3_R2B04_1Pa_spr0.90-cell.nc ./o3_icon_DOM01.nc
 
 # - sst and sic
-cp -f $INIDATA/r2b4_amip/oce/bc_sic_pcmdi_1870-2010.nc ${EXPDIR}/bc_sic.nc
-cp -f $INIDATA/r2b4_amip/oce/bc_sst_pcmdi_1870-2010.nc ${EXPDIR}/bc_sst.nc
+cp -f $INIDATA/r2b4_amip/oce/bc_sic_pcmdi_1870-2010.nc ./bc_sic.nc
+cp -f $INIDATA/r2b4_amip/oce/bc_sst_pcmdi_1870-2010.nc ./bc_sst.nc
 
 # - land parameters
-#cp -f $INIDATA/r2b4_amip/lnd/bc_land_frac.nc           ${EXPDIR}/bc_land_frac.nc
-#cp -f $INIDATA/r2b4_amip/lnd/bc_land_phys.nc           ${EXPDIR}/bc_land_phys.nc
-#cp -f $INIDATA/r2b4_amip/lnd/bc_land_sso.nc            ${EXPDIR}/bc_land_sso.nc
+#cp -f $INIDATA/r2b4_amip/lnd/bc_land_frac.nc           ./bc_land_frac.nc
+#cp -f $INIDATA/r2b4_amip/lnd/bc_land_phys.nc           ./bc_land_phys.nc
+#cp -f $INIDATA/r2b4_amip/lnd/bc_land_sso.nc            ./bc_land_sso.nc
 
 #ls -l ${basedir}/jsbach_R2B04_v1.nc > /dev/null 2>&1
-#check_error $? "copy /home/zmaw/m212070/jsbach_R2B04_v1.nc to $basedir (2013-03-27)."
-#cp -f ${basedir}/jsbach_R2B04_v1.nc                    ${EXPDIR}/extpar_${atmo_dyn_grids}
+#check_error $? "copy /home/zmaw/m212070/jsbach_R2B04_v1.nc to $EXPDIR (2013-03-27)."
+#cp -f ${basedir}/jsbach_R2B04_v1.nc                    ./extpar_${atmo_dyn_grids}
 ls -l /home/zmaw/m212005/icon/r2b4_amip/bc_veg.nc > /dev/null 2>&1 || check_error $? "cannot copy /home/zmaw/m212005/icon/r2b4_amip/\* to $EXPDIR."
-cp -f /home/zmaw/m212005/icon/r2b4_amip/ic_srf.nc                ${EXPDIR}/
-cp -f /home/zmaw/m212005/icon/r2b4_amip/bc_*.nc                  ${EXPDIR}/
-cp -f /home/zmaw/m212005/icon/r2b4_amip/extpar_${atmo_dyn_grids} ${EXPDIR}/
-
-#__________________________________________________________________________________________________
-# change to experiments directory
-
-cd ${EXPDIR}
+cp -f /home/zmaw/m212005/icon/r2b4_amip/ic_srf.nc                ./
+cp -f /home/zmaw/m212005/icon/r2b4_amip/bc_*.nc                  ./
+cp -f /home/zmaw/m212005/icon/r2b4_amip/extpar_${atmo_dyn_grids} ./
 
 #__________________________________________________________________________________________________
 # copy restart files eventually
@@ -597,7 +594,7 @@ EOF
 
 fi
 
-cat > ${EXPDIR}/$jsbach_master_namelist << EOF
+cat > $jsbach_master_namelist << EOF
 &jsb_control_nml
  is_standalone      = .false.
  restart_jsbach     = .false.
@@ -644,14 +641,6 @@ cat >> $master_namelist << EOF
 /
 EOF
 
-    # get namelist
-    if [[ -f $basedir/run/$model_namelist_filename ]]
-    then
-        mv -f $basedir/run/$model_namelist_filename ${EXPDIR}
-        check_error $? "$LINENO: cp -f $basedir/run/$model_namelist_filename"
-    else
-        check_error 1 "$LINENO: $basedir/run/$model_namelist_filename does not exist"
-    fi  
 }
 
 # add model component to master_namelist
@@ -677,7 +666,6 @@ check_error $? "$LINENO: ${MODEL} does not exist?"
 
 # start experiment
 #
-cd ${EXPDIR}
 
 rm -f finish.status
 
