@@ -20,9 +20,16 @@ this_script="$(pwd -P)/${0##*/}"
 #          Luis Kornblueh, MPIM, March 2013
 # 
 #__________________________________________________________________________________________________
+# Restart status (mode visible!)
+#
+restart=${restart:=".false."}
+#
+#AUTOMATIC_RESTART_SETUP:
+#END AUTOMATIC_RESTART_SETUP
+#__________________________________________________________________________________________________
 # set error checking
 
-set -eux
+set -eu
 
 #__________________________________________________________________________________________________
 # function definitions
@@ -461,14 +468,6 @@ cat > ${EXPDIR}/${jsbach_namelist} <<EOF
   ic_filename     = 'ic_veg.nc'
 /
 EOF
-
-#__________________________________________________________________________________________________
-# set some default values and derive some run parameteres
-
-restart=${restart:=".false."}
-
-#AUTOMATIC_RESTART_SETUP:
-#END AUTOMATIC_RESTART_SETUP
 
 #__________________________________________________________________________________________________
 # get horizontal grid files
