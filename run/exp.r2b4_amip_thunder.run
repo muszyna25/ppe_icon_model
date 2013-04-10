@@ -25,6 +25,9 @@ this_script="$(pwd -P)/${0##*/}"
 restart=${restart:=".false."}
 #
 #AUTOMATIC_RESTART_SETUP:
+restart=.true.
+restart=.true.
+restart=.true.
 #END AUTOMATIC_RESTART_SETUP
 #__________________________________________________________________________________________________
 # set error checking
@@ -112,6 +115,9 @@ case $userid in
     1205)
 	user="Reiner"
 	;;
+    20736)
+	user="Thorsten"
+	;;
     *)
 	user="Unknown"
 	echo "Please, adapt the necessary setups ..."
@@ -152,6 +158,9 @@ case $user in
 		basedir=/scratch/local1/m212005/git/icon
 		;;
 	esac
+	;;
+    Thorsten)
+	basedir=/scratch/mpi/mh0730/m300057/icon-dev
 	;;
 esac
 
@@ -211,7 +220,7 @@ case $user in
 	esac
 
 	;;
-    Monika|Marco)
+    Monika|Marco|Thorsten)
 	mpi_root=/sw/squeeze-x64/mpi/openmpi_ib-1.6.2-static-gcc46
 	mpiexec_cmd="mpiexec" 
 	;;
