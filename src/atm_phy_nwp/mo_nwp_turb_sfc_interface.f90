@@ -170,7 +170,7 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
   INTEGER  :: icnt
   INTEGER, PARAMETER :: itrac_vdf = 0
   INTEGER  :: KTVL(nproma)         , KTVH(nproma)         , zsoty(nproma)        , &
-    &         idummy_vdf_0d(nproma), idummy_vdf_0e(nproma), idummy_vdf_0f(nproma)
+    &         kpbltype(nproma), idummy_vdf_0e(nproma), idummy_vdf_0f(nproma)
   LOGICAL  :: ldummy_vdf_a(nproma)
   REAL(wp) :: zdummy_vdf_1a(nproma), zdummy_vdf_1b(nproma), zdummy_vdf_1c(nproma), &
     &         zdummy_vdf_1d(nproma), zdummy_vdf_1e(nproma), zdummy_vdf_1f(nproma), &
@@ -286,7 +286,7 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
 ! !$OMP PARALLEL
 ! !$OMP DO PRIVATE(jb,jt,jc,jk,i_startidx,i_endidx,icnt, &
 ! !$OMP KTVL, KTVH, zsoty, &
-! !$OMP idummy_vdf_0d, idummy_vdf_0e, idummy_vdf_0f, &
+! !$OMP kpbltype, idummy_vdf_0e, idummy_vdf_0f, &
 ! !$OMP ldummy_vdf_a , &
 ! !$OMP zdummy_vdf_1a, zdummy_vdf_1b, zdummy_vdf_1c, &
 ! !$OMP zdummy_vdf_1d, zdummy_vdf_1e, zdummy_vdf_1f, &
@@ -778,7 +778,7 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
         & PQ2M    = prm_diag%qv_2m(:,jb)                       ,&! (OUT)  "-"
         & PZINV   = zdummy_vdf_1m                              ,&! (OUT) optional out: PBL HEIGHT (moist parcel, not for stable PBL)
         & PBLH    = zdummy_vdf_1n                              ,&! (OUT) optional out: PBL HEIGHT (dry diagnostic based on Ri#)
-        & KHPBLN  = idummy_vdf_0d                              ,&! (OUT) optional out: PBL top level
+        & KHPBLN  = kpbltype                                   ,&! (OUT) optional out: PBL top level 
         & KVARTOP = idummy_vdf_0e                              ,&! (OUT) optional out: top level of predictied qt,var
         & PSSRFLTI= PSSRFLTI                                   ,&! (OUT) net SW sfc flux for each tile (use tile ablbedo)
         & PEVAPSNW= zdummy_vdf_1o                              ,&! (OUT) optional out: evaporation from snow under forest
@@ -910,6 +910,16 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
         ENDDO
       ENDDO
 
+! turn off shallow convection
+
+      DO jc = i_startidx, i_endidx
+        !allow Tiedtke shallow convection when not DUALM shallow convection or strcu
+        IF (KPBLTYPE(jc) .EQ. 2 .OR. KPBLTYPE(jc) .EQ. 3) THEN
+          prm_diag%ldshcv(jc,jb) = .FALSE.
+        ELSE
+          prm_diag%ldshcv(jc,jb) = .TRUE.
+        ENDIF
+      ENDDO
 
 ! Diagnostic output variables:  ???? TERRA-tiles or TESSEL-tiles???
 

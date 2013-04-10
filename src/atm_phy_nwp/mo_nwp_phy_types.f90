@@ -296,7 +296,8 @@ MODULE mo_nwp_phy_types
       &  ktype   (:,:)        !< Type of convection
 
     LOGICAL, POINTER :: &
-      & locum     (:,:)       !< convective  activity indicator
+      & locum     (:,:),    & !< convective  activity indicator
+      & ldshcv    (:,:)       !< shallow convection indicator
 
     !> (Optional:) Additional diagnostic fields:
     REAL(wp), POINTER ::  &

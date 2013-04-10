@@ -130,10 +130,10 @@ CONTAINS
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
 
-    ! for EDMF DUALM: turn off Tiedtke shallow convection 
-    IF ( atm_phy_nwp_config(jg)%inwp_turb == 3 ) THEN
-      lmfscv = .FALSE.       ! shallow convection off
-    ENDIF
+   ! for EDMF DUALM: turn off Tiedtke shallow convection 
+   !IF ( atm_phy_nwp_config(jg)%inwp_turb == 3 ) THEN
+   !  lmfscv = .FALSE.       ! shallow convection off
+   !ENDIF
 
  
 
@@ -244,6 +244,12 @@ CONTAINS
         !> Convection
         !-------------------------------------------------------------------------
 
+        IF ( atm_phy_nwp_config(jg)%inwp_turb /= 3 ) THEN ! DUALM is allow to turn of shallow convection
+          DO jc = i_startidx,i_endidx
+            prm_diag%ldshcv(jc,jb) = .true.
+          ENDDO
+        ENDIF
+
 !#ifdef __BOUNDCHECK
           CALL cumastrn &
 &           (kidia  = i_startidx ,                kfdia  = i_endidx           ,& !> IN
@@ -271,6 +277,7 @@ CONTAINS
 &            ktype  = prm_diag%ktype   (:,jb)                                 ,& !! OUT
 &            kcbot  = prm_diag%mbas_con(:,jb)                                 ,& !! OUT
 &            kctop  = prm_diag%mtop_con(:,jb)                                 ,& !! OUT
+&            LDSHCV = prm_diag%ldshcv  (:,jb)                                 ,& !! IN
 &            pmfu   =      prm_diag%con_udd(:,:,jb,1)                         ,& !! OUT
 &            pmfd   =      prm_diag%con_udd(:,:,jb,2)                         ,& !! OUT
 &            pmfude_rate = prm_diag%con_udd(:,:,jb,3)                         ,& !! OUT

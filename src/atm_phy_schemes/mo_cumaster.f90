@@ -143,7 +143,8 @@ CONTAINS
     & ptenq,    ptenl,    pteni,                    &
     & ptens,                                        &
     & ldcum,      ktype , kcbot,    kctop,          &
-  ! &   KBOTSC,   LDSC                       &
+  ! & KBOTSC,   LDSC                                &
+    & LDSHCV,                                       &
     & pmfu,     pmfd,                               &
     & pmfude_rate,        pmfdde_rate,              &
     & ptu,      pqu,      plu,                      &
@@ -379,7 +380,7 @@ CONTAINS
     INTEGER(KIND=jpim),INTENT(inout) :: kctop(klon)
     !!INTEGER(KIND=JPIM),INTENT(OUT)   :: KBOTSC(KLON)
     !LOGICAL           ,INTENT(OUT)   :: LDSC(KLON)
-    !LOGICAL           ,INTENT(IN)    :: LDSHCV(KLON)
+    LOGICAL           ,INTENT(IN)    :: LDSHCV(KLON) 
     REAL(KIND=jprb)   ,INTENT(inout) :: ptu(klon,klev)
     REAL(KIND=jprb)   ,INTENT(inout) :: pqu(klon,klev)
     REAL(KIND=jprb)   ,INTENT(inout) :: plu(klon,klev)
@@ -1070,6 +1071,19 @@ CONTAINS
         ktype(jl)=0
       ENDIF
     ENDDO
+
+!                  turn off shallow convection if stratocumulus PBL type
+    DO JL=KIDIA,KFDIA
+      LLO2(JL)=.FALSE.
+    !xmk IF((.NOT.LDSHCV(JL) .AND. KTYPE(JL)==2)) THEN
+    !RN added condition: maintain shallow cumulus starting above lowest level (KLEV)
+      IF((.NOT.LDSHCV(JL) .AND. KTYPE(JL)==2 .AND. IDPL(JL)==KLEV)) THEN
+    !xxx
+        LLO2(JL)=.TRUE.
+        LDCUM(JL)=.FALSE.
+      ENDIF
+    ENDDO
+
 
     IF (.NOT.lmfscv .OR. .NOT.lmfpen) THEN
       DO jl=kidia,kfdia
