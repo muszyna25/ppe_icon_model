@@ -469,12 +469,7 @@ EOF
 #__________________________________________________________________________________________________
 # get horizontal grid files
 
-if [[ x$grids_folder = x ]]
-then
-   HGRIDDIR=${basedir}/grids
-else
-   HGRIDDIR=$grids_folder
-fi
+HGRIDDIR=$grids_folder
 
 all_grids="${atmo_dyn_grids} ${atmo_rad_grids:-}"
 
