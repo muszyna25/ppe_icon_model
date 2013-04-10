@@ -61,6 +61,7 @@ $hosts = {
 # * remote builds start with 'remote'
 $builds = {
   :localGcc          => {:host => :thingol ,:subdir => 'gcc'},
+  :localGccHi        => {:host => :thingol ,:subdir => 'gcc-hiopt', :CC => 'gcc', :FLAGS => 'hiopt'},
   :localGprof        => {:host => :thingol ,:subdir => 'gprof'},
   :localOpenMP       => {:host => :thingol ,:subdir => 'openmp',:FLAGS => 'hiopt',:openmp => true},
   :localNag          => {:host => :thingol ,:subdir => 'nag',  :CC => 'nag'},
