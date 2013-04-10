@@ -515,31 +515,39 @@ fi
 
 cp -f ${basedir}/data/rrtmg_lw.nc           ${EXPDIR} # LW radiation constants
 cp -f ${basedir}/data/ECHAM6_CldOptProps.nc ${EXPDIR} # cloud optical properties   
-   
+
+
+# initial conditions
+# - to be done
+
+
+# boundary conditions
+
 INIDATA=/pool/data/ICON/input/r0001
 
 cp -f $INIDATA/global/atm/bc_greenhouse_rcp45_1765-2500.nc ${EXPDIR}/bc_greenhouse_gases.nc
 
-# APE ozone
-if [[ x${ozon_file:-} != "x" ]]
-then
-    cp -f ${basedir}/data/external/ape_ozone/$ozon_file ${EXPDIR}/o3_icon_DOM01.nc
-else
-    cp -f ${basedir}/data/external/ape_ozone/ape_o3_R2B04_1Pa_spr0.90-cell.nc ${EXPDIR}/o3_icon_DOM01.nc
-fi
+# - ozone
+#   !still wrong APE ozone!
+cp -f ${basedir}/data/external/ape_ozone/ape_o3_R2B04_1Pa_spr0.90-cell.nc ${EXPDIR}/o3_icon_DOM01.nc
+
+# - sst and sic
 cp -f $INIDATA/r2b4_amip/oce/bc_sic_pcmdi_1870-2010.nc ${EXPDIR}/bc_sic.nc
 cp -f $INIDATA/r2b4_amip/oce/bc_sst_pcmdi_1870-2010.nc ${EXPDIR}/bc_sst.nc
-#cp -f $INIDATA/r2b4_amip/lnd/bc_land_frac.nc ${EXPDIR}/bc_land_frac.nc
-#cp -f $INIDATA/r2b4_amip/lnd/bc_land_phys.nc ${EXPDIR}/bc_land_phys.nc
-#cp -f $INIDATA/r2b4_amip/lnd/bc_land_sso.nc ${EXPDIR}/bc_land_sso.nc
+
+# - land parameters
+#cp -f $INIDATA/r2b4_amip/lnd/bc_land_frac.nc           ${EXPDIR}/bc_land_frac.nc
+#cp -f $INIDATA/r2b4_amip/lnd/bc_land_phys.nc           ${EXPDIR}/bc_land_phys.nc
+#cp -f $INIDATA/r2b4_amip/lnd/bc_land_sso.nc            ${EXPDIR}/bc_land_sso.nc
 
 #ls -l ${basedir}/jsbach_R2B04_v1.nc > /dev/null 2>&1
 #check_error $? "copy /home/zmaw/m212070/jsbach_R2B04_v1.nc to $basedir (2013-03-27)."
-#cp -f ${basedir}/jsbach_R2B04_v1.nc ${EXPDIR}/extpar_${atmo_dyn_grids}
+#cp -f ${basedir}/jsbach_R2B04_v1.nc                    ${EXPDIR}/extpar_${atmo_dyn_grids}
 ls -l /home/zmaw/m212005/icon/r2b4_amip/bc_veg.nc > /dev/null 2>&1 || check_error $? "cannot copy /home/zmaw/m212005/icon/r2b4_amip/\* to $EXPDIR."
-cp -f /home/zmaw/m212005/icon/r2b4_amip/ic_srf.nc ${EXPDIR}/
-cp -f /home/zmaw/m212005/icon/r2b4_amip/bc_*.nc ${EXPDIR}/
+cp -f /home/zmaw/m212005/icon/r2b4_amip/ic_srf.nc                ${EXPDIR}/
+cp -f /home/zmaw/m212005/icon/r2b4_amip/bc_*.nc                  ${EXPDIR}/
 cp -f /home/zmaw/m212005/icon/r2b4_amip/extpar_${atmo_dyn_grids} ${EXPDIR}/
+
 #__________________________________________________________________________________________________
 # change to experiments directory
 
