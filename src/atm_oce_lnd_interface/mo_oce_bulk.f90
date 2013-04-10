@@ -614,6 +614,15 @@ CONTAINS
           END DO
         END IF
 
+        !---------DEBUG DIAGNOSTICS-------------------------------------------
+        idt_src=1  ! output print level (1-5, fix)
+        CALL dbg_print('UpdSfc: hi after slow'     ,p_ice%hi       ,str_module,idt_src)
+        idt_src=3  ! output print level (1-5, fix)
+        CALL dbg_print('UpdSfc: T1 after slow'     ,p_ice%t1       ,str_module,idt_src)
+        CALL dbg_print('UpdSfc: T2 after slow'     ,p_ice%t2       ,str_module,idt_src)
+        CALL dbg_print('UpdSfc: Conc. after slow'  ,p_ice%conc     ,str_module,idt_src)
+        !---------------------------------------------------------------------
+
       ELSE   !  no sea ice
 
         ! bulk formula applied to boundary forcing for ocean model:
@@ -866,6 +875,15 @@ CONTAINS
 
           ! sum of flux from sea ice to the ocean is stored in p_sfc_flx%forc_hflx
           !  done in mo_sea_ice:upper_ocean_TS
+
+          !---------DEBUG DIAGNOSTICS-------------------------------------------
+          idt_src=1  ! output print level (1-5, fix)
+          CALL dbg_print('UpdSfc: hi after slow'     ,p_ice%hi       ,str_module,idt_src)
+          idt_src=3  ! output print level (1-5, fix)
+          CALL dbg_print('UpdSfc: T1 after slow'     ,p_ice%t1       ,str_module,idt_src)
+          CALL dbg_print('UpdSfc: T2 after slow'     ,p_ice%t2       ,str_module,idt_src)
+          CALL dbg_print('UpdSfc: Conc. after slow'  ,p_ice%conc     ,str_module,idt_src)
+          !---------------------------------------------------------------------
 
         ENDIF
 

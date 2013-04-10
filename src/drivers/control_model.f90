@@ -58,7 +58,7 @@ PROGRAM control_model
   
   USE mo_master_control,      ONLY: init_master_control,  &
     & get_my_namelist_filename, get_my_process_type,      &
-    & testbed_process,  atmo_process, ocean_process, radiation_process
+    & testbed_process,  atmo_process, ocean_process!, radiation_process
   
   USE mo_time_config,        ONLY: restart_experiment
 

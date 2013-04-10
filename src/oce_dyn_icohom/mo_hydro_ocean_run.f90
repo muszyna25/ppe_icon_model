@@ -50,17 +50,16 @@ USE mo_kind,                   ONLY: wp
 USE mo_impl_constants,         ONLY: max_char_length
 USE mo_model_domain,           ONLY: t_patch, t_patch_3D
 USE mo_grid_config,            ONLY: n_dom
-USE mo_sync,                   ONLY: sync_e, sync_c, sync_v, sync_patch_array
+USE mo_sync,                   ONLY: sync_patch_array, sync_e!, sync_c, sync_v
 USE mo_ocean_nml,              ONLY: iswm_oce, n_zlev, no_tracer, &
   &                                  itestcase_oce, idiag_oce, init_oce_prog, init_oce_relax, &
   &                                  EOS_TYPE, i_sea_ice, l_staggered_timestep
-USE mo_dynamics_config,        ONLY: nold, nnew
-USE mo_io_config,              ONLY: out_expname, istime4newoutputfile, n_files,&
-  &                                  is_checkpoint_time, n_checkpoints, is_output_time
+USE mo_dynamics_config,        ONLY: nold!, nnew
+USE mo_io_config,              ONLY: n_files, n_checkpoints, is_output_time!, istime4newoutputfile
 USE mo_run_config,             ONLY: nsteps, dtime, ltimer, output_mode
 USE mo_exception,              ONLY: message, message_text, finish
 USE mo_ext_data_types,         ONLY: t_external_data
-USE mo_io_units,               ONLY: filename_max
+!USE mo_io_units,               ONLY: filename_max
 USE mo_datetime,               ONLY: t_datetime, print_datetime, add_time, datetime_to_string
 USE mo_timer,                  ONLY: timer_start, timer_stop, timer_total, timer_solve_ab,  &
   &                                  timer_tracer_ab, timer_vert_veloc, timer_normal_veloc, &
@@ -71,14 +70,14 @@ USE mo_oce_ab_timestepping,    ONLY: solve_free_surface_eq_ab, &
   &                                  update_time_indices
 USE mo_oce_init,               ONLY: init_ho_testcases, init_ho_prog, init_ho_coupled,&
   &                                  init_ho_recon_fields, init_ho_relaxation, init_oce_index
-USE mo_util_dbg_prnt,          ONLY: init_dbg_index,dbg_print
+USE mo_util_dbg_prnt,          ONLY: init_dbg_index !,dbg_print
 USE mo_oce_state,              ONLY: t_hydro_ocean_state, &
   &                                  init_ho_base, init_ho_basins, v_base, &
-  &                                  construct_hydro_ocean_base, destruct_hydro_ocean_base, &
+  &                                  construct_hydro_ocean_base, &! destruct_hydro_ocean_base, &
   &                                  construct_hydro_ocean_state, destruct_hydro_ocean_state, &
   &                                  init_coriolis_oce, init_oce_config, &
   &                                  set_lateral_boundary_values, construct_patch_3D, init_patch_3D
-USE mo_oce_math_operators,     ONLY: height_related_quantities, calc_thickness
+USE mo_oce_math_operators,     ONLY: calc_thickness! , height_related_quantities
 USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff, allocate_exp_coeff,par_init_operator_coeff,&
   &                                  update_diffusion_matrices
 USE mo_scalar_product,         ONLY: calc_scalar_product_veloc_3D
@@ -89,9 +88,7 @@ USE mo_sea_ice,                ONLY: construct_sfcflx,destruct_sfcflx,&
   &                                  construct_atmos_for_ocean,&
   &                                  destruct_atmos_for_ocean,&
   &                                  construct_atmos_fluxes, destruct_atmos_fluxes,&
-  &                                  construct_sea_ice, destruct_sea_ice, &
-  &                                  ice_init, ice_slow
-! #
+  &                                  construct_sea_ice, destruct_sea_ice, ice_init
 USE mo_sea_ice_types,          ONLY: t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean, &
   &                                  t_sea_ice
 USE mo_oce_forcing,            ONLY: init_sfcflx
@@ -99,18 +96,18 @@ USE mo_oce_physics,            ONLY: t_ho_params, &
   &                                  construct_ho_params, init_ho_params, &
   &                                  destruct_ho_params, update_ho_params
 USE mo_oce_thermodyn,          ONLY: calc_density_MPIOM_func, calc_density_lin_EOS_func,&
-  &                                  calc_density_JMDWFG06_EOS_func, calc_density
-USE mo_output,                 ONLY: init_output_files, write_output, &
-  &                                  create_restart_file, write_output_oce
-USE mo_name_list_output_config,ONLY: is_any_output_file_active, use_async_name_list_io
-USE mo_name_list_output,       ONLY: write_name_list_output, istime4name_list_output, &
-  &                                  output_file
+  &                                  calc_density_JMDWFG06_EOS_func! , calc_density
+USE mo_output,                 ONLY: init_output_files, &
+  &                                  create_restart_file, write_output_oce! , write_output
+!USE mo_name_list_output_config,ONLY: is_any_output_file_active, use_async_name_list_io
+USE mo_name_list_output,       ONLY: write_name_list_output, istime4name_list_output!, &
+!  &                                  output_file
 USE mo_oce_diagnostics,        ONLY: calculate_oce_diagnostics,&
   &                                  construct_oce_diagnostics,&
   &                                  destruct_oce_diagnostics, t_oce_timeseries, &
   &                                  calc_moc, calc_psi
 USE mo_oce_ab_timestepping_mimetic, ONLY: init_ho_lhs_fields_mimetic
-USE mo_mpi,                    ONLY: my_process_is_mpi_all_parallel
+!USE mo_mpi,                    ONLY: my_process_is_mpi_all_parallel
 
 
 IMPLICIT NONE
@@ -167,7 +164,7 @@ CONTAINS
   ! local variables
   REAL(wp)                        :: sim_time(n_dom)
   INTEGER                         :: jstep, jg
-  LOGICAL                         :: l_outputtime
+  !LOGICAL                         :: l_outputtime
   CHARACTER(len=32)               :: datestring
   CHARACTER(len=36)               :: moc_fname
   TYPE(t_oce_timeseries), POINTER :: oce_ts
@@ -517,6 +514,7 @@ CONTAINS
     ! destruct ocean state is in control_model
     !------------------------------------------------------------------
      CALL destruct_hydro_ocean_state(p_os)
+     !CALL destruct_hydro_ocean_base(v_base)
      CALL destruct_ho_params(p_phys_param)
 
      IF(no_tracer>0) CALL destruct_sfcflx(p_sfc_flx)
