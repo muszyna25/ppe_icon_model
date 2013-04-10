@@ -166,6 +166,9 @@ esac
 blueln "__________________________________________________________________________________________"
 blueln "ICON base directory: $basedir" 
 blueln "User: $user"
+
+export ICON_BASE_PATH=$basedir
+
 if [[ ${ENVIRONMENT:-} = BATCH ]]
 then
     blueln "Running: $SLURM_JOB_NAME"
@@ -297,12 +300,6 @@ fi
 cd $EXPDIR
 
 #__________________________________________________________________________________________________
-# grid files
-
-
-export ICON_BASE_PATH=$basedir
-
-#__________________________________________________________________________________________________
 # define the experiment: set variables for ICON namelist
 
 # horizontal grid(s)
@@ -347,16 +344,12 @@ cat > ${basedir}/run/${atmo_namelist} << EOF
 !
 &parallel_nml
  nproma         = ${nproma}
- p_test_run     = .false.
- l_test_openmp  = .false.
- l_log_checks   = .false.
 /
 &grid_nml
- cell_type = 3            ! triangular cells
  dynamics_grid_filename = "${atmo_dyn_grids}",
 /
 &run_nml
- num_lev          = ${nlev},      ! number of full levels of vertical grid
+ num_lev          = ${nlev},     ! number of full levels of vertical grid
  output           = 'vlist', 'nml'
  nsteps           = ${nsteps}    ! number of steps length of run
  dtime            = ${dtime}     ! [s] timestep in seconds
@@ -397,15 +390,13 @@ cat > ${basedir}/run/${atmo_namelist} << EOF
  ctracer_list     = 'vwi45'       ! water vapour, cloud water, cloud ice, constant field, dummy for ozone
 /
 &echam_phy_nml
- lcover           = .FALSE.
- lcond            = .TRUE.
- lconv            = .TRUE.
- lvdiff           = .TRUE.
  lrad             = .TRUE.
+ lvdiff           = .TRUE.
+ lconv            = .TRUE.
+ lcond            = .TRUE.
+ lgw_hines        = .TRUE.
  ljsbach          = .TRUE.
  dt_rad           = ${dt_rad}     ! [s] compute radiative transfer every other hour
-/
-&echam_conv_nml
 /
 &radiation_nml
  irad_h2o         = 1             ! prognostic vapor, liquid and ice
@@ -424,6 +415,10 @@ cat > ${basedir}/run/${atmo_namelist} << EOF
 ! vmr_n2o    =  309.5e-09    ! CMIP5 value of 1990
 ! vmr_cfc11  =  252.8e-12    ! CMIP5 value of 1990
 ! vmr_cfc12  =  466.2e-12    ! CMIP5 value of 1990
+/
+&echam_conv_nml
+/
+&gw_hines_nml
 /
 &output_nml
  namespace        = 'MPIMET'
