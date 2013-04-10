@@ -339,7 +339,7 @@ atmo_model_equations=1
 atmo_namelist=NAMELIST_${EXPNAME}_atmo
 land_namelist=NAMELIST_${EXPNAME}_land
 
-cat > ${basedir}/run/${atmo_namelist} << EOF
+cat > ${atmo_namelist} << EOF
 !
 &parallel_nml
  nproma         = ${nproma}
