@@ -140,7 +140,7 @@ SUBROUTINE calculate_oce_diagnostics(p_patch_3D, p_os, p_sfc_flx, p_phys_param, 
   INTEGER :: i_startidx_c, i_endidx_c!,i_startblk_c, i_endblk_c,
   INTEGER :: jk,jc,jb!,je
   INTEGER :: i_no_t, i
-  REAL(wp) :: prism_vol
+  REAL(wp) :: prism_vol, surface_height
   REAL(wp) :: z_w
   INTEGER  :: reference_timestep
   TYPE(t_patch), POINTER     :: p_patch
@@ -191,8 +191,11 @@ SUBROUTINE calculate_oce_diagnostics(p_patch_3D, p_os, p_sfc_flx, p_phys_param, 
       !We are dealing with the surface layer first
       DO jc =  i_startidx_c, i_endidx_c
         DO jk=1,p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)
+
           !local volume
-          prism_vol      = p_patch%cells%area(jc,jb)*p_patch_3D%p_patch_1D(1)%prism_thick_c(jc,1,jb)
+          surface_height = merge(p_os%p_prog(nnew(1))%h(jc,jb),0.0_wp, 1 == jk)
+          prism_vol      = p_patch%cells%area(jc,jb) * &
+            & (p_patch_3D%p_patch_1D(1)%prism_thick_c(jc,1,jb) + surface_height)
 
           !Fluid volume
           monitor%volume = monitor%volume + prism_vol

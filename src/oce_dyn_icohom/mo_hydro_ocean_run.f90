@@ -302,7 +302,6 @@ CONTAINS
     ENDIF  ! testcase 28
 
    ! Actually diagnostics for 3D not implemented, PK March 2011
-!TODO re-enable
    IF (idiag_oce == 1 ) THEN
      CALL calculate_oce_diagnostics( p_patch_3D,    &
                                    & p_os(jg),      &
