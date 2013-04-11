@@ -33034,16 +33034,31 @@ void gribapiDefGrid(int editionNumber, grib_handle *gh, int gridID, int ljpeg, i
 }
 
 static
+
+// LOCAL CHANGE by Florian Prill   2013-04-10
 void getLevelFactor(double level, long *factor, double *scale)
 {
-  double dum;
-
-  if      ( level >= 1     && (int)(1000*modf(level,      &dum)) == 0 ) { *factor = 0; *scale = 1; }
-  else if ( level >= 0.1   && (int)(1000*modf(level*10,   &dum)) == 0 ) { *factor = 1; *scale = 10; }
-  else if ( level >= 0.01  && (int)(1000*modf(level*100,  &dum)) == 0 ) { *factor = 2; *scale = 100; }
-  else if ( level >= 0.001 && (int)(1000*modf(level*1000, &dum)) == 0 ) { *factor = 3; *scale = 1000; }
-  else                                                                  { *factor = 2; *scale = 10; }
+  char buffer[99];
+  int n;
+//  n = sprintf (buffer, "%99.4f", ((double)round(level*1000.))/1000.);
+  n = sprintf (buffer, "%99.4f", level);
+  //printf("buffer = %s\n", buffer);
+  if       (buffer[98] != '0') { *factor = 2; *scale = 10; }
+  else if  (buffer[97] != '0') { *factor = 3; *scale = 1000; }
+  else if  (buffer[96] != '0') { *factor = 2; *scale = 100; }
+  else if  (buffer[95] != '0') { *factor = 1; *scale = 10; }
+  else                         { *factor = 0; *scale = 1; 
+  //printf("%10.5f : factor = %d, scale = %10.5f\n", level, *factor, *scale);
 }
+
+//  double dum;
+//  if      ( level >= 1     && (int)(1000*modf(level,      &dum)) == 0 ) { *factor = 0; *scale = 1; }
+//  else if ( level >= 0.1   && (int)(1000*modf(level*10,   &dum)) == 0 ) { *factor = 1; *scale = 10; }
+//  else if ( level >= 0.01  && (int)(1000*modf(level*100,  &dum)) == 0 ) { *factor = 2; *scale = 100; }
+//  else if ( level >= 0.001 && (int)(1000*modf(level*1000, &dum)) == 0 ) { *factor = 3; *scale = 1000; }
+// else { *factor = 2; *scale = 10; }
+} 
+
 
 static
 void gribapiDefLevel(int editionNumber, grib_handle *gh, int param, int zaxisID, int levelID, int gcinit)
@@ -33345,19 +33360,26 @@ void gribapiDefLevel(int editionNumber, grib_handle *gh, int param, int zaxisID,
 
             if ( zaxisInqLbounds(zaxisID, NULL) && zaxisInqUbounds(zaxisID, NULL) )
               {
+
                 double level1, level2;
                 level1 = scalefactor*zaxisInqLbound(zaxisID, levelID);
                 level2 = scalefactor*zaxisInqUbound(zaxisID, levelID);
+		//printf("Ubound: scalefactor=%10.4f: %10.4f*scalefactor = %10.4f\n", scalefactor, 
+		//       zaxisInqUbound(zaxisID, levelID), level2);
+		//printf("Lbound: scalefactor=%10.4f: %10.4f*scalefactor = %10.4f\n", scalefactor, 
+		//       zaxisInqLbound(zaxisID, levelID), level1);
 
                 getLevelFactor(level1, &factor, &scale);
                 if ( !gcinit ) GRIB_CHECK(grib_set_long(gh, "typeOfFirstFixedSurface", GRIB2_LTYPE_LANDDEPTH), 0);
                 GRIB_CHECK(grib_set_long(gh, "scaleFactorOfFirstFixedSurface", factor), 0);
                 GRIB_CHECK(grib_set_double(gh, "scaledValueOfFirstFixedSurface", level1*scale), 0);
 
-                getLevelFactor(level, &factor, &scale);
+                //getLevelFactor(level, &factor, &scale);
+                getLevelFactor(level2, &factor, &scale);   // Bug fix DR 2013-04-10
                 if ( !gcinit ) GRIB_CHECK(grib_set_long(gh, "typeOfSecondFixedSurface", GRIB2_LTYPE_LANDDEPTH), 0);
                 GRIB_CHECK(grib_set_long(gh, "scaleFactorOfSecondFixedSurface", factor), 0);
-                GRIB_CHECK(grib_set_double(gh, "scaledValueOfSecondFixedSurface", level2*scale), 0);
+		//printf("level2=%20.14f, scale=%20.14f, level2*scale = %20.14f\n", level2,scale, level2*scale);
+                GRIB_CHECK(grib_set_double(gh, "scaledValueOfSecondFixedSurface", round(level2*scale)), 0);
               }
             else
               {

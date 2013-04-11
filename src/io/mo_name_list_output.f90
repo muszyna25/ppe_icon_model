@@ -2243,7 +2243,7 @@ CONTAINS
         nsoil_jsbach = lnd_jsbach_config(i_dom)%nsoil
         of%cdiZaxisID(ZA_depth_below_land) = zaxisCreate(ZAXIS_DEPTH_BELOW_LAND, nsoil_jsbach)
         ALLOCATE(levels(nsoil_jsbach), lbounds(nsoil_jsbach), ubounds(nsoil_jsbach))
-        levels = 0._wp
+        levels = 0._dp
         levels(1) = REAL(1000._wp * lnd_jsbach_config(i_dom)%zlev_soil(1), dp)
         DO k = 2,nsoil_jsbach
           levels(k) = levels(k-1) + REAL(1000._wp * lnd_jsbach_config(i_dom)%zlev_soil(k), dp)
