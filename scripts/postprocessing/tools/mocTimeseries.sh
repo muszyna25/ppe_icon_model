@@ -47,8 +47,11 @@ set origin 0.02,0.02
 
 set style data lines
 set grid
-set title font "Helvetica-Bold,16"
-set title  "N-Atlantic Meridional Overturning Circulation (MOC)"
+set title font "Times-Bold,16"
+set title  "Atlantic MOC"
+#set title  "Atlantic MOC (1000m depth, 40-60N)"
+#set title  "Atlantic MOC ($mocPattern)"
+#set title  "N-Atlantic Meridional Overturning Circulation (MOC)"
 #set title  "N-Atlantic Meridional Overturning Circulation (MOC)" font "Helvetica-Bold,17"
 
 set timefmt x "%Y-%m-%d"
@@ -63,9 +66,12 @@ set ytics 4
 set mytics 4   # minor tickmarks
 set ylabel "[SV]" font "Times-Bold,14
 
-set key left
+#set key left
+#set key left font "Helvetica-Bold,10"
+set key left font "Helvetica,11"
+plot 'moc.dat' using 1:2 w l t "${mocPattern}, 1000m/40N-60N" lw 3 lt -1
 #plot 'moc.dat' using 1:2 w l t
-plot 'moc.dat' using 1:2 w l t 'AMOC, 1000m, 40N-60N' lw 3 lt -1
+#plot 'moc.dat' using 1:2 w l t 'AMOC, 1000m, 40N-60N' lw 3 lt -1
 EOF
 
 #gwenview moc-tims.png
