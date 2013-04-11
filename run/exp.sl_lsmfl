@@ -282,7 +282,7 @@ cat > ${ocean_namelist} << EOF
   irelax_3d_S        =    0      ! 3-dim relaxation of salinity (0: no relax) 1-2: not yet used
                                  ! 3: use initial S read with init_oce=1
   relax_3d_mon_S     =    1.0    ! strength of 3-dim relaxation for salinity (months)
-  l_forc_freshw      = .FALSE.   ! TRUE : apply freshwater forcing boundary condition
+  l_forc_freshw      = .FALSE.   ! TRUE : apply freshwater forcing boundary condition (OMIP only)
 /
 &io_nml
  out_expname   = '${EXPNAME}'
