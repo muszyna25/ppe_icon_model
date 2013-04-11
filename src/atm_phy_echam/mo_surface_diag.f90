@@ -93,9 +93,9 @@ CONTAINS
     REAL(wp),INTENT(OUT)   ::  pevap_tile(kbdim,ksfc_type)
     REAL(wp),INTENT(OUT)   ::  pevap_gbm (kbdim)
 
-    REAL(wp),INTENT(OUT)   :: dshflx_dT_tile(1:kproma,ksfc_type)
+    REAL(wp),INTENT(OUT)   :: dshflx_dT_tile(kbdim,ksfc_type)
 
-    REAL(wp),OPTIONAL,INTENT(IN)    :: evapotranspiration(1:kproma)
+    REAL(wp),OPTIONAL,INTENT(IN)    :: evapotranspiration(kbdim)
 
     INTEGER  :: jsfc
     REAL(wp) :: zconst, zdqv(kbdim), zdcptv(kbdim)
