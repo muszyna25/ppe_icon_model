@@ -190,7 +190,7 @@ SUBROUTINE calculate_oce_diagnostics(p_patch_3D, p_os, p_sfc_flx, p_phys_param, 
     CALL get_index_range(owned_cells, jb, i_startidx_c, i_endidx_c)
       !We are dealing with the surface layer first
       DO jc =  i_startidx_c, i_endidx_c
-        DO jk=1,p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)
+        DO jk = 1,p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)
 
           !local volume
           surface_height = merge(p_os%p_prog(nnew(1))%h(jc,jb),0.0_wp, 1 == jk)
@@ -234,23 +234,23 @@ SUBROUTINE calculate_oce_diagnostics(p_patch_3D, p_os, p_sfc_flx, p_phys_param, 
 
   ! compute global sums {
   monitor%volume              = global_sum_array(monitor%volume)
-  monitor%kin_energy          = global_sum_array(monitor%kin_energy)
-  monitor%pot_energy          = global_sum_array(monitor%pot_energy)
-  monitor%total_energy        = global_sum_array(monitor%total_energy)
+  monitor%kin_energy          = global_sum_array(monitor%kin_energy)/monitor%volume
+  monitor%pot_energy          = global_sum_array(monitor%pot_energy)/monitor%volume
+  monitor%total_energy        = global_sum_array(monitor%total_energy)/monitor%volume
   monitor%vorticity           = global_sum_array(monitor%vorticity)
   monitor%enstrophy           = global_sum_array(monitor%enstrophy)
   monitor%potential_enstrophy = global_sum_array(monitor%potential_enstrophy)
   monitor%absolute_vertical_velocity = global_sum_array(monitor%absolute_vertical_velocity)
   DO i_no_t=1,no_tracer
-    monitor%tracer_content(i_no_t) = global_sum_array(monitor%tracer_content(i_no_t))
+    monitor%tracer_content(i_no_t) = global_sum_array(monitor%tracer_content(i_no_t))/monitor%volume
   END DO
-  ! }
+  ! } dbg_print
 
   ! write things to diagnostics output file
-  real_fmt   = 'g12.4'
+  real_fmt   = 'en26.18'
   ! * number of non-tracer diag. variables
   write(nvars,'(i3)') SIZE(oce_ts%names)-no_tracer
-  write(fmt_string,'(a)') '(i5.5,'//TRIM(ADJUSTL(nvars))//TRIM(real_fmt)//')'
+  write(fmt_string,'(a)') '(i5.5,1x,'//TRIM(ADJUSTL(nvars))//TRIM(real_fmt)//')'
   ! * non-tracer diags
   write(line,fmt_string) &
     & timestep, &
