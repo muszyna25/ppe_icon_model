@@ -37,7 +37,7 @@ atmo_namelist=NAMELIST_${EXPNAME}
 #-----------------------------------------------------------------------------
 # global timing
 start_date="2008-09-01T00:00:00Z"
-end_date="2008-09-02T00:00:00Z"
+end_date="2008-09-01T06:00:00Z"
 ndays_restart=60
 dt_restart=`expr ${ndays_restart} \* 86400`
 #
@@ -101,6 +101,7 @@ cat > ${atmo_namelist} << EOF
 /
 &nh_testcase_nml
  nh_test_name      = 'APE_nh'     !test case identifier
+!nh_test_name      = 'CBL'        !test case identifier
  ape_sst_case      = 'sst1'
 /
 &diffusion_nml
@@ -122,13 +123,13 @@ inwp_cldcover                = 1   ! 0: no cld, 1: new diagnostic, 3: COSMO, 5: 
 inwp_turb                    = 3   ! 1: Raschendorfer, 2: GME, 3: EDMF-DUALM (ntracer+1,ntiles=8)
 inwp_satad                   = 1
 inwp_gwd                     = 1
-inwp_surface                 = 0
+inwp_surface                 = 1
 inwp_sso                     = 0
 itype_z0                     = 2   ! 1: default, 2: turn off SSO part of z0
-dt_conv                      = 720
-dt_sso                       = 720
-dt_gwd                       = 720
-dt_rad                       = 3600
+dt_conv                      = 300
+dt_sso                       = 300
+dt_gwd                       = 300
+dt_rad                       = 600
 latm_above_top               = .FALSE.
 efdt_min_raylfric            = 7200.
 /
@@ -195,7 +196,7 @@ efdt_min_raylfric            = 7200.
  filetype         = 4
  dom              = -1
  output_time_unit = 2
- output_bounds    = 0.,180.,30.   !start, end, increment
+ output_bounds    = 0.,360.,30.   !start, end, increment
  steps_per_file   = 1
  include_last     = .TRUE.
  remap            = 0   ! triangular grid

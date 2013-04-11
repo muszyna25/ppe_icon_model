@@ -418,8 +418,9 @@ CONTAINS
         & 'rayleigh_type = RAYLEIGH_CLASSIC not applicable to real case runs.')
     ENDIF
 
-    IF ((TRIM(nh_test_name)=='APE_nh'.OR. TRIM(nh_test_name)=='dcmip_tc_52') .AND.  &
-      & ( ANY(atm_phy_nwp_config(:)%inwp_surface == 1 ) )) THEN
+    IF ( ( TRIM(nh_test_name)=='APE_nh'.OR. TRIM(nh_test_name)=='dcmip_tc_52' ) .AND.  &
+      &  ( ANY(atm_phy_nwp_config(:)%inwp_surface == 1 ) ) .AND.                       &
+      &  ( ANY(atm_phy_nwp_config(:)%inwp_turb    /= 3 ) ) ) THEN
       CALL finish(TRIM(routine), &
         & 'surface scheme must be switched off, when running the APE test')
     ENDIF

@@ -104,22 +104,22 @@ MODULE mo_nh_torus_exp
   !!
   !!
   SUBROUTINE init_nh_state_cbl( ptr_patch, ptr_nh_prog,  ptr_nh_ref, ptr_nh_diag,  &
-    &                           ptr_int, ptr_ext_data, ptr_metrics )
+    &                           ptr_int, ptr_ext_data, ptr_metrics)
 
     ! INPUT PARAMETERS:
-    TYPE(t_patch),TARGET,INTENT(IN) :: &  !< patch on which computation is performed
+    TYPE(t_patch),TARGET,  INTENT(IN)   :: &  !< patch on which computation is performed
       &  ptr_patch
-    TYPE(t_int_state),  INTENT(IN)  :: &
+    TYPE(t_int_state),     INTENT(IN)   :: &
       &  ptr_int
-    TYPE(t_nh_prog), INTENT(INOUT)  :: &  !< prognostic state vector
+    TYPE(t_nh_prog),       INTENT(INOUT):: &  !< prognostic state vector
       &  ptr_nh_prog
-    TYPE(t_nh_diag), INTENT(INOUT)  :: &  !< diagnostic state vector
+    TYPE(t_nh_diag),       INTENT(INOUT):: &  !< diagnostic state vector
       &  ptr_nh_diag
-    TYPE(t_external_data), INTENT(INOUT) :: & !< external data
+    TYPE(t_external_data), INTENT(INOUT):: &  !< external data
       &  ptr_ext_data
-    TYPE(t_nh_metrics), INTENT(IN)      :: ptr_metrics !< NH metrics state
-
-    TYPE(t_nh_ref),       INTENT(INOUT) :: &  !< reference state vector
+    TYPE(t_nh_metrics),    INTENT(IN)   :: &
+      &  ptr_metrics                          !< NH metrics state
+    TYPE(t_nh_ref),        INTENT(INOUT):: &  !< reference state vector
       &  ptr_nh_ref
 
     REAL(wp) :: rho_sfc, z_help(1:nproma), zvn1, zvn2, zu, zv
@@ -171,45 +171,45 @@ MODULE mo_nh_torus_exp
       ELSE
          nlen = npromz_c
       ENDIF
- 
-        !Tracers
-        IF(.NOT.is_dry_cbl)THEN
-          DO jk = 1, nlev
-            ptr_nh_prog%tracer(1:nlen,jk,jb,iqv) = 0.8_wp * spec_humi(sat_pres_water(zt0),zp0) * &
-                      EXP(-ptr_metrics%z_mc(1:nlen,jk,jb)/lambda)
-          END DO
-        END IF
 
+      !Tracers
+      IF(.NOT.is_dry_cbl)THEN
         DO jk = 1, nlev
-         ! init potential temperature
-         z_help(1:nlen) = zt0 + max(0._wp, (ptr_metrics%z_mc(1:nlen,jk,jb)-zh0)*dtdz)
-
-         ! virtual potential temperature
-         ptr_nh_prog%theta_v(1:nlen,jk,jb) = z_help(1:nlen) * ( 1._wp + &
-             0.61_wp*ptr_nh_prog%tracer(1:nlen,jk,jb,iqv) - ptr_nh_prog%tracer(1:nlen,jk,jb,iqc) ) 
+          ptr_nh_prog%tracer(1:nlen,jk,jb,iqv) = 0.8_wp * spec_humi(sat_pres_water(zt0),zp0) * &
+                    EXP(-ptr_metrics%z_mc(1:nlen,jk,jb)/lambda)
         END DO
+      END IF
 
-        !Get hydrostatic pressure and exner at lowest level
-        ptr_nh_diag%pres(1:nlen,nlev,jb) = zp0 - rho_sfc * ptr_metrics%geopot(1:nlen,nlev,jb)
-        ptr_nh_prog%exner(1:nlen,nlev,jb) = (ptr_nh_diag%pres(1:nlen,nlev,jb)/p0ref)**rd_o_cpd 
+      DO jk = 1, nlev
+       ! init potential temperature
+       z_help(1:nlen) = zt0 + max(0._wp, (ptr_metrics%z_mc(1:nlen,jk,jb)-zh0)*dtdz)
 
-        !Get exner at other levels
-        DO jk = nlev-1, 1, -1
-           z_help(1:nlen) = 0.5_wp * ( ptr_nh_prog%theta_v(1:nlen,jk,jb) +  &
-                                       ptr_nh_prog%theta_v(1:nlen,jk+1,jb) )
+       ! virtual potential temperature
+       ptr_nh_prog%theta_v(1:nlen,jk,jb) = z_help(1:nlen) * ( 1._wp + &
+           0.61_wp*ptr_nh_prog%tracer(1:nlen,jk,jb,iqv) - ptr_nh_prog%tracer(1:nlen,jk,jb,iqc) ) 
+      END DO
+
+      !Get hydrostatic pressure and exner at lowest level
+      ptr_nh_diag%pres(1:nlen,nlev,jb) = zp0 - rho_sfc * ptr_metrics%geopot(1:nlen,nlev,jb)
+      ptr_nh_prog%exner(1:nlen,nlev,jb) = (ptr_nh_diag%pres(1:nlen,nlev,jb)/p0ref)**rd_o_cpd 
+
+      !Get exner at other levels
+      DO jk = nlev-1, 1, -1
+         z_help(1:nlen) = 0.5_wp * ( ptr_nh_prog%theta_v(1:nlen,jk,jb) +  &
+                                     ptr_nh_prog%theta_v(1:nlen,jk+1,jb) )
    
-           ptr_nh_prog%exner(1:nlen,jk,jb) = ptr_nh_prog%exner(1:nlen,jk+1,jb) &
-              &  -grav/cpd*ptr_metrics%ddqz_z_half(1:nlen,jk+1,jb)/z_help(1:nlen)
-        END DO
+         ptr_nh_prog%exner(1:nlen,jk,jb) = ptr_nh_prog%exner(1:nlen,jk+1,jb) &
+            &  -grav/cpd*ptr_metrics%ddqz_z_half(1:nlen,jk+1,jb)/z_help(1:nlen)
+      END DO
 
-        DO jk = 1 , nlev
-           ! rhotheta has to have the same meaning as exner
-           ptr_nh_prog%rhotheta_v(1:nlen,jk,jb) = &
-                (ptr_nh_prog%exner(1:nlen,jk,jb)**cvd_o_rd)*p0ref/rd
+      DO jk = 1 , nlev
+         ! rhotheta has to have the same meaning as exner
+         ptr_nh_prog%rhotheta_v(1:nlen,jk,jb) = &
+              (ptr_nh_prog%exner(1:nlen,jk,jb)**cvd_o_rd)*p0ref/rd
 
-           ptr_nh_prog%rho(1:nlen,jk,jb) = ptr_nh_prog%rhotheta_v(1:nlen,jk,jb) / &
-                                           ptr_nh_prog%theta_v(1:nlen,jk,jb)     
-        END DO !jk
+         ptr_nh_prog%rho(1:nlen,jk,jb) = ptr_nh_prog%rhotheta_v(1:nlen,jk,jb) / &
+                                         ptr_nh_prog%theta_v(1:nlen,jk,jb)     
+      END DO !jk
 
     ENDDO !jb
 

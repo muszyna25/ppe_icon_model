@@ -260,7 +260,8 @@ MODULE mo_nh_stepping
   ENDIF
 
   IF (ltestcase) THEN
-    CALL init_nh_testcase(p_patch(1:), p_nh_state, p_int_state(1:), ext_data, ntl)
+    CALL init_nh_testcase(p_patch(1:), p_nh_state, p_int_state(1:), p_lnd_state(1:), &
+      & ext_data, ntl)
   ENDIF
 
   CALL setup_time_ctrl_physics( )

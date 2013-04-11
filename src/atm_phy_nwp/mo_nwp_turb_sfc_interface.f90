@@ -531,12 +531,13 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
       DO jt = 1,ntiles_total + ntiles_water
         DO jc = i_startidx, i_endidx
           lnd_prog_new%t_g_t     (jc,jb,jt) = lnd_prog_now%t_g_t     (jc,jb,jt)
-          lnd_prog_new%t_s_t     (jc,jb,jt) = lnd_prog_now%t_s_t     (jc,jb,jt)
         ENDDO
       ENDDO
+
       DO jt = 1,ntiles_total
         DO jc = i_startidx, i_endidx
           lnd_prog_new%t_snow_t  (jc,jb,jt) = lnd_prog_now%t_snow_t  (jc,jb,jt)
+          lnd_prog_new%t_s_t     (jc,jb,jt) = lnd_prog_now%t_s_t     (jc,jb,jt)
           lnd_prog_new%w_snow_t  (jc,jb,jt) = lnd_prog_now%w_snow_t  (jc,jb,jt)
           lnd_prog_new%rho_snow_t(jc,jb,jt) = lnd_prog_now%rho_snow_t(jc,jb,jt)
           lnd_prog_new%w_i_t     (jc,jb,jt) = lnd_prog_now%w_i_t     (jc,jb,jt)
@@ -547,6 +548,7 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
           ENDIF
         ENDDO
       ENDDO
+
       DO jt = 1,ntiles_total
         DO jc = i_startidx, i_endidx
           IF(lmulti_snow) THEN
@@ -560,6 +562,7 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
           ENDIF
         ENDDO
       ENDDO
+
       DO jt = 1,ntiles_total
         DO jc = i_startidx, i_endidx
           DO jk=1,nlev_soil
@@ -693,6 +696,7 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
       prm_nwp_tend%ddt_tracer_turb(:,:,jb,iqv) = 0._wp
       prm_nwp_tend%ddt_tracer_turb(:,:,jb,iqc) = 0._wp
       prm_nwp_tend%ddt_tracer_turb(:,:,jb,iqi) = 0._wp
+
 
       CALL vdfouter ( &
         & CDCONF  = 'T'                                        ,&! (IN)  used in surfexcdriver
@@ -832,7 +836,7 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
         & , jb=jb, jg=jg                                          & ! -
         & , t_snow_ex       = lnd_prog_new%t_snow_t    (:,jb,:)   & !inout
         & , t_snow_mult_ex  = lnd_prog_new%t_snow_mult_t(:,:,jb,:)& ! -
-        & , t_s_ex          = lnd_prog_new%t_s_t       (:,jb,1:ntiles_total)  & ! -
+        & , t_s_ex          = lnd_prog_new%t_s_t       (:,jb,:)   & ! -
         & , t_g_ex          = lnd_prog_new%t_g_t       (:,jb,:)   & ! -
         & , qv_s_ex         = lnd_diag%qv_s_t          (:,jb,:)   & ! -
         & , w_snow_ex       = lnd_prog_new%w_snow_t    (:,jb,:)   & ! -

@@ -258,6 +258,12 @@ CONTAINS
           ext_data(jg)%atm%rsmin(:,:)       = 150._wp    ! minimal stomata resistence
           ext_data(jg)%atm%soiltyp(:,:)     = 8          ! soil type
           ext_data(jg)%atm%z0(:,:)          = 0.001_wp   ! roughness length
+          
+          !Special setup for EDMF
+          ext_data(jg)%atm%soiltyp_t(:,:,:) = 8           ! soil type
+          ext_data(jg)%atm%frac_t(:,:,:)    = 0._wp       ! set all tiles to 0
+          ext_data(jg)%atm%frac_t(:,:,isub_water) = 1._wp ! set only ocean to 1
+          ext_data(jg)%atm%lc_class_t(:,:,:) = 1          ! land cover class 
         END DO
       CASE ( iecham, ildf_echam)
         DO jg = 1, n_dom
@@ -3254,10 +3260,10 @@ CONTAINS
                  ext_data(jg)%atm%rootdp_t (jc,jb,i_lu)  = ext_data(jg)%atm%rootdmax_lcc(lu_subs)
                  ! plant cover
                  ext_data(jg)%atm%plcov_t  (jc,jb,i_lu)  = ptr_ndvi_mrat(jc,jb) &
-                   & * MIN(ext_data(jg)%atm%ndvi_max(jc,jb),ext_data(jg)%atm%plcovmax_lcc(lu_subs))
+                   & *  ext_data(jg)%atm%plcovmax_lcc(lu_subs)
                  ! total area index
                  ext_data(jg)%atm%tai_t    (jc,jb,i_lu)  = ext_data(jg)%atm%plcov_t(jc,jb,i_lu) &
-                   & * ext_data(jg)%atm%laimax_lcc(lu_subs)
+                   & * ptr_ndvi_mrat(jc,jb) * ext_data(jg)%atm%laimax_lcc(lu_subs)
 
                  ! surface area index
                  ext_data(jg)%atm%sai_t    (jc,jb,i_lu)  = c_lnd+ ext_data(jg)%atm%tai_t (jc,jb,i_lu)

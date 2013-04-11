@@ -67,6 +67,8 @@ MODULE mo_nh_testcases
   USE mo_nonhydro_state,       ONLY: duplicate_prog_state
   
   USE mo_intp_data_strc,       ONLY: t_int_state
+  USE mo_nwp_lnd_types,        ONLY: t_lnd_state
+  USE mo_lnd_nwp_config,       ONLY: isub_seaice
   USE mo_advection_config,     ONLY: advection_config
   USE mo_nh_pa_test,           ONLY: init_nh_state_prog_patest
   USE mo_nh_df_test,           ONLY: init_nh_state_prog_dftest
@@ -662,11 +664,12 @@ MODULE mo_nh_testcases
   !! @par Revision History
   !! Initial release by Almut Gassmann, MPI-M (2009-04-14)
   !! 
-  SUBROUTINE init_nh_testcase (p_patch, p_nh_state, p_int, ext_data, ntl)
+  SUBROUTINE init_nh_testcase (p_patch, p_nh_state, p_int, p_lnd_state, ext_data, ntl)
 !
 ! !INPUT VARIABLES:
   TYPE(t_patch),TARGET,  INTENT(INOUT) :: p_patch(n_dom)
   TYPE(t_int_state),     INTENT(   IN) :: p_int(n_dom)
+  TYPE(t_lnd_state),     INTENT(INOUT) :: p_lnd_state(n_dom)
   TYPE(t_external_data), INTENT(INOUT) :: ext_data(n_dom)
   INTEGER :: ntl
   TYPE(t_nh_state), TARGET, INTENT(INOUT):: p_nh_state(n_dom)
@@ -1018,40 +1021,36 @@ MODULE mo_nh_testcases
 
     ENDDO !jg
 
+
   CASE ('APE_nh')  ! Aqua-Planet Experiment, no mountain
 
     p_sfc_jabw   = zp_ape          ! Pa
     global_moist = ztmc_ape        ! kg/m**2 total moisture content
     jw_up = 1._wp
 
+    DO jg = 1, n_dom
+    
+      CALL   init_nh_state_prog_jabw ( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), &
+                                     & p_nh_state(jg)%diag, p_nh_state(jg)%metrics, &
+                                     & p_int(jg),                                   &
+                                     & p_sfc_jabw,jw_up )
+    
+      IF ( ltransport .AND. iforcing == inwp ) THEN   !
+    
+        CALL init_nh_inwp_tracers ( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), &
+                                  & p_nh_state(jg)%diag, p_nh_state(jg)%metrics, &
+                                  & rh_at_1000hpa, qv_max, l_rediag=.TRUE.,  &
+                                  & opt_global_moist=global_moist)
+    
+      END IF
+    
+      CALL duplicate_prog_state(p_nh_state(jg)%prog(nnow(jg)),p_nh_state(jg)%prog(nnew(jg)))
+    
+    ENDDO !jg
+
+    CALL message(TRIM(routine),'End setup APE_nh test')
 
 
-  DO jg = 1, n_dom
-
-    CALL   init_nh_state_prog_jabw ( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), &
-                                   & p_nh_state(jg)%diag, p_nh_state(jg)%metrics, &
-                                   & p_int(jg),                                   &
-                                   & p_sfc_jabw,jw_up )
-
-
-
-    IF ( ltransport .AND. iforcing == inwp ) THEN   !
-
-
-      CALL init_nh_inwp_tracers ( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), &
-                                & p_nh_state(jg)%diag, p_nh_state(jg)%metrics, &
-                                & rh_at_1000hpa, qv_max, l_rediag=.TRUE.,  &
-                                & opt_global_moist=global_moist)
- 
-
-    END IF
-
-    CALL duplicate_prog_state(p_nh_state(jg)%prog(nnow(jg)),p_nh_state(jg)%prog(nnew(jg)))
-
-  ENDDO !jg
-
-   CALL message(TRIM(routine),'End setup APE_nh test')
-  
   CASE ('wk82')
 
    CALL message(TRIM(routine),'wk82 test')
@@ -1074,7 +1073,7 @@ MODULE mo_nh_testcases
 
     CALL duplicate_prog_state(p_nh_state(jg)%prog(nnow(jg)),p_nh_state(jg)%prog(nnew(jg)))
 
-  ENDDO !jg
+   ENDDO !jg
 
    CALL message(TRIM(routine),'End setup wk82 test')
 
@@ -1127,7 +1126,7 @@ MODULE mo_nh_testcases
 
     CALL duplicate_prog_state(p_nh_state(jg)%prog(nnow(jg)),p_nh_state(jg)%prog(nnew(jg)))
 
-  ENDDO !jg
+   ENDDO !jg
 
    CALL message(TRIM(routine),'End setup g_lim_area test')
 
@@ -1225,6 +1224,7 @@ MODULE mo_nh_testcases
 
     CALL message(TRIM(routine),'End setup dcmip_tc_51/52')
 
+
   CASE ('CBL')
 
     IF(p_patch(1)%geometry_info%geometry_type/=planar_torus_geometry)&
@@ -1244,6 +1244,21 @@ MODULE mo_nh_testcases
     END DO !jg
 
     CALL message(TRIM(routine),'End setup CBL test')
+
+
+  END SELECT
+
+
+  SELECT CASE (nh_test_name)
+
+  CASE ('CBL', 'APE_nh')
+
+    DO jg = 1, n_dom
+    !Snow and sea ice initialization to avoid problems in EDMF
+      p_lnd_state(jg)%prog_lnd(nnow(jg))%t_snow_t(:,:,:)        = 300._wp   !snow
+      p_lnd_state(jg)%prog_lnd(nnow(jg))%t_g_t(:,:,isub_seaice) = 300._wp   !sea ice
+      p_lnd_state(jg)%prog_wtr(nnow(jg))%t_ice(:,:)             = 300._wp   !sea ice
+    END DO !jg
 
   END SELECT
 
