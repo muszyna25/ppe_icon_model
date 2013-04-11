@@ -75,7 +75,7 @@ MODOPT      = -I
 MODDIR      = -J
 
 make_command="make" "-j" "2"
-mpi_startrun="$MPIROOT/bin/openmpiexec" "-n" "\\\$mpi_procs"
+mpi_startrun="$MPIROOT/bin/openmpiexec" "-n" "\\\$mpi_total_procs"
 submit=""
   
 
