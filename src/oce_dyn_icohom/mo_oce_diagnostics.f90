@@ -91,7 +91,7 @@ PUBLIC :: calc_moc
 PUBLIC :: calc_psi
 
 TYPE t_oce_monitor
-    REAL(wp) :: volume 
+    REAL(wp) :: volume
     REAL(wp) :: kin_energy
     REAL(wp) :: pot_energy
     REAL(wp) :: total_energy
@@ -106,15 +106,22 @@ END TYPE t_oce_monitor
 TYPE t_oce_timeseries
 
     TYPE(t_oce_monitor), ALLOCATABLE :: oce_diagnostics(:)    ! time array of diagnostic values
+    CHARACTER(len=40),DIMENSION(10)  :: names = (/ &
+    & "volume                                  ", &
+    & "kin_energy                              ", &
+    & "pot_energy                              ", &
+    & "total_energy                            ", &
+    & "vorticity                               ", &
+    & "enstrophy                               ", &
+    & "potential_enstrophy                     ", &
+    & "absolute_vertical_velocity              ", &
+    & "total_temperature                       ", &
+    & "total_salinity                          "/)
 
 END TYPE t_oce_timeseries
 
-
-TYPE(t_var_list)         , PUBLIC                      :: ocean_diagnostics_list
-
-
 CONTAINS
-!-------------------------------------------------------------------------  
+!-------------------------------------------------------------------------
 !>
 ! !  calculate_oce_diagnostics
 ! 
@@ -140,16 +147,14 @@ SUBROUTINE calculate_oce_diagnostics(p_patch_3D, p_os, p_sfc_flx, p_phys_param, 
 
   TYPE(t_subset_range), POINTER :: owned_cells
   TYPE(t_oce_monitor),  POINTER :: monitor
-  CHARACTER(len=1024)           :: line
+  CHARACTER(len=1024)           :: line, nvars
   CHARACTER(len=1024)           :: fmt_string, real_fmt
 
   !-----------------------------------------------------------------------
-  owned_cells => p_patch_3D%p_patch_2D(1)%cells%owned
   p_patch     => p_patch_3D%p_patch_2D(1)
-
+  owned_cells => p_patch%cells%owned
   !-----------------------------------------------------------------------
-
-  monitor => oce_ts%oce_diagnostics(timestep)
+  monitor     => oce_ts%oce_diagnostics(timestep)
 
   !cell loop to calculate cell based monitored fields volume, kinetic energy and tracer content
   SELECT CASE (iswm_oce)
@@ -225,32 +230,40 @@ SUBROUTINE calculate_oce_diagnostics(p_patch_3D, p_os, p_sfc_flx, p_phys_param, 
   END SELECT
 
   ! compute global sums {
-  monitor%volume                     = global_sum_array(monitor%volume)
-  monitor%kin_energy                 = global_sum_array(monitor%kin_energy)
-  monitor%pot_energy                 = global_sum_array(monitor%pot_energy)
-  monitor%total_energy               = global_sum_array(monitor%total_energy)
+  monitor%volume              = global_sum_array(monitor%volume)
+  monitor%kin_energy          = global_sum_array(monitor%kin_energy)
+  monitor%pot_energy          = global_sum_array(monitor%pot_energy)
+  monitor%total_energy        = global_sum_array(monitor%total_energy)
+  monitor%vorticity           = global_sum_array(monitor%vorticity)
+  monitor%enstrophy           = global_sum_array(monitor%enstrophy)
+  monitor%potential_enstrophy = global_sum_array(monitor%potential_enstrophy)
   monitor%absolute_vertical_velocity = global_sum_array(monitor%absolute_vertical_velocity)
   DO i_no_t=1,no_tracer
-   monitor%tracer_content(i_no_t) = global_sum_array(monitor%tracer_content(i_no_t))
+    monitor%tracer_content(i_no_t) = global_sum_array(monitor%tracer_content(i_no_t))
   END DO
   ! }
 
   ! write things to diagnostics output file
   real_fmt   = 'g12.4'
-  fmt_string = '(i5.5,4'//TRIM(real_fmt)//')'
-  ! * volumne + energy
+  ! * number of non-tracer diag. variables
+  write(nvars,'(i3)') SIZE(oce_ts%names)-no_tracer
+  write(fmt_string,'(a)') '(i5.5,'//TRIM(ADJUSTL(nvars))//TRIM(real_fmt)//')'
+  ! * non-tracer diags
   write(line,fmt_string) &
     & timestep, &
     & monitor%volume, &
     & monitor%kin_energy, &
     & monitor%pot_energy, &
-    & monitor%total_energy
+    & monitor%total_energy, &
+    & monitor%vorticity, &
+    & monitor%enstrophy, &
+    & monitor%potential_enstrophy, &
+    & monitor%absolute_vertical_velocity
+
   ! * tracers
   DO i_no_t=1,no_tracer
     write(line,'(a,'//TRIM(real_fmt)//')') TRIM(line),monitor%tracer_content(i_no_t)
   END DO
-  ! * top layer vertical veloc
-  write(line,'(a,'//TRIM(real_fmt)//')') TRIM(line),monitor%absolute_vertical_velocity
   write(diag_unit,'(a)') TRIM(line)
 
 END SUBROUTINE calculate_oce_diagnostics
@@ -276,6 +289,7 @@ SUBROUTINE construct_oce_diagnostics( p_patch_3D, p_os, oce_ts )
   CHARACTER(len=max_char_length), PARAMETER :: &
     & routine = ('mo_oce_diagnostics:construct_oce_diagnostics')
   !-----------------------------------------------------------------------
+  CHARACTER(len=max_char_length)      :: headerLine
   TYPE(t_patch), POINTER              :: p_patch
   CHARACTER(len=max_char_length)      :: listname
   INTEGER :: nblks_c,nblks_e,nblks_v
@@ -292,10 +306,11 @@ SUBROUTINE construct_oce_diagnostics( p_patch_3D, p_os, oce_ts )
   oce_ts%oce_diagnostics(0:nsteps)%pot_energy                 = 0.0_wp
   oce_ts%oce_diagnostics(0:nsteps)%total_energy               = 0.0_wp
   oce_ts%oce_diagnostics(0:nsteps)%vorticity                  = 0.0_wp
+  oce_ts%oce_diagnostics(0:nsteps)%enstrophy                  = 0.0_wp
   oce_ts%oce_diagnostics(0:nsteps)%potential_enstrophy        = 0.0_wp
   oce_ts%oce_diagnostics(0:nsteps)%absolute_vertical_velocity = 0.0_wp
 
-  DO i=0,nsteps 
+  DO i=0,nsteps
     ALLOCATE(oce_ts%oce_diagnostics(i)%tracer_content(1:no_tracer))
     oce_ts%oce_diagnostics(i)%tracer_content(1:no_tracer) = 0.0_wp
   END DO
@@ -304,8 +319,15 @@ SUBROUTINE construct_oce_diagnostics( p_patch_3D, p_os, oce_ts )
   diag_unit = find_next_free_unit(10,99)
   OPEN (unit=diag_unit,file='oce_diagnostics.txt',IOSTAT=ist)
   !HEADER
-  write(diag_unit,'(a)')'step volume kin_energy pot_energy total_energy &
-    &total_temp total_salinity absolute_vertical_velocity'
+  headerLine = ''
+  ! * add timestep columns
+  write(headerLine,'(a)') 'step'
+  ! * add columne for each monitored variable
+  DO i=1,SIZE(oce_ts%names)
+    WRITE(headerLine,'(a,a,a)')TRIM(headerLine),' ',TRIM(oce_ts%names(i))
+  END DO
+  print *,headerLine
+  write(diag_unit,'(a)')TRIM(headerLine)
 
   CALL message (TRIM(routine), 'end')
 END SUBROUTINE construct_oce_diagnostics
