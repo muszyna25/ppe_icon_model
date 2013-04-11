@@ -179,17 +179,16 @@ if [[ $lseasmean = 1 ]] ; then
    cdo sub -seltimestep,$nsteps ${sfile} -seltimestep,1 ${sfile}
            \  ${sfile%%.grb}_mean.grb
   ;;
-  param11.0.0|param10.0.0)
-   nsteps=`cdo ntime ${sfile}`
-   cdo sub -seltimestep,$nsteps ${sfile} -seltimestep,1 ${sfile}
-           \  ${sfile%%.grb}_mean.grb
-  ;;
   THBS_RAD|THBT_RAD|SOBS_RAD|SOBT_RAD)
    nsteps=`cdo ntime ${sfile}`
    cdo sub -seltimestep,$nsteps ${sfile} -seltimestep,1 ${sfile}
            \  ${sfile%%.grb}_mean.grb
   ;;
-
+  tp|ttr|nswrf|ssr|str|sshf|slhf|var76|var77|lssrwe|csrwe)
+   nsteps=`cdo ntime ${sfile}`
+   cdo sub -seltimestep,$nsteps ${sfile} -seltimestep,1 ${sfile}
+           \  ${sfile%%.grb}_mean.grb
+  ;;
   *)
    cdo seasmean ${sfile} ${sfile%%.grb}_mean.grb
    cdo seasstd ${sfile} ${sfile%%.grb}_std.grb
@@ -213,15 +212,15 @@ if [[ $lmonthmean = 1 ]] ; then
    cdo sub -seltimestep,$nsteps ${mfile} -seltimestep,1 ${mfile}
            \  ${mfile%%.grb}_mean.grb
   ;;
-  param11.0.0|param10.0.0)
-   nsteps=`cdo ntime ${mfile}`
-   cdo sub -seltimestep,$nsteps ${mfile} -seltimestep,1 ${mfile}
-           \  ${mfile%%.grb}_mean.grb
-  ;;
   THBS_RAD|THBT_RAD|SOBS_RAD|SOBT_RAD)
    nsteps=`cdo ntime ${mfile}`
    cdo sub -seltimestep,$nsteps ${mfile} -seltimestep,1 ${mfile}
            \  ${mfile%%.grb}_mean.grb
+  ;;
+  tp|ttr|nswrf|ssr|str|sshf|slhf|var76|var77|lssrwe|csrwe)
+   nsteps=`cdo ntime ${sfile}`
+   cdo sub -seltimestep,$nsteps ${sfile} -seltimestep,1 ${sfile}
+           \  ${sfile%%.grb}_mean.grb
   ;;
 
   *)
