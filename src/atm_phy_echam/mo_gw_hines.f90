@@ -1072,8 +1072,9 @@ CONTAINS
     !  internal variables.
     !
     INTEGER  :: i, l
-    REAL(wp) :: u, v, umv,  umin
+    REAL(wp) :: u, v, vmu, vpu, umin
     !----------------------------------------------------------------------- 
+
 
     umin  = 0.001_wp
 
@@ -1084,14 +1085,18 @@ CONTAINS
        DO l = lev1,lev2
 !CDIR NODEP
           DO i = il1,il2
+             !
              u = vel_u(i,l)
+             IF (ABS(u) < umin)  u = umin
              v = vel_v(i,l)
-             IF (ABS(u) < umin)  u = SIGN(umin,u) 
-             IF (ABS(v) < umin)  v = SIGN(umin,v) 
-             v_alpha(i,l,1) = u 
-             v_alpha(i,l,2) = v
-             v_alpha(i,l,3) = - u
-             v_alpha(i,l,4) = - v
+             IF (ABS(v) < umin)  v = umin 
+             !
+             v_alpha(i,l,1) = u     ! east
+             v_alpha(i,l,2) = v     ! north
+             !
+             v_alpha(i,l,3) = - u   ! west
+             v_alpha(i,l,4) = - v   ! south
+             !
           END DO
        END DO
        !
@@ -1100,21 +1105,26 @@ CONTAINS
        DO l = lev1,lev2
 !CDIR NODEP
           DO i = il1,il2
+             !
              u = vel_u(i,l)
+             IF (ABS(u) < umin)  u = SIGN(umin,u) 
              v = vel_v(i,l)
-             IF (ABS(u) < umin)  u = SIGN(umin,u)  
-             IF (ABS(v) < umin)  v = SIGN(umin,v)  
-             v_alpha(i,l,1) = u 
-             v_alpha(i,l,2) = cos45 * ( v + u )
-             v_alpha(i,l,3) = v
-             umv = v - u
-             IF (ABS(umv) < umin)  umv = SIGN(umin,umv)
-             v_alpha(i,l,4) = cos45 * umv
-             v_alpha(i,l,5) = - u
-             v_alpha(i,l,6) = - v_alpha(i,l,2)
-             v_alpha(i,l,7) = - v
-             v_alpha(i,l,8) = - v_alpha(i,l,4)
-
+             IF (ABS(v) < umin)  v = SIGN(umin,v)
+             vpu = v + u
+             IF (ABS(vpu) < umin)  vpu = SIGN(umin,vpu)
+             vmu = v - u
+             IF (ABS(vmu) < umin)  vmu = SIGN(umin,vmu)
+             !
+             v_alpha(i,l,1) = u                  ! east
+             v_alpha(i,l,2) = cos45 * vpu        ! north east
+             v_alpha(i,l,3) = v                  ! north
+             v_alpha(i,l,4) = cos45 * vmu        ! north west
+             !
+             v_alpha(i,l,5) = - v_alpha(i,l,1)   ! west
+             v_alpha(i,l,6) = - v_alpha(i,l,2)   ! south west
+             v_alpha(i,l,7) = - v_alpha(i,l,3)   ! south
+             v_alpha(i,l,8) = - v_alpha(i,l,4)   ! south east
+             !
           END DO
        END DO
        !
