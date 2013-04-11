@@ -1405,7 +1405,7 @@ SUBROUTINE calc_normal_velocity_ab_mimetic(p_patch_3D,p_os, p_op_coeff, p_ext_da
         END DO
       END DO
     END DO
-
+    
   ELSE !real 3d case
 
     IF (.NOT.l_RIGID_LID) THEN

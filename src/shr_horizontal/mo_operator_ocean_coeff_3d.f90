@@ -1980,7 +1980,7 @@ CONTAINS
 
             ocean_coeff%rot_coeff(jv,jk,jb,:)&
             &=ocean_coeff%rot_coeff(jv,jk,jb,:)/(zarea_fraction(jv,jk,jb)*(earth_radius*earth_radius))
-
+            
             DO jev = 1, patch%verts%num_edges(jv,jb)
               ocean_coeff%edge2vert_coeff_cc(jv,jk,jb,jev)%x(1:3)&
                 & =ocean_coeff%edge2vert_coeff_cc(jv,jk,jb,jev)%x(1:3)/zarea_fraction(jv,jk,jb)

@@ -812,6 +812,7 @@ CONTAINS
             !It is assumed here that vn is already zero at boundary edges.
 
             z_vort_int = z_vort_int + vn(ile,jk,ibe)*p_op_coeff%rot_coeff(jv,jk,jb,jev)
+         
           END DO
 
           !Finalize vorticity calculation by closing the dual loop along boundary edges
@@ -824,7 +825,7 @@ CONTAINS
               & +&
               & z_vt(ibnd_edge_idx(jv,jk,jb,2),jk,ibnd_edge_blk(jv,jk,jb,2))&
               & *p_op_coeff%rot_coeff(jv,jk,jb,i_edge_idx(jv,jk,jb,2))
-
+            
             !ELSEIF(i_v_bnd_edge_ctr(jv,jk,jb)==4)THEN
           ELSEIF(p_op_coeff%bnd_edges_per_vertex(jv,jk,jb)==4)THEN
             !In case of 4 boundary edges within a dual loop, we have 2 land triangles
@@ -850,7 +851,7 @@ CONTAINS
     !       rot_vec_v(jv,jk,jb) = (z_vort_int + z_vort_boundary(jv,jk,jb)) / &
     !         & p_patch%verts%dual_area(jv,jb)
           rot_vec_v(jv,jk,jb) = z_vort_int + z_vort_boundary(jv,jk,jb)
-
+          
         END DO
         !!$OMP END PARALLEL DO
       END DO
@@ -1443,7 +1444,7 @@ CONTAINS
           IF(p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary)THEN
 
             p_os%p_diag%thick_c(jc,jb) = p_os%p_prog(nold(1))%h(jc,jb)&
-              &  + p_ext_data%oce%bathymetry_c(jc,jb)
+              &  - p_ext_data%oce%bathymetry_c(jc,jb)
           ELSE
             p_os%p_diag%thick_c(jc,jb) = 0.0_wp
           ENDIF

@@ -1919,7 +1919,7 @@ ELSEIF( iswm_oce == 1 )THEN
           z_lon = p_patch%cells%center(jc,jb)%lon
 
          p_os%p_prog(nold(1))%h(jc,jb) = test2_h( z_lon, z_lat, 0.0_wp)
-         p_ext_data%oce%bathymetry_c(jc,jb) = 0.0_wp !test2_oro( z_lon, z_lat, 0.0_wp )
+         p_ext_data%oce%bathymetry_c(jc,jb) = test2_oro( z_lon, z_lat, 0.0_wp )
         END DO
       END DO
 !       CALL height_related_quantities( p_patch, p_os)
