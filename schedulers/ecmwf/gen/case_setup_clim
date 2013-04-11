@@ -60,10 +60,10 @@ dt_restart=`expr ${ndays_restart} \* 86400`
 dtime=90
 dtconv=900            # convection, SSO, GWD. See iadv_rcf for TURB frequency
 dtrad=3600             # radiation time step
-ndays=405              # number of days to runo
+ndays=410              # number of days to runo
 
 nsteps=`expr ${ndays} \* 86400 / ${dtime}`
-ninc_mtgrm=72 #216     # output interval 3600s
+ninc_mtgrm=40 #216     # output interval 3600s
 
 # model parameters
 atmo_namelist=NAMELIST_${basename}
@@ -119,7 +119,8 @@ done
 
 # ---
 
-ml_varlist="'fr_seaice', 't_seasfc','temp','u','v','w','pres','pres_sfc', 'pres_msl', 
+ml_varlist="'fr_seaice', 't_seasfc','t_ice','h_ice','temp','u','v','w','pres','pres_sfc', 'pres_msl',
+'t_g', 
 'qv','qc','qi','qr','qs','o3','tot_cc','tot_qv','tot_qc','tot_qi', 
 'tcc','tqv','tqc','tqi', 
 'tracer_vi01','tracer_vi02','tracer_vi03','tracer_vi04','tracer_vi05'
@@ -208,7 +209,7 @@ cat > ${atmo_namelist} << EOF
  remap                        = 1
  reg_lon_def                  = 0.,3.,357.
  reg_lat_def                  = 90.,-3., -90.
-!namespace                    = "DWD"                 ! may give problems with metview - leave default ecmwf"
+ namespace                    = "ECMWF"                 ! 
 /
 &meteogram_output_nml
  lmeteogram_enabled= .TRUE.
@@ -229,6 +230,9 @@ cat > ${atmo_namelist} << EOF
                       60.00,  80.00, 'Snow Test Russia',
                       46.81,   6.94, 'Payerne',
                       67.36,  26.64, 'Sodankyla',
+                      54.015,  6.588,'FINO1',
+                      55.007, 13.154,'FINO2',
+                      55.195,  7.158,'FINO3'
 /
 &nwp_phy_nml
  inwp_gscp                    = 10  ! 1: default, or 10

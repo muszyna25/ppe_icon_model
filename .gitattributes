@@ -781,6 +781,7 @@ schedulers/ecmwf/sms/post_prepare.sms -text
 schedulers/ecmwf/sms/pre_clean.sms -text
 schedulers/ecmwf/sms/prepicon_sst_ice.sms -text
 schedulers/ecmwf/sms/retreive_sst_ice.sms -text
+schedulers/ecmwf/sms/seasonal_mean.sms -text
 schedulers/ecmwf/sms/setup.sms -text
 schedulers/ecmwf/sms/setup_eps.sms -text
 schedulers/ecmwf/sms/testday.sms -text

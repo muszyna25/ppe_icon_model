@@ -1,0 +1,256 @@
+#!/bin/ksh
+
+%manual
+  -------------------------------------------------
+  SEASONAL_MEAN.SMS
+  ------------------------------------------------- 
+  This script is part of the ICON SMS CLIM suite
+
+ 
+  Task objectives:
+  - seasonal means 
+%end
+
+# include the header file for ICON jobs
+%include <init_job.h> 
+
+# -------------------------------------------------
+
+
+echo "SEASONAL_MEAN.SMS" 
+
+module load python
+
+module load cdo
+module unload grib_api
+module load grib_api/1.10.4
+
+
+lsplitdata=1
+lseasmean=0
+lmonthmean=0
+lcpdata=0
+ldeldata=0
+lseldate=0
+lsel2D=0
+case %SIMMODE% in
+  1) lcpdata=1        # pre-operations     
+     ldeldata=1  ;;
+  2) lcpdata=0        # monthly mean 10day forecasts
+     ldeldata=0  ;;
+  3) lseasmean=1
+     lmonthmean=1
+     lseldate=1
+     lcpdata=1  
+     ldeldata=1
+     lsel2D=1    ;;
+esac
+
+
+#-----------------------------------------------------------------------------
+# directories
+
+outdir=%SCTEMP%/%SUITE%/%EXPNUM%/output/%YMD%%INIHOUR%
+gatedir=%ECTEMP%/%SUITE%/%EXPNUM%/%YMD%%INIHOUR%
+rsh ecgate mkdir -p ${gatedir}
+cd ${outdir}
+ecfsdir="ec:icon/experiments/%SUITE%/%EXPNUM%/%YMD%%INIHOUR%"
+emkdir -p $ecfsdir
+
+# base name for output and namelist files
+basename=%SUITE%_%EXPNUM%_%YMD%%INIHOUR%
+
+#-----------------------------------------------------------------------------
+# namelist and icon_rev.txt: copy to ecfs
+
+if [ -f   NAMELIST_${basename} ] ; then
+ ecp -o NAMELIST_${basename} $ecfsdir
+else
+ ecp  $ecfsdir/NAMELIST_${basename}  .
+fi 
+bindir=%SCTEMP%/%SUITE%/%EXPNUM%/output/bin
+if [ -f ${bindir}/icon_rev.txt ] ; then
+ ecp -o ${bindir}/icon_rev.txt $ecfsdir
+else
+ ecp ${ecfsdir}/icon_rev.txt ${bindir}
+fi
+#-----------------------------------------------------------------------------
+# GRIB: copy to ecfs
+
+for levtype in ML PL HL ; do
+  if [ -f   ${outdir}/${basename}_DOM01_${levtype}_0001.grb ] ; then
+    ecp -o ${outdir}/${basename}_DOM01_${levtype}_0001.grb $ecfsdir
+  else
+    ecp     $ecfsdir/${basename}_DOM01_${levtype}_0001.grb ${outdir}
+  fi
+done
+#-----------------------------------------------------------------------------
+
+#-----------------------------------------------------------------------------
+# In all files, select the dates 
+
+if [[ $lseldate = 1 ]] ; then
+
+for levtype in ML PL HL ; do
+
+ cdo seldate,%FDATE_S%,%LDATE_S% ${outdir}/${basename}_DOM01_${levtype}_0001.grb out.grb
+ cp out.grb ${outdir}/${basename}_DOM01_${levtype}_0001.grb
+ rm out.grb
+
+done
+fi
+#-----------------------------------------------------------------------------
+# In _ML_ file, select the 2D fields
+
+if [[ $lsel2D = 1 ]] ; then
+
+MLFILE=${basename}_DOM01_ML_0001.grb 
+cdo selzaxis,surface           ${MLFILE}  ${MLFILE%%.grb}_sfc.grb 
+cdo selzaxis,top_of_atmosphere ${MLFILE}  ${MLFILE%%.grb}_toa.grb 
+cdo selzaxis,height            ${MLFILE}  ${MLFILE%%.grb}_height.grb
+fi
+
+
+#-----------------------------------------------------------------------------
+dwd_grib_api=/home/ms/de/dwd/grib_api
+
+  export GRIB_DEFINITION_PATH="/usr/local/lib/metaps/lib/grib_api/1.10.4/share/definitions:${dwd_grib_api}/definitions.edzw-1.9.16"
+
+if [[ $lsplitdata = 1 ]] ; then
+
+ dwd_grib_api=/home/ms/de/dwd/grib_api
+
+ export GRIB_DEFINITION_PATH="/usr/local/lib/metaps/lib/grib_api/1.10.4/share/definitions:${dwd_grib_api}/definitions.edzw-1.9.16"
+ mkdir -p grb_data
+ rm -f grb_data/*
+ grib_copy  ${basename}_DOM01_HL_0001.grb  \
+        grb_data/${basename}_DOM01_0001_[shortName]_zl.grb 
+ grib_copy  ${basename}_DOM01_PL_0001.grb  \
+        grb_data/${basename}_DOM01_0001_[shortName]_[typeOfFirstFixedSurface].grb
+ for lev2D in sfc toa height ; do
+ grib_copy  ${basename}_DOM01_ML_0001_${lev2D}.grb  \
+        grb_data/${basename}_DOM01_0001_[shortName]_[typeOfFirstFixedSurface].grb
+ done
+
+# fixes
+  for levtype2 in sfc ml pl zl ; do
+    for bad in unknown '~' ; do
+      grib_copy grb_data/${basename}_DOM01_0001_${bad}_${levtype2}.grb \
+                grb_data/${basename}_DOM01_0001_[discipline].[parameterCategory].[parameterNumber]_${levtype2}.grb || true
+      \rm -rf   grb_data/${basename}_DOM01_0001_${bad}_${levtype2}.grb
+    done
+  done
+
+fi
+  ls -l grb_data
+#-----------------------------------------------------------------------------
+
+if [[ $lsplitdata = 1 ]] ; then
+
+# Split seasons and months
+for file in `ls grb_data/*.grb`
+do
+ cdo splitseas ${file} ${file%%.grb}_S_
+ cdo splitmon ${file} ${file%%.grb}_M_
+done
+
+ for sfile in `ls grb_data/*_S_*.g2`
+ do
+  mv ${sfile} ${sfile%%.g2}.grb
+ done
+ for mfile in `ls grb_data/*_M_*.g2`
+ do
+  YEAR=`cdo showyear ${mfile}`
+  MONTH=`cdo showmon ${mfile}`
+  mv ${mfile} ${mfile%%.g2}.grb
+ done
+fi
+#-----------------------------------------------------------------------------
+# Calculate seasonal means and standard deviation
+
+if [[ $lseasmean = 1 ]] ; then
+
+ for sfile in `ls grb_data/*_S_???.grb`
+ do
+  NAME=`cdo showname ${sfile}`
+  case $NAME in 
+  TOT_PREC|RAIN_GSP|RAIN_CON|SNOW_GSP|SNOW_CON)
+   nsteps=`cdo ntime ${sfile}`
+   cdo sub -seltimestep,$nsteps ${sfile} -seltimestep,1 ${sfile}
+           \  ${sfile%%.grb}_mean.grb
+  ;;
+  param11.0.0|param10.0.0)
+   nsteps=`cdo ntime ${sfile}`
+   cdo sub -seltimestep,$nsteps ${sfile} -seltimestep,1 ${sfile}
+           \  ${sfile%%.grb}_mean.grb
+  ;;
+  THBS_RAD|THBT_RAD|SOBS_RAD|SOBT_RAD)
+   nsteps=`cdo ntime ${sfile}`
+   cdo sub -seltimestep,$nsteps ${sfile} -seltimestep,1 ${sfile}
+           \  ${sfile%%.grb}_mean.grb
+  ;;
+
+  *)
+   cdo seasmean ${sfile} ${sfile%%.grb}_mean.grb
+   cdo seasstd ${sfile} ${sfile%%.grb}_std.grb
+  ;;
+  esac
+ done
+
+fi
+#-----------------------------------------------------------------------------
+# Calculate monthly means and standard deviation
+
+if [[ $lmonthmean = 1 ]] ; then
+
+ for mfile in `ls grb_data/*_M_??.grb`
+ do
+
+  NAME=`cdo showname ${mfile}`
+  case $NAME in 
+  TOT_PREC|RAIN_GSP|RAIN_CON|SNOW_GSP|SNOW_CON)
+   nsteps=`cdo ntime ${mfile}`
+   cdo sub -seltimestep,$nsteps ${mfile} -seltimestep,1 ${mfile}
+           \  ${mfile%%.grb}_mean.grb
+  ;;
+  param11.0.0|param10.0.0)
+   nsteps=`cdo ntime ${mfile}`
+   cdo sub -seltimestep,$nsteps ${mfile} -seltimestep,1 ${mfile}
+           \  ${mfile%%.grb}_mean.grb
+  ;;
+  THBS_RAD|THBT_RAD|SOBS_RAD|SOBT_RAD)
+   nsteps=`cdo ntime ${mfile}`
+   cdo sub -seltimestep,$nsteps ${mfile} -seltimestep,1 ${mfile}
+           \  ${mfile%%.grb}_mean.grb
+  ;;
+
+  *)
+  cdo monmean ${mfile} ${mfile%%.grb}_mean.grb
+  cdo monstd  ${mfile} ${mfile%%.grb}_std.grb
+  esac
+ done
+fi
+#-----------------------------------------------------------------------------
+
+# move data to ecgate
+
+if [[ $lcpdata = 1 ]] ; then
+  rsh ecgate mkdir -p ${gatedir}/grb_data
+  rcp grb_data/* ecgate:${gatedir}/grb_data
+fi
+
+#-----------------------------------------------------------------------------
+# delete data
+
+if [[ $ldeldata = 1 ]] ; then
+  \rm -rf grb_data 
+  for levtype in ML PL HL ; do
+    \rm -rf ${outdir}/${basename}_DOM01_${levtype}_0001.grb
+  done
+fi
+
+
+# -------------------------------------------------
+# include the "tail" file for remote jobs
+%include <end_job.h>
+ 
