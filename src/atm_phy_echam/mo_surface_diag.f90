@@ -112,7 +112,8 @@ CONTAINS
        pevap_gbm (1:kproma)   = 0._wp
       plhflx_tile(1:kproma,:) = 0._wp
       pshflx_tile(1:kproma,:) = 0._wp
-      dshflx_dT_tile(1:kproma,:)= 0._wp
+      ! COMMENT: should span whole array, because there might be dead ends
+      dshflx_dT_tile(:,:)= 0._wp
 
     IF (.NOT.lsfc_heat_flux) THEN
       RETURN
@@ -210,7 +211,8 @@ CONTAINS
 
       IF (jsfc == idx_lnd) THEN
         pshflx_tile(1:kproma,jsfc) = 0._wp
-        dshflx_dT_tile(1:kproma,jsfc) = 0._wp
+        ! COMMENT: already done at begin of routine
+        ! dshflx_dT_tile(1:kproma,jsfc) = 0._wp
       ELSE
 
       ! Vertical gradient of dry static energy.
