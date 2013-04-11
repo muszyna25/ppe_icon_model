@@ -1,7 +1,9 @@
 #!/bin/bash
 #__________________________________________________________________________________________________
 #
-this_script="$(pwd -P)/${0##*/}"
+scriptpath=$( cd "$(dirname "$0")" ; pwd -P ) # aka $runscriptdir
+script=${0##*/}
+this_script="${scriptpath}/${script}"
 #
 job_name=exp.r2b4_amip_thunder.run
 #__________________________________________________________________________________________________
@@ -20,6 +22,8 @@ job_name=exp.r2b4_amip_thunder.run
 # Authors:
 #          Monika Esch, MPIM, March 2013 
 #          Luis Kornblueh, MPIM, March 2013
+#          Marco Giorgetta, MPIM, April 2013
+#          Reiner Schnur, MPIM, April 2013  
 # 
 #__________________________________________________________________________________________________
 # Restart status (mode visible!)
