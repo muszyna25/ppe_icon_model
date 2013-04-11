@@ -23,16 +23,16 @@ if [[ $files -gt 1 ]]; then
   mocPattern=moc.ym.nc
 fi
 
-# "moc.dat" - plot only:
-if [[ "$mocPattern" != "moc.dat" ]]; then
+# "moc.gnuplot.dat" - plot only:
+if [[ "$mocPattern" != "moc.gnuplot.dat" ]]; then
 
   #  select AMOC at 1000m depth and write ascii data for gnuplot
   if [[ "20" = $(cdo nlevel -selvar,$mocVar $(ls -1 $mocPattern | head -n 1)) ]]; then
     cdo outputkey,date,value -mulc,1.e-9 -fldmean -selname,$mocVar -sellonlatbox,0,1,40,60 \
-         -sellevel,1000 -setgrid,r1x180 $mocPattern > moc.dat
+         -sellevel,1000 -setgrid,r1x180 $mocPattern > moc.gnuplot.dat
   else
     cdo outputkey,date,value -mulc,1.e-9 -fldmean -selname,$mocVar -sellonlatbox,0,1,40,60 \
-         -intlevel,1000 -sellevel,900/1100 -setgrid,r1x180 $mocPattern > moc.dat
+         -intlevel,1000 -sellevel,900/1100 -setgrid,r1x180 $mocPattern > moc.gnuplot.dat
   fi
 fi
 
@@ -62,16 +62,16 @@ set format x "%Y"
 set xlabel "simulation years" font "Times-Bold,14
 
 #set yrange [8.1:27.8]
-set ytics 4
-set mytics 4   # minor tickmarks
+#set ytics 4
+#set mytics 4   # minor tickmarks
 set ylabel "[SV]" font "Times-Bold,14
 
 #set key left
 #set key left font "Helvetica-Bold,10"
 set key left font "Helvetica,11"
-plot 'moc.dat' using 1:2 w l t "${mocPattern}, 1000m/40N-60N" lw 3 lt -1
-#plot 'moc.dat' using 1:2 w l t
-#plot 'moc.dat' using 1:2 w l t 'AMOC, 1000m, 40N-60N' lw 3 lt -1
+plot 'moc.gnuplot.dat' using 1:2 w l t "${mocPattern}, 1000m/40N-60N" lw 3 lt -1
+#plot 'moc.gnuplot.dat' using 1:2 w l t
+#plot 'moc.gnuplot.dat' using 1:2 w l t 'AMOC, 1000m, 40N-60N' lw 3 lt -1
 EOF
 
 #gwenview moc-tims.png
