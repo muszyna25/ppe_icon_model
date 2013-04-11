@@ -571,11 +571,35 @@ MODULE mo_sgs_turbulence
     ! some additional interpolations. 
     
     CALL cells2edges_scalar(theta_v, p_patch, p_int%c_lin_e, theta_v_e, opt_rlend=min_rledge_int)
-    
-    tmp(:,1,:) = theta_sfc(:,:) * ( 1._wp + 0.61_wp * qv_sfc(:,:) )
+
+    rl_start = 2
+    rl_end   = min_rlcell_int-1
+
+    i_startblk = p_patch%cells%start_blk(rl_start,1)
+    i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx) ICON_OMP_RUNTIME_SCHEDULE
+    DO jb = i_startblk,i_endblk
+       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+                          i_startidx, i_endidx, rl_start, rl_end)
+        DO jc = i_startidx, i_endidx
+          tmp(jc,1,jb) = theta_sfc(jc,jb) * ( 1._wp + 0.61_wp * qv_sfc(jc,jb) )
+        END DO
+    END DO
+!$OMP END DO 
+!$OMP END PARALLEL
+
     CALL cells2edges_scalar(tmp, p_patch, p_int%c_lin_e, thv_sfc_e, opt_slev=1, opt_elev=1, &
                             opt_rlend=min_rledge_int)    
-   
+ 
+
+    rl_start = 2
+    rl_end   = min_rledge_int
+
+    i_startblk = p_patch%edges%start_blk(rl_start,1)
+    i_endblk   = p_patch%edges%end_blk(rl_end,i_nchdom)
+ 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx) ICON_OMP_RUNTIME_SCHEDULE
     DO jb = i_startblk,i_endblk
@@ -757,9 +781,23 @@ MODULE mo_sgs_turbulence
     !--------------------------------------------------------------------------
 
     !Turbulent diffusivity at edge at full levels
-!$OMP WORKSHARE
-    diff_smag_e(:,:,:) = visc_smag_e(:,:,:) * inv_turb_prandtl
-!$OMP END WORKSHARE
+    rl_start = 2
+    rl_end   = min_rledge
+
+    i_startblk = p_patch%edges%start_blk(rl_start,1)
+    i_endblk   = p_patch%edges%end_blk(rl_end,i_nchdom)
+
+!$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx) ICON_OMP_RUNTIME_SCHEDULE
+    DO jb = i_startblk,i_endblk
+       CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
+                          i_startidx, i_endidx, rl_start, rl_end)
+       DO jk = 1 , nlev
+         DO je = i_startidx, i_endidx
+           diff_smag_e(je,jk,jb) = visc_smag_e(je,jk,jb) * inv_turb_prandtl
+         END DO
+       END DO
+    END DO
+!$OMP END DO
 
     !Turbulent diffusivity at cell center at half levels and like visc_smag_ie 
     !it is also calculated for interior points only
@@ -809,8 +847,7 @@ MODULE mo_sgs_turbulence
     END DO  
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
-     
-    
+        
     !DEALLOCATE variables
     DEALLOCATE( u_vert, v_vert, w_vert, w_ie, vt_ie, theta_v_ie, DD, DIV, visc_smag_e, theta_v_e, thv_sfc_e, z_me )
   
@@ -856,7 +893,7 @@ MODULE mo_sgs_turbulence
     INTEGER,  DIMENSION(:,:,:), POINTER :: ividx, ivblk, iecidx, iecblk
     INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
     INTEGER :: rl_start, rl_end
-    INTEGER :: jk, jkp1, jb, je, jcn, jbn, jvn
+    INTEGER :: jk, jkp1, jb, je, jcn, jbn, jvn, jc
     INTEGER  :: nlev              
 
     ! number of vertical levels
@@ -875,9 +912,6 @@ MODULE mo_sgs_turbulence
     !Some initializations
 
 !$OMP PARALLEL WORKSHARE
-    !Inverse of density (global rho_e in this module)
-    inv_rhoe(:,:,:) = 1._wp / rho_e(:,:,:)
-
     !total tendency
     tot_tend(:,:,:) = 0._wp
 
@@ -885,8 +919,7 @@ MODULE mo_sgs_turbulence
     vn_new(:,:,:) = p_nh_prog%vn(:,:,:)
 !$OMP END PARALLEL WORKSHARE
 
-    ! 1) First get the horizontal tendencies
-
+    !Inverse of density (global rho_e in this module)
     rl_start = 2
     rl_end   = min_rledge_int
 
@@ -894,10 +927,23 @@ MODULE mo_sgs_turbulence
     i_endblk   = p_patch%edges%end_blk(rl_end,i_nchdom)
 
 !$OMP PARALLEL 
+!$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx), ICON_OMP_RUNTIME_SCHEDULE
+    DO jb = i_startblk,i_endblk
+      CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
+                         i_startidx, i_endidx, rl_start, rl_end)
+      DO jk = 1 , nlev
+       DO je = i_startidx, i_endidx
+         inv_rhoe(je,jk,jb) = 1._wp / rho_e(je,jk,jb)
+       END DO
+      END DO
+    END DO
+!$OMP END DO
+
+    ! 1) First get the horizontal tendencies
+
 !$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx,flux_up,flux_dn,d_tau_11_d_x1, &
 !$OMP            d_tau_12_d_x2,jcn,jbn,jvn), ICON_OMP_RUNTIME_SCHEDULE
     DO jb = i_startblk,i_endblk
-
       CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
                          i_startidx, i_endidx, rl_start, rl_end)
       DO jk = 1 , nlev
@@ -944,7 +990,6 @@ MODULE mo_sgs_turbulence
 !$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx,flux_up,flux_dn, &
 !$OMP            d_tau_13_d_x3), ICON_OMP_RUNTIME_SCHEDULE
     DO jb = i_startblk,i_endblk
-
       CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
                          i_startidx, i_endidx, rl_start, rl_end)
       DO jk = 2 , nlev-1
@@ -986,7 +1031,6 @@ MODULE mo_sgs_turbulence
 !$OMP DO PRIVATE(jb,je,i_startidx,i_endidx,flux_up,flux_dn, &
 !$OMP            d_tau_13_d_x3), ICON_OMP_RUNTIME_SCHEDULE
     DO jb = i_startblk,i_endblk
-
       CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
                          i_startidx, i_endidx, rl_start, rl_end)
        DO je = i_startidx, i_endidx
@@ -1016,7 +1060,6 @@ MODULE mo_sgs_turbulence
 !$OMP            stress_uc,stress_vc,stress_c1n,stress_c2n,d_tau_13_d_x3),   &
 !$OMP            ICON_OMP_RUNTIME_SCHEDULE
     DO jb = i_startblk,i_endblk
-
       CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
                          i_startidx, i_endidx, rl_start, rl_end)
        DO je = i_startidx, i_endidx
@@ -1072,7 +1115,6 @@ MODULE mo_sgs_turbulence
 
 !$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx), ICON_OMP_RUNTIME_SCHEDULE
     DO jb = i_startblk,i_endblk
-
       CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
                          i_startidx, i_endidx, rl_start, rl_end)
       DO jk = 1 , nlev
@@ -1081,7 +1123,7 @@ MODULE mo_sgs_turbulence
        END DO
       END DO
     END DO  
-!$OMP END DO NOWAIT
+!$OMP END DO 
 !$OMP END PARALLEL
 
 
@@ -1089,10 +1131,26 @@ MODULE mo_sgs_turbulence
     CALL sync_patch_array(SYNC_E, p_patch, vn_new)
     CALL rbf_vec_interpol_cell(vn_new, p_patch, p_int, unew, vnew, opt_rlend=min_rlcell_int-1)
 
-!$OMP PARALLEL WORKSHARE
-    ddt_u(:,:,:) = ( unew(:,:,:) - p_nh_diag%u(:,:,:) ) / dt   
-    ddt_v(:,:,:) = ( vnew(:,:,:) - p_nh_diag%v(:,:,:) ) / dt   
-!$OMP END PARALLEL WORKSHARE
+    rl_start = 2
+    rl_end   = min_rlcell_int-1
+
+    i_startblk = p_patch%cells%start_blk(rl_start,1)
+    i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
+   
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx), ICON_OMP_RUNTIME_SCHEDULE
+    DO jb = i_startblk,i_endblk
+      CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+                         i_startidx, i_endidx, rl_start, rl_end)
+      DO jk = 1 , nlev
+       DO jc = i_startidx, i_endidx
+         ddt_u(jc,jk,jb) = ( unew(jc,jk,jb) - p_nh_diag%u(jc,jk,jb) ) / dt   
+         ddt_v(jc,jk,jb) = ( vnew(jc,jk,jb) - p_nh_diag%v(jc,jk,jb) ) / dt   
+       END DO
+      END DO
+    END DO  
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
 
 !    CALL sync_patch_array(SYNC_E, p_patch, tot_tend)
 !    CALL rbf_vec_interpol_cell(tot_tend, p_patch, p_int, ddt_u, ddt_v, opt_rlend=min_rlcell_int-1)
@@ -1343,23 +1401,67 @@ MODULE mo_sgs_turbulence
 
     !Special treatment for different scalars: includes
     !boundary treatment also
+
+     rl_start = 2
+     rl_end   = min_rlcell_int
+
+     i_startblk = p_patch%cells%start_blk(rl_start,1)
+     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
+
     IF(TRIM(scalar_name)=='theta')THEN
       !multiply by exner to convert from theta tend to temp tend
 
-!$OMP PARALLEL WORKSHARE
-      fac(:,:,:) = cpd * rcvd * exner(:,:,:) / rho(:,:,:)
-      sflux(:,:) = prm_diag%shfl_s(:,:) * rcpd
-!$OMP END PARALLEL WORKSHARE
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jc,jb,jk,i_startidx,i_endidx),ICON_OMP_RUNTIME_SCHEDULE
+        DO jb = i_startblk,i_endblk
+          CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+                             i_startidx, i_endidx, rl_start, rl_end)
+          DO jk = 1, nlev
+            DO jc = i_startidx, i_endidx
+              fac(jc,jk,jb) = cpd * rcvd * exner(jc,jk,jb) / rho(jc,jk,jb)
+            END DO
+          END DO
+        END DO
+!$OMP END DO
+!$OMP DO PRIVATE(jc,jb,i_startidx,i_endidx),ICON_OMP_RUNTIME_SCHEDULE
+        DO jb = i_startblk,i_endblk
+          CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+                             i_startidx, i_endidx, rl_start, rl_end)
+          DO jc = i_startidx, i_endidx
+             sflux(jc,jb) = prm_diag%shfl_s(jc,jb) * rcpd
+          END DO
+        END DO
+!$OMP END DO
+!$OMP END PARALLEL
 
     ELSEIF(TRIM(scalar_name)=='qv')THEN
 
-!$OMP PARALLEL WORKSHARE
-      fac(:,:,:) = 1._wp / rho(:,:,:)
-      sflux(:,:) = prm_diag%lhfl_s(:,:) / alv
-!$OMP END PARALLEL WORKSHARE
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jc,jb,jk,i_startidx,i_endidx),ICON_OMP_RUNTIME_SCHEDULE
+        DO jb = i_startblk,i_endblk
+          CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+                             i_startidx, i_endidx, rl_start, rl_end)
+          DO jk = 1, nlev
+            DO jc = i_startidx, i_endidx
+              fac(jc,jk,jb) = 1._wp / rho(jc,jk,jb)
+            END DO
+          END DO
+        END DO
+!$OMP END DO
+!$OMP DO PRIVATE(jc,jb,i_startidx,i_endidx),ICON_OMP_RUNTIME_SCHEDULE
+        DO jb = i_startblk,i_endblk
+          CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+                             i_startidx, i_endidx, rl_start, rl_end)
+          DO jc = i_startidx, i_endidx
+             sflux(jc,jb) = prm_diag%lhfl_s(jc,jb) / alv
+          END DO
+        END DO
+!$OMP END DO
+!$OMP END PARALLEL
 
     END IF
 
+      
     ! use conservative discretization div(k*grad(var))-horizontal part  
     ! following mo_nh_diffusion
 
