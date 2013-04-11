@@ -539,14 +539,11 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
 
    ! &      diag%tot_cld_vi(nproma,nblks_c,4)
     cf_desc     = t_cf_var('tot_cld_vi', 'unit ','vertical integr total cloud variables', DATATYPE_FLT32)
-    new_cf_desc = t_cf_var('tot_cld_vi', '% ',   'vertical integr total cloud variables', DATATYPE_FLT32)
     grib2_desc   = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, 'tot_cld_vi', diag%tot_cld_vi,                   &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
                 &                                 ldims=(/nproma,kblks,4/),   &
-                & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.,       &
-                & post_op=post_op(POST_OP_SCALE, arg1=100._wp,                &
-                &                 new_cf=new_cf_desc) )
+                & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.        )
 
     ! fill the seperate variables belonging to the container tot_cld_vi
     ALLOCATE( diag%tci_ptr(kcloud))
@@ -579,13 +576,14 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
       & ldims=shape2d, lrestart=.FALSE., in_group=groups("additional_precip_vars"))
     
     !CC
+    cf_desc     = t_cf_var('tcc', '%','total_column_integrated_cloud_cover',DATATYPE_FLT32)
     CALL add_ref( diag_list, 'tot_cld_vi',                         &
       & 'tcc', diag%tci_ptr(4)%p_2d,                               &
       & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                        &
-      & t_cf_var('tcc', '%','total_column_integrated_cloud_cover', &
-      &          DATATYPE_FLT32), &
-      & t_grib2_var(0, 6, 1, ibits, GRID_REFERENCE, GRID_CELL), &
-      & ldims=shape2d, lrestart=.FALSE., in_group=groups("additional_precip_vars") )
+      & cf_desc,                                                   &
+      & t_grib2_var(0, 6, 1, ibits, GRID_REFERENCE, GRID_CELL),    &
+      & ldims=shape2d, lrestart=.FALSE.,                           &
+      & in_group=groups("additional_precip_vars")                  )
 
 
    ! &      diag%tot_cld_vi_avg(nproma,nblks_c,4)
