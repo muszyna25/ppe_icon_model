@@ -1124,7 +1124,7 @@ MODULE mo_sgs_turbulence
     REAL(wp) :: flux_up, flux_dn, d_tau_31_d_x1, d_tau_32_d_x2, d_tau_33_d_x3, fac
     REAL(wp) :: hor_tend(nproma,p_patch%nlev+1,p_patch%nblks_e)
     REAL(wp) :: tot_tend(nproma,p_patch%nlev+1,p_patch%nblks_c)
-    REAL(wp) :: wgtfac_v(nproma,p_patch%nlev,p_patch%nblks_v)
+    REAL(wp) :: wgtfac_v(nproma,p_patch%nlev+1,p_patch%nblks_v)
 
     INTEGER,  DIMENSION(:,:,:), POINTER :: ividx, ivblk, iecidx, iecblk, ieidx, ieblk
     INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
