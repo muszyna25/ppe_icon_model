@@ -406,7 +406,7 @@ cat > ${atmo_namelist} << EOF
  irad_co2         = 2             ! constant co2 vmr
  irad_ch4         = 0             ! switch off ch4
  irad_n2o         = 0             ! switch off n2o
- irad_o3          = 0             ! switch off o3
+ irad_o3          = 8             ! ozone for AMIP experiment
  irad_o2          = 0             ! switch off o2
  irad_cfc11       = 0             ! switch off cfc11
  irad_cfc12       = 0             ! switch off cfc12
@@ -530,8 +530,12 @@ INIDATA=/pool/data/ICON/input/r0001
 cp -f $INIDATA/global/atm/bc_greenhouse_rcp45_1765-2500.nc bc_greenhouse_gases.nc
 
 # - ozone
-#   !still wrong APE ozone!
-cp -f ${basedir}/data/external/ape_ozone/ape_o3_R2B04_1Pa_spr0.90-cell.nc ./o3_icon_DOM01.nc
+year=1975
+while [[ $year -lt 2008 ]]
+do
+ cp -f $INIDATA/r2b4_amip/atm/bc_ozone_cmip5/bc_ozone_cmip5_${year}.nc ${EXPDIR}/ozone${year}.nc
+ (( year = year+1 ))
+done
 
 # - sst and sic
 cp -f $INIDATA/r2b4_amip/oce/bc_sic_pcmdi_1870-2010.nc ./bc_sic.nc

@@ -48,12 +48,13 @@ MODULE mo_echam_phy_main
   USE mo_mpi,                 ONLY: my_process_is_stdio
   USE mo_math_constants,      ONLY: pi
   USE mo_physical_constants,  ONLY: grav
-  USE mo_impl_constants,      ONLY: io3_clim, io3_ape
+  USE mo_impl_constants,      ONLY: io3_clim, io3_ape, io3_amip
   USE mo_run_config,          ONLY: ntracer, nlev, nlevp1,           &
     &                               iqv, iqc, iqi, iqt, ltimer
   USE mo_vertical_coord_table,ONLY: nlevm1
   USE mo_ext_data_state,      ONLY: ext_data, nlev_o3, nmonths
   USE mo_ext_data_types,      ONLY: t_external_atmos_td
+  USE mo_o3,                  ONLY: o3_plev, nplev_o3, plev_full_o3, plev_half_o3
   USE mo_o3_util,             ONLY: o3_pl2ml !o3_timeint
   USE mo_echam_phy_config,    ONLY: phy_config => echam_phy_config
   USE mo_echam_conv_config,   ONLY: echam_conv_config
@@ -501,6 +502,14 @@ CONTAINS
 !                WRITE(0,*)'nlev=',jk,'o3intp=', field%o3(jce,1,jb)
 !                ENDDO
 !              ENDIF
+            CASE(io3_amip)
+              CALL o3_pl2ml(kproma=jce,                 kbdim=nbdim,          &
+                          & nlev_pres=nplev_o3,         klev=nlev,            &
+                          & pfoz=plev_full_o3,          phoz=plev_half_o3,    &
+                          & ppf=field%presm_new(:,:,jb),                      &
+                          & pph=field%presi_new(:,:,jb),                      &
+                          & o3_time_int=o3_plev(:,:,jb,datetime%month),       &
+                          & o3_clim=field%o3(:,:,jb)                          )
             END SELECT
 
 

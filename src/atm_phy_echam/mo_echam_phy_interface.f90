@@ -43,7 +43,7 @@ MODULE mo_echam_phy_interface
 
   USE mo_kind,              ONLY: wp
   USE mo_exception,         ONLY: message, finish
-  USE mo_impl_constants,    ONLY: min_rlcell_int, min_rledge_int, min_rlcell
+  USE mo_impl_constants,    ONLY: min_rlcell_int, min_rledge_int, min_rlcell, io3_amip
   USE mo_datetime,          ONLY: t_datetime, print_datetime, add_time
   USE mo_math_constants,    ONLY: pi
   USE mo_model_domain,      ONLY: t_patch
@@ -61,7 +61,7 @@ MODULE mo_echam_phy_interface
      & icon_comm_var_is_ready, icon_comm_sync, icon_comm_sync_all, is_ready, until_sync
   
   USE mo_run_config,        ONLY: nlev, ltimer, ntracer
-  USE mo_radiation_config,  ONLY: ighg, izenith
+  USE mo_radiation_config,  ONLY: ighg, izenith, irad_o3
   USE mo_loopindices,       ONLY: get_indices_c, get_indices_e
   USE mo_impl_constants_grf,ONLY: grf_bdywidth_e, grf_bdywidth_c
   USE mo_eta_coord_diag,    ONLY: half_level_pressure, full_level_pressure
@@ -77,6 +77,7 @@ MODULE mo_echam_phy_interface
   USE mo_icon_cpl_restart,   ONLY: icon_cpl_write_restart
 
   USE mo_icoham_sfc_indices, ONLY: iwtr, iice
+  USE mo_o3,                 ONLY: read_amip_o3
   USE mo_amip_bc,            ONLY: read_amip_bc, amip_time_weights, amip_time_interpolation, &
     &                              get_current_amip_bc_year
   USE mo_greenhouse_gases,   ONLY: read_ghg_bc, ghg_time_interpolation, ghg_file_read
@@ -347,6 +348,9 @@ CONTAINS
     !LK:
     !TODO: pass timestep as argument
     !COMMENT: lsmask == slm and is not slf!
+    IF (irad_o3 == io3_amip) THEN
+       CALL read_amip_o3(datetime%year, p_patch)
+    END IF
     IF (phy_config%lamip) THEN
       IF (datetime%year /= get_current_amip_bc_year()) THEN
         CALL read_amip_bc(datetime%year, p_patch)
