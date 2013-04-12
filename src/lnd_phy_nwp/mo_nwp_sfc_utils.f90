@@ -959,10 +959,10 @@ CONTAINS
         ENDDO
 
 
-        ! fill t_so(1) with t_s
-        lnd_diag%t_so(i_startidx:i_endidx,1,jb) = lnd_diag%t_s(i_startidx:i_endidx,jb)
-
       ENDIF  ! ntiles_total == 1
+
+      ! fill t_so(1) with t_s
+      lnd_diag%t_so(i_startidx:i_endidx,1,jb) = lnd_diag%t_s(i_startidx:i_endidx,jb)
 
     ENDDO  ! jb
 !$OMP END DO
