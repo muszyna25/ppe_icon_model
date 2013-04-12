@@ -540,6 +540,16 @@ for k=k1 to k2 by k3 do
     plot ( display_window[1], text, var_data[k], all,  legend )
   end if
 
+
+# Dummy fix to wait until plot is finished for convert command afterwards (v4.3.8)
+# (can be removed once metview is fixed)
+# CREATE a DUMMY PS FILE
+  file_dummy = ps_output( OUTPUT_NAME : plotdir&'/dummy' )
+  setoutput(file_dummy)
+# xxx
+
+
+# shell('ls -lrt '&plotfile&'.L'&k&'.p*')
   shell('convert -rotate 90 '&plotfile&'.L'&k&'.ps '&plotfile&'.L'&k&'.png')
   shell('ls -lrt '&plotfile&'.L'&k&'.png')
 # shell('\rm -f '            &plotfile&'.L'&k&'.ps ')

@@ -460,6 +460,15 @@ else
   plot ( display_window[1], text, var_zonal, all,  legend )
 end if
 
+
+# Dummy fix to wait until plot is finished for convert command afterwards (v4.3.8)
+# (can be removed once metview is fixed)
+# CREATE a DUMMY PS FILE
+file_dummy = ps_output( OUTPUT_NAME : plotdir&'/dummy' )
+setoutput(file_dummy)
+# xxx
+
+
 shell('convert -rotate 90 '&plotfile&'.ps '&plotfile&'.png')
 shell('ls -lrt '&plotfile&'.png')
 #shell('\rm -f '            &plotfile&'.ps ')
