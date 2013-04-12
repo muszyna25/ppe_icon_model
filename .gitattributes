@@ -740,6 +740,7 @@ schedulers/ecmwf/gen/case_setup -text
 schedulers/ecmwf/gen/case_setup.B-matrix -text
 schedulers/ecmwf/gen/case_setup_clim -text
 schedulers/ecmwf/gen/case_setup_default -text
+schedulers/ecmwf/gen/case_setup_default_r2b5 -text
 schedulers/ecmwf/gen/case_setup_edmf -text
 schedulers/ecmwf/gen/case_setup_eps -text
 schedulers/ecmwf/gen/case_setup_oper -text
