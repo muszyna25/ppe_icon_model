@@ -29,6 +29,8 @@ echo "EOM_PREPARE.SMS"
 ## module load grib_api
 ## module load cdo/1.5.4  # to get specific version
 module load cdo
+module unload grib_api
+module load grib_api/1.10.4
 
 
 case %SIMMODE% in
@@ -40,6 +42,15 @@ esac
 lcatdata=1
 lcpdata=1
 ldeldata=1
+
+if [ `echo %YMD% | cut -c 7-8` -eq "12" ] ; then
+  ldeldata=0           # do some test plots on the 12th of the month, but no delete
+fi                     # (see also testday.sms)
+####
+#lgetdata=1
+#lsplitdata=1
+#ldeldata=0
+####
 
 
 #-----------------------------------------------------------------------------
@@ -92,9 +103,11 @@ for levtype1 in PL HL ML ; do
 
     if [[ $lsplitdata = 1 ]] ; then
 
+      dwd_grib_api=/home/ms/de/dwd/grib_api
 # export the DWD GRIB short names:
 #     export GRIB_DEFINITION_PATH="%SCSOFT%/software/grib_api/release/share-1.9.9/definitions.edzw:/usr/local/lib/metaps/lib/grib_api/current/share/definitions"
-      export GRIB_DEFINITION_PATH="/usr/local/lib/metaps/lib/grib_api/current/share/definitions:%SCSOFT%/software/grib_api/release/share-1.9.9/definitions.edzw"
+#     export GRIB_DEFINITION_PATH="/usr/local/lib/metaps/lib/grib_api/current/share/definitions:%SCSOFT%/software/grib_api/release/share-1.9.9/definitions.edzw"
+      export GRIB_DEFINITION_PATH="/usr/local/lib/metaps/lib/grib_api/1.10.4/share/definitions:${dwd_grib_api}/definitions.edzw-1.9.16"
 
       mkdir -p grb_data
       if [[ ${levtype1} = 'HL' ]] ; then
@@ -157,6 +170,11 @@ if [[ $lcatdata = 1 ]] ; then
   varlist=`ls grb_data/${basename31}_DOM01_0001_*.grb | \
       sed "s/grb_data\/${basename31}_DOM01_0001_//"   | \
       sed "s/.grb//"`
+
+#delete variables that give problems (e.g. Param=18.3.2 level=2 not defined at timestep 1)
+  varlist=`echo $varlist | sed "s/2.3.18_sfc//"`
+ #varlist=`echo $varlist | sed "s/t_zl//"`
+  echo $varlist
 
   for var in $varlist ; do
     \rm -rf  ${mondir}/tmp_dir
