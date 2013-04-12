@@ -30,6 +30,9 @@ job_name=exp.r2b4_amip_thunder.run
 #
 restart=${restart:=".false."}
 #
+#AUTOMATIC_RESTART_SETUP:
+#END AUTOMATIC_RESTART_SETUP
+
 #__________________________________________________________________________________________________
 # set error checking
 
