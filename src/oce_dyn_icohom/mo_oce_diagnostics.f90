@@ -191,10 +191,11 @@ SUBROUTINE calculate_oce_diagnostics(p_patch_3D, p_os, p_sfc_flx, p_phys_param, 
     CALL get_index_range(owned_cells, jb, i_startidx_c, i_endidx_c)
       !We are dealing with the surface layer first
       DO jc =  i_startidx_c, i_endidx_c
-        DO jk = 1,p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)
 
-          ! area
-          prism_area     = p_patch%cells%area(jc,jb)
+        ! area
+        prism_area     = p_patch%cells%area(jc,jb)
+
+        DO jk = 1,p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)
 
           !local volume
           surface_height = merge(p_os%p_prog(nnew(1))%h(jc,jb),0.0_wp, 1 == jk)
