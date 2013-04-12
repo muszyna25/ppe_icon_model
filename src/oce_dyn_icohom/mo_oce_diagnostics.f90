@@ -333,7 +333,7 @@ SUBROUTINE construct_oce_diagnostics( p_patch_3D, p_os, oce_ts, datestring )
   diag_fname = 'oce_diagnostics-'//TRIM(datestring)//'.txt'
   diag_unit = find_next_free_unit(10,99)
   OPEN (unit=diag_unit,file=diag_fname,IOSTAT=ist)
-  !HEADER
+  ! header of the text file
   headerLine = ''
   ! * add timestep columns
   write(headerLine,'(a)') 'step datetime'
@@ -341,7 +341,6 @@ SUBROUTINE construct_oce_diagnostics( p_patch_3D, p_os, oce_ts, datestring )
   DO i=1,SIZE(oce_ts%names)
     WRITE(headerLine,'(a,a,a)')TRIM(headerLine),' ',TRIM(oce_ts%names(i))
   END DO
-  print *,headerLine
   write(diag_unit,'(a)')TRIM(headerLine)
 
   ! open file for MOC - extraordinary at this time
