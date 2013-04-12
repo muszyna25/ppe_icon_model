@@ -102,6 +102,18 @@ TYPE t_oce_monitor
     REAL(wp) :: enstrophy
     REAL(wp) :: potential_enstrophy
     REAL(wp) :: absolute_vertical_velocity
+    REAL(wp) :: forc_swflx   ! surface short wave heat flux                              [W/m2]
+    REAL(wp) :: forc_lwflx   ! surface long wave heat flux                               [W/m2]
+    REAL(wp) :: forc_ssflx   ! surface sensible heat flux                                [W/m2]
+    REAL(wp) :: forc_slflx   ! surface latent heat flux                                  [W/m2]
+    REAL(wp) :: forc_precip  ! total precipitation flux                                  [m/s]
+    REAL(wp) :: forc_evap    ! evaporation flux                                          [m/s]
+    REAL(wp) :: forc_runoff  ! river runoff flux                                         [m/s]
+    REAL(wp) :: forc_fwbc    ! sum of forcing surface freshwater flux from BC            [m/s]
+    REAL(wp) :: forc_fwrelax ! diagnosed surface freshwater flux due to relaxation       [m/s]
+    REAL(wp) :: forc_fwfx    ! diagnosed sum of forcing surface freshwater flux          [m/s]
+    REAL(wp) :: forc_hfrelax ! diagnosed surface heat flux due to relaxation             [m/s]
+    REAL(wp) :: forc_hflx    ! diagnosed sum of forcing surface heat flux                [W/m2]
     REAL(wp), ALLOCATABLE :: tracer_content(:)
 
 END TYPE t_oce_monitor
@@ -118,6 +130,18 @@ TYPE t_oce_timeseries
     & "enstrophy                               ", &
     & "potential_enstrophy                     ", &
     & "absolute_vertical_velocity              ", &
+    & "forc_swflx                              ", &
+    & "forc_lwflx                              ", &
+    & "forc_ssflx                              ", &
+    & "forc_slflx                              ", &
+    & "forc_precip                             ", &
+    & "forc_evap                               ", &
+    & "forc_runoff                             ", &
+    & "forc_fwbc                               ", &
+    & "forc_fwrelax                            ", &
+    & "forc_fwfx                               ", &
+    & "forc_hfrelax                            ", &
+    & "forc_hflx                               ", &
     & "total_temperature                       ", &
     & "total_salinity                          "/)
 
@@ -206,6 +230,20 @@ SUBROUTINE calculate_oce_diagnostics(p_patch_3D, p_os, p_sfc_flx, p_phys_param, 
         monitor%absolute_vertical_velocity = &
           & monitor%absolute_vertical_velocity + abs(p_os%p_diag%w(jc,1,jb))*prism_area
 
+        monitor%forc_swflx   = monitor%forc_swflx   + p_sfc_flx%forc_swflx(jc,jb)*prism_area
+        monitor%forc_lwflx   = monitor%forc_lwflx   + p_sfc_flx%forc_lwflx(jc,jb)*prism_area
+        monitor%forc_ssflx   = monitor%forc_ssflx   + p_sfc_flx%forc_ssflx(jc,jb)*prism_area
+        monitor%forc_slflx   = monitor%forc_slflx   + p_sfc_flx%forc_slflx(jc,jb)*prism_area
+        monitor%forc_precip  = monitor%forc_precip  + p_sfc_flx%forc_precip(jc,jb)*prism_area
+        monitor%forc_evap    = monitor%forc_evap    + p_sfc_flx%forc_evap(jc,jb)*prism_area
+        monitor%forc_runoff  = monitor%forc_runoff  + p_sfc_flx%forc_runoff(jc,jb)*prism_area
+        monitor%forc_fwbc    = monitor%forc_fwbc    + p_sfc_flx%forc_fwbc(jc,jb)*prism_area
+        monitor%forc_fwrelax = monitor%forc_fwrelax + p_sfc_flx%forc_fwrelax(jc,jb)*prism_area
+        monitor%forc_fwfx    = monitor%forc_fwfx    + p_sfc_flx%forc_fwfx(jc,jb)*prism_area
+        monitor%forc_hfrelax = monitor%forc_hfrelax + p_sfc_flx%forc_hfrelax(jc,jb)*prism_area
+        monitor%forc_hflx    = monitor%forc_hflx    + p_sfc_flx%forc_hflx(jc,jb)*prism_area
+
+
         DO jk = 1,p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)
 
           !local volume
@@ -242,15 +280,27 @@ SUBROUTINE calculate_oce_diagnostics(p_patch_3D, p_os, p_sfc_flx, p_phys_param, 
   END SELECT
 
   ! compute global sums {
-  monitor%volume              = global_sum_array(monitor%volume)
-  monitor%kin_energy          = global_sum_array(monitor%kin_energy)/monitor%volume
-  monitor%pot_energy          = global_sum_array(monitor%pot_energy)/monitor%volume
-  monitor%total_energy        = global_sum_array(monitor%total_energy)/monitor%volume
-  monitor%vorticity           = global_sum_array(monitor%vorticity)
-  monitor%enstrophy           = global_sum_array(monitor%enstrophy)
-  monitor%potential_enstrophy = global_sum_array(monitor%potential_enstrophy)
-  surface_area                = global_sum_array(surface_area)
+  monitor%volume                     = global_sum_array(monitor%volume)
+  surface_area                       = global_sum_array(surface_area)
+  monitor%kin_energy                 = global_sum_array(monitor%kin_energy)/monitor%volume
+  monitor%pot_energy                 = global_sum_array(monitor%pot_energy)/monitor%volume
+  monitor%total_energy               = global_sum_array(monitor%total_energy)/monitor%volume
+  monitor%vorticity                  = global_sum_array(monitor%vorticity)
+  monitor%enstrophy                  = global_sum_array(monitor%enstrophy)
+  monitor%potential_enstrophy        = global_sum_array(monitor%potential_enstrophy)
   monitor%absolute_vertical_velocity = global_sum_array(monitor%absolute_vertical_velocity)/surface_area
+  monitor%forc_swflx                 = global_sum_array(monitor%forc_swflx)/surface_area
+  monitor%forc_lwflx                 = global_sum_array(monitor%forc_lwflx)/surface_area
+  monitor%forc_ssflx                 = global_sum_array(monitor%forc_ssflx)/surface_area
+  monitor%forc_slflx                 = global_sum_array(monitor%forc_slflx)/surface_area
+  monitor%forc_precip                = global_sum_array(monitor%forc_precip)/surface_area
+  monitor%forc_evap                  = global_sum_array(monitor%forc_evap)/surface_area
+  monitor%forc_runoff                = global_sum_array(monitor%forc_runoff)/surface_area
+  monitor%forc_fwbc                  = global_sum_array(monitor%forc_fwbc)/surface_area
+  monitor%forc_fwrelax               = global_sum_array(monitor%forc_fwrelax)/surface_area
+  monitor%forc_fwfx                  = global_sum_array(monitor%forc_fwfx)/surface_area
+  monitor%forc_hfrelax               = global_sum_array(monitor%forc_hfrelax)/surface_area
+  monitor%forc_hflx                  = global_sum_array(monitor%forc_hflx)/surface_area
   DO i_no_t=1,no_tracer
     monitor%tracer_content(i_no_t) = global_sum_array(monitor%tracer_content(i_no_t))
   END DO
@@ -273,8 +323,19 @@ SUBROUTINE calculate_oce_diagnostics(p_patch_3D, p_os, p_sfc_flx, p_phys_param, 
     & monitor%vorticity, &
     & monitor%enstrophy, &
     & monitor%potential_enstrophy, &
-    & monitor%absolute_vertical_velocity
-
+    & monitor%absolute_vertical_velocity, &
+    & monitor%forc_swflx, &
+    & monitor%forc_lwflx, &
+    & monitor%forc_ssflx, &
+    & monitor%forc_slflx, &
+    & monitor%forc_precip, &
+    & monitor%forc_evap, &
+    & monitor%forc_runoff, &
+    & monitor%forc_fwbc, &
+    & monitor%forc_fwrelax, &
+    & monitor%forc_fwfx, &
+    & monitor%forc_hfrelax, &
+    & monitor%forc_hflx
   ! * tracers
   DO i_no_t=1,no_tracer
     write(line,'(a,'//TRIM(real_fmt)//')') TRIM(line),monitor%tracer_content(i_no_t)
