@@ -21,6 +21,7 @@ set grid y2tics
 plot 'oce_diagnostics.txt' using "step":"kin_energy" w l axes x1y2
 set ytics in
 unset y2tics
+set logscale y
 plot 'oce_diagnostics.txt' using "step":"absolute_vertical_velocity" w l
 set y2tics in
 unset ytics

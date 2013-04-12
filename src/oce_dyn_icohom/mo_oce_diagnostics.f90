@@ -193,7 +193,11 @@ SUBROUTINE calculate_oce_diagnostics(p_patch_3D, p_os, p_sfc_flx, p_phys_param, 
       DO jc =  i_startidx_c, i_endidx_c
 
         ! area
-        prism_area     = p_patch%cells%area(jc,jb)
+        prism_area   = p_patch%cells%area(jc,jb)
+        surface_area = surface_area + prism_area
+        ! sum of top layer vertical velocities abolsute values
+        monitor%absolute_vertical_velocity = &
+          & monitor%absolute_vertical_velocity + abs(p_os%p_diag%w(jc,1,jb))*prism_area
 
         DO jk = 1,p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)
 
@@ -224,13 +228,6 @@ SUBROUTINE calculate_oce_diagnostics(p_patch_3D, p_os, p_sfc_flx, p_phys_param, 
             monitor%tracer_content(i_no_t) = &
               & monitor%tracer_content(i_no_t) + prism_vol*p_os%p_prog(nold(1))%tracer(jc,jk,jb,i_no_t)
           END DO
-
-          ! top level diagnostics
-          IF (jk /= 1) cycle
-          surface_area = surface_area + prism_area
-          ! sum of top layer vertical velocities abolsute values
-          monitor%absolute_vertical_velocity = &
-            & monitor%absolute_vertical_velocity + abs(p_os%p_diag%w(jc,jk,jb))*prism_area
         END DO
       END DO
     END DO
@@ -246,7 +243,7 @@ SUBROUTINE calculate_oce_diagnostics(p_patch_3D, p_os, p_sfc_flx, p_phys_param, 
   monitor%enstrophy           = global_sum_array(monitor%enstrophy)
   monitor%potential_enstrophy = global_sum_array(monitor%potential_enstrophy)
   surface_area                = global_sum_array(surface_area)
-  monitor%absolute_vertical_velocity = global_sum_array(monitor%absolute_vertical_velocity)/surface_area
+  monitor%absolute_vertical_velocity = global_sum_array(monitor%absolute_vertical_velocity)
   DO i_no_t=1,no_tracer
     monitor%tracer_content(i_no_t) = global_sum_array(monitor%tracer_content(i_no_t))
   END DO
