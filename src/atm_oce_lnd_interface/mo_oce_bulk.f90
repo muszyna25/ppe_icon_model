@@ -538,12 +538,14 @@ CONTAINS
 
           ! evaporation results from latent heat flux, as provided by bulk formula using OMIP/NCEP fluxes
           IF (l_forc_freshw) THEN
-            p_sfc_flx%forc_evap(:,:) = Qatm%latw(:,:) / (alv*rho_ref)  ! not yet tested
+            ! under sea ice evaporation is neglected, Qatm%latw is flux in the absence of sea ice
+            ! TODO: evaporation of ice and snow must be implemented
+            ! check: sea ice class =1  p_ice%conc(:,1,:) or sum of ice classes p_ice%concSum(:,:)
+            p_sfc_flx%forc_evap(:,:) = Qatm%latw(:,:) / (alv*rho_ref) * (1.0_wp-p_ice%conc(:,1,:))
             p_sfc_flx%forc_fwbc(:,:) = (p_sfc_flx%forc_precip(:,:) + p_sfc_flx%forc_evap(:,:) + &
               &                         p_sfc_flx%forc_runoff(:,:))*p_patch_3d%wet_c(:,1,:)
-            idt_src=3  ! output print level (1-5, fix)
-            CALL dbg_print('UpdSfc: p_sfc_flx%forc_evap'     ,p_sfc_flx%forc_evap     ,str_module,idt_src)
             idt_src=2  ! output print level (1-5, fix)
+            CALL dbg_print('UpdSfc: p_sfc_flx%forc_evap'     ,p_sfc_flx%forc_evap     ,str_module,idt_src)
             CALL dbg_print('UpdSfc: p_sfc_flx%forc_fwbc'     ,p_sfc_flx%forc_fwbc     ,str_module,idt_src)
           ENDIF
 
