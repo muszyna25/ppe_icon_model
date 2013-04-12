@@ -516,38 +516,45 @@ fi
 # copy initial and boundary conditions and ancilliary files
 
 # model constants
-
+# ---------------
 cp -f ${basedir}/data/rrtmg_lw.nc           ${EXPDIR} # LW radiation constants
 cp -f ${basedir}/data/ECHAM6_CldOptProps.nc ${EXPDIR} # cloud optical properties   
 
 
+INDATA=/pool/data/ICON/input/r0001
+
 # initial conditions
-# - to be done
+# ------------------
+
+# - atmosphere
+#   t.b.d
+
+# - land
+cp -f $INDATA/r2b4_amip/lnd/ic_land_soil.nc           ./ic_land_soil.nc
 
 
 # boundary conditions
+# -------------------
 
-INIDATA=/pool/data/ICON/input/r0001
-
-cp -f $INIDATA/global/atm/bc_greenhouse_rcp45_1765-2500.nc bc_greenhouse_gases.nc
+# - well mixed greenhouse gases
+cp -f $INDATA/global/atm/bc_greenhouse_rcp45_1765-2500.nc bc_greenhouse_gases.nc
 
 # - ozone
 year=1975
 while [[ $year -lt 2008 ]]
 do
- cp -f $INIDATA/r2b4_amip/atm/bc_ozone_cmip5/bc_ozone_cmip5_${year}.nc ${EXPDIR}/ozone${year}.nc
+ cp -f $INDATA/r2b4_amip/atm/bc_ozone_cmip5/bc_ozone_cmip5_${year}.nc ${EXPDIR}/ozone${year}.nc
  (( year = year+1 ))
 done
 
 # - sst and sic
-cp -f $INIDATA/r2b4_amip/oce/bc_sic_pcmdi_1870-2010.nc ./bc_sic.nc
-cp -f $INIDATA/r2b4_amip/oce/bc_sst_pcmdi_1870-2010.nc ./bc_sst.nc
+cp -f $INDATA/r2b4_amip/oce/bc_sic_pcmdi_1870-2010.nc ./bc_sic.nc
+cp -f $INDATA/r2b4_amip/oce/bc_sst_pcmdi_1870-2010.nc ./bc_sst.nc
 
 # - land parameters
-cp -f $INIDATA/r2b4_amip/lnd/bc_land_frac.nc           ./bc_land_frac.nc
-cp -f $INIDATA/r2b4_amip/lnd/bc_land_phys.nc           ./bc_land_phys.nc
-cp -f $INIDATA/r2b4_amip/lnd/bc_land_sso.nc            ./bc_land_sso.nc
-cp -f $INIDATA/r2b4_amip/lnd/ic_land_soil.nc           ./ic_land_soil.nc
+cp -f $INDATA/r2b4_amip/lnd/bc_land_frac.nc           ./bc_land_frac.nc
+cp -f $INDATA/r2b4_amip/lnd/bc_land_phys.nc           ./bc_land_phys.nc
+cp -f $INDATA/r2b4_amip/lnd/bc_land_sso.nc            ./bc_land_sso.nc
 
 #__________________________________________________________________________________________________
 # copy restart files eventually
