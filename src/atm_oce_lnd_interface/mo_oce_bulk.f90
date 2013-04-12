@@ -619,10 +619,11 @@ CONTAINS
         !---------DEBUG DIAGNOSTICS-------------------------------------------
         idt_src=1  ! output print level (1-5, fix)
         CALL dbg_print('UpdSfc: hi after slow'     ,p_ice%hi       ,str_module,idt_src)
+        idt_src=2  ! output print level (1-5, fix)
+        CALL dbg_print('UpdSfc: Conc. after slow'  ,p_ice%conc     ,str_module,idt_src)
         idt_src=3  ! output print level (1-5, fix)
         CALL dbg_print('UpdSfc: T1 after slow'     ,p_ice%t1       ,str_module,idt_src)
         CALL dbg_print('UpdSfc: T2 after slow'     ,p_ice%t2       ,str_module,idt_src)
-        CALL dbg_print('UpdSfc: Conc. after slow'  ,p_ice%conc     ,str_module,idt_src)
         !---------------------------------------------------------------------
 
       ELSE   !  no sea ice
