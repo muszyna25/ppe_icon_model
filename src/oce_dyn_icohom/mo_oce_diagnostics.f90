@@ -247,12 +247,12 @@ SUBROUTINE calculate_oce_diagnostics(p_patch_3D, p_os, p_sfc_flx, p_phys_param, 
   surface_area                = global_sum_array(surface_area)
   monitor%absolute_vertical_velocity = global_sum_array(monitor%absolute_vertical_velocity)/surface_area
   DO i_no_t=1,no_tracer
-    monitor%tracer_content(i_no_t) = global_sum_array(monitor%tracer_content(i_no_t))/monitor%volume
+    monitor%tracer_content(i_no_t) = global_sum_array(monitor%tracer_content(i_no_t))
   END DO
   ! } dbg_print
 
   ! write things to diagnostics output file
-  real_fmt   = 'en26.18'
+  real_fmt   = 'es26.18'
   ! * number of non-tracer diag. variables
   write(nvars,'(i3)') SIZE(oce_ts%names)-no_tracer
   write(fmt_string,'(a)') '(i5.5,1x,'//TRIM(ADJUSTL(nvars))//TRIM(real_fmt)//')'
