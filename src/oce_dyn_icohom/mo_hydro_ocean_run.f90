@@ -166,7 +166,6 @@ CONTAINS
   INTEGER                         :: jstep, jg
   !LOGICAL                         :: l_outputtime
   CHARACTER(len=32)               :: datestring
-  CHARACTER(len=36)               :: moc_fname
   TYPE(t_oce_timeseries), POINTER :: oce_ts
   TYPE(t_patch), POINTER          :: p_patch
 
@@ -185,24 +184,13 @@ CONTAINS
 
   p_patch => p_patch_3D%p_patch_2D(jg)
 
+  CALL datetime_to_string(datestring, datetime)
 
   IF (idiag_oce == 1) &
-    & CALL construct_oce_diagnostics( p_patch_3D, p_os(jg), oce_ts)
+    & CALL construct_oce_diagnostics( p_patch_3D, p_os(jg), oce_ts, datestring)
 
   ! IF (ltimer) CALL timer_start(timer_total)
   CALL timer_start(timer_total)
-
-  ! open file for MOC - extraordinary at this time
-  CALL datetime_to_string(datestring, datetime)
-  moc_fname='MOC.'//TRIM(datestring)
-  !IF (my_process_is_stdio()) THEN
-  OPEN (77,file=moc_fname,form='unformatted')
-  WRITE(message_text,'(2a)') ' MOC-file opened successfully, filename=',TRIM(moc_fname)
-  CALL message (TRIM(routine), message_text)
-  !END IF
-
-  ! call of MOC before time loop
-  !CALL calc_moc (p_patch(jg), p_os(jg)%p_diag%w(:,:,:), datetime)
 
   sim_time(:) = 0.0_wp
 
@@ -308,6 +296,7 @@ CONTAINS
                                    & p_sfc_flx,     &
                                    & p_phys_param,  &
                                    & jstep,         &
+                                   & datestring,    &
                                    & oce_ts)
    ENDIF
 
