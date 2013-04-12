@@ -74,8 +74,7 @@ USE mo_run_config,           ONLY: configure_run, &
   & ldump_states,         & ! flag if states should be dumped
   & lrestore_states,      & ! flag if states should be restored
   & ldump_dd, lread_dd,   &
-  & nproc_dd,             &
-  & nlev,nlevp1,nshift,   &
+  & nproc_dd, nshift,     &
   & num_lev,num_levp1,    &
   & ntracer, msg_level,   &
   & dtime, output_mode
@@ -436,7 +435,7 @@ CONTAINS
         CALL restore_patches_netcdf( p_patch, .TRUE. )
         CALL set_patch_communicators(p_patch)
       ELSE
-        CALL import_basic_patches(p_patch,nlev,nlevp1,num_lev,num_levp1,nshift)
+        CALL import_basic_patches(p_patch,num_lev,num_levp1,nshift)
         CALL disable_sync_checks
         CALL complete_patches( p_patch )
         CALL enable_sync_checks
@@ -456,13 +455,13 @@ CONTAINS
           IF (division_method(1) > 100) THEN
             ! use ext decomposition library driver
             ALLOCATE(p_patch_global(n_dom_start:n_dom))
-            CALL import_basic_patches(p_patch_global,nlev,nlevp1,num_lev,num_levp1,nshift)
+            CALL import_basic_patches(p_patch_global,num_lev,num_levp1,nshift)
             CALL ext_decompose_patches(p_patch, p_patch_global)
             DEALLOCATE(p_patch_global)
           ELSE
             ! use internal decomposition 
             ALLOCATE(p_patch_global(n_dom_start:n_dom))
-            CALL import_basic_patches(p_patch_global,nlev,nlevp1,num_lev,num_levp1,nshift)
+            CALL import_basic_patches(p_patch_global,num_lev,num_levp1,nshift)
             CALL decompose_domain(p_patch_global)
             DEALLOCATE(p_patch_global)
           ENDIF
@@ -489,7 +488,7 @@ CONTAINS
         ! IF lread_dd is set, the read is in standalone mode.
 
         IF(lread_dd) CALL set_comm_input_bcast(null_comm_type)
-        CALL import_basic_patches(p_patch,nlev,nlevp1,num_lev,num_levp1,nshift)
+        CALL import_basic_patches(p_patch,num_lev,num_levp1,nshift)
         IF(lread_dd) CALL set_comm_input_bcast()
 
         IF(ldump_dd) THEN
@@ -506,14 +505,14 @@ CONTAINS
           ! If ldump_dd is set in a single processor run, a domain decomposition for
           ! nproc_dd processors is done
           ALLOCATE(p_patch_global(n_dom_start:n_dom))
-          CALL import_basic_patches(p_patch_global,nlev,nlevp1,num_lev,num_levp1,nshift)
+          CALL import_basic_patches(p_patch_global,num_lev,num_levp1,nshift)
           CALL decompose_domain(p_patch_global, nproc_dd)
           DEALLOCATE(p_patch_global)
           ! We are done, the dump is done within decompose_domain
           CALL p_stop
           STOP
         ELSE
-          CALL import_basic_patches(p_patch,nlev,nlevp1,num_lev,num_levp1,nshift)
+          CALL import_basic_patches(p_patch,num_lev,num_levp1,nshift)
         ENDIF
 
       ENDIF
@@ -699,8 +698,8 @@ CONTAINS
     !---------------------------------------------------------------------
 
     CALL configure_dynamics ( n_dom )
-    CALL configure_diffusion( n_dom, dynamics_parent_grid_id, &
-      &                       nlev, vct_a, vct_b, apzero      )
+    CALL configure_diffusion( n_dom, dynamics_parent_grid_id,       &
+      &                       p_patch(1)%nlev, vct_a, vct_b, apzero )
 
     IF (iequations == inh_atmosphere) THEN
       DO jg =1,n_dom

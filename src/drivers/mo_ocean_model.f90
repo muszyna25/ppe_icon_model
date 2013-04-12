@@ -69,7 +69,6 @@ MODULE mo_ocean_model
     !& ldump_states,         & ! flag if states should be dumped
     & lrestore_states,      & ! flag if states should be restored
     & iforcing,             & !  
-    & nlev, nlevp1,         & !
     & num_lev, num_levp1,   &
     & iqc, iqi, iqr, iqs,   &
     & nshift, ntracer
@@ -282,7 +281,7 @@ CONTAINS
         !CALL enable_sync_checks
 
         !The 3D-ocean version of previous calls
-        CALL import_basic_patches(p_patch_3D%p_patch_2D,nlev,nlevp1,num_lev,num_levp1,nshift)
+        CALL import_basic_patches(p_patch_3D%p_patch_2D,num_lev,num_levp1,nshift)
         CALL disable_sync_checks
         CALL complete_patches( p_patch_3D%p_patch_2D )
         CALL enable_sync_checks
@@ -300,7 +299,7 @@ CONTAINS
         IF (division_method(1) > 100) THEN
           ! use ext decomposition library driver
           ALLOCATE(p_patch_global(n_dom_start:n_dom))
-          CALL import_basic_patches(p_patch_global,nlev,nlevp1,num_lev,num_levp1,nshift)
+          CALL import_basic_patches(p_patch_global,num_lev,num_levp1,nshift)
           CALL ext_decompose_patches(p_patch_3D%p_patch_2D, p_patch_global)
           DEALLOCATE(p_patch_global)
           CALL complete_parallel_setup_oce(p_patch_3D%p_patch_2D)
@@ -310,7 +309,7 @@ CONTAINS
           ! use internal decomposition
           !The 3D-ocean version of previous calls
           ALLOCATE(p_patch_global(n_dom_start:n_dom))
-          CALL import_basic_patches(p_patch_global,nlev,nlevp1,num_lev,num_levp1,nshift)
+          CALL import_basic_patches(p_patch_global,num_lev,num_levp1,nshift)
           CALL decompose_domain_oce(p_patch_3D%p_patch_2D,p_patch_global)
           DEALLOCATE(p_patch_global)
           CALL complete_parallel_setup_oce(p_patch_3D%p_patch_2D)
@@ -320,7 +319,7 @@ CONTAINS
       ELSE
 
         !The 3D-ocean version of previous calls 
-        CALL import_basic_patches(p_patch_3D%p_patch_2D,nlev,nlevp1,num_lev,num_levp1,nshift) 
+        CALL import_basic_patches(p_patch_3D%p_patch_2D,num_lev,num_levp1,nshift) 
 
       ENDIF
 

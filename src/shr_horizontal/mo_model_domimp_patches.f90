@@ -286,9 +286,8 @@ CONTAINS
   !!  - only basic patch information for subdivision is read here
   !!    into the full (undivided, global) patch data structure
   !!
-  SUBROUTINE import_basic_patches( patch, nlev,nlevp1,num_lev,num_levp1,nshift)
+  SUBROUTINE import_basic_patches( patch,num_lev,num_levp1,nshift)
     
-    INTEGER,INTENT(in) :: nlev, nlevp1
     INTEGER,INTENT(in) :: num_lev(:), num_levp1(:), nshift(:)
     TYPE(t_patch), TARGET, INTENT(inout) :: patch(n_dom_start:)
     
