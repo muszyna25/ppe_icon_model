@@ -199,7 +199,7 @@ SUBROUTINE calculate_oce_diagnostics(p_patch_3D, p_os, p_sfc_flx, p_phys_param, 
 
           !local volume
           surface_height = merge(p_os%p_prog(nnew(1))%h(jc,jb),0.0_wp, 1 == jk)
-          prism_vol      = prism_area * (p_patch_3D%p_patch_1D(1)%prism_thick_c(jc,1,jb) + surface_height)
+          prism_vol      = prism_area * (p_patch_3D%p_patch_1D(1)%prism_thick_c(jc,jk,jb) + surface_height)
 
           !Fluid volume
           monitor%volume = monitor%volume + prism_vol
