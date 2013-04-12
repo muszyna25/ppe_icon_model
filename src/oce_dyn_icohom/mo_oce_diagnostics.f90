@@ -121,7 +121,7 @@ END TYPE t_oce_monitor
 TYPE t_oce_timeseries
 
     TYPE(t_oce_monitor), ALLOCATABLE :: oce_diagnostics(:)    ! time array of diagnostic values
-    CHARACTER(len=40),DIMENSION(10)  :: names = (/ &
+    CHARACTER(len=40),DIMENSION(22)  :: names = (/ &
     & "volume                                  ", &
     & "kin_energy                              ", &
     & "pot_energy                              ", &
