@@ -1,7 +1,7 @@
 #!/bin/ksh
 # -------------------------------------------------------
 # MARS request to read SST or SKT climatology from ERA40
- (climatology of monthly means of daily means),
+#(climatology of monthly means of daily means),
 # H_SNOW and RHO_SNOW. Calculate W_SNOW from h_snow*rho_snow*(lsm>=0.5)
 # Interpolate to ICON grid.
 # Instead of SST it is possible to read skin temperature, SKT.

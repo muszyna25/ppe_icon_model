@@ -411,11 +411,11 @@ END SUBROUTINE partura
 
 !=======================================================================
 
-SUBROUTINE parturs( zsurf, z1 , u1   , v1     , t1   ,           &
-                    qv1  , t_g, qv_s , fr_land, h_ice,           &
-                    ie   , i_startidx, i_endidx,                 &
-                    tcm  , tch , gz0 )
-!                   ie   , tcm, tch, gz0, gz0s)
+SUBROUTINE parturs( zsurf, z1  , u1   , v1     , t1   , qv1  ,   &
+                    t_g  , qv_s, ps   , fr_land, h_ice,          &
+                    ie   , i_startidx , i_endidx,                 &
+                    tcm  , tch , gz0  ,                           &
+                    shfl_s, lhfl_s, qhfl_s, umfl_s, vmfl_s )
  
 !**** *parturs*  calculates turbulent transfer coefficients
 !=======================================================================
@@ -444,6 +444,7 @@ SUBROUTINE parturs( zsurf, z1 , u1   , v1     , t1   ,           &
   REAL(KIND=wp), INTENT(IN) :: qv1    (ie)  ! spec. humidity (kg/kg) at "    "    "
   REAL(KIND=wp), INTENT(IN) :: t_g    (ie)  ! surface temperature (K)
   REAL(KIND=wp), INTENT(IN) :: qv_s   (ie)  ! surface humidity (kg/kg)
+  REAL(KIND=wp), INTENT(IN) :: ps     (ie)  ! surface pressure (Pa)
   REAL(KIND=wp), INTENT(IN) :: fr_land(ie)  ! surface land fraction
   REAL(KIND=wp), INTENT(IN) :: h_ice  (ie)  ! thickness of sea ice
 
@@ -453,6 +454,12 @@ SUBROUTINE parturs( zsurf, z1 , u1   , v1     , t1   ,           &
   REAL(KIND=wp), INTENT(OUT)   :: tch (ie) ! transfer coefficient for heat/moisture 
   REAL(KIND=wp), INTENT(INOUT) :: gz0 (ie) ! roughness length * g (m2/s2)
 ! REAL(KIND=wp), INTENT(INOUT) :: gz0s(ie) ! roughness length snow * g (m2/s2)
+
+  REAL(KIND=wp), INTENT(OUT)   :: shfl_s(ie) ! sensible   heat flux at surface (W/m2)
+  REAL(KIND=wp), INTENT(OUT)   :: lhfl_s(ie) ! latent     heat flux at surface (W/m2)
+  REAL(KIND=wp), INTENT(OUT)   :: qhfl_s(ie) ! moisture   flux at surface (kg/m2/s)
+  REAL(KIND=wp), INTENT(OUT)   :: umfl_s(ie) ! u-momentum flux at the surface (N/m2)
+  REAL(KIND=wp), INTENT(OUT)   :: vmfl_s(ie) ! v-momentum flux at the surface (N/m2)
  
 !     Local arrays and variables
 
@@ -488,7 +495,7 @@ SUBROUTINE parturs( zsurf, z1 , u1   , v1     , t1   ,           &
   REAL(KIND=wp) :: zustar   !
 
 ! local utility variables
-  REAL(KIND=wp) :: ztvg, ztvs, zgz0d, zgz0dd, zxi, zxih, zy 
+  REAL(KIND=wp) :: ztvg, ztvs, zgz0d, zgz0dd, zxi, zxih, zy , rho_s
   INTEGER       :: j1          ! loop indices
 
   REAL(KIND=wp), PARAMETER :: z1d3  = 1.0_wp/3.0_wp
@@ -624,6 +631,24 @@ SUBROUTINE parturs( zsurf, z1 , u1   , v1     , t1   ,           &
         tcm  (j1) =  ztcm(j1)/zvpb(j1)
         tch  (j1) =  ztch(j1)/zvpb(j1)
         gz0  (j1) = MAX( gz0 (j1), 1.0E-10_wp )
+
+        rho_s     = ps(j1)/( rd * ztvg )
+
+        shfl_s(j1) = ztch(j1)*rho_s*( cpd*(t1(j1)-t_g(j1)) + zdfip(j1) )
+
+        lhfl_s(j1) = ztch(j1)*rho_s*( qv1(j1) - qv_s(j1) )
+        qhfl_s(j1) = lhfl_s(j1)
+        IF ( .NOT. lseaice) THEN
+          lhfl_s(j1) = alv*lhfl_s(j1)
+        ELSE IF ( h_ice(j1) > 0._wp) THEN
+          lhfl_s(j1) = als*lhfl_s(j1)
+        ELSE
+          lhfl_s(j1) = alv*lhfl_s(j1)
+        END IF
+
+        umfl_s(j1) = -tcm(j1)*rho_s * u1(j1)
+        vmfl_s(j1) = -tcm(j1)*rho_s * v1(j1)
+        
  
       END DO
  
@@ -638,8 +663,8 @@ SUBROUTINE parturs( zsurf, z1 , u1   , v1     , t1   ,           &
                             tcm    , tch    , ie     , ke      , ke1     ,  &
                             i_startidx, i_endidx,                           &
                             dt     , du_turb, dv_turb, dt_turb, dqv_turb ,  &
-                            dqc_turb,                                       &
-                            shfl_s , lhfl_s , qhfl_s, umfl_s , vmfl_s )
+                            dqc_turb )
+!!                          shfl_s , lhfl_s , qhfl_s, umfl_s , vmfl_s )
 !
 !=======================================================================
 !
@@ -696,11 +721,11 @@ SUBROUTINE parturs( zsurf, z1 , u1   , v1     , t1   ,           &
   REAL(KIND=wp), INTENT(OUT) :: dt_turb (ie,ke) ! tendency of T (K/s)
   REAL(KIND=wp), INTENT(OUT) :: dqv_turb(ie,ke) ! tendency of qv (1/s)
   REAL(KIND=wp), INTENT(OUT) :: dqc_turb(ie,ke) ! tendency of qc (1/s)
-  REAL(KIND=wp), INTENT(OUT) :: shfl_s  (ie)    ! sensible heat flux at the surface (W/m2)
-  REAL(KIND=wp), INTENT(OUT) :: lhfl_s  (ie)    ! latent   heat flux at the surface (W/m2)
-  REAL(KIND=wp), INTENT(OUT) :: qhfl_s  (ie)    ! moisture      flux at the surface (kg/m2/s)
-  REAL(KIND=wp), INTENT(OUT) :: umfl_s  (ie)    ! u-momentum    flux at the surface (N/m2)
-  REAL(KIND=wp), INTENT(OUT) :: vmfl_s  (ie)    ! v-momentum    flux at the surface (N/m2)
+! REAL(KIND=wp), INTENT(OUT) :: shfl_s  (ie)    ! sensible heat flux at the surface (W/m2)
+! REAL(KIND=wp), INTENT(OUT) :: lhfl_s  (ie)    ! latent   heat flux at the surface (W/m2)
+! REAL(KIND=wp), INTENT(OUT) :: qhfl_s  (ie)    ! moisture      flux at the surface (kg/m2/s)
+! REAL(KIND=wp), INTENT(OUT) :: umfl_s  (ie)    ! u-momentum    flux at the surface (N/m2)
+! REAL(KIND=wp), INTENT(OUT) :: vmfl_s  (ie)    ! v-momentum    flux at the surface (N/m2)
 !
 !=======================================================================
 !
@@ -875,10 +900,10 @@ SUBROUTINE parturs( zsurf, z1 , u1   , v1     , t1   ,           &
 !
 ! 3.6 Turbulent momentum fluxes
 !
-      DO j1 = i_startidx, i_endidx
-        umfl_s(j1) = -ztmcm(j1) * ( du_turb(j1,ke) + u(j1,ke) )
-        vmfl_s(j1) = -ztmcm(j1) * ( dv_turb(j1,ke) + v(j1,ke) )
-      ENDDO
+!     DO j1 = i_startidx, i_endidx
+!       umfl_s(j1) = -ztmcm(j1) * ( du_turb(j1,ke) + u(j1,ke) )
+!       vmfl_s(j1) = -ztmcm(j1) * ( dv_turb(j1,ke) + v(j1,ke) )
+!     ENDDO
 ! 
 !     Calculate tendencies du_turb = du/dt, dv_turb = dv/dt
       du_turb(:,:) = rdt*du_turb(:,:)
@@ -1034,23 +1059,23 @@ SUBROUTINE parturs( zsurf, z1 , u1   , v1     , t1   ,           &
 !
 ! 4.10 Sensible and latent heat fluxes
 !
-      DO j1 = i_startidx, i_endidx
+!     DO j1 = i_startidx, i_endidx
 !
-        shfl_s(j1) = - ztmcm(j1)*cpd*                          &
-          &           ( t_g(j1) - t(j1,ke) -dt_turb(j1,ke)     &
-          &            + g_o_cp*(zh(j1,ke1)-zf(j1,ke) ) )
+!       shfl_s(j1) = - ztmcm(j1)*cpd*                          &
+!         &           ( t_g(j1) - t(j1,ke) -dt_turb(j1,ke)     &
+!         &            + g_o_cp*(zh(j1,ke1)-zf(j1,ke) ) )
 !
-        lhfl_s(j1) = - ztmcm(j1)*( qv_s(j1) - qv(j1,ke) - dqv_turb(j1,ke) )
-        qhfl_s(j1) = lhfl_s(j1)
-        IF ( .NOT. lseaice) THEN
-          lhfl_s(j1) = alv*lhfl_s(j1)
-        ELSE IF ( h_ice(j1) > 0._wp) THEN
-          lhfl_s(j1) = als*lhfl_s(j1)
-        ELSE
-          lhfl_s(j1) = alv*lhfl_s(j1)
-        END IF
+!       lhfl_s(j1) = - ztmcm(j1)*( qv_s(j1) - qv(j1,ke) - dqv_turb(j1,ke) )
+!       qhfl_s(j1) = lhfl_s(j1)
+!       IF ( .NOT. lseaice) THEN
+!         lhfl_s(j1) = alv*lhfl_s(j1)
+!       ELSE IF ( h_ice(j1) > 0._wp) THEN
+!         lhfl_s(j1) = als*lhfl_s(j1)
+!       ELSE
+!         lhfl_s(j1) = alv*lhfl_s(j1)
+!       END IF
 !
-      ENDDO
+!     ENDDO
 !
 !     Calculate tendencies dT_turb = dT/dt, dqv_turb = dqv/dt, dqc_turb = dqc/dt
       dt_turb (:,:) = rdt*dt_turb (:,:)

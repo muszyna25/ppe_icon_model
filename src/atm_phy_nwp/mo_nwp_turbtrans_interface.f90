@@ -549,10 +549,13 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
         &           u1=p_diag%u(:,nlev,jb), v1=p_diag%v(:,nlev,jb),                     & !in
         &           t1=p_diag%temp(:,nlev,jb), qv1=p_prog_rcf%tracer(:,nlev,jb,iqv),    & !in
         &           t_g=lnd_prog_new%t_g(:,jb), qv_s=lnd_diag%qv_s(:,jb),               & !in
+        &           ps=p_diag%pres_ifc(:,nlevp1,jb),                                    & !in
         &           fr_land=ext_data%atm%fr_land(:,jb), h_ice=wtr_prog_new%h_ice(:,jb), & !in
         &           ie=nproma, i_startidx=i_startidx, i_endidx=i_endidx,                & !in
         &           tcm=prm_diag%tcm(:,jb), tch=prm_diag%tch(:,jb),                     & !out
-        &           gz0=prm_diag%gz0(:,jb)                                              ) !inout
+        &           gz0=prm_diag%gz0(:,jb),       shfl_s=prm_diag%shfl_s(:,jb),         & !inout, out
+        &           lhfl_s=prm_diag%lhfl_s(:,jb), qhfl_s=prm_diag%qhfl_s(:,jb),         & !out, out
+        &           umfl_s=prm_diag%umfl_s(:,jb), vmfl_s=prm_diag%vmfl_s(:,jb))           !out, out
 
 
       !DR inside "nearsfc", lhfl_s is converted to qhfl_s via 
