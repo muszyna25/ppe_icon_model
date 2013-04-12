@@ -423,7 +423,7 @@ for k=k1 to k2 by k3 do
       varname, tab, levtype,' level: ', k, tab, 'inidatetime: ', firstinidate, initime, 
       '   step: ', step, '   nfc: ', nfc, tab, statistic, newline)
   end if
-  statistic = statistic & '   Mem:  '&nfc  
+  statistic = statistic & '   Mem:  '&nfc
 
   if levtype = 'pl' or levtype = 'ml' then
     title1 = title&'    L'&k
@@ -539,6 +539,10 @@ for k=k1 to k2 by k3 do
   else
     plot ( display_window[1], text, var_data[k], all,  legend )
   end if
+
+  shell('convert -rotate 90 '&plotfile&'.L'&k&'.ps '&plotfile&'.L'&k&'.png')
+  shell('ls -lrt '&plotfile&'.L'&k&'.png')
+# shell('\rm -f '            &plotfile&'.L'&k&'.ps ')
 
 end for
 

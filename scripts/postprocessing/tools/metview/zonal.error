@@ -206,11 +206,15 @@ for nd=1 to ndays do
     source_ver_icon = datafile&verdate&vertime&'_DOM01_0001_'&varfile2&'_'&levtype&'.grb'
     source_pl_ifs ='/scratch/ms/de/deia/ifs_data/ifs_oper_1x1_'&yyyymm&'.pl.grb'
     source_sfc_ifs='/scratch/ms/de/deia/ifs_data/ifs_oper_1x1_'&yyyymm&'.sfc.grb'
+    nfc = ndays
   else
     source_ini_icon = datafile&yyyymm&'_DOM01_0001_'&varfile&'_'&levtype&tailfile
     source_ver_icon = datafile&yyyymm&'_DOM01_0001_'&varfile2&'_'&levtype&tailfile 
     source_pl_ifs ='/scratch/ms/de/deia/ifs_data/ifs_oper_1x1_'&yyyymm&'.pl.' &mntxt[3]
     source_sfc_ifs='/scratch/ms/de/deia/ifs_data/ifs_oper_1x1_'&yyyymm&'.sfc.'&mntxt[3]
+    nfc = parse(mntxt[3], "-")
+    nfc = parse(nfc[2],".")
+    nfc = nfc[1]
   end if
 
 
@@ -347,6 +351,8 @@ statistic   = 'Min:  '&mini&'   Max:  '&maxi&'   Mean:  '&integrate(mean(var_dat
 if stat = 'diff' then 
   statistic = statistic & '   RMS:  ' & rms
 end if
+statistic = statistic & '   Mem:  '&nfc
+
           
 #custom contouring:
 #diff_level = 50
@@ -453,6 +459,10 @@ if stat = 'diff' then
 else
   plot ( display_window[1], text, var_zonal, all,  legend )
 end if
+
+shell('convert -rotate 90 '&plotfile&'.ps '&plotfile&'.png')
+shell('ls -lrt '&plotfile&'.png')
+#shell('\rm -f '            &plotfile&'.ps ')
 
 print('output: ',plotfile,'.*')
 #shell('gv '&plotfile&'.ps&')

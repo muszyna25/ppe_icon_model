@@ -51,7 +51,7 @@ ${ECFSPATH}/emkdir.p -p $ecfsdir
 cd metplots
 for metfile in `ls *.ps` ; do
   metfile2=`echo $metfile | sed 's/\.ps//'`
-  convert -rotate 90 ${metfile2}.ps ${metfile2}.png || true
+ #convert -rotate 90 ${metfile2}.ps ${metfile2}.png || true
   rm -f ${metfile2}.ps
 done 
 cd -

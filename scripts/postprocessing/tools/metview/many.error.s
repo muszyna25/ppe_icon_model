@@ -84,7 +84,7 @@ while [[ $nt < ${#inidate[*]} ]]; do
   
   # -------------------------------------------------------
   	
-  set -A vars T  U  V  Q1  Q2  Q3  QV  QC  QI  CC  P  QR  QS #QR QS  QTVAR  O3  P               
+  set -A vars T  U  V  Q1  Q2  Q3  QV  QC  QI  CC  P  QR  QS QTVAR #QR QS  QTVAR  O3  P               
   for var in ${vars[*]}
   do
     echo ${metview} -b ${scriptdir}zonal.error $expnum $var ml diff  ${inidate[nt]} ${initime[nt]} ${verdate[nt]} ${vertime[nt]} ${ndays} ${res} >> $met_job
