@@ -140,8 +140,9 @@ SUBROUTINE calculate_oce_diagnostics(p_patch_3D, p_os, p_sfc_flx, p_phys_param, 
   INTEGER :: i_startidx_c, i_endidx_c!,i_startblk_c, i_endblk_c,
   INTEGER :: jk,jc,jb!,je
   INTEGER :: i_no_t, i
-  REAL(wp) :: prism_vol, surface_height
+  REAL(wp) :: prism_vol = 0.0_wp, surface_height = 0.0_wp, prism_area = 0.0_wp
   REAL(wp) :: z_w
+  REAL(wp) :: surface_area = 0.0_wp
   INTEGER  :: reference_timestep
   TYPE(t_patch), POINTER     :: p_patch
 
@@ -192,10 +193,12 @@ SUBROUTINE calculate_oce_diagnostics(p_patch_3D, p_os, p_sfc_flx, p_phys_param, 
       DO jc =  i_startidx_c, i_endidx_c
         DO jk = 1,p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)
 
+          ! area
+          prism_area     = p_patch%cells%area(jc,jb)
+
           !local volume
           surface_height = merge(p_os%p_prog(nnew(1))%h(jc,jb),0.0_wp, 1 == jk)
-          prism_vol      = p_patch%cells%area(jc,jb) * &
-            & (p_patch_3D%p_patch_1D(1)%prism_thick_c(jc,1,jb) + surface_height)
+          prism_vol      = prism_area * (p_patch_3D%p_patch_1D(1)%prism_thick_c(jc,1,jb) + surface_height)
 
           !Fluid volume
           monitor%volume = monitor%volume + prism_vol
@@ -223,9 +226,10 @@ SUBROUTINE calculate_oce_diagnostics(p_patch_3D, p_os, p_sfc_flx, p_phys_param, 
 
           ! top level diagnostics
           IF (jk /= 1) cycle
+          surface_area = surface_area + prism_area
           ! sum of top layer vertical velocities abolsute values
           monitor%absolute_vertical_velocity = &
-            & monitor%absolute_vertical_velocity + abs(p_os%p_diag%w(jc,jk,jb))*prism_vol
+            & monitor%absolute_vertical_velocity + abs(p_os%p_diag%w(jc,jk,jb))*prism_area
         END DO
       END DO
     END DO
@@ -240,7 +244,8 @@ SUBROUTINE calculate_oce_diagnostics(p_patch_3D, p_os, p_sfc_flx, p_phys_param, 
   monitor%vorticity           = global_sum_array(monitor%vorticity)
   monitor%enstrophy           = global_sum_array(monitor%enstrophy)
   monitor%potential_enstrophy = global_sum_array(monitor%potential_enstrophy)
-  monitor%absolute_vertical_velocity = global_sum_array(monitor%absolute_vertical_velocity)
+  surface_area                = global_sum_array(surface_area)
+  monitor%absolute_vertical_velocity = global_sum_array(monitor%absolute_vertical_velocity)/surface_area
   DO i_no_t=1,no_tracer
     monitor%tracer_content(i_no_t) = global_sum_array(monitor%tracer_content(i_no_t))/monitor%volume
   END DO
