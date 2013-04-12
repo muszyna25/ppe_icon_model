@@ -70,6 +70,7 @@ MODULE mo_oce_diagnostics
   USE mo_cdi_constants
   USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff
   USE mo_io_units,           ONLY: find_next_free_unit
+  USE mo_util_file,          ONLY: util_symlink, util_rename, util_islink, util_unlink
 IMPLICIT NONE
 
 !PRIVATE
@@ -78,6 +79,8 @@ IMPLICIT NONE
 CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
 INTEGER :: diag_unit = -1 ! file handle for the global timeseries output
+INTEGER :: moc_unit = -1 ! file handle for the global timeseries output
+CHARACTER(len=max_char_length)  :: diag_fname, moc_fname
 
 !
 ! PUBLIC INTERFACE
@@ -128,12 +131,13 @@ CONTAINS
 ! @par Revision History
 ! Developed  by  Peter Korn, MPI-M (2010).
 ! 
-SUBROUTINE calculate_oce_diagnostics(p_patch_3D, p_os, p_sfc_flx, p_phys_param, timestep, oce_ts)
+SUBROUTINE calculate_oce_diagnostics(p_patch_3D, p_os, p_sfc_flx, p_phys_param, timestep, datestring, oce_ts)
   TYPE(t_patch_3D ),TARGET, INTENT(INOUT)    :: p_patch_3D
   TYPE(t_hydro_ocean_state), TARGET          :: p_os
   TYPE(t_sfc_flx), INTENT(INOUT)             :: p_sfc_flx
   TYPE (t_ho_params)                         :: p_phys_param
   INTEGER                                    :: timestep
+  CHARACTER(len=32)                          :: datestring
   TYPE(t_oce_timeseries),POINTER             :: oce_ts
 
   !Local variables
@@ -256,10 +260,12 @@ SUBROUTINE calculate_oce_diagnostics(p_patch_3D, p_os, p_sfc_flx, p_phys_param, 
   real_fmt   = 'es26.18'
   ! * number of non-tracer diag. variables
   write(nvars,'(i3)') SIZE(oce_ts%names)-no_tracer
-  write(fmt_string,'(a)') '(i5.5,1x,'//TRIM(ADJUSTL(nvars))//TRIM(real_fmt)//')'
+  write(fmt_string,'(a)') '(i5.5,1x,a,1x,'//TRIM(ADJUSTL(nvars))//TRIM(real_fmt)//')'
+  ! create date and time string
   ! * non-tracer diags
   write(line,fmt_string) &
     & timestep, &
+    & TRIM(datestring), &
     & monitor%volume, &
     & monitor%kin_energy, &
     & monitor%pot_energy, &
@@ -286,15 +292,14 @@ END SUBROUTINE calculate_oce_diagnostics
 !! @par Revision History
 !! Developed  by  Peter Korn, MPI-M (2011).
 !! 
-SUBROUTINE construct_oce_diagnostics( p_patch_3D, p_os, oce_ts )
+SUBROUTINE construct_oce_diagnostics( p_patch_3D, p_os, oce_ts, datestring )
   TYPE(t_patch_3D ),TARGET, INTENT(INOUT) :: p_patch_3D
   TYPE(t_hydro_ocean_state), TARGET       :: p_os
   TYPE(t_oce_timeseries),POINTER          :: oce_ts
+  CHARACTER(len=32)                       :: datestring
 
-  !local variables
+  !local variable
   INTEGER :: i,ist
-  REAL(wp) :: delta_z, prism_vol
-  TYPE(t_oce_monitor), POINTER :: ptr_monitor
   CHARACTER(len=max_char_length), PARAMETER :: &
     & routine = ('mo_oce_diagnostics:construct_oce_diagnostics')
   !-----------------------------------------------------------------------
@@ -325,18 +330,26 @@ SUBROUTINE construct_oce_diagnostics( p_patch_3D, p_os, oce_ts )
   END DO
 
   ! open textfile for global timeseries
+  diag_fname = 'oce_diagnostics-'//TRIM(datestring)//'.txt'
   diag_unit = find_next_free_unit(10,99)
-  OPEN (unit=diag_unit,file='oce_diagnostics.txt',IOSTAT=ist)
+  OPEN (unit=diag_unit,file=diag_fname,IOSTAT=ist)
   !HEADER
   headerLine = ''
   ! * add timestep columns
-  write(headerLine,'(a)') 'step'
+  write(headerLine,'(a)') 'step datetime'
   ! * add columne for each monitored variable
   DO i=1,SIZE(oce_ts%names)
     WRITE(headerLine,'(a,a,a)')TRIM(headerLine),' ',TRIM(oce_ts%names(i))
   END DO
   print *,headerLine
   write(diag_unit,'(a)')TRIM(headerLine)
+
+  ! open file for MOC - extraordinary at this time
+  moc_fname='MOC.'//TRIM(datestring)
+  moc_unit = find_next_free_unit(10,99)
+  OPEN (moc_unit,file=moc_fname,form='unformatted')
+  WRITE(message_text,'(2a)') ' MOC-file opened successfully, filename=',TRIM(moc_fname)
+  CALL message (TRIM(routine), message_text)
 
   CALL message (TRIM(routine), 'end')
 END SUBROUTINE construct_oce_diagnostics
@@ -355,7 +368,9 @@ SUBROUTINE destruct_oce_diagnostics(oce_ts)
 TYPE(t_oce_timeseries),POINTER         :: oce_ts
 !
 !local variables
-INTEGER :: i
+INTEGER :: i,iret
+CHARACTER(len=max_char_length)  :: linkname
+CHARACTER(len=max_char_length)  :: message_text
 
 CHARACTER(len=max_char_length), PARAMETER :: &
        & routine = ('mo_oce_diagnostics:destruct_oce_diagnostics')
@@ -365,8 +380,17 @@ CHARACTER(len=max_char_length), PARAMETER :: &
    END DO
    DEALLOCATE(oce_ts%oce_diagnostics)
    DEALLOCATE(oce_ts)
-   ! close the global diagnostics text file
+   ! close the global diagnostics text file and the SRV MOC file
    CLOSE(unit=diag_unit)
+   CLOSE(unit=moc_unit)
+   ! create a link to the last diagnostics file       
+   linkname = 'oce_diagnostics.txt'
+   IF (util_islink(TRIM(linkname))) THEN
+     iret = util_unlink(TRIM(linkname))
+   ENDIF
+   iret = util_symlink(TRIM(diag_fname),TRIM(linkname))
+   WRITE(message_text,'(t1,a,t50,a)') TRIM(diag_fname), TRIM(linkname)
+   CALL message('',message_text)
 
 CALL message (TRIM(routine), 'end')
 END SUBROUTINE destruct_oce_diagnostics
@@ -480,9 +504,6 @@ SUBROUTINE calc_moc (p_patch,p_patch_3D, w, datetime)
                 &                    p_patch%cells%area(jc,jb) * rho_ref * w(jc,jk,jb) / &
                 &                    REAL(2*jbrei + 1, wp)
             END IF
-
-        !   if (jk==3) write(81,*) 'jb,jc,lbr,lbrei,zlatc,zlat,glb:', &
-        !     & jb,jc,lbr,lbrei,lbr+int(z_lat_deg),z_lat_deg,global_moc(lbrei,jk)
 
           END DO
    
