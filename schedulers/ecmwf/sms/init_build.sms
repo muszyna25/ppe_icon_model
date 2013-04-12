@@ -27,7 +27,7 @@ module swap fortran fortran/xlf/14.1.0.2
 arch=rs6000-ibm-aix
 
 #use new SVN version
-export PATH=/usr/local/apps/subversion/subversion-1.6.11/bin:$PATH
+SVNPATH=/usr/local/apps/subversion/subversion-1.6.11/bin
 
 
 # Change directory ----------------------------
@@ -63,7 +63,7 @@ gmake -j%SCTOTALTASKS%
 smsevent make
 
 # Store revision number of successful compilation 
-revision=`rsh $WSHOST svn info %ECPERMIII%/icon-dev | grep Revision | awk '{print $2}'`
+revision=`rsh $WSHOST $SVNPATH/svn info %ECPERMIII%/icon-dev | grep Revision | awk '{print $2}'`
 echo $revision > %SCPERMIII%/icon-dev/build/${arch}/bin/icon_rev.txt
 
 
