@@ -30,8 +30,6 @@ job_name=exp.r2b4_amip_thunder.run
 #
 restart=${restart:=".false."}
 #
-#AUTOMATIC_RESTART_SETUP:
-#END AUTOMATIC_RESTART_SETUP
 #__________________________________________________________________________________________________
 # set error checking
 
@@ -118,6 +116,9 @@ case $userid in
     1205)
 	user="Reiner"
 	;;
+    1270)
+        user="Thomas"
+        ;;
     20736)
 	user="Thorsten"
 	;;
@@ -162,6 +163,16 @@ case $user in
 		;;
 	esac
 	;;
+    Thomas)
+        case $(hostname) in
+            thunder*|ctc*)
+                basedir=/scratch/mpi/mj0060/m212070/icon-dev
+                ;;
+            ginkgo*)
+                basedir=/scratch/local1/m212070/icon-dev
+                ;;
+        esac
+        ;;
     Thorsten)
 	basedir=/scratch/mpi/mh0730/m300057/icon-dev
 	;;
@@ -226,7 +237,7 @@ case $user in
 	esac
 
 	;;
-    Monika|Marco|Thorsten)
+    Monika|Marco|Thorsten|Thomas|Reiner)
 	mpi_root=/sw/squeeze-x64/mpi/openmpi_ib-1.6.2-static-gcc46
 	mpiexec_cmd="mpiexec" 
 	;;
@@ -236,19 +247,6 @@ case $user in
 	redln "Add mpi_root directory here ..."
 	redln "Add mpiexec cmd here ..."
 	exit 1
-	;;
-    Reiner)
-	case $(hostname) in
-	    thunder*|ctc*)
-		mpi_root=/sw/squeeze-x64/mpi/openmpi_ib-1.6.2-static-gcc46
-		mpiexec_cmd="mpiexec" 
-		;;
-	    ulme*)
-		mpi_root=/sw/squeeze-x64/mpi/mpich2-1.4.1p1-static-gcc45
-		mpiexec_cmd="mpiexec" 
-		;;
-	esac
-
 	;;
 esac
  
@@ -325,7 +323,7 @@ ndays_restart=1                      # restart every 10 days
 
 # derived model timings
 (( dt_restart = ndays_restart * 86400 ))
-dt_restart=3600
+#dt_restart=3600
 (( nsteps = ndays * 86400 / dtime ))
 (( dt_diag = 6 * 3600 ))             # global integral output each 6 hours
 (( dt_file = 86400 ))                # 1 day per file
@@ -435,9 +433,10 @@ cat > ${atmo_namelist} << EOF
  output_filename  = "${EXPNAME}_`basename ${atmo_dyn_grids} .nc`_jsbach"
  output_grid      = .TRUE.
  ml_varlist       = 'fract', 'alb_vis_srf', 'alb_nir_srf', 'swrad_srf_net', 't_srf', 'lai', 's_srf', 'qsat_srf'
-                    'canopy_cond', 'ws_l', 'ws', 'water_stress', 'ws_root', 'ws_fc_root', 'albedo_srf', 'sensible_hflx'
-                    'evapotrans', 'fact_qsat_srf', 'fact_q_air', 't_srf_unfilt', 't_srf_unfilt_old', 't_srf_old'
-                    't_soil', 'wsn_srf', 'wsr_srf'
+                    'canopy_cond', 'ws_l', 'ws', 'water_stress', 'ws_root', 'ws_fc_root', 'albedo_srf', 't_air', 'q_air', 'lwrad_srf_down'
+                    'swrad_srf_down'
+                    'evapotrans', 'sensible_hflx', 'latent_hflx', 'fact_qsat_srf', 'fact_q_air', 't_srf_unfilt', 't_srf_unfilt_old', 't_srf_old'
+                    't_soil', 'wsn_srf', 'wsr_srf', 't_rad_srf'
  !map_file         ="mapfile_dcmip.txt"
 /
 EOF
@@ -448,23 +447,23 @@ cat > ${land_namelist} <<EOF
 /
 
 &jsb_srf_nml
-  bc_filename     = 'bc_srf.nc'
+  bc_filename     = 'bc_land_phys.nc'
   bc_sso_filename = 'bc_land_sso.nc'
-  ic_filename     = 'ic_srf.nc'
+  ic_filename     = 'ic_land_soil.nc'
 /
 
 &jsb_soil_nml
   active          = .TRUE.
   nsoil_energy    = 5
   nsoil_water     = 5
-  bc_filename     = 'bc_soil.nc'
-  ic_filename     = 'ic_soil.nc'
+  bc_filename     = 'bc_land_phys.nc'
+  ic_filename     = 'ic_land_soil.nc'
 /
 
 &jsb_veg_nml
   active          = .TRUE.
-  bc_filename     = 'bc_veg.nc'
-  ic_filename     = 'ic_veg.nc'
+  bc_filename     = 'bc_land_phys.nc'
+  ic_filename     = 'ic_land_soil.nc'
 /
 EOF
 
@@ -542,17 +541,10 @@ cp -f $INIDATA/r2b4_amip/oce/bc_sic_pcmdi_1870-2010.nc ./bc_sic.nc
 cp -f $INIDATA/r2b4_amip/oce/bc_sst_pcmdi_1870-2010.nc ./bc_sst.nc
 
 # - land parameters
-#cp -f $INIDATA/r2b4_amip/lnd/bc_land_frac.nc           ./bc_land_frac.nc
-#cp -f $INIDATA/r2b4_amip/lnd/bc_land_phys.nc           ./bc_land_phys.nc
-#cp -f $INIDATA/r2b4_amip/lnd/bc_land_sso.nc            ./bc_land_sso.nc
-
-#ls -l ${basedir}/jsbach_R2B04_v1.nc > /dev/null 2>&1
-#check_error $? "copy /home/zmaw/m212070/jsbach_R2B04_v1.nc to $EXPDIR (2013-03-27)."
-#cp -f ${basedir}/jsbach_R2B04_v1.nc                    ./extpar_${atmo_dyn_grids}
-ls -l /home/zmaw/m212005/icon/r2b4_amip/bc_veg.nc > /dev/null 2>&1 || check_error $? "cannot copy /home/zmaw/m212005/icon/r2b4_amip/\* to $EXPDIR."
-cp -f /home/zmaw/m212005/icon/r2b4_amip/ic_srf.nc                ./
-cp -f /home/zmaw/m212005/icon/r2b4_amip/bc_*.nc                  ./
-cp -f /home/zmaw/m212005/icon/r2b4_amip/extpar_${atmo_dyn_grids} ./
+cp -f $INIDATA/r2b4_amip/lnd/bc_land_frac.nc           ./bc_land_frac.nc
+cp -f $INIDATA/r2b4_amip/lnd/bc_land_phys.nc           ./bc_land_phys.nc
+cp -f $INIDATA/r2b4_amip/lnd/bc_land_sso.nc            ./bc_land_sso.nc
+cp -f $INIDATA/r2b4_amip/lnd/ic_land_soil.nc           ./ic_land_soil.nc
 
 #__________________________________________________________________________________________________
 # copy restart files eventually

@@ -300,6 +300,7 @@ CONTAINS
     REAL(wp)  :: sat_surface_specific_humidity_temp(kbdim)
     REAL(wp) :: albvisdir_temp(kbdim), albnirdir_temp(kbdim)
     REAL(wp) :: albvisdif_temp(kbdim), albnirdif_temp(kbdim)
+    REAL(wp) :: evapotranspiration_temp(kbdim), lhflx_temp(kbdim), shflx_temp(kbdim), swnet_temp(kbdim)
     INTEGER  :: jsfc, jk, jkm1, im, k
     REAL(wp) :: se_sum(kbdim), qv_sum(kbdim), wgt_sum(kbdim), wgt(kbdim)
     REAL(wp) :: zca(kbdim,ksfc_type), zcs(kbdim,ksfc_type)
@@ -356,6 +357,9 @@ CONTAINS
       ilsm(:) = 0
     ENDWHERE
 
+    lhflx_temp(:) = plhflx_tile(:, idx_lnd)
+    shflx_temp(:) = pshflx_tile(:, idx_lnd)
+
     CALL jsbach_interface ( jg, nblock, 1, kproma, pdtime, psteplen,         & ! in
       & t_air            = ptemp(1:kproma),                                  & ! in
       & q_air            = pq(1:kproma),                                     & ! in
@@ -371,12 +375,17 @@ CONTAINS
       & t_bcoef          = zfn_h(1:kproma, idx_lnd),                         & ! in
       & q_acoef          = zen_qv(1:kproma, idx_lnd),                        & ! in
       & q_bcoef          = zfn_qv(1:kproma, idx_lnd),                        & ! in
+      & pch              = MERGE(pch_tile(1:kproma,idx_lnd),1._wp,ilsm(1:kproma)>0),  & ! in
       & cos_zenith_angle = pcosmu0(1:kproma),                                & ! in
       & t_srf            = surface_temperature_temp(1:kproma),                    & ! out
       & t_rad_srf        = surface_temperature_rad_temp(1:kproma),                & ! out
       & qsat_srf         = sat_surface_specific_humidity_temp(1:kproma),          & ! out
       & fact_q_air       = pcair_temp(1:kproma),                                  & ! out
       & fact_qsat_srf    = pcsat_temp(1:kproma),                                  & ! out
+      & evapotrans       = evapotranspiration_temp(1:kproma),                     & ! out
+      & latent_hflx      = lhflx_temp(1:kproma),                   & ! out
+      & sensible_hflx    = shflx_temp(1:kproma),                   & ! out
+      & swrad_net        = swnet_temp(1:kproma),                                  & ! out
 !!$                          & zh_srf           =
 !!$                          & zm_srf           =
       & alb_vis_dir      = albvisdir_temp(1:kproma),                              & ! out
@@ -468,14 +477,16 @@ CONTAINS
                           )
 
 
+    ptsfc_tile(1:kproma,idx_lnd) = MERGE(surface_temperature(1:kproma), tmelt, lsm(1:kproma) > 0.5_wp)
+
     ! calculate effective temperature for use in radheat
     WHERE (lsm(1:kproma) > 0.5_wp)
       surface_temperature_eff(1:kproma) = (surface_temperature_last(1:kproma) ** 3 *  &
                                           (4._wp*surface_temperature_rad(1:kproma) -  &
                                           3._wp * surface_temperature_last(1:kproma)))**0.25
     ELSEWHERE
-      surface_temperature_eff(1:kproma) = ptsfc_tile(1:kproma,idx_wtr)
-      surface_temperature_rad(1:kproma) = ptsfc_tile(1:kproma,idx_wtr)
+      surface_temperature_eff(1:kproma) = ptsfc_tile(1:kproma,idx_lnd)
+      surface_temperature_rad(1:kproma) = ptsfc_tile(1:kproma,idx_lnd)
     ENDWHERE
 
     ELSE ! not ljsbach
@@ -588,11 +599,6 @@ CONTAINS
                        & -aa(1:kproma,jk,1,im)*bb(1:kproma,jkm1,iv)) &
                        & /aa(1:kproma,jk,2,im)
 
-!!$ TR couple surface temperature of water
-!!$ TR    WRITE (*,*) 'lsm',lsm(1:kproma)
-    IF (phy_config%ljsbach) THEN
-      ptsfc_tile(1:kproma,idx_lnd) = surface_temperature(1:kproma)
-    END IF ! ljsbach
    !-------------------------------------------------------------------
    ! Various diagnostics
    !-------------------------------------------------------------------
@@ -605,7 +611,7 @@ CONTAINS
                       & zca, zcs, bb(:,:,ih:iqv),             &! in
                       & plhflx_gbm_ac, pshflx_gbm_ac,         &! inout
                       & pevap_gbm_ac,  dshflx_dT_ac_tile,     &! inout
-                      & plhflx_tile, pshflx_tile,             &! inout (practically out)
+                      & plhflx_tile, pshflx_tile,             &! inout
                       & dshflx_dT_tile,                       &! out
                       & pevap_tile, pevap_gbm,                &! out
                       & evapotranspiration)                    ! in (optional)

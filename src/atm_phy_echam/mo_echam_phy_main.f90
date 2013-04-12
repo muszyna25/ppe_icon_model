@@ -1001,7 +1001,7 @@ CONTAINS
 
 !       ext_data(jg)%atm%topography_c(jcs:jce,jb) = ext_data(jg)%atm%elevation_c(jcs:jce,jb) * &
 !         MIN(1._wp,field%time_steps_soil(jcs:jce,jb) / 200000._wp)
-       field%swnet(jcs:jce,jb) = ext_data(jg)%atm%topography_c(jcs:jce,jb)
+!       field%swnet(jcs:jce,jb) = ext_data(jg)%atm%topography_c(jcs:jce,jb)
 !        field%swnet(jcs:jce,jb) = field%tsfc_tile(jcs:jce,jb,iwtr)
         field%tsurfl(jcs:jce,jb) = field%tsfc_tile(jcs:jce,jb,ilnd)
 

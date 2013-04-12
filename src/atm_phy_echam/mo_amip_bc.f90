@@ -307,7 +307,7 @@ write (0,*) 'LK: sst = ', SUM(zin)
       seaice(:,:) = 0.0_dp
       siced(:,:)  = 0.0_dp
       !TODO: check tsw/i/l sequence,dummy setting to some reasonable value for land and ice
-      tsw(:,:) = tmelt
+      tsw(:,:) = zts(:,:)
     ENDWHERE
 
 write(0,*) 'LK: sst = ', SUM(tsw)

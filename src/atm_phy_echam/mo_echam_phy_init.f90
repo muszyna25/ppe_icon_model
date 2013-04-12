@@ -284,6 +284,40 @@ CONTAINS
              & variable_name ='albedo',            &
              & fill_array    = prm_field(jg)% alb(:,:),         &
              & patch         = p_patch(jg))
+
+     IF (phy_config%ljsbach) THEN
+     ! albedo and forest fract for old jsbach implementation (temporary)
+           return_pointer => netcdf_read_oncells_2D( &
+             & filename      =land_phys_fn,        &
+             & variable_name ='albedo_soil_vis',   &
+             & fill_array    = ext_data(jg)%atm%albedo_vis_soil(:,:),         &
+             & patch         = p_patch(jg))
+           return_pointer => netcdf_read_oncells_2D( &
+             & filename      =land_phys_fn,        &
+             & variable_name ='albedo_soil_nir',   &
+             & fill_array    = ext_data(jg)%atm%albedo_nir_soil(:,:),         &
+             & patch         = p_patch(jg))
+           return_pointer => netcdf_read_oncells_2D( &
+             & filename      =land_phys_fn,        &
+             & variable_name ='albedo_veg_vis',   &
+             & fill_array    = ext_data(jg)%atm%albedo_vis_canopy(:,:),         &
+             & patch         = p_patch(jg))
+           return_pointer => netcdf_read_oncells_2D( &
+             & filename      =land_phys_fn,        &
+             & variable_name ='albedo_veg_nir',   &
+             & fill_array    = ext_data(jg)%atm%albedo_nir_canopy(:,:),         &
+             & patch         = p_patch(jg))
+           return_pointer => netcdf_read_oncells_2D( &
+             & filename      =land_phys_fn,        &
+             & variable_name ='albedo',            &
+             & fill_array    = ext_data(jg)%atm%albedo_background(:,:),         &
+             & patch         = p_patch(jg))
+           return_pointer => netcdf_read_oncells_2D( &
+             & filename      =land_phys_fn,        &
+             & variable_name ='forest_fract',   &
+             & fill_array    = ext_data(jg)%atm%forest_fract(:,:),         &
+             & patch         = p_patch(jg))
+     END IF
      ! orography
            return_pointer => netcdf_read_oncells_2D( &
              & filename      =land_sso_fn,         &
@@ -859,10 +893,10 @@ CONTAINS
       IF (phy_config%ljsbach) THEN
 !!$ TR for JSBACH testing (energy balance)
 !$OMP WORKSHARE
-      field% surface_temperature    (:,  :) = field% tsfc_tile(:,:,iwtr) !! initialize surface temperature == sst for testinf
-      field% surface_temperature_old(:,  :) = field% tsfc_tile(:,:,iwtr) !! initialize surface temperature == sst for testing
-      field% surface_temperature_rad(:,  :) = field% tsfc_tile(:,:,iwtr) !! initialize surface temperature == sst for testing
-      field% surface_temperature_eff(:,  :) = field% tsfc_tile(:,:,iwtr) !! initialize surface temperature == sst for testing
+      field% surface_temperature    (:,  :) = field% tsfc_tile(:,:,ilnd) !! initialize surface temperature == sst for testinf
+      field% surface_temperature_old(:,  :) = field% tsfc_tile(:,:,ilnd) !! initialize surface temperature == sst for testing
+      field% surface_temperature_rad(:,  :) = field% tsfc_tile(:,:,ilnd) !! initialize surface temperature == sst for testing
+      field% surface_temperature_eff(:,  :) = field% tsfc_tile(:,:,ilnd) !! initialize surface temperature == sst for testing
       field% c_soil_temperature1    (:,  :) = 0._wp
       field% c_soil_temperature2    (:,  :) = 0._wp
       field% c_soil_temperature3    (:,  :) = 0._wp
@@ -873,11 +907,11 @@ CONTAINS
       field% d_soil_temperature3    (:,  :) = 1._wp
       field% d_soil_temperature4    (:,  :) = 1._wp
       field% d_soil_temperature5    (:,  :) = 1._wp
-      field% soil_temperature1      (:,  :) = field% tsfc_tile(:,:,iwtr) !! initialize soil temperature == sst for testindg
-      field% soil_temperature2      (:,  :) = field% tsfc_tile(:,:,iwtr) !! initialize soil temperature == sst for testindg
-      field% soil_temperature3      (:,  :) = field% tsfc_tile(:,:,iwtr) !! initialize soil temperature == sst for testindg
-      field% soil_temperature4      (:,  :) = field% tsfc_tile(:,:,iwtr) !! initialize soil temperature == sst for testindg
-      field% soil_temperature5      (:,  :) = field% tsfc_tile(:,:,iwtr) !! initialize soil temperature == sst for testindg
+      field% soil_temperature1      (:,  :) = field% tsfc_tile(:,:,ilnd) !! initialize soil temperature == sst for testindg
+      field% soil_temperature2      (:,  :) = field% tsfc_tile(:,:,ilnd) !! initialize soil temperature == sst for testindg
+      field% soil_temperature3      (:,  :) = field% tsfc_tile(:,:,ilnd) !! initialize soil temperature == sst for testindg
+      field% soil_temperature4      (:,  :) = field% tsfc_tile(:,:,ilnd) !! initialize soil temperature == sst for testindg
+      field% soil_temperature5      (:,  :) = field% tsfc_tile(:,:,ilnd) !! initialize soil temperature == sst for testindg
       field% heat_capacity          (:,  :) = 1._wp
       field% ground_heat_flux       (:,  :) = 0._wp
       field% swnet                  (:,  :) = 0._wp
