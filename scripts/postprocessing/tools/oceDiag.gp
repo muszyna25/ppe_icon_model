@@ -13,7 +13,7 @@ if ( '' ne show ) {
   set output 'diag.png'
 }
 set grid
-set multiplot layout 2,2 title 'ICON OCEAN diagnostic'
+set multiplot layout 3,2 title 'ICON OCEAN diagnostic'
 plot 'oce_diagnostics.txt' using "step":"pot_energy" w l
 set y2tics in
 unset ytics
@@ -21,12 +21,19 @@ set grid y2tics
 plot 'oce_diagnostics.txt' using "step":"kin_energy" w l axes x1y2
 set ytics in
 unset y2tics
-set logscale y
 plot 'oce_diagnostics.txt' using "step":"absolute_vertical_velocity" w l
 set y2tics in
 unset ytics
 set grid y2tics
-plot 'oce_diagnostics.txt' using "step":"total_salinity" w l axes x1y2, '' using "step":"total_temperature" w l axes x1y2
+plot 'oce_diagnostics.txt' using "step":"total_salinity" w l
+set logscale y
+set ytics in
+unset y2tics
+plot 'oce_diagnostics.txt' using "step":"absolute_vertical_velocity" w l
+set y2tics in
+unset ytics
+set grid y2tics
+plot 'oce_diagnostics.txt' using "step":"total_temperature" w l axes x1y2
 unset multiplot
 
 # vim:ft=gnuplot

@@ -140,10 +140,8 @@ SUBROUTINE calculate_oce_diagnostics(p_patch_3D, p_os, p_sfc_flx, p_phys_param, 
   INTEGER :: i_startidx_c, i_endidx_c!,i_startblk_c, i_endblk_c,
   INTEGER :: jk,jc,jb!,je
   INTEGER :: i_no_t, i
-  REAL(wp) :: prism_vol = 0.0_wp, surface_height = 0.0_wp, prism_area = 0.0_wp
-  REAL(wp) :: z_w
-  REAL(wp) :: surface_area = 0.0_wp
-  INTEGER  :: reference_timestep
+  REAL(wp):: prism_vol, surface_height, prism_area, surface_area, z_w
+  INTEGER :: reference_timestep
   TYPE(t_patch), POINTER     :: p_patch
 
   TYPE(t_subset_range), POINTER :: owned_cells
@@ -152,10 +150,15 @@ SUBROUTINE calculate_oce_diagnostics(p_patch_3D, p_os, p_sfc_flx, p_phys_param, 
   CHARACTER(len=1024)           :: fmt_string, real_fmt
 
   !-----------------------------------------------------------------------
-  p_patch     => p_patch_3D%p_patch_2D(1)
-  owned_cells => p_patch%cells%owned
+  p_patch        => p_patch_3D%p_patch_2D(1)
+  owned_cells    => p_patch%cells%owned
   !-----------------------------------------------------------------------
-  monitor     => oce_ts%oce_diagnostics(timestep)
+  monitor        => oce_ts%oce_diagnostics(timestep)
+  surface_area   = 0.0_wp
+  surface_height = 0.0_wp
+  prism_vol      = 0.0_wp
+  prism_area     = 0.0_wp
+  z_w            = 0.0_wp
 
   !cell loop to calculate cell based monitored fields volume, kinetic energy and tracer content
   SELECT CASE (iswm_oce)
@@ -243,7 +246,7 @@ SUBROUTINE calculate_oce_diagnostics(p_patch_3D, p_os, p_sfc_flx, p_phys_param, 
   monitor%enstrophy           = global_sum_array(monitor%enstrophy)
   monitor%potential_enstrophy = global_sum_array(monitor%potential_enstrophy)
   surface_area                = global_sum_array(surface_area)
-  monitor%absolute_vertical_velocity = global_sum_array(monitor%absolute_vertical_velocity)
+  monitor%absolute_vertical_velocity = global_sum_array(monitor%absolute_vertical_velocity)/surface_area
   DO i_no_t=1,no_tracer
     monitor%tracer_content(i_no_t) = global_sum_array(monitor%tracer_content(i_no_t))
   END DO
