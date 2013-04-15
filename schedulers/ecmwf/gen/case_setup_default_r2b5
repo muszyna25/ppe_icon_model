@@ -116,8 +116,8 @@ done
 # output variables
 
 ml_varlist="'temp','u','v','w','pres','pres_sfc', 'pres_msl', 
-'qv','qc','qi','qr','qs','o3','tot_cc','tot_qv','tot_qc','tot_qi', 
-'tcc','tqv','tqc','tqi', 
+'qv','qc','qi','qr','qs','o3','clc','tot_qv','tot_qc','tot_qi', 
+'clct','tqv','tqc','tqi', 
 'tracer_vi01','tracer_vi02','tracer_vi03','tracer_vi04','tracer_vi05',
 'tot_prec','rain_gsp','rain_con','snow_gsp','snow_con', 
 'u_10m','v_10m', 't_2m',
