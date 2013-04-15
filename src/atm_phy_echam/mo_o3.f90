@@ -34,12 +34,6 @@
 !! liability or responsibility for the use, acquisition or application of this
 !! software.
 !!
-#ifdef __xlC__
-@PROCESS HOT
-@PROCESS SPILLSIZE(5000)
-#endif
-!OCL NOALIAS
-
 MODULE mo_o3
 
   USE mo_kind,                     ONLY: wp
@@ -100,6 +94,7 @@ CONTAINS
         CALL nf(nf_open(TRIM(fname), NF_NOWRITE, ncid), subprog_name)
         CALL nf(nf_inq_varid(ncid, 'plev', varid), subprog_name)
         CALL nf(nf_get_var_double(ncid, varid, plev_full_o3), subprog_name)
+        CALL nf(nf_close(ncid), subprog_name)
       END IF
       CALL p_bcast(plev_full_o3(:), p_io, mpi_comm)
 
