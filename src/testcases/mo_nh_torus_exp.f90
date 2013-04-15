@@ -66,13 +66,13 @@ MODULE mo_nh_torus_exp
   USE mo_run_config,          ONLY: iqv, iqc
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_e, grf_bdywidth_c
   USE mo_satad,               ONLY: spec_humi, sat_pres_water
+  USE mo_les_config,          ONLY: les_config
 
   IMPLICIT NONE
   
   PRIVATE
   
-  PUBLIC :: init_nh_state_cbl, sst_cbl, is_dry_cbl, ugeo, set_sst_cbl, &
-            vgeo, umean, vmean, vt_geostrophic, shflx_cbl, lhflx_cbl, ufric_cbl
+  PUBLIC :: init_nh_state_cbl
 
   !DEFINED PARAMETERS:
   REAL(wp), PARAMETER :: zp0     = 100000._wp !< surface pressure
@@ -80,15 +80,6 @@ MODULE mo_nh_torus_exp
   REAL(wp), PARAMETER :: dtdz    = 0.003_wp   !< lapse rate
   REAL(wp), PARAMETER :: zt0     = 300._wp
   REAL(wp), PARAMETER :: lambda  = 1500._wp   !moist height from Stevens(2007)
-
-  REAL(wp) :: sst_cbl, ugeo(2), vgeo(2)   !u/vgeo(1) = constant, u/vgeo(2) = gradient
-  REAL(wp) :: umean(2), vmean(2)          !u/vmean(1) = constant, u/vmean(2) = gradient
-  REAL(wp),ALLOCATABLE :: vt_geostrophic(:,:,:) !geostrophic wind along the tangent of triangle
-  REAL(wp) :: shflx_cbl, lhflx_cbl        !sensible and latent heat flux
-  REAL(wp) :: ufric_cbl                   !friction velocity at surface 
-
-  LOGICAL  :: is_dry_cbl, set_sst_cbl
-
 
 !--------------------------------------------------------------------
 
@@ -126,7 +117,7 @@ MODULE mo_nh_torus_exp
     INTEGER  :: jc,je,jk,jb,jt,i_startblk,i_startidx,i_endidx   !< loop indices
     INTEGER  :: nblks_c,npromz_c,nblks_e,npromz_e
     INTEGER  :: nlev, nlevp1                   !< number of full and half levels
-    INTEGER  :: nlen, i_rcstartlev, jcn, jbn, ist
+    INTEGER  :: nlen, i_rcstartlev, jcn, jbn, ist, jg
 
   !-------------------------------------------------------------------------
 
@@ -140,20 +131,16 @@ MODULE mo_nh_torus_exp
     nlev   = ptr_patch%nlev
     nlevp1 = ptr_patch%nlevp1
 
-    ALLOCATE( vt_geostrophic(nproma,nlev,nblks_e), STAT=ist )
-    IF(ist/=SUCCESS)THEN
-       CALL finish('mo_nh_torus_exp: init_nh_state_cbl:',  &
-        &      ' allocation of geostrophic wind failed!')
-    END IF   
-    vt_geostrophic = 0._wp
+    !patch id
+    jg = ptr_patch%id
 
     !
     i_rcstartlev = 2
     i_startblk   = ptr_patch%cells%start_blk(i_rcstartlev,1)
 
     !Set some reference density
-    IF(set_sst_cbl)THEN
-      rho_sfc = zp0 / (rd * sst_cbl)
+    IF(les_config(jg)%isrfc_type==1)THEN
+      rho_sfc = zp0 / (rd * les_config(jg)%sst)
     ELSE
       rho_sfc = zp0 / (rd * zt0 )
     END IF
@@ -173,7 +160,7 @@ MODULE mo_nh_torus_exp
       ENDIF
 
       !Tracers
-      IF(.NOT.is_dry_cbl)THEN
+      IF(.NOT.les_config(jg)%is_dry_cbl)THEN
         DO jk = 1, nlev
           ptr_nh_prog%tracer(1:nlen,jk,jb,iqv) = 0.8_wp * spec_humi(sat_pres_water(zt0),zp0) * &
                     EXP(-ptr_metrics%z_mc(1:nlen,jk,jb)/lambda)
@@ -213,37 +200,6 @@ MODULE mo_nh_torus_exp
 
     ENDDO !jb
 
-    !Set geostrophic wind at cell center and then interpolate to edges in terms of 
-    !tangential velocity components
-    DO jb = 1 , nblks_e
-     CALL get_indices_e( ptr_patch, jb, 1, nblks_e, i_startidx, i_endidx, grf_bdywidth_e+1)
-     DO jk = 1 , nlev 
-      DO je = i_startidx, i_endidx
-
-        !Torus geometry is flat so zu is only function of height which is same for all cells
-        !But it is kept varyign with jc,jb to introduce topography lateron
-        jcn  =   ptr_patch%edges%cell_idx(je,jb,1)
-        jbn  =   ptr_patch%edges%cell_blk(je,jb,1)
-        zu   =  ugeo(1) + ugeo(2) * ptr_metrics%z_mc(jcn,jk,jbn)
-        zv   =  vgeo(1) + vgeo(2) * ptr_metrics%z_mc(jcn,jk,jbn)
-
-        zvn1 =  zu * ptr_patch%edges%dual_normal_cell(je,jb,1)%v1 + &
-                zv * ptr_patch%edges%dual_normal_cell(je,jb,1)%v2      
- 
-        jcn  =   ptr_patch%edges%cell_idx(je,jb,2)
-        jbn  =   ptr_patch%edges%cell_blk(je,jb,2)
-        zu   =  ugeo(1) + ugeo(2) * ptr_metrics%z_mc(jcn,jk,jbn)
-        zv   =  vgeo(1) + vgeo(2) * ptr_metrics%z_mc(jcn,jk,jbn)
-      
-        zvn2 =  zu * ptr_patch%edges%dual_normal_cell(je,jb,2)%v1 + &
-                zv * ptr_patch%edges%dual_normal_cell(je,jb,2)%v2      
-
-        vt_geostrophic(je,jk,jb) = ptr_int%c_lin_e(je,1,jb)*zvn1 + &
-                                   ptr_int%c_lin_e(je,2,jb)*zvn2
-      END DO
-     END DO
-    END DO     
-
 
     !Mean wind 
     DO jb = 1 , nblks_e
@@ -255,16 +211,16 @@ MODULE mo_nh_torus_exp
         !But it is kept varyign with jc,jb to introduce topography lateron
         jcn  =   ptr_patch%edges%cell_idx(je,jb,1)
         jbn  =   ptr_patch%edges%cell_blk(je,jb,1)
-        zu   =   umean(1) + umean(2) * ptr_metrics%z_mc(jcn,jk,jbn)
-        zv   =   vmean(1) + vmean(2) * ptr_metrics%z_mc(jcn,jk,jbn)
+        zu   =   les_config(jg)%umean(1) + les_config(jg)%umean(2) * ptr_metrics%z_mc(jcn,jk,jbn)
+        zv   =   les_config(jg)%vmean(1) + les_config(jg)%vmean(2) * ptr_metrics%z_mc(jcn,jk,jbn)
 
         zvn1 =  zu * ptr_patch%edges%primal_normal_cell(je,jb,1)%v1 + &
                 zv * ptr_patch%edges%primal_normal_cell(je,jb,1)%v2      
  
         jcn  =   ptr_patch%edges%cell_idx(je,jb,2)
         jbn  =   ptr_patch%edges%cell_blk(je,jb,2)
-        zu   =   umean(1) + umean(2) * ptr_metrics%z_mc(jcn,jk,jbn)
-        zv   =   vmean(1) + vmean(2) * ptr_metrics%z_mc(jcn,jk,jbn)
+        zu   =   les_config(jg)%umean(1) + les_config(jg)%umean(2) * ptr_metrics%z_mc(jcn,jk,jbn)
+        zv   =   les_config(jg)%vmean(1) + les_config(jg)%vmean(2) * ptr_metrics%z_mc(jcn,jk,jbn)
       
         zvn2 =  zu * ptr_patch%edges%primal_normal_cell(je,jb,2)%v1 + &
                 zv * ptr_patch%edges%primal_normal_cell(je,jb,2)%v2      

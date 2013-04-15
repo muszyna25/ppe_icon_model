@@ -66,9 +66,9 @@ MODULE mo_sgs_turbulence
   USE mo_sync,                ONLY: SYNC_E, SYNC_C, SYNC_V, sync_patch_array
   USE mo_physical_constants,  ONLY: cpd, rcvd, p0ref, grav, rcpd, alv
   USE mo_nwp_lnd_types,       ONLY: t_lnd_prog, t_wtr_prog, t_lnd_diag 
-  USE mo_surface_les,         ONLY: rkarman, min_wind, surface_conditions 
+  USE mo_surface_les,         ONLY: min_wind, surface_conditions 
   USE mo_nwp_phy_types,       ONLY: t_nwp_phy_diag, t_nwp_phy_tend
-  USE mo_mpi,                 ONLY: p_pe
+  USE mo_les_config,          ONLY: les_config
 
   IMPLICIT NONE
 
@@ -81,9 +81,6 @@ MODULE mo_sgs_turbulence
   !Variables for the module
   REAL(wp), ALLOCATABLE, DIMENSION(:,:,:) :: D_11c, D_12v, visc_smag_v, visc_smag_ie, diff_smag_e, &
                                              visc_smag_c, rho_e, D_31c, D_32v, DIV_c
-
-  REAL(wp), PARAMETER :: inv_turb_prandtl = 3._wp
-  REAL(wp), PARAMETER :: smag_const = 0.23_wp
 
   CONTAINS
 
@@ -116,9 +113,11 @@ MODULE mo_sgs_turbulence
     INTEGER :: nlev, nlevp1
     INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
     INTEGER :: rl_start, rl_end
-    INTEGER :: jk, jb, jc
+    INTEGER :: jk, jb, jc, jg
 
     !CALL debug_messages_on
+
+    jg = p_patch%id
 
     nlev   = p_patch%nlev
     nlevp1 = nlev+1
@@ -194,15 +193,21 @@ MODULE mo_sgs_turbulence
                         prm_nwp_tend%ddt_temp_turb, p_nh_prog%exner,     &
                         prm_diag, p_nh_prog%rho, dt, 'theta')
 
-    !CALL diffuse_scalar(p_nh_prog%tracer(:,:,:,iqv), p_nh_metrics, p_patch, p_int, &
-    !                    p_nh_diag, prm_nwp_tend%ddt_tracer_turb(:,:,:,iqv),        &
-    !                    p_nh_prog%exner, prm_diag, p_nh_prog%rho, dt, 'qv')
-
     !For qv and qc
+    IF(.NOT.les_config(jg)%is_dry_cbl)THEN
+      CALL diffuse_scalar(p_nh_prog%tracer(:,:,:,iqv), p_nh_metrics, p_patch, p_int, &
+                          p_nh_diag, prm_nwp_tend%ddt_tracer_turb(:,:,:,iqv),        &
+                          p_nh_prog%exner, prm_diag, p_nh_prog%rho, dt, 'qv')
+
+      CALL diffuse_scalar(p_nh_prog%tracer(:,:,:,iqc), p_nh_metrics, p_patch, p_int, &
+                          p_nh_diag, prm_nwp_tend%ddt_tracer_turb(:,:,:,iqc),        &
+                          p_nh_prog%exner, prm_diag, p_nh_prog%rho, dt, 'qc')
+    ELSE 
 !$OMP PARALLEL WORKSHARE
-    prm_nwp_tend%ddt_tracer_turb(:,:,:,iqv) = 0._wp
-    prm_nwp_tend%ddt_tracer_turb(:,:,:,iqc) = 0._wp
+      prm_nwp_tend%ddt_tracer_turb(:,:,:,iqv) = 0._wp
+      prm_nwp_tend%ddt_tracer_turb(:,:,:,iqc) = 0._wp
 !$OMP END PARALLEL WORKSHARE
+    END IF
 
    DEALLOCATE(D_11c, D_12v, D_31c, D_32v, visc_smag_v, visc_smag_ie, diff_smag_e, &
               theta, visc_smag_c, rho_e, theta_v, DIV_c)
@@ -649,17 +654,17 @@ MODULE mo_sgs_turbulence
          DO je = i_startidx, i_endidx
 
            !move calculation of mixing length to mo_vertical_grid
-           les_filter = smag_const * (0.5_wp*p_patch%edges%quad_area(je,jb) * &
+           les_filter = les_config(1)%smag_constant * (0.5_wp*p_patch%edges%quad_area(je,jb) * &
                         p_nh_metrics%ddqz_z_full_e(je,jk,jb))**(1._wp/3._wp) 
 
            mixing_length_sq = (les_filter*z_me(je,jk,jb))**2    &
-                      / ((les_filter*rkarman)**2+z_me(je,jk,jb)**2)
+                      / ((les_filter*les_config(1)%rkarman_constant)**2+z_me(je,jk,jb)**2)
 
            brunt_vaisala_frq = grav * (theta_v_ie(je,jk,jb)-theta_v_ie(je,jk+1,jb)) / &
                               (theta_v_e(je,jk,jb)*p_nh_metrics%ddqz_z_full_e(je,jk,jb)) 
 
            visc_smag_e(je,jk,jb) = rho_e(je,jk,jb) * MAX( 0.1_wp, mixing_length_sq * &
-                SQRT(MAX(0._wp, DD(je,jk,jb)*0.5_wp-inv_turb_prandtl*brunt_vaisala_frq)) ) 
+                SQRT(MAX(0._wp, DD(je,jk,jb)*0.5_wp-les_config(1)%rturb_prandtl*brunt_vaisala_frq)) ) 
 
          END DO
        END DO
@@ -793,7 +798,7 @@ MODULE mo_sgs_turbulence
                           i_startidx, i_endidx, rl_start, rl_end)
        DO jk = 1 , nlev
          DO je = i_startidx, i_endidx
-           diff_smag_e(je,jk,jb) = visc_smag_e(je,jk,jb) * inv_turb_prandtl
+           diff_smag_e(je,jk,jb) = visc_smag_e(je,jk,jb) * les_config(1)%rturb_prandtl
          END DO
        END DO
     END DO
@@ -814,8 +819,8 @@ MODULE mo_sgs_turbulence
        DO jk = 2 , nlev
          DO jc = i_startidx, i_endidx
 
-           kh_k    = visc_smag_c(jc,jk,jb)   * inv_turb_prandtl
-           kh_km1  = visc_smag_c(jc,jk-1,jb) * inv_turb_prandtl        
+           kh_k    = visc_smag_c(jc,jk,jb)   * les_config(1)%rturb_prandtl
+           kh_km1  = visc_smag_c(jc,jk-1,jb) * les_config(1)%rturb_prandtl
        
            !Harmonic mean
            diff_smag_ic(jc,jk,jb) = kh_k * kh_km1 / (                               & 
@@ -1457,6 +1462,25 @@ MODULE mo_sgs_turbulence
           END DO
         END DO
 !$OMP END DO
+!$OMP END PARALLEL
+
+    ELSEIF(TRIM(scalar_name)=='qc')THEN
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jc,jb,jk,i_startidx,i_endidx),ICON_OMP_RUNTIME_SCHEDULE
+        DO jb = i_startblk,i_endblk
+          CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+                             i_startidx, i_endidx, rl_start, rl_end)
+          DO jk = 1, nlev
+            DO jc = i_startidx, i_endidx
+              fac(jc,jk,jb) = 1._wp / rho(jc,jk,jb)
+            END DO
+          END DO
+        END DO
+!$OMP END DO
+!$OMP WORKSHARE
+        sflux(:,:) = 0._wp
+!$OMP END WORKSHARE
 !$OMP END PARALLEL
 
     END IF

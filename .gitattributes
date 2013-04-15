@@ -1241,6 +1241,7 @@ src/configure_model/mo_icon_testbed_config.f90 -text
 src/configure_model/mo_initicon_config.f90 -text
 src/configure_model/mo_interpol_config.f90 -text
 src/configure_model/mo_io_config.f90 -text
+src/configure_model/mo_les_config.f90 -text
 src/configure_model/mo_lnd_jsbach_config.f90 -text
 src/configure_model/mo_lnd_nwp_config.f90 -text
 src/configure_model/mo_mtgrm_config.f90 -text
@@ -1366,6 +1367,7 @@ src/namelists/mo_icon_testbed_nml.f90 -text
 src/namelists/mo_initicon_nml.f90 -text
 src/namelists/mo_interpol_nml.f90 -text
 src/namelists/mo_io_nml.f90 -text
+src/namelists/mo_les_nml.f90 -text
 src/namelists/mo_lnd_nwp_nml.f90 -text
 src/namelists/mo_master_nml.f90 -text
 src/namelists/mo_mtgrm_nml.f90 -text

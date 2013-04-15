@@ -81,8 +81,8 @@ MODULE mo_solve_nonhydro
                                   timer_solve_nh_p1, timer_solve_nh_p2, timer_solve_nh_exch
   USE mo_icon_comm_lib,     ONLY: icon_comm_sync
   USE mo_nh_testcases,      ONLY: nh_test_name
-  USE mo_nh_torus_exp,      ONLY: vt_geostrophic
   USE mo_nh_dcmip_gw,       ONLY: fcfugal
+  USE mo_les_config,        ONLY: les_config
 
   IMPLICIT NONE
 
@@ -144,6 +144,7 @@ MODULE mo_solve_nonhydro
     INTEGER  :: nlev, nlevp1          !< number of full and half levels
     ! Local control variable for vertical nesting
     LOGICAL :: l_vert_nested
+    INTEGER :: jg, jc1, jc2, jb1, jb2, zvn1, zvn2  
       
     !--------------------------------------------------------------------------
 
@@ -152,6 +153,9 @@ MODULE mo_solve_nonhydro
     ELSE
       l_vert_nested = .FALSE.
     ENDIF
+
+    !Get patch id
+    jg = p_patch%id
 
     ! number of vertical levels
     nlev   = p_patch%nlev
@@ -502,30 +506,53 @@ MODULE mo_solve_nonhydro
         ENDDO
       ENDDO
 
-      IF( ltestcase )THEN
-
-        !Add geostrophic wind for torus geometry
-        IF ( nh_test_name=='CBL' ) THEN  
-          DO jk = 1, nlev
-            DO je = i_startidx, i_endidx                   
-              p_diag%ddt_vn_adv(je,jk,jb,ntnd) = p_diag%ddt_vn_adv(je,jk,jb,ntnd) + &
-                    p_patch%edges%f_e(je,jb) * vt_geostrophic(je,jk,jb) 
-            END DO
-          END DO
-
-        ! Add centrifugal force for idealized gravity wave test
-        ELSE IF (nh_test_name=='dcmip_gw_32') THEN
-          DO jk = 1, nlev
-            DO je = i_startidx, i_endidx
-              p_diag%ddt_vn_adv(je,jk,jb,ntnd) = p_diag%ddt_vn_adv(je,jk,jb,ntnd) &
-                &                              + fcfugal(je,jb)
-            ENDDO
+      ! Add centrifugal force for idealized gravity wave test
+      IF (ltestcase.AND.nh_test_name=='dcmip_gw_32') THEN
+        DO jk = 1, nlev
+          DO je = i_startidx, i_endidx
+            p_diag%ddt_vn_adv(je,jk,jb,ntnd) = p_diag%ddt_vn_adv(je,jk,jb,ntnd) &
+              &                              + fcfugal(je,jb)
           ENDDO
-        ENDIF
+        ENDDO
       END IF
 
     ENDDO
+!$OMP END DO 
+     
+    !Set geostrophic wind for TORUS at cell center and then interpolate to edges in terms of 
+    !tangential velocity components
+    IF(is_plane_torus .AND. les_config(jg)%set_geowind)THEN
+      rl_start = 2
+      rl_end   = min_rledge_int
+!$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx,jc1,jb1,jc2,jb2,zvn1,zvn2) ICON_OMP_DEFAULT_SCHEDULE
+      DO jb = i_startblk , i_endblk
+       CALL get_indices_e( p_patch, jb, i_startblk, i_endblk, i_startidx, i_endidx, rl_start, rl_end)
+       DO jk = 1 , nlev 
+        DO je = i_startidx, i_endidx
+
+         jc1  =   p_patch%edges%cell_idx(je,jb,1)
+         jb1  =   p_patch%edges%cell_blk(je,jb,1)
+         zvn1 =  (les_config(jg)%ugeo(1) + les_config(jg)%ugeo(2) * p_metrics%z_mc(jc1,jk,jb1)) * &
+                  p_patch%edges%dual_normal_cell(je,jb,1)%v1                           + &
+                 (les_config(jg)%ugeo(1) + les_config(jg)%ugeo(2) * p_metrics%z_mc(jc1,jk,jb1)) * &
+                  p_patch%edges%dual_normal_cell(je,jb,1)%v2      
+ 
+         jc2  =   p_patch%edges%cell_idx(je,jb,2)
+         jb2  =   p_patch%edges%cell_blk(je,jb,2)
+         zvn2 =  (les_config(jg)%ugeo(1) + les_config(jg)%ugeo(2) * p_metrics%z_mc(jc2,jk,jb2)) * &
+                  p_patch%edges%dual_normal_cell(je,jb,2)%v1                           + &
+                 (les_config(jg)%ugeo(1) + les_config(jg)%ugeo(2) * p_metrics%z_mc(jc2,jk,jb2)) * &
+                  p_patch%edges%dual_normal_cell(je,jb,2)%v2      
+   
+         p_diag%ddt_vn_adv(je,jk,jb,ntnd) = p_diag%ddt_vn_adv(je,jk,jb,ntnd)    + &
+                     p_patch%edges%f_e(je,jb) * ( p_int%c_lin_e(je,1,jb)*zvn1 + &
+                     p_int%c_lin_e(je,2,jb)*zvn2 )
+
+        END DO
+       END DO
+      END DO     
 !$OMP END DO NOWAIT
+    END IF
 
 !$OMP END PARALLEL
 

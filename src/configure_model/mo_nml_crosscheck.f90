@@ -105,7 +105,6 @@ MODULE mo_nml_crosscheck
 
   USE mo_art_config,         ONLY: art_config
   USE mo_prepicon_config,    ONLY: i_oper_mode
-  USE mo_nh_torus_exp,       ONLY: set_sst_cbl
 
   IMPLICIT NONE
 

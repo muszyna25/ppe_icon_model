@@ -111,9 +111,7 @@ MODULE mo_nh_testcases
   USE mo_nh_prog_util,         ONLY: nh_prog_add_random
   USE mo_nh_init_utils,        ONLY: n_flat_level, layer_thickness
   USE mo_grid_geometry_info,   ONLY: planar_torus_geometry
-  USE mo_nh_torus_exp,         ONLY: sst_cbl, is_dry_cbl, init_nh_state_cbl, ugeo,  &
-                                     vgeo, umean, vmean, shflx_cbl, set_sst_cbl,    &
-                                     lhflx_cbl, ufric_cbl
+  USE mo_nh_torus_exp,         ONLY: init_nh_state_cbl
   
   IMPLICIT NONE  
   
@@ -167,9 +165,7 @@ MODULE mo_nh_testcases
                             m_height, m_width_x, m_width_y, itype_atmo_ana,  &
                             nlayers_poly, p_base_poly, h_poly, t_poly,       &
                             tgr_poly, rh_poly, rhgr_poly, lshear_dcmip,      &
-                            lcoupled_rho, sst_cbl, is_dry_cbl, ugeo, vgeo,   &
-                            umean, vmean, shflx_cbl, set_sst_cbl, lhflx_cbl, &
-                            ufric_cbl, gw_clat, gw_u0, gw_delta_temp
+                            lcoupled_rho, gw_clat, gw_u0, gw_delta_temp
 
   PUBLIC :: read_nh_testcase_namelist, layer_thickness, init_nh_testtopo,    &
     &       init_nh_testcase, n_flat_level, nh_test_name,                    &
@@ -323,18 +319,6 @@ MODULE mo_nh_testcases
     lshear_dcmip   = .FALSE.
     ! for PA test cases:
     lcoupled_rho   = .FALSE.
-
-    ! for CBL testcase
-    sst_cbl = 300._wp
-    is_dry_cbl = .TRUE.
-    ugeo(1:2)  = 0._wp  !ugeo(1) = constant, ugeo(2) = gradient
-    vgeo(1:2)  = 0._wp  !vgeo(1) = constant, vgeo(2) = gradient
-    umean(1:2) = 0._wp
-    vmean(1:2) = 0._wp
-    shflx_cbl  = 0._wp 
-    lhflx_cbl  = 0._wp 
-    set_sst_cbl = .FALSE.
-    ufric_cbl  = 0.28_wp
 
     ! for dcmip_gw_3X test cases
     gw_u0      = 0.0_wp      ! maximum amplitude of the zonal wind [m s^-1]
@@ -1249,18 +1233,14 @@ MODULE mo_nh_testcases
   END SELECT
 
 
-  SELECT CASE (nh_test_name)
-
-  CASE ('CBL', 'APE_nh')
-
+  IF(atm_phy_nwp_config(1)%inwp_turb==3 .AND. nh_test_name=='APE_nh')THEN
     DO jg = 1, n_dom
     !Snow and sea ice initialization to avoid problems in EDMF
       p_lnd_state(jg)%prog_lnd(nnow(jg))%t_snow_t(:,:,:)        = 300._wp   !snow
       p_lnd_state(jg)%prog_lnd(nnow(jg))%t_g_t(:,:,isub_seaice) = 300._wp   !sea ice
       p_lnd_state(jg)%prog_wtr(nnow(jg))%t_ice(:,:)             = 300._wp   !sea ice
     END DO !jg
-
-  END SELECT
+  END IF
 
  END SUBROUTINE init_nh_testcase
 

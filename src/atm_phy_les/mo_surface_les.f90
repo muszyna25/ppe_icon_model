@@ -60,10 +60,8 @@ MODULE mo_surface_les
   USE mo_sync,                ONLY: SYNC_E, SYNC_C, SYNC_V, sync_patch_array
   USE mo_physical_constants,  ONLY: cpd, rcvd, p0ref, grav, alv, rd, rgrav, rd_o_cpd
   USE mo_nwp_lnd_types,       ONLY: t_lnd_prog, t_lnd_diag 
-  USE mo_nh_torus_exp,        ONLY: shflx_cbl, lhflx_cbl, set_sst_cbl
-  USE mo_satad,               ONLY: sat_pres_water, &  !! saturation vapor pressure w.r.t. water
-    &                               spec_humi          !! Specific humidity
   USE mo_nwp_phy_types,       ONLY: t_nwp_phy_diag, t_nwp_phy_tend
+  USE mo_les_config,          ONLY: les_config
 
   IMPLICIT NONE
 
@@ -71,10 +69,9 @@ MODULE mo_surface_les
 
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
-  PUBLIC :: surface_conditions, min_wind, rkarman
+  PUBLIC :: surface_conditions, min_wind
 
   REAL(wp), PARAMETER :: min_wind = 0.1_wp
-  REAL(wp), PARAMETER :: rkarman = 2.5_wp
 
   CONTAINS
 
@@ -108,12 +105,14 @@ MODULE mo_surface_les
     INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
     INTEGER :: rl_start, rl_end
     INTEGER :: jk, jb, jc
-    INTEGER  :: nlev              
+    INTEGER  :: nlev, jg
+
+    jg = p_patch%id
 
     ! number of vertical levels
     nlev = p_patch%nlev
     i_nchdom   = MAX(1,p_patch%n_childdom)
-
+     
     !Pres_sfc from previous calls are not synced. Therefore, I sync it here locally
     IF (p_test_run) THEN
        pres_sfc(:,:) = 0._wp
@@ -125,10 +124,10 @@ MODULE mo_surface_les
 
     CALL sync_patch_array(SYNC_C, p_patch, pres_sfc)
 
-    !SELECT CASE(isrfc_type)
+    SELECT CASE(les_config(jg)%isrfc_type)
 
     !Prescribed latent/sensible heat fluxes: get ustar and surface temperature / moisture
-    !CASE(1)
+    CASE(2)
       
       rl_start = 2
       rl_end   = min_rlcell_int-1
@@ -154,7 +153,8 @@ MODULE mo_surface_les
             th0_srf = p_prog_lnd_now%t_g(jc,jb) / exner
 
             !Buoyancy flux
-            bflux = grav*(shflx_cbl+0.61_wp* th0_srf*lhflx_cbl)/th0_srf
+            bflux = grav*(les_config(jg)%shflx +  &
+                   0.61_wp*th0_srf*les_config(jg)%lhflx)/th0_srf
 
             !Mean wind at nlev
             mwind  = MAX( min_wind, SQRT(p_nh_diag%u(jc,jk,jb)**2+p_nh_diag%v(jc,jk,jb)**2) )
@@ -163,25 +163,29 @@ MODULE mo_surface_les
             z_mc = p_nh_metrics%z_mc(jc,jk,jb)             
 
             !Now diagnose friction velocity (ustar)
-            ustar = diag_ustar(z_mc,zrough,bflux,mwind)
+            IF(les_config(jg)%ufric<0._wp)THEN
+              ustar = diag_ustar(z_mc,zrough,bflux,mwind)
+            ELSE
+              ustar = les_config(jg)%ufric
+            END IF
 
             !"-" sign in the begining because ustar*thstar = -shflx
-            obukhov_length = -ustar**3 * rkarman / bflux
+            obukhov_length = -ustar**3 * les_config(1)%rkarman_constant / bflux
  
-            theta_sfc(jc,jb) = theta(jc,jk,jb) + shflx_cbl / ustar * &
+            theta_sfc(jc,jb) = theta(jc,jk,jb) + les_config(jg)%shflx / ustar * &
                                businger_heat(zrough,z_mc,obukhov_length) 
 
             p_prog_lnd_now%t_g(jc,jb) = theta_sfc(jc,jb) * exner
 
             !Get surface qv 
-            p_diag_lnd%qv_s(jc,jb) = qv(jc,jk,jb) + lhflx_cbl / ustar * &
+            p_diag_lnd%qv_s(jc,jb) = qv(jc,jk,jb) + les_config(jg)%lhflx / ustar * &
                                      businger_heat(zrough,z_mc,obukhov_length) 
 
             !Get surface fluxes
             rhos   =  pres_sfc(jc,jb)/( rd * &
                       p_prog_lnd_now%t_g(jc,jb)*(1._wp+0.61_wp*p_diag_lnd%qv_s(jc,jb)) )  
-            prm_diag%shfl_s(jc,jb)  = shflx_cbl * rhos * cpd
-            prm_diag%lhfl_s(jc,jb)  = lhflx_cbl * rhos * alv
+            prm_diag%shfl_s(jc,jb)  = les_config(jg)%shflx * rhos * cpd
+            prm_diag%lhfl_s(jc,jb)  = les_config(jg)%lhflx * rhos * alv
             prm_diag%umfl_s(jc,jb)  = ustar**2  * rhos
 
          END DO  
@@ -189,12 +193,11 @@ MODULE mo_surface_les
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
-  
-    !CASE(2)
-     !Fix SST type
+    CASE(1)
+    !Fix SST type
 
 
-   !END SELECT 
+   END SELECT 
 
 
   END SUBROUTINE surface_conditions
@@ -223,7 +226,7 @@ MODULE mo_surface_les
        lamda0 = SQRT(1._wp - 9._wp*zeta0)  
         
        factor = 0.74_wp * ( LOG(z1/z0) + 2._wp*(LOG(1._wp+lamda0)-LOG(1._wp+lamda)) ) &
-                * rkarman
+                * les_config(1)%rkarman_constant
      END IF 
 
   END FUNCTION businger_heat 
@@ -248,9 +251,10 @@ MODULE mo_surface_les
        lamda  = SQRT(SQRT(1._wp - 15._wp*zeta))  
        lamda0 = SQRT(SQRT(1._wp - 15._wp*zeta0))  
         
-       factor = rkarman * ( LOG(z1/z0) + LOG((1._wp+lamda0**2)*(1._wp+lamda0)**2) - &
-                            LOG((1._wp+lamda**2)*(1._wp+lamda)**2) + 2._wp * (      &
-                            ATAN(lamda) - ATAN(lamda0) )  )
+       factor = les_config(1)%rkarman_constant * &
+                ( LOG(z1/z0) + LOG((1._wp+lamda0**2)*(1._wp+lamda0)**2) - &
+                  LOG((1._wp+lamda**2)*(1._wp+lamda)**2) + 2._wp * (      &
+                  ATAN(lamda) - ATAN(lamda0) )  )
      END IF
 
   END FUNCTION businger_mom 
@@ -265,11 +269,11 @@ MODULE mo_surface_les
      INTEGER  :: ITERATE      
 
      !First guess       
-     ustar = wind / (rkarman * LOG(z1/z0))
+     ustar = wind * les_config(1)%karman_constant / LOG(z1/z0)
 
      IF(bflux > 0._wp)THEN   !Unstable case
        DO ITERATE = 1 , 4
-          L = -ustar**3 * rkarman / bflux
+          L = -ustar**3 * les_config(1)%rkarman_constant / bflux
           ustar = wind / businger_mom(z0,z1,L)
        END DO
      ELSEIF(bflux < 0._wp)THEN!Stable case
