@@ -41,7 +41,7 @@ MODULE mo_util_dbg_prnt
 !-------------------------------------------------------------------------
 !
 USE mo_kind,                   ONLY: wp
-USE mo_mpi,                    ONLY: my_process_is_stdio, p_pe
+USE mo_mpi,                    ONLY: my_process_is_stdio, p_pe !, p_comm_work, p_io, get_my_mpi_work_id, p_bcast
 USE mo_io_units,               ONLY: nerr
 USE mo_parallel_config,        ONLY: nproma, p_test_run
 USE mo_impl_constants,         ONLY: max_char_length
@@ -225,7 +225,7 @@ CONTAINS
   INTEGER,               INTENT(OUT)    :: iidx          ! index of nearest cell
   INTEGER,               INTENT(OUT)    :: iblk          ! block of nearest cell
 
-  INTEGER  :: jb, jc, i_startidx, i_endidx, proc_id
+  INTEGER  :: jb, jc, i_startidx, i_endidx, proc_id!, mpi_id
   REAL(wp) :: zlon, zlat, zdist, zdist_cmp, ctr
   REAL(wp) :: zdst_c(nproma,ppatch%nblks_c)
   TYPE(t_subset_range), POINTER :: cells_in_domain!, all_cells
@@ -237,6 +237,7 @@ CONTAINS
 
   !all_cells       => ppatch%cells%all
   cells_in_domain => ppatch%cells%in_domain
+  !owned_cells      => ppatch%cells%owned
 
   ! initial distance to compare
   zdist_cmp = 100000.0_wp
@@ -246,6 +247,11 @@ CONTAINS
   !  loop over all cells including halo
   DO jb = cells_in_domain%start_block, cells_in_domain%end_block
     CALL get_index_range(cells_in_domain, jb, i_startidx, i_endidx)
+
+     ! !  loop over owned cells
+     ! DO jb = owned_cells%start_block, owned_cells%end_block
+     !   CALL get_index_range(owned_cells, jb, i_startidx, i_endidx)
+
     DO jc = i_startidx, i_endidx
 
       zlat    = ppatch%cells%center(jc,jb)%lat * 180.0_wp / pi
@@ -266,9 +272,23 @@ CONTAINS
 
   ! find PE with minimum distance, MPI-broadcast block/index from that PE - not yet
   ! disable p_test_run since global_max will be different
+
   p_test_run_bac = p_test_run
   p_test_run = .false.
+
   ctr = global_max(-zdist,proc_id)
+
+     !!!! BUGFIX - not running yet
+     ! ctr = global_max(-zdist_cmp,proc_id)
+
+     ! ! set indices of minimum cell
+     ! mpi_id = get_my_mpi_work_id()
+     ! IF (mpi_id == proc_id) THEN
+     !   CALL p_bcast(iblk, p_io, p_comm_work)
+     !   CALL p_bcast(iidx, p_io, p_comm_work)
+     !   write(0,*) ' in proc_id = ',proc_id,'  p_io, p_comm_work, mpi_id = ',p_io, p_comm_work, mpi_id
+     ! END IF
+
   p_test_run = p_test_run_bac
 
   zlat    = ppatch%cells%center          (iidx,iblk)%lat * 180.0_wp / pi
@@ -287,8 +307,8 @@ CONTAINS
   IF (p_pe == proc_id) THEN
 
  !  !  loop over all cells with minimum distance
- !  DO jb = cells_in_domain%start_block, cells_in_domain%end_block
- !    CALL get_index_range(cells_in_domain, jb, i_startidx, i_endidx)
+ !  DO jb = owned_cells%start_block, owned_cells%end_block
+ !    CALL get_index_range(owned_cells, jb, i_startidx, i_endidx)
  !    DO jc = i_startidx, i_endidx
  !  
  !      zlat    = ppatch%cells%center(jc,jb)%lat * 180.0_wp / pi
