@@ -128,12 +128,12 @@ CONTAINS
   
   SUBROUTINE uuid2char(uuid, string)
     TYPE(t_uuid), INTENT(in) :: uuid
-    CHARACTER(len=16), INTENT(out) :: string
+    CHARACTER(len=1), INTENT(out) :: string(16)
     string = TRANSFER(uuid%data, string)
   END SUBROUTINE uuid2char
 
   SUBROUTINE char2uuid(string, uuid)
-    CHARACTER(len=16), INTENT(in) :: string
+    CHARACTER(len=1), INTENT(in) :: string(16)
     TYPE(t_uuid), INTENT(out) :: uuid
     uuid%data  = TRANSFER(string, uuid%data)
   END SUBROUTINE char2uuid
