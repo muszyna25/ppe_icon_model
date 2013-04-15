@@ -470,7 +470,8 @@ MODULE mo_impl_constants
   ! Method for computation of mean sea level pressure:
   INTEGER, PARAMETER :: &
     PRES_MSL_METHOD_GME = 1,  &   ! GME-type extrapolation
-    PRES_MSL_METHOD_SAI = 2       ! stepwise analytical integration 
+    PRES_MSL_METHOD_SAI = 2,  &   ! stepwise analytical integration 
+    PRES_MSL_METHOD_IFS = 3       ! current IFS method
 
   ! Max number of time levels:
   INTEGER, PARAMETER :: MAX_TIME_LEVELS = 5
