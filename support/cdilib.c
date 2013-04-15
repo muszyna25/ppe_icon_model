@@ -33046,7 +33046,24 @@ void getLevelFactor(double level, long *factor, double *scale)
   else if ( tmp >= 0.01  && (int)(1000*modf(tmp*100,  &dum)) == 0 ) { *factor = 2; *scale = 100; }
   else if ( tmp >= 0.001 && (int)(1000*modf(tmp*1000, &dum)) == 0 ) { *factor = 3; *scale = 1000; }
   else                                                                  { *factor = 2; *scale = 10; }
+//printf("level, factor, scale, eps: %25.15f %d %10.5f %25.15f\n", level, *factor, *scale, DBL_EPSILON);
 }
+
+/*void getLevelFactor(double level, long *factor, double *scale)
+{
+double dum;
+double eps = 2.0 * DBL_EPSILON;
+double tmp = level + DBL_EPSILON;
+
+  if      ( tmp >= 1     && (1000*modf(tmp,      &dum)) < eps ) { *factor = 0; *scale = 1; }
+  else if ( tmp >= 0.1   && (1000*modf(tmp*10,   &dum)) < eps ) { *factor = 1; *scale = 10; }
+  else if ( tmp >= 0.01  && (1000*modf(tmp*100,  &dum)) < eps ) { *factor = 2; *scale = 100; }
+  else if ( tmp >= 0.001 && (1000*modf(tmp*1000, &dum)) < eps ) { *factor = 3; *scale = 1000; }
+  else                                                          { *factor = 2; *scale = 10; }
+printf("level, factor, scale, eps: %25.15f %d %10.5f %25.15f\n", level, *factor, *scale, DBL_EPSILON);
+}*/
+
+
 #else
 static
 void getLevelFactor(double level, long *factor, double *scale)

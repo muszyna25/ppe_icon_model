@@ -48,7 +48,7 @@ MODULE mo_nwp_rrtm_interface
   USE mo_ext_data_types,       ONLY: t_external_data
   USE mo_parallel_config,      ONLY: nproma, p_test_run, test_parallel_radiation
   USE mo_run_config,           ONLY: msg_level, iqv, iqc, iqi
-  USE mo_impl_constants,       ONLY: min_rlcell_int, icc, io3_ape!, min_rlcell 
+  USE mo_impl_constants,       ONLY: min_rlcell_int, io3_ape!, min_rlcell 
   USE mo_impl_constants_grf,   ONLY: grf_bdywidth_c, grf_ovlparea_start_c
   USE mo_kind,                 ONLY: wp
   USE mo_loopindices,          ONLY: get_indices_c
@@ -708,7 +708,7 @@ CONTAINS
         & qm_ice     =prm_diag%tot_cld  (:,:,jb,iqi) ,&!< in cloud ice mass mixing ratio at t-dt
         & qm_o3      =ext_data%atm%o3   (:,:,jb)     ,&!< in o3 mass mixing ratio at t-dt
         & cdnc       =prm_diag%acdnc    (:,:,jb)     ,&!< in  cloud droplet numb conc. [1/m**3]
-        & cld_frc    =prm_diag%tot_cld  (:,:,jb,icc) ,&!< in  cloud fraction [m2/m2]
+        & cld_frc    =prm_diag%clc      (:,:,jb)     ,&!< in  cloud fraction [m2/m2]
         & zaeq1      = zaeq1(:,:,jb)                 ,&!< in aerosol continental
         & zaeq2      = zaeq2(:,:,jb)                 ,&!< in aerosol maritime
         & zaeq3      = zaeq3(:,:,jb)                 ,&!< in aerosol urban
@@ -792,6 +792,7 @@ CONTAINS
     REAL(wp), ALLOCATABLE, TARGET:: zrg_o3       (:,:,:)
     REAL(wp), ALLOCATABLE, TARGET:: zrg_acdnc    (:,:,:)
     REAL(wp), ALLOCATABLE, TARGET:: zrg_tot_cld  (:,:,:,:)
+    REAL(wp), ALLOCATABLE, TARGET:: zrg_clc      (:,:,:)
     REAL(wp), ALLOCATABLE, TARGET:: zrg_aeq1(:,:,:)
     REAL(wp), ALLOCATABLE, TARGET:: zrg_aeq2(:,:,:)
     REAL(wp), ALLOCATABLE, TARGET:: zrg_aeq3(:,:,:)
@@ -911,7 +912,8 @@ CONTAINS
         zrg_aeq4     (nproma,nlev_rg  ,nblks_par_c),   &
         zrg_aeq5     (nproma,nlev_rg  ,nblks_par_c),   &
         zrg_acdnc    (nproma,nlev_rg  ,nblks_par_c),   &
-        zrg_tot_cld  (nproma,nlev_rg  ,nblks_par_c,4), &
+        zrg_tot_cld  (nproma,nlev_rg  ,nblks_par_c,3), &
+        zrg_clc      (nproma,nlev_rg  ,nblks_par_c),   &
         zrg_aclcov   (nproma,          nblks_par_c),   &
         zrg_lwflxclr (nproma,nlev_rg+1,nblks_par_c),   &
         zrg_lwflxall (nproma,nlev_rg+1,nblks_par_c),   &
@@ -961,12 +963,12 @@ CONTAINS
         & prm_diag%cosmu0, albvisdir, albnirdir, prm_diag%albvisdif,    &
         & albnirdif, prm_diag%tsfctrad, prm_diag%ktype,                 &
         & pt_diag%pres_ifc, pt_diag%pres, pt_diag%temp,prm_diag%acdnc,  &
-        & prm_diag%tot_cld, ext_data%atm%o3(:,:,:),                     &
+        & prm_diag%tot_cld, prm_diag%clc, ext_data%atm%o3(:,:,:),       &
         & zaeq1, zaeq2, zaeq3, zaeq4, zaeq5,                            &
         & zrg_fr_land, zrg_fr_glac, zrg_emis_rad,                       &
         & zrg_cosmu0, zrg_albvisdir, zrg_albnirdir, zrg_albvisdif,      &
         & zrg_albnirdif, zrg_tsfc, zrg_rtype, zrg_pres_ifc, zrg_pres,   &
-        & zrg_temp, zrg_acdnc, zrg_tot_cld, zrg_o3,                     &
+        & zrg_temp, zrg_acdnc, zrg_tot_cld, zrg_clc, zrg_o3,            &
         & zrg_aeq1, zrg_aeq2, zrg_aeq3, zrg_aeq4, zrg_aeq5 )
 
 
@@ -1024,7 +1026,7 @@ CONTAINS
           max_qv(jk) = MAX(max_qv(jk),MAXVAL(zrg_tot_cld(i_startidx:i_endidx,jk,jb,iqv)))
           max_qc(jk) = MAX(max_qc(jk),MAXVAL(zrg_tot_cld(i_startidx:i_endidx,jk,jb,iqc)))
           max_qi(jk) = MAX(max_qi(jk),MAXVAL(zrg_tot_cld(i_startidx:i_endidx,jk,jb,iqi)))
-          max_cc(jk)  = MAX(max_cc(jk),MAXVAL(zrg_tot_cld(i_startidx:i_endidx,jk,jb,icc)))
+          max_cc(jk)  = MAX(max_cc(jk),MAXVAL(zrg_clc(i_startidx:i_endidx,jk,jb)))
           min_pres_ifc(jk) = MIN(min_pres_ifc(jk),MINVAL(zrg_pres_ifc(i_startidx:i_endidx,jk,jb)))
           min_pres(jk)    = MIN(min_pres(jk),MINVAL(zrg_pres     (i_startidx:i_endidx,jk,jb)))
           min_temp(jk)     = MIN(min_temp(jk),MINVAL(zrg_temp     (i_startidx:i_endidx,jk,jb)))
@@ -1032,7 +1034,7 @@ CONTAINS
           min_qv(jk) = MIN(min_qv(jk),MINVAL(zrg_tot_cld(i_startidx:i_endidx,jk,jb,iqv)))
           min_qc(jk) = MIN(min_qc(jk),MINVAL(zrg_tot_cld(i_startidx:i_endidx,jk,jb,iqc)))
           min_qi(jk) = MIN(min_qi(jk),MINVAL(zrg_tot_cld(i_startidx:i_endidx,jk,jb,iqi)))
-          min_cc(jk)  = MIN(min_cc(jk),MINVAL(zrg_tot_cld(i_startidx:i_endidx,jk,jb,icc)))
+          min_cc(jk)  = MIN(min_cc(jk),MINVAL(zrg_clc(i_startidx:i_endidx,jk,jb)))
          ENDDO
         ENDDO ! blocks
 
@@ -1131,7 +1133,7 @@ CONTAINS
             zrg_tot_cld  (1:i_startidx-1,jk,jb,iqv) = zrg_tot_cld(i_startidx,jk,jb,iqv)
             zrg_tot_cld  (1:i_startidx-1,jk,jb,iqc) = zrg_tot_cld(i_startidx,jk,jb,iqc)
             zrg_tot_cld  (1:i_startidx-1,jk,jb,iqi) = zrg_tot_cld(i_startidx,jk,jb,iqi)
-            zrg_tot_cld  (1:i_startidx-1,jk,jb,icc) = zrg_tot_cld(i_startidx,jk,jb,icc)
+            zrg_clc      (1:i_startidx-1,jk,jb) = zrg_clc(i_startidx,jk,jb)
           ENDDO
         ENDIF
 
@@ -1172,7 +1174,7 @@ CONTAINS
           & qm_ice     =zrg_tot_cld (:,:,jb,iqi),&!< in    cloud ice mass mixing ratio at t-dt
           & qm_o3      = zrg_o3     (:,:,jb)    ,&!< in    O3
           & cdnc       =zrg_acdnc   (:,:,jb)    ,&!< in    cloud droplet numb. conc. [1/m**3]
-          & cld_frc    =zrg_tot_cld (:,:,jb,icc),&!< in    cld_frac = cloud fraction [m2/m2]
+          & cld_frc    =zrg_clc    (:,:,jb)     ,&!< in    cld_frac = cloud fraction [m2/m2]
           & zaeq1      = zrg_aeq1(:,:,jb)       ,&!< in aerosol continental
           & zaeq2      = zrg_aeq2(:,:,jb)       ,&!< in aerosol maritime
           & zaeq3      = zrg_aeq3(:,:,jb)       ,&!< in aerosol urban
@@ -1195,15 +1197,15 @@ CONTAINS
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
-      CALL downscale_rad_output(pt_patch%id, pt_par_patch%id,                           &
-        &  nlev_rg, zrg_aclcov, zrg_lwflxclr, zrg_lwflxall, zrg_trsolclr,                  &
-        & zrg_trsolall, zrg_tsfc, zrg_albvisdif, zrg_emis_rad, zrg_cosmu0, zrg_tot_cld,    &
-        & zrg_pres_ifc, prm_diag%tsfctrad, prm_diag%albvisdif, aclcov, prm_diag%lwflxclr, &
-        & prm_diag%lwflxall, prm_diag%trsolclr, prm_diag%trsolall )
+      CALL downscale_rad_output(pt_patch%id, pt_par_patch%id,                             &
+        &  nlev_rg, zrg_aclcov, zrg_lwflxclr, zrg_lwflxall, zrg_trsolclr,                 &
+        & zrg_trsolall, zrg_tsfc, zrg_albvisdif, zrg_emis_rad, zrg_cosmu0, zrg_tot_cld,   &
+        & zrg_pres_ifc, prm_diag%tsfctrad, prm_diag%albvisdif, aclcov,                    &
+        & prm_diag%lwflxclr, prm_diag%lwflxall, prm_diag%trsolclr, prm_diag%trsolall )
 
       DEALLOCATE (zrg_cosmu0, zrg_albvisdir, zrg_albnirdir, zrg_albvisdif, zrg_albnirdif, &
         zrg_tsfc, zrg_pres_ifc, zrg_pres, zrg_temp, zrg_o3, zrg_ktype,                    &
-        zrg_aeq1,zrg_aeq2,zrg_aeq3,zrg_aeq4,zrg_aeq5, zrg_acdnc, zrg_tot_cld,             &
+        zrg_aeq1,zrg_aeq2,zrg_aeq3,zrg_aeq4,zrg_aeq5, zrg_acdnc, zrg_tot_cld, zrg_clc,    &
         zrg_aclcov, zrg_lwflxclr, zrg_lwflxall, zrg_trsolclr, zrg_trsolall,               &
         zrg_fr_land,zrg_fr_glac,zrg_emis_rad)
       
@@ -1385,7 +1387,7 @@ CONTAINS
           & qm_ice     =prm_diag%tot_cld  (:,:,jb,iqi) ,&!< in cloud ice mass mixing ratio at t-dt
           & qm_o3      =ext_data%atm%o3   (:,:,jb)     ,&!< in o3 mass mixing ratio at t-dt
           & cdnc       =prm_diag%acdnc    (:,:,jb)     ,&!< in  cloud droplet numb conc. [1/m**3]
-          & cld_frc    =prm_diag%tot_cld  (:,:,jb,icc) ,&!< in  cloud fraction [m2/m2]
+          & cld_frc    =prm_diag%clc      (:,:,jb)     ,&!< in  cloud fraction [m2/m2]
           & zaeq1      = zaeq1(:,:,jb)                 ,&!< in aerosol continental
           & zaeq2      = zaeq2(:,:,jb)                 ,&!< in aerosol maritime
           & zaeq3      = zaeq3(:,:,jb)                 ,&!< in aerosol urban
@@ -1439,7 +1441,7 @@ CONTAINS
           & qm_ice     =prm_diag%tot_cld  (:,:,:,iqi) ,&!< in cloud ice mass mixing ratio at t-dt
           & qm_o3      =ext_data%atm%o3   (:,:,:)     ,&!< in o3 mass mixing ratio at t-dt
           & cdnc       =prm_diag%acdnc    (:,:,:)     ,&!< in  cloud droplet numb conc. [1/m**3]
-          & cld_frc    =prm_diag%tot_cld  (:,:,:,icc) ,&!< in  cloud fraction [m2/m2]
+          & cld_frc    =prm_diag%clc      (:,:,:)     ,&!< in  cloud fraction [m2/m2]
           & zaeq1      = zaeq1(:,:,:)                 ,&!< in aerosol continental
           & zaeq2      = zaeq2(:,:,:)                 ,&!< in aerosol maritime
           & zaeq3      = zaeq3(:,:,:)                 ,&!< in aerosol urban

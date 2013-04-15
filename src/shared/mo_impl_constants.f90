@@ -379,9 +379,6 @@ MODULE mo_impl_constants
   INTEGER, PARAMETER :: impiom         = -1 !   - MPIOM physics
 
   
-  ! auxiliary parameter to access single field of the 4D array prm_diag%tot_cld
-  INTEGER, PARAMETER :: icc = 4    !! diagnostic cloud fraction in prm_diag%tot_cld
-
 
   !---------------------!
   !        LAND         !

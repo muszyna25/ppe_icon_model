@@ -142,7 +142,7 @@ MODULE mo_meteogram_output
     &                                 p_barrier
   USE mo_model_domain,          ONLY: t_patch
   USE mo_parallel_config,       ONLY: nproma, p_test_run
-  USE mo_impl_constants,        ONLY: inwp, max_dom, SUCCESS, zml_soil, icc, &
+  USE mo_impl_constants,        ONLY: inwp, max_dom, SUCCESS, zml_soil, &
     &                                 MAX_CHAR_LENGTH
   USE mo_communication,         ONLY: idx_1d, blk_no, idx_no
   USE mo_ext_data_types,        ONLY: t_external_data
@@ -437,8 +437,8 @@ CONTAINS
     CALL add_atmo_var(IBSET(VAR_GROUP_ATMO_ML, FLAG_DIAG), "REL_HUM", "%", "relative humidity", &
       &               jg, prog%tracer_ptr(iqv)%p_3d(:,:,:))
 
-    CALL add_atmo_var(VAR_GROUP_ATMO_ML, "CLC", "-", "total cloud cover", jg, &
-      &               prm_diag%tot_cld(:,:,:,:), icc)
+    CALL add_atmo_var(VAR_GROUP_ATMO_ML, "CLC", "-", "cloud cover", jg, &
+      &               prm_diag%clc(:,:,:))
     CALL add_atmo_var(VAR_GROUP_ATMO_HL, "TKVM", "m**2/s",             &
       &               "turbulent diffusion coefficients for momentum", &
       &               jg, prm_diag%tkvm(:,:,:))

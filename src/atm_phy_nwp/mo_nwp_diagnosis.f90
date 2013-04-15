@@ -53,13 +53,13 @@ MODULE mo_nwp_diagnosis
 
   USE mo_kind,               ONLY: wp
 
-  USE mo_impl_constants,     ONLY: itccov, itfastphy, icc, min_rlcell_int
+  USE mo_impl_constants,     ONLY: itccov, itfastphy, min_rlcell_int
   USE mo_impl_constants_grf, ONLY: grf_bdywidth_c
   USE mo_loopindices,        ONLY: get_indices_c
   USE mo_intp_data_strc,     ONLY: t_int_state
   USE mo_exception,          ONLY: message, message_text
   USE mo_model_domain,       ONLY: t_patch
-  USE mo_run_config,         ONLY: msg_level, iqv, iqc
+  USE mo_run_config,         ONLY: msg_level, iqv, iqc, iqr, iqs
   USE mo_nonhydro_types,     ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_nwp_phy_types,      ONLY: t_nwp_phy_diag, t_nwp_phy_tend
   USE mo_parallel_config,    ONLY: nproma
@@ -169,26 +169,39 @@ CONTAINS
     i_startblk = pt_patch%cells%start_blk(rl_start,1)
     i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
     
-! if cloud cover is called, vertical integration of cloud content(for iqv, iqc, iqi)
+! if cloud cover is called, vertical integration of cloud content
+! (for iqv, iqc, iqi, iqr, iqs)
 
 !$OMP PARALLEL PRIVATE(l_s6avg,p_sim_time_s6)
 
     IF ( lcall_phy_jg(itccov) ) THEN
 
-!$OMP DO PRIVATE(jb, z_help,i_startidx,i_endidx,jc,jk) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,z_help,i_startidx,i_endidx,jc,jk) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk, i_endblk
         !
         CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
           & i_startidx, i_endidx, rl_start, rl_end)
 
-        prm_diag%tot_cld_vi(i_startidx:i_endidx,jb,1:3) = 0.0_wp
+        prm_diag%tot_cld_vi(i_startidx:i_endidx,jb,1:5) = 0.0_wp
 
         DO jk = kstart_moist, nlev
           DO jc = i_startidx, i_endidx
 
            z_help = p_metrics%ddqz_z_full(jc,jk,jb) * pt_prog%rho(jc,jk,jb)  
+
+           ! TQV, TQC, TQI
            prm_diag%tot_cld_vi(jc, jb,1:3) = prm_diag%tot_cld_vi(jc, jb,1:3)    + &
-                                             z_help * prm_diag%tot_cld(jc,jk,jb,1:3) 
+                                             z_help * prm_diag%tot_cld(jc,jk,jb,1:3)
+
+           !TQR : vertical integral of prognostic rain field
+           ! identical to grid scale tracer pt_diag%tracer_vi(:,:,iqr)
+           prm_diag%tot_cld_vi(jc, jb,iqr) = prm_diag%tot_cld_vi(jc, jb,iqr)    + &
+                                           z_help * pt_prog_rcf%tracer(jc,jk,jb,iqr)
+
+           !TQS : vertical integral of prognostic snow field
+           ! identical to grid scale tracer pt_diag%tracer_vi(:,:,iqs)
+           prm_diag%tot_cld_vi(jc, jb,iqs) = prm_diag%tot_cld_vi(jc, jb,iqs)    + &
+                                           z_help * pt_prog_rcf%tracer(jc,jk,jb,iqs)
           ENDDO
         ENDDO
       ENDDO ! nblks  
@@ -230,14 +243,14 @@ CONTAINS
 
         ! cloud cover
         DO jc = i_startidx, i_endidx
-          clearsky(jc) = 1._wp - prm_diag%tot_cld(jc,kstart_moist,jb,icc)
+          clearsky(jc) = 1._wp - prm_diag%clc(jc,kstart_moist,jb)
         ENDDO
 
         DO jk = kstart_moist+1, ih_clch
           DO jc = i_startidx, i_endidx
             clearsky(jc) = clearsky(jc)*    &
-            &  ( 1._wp - MAX( prm_diag%tot_cld(jc,jk  ,jb,icc), prm_diag%tot_cld(jc,jk-1,jb,icc))) &
-            & /( 1._wp - MIN( prm_diag%tot_cld(jc,jk-1,jb,icc), 1._wp - eps_clc) )
+            &  ( 1._wp - MAX( prm_diag%clc(jc,jk  ,jb), prm_diag%clc(jc,jk-1,jb))) &
+            & /( 1._wp - MIN( prm_diag%clc(jc,jk-1,jb), 1._wp - eps_clc) )
           ENDDO
         ENDDO
 
@@ -250,38 +263,39 @@ CONTAINS
         DO jk = ih_clch+1, nlev
           DO jc = i_startidx, i_endidx
             clearsky(jc) = clearsky(jc)*    &
-            &  ( 1._wp - MAX( prm_diag%tot_cld(jc,jk,jb,icc), prm_diag%tot_cld(jc,jk-1,jb,icc))) &
-            & /( 1._wp - MIN( prm_diag%tot_cld(jc,jk-1,jb,icc), 1._wp - eps_clc) )
+            &  ( 1._wp - MAX( prm_diag%clc(jc,jk,jb), prm_diag%clc(jc,jk-1,jb))) &
+            & /( 1._wp - MIN( prm_diag%clc(jc,jk-1,jb), 1._wp - eps_clc) )
           ENDDO
         ENDDO
 
         ! store total cloud cover (in %), start for mid-level clouds
         DO jc = i_startidx, i_endidx
-          prm_diag%tot_cld_vi(jc,jb,icc) = 100._wp*MAX( 0._wp, 1._wp - clearsky(jc) - eps_clc)
-          clearsky(jc) = 1._wp - prm_diag%tot_cld(jc,ih_clch+1,jb,icc)
+          prm_diag%clct(jc,jb)           = 100._wp*MAX( 0._wp, 1._wp - clearsky(jc) - eps_clc)
+          clearsky(jc) = 1._wp - prm_diag%clc(jc,ih_clch+1,jb)
         ENDDO
 
         ! mid-level clouds
         DO jk = ih_clch+2, ih_clcm
           DO jc = i_startidx, i_endidx
             clearsky(jc) = clearsky(jc)*    &
-            &  ( 1._wp - MAX( prm_diag%tot_cld(jc,jk,jb,icc), prm_diag%tot_cld(jc,jk-1,jb,icc))) &
-            & /( 1._wp - MIN( prm_diag%tot_cld(jc,jk-1,jb,icc), 1._wp - eps_clc) )
+            &  ( 1._wp - MAX( prm_diag%clc(jc,jk,jb), prm_diag%clc(jc,jk-1,jb))) &
+            & /( 1._wp - MIN( prm_diag%clc(jc,jk-1,jb), 1._wp - eps_clc) )
           ENDDO
         ENDDO
 
         ! store mid-level cloud cover, start for low-level clouds
         DO jc = i_startidx, i_endidx
           prm_diag%clcm(jc,jb) = 100._wp*MAX( 0._wp, 1._wp - clearsky(jc) - eps_clc)
-          clearsky(jc) = 1._wp - prm_diag%tot_cld(jc,ih_clcm+1,jb,icc)
+
+          clearsky(jc) = 1._wp - prm_diag%clc(jc,ih_clcm+1,jb)
         ENDDO
 
         ! continue downward for mid-level clouds
         DO jk = ih_clcm+2, nlev
           DO jc = i_startidx, i_endidx
             clearsky(jc) = clearsky(jc)*    &
-            &  ( 1._wp - MAX( prm_diag%tot_cld(jc,jk,jb,icc), prm_diag%tot_cld(jc,jk-1,jb,icc))) &
-            & /( 1._wp - MIN( prm_diag%tot_cld(jc,jk-1,jb,icc), 1._wp - eps_clc) )
+            &  ( 1._wp - MAX( prm_diag%clc(jc,jk,jb), prm_diag%clc(jc,jk-1,jb))) &
+            & /( 1._wp - MIN( prm_diag%clc(jc,jk-1,jb), 1._wp - eps_clc) )
           ENDDO
         ENDDO
 
@@ -315,7 +329,8 @@ CONTAINS
 
     END IF !cloud cover
 
-! average values of the vertically integrated total cloud contents (for iqv, iqc, iqi, icc)
+! average values of the vertically integrated total cloud contents (for iqv, iqc, iqi)
+! and total cloud cover
 ! from the model start
 
 
@@ -328,9 +343,15 @@ CONTAINS
           & i_startidx, i_endidx, rl_start, rl_end)
         DO jc = i_startidx, i_endidx
 
-         prm_diag%tot_cld_vi_avg(jc,jb,1:4) = ( prm_diag%tot_cld_vi_avg(jc,jb,1:4) &
+         prm_diag%tot_cld_vi_avg(jc,jb,1:3) = ( prm_diag%tot_cld_vi_avg(jc,jb,1:3) &
                                &  * (p_sim_time - dt_phy_jg(itfastphy))       &
-                               &  + prm_diag%tot_cld_vi(jc,jb,1:4)            &
+                               &  + prm_diag%tot_cld_vi(jc,jb,1:3)            &
+                               &  * dt_phy_jg(itfastphy) )                    &
+                               &  * r_sim_time
+
+         prm_diag%clct_avg(jc,jb) = ( prm_diag%clct_avg(jc,jb)                &
+                               &  * (p_sim_time - dt_phy_jg(itfastphy))       &
+                               &  + prm_diag%clct(jc,jb)                      &
                                &  * dt_phy_jg(itfastphy) )                    &
                                &  * r_sim_time 
         ENDDO

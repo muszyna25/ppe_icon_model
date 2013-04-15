@@ -104,8 +104,7 @@ MODULE mo_io_vlist
   USE mo_exception,             ONLY: finish, message, message_text
   USE mo_datetime,              ONLY: t_datetime, print_datetime
   USE mo_impl_constants,        ONLY: max_char_length, max_dom, modelname,        &
-    &                                 modelversion, icc, zml_soil,                &
-    &                                 max_ntracer,                                &
+    &                                 modelversion, zml_soil, max_ntracer,        &
     &                                 ntrac_oce, ihs_atm_temp, ihs_atm_theta,     &
     &                                 inh_atmosphere, ishallow_water,             &
     &                                 inwp, iecham,ildf_echam, ihs_ocean
@@ -3247,15 +3246,15 @@ CONTAINS
       CASE ('QV');              ptr3 => prm_diag(jg)%tot_cld(:,:,:,iqv)
       CASE ('QC');              ptr3 => prm_diag(jg)%tot_cld(:,:,:,iqc)
       CASE ('QI');              ptr3 => prm_diag(jg)%tot_cld(:,:,:,iqi)
-      CASE ('CC');              ptr3 => prm_diag(jg)%tot_cld(:,:,:,icc)
+      CASE ('CC');              ptr3 => prm_diag(jg)%clc(:,:,:)
       CASE ('TQV');             ptr2 => prm_diag(jg)%tot_cld_vi(:,:,iqv)
       CASE ('TQC');             ptr2 => prm_diag(jg)%tot_cld_vi(:,:,iqc)
       CASE ('TQI');             ptr2 => prm_diag(jg)%tot_cld_vi(:,:,iqi)
-      CASE ('TCC');             ptr2 => prm_diag(jg)%tot_cld_vi(:,:,icc)
+      CASE ('TCC');             ptr2 => prm_diag(jg)%clct(:,:)
       CASE ('TQV_avg');           ptr2 => prm_diag(jg)%tot_cld_vi_avg(:,:,iqv)
       CASE ('TQC_avg');           ptr2 => prm_diag(jg)%tot_cld_vi_avg(:,:,iqc)
       CASE ('TQI_avg');           ptr2 => prm_diag(jg)%tot_cld_vi_avg(:,:,iqi)
-      CASE ('TCC_avg');           ptr2 => prm_diag(jg)%tot_cld_vi_avg(:,:,icc)
+      CASE ('TCC_avg');           ptr2 => prm_diag(jg)%clct_avg(:,:)
       CASE ('ZF3');             ptr3 => p_nh_state(jg)%metrics%z_mc
       CASE ('ZH3');             ptr3 => p_nh_state(jg)%metrics%z_ifc
       CASE ('PRR_GSP');         ptr2 => prm_diag(jg)%rain_gsp_rate(:,:)

@@ -2268,6 +2268,7 @@ CONTAINS
         ENDDO
         ubounds(:) = ubounds(:) * 1000._dp        ! in mm
         lbounds(:) = lbounds(:) * 1000._dp        ! in mm
+
       END IF
       CALL zaxisDefLbounds(of%cdiZaxisID(ZA_depth_below_land), lbounds) !necessary for GRIB2
       CALL zaxisDefUbounds(of%cdiZaxisID(ZA_depth_below_land), ubounds) !necessary for GRIB2

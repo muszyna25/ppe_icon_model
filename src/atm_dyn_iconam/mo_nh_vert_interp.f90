@@ -56,7 +56,7 @@ MODULE mo_nh_vert_interp
   USE mo_grid_config,         ONLY: n_dom
   USE mo_run_config,          ONLY: iforcing, iqv, iqc, iqr, iqi, iqs
   USE mo_io_config,           ONLY: itype_pres_msl
-  USE mo_impl_constants,      ONLY: icc, inwp, SUCCESS
+  USE mo_impl_constants,      ONLY: inwp, SUCCESS
   USE mo_exception,           ONLY: finish, message, message_text
   USE mo_initicon_config,     ONLY: nlev_in, zpbl1, zpbl2, &
                                     l_coarse2fine_mode

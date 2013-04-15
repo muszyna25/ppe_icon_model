@@ -44,7 +44,7 @@ MODULE mo_nwp_rad_interface
   USE mo_parallel_config,      ONLY: nproma, p_test_run, parallel_radiation_mode
 
   USE mo_run_config,           ONLY: msg_level, iqv, iqc, iqi
-  USE mo_impl_constants,       ONLY: min_rlcell_int, icc, io3_ape!, min_rlcell 
+  USE mo_impl_constants,       ONLY: min_rlcell_int, io3_ape!, min_rlcell 
   USE mo_impl_constants_grf,   ONLY: grf_bdywidth_c, grf_ovlparea_start_c
   USE mo_kind,                 ONLY: wp
   USE mo_loopindices,          ONLY: get_indices_c
@@ -319,7 +319,7 @@ MODULE mo_nwp_rad_interface
                                 !  Input:
         & pti = pt_diag%temp_ifc (:,:,jb) , &! Temperature at layer boundaries
         & pdp = pt_diag%dpres_mc (:,:,jb), &! pressure thickness
-        & pclc_in= prm_diag%tot_cld  (:,:,jb,icc) , &
+        & pclc_in= prm_diag%clc  (:,:,jb)   , &
         & pqv = prm_diag%tot_cld(:,:,jb,iqv), &
         & pqvs = zsqv(:,:,jb), &!saturation water vapor
         & pqcwc = prm_diag%tot_cld    (:,:,jb,iqc) ,&
@@ -411,6 +411,7 @@ MODULE mo_nwp_rad_interface
     REAL(wp), ALLOCATABLE, TARGET:: zrg_tsfc     (:,:)
     REAL(wp), ALLOCATABLE, TARGET:: zrg_o3       (:,:,:)
     REAL(wp), ALLOCATABLE, TARGET:: zrg_tot_cld  (:,:,:,:)
+    REAL(wp), ALLOCATABLE, TARGET:: zrg_clc      (:,:,:)
     ! Output fields
     REAL(wp), ALLOCATABLE, TARGET:: zrg_lwflxall (:,:,:)
     REAL(wp), ALLOCATABLE, TARGET:: zrg_trsolall (:,:,:)
@@ -563,7 +564,8 @@ MODULE mo_nwp_rad_interface
       zrg_aeq3     (nproma,nlev_rg  ,nblks_par_c),   &
       zrg_aeq4     (nproma,nlev_rg  ,nblks_par_c),   &
       zrg_aeq5     (nproma,nlev_rg  ,nblks_par_c),   &
-      zrg_tot_cld  (nproma,nlev_rg  ,nblks_par_c,4), &
+      zrg_tot_cld  (nproma,nlev_rg  ,nblks_par_c,3), &
+      zrg_clc      (nproma,nlev_rg  ,nblks_par_c)  , &
       zrg_fls      (nproma,nlevp1_rg,nblks_par_c),   &
       zrg_flsp     (nproma,          nblks_par_c),   &
       zrg_flsd     (nproma,          nblks_par_c),   &
@@ -614,10 +616,10 @@ MODULE mo_nwp_rad_interface
 
     CALL upscale_rad_input_rg( pt_patch%id, pt_par_patch%id,  nlev_rg, nlevp1_rg,            &
       & prm_diag%cosmu0, prm_diag%albvisdif, alb_ther, pt_diag%temp_ifc,                     &
-      & pt_diag%dpres_mc, prm_diag%tot_cld, zsqv ,zduco2, zduo3,                             &
+      & pt_diag%dpres_mc, prm_diag%tot_cld, prm_diag%clc, zsqv ,zduco2, zduo3,               &
       & zaeq1,zaeq2,zaeq3,zaeq4,zaeq5,pt_diag%pres_sfc,pt_diag%pres_ifc,                     &
       & zrg_cosmu0, zrg_albvisdif, zrg_alb_ther, zrg_temp_ifc, zrg_dpres_mc,                 &
-      & zrg_tot_cld, zrg_sqv ,zrg_duco2, zrg_o3,                                             &
+      & zrg_tot_cld, zrg_clc,zrg_sqv ,zrg_duco2, zrg_o3,                                     &
       & zrg_aeq1,zrg_aeq2,zrg_aeq3,zrg_aeq4,zrg_aeq5,zrg_pres_sfc     )
 
     rl_start = grf_ovlparea_start_c
@@ -651,7 +653,7 @@ MODULE mo_nwp_rad_interface
                                          !  Input:
         & pti = zrg_temp_ifc (:,:,jb) , &! Temperature at layer boundaries
         & pdp = zrg_dpres_mc (:,:,jb), &! pressure thickness
-        & pclc_in= zrg_tot_cld  (:,:,jb,icc) , &
+        & pclc_in= zrg_clc   (:,:,jb) , &
         & pqv = zrg_tot_cld(:,:,jb,iqv), &
         & pqvs = zrg_sqv(:,:,jb), &!saturation water vapor
         & pqcwc = zrg_tot_cld    (:,:,jb,iqc) ,&
@@ -748,7 +750,8 @@ MODULE mo_nwp_rad_interface
     DEALLOCATE (zrg_cosmu0,zrg_tsfc,zrg_albvisdif,zrg_alb_ther,             &
       & zrg_pres_sfc,zrg_temp_ifc,zrg_dpres_mc,zrg_sqv,zrg_duco2,zrg_o3,    &
       & zrg_aeq1,zrg_aeq2,zrg_aeq3,zrg_aeq4,zrg_aeq5,                       &
-      & zrg_tot_cld,zrg_fls,zrg_flsp,zrg_flsd,zrg_flsu,zrg_lwflxall,zrg_trsolall)
+      & zrg_tot_cld, zrg_clc, zrg_fls, zrg_flsp, zrg_flsd, zrg_flsu,        &
+      & zrg_lwflxall,zrg_trsolall)
 
   END SUBROUTINE nwp_rg_radiation_reduced
 

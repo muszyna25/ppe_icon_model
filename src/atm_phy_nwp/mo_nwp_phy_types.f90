@@ -151,8 +151,6 @@ MODULE mo_nwp_phy_types
                                  !! 6= humidity in updraft region (pqu)
                                  !! 7= condensate in updraft region (plu)
       &  rain_upd(:,:),        & !! total precipitation produced in updrafts [kg/m2/s]
-      &  hbas_con(:,:),        & !! height of base of convection [m]
-      &  htop_con(:,:),        & !! height of top of convection [m]
       &  hzerocl(:,:),         & !! height of 0 deg C level [m]
       &  shfl_s(:,:),          & !! sensible heat flux (surface) ( W/m2)
       &  shfl_s_t(:,:,:),      & !! sensible heat flux (surface) ( W/m2)
@@ -174,15 +172,19 @@ MODULE mo_nwp_phy_types
                                  !! = average of evaporation rate at surface
       &  alhfl_bs(:,:),        & !! average or accumulated since model start of lhfl_bs [W/m2]
       &  alhfl_pl(:,:,:),      & !! average or accumulated since model start of lhfl_pl [W/m2]
-      &  tot_cld(:,:,:,:),     & !! total cloud variables (cc,qv,qc,qi)
-      &  tot_cld_vi(:,:,:),    & !! vertically integrated tot_cld (cc,qv,qc,qi) 
-                                 !! for cc, instead of the vertically integrated value, 
-                                 !! this is the cloud cover assuming maximum-random overlap
-      &  tot_cld_vi_avg(:,:,:),& !! average since model start of the 
-                                 !! vertically integrated tot_cld (cc,qv,qc,qi)  
+      &  clc(:,:,:),           & !! cloud cover  
+      &  clct(:,:),            & !! total cloud cover  
       &  clch(:,:),            & !! cloud cover of high-level clouds
       &  clcm(:,:),            & !! cloud cover of mid-level clouds
       &  clcl(:,:),            & !! cloud cover of low-level clouds
+      &  hbas_con(:,:),        & !! height of base of convection [m]
+      &  htop_con(:,:),        & !! height of top of convection [m]
+      &  tot_cld(:,:,:,:),     & !! total cloud variables (cc,qv,qc,qi)
+      &  tot_cld_vi(:,:,:),    & !! vertically integrated tot_cld (qv,qc,qi), icluding vertical 
+                                 !! integrals of qr and qs 
+      &  tot_cld_vi_avg(:,:,:),& !! average since model start of the 
+                                 !! vertically integrated tot_cld (qv,qc,qi)
+      &  clct_avg(:,:),        & !! average since model start of the total cloud cover  
       &  cosmu0(:,:),          & !! cosine of solar zenith angle
       &  albvisdif(:,:),       & !! surface albedo for visible range, diffuse
       &  albvisdif_t(:,:,:),   & !! tile-based surface albedo for visible range, diffuse

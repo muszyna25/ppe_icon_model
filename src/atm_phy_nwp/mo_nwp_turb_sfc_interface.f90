@@ -52,7 +52,7 @@ MODULE mo_nwp_turb_sfc_interface
   USE mo_kind,                 ONLY: wp
   USE mo_exception,            ONLY: message, message_text, finish
   USE mo_model_domain,         ONLY: t_patch
-  USE mo_impl_constants,       ONLY: min_rlcell_int, icc
+  USE mo_impl_constants,       ONLY: min_rlcell_int
   USE mo_impl_constants_grf,   ONLY: grf_bdywidth_c
   USE mo_loopindices,          ONLY: get_indices_c
   USE mo_physical_constants,   ONLY: alv, rd_o_cpd, grav
@@ -440,7 +440,7 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
             !
             & paphm1 = p_diag%pres_ifc(:,:,jb),  papm1 = p_diag%pres         (:,:,jb),&! in
             & pdelpm1= p_diag%dpres_mc(:,:,jb),  pgeom1= p_metrics%geopot_agl(:,:,jb),&! in
-            & ptvm1  = p_diag%tempv   (:,:,jb),  paclc = prm_diag%tot_cld(:,:,jb,icc),&! in
+            & ptvm1  = p_diag%tempv   (:,:,jb),  paclc = prm_diag%clc(:,:,jb)        ,&! in
             & ptkem1 = p_prog_now_rcf%tke (:,2:nlevp1,jb)                            ,&! in
             !
             & pxt_emis= zdummy_ith    (:,:,jb)                                       ,&! in
@@ -732,7 +732,7 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
         & PQM1    = p_prog_rcf%tracer(:,:,jb,iqv)              ,&! (IN)
         & PLM1    = p_prog_rcf%tracer(:,:,jb,iqc)              ,&! (IN)
         & PIM1    = p_prog_rcf%tracer(:,:,jb,iqi)              ,&! (IN)
-        & PAM1    = prm_diag%tot_cld (:,:,jb,icc)              ,&! (IN)
+        & PAM1    = prm_diag%clc (:,:,jb)                      ,&! (IN)
         & PCM1    = zdummy_vdf_6a                              ,&! (IN)  tracer - for VDF transport
         & PAPHM1  = p_diag%pres_ifc         (:,:,jb)           ,&! (IN)
         & PAPM1   = p_diag%pres             (:,:,jb)           ,&! (IN)
@@ -898,7 +898,7 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
           prm_diag%tot_cld (jc,jk,jb,iqv) =        p_prog_rcf%tracer(jc,jk,jb,iqv)
           prm_diag%tot_cld (jc,jk,jb,iqc) =        p_prog_rcf%tracer(jc,jk,jb,iqc)
           prm_diag%tot_cld (jc,jk,jb,iqi) =        p_prog_rcf%tracer(jc,jk,jb,iqi)
-          prm_diag%tot_cld (jc,jk,jb,icc) = MIN(MAX(prm_diag%tot_cld(jc,jk,jb,icc) &
+          prm_diag%clc (jc,jk,jb) = MIN(MAX(prm_diag%clc(jc,jk,jb) &
                  & + tcall_turb_jg * zae(jc,jk), 0._wp), 1._wp)
 
 ! Update wind speed with turbulence tendencies:
