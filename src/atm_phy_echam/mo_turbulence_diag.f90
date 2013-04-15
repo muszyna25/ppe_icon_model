@@ -1206,7 +1206,7 @@ CONTAINS
 !
       IF(jsfc == idx_lnd) THEN
         pcpt_sfc(js,jsfc) = ptsfc(js,jsfc)*cpd*(1._wp+vtmpc2*    &
-                (pcsat(js)*pqsat_sfc(js,jsfc)+1._wp-pcair(js))*pqm1_b(js))
+                (pcsat(js)*pqsat_sfc(js,jsfc)+(1._wp-pcair(js))*pqm1_b(js)))
 ! TODO: zhsoil has to be defined by jsbach
 !        zqts              = pqsat_sfc(js,jsfc)*zhsoil(js)              ! q_total at land surface
         zqts              = pqsat_sfc(js,jsfc)
