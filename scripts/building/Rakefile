@@ -28,6 +28,9 @@ REMOTE_USER = 'm300064'
 # local master source code directory
 SRCDIR = '/home/ram/src/git/icon'
 
+# remote runscripts
+REMOTE_RUN = 'exp.test_oce_default.run'
+
 # basic host setup
 $hosts = {
   # local port forwarding setup for thunder4 and 5
@@ -152,7 +155,7 @@ $configureCall = lambda {|build|
 $excludeFiles = lambda {|build|
   list = "--exclude='.git/*'"
   list << " --exclude='experiments/**/*nc*' --exclude='**/*.o'  --exclude='build/*' --exclude='**/*.run' --exclude=config/mh-config-use --exclude=config.log --exclude=Makefile --exclude=build_command"
-  list << " --exclude=config/mh-override " if isRemote?(build)
+  list << " --exclude=config/mh-override --exclude=config/mh-config-use" if isRemote?(build)
   list
 }
 
@@ -199,7 +202,7 @@ def doClean(build)
   call(connect(build,"make clean"))
 end
 def doRun(build)
-  call(connect(build,"./exp.test_oce_default.run;"))
+  call(connect(build,"./make_runscripts test_oce_default ; cd run;./exp.test_oce_default.run;"))
 end
 
 $builds.each_key {|build|
