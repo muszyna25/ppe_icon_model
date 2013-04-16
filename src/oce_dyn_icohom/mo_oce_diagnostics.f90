@@ -58,7 +58,7 @@ MODULE mo_oce_diagnostics
   USE mo_loopindices,        ONLY: get_indices_c!, get_indices_e
   USE mo_oce_physics,        ONLY: t_ho_params
   USE mo_sea_ice_types,      ONLY: t_sfc_flx, t_sea_ice
-  USE mo_datetime,           ONLY: t_datetime
+  USE mo_datetime,           ONLY: t_datetime, datetime_to_string, date_len
   USE mo_linked_list,        ONLY: t_var_list
   USE mo_var_list,           ONLY: add_var,                  &
     &                              new_var_list,             &
@@ -160,14 +160,14 @@ CONTAINS
 ! Developed  by  Peter Korn, MPI-M (2010).
 ! 
 SUBROUTINE calculate_oce_diagnostics(p_patch_3D, p_os, p_sfc_flx, p_ice, &
-    & p_phys_param, timestep, datestring, oce_ts)
+    & p_phys_param, timestep, datetime, oce_ts)
   TYPE(t_patch_3D ),TARGET, INTENT(IN)    :: p_patch_3D
   TYPE(t_hydro_ocean_state), TARGET       :: p_os
   TYPE(t_sfc_flx),    INTENT(IN)          :: p_sfc_flx
   TYPE (t_sea_ice),   INTENT(IN)          :: p_ice
   TYPE (t_ho_params)                      :: p_phys_param
   INTEGER                                 :: timestep
-  CHARACTER(len=32)                       :: datestring
+  TYPE(t_datetime), INTENT(IN)            :: datetime
   TYPE(t_oce_timeseries),POINTER          :: oce_ts
 
   !Local variables
@@ -182,6 +182,7 @@ SUBROUTINE calculate_oce_diagnostics(p_patch_3D, p_os, p_sfc_flx, p_ice, &
   TYPE(t_oce_monitor),  POINTER :: monitor
   CHARACTER(len=1024)           :: line, nvars
   CHARACTER(len=1024)           :: fmt_string, real_fmt
+  CHARACTER(len=date_len)       :: datestring
 
   !-----------------------------------------------------------------------
   p_patch        => p_patch_3D%p_patch_2D(1)
@@ -193,6 +194,7 @@ SUBROUTINE calculate_oce_diagnostics(p_patch_3D, p_os, p_sfc_flx, p_ice, &
   prism_vol      = 0.0_wp
   prism_area     = 0.0_wp
   z_w            = 0.0_wp
+  CALL datetime_to_string(datestring, datetime, plain=.TRUE.)
 
   !cell loop to calculate cell based monitored fields volume, kinetic energy and tracer content
   SELECT CASE (iswm_oce)
@@ -410,7 +412,7 @@ SUBROUTINE construct_oce_diagnostics( p_patch_3D, p_os, oce_ts, datestring )
   ! header of the text file
   headerLine = ''
   ! * add timestep columns
-  write(headerLine,'(a)') 'step datetime'
+  write(headerLine,'(a)') 'step date time'
   ! * add columne for each monitored variable
   DO i=1,SIZE(oce_ts%names)
     WRITE(headerLine,'(a,a,a)')TRIM(headerLine),' ',TRIM(oce_ts%names(i))

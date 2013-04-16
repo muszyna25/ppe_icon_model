@@ -165,7 +165,7 @@ CONTAINS
   REAL(wp)                        :: sim_time(n_dom)
   INTEGER                         :: jstep, jg
   !LOGICAL                         :: l_outputtime
-  CHARACTER(len=32)               :: datestring
+  CHARACTER(len=32)               :: datestring, plaindatestring
   TYPE(t_oce_timeseries), POINTER :: oce_ts
   TYPE(t_patch), POINTER          :: p_patch
 
@@ -297,7 +297,7 @@ CONTAINS
                                    & p_ice,         &
                                    & p_phys_param,  &
                                    & jstep,         &
-                                   & datestring,    &
+                                   & datetime,      &
                                    & oce_ts)
    ENDIF
 

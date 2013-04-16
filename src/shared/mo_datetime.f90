@@ -1119,12 +1119,13 @@ CONTAINS
   !! Output: string in the format of "YEAR-mm-ddThh:mm:ssZ"
   !!  where YEAR can have between 1 and 6 digits and can be negative.
   !!
-  SUBROUTINE datetime_to_string ( datetime_str, datetime )
+  SUBROUTINE datetime_to_string ( datetime_str, datetime, plain )
 
     IMPLICIT NONE
 
     CHARACTER(len=date_len), INTENT(OUT) :: datetime_str
     TYPE (t_datetime), INTENT(IN)        :: datetime
+    LOGICAL, OPTIONAL                    :: plain
 
     CHARACTER(len=32) :: datetime_format
     CHARACTER(len=7)  :: year_fmt_str
@@ -1159,13 +1160,23 @@ CONTAINS
     ! Write string
     ! --------------------------------------
 
-    WRITE(datetime_str, datetime_format ) &
-         &           datetime%year,  '-', &
-         &           datetime%month, '-', &
-         &           datetime%day,   'T', &
-         &           datetime%hour,  ':', &
-         &           datetime%minute,':', &
-         &           second,         'Z'
+    IF (PRESENT(plain) .AND. plain) THEN
+      WRITE(datetime_str, datetime_format ) &
+           &           datetime%year,  '-', &
+           &           datetime%month, '-', &
+           &           datetime%day,   ' ', &
+           &           datetime%hour,  ':', &
+           &           datetime%minute,':', &
+           &           second,         ' '
+    ELSE
+      WRITE(datetime_str, datetime_format ) &
+           &           datetime%year,  '-', &
+           &           datetime%month, '-', &
+           &           datetime%day,   'T', &
+           &           datetime%hour,  ':', &
+           &           datetime%minute,':', &
+           &           second,         'Z'
+    ENDIF
 
   END SUBROUTINE datetime_to_string
 
