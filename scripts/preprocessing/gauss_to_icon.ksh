@@ -31,21 +31,26 @@ cdo selvar,glac ${jsbachfile} glac_${res_atm}.nc
 cdo gtc,0 -selvar,cell_sea_land_mask ${gridfile} slm_${grid}.nc
 
 rm -f ${filename}_*.tmp
-varlist="$(cdo showvar ${jsbachfile}) bclapp fieldcap heatcapacity heatcond hydcond \
-         moisture_pot poresize porosity soildepth wiltpoint"
+#varlist="$(cdo showvar ${jsbachfile}) bclapp fieldcap heatcapacity heatcond hydcond \
+#         moisture_pot poresize porosity soildepth wiltpoint"
+varlist="init_moist_layered snow slf slm roughness_length albedo elevation orography_std_dev glac fao \
+         maxmoist_layered forest_fract lai_clim veg_fract surf_temp cover_fract cover_type veg_ratio_max \
+         albedo_veg_vis albedo_veg_nir albedo_soil_vis albedo_soil_nir roughness_length_oro \
+         natural_veg bclapp fieldcap heatcapacity heatcond hydcond moisture_pot poresize porosity \
+         soildepth wiltpoint layer_moist root_depth"
 
 for var in ${varlist}; do
 
     # extrapolate land values to the ocean on the source grid
     case ${var} in
 
-        init_moist | roughness_length | orography_std_dev | fao )
+        init_moist_layered | layer_moist | roughness_length | orography_std_dev | fao | root_depth )
             cdo -fillmiss -setmissval,0 -selvar,${var} ${jsbachfile} gauss_${var}.tmp
             rmp=rmp_${res_atm}_to_${grid} ;;
         albedo )
             cdo -fillmiss -setmissval,0.07 -selvar,${var} ${jsbachfile} gauss_${var}.tmp
             rmp=rmp_${res_atm}_to_${grid} ;;
-        maxmoist )
+        maxmoist_layered )
             cdo -fillmiss -setmissval,1.e-13 -selvar,${var} ${jsbachfile} gauss_${var}.tmp
             rmp=rmp_${res_atm}_to_${grid} ;;
         bclapp | fieldcap | heatcapacity | heatcond | hydcond | moisture_pot | poresize | \
@@ -142,9 +147,9 @@ for var in ${varlist}; do
            rm ${filename}_${var}_0000??.nc2 ;; 
        glac )
 	    cp glac_${grid}.nc ${filename}_${var}.tmp2 ;;
-       lai_clim | bclapp | fieldcap | forest_fract | heatcapacity | heatcond | \
-	   hydcond | init_moist | maxmoist | moisture_pot | poresize | porosity | \
-	   snow | soildepth | veg_fract | veg_ratio_max | wiltpoint )
+       lai_clim | bclapp | fieldcap | forest_fract | heatcapacity | heatcond | root_depth | \
+	   hydcond | init_moist_layered | layer_moist | maxmoist_layered | moisture_pot | \
+           poresize | porosity | snow | soildepth | veg_fract | veg_ratio_max | wiltpoint )
             cdo mul ${filename}_${var}.tmp glac_inv_${grid}.nc ${filename}_${var}.tmp2 ;;
        albedo )
             cdo setvar,${var} -ifthenelse glac_inv_${grid}.nc ${filename}_${var}.tmp \
@@ -232,14 +237,14 @@ rm ${filename}_slm.tmp ${filename}_glac.tmp ${filename}_sea.tmp ${filename}_nots
 cdo merge ${filename}_lai_clim.tmp ${filename}_veg_fract.tmp ${filename}_roughness_length.tmp ${filename}_roughness_length_oro.tmp ${filename}_z0.tmp ${filename}_albedo.tmp ${filename}_albedo_veg_vis.tmp ${filename}_albedo_veg_nir.tmp ${filename}_albedo_soil_vis.tmp ${filename}_albedo_soil_nir.tmp ${filename}_forest_fract.tmp bc_land_phys.nc
 rm ${filename}_lai_clim.tmp ${filename}_veg_fract.tmp ${filename}_orography_std_dev.tmp ${filename}_roughness_length.tmp ${filename}_roughness_length_oro.tmp ${filename}_z0.tmp ${filename}_albedo.tmp ${filename}_albedo_veg_vis.tmp ${filename}_albedo_veg_nir.tmp ${filename}_albedo_soil_vis.tmp ${filename}_albedo_soil_nir.tmp ${filename}_forest_fract.tmp
 # soil properties
-cdo merge ${filename}_fao.tmp ${filename}_maxmoist.tmp ${filename}_bclapp.tmp ${filename}_fieldcap.tmp ${filename}_heatcapacity.tmp ${filename}_heatcond.tmp ${filename}_hydcond.tmp ${filename}_moisture_pot.tmp ${filename}_poresize.tmp ${filename}_porosity.tmp ${filename}_soildepth.tmp ${filename}_wiltpoint.tmp bc_land_soil.nc
-rm ${filename}_fao.tmp ${filename}_maxmoist.tmp ${filename}_bclapp.tmp ${filename}_fieldcap.tmp ${filename}_heatcapacity.tmp ${filename}_heatcond.tmp ${filename}_hydcond.tmp ${filename}_moisture_pot.tmp ${filename}_poresize.tmp ${filename}_porosity.tmp ${filename}_soildepth.tmp ${filename}_wiltpoint.tmp
+cdo merge ${filename}_fao.tmp ${filename}_maxmoist_layered.tmp ${filename}_bclapp.tmp ${filename}_fieldcap.tmp ${filename}_heatcapacity.tmp ${filename}_heatcond.tmp ${filename}_hydcond.tmp ${filename}_moisture_pot.tmp ${filename}_poresize.tmp ${filename}_porosity.tmp ${filename}_soildepth.tmp ${filename}_wiltpoint.tmp ${filename}_root_depth.tmp bc_land_soil.nc
+rm ${filename}_fao.tmp ${filename}_maxmoist_layered.tmp ${filename}_bclapp.tmp ${filename}_fieldcap.tmp ${filename}_heatcapacity.tmp ${filename}_heatcond.tmp ${filename}_hydcond.tmp ${filename}_moisture_pot.tmp ${filename}_poresize.tmp ${filename}_porosity.tmp ${filename}_soildepth.tmp ${filename}_wiltpoint.tmp ${filename}_root_depth.tmp
 # topography
 cdo merge ${filename}_elevation.tmp ${filename}_orostd.tmp ${filename}_orosig.tmp ${filename}_orogam.tmp ${filename}_orothe.tmp ${filename}_oropic.tmp ${filename}_oroval.tmp ${filename}_oromea.tmp bc_land_sso.nc
 rm ${filename}_elevation.tmp ${filename}_orostd.tmp ${filename}_orosig.tmp ${filename}_orogam.tmp ${filename}_orothe.tmp ${filename}_oropic.tmp ${filename}_oroval.tmp ${filename}_oromea.tmp
 # initial soil conditions
-cdo merge ${filename}_surf_temp.tmp ${filename}_init_moist.tmp ${filename}_snow.tmp ic_land_soil.nc
-rm ${filename}_surf_temp.tmp ${filename}_init_moist.tmp ${filename}_snow.tmp
+cdo merge ${filename}_surf_temp.tmp ${filename}_init_moist_layered.tmp ${filename}_layer_moist.tmp ${filename}_snow.tmp ic_land_soil.nc
+rm ${filename}_surf_temp.tmp ${filename}_init_moist_layered.tmp ${filename}_snow.tmp
 # uuid as an attribute
 uuidOfHGrid=$(ncdump -h ${gridfile} | grep ':uuidOfHGrid = ' | cut -f2 -d'"')
 ncatted -a uuidOfHGrid,global,o,c,${uuidOfHGrid} bc_land_frac.nc

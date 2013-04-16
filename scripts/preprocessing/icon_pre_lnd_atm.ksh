@@ -33,7 +33,7 @@ export res_atm=T63         # atmosphere horizontal resolution
 export res_oce=GR15        # ocean horizontal resolution
 
 # ICON grid file
-pool_grid=/pool/data/ICON/grids/private/r2b4_amip.new # pool with ICON grid data
+pool_grid=/pool/data/ICON/grids/private/r2b4_amip # pool with ICON grid data
 export grid=r2b4_amip
 export gridfile=${pool_grid}/${grid}.nc
 
@@ -50,7 +50,7 @@ export year_ct=1992; export year_cf=1992
 export ntiles=11
 export c3c4crop=true
 export cmip5_pasture=true
-export l5_soil_layers=false
+export l5_soil_layers=true
 export lroot_depth=${l5_soil_layers}
 export echam_fractional=true
 export srcdir=${startdir}
