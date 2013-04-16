@@ -400,6 +400,22 @@ SUBROUTINE construct_oce_diagnostics( p_patch_3D, p_os, oce_ts, datestring )
   oce_ts%oce_diagnostics(0:nsteps)%potential_enstrophy        = 0.0_wp
   oce_ts%oce_diagnostics(0:nsteps)%absolute_vertical_velocity = 0.0_wp
 
+  oce_ts%oce_diagnostics(0:nsteps)%forc_swflx                 = 0.0_wp
+  oce_ts%oce_diagnostics(0:nsteps)%forc_lwflx                 = 0.0_wp
+  oce_ts%oce_diagnostics(0:nsteps)%forc_ssflx                 = 0.0_wp
+  oce_ts%oce_diagnostics(0:nsteps)%forc_slflx                 = 0.0_wp
+  oce_ts%oce_diagnostics(0:nsteps)%forc_precip                = 0.0_wp
+  oce_ts%oce_diagnostics(0:nsteps)%forc_evap                  = 0.0_wp
+  oce_ts%oce_diagnostics(0:nsteps)%forc_runoff                = 0.0_wp
+  oce_ts%oce_diagnostics(0:nsteps)%forc_fwbc                  = 0.0_wp
+  oce_ts%oce_diagnostics(0:nsteps)%forc_fwrelax               = 0.0_wp
+  oce_ts%oce_diagnostics(0:nsteps)%forc_fwfx                  = 0.0_wp
+  oce_ts%oce_diagnostics(0:nsteps)%forc_hfrelax               = 0.0_wp
+  oce_ts%oce_diagnostics(0:nsteps)%forc_hflx                  = 0.0_wp
+
+  oce_ts%oce_diagnostics(0:nsteps)%ice_volume                 = 0.0_wp
+  oce_ts%oce_diagnostics(0:nsteps)%ice_extent                 = 0.0_wp
+
   DO i=0,nsteps
     ALLOCATE(oce_ts%oce_diagnostics(i)%tracer_content(1:no_tracer))
     oce_ts%oce_diagnostics(i)%tracer_content(1:no_tracer) = 0.0_wp
