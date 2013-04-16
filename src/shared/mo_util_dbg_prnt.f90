@@ -41,7 +41,8 @@ MODULE mo_util_dbg_prnt
 !-------------------------------------------------------------------------
 !
 USE mo_kind,                   ONLY: wp
-USE mo_mpi,                    ONLY: my_process_is_stdio, p_pe !, p_comm_work, p_io, get_my_mpi_work_id, p_bcast
+USE mo_mpi,                    ONLY: my_process_is_stdio, p_pe, p_comm_work, &
+  &                                  get_my_mpi_work_id, p_bcast
 USE mo_io_units,               ONLY: nerr
 USE mo_parallel_config,        ONLY: nproma, p_test_run
 USE mo_impl_constants,         ONLY: max_char_length
@@ -225,10 +226,10 @@ CONTAINS
   INTEGER,               INTENT(OUT)    :: iidx          ! index of nearest cell
   INTEGER,               INTENT(OUT)    :: iblk          ! block of nearest cell
 
-  INTEGER  :: jb, jc, i_startidx, i_endidx, proc_id!, mpi_id
-  REAL(wp) :: zlon, zlat, zdist, zdist_cmp, ctr
+  INTEGER  :: jb, jc, i_startidx, i_endidx, mproc_id, mpi_id, mpi_comm
+  REAL(wp) :: zlon, zlat, zdist, zdist_cmp, xctr
   REAL(wp) :: zdst_c(nproma,ppatch%nblks_c)
-  TYPE(t_subset_range), POINTER :: cells_in_domain!, all_cells
+  TYPE(t_subset_range), POINTER :: owned_cells !,cells_in_domain, all_cells
 
   CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
     &      routine = 'mo_util_dbg_prnt:find_latlonindex'
@@ -236,21 +237,17 @@ CONTAINS
   CALL message(TRIM(routine), 'Start' )
 
   !all_cells       => ppatch%cells%all
-  cells_in_domain => ppatch%cells%in_domain
-  !owned_cells      => ppatch%cells%owned
+  !cells_in_domain => ppatch%cells%in_domain
+  owned_cells      => ppatch%cells%owned
 
   ! initial distance to compare
   zdist_cmp = 100000.0_wp
   zdst_c(:,:) = 100000.0_wp
-  proc_id   = -1
+  mproc_id   = -1
 
-  !  loop over all cells including halo
-  DO jb = cells_in_domain%start_block, cells_in_domain%end_block
-    CALL get_index_range(cells_in_domain, jb, i_startidx, i_endidx)
-
-     ! !  loop over owned cells
-     ! DO jb = owned_cells%start_block, owned_cells%end_block
-     !   CALL get_index_range(owned_cells, jb, i_startidx, i_endidx)
+  !  loop over owned cells
+  DO jb = owned_cells%start_block, owned_cells%end_block
+    CALL get_index_range(owned_cells, jb, i_startidx, i_endidx)
 
     DO jc = i_startidx, i_endidx
 
@@ -276,18 +273,24 @@ CONTAINS
   p_test_run_bac = p_test_run
   p_test_run = .false.
 
-  ctr = global_max(-zdist,proc_id)
+  ! Bugfix
+  write(0,*) ' before global_max: p_comm_work = ',p_comm_work
+  mpi_comm = p_comm_work
+  xctr = global_max(-zdist, mproc_id)
+  write(0,*) ' after global_max: mproc_id    = ',mproc_id
+  write(0,*) ' after global_max: p_comm_work = ',p_comm_work
+  write(0,*) ' after global_max: p_comm_work = ',mpi_comm
 
-     !!!! BUGFIX - not running yet
-     ! ctr = global_max(-zdist_cmp,proc_id)
-
-     ! ! set indices of minimum cell
-     ! mpi_id = get_my_mpi_work_id()
-     ! IF (mpi_id == proc_id) THEN
-     !   CALL p_bcast(iblk, p_io, p_comm_work)
-     !   CALL p_bcast(iidx, p_io, p_comm_work)
-     !   write(0,*) ' in proc_id = ',proc_id,'  p_io, p_comm_work, mpi_id = ',p_io, p_comm_work, mpi_id
-     ! END IF
+  ! THESE LINES PRODUCE A STRANGE ERROR in routine init_ho_base !!
+  ! set indices of minimum cell
+ !! mpi_id = get_my_mpi_work_id()
+ !! IF (mpi_id == mproc_id) THEN
+ !!   CALL p_bcast(iblk, mpi_id, p_comm_work)
+ !!   CALL p_bcast(iidx, mpi_id, p_comm_work)
+ !!   write(0,*) ' in mproc_id = ',mproc_id
+ !!   write(0,*) ' mpi_id      = ',mpi_id
+ !!   write(0,*) ' p_comm_work = ',p_comm_work
+ !! END IF
 
   p_test_run = p_test_run_bac
 
@@ -299,12 +302,12 @@ CONTAINS
   IF (my_process_is_stdio()) THEN
     WRITE(0,98) ' ',TRIM(routine),' Found  cell nearest to         lat=', plat_in,'  lon=',plon_in
     WRITE(0,99) ' ',TRIM(routine),' Found  block=',iblk,'  index=',iidx,'  lat=',zlat,'  lon=',zlon
-    WRITE(0,'(3a,i3)')         ' ',TRIM(routine),' FOUND: proc_id for nearest cell is=',proc_id
+    WRITE(0,'(3a,i3)')         ' ',TRIM(routine),' FOUND: proc_id for nearest cell is=',mproc_id
     WRITE(0,'(3a,2i3,a,f9.2)') ' ',TRIM(routine),' FOUND: Min dist is at idx/blk=', &
       &                  MINLOC(zdst_c(:,:)),' distance in deg =',MINVAL(zdst_c(:,:))
   END IF
 
-  IF (p_pe == proc_id) THEN
+ !IF (p_pe == mproc_id) THEN
 
  !  !  loop over all cells with minimum distance
  !  DO jb = owned_cells%start_block, owned_cells%end_block
@@ -328,11 +331,11 @@ CONTAINS
  !  WRITE(0,'(3a)') ' ',TRIM(routine),' Par: Found  cell now in Process proc_id'
  !  WRITE(0,99) ' ',TRIM(routine),    ' Par: Found  block=',iblk,'  index=',iidx, &
  !    &                               '  lat=',zlat,'  lon=',zlon
- !  WRITE(0,'(3a,i3)')         ' ',TRIM(routine),' Par: FOUND: proc_id for nearest cell is=',proc_id
+ !  WRITE(0,'(3a,i3)')         ' ',TRIM(routine),' Par: FOUND: proc_id for nearest cell is=',mproc_id
  !  WRITE(0,'(3a,2i3,a,f9.2)') ' ',TRIM(routine),' Par: FOUND: Min dist is at idx/blk=', &
  !    &                  MINLOC(zdst_c(:,:)),' distance in deg =',MINVAL(zdst_c(:,:))
 
-  END IF
+ !END IF
 
   END SUBROUTINE find_latlonindex
 
