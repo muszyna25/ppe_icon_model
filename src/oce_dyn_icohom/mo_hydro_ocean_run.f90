@@ -290,16 +290,6 @@ CONTAINS
     ENDIF  ! testcase 28
 
    ! Actually diagnostics for 3D not implemented, PK March 2011
-   IF (idiag_oce == 1 ) THEN
-     CALL calculate_oce_diagnostics( p_patch_3D,    &
-                                   & p_os(jg),      &
-                                   & p_sfc_flx,     &
-                                   & p_ice,         &
-                                   & p_phys_param,  &
-                                   & jstep,         &
-                                   & datetime,      &
-                                   & oce_ts)
-   ENDIF
 
     ! One integration cycle finished on the lowest grid level (coarsest
     ! resolution). Set model time.
@@ -308,11 +298,21 @@ CONTAINS
     sim_time(1) = MODULO(sim_time(1) + dtime, 86400.0_wp) 
     IF (is_output_time(jstep) .OR. istime4name_list_output(sim_time(1)+dtime)) THEN 
 !TODO    IF ( l_outputtime .OR. istime4name_list_output(sim_time(1)) ) THEN
+      IF (idiag_oce == 1 ) THEN
+        CALL calculate_oce_diagnostics( p_patch_3D,    &
+                                     & p_os(jg),      &
+                                     & p_sfc_flx,     &
+                                     & p_ice,         &
+                                     & p_phys_param,  &
+                                     & jstep,         &
+                                     & datetime,      &
+                                     & oce_ts)
 
-      CALL calc_moc (p_patch,p_patch_3D, p_os(jg)%p_diag%w(:,:,:), datetime)
-      CALL calc_psi (p_patch,p_patch_3D, p_os(jg)%p_diag%u(:,:,:), &
-        &                        p_os(jg)%p_prog(nold(1))%h(:,:), &
-        &                        p_os(jg)%p_diag%u_vint, datetime)
+        CALL calc_moc (p_patch,p_patch_3D, p_os(jg)%p_diag%w(:,:,:), datetime)
+        CALL calc_psi (p_patch,p_patch_3D, p_os(jg)%p_diag%u(:,:,:), &
+          &                        p_os(jg)%p_prog(nold(1))%h(:,:), &
+          &                        p_os(jg)%p_diag%u_vint, datetime)
+      ENDIF
 
       IF (output_mode%l_nml) THEN
         CALL write_name_list_output( datetime, sim_time(1), jstep==nsteps )
