@@ -48,6 +48,8 @@ MODULE mo_amip_bc
   PUBLIC :: amip_time_interpolation
   PUBLIC :: get_current_amip_bc_year
 
+  PUBLIC :: wgt1, wgt2, nmw1, nmw2
+
   INTEGER, SAVE :: current_year = -1
 
 CONTAINS
@@ -183,7 +185,7 @@ write (0,*) 'LK: sst = ', SUM(zin)
 
     TYPE(t_datetime) :: next_date
 
-    TYPE(t_datetime) :: date_monm1, date_mon, date_monp1
+    TYPE(t_datetime) :: date_monm1, date_monp1
     INTEGER   :: yr, mo, dy, hr, mn, se
     INTEGER   :: isec
     INTEGER   :: imp1, imm1, imlenm1, imlen, imlenp1
@@ -229,7 +231,7 @@ write (0,*) 'LK: sst = ', SUM(zin)
     CALL date_to_time(date_monp1)
 
     imlenm1 = date_monm1%monlen
-    imlen   = date_mon%monlen
+    imlen   = next_date%monlen
     imlenp1 = date_monp1%monlen
       
     zdayl    = rdaylen
@@ -242,7 +244,7 @@ write (0,*) 'LK: sst = ', SUM(zin)
     nmw1   = mo
       
     ! seconds in the present month
-    isec = (dy-1) * idaylen + INT(next_date%second)
+    isec = (dy-1) * idaylen + INT(next_date%daysec)
     zsec = REAL(isec,dp)
       
     IF(zsec <= zmohlf) THEN                     ! first part of month
