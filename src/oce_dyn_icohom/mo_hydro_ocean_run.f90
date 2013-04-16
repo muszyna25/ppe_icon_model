@@ -294,6 +294,7 @@ CONTAINS
      CALL calculate_oce_diagnostics( p_patch_3D,    &
                                    & p_os(jg),      &
                                    & p_sfc_flx,     &
+                                   & p_ice,         &
                                    & p_phys_param,  &
                                    & jstep,         &
                                    & datestring,    &

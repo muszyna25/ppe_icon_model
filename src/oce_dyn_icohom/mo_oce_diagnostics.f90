@@ -57,7 +57,7 @@ MODULE mo_oce_diagnostics
   USE mo_exception,          ONLY: message, finish, message_text
   USE mo_loopindices,        ONLY: get_indices_c!, get_indices_e
   USE mo_oce_physics,        ONLY: t_ho_params
-  USE mo_sea_ice_types,      ONLY: t_sfc_flx
+  USE mo_sea_ice_types,      ONLY: t_sfc_flx, t_sea_ice
   USE mo_datetime,           ONLY: t_datetime
   USE mo_linked_list,        ONLY: t_var_list
   USE mo_var_list,           ONLY: add_var,                  &
@@ -114,6 +114,8 @@ TYPE t_oce_monitor
     REAL(wp) :: forc_fwfx    ! diagnosed sum of forcing surface freshwater flux          [m/s]
     REAL(wp) :: forc_hfrelax ! diagnosed surface heat flux due to relaxation             [m/s]
     REAL(wp) :: forc_hflx    ! diagnosed sum of forcing surface heat flux                [W/m2]
+    REAL(wp) :: ice_volume   !                                                           [km3]
+    REAL(wp) :: ice_extent   !                                                           [km2]
     REAL(wp), ALLOCATABLE :: tracer_content(:)
 
 END TYPE t_oce_monitor
@@ -121,7 +123,7 @@ END TYPE t_oce_monitor
 TYPE t_oce_timeseries
 
     TYPE(t_oce_monitor), ALLOCATABLE :: oce_diagnostics(:)    ! time array of diagnostic values
-    CHARACTER(len=40),DIMENSION(22)  :: names = (/ &
+    CHARACTER(len=40), DIMENSION(24)  :: names = (/ &
     & "volume                                  ", &
     & "kin_energy                              ", &
     & "pot_energy                              ", &
@@ -142,6 +144,8 @@ TYPE t_oce_timeseries
     & "forc_fwfx                               ", &
     & "forc_hfrelax                            ", &
     & "forc_hflx                               ", &
+    & "ice_volume                              ", &
+    & "ice_extent                              ", &
     & "total_temperature                       ", &
     & "total_salinity                          "/)
 
@@ -155,14 +159,16 @@ CONTAINS
 ! @par Revision History
 ! Developed  by  Peter Korn, MPI-M (2010).
 ! 
-SUBROUTINE calculate_oce_diagnostics(p_patch_3D, p_os, p_sfc_flx, p_phys_param, timestep, datestring, oce_ts)
-  TYPE(t_patch_3D ),TARGET, INTENT(INOUT)    :: p_patch_3D
-  TYPE(t_hydro_ocean_state), TARGET          :: p_os
-  TYPE(t_sfc_flx), INTENT(INOUT)             :: p_sfc_flx
-  TYPE (t_ho_params)                         :: p_phys_param
-  INTEGER                                    :: timestep
-  CHARACTER(len=32)                          :: datestring
-  TYPE(t_oce_timeseries),POINTER             :: oce_ts
+SUBROUTINE calculate_oce_diagnostics(p_patch_3D, p_os, p_sfc_flx, p_ice, &
+    & p_phys_param, timestep, datestring, oce_ts)
+  TYPE(t_patch_3D ),TARGET, INTENT(IN)    :: p_patch_3D
+  TYPE(t_hydro_ocean_state), TARGET       :: p_os
+  TYPE(t_sfc_flx),    INTENT(IN)          :: p_sfc_flx
+  TYPE (t_sea_ice),   INTENT(IN)          :: p_ice
+  TYPE (t_ho_params)                      :: p_phys_param
+  INTEGER                                 :: timestep
+  CHARACTER(len=32)                       :: datestring
+  TYPE(t_oce_timeseries),POINTER          :: oce_ts
 
   !Local variables
   INTEGER :: i_startidx_c, i_endidx_c!,i_startblk_c, i_endblk_c,
@@ -243,6 +249,9 @@ SUBROUTINE calculate_oce_diagnostics(p_patch_3D, p_os, p_sfc_flx, p_phys_param, 
         monitor%forc_hfrelax = monitor%forc_hfrelax + p_sfc_flx%forc_hfrelax(jc,jb)*prism_area
         monitor%forc_hflx    = monitor%forc_hflx    + p_sfc_flx%forc_hflx(jc,jb)*prism_area
 
+        monitor%ice_volume   = monitor%ice_volume   + prism_area*SUM(p_ice%vol(jc,:,jb)*p_ice%conc(jc,:,jb))
+        monitor%ice_extent   = monitor%ice_extent   + p_ice%concSum(jc,jb)*prism_area
+
 
         DO jk = 1,p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)
 
@@ -301,6 +310,8 @@ SUBROUTINE calculate_oce_diagnostics(p_patch_3D, p_os, p_sfc_flx, p_phys_param, 
   monitor%forc_fwfx                  = global_sum_array(monitor%forc_fwfx)/surface_area
   monitor%forc_hfrelax               = global_sum_array(monitor%forc_hfrelax)/surface_area
   monitor%forc_hflx                  = global_sum_array(monitor%forc_hflx)/surface_area
+  monitor%ice_volume                 = global_sum_array(monitor%ice_volume)/1.0e9_wp
+  monitor%ice_extent                 = global_sum_array(monitor%ice_extent)/1.0e6_wp
   DO i_no_t=1,no_tracer
     monitor%tracer_content(i_no_t) = global_sum_array(monitor%tracer_content(i_no_t))
   END DO
@@ -335,7 +346,9 @@ SUBROUTINE calculate_oce_diagnostics(p_patch_3D, p_os, p_sfc_flx, p_phys_param, 
     & monitor%forc_fwrelax, &
     & monitor%forc_fwfx, &
     & monitor%forc_hfrelax, &
-    & monitor%forc_hflx
+    & monitor%forc_hflx, &
+    & monitor%ice_volume, &
+    & monitor%ice_extent
   ! * tracers
   DO i_no_t=1,no_tracer
     write(line,'(a,'//TRIM(real_fmt)//')') TRIM(line),monitor%tracer_content(i_no_t)

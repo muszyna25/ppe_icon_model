@@ -192,7 +192,7 @@ MODULE mo_sea_ice_types
     REAL(wp), POINTER :: &
       & u(:,:)          ,      & ! Zonal velocity                                [m/s]
       & v(:,:)          ,      & ! Meridional velocity                           [m/s]
-      & concSum(:,:)    ,      & ! Total ice concentration within a grid cell        
+      & concSum(:,:)    ,      & ! Total ice concentration within a grid cell
       & newice(:,:)     ,      & ! New ice growth in open water                  [m]
       & zUnderIce(:,:)           ! water in upper ocean grid cell below ice      [m]
 
