@@ -1134,6 +1134,8 @@ CONTAINS
     INTEGER           :: second
     INTEGER           :: abs_year
 
+    CHARACTER(len=1)  :: datetime_seperator, time_zone_designator
+
     ! Build the format
     ! -------------------------------------
 
@@ -1159,24 +1161,23 @@ CONTAINS
 
     ! Write string
     ! --------------------------------------
-
-    IF (PRESENT(plain) .AND. plain) THEN
-      WRITE(datetime_str, datetime_format ) &
-           &           datetime%year,  '-', &
-           &           datetime%month, '-', &
-           &           datetime%day,   ' ', &
-           &           datetime%hour,  ':', &
-           &           datetime%minute,':', &
-           &           second,         ' '
-    ELSE
-      WRITE(datetime_str, datetime_format ) &
-           &           datetime%year,  '-', &
-           &           datetime%month, '-', &
-           &           datetime%day,   'T', &
-           &           datetime%hour,  ':', &
-           &           datetime%minute,':', &
-           &           second,         'Z'
+    datetime_seperator   = 'T'
+    time_zone_designator = 'Z'
+    IF (PRESENT(plain)) THEN
+      IF (plain) THEN
+        datetime_seperator   = ' '
+        time_zone_designator = ' '
+      ENDIF
     ENDIF
+
+
+    WRITE(datetime_str, datetime_format ) &
+         &           datetime%year,  '-', &
+         &           datetime%month, '-', &
+         &           datetime%day,   datetime_seperator, &
+         &           datetime%hour,  ':', &
+         &           datetime%minute,':', &
+         &           second,         time_zone_designator
 
   END SUBROUTINE datetime_to_string
 
