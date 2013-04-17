@@ -267,11 +267,11 @@ CONTAINS
       END SELECT
 
       ! call read_ext_data_atm to read O3
-      ! topography is used from analytical functions, except for lamip=.TRUE. in which case
+      ! topography is used from analytical functions, except for ljsbach=.TRUE. in which case
       ! elevation of cell centers is read in and the topography is "grown" gradually to this elevation
       IF ( irad_o3 == io3_clim .OR. irad_o3 == io3_ape .OR. sstice_mode == 2 .OR. &
-         & echam_phy_config%lamip) THEN
-        IF (echam_phy_config%lamip) THEN
+         & echam_phy_config%ljsbach) THEN
+        IF (echam_phy_config%ljsbach) THEN
           CALL message( TRIM(routine),'topography is grown to elevation' )
         ELSE
           CALL message( TRIM(routine),'Running with analytical topography' )
@@ -2083,7 +2083,7 @@ CONTAINS
       mpi_comm = p_comm_work
     ENDIF
 
-    IF(itopo == 0 .AND. echam_phy_config%lamip ) THEN
+    IF(itopo == 0 .AND. echam_phy_config%ljsbach ) THEN
       !
       ! Read elevation of grid cells centers from grid file; this is then used to dynamically "grow" a topography for
       ! the hydrostatic model (in mo_ha_diag_util). This should be removed once the echam atmosphere is realistically 
