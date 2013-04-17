@@ -617,15 +617,21 @@ DO jg = 1,n_dom
         
         pt_hydro_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqv+1:) = 0._wp
 
+        ! Surface geopotential height is constantly zero.
+        
+        ! For the time being, we start with a flat topography which is gradually "grown"
+        ! to the external field ext_data%atm%elevation_c, during about 2 years. Set initial
+        ! surface pressure to 98264 Pa so that a realistic atmospheric mass is reached after this time.
+        pt_hydro_state(jg)%prog(nnow(jg))%pres_sfc(:,:) = 98264._wp
+        CALL message(TRIM(routine), 'Initial state for surface pressure set to 98264 Pa')
+
+        ext_data(jg)%atm%topography_c(:,:) = 0._wp
+
         IF (.NOT.ltwotime) CALL copy_prog_state(  &
              & pt_hydro_state(jg)%prog(nnow(jg)), & !in
              & pt_hydro_state(jg)%prog(nold(jg)), & !out
              & .FALSE.,     &! copy temp rather than theta
              & ltransport )  ! copy tracer field if transport is on.
-
-        ! Surface geopotential height is constantly zero.
-
-        ext_data(jg)%atm%topography_c = 0._wp
 
      CASE default
        CALL finish(TRIM(routine),'unknown choice of TESTTYPE')

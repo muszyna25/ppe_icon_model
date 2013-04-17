@@ -543,8 +543,15 @@ CONTAINS
       &           isteptype=TSTEP_CONSTANT )
 
     IF (echam_phy_config%ljsbach) THEN
-    ! atmosphere land-sea-mask at surface on cell centers
-    !
+      ! atmosphere land-sea-mask at surface on cell centers
+      ! lsm_ctr_c  p_ext_atm%lsm_ctr_c(nproma,nblks_c)
+      cf_desc    = t_cf_var('Atmosphere model land-sea-mask at cell center', '-2/-1/1/2', &
+        &                   'Atmosphere model land-sea-mask', DATATYPE_FLT32)
+      grib2_desc = t_grib2_var( 192, 140, 219, ibits, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( p_ext_atm_list, 'lsm_ctr_c', p_ext_atm%lsm_ctr_c,        &
+        &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,             &
+        grib2_desc, ldims=shape2d_c )
+
       ! elevation p_ext_atm%elevation_c(nproma,nblks_c)
       cf_desc    = t_cf_var('elevation at cell center', 'm', &
       &                     'elevation', DATATYPE_FLT32)
@@ -2032,8 +2039,14 @@ CONTAINS
           CALL read_netcdf_data (ncid, 'cell_elevation', p_patch(jg)%n_patch_cells_g, &
             &                    p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
             &                    ext_data(jg)%atm%elevation_c)
-          ext_data(jg)%atm%elevation_c(:,:) = MAX(0._wp, ext_data(jg)%atm%elevation_c(:,:))
-          ext_data(jg)%atm%topography_c(:,:) = 0._wp
+          ! get land-sea-mask on cells, integer marks are:
+          ! inner sea (-2), boundary sea (-1, cells and vertices), boundary (0, edges),
+          ! boundary land (1, cells and vertices), inner land (2)
+          CALL read_netcdf_data (ncid, 'cell_sea_land_mask', p_patch(jg)%n_patch_cells_g, &
+            &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+            &                     ext_data(jg)%atm%lsm_ctr_c)
+          ! Mask out ocean
+          ext_data(jg)%atm%elevation_c(:,:) = MERGE(ext_data(jg)%atm%elevation_c(:,:), 0._wp,  ext_data(jg)%atm%lsm_ctr_c(:,:) > 0)
 
         ENDIF
 
