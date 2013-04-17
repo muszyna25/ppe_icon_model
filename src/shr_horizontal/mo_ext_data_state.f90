@@ -235,13 +235,7 @@ CONTAINS
 
     SELECT CASE(itopo)
 
-    CASE(0) ! do not read external data  (except land-sea mask for JSBACH and ozone)
-            ! topography from analytical functions 
-
-    !-------------------------------------------------------------------------
-    ! surface/vegetation  parameter
-    !-------------------------------------------------------------------------
-
+    CASE(0) ! do not read external data except in some cases (see below)
       !
       ! initalize external data with meaningful data, in the case that they 
       ! are not read in from file.
@@ -272,14 +266,19 @@ CONTAINS
         END DO
       END SELECT
 
-      CALL message( TRIM(routine),'Running with analytical topography' )
-
-      ! call read_ext_data_atm to read land-sea mask for JSBACH and to read O3
-!      IF (echam_phy_config%ljsbach .OR. irad_o3 == io3_clim .OR. irad_o3 == io3_ape &
-      IF (irad_o3 == io3_clim .OR. irad_o3 == io3_ape &
-        & .OR. sstice_mode == 2) THEN
+      ! call read_ext_data_atm to read O3
+      ! topography is used from analytical functions, except for lamip=.TRUE. in which case
+      ! elevation of cell centers is read in and the topography is "grown" gradually to this elevation
+      IF ( irad_o3 == io3_clim .OR. irad_o3 == io3_ape .OR. sstice_mode == 2 .OR. &
+         & echam_phy_config%lamip) THEN
+        IF (echam_phy_config%lamip) THEN
+          CALL message( TRIM(routine),'topography is grown to elevation' )
+        ELSE
+          CALL message( TRIM(routine),'Running with analytical topography' )
+        END IF
         CALL read_ext_data_atm (p_patch, ext_data, nlev_o3)
       END IF 
+
     CASE(1) ! read external data from netcdf dataset
 
       CALL message( TRIM(routine),'Start reading external data from file' )
@@ -543,7 +542,7 @@ CONTAINS
       &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,             &
       &           isteptype=TSTEP_CONSTANT )
 
-    IF (echam_phy_config%ljsbach) THEN
+    IF (echam_phy_config%lamip) THEN
     ! atmosphere land-sea-mask at surface on cell centers
     !
     ! lsm_ctr_c  p_ext_atm%lsm_ctr_c(nproma,nblks_c)
@@ -553,11 +552,11 @@ CONTAINS
     CALL add_var( p_ext_atm_list, 'lsm_ctr_c', p_ext_atm%lsm_ctr_c,        &
       &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,             &
                   grib2_desc, ldims=shape2d_c )
-    ! elevation p_ext_atm%elevation_c(nproma,nblks_c)
-    cf_desc    = t_cf_var('elevation at cell center', 'm', &
-      &                   'elevation', DATATYPE_FLT32)
-    grib2_desc = t_grib2_var( 192, 140, 219, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( p_ext_atm_list, 'elevation_c', p_ext_atm%elevation_c,        &
+      ! elevation p_ext_atm%elevation_c(nproma,nblks_c)
+      cf_desc    = t_cf_var('elevation at cell center', 'm', &
+      &                     'elevation', DATATYPE_FLT32)
+      grib2_desc = t_grib2_var( 192, 140, 219, ibits, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( p_ext_atm_list, 'elevation_c', p_ext_atm%elevation_c,        &
       &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,          &
                   grib2_desc, ldims=shape2d_c )
     ! SST  p_ext_atm%sst(nproma,nblks_c)
@@ -619,8 +618,8 @@ CONTAINS
       &                   'forest fraction for echam5 albedo scheme', DATATYPE_FLT32)
     grib2_desc = t_grib2_var( 192, 140, 219, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_ext_atm_list, 'forest_fract', p_ext_atm%forest_fract,   &
-      &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,              &
-                  grib2_desc, ldims=shape2d_c )
+      &             GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,          &
+                    grib2_desc, ldims=shape2d_c )
     END IF
 
     ! ozone mixing ratio
@@ -2082,6 +2081,34 @@ CONTAINS
     ELSE
       mpi_comm = p_comm_work
     ENDIF
+
+    IF(itopo == 0 .AND. echam_phy_config%lamip ) THEN
+      !
+      ! Read elevation of grid cells centers from grid file; this is then used to dynamically "grow" a topography for
+      ! the hydrostatic model (in mo_ha_diag_util). This should be removed once the echam atmosphere is realistically 
+      ! initialized and uses a real topography.
+      DO jg = 1,n_dom
+
+        i_lev = p_patch(jg)%level
+
+        IF(my_process_is_stdio()) CALL nf(nf_open(TRIM(p_patch(jg)%grid_filename), NF_NOWRITE, ncid), routine)
+
+        IF (p_patch(jg)%cell_type == 3) THEN     ! triangular grid
+
+          ! get elevation [m]
+          CALL read_netcdf_data (ncid, 'cell_elevation', p_patch(jg)%n_patch_cells_g, &
+            &                    p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+            &                    ext_data(jg)%atm%elevation_c)
+          ext_data(jg)%atm%elevation_c(:,:) = MAX(0._wp, ext_data(jg)%atm%elevation_c(:,:))
+          ext_data(jg)%atm%topography_c(:,:) = 0._wp
+
+        ENDIF
+
+        IF( my_process_is_stdio()) CALL nf(nf_close(ncid), routine)
+
+      END DO
+
+    END IF
 
     IF(itopo == 1 ) THEN
       DO jg = 1,n_dom
