@@ -542,7 +542,7 @@ CONTAINS
       &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,             &
       &           isteptype=TSTEP_CONSTANT )
 
-    IF (echam_phy_config%lamip) THEN
+    IF (echam_phy_config%ljsbach) THEN
     ! atmosphere land-sea-mask at surface on cell centers
     !
     ! lsm_ctr_c  p_ext_atm%lsm_ctr_c(nproma,nblks_c)
