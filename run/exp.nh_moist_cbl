@@ -37,14 +37,14 @@ atmo_namelist=NAMELIST_${EXPNAME}
 #-----------------------------------------------------------------------------
 # global timing
 start_date="2008-09-01T00:00:00Z"
-end_date="2008-09-01T03:00:00Z"
+end_date="2008-09-02T06:00:00Z"
 ndays_restart=60
 dt_restart=`expr ${ndays_restart} \* 86400`
 #
 #-----------------------------------------------------------------------------
 # model timing
-dtime=0.1
-dt_checkpoint=`expr 1 \* 3600 `  # write restart file every 1 hours
+dtime=0.15
+dt_checkpoint=`expr 10 \* 3600 `  # write restart file every 6 hours
 #
 #-----------------------------------------------------------------------------
 # model parameters
@@ -54,12 +54,12 @@ atmo_model_equations=3 # equation system
 #                     3=non-hydrost. atm.,
 #                    -1=shallow water model
 #                    -2=hydrost. ocean
-nlev=64           # nlev = number of full levels
+nlev=131           # nlev = number of full levels
 iforcing=3        # 3 for inwp forcing; 0 for no forcing
 #
 #-----------------------------------------------------------------------------
 # the grid files
-atmo_dyn_grids='torus_grid_r70s136.nc'
+atmo_dyn_grids='torus_grid_r100s72.nc'
 #
 #-----------------------------------------------------------------------------
 
@@ -90,7 +90,7 @@ cat > ${atmo_namelist} << EOF
  ldynamics   = .TRUE.       ! dynamics
  ltransport  = .TRUE.       ! transport
  iforcing    = ${iforcing}  !
- ntracer     =  1           ! number of tracers - default 0
+ ntracer     =  3           ! number of tracers - default 0
  ltimer      = .true.       ! 
  timers_level = 100         !
  msg_level   = 12          ! detailed report during integration
@@ -106,18 +106,16 @@ cat > ${atmo_namelist} << EOF
  nh_test_name      = 'CBL'     !test case identifier
 /
 &les_nml
-!set_sst           = .FALSE.
- is_dry_cbl        = .TRUE. 
+ is_dry_cbl        = .FALSE. 
  ugeo              =  0.0, 0.0  !ugeo(1) = constant, ugeo(2)=gradient
  vgeo              =  0.0, 0.0
  umean             =  0.0, 0.0
  vmean             =  0.0, 0.0
-!sst               =  305.0
- shflx             =  0.1  ! kinematic surface heat flux
- lhflx             =  0.0  ! knematic latent heat flux 
  set_geowind       = .FALSE.
  smag_constant     = 0.23
- isrfc_type        = 2     !2=Fixed flux, 1=fixed SST
+ isrfc_type        = 3      !2=Fixed flux, 1=fixed SST, 3=fixed bflux
+ bflux             = 0.0007 !Buoyancy flux
+ tran_coeff        = 0.01   !m/s
 /
 &diffusion_nml
  lhdiff_temp  = .FALSE.
@@ -129,7 +127,7 @@ inwp_convection = 0
 inwp_radiation  = 0
 inwp_cldcover   = 0
 inwp_turb       = 5
-inwp_satad      = 0
+inwp_satad      = 1
 inwp_surface    = 0
 /
 &turbdiff_nml
@@ -137,8 +135,8 @@ lconst_z0 = .TRUE.
 const_z0  = 0.0003
 /
 &transport_nml
- ihadv_tracer = 0,0,0,0,0,0,0
- ivadv_tracer = 0,0,0,0,0,0,0
+ ihadv_tracer = 1,1,1,0,0,0,0
+ ivadv_tracer = 1,1,1,0,0,0,0
 /
 &nonhydrostatic_nml
  iadv_rhotheta = 2
@@ -147,11 +145,11 @@ const_z0  = 0.0003
  rayleigh_coeff  = 0.10     ! Rayleigh coefficient for damping in upper levels
  vwind_offctr    = 0.4      ! off-centering for time differencing (like alpha in turb)
  l_open_ubc      = .false.  ! top open upper boundary condition. might help to go higher
- damp_height     = 2700      ! damping height, keep top 5-10 levels for damping
+ damp_height     = 3500      ! damping height, keep top 5-10 levels for damping
 /
 &sleve_nml                   ! vertical grid standard output for message level >= 15
- min_lay_thckn   = 0.        ! lowest level thickness (between half-levels), set 0 to do equal spacing
- top_height      = 3200
+ min_lay_thckn   = 5.0       ! lowest level thickness (between half-levels), set 0 to do equal spacing
+ top_height      = 4750
  stretch_fac     = 0.9       ! stretching towards model top (1.0 default; smaller - bigger top level thickness)
 /
 &io_nml
@@ -161,14 +159,14 @@ const_z0  = 0.0003
  namespace        = 'DWD'
  filetype         = 4
  dom              = -1
- output_time_unit = 2
- output_bounds    = 0.,180.,30.   !start, end, increment
+ output_time_unit = 3
+ output_bounds    = 0.,30.,1.   !start, end, increment
  steps_per_file   = 1
  include_last     = .TRUE.
  remap            = 0   ! triangular grid
  output_filename  = '${EXPNAME}_tri'
  output_grid      = .TRUE.
- ml_varlist       = 'u','v','w','temp','theta_v','pres_sfc','pres','tkvh','z_ifc','z_mc','rho'
+ ml_varlist       = 'u','v','w','temp','theta_v','pres_sfc','pres','tkvh','z_ifc','z_mc','rho', 'qv', 'qc'
 /
 EOF
 #-----------------------------------------------------------------------------
