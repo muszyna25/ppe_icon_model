@@ -82,6 +82,7 @@ MODULE mo_netcdf_read
   PUBLIC :: netcdf_read_oncells_2d
   PUBLIC :: netcdf_read_oncells_2D_time
   PUBLIC :: netcdf_read_oncells_3D_time
+  PUBLIC :: netcdf_read_oncells_2D_extdim
 
   !--------------------------------------------------------
   !>
