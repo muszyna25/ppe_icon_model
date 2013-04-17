@@ -108,7 +108,7 @@ MODULE mo_ext_data_state
     &                              GRID_CELL, GRID_EDGE, GRID_VERTEX, ZA_SURFACE,  &
     &                              ZA_HYBRID, ZA_PRESSURE, ZA_HEIGHT_2M,           &
     &                              DATATYPE_FLT32, DATATYPE_PACK16, FILETYPE_NC2,  &
-    &                              TSTEP_CONSTANT, TSTEP_MAX
+    &                              TSTEP_CONSTANT, TSTEP_MAX, TSTEP_AVG
 
   USE mo_master_control,        ONLY: is_restart_run
 
@@ -1363,7 +1363,7 @@ CONTAINS
     CALL new_var_list( p_ext_atm_td_list, TRIM(listname), patch_id=p_patch%id )
     CALL default_var_list_settings( p_ext_atm_td_list,         &
                                   & lrestart=.FALSE.,          &
-                                  & loutput=.FALSE.,           &
+                                  & loutput=.TRUE.,            &
                                   & restart_type=FILETYPE_NC2  )
 
 
@@ -1487,9 +1487,10 @@ CONTAINS
       &                   '(monthly) proportion of actual value/maximum ' // &
       &                   'normalized differential vegetation index', DATATYPE_FLT32)
     grib2_desc = t_grib2_var( 2, 0, 192, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( p_ext_atm_td_list, 'ndvi_mrat', p_ext_atm_td%ndvi_mrat, &
-      &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,&
-      &           ldims=shape3d_c, loutput=.FALSE. )
+    CALL add_var( p_ext_atm_td_list, 'ndvi_mrat', p_ext_atm_td%ndvi_mrat,  &
+      &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, &
+      &           ldims=shape3d_c, loutput=.FALSE.,                         &
+      &           isteptype=TSTEP_AVG )
 
     !--------------------------------
     !SST and sea ice fraction

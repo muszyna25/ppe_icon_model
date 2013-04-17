@@ -404,7 +404,7 @@ CONTAINS
 !     Surface temperature below 0 deg C
       WHERE( pt_diag%temp(i_startidx:i_endidx,nlev,jb) < tmelt)
         prm_diag%hzerocl(i_startidx:i_endidx,jb) = zundef
-      ELSE WHERE
+      ELSEWHERE
         prm_diag%hzerocl(i_startidx:i_endidx,jb) = 0._wp
       END WHERE
       !AD(MPIM): ending the loop at kstart_moist+1 to avoid runtime error in dry case
