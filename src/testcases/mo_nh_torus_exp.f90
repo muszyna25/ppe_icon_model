@@ -74,11 +74,11 @@ MODULE mo_nh_torus_exp
   
   PUBLIC :: init_nh_state_cbl
 
-  !DEFINED PARAMETERS:
+  !DEFINED PARAMETERS (Stevens 2007 JAS):
   REAL(wp), PARAMETER :: zp0     = 100000._wp !< surface pressure
   REAL(wp), PARAMETER :: zh0     = 0._wp      !< height (m) above which temperature increases
-  REAL(wp), PARAMETER :: dtdz    = 0.003_wp   !< lapse rate
-  REAL(wp), PARAMETER :: zt0     = 300._wp
+  REAL(wp), PARAMETER :: dtdz    = 0.006_wp   !< lapse rate
+  REAL(wp), PARAMETER :: zt0     = 290._wp
   REAL(wp), PARAMETER :: lambda  = 1500._wp   !moist height from Stevens(2007)
 
 !--------------------------------------------------------------------

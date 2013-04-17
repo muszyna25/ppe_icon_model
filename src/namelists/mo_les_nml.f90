@@ -37,13 +37,14 @@ MODULE mo_les_nml
   USE mo_dynamics_config,     ONLY: iequations
   USE mo_kind,                ONLY: wp
   USE mo_mpi,                 ONLY: my_process_is_stdio 
-  USE mo_exception,           ONLY: message, finish
+  USE mo_exception,           ONLY: message, finish, message_text
   USE mo_io_units,            ONLY: nnml, nnml_output
   USE mo_namelist,            ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_master_control,      ONLY: is_restart_run
   USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist,  &
                                   & open_and_restore_namelist, close_tmpfile
   USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, max_dom
+  USE mo_grid_config,         ONLY: is_plane_torus
 
   IMPLICIT NONE
   PRIVATE
@@ -54,7 +55,7 @@ MODULE mo_les_nml
   REAL(wp) :: sst        ! prescribed SST
   REAL(wp) :: shflx      ! prescribed sensible heat flux (Km/s)
   REAL(wp) :: lhflx      ! prescribed latent heat flux   (Km/s)
-  INTEGER  :: isrfc_type ! 1=fixed sst, 2=fixed flux
+  INTEGER  :: isrfc_type ! 1=fixed sst, 2=fixed flux, 3=fixed buyancy flux
 
   REAL(wp) :: ugeo(2)    ! ugeo(1)=constant, ugeo(2)=gradient
   REAL(wp) :: vgeo(2)    ! vgeo(1)=constant, vgeo(2)=gradient
@@ -65,6 +66,10 @@ MODULE mo_les_nml
   LOGICAL  :: is_dry_cbl  !special case for CBL testcase
   LOGICAL  :: set_geowind !TRUE is geostrophic wind is set
  
+  !For isrf_type==3
+  REAL(wp) :: bflux      !Buoyancy flux
+  REAL(wp) :: tran_coeff !Surface transfer coefficient in units of velocity (m/s)
+
   !Some parameters
   REAL(wp) :: karman_constant
   REAL(wp) :: rkarman_constant  !inverse karman constant
@@ -75,7 +80,7 @@ MODULE mo_les_nml
   NAMELIST/les_nml/ sst, shflx, lhflx, isrfc_type, ugeo, vgeo, umean,       &
                     vmean, ufric, is_dry_cbl, set_geowind, karman_constant, &
                     rkarman_constant, smag_constant, turb_prandtl,          &
-                    rturb_prandtl
+                    rturb_prandtl, bflux, tran_coeff
 
 CONTAINS
   !-------------------------------------------------------------------------
@@ -110,10 +115,10 @@ CONTAINS
     vgeo(1:2)    = 0._wp 
     umean(1:2)   = 0._wp
     vmean(1:2)   = 0._wp
-    shflx        = 0._wp 
-    lhflx        = 0._wp 
-    isrfc_type   = 2      !fixed SST
-    ufric        = -1._wp 
+    shflx        = -999._wp 
+    lhflx        = -999._wp 
+    isrfc_type   = 1 
+    ufric        = -999._wp 
 
     is_dry_cbl   = .FALSE.
     set_geowind  = .FALSE.
@@ -124,6 +129,9 @@ CONTAINS
     smag_constant    = 0.23_wp
     turb_prandtl     = 0.33333333333_wp
     rturb_prandtl    = 3.0_wp
+
+    bflux       = -999._wp
+    tran_coeff  = -999._wp
 
     !------------------------------------------------------------------
     ! 2. If this is a resumed integration, overwrite the defaults above 
@@ -147,16 +155,38 @@ CONTAINS
     CALL close_nml
 
     !----------------------------------------------------
-    ! 4. Sanity check
+    ! 4. Sanity check and Prints
     !----------------------------------------------------
     IF(isrfc_type==1)THEN
        shflx = 0._wp   
        lhflx = 0._wp   
+       WRITE(message_text,'(a,e14.6)')'LES with fixed SST=',sst
+       CALL message('mo_les_nml:',message_text)
+    ELSEIF(isrfc_type==2)THEN
+       WRITE(message_text,'(a,e14.6,e14.6)')'LES with fixed fluxes=',shflx,lhflx
+       CALL message('mo_les_nml:',message_text)
+
+       IF(shflx==-999._wp .OR. lhflx==-999._wp) &
+          CALL finish('mo_les_nml:','Wrong input for irsfc_type=2')
+    ELSEIF(isrfc_type==3)THEN
+       WRITE(message_text,'(a,e14.6,e14.6)') &
+           'LES with fixed Buoyancy flux and tran coeff=',bflux,tran_coeff
+       CALL message('mo_les_nml:',message_text)
+
+       IF(bflux==-999._wp .OR. tran_coeff==-999._wp) &
+          CALL finish('mo_les_nml:','Wrong input for irsfc_type=3')
     END IF
+  
     IF(is_dry_cbl)THEN
        lhflx = 0._wp
     END IF
-
+    
+    IF(set_geowind .AND. ugeo(1)==0._wp .AND. vgeo(1)==0._wp) &
+      CALL message('mo_les_nml:WARNING:','Input values for Geostrophic wind are 0!')
+   
+    IF(set_geowind .AND. .NOT.is_plane_torus) &
+      CALL finish('mo_les_nml:','set_geowind is only applicable for torus grid!')
+ 
     !----------------------------------------------------
     ! 5. Fill the configuration state
     !----------------------------------------------------
@@ -177,6 +207,9 @@ CONTAINS
       les_config(jg)% smag_constant     =  smag_constant
       les_config(jg)% turb_prandtl      =  turb_prandtl
       les_config(jg)% rturb_prandtl     =  rturb_prandtl
+      les_config(jg)% bflux             =  bflux
+      les_config(jg)% tran_coeff        =  tran_coeff
+     
     END DO
 
     !-----------------------------------------------------

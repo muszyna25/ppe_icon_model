@@ -65,6 +65,10 @@ MODULE mo_les_config
     LOGICAL  :: is_dry_cbl  !special case for CBL testcase
     LOGICAL  :: set_geowind !TRUE is geostrophic wind is set
 
+    !For isrf_type==3
+    REAL(wp) :: bflux      !Buoyancy flux
+    REAL(wp) :: tran_coeff !Surface transfer coefficient in units of velocity (m/s)
+
     !Some parameters
     REAL(wp) :: karman_constant
     REAL(wp) :: rkarman_constant  !inverse karman constant
