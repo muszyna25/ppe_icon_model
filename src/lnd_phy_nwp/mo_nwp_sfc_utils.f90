@@ -2403,9 +2403,9 @@ CONTAINS
 !CDIR NODEP,VOVERTAKE,VOB
           DO ic = 1, i_count 
             jc = ext_data(jg)%atm%idx_lst_lp_t(ic,jb,1)
-            ext_data(jg)%atm%plcov_t  (jc,jb,1)  = ext_data(jg)%atm%ndvi_mrat(jc,jb)  &
+            ext_data(jg)%atm%plcov_t  (jc,jb,1)  = ext_data(jg)%atm%ndviratio(jc,jb)  &
             &                                       * ext_data(jg)%atm%plcov_mx(jc,jb)
-            ext_data(jg)%atm%tai_t    (jc,jb,1)  = ext_data(jg)%atm%ndvi_mrat(jc,jb)**2  &
+            ext_data(jg)%atm%tai_t    (jc,jb,1)  = ext_data(jg)%atm%ndviratio(jc,jb)**2  &
             & * ext_data(jg)%atm%plcov_mx(jc,jb)*ext_data(jg)%atm%lai_mx(jc,jb)
             ext_data(jg)%atm%sai_t    (jc,jb,1)  = c_lnd+ext_data(jg)%atm%tai_t(jc,jb,1)
  
@@ -2419,13 +2419,13 @@ CONTAINS
               IF (ext_data(jg)%atm%fr_land(jc,jb) < 0.5_wp) THEN
                  ! fix for non-dominant land points: reset soil type to sandy loam ...
                  !ext_data(jg)%atm%soiltyp(jc,jb) = 4
-                 ! ... and reset ndvi_mrat to 0.5
-                 ext_data(jg)%atm%ndvi_mrat(jc,jb) = 0.5_wp
+                 ! ... and reset ndviratio to 0.5
+                 ext_data(jg)%atm%ndviratio(jc,jb) = 0.5_wp
                ENDIF
                lu_subs = ext_data(jg)%atm%lc_class_t(jc,jb,jt)
                  IF (lu_subs < 0) CYCLE
                  ! plant cover
-                 ext_data(jg)%atm%plcov_t  (jc,jb,jt)  = ext_data(jg)%atm%ndvi_mrat(jc,jb)   &
+                 ext_data(jg)%atm%plcov_t  (jc,jb,jt)  = ext_data(jg)%atm%ndviratio(jc,jb)   &
                    & * MIN(ext_data(jg)%atm%ndvi_max(jc,jb),ext_data(jg)%atm%plcovmax_lcc(lu_subs))
                  ! total area index
                  ext_data(jg)%atm%tai_t    (jc,jb,jt)  = ext_data(jg)%atm%plcov_t(jc,jb,jt)  &

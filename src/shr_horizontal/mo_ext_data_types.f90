@@ -221,7 +221,7 @@ MODULE mo_ext_data_types
       &  ndvi_max(:,:)         ! index1=1,nproma, index2=1,nblks_c
 
     REAL(wp), POINTER ::   &   !< proportion of actual value/maximum 
-      &  ndvi_mrat(:,:)        !< normalized differential vegetation index [ ]
+      &  ndviratio(:,:)        !< normalized differential vegetation index [ ]
                                !< for starting time of model integration
                                !< (derived from atm_td%ndvi_mrat)
                                ! index1=1,nproma, index2=1,nblks_c
@@ -380,7 +380,7 @@ MODULE mo_ext_data_types
     ! *** vegetation parameters ***
     REAL(wp), POINTER ::   &   !< (monthly) proportion of actual value/maximum 
       &  ndvi_mrat(:,:,:)      !< normalized differential vegetation index   [ ]
-                               ! index1=1,nproma, index2=1,nblks_c
+                               ! index1=1,nproma, index2=1,nblks_c, index3=1,ntimes
     !
     ! ***SST and sea ice fraction
     REAL(wp), POINTER ::   &   !< (monthly) SST

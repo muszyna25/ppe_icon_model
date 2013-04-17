@@ -93,7 +93,8 @@ MODULE mo_ext_data_state
     &                              new_var_list,                &
     &                              delete_var_list,             &
     &                              create_vert_interp_metadata, &
-    &                              create_hor_interp_metadata
+    &                              create_hor_interp_metadata, post_op
+  USE mo_var_metadata,       ONLY: POST_OP_SCALE
   USE mo_master_nml,         ONLY: model_base_dir
   USE mo_cf_convention,      ONLY: t_cf_var
   USE mo_grib2,              ONLY: t_grib2_var
@@ -293,9 +294,9 @@ CONTAINS
 
       CALL message( TRIM(routine),'Finished reading external data' )
 
-      ! Get interpolated ndvi_mrat. Interpolation is done in time, based 
+      ! Get interpolated ndviratio. Interpolation is done in time, based 
       ! on ini_datetime. For NWP applications it is assumed, that 
-      ! ndvi_mrat is constant in time.
+      ! ndviratio is constant in time.
       !
       SELECT CASE ( iforcing )
       CASE ( inwp )
@@ -476,7 +477,7 @@ CONTAINS
     CHARACTER(len=*), INTENT(IN)      :: & !< list name
       &  listname
 
-    TYPE(t_cf_var)    :: cf_desc
+    TYPE(t_cf_var)    :: cf_desc, new_cf_desc
     TYPE(t_grib2_var) :: grib2_desc
 
     INTEGER :: jg
@@ -894,11 +895,16 @@ CONTAINS
       ! plcov     p_ext_atm%plcov(nproma,nblks_c)
       cf_desc    = t_cf_var('vegetation_area_fraction_vegetation_period', '-',&
         &                   'Plant covering degree in the vegetation phase', DATATYPE_FLT32)
+      new_cf_desc= t_cf_var('vegetation_area_fraction_vegetation_period', '%',&
+        &                   'Plant covering degree in the vegetation phase', DATATYPE_FLT32)
       grib2_desc = t_grib2_var( 2, 0, 4, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'plcov', p_ext_atm%plcov,       &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
         &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,    &
-        &           isteptype=TSTEP_CONSTANT )
+        &           isteptype=TSTEP_CONSTANT,                       &
+        &           post_op=post_op(POST_OP_SCALE, arg1=100._wp,    &
+        &                 new_cf=new_cf_desc) )
+
 
       ! plcov_t     p_ext_atm%plcov_t(nproma,nblks_c,ntiles_total)
       cf_desc    = t_cf_var('vegetation_area_fraction_vegetation_period', '-',&
@@ -1052,14 +1058,14 @@ CONTAINS
 
       ! proportion of actual value/maximum NDVI (at ini_datetime)
       !
-      ! ndvi_mrat        p_ext_atm%ndvi_mrat(nproma,nblks_c)
+      ! ndviratio        p_ext_atm%ndviratio(nproma,nblks_c)
       cf_desc    = t_cf_var('normalized_difference_vegetation_index', '-',     &
         &                   '(monthly) proportion of actual value/maximum ' // &
         &                   'NDVI (at init time)', DATATYPE_FLT32)
       grib2_desc = t_grib2_var( 2, 0, 192, ibits, GRID_REFERENCE, GRID_CELL)
-      CALL add_var( p_ext_atm_list, 'ndvi_mrat', p_ext_atm%ndvi_mrat, &
+      CALL add_var( p_ext_atm_list, 'ndviratio', p_ext_atm%ndviratio, &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,      &
-        &           grib2_desc, ldims=shape2d_c, loutput=.FALSE.  )
+        &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.  )
 
       ! Control fields for tile approach
       ! idx_lst_lp          p_ext_atm%idx_lst_lp(nproma,nblks_c)
@@ -1485,6 +1491,7 @@ CONTAINS
     CALL add_var( p_ext_atm_td_list, 'ndvi_mrat', p_ext_atm_td%ndvi_mrat, &
       &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,&
       &           ldims=shape3d_c, loutput=.FALSE. )
+
     !--------------------------------
     !SST and sea ice fraction
     !--------------------------------
@@ -2989,7 +2996,7 @@ CONTAINS
     INTEGER  :: i_lc_water
 
     REAL(wp), POINTER  ::  &  !< pointer to proportion of actual value/maximum
-      &  ptr_ndvi_mrat(:,:)   !< NDVI (for starting time of model integration)
+      &  ptr_ndviratio(:,:)   !< NDVI (for starting time of model integration)
 
 
     CHARACTER(len=max_char_length), PARAMETER :: &
@@ -3007,7 +3014,7 @@ CONTAINS
 
        n_lu = nclass_lu(jg)
 
-       ptr_ndvi_mrat => ext_data(jg)%atm%ndvi_mrat(:,:)
+       ptr_ndviratio => ext_data(jg)%atm%ndviratio(:,:)
 
        i_nchdom  = MAX(1,p_patch(jg)%n_childdom)
 
@@ -3063,9 +3070,9 @@ CONTAINS
 
                ! i_lu=1 contains grid-box mean values from EXTPAR!
                ext_data(jg)%atm%rootdp_t (jc,jb,1)  = ext_data(jg)%atm%rootdp(jc,jb)
-               ext_data(jg)%atm%plcov_t  (jc,jb,1)  = ptr_ndvi_mrat(jc,jb)  &
+               ext_data(jg)%atm%plcov_t  (jc,jb,1)  = ptr_ndviratio(jc,jb)  &
                  &                                       * ext_data(jg)%atm%plcov_mx(jc,jb)
-               ext_data(jg)%atm%tai_t    (jc,jb,1)  = ptr_ndvi_mrat(jc,jb)**2  &
+               ext_data(jg)%atm%tai_t    (jc,jb,1)  = ptr_ndviratio(jc,jb)**2  &
                  & * ext_data(jg)%atm%plcov_mx(jc,jb)*ext_data(jg)%atm%lai_mx(jc,jb)
                ext_data(jg)%atm%sai_t    (jc,jb,1)  = c_lnd+ext_data(jg)%atm%tai_t(jc,jb,1)
                ext_data(jg)%atm%eai_t    (jc,jb,1)  = c_soil      
@@ -3129,8 +3136,8 @@ CONTAINS
                IF (ext_data(jg)%atm%fr_land(jc,jb) < 0.5_wp) THEN
                  ! fix for non-dominant land points: reset soil type to sandy loam ...
                  ext_data(jg)%atm%soiltyp(jc,jb) = 4
-                 ! ... and reset ndvi_mrat to 0.5
-                 ptr_ndvi_mrat(jc,jb) = 0.5_wp
+                 ! ... and reset ndviratio to 0.5
+                 ptr_ndviratio(jc,jb) = 0.5_wp
                ENDIF
 
                sum_frac = SUM(ext_data(jg)%atm%lc_frac_t(jc,jb,1:ntiles_lnd))
@@ -3166,7 +3173,7 @@ CONTAINS
                  ! root depth
                  ext_data(jg)%atm%rootdp_t (jc,jb,i_lu)  = ext_data(jg)%atm%rootdmax_lcc(lu_subs)
                  ! plant cover
-                 ext_data(jg)%atm%plcov_t  (jc,jb,i_lu)  = ptr_ndvi_mrat(jc,jb) &
+                 ext_data(jg)%atm%plcov_t  (jc,jb,i_lu)  = ptr_ndviratio(jc,jb) &
                    & * MIN(ext_data(jg)%atm%ndvi_max(jc,jb),ext_data(jg)%atm%plcovmax_lcc(lu_subs))
                  ! total area index
                  ext_data(jg)%atm%tai_t    (jc,jb,i_lu)  = ext_data(jg)%atm%plcov_t(jc,jb,i_lu) &
@@ -3424,9 +3431,9 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   !>
-  !! Get ndvi_mrat for starting time of model integration
+  !! Get ndviratio for starting time of model integration
   !!
-  !! Get ndvi_mrat for starting time of model integration.
+  !! Get ndviratio for starting time of model integration.
   !! Linear interpolation in time. 
   !!
   !! @par Revision History
@@ -3457,7 +3464,7 @@ CONTAINS
 
     zw1 = 1._wp - zw2
 
-    ! Get interpolated ndvi_mrat
+    ! Get interpolated ndviratio
     DO jg = 1, n_dom
 
       i_nchdom  = MAX(1,p_patch(jg)%n_childdom)
@@ -3477,7 +3484,7 @@ CONTAINS
            & i_startidx, i_endidx, rl_start, rl_end)
 
         DO jc = i_startidx, i_endidx
-          ext_data(jg)%atm%ndvi_mrat(jc,jb) = zw1*ext_data(jg)%atm_td%ndvi_mrat(jc,jb,mo1) & 
+          ext_data(jg)%atm%ndviratio(jc,jb) = zw1*ext_data(jg)%atm_td%ndvi_mrat(jc,jb,mo1) & 
             &                               + zw2*ext_data(jg)%atm_td%ndvi_mrat(jc,jb,mo2)
         ENDDO
       ENDDO
