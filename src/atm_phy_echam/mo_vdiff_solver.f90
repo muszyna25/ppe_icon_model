@@ -757,7 +757,7 @@ CONTAINS
                              & ptkem1, ptkem0, pztkevn, pzthvvar, prhoh,   &! inout, inout, in
 #endif
                              & pqshear, ihpbl, pcfh_tile, pqsat_tile, &! in
-                             & pcfm_tile, pfrc, bb,                   &! in
+                             & pcfm_tile, pfrc, ptte_corr, bb,       &! in
                              & pkedisp, pxvar, pz0m_tile,            &! inout
                              & pute, pvte, ptte, pqte,               &! inout
                              & pxlte, pxite, pxtte,                  &! inout
@@ -795,6 +795,7 @@ CONTAINS
     REAL(wp),INTENT(IN)  :: pqsat_tile(kbdim,ksfc_type)
     REAL(wp),INTENT(IN)  :: pcfm_tile     (kbdim,ksfc_type)
     REAL(wp),INTENT(IN)  :: pfrc          (kbdim,ksfc_type)
+    REAL(wp),INTENT(IN)  :: ptte_corr(kbdim)
     REAL(wp),INTENT(IN)  :: bb            (kbdim,klev,nvar_vdiff)
 
     REAL(wp),INTENT(INOUT) :: pkedisp(kbdim) !< temporally and vertically
@@ -950,6 +951,8 @@ CONTAINS
         ztnew = (zsnew + zdis(jl,jk) - pgeom1(jl,jk)) &
               & /(cpd*(1._wp+vtmpc2*zqnew))
         ptte_vdf(jl,jk) = (ztnew - ptm1(jl,jk))*zrdt
+        ! When coupled with JSBACH: Correction of tte for snow melt
+        IF (jk == klev) ptte_vdf(jl,jk) = ptte_vdf(jl,jk)-ptte_corr(jl)
         ptte(jl,jk) = ptte(jl,jk) + ptte_vdf(jl,jk)
 
         pxlte_vdf(jl,jk) = (bb(jl,jk,ixl) - tpfac2*pxlm1(jl,jk))*zrdt
@@ -964,9 +967,6 @@ CONTAINS
         pxvar(jl,jk) = bb(jl,jk,ixv) + tpfac3*pxvar(jl,jk)
       END DO
     END DO
-
-    ! When coupled with JSBACH: Correction of tte for snow melt
-    ! ptte_vdf(1:kproma,klev) = ptte_vdf(1:kproma,klev)-pztte_corr(1:kproma)
 
     !-------------------------------------------------------------
     ! Tendency of tracers

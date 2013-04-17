@@ -468,8 +468,10 @@ CONTAINS
                                & ptkevn_sfc, pthvvar_sfc,                &! out
                                & pqshear_sfc, pustarm,                   &! out
                                & pch_sfc,                                &! out
+                               & pzhsoil,                                &! in
                                & pcsat,                                  &! in
-                               & pcair)                                   ! in
+                               & pcair,                                  &! in
+                               & paz0lh)                                  ! in
 
     INTEGER, INTENT(IN) :: kproma, kbdim
     INTEGER, INTENT(IN) :: ksfc_type, idx_wtr, idx_ice, idx_lnd
@@ -532,8 +534,10 @@ CONTAINS
 
     REAL(wp),OPTIONAL,INTENT(OUT) :: pch_sfc(kbdim,ksfc_type) !< factor for TKE boundary condition and JSBACH
 
-    REAL(wp),OPTIONAL,INTENT(IN) :: pcsat(kbdim)  !< area fraction with wet land surface
-    REAL(wp),OPTIONAL,INTENT(IN) :: pcair(kbdim)  !< area fraction with wet land surface
+    REAL(wp),OPTIONAL,INTENT(IN) :: pzhsoil(kbdim)  !< rel. humidity of land surface
+    REAL(wp),OPTIONAL,INTENT(IN) :: pcsat(kbdim)    !< area fraction with wet land surface
+    REAL(wp),OPTIONAL,INTENT(IN) :: pcair(kbdim)    !< area fraction with wet land surface
+    REAL(wp),OPTIONAL,INTENT(IN) :: paz0lh(kbdim)   !< roughness length for heat over land
 
 #ifdef __ICON__
 #else
@@ -563,7 +567,7 @@ CONTAINS
     REAL(wp) :: zmult1, zmult2, zmult3, zmult4, zmult5
     REAL(wp) :: zdus1, zdus2, zbuoy, zalo, zaloh, ztkev, zstabf
     REAL(wp) :: zdthetal, zdthv, z0h, zscf,  zconvs, zucf
-    REAL(wp) :: z2m, zcdn2m, zcdnr, zcfm2m, zust, zrrd, z0hl, zucfh
+    REAL(wp) :: z2m, zcdn2m, zcdnr, zcfm2m, zust, zrrd, zucfh
     LOGICAL  :: lhighz0
     INTEGER  :: jsfc, jl
 
@@ -581,7 +585,6 @@ CONTAINS
     zepdu2     = 1._wp
     zonethird  = 1._wp/3._wp
     ztwothirds = 2._wp/3._wp
-    z0hl       = 1._wp !! TR spatially constant roughness length over land for testing
 
     !------------------------------------------------------------------------------
     ! The prefactor (= air density * Rd) that will be multiplied to the exchange
@@ -599,6 +602,10 @@ CONTAINS
     ! COMMON PART OF THE DRAG COEFFICIENTS.
     !-------------------------------------------------------------
      IF (phy_config%ljsbach) THEN
+
+     IF (.NOT. (PRESENT(pzhsoil) .AND. PRESENT(pcsat) .AND. PRESENT(pcair) .AND. PRESENT(paz0lh))) &
+       CALL finish('mo_turbulence_diag','for JSBACH, pzhsoil, pcsat, pcair and pza0lh are required.')
+
      DO jsfc = 1,ksfc_type
 
       CALL compute_qsat( kproma, kbdim, ppsfc, ptsfc(:,jsfc), pqsat_sfc(:,jsfc) )
@@ -617,7 +624,11 @@ CONTAINS
         zthetav     = ztheta*(1._wp+vtmpc1*pqsat_sfc(jl,jsfc))
 
         zqtl       = pqm1_b(jl) + pqxm1_b(jl)  ! q_total at lowest model level
-        zqts       = pqsat_sfc(jl,jsfc)        ! q_total at surface
+        IF(jsfc == idx_lnd) THEN
+          zqts       = pqsat_sfc(jl,jsfc)*pzhsoil(jl) ! q_total at land surface
+        ELSE
+          zqts       = pqsat_sfc(jl,jsfc)        ! q_total at surface
+        END IF
         zqtmit     = 0.5_wp*( zqtl + zqts )    ! q_total, vertical average
 
         zqsmit     = 0.5_wp*( pqsat_b  (jl) + pqsat_sfc(jl,jsfc) )  ! qs
@@ -650,11 +661,7 @@ CONTAINS
         zbuoy        = zdus1*zdthetal + zdus2*zthetamit*zdqt
         pri_sfc(jl,jsfc) = pgeom1_b(jl)*zbuoy/(zthetavmit*zdu2(jl,jsfc))
 
-        IF ( jsfc == idx_wtr .OR. jsfc == idx_ice ) THEN          ! over water or ice        
-          zalo = LOG( 1._wp + pgeom1_b(jl)/(grav*pz0m(jl,jsfc)) )  ! ln[ 1 + zL/z0m ]
-        ELSE ! over land
-          zalo = LOG( 1._wp + pgeom1_b(jl)/(grav*z0hl) )  ! ln[ 1 + zL/z0m ]
-        END IF
+        zalo = LOG( 1._wp + pgeom1_b(jl)/(grav*pz0m(jl,jsfc)) )  ! ln[ 1 + zL/z0m ]
 
         zcdn(jl,jsfc) = (ckap/zalo)**2
 
@@ -673,7 +680,7 @@ CONTAINS
           zchn  (jl,jsfc) = zcdn (jl,jsfc)
           zcfnch(jl,jsfc) = zcfnc(jl,jsfc)  ! coeff. for scalar is the same as for momentum
         ELSE IF (jsfc == idx_lnd ) THEN ! over land
-          zchn  (jl,jsfc)=(ckap/LOG(1._wp+pgeom1_b(jl)/(grav*z0hl)))**2 
+          zchn  (jl,jsfc)=(ckap/LOG(1._wp+pgeom1_b(jl)/(grav*paz0lh(jl))))**2
           zcfnch(jl,jsfc)=SQRT(zdu2(jl,jsfc))*zchn(jl,jsfc)
         ENDIF
       ENDDO ! 1:kproma
@@ -815,11 +822,9 @@ CONTAINS
         jsfc = idx_lnd  ! land
         DO jl = 1,kproma
           IF ( pri_sfc(jl,jsfc) <= 0._wp ) THEN
-            zucfh = 1._wp/(1._wp+z3bc*zchn(jl,jsfc)*SQRT(ABS(pri_sfc(jl,jsfc))*(1._wp + &
-               pgeom1_b(jl)/(grav*z0hl))))
-!!$ TR ATTENTION: zucfh in the following line has to be replaced (with respect to
-!!$ TR the roughness length for momentum (and not for heat).
-            pcfm_sfc(jl,jsfc) = zcfnc (jl,jsfc)/(1._wp-z2b*pri_sfc(jl,jsfc)*zucfh)
+            zucf  = 1._wp/(1._wp+z3bc*zchn(jl,jsfc)*SQRT(ABS(pri_sfc(jl,jsfc))*(1._wp + pgeom1_b(jl)/(grav*pz0m(jl,jsfc)))))
+            zucfh = 1._wp/(1._wp+z3bc*zchn(jl,jsfc)*SQRT(ABS(pri_sfc(jl,jsfc))*(1._wp + pgeom1_b(jl)/(grav*paz0lh(jl)))))
+            pcfm_sfc(jl,jsfc) = zcfnc (jl,jsfc)/(1._wp-z2b*pri_sfc(jl,jsfc)*zucf)
             pcfh_sfc(jl,jsfc) = zcfnch(jl,jsfc)*(1._wp-z3b*pri_sfc(jl,jsfc)*zucfh)
             zch (jl,jsfc) = zchn  (jl,jsfc)*(1._wp-z3b*pri_sfc(jl,jsfc)*zucfh)
           ENDIF
@@ -1022,9 +1027,8 @@ CONTAINS
                                & pqsat_b, plh_b,                         &! in
                                & ptheta_b, pthetav_b,                    &! in
                                & pthetal_b, paclc_b,                     &! in
-!                               & pthvvar_b, zhsoil, paz0lh,              &! in
-                               & pthvvar_b,               &! in
-                               & pcsat, pcair,                           &! in
+                               & pthvvar_b, paz0lh,                      &! in
+                               & pzhsoil, pcsat, pcair,                  &! in
 !                               & ptkem1_sfc, ptkem0_sfc,                 &! inout
                                & pqsat_sfc, pcpt_sfc,                    &! out
                                & pri_gbm,                                &! out
@@ -1075,8 +1079,8 @@ CONTAINS
 
     REAL(wp),INTENT(IN) :: pthvvar_b (kbdim)  !< variance of theta_v 
 
-!    REAL(wp),INTENT(IN) :: zhsoil (kbdim)  !< relative hum of land surface
-!    REAL(wp),INTENT(IN) :: paz0lh (kbdim)  !< roughness_heat of land
+    REAL(wp),INTENT(IN) :: pzhsoil (kbdim) !< relative hum of land surface
+    REAL(wp),INTENT(IN) :: paz0lh (kbdim)  !< roughness length for heat over land
     REAL(wp),INTENT(IN) :: pcsat  (kbdim)  !< area fraction with wet land surface
     REAL(wp),INTENT(IN) :: pcair  (kbdim)  !< area fraction with wet land surface (air)
 
@@ -1207,9 +1211,7 @@ CONTAINS
       IF(jsfc == idx_lnd) THEN
         pcpt_sfc(js,jsfc) = ptsfc(js,jsfc)*cpd*(1._wp+vtmpc2*    &
                 (pcsat(js)*pqsat_sfc(js,jsfc)+(1._wp-pcair(js))*pqm1_b(js)))
-! TODO: zhsoil has to be defined by jsbach
-!        zqts              = pqsat_sfc(js,jsfc)*zhsoil(js)              ! q_total at land surface
-        zqts              = pqsat_sfc(js,jsfc)
+        zqts              = pqsat_sfc(js,jsfc)*pzhsoil(js)              ! q_total at land surface
       ELSE
         pcpt_sfc(js,jsfc) = ptsfc(js,jsfc)*cpd*(1._wp+vtmpc2*pqsat_sfc(js,jsfc))
         zqts              = pqsat_sfc(js,jsfc)                         ! q_total at surface
@@ -1263,7 +1265,7 @@ CONTAINS
         zdthv         = MAX(0._wp,(zthetav-pthetav_b(js)))
         zwst(js,jsfc) = zdthv*SQRT(zdu2(js,jsfc))/zthetavmit
 
-        IF ( jsfc == idx_wtr ) THEN
+        IF ( jsfc == idx_wtr ) THEN         ! over water
           z0h        =pz0m(js,jsfc)*EXP(2._wp-86.276_wp*pz0m(js,jsfc)**0.375_wp)
           zaloh      =LOG(1._wp+pgeom1_b(js)/(grav*z0h))
           pchn_sfc  (js,jsfc)=ckap**2/(zalo*zaloh)
@@ -1272,10 +1274,8 @@ CONTAINS
         ELSE IF ( jsfc == idx_ice ) THEN    ! over ice 
           pchn_sfc  (js,jsfc) = pcdn_sfc (js,jsfc)
           zcfnch(js,jsfc) = pcfnc_sfc(js,jsfc)  ! coeff. for scalar is the same as for momentum
-        ELSE     ! over  land
-!          pchn_sfc  (js,jsfc) = (ckap / LOG(1._wp+pgeom1_b(js)/(grav*paz0lh(js))))**2
-! TODO: use pz0m(js,jsfc) as first guess for paz0lh:
-          pchn_sfc  (js,jsfc) = (ckap / LOG(1._wp+pgeom1_b(js)/(grav*pz0m(js,jsfc))))**2
+        ELSE IF ( jsfc == idx_lnd ) THEN    ! over  land
+          pchn_sfc  (js,jsfc) = (ckap / LOG(1._wp+pgeom1_b(js)/(grav*paz0lh(js))))**2
           zcfnch(js,jsfc) = SQRT(zdu2(js,jsfc))*pchn_sfc(js,jsfc)
         ENDIF
       ENDDO ! 1:is
@@ -1295,9 +1295,9 @@ CONTAINS
       ! stable case
   
       DO jsfc = 1,ksfc_type
-      DO jls = 1,is(jsfc)
-! set index
-      js=loidx(jls,jsfc)
+        DO jls = 1,is(jsfc)
+          ! set index
+          js=loidx(jls,jsfc)
           IF ( pri_sfc(js,jsfc) > 0._wp ) THEN
             zscf = SQRT(1._wp+pri_sfc(js,jsfc))
             pcfm_sfc(js,jsfc) = pcfnc_sfc (js,jsfc)/(1._wp+z2b*pri_sfc(js,jsfc)/zscf)   ! 5.2? 5.5
@@ -1311,9 +1311,9 @@ CONTAINS
   
       IF (idx_wtr<=ksfc_type) THEN
         jsfc = idx_wtr  ! water
-      DO jls = 1,is(jsfc)
-! set index
-      js=loidx(jls,jsfc)
+        DO jls = 1,is(jsfc)
+          ! set index
+          js=loidx(jls,jsfc)
           IF ( pri_sfc(js,jsfc) <= 0._wp ) THEN
             zucf =  SQRT( -pri_sfc(js,jsfc)*(1._wp+ pgeom1_b(js)/(grav*pz0m(js,jsfc))) ) ! sqrt in (5.4)
             zucf =  1._wp+z3bc*pcdn_sfc(js,jsfc)*zucf                          ! denominator in (5.4)
@@ -1327,9 +1327,9 @@ CONTAINS
   
       IF (idx_ice<=ksfc_type) THEN
         jsfc = idx_ice  ! ice
-      DO jls = 1,is(jsfc)
-! set index
-      js=loidx(jls,jsfc)
+        DO jls = 1,is(jsfc)
+          ! set index
+          js=loidx(jls,jsfc)
           IF ( pri_sfc(js,jsfc) <= 0._wp ) THEN
             zucf =  SQRT( -pri_sfc(js,jsfc)*(1._wp+ pgeom1_b(js)/(grav*pz0m(js,jsfc))) ) ! sqrt in (5.4)
             zucf =  1._wp+z3bc*pcdn_sfc(js,jsfc)*zucf                   ! denominator in (5.4)
@@ -1343,16 +1343,14 @@ CONTAINS
      
       IF (idx_lnd<=ksfc_type) THEN
         jsfc = idx_lnd  ! land
-      DO jls = 1,is(jsfc)
-! set index
-      js=loidx(jls,jsfc)
+        DO jls = 1,is(jsfc)
+          ! set index
+          js=loidx(jls,jsfc)
           IF ( pri_sfc(js,jsfc) <= 0._wp ) THEN
             zucf =  SQRT( -pri_sfc(js,jsfc)*(1._wp+ pgeom1_b(js)/(grav*pz0m(js,jsfc))) ) ! sqrt in (5.4)
             zucf =  1._wp+z3bc*pcdn_sfc(js,jsfc)*zucf                   ! denominator in (5.4)
             zucf =  1._wp/zucf
-!            zucfh=  SQRT( -pri_sfc(js,jsfc)*(1._wp+ pgeom1_b(js)/(grav*paz0lh(js))) ) ! sqrt in (5.4)
-! TODO: use pz0m(js,jsfc) as first guess for paz0lh(js)
-            zucfh=  SQRT( -pri_sfc(js,jsfc)*(1._wp+ pgeom1_b(js)/(grav*pz0m(js,jsfc))) ) ! sqrt in (5.4)
+            zucfh=  SQRT( -pri_sfc(js,jsfc)*(1._wp+ pgeom1_b(js)/(grav*paz0lh(js))) ) ! sqrt in (5.4)
             zucfh=  1._wp+z3bc*pchn_sfc(js,jsfc)*zucfh                   ! denominator in (5.4)
             zucfh=  1._wp/zucfh
             pcfm_sfc(js,jsfc) = pcfnc_sfc (js,jsfc)*(1._wp-z2b*pri_sfc(js,jsfc)*zucf)  ! (5.2), (5.4)
@@ -1393,10 +1391,10 @@ CONTAINS
     !-------------------------------------------------------------------------
 
     pcfm_gbm(1:kproma) = 0._wp
-    pcfh_gbm(1:kproma) = 0._wp                                                         
+    pcfh_gbm(1:kproma) = 0._wp 
     pri_gbm (1:kproma) = 0._wp
-    DO jsfc = 1,ksfc_type                                                                 
-      DO jls = 1,is(jsfc)
+    DO jsfc = 1,ksfc_type
+      DO jls = 1,is(jsfc) 
 ! set index
       js=loidx(jls,jsfc)
         pcfm_gbm(js) = pcfm_gbm(js) + pfrc(js,jsfc)*pcfm_sfc(js,jsfc)

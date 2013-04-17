@@ -180,13 +180,14 @@ CONTAINS
     REAL(wp) :: zfactor_sfc(nbdim)
     REAL(wp) :: zcpt_sfc_tile(nbdim,nsfc_type)  !< dry static energy at surface
 
-    REAL(wp) :: zcptgz  (nbdim,nlev) !< dry static energy
-    REAL(wp) :: zrhoh   (nbdim,nlev) !< air density at half levels
-    REAL(wp) :: zqshear (nbdim,nlev) !<
-    REAL(wp) :: zthvvar (nbdim,nlev) !< intermediate value of thvvar
-    REAL(wp) :: ztkevn  (nbdim,nlev) !< intermediate value of tke
-    REAL(wp) :: zch_tile(nbdim,nsfc_type)
-
+    REAL(wp) :: zcptgz   (nbdim,nlev) !< dry static energy
+    REAL(wp) :: zrhoh    (nbdim,nlev) !< air density at half levels
+    REAL(wp) :: zqshear  (nbdim,nlev) !<
+    REAL(wp) :: zthvvar  (nbdim,nlev) !< intermediate value of thvvar
+    REAL(wp) :: ztkevn   (nbdim,nlev) !< intermediate value of tke
+    REAL(wp) :: zch_tile (nbdim,nsfc_type)
+    REAL(wp) :: ztte_corr(nbdim)      !< tte correction for snow melt over land (JSBACH)
+    REAL(wp) :: zz0h_lnd (nbdim)      !< roughness length for heat over land (JSBACH)
     REAL(wp) :: ztemperature_rad(nbdim)
 
     ! Temporary variables used for zenith angle
@@ -223,25 +224,6 @@ CONTAINS
     ! set current date
     datetime = time_config%cur_datetime
 
-    ! update prescribed SST
-    IF (phy_config%ljsbach .AND. .NOT.phy_config%lamip ) THEN
-       cur_month = datetime%month
-       pre_month = cur_month - 1
-       IF (cur_month == 1) pre_month = 12
-       suc_month = cur_month + 1
-       IF (cur_month == 12) suc_month = 1
-       cur_day = datetime%day
-       IF (cur_day < 15) THEN
-          field%tsfc_tile(jcs:jce,jb,iwtr) = &
-            (ext_data(jg)%atm%sst_mon(jcs:jce,cur_month,jb) * REAL(cur_day + 15) + &
-             ext_data(jg)%atm%sst_mon(jcs:jce,pre_month,jb) * REAL(15 - cur_day)) / 30._wp
-       ELSE
-          field%tsfc_tile(jcs:jce,jb,iwtr) = &
-            (ext_data(jg)%atm%sst_mon(jcs:jce,cur_month,jb) * REAL(45 - cur_day) + &
-             ext_data(jg)%atm%sst_mon(jcs:jce,suc_month,jb) * REAL(cur_day - 15)) / 30._wp
-       END IF
-    END IF
-
     field%tsurfl(:,:) = field%tsfc_tile(:,:,ilnd)
 !    field%tsurfi(:,:) = field%tsfc_tile(:,:,iice)
 
@@ -267,10 +249,6 @@ CONTAINS
     !     Accumulate ice portion for diagnostics
 
     DO jc=jcs,jce
-
-!!$ TR set surface temperature for JSBACH implementation testing
-!!$ TR      field% tsfc(jc,jb) = field%surface_temperature(jc,jb)
-!!$ TR      field% tsfc_tile(jc,jb,iwtr) = field%surface_temperature(jc,jb)
 
       ! fraction of land in the grid box. lsmask: land-sea mask, 1.= land
 !!$ TR      write (*,*) "field% lsmask", field% lsmask(jc,jb), jc, jb
@@ -824,8 +802,10 @@ CONTAINS
                      & zthvvar(:,:),                    &! out, for "vdiff_up"
                      & ztkevn (:,:),                    &! out, for "vdiff_up"
                      & pch_tile = zch_tile(:,:),        &! out, optional, for JSBACH
+                     & pzhsoil = field% zhsoil(:,jb),   &! in, rel. humidity of land surface
                      & pcsat = field% csat(:,jb),       &! in, optional, area fraction with wet land surface
-                     & pcair = field% cair(:,jb))        ! in, optional, area fraction with wet land surface (air)
+                     & pcair = field% cair(:,jb),       &! in, optional, area fraction with wet land surface (air)
+                     & paz0lh = field% z0h_lnd(:,jb))     ! in, optional, roughness length for heat over land
       ELSE
       CALL vdiff_down( vdiff_config%lsfc_mom_flux,      &! in
                      & vdiff_config%lsfc_heat_flux,     &! in
@@ -895,35 +875,35 @@ CONTAINS
         field% evap_tile (:,jb,:) = 0._wp
 
     IF (phy_config%ljsbach) THEN
-    CALL update_surface( vdiff_config%lsfc_heat_flux,  &! in
-                       & vdiff_config%lsfc_mom_flux,   &! in
-                       & pdtime, psteplen,             &! in, time steps
-                       & jg, jce, nbdim, field%kice,   &! in
-                       & nlev, nsfc_type,              &! in
-                       & iwtr, iice, ilnd,             &! in, indices of surface types
-                       & zfrc(:,:),                    &! in, area fraction
-                       & field% cfh_tile(:,jb,:),      &! in, from "vdiff_down"
-                       & field% cfm_tile(:,jb,:),      &! in, from "vdiff_down"
-                       & zfactor_sfc(:),               &! in, from "vdiff_down"
-                       & field% ocu (:,jb),            &! in, ocean sfc velocity, u-component
-                       & field% ocv (:,jb),            &! in, ocean sfc velocity, v-component
-                       & zaa, zaa_btm, zbb, zbb_btm,   &! inout
-                       & zcpt_sfc_tile(:,:),           &! inout, from "vdiff_down", for "vdiff_up"
-                       & field%qs_sfc_tile(:,jb,:),    &! inout, from "vdiff_down", for "vdiff_up"
-                       & field%  tsfc_tile(:,jb,:),    &! inout
-                       & field%u_stress_avg(:,  jb),   &! inout
-                       & field%v_stress_avg(:,  jb),   &! inout
-                       & field% lhflx_avg  (:,  jb),   &! inout
-                       & field% shflx_avg  (:,  jb),   &! inout
-                       & field%  evap_avg  (:,  jb),   &! inout
-                       & field%dshflx_dT_avg_tile(:,jb,:),&! inout ! OUTPUT for Sea ice
-                       & field%u_stress_tile  (:,jb,:),   &! inout
-                       & field%v_stress_tile  (:,jb,:),   &! inout
-                       & field% lhflx_tile    (:,jb,:),   &! out
-                       & field% shflx_tile    (:,jb,:),   &! out
-                       & field% dshflx_dT_tile(:,jb,:),   &! out for Sea ice
-                       & field%  evap_tile    (:,jb,:),   &! out
-                       & zqhflx,                          &! out, for "cucall"
+      CALL update_surface( vdiff_config%lsfc_heat_flux,  &! in
+                         & vdiff_config%lsfc_mom_flux,   &! in
+                         & pdtime, psteplen,             &! in, time steps
+                         & jg, jce, nbdim, field%kice,   &! in
+                         & nlev, nsfc_type,              &! in
+                         & iwtr, iice, ilnd,             &! in, indices of surface types
+                         & zfrc(:,:),                    &! in, area fraction
+                         & field% cfh_tile(:,jb,:),      &! in, from "vdiff_down"
+                         & field% cfm_tile(:,jb,:),      &! in, from "vdiff_down"
+                         & zfactor_sfc(:),               &! in, from "vdiff_down"
+                         & field% ocu (:,jb),            &! in, ocean sfc velocity, u-component
+                         & field% ocv (:,jb),            &! in, ocean sfc velocity, v-component
+                         & zaa, zaa_btm, zbb, zbb_btm,   &! inout
+                         & zcpt_sfc_tile(:,:),           &! inout, from "vdiff_down", for "vdiff_up"
+                         & field%qs_sfc_tile(:,jb,:),    &! inout, from "vdiff_down", for "vdiff_up"
+                         & field%  tsfc_tile(:,jb,:),    &! inout
+                         & field%u_stress_avg(:,  jb),   &! inout
+                         & field%v_stress_avg(:,  jb),   &! inout
+                         & field% lhflx_avg  (:,  jb),   &! inout
+                         & field% shflx_avg  (:,  jb),   &! inout
+                         & field%  evap_avg  (:,  jb),   &! inout
+                         & field%dshflx_dT_avg_tile(:,jb,:),&! inout ! OUTPUT for Sea ice
+                         & field%u_stress_tile  (:,jb,:),   &! inout
+                         & field%v_stress_tile  (:,jb,:),   &! inout
+                         & field% lhflx_tile    (:,jb,:),   &! out
+                         & field% shflx_tile    (:,jb,:),   &! out
+                         & field% dshflx_dT_tile(:,jb,:),   &! out for Sea ice
+                         & field%  evap_tile    (:,jb,:),   &! out
+                         & zqhflx,                          &! out, for "cucall"
                        !! optional
                        & nblock = jb,                  &! in
                        & lsm = field%lsmask(:,jb), &!< in, land-sea mask
@@ -937,72 +917,24 @@ CONTAINS
                        & pssfc = field% ssfc(:,jb),    &! in, snow surface concective (from cucall)
                        & pemterall = field% emterall(:,nlevp1,jb), &! in, pemter, surface net longwave flux [W/m2]
                        & ptrsolall = field% swflxsfc(:,jb), &! in, replaces jsswvis & jsswnir, net surface shortwave flux [W/m2]
-                       & presi_old = field% presi_old(:,nlevp1,jb),&! in, paphm1, sfc pressure
+                       & presi_old = field% presi_old(:,:,jb),&! in, paphm1, half level pressure
                        & pcosmu0 = field% cosmu0(:,jb),&! in, amu0_x, cos of zenith angle
                        & pch_tile = zch_tile(:,:),     &! in, from "vdiff_down" for JSBACH
-                       !! added for testing JSBACH (hydrology)
+                       !! added for JSBACH
                        & pcsat = field%csat(:,jb),      &! inout, area fraction with wet land surface
                        & pcair = field%cair(:,jb),      &! inout, area fraction with wet land surface (air)
-                       & csat_transpiration = field%csat_transpiration(:,jb),   &! inout, area fraction with wet land surface (vegetation)
-                       & moisture1 = field%moisture1(:,jb),                     &! inout
-                       & moisture2 = field%moisture2(:,jb),                     &! inout
-                       & moisture3 = field%moisture3(:,jb),                     &! inout
-                       & moisture4 = field%moisture4(:,jb),                     &! inout
-                       & moisture5 = field%moisture5(:,jb),                     &! inout
-                       & moisture_all = field%moisture_all(:,jb),               &! inout
-                       & sat_surface_specific_humidity = &
-                            field%sat_surface_specific_humidity(:,jb),          &! inout
-                       & skin_reservoir = field%skin_reservoir(:,jb),           &! inout
-                       & snow_fract = field%snow_fract(:,jb),                   &! inout
-                       & snow = field%snow(:,jb),                               &! inout
-                       & snow_canopy = field%snow_canopy(:,jb),                 &! inout
-                       & snow_melt = field% snow_melt(:,jb),                    &! inout
-                       & snow_acc = field% snow_acc(:,jb),                      &! inout
-                       & snow_melt_acc = field% snow_melt_acc(:,jb),            &! inout
-                       & glacier_runoff_acc = field% glacier_runoff_acc(:,jb),  &! inout
-                       & runoff_acc = field% runoff_acc(:,jb),                  &! inout
-                       & drainage_acc = field% drainage_acc(:,jb),              &! inout
-                       !! added for testing JSBACH (energy balance)
-                       & albedo_vis_soil = ext_data(jg)%atm%albedo_vis_soil(:,jb), &! in
-                       & albedo_nir_soil = ext_data(jg)%atm%albedo_nir_soil(:,jb), &! in
-                       & albedo_vis_canopy = ext_data(jg)%atm%albedo_vis_canopy(:,jb), &! in
-                       & albedo_nir_canopy = ext_data(jg)%atm%albedo_nir_canopy(:,jb), &! in
-                       & albedo_background = ext_data(jg)%atm%albedo_background(:,jb), &! in
-                       & forest_fract = ext_data(jg)%atm%forest_fract(:,jb),    & ! in
-                       & surface_temperature = field%surface_temperature(:,jb),         &! inout
-                       & surface_temperature_old = field%surface_temperature_old(:,jb), &! inout
-                       & c_soil_temperature1 = field%c_soil_temperature1(:,jb), &! inout
-                       & c_soil_temperature2 = field%c_soil_temperature2(:,jb), &! inout
-                       & c_soil_temperature3 = field%c_soil_temperature3(:,jb), &! inout
-                       & c_soil_temperature4 = field%c_soil_temperature4(:,jb), &! inout
-                       & c_soil_temperature5 = field%c_soil_temperature5(:,jb), &! inout
-                       & d_soil_temperature1 = field%d_soil_temperature1(:,jb), &! inout
-                       & d_soil_temperature2 = field%d_soil_temperature2(:,jb), &! inout
-                       & d_soil_temperature3 = field%d_soil_temperature3(:,jb), &! inout
-                       & d_soil_temperature4 = field%d_soil_temperature4(:,jb), &! inout
-                       & d_soil_temperature5 = field%d_soil_temperature5(:,jb), &! inout
-                       & soil_temperature1 = field%soil_temperature1(:,jb),     &! inout
-                       & soil_temperature2 = field%soil_temperature2(:,jb),     &! inout
-                       & soil_temperature3 = field%soil_temperature3(:,jb),     &! inout
-                       & soil_temperature4 = field%soil_temperature4(:,jb),     &! inout
-                       & soil_temperature5 = field%soil_temperature5(:,jb),     &! inout
-                       & heat_capacity = field%heat_capacity(:,jb),             &! inout
-                       & ground_heat_flux = field%ground_heat_flux(:,jb),       &! inout
-                       & swnet = field%swnet(:,jb),                             &! inout
-                       & time_steps_soil = field%time_steps_soil(:,jb),         &! inout
+                       & zhsoil = field%zhsoil(:,jb),   &! out, relative humidity of land surface
+                       & tte_corr = ztte_corr(:),       &! out, tte correction for snow melt over land
+                       & z0m_lnd = field% z0m_tile(:,jb,ilnd), &! out, roughness length for momentum over land
+                       & z0h_lnd = field% z0h_lnd (:,jb),      &! out, roughness length for heat over land
                        & albvisdir = field% albvisdir(:,jb),                    &! inout
                        & albnirdir = field% albnirdir(:,jb),                    &! inout
                        & albvisdif = field% albvisdif(:,jb),                    &! inout
                        & albnirdif = field% albnirdif(:,jb),                    &! inout
-                       & evapotranspiration = field%evapotranspiration(:,jb),           &! out
                        & surface_temperature_rad = field%surface_temperature_rad(:,jb), &! out
                        & surface_temperature_eff = field%surface_temperature_eff(:,jb)  &! out
                        )
 
-!       ext_data(jg)%atm%topography_c(jcs:jce,jb) = ext_data(jg)%atm%elevation_c(jcs:jce,jb) * &
-!         MIN(1._wp,field%time_steps_soil(jcs:jce,jb) / 200000._wp)
-!       field%swnet(jcs:jce,jb) = ext_data(jg)%atm%topography_c(jcs:jce,jb)
-!        field%swnet(jcs:jce,jb) = field%tsfc_tile(jcs:jce,jb,iwtr)
         field%tsurfl(jcs:jce,jb) = field%tsfc_tile(jcs:jce,jb,ilnd)
 
     ELSE
@@ -1105,6 +1037,7 @@ CONTAINS
                    & field% geom(:,:,jb),             &! in, pgeom1 = geopotential above ground
                    &      ztkevn(:,:),                &! in, tke at intermediate time step
                    & field%tkem1(:,:,jb),             &! in, TKE at step t-dt
+                   & ztte_corr(:),                    &! in
                    & zbb,                             &! inout
                    & zthvvar(:,:),                    &! inout
                    & field%   xvar(:,:,jb),           &! inout
@@ -1229,10 +1162,6 @@ CONTAINS
     IF (phy_config%lconv) THEN
 
       IF (ltimer) call timer_start(timer_cucall)
-
-!!$ TR      IF (phy_config%ljsbach) THEN
-!!$ TR         zqhflx(:) = field% evapotranspiration(:,jb)
-!!$ TR      END IF
 
       CALL cucall( echam_conv_config%ncvmicro,&! in
         &          echam_conv_config%iconv,   &! in

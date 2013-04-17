@@ -228,19 +228,6 @@ CONTAINS
 
     ndomain = SIZE(p_patch)
 
-    IF (phy_config%ljsbach) THEN
-      CALL configure_lnd_jsbach(ltestcase, ctest_name)
-      ! Do basic initialization of JSBACH
-      CALL jsbach_init_base()
-      ! Now continue initialization of JSBACH for the different grids
-      ! Get back the soil levels (needed to setup the zaxes in vlist and name_list_output for CDI)
-      DO jg=1,ndomain
-        CALL jsbach_init_model( jg, p_patch(jg), &
-                              & lnd_jsbach_config(jg)%nsoil,  lnd_jsbach_config(jg)%zlev_soil, &
-                              & lnd_jsbach_config(jg)%ntsoil, lnd_jsbach_config(jg)%ztlev_soil)
-      END DO
-    END IF
-
     ! general
    !--------------------------------------------------------------
     !< characteristic gridlength needed by sso and sometimes by
@@ -285,39 +272,6 @@ CONTAINS
              & fill_array    = prm_field(jg)% alb(:,:),         &
              & patch         = p_patch(jg))
 
-     IF (phy_config%ljsbach) THEN
-     ! albedo and forest fract for old jsbach implementation (temporary)
-           return_pointer => netcdf_read_oncells_2D( &
-             & filename      =land_phys_fn,        &
-             & variable_name ='albedo_soil_vis',   &
-             & fill_array    = ext_data(jg)%atm%albedo_vis_soil(:,:),         &
-             & patch         = p_patch(jg))
-           return_pointer => netcdf_read_oncells_2D( &
-             & filename      =land_phys_fn,        &
-             & variable_name ='albedo_soil_nir',   &
-             & fill_array    = ext_data(jg)%atm%albedo_nir_soil(:,:),         &
-             & patch         = p_patch(jg))
-           return_pointer => netcdf_read_oncells_2D( &
-             & filename      =land_phys_fn,        &
-             & variable_name ='albedo_veg_vis',   &
-             & fill_array    = ext_data(jg)%atm%albedo_vis_canopy(:,:),         &
-             & patch         = p_patch(jg))
-           return_pointer => netcdf_read_oncells_2D( &
-             & filename      =land_phys_fn,        &
-             & variable_name ='albedo_veg_nir',   &
-             & fill_array    = ext_data(jg)%atm%albedo_nir_canopy(:,:),         &
-             & patch         = p_patch(jg))
-           return_pointer => netcdf_read_oncells_2D( &
-             & filename      =land_phys_fn,        &
-             & variable_name ='albedo',            &
-             & fill_array    = ext_data(jg)%atm%albedo_background(:,:),         &
-             & patch         = p_patch(jg))
-           return_pointer => netcdf_read_oncells_2D( &
-             & filename      =land_phys_fn,        &
-             & variable_name ='forest_fract',   &
-             & fill_array    = ext_data(jg)%atm%forest_fract(:,:),         &
-             & patch         = p_patch(jg))
-     END IF
      ! orography
            return_pointer => netcdf_read_oncells_2D( &
              & filename      =land_sso_fn,         &
@@ -387,7 +341,20 @@ CONTAINS
       ENDDO
 
     ENDIF    ! phy_config%lamip
-    
+
+    IF (phy_config%ljsbach) THEN
+      CALL configure_lnd_jsbach(ltestcase, ctest_name)
+      ! Do basic initialization of JSBACH
+      CALL jsbach_init_base()
+      ! Now continue initialization of JSBACH for the different grids
+      ! Get back the soil levels (needed to setup the zaxes in vlist and name_list_output for CDI)
+      DO jg=1,ndomain
+        CALL jsbach_init_model( jg, p_patch(jg),                            & !< in
+          & lnd_jsbach_config(jg)%nsoil,  lnd_jsbach_config(jg)%zlev_soil,  & !< out
+          & lnd_jsbach_config(jg)%ntsoil, lnd_jsbach_config(jg)%ztlev_soil)   !< out
+      END DO
+    END IF
+
     IF (timers_level > 1) CALL timer_stop(timer_prep_echam_phy)
 
   END SUBROUTINE init_echam_phy
@@ -453,53 +420,28 @@ CONTAINS
       IF (ltestcase) THEN
         SELECT CASE (ctest_name)
         CASE('APE') !Note that there is only one surface type in this case
-                    !except ljsbach=.true. with land and ocean (two surface types)
 
-          IF (phy_config%ljsbach) THEN
 !$OMP PARALLEL DO PRIVATE(jb,jc,jcs,jce,zlat) ICON_OMP_DEFAULT_SCHEDULE
-            DO jb = jbs,nblks_c
-              CALL get_indices_c( p_patch(jg), jb,jbs,nblks_c, jcs,jce, 2)
-              DO jc = jcs,jce
-                zlat = p_patch(jg)%cells%center(jc,jb)%lat
-!                field% tsfc_tile(jc,jb,ilnd) = ext_data(jg)%atm%sst(jc,jb)   ! SST (preliminary)
-!                field% tsfc_tile(jc,jb,iwtr) = ext_data(jg)%atm%sst(jc,jb)   ! SST
-                field% tsfc_tile(jc,jb,ilnd) = ext_data(jg)%atm%sst_mon(jc,1,jb)   ! SST (preliminary)
-                field% tsfc_tile(jc,jb,iwtr) = ext_data(jg)%atm%sst_mon(jc,1,jb)   ! SST
-                IF (ext_data(jg)%atm%lsm_ctr_c(jc,jb) > 0) THEN ! this is land
-                  field% tsfc(jc,jb) = field% tsfc_tile(jc,jb,ilnd)
-                  field% lsmask(jc,jb) = 1._wp   ! a grid box is either completely land ...
-                ELSE ! this is ocean
-                  field% tsfc(jc,jb) = field% tsfc_tile(jc,jb,iwtr)
-                  field% lsmask(jc,jb) = 0._wp   ! ... or a grid box is completely ocean
-                END IF
-              END DO
-              field% glac  (jcs:jce,jb) = 0._wp   ! zero glacier fraction
-              field% seaice(jcs:jce,jb) = 0._wp   ! zero sea ice fraction
+          DO jb = jbs,nblks_c
+            CALL get_indices_c( p_patch(jg), jb,jbs,nblks_c, jcs,jce, 2)
+            DO jc = jcs,jce
+              zlat = p_patch(jg)%cells%center(jc,jb)%lat
+              !field% tsfc_tile(jc,iwtr,jb) = ape_sst(ape_sst_case,zlat)   ! SST
+              !field% tsfc     (jc,     jb) = field% tsfc_tile(jc,iwtr,jb)
+              field% tsfc_tile(jc,jb,iwtr) = ape_sst(ape_sst_case,zlat)   ! SST
+              field% tsfc     (jc,     jb) = field% tsfc_tile(jc,jb,iwtr)
             END DO
+            field% lsmask(jcs:jce,jb) = 0._wp   ! zero land fraction
+            field% glac  (jcs:jce,jb) = 0._wp   ! zero glacier fraction
+            field% seaice(jcs:jce,jb) = 0._wp   ! zeor sea ice fraction
+          END DO
 !$OMP END PARALLEL DO
-          ELSE
-!$OMP PARALLEL DO PRIVATE(jb,jc,jcs,jce,zlat) ICON_OMP_DEFAULT_SCHEDULE
-            DO jb = jbs,nblks_c
-              CALL get_indices_c( p_patch(jg), jb,jbs,nblks_c, jcs,jce, 2)
-              DO jc = jcs,jce
-                zlat = p_patch(jg)%cells%center(jc,jb)%lat
-               !field% tsfc_tile(jc,iwtr,jb) = ape_sst(ape_sst_case,zlat)   ! SST
-               !field% tsfc     (jc,     jb) = field% tsfc_tile(jc,iwtr,jb)
-                field% tsfc_tile(jc,jb,iwtr) = ape_sst(ape_sst_case,zlat)   ! SST
-                field% tsfc     (jc,     jb) = field% tsfc_tile(jc,jb,iwtr)
-              END DO
-              field% lsmask(jcs:jce,jb) = 0._wp   ! zero land fraction
-              field% glac  (jcs:jce,jb) = 0._wp   ! zero glacier fraction
-              field% seaice(jcs:jce,jb) = 0._wp   ! zeor sea ice fraction
-            END DO
-!$OMP END PARALLEL DO
-          END IF ! ljsbach
 
           IF ( is_coupled_run() ) CALL finish('ERROR: Use testcase APEc for a coupled run')
 
         CASE('APEi')
-          ! The same as APE, except we don't allow JSBACH and whenever SST reaches tmelt we put 1 m
-          ! thick ice with concentration of 0.9 on top
+          ! The same as APE except that, whenever SST reaches tmelt, we put
+          ! 1m-thick ice with a concentration of 0.9 on top
 
 !$OMP PARALLEL DO PRIVATE(jb,jc,jcs,jce,zlat) ICON_OMP_DEFAULT_SCHEDULE
           DO jb = jbs,nblks_c
@@ -891,55 +833,17 @@ CONTAINS
 !$OMP END WORKSHARE
 
       IF (phy_config%ljsbach) THEN
-!!$ TR for JSBACH testing (energy balance)
-!$OMP WORKSHARE
-      field% surface_temperature    (:,  :) = field% tsfc_tile(:,:,ilnd) !! initialize surface temperature == sst for testinf
-      field% surface_temperature_old(:,  :) = field% tsfc_tile(:,:,ilnd) !! initialize surface temperature == sst for testing
-      field% surface_temperature_rad(:,  :) = field% tsfc_tile(:,:,ilnd) !! initialize surface temperature == sst for testing
-      field% surface_temperature_eff(:,  :) = field% tsfc_tile(:,:,ilnd) !! initialize surface temperature == sst for testing
-      field% c_soil_temperature1    (:,  :) = 0._wp
-      field% c_soil_temperature2    (:,  :) = 0._wp
-      field% c_soil_temperature3    (:,  :) = 0._wp
-      field% c_soil_temperature4    (:,  :) = 0._wp
-      field% c_soil_temperature5    (:,  :) = 0._wp
-      field% d_soil_temperature1    (:,  :) = 1._wp
-      field% d_soil_temperature2    (:,  :) = 1._wp
-      field% d_soil_temperature3    (:,  :) = 1._wp
-      field% d_soil_temperature4    (:,  :) = 1._wp
-      field% d_soil_temperature5    (:,  :) = 1._wp
-      field% soil_temperature1      (:,  :) = field% tsfc_tile(:,:,ilnd) !! initialize soil temperature == sst for testindg
-      field% soil_temperature2      (:,  :) = field% tsfc_tile(:,:,ilnd) !! initialize soil temperature == sst for testindg
-      field% soil_temperature3      (:,  :) = field% tsfc_tile(:,:,ilnd) !! initialize soil temperature == sst for testindg
-      field% soil_temperature4      (:,  :) = field% tsfc_tile(:,:,ilnd) !! initialize soil temperature == sst for testindg
-      field% soil_temperature5      (:,  :) = field% tsfc_tile(:,:,ilnd) !! initialize soil temperature == sst for testindg
-      field% heat_capacity          (:,  :) = 1._wp
-      field% ground_heat_flux       (:,  :) = 0._wp
-      field% swnet                  (:,  :) = 0._wp
-      field% time_steps_soil        (:,  :) = 0._wp
 
-!!$ TR for JSBACH testing (hydrology)
-      field% moisture1              (:,  :) = 0.0109355_wp
-      field% moisture2              (:,  :) = 0.0427327_wp
-      field% moisture3              (:,  :) = 0.153602_wp
-      field% moisture4              (:,  :) = 0.251354_wp
-      field% moisture5              (:,  :) = 0._wp
-      field% moisture_all           (:,  :) = 0.446431_wp
-      field% csat                   (:,  :) = 1.0_wp
-      field% cair                   (:,  :) = 1.0_wp
-      field% csat_transpiration     (:,  :) = 0._wp
-      field% sat_surface_specific_humidity (:,  :) = 0.01_wp
-      field% skin_reservoir         (:,  :) = 0._wp
-      field% snow_fract             (:,  :) = 0._wp
-      field% snow                   (:,  :) = 0._wp
-      field% snow_canopy            (:,  :) = 0._wp
-      field% snow_melt              (:,  :) = 0._wp
-      field% snow_acc               (:,  :) = 0._wp
-      field% snow_melt_acc          (:,  :) = 0._wp
-      field% glacier_runoff_acc     (:,  :) = 0._wp
-      field% runoff_acc             (:,  :) = 0._wp
-      field% drainage_acc           (:,  :) = 0._wp
+!$OMP WORKSHARE
+        field% surface_temperature_rad(:,  :) = field% tsfc_tile(:,:,ilnd)
+        field% surface_temperature_eff(:,  :) = field% tsfc_tile(:,:,ilnd)
+        field% zhsoil                 (:,  :) = 0._wp
+        field% csat                   (:,  :) = 1.0_wp
+        field% cair                   (:,  :) = 1.0_wp
 !$OMP END WORKSHARE
+
       END IF ! ljsbach
+
 !$OMP END PARALLEL
 
       IF (phy_config%lvdiff) THEN
@@ -969,7 +873,10 @@ CONTAINS
         IF (iwtr<=nsfc_type) field% z0m_tile(:,:,iwtr) = 1e-3_wp !see init_surf in echam (or z0m_oce?)
         IF (iice<=nsfc_type) field% z0m_tile(:,:,iice) = 1e-3_wp !see init_surf in echam (or z0m_ice?)
 !        IF (ilnd<=nsfc_type) field% z0m_tile(:,:,ilnd) = z0m_min ! or maybe a larger value?
-        IF (ilnd<=nsfc_type) field% z0m_tile(:,:,ilnd) = field%z0m(:,:) ! or maybe a larger value?
+        IF (ilnd<=nsfc_type) THEN
+          field% z0m_tile(:,:,ilnd) = field%z0m(:,:) ! or maybe a larger value?
+          field% z0h_lnd(:,:)       = field%z0m(:,:) ! or maybe a larger value?
+        END IF
       ENDIF
 
       ! Initialization of tendencies is necessary for doing I/O with

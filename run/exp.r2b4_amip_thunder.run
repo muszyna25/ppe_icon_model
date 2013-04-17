@@ -435,11 +435,17 @@ cat > ${atmo_namelist} << EOF
  remap            = 0   ! triangular grid
  output_filename  = "${EXPNAME}_`basename ${atmo_dyn_grids} .nc`_jsbach"
  output_grid      = .TRUE.
- ml_varlist       = 'fract', 'alb_vis_srf', 'alb_nir_srf', 'swrad_srf_net', 't_srf', 'lai', 's_srf', 'qsat_srf'
-                    'canopy_cond', 'ws_l', 'ws', 'water_stress', 'ws_root', 'ws_fc_root', 'albedo_srf', 't_air', 'q_air', 'lwrad_srf_down'
-                    'swrad_srf_down'
-                    'evapotrans', 'sensible_hflx', 'latent_hflx', 'fact_qsat_srf', 'fact_q_air', 't_srf_unfilt', 't_srf_unfilt_old', 't_srf_old'
-                    't_soil', 'wsn_srf', 'wsr_srf', 't_rad_srf'
+ ml_varlist       = 'fract', 'alb_vis_srf', 'alb_nir_srf', 't_srf', 'lai', 's_srf', 'qsat_srf'
+                    'canopy_cond', 'ws_l', 'ws_fc_l', 'ws_pwp_l', 'ws_sat_l', 'ws'
+                    'water_stress', 'ws_root', 'ws_fc_root', 'ws_pwp_root'
+                    'albedo_srf', 't_air', 'q_air', 'lwrad_srf_down'
+                    'swrad_srf_down', 'root_depth', 'root_depth_l', 'soil_depth', 'soil_depth_l'
+                    'evapotrans', 'sensible_hflx', 'latent_hflx' 
+                   'fact_qsat_srf', 'fact_qsat_trans_srf', 'fact_q_air', 'fract_fpc_max', 'fract_fpc'
+                   't_srf_unfilt', 't_srf_unfilt_old', 't_srf_old'
+                    't_soil', 'wsn_srf', 'wsr_srf', 't_rad_srf', 'grnd_hflx'
+                    'sfract_srf', 'wfract_srf', 'sfract_soil', 'sfract_can', 'wfract_can', 'wfract_soil'
+                    'rel_hum_srf', 'tte_corr', 'rough_m_srf', 'rough_h_srf'
  !map_file         ="mapfile_dcmip.txt"
 /
 EOF
@@ -459,7 +465,7 @@ cat > ${land_namelist} <<EOF
   active          = .TRUE.
   nsoil_energy    = 5
   nsoil_water     = 5
-  bc_filename     = 'bc_land_phys.nc'
+  bc_filename     = 'bc_land_soil.nc'
   ic_filename     = 'ic_land_soil.nc'
 /
 
@@ -554,6 +560,7 @@ cp -f $INDATA/r2b4_amip/oce/bc_sst_pcmdi_1870-2010.nc       ./bc_sst.nc
 # - land parameters
 cp -f $INDATA/r2b4_amip/lnd/bc_land_frac.nc                 ./
 cp -f $INDATA/r2b4_amip/lnd/bc_land_phys.nc                 ./
+cp -f $INDATA/r2b4_amip/lnd/bc_land_soil.nc                 ./
 cp -f $INDATA/r2b4_amip/lnd/bc_land_sso.nc                  ./
 
 #__________________________________________________________________________________________________

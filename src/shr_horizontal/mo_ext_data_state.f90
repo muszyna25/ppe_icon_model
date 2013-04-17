@@ -545,79 +545,11 @@ CONTAINS
     IF (echam_phy_config%ljsbach) THEN
     ! atmosphere land-sea-mask at surface on cell centers
     !
-    ! lsm_ctr_c  p_ext_atm%lsm_ctr_c(nproma,nblks_c)
-    cf_desc    = t_cf_var('Atmosphere model land-sea-mask at cell center', '-2/-1/1/2', &
-      &                   'Atmosphere model land-sea-mask', DATATYPE_FLT32)
-    grib2_desc = t_grib2_var( 192, 140, 219, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( p_ext_atm_list, 'lsm_ctr_c', p_ext_atm%lsm_ctr_c,        &
-      &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,             &
-                  grib2_desc, ldims=shape2d_c )
       ! elevation p_ext_atm%elevation_c(nproma,nblks_c)
       cf_desc    = t_cf_var('elevation at cell center', 'm', &
       &                     'elevation', DATATYPE_FLT32)
       grib2_desc = t_grib2_var( 192, 140, 219, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'elevation_c', p_ext_atm%elevation_c,        &
-      &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,          &
-                  grib2_desc, ldims=shape2d_c )
-    ! SST  p_ext_atm%sst(nproma,nblks_c)
-    cf_desc    = t_cf_var('SST', 'K', &
-      &                   'SST as prescribed for atmosphere simulations', DATATYPE_FLT32)
-    grib2_desc = t_grib2_var( 192, 140, 219, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( p_ext_atm_list, 'sst', p_ext_atm%sst,                    &
-      &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,             &
-                  grib2_desc, ldims=shape2d_c )
-    ! monthly SST  p_ext_atm%sst_mon(nproma,nblks_c)
-    cf_desc    = t_cf_var('SST monthly', 'K', &
-      &                   'monthly SST as prescribed for atmosphere simulations', DATATYPE_FLT32)
-    grib2_desc = t_grib2_var( 192, 140, 219, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( p_ext_atm_list, 'sst_mon', p_ext_atm%sst_mon,        &
-      &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,          &
-                  grib2_desc, ldims=shape3d_mon_c )
-    ! albedo_vis_soil  p_ext_atm%albedo_vis_soil(nproma,nblks_c)
-    cf_desc    = t_cf_var('soil surface albedo visible', '', &
-      &                   'soil surface albedo in the visible range', DATATYPE_FLT32)
-    grib2_desc = t_grib2_var( 192, 140, 219, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( p_ext_atm_list, 'albedo_vis_soil', p_ext_atm%albedo_vis_soil,        &
-      &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,             &
-                  grib2_desc, ldims=shape2d_c )
-
-    ! albedo_nir_soil  p_ext_atm%albedo_nir_soil(nproma,nblks_c)
-    cf_desc    = t_cf_var('soil surface albedo NIR', '', &
-      &                   'soil surface albedo in the NIR range', DATATYPE_FLT32)
-    grib2_desc = t_grib2_var( 192, 140, 219, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( p_ext_atm_list, 'albedo_nir_soil', p_ext_atm%albedo_nir_soil,        &
-      &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,             &
-                  grib2_desc, ldims=shape2d_c )
-
-    ! albedo_vis_canopy  p_ext_atm%albedo_vis_canopy(nproma,nblks_c)
-    cf_desc    = t_cf_var('canopy reflectance visible', '', &
-      &                   'canopy reflectance in the visible range', DATATYPE_FLT32)
-    grib2_desc = t_grib2_var( 192, 140, 219, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( p_ext_atm_list, 'albedo_vis_canopy', p_ext_atm%albedo_vis_canopy,    &
-      &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,             &
-                  grib2_desc, ldims=shape2d_c )
-
-    ! albedo_nir_canopy  p_ext_atm%albedo_nir_canopy(nproma,nblks_c)
-    cf_desc    = t_cf_var('canopy reflectance NIR', '', &
-      &                   'canopy reflectance in the NIR range', DATATYPE_FLT32)
-    grib2_desc = t_grib2_var( 192, 140, 219, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( p_ext_atm_list, 'albedo_nir_canopy', p_ext_atm%albedo_nir_canopy,    &
-      &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,             &
-                  grib2_desc, ldims=shape2d_c )
-
-    ! albedo_background  p_ext_atm%albedo_background(nproma,nblks_c)
-    cf_desc    = t_cf_var('background albedo', '', &
-      &                   'background albedo for echam5 albedo scheme', DATATYPE_FLT32)
-    grib2_desc = t_grib2_var( 192, 140, 219, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( p_ext_atm_list, 'albedo_background', p_ext_atm%albedo_background,    &
-      &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,             &
-                  grib2_desc, ldims=shape2d_c )
-
-    ! forest_fract  p_ext_atm%forest_fract(nproma,nblks_c)
-    cf_desc    = t_cf_var('forest fraction', '', &
-      &                   'forest fraction for echam5 albedo scheme', DATATYPE_FLT32)
-    grib2_desc = t_grib2_var( 192, 140, 219, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( p_ext_atm_list, 'forest_fract', p_ext_atm%forest_fract,   &
       &             GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,          &
                     grib2_desc, ldims=shape2d_c )
     END IF

@@ -97,16 +97,6 @@ CONTAINS
         iice      = 999
         ilnd      = 999
 
-        IF (phy_config%ljsbach) THEN
-
-           iwtr      = 1
-           ilnd      = 2
-           nsfc_type = 2
-           igbm      = 0
-           iice      = 999
-
-        END IF
-
       CASE('APEi','APEc')
       ! Aqua-planet simulation with ice, but no land;
 

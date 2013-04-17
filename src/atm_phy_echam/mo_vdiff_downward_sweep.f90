@@ -89,7 +89,9 @@ CONTAINS
                        & pzthvvar,   pztkevn,                           &! out
                        & pch_tile,                                      &! out
                        & pcsat,                                         &! in
-                       & pcair)                                          ! in
+                       & pcair,                                         &! in
+                       & pzhsoil,                                       &! in
+                       & paz0lh)
 
 
     LOGICAL, INTENT(IN) :: lsfc_mom_flux, lsfc_heat_flux
@@ -191,7 +193,9 @@ CONTAINS
 
     REAL(wp), OPTIONAL, INTENT(IN) ::          &
       & pcsat     (kbdim)          ,&!< area fraction with wet land surface
-      & pcair     (kbdim)            !< area fraction with wet land surface
+      & pcair     (kbdim)          ,&!< area fraction with wet land surface
+      & pzhsoil   (kbdim)          ,&!< rel. humidity of land surface
+      & paz0lh    (kbdim)            !< surface roughness length over land for heat
 
     ! Local variables
 
@@ -267,7 +271,8 @@ CONTAINS
                            & ztheta_b (:),    zthetav_b(:),         &! in
                            & zthetal_b(:),    paclc (:,klev),       &! in
                            & pzthvvar(:,klevm1),                    &! in
-!                           & zhsoil, az0lh,                         &! in
+                           & paz0lh(:),                             &! in
+                           & pzhsoil(:),                            &! in
                            & pcsat(:),                              &! in
                            & pcair(:),                              &! in
                            & pqsat_tile(:,:), pcpt_tile(:,:),       &! out
@@ -311,8 +316,10 @@ CONTAINS
                            & pqshear(:,klev),                       &! out, for "vdiff_tendencies"
                            & pustar(:),                             &! out, for "atm_exchange_coeff" at next time step
                            & pch_sfc = pch_tile(:,:),               &! out
+                           & pzhsoil = pzhsoil(:),                  &! in
                            & pcsat = pcsat(:),                      &! in
-                           & pcair = pcair(:))                       ! in
+                           & pcair = pcair(:),                      &! in
+                           & paz0lh = paz0lh(:))                     ! in
     ELSE ! ljsbach
     CALL sfc_exchange_coeff( kproma, kbdim, ksfc_type,              &! in
                            & idx_wtr, idx_ice, idx_lnd,             &! in
@@ -394,4 +401,3 @@ CONTAINS
   !-------------
 
 END MODULE mo_vdiff_downward_sweep
-

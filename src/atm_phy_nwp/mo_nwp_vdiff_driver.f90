@@ -221,6 +221,7 @@ CONTAINS
   REAL(wp) :: zcptgz  (kbdim,klev)
   REAL(wp) :: zrdpm   (kbdim,klev)
   REAL(wp) :: zrdph   (kbdim,klevm1)
+  REAL(wp) :: ztte_corr(kbdim)     ! Correction of tte for snow melt (dummy, only used for JSBACH)
 
   ! _b denotes value at the bottom level (the klev-th full level)
 
@@ -373,6 +374,8 @@ CONTAINS
   dshflx_dT_ac_tile(1:kproma,:) = 0._wp
   !--------------------------------------------------------+++++++++++++++
 
+  ztte_corr(1:kbdim) = 0._wp ! Dummy for vdiff_tendencies
+
   CALL update_surface( lsfc_heat_flux, lsfc_mom_flux,      &! in
                      & pdtime, pstep_len,                  &! in
                      & jg,                                 &! in
@@ -410,7 +413,7 @@ CONTAINS
                        & ptkem1, ptkem0, ztkevn, zthvvar, zrhoh,      &! in
 #endif
                        & zqshear, ihpbl, pcfh_tile, pqsat_tile,       &! in
-                       & pcfm_tile, pfrc, bb,                         &! in
+                       & pcfm_tile, pfrc, ztte_corr, bb,              &! in
                        & pkedisp(:),                                  &! inout ("pvdis" in echam)
                        & pxvar(:,:), pz0m_tile(:,:),                  &! inout
                        & pute, pvte, ptte, pqte, pxlte, pxite, pxtte, &! inout
