@@ -294,13 +294,6 @@ CONTAINS
     LOGICAL  :: lfland(kbdim)
     INTEGER  :: ilsm(kbdim)
     REAL(wp)  :: surface_temperature_last(kbdim)
-    REAL(wp)  :: pcair_temp(kbdim), pcsat_temp(kbdim)
-    REAL(wp)  :: surface_temperature_temp(kbdim)
-    REAL(wp)  :: surface_temperature_rad_temp(kbdim)
-    REAL(wp)  :: sat_surface_specific_humidity_temp(kbdim)
-    REAL(wp) :: albvisdir_temp(kbdim), albnirdir_temp(kbdim)
-    REAL(wp) :: albvisdif_temp(kbdim), albnirdif_temp(kbdim)
-    REAL(wp) :: evapotranspiration_temp(kbdim), lhflx_temp(kbdim), shflx_temp(kbdim), swnet_temp(kbdim)
     INTEGER  :: jsfc, jk, jkm1, im, k
     REAL(wp) :: se_sum(kbdim), qv_sum(kbdim), wgt_sum(kbdim), wgt(kbdim)
     REAL(wp) :: zca(kbdim,ksfc_type), zcs(kbdim,ksfc_type)
@@ -357,9 +350,6 @@ CONTAINS
       ilsm(:) = 0
     ENDWHERE
 
-    lhflx_temp(:) = plhflx_tile(:, idx_lnd)
-    shflx_temp(:) = pshflx_tile(:, idx_lnd)
-
     CALL jsbach_interface ( jg, nblock, 1, kproma, pdtime, psteplen,         & ! in
       & t_air            = ptemp(1:kproma),                                  & ! in
       & q_air            = pq(1:kproma),                                     & ! in
@@ -377,105 +367,22 @@ CONTAINS
       & q_bcoef          = zfn_qv(1:kproma, idx_lnd),                        & ! in
       & pch              = MERGE(pch_tile(1:kproma,idx_lnd),1._wp,ilsm(1:kproma)>0),  & ! in
       & cos_zenith_angle = pcosmu0(1:kproma),                                & ! in
-      & t_srf            = surface_temperature_temp(1:kproma),                    & ! out
-      & t_rad_srf        = surface_temperature_rad_temp(1:kproma),                & ! out
-      & qsat_srf         = sat_surface_specific_humidity_temp(1:kproma),          & ! out
-      & fact_q_air       = pcair_temp(1:kproma),                                  & ! out
-      & fact_qsat_srf    = pcsat_temp(1:kproma),                                  & ! out
-      & evapotrans       = evapotranspiration_temp(1:kproma),                     & ! out
-      & latent_hflx      = lhflx_temp(1:kproma),                   & ! out
-      & sensible_hflx    = shflx_temp(1:kproma),                   & ! out
-      & swrad_net        = swnet_temp(1:kproma),                                  & ! out
+      & t_srf            = surface_temperature(1:kproma),                    & ! out
+      & t_rad_srf        = surface_temperature_rad(1:kproma),                & ! out
+      & qsat_srf         = sat_surface_specific_humidity(1:kproma),          & ! out
+      & fact_q_air       = pcair(1:kproma),                                  & ! out
+      & fact_qsat_srf    = pcsat(1:kproma),                                  & ! out
+      & evapotrans       = evapotranspiration(1:kproma),                     & ! out
+      & latent_hflx      = plhflx_tile(1:kproma, idx_lnd),                   & ! out
+      & sensible_hflx    = pshflx_tile(1:kproma, idx_lnd),                   & ! out
+      & swrad_net        = swnet(1:kproma),                                  & ! out
 !!$                          & zh_srf           =
 !!$                          & zm_srf           =
-      & alb_vis_dir      = albvisdir_temp(1:kproma),                              & ! out
-      & alb_nir_dir      = albnirdir_temp(1:kproma),                              & ! out
-      & alb_vis_dif      = albvisdif_temp(1:kproma),                              & ! out
-      & alb_nir_dif      = albnirdif_temp(1:kproma)                               & ! out
+      & alb_vis_dir      = albvisdir(1:kproma),                              & ! out
+      & alb_nir_dir      = albnirdir(1:kproma),                              & ! out
+      & alb_vis_dif      = albvisdif(1:kproma),                              & ! out
+      & alb_nir_dif      = albnirdif(1:kproma)                               & ! out
       )
-
-    CALL jsbach_inter_1d (kdim = kproma,                                   &
-                          kblock = nblock,                                 &
-                          kland = COUNT(lfland(1:kproma)),                 &
-                          mask_land = ilsm(1:kproma),                       &
-                          delta_time = pdtime,                             &
-                          time_step_len = psteplen,                        &
-                          time_steps_soil = time_steps_soil(1:kproma),     &
-                          wind = SQRT(pu(1:kproma)**2 + pv(1:kproma)**2),  &
-!!$ TR                          wind10 =     ! comment out to simplify for testing, 10 m wind speed will be implemented later
-!!$ TR                                       ! set wind10 in update soil to wind for testing
-                          temp_air = ptemp(1:kproma),                      &
-                          qair     = pq(1:kproma),                         &
-                          precip_rain = prsfl(1:kproma) + prsfc(1:kproma), &
-                          precip_snow = pssfl(1:kproma) + pssfc(1:kproma), &
-                          lwdown   = pemterall(1:kproma) + lwup(1:kproma), &
-                          swdown   = ptrsolall(1:kproma),                  & !! ATTENTION !! replaces sw_vis_net + sw_nir_net
-                          pressure = presi_old(1:kproma),                  &
-                          czenith  = pcosmu0(1:kproma),                    &
-!!$ TR                          CO2_concentration = 0.00055_wp,                  & ! comment out to simplify for testing, mass mixing ratio
-                          cdrag = pfac_sfc(1:kproma) * pcfh_tile(1:kproma,idx_lnd), &
-                          etAcoef = zen_h(1:kproma,idx_lnd),               &
-                          etBcoef = zfn_h(1:kproma,idx_lnd),               &
-                          eqAcoef = zen_qv(1:kproma,idx_lnd),              &
-                          eqBcoef = zfn_qv(1:kproma,idx_lnd),              &
-                          p_echam_zchl = pch_tile(1:kproma,idx_lnd),       & ! intent in
-                          albedo_vis_soil = albedo_vis_soil(1:kproma),     & ! intent in
-                          albedo_nir_soil = albedo_nir_soil(1:kproma),     & ! intent in
-                          albedo_vis_canopy = albedo_vis_canopy(1:kproma), & ! intent in
-                          albedo_nir_canopy = albedo_nir_canopy(1:kproma), & ! intent in
-                          albedo_background = albedo_background(1:kproma), & ! intent in
-                          forest_fract = forest_fract(1:kproma),           & ! intent in
-                           !! added for testing JSBACH (hydrology)
-                          cair = pcair(1:kproma),                          & ! intent out
-                          csat = pcsat(1:kproma),                          & ! intent out
-!!$ TR                          zhsoil = ,                                      & ! intent out
-                          csat_transpiration= csat_transpiration(1:kproma),& ! intent out
-                          albvisdir = albvisdir(1:kproma),                 & ! intent inout
-                          albnirdir = albnirdir(1:kproma),                 & ! intent inout
-                          albvisdif = albvisdif(1:kproma),                 & ! intent inout
-                          albnirdif = albnirdif(1:kproma),                 & ! intent inout
-                          moisture1 = moisture1(1:kproma),                 & ! intent out
-                          moisture2 = moisture2(1:kproma),                 & ! intent out
-                          moisture3 = moisture3(1:kproma),                 & ! intent out
-                          moisture4 = moisture4(1:kproma),                 & ! intent out
-                          moisture5 = moisture5(1:kproma),                 & ! intent out
-                          moisture_all = moisture_all(1:kproma),           & ! intent out
-                          sat_surface_specific_humidity = sat_surface_specific_humidity(1:kproma),& ! intent out
-                          skin_reservoir = skin_reservoir(1:kproma),       & ! intent out
-                          snow_fract = snow_fract(1:kproma),               & ! intent out
-                          snow = snow(1:kproma),                           & ! intent out
-                          snow_canopy = snow_canopy(1:kproma),             & ! intent out
-                          snow_melt = snow_melt(1:kproma),                 & ! intent out
-                          snow_acc = snow_acc(1:kproma),                   & ! intent out
-                          snow_melt_acc = snow_melt_acc(1:kproma),         & ! intent out
-                          glacier_runoff_acc = glacier_runoff_acc(1:kproma), & ! intent out
-                          runoff_acc = runoff_acc(1:kproma),               & ! intent out
-                          drainage_acc = drainage_acc(1:kproma),           & ! intent out
-                           !! added for testing JSBACH (energy balance)
-                          surface_temperature = surface_temperature(1:kproma), &
-                          surface_temperature_old = surface_temperature_old(1:kproma), &
-                          surface_temperature_rad = surface_temperature_rad(1:kproma), &
-                          evapotranspiration = evapotranspiration(1:kproma), &
-                          c_soil_temperature1 = c_soil_temperature1(1:kproma), &
-                          c_soil_temperature2 = c_soil_temperature2(1:kproma), &
-                          c_soil_temperature3 = c_soil_temperature3(1:kproma), &
-                          c_soil_temperature4 = c_soil_temperature4(1:kproma), &
-                          c_soil_temperature5 = c_soil_temperature5(1:kproma), &
-                          d_soil_temperature1 = d_soil_temperature1(1:kproma), &
-                          d_soil_temperature2 = d_soil_temperature2(1:kproma), &
-                          d_soil_temperature3 = d_soil_temperature3(1:kproma), &
-                          d_soil_temperature4 = d_soil_temperature4(1:kproma), &
-                          d_soil_temperature5 = d_soil_temperature5(1:kproma), &
-                          soil_temperature1 = soil_temperature1(1:kproma), &
-                          soil_temperature2 = soil_temperature2(1:kproma), &
-                          soil_temperature3 = soil_temperature3(1:kproma), &
-                          soil_temperature4 = soil_temperature4(1:kproma), &
-                          soil_temperature5 = soil_temperature5(1:kproma), &
-                          heat_capacity = heat_capacity(1:kproma), &
-                          ground_heat_flux = ground_heat_flux(1:kproma), &
-                          swnet = swnet(1:kproma) &
-                          )
-
 
     ptsfc_tile(1:kproma,idx_lnd) = MERGE(surface_temperature(1:kproma), tmelt, lsm(1:kproma) > 0.5_wp)
 
