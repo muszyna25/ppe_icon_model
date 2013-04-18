@@ -535,8 +535,8 @@ cp -f $INDATA/r2b4_amip/lnd/ic_land_soil.nc                 ./
 cp -f $INDATA/global/atm/bc_greenhouse_rcp45_1765-2500.nc   ./bc_greenhouse_gases.nc
 
 # - ozone
-year=1975
-while [[ $year -lt 2009 ]]
+year=1977
+while [[ $year -le 2009 ]]
 do
  cp -f $INDATA/r2b4_amip/atm/bc_ozone_cmip5/bc_ozone_cmip5_${year}.nc ./ozone${year}.nc
  (( year = year+1 ))
