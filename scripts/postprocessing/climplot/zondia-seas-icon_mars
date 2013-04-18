@@ -7,6 +7,7 @@
  print("%%I    Retrieving control data from MARS")
 
 # -- set MARS parameters
+
  levtype=lev_type
 
  if exp_mode[1] = 'OPER_AN' then
@@ -24,6 +25,7 @@
   end if
 
 # -- Read data: loop over date
+
   print("%%I     Reading control data...")
 
   if verbose = 1 then
@@ -63,9 +65,11 @@
   write(control_filename,mars_in)  
 
 # ------- retrieve Experimental data -----------------
+
   print("%%I    Retrieving experimental data from MARS")
 
 # -- set MARS parameters
+
   levtype=lev_type
 
   if exp_mode[2] = 'OPER_SEAS' then
@@ -93,6 +97,7 @@
   end if
 
 # -- Read data: loop over date
+
   print("%%I     Reading control data...")
 
   if verbose = 1 then

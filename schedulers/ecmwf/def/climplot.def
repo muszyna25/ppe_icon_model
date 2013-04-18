@@ -50,6 +50,12 @@ endif
            trigger getmeans==complete
          task plot_zon
            trigger getmeans==complete
+         task plot_dcycle
+           trigger getmeans==complete
+         task plot_wavfreq
+           trigger getmeans==complete
+         task plot_vdspectra
+           trigger getmeans==complete
          family plot_obs
            trigger getmeans==complete
              task plot_obs_1
@@ -65,7 +71,8 @@ endif
          endfamily
          task plot_clean
            trigger getmeans==complete  and plot_2d==complete  and plot_wind==complete and \
-                   plot_z500==complete and plot_zon==complete and plot_obs==complete
+                   plot_z500==complete and plot_zon==complete and plot_obs==complete and \
+                   plot_dcycle==complete and plot_wavfreq==complete and plot_vdspectra==complete
        endfamily
        task climplot_save
          trigger climplot == complete

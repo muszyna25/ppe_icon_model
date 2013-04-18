@@ -155,13 +155,20 @@ endif
         task prepdata
         task wamabs  ; QDEFAULT ; ASSIMOK ; WAVEOK
         task ma_tools ; MAOK
+        if ( LSATIMSIM ) then
+           task satrad
+           task satimbin
+        endif
+        task nemo_tools ; lnemo
       endfamily
 
       family const
         task datalinks ; trigger ../setup == complete
-        task wconst ; trigger ../bins/wamabs==complete ; ASSIMOK ; WAVEOK
-        task stagesst ; trigger ../setup == complete and ../../inigroup1/getini == complete ; onws ; SSTOK
-        task getsst ; trigger stagesst == complete ; QNORM ; SSTOK
+        task wconst ; PARALLEL ; trigger ../bins/wamabs==complete ; ASSIMOK ; WAVEOK
+          edit THREADS 16
+          edit EC_SMT no
+          edit NPES 1
+          edit CPUTIME 10000
       endfamily
 
       task logfiles
@@ -179,35 +186,49 @@ endif
                         (/$OWNER/$EXPVER/an/lag/$hour == complete) ) or \
                       (inigroup$set:YMD lt (/$OWNER/$EXPVER/an/lag:YMD + $SHIFTTRIGGER)) or \
                       /$OWNER/$EXPVER/an/lag == unknown or \
-                      /$OWNER/$EXPVER/an/lag == complete )
-
+                      /$OWNER/$EXPVER/an/lag == complete ) 
             task getini ; trigger ../make/bins/prepdata==complete ; DATAOK ; QNORM
               edit PRIORITY $fetch_priority
-            task inidata ; trigger ../make/bins/ifs==complete and getini==complete and \
-                           ../make/const/getsst == complete; DATAOK ; IFRFOK
+            task inidata ; trigger ../make/bins/ifs==complete and getini==complete ; DATAOK ; IFRFOK
               interpol
             task wavini ; trigger ../make/const/wconst==complete ; DATAOK ; QNORM ; IFRFOK
-	      if ( !WAVE ) then defstatus complete; endif
+              edit MEM $MEM_BIG_SERIAL
+	          if ( !WAVE ) then defstatus complete; endif
               edit PRIORITY $fetch_priority
               wavsc_ini
             task wcold ; DATAOK ; PARALLEL ; WAVEOK
-	      if ( INIWAVE ) then defstatus complete; endif
+              if ( INIWAVE ) then defstatus complete; endif
               wavsc
               trigger inidata==complete and wavini==complete
-            task getfcdata ; trigger inidata == complete and getini == complete and \
-                                     wavini == complete and wcold == complete ; DATAOK ; QNORM ; IFRFOK
-          if (PERSST eq 1 ) then
+            task getfcdata ; trigger inidata == complete and getini == complete \
+                               and wavini == complete and wcold == complete ; DATAOK ; QNORM ; IFRFOK
+            if (LCHEM eq 1 ) then
+              trigger -a prep_chem==complete  
+              task prep_chem ; trigger ../make/bins/prepdata==complete ; DATAOK ; QNORM
+            endif
+            edit MEM $MEM_LARGE_SERIAL
+            if (LSST eq 1 ) then
+              task getobsSST ; trigger getfcdata == complete ; SSTOK
+                edit MEM $MEM_LARGE_SERIAL
+                edit SSTLEN $FCLENGTH
+                edit FCRES $RESOL
+                set obstrg getobsSST
+            else
+                set obstrg ""
+            endif
+            if (PERSST eq 1 ) then
               task getpersSST ; trigger getfcdata==complete
               edit THREADS 2
               edit NPES 4
               edit MEM $MEM_INI
               edit CPUTIME $CPUTIME_INI
-          endif
+              set perstrg getpersSST
+            else
+              set perstrg ""
+            endif
             task logfiles
               onlog
-              trigger wcold == complete and \
-                      wavini == complete and inidata == complete and \
-                      getini == complete and getfcdata == complete
+              trigger_loop getfcdata $perstrg $obstrg
     endfamily
 
     family fcgroup$set
@@ -279,6 +300,12 @@ endif
             trigger getmeans==complete
           task plot_zon
             trigger getmeans==complete
+          task plot_dcycle
+            trigger getmeans==complete
+          task plot_wavfreq
+            trigger getmeans==complete
+          task plot_vdspectra
+            trigger getmeans==complete
           family plot_obs
             trigger getmeans==complete
               task plot_obs_1
@@ -294,7 +321,8 @@ endif
           endfamily
           task plot_clean
             trigger getmeans==complete  and plot_2d==complete  and plot_wind==complete and \
-                    plot_z500==complete and plot_zon==complete and plot_obs==complete
+                    plot_z500==complete and plot_zon==complete and plot_obs==complete and \
+                    plot_dcycle==complete and plot_wavfreq==complete and plot_vdspectra==complete
         endfamily
         task climplot_save ; MEANOK
           trigger climplot == complete
@@ -313,9 +341,13 @@ endif
         edit ARCHTYPE fc
         edit PRIORITY $store_priority
 	 task ml ; event fdb ; MLOK
+          edit MEM $MEM_BIG_SERIAL
+          edit MARS_DB mars_rd
      	 task pl ; event fdb ; PLOK
+           edit MEM $MEM_BIG_SERIAL
 	   trigger ./ml == complete
          task sfc ; event fdb ; SFCOK
+           edit MEM $MEM_BIG_SERIAL
            trigger ./ml==complete and ./pl == complete
          task pt ; event fdb ; PTOK
            trigger ./pl==complete and ./sfc == complete
@@ -325,9 +357,56 @@ endif
            trigger ./pl==complete and ./pv == complete 
        endfamily
 
+       set satimtrg ""
+       if ( LSATIMSIM ) then
+            family satim
+              limit SATIM 5
+              inlimit SATIM
+              edit MEM $MEM_LARGE_SERIAL
+
+              set satimloop $SATIMSTART
+              while (satimloop <= $SATIMEND) do
+                set satimfam satim_$satimloop
+                family $satimfam
+                  trigger ( (../../fcgroup$set/model == complete or \
+                             ../../fcgroup$set/model:step ge $satimloop))
+                  edit IMAGETIME $satimloop
+                  edit WMOID     undef
+                  family retr
+                    edit SATIM_MODE 1
+                    task satimsim 
+                  endfamily # retr
+
+                  family sat
+                    trigger retr==complete
+                    edit SATIM_MODE 2
+                    loop satid ( 54 56 172 259 257) do
+                      family sat_$satid
+                        edit WMOID $satid
+                        task satimsim
+                      endfamily # sat_$satid
+                    endloop
+                  endfamily # sat
+
+                  family satim_flush
+                    trigger sat==complete
+                    edit SATIM_MODE 3
+                      task satimsim
+                  endfamily # satim_flush
+                endfamily # $satimfam
+                satimloop = satimloop + $SATIMSTEP
+              endwhile
+
+            endfamily # satim
+            task archive_satim
+              edit PRIORITY $store_priority
+              trigger satim==complete
+              set satimtrg archive_satim
+       endif
+
        family clean
          edit ARCHTYPE fc
-         trigger ./archive == complete and ./mmeans == complete and ./verify == complete
+         trigger_loop  archive mmeans verify $satimtrg
          task flush ; ARCHOK
            onws
          task clean

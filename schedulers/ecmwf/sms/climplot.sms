@@ -26,6 +26,7 @@
 #                                against climtology via prepIFS variable LCLIM 
 #         Peter  Bechtold 36r3 = options for significance, color/bw, article plotting
 #         Peter  Bechtold 37r1 = add diurnal cycle plots
+#         Peter  Bechtold 38r1 = add wavenumber frequency plots and more ml options
 #
 #=========================================================================
 #  Define environment variables and export them.
@@ -48,7 +49,8 @@ fi
 cd $TMPDIR
 
 #==========================================================================
-
+#metview=metview3
+metview=metview4_new
 
 cat > ./climplot_batch << \++end++
 %include <climplot_batch>
@@ -70,20 +72,8 @@ cat > ./zondia_seas_icon_batch.met << \++end++
 %include <zondia_seas_icon_batch.met>
 ++end++
 
-cat > ./zondia_def_axes << \++end++
-%include <zondia_def_axes>
-++end++
-
 cat > ./zondia_def_contour << \++end++
 %include <zondia_def_contour>
-++end++
-
-cat > ./zondia-seas_def_display_layout << \++end++
-%include <zondia-seas_def_display_layout>
-++end++
-
-cat > ./zondia-seas_def_title << \++end++
-%include <zondia-seas_def_title>
 ++end++
 
 cat > ./zondia-seas-icon_mars << \++end++
@@ -102,6 +92,10 @@ cat > ./plot_amp_phase_clim.met << \++end++
 %include <plot_amp_phase_clim.met>
 ++end++
 
+cat > ./marsretr_wavfreq.met << \++end++
+%include <marsretr_wavfreq.met>
+++end++
+
 cat > ./dates.met << \++end++
 %include <dates.met>
 ++end++
@@ -117,7 +111,6 @@ cat > ./ttest_thresh.f90 << \++end++
 cat > ./cossinlon1.f90 << \++end++
 %include <cossinlon1.f90>
 ++end++
-
 
 chmod u+x climplot_batch
 
@@ -156,12 +149,15 @@ else
 fi
 
 # Plotting options: significance plotting, colour, titles, diurnal ccyle
-NCLIMPL=${NCLIMPL:-21110}
-lsigt=`print $NCLIMPL| cut -c1`
-lcol=`print $NCLIMPL| cut -c2`
-lartic=`print $NCLIMPL| cut -c3`
-ldcycle=`print $NCLIMPL| cut -c4`
-lmldif=`print $NCLIMPL| cut -c5`
+NCLIMPL=${NCLIMPL:-21110111}
+lsigt=$( print $NCLIMPL| cut -c1 )
+lcol=$( print $NCLIMPL| cut -c2 )
+lartic=$( print $NCLIMPL| cut -c3 )
+ldcycle=$( print $NCLIMPL| cut -c4 )
+lmldif=$( print $NCLIMPL| cut -c5 )
+lwavfreq=$( print $NCLIMPL| cut -c6 )
+lzonnoml=$( print $NCLIMPL| cut -c7 )
+lvdspect=$( print $NCLIMPL| cut -c8 )
 
 integer i
 
@@ -172,6 +168,19 @@ INIDATE1=${INIDATE1}/9999                    # add dummy date
 INIDATE1=`echo ${INIDATE1} | sed 's/\// /g'` # Replace / with space
 set -A INIDATE1 ${INIDATE1}                  # turn into array
 
+
+rcorioi=1.0
+dayl=24
+if [[ -f $SMSINCLUDE/ifsnam.fc.h && $FSFAMILY = /gfc ]] ; then
+   rco=$(grep RCORIOI= $SMSINCLUDE/ifsnam.fc.h | sed 's/RCORIOI=//' |sed 's/.$//')
+   if [[ $rco > 0 ]]; then
+      rcorioi=$rco
+   fi
+fi
+dayl=$((dayl * rcorioi))
+if [[ $dayl -lt 1 ]]; then
+      dayl=1
+fi
 
 if (( $BASETIME == ${INIDATE1[0]} )) ; then
 #
@@ -188,7 +197,7 @@ if (( $BASETIME == ${INIDATE1[0]} )) ; then
 
     PLOT_OPT=001
 
-    nperiods=`metview -b dates.met $FCLENGTH $datestr $PLOT_OPT | grep nmon | sed 's/nmon//' | sed 'y/[],/   /'`
+    nperiods=`$metview -b dates.met $FCLENGTH $datestr $PLOT_OPT $dayl | grep nmon | sed 's/nmon//' | sed 'y/[],/   /'`
   # use env to reduce the number of environment variables from ~400 (SMS) to solve Magics plotting issues
     if (( %PLOTPERIOD% <= ${nperiods} )) ; then
     # env -i SCRATCH=$SCRATCH ECFS_SYS_PATH=$ECFS_SYS_PATH FSROOT=$FSROOT TMPDIR=$TMPDIR \
@@ -197,7 +206,8 @@ if (( $BASETIME == ${INIDATE1[0]} )) ; then
              climplot_batch -a $exp -b $expver2 -c $locclass1 -l $LEVELS -f $FCLENGTH \
                             -r $locfcrange -n $locnumber -d $datestr -p $PLOT_OPT  \
                             -m $lclimatoplot -t %TASK% -x %PLOTPERIOD% -i $timestr -v $lclassan \
-                            -s $lsigt -o $lcol -y $lartic -z $ldcycle -e $lmldif
+                            -s $lsigt -o $lcol -y $lartic -z $ldcycle -e $lmldif -w $lwavfreq \
+                            -g $lvdspect -q $lzonnoml
     fi
 
 
@@ -228,7 +238,7 @@ while (( ${i}+1 <= ${#INIDATE1[*]} )) ; do
 # -----------------------------------------------------------
 
       PLOT_OPT=011
-      nperiods=`metview -b dates.met $FCLENGTH $datestr $PLOT_OPT | grep nmon | sed 's/nmon//' | sed 'y/[],/   /'`
+      nperiods=`$metview -b dates.met $FCLENGTH $datestr $PLOT_OPT $dayl | grep nmon | sed 's/nmon//' | sed 'y/[],/   /'`
     # use env to reduce the number of environment variables from ~400 (SMS) to solve Magics plotting issues
       if (( %PLOTPERIOD% <= ${nperiods} )) ; then
       # env -i SCRATCH=$SCRATCH ECFS_SYS_PATH=$ECFS_SYS_PATH FSROOT=$FSROOT TMPDIR=$TMPDIR \
@@ -237,7 +247,8 @@ while (( ${i}+1 <= ${#INIDATE1[*]} )) ; do
                climplot_batch -a $exp -b $expver2 -c $locclass1 -l $LEVELS -f $FCLENGTH \
                               -r $locfcrange -n $locnumber -d $datestr -p $PLOT_OPT \
                               -m $lclimatoplot -t %TASK% -x %PLOTPERIOD% -i $timestr -v $lclassan \
-                              -s $lsigt -o $lcol -y $lartic -z $ldcycle -e $lmldif
+                              -s $lsigt -o $lcol -y $lartic -z $ldcycle -e $lmldif -w $lwavfreq \
+                              -g $lvdspect -q $lzonnoml
     fi
 
 # -----------------------------------------------------------

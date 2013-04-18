@@ -24,7 +24,7 @@ integer iperiod
 
 # --- argument list processing
 
-while getopts a:c:l:f:r:d:p:x:t:n:i: option
+while getopts a:c:l:f:r:d:p:x:t:n:i:s:g: option
 do
    case $option in
     a) EXPVER=$OPTARG;;      # experiment ID  of EXP (e.g. e8s7)
@@ -38,6 +38,8 @@ do
     x) iperiod=$OPTARG;;     # period
     t) VARTYPE=$OPTARG;;     # variable type (sfc, pl, ml)
     i) INITIME=$OPTARG;;     # initime
+    s) RWINDSP=$OPTARG;;     # scaling factor=R/Ra for winds on small planet
+    g) RGTCSP=$OPTARG;;      # scaling factor for TotCol sfc fields if gravity is modified
    \?) errflg=1;;
    esac
 done
@@ -51,22 +53,51 @@ iperiod=iperiod-1            # ksh first index is 0
 
 # --- metview troubleshooting
 
+#metview=metview3
 metview=metview4
-metview=metview3
 export MACRO_EXTRA_LIBS="-L$pgi_path/lib"
 #metview=/usr/local/apps/Metview/MvRun_3.12.0
 
 
-export MACRO_EXTRA_F90_FLAGS=-Mfixed 
+#export MACRO_EXTRA_F90_FLAGS=-Mfixed 
+
+steps=24
+ppfrq=24
+dayl=24
+# small planet scaling
+rcorioi=1.0
+if [[ -f $SMSINCLUDE/config.fc.h && $FSFAMILY = /gfc ]] ; then
+   pfr=$(grep PPFRQ= $SMSINCLUDE/config.fc.h | sed 's/PPFRQ=//')
+   if [[ $pfr > 0 ]]; then
+      ppfrq=$pfr
+   fi
+fi
+if [[ -f $SMSINCLUDE/ifsnam.fc.h && $FSFAMILY = /gfc ]] ; then
+   rco=$(grep RCORIOI= $SMSINCLUDE/ifsnam.fc.h | sed 's/RCORIOI=//' |sed 's/.$//')
+   if [[ $rco > 0 ]]; then
+      rcorioi=$rco
+   fi
+fi
+steps=$((steps * rcorioi))
+dayl=$((dayl * rcorioi))
+if [[ $steps -lt $ppfrq ]]; then
+      steps=$ppfrq
+fi
+if [[ $steps -lt 1 ]]; then
+      steps=1
+fi
+if [[ $dayl -lt 1 ]]; then
+      dayl=1
+fi
 
 #############################################################
 # time (get time information for processing of each period)
 #############################################################
 
-set -A nperiods `metview -b dates.met $FCLENGTH $DATESTR $PLOT_OPT | grep nmon     | sed 's/nmon//'     | sed 'y/[],/   /'`
-set -A yy_start `metview -b dates.met $FCLENGTH $DATESTR $PLOT_OPT | grep yy_start | sed 's/yy_start//' | sed 'y/[],/   /'`
-set -A mm_start `metview -b dates.met $FCLENGTH $DATESTR $PLOT_OPT | grep mm_start | sed 's/mm_start//' | sed 'y/[],/   /'`
-set -A mm_len   `metview -b dates.met $FCLENGTH $DATESTR $PLOT_OPT | grep mm_len   | sed 's/mm_len//'   | sed 'y/[],/   /'`
+set -A nperiods `metview -b dates.met $FCLENGTH $DATESTR $PLOT_OPT $dayl | grep nmon     | sed 's/nmon//'     | sed 'y/[],/   /'`
+set -A yy_start `metview -b dates.met $FCLENGTH $DATESTR $PLOT_OPT $dayl | grep yy_start | sed 's/yy_start//' | sed 'y/[],/   /'`
+set -A mm_start `metview -b dates.met $FCLENGTH $DATESTR $PLOT_OPT $dayl | grep mm_start | sed 's/mm_start//' | sed 'y/[],/   /'`
+set -A mm_len   `metview -b dates.met $FCLENGTH $DATESTR $PLOT_OPT $dayl | grep mm_len   | sed 's/mm_len//'   | sed 'y/[],/   /'`
 
 # --- reverse order of periods: all-season-month
 set -A yy_start `echo ${yy_start[*]} | awk '{for (i=NF; i>=1; i--) print $i}'`
@@ -103,7 +134,6 @@ while (( ${inumber} < ${locnumber} )) ; do
 # attention: on linux one has to reduce the data for unix
 #            line limits purposes in metview
 #            -> do levels separately
-#            on metis: do all levels together (faster)
 #############################################################
   if [[ ${NUMBER} = -99 ]] ; then  
     if [[ ${FCRANGE} = -99 ]] ; then
@@ -124,7 +154,7 @@ while (( ${inumber} < ${locnumber} )) ; do
     ilev=1
     $metview -b monmeans_clim.met $EXPVER $inidate ${yy_start[${iperiod}]} \
       ${mm_start[${iperiod}]} ${mm_len[${iperiod}]} sfc ${NLEV} ${ilev} \
-      ${ilev} ${PLOTDATA} ${FCRANGE} ${CLASS} ${inumber} ${INITIME}
+      ${ilev} ${PLOTDATA} ${FCRANGE} ${CLASS} ${inumber} ${INITIME} ${RWINDSP} ${RGTCSP} $steps $dayl
   fi
 
 # --- loop over pressure levels (separate metview calls)
@@ -135,17 +165,7 @@ while (( ${inumber} < ${locnumber} )) ; do
  #...all levels together
     $metview -b monmeans_clim.met $EXPVER $inidate ${yy_start[${iperiod}]} \
       ${mm_start[${iperiod}]} ${mm_len[${iperiod}]} pl ${NLEV} ${ilev} \
-      ${nlevp} ${PLOTDATA} ${FCRANGE} ${CLASS} ${inumber}  ${INITIME}
-
- #...levels separately
- #\rm ${PLOTDATA}/temp.pl || true
- #while (( ${ilev} <= ${nlevp} )) ; do
- #  $metview -b monmeans_clim.met $EXPVER $inidate ${yy_start[${iperiod}]} \
- #    ${mm_start[${iperiod}]} ${mm_len[${iperiod}]} pl ${NLEV} ${ilev} ${ilev} ${PLOTDATA}
- #  cat ${PLOTDATA}/${MNFILE} >> ${PLOTDATA}/temp.pl
- #  let ilev=ilev+1
- #done
- #\mv ${PLOTDATA}/temp.pl ${PLOTDATA}/${MNFILE} 
+      ${nlevp} ${PLOTDATA} ${FCRANGE} ${CLASS} ${inumber}  ${INITIME} ${RWINDSP} ${RGTCSP} $steps $dayl
   fi
 
 # --- loop over model levels (separate metview calls)
@@ -154,17 +174,6 @@ while (( ${inumber} < ${locnumber} )) ; do
   if [[ ${NUMBER} = -99 ]] ; then  
     ilev=1
     if [ ${ARCH} = 'linux' ] ; then
-   #...levels separately (if space problems on linux, 2x slower!)
-   #   Vesa: problem is with number of variable in one unix line when doing the full mars request
-      \rm ${PLOTDATA}/temp.ml || true
-   #...level by level:
-   #while (( ${ilev} <= ${NLEV} )) ; do
-   #  $metview -b monmeans_clim.met $EXPVER $inidate ${yy_start[${iperiod}]} \
-   #    ${mm_start[${iperiod}]} ${mm_len[${iperiod}]} ml ${NLEV} ${ilev} ${ilev} ${PLOTDATA} ${FCRANGE} ${CLASS}
-   #  cat ${PLOTDATA}/${MNFILE} >> ${PLOTDATA}/temp.ml
-   #  let ilev=ilev+1
-   #done
-   #...50 levels at a time:
       while (( ${ilev} <= ${NLEV} )) ; do
         let ilev50=ilev+49
         if [[ ${ilev50} -gt ${NLEV} ]] ; then
@@ -172,7 +181,7 @@ while (( ${inumber} < ${locnumber} )) ; do
         fi
         $metview -b monmeans_clim.met $EXPVER $inidate ${yy_start[${iperiod}]} \
           ${mm_start[${iperiod}]} ${mm_len[${iperiod}]} ml ${NLEV} ${ilev} \
-          ${ilev50} ${PLOTDATA} ${FCRANGE} ${CLASS} ${inumber} ${INITIME}
+          ${ilev50} ${PLOTDATA} ${FCRANGE} ${CLASS} ${inumber} ${INITIME} ${RWINDSP} ${RGTCSP} $steps $dayl
         cat ${PLOTDATA}/${MNFILE} >> ${PLOTDATA}/temp.ml
         let ilev=ilev+50
       done
@@ -181,7 +190,7 @@ while (( ${inumber} < ${locnumber} )) ; do
    #...all levels together
       $metview -b monmeans_clim.met $EXPVER $inidate ${yy_start[${iperiod}]} \
         ${mm_start[${iperiod}]} ${mm_len[${iperiod}]} ml ${NLEV} ${ilev} \
-        ${NLEV} ${PLOTDATA} ${FCRANGE} ${CLASS} ${inumber}  ${INITIME}
+        ${NLEV} ${PLOTDATA} ${FCRANGE} ${CLASS} ${inumber}  ${INITIME} ${RWINDSP} ${RGTCSP} $steps $dayl
     fi
   fi # not seas
   fi
