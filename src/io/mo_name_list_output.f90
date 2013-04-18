@@ -3169,7 +3169,6 @@ CONTAINS
     CASE (FILETYPE_GRB)
       CALL finish(routine,'GRIB1 not supported')
     CASE (FILETYPE_GRB2)
-      CALL message(routine,'GRIB2 support experimental',all_print=.TRUE.)
       extn = '.grb'
     CASE default
       CALL finish(routine,'unknown output_type')
