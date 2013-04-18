@@ -224,7 +224,7 @@ CONTAINS
     ! set current date
     datetime = time_config%cur_datetime
 
-    field%tsurfl(:,jb) = field%tsfc_tile(:,jb,ilnd)
+    IF (ilnd.LE.nsfc_type) field%tsurfl(:,jb) = field%tsfc_tile(:,jb,ilnd)
 !    field%tsurfi(:,jb) = field%tsfc_tile(:,jb,iice)
 
     !------------------------------------------------------------
