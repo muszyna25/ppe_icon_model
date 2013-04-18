@@ -224,8 +224,8 @@ CONTAINS
     ! set current date
     datetime = time_config%cur_datetime
 
-    field%tsurfl(:,:) = field%tsfc_tile(:,:,ilnd)
-!    field%tsurfi(:,:) = field%tsfc_tile(:,:,iice)
+    field%tsurfl(:,jb) = field%tsfc_tile(:,jb,ilnd)
+!    field%tsurfi(:,jb) = field%tsfc_tile(:,jb,iice)
 
     !------------------------------------------------------------
     ! 3. COMPUTE SOME FIELDS NEEDED BY THE PHYSICAL ROUTINES.
