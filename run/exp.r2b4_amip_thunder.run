@@ -26,7 +26,7 @@ job_name=exp.r2b4_amip_thunder.run
 #          Reiner Schnur, MPIM, April 2013  
 # 
 #__________________________________________________________________________________________________
-# Restart status (mode visible!)
+# Restart status
 #
 restart=${restart:=".false."}
 #
@@ -98,9 +98,9 @@ warning()
 #__________________________________________________________________________________________________
 # settings:
 
-redln "___________________________________________________________________________________________"
+redln  "__________________________________________________________________________________________"
 printenv | sort
-redln "___________________________________________________________________________________________"
+redln  "__________________________________________________________________________________________"
 
 userid=$(id -u)
 case $userid in
@@ -253,11 +253,6 @@ case $user in
 	;;
 esac
  
-#if [[ ${ENVIRONMENT:-} = BATCH ]]
-#then
-#    no_of_nodes=$SLURM_NNODES
-#    mpi_procs_pernode=$SLURM_TASKS_PER_NODE
-#else
 case $(hostname) in
     wanglung*|thunder*)
         no_of_nodes=1
@@ -272,7 +267,6 @@ case $(hostname) in
         mpi_procs_pernode=2
         ;;
 esac
-#fi
 (( mpi_total_procs = no_of_nodes * mpi_procs_pernode ))
 
 greenln "   MPI setup:"
@@ -317,27 +311,30 @@ blueln "Grid file     : $atmo_dyn_grids"
 # vertical grid
 nlev=47              
 
-# define model timing
-dtime=300                            # time step [s]
-start_date="1978-01-01T00:00:00Z"    # start of experiment
-end_date="1978-01-03T00:00:00Z"      # stop of experiment
-ndays=2                              # experiment duration 
-ndays_restart=1                      # restart every 10 days
 
-# derived model timings
-(( dt_restart = ndays_restart * 86400 ))
-#dt_restart=3600
-(( nsteps = ndays * 86400 / dtime ))
-(( dt_diag = 6 * 3600 ))             # global integral output each 6 hours
-(( dt_file = 86400 ))                # 1 day per file
-(( dt_data = 6 * 3600 ))             # write output every 6 hour
-(( dt_rad = 3600 ))                  # compute radiative transfer every other hour
-(( dt_checkpoint = 5 * 86400 ))      # write restart file every 5 days 
+# define model timing
+#
+second=1                             # [s] 1 second
+hour=3600                            # [s] 1 hour
+day=86400                            # [s] 1 day
+#
+(( dt_dyn =  300 * second ))         # [s] dynamics time step
+(( dt_rad =    1 * hour   ))         # [s] radiation time step
+#
+start_date="1978-01-01T00:00:00Z"    # start and end date
+end_date="1978-12-31T00:00:00Z"      # of the experiment
+#
+(( dt_checkpoint = 10 * day  ))      # [s] writing restart file and continue
+(( dt_restart    = 10 * day  ))      # [s] writing restart file and restart = length of run
+#
+(( dt_file       =  1 * day  ))      # [s] make new data file
+(( dt_data       =  6 * hour ))      # [s] write data to file
+
 
 # dynamical core
-# 1 = hydrost. atm., 2 = non-hydrost. atm.
-atmo_model_equations=1
-
+#
+atmo_model_equations=1               # 1 = hydrost. atm., 2 = non-hydrost. atm.
+#
 #__________________________________________________________________________________________________
 # define the experiment: write ICON namelist parameters
 
@@ -355,8 +352,7 @@ cat > ${atmo_namelist} << EOF
 &run_nml
  num_lev          = ${nlev},     ! number of full levels of vertical grid
  output           = 'vlist', 'nml'
- nsteps           = ${nsteps}    ! number of steps length of run
- dtime            = ${dtime}     ! [s] timestep in seconds
+ dtime            = ${dt_dyn}    ! [s] timestep in seconds
  ltestcase        = .TRUE.       ! run testcase                 --> testcase_ctl
  ldynamics        = .TRUE.       ! dynamics                     --> dynamics_ctl, diffusion_ctl
  ltransport       = .TRUE.       ! switch on tracer transport   --> transport_ctl
@@ -414,11 +410,6 @@ cat > ${atmo_namelist} << EOF
  irad_aero        = 0             ! switch off aerosols
  ighg             = 1             ! select CMIP5 standard greenhouse gas scenario (as in ECHAM6 AMIP) 
  izenith          = 4             ! seasonal and diurnal cycle
-! vmr_co2    =  353.9e-06    ! CMIP5 value of 1990
-! vmr_ch4    = 1693.6e-09    ! CMIP5 value of 1990
-! vmr_n2o    =  309.5e-09    ! CMIP5 value of 1990
-! vmr_cfc11  =  252.8e-12    ! CMIP5 value of 1990
-! vmr_cfc12  =  466.2e-12    ! CMIP5 value of 1990
 /
 &echam_conv_nml
 /
@@ -433,7 +424,7 @@ cat > ${atmo_namelist} << EOF
  steps_per_file   = 4
  include_last     = .TRUE.
  remap            = 0   ! triangular grid
- output_filename  = "${EXPNAME}_`basename ${atmo_dyn_grids} .nc`_jsbach"
+ output_filename  = "${EXPNAME}_land"
  output_grid      = .TRUE.
  ml_varlist       = 'fract', 'alb_vis_srf', 'alb_nir_srf', 't_srf', 'lai', 's_srf', 'qsat_srf'
                     'canopy_cond', 'ws_l', 'ws_fc_l', 'ws_pwp_l', 'ws_sat_l', 'ws'
@@ -547,7 +538,7 @@ cp -f $INDATA/global/atm/bc_greenhouse_rcp45_1765-2500.nc   ./bc_greenhouse_gase
 
 # - ozone
 year=1975
-while [[ $year -lt 2008 ]]
+while [[ $year -lt 2009 ]]
 do
  cp -f $INDATA/r2b4_amip/atm/bc_ozone_cmip5/bc_ozone_cmip5_${year}.nc ./ozone${year}.nc
  (( year = year+1 ))
