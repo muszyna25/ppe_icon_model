@@ -736,7 +736,8 @@ MODULE mo_nh_testcases
   ENDDO !jg
 
   CALL message(TRIM(routine),'End setup Jablonowski test')
-  
+
+
   CASE ('mrw_nh', 'mrw2_nh')
 
    CALL message(TRIM(routine),'MRW test')
@@ -776,9 +777,10 @@ MODULE mo_nh_testcases
    
     CALL duplicate_prog_state(p_nh_state(jg)%prog(nnow(jg)),p_nh_state(jg)%prog(nnew(jg)))  
  
-  ENDDO !jg
+   ENDDO !jg
 
    CALL message(TRIM(routine),'End setup MRW test')
+
 
   CASE ('mwbr_const')
 
@@ -789,7 +791,6 @@ MODULE mo_nh_testcases
 
    DO jg = 1, n_dom
 
-
      IF ( iforcing == inwp ) THEN
        CALL message(TRIM(routine),' iforcing == inwp')     
        IF ( atm_phy_nwp_config(jg)%inwp_gscp /= 0 .OR.&
@@ -797,9 +798,6 @@ MODULE mo_nh_testcases
          l_moist = .TRUE.
        END IF
      ENDIF 
-
-
-
 
      IF (.NOT. l_moist) THEN
 
@@ -823,9 +821,10 @@ MODULE mo_nh_testcases
 
     CALL duplicate_prog_state(p_nh_state(jg)%prog(nnow(jg)),p_nh_state(jg)%prog(nnew(jg))) 
  
- ENDDO !jg
+   ENDDO !jg
 
    CALL message(TRIM(routine),'End setup mwbr_const test')
+
 
   CASE ('zero','bell','schaer')
 
@@ -941,6 +940,7 @@ MODULE mo_nh_testcases
     ENDDO
   ENDDO
 
+
   CASE ('PA')  ! pure advection test case, no mountain
 
     DO jg = 1, n_dom
@@ -957,6 +957,7 @@ MODULE mo_nh_testcases
         &                       linit_tracer_fv )
 
     ENDDO !jg
+
 
   CASE ('DF1', 'DF2', 'DF3', 'DF4')  ! 2D deformational flow test case, no mountain
 
@@ -978,6 +979,7 @@ MODULE mo_nh_testcases
 
     ENDDO !jg
 
+
   CASE ('HS_nh')  ! Held-Suarez test case, no mountain, isothermal atmosphere
 
     DO jg = 1, n_dom
@@ -989,17 +991,14 @@ MODULE mo_nh_testcases
         &                            p_nh_state(jg)%diag,ext_data(jg),           &
         &                            p_nh_state(jg)%metrics)
 
-
-
       IF (lhs_nh_vn_ptb) THEN
           CALL nh_prog_add_random( p_patch(jg),           & ! input
                & p_nh_state(jg)%prog(nnow(jg))%vn(:,:,:), & ! in and out
                & "edge", hs_nh_vn_ptb_scale, 1, nlev ) ! input
-          !
+
           CALL message(TRIM(routine),'Initial state used in the &
                & Held-Suarez test: random noised added to the normal wind')
       END IF
-      !
 
       CALL duplicate_prog_state(p_nh_state(jg)%prog(nnow(jg)),p_nh_state(jg)%prog(nnew(jg)))
 
@@ -1094,7 +1093,7 @@ MODULE mo_nh_testcases
                                      & p_int(jg),l_hydro_adjust  )
 
     CASE default
-     WRITE(message_text,'(a)') &
+      WRITE(message_text,'(a)') &
              & 'You should define a valid option for    &
              & itype_atmo_ana for the &
              & g_lim_area test case'
@@ -1107,13 +1106,11 @@ MODULE mo_nh_testcases
                                & p_nh_state(jg)%prog(nnow(jg))%w,               &
                                & p_nh_state(jg)%metrics, p_int(jg) ) 
          
-
     CALL duplicate_prog_state(p_nh_state(jg)%prog(nnow(jg)),p_nh_state(jg)%prog(nnew(jg)))
 
    ENDDO !jg
 
    CALL message(TRIM(routine),'End setup g_lim_area test')
-
 
 
   CASE ('dcmip_gw_31')
@@ -1126,7 +1123,6 @@ MODULE mo_nh_testcases
     ENDDO
 
     CALL message(TRIM(routine),'End setup dcmip_gw_31 test')
-
 
 
   CASE ('dcmip_gw_32')
@@ -1145,15 +1141,14 @@ MODULE mo_nh_testcases
 
     CALL message(TRIM(routine),'setup dcmip_rest_200 (steady state at rest) test')
   
-   l_hydro_adjust = .TRUE.
+    l_hydro_adjust = .TRUE.
 
-   IF ( lcoriolis) THEN
+    IF ( lcoriolis) THEN
 
-     WRITE(message_text,'(a)') &
+      WRITE(message_text,'(a)') &
              & 'For dcmip_rest_200 test case  lcoriolis must be .FALSE.'
             CALL finish  (routine, TRIM(message_text))
-   END IF
-
+    END IF
 
     DO jg = 1, n_dom
       CALL init_nh_prog_dcmip_rest_atm( p_patch(jg),                              &
@@ -1169,15 +1164,14 @@ MODULE mo_nh_testcases
 
     CALL message(TRIM(routine),'setup dcmip_mw_2x (schaer-type on small planet) test')
   
-   l_hydro_adjust = .FALSE.
+    l_hydro_adjust = .FALSE.
 
-   IF ( lcoriolis) THEN
+    IF ( lcoriolis) THEN
 
-     WRITE(message_text,'(a)') &
+      WRITE(message_text,'(a)') &
              & 'For dcmip_mw_2x test case  lcoriolis must be .FALSE.'
             CALL finish  (routine, TRIM(message_text))
-   END IF
-
+    END IF
 
     DO jg = 1, n_dom
       CALL init_nh_prog_dcmip_schaer( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), &
@@ -1233,7 +1227,8 @@ MODULE mo_nh_testcases
   END SELECT
 
 
-  IF(atm_phy_nwp_config(1)%inwp_turb==3 .AND. nh_test_name=='APE_nh')THEN
+  IF( atm_phy_nwp_config(1)%inwp_turb==3 .AND. &
+      (nh_test_name=='APE_nh' .or. nh_test_name=='CBL') )THEN
     DO jg = 1, n_dom
     !Snow and sea ice initialization to avoid problems in EDMF
       p_lnd_state(jg)%prog_lnd(nnow(jg))%t_snow_t(:,:,:)        = 300._wp   !snow

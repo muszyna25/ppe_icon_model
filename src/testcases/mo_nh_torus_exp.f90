@@ -77,9 +77,11 @@ MODULE mo_nh_torus_exp
   !DEFINED PARAMETERS (Stevens 2007 JAS):
   REAL(wp), PARAMETER :: zp0     = 100000._wp !< surface pressure
   REAL(wp), PARAMETER :: zh0     = 0._wp      !< height (m) above which temperature increases
-  REAL(wp), PARAMETER :: dtdz    = 0.006_wp   !< lapse rate
+  REAL(wp), PARAMETER :: dtdz    = 0.006_wp   !< theta lapse rate
   REAL(wp), PARAMETER :: zt0     = 290._wp
   REAL(wp), PARAMETER :: lambda  = 1500._wp   !moist height from Stevens(2007)
+  REAL(wp), PARAMETER :: dtdz_st = 0.03_wp    !< theta lapse rate in stratosphere (T>0!)
+  REAL(wp), PARAMETER :: z_tropo = 12000._wp  !height tropopause
 
 !--------------------------------------------------------------------
 
@@ -113,11 +115,11 @@ MODULE mo_nh_torus_exp
     TYPE(t_nh_ref),        INTENT(INOUT):: &  !< reference state vector
       &  ptr_nh_ref
 
-    REAL(wp) :: rho_sfc, z_help(1:nproma), zvn1, zvn2, zu, zv
+    REAL(wp) :: rho_sfc, z_help(1:nproma), zvn1, zvn2, zu, zv, zt00, zh00
     INTEGER  :: jc,je,jk,jb,jt,i_startblk,i_startidx,i_endidx   !< loop indices
     INTEGER  :: nblks_c,npromz_c,nblks_e,npromz_e
-    INTEGER  :: nlev, nlevp1                   !< number of full and half levels
-    INTEGER  :: nlen, i_rcstartlev, jcn, jbn, ist, jg
+    INTEGER  :: nlev, nlevp1                  !< number of full and half levels
+    INTEGER  :: nlen, i_rcstartlev, jcn, jbn, ist, jg, ntropo
 
   !-------------------------------------------------------------------------
 
@@ -167,17 +169,28 @@ MODULE mo_nh_torus_exp
         END DO
       END IF
 
-      DO jk = 1, nlev
-       ! init potential temperature
-       z_help(1:nlen) = zt0 + max(0._wp, (ptr_metrics%z_mc(1:nlen,jk,jb)-zh0)*dtdz)
+      ntropo = 0
+      DO jk = nlev, 1, -1
+         ! init potential temperature
+         z_help(1:nlen) = zt0 + max(0._wp, (ptr_metrics%z_mc(1:nlen,jk,jb)-zh0)*dtdz)
 
-       ! virtual potential temperature
-       ptr_nh_prog%theta_v(1:nlen,jk,jb) = z_help(1:nlen) * ( 1._wp + &
+         ! constant temperature above tropopause
+         if ((ptr_metrics%z_mc(1,jk,jb) > z_tropo) .and. (ntropo == 0)) then
+            ntropo = 1
+            zt00   = z_help(1)
+            zh00   = ptr_metrics%z_mc(1,jk,jb)
+         endif
+         if (ptr_metrics%z_mc(1,jk,jb) > z_tropo) then
+            z_help(1:nlen) = zt00 + (ptr_metrics%z_mc(1:nlen,jk,jb)-zh00) * dtdz_st
+         endif
+
+         ! virtual potential temperature
+         ptr_nh_prog%theta_v(1:nlen,jk,jb) = z_help(1:nlen) * ( 1._wp + &
            0.61_wp*ptr_nh_prog%tracer(1:nlen,jk,jb,iqv) - ptr_nh_prog%tracer(1:nlen,jk,jb,iqc) ) 
       END DO
 
       !Get hydrostatic pressure and exner at lowest level
-      ptr_nh_diag%pres(1:nlen,nlev,jb) = zp0 - rho_sfc * ptr_metrics%geopot(1:nlen,nlev,jb)
+      ptr_nh_diag%pres(1:nlen,nlev,jb)  = zp0 - rho_sfc * ptr_metrics%geopot(1:nlen,nlev,jb)
       ptr_nh_prog%exner(1:nlen,nlev,jb) = (ptr_nh_diag%pres(1:nlen,nlev,jb)/p0ref)**rd_o_cpd 
 
       !Get exner at other levels
@@ -188,6 +201,14 @@ MODULE mo_nh_torus_exp
          ptr_nh_prog%exner(1:nlen,jk,jb) = ptr_nh_prog%exner(1:nlen,jk+1,jb) &
             &  -grav/cpd*ptr_metrics%ddqz_z_half(1:nlen,jk+1,jb)/z_help(1:nlen)
       END DO
+
+      IF ( jb == 1 ) THEN
+        DO jk = 1,nlev
+          write(*,*) 'CBL case setup: level, exner, theta,v and T: ', jk, &
+            & ptr_nh_prog%exner(1,jk,jb) * ptr_nh_prog%theta_v(1,jk,jb) , &
+            & ptr_nh_prog%exner(1,jk,jb),  ptr_nh_prog%theta_v(1,jk,jb)  
+        ENDDO
+      ENDIF
 
       DO jk = 1 , nlev
          ! rhotheta has to have the same meaning as exner
