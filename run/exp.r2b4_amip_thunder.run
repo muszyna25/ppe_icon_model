@@ -1,11 +1,8 @@
 #!/bin/bash
 #__________________________________________________________________________________________________
 #
-scriptpath=$( cd "$(dirname "$0")" ; pwd -P ) # aka $runscriptdir
-script=${0##*/}
-this_script="${scriptpath}/${script}"
-#
 job_name=exp.r2b4_amip_thunder.run
+#
 #__________________________________________________________________________________________________
 # thunder batch job parameters
 #
@@ -315,6 +312,7 @@ nlev=47
 # define model timing
 #
 second=1                             # [s] 1 second
+minute=60                            # [s] 1 minute
 hour=3600                            # [s] 1 hour
 day=86400                            # [s] 1 day
 #
@@ -672,7 +670,7 @@ check_error $? "$LINENO: ${MODEL} does not exist?"
 #
 
 rm -f finish.status
-
+#
 date
 $mpi_root/bin/$mpiexec_cmd -n $mpi_total_procs ${MODEL}
 date
@@ -697,8 +695,9 @@ greenln "============================"
 if [[ "${finish_status}" = "RESTART" ]]
 then
     greenln "restart next job..."
-    perl -pi -e 's/(^#AUTOMATIC_RESTART_SETUP.*)/\1\nrestart=\.true\./' $this_script
-    ${submit} $this_script
+    cd $basedir/run
+    perl -pi -e 's/(^#AUTOMATIC_RESTART_SETUP.*)/\1\nrestart=\.true\./' $job_name
+    ${submit} $job_name
 fi
 
 
