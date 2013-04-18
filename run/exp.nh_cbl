@@ -106,13 +106,11 @@ cat > ${atmo_namelist} << EOF
  nh_test_name      = 'CBL'     !test case identifier
 /
 &les_nml
-!set_sst           = .FALSE.
  is_dry_cbl        = .TRUE. 
  ugeo              =  0.0, 0.0  !ugeo(1) = constant, ugeo(2)=gradient
  vgeo              =  0.0, 0.0
  umean             =  0.0, 0.0
  vmean             =  0.0, 0.0
-!sst               =  305.0
  shflx             =  0.1  ! kinematic surface heat flux
  lhflx             =  0.0  ! knematic latent heat flux 
  set_geowind       = .FALSE.
