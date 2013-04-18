@@ -813,6 +813,66 @@ EOF
 
 }
 
+#=============================================================================
+set_run_target_pacluster()
+{  
+  set_default use_nproma 32
+  set_default use_nodes 1
+  set_default use_cpu_time 04:00:00
+   
+  if [[ $use_openmp == "yes" ]]; then
+    use_mpi="no"
+    set_default use_openmp_threads 24
+    queue=""
+    resources=""
+  elif [[ $use_mpi == "yes" ]]; then
+    set_default use_mpi_procs_pernode 12
+    if [[ "$use_mpi_procs_pernode" == "1" ]] ; then
+      queue=""
+      resources=""
+    else
+      queue=""
+      resources=""
+    fi
+  else
+    queue="-q s8"
+    resources=""      
+  fi
+
+  cat >> $output_script << EOF
+#############################################################################
+# DLR Linux Cluster batch job parameters
+# EMBEDDED FLAGS FOR PBS Pro
+#############################################################################
+################# shell to use
+#PBS -S /bin/ksh
+################# export all  environment  variables to job-script
+#PBS -V
+################# name of the log file
+#PBS -o ./${job_name}.\${PBS_JOBID}.log
+################# join standard and error stream (oe, eo) ?
+#PBS -j oe
+################# do not rerun job if system failure occurs
+#PBS -r n    
+################# send e-mail when [(a)borting|(b)eginning|(e)nding] job
+### #PBS -m ae
+### #PBS -M my_userid@my_institute.my_toplevel_domain
+################# always ppn=12 tasks per node!
+#PBS -l nodes=$use_nodes:ppn=$use_mpi_procs_pernode
+#PBS -l walltime=$use_cpu_time
+#############################################################################
+#-----------------------------------------------------------------------------
+# for PBS change to directory where job was submitted
+# (without this job is started in HOME)
+if [[ -n \${PBS_O_WORKDIR} ]] ; then
+  cd \${PBS_O_WORKDIR}
+fi
+#-----------------------------------------------------------------------------
+EOF
+
+  # create header
+  start_header
+}
 
 #=============================================================================
 set_run_target_default()

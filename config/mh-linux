@@ -33,6 +33,7 @@
 # 2010-02-17, Marco Giorgetta, MPI-M: gcc: activate -ffree-line-length-132
 # 2010-02-17, Marco Giorgetta, MPI-M: activate -fmodule-private
 # 2010-02-17, Marco Giorgetta, MPI-M: activate -fimplicit-none
+# 2013-03-25, Bastian Kern,    DLR  : gfortran and ifort at DLR Linux cluster
 #
 #-----------------------------------------------------------------------------
 
@@ -489,6 +490,115 @@ case "$ac_sitename" in
         esac
         ;;
         #-------------------------------------------------------------------
+#===============================================
+
+#===============================================
+    pa.cluster)
+        ### ### DLR Linux Cluster ### ###
+        echo
+        echo "DLR Linux Cluster detected."
+        config_target=pacluster
+        make_command="make" "-j" "4"
+        submit="qsub"
+
+        # Automatic compiler detection for DLR Linux cluster
+        # using openmpi module name
+        TMPF90 = `mpif90 -show | awk '{print $1}'`
+        case "$TMPF90" in
+            lf95*)
+                echo "ERROR: Lahey lf95 currently not supported."
+                exit
+                ;;
+            ifort*)
+                COMPILER = INTEL
+                intel_main_version = `ifort --version | awk 'NR==1 {print $3}' | sed 's/\..*//g'`
+                if test $intel_main_version -le 12; then
+                    echo "ERROR: Use ifort version 13.1.0!"
+                    exit
+                fi
+                ;;
+            gfortran*)
+                COMPILER=GFORTRAN
+                ;;
+            g95*)
+                echo "ERROR: g95 currently not supported."
+                exit
+                ;;
+            *)
+                echo "ERROR: no openmpi module loaded!"
+	        exit
+                ;;
+        esac
+
+        #### set compiler specific options
+        case "$COMPILER" in
+
+            INTEL*)
+                echo "Compiler INTEL detected."
+                ### ### intel/13.1-2 openmpi/1.6.4/intel/13.1.0
+                config_compiler = intel
+                CC       = mpicc
+                CFLAGS = -std=gnu99 -O2 -DHAVE_LIBNETCDF -DHAVE_CF_INTERFACE -DpgiFortran
+                F77 = mpif90
+                FC = mpif90
+                ##### F95 EXTENSIONS
+                OMPFLAG  = -openmp
+                DEFOPT   = -D
+                DEFCOPT  = -D
+                MODOPT   = -I
+                MODDIR   = -module 
+                ##### DEBUG ####
+                FOTPTIM     = -march=native -O3 -D__LOOP_EXCHANGE
+                DEBUG_FLAGS = -check bounds -check pointers -check uninit -debug -g
+                STD_FLAGS   = -O2 -msse2 -fltconsistency -pc64 -fpp -traceback  -D__LOOP_EXCHANGE "$DEBUG_FLAGS"
+                FDEBUG      = -check bounds -check pointers -check uninit -debug -g
+                FFLAGS      =           -O2 -msse2 -fltconsistency       -pc64 -fpp -traceback  -D__LOOP_EXCHANGE
+                # FFLAGS      = "$FDEBUG" -O2 -msse2 -fltconsistency       -pc64 -fpp -traceback  -D__LOOP_EXCHANGE
+                # FFLAGS      = "$FDEBUG" -O0 -msse2 -fltconsistency -fpe0 -pc64 -fpp -traceback  -D__LOOP_EXCHANGE
+                F77FLAGS    = "$FFLAGS"
+                LDFLAGS     = "$FOTPTIM"
+                ;;
+
+            GFORTRAN*)
+                echo "Compiler GFORTRAN detected."
+                ### ### openmpi/1.4.4/gfortran/4.6.2
+                CC       = mpicc
+                # CFLAGS = -std=gnu99 -O2 -DHAVE_LIBNETCDF -DHAVE_CF_INTERFACE -DpgiFortran
+                # CFLAGS   = -std=gnu99 -march=native -O2 -Df2cFortran
+                # CFLAGS   = ${CFLAGS} -Df2cFortran
+                # CFLAGS   = -O -Df2cFortran
+                F77      = mpif90
+                FC      = mpif90
+                ##### F95 EXTENSIONS
+                # DEFOPT   = -D
+                # MODOPT   = -I
+                ;;
+        esac
+
+        #### compiler specific path settings
+        case "$COMPILER" in
+            INTEL*)
+                MPIROOT    = /export/opt/PA/prgs/openmpi/1.6.4/intel/13.1.0
+                MPI_LIB    = 
+                NETCDFROOT = /export/opt/PA/prgs/netcdf/3.6.3/ifort/12.0.0
+                HDF5ROOT    = /export/opt/PA/prgs/hdf5/1.8.8
+                SZIPROOT    = 
+                ZLIBROOT    = 
+                ;;
+
+            GFORTRAN*)
+                MPIROOT    = /export/opt/PA/prgs/openmpi/1.4.4/gfortran/4.6.2
+                MPI_LIB    = 
+                NETCDFROOT = /export/opt/PA/prgs/netcdf/3.6.3/gfortran/4.6.2
+                HDF5ROOT    = /export/opt/PA/prgs/hdf5/1.8.8
+                SZIPROOT    = 
+                ZLIBROOT    = 
+                ;;
+        esac
+        ;;
+        #-------------------------------------------------------------------
+
+#===============================================
 esac
 #===============================================
 
