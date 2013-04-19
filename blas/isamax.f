@@ -1,4 +1,4 @@
-*> \brief \b DROT
+*> \brief \b ISAMAX
 *
 *  =========== DOCUMENTATION ===========
 *
@@ -8,14 +8,13 @@
 *  Definition:
 *  ===========
 *
-*       SUBROUTINE DROT(N,DX,INCX,DY,INCY,C,S)
+*       INTEGER FUNCTION ISAMAX(N,SX,INCX)
 * 
 *       .. Scalar Arguments ..
-*       DOUBLE PRECISION C,S
-*       INTEGER INCX,INCY,N
+*       INTEGER INCX,N
 *       ..
 *       .. Array Arguments ..
-*       DOUBLE PRECISION DX(*),DY(*)
+*       REAL SX(*)
 *       ..
 *  
 *
@@ -24,7 +23,7 @@
 *>
 *> \verbatim
 *>
-*>    DROT applies a plane rotation.
+*>    ISAMAX finds the index of element having max. absolute value.
 *> \endverbatim
 *
 *  Authors:
@@ -37,7 +36,7 @@
 *
 *> \date November 2011
 *
-*> \ingroup double_blas_level1
+*> \ingroup aux_blas
 *
 *> \par Further Details:
 *  =====================
@@ -45,11 +44,12 @@
 *> \verbatim
 *>
 *>     jack dongarra, linpack, 3/11/78.
+*>     modified 3/93 to return if incx .le. 0.
 *>     modified 12/3/93, array(1) declarations changed to array(*)
 *> \endverbatim
 *>
 *  =====================================================================
-      SUBROUTINE DROT(N,DX,INCX,DY,INCY,C,S)
+      INTEGER FUNCTION ISAMAX(N,SX,INCX)
 *
 *  -- Reference BLAS level1 routine (version 3.4.0) --
 *  -- Reference BLAS is a software package provided by Univ. of Tennessee,    --
@@ -57,44 +57,49 @@
 *     November 2011
 *
 *     .. Scalar Arguments ..
-      DOUBLE PRECISION C,S
-      INTEGER INCX,INCY,N
+      INTEGER INCX,N
 *     ..
 *     .. Array Arguments ..
-      DOUBLE PRECISION DX(*),DY(*)
+      REAL SX(*)
 *     ..
 *
 *  =====================================================================
 *
 *     .. Local Scalars ..
-      DOUBLE PRECISION DTEMP
-      INTEGER I,IX,IY
+      REAL SMAX
+      INTEGER I,IX
 *     ..
-      IF (N.LE.0) RETURN
-      IF (INCX.EQ.1 .AND. INCY.EQ.1) THEN
+*     .. Intrinsic Functions ..
+      INTRINSIC ABS
+*     ..
+      ISAMAX = 0
+      IF (N.LT.1 .OR. INCX.LE.0) RETURN
+      ISAMAX = 1
+      IF (N.EQ.1) RETURN
+      IF (INCX.EQ.1) THEN
 *
-*       code for both increments equal to 1
+*        code for increment equal to 1
 *
-         DO I = 1,N
-            DTEMP = C*DX(I) + S*DY(I)
-            DY(I) = C*DY(I) - S*DX(I)
-            DX(I) = DTEMP
+         SMAX = ABS(SX(1))
+         DO I = 2,N
+            IF (ABS(SX(I)).GT.SMAX) THEN
+               ISAMAX = I
+               SMAX = ABS(SX(I))
+            END IF
          END DO
       ELSE
 *
-*       code for unequal increments or equal increments not equal
-*         to 1
+*        code for increment not equal to 1
 *
          IX = 1
-         IY = 1
-         IF (INCX.LT.0) IX = (-N+1)*INCX + 1
-         IF (INCY.LT.0) IY = (-N+1)*INCY + 1
-         DO I = 1,N
-            DTEMP = C*DX(IX) + S*DY(IY)
-            DY(IY) = C*DY(IY) - S*DX(IX)
-            DX(IX) = DTEMP
+         SMAX = ABS(SX(1))
+         IX = IX + INCX
+         DO I = 2,N
+            IF (ABS(SX(IX)).GT.SMAX) THEN
+               ISAMAX = I
+               SMAX = ABS(SX(IX))
+            END IF
             IX = IX + INCX
-            IY = IY + INCY
          END DO
       END IF
       RETURN

@@ -1,4 +1,4 @@
-*> \brief \b DGER
+*> \brief \b SGER
 *
 *  =========== DOCUMENTATION ===========
 *
@@ -8,14 +8,14 @@
 *  Definition:
 *  ===========
 *
-*       SUBROUTINE DGER(M,N,ALPHA,X,INCX,Y,INCY,A,LDA)
+*       SUBROUTINE SGER(M,N,ALPHA,X,INCX,Y,INCY,A,LDA)
 * 
 *       .. Scalar Arguments ..
-*       DOUBLE PRECISION ALPHA
+*       REAL ALPHA
 *       INTEGER INCX,INCY,LDA,M,N
 *       ..
 *       .. Array Arguments ..
-*       DOUBLE PRECISION A(LDA,*),X(*),Y(*)
+*       REAL A(LDA,*),X(*),Y(*)
 *       ..
 *  
 *
@@ -24,7 +24,7 @@
 *>
 *> \verbatim
 *>
-*> DGER   performs the rank 1 operation
+*> SGER   performs the rank 1 operation
 *>
 *>    A := alpha*x*y**T + A,
 *>
@@ -51,13 +51,13 @@
 *>
 *> \param[in] ALPHA
 *> \verbatim
-*>          ALPHA is DOUBLE PRECISION.
+*>          ALPHA is REAL
 *>           On entry, ALPHA specifies the scalar alpha.
 *> \endverbatim
 *>
 *> \param[in] X
 *> \verbatim
-*>          X is DOUBLE PRECISION array of dimension at least
+*>          X is REAL array of dimension at least
 *>           ( 1 + ( m - 1 )*abs( INCX ) ).
 *>           Before entry, the incremented array X must contain the m
 *>           element vector x.
@@ -72,7 +72,7 @@
 *>
 *> \param[in] Y
 *> \verbatim
-*>          Y is DOUBLE PRECISION array of dimension at least
+*>          Y is REAL array of dimension at least
 *>           ( 1 + ( n - 1 )*abs( INCY ) ).
 *>           Before entry, the incremented array Y must contain the n
 *>           element vector y.
@@ -87,7 +87,7 @@
 *>
 *> \param[in,out] A
 *> \verbatim
-*>          A is DOUBLE PRECISION array of DIMENSION ( LDA, n ).
+*>          A is REAL array of DIMENSION ( LDA, n ).
 *>           Before entry, the leading m by n part of the array A must
 *>           contain the matrix of coefficients. On exit, A is
 *>           overwritten by the updated matrix.
@@ -111,7 +111,7 @@
 *
 *> \date November 2011
 *
-*> \ingroup double_blas_level2
+*> \ingroup single_blas_level2
 *
 *> \par Further Details:
 *  =====================
@@ -128,7 +128,7 @@
 *> \endverbatim
 *>
 *  =====================================================================
-      SUBROUTINE DGER(M,N,ALPHA,X,INCX,Y,INCY,A,LDA)
+      SUBROUTINE SGER(M,N,ALPHA,X,INCX,Y,INCY,A,LDA)
 *
 *  -- Reference BLAS level2 routine (version 3.4.0) --
 *  -- Reference BLAS is a software package provided by Univ. of Tennessee,    --
@@ -136,21 +136,21 @@
 *     November 2011
 *
 *     .. Scalar Arguments ..
-      DOUBLE PRECISION ALPHA
+      REAL ALPHA
       INTEGER INCX,INCY,LDA,M,N
 *     ..
 *     .. Array Arguments ..
-      DOUBLE PRECISION A(LDA,*),X(*),Y(*)
+      REAL A(LDA,*),X(*),Y(*)
 *     ..
 *
 *  =====================================================================
 *
 *     .. Parameters ..
-      DOUBLE PRECISION ZERO
-      PARAMETER (ZERO=0.0D+0)
+      REAL ZERO
+      PARAMETER (ZERO=0.0E+0)
 *     ..
 *     .. Local Scalars ..
-      DOUBLE PRECISION TEMP
+      REAL TEMP
       INTEGER I,INFO,IX,J,JY,KX
 *     ..
 *     .. External Subroutines ..
@@ -175,7 +175,7 @@
           INFO = 9
       END IF
       IF (INFO.NE.0) THEN
-          CALL XERBLA('DGER  ',INFO)
+          CALL XERBLA('SGER  ',INFO)
           RETURN
       END IF
 *
@@ -222,6 +222,6 @@
 *
       RETURN
 *
-*     End of DGER  .
+*     End of SGER  .
 *
       END

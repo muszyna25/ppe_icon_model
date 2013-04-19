@@ -40,7 +40,16 @@ blas/dtrsv.f -text
 blas/dzasum.f -text
 blas/dznrm2.f -text
 blas/idamax.f -text
+blas/isamax.f -text
 blas/lsame.f -text
+blas/sdot.f -text
+blas/sgemm.f -text
+blas/sgemv.f -text
+blas/sger.f -text
+blas/sscal.f -text
+blas/sswap.f -text
+blas/ssyrk.f -text
+blas/strsm.f -text
 blas/xerbla.f -text
 /build_ICON_ECMWF -text
 /build_all -text

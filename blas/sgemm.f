@@ -1,4 +1,4 @@
-*> \brief \b DGEMM
+*> \brief \b SGEMM
 *
 *  =========== DOCUMENTATION ===========
 *
@@ -8,15 +8,15 @@
 *  Definition:
 *  ===========
 *
-*       SUBROUTINE DGEMM(TRANSA,TRANSB,M,N,K,ALPHA,A,LDA,B,LDB,BETA,C,LDC)
+*       SUBROUTINE SGEMM(TRANSA,TRANSB,M,N,K,ALPHA,A,LDA,B,LDB,BETA,C,LDC)
 * 
 *       .. Scalar Arguments ..
-*       DOUBLE PRECISION ALPHA,BETA
+*       REAL ALPHA,BETA
 *       INTEGER K,LDA,LDB,LDC,M,N
 *       CHARACTER TRANSA,TRANSB
 *       ..
 *       .. Array Arguments ..
-*       DOUBLE PRECISION A(LDA,*),B(LDB,*),C(LDC,*)
+*       REAL A(LDA,*),B(LDB,*),C(LDC,*)
 *       ..
 *  
 *
@@ -25,7 +25,7 @@
 *>
 *> \verbatim
 *>
-*> DGEMM  performs one of the matrix-matrix operations
+*> SGEMM  performs one of the matrix-matrix operations
 *>
 *>    C := alpha*op( A )*op( B ) + beta*C,
 *>
@@ -91,13 +91,13 @@
 *>
 *> \param[in] ALPHA
 *> \verbatim
-*>          ALPHA is DOUBLE PRECISION.
+*>          ALPHA is REAL
 *>           On entry, ALPHA specifies the scalar alpha.
 *> \endverbatim
 *>
 *> \param[in] A
 *> \verbatim
-*>          A is DOUBLE PRECISION array of DIMENSION ( LDA, ka ), where ka is
+*>          A is REAL array of DIMENSION ( LDA, ka ), where ka is
 *>           k  when  TRANSA = 'N' or 'n',  and is  m  otherwise.
 *>           Before entry with  TRANSA = 'N' or 'n',  the leading  m by k
 *>           part of the array  A  must contain the matrix  A,  otherwise
@@ -116,7 +116,7 @@
 *>
 *> \param[in] B
 *> \verbatim
-*>          B is DOUBLE PRECISION array of DIMENSION ( LDB, kb ), where kb is
+*>          B is REAL array of DIMENSION ( LDB, kb ), where kb is
 *>           n  when  TRANSB = 'N' or 'n',  and is  k  otherwise.
 *>           Before entry with  TRANSB = 'N' or 'n',  the leading  k by n
 *>           part of the array  B  must contain the matrix  B,  otherwise
@@ -135,14 +135,14 @@
 *>
 *> \param[in] BETA
 *> \verbatim
-*>          BETA is DOUBLE PRECISION.
+*>          BETA is REAL
 *>           On entry,  BETA  specifies the scalar  beta.  When  BETA  is
 *>           supplied as zero then C need not be set on input.
 *> \endverbatim
 *>
 *> \param[in,out] C
 *> \verbatim
-*>          C is DOUBLE PRECISION array of DIMENSION ( LDC, n ).
+*>          C is REAL array of DIMENSION ( LDC, n ).
 *>           Before entry, the leading  m by n  part of the array  C must
 *>           contain the matrix  C,  except when  beta  is zero, in which
 *>           case C need not be set on entry.
@@ -168,7 +168,7 @@
 *
 *> \date November 2011
 *
-*> \ingroup double_blas_level3
+*> \ingroup single_blas_level3
 *
 *> \par Further Details:
 *  =====================
@@ -185,7 +185,7 @@
 *> \endverbatim
 *>
 *  =====================================================================
-      SUBROUTINE DGEMM(TRANSA,TRANSB,M,N,K,ALPHA,A,LDA,B,LDB,BETA,C,LDC)
+      SUBROUTINE SGEMM(TRANSA,TRANSB,M,N,K,ALPHA,A,LDA,B,LDB,BETA,C,LDC)
 *
 *  -- Reference BLAS level3 routine (version 3.4.0) --
 *  -- Reference BLAS is a software package provided by Univ. of Tennessee,    --
@@ -193,12 +193,12 @@
 *     November 2011
 *
 *     .. Scalar Arguments ..
-      DOUBLE PRECISION ALPHA,BETA
+      REAL ALPHA,BETA
       INTEGER K,LDA,LDB,LDC,M,N
       CHARACTER TRANSA,TRANSB
 *     ..
 *     .. Array Arguments ..
-      DOUBLE PRECISION A(LDA,*),B(LDB,*),C(LDC,*)
+      REAL A(LDA,*),B(LDB,*),C(LDC,*)
 *     ..
 *
 *  =====================================================================
@@ -214,13 +214,13 @@
       INTRINSIC MAX
 *     ..
 *     .. Local Scalars ..
-      DOUBLE PRECISION TEMP
+      REAL TEMP
       INTEGER I,INFO,J,L,NCOLA,NROWA,NROWB
       LOGICAL NOTA,NOTB
 *     ..
 *     .. Parameters ..
-      DOUBLE PRECISION ONE,ZERO
-      PARAMETER (ONE=1.0D+0,ZERO=0.0D+0)
+      REAL ONE,ZERO
+      PARAMETER (ONE=1.0E+0,ZERO=0.0E+0)
 *     ..
 *
 *     Set  NOTA  and  NOTB  as  true if  A  and  B  respectively are not
@@ -265,7 +265,7 @@
           INFO = 13
       END IF
       IF (INFO.NE.0) THEN
-          CALL XERBLA('DGEMM ',INFO)
+          CALL XERBLA('SGEMM ',INFO)
           RETURN
       END IF
 *
@@ -383,6 +383,6 @@
 *
       RETURN
 *
-*     End of DGEMM .
+*     End of SGEMM .
 *
       END

@@ -1,4 +1,4 @@
-*> \brief \b DSYR2K
+*> \brief \b SSYRK
 *
 *  =========== DOCUMENTATION ===========
 *
@@ -8,15 +8,15 @@
 *  Definition:
 *  ===========
 *
-*       SUBROUTINE DSYR2K(UPLO,TRANS,N,K,ALPHA,A,LDA,B,LDB,BETA,C,LDC)
+*       SUBROUTINE SSYRK(UPLO,TRANS,N,K,ALPHA,A,LDA,BETA,C,LDC)
 * 
 *       .. Scalar Arguments ..
-*       DOUBLE PRECISION ALPHA,BETA
-*       INTEGER K,LDA,LDB,LDC,N
+*       REAL ALPHA,BETA
+*       INTEGER K,LDA,LDC,N
 *       CHARACTER TRANS,UPLO
 *       ..
 *       .. Array Arguments ..
-*       DOUBLE PRECISION A(LDA,*),B(LDB,*),C(LDC,*)
+*       REAL A(LDA,*),C(LDC,*)
 *       ..
 *  
 *
@@ -25,17 +25,17 @@
 *>
 *> \verbatim
 *>
-*> DSYR2K  performs one of the symmetric rank 2k operations
+*> SSYRK  performs one of the symmetric rank k operations
 *>
-*>    C := alpha*A*B**T + alpha*B*A**T + beta*C,
+*>    C := alpha*A*A**T + beta*C,
 *>
 *> or
 *>
-*>    C := alpha*A**T*B + alpha*B**T*A + beta*C,
+*>    C := alpha*A**T*A + beta*C,
 *>
 *> where  alpha and beta  are scalars, C is an  n by n  symmetric matrix
-*> and  A and B  are  n by k  matrices  in the  first  case  and  k by n
-*> matrices in the second case.
+*> and  A  is an  n by k  matrix in the first case and a  k by n  matrix
+*> in the second case.
 *> \endverbatim
 *
 *  Arguments:
@@ -61,14 +61,11 @@
 *>           On entry,  TRANS  specifies the operation to be performed as
 *>           follows:
 *>
-*>              TRANS = 'N' or 'n'   C := alpha*A*B**T + alpha*B*A**T +
-*>                                        beta*C.
+*>              TRANS = 'N' or 'n'   C := alpha*A*A**T + beta*C.
 *>
-*>              TRANS = 'T' or 't'   C := alpha*A**T*B + alpha*B**T*A +
-*>                                        beta*C.
+*>              TRANS = 'T' or 't'   C := alpha*A**T*A + beta*C.
 *>
-*>              TRANS = 'C' or 'c'   C := alpha*A**T*B + alpha*B**T*A +
-*>                                        beta*C.
+*>              TRANS = 'C' or 'c'   C := alpha*A**T*A + beta*C.
 *> \endverbatim
 *>
 *> \param[in] N
@@ -82,20 +79,20 @@
 *> \verbatim
 *>          K is INTEGER
 *>           On entry with  TRANS = 'N' or 'n',  K  specifies  the number
-*>           of  columns  of the  matrices  A and B,  and on  entry  with
+*>           of  columns   of  the   matrix   A,   and  on   entry   with
 *>           TRANS = 'T' or 't' or 'C' or 'c',  K  specifies  the  number
-*>           of rows of the matrices  A and B.  K must be at least  zero.
+*>           of rows of the matrix  A.  K must be at least zero.
 *> \endverbatim
 *>
 *> \param[in] ALPHA
 *> \verbatim
-*>          ALPHA is DOUBLE PRECISION.
+*>          ALPHA is REAL
 *>           On entry, ALPHA specifies the scalar alpha.
 *> \endverbatim
 *>
 *> \param[in] A
 *> \verbatim
-*>          A is DOUBLE PRECISION array of DIMENSION ( LDA, ka ), where ka is
+*>          A is REAL array of DIMENSION ( LDA, ka ), where ka is
 *>           k  when  TRANS = 'N' or 'n',  and is  n  otherwise.
 *>           Before entry with  TRANS = 'N' or 'n',  the  leading  n by k
 *>           part of the array  A  must contain the matrix  A,  otherwise
@@ -112,34 +109,15 @@
 *>           be at least  max( 1, k ).
 *> \endverbatim
 *>
-*> \param[in] B
-*> \verbatim
-*>          B is DOUBLE PRECISION array of DIMENSION ( LDB, kb ), where kb is
-*>           k  when  TRANS = 'N' or 'n',  and is  n  otherwise.
-*>           Before entry with  TRANS = 'N' or 'n',  the  leading  n by k
-*>           part of the array  B  must contain the matrix  B,  otherwise
-*>           the leading  k by n  part of the array  B  must contain  the
-*>           matrix B.
-*> \endverbatim
-*>
-*> \param[in] LDB
-*> \verbatim
-*>          LDB is INTEGER
-*>           On entry, LDB specifies the first dimension of B as declared
-*>           in  the  calling  (sub)  program.   When  TRANS = 'N' or 'n'
-*>           then  LDB must be at least  max( 1, n ), otherwise  LDB must
-*>           be at least  max( 1, k ).
-*> \endverbatim
-*>
 *> \param[in] BETA
 *> \verbatim
-*>          BETA is DOUBLE PRECISION.
+*>          BETA is REAL
 *>           On entry, BETA specifies the scalar beta.
 *> \endverbatim
 *>
 *> \param[in,out] C
 *> \verbatim
-*>          C is DOUBLE PRECISION array of DIMENSION ( LDC, n ).
+*>          C is REAL array of DIMENSION ( LDC, n ).
 *>           Before entry  with  UPLO = 'U' or 'u',  the leading  n by n
 *>           upper triangular part of the array C must contain the upper
 *>           triangular part  of the  symmetric matrix  and the strictly
@@ -172,7 +150,7 @@
 *
 *> \date November 2011
 *
-*> \ingroup double_blas_level3
+*> \ingroup single_blas_level3
 *
 *> \par Further Details:
 *  =====================
@@ -180,7 +158,6 @@
 *> \verbatim
 *>
 *>  Level 3 Blas routine.
-*>
 *>
 *>  -- Written on 8-February-1989.
 *>     Jack Dongarra, Argonne National Laboratory.
@@ -190,7 +167,7 @@
 *> \endverbatim
 *>
 *  =====================================================================
-      SUBROUTINE DSYR2K(UPLO,TRANS,N,K,ALPHA,A,LDA,B,LDB,BETA,C,LDC)
+      SUBROUTINE SSYRK(UPLO,TRANS,N,K,ALPHA,A,LDA,BETA,C,LDC)
 *
 *  -- Reference BLAS level3 routine (version 3.4.0) --
 *  -- Reference BLAS is a software package provided by Univ. of Tennessee,    --
@@ -198,12 +175,12 @@
 *     November 2011
 *
 *     .. Scalar Arguments ..
-      DOUBLE PRECISION ALPHA,BETA
-      INTEGER K,LDA,LDB,LDC,N
+      REAL ALPHA,BETA
+      INTEGER K,LDA,LDC,N
       CHARACTER TRANS,UPLO
 *     ..
 *     .. Array Arguments ..
-      DOUBLE PRECISION A(LDA,*),B(LDB,*),C(LDC,*)
+      REAL A(LDA,*),C(LDC,*)
 *     ..
 *
 *  =====================================================================
@@ -219,13 +196,13 @@
       INTRINSIC MAX
 *     ..
 *     .. Local Scalars ..
-      DOUBLE PRECISION TEMP1,TEMP2
+      REAL TEMP
       INTEGER I,INFO,J,L,NROWA
       LOGICAL UPPER
 *     ..
 *     .. Parameters ..
-      DOUBLE PRECISION ONE,ZERO
-      PARAMETER (ONE=1.0D+0,ZERO=0.0D+0)
+      REAL ONE,ZERO
+      PARAMETER (ONE=1.0E+0,ZERO=0.0E+0)
 *     ..
 *
 *     Test the input parameters.
@@ -250,13 +227,11 @@
           INFO = 4
       ELSE IF (LDA.LT.MAX(1,NROWA)) THEN
           INFO = 7
-      ELSE IF (LDB.LT.MAX(1,NROWA)) THEN
-          INFO = 9
       ELSE IF (LDC.LT.MAX(1,N)) THEN
-          INFO = 12
+          INFO = 10
       END IF
       IF (INFO.NE.0) THEN
-          CALL XERBLA('DSYR2K',INFO)
+          CALL XERBLA('SSYRK ',INFO)
           RETURN
       END IF
 *
@@ -304,7 +279,7 @@
 *
       IF (LSAME(TRANS,'N')) THEN
 *
-*        Form  C := alpha*A*B**T + alpha*B*A**T + C.
+*        Form  C := alpha*A*A**T + beta*C.
 *
           IF (UPPER) THEN
               DO 130 J = 1,N
@@ -318,12 +293,10 @@
   100                 CONTINUE
                   END IF
                   DO 120 L = 1,K
-                      IF ((A(J,L).NE.ZERO) .OR. (B(J,L).NE.ZERO)) THEN
-                          TEMP1 = ALPHA*B(J,L)
-                          TEMP2 = ALPHA*A(J,L)
+                      IF (A(J,L).NE.ZERO) THEN
+                          TEMP = ALPHA*A(J,L)
                           DO 110 I = 1,J
-                              C(I,J) = C(I,J) + A(I,L)*TEMP1 +
-     +                                 B(I,L)*TEMP2
+                              C(I,J) = C(I,J) + TEMP*A(I,L)
   110                     CONTINUE
                       END IF
   120             CONTINUE
@@ -340,12 +313,10 @@
   150                 CONTINUE
                   END IF
                   DO 170 L = 1,K
-                      IF ((A(J,L).NE.ZERO) .OR. (B(J,L).NE.ZERO)) THEN
-                          TEMP1 = ALPHA*B(J,L)
-                          TEMP2 = ALPHA*A(J,L)
+                      IF (A(J,L).NE.ZERO) THEN
+                          TEMP = ALPHA*A(J,L)
                           DO 160 I = J,N
-                              C(I,J) = C(I,J) + A(I,L)*TEMP1 +
-     +                                 B(I,L)*TEMP2
+                              C(I,J) = C(I,J) + TEMP*A(I,L)
   160                     CONTINUE
                       END IF
   170             CONTINUE
@@ -353,39 +324,33 @@
           END IF
       ELSE
 *
-*        Form  C := alpha*A**T*B + alpha*B**T*A + C.
+*        Form  C := alpha*A**T*A + beta*C.
 *
           IF (UPPER) THEN
               DO 210 J = 1,N
                   DO 200 I = 1,J
-                      TEMP1 = ZERO
-                      TEMP2 = ZERO
+                      TEMP = ZERO
                       DO 190 L = 1,K
-                          TEMP1 = TEMP1 + A(L,I)*B(L,J)
-                          TEMP2 = TEMP2 + B(L,I)*A(L,J)
+                          TEMP = TEMP + A(L,I)*A(L,J)
   190                 CONTINUE
                       IF (BETA.EQ.ZERO) THEN
-                          C(I,J) = ALPHA*TEMP1 + ALPHA*TEMP2
+                          C(I,J) = ALPHA*TEMP
                       ELSE
-                          C(I,J) = BETA*C(I,J) + ALPHA*TEMP1 +
-     +                             ALPHA*TEMP2
+                          C(I,J) = ALPHA*TEMP + BETA*C(I,J)
                       END IF
   200             CONTINUE
   210         CONTINUE
           ELSE
               DO 240 J = 1,N
                   DO 230 I = J,N
-                      TEMP1 = ZERO
-                      TEMP2 = ZERO
+                      TEMP = ZERO
                       DO 220 L = 1,K
-                          TEMP1 = TEMP1 + A(L,I)*B(L,J)
-                          TEMP2 = TEMP2 + B(L,I)*A(L,J)
+                          TEMP = TEMP + A(L,I)*A(L,J)
   220                 CONTINUE
                       IF (BETA.EQ.ZERO) THEN
-                          C(I,J) = ALPHA*TEMP1 + ALPHA*TEMP2
+                          C(I,J) = ALPHA*TEMP
                       ELSE
-                          C(I,J) = BETA*C(I,J) + ALPHA*TEMP1 +
-     +                             ALPHA*TEMP2
+                          C(I,J) = ALPHA*TEMP + BETA*C(I,J)
                       END IF
   230             CONTINUE
   240         CONTINUE
@@ -394,6 +359,6 @@
 *
       RETURN
 *
-*     End of DSYR2K.
+*     End of SSYRK .
 *
       END

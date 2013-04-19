@@ -1,4 +1,4 @@
-*> \brief \b DTRSM
+*> \brief \b STRSM
 *
 *  =========== DOCUMENTATION ===========
 *
@@ -8,15 +8,15 @@
 *  Definition:
 *  ===========
 *
-*       SUBROUTINE DTRSM(SIDE,UPLO,TRANSA,DIAG,M,N,ALPHA,A,LDA,B,LDB)
+*       SUBROUTINE STRSM(SIDE,UPLO,TRANSA,DIAG,M,N,ALPHA,A,LDA,B,LDB)
 * 
 *       .. Scalar Arguments ..
-*       DOUBLE PRECISION ALPHA
+*       REAL ALPHA
 *       INTEGER LDA,LDB,M,N
 *       CHARACTER DIAG,SIDE,TRANSA,UPLO
 *       ..
 *       .. Array Arguments ..
-*       DOUBLE PRECISION A(LDA,*),B(LDB,*)
+*       REAL A(LDA,*),B(LDB,*)
 *       ..
 *  
 *
@@ -25,7 +25,7 @@
 *>
 *> \verbatim
 *>
-*> DTRSM  solves one of the matrix equations
+*> STRSM  solves one of the matrix equations
 *>
 *>    op( A )*X = alpha*B,   or   X*op( A ) = alpha*B,
 *>
@@ -103,7 +103,7 @@
 *>
 *> \param[in] ALPHA
 *> \verbatim
-*>          ALPHA is DOUBLE PRECISION.
+*>          ALPHA is REAL
 *>           On entry,  ALPHA specifies the scalar  alpha. When  alpha is
 *>           zero then  A is not referenced and  B need not be set before
 *>           entry.
@@ -111,7 +111,7 @@
 *>
 *> \param[in] A
 *> \verbatim
-*>          A is DOUBLE PRECISION array of DIMENSION ( LDA, k ),
+*>          A is REAL array of DIMENSION ( LDA, k ),
 *>           where k is m when SIDE = 'L' or 'l'  
 *>             and k is n when SIDE = 'R' or 'r'.
 *>           Before entry  with  UPLO = 'U' or 'u',  the  leading  k by k
@@ -137,7 +137,7 @@
 *>
 *> \param[in,out] B
 *> \verbatim
-*>          B is DOUBLE PRECISION array of DIMENSION ( LDB, n ).
+*>          B is REAL array of DIMENSION ( LDB, n ).
 *>           Before entry,  the leading  m by n part of the array  B must
 *>           contain  the  right-hand  side  matrix  B,  and  on exit  is
 *>           overwritten by the solution matrix  X.
@@ -161,7 +161,7 @@
 *
 *> \date November 2011
 *
-*> \ingroup double_blas_level3
+*> \ingroup single_blas_level3
 *
 *> \par Further Details:
 *  =====================
@@ -179,7 +179,7 @@
 *> \endverbatim
 *>
 *  =====================================================================
-      SUBROUTINE DTRSM(SIDE,UPLO,TRANSA,DIAG,M,N,ALPHA,A,LDA,B,LDB)
+      SUBROUTINE STRSM(SIDE,UPLO,TRANSA,DIAG,M,N,ALPHA,A,LDA,B,LDB)
 *
 *  -- Reference BLAS level3 routine (version 3.4.0) --
 *  -- Reference BLAS is a software package provided by Univ. of Tennessee,    --
@@ -187,12 +187,12 @@
 *     November 2011
 *
 *     .. Scalar Arguments ..
-      DOUBLE PRECISION ALPHA
+      REAL ALPHA
       INTEGER LDA,LDB,M,N
       CHARACTER DIAG,SIDE,TRANSA,UPLO
 *     ..
 *     .. Array Arguments ..
-      DOUBLE PRECISION A(LDA,*),B(LDB,*)
+      REAL A(LDA,*),B(LDB,*)
 *     ..
 *
 *  =====================================================================
@@ -208,13 +208,13 @@
       INTRINSIC MAX
 *     ..
 *     .. Local Scalars ..
-      DOUBLE PRECISION TEMP
+      REAL TEMP
       INTEGER I,INFO,J,K,NROWA
       LOGICAL LSIDE,NOUNIT,UPPER
 *     ..
 *     .. Parameters ..
-      DOUBLE PRECISION ONE,ZERO
-      PARAMETER (ONE=1.0D+0,ZERO=0.0D+0)
+      REAL ONE,ZERO
+      PARAMETER (ONE=1.0E+0,ZERO=0.0E+0)
 *     ..
 *
 *     Test the input parameters.
@@ -249,7 +249,7 @@
           INFO = 11
       END IF
       IF (INFO.NE.0) THEN
-          CALL XERBLA('DTRSM ',INFO)
+          CALL XERBLA('STRSM ',INFO)
           RETURN
       END IF
 *
@@ -438,6 +438,6 @@
 *
       RETURN
 *
-*     End of DTRSM .
+*     End of STRSM .
 *
       END
