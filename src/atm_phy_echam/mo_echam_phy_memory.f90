@@ -880,34 +880,24 @@ CONTAINS
               & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d) 
 
     IF (get_lamip()) THEN
-    cf_desc    = t_cf_var('tsurfw', '', '', DATATYPE_FLT32)
+    cf_desc    = t_cf_var('tsfc_wtr', 'K', 'surface temperature over water', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( field_list, prefix//'water surface_temperature', field%tsurfw,      &
+    CALL add_var( field_list, prefix//'tsfc_wtr', field%tsurfw,      &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
 
-    cf_desc    = t_cf_var('tsurfi', '', '', DATATYPE_FLT32)
+    cf_desc    = t_cf_var('tsfc_ice', 'K', 'surface temperature over ice', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( field_list, prefix//'ice surface_temperature', field%tsurfi,      &
+    CALL add_var( field_list, prefix//'tsfc_ice', field%tsurfi,      &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
 
-    cf_desc    = t_cf_var('tsurfl', '', '', DATATYPE_FLT32)
+    cf_desc    = t_cf_var('tsfc_lnd', 'K', 'surface temperature over land', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( field_list, prefix//'land surface_temperature', field%tsurfl,      &
+    CALL add_var( field_list, prefix//'tsfc_lnd', field%tsurfl,      &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
 
     cf_desc    = t_cf_var('siced', '', '', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( field_list, prefix//'siced', field%siced,      &
-                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
-
-    cf_desc    = t_cf_var('seaice', '', '', DATATYPE_FLT32)
-    grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( field_list, prefix//'seaice', field%seaice,      &
-                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
-
-    cf_desc    = t_cf_var('alake', '', '', DATATYPE_FLT32)
-    grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( field_list, prefix//'alake', field%alake,      &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
 
     cf_desc    = t_cf_var('alb', '', '', DATATYPE_FLT32)
@@ -948,14 +938,14 @@ CONTAINS
 
     IF (get_ljsbach()) THEN
 
-    cf_desc    = t_cf_var('surface_temperature_rad', '', '', DATATYPE_FLT32)
+    cf_desc    = t_cf_var('tsfc_rad', '', '', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( field_list, prefix//'surface_temperature_rad', field%surface_temperature_rad, &
+    CALL add_var( field_list, prefix//'tsfc_rad', field%surface_temperature_rad, &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
 
-    cf_desc    = t_cf_var('surface_temperature_eff', '', '', DATATYPE_FLT32)
+    cf_desc    = t_cf_var('tsfc_eff', '', '', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( field_list, prefix//'surface_temperature_eff', field%surface_temperature_eff, &
+    CALL add_var( field_list, prefix//'tsfc_eff', field%surface_temperature_eff, &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
 
     cf_desc    = t_cf_var('zhsoil', '', '', DATATYPE_FLT32)
