@@ -311,27 +311,26 @@ nlev=47
 
 # define model timing
 #
-second=1                             # [s] 1 second
-minute=60                            # [s] 1 minute
-hour=3600                            # [s] 1 hour
-day=86400                            # [s] 1 day
+second=1                                 # [s] 1 second
+minute=60                                # [s] 1 minute
+hour=3600                                # [s] 1 hour
+day=86400                                # [s] 1 day
 #
-(( dt_dyn =  300 * second ))         # [s] dynamics time step
-(( dt_rad =    1 * hour   ))         # [s] radiation time step
+start_date="1978-01-01T00:00:00Z"        # start and end date
+  end_date="1979-01-01T00:00:00Z"        # of the experiment
 #
-start_date="1978-01-01T00:00:00Z"    # start and end date
-end_date="1978-12-31T00:00:00Z"      # of the experiment
+(( dt_restart     = 10 * day          )) # [s] time between restarts = length of run
 #
-(( dt_checkpoint = 10 * day  ))      # [s] writing restart file and continue
-(( dt_restart    = 10 * day  ))      # [s] writing restart file and restart = length of run
-#
-(( dt_file       =  1 * day  ))      # [s] make new data file
-(( dt_data       =  6 * hour ))      # [s] write data to file
+(( dt_file        =  1 * day          )) # [s] data file interval
+(( dt_data        =  6 * hour         )) # [s] data output interval
+(( steps_per_file = dt_file / dt_data )) # output intervals per file interval
 
-
-# dynamical core
+# define model configuration
 #
-atmo_model_equations=1               # 1 = hydrost. atm., 2 = non-hydrost. atm.
+atmo_model_equations=1                   # 1 = hydrost. atm., 2 = non-hydrost. atm.
+#
+(( dt_dyn         =  5 * minute       )) # [s] dynamics time step
+(( dt_rad         =  1 * hour         )) # [s] radiation time step
 #
 #__________________________________________________________________________________________________
 # define the experiment: write ICON namelist parameters
@@ -349,8 +348,8 @@ cat > ${atmo_namelist} << EOF
 /
 &run_nml
  num_lev          = ${nlev},     ! number of full levels of vertical grid
- output           = 'vlist', 'nml'
- dtime            = ${dt_dyn}    ! [s] timestep in seconds
+ output           = 'nml'
+ dtime            = ${dt_dyn}    ! [s] dynamics time step
  ltestcase        = .TRUE.       ! run testcase                 --> testcase_ctl
  ldynamics        = .TRUE.       ! dynamics                     --> dynamics_ctl, diffusion_ctl
  ltransport       = .TRUE.       ! switch on tracer transport   --> transport_ctl
@@ -359,20 +358,11 @@ cat > ${atmo_namelist} << EOF
  msg_level        = 10           ! detailed report during integration 
 /
 &ha_testcase_nml
- ctest_name       = 'AMIP'  ! test case identifier
- lrh_linear_pres  = .TRUE.   ! initial RH is a linear function of pressure
- rh_at_1000hpa    = 0.30     ! [] initial rel. humidity at 1000 hPa 
+ ctest_name       = 'AMIP'       ! test case identifier
+ lrh_linear_pres  = .TRUE.       ! initial RH is a linear function of pressure
+ rh_at_1000hpa    = 0.30         ! [] initial rel. humidity at 1000 hPa 
 /
 &io_nml
- out_expname      = '${EXPNAME}'     ! file name base
- dt_data          = ${dt_data}       ! [s] write output
- dt_file          = ${dt_file}       ! [s] trigger new output file
- dt_checkpoint    = ${dt_checkpoint} ! [s] trigger new restart file
- lwrite_radiation = .TRUE.           ! add radiation fields to output
- lwrite_cloud     = .TRUE.           ! add cloud fraction to output
- lwrite_precip    = .TRUE.           ! add precipitation to output
- lwrite_pres      = .FALSE.          ! remove pressure from output
- lkeep_in_sync    = .TRUE.           ! sync after each timestep
 /
 &dynamics_nml
  iequations       = ${atmo_model_equations}    ! 1: hydrost. atmosphere
@@ -381,11 +371,11 @@ cat > ${atmo_namelist} << EOF
  ldry_dycore      = .FALSE.      ! moist dynamical core
 /
 &diffusion_nml
- hdiff_order      = 24      ! 2nd order near model top, 4th order on the other levels
- k2_klev_max      = 3       ! the 3 highest model levels use 2nd order diffusion
+ hdiff_order      = 24           ! 2nd order near model top, 4th order on the other levels
+ k2_klev_max      = 3            ! the 3 highest model levels use 2nd order diffusion
 /
 &transport_nml
- ctracer_list     = 'vwi45'       ! water vapour, cloud water, cloud ice, constant field, dummy for ozone
+ ctracer_list     = 'vwi45'      ! water vapour, cloud water, cloud ice, constant field, dummy for ozone
 /
 &echam_phy_nml
  lrad             = .TRUE.
@@ -394,20 +384,20 @@ cat > ${atmo_namelist} << EOF
  lcond            = .TRUE.
  lgw_hines        = .TRUE.
  ljsbach          = .TRUE.
- dt_rad           = ${dt_rad}     ! [s] compute radiative transfer every other hour
+ dt_rad           = ${dt_rad}    ! [s] radiation time step
 /
 &radiation_nml
- irad_h2o         = 1             ! prognostic vapor, liquid and ice
- irad_co2         = 2             ! constant co2 vmr
- irad_ch4         = 0             ! switch off ch4
- irad_n2o         = 0             ! switch off n2o
- irad_o3          = 8             ! ozone for AMIP experiment
- irad_o2          = 0             ! switch off o2
- irad_cfc11       = 0             ! switch off cfc11
- irad_cfc12       = 0             ! switch off cfc12
- irad_aero        = 0             ! switch off aerosols
- ighg             = 1             ! select CMIP5 standard greenhouse gas scenario (as in ECHAM6 AMIP) 
- izenith          = 4             ! seasonal and diurnal cycle
+ irad_h2o         = 1            ! prognostic vapor, liquid and ice
+ irad_co2         = 2            ! constant co2 vmr
+ irad_ch4         = 0            ! switch off ch4
+ irad_n2o         = 0            ! switch off n2o
+ irad_o3          = 8            ! ozone for AMIP experiment
+ irad_o2          = 0            ! switch off o2
+ irad_cfc11       = 0            ! switch off cfc11
+ irad_cfc12       = 0            ! switch off cfc12
+ irad_aero        = 0            ! switch off aerosols
+ ighg             = 1            ! select CMIP5 standard greenhouse gas scenario (as in ECHAM6 AMIP) 
+ izenith          = 4            ! seasonal and diurnal cycle
 /
 &echam_conv_nml
 /
@@ -415,27 +405,52 @@ cat > ${atmo_namelist} << EOF
 /
 &output_nml
  namespace        = 'MPIMET'
- filetype         = 4
- dom              = -1
- output_time_unit = 3 ! hours
- output_bounds    = 6.,240.,6.   !start, end, increment
- steps_per_file   = 4
- include_last     = .TRUE.
- remap            = 0   ! triangular grid
- output_filename  = "${EXPNAME}_land"
+ output_bounds    = ${dt_data},${dt_restart},${dt_data}   !start, end, increment
+ steps_per_file   = ${steps_per_file}
+ include_last     = .FALSE.
  output_grid      = .TRUE.
+ output_filename  = "${EXPNAME}_atm_dyn_icoham"
+ ml_varlist       = 'ha_prog_out_pres_sfc'   , 'ha_prog_out_temp'    , 
+                    'ha_prog_out_qv'         , 'ha_prog_out_qw'      , 'ha_prog_out_qi'       ,
+                    'ha_diag_out_u'          , 'ha_diag_out_v'       , 'ha_diag_out_wpres_mc' ,
+                    'ha_diag_out_geo_mc'     , 'ha_diag_out_pres_mc' , 'ha_diag_out_delp_c'
+/
+&output_nml
+ namespace        = 'MPIMET'
+ output_bounds    = ${dt_data},${dt_restart},${dt_data}   !start, end, increment
+ steps_per_file   = ${steps_per_file}
+ include_last     = .FALSE.
+ output_grid      = .TRUE.
+ output_filename  = "${EXPNAME}_atm_phy_echam6"
+ ml_varlist       = 'prm_cosmu0'      , 'prm_flxdwswtoa'  , 'prm_o3'          ,
+                    'prm_swflxsfc'    , 'prm_lwflxsfc'    , 'prm_swflxtoa'    , 'prm_lwflxtoa'    ,
+                    'prm_swflxsfc_avg', 'prm_lwflxsfc_avg', 'prm_swflxtoa_avg', 'prm_lwflxtoa_avg',
+                    'prm_tsfc_wtr'    , 'prm_tsfc_ice'    , 'prm_tsfc_lnd'    , 'prm_tsfc'        ,
+                    'prm_seaice'      , 'prm_siced'       , 'prm_alb'         ,
+                    'prm_aclc'        , 'prm_aclcac'      , 'prm_aclcov'      ,
+                    'prm_rsfl'        , 'prm_rsfc'        , 'prm_ssfl'        , 'prm_ssfc'        , 
+                    'prm_totprec_avg' , 'prm_qvi'         , 'prm_xlvi'        , 'prm_xivi'        ,
+                    'prm_lhflx_avg'   , 'prm_shflx_avg'   ,
+                    'prm_u_stress_avg', 'prm_v_stress_avg'
+/
+&output_nml
+ namespace        = 'MPIMET'
+ output_bounds    = ${dt_data},${dt_restart},${dt_data}   !start, end, increment
+ steps_per_file   = ${steps_per_file}
+ include_last     = .FALSE.
+ output_grid      = .TRUE.
+ output_filename  = "${EXPNAME}_lnd_phy_jsbach"
  ml_varlist       = 'fract', 'alb_vis_srf', 'alb_nir_srf', 't_srf', 'lai', 's_srf', 'qsat_srf'
                     'canopy_cond', 'ws_l', 'ws_fc_l', 'ws_pwp_l', 'ws_sat_l', 'ws'
                     'water_stress', 'ws_root', 'ws_fc_root', 'ws_pwp_root'
                     'albedo_srf', 't_air', 'q_air', 'lwrad_srf_down'
                     'swrad_srf_down', 'root_depth', 'root_depth_l', 'soil_depth', 'soil_depth_l'
                     'evapotrans', 'sensible_hflx', 'latent_hflx' 
-                   'fact_qsat_srf', 'fact_qsat_trans_srf', 'fact_q_air', 'fract_fpc_max', 'fract_fpc'
-                   't_srf_unfilt', 't_srf_unfilt_old', 't_srf_old'
+                    'fact_qsat_srf', 'fact_qsat_trans_srf', 'fact_q_air', 'fract_fpc_max', 'fract_fpc'
+                    't_srf_unfilt', 't_srf_unfilt_old', 't_srf_old'
                     't_soil', 'wsn_srf', 'wsr_srf', 't_rad_srf', 'grnd_hflx'
                     'sfract_srf', 'wfract_srf', 'sfract_soil', 'sfract_can', 'wfract_can', 'wfract_soil'
                     'rel_hum_srf', 'tte_corr', 'rough_m_srf', 'rough_h_srf'
- !map_file         ="mapfile_dcmip.txt"
 /
 EOF
 
