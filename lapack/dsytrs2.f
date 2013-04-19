@@ -1,12 +1,136 @@
+*> \brief \b DSYTRS2
+*
+*  =========== DOCUMENTATION ===========
+*
+* Online html documentation available at 
+*            http://www.netlib.org/lapack/explore-html/ 
+*
+*> \htmlonly
+*> Download DSYTRS2 + dependencies 
+*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.tgz?format=tgz&filename=/lapack/lapack_routine/dsytrs2.f"> 
+*> [TGZ]</a> 
+*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.zip?format=zip&filename=/lapack/lapack_routine/dsytrs2.f"> 
+*> [ZIP]</a> 
+*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.txt?format=txt&filename=/lapack/lapack_routine/dsytrs2.f"> 
+*> [TXT]</a>
+*> \endhtmlonly 
+*
+*  Definition:
+*  ===========
+*
+*       SUBROUTINE DSYTRS2( UPLO, N, NRHS, A, LDA, IPIV, B, LDB, 
+*                           WORK, INFO )
+* 
+*       .. Scalar Arguments ..
+*       CHARACTER          UPLO
+*       INTEGER            INFO, LDA, LDB, N, NRHS
+*       ..
+*       .. Array Arguments ..
+*       INTEGER            IPIV( * )
+*       DOUBLE PRECISION   A( LDA, * ), B( LDB, * ), WORK( * )
+*       ..
+*  
+*
+*> \par Purpose:
+*  =============
+*>
+*> \verbatim
+*>
+*> DSYTRS2 solves a system of linear equations A*X = B with a real
+*> symmetric matrix A using the factorization A = U*D*U**T or
+*> A = L*D*L**T computed by DSYTRF and converted by DSYCONV.
+*> \endverbatim
+*
+*  Arguments:
+*  ==========
+*
+*> \param[in] UPLO
+*> \verbatim
+*>          UPLO is CHARACTER*1
+*>          Specifies whether the details of the factorization are stored
+*>          as an upper or lower triangular matrix.
+*>          = 'U':  Upper triangular, form is A = U*D*U**T;
+*>          = 'L':  Lower triangular, form is A = L*D*L**T.
+*> \endverbatim
+*>
+*> \param[in] N
+*> \verbatim
+*>          N is INTEGER
+*>          The order of the matrix A.  N >= 0.
+*> \endverbatim
+*>
+*> \param[in] NRHS
+*> \verbatim
+*>          NRHS is INTEGER
+*>          The number of right hand sides, i.e., the number of columns
+*>          of the matrix B.  NRHS >= 0.
+*> \endverbatim
+*>
+*> \param[in] A
+*> \verbatim
+*>          A is DOUBLE PRECISION array, dimension (LDA,N)
+*>          The block diagonal matrix D and the multipliers used to
+*>          obtain the factor U or L as computed by DSYTRF.
+*> \endverbatim
+*>
+*> \param[in] LDA
+*> \verbatim
+*>          LDA is INTEGER
+*>          The leading dimension of the array A.  LDA >= max(1,N).
+*> \endverbatim
+*>
+*> \param[in] IPIV
+*> \verbatim
+*>          IPIV is INTEGER array, dimension (N)
+*>          Details of the interchanges and the block structure of D
+*>          as determined by DSYTRF.
+*> \endverbatim
+*>
+*> \param[in,out] B
+*> \verbatim
+*>          B is DOUBLE PRECISION array, dimension (LDB,NRHS)
+*>          On entry, the right hand side matrix B.
+*>          On exit, the solution matrix X.
+*> \endverbatim
+*>
+*> \param[in] LDB
+*> \verbatim
+*>          LDB is INTEGER
+*>          The leading dimension of the array B.  LDB >= max(1,N).
+*> \endverbatim
+*>
+*> \param[out] WORK
+*> \verbatim
+*>          WORK is REAL array, dimension (N)
+*> \endverbatim
+*>
+*> \param[out] INFO
+*> \verbatim
+*>          INFO is INTEGER
+*>          = 0:  successful exit
+*>          < 0:  if INFO = -i, the i-th argument had an illegal value
+*> \endverbatim
+*
+*  Authors:
+*  ========
+*
+*> \author Univ. of Tennessee 
+*> \author Univ. of California Berkeley 
+*> \author Univ. of Colorado Denver 
+*> \author NAG Ltd. 
+*
+*> \date November 2011
+*
+*> \ingroup doubleSYcomputational
+*
+*  =====================================================================
       SUBROUTINE DSYTRS2( UPLO, N, NRHS, A, LDA, IPIV, B, LDB, 
      $                    WORK, INFO )
 *
-*  -- LAPACK PROTOTYPE routine (version 3.3.0) --
+*  -- LAPACK computational routine (version 3.4.0) --
 *  -- LAPACK is a software package provided by Univ. of Tennessee,    --
 *  -- Univ. of California Berkeley, Univ. of Colorado Denver and NAG Ltd..--
-*     November 2010
-*
-*  -- Written by Julie Langou of the Univ. of TN    --
+*     November 2011
 *
 *     .. Scalar Arguments ..
       CHARACTER          UPLO
@@ -16,53 +140,6 @@
       INTEGER            IPIV( * )
       DOUBLE PRECISION   A( LDA, * ), B( LDB, * ), WORK( * )
 *     ..
-*
-*  Purpose
-*  =======
-*
-*  DSYTRS2 solves a system of linear equations A*X = B with a real
-*  symmetric matrix A using the factorization A = U*D*U**T or
-*  A = L*D*L**T computed by DSYTRF and converted by DSYCONV.
-*
-*  Arguments
-*  =========
-*
-*  UPLO    (input) CHARACTER*1
-*          Specifies whether the details of the factorization are stored
-*          as an upper or lower triangular matrix.
-*          = 'U':  Upper triangular, form is A = U*D*U**T;
-*          = 'L':  Lower triangular, form is A = L*D*L**T.
-*
-*  N       (input) INTEGER
-*          The order of the matrix A.  N >= 0.
-*
-*  NRHS    (input) INTEGER
-*          The number of right hand sides, i.e., the number of columns
-*          of the matrix B.  NRHS >= 0.
-*
-*  A       (input) DOUBLE PRECISION array, dimension (LDA,N)
-*          The block diagonal matrix D and the multipliers used to
-*          obtain the factor U or L as computed by DSYTRF.
-*
-*  LDA     (input) INTEGER
-*          The leading dimension of the array A.  LDA >= max(1,N).
-*
-*  IPIV    (input) INTEGER array, dimension (N)
-*          Details of the interchanges and the block structure of D
-*          as determined by DSYTRF.
-*
-*  B       (input/output) DOUBLE PRECISION array, dimension (LDB,NRHS)
-*          On entry, the right hand side matrix B.
-*          On exit, the solution matrix X.
-*
-*  LDB     (input) INTEGER
-*          The leading dimension of the array B.  LDB >= max(1,N).
-*
-*  WORK    (workspace) REAL array, dimension (N)
-*
-*  INFO    (output) INTEGER
-*          = 0:  successful exit
-*          < 0:  if INFO = -i, the i-th argument had an illegal value
 *
 *  =====================================================================
 *
@@ -116,9 +193,9 @@
 *
       IF( UPPER ) THEN
 *
-*        Solve A*X = B, where A = U*D*U'.
+*        Solve A*X = B, where A = U*D*U**T.
 *
-*       P' * B  
+*       P**T * B  
         K=N
         DO WHILE ( K .GE. 1 )
          IF( IPIV( K ).GT.0 ) THEN
@@ -138,16 +215,16 @@
          END IF
         END DO
 *
-*  Compute (U \P' * B) -> B    [ (U \P' * B) ]
+*  Compute (U \P**T * B) -> B    [ (U \P**T * B) ]
 *
-        CALL DTRSM('L','U','N','U',N,NRHS,ONE,A,N,B,N)
+        CALL DTRSM('L','U','N','U',N,NRHS,ONE,A,LDA,B,LDB)
 *
-*  Compute D \ B -> B   [ D \ (U \P' * B) ]
+*  Compute D \ B -> B   [ D \ (U \P**T * B) ]
 *       
          I=N
          DO WHILE ( I .GE. 1 )
             IF( IPIV(I) .GT. 0 ) THEN
-              CALL DSCAL( NRHS, ONE / A( I, I ), B( I, 1 ), N )
+              CALL DSCAL( NRHS, ONE / A( I, I ), B( I, 1 ), LDB )
             ELSEIF ( I .GT. 1) THEN
                IF ( IPIV(I-1) .EQ. IPIV(I) ) THEN
                   AKM1K = WORK(I)
@@ -166,11 +243,11 @@
             I = I - 1
          END DO
 *
-*      Compute (U' \ B) -> B   [ U' \ (D \ (U \P' * B) ) ]
+*      Compute (U**T \ B) -> B   [ U**T \ (D \ (U \P**T * B) ) ]
 *
-         CALL DTRSM('L','U','T','U',N,NRHS,ONE,A,N,B,N)
+         CALL DTRSM('L','U','T','U',N,NRHS,ONE,A,LDA,B,LDB)
 *
-*       P * B  [ P * (U' \ (D \ (U \P' * B) )) ]
+*       P * B  [ P * (U**T \ (D \ (U \P**T * B) )) ]
 *
         K=1
         DO WHILE ( K .LE. N )
@@ -193,9 +270,9 @@
 *
       ELSE
 *
-*        Solve A*X = B, where A = L*D*L'.
+*        Solve A*X = B, where A = L*D*L**T.
 *
-*       P' * B  
+*       P**T * B  
         K=1
         DO WHILE ( K .LE. N )
          IF( IPIV( K ).GT.0 ) THEN
@@ -215,16 +292,16 @@
          ENDIF
         END DO
 *
-*  Compute (L \P' * B) -> B    [ (L \P' * B) ]
+*  Compute (L \P**T * B) -> B    [ (L \P**T * B) ]
 *
-        CALL DTRSM('L','L','N','U',N,NRHS,ONE,A,N,B,N)
+        CALL DTRSM('L','L','N','U',N,NRHS,ONE,A,LDA,B,LDB)
 *
-*  Compute D \ B -> B   [ D \ (L \P' * B) ]
+*  Compute D \ B -> B   [ D \ (L \P**T * B) ]
 *       
          I=1
          DO WHILE ( I .LE. N )
             IF( IPIV(I) .GT. 0 ) THEN
-              CALL DSCAL( NRHS, ONE / A( I, I ), B( I, 1 ), N )
+              CALL DSCAL( NRHS, ONE / A( I, I ), B( I, 1 ), LDB )
             ELSE
                   AKM1K = WORK(I)
                   AKM1 = A( I, I ) / AKM1K
@@ -241,11 +318,11 @@
             I = I + 1
          END DO
 *
-*  Compute (L' \ B) -> B   [ L' \ (D \ (L \P' * B) ) ]
+*  Compute (L**T \ B) -> B   [ L**T \ (D \ (L \P**T * B) ) ]
 * 
-        CALL DTRSM('L','L','T','U',N,NRHS,ONE,A,N,B,N)
+        CALL DTRSM('L','L','T','U',N,NRHS,ONE,A,LDA,B,LDB)
 *
-*       P * B  [ P * (L' \ (D \ (L \P' * B) )) ]
+*       P * B  [ P * (L**T \ (D \ (L \P**T * B) )) ]
 *
         K=N
         DO WHILE ( K .GE. 1 )

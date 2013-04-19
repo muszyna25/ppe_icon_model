@@ -1,9 +1,120 @@
+*> \brief \b DLAT2S converts a double-precision triangular matrix to a single-precision triangular matrix.
+*
+*  =========== DOCUMENTATION ===========
+*
+* Online html documentation available at 
+*            http://www.netlib.org/lapack/explore-html/ 
+*
+*> \htmlonly
+*> Download DLAT2S + dependencies 
+*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.tgz?format=tgz&filename=/lapack/lapack_routine/dlat2s.f"> 
+*> [TGZ]</a> 
+*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.zip?format=zip&filename=/lapack/lapack_routine/dlat2s.f"> 
+*> [ZIP]</a> 
+*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.txt?format=txt&filename=/lapack/lapack_routine/dlat2s.f"> 
+*> [TXT]</a>
+*> \endhtmlonly 
+*
+*  Definition:
+*  ===========
+*
+*       SUBROUTINE DLAT2S( UPLO, N, A, LDA, SA, LDSA, INFO )
+* 
+*       .. Scalar Arguments ..
+*       CHARACTER          UPLO
+*       INTEGER            INFO, LDA, LDSA, N
+*       ..
+*       .. Array Arguments ..
+*       REAL               SA( LDSA, * )
+*       DOUBLE PRECISION   A( LDA, * )
+*       ..
+*  
+*
+*> \par Purpose:
+*  =============
+*>
+*> \verbatim
+*>
+*> DLAT2S converts a DOUBLE PRECISION triangular matrix, SA, to a SINGLE
+*> PRECISION triangular matrix, A.
+*>
+*> RMAX is the overflow for the SINGLE PRECISION arithmetic
+*> DLAS2S checks that all the entries of A are between -RMAX and
+*> RMAX. If not the convertion is aborted and a flag is raised.
+*>
+*> This is an auxiliary routine so there is no argument checking.
+*> \endverbatim
+*
+*  Arguments:
+*  ==========
+*
+*> \param[in] UPLO
+*> \verbatim
+*>          UPLO is CHARACTER*1
+*>          = 'U':  A is upper triangular;
+*>          = 'L':  A is lower triangular.
+*> \endverbatim
+*>
+*> \param[in] N
+*> \verbatim
+*>          N is INTEGER
+*>          The number of rows and columns of the matrix A.  N >= 0.
+*> \endverbatim
+*>
+*> \param[in] A
+*> \verbatim
+*>          A is DOUBLE PRECISION array, dimension (LDA,N)
+*>          On entry, the N-by-N triangular coefficient matrix A.
+*> \endverbatim
+*>
+*> \param[in] LDA
+*> \verbatim
+*>          LDA is INTEGER
+*>          The leading dimension of the array A.  LDA >= max(1,N).
+*> \endverbatim
+*>
+*> \param[out] SA
+*> \verbatim
+*>          SA is REAL array, dimension (LDSA,N)
+*>          Only the UPLO part of SA is referenced.  On exit, if INFO=0,
+*>          the N-by-N coefficient matrix SA; if INFO>0, the content of
+*>          the UPLO part of SA is unspecified.
+*> \endverbatim
+*>
+*> \param[in] LDSA
+*> \verbatim
+*>          LDSA is INTEGER
+*>          The leading dimension of the array SA.  LDSA >= max(1,M).
+*> \endverbatim
+*>
+*> \param[out] INFO
+*> \verbatim
+*>          INFO is INTEGER
+*>          = 0:  successful exit.
+*>          = 1:  an entry of the matrix A is greater than the SINGLE
+*>                PRECISION overflow threshold, in this case, the content
+*>                of the UPLO part of SA in exit is unspecified.
+*> \endverbatim
+*
+*  Authors:
+*  ========
+*
+*> \author Univ. of Tennessee 
+*> \author Univ. of California Berkeley 
+*> \author Univ. of Colorado Denver 
+*> \author NAG Ltd. 
+*
+*> \date September 2012
+*
+*> \ingroup doubleOTHERauxiliary
+*
+*  =====================================================================
       SUBROUTINE DLAT2S( UPLO, N, A, LDA, SA, LDSA, INFO )
 *
-*  -- LAPACK PROTOTYPE auxiliary routine (version 3.1.2) --
+*  -- LAPACK auxiliary routine (version 3.4.2) --
 *  -- LAPACK is a software package provided by Univ. of Tennessee,    --
 *  -- Univ. of California Berkeley, Univ. of Colorado Denver and NAG Ltd..--
-*     May 2007
+*     September 2012
 *
 *     .. Scalar Arguments ..
       CHARACTER          UPLO
@@ -14,49 +125,7 @@
       DOUBLE PRECISION   A( LDA, * )
 *     ..
 *
-*  Purpose
-*  =======
-*
-*  DLAT2S converts a DOUBLE PRECISION triangular matrix, SA, to a SINGLE
-*  PRECISION triangular matrix, A.
-*
-*  RMAX is the overflow for the SINGLE PRECISION arithmetic
-*  DLAS2S checks that all the entries of A are between -RMAX and
-*  RMAX. If not the convertion is aborted and a flag is raised.
-*
-*  This is an auxiliary routine so there is no argument checking.
-*
-*  Arguments
-*  =========
-*
-*  UPLO    (input) CHARACTER*1
-*          = 'U':  A is upper triangular;
-*          = 'L':  A is lower triangular.
-*
-*  N       (input) INTEGER
-*          The number of rows and columns of the matrix A.  N >= 0.
-*
-*  A       (input) DOUBLE PRECISION array, dimension (LDA,N)
-*          On entry, the N-by-N triangular coefficient matrix A.
-*
-*  LDA     (input) INTEGER
-*          The leading dimension of the array A.  LDA >= max(1,N).
-*
-*  SA      (output) REAL array, dimension (LDSA,N)
-*          Only the UPLO part of SA is referenced.  On exit, if INFO=0,
-*          the N-by-N coefficient matrix SA; if INFO>0, the content of
-*          the UPLO part of SA is unspecified.
-*
-*  LDSA    (input) INTEGER
-*          The leading dimension of the array SA.  LDSA >= max(1,M).
-*
-*  INFO    (output) INTEGER
-*          = 0:  successful exit.
-*          = 1:  an entry of the matrix A is greater than the SINGLE
-*                PRECISION overflow threshold, in this case, the content
-*                of the UPLO part of SA in exit is unspecified.
-*
-*  =========
+*  =====================================================================
 *
 *     .. Local Scalars ..
       INTEGER            I, J
@@ -76,7 +145,7 @@
          DO 20 J = 1, N
             DO 10 I = 1, J
                IF( ( A( I, J ).LT.-RMAX ) .OR. ( A( I, J ).GT.RMAX ) )
-     +             THEN
+     $             THEN
                   INFO = 1
                   GO TO 50
                END IF
@@ -87,7 +156,7 @@
          DO 40 J = 1, N
             DO 30 I = J, N
                IF( ( A( I, J ).LT.-RMAX ) .OR. ( A( I, J ).GT.RMAX ) )
-     +             THEN
+     $             THEN
                   INFO = 1
                   GO TO 50
                END IF
