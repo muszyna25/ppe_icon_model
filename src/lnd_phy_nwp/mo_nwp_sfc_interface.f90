@@ -57,7 +57,7 @@ MODULE mo_nwp_sfc_interface
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
   USE mo_lnd_nwp_config,      ONLY: nlev_soil, nlev_snow, ntiles_total, ntiles_water, &
     &                               lseaice, llake, lmulti_snow, ntiles_lnd, lsnowtile, &
-    &                               isub_water, isub_seaice, isub_lake
+    &                               isub_water, isub_seaice, isub_lake, itype_interception
   USE mo_satad,               ONLY: sat_pres_water, sat_pres_ice, spec_humi  
   USE mo_soil_ml,             ONLY: terra_multlay
   USE mo_nwp_sfc_utils,       ONLY: diag_snowfrac_tg, update_idx_lists_lnd, update_idx_lists_sea
@@ -159,6 +159,12 @@ CONTAINS
     REAL(wp) :: w_i_now_t (nproma, p_patch%nblks_c, ntiles_total)
     REAL(wp) :: w_i_new_t (nproma, p_patch%nblks_c, ntiles_total)
 
+    REAL(wp) :: w_p_now_t (nproma, p_patch%nblks_c, ntiles_total)
+    REAL(wp) :: w_p_new_t (nproma, p_patch%nblks_c, ntiles_total)
+
+    REAL(wp) :: w_s_now_t (nproma, p_patch%nblks_c, ntiles_total)
+    REAL(wp) :: w_s_new_t (nproma, p_patch%nblks_c, ntiles_total)
+
     REAL(wp) :: u_10m_t    (nproma, p_patch%nblks_c, ntiles_total)
     REAL(wp) :: v_10m_t    (nproma, p_patch%nblks_c, ntiles_total)
     REAL(wp) :: freshsnow_t(nproma, p_patch%nblks_c, ntiles_total)
@@ -253,6 +259,10 @@ CONTAINS
 
 
     IF (msg_level >= 15) THEN
+      CALL message('mo_nwp_sfc_interface: ', 'call land-surface scheme')
+    ENDIF
+
+    IF (msg_level == 12) THEN
       CALL message('mo_nwp_sfc_interface: ', 'call land-surface scheme')
     ENDIF
 
@@ -375,7 +385,15 @@ CONTAINS
           qv_s_t(ic,jb,isubs)                =  lnd_diag%qv_s_t(jc,jb,isubs)  
           w_snow_now_t(ic,jb,isubs)          =  lnd_prog_now%w_snow_t(jc,jb,isubs)
           rho_snow_now_t(ic,jb,isubs)        =  lnd_prog_now%rho_snow_t(jc,jb,isubs)
+   IF (itype_interception == 1) THEN
           w_i_now_t(ic,jb,isubs)             =  lnd_prog_now%w_i_t(jc,jb,isubs)
+          w_p_now_t(ic,jb,isubs)             =  0._wp
+          w_s_now_t(ic,jb,isubs)             =  0._wp
+   ELSE IF (itype_interception == 2) THEN
+          w_i_now_t(ic,jb,isubs)             =  lnd_prog_now%w_i_t(jc,jb,isubs)
+          w_p_now_t(ic,jb,isubs)             =  lnd_prog_now%w_p_t(jc,jb,isubs)
+          w_s_now_t(ic,jb,isubs)             =  lnd_prog_now%w_s_t(jc,jb,isubs)
+   END IF
           freshsnow_t(ic,jb,isubs)           =  lnd_diag%freshsnow_t(jc,jb,isubs)
           snowfrac_t(ic,jb,isubs)            =  lnd_diag%snowfrac_t(jc,jb,isubs)
           runoff_s_t(ic,jb,isubs)            =  lnd_diag%runoff_s_t(jc,jb,isubs) 
@@ -496,6 +514,12 @@ CONTAINS
         &  w_i_now       = w_i_now_t(:,jb,isubs)             , & !INOUT water content of interception water(m H2O)
         &  w_i_new       = w_i_new_t(:,jb,isubs)             , & !OUT water content of interception water(m H2O)
 !
+        &  w_p_now       = w_p_now_t(:,jb,isubs)             , & !INOUT water content of interception water(m H2O)
+        &  w_p_new       = w_p_new_t(:,jb,isubs)             , & !OUT water content of interception water(m H2O)
+!
+        &  w_s_now       = w_s_now_t(:,jb,isubs)             , & !INOUT water content of interception water(m H2O)
+        &  w_s_new       = w_s_new_t(:,jb,isubs)             , & !OUT water content of interception water(m H2O)
+!
         &  t_so_now      = t_so_now_t(:,:,jb,isubs)          , & !INOUT soil temperature (main level)    (  K  )
         &  t_so_new      = t_so_new_t(:,:,jb,isubs)          , & !OUT soil temperature (main level)      (  K  )
 !
@@ -577,7 +601,13 @@ CONTAINS
           lnd_prog_new%w_snow_t  (jc,jb,isubs) = w_snow_new_t  (ic,jb,isubs)          
           lnd_prog_new%rho_snow_t(jc,jb,isubs) = rho_snow_new_t(ic,jb,isubs)        
           lnd_diag%h_snow_t      (jc,jb,isubs) = h_snow_t      (ic,jb,isubs)              
+   IF (itype_interception == 1) THEN
           lnd_prog_new%w_i_t     (jc,jb,isubs) = w_i_new_t     (ic,jb,isubs)             
+   ELSE IF (itype_interception == 2) THEN
+          lnd_prog_new%w_i_t     (jc,jb,isubs) = w_i_new_t     (ic,jb,isubs)             
+          lnd_prog_new%w_p_t     (jc,jb,isubs) = w_p_new_t     (ic,jb,isubs)             
+          lnd_prog_new%w_s_t     (jc,jb,isubs) = w_s_new_t     (ic,jb,isubs)     
+   END IF
           lnd_diag%freshsnow_t   (jc,jb,isubs) = freshsnow_t   (ic,jb,isubs) 
           ! Remark: the two snow-cover fraction variables differ only if lsnowtile=true (see below)  
           lnd_diag%snowfrac_lc_t (jc,jb,isubs) = snowfrac_t    (ic,jb,isubs) 
@@ -713,7 +743,13 @@ CONTAINS
              lnd_prog_new%w_snow_t  (jc,jb,is1) = lnd_prog_new%w_snow_t  (jc,jb,is2)     
              lnd_prog_new%rho_snow_t(jc,jb,is1) = lnd_prog_new%rho_snow_t(jc,jb,is2)
              lnd_diag%h_snow_t      (jc,jb,is1) = lnd_diag%h_snow_t      (jc,jb,is2)
+   IF (itype_interception == 1) THEN
              lnd_prog_new%w_i_t     (jc,jb,is1) = lnd_prog_new%w_i_t     (jc,jb,is2)        
+   ELSE IF (itype_interception == 2) THEN
+             lnd_prog_new%w_i_t     (jc,jb,is1) = lnd_prog_new%w_i_t     (jc,jb,is2)        
+             lnd_prog_new%w_p_t     (jc,jb,is1) = lnd_prog_new%w_p_t     (jc,jb,is2)        
+             lnd_prog_new%w_s_t     (jc,jb,is1) = lnd_prog_new%w_s_t     (jc,jb,is2)        
+   END IF
              lnd_diag%freshsnow_t   (jc,jb,is1) = lnd_diag%freshsnow_t   (jc,jb,is2)
              lnd_diag%snowfrac_lc_t (jc,jb,is1) = lnd_diag%snowfrac_lc_t (jc,jb,is2) 
              lnd_diag%snowfrac_t    (jc,jb,is1) = lnd_diag%snowfrac_t    (jc,jb,is2) 

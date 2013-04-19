@@ -58,7 +58,8 @@ MODULE mo_lnd_nwp_config
   PUBLIC :: frlnd_thrhld, frlndtile_thrhld, frlake_thrhld, frsea_thrhld
   PUBLIC :: lseaice,  llake, lmelt, lmelt_var, lmulti_snow, lsnowtile, max_toplaydepth
   PUBLIC :: itype_gscp, itype_trvg ,    itype_evsl, itype_tran 
-  PUBLIC :: itype_root, itype_heatcond, itype_hydbound, idiag_snowfrac
+  PUBLIC :: itype_root, itype_heatcond, itype_interception, &
+             itype_hydbound, idiag_snowfrac
   PUBLIC :: lstomata,   l2tls, lana_rho_snow 
   PUBLIC :: isub_water, isub_lake, isub_seaice
   PUBLIC :: sstice_mode, sst_td_filename, ci_td_filename
@@ -89,6 +90,7 @@ MODULE mo_lnd_nwp_config
   INTEGER ::  itype_tran         !< type of surface to atmospher transfer
   INTEGER ::  itype_root         !< type of root density distribution
   INTEGER ::  itype_heatcond     !< type of soil heat conductivity
+  INTEGER ::  itype_interception !< type of plant interception
   INTEGER ::  itype_hydbound     !< type of hydraulic lower boundary condition
   INTEGER ::  idiag_snowfrac     !< method for diagnosis of snow-cover fraction
 

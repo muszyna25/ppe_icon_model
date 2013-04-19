@@ -70,6 +70,7 @@ MODULE mo_lnd_nwp_nml
     &                               config_lstomata    => lstomata      , &
     &                               config_l2tls       => l2tls         , &
     &                            config_itype_heatcond => itype_heatcond, &
+    &                            config_itype_interception => itype_interception, &
     &                            config_itype_hydbound => itype_hydbound, &
     &                            config_lana_rho_snow  => lana_rho_snow , &
     &                            config_lsnowtile      => lsnowtile     , &
@@ -98,6 +99,7 @@ MODULE mo_lnd_nwp_nml
   INTEGER ::  itype_tran        !< type of surface to atmospher transfer
   INTEGER ::  itype_root        !< type of root density distribution
   INTEGER ::  itype_heatcond    !< type of soil heat conductivity
+  INTEGER ::  itype_interception!< type of plant interception
   INTEGER ::  itype_hydbound    !< type of hydraulic lower boundary condition
   INTEGER ::  idiag_snowfrac    !< method for diagnosis of snow-cover fraction       
 
@@ -127,6 +129,7 @@ MODULE mo_lnd_nwp_nml
     &               itype_tran                                , & 
     &               itype_root                                , & 
     &               itype_heatcond                            , & 
+    &               itype_interception                        , & 
     &               itype_hydbound                            , & 
     &               lstomata                                  , & 
     &               l2tls                                     , & 
@@ -201,6 +204,7 @@ MODULE mo_lnd_nwp_nml
     itype_tran     = 2       ! type of surface to atmosphere transfer
     itype_root     = 1       ! type of root density distribution
     itype_heatcond = 1       ! type of soil heat conductivity
+    itype_interception = 1   ! type of plant interception
     itype_hydbound = 1       ! type of hydraulic lower boundary condition
     lstomata       =.TRUE.   ! map of minimum stomata resistance
     l2tls          =.TRUE.   ! forecast with 2-TL integration scheme
@@ -273,6 +277,7 @@ MODULE mo_lnd_nwp_nml
       config_lstomata    = lstomata
       config_l2tls       = l2tls
       config_itype_heatcond = itype_heatcond
+      config_itype_interception = itype_interception
       config_itype_hydbound = itype_hydbound
       config_lana_rho_snow  = lana_rho_snow
       config_lsnowtile   = lsnowtile

@@ -185,6 +185,10 @@ CONTAINS
                   rho_snow_ex      , & ! snow density                                  (kg/m**3)
                   h_snow_ex        , & ! snow height  
                   w_i_ex               ! water content of interception water           (m H2O)
+  REAL(wp), DIMENSION(nproma,ntiles_total ):: &
+                  w_p_ex           , & ! water content of interception water           (m H2O)
+                  w_s_ex               ! water content of interception water           (m H2O)
+
   REAL(wp), DIMENSION(nproma,nlev_soil+1,ntiles_total), INTENT(INOUT) :: &
                   t_so_ex              ! soil temperature (main level)                 (  K  )
   REAL(wp), DIMENSION(nproma,nlev_soil,ntiles_total), INTENT(INOUT) :: &
@@ -280,6 +284,12 @@ CONTAINS
 
     REAL(wp) :: w_i_now_t  (nproma, ntiles_total)
     REAL(wp) :: w_i_new_t  (nproma, ntiles_total)
+
+    REAL(wp) :: w_p_now_t  (nproma, ntiles_total)
+    REAL(wp) :: w_p_new_t  (nproma, ntiles_total)
+
+    REAL(wp) :: w_s_now_t  (nproma, ntiles_total)
+    REAL(wp) :: w_s_new_t  (nproma, ntiles_total)
 
 !   REAL(wp) :: t_2m_t     (nproma, ntiles_total)
     REAL(wp) :: u_10m_t    (nproma, ntiles_total)
@@ -476,6 +486,8 @@ CONTAINS
           w_snow_now_t  (ic,isubs) = w_snow_ex   (jc,isubs)
           rho_snow_now_t(ic,isubs) = rho_snow_ex (jc,isubs)
           w_i_now_t     (ic,isubs) = w_i_ex      (jc,isubs)
+          w_p_now_t     (ic,isubs) = w_p_ex      (jc,isubs)
+          w_s_now_t     (ic,isubs) = w_s_ex      (jc,isubs)
           freshsnow_t   (ic,isubs) = freshsnow_ex(jc,isubs)
           snowfrac_lc_t (ic,isubs) = snowfrac_lc_ex (jc,isubs)
           snowfrac_t    (ic,isubs) = snowfrac_ex (jc,isubs)
@@ -601,6 +613,12 @@ IF ( .true. ) THEN
         &  w_i_now       = w_i_now_t(:,isubs)                , & ! water content of interception water (m H2O)
         &  w_i_new       = w_i_new_t(:,isubs)                , & ! water content of interception water (m H2O)
 !
+        &  w_p_now       = w_p_now_t(:,isubs)                , & ! water content of interception water (m H2O)
+        &  w_p_new       = w_p_new_t(:,isubs)                , & ! water content of interception water (m H2O)
+!
+        &  w_s_now       = w_s_now_t(:,isubs)                , & ! water content of interception water (m H2O)
+        &  w_s_new       = w_s_new_t(:,isubs)                , & ! water content of interception water (m H2O)
+!
         &  t_so_now      = t_so_now_t(:,:,isubs)             , & ! soil temperature (main level)     (  K  )
         &  t_so_new      = t_so_new_t(:,:,isubs)             , & ! soil temperature (main level)     (  K  )
 !
@@ -720,6 +738,8 @@ endif
           rho_snow_ex (jc,isubs)  = rho_snow_new_t(ic,isubs)        
           h_snow_ex   (jc,isubs)  = h_snow_t      (ic,isubs)              
           w_i_ex      (jc,isubs)  = w_i_new_t     (ic,isubs)             
+          w_p_ex      (jc,isubs)  = w_p_new_t     (ic,isubs)             
+          w_s_ex      (jc,isubs)  = w_s_new_t     (ic,isubs)             
           freshsnow_ex(jc,isubs)  = freshsnow_t   (ic,isubs) 
           ! Remark: the two snow-cover fraction variables differ only if lsnowtile=true (see below)  
           snowfrac_lc_ex(jc,isubs)= snowfrac_t    (ic,isubs) 
@@ -851,6 +871,8 @@ endif
              rho_snow_ex    (jc,is1) = rho_snow_ex    (jc,is2)
              h_snow_ex      (jc,is1) = h_snow_ex      (jc,is2)
              w_i_ex         (jc,is1) = w_i_ex         (jc,is2)        
+             w_p_ex         (jc,is1) = w_p_ex         (jc,is2)        
+             w_s_ex         (jc,is1) = w_s_ex         (jc,is2)        
              freshsnow_ex   (jc,is1) = freshsnow_ex   (jc,is2)
              snowfrac_lc_ex (jc,is1) = snowfrac_lc_ex (jc,is2) 
              snowfrac_ex    (jc,is1) = snowfrac_ex    (jc,is2) 
