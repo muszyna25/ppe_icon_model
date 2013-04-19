@@ -50,7 +50,6 @@
 MODULE mo_netcdf_read
 
   USE mo_kind
-  USE mo_mpi
   USE mo_gather_scatter,     ONLY: scatter_cells_2D, scatter_cells_2D_time, scatter_cells_3D_time, &
     & gather_cells_2D, gather_cells_2D_time,  gather_cells_3D_time, broadcast_array
   USE mo_model_domain,       ONLY: t_patch
@@ -62,7 +61,8 @@ MODULE mo_netcdf_read
   USE mo_communication,      ONLY: idx_no, blk_no
   USE mo_parallel_config,    ONLY: p_test_run
   USE mo_mpi,                ONLY: my_process_is_stdio, p_io, p_bcast, &
-    &                              p_comm_work_test, p_comm_work
+    &                              p_comm_work_test, p_comm_work, &
+    &                              my_process_is_mpi_workroot
   USE mo_fortran_tools,      ONLY: assign_if_present
   !-------------------------------------------------------------------------
 
