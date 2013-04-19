@@ -36,12 +36,13 @@
 MODULE mo_les_config
 
   USE mo_kind,                ONLY: wp
-  USE mo_exception,           ONLY: message, message_text, print_value
+  USE mo_exception,           ONLY: message, message_text, finish
   USE mo_impl_constants,      ONLY: max_dom
+  USE mo_grid_config,         ONLY: is_plane_torus
 
   IMPLICIT NONE
   PRIVATE
-  PUBLIC :: t_les_config, les_config  !< derived type and variable
+  PUBLIC :: les_config, configure_les  
 
   CHARACTER(len=*),PARAMETER,PRIVATE :: version = '$Id$'
 
@@ -79,7 +80,66 @@ MODULE mo_les_config
   END TYPE t_les_config
   !>
   !!
-  TYPE(t_les_config),TARGET :: les_config(max_dom)
+  TYPE(t_les_config), TARGET :: les_config(max_dom)
 
+  CONTAINS
+
+  SUBROUTINE configure_les(jg)
+  !--------------------------------------------------------------------------------------
+  !  Set up LES parameters 
+  !--------------------------------------------------------------------------------------
+    INTEGER, INTENT(IN) :: jg !patch id
+
+    CHARACTER(*), PARAMETER :: routine = "mo_les_config:configure_les:"
+
+    !----------------------------------------------------
+    ! Sanity check and Prints
+    !----------------------------------------------------
+
+    IF(les_config(jg)%isrfc_type==1)THEN
+
+       les_config(jg)%shflx = 0._wp   
+       les_config(jg)%lhflx = 0._wp   
+
+       WRITE(message_text,'(a,e14.6)')'LES with fixed SST=',les_config(jg)%sst
+
+       CALL message(TRIM(routine),message_text)
+
+    ELSEIF(les_config(jg)%isrfc_type==2)THEN
+
+       WRITE(message_text,'(a,e14.6,e14.6)')'LES with fixed fluxes=', &
+           les_config(jg)%shflx,les_config(jg)%lhflx
+
+       CALL message(TRIM(routine),message_text)
+
+       IF(les_config(jg)%shflx==-999._wp .OR. les_config(jg)%lhflx==-999._wp) &
+          CALL finish(TRIM(routine),'Wrong input for irsfc_type=2')
+
+    ELSEIF(les_config(jg)%isrfc_type==3)THEN
+
+       WRITE(message_text,'(a,e14.6,e14.6)') 'LES with fixed Buoyancy flux and tran coeff=', &
+               les_config(jg)%bflux,les_config(jg)%tran_coeff
+
+       CALL message(TRIM(routine),message_text)
+
+       IF(les_config(jg)%bflux==-999._wp .OR. les_config(jg)%tran_coeff==-999._wp) &
+          CALL finish(TRIM(routine),'Wrong input for irsfc_type=3')
+
+    END IF
+  
+    IF(les_config(jg)%is_dry_cbl)THEN
+       les_config(jg)%lhflx = 0._wp
+    END IF
+    
+    IF(les_config(jg)%set_geowind .AND. les_config(jg)%ugeo(1)==0._wp  &
+                                  .AND. les_config(jg)%vgeo(1)==0._wp) &
+
+      CALL message('mo_les_nml:WARNING:','Input values for Geostrophic wind are 0!')
+   
+    IF(les_config(jg)%set_geowind .AND. .NOT.is_plane_torus) &
+      CALL finish(TRIM(routine),'set_geowind is only applicable for torus grid!')
+ 
+
+  END SUBROUTINE configure_les
 
 END MODULE mo_les_config

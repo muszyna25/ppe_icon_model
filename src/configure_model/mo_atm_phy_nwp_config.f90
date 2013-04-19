@@ -51,6 +51,7 @@ MODULE mo_atm_phy_nwp_config
   USE mo_exception,           ONLY: message, message_text !, finish
 
   USE mo_icoham_sfc_indices,  ONLY: init_sfc_indices
+  USE mo_les_config,          ONLY: configure_les
 
   IMPLICIT NONE
 
@@ -260,6 +261,14 @@ SUBROUTINE configure_atm_phy_nwp( n_dom, pat_level, ltestcase, dtime_adv )
       CALL message(TRIM(routine), TRIM(message_text))
     ENDIF
  
+
+   !Configure LES
+   IF(atm_phy_nwp_config(1)%inwp_turb==5)THEN
+     DO jg = 1 , n_dom
+       CALL configure_les(jg)
+     END DO
+   END IF
+
 END SUBROUTINE configure_atm_phy_nwp
 
 

@@ -44,7 +44,6 @@ MODULE mo_les_nml
   USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist,  &
                                   & open_and_restore_namelist, close_tmpfile
   USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, max_dom
-  USE mo_grid_config,         ONLY: is_plane_torus
 
   IMPLICIT NONE
   PRIVATE
@@ -155,40 +154,7 @@ CONTAINS
     CALL close_nml
 
     !----------------------------------------------------
-    ! 4. Sanity check and Prints
-    !----------------------------------------------------
-    IF(isrfc_type==1)THEN
-       shflx = 0._wp   
-       lhflx = 0._wp   
-       WRITE(message_text,'(a,e14.6)')'LES with fixed SST=',sst
-       CALL message('mo_les_nml:',message_text)
-    ELSEIF(isrfc_type==2)THEN
-       WRITE(message_text,'(a,e14.6,e14.6)')'LES with fixed fluxes=',shflx,lhflx
-       CALL message('mo_les_nml:',message_text)
-
-       IF(shflx==-999._wp .OR. lhflx==-999._wp) &
-          CALL finish('mo_les_nml:','Wrong input for irsfc_type=2')
-    ELSEIF(isrfc_type==3)THEN
-       WRITE(message_text,'(a,e14.6,e14.6)') &
-           'LES with fixed Buoyancy flux and tran coeff=',bflux,tran_coeff
-       CALL message('mo_les_nml:',message_text)
-
-       IF(bflux==-999._wp .OR. tran_coeff==-999._wp) &
-          CALL finish('mo_les_nml:','Wrong input for irsfc_type=3')
-    END IF
-  
-    IF(is_dry_cbl)THEN
-       lhflx = 0._wp
-    END IF
-    
-    IF(set_geowind .AND. ugeo(1)==0._wp .AND. vgeo(1)==0._wp) &
-      CALL message('mo_les_nml:WARNING:','Input values for Geostrophic wind are 0!')
-   
-    IF(set_geowind .AND. .NOT.is_plane_torus) &
-      CALL finish('mo_les_nml:','set_geowind is only applicable for torus grid!')
- 
-    !----------------------------------------------------
-    ! 5. Fill the configuration state
+    ! 4. Fill the configuration state
     !----------------------------------------------------
     DO jg = 1 , max_dom
       les_config(jg)% sst          =  sst
@@ -213,7 +179,7 @@ CONTAINS
     END DO
 
     !-----------------------------------------------------
-    ! 6. Store the namelist for restart
+    ! 5. Store the namelist for restart
     !-----------------------------------------------------
     IF(my_process_is_stdio())  THEN
       funit = open_tmpfile()
