@@ -649,6 +649,8 @@ run/exp.nh_dcmip_gw_31_R2B4L10 -text
 run/exp.nh_dcmip_gw_32_R2B4L10 -text
 run/exp.nh_dcmip_tc_52_r2b4 -text
 run/exp.nh_dcmip_tc_52_r5b4 -text
+run/exp.nh_hdcp2_lam_r0240 -text
+run/exp.nh_hdcp2_lam_r15000 -text
 run/exp.nh_moist_cbl -text
 run/exp.nh_schaer -text
 run/exp.oce_4dwd -text
@@ -714,7 +716,9 @@ run/run_ICOHAM_R2B4_APE -text
 run/run_ICONAM_ECMWF -text
 run/run_ICONAM_R2B4_APE -text
 run/run_ICONAM_R2B4_NWP -text
+run/run_ICON_R2B13limL40_MRWnh_turb.txt -text
 run/run_ICON_R2B4_real_mpi_ref -text
+run/run_grflocal_R2B7N13.txt -text
 run/test_local_patch_refinement -text
 run/variations.rb -text
 schedulers/ecmwf/def/climplot.def -text
