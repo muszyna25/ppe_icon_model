@@ -669,6 +669,7 @@ CONTAINS
         & pflxsfcsw  = field%swflxsfc           (:,jb),&! out   shortwave surface net flux [W/m2]
         & pflxsfclw  = field%lwflxsfc           (:,jb),&! out   longwave surface net flux  [W/m2]
         & pflxtoasw  = field%swflxtoa           (:,jb),&! out   shortwave toa net flux     [W/m2]
+        & pflxtoalw  = field%lwflxtoa           (:,jb),&! out   longwave toa net flux      [W/m2]
         & dflxlw_dT  = field%dlwflxsfc_dT       (:,jb) )! out   T tend of sfc lw net flux [W/m2/K]
       ELSE
       CALL radheat (                                   &
@@ -701,6 +702,7 @@ CONTAINS
         & pflxsfcsw  = field%swflxsfc           (:,jb),&! out   shortwave surface net flux [W/m2]
         & pflxsfclw  = field%lwflxsfc           (:,jb),&! out   longwave surface net flux  [W/m2]
         & pflxtoasw  = field%swflxtoa           (:,jb),&! out   shortwave toa net flux     [W/m2]
+        & pflxtoalw  = field%lwflxtoa           (:,jb),&! out   longwave toa net flux      [W/m2]
         & dflxlw_dT  = field%dlwflxsfc_dT       (:,jb) )! out   T tend of sfc lw net flux [W/m2/K]
     END IF ! ljsbach
 
@@ -1329,7 +1331,7 @@ CONTAINS
        field% swflxtoa_avg(jcs:jce,jb) = field% swflxtoa_avg(jcs:jce,jb) &
          &                             + field% swflxtoa    (jcs:jce,jb) *pdtime
        field% lwflxtoa_avg(jcs:jce,jb) = field% lwflxtoa_avg(jcs:jce,jb) &
-         &                             + field% emterall    (jcs:jce,1,jb) *pdtime
+         &                             + field% lwflxtoa    (jcs:jce,jb) *pdtime
 
     ! Done. Disassociate pointers.
     NULLIFY(field,tend)

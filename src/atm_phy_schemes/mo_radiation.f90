@@ -1339,6 +1339,7 @@ CONTAINS
     &                 pflxsfcsw_t   ,  &
     &                 pflxsfclw_t   ,  &
     &                 pflxtoasw     ,  &
+    &                 pflxtoalw     ,  &
     &                 dflxlw_dT     ,  &
     &                 opt_use_cv       )
 
@@ -1383,12 +1384,13 @@ CONTAINS
 
     REAL(wp), INTENT(inout), OPTIONAL :: &
       &     pflxsfcsw (kbdim), &       ! shortwave surface net flux [W/m2]
-      &     pflxsfclw (kbdim), &       ! longwave surface net flux [W/m2]
+      &     pflxsfclw (kbdim), &       ! longwave  surface net flux [W/m2]
       &     pflxsfcsw_t(kbdim,ntiles+ntiles_wtr), & ! tile-specific shortwave 
                                                     ! surface net flux [W/m2]
       &     pflxsfclw_t(kbdim,ntiles+ntiles_wtr), & ! tile-specific longwave 
                                                     ! surface net flux [W/m2]
-      &     pflxtoasw (kbdim)          ! shortwave toa net flux [W/m2]
+      &     pflxtoasw (kbdim), &       ! shortwave toa net flux [W/m2]
+      &     pflxtoalw (kbdim)          ! longwave  toa net flux [W/m2]
 
     REAL(wp), INTENT(out), OPTIONAL :: &
       &   dflxlw_dT (kbdim)            ! temperature tendency of 
@@ -1598,6 +1600,7 @@ CONTAINS
     !     4.4 net sw flux at toa
     !
     IF ( PRESENT(pflxtoasw) ) pflxtoasw(jcs:jce) = zflxsw(jcs:jce,1)
+    IF ( PRESENT(pflxtoalw) ) pflxtoalw(jcs:jce) = zflxlw(jcs:jce,1)
 
     
   END SUBROUTINE radheat
