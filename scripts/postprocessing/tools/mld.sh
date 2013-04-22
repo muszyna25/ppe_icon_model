@@ -65,6 +65,7 @@ cdo -setpartab,partab -isosurface,0.125 $RHOPOT_DELTA $MLD
 # select north atlantic
   select='-mapLLC=-60,30 -mapURC=30,85'
 colormap='-colormap=testcmap'
+   oType='-oType=png'
 
 for i in $(seq -w 0 $((ntime-1))); do
   # select north atlantic
@@ -73,5 +74,5 @@ for i in $(seq -w 0 $((ntime-1))); do
   nclsh $PLOT -iFile=$MLD \
     -varName=mixed_layer_depth -oFile=mld_$i \
     -isIcon -timeStep=$i \
-    ${select} ${colormap}
+    ${select} ${colormap} ${oType}
 done
