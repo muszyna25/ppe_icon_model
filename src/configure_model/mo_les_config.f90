@@ -42,7 +42,7 @@ MODULE mo_les_config
 
   IMPLICIT NONE
   PRIVATE
-  PUBLIC :: les_config, configure_les  
+  PUBLIC :: t_les_config, les_config, configure_les  
 
   CHARACTER(len=*),PARAMETER,PRIVATE :: version = '$Id$'
 
