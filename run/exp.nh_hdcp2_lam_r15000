@@ -76,8 +76,8 @@ cat > ${atmo_namelist} << EOF
 &parallel_nml
  nproma         = ${nproma}
  p_test_run     = .false.
- l_test_openmp  = .true.
- l_log_checks   = .true.
+ l_test_openmp  = .false.
+ l_log_checks   = .false.
 /
 &grid_nml
  cell_type = 3            ! triangular cells
@@ -95,7 +95,7 @@ cat > ${atmo_namelist} << EOF
  ntracer     =  2           ! number of tracers - default 0
  ltimer      = .true.       ! 
  timers_level = 100         !
- msg_level   = 50           ! detailed report during integration
+ msg_level   = 15           ! detailed report during integration
  output      = 'nml','totint'      
 /
 &dynamics_nml
@@ -130,11 +130,11 @@ cat > ${atmo_namelist} << EOF
 /
 &nwp_phy_nml
 inwp_gscp       = 0
-inwp_convection = 0
-inwp_radiation  = 0
-inwp_cldcover   = 0
+inwp_convection = 1
+inwp_radiation  = 1
+inwp_cldcover   = 1
 inwp_turb       = 1
-inwp_satad      = 0
+inwp_satad      = 1
 inwp_surface    = 0
 /
 &turbdiff_nml
@@ -148,8 +148,8 @@ tkmmin  = 0.1
 ! ivadv_tracer  = 3,3,3,3,3
 ! itype_hlimit = 3,4,4,4,4,0
 ! ihadv_tracer  = 3,2,2,2,2,0
- ihadv_tracer = 0,0,0,0,0,0,0
- ivadv_tracer = 0,0,0,0,0,0,0
+! ihadv_tracer = 0,0,0,0,0,0,0
+! ivadv_tracer = 0,0,0,0,0,0,0
 /
 &interpol_nml
 nudge_zone_width  = 8
@@ -185,22 +185,25 @@ rbf_vec_scale_e = 0.25
 &io_nml
  dt_checkpoint    = ${dt_checkpoint} ! [s] trigger new restart file
 /
-&output_nml
- filetype           = 4                    ! output format: 2=GRIB2, 4=NETCDFv2
- namespace          = 'DWD'
- mode               = 1
- dom                = -1                   ! output for all subdomains
- output_time_unit   = 1                    ! 1: seconds, 2: minute, 3: hour, 4: day, 5: month, 6: year
- output_bounds      = 0., 36000., 1800. ! start, end, increment
- steps_per_file     = 21
- include_last       = .TRUE.
- output_filename    = '${EXPNAME}'   
- ml_varlist         = 'w','pres','pres_sfc', 'u', 'v', 'temp', 'topography_c','theta_v', 'z_mc','z_ifc'
- remap              = 1
- reg_lon_def        =  89.,0.005,91.
- reg_lat_def        = -1.,0.005, 1.
- output_grid        = .TRUE.
-/
+!&output_nml
+! filetype           = 4                    ! output format: 2=GRIB2, 4=NETCDFv2
+! namespace          = 'DWD'
+! mode               = 1
+! dom                = -1                   ! output for all subdomains
+! output_time_unit   = 1                    ! 1: seconds, 2: minute, 3: hour, 4: day, 5: month, 6: year
+! output_bounds      = 0., 36000., 1800. ! start, end, increment
+! steps_per_file     = 21
+! include_last       = .TRUE.
+! output_filename    = '${EXPNAME}'   
+! ml_varlist         =  'group:atmo_zl_vars','group:nh_prog_vars','group:atmo_derived_vars','pres_sfc','topography_c','z_mc',
+!                        'z_ifc','group:precip_vars','group:additional_precip_vars','group:pbl_vars','group:cloud_diag',
+!                        'group:rad_vars','group:phys_tendencies','ddt_exner','ddt_vn','ddt_w','ddt_qv_turb','ddt_qc_turb'
+!                        'ddt_qi_turb','ddt_qv_conv','ddt_qc_conv','ddt_qi_conv','ddt_tke','ddt_temp_pconv','gz0',
+! remap              = 1
+! reg_lon_def        =  89.,0.005,91.
+! reg_lat_def        = -1.,0.005, 1.
+! output_grid        = .TRUE.
+!/
 &output_nml
  filetype           = 4                    ! output format: 2=GRIB2, 4=NETCDFv2
  namespace          = 'DWD'
@@ -211,7 +214,10 @@ rbf_vec_scale_e = 0.25
  steps_per_file     = 21
  include_last       = .TRUE.
  output_filename    = '${EXPNAME}_tri'   
- ml_varlist         =  'w','pres','pres_sfc','pres_msl', 'u', 'v', 'temp', 'topography_c','theta_v', 'z_mc','z_ifc','t_g','group:pbl_vars','gz0','tke'
+ ml_varlist         =  'group:atmo_zl_vars','group:nh_prog_vars','group:atmo_derived_vars','pres_sfc','topography_c','z_mc',
+                        'z_ifc','group:precip_vars','group:additional_precip_vars','group:pbl_vars','group:cloud_diag',
+                        'group:rad_vars','group:phys_tendencies','ddt_exner','ddt_vn','ddt_w','ddt_qv_turb','ddt_qc_turb'
+                        'ddt_qi_turb','ddt_qv_conv','ddt_qc_conv','ddt_qi_conv','ddt_tke','ddt_temp_pconv','gz0',
  output_grid        = .TRUE.
 /
 &extpar_nml

@@ -43,7 +43,7 @@ dt_restart=`expr ${ndays_restart} \* 86400`
 #
 #-----------------------------------------------------------------------------
 # model timing
-dtime=0.4
+dtime=0.2
 dt_checkpoint=`expr 2 \* 3600 `  # write restart file every 2 hours
 #
 #-----------------------------------------------------------------------------
@@ -54,13 +54,13 @@ atmo_model_equations=3 # equation system
 #                     3=non-hydrost. atm.,
 #                    -1=shallow water model
 #                    -2=hydrost. ocean
-nlev=100          # nlev = number of full levels
+nlev=160          # nlev = number of full levels
 iforcing=3        # 3 for inwp forcing; 0 for no forcing
 #
 #-----------------------------------------------------------------------------
 # the grid files
 grids_folder='/pool/data/ICON/grids/private/leonidas/grids.germany_hdcp2_test_4degrees-radius'
-atmo_dyn_grids='icon_germany_hdcp2_test_0240m.nc'
+atmo_dyn_grids='icon_germany_hdcp2_test_0120m.nc'
 #
 #-----------------------------------------------------------------------------
 

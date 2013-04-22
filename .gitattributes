@@ -649,7 +649,10 @@ run/exp.nh_dcmip_gw_31_R2B4L10 -text
 run/exp.nh_dcmip_gw_32_R2B4L10 -text
 run/exp.nh_dcmip_tc_52_r2b4 -text
 run/exp.nh_dcmip_tc_52_r5b4 -text
+run/exp.nh_hdcp2_lam_r0120 -text
 run/exp.nh_hdcp2_lam_r0240 -text
+run/exp.nh_hdcp2_lam_r0416 -text
+run/exp.nh_hdcp2_lam_r0962 -text
 run/exp.nh_hdcp2_lam_r15000 -text
 run/exp.nh_moist_cbl -text
 run/exp.nh_schaer -text

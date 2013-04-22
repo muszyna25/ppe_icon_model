@@ -43,7 +43,7 @@ dt_restart=`expr ${ndays_restart} \* 86400`
 #
 #-----------------------------------------------------------------------------
 # model timing
-dtime=0.4
+dtime=1.7
 dt_checkpoint=`expr 2 \* 3600 `  # write restart file every 2 hours
 #
 #-----------------------------------------------------------------------------
@@ -54,13 +54,13 @@ atmo_model_equations=3 # equation system
 #                     3=non-hydrost. atm.,
 #                    -1=shallow water model
 #                    -2=hydrost. ocean
-nlev=100          # nlev = number of full levels
+nlev=80          # nlev = number of full levels
 iforcing=3        # 3 for inwp forcing; 0 for no forcing
 #
 #-----------------------------------------------------------------------------
 # the grid files
 grids_folder='/pool/data/ICON/grids/private/leonidas/grids.germany_hdcp2_test_4degrees-radius'
-atmo_dyn_grids='icon_germany_hdcp2_test_0240m.nc'
+atmo_dyn_grids='icon_germany_hdcp2_test_0962m.nc'
 #
 #-----------------------------------------------------------------------------
 
@@ -174,7 +174,7 @@ rbf_vec_scale_e = 0.25
  divdamp_fac   = 0.004
 /
 &sleve_nml                   ! vertical grid standard output for message level >= 15
- min_lay_thckn   = 10.       ! lowest level thickness (between half-levels), set 0 to do equal spacing
+ min_lay_thckn   = 20.       ! lowest level thickness (between half-levels), set 0 to do equal spacing
  top_height      = 40000.
  decay_scale_1   = 5500.
  decay_scale_2   = 3500.
