@@ -40,6 +40,7 @@ MODULE mo_util_uuid
 
   PUBLIC :: uuid_string_length
   PUBLIC :: uuid_data_Length
+  PUBLIC :: clear_uuid
 
   INTEGER, PARAMETER :: uuid_string_length = 36
   INTEGER, PARAMETER :: uuid_data_length = 16
@@ -137,5 +138,14 @@ CONTAINS
     TYPE(t_uuid), INTENT(out) :: uuid
     uuid%data  = TRANSFER(string, uuid%data)
   END SUBROUTINE char2uuid
+
+  SUBROUTINE clear_uuid(uuid)
+    TYPE(t_uuid), INTENT(inout) :: uuid
+#ifdef __SX__
+    uuid%data(:) = '0'
+#else
+    uuid%data(:) = 0
+#endif
+  END SUBROUTINE clear_uuid
 
 END MODULE mo_util_uuid

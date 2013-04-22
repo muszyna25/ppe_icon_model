@@ -136,7 +136,7 @@ MODULE mo_model_domimp_patches
   USE mo_mpi,                ONLY: my_process_is_mpi_parallel, p_comm_work! , p_barrier
   USE mo_sync,               ONLY: disable_sync_checks, enable_sync_checks
   USE mo_communication,      ONLY: idx_no, blk_no
-  USE mo_util_uuid,          ONLY: uuid_string_length, uuid_parse
+  USE mo_util_uuid,          ONLY: uuid_string_length, uuid_parse, clear_uuid
   USE mo_name_list_output_config, ONLY: is_grib_output
   USE mo_master_nml,         ONLY: model_base_dir
 
@@ -871,7 +871,7 @@ CONTAINS
       IF (is_grib_output()) THEN
         CALL message(TRIM(method_name), "Warning: uuidOfHGrid not set as an attribute!")
       END IF
-      patch%grid_uuid%data(:) = 0
+      CALL clear_uuid(patch%grid_uuid)
     ELSE
       CALL uuid_parse(uuid_string, patch%grid_uuid)
       WRITE(message_text,'(a,a)') 'grid uuid: ', TRIM(uuid_string)
