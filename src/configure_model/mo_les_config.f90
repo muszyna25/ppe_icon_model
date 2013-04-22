@@ -59,8 +59,6 @@ MODULE mo_les_config
 
     REAL(wp) :: ugeo(2)    ! ugeo(1)=constant, ugeo(2)=gradient
     REAL(wp) :: vgeo(2)    ! vgeo(1)=constant, vgeo(2)=gradient
-    REAL(wp) :: umean(2)   ! umean(1)=constant, umean(2)=gradient
-    REAL(wp) :: vmean(2)   ! vmean(1)=constant, vmean(2)=gradient
     REAL(wp) :: ufric      ! friction velocity
  
     LOGICAL  :: is_dry_cbl  !special case for CBL testcase

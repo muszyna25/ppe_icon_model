@@ -103,14 +103,15 @@ cat > ${atmo_namelist} << EOF
  divavg_cntrwgt  = 0.50
 /
 &nh_testcase_nml
- nh_test_name      = 'CBL'     !test case identifier
+ nh_test_name      = 'CBL'  !test case identifier
+ u_cbl             = 0.0, 0.0  !u_cbl(1)=constant, u_cbl(2)=gradient, default=0
+ v_cbl             = 0.0, 0.0  !v_cbl(1)=constant, v_cbl(2)=gradient, default=0
+ th_cbl            = 300.0, 0.003  !th_cbl(1)=constant, th_cbl(2)=gradient
 /
 &les_nml
  is_dry_cbl        = .TRUE. 
  ugeo              =  0.0, 0.0  !ugeo(1) = constant, ugeo(2)=gradient
  vgeo              =  0.0, 0.0
- umean             =  0.0, 0.0
- vmean             =  0.0, 0.0
  shflx             =  0.1  ! kinematic surface heat flux
  lhflx             =  0.0  ! knematic latent heat flux 
  set_geowind       = .FALSE.

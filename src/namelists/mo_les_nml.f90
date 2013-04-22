@@ -58,8 +58,6 @@ MODULE mo_les_nml
 
   REAL(wp) :: ugeo(2)    ! ugeo(1)=constant, ugeo(2)=gradient
   REAL(wp) :: vgeo(2)    ! vgeo(1)=constant, vgeo(2)=gradient
-  REAL(wp) :: umean(2)   ! umean(1)=constant, umean(2)=gradient
-  REAL(wp) :: vmean(2)   ! vmean(1)=constant, vmean(2)=gradient
   REAL(wp) :: ufric      ! friction velocity
  
   LOGICAL  :: is_dry_cbl  !special case for CBL testcase
@@ -76,8 +74,8 @@ MODULE mo_les_nml
   REAL(wp) :: turb_prandtl 
   REAL(wp) :: rturb_prandtl     !inverse turbulent prandtl number
  
-  NAMELIST/les_nml/ sst, shflx, lhflx, isrfc_type, ugeo, vgeo, umean,       &
-                    vmean, ufric, is_dry_cbl, set_geowind, karman_constant, &
+  NAMELIST/les_nml/ sst, shflx, lhflx, isrfc_type, ugeo, vgeo, ufric,  &
+                    is_dry_cbl, set_geowind, karman_constant, &
                     rkarman_constant, smag_constant, turb_prandtl,          &
                     rturb_prandtl, bflux, tran_coeff
 
@@ -112,8 +110,6 @@ CONTAINS
     sst          = 300._wp
     ugeo(1:2)    = 0._wp 
     vgeo(1:2)    = 0._wp 
-    umean(1:2)   = 0._wp
-    vmean(1:2)   = 0._wp
     shflx        = -999._wp 
     lhflx        = -999._wp 
     isrfc_type   = 1 
@@ -160,8 +156,6 @@ CONTAINS
       les_config(jg)% sst          =  sst
       les_config(jg)% ugeo(:)    =  ugeo(:)
       les_config(jg)% vgeo(:)    =  vgeo(:)
-      les_config(jg)% umean(:)   =  umean(:)
-      les_config(jg)% vmean(:)   =  vmean(:)
       les_config(jg)% shflx        =  shflx
       les_config(jg)% lhflx        =  lhflx
       les_config(jg)% isrfc_type   =  isrfc_type

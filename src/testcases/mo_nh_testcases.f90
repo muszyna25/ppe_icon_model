@@ -111,7 +111,7 @@ MODULE mo_nh_testcases
   USE mo_nh_prog_util,         ONLY: nh_prog_add_random
   USE mo_nh_init_utils,        ONLY: n_flat_level, layer_thickness
   USE mo_grid_geometry_info,   ONLY: planar_torus_geometry
-  USE mo_nh_torus_exp,         ONLY: init_nh_state_cbl
+  USE mo_nh_torus_exp,         ONLY: init_nh_state_cbl, u_cbl, v_cbl, th_cbl
   
   IMPLICIT NONE  
   
@@ -165,7 +165,8 @@ MODULE mo_nh_testcases
                             m_height, m_width_x, m_width_y, itype_atmo_ana,  &
                             nlayers_poly, p_base_poly, h_poly, t_poly,       &
                             tgr_poly, rh_poly, rhgr_poly, lshear_dcmip,      &
-                            lcoupled_rho, gw_clat, gw_u0, gw_delta_temp
+                            lcoupled_rho, gw_clat, gw_u0, gw_delta_temp,     & 
+                            u_cbl, v_cbl, th_cbl                  
 
   PUBLIC :: read_nh_testcase_namelist, layer_thickness, init_nh_testtopo,    &
     &       init_nh_testcase, n_flat_level, nh_test_name,                    &
@@ -324,6 +325,13 @@ MODULE mo_nh_testcases
     gw_u0      = 0.0_wp      ! maximum amplitude of the zonal wind [m s^-1]
     gw_clat    = 90._wp      ! center of temperature/density perturbation  [deg]
     gw_delta_temp = 0.01_wp  ! Max amplitude of perturbation [K]
+
+
+    !For CBL testcases, Anurag Dipankar (MPIM, 2013-04)
+    u_cbl(1:2) = 0._wp 
+    v_cbl(1:2) = 0._wp 
+    th_cbl(1)  = 290._wp
+    th_cbl(2)  = 0.006_wp
 
     CALL open_nml(TRIM(filename))
     CALL position_nml ('nh_testcase_nml', status=i_status)

@@ -72,13 +72,16 @@ MODULE mo_nh_torus_exp
   
   PRIVATE
   
-  PUBLIC :: init_nh_state_cbl
+  PUBLIC :: init_nh_state_cbl, u_cbl, v_cbl, th_cbl
+
+  !Linear profiles of variables for LES testcases
+  REAL(wp) :: u_cbl(2)   !u_cbl(1) = constant, u_cbl(2) = gradient
+  REAL(wp) :: v_cbl(2)   !v_cbl(1) = constant, v_cbl(2) = gradient
+  REAL(wp) :: th_cbl(2)  !th_cbl(1) = constant,th_cbl(2) = gradient
 
   !DEFINED PARAMETERS (Stevens 2007 JAS):
   REAL(wp), PARAMETER :: zp0     = 100000._wp !< surface pressure
   REAL(wp), PARAMETER :: zh0     = 0._wp      !< height (m) above which temperature increases
-  REAL(wp), PARAMETER :: dtdz    = 0.006_wp   !< theta lapse rate
-  REAL(wp), PARAMETER :: zt0     = 290._wp
   REAL(wp), PARAMETER :: lambda  = 1500._wp   !moist height from Stevens(2007)
   REAL(wp), PARAMETER :: dtdz_st = 0.03_wp    !< theta lapse rate in stratosphere (T>0!)
   REAL(wp), PARAMETER :: z_tropo = 12000._wp  !height tropopause
@@ -144,7 +147,7 @@ MODULE mo_nh_torus_exp
     IF(les_config(jg)%isrfc_type==1)THEN
       rho_sfc = zp0 / (rd * les_config(jg)%sst)
     ELSE
-      rho_sfc = zp0 / (rd * zt0 )
+      rho_sfc = zp0 / (rd * th_cbl(1) )
     END IF
 
     ! init surface pressure
@@ -164,7 +167,7 @@ MODULE mo_nh_torus_exp
       !Tracers
       IF(.NOT.les_config(jg)%is_dry_cbl)THEN
         DO jk = 1, nlev
-          ptr_nh_prog%tracer(1:nlen,jk,jb,iqv) = 0.8_wp * spec_humi(sat_pres_water(zt0),zp0) * &
+          ptr_nh_prog%tracer(1:nlen,jk,jb,iqv) = 0.8_wp * spec_humi(sat_pres_water(th_cbl(1)),zp0) * &
                     EXP(-ptr_metrics%z_mc(1:nlen,jk,jb)/lambda)
         END DO
       END IF
@@ -172,7 +175,7 @@ MODULE mo_nh_torus_exp
       ntropo = 0
       DO jk = nlev, 1, -1
          ! init potential temperature
-         z_help(1:nlen) = zt0 + max(0._wp, (ptr_metrics%z_mc(1:nlen,jk,jb)-zh0)*dtdz)
+         z_help(1:nlen) = th_cbl(1) + max(0._wp, (ptr_metrics%z_mc(1:nlen,jk,jb)-zh0)*th_cbl(2))
 
          ! constant temperature above tropopause
          if ((ptr_metrics%z_mc(1,jk,jb) > z_tropo) .and. (ntropo == 0)) then
@@ -232,16 +235,16 @@ MODULE mo_nh_torus_exp
         !But it is kept varyign with jc,jb to introduce topography lateron
         jcn  =   ptr_patch%edges%cell_idx(je,jb,1)
         jbn  =   ptr_patch%edges%cell_blk(je,jb,1)
-        zu   =   les_config(jg)%umean(1) + les_config(jg)%umean(2) * ptr_metrics%z_mc(jcn,jk,jbn)
-        zv   =   les_config(jg)%vmean(1) + les_config(jg)%vmean(2) * ptr_metrics%z_mc(jcn,jk,jbn)
+        zu   =   u_cbl(1) + u_cbl(2) * ptr_metrics%z_mc(jcn,jk,jbn)
+        zv   =   v_cbl(1) + v_cbl(2) * ptr_metrics%z_mc(jcn,jk,jbn)
 
         zvn1 =  zu * ptr_patch%edges%primal_normal_cell(je,jb,1)%v1 + &
                 zv * ptr_patch%edges%primal_normal_cell(je,jb,1)%v2      
  
         jcn  =   ptr_patch%edges%cell_idx(je,jb,2)
         jbn  =   ptr_patch%edges%cell_blk(je,jb,2)
-        zu   =   les_config(jg)%umean(1) + les_config(jg)%umean(2) * ptr_metrics%z_mc(jcn,jk,jbn)
-        zv   =   les_config(jg)%vmean(1) + les_config(jg)%vmean(2) * ptr_metrics%z_mc(jcn,jk,jbn)
+        zu   =   u_cbl(1) + u_cbl(2) * ptr_metrics%z_mc(jcn,jk,jbn)
+        zv   =   v_cbl(1) + v_cbl(2) * ptr_metrics%z_mc(jcn,jk,jbn)
       
         zvn2 =  zu * ptr_patch%edges%primal_normal_cell(je,jb,2)%v1 + &
                 zv * ptr_patch%edges%primal_normal_cell(je,jb,2)%v2      
