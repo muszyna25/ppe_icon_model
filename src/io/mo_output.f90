@@ -65,6 +65,7 @@ MODULE mo_output
     &                               set_restart_depth_lnd, &  !DRset_restart_height, &
     &                               set_restart_height_snow
   USE mo_io_restart_attributes,ONLY: set_restart_attribute
+  USE mo_name_list_output,    ONLY: output_file
   USE mo_model_domain,        ONLY: t_patch,t_patch_3D, p_patch
   USE mo_intp_data_strc,      ONLY: t_lon_lat_intp
   USE mo_run_config,          ONLY: ltimer, output_mode
@@ -518,6 +519,10 @@ CONTAINS
     ELSE
       CALL set_restart_attribute( 'next_output_file', jfile   )
     END IF
+    DO i=1, SIZE(output_file,1)
+      WRITE(attname,'(a,i2.2)') 'n_output_steps', i
+      CALL set_restart_attribute( TRIM(attname), output_file(i)%name_list%n_output_steps)
+    END DO
 
     IF (PRESENT(opt_pvct)) CALL set_restart_vct( opt_pvct )  ! Vertical coordinate (A's and B's)
     IF (PRESENT(opt_depth_lnd)) THEN            ! geometrical depth for land module

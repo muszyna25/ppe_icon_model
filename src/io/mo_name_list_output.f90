@@ -36,6 +36,8 @@ MODULE mo_name_list_output
     &                                 MAX_TIME_LEVELS
   USE mo_grid_config,           ONLY: n_dom, n_phys_dom, global_cell_type, &
     &                                 grid_rescale_factor, start_time, end_time
+  USE mo_master_control,        ONLY: is_restart_run
+  USE mo_io_restart_attributes, ONLY: get_restart_attribute
   USE mo_grid_levels,           ONLY: check_orientation
   USE mo_grib2,                 ONLY: t_grib2_var
   USE mo_cf_convention,         ONLY: t_cf_var
@@ -748,6 +750,7 @@ CONTAINS
     TYPE(t_list_element), POINTER      :: element
     REAL(wp), ALLOCATABLE              :: lonv(:,:,:), latv(:,:,:)
     TYPE(t_cf_var), POINTER            :: this_cf
+    CHARACTER(LEN=64)                  :: attname
 
     l_print_list = .FALSE.
     i_sample     = 1
@@ -1042,6 +1045,11 @@ CONTAINS
 
           nfiles = nfiles+1
           p_of => output_file(nfiles)
+
+          IF (is_restart_run()) THEN
+            WRITE(attname, '(a,i2.2)') 'n_output_steps', nfiles
+            CALL get_restart_attribute(attname, p_onl%n_output_steps)
+          END IF
 
           SELECT CASE(i_typ)
             CASE(1); p_of%ilev_type = level_type_ml
