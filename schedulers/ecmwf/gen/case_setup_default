@@ -60,7 +60,6 @@ ndays=10     # number of days to run
 nsteps=`expr ${ndays} \* 86400 / ${dtime}`
 ninc_mtgrm=50          # output interval 3600s
 
-
 # model parameters
 atmo_namelist=NAMELIST_${basename}
 model_equations=3      #  3=non-hydrost. atm.,
@@ -129,8 +128,8 @@ ml_varlist="'temp','u','v','w','pres','pres_sfc', 'pres_msl',
 'snowfrac', 'w_snow', 'dzh_snow', 't_snow_mult', 'rho_snow_mult'"
 #'t_so_t_1', 'w_so_t_1', 'w_snow_t_1'"
 
-pl_varlist="'u','v','temp','geopot','tot_cc','tot_qv','tot_qc','tot_qi','qv','qc','qi'"      
-hl_varlist="'u','v','temp','pres',  'tot_cc','tot_qv','tot_qc','tot_qi','qv','qc','qi'"   
+pl_varlist="'u','v','temp','geopot','clc','tot_qv','tot_qc','tot_qi','qv','qc','qi'"      
+hl_varlist="'u','v','temp','pres',  'clc','tot_qv','tot_qc','tot_qi','qv','qc','qi'"   
 
 # ---
 
