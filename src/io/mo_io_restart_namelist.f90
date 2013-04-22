@@ -278,6 +278,7 @@ CONTAINS
     OPEN(UNIT=funit, FILE=filename(1:flen), &
          ACTION='read',                     &
          ACCESS='sequential',               &
+         RECL=65535,                        &
          DELIM='apostrophe')
     !    
   END FUNCTION open_and_restore_namelist
