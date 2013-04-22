@@ -867,12 +867,16 @@ CONTAINS
     
     uuid_string = 'warning: not given ...' ! To avoid null characters in the standard output
 
-    CALL nf(nf_get_att_text(ncid, nf_global, 'uuidOfHGrid', uuid_string), &
-      & warnonly=.TRUE., silent=(.NOT. is_grib_output()))
-    CALL uuid_parse(uuid_string, patch%grid_uuid)
-    WRITE(message_text,'(a,a)') 'grid uuid: ', TRIM(uuid_string)
-    CALL message  (TRIM(method_name), message_text)
-
+    IF (nf_get_att_text(ncid, nf_global, 'uuidOfHGrid', uuid_string) /= nf_noerr) THEN
+      IF (is_grib_output()) THEN
+        CALL message(TRIM(method_name), "Warning: uuidOfHGrid not set as an attribute!")
+      END IF
+      patch%grid_uuid%data(:) = 0
+    ELSE
+      CALL uuid_parse(uuid_string, patch%grid_uuid)
+      WRITE(message_text,'(a,a)') 'grid uuid: ', TRIM(uuid_string)
+      CALL message  (TRIM(method_name), message_text)
+    END IF
 
     ! Read additional grid identifiers
     ! center
