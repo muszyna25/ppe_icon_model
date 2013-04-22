@@ -54,8 +54,7 @@ EOF
 
 # select T and S, set code to -1 to be ignored by rhopot/adisit
 # ONLY USE MARCH FOR NORTHERN HEMISPHERE
-$CDO -rhopot,0 -adisit -setcode,-1 -div -selname,T,S -selmon,3 $ifile -selname,wet_c $ifile $RHOPOT
-#CDO -f nc4 -z zip -rhopot,0 -adisit -setcode,-1 -div -selname,T,S $ifile -selname,wet_c $ifile $RHOPOT
+$CDO -rhopot,0 -adisit -setcode,-1 -div -selname,T,S -selmon,3 $ifile -selname,wet_c -seltimestep,1 $ifile $RHOPOT
 
 # substracto the surface value
 $CDO -sub $RHOPOT -sellevidx,1 $RHOPOT $RHOPOT_DELTA
@@ -67,13 +66,11 @@ $CDO -setpartab,partab -isosurface,0.125 $RHOPOT_DELTA $MLD
    ntime=$($CDO ntime $MLD)
 # select north atlantic
   select='-mapLLC=-60,30 -mapURC=30,85'
-colormap='-colormap=testcmap'
+colormap='-colormap=rainbow'
    oType='-oType=png'
 
 for i in $(seq -w 0 $((ntime-1))); do
   # select north atlantic
-  select='-mapLLC=-60,30 -mapURC=30,85'
-  colormap='-colormap=testcmap'
   nclsh $PLOT -iFile=$MLD \
     -varName=mixed_layer_depth -oFile=mld_$i \
     -isIcon -timeStep=$i \
