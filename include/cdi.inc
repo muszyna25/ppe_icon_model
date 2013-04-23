@@ -2117,6 +2117,11 @@
 !                                     CHARACTER*(*)   longname)
       EXTERNAL        institutInq
 
+      INTEGER         institutInqByCenter
+!                                    (INTEGER         center,
+!                                     INTEGER         subcenter)
+      EXTERNAL        institutInqByCenter
+
       INTEGER         institutInqNumber
       EXTERNAL        institutInqNumber
 

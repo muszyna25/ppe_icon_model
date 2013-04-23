@@ -1963,17 +1963,10 @@ CONTAINS
 
     ! define output generating institute
     !
-    ! get instID
-!DR    of%cdiInstID = institutInq(patch_info(i_dom)%center, patch_info(i_dom)%subcenter, &
-!DR      &            "", "")
-
-    ! workaround as long as inquiring the Insitute ID from (center/subcenter) 
-    ! does not work.
-    of%cdiInstID = institutInq(0, 0, TRIM(of%name_list%namespace), "")
+    ! inquire the Institute ID from (center/subcenter) 
+    of%cdiInstID = institutInqByCenter(patch_info(i_dom)%center, patch_info(i_dom)%subcenter)
 
     CALL vlistDefInstitut(of%cdiVlistID,of%cdiInstID)
-
-
     CALL vlistDefTable(of%cdiVlistID,5)
 
 

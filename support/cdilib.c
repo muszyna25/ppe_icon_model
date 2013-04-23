@@ -1368,6 +1368,7 @@ char   *tunitNamePtr(int tunitID);
 
 int     institutDef(int center, int subcenter, const char *name, const char *longname);
 int     institutInq(int center, int subcenter, const char *name, const char *longname);
+int     institutInqByCenter(int center, int subcenter);
 int     institutInqNumber(void);
 int     institutInqCenter(int instID);
 int     institutInqSubcenter(int instID);
@@ -8369,6 +8370,36 @@ int institutInq(int center, int subcenter, const char *name, const char *longnam
   free ( instResHs );
   free ( ip1 );
 
+  return  (instID);
+}
+
+
+/* Inquire institute ID corresponding to given center and
+   subcenter. */
+int institutInqByCenter(int center, int subcenter)
+{
+  int instCount, i, instID;
+  int *instResHs;
+  institute_t * ip2;
+
+  instituteInit ();
+  instCount = instituteCount ();
+  instResHs = xmalloc ( instCount * sizeof ( int ));
+  reshGetResHListOfType ( instCount, instResHs, &instituteOps );
+
+  for ( i = 0; i < instCount; i++ )
+    {
+      ip2 = ( institute_t * ) reshGetVal ( instResHs[i], &instituteOps );
+      xassert ( ip2 );
+      if ( ip2->used                      && 
+	   (ip2->center    == center)     &&
+	   (ip2->subcenter == subcenter))
+        {
+          instID = ip2->self;
+          break;
+        }
+    }
+  free ( instResHs );
   return  (instID);
 }
 
@@ -65624,6 +65655,7 @@ FCALLSCFUN1 (STRING, tunitNamePtr, TUNITNAMEPTR, tunitnameptr, INT)
 
 FCALLSCFUN4 (INT, institutDef, INSTITUTDEF, institutdef, INT, INT, STRING, STRING)
 FCALLSCFUN4 (INT, institutInq, INSTITUTINQ, institutinq, INT, INT, STRING, STRING)
+FCALLSCFUN2 (INT, institutInqByCenter, INSTITUTINQBYCENTER, institutinqbycenter, INT, INT)
 FCALLSCFUN0 (INT, institutInqNumber, INSTITUTINQNUMBER, institutinqnumber)
 FCALLSCFUN1 (INT, institutInqCenter, INSTITUTINQCENTER, institutinqcenter, INT)
 FCALLSCFUN1 (INT, institutInqSubcenter, INSTITUTINQSUBCENTER, institutinqsubcenter, INT)
