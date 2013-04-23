@@ -90,7 +90,6 @@ USE mo_meteogram_config,    ONLY: meteogram_output_config
 USE mo_name_list_output_config,   ONLY: first_output_name_list, &
   &                               is_any_output_nml_active
 USE mo_name_list_output,    ONLY: init_name_list_output,  &
-  &                               write_name_list_output, &
   &                               close_name_list_output, &
   &                               parse_variable_groups,  &
   &                               output_file
