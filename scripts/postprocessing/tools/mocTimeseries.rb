@@ -4,17 +4,18 @@ require 'cdo'
 
 #==============================================================================
 # USAGE:
-# ./mocTimeseries.rb '../oce_mpiom_r11698_3600_1.0E-17_30/MOC*Z'
+# <TITLE='title'> <PLOTFILE='image.png'> ./mocTimeseries.rb '../oce_mpiom_r11698_3600_1.0E-17_30/MOC*Z'
 # 
 #==============================================================================
 
-mocPattern = ARGV[0].nil? ? 'MOC*Z' : ARGV[0]
-mocVar     = ARGV[1].nil? ? 'var778' : ARGV[1]
-title      = ENV['TITLE'].nil? ? mocPattern : ENV['TITLE']
-plotFile   = ENV['PLOTFILE']
-q          = JobQueue.new
-lock       = Mutex.new
-Cdo.debug  = true
+mocPattern      = ARGV[0].nil?      ? 'MOC*Z'    : ARGV[0]
+mocVar          = ARGV[1].nil?      ? 'var778'   : ARGV[1]
+title           = ENV['TITLE'].nil? ? mocPattern : ENV['TITLE']
+plotFile        = ENV['PLOTFILE']
+q               = JobQueue.new
+lock            = Mutex.new
+Cdo.debug       = true
+Cdo.forceOutput = !ENV['FORCE'].nil?
 
 # postprocessing/expanding
 mocPattern = [File.expand_path(File.dirname(mocPattern)),File.basename(mocPattern)].join(File::SEPARATOR)
@@ -27,11 +28,14 @@ levels = Cdo.nlevel(:input => "-seltimestep,1 #{mocFiles[0]}")[0].to_i
 # process each moc file in parallel and join them at the end
 mocOutputFiles = []
 mocFiles.each_with_index {|file,i|
+  next if i >= 84
   q.push {
     levelSelection = 20 == levels ? "-sellevel,1000" : "-intlevel,1000 -sellevel,900/1100"
-    ofile = Cdo.fldmean(:input => " -selname,#{mocVar} -mulc,1.e-9 -sellonlatbox,0,1,40,60 #{levelSelection} -yearmean -setgrid,r1x180 #{file}",
-                :options => '-f nc -r')
-                lock.synchronize { mocOutputFiles << [i,ofile]}
+    ofile = "_moc_processing_#{i}"
+    Cdo.fldmean(:input   => " -selname,#{mocVar} -mulc,1.e-9 -sellonlatbox,0,1,40,60 #{levelSelection} -yearmean -setgrid,r1x180 #{file}",
+                :options => '-f nc -r',
+                :output  => ofile)
+    lock.synchronize { mocOutputFiles << [i,ofile]}
   }
 }
 q.run
@@ -40,7 +44,7 @@ pp mocOutputFiles
 mocComplete = Cdo.outputkey('date,value',:input => " -cat #{mocOutputFiles.sort.transpose[1].join(' ')}")
 File.open("moc.dat","w") {|f| f << mocComplete.join("\n")}
 IO.popen("LD_LIBRARY_PATH=/usr/lib gnuplot -p <<EOF
-#{plotFile.nil? ? "" : "set terminal png size 800x400;set output '#{plotFile}'"}
+#{plotFile.nil? ? "" : "set terminal png;set output '#{plotFile}'"}
 set timefmt x '%Y-%m-%d'
 set xdata time
 set grid
