@@ -102,7 +102,7 @@ CONTAINS
 !-------------------------------------------------------------------------
 
     OPEN (nnml, file=file, iostat=istat, status='old', action='read', &
-         delim='apostrophe')
+         recl=16384, delim='apostrophe')
 
     IF (istat /= 0) THEN
       CALL finish ('open_nml','Could not open '//TRIM(file))
