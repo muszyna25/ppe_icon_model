@@ -245,9 +245,9 @@ CONTAINS
     ELSE
       DO jl = 1, jce
         IF(ktype(jl) .EQ. 0) THEN
-          zinhoml(jl) = 0.70_wp
+          zinhoml(jl) = 0.77_wp
         ELSE
-          zinhoml(jl) = 0.50_wp
+          zinhoml(jl) = 0.77_wp
         END IF
       END DO
     END IF

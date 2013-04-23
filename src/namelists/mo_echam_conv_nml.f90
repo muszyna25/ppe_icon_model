@@ -104,10 +104,10 @@ CONTAINS
 
     dlev     = 3.0E4_wp   ! 300 hPa
     cmftau   = 10800._wp  ! 3 hours
-    cmfctop  = 0.3_wp
+    cmfctop  = 0.21_wp
 
-    cprcon   = 1.E-4_wp
-    cminbuoy = 0.025_wp
+    cprcon   = 2.E-4_wp
+    cminbuoy = 0.1_wp
     entrpen  = 1.0E-4_wp
 
     !-------------------------------------------------------------------
