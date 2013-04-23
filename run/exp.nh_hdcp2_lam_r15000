@@ -197,7 +197,7 @@ rbf_vec_scale_e = 0.25
 ! output_filename    = '${EXPNAME}'   
 ! ml_varlist         =  'group:atmo_zl_vars','group:nh_prog_vars','group:atmo_derived_vars','pres_sfc','topography_c','z_mc',
 !                        'z_ifc','group:precip_vars','group:additional_precip_vars','group:pbl_vars','group:cloud_diag',
-!                        'group:rad_vars','group:phys_tendencies','ddt_exner','ddt_vn','ddt_w','ddt_qv_turb','ddt_qc_turb'
+!                        'group:rad_vars','group:phys_tendencies','ddt_exner','ddt_qv_turb','ddt_qc_turb'
 !                        'ddt_qi_turb','ddt_qv_conv','ddt_qc_conv','ddt_qi_conv','ddt_tke','ddt_temp_pconv','gz0',
 ! remap              = 1
 ! reg_lon_def        =  89.,0.005,91.
@@ -216,7 +216,7 @@ rbf_vec_scale_e = 0.25
  output_filename    = '${EXPNAME}_tri'   
  ml_varlist         =  'group:atmo_zl_vars','group:nh_prog_vars','group:atmo_derived_vars','pres_sfc','topography_c','z_mc',
                         'z_ifc','group:precip_vars','group:additional_precip_vars','group:pbl_vars','group:cloud_diag',
-                        'group:rad_vars','group:phys_tendencies','ddt_exner','ddt_vn','ddt_w','ddt_qv_turb','ddt_qc_turb'
+                        'group:rad_vars','group:phys_tendencies','ddt_exner','ddt_qv_turb','ddt_qc_turb'
                         'ddt_qi_turb','ddt_qv_conv','ddt_qc_conv','ddt_qi_conv','ddt_tke','ddt_temp_pconv','gz0',
  output_grid        = .TRUE.
 /
