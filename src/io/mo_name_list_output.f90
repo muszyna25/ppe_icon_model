@@ -1935,7 +1935,7 @@ CONTAINS
     TYPE(t_lon_lat_data), POINTER   :: lonlat
     LOGICAL                         :: lwrite_pzlev
     TYPE(t_datetime)                :: ini_datetime
-    CHARACTER(len=uuid_data_length) :: uuid_string
+    CHARACTER(len=1) :: uuid_string(16)
 
     IF (of%output_type == FILETYPE_GRB2) THEN
       ! since the current CDI-version does not fully support "GRID_UNSTRUCTURED", the
