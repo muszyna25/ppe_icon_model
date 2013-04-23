@@ -236,6 +236,7 @@ MODULE mo_echam_phy_memory
 
     ! orography
     REAL(wp),POINTER :: &
+      & oromea (:,  :),     &!< Orographic mean elevation
       & orostd (:,  :),     &!< Orographic standard deviation
       & orosig (:,  :),     &!< Orographic slope
       & orogam (:,  :),     &!< Orographic anisotropy
@@ -271,6 +272,13 @@ MODULE mo_echam_phy_memory
       & albvisdif_wtr(:,  :),   & ! Ocean surface albedo for visible range, diffuse
       & albnirdir_wtr(:,  :),   & ! Ocean surface albedo for near IR range, direct
       & albnirdif_wtr(:,  :)      ! Ocean surface albedo for near IR range, diffuse
+
+    ! Orographic wave drag (ssodrag)
+
+    REAL(wp),POINTER ::     &
+      & u_stress_sso   (:,:),  &! < Zonal gravity wave stress
+      & v_stress_sso   (:,:),  &! < Meridional gravity wave stress
+      & dissipation_sso(:,:)    ! < Dissipation of orographic waves
 
     ! Turbulence
 
@@ -445,9 +453,9 @@ MODULE mo_echam_phy_memory
       !
       ! subgrid scale orographic (sso) blocking and gravity wave drag
       !
-!!$      & u_sso       (:,:,:)  , & !< ZonalW-tendency from sso drag
-!!$      & v_sso       (:,:,:)  , & !< MeridW-tendency from sso drag
-!!$      & temp_sso    (:,:,:)  , & !< Temp-tendency from sso drag
+      & u_sso       (:,:,:)  , & !< ZonalW-tendency from sso drag
+      & v_sso       (:,:,:)  , & !< MeridW-tendency from sso drag
+      & temp_sso    (:,:,:)  , & !< Temp-tendency from sso drag
       !
       ! radiation
       !
@@ -905,6 +913,11 @@ CONTAINS
     CALL add_var( field_list, prefix//'alb', field%alb,      &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
 
+    cf_desc    = t_cf_var('oromea', '', '', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( field_list, prefix//'oromea', field%oromea,      &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
+
     cf_desc    = t_cf_var('orostd', '', '', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( field_list, prefix//'orostd', field%orostd,      &
@@ -1237,6 +1250,30 @@ CONTAINS
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( field_list, prefix//'thvsig', field%thvsig,                   &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
+
+    !---------------------------
+    ! Orographic wave drag diagnostics
+    !---------------------------
+    CALL add_var( field_list, prefix//'u_stress_sso', field%u_stress_sso,         &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                             &
+                & t_cf_var('u_stress_sso', '', 'u_stress_sso'//                   &
+                & 'zonal stress from orogroaphic wave drag', DATATYPE_FLT32),     &
+                & t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),   &
+                & ldims=shape2d                                                   )
+
+    CALL add_var( field_list, prefix//'v_stress_sso', field%v_stress_sso,         &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                             &
+                & t_cf_var('v_stress_sso', '', 'v_stress_sso'//                   &
+                & 'meridional stress from orogroaphic wave drag', DATATYPE_FLT32),&
+                & t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),   &
+                & ldims=shape2d                                                   )
+
+    CALL add_var( field_list, prefix//'dissipation_sso', field%dissipation_sso,   &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                             &
+                & t_cf_var('dissipation_sso', '', 'dissipation_sso'//             &
+                & 'dissipation of orogroaphic waves', DATATYPE_FLT32),            &
+                & t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),   &
+                & ldims=shape2d                                                   )
 
     !--------------------
     ! Turbulence
@@ -1817,6 +1854,12 @@ CONTAINS
     CALL add_var( tend_list, prefix//'temp_gwh', tend%temp_gwh,            &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d )
 
+    ! &       tend% temp_sso  (nproma,nlev,nblks),          &
+    cf_desc    = t_cf_var('temperature_tendency_sso', 'K s-1', '', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( tend_list, prefix//'temp_sso', tend%temp_sso,            &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d )
+
     !------------------------------
     ! U-wind tendencies
     !------------------------------
@@ -1844,6 +1887,12 @@ CONTAINS
     CALL add_var( tend_list, prefix//'u_gwh', tend%u_gwh,                  &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d )
 
+    ! &       tend%    u_sso  (nproma,nlev,nblks),          &   
+    cf_desc    = t_cf_var('u_wind_tendency_sso', 'm s-2', '', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( tend_list, prefix//'u_sso', tend%u_sso,                  &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d )
+
     !------------------------------
     ! V-wind tendencies
     !------------------------------
@@ -1869,6 +1918,12 @@ CONTAINS
     cf_desc    = t_cf_var('v_wind_tendency_Hines_gw', 'm s-2', '', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( tend_list, prefix//'v_gwh', tend%v_gwh,                  &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d )
+
+    ! &       tend%    v_sso  (nproma,nlev,nblks),          &              
+    cf_desc    = t_cf_var('v_wind_tendency_sso', 'm s-2', '', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( tend_list, prefix//'v_sso', tend%v_sso,                  &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d )
 
     !------------------------------

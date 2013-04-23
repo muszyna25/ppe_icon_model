@@ -127,7 +127,7 @@ CONTAINS
       CASE('AMIP')
 
         echam_phy_config% llandsurf = .FALSE.
-        echam_phy_config% lssodrag  = .FALSE.
+        echam_phy_config% lssodrag  = .TRUE.
         echam_phy_config% lice      = .FALSE.
         echam_phy_config% lmeltpond = .FALSE.
         echam_phy_config% lamip     = .TRUE.

@@ -66,14 +66,11 @@ CONTAINS
   !======================================================================
   SUBROUTINE sugwd(klev)
 
-!  USE mo_control, ONLY: nvclev, vct, nn
+  USE mo_run_config,           ONLY: nvclev
+  USE mo_vertical_coord_table, ONLY: vct
 
   !  Scalar arguments with intent(In):
   INTEGER, INTENT (IN) :: klev
-
-!! ATTENTION
-    INTEGER:: nvclev,  nn
-    REAL(wp):: vct(klev)
 
   ! local scalar
   INTEGER :: jk
@@ -81,39 +78,11 @@ CONTAINS
 
   !          SET THE VALUES OF THE PARAMETERS
   !
-  IF (nn == 31) THEN
-    gpicmea = 500.0_wp
-    gstd    = 200.0_wp
-    gkdrag  = 0.8_wp
-    gkwake  = 0.8_wp
-  ELSE IF(nn == 42) THEN
+
     gpicmea = 400.0_wp
     gstd    = 100.0_wp
-    gkdrag  = 0.8_wp
-    gkwake  = 0.8_wp
-  ELSE IF(nn == 63) THEN
-    gpicmea = 400.0_wp
-    gstd    = 100.0_wp
-    IF(klev == 95) THEN
-      gkdrag  = 0.25_wp
-      gkwake  = 0.25_wp
-    ELSE
-      gkdrag  = 0.5_wp
-      gkwake  = 0.5_wp
-    END IF
-  ELSE IF(nn == 127) THEN
-    gpicmea = 200.0_wp
-    gstd    =  50.0_wp
     gkdrag  = 0.5_wp
     gkwake  = 0.5_wp
-  ELSE IF(nn == 255) THEN
-    gpicmea = 100.0_wp
-    gstd    =  10.0_wp
-    gkdrag  = 0.8_wp
-    gkwake  = 0.8_wp
-  ELSE
-    CALL finish ('mo_ssodrag', 'Truncation not supported.')
-  ENDIF
 
   ! PRINT *,' DANS SUGWD NLEV=',klev
 

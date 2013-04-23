@@ -275,6 +275,11 @@ CONTAINS
      ! orography
            return_pointer => netcdf_read_oncells_2D( &
              & filename      =land_sso_fn,         &
+             & variable_name ='oromea',            &
+             & fill_array    = prm_field(jg)% oromea(:,:),      &
+             & patch         = p_patch(jg))
+           return_pointer => netcdf_read_oncells_2D( &
+             & filename      =land_sso_fn,         &
              & variable_name ='orostd',            &
              & fill_array    = prm_field(jg)% orostd(:,:),      &
              & patch         = p_patch(jg))
@@ -817,6 +822,10 @@ CONTAINS
       field% u_stress_avg(:,  :) = 0._wp
       field% v_stress_avg(:,  :) = 0._wp
 
+      field% u_stress_sso(:,:) = 0._wp
+      field% v_stress_sso(:,:) = 0._wp
+      field% dissipation_sso(:,:) = 0._wp
+
       field% rtype (:,  :) = 0._wp
       field% rintop(:,  :) = 0._wp
 
@@ -901,6 +910,10 @@ CONTAINS
       tend% temp_gwh(:,:,:)   = 0._wp
       tend%    u_gwh(:,:,:)   = 0._wp
       tend%    v_gwh(:,:,:)   = 0._wp
+
+      tend% temp_sso(:,:,:)   = 0._wp
+      tend%    u_sso(:,:,:)   = 0._wp
+      tend%    v_sso(:,:,:)   = 0._wp
 
 !!$      field% debug_2d_1(:,  :) = 0.0_wp
 !!$      field% debug_2d_2(:,  :) = 0.0_wp

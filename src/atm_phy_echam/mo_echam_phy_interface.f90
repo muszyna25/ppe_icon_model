@@ -617,7 +617,7 @@ CONTAINS
      ENDIF
          
     any_uv_tend = phy_config%lconv.OR.phy_config%lvdiff.OR. &
-                 & phy_config%lgw_hines !.OR.phy_config%lssodrag
+                 & phy_config%lgw_hines .OR.phy_config%lssodrag
 
     IF (any_uv_tend) THEN
 
@@ -639,10 +639,12 @@ CONTAINS
 
         zdudt(jcs:jce,:,jb) =   prm_tend(jg)% u_cnv(jcs:jce,:,jb) &
                             & + prm_tend(jg)% u_vdf(jcs:jce,:,jb) &
-                            & + prm_tend(jg)% u_gwh(jcs:jce,:,jb)
+                            & + prm_tend(jg)% u_gwh(jcs:jce,:,jb) &
+                            & + prm_tend(jg)% u_sso(jcs:jce,:,jb)
         zdvdt(jcs:jce,:,jb) =   prm_tend(jg)% v_cnv(jcs:jce,:,jb) &
                             & + prm_tend(jg)% v_vdf(jcs:jce,:,jb) &
-                            & + prm_tend(jg)% v_gwh(jcs:jce,:,jb)
+                            & + prm_tend(jg)% v_gwh(jcs:jce,:,jb) &
+                            & + prm_tend(jg)% v_sso(jcs:jce,:,jb)
       ENDDO
 !$OMP END PARALLEL DO
 

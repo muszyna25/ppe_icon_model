@@ -383,6 +383,7 @@ cat > ${atmo_namelist} << EOF
  lconv            = .TRUE.
  lcond            = .TRUE.
  lgw_hines        = .TRUE.
+ lssodrag         = .TRUE.
  ljsbach          = .TRUE.
  dt_rad           = ${dt_rad}    ! [s] radiation time step
 /
@@ -430,8 +431,9 @@ cat > ${atmo_namelist} << EOF
                     'prm_aclc'        , 'prm_aclcac'      , 'prm_aclcov'      ,
                     'prm_rsfl'        , 'prm_rsfc'        , 'prm_ssfl'        , 'prm_ssfc'        , 
                     'prm_totprec_avg' , 'prm_qvi'         , 'prm_xlvi'        , 'prm_xivi'        ,
-                    'prm_lhflx_avg'   , 'prm_shflx_avg'   ,
-                    'prm_u_stress_avg', 'prm_v_stress_avg'
+                    'prm_lhflx_avg'   , 'prm_shflx_avg'   , 
+                    'prm_u_stress_avg', 'prm_v_stress_avg',
+                    'prm_u_stress_sso', 'prm_v_stress_sso', 'prm_dissipation_sso'
 /
 &output_nml
  namespace        = 'MPIMET'
