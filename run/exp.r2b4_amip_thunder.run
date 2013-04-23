@@ -372,7 +372,7 @@ cat > ${atmo_namelist} << EOF
 /
 &diffusion_nml
  hdiff_order      = 24           ! 2nd order near model top, 4th order on the other levels
- k2_klev_max      = 3            ! the 3 highest model levels use 2nd order diffusion
+ k2_klev_max      = 8            ! the 3 highest model levels use 2nd order diffusion
 /
 &transport_nml
  ctracer_list     = 'vwi45'      ! water vapour, cloud water, cloud ice, constant field, dummy for ozone
