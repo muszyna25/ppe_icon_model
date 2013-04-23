@@ -318,7 +318,6 @@ MODULE mo_nh_stepping
            & p_patch(jg)                           ,&
            & p_nh_state(jg)%metrics                ,&
            & p_nh_state(jg)%prog(nnow(jg))         ,&
-           & p_nh_state(jg)%prog(nnew(jg))         ,&
            & p_nh_state(jg)%diag                   ,&
            & prm_diag(jg)                          ,&
            & prm_nwp_tend(jg)                      ,&
@@ -336,7 +335,6 @@ MODULE mo_nh_stepping
       CALL init_nwp_phy( dtime                     ,&
            & p_patch(jg)                           ,&
            & p_nh_state(jg)%metrics                ,&
-           & p_nh_state(jg)%prog(nnow(jg))         ,&
            & p_nh_state(jg)%prog(nnow(jg))         ,&
            & p_nh_state(jg)%diag                   ,&
            & prm_diag(jg)                          ,&
@@ -1389,7 +1387,6 @@ MODULE mo_nh_stepping
             CALL init_nwp_phy( dtime                    ,&
               & p_patch(jgc)                            ,&
               & p_nh_state(jgc)%metrics                 ,&
-              & p_nh_state(jgc)%prog(nnow(jgc))         ,&
               & p_nh_state(jgc)%prog(nnow(jgc))         ,&
               & p_nh_state(jgc)%diag                    ,&
               & prm_diag(jgc)                           ,&

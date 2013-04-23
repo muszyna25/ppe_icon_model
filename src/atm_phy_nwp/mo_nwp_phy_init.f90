@@ -131,7 +131,7 @@ CONTAINS
 
 SUBROUTINE init_nwp_phy ( pdtime,                           &
                        &  p_patch, p_metrics,               &
-                       &  p_prog_now,  p_prog,  p_diag,     &
+                       &  p_prog_now,  p_diag,              &
                        &  prm_diag,prm_nwp_tend,            &
                        &  p_prog_lnd_now, p_prog_lnd_new,   &
                        &  p_prog_wtr_now, p_prog_wtr_new,   &
@@ -141,7 +141,6 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
   TYPE(t_patch),        TARGET,INTENT(in)    :: p_patch
   TYPE(t_nh_metrics),          INTENT(in)    :: p_metrics
   TYPE(t_nh_prog),      TARGET,INTENT(inout) :: p_prog_now !!the prognostic variables
-  TYPE(t_nh_prog),      TARGET,INTENT(inout) :: p_prog  !!the prognostic variables
   TYPE(t_nh_diag),      TARGET,INTENT(inout) :: p_diag  !!the diagostic variables
   TYPE(t_external_data),       INTENT(inout) :: ext_data
   TYPE(t_nwp_phy_diag),        INTENT(inout) :: prm_diag
@@ -243,7 +242,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
          p_diag_lnd%qv_s     (jc,jb) = &
         & spec_humi(sat_pres_water(p_prog_lnd_now%t_g (jc,jb)),p_diag%pres_sfc(jc,jb))  
           p_diag_lnd%qv_s    (jc,jb) = MIN (p_diag_lnd%qv_s(jc,jb) ,   &
-                                     &     p_prog%tracer(jc,nlev,jb,iqv)) 
+                                     &     p_prog_now%tracer(jc,nlev,jb,iqv)) 
         END DO
  
       ELSE IF (ltestcase) THEN ! any other testcase
@@ -306,7 +305,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
            p_diag_lnd%qv_s(jc,jb) = &
              &  spec_humi(sat_pres_water(p_prog_lnd_now%t_g (jc,jb)),p_diag%pres_sfc(jc,jb))  
            p_diag_lnd%qv_s(jc,jb) = MIN (p_diag_lnd%qv_s(jc,jb), &
-             &                    p_prog%tracer(jc,nlev,jb,iqv)) 
+             &                    p_prog_now%tracer(jc,nlev,jb,iqv)) 
          END DO
 
          DO jc = i_startidx, i_endidx
@@ -730,7 +729,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
                 ! is not yet avaliable for vdiff
 
   IF (  atm_phy_nwp_config(jg)%inwp_turb == 1 .AND. .NOT. is_restart_run() ) THEN
-
+  
     IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'init COSMO turbulence')
 
 
@@ -758,7 +757,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-&                       i_startidx, i_endidx, rl_start, rl_end)
+        &                i_startidx, i_endidx, rl_start, rl_end)
 
       IF (atm_phy_nwp_config(jg)%itype_z0 == 2) THEN
         ! specify land-cover-related roughness length over land points
@@ -829,7 +828,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
          &  ps=p_diag%pres_sfc(:,jb), t_g=p_prog_lnd_now%t_g(:,jb), qv_s=p_diag_lnd%qv_s(:,jb), &
 !
          &  u=p_diag%u(:,:,jb), v=p_diag%v(:,:,jb), T=p_diag%temp(:,:,jb),   &
-         &  qv=p_prog%tracer(:,:,jb,iqv), qc=p_prog%tracer(:,:,jb,iqc), &
+         &  qv=p_prog_now%tracer(:,:,jb,iqv), qc=p_prog_now%tracer(:,:,jb,iqc), &
 !
          &  prs=p_diag%pres(:,:,jb),  &
 !
@@ -862,10 +861,10 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
 !
          &  ps=p_diag%pres_sfc(:,jb), t_g=p_prog_lnd_now%t_g(:,jb), qv_s=p_diag_lnd%qv_s(:,jb), &
 !
-         &  u=p_diag%u(:,:,jb), v=p_diag%v(:,:,jb), w=p_prog%w(:,:,jb), T=p_diag%temp(:,:,jb), &
-         &  qv=p_prog%tracer(:,:,jb,iqv), qc=p_prog%tracer(:,:,jb,iqc), &
+         &  u=p_diag%u(:,:,jb), v=p_diag%v(:,:,jb), w=p_prog_now%w(:,:,jb), T=p_diag%temp(:,:,jb), &
+         &  qv=p_prog_now%tracer(:,:,jb,iqv), qc=p_prog_now%tracer(:,:,jb,iqc), &
 !
-         &  prs=p_diag%pres(:,:,jb), rho=p_prog%rho(:,:,jb), epr=p_prog%exner(:,:,jb), &
+         &  prs=p_diag%pres(:,:,jb), rho=p_prog_now%rho(:,:,jb), epr=p_prog_now%exner(:,:,jb), &
 !
          &  gz0=prm_diag%gz0(:,jb), tcm=prm_diag%tcm(:,jb), tch=prm_diag%tch(:,jb), &
          &  tfm=prm_diag%tfm(:,jb), tfh=prm_diag%tfh(:,jb), tfv=prm_diag%tfv(:,jb), &
@@ -902,10 +901,6 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
       ENDDO 
     ENDDO
 !$OMP END DO
-
-!$OMP WORKSHARE
-        p_prog %tke (:,:,:) =  p_prog_now%tke (:,:,:)
-!$OMP END WORKSHARE
 
 !$OMP END PARALLEL
 
