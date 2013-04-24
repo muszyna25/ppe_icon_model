@@ -89,10 +89,10 @@ start_date="2001-01-01T00:00:00Z"
 #
 #-----------------------------------------------------------------------------
 # model timing
-nhours_data=6        # ocean model output interval hours [hours]
-ndays_file=3650      # new output file generation interval [days]
-ndays_checkp=368     # write restart file interval [days]
-ndays_restart=732    # stop model for restart [days]
+nhours_data=240      # ocean model output interval hours [hours]
+ndays_file=3750      # new output file generation interval [days]
+ndays_checkp=1850    # write restart file interval [days]
+ndays_restart=3655   # stop model for restart [days]
 #
 #-----------------------------------------------------------------------------
 # calculate model timesteps using $ndays
@@ -130,7 +130,7 @@ cat > ${ocean_namelist} << EOF
  iequations  = ${ocean_model_equations}       ! -1: hydrost. ocean model
 /
 &run_nml
- dtime       = 1800         ! model timestep in seconds
+ dtime       = 3600         ! model timestep in seconds
  output      = 'vlist'      ! We're still using the old output mechanism
  activate_sync_timers = .TRUE.
  write_timer_files  = .TRUE.
@@ -156,15 +156,15 @@ cat > ${ocean_namelist} << EOF
 !                       100.0,  110.0,  120.0,  130.0,  140.0,  150.0,  170.0,  180.0,  190.0,  200.0,
 !                       220.0,  250.0,  270.0,  300.0,  350.0,  400.0,  450.0,  500.0,  500.0,  600.0
   l_edge_based = .TRUE.          !  edge- or cell-based mimetic discretization
+  l_partial_cells = .FALSE.      !  partial bottom cells=true: local varying bottom depth
   FLUX_CALCULATION_HORZ = 4      ! 1=upwind, 2=central, 3=mimetic, 4=mimetic_miura
   FLUX_CALCULATION_VERT = 4      ! 1=upwind, 2=central, 3=mimetic, 4=mimetic_miura
-  i_apply_bulk          = 0      ! 1=use bulk formula without sea ice
   !veloc_diffusion_order = 2      ! biharmonic friction
   !veloc_diffusion_form  = 1      ! curlcurl-graddiv form of laplacian
-  solver_tolerance = 1.0E-11
+  solver_tolerance = 1.0E-12
   use_absolute_solver_tolerance = .true.
-  solver_max_iter_per_restart = 10
-  solver_max_restart_iterations = 20
+  solver_max_iter_per_restart = 20
+  solver_max_restart_iterations = 50
   ! solver_start_tolerance = 1.0E-08
   ! solver_tolerance_decrease_ratio = 0.1
 /
@@ -172,13 +172,15 @@ cat > ${ocean_namelist} << EOF
   i_sea_ice          =    1      ! 0 = no sea ice; 1 = Winton; 2 = Semtner
   no_tracer          =    2      ! tracer-transport: 0=no transport, 1=temperature, 2=temp. and salinity
   k_veloc_h          = 7.5E+4    ! [m2/s] horizontal viscosity coefficient for velocity
-  k_veloc_v          = 5.0E-5     ! [m/s]  vertical viscosity coefficient for velocity
-  MAX_VERT_DIFF_VELOC= 1.0       ! max diffusion coeff, used in implicit vertical velocity diffusion
-  k_pot_temp_h       = 1.0E+3    ! [m2/s] horizontal viscosity coefficient for temperature
-  k_pot_temp_v       = 1.0E-5    ! [m/s]  vertical viscosity coefficient for temperature
-  k_sal_h            = 1.0E+3    ! [m2/s] horizontal viscosity coefficient for salinity
-  k_sal_v            = 1.0E-5    ! [m/s]  vertical viscosity coefficient for salinity
-  MAX_VERT_DIFF_TRAC = 1.0E-3    ! max diffusion coeff, used in implicit vertical tracer diffusion
+  k_veloc_v          = 5.0E-5    ! [m/s]  vertical background viscosity coefficient for velocity
+  MAX_VERT_DIFF_VELOC= 1.0E-5    ! max diffusion coeff, used in implicit vertical velocity diffusion
+  k_pot_temp_h       = 1.0E+3    ! [m2/s] horizontal diffusion coefficient for temperature
+  k_pot_temp_v       = 1.0E-5    ! [m/s]  vertical background diffusion coefficient for temperature
+  k_sal_h            = 1.0E+3    ! [m2/s] horizontal diffusion coefficient for salinity
+  k_sal_v            = 1.0E-5    ! [m/s]  vertical background diffusion coefficient for salinity
+  MAX_VERT_DIFF_TRAC = 0.1       ! max diffusion coeff, used in implicit vertical tracer diffusion
+  richardson_factor_veloc  = 2.0e-3 ! z_av0 factor for vertical viscosity coefficient
+  richardson_factor_tracer = 2.0e-3 ! z_dv0 factor for vertical diffusion coefficient
 /
 &ocean_forcing_and_init_nml
   iforc_oce          = ${iforc}       ! ocean forcing:
@@ -194,6 +196,7 @@ cat > ${ocean_namelist} << EOF
                                  ! this value is divided by number of seconds per month (=30*24*3600)
   irelax_2d_S        =    1      ! 2-dim relaxation of salinity - see "temperature_relaxation" for parameter values
   relax_2d_mon_S     =    3.0    ! strength of 2-dim relaxation for salinity (months)
+  l_forc_freshw      = .FALSE.   ! apply freshwater forcing boundary condition (OMIP only)
 /
 &io_nml
   out_expname   = '${EXPNAME}'
