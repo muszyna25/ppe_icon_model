@@ -9,19 +9,19 @@
 !! U. Schulzweida, MPI, May 2002, blocking (nproma)
 !! L. Kornblueh, MPI, February 2013, adapted as temporary reader in ICON using cdi
 !!
+!! TODO: ctfreez in echam = 271.38, this is 271.45 K
+!
 MODULE mo_amip_bc
   
   USE mo_kind,               ONLY: dp
   USE mo_exception,          ONLY: finish, message, message_text
-  USE mo_mpi,                ONLY: my_process_is_stdio
+  USE mo_mpi,                ONLY: my_process_is_mpi_workroot
   USE mo_gather_scatter,     ONLY: scatter_cells_2D_time
   USE mo_model_domain,       ONLY: t_patch
-  USE mo_communication,      ONLY: idx_no, blk_no
   USE mo_parallel_config,    ONLY: nproma
   USE mo_datetime,           ONLY: t_datetime, add_time, date_to_time, idaylen, rdaylen
   USE mo_run_config,         ONLY: dtime
-  !TODO: ctfreez in echam = 271.38, this is 271.45 K
-  USE mo_physical_constants, ONLY: tmelt, tf_salt 
+  USE mo_physical_constants, ONLY: tf_salt !, tmelt 
 
   IMPLICIT NONE
 
@@ -54,12 +54,6 @@ MODULE mo_amip_bc
 
 CONTAINS
   
-  FUNCTION get_current_amip_bc_year() RESULT(this_year)
-    INTEGER :: this_year
-    this_year = current_year
-    RETURN
-  END FUNCTION get_current_amip_bc_year
-
   SUBROUTINE read_amip_bc(year, p_patch)
 
     INTEGER,       INTENT(in) :: year
@@ -67,12 +61,13 @@ CONTAINS
    
     REAL(dp), POINTER :: zin(:,:) => NULL()
     
-    LOGICAL       :: lexist
+    LOGICAL :: lexist
     
-    INTEGER :: j, k, jl, jb
-    
-    IF (my_process_is_stdio()) THEN
-    
+    ! global
+    IF (.NOT. ASSOCIATED(zin)) ALLOCATE(zin(p_patch%n_patch_cells_g, 0:13))
+
+    IF (my_process_is_mpi_workroot()) THEN
+   
       WRITE(message_text,'(a,a,a,i0)') &
            'Read AMIP SST from ', sst_fn, ' for ', year
       CALL message('',message_text)
@@ -80,7 +75,6 @@ CONTAINS
       INQUIRE (file=sst_fn, exist=lexist)
       IF (lexist) THEN
         CALL read_amip_data(sst_fn, year, zin)
-write (0,*) 'LK: sst = ', SUM(zin)
       ELSE
         WRITE (message_text,*) 'Could not open file ',sst_fn
         CALL message('',message_text)
@@ -91,12 +85,9 @@ write (0,*) 'LK: sst = ', SUM(zin)
 
     ! local
     IF (.NOT. ASSOCIATED(sst)) ALLOCATE (sst(nproma, p_patch%nblks_c, 0:13))
-    ! global
-    IF (.NOT. ASSOCIATED(zin)) ALLOCATE(zin(p_patch%n_patch_cells_g, 0:13))
-    
     CALL scatter_cells_2D_time(zin, sst, p_patch)
 
-    IF (my_process_is_stdio()) THEN
+    IF (my_process_is_mpi_workroot()) THEN
 
       WRITE(message_text,'(a,a,a,i0)') &
            'Read AMIP sea ice from ', sic_fn, ' for ', year
@@ -105,7 +96,6 @@ write (0,*) 'LK: sst = ', SUM(zin)
       INQUIRE (file=sic_fn, exist=lexist)
       IF (lexist) THEN
         CALL read_amip_data(sic_fn, year, zin)
- write (0,*) 'LK: sic = ', SUM(zin)
       ELSE
         WRITE (message_text,*) 'Could not open file ', sic_fn
         CALL message('',message_text)
@@ -116,8 +106,6 @@ write (0,*) 'LK: sst = ', SUM(zin)
 
     ! local
     IF (.NOT. ASSOCIATED(sic)) ALLOCATE (sic(nproma, p_patch%nblks_c, 0:13))
-    ! global part done before
-
     CALL scatter_cells_2D_time(zin, sic, p_patch)
     
     IF (ASSOCIATED(zin)) DEALLOCATE(zin)
@@ -130,7 +118,7 @@ write (0,*) 'LK: sst = ', SUM(zin)
     
     CHARACTER(len=*), INTENT(in) :: fn
     INTEGER, INTENT(in) :: y
-    REAL(dp), POINTER, INTENT(inout) :: zin(:,:)
+    REAL(dp), POINTER :: zin(:,:)
     
     INTEGER :: ngridsize
     INTEGER :: ym1, yp1
@@ -138,6 +126,8 @@ write (0,*) 'LK: sst = ', SUM(zin)
     INTEGER :: taxisID
     INTEGER :: vlistID, varID, streamID, tsID
     INTEGER :: nmiss, status, vdate, vyear, vmonth
+
+    REAL(dp), ALLOCATABLE :: buffer(:)
     
     ym1 = y-1
     yp1 = y+1
@@ -149,13 +139,15 @@ write (0,*) 'LK: sst = ', SUM(zin)
     END IF
     
     vlistID = streamInqVlist(streamID)
+    CALL vlistPrint(vlistID)
     varID = 0
     ngridsize = gridInqSize(vlistInqVarGrid(vlistID, varID))
-    ALLOCATE(zin(ngridsize,0:13))
-    
+
+    ALLOCATE(buffer(ngridsize))
+
     taxisID = vlistInqTaxis(vlistID)
     tsID = 0
-    
+
     DO
       status = streamInqTimestep(streamID, tsID)
       IF ( status == 0 ) EXIT
@@ -163,18 +155,29 @@ write (0,*) 'LK: sst = ', SUM(zin)
       vyear = vdate/10000
       vmonth = (vdate/100)-vyear*100
       IF (vyear == ym1 .AND. vmonth == 12) THEN
-        CALL streamReadVar(streamID, varID, zin(:,0), nmiss)
+        CALL streamReadVarslice(streamID, varID, 0, buffer, nmiss)
+write(0,'(1x,a,3f25.10)') 'LK: read amip data debug: ', &
+     minval(buffer), sum(buffer)/ngridsize, maxval(buffer)
+        zin(:,0) = buffer(:)
       ELSE IF (vyear == y) THEN
-        CALL streamReadVar(streamID, varID, zin(:,vmonth), nmiss)
+        CALL streamReadVarslice(streamID, varID, 0, buffer, nmiss)
+        zin(:,vmonth) = buffer(:)
+write(0,'(1x,a,3f25.10)') 'LK; read amip data debug: ', &
+     minval(buffer), sum(buffer)/ngridsize, maxval(buffer)
       ELSE IF (vyear == yp1 .AND. vmonth == 1) THEN
-        CALL streamReadVar(streamID, varID, zin(:,13), nmiss)
+        CALL streamReadVarslice(streamID, varID, 0, buffer, nmiss)
+        zin(:,13) = buffer(:)
+write(0,'(1x,a,3f25.10)') 'LK: read amip data debug: ', &
+     minval(buffer), sum(buffer)/ngridsize, maxval(buffer)
         EXIT
       ENDIF
       tsID = tsID+1
     END DO
-    
+
     CALL streamClose(streamID)
     
+    DEALLOCATE(buffer)
+
   END SUBROUTINE read_amip_data
 
   SUBROUTINE amip_time_weights(current_date)
@@ -312,11 +315,14 @@ write (0,*) 'LK: sst = ', SUM(zin)
       tsw(:,:) = zts(:,:)
     ENDWHERE
 
-write(0,*) 'LK: sst = ', SUM(tsw)
-write(0,*) 'LK: sic = ', SUM(seaice)
-
     CALL message('','Interpolated AMIP SST and sea ice.')
 
   END SUBROUTINE amip_time_interpolation
+
+  FUNCTION get_current_amip_bc_year() RESULT(this_year)
+    INTEGER :: this_year
+    this_year = current_year
+    RETURN
+  END FUNCTION get_current_amip_bc_year
 
 END MODULE mo_amip_bc
