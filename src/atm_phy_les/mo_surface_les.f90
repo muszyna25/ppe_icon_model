@@ -63,6 +63,7 @@ MODULE mo_surface_les
   USE mo_satad,               ONLY: spec_humi, sat_pres_water
   USE mo_nwp_phy_types,       ONLY: t_nwp_phy_diag, t_nwp_phy_tend
   USE mo_les_config,          ONLY: les_config
+  USE mo_math_constants,      ONLY: pi_2, ln2
 
   IMPLICIT NONE
 
@@ -73,6 +74,13 @@ MODULE mo_surface_les
   PUBLIC :: surface_conditions, min_wind
 
   REAL(wp), PARAMETER :: min_wind = 0.1_wp
+ 
+  !Parameters for surface layer parameterizations: From RB Stull's book
+  REAL(wp), PARAMETER :: bsm = 4.7_wp  !Businger Stable Momentum
+  REAL(wp), PARAMETER :: bum = 15._wp  !Businger Untable Momentum
+  REAL(wp), PARAMETER :: bsh = 4.7_wp  !Businger Stable Heat
+  REAL(wp), PARAMETER :: buh = 9._wp   !Businger Untable Heat
+  REAL(wp), PARAMETER :: Pr  = 0.74_wp !Km/Kh factor
 
   CONTAINS
 
@@ -100,10 +108,10 @@ MODULE mo_surface_les
     REAL(wp),          INTENT(in)        :: theta(:,:,:)  !pot temp  
     REAL(wp),          INTENT(out)       :: theta_sfc(:,:)!sfc pot temp  
     REAL(wp),          INTENT(in)        :: qv(:,:,:)     !spec humidity
- 
+
     REAL(wp) :: rhos, th0_srf, obukhov_length, z_mc, ustar, mwind, bflux
     REAL(wp) :: zrough, pres_sfc(nproma,p_patch%nblks_c), exner
-    REAL(wp) :: theta_sfc_new
+    REAL(wp) :: theta_sfc_new, th_grad, qv_grad, theta_ic, qv_ic, phi
     INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
     INTEGER :: rl_start, rl_end
     INTEGER :: jk, jb, jc
@@ -144,7 +152,7 @@ MODULE mo_surface_les
       jk = nlev
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jc,jb,i_startidx,i_endidx,th0_srf,bflux,mwind,ustar,z_mc, &
-!$OMP            exner,zrough,obukhov_length,rhos),ICON_OMP_RUNTIME_SCHEDULE
+!$OMP phi,th_grad,theta_ic,exner,zrough,obukhov_length,rhos),ICON_OMP_RUNTIME_SCHEDULE
       DO jb = i_startblk,i_endblk
          CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
                             i_startidx, i_endidx, rl_start, rl_end)
@@ -179,22 +187,36 @@ MODULE mo_surface_les
             !"-" sign in the begining because ustar*thstar = -shflx
             obukhov_length = -ustar**3 * les_config(jg)%rkarman_constant / bflux
  
-            theta_sfc(jc,jb) = theta(jc,jk,jb) + les_config(jg)%shflx / ustar * &
-                               businger_heat(zrough,z_mc,obukhov_length) 
+            !Following step is only a fix to get correct gradient for calculating
+            !reasonable kh:
+
+            !Get surface theta to satisfy the flux profile: set gradient
+            phi     = phi_heat(z_mc,obukhov_length)
+
+            th_grad = -les_config(jg)%shflx*phi*les_config(jg)%rkarman_constant/(ustar*z_mc)          
+            
+            theta_ic  = p_nh_metrics%wgtfac_c(jc,jk,jb) * theta(jc,jk,jb) + &
+                        (1._wp - p_nh_metrics%wgtfac_c(jc,jk,jb)) * theta(jc,jk-1,jb)
+
+            theta_sfc(jc,jb) = theta_ic - th_grad * p_nh_metrics%ddqz_z_full(jc,jk,jb)
+
+            !theta_sfc(jc,jb) = theta(jc,jk,jb) + les_config(jg)%shflx / ustar * &
+            !                   businger_heat(zrough,z_mc,obukhov_length) 
 
             p_prog_lnd_now%t_g(jc,jb) = theta_sfc(jc,jb) * exner
 
-            !Get surface qv 
+            !Get surface qv normally
             p_diag_lnd%qv_s(jc,jb) = qv(jc,jk,jb) + les_config(jg)%lhflx / ustar * &
                                      businger_heat(zrough,z_mc,obukhov_length) 
 
             !Get surface fluxes
             rhos   =  pres_sfc(jc,jb)/( rd * &
                       p_prog_lnd_now%t_g(jc,jb)*(1._wp+0.61_wp*p_diag_lnd%qv_s(jc,jb)) )  
+
             prm_diag%shfl_s(jc,jb)  = les_config(jg)%shflx * rhos * cpd
             prm_diag%lhfl_s(jc,jb)  = les_config(jg)%lhflx * rhos * alv
             prm_diag%umfl_s(jc,jb)  = ustar**2  * rhos
-
+          
          END DO  
       END DO
 !$OMP END DO NOWAIT
@@ -212,7 +234,7 @@ MODULE mo_surface_les
       jk = nlev
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jc,jb,i_startidx,i_endidx,exner,zrough,th0_srf,theta_sfc_new,itr, &
-!$OMP            mwind,z_mc,ustar,rhos),ICON_OMP_RUNTIME_SCHEDULE
+!$OMP  mwind,z_mc,ustar,obukhov_length,th_grad,theta_ic,rhos),ICON_OMP_RUNTIME_SCHEDULE 
       DO jb = i_startblk,i_endblk
          CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
                             i_startidx, i_endidx, rl_start, rl_end)
@@ -253,6 +275,24 @@ MODULE mo_surface_les
               ustar = les_config(jg)%ufric
             END IF
 
+            !------------------------------------------------------------------
+            !Following step is only a fix to get correct gradient for calculating
+            !reasonable kh:
+            !Overwrite surface theta to satisfy the flux profile using the flux
+            !calculated using theta_sfc calculated above
+            !------------------------------------------------------------------
+
+            !"-" sign in the begining because ustar*thstar = -shflx
+            obukhov_length = -ustar**3 * les_config(jg)%rkarman_constant / les_config(jg)%bflux
+ 
+            th_grad = -les_config(jg)%tran_coeff*(theta_sfc(jc,jb)-theta(jc,jk,jb))* &
+                       phi_heat(z_mc,obukhov_length)*les_config(jg)%rkarman_constant/(ustar*z_mc)          
+            
+            theta_ic  = p_nh_metrics%wgtfac_c(jc,jk,jb) * theta(jc,jk,jb) + &
+                        (1._wp - p_nh_metrics%wgtfac_c(jc,jk,jb)) * theta(jc,jk-1,jb)
+
+            theta_sfc(jc,jb) = theta_ic - th_grad * p_nh_metrics%ddqz_z_full(jc,jk,jb)
+              
             !Surface temperature
             p_prog_lnd_now%t_g(jc,jb) = theta_sfc(jc,jb) * exner
 
@@ -282,56 +322,82 @@ MODULE mo_surface_les
   !! Businger Dyer similarity profile for neutral and unstable case for scalars
   !! Stable case is still to be done
   !! Beniot, On the integral of the surface layer profile-gradient functions (JAM), 1977
+  !! and R. B. Stull's book
   !!------------------------------------------------------------------------
   !! @par Revision History
   !! Initial release by Anurag Dipankar, MPI-M (2013-02-06)
   FUNCTION businger_heat(z0, z1, L) RESULT(factor)
      REAL(wp), INTENT(IN) :: z0, z1, L
-     REAL(wp) :: factor, zeta, zeta0, lamda, lamda0
+     REAL(wp) :: factor, zeta, lamda, psi
 
      IF(L > 0._wp)THEN !Stable
-
-       !To be done
-
+       zeta   = z1/L 
+       psi    = -bsh*zeta
      ELSE !unstable or neutral
        zeta   = z1/L 
-       zeta0  = z0/L 
-       lamda  = SQRT(1._wp - 9._wp*zeta)  
-       lamda0 = SQRT(1._wp - 9._wp*zeta0)  
-        
-       factor = 0.74_wp * ( LOG(z1/z0) + 2._wp*(LOG(1._wp+lamda0)-LOG(1._wp+lamda)) ) &
-                * les_config(1)%rkarman_constant
+       lamda  = SQRT(1._wp - buh*zeta)  
+       psi    = 2._wp * ( LOG(1._wp+lamda) - ln2 )
      END IF 
+     factor = Pr * ( LOG(z1/z0) - psi ) * les_config(1)%rkarman_constant
 
   END FUNCTION businger_heat 
+  !-----------------------------------------------------------------------------
+  !-----------------------------------------------------------------------------
+  FUNCTION phi_heat(z1, L) RESULT(factor)
+     REAL(wp), INTENT(IN) :: z1, L
+     REAL(wp) :: factor, zeta, lamda
+
+     IF(L > 0._wp)THEN !Stable
+       zeta   = z1/L 
+       lamda  = bsh*zeta
+       factor = Pr + lamda
+     ELSE !unstable or neutral
+       zeta   = z1/L 
+       lamda  = SQRT(1._wp - buh*zeta)  
+       factor = Pr / SQRT(lamda)
+     END IF 
+
+  END FUNCTION phi_heat 
 
   !>
   !! factor_mom
   !!------------------------------------------------------------------------
   !! Businger Dyer similarity profile for neutral and unstable case for velocities
   !! Beniot, On the integral of the surface layer profile-gradient functions (JAM), 1977
+  !! and R. B. Stull's book
   !!------------------------------------------------------------------------
   FUNCTION businger_mom(z0, z1, L) RESULT(factor)
      REAL(wp), INTENT(IN) :: z0, z1, L
-     REAL(wp) :: factor, zeta, zeta0, lamda, lamda0
+     REAL(wp) :: factor, zeta, psi, lamda
 
      IF(L > 0._wp)THEN !Stable
-
-       !To be done
-
+       zeta = z1/L 
+       psi  = -bsm*zeta
      ELSE !unstable or neutral
        zeta   = z1/L 
-       zeta0  = z0/L 
-       lamda  = SQRT(SQRT(1._wp - 15._wp*zeta))  
-       lamda0 = SQRT(SQRT(1._wp - 15._wp*zeta0))  
-        
-       factor = les_config(1)%rkarman_constant * &
-                ( LOG(z1/z0) + LOG((1._wp+lamda0**2)*(1._wp+lamda0)**2) - &
-                  LOG((1._wp+lamda**2)*(1._wp+lamda)**2) + 2._wp * (      &
-                  ATAN(lamda) - ATAN(lamda0) )  )
+       lamda  = SQRT(SQRT(1._wp - bum*zeta))  
+       psi    = 2._wp * LOG(1._wp+lamda) + LOG(1._wp+lamda*lamda) - &
+                2._wp * ATAN(lamda) + pi_2 - 3._wp*ln2
      END IF
+     factor = les_config(1)%rkarman_constant * ( LOG(z1/z0) - psi )
 
   END FUNCTION businger_mom 
+  !-----------------------------------------------------------------------------
+  !-----------------------------------------------------------------------------
+  FUNCTION phi_mom(z1, L) RESULT(factor)
+     REAL(wp), INTENT(IN) :: z1, L
+     REAL(wp) :: factor, zeta, lamda
+
+     IF(L > 0._wp)THEN !Stable
+       zeta   = z1/L 
+       factor = 1._wp + bsm * zeta
+     ELSE !unstable or neutral
+       zeta   = z1/L 
+       lamda  = SQRT(SQRT(1._wp - bum*zeta))  
+       factor = 1._wp / lamda
+     END IF
+
+  END FUNCTION phi_mom 
 
   !>
   !! diagnose ustar

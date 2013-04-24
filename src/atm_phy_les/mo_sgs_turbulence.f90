@@ -81,7 +81,7 @@ MODULE mo_sgs_turbulence
   !Variables for the module
   REAL(wp), ALLOCATABLE, DIMENSION(:,:,:) :: D_11c, D_12v, visc_smag_v, visc_smag_ie, diff_smag_e, &
                                              visc_smag_c, rho_e, D_31c, D_32v, DIV_c
-
+  
   CONTAINS
 
   !>
@@ -663,7 +663,7 @@ MODULE mo_sgs_turbulence
            brunt_vaisala_frq = grav * (theta_v_ie(je,jk,jb)-theta_v_ie(je,jk+1,jb)) / &
                               (theta_v_e(je,jk,jb)*p_nh_metrics%ddqz_z_full_e(je,jk,jb)) 
 
-           visc_smag_e(je,jk,jb) = rho_e(je,jk,jb) * MAX( 0.1_wp, mixing_length_sq * &
+           visc_smag_e(je,jk,jb) = rho_e(je,jk,jb) * MAX( 0.001_wp, mixing_length_sq * &
                 SQRT(MAX(0._wp, DD(je,jk,jb)*0.5_wp-les_config(1)%rturb_prandtl*brunt_vaisala_frq)) ) 
 
          END DO
@@ -752,13 +752,13 @@ MODULE mo_sgs_turbulence
        DO jk = 2 , nlev
          DO je = i_startidx, i_endidx
            !Arithmetic mean
-           !visc_smag_ie(je,jk,jb) = p_nh_metrics%wgtfac_e(je,jk,jb) * visc_smag_e(je,jk,jb) + &
-           !               (1._wp - p_nh_metrics%wgtfac_e(je,jk,jb)) * visc_smag_e(je,jk-1,jb)
+           visc_smag_ie(je,jk,jb) = p_nh_metrics%wgtfac_e(je,jk,jb) * visc_smag_e(je,jk,jb) + &
+                          (1._wp - p_nh_metrics%wgtfac_e(je,jk,jb)) * visc_smag_e(je,jk-1,jb)
             
            !Harmonic mean
-           visc_smag_ie(je,jk,jb) = visc_smag_e(je,jk,jb) * visc_smag_e(je,jk-1,jb) / &
-                        ( p_nh_metrics%wgtfac_e(je,jk,jb) * visc_smag_e(je,jk,jb) +   &
-                         (1._wp - p_nh_metrics%wgtfac_e(je,jk,jb)) * visc_smag_e(je,jk-1,jb) )
+           !visc_smag_ie(je,jk,jb) = visc_smag_e(je,jk,jb) * visc_smag_e(je,jk-1,jb) / &
+           !             ( p_nh_metrics%wgtfac_e(je,jk,jb) * visc_smag_e(je,jk,jb) +   &
+           !              (1._wp - p_nh_metrics%wgtfac_e(je,jk,jb)) * visc_smag_e(je,jk-1,jb) )
 
          END DO
        END DO     
@@ -773,9 +773,8 @@ MODULE mo_sgs_turbulence
         !At the TOP boundary: keeping it non-zero value 
         visc_smag_ie(je,1,jb) = visc_smag_ie(je,2,jb)
  
-        !At the bottom: temporary fix because we will use surface flux directly while solving
-        !the diffusion equation. Need to get proper surface scheme and derive visc_smag_ie
-        !from there
+        !At the bottom: simple extrapolation because we will use surface flux directly 
+        !while solving the diffusion equation. 
         visc_smag_ie(je,nlevp1,jb) = visc_smag_ie(je,nlev,jb) 
        END DO
     END DO  
@@ -823,13 +822,13 @@ MODULE mo_sgs_turbulence
            kh_km1  = visc_smag_c(jc,jk-1,jb) * les_config(1)%rturb_prandtl
        
            !Harmonic mean
-           diff_smag_ic(jc,jk,jb) = kh_k * kh_km1 / (                               & 
-                                    p_nh_metrics%wgtfac_c(jc,jk,jb) * kh_k +        &
-                                   (1._wp - p_nh_metrics%wgtfac_c(jc,jk,jb)) * kh_km1 )
+           !diff_smag_ic(jc,jk,jb) = kh_k * kh_km1 / (                               & 
+           !                         p_nh_metrics%wgtfac_c(jc,jk,jb) * kh_k +        &
+           !                        (1._wp - p_nh_metrics%wgtfac_c(jc,jk,jb)) * kh_km1 )
 
            !Arithmetic mean
-           !diff_smag_ic(jc,jk,jb) = p_nh_metrics%wgtfac_c(jc,jk,jb) * kh_k +        &
-           !                        (1._wp - p_nh_metrics%wgtfac_c(jc,jk,jb)) * kh_km1
+           diff_smag_ic(jc,jk,jb) = p_nh_metrics%wgtfac_c(jc,jk,jb) * kh_k +        &
+                                   (1._wp - p_nh_metrics%wgtfac_c(jc,jk,jb)) * kh_km1
 
          END DO
        END DO     
@@ -844,9 +843,8 @@ MODULE mo_sgs_turbulence
         !At the TOP boundary: keeping it non-zero value
         diff_smag_ic(jc,1,jb) = diff_smag_ic(jc,2,jb)
  
-        !At the bottom: temporary fix because we will use surface flux directly while solving
-        !the diffusion equation. Need to get proper surface scheme and derive diff_smag_ie
-        !from there
+        !At the bottom: simple extrapolation because we will use surface flux directly 
+        !while solving the diffusion equation. 
         diff_smag_ic(jc,nlevp1,jb) = diff_smag_ic(jc,nlev,jb) 
        END DO
     END DO  
