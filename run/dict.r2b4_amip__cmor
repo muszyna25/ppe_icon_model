@@ -1,0 +1,91 @@
+# The following table defines the dictionary for the mapping  between
+# user defined short names and short names defined in the "add_var"
+# calls in ICON. The "add_var" names are used by default.
+#
+# This file contains a dictionary for the mapping between "add_var"
+# names and CMOR or CMOR inspired names.
+
+# variables from the dynamical core with prefix 'ha_prog_out'
+# -----------------------------------------------------------
+#
+# CMOR names         "add_var" name
+# ---------------------------------
+#
+  ps                 ha_prog_out_pres_sfc
+  ta                 ha_prog_out_temp
+  hus                ha_prog_out_qv
+  clw                ha_prog_out_qw
+  cli                ha_prog_out_qi
+
+# variables from the dynamical core with prefix 'ha_diag_out'
+# -----------------------------------------------------------
+#
+# CMOR names         "add_var" name
+# ---------------------------------
+#
+  ua                 ha_diag_out_u
+  va                 ha_diag_out_v
+  wap                ha_diag_out_wpres_mc
+  pfull              ha_diag_out_pres_mc
+#
+# other names        "add_var" name
+# ---------------------------------
+#
+  gpfull             ha_diag_out_geo_mc
+#
+
+# variables from the ECHAM6 physics with prefix 'prm'
+# ---------------------------------------------------
+#
+# CMOR names         "add_var" name
+# ---------------------------------
+#
+  rsdt               prm_flxdwswtoa
+#
+  tro3               prm_o3
+#
+  ts                 prm_tsfc
+#
+  sic                prm_seaice
+  sit                prm_siced
+#
+  cl                 prm_aclc
+  clt                prm_aclcov
+#
+  pr                 prm_totprec_avg
+  prw                prm_qvi
+  clivi              prm_xivi
+#
+  hfls               prm_lhflx_avg
+  hfss               prm_shflx_avg
+  tauu               prm_u_stress_avg
+  tauv               prm_v_stress_avg
+#
+#
+# other names        "add_var" name
+# ---------------------------------
+#
+  cosmu0             prm_cosmu0
+#
+  rsns               prm_swflxsfc
+  rlns               prm_lwflxsfc
+  rsnt               prm_swflxtoa
+  rlnt               prm_lwflxtoa
+#
+  ts_wtr             prm_tsfc_wtr
+  ts_ice             prm_tsfc_ice
+  ts_lnd             prm_tsfc_lnd
+#
+  alb                prm_alb
+#
+  prlr               prm_rsfl
+  prcr               prm_rsfc
+  prls               prm_ssfl
+  prcs               prm_ssfc
+#
+  cllvi              prm_xlvi
+#
+  tauv_sso           prm_u_stress_sso
+  tauu_sso           prm_v_stress_sso
+  diss_sso           prm_dissipation_sso
+#

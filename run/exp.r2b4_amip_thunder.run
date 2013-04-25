@@ -334,7 +334,7 @@ atmo_model_equations=1                   # 1 = hydrost. atm., 2 = non-hydrost. a
 
 # define variable names
 #
-map_file='map.r2b4_amip__cmor'
+dict_file='dict.r2b4_amip__cmor'
 #
 #__________________________________________________________________________________________________
 # define the experiment: write ICON namelist parameters
@@ -367,8 +367,8 @@ cat > ${atmo_namelist} << EOF
  rh_at_1000hpa    = 0.30         ! [] initial rel. humidity at 1000 hPa 
 /
 &io_nml
- varnames_map_file     = '${map_file}_varlist'
- out_varnames_map_file = '${map_file}_outfile'
+ output_nml_dict  = '${dict_file}'
+ netcdf_dict      = '${dict_file}'
 /
 &dynamics_nml
  iequations       = ${atmo_model_equations}    ! 1: hydrost. atmosphere
@@ -575,10 +575,9 @@ cp -f $INDATA/r2b4_amip/lnd/bc_land_soil.nc                 ./
 cp -f $INDATA/r2b4_amip/lnd/bc_land_sso.nc                  ./
 
 #__________________________________________________________________________________________________
-# copy mapping file for variable names
+# copy dictionary file for variable names
 
-cp -f                 ${basedir}/run/${map_file}            ./${map_file}_outfile
-awk '{print($2,$1);}' ${basedir}/run/${map_file}  >         ./${map_file}_varlist
+cp -f ${basedir}/run/${dict_file}                           ./
 
 #__________________________________________________________________________________________________
 # copy restart files eventually

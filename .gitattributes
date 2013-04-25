@@ -614,6 +614,7 @@ run/README -text
 run/ana_varnames_map_file.txt -text
 run/compile_for_dev.mpi.ksh -text
 run/compile_for_developers.ksh -text
+run/dict.r2b4_amip__cmor -text
 run/exec.iconrun -text
 run/exp.couple_atmo-ocean -text
 run/exp.couple_atmo-radiation -text
@@ -700,7 +701,6 @@ run/grid.decompose_metis -text
 run/grid.remove_land_points -text
 run/grid.rescale_grid -text
 run/ico_grd_spr_sw_ref -text
-run/map.r2b4_amip__cmor -text
 run/mapfile_vlist.txt -text
 run/post.hom_lsm -text
 run/post.nh_dcmip_tc_51 -text
