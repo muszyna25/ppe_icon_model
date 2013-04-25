@@ -1122,7 +1122,8 @@ MODULE mo_sgs_turbulence
                          i_startidx, i_endidx, rl_start, rl_end)
       DO jk = 1 , nlev
        DO je = i_startidx, i_endidx
-         vn_new(je,jk,jb) = p_nh_prog%vn(je,jk,jb) + dt * tot_tend(je,jk,jb) 
+         !vn_new(je,jk,jb) = p_nh_prog%vn(je,jk,jb) + dt * tot_tend(je,jk,jb) 
+         p_nh_prog%vn(je,jk,jb) = p_nh_prog%vn(je,jk,jb) + dt * tot_tend(je,jk,jb) 
        END DO
       END DO
     END DO  
@@ -1131,30 +1132,30 @@ MODULE mo_sgs_turbulence
 
 
     !5) Get turbulent tendency at cell center
-    CALL sync_patch_array(SYNC_E, p_patch, vn_new)
-    CALL rbf_vec_interpol_cell(vn_new, p_patch, p_int, unew, vnew, opt_rlend=min_rlcell_int-1)
-
-    rl_start = 2
-    rl_end   = min_rlcell_int-1
-
-    i_startblk = p_patch%cells%start_blk(rl_start,1)
-    i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
-   
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx), ICON_OMP_RUNTIME_SCHEDULE
-    DO jb = i_startblk,i_endblk
-      CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-                         i_startidx, i_endidx, rl_start, rl_end)
-      DO jk = 1 , nlev
-       DO jc = i_startidx, i_endidx
-         ddt_u(jc,jk,jb) = ( unew(jc,jk,jb) - p_nh_diag%u(jc,jk,jb) ) / dt   
-         ddt_v(jc,jk,jb) = ( vnew(jc,jk,jb) - p_nh_diag%v(jc,jk,jb) ) / dt   
-       END DO
-      END DO
-    END DO  
-!$OMP END DO NOWAIT
-!$OMP END PARALLEL
-
+!    CALL sync_patch_array(SYNC_E, p_patch, vn_new)
+!    CALL rbf_vec_interpol_cell(vn_new, p_patch, p_int, unew, vnew, opt_rlend=min_rlcell_int-1)
+!
+!    rl_start = 2
+!    rl_end   = min_rlcell_int-1
+!
+!    i_startblk = p_patch%cells%start_blk(rl_start,1)
+!    i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
+!   
+!!$OMP PARALLEL
+!!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx), ICON_OMP_RUNTIME_SCHEDULE
+!    DO jb = i_startblk,i_endblk
+!      CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+!                         i_startidx, i_endidx, rl_start, rl_end)
+!      DO jk = 1 , nlev
+!       DO jc = i_startidx, i_endidx
+!         ddt_u(jc,jk,jb) = ( unew(jc,jk,jb) - p_nh_diag%u(jc,jk,jb) ) / dt   
+!         ddt_v(jc,jk,jb) = ( vnew(jc,jk,jb) - p_nh_diag%v(jc,jk,jb) ) / dt   
+!       END DO
+!      END DO
+!    END DO  
+!!$OMP END DO NOWAIT
+!!$OMP END PARALLEL
+!
 !    CALL sync_patch_array(SYNC_E, p_patch, tot_tend)
 !    CALL rbf_vec_interpol_cell(tot_tend, p_patch, p_int, ddt_u, ddt_v, opt_rlend=min_rlcell_int-1)
 
