@@ -198,10 +198,10 @@ MODULE mo_surface_les
             theta_ic  = p_nh_metrics%wgtfac_c(jc,jk,jb) * theta(jc,jk,jb) + &
                         (1._wp - p_nh_metrics%wgtfac_c(jc,jk,jb)) * theta(jc,jk-1,jb)
 
-            theta_sfc(jc,jb) = theta_ic - th_grad * p_nh_metrics%ddqz_z_full(jc,jk,jb)
+            !theta_sfc(jc,jb) = theta_ic - th_grad * p_nh_metrics%ddqz_z_full(jc,jk,jb)
 
-            !theta_sfc(jc,jb) = theta(jc,jk,jb) + les_config(jg)%shflx / ustar * &
-            !                   businger_heat(zrough,z_mc,obukhov_length) 
+            theta_sfc(jc,jb) = theta(jc,jk,jb) + les_config(jg)%shflx / ustar * &
+                               businger_heat(zrough,z_mc,obukhov_length) 
 
             p_prog_lnd_now%t_g(jc,jb) = theta_sfc(jc,jb) * exner
 
@@ -329,16 +329,25 @@ MODULE mo_surface_les
   FUNCTION businger_heat(z0, z1, L) RESULT(factor)
      REAL(wp), INTENT(IN) :: z0, z1, L
      REAL(wp) :: factor, zeta, lamda, psi
+     REAL(wp) :: zeta0, lamda0, psi0
 
      IF(L > 0._wp)THEN !Stable
        zeta   = z1/L 
+       zeta0  = z0/L 
        psi    = -bsh*zeta
-     ELSE !unstable or neutral
+       psi    = -bsh*zeta0
+       factor = Pr * (LOG(z1/z0) - psi + psi0) * les_config(1)%rkarman_constant
+     ELSEIF(L < 0._wp)THEN !unstable
        zeta   = z1/L 
+       zeta0  = z0/L 
        lamda  = SQRT(1._wp - buh*zeta)  
+       lamda0 = SQRT(1._wp - buh*zeta0)  
        psi    = 2._wp * ( LOG(1._wp+lamda) - ln2 )
+       psi0   = 2._wp * ( LOG(1._wp+lamda0) - ln2 )
+       factor = Pr * (LOG(z1/z0) - psi + psi0) * les_config(1)%rkarman_constant
+     ELSE !Neutral
+       factor = Pr * LOG(z1/z0) * les_config(1)%rkarman_constant
      END IF 
-     factor = Pr * ( LOG(z1/z0) - psi ) * les_config(1)%rkarman_constant
 
   END FUNCTION businger_heat 
   !-----------------------------------------------------------------------------
@@ -351,10 +360,12 @@ MODULE mo_surface_les
        zeta   = z1/L 
        lamda  = bsh*zeta
        factor = Pr + lamda
-     ELSE !unstable or neutral
+     ELSEIF(L < 0._wp)THEN !unstable
        zeta   = z1/L 
        lamda  = SQRT(1._wp - buh*zeta)  
        factor = Pr / SQRT(lamda)
+     ELSE !neutral
+       factor = Pr 
      END IF 
 
   END FUNCTION phi_heat 
@@ -369,17 +380,31 @@ MODULE mo_surface_les
   FUNCTION businger_mom(z0, z1, L) RESULT(factor)
      REAL(wp), INTENT(IN) :: z0, z1, L
      REAL(wp) :: factor, zeta, psi, lamda
+     REAL(wp) :: zeta0, psi0, lamda0
 
      IF(L > 0._wp)THEN !Stable
-       zeta = z1/L 
+       zeta  = z1/L 
+       zeta0 = z0/L 
        psi  = -bsm*zeta
-     ELSE !unstable or neutral
+       psi0 = -bsm*zeta0
+
+       factor = les_config(1)%rkarman_constant * ( LOG(z1/z0) - psi + psi0 )
+     ELSEIF(L < 0._wp)THEN !unstable
        zeta   = z1/L 
+       zeta0  = z0/L 
        lamda  = SQRT(SQRT(1._wp - bum*zeta))  
+       lamda0 = SQRT(SQRT(1._wp - bum*zeta0))  
+
        psi    = 2._wp * LOG(1._wp+lamda) + LOG(1._wp+lamda*lamda) - &
                 2._wp * ATAN(lamda) + pi_2 - 3._wp*ln2
+
+       psi0   = 2._wp * LOG(1._wp+lamda0) + LOG(1._wp+lamda0*lamda0) - &
+                2._wp * ATAN(lamda0) + pi_2 - 3._wp*ln2
+
+       factor = les_config(1)%rkarman_constant * ( LOG(z1/z0) - psi + psi0 )
+     ELSE !neutral
+       factor = les_config(1)%rkarman_constant * LOG(z1/z0) 
      END IF
-     factor = les_config(1)%rkarman_constant * ( LOG(z1/z0) - psi )
 
   END FUNCTION businger_mom 
   !-----------------------------------------------------------------------------
@@ -391,10 +416,12 @@ MODULE mo_surface_les
      IF(L > 0._wp)THEN !Stable
        zeta   = z1/L 
        factor = 1._wp + bsm * zeta
-     ELSE !unstable or neutral
+     ELSEIF(L < 0._wp)THEN !unstable 
        zeta   = z1/L 
        lamda  = SQRT(SQRT(1._wp - bum*zeta))  
        factor = 1._wp / lamda
+     ELSE !neutral
+       factor  = 1._wp
      END IF
 
   END FUNCTION phi_mom 
