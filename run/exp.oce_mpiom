@@ -171,16 +171,17 @@ cat > ${ocean_namelist} << EOF
 &ocean_physics_nml
   i_sea_ice          =    1      ! 0 = no sea ice; 1 = Winton; 2 = Semtner
   no_tracer          =    2      ! tracer-transport: 0=no transport, 1=temperature, 2=temp. and salinity
-  k_veloc_h          = 7.5E+4    ! [m2/s] horizontal viscosity coefficient for velocity
+  !k_veloc_h          = 7.5E+4    ! [m2/s] horizontal viscosity coefficient for velocity
+  HORZ_VELOC_DIFF_TYPE = 3       ! use varying horizontal viscosity coefficient according to Munk criterion
   k_veloc_v          = 5.0E-5    ! [m/s]  vertical background viscosity coefficient for velocity
-  MAX_VERT_DIFF_VELOC= 1.0E-5    ! max diffusion coeff, used in implicit vertical velocity diffusion
+  richardson_factor_veloc  = 2.0e-3 ! factor for vertical viscosity coefficient in PP scheme
+  MAX_VERT_DIFF_VELOC= 1.0E-5    ! max vertical velocity viscosity for convection used in case of instability
   k_pot_temp_h       = 1.0E+3    ! [m2/s] horizontal diffusion coefficient for temperature
   k_pot_temp_v       = 1.0E-5    ! [m/s]  vertical background diffusion coefficient for temperature
   k_sal_h            = 1.0E+3    ! [m2/s] horizontal diffusion coefficient for salinity
   k_sal_v            = 1.0E-5    ! [m/s]  vertical background diffusion coefficient for salinity
-  MAX_VERT_DIFF_TRAC = 0.1       ! max diffusion coeff, used in implicit vertical tracer diffusion
-  richardson_factor_veloc  = 2.0e-3 ! z_av0 factor for vertical viscosity coefficient
-  richardson_factor_tracer = 2.0e-3 ! z_dv0 factor for vertical diffusion coefficient
+  richardson_factor_tracer = 2.0e-3 ! factor for vertical diffusion coefficient in PP scheme
+  MAX_VERT_DIFF_TRAC = 0.1       ! max vertical tracer diffusion for convection used in case of instability
 /
 &ocean_forcing_and_init_nml
   iforc_oce          = ${iforc}       ! ocean forcing:
@@ -196,7 +197,7 @@ cat > ${ocean_namelist} << EOF
                                  ! this value is divided by number of seconds per month (=30*24*3600)
   irelax_2d_S        =    1      ! 2-dim relaxation of salinity - see "temperature_relaxation" for parameter values
   relax_2d_mon_S     =    3.0    ! strength of 2-dim relaxation for salinity (months)
-  l_forc_freshw      = .FALSE.   ! apply freshwater forcing boundary condition (OMIP only)
+  l_forc_freshw      = .TRUE.    ! apply freshwater forcing boundary condition (OMIP only)
 /
 &io_nml
   out_expname   = '${EXPNAME}'
