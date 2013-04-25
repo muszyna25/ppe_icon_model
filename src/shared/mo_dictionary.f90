@@ -271,7 +271,7 @@ CONTAINS
       IF(ist > 0) CALL finish(routine, 'Read error in dictionary file '//TRIM(filename))
       CALL parse_line(line,key,val,valid)
       IF(valid) THEN
-        IF (.NOT. linverse) THEN
+        IF (.NOT. lread_inverse) THEN
           CALL  dict_set(dict, TRIM(key), TRIM(val))
         ELSE
           CALL  dict_set(dict, TRIM(val), TRIM(key))
