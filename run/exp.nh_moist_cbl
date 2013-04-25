@@ -119,8 +119,10 @@ cat > ${atmo_namelist} << EOF
  tran_coeff        = 0.01   !m/s
 /
 &diffusion_nml
- lhdiff_temp  = .FALSE.
- lhdiff_vn    = .FALSE.
+ lhdiff_temp  = .TRUE.
+ lhdiff_vn    = .TRUE
+ lhdiff_w     = .TRUE.
+ hdiff_order  = 4
 /
 &nwp_phy_nml
 inwp_gscp       = 0
