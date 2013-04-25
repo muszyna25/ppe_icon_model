@@ -1,6 +1,6 @@
 #!/bin/bash
 #__________________________________________________________________________________________________
-#
+# SLURM destructs $0!
 job_name=exp.r2b4_amip_thunder.run
 #
 #__________________________________________________________________________________________________
@@ -29,24 +29,26 @@ restart=${restart:=".false."}
 #
 #AUTOMATIC_RESTART_SETUP:
 #END AUTOMATIC_RESTART_SETUP
-
 #__________________________________________________________________________________________________
 # set error checking
-
 set -eu
-
 #__________________________________________________________________________________________________
 # function definitions
 
-red=$(tput setaf 1) 
-green=$(tput setaf 2)
-blue=$(tput setaf 4) 
-
-bgcolor=$(tput sgr0)
-
-redln() { echo "${red}${1}${bgcolor}"; }
-blueln() { echo "${blue}${1}${bgcolor}"; }
-greenln() { echo "${green}${1}${bgcolor}"; }
+if [[ ${ENVIRONMENT:-} = BATCH ]]
+then 
+    redln() { echo "${1}"; }
+    blueln() { echo "${1}"; }
+    greenln() { echo "${1}"; }
+else
+    red=$(tput setaf 1) 
+    green=$(tput setaf 2)
+    blue=$(tput setaf 4) 
+    bgcolor=$(tput sgr0)
+    redln() { echo "${red}${1}${bgcolor}"; }
+    blueln() { echo "${blue}${1}${bgcolor}"; }
+    greenln() { echo "${green}${1}${bgcolor}"; }
+fi
 
 os() { echo $(uname -s); }
 fqdn() { echo $(perl -l -mNet::Domain -e 'print Net::Domain::hostfqdn()'); }
@@ -64,21 +66,13 @@ check_error()
     then
       STATUS_FILE=${basedir}/.status.file
     fi
-    
     echo "$1" > ${STATUS_FILE}
     echo "$1" > ${basedir}/run/${job_name}.status
-
     if [[ $1 != 0 ]] 
     then
-    	if [[ ${ENVIRONMENT:-} = BATCH ]]
-    	then 
-            redln "BATCH_SYSTEM_ERROR: JOB_%HOSTNAME%_%PID%: RC = $2"
-	else
-            redln "check_error() : $2"
-        fi
+        redln "check_error() : $2"
         exit $1
     fi
-
 }
 
 # Arguments:
@@ -91,16 +85,10 @@ warning()
         blueln "warning() : $2"
     fi
 }
-
-#__________________________________________________________________________________________________
-# settings:
-
-redln  "__________________________________________________________________________________________"
 printenv | sort
-redln  "__________________________________________________________________________________________"
-
-userid=$(id -u)
-case $userid in
+#__________________________________________________________________________________________________
+# 
+case $(id -u) in
     1402)
 	user="Monika"
 	;;
@@ -128,8 +116,6 @@ case $userid in
 	exit -1
 	;;
 esac
-
-# ICON base path:
 
 case $user in
     Luis)
@@ -182,15 +168,6 @@ blueln "________________________________________________________________________
 blueln "ICON base directory: $basedir" 
 blueln "User: $user"
 
-export ICON_BASE_PATH=$basedir
-
-if [[ ${ENVIRONMENT:-} = BATCH ]]
-then
-    blueln "Running: $SLURM_JOB_NAME"
-    blueln "Number of nodes: $SLURM_NNODES"
-    blueln "Tasks per node: $SLURM_TASKS_PER_NODE"
-fi
-
 #__________________________________________________________________________________________________
 # target parameters
 
@@ -198,14 +175,14 @@ site=$(fqdn); site=${site#*.*.};
 target=$(fqdn); target=${target%%.*}
 
 #__________________________________________________________________________________________________
-# runtime options (nproma, MPI, OpenMP, limits)
+# runtime options (nproma, MPI, OpenMP)
 
 if [[ ${ENVIRONMENT:-} = BATCH ]]
 then
     greenln "Run in batch mode"
-    submit=sbatch
     greenln "Submit directory: $SLURM_SUBMIT_DIR"
     greenln "Nodelist: $SLURM_NODELIST"
+    submit=sbatch
 else
     greenln "Run interactively"
     submit=""
@@ -227,12 +204,14 @@ case $user in
     Luis)
 	case $(hostname) in
 	    thunder*|ctc*)
-		mpi_root=/sw/squeeze-x64/mpi/openmpi_ib-1.6.2-static-nag52
-		mpiexec_cmd="mpiexec" 
+		mpi_root=/sw/squeeze-x64/mpi/openmpi_ib-1.6.4-static-intel13
+		mpiexec_cmd="mpiexec"
+		mpiexec_options="--mca btl self,sm,openib --bind-to-core --bycore"
 		;;
 	    wanglung*)
 		mpi_root=/opt/local
 		mpiexec_cmd="openmpiexec" 
+                mpiexec_options=""
 		;;
 	esac
 
@@ -240,10 +219,12 @@ case $user in
     Monika|Marco|Thorsten|Thomas|Reiner)
 	mpi_root=/sw/squeeze-x64/mpi/openmpi_ib-1.6.2-static-gcc46
 	mpiexec_cmd="mpiexec" 
+	mpiexec_options="--mca btl self,sm,openib --bind-to-core --bycore"
 	;;
     Sebastian)
 	mpi_root=""
 	mpiexec_cmd=""
+        mpiexec_options=""
 	redln "Add mpi_root directory here ..."
 	redln "Add mpiexec cmd here ..."
 	exit 1
@@ -256,25 +237,20 @@ case $(hostname) in
         mpi_procs_pernode=8
         ;;
     ctc*)
-        no_of_nodes=4
-        mpi_procs_pernode=16
+        no_of_nodes=$SLURM_NNODES
+        mpi_procs_pernode=$SLURM_NTASKS_PER_NODE
         ;;    
     *)
-	    no_of_nodes=1
+        no_of_nodes=1
         mpi_procs_pernode=2
         ;;
 esac
 (( mpi_total_procs = no_of_nodes * mpi_procs_pernode ))
 
 greenln "   MPI setup:"
-greenln "                 MPI root = $mpi_root"
-greenln "                 MPI exec = $mpiexec_cmd"
+greenln "                 MPI root  = $mpi_root"
+greenln "                 MPI exec  = $mpiexec_cmd"
 greenln "                 MPI tasks = $mpi_total_procs" 
-
-if [[ "$(os)" = "Linux" ]]
-then
-    ulimit -s unlimited
-fi
 
 #__________________________________________________________________________________________________
 # experiment directory, with plenty of space, create if new
@@ -308,7 +284,6 @@ blueln "Grid file     : $atmo_dyn_grids"
 # vertical grid
 nlev=47              
 
-
 # define model timing
 #
 second=1                                 # [s] 1 second
@@ -319,10 +294,11 @@ day=86400                                # [s] 1 day
 start_date="1978-01-01T00:00:00Z"        # start and end date
   end_date="1979-01-01T00:00:00Z"        # of the experiment
 #
-(( dt_restart     = 10 * day          )) # [s] time between restarts = length of run
+(( dt_restart     = 30 * day          )) # [s] time between restarts = length of run
+(( dt_checkpoint  =  5 * day          )) # [s] time between additional restart file writing
 #
-(( dt_file        =  1 * day          )) # [s] data file interval
-(( dt_data        =  6 * hour         )) # [s] data output interval
+(( dt_file        =  1 * hour         )) # [s] data file interval
+(( dt_data        = 30 * minute       )) # [s] data output interval
 (( steps_per_file = dt_file / dt_data )) # output intervals per file interval
 
 # define model configuration
@@ -367,6 +343,7 @@ cat > ${atmo_namelist} << EOF
  rh_at_1000hpa    = 0.30         ! [] initial rel. humidity at 1000 hPa 
 /
 &io_nml
+dt_checkpoint     = ${dt_checkpoint} ! [s] trigger new restart file
  output_nml_dict  = '${dict_file}'
  netcdf_dict      = '${dict_file}'
 /
@@ -510,6 +487,7 @@ done
 # get vertical grid files
 
 VGRIDDIR=${basedir}/vertical_coord_tables
+
 if [[ $atmo_model_equations = 3 ]]
 then
     VGRIDNAME=atm_hyb_sz_${nlev}
@@ -608,6 +586,15 @@ cat > $master_namelist << EOF
  ini_datetime_string = "$start_date"
  dt_restart          = $dt_restart
 /
+&master_model_nml
+  model_name="atmo"
+  model_namelist_filename="NAMELIST_r2b4_amip_atmo"
+  model_restart_info_filename=""
+  model_type=1
+  model_min_rank=0
+  model_max_rank=65535
+  model_inc_rank=1
+/
 EOF
 else
 cat > $master_namelist << EOF
@@ -619,8 +606,16 @@ cat > $master_namelist << EOF
  end_datetime_string = "$end_date"
  dt_restart          = $dt_restart
  /
+&master_model_nml
+  model_name="atmo"
+  model_namelist_filename="NAMELIST_r2b4_amip_atmo"
+  model_restart_info_filename=""
+  model_type=1
+  model_min_rank=0
+  model_max_rank=65535
+  model_inc_rank=1
+/
 EOF
-
 fi
 
 cat > $jsbach_master_namelist << EOF
@@ -637,69 +632,26 @@ cat > $jsbach_master_namelist << EOF
 /
 EOF
 
-minrank_list[0]=0
-maxrank_list[0]=65535
-incrank_list[0]=1
-namelist_list[0]="$atmo_namelist"
-modelname_list[0]="atmo"
-modeltype_list[0]=1
-
-#__________________________________________________________________________________________________
-# add model component to master_namelist, function definition
-
-add_component_to_master_namelist()
-{
-    local model_namelist_filename="$1"
-    local model_name=$2
-    local model_type=$3
-    local model_min_rank=$4
-    local model_max_rank=$5
-    local model_inc_rank=$6
-  
-    greenln " ... add model $model_name"
-
-cat >> $master_namelist << EOF
-&master_model_nml
-  model_name="$model_name"
-  model_namelist_filename="$model_namelist_filename"
-  model_restart_info_filename=""
-  model_type=$model_type
-  model_min_rank=$model_min_rank
-  model_max_rank=$model_max_rank
-  model_inc_rank=$model_inc_rank
-/
-EOF
-
-}
-
-# add model component to master_namelist
-
-no_of_models=${#namelist_list[*]}
-
-greenln "number of models: $no_of_models"
-
-j=$no_of_models
-while (( ( --j ) >= 0 ))
-do
-    add_component_to_master_namelist "${namelist_list[$j]}" "${modelname_list[$j]}" ${modeltype_list[$j]} ${minrank_list[$j]} ${maxrank_list[$j]} ${incrank_list[$j]}
-done
-
 #__________________________________________________________________________________________________
 # get model and run
 
 bindir="${basedir}/build/$(system ${basedir})/bin"   # binaries
-export MODEL=${bindir}/control_model
+MODEL=${bindir}/control_model
 
 ls -l ${MODEL} > /dev/null
 check_error $? "$LINENO: ${MODEL} does not exist?"
 
 # start experiment
 #
+if [[ "$(os)" = "Linux" ]]
+then
+    ulimit -s unlimited
+fi
 
 rm -f finish.status
 #
 date
-$mpi_root/bin/$mpiexec_cmd -n $mpi_total_procs ${MODEL}
+$mpi_root/bin/$mpiexec_cmd $mpiexec_options -n $mpi_total_procs ${MODEL}
 date
 #
 if [[ -r finish.status ]] 
@@ -717,13 +669,17 @@ greenln "Script run successfully: $finish_status"
 greenln "============================"
 
 #__________________________________________________________________________________________________
-# check if we have to restart, ie resubmit
+# check if we have to restart (resubmit)
+
+cd $basedir/run
 
 if [[ "${finish_status}" = "RESTART" ]]
 then
     greenln "restart next job..."
-    cd $basedir/run
-    perl -pi -e 's/(^#AUTOMATIC_RESTART_SETUP.*)/\1\nrestart=\.true\./' $job_name
+    if [[ $(grep -c "restart=.true." ${job_name}) -eq 0 ]]
+    then
+        perl -pi -e 's/(^#AUTOMATIC_RESTART_SETUP.*)/\1\nrestart=\.true\./' $job_name
+    fi
     ${submit} $job_name
 fi
 
