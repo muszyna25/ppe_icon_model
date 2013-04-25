@@ -1,7 +1,7 @@
 #!/bin/bash
 #__________________________________________________________________________________________________
 # SLURM destructs $0!
-job_name=exp.r2b4_amip_thunder.run
+job_name=exp.r2b4_amip_thunder.2.run
 #__________________________________________________________________________________________________
 # thunder batch job parameters
 #
@@ -84,6 +84,7 @@ warning()
         blueln "warning() : $2"
     fi
 }
+printenv | sort
 #__________________________________________________________________________________________________
 # 
 case $(id -u) in
@@ -236,7 +237,7 @@ case $(hostname) in
         ;;
     ctc*)
         no_of_nodes=$SLURM_NNODES
-        mpi_procs_pernode=$SLURM_TASKS_PER_NODE
+        mpi_procs_pernode=$SLURM_NTASKS_PER_NODE
         ;;    
     *)
 	no_of_nodes=1
