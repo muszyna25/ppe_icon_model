@@ -58,7 +58,7 @@ MODULE mo_solve_nonhydro
   USE mo_gridref_config,    ONLY: grf_intmethod_e
   USE mo_interpol_config,   ONLY: nudge_max_coeff
   USE mo_intp_data_strc,    ONLY: t_int_state
-  USE mo_intp,              ONLY: cells2edges_scalar
+  USE mo_intp,              ONLY: cells2edges_scalar, cells2verts_scalar
   USE mo_intp_rbf,          ONLY: rbf_vec_interpol_edge
   USE mo_nonhydro_types,    ONLY: t_nh_state, t_nh_metrics, t_nh_diag, t_nh_prog, &
                                   t_buffer_memory
@@ -136,8 +136,9 @@ MODULE mo_solve_nonhydro
     REAL(wp):: z_w_con_c_full(nproma,p_patch%nlev,p_patch%nblks_c)
     REAL(wp):: z_kin_hor_e(nproma,p_patch%nlev,p_patch%nblks_e)
     REAL(wp):: z_ddxn_ekin_e(nproma,p_patch%nlev,p_patch%nblks_e)
-    REAL(wp):: z_vnw(nproma,p_patch%nlevp1,p_patch%nblks_e)
-    REAL(wp):: z_hadv_w(nproma,p_patch%nlevp1,p_patch%nblks_c)
+    REAL(wp):: z_vt_ie(nproma,p_patch%nlev,p_patch%nblks_e)
+    REAL(wp):: z_v_grad_w(nproma,p_patch%nlev,p_patch%nblks_e)
+    REAL(wp):: z_w_v(nproma,p_patch%nlevp1,p_patch%nblks_v)
 
     INTEGER,  DIMENSION(:,:,:), POINTER :: icidx, icblk, ieidx, ieblk, &
                                            ividx, ivblk, incidx, incblk
@@ -185,6 +186,9 @@ MODULE mo_solve_nonhydro
     ! Compute vertical vorticity component at vertices
     CALL rot_vertex (p_prog%vn, p_patch, p_int, p_diag%omega_z, opt_rlend=min_rlvert_int-1)
 
+    ! Compute w at vertices
+    IF (.NOT. lvn_only) CALL cells2verts_scalar(p_prog%w, p_patch, &
+      p_int%cells_aw_verts, z_w_v, opt_rlend=min_rlvert_int-1)
 
 !$OMP PARALLEL PRIVATE(rl_start, rl_end, i_startblk, i_endblk)
 
@@ -206,6 +210,9 @@ MODULE mo_solve_nonhydro
           p_diag%vn_ie(je,jk,jb) =                                    &
             p_metrics%wgtfac_e(je,jk,jb)*p_prog%vn(je,jk,jb) +        &
            (1._wp - p_metrics%wgtfac_e(je,jk,jb))*p_prog%vn(je,jk-1,jb)
+          z_vt_ie(je,jk,jb) =                                         &
+            p_metrics%wgtfac_e(je,jk,jb)*p_diag%vt(je,jk,jb) +        &
+           (1._wp - p_metrics%wgtfac_e(je,jk,jb))*p_diag%vt(je,jk-1,jb)
           z_kin_hor_e(je,jk,jb) = 0.5_wp*(p_prog%vn(je,jk,jb)*p_prog%vn(je,jk,jb) + &
             p_diag%vt(je,jk,jb)*p_diag%vt(je,jk,jb) )
         ENDDO
@@ -226,10 +233,14 @@ MODULE mo_solve_nonhydro
       IF (.NOT. l_vert_nested) THEN
         ! Top and bottom levels
         DO je = i_startidx, i_endidx
-          p_diag%vn_ie(je,1,jb) =                                &
-            p_metrics%wgtfacq1_e(je,1,jb)*p_prog%vn(je,1,jb) +   &
+          p_diag%vn_ie(je,1,jb) =                              &
+            p_metrics%wgtfacq1_e(je,1,jb)*p_prog%vn(je,1,jb) + &
             p_metrics%wgtfacq1_e(je,2,jb)*p_prog%vn(je,2,jb) + &
             p_metrics%wgtfacq1_e(je,3,jb)*p_prog%vn(je,3,jb)
+          z_vt_ie(je,1,jb) =                                   &
+            p_metrics%wgtfacq1_e(je,1,jb)*p_diag%vt(je,1,jb) + &
+            p_metrics%wgtfacq1_e(je,2,jb)*p_diag%vt(je,2,jb) + &
+            p_metrics%wgtfacq1_e(je,3,jb)*p_diag%vt(je,3,jb)
           z_kin_hor_e(je,1,jb) = 0.5_wp*(p_prog%vn(je,1,jb)*p_prog%vn(je,1,jb) + &
             p_diag%vt(je,1,jb)*p_diag%vt(je,1,jb) )
           p_diag%vn_ie(je,nlevp1,jb) =                           &
@@ -241,6 +252,10 @@ MODULE mo_solve_nonhydro
         ! vn_ie(jk=1) is extrapolated using parent domain information in this case
         DO je = i_startidx, i_endidx
           p_diag%vn_ie(je,1,jb) = p_diag%vn_ie(je,2,jb) + p_diag%dvn_ie_ubc(je,jb)
+          z_vt_ie(je,1,jb) =                                   &
+            p_metrics%wgtfacq1_e(je,1,jb)*p_diag%vt(je,1,jb) + &
+            p_metrics%wgtfacq1_e(je,2,jb)*p_diag%vt(je,2,jb) + &
+            p_metrics%wgtfacq1_e(je,3,jb)*p_diag%vt(je,3,jb)
           z_kin_hor_e(je,1,jb) = 0.5_wp*(p_prog%vn(je,1,jb)*p_prog%vn(je,1,jb) + &
             p_diag%vt(je,1,jb)*p_diag%vt(je,1,jb) )
           p_diag%vn_ie(je,nlevp1,jb) =                           &
@@ -319,7 +334,7 @@ MODULE mo_solve_nonhydro
 !$OMP END DO
 
     rl_start = 4
-    rl_end = min_rledge_int - 2
+    rl_end = min_rledge_int - 1
 
     i_startblk = p_patch%edges%start_blk(rl_start,1)
     i_endblk   = p_patch%edges%end_blk(rl_end,i_nchdom)
@@ -339,10 +354,13 @@ MODULE mo_solve_nonhydro
         DO jk = 1, nlev
           DO je = i_startidx, i_endidx
 #endif
-            ! Multiply vn_ie with w interpolated to edges for divergence computation
-            z_vnw(je,jk,jb) = p_diag%vn_ie(je,jk,jb)*                            &
-             ( p_int%c_lin_e(je,1,jb) * p_prog%w(icidx(je,jb,1),jk,icblk(je,jb,1)) &
-             + p_int%c_lin_e(je,2,jb) * p_prog%w(icidx(je,jb,2),jk,icblk(je,jb,2)) )
+            ! Compute v*grad w on edges (level nlevp1 is not needed because w(nlevp1) is diagnostic
+            ! Note: this implicitly includes a minus sign for the gradients, which is needed later on
+            z_v_grad_w(je,jk,jb) = p_diag%vn_ie(je,jk,jb) * p_patch%edges%inv_dual_edge_length(je,jb)* &
+             (p_prog%w(icidx(je,jb,1),jk,icblk(je,jb,1)) - p_prog%w(icidx(je,jb,2),jk,icblk(je,jb,2))) &
+             + z_vt_ie(je,jk,jb) * p_patch%edges%inv_primal_edge_length(je,jb) *                       &
+             p_patch%edges%system_orientation(je,jb) *                                                 &
+             (z_w_v(ividx(je,jb,1),jk,ivblk(je,jb,1)) - z_w_v(ividx(je,jb,2),jk,ivblk(je,jb,2))) 
 
             ! Compute horizontal gradient of horizontal kinetic energy
             z_ddxn_ekin_e(je,jk,jb) = z_kin_hor_e(je,jk,jb) *                                     &
@@ -384,33 +402,7 @@ MODULE mo_solve_nonhydro
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
                          i_startidx, i_endidx, rl_start, rl_end)
 
-      IF (.NOT. lvn_only) THEN
-        ! Compute horizontal advection of w: -(div(vn*w)-w*div(vn))
-        ! (combined into one step for efficiency improvement)
-#ifdef __LOOP_EXCHANGE
-        DO jc = i_startidx, i_endidx
-          DO jk = 1, nlev
-#else
-!CDIR UNROLL=5
-        DO jk = 1, nlev
-          DO jc = i_startidx, i_endidx
-#endif
-            z_hadv_w(jc,jk,jb) = p_prog%w(jc,jk,jb)* ( &
-              p_diag%vn_ie(ieidx(jc,jb,1),jk,ieblk(jc,jb,1))*p_int%geofac_div(jc,1,jb) + &
-              p_diag%vn_ie(ieidx(jc,jb,2),jk,ieblk(jc,jb,2))*p_int%geofac_div(jc,2,jb) + &
-              p_diag%vn_ie(ieidx(jc,jb,3),jk,ieblk(jc,jb,3))*p_int%geofac_div(jc,3,jb))- &
-             (z_vnw(ieidx(jc,jb,1),jk,ieblk(jc,jb,1))       *p_int%geofac_div(jc,1,jb) + &
-              z_vnw(ieidx(jc,jb,2),jk,ieblk(jc,jb,2))       *p_int%geofac_div(jc,2,jb) + &
-              z_vnw(ieidx(jc,jb,3),jk,ieblk(jc,jb,3))       *p_int%geofac_div(jc,3,jb))
-
-            z_w_con_c(jc,jk,jb) = p_prog%w(jc,jk,jb)
-          ENDDO
-        ENDDO
-
-      ELSE ! do not compute w tendency
-        z_w_con_c(:,1:nlev,jb) = p_prog%w(:,1:nlev,jb)
-      ENDIF
-
+      z_w_con_c(:,1:nlev,jb) = p_prog%w(:,1:nlev,jb)
       z_w_con_c(:,nlevp1,jb) = 0._wp
 
 !CDIR UNROLL=5
@@ -444,20 +436,19 @@ MODULE mo_solve_nonhydro
         CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
                            i_startidx, i_endidx, rl_start, rl_end)
 
-        ! Apply cell averaging to the components of horizontal w advection
+        ! Interpolate horizontal advection of w from edges to cells
 #ifdef __LOOP_EXCHANGE
         DO jc = i_startidx, i_endidx
           DO jk = 2, nlev
 #else
-!CDIR UNROLL=4
+!CDIR UNROLL=6
         DO jk = 1, nlev ! starting at level 2 would be sufficient, but this improves usage of unrolling
           DO jc = i_startidx, i_endidx
 #endif
             p_diag%ddt_w_adv(jc,jk,jb,ntnd) =                                         &
-                z_hadv_w(jc,jk,jb)                          *p_int%c_bln_avg(jc,1,jb) &
-              + z_hadv_w(incidx(jc,jb,1),jk,incblk(jc,jb,1))*p_int%c_bln_avg(jc,2,jb) &
-              + z_hadv_w(incidx(jc,jb,2),jk,incblk(jc,jb,2))*p_int%c_bln_avg(jc,3,jb) &
-              + z_hadv_w(incidx(jc,jb,3),jk,incblk(jc,jb,3))*p_int%c_bln_avg(jc,4,jb)
+              p_int%e_bln_c_s(jc,1,jb)*z_v_grad_w(ieidx(jc,jb,1),jk,ieblk(jc,jb,1)) + &
+              p_int%e_bln_c_s(jc,2,jb)*z_v_grad_w(ieidx(jc,jb,2),jk,ieblk(jc,jb,2)) + &
+              p_int%e_bln_c_s(jc,3,jb)*z_v_grad_w(ieidx(jc,jb,3),jk,ieblk(jc,jb,3))
           ENDDO
         ENDDO
 
