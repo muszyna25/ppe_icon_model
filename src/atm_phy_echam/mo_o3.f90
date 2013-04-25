@@ -81,6 +81,8 @@ CONTAINS
       subprog_name='mo_o3:read_amip_o3'
       nplev_o3=SIZE(o3_plev,2)
 
+      IF(ALLOCATED(plev_full_o3)) DEALLOCATE(plev_full_o3)
+      IF(ALLOCATED(plev_half_o3)) DEALLOCATE(plev_half_o3)
       ALLOCATE(plev_full_o3(nplev_o3))
       ALLOCATE(plev_half_o3(nplev_o3+1))
 
