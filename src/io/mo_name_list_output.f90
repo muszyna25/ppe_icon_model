@@ -1956,15 +1956,14 @@ CONTAINS
     ! 1. create cdi vlist
     !
     of%cdiVlistID = vlistCreate()
-
     !
     ! 2. add global attributes for netCDF
     !
-
     ! define output generating institute
     !
     ! inquire the Institute ID from (center/subcenter) 
-    of%cdiInstID = institutInqByCenter(patch_info(i_dom)%center, patch_info(i_dom)%subcenter)
+    
+    of%cdiInstID = institutInq(patch_info(i_dom)%center, patch_info(i_dom)%subcenter, '', '')
 
     CALL vlistDefInstitut(of%cdiVlistID,of%cdiInstID)
     CALL vlistDefTable(of%cdiVlistID,5)

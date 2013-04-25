@@ -1,10 +1,10 @@
 ! This file was automatically generated, don't edit!
 !
-! Fortran interface for CDI library version 1.6.0
+! Fortran interface for CDI library version 1.6.1rc1
 !
 ! Author:
 ! -------
-! Uwe Schulzweida, MPI-MET, Hamburg,   March 2013
+! Uwe Schulzweida, MPI-MET, Hamburg,   April 2013
 !
 
       INTEGER    CDI_MAX_NAME          
@@ -1067,6 +1067,18 @@
 !                                     INTEGER         varID)
       EXTERNAL        vlistInqVarMissval
 
+!                     vlistDefVarExtra
+!                                    (INTEGER         vlistID,
+!                                     INTEGER         varID,
+!                                     CHARACTER*(*)   extra)
+      EXTERNAL        vlistDefVarExtra
+
+!                     vlistInqVarExtra
+!                                    (INTEGER         vlistID,
+!                                     INTEGER         varID,
+!                                     CHARACTER*(*)   extra)
+      EXTERNAL        vlistInqVarExtra
+
 !                     vlistDefVarScalefactor
 !                                    (INTEGER         vlistID,
 !                                     INTEGER         varID,
@@ -1206,8 +1218,6 @@
 !                                     DOUBLEPRECISION value)
       EXTERNAL        vlistDefVarDblKey
 
-
-
 !
 !  ----------------------------------
 !
@@ -1222,21 +1232,19 @@
 !                                     INTEGER         varID)
       EXTERNAL        vlistInqVarRawBegin
 
-!                     vlistInqVarRawEnd
-!                                    (INTEGER         streamID)
-      EXTERNAL        vlistInqVarRawEnd
-
-!DR local change:
       DOUBLEPRECISION vlistInqVarDblKey
-!                                     (INTEGER        streamID, 
-!				       CHARACTER*(*)  name)
+!                                    (INTEGER         streamID,
+!                                     CHARACTER*(*)   name)
       EXTERNAL        vlistInqVarDblKey
 
       INTEGER         vlistInqVarIntKey
-!                                     (INTEGER        streamID, 
-!				       CHARACTER*(*)  name)
+!                                    (INTEGER         streamID,
+!                                     CHARACTER*(*)   name)
       EXTERNAL        vlistInqVarIntKey
 
+!                     vlistInqVarRawEnd
+!                                    (INTEGER         streamID)
+      EXTERNAL        vlistInqVarRawEnd
 
 !
 !  VLIST attributes
@@ -1285,7 +1293,7 @@
 !                                     INTEGER         varID,
 !                                     CHARACTER*(*)   name,
 !                                     INTEGER         len,
-!                                     CHARACTER*(*)   tp)
+!                                     CHARACTER*(*)   tp_cbuf)
       EXTERNAL        vlistDefAttTxt
 
       INTEGER         vlistInqAttInt
@@ -1309,7 +1317,7 @@
 !                                     INTEGER         varID,
 !                                     CHARACTER*(*)   name,
 !                                     INTEGER         mlen,
-!                                     CHARACTER*(*)   tp)
+!                                     CHARACTER*(*)   tp_cbuf)
       EXTERNAL        vlistInqAttTxt
 
 !
@@ -1634,12 +1642,12 @@
 
       CHARACTER(80)   gridInqUUID
 !                                    (INTEGER         gridID,
-!                                     CHARACTER*(*)   uuid)
+!                                     CHARACTER*(*)   uuid_cbuf)
       EXTERNAL        gridInqUUID
 
 !                     gridDefUUID
 !                                    (INTEGER         gridID,
-!                                     CHARACTER*(*)   uuid)
+!                                     CHARACTER*(*)   uuid_cbuf)
       EXTERNAL        gridDefUUID
 
 !
@@ -1843,12 +1851,12 @@
 
 !                     zaxisDefUUID
 !                                    (INTEGER         zaxisID,
-!                                     CHARACTER*(*)   uuid)
+!                                     CHARACTER*(*)   uuid_cbuf)
       EXTERNAL        zaxisDefUUID
 
       CHARACTER(80)   zaxisInqUUID
 !                                    (INTEGER         zaxisID,
-!                                     CHARACTER*(*)   uuid)
+!                                     CHARACTER*(*)   uuid_cbuf)
       EXTERNAL        zaxisInqUUID
 
       INTEGER         zaxisInqReference
@@ -2116,11 +2124,6 @@
 !                                     CHARACTER*(*)   name,
 !                                     CHARACTER*(*)   longname)
       EXTERNAL        institutInq
-
-      INTEGER         institutInqByCenter
-!                                    (INTEGER         center,
-!                                     INTEGER         subcenter)
-      EXTERNAL        institutInqByCenter
 
       INTEGER         institutInqNumber
       EXTERNAL        institutInqNumber

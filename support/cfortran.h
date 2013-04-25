@@ -3,6 +3,8 @@
 /* Burkhard Burow  burow@desy.de                 1990 - 2001. */
 
 /* 02/12/2002 Uwe Schulzweida : UXP Fortran support           */
+/* 02/05/2003 Uwe Schulzweida : Linux Fortran support on i386 */
+/* 09/09/2005 Uwe Schulzweida : Linux Fortran support on ia64 */
 
 #ifndef __CFORTRAN_LOADED
 #define __CFORTRAN_LOADED
@@ -86,6 +88,15 @@ only C calling FORTRAN subroutines will work using K&R style.*/
 #if !(defined(NAGf90Fortran)||defined(f2cFortran)||defined(hpuxFortran)||defined(apolloFortran)||defined(sunFortran)||defined(IBMR2Fortran)||defined(CRAYFortran))
 #if !(defined(mipsFortran)||defined(DECFortran)||defined(vmsFortran)||defined(CONVEXFortran)||defined(PowerStationFortran)||defined(AbsoftUNIXFortran)||defined(AbsoftProFortran)||defined(SXFortran))
 /* If no Fortran compiler is given, we choose one for the machines we know.   */
+#if defined(__linux__) && defined(__i386__)
+#define f2cFortran
+#endif
+#if defined(__linux__) && defined(__ia64__)
+#define f2cFortran
+#endif
+#if defined(__linux__) && defined(__x86_64__)
+#define f2cFortran
+#endif
 #if defined(lynx) || defined(VAXUltrix)
 #define f2cFortran    /* Lynx:      Only support f2c at the moment.
                          VAXUltrix: f77 behaves like f2c.
@@ -450,6 +461,8 @@ for (i=0; i<sizeofcstr/elem_len; i++) {
 } return cstr; }
 
 /* kill the trailing char t's in string s. */
+#pragma GCC push_options
+#pragma GCC optimize ("O2")
 #ifndef __CF__KnR
 static char *kill_trailing(char *s, char t)
 #else
@@ -461,6 +474,7 @@ if (e>s) {                           /* Need this to handle NULL string.*/
   while (e>s && *--e==t);            /* Don't follow t's past beginning. */
   e[*e==t?0:1] = '\0';               /* Handle s[0]=t correctly.       */
 } return s; }
+#pragma GCC pop_options
 
 /* kill_trailingn(s,t,e) will kill the trailing t's in string s. e normally 
 points to the terminating '\0' of s, but may actually point to anywhere in s.
@@ -493,18 +507,18 @@ return cstr; }
 
 #ifdef vmsFortran
 typedef struct dsc$descriptor_s fstring;
-#define DSC$DESCRIPTOR_A(DIMCT)                                                 \
+#define DSC$DESCRIPTOR_A(DIMCT)  		                               \
 struct {                                                                       \
-  unsigned short dsc$w_length;                unsigned char         dsc$b_dtype;               \
-  unsigned char         dsc$b_class;                         char        *dsc$a_pointer;               \
-           char         dsc$b_scale;                unsigned char         dsc$b_digits;         \
+  unsigned short dsc$w_length;	        unsigned char	 dsc$b_dtype;	       \
+  unsigned char	 dsc$b_class;	                 char	*dsc$a_pointer;	       \
+           char	 dsc$b_scale;	        unsigned char	 dsc$b_digits;         \
   struct {                                                                     \
-    unsigned                       : 3;          unsigned dsc$v_fl_binscale : 1;      \
+    unsigned		       : 3;	  unsigned dsc$v_fl_binscale : 1;      \
     unsigned dsc$v_fl_redim    : 1;       unsigned dsc$v_fl_column   : 1;      \
     unsigned dsc$v_fl_coeff    : 1;       unsigned dsc$v_fl_bounds   : 1;      \
-  } dsc$b_aflags;                                                               \
-  unsigned char         dsc$b_dimct;                unsigned long         dsc$l_arsize;               \
-           char        *dsc$a_a0;                         long         dsc$l_m [DIMCT];      \
+  } dsc$b_aflags;	                                                       \
+  unsigned char	 dsc$b_dimct;	        unsigned long	 dsc$l_arsize;	       \
+           char	*dsc$a_a0;	                 long	 dsc$l_m [DIMCT];      \
   struct {                                                                     \
     long dsc$l_l;                         long dsc$l_u;                        \
   } dsc$bounds [DIMCT];                                                        \
@@ -1457,9 +1471,9 @@ do{VVCF(T1,A1,B1)  VVCF(T2,A2,B2)  VVCF(T3,A3,B3)  VVCF(T4,A4,B4)  VVCF(T5,A5,B5
 #define    DOUBLE_cfPU(A)   CFextern DOUBLE_PRECISION  FCALLSC_QUALIFIER A
 #if ! (defined(FLOATFUNCTIONTYPE)&&defined(ASSIGNFLOAT)&&defined(RETURNFLOAT))
 #define     FLOAT_cfPU(A)   CFextern FORTRAN_REAL      FCALLSC_QUALIFIER A
-#else                                                              
+#else				   	                   
 #define     FLOAT_cfPU(A)   CFextern FLOATFUNCTIONTYPE FCALLSC_QUALIFIER A
-#endif                                                              
+#endif				   	                   
 #define       INT_cfPU(A)   CFextern int   FCALLSC_QUALIFIER   A
 #define   LOGICAL_cfPU(A)   CFextern int   FCALLSC_QUALIFIER   A
 #define      LONG_cfPU(A)   CFextern long  FCALLSC_QUALIFIER   A
@@ -1555,7 +1569,7 @@ do{VVCF(T1,A1,B1)  VVCF(T2,A2,B2)  VVCF(T3,A3,B3)  VVCF(T4,A4,B4)  VVCF(T5,A5,B5
 #define    ROUTINE_cfB(T,A) (cfCAST_FUNCTION)A
 #define    ZTRINGV_cfB(T,A) (char *)   A
 #define   PZTRINGV_cfB(T,A) (char *)   A
-                                                                      
+                                                              	
 #define SCF(TN,NAME,I,A)    _(TN,_cfSTR)(3,S,NAME,I,A,0,0)
 #define  DEFAULT_cfS(M,I,A)
 #define  LOGICAL_cfS(M,I,A)
@@ -2365,4 +2379,13 @@ string. */
 #endif
 
 
-#endif         /* __CFORTRAN_LOADED */
+#endif	 /* __CFORTRAN_LOADED */
+/*
+ * Local Variables:
+ * c-file-style: "Java"
+ * c-basic-offset: 2
+ * indent-tabs-mode: nil
+ * show-trailing-whitespace: t
+ * require-trailing-newline: t
+ * End:
+ */

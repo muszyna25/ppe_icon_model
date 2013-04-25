@@ -156,19 +156,19 @@ CONTAINS
       vmonth = (vdate/100)-vyear*100
       IF (vyear == ym1 .AND. vmonth == 12) THEN
         CALL streamReadVarslice(streamID, varID, 0, buffer, nmiss)
-write(0,'(1x,a,3f25.10)') 'LK: read amip data debug: ', &
-     minval(buffer), sum(buffer)/ngridsize, maxval(buffer)
+!write(0,'(1x,a,3f25.10)') 'LK: read amip data debug: ', &
+!     minval(buffer), sum(buffer)/ngridsize, maxval(buffer)
         zin(:,0) = buffer(:)
       ELSE IF (vyear == y) THEN
         CALL streamReadVarslice(streamID, varID, 0, buffer, nmiss)
         zin(:,vmonth) = buffer(:)
-write(0,'(1x,a,3f25.10)') 'LK; read amip data debug: ', &
-     minval(buffer), sum(buffer)/ngridsize, maxval(buffer)
+!write(0,'(1x,a,3f25.10)') 'LK; read amip data debug: ', &
+!     minval(buffer), sum(buffer)/ngridsize, maxval(buffer)
       ELSE IF (vyear == yp1 .AND. vmonth == 1) THEN
         CALL streamReadVarslice(streamID, varID, 0, buffer, nmiss)
         zin(:,13) = buffer(:)
-write(0,'(1x,a,3f25.10)') 'LK: read amip data debug: ', &
-     minval(buffer), sum(buffer)/ngridsize, maxval(buffer)
+!write(0,'(1x,a,3f25.10)') 'LK: read amip data debug: ', &
+!     minval(buffer), sum(buffer)/ngridsize, maxval(buffer)
         EXIT
       ENDIF
       tsID = tsID+1
