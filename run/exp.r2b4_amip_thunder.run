@@ -575,28 +575,6 @@ fi
 master_namelist=icon_master.namelist
 jsbach_master_namelist=jsbach_master.namelist
 
-if [[ "x${end_date:-}" = "x" ]] 
-then
-
-cat > $master_namelist << EOF
-&master_nml
- lrestart            = $restart
-/
-&time_nml
- ini_datetime_string = "$start_date"
- dt_restart          = $dt_restart
-/
-&master_model_nml
-  model_name="atmo"
-  model_namelist_filename="NAMELIST_r2b4_amip_atmo"
-  model_restart_info_filename=""
-  model_type=1
-  model_min_rank=0
-  model_max_rank=65535
-  model_inc_rank=1
-/
-EOF
-else
 cat > $master_namelist << EOF
 &master_nml
  lrestart            = $restart
@@ -616,7 +594,6 @@ cat > $master_namelist << EOF
   model_inc_rank=1
 /
 EOF
-fi
 
 cat > $jsbach_master_namelist << EOF
 &jsb_control_nml
