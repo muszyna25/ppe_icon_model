@@ -198,10 +198,10 @@ MODULE mo_surface_les
             theta_ic  = p_nh_metrics%wgtfac_c(jc,jk,jb) * theta(jc,jk,jb) + &
                         (1._wp - p_nh_metrics%wgtfac_c(jc,jk,jb)) * theta(jc,jk-1,jb)
 
-            !theta_sfc(jc,jb) = theta_ic - th_grad * p_nh_metrics%ddqz_z_full(jc,jk,jb)
+            theta_sfc(jc,jb) = theta_ic - th_grad * p_nh_metrics%ddqz_z_full(jc,jk,jb)
 
-            theta_sfc(jc,jb) = theta(jc,jk,jb) + les_config(jg)%shflx / ustar * &
-                               businger_heat(zrough,z_mc,obukhov_length) 
+            !theta_sfc(jc,jb) = theta(jc,jk,jb) + les_config(jg)%shflx / ustar * &
+            !                   businger_heat(zrough,z_mc,obukhov_length) 
 
             p_prog_lnd_now%t_g(jc,jb) = theta_sfc(jc,jb) * exner
 
