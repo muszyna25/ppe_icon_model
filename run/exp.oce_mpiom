@@ -159,7 +159,7 @@ cat > ${ocean_namelist} << EOF
   l_partial_cells = .FALSE.      ! partial bottom cells=true: local varying bottom depth
   FLUX_CALCULATION_HORZ = 4      ! 1=upwind, 2=central, 3=mimetic, 4=mimetic_miura
   FLUX_CALCULATION_VERT = 4      ! 1=upwind, 2=central, 3=mimetic, 4=mimetic_miura
-  !veloc_diffusion_order = 2      ! biharmonic friction
+  !veloc_diffusion_order = 1      ! 1=harmonic, 2=biharmonic friction
   !veloc_diffusion_form  = 1      ! 1: graddiv, 2: curlcurl form of laplacian horizontal velocity diffusion
   use_absolute_solver_tolerance = .true.  !  new gmres_oce needs absoulute solver tolerance
   solver_tolerance = 1.0E-12              !  absolute (new) or relative (gmres_oce_old)
