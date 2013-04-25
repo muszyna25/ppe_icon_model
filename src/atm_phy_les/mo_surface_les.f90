@@ -363,7 +363,7 @@ MODULE mo_surface_les
      ELSEIF(L < 0._wp)THEN !unstable
        zeta   = z1/L 
        lamda  = SQRT(1._wp - buh*zeta)  
-       factor = Pr / SQRT(lamda)
+       factor = Pr / lamda
      ELSE !neutral
        factor = Pr 
      END IF 
