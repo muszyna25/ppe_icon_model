@@ -43,7 +43,7 @@ MODULE mo_name_list_output
   USE mo_cf_convention,         ONLY: t_cf_var
   USE mo_cdi_constants          ! We need all
   USE mo_io_units,              ONLY: filename_max, nnml, nnml_output, find_next_free_unit
-  USE mo_io_config,             ONLY: out_varnames_map_file, varnames_map_file, lkeep_in_sync
+  USE mo_io_config,             ONLY: netcdf_dict, output_nml_dict, lkeep_in_sync
   USE mo_gribout_config,        ONLY: gribout_config, t_gribout_config
   USE mo_exception,             ONLY: finish, message, message_text
   USE mo_namelist,              ONLY: position_nml, positioned, open_nml, close_nml
@@ -528,15 +528,15 @@ CONTAINS
       CALL dict_init(out_varnames_dict, lcase_sensitive=.FALSE.)
 
       CALL associate_keyword("<path>", TRIM(model_base_dir), keywords)
-      IF(varnames_map_file     /= ' ') THEN
-        cfilename = TRIM(with_keywords(keywords, varnames_map_file))
+      IF(output_nml_dict     /= ' ') THEN
+        cfilename = TRIM(with_keywords(keywords, output_nml_dict))
         CALL message(routine, "load dictionary file.")
         CALL dict_loadfile(varnames_dict, cfilename)
       END IF
-      IF(out_varnames_map_file /= ' ') THEN
-        cfilename = TRIM(with_keywords(keywords, out_varnames_map_file))
+      IF(netcdf_dict /= ' ') THEN
+        cfilename = TRIM(with_keywords(keywords, netcdf_dict))
         CALL message(routine, "load dictionary file (output names).")
-        CALL dict_loadfile(out_varnames_dict, cfilename)
+        CALL dict_loadfile(out_varnames_dict, cfilename, linverse=.TRUE.)
       END IF
 
       ! translate variables names according to variable name
@@ -2938,7 +2938,7 @@ CONTAINS
       minute= 1
     ENDIF
 
-    ! Load correct tables ans activate section 2
+    ! Load correct tables and activate section 2
     !
     ! set tablesVersion=5
     CALL vlistDefVarIntKey(vlistID, varID, "tablesVersion", 5)
