@@ -46,6 +46,26 @@ Parameter& Type& Default& Unit& Description & Scope
 \end{longtable}
 }
 
+% ------------------------------------------------------
+% new environment for documentation of namelist changes
+% that are incompatible with former versions.
+% ------------------------------------------------------
+
+\newenvironment{changeitem}[3]
+{
+ \rule[-1em]{0.2ex}{4em}\hspace*{1em}%
+ \begin{minipage}{9.95\textwidth}
+ \begin{tabbing} 
+ \hspace*{3cm} \= ~ \kill  
+ \emph{Change:}         \> \textbf{#1} \\
+ \emph{Date of Change:} \> \textbf{#2} \\
+ \emph{Revision:}       \> \textbf{#3} \\
+ \end{tabbing}
+ \end{minipage}
+}{}
+
+
+
 \begin{document}
 
 \title{ICON Namelist Overview}
@@ -2915,7 +2935,7 @@ pressure levels below the surface). \\
 \tabularnewline
 
 \hline
- varnames\_map\_file &
+ output\_nml\_dict &
 C&' '& &
  File containing the mapping of variable names to the internal ICON names. 
  May contain the keyword \texttt{<path>} which will be substituted by
@@ -2933,14 +2953,15 @@ C&' '& &
 \tabularnewline
 
 \hline
- out\_varnames\_map\_file &
+ netcdf\_dict &
 C&' '& &
  File containing the mapping from internal names to names written to NetCDF. 
  May contain the keyword \texttt{<path>} which will be substituted by
  \texttt{model\_base\_dir}.\\
  The format of this file: \\
- One mapping per line, first the internal name, then the name written to NetCDF,
- separated by an arbitrary number of blanks.
+ One mapping per line, first the name written to NetCDF,
+ then the internal name, separated by an arbitrary number of blanks
+ (\emph{inverse to the definition of \emph{output\_nml\_dict}}).
  The line may also start and end with an arbitrary number of blanks.
  Empty lines or lines starting with \# are treated as comments. \\
  Names not covered by the mapping are output as they are. \\
@@ -5697,6 +5718,33 @@ terrain following coorindates. The hybrid level specification is stored in
 <icon home>/hyb\_params/HYB\_PARAMS\_<nlev>.
 The {\bf hydrostatic} model assumes to get {\bf pressure based} coordinates, the {\bf nonhydrostatic}
 model expects {\bf height based} coordinates. For further information see <icon home>/hyb\_params/README.
+
+
+% -------------------------------------------------------------------
+\section{Changes incompatible with former versions of the model code}
+% -------------------------------------------------------------------
+
+% In this section we propose to document all namelist changes that are incompatible with former versions of the model code.
+% Such changes are
+%
+%    renaming namelist parameters or changing the data type
+%    removing existing namelist parameters
+%    changing default settings
+%    changing the scope of the namelist parameter
+%    introducing new cross-check rules.
+
+% --------------------------------------------------------------------------------------------
+%                   <namelist parameter>                               <date>        <revision>
+\begin{changeitem}{ var\_names\_map\_file, out\_varnames\_map\_file }{ 2013-04-25 }{ 12016 }
+  \begin{itemize}
+   \item Renamed \textbf{var\_names\_map\_file} $\rightarrow$ \textbf{output\_nml\_dict}.
+   \item Renamed \textbf{out\_varnames\_map\_file} $\rightarrow$ \textbf{netcdf\_dict}.
+   \item The dictionary in \emph{netcdf\_dict} is now reversed, s.t.\ the same map file 
+         as in output\_nml\_dict can be used to translate variable names to the ICON internal
+         names and back.
+  \end{itemize}
+\end{changeitem}
+% --------------------------------------------------------------------------------------------
 
 
 \end{document}
