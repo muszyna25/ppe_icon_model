@@ -331,6 +331,10 @@ atmo_model_equations=1                   # 1 = hydrost. atm., 2 = non-hydrost. a
 #
 (( dt_dyn         =  5 * minute       )) # [s] dynamics time step
 (( dt_rad         =  1 * hour         )) # [s] radiation time step
+
+# define variable names
+#
+map_file='map.r2b4_amip__cmor'
 #
 #__________________________________________________________________________________________________
 # define the experiment: write ICON namelist parameters
@@ -363,6 +367,8 @@ cat > ${atmo_namelist} << EOF
  rh_at_1000hpa    = 0.30         ! [] initial rel. humidity at 1000 hPa 
 /
 &io_nml
+ varnames_map_file     = '${map_file}_varlist'
+ out_varnames_map_file = '${map_file}_outfile'
 /
 &dynamics_nml
  iequations       = ${atmo_model_equations}    ! 1: hydrost. atmosphere
@@ -411,10 +417,10 @@ cat > ${atmo_namelist} << EOF
  include_last     = .FALSE.
  output_grid      = .TRUE.
  output_filename  = "${EXPNAME}_atm_dyn_icoham"
- ml_varlist       = 'ha_prog_out_pres_sfc'   , 'ha_prog_out_temp'    , 
-                    'ha_prog_out_qv'         , 'ha_prog_out_qw'      , 'ha_prog_out_qi'       ,
-                    'ha_diag_out_u'          , 'ha_diag_out_v'       , 'ha_diag_out_wpres_mc' ,
-                    'ha_diag_out_geo_mc'     , 'ha_diag_out_pres_mc' , 'ha_diag_out_delp_c'
+ ml_varlist       = 'ps'      , 'ta'      , 
+                    'hus'     , 'clw'     , 'cli'     ,
+                    'ua'      , 'va'      , 'wap'     ,
+                    'pfull'   , 'gpfull'
 /
 &output_nml
  namespace        = 'MPIMET'
@@ -423,17 +429,16 @@ cat > ${atmo_namelist} << EOF
  include_last     = .FALSE.
  output_grid      = .TRUE.
  output_filename  = "${EXPNAME}_atm_phy_echam6"
- ml_varlist       = 'prm_cosmu0'      , 'prm_flxdwswtoa'  , 'prm_o3'          ,
-                    'prm_swflxsfc'    , 'prm_lwflxsfc'    , 'prm_swflxtoa'    , 'prm_lwflxtoa'    ,
-                    'prm_swflxsfc_avg', 'prm_lwflxsfc_avg', 'prm_swflxtoa_avg', 'prm_lwflxtoa_avg',
-                    'prm_tsfc_wtr'    , 'prm_tsfc_ice'    , 'prm_tsfc_lnd'    , 'prm_tsfc'        ,
-                    'prm_seaice'      , 'prm_siced'       , 'prm_alb'         ,
-                    'prm_aclc'        , 'prm_aclcac'      , 'prm_aclcov'      ,
-                    'prm_rsfl'        , 'prm_rsfc'        , 'prm_ssfl'        , 'prm_ssfc'        , 
-                    'prm_totprec_avg' , 'prm_qvi'         , 'prm_xlvi'        , 'prm_xivi'        ,
-                    'prm_lhflx_avg'   , 'prm_shflx_avg'   , 
-                    'prm_u_stress_avg', 'prm_v_stress_avg',
-                    'prm_u_stress_sso', 'prm_v_stress_sso', 'prm_dissipation_sso'
+ ml_varlist       = 'cosmu0'  , 'rsdt'    , 'tro3'    ,
+                    'rsns'    , 'rlns'    , 'rsnt'    , 'rlnt'    ,
+                    'ts_wtr'  , 'ts_ice'  , 'ts_lnd'  , 'ts'      ,
+                    'sic'     , 'sit'     , 'alb'     ,
+                    'cl'      , 'clt'     ,
+                    'prlr'    , 'prls'    , 'prcr'    , 'prcs'    ,
+                    'pr'      , 'prw'     , 'cllvi'   , 'clivi'   ,
+                    'hfls'    , 'hfss'    , 
+                    'tauu'    , 'tauv'    ,
+                    'tauu_sso', 'tauv_sso', 'diss_sso'
 /
 &output_nml
  namespace        = 'MPIMET'
@@ -568,6 +573,12 @@ cp -f $INDATA/r2b4_amip/lnd/bc_land_frac.nc                 ./
 cp -f $INDATA/r2b4_amip/lnd/bc_land_phys.nc                 ./
 cp -f $INDATA/r2b4_amip/lnd/bc_land_soil.nc                 ./
 cp -f $INDATA/r2b4_amip/lnd/bc_land_sso.nc                  ./
+
+#__________________________________________________________________________________________________
+# copy mapping file for variable names
+
+cp -f                 ${basedir}/run/${map_file}            ./${map_file}_outfile
+awk '{print($2,$1);}' ${basedir}/run/${map_file}  >         ./${map_file}_varlist
 
 #__________________________________________________________________________________________________
 # copy restart files eventually
