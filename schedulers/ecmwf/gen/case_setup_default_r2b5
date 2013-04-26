@@ -209,7 +209,7 @@ cat > ${atmo_namelist} << EOF
 !namespace                    = "ECMWF"                   ! may give problems with metview - leave default ecmwf
 /
 &gribout_nml
- generatingCenter             = 232                       ! ECMWF
+ generatingCenter             = 98                        ! ECMWF
  gneratingSubcenter           = 0                         ! ECMWF
 /
 &meteogram_output_nml

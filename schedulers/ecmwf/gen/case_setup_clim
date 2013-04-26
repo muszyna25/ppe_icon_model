@@ -212,7 +212,7 @@ cat > ${atmo_namelist} << EOF
 !namespace                    = "ECMWF"                 ! 
 /
 &gribout_nml
- generatingCenter             = 232                       ! ECMWF
+ generatingCenter             = 98                        ! ECMWF
  gneratingSubcenter           = 0                         ! ECMWF
 /
 &meteogram_output_nml
