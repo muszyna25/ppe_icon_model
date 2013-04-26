@@ -96,7 +96,6 @@ MODULE mo_name_list_output_config
     ! general settings
     ! --------------------
 
-    CHARACTER(LEN=8) :: namespace                   ! 'DWD' - DWD short names (or 'MPIM', 'CMIP', 'ECMWF')
     INTEGER          :: mode                        ! 1 = forecast mode, 2 = climate mode
     INTEGER          :: dom(max_phys_dom)           ! domains for which this namelist is used, ending with -1
     INTEGER          :: output_time_unit            ! 1 = second, 2=minute, 3=hour, 4=day, 5=month, 6=year
@@ -120,8 +119,8 @@ MODULE mo_name_list_output_config
     ! variable lists
     ! --------------------
 
-    CHARACTER(LEN=vname_len)  :: ml_varlist(max_var_ml)   ! name of model level fields (translation to model by namespace)
-    CHARACTER(LEN=vname_len)  :: pl_varlist(max_var_pl)   ! name of pressure level fields (translation to model by namespace)
+    CHARACTER(LEN=vname_len)  :: ml_varlist(max_var_ml)   ! name of model level fields
+    CHARACTER(LEN=vname_len)  :: pl_varlist(max_var_pl)   ! name of pressure level fields
     CHARACTER(LEN=vname_len)  :: hl_varlist(max_var_hl)   ! name of height level fields
     CHARACTER(LEN=vname_len)  :: il_varlist(max_var_hl)   ! name of isentropic level fields
 

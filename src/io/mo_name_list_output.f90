@@ -82,8 +82,7 @@ MODULE mo_name_list_output
   USE mo_vertical_coord_table,  ONLY: vct
   USE mo_dynamics_config,       ONLY: iequations, nnow, nnow_rcf
   USE mo_run_config,            ONLY: num_lev, num_levp1, dtime, ldump_states, ldump_dd, &
-    &                                 msg_level, output_mode, ltestcase, center, subcenter, &
-    &                                 number_of_grid_used
+    &                                 msg_level, output_mode, ltestcase, number_of_grid_used
   USE mo_nh_pzlev_config,       ONLY: nh_pzlev_config
   USE mo_lnd_nwp_config,        ONLY: nlev_snow
   USE mo_datetime,              ONLY: t_datetime, cly360day_to_date
@@ -222,12 +221,6 @@ MODULE mo_name_list_output
     ! uuid of grid (provided by grid file)
     TYPE(t_uuid) :: grid_uuid
 
-    ! generating center (provided by grid file)
-    INTEGER :: center
-
-    ! generating subcenter (provided by grid file)
-    INTEGER :: subcenter
-
     ! Number of grid used (provided by grid file)
     INTEGER :: number_of_grid_used
 
@@ -328,7 +321,6 @@ CONTAINS
 
     ! Local variables corresponding to members of output_name_list
     INTEGER                           :: filetype
-    CHARACTER(LEN=8)                  :: namespace
     INTEGER                           :: mode
     INTEGER                           :: taxis_tunit
     INTEGER                           :: dom(max_phys_dom)
@@ -358,7 +350,7 @@ CONTAINS
 
     ! The namelist containing all variables above
     NAMELIST /output_nml/ &
-      filetype, namespace, mode, taxis_tunit, dom, output_time_unit,   &
+      filetype, mode, taxis_tunit, dom, output_time_unit,              &
       output_bounds, steps_per_file, include_last, output_grid,        &
       output_filename, lwrite_ready, ready_directory, ml_varlist,      &
       pl_varlist, hl_varlist, il_varlist, p_levels, h_levels,          &
@@ -395,7 +387,6 @@ CONTAINS
       ! Set all variables in output_nml to their default values
 
       filetype           = FILETYPE_NC2 ! NetCDF
-      namespace          = 'DWD'
       mode               = 2
       taxis_tunit        = TUNIT_HOUR
       dom(:)             = -1
@@ -500,7 +491,6 @@ CONTAINS
       ! Set next output_name_list from values read
 
       p_onl%filetype         = filetype
-      p_onl%namespace        = namespace
       p_onl%mode             = mode
       p_onl%taxis_tunit      = taxis_tunit
       p_onl%dom(:)           = dom(:)
@@ -1342,10 +1332,6 @@ CONTAINS
         patch_info(jp)%grid_filename = TRIM(p_patch(jl)%grid_filename)
         ! Set UUID on work and test PE
         patch_info(jp)%grid_uuid = p_patch(jl)%grid_uuid
-        ! Set information about generating center on work and test PE
-        patch_info(jp)%center = center(jl)
-        ! Set information about generating subcenter on work and test PE
-        patch_info(jp)%subcenter = subcenter(jl)
         ! Set information about numberOfGridUsed on work and test PE
         patch_info(jp)%number_of_grid_used = number_of_grid_used(jl)
       ENDIF
@@ -1358,8 +1344,6 @@ CONTAINS
         CALL p_bcast(patch_info(jp)%grid_filename, bcast_root, p_comm_work_2_io)
         CALL p_bcast(patch_info(jp)%grid_uuid%data, SIZE(patch_info(jp)%grid_uuid%data),  &
           &          bcast_root, p_comm_work_2_io)
-        CALL p_bcast(patch_info(jp)%center,              bcast_root, p_comm_work_2_io)
-        CALL p_bcast(patch_info(jp)%subcenter,           bcast_root, p_comm_work_2_io)
         CALL p_bcast(patch_info(jp)%number_of_grid_used, bcast_root, p_comm_work_2_io)
       ENDIF
 #endif
@@ -1935,7 +1919,7 @@ CONTAINS
     TYPE(t_lon_lat_data), POINTER   :: lonlat
     LOGICAL                         :: lwrite_pzlev
     TYPE(t_datetime)                :: ini_datetime
-    CHARACTER(len=1) :: uuid_string(16)
+    CHARACTER(len=1)                :: uuid_string(16)
 
     IF (of%output_type == FILETYPE_GRB2) THEN
       ! since the current CDI-version does not fully support "GRID_UNSTRUCTURED", the
@@ -1963,7 +1947,11 @@ CONTAINS
     !
     ! inquire the Institute ID from (center/subcenter) 
     !
-    of%cdiInstID = institutInq(patch_info(i_dom)%center, patch_info(i_dom)%subcenter, '', '')
+    of%cdiInstID = institutInq(gribout_config(i_dom)%generatingCenter,          &
+      &                        gribout_config(i_dom)%generatingSubcenter, '', '')
+
+write(0,*) "center, subcenter, InstID: ", gribout_config(i_dom)%generatingCenter, &
+  & gribout_config(i_dom)%generatingSubcenter, of%cdiInstID
 
     ! define Institute
     CALL vlistDefInstitut(of%cdiVlistID,of%cdiInstID)
@@ -2047,7 +2035,6 @@ CONTAINS
       CALL gridDefUUID(of%cdiCellGridID, uuid_string)
       !
       CALL gridDefNumber(of%cdiCellGridID, patch_info(i_dom)%number_of_grid_used)
-!DR      CALL gridDefNumber(of%cdiCellGridID, 42)
 
       !
       ! not clear whether meta-info GRID_CELL or GRID_UNSTRUCTURED_CELL should be used
@@ -2070,7 +2057,6 @@ CONTAINS
       CALL gridDefUUID(of%cdiVertGridID, uuid_string)
       !
       CALL gridDefNumber(of%cdiVertGridID, patch_info(i_dom)%number_of_grid_used)
-!DR      CALL gridDefNumber(of%cdiVertGridID, 42)
 
       !
       ! not clear whether meta-info GRID_VERTEX or GRID_UNSTRUCTURED_VERTEX should be used
@@ -2093,7 +2079,6 @@ CONTAINS
       CALL gridDefUUID(of%cdiEdgeGridID, uuid_string)
       !
       CALL gridDefNumber(of%cdiEdgeGridID, patch_info(i_dom)%number_of_grid_used)
-!DR      CALL gridDefNumber(of%cdiEdgeGridID, 42)
 
       !
       ! not clear whether meta-info GRID_EDGE or GRID_UNSTRUCTURED_EDGE should be used
@@ -2550,9 +2535,8 @@ CONTAINS
             &                 grid_coord_grib2(i)%discipline) )
 
           ! GRIB2 Quick hack: Set additional GRIB2 keys
-          CALL set_additional_GRIB2_keys(vlistID, of%cdi_grb2(idx(igrid),i), &
-            &                            gribout_config(of%phys_patch_id),   &
-            &                            0, of%name_list%namespace)
+          CALL set_additional_GRIB2_keys(vlistID, of%cdi_grb2(idx(igrid),i),   &
+            &                            gribout_config(of%phys_patch_id), 0 )
         END DO
       END DO
 
@@ -2570,9 +2554,8 @@ CONTAINS
           &                 grid_coord_grib2(i)%discipline) )
 
         ! GRIB2 Quick hack: Set additional GRIB2 keys
-        CALL set_additional_GRIB2_keys(vlistID, of%cdi_grb2(ILATLON,i), &
-          &                            gribout_config(of%phys_patch_id), &
-          &                            0, of%name_list%namespace)
+        CALL set_additional_GRIB2_keys(vlistID, of%cdi_grb2(ILATLON,i),      &
+          &                            gribout_config(of%phys_patch_id), 0 )
       END DO
 
     CASE DEFAULT
@@ -2913,11 +2896,10 @@ CONTAINS
   ! Set additional GRIB2 keys. These are added to each single variable, even though
   ! adding it to the vertical or horizontal grid description may be more elegant.
   !
-  SUBROUTINE set_additional_GRIB2_keys(vlistID, varID, grib_conf, tileidx, namespace)
+  SUBROUTINE set_additional_GRIB2_keys(vlistID, varID, grib_conf, tileidx)
     INTEGER,                INTENT(IN) :: vlistID, varID
     TYPE(t_gribout_config), INTENT(IN) :: grib_conf
     INTEGER,                INTENT(IN) :: tileidx
-    CHARACTER (LEN=*),      INTENT(IN) :: namespace
 
     CHARACTER(len=MAX_STRING_LEN) :: ydate, ytime
     INTEGER :: cent, year, month, day    ! date
@@ -2961,8 +2943,10 @@ CONTAINS
     CALL vlistDefVarIntKey(vlistID, varID, "generatingProcessIdentifier",     &
       &                    grib_conf%generatingProcessIdentifier)
 
-    ! Product Generation (local)
-    IF (tolower(namespace) == "dwd") THEN
+    ! Product Generation (local), !! DWD only !!
+    ! DWD :: center    = 78
+    !        subcenter = 255
+    IF ((grib_conf%generatingCenter == 78) .AND. (grib_conf%generatingSubcenter == 255)) THEN 
       CALL vlistDefVarIntKey(vlistID, varID, "localDefinitionNumber"  ,         &
         &                    grib_conf%localDefinitionNumber)
       CALL vlistDefVarIntKey(vlistID, varID, "localNumberOfExperiment",         &
@@ -3098,7 +3082,7 @@ CONTAINS
 
       ! GRIB2 Quick hack: Set additional GRIB2 keys
       CALL set_additional_GRIB2_keys(vlistID, varID, gribout_config(of%phys_patch_id), &
-        &                            get_var_tileidx(TRIM(info%name)), of%name_list%namespace)
+        &                            get_var_tileidx(TRIM(info%name)) )
 
       !!!!!!! OBSOLETE !!!!!!!!
       !Set typeOfStatisticalProcessing

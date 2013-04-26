@@ -56,13 +56,13 @@ Parameter& Type& Default& Unit& Description & Scope
  \rule[-1em]{0.2ex}{4em}\hspace*{1em}%
  \begin{minipage}{9.95\textwidth}
  \begin{tabbing} 
- \hspace*{3cm} \= ~ \kill  
- \emph{Change:}         \> \textbf{#1} \\
- \emph{Date of Change:} \> \textbf{#2} \\
- \emph{Revision:}       \> \textbf{#3} \\
+ \hspace*{3cm} \= ~ \kill
+ \textcolor{red}{\emph{Change:}}         \> \textbf{#1} \\
+ \textcolor{red}{\emph{Date of Change:}} \> \textbf{#2} \\
+ \textcolor{red}{\emph{Revision:}}       \> \textbf{#3} \\
  \end{tabbing}
  \end{minipage}
-}{}
+}{\vspace*{1em}}
 
 
 
@@ -3000,14 +3000,6 @@ Possible values: 2 (=FILETYPE\_GRB2), 4 (=FILETYPE\_NC2), 5 (=FILETYPE\_NC4)
 \tabularnewline
 
 \hline
- namespace &
-C&'DWD'& &
- 'DWD' - DWD short names (or 'MPIMET', 'CMIP', 'ECMWF') \\
- {\color{red} Currently used for setting GRIB2 centre/subcentre information.}
-&
-\tabularnewline
-
-\hline
  mode &
 I&2& &
  1 = forecast mode, 2 = climate mode \\
@@ -3285,6 +3277,20 @@ filetype=2
 localNumberOfExperiment&
 I& 1 & &
 local Number of Experiment &
+filetype=2
+\tabularnewline
+
+\hline 
+generatingCenter&
+I& -1 & &
+Output generating center. If this key is not set, center information is taken from the grid file &
+filetype=2
+\tabularnewline
+
+\hline 
+generatingSubcenter&
+I& -1 & &
+Output generating Subcenter. If this key is not set, subcenter information is taken from the grid file &
 filetype=2
 \tabularnewline
 
@@ -5723,7 +5729,7 @@ model expects {\bf height based} coordinates. For further information see <icon 
 % -------------------------------------------------------------------
 \section{Changes incompatible with former versions of the model code}
 % -------------------------------------------------------------------
-
+\noindent
 % In this section we propose to document all namelist changes that are incompatible with former versions of the model code.
 % Such changes are
 %
@@ -5744,6 +5750,21 @@ model expects {\bf height based} coordinates. For further information see <icon 
          names and back.
   \end{itemize}
 \end{changeitem}
+
+
+\begin{changeitem}{output\_nml: namespace}{ 2013-04-26 }{ 12051 }
+  \begin{itemize}
+   \item Removed obsolete namelist variable \textbf{namespace} from \textbf{output\_nml}.
+  \end{itemize}
+\end{changeitem}
+
+\begin{changeitem}{gribout\_nml: generatingCenter, generatingSubcenter}{ 2013-04-26 }{ 12051 }
+  \begin{itemize}
+   \item Introduced new namelist variables \textbf{generatingCenter} from \textbf{generatingSubcenter}.
+   \item If not set explicitly, center and subcenter information is copied from the input grid file
+  \end{itemize}
+\end{changeitem}
+
 % --------------------------------------------------------------------------------------------
 
 

@@ -69,16 +69,19 @@ USE mo_nonhydrostatic_config,ONLY: ivctype, kstart_moist, iadv_rcf, &
 USE mo_lnd_nwp_config,       ONLY: configure_lnd_nwp
 USE mo_dynamics_config,      ONLY: configure_dynamics, iequations
 USE mo_run_config,           ONLY: configure_run, &
-  & ltimer,               & !    :
-  & iforcing,             & !    namelist parameter
-  & ldump_states,         & ! flag if states should be dumped
-  & lrestore_states,      & ! flag if states should be restored
-  & ldump_dd, lread_dd,   &
-  & nproc_dd, nshift,     &
-  & num_lev,num_levp1,    &
-  & ntracer, msg_level,   &
-  & dtime, output_mode
+  & ltimer,                 & !    :
+  & iforcing,               & !    namelist parameter
+  & ldump_states,           & ! flag if states should be dumped
+  & lrestore_states,        & ! flag if states should be restored
+  & ldump_dd, lread_dd,     &
+  & nproc_dd, nshift,       &
+  & num_lev,num_levp1,      &
+  & ntracer, msg_level,     &
+  & dtime, output_mode,     &
+  & grid_generatingCenter,  & ! grid generating center
+  & grid_generatingSubcenter  ! grid generating subcenter
 USE mo_prepicon_config,      ONLY: i_oper_mode 
+USE mo_gribout_config,       ONLY: configure_gribout
 USE mo_impl_constants,       ONLY:&
   & ihs_atm_temp,         & !    :
   & ihs_atm_theta,        & !    :
@@ -700,6 +703,8 @@ CONTAINS
     CALL configure_dynamics ( n_dom )
     CALL configure_diffusion( n_dom, dynamics_parent_grid_id,       &
       &                       p_patch(1)%nlev, vct_a, vct_b, apzero )
+
+    CALL configure_gribout(grid_generatingCenter, grid_generatingSubcenter, n_dom)
 
     IF (iequations == inh_atmosphere) THEN
       DO jg =1,n_dom
