@@ -480,6 +480,40 @@ specified for each nested domain separately)&
 Defined and used in: src/grid\_generator/mo\_gridrefinement.f90
 
 
+%-----------------------------------------------------------------------------
+% gridref_metadata:
+%-----------------------------------------------------------------------------
+\subsubsection{gridref\_metadata (NAMELIST\_GRIDREF)}
+
+\begin{longtab}
+
+\hline
+number\_of\_grid\_used&
+I(n\_dom+1)&
+0&
+&
+sets the number of grid used in the netcdf header; the number of entries must be n\_dom+1
+because the first number refers to the radiation grid &
+\tabularnewline
+
+\hline
+centre&
+I&
+0&
+&
+centre running the grid generator: 78 - edzw (DWD), 252 - MPIM &
+\tabularnewline
+
+\hline
+subcentre&
+I&
+0&
+&
+subcentre to be assigned by centre, usually 0 &
+\tabularnewline
+
+\end{longtab}
+
 \subsection{Namelist parameters defining the local grid generation}
 
 The ocean grids are created by the script \verb+run/create_ocen_grid.run+
