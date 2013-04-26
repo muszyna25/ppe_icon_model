@@ -319,8 +319,8 @@ CONTAINS
                                             (4._wp*surface_temperature_rad(1:kproma) -  &
                                             3._wp * surface_temperature_last(1:kproma)))**0.25
       ELSEWHERE
-        surface_temperature_eff(1:kproma) = ptsfc_tile(1:kproma,idx_lnd)
-        surface_temperature_rad(1:kproma) = ptsfc_tile(1:kproma,idx_lnd)
+        surface_temperature_eff(1:kproma) = ptsfc_tile(1:kproma,idx_wtr)
+        surface_temperature_rad(1:kproma) = ptsfc_tile(1:kproma,idx_wtr)
       ENDWHERE
 
     ELSE
