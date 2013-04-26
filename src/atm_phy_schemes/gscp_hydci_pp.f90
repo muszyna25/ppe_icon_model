@@ -276,7 +276,7 @@ PUBLIC :: hydci_pp, hydci_pp_init
 LOGICAL, PARAMETER :: &
   lnew_ni_cooper = .TRUE.  ! Number of ice crystals according to Cooper (1986)
 
-REAL, PARAMETER :: &
+REAL(ireals), PARAMETER :: &
   zceff_min = 0.2_ireals   ! Lower bound on sticking efficiency (artifically enhances the conversion
                            ! of cloud ice to snow at low temperatures - unfortunately, the scores 
                            ! get worse when relaxing this parameter)
