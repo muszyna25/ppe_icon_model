@@ -109,11 +109,13 @@ MODULE mo_gribout_config
 
 
     INTEGER :: &                          ! Output generating center
-      & generatingCenter                  !  
+      & generatingCenter                  ! DWD  : 78
+                                          ! ECMWF: 98 
 
 
     INTEGER :: &                          ! Output generating subcenter
-      & generatingSubcenter               !  
+      & generatingSubcenter               ! DWD  : 255
+                                          ! ECMWF: 0 
 
     LOGICAL :: ldate_grib_act             ! add Creation date to GRIB file
                                           ! .TRUE. : activated

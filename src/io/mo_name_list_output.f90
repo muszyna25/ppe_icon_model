@@ -1950,8 +1950,6 @@ CONTAINS
     of%cdiInstID = institutInq(gribout_config(i_dom)%generatingCenter,          &
       &                        gribout_config(i_dom)%generatingSubcenter, '', '')
 
-write(0,*) "center, subcenter, InstID: ", gribout_config(i_dom)%generatingCenter, &
-  & gribout_config(i_dom)%generatingSubcenter, of%cdiInstID
 
     ! define Institute
     CALL vlistDefInstitut(of%cdiVlistID,of%cdiInstID)
