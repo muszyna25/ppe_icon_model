@@ -57,7 +57,7 @@ MODULE mo_dictionary
   !--------------------------------------------------------------------------
   ! definition of constants:
 
-  CHARACTER(LEN=*), PARAMETER :: modname = TRIM('mo_remap_grid_icon')  
+  CHARACTER(LEN=*), PARAMETER :: modname = TRIM('mo_dictionary')  
 
   INTEGER, PARAMETER :: DICT_MAX_STRLEN = 100    !< maximum string length
   INTEGER, PARAMETER :: NINITIAL        = 100    !< initial dictionary size
