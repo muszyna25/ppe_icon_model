@@ -81,10 +81,12 @@ MODULE mo_ocean_model
   !  & finalize_decomposition,        &
     & copy_processor_splitting,      &
     & set_patch_communicators, complete_parallel_setup_oce, finalize_decomposition_oce
+USE mo_complete_subdivision, ONLY: &
+  & setup_phys_patches
   USE mo_dump_restore,        ONLY: restore_patches_netcdf
 
   !USE mo_icoham_dyn_memory,   ONLY: p_hydro_state
-  USE mo_model_domain,        ONLY: t_patch,  t_patch_3D
+  USE mo_model_domain,        ONLY: t_patch,  t_patch_3D, p_patch
 
   ! Horizontal grid
   !
@@ -334,6 +336,10 @@ CONTAINS
       ! Note: this apperas to be problematic for removing the land points
       CALL complete_patchinfo_oce(p_patch_3D%p_patch_2D(jg))
     END DO
+    !--------------------------------------------        
+    ! Setup the information for the physical patches
+    p_patch => p_patch_3D%p_patch_2D
+    CALL setup_phys_patches
 
     ! In case of a test run: Copy processor splitting to test PE
     !IF(p_test_run) CALL copy_processor_splitting(p_patch)

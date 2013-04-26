@@ -230,8 +230,8 @@ CONTAINS
     !
     CALL read_parallel_namelist       (TRIM(oce_namelist_filename))
     CALL read_run_namelist            (TRIM(oce_namelist_filename))
-    CALL read_name_list_output_namelists (TRIM(oce_namelist_filename))
     CALL read_io_namelist             (TRIM(oce_namelist_filename))
+    CALL read_name_list_output_namelists (TRIM(oce_namelist_filename))
     CALL read_dbg_namelist            (TRIM(oce_namelist_filename))
 
     ! Grid

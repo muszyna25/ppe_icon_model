@@ -738,6 +738,7 @@ CONTAINS
 
     LOGICAL, OPTIONAL, INTENT(in) :: lprintlist
     INTEGER, OPTIONAL, INTENT(in) :: isample
+    LOGICAL, OPTIONAL, INTENT(IN) :: isocean
 
     ! local variables:
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::init_name_list_output"
@@ -760,6 +761,7 @@ CONTAINS
     ! For hexagons, we still copy grid info from file; for triangular
     ! grids we have a faster method without file access:
     l_grid_info_from_file = (global_cell_type == 6)
+    !TODO: = FLASE if ocean
 
     DO i = 1, nvar_lists
 
@@ -1316,6 +1318,7 @@ CONTAINS
   !------------------------------------------------------------------------------------------------
   !
   SUBROUTINE set_patch_info
+  !TODO: redo for the ocean
 
     INTEGER :: jp, jl, ierrstat, jg
 

@@ -220,8 +220,8 @@ fi  #  run fortran program
 
 echo "PSI -> plot using icon_plot.ncl:"
 nclsh /pool/data/ICON/tools/icon_plot.ncl -altLibDir=/pool/data/ICON/tools \
-  -iFile=$outfile.nc -oFile=$plotfile -varName=psi -timeStep=0 -oType=eps \
-  -maskName=wet_c -selMode=manual -minVar=-150 -maxVar=150 -numLevs=15 \
+  -iFile=$outfile.nc -oFile=$plotfile -varName=psi -timeStep=0 -oType=png \
+  -maskName=wet_c -selMode=manual -minVar=-150 -maxVar=150 -numLevs=15 -tStrg='r11413 dtime=1h' \
   -plotLevs=-150,-100,-75,-50,-30,-20,-10,-5,0,5,10,20,30,50,75,100,150 -withLineLabels > /dev/null
 
 # nclsh $ICONPLOT \
