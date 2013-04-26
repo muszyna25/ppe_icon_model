@@ -996,13 +996,15 @@ CONTAINS
                        & albnirdif_wtr = field% albnirdif_wtr(:  ,jb), &! inout
                        & plwflx_wtr = field%lwflxsfc_tile(:,jb,iwtr),  &! out (for coupling)
                        & pswflx_wtr = field%swflxsfc_tile(:,jb,iwtr))  ! out (for coupling)
-! Merge surface temperatures
-       field%tsfc(:,jb) = zfrc(:,1)*field%tsfc_tile(:,jb,1)
-       DO jsfc=2,nsfc_type
-         field%tsfc(:,jb) = field%tsfc(:,jb) + zfrc(:,jsfc)*field%tsfc_tile(:,jb,jsfc)
-       ENDDO
 
     ENDIF ! ljsbach
+
+    ! Merge surface temperatures
+    field%tsfc(:,jb) = 0._wp
+    DO jsfc=1,nsfc_type
+      field%tsfc(:,jb) = field%tsfc(:,jb) + zfrc(:,jsfc)*field%tsfc_tile(:,jb,jsfc)
+    ENDDO
+
     ! 5.5 Turbulent mixing, part II:
     !     - Elimination for the lowest model level using boundary conditions
     !       provided by the surface model(s);
