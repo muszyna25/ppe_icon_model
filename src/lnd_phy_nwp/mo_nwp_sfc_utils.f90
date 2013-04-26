@@ -2403,10 +2403,13 @@ CONTAINS
 !CDIR NODEP,VOVERTAKE,VOB
           DO ic = 1, i_count 
             jc = ext_data(jg)%atm%idx_lst_lp_t(ic,jb,1)
+            ! plant cover
             ext_data(jg)%atm%plcov_t  (jc,jb,1)  = ext_data(jg)%atm%ndviratio(jc,jb)  &
-            &                                       * ext_data(jg)%atm%plcov_mx(jc,jb)
-            ext_data(jg)%atm%tai_t    (jc,jb,1)  = ext_data(jg)%atm%ndviratio(jc,jb)**2  &
-            & * ext_data(jg)%atm%plcov_mx(jc,jb)*ext_data(jg)%atm%lai_mx(jc,jb)
+              &     * MIN(ext_data(jg)%atm%ndvi_max(jc,jb),ext_data(jg)%atm%plcov_mx(jc,jb))
+            ! total area index
+            ext_data(jg)%atm%tai_t    (jc,jb,1)  = ext_data(jg)%atm%plcov_t  (jc,jb,1)  &
+              &                                  * ext_data(jg)%atm%lai_mx(jc,jb)
+            ! surface area index
             ext_data(jg)%atm%sai_t    (jc,jb,1)  = c_lnd+ext_data(jg)%atm%tai_t(jc,jb,1)
  
           END DO
@@ -2430,11 +2433,8 @@ CONTAINS
                  ! total area index
                  ext_data(jg)%atm%tai_t    (jc,jb,jt)  = ext_data(jg)%atm%plcov_t(jc,jb,jt)  &
                    & * ext_data(jg)%atm%laimax_lcc(lu_subs)
-
                  ! surface area index
                  ext_data(jg)%atm%sai_t    (jc,jb,jt)  = c_lnd+ ext_data(jg)%atm%tai_t (jc,jb,jt)     
-
-
 
            END DO !ic
           END DO !jt

@@ -167,6 +167,12 @@ MODULE mo_ext_data_types
     REAL(wp), POINTER ::   &   !< leaf area index (vegetation period)            [ ]
       &  lai(:,:)              ! index1=1,nproma, index2=1,nblks_c
     REAL(wp), POINTER ::   &   !< surface area index (vegetation period)         [ ]
+      &  sai(:,:)              ! index1=1,nproma, index2=1,nblks_c
+    REAL(wp), POINTER ::   &   !< transpiration area index (vegetation period)   [ ]
+      &  tai(:,:)              ! index1=1,nproma, index2=1,nblks_c
+    REAL(wp), POINTER ::   &   !< earth area (evaporative surface area)          [ ] 
+      &  eai(:,:)              ! index1=1,nproma, index2=1,nblks_c
+    REAL(wp), POINTER ::   &   !< surface area index (vegetation period)         [ ]
       &  sai_t(:,:,:)          ! index1=1,nproma, index2=1,nblks_c, ntiles_total
     REAL(wp), POINTER ::   &   !< transpiration area index (vegetation period)   [ ]
       &  tai_t(:,:,:)          ! index1=1,nproma, index2=1,nblks_c, ntiles_total

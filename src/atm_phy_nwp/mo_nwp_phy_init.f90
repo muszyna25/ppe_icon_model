@@ -91,7 +91,7 @@ MODULE mo_nwp_phy_init
   ! turbulence
   USE mo_turbdiff_config,     ONLY: turbdiff_config
   USE mo_data_turbdiff,       ONLY: get_turbdiff_param
-  USE src_turbdiff,           ONLY: init_canopy, turbtran, turbdiff
+  USE src_turbdiff,           ONLY: turbtran, turbdiff
 
   ! air-sea-land interface
   USE mo_icoham_sfc_indices,  ONLY: nsfc_type, iwtr, iice, ilnd !, &
@@ -300,8 +300,6 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
          DO ic=1, ext_data%atm%lp_count(jb)
            jc = ext_data%atm%idx_lst_lp(ic,jb)
            p_prog_lnd_now%t_g(jc,jb) = p_diag_lnd%t_skin(jc,jb)
-           !p_diag_lnd%qv_s    (jc,jb)    = 0.001_wp
-           !DR not clear to me, whether this is OK, or whether we can do better
            p_diag_lnd%qv_s(jc,jb) = &
              &  spec_humi(sat_pres_water(p_prog_lnd_now%t_g (jc,jb)),p_diag%pres_sfc(jc,jb))  
            p_diag_lnd%qv_s(jc,jb) = MIN (p_diag_lnd%qv_s(jc,jb), &
@@ -440,7 +438,9 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
     
 !    prm_diag%lfglac (:,:) = ext_data%atm%soiltyp(:,:) == 1  !soiltyp=ice
 
+    ! solar flux (W/m2) in 14 SW bands
     ssi(:) = ssi_amip(:)
+    ! solar constant (W/m2)
     tsi    = SUM(ssi(:))
 
 
@@ -567,8 +567,10 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
       CALL finish('mo_nwp_phy_init: init_nwp_phy',  &
         &      'Wrong irad_aero. For Ritter-Geleyn radiation, this irad_aero is not implemented.')
     END SELECT
-    
+
+    ! solar flux (W/m2) in 14 SW bands    
     ssi(:) = ssi_amip(:)
+    ! solar constant (W/m2)
     tsi    = SUM(ssi(:))
 
 
@@ -797,23 +799,13 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
     i_startblk = p_patch%cells%start_blk(rl_start,1)
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
+
 !$OMP DO PRIVATE(jb,jk,i_startidx,i_endidx,ic,jc,jt) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-&                       i_startidx, i_endidx, rl_start, rl_end)
+        &                i_startidx, i_endidx, rl_start, rl_end)
 
-!DR
-!DR WARNING: plcov_mx and lai_mx have not been multiplied by ndvi_mrat in order 
-!DR          to account for seasonal variations.!!
-!DR
-!MR: init_canopy und turbtran ueber Tiles laufen lassen!
-
-      CALL init_canopy( ie=nproma, ke=nlev, ke1=nlevp1, kcm=nlevp1, &
-         &  istartpar=i_startidx, iendpar=i_endidx,                 &
-         &  fr_land=ext_data%atm%fr_land(:,jb), plcov=ext_data%atm%plcov_mx(:,jb), & 
-         &  sai=prm_diag%sai(:,jb), lai=ext_data%atm%lai_mx(:,jb), &
-         &  tai=prm_diag%tai(:,jb), eai=prm_diag%eai(:,jb) )
 
       CALL turbtran(iini=1, dt_tke=pdtime, nprv=1, ntur=1, ntim=1, &
 !
@@ -823,7 +815,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
          &  l_hori=phy_params%mean_charlen, hhl=p_metrics%z_ifc(:,:,jb),                &
 !
          &  fr_land=ext_data%atm%fr_land(:,jb), depth_lk=ext_data%atm%depth_lk(:,jb), &
-         &  sai=prm_diag%sai(:,jb), h_ice=p_prog_wtr_now%h_ice (:,jb), &
+         &  sai=ext_data%atm%sai(:,jb), h_ice=p_prog_wtr_now%h_ice (:,jb), &
 !
          &  ps=p_diag%pres_sfc(:,jb), t_g=p_prog_lnd_now%t_g(:,jb), qv_s=p_diag_lnd%qv_s(:,jb), &
 !

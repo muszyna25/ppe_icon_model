@@ -1962,10 +1962,14 @@ CONTAINS
     ! define output generating institute
     !
     ! inquire the Institute ID from (center/subcenter) 
-    
+    !
     of%cdiInstID = institutInq(patch_info(i_dom)%center, patch_info(i_dom)%subcenter, '', '')
 
+    ! define Institute
     CALL vlistDefInstitut(of%cdiVlistID,of%cdiInstID)
+
+!DR: TODO: why doesnt this information propagate down to the fields (additional call of 
+!vlistDefVarIntKey(vlistID, varID, "tablesVersion", 5) seems to be necessary. Please re-check
     CALL vlistDefTable(of%cdiVlistID,5)
 
 
@@ -2042,9 +2046,8 @@ CONTAINS
       CALL uuid2char(patch_info(i_dom)%grid_uuid, uuid_string)
       CALL gridDefUUID(of%cdiCellGridID, uuid_string)
       !
-      ! works, but makes no sense, yet. Proper grid numbers still missing
-!DR      CALL gridDefNumber(of%cdiCellGridID, patch_info(i_dom)%number_of_grid_used)
-      CALL gridDefNumber(of%cdiCellGridID, 42)
+      CALL gridDefNumber(of%cdiCellGridID, patch_info(i_dom)%number_of_grid_used)
+!DR      CALL gridDefNumber(of%cdiCellGridID, 42)
 
       !
       ! not clear whether meta-info GRID_CELL or GRID_UNSTRUCTURED_CELL should be used
@@ -2066,9 +2069,8 @@ CONTAINS
       CALL uuid2char(patch_info(i_dom)%grid_uuid, uuid_string)
       CALL gridDefUUID(of%cdiVertGridID, uuid_string)
       !
-      ! works, but makes no sense, yet. Proper grid numbers still missing
-!DR      CALL gridDefNumber(of%cdiVertGridID, patch_info(i_dom)%number_of_grid_used)
-      CALL gridDefNumber(of%cdiVertGridID, 42)
+      CALL gridDefNumber(of%cdiVertGridID, patch_info(i_dom)%number_of_grid_used)
+!DR      CALL gridDefNumber(of%cdiVertGridID, 42)
 
       !
       ! not clear whether meta-info GRID_VERTEX or GRID_UNSTRUCTURED_VERTEX should be used
@@ -2090,9 +2092,8 @@ CONTAINS
       CALL uuid2char(patch_info(i_dom)%grid_uuid, uuid_string)
       CALL gridDefUUID(of%cdiEdgeGridID, uuid_string)
       !
-      ! works, but makes no sense, yet. Proper grid numbers still missing
-!DR      CALL gridDefNumber(of%cdiEdgeGridID, patch_info(i_dom)%number_of_grid_used)
-      CALL gridDefNumber(of%cdiEdgeGridID, 42)
+      CALL gridDefNumber(of%cdiEdgeGridID, patch_info(i_dom)%number_of_grid_used)
+!DR      CALL gridDefNumber(of%cdiEdgeGridID, 42)
 
       !
       ! not clear whether meta-info GRID_EDGE or GRID_UNSTRUCTURED_EDGE should be used

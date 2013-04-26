@@ -878,7 +878,7 @@ CONTAINS
         &           grib2_desc, ldims=shape2d_c, loutput=.FALSE.,   &
         &           isteptype=TSTEP_MAX )
 
-      ! Leaf area index
+      ! Leaf area index (aggregated)
       !
       ! lai       p_ext_atm%lai(nproma,nblks_c)
       cf_desc    = t_cf_var('leaf_area_index_vegetation_period', '-',&
@@ -889,26 +889,60 @@ CONTAINS
         &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,   &
         &           isteptype=TSTEP_CONSTANT )
 
+      ! Surface area index (aggregated)
+      !
+      ! sai        p_ext_atm%sai(nproma,nblks_c)
+      cf_desc    = t_cf_var('sai', ' ','surface area index', DATATYPE_FLT32)
+      grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( p_ext_atm_list, 'sai', p_ext_atm%sai,            &
+        &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,     &
+        &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.)
+
+      ! Surface area index
+      !
       ! sai_t       p_ext_atm%sai_t(nproma,nblks_c,ntiles_total+ntiles_water)
       cf_desc    = t_cf_var('surface_area_index_vegetation_period', '-',&
         &                   'Surface Area Index', DATATYPE_FLT32)
-      grib2_desc = t_grib2_var( 2, 0, 28, ibits, GRID_REFERENCE, GRID_CELL)
+      grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'sai_t', p_ext_atm%sai_t,     &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,  &
         &           grib2_desc, ldims=shape3d_ntw, loutput=.FALSE. )
 
+      ! Transpiration area index (aggregated)
+      !
+      ! tai         p_ext_atm%tai(nproma,nblks_c)
+      cf_desc    = t_cf_var('tai', ' ','transpiration area index', DATATYPE_FLT32)
+      grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( p_ext_atm_list, 'tai', p_ext_atm%tai,         &
+        &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,  &
+        &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.)
+
+      ! Transpiration area index
+      !
       ! tai_t       p_ext_atm%tai_t(nproma,nblks_c,ntiles_total)
       cf_desc    = t_cf_var('transpiration_area_index_vegetation_period', '-',&
         &                   'Transpiration Area Index', DATATYPE_FLT32)
-      grib2_desc = t_grib2_var( 2, 0, 28, ibits, GRID_REFERENCE, GRID_CELL)
+      grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'tai_t', p_ext_atm%tai_t,     &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,  &
         &           grib2_desc, ldims=shape3d_nt, loutput=.FALSE. )
 
+
+      ! Evaporative area index (aggregated)
+      !
+      ! eai        p_ext_atm%eai(nproma,nblks_c)
+      cf_desc    = t_cf_var('eai', ' ','(evaporative) earth area index', DATATYPE_FLT32)
+      grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( p_ext_atm_list, 'eai', p_ext_atm%eai,         &
+        &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,  &
+        &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.)
+
+      ! Evaporative area index
+      !
       ! eai_t       p_ext_atm%eai_t(nproma,nblks_c,ntiles_total)
       cf_desc    = t_cf_var('evaporative_surface_area_index_vegetation_period', '-',&
         &                   'Earth Area (evaporative surface area) Index', DATATYPE_FLT32)
-      grib2_desc = t_grib2_var( 2, 0, 28, ibits, GRID_REFERENCE, GRID_CELL)
+      grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'eai_t', p_ext_atm%eai_t,     &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,  &
         &           grib2_desc, ldims=shape3d_nt, loutput=.FALSE. )
@@ -3042,14 +3076,23 @@ CONTAINS
              IF (ntiles_lnd == 1) THEN 
 
                ! i_lu=1 contains grid-box mean values from EXTPAR!
+               !
+               ! root depth
                ext_data(jg)%atm%rootdp_t (jc,jb,1)  = ext_data(jg)%atm%rootdp(jc,jb)
+
+               ! plant cover
                ext_data(jg)%atm%plcov_t  (jc,jb,1)  = ptr_ndviratio(jc,jb)  &
-                 &                                       * ext_data(jg)%atm%plcov_mx(jc,jb)
-               ext_data(jg)%atm%tai_t    (jc,jb,1)  = ptr_ndviratio(jc,jb)**2  &
-                 & * ext_data(jg)%atm%plcov_mx(jc,jb)*ext_data(jg)%atm%lai_mx(jc,jb)
+                 &     * MIN(ext_data(jg)%atm%ndvi_max(jc,jb),ext_data(jg)%atm%plcov_mx(jc,jb))
+               ! transpiration area index
+               ext_data(jg)%atm%tai_t    (jc,jb,1)  = ext_data(jg)%atm%plcov_t  (jc,jb,1)  &
+                 &                                  * ext_data(jg)%atm%lai_mx(jc,jb)
+               ! surface area index
                ext_data(jg)%atm%sai_t    (jc,jb,1)  = c_lnd+ext_data(jg)%atm%tai_t(jc,jb,1)
-               ext_data(jg)%atm%eai_t    (jc,jb,1)  = c_soil      
+               ! evaporative soil area index
+               ext_data(jg)%atm%eai_t    (jc,jb,1)  = c_soil
+               ! minimal stomata resistance
                ext_data(jg)%atm%rsmin2d_t(jc,jb,1)  = ext_data(jg)%atm%rsmin(jc,jb)
+               ! soil type
                ext_data(jg)%atm%soiltyp_t(jc,jb,1)  = ext_data(jg)%atm%soiltyp(jc,jb)
                ext_data(jg)%atm%lc_frac_t(jc,jb,1)  = 1._wp
                ext_data(jg)%atm%lc_class_t(jc,jb,1) = MAXLOC(tile_frac,1,tile_mask)
@@ -3148,7 +3191,7 @@ CONTAINS
                  ! plant cover
                  ext_data(jg)%atm%plcov_t  (jc,jb,i_lu)  = ptr_ndviratio(jc,jb) &
                    & * MIN(ext_data(jg)%atm%ndvi_max(jc,jb),ext_data(jg)%atm%plcovmax_lcc(lu_subs))
-                 ! total area index
+                 ! transpiration area index
                  ext_data(jg)%atm%tai_t    (jc,jb,i_lu)  = ext_data(jg)%atm%plcov_t(jc,jb,i_lu) &
                    & * ext_data(jg)%atm%laimax_lcc(lu_subs)
 
@@ -3337,6 +3380,7 @@ CONTAINS
     INTEGER  :: jg,jb,jt,ic,jc
     INTEGER  :: rl_start, rl_end
     INTEGER  :: i_startblk, i_endblk    !> blocks
+    INTEGER  :: i_startidx, i_endidx
     INTEGER  :: i_nchdom                !< domain index
     INTEGER  :: i_count
     REAL(wp) :: area_frac
@@ -3357,15 +3401,19 @@ CONTAINS
       i_endblk   = p_patch(jg)%cells%end_blk(rl_end,i_nchdom)
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jt,ic,i_count,jc,area_frac)
+!$OMP DO PRIVATE(jb,jt,ic,i_startidx,i_endidx,i_count,jc,area_frac)
       DO jb = i_startblk, i_endblk
 
-        IF (ext_data(jg)%atm%lp_count(jb) == 0) CYCLE ! skip loop if there is no land point
+        CALL get_indices_c(p_patch(jg), jb, i_startblk, i_endblk, &
+          & i_startidx, i_endidx, rl_start, rl_end)
+
 
         ext_data(jg)%atm%plcov (:,jb) = 0._wp
         ext_data(jg)%atm%rootdp(:,jb) = 0._wp
         ext_data(jg)%atm%lai   (:,jb) = 0._wp
         ext_data(jg)%atm%rsmin (:,jb) = 0._wp
+        ext_data(jg)%atm%tai   (:,jb) = 0._wp
+        ext_data(jg)%atm%sai   (:,jb) = 0._wp
 
         DO jt = 1, ntiles_total
           i_count = ext_data(jg)%atm%gp_count_t(jb,jt)
@@ -3376,21 +3424,41 @@ CONTAINS
 
             area_frac = ext_data(jg)%atm%frac_t(jc,jb,jt)
 
+            ! plant cover (aggregated)
             ext_data(jg)%atm%plcov(jc,jb) = ext_data(jg)%atm%plcov(jc,jb)       &
               &              + ext_data(jg)%atm%plcov_t(jc,jb,jt) * area_frac
 
+            ! root depth (aggregated)
             ext_data(jg)%atm%rootdp(jc,jb) = ext_data(jg)%atm%rootdp(jc,jb)     &
               &             + ext_data(jg)%atm%rootdp_t(jc,jb,jt) * area_frac
 
+            ! surface area index (aggregated)
             ext_data(jg)%atm%lai(jc,jb) = ext_data(jg)%atm%lai(jc,jb)           &
               &             + ( ext_data(jg)%atm%tai_t(jc,jb,jt)                &
               &             /(ext_data(jg)%atm%plcov_t(jc,jb,jt)+dbl_eps) * area_frac )
 
+            ! transpiration area index (aggregated)
+            ext_data(jg)%atm%tai(jc,jb) = ext_data(jg)%atm%tai(jc,jb)           &
+              &             +  ext_data(jg)%atm%tai_t(jc,jb,jt) * area_frac 
+
+            ! minimal stomata resistance (aggregated)
             ext_data(jg)%atm%rsmin(jc,jb) = ext_data(jg)%atm%rsmin(jc,jb)       &
               &              + ext_data(jg)%atm%rsmin2d_t(jc,jb,jt) * area_frac
 
           ENDDO  !ic
+        ENDDO  !jt
 
+
+        ! aggregate fields with water tiles
+        DO jt = 1,ntiles_total + ntiles_water
+          DO jc = i_startidx, i_endidx
+
+            area_frac = ext_data(jg)%atm%frac_t(jc,jb,jt)
+
+            ! surface area index (aggregated)
+            ext_data(jg)%atm%sai(jc,jb) = ext_data(jg)%atm%sai(jc,jb)           &
+              &             +  ext_data(jg)%atm%sai_t(jc,jb,jt) * area_frac
+          ENDDO  ! jc
         ENDDO  !jt
 
       ENDDO  !jb

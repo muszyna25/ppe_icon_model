@@ -221,10 +221,7 @@ MODULE mo_nwp_phy_types
       tfh(:,:)        ,    & !! factor of laminar transfer of scalars           --
       tfv(:,:)        ,    & !! laminar reduction factor for evaporation        --
       gz0(:,:),            & !! roughness length * g of the vertically not
-                                !! resolved canopy                               (m2/s2)
-      sai(:,:),            & !! surface area index                            ( 1 )
-      tai(:,:),            & !! transpiration area index                      ( 1 )
-      eai(:,:),            & !! (evaporative) earth area index                ( 1 )
+                             !! resolved canopy                               (m2/s2)
       tkvm(:,:,:),         & !! turbulent diffusion coefficients for momentum (m/s2 )
       tkvh(:,:,:),         & !! turbulent diffusion coefficients for heat     (m/s2 )
       t_2m(:,:)       ,    & !! temperature in 2m                             (  K  )

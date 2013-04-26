@@ -1250,27 +1250,6 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
           &                 new_cf=new_cf_desc) )
         diag%gz0(:,:)=0.01_wp
 
-        ! &      diag%sai(nproma,nblks_c)
-        cf_desc    = t_cf_var('sai', ' ','surface area index', DATATYPE_FLT32)
-        grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-        CALL add_var( diag_list, 'sai', diag%sai,                             &
-          & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,          &
-          & ldims=shape2d)
-
-
-        ! &      diag%tai(nproma,nblks_c)
-        cf_desc    = t_cf_var('tai', ' ','transpiration area index', DATATYPE_FLT32)
-        grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-        CALL add_var( diag_list, 'tai', diag%tai,                             &
-          & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d)
-
-
-        ! &      diag%eai(nproma,nblks_c)
-        cf_desc    = t_cf_var('eai', ' ','(evaporative) earth area index', DATATYPE_FLT32)
-        grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-        CALL add_var( diag_list, 'eai', diag%eai,                             &
-          & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d)
-
 
         ! &      diag%t_2m(nproma,nblks_c)
         cf_desc    = t_cf_var('t_2m', 'K ','temperature in 2m', DATATYPE_FLT32)

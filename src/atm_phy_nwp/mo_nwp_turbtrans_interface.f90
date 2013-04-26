@@ -295,7 +295,7 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
           & istart=i_startidx, iend=i_endidx, istartpar=i_startidx, iendpar=i_endidx,  & !in
           & l_hori=phy_params(jg)%mean_charlen, hhl=p_metrics%z_ifc(:,:,jb),           & !in
           & fr_land=ext_data%atm%fr_land(:,jb), depth_lk=ext_data%atm%depth_lk(:,jb),  & !in
-          & sai=prm_diag%sai(:,jb), h_ice=wtr_prog_new%h_ice(:,jb),                    & !in
+          & sai=ext_data%atm%sai_t(:,jb,1), h_ice=wtr_prog_new%h_ice(:,jb),            & !in
           & ps=p_diag%pres_sfc(:,jb), t_g=lnd_prog_new%t_g(:,jb),                      & !in
           & qv_s=lnd_diag%qv_s(:,jb),                                                  & !in
           & u=p_diag%u(:,:,jb), v=p_diag%v(:,:,jb),                                    & !in
