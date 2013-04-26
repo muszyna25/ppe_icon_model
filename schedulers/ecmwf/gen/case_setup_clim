@@ -209,7 +209,11 @@ cat > ${atmo_namelist} << EOF
  remap                        = 1
  reg_lon_def                  = 0.,3.,357.
  reg_lat_def                  = 90.,-3., -90.
- namespace                    = "ECMWF"                 ! 
+!namespace                    = "ECMWF"                 ! 
+/
+&gribout_nml
+ generatingCenter             = 232                       ! ECMWF
+ gneratingSubcenter           = 0                         ! ECMWF
 /
 &meteogram_output_nml
  lmeteogram_enabled= .TRUE.
