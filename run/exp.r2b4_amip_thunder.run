@@ -653,7 +653,7 @@ cd $basedir/run
 if [[ "${finish_status}" = "RESTART" ]]
 then
     greenln "restart next job..."
-    if [[ $(grep -c "restart=.true." ${job_name}) -eq 0 ]]
+    if [[ $(grep -c "restart=.true." ${job_name}) -le 1 ]]
     then
         perl -pi -e 's/(^#AUTOMATIC_RESTART_SETUP.*)/\1\nrestart=\.true\./' $job_name
     fi
