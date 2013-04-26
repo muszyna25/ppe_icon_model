@@ -1925,7 +1925,7 @@ MODULE mo_nonhydro_state
                nblks_e, &    !< number of edge blocks to allocate
                nblks_v       !< number of vertex blocks to allocate
 
-    INTEGER :: nlev, nlevp1
+    INTEGER :: nlev, nlevp1, jg
 
     INTEGER :: shape2d_c(2), shape3d_c(3), shape3d_e(3),               &
       &        shape3d_v(3), shape3d_chalf(3), shape3d_ehalf(3),       &
@@ -2574,6 +2574,78 @@ MODULE mo_nonhydro_state
                   & isteptype=TSTEP_CONSTANT )
 
     ENDIF
+
+    !Add LES related variables : Anurag Dipankar MPIM (2013-04)
+    jg = p_patch%id
+    IF(atm_phy_nwp_config(jg)%inwp_turb == 5)THEN
+
+      ! inv_ddqz_z_half_e  p_metrics%inv_ddqz_z_half_e(nproma,nlevp1,nblks_e)
+      !
+      cf_desc    = t_cf_var('metrics_functional_determinant', '-',                &
+        &                   'metrics functional determinant', DATATYPE_FLT32)
+      grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_EDGE)
+      CALL add_var( p_metrics_list, 'inv_ddqz_z_half_e', p_metrics%inv_ddqz_z_half_e, &
+                  & GRID_UNSTRUCTURED_EDGE, ZA_HYBRID_HALF, cf_desc, grib2_desc,&
+                  & ldims=shape3d_ehalf,                                        &
+                  & isteptype=TSTEP_CONSTANT )
+
+      ! inv_ddqz_z_full_e  p_metrics%inv_ddqz_z_full_e(nproma,nlev,nblks_e)
+      !
+      cf_desc    = t_cf_var('metrics_functional_determinant', '-',                &
+        &                   'metrics functional determinant (edge)', DATATYPE_FLT32)
+      grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_EDGE)
+      CALL add_var( p_metrics_list, 'inv_ddqz_z_full_e', p_metrics%inv_ddqz_z_full_e,  &
+                  & GRID_UNSTRUCTURED_EDGE, ZA_HYBRID, cf_desc, grib2_desc,            &
+                  & ldims=shape3d_e,                                                   &
+                  & isteptype=TSTEP_CONSTANT )
+
+      ! inv_ddqz_z_half  p_metrics%inv_ddqz_z_half(nproma,nlevp1,nblks_c)
+      !
+      cf_desc    = t_cf_var('metrics_functional_determinant', '-',                &
+        &                   'metrics functional determinant', DATATYPE_FLT32)
+      grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( p_metrics_list, 'inv_ddqz_z_half', p_metrics%inv_ddqz_z_half, &
+                  & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc,  &
+                  & ldims=shape3d_chalf,                                          &
+                  & isteptype=TSTEP_CONSTANT )
+
+
+      ! inv_ddqz_z_half_v   p_metrics%inv_ddqz_z_half_v(nproma,nlevp1,nblks_v)
+      !
+      cf_desc    = t_cf_var('metrics_functional_determinant', '-',              &
+      &                     'metrics functional determinant', DATATYPE_FLT32)
+      grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_VERTEX)
+      CALL add_var( p_metrics_list, 'inv_ddqz_z_half_v', p_metrics%inv_ddqz_z_half_v,  &
+                  & GRID_UNSTRUCTURED_VERT, ZA_HYBRID, cf_desc, grib2_desc,            &
+                  & ldims=shape3d_vhalf,                                               &
+                  & isteptype=TSTEP_CONSTANT )
+
+
+      ! mixing_length_sq  p_metrics%mixing_length_sq(nproma,nlev,nblks_e)
+      !
+      cf_desc    = t_cf_var('mixing_length_sq', 'm2','square of mixing length for Smagorinsky model', &
+                             DATATYPE_FLT32)
+      grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_EDGE)
+      CALL add_var( p_metrics_list, 'mixing_length_sq', p_metrics%mixing_length_sq,  &
+                  & GRID_UNSTRUCTURED_EDGE, ZA_HYBRID, cf_desc, grib2_desc,          &
+                  & ldims=shape3d_e,                                                 &
+                  & isteptype=TSTEP_CONSTANT )
+
+
+      ! weighting factor for interpolation from full to half levels
+      ! wgtfac_v     p_metrics%wgtfac_v(nproma,nlevp1,nblks_v)
+      !
+      cf_desc    = t_cf_var('weighting_factor', '-',                            &
+      &                     'weighting factor for interpolation from full to half levels(verts)', &
+      &                     DATATYPE_FLT32)
+      grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_VERTEX)
+      CALL add_var( p_metrics_list, 'wgtfac_v', p_metrics%wgtfac_v,             &
+                  & GRID_UNSTRUCTURED_VERT, ZA_HYBRID_HALF, cf_desc, grib2_desc,&
+                  & ldims=shape3d_vhalf,                                        &
+                  & isteptype=TSTEP_CONSTANT )
+
+    END IF !if inwp_turb==5 (LES) 
+
 
   END SUBROUTINE new_nh_metrics_list
 

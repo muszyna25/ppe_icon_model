@@ -373,6 +373,17 @@ MODULE mo_nonhydro_types
    ! 1/(dz(k-1)*dz(k)) (nproma,nlevp1,nblks_c)
    REAL(wp), POINTER :: mult_1_o_dz(:,:,:)
 
+   !For LES Model : Anurag Dipankar, MPIM (2013-04)
+
+   !Vertical grid related
+   REAL(wp), POINTER :: inv_ddqz_z_half_e(:,:,:) 
+   REAL(wp), POINTER :: inv_ddqz_z_full_e(:,:,:) 
+   REAL(wp), POINTER :: inv_ddqz_z_half(:,:,:) 
+   REAL(wp), POINTER :: inv_ddqz_z_half_v(:,:,:) 
+   REAL(wp), POINTER :: wgtfac_v(:,:,:) 
+   !Mixing length for Smagorinsky model
+   REAL(wp), POINTER :: mixing_length_sq(:,:,:) 
+   
   END TYPE t_nh_metrics
 
   TYPE :: t_buffer_memory

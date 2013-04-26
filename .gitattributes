@@ -1142,8 +1142,6 @@ src/atm_phy_edmf/mo_vsurf.f90 -text
 src/atm_phy_edmf/mo_vupdz0.f90 -text
 src/atm_phy_les/mo_sgs_turbulence.f90 -text
 src/atm_phy_les/mo_surface_les.f90 -text
-src/atm_phy_les/thetav_mo_sgs_turbulence.cp -text
-src/atm_phy_les/thetav_mo_surface_les.cp -text
 src/atm_phy_nwp/mo_nh_interface_nwp.f90 -text
 src/atm_phy_nwp/mo_nwp_conv_interface.f90 -text
 src/atm_phy_nwp/mo_nwp_diagnosis.f90 -text

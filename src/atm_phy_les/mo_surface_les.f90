@@ -96,7 +96,7 @@ MODULE mo_surface_les
   !! Initial release by Anurag Dipankar, MPI-M (2013-02-06)
   SUBROUTINE  surface_conditions(p_nh_metrics, p_patch, p_nh_diag, p_int, &
                                  p_prog_lnd_now, p_diag_lnd, prm_diag,    &
-                                 theta, theta_sfc, qv)
+                                 theta, qv)
 
     TYPE(t_nh_metrics),INTENT(in),TARGET :: p_nh_metrics  !< single nh metric state
     TYPE(t_patch),     INTENT(in),TARGET :: p_patch    !< single patch
@@ -106,12 +106,11 @@ MODULE mo_surface_les
     TYPE(t_lnd_diag),  INTENT(inout)     :: p_diag_lnd    !<land diag state 
     TYPE(t_nwp_phy_diag),   INTENT(inout):: prm_diag      !< atm phys vars
     REAL(wp),          INTENT(in)        :: theta(:,:,:)  !pot temp  
-    REAL(wp),          INTENT(out)       :: theta_sfc(:,:)!sfc pot temp  
     REAL(wp),          INTENT(in)        :: qv(:,:,:)     !spec humidity
 
     REAL(wp) :: rhos, th0_srf, obukhov_length, z_mc, ustar, mwind, bflux
     REAL(wp) :: zrough, pres_sfc(nproma,p_patch%nblks_c), exner
-    REAL(wp) :: theta_sfc_new, th_grad, qv_grad, theta_ic, qv_ic, phi
+    REAL(wp) :: theta_sfc_new, theta_sfc
     INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
     INTEGER :: rl_start, rl_end
     INTEGER :: jk, jb, jc
@@ -151,8 +150,8 @@ MODULE mo_surface_les
 
       jk = nlev
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jc,jb,i_startidx,i_endidx,th0_srf,bflux,mwind,ustar,z_mc, &
-!$OMP phi,th_grad,theta_ic,exner,zrough,obukhov_length,rhos),ICON_OMP_RUNTIME_SCHEDULE
+!$OMP DO PRIVATE(jc,jb,i_startidx,i_endidx,exner,zrough,th0_srf,bflux,mwind,z_mc, &
+!$OMP       ustar,obukhov_length,theta_sfc,rhos),ICON_OMP_RUNTIME_SCHEDULE
       DO jb = i_startblk,i_endblk
          CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
                             i_startidx, i_endidx, rl_start, rl_end)
@@ -187,25 +186,12 @@ MODULE mo_surface_les
             !"-" sign in the begining because ustar*thstar = -shflx
             obukhov_length = -ustar**3 * les_config(jg)%rkarman_constant / bflux
  
-            !Following step is only a fix to get correct gradient for calculating
-            !reasonable kh:
+            theta_sfc   = theta(jc,jk,jb) + les_config(jg)%shflx / ustar * &
+                          businger_heat(zrough,z_mc,obukhov_length) 
 
-            !Get surface theta to satisfy the flux profile: set gradient
-            phi     = phi_heat(z_mc,obukhov_length)
+            p_prog_lnd_now%t_g(jc,jb) = theta_sfc * exner
 
-            th_grad = -les_config(jg)%shflx*phi*les_config(jg)%rkarman_constant/(ustar*z_mc)          
-            
-            theta_ic  = p_nh_metrics%wgtfac_c(jc,jk,jb) * theta(jc,jk,jb) + &
-                        (1._wp - p_nh_metrics%wgtfac_c(jc,jk,jb)) * theta(jc,jk-1,jb)
-
-            theta_sfc(jc,jb) = theta_ic - th_grad * p_nh_metrics%ddqz_z_full(jc,jk,jb)
-
-            !theta_sfc(jc,jb) = theta(jc,jk,jb) + les_config(jg)%shflx / ustar * &
-            !                   businger_heat(zrough,z_mc,obukhov_length) 
-
-            p_prog_lnd_now%t_g(jc,jb) = theta_sfc(jc,jb) * exner
-
-            !Get surface qv normally
+            !Get surface qv
             p_diag_lnd%qv_s(jc,jb) = qv(jc,jk,jb) + les_config(jg)%lhflx / ustar * &
                                      businger_heat(zrough,z_mc,obukhov_length) 
 
@@ -234,7 +220,7 @@ MODULE mo_surface_les
       jk = nlev
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jc,jb,i_startidx,i_endidx,exner,zrough,th0_srf,theta_sfc_new,itr, &
-!$OMP  mwind,z_mc,ustar,obukhov_length,th_grad,theta_ic,rhos),ICON_OMP_RUNTIME_SCHEDULE 
+!$OMP  theta_sfc,mwind,z_mc,ustar,rhos),ICON_OMP_RUNTIME_SCHEDULE 
       DO jb = i_startblk,i_endblk
          CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
                             i_startidx, i_endidx, rl_start, rl_end)
@@ -252,14 +238,14 @@ MODULE mo_surface_les
             !Iterate to get surface temperature given buoyancy flux
            
             !First guess
-            theta_sfc(jc,jb) = th0_srf
+            theta_sfc = th0_srf
             DO itr = 1 , 4
-              theta_sfc_new =    ( th0_srf * rgrav * les_config(jg)%bflux - &
-                  0.61_wp * th0_srf * les_config(jg)%tran_coeff *           &
-                 (spec_humi(sat_pres_water(theta_sfc(jc,jb)),pres_sfc(jc,jb)) - &
+              theta_sfc_new =  ( th0_srf * rgrav * les_config(jg)%bflux - &
+                  0.61_wp * th0_srf * les_config(jg)%tran_coeff *         &
+                 (spec_humi(sat_pres_water(theta_sfc),pres_sfc(jc,jb)) -  &
                   qv(jc,jk,jb)) ) / les_config(jg)%tran_coeff + theta(jc,jk,jb)
 
-              theta_sfc(jc,jb) = theta_sfc_new
+              theta_sfc = theta_sfc_new
             END DO               
 
             !Mean wind at nlev
@@ -275,34 +261,17 @@ MODULE mo_surface_les
               ustar = les_config(jg)%ufric
             END IF
 
-            !------------------------------------------------------------------
-            !Following step is only a fix to get correct gradient for calculating
-            !reasonable kh:
-            !Overwrite surface theta to satisfy the flux profile using the flux
-            !calculated using theta_sfc calculated above
-            !------------------------------------------------------------------
-
-            !"-" sign in the begining because ustar*thstar = -shflx
-            obukhov_length = -ustar**3 * les_config(jg)%rkarman_constant / les_config(jg)%bflux
- 
-            th_grad = -les_config(jg)%tran_coeff*(theta_sfc(jc,jb)-theta(jc,jk,jb))* &
-                       phi_heat(z_mc,obukhov_length)*les_config(jg)%rkarman_constant/(ustar*z_mc)          
-            
-            theta_ic  = p_nh_metrics%wgtfac_c(jc,jk,jb) * theta(jc,jk,jb) + &
-                        (1._wp - p_nh_metrics%wgtfac_c(jc,jk,jb)) * theta(jc,jk-1,jb)
-
-            theta_sfc(jc,jb) = theta_ic - th_grad * p_nh_metrics%ddqz_z_full(jc,jk,jb)
-              
             !Surface temperature
-            p_prog_lnd_now%t_g(jc,jb) = theta_sfc(jc,jb) * exner
+            p_prog_lnd_now%t_g(jc,jb) = theta_sfc * exner
 
             !Get surface qv 
-            p_diag_lnd%qv_s(jc,jb) = spec_humi(sat_pres_water(theta_sfc(jc,jb)),pres_sfc(jc,jb))
+            p_diag_lnd%qv_s(jc,jb) = spec_humi(sat_pres_water(theta_sfc),pres_sfc(jc,jb))
 
             !Get surface fluxes
             rhos   =  pres_sfc(jc,jb)/( rd * &
                       p_prog_lnd_now%t_g(jc,jb)*(1._wp+0.61_wp*p_diag_lnd%qv_s(jc,jb)) )  
-            prm_diag%shfl_s(jc,jb) = rhos*cpd*les_config(jg)%tran_coeff*(theta_sfc(jc,jb)-theta(jc,jk,jb))
+
+            prm_diag%shfl_s(jc,jb) = rhos*cpd*les_config(jg)%tran_coeff*(theta_sfc-theta(jc,jk,jb))
             prm_diag%lhfl_s(jc,jb) = rhos*alv*les_config(jg)%tran_coeff*(p_diag_lnd%qv_s(jc,jb)-qv(jc,jk,jb))
             prm_diag%umfl_s(jc,jb) = ustar**2 *rhos
 
