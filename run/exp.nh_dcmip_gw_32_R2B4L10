@@ -135,7 +135,6 @@ cat > ${atmo_namelist} << EOF
  inextra_3d      = 1
 /
 &output_nml
- namespace        = 'DWD'
  filetype         = 4
  dom              = -1
  output_time_unit = 1
@@ -150,7 +149,6 @@ cat > ${atmo_namelist} << EOF
  ml_varlist       = 'u','v','w','temp','theta_v','pres_sfc','pres','omega_z','z_ifc','z_mc','extra_3d1'
 /
 &output_nml
- namespace        = 'DWD'
  filetype         = 4
  dom              = -1
  output_time_unit = 1

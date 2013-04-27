@@ -159,7 +159,6 @@ const_z0  = 0.0003
  dt_checkpoint    = ${dt_checkpoint} ! [s] trigger new restart file
 /
 &output_nml
- namespace        = 'DWD'
  filetype         = 4
  dom              = -1
  output_time_unit = 2
