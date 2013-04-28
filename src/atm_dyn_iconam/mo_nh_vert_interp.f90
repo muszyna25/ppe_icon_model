@@ -366,11 +366,11 @@ CONTAINS
       !
 
       ! full level heights at edges for initicon input
-      CALL cells2edges_scalar(initicon%atm_in%z3d, p_patch, p_int%c_lin_e, atm_in_z_me)
+      CALL cells2edges_scalar(initicon%atm_in%z3d, p_patch, p_int%c_lin_e, atm_in_z_me, opt_fill_latbc=.TRUE.)
 
 
       ! full level heights at edges for ICON vertical grid
-      CALL cells2edges_scalar(p_metrics%z_mc, p_patch, p_int%c_lin_e, z_me)
+      CALL cells2edges_scalar(p_metrics%z_mc, p_patch, p_int%c_lin_e, z_me, opt_fill_latbc=.TRUE.)
 
 
       ! compute extrapolation coefficients for edges
