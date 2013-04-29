@@ -301,7 +301,7 @@ MODULE mo_ocean_nml
     &                 k_sal_h, k_sal_v,                                    &
     &                 MAX_VERT_DIFF_VELOC, MAX_VERT_DIFF_TRAC,             &
     &                 CWA, CWT,  bottom_drag_coeff, wstress_coeff,         &
-    &                 i_sea_ice, l_relaxsal_ice,                           &
+    &                 i_sea_ice,                                           &
     &                 biharmonic_diffusion_factor,                         &
     &                 l_smooth_veloc_diffusion,                            &
     &                 richardson_factor_veloc, richardson_factor_tracer
@@ -309,7 +309,7 @@ MODULE mo_ocean_nml
 
   NAMELIST/ocean_forcing_and_init_nml/iforc_oce, iforc_type, iforc_len,    &
     &                 iforc_stat_oce, init_oce_prog, init_oce_relax,       &
-    &                 itestcase_oce, idiag_oce,                            &
+    &                 itestcase_oce, idiag_oce, l_relaxsal_ice,            &
     &                 temperature_relaxation, relaxation_param,            &
     &                 irelax_2d_S, relax_2d_mon_S,&!relax_2d_T, relax_2d_mon_T, &
     &                 irelax_3d_S, relax_3d_mon_S, irelax_3d_T, relax_3d_mon_T, &
