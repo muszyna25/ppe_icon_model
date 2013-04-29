@@ -259,6 +259,8 @@ MODULE mo_oce_state
                                   ! dimension: (nproma,n_zlev, nblks_e)
       &  rho(:,:,:)            ,& ! density. Unit: [kg/m^3]
                                   ! dimension: (nproma,n_zlev, nblks_c)
+      &  rhopot(:,:,:)         ,& ! potential density. Unit: [kg/m^3]
+                                  ! dimension: (nproma,n_zlev, nblks_c)
       &  h_e(:,:)              ,& ! surface height at cell edges. Unit [m].
                                   ! dimension: (nproma, nblks_e)
       &  thick_c(:,:)          ,& ! individual fluid column thickness at cells. Unit [m].
@@ -896,6 +898,12 @@ CONTAINS
     CALL add_var(ocean_default_list, 'rho', p_os_diag%rho , GRID_UNSTRUCTURED_CELL,&
     &            ZA_DEPTH_BELOW_SEA, &
     &            t_cf_var('rho', 'kg/m^3', 'density', DATATYPE_FLT32),&
+    &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+    &            ldims=(/nproma,n_zlev,nblks_c/))
+
+    CALL add_var(ocean_default_list, 'rhopot', p_os_diag%rhopot , GRID_UNSTRUCTURED_CELL,&
+    &            ZA_DEPTH_BELOW_SEA, &
+    &            t_cf_var('rhopot', 'kg/m^3', 'density', DATATYPE_FLT32),&
     &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &            ldims=(/nproma,n_zlev,nblks_c/))
 

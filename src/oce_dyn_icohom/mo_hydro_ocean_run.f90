@@ -96,7 +96,7 @@ USE mo_oce_physics,            ONLY: t_ho_params, &
   &                                  construct_ho_params, init_ho_params, &
   &                                  destruct_ho_params, update_ho_params
 USE mo_oce_thermodyn,          ONLY: calc_density_MPIOM_func, calc_density_lin_EOS_func,&
-  &                                  calc_density_JMDWFG06_EOS_func! , calc_density
+  &                                  calc_density_JMDWFG06_EOS_func, calc_potential_density
 USE mo_output,                 ONLY: init_output_files, &
   &                                  create_restart_file, write_output_oce! , write_output
 !USE mo_name_list_output_config,ONLY: is_any_output_file_active, use_async_name_list_io
@@ -312,6 +312,9 @@ CONTAINS
         CALL calc_psi (p_patch,p_patch_3D, p_os(jg)%p_diag%u(:,:,:), &
           &                        p_os(jg)%p_prog(nold(1))%h(:,:), &
           &                        p_os(jg)%p_diag%u_vint, datetime)
+        CALL calc_potential_density( p_patch_3D,                                    &
+          &                          p_os(jg)%p_prog(nold(1))%tracer,&
+          &                          p_os(jg)%p_diag%rhopot )
       ENDIF
 
       IF (output_mode%l_nml) THEN

@@ -622,7 +622,7 @@ write(*,*)'max-min coeff',z_diff_multfac, maxval(p_phys_param%K_veloc_h(:,1,:)),
     REAL(wp)            :: z_dv0             = 0.5E-2_wp ! later set via nml richardson_factor_tracer
     REAL(wp), PARAMETER :: z_threshold       = 5.0E-8_wp
     REAL(wp) :: z_grav_rho, z_inv_rho_ref!, z_stabio
-    REAL(wp) :: z_press
+    REAL(wp) :: z_press, press
     REAL(wp) :: A_T_tmp
     REAL(wp) :: z_s1
     REAL(wp) :: z_s2
@@ -630,7 +630,7 @@ write(*,*)'max-min coeff',z_diff_multfac, maxval(p_phys_param%K_veloc_h(:,1,:)),
     ! REAL(wp) :: tmp_communicate_c(nproma,p_patch%nblks_c)
     !-------------------------------------------------------------------------
     TYPE(t_subset_range), POINTER :: edges_in_domain,cells_in_domain,all_cells
-    TYPE(t_patch), POINTER        :: p_patch 
+    TYPE(t_patch), POINTER        :: p_patch
     !-------------------------------------------------------------------------
     z_av0 = richardson_factor_veloc
     z_dv0 = richardson_factor_tracer
@@ -679,6 +679,7 @@ write(*,*)'max-min coeff',z_diff_multfac, maxval(p_phys_param%K_veloc_h(:,1,:)),
           z_shear_c = dbl_eps + sum((p_os%p_diag%p_vn(jc,jk-1,jb)%x-p_os%p_diag%p_vn(jc,jk,jb)%x)**2)
 
           z_press = p_patch_3D%p_patch_1D(1)%zlev_i(jk)*rho_ref*SItodBar
+            press = p_patch_3D%p_patch_1D(1)%zlev_m(jk)*rho_ref*SItodBar
 
           !salinity at upper and lower cell
           IF(no_tracer >= 2) THEN
@@ -686,8 +687,8 @@ write(*,*)'max-min coeff',z_diff_multfac, maxval(p_phys_param%K_veloc_h(:,1,:)),
             z_s2 = p_os%p_prog(nold(1))%tracer(jc,jk,jb,2) !TODO: this is the current cell, not the lower one!
           ENDIF
           !density of upper and lower cell w.r.t.to pressure at intermediate level
-          z_rho_up   = calc_density_func(p_os%p_prog(nold(1))%tracer(jc,jk-1,jb,1), z_s1, z_press)
-          z_rho_down = calc_density_func(p_os%p_prog(nold(1))%tracer(jc,jk,jb,1), z_s2, z_press)
+          z_rho_up           = calc_density_func(p_os%p_prog(nold(1))%tracer(jc,jk-1,jb,1), z_s1, z_press)
+          z_rho_down         = calc_density_func(p_os%p_prog(nold(1))%tracer(jc,jk,jb,1), z_s2, z_press)
 
             ! comments from MPIOM
             !! calculate vertical density stabio gradient between upper and lower box

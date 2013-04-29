@@ -2430,6 +2430,13 @@ CONTAINS
       &                   gridCellID(k_jg),&
       &                   zaxisIDdepth_m(k_jg)),&
       &           k_jg)
+      CALL addVar(TimeVar('rhopot',&
+      &                   'potential density cells',&
+      &                   'kg/m**3', 6, 128,&
+      &                   vlistid(k_jg),&
+      &                   gridCellID(k_jg),&
+      &                   zaxisIDdepth_m(k_jg)),&
+      &           k_jg)
 
 
 
@@ -3454,7 +3461,8 @@ CONTAINS
       CASE ('u_vint');       ptr2d => p_diag%u_vint
       CASE('Vert_Veloc_Adv');ptr3d => p_diag%veloc_adv_vert
       CASE('press_grad');    ptr3d => p_diag%press_grad
-      CASE ('rho');          ptr3d => p_diag%rho   
+      CASE ('rho');          ptr3d => p_diag%rho
+      CASE ('rhopot');       ptr3d => p_diag%rhopot
       CASE('Vert_Mixing_V'); ptr3d => p_params%A_veloc_v
         CASE('Vert_Mixing_T')
           IF (no_tracer > 0) ptr3d => p_params%A_tracer_v(:,:,:,1)

@@ -42,7 +42,7 @@ MODULE mo_les_config
 
   IMPLICIT NONE
   PRIVATE
-  PUBLIC :: t_les_config, les_config, configure_les  
+  PUBLIC :: t_les_config, les_config, configure_les
 
   CHARACTER(len=*),PARAMETER,PRIVATE :: version = '$Id$'
 
@@ -131,7 +131,6 @@ MODULE mo_les_config
     
     IF(les_config(jg)%set_geowind .AND. les_config(jg)%ugeo(1)==0._wp  &
                                   .AND. les_config(jg)%vgeo(1)==0._wp) &
-
       CALL message('mo_les_nml:WARNING:','Input values for Geostrophic wind are 0!')
    
     IF(les_config(jg)%set_geowind .AND. .NOT.is_plane_torus) &
