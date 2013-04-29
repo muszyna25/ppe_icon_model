@@ -333,7 +333,7 @@ MODULE mo_solve_nonhydro
     ENDDO
 !$OMP END DO
 
-    rl_start = 4
+    rl_start = 7
     rl_end = min_rledge_int - 1
 
     i_startblk = p_patch%edges%start_blk(rl_start,1)

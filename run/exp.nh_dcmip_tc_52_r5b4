@@ -159,7 +159,6 @@ cat > ${atmo_namelist} << EOF
  zlevels          = 10000.,1000.,100.    ! (m)  from TOA to surface
 /
 &output_nml
- namespace        = 'DWD'
  output_filename  = 'icon-mpi-dwd.52.high.L30.tri.nonhydro'    ! file name base
  output_time_unit = 1                           ! 1 = second
  output_bounds    = 0.,${dt_restart},${dt_data} ! start, end, increment
@@ -171,7 +170,6 @@ cat > ${atmo_namelist} << EOF
  hl_varlist       = 'u','v'
 /
 !off!&output_nml
-!off! namespace        = 'DWD'
 !off! output_filename  = 'icon-mpi-dwd.52.high.L30.latlon.nonhydro' ! file name base
 !off! output_time_unit = 1                           ! 1 = second
 !off! output_bounds    = 0.,${dt_restart},${dt_data} ! start, end, increment

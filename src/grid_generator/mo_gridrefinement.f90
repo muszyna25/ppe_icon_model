@@ -240,11 +240,12 @@ MODULE mo_gridref
   !-------------------------------------------------------------------------
   ! meta data descriptors
   CHARACTER(len=*), PARAMETER :: uri_pathname = 'http://icon-downloads.mpimet.mpg.de/grids/public/'
-  INTEGER :: number_of_grid_used     ! index for reference to xml table for grib2, 0 for private use
-  INTEGER :: centre                  ! centre running the grid generator: 78 - edzw (DWD), 252 - MPIM
-  INTEGER :: subcentre               ! subcentre to be assigned by centre, usually 0
+  INTEGER :: number_of_grid_used(max_dom+1)! index for reference to xml table for grib2, 0 for private use
+  INTEGER :: centre                        ! centre running the grid generator: 78 - edzw (DWD), 252 - MPIM
+  INTEGER :: subcentre                     ! subcentre to be assigned by centre, usually 0
+  INTEGER :: outname_style                 ! Naming convention
   !
-  INTEGER :: annotate_level          ! which grid level to annotate
+!  INTEGER :: annotate_level          ! which grid level to annotate
   !
   !-------------------------------------------------------------------------
 
@@ -272,8 +273,8 @@ CONTAINS
     NAMELIST /gridref_ini/ grid_root, start_lev, n_dom, parent_id, l_plot,   &
       & l_circ, l_rotate, radius, center_lon, center_lat, n_phys_dom,        &
       & hwidth_lon, hwidth_lat, write_hierarchy, bdy_indexing_depth, logical_id
-    NAMELIST /gridref_metadata/ number_of_grid_used, centre, subcentre, &
-      & annotate_level
+    NAMELIST /gridref_metadata/ number_of_grid_used, centre, subcentre, outname_style ! , &
+!      & annotate_level
 
     ! set default values for gridref_ini
     grid_root  = 2
@@ -303,10 +304,11 @@ CONTAINS
     hwidth_lon = 20.0_wp
 
     ! set default values for grid_options
-    number_of_grid_used = 0
+    number_of_grid_used(:) = 0
     centre = 65535                ! missing value from WMO common code table C-11
     subcentre = 0
-    annotate_level = start_lev    ! level to annotate, to allow definition of higher level nests
+    outname_style = 1             ! Default naming convention
+!    annotate_level = start_lev    ! level to annotate, to allow definition of higher level nests
 
     ! copy default values to "default" variables
     grid_root_d  = grid_root
@@ -2384,6 +2386,7 @@ CONTAINS
 
     REAL(wp) :: swap(4)
     INTEGER :: str_idx, end_idx
+    INTEGER :: current_number_of_grid_used
 
     !EOP
     !-------------------------------------------------------------------------
@@ -2404,8 +2407,32 @@ CONTAINS
     dom_id        = p%id
     parent_dom_id = p%parent_id
 
-    WRITE(filename,'(a,i0,2(a,i2.2),a)') &
-      & 'iconR', grid_root, 'B', p%level, '_DOM', dom_id, '.nc'
+    IF (write_hierarchy == 0) THEN ! no radiation grid
+      current_number_of_grid_used = number_of_grid_used(dom_id)
+    ELSE IF (write_hierarchy == 1) THEN ! radiation grid is generated - number of entries in number_of_grid_used must be n_dom+1
+      current_number_of_grid_used = number_of_grid_used(dom_id+1)
+    ELSE ! the special mode for writing the grid hierarchy back to level 0 does not allow for setting the number_of_grid_used
+      current_number_of_grid_used = 0
+    ENDIF
+
+
+    IF ( outname_style==1 ) THEN   ! Default naming convention
+      WRITE(filename,'(a,i0,2(a,i2.2),a)') &
+        & 'iconR', grid_root, 'B', p%level, '_DOM', dom_id, '.nc'
+
+    ELSE                           ! DWD naming convention
+      IF (dom_id==0) THEN
+        WRITE(filename,'(a,i4.4,2(a,i2.2),a)') &
+          & 'icon_grid_', current_number_of_grid_used, '_R', grid_root, 'B', p%level, '_R.nc'
+      ELSE IF (dom_id==1) THEN
+        WRITE(filename,'(a,i4.4,2(a,i2.2),a)') &
+          & 'icon_grid_', current_number_of_grid_used, '_R', grid_root, 'B', p%level, '_G.nc'
+      ELSE
+        WRITE(filename,'(a,i4.4,3(a,i2.2),a)') &
+          & 'icon_grid_', current_number_of_grid_used, '_R', grid_root, 'B', p%level, '_G', dom_id, '.nc'
+      ENDIF
+    ENDIF
+
 
     WRITE(message_text,'(a,a)') 'Write ICON grid file: ', TRIM(filename)
     CALL message ('', message_text)
@@ -2433,14 +2460,18 @@ CONTAINS
     CALL nf(nf_put_att_text    (ncid, nf_global, 'source', 10, 'icon-dev'))
     CALL nf(nf_put_att_text    (ncid, nf_global, 'uuidOfHGrid' , uuid_string_length, TRIM(uuid_string)))
 
-    IF (number_of_grid_used == 0) THEN
+    IF (current_number_of_grid_used == 0) THEN
       CALL message('','number_of_grid_used is 0 and cannot be added to the ICON master grid table')
+      CALL nf(nf_put_att_int   (ncid, nf_global, 'number_of_grid_used', nf_int, 1, 0))
+      CALL nf(nf_put_att_text  (ncid, nf_global, 'ICON_grid_file_uri' , 7, 'private'))
+    ELSE
+      CALL nf(nf_put_att_int   (ncid, nf_global, 'number_of_grid_used', nf_int, 1, current_number_of_grid_used))
+      CALL nf(nf_put_att_text  (ncid, nf_global, 'ICON_grid_file_uri' , &
+           &                                      LEN_TRIM(uri_pathname//TRIM(filename)), TRIM(uri_pathname//TRIM(filename))))
     ENDIF
-    CALL nf(nf_put_att_int   (ncid, nf_global, 'number_of_grid_used', nf_int, 1, number_of_grid_used+dom_id-1))
-    CALL nf(nf_put_att_text  (ncid, nf_global, 'ICON_grid_file_uri' , &
-         &                                      LEN_TRIM(uri_pathname//TRIM(filename)), TRIM(uri_pathname//TRIM(filename))))
     CALL nf(nf_put_att_int     (ncid, nf_global, 'centre', nf_int, 1, centre))
     CALL nf(nf_put_att_int     (ncid, nf_global, 'subcentre', nf_int, 1, subcentre))
+    CALL nf(nf_put_att_int     (ncid, nf_global, 'outname_style', nf_int, 1, outname_style))
     CALL nf(nf_put_att_text    (ncid, nf_global, 'grid_mapping_name' , 18, 'lat_long_on_sphere'))
     CALL nf(nf_put_att_text    (ncid, nf_global, 'crs_id' , 28, 'urn:ogc:def:cs:EPSG:6.0:6422'))
     CALL nf(nf_put_att_text    (ncid, nf_global, 'crs_name', 30,'Spherical 2D Coordinate System'))
@@ -3063,6 +3094,10 @@ CONTAINS
     !--------------------------------------------------------------------------------------
 
     CALL nf(nf_close(ncid))
+
+    IF (current_number_of_grid_used /= 0) THEN
+      CALL dump_grid_table_xml_metadata(TRIM(filename),current_number_of_grid_used)
+    ENDIF
 
    !------------------------------------------------------------------------
     write(*,*) '---',TRIM(filename), '---'
@@ -4265,6 +4300,69 @@ CONTAINS
     ENDDO dom_loop
 
   END SUBROUTINE merge_nested_domains
+
+  !-------------------------------------------------------------------------
+  !>
+  !!
+  !! @par Revision History
+  !! Luis Kornblueh, MPI-M, Hamburg, April 2013
+  !! dump the xml table entry for grib2 handling of horizontal grids
+  !!
+  SUBROUTINE dump_grid_table_xml_metadata(filename, grid_number)
+
+    CHARACTER(len=*), INTENT(in) :: filename
+    INTEGER,          INTENT(in) :: grid_number ! = number of grid used valid for the current domain
+    CHARACTER(len=255) :: uriname, uri_subcentre
+
+    CALL message('','')
+    CALL message('','---------- BEGIN XML grid table descriptor ----------')
+    CALL message('','')
+
+    ! grouping element: grid
+    WRITE(message_text,'(a,i0,a,i0,a,i0,a)') &
+          &          '<grid number_of_grid_used="', grid_number, &
+          &              '" centre="', centre, &
+          &              '" subcentre="', subcentre, &
+          &              '">'
+    CALL message('',message_text)
+
+    IF (subcentre > 0) THEN
+      WRITE(uri_subcentre,'(i0,a)') subcentre, '/'
+    ELSE
+      uri_subcentre = ''
+    ENDIF
+    SELECT CASE (centre)
+    CASE(78)
+      uriname = TRIM(uri_pathname)//'edzw/'//TRIM(uri_subcentre)
+    CASE(255)
+      uriname = TRIM(uri_pathname)//'mpim/'//TRIM(uri_subcentre)
+    CASE DEFAULT
+      uriname = TRIM(uri_pathname)//'unknown/'//TRIM(uri_subcentre)
+    END SELECT
+
+    ! contained element: uri
+    WRITE(message_text,'(a)') '    <uri>'
+    CALL message('',message_text)
+    WRITE(message_text,'(a,a,a)') '        ', uri_pathname, TRIM(filename)
+    CALL message('',message_text)
+    WRITE(message_text,'(a)') '    </uri>'
+    CALL message('',message_text)
+
+    ! contained element: description
+    WRITE(message_text,'(a)') '    <description>'
+    CALL message('',message_text)
+    WRITE(message_text,'(a)') '    </description>'
+    CALL message('',message_text)
+
+    ! finishing grouping element: grid
+    WRITE(message_text,'(a)') '</grid>'
+    CALL message('',message_text)
+
+    CALL message('','')
+    CALL message('','----------- END XML grid table descriptor -----------')
+    CALL message('','')
+
+  END SUBROUTINE dump_grid_table_xml_metadata
 
 END MODULE mo_gridref
 

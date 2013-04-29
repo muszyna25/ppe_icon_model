@@ -187,7 +187,6 @@ rbf_vec_scale_e = 0.25
 /
 !&output_nml
 ! filetype           = 4                    ! output format: 2=GRIB2, 4=NETCDFv2
-! namespace          = 'DWD'
 ! mode               = 1
 ! dom                = -1                   ! output for all subdomains
 ! output_time_unit   = 1                    ! 1: seconds, 2: minute, 3: hour, 4: day, 5: month, 6: year
@@ -206,7 +205,6 @@ rbf_vec_scale_e = 0.25
 !/
 &output_nml
  filetype           = 4                    ! output format: 2=GRIB2, 4=NETCDFv2
- namespace          = 'DWD'
  mode               = 1
  dom                = -1                   ! output for all subdomains
  output_time_unit   = 1                    ! 1: seconds, 2: minute, 3: hour, 4: day, 5: month, 6: year

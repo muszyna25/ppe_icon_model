@@ -108,7 +108,7 @@ begin
 
   xstride      = 6  ; subdivisions of X-Axis labels (small ticks) 
   if (xlabel .eq. "month" ) mxstride     = 4  end if; minorticks xstride
-  lday         =[/1,10,20/] ; for option xlabel=month 
+  lday         =(/1,10,20/) ; for option xlabel=month 
 
   ystride      = 10 ; subdivisions of right Y-Axis labels
 
@@ -190,7 +190,7 @@ begin
       date = convert_date(charactertostring(cdf_file->date(i,:)))
       if ( xlabel .eq. "month" ) then 
        if( (i .eq. 0) .or. ((.not. (date@month .eq. last_date@month))\ 
-            .or. (ListIndex(lday,date@day) .ge. 0) .and. (date@hour .eq. 0)) ) then
+            .or. (.not. ismissing(ind(date@day .eq. lday) )) .and. (date@hour .eq. 0)) ) then
         lcount="true"
        else
         lcount="false"
@@ -214,7 +214,7 @@ begin
        expl_labels(count) = date_str + sprinti("%0.2d", date@hour) \
        +                   ":" + sprinti("%0.2d", date@minute)
       end if
-      if ( (xlabel .eq. "month") .and. (ListIndex(lday,date@day) .ge. 0)   ) then
+      if ( (xlabel .eq. "month") .and. (.not. ismissing(ind(date@day .eq. lday) ))  ) then
        if (date@day .ne. 1)  then 
         date_str =sprinti("%0.2d", date@day) + " "
        end if

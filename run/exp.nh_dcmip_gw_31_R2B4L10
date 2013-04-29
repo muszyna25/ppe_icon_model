@@ -134,7 +134,6 @@ cat > ${atmo_namelist} << EOF
  inextra_3d      = 1
 /
 &output_nml
- namespace        = 'DWD'
  filetype         = 4
  dom              = -1
  output_time_unit = 1
@@ -150,7 +149,6 @@ cat > ${atmo_namelist} << EOF
  map_file         ="mapfile_dcmip.txt"
 /
 &output_nml
- namespace        = 'DWD'
  filetype         = 4
  dom              = -1
  output_time_unit = 1

@@ -271,7 +271,8 @@ MODULE mo_ocean_nml
                                                  !   offset of half timestep between dynamic and thermodynamic variables;
                                                  !   thermodynamic and dynamic variables are colocated in time
   INTEGER  :: i_apply_bulk          = 0          ! 0=no bulk formula; 1=apply bulk formula without sea ice
-  INTEGER  :: i_sea_ice             = 1          ! 0=no sea ice; 1=sea ice
+  INTEGER  :: i_sea_ice             = 1          ! 0 = no sea ice; 1 = Winton; 2 = Semtner
+  LOGICAL  :: l_relaxsal_ice        = .TRUE.     ! TRUE: relax salinity below sea ice
 
   NAMELIST/ocean_dynamics_nml/ n_zlev, dzlev_m, idisc_scheme,              &
     &                 iswm_oce, l_staggered_timestep,                      &
@@ -299,14 +300,16 @@ MODULE mo_ocean_nml
     &                 k_veloc_h, k_veloc_v,  k_pot_temp_h, k_pot_temp_v,   &
     &                 k_sal_h, k_sal_v,                                    &
     &                 MAX_VERT_DIFF_VELOC, MAX_VERT_DIFF_TRAC,             &
-    &                 CWA, CWT,  bottom_drag_coeff, wstress_coeff, i_sea_ice, &
-    &                 biharmonic_diffusion_factor, l_smooth_veloc_diffusion,&
+    &                 CWA, CWT,  bottom_drag_coeff, wstress_coeff,         &
+    &                 i_sea_ice,                                           &
+    &                 biharmonic_diffusion_factor,                         &
+    &                 l_smooth_veloc_diffusion,                            &
     &                 richardson_factor_veloc, richardson_factor_tracer
 
 
   NAMELIST/ocean_forcing_and_init_nml/iforc_oce, iforc_type, iforc_len,    &
     &                 iforc_stat_oce, init_oce_prog, init_oce_relax,       &
-    &                 itestcase_oce, idiag_oce,                            &
+    &                 itestcase_oce, idiag_oce, l_relaxsal_ice,            &
     &                 temperature_relaxation, relaxation_param,            &
     &                 irelax_2d_S, relax_2d_mon_S,&!relax_2d_T, relax_2d_mon_T, &
     &                 irelax_3d_S, relax_3d_mon_S, irelax_3d_T, relax_3d_mon_T, &

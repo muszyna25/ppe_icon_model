@@ -56,13 +56,13 @@ Parameter& Type& Default& Unit& Description & Scope
  \rule[-1em]{0.2ex}{4em}\hspace*{1em}%
  \begin{minipage}{9.95\textwidth}
  \begin{tabbing} 
- \hspace*{3cm} \= ~ \kill  
- \emph{Change:}         \> \textbf{#1} \\
- \emph{Date of Change:} \> \textbf{#2} \\
- \emph{Revision:}       \> \textbf{#3} \\
+ \hspace*{3cm} \= ~ \kill
+ \textcolor{red}{\emph{Change:}}         \> \textbf{#1} \\
+ \textcolor{red}{\emph{Date of Change:}} \> \textbf{#2} \\
+ \textcolor{red}{\emph{Revision:}}       \> \textbf{#3} \\
  \end{tabbing}
  \end{minipage}
-}{}
+}{\vspace*{1em}}
 
 
 
@@ -479,6 +479,40 @@ specified for each nested domain separately)&
 
 Defined and used in: src/grid\_generator/mo\_gridrefinement.f90
 
+
+%-----------------------------------------------------------------------------
+% gridref_metadata:
+%-----------------------------------------------------------------------------
+\subsubsection{gridref\_metadata (NAMELIST\_GRIDREF)}
+
+\begin{longtab}
+
+\hline
+number\_of\_grid\_used&
+I(n\_dom+1)&
+0&
+&
+sets the number of grid used in the netcdf header; the number of entries must be n\_dom+1
+because the first number refers to the radiation grid &
+\tabularnewline
+
+\hline
+centre&
+I&
+0&
+&
+centre running the grid generator: 78 - edzw (DWD), 252 - MPIM &
+\tabularnewline
+
+\hline
+subcentre&
+I&
+0&
+&
+subcentre to be assigned by centre, usually 0 &
+\tabularnewline
+
+\end{longtab}
 
 \subsection{Namelist parameters defining the local grid generation}
 
@@ -3000,14 +3034,6 @@ Possible values: 2 (=FILETYPE\_GRB2), 4 (=FILETYPE\_NC2), 5 (=FILETYPE\_NC4)
 \tabularnewline
 
 \hline
- namespace &
-C&'DWD'& &
- 'DWD' - DWD short names (or 'MPIMET', 'CMIP', 'ECMWF') \\
- {\color{red} Currently used for setting GRIB2 centre/subcentre information.}
-&
-\tabularnewline
-
-\hline
  mode &
 I&2& &
  1 = forecast mode, 2 = climate mode \\
@@ -3285,6 +3311,26 @@ filetype=2
 localNumberOfExperiment&
 I& 1 & &
 local Number of Experiment &
+filetype=2
+\tabularnewline
+
+\hline 
+generatingCenter&
+I& -1 & &
+Output generating center. If this key is not set, center information is taken from the grid file\\
+DWD: 78 \\
+MPIMET: 98 \\
+ECMWF: 98 &
+filetype=2
+\tabularnewline
+
+\hline 
+generatingSubcenter&
+I& -1 & &
+Output generating Subcenter. If this key is not set, subcenter information is taken from the grid file\\
+DWD: 255\\
+MPIMET: 232\\ 
+ECMWF: 0 &
 filetype=2
 \tabularnewline
 
@@ -5723,7 +5769,7 @@ model expects {\bf height based} coordinates. For further information see <icon 
 % -------------------------------------------------------------------
 \section{Changes incompatible with former versions of the model code}
 % -------------------------------------------------------------------
-
+\noindent
 % In this section we propose to document all namelist changes that are incompatible with former versions of the model code.
 % Such changes are
 %
@@ -5744,6 +5790,21 @@ model expects {\bf height based} coordinates. For further information see <icon 
          names and back.
   \end{itemize}
 \end{changeitem}
+
+
+\begin{changeitem}{output\_nml: namespace}{ 2013-04-26 }{ 12051 }
+  \begin{itemize}
+   \item Removed obsolete namelist variable \textbf{namespace} from \textbf{output\_nml}.
+  \end{itemize}
+\end{changeitem}
+
+\begin{changeitem}{gribout\_nml: generatingCenter, generatingSubcenter}{ 2013-04-26 }{ 12051 }
+  \begin{itemize}
+   \item Introduced new namelist variables \textbf{generatingCenter} from \textbf{generatingSubcenter}.
+   \item If not set explicitly, center and subcenter information is copied from the input grid file
+  \end{itemize}
+\end{changeitem}
+
 % --------------------------------------------------------------------------------------------
 
 

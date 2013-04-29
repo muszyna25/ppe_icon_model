@@ -207,7 +207,11 @@ cat > ${atmo_namelist} << EOF
  remap                        = 1                         ! 1: latlon,  0: native grid
  reg_lon_def                  =  0., 1.5, 358.5  
  reg_lat_def                  = 90.,-1.5, -90.
- namespace                    = "ECMWF"                   ! may give problems with metview - leave default ecmwf
+!namespace                    = "ECMWF"                   ! may give problems with metview - leave default ecmwf
+/
+&gribout_nml
+ generatingCenter             = 98                        ! ECMWF
+ generatingSubcenter          = 0                         ! ECMWF
 /
 &meteogram_output_nml
  lmeteogram_enabled= .TRUE.

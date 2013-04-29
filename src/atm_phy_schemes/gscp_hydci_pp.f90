@@ -273,6 +273,13 @@ PRIVATE
 
 PUBLIC :: hydci_pp, hydci_pp_init
 
+LOGICAL, PARAMETER :: &
+  lnew_ni_cooper = .TRUE.  ! Number of ice crystals according to Cooper (1986)
+
+REAL(ireals), PARAMETER :: &
+  zceff_min = 0.2_ireals   ! Lower bound on sticking efficiency (artifically enhances the conversion
+                           ! of cloud ice to snow at low temperatures - unfortunately, the scores 
+                           ! get worse when relaxing this parameter)
 
 !------------------------------------------------------------------------------
 !> Parameters and variables which are global in this module
@@ -364,10 +371,13 @@ REAL    (KIND=ireals   ), PARAMETER ::  &
   zthn  = 236.15_ireals , & ! temperature for hom. freezing of cloud water
   ztrfrz= 271.15_ireals , & ! threshold temperature for heterogeneous
 !                           ! freezing of raindrops
+  ztmix = 250.00_ireals , & ! threshold temperature for mixed-phase clouds (Forbes 2012)
+!                           ! freezing of raindrops
+  znimax_Thom = 150.E+3_ireals, & !FR: maximal number of ice crystals 
   zmi0   = 1.0E-12_ireals, & ! initial crystal mass for cloud ice nucleation
   zmimax = 1.0E-9_ireals , & ! maximum mass of cloud ice crystals   
   zmsmin = 3.0E-9_ireals , & ! initial mass of snow crystals        
-  zvz0i  = 1.1_ireals    , & ! Terminal fall velocity of ice (Heymsfield+Donner 1990 divided by 3)
+  zvz0i  = 1.1_ireals   , & ! Terminal fall velocity of ice (Heymsfield+Donner 1990 multiplied by 1/3)
   zbvi   = 0.16_ireals   , & ! v = zvz0i*rhoqi^zbvi
 
   !! Constant exponents in the transfer rate equations
@@ -766,8 +776,10 @@ SUBROUTINE hydci_pp (             &
   REAL    (KIND=ireals   ) ::  &
     fpvsw, fpvsi, fqvs,& ! name of statement functions
     fxna ,             & ! statement function for ice crystal number
+    fxna_cooper ,      & ! statement function for ice crystal number, Cooper(1986)
     ztx  , zpv  , zpx ,& ! dummy arguments for statement functions
     znimax,            & ! maximum number of cloud ice crystals
+    znimix,            & ! number of ice crystals at ztmix -> threshold temp for mixed-phase clouds
     zpvsw0,            & ! sat.vap. pressure at melting temperature
     zqvsw0,            & ! sat.specific humidity at melting temperature
 !    zdt,               & ! timestep for integration (water / ice )
@@ -919,6 +931,7 @@ SUBROUTINE hydci_pp (             &
   
 ! Number of activate ice crystals;  ztx is temperature
   fxna(ztx)   = 1.0E2_ireals * EXP(0.2_ireals * (t0 - ztx))
+  fxna_cooper(ztx) = 5.0E+0_ireals * EXP(0.304_ireals * (t0 - ztx))         ! Cooper (1986) used by Greg Thompson(2008)
 
 !> Coeffs for moment relation based on 2nd moment (Field 2005)
   mma = (/5.065339_ireals, -0.062659_ireals, -3.032362_ireals, 0.029469_ireals, -0.000285_ireals, &
@@ -955,7 +968,15 @@ SUBROUTINE hydci_pp (             &
 
 
 ! Some constant coefficients
+! Some constant coefficients
+  IF( lnew_ni_cooper) THEN
+!    znimax = fxna_cooper(zthn) ! Maximum number of cloud ice crystals
+    znimax = znimax_Thom
+    znimix = fxna_cooper(ztmix) ! number of ice crystals at temp threshold for mixed-phase clouds
+  ELSE
     znimax = fxna(zthn) ! Maximum number of cloud ice crystals
+    znimix = fxna(ztmix) ! number of ice crystals at temp threshold for mixed-phase clouds
+  END IF
     zpvsw0 = fpvsw(t0)  ! sat. vap. pressure for t = t0
 
 ! Delete precipitation fluxes from previous timestep
@@ -1419,7 +1440,11 @@ SUBROUTINE hydci_pp (             &
       rhog = rho(iv,k)
 
       IF( qvg > zqvsi(iv) ) THEN
-        znin  = MIN( fxna(tg), znimax )
+        IF( lnew_ni_cooper) THEN
+          znin  = MIN( fxna_cooper(tg), znimax )
+        ELSE
+          znin  = MIN( fxna(tg), znimax )
+        END IF
         zsnuc = zmi0 * z1orhog(iv) * znin * zdtr
         snuc(iv) = zsnuc
       ENDIF
@@ -1496,7 +1521,11 @@ SUBROUTINE hydci_pp (             &
       ! cloud ice is present and the temperature is below a nucleation
       ! threshold.
       IF( tg <= 267.15_ireals .AND. qig <= 0.0_ireals ) THEN
-        znin  = MIN( fxna(tg), znimax )
+        IF( lnew_ni_cooper) THEN
+          znin  = MIN( fxna_cooper(tg), znimax )
+        ELSE
+          znin  = MIN( fxna(tg), znimax )
+        END IF
         zsnuc = zmi0 * z1orhog(iv) * znin * zdtr
         snuc(iv) = zsnuc
       ENDIF
@@ -1527,13 +1556,16 @@ SUBROUTINE hydci_pp (             &
       llqi =  qig > zqmin
 
       IF (tg<=t0) THEN
-        znin    = MIN( fxna(tg), znimax )
+        IF( lnew_ni_cooper) THEN
+          znin    = MIN( fxna_cooper(tg), znimax )
+        ELSE
+          znin    = MIN( fxna(tg), znimax )
+        END IF
         zmi     = MIN( rhog*qig/znin, zmimax )
         zmi     = MAX( zmi0, zmi )
         zsvmax  = (qvg - zqvsi(iv)) * zdtr
         zsagg   = zcagg(iv) * EXP(ccsaxp*LOG(zcslam(iv))) * qig
-        zsagg   = MAX( zsagg, 0.0_ireals ) & !* zrho1o2(iv) &
-          * MAX(0.2_ireals,MIN(EXP(0.09_ireals*(tg-t0)),1.0_ireals))
+        zsagg   = MAX( zsagg, 0.0_ireals ) * MAX(zceff_min,MIN(EXP(0.09_ireals*(tg-t0)),1.0_ireals))
         znid      = rhog * qig/zmi
         IF (llqi) THEN
           zlnlogmi= LOG (zmi)
@@ -1551,7 +1583,7 @@ SUBROUTINE hydci_pp (             &
           zsvisub = - MAX(-zsimax, zsvmax )
         ENDIF
         zsiau = zciau * MAX( qig - qi0, 0.0_ireals ) &
-          * MAX(0.2_ireals,MIN(EXP(0.09_ireals*(tg-t0)),1.0_ireals))
+          * MAX(zceff_min,MIN(EXP(0.09_ireals*(tg-t0)),1.0_ireals))
         IF (llqi) THEN
           zlnlogmi = LOG(zmsmin/zmi)
           zztau    = 1.5_ireals*( EXP(0.66_ireals*zlnlogmi) - 1.0_ireals)

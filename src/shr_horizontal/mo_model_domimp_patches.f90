@@ -129,7 +129,8 @@ MODULE mo_model_domimp_patches
     & is_plane_torus, grid_sphere_radius,                 &
     & use_duplicated_connectivity! ,  use_dummy_cell_closure
   USE mo_dynamics_config,    ONLY: lcoriolis
-  USE mo_run_config,         ONLY: center, subcenter, number_of_grid_used
+  USE mo_run_config,         ONLY: grid_generatingCenter, grid_generatingSubcenter, &
+    &                              number_of_grid_used
   USE mo_master_control,     ONLY: my_process_is_ocean
   USE mo_impl_constants_grf, ONLY: grf_bdyintp_start_c, grf_bdyintp_start_e
   USE mo_loopindices,        ONLY: get_indices_c, get_indices_e
@@ -879,33 +880,35 @@ CONTAINS
     END IF
 
     ! Read additional grid identifiers
-    ! center
-    ! subcenter
+    ! grid_generatingCenter
+    ! grid_generatingSubcenter
     ! number_of_grid_used
-    netcd_status = nf_get_att_int(ncid, nf_global, 'center', center(ig))
+    netcd_status = nf_get_att_int(ncid, nf_global, 'center', &
+      &                           grid_generatingCenter(ig)  )
     IF (netcd_status == nf_noerr) THEN 
       WRITE(message_text,'(a,i4,a,i4)') &
-        & 'generating center of patch ', ig, ': ',center(ig)
+        & 'generating center of patch ', ig, ': ',grid_generatingCenter(ig)
       CALL message  (TRIM(method_name), TRIM(message_text))
     ELSE
       WRITE(message_text,'(a,i4,a,i4)') &
         & 'WARNING: generating center of patch ', ig, ' not found'
       CALL message  (TRIM(method_name), TRIM(message_text))
       ! set default value
-      center(ig) = 78    ! DWD
+      grid_generatingCenter(ig) = 78    ! DWD
     ENDIF
     
-    netcd_status = nf_get_att_int(ncid, nf_global, 'subcenter', subcenter(ig))
+    netcd_status = nf_get_att_int(ncid, nf_global, 'subcenter', &
+      &                           grid_generatingSubcenter(ig)  )
     IF (netcd_status == nf_noerr) THEN 
       WRITE(message_text,'(a,i4,a,i4)') &
-        & 'generating subcenter of patch ', ig, ': ',subcenter(ig)
+        & 'generating subcenter of patch ', ig, ': ',grid_generatingSubcenter(ig)
       CALL message  (TRIM(method_name), TRIM(message_text))
     ELSE
       WRITE(message_text,'(a,i4,a,i4)') &
         & 'WARNING: generating subcenter of patch ', ig, ' not found'
       CALL message  (TRIM(method_name), TRIM(message_text))
       ! set default value
-      subcenter(ig) = 255
+      grid_generatingSubcenter(ig) = 255
     ENDIF
 
     netcd_status = nf_get_att_int(ncid, nf_global, 'number_of_grid_used', &

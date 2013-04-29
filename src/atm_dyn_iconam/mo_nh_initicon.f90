@@ -1526,6 +1526,7 @@ MODULE mo_nh_initicon
 
         CASE (FILETYPE_GRB2)
           CALL cdiDefMissval(cdimissval) 
+          CALL cdiDefAdditionalKey("localInformationNumber")
           fileID  = streamOpenRead(TRIM(dwdfg_file(jg)))
 
           if (get_varID(fileID, "H_ICE") == -1) then

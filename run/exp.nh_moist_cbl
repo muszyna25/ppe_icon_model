@@ -119,9 +119,9 @@ cat > ${atmo_namelist} << EOF
  tran_coeff        = 0.01   !m/s
 /
 &diffusion_nml
- lhdiff_temp  = .TRUE.
- lhdiff_vn    = .TRUE
- lhdiff_w     = .TRUE.
+ lhdiff_temp  = .FALSE.
+ lhdiff_vn    = .FALSE.
+ lhdiff_w     = .FALSE.
  hdiff_order  = 4
 /
 &nwp_phy_nml
@@ -159,7 +159,6 @@ const_z0  = 0.0003
  dt_checkpoint    = ${dt_checkpoint} ! [s] trigger new restart file
 /
 &output_nml
- namespace        = 'DWD'
  filetype         = 4
  dom              = -1
  output_time_unit = 3

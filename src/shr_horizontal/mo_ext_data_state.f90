@@ -3270,7 +3270,7 @@ CONTAINS
            ENDDO
          ELSE ! overwrite fractional settings over water points if tile approach is turned off
            DO jc = i_startidx, i_endidx
-             ext_data(jg)%atm%lc_frac_t(jc,jb,1) = 1
+             ext_data(jg)%atm%lc_frac_t(jc,jb,1) = 1._wp
            ENDDO
          ENDIF
 
@@ -3400,6 +3400,10 @@ CONTAINS
       i_startblk = p_patch(jg)%cells%start_blk(rl_start,1)
       i_endblk   = p_patch(jg)%cells%end_blk(rl_end,i_nchdom)
 
+      ! Fill nest boundary points of sai with c_sea because the initial call of turbtran
+      ! may produce invalid operations otherwise
+      ext_data(jg)%atm%sai(:,1:i_startblk) = c_sea
+
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jt,ic,i_startidx,i_endidx,i_count,jc,area_frac)
       DO jb = i_startblk, i_endblk
@@ -3413,7 +3417,10 @@ CONTAINS
         ext_data(jg)%atm%lai   (:,jb) = 0._wp
         ext_data(jg)%atm%rsmin (:,jb) = 0._wp
         ext_data(jg)%atm%tai   (:,jb) = 0._wp
-        ext_data(jg)%atm%sai   (:,jb) = 0._wp
+        ext_data(jg)%atm%eai   (:,jb) = 0._wp
+        ext_data(jg)%atm%sai   (i_startidx:i_endidx,jb) = 0._wp
+
+
 
         DO jt = 1, ntiles_total
           i_count = ext_data(jg)%atm%gp_count_t(jb,jt)
@@ -3436,6 +3443,10 @@ CONTAINS
             ext_data(jg)%atm%lai(jc,jb) = ext_data(jg)%atm%lai(jc,jb)           &
               &             + ( ext_data(jg)%atm%tai_t(jc,jb,jt)                &
               &             /(ext_data(jg)%atm%plcov_t(jc,jb,jt)+dbl_eps) * area_frac )
+
+            ! evaporative soil area index (aggregated)
+            ext_data(jg)%atm%eai(jc,jb) = ext_data(jg)%atm%eai(jc,jb)           &
+              &             +  ext_data(jg)%atm%eai_t(jc,jb,jt) * area_frac 
 
             ! transpiration area index (aggregated)
             ext_data(jg)%atm%tai(jc,jb) = ext_data(jg)%atm%tai(jc,jb)           &

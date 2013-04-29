@@ -73,6 +73,8 @@ MODULE mo_vertical_grid
   USE mo_nh_init_utils,         ONLY: nflat, nflatlev, compute_smooth_topo, init_vert_coord
   USE mo_sync,                  ONLY: SYNC_E, SYNC_V, sync_patch_array, global_sum_array, &
                                       sync_patch_array_mult, global_min, global_max
+  USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
+  USE mo_les_config,           ONLY: les_config
 
   IMPLICIT NONE
 
@@ -1662,6 +1664,12 @@ MODULE mo_vertical_grid
 
     ENDDO
 
+    !PREPARE LES, Anurag Dipankar MPIM (2013-04)
+    DO jg = 1 , n_dom
+      IF(atm_phy_nwp_config(jg)%inwp_turb == 5)  &
+        CALL prepare_les_model(p_patch(jg), p_nh(jg), p_int(jg))
+    END DO
+
   END SUBROUTINE set_nh_metrics
   !----------------------------------------------------------------------------
 
@@ -1974,6 +1982,90 @@ MODULE mo_vertical_grid
 
   END SUBROUTINE prepare_zdiffu
   !----------------------------------------------------------------------------
+  !----------------------------------------------------------------------------
+  !>
+  !! Computation of coefficients for LES model in mo_sgs_turbulence
+  !!
+  !! @par Revision History
+  !! Developed by Anurag Dipankar, MPIM (2013-04)
+  !!
+  SUBROUTINE prepare_les_model(p_patch, p_nh, p_int)
+
+    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+      &  routine = 'mo_vertical_grid:prepare_les_model'
+
+    TYPE(t_patch), TARGET, INTENT(INOUT) :: p_patch
+    TYPE(t_nh_state), INTENT(INOUT)      :: p_nh
+    TYPE(t_int_state), TARGET,INTENT(IN) :: p_int
+
+    REAL(wp)  :: z_me(nproma,p_patch%nlev,p_patch%nblks_e)
+
+    INTEGER :: jk, jb, jc, je, nblks_c, nblks_e, nlen, npromz_c, npromz_e
+    INTEGER :: nlev, nlevp1, les_filter
+
+    nlev = p_patch%nlev
+    nlevp1 = nlev + 1
+    nblks_c   = p_patch%nblks_int_c
+    npromz_c  = p_patch%npromz_int_c
+    nblks_e   = p_patch%nblks_int_e
+    npromz_e  = p_patch%npromz_int_e
+ 
+    CALL cells2edges_scalar(p_nh%metrics%z_mc, p_patch, p_int%c_lin_e, z_me)
+
+    
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,je,jk,nlen,les_filter) ICON_OMP_DEFAULT_SCHEDULE
+    DO jb = 1,nblks_e
+      IF (jb /= nblks_e) THEN
+         nlen = nproma
+      ELSE
+         nlen = npromz_e
+      ENDIF     
+      DO je = 1 , nlen
+       DO jk = 1 , nlev 
+         p_nh%metrics%inv_ddqz_z_full_e(je,jk,jb) =  & 
+                1._wp / p_nh%metrics%ddqz_z_full_e(je,jk,jb)
+
+         !Mixing length for LES
+         les_filter = les_config(1)%smag_constant * (0.5_wp*p_patch%edges%quad_area(je,jb) * &
+                      p_nh%metrics%ddqz_z_full_e(je,jk,jb))**(1._wp/3._wp) 
+
+         p_nh%metrics%mixing_length_sq(je,jk,jb) = (les_filter*z_me(je,jk,jb))**2    &
+                      / ((les_filter*les_config(1)%rkarman_constant)**2+z_me(je,jk,jb)**2)
+       END DO
+      END DO
+    END DO 
+!$OMP END DO
+
+!$OMP DO PRIVATE(jb,jc,jk,nlen) ICON_OMP_DEFAULT_SCHEDULE
+    DO jb = 1,nblks_c
+      IF (jb /= nblks_c) THEN
+         nlen = nproma
+      ELSE
+         nlen = npromz_c
+      ENDIF     
+      DO jc = 1 , nlen
+       DO jk = 1 , nlevp1 
+         p_nh%metrics%inv_ddqz_z_half(jc,jk,jb) = 1._wp / p_nh%metrics%ddqz_z_half(jc,jk,jb)
+       END DO
+      END DO
+    END DO 
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+  
+   CALL cells2verts_scalar(p_nh%metrics%inv_ddqz_z_half, p_patch, p_int%cells_aw_verts, &
+                           p_nh%metrics%inv_ddqz_z_half_v)
+
+   CALL cells2edges_scalar(p_nh%metrics%inv_ddqz_z_half, p_patch, p_int%c_lin_e, &
+                           p_nh%metrics%inv_ddqz_z_half_e)
+
+   CALL cells2verts_scalar(p_nh%metrics%wgtfac_c, p_patch, p_int%cells_aw_verts, &
+                           p_nh%metrics%wgtfac_v)
+
+
+  END SUBROUTINE prepare_les_model
+  !----------------------------------------------------------------------------
+
 
 END MODULE mo_vertical_grid
 

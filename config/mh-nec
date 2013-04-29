@@ -19,7 +19,7 @@ URDEPTHS = -D_URD=10 -D_URD2=10
 ###################################################################################
  
 config_target=sx9
-load_modules="sxf90/rev460" "sxcc/rev092" "crosskit/r181"
+load_modules="sxf90/rev460" "sxcc/rev094" "crosskit/r181"
 load_profile="." "/etc/profile.d/modules.sh"
 make_command="make"
 mpi_startrun="mpirun" "-nn" "\\\$no_of_nodes" -nnp "\\\$mpi_procs"
@@ -88,7 +88,7 @@ INLINE   = $INLINE -pi rexp=p_wait
 INLINE   = $INLINE -pi rexp=nwp_dyn_gust1
 
 # standard flags for C compiler
-CFLAGS  = -Chopt -DHAVE_LIBNETCDF -DHAVE_CF_INTERFACE -DHAVE_LIBGRIB -DHAVE_LIBGRIB_API -I/usr/local/pkg-sx9/grib_api/prerelease-1.10.0/include
+CFLAGS  = -Chopt -DHAVE_LIBNETCDF -DHAVE_CF_INTERFACE -DHAVE_LIBGRIB -DHAVE_LIBGRIB_API -I/usr/local/pkg-sx9/grib_api/prerelease-1.10.4/include
 
 NETCDFROOT = /usr/local/pkg-sx9/
 LAPACKROOT = /SX/opt/mathkeisan/inst
@@ -347,7 +347,7 @@ MPI_LIB =
 LAPACK_LIB  = -llapack -lblas
 
 LIBS        = -L../lib -lsupport \
-              -L/usr/local/pkg-sx9/grib_api/prerelease-1.10.0/lib -lgrib_api_f90 -lgrib_api
+              -L/usr/local/pkg-sx9/grib_api/prerelease-1.10.4/lib -lgrib_api_f90 -lgrib_api
 
 AR       = sxar
 AS       = sxas

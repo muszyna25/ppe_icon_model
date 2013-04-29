@@ -33,6 +33,7 @@
 #include <stdlib.h>
 #include <sys/types.h>
 #include <dirent.h>
+#include <ctype.h>
 #include "xml_scan.h"
 
 
@@ -67,6 +68,28 @@ int scan_dir(const char *directory, const char *basename)
     return 0;
 }
 
+
+void trim_printf(size_t len, const char *str)
+{
+  if(len == 0) return;
+  const char *end;
+  size_t out_size;
+  // Trim leading space
+  while(isspace(*str)) str++;
+  if(*str == 0)  // All spaces?
+  {
+    return;
+  }
+  // Trim trailing space
+  end = str + strlen(str) - 1;
+  while(end > str && isspace(*end)) end--;
+  end++;
+  // Set output size to minimum of trimmed string length and buffer size minus 1
+  out_size = (end - str) < len-1 ? (end - str) : len-1;
+  printf("%.*s\n", (int) out_size, str);
+}
+
+
 /* --------------------------------------------------------------
  * Main program
  * -------------------------------------------------------------- */
@@ -98,10 +121,18 @@ int main(int argc, char *argv[])
 
   /* extract file name from URI */
   const char *uri         = get_grid_uri(&grid_attr);
+  const char *extpar      = get_grid_extpar(&grid_attr);
   const char *description = get_grid_description(&grid_attr) ;
 
-  printf("URI: %s\n", uri);
-  if (description != NULL) printf("     \"%s\"\n", description);
+  printf("URI:    %s\n", uri);
+  if (description != NULL) {
+    printf("ExtPar: %s\n", extpar);
+  }
+  if (description != NULL) {
+    printf("\n        ");
+    trim_printf(strlen(description), description);
+    printf("\n");
+  }
 
   char *basename = strrchr(uri, '/') + 1;
   printf("search for \"%s\"\n", basename);

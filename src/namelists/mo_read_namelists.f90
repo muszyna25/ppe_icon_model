@@ -249,8 +249,8 @@ CONTAINS
     CALL read_extpar_namelist         (TRIM(oce_namelist_filename))
 
     !
-    ! GRIB output
-    !CALL read_gribout_namelist        (TRIM(oce_namelist_filename))
+    ! GRIB2 output
+    CALL read_gribout_namelist        (TRIM(oce_namelist_filename))
 
     ! Coupling
     !

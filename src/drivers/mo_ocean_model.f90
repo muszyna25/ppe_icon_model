@@ -57,19 +57,25 @@ MODULE mo_ocean_model
   USE mo_advection_config,    ONLY: configure_advection
   USE mo_dynamics_config,     ONLY: configure_dynamics  ! subroutine
   USE mo_run_config,          ONLY: configure_run, output_mode
+  USE mo_gribout_config,       ONLY: configure_gribout
 
   ! Control parameters: run control, dynamics, i/o
   !
   USE mo_io_config,           ONLY:  lwrite_initial,n_ios
   USE mo_run_config,          ONLY: &
-    & dtime,                & !    :
-    & nsteps,               & !    :
-    & ltimer,               & !    :
-    & lrestore_states,      & ! flag if states should be restored
-    & iforcing,             & !  
-    & num_lev, num_levp1,   &
-    & iqc, iqi, iqr, iqs,   &
-    & nshift, ntracer
+    & dtime,                  & !    :
+    & nsteps,                 & !    :
+!    & ltransport,             & !    :
+    & ltimer,                 & !    :
+    !& ldump_states,           & ! flag if states should be dumped
+    & lrestore_states,        & ! flag if states should be restored
+    & iforcing,               & !  
+    & num_lev, num_levp1,     &
+    & iqc, iqi, iqr, iqs,     &
+    & nshift, ntracer,        &
+    & grid_generatingCenter,  & ! grid generating center
+    & grid_generatingSubcenter  ! grid generating subcenter
+
   USE mo_nml_crosscheck,    ONLY: oce_crosscheck
 
   USE mo_ext_decompose_patches, ONLY: ext_decompose_patches
@@ -391,6 +397,8 @@ CONTAINS
     CALL configure_dynamics ( n_dom )
 !     CALL configure_diffusion( n_dom, dynamics_parent_grid_id, &
 !                             & nlev, vct_a, vct_b, apzero      )
+
+    CALL configure_gribout(grid_generatingCenter, grid_generatingSubcenter, n_dom)
 
     DO jg =1,n_dom
       !The 3D-ocean version of previous calls 
