@@ -91,14 +91,11 @@ CONTAINS
 
       CALL vlistInqVarName(vlistID, varID, zname)
 
-
       IF (tolower(TRIM(zname)) == tolower(TRIM(name))) THEN
 
         ! check tile index
         IF (PRESENT(opt_tileidx)) THEN
-          CALL vlistInqVarRawBegin(streamID, varID)
-          tileidx = vlistInqVarIntKey(streamID, "localInformationNumber")
-          CALL vlistInqVarRawEnd(streamID)
+          tileidx = vlistInqVarIntKey(vlistID, varID, "localInformationNumber")
           IF (tileidx /= opt_tileidx) CYCLE LOOP
         END IF
 

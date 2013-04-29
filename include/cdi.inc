@@ -1,6 +1,6 @@
 ! This file was automatically generated, don't edit!
 !
-! Fortran interface for CDI library version 1.6.1rc1
+! Fortran interface for CDI library version 1.6.1rc2
 !
 ! Author:
 ! -------
@@ -1195,15 +1195,10 @@
 !                                     INTEGER         forecast_type)
       EXTERNAL        vlistInqVarEnsemble
 
-!
-!  ----------------------------------
-!
-!
-!  Local change: 2013-01-28, FP (DWD)
-!
-!
-!  ----------------------------------
-!
+!                     cdiDefAdditionalKey
+!                                    (CHARACTER*(*)   string)
+      EXTERNAL        cdiDefAdditionalKey
+
 !                     vlistDefVarIntKey
 !                                    (INTEGER         vlistID,
 !                                     INTEGER         varID,
@@ -1218,33 +1213,17 @@
 !                                     DOUBLEPRECISION value)
       EXTERNAL        vlistDefVarDblKey
 
-!
-!  ----------------------------------
-!
-!
-!  Local change: 2013-02-18, FP (DWD)
-!
-!
-!  ----------------------------------
-!
-!                     vlistInqVarRawBegin
-!                                    (INTEGER         streamID,
-!                                     INTEGER         varID)
-      EXTERNAL        vlistInqVarRawBegin
-
       DOUBLEPRECISION vlistInqVarDblKey
-!                                    (INTEGER         streamID,
+!                                    (INTEGER         vlistID,
+!                                     INTEGER         varID,
 !                                     CHARACTER*(*)   name)
       EXTERNAL        vlistInqVarDblKey
 
       INTEGER         vlistInqVarIntKey
-!                                    (INTEGER         streamID,
+!                                    (INTEGER         vlistID,
+!                                     INTEGER         varID,
 !                                     CHARACTER*(*)   name)
       EXTERNAL        vlistInqVarIntKey
-
-!                     vlistInqVarRawEnd
-!                                    (INTEGER         streamID)
-      EXTERNAL        vlistInqVarRawEnd
 
 !
 !  VLIST attributes
