@@ -4267,6 +4267,13 @@ CONTAINS
     ! corresponding variable subsets:
     CALL parse_variable_groups()
 
+
+    ! Go over all output domains
+    DO idom = 1, n_dom_out
+      CALL p_bcast(gribout_config(idom)%generatingCenter,    bcast_root, p_comm_work_2_io)
+      CALL p_bcast(gribout_config(idom)%generatingSubcenter, bcast_root, p_comm_work_2_io)
+    ENDDO
+
     !-----------------------------------------------------------------------------------------------
     ! Replicate coordinates of cells/edges/vertices:
     IF (.NOT. l_grid_info_from_file) THEN
