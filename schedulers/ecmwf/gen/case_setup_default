@@ -209,7 +209,7 @@ cat > ${atmo_namelist} << EOF
 /
 &gribout_nml
  generatingCenter             = 98                        ! ECMWF
- gneratingSubcenter           = 0                         ! ECMWF
+ generatingSubcenter          = 0                         ! ECMWF
 /
 &meteogram_output_nml
  lmeteogram_enabled= .TRUE.
