@@ -73,7 +73,7 @@ USE mo_ocean_nml,           ONLY: iforc_oce, iforc_type, iforc_len, itestcase_oc
   &                               NO_FORCING, ANALYT_FORC, FORCING_FROM_FILE_FLUX,         &
   &                               FORCING_FROM_FILE_FIELD, FORCING_FROM_COUPLED_FLUX,      &
   &                               FORCING_FROM_COUPLED_FIELD, i_sea_ice, l_forc_freshw,    &
-  &                               limit_elevation, seaice_limit
+  &                               limit_elevation, seaice_limit, l_relaxsal_ice
 USE mo_dynamics_config,     ONLY: nold
 USE mo_model_domain,        ONLY: t_patch, t_patch_3D
 USE mo_util_dbg_prnt,       ONLY: dbg_print
@@ -1107,9 +1107,11 @@ CONTAINS
             z_relax = (p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,1,jb)+p_os%p_prog(nold(1))%h(jc,jb)) / &
               &       (relax_2d_mon_S*seconds_per_month)
             ! 
-            ! If sea ice is present, salinity relaxation is proportional to open water,
+            ! If sea ice is present (and l_relaxsal_ice), salinity relaxation is proportional to open water,
             !   under sea ice, no relaxation is applied, according to the procedure in MPIOM
-            IF (i_sea_ice >= 1) z_relax = (1.0_wp-p_ice%conc(jc,1,jb))*z_relax   !  sea ice class 1
+            !   TODO: p_ice%conc: class 1 of sea ice is used - must be generalized
+            IF (l_relaxsal_ice .AND. i_sea_ice >=1) z_relax = (1.0_wp-p_ice%conc(jc,1,jb))*z_relax
+            !IF (i_sea_ice >= 1) z_relax = (1.0_wp-p_ice%conc(jc,1,jb))*z_relax
 
             z_forc_tracer_old              = p_sfc_flx%forc_tracer(jc,jb,2)
             p_sfc_flx%forc_tracer(jc,jb,2) = p_sfc_flx%forc_tracer(jc,jb,2) &
