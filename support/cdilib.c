@@ -977,6 +977,9 @@ void    cdiClearAdditionalKeys();
 /* cdiDefAdditionalKey: Register an additional GRIB key which is read when file is opened. */
 void    cdiDefAdditionalKey(const char *string);
 
+/*gribGetAPIVersion: get GRIB-API Library version*/
+int gribGetAPIVersion();
+
 /* vlistDefVarIntKey: Set an arbitrary keyword/integer value pair for GRIB API */
 void    vlistDefVarIntKey(int vlistID, int varID, const char *name, int value);
 /* vlistDefVarDblKey: Set an arbitrary keyword/double value pair for GRIB API */
@@ -57963,6 +57966,15 @@ const char *gribapiLibraryVersion(void)
   return (gribapi_libvers);
 }
 
+int gribGetAPIVersion()
+{
+    int result = 0;
+#if  defined  (HAVE_LIBGRIB_API)
+    result = (int) grib_get_api_version();
+#endif // HAVE_LIBGRIB_API
+    return result;
+}
+
 
 void gribContainersNew(stream_t * streamptr)
 {
@@ -65559,6 +65571,10 @@ FCALLSCFUN3 (INT, vlistMergedLevel, VLISTMERGEDLEVEL, vlistmergedlevel, INT, INT
 
 FCALLSCSUB5 (vlistDefVarEnsemble, VLISTDEFVARENSEMBLE, vlistdefvarensemble, INT, INT, INT, INT, INT)
 FCALLSCFUN5 (INT, vlistInqVarEnsemble, VLISTINQVARENSEMBLE, vlistinqvarensemble, INT, INT, PINT, PINT, PINT)
+
+FCALLSCFUN0 (INT, gribGetAPIVersion, GRIBGETAPIVERSION, gribgetapiversion)
+
+
 FCALLSCSUB1 (cdiDefAdditionalKey, CDIDEFADDITIONALKEY, cdidefadditionalkey, STRING)
 FCALLSCSUB4 (vlistDefVarIntKey, VLISTDEFVARINTKEY, vlistdefvarintkey, INT, INT, STRING, INT)
 FCALLSCSUB4 (vlistDefVarDblKey, VLISTDEFVARDBLKEY, vlistdefvardblkey, INT, INT, STRING, DOUBLE)

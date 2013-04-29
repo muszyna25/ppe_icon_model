@@ -2941,6 +2941,8 @@ CONTAINS
     CALL vlistDefVarIntKey(vlistID, varID, "generatingProcessIdentifier",     &
       &                    grib_conf%generatingProcessIdentifier)
 
+
+
     ! Product Generation (local), !! DWD only !!
     ! DWD :: center    = 78
     !        subcenter = 255
@@ -2956,6 +2958,8 @@ CONTAINS
       CALL vlistDefVarIntKey(vlistID, varID, "localCreationDateMinute", minute)
       ! preliminary HACK for identifying tile based variables
       CALL vlistDefVarIntKey(vlistID, varID, "localInformationNumber" , tileidx)
+      ! store GRIB_API library version
+      CALL vlistDefVarIntKey(vlistID, varID, "localVersionNumber" , gribGetAPIVersion())
       ! CALL vlistDefVarIntKey(vlistID, varID, "localValidityDateYear"  , 2013)
     END IF
 

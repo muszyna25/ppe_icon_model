@@ -15,6 +15,7 @@
 !! @par Literature
 !! - Dynamical Core Model Intercomparison Project (DCMIP) 
 !!   Test Case Document (P. Ullrich et al, 2012)
+!! - Baldauf, M. et al. (2013): in preparation
 !!
 !! @par Copyright
 !! 2002-2012 by DWD and MPI-M
@@ -502,7 +503,7 @@ CONTAINS
        CALL finish('mo_nh_dcmip_gw:init_nh_gw_analyt',  &
         &      ' allocation of centrifugal force failed!')
     END IF   
-    fcfugal = 0._wp
+    fcfugal(:,:) = 0._wp
 
 
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -833,11 +834,13 @@ CONTAINS
         !
         zomega = -gw_u0/grid_sphere_radius ! note that the scaled radius must be used
 
+
         i_rlstart = 1
         i_rlend   = min_rlcell
 
         i_startblk = p_patch%cells%start_blk(i_rlstart,1)
         i_endblk   = p_patch%cells%end_blk(i_rlend,i_nchdom)
+
 
 !$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,z_lat)
         DO jb = i_startblk, i_endblk
@@ -845,9 +848,8 @@ CONTAINS
           CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
                              i_startidx, i_endidx, i_rlstart, i_rlend)
 
-          z_lat = p_patch%cells%center(jc,jb)%lat
-
           DO jc = i_startidx, i_endidx
+            z_lat = p_patch%cells%center(jc,jb)%lat
             p_patch%cells%f_c(jc,jb) = 2._wp * zomega * SIN(z_lat)
           ENDDO  ! jc
         ENDDO  ! jb
@@ -895,7 +897,6 @@ CONTAINS
 !$OMP ENDDO NOWAIT
 
 
-
         !
         ! compute centrifugal force at edge (normal component)
         !
@@ -937,6 +938,7 @@ CONTAINS
 
     ! diag for Output
     CALL div(p_nh_prog%vn, p_patch, p_int, p_nh_diag%div)
+
 
   END SUBROUTINE init_nh_gw_analyt
 

@@ -1195,6 +1195,12 @@
 !                                     INTEGER         forecast_type)
       EXTERNAL        vlistInqVarEnsemble
 
+!
+      INTEGER         gribGetAPIVersion
+!                                    ()
+      EXTERNAL        gribGetAPIVersion
+
+!
 !                     cdiDefAdditionalKey
 !                                    (CHARACTER*(*)   string)
       EXTERNAL        cdiDefAdditionalKey
