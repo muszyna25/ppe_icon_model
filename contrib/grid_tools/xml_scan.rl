@@ -107,7 +107,7 @@ struct t_element *xmltree = NULL; /* head of XML tree */
 	attribute = ^(space | [/>=])+ @collect %attributeName space* '=' space*
 	  (('\'' ^'\''* @collect %attribute '\'') | ('"' ^'"'* @collect %attribute '"'));
 	element = '<' space* ^(space | [/>])+ @collect %elementStart (space+ attribute)*
-	  :>> (space* ('/' %elementEndSingle)? space* '>' @element);
+	  :>> (space* ((('/' %elementEndSingle)|('?' %elementEndSingle))? space* '>')  @element);
         elementBody := space* <: ((^'<'+ @collect %text) <: space*)?
 	  element? :>> ('<' space* '/' ^'>'+ '>' @elementEnd);
         main := space* element space*;
@@ -290,6 +290,19 @@ const char* get_grid_uri(struct t_grid_attr *grid_attr) {
   assert(uri_node       != NULL);
   assert(uri_node->body != NULL);
   return uri_node->body;
+}
+
+
+const char* get_grid_extpar(struct t_grid_attr *grid_attr) {
+  /* step 1: find <grid> tag: */
+  struct t_element *grid_node = find_first_element(xmltree, "grid", 
+						   &match_grid, grid_attr);
+  if (grid_node == NULL) return NULL;
+  /* step 2: get corresponding URI tag: */
+  struct t_element *extpar_node = find_first_element(grid_node, "extpar", NULL, NULL);
+  assert(extpar_node       != NULL);
+  assert(extpar_node->body != NULL);
+  return extpar_node->body;
 }
 
 
