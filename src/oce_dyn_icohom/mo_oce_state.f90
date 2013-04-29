@@ -828,31 +828,31 @@ CONTAINS
                     & ldims=(/nproma,n_zlev,nblks_c/))
 
       END DO
-!      IF (nnew(1)==timelevel) THEN
-!        !Add output with readable variable names
-!        CALL set_oce_tracer_info(max_oce_tracer      , &
-!            &                    oce_tracer_names    , &
-!            &                    oce_tracer_longnames, &
-!            &                    oce_tracer_codes    , &
-!            &                    oce_tracer_units)
-!        CALL add_var(ocean_default_list, 'tracers', p_os_prog%tracer , &
-!            &        GRID_UNSTRUCTURED_CELL, ZAXIS_DEPTH_BELOW_SEA, &
-!            &        t_cf_var('tracers','','1:temperature 2:salinity',DATATYPE_FLT32),&
-!            &        t_grib2_var(255,255,255,DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
-!            &        ldims=(/nproma,n_zlev,nblks_c,no_tracer/), &
-!            &        lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
-!        DO jtrc = 1,no_tracer
-!          CALL add_ref( ocean_default_list, 'tracers', &
-!            &           oce_tracer_names(jtrc),          &
-!            &           p_os_prog%tracer_ptr(jtrc)%p,    &
-!            &           GRID_UNSTRUCTURED_CELL, ZAXIS_DEPTH_BELOW_SEA,&
-!            &           t_cf_var(oce_tracer_names(jtrc), &
-!            &                    oce_tracer_units(jtrc), &
-!            &                    oce_tracer_longnames(jtrc), DATATYPE_FLT32), &
-!            &           t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
-!            &           ldims=(/nproma,n_zlev,nblks_c/))
-!        END DO
-!      ENDIF ! single tracer output variables
+      IF (nnew(1)==timelevel) THEN
+        !Add output with readable variable names
+        CALL set_oce_tracer_info(max_oce_tracer      , &
+            &                    oce_tracer_names    , &
+            &                    oce_tracer_longnames, &
+            &                    oce_tracer_codes    , &
+            &                    oce_tracer_units)
+        CALL add_var(ocean_default_list, 'tracers', p_os_prog%tracer , &
+            &        GRID_UNSTRUCTURED_CELL, ZAXIS_DEPTH_BELOW_SEA, &
+            &        t_cf_var('tracers','','1:temperature 2:salinity',DATATYPE_FLT32),&
+            &        t_grib2_var(255,255,255,DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+            &        ldims=(/nproma,n_zlev,nblks_c,no_tracer/), &
+            &        lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
+        DO jtrc = 1,no_tracer
+          CALL add_ref( ocean_default_list, 'tracers', &
+            &           oce_tracer_names(jtrc),          &
+            &           p_os_prog%tracer_ptr(jtrc)%p,    &
+            &           GRID_UNSTRUCTURED_CELL, ZAXIS_DEPTH_BELOW_SEA,&
+            &           t_cf_var(oce_tracer_names(jtrc), &
+            &                    oce_tracer_units(jtrc), &
+            &                    oce_tracer_longnames(jtrc), DATATYPE_FLT32), &
+            &           t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+            &           ldims=(/nproma,n_zlev,nblks_c/))
+        END DO
+      ENDIF ! single tracer output variables
     ENDIF ! no_tracer > 0
   END SUBROUTINE construct_hydro_ocean_prog
 
@@ -3921,17 +3921,17 @@ END SUBROUTINE complete_patchinfo_oce
     IF (PRESENT(suffix)) THEN
 !     write(0,*)'suffix:',suffix
     END IF
-    oce_tracer_names(1)     = 'T'
+    oce_tracer_names(1)     = 't'
     IF (PRESENT(suffix)) THEN
-      oce_tracer_names(1) = 'T'//TRIM(suffix)
+      oce_tracer_names(1) = 't'//TRIM(suffix)
     END IF
     oce_tracer_longnames(1) = 'potential temperature'
     oce_tracer_units(1)     = 'deg C'
     oce_tracer_codes(1)     = 200
 
-    oce_tracer_names(2)     = 'S'
+    oce_tracer_names(2)     = 's'
     IF (PRESENT(suffix)) THEN
-      oce_tracer_names(2) = 'S'//TRIM(suffix)
+      oce_tracer_names(2) = 's'//TRIM(suffix)
     END IF
     oce_tracer_longnames(2) = 'salinity'
     oce_tracer_units(2)     = 'psu'

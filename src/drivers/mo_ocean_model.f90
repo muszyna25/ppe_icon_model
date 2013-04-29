@@ -63,10 +63,8 @@ MODULE mo_ocean_model
   USE mo_io_config,           ONLY:  lwrite_initial,n_ios
   USE mo_run_config,          ONLY: &
     & dtime,                & !    :
-    & nsteps,                & !    :
-!    & ltransport,           & !    :
+    & nsteps,               & !    :
     & ltimer,               & !    :
-    !& ldump_states,         & ! flag if states should be dumped
     & lrestore_states,      & ! flag if states should be restored
     & iforcing,             & !  
     & num_lev, num_levp1,   &
@@ -77,15 +75,12 @@ MODULE mo_ocean_model
   USE mo_ext_decompose_patches, ONLY: ext_decompose_patches
   USE mo_setup_subdivision,     ONLY: decompose_domain_oce!decompose_domain
   USE mo_complete_subdivision,  ONLY:  &
-  !  & complete_parallel_setup,       &
-  !  & finalize_decomposition,        &
     & copy_processor_splitting,      &
     & set_patch_communicators, complete_parallel_setup_oce, finalize_decomposition_oce
-USE mo_complete_subdivision, ONLY: &
-  & setup_phys_patches
+  USE mo_complete_subdivision, ONLY: &
+    & setup_phys_patches
   USE mo_dump_restore,        ONLY: restore_patches_netcdf
 
-  !USE mo_icoham_dyn_memory,   ONLY: p_hydro_state
   USE mo_model_domain,        ONLY: t_patch,  t_patch_3D, p_patch
 
   ! Horizontal grid
@@ -108,12 +103,10 @@ USE mo_complete_subdivision, ONLY: &
     & prepare_ho_integration,&
     & finalise_ho_integration
   USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff
-!   USE mo_oce_forcing,         ONLY: t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean, &
-!     &                               v_sfc_flx
   USE mo_oce_physics,         ONLY: v_params!, t_ho_params, t_ho_physics
-! #
   USE mo_sea_ice_types,       ONLY: t_atmos_fluxes, t_atmos_for_ocean, &
     &                               v_sfc_flx, v_sea_ice!, t_sfc_flx
+
   ! For the coupling
   USE mo_icon_cpl_init,       ONLY: icon_cpl_init
   USE mo_icon_cpl_init_comp,  ONLY: icon_cpl_init_comp
@@ -169,11 +162,10 @@ CONTAINS
     INTEGER :: grid_shape(2) 
     INTEGER :: field_shape(3) 
     INTEGER :: i, error_status
-!    INTEGER :: no_of_entities
+
     INTEGER :: patch_no
-!    INTEGER, POINTER :: grid_glob_index(:)
+
     LOGICAL :: lsuccess, l_have_output
-    !TYPE(t_int_state), ALLOCATABLE :: p_int_state(:)
     !-------------------------------------------------------------------
 
     IF (is_restart_run()) THEN
@@ -518,7 +510,7 @@ CONTAINS
     !------------------------------------------------------------------
 
     IF (output_mode%l_nml) THEN
-      CALL init_name_list_output
+      CALL init_name_list_output(l_is_ocean=.TRUE.)
     ENDIF
 
     IF (.NOT.is_restart_run()) THEN

@@ -726,7 +726,7 @@ CONTAINS
 
   !------------------------------------------------------------------------------------------------
   !
-  SUBROUTINE init_name_list_output(lprintlist, isample)
+  SUBROUTINE init_name_list_output(lprintlist, isample, l_is_ocean)
 
 #ifndef NOMPI
 #ifdef  __SUNPRO_F95
@@ -738,7 +738,7 @@ CONTAINS
 
     LOGICAL, OPTIONAL, INTENT(in) :: lprintlist
     INTEGER, OPTIONAL, INTENT(in) :: isample
-    LOGICAL, OPTIONAL, INTENT(IN) :: isocean
+    LOGICAL, OPTIONAL, INTENT(in) :: l_is_ocean
 
     ! local variables:
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::init_name_list_output"
@@ -761,7 +761,9 @@ CONTAINS
     ! For hexagons, we still copy grid info from file; for triangular
     ! grids we have a faster method without file access:
     l_grid_info_from_file = (global_cell_type == 6)
-    !TODO: = FLASE if ocean
+    IF (PRESENT(l_is_ocean)) THEN
+      IF (l_is_ocean) l_grid_info_from_file = .FALSE.
+    ENDIF
 
     DO i = 1, nvar_lists
 
@@ -2147,7 +2149,6 @@ CONTAINS
       ! mo_io_async complains about mismatch of levels.
       znlev_soil = SIZE(zml_soil)
 
- 	
 
       ! CLOUD BASE LEVEL
       !

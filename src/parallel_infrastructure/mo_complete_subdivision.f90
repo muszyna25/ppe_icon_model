@@ -1684,7 +1684,6 @@ CONTAINS
   !! Initial version by Rainer Johanni, Nov 2011
 
   SUBROUTINE setup_phys_patches
-
     INTEGER :: jp, jg, n, i, j, jb, jl
     INTEGER, ALLOCATABLE :: glb_phys_id_c(:), glb_phys_id_e(:), glb_phys_id_v(:)
     INTEGER, ALLOCATABLE :: owner(:), glbidx(:)

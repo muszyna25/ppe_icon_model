@@ -380,15 +380,15 @@ CONTAINS
                                   & p_phys_param, p_as,&
                                   & p_atm_f, p_ice, p_op_coeff)
 
-    TYPE(t_patch_3D ),TARGET, INTENT(INOUT)  :: p_patch_3D
-    TYPE(t_hydro_ocean_state),    INTENT(INOUT)  :: p_os(n_dom)
-    TYPE(t_external_data),        INTENT(INOUT)  :: p_ext_data(n_dom)
-    TYPE(t_sfc_flx),              INTENT(INOUT)  :: p_sfc_flx
-    TYPE (t_ho_params),           INTENT(INOUT)  :: p_phys_param
-    TYPE(t_atmos_for_ocean ),     INTENT(INOUT)  :: p_as
-    TYPE(t_atmos_fluxes ),        INTENT(INOUT)  :: p_atm_f
-    TYPE (t_sea_ice),             INTENT(INOUT)  :: p_ice
-    TYPE(t_operator_coeff),       INTENT(INOUT)  :: p_op_coeff
+    TYPE(t_patch_3D ),TARGET,   INTENT(INOUT)  :: p_patch_3D
+    TYPE(t_hydro_ocean_state),  INTENT(INOUT)  :: p_os(n_dom)
+    TYPE(t_external_data),      INTENT(INOUT)  :: p_ext_data(n_dom)
+    TYPE(t_sfc_flx),            INTENT(INOUT)  :: p_sfc_flx
+    TYPE(t_ho_params),          INTENT(INOUT)  :: p_phys_param
+    TYPE(t_atmos_for_ocean ),   INTENT(INOUT)  :: p_as
+    TYPE(t_atmos_fluxes ),      INTENT(INOUT)  :: p_atm_f
+    TYPE(t_sea_ice),            INTENT(INOUT)  :: p_ice
+    TYPE(t_operator_coeff),     INTENT(INOUT)  :: p_op_coeff
 
     ! local variables
     INTEGER :: jg
