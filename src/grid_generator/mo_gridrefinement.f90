@@ -243,6 +243,7 @@ MODULE mo_gridref
   INTEGER :: number_of_grid_used(max_dom+1)! index for reference to xml table for grib2, 0 for private use
   INTEGER :: centre                        ! centre running the grid generator: 78 - edzw (DWD), 252 - MPIM
   INTEGER :: subcentre                     ! subcentre to be assigned by centre, usually 0
+  INTEGER :: outname_style                 ! Naming convention
   !
 !  INTEGER :: annotate_level          ! which grid level to annotate
   !
@@ -272,7 +273,7 @@ CONTAINS
     NAMELIST /gridref_ini/ grid_root, start_lev, n_dom, parent_id, l_plot,   &
       & l_circ, l_rotate, radius, center_lon, center_lat, n_phys_dom,        &
       & hwidth_lon, hwidth_lat, write_hierarchy, bdy_indexing_depth, logical_id
-    NAMELIST /gridref_metadata/ number_of_grid_used, centre, subcentre ! , &
+    NAMELIST /gridref_metadata/ number_of_grid_used, centre, subcentre, outname_style ! , &
 !      & annotate_level
 
     ! set default values for gridref_ini
@@ -306,6 +307,7 @@ CONTAINS
     number_of_grid_used(:) = 0
     centre = 65535                ! missing value from WMO common code table C-11
     subcentre = 0
+    outname_style = 1             ! Default naming convention
 !    annotate_level = start_lev    ! level to annotate, to allow definition of higher level nests
 
     ! copy default values to "default" variables
@@ -2413,8 +2415,24 @@ CONTAINS
       current_number_of_grid_used = 0
     ENDIF
 
-    WRITE(filename,'(a,i0,2(a,i2.2),a)') &
-      & 'iconR', grid_root, 'B', p%level, '_DOM', dom_id, '.nc'
+
+    IF ( outname_style==1 ) THEN   ! Default naming convention
+      WRITE(filename,'(a,i0,2(a,i2.2),a)') &
+        & 'iconR', grid_root, 'B', p%level, '_DOM', dom_id, '.nc'
+
+    ELSE                           ! DWD naming convention
+      IF (dom_id==0) THEN
+        WRITE(filename,'(a,i4.4,2(a,i2.2),a)') &
+          & 'icon_grid_', current_number_of_grid_used, '_R', grid_root, 'B', p%level, '_R.nc'
+      ELSE IF (dom_id==1) THEN
+        WRITE(filename,'(a,i4.4,2(a,i2.2),a)') &
+          & 'icon_grid_', current_number_of_grid_used, '_R', grid_root, 'B', p%level, '_G.nc'
+      ELSE
+        WRITE(filename,'(a,i4.4,3(a,i2.2),a)') &
+          & 'icon_grid_', current_number_of_grid_used, '_R', grid_root, 'B', p%level, '_G', dom_id, '.nc'
+      ENDIF
+    ENDIF
+
 
     WRITE(message_text,'(a,a)') 'Write ICON grid file: ', TRIM(filename)
     CALL message ('', message_text)
@@ -2453,6 +2471,7 @@ CONTAINS
     ENDIF
     CALL nf(nf_put_att_int     (ncid, nf_global, 'centre', nf_int, 1, centre))
     CALL nf(nf_put_att_int     (ncid, nf_global, 'subcentre', nf_int, 1, subcentre))
+    CALL nf(nf_put_att_int     (ncid, nf_global, 'outname_style', nf_int, 1, outname_style))
     CALL nf(nf_put_att_text    (ncid, nf_global, 'grid_mapping_name' , 18, 'lat_long_on_sphere'))
     CALL nf(nf_put_att_text    (ncid, nf_global, 'crs_id' , 28, 'urn:ogc:def:cs:EPSG:6.0:6422'))
     CALL nf(nf_put_att_text    (ncid, nf_global, 'crs_name', 30,'Spherical 2D Coordinate System'))
