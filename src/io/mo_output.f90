@@ -543,7 +543,7 @@ CONTAINS
     ELSE
       inlev_soil = 0
     ENDIF
-    IF (PRESENT(opt_nlev_snow)) THEN            ! number of snow levels (multi layer snow model)
+    IF (PRESENT(opt_nlev_snow) .AND. opt_nlev_snow /= 0) THEN  ! number of snow levels (multi layer snow model)
       inlev_snow = opt_nlev_snow
       ALLOCATE(zlevels_full(inlev_snow))
       ALLOCATE(zlevels_half(inlev_snow+1))
@@ -584,7 +584,7 @@ CONTAINS
                      & kedge, 4,          &! total # of cells, shape of control volume for edge 
                      & klev,              &! total # of vertical layers
                      & izlev,             &! total # of depths below sea
-                     & inlev_soil,        &! total # of depths below land (TERRA)
+                     & inlev_soil,        &! total # of depths below land (TERRA or JSBACH)
                      & inlev_snow,        &! total # of vertical snow layers (TERRA)
                      & nice_class         )! total # of ice classes (sea ice)
 

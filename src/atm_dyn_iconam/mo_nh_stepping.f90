@@ -71,6 +71,7 @@ MODULE mo_nh_stepping
                                     prm_nwp_tend_list
   USE mo_lnd_nwp_config,      ONLY: nlev_soil, nlev_snow, sstice_mode, lseaice
   USE mo_nwp_lnd_state,       ONLY: p_lnd_state
+  USE mo_lnd_jsbach_config,   ONLY: lnd_jsbach_config
   USE mo_ext_data_state,      ONLY: ext_data, interpol_ndvi_time
   USE mo_extpar_config,       ONLY: itopo
   USE mo_model_domain,        ONLY: p_patch
@@ -103,7 +104,7 @@ MODULE mo_nh_stepping
   USE mo_exception,           ONLY: message, message_text, finish
   USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, iphysproc,    &
     &                               iphysproc_short, itconv, itccov, itrad, &
-    &                               itradheat, itsso, itsatad, itgwd, inwp, &
+    &                               itradheat, itsso, itsatad, itgwd, inwp, iecham, &
     &                               itupdate, itturb, itgscp, itsfc, min_rlcell_int, &
                                     min_rledge_int, MODE_DWDANA
   USE mo_divergent_modes,     ONLY: divergent_modes_5band
@@ -451,12 +452,27 @@ MODULE mo_nh_stepping
 
   TYPE(t_datetime)                     :: datetime_old
 
+  INTEGER :: nsoil(n_dom), nsnow
+
 !$  INTEGER omp_get_num_threads
 !-----------------------------------------------------------------------
 
   IF (ltimer) CALL timer_start(timer_total)
 
   lwrite_checkpoint = .FALSE.
+
+  ! Prepare number of soil/snow layers for TERRA/JSBACH to be used for restart file creation below.
+  IF (iforcing == inwp) THEN
+    DO jg=1,n_dom
+      nsoil(jg) = nlev_soil
+      nsnow     = nlev_snow
+    END DO
+  ELSE IF (iforcing == iecham) THEN
+    DO jg=1,n_dom
+      nsoil(jg) = lnd_jsbach_config(jg)%nsoil
+      nsnow     = 0
+    END DO
+  END IF
 
   ! If the testbed mode is selected, reset iorder_sendrecv to 0 in order to suppress
   ! MPI communication from now on. 
@@ -665,8 +681,8 @@ MODULE mo_nh_stepping
                                 & opt_sim_time               = time_config%sim_time(jg),   &
                                 & opt_jstep_adv_ntsteps      = jstep_adv(jg)%ntsteps,      &
                                 & opt_jstep_adv_marchuk_order= jstep_adv(jg)%marchuk_order,&
-                                & opt_depth_lnd              = nlev_soil,                  &
-                                & opt_nlev_snow              = nlev_snow )
+                                & opt_depth_lnd              = nsoil(jg),                  &
+                                & opt_nlev_snow              = nsnow )
       END DO
 
       ! Create the master (meta) file in ASCII format which contains
