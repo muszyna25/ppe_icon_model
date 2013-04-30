@@ -36,14 +36,14 @@ struct t_element {
 };
 
 struct t_element *xmltree = NULL; /* head of XML tree */
-
+int elnum = 0;
 
 /* --------------------------------------------------------------
  * Simple XML parser
  * -------------------------------------------------------------- */
 
 
-#line 114 "xml_scan.rl"
+#line 123 "xml_scan.rl"
 
 
 
@@ -163,9 +163,10 @@ static const int xmlparse_en_elementBody = 16;
 static const int xmlparse_en_main = 1;
 
 
-#line 117 "xml_scan.rl"
+#line 126 "xml_scan.rl"
 
-#define BUFSIZE 128
+#define BUFSIZE       128
+#define MAX_XMLLEVELS 128
 
 /*
  * Opens an XML file and parses its contents into a tree-like data
@@ -176,19 +177,23 @@ void parseXML(const char* filename)
   static char buf[BUFSIZE];
   static char buf2[BUFSIZE];
   int   cs, have  = 0;
-  char *ts, *te   = 0;
+  char *ts        = 0;
+  char *te        = 0;
   int   done      = 0;
   FILE *file      = fopen(filename , "r");
   int   elevel    = 0;
-  struct t_element* tnode = NULL;
+  struct t_element* tnode[MAX_XMLLEVELS];
+  int i;
+
+  for (i=0; i< MAX_XMLLEVELS; i++) tnode[i] = NULL;
 
   
-#line 187 "xml_scan.h"
+#line 192 "xml_scan.h"
 	{
 	cs = xmlparse_start;
 	}
 
-#line 136 "xml_scan.rl"
+#line 150 "xml_scan.rl"
 
   int s = 0;
   while ( !done ) {
@@ -206,7 +211,7 @@ void parseXML(const char* filename)
     }
     
     
-#line 210 "xml_scan.h"
+#line 215 "xml_scan.h"
 	{
 	int _klen;
 	unsigned int _trans;
@@ -290,49 +295,58 @@ _match:
 #line 49 "xml_scan.rl"
 	{
 	  elevel++; 
-	  if (tnode == NULL) {
-	    xmltree = malloc(sizeof(struct t_element));
-	    tnode   = xmltree;
+	  struct t_element* new_node;
+	  if (tnode[elevel] == NULL) {
+	    if (elevel == 1) 
+	      {
+		xmltree       = calloc(1, sizeof(struct t_element));
+		tnode[elevel] = xmltree;
+		new_node = tnode[elevel];
+	      } 
+	    else
+	      {
+		tnode[elevel-1]->child = calloc(1, sizeof(struct t_element));
+		tnode[elevel] = tnode[elevel-1]->child;
+		new_node = tnode[elevel];
+		elnum++;
+	      }
+	    elnum++;
 	  } 
 	  else  {
-	    if (elevel == tnode->level) {
-	      tnode->next = malloc(sizeof(struct t_element));
-	      tnode = tnode->next;
-	    }
-	    else {
-	      tnode->child = malloc(sizeof(struct t_element));
-	      tnode = tnode->child;
-	    }
+	    tnode[elevel]->next = calloc(1, sizeof(struct t_element));
+	    tnode[elevel] = tnode[elevel]->next;
+	    new_node = tnode[elevel];
+	    elnum++;
 	  }
-          tnode->level = elevel;
-	  tnode->child = NULL;
-	  tnode->next  = NULL;
-	  tnode->attr  = NULL;
+          new_node->level = elevel;
+	  new_node->child = NULL;
+	  new_node->next  = NULL;
+	  new_node->attr  = NULL;
 
-	  tnode->name = malloc(sizeof(char)*(s+1));
-	  strncpy(tnode->name, buf2, s);
+	  new_node->name = calloc((s+1), sizeof(char));
+	  strncpy(new_node->name, buf2, s);
 	  s = 0;
 	}
 	break;
 	case 2:
-#line 74 "xml_scan.rl"
-	{ elevel--; {cs = 16; goto _again;} }
+#line 83 "xml_scan.rl"
+	{ tnode[elevel+1] = NULL; elevel--; s = 0; {cs = 16; goto _again;} }
 	break;
 	case 3:
-#line 75 "xml_scan.rl"
-	{ elevel--; {cs = 16; goto _again;} }
+#line 84 "xml_scan.rl"
+	{ tnode[elevel+1] = NULL; elevel--; s = 0; {cs = 16; goto _again;} }
 	break;
 	case 4:
-#line 76 "xml_scan.rl"
+#line 85 "xml_scan.rl"
 	{ {cs = 16; goto _again;} }
 	break;
 	case 5:
-#line 77 "xml_scan.rl"
+#line 86 "xml_scan.rl"
 	{
-	  struct t_attr *cur_attr = tnode->attr;
+	  struct t_attr *cur_attr = tnode[elevel]->attr;
 	  if (cur_attr == NULL) {
-	    tnode->attr = malloc(sizeof(struct t_attr));
-	    cur_attr = tnode->attr;
+	    tnode[elevel]->attr = malloc(sizeof(struct t_attr));
+	    cur_attr = tnode[elevel]->attr;
 	  }
 	  else {
 	    while (cur_attr->next != NULL) cur_attr = cur_attr->next;
@@ -341,30 +355,30 @@ _match:
 	  }
 	  cur_attr->value = NULL;
 	  cur_attr->next  = NULL;
-	  cur_attr->key   = malloc(sizeof(char)*(s+1));
+	  cur_attr->key   = calloc((s+1), sizeof(char));
 	  strncpy(cur_attr->key, buf2, s);
 	  s = 0;
 	}
 	break;
 	case 6:
-#line 94 "xml_scan.rl"
+#line 103 "xml_scan.rl"
 	{
-	  struct t_attr *cur_attr = tnode->attr;
+	  struct t_attr *cur_attr = tnode[elevel]->attr;
 	  while (cur_attr->next != NULL) cur_attr = cur_attr->next;
-	  cur_attr->value = malloc(sizeof(char)*(s+1));
+	  cur_attr->value = calloc((s+1), sizeof(char));
 	  strncpy(cur_attr->value, buf2, s);
 	  s = 0;
 	}
 	break;
 	case 7:
-#line 101 "xml_scan.rl"
+#line 110 "xml_scan.rl"
 	{
-	  tnode->body = malloc(sizeof(char)*(s+1));
-	  strncpy(tnode->body, buf2, s);
+	  tnode[elevel]->body = calloc((s+1), sizeof(char));
+	  strncpy(tnode[elevel]->body, buf2, s);
 	  s = 0;
 	}
 	break;
-#line 368 "xml_scan.h"
+#line 382 "xml_scan.h"
 		}
 	}
 
@@ -377,7 +391,7 @@ _again:
 	_out: {}
 	}
 
-#line 153 "xml_scan.rl"
+#line 167 "xml_scan.rl"
 
     if ( cs == xmlparse_error ) {
       fprintf(stderr, "PARSE ERROR\n" );
@@ -398,37 +412,73 @@ _again:
 
 
 /* --------------------------------------------------------------
+ * Auxiliary routines:
+ * -------------------------------------------------------------- */
+
+/*
+ * Removes trailing and beginning whitespace together with internal
+ * whitespace gaps when printing a string.
+ */
+void trim_printf2(size_t len, const char *str)
+{
+  if(len == 0) return;
+
+  const char *end;
+  end = str + strlen(str) - 1;
+  while(end > str && isspace(*end)) end--;
+  end++;
+
+  int  last_ws = 1;
+  char c;
+  while (end > str) {
+    if ((!isspace(*str)) || (last_ws == 0)) {
+      c = isspace(*str) ? ' ' : *str;
+      printf("%c", c);
+    }
+    last_ws = isspace(*str) ? 1 : 0;
+    str++;
+  }
+}
+
+
+/* --------------------------------------------------------------
  * Generic routines for accessing parsed XML tree
  * -------------------------------------------------------------- */
 
-void print_xml_tree(struct t_element *node) {
+void print_xml_tree(const struct t_element *node, int indent) {
   struct t_element *tnode = NULL;
   struct t_attr    *tattr = NULL;
   
-  if (node->body != NULL)   
-    printf("element %d/%s (%s)\n", node->level, node->name, node->body);
+  if (node->body != NULL) {
+    printf("%*selement %d/%s (", indent, " ", node->level, node->name);
+    trim_printf2(strlen(node->body), node->body);
+    printf(")\n");
+  }
   else
-    printf("element %d/%s\n", node->level, node->name);
+    printf("%*selement %d/%s\n", indent, " ", node->level, node->name);
 
-  printf("attributes:\n");
   tattr = node->attr;
+  if (tattr != NULL)  printf("%*sattributes:\n", indent, " ");
   while (tattr != NULL) {
-    printf("  %s: %s\n", tattr->key, tattr->value);
+    printf("%*s  %s: ", indent, " ", tattr->key);
+    trim_printf2(strlen(tattr->value), tattr->value);
+    printf("\n");
     tattr = tattr->next;
   }
 
-  printf("siblings:\n");
-  tnode = node->next;
-  while (tnode != NULL) {
-    print_xml_tree(tnode);
-    tnode = tnode->next;
-  }
-  printf("children:\n");
   tnode = node->child;
-  while (tnode != NULL) {
-    print_xml_tree(tnode);
-    tnode = tnode->child;
-  }
+  if (tnode != NULL)  
+    {
+      printf("%*schildren (%s):\n", indent, " ", node->name);
+      print_xml_tree(tnode,indent+2);
+    }
+
+  tnode = node->next;
+  if (tnode != NULL)  
+    {
+      printf("%*ssiblings (%s):\n", indent, " ", node->name);
+      print_xml_tree(tnode,indent);
+    }
 }
 
 
@@ -437,11 +487,14 @@ void print_xml_tree(struct t_element *node) {
  * (optional) different criteria checked by a given comparison
  * function.
  */
-struct t_element* find_first_element(struct t_element *node, 
-				     const  char      *name,
-				     int (*cmp_function)(struct t_element*, void*),
-				     void             *context) {
-  struct t_element *tnode = NULL, *result = NULL;
+const struct t_element* find_first_element(const struct t_element *node, 
+					   const  char      *name,
+					   int (*cmp_function)(const struct t_element*, void*),
+					   void             *context) {
+
+  if (node == NULL) return NULL;
+  struct t_element *tnode = NULL;
+  const struct t_element *result = NULL;
 
   if (strcmp(node->name, name) == 0) {
     if (cmp_function != NULL) {
@@ -450,20 +503,21 @@ struct t_element* find_first_element(struct t_element *node,
     else 
       return node;
   }
-  /* traverse siblings */
-  tnode = node->next;
-  while (tnode != NULL) {
-    result = find_first_element(tnode, name, cmp_function,context);
-    if (result != NULL) return result;
-    tnode = tnode->next;
-  }
+
   /* traverse children */
   tnode = node->child;
-  while (tnode != NULL) {
+  if (tnode != NULL) {
     result = find_first_element(tnode, name, cmp_function,context);
     if (result != NULL) return result;
-    tnode = tnode->child;
   }
+
+  /* traverse siblings */
+  tnode = node->next;
+  if (tnode != NULL) {
+    result = find_first_element(tnode, name, cmp_function,context);
+    if (result != NULL) return result;
+  }
+
   return NULL;
 }
 
@@ -471,7 +525,7 @@ struct t_element* find_first_element(struct t_element *node,
 /*
  * @return first XML tag attribute matching a given name.
  */
-struct t_attr* find_first_attribute(struct t_element *node, const char* key) {
+struct t_attr* find_first_attribute(const struct t_element *node, const char* key) {
   struct t_attr *tnode = NULL;
 
   tnode = node->attr;
@@ -493,28 +547,69 @@ struct t_grid_attr {
 };
 
 
-int match_grid(struct t_element *node, void *context) {
+/*
+ * @return 1, if the given grid matches the attributes
+ * numberOfGridUsed, centre, subcentre, and type.
+ */
+int match_grid(const struct t_element *node, void *context) {
   struct t_grid_attr *ta = (struct t_grid_attr *) context;
   struct t_attr* attr = NULL;
   attr = find_first_attribute(node, "number_of_grid_used");
+  if (attr == NULL) return 0;
   if (atoi(attr->value) != ta->number_of_grid_used) return 0;
   attr = find_first_attribute(node, "centre");
+  if (attr == NULL) return 0;
   if (atoi(attr->value) != ta->centre) return 0;
   attr = find_first_attribute(node, "subcentre");
+  if (attr == NULL) return 0;
   if (atoi(attr->value) != ta->subcentre) return 0;
   attr = find_first_attribute(node, "type");
+  if (attr == NULL) return 0;
   if (strcmp(attr->value, ta->type) != 0) return 0;
   return 1;
 }
 
 
+/*
+ * @return 1, if one of this gridset's grids matches the attributes
+ * numberOfGridUsed, centre, subcentre, and type.
+ */
+int match_gridset(const struct t_element *node, void *context) {
+  struct t_grid_attr *ta = (struct t_grid_attr *) context;
+  struct t_attr*    attr  = NULL;
+  struct t_element *tnode = NULL;
+
+  /* cycle over children of type "grid" */
+  tnode = node->child;
+  while (tnode != NULL) {
+
+    attr = find_first_attribute(tnode, "number_of_grid_used");
+    if (attr == NULL) { tnode = tnode->next; continue; }
+    if (atoi(attr->value) != ta->number_of_grid_used) { tnode = tnode->next; continue; }
+    attr = find_first_attribute(tnode, "centre");
+    if (attr == NULL) { tnode = tnode->next; continue; }
+    if (atoi(attr->value) != ta->centre) { tnode = tnode->next; continue; }
+    attr = find_first_attribute(tnode, "subcentre");
+    if (attr == NULL) { tnode = tnode->next; continue; }
+    if (atoi(attr->value) != ta->subcentre) { tnode = tnode->next; continue; }
+    attr = find_first_attribute(tnode, "type");
+    if (attr == NULL) { tnode = tnode->next; continue; }
+    if (strcmp(attr->value, ta->type) != 0) { tnode = tnode->next; continue; }
+    return 1;
+    tnode = tnode->next;
+  }
+  return 0;
+}
+
+
 const char* get_grid_uri(struct t_grid_attr *grid_attr) {
   /* step 1: find <grid> tag: */
-  struct t_element *grid_node = find_first_element(xmltree, "grid", 
-						   &match_grid, grid_attr);
+  const struct t_element *data_node = find_first_element(xmltree,   "data",      NULL, NULL);
+  const struct t_element *list_node = find_first_element(data_node, "grid_list", NULL, NULL);
+  const struct t_element *grid_node = find_first_element(list_node, "grid",      &match_grid, grid_attr);
   if (grid_node == NULL) return NULL;
   /* step 2: get corresponding URI tag: */
-  struct t_element *uri_node = find_first_element(grid_node, "uri", NULL, NULL);
+  const struct t_element *uri_node = find_first_element(grid_node, "uri", NULL, NULL);
   assert(uri_node       != NULL);
   assert(uri_node->body != NULL);
   return uri_node->body;
@@ -523,11 +618,12 @@ const char* get_grid_uri(struct t_grid_attr *grid_attr) {
 
 const char* get_grid_extpar(struct t_grid_attr *grid_attr) {
   /* step 1: find <grid> tag: */
-  struct t_element *grid_node = find_first_element(xmltree, "grid", 
-						   &match_grid, grid_attr);
+  const struct t_element *data_node = find_first_element(xmltree,   "data",      NULL, NULL);
+  const struct t_element *list_node = find_first_element(data_node, "grid_list", NULL, NULL);
+  const struct t_element *grid_node = find_first_element(list_node, "grid",      &match_grid, grid_attr);
   if (grid_node == NULL) return NULL;
   /* step 2: get corresponding URI tag: */
-  struct t_element *extpar_node = find_first_element(grid_node, "extpar", NULL, NULL);
+  const struct t_element *extpar_node = find_first_element(grid_node, "extpar", NULL, NULL);
   assert(extpar_node       != NULL);
   assert(extpar_node->body != NULL);
   return extpar_node->body;
@@ -536,13 +632,45 @@ const char* get_grid_extpar(struct t_grid_attr *grid_attr) {
 
 const char* get_grid_description(struct t_grid_attr *grid_attr) {
   /* step 1: find <grid> tag: */
-  struct t_element *grid_node = find_first_element(xmltree, "grid", 
-						   &match_grid, grid_attr);
+  const struct t_element *data_node = find_first_element(xmltree,   "data",      NULL, NULL);
+  const struct t_element *list_node = find_first_element(data_node, "grid_list", NULL, NULL);
+  const struct t_element *grid_node = find_first_element(list_node, "grid",      &match_grid, grid_attr);
   if (grid_node == NULL) return NULL;
-  /* step 2: get corresponding URI tag: */
-  struct t_element *uri_node = find_first_element(grid_node, "description", NULL, NULL);
-  assert(uri_node       != NULL);
-  return uri_node->body;
+  /* step 2: get corresponding DESCR tag: */
+  const struct t_element *descr_node = find_first_element(grid_node, "description", NULL, NULL);
+  assert(descr_node       != NULL);
+  return descr_node->body;
+}
+
+const struct t_element* find_gridset(const struct t_element* node, struct t_grid_attr *grid_attr) {
+  if (node == NULL) return NULL;
+  const struct t_element *gset_node = find_first_element(node, "gridset", &match_gridset, grid_attr);
+  return gset_node;
+}
+
+void print_gridset(const struct t_element* gridset_node) {
+  const struct t_element *descr_node = find_first_element(gridset_node, "description", NULL, NULL);
+  assert(descr_node       != NULL);
+  printf("- \"");
+  trim_printf2(strlen(descr_node->body), descr_node->body);  
+  printf("\"\n");
+  
+  const struct t_element *grid_node = find_first_element(gridset_node, "grid", NULL, NULL);
+  while (grid_node != NULL) 
+    {
+      struct t_attr* attr  = NULL;
+      assert(grid_node       != NULL);
+      attr = find_first_attribute(grid_node, "number_of_grid_used");
+      int n1 = atoi(attr->value);
+      attr = find_first_attribute(grid_node, "centre");
+      int n2 = atoi(attr->value);
+      attr = find_first_attribute(grid_node, "subcentre");
+      int n3 = atoi(attr->value);
+      attr = find_first_attribute(grid_node, "type");
+      printf("  numberOfGridUsed: %d, centre: %d, subcentre: %d, type: %s\n", n1,n2,n3, attr->value);  
+      
+      grid_node = find_first_element(grid_node->next, "grid", NULL, NULL);
+    }
 }
 
 #endif // XML_SCAN_H

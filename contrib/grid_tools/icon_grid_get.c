@@ -39,7 +39,7 @@
 
 const char *ICON_GRID_DIR       = "ICON_GRID_DIR";
 const char *ICON_XML_GRID_TABLE = "ICON_XML_GRID_TABLE";
-
+const char *VERSIONSTRING       = "icon_grid_get v.1.0.0";
 
 
 /*
@@ -69,6 +69,9 @@ int scan_dir(const char *directory, const char *basename)
 }
 
 
+/*
+ * Removes trailing and beginning whitespace when printing a string.
+ */
 void trim_printf(size_t len, const char *str)
 {
   if(len == 0) return;
@@ -97,6 +100,7 @@ void trim_printf(size_t len, const char *str)
 int main(int argc, char *argv[])
 {
   int iret = 0;
+  printf("\n%s\n", VERSIONSTRING);
 
   if (argc < 5) {
       printf("Usage: %s  number_of_grid_used centre subcentre type\n", argv[0]);
@@ -116,7 +120,10 @@ int main(int argc, char *argv[])
 				  .subcentre           = atoi(argv[3]),
 				  .type                = argv[4]};
 
+  /* ------------------------------------------------------------ */
   /* read XML file and look for a given grid URI and description. */
+  /* ------------------------------------------------------------ */
+
   parseXML(icon_xml_grid_table);
 
   /* extract file name from URI */
@@ -124,18 +131,45 @@ int main(int argc, char *argv[])
   const char *extpar      = get_grid_extpar(&grid_attr);
   const char *description = get_grid_description(&grid_attr) ;
 
-  printf("URI:    %s\n", uri);
-  if (description != NULL) {
-    printf("ExtPar: %s\n", extpar);
-  }
-  if (description != NULL) {
-    printf("\n        ");
-    trim_printf(strlen(description), description);
-    printf("\n");
+  if (uri == NULL) {
+    printf("No such grid in registry %s!\n\n", icon_xml_grid_table);
+    return 1;
   }
 
+  printf("\nnumberOfGridUsed : %d\ncentre           : %d\nsubcentre        : %d\ntype             : %10s\n\n",
+	 grid_attr.number_of_grid_used,
+	 grid_attr.centre,
+	 grid_attr.subcentre,
+	 grid_attr.type);
+
+  if (description != NULL) {
+    printf("Description      : ");
+    trim_printf2(strlen(description), description);
+    printf("\n");
+  }
+  printf("URI              : %s\n", uri);
+  if (description != NULL) {
+    printf("ExtPar           : %s\n", extpar);
+  }
+
+  const struct t_element *data_node = find_first_element(xmltree,   "data",      NULL, NULL);
+  const struct t_element *list_node = find_first_element(data_node, "grid_sets", NULL, NULL);
+  const struct t_element* gridset = find_gridset(list_node, &grid_attr);
+
+  if (gridset != NULL) printf("\nContained in grid set(s):\n");
+  while (gridset != NULL) 
+    {
+      print_gridset(gridset);
+      gridset = find_gridset(gridset->next, &grid_attr);
+    }
+
+
+  /* ------------------------------------------------------------ */
+  /* scan search directories for file.                            */
+  /* ------------------------------------------------------------ */
+
   char *basename = strrchr(uri, '/') + 1;
-  printf("search for \"%s\"\n", basename);
+  printf("\nsearch for \"%s\"...\n", basename);
   
   /* scan local directory for file */
   iret = scan_dir("./", basename);
@@ -154,7 +188,7 @@ int main(int argc, char *argv[])
       }
     }
 
-  printf("File not found!\n");
+  printf("File not found!\n\n");
   return 0;
 }
 
