@@ -331,7 +331,8 @@ CONTAINS
     END IF
 
     ! If it's time, close the current output file and trigger a new one
-    IF (jstep/=1.AND.(MOD(jstep,n_files())==0).AND.jstep/=nsteps) THEN
+    IF (jstep/=1.AND.(MOD(jstep,n_files())==0).AND.jstep/=nsteps &
+      & output_mode%l_vlist ) THEN
       jfile = jfile +1
       CALL init_output_files(jfile,lclose=l_have_output,p_patch_2D=p_patch_3D%p_patch_2D)
     ENDIF
