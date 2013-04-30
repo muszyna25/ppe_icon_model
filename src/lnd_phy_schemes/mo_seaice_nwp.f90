@@ -229,7 +229,6 @@ CONTAINS
   SUBROUTINE seaice_init_nwp (                                  & 
                           &  nsigb,                             &
                           &  frsi,                              &
-                          &  t_skin,                            &
                           &  tice_p, hice_p, tsnow_p, hsnow_p,  &
                           &  tice_n, hice_n, tsnow_n, hsnow_n   &
                           &  )
@@ -246,8 +245,6 @@ CONTAINS
     REAL(wp), DIMENSION(:), INTENT(IN)    ::         &
                                           &  frsi       !< sea-ice fraction [-]
  
-    REAL(wp), DIMENSION(:), INTENT(IN)    ::         &
-                                          &  t_skin     !< "cold-start" sea-ice surface temperature [K]
 
     REAL(wp), DIMENSION(:), INTENT(INOUT) ::           &
                                           &  tice_p  , &  !< temperature of ice upper surface at previous time level [K] 

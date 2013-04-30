@@ -158,7 +158,6 @@ CONTAINS
     ! local fields for sea ice model
     !
     REAL(wp) :: frsi     (nproma)   ! sea ice fraction
-    REAL(wp) :: t_skin   (nproma)   ! skin temperature (including sea ice surface)
     REAL(wp) :: tice_now (nproma)   ! temperature of ice upper surface at previous time
     REAL(wp) :: hice_now (nproma)   ! ice thickness at previous time level
     REAL(wp) :: tsnow_now(nproma)   ! temperature of snow upper surface at previous time 
@@ -191,7 +190,7 @@ CONTAINS
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,isubs,i_count,i_count_snow,icount_ice, &
-!$OMP            icount_water, temp,ic,isubs_snow,frsi,t_skin,tice_now,hice_now,     &
+!$OMP            icount_water, temp,ic,isubs_snow,frsi,tice_now,hice_now,            &
 !$OMP            tsnow_now,hsnow_now,tice_new,hice_new,tsnow_new,hsnow_new),         &
 !$OMP            SCHEDULE(guided)
     DO jb = i_startblk, i_endblk
@@ -216,7 +215,7 @@ CONTAINS
         ! t_s_t: special initialization for open water and sea-ice tiles
         ! proper values are needed to perform surface analysis 
         ! open water points: set it to SST
-        ! lake points      : set it to tskin
+        ! lake points      : set it to tskin (note that t_seasfc=t_skin for lake points)
         ! sea-ice points   : set it to t_melt
         !
         ! Note that after aggregation, t_s is copied to t_so(1)
@@ -547,7 +546,6 @@ CONTAINS
           jc = ext_data%atm%idx_lst_spi(ic,jb)
 
           frsi     (ic) = p_lnd_diag%fr_seaice(jc,jb)
-          t_skin   (ic) = p_lnd_diag%t_skin(jc,jb)
           tice_now (ic) = p_prog_wtr_now%t_ice(jc,jb)
           hice_now (ic) = p_prog_wtr_now%h_ice(jc,jb)
           tsnow_now(ic) = p_prog_wtr_now%t_snow_si(jc,jb)
@@ -555,7 +553,7 @@ CONTAINS
         ENDDO  ! jc
 
 
-        CALL seaice_init_nwp ( icount_ice, frsi, t_skin,                 & ! in
+        CALL seaice_init_nwp ( icount_ice, frsi,                         & ! in
           &                    tice_now, hice_now, tsnow_now, hsnow_now, & ! inout
           &                    tice_new, hice_new, tsnow_new, hsnow_new  ) ! inout
 
