@@ -264,42 +264,52 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
 
       ELSE ! For real-case simulations, initialize also qv_s and the tile-based fields
 
-         ! 
-         ! If l_sst_in ist FALSE, then t_g contains the skin temperature (initialized in copy_prepicon2prog)
-         ! IF l_sst_in ist TRUE, then t_g contains the skin temperature in case of land 
-         !  or sea ice and the sea surface temperature in water points
-         !  Remember that t_seasfc is the skin temperature (with a limiter) in case l_sst_in is FALSE
+         ! t_g:
+         ! Note, that in copy_prepicon2prog the entire t_g field is initialized with 
+         ! t_skin.
+         ! Here, t_g is re-initialized over open water points with t_seasfc.
+         ! Thus:
+         ! t_g = tskin (from IFS), for land and seaice points
+         ! t_g = t_seasfc for open water and lake points
+         !
+         ! If l_sst_in==FALSE, then t_seasfc=t_skin (with a limiter), so nothing important happens
+         !
+         ! qv_s:
          ! Over the sea and over the ice, qv_s is set to the saturated value
-         ! Over the land we keep the initial set value (0.001_wp)
-!CDIR NODEP,VOVERTAKE,VOB
+         ! Over the land we take the minimum of the saturated value and the value 
+         ! at the first main level above ground
+         !
          DO ic=1, ext_data%atm%spw_count(jb)
            jc = ext_data%atm%idx_lst_spw(ic,jb)
-           ! if not lseaice, all the points are water points
-           IF ((.NOT. lseaice) .AND. (p_diag_lnd%fr_seaice(jc,jb) > 0.5_wp) ) THEN
-            p_prog_lnd_now%t_g(jc,jb) = p_diag_lnd%t_skin(jc,jb)
-            p_diag_lnd%qv_s    (jc,jb)    = &
-             & spec_humi(sat_pres_ice(p_prog_lnd_now%t_g(jc,jb)),p_diag%pres_sfc(jc,jb))
+           IF (lseaice) THEN
+             ! all points are open water points
+             p_prog_lnd_now%t_g(jc,jb) = p_diag_lnd%t_seasfc(jc,jb)
            ELSE
-            p_prog_lnd_now%t_g(jc,jb) = p_diag_lnd%t_seasfc(jc,jb)
+             ! only points with fr_seaice(jc,jb) <= 0.5_wp are open water points and thus 
+             ! re-initialized with t_seasfc
+             IF (p_diag_lnd%fr_seaice(jc,jb) <= 0.5_wp) THEN   ! water point
+               p_prog_lnd_now%t_g(jc,jb) = p_diag_lnd%t_seasfc(jc,jb)
+             ENDIF
+           ENDIF
             p_diag_lnd%qv_s    (jc,jb)    = &
              & spec_humi(sat_pres_water(p_prog_lnd_now%t_g(jc,jb)),p_diag%pres_sfc(jc,jb))
-           END IF
          END DO
+
          DO ic=1, ext_data%atm%spi_count(jb)
            jc = ext_data%atm%idx_lst_spi(ic,jb)
-           p_prog_lnd_now%t_g(jc,jb) = p_diag_lnd%t_skin(jc,jb)
            p_diag_lnd%qv_s    (jc,jb)    = &
             & spec_humi(sat_pres_ice(p_prog_lnd_now%t_g(jc,jb)),p_diag%pres_sfc(jc,jb))
          END DO
+
          DO ic=1, ext_data%atm%fp_count(jb)
            jc = ext_data%atm%idx_lst_fp(ic,jb)
            p_prog_lnd_now%t_g(jc,jb) = p_diag_lnd%t_seasfc(jc,jb)
            p_diag_lnd%qv_s    (jc,jb)    = &
             & spec_humi(sat_pres_water(p_prog_lnd_now%t_g(jc,jb)),p_diag%pres_sfc(jc,jb))
          END DO
+
          DO ic=1, ext_data%atm%lp_count(jb)
            jc = ext_data%atm%idx_lst_lp(ic,jb)
-           p_prog_lnd_now%t_g(jc,jb) = p_diag_lnd%t_skin(jc,jb)
            p_diag_lnd%qv_s(jc,jb) = &
              &  spec_humi(sat_pres_water(p_prog_lnd_now%t_g (jc,jb)),p_diag%pres_sfc(jc,jb))  
            p_diag_lnd%qv_s(jc,jb) = MIN (p_diag_lnd%qv_s(jc,jb), &
