@@ -295,7 +295,7 @@ CONTAINS
     ! resolution). Set model time.
     CALL add_time(dtime,0,0,0,datetime)
     ! Not nice, but the name list output requires this
-    sim_time(1) = MODULO(sim_time(1) + dtime, 86400.0_wp) 
+    sim_time(1) = sim_time(1) + dtime
     IF (is_output_time(jstep) .OR. istime4name_list_output(sim_time(1)+dtime)) THEN 
 !TODO    IF ( l_outputtime .OR. istime4name_list_output(sim_time(1)) ) THEN
       IF (idiag_oce == 1 ) THEN
@@ -331,8 +331,7 @@ CONTAINS
     END IF
 
     ! If it's time, close the current output file and trigger a new one
-    IF (jstep/=1.AND.(MOD(jstep,n_files())==0).AND.jstep/=nsteps &
-      & output_mode%l_vlist ) THEN
+    IF (jstep/=1.AND.(MOD(jstep,n_files())==0).AND.jstep/=nsteps  .AND. output_mode%l_vlist ) THEN
       jfile = jfile +1
       CALL init_output_files(jfile,lclose=l_have_output,p_patch_2D=p_patch_3D%p_patch_2D)
     ENDIF
