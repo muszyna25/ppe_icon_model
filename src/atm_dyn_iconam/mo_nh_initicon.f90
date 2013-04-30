@@ -1563,10 +1563,6 @@ MODULE mo_nh_initicon
         &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,              &
         &                p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_g)
 
-      CALL read_data_2d (filetype, fileID, 't_skin', p_patch(jg)%n_patch_cells_g,             &
-        &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,              &
-        &                p_lnd_state(jg)%diag_lnd%t_skin)
-
       CALL read_data_2d (filetype, fileID, 't_seasfc', p_patch(jg)%n_patch_cells_g,           &
         &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,              &
         &                p_lnd_state(jg)%diag_lnd%t_seasfc)
