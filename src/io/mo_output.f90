@@ -519,10 +519,12 @@ CONTAINS
     ELSE
       CALL set_restart_attribute( 'next_output_file', jfile   )
     END IF
-    DO i=1, SIZE(output_file,1)
-      WRITE(attname,'(a,i2.2)') 'n_output_steps', i
-      CALL set_restart_attribute( TRIM(attname), output_file(i)%name_list%n_output_steps)
-    END DO
+    IF (output_mode%l_nml) THEN
+      DO i=1, SIZE(output_file,1)
+        WRITE(attname,'(a,i2.2)') 'n_output_steps', i
+        CALL set_restart_attribute( TRIM(attname), output_file(i)%name_list%n_output_steps)
+      END DO
+    END IF
 
     IF (PRESENT(opt_pvct)) CALL set_restart_vct( opt_pvct )  ! Vertical coordinate (A's and B's)
     IF (PRESENT(opt_depth_lnd)) THEN            ! geometrical depth for land module
