@@ -75,6 +75,7 @@ MODULE mo_vertical_grid
                                       sync_patch_array_mult, global_min, global_max
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
   USE mo_les_config,           ONLY: les_config
+  USE mo_impl_constants,       ONLY: min_rlvert_int
 
   IMPLICIT NONE
 
@@ -2009,10 +2010,16 @@ MODULE mo_vertical_grid
     npromz_c  = p_patch%npromz_int_c
     nblks_e   = p_patch%nblks_int_e
     npromz_e  = p_patch%npromz_int_e
- 
-    CALL cells2edges_scalar(p_nh%metrics%z_mc, p_patch, p_int%c_lin_e, z_me)
 
-    
+    IF (p_test_run) THEN
+!$OMP PARALLEL WORKSHARE
+        z_me(:,:,:) = 0._wp
+!$OMP END PARALLEL WORKSHARE
+    ENDIF
+
+    CALL cells2edges_scalar(p_nh%metrics%z_mc, p_patch, p_int%c_lin_e, z_me, opt_rlend=min_rledge_int)
+    CALL sync_patch_array(SYNC_E, p_patch, z_me)
+
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,je,jk,nlen,les_filter) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = 1,nblks_e
@@ -2053,15 +2060,28 @@ MODULE mo_vertical_grid
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
   
+   IF(p_test_run)THEN
+!$OMP PARALLEL WORKSHARE
+    p_nh%metrics%inv_ddqz_z_half_v(:,:,:) = 0._wp
+    p_nh%metrics%inv_ddqz_z_half_e(:,:,:) = 0._wp
+    p_nh%metrics%wgtfac_v(:,:,:)          = 0._wp
+!$OMP END PARALLEL WORKSHARE
+  END IF
+
    CALL cells2verts_scalar(p_nh%metrics%inv_ddqz_z_half, p_patch, p_int%cells_aw_verts, &
-                           p_nh%metrics%inv_ddqz_z_half_v)
+                           p_nh%metrics%inv_ddqz_z_half_v, opt_rlend=min_rlvert_int)
+
+   CALL sync_patch_array(SYNC_V, p_patch, p_nh%metrics%inv_ddqz_z_half_v)
 
    CALL cells2edges_scalar(p_nh%metrics%inv_ddqz_z_half, p_patch, p_int%c_lin_e, &
-                           p_nh%metrics%inv_ddqz_z_half_e)
+                           p_nh%metrics%inv_ddqz_z_half_e, opt_rlend=min_rledge_int)
+
+   CALL sync_patch_array(SYNC_E, p_patch, p_nh%metrics%inv_ddqz_z_half_e)
 
    CALL cells2verts_scalar(p_nh%metrics%wgtfac_c, p_patch, p_int%cells_aw_verts, &
-                           p_nh%metrics%wgtfac_v)
+                           p_nh%metrics%wgtfac_v, opt_rlend=min_rlvert_int)
 
+   CALL sync_patch_array(SYNC_V, p_patch, p_nh%metrics%wgtfac_v)
 
   END SUBROUTINE prepare_les_model
   !----------------------------------------------------------------------------

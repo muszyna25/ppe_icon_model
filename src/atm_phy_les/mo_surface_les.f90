@@ -74,13 +74,15 @@ MODULE mo_surface_les
   PUBLIC :: surface_conditions, min_wind
 
   REAL(wp), PARAMETER :: min_wind = 0.1_wp
+  REAL(wp), PARAMETER :: surface_factor = 0.7_wp !sgs_flux at first model level/surface flux 
+                                                 !this factor should depedent on stability
  
   !Parameters for surface layer parameterizations: From RB Stull's book
   REAL(wp), PARAMETER :: bsm = 4.7_wp  !Businger Stable Momentum
   REAL(wp), PARAMETER :: bum = 15._wp  !Businger Untable Momentum
   REAL(wp), PARAMETER :: bsh = 4.7_wp  !Businger Stable Heat
   REAL(wp), PARAMETER :: buh = 9._wp   !Businger Untable Heat
-  REAL(wp), PARAMETER :: Pr  = 0.74_wp !Km/Kh factor
+  REAL(wp), PARAMETER :: Pr  = 0.74_wp !Km/Kh factor  
 
   CONTAINS
 
@@ -96,7 +98,7 @@ MODULE mo_surface_les
   !! Initial release by Anurag Dipankar, MPI-M (2013-02-06)
   SUBROUTINE  surface_conditions(p_nh_metrics, p_patch, p_nh_diag, p_int, &
                                  p_prog_lnd_now, p_diag_lnd, prm_diag,    &
-                                 theta, qv)
+                                 theta, qv, sgs_visc_sfc)
 
     TYPE(t_nh_metrics),INTENT(in),TARGET :: p_nh_metrics  !< single nh metric state
     TYPE(t_patch),     INTENT(in),TARGET :: p_patch    !< single patch
@@ -107,6 +109,7 @@ MODULE mo_surface_les
     TYPE(t_nwp_phy_diag),   INTENT(inout):: prm_diag      !< atm phys vars
     REAL(wp),          INTENT(in)        :: theta(:,:,:)  !pot temp  
     REAL(wp),          INTENT(in)        :: qv(:,:,:)     !spec humidity
+    REAL(wp),          INTENT(out)       :: sgs_visc_sfc(:,:) !sgs visc near surface
 
     REAL(wp) :: rhos, th0_srf, obukhov_length, z_mc, ustar, mwind, bflux
     REAL(wp) :: zrough, pres_sfc(nproma,p_patch%nblks_c), exner
@@ -151,7 +154,7 @@ MODULE mo_surface_les
       jk = nlev
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jc,jb,i_startidx,i_endidx,exner,zrough,th0_srf,bflux,mwind,z_mc, &
-!$OMP       ustar,obukhov_length,theta_sfc,rhos),ICON_OMP_RUNTIME_SCHEDULE
+!$OMP            ustar,obukhov_length,theta_sfc,rhos),ICON_OMP_RUNTIME_SCHEDULE
       DO jb = i_startblk,i_endblk
          CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
                             i_startidx, i_endidx, rl_start, rl_end)
@@ -185,7 +188,7 @@ MODULE mo_surface_les
 
             !"-" sign in the begining because ustar*thstar = -shflx
             obukhov_length = -ustar**3 * les_config(jg)%rkarman_constant / bflux
- 
+             
             theta_sfc   = theta(jc,jk,jb) + les_config(jg)%shflx / ustar * &
                           businger_heat(zrough,z_mc,obukhov_length) 
 
@@ -202,7 +205,12 @@ MODULE mo_surface_les
             prm_diag%shfl_s(jc,jb)  = les_config(jg)%shflx * rhos * cpd
             prm_diag%lhfl_s(jc,jb)  = les_config(jg)%lhflx * rhos * alv
             prm_diag%umfl_s(jc,jb)  = ustar**2  * rhos
-          
+ 
+            !Get turbulent viscosity at first model level assuming
+            !the subgrid flux there is "surface_factor" times smaller
+            sgs_visc_sfc(jc,jb) = surface_factor * ustar * les_config(jg)%karman_constant * &
+                                  z_mc * les_config(1)%turb_prandtl / phi_heat(z_mc,obukhov_length) 
+         
          END DO  
       END DO
 !$OMP END DO NOWAIT
@@ -220,7 +228,7 @@ MODULE mo_surface_les
       jk = nlev
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jc,jb,i_startidx,i_endidx,exner,zrough,th0_srf,theta_sfc_new,itr, &
-!$OMP  theta_sfc,mwind,z_mc,ustar,rhos),ICON_OMP_RUNTIME_SCHEDULE 
+!$OMP  theta_sfc,mwind,z_mc,ustar,rhos,obukhov_length),ICON_OMP_RUNTIME_SCHEDULE 
       DO jb = i_startblk,i_endblk
          CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
                             i_startidx, i_endidx, rl_start, rl_end)
@@ -274,6 +282,13 @@ MODULE mo_surface_les
             prm_diag%shfl_s(jc,jb) = rhos*cpd*les_config(jg)%tran_coeff*(theta_sfc-theta(jc,jk,jb))
             prm_diag%lhfl_s(jc,jb) = rhos*alv*les_config(jg)%tran_coeff*(p_diag_lnd%qv_s(jc,jb)-qv(jc,jk,jb))
             prm_diag%umfl_s(jc,jb) = ustar**2 *rhos
+
+            !Get turbulent viscosity at first model level assuming
+            !the subgrid flux there is "surface_factor" times smaller
+            obukhov_length = -ustar**3 * les_config(jg)%rkarman_constant / les_config(jg)%bflux
+
+            sgs_visc_sfc(jc,jb) = surface_factor * ustar * les_config(jg)%karman_constant * &
+                                  z_mc * les_config(1)%turb_prandtl / phi_heat(z_mc,obukhov_length) 
 
          END DO  
       END DO
