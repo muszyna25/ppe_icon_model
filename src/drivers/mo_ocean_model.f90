@@ -543,12 +543,13 @@ CONTAINS
     ! output if n_io <= integration_length.
 
       CALL get_restart_attribute('next_output_file',jfile)
-      IF (n_io.le.nsteps) THEN
+      write(*,*)'JFILE:',jfile
+!      IF (n_io.le.nsteps) THEN
          CALL init_output_files(jfile, lclose=.FALSE.,p_patch_2D=p_patch_3D%p_patch_2D)
          l_have_output = .TRUE.
-      ELSE
-         l_have_output = .FALSE.
-      END IF
+!      ELSE
+!         l_have_output = .FALSE.
+!      END IF
 
     END IF ! (not) is_restart_run()
 
