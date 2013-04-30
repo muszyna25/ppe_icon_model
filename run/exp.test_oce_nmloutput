@@ -85,14 +85,14 @@ iforc_len=365  # length of OMIP/NCEP dataset: 1 = annual; 12 = monthly data; 365
 #-----------------------------------------------------------------------------
 # global timing
 start_date="2001-01-01T00:00:00Z"
-  end_date="2001-01-05T00:00:00Z"
+  end_date="2001-02-03T00:00:00Z"
 #
 #-----------------------------------------------------------------------------
 # model timing
-nhours_data=6      # ocean model output interval hours [hours]
+nhours_data=240      # ocean model output interval hours [hours]
 ndays_file=3750      # new output file generation interval [days]
-ndays_checkp=1850    # write restart file interval [days]
-ndays_restart=2
+ndays_checkp=10000    # write restart file interval [days]
+ndays_restart=100
 #
 #-----------------------------------------------------------------------------
 # calculate model timesteps using $ndays
@@ -100,7 +100,8 @@ dt_data=`expr ${nhours_data} \* 3600`
 dt_file=`expr ${ndays_file} \* 86400`
 dt_checkpoint=`expr ${ndays_checkp} \* 86400`
 dt_restart=`expr ${ndays_restart} \* 86400`
-steps_per_file=$((dt_file / dt_data )) # output intervals per file interval
+(( simLength = dt_restart > dt_file ? dt_file : dt_restart ))
+(( steps_per_file = simLength / dt_data )) # output intervals per file interval
 #
 #-----------------------------------------------------------------------------
 # model parameters
@@ -139,7 +140,7 @@ cat > ${ocean_namelist} << EOF
 &output_nml
   output_bounds    = ${dt_data},${dt_restart},${dt_data}   !start, end, increment
   steps_per_file   = ${steps_per_file}
-  include_last     = .FALSE.
+  include_last     = .TRUE.
   output_grid      = .TRUE.
   output_filename  = "${EXPNAME}_nmlOuput"
   ml_varlist       = 'h','rho','w','v','u','T_TL01','vt','vort','kin','div','grad','rhopot'
