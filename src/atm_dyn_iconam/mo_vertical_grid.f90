@@ -2034,7 +2034,7 @@ MODULE mo_vertical_grid
                 1._wp / p_nh%metrics%ddqz_z_full_e(je,jk,jb)
 
          !Mixing length for LES
-         les_filter = les_config(1)%smag_constant * (0.5_wp*p_patch%edges%quad_area(je,jb) * &
+         les_filter = les_config(1)%smag_constant * (p_patch%edges%quad_area(je,jb) * &
                       p_nh%metrics%ddqz_z_full_e(je,jk,jb))**(1._wp/3._wp) 
 
          p_nh%metrics%mixing_length_sq(je,jk,jb) = (les_filter*z_me(je,jk,jb))**2    &

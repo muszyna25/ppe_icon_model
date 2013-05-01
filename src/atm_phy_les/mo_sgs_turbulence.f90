@@ -256,7 +256,7 @@ MODULE mo_sgs_turbulence
                                                vn_ie, vt_ie
     REAL(wp), POINTER :: diff_smag_ic(:,:,:)
 
-    REAL(wp) :: visc_sfc_e(nproma,1,p_patch%nblks_e)
+    REAL(wp) :: visc_sfc_e(nproma,1,p_patch%nblks_e), z1, z2
     REAL(wp) :: vn_vert1, vn_vert2, vn_vert3, vn_vert4, vt_vert1, vt_vert2, vt_vert3, &
                 vt_vert4, w_full_c1
     REAL(wp) :: w_full_c2, w_full_v1, w_full_v2, brunt_vaisala_frq
@@ -557,7 +557,7 @@ MODULE mo_sgs_turbulence
                             opt_rlend=min_rledge_int)
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx,brunt_vaisala_frq) ICON_OMP_RUNTIME_SCHEDULE
+!$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx,brunt_vaisala_frq,z1,z2) ICON_OMP_RUNTIME_SCHEDULE
     DO jb = i_startblk,i_endblk
        CALL get_indices_e(p_patch, jb, i_startblk, i_endblk,       &
                           i_startidx, i_endidx, rl_start, rl_end)
@@ -568,13 +568,15 @@ MODULE mo_sgs_turbulence
                                p_nh_metrics%inv_ddqz_z_full_e(je,jk,jb)/theta_v_e(je,jk,jb)
 
            visc_smag_e(je,jk,jb) = rho_e(je,jk,jb) *                   &
-                MAX( km_min, p_nh_metrics%mixing_length_sq(je,jk,jb) * &
-                SQRT(MAX(0._wp, DD(je,jk,jb)*0.5_wp-les_config(1)%rturb_prandtl*brunt_vaisala_frq)) ) 
+               MAX( km_min, p_nh_metrics%mixing_length_sq(je,jk,jb) * &
+               SQRT(MAX(0._wp, DD(je,jk,jb)*0.5_wp-les_config(1)%rturb_prandtl*brunt_vaisala_frq)) ) 
 
          END DO
        END DO
       DO je = i_startidx, i_endidx
-        visc_smag_e(je,nlev,jb) = rho_e(je,nlev,jb) * visc_sfc_e(je,1,jb) 
+        z1  = 1._wp / p_nh_metrics%inv_ddqz_z_half_e(je,nlev,jb)
+        z2  = p_nh_metrics%ddqz_z_full_e(je,nlev,jb) * 0.5_wp
+        visc_smag_e(je,nlev,jb) = (visc_sfc_e(je,1,jb)*z1+visc_smag_e(je,nlev-1,jb)*z2)/(z1+z2)
         visc_smag_e(je,1,jb)    = rho_e(je,1,jb) * km_min
       END DO
     END DO
