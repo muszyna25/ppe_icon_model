@@ -42,7 +42,9 @@ MODULE mo_surface
   USE mo_vdiff_solver,      ONLY: ih, iqv, iu, iv, imh, imqv, imuv, &
                                 & nmatrix, nvar_vdiff,              &
                                 & matrix_to_richtmyer_coeff
+#ifdef __JSBACH__
   USE mo_jsb_interface,     ONLY: jsbach_interface
+#endif
   USE mo_icoham_sfc_indices,ONLY: nsfc_type
   USE mo_sea_ice,           ONLY: ice_fast
   USE mo_physical_constants,ONLY: rhos, rhoi, Tf, alf, albedoW, zemiss_def, stbo, tmelt
@@ -241,6 +243,7 @@ CONTAINS
     ! - perform bottom level elimination;
     ! - convert matrix entries to Richtmyer-Morton coefficients
 
+#ifdef __JSBACH__
     IF (phy_config%ljsbach) THEN
 
       CALL matrix_to_richtmyer_coeff( kproma, kbdim, klev, ksfc_type, idx_lnd, &! in
@@ -324,13 +327,15 @@ CONTAINS
       ENDWHERE
 
     ELSE
-
+#endif  
       CALL matrix_to_richtmyer_coeff( kproma, kbdim, klev, ksfc_type, idx_lnd, &! in
                                     & aa(:,:,:,imh:imqv), bb(:,:,ih:iqv),      &! in
                                     & aa_btm, bb_btm,                          &! inout
                                     & zen_h, zfn_h, zen_qv, zfn_qv             )! out
 
+#ifdef __JSBACH__
     END IF
+#endif
 
     ! Set the evapotranspiration coefficients, to be used later in
     ! blending and in diagnoising surface fluxes.

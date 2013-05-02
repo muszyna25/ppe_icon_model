@@ -93,7 +93,7 @@ CONTAINS
     LOGICAL,         INTENT(IN) :: ltestcase
     CHARACTER(LEN=*),INTENT(IN) :: ctest_name
     CHARACTER(LEN=*),PARAMETER  :: &
-             & routine ='mo_echam_phy_config:config_echam_phy'
+             & method_name ='mo_echam_phy_config:config_echam_phy'
 
     !------------------
     IF (ltestcase) THEN
@@ -125,7 +125,9 @@ CONTAINS
         CALL message('','')
 
       CASE('AMIP')
-
+#ifndef __JSBACH__
+        CALL finish(method_name, "This version was compiled without jsbach. Compile with __JSBACH__ to run the AMIP setup")
+#endif
         echam_phy_config% llandsurf = .FALSE.
         echam_phy_config% lssodrag  = .TRUE.
         echam_phy_config% lice      = .FALSE.
@@ -152,8 +154,8 @@ CONTAINS
         CALL message('','')
 
       CASE DEFAULT
-        CALL message(TRIM(routine),'Testcase = '//TRIM(ctest_name))
-        CALL finish (TRIM(routine),'Invalid test case with ECHAM6 physics')
+        CALL message(TRIM(method_name),'Testcase = '//TRIM(ctest_name))
+        CALL finish (TRIM(method_name),'Invalid test case with ECHAM6 physics')
       END SELECT
     ENDIF
 

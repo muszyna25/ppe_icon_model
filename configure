@@ -2473,10 +2473,71 @@ if test "x$load_modules" != x ;  then
   fi
 fi
 
+use_components_file=config/icon_components
+if test -f $use_components_file ; then
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for machine dependent configuration" >&5
+$as_echo_n "checking for machine dependent configuration... " >&6; }
+
+cat > confsed <<EOF
+s/ *= */="/
+/="/s/$/"/
+/^#/{
+    d
+}
+/[^LIBS].*=/{
+    p
+    s/=.*$//
+    s/^/export /
+    p
+    d
+}
+/LIBS.*\\\/ {
+    s/\\\/ /g
+    s/"$//
+    h
+    D
+    bnext
+}
+/^ *\-L.*\\\/{
+    s/\\\/ /g
+    s/^ *//g
+    s/"$//
+    H
+    D
+    bnext
+}
+/^ *\-L/{
+    s/^ *//g
+    s/"$//
+    H
+    x
+    s/\n//g
+    s/$/"/
+    p
+    a\\
+export LIBS
+    d
+}
+
+:next
+EOF
+
+sed -f confsed $use_components_file > conftest
+. ./conftest
+/bin/rm -f confsed conftest
+if test "$use_components_file" != 0 ; then
+    { $as_echo "$as_me:${as_lineno-$LINENO}: result: $use_components_file" >&5
+$as_echo "$use_components_file" >&6; }
+else
+    { $as_echo "$as_me:${as_lineno-$LINENO}: result: unavailable" >&5
+$as_echo "unavailable" >&6; }
+fi
+
+fi
 FFLAGS="${FFLAGS} ${DEFOPT}__${package}__"
 CFLAGS="${CFLAGS} ${DEFCOPT}__${package}__"
 
-for other_package in $package_group ; do
+for other_package in $icon_components ; do
   FFLAGS="${FFLAGS} ${DEFOPT}__${other_package}__"
   CFLAGS="${CFLAGS} ${DEFCOPT}__${other_package}__"
 
@@ -7092,6 +7153,7 @@ use_make_command="$make_command"
 use_submit="$submit"
 use_sync_submit="$sync_submit"
 use_shell="$use_shell"
+use_icon_components="$icon_components"
 #############################
 EOF
 

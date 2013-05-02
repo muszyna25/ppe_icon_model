@@ -59,8 +59,10 @@ MODULE mo_echam_phy_init
   USE mo_echam_conv_config,    ONLY: configure_echam_convection
 
   USE mo_lnd_jsbach_config,    ONLY: lnd_jsbach_config, configure_lnd_jsbach
+#ifdef __JSBACH__
   USE mo_jsb_base,             ONLY: jsbach_init_base => init_base
   USE mo_jsb_model_init,       ONLY: jsbach_init_model => init_model
+#endif
 
   ! test cases
   USE mo_ha_testcases,         ONLY: ape_sst_case
@@ -347,6 +349,7 @@ CONTAINS
 
     ENDIF    ! phy_config%lamip
 
+#ifdef __JSBACH__
     IF (phy_config%ljsbach) THEN
       CALL configure_lnd_jsbach(ltestcase, ctest_name)
       ! Do basic initialization of JSBACH
@@ -359,6 +362,7 @@ CONTAINS
           & lnd_jsbach_config(jg)%ntsoil, lnd_jsbach_config(jg)%ztlev_soil)   !< out
       END DO
     END IF
+#endif
 
     IF (timers_level > 1) CALL timer_stop(timer_prep_echam_phy)
 
