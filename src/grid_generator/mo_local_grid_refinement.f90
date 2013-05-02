@@ -79,7 +79,7 @@ MODULE mo_local_grid_refinement
   !-------------------------------------------------------------------------
   ! namelist parameters
   CHARACTER(LEN=filename_max) :: input_file, output_file
-  INTEGER :: refine_depth
+  INTEGER :: refine_depth, optimize_depth
   LOGICAL :: create_hierarchy
   !-------------------------------------------------------------------------
 
@@ -97,10 +97,11 @@ CONTAINS
     INTEGER :: i_status
 
     NAMELIST /local_grid_refine/ input_file, output_file, &
-      & refine_depth, create_hierarchy
+      & refine_depth, optimize_depth, create_hierarchy
 
     ! default values
     refine_depth=1
+    optimize_depth=1
     create_hierarchy=.false.
     
     ! read namelist
@@ -124,6 +125,8 @@ CONTAINS
     CALL message ('', TRIM(message_text))
     WRITE(message_text,'(a,i2.2)') "refine_depth=", refine_depth
     CALL message ('', TRIM(message_text))
+    WRITE(message_text,'(a,i2.2)') "optimize_depth=", optimize_depth
+    CALL message ('', TRIM(message_text))
     WRITE(message_text,'(a,L2)') "create_hierarchy=", create_hierarchy
     CALL message ('', TRIM(message_text))
     WRITE(message_text,'(a)') "===================================="
@@ -140,11 +143,13 @@ CONTAINS
 
     CHARACTER(LEN=*), INTENT(in) :: param_file_name
 
-    CHARACTER(LEN=filename_max) :: file_name
     INTEGER :: in_grid_id, out_grid_id, cutoff_grid_id
+    INTEGER :: refine_iteration
     INTEGER :: timer_total_grid_refine
+    CHARACTER(LEN=filename_max) :: file_name
 
     CALL read_param(param_file_name)
+    CALL read_grid_optimization_param(param_file_name)
 
     in_grid_id = read_new_netcdf_grid(input_file)
 
@@ -159,20 +164,30 @@ CONTAINS
     ENDIF
 
 !     CALL message ('grid_refine', 'refine_grid_edgebisection...')
-    out_grid_id = refine_grid_edgebisection(cutoff_grid_id)
-    CALL delete_grid(cutoff_grid_id)
-!     CALL create_grid_hierarchy(out_grid_id)
 
-    CALL read_grid_optimization_param(param_file_name)
-    CALL optimize_grid(out_grid_id)
-    CALL compute_sphere_grid_geometry(out_grid_id)
+    DO refine_iteration = 1,  refine_depth
 
-    IF (refine_depth < 2) THEN
-      WRITE(file_name,'(a)')  TRIM(output_file)
-    ELSE
-      WRITE(file_name,'(a,i2.2,a)')  TRIM(output_file), 1,  '.nc'
-    ENDIF
-    CALL write_netcdf_grid(out_grid_id, output_file)
+      out_grid_id = refine_grid_edgebisection(cutoff_grid_id)
+      CALL delete_grid(cutoff_grid_id)
+  !     CALL create_grid_hierarchy(out_grid_id)
+
+      IF (refine_iteration <= optimize_depth) CALL optimize_grid(out_grid_id)
+      CALL compute_sphere_grid_geometry(out_grid_id)
+
+      IF (refine_depth < 2) THEN
+        WRITE(file_name,'(a)')  TRIM(output_file)
+      ELSE
+        WRITE(file_name,'(a,a,a)')    &
+          & TRIM(output_file),                         &
+          & TRIM(get_resolution_string(out_grid_id)),  &
+          & ".nc"
+        ! WRITE(file_name,'(a,i2.2,a)')  TRIM(output_file), refine_iteration,  '.nc'
+      ENDIF
+      CALL write_netcdf_grid(out_grid_id, file_name)
+
+      cutoff_grid_id = out_grid_id
+
+    ENDDO ! refine_iteration = 1,  refine_depth
 
     CALL timer_stop(timer_total_grid_refine)
     CALL print_timer(timer_total_grid_refine)
