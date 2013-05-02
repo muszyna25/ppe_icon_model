@@ -126,6 +126,14 @@ int main(int argc, char *argv[])
 
   parseXML(icon_xml_grid_table);
 
+  /* print public messages (if any) */
+  const struct t_element *msg_node = find_first_element(xmltree,"message", NULL, NULL);
+  while (msg_node != NULL) 
+    {
+      printf("\n%s\n", msg_node->body);
+      msg_node = find_first_element(msg_node->next, "message", NULL, NULL);
+    }
+
   /* extract file name from URI */
   const char *uri         = get_grid_uri(&grid_attr);
   const char *extpar      = get_grid_extpar(&grid_attr);
