@@ -186,11 +186,11 @@ MODULE mo_sgs_turbulence
     CALL smagorinsky_model(p_nh_prog, p_nh_diag, p_nh_metrics, p_patch, p_int, prm_diag, &
                            theta_v, visc_sfc_c)
 
-    !CALL diffuse_hori_velocity(p_nh_prog, p_nh_diag, p_nh_metrics, p_patch, p_int, prm_diag, &
-    !                           prm_nwp_tend%ddt_u_turb, prm_nwp_tend%ddt_v_turb, dt)
+    CALL diffuse_hori_velocity(p_nh_prog, p_nh_diag, p_nh_metrics, p_patch, p_int, prm_diag, &
+                               prm_nwp_tend%ddt_u_turb, prm_nwp_tend%ddt_v_turb, dt)
 
     !Vertical velocity is updated here
-    !CALL diffuse_vert_velocity(p_nh_prog, p_nh_diag, p_nh_metrics, p_patch, p_int, dt)
+    CALL diffuse_vert_velocity(p_nh_prog, p_nh_diag, p_nh_metrics, p_patch, p_int, dt)
 
     CALL diffuse_scalar(theta, p_nh_metrics, p_patch, p_int, p_nh_diag,  &
                         prm_nwp_tend%ddt_temp_turb, p_nh_prog%exner,     &
