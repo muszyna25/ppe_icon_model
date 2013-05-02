@@ -1353,9 +1353,9 @@ MODULE mo_sgs_turbulence
      i_startblk = p_patch%cells%start_blk(rl_start,1)
      i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
+    IF(TRIM(scalar_name)=='theta')THEN
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jc,jb,jk,i_startidx,i_endidx),ICON_OMP_RUNTIME_SCHEDULE
-    IF(TRIM(scalar_name)=='theta')THEN
       !multiply by exner to convert from theta tend to temp tend
         DO jb = i_startblk,i_endblk
           CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -1369,7 +1369,11 @@ MODULE mo_sgs_turbulence
              sflux(jc,jb) = prm_diag%shfl_s(jc,jb) * rcpd
           END DO
         END DO
+!$OMP END DO
+!$OMP END PARALLEL
     ELSEIF(TRIM(scalar_name)=='qv')THEN
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jc,jb,jk,i_startidx,i_endidx),ICON_OMP_RUNTIME_SCHEDULE
         DO jb = i_startblk,i_endblk
           CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
                              i_startidx, i_endidx, rl_start, rl_end)
@@ -1382,7 +1386,11 @@ MODULE mo_sgs_turbulence
              sflux(jc,jb) = prm_diag%lhfl_s(jc,jb) / alv
           END DO
         END DO
+!$OMP END DO
+!$OMP END PARALLEL
     ELSEIF(TRIM(scalar_name)=='qc')THEN
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jc,jb,jk,i_startidx,i_endidx),ICON_OMP_RUNTIME_SCHEDULE
         DO jb = i_startblk,i_endblk
           CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
                              i_startidx, i_endidx, rl_start, rl_end)
@@ -1395,9 +1403,9 @@ MODULE mo_sgs_turbulence
              sflux(jc,jb) = 0._wp
           END DO
         END DO
-    END IF
 !$OMP END DO
 !$OMP END PARALLEL
+    END IF
       
     ! use conservative discretization div(k*grad(var))-horizontal part  
     ! following mo_nh_diffusion
