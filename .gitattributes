@@ -60,6 +60,7 @@ config/config.h.in -text
 config/config.sub -text
 config/createMakefiles.pl -text
 config/create_target_header -text
+config/icon_components -text
 config/install-sh -text
 config/make_target_runscript -text
 config/mh-aix -text
