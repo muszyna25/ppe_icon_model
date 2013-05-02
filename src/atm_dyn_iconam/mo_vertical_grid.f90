@@ -2028,8 +2028,8 @@ MODULE mo_vertical_grid
       ELSE
          nlen = npromz_e
       ENDIF     
-      DO je = 1 , nlen
-       DO jk = 1 , nlev 
+      DO jk = 1 , nlev 
+       DO je = 1 , nlen
          p_nh%metrics%inv_ddqz_z_full_e(je,jk,jb) =  & 
                 1._wp / p_nh%metrics%ddqz_z_full_e(je,jk,jb)
 
@@ -2051,8 +2051,8 @@ MODULE mo_vertical_grid
       ELSE
          nlen = npromz_c
       ENDIF     
-      DO jc = 1 , nlen
        DO jk = 1 , nlevp1 
+        DO jc = 1 , nlen
          p_nh%metrics%inv_ddqz_z_half(jc,jk,jb) = 1._wp / p_nh%metrics%ddqz_z_half(jc,jk,jb)
        END DO
       END DO
