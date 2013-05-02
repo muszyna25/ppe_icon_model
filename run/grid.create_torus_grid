@@ -23,7 +23,8 @@ fi
 cd $WRKDIR
 #-----------------------------------------------------------------------------
 # Define torus parameters
-#
+# Note that to match a square cell of size dx*dy
+# use triangles of edge length = 2/(3**1/4)*SQRT(dx*dy) ~ 1.5*SQRT(dx*dy)
 cat > $parameterFile << EOF
 &torus_grid_parameters
     y_no_of_rows = 16
