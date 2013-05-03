@@ -84,16 +84,13 @@ SUBROUTINE ssodrag ( jg            ,& ! in,  grid level/domain index
 
   ! array arguments with intent(INOUT):
   ! Input 1D
-!!$  REAL(wp), INTENT(inout) :: pustrgw(kbdim)    ! u-gravity wave stress
-!!$  REAL(wp), INTENT(inout) :: pvstrgw(kbdim)    ! v-gravity wave stress
-!!$  REAL(wp), INTENT(inout) :: pvdisgw(kbdim)    ! dissipation by gravity wave drag
-  REAL(wp) :: pustrgw(kbdim)    ! u-gravity wave stress
-  REAL(wp) :: pvstrgw(kbdim)    ! v-gravity wave stress
-  REAL(wp) :: pvdisgw(kbdim)    ! dissipation by gravity wave drag
+  REAL(wp), INTENT(out) :: pustrgw(kbdim)      ! u-gravity wave stress
+  REAL(wp), INTENT(out) :: pvstrgw(kbdim)      ! v-gravity wave stress
+  REAL(wp), INTENT(out) :: pvdisgw(kbdim)      ! dissipation by gravity wave drag
   ! Input 2D
-  REAL(wp), INTENT(inout) :: ptte(kbdim,klev) ! tendency of temperature
-  REAL(wp), INTENT(inout) :: pvol(kbdim,klev) ! tendency of meridional wind
-  REAL(wp), INTENT(inout) :: pvom(kbdim,klev) ! tendency of zonal wind
+  REAL(wp), INTENT(out) :: ptte(kbdim,klev)    ! tendency of temperature
+  REAL(wp), INTENT(out) :: pvol(kbdim,klev)    ! tendency of meridional wind
+  REAL(wp), INTENT(out) :: pvom(kbdim,klev)    ! tendency of zonal wind
 
   ! Local scalars:
   INTEGER :: igwd, jk, jl, ji
@@ -190,9 +187,9 @@ SUBROUTINE ssodrag ( jg            ,& ! in,  grid level/domain index
 !CDIR NODEP
     do jl=1,igwd
       ji=idx(jl)
-      ptte(ji,jk) =  ptte(ji,jk)+zdt_oro(ji,jk)+zdt_lif(ji,jk)
-      pvol(ji,jk) =  pvol(ji,jk)+zdv_oro(ji,jk)+zdv_lif(ji,jk)
-      pvom(ji,jk) =  pvom(ji,jk)+zdu_oro(ji,jk)+zdu_lif(ji,jk)
+      ptte(ji,jk) =  zdt_oro(ji,jk)+zdt_lif(ji,jk)
+      pvol(ji,jk) =  zdv_oro(ji,jk)+zdv_lif(ji,jk)
+      pvom(ji,jk) =  zdu_oro(ji,jk)+zdu_lif(ji,jk)
     enddo
   enddo
 
