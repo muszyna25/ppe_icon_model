@@ -84,7 +84,7 @@ MODULE mo_sgs_turbulence
   !Variables for the module
   REAL(wp), ALLOCATABLE, DIMENSION(:,:,:) :: visc_smag_v, visc_smag_ie, diff_smag_e, &
                                              visc_smag_c, rho_e, DIV_c, u_vert, v_vert, &
-                                             w_ie, w_vert
+                                             w_ie, w_vert, diff_smag_ic
   
   CONTAINS
 
@@ -136,6 +136,7 @@ MODULE mo_sgs_turbulence
               visc_smag_v(nproma,nlev,p_patch%nblks_v),      &
               visc_smag_c(nproma,nlev,p_patch%nblks_c),      &
               visc_smag_ie(nproma,nlevp1,p_patch%nblks_e),   &                              
+              diff_smag_ic(nproma,nlevp1,p_patch%nblks_c),   &                              
               diff_smag_e(nproma,nlev,p_patch%nblks_e),      &
               theta(nproma,nlev,p_patch%nblks_c),            &
               theta_v(nproma,nlev,p_patch%nblks_c),          &
@@ -147,7 +148,7 @@ MODULE mo_sgs_turbulence
     IF(p_test_run)THEN
 !ICON_OMP_WORKSHARE
       u_vert(:,:,:)      = 0._wp; v_vert(:,:,:)      = 0._wp; w_vert(:,:,:)       = 0._wp 
-      w_ie(:,:,:)        = 0._wp; visc_smag_ie(:,:,:) = 0._wp
+      w_ie(:,:,:)        = 0._wp; visc_smag_ie(:,:,:) = 0._wp; diff_smag_ic(:,:,:) = 0._wp
       visc_smag_v(:,:,:) = 0._wp; diff_smag_e(:,:,:) = 0._wp; visc_smag_c(:,:,:)  = 0._wp
       rho_e(:,:,:)       = 0._wp; theta(:,:,:)       = 0._wp; theta_v(:,:,:)      = 0._wp
       DIV_c(:,:,:)       = 0._wp
@@ -215,7 +216,7 @@ MODULE mo_sgs_turbulence
     END IF
 
    DEALLOCATE(u_vert, v_vert, w_vert, w_ie, visc_smag_v, visc_smag_ie, diff_smag_e, &
-              theta, visc_smag_c, rho_e, theta_v, DIV_c)
+              theta, visc_smag_c, rho_e, theta_v, DIV_c, diff_smag_ic)
 
 
   END SUBROUTINE drive_subgrid_diffusion
@@ -259,8 +260,6 @@ MODULE mo_sgs_turbulence
     ! DIV is not a good name, can conflict with the div operator: REAL(wp), ALLOCATABLE, DIMENSION(:,:,:) :: DIV
     REAL(wp), ALLOCATABLE, DIMENSION(:,:,:) :: theta_v_ie, DD, div_of_stress, theta_v_e, visc_smag_e, &
                                                vn_ie, vt_ie
-    REAL(wp), POINTER :: diff_smag_ic(:,:,:)
-
     REAL(wp) :: visc_sfc_e(nproma,1,p_patch%nblks_e), z1, z2
     REAL(wp) :: vn_vert1, vn_vert2, vn_vert3, vn_vert4, vt_vert1, vt_vert2, vt_vert3, &
                 vt_vert4, w_full_c1
@@ -278,13 +277,6 @@ MODULE mo_sgs_turbulence
     nlev   = p_patch%nlev
     nlevp1 = nlev+1
     i_nchdom   = MAX(1,p_patch%n_childdom)
-
-    !Pointer
-    diff_smag_ic => prm_diag%tkvh
-    
-!ICON_OMP_WORKSHARE
-    diff_smag_ic(:,:,:) = 0._wp
-!ICON_OMP_END_WORKSHARE
 
     !Allocation
     ALLOCATE( vn_ie(nproma,nlevp1,p_patch%nblks_e),        &
@@ -318,6 +310,7 @@ MODULE mo_sgs_turbulence
 
     CALL cells2verts_scalar(p_nh_prog%w, p_patch, p_int%cells_aw_verts, w_vert, &
                             opt_rlend=min_rlvert_int) 
+    !Even this one shouldn't be required
     CALL sync_patch_array(SYNC_V, p_patch, w_vert)
 
     !no need to include halos
@@ -631,7 +624,7 @@ MODULE mo_sgs_turbulence
     !4c) Now calculate visc_smag at half levels at edge
 
     !vertical derivative of visc_smag_ie is then calculated- therefore no need to get
-    !its values on Halos
+    !its values on Halos: Boundary values not required
 
 !ICON_OMP_PARALLEL PRIVATE(rl_start, rl_end, i_startblk, i_endblk)
     rl_start = 2
@@ -653,22 +646,6 @@ MODULE mo_sgs_turbulence
     END DO      
 !ICON_OMP_END_DO
 
-   !No need of calculating following part because it is never used
-
-!!ICON_OMP_DO PRIVATE(jb,je,i_startidx,i_endidx)
-!    DO jb = i_startblk,i_endblk
-!       CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
-!                          i_startidx, i_endidx, rl_start, rl_end)
-!       DO je = i_startidx, i_endidx
-!        !At the TOP boundary: keeping it non-zero value 
-!        visc_smag_ie(je,1,jb) = visc_smag_ie(je,2,jb)
-! 
-!        !At the bottom: simple extrapolation because we will use surface flux directly 
-!        !while solving the diffusion equation. 
-!        visc_smag_ie(je,nlevp1,jb) = visc_smag_ie(je,nlev,jb) 
-!       END DO
-!    END DO  
-!!ICON_OMP_END_DO
 
     !--------------------------------------------------------------------------
     !5) Calculate turbulent diffusivity
@@ -694,7 +671,8 @@ MODULE mo_sgs_turbulence
 !ICON_OMP_END_DO
 
     !Turbulent diffusivity at cell center at half levels and like visc_smag_ie 
-    !it is also calculated for interior points only
+    !it is also calculated for interior points only: 
+    !Boundary values not required
     rl_start = 2
     rl_end   = min_rlcell_int
 
@@ -713,27 +691,34 @@ MODULE mo_sgs_turbulence
          END DO
        END DO     
     END DO      
+!ICON_OMP_END_DO
+
+    !Copy to prm_diag%tkvh and prm_diag%tkvm for output: find another way to do it
+!ICON_OMP_DO PRIVATE(jb,jk,jc,i_startidx,i_endidx)
+    DO jb = i_startblk,i_endblk
+       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+                          i_startidx, i_endidx, rl_start, rl_end)
+       DO jk = 2 , nlev
+         DO jc = i_startidx, i_endidx
+           prm_diag%tkvh(jc,jk,jb) = diff_smag_ic(jc,jk,jb) / &
+                            ( p_nh_metrics%wgtfac_c(jc,jk,jb) * p_nh_prog%rho(jc,jk,jb) + &
+                            (1._wp - p_nh_metrics%wgtfac_c(jc,jk,jb)) * p_nh_prog%rho(jc,jk-1,jb) )          
+         END DO
+       END DO     
+       !Boundary values
+       DO jc = i_startidx, i_endidx
+         prm_diag%tkvh(jc,1,jb)     = prm_diag%tkvh(jc,2,jb) 
+         prm_diag%tkvh(jc,nlevp1,jb)= 0._wp
+       END DO
+       DO jk = 1 , nlevp1
+         DO jc = i_startidx, i_endidx
+           prm_diag%tkvm(jc,jk,jb) = prm_diag%tkvh(jc,jk,jb) * les_config(1)%turb_prandtl 
+         END DO
+       END DO     
+    END DO      
 !ICON_OMP_END_DO_NOWAIT
 !ICON_OMP_END_PARALLEL
 
-
-  !No need of calculating following part because it is never used
-!!ICON_OMP_DO PRIVATE(jb,jc,i_startidx,i_endidx)
-!    DO jb = i_startblk,i_endblk
-!       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-!                          i_startidx, i_endidx, rl_start, rl_end)
-!       DO jc = i_startidx, i_endidx
-!        !At the TOP boundary: keeping it non-zero value
-!        diff_smag_ic(jc,1,jb) = diff_smag_ic(jc,2,jb)
-! 
-!        !At the bottom: simple extrapolation because we will use surface flux directly 
-!        !while solving the diffusion equation. 
-!        diff_smag_ic(jc,nlevp1,jb) = diff_smag_ic(jc,nlev,jb) 
-!       END DO
-!    END DO  
-!!ICON_OMP_END_DO_NOWAIT
-!!ICON_OMP_END_PARALLEL
-        
     !DEALLOCATE variables
     DEALLOCATE( theta_v_ie, DD, div_of_stress, visc_smag_e, vn_ie, vt_ie, theta_v_e )
   
@@ -1330,7 +1315,6 @@ MODULE mo_sgs_turbulence
     INTEGER, PARAMETER :: iimplicit = 2
     INTEGER, PARAMETER :: vert_scheme_type = iexplicit
 
-    REAL(wp), POINTER :: diff_smag_ic(:,:,:)
     REAL(wp) :: flux_up, flux_dn, inv_dt
     REAL(wp) :: nabla2_e(nproma,p_patch%nlev,p_patch%nblks_e)
     REAL(wp) :: fac(nproma,p_patch%nlev,p_patch%nblks_c)
@@ -1354,8 +1338,6 @@ MODULE mo_sgs_turbulence
    
     ieidx => p_patch%cells%edge_idx
     ieblk => p_patch%cells%edge_blk
-
-    diff_smag_ic => prm_diag%tkvh
 
     !Special treatment for different scalars: includes
     !boundary treatment also
@@ -1466,7 +1448,17 @@ MODULE mo_sgs_turbulence
         ENDDO
 !ICON_OMP_END_DO
 !ICON_OMP_END_PARALLEL
- 
+
+       !---------------------------------------------------------------
+       !Vertical diffusion
+       !---------------------------------------------------------------
+
+       rl_start = 2
+       rl_end   = min_rlcell_int
+
+       i_startblk = p_patch%cells%start_blk(rl_start,1)
+       i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
+
 
        SELECT CASE(vert_scheme_type)
 
