@@ -1368,8 +1368,8 @@ MODULE mo_sgs_turbulence
      i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
     IF(TRIM(scalar_name)=='theta')THEN
-!ICON_OMP_DO PRIVATE(jc,jb,jk,i_startidx,i_endidx)
       !multiply by exner to convert from theta tend to temp tend
+!ICON_OMP_DO PRIVATE(jc,jb,jk,i_startidx,i_endidx)
         DO jb = i_startblk,i_endblk
           CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
                              i_startidx, i_endidx, rl_start, rl_end)
