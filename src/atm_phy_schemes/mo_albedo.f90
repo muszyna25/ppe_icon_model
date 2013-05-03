@@ -402,11 +402,14 @@ CONTAINS
  
           DO jc = i_startidx, i_endidx
             prm_diag%albvisdif(jc,jb) = prm_diag%albvisdif_t(jc,jb,1)
+            ! no distiction between vis and nir albedo
+            prm_diag%albnirdif(jc,jb) = prm_diag%albvisdif_t(jc,jb,1)
           ENDDO
 
         ELSE ! aggregate fields over tiles
 
           prm_diag%albvisdif(i_startidx:i_endidx,jb) = 0._wp
+          prm_diag%albnirdif(i_startidx:i_endidx,jb) = 0._wp
 
           DO jt = 1, ntiles_total+ntiles_water
             DO jc = i_startidx, i_endidx
@@ -416,6 +419,10 @@ CONTAINS
             ENDDO
           ENDDO
 
+          DO jc = i_startidx, i_endidx
+            ! no distiction between vis and nir albedo
+            prm_diag%albnirdif(jc,jb) = prm_diag%albvisdif(jc,jb)
+          ENDDO
         ENDIF  ! ntiles_total = 1
 
 
@@ -431,6 +438,8 @@ CONTAINS
           ENDIF
 
           prm_diag%albvisdif(jc,jb) = csalb(ist)
+          ! no distiction between vis and nir albedo
+          prm_diag%albnirdif(jc,jb) = csalb(ist)
           
         ENDDO
 

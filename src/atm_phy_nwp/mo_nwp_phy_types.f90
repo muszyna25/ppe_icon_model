@@ -186,8 +186,9 @@ MODULE mo_nwp_phy_types
                                  !! vertically integrated tot_cld (qv,qc,qi)
       &  clct_avg(:,:),        & !! average since model start of the total cloud cover  
       &  cosmu0(:,:),          & !! cosine of solar zenith angle
-      &  albvisdif(:,:),       & !! surface albedo for visible range, diffuse
-      &  albvisdif_t(:,:,:),   & !! tile-based surface albedo for visible range, diffuse
+      &  albvisdif(:,:),       & !! UV visible albedo for diffuse radiation (0.3-0.7µm)
+      &  albnirdif(:,:),       & !! near IR albedo for diffuse radiation    (0.7-5.0µm)
+      &  albvisdif_t(:,:,:),   & !! tile-based UV visible albedo for diffuse radiation (0.3-0.7µm)
       &  vio3(:,:),            & !! vertically integrated ozone amount (Pa O3)
       &  hmo3(:,:),            & !! height of O3 maximum (Pa)
       &  flxdwswtoa(:,:),      & !! downward shortwave flux at TOA [W/m2]

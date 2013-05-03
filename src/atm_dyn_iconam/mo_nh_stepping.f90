@@ -71,8 +71,8 @@ MODULE mo_nh_stepping
                                     prm_nwp_tend_list
   USE mo_lnd_nwp_config,      ONLY: nlev_soil, nlev_snow, sstice_mode, lseaice
   USE mo_nwp_lnd_state,       ONLY: p_lnd_state
+  USE mo_ext_data_state,      ONLY: ext_data, interpol_monthly_mean
   USE mo_lnd_jsbach_config,   ONLY: lnd_jsbach_config
-  USE mo_ext_data_state,      ONLY: ext_data, interpol_ndvi_time
   USE mo_extpar_config,       ONLY: itopo
   USE mo_model_domain,        ONLY: p_patch
   USE mo_time_config,         ONLY: time_config
@@ -496,7 +496,12 @@ MODULE mo_nh_stepping
       !Update ndvi normalized differential vegetation index
       IF (itopo == 1 .AND. iforcing == inwp .AND.                  &
         & ALL(atm_phy_nwp_config(1:n_dom)%inwp_surface >= 1)) THEN
-        CALL interpol_ndvi_time (p_patch(1:), ext_data, datetime)
+        DO jg=1, n_dom
+          CALL interpol_monthly_mean(p_patch(jg), datetime,          &! in
+            &                        ext_data(jg)%atm_td%ndvi_mrat,  &! in
+            &                        ext_data(jg)%atm%ndviratio      )! out
+        ENDDO
+
         ! after updating ndvi_mrat, probably plcov_t and tai_t have to be updated also.
         ! So it is better not to update ndvi_mrat till this is clarified 
         CALL update_ndvi(p_patch(1:), ext_data)

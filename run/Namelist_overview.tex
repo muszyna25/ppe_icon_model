@@ -4105,6 +4105,19 @@ Choice of zenith angle formula for the radiative transfer computation.\par
 4: Zenith angle and irradiance changing with season, latitude, and time of day (iforcing=inwp only)
 &
 \tabularnewline
+
+\hline
+albedo\_type&
+I&
+1&
+&
+Type of surface albedo\\
+1: based on soil type specific tabulated values (dry soil)\\
+2: MODIS albedo (to be implemented)
+&
+iforcing=inwp
+\tabularnewline
+
 \hline 
 irad\_h2o\par 
 irad\_co2\par 
@@ -5810,8 +5823,15 @@ model expects {\bf height based} coordinates. For further information see <icon 
 
 \begin{changeitem}{gribout\_nml: generatingCenter, generatingSubcenter}{ 2013-04-26 }{ 12051 }
   \begin{itemize}
-   \item Introduced new namelist variables \textbf{generatingCenter} from \textbf{generatingSubcenter}.
+   \item Introduced new namelist variables \textbf{generatingCenter} and \textbf{generatingSubcenter}.
    \item If not set explicitly, center and subcenter information is copied from the input grid file
+  \end{itemize}
+\end{changeitem}
+
+\begin{changeitem}{radiation\_nml: albedo\_type}{ 2013-05-03 }{ 12118 }
+  \begin{itemize}
+   \item Introduced new namelist variable \textbf{albedo\_type}
+   \item If set to $2$, the surface albedo will be based on the MODIS data set.
   \end{itemize}
 \end{changeitem}
 

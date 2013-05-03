@@ -73,7 +73,7 @@ MODULE mo_ext_data_state
     &                              generate_td_filename
   USE mo_time_config,        ONLY: time_config
   USE mo_dynamics_config,    ONLY: iequations
-  USE mo_radiation_config,   ONLY: irad_o3, irad_aero
+  USE mo_radiation_config,   ONLY: irad_o3, irad_aero, albedo_type
   USE mo_echam_phy_config,   ONLY: echam_phy_config
   USE mo_smooth_topo,        ONLY: smooth_topography
   USE mo_model_domain,       ONLY: t_patch
@@ -147,7 +147,7 @@ MODULE mo_ext_data_state
   PUBLIC :: init_ext_data_oce
   PUBLIC :: init_index_lists
   PUBLIC :: destruct_ext_data
-  PUBLIC :: interpol_ndvi_time
+  PUBLIC :: interpol_monthly_mean
   PUBLIC :: diagnose_ext_aggr
 
   TYPE(t_external_data),TARGET, ALLOCATABLE :: &
@@ -299,13 +299,41 @@ CONTAINS
       !
       SELECT CASE ( iforcing )
       CASE ( inwp )
-       IF (.NOT. is_restart_run()) THEN
-        CALL interpol_ndvi_time (p_patch, ext_data, time_config%ini_datetime)
-       ELSE
-        datetime_ndvi=time_config%cur_datetime
-        datetime_ndvi%hour=0
-        CALL interpol_ndvi_time (p_patch, ext_data, datetime_ndvi)
-       END IF
+        IF (.NOT. is_restart_run()) THEN
+
+          DO jg = 1, n_dom
+            CALL interpol_monthly_mean(p_patch(jg), time_config%ini_datetime, &! in
+              &                        ext_data(jg)%atm_td%ndvi_mrat,         &! in
+              &                        ext_data(jg)%atm%ndviratio             )! out
+          ENDDO
+
+        ELSE
+          datetime_ndvi=time_config%cur_datetime
+          datetime_ndvi%hour=0
+
+         DO jg = 1, n_dom
+           CALL interpol_monthly_mean(p_patch(jg), datetime_ndvi,            &! in
+             &                        ext_data(jg)%atm_td%ndvi_mrat,         &! in
+             &                        ext_data(jg)%atm%ndviratio             )! out
+         ENDDO
+
+        END IF  ! is_restart_run
+
+        !!!!!DR note that this part must be moved inside aboves IF-Statement, 
+        !!!!! if we decide to have a daily update of the albedo
+        !
+!!$        IF ( albedo_type == 2)  ! interpolate MODIS albedo in time
+!!$          DO jg = 1, n_dom
+!!$            CALL interpol_monthly_mean(p_patch(jg), time_config%ini_datetime, &! in
+!!$              &                        ext_data(jg)%atm_td%alb_vis_dif,       &! in
+!!$              &                        ext_data(jg)%atm%alb_vis_dif           )! out
+!!$
+!!$            CALL interpol_monthly_mean(p_patch(jg), time_config%ini_datetime, &! in
+!!$              &                        ext_data(jg)%atm_td%alb_nir_dif,       &! in
+!!$              &                        ext_data(jg)%atm%alb_nir_dif           )! out
+!!$          ENDDO
+!!$        ENDIF  ! albedo_type
+
       END SELECT
 
     CASE DEFAULT
@@ -660,7 +688,7 @@ CONTAINS
       &           grib2_desc, ldims=shape2d_c, loutput=.FALSE. )
 
 
-    ! maybe the next three (ice, fr_land_smt, fr_ice_smt)
+    ! maybe the next two (ice, fr_land_smt)
     ! should be moved into corresponding if block
 
     ! sea Ice fraction
@@ -693,17 +721,6 @@ CONTAINS
     grib2_desc = t_grib2_var( 2, 0, 192, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_ext_atm_list, 'fr_glac_smt', p_ext_atm%fr_glac_smt, &
       &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,          &
-      &           grib2_desc, ldims=shape2d_c, loutput=.FALSE. )
-
-
-    ! sea Ice fraction (smoothed)
-    !
-    ! fr_ice_smt  p_ext_atm%fr_ice_smt(nproma,nblks_c)
-    cf_desc    = t_cf_var('Sea_ice_fraction (smoothed)', '-', &
-      &                   'Sea ice fraction (smoothed)', DATATYPE_FLT32)
-    grib2_desc = t_grib2_var( 10, 2, 0, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( p_ext_atm_list, 'fr_ice_smt', p_ext_atm%fr_ice_smt, &
-      &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,        &
       &           grib2_desc, ldims=shape2d_c, loutput=.FALSE. )
 
 
@@ -1465,28 +1482,59 @@ CONTAINS
       &           ldims=shape3d_c, loutput=.FALSE.,                         &
       &           isteptype=TSTEP_AVG )
 
+
+
+    !--------------------------------
+    ! If MODIS albedo is used
+    !--------------------------------
+    IF ( albedo_type == 2) THEN
+
+      ! (monthly)  UV visible albedo for diffuse radiation
+      !
+      ! alb_vis_dif    p_ext_atm%alb_vis_dif(nproma,nblks_c,ntimes)
+      cf_desc    = t_cf_var('UV_visible_albedo_diffuse', '-', &
+        &                   'UV visible albedo for diffuse radiation', DATATYPE_FLT32)
+      grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( p_ext_atm_td_list, 'alb_vis_dif', p_ext_atm_td%alb_vis_dif, &
+        &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
+        &           ldims=shape3d_c, loutput=.FALSE.,                           &
+        &           isteptype=TSTEP_AVG )
+
+      ! (monthly)  Near IR albedo for diffuse radiation
+      !
+      ! alb_nir_dif    p_ext_atm%alb_nir_dif(nproma,nblks_c,ntimes)
+      cf_desc    = t_cf_var('Near_IR_albedo_diffuse', '-', &
+        &                   'Near IR albedo for diffuse radiation', DATATYPE_FLT32)
+      grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( p_ext_atm_td_list, 'alb_nir_dif', p_ext_atm_td%alb_nir_dif, &
+        &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
+        &           ldims=shape3d_c, loutput=.FALSE.,                           &
+        &           isteptype=TSTEP_AVG )
+
+    ENDIF  ! albedo_type
+
+
     !--------------------------------
     !SST and sea ice fraction
     !--------------------------------
     IF ( sstice_mode > 1 ) THEN
-     ! sst_m     p_ext_atm_td%sst_m(nproma,nblks_c,ntimes)
-     cf_desc    = t_cf_var('sst_m', 'K', &
-       &                   '(monthly) sea surface temperature '  &
-       &                   , DATATYPE_FLT32)
-     grib2_desc = t_grib2_var(192 ,128 , 34, ibits, GRID_REFERENCE, GRID_CELL)
-     CALL add_var( p_ext_atm_td_list, 'sst_m', p_ext_atm_td%sst_m, &
-       &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,&
-       &           ldims=shape3d_sstice, loutput=.FALSE. )
+      ! sst_m     p_ext_atm_td%sst_m(nproma,nblks_c,ntimes)
+      cf_desc    = t_cf_var('sst_m', 'K', &
+        &                   '(monthly) sea surface temperature '  &
+        &                   , DATATYPE_FLT32)
+      grib2_desc = t_grib2_var(192 ,128 , 34, ibits, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( p_ext_atm_td_list, 'sst_m', p_ext_atm_td%sst_m, &
+        &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,&
+        &           ldims=shape3d_sstice, loutput=.FALSE. )
 
-     ! fr_ice_m     p_ext_atm_td%fr_ice_m(nproma,nblks_c,ntimes)
-     cf_desc    = t_cf_var('fr_ice_m', '(0-1)', &
-       &                   '(monthly) sea ice fraction '  &
-       &                   , DATATYPE_FLT32)
-     grib2_desc = t_grib2_var( 192,128 ,31 , ibits, GRID_REFERENCE, GRID_CELL)
-     CALL add_var( p_ext_atm_td_list, 'fr_ice_m', p_ext_atm_td%fr_ice_m, &
-       &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,&
-       &           ldims=shape3d_sstice, loutput=.FALSE. )
-
+      ! fr_ice_m     p_ext_atm_td%fr_ice_m(nproma,nblks_c,ntimes)
+      cf_desc    = t_cf_var('fr_ice_m', '(0-1)', &
+        &                   '(monthly) sea ice fraction '  &
+        &                   , DATATYPE_FLT32)
+      grib2_desc = t_grib2_var( 192,128 ,31 , ibits, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( p_ext_atm_td_list, 'fr_ice_m', p_ext_atm_td%fr_ice_m, &
+        &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,&
+        &           ldims=shape3d_sstice, loutput=.FALSE. )
 
     ENDIF ! sstice_mode
 
@@ -2346,6 +2394,23 @@ CONTAINS
               &                    ext_data(jg)%atm_td%ndvi_mrat)
            
 
+            !--------------------------------
+            ! If MODIS albedo is used
+            !--------------------------------
+            IF ( albedo_type == 2) THEN
+              CALL read_netcdf_data (ncid, nmonths_ext(jg), 'ALUVD',   &
+                &                    p_patch(jg)%n_patch_cells_g,      &
+                &                    p_patch(jg)%n_patch_cells,        &
+                &                    p_patch(jg)%cells%glb_index,      & 
+                &                    ext_data(jg)%atm_td%alb_vis_dif)
+
+              CALL read_netcdf_data (ncid, nmonths_ext(jg), 'ALNID',   &
+                &                    p_patch(jg)%n_patch_cells_g,      &
+                &                    p_patch(jg)%n_patch_cells,        &
+                &                    p_patch(jg)%cells%glb_index,      & 
+                &                    ext_data(jg)%atm_td%alb_nir_dif)
+            ENDIF
+
           CASE ( iecham, ildf_echam )
 
             IF ( l_emiss ) THEN
@@ -2402,7 +2467,6 @@ CONTAINS
             ! because the start index is missing in RRTM
             DO jc = 1,i_endidx
               ext_data(jg)%atm%fr_land_smt(jc,jb) = ext_data(jg)%atm%fr_land(jc,jb)
-              ext_data(jg)%atm%fr_ice_smt(jc,jb)  = ext_data(jg)%atm%fr_ice(jc,jb)
             ENDDO
 
             ! glacier fraction (still missing): QUICK FIX
@@ -3481,71 +3545,79 @@ CONTAINS
   END SUBROUTINE diagnose_ext_aggr
 
 
+
   !-------------------------------------------------------------------------
   !>
-  !! Get ndviratio for starting time of model integration
+  !! Get interpolated field from monthly mean climatology
   !!
-  !! Get ndviratio for starting time of model integration.
-  !! Linear interpolation in time. 
+  !! Get interpolated field from monthly mean climatology. A linear interpolation 
+  !! in time between successive months is performed, assuming that the monthly field 
+  !! applies to the 15th of the month. 
   !!
   !! @par Revision History
   !! Initial revision by Juergen Helmert, DWD (2012-04-17)
+  !! Modification by Daniel Reinert, DWD (2013-05-03)
+  !! Generalization to arbitrary monthly mean climatologies
   !!
-  SUBROUTINE interpol_ndvi_time(p_patch, ext_data, datetime)
+  SUBROUTINE interpol_monthly_mean(p_patch, datetime, monthly_means, out_field)
 
-    TYPE(t_patch),         INTENT(IN)    :: p_patch(:)
-    TYPE(t_external_data), INTENT(INOUT) :: ext_data(:)
-    TYPE(t_datetime),      INTENT(IN)    :: datetime
+    TYPE(t_patch),     INTENT(IN)  :: p_patch
+    TYPE(t_datetime),  INTENT(IN)  :: datetime              ! actual date
+    REAL(wp),          INTENT(IN)  :: monthly_means(:,:,:)  ! monthly mean climatology
+    REAL(wp),          INTENT(OUT) :: out_field(:,:)        ! interpolated output field
 
 
-    INTEGER :: jg, mo1, mo2
+    INTEGER :: jg                   !< patch ID
     INTEGER :: jc, jb               !< loop index
     INTEGER :: i_startblk, i_endblk, i_nchdom
     INTEGER :: rl_start, rl_end
     INTEGER :: i_startidx, i_endidx
+    INTEGER :: mo1, mo2             !< nearest months 
     REAL(wp):: zw1, zw2
 
     CHARACTER(len=max_char_length), PARAMETER :: &
-      routine = 'mo_ext_data: interpol_ndvi_time'
+      routine = 'mo_ext_data: interpol_monthly_mean'
 
     !---------------------------------------------------------------
 
-    ! Find the 2 nearest months m1, m2 and the weights pw1, pw2 
+    ! Find the 2 nearest months mo1, mo2 and the weights zw1, zw2 
     ! to the actual date and time
     CALL month2hour( datetime, mo1, mo2, zw2 )
 
     zw1 = 1._wp - zw2
 
-    ! Get interpolated ndviratio
-    DO jg = 1, n_dom
 
-      i_nchdom  = MAX(1,p_patch(jg)%n_childdom)
+    ! get patch ID
+    jg = p_patch%id
 
-      ! exclude the boundary interpolation zone of nested domains
-      rl_start = grf_bdywidth_c+1
-      rl_end   = min_rlcell_int
 
-      i_startblk = p_patch(jg)%cells%start_blk(rl_start,1)
-      i_endblk   = p_patch(jg)%cells%end_blk(rl_end,i_nchdom)
+    ! Get interpolated field
+    i_nchdom  = MAX(1,p_patch%n_childdom)
+
+    ! exclude the boundary interpolation zone of nested domains
+    rl_start = grf_bdywidth_c+1
+    rl_end   = min_rlcell_int
+
+    i_startblk = p_patch%cells%start_blk(rl_start,1)
+    i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx)
-      DO jb=i_startblk, i_endblk
+    DO jb=i_startblk, i_endblk
 
-        CALL get_indices_c(p_patch(jg), jb, i_startblk, i_endblk, &
-           & i_startidx, i_endidx, rl_start, rl_end)
+      CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+         & i_startidx, i_endidx, rl_start, rl_end)
 
-        DO jc = i_startidx, i_endidx
-          ext_data(jg)%atm%ndviratio(jc,jb) = zw1*ext_data(jg)%atm_td%ndvi_mrat(jc,jb,mo1) & 
-            &                               + zw2*ext_data(jg)%atm_td%ndvi_mrat(jc,jb,mo2)
-        ENDDO
+      DO jc = i_startidx, i_endidx
+        out_field(jc,jb) = zw1*monthly_means(jc,jb,mo1) & 
+          &              + zw2*monthly_means(jc,jb,mo2)
       ENDDO
+    ENDDO
 !$OMP END DO
 !$OMP END PARALLEL
 
-    END DO ! jg
 
-  END SUBROUTINE interpol_ndvi_time
+  END SUBROUTINE interpol_monthly_mean
 
 
 END MODULE mo_ext_data_state
