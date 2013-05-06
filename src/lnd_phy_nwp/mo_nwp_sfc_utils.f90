@@ -2125,6 +2125,7 @@ CONTAINS
              ! before it was water, set now to ice class
              ext_data(jg)%atm%lc_class_t(jc,jb,isub_seaice)= lc_snow_ice
              p_lnd_state(jg)%prog_lnd(n_now)%t_g_t(jc,jb,isub_seaice)= tf_salt
+             p_lnd_state(jg)%prog_lnd(n_now)%t_s_t(jc,jb,isub_seaice)= tf_salt
              p_lnd_state(jg)%prog_wtr(n_now)%t_ice(jc,jb) = tf_salt
              p_lnd_state(jg)%prog_wtr(n_now)%h_ice(jc,jb) = hice_ini
 
@@ -2146,6 +2147,7 @@ CONTAINS
 
             ext_data(jg)%atm%lc_class_t(jc,jb,isub_water)= lc_water
             p_lnd_state(jg)%prog_lnd(n_now)%t_g_t(jc,jb,isub_water)= p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb)
+            p_lnd_state(jg)%prog_lnd(n_now)%t_s_t(jc,jb,isub_water)= p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb)
 
             p_lnd_state(jg)%diag_lnd%qv_s_t(jc,jb,isub_water)    =                    &
              &   spec_humi( sat_pres_water(p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) ),&
@@ -2199,6 +2201,7 @@ CONTAINS
       !CALL message('', TRIM(message_text))
              ext_data(jg)%atm%lc_class_t(jc,jb,isub_seaice)= lc_snow_ice
              p_lnd_state(jg)%prog_lnd(n_now)%t_g_t(jc,jb,isub_seaice)= tf_salt
+             p_lnd_state(jg)%prog_lnd(n_now)%t_s_t(jc,jb,isub_seaice)= tf_salt
 
              p_lnd_state(jg)%diag_lnd%qv_s_t(jc,jb,isub_seaice)    =                    &
               &                                     spec_humi( sat_pres_ice(tf_salt ),  &
@@ -2238,6 +2241,7 @@ CONTAINS
  
             ext_data(jg)%atm%lc_class_t(jc,jb,isub_water)= lc_water
             p_lnd_state(jg)%prog_lnd(n_now)%t_g_t(jc,jb,isub_water)= p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb)
+            p_lnd_state(jg)%prog_lnd(n_now)%t_s_t(jc,jb,isub_water)= p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb)
             p_lnd_state(jg)%diag_lnd%qv_s_t(jc,jb,isub_water)    =                    &
              &   spec_humi( sat_pres_water(p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) ),&
              &                                  p_nh_state(jg)%diag%pres_sfc(jc,jb) ) 
@@ -2342,6 +2346,8 @@ CONTAINS
           IF (p_lnd_state(jg)%diag_lnd%fr_seaice(jc,jb) < 0.5_wp ) THEN
            p_lnd_state(jg)%prog_lnd(n_now)%t_g_t(jc,jb,isub_water)=   &
                                 p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb)
+           p_lnd_state(jg)%prog_lnd(n_now)%t_s_t(jc,jb,isub_water)=   &
+                                p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb)
 
            p_lnd_state(jg)%diag_lnd%qv_s_t(jc,jb,isub_water)    =                    &
             &   spec_humi( sat_pres_water(p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) ),&
@@ -2360,7 +2366,7 @@ CONTAINS
 
    END DO !jg
   END SUBROUTINE update_sstice
- 
+
   !-------------------------------------------------------------------------
   !! @par Revision History
   !! Initial release by Pilar Ripodas (2013-02)
