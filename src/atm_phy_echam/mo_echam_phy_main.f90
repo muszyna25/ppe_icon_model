@@ -1257,10 +1257,8 @@ CONTAINS
         &          tend% x_dtr(:,:,jb),       &! inout  xtec
         &          zxtecl,  zxteci,           &! inout
         &          zxtecnl, zxtecni,          &! inout
-        &          field% rsfc(:,jb),         &! inout
-        &          field% ssfc(:,jb),         &! inout
-        &          field% aprc(:,jb),         &! inout
-        &          field% aprs(:,jb),         &! inout
+        &          field% rsfc(:,jb),         &! out
+        &          field% ssfc(:,jb),         &! out
         &          field% topmax(:,jb),       &! inout
         &          itype,                     &! inout
         &          ilab,                      &! out
@@ -1331,10 +1329,8 @@ CONTAINS
           &        field%  qvi  (:,  jb),     &! inout
           &        field% xlvi  (:,  jb),     &! inout
           &        field% xivi  (:,  jb),     &! inout
-          &        field% aprl  (:,  jb),     &! inout
-          &        field% aprs  (:,  jb),     &! inout
-          &        field% rsfl  (:,  jb),     &! inout
-          &        field% ssfl  (:,  jb),     &! inout
+          &        field% rsfl  (:,  jb),     &! out
+          &        field% ssfl  (:,  jb),     &! out
           &        field% relhum(:,:,jb),     &! out
           &        tend%temp_cld(:,:,jb),     &! out
           &        tend%   q_cld(:,:,jb,iqv), &! out
@@ -1360,11 +1356,15 @@ CONTAINS
 
     ! KF accumulate fields for diagnostics
 
+    !  total precipitation flux
+       field% totprec (jcs:jce,jb)     =  field% rsfl (jcs:jce,jb) & ! rain large scale
+            &                            +field% ssfl (jcs:jce,jb) & ! snow large scale
+            &                            +field% rsfc (jcs:jce,jb) & ! rain convection 
+            &                            +field% ssfc (jcs:jce,jb)   ! snow convection
+
     ! accumulated total precipitation flux => average when output
-       field% totprec_avg (jcs:jce,  jb) =  field% totprec_avg (jcs:jce,jb)                   &
-         &                               + (field% rsfl (jcs:jce,jb)+field% ssfl (jcs:jce,jb) &
-         &                               +  field% rsfc (jcs:jce,jb)+field% ssfc (jcs:jce,jb)) &
-         &                               * pdtime
+       field% totprec_avg (jcs:jce,jb) =  field% totprec_avg (jcs:jce,jb)          &
+            &                            +field% totprec     (jcs:jce,jb) * pdtime
 
 
     ! KF accumulated net TOA and surface radiation fluxes

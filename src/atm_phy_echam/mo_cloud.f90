@@ -114,7 +114,6 @@ SUBROUTINE cloud (         kproma,   kbdim,    ktdia            &
 ! - INPUT/OUTPUT 1D .
                          , paclcov,  pqvi                       &
                          , pxlvi,    pxivi                      &
-                         , paprl,    paprs                      &
 ! - OUTPUT 1D .
                          , prsfl,    pssfl                      &
 ! - OUTPUT 2D .
@@ -195,8 +194,6 @@ SUBROUTINE cloud (         kproma,   kbdim,    ktdia            &
 !  pqvi     : vertically integrated spec. humidity, accumulated
 !  pxlvi    : vertically integrated cloud liquid water, accumulated
 !  pxivi    : vertically integrated cloud ice, accumulated
-!  paprl    : total stratiform precipitation (rain+snow), accumulated
-!  paprs    : Snowfall, accumulated
 !
 !     Output arguments.
 !     ------ ----------
@@ -265,14 +262,13 @@ SUBROUTINE cloud (         kproma,   kbdim,    ktdia            &
   REAL(dp),INTENT(INOUT) :: paclc(kbdim,klev)    ,paclcac(kbdim,klev)
   REAL(dp),INTENT(IN)    :: pacdnc(kbdim,klev)
   REAL(dp),INTENT(OUT)   :: prelhum(kbdim,klev)
-  REAL(dp),INTENT(INOUT) :: paclcov(kbdim)       ,paprl(kbdim)         &
-                          , pqvi(kbdim)          ,paprs(kbdim)
+  REAL(dp),INTENT(INOUT) :: paclcov(kbdim)       , pqvi(kbdim)
 
   REAL(dp),INTENT(INOUT) :: ptte(kbdim,klev)     ,pqte(kbdim,klev)
   REAL(dp),INTENT(INOUT) :: pxlte(kbdim,klev)    ,pxite(kbdim,klev)
   REAL(dp),INTENT(OUT)   :: ptte_prc(kbdim,klev) ,pqte_prc(kbdim,klev)
   REAL(dp),INTENT(OUT)   :: pxlte_prc(kbdim,klev),pxite_prc(kbdim,klev)
-  REAL(dp),INTENT(INOUT) :: pssfl(kbdim)         ,prsfl(kbdim)
+  REAL(dp),INTENT(OUT)   :: pssfl(kbdim)         ,prsfl(kbdim)
 
 !---Included for in-cloud scavenging (Philip Stier, 28/03/01):----------
   INTEGER, INTENT(IN)    :: ktrac
@@ -2108,13 +2104,11 @@ SUBROUTINE cloud (         kproma,   kbdim,    ktdia            &
 !       10.    Diagnostics
 !     -------------------------------------------------------------------------
 !
-!       10.1   Accumulated precipitation at the surface
+!       10.1   Precipitation at the surface
 !
   DO 911 jl    = 1,kproma
      prsfl(jl) = zrfl(jl)
      pssfl(jl) = zsfl(jl)
-     paprl(jl) = paprl(jl)+zdtime*(prsfl(jl)+pssfl(jl))
-     paprs(jl) = paprs(jl)+zdtime*pssfl(jl)
 911 END DO
 !!skipped in ICON !++mgs
 !!skipped in ICON   IF (lanysubmodel) CALL set_vphysc_var(kproma, -1, krow, prflstrat=prsfl, psflstrat=pssfl)

@@ -72,7 +72,13 @@ MODULE mo_echam_phy_memory
     &                               delete_var_list
   USE mo_cf_convention,       ONLY: t_cf_var
   USE mo_grib2,               ONLY: t_grib2_var
-  USE mo_cdi_constants 
+  USE mo_cdi_constants,       ONLY: GRID_REFERENCE,                    &
+    &                               GRID_UNSTRUCTURED_CELL, GRID_CELL, &
+    &                               ZA_HYBRID, ZA_HYBRID_HALF,         &
+    &                               ZA_SURFACE, ZA_GENERIC_ICE,        &
+    &                               DATATYPE_PACK16, DATATYPE_PACK24,  &
+    &                               DATATYPE_FLT32, FILETYPE_NC2,      &
+    &                               TSTEP_INSTANT, TSTEP_AVG
   USE mo_sea_ice_nml,         ONLY: kice
 
 
@@ -203,13 +209,11 @@ MODULE mo_echam_phy_memory
       & xvar      (:,:,:),  &!< variance of total water amount qv+qi+ql [kg/kg] (memory_g3b)
       & xskew     (:,:,:),  &!< skewness of total water amount qv+qi+ql [kg/kg]
       & relhum    (:,:,:),  &!< relative humidity (relhum of memory_g3b in ECHAM)
-      & aprl      (:,  :),  &!< (time accum) sfc precip amount, rain+snow, large-scale     [kg m-2]
-      & aprc      (:,  :),  &!< (time accum) sfc precip amount, rain+snow, convective      [kg m-2]
-      & aprs      (:,  :),  &!< (time accum) sfc snowfall amount, large scale + convective [kg m-2]
       & rsfl      (:,  :),  &!< sfc rain flux, large scale [kg m-2 s-1]
       & rsfc      (:,  :),  &!< sfc rain flux, convective  [kg m-2 s-1]
       & ssfl      (:,  :),  &!< sfc snow flux, large scale [kg m-2 s-1]
       & ssfc      (:,  :),  &!< sfc snow flux, convective  [kg m-2 s-1]
+      & totprec   (:,  :),  &!< total precipitation flux,[kg m-2 s-1]
       & totprec_avg(:, :),  &!< (time ave)  total precipitation flux,[kg m-2 s-1]
       & qvi       (:,  :),  &!< (time accum) vertically integrated water vapor [kg/m**2s]
       & xlvi      (:,  :),  &!< (time accum) vertically integrated cloud water [kg/m**2s]
@@ -1139,30 +1143,6 @@ CONTAINS
     CALL add_var( field_list, prefix//'r', field%relhum,                        &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d )
 
-    ! &       field% aprl   (nproma,       nblks), &
-    cf_desc    = t_cf_var('APRL', 'kg m-2', &
-               &          'large-scale precipitation amount accumulated over output interval', &
-               &          DATATYPE_FLT32)
-    grib2_desc = t_grib2_var(0, 1, 9, iextbits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( field_list, prefix//'ncpcp', field%aprl,                      &
-                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
-
-    ! &       field% aprc   (nproma,       nblks), &
-    cf_desc    = t_cf_var('APRC', 'kg m-2', &
-               & 'convective precipitation amount accumulated over output interval', &
-               & DATATYPE_FLT32)
-    grib2_desc = t_grib2_var(0, 1, 37, iextbits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( field_list, prefix//'cprat', field%aprc,                      &
-                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
-
-    ! &       field% aprs   (nproma,       nblks), &
-    cf_desc    = t_cf_var('APRS', 'kg m-2', &
-               & 'snowfall (large-scale + convective) amount accumulated over output interval', &
-               & DATATYPE_FLT32)
-    grib2_desc = t_grib2_var(0, 1, 66, iextbits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( field_list, prefix//'sprate', field%aprs,                     &
-                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
-
     ! &       field% rsfl   (nproma,       nblks), &
     cf_desc    = t_cf_var('RSFL', 'kg m-2 s-1',    &
                & 'instantaneous large-scale precipitation flux (water)', DATATYPE_FLT32)
@@ -1191,12 +1171,27 @@ CONTAINS
     CALL add_var( field_list, prefix//'ssfc', field%ssfc,                       &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
 
-    ! &       field% totprec_avg   (nproma,       nblks), &
-    cf_desc    = t_cf_var('TOTPREC_AVG', 'kg m-2 s-1',    &
-               & 'averaged over output total precipitation flux', DATATYPE_FLT32)
+    cf_desc    = t_cf_var('TOTPREC', 'kg m-2 s-1',                  &
+         &                'instantaneous total precipitation flux', &
+         &                DATATYPE_FLT32)
     grib2_desc = t_grib2_var(0, 1, 52, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( field_list, prefix//'totprec_avg', field%totprec_avg,                       &
-                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
+    CALL add_var( field_list, prefix//'totprec', field%totprec,  &
+         &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE,            &
+         &        cf_desc, grib2_desc,                           &
+         &        ldims=shape2d,                                 &
+         &        lrestart = .FALSE.,                            &
+         &        isteptype=TSTEP_INSTANT )
+
+    cf_desc    = t_cf_var('TOTPREC_AVG', 'kg m-2 s-1',              &
+         &                'time averaged total precipitation flux', &
+         &       DATATYPE_FLT32)
+    grib2_desc = t_grib2_var(0, 1, 52, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( field_list, prefix//'totprec_avg', field%totprec_avg, &
+         &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                   &
+         &        cf_desc, grib2_desc,                                  &
+         &        ldims=shape2d,                                        &
+         &        lrestart = .TRUE.,                                    &
+         &        isteptype=TSTEP_AVG )
 
     ! &       field%  qvi   (nproma,       nblks), &
     cf_desc    = t_cf_var('total_vapour', 'kg m-2', 'vertically integrated water vapour', &

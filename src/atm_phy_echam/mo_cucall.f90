@@ -95,8 +95,7 @@ CONTAINS
                      pqte,     pxtte,                                &! inout
                      pqtec,    pxtec,                                &! inout
                      pxtecl,   pxteci,   pxtecnl,  pxtecni,          &! inout
-                     prsfc,    pssfc,                                &! inout
-                     paprc,    paprs,                                &! inout
+                     prsfc,    pssfc,                                &! out
                      ptopmax,                                        &! inout
                      ktype,                                          &! inout
                      ilab,                                           &! out
@@ -135,8 +134,7 @@ CONTAINS
     REAL(dp),INTENT(INOUT) :: pxtecl (kbdim,klev),  pxteci (kbdim,klev)
     REAL(dp),INTENT(INOUT) :: pxtecnl(kbdim,klev),  pxtecni(kbdim,klev)
 
-    REAL(dp),INTENT(INOUT) :: prsfc(kbdim),         pssfc(kbdim)
-    REAL(dp),INTENT(INOUT) :: paprc(kbdim),         paprs(kbdim)
+    REAL(dp),INTENT(OUT)   :: prsfc(kbdim),         pssfc(kbdim)
     REAL(dp),INTENT(INOUT) :: ptopmax(kbdim)
     INTEGER, INTENT(INOUT) :: ktype(kbdim)
 
@@ -242,7 +240,7 @@ CONTAINS
                   pverv,    zqsat,    pqhfla,                          &
                   paphp1,   pgeo,                                      &
                   ptte,     pqte,     pvom,     pvol,                  &
-                  prsfc,    pssfc,    paprc,    paprs,  pxtec,         &
+                  prsfc,    pssfc,    pxtec,                           &
                   pqtec,    zqude,                                     &
                   locum,    ktype,    icbot,    ictop,                 &
                   ztu,      zqu,      zlu,      zlude,                 &
@@ -269,7 +267,7 @@ CONTAINS
                   pverv,    zqsat,    pqhfla,                          &
                   paphp1,   pgeo,                                      &
                   ptte,     pqte,     pvom,     pvol,                  &
-                  prsfc,    pssfc,    paprc,    paprs,  pxtec,         &
+                  prsfc,    pssfc,    pxtec,                           &
                   pqtec,    zqude,                                     &
                   locum,    ktype,    icbot,    ictop,                 &
                   ztu,      zqu,      zlu,      zlude,                 &
@@ -294,7 +292,7 @@ CONTAINS
                   pverv,    zqsat,    pqhfla,                          &
                   paphp1,   pgeo,                                      &
                   ptte,     pqte,     pvom,     pvol,                  &
-                  prsfc,    pssfc,    paprc,    paprs,  pxtec,         &
+                  prsfc,    pssfc,    pxtec,                           &
                   pqtec,    zqude,                                     &
                   locum,    ktype,    icbot,    ictop,                 &
                   ztu,      zqu,      zlu,      zlude,                 &

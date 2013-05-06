@@ -807,9 +807,6 @@ CONTAINS
       field% qvi   (:,  :) = 0._wp
       field% xlvi  (:,  :) = 0._wp
       field% xivi  (:,  :) = 0._wp
-      field% aprl  (:,  :) = 0._wp
-      field% aprc  (:,  :) = 0._wp
-      field% aprs  (:,  :) = 0._wp
       field% rsfl  (:,  :) = 0._wp
       field% ssfl  (:,  :) = 0._wp
       field% rsfc  (:,  :) = 0._wp
@@ -1039,10 +1036,6 @@ CONTAINS
       field% qvi   (:,  :) = 0._wp
       field% xlvi  (:,  :) = 0._wp
       field% xivi  (:,  :) = 0._wp
-
-      field% aprl  (:,  :) = 0._wp
-      field% aprc  (:,  :) = 0._wp
-      field% aprs  (:,  :) = 0._wp
 
       field%  evap_avg(:,:) = 0._wp
       field% lhflx_avg(:,:) = 0._wp

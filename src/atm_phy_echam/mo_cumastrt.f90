@@ -85,7 +85,7 @@ CONTAINS
                        pverv,    pqsen,    pqhfla,                          &
                        paphp1,   pgeo,                                      &
                        ptte,     pqte,     pvom,     pvol,                  &
-                       prsfc,    pssfc,    paprc,    paprs,    pxtec,       &
+                       prsfc,    pssfc,    pxtec,                           &
                        pqtec,    pqude,                                     &
                        ldcum,    ktype,    kcbot,    kctop,                 &
                        ptu,      pqu,      plu,      plude,                 &
@@ -199,12 +199,12 @@ REAL(dp):: pten(kbdim,klev),        pqen(kbdim,klev),                  &
            pverv(kbdim,klev)
 REAL(dp),INTENT(OUT) :: pvom_cnv(kbdim,klev),pvol_cnv(kbdim,klev)
 REAL(dp),INTENT(OUT) :: ptte_cnv(kbdim,klev),pqte_cnv(kbdim,klev)
-REAL(dp),INTENT(OUT) ::pxtte_cnv(kbdim,klev,ktrac)
+REAL(dp),INTENT(OUT) :: pxtte_cnv(kbdim,klev,ktrac)
+REAL(dp),INTENT(OUT) :: prsfc(kbdim), pssfc(kbdim)
+
 REAL(dp):: ptu(kbdim,klev),         pqu(kbdim,klev),                   &
            plu(kbdim,klev),         plude(kbdim,klev),                 &
            pmfu(kbdim,klev),        pmfd(kbdim,klev),                  &
-           paprc(kbdim),            paprs(kbdim),                      &
-           prsfc(kbdim),            pssfc(kbdim),                      &
            prain(kbdim),            pqhfla(kbdim)
 REAL(dp):: pthvsig(kbdim)
 INTEGER :: kcbot(kbdim),            kctop(kbdim),                      &
@@ -622,7 +622,7 @@ INTRINSIC MIN, MAX
               zmful,    zdmfup,   zdmfdp,   plude,                     &
               zdpmel,   zrfl,     zsfl,                                &
               zcpen,    pqtec,    pqude,                               &
-              prsfc,    pssfc,    paprc,    paprs,                     &
+              prsfc,    pssfc,                                         &
 !--- Included for prognostic CDNC/IC scheme ----------------------------
               pludel,   pludei,   pxtecl,   pxteci,                    &
               zmfull,   zmfuli,                                        &

@@ -52,7 +52,7 @@
   cl                 prm_aclc
   clt                prm_aclcov
 #
-  pr                 prm_totprec_avg
+  pr                 prm_totprec
   prw                prm_qvi
   clivi              prm_xivi
 #
@@ -82,6 +82,8 @@
   prcr               prm_rsfc
   prls               prm_ssfl
   prcs               prm_ssfc
+#
+  apr                prm_totprec_avg
 #
   cllvi              prm_xlvi
 #

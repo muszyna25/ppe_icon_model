@@ -1123,27 +1123,6 @@ CONTAINS
           &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
           &           k_jg)
         CASE (iecham,ildf_echam)
-          !--- aprl ---
-          CALL addVar(TimeVar('APRL',&
-          &           'large-scale precip amount (rain + snow) '//&
-          &           'accumulated over output interval',&
-          &           'kg m-2', 142, 128,&
-          &           vlistID(k_jg),gridCellID(k_jg),zaxisID_surface(k_jg)),&
-          &           k_jg)
-          !--- aprc ---
-          CALL addVar(TimeVar('APRC',&
-          &           'convective precip amount (rain + snow) '//&
-          &           'accumulated over output interval',&
-          &           'kg m-2', 143, 128,&
-          &           vlistID(k_jg),gridCellID(k_jg),zaxisID_surface(k_jg)),&
-          &           k_jg)
-          !--- aprs ---
-          CALL addVar(TimeVar('APRS',&
-          &           'snowfall amount (large scale + convective) '//&
-          &           'accumulated over output interval',&
-          &           'kg m-2', 144, 128,&
-          &           vlistID(k_jg),gridCellID(k_jg),zaxisID_surface(k_jg)),&
-          &           k_jg)
           !--- rsfl ---
           CALL addVar(TimeVar('RSFL',&
           &                   'surface rain flux due to large scale condensation',&
@@ -2812,9 +2791,6 @@ CONTAINS
       CASE ('PHIS');            ptr2 => p_diag%geo_ic(:,nlevp1,:)
       CASE ('cosmu0');          ptr2 => prm_field(jg)%cosmu0
       CASE ('flxdwswtoa');      ptr2 => prm_field(jg)%flxdwswtoa
-      CASE ('APRL');            ptr2 => prm_field(jg)%aprl(:,:);   reset = .TRUE.
-      CASE ('APRC');            ptr2 => prm_field(jg)%aprc(:,:);   reset = .TRUE.
-      CASE ('APRS');            ptr2 => prm_field(jg)%aprs(:,:);   reset = .TRUE.
       CASE ('RSFL');            ptr2 => prm_field(jg)%rsfl(:,:)
       CASE ('RSFC');            ptr2 => prm_field(jg)%rsfc(:,:)
       CASE ('SSFL');            ptr2 => prm_field(jg)%ssfl(:,:)
