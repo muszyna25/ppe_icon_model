@@ -88,6 +88,7 @@ MODULE mo_advection_vflux
    &                                vflx_limiter_pd, vflx_limiter_pd_ha
   USE mo_loopindices,         ONLY: get_indices_c
   USE mo_sync,                ONLY: global_max
+  USE mo_mpi,                 ONLY: process_mpi_stdio_id
 
   IMPLICIT NONE
 
@@ -2162,7 +2163,7 @@ CONTAINS
       &  z_dummy
 
     REAL(wp) ::   &                      !< maximum CFL within one layer, and domain-wide maximum
-      &  max_cfl_lay(p_patch%nlev), max_cfl_tot
+      &  max_cfl_lay(p_patch%nlev,p_patch%nblks_c), max_cfl_tot, max_cfl_lay_tot(p_patch%nlev)
 
     REAL(wp) ::   &                      !< auxiliaries for fractional CFL number computation
       &  z_aux_p(nproma), z_aux_m(nproma)
@@ -2296,7 +2297,7 @@ CONTAINS
     IF (ld_compute) THEN
 !$OMP DO PRIVATE(jb,jk,jc,ikm1,i_startidx,i_endidx,z_dummy,nlist_p,nlist_m, &
 !$OMP            counter_p,counter_m,counter_jip,counter_jim,max_cfl,       &
-!$OMP            max_cfl_lay,z_aux_p,z_aux_m) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP            z_aux_p,z_aux_m) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c( p_patch, jb, i_startblk, i_endblk,       &
@@ -2336,11 +2337,11 @@ CONTAINS
           max_cfl(jc,jk) = MAX(z_cflfrac_p(jc,jk,jb),z_cflfrac_m(jc,jk,jb))
         ENDDO
 
-        max_cfl_lay(jk) = MAXVAL(max_cfl(i_startidx:i_endidx,jk))
+        max_cfl_lay(jk,jb) = MAXVAL(max_cfl(i_startidx:i_endidx,jk))
 
       ENDDO
 
-      max_cfl_blk(jb) = MAXVAL(max_cfl_lay(slevp1_ti:nlev))
+      max_cfl_blk(jb) = MAXVAL(max_cfl_lay(slevp1_ti:nlev,jb))
 
 
       ! If CFL>1 then split the CFL number into the fractional CFL number 
@@ -2349,7 +2350,7 @@ CONTAINS
 
         DO jk = slevp1_ti, nlev
 
-          IF (max_cfl_lay(jk) <= 1._wp) CYCLE
+          IF (max_cfl_lay(jk,jb) <= 1._wp) CYCLE
 
           ! start construction of fractional Courant number
           z_aux_p(i_startidx:i_endidx) = p_dtime*ABS(p_mflx_contra_v(i_startidx:i_endidx,jk,jb))
@@ -2936,10 +2937,27 @@ CONTAINS
       max_cfl_tot = MAXVAL(max_cfl_blk(i_startblk:i_endblk))
 
       ! Take maximum over all PEs
-      max_cfl_tot = global_max(max_cfl_tot)
+      IF (msg_level >= 12) THEN
+        max_cfl_tot = global_max(max_cfl_tot)
+      ELSE
+        max_cfl_tot = global_max(max_cfl_tot, iroot=process_mpi_stdio_id)
+      ENDIF
 
       WRITE(message_text,'(a,e16.8)') 'maximum vertical CFL =',max_cfl_tot
       CALL message(TRIM(routine),message_text)
+
+      ! Add layer-wise diagnostic if the maximum CFL value is suspicuous
+      IF (msg_level >= 12 .AND. max_cfl_tot > 8._wp) THEN
+        DO jk = slevp1_ti, nlev
+          max_cfl_lay_tot(jk) = MAXVAL(max_cfl_lay(jk,i_startblk:i_endblk))
+        ENDDO
+
+        max_cfl_lay_tot(slevp1_ti:nlev) = global_max(max_cfl_lay_tot(slevp1_ti:nlev), iroot=process_mpi_stdio_id)
+        DO jk = slevp1_ti,nlev
+          WRITE(message_text,'(a,i4,a,e16.8)') 'maximum vertical CFL in layer', jk,' =', max_cfl_lay_tot(jk)
+          CALL message(TRIM(routine),message_text)
+        ENDDO
+      ENDIF
 
     END IF
 

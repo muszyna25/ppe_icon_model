@@ -56,7 +56,7 @@ MODULE mo_nh_dtp_interface
   USE mo_intp_data_strc,     ONLY: t_int_state
   USE mo_loopindices,        ONLY: get_indices_c, get_indices_e
   USE mo_impl_constants,     ONLY: min_rledge_int, min_rlcell_int, min_rlcell
-  USE mo_sync,               ONLY: SYNC_C, sync_patch_array
+  USE mo_sync,               ONLY: SYNC_C, sync_patch_array, sync_patch_array_mult
   USE mo_advection_config,   ONLY: advection_config
     
   USE mo_timer,              ONLY: timers_level, timer_start, timer_stop, timer_prep_tracer
@@ -117,6 +117,7 @@ CONTAINS
     ! local variables
     REAL(wp) :: r_iadv_rcf           !< reciprocal of iadv_rcf
     REAL(wp) :: z_mass_flx_me(nproma,p_patch%nlev, p_patch%nblks_e)
+    REAL(wp) :: z_topflx_tra (nproma,ntracer, p_patch%nblks_c)
     REAL(wp) :: w_tavg               !< contravariant vertical velocity at n+\alpha 
 
     ! Pointers to quad edge indices
@@ -427,36 +428,61 @@ CONTAINS
 
 !$OMP END PARALLEL
 
-   IF (lstep_advphy) CALL sync_patch_array(SYNC_C,p_patch,p_mass_flx_ic)
+    !  
+    ! diagnose vertical tracer fluxes at top margin, i.e. multiply horizontally 
+    ! interpolated face value q_ubc with time averaged mass flux at nested 
+    ! domain top. Since we make direct use of the dycore mass flux, this procedure 
+    ! ensures tracer and air mass consistency.
+    !
+    IF (lstep_advphy .AND. lvert_nest .AND. p_patch%nshift > 0) THEN ! vertical nesting
 
+      IF (p_test_run) z_topflx_tra(:,:,:) = 0._wp
 
-      !  
-      ! diagnose vertical tracer fluxes at top margin, i.e. multiply horizontally 
-      ! interpolated face value q_ubc with time averaged mass flux at nested 
-      ! domain top. Since we make direct use of the dycore mass flux, this procedure 
-      ! ensures tracer and air mass consistency.
-      !
-   IF (lvert_nest .AND. (p_patch%nshift > 0)) THEN ! vertical nesting
+      i_startblk = p_patch%cells%start_blk(i_rlstart_c,1)
+      i_endblk   = p_patch%cells%end_blk(i_rlend_c,i_nchdom)
 
-     i_startblk = p_patch%cells%start_blk(i_rlstart_c,1)
-     i_endblk   = p_patch%cells%end_blk(i_rlend_c,i_nchdom)
+      DO jb = i_startblk, i_endblk
+        CALL get_indices_c( p_patch, jb, i_startblk, i_endblk,           &
+          &                 i_startidx, i_endidx, i_rlstart_c, i_rlend_c )
 
-     DO jb = i_startblk, i_endblk
-       CALL get_indices_c( p_patch, jb, i_startblk, i_endblk,           &
-         &                 i_startidx, i_endidx, i_rlstart_c, i_rlend_c )
+        DO jt = 1, ntracer
+          DO jc = i_startidx, i_endidx
+            z_topflx_tra(jc,jt,jb) = p_nh_diag%q_ubc(jc,jb,jt)           &
+              &                    * p_mass_flx_ic(jc,1,jb)
+          ENDDO
+        ENDDO
+      ENDDO
 
-       DO jt = 1, ntracer
-         DO jc = i_startidx, i_endidx
-           p_topflx_tra(jc,jb,jt) = p_nh_diag%q_ubc(jc,jb,jt)           &
-             &                    * p_mass_flx_ic(jc,1,jb)
-         ENDDO
-       ENDDO
-     ENDDO
-
-   ELSE                 ! no vertical nesting
-     p_topflx_tra(:,:,:) = 0._wp
-   ENDIF
+    ELSE                 ! no vertical nesting
+      p_topflx_tra(:,:,:) = 0._wp
+    ENDIF
     
+    IF (lstep_advphy) THEN
+
+      IF (lvert_nest .AND. p_patch%nshift > 0) THEN
+
+        CALL sync_patch_array_mult(SYNC_C,p_patch,2,p_mass_flx_ic,z_topflx_tra)
+
+        i_startblk = p_patch%cells%start_blk(i_rlstart_c,1)
+        i_endblk   = p_patch%cells%end_blk(min_rlcell,i_nchdom)
+ 
+        DO jb = i_startblk, i_endblk
+          CALL get_indices_c( p_patch, jb, i_startblk, i_endblk,           &
+            &                 i_startidx, i_endidx, i_rlstart_c, min_rlcell)
+
+          DO jt = 1, ntracer
+            DO jc = i_startidx, i_endidx
+              p_topflx_tra(jc,jb,jt) = z_topflx_tra(jc,jt,jb)
+            ENDDO
+          ENDDO
+        ENDDO
+
+      ELSE
+        CALL sync_patch_array(SYNC_C,p_patch,p_mass_flx_ic)
+      ENDIF
+
+    ENDIF
+
    IF (timers_level > 2) CALL timer_stop(timer_prep_tracer)
 
   END SUBROUTINE prepare_tracer

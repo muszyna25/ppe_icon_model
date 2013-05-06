@@ -262,10 +262,6 @@ CONTAINS
       CALL message('mo_nwp_sfc_interface: ', 'call land-surface scheme')
     ENDIF
 
-    IF (msg_level == 12) THEN
-      CALL message('mo_nwp_sfc_interface: ', 'call land-surface scheme')
-    ENDIF
-
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,isubs,i_count,ic,isubs_snow,i_count_snow,&
 !$OMP   tmp1,tmp2,tmp3,fact1,fact2,frac_sv,frac_snow_sv,icount_init,init_list,it1,it2,is1,is2) ICON_OMP_GUIDED_SCHEDULE
