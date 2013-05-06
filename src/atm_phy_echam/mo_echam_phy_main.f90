@@ -1323,12 +1323,11 @@ CONTAINS
           &         tend% q(:,:,jb,iqt:),     &! inout. xtte
           &        field% xvar  (:,:,jb),     &! inout
           &        field% xskew (:,:,jb),     &! inout
-          &        field% aclc  (:,:,jb),     &! inout
-          &        field% aclcac(:,:,jb),     &! inout
-          &        field% aclcov(:,  jb),     &! inout
-          &        field%  qvi  (:,  jb),     &! inout
-          &        field% xlvi  (:,  jb),     &! inout
-          &        field% xivi  (:,  jb),     &! inout
+          &        field% aclc  (:,:,jb),     &! out
+          &        field% aclcov(:,  jb),     &! out
+          &        field%  qvi  (:,  jb),     &! out
+          &        field% xlvi  (:,  jb),     &! out
+          &        field% xivi  (:,  jb),     &! out
           &        field% rsfl  (:,  jb),     &! out
           &        field% ssfl  (:,  jb),     &! out
           &        field% relhum(:,:,jb),     &! out

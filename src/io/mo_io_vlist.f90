@@ -957,7 +957,7 @@ CONTAINS
               meaning = "averaged"
             ELSE 
               sufix = ""
-              meaning = "instantan"     
+              meaning = "instant."     
             END IF
 
             WRITE(name,'(A8,A4)') "swflxsfc", sufix
@@ -1343,7 +1343,7 @@ CONTAINS
 
           !--- aclcov ---
         CALL addVar(TimeVar('ACLCOV',&
-          &                 'total cloud cover accumulated over output interval',&
+          &                 'total cloud cover (instantaneous)',&
           &                 's', 164, 128,&
           &                 vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),k_jg)
           !--- aclc ---
@@ -1351,24 +1351,19 @@ CONTAINS
           &                 'cloud area fraction (instantaneous)',&
           &                 '(0-1)', 162, 128,&
           &                 vlistID(k_jg), gridCellID(k_jg),zaxisID_hybrid(k_jg)),k_jg)
-          !--- aclcac ---
-        CALL addVar(TimeVar('ACLCAC',&
-          &                 'cloud area fraction accumulated over output interval',&
-          &                 's', 223, 128,&
-          &                 vlistID(k_jg), gridCellID(k_jg),zaxisID_hybrid(k_jg)),k_jg)
           !--- qvi ---
         CALL addVar(TimeVar('qvi',&
-          &                 'temporally and vertically integrated water vapor content',&
+          &                 'vertically integrated water vapor content',&
           &                 's kg/m**2', 230, 128,&
           &                 vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),k_jg)
           !--- xlvi ---
         CALL addVar(TimeVar('xlvi',&
-          &                 'temporally and vertically integrated cloud water content',&
+          &                 'vertically integrated cloud water content',&
           &                 's kg/m**2', 231, 128,&
           &                 vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),k_jg)
           !--- xivi ---
         CALL addVar(TimeVar('xivi',&
-          &                 'temporally and vertically integrated cloud ice content',&
+          &                 'vertically integrated cloud ice content',&
           &                 's kg/m**2', 232, 128,&
           &                 vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),k_jg)
        !  !--- omega (for debugging) ---
@@ -2796,11 +2791,10 @@ CONTAINS
       CASE ('SSFL');            ptr2 => prm_field(jg)%ssfl(:,:)
       CASE ('SSFC');            ptr2 => prm_field(jg)%ssfc(:,:)
       CASE ('ACLC');            ptr3 => prm_field(jg)%aclc
-      CASE ('ACLCAC');          ptr3 => prm_field(jg)%aclcac;      reset = .TRUE.
-      CASE ('ACLCOV');          ptr2 => prm_field(jg)%aclcov(:,:); reset = .TRUE.
-      CASE ('qvi');             ptr2 => prm_field(jg)%qvi (:,:);   reset = .TRUE.
-      CASE ('xlvi');            ptr2 => prm_field(jg)%xlvi(:,:);   reset = .TRUE.
-      CASE ('xivi');            ptr2 => prm_field(jg)%xivi(:,:);   reset = .TRUE.
+      CASE ('ACLCOV');          ptr2 => prm_field(jg)%aclcov(:,:)
+      CASE ('qvi');             ptr2 => prm_field(jg)%qvi (:,:)
+      CASE ('xlvi');            ptr2 => prm_field(jg)%xlvi(:,:)
+      CASE ('xivi');            ptr2 => prm_field(jg)%xivi(:,:)
       CASE ('tsurfw');          ptr2 => prm_field(jg)%tsurfw(:,:)
       CASE ('tsurfi');          ptr2 => prm_field(jg)%tsurfi(:,:)
       CASE ('tsurfl');          ptr2 => prm_field(jg)%tsurfl(:,:)

@@ -419,7 +419,8 @@ dt_checkpoint     = ${dt_checkpoint} ! [s] trigger new restart file
                     'sic'     , 'sit'     , 'alb'     ,
                     'clt'     ,
                     'prlr'    , 'prls'    , 'prcr'    , 'prcs'    ,
-                    'pr'      , 'prw'     , 'cllvi'   , 'clivi'   ,
+                    'pr'      , 'apr'     ,
+                    'prw'     , 'cllvi'   , 'clivi'   ,
                     'hfls'    , 'hfss'    , 
                     'tauu'    , 'tauv'    ,
                     'tauu_sso', 'tauv_sso', 'diss_sso'

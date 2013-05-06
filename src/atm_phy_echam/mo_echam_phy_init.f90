@@ -802,7 +802,6 @@ CONTAINS
       field% lwflxtoa_avg(:,:) = 0._wp
       field% dlwflxsfc_dT_avg(:,:) = 0._wp
       field% aclc  (:,:,:) = 0._wp
-      field% aclcac(:,:,:) = 0._wp
       field% aclcov(:,  :) = 0._wp
       field% qvi   (:,  :) = 0._wp
       field% xlvi  (:,  :) = 0._wp
@@ -1029,13 +1028,7 @@ CONTAINS
       ! Reset accumulated variables
       !----------------------------------------
 
-      field% aclcac     (:,:,:) = 0._wp
-      field% aclcov     (:,  :) = 0._wp
       field%totprec_avg(:,:)   = 0._wp
-
-      field% qvi   (:,  :) = 0._wp
-      field% xlvi  (:,  :) = 0._wp
-      field% xivi  (:,  :) = 0._wp
 
       field%  evap_avg(:,:) = 0._wp
       field% lhflx_avg(:,:) = 0._wp
