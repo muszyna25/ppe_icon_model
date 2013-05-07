@@ -953,8 +953,7 @@ MODULE mo_sgs_turbulence
    ! jk = nlev
    !-----------------------------------------------------------------
 
-!ICON_OMP_DO PRIVATE(jb,je,i_startidx,i_endidx,flux_up_e,flux_dn_e,jcn,jbn,inv_mwind,&
-!ICON_OMP            stress_uc,stress_vc,stress_c1n,stress_c2n)
+!ICON_OMP_DO PRIVATE(jb,je,i_startidx,i_endidx,flux_up_e,flux_dn_e,stress_c1n,stress_c2n)
     DO jb = i_startblk,i_endblk
       CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
                          i_startidx, i_endidx, rl_start, rl_end)
@@ -969,32 +968,17 @@ MODULE mo_sgs_turbulence
                   
          !Get net shear stress in the direction of vn at surface
 
-         ! Too many local variables
          !shear stress in normal direction from cell 1 
-         jcn = iecidx(je,jb,1)
-         jbn = iecblk(je,jb,1)        
-
-         inv_mwind = 1._wp / MAX( min_wind, &
-                     SQRT(p_nh_diag%u(jcn,nlev,jbn)**2+p_nh_diag%v(jcn,nlev,jbn)**2))        
-
-         stress_uc = p_nh_diag%u(jcn,nlev,jbn) * prm_diag%umfl_s(jcn,jbn) * inv_mwind 
-         stress_vc = p_nh_diag%v(jcn,nlev,jbn) * prm_diag%umfl_s(jcn,jbn) * inv_mwind 
-
-         stress_c1n = stress_uc*p_patch%edges%primal_normal_cell(je,jb,1)%v1 + &
-                      stress_vc*p_patch%edges%primal_normal_cell(je,jb,1)%v2
+         stress_c1n = prm_diag%umfl_s(iecidx(je,jb,1),iecblk(je,jb,1)) * &
+                      p_patch%edges%primal_normal_cell(je,jb,1)%v1     + &
+                      prm_diag%vmfl_s(iecidx(je,jb,1),iecblk(je,jb,1)) * &
+                      p_patch%edges%primal_normal_cell(je,jb,1)%v2
 
          !shear stress in normal direction from cell 2 
-         jcn = iecidx(je,jb,2)
-         jbn = iecblk(je,jb,2)        
-
-         inv_mwind = 1._wp / MAX( min_wind, &
-                     SQRT(p_nh_diag%u(jcn,nlev,jbn)**2+p_nh_diag%v(jcn,nlev,jbn)**2))        
-
-         stress_uc = p_nh_diag%u(jcn,nlev,jbn) * prm_diag%umfl_s(jcn,jbn) * inv_mwind 
-         stress_vc = p_nh_diag%v(jcn,nlev,jbn) * prm_diag%umfl_s(jcn,jbn) * inv_mwind 
-
-         stress_c2n = stress_uc*p_patch%edges%primal_normal_cell(je,jb,2)%v1 + &
-                      stress_vc*p_patch%edges%primal_normal_cell(je,jb,2)%v2
+         stress_c2n = prm_diag%umfl_s(iecidx(je,jb,2),iecblk(je,jb,2)) * &
+                      p_patch%edges%primal_normal_cell(je,jb,2)%v1     + &
+                      prm_diag%vmfl_s(iecidx(je,jb,2),iecblk(je,jb,2)) * &
+                      p_patch%edges%primal_normal_cell(je,jb,2)%v2
 
          !Net stress at the edge
          flux_dn_e    = stress_c1n * p_int%c_lin_e(je,1,jb) + &
