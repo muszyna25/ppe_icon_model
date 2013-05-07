@@ -78,7 +78,7 @@ MODULE mo_nh_initicon
   USE mo_util_phys,           ONLY: virtual_temp
   USE mo_util_string,         ONLY: tolower
   USE mo_ifs_coord,           ONLY: alloc_vct, init_vct, vct, vct_a, vct_b
-  USE mo_lnd_nwp_config,      ONLY: nlev_soil, ntiles_total, lmulti_snow, nlev_snow
+  USE mo_lnd_nwp_config,      ONLY: nlev_soil, ntiles_total, lmulti_snow, nlev_snow, lseaice
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
   USE mo_master_nml,          ONLY: model_base_dir
   USE mo_phyparam_soil,       ONLY: csalb_snow_min, csalb_snow_max,crhosmin_ml,crhosmax_ml
@@ -2140,7 +2140,6 @@ MODULE mo_nh_initicon
         DO jc = 1, nlen
           p_lnd_state(jg)%prog_lnd(ntlr)%t_g(jc,jb)         = initicon(jg)%sfc%tskin(jc,jb)
           p_lnd_state(jg)%prog_lnd(nnew_rcf(jg))%t_g(jc,jb) = initicon(jg)%sfc%tskin(jc,jb)
-          p_lnd_state(jg)%diag_lnd%t_skin(jc,jb)            = initicon(jg)%sfc%tskin(jc,jb)
         ENDDO
 
         ! Fill also SST and sea ice fraction fields over ocean points; SST is limited to 30 deg C
@@ -2251,6 +2250,44 @@ MODULE mo_nh_initicon
             ENDDO
 
           ENDDO
+
+          ! Initialize sea-ice surface temperature with tskin (cold-start initialization)
+          ! Since the seaice index list is not yet available at this stage, we loop over 
+          ! all sea points and initialize points with fr_seaice>threshold. 
+          ! The threshold is 0.5 without tiles and frsi_min with tiles.
+          ! Note that exactly the same threshold values must be used as in init_sea_lists. 
+          ! If not, you will see what you get.
+          !
+          IF (lseaice) THEN
+            IF ( ntiles_total == 1 ) THEN  ! no tile approach
+!CDIR NODEP,VOVERTAKE,VOB
+              DO ic = 1, ext_data(jg)%atm%sp_count(jb)
+                jc = ext_data(jg)%atm%idx_lst_sp(ic,jb)
+                IF ( p_lnd_state(jg)%diag_lnd%fr_seaice(jc,jb) >= 0.5_wp  ) THEN
+                  ! initialize t_ice with t_skin, which is so far provided by IFS analysis
+                  p_lnd_state(jg)%prog_wtr(ntlr)%t_ice(jc,jb)         = &
+                    &                     initicon(jg)%sfc%tskin(jc,jb)
+                  p_lnd_state(jg)%prog_wtr(nnew_rcf(jg))%t_ice(jc,jb) = &
+                    &                     initicon(jg)%sfc%tskin(jc,jb)
+                ENDIF
+              ENDDO
+
+            ELSE  ! tile approach
+
+!CDIR NODEP,VOVERTAKE,VOB
+              DO ic = 1, ext_data(jg)%atm%sp_count(jb)
+                jc = ext_data(jg)%atm%idx_lst_sp(ic,jb)
+                IF ( p_lnd_state(jg)%diag_lnd%fr_seaice(jc,jb) > frsi_min  ) THEN
+                  ! initialize t_ice with tskin, which is so far provided by IFS analysis
+                  p_lnd_state(jg)%prog_wtr(ntlr)%t_ice(jc,jb)         = &
+                    &                     initicon(jg)%sfc%tskin(jc,jb)
+                  p_lnd_state(jg)%prog_wtr(nnew_rcf(jg))%t_ice(jc,jb) = &
+                    &                     initicon(jg)%sfc%tskin(jc,jb)
+                ENDIF
+              ENDDO
+            ENDIF  ! ntiles_total
+          ENDIF  ! lseaice
+
         ENDIF   ! inwp_surface > 0
 
       ENDDO
