@@ -796,11 +796,6 @@ CONTAINS
       field% dlwflxsfc_dT(:,:) = 0._wp
       field% swflxtoa    (:,:) = 0._wp
       field% lwflxtoa    (:,:) = 0._wp
-      field% swflxsfc_avg(:,:) = 0._wp
-      field% lwflxsfc_avg(:,:) = 0._wp
-      field% swflxtoa_avg(:,:) = 0._wp
-      field% lwflxtoa_avg(:,:) = 0._wp
-      field% dlwflxsfc_dT_avg(:,:) = 0._wp
       field% aclc  (:,:,:) = 0._wp
       field% aclcov(:,  :) = 0._wp
       field% qvi   (:,  :) = 0._wp

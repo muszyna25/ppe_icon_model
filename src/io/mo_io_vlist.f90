@@ -2821,21 +2821,6 @@ CONTAINS
       CASE ('albnirdif');   ptr2 => prm_field(jg)%albnirdif
 
         !KF  the reset command can only be used for 'plain' fields
-      CASE ('swflxsfc_avg')
-                                ptr2 => dup2(prm_field(jg)% swflxsfc_avg(:,:)/dt_data)
-                                             prm_field(jg)% swflxsfc_avg(:,:)=0.0_wp
-      CASE ('lwflxsfc_avg') 
-                               ptr2 => dup2(prm_field(jg)% lwflxsfc_avg(:,:)/dt_data)
-                                             prm_field(jg)% lwflxsfc_avg(:,:)=0.0_wp
-      CASE ('dlwfsfc_dT_avg') 
-                               ptr2 => dup2(prm_field(jg)%dlwflxsfc_dT_avg(:,:)/dt_data)
-                                             prm_field(jg)%dlwflxsfc_dT_avg(:,:)=0.0_wp
-      CASE ('swflxtoa_avg')
-                               ptr2 => dup2(prm_field(jg)% swflxtoa_avg(:,:)/dt_data)
-                                            prm_field(jg)% swflxtoa_avg(:,:) = 0.0_wp
-      CASE ('lwflxtoa_avg')
-                               ptr2 => dup2(prm_field(jg)% lwflxtoa_avg(:,:)/dt_data)
-                                            prm_field(jg)% lwflxtoa_avg(:,:) = 0.0_wp
       CASE ('TOTPREC_AVG')
                                ptr2 => dup2(prm_field(jg)% totprec_avg(:,:)/dt_data)
                                        prm_field(jg)% totprec_avg(:,:) = 0.0_wp

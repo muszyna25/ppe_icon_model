@@ -330,12 +330,7 @@ MODULE mo_echam_phy_memory
       & lwflxsfc_tile(:,:,:),  &!< [ W/m2] longwave net flux at surface
       & dlwflxsfc_dT(:,:),  &!< [ W/m2/K] longwave net flux temp tend at surface
       & swflxtoa    (:,:),  &!< [ W/m2] shortwave net flux at TOA 
-      & lwflxtoa    (:,:),  &!< [ W/m2] shortwave net flux at TOA
-      & swflxsfc_avg(:,:),  &!< [ W/m2] averaged shortwave net flux at surface
-      & lwflxsfc_avg(:,:),  &!< [ W/m2] averaged longwave net flux at surface
-      & dlwflxsfc_dT_avg(:,:),&!< [W/m2/K] averaged longwave net flux temp tend at surface
-      & swflxtoa_avg(:,:),  &!< [ W/m2] averaged shortwave net flux at TOA 
-      & lwflxtoa_avg(:,:)    !< [ W/m2] averaged shortwave net flux at TOA
+      & lwflxtoa    (:,:)    !< [ W/m2] shortwave net flux at TOA
 
 
     TYPE(t_ptr2d),ALLOCATABLE :: z0m_tile_ptr(:)
