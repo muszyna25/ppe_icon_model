@@ -591,25 +591,22 @@ write(*,*)'max-min coeff',z_diff_multfac, maxval(p_phys_param%K_veloc_h(:,1,:)),
     ! Local variables
     INTEGER  :: jc, jb, je,jk, itracer
    !INTEGER  :: ile1, ibe1,ile2, ibe2,ile3, ibe3
-    INTEGER  :: ilc1, ibc1, ilc2,ibc2!, jj, ible,idxe
+    INTEGER  :: ilc1, ibc1, ilc2,ibc2
     INTEGER  :: i_startidx_c, i_endidx_c
     INTEGER  :: i_startidx_e, i_endidx_e
+    INTEGER  :: z_dolic
 
-    REAL(wp) :: z_rho_up
-    REAL(wp) :: z_rho_down
-    REAL(wp) :: z_stabio
-    REAL(wp) :: z_shear_c
+    REAL(wp) :: z_rho_up, z_rho_down, z_stabio, z_shear_c, z_av0, z_dv0
     REAL(wp) :: z_vert_density_grad_c(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)
     REAL(wp) :: z_vert_density_grad_e(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
     REAL(wp) :: z_Ri_c               (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)
     REAL(wp) :: z_Ri_e               (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
     REAL(wp) :: z_c                  (nproma,n_zlev+1,p_patch_3D%p_patch_2D(1)%nblks_c)
 
-!    REAL(wp) :: dz_inv
-!    REAL(wp) :: z_rho_up_c1, z_rho_down_c1,z_rho_up_c2, z_rho_down_c2
-!   REAL(wp) :: z_lambda_frac 
-!   REAL(wp) :: z_A_tracer_v_old!, z_A_veloc_v_old
-    INTEGER  :: z_dolic
+    !REAL(wp) :: dz_inv
+    !REAL(wp) :: z_rho_up_c1, z_rho_down_c1,z_rho_up_c2, z_rho_down_c2
+    !REAL(wp) :: z_lambda_frac 
+    !REAL(wp) :: z_A_tracer_v_old!, z_A_veloc_v_old
 
     !Below is a set of variables and parameters for tracer and velocity
     !REAL(wp), PARAMETER :: z_beta            = 0.6_wp
@@ -618,28 +615,24 @@ write(*,*)'max-min coeff',z_diff_multfac, maxval(p_phys_param%K_veloc_h(:,1,:)),
     REAL(wp), PARAMETER :: z_0               = 40.0_wp
     REAL(wp), PARAMETER :: z_c1_T            = 5.0_wp
     REAL(wp), PARAMETER :: z_c1_v            = 5.0_wp
-    REAL(wp)            :: z_av0             = 0.5E-2_wp ! later set via nml richardson_factor_veloc
-    REAL(wp)            :: z_dv0             = 0.5E-2_wp ! later set via nml richardson_factor_tracer
     REAL(wp), PARAMETER :: z_threshold       = 5.0E-8_wp
-    REAL(wp) :: z_grav_rho, z_inv_rho_ref!, z_stabio
-    REAL(wp) :: z_press, press
-    REAL(wp) :: A_T_tmp
-    REAL(wp) :: z_s1
-    REAL(wp) :: z_s2
+    REAL(wp) :: z_grav_rho, z_inv_rho_ref, z_press, press, A_T_tmp, z_s1, z_s2
     REAL(wp) :: density_grad_e, mean_z_r
-    ! REAL(wp) :: tmp_communicate_c(nproma,p_patch%nblks_c)
     !-------------------------------------------------------------------------
     TYPE(t_subset_range), POINTER :: edges_in_domain,cells_in_domain,all_cells
     TYPE(t_patch), POINTER        :: p_patch
-    !-------------------------------------------------------------------------
-    z_av0 = richardson_factor_veloc
-    z_dv0 = richardson_factor_tracer
+
     !-------------------------------------------------------------------------
     p_patch         => p_patch_3D%p_patch_2D(1)
     edges_in_domain => p_patch%edges%in_domain
     cells_in_domain => p_patch%cells%in_domain
     all_cells       => p_patch%cells%all
 
+    !-------------------------------------------------------------------------
+    z_av0 = richardson_factor_veloc
+    z_dv0 = richardson_factor_tracer
+
+    !-------------------------------------------------------------------------
     IF (l_constant_mixing) THEN
       !nothing to do!In sbr init_ho_params (see above)
       !tracer mixing coefficient params_oce%A_tracer_v(:,:,:, itracer) is already
