@@ -72,7 +72,15 @@ MODULE mo_atmo_hydrostatic
 
   IMPLICIT NONE
   PRIVATE
+
   PUBLIC :: atmo_hydrostatic
+  PUBLIC :: construct_atmo_hydrostatic, destruct_atmo_hydrostatic
+
+
+  LOGICAL :: l_have_output
+  INTEGER :: n_io, n_file, n_diag, n_chkpt
+  INTEGER :: jfile
+
 
 CONTAINS
   !>
@@ -80,12 +88,43 @@ CONTAINS
   !!
   SUBROUTINE atmo_hydrostatic
 
-    LOGICAL :: l_have_output
-    INTEGER :: n_io, n_file, n_diag, n_chkpt
-    INTEGER :: jfile
+    CHARACTER(*), PARAMETER :: method_name = "atmo_hydrostatic"
+
+    !------------------------------------------------------------------
+    ! Initialize parameters and solvers;
+    ! Allocate memory for model state vectors.
+    !------------------------------------------------------------------
+
+    CALL construct_atmo_hydrostatic()
+
+    !------------------------------------------------------------------
+    ! Time integraion
+    !------------------------------------------------------------------
+
+    CALL perform_ha_stepping( p_patch(1:), p_int_state(1:), &
+                            & p_grf_state(1:),                               &
+                            & p_hydro_state, time_config%cur_datetime,       &
+                            & n_file, n_chkpt, n_diag, jfile,          &
+                            & l_have_output                                  )
+
+    IF (ltimer) CALL print_timer
+
+    !---------------------------------------------------------------------
+    ! Integration finished. Start to clean up.
+    !---------------------------------------------------------------------
+    CALL destruct_atmo_hydrostatic()
+
+  END SUBROUTINE atmo_hydrostatic
+  !-------------------------------------------------------------------------------
+
+
+  !-------------------------------------------------------------------------------
+  !>
+  SUBROUTINE construct_atmo_hydrostatic
+
     INTEGER :: jg
 
-    CHARACTER(*), PARAMETER :: routine = "atmo_hydrostatic"
+    CHARACTER(*), PARAMETER :: method_name = "construct_atmo_hydrostatic"
 
     !------------------------------------------------------------------
     ! Initialize parameters and solvers;
@@ -111,10 +150,9 @@ CONTAINS
 
     IF (iforcing==IECHAM.OR.iforcing==ILDF_ECHAM) THEN
       CALL init_echam_phy( p_patch(1:), ltestcase, ctest_name, &
-                            & nlev, vct_a, vct_b, ceta )
+                            & nlev, vct_a, vct_b, ceta, time_config%cur_datetime )
     END IF
 
-    
     !------------------------------------------------------------------
     ! Set initial conditions for time integration.
     !------------------------------------------------------------------
@@ -155,7 +193,13 @@ CONTAINS
       CALL init_output_files(jfile, lclose=.FALSE.)
       IF (lwrite_initial) THEN
         IF (output_mode%l_nml) THEN
-          CALL write_name_list_output( time_config%cur_datetime, 0._wp, .FALSE. )
+          ! Mis-use optional parameter last_step=.TRUE to force output of initial state.
+          ! If one wants e.g. one day of 6-hrly data per output file (i.e. 4 steps) ending at 00:00,
+          ! one has to set the first value of output_bounds namelist variable to 06:00, but then the
+          ! initial state is now written because sim_time=0._wp is lower than start time of output_bounds.
+          ! This should be replaced by an explicit handling of "first_step" similar to "last_step" in
+          ! mo_name_list_output, similar to lwrite_inital for vlist output.
+          CALL write_name_list_output( time_config%cur_datetime, 0._wp, .TRUE. )
         ENDIF
 
         IF (output_mode%l_vlist) THEN        
@@ -194,7 +238,7 @@ CONTAINS
         CALL read_restart_files( p_patch(jg) )
      !END DO
 #endif
-      CALL message(TRIM(routine),'normal exit from read_restart_files')
+      CALL message(TRIM(method_name),'normal exit from read_restart_files')
 
       ! Re-initialize SST, sea ice and glacier for certain experiments; 
       ! Initialize logical variables in echam physics state.
@@ -207,23 +251,19 @@ CONTAINS
       ! END IF
 
     END IF ! is_restart_run()
+  END SUBROUTINE construct_atmo_hydrostatic
+  !-------------------------------------------------------------------------------
 
-    !------------------------------------------------------------------
-    ! Time integraion
-    !------------------------------------------------------------------
 
-    CALL perform_ha_stepping( p_patch(1:), p_int_state(1:), &
-                            & p_grf_state(1:),                               &
-                            & p_hydro_state, time_config%cur_datetime,       &
-                            & n_file, n_chkpt, n_diag, jfile,          &
-                            & l_have_output                                  )
+  !-------------------------------------------------------------------------------
+  !>
+  SUBROUTINE destruct_atmo_hydrostatic()
 
-    IF (ltimer) CALL print_timer
-
+    CHARACTER(*), PARAMETER :: method_name = "destruct_atmo_hydrostatic"
     !---------------------------------------------------------------------
     ! Integration finished. Start to clean up.
     !---------------------------------------------------------------------
-    CALL message(TRIM(routine),'start to clean up')
+    CALL message(TRIM(method_name),'start to clean up')
 
 
     CALL destruct_icoham_dyn_state
@@ -232,7 +272,7 @@ CONTAINS
       CALL cleanup_echam_phy
     ENDIF
 
-    IF (msg_level > 5) CALL message(TRIM(routine),'echam_phy clean up is done')
+    IF (msg_level > 5) CALL message(TRIM(method_name),'echam_phy clean up is done')
     
     IF (output_mode%l_nml) THEN    
       CALL close_name_list_output
@@ -243,10 +283,10 @@ CONTAINS
         CALL close_output_files
       ENDIF
     ENDIF
-    IF (msg_level > 5) CALL message(TRIM(routine),'close_output_files is done')
+    IF (msg_level > 5) CALL message(TRIM(method_name),'close_output_files is done')
 
-  END SUBROUTINE atmo_hydrostatic
-  !-------------
+  END SUBROUTINE destruct_atmo_hydrostatic
+
 
 END MODULE mo_atmo_hydrostatic
 

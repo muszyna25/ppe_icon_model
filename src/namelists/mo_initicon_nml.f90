@@ -47,17 +47,19 @@ MODULE mo_initicon_nml
   USE mo_namelist,           ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_mpi,                ONLY: my_process_is_stdio 
   USE mo_initicon_config,    ONLY: &
-    & config_init_mode          => init_mode,    &
-    & config_nlev_in            => nlev_in,      &
-    & config_nlevsoil_in        => nlevsoil_in,  &
-    & config_zpbl1              => zpbl1,        &
-    & config_zpbl2              => zpbl2,        &
-    & config_l_hice_in          => l_hice_in,    &
-    & config_l_sst_in           => l_sst_in,     &
+    & config_init_mode          => init_mode,         &
+    & config_nlev_in            => nlev_in,           &
+    & config_nlevsoil_in        => nlevsoil_in,       &
+    & config_zpbl1              => zpbl1,             &
+    & config_zpbl2              => zpbl2,             &
+    & config_l_hice_in          => l_hice_in,         &
+    & config_l_sst_in           => l_sst_in,          &
     & config_ifs2icon_filename  => ifs2icon_filename, &
-    & config_dwdfg_filename     => dwdfg_filename, &
-    & config_dwdinc_filename    => dwdinc_filename, &
-    & config_l_coarse2fine_mode => l_coarse2fine_mode
+    & config_dwdfg_filename     => dwdfg_filename,    &
+    & config_dwdinc_filename    => dwdinc_filename,   &
+    & config_l_coarse2fine_mode => l_coarse2fine_mode,&
+    & config_filetype           => filetype,          &
+    & config_ana_varnames_map_file => ana_varnames_map_file
 
   IMPLICIT NONE
 
@@ -81,6 +83,7 @@ MODULE mo_initicon_nml
   LOGICAL  :: l_sst_in      ! logical switch, if sea surface temperature is provided as input
   LOGICAL  :: l_coarse2fine_mode(max_dom)  ! If true, apply special corrections for interpolation from coarse
                                            ! to fine resolutions over mountainous terrain
+  INTEGER  :: filetype      ! One of CDI's FILETYPE\_XXX constants. Possible values: 2 (=FILETYPE\_GRB2), 4 (=FILETYPE\_NC2)
 
   ! IFS2ICON input filename, may contain keywords, by default
   ! ifs2icon_filename = "<path>ifs2icon_R<nroot>B<jlev>_DOM<idom>.nc"
@@ -94,9 +97,15 @@ MODULE mo_initicon_nml
   ! dwdinc_filename = "<path>dwdinc_R<nroot>B<jlev>_DOM<idom>.nc"
   CHARACTER(LEN=filename_max) :: dwdinc_filename
 
+  ! analysis file: dictionary which maps internal variable names onto
+  ! GRIB2 shortnames or NetCDF var names.
+  CHARACTER(LEN=filename_max) :: ana_varnames_map_file      
+
+
   NAMELIST /initicon_nml/ init_mode, nlev_in, zpbl1, zpbl2, l_coarse2fine_mode, &
-                          nlevsoil_in, l_hice_in, l_sst_in, ifs2icon_filename, &
-                          dwdfg_filename, dwdinc_filename
+                          nlevsoil_in, l_hice_in, l_sst_in, ifs2icon_filename,  &
+                          dwdfg_filename, dwdinc_filename, filetype,            &
+                          ana_varnames_map_file
   
 CONTAINS
 
@@ -133,6 +142,8 @@ CONTAINS
   zpbl2       = 1000._wp    ! gradients
   l_hice_in   = .FALSE.     ! true: sea-ice thickness field provided as input
   l_sst_in    = .FALSE.     ! true: sea surface temperature field provided as input
+  filetype    = -1          ! "-1": undefined
+  ana_varnames_map_file = " "
   ifs2icon_filename = "<path>ifs2icon_R<nroot>B<jlev>_DOM<idom>.nc"
   dwdfg_filename    = "<path>dwdFG_R<nroot>B<jlev>_DOM<idom>.nc"
   dwdinc_filename   = "<path>dwdinc_R<nroot>B<jlev>_DOM<idom>.nc"
@@ -166,6 +177,8 @@ CONTAINS
   config_dwdfg_filename    = dwdfg_filename
   config_dwdinc_filename   = dwdinc_filename
   config_l_coarse2fine_mode= l_coarse2fine_mode
+  config_filetype          = filetype
+  config_ana_varnames_map_file = ana_varnames_map_file
 
   !------------------------------------------------------------
   ! 5.0 check the consistency of the parameters

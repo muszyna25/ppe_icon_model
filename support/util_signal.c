@@ -261,57 +261,57 @@ int signal_trap(int *create_dump, int *signals)
   while (*sig != 0)
     {
       if (sigaction(*sig, &sa, NULL) == -1)
-	{
-	  sprintf(errmsg, 
-		  "Calling sigaction for signal %d failed\n (file: %s line: %d)\n",
-		  (int) *sig, __FILE__, __LINE__);
-	  perror(errmsg);
-	  exit(1);
-	}
+        {
+          sprintf(errmsg, 
+                  "Calling sigaction for signal %d failed\n (file: %s line: %d)\n",
+                  (int) *sig, __FILE__, __LINE__);
+          perror(errmsg);
+          exit(1);
+        }
       
       if (*sig++ == SIGFPE)
-	{
+        {
 
 #ifdef _AIX
 
-	  /*
-	   * If we are trapping Floating-Point Error, then set the processor in fast trap
-	   * mode and enable TRP_INVALID, TRP_DIV_BY_ZERO and TRP_OVERFLOW.
-	   */
-	  if (((ret = fp_trap(FP_TRAP_FASTMODE)) == FP_TRAP_UNIMPL) || (ret == FP_TRAP_ERROR))
-	    {
-	      sprintf(errmsg, 
-		      "Calling fp_trap failed (returned = %d)\n (file: %s line: %d)\n",
-		      ret, __FILE__, __LINE__);
-	      perror(errmsg);
-	      exit(1);
-	    }
-	  fp_enable(TRP_INVALID | TRP_DIV_BY_ZERO | TRP_OVERFLOW);
+          /*
+           * If we are trapping Floating-Point Error, then set the processor in fast trap
+           * mode and enable TRP_INVALID, TRP_DIV_BY_ZERO and TRP_OVERFLOW.
+           */
+          if (((ret = fp_trap(FP_TRAP_FASTMODE)) == FP_TRAP_UNIMPL) || (ret == FP_TRAP_ERROR))
+            {
+              sprintf(errmsg, 
+                      "Calling fp_trap failed (returned = %d)\n (file: %s line: %d)\n",
+                      ret, __FILE__, __LINE__);
+              perror(errmsg);
+              exit(1);
+            }
+          fp_enable(TRP_INVALID | TRP_DIV_BY_ZERO | TRP_OVERFLOW);
 
 #elif (defined (__GLIBC__)  || (defined (__APPLE__) && defined (__MACH__)))
 
           /*
-	   * This overwrites the FP trap settings of gfortran and leads to a 
+           * This overwrites the FP trap settings of gfortran and leads to a 
            *  working version on Linux systems
-	   */
-	  if (FE_ALL_EXCEPT != 0)
-	    {
-	      fedisableexcept(FE_ALL_EXCEPT);
-	    }
-	  feenableexcept(FE_INVALID | FE_DIVBYZERO | FE_OVERFLOW); 	  
+           */
+          if (FE_ALL_EXCEPT != 0)
+            {
+              fedisableexcept(FE_ALL_EXCEPT);
+            }
+          feenableexcept(FE_INVALID | FE_DIVBYZERO | FE_OVERFLOW);           
 
 #else
-	  /*
-	   * It may work ... or not ...
-	   */
-	  fegetexceptflag(&fp_traps, FE_INVALID | FE_DIVBYZERO | FE_OVERFLOW); 
+          /*
+           * It may work ... or not ...
+           */
+          fegetexceptflag(&fp_traps, FE_INVALID | FE_DIVBYZERO | FE_OVERFLOW); 
 
 #endif
 
-	  ret = 1;
-	}
+          ret = 1;
+        }
     }
-	  
+          
   return ret;
 }
 
@@ -336,28 +336,28 @@ void signal_trace(int signo, siginfo_t *sigcode, void *sigcontextptr)
       (void) setvbuf(stdout, NULL, _IOLBF, BUFSIZ);
 #ifdef _AIX
       if (signal_trap_dump)
-	{
-	  xl__trcedump(signo, sigcode, sigcontextptr);
-	}
+        {
+          xl__trcedump(signo, sigcode, sigcontextptr);
+        }
       else
-	{
-	  xl__trce(signo, sigcode, sigcontextptr);
-	}
+        {
+          xl__trce(signo, sigcode, sigcontextptr);
+        }
 #elif (defined (__GLIBC__) || (defined (__APPLE__) && defined (__MACH__)))
       show_backtrace();
       if (signal_trap_dump)
-	{
-	  core_dump_size.rlim_cur = RLIM_INFINITY;
-	  core_dump_size.rlim_max = RLIM_INFINITY;
+        {
+          core_dump_size.rlim_cur = RLIM_INFINITY;
+          core_dump_size.rlim_max = RLIM_INFINITY;
           setrlimit(RLIMIT_CORE, &core_dump_size);
-	}
+        }
 #else
       if (signal_trap_dump)
-	{
-	  core_dump_size.rlim_cur = RLIM_INFINITY;
-	  core_dump_size.rlim_max = RLIM_INFINITY;
+        {
+          core_dump_size.rlim_cur = RLIM_INFINITY;
+          core_dump_size.rlim_max = RLIM_INFINITY;
           setrlimit(RLIMIT_CORE, &core_dump_size);
-	}
+        }
 #endif
       raise(SIGQUIT);
     }

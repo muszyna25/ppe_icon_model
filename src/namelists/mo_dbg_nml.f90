@@ -58,7 +58,7 @@ MODULE mo_dbg_nml
   !REAL(wp) :: s_val     = 0.0_wp  ! input  test value for salinity
 
   ! switches for level of debugging the icon core
-  INTEGER  :: idbg_mxmn = 1       ! different levels of debug MAX/MIN output (1-5, 0: no output)
+  INTEGER  :: idbg_mxmn = 0       ! different levels of debug MAX/MIN output (1-5, 0: no output)
   INTEGER  :: idbg_val  = 0       ! different levels of debug output of values at lat/lon given below
 
   ! latitude/longitude location of single cell output for debugging

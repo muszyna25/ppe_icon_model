@@ -45,7 +45,7 @@ MODULE mo_echam_phy_config
   PUBLIC :: configure_echam_phy                       !< subroutine
   PUBLIC :: get_lrad, get_lcond, get_lcover        !< functions
   PUBLIC :: get_lconv, get_lvdiff, get_lgw_hines   !< functions
-  PUBLIC :: get_ljsbach
+  PUBLIC :: get_ljsbach, get_lamip
 
   CHARACTER(len=*), PARAMETER, PRIVATE :: version = '$Id$'
 
@@ -66,6 +66,7 @@ MODULE mo_echam_phy_config
                            !<   by blocking and gravity waves (lgwdrag in ECHAM6)
     LOGICAL :: lice        !<  .true. for sea-ice temperature calculation
     LOGICAL :: lmeltpond   !<  .true. for calculation of meltponds
+    LOGICAL :: lamip       !< .true. for AMIP simulations    
     LOGICAL :: lmlo        !<  .true. for mixed layer ocean
     LOGICAL :: ljsbach     !<  .true. for calculating the JSBACH land surface
     LOGICAL :: lhd         !<  .true. for hydrologic discharge model
@@ -92,7 +93,7 @@ CONTAINS
     LOGICAL,         INTENT(IN) :: ltestcase
     CHARACTER(LEN=*),INTENT(IN) :: ctest_name
     CHARACTER(LEN=*),PARAMETER  :: &
-             & routine ='mo_echam_phy_config:config_echam_phy'
+             & method_name ='mo_echam_phy_config:config_echam_phy'
 
     !------------------
     IF (ltestcase) THEN
@@ -104,6 +105,7 @@ CONTAINS
         echam_phy_config% lssodrag  = .FALSE.
         echam_phy_config% lice      = .FALSE.
         echam_phy_config% lmeltpond = .FALSE.
+        echam_phy_config% lamip     = .FALSE.
         echam_phy_config% lmlo      = .FALSE.
         echam_phy_config% lhd       = .FALSE.
 
@@ -116,14 +118,44 @@ CONTAINS
         CALL print_value('lssodrag  ',echam_phy_config% lssodrag )
         CALL print_value('lice      ',echam_phy_config% lice     )
         CALL print_value('lmeltpond ',echam_phy_config% lmeltpond)
+        CALL print_value('lamip     ',echam_phy_config% lamip    )
         CALL print_value('lmlo      ',echam_phy_config% lmlo     )
         CALL print_value('lhd       ',echam_phy_config% lhd      )
 
         CALL message('','')
 
+      CASE('AMIP')
+#ifndef __JSBACH__
+        CALL finish(method_name, "This version was compiled without jsbach. Compile with __JSBACH__ to run the AMIP setup")
+#endif
+        echam_phy_config% llandsurf = .FALSE.
+        echam_phy_config% lssodrag  = .TRUE.
+        echam_phy_config% lice      = .FALSE.
+        echam_phy_config% lmeltpond = .FALSE.
+        echam_phy_config% lamip     = .TRUE.
+        echam_phy_config% lmlo      = .FALSE.
+        echam_phy_config% lhd       = .FALSE.
+        echam_phy_config% ljsbach   = .TRUE.
+
+        CALL message('','')
+        CALL message('','Running the hydrostatic atm model with ECHAM6 physics.')
+        CALL message('','Testcase = '//TRIM(ctest_name))
+        CALL message('','')
+
+        CALL print_value('llandsurf ',echam_phy_config% llandsurf)
+        CALL print_value('lssodrag  ',echam_phy_config% lssodrag )
+        CALL print_value('lice      ',echam_phy_config% lice     )
+        CALL print_value('lmeltpond ',echam_phy_config% lmeltpond)
+        CALL print_value('lamip     ',echam_phy_config% lamip    )
+        CALL print_value('lmlo      ',echam_phy_config% lmlo     )
+        CALL print_value('lhd       ',echam_phy_config% lhd      )
+        CALL print_value('ljsbach   ',echam_phy_config% ljsbach  )
+
+        CALL message('','')
+
       CASE DEFAULT
-        CALL message(TRIM(routine),'Testcase = '//TRIM(ctest_name))
-        CALL finish (TRIM(routine),'Invalid test case with ECHAM6 physics')
+        CALL message(TRIM(method_name),'Testcase = '//TRIM(ctest_name))
+        CALL finish (TRIM(method_name),'Invalid test case with ECHAM6 physics')
       END SELECT
     ENDIF
 
@@ -164,5 +196,10 @@ CONTAINS
   LOGICAL FUNCTION get_ljsbach()
     get_ljsbach = echam_phy_config%ljsbach
   END FUNCTION get_ljsbach
+  !>
+  !!
+  LOGICAL FUNCTION get_lamip()
+    get_lamip = echam_phy_config%lamip
+  END FUNCTION get_lamip
 
 END MODULE mo_echam_phy_config

@@ -30,6 +30,7 @@
 !! Memory allocation method changed from explicit allocation to Luis' 
 !! infrastructure by Kristina Froehlich (MPI-M, 2011-04-27)
 !! Added clch, clcm, clcl, hbas_con, htop_con by Helmut Frank (DWD, 2013-01-17)
+!! Added hzerocl and gusts                    by Helmut Frank (DWD, 2013-03-13)
 !!
 !! @par Copyright
 !! 2002-2009 by DWD and MPI-M
@@ -105,10 +106,16 @@ MODULE mo_nwp_phy_types
     TYPE(t_ptr_2d3d),ALLOCATABLE :: tfv_t_ptr(:) !< pointer array: laminar reduction factor for evaporation
     TYPE(t_ptr_2d3d),ALLOCATABLE :: gz0_t_ptr(:) !< pointer array: roughness length * gravity
 
-    TYPE(t_ptr_2d3d),ALLOCATABLE :: u_10m_t_ptr(:) !< pointer array: zonal wind at 2am
-    TYPE(t_ptr_2d3d),ALLOCATABLE :: v_10m_t_ptr(:) !< pointer array: meridional wind at 2m
+    TYPE(t_ptr_2d3d),ALLOCATABLE :: tvs_s_t_ptr(:)  !< pointer array: turbulent velocity scale at surface
+    TYPE(t_ptr_2d3d),ALLOCATABLE :: tkvm_s_t_ptr(:) !< pointer array: exchange coefficient for momentum at surface
+    TYPE(t_ptr_2d3d),ALLOCATABLE :: tkvh_s_t_ptr(:) !< pointer array: exchange coefficient for heat at surface
+    TYPE(t_ptr_2d3d),ALLOCATABLE :: u_10m_t_ptr(:)  !< pointer array: zonal wind at 10m
+    TYPE(t_ptr_2d3d),ALLOCATABLE :: v_10m_t_ptr(:)  !< pointer array: meridional wind at 10m
     TYPE(t_ptr_2d3d),ALLOCATABLE :: shfl_s_t_ptr(:) !< pointer array: surface sensible heat flux 
     TYPE(t_ptr_2d3d),ALLOCATABLE :: lhfl_s_t_ptr(:) !< pointer array: surface latent heat flux
+    TYPE(t_ptr_2d3d),ALLOCATABLE :: ustr_s_t_ptr(:) !< pointer array: surface U stress
+    TYPE(t_ptr_2d3d),ALLOCATABLE :: vstr_s_t_ptr(:) !< pointer array: surface V stress
+    TYPE(t_ptr_2d3d),ALLOCATABLE :: qhfl_s_t_ptr(:) !< pointer array: surface moisture flux
     TYPE(t_ptr_2d3d),ALLOCATABLE :: lhfl_bs_t_ptr(:)!< pointer array: lhf from bare soil
     TYPE(t_ptr_2d3d),ALLOCATABLE :: lhfl_pl_t_ptr(:)!< pointer array: lhf from plants
 
@@ -144,17 +151,20 @@ MODULE mo_nwp_phy_types
                                  !! 6= humidity in updraft region (pqu)
                                  !! 7= condensate in updraft region (plu)
       &  rain_upd(:,:),        & !! total precipitation produced in updrafts [kg/m2/s]
-      &  hbas_con(:,:),        & !! height of base of convection [m]
-      &  htop_con(:,:),        & !! height of top of convection [m]
+      &  hzerocl(:,:),         & !! height of 0 deg C level [m]
       &  shfl_s(:,:),          & !! sensible heat flux (surface) ( W/m2)
       &  shfl_s_t(:,:,:),      & !! sensible heat flux (surface) ( W/m2)
       &  lhfl_s(:,:),          & !! latent   heat flux (surface) ( W/m2)
       &  lhfl_s_t(:,:,:),      & !! latent   heat flux (surface) ( W/m2)
+      &  ustr_s_t(:,:,:),      & !! U stress           (surface) ( m2/s2)
+      &  vstr_s_t(:,:,:),      & !! V stress           (surface) ( m2/s2)
       &  lhfl_bs(:,:),         & !! latent heat flux from bare soil evap. (surface) ( W/m2)
       &  lhfl_bs_t(:,:,:),     & !! latent heat flux from bare soil evap. (surface) ( W/m2)
       &  lhfl_pl(:,:,:),       & !! latent heat flux from plants                    ( W/m2)
       &  lhfl_pl_t(:,:,:,:),   & !! latent heat flux from plants                    ( W/m2)
       &  qhfl_s(:,:),          & !!      moisture flux (surface) ( Kg/m2/s)
+                                 !!      = evaporation rate at surface
+      &  qhfl_s_t(:,:,:),      & !! moisture flux (surface)                         ( Kg/m2/s)
                                  !!      = evaporation rate at surface
       &  ashfl_s(:,:),         & !! average or accumulated since model start of shfl_s [W/m2]
       &  alhfl_s(:,:),         & !! average or accumulated since model start of lhfl_s [W/m2]
@@ -162,18 +172,23 @@ MODULE mo_nwp_phy_types
                                  !! = average of evaporation rate at surface
       &  alhfl_bs(:,:),        & !! average or accumulated since model start of lhfl_bs [W/m2]
       &  alhfl_pl(:,:,:),      & !! average or accumulated since model start of lhfl_pl [W/m2]
-      &  tot_cld(:,:,:,:),     & !! total cloud variables (cc,qv,qc,qi)
-      &  tot_cld_vi(:,:,:),    & !! vertically integrated tot_cld (cc,qv,qc,qi) 
-                                 !! for cc, instead of the vertically integrated value, 
-                                 !! this is the cloud cover assuming maximum-random overlap
-      &  tot_cld_vi_avg(:,:,:),& !! average since model start of the 
-                                 !! vertically integrated tot_cld (cc,qv,qc,qi)  
+      &  clc(:,:,:),           & !! cloud cover  
+      &  clct(:,:),            & !! total cloud cover  
       &  clch(:,:),            & !! cloud cover of high-level clouds
       &  clcm(:,:),            & !! cloud cover of mid-level clouds
       &  clcl(:,:),            & !! cloud cover of low-level clouds
+      &  hbas_con(:,:),        & !! height of base of convection [m]
+      &  htop_con(:,:),        & !! height of top of convection [m]
+      &  tot_cld(:,:,:,:),     & !! total cloud variables (cc,qv,qc,qi)
+      &  tot_cld_vi(:,:,:),    & !! vertically integrated tot_cld (qv,qc,qi), icluding vertical 
+                                 !! integrals of qr and qs 
+      &  tot_cld_vi_avg(:,:,:),& !! average since model start of the 
+                                 !! vertically integrated tot_cld (qv,qc,qi)
+      &  clct_avg(:,:),        & !! average since model start of the total cloud cover  
       &  cosmu0(:,:),          & !! cosine of solar zenith angle
-      &  albvisdif(:,:),       & !! surface albedo for visible range, diffuse
-      &  albvisdif_t(:,:,:),   & !! tile-based surface albedo for visible range, diffuse
+      &  albvisdif(:,:),       & !! UV visible albedo for diffuse radiation (0.3-0.7µm)
+      &  albnirdif(:,:),       & !! near IR albedo for diffuse radiation    (0.7-5.0µm)
+      &  albvisdif_t(:,:,:),   & !! tile-based UV visible albedo for diffuse radiation (0.3-0.7µm)
       &  vio3(:,:),            & !! vertically integrated ozone amount (Pa O3)
       &  hmo3(:,:),            & !! height of O3 maximum (Pa)
       &  flxdwswtoa(:,:),      & !! downward shortwave flux at TOA [W/m2]
@@ -197,6 +212,7 @@ MODULE mo_nwp_phy_types
 
 
 
+
     !> Parameter fields for turbulence
     REAL(wp), POINTER ::  &
       rcld(:,:,:)      ,    & !> standard deviation of the saturation deficit    --
@@ -206,10 +222,7 @@ MODULE mo_nwp_phy_types
       tfh(:,:)        ,    & !! factor of laminar transfer of scalars           --
       tfv(:,:)        ,    & !! laminar reduction factor for evaporation        --
       gz0(:,:),            & !! roughness length * g of the vertically not
-                                !! resolved canopy                               (m2/s2)
-      sai(:,:),            & !! surface area index                            ( 1 )
-      tai(:,:),            & !! transpiration area index                      ( 1 )
-      eai(:,:),            & !! (evaporative) earth area index                ( 1 )
+                             !! resolved canopy                               (m2/s2)
       tkvm(:,:,:),         & !! turbulent diffusion coefficients for momentum (m/s2 )
       tkvh(:,:,:),         & !! turbulent diffusion coefficients for heat     (m/s2 )
       t_2m(:,:)       ,    & !! temperature in 2m                             (  K  )
@@ -224,13 +237,23 @@ MODULE mo_nwp_phy_types
       v_10m (:,:)     ,    & !! meridional wind in 10m                        ( m/s )
       u_10m_s6avg (:,:),   & !! 6 hourly sample 10m zonal wind  average       ( m/s )
       v_10m_s6avg (:,:),   & !! 6 hourly sample 10m  meridional wind average  ( m/s )
+      dyn_gust(:,:),       & !! dynamic gust at 10m                           ( m/s )
+      gust10(:,:),         & !! max. gust at 10m                              ( m/s )
       edr   (:,:,:)    ,   & !! eddy dissipation rate
       tcm_t(:,:,:)     ,   & !! turbulent transfer coefficients for momentum    --
       tch_t(:,:,:)     ,   & !! turbulent transfer coefficients for heat        --
       tfv_t(:,:,:)     ,   & !! laminar reduction factor for evaporation        --
       gz0_t(:,:,:)     ,   & !! roughness length * g                          (m2/s2)
+      tvs_s_t(:,:,:)   ,   & !! surface turbulence velocity scale (SQRT(2*TKE)) (m/s)
+                             !! (tile based)
+      tkvm_s_t(:,:,:)  ,   & !! surface turbulent diffusion coefficients for momentum (m/s2)
+                             !! (tile based)
+      tkvh_s_t(:,:,:)  ,   & !! surface turbulent diffusion coefficients for heat (m/s2)
+                             !! (tile based)
       u_10m_t(:,:,:)   ,   & !! zonal wind at 10m                             ( m/s )
-      v_10m_t(:,:,:)         !! meridional wind at 10m                        ( m/s )
+      v_10m_t(:,:,:)   ,   & !! meridional wind at 10m                        ( m/s )
+      umfl_s(:,:)      ,   & !! u-momentum flux at the surface                 (N/m2)
+      vmfl_s(:,:)            !! u-momentum flux at the surface                 (N/m2)
 
     ! need only for vdiff (and some for EDMF)
     REAL(wp),POINTER :: &
@@ -273,7 +296,8 @@ MODULE mo_nwp_phy_types
       &  ktype   (:,:)        !< Type of convection
 
     LOGICAL, POINTER :: &
-      & locum     (:,:)       !< convective  activity indicator
+      & locum     (:,:),    & !< convective  activity indicator
+      & ldshcv    (:,:)       !< shallow convection indicator
 
     !> (Optional:) Additional diagnostic fields:
     REAL(wp), POINTER ::  &

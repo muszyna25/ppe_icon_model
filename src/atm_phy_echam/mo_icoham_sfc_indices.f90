@@ -76,6 +76,16 @@ CONTAINS
 
     IF (ltestcase) THEN
       SELECT CASE(TRIM(ctest_name))
+! TODO: ME might not work proper with ice, has to be checked.
+      CASE('AMIP')
+      ! Amip simulation
+
+        iwtr      = 1
+        iice      = 2
+        ilnd      = 3
+        nsfc_type = 3
+        igbm      = 0
+
       CASE('APE')
       ! Aqua-planet simulation, no land, no ice;
       ! No needed to distinguish the aggregated grid-box mean
@@ -86,16 +96,6 @@ CONTAINS
         igbm      = 0
         iice      = 999
         ilnd      = 999
-
-        IF (phy_config%ljsbach) THEN
-
-           iwtr      = 1
-           ilnd      = 2
-           nsfc_type = 2
-           igbm      = 0
-           iice      = 999
-
-        END IF
 
       CASE('APEi','APEc')
       ! Aqua-planet simulation with ice, but no land;

@@ -1,9 +1,160 @@
+*> \brief \b DTZRZF
+*
+*  =========== DOCUMENTATION ===========
+*
+* Online html documentation available at 
+*            http://www.netlib.org/lapack/explore-html/ 
+*
+*> \htmlonly
+*> Download DTZRZF + dependencies 
+*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.tgz?format=tgz&filename=/lapack/lapack_routine/dtzrzf.f"> 
+*> [TGZ]</a> 
+*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.zip?format=zip&filename=/lapack/lapack_routine/dtzrzf.f"> 
+*> [ZIP]</a> 
+*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.txt?format=txt&filename=/lapack/lapack_routine/dtzrzf.f"> 
+*> [TXT]</a>
+*> \endhtmlonly 
+*
+*  Definition:
+*  ===========
+*
+*       SUBROUTINE DTZRZF( M, N, A, LDA, TAU, WORK, LWORK, INFO )
+* 
+*       .. Scalar Arguments ..
+*       INTEGER            INFO, LDA, LWORK, M, N
+*       ..
+*       .. Array Arguments ..
+*       DOUBLE PRECISION   A( LDA, * ), TAU( * ), WORK( * )
+*       ..
+*  
+*
+*> \par Purpose:
+*  =============
+*>
+*> \verbatim
+*>
+*> DTZRZF reduces the M-by-N ( M<=N ) real upper trapezoidal matrix A
+*> to upper triangular form by means of orthogonal transformations.
+*>
+*> The upper trapezoidal matrix A is factored as
+*>
+*>    A = ( R  0 ) * Z,
+*>
+*> where Z is an N-by-N orthogonal matrix and R is an M-by-M upper
+*> triangular matrix.
+*> \endverbatim
+*
+*  Arguments:
+*  ==========
+*
+*> \param[in] M
+*> \verbatim
+*>          M is INTEGER
+*>          The number of rows of the matrix A.  M >= 0.
+*> \endverbatim
+*>
+*> \param[in] N
+*> \verbatim
+*>          N is INTEGER
+*>          The number of columns of the matrix A.  N >= M.
+*> \endverbatim
+*>
+*> \param[in,out] A
+*> \verbatim
+*>          A is DOUBLE PRECISION array, dimension (LDA,N)
+*>          On entry, the leading M-by-N upper trapezoidal part of the
+*>          array A must contain the matrix to be factorized.
+*>          On exit, the leading M-by-M upper triangular part of A
+*>          contains the upper triangular matrix R, and elements M+1 to
+*>          N of the first M rows of A, with the array TAU, represent the
+*>          orthogonal matrix Z as a product of M elementary reflectors.
+*> \endverbatim
+*>
+*> \param[in] LDA
+*> \verbatim
+*>          LDA is INTEGER
+*>          The leading dimension of the array A.  LDA >= max(1,M).
+*> \endverbatim
+*>
+*> \param[out] TAU
+*> \verbatim
+*>          TAU is DOUBLE PRECISION array, dimension (M)
+*>          The scalar factors of the elementary reflectors.
+*> \endverbatim
+*>
+*> \param[out] WORK
+*> \verbatim
+*>          WORK is DOUBLE PRECISION array, dimension (MAX(1,LWORK))
+*>          On exit, if INFO = 0, WORK(1) returns the optimal LWORK.
+*> \endverbatim
+*>
+*> \param[in] LWORK
+*> \verbatim
+*>          LWORK is INTEGER
+*>          The dimension of the array WORK.  LWORK >= max(1,M).
+*>          For optimum performance LWORK >= M*NB, where NB is
+*>          the optimal blocksize.
+*>
+*>          If LWORK = -1, then a workspace query is assumed; the routine
+*>          only calculates the optimal size of the WORK array, returns
+*>          this value as the first entry of the WORK array, and no error
+*>          message related to LWORK is issued by XERBLA.
+*> \endverbatim
+*>
+*> \param[out] INFO
+*> \verbatim
+*>          INFO is INTEGER
+*>          = 0:  successful exit
+*>          < 0:  if INFO = -i, the i-th argument had an illegal value
+*> \endverbatim
+*
+*  Authors:
+*  ========
+*
+*> \author Univ. of Tennessee 
+*> \author Univ. of California Berkeley 
+*> \author Univ. of Colorado Denver 
+*> \author NAG Ltd. 
+*
+*> \date April 2012
+*
+*> \ingroup doubleOTHERcomputational
+*
+*> \par Contributors:
+*  ==================
+*>
+*>    A. Petitet, Computer Science Dept., Univ. of Tenn., Knoxville, USA
+*
+*> \par Further Details:
+*  =====================
+*>
+*> \verbatim
+*>
+*>  The N-by-N matrix Z can be computed by
+*>
+*>     Z =  Z(1)*Z(2)* ... *Z(M)
+*>
+*>  where each N-by-N Z(k) is given by
+*>
+*>     Z(k) = I - tau(k)*v(k)*v(k)**T
+*>
+*>  with v(k) is the kth row vector of the M-by-N matrix
+*>
+*>     V = ( I   A(:,M+1:N) )
+*>
+*>  I is the M-by-M identity matrix, A(:,M+1:N) 
+*>  is the output stored in A on exit from DTZRZF,
+*>  and tau(k) is the kth element of the array TAU.
+*>
+*> \endverbatim
+*>
+*  =====================================================================
       SUBROUTINE DTZRZF( M, N, A, LDA, TAU, WORK, LWORK, INFO )
 *
-*  -- LAPACK routine (version 3.2) --
+*  -- LAPACK computational routine (version 3.4.1) --
 *  -- LAPACK is a software package provided by Univ. of Tennessee,    --
 *  -- Univ. of California Berkeley, Univ. of Colorado Denver and NAG Ltd..--
-*     November 2006
+*     April 2012
 *
 *     .. Scalar Arguments ..
       INTEGER            INFO, LDA, LWORK, M, N
@@ -11,91 +162,6 @@
 *     .. Array Arguments ..
       DOUBLE PRECISION   A( LDA, * ), TAU( * ), WORK( * )
 *     ..
-*
-*  Purpose
-*  =======
-*
-*  DTZRZF reduces the M-by-N ( M<=N ) real upper trapezoidal matrix A
-*  to upper triangular form by means of orthogonal transformations.
-*
-*  The upper trapezoidal matrix A is factored as
-*
-*     A = ( R  0 ) * Z,
-*
-*  where Z is an N-by-N orthogonal matrix and R is an M-by-M upper
-*  triangular matrix.
-*
-*  Arguments
-*  =========
-*
-*  M       (input) INTEGER
-*          The number of rows of the matrix A.  M >= 0.
-*
-*  N       (input) INTEGER
-*          The number of columns of the matrix A.  N >= M.
-*
-*  A       (input/output) DOUBLE PRECISION array, dimension (LDA,N)
-*          On entry, the leading M-by-N upper trapezoidal part of the
-*          array A must contain the matrix to be factorized.
-*          On exit, the leading M-by-M upper triangular part of A
-*          contains the upper triangular matrix R, and elements M+1 to
-*          N of the first M rows of A, with the array TAU, represent the
-*          orthogonal matrix Z as a product of M elementary reflectors.
-*
-*  LDA     (input) INTEGER
-*          The leading dimension of the array A.  LDA >= max(1,M).
-*
-*  TAU     (output) DOUBLE PRECISION array, dimension (M)
-*          The scalar factors of the elementary reflectors.
-*
-*  WORK    (workspace/output) DOUBLE PRECISION array, dimension (MAX(1,LWORK))
-*          On exit, if INFO = 0, WORK(1) returns the optimal LWORK.
-*
-*  LWORK   (input) INTEGER
-*          The dimension of the array WORK.  LWORK >= max(1,M).
-*          For optimum performance LWORK >= M*NB, where NB is
-*          the optimal blocksize.
-*
-*          If LWORK = -1, then a workspace query is assumed; the routine
-*          only calculates the optimal size of the WORK array, returns
-*          this value as the first entry of the WORK array, and no error
-*          message related to LWORK is issued by XERBLA.
-*
-*  INFO    (output) INTEGER
-*          = 0:  successful exit
-*          < 0:  if INFO = -i, the i-th argument had an illegal value
-*
-*  Further Details
-*  ===============
-*
-*  Based on contributions by
-*    A. Petitet, Computer Science Dept., Univ. of Tenn., Knoxville, USA
-*
-*  The factorization is obtained by Householder's method.  The kth
-*  transformation matrix, Z( k ), which is used to introduce zeros into
-*  the ( m - k + 1 )th row of A, is given in the form
-*
-*     Z( k ) = ( I     0   ),
-*              ( 0  T( k ) )
-*
-*  where
-*
-*     T( k ) = I - tau*u( k )*u( k )',   u( k ) = (   1    ),
-*                                                 (   0    )
-*                                                 ( z( k ) )
-*
-*  tau is a scalar and z( k ) is an ( n - m ) element vector.
-*  tau and z( k ) are chosen to annihilate the elements of the kth row
-*  of X.
-*
-*  The scalar tau is returned in the kth element of TAU and the vector
-*  u( k ) in the kth row of A, such that the elements of z( k ) are
-*  in  a( k, m + 1 ), ..., a( k, n ). The elements of R are returned in
-*  the upper triangular part of A.
-*
-*  Z is given by
-*
-*     Z =  Z( 1 ) * Z( 2 ) * ... * Z( m ).
 *
 *  =====================================================================
 *
@@ -105,11 +171,11 @@
 *     ..
 *     .. Local Scalars ..
       LOGICAL            LQUERY
-      INTEGER            I, IB, IWS, KI, KK, LDWORK, LWKOPT, M1, MU, NB,
-     $                   NBMIN, NX
+      INTEGER            I, IB, IWS, KI, KK, LDWORK, LWKMIN, LWKOPT,
+     $                   M1, MU, NB, NBMIN, NX
 *     ..
 *     .. External Subroutines ..
-      EXTERNAL           DLARZB, DLARZT, DLATRZ, XERBLA
+      EXTERNAL           XERBLA, DLARZB, DLARZT, DLATRZ
 *     ..
 *     .. Intrinsic Functions ..
       INTRINSIC          MAX, MIN
@@ -135,16 +201,18 @@
       IF( INFO.EQ.0 ) THEN
          IF( M.EQ.0 .OR. M.EQ.N ) THEN
             LWKOPT = 1
+            LWKMIN = 1
          ELSE
 *
 *           Determine the block size.
 *
             NB = ILAENV( 1, 'DGERQF', ' ', M, N, -1, -1 )
             LWKOPT = M*NB
+            LWKMIN = MAX( 1, M )
          END IF
          WORK( 1 ) = LWKOPT
 *
-         IF( LWORK.LT.MAX( 1, M ) .AND. .NOT.LQUERY ) THEN
+         IF( LWORK.LT.LWKMIN .AND. .NOT.LQUERY ) THEN
             INFO = -7
          END IF
       END IF

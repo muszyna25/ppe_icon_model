@@ -1,0 +1,294 @@
+require 'open3'
+require 'jobqueue'
+require 'rake/clean'
+require 'test/unit/assertions'
+include Test::Unit::Assertions
+
+# ============================================================================
+# Please copy this file to the opt directory of you main working copy and 
+# adjust the remote and local settings
+# usage with the given configuration:
+# * parallel build with gcc (locally) and nag (remotely)
+#   rake parX localGcc_build remoteNag_build
+# * synchronization of several remote build locations
+#   rake par remoteDef_sync remoteIntel_sync remoteGccHi_sync
+# * print our the commands before executing:
+#   DEGUB=1 rake remoteGccHi_conf
+# * print the commands without executing them
+#   DRYRUN=1 rake remoteGccHi_conf
+# ============================================================================
+# AUTHOR: Ralf Mueller, ralf.mueller@zmaw.de
+# REQUIREMENTS: 
+# * ruby-1.9.* or higher (use with 'module load ruby')
+# * jobQueue (rubygem, install with 'gem install jobQueue --user-install)
+# ============================================================================
+# user account on all remote machines
+REMOTE_USER = 'm300064'
+
+# local master source code directory
+SRCDIR = '/home/ram/src/git/icon'
+
+# remote runscripts
+REMOTE_RUN = 'exp.test_oce_default.run'
+
+# basic host setup
+$hosts = {
+  # local port forwarding setup for thunder4 and 5
+  # cat .ssh/config
+  #Host thunder
+  #HostName login.zmaw.de
+  #LocalForward 50022 thunder5.zmaw.de:22
+  #LocalForward 40022 thunder4.zmaw.de:22
+
+  :thunder4 => {
+    :user     => REMOTE_USER,
+    :hostname => 'localhost',
+    :port     => 40022,
+    :dir      => '/scratch/mpi/mh0287/users/m300064/builds/remote/icon' },
+  :thunder5 => {
+    :user     => REMOTE_USER,
+    :hostname => 'localhost',
+    :port     => 50022,
+    :dir      => '/scratch/mpi/mh0287/users/m300064/builds/remote/icon' },
+  :passat => {
+    :user     => REMOTE_USER,
+    :hostname => 'passat.dkrz.de',
+    :dir      => '/work/mh0287/users/ram/builds'},
+  # laptop on my desk
+  :thingol => {
+    :dir => '/home/ram/builds/icon' }
+}
+
+# naming conventions:
+# * local builds start with 'local'
+# * remote builds start with 'remote'
+$builds = {
+  :localGcc          => {:host => :thingol ,:subdir => 'gcc'},
+  :localGccHi        => {:host => :thingol ,:subdir => 'gcc-hiopt', :CC => 'gcc', :FLAGS => 'hiopt'},
+  :localGprof        => {:host => :thingol ,:subdir => 'gprof'},
+  :localOpenMP       => {:host => :thingol ,:subdir => 'openmp',:FLAGS => 'hiopt',:openmp => true},
+  :localNag          => {:host => :thingol ,:subdir => 'nag',  :CC => 'nag'},
+  :localTest         => {:host => :thingol ,:subdir => 'test', :CC => 'nag'},
+  :remoteDef         => {:host => :thunder4,:subdir => 'test'},
+  :remoteGccHi       => {:host => :thunder5,:subdir => 'gcc',  :CC => 'gcc', :FLAGS => 'hiopt'},
+  :remoteGccHiOpenMP => {:host => :thunder5,:subdir => 'gcc-opemp',  :CC => 'gcc', :FLAGS => 'hiopt',:openmp => true},
+  :remoteNag         => {:host => :thunder4,:subdir => 'nag',  :CC => 'nag'},
+  :remoteIntel       => {:host => :thunder5,:subdir => 'intel',:CC => 'intel'},
+  :remoteXlf         => {:host => :passat  ,:subdir => 'default'},
+  :remoteXlfHi       => {:host => :passat  ,:subdir => 'hiopt',:FLAGS => 'hiopt'}
+}
+# ============================================================================
+
+# run the commands and try to get back stdout or possible error messages
+def call(cmd)
+  unless ENV['DRYRUN'].nil?
+    puts cmd
+    return
+  end
+  dbg(cmd)
+  Open3.popen3(cmd) do |stdin, stdout, stderr, external|
+    # read from stdout and stderr in parallel
+    { :out => stdout, :err => stderr }.each {|key, stream|
+      Thread.new do
+        until (line = stream.gets).nil? do
+          puts line
+        end
+      end
+    }
+
+    # Don't exit until the external process is done
+    external.join
+  end
+end
+
+# debug output for any type of object
+def dbg(msg)
+  pp msg unless ENV['DEBUG'].nil?
+end
+
+# check for the naming convention to distinguish remote from local builds
+def isLocal?(build);  true if 'local' == build.to_s[0,5]; end
+def isRemote?(build); not isLocal?(build); end
+
+# hide some complex hash accesses
+# {
+$hostOf = lambda {|build| 
+  host = $builds[build][:host]
+}
+$hostnameOf = lambda {|build|
+  host = $hostOf[build]
+  $hosts[host][:hostname].nil? ? host.to_s : $hosts[host][:hostname]
+}
+# }
+
+# compute the directory where to (possible remote) code is
+$targetDir = lambda {|build,withHost=true|
+  dir      = ''
+  host     = $hostOf[build]
+  hostname = $hostnameOf[build]
+  dir << "m300064@#{hostname}:" if isRemote?(build) and withHost
+  dir << $hosts[host][:dir] + '/' + $builds[build][:subdir]
+
+  dir
+}
+
+# ssh connection command line
+$remoteConnection = lambda {|build|
+  hostname  = $hostnameOf[build]
+  portSpec  = $hosts[$hostOf[build]][:port].nil? ? '' : "-p #{$hosts[$hostOf[build]][:port]}"
+  "ssh #{portSpec}"
+}
+
+# configure for a given build call wrt. to given options
+$configureCall = lambda {|build|
+  configureCall = ''
+  configureCall << "COMPILER=#{$builds[build][:CC]} "
+  configureCall << './configure'
+  configureCall << " --with-fortran=#{$builds[build][:CC]}" unless $builds[build][:CC].nil?
+  configureCall << " --with-flags=#{$builds[build][:FLAGS]}" unless $builds[build][:FLAGS].nil?
+  configureCall << " --with-openmp" unless $builds[build][:openmp].nil?
+  configureCall << " ;"
+  configureCall
+}
+
+# exclude files for a build
+$excludeFiles = lambda {|build|
+  list = "--exclude='.git/*'"
+  list << " --exclude='experiments/**/*nc*' --exclude='**/*.o'  --exclude='build/*' --exclude='**/*.run' --exclude=config/mh-config-use --exclude=config.log --exclude=Makefile --exclude=build_command"
+  list << " --exclude=config/mh-override --exclude=config/mh-config-use" if isRemote?(build)
+  list
+}
+
+# synchronization call for given build
+def sync(build)
+  excludes = $excludeFiles[build]
+  dir      = $targetDir[build]
+
+  if isLocal?(build)
+    syncCmd = "rsync -avz #{SRCDIR}/ #{dir} #{excludes}"
+  else
+    syncCmd = "rsync -avz -e '#{$remoteConnection[build]}' #{SRCDIR}/ #{dir} #{excludes}"
+  end
+  syncCmd
+end
+
+# optional connection command
+def connect(build,command)
+  cmd      = ''
+  hostname = $hostnameOf[build]
+  cmd << $remoteConnection[build] + " m300064@#{hostname} " if isRemote?(build)
+  cmd << "'" if isRemote?(build)
+  cmd << "cd #{$targetDir[build,false]};"
+
+  # add module command - needed by ICONs configure
+  cmd << "source /etc/profile; source .profile; " if isRemote?(build) 
+  cmd << command
+  cmd << "'" if isRemote?(build)
+
+  cmd
+end
+
+# caller for sync, config, build and run
+def doSync(build)
+  call(sync(build))
+end
+def doConfig(build)
+  call(connect(build,$configureCall[build]))
+end
+def doBuild(build)
+  call(connect(build,"./build_command;"))
+end
+def doClean(build)
+  call(connect(build,"make clean"))
+end
+def doRun(build)
+  call(connect(build,"./make_runscripts test_oce_default ; cd run;./exp.test_oce_default.run;"))
+end
+
+$builds.each_key {|build|
+  # regular tasks with all dependencies {
+  desc "sync for build #{build.to_s}"
+  task "#{build.to_s}_sync".to_sym do
+    doSync(build)
+  end
+  desc "Configure for build #{build.to_s}"
+  task "#{build.to_s}_conf".to_sym => ["#{build.to_s}_sync".to_sym] do
+    doConfig(build)
+  end
+  desc "Build for build #{build.to_s}"
+  task "#{build.to_s}_build".to_sym => ["#{build.to_s}_conf".to_sym] do
+    doBuild(build)
+  end
+  desc "Clean repository for build #{build.to_s}"
+  task "#{build.to_s}_clean".to_sym do
+    doClean(build)
+  end
+  desc "Run for build #{build.to_s}"
+  task "#{build.to_s}_run".to_sym => ["#{build.to_s}_build".to_sym] do
+    doRun(build)
+  end
+  # }
+  # tasks for inly do one single thing {
+  desc "Configure for build #{build.to_s}"
+  task "#{build.to_s}_confOnly".to_sym do
+    doConfig(build)
+  end
+  desc "Build for build #{build.to_s}"
+  task "#{build.to_s}_buildOnly".to_sym do
+    doBuild(build)
+  end
+  desc "Run for build #{build.to_s}"
+  task "#{build.to_s}_runOnly".to_sym do
+    doRun(build)
+  end
+  # }
+
+}
+
+# tasks for parallel run of other tasks
+parTaskName = :par
+desc "tasks for parallel run of other tasks"
+task parTaskName do
+  dbg(Rake.application.top_level_tasks)
+  Rake.application.top_level_tasks.clear
+  dbg(Rake::Task.tasks.find_all {|t| (ARGV - [parTaskName.to_s]).include?(t.name)})
+  q = JobQueue.new
+  (Rake::Task.tasks.find_all {|t| (ARGV - [parTaskName.to_s]).include?(t.name)}).each {|task|
+    q.push { task.invoke }
+  }
+  q.run
+end
+# tasks for parallel run of other tasks in an Xtra terminal and shut them when finished
+parTaskName       = :parX
+terminalEmulators = ['gnome-terminal','xterm']
+desc "parallel run of other tasks in an Xtra terminal and shut them when finished"
+task parTaskName do
+  dbg(Rake.application.top_level_tasks)
+  Rake.application.top_level_tasks.clear
+  dbg(Rake::Task.tasks.find_all {|t| (ARGV - [parTaskName.to_s]).include?(t.name)})
+  q = SystemJobs.new
+  (Rake::Task.tasks.find_all {|t| (ARGV - [parTaskName.to_s]).include?(t.name)}).each {|t|
+    cmd = "#{terminalEmulators[1]} -T 'rake #{t.name}' -e 'rake #{t.name};'"
+    dbg(cmd)
+    q.push(cmd)
+  }
+  q.run
+end
+# tasks for parallel run of other tasks in an Xtra terminal and keep them open
+parTaskName       = :parXWait
+terminalEmulators = ['gnome-terminal','xterm']
+desc "parallel run of other tasks in an Xtra terminal and keep them open"
+task parTaskName do
+  dbg(Rake.application.top_level_tasks)
+  Rake.application.top_level_tasks.clear
+  dbg(Rake::Task.tasks.find_all {|t| (ARGV - [parTaskName.to_s]).include?(t.name)})
+  q = SystemJobs.new
+  (Rake::Task.tasks.find_all {|t| (ARGV - [parTaskName.to_s]).include?(t.name)}).each {|t|
+    cmd = "#{terminalEmulators[1]} -T 'rake #{t.name}' -e 'rake #{t.name};read'"
+    dbg(cmd)
+    q.push(cmd)
+  }
+  q.run
+end
+
+# vim:ft=ruby

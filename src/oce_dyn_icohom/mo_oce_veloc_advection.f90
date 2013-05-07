@@ -44,17 +44,14 @@ MODULE mo_oce_veloc_advection
   USE mo_parallel_config,     ONLY: nproma
   USE mo_sync,                ONLY: sync_e, sync_c, sync_v, sync_patch_array
   USE mo_model_domain,        ONLY: t_patch, t_patch_3D
-  USE mo_impl_constants,      ONLY: sea_boundary, sea, boundary, min_dolic!, &
-  !  &                               min_rlcell, min_rledge, min_rlvert
+  USE mo_impl_constants,      ONLY: boundary, min_dolic
   USE mo_ocean_nml,           ONLY: n_zlev!, iswm_oce, l_inverse_flip_flop, ab_beta, ab_gam
   USE mo_util_dbg_prnt,       ONLY: dbg_print
-  USE mo_oce_state,           ONLY: t_hydro_ocean_diag!, v_base
-  USE mo_oce_math_operators,  ONLY: rot_vertex_ocean_rbf, &
-    &                               grad_fd_norm_oce_3d, &!grad_fd_norm_oce, div_oce_3d, &
+  USE mo_oce_state,           ONLY: t_hydro_ocean_diag
+  USE mo_oce_math_operators,  ONLY: grad_fd_norm_oce_3d, &!grad_fd_norm_oce, div_oce_3d, &
     &                               rot_vertex_ocean_3d!, rot_vertex_ocean
   USE mo_math_utilities,      ONLY: t_cartesian_coordinates, vector_product!,cc2gc, gvec2cvec, gc2cc
-  USE mo_scalar_product,      ONLY: map_cell2edges_3D, nonlinear_coriolis_3D!,nonlinear_coriolis_3d_old!, map_edges2edges, map_edges2cell
-  USE mo_intp_data_strc,      ONLY: t_int_state
+  USE mo_scalar_product,      ONLY: map_cell2edges_3D, nonlinear_coriolis_3D!,nonlinear_coriolis_3d_old
   USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
 
@@ -204,32 +201,23 @@ CONTAINS
 
 
     INTEGER :: slev, elev     ! vertical start and end level
-    INTEGER :: jk, jb, jc, je!, jv, ile, ibe, ie, jev
-    INTEGER :: i_startidx_c, i_endidx_c,il_v1,il_v2,ib_v1,ib_v2
+    INTEGER :: jk, jb, je
     INTEGER :: i_startidx_e, i_endidx_e
     REAL(wp) :: z_e            (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
     REAL(wp) :: z_vort_flx     (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
-    REAL(wp) :: z_vort_flx2     (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
-    REAL(wp) :: z_grad_ekin_rbf(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
-    REAL(wp) :: z_kin_rbf_e    (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
-    REAL(wp) :: z_kin_rbf_c    (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)
     REAL(wp) :: z_vort_e       (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
     REAL(wp) :: z_vort_flx_rbf (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
-    INTEGER :: ile1, ibe1, ile2, ibe2, ile3, ibe3
-    REAL(wp) :: z_weight_e1, z_weight_e2, z_weight_e3
     LOGICAL, PARAMETER :: l_debug = .FALSE.
-    !LOGICAL, PARAMETER :: L_ENSTROPHY_DISSIPATION=.FALSE.
-    TYPE(t_subset_range), POINTER :: all_edges, all_cells
+    TYPE(t_subset_range), POINTER :: all_edges!, all_cells
     TYPE(t_patch), POINTER         :: p_patch 
     !-----------------------------------------------------------------------
     p_patch   => p_patch_3D%p_patch_2D(1)
     all_edges => p_patch%edges%all
-    all_cells => p_patch%cells%all
+    !all_cells => p_patch%cells%all
     !-----------------------------------------------------------------------
 
     z_e             (1:nproma,1:n_zlev,1:p_patch%nblks_e) = 0.0_wp
     z_vort_flx      (1:nproma,1:n_zlev,1:p_patch%nblks_e) = 0.0_wp
-    z_vort_flx2      (1:nproma,1:n_zlev,1:p_patch%nblks_e) = 0.0_wp
     veloc_adv_horz_e(1:nproma,1:n_zlev,1:p_patch%nblks_e) = 0.0_wp
 
     slev = 1
@@ -283,111 +271,6 @@ CONTAINS
     !   CALL sync_patch_array(sync_e, p_patch, p_diag%grad(:,jk,:))
     ! ENDIF
 
-    !---------------------------for testing and comparison with RBF--------------------------
-    !----------nonlinear coriolis and grad of kinetic energy computed with RBFs--------------
-    !----------needs interpolation state
-
-! !     IF (l_debug) THEN
-! !       z_vort_flx_rbf  (:,:,:) = 0.0_wp
-! !       z_kin_rbf_c     (:,:,:) = 0.0_wp
-! !       z_grad_ekin_rbf (:,:,:) = 0.0_wp
-! !       z_vort_e        (:,:,:) = 0.0_wp
-! !       CALL rbf_vec_interpol_edge( vn_old,       &
-! !         & p_patch,  &
-! !         & p_int,    &
-! !         & p_diag%vt,&
-! !         & opt_slev=slev,opt_elev=elev)
-! !       CALL sync_patch_array(SYNC_E, p_patch, p_diag%vt)
-! ! 
-! ! 
-! !       CALL rot_vertex_ocean_rbf(p_patch, vn_old, p_diag%vt, p_diag%vort)
-! !       CALL sync_patch_array(SYNC_V, p_patch, p_diag%vort)
-! ! 
-! !       CALL verts2edges_scalar( p_diag%vort, p_patch, p_int%v_1o2_e, &
-! !         & z_vort_e, opt_slev=slev,opt_elev=elev, opt_rlstart=3)
-! !       CALL sync_patch_array(SYNC_E, p_patch, z_vort_e)
-! ! 
-! !       DO jb = all_edges%start_block, all_edges%end_block
-! !         CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
-! !         DO jk = slev, elev
-! !           DO je=i_startidx_e, i_endidx_e
-! ! 
-! !             IF ( v_base%lsm_e(je,jk,jb) == sea ) THEN  !  #slo# <= sea_boundary?
-! !               z_vort_flx_rbf(je,jk,jb) = &
-! !                 & p_diag%vt(je,jk,jb)*(z_vort_e(je,jk,jb)+ p_patch%edges%f_e(je,jb))
-! !             ENDIF
-! !           END DO
-! !         END DO
-! !       ENDDO
-! ! 
-! !       CALL rbf_vec_interpol_cell( vn_old, p_patch, p_int, p_diag%u,  &
-! !         & p_diag%v, opt_slev=slev, opt_elev=elev)
-! !       CALL sync_patch_array(SYNC_C, p_patch, p_diag%v)
-! ! 
-! !       DO jb = all_edges%start_block, all_edges%end_block
-! !         CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
-! !         DO jk = slev, elev
-! !           DO je = i_startidx_e, i_endidx_e
-! !             ! calculate kinetic energy at edges from normal and tangential comp.
-! !             z_kin_rbf_e(je,jk,jb) =0.5_wp*(p_diag%vt(je,jk,jb)*p_diag%vt(je,jk,jb)&
-! !               & +    vn_old(je,jk,jb)*vn_old(je,jk,jb) )
-! !           ENDDO
-! !         ENDDO
-! !       ENDDO
-! ! 
-! !       DO jb = all_cells%start_block, all_cells%end_block
-! !         CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
-! !         DO jk = slev, elev
-! !           DO jc = i_startidx_c, i_endidx_c
-! !             IF ( v_base%lsm_c(jc,jk,jb) > sea_boundary ) THEN
-! !               z_kin_rbf_c(jc,jk,jb) = 0.0_wp
-! !             ELSE
-! ! 
-! !               ile1 = p_patch%cells%edge_idx(jc,jb,1)
-! !               ibe1 = p_patch%cells%edge_blk(jc,jb,1)
-! !               ile2 = p_patch%cells%edge_idx(jc,jb,2)
-! !               ibe2 = p_patch%cells%edge_blk(jc,jb,2)
-! !               ile3 = p_patch%cells%edge_idx(jc,jb,3)
-! !               ibe3 = p_patch%cells%edge_blk(jc,jb,3)
-! !               z_weight_e1 = 0.0_wp
-! !               z_weight_e2 = 0.0_wp
-! !               z_weight_e3 = 0.0_wp
-! !               IF(v_base%lsm_e(ile1,jk,ibe1)<= boundary)THEN
-! !                 z_weight_e1 = p_patch%edges%area_edge(ile1,ibe1)
-! !               ENDIF
-! !               IF(v_base%lsm_e(ile2,jk,ibe2)<= boundary)THEN
-! !                 z_weight_e2 = p_patch%edges%area_edge(ile2,ibe2)
-! !               ENDIF
-! !               IF(v_base%lsm_e(ile3,jk,ibe3)<= boundary)THEN
-! !                 z_weight_e3 = p_patch%edges%area_edge(ile3,ibe3)
-! !               ENDIF
-! ! 
-! !               !write(*,*)'weights',jc,jk,jb,z_weight_e1,z_weight_e2,z_weight_e3
-! !               z_kin_rbf_c(jc,jk,jb) = (z_kin_rbf_e(ile1,jk,ibe1)*z_weight_e1&
-! !                 & + z_kin_rbf_e(ile2,jk,ibe2)*z_weight_e2&
-! !                 & + z_kin_rbf_e(ile3,jk,ibe3)*z_weight_e3)&
-! !                 & /(z_weight_e1+z_weight_e2+z_weight_e3)
-! !             ENDIF
-! !           END DO
-! !         END DO
-! !       END DO
-! ! 
-! !       CALL grad_fd_norm_oce_3d( p_diag%kin, &
-! !         & p_patch,    &
-! !         & p_op_coeff%grad_coeff,&
-! !         & z_grad_ekin_rbf)
-! ! 
-! !       CALL sync_patch_array(SYNC_E, p_patch, z_grad_ekin_rbf)      
-! ! 
-! !       !---------Debug Diagnostics-------------------------------------------
-! !       idt_src=4  ! output print level (1-5, fix)
-! !       CALL dbg_print('L_DEBUG: vort flux RBF'     ,z_vort_flx_rbf           ,str_module,idt_src)
-! !       !CALL dbg_print('L_DEBUG: p_vn%x(1)'         ,p_diag%p_vn%x(1)         ,str_module,idt_src)
-! !       !CALL dbg_print('L_DEBUG: p_vn_dual%x(1)'    ,p_diag%p_vn%x(1)         ,str_module,idt_src)
-! !       !---------------------------------------------------------------------
-! ! 
-! !     END IF ! L_DEBUG
-    !--------------END OF TESTING----------------------------------------------------------
 
     !Add relative vorticity and gradient of kinetic energy to obtain complete horizontal advection
     DO jb = all_edges%start_block, all_edges%end_block
@@ -396,22 +279,7 @@ CONTAINS
         DO je = i_startidx_e, i_endidx_e
          !IF(v_base%lsm_e(je,jk,jb)<= boundary)THEN
          IF(p_patch_3D%lsm_e(je,jk,jb)<= boundary)THEN
-          !veloc_adv_horz_e(je,jk,jb)  = z_vort_flx_RBF(je,jk,jb) + z_grad_ekin_RBF(je,jk,jb)
-          !veloc_adv_horz_e(je,jk,jb)= z_vort_flx(je,jk,jb) + z_grad_ekin_RBF(je,jk,jb)
-          !veloc_adv_horz_e(je,jk,jb)    = z_vort_flx_RBF(je,jk,jb)+ p_diag%grad(je,jk,jb)
           veloc_adv_horz_e(je,jk,jb) = (z_vort_flx(je,jk,jb) + p_diag%grad(je,jk,jb))
-          !        write(*,*)'horz adv:vort-flx:vort-flx-RBF',je,jk,jb,z_vort_flx(je,1,jb), &
-          !          &        z_vort_flx_RBF(je,jk,jb)!,&!p_diag%grad(je,jk,jb),z_grad_ekin_RBF(je,jk,jb),&
-          !&        veloc_adv_horz_e(je,jk,jb)!, z_veloc_adv_horz_e(je,jk,jb)
-          !       IF( (z_vort_flx(je,jk,jb)>0.0.AND.z_vort_flx_RBF(je,jk,jb)<0)&
-          !       &   .OR. (z_vort_flx(je,jk,jb)<0.0.AND.z_vort_flx_RBF(je,jk,jb)>0))THEN
-          !             Write(*,*)'wraning:differing signs',je,jk,jb,z_vort_flx(je,1,jb), &
-          !          &        z_vort_flx_RBF(je,jk,jb)
-          !        ENDIF
-          !      write(*,*)'horz adv:grad ekin:vort-flx:',je,jk,jb, vn(je,1,jb),z_vort_flx(je,1,jb), &
-          !        &        veloc_adv_horz_e(je,1,jb) !, p_diag%grad(je,1,jb)
-          ! IF ( v_base%lsm_e(je,jk,jb) == boundary ) THEN
-          ! write(*,*)'vt ',je,jk,jb, p_diag%vt(je,jk,jb)
           ENDIF
         END DO
       END DO

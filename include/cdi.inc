@@ -1,10 +1,10 @@
 ! This file was automatically generated, don't edit!
 !
-! Fortran interface for CDI library version 1.5.9
+! Fortran interface for CDI library version 1.6.1rc2
 !
 ! Author:
 ! -------
-! Uwe Schulzweida, MPI-MET, Hamburg,   December 2012
+! Uwe Schulzweida, MPI-MET, Hamburg,   April 2013
 !
 
       INTEGER    CDI_MAX_NAME          
@@ -260,8 +260,14 @@
       PARAMETER (ZAXIS_SEA_BOTTOM       = 14)
       INTEGER    ZAXIS_ATMOSPHERE      
       PARAMETER (ZAXIS_ATMOSPHERE       = 15)
+      INTEGER    ZAXIS_CLOUD_BASE      
+      PARAMETER (ZAXIS_CLOUD_BASE       = 16)
+      INTEGER    ZAXIS_CLOUD_TOP       
+      PARAMETER (ZAXIS_CLOUD_TOP        = 17)
+      INTEGER    ZAXIS_ISOTHERM_ZERO   
+      PARAMETER (ZAXIS_ISOTHERM_ZERO    = 18)
       INTEGER    ZAXIS_REFERENCE       
-      PARAMETER (ZAXIS_REFERENCE        = 16)
+      PARAMETER (ZAXIS_REFERENCE        = 19)
 !
 !  TIME types
 !
@@ -455,6 +461,12 @@
 !                                     INTEGER         pdis)
       EXTERNAL        cdiEncodeParam
 
+!
+!  date format:  YYYYMMDD
+!
+!
+!  time format:    hhmmss
+!
 !                     cdiDecodeDate
 !                                    (INTEGER         date,
 !                                     INTEGER         year,
@@ -974,21 +986,6 @@
 !                                     INTEGER         varID)
       EXTERNAL        vlistInqVarInstitut
 
-!                     vlistDefVarIntKey
-!                                    (INTEGER         vlistID, 
-!				      INTEGER         varID, 
-!                                     CHARACTER*(*)   name, 
-!                                     INTEGER         value)
-      EXTERNAL        vlistDefVarIntKey
-
-
-!                     vlistDefVarDblKey
-!                                    (INTEGER         vlistID, 
-!				      INTEGER         varID, 
-!                                     CHARACTER*(*)   name, 
-!                                     DOUBLEPRECISION value)
-      EXTERNAL        vlistDefVarDblKey
-
 !                     vlistDefVarModel
 !                                    (INTEGER         vlistID,
 !                                     INTEGER         varID,
@@ -1069,6 +1066,18 @@
 !                                    (INTEGER         vlistID,
 !                                     INTEGER         varID)
       EXTERNAL        vlistInqVarMissval
+
+!                     vlistDefVarExtra
+!                                    (INTEGER         vlistID,
+!                                     INTEGER         varID,
+!                                     CHARACTER*(*)   extra)
+      EXTERNAL        vlistDefVarExtra
+
+!                     vlistInqVarExtra
+!                                    (INTEGER         vlistID,
+!                                     INTEGER         varID,
+!                                     CHARACTER*(*)   extra)
+      EXTERNAL        vlistInqVarExtra
 
 !                     vlistDefVarScalefactor
 !                                    (INTEGER         vlistID,
@@ -1187,6 +1196,48 @@
       EXTERNAL        vlistInqVarEnsemble
 
 !
+      INTEGER         gribGetAPIVersion
+!                                    ()
+      EXTERNAL        gribGetAPIVersion
+
+!
+!                     cdiDefAdditionalKey
+!                                    (CHARACTER*(*)   string)
+      EXTERNAL        cdiDefAdditionalKey
+
+!                     vlistDefVarIntKey
+!                                    (INTEGER         vlistID,
+!                                     INTEGER         varID,
+!                                     CHARACTER*(*)   name,
+!                                     INTEGER         value)
+      EXTERNAL        vlistDefVarIntKey
+
+!                     vlistDefVarDblKey
+!                                    (INTEGER         vlistID,
+!                                     INTEGER         varID,
+!                                     CHARACTER*(*)   name,
+!                                     DOUBLEPRECISION value)
+      EXTERNAL        vlistDefVarDblKey
+
+      INTEGER vlistHasVarKey
+!                                    (INTEGER         vlistID,
+!                                     INTEGER         varID,
+!                                     CHARACTER*(*)   name)
+      EXTERNAL        vlistHasVarKey
+
+      DOUBLEPRECISION vlistInqVarDblKey
+!                                    (INTEGER         vlistID,
+!                                     INTEGER         varID,
+!                                     CHARACTER*(*)   name)
+      EXTERNAL        vlistInqVarDblKey
+
+      INTEGER         vlistInqVarIntKey
+!                                    (INTEGER         vlistID,
+!                                     INTEGER         varID,
+!                                     CHARACTER*(*)   name)
+      EXTERNAL        vlistInqVarIntKey
+
+!
 !  VLIST attributes
 !
       INTEGER         vlistInqNatts
@@ -1233,7 +1284,7 @@
 !                                     INTEGER         varID,
 !                                     CHARACTER*(*)   name,
 !                                     INTEGER         len,
-!                                     CHARACTER*(*)   tp)
+!                                     CHARACTER*(*)   tp_cbuf)
       EXTERNAL        vlistDefAttTxt
 
       INTEGER         vlistInqAttInt
@@ -1257,7 +1308,7 @@
 !                                     INTEGER         varID,
 !                                     CHARACTER*(*)   name,
 !                                     INTEGER         mlen,
-!                                     CHARACTER*(*)   tp)
+!                                     CHARACTER*(*)   tp_cbuf)
       EXTERNAL        vlistInqAttTxt
 
 !
@@ -1300,9 +1351,6 @@
 !                                    (INTEGER         gridID,
 !                                     INTEGER         opt)
       EXTERNAL        gridPrint
-
-      INTEGER         gridSize
-      EXTERNAL        gridSize
 
       INTEGER         gridCreate
 !                                    (INTEGER         gridtype,
@@ -1585,12 +1633,12 @@
 
       CHARACTER(80)   gridInqUUID
 !                                    (INTEGER         gridID,
-!                                     CHARACTER*(*)   uuid)
+!                                     CHARACTER*(*)   uuid_cbuf)
       EXTERNAL        gridInqUUID
 
 !                     gridDefUUID
 !                                    (INTEGER         gridID,
-!                                     CHARACTER*(*)   uuid)
+!                                     CHARACTER*(*)   uuid_cbuf)
       EXTERNAL        gridDefUUID
 
 !
@@ -1766,9 +1814,6 @@
 !                                    (INTEGER         zaxisID)
       EXTERNAL        zaxisPrint
 
-      INTEGER         zaxisSize
-      EXTERNAL        zaxisSize
-
 !                     zaxisDefLevels
 !                                    (INTEGER         zaxisID,
 !                                     DOUBLEPRECISION levels_vec)
@@ -1797,12 +1842,12 @@
 
 !                     zaxisDefUUID
 !                                    (INTEGER         zaxisID,
-!                                     CHARACTER*(*)   uuid)
+!                                     CHARACTER*(*)   uuid_cbuf)
       EXTERNAL        zaxisDefUUID
 
       CHARACTER(80)   zaxisInqUUID
 !                                    (INTEGER         zaxisID,
-!                                     CHARACTER*(*)   uuid)
+!                                     CHARACTER*(*)   uuid_cbuf)
       EXTERNAL        zaxisInqUUID
 
       INTEGER         zaxisInqReference

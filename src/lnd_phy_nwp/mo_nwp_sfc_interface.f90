@@ -57,7 +57,7 @@ MODULE mo_nwp_sfc_interface
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
   USE mo_lnd_nwp_config,      ONLY: nlev_soil, nlev_snow, ntiles_total, ntiles_water, &
     &                               lseaice, llake, lmulti_snow, ntiles_lnd, lsnowtile, &
-    &                               isub_water, isub_seaice
+    &                               isub_water, isub_seaice, isub_lake, itype_interception
   USE mo_satad,               ONLY: sat_pres_water, sat_pres_ice, spec_humi  
   USE mo_soil_ml,             ONLY: terra_multlay
   USE mo_nwp_sfc_utils,       ONLY: diag_snowfrac_tg, update_idx_lists_lnd, update_idx_lists_sea
@@ -65,7 +65,7 @@ MODULE mo_nwp_sfc_interface
   USE mo_phyparam_soil              ! soil and vegetation parameters for TILES
 !  USE mo_aggregate_surface,   ONLY: subsmean,subs_disaggregate_radflux,subsmean_albedo
 !  USE mo_icoham_sfc_indices,  ONLY: nsfc_type, igbm, iwtr, iice, ilnd
-  USE mo_physical_constants,  ONLY: tmelt
+  USE mo_physical_constants,  ONLY: tmelt, lh_v=>alv
 
   
   IMPLICIT NONE 
@@ -159,6 +159,12 @@ CONTAINS
     REAL(wp) :: w_i_now_t (nproma, p_patch%nblks_c, ntiles_total)
     REAL(wp) :: w_i_new_t (nproma, p_patch%nblks_c, ntiles_total)
 
+    REAL(wp) :: w_p_now_t (nproma, p_patch%nblks_c, ntiles_total)
+    REAL(wp) :: w_p_new_t (nproma, p_patch%nblks_c, ntiles_total)
+
+    REAL(wp) :: w_s_now_t (nproma, p_patch%nblks_c, ntiles_total)
+    REAL(wp) :: w_s_new_t (nproma, p_patch%nblks_c, ntiles_total)
+
     REAL(wp) :: u_10m_t    (nproma, p_patch%nblks_c, ntiles_total)
     REAL(wp) :: v_10m_t    (nproma, p_patch%nblks_c, ntiles_total)
     REAL(wp) :: freshsnow_t(nproma, p_patch%nblks_c, ntiles_total)
@@ -222,6 +228,7 @@ CONTAINS
     REAL(wp) :: t_g_s(nproma)
     REAL(wp) :: shfl_s_t    (nproma, p_patch%nblks_c, ntiles_total) ! sensible heat flux sfc
     REAL(wp) :: lhfl_s_t    (nproma, p_patch%nblks_c, ntiles_total) ! latent heat flux sfc
+    REAL(wp) :: qhfl_s_t    (nproma, p_patch%nblks_c, ntiles_total) ! moisture flux sfc
     REAL(wp) :: shfl_soil_t (nproma, p_patch%nblks_c, ntiles_total) ! sensible heat flux sfc (snow free)
     REAL(wp) :: lhfl_soil_t (nproma, p_patch%nblks_c, ntiles_total) ! latent heat flux sfc   (snow free)
     REAL(wp) :: shfl_snow_t (nproma, p_patch%nblks_c, ntiles_total) ! sensible heat flux sfc (snow covered)
@@ -291,6 +298,7 @@ CONTAINS
          ENDDO
       ENDIF
  
+
       IF (  atm_phy_nwp_config(jg)%inwp_surface == 1 .and. &
           & atm_phy_nwp_config(jg)%inwp_turb    /= 3 ) THEN
 
@@ -373,7 +381,15 @@ CONTAINS
           qv_s_t(ic,jb,isubs)                =  lnd_diag%qv_s_t(jc,jb,isubs)  
           w_snow_now_t(ic,jb,isubs)          =  lnd_prog_now%w_snow_t(jc,jb,isubs)
           rho_snow_now_t(ic,jb,isubs)        =  lnd_prog_now%rho_snow_t(jc,jb,isubs)
+   IF (itype_interception == 1) THEN
           w_i_now_t(ic,jb,isubs)             =  lnd_prog_now%w_i_t(jc,jb,isubs)
+          w_p_now_t(ic,jb,isubs)             =  0._wp
+          w_s_now_t(ic,jb,isubs)             =  0._wp
+   ELSE IF (itype_interception == 2) THEN
+          w_i_now_t(ic,jb,isubs)             =  lnd_prog_now%w_i_t(jc,jb,isubs)
+          w_p_now_t(ic,jb,isubs)             =  lnd_prog_now%w_p_t(jc,jb,isubs)
+          w_s_now_t(ic,jb,isubs)             =  lnd_prog_now%w_s_t(jc,jb,isubs)
+   END IF
           freshsnow_t(ic,jb,isubs)           =  lnd_diag%freshsnow_t(jc,jb,isubs)
           snowfrac_t(ic,jb,isubs)            =  lnd_diag%snowfrac_t(jc,jb,isubs)
           runoff_s_t(ic,jb,isubs)            =  lnd_diag%runoff_s_t(jc,jb,isubs) 
@@ -494,6 +510,12 @@ CONTAINS
         &  w_i_now       = w_i_now_t(:,jb,isubs)             , & !INOUT water content of interception water(m H2O)
         &  w_i_new       = w_i_new_t(:,jb,isubs)             , & !OUT water content of interception water(m H2O)
 !
+        &  w_p_now       = w_p_now_t(:,jb,isubs)             , & !INOUT water content of interception water(m H2O)
+        &  w_p_new       = w_p_new_t(:,jb,isubs)             , & !OUT water content of interception water(m H2O)
+!
+        &  w_s_now       = w_s_now_t(:,jb,isubs)             , & !INOUT water content of interception water(m H2O)
+        &  w_s_new       = w_s_new_t(:,jb,isubs)             , & !OUT water content of interception water(m H2O)
+!
         &  t_so_now      = t_so_now_t(:,:,jb,isubs)          , & !INOUT soil temperature (main level)    (  K  )
         &  t_so_new      = t_so_new_t(:,:,jb,isubs)          , & !OUT soil temperature (main level)      (  K  )
 !
@@ -542,7 +564,8 @@ CONTAINS
         &  lhfl_pl       = lhfl_pl_t  (:,:,jb,isubs)         , & !OUT latent heat flux from bare soil evap.    (W/m2)
         &  rstom         = rstom_t    (:,jb,isubs)           , & !OUT stomatal resistance                      ( s/m )
         &  zshfl_sfc     = shfl_s_t   (:,jb,isubs)           , & !OUT sensible heat flux surface interface     (W/m2) 
-        &  zlhfl_sfc     = lhfl_s_t   (:,jb,isubs)             ) !OUT latent   heat flux surface interface     (W/m2) 
+        &  zlhfl_sfc     = lhfl_s_t   (:,jb,isubs)           , & !OUT latent   heat flux surface interface     (W/m2) 
+        &  zqhfl_sfc     = qhfl_s_t   (:,jb,isubs)             ) !OUT moisture flux surface interface          (kg/m2/s) 
 
 
 
@@ -550,6 +573,7 @@ CONTAINS
           &  istart = 1, iend = i_count                , & ! start/end indices
           &  z0_lcc    = ext_data%atm%z0_lcc(:)        , & ! roughness length
           &  lc_class  = lc_class_t        (:,jb,isubs), & ! land-cover class
+          &  i_lc_urban = ext_data%atm%i_lc_urban      , & ! land-cover class index for urban areas
           &  t_snow    = t_snow_new_t      (:,jb,isubs), & ! snow temp
           &  t_soiltop = t_s_new_t         (:,jb,isubs), & ! soil top temp
           &  w_snow    = w_snow_new_t      (:,jb,isubs), & ! snow WE
@@ -573,7 +597,13 @@ CONTAINS
           lnd_prog_new%w_snow_t  (jc,jb,isubs) = w_snow_new_t  (ic,jb,isubs)          
           lnd_prog_new%rho_snow_t(jc,jb,isubs) = rho_snow_new_t(ic,jb,isubs)        
           lnd_diag%h_snow_t      (jc,jb,isubs) = h_snow_t      (ic,jb,isubs)              
+   IF (itype_interception == 1) THEN
           lnd_prog_new%w_i_t     (jc,jb,isubs) = w_i_new_t     (ic,jb,isubs)             
+   ELSE IF (itype_interception == 2) THEN
+          lnd_prog_new%w_i_t     (jc,jb,isubs) = w_i_new_t     (ic,jb,isubs)             
+          lnd_prog_new%w_p_t     (jc,jb,isubs) = w_p_new_t     (ic,jb,isubs)             
+          lnd_prog_new%w_s_t     (jc,jb,isubs) = w_s_new_t     (ic,jb,isubs)     
+   END IF
           lnd_diag%freshsnow_t   (jc,jb,isubs) = freshsnow_t   (ic,jb,isubs) 
           ! Remark: the two snow-cover fraction variables differ only if lsnowtile=true (see below)  
           lnd_diag%snowfrac_lc_t (jc,jb,isubs) = snowfrac_t    (ic,jb,isubs) 
@@ -588,6 +618,7 @@ CONTAINS
 
           prm_diag%shfl_s_t      (jc,jb,isubs) = shfl_s_t      (ic,jb,isubs)
           prm_diag%lhfl_s_t      (jc,jb,isubs) = lhfl_s_t      (ic,jb,isubs)
+          prm_diag%qhfl_s_t      (jc,jb,isubs) = qhfl_s_t      (ic,jb,isubs)
 
 
           IF(lmulti_snow) THEN
@@ -708,7 +739,13 @@ CONTAINS
              lnd_prog_new%w_snow_t  (jc,jb,is1) = lnd_prog_new%w_snow_t  (jc,jb,is2)     
              lnd_prog_new%rho_snow_t(jc,jb,is1) = lnd_prog_new%rho_snow_t(jc,jb,is2)
              lnd_diag%h_snow_t      (jc,jb,is1) = lnd_diag%h_snow_t      (jc,jb,is2)
+   IF (itype_interception == 1) THEN
              lnd_prog_new%w_i_t     (jc,jb,is1) = lnd_prog_new%w_i_t     (jc,jb,is2)        
+   ELSE IF (itype_interception == 2) THEN
+             lnd_prog_new%w_i_t     (jc,jb,is1) = lnd_prog_new%w_i_t     (jc,jb,is2)        
+             lnd_prog_new%w_p_t     (jc,jb,is1) = lnd_prog_new%w_p_t     (jc,jb,is2)        
+             lnd_prog_new%w_s_t     (jc,jb,is1) = lnd_prog_new%w_s_t     (jc,jb,is2)        
+   END IF
              lnd_diag%freshsnow_t   (jc,jb,is1) = lnd_diag%freshsnow_t   (jc,jb,is2)
              lnd_diag%snowfrac_lc_t (jc,jb,is1) = lnd_diag%snowfrac_lc_t (jc,jb,is2) 
              lnd_diag%snowfrac_t    (jc,jb,is1) = lnd_diag%snowfrac_t    (jc,jb,is2) 
@@ -882,6 +919,7 @@ CONTAINS
            lnd_diag%qv_s   (jc,jb)  = lnd_diag%qv_s_t   (jc,jb,1)
            prm_diag%shfl_s (jc,jb)  = prm_diag%shfl_s_t (jc,jb,1) 
            prm_diag%lhfl_s (jc,jb)  = prm_diag%lhfl_s_t (jc,jb,1)
+           prm_diag%qhfl_s (jc,jb)  = prm_diag%qhfl_s_t (jc,jb,1)
            prm_diag%lhfl_bs(jc,jb)  = prm_diag%lhfl_bs_t(jc,jb,1) 
          ENDDO
          DO jk=1,nlev_soil
@@ -894,6 +932,7 @@ CONTAINS
          lnd_diag%qv_s   (i_startidx:i_endidx,jb) = 0._wp
          prm_diag%shfl_s(i_startidx:i_endidx,jb)  = 0._wp
          prm_diag%lhfl_s(i_startidx:i_endidx,jb)  = 0._wp
+         prm_diag%qhfl_s(i_startidx:i_endidx,jb)  = 0._wp
          prm_diag%lhfl_bs(i_startidx:i_endidx,jb) = 0._wp
          prm_diag%lhfl_pl(i_startidx:i_endidx,1:nlev_soil,jb) = 0._wp
 
@@ -906,6 +945,8 @@ CONTAINS
                &                    + prm_diag%shfl_s_t (jc,jb,isubs) * area_frac 
              prm_diag%lhfl_s(jc,jb) = prm_diag%lhfl_s(jc,jb)                    &
                &                    + prm_diag%lhfl_s_t (jc,jb,isubs) * area_frac 
+             prm_diag%qhfl_s(jc,jb) = prm_diag%qhfl_s(jc,jb)                    &
+               &                    + prm_diag%qhfl_s_t (jc,jb,isubs) * area_frac 
            ENDDO
          ENDDO
 
@@ -1084,7 +1125,7 @@ CONTAINS
         &              frac_t_water  = ext_data%atm%frac_t(:,jb,isub_water),    &!inout
         &              fr_seaice     = p_lnd_diag%fr_seaice(:,jb),              &!inout
         &              t_g_t_new     = lnd_prog_new%t_g_t(:,jb,isub_water),     &!inout
-        &              qv_s_t        = p_lnd_diag%qv_s_t(:,jb,isub_seaice)      )!inout
+        &              qv_s_t        = p_lnd_diag%qv_s_t(:,jb,isub_water)       )!inout
 
 
     ENDDO  ! jb

@@ -100,8 +100,6 @@ CONTAINS
 
     ! Local array bounds:
 
-    INTEGER :: nblks_c                 !< number of blocks for cells
-    INTEGER :: npromz_c                !< length of last block line
     INTEGER :: nlev, nlevp1            !< number of full and half levels
     INTEGER :: rl_start, rl_end
     INTEGER :: i_startblk, i_endblk    !< blocks
@@ -117,10 +115,6 @@ CONTAINS
 
     INTEGER :: jk,jc,jb,jg             !<block indeces
 
-
-    ! local variables related to the blocking
-    nblks_c   = p_patch%nblks_int_c
-    npromz_c  = p_patch%npromz_int_c
 
     i_nchdom  = MAX(1,p_patch%n_childdom)
 
@@ -151,6 +145,14 @@ CONTAINS
 
       IF (lcall_sso_jg .AND. atm_phy_nwp_config(jg)%inwp_sso == 1) THEN
 
+        ! ATTENTION: - geopot_agl is the full level geopotential height above ground 
+        !              and not full level geopotential height above MSL.
+        !            - geopot_agl_ifc is the half level geopotential height above ground 
+        !              and not the half level geopotential height above MSL.
+        !              I.e. geopot_agl_ifc(:,nlevp1,jb) is not the surface geopotential height,  
+        !              but geopot_agl_ifc(:,nlevp1,jb) = 0
+        !            Since both geopot_agl AND geopot_agl_ifc are defined above ground, the 
+        !            resulting geopotential height which is computed inside of "SSO" is correct. 
         CALL sso(                                          &
           & ie        =nproma                           ,  & !> in:  actual array size
           & ke        =nlev                             ,  & !< in:  actual array size

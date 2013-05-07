@@ -45,11 +45,31 @@ fi
 #############################################################
 
 # --- get time information for plotting
+dayl=24
+ppfrq=24
+rcorioi=1.0
+if [[ -f $SMSINCLUDE/ifsnam.fc.h && $FSFAMILY = /gfc ]] ; then
+   rco=$(grep RCORIOI= $SMSINCLUDE/ifsnam.fc.h | sed 's/RCORIOI=//' |sed 's/.$//')
+   if [[ $rco > 0 ]]; then
+      rcorioi=$rco
+   fi
+fi
+if [[ -f $SMSINCLUDE/config.fc.h && $FSFAMILY = /gfc ]] ; then
+   pfr=$(grep PPFRQ= $SMSINCLUDE/config.fc.h | sed 's/PPFRQ=//')
+   if [[ $pfr > 0 ]]; then
+      ppfrq=$pfr
+   fi
+fi
+dayl=$((dayl * rcorioi))
+if [[ $dayl -lt 1 ]]; then
+      dayl=1
+fi
 
-set -A nperiods `metview -b dates.met $FCLENGTH $DATESTR | grep nmon     | sed 's/nmon//'     | sed 'y/[],/   /'`
-set -A yy_start `metview -b dates.met $FCLENGTH $DATESTR | grep yy_start | sed 's/yy_start//' | sed 'y/[],/   /'`
-set -A mm_start `metview -b dates.met $FCLENGTH $DATESTR | grep mm_start | sed 's/mm_start//' | sed 'y/[],/   /'`
-set -A mm_len   `metview -b dates.met $FCLENGTH $DATESTR | grep mm_len   | sed 's/mm_len//'   | sed 'y/[],/   /'`
+
+set -A nperiods `metview -b dates.met $FCLENGTH $DATESTR $dayl | grep nmon     | sed 's/nmon//'     | sed 'y/[],/   /'`
+set -A yy_start `metview -b dates.met $FCLENGTH $DATESTR $dayl | grep yy_start | sed 's/yy_start//' | sed 'y/[],/   /'`
+set -A mm_start `metview -b dates.met $FCLENGTH $DATESTR $dayl | grep mm_start | sed 's/mm_start//' | sed 'y/[],/   /'`
+set -A mm_len   `metview -b dates.met $FCLENGTH $DATESTR $dayl | grep mm_len   | sed 's/mm_len//'   | sed 'y/[],/   /'`
 
 set -A inidates `echo ${DATESTR} | sed 's/\// /g'`
 nens=${#inidates[*]}

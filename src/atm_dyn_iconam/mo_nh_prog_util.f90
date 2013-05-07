@@ -44,6 +44,7 @@ MODULE mo_nh_prog_util
   USE mo_model_domain,        ONLY: t_patch
   USE mo_nonhydro_types,      ONLY: t_nh_prog
   USE mo_exception,           ONLY: message, finish
+  USE mo_parallel_config,     ONLY: nproma
 
   IMPLICIT NONE
   PRIVATE
@@ -80,7 +81,7 @@ CONTAINS
 
     ! LOCAL VARIABLES
 
-    INTEGER :: jk
+    INTEGER :: jk, jb, nlen
     INTEGER :: npromz, nblks
 
     INTEGER :: DateTimeArray(8)    ! Holds the date and time
@@ -89,7 +90,7 @@ CONTAINS
 
     INTEGER, ALLOCATABLE :: seed_array(:)
 
-    REAL(wp), ALLOCATABLE :: zrand(:,:)
+    REAL(wp), ALLOCATABLE :: zrand(:,:,:)
 
     CHARACTER(len=MAX_CHAR_LENGTH) :: string
     !-----
@@ -142,16 +143,16 @@ CONTAINS
     !-----------------------------------------------------------
 
     IF(TRIM(ctype)=="cell")THEN
-      nblks  = p_patch%nblks_c
-      npromz = p_patch%npromz_c
+      nblks  = p_patch%nblks_int_c
+      npromz = p_patch%npromz_int_c
     ELSEIF(TRIM(ctype)=="edge")THEN
-      nblks  = p_patch%nblks_e
-      npromz = p_patch%npromz_e
+      nblks  = p_patch%nblks_int_e
+      npromz = p_patch%npromz_int_e
     ELSE
       CALL finish(TRIM(routine),'Wrong ctype for the input variable!')
     END IF
 
-    ALLOCATE(zrand(SIZE(pvar,1),nblks), STAT=ist)
+    ALLOCATE(zrand(SIZE(pvar,1),SIZE(pvar,2),SIZE(pvar,3)), STAT=ist)
     IF(ist/=SUCCESS)THEN
       CALL finish(TRIM(routine),'allocation of zrand failed')
     ENDIF
@@ -162,10 +163,21 @@ CONTAINS
     zrand = (zrand - 0.5_wp)*pscale
 
     ! add the same random noise to all vertical layers
-    DO jk=jk_start,jk_end
-       pvar(:,jk,1:nblks-1)    = pvar(:,jk,1:nblks-1)    + zrand(:,1:nblks-1)
-       pvar(1:npromz,jk,nblks) = pvar(1:npromz,jk,nblks) + zrand(1:npromz,nblks)
-    ENDDO
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,jk,nlen)
+    DO jb = 1, nblks
+        IF (jb /= nblks) THEN
+           nlen = nproma
+        ELSE
+           nlen = npromz
+        ENDIF       
+      DO jk=jk_start,jk_end
+         pvar(1:nlen,jk,jb) = pvar(1:nlen,jk,jb) + zrand(1:nlen,jk,jb)
+      ENDDO
+    END DO
+!$OMP END DO
+!$OMP END PARALLEL
 
     !-----------------------------------------------------------
     ! 4. clean up

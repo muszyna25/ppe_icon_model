@@ -20,11 +20,15 @@
 
 # -------------------------------------------------
 
+echo "INIT_BUILD.SMS"
+
 module swap fortran fortran/xlf/14.1.0.2
 
 arch=rs6000-ibm-aix
 
-echo "INIT_BUILD.SMS"
+#use new SVN version
+SVNPATH=/usr/local/apps/subversion/subversion-1.6.11/bin
+
 
 # Change directory ----------------------------
 cd %SCPERMIII%
@@ -55,12 +59,11 @@ ls -lrt
 smsevent configure
 
 # Submit ''Make'' -----------------------------
-export LDR_CNTRL=MAXDAT=0xD000000DSA
 gmake -j%SCTOTALTASKS%
 smsevent make
 
 # Store revision number of successful compilation 
-revision=`rsh $WSHOST svn info %ECPERMIII%/icon-dev | grep Revision | awk '{print $2}'`
+revision=`rsh $WSHOST $SVNPATH/svn info %ECPERMIII%/icon-dev | grep Revision | awk '{print $2}'`
 echo $revision > %SCPERMIII%/icon-dev/build/${arch}/bin/icon_rev.txt
 
 

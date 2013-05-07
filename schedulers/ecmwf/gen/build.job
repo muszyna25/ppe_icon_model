@@ -1,0 +1,42 @@
+#==========================================================================
+#  compile ICON under individual user
+#  submit on c2a as: llsubmit build.job
+#  ATTENTION: change user (e.g. "dei2") to your own ID!
+#==========================================================================
+
+#==========================================================================
+#  Loadleveler Directives
+#==========================================================================
+#@ job_name         = ICON_BUILD
+#@ output           = /scratch/ms/de/dei2/icon_build.out
+#@ error            = /scratch/ms/de/dei2/icon_build.err
+#@ notification     = error
+#@ shell            = /usr/bin/ksh
+#@ job_type         = parallel
+#@ class            = np
+#@ total_tasks      = 8
+#@ wall_clock_limit = 1:00:00
+#@ resources        = ConsumableMemory(6200MB) ConsumableCpus(8)
+#@ queue
+#@ core_limit = unlimited
+
+
+#==========================================================================
+#  configure and compile
+#==========================================================================
+
+set -e
+set -u
+set -x
+
+module swap fortran fortran/xlf/14.1.0.2
+
+arch=rs6000-ibm-aix
+
+cd ${PERM}/icon-dev
+
+./configure --with-openmp            # --with-flags=hiopt
+
+gmake -j8
+
+exit

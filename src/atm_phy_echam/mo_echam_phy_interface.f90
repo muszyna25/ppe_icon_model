@@ -43,7 +43,7 @@ MODULE mo_echam_phy_interface
 
   USE mo_kind,              ONLY: wp
   USE mo_exception,         ONLY: message, finish
-  USE mo_impl_constants,    ONLY: min_rlcell_int, min_rledge_int, min_rlcell
+  USE mo_impl_constants,    ONLY: min_rlcell_int, min_rledge_int, min_rlcell, io3_amip
   USE mo_datetime,          ONLY: t_datetime, print_datetime, add_time
   USE mo_math_constants,    ONLY: pi
   USE mo_model_domain,      ONLY: t_patch
@@ -61,7 +61,7 @@ MODULE mo_echam_phy_interface
      & icon_comm_var_is_ready, icon_comm_sync, icon_comm_sync_all, is_ready, until_sync
   
   USE mo_run_config,        ONLY: nlev, ltimer, ntracer
-  USE mo_radiation_config,  ONLY: izenith
+  USE mo_radiation_config,  ONLY: ighg, izenith, irad_o3
   USE mo_loopindices,       ONLY: get_indices_c, get_indices_e
   USE mo_impl_constants_grf,ONLY: grf_bdywidth_e, grf_bdywidth_c
   USE mo_eta_coord_diag,    ONLY: half_level_pressure, full_level_pressure
@@ -76,7 +76,11 @@ MODULE mo_echam_phy_interface
   USE mo_icon_cpl_def_field, ONLY: ICON_cpl_get_nbr_fields, ICON_cpl_get_field_ids
   USE mo_icon_cpl_restart,   ONLY: icon_cpl_write_restart
 
-  USE mo_icoham_sfc_indices,ONLY: iwtr, iice
+  USE mo_icoham_sfc_indices, ONLY: iwtr, iice
+  USE mo_o3,                 ONLY: read_amip_o3
+  USE mo_amip_bc,            ONLY: read_amip_bc, amip_time_weights, amip_time_interpolation, &
+    &                              get_current_amip_bc_year
+  USE mo_greenhouse_gases,   ONLY: read_ghg_bc, ghg_time_interpolation, ghg_file_read
 
   IMPLICIT NONE
   PRIVATE
@@ -304,24 +308,35 @@ CONTAINS
 
     IF (phy_config%lrad) THEN
 
+      ! different to echam the time for which the radiation has to be calculated has
+      ! not to be adjusted by pdtime because the middle of the time interval is hit
+      ! perfectly. Only the first one is slightly of centered! Do not correct.
+
       datetime_radtran = datetime                ! copy current date and time
-      dsec = 0.5_wp*(phy_config%dt_rad - pdtime)              ! [s] time increment for zenith angle computation
+      dsec = 0.5_wp*phy_config%dt_rad            ! [s] time increment for zenith angle computation
       CALL add_time(dsec,0,0,0,datetime_radtran) ! add time increment to get date and
       !                                          ! time information for the zenith angle comp.
 
       ltrig_rad   = ( l1st_phy_call.AND.(.NOT.lrestart)            ).OR. &
                     ( MOD(NINT(datetime%daysec),NINT(phy_config%dt_rad)) == 0 )
+      ! IF (ltrig_rad) THEN
+      !   CALL message('mo_echam_phy_interface:physc','Radiative transfer called at:')
+      !   CALL print_datetime(datetime)
+      !   CALL message('mo_echam_phy_interface:physc','Radiative transfer computed for:')
+      !   CALL print_datetime(datetime_radtran)
+      ! ENDIF
+
       l1st_phy_call = .FALSE.
 
       ztime_radheat = 2._wp*pi * datetime%daytim 
       ztime_radtran = 2._wp*pi * datetime_radtran%daytim
 
-!      IF (ltrig_rad) THEN
-!        CALL message('mo_echam_phy_interface:physc','Radiative transfer called at:')
-!        CALL print_datetime(datetime)
-!        CALL message('mo_echam_phy_interface:physc','Radiative transfer computed for:')
-!        CALL print_datetime(datetime_radtran)
-!      ENDIF
+      !TODO: Luis Kornblueh
+      ! add interpolation of greenhouse gases here, only if radiation is going to be calculated
+      IF (ltrig_rad .AND. (ighg > 0)) THEN
+        CALL ghg_time_interpolation(datetime_radtran)
+      ENDIF
+
     ELSE
       ltrig_rad = .FALSE.
       ztime_radheat = 0._wp
@@ -330,6 +345,25 @@ CONTAINS
 
     ! Read and interpolate SST for AMIP simulations; prescribed ozone and
     ! aerosol concentrations.
+    !LK:
+    !TODO: pass timestep as argument
+    !COMMENT: lsmask == slm and is not slf!
+    IF (irad_o3 == io3_amip) THEN
+       CALL read_amip_o3(datetime%year, p_patch)
+    END IF
+    IF (phy_config%lamip) THEN
+      IF (datetime%year /= get_current_amip_bc_year()) THEN
+        CALL read_amip_bc(datetime%year, p_patch)
+      ENDIF
+      CALL amip_time_weights(datetime)
+      CALL amip_time_interpolation(prm_field(jg)%seaice(:,:), &
+!           &                       prm_field(jg)%tsfc_tile(:,:,:), &
+           &                       prm_field(jg)%tsurfw(:,:), &
+           &                       prm_field(jg)%siced(:,:), &
+           &                       prm_field(jg)%lsmask(:,:))
+      prm_field(jg)%tsfc_tile(:,:,iwtr) = prm_field(jg)%tsurfw(:,:)
+    ENDIF
+
 !    WRITE(0,*)'radiation=',ltrig_rad, dt_rad
 !    WRITE(0,*)' vor PYHSC rad fluxes sw sfc',  MAXVAL(prm_field(jg)% swflxsfc_avg(:,:))
 !    WRITE(0,*)' vor PYHSC rad fluxes lw sfc', MINVAL(prm_field(jg)% lwflxsfc_avg(:,:))
@@ -583,7 +617,7 @@ CONTAINS
      ENDIF
          
     any_uv_tend = phy_config%lconv.OR.phy_config%lvdiff.OR. &
-                 & phy_config%lgw_hines !.OR.phy_config%lssodrag
+                 & phy_config%lgw_hines .OR.phy_config%lssodrag
 
     IF (any_uv_tend) THEN
 
@@ -605,10 +639,12 @@ CONTAINS
 
         zdudt(jcs:jce,:,jb) =   prm_tend(jg)% u_cnv(jcs:jce,:,jb) &
                             & + prm_tend(jg)% u_vdf(jcs:jce,:,jb) &
-                            & + prm_tend(jg)% u_gwh(jcs:jce,:,jb)
+                            & + prm_tend(jg)% u_gwh(jcs:jce,:,jb) &
+                            & + prm_tend(jg)% u_sso(jcs:jce,:,jb)
         zdvdt(jcs:jce,:,jb) =   prm_tend(jg)% v_cnv(jcs:jce,:,jb) &
                             & + prm_tend(jg)% v_vdf(jcs:jce,:,jb) &
-                            & + prm_tend(jg)% v_gwh(jcs:jce,:,jb)
+                            & + prm_tend(jg)% v_gwh(jcs:jce,:,jb) &
+                            & + prm_tend(jg)% v_sso(jcs:jce,:,jb)
       ENDDO
 !$OMP END PARALLEL DO
 

@@ -69,8 +69,8 @@ MODULE mo_lnd_nwp_nml
     &                               config_itype_root  => itype_root    , &
     &                               config_lstomata    => lstomata      , &
     &                               config_l2tls       => l2tls         , &
-    &                               config_itype_subs  => itype_subs    , &
     &                            config_itype_heatcond => itype_heatcond, &
+    &                            config_itype_interception => itype_interception, &
     &                            config_itype_hydbound => itype_hydbound, &
     &                            config_lana_rho_snow  => lana_rho_snow , &
     &                            config_lsnowtile      => lsnowtile     , &
@@ -99,8 +99,8 @@ MODULE mo_lnd_nwp_nml
   INTEGER ::  itype_tran        !< type of surface to atmospher transfer
   INTEGER ::  itype_root        !< type of root density distribution
   INTEGER ::  itype_heatcond    !< type of soil heat conductivity
+  INTEGER ::  itype_interception!< type of plant interception
   INTEGER ::  itype_hydbound    !< type of hydraulic lower boundary condition
-  INTEGER ::  itype_subs        !< type of subscale surface treatment =1 MOSAIC, =2 TILE       
   INTEGER ::  idiag_snowfrac    !< method for diagnosis of snow-cover fraction       
 
   CHARACTER(LEN=filename_max) :: sst_td_filename, ci_td_filename
@@ -129,11 +129,11 @@ MODULE mo_lnd_nwp_nml
     &               itype_tran                                , & 
     &               itype_root                                , & 
     &               itype_heatcond                            , & 
+    &               itype_interception                        , & 
     &               itype_hydbound                            , & 
     &               lstomata                                  , & 
     &               l2tls                                     , & 
     &               lana_rho_snow                             , & 
-    &               itype_subs                                , &
     &               lsnowtile                                 , &
     &               sstice_mode                               , &
     &               sst_td_filename                           , &
@@ -175,25 +175,25 @@ MODULE mo_lnd_nwp_nml
     ! 1. default settings   
     !-----------------------
 
-    sstice_mode  = 1       ! forecast mode, sst and sea ice fraction is read from 
+    sstice_mode  = 1         ! forecast mode, sst and sea ice fraction is read from 
                              !  the analysis, sst ist kept constant, sea ice fraction
                              !  is modified by the sea ice model
-                            ! default names for the time dependent SST and CI ext param files
-                            ! if sstice=2, <year> is substituted by "CLIM"
+                             ! default names for the time dependent SST and CI ext param files
+                             ! if sstice=2, <year> is substituted by "CLIM"
     sst_td_filename = "<path>SST_<year>_<month>_<gridfile>"
     ci_td_filename = "<path>CI_<year>_<month>_<gridfile>"
 
 
-    nlev_snow      = 1       ! 0 = default value for number of snow layers
+    nlev_snow      = 2       ! 2 = default value for number of snow layers
     ntiles         = 1       ! 1 = default value for number of static surface types
-    frlnd_thrhld   = 0.5_wp  ! fraction threshold for creating a land grid point
+    frlnd_thrhld   = 0.05_wp ! fraction threshold for creating a land grid point
+    frlake_thrhld  = 0.05_wp ! fraction threshold for creating a lake grid point
+    frsea_thrhld   = 0.05_wp ! fraction threshold for creating a sea grid point
     frlndtile_thrhld = 0.05_wp ! fraction threshold for retaining the respective 
                              ! tile for a grid point
-    frlake_thrhld  = 0.5_wp  ! fraction threshold for creating a lake grid point
-    frsea_thrhld   = 0.5_wp  ! fraction threshold for creating a sea grid point
     lmelt          = .TRUE.  ! soil model with melting process
     lmelt_var      = .TRUE.  ! freezing temperature dependent on water content
-    lmulti_snow    = .FALSE. ! run the multi-layer snow model
+    lmulti_snow    = .TRUE.  ! run the multi-layer snow model
     max_toplaydepth = 0.25_wp ! maximum depth of uppermost snow layer for multi-layer snow scheme (25 cm)
     lsnowtile      = .FALSE. ! if .TRUE., snow is considered as a separate tile
     idiag_snowfrac = 1       ! 1: old method based on SWE, 2: more advanced experimental method
@@ -204,16 +204,15 @@ MODULE mo_lnd_nwp_nml
     itype_tran     = 2       ! type of surface to atmosphere transfer
     itype_root     = 1       ! type of root density distribution
     itype_heatcond = 1       ! type of soil heat conductivity
+    itype_interception = 1   ! type of plant interception
     itype_hydbound = 1       ! type of hydraulic lower boundary condition
     lstomata       =.TRUE.   ! map of minimum stomata resistance
     l2tls          =.TRUE.   ! forecast with 2-TL integration scheme
     lana_rho_snow  =.TRUE.   ! if .TRUE., take rho_snow-values from analysis file 
-    itype_subs     = 2       ! type of subscale surface treatment =1 MOSAIC, =2 TILE       
 
 
-    !> KF  current settings to get NWP turbulence running
-    lseaice    = .FALSE.
-    llake      = .FALSE.
+    lseaice    = .TRUE.
+    llake      = .FALSE.     ! to be implemented
     
 
 
@@ -277,8 +276,8 @@ MODULE mo_lnd_nwp_nml
       config_itype_root  = itype_root
       config_lstomata    = lstomata
       config_l2tls       = l2tls
-      config_itype_subs  = itype_subs
       config_itype_heatcond = itype_heatcond
+      config_itype_interception = itype_interception
       config_itype_hydbound = itype_hydbound
       config_lana_rho_snow  = lana_rho_snow
       config_lsnowtile   = lsnowtile

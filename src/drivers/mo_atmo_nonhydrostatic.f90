@@ -90,7 +90,6 @@ USE mo_meteogram_config,    ONLY: meteogram_output_config
 USE mo_name_list_output_config,   ONLY: first_output_name_list, &
   &                               is_any_output_nml_active
 USE mo_name_list_output,    ONLY: init_name_list_output,  &
-  &                               write_name_list_output, &
   &                               close_name_list_output, &
   &                               parse_variable_groups,  &
   &                               output_file
@@ -280,19 +279,21 @@ CONTAINS
     !     Setup of meteogram output
     !---------------------------------------------------------------------
 
-    DO jg =1,n_dom
-      IF (meteogram_output_config(jg)%lenabled) THEN
-        IF (ltestcase) THEN
-          CALL meteogram_init(meteogram_output_config(jg), jg, p_patch(jg), &
-            &                ext_data(jg), p_nh_state(jg),                  &
-            &                p_lnd_state=p_lnd_state(jg), iforcing=iforcing)
-        ELSE
-          CALL meteogram_init(meteogram_output_config(jg), jg, p_patch(jg), &
-            &                ext_data(jg), p_nh_state(jg), prm_diag(jg),    &
-            &                p_lnd_state(jg), iforcing)
+    IF ((output_mode%l_nml) .OR. (output_mode%l_vlist)) THEN
+      DO jg =1,n_dom
+        IF (meteogram_output_config(jg)%lenabled) THEN
+          IF (ltestcase) THEN
+            CALL meteogram_init(meteogram_output_config(jg), jg, p_patch(jg), &
+              &                ext_data(jg), p_nh_state(jg),                  &
+              &                p_lnd_state=p_lnd_state(jg), iforcing=iforcing)
+          ELSE
+            CALL meteogram_init(meteogram_output_config(jg), jg, p_patch(jg), &
+              &                ext_data(jg), p_nh_state(jg), prm_diag(jg),    &
+              &                p_lnd_state(jg), iforcing)
+          END IF
         END IF
-      END IF
-    END DO
+      END DO
+    END IF
 
 
 
@@ -436,14 +437,16 @@ CONTAINS
     END IF
 
     ! finalize meteogram output
-    DO jg = 1, n_dom
-      IF (meteogram_output_config(jg)%lenabled) THEN
-        CALL meteogram_finalize(jg)
-      END IF
-    END DO
-    DO jg = 1, max_dom
-      DEALLOCATE(meteogram_output_config(jg)%station_list)
-    END DO
+    IF ((output_mode%l_nml) .OR. (output_mode%l_vlist)) THEN
+      DO jg = 1, n_dom
+        IF (meteogram_output_config(jg)%lenabled) THEN
+          CALL meteogram_finalize(jg)
+        END IF
+      END DO
+      DO jg = 1, max_dom
+        DEALLOCATE(meteogram_output_config(jg)%station_list)
+      END DO
+    END IF
 
     CALL message(TRIM(routine),'clean-up finished')
     

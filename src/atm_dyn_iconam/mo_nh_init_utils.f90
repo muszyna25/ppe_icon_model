@@ -961,9 +961,9 @@ CONTAINS
     REAL(wp),  INTENT(OUT) :: z3d_i(nproma,nlev+1,nblks), &
                               z3d_m(nproma,nlev,nblks)
 
-    INTEGER :: jc, jk, jk1, jb, nlen, nlevp1, ierr(nblks), nerr
+    INTEGER :: jc, jk, jk1, jb, nlen, nlevp1, ierr(nblks), nerr, ktop_thicklimit(nproma)
     REAL(wp) :: z_fac1, z_fac2, z_topo_dev(nproma), min_lay_spacing, &
-                dvct, dvct1, dvct2, wfac
+                dvct, dvct1, dvct2, wfac, dz1, dz2, dz3, dzr
     !-------------------------------------------------------------------------
 
     nlevp1 = nlev+1
@@ -973,7 +973,7 @@ CONTAINS
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb, nlen, jk, jk1, z_fac1, z_fac2, z_topo_dev, min_lay_spacing,&
-!$OMP dvct, wfac) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP dvct, wfac, ktop_thicklimit, dz1, dz2, dz3, dzr) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = 1,nblks
 
       IF (jb /= nblks) THEN
@@ -985,6 +985,7 @@ CONTAINS
      ENDIF
 
      z3d_i(1:nlen,nlevp1,jb) = topo(1:nlen,jb)
+     ktop_thicklimit(:) = nlevp1
 
      ! vertical interface height
      IF (ivctype == 1) THEN ! hybrid Gal-Chen coordinate
@@ -1028,8 +1029,23 @@ CONTAINS
          ENDIF
          min_lay_spacing = MAX(min_lay_spacing,MIN(50._wp,min_lay_thckn))
          DO jc = 1, nlen
-           z3d_i(jc,jk,jb) = MAX(z3d_i(jc,jk,jb),z3d_i(jc,jk+1,jb)+min_lay_spacing)
+           IF (z3d_i(jc,jk+1,jb)+min_lay_spacing > z3d_i(jc,jk,jb)) THEN
+             z3d_i(jc,jk,jb) = z3d_i(jc,jk+1,jb) + min_lay_spacing
+             ktop_thicklimit(jc) = jk
+           ENDIF
          ENDDO
+       ENDDO
+       ! Smooth layer thickness ratios in the transition layer of columns where the thickness limiter has been active
+       DO jc = 1, nlen
+         jk = ktop_thicklimit(jc)
+         IF (jk <= nlev-2 .AND. jk >= 3) THEN
+           dz1 = z3d_i(jc,jk+1,jb)-z3d_i(jc,jk+2,jb)
+           dz2 = z3d_i(jc,jk-3,jb)-z3d_i(jc,jk-2,jb)
+           dzr = (dz2/dz1)**0.25_wp ! stretching factor
+           dz3 = (z3d_i(jc,jk-2,jb)-z3d_i(jc,jk+1,jb))/(dzr*(1._wp+dzr*(1._wp+dzr)))
+           z3d_i(jc,jk  ,jb) = MAX(z3d_i(jc,jk  ,jb), z3d_i(jc,jk+1,jb) + dz3*dzr)
+           z3d_i(jc,jk-1,jb) = MAX(z3d_i(jc,jk-1,jb), z3d_i(jc,jk  ,jb) + dz3*dzr*dzr)
+         ENDIF
        ENDDO
        ! Check if level nflat is still flat
        IF (ANY(z3d_i(1:nlen,nflat,jb) /= vct_a(nflat+nshift))) ierr(jb) = 1

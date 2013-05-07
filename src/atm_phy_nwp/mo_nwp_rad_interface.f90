@@ -44,10 +44,8 @@ MODULE mo_nwp_rad_interface
   USE mo_parallel_config,      ONLY: nproma, p_test_run, parallel_radiation_mode
 
   USE mo_run_config,           ONLY: msg_level, iqv, iqc, iqi
-  USE mo_grf_intp_data_strc,   ONLY: t_gridref_state
-  USE mo_impl_constants,       ONLY: min_rlcell_int, icc, io3_ape!, min_rlcell 
+  USE mo_impl_constants,       ONLY: min_rlcell_int, io3_ape!, min_rlcell 
   USE mo_impl_constants_grf,   ONLY: grf_bdywidth_c, grf_ovlparea_start_c
-  USE mo_intp_data_strc,       ONLY: t_int_state
   USE mo_kind,                 ONLY: wp
   USE mo_loopindices,          ONLY: get_indices_c
   USE mo_nwp_lnd_types,        ONLY: t_lnd_prog, t_wtr_prog, t_lnd_diag
@@ -91,8 +89,7 @@ MODULE mo_nwp_rad_interface
   !! Initial release by Thorsten Reinhardt, AGeoBw, Offenbach (2011-01-13)
   !!
   SUBROUTINE nwp_radiation ( lredgrid, p_sim_time, datetime, pt_patch,pt_par_patch, &
-    & pt_par_int_state,pt_par_grf_state,ext_data,lnd_diag,pt_prog,pt_diag,prm_diag, &
-    & lnd_prog, wtr_prog )
+    & ext_data, lnd_diag, pt_prog, pt_diag, prm_diag, lnd_prog, wtr_prog )
 
 !    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER::  &
 !      &  routine = 'mo_nwp_rad_interface:'
@@ -104,8 +101,6 @@ MODULE mo_nwp_rad_interface
     TYPE(t_datetime),            INTENT(in) :: datetime
     TYPE(t_patch),        TARGET,INTENT(in) :: pt_patch     !<grid/patch info.
     TYPE(t_patch),        TARGET,INTENT(in) :: pt_par_patch !<grid/patch info (parent grid)
-    TYPE(t_int_state),    TARGET,INTENT(in):: pt_par_int_state  !< " for parent grid
-    TYPE(t_gridref_state),TARGET,INTENT(in) :: pt_par_grf_state  !< grid refinement state
     TYPE(t_external_data),INTENT(inout):: ext_data
     TYPE(t_lnd_diag),     INTENT(in):: lnd_diag      !< diag vars for sfc
     TYPE(t_nh_prog), TARGET, INTENT(inout)  :: pt_prog     !<the prognostic variables
@@ -156,9 +151,8 @@ MODULE mo_nwp_rad_interface
       ELSE 
 
         CALL nwp_rrtm_radiation_reduced ( p_sim_time,pt_patch,pt_par_patch,  &
-          & pt_par_int_state, pt_par_grf_state,ext_data,                     &
-          & zaeq1,zaeq2,zaeq3,zaeq4,zaeq5,                                   &
-          & pt_diag,prm_diag, lnd_prog )
+          & ext_data, zaeq1, zaeq2, zaeq3, zaeq4, zaeq5,                     &
+          & pt_diag, prm_diag, lnd_prog )
           
       ENDIF
 
@@ -175,8 +169,7 @@ MODULE mo_nwp_rad_interface
     ELSEIF ( atm_phy_nwp_config(jg)%inwp_radiation == 2 .AND. lredgrid) THEN
 
       CALL nwp_rg_radiation_reduced ( p_sim_time, datetime, pt_patch,pt_par_patch, &
-        & pt_par_int_state, pt_par_grf_state,ext_data,pt_prog, pt_diag, prm_diag,  &
-        & lnd_prog )
+        & ext_data, pt_prog, pt_diag, prm_diag, lnd_prog )
 
 
     ENDIF !inwp_radiation = 2
@@ -326,7 +319,7 @@ MODULE mo_nwp_rad_interface
                                 !  Input:
         & pti = pt_diag%temp_ifc (:,:,jb) , &! Temperature at layer boundaries
         & pdp = pt_diag%dpres_mc (:,:,jb), &! pressure thickness
-        & pclc_in= prm_diag%tot_cld  (:,:,jb,icc) , &
+        & pclc_in= prm_diag%clc  (:,:,jb)   , &
         & pqv = prm_diag%tot_cld(:,:,jb,iqv), &
         & pqvs = zsqv(:,:,jb), &!saturation water vapor
         & pqcwc = prm_diag%tot_cld    (:,:,jb,iqc) ,&
@@ -384,8 +377,8 @@ MODULE mo_nwp_rad_interface
   !! Initial release by Thorsten Reinhardt, AGeoBw, Offenbach (2011-01-13)
   !!
   SUBROUTINE nwp_rg_radiation_reduced ( p_sim_time, datetime, pt_patch,pt_par_patch, &
-    & pt_par_int_state, pt_par_grf_state,ext_data,pt_prog,pt_diag,prm_diag, &
-    & lnd_prog )
+    &                                   ext_data,pt_prog,pt_diag,prm_diag, &
+    &                                   lnd_prog )
 
 !    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER::  &
 !      &  routine = 'mo_nwp_rad_interface:'
@@ -401,8 +394,6 @@ MODULE mo_nwp_rad_interface
     TYPE(t_datetime),            INTENT(in) :: datetime 
     TYPE(t_patch),        TARGET,INTENT(in) :: pt_patch     !<grid/patch info.
     TYPE(t_patch),        TARGET,INTENT(in) :: pt_par_patch !<grid/patch info (parent grid)
-    TYPE(t_int_state),    TARGET,INTENT(in) :: pt_par_int_state  !< " for parent grid
-    TYPE(t_gridref_state),TARGET,INTENT(in) :: pt_par_grf_state  !< grid refinement state
     TYPE(t_external_data)       ,INTENT(inout):: ext_data
     TYPE(t_nh_prog), TARGET, INTENT(inout)  :: pt_prog     !<the prognostic variables
     TYPE(t_nh_diag), TARGET, INTENT(inout)  :: pt_diag     !<the diagnostic variables
@@ -420,6 +411,7 @@ MODULE mo_nwp_rad_interface
     REAL(wp), ALLOCATABLE, TARGET:: zrg_tsfc     (:,:)
     REAL(wp), ALLOCATABLE, TARGET:: zrg_o3       (:,:,:)
     REAL(wp), ALLOCATABLE, TARGET:: zrg_tot_cld  (:,:,:,:)
+    REAL(wp), ALLOCATABLE, TARGET:: zrg_clc      (:,:,:)
     ! Output fields
     REAL(wp), ALLOCATABLE, TARGET:: zrg_lwflxall (:,:,:)
     REAL(wp), ALLOCATABLE, TARGET:: zrg_trsolall (:,:,:)
@@ -572,7 +564,8 @@ MODULE mo_nwp_rad_interface
       zrg_aeq3     (nproma,nlev_rg  ,nblks_par_c),   &
       zrg_aeq4     (nproma,nlev_rg  ,nblks_par_c),   &
       zrg_aeq5     (nproma,nlev_rg  ,nblks_par_c),   &
-      zrg_tot_cld  (nproma,nlev_rg  ,nblks_par_c,4), &
+      zrg_tot_cld  (nproma,nlev_rg  ,nblks_par_c,3), &
+      zrg_clc      (nproma,nlev_rg  ,nblks_par_c)  , &
       zrg_fls      (nproma,nlevp1_rg,nblks_par_c),   &
       zrg_flsp     (nproma,          nblks_par_c),   &
       zrg_flsd     (nproma,          nblks_par_c),   &
@@ -623,10 +616,10 @@ MODULE mo_nwp_rad_interface
 
     CALL upscale_rad_input_rg( pt_patch%id, pt_par_patch%id,  nlev_rg, nlevp1_rg,            &
       & prm_diag%cosmu0, prm_diag%albvisdif, alb_ther, pt_diag%temp_ifc,                     &
-      & pt_diag%dpres_mc, prm_diag%tot_cld, zsqv ,zduco2, zduo3,                             &
+      & pt_diag%dpres_mc, prm_diag%tot_cld, prm_diag%clc, zsqv ,zduco2, zduo3,               &
       & zaeq1,zaeq2,zaeq3,zaeq4,zaeq5,pt_diag%pres_sfc,pt_diag%pres_ifc,                     &
       & zrg_cosmu0, zrg_albvisdif, zrg_alb_ther, zrg_temp_ifc, zrg_dpres_mc,                 &
-      & zrg_tot_cld, zrg_sqv ,zrg_duco2, zrg_o3,                                             &
+      & zrg_tot_cld, zrg_clc,zrg_sqv ,zrg_duco2, zrg_o3,                                     &
       & zrg_aeq1,zrg_aeq2,zrg_aeq3,zrg_aeq4,zrg_aeq5,zrg_pres_sfc     )
 
     rl_start = grf_ovlparea_start_c
@@ -660,7 +653,7 @@ MODULE mo_nwp_rad_interface
                                          !  Input:
         & pti = zrg_temp_ifc (:,:,jb) , &! Temperature at layer boundaries
         & pdp = zrg_dpres_mc (:,:,jb), &! pressure thickness
-        & pclc_in= zrg_tot_cld  (:,:,jb,icc) , &
+        & pclc_in= zrg_clc   (:,:,jb) , &
         & pqv = zrg_tot_cld(:,:,jb,iqv), &
         & pqvs = zrg_sqv(:,:,jb), &!saturation water vapor
         & pqcwc = zrg_tot_cld    (:,:,jb,iqc) ,&
@@ -757,7 +750,8 @@ MODULE mo_nwp_rad_interface
     DEALLOCATE (zrg_cosmu0,zrg_tsfc,zrg_albvisdif,zrg_alb_ther,             &
       & zrg_pres_sfc,zrg_temp_ifc,zrg_dpres_mc,zrg_sqv,zrg_duco2,zrg_o3,    &
       & zrg_aeq1,zrg_aeq2,zrg_aeq3,zrg_aeq4,zrg_aeq5,                       &
-      & zrg_tot_cld,zrg_fls,zrg_flsp,zrg_flsd,zrg_flsu,zrg_lwflxall,zrg_trsolall)
+      & zrg_tot_cld, zrg_clc, zrg_fls, zrg_flsp, zrg_flsd, zrg_flsu,        &
+      & zrg_lwflxall,zrg_trsolall)
 
   END SUBROUTINE nwp_rg_radiation_reduced
 

@@ -83,7 +83,9 @@ SUBROUTINE SURFEXCDRIVER_CTL(CDCONF &
  & , sobs_ex, thbs_ex, pabs_ex                                          & !in
  & , runoff_s_ex, runoff_g_ex                                           & !inout
  & , t_g, qv_s                                                          & ! -
- & , shfl_s_ex, lhfl_s_ex, shfl_snow_ex, lhfl_snow_ex)                    !out
+ & , t_ice, h_ice, t_snow_si, h_snow_si                                 & ! -
+ & , fr_seaice                                                          & !in
+ & , shfl_soil_ex, lhfl_soil_ex, shfl_snow_ex, lhfl_snow_ex)              !out
 
 ! USE PARKIND1  ,ONLY : JPIM, JPRB
 ! 
@@ -112,7 +114,8 @@ USE mo_edmf_param   ,ONLY : &
       & LEFLAKE  ,RH_ICE_MIN_FLK     ,&                     !yoephy  (& yos_flake)
       & FOEEW                                               !fcttrm.h (& fcsttre.h)
 USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config
-USE mo_lnd_nwp_config,ONLY: nlev_soil, nlev_snow, ntiles_total
+USE mo_lnd_nwp_config,ONLY: nlev_soil, nlev_snow, ntiles_total, ntiles_water, &
+                                   & isub_water, isub_lake, isub_seaice
 USE mo_ext_data_types,ONLY: t_external_data
 
 USE mo_vupdz0       ,ONLY : vupdz0
@@ -380,38 +383,44 @@ REAL(KIND=JPRB)   ,INTENT(OUT)   :: PZDLPP(:)
 
 ! TERRA data
 
-INTEGER          ,INTENT(IN)                                                 :: &
+INTEGER          ,INTENT(IN)                                               :: &
   jb             ,jg                 
-REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,0:nlev_snow,ntiles_total)   :: &
+REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,0:nlev_snow,ntiles_total) :: &
   t_snow_mult_ex 
-REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,nlev_snow,ntiles_total)     :: &
+REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,nlev_snow,ntiles_total)   :: &
   rho_snow_mult_ex  
-REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,ntiles_total)               :: &
-  t_snow_ex      ,t_s_ex         ,t_g_ex         ,qv_s_ex          ,            & 
+REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,ntiles_total+ntiles_water):: &
+  t_g_ex         ,qv_s_ex  
+REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,ntiles_total)             :: &
+  t_snow_ex      ,t_s_ex         ,                                            & 
   w_snow_ex      ,w_snow_eff_ex  ,rho_snow_ex    ,h_snow_ex        ,w_i_ex
-REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,0:nlev_soil,ntiles_total)   :: &
+REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,0:nlev_soil,ntiles_total) :: &
   t_so_ex             
-REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,nlev_soil,ntiles_total)     :: &
+REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,nlev_soil,ntiles_total)   :: &
   w_so_ex        ,w_so_ice_ex          
-REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON)                            :: &
+REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON)                          :: &
   u_10m_ex       ,v_10m_ex             
-REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,ntiles_total)               :: &
+REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,ntiles_total)             :: &
   freshsnow_ex   ,snowfrac_lc_ex ,snowfrac_ex 
-REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,nlev_snow,ntiles_total)     :: &
+REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,nlev_snow,ntiles_total)   :: &
   wliq_snow_ex   ,wtot_snow_ex   ,dzh_snow_ex          
-REAL(KIND=JPRB)  ,INTENT(IN)     ,DIMENSION(KLON)                            :: &
+REAL(KIND=JPRB)  ,INTENT(IN)     ,DIMENSION(KLON)                          :: &
   prr_con_ex     ,prs_con_ex     ,prr_gsp_ex     ,prs_gsp_ex           
-REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,ntiles_total)               :: &
+REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,ntiles_total+ntiles_water):: &
   tch_ex         ,tcm_ex         ,tfv_ex               
-REAL(KIND=JPRB)  ,INTENT(IN)     ,DIMENSION(KLON,ntiles_total)               :: &
+REAL(KIND=JPRB)  ,INTENT(IN)     ,DIMENSION(KLON,ntiles_total+ntiles_water):: &
   sobs_ex        ,thbs_ex        ,pabs_ex              
-REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,ntiles_total)               :: &
+REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,ntiles_total)             :: &
   runoff_s_ex    ,runoff_g_ex        
-REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON)                            :: &
+REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON)                          :: &
   t_g            ,qv_s
-REAL(KIND=JPRB)  ,INTENT(OUT)    ,DIMENSION(KLON,ntiles_total)               :: &
-  shfl_s_ex      ,lhfl_s_ex      ,shfl_snow_ex   ,lhfl_snow_ex  
-TYPE(t_external_data), INTENT(INOUT)                                         :: &
+REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON)                          :: &
+  t_ice          ,h_ice          ,t_snow_si      ,h_snow_si
+REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON)                          :: &
+  fr_seaice
+REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,ntiles_total+ntiles_water):: &
+  shfl_soil_ex   ,lhfl_soil_ex   ,shfl_snow_ex   ,lhfl_snow_ex  
+TYPE(t_external_data), INTENT(INOUT)                                       :: &
   ext_data
 
 ! Local variables
@@ -445,11 +454,11 @@ REAL(KIND=JPRB) :: ZFRMAX(KLON)   , ZFRLMAX(KLON)  , ZALB(KLON)     , &
 INTEGER(KIND=JPIM) :: JL, JTILE, JT, IITT, isubs
 LOGICAL :: LLINIT
 
-REAL(KIND=JPRB) :: ZDUA, ZZCDN, ZQSSN, ZCOR, ZRG, ZRTMST , &
+REAL(KIND=JPRB) :: ZQSSN, ZCOR, ZRG, ZRTMST , &
                  & ZZ0MWMO, ZBLENDWMO, ZBLENDZ0, ZCOEF1, ZCONS1
 REAL(KIND=JPRB) :: ZHOOK_HANDLE
 
-LOGICAL         :: LLAND, LLSICE, LLHISSR(KLON)
+LOGICAL         :: LLHISSR(KLON)
 
 ! Globcover 2009: tile index used in TESSEL (IFS) (see also mo_ext_data_state.f90)
 !   Number of landcover classes provided by external parameter data
@@ -512,6 +521,7 @@ IF ( KSTEP == 0 .AND. CDCONF /= 'T' ) THEN
   ENDIF
 ENDIF
 
+!debug
 DO JT=1,KTILES
   DO JL=KIDIA,KFDIA
     if ( (PTSKTI(JL,JT) > 400.0)  .or. (PTSKTI(JL,JT) < 100.0  ) ) then
@@ -519,6 +529,7 @@ DO JT=1,KTILES
     endif
   ENDDO
 ENDDO
+!xxxxx
 
 !*         1.2  UPDATE Z0
 
@@ -529,8 +540,17 @@ CALL VUPDZ0(KIDIA,KFDIA,KLON,KTILES,KSTEP,CDCONF,&
    & PUSTRTI,PVSTRTI,PAHFSTI,PEVAPTI,&
    & PHLICE,& 
    & PTSKTI,PCHAR,PUCURR,PVCURR,&
-   & ZZ0MTI,ZZ0HTI,ZZ0QTI,ZBUOMTI,ZZDLTI,ZRAQTI)  
+   & ZZ0MTI,ZZ0HTI,ZZ0QTI,ZBUOMTI,ZZDLTI,ZRAQTI)
 
+!debug
+DO JTILE=1,KTILES
+  DO JL=KIDIA,KFDIA
+    IF ( ZZ0MTI(JL,JTILE) < 0.0_JPRB .OR. ZZ0MTI(JL,JTILE) > 10.0_JPRB ) THEN
+      write(*,*) 'surfexc2: ', ZZ0MTI(JL,JTILE)
+    ENDIF
+  ENDDO
+ENDDO
+!xxxxx
 
 !*         1.3  FIND DOMINANT SURFACE TYPE and DOMINANT LOW
 !*              parameters for postprocessing
@@ -679,12 +699,6 @@ DO JTILE=1,KTILES
   ENDDO
 ENDDO
 
-! DO JL=KIDIA,KFDIA
-!   if ( PSST(JL) > 294.95599 .and. PSST(JL) < 294.95600 ) THEN
-!     write(*,*) 'surfexc5: ', PSST(JL), PCFQTI(JL,1), ZBUOMTI(JL,1), ZZDLTI(JL,1), &
-!       ZZ0MTI(JL,1),ZZ0HTI(JL,1),ZZ0QTI(JL,1), KSTEP, PEVAPTI(JL,1), PAHFSTI(JL,1)
-!   endif
-! ENDDO
 
 !*         3.2  EQUIVALENT EVAPOTRANSPIRATION EFFICIENCY COEFFICIENT
 
@@ -735,50 +749,48 @@ ENDDO
 
 !*         3.2a  CALL TERRA
 
-DO isubs=1,ntiles_total
+DO isubs=1,ntiles_total+ntiles_water
   DO jl=KIDIA,KFDIA
-    IF ( ( ext_data%atm%llsm_atm_c(jl,jb) )  .and.           & ! land
-        ( ext_data%atm%frac_t(jl,jb,isubs) > 0.0_JPRB) ) THEN   ! only used tiles 
-      JTILE = jtessel_gcv2009(ext_data%atm%lc_class_t(jl,jb,isubs))
-      IF ( snowfrac_ex(jl,isubs) > 0.5_jprb ) THEN
-        SELECT CASE ( JTILE )
-          CASE (4)
-            JTILE = 5   ! snow over low vegetation
-          CASE (6)
-            JTILE = 7   ! snow over high vegetation
-          CASE (8)
-            JTILE = 5   ! snow over bare ground
-        END SELECT
-      ENDIF
+    IF ( isubs <= ntiles_total ) THEN          ! land
+      IF ( ext_data%atm%frac_t(jl,jb,isubs) > 0.0_JPRB ) THEN   ! only used tiles 
+        JTILE = jtessel_gcv2009(ext_data%atm%lc_class_t(jl,jb,isubs))
+        IF ( snowfrac_ex(jl,isubs) > 0.5_jprb ) THEN
+          SELECT CASE ( JTILE )
+            CASE (4)
+              JTILE = 5                        ! snow over low vegetation
+            CASE (6)
+              JTILE = 7                        ! snow over high vegetation
+            CASE (8)
+              JTILE = 5                        ! snow over bare ground
+          END SELECT
+        ENDIF
 ! interception layer (#3) missing ???
-
 ! debug: high veg -> low veg (snow or no snow) ???
-      IF (JTILE == 6)  JTILE = 4
-      IF (JTILE == 7)  JTILE = 5
-   !JTILE=2                             !??????????
-    ELSE
-      JTILE = 1                ! ocean
-      IF ( t_g(jl) > (t0_melt + zt_ice) ) THEN   ! salt water freezing temperature
-        JTILE = 2              ! sea ice         ! this may never be active as not LAND
+        IF (JTILE == 6)  JTILE = 4
+        IF (JTILE == 7)  JTILE = 5
+      ELSE
+        JTILE = 8                              ! unused tiles with frac=0, just for safety
       ENDIF
+    ELSE
+      IF (isubs == isub_water  ) JTILE = 1     ! ocean
+      IF (isubs == isub_lake   ) JTILE = 1     ! lake (fake it as ocean????)
+      IF (isubs == isub_seaice ) JTILE = 2     ! ocean
     ENDIF
+
     tch_ex(jl,isubs) = ZCH(jl,JTILE)
     tcm_ex(jl,isubs) = ZCM(jl,JTILE)
-    tfv_ex(jl,isubs) = 1.0_JPRB   ! laminar reduction factor for evaporation (Matthias) ????
+    tfv_ex(jl,isubs) = 1.0_JPRB                ! laminar reduction factor for evaporation (Matthias) ????
   ENDDO
 ENDDO
 
-
-!IF ( atm_phy_nwp_config(jg)%inwp_surface == 1 ) THEN
-IF ( .true. ) THEN
+IF ( atm_phy_nwp_config(jg)%inwp_surface == 1 ) THEN
   CALL nwp_surface_edmf (&
     ext_data         = ext_data        , & !>in  
     jb               = jb              , & ! block  
     jg               = jg              , & ! patch
-    nproma           = KLON            , & ! array dimensions
     i_startidx       = KIDIA           , & ! start index for computations in the parallel program
     i_endidx         = KFDIA           , & ! end index for computations in the parallel program
-    dt               = PTSTEP          , & ! time step
+    tcall_sfc_jg     = PTSTEP          , & ! time step
  !                                      
     u_ex             = PUMLEV          , & ! zonal wind speed                              ( m/s )
     v_ex             = PVMLEV          , & ! meridional wind speed                         ( m/s )
@@ -828,11 +840,17 @@ IF ( .true. ) THEN
     runoff_s_ex      = runoff_s_ex     , & ! surface water runoff; sum over forecast       (kg/m2)
     runoff_g_ex      = runoff_g_ex     , & ! soil water runoff; sum over forecast          (kg/m2)
  !                                   
-    t_g              = t_g             , & ! surface temperature (grid mean)               ( K )
+    t_g              = t_g             , & ! surface temperature (grid mean)               (  K  )
     qv_s             = qv_s            , & ! surface specific humidity (grid mean)         (kg/kg)
  !
-    shfl_s_ex        = shfl_s_ex       , & ! sensible heat flux soil/air interface         (W/m2)
-    lhfl_s_ex        = lhfl_s_ex       , & ! latent   heat flux soil/air interface         (W/m2)
+    t_ice            = t_ice           , & ! sea ice temperature                           (  K  )
+    h_ice            = h_ice           , & ! sea ice height                                (  m  )
+    t_snow_si        = t_snow_si       , & ! sea ice snow temperature                      (  K  )
+    h_snow_si        = h_snow_si       , & ! sea ice snow height                           (  m  )
+    fr_seaice        = fr_seaice       , & ! sea ice fraction                              (  1  )
+!
+    shfl_soil_ex     = shfl_soil_ex    , & ! sensible heat flux soil/air interface         (W/m2)
+    lhfl_soil_ex     = lhfl_soil_ex    , & ! latent   heat flux soil/air interface         (W/m2)
     shfl_snow_ex     = shfl_snow_ex    , & ! sensible heat flux snow/air interface         (W/m2)
     lhfl_snow_ex     = lhfl_snow_ex    )   ! latent   heat flux snow/air interface         (W/m2)
 ENDIF
@@ -841,14 +859,15 @@ ENDIF
 IF (msg_level >= 15) THEN
   DO JTILE=1,KTILES
     DO JL=KIDIA,KFDIA
-      IF ( ABS( shfl_s_ex   (jl,jtile) * (1-snowfrac_ex(jl,jtile)))  >  400.0_JPRB  .OR. & 
-           ABS( shfl_snow_ex(jl,jtile) *    snowfrac_ex(jl,jtile) )  >  400.0_JPRB  .OR. & 
-           ABS( lhfl_s_ex   (jl,jtile) * (1-snowfrac_ex(jl,jtile)))  > 2000.0_JPRB  .OR. & 
+      IF ( ABS( shfl_soil_ex(jl,jtile) * (1-snowfrac_ex(jl,jtile)))  >  500.0_JPRB  .OR. & 
+           ABS( shfl_snow_ex(jl,jtile) *    snowfrac_ex(jl,jtile) )  >  500.0_JPRB  .OR. & 
+           ABS( lhfl_soil_ex(jl,jtile) * (1-snowfrac_ex(jl,jtile)))  > 2000.0_JPRB  .OR. & 
            ABS( lhfl_snow_ex(jl,jtile) *    snowfrac_ex(jl,jtile) )  > 2000.0_JPRB  ) THEN
-         write(*,*) 'surfexc: SHF-soil,-snow,LHF-soil,-snow', &
+         write(*,*) 'surfexc3: SHF-soil,-snow,LHF-soil,-snow', &
            jl, jtile, snowfrac_ex(jl,jtile), &
-           shfl_s_ex(jl,jtile), shfl_snow_ex(jl,jtile), &
-           lhfl_s_ex(jl,jtile), lhfl_snow_ex(jl,jtile)
+           shfl_soil_ex(jl,jtile), shfl_snow_ex(jl,jtile), &
+           lhfl_soil_ex(jl,jtile), lhfl_snow_ex(jl,jtile), &
+           t_g_ex(jl,jtile), PTMLEV(jl), qv_s_ex(jl,jtile), PQMLEV(jl) 
       ENDIF
     ENDDO
   ENDDO
@@ -860,13 +879,13 @@ ENDIF
 !??   DO JL=KIDIA,KFDIA
 !??     PAHFSTI(JL,JTILE) = 0.0_JPRB
 !??     PEVAPTI(JL,JTILE) = 0.0_JPRB
-!??     DO JT=1,ntiles_total
+!??     DO JT=1,ntiles_total+ntiles_water
 !??       PAHFSTI(JL,JTILE) = PAHFSTI(JL,JTILE) + subsfrac_ex(JL,JT) * &
-!??           ( SHFL_S_EX   (JL,JT) * (1.0_JPRB - SNOWFRAC_EX(JL,JT)) +  &
-!??             SHFL_SNOW_EX(JL,JT) *             SNOWFRAC_EX(JL,JT)  ) 
+!??           ( SHFL_SOIL_EX   (JL,JT) * (1.0_JPRB - SNOWFRAC_EX(JL,JT)) +  &
+!??             SHFL_SNOW_EX(JL,JT) *                SNOWFRAC_EX(JL,JT)  ) 
 !??       PEVAPTI(JL,JTILE) = PEVAPTI(JL,JTILE) + subsfrac_ex(JL,JT) * &
-!??           ( LHFL_S_EX   (JL,JT) * (1.0_JPRB - SNOWFRAC_EX(JL,JT)) +  &
-!??             LHFL_SNOW_EX(JL,JT) *             SNOWFRAC_EX(JL,JT)  )/RLVTT
+!??           ( LHFL_SOIL_EX   (JL,JT) * (1.0_JPRB - SNOWFRAC_EX(JL,JT)) +  &
+!??             LHFL_SNOW_EX(JL,JT) *                SNOWFRAC_EX(JL,JT)  )/RLVTT
 !??     ENDDO
 !??   ENDDO
 !?? ENDDO
@@ -892,10 +911,8 @@ ENDDO
 !*         3.3a   PREPARE ARRAY'S FOR CALL TO SURFACE ENERGY
 !                 BALANCE ROUTINE
 
-!xmk: as a first try turn of the first step SEB 
-IF (KSTEP == 0) THEN    !???
-!IF (0 == 0) THEN 
-!xxx
+IF (KSTEP == 0) THEN
+
   IF (LEOCWA .OR. LEOCCO) THEN
     ZTSRF(KIDIA:KFDIA,1)=PTSKTI(KIDIA:KFDIA,1)
   ELSE
@@ -925,7 +942,6 @@ IF (KSTEP == 0) THEN    !???
 
 !*         3.3b   CALL TO SURFACE ENERGY BALANCE ROUTINE
 
-!dmk SEB - not needed ???
   CALL SURFSEB_CTL(KIDIA,KFDIA,KLON,KTILES,&
    & PCPTSTI,PTSKTI,PQSTI,&
    & PDQSTI,ZRHOCHU,ZRHOCQU,&
@@ -938,7 +954,6 @@ IF (KSTEP == 0) THEN    !???
    & ZJS,ZJQ,ZSSK,ZTSK,&
    & ZSSH,ZSLH,ZSTR,ZG0,&
    & ZSL,ZQL)  
-!xxx
 
   DO JTILE=1,KTILES
     DO JL=KIDIA,KFDIA

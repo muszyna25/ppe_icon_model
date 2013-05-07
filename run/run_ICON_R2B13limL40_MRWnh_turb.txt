@@ -1,0 +1,352 @@
+#! /bin/ksh
+#-----------------------------------------------------------------------------
+#
+#
+#-----------------------------------------------------------------------------
+#
+# NEC@DWD
+#
+#PBS -q normal
+#PBS -j o
+#PBS -l cpunum_job=4
+#PBS -b 6
+#PBS -T mpisx
+#PBS -l elapstim_req=2800
+#PBS -m n
+#-----------------------------------------------------------------------------
+#
+
+set -x
+
+#
+# set number of threads for OpenMP parallelization
+#     and other OpenMP environment variables
+#
+export OMP_NUM_THREADS=1
+export ICON_THREADS=${OMP_NUM_THREADS}
+export OMP_SCHEDULE="static"
+export OMP_DYNAMIC="false"
+
+export MPIMULTITASKMIX=ON
+
+NODES=6        # muss gleich -b sein
+NMPITASKS=4    # MPI tasks pro Knoten (muss multipliziert mit OMP_NUM_THREADS gleich cpunum_job sein)
+
+export NC_BLOCKSIZE=128mb
+#
+# for PBS change to directory where job was submitted
+# (without this job is started in HOME)
+if [[ -n ${PBS_O_WORKDIR} ]] ; then
+  cd ${PBS_O_WORKDIR}
+fi
+export F_PROGINF=DETAIL
+export F_NORCW=65535
+
+export MPIPROGINF=yes
+export MPIPROGINF=ALL_DETAIL
+
+export MPIEXPORT="MPIPROGINF F_PROGINF NC_BLOCKSIZE MPIMULTITASKMIX OMP_NUM_THREADS ICON_THREADS OMP_SCHEDULE OMP_DYNAMIC F_NORCW"
+
+#
+# determine base directory
+dir=$(pwd -P)
+basedir=${dir%/*}
+#
+# determine architecture
+#arch=$(${basedir}/config/config.guess)
+arch=sx9-nec-superux-sx9mpi
+#
+#-----------------------------------------------------------------------------
+#
+# experiment identifier (replace III with your initials and EEEE by a four 
+# digit number for the current experiment and  TTTT  by some text).
+# EXP=IIIEEEETTTT (see as well above for the job names)
+#
+EXP="MRWnh_B13limrv"  # experiment identifier
+EDIR="exp46"  # working directory
+IDIR="GRF_R2B7N13N" # input directory
+#
+WORK_DIR=${basedir}
+#
+# absolute path to directory with job scripts:
+SCRIPTDIR=${WORK_DIR}/run
+#
+# absolute path to directory with plenty of space:
+EXPDIR=$WORK_DIR/experiments/${EDIR}
+#
+# absolute path to input directory
+INDIR=$HOME/icon-1.0.6_RESTRUCT/experiments/${IDIR}
+#
+# absolute path to model binary, including the executable
+MODEL=${WORK_DIR}/build/${arch}/bin/control_model
+#
+#-----------------------------------------------------------------------------
+#
+
+
+set +x
+
+#
+# the directory for the experiment will be created, if not already there
+if [ ! -d $EXPDIR ]; then
+    mkdir -p $EXPDIR
+fi
+#
+cd $EXPDIR
+#
+
+#ln -sf $INDIR/iconR2B09_DOM03-grid.nc iconR2B09_DOM01-grid.nc
+#ln -sf $INDIR/iconR2B10_DOM04-grid.nc iconR2B10_DOM02-grid.nc
+#ln -sf $INDIR/iconR2B11_DOM05-grid.nc iconR2B11_DOM03-grid.nc
+ln -sf $INDIR/iconR2B13_DOM07.nc iconR2B13_DOM01.nc
+
+#
+
+#-----------------------------------------------------------------------------
+# The following values must be set here as shell variables so that they can be used
+# also in the executing section of the completed run script
+#-----------------------------------------------------------------------------
+# the namelist filename
+atmo_namelist=NAMELIST_${EXP}
+#
+#-----------------------------------------------------------------------------
+# global timing
+start_date="2011-01-01T00:00:00Z"
+ndays_restart=60
+dt_restart=`expr ${ndays_restart} \* 86400`
+#
+#-----------------------------------------------------------------------------
+
+# the grid parameters
+atmo_dyn_grids="iconR2B13_DOM01.nc" 
+#-----------------------------------------------------------------------------
+
+
+# create ICON master namelist
+# ------------------------
+# For a complete list see Namelist_overview and Namelist_overview.pdf
+
+
+
+cat > icon_master.namelist << EOF
+&master_nml
+ lrestart               = .false.
+/
+&time_nml
+ ini_datetime_string = "$start_date"
+ dt_restart          = $dt_restart
+/
+&master_model_nml
+  model_type=1
+  model_name="ATMO"
+  model_namelist_filename="$atmo_namelist"
+  model_restart_info_filename=""
+  model_min_rank=1
+  model_max_rank=65536
+  model_inc_rank=1
+/
+EOF
+
+#-----------------------------------------------------------------------------
+#
+
+#-----------------------------------------------------------------------------
+#
+# write ICON namelist parameters
+# ------------------------
+# For a complete list see Namelist_overview and Namelist_overview.pdf
+#
+# ------------------------
+# reconstrcuct the grid parameters in namelist form
+dynamics_grid_filename=""
+for gridfile in ${atmo_dyn_grids}; do
+  dynamics_grid_filename="${dynamics_grid_filename} '${gridfile}',"
+done
+
+
+
+#-----------------------------------------------------------------------------
+#
+# ICON NAMELIST
+
+cat > ${atmo_namelist} << EOF
+&parallel_nml
+ nproma         = 1024
+ p_test_run     = .false.
+ l_test_openmp  = .true.
+ l_log_checks   = .true.
+ num_io_procs   = 0
+/
+&grid_nml
+ cell_type = 3            ! triangular cells
+ dynamics_grid_filename  = ${dynamics_grid_filename}
+ radiation_grid_filename = ' '
+ dynamics_parent_grid_id = 0,1
+ lredgrid_phys           = .false.,.false.
+ lfeedback               = .true.
+ l_limited_area = .true.
+/
+&nh_testcase_nml
+ nh_test_name  = 'mrw_nh'    ! test case identifier
+ u0_mrw       = 25 ! 10.
+ mount_height_mrw = 7000. ! max. 7500m with 20 m/s (3000 with gradp=1); max 6500m with u=0
+ mount_half_width = 2000.
+ mount_latctr_mrw_deg = 0.
+! nh_test_name  = 'mwbr_const'    ! test case identifier
+ bruntvais_u_mwbr_const = 0.0075 ! 0.018228
+! temp_i_mwbr_const = 297.
+ p_int_mwbr_const = 80000.
+ rh_at_1000hpa  = 0.01
+ qv_max         = 1.e-5
+/
+&io_nml
+ out_expname = '${EXP}'     ! file name base
+ dt_data  = 1800.           ! [hr] output interval
+ dt_file  = 10800.
+ dt_diag  = 3600.
+ lwrite_vorticity = .TRUE.
+ lwrite_precip = .TRUE.
+ lwrite_cloud = .FALSE.
+ lwrite_tke = .TRUE.
+/
+&output_nml
+ filetype           = 4                    ! output format: 2=GRIB2, 4=NETCDFv2
+ namespace          = 'DWD'
+ mode               = 1
+ dom                = -1                   ! output for all subdomains
+ output_time_unit   = 1                    ! 1: seconds, 2: minute, 3: hour, 4: day, 5: month, 6: year
+ output_bounds      = 0., 36000., 1800. ! start, end, increment
+ steps_per_file     = 21
+ include_last       = .TRUE.
+ output_filename    = 'MRW_R2B13_ll'               ! file name base
+ ml_varlist         =     'w','pres','pres_sfc', 'u', 'v', 'temp', 'topography_c','theta_v', 'z_mc','z_ifc'
+ remap              = 1
+ reg_lon_def        =  89.,0.005,91.
+ reg_lat_def        = -1.,0.005, 1.
+ output_grid        = .TRUE.
+/
+&output_nml
+ filetype           = 4                    ! output format: 2=GRIB2, 4=NETCDFv2
+ namespace          = 'DWD'
+ mode               = 1
+ dom                = -1                   ! output for all subdomains
+ output_time_unit   = 1                    ! 1: seconds, 2: minute, 3: hour, 4: day, 5: month, 6: year
+ output_bounds      = 0., 36000., 1800. ! start, end, increment
+ steps_per_file     = 21
+ include_last       = .TRUE.
+ output_filename    = 'MRW_R2B13'        ! file name base
+ ml_varlist         =     'w','pres','pres_sfc','pres_msl', 'u', 'v', 'temp', 'topography_c','theta_v', 'z_mc','z_ifc','t_g','group:pbl_vars','gz0','tke'
+ output_grid        = .TRUE.
+/
+&run_nml
+ num_lev  = 50
+ lvert_nest = .true.
+ nsteps         = 38400
+ dtime          = 0.5625
+ ldynamics      = .TRUE.       ! dynamics
+ ltransport     = .true.
+ ntracer        = 2            ! default: 0
+ iforcing       = 3            ! NWP forcing
+ ltestcase      = .true.      ! false: run with real data
+ msg_level      = 10           ! detailed report during integration
+ ltimer         = .false.
+ ldump_states   = .false.
+ lrestore_states= .false.
+/
+&nwp_phy_nml
+inwp_gscp       = 0
+inwp_convection = 0
+inwp_radiation  = 0
+inwp_cldcover   = 0
+inwp_turb       = 1
+inwp_satad      = 0
+inwp_surface    = 0
+/
+&turbdiff_nml
+pat_len = 500.
+c_diff  = 0.2
+tkhmin  = 0.1
+tkmmin  = 0.1
+/
+&nonhydrostatic_nml
+ iadv_rhotheta = 2
+ ivctype       = 2
+ itime_scheme   = 5
+ damp_height  = 27500.
+ rayleigh_coeff = 0.75
+ exner_expol = 0.333
+ vwind_offctr = 0.20
+ igradp_method = 5
+ l_zdiffu_t    = .true.
+ thslp_zdiffu   = 0.05
+ thhgtd_zdiffu  = 125.
+ iadv_rcf       = 4
+ lhdiff_rcf    = .true.
+ divdamp_fac   = 0.004
+ l_nest_rcf   = .true.
+/
+&sleve_nml
+ min_lay_thckn   = 20.
+ top_height      = 40000.
+ decay_scale_1   = 5500.
+ decay_scale_2   = 3500.
+ decay_exp       = 1.2
+ flat_height     = 19000.
+ stretch_fac     = 0.85
+/
+&dynamics_nml
+ iequations     = 3
+ idiv_method    = 1
+ divavg_cntrwgt = 0.50
+ lcoriolis      = .TRUE.
+/
+&transport_nml
+  ctracer_list  = '12345'
+! ivadv_tracer  = 3,3,3,3,3
+! itype_hlimit = 3,4,4,4,4,0
+! ihadv_tracer  = 3,2,2,2,2,0
+ ihadv_tracer = 0,0,0,0,0,0,0
+ ivadv_tracer = 0,0,0,0,0,0,0
+/
+&diffusion_nml
+ hdiff_order      = 5
+ hdiff_efdt_ratio = 17.5
+! hdiff_min_efdt_ratio = 5.0
+ hdiff_smag_fac   = 0.05
+ lhdiff_vn        = .TRUE.
+ lhdiff_temp      = .TRUE.
+ itype_t_diffu    = 2
+ hdiff_multfac    = 1.0
+ hdiff_tv_ratio   = 1.0
+/
+&interpol_nml
+nudge_zone_width  = 8
+rbf_vec_scale_c =  0.03
+rbf_vec_scale_v =  0.07
+rbf_vec_scale_e = 0.25
+/
+&gridref_nml
+ grf_intmethod_ct = 2
+ grf_tracfbk      = 2
+ denom_diffu_v    = 150.
+/
+&extpar_nml
+ itopo          = 0
+ n_iter_smooth_topo = 2
+ heightdiff_threshold = 2000.
+/
+EOF
+
+#-----------------------------------------------------------------------------
+#
+
+#
+cp -p $MODEL ./icon.exe
+  mpirun -nn $NODES -nnp $NMPITASKS ./icon.exe
+
+#
+#-----------------------------------------------------------------------------
+#
+exit
+#
+#-----------------------------------------------------------------------------

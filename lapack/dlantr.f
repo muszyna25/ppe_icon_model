@@ -1,10 +1,150 @@
+*> \brief \b DLANTR returns the value of the 1-norm, or the Frobenius norm, or the infinity norm, or the element of largest absolute value of a trapezoidal or triangular matrix.
+*
+*  =========== DOCUMENTATION ===========
+*
+* Online html documentation available at 
+*            http://www.netlib.org/lapack/explore-html/ 
+*
+*> \htmlonly
+*> Download DLANTR + dependencies 
+*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.tgz?format=tgz&filename=/lapack/lapack_routine/dlantr.f"> 
+*> [TGZ]</a> 
+*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.zip?format=zip&filename=/lapack/lapack_routine/dlantr.f"> 
+*> [ZIP]</a> 
+*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.txt?format=txt&filename=/lapack/lapack_routine/dlantr.f"> 
+*> [TXT]</a>
+*> \endhtmlonly 
+*
+*  Definition:
+*  ===========
+*
+*       DOUBLE PRECISION FUNCTION DLANTR( NORM, UPLO, DIAG, M, N, A, LDA,
+*                        WORK )
+* 
+*       .. Scalar Arguments ..
+*       CHARACTER          DIAG, NORM, UPLO
+*       INTEGER            LDA, M, N
+*       ..
+*       .. Array Arguments ..
+*       DOUBLE PRECISION   A( LDA, * ), WORK( * )
+*       ..
+*  
+*
+*> \par Purpose:
+*  =============
+*>
+*> \verbatim
+*>
+*> DLANTR  returns the value of the one norm,  or the Frobenius norm, or
+*> the  infinity norm,  or the  element of  largest absolute value  of a
+*> trapezoidal or triangular matrix A.
+*> \endverbatim
+*>
+*> \return DLANTR
+*> \verbatim
+*>
+*>    DLANTR = ( max(abs(A(i,j))), NORM = 'M' or 'm'
+*>             (
+*>             ( norm1(A),         NORM = '1', 'O' or 'o'
+*>             (
+*>             ( normI(A),         NORM = 'I' or 'i'
+*>             (
+*>             ( normF(A),         NORM = 'F', 'f', 'E' or 'e'
+*>
+*> where  norm1  denotes the  one norm of a matrix (maximum column sum),
+*> normI  denotes the  infinity norm  of a matrix  (maximum row sum) and
+*> normF  denotes the  Frobenius norm of a matrix (square root of sum of
+*> squares).  Note that  max(abs(A(i,j)))  is not a consistent matrix norm.
+*> \endverbatim
+*
+*  Arguments:
+*  ==========
+*
+*> \param[in] NORM
+*> \verbatim
+*>          NORM is CHARACTER*1
+*>          Specifies the value to be returned in DLANTR as described
+*>          above.
+*> \endverbatim
+*>
+*> \param[in] UPLO
+*> \verbatim
+*>          UPLO is CHARACTER*1
+*>          Specifies whether the matrix A is upper or lower trapezoidal.
+*>          = 'U':  Upper trapezoidal
+*>          = 'L':  Lower trapezoidal
+*>          Note that A is triangular instead of trapezoidal if M = N.
+*> \endverbatim
+*>
+*> \param[in] DIAG
+*> \verbatim
+*>          DIAG is CHARACTER*1
+*>          Specifies whether or not the matrix A has unit diagonal.
+*>          = 'N':  Non-unit diagonal
+*>          = 'U':  Unit diagonal
+*> \endverbatim
+*>
+*> \param[in] M
+*> \verbatim
+*>          M is INTEGER
+*>          The number of rows of the matrix A.  M >= 0, and if
+*>          UPLO = 'U', M <= N.  When M = 0, DLANTR is set to zero.
+*> \endverbatim
+*>
+*> \param[in] N
+*> \verbatim
+*>          N is INTEGER
+*>          The number of columns of the matrix A.  N >= 0, and if
+*>          UPLO = 'L', N <= M.  When N = 0, DLANTR is set to zero.
+*> \endverbatim
+*>
+*> \param[in] A
+*> \verbatim
+*>          A is DOUBLE PRECISION array, dimension (LDA,N)
+*>          The trapezoidal matrix A (A is triangular if M = N).
+*>          If UPLO = 'U', the leading m by n upper trapezoidal part of
+*>          the array A contains the upper trapezoidal matrix, and the
+*>          strictly lower triangular part of A is not referenced.
+*>          If UPLO = 'L', the leading m by n lower trapezoidal part of
+*>          the array A contains the lower trapezoidal matrix, and the
+*>          strictly upper triangular part of A is not referenced.  Note
+*>          that when DIAG = 'U', the diagonal elements of A are not
+*>          referenced and are assumed to be one.
+*> \endverbatim
+*>
+*> \param[in] LDA
+*> \verbatim
+*>          LDA is INTEGER
+*>          The leading dimension of the array A.  LDA >= max(M,1).
+*> \endverbatim
+*>
+*> \param[out] WORK
+*> \verbatim
+*>          WORK is DOUBLE PRECISION array, dimension (MAX(1,LWORK)),
+*>          where LWORK >= M when NORM = 'I'; otherwise, WORK is not
+*>          referenced.
+*> \endverbatim
+*
+*  Authors:
+*  ========
+*
+*> \author Univ. of Tennessee 
+*> \author Univ. of California Berkeley 
+*> \author Univ. of Colorado Denver 
+*> \author NAG Ltd. 
+*
+*> \date September 2012
+*
+*> \ingroup doubleOTHERauxiliary
+*
+*  =====================================================================
       DOUBLE PRECISION FUNCTION DLANTR( NORM, UPLO, DIAG, M, N, A, LDA,
      $                 WORK )
 *
-*  -- LAPACK auxiliary routine (version 3.2) --
+*  -- LAPACK auxiliary routine (version 3.4.2) --
 *  -- LAPACK is a software package provided by Univ. of Tennessee,    --
 *  -- Univ. of California Berkeley, Univ. of Colorado Denver and NAG Ltd..--
-*     November 2006
+*     September 2012
 *
 *     .. Scalar Arguments ..
       CHARACTER          DIAG, NORM, UPLO
@@ -13,75 +153,6 @@
 *     .. Array Arguments ..
       DOUBLE PRECISION   A( LDA, * ), WORK( * )
 *     ..
-*
-*  Purpose
-*  =======
-*
-*  DLANTR  returns the value of the one norm,  or the Frobenius norm, or
-*  the  infinity norm,  or the  element of  largest absolute value  of a
-*  trapezoidal or triangular matrix A.
-*
-*  Description
-*  ===========
-*
-*  DLANTR returns the value
-*
-*     DLANTR = ( max(abs(A(i,j))), NORM = 'M' or 'm'
-*              (
-*              ( norm1(A),         NORM = '1', 'O' or 'o'
-*              (
-*              ( normI(A),         NORM = 'I' or 'i'
-*              (
-*              ( normF(A),         NORM = 'F', 'f', 'E' or 'e'
-*
-*  where  norm1  denotes the  one norm of a matrix (maximum column sum),
-*  normI  denotes the  infinity norm  of a matrix  (maximum row sum) and
-*  normF  denotes the  Frobenius norm of a matrix (square root of sum of
-*  squares).  Note that  max(abs(A(i,j)))  is not a consistent matrix norm.
-*
-*  Arguments
-*  =========
-*
-*  NORM    (input) CHARACTER*1
-*          Specifies the value to be returned in DLANTR as described
-*          above.
-*
-*  UPLO    (input) CHARACTER*1
-*          Specifies whether the matrix A is upper or lower trapezoidal.
-*          = 'U':  Upper trapezoidal
-*          = 'L':  Lower trapezoidal
-*          Note that A is triangular instead of trapezoidal if M = N.
-*
-*  DIAG    (input) CHARACTER*1
-*          Specifies whether or not the matrix A has unit diagonal.
-*          = 'N':  Non-unit diagonal
-*          = 'U':  Unit diagonal
-*
-*  M       (input) INTEGER
-*          The number of rows of the matrix A.  M >= 0, and if
-*          UPLO = 'U', M <= N.  When M = 0, DLANTR is set to zero.
-*
-*  N       (input) INTEGER
-*          The number of columns of the matrix A.  N >= 0, and if
-*          UPLO = 'L', N <= M.  When N = 0, DLANTR is set to zero.
-*
-*  A       (input) DOUBLE PRECISION array, dimension (LDA,N)
-*          The trapezoidal matrix A (A is triangular if M = N).
-*          If UPLO = 'U', the leading m by n upper trapezoidal part of
-*          the array A contains the upper trapezoidal matrix, and the
-*          strictly lower triangular part of A is not referenced.
-*          If UPLO = 'L', the leading m by n lower trapezoidal part of
-*          the array A contains the lower trapezoidal matrix, and the
-*          strictly upper triangular part of A is not referenced.  Note
-*          that when DIAG = 'U', the diagonal elements of A are not
-*          referenced and are assumed to be one.
-*
-*  LDA     (input) INTEGER
-*          The leading dimension of the array A.  LDA >= max(M,1).
-*
-*  WORK    (workspace) DOUBLE PRECISION array, dimension (MAX(1,LWORK)),
-*          where LWORK >= M when NORM = 'I'; otherwise, WORK is not
-*          referenced.
 *
 * =====================================================================
 *
@@ -98,11 +169,11 @@
       EXTERNAL           DLASSQ
 *     ..
 *     .. External Functions ..
-      LOGICAL            LSAME
-      EXTERNAL           LSAME
+      LOGICAL            LSAME, DISNAN
+      EXTERNAL           LSAME, DISNAN
 *     ..
 *     .. Intrinsic Functions ..
-      INTRINSIC          ABS, MAX, MIN, SQRT
+      INTRINSIC          ABS, MIN, SQRT
 *     ..
 *     .. Executable Statements ..
 *
@@ -117,13 +188,15 @@
             IF( LSAME( UPLO, 'U' ) ) THEN
                DO 20 J = 1, N
                   DO 10 I = 1, MIN( M, J-1 )
-                     VALUE = MAX( VALUE, ABS( A( I, J ) ) )
+                     SUM = ABS( A( I, J ) )
+                     IF( VALUE .LT. SUM .OR. DISNAN( SUM ) ) VALUE = SUM
    10             CONTINUE
    20          CONTINUE
             ELSE
                DO 40 J = 1, N
                   DO 30 I = J + 1, M
-                     VALUE = MAX( VALUE, ABS( A( I, J ) ) )
+                     SUM = ABS( A( I, J ) )
+                     IF( VALUE .LT. SUM .OR. DISNAN( SUM ) ) VALUE = SUM
    30             CONTINUE
    40          CONTINUE
             END IF
@@ -132,13 +205,15 @@
             IF( LSAME( UPLO, 'U' ) ) THEN
                DO 60 J = 1, N
                   DO 50 I = 1, MIN( M, J )
-                     VALUE = MAX( VALUE, ABS( A( I, J ) ) )
+                     SUM = ABS( A( I, J ) )
+                     IF( VALUE .LT. SUM .OR. DISNAN( SUM ) ) VALUE = SUM
    50             CONTINUE
    60          CONTINUE
             ELSE
                DO 80 J = 1, N
                   DO 70 I = J, M
-                     VALUE = MAX( VALUE, ABS( A( I, J ) ) )
+                     SUM = ABS( A( I, J ) )
+                     IF( VALUE .LT. SUM .OR. DISNAN( SUM ) ) VALUE = SUM
    70             CONTINUE
    80          CONTINUE
             END IF
@@ -162,7 +237,7 @@
                      SUM = SUM + ABS( A( I, J ) )
   100             CONTINUE
                END IF
-               VALUE = MAX( VALUE, SUM )
+               IF( VALUE .LT. SUM .OR. DISNAN( SUM ) ) VALUE = SUM
   110       CONTINUE
          ELSE
             DO 140 J = 1, N
@@ -177,7 +252,7 @@
                      SUM = SUM + ABS( A( I, J ) )
   130             CONTINUE
                END IF
-               VALUE = MAX( VALUE, SUM )
+               IF( VALUE .LT. SUM .OR. DISNAN( SUM ) ) VALUE = SUM
   140       CONTINUE
          END IF
       ELSE IF( LSAME( NORM, 'I' ) ) THEN
@@ -230,7 +305,8 @@
          END IF
          VALUE = ZERO
          DO 280 I = 1, M
-            VALUE = MAX( VALUE, WORK( I ) )
+            SUM = WORK( I )
+            IF( VALUE .LT. SUM .OR. DISNAN( SUM ) ) VALUE = SUM
   280    CONTINUE
       ELSE IF( ( LSAME( NORM, 'F' ) ) .OR. ( LSAME( NORM, 'E' ) ) ) THEN
 *

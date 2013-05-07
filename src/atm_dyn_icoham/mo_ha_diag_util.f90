@@ -661,7 +661,7 @@ CONTAINS
         CALL get_indices_c(p_patch, jb,jbs,nblks_c, is,ie, 2)
 
         IF (lgeop_wrt_sfc) THEN
-          IF (phy_config%ljsbach) THEN
+          IF (phy_config%lamip) THEN
             cur_datetime = time_config%cur_datetime
             ini_datetime = time_config%ini_datetime
             factor_topo = MIN(1._wp,(cur_datetime%calday + cur_datetime%caltime &

@@ -58,7 +58,9 @@ SUBROUTINE SURFEXCDRIVER    ( &
  & , sobs_ex, thbs_ex, pabs_ex                                          & !in
  & , runoff_s_ex, runoff_g_ex                                           & !inout
  & , t_g, qv_s                                                          & ! -
- & , shfl_s_t, lhfl_s_t, shfl_snow_t, lhfl_snow_t                       & !out
+ & , t_ice, h_ice, t_snow_si, h_snow_si                                 & ! -
+ & , fr_seaice                                                          & !in
+ & , shfl_soil_t, lhfl_soil_t, shfl_snow_t, lhfl_snow_t                 & !out
 ! standard input
  & , CDCONF &
  & , KIDIA, KFDIA, KLON, KLEVS, KTILES, KSTEP &
@@ -98,7 +100,7 @@ SUBROUTINE SURFEXCDRIVER    ( &
 USE mo_kind             ,ONLY : JPRB=>wp ,JPIM=>i4
 USE mo_cuparameters     ,ONLY : lhook    ,dr_hook           !yomcst  (& yos_exc)
 
-USE mo_lnd_nwp_config   ,ONLY : nlev_soil, nlev_snow, ntiles_total
+USE mo_lnd_nwp_config   ,ONLY : nlev_soil, nlev_snow, ntiles_total, ntiles_water
 USE mo_ext_data_types   ,ONLY : t_external_data
 USE mo_edmf_param       ,ONLY : abort_surf
 USE mo_surfexcdriver_ctl,ONLY : surfexcdriver_ctl
@@ -348,38 +350,44 @@ REAL(KIND=JPRB)   ,INTENT(OUT)   :: PZDLPP(:)
 
 ! TERRA data
 
-INTEGER          ,INTENT(IN)                                                 :: &
+INTEGER          ,INTENT(IN)                                               :: &
   jb             ,jg                 
-REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,0:nlev_snow,ntiles_total)   :: &
+REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,0:nlev_snow,ntiles_total) :: &
   t_snow_mult_ex 
-REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,nlev_snow,ntiles_total)     :: &
+REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,nlev_snow,ntiles_total)   :: &
   rho_snow_mult_ex  
-REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,ntiles_total)               :: &
-  t_snow_ex      ,t_s_ex         ,t_g_ex         ,qv_s_ex          ,            & 
+REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,ntiles_total+ntiles_water):: &
+  t_g_ex         ,qv_s_ex  
+REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,ntiles_total)             :: &
+  t_snow_ex      ,t_s_ex         ,                                            & 
   w_snow_ex      ,w_snow_eff_ex  ,rho_snow_ex    ,h_snow_ex        ,w_i_ex
-REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,0:nlev_soil,ntiles_total)   :: &
+REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,0:nlev_soil,ntiles_total) :: &
   t_so_ex             
-REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,nlev_soil,ntiles_total)     :: &
+REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,nlev_soil,ntiles_total)   :: &
   w_so_ex        ,w_so_ice_ex          
-REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON)                            :: &
+REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON)                          :: &
   u_10m_ex       ,v_10m_ex             
-REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,ntiles_total)               :: &
-  freshsnow_ex   ,snowfrac_lc_ex ,snowfrac_ex
-REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,nlev_snow,ntiles_total)     :: &
+REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,ntiles_total)             :: &
+  freshsnow_ex   ,snowfrac_lc_ex ,snowfrac_ex 
+REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,nlev_snow,ntiles_total)   :: &
   wliq_snow_ex   ,wtot_snow_ex   ,dzh_snow_ex          
-REAL(KIND=JPRB)  ,INTENT(IN)     ,DIMENSION(KLON)                            :: &
+REAL(KIND=JPRB)  ,INTENT(IN)     ,DIMENSION(KLON)                          :: &
   prr_con_ex     ,prs_con_ex     ,prr_gsp_ex     ,prs_gsp_ex           
-REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,ntiles_total)               :: &
+REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,ntiles_total+ntiles_water):: &
   tch_ex         ,tcm_ex         ,tfv_ex               
-REAL(KIND=JPRB)  ,INTENT(IN)     ,DIMENSION(KLON,ntiles_total)               :: &
+REAL(KIND=JPRB)  ,INTENT(IN)     ,DIMENSION(KLON,ntiles_total+ntiles_water):: &
   sobs_ex        ,thbs_ex        ,pabs_ex              
-REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,ntiles_total)               :: &
+REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,ntiles_total)             :: &
   runoff_s_ex    ,runoff_g_ex        
-REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON)                            :: &
+REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON)                          :: &
   t_g            ,qv_s
-REAL(KIND=JPRB)  ,INTENT(OUT)    ,DIMENSION(KLON,ntiles_total)               :: &
-  shfl_s_t       ,lhfl_s_t       ,shfl_snow_t    ,lhfl_snow_t   
-TYPE(t_external_data), INTENT(INOUT)                                         :: &
+REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON)                          :: &
+  t_ice          ,h_ice          ,t_snow_si      ,h_snow_si
+REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON)                          :: &
+  fr_seaice
+REAL(KIND=JPRB)  ,INTENT(OUT)    ,DIMENSION(KLON,ntiles_total+ntiles_water):: &
+  shfl_soil_t    ,lhfl_soil_t    ,shfl_snow_t    ,lhfl_snow_t   
+TYPE(t_external_data), INTENT(INOUT)                                       :: &
   ext_data
   
 !ifndef INTERFACE
@@ -776,7 +784,9 @@ CALL SURFEXCDRIVER_CTL(CDCONF &
  & , sobs_ex, thbs_ex, pabs_ex                                          & !in
  & , runoff_s_ex, runoff_g_ex                                           & !inout
  & , t_g, qv_s                                                          & ! -
- & , shfl_s_t, lhfl_s_t, shfl_snow_t, lhfl_snow_t)                        !out
+ & , t_ice, h_ice, t_snow_si, h_snow_si                                 & ! -
+ & , fr_seaice                                                          & !in
+ & , shfl_soil_t, lhfl_soil_t, shfl_snow_t, lhfl_snow_t)                  !out
 
 IF (LHOOK) CALL DR_HOOK('SRFEXCDRIVER',1,ZHOOK_HANDLE)
 

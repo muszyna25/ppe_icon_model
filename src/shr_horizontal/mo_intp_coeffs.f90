@@ -186,8 +186,6 @@ MODULE mo_intp_coeffs
   USE mo_loopindices,         ONLY: get_indices_c, get_indices_e, get_indices_v
   USE mo_sync,                ONLY: sync_c, sync_e, sync_v, sync_patch_array, sync_idx, global_max
   USE mo_intp_data_strc,      ONLY: t_int_state
-  USE mo_intp_coeffs_lsq_bln, ONLY: lsq_stencil_create, lsq_compute_coeff_cell, &
-    & scalar_int_coeff, bln_int_coeff_e2c
   USE mo_interpol_config,     ONLY: i_cori_method, nudge_zone_width, nudge_max_coeff, &
     & nudge_efold_width
   USE mo_ocean_nml,           ONLY: n_zlev, dzlev_m, no_tracer, t_ref, s_ref,          &
@@ -200,11 +198,17 @@ MODULE mo_intp_coeffs
   
   PRIVATE
   
-  PUBLIC ::  lsq_stencil_create, lsq_compute_coeff_cell, scalar_int_coeff,      &
-    & bln_int_coeff_e2c, compute_heli_bra_coeff_idx, init_cellavg_wgt,  &
-    & init_geo_factors, complete_patchinfo, init_tplane_e,              &
-    & init_tplane_c, init_geo_factors_oce,                              &
-    & init_nudgecoeffs, tri_quadrature_pts, par_init_scalar_product_oce
+
+  PUBLIC :: compute_heli_bra_coeff_idx
+  PUBLIC :: init_cellavg_wgt
+  PUBLIC :: init_geo_factors
+  PUBLIC :: complete_patchinfo
+  PUBLIC :: init_tplane_e
+  PUBLIC :: init_tplane_c
+  PUBLIC :: init_geo_factors_oce
+  PUBLIC :: init_nudgecoeffs
+  PUBLIC :: tri_quadrature_pts
+  PUBLIC :: par_init_scalar_product_oce
   
   
   
@@ -3796,6 +3800,33 @@ CONTAINS
 
   !----------------------------------------------------------------------------
   !>
+  !! Calls routines to calculate coefficients "ptr_int%pos_on_tplane_c_edge".
+  !! Bifurcation for calculations depending on grid geometry.
+  !!
+  SUBROUTINE init_tplane_c( ptr_patch, ptr_int )
+    TYPE(t_patch),     INTENT(inout) :: ptr_patch
+    TYPE(t_int_state), INTENT(inout) :: ptr_int
+    
+    CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_intp_coeffs:init_tplane_c'
+     
+    !
+    SELECT CASE(ptr_patch%geometry_info%geometry_type)
+    
+    CASE (planar_torus_geometry)
+      CALL init_tplane_c_torus ( ptr_patch, ptr_int )
+    CASE (sphere_geometry)
+      CALL init_tplane_c_sphere ( ptr_patch, ptr_int )
+    CASE DEFAULT    
+      CALL finish(method_name, "Undefined geometry type")
+    END SELECT
+
+  END SUBROUTINE init_tplane_c
+ 
+
+  !----------------------------------------------------------------------------
+  !>
+  !!AD> This is old "init_tplane_c" routine now renamed! 
+  !!
   !! Initializes a tangential plane at each cell circumcenter. Necessary for efficient
   !! computation of flux areas and overlap regions between flux areas and the
   !! model grid.
@@ -3824,7 +3855,7 @@ CONTAINS
   !! Modification by Daniel Reinert, DWD, (2012-04-12):
   !! - added projection of cell centers
   !!
-  SUBROUTINE init_tplane_c (ptr_patch, ptr_int)
+  SUBROUTINE init_tplane_c_sphere (ptr_patch, ptr_int)
     
     TYPE(t_patch),     INTENT(   in) :: ptr_patch  !< patch
     
@@ -3873,7 +3904,7 @@ CONTAINS
     
     !-------------------------------------------------------------------------
     
-    CALL message('mo_interpolation:init_tplane_c', '')
+    CALL message('mo_interpolation:init_tplane_c_sphere','')
     
     i_rcstartlev = 2
     
@@ -4162,7 +4193,328 @@ CONTAINS
     ENDDO
     
     
-  END SUBROUTINE init_tplane_c
+  END SUBROUTINE init_tplane_c_sphere
+
+  !----------------------------------------------------------------------------
+
+  !----------------------------------------------------------------------------
+  !>
+  !!AD> This is torus version of "init_tplane_c_sphere"- everything remains same
+  !!    just that for flat torus geometry there is no need of gnomonic projection.
+  !!    Radial vector between two point is just coordinate difference
+  !!
+  !! @par Revision History
+  !! Initial revision by Daniel Reinert, DWD (2012-03-12)
+  !! Modified by Anurag Dipankar, MPIM (2013-04) for torus geometry
+
+  SUBROUTINE init_tplane_c_torus (ptr_patch, ptr_int)
+    
+    TYPE(t_patch),     INTENT(   in) :: ptr_patch  !< patch
+    
+    TYPE(t_int_state), INTENT(inout) :: ptr_int    !< interpolation state
+    
+    !CC of points in the stencil
+    TYPE(t_cartesian_coordinates) :: cc_edge, cc_vert(4), cc_cell(2), &
+                                     cc_bf1(2), cc_bf2(2)
+    
+    !Distance vectors
+    TYPE(t_cartesian_coordinates) :: dist_edge_cell(2), dist_edge_vert(4), &
+                                     dist_bf1_cell1(2), dist_bf2_cell2(2)
+    
+    REAL(wp) ::   &              !< same, but for rotated system (normal-tangential)
+      & xyloc_plane_nt_v(4,2)
+    
+    REAL(wp) ::   &              !< same but for rotated system (normal-tangential)
+      & xyloc_plane_nt_n1(2), xyloc_plane_nt_n2(2)
+    
+    REAL(wp) ::   &              !< coords of edge-vertices in translated system
+      & xyloc_trans1_v(4,2), xyloc_trans2_v(4,2)
+    
+    REAL(wp) ::   &              !< primal and dual normals for neighboring cells
+      & pn_cell1(2), pn_cell2(2), dn_cell1(2), dn_cell2(2)
+    
+    INTEGER :: ilv(4), ibv(4)
+    INTEGER :: ilc1, ilc2, ibc1, ibc2
+    INTEGER :: ilc_bf1(2), ilc_bf2(2), ibc_bf1(2), ibc_bf2(2)
+    INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
+    INTEGER :: i_rcstartlev
+    INTEGER :: nv, nc            !< loop indices for vertices and cells
+    INTEGER :: jb, je            !< loop indices for block and edges
+    
+    !-------------------------------------------------------------------------
+    
+    CALL message('mo_interpolation:', 'init_tplane_c_torus')
+    
+    i_rcstartlev = 2
+    
+    ! start and end block
+    i_startblk = ptr_patch%edges%start_blk(i_rcstartlev,1)
+    i_endblk   = ptr_patch%nblks_int_e
+    
+    !<< AD
+    ! Modification for is_plane_torus for HDCP2: the planar distance between any two
+    ! points is same as the Gnomonic projected distance
+    ! AD >>
+    
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,je,nv,i_startidx,i_endidx,cc_edge,ilv,ibv,          &
+!$OMP            cc_vert,dist_edge_vert,ilc1,ilc2,ibc1,ibc2,cc_cell,    &
+!$OMP            dist_edge_cell,xyloc_plane_nt_n1,xyloc_plane_nt_n2,    &
+!$OMP            xyloc_plane_nt_v,xyloc_trans1_v,        &
+!$OMP            xyloc_trans2_v,pn_cell1,pn_cell2,dn_cell1,dn_cell2)
+    DO jb = i_startblk, i_endblk
+      
+      CALL get_indices_e(ptr_patch, jb, i_startblk, i_endblk, &
+        & i_startidx, i_endidx, i_rcstartlev)
+      
+      DO je = i_startidx, i_endidx
+        
+        IF(.NOT.ptr_patch%edges%owner_mask(je,jb)) CYCLE
+        
+        !
+        ! 1. Get distance vector of edge-vertices and the centers of the neighboring cells
+        !    w.r.t to the edge midpoint.
+        !
+        
+        ! get CC of edge midpoint
+        cc_edge = ptr_patch%edges%cartesian_center(je,jb)
+        
+        ! get line and block indices of edge vertices (including the
+        ! non-edge-aligned vertices of the neighboring cells
+        ilv(1:4)=ptr_patch%edges%vertex_idx(je,jb,1:4)
+        ibv(1:4)=ptr_patch%edges%vertex_blk(je,jb,1:4)
+        
+        ! get CC of edge vertices
+        DO nv=1,4
+          cc_vert(nv) = ptr_patch%verts%cartesian(ilv(nv),ibv(nv))
+
+          !Get the actual location of the vertex w.r.t the edge cc
+          cc_vert(nv) = plane_torus_closest_coordinates(cc_edge%x,cc_vert(nv)%x, &
+                                                         ptr_patch%geometry_info)
+          !Get the distance vector between cc_edge and cc_vets
+          dist_edge_vert(nv)%x(:) = cc_vert(nv)%x(:) - cc_edge%x(:) 
+        ENDDO
+        
+        ! get line and block indices of neighbour cells
+        ilc1 = ptr_patch%edges%cell_idx(je,jb,1)
+        ibc1 = ptr_patch%edges%cell_blk(je,jb,1)
+        ilc2 = ptr_patch%edges%cell_idx(je,jb,2)
+        ibc2 = ptr_patch%edges%cell_blk(je,jb,2)
+        
+        ! get CC of the two cell centers
+        cc_cell(1)   = ptr_patch%cells%cartesian_center(ilc1,ibc1)
+        cc_cell(2)   = ptr_patch%cells%cartesian_center(ilc2,ibc2)
+        
+        !Get the actual location of the cell w.r.t the edge cc
+        cc_cell(1) = plane_torus_closest_coordinates(cc_edge%x,cc_cell(1)%x, &
+                                                     ptr_patch%geometry_info)
+        cc_cell(2) = plane_torus_closest_coordinates(cc_edge%x,cc_cell(2)%x, &
+                                                     ptr_patch%geometry_info)
+
+        !Get the distance vector between cc_edge and cc_cell
+        dist_edge_cell(1)%x(:) = cc_cell(1)%x(:) - cc_edge%x(:) 
+        dist_edge_cell(2)%x(:) = cc_cell(2)%x(:) - cc_edge%x(:) 
+
+        
+        !
+        ! 2. rotate these vectors into a new local cartesian system. In this rotated
+        !    system the coordinate axes point into the local normal and tangential
+        !    direction at each edge. All these vectors are 2D so no point using the
+        !    z coordinate
+        !
+        
+        ! centers
+        !
+        xyloc_plane_nt_n1(1) =  SUM( dist_edge_cell(1)%x(1:2) *  &
+             ptr_patch%edges%primal_cart_normal(je,jb)%x(1:2) )
+        
+        xyloc_plane_nt_n1(2) =  SUM( dist_edge_cell(1)%x(1:2) *  &
+             ptr_patch%edges%dual_cart_normal(je,jb)%x(1:2) )
+
+        xyloc_plane_nt_n2(1) =  SUM( dist_edge_cell(2)%x(1:2) *  &
+             ptr_patch%edges%primal_cart_normal(je,jb)%x(1:2) )
+        
+        xyloc_plane_nt_n2(2) =  SUM( dist_edge_cell(2)%x(1:2) *  &
+             ptr_patch%edges%dual_cart_normal(je,jb)%x(1:2) )
+
+        ! vertices
+        !
+        DO nv = 1,4
+           xyloc_plane_nt_v(nv,1) =  SUM( dist_edge_vert(nv)%x(1:2) *  &
+                ptr_patch%edges%primal_cart_normal(je,jb)%x(1:2) )
+        
+           xyloc_plane_nt_v(nv,2) =  SUM( dist_edge_vert(nv)%x(1:2) *  &
+                ptr_patch%edges%dual_cart_normal(je,jb)%x(1:2) )
+        END DO
+        
+        !
+        !AD: From this point on the sphere and the torus version are same
+        !    except for the multiplication with grid_sphere_radius
+        
+        ! 3. Calculate position of vertices in a translated coordinate system.
+        !    This is done twice. The origin is located once at the circumcenter
+        !    of the neighboring cell 1 and once cell 2. The distance vectors point
+        !    from the cell center to the vertices.
+        xyloc_trans1_v(1:4,1) = xyloc_plane_nt_v(1:4,1) - xyloc_plane_nt_n1(1)
+        xyloc_trans1_v(1:4,2) = xyloc_plane_nt_v(1:4,2) - xyloc_plane_nt_n1(2)
+        
+        xyloc_trans2_v(1:4,1) = xyloc_plane_nt_v(1:4,1) - xyloc_plane_nt_n2(1)
+        xyloc_trans2_v(1:4,2) = xyloc_plane_nt_v(1:4,2) - xyloc_plane_nt_n2(2)
+        
+        
+        
+        ! 4. Rotate points into coordinate system pointing into local north
+        !    and local east direction. Store in edge-based data structure. This
+        !    is done twice (for both neighboring cells).
+        ! e_n= pn_cell1(1)*e_\lambda + pn_cell1(2)*e_\phi
+        ! e_t= dn_cell1(1)*e_\lambda + dn_cell1(2)*e_\phi
+        pn_cell1(1) = ptr_patch%edges%primal_normal_cell(je,jb,1)%v1
+        pn_cell1(2) = ptr_patch%edges%primal_normal_cell(je,jb,1)%v2
+        dn_cell1(1) = ptr_patch%edges%dual_normal_cell(je,jb,1)%v1
+        dn_cell1(2) = ptr_patch%edges%dual_normal_cell(je,jb,1)%v2
+        
+        pn_cell2(1) = ptr_patch%edges%primal_normal_cell(je,jb,2)%v1
+        pn_cell2(2) = ptr_patch%edges%primal_normal_cell(je,jb,2)%v2
+        dn_cell2(1) = ptr_patch%edges%dual_normal_cell(je,jb,2)%v1
+        dn_cell2(2) = ptr_patch%edges%dual_normal_cell(je,jb,2)%v2
+        
+        ! components in longitudinal direction (cell 1)
+        ptr_int%pos_on_tplane_c_edge(je,jb,1,1:3)%lon =  &
+          &  ( xyloc_trans1_v(1:3,1) * pn_cell1(1)       &
+          & +  xyloc_trans1_v(1:3,2) * dn_cell1(1) )
+        
+        ! components in latitudinal direction (cell 1)
+        ptr_int%pos_on_tplane_c_edge(je,jb,1,1:3)%lat =   &
+          &  ( xyloc_trans1_v(1:3,1) * pn_cell1(2)        &
+          & +  xyloc_trans1_v(1:3,2) * dn_cell1(2) )
+        
+        ! components in longitudinal direction (cell 2)
+        ptr_int%pos_on_tplane_c_edge(je,jb,2,1:3)%lon =  &
+          &  ( xyloc_trans2_v((/1,2,4/),1) * pn_cell2(1) &
+          & +  xyloc_trans2_v((/1,2,4/),2) * dn_cell2(1) )
+        
+        ! components in latitudinal direction (cell 2)
+        ptr_int%pos_on_tplane_c_edge(je,jb,2,1:3)%lat =  &
+          &  ( xyloc_trans2_v((/1,2,4/),1) * pn_cell2(2) &
+          & +  xyloc_trans2_v((/1,2,4/),2) * dn_cell2(2) )
+        
+      ENDDO  ! je
+    ENDDO  ! jb
+!$OMP END DO
+!$OMP END PARALLEL
+    
+    
+    
+    !
+    ! Projection of butterfly cell centers
+    !
+    
+    i_rcstartlev = 3
+    
+    ! start and end block
+    i_startblk = ptr_patch%edges%start_blk(i_rcstartlev,1)
+    i_endblk   = ptr_patch%nblks_int_e
+    
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,je,i_startidx,i_endidx,ilc1,ilc2,ibc1,ibc2,cc_cell,&
+!$OMP            ilc_bf1,ibc_bf1,ilc_bf2,ibc_bf2,cc_bf1,    &
+!$OMP            cc_bf2,dist_bf1_cell1,dist_bf2_cell2)
+    DO jb = i_startblk, i_endblk
+      
+      CALL get_indices_e(ptr_patch, jb, i_startblk, i_endblk, &
+        & i_startidx, i_endidx, i_rcstartlev)
+      
+      DO je = i_startidx, i_endidx
+        
+        IF(.NOT.ptr_patch%edges%owner_mask(je,jb)) CYCLE
+        
+        
+        ! get line and block indices of edge-neighbours (cells)
+        ilc1 = ptr_patch%edges%cell_idx(je,jb,1)
+        ibc1 = ptr_patch%edges%cell_blk(je,jb,1)
+        ilc2 = ptr_patch%edges%cell_idx(je,jb,2)
+        ibc2 = ptr_patch%edges%cell_blk(je,jb,2)
+        
+        ! get CC of edge-neighbor 1
+        cc_cell(1) = ptr_patch%cells%cartesian_center(ilc1,ibc1)
+        
+        ! get CC of edge-neighbor 2
+        cc_cell(2) = ptr_patch%cells%cartesian_center(ilc2,ibc2)
+
+        
+        ! 5a. project cell centers adjacent to the cells sharing edge je.
+        !    (from butterfly_idx)
+        
+        
+        ! get line and block indices of the neighbors of edge-neighbor 1
+        ilc_bf1(1:2) = ptr_patch%edges%butterfly_idx(je,jb,1,1:2)
+        ibc_bf1(1:2) = ptr_patch%edges%butterfly_blk(je,jb,1,1:2)
+        
+        ! get line and block indices of the neighbors of edge-neighbor 2
+        ilc_bf2(1:2) = ptr_patch%edges%butterfly_idx(je,jb,2,1:2)
+        ibc_bf2(1:2) = ptr_patch%edges%butterfly_blk(je,jb,2,1:2)
+        
+        
+        ! get CC cell centers (neighbor 1)
+        cc_bf1(1) = ptr_patch%cells%cartesian_center(ilc_bf1(1),ibc_bf1(1))
+        cc_bf1(2) = ptr_patch%cells%cartesian_center(ilc_bf1(2),ibc_bf1(2))
+
+        ! get CC cell centers (neighbor 1)
+        cc_bf2(1) = ptr_patch%cells%cartesian_center(ilc_bf2(1),ibc_bf2(1))
+        cc_bf2(2) = ptr_patch%cells%cartesian_center(ilc_bf2(2),ibc_bf2(2))
+
+
+        ! project cell centers into cell-based local system (edge-neighbor 1)
+        cc_bf1(1) = plane_torus_closest_coordinates(cc_cell(1)%x, cc_bf1(1)%x, &
+                                                   ptr_patch%geometry_info)
+        dist_bf1_cell1(1)%x(:) = cc_bf1(1)%x(:) - cc_cell(1)%x(:) 
+
+        cc_bf1(2) = plane_torus_closest_coordinates(cc_cell(1)%x, cc_bf1(2)%x, &
+                                                   ptr_patch%geometry_info)
+        dist_bf1_cell1(2)%x(:) = cc_bf1(2)%x(:) - cc_cell(1)%x(:) 
+
+
+        ! project cell centers into cell-based local system (edge-neighbor 2)
+
+        cc_bf2(1) = plane_torus_closest_coordinates(cc_cell(2)%x, cc_bf2(1)%x, &
+                                                   ptr_patch%geometry_info)
+        dist_bf2_cell2(1)%x(:) = cc_bf2(1)%x(:) - cc_cell(2)%x(:) 
+
+        cc_bf2(2) = plane_torus_closest_coordinates(cc_cell(2)%x, cc_bf2(2)%x, &
+                                                   ptr_patch%geometry_info)
+        dist_bf2_cell2(2)%x(:) = cc_bf2(2)%x(:) - cc_cell(2)%x(:) 
+
+        
+        ! components in longitudinal direction (or X for torus) (cell 1)
+        ptr_int%pos_on_tplane_c_edge(je,jb,1,4:5)%lon = dist_bf1_cell1(1:2)%x(1)
+        
+        ! components in latitudinal direction (or Y for torus) (cell 1)
+        ptr_int%pos_on_tplane_c_edge(je,jb,1,4:5)%lat = dist_bf1_cell1(1:2)%x(2)
+        
+        
+        ! components in longitudinal (or X for torus) direction (cell 2)
+        ptr_int%pos_on_tplane_c_edge(je,jb,2,4:5)%lon =  dist_bf2_cell2(1:2)%x(1)
+        
+        ! components in latitudinal (or Y for torus) direction (cell 2)
+        ptr_int%pos_on_tplane_c_edge(je,jb,2,4:5)%lat =  dist_bf2_cell2(1:2)%x(2)
+        
+      ENDDO  ! je
+    ENDDO  ! jb
+!$OMP END DO
+!$OMP END PARALLEL
+
+    DO nv=1,5
+      DO nc=1,2
+        CALL sync_patch_array(sync_e, ptr_patch, ptr_int%pos_on_tplane_c_edge(:,:,nc,nv)%lon)
+        CALL sync_patch_array(sync_e, ptr_patch, ptr_int%pos_on_tplane_c_edge(:,:,nc,nv)%lat)
+      ENDDO
+    ENDDO
+ 
+    
+  END SUBROUTINE init_tplane_c_torus
+
+  !----------------------------------------------------------------------------
+
   
   !----------------------------------------------------------------------------
   !>

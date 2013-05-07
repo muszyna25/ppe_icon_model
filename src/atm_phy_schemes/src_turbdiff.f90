@@ -402,6 +402,8 @@ REAL (KIND=ireals) :: &
 !   z2d3=z2/z3,&
     z3d2=z3/z2
 
+REAL (KIND=ireals), PARAMETER :: ustmin = 1.e-8_ireals
+
 INTEGER (KIND=iintegers) :: &
     istat=0, ilocstat=0
 
@@ -783,13 +785,13 @@ SUBROUTINE turbtran(iini, dt_tke, nprv, ntur, ntim, &
           fr_land, depth_lk, sai, &
 !
           h_ice, ps, t_g, qv_s, &
-          u, v, w, t, qv, qc, prs, &
+          u, v, t, qv, qc, prs, &
 !    
           gz0, tcm, tch, tfm, tfh, tfv, &
           tke, tkvm, tkvh, rcld, edr, &
 !    
           t_2m, qv_2m, td_2m, rh_2m, u_10m, v_10m, &
-          shfl_s, lhfl_s, &
+          shfl_s, lhfl_s, qhfl_s, &
 !
           ierrstat, errormsg, eroutine)
 
@@ -1158,14 +1160,6 @@ REAL (KIND=ireals), DIMENSION(:,:), TARGET, INTENT(IN) :: &
      prs            ! atmospheric pressure                          ( pa  )
 
 #ifdef  __xlC__
-REAL (KIND=ireals), DIMENSION(ie,ke1), INTENT(IN) :: &
-#else
-REAL (KIND=ireals), DIMENSION(:,:), INTENT(IN) :: &
-#endif
-!
-     w              ! vertical wind speed (defined on half levels)  ( m/s )
-
-#ifdef  __xlC__
 REAL (KIND=ireals), DIMENSION(ie), INTENT(INOUT) :: &
 #else
 REAL (KIND=ireals), DIMENSION(:), INTENT(INOUT) :: &
@@ -1242,7 +1236,8 @@ REAL (KIND=ireals), DIMENSION(:), OPTIONAL, INTENT(OUT) :: &
 #endif
 !
      shfl_s,       & ! sensible heat flux at the surface             (W/m2) (positive downward)
-     lhfl_s          ! latent   heat flux at the surface             (W/m2) (positive downward)
+     lhfl_s,       & ! latent   heat flux at the surface             (W/m2) (positive downward)
+     qhfl_s          ! moisture      flux at the surface          (kg/m2/s) (positive downward)
 
 INTEGER (KIND=iintegers), INTENT(INOUT) :: ierrstat
 
@@ -1527,10 +1522,10 @@ REAL (KIND=ireals) :: &
 
                   tke(i,ke,nvor)=q0
 
-                  wert=lm*q0*SQRT(fm2)
-                  gz0(i)=MAX( grav*len_min, alpha0*wert )
-!                 gz0(i)=MAX( grav*len_min, &
-!                               alpha0*wert+alpha1*grav*con_m/SQRT(wert) )
+                  wert=MAX(ustmin,lm*q0*SQRT(fm2))
+!hf               gz0(i)=MAX( grav*len_min, alpha0*wert )
+                  gz0(i)=MAX( grav*len_min, &
+                                alpha0*wert+alpha1*grav*con_m/SQRT(wert) )
                END IF
             END IF
 
@@ -1883,9 +1878,9 @@ REAL (KIND=ireals) :: &
                   gz0(i)=grav*z0_ice
                ELSE
                   velh=(tke(i,ke1,ntur)+tke(i,ke,ntur))*z1d2
-                  wert=tcm(i)*vel_2d(i)*SQRT(vel_2d(i)**2+velh**2)
-                  gz0(i)=MAX( grav*len_min, alpha0*wert )
-!                 gz0(i)=MAX( grav*len_min, alpha0*wert+grav*alpha1*con_m/SQRT(wert) )
+                  wert=MAX(ustmin,tcm(i)*vel_2d(i)*SQRT(vel_2d(i)**2+velh**2))
+!hf               gz0(i)=MAX( grav*len_min, alpha0*wert )
+                  gz0(i)=MAX( grav*len_min, alpha0*wert+grav*alpha1*con_m/SQRT(wert) )
                END IF
                !Ueber See gibt es keinen synoptischen Garten
                z0d_2d(i)=z0m_2d(i)
@@ -1919,6 +1914,11 @@ REAL (KIND=ireals) :: &
       IF (PRESENT(lhfl_s)) THEN 
          DO i=istartpar,iendpar
             lhfl_s(i)=lh_v*rho_2d(i)*tkvh(i,ke1)*grad(i,h2o_g)
+         END DO
+      END IF   
+      IF (PRESENT(qhfl_s)) THEN 
+         DO i=istartpar,iendpar
+            qhfl_s(i)=rho_2d(i)*tkvh(i,ke1)*grad(i,h2o_g)
          END DO
       END IF   
 
@@ -2327,7 +2327,7 @@ SUBROUTINE turbdiff(iini,lstfnct, dt_var,dt_tke, nprv,ntur,ntim, &
           u_tens, v_tens, t_tens, qv_tens, qc_tens, tketens, &
           qvt_diff, ut_sso, vt_sso, &
 !    
-          shfl_s, lhfl_s, &
+          shfl_s, qhfl_s, &
 !
           ierrstat, errormsg, eroutine)
 
@@ -2807,11 +2807,11 @@ REAL (KIND=ireals), DIMENSION(:,:), OPTIONAL, INTENT(OUT) :: &
 #ifdef  __xlC__
  REAL (KIND=ireals), DIMENSION(ie), OPTIONAL, INTENT(INOUT) :: &
 #else
- REAL (KIND=ireals), DIMENSION(:), OPTIONAL, INTENT(INOUT) :: &
+ REAL (KIND=ireals), DIMENSION(:), OPTIONAL, INTENT(IN) :: &
 #endif
 !
      shfl_s,       & ! sensible heat flux at the surface             (W/m2) (positive downward)
-     lhfl_s          ! latent   heat flux at the surface             (W/m2) (positive downward)
+     qhfl_s          ! moisture      flux at the surface          (kg/m2/s) (positive downward)
 
 INTEGER (KIND=iintegers), INTENT(INOUT) :: ierrstat
 
@@ -3583,7 +3583,7 @@ REAL (KIND=ireals) :: &
 
                   q0=MAX( vel_min, SQRT(d_m*l_turb*wert) )
 
-                  wert=lm*q0*SQRT(fm2) 
+                  wert=MAX(ustmin,lm*q0*SQRT(fm2))
                   gz0(i)=MAX( grav*len_min, alpha0*wert+alpha1*grav*con_m/SQRT(wert) )
                END IF
             END IF   
@@ -4424,7 +4424,7 @@ REAL (KIND=ireals) :: &
                ELSE
 !                 Berechnung der Schubspannung:
 
-                  wert=tcm(i)*vh0(i)*SQRT(vh0(i)**2+tke(i,ke1,ntur)**2)
+                  wert=MAX(ustmin,tcm(i)*vh0(i)*SQRT(vh0(i)**2+tke(i,ke1,ntur)**2))
                   
 !                 grav*z0 mittels Charnock-Formel: 
 
@@ -4755,7 +4755,7 @@ REAL (KIND=ireals) :: &
                CALL prep_impl_vert_diff( &
                  i_st=istartpar, i_en=iendpar, k_tp=0, k_sf=ke1,  &
                  disc_mom=dicke, diff_mom=a(:,:,1), impl_mom=a(:,:,2), invs_mom=a(:,:,3), &
-                 lsflucond=(imode_turb.EQ.3) ) 
+                 lsflucond=.FALSE. ) !  (imode_turb.EQ.3) ) GZ: flux condition for wind causes stability problems
 
             ELSEIF (n.eq.nvel+1) THEN  
 
@@ -4819,9 +4819,13 @@ REAL (KIND=ireals) :: &
                      hlp(i,k)=qv(i,k)
                   END DO
                END DO 
-               IF (PRESENT(lhfl_s) .AND. imode_turb.EQ.3) THEN
+!!$               IF (PRESENT(lhfl_s) .AND. imode_turb.EQ.3) THEN
+!!$                  DO i=istartpar,iendpar
+!!$                     hlp(i,ke1)=hlp(i,ke)-lhfl_s(i)/(lh_v*a(i,ke1,1))
+!!$                  END DO
+               IF (PRESENT(qhfl_s) .AND. imode_turb.EQ.3) THEN
                   DO i=istartpar,iendpar
-                     hlp(i,ke1)=hlp(i,ke)-lhfl_s(i)/(lh_v*a(i,ke1,1))
+                     hlp(i,ke1)=hlp(i,ke)-qhfl_s(i)/(a(i,ke1,1))
                   END DO
                ELSE   
                   DO i=istartpar,iendpar
@@ -4928,17 +4932,19 @@ REAL (KIND=ireals) :: &
       END IF 
 
 ! 10) Berechnung der Enthalpieflussdichten:
-       
-      IF (PRESENT(shfl_s)) THEN
-         DO i=istartpar,iendpar
-            shfl_s(i)=-zexner(ps(i))*cp_d*flux(i,tet)
-         END DO
-      END IF
-      IF (PRESENT(lhfl_s)) THEN
-         DO i=istartpar,iendpar
-            lhfl_s(i)=-lh_v*flux(i,vap)
-         END DO
-      END IF
+
+!DR Sensible and latent heat fluxes over non-land points are computed by turbtran (tile based)
+!       
+!!$      IF (PRESENT(shfl_s)) THEN
+!!$         DO i=istartpar,iendpar
+!!$            shfl_s(i)=-zexner(ps(i))*cp_d*flux(i,tet)
+!!$         END DO
+!!$      END IF
+!!$      IF (PRESENT(lhfl_s)) THEN
+!!$         DO i=istartpar,iendpar
+!!$            lhfl_s(i)=-lh_v*flux(i,vap)
+!!$         END DO
+!!$      END IF
  
 !---------------------------------------------------------------------------------------
 #ifdef SCLM 
@@ -4949,7 +4955,7 @@ REAL (KIND=ireals) :: &
 #endif 
 !SCLM-----------------------------------------------------------------------------------
 
-       !Bem: shfl_s und lhfl_s, sowie SHF und LHF sind positiv abwaerts!
+       !Bem: shfl_s und qhfl_s, sowie SHF und LHF sind positiv abwaerts!
 
 ! 11) Berechnung der Tendenzen infloge horizontaler turb. Diffusion
 !     (und aufsummieren auf die Tendenzfelder):

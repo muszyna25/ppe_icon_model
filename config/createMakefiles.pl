@@ -88,11 +88,13 @@ foreach $dir ( @directories ) {
     push @vpath, "VPATH = ";
     while ( my ($key, $value) = each(%vpath_directories) ) {
 	if ( $dir ne "src" ) { $value++; }
-	for my $i ( 0 .. $value ) {
-	    $key = "../".$key;
-	}
-	$key = $key.":";
-
+#	for my $i ( 0 .. $value ) {
+#	    #$key = "../".$key;
+#            # RS Hack to work with JSBACH sub-directories in src/lnd_phy_jsbach
+#            $key = "../".$key unless $key =~ /^..\/..\/..\/src\/lnd_phy_jsbach\/.*/ ;
+#	}
+        # Use a constant upward path, this allows arbitary source folder tree depth 
+        $key = "../../../".$key.":";
 	push @vpath, $key;
     }
     print MAKEFILE @vpath;

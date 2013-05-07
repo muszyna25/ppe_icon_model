@@ -101,7 +101,15 @@ begin
   iStation     = iStation - 1
   itime        = 0
 
-  xstride      = 6  ; subdivisions of X-Axis labels (small ticks)
+  if(.not. isvar("xlabel")) then 
+   xlabel = "day"
+   mxstride = 1
+  end if
+
+  xstride      = 6  ; subdivisions of X-Axis labels (small ticks) 
+  if (xlabel .eq. "month" ) mxstride     = 4  end if; minorticks xstride
+  lday         =(/1,10,20/) ; for option xlabel=month 
+
   ystride      = 10 ; subdivisions of right Y-Axis labels
 
 ;----------------------------------------------------------------------
@@ -174,26 +182,57 @@ begin
   expl_labels = new(ntimesteps(0), string)
   expl_values = new(ntimesteps(0), float)
 
+  date = convert_date(charactertostring(cdf_file->date(0,:)))
+  last_date = date
   count = 0
-  do i=0,(ntimesteps(0)-1)  
-    if (mod(i,xstride) .eq. 0) then
+
+  do i=0,(ntimesteps(0)-1)
       date = convert_date(charactertostring(cdf_file->date(i,:)))
+      if ( xlabel .eq. "month" ) then 
+       if( (i .eq. 0) .or. ((.not. (date@month .eq. last_date@month))\ 
+            .or. (.not. ismissing(ind(date@day .eq. lday) )) .and. (date@hour .eq. 0)) ) then
+        lcount="true"
+       else
+        lcount="false"
+       end if
+      end if
+      if (xlabel .eq. "day") then
+       if (mod(i,xstride) .eq. 0) then
+        lcount="true"
+       else
+        lcount="false"
+       end if
+      end if
+    if ( lcount .eq. "true" ) then
       date_str = ""
-      if ((i .eq. 0) .or. (.not. (date@day .eq. last_date@day))) then
+      if ((i .eq. 0) .or. (.not. (date@$xlabel$ .eq. last_date@$xlabel$)) ) then
         date_str = sprinti("%0.2i", date@month) \
         +          "-" + sprinti("%0.2d", date@day) + " "
       end if
       expl_values(count) = cdf_file->time_step(i)
-      expl_labels(count) = date_str + sprinti("%0.2d", date@hour) \
-      +                   ":" + sprinti("%0.2d", date@minute)
+      if ( xlabel .eq. "day" ) then
+       expl_labels(count) = date_str + sprinti("%0.2d", date@hour) \
+       +                   ":" + sprinti("%0.2d", date@minute)
+      end if
+      if ( (xlabel .eq. "month") .and. (.not. ismissing(ind(date@day .eq. lday) ))  ) then
+       if (date@day .ne. 1)  then 
+        date_str =sprinti("%0.2d", date@day) + " "
+       end if
+       expl_labels(count) = date_str   \
+       +                   sprinti("%0.2d", date@hour) \
+       +                   ":" + sprinti("%0.2d", date@minute)
+
+      end if
       count = count + 1
       last_date = date
     end if
   end do
 
+
+
   res@tmXBMode             = "Explicit"            ; Define own tick mark labels.
   res@tmXBMinorOn          = True
-  res@tmXBMinorValues      = cdf_file->time_step(:)
+  res@tmXBMinorValues      = cdf_file->time_step(::mxstride)
   res@tmXBMinorThicknessF  = 0.1
   res@tmXBValues           = expl_values(0:(count-1))  ; location of explicit labels
   res@tmXBLabels           = expl_labels(0:(count-1))

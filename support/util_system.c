@@ -7,14 +7,14 @@
 
 void cf_util_exit(int exit_no);
 FCALLSCSUB1(cf_util_exit, UTIL_EXIT, util_exit, 
-	    INT)
+            INT)
 
 void cf_util_abort(void);
 FCALLSCSUB0(cf_util_abort, UTIL_ABORT, util_abort)
 
 int cf_util_system(char *s);
 FCALLSCFUN1(INT, cf_util_system, UTIL_SYSTEM, util_system,
-	    PSTRING)
+            PSTRING)
 
 #ifdef __XT3__ 
 void cf_util_base_iobuf(void);

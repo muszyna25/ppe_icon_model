@@ -113,19 +113,20 @@ CONTAINS
 
     IF(.NOT. p_test_run) RETURN ! Nothing to do
 
-    IF(my_process_is_mpi_workroot()) THEN
-      CALL p_send(proc_split, process_mpi_all_test_id, 1)
-      ibuf(:,1) = p_patch(:)%n_proc
-      ibuf(:,2) = p_patch(:)%proc0
-      CALL p_send(ibuf, process_mpi_all_test_id, 2)
-    ENDIF
-
     IF(my_process_is_mpi_test()) THEN
       CALL p_recv(proc_split, process_mpi_all_workroot_id, 1)
       CALL p_recv(ibuf, process_mpi_all_workroot_id, 2)
       p_patch(:)%n_proc = ibuf(:,1)
       p_patch(:)%proc0  = ibuf(:,2)
+
+    ELSEIF(my_process_is_mpi_workroot()) THEN
+      CALL p_send(proc_split, process_mpi_all_test_id, 1)
+      ibuf(:,1) = p_patch(:)%n_proc
+      ibuf(:,2) = p_patch(:)%proc0
+      CALL p_send(ibuf, process_mpi_all_test_id, 2)
+      
     ENDIF
+
 
   END SUBROUTINE copy_processor_splitting
   !-------------------------------------------------------------------------

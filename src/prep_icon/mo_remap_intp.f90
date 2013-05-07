@@ -217,7 +217,7 @@ CONTAINS
         &        intp_data%nidx, STAT=ierrstat)
       IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")
       DEALLOCATE(intp_data%sl, intp_data%smin, intp_data%smax, STAT=ierrstat)
-      IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")
+      IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed (seq. list)!")
     END IF
   END SUBROUTINE finalize_intp_data_sthreaded
 

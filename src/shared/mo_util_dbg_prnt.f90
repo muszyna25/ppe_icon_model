@@ -41,12 +41,12 @@ MODULE mo_util_dbg_prnt
 !-------------------------------------------------------------------------
 !
 USE mo_kind,                   ONLY: wp
-USE mo_mpi,                    ONLY: my_process_is_stdio, p_pe
+USE mo_mpi,                    ONLY: my_process_is_stdio, p_pe, p_comm_work, &
+  &                                  get_my_mpi_work_id, p_bcast
 USE mo_io_units,               ONLY: nerr
 USE mo_parallel_config,        ONLY: nproma, p_test_run
 USE mo_impl_constants,         ONLY: max_char_length
-USE mo_run_config,             ONLY: ltimer
-USE mo_timer,                  ONLY: timer_start, timer_stop, timer_dbg_prnt
+USE mo_timer,                  ONLY: timer_start, timer_stop, timer_dbg_prnt, timers_level
 USE mo_sync,                   ONLY: SYNC_C, sync_patch_array, global_max, global_min
 USE mo_grid_subset,            ONLY: t_subset_range, get_index_range
 USE mo_dbg_nml,                ONLY: str_mod_tst, dim_mod_tst, dbg_lon_in, dbg_lat_in, &
@@ -64,7 +64,7 @@ PRIVATE
 CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
 ! indices of cells and neighbours for debug output at single cell
-INTEGER :: c_b, c_i, ne_b(3), ne_i(3), nc_b(3), nc_i(3), nv_b(3), nv_i(3)
+INTEGER :: c_b, c_i, ne_b(3), ne_i(3), nc_b(3), nc_i(3), nv_b(3), nv_i(3), near_proc_id
 INTEGER :: loc_nblks_c, loc_nblks_e, loc_nblks_v
 LOGICAL :: p_test_run_bac
 !TYPE(t_subset_range) :: v_subdom_cell !, v_suball_cell, v_subset_edge  !  part of subset to store
@@ -78,7 +78,7 @@ PUBLIC :: init_dbg_index
 PUBLIC :: dbg_print
 
 ! Public variables:
-PUBLIC :: c_i, c_b, nc_i, nc_b
+PUBLIC :: c_i, c_b, nc_i, nc_b, near_proc_id
 !PUBLIC :: v_subdom_cell !, v_suball_cell, v_subset_edge  !  part of subset to store
 
 INTERFACE dbg_print
@@ -136,7 +136,7 @@ CONTAINS
     ELSE
       ! search for block/index of debug output cell at lat/lon
       ! given by namelist dbg_index_nml - not yet parallelized
-      CALL find_latlonindex (ppatch, dbg_lat_in, dbg_lon_in, c_i, c_b)
+      CALL find_latlonindex (ppatch, dbg_lat_in, dbg_lon_in, c_i, c_b, near_proc_id)
     END IF
    
     zlat = ppatch%cells%center(c_i,c_b)%lat * 180.0_wp / pi
@@ -218,18 +218,19 @@ CONTAINS
   !! TODO: parallelize
   !
   !
-  SUBROUTINE find_latlonindex (ppatch, plat_in, plon_in, iidx, iblk)
+  SUBROUTINE find_latlonindex (ppatch, plat_in, plon_in, iidx, iblk, proc_id)
 
   TYPE(t_patch), TARGET, INTENT(IN)     :: ppatch
   REAL(wp),              INTENT(IN)     :: plat_in       ! cell latitude to search for
   REAL(wp),              INTENT(IN)     :: plon_in       ! cell longitude to search for
   INTEGER,               INTENT(OUT)    :: iidx          ! index of nearest cell
   INTEGER,               INTENT(OUT)    :: iblk          ! block of nearest cell
+  INTEGER,               INTENT(OUT)    :: proc_id       ! process where nearest cell is found
 
-  INTEGER  :: jb, jc, i_startidx, i_endidx, proc_id
-  REAL(wp) :: zlon, zlat, zdist, zdist_cmp, ctr
+  INTEGER  :: jb, jc, i_startidx, i_endidx, mproc_id
+  REAL(wp) :: zlon, zlat, zdist, zdist_cmp, xctr
   REAL(wp) :: zdst_c(nproma,ppatch%nblks_c)
-  TYPE(t_subset_range), POINTER :: cells_in_domain!, all_cells
+  TYPE(t_subset_range), POINTER :: owned_cells !,cells_in_domain, all_cells
 
   CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
     &      routine = 'mo_util_dbg_prnt:find_latlonindex'
@@ -237,16 +238,17 @@ CONTAINS
   CALL message(TRIM(routine), 'Start' )
 
   !all_cells       => ppatch%cells%all
-  cells_in_domain => ppatch%cells%in_domain
+  !cells_in_domain => ppatch%cells%in_domain
+  owned_cells      => ppatch%cells%owned
 
   ! initial distance to compare
   zdist_cmp = 100000.0_wp
   zdst_c(:,:) = 100000.0_wp
-  proc_id   = -1
 
-  !  loop over all cells including halo
-  DO jb = cells_in_domain%start_block, cells_in_domain%end_block
-    CALL get_index_range(cells_in_domain, jb, i_startidx, i_endidx)
+  !  loop over owned cells
+  DO jb = owned_cells%start_block, owned_cells%end_block
+    CALL get_index_range(owned_cells, jb, i_startidx, i_endidx)
+
     DO jc = i_startidx, i_endidx
 
       zlat    = ppatch%cells%center(jc,jb)%lat * 180.0_wp / pi
@@ -267,9 +269,27 @@ CONTAINS
 
   ! find PE with minimum distance, MPI-broadcast block/index from that PE - not yet
   ! disable p_test_run since global_max will be different
+
   p_test_run_bac = p_test_run
   p_test_run = .false.
-  ctr = global_max(-zdist,proc_id)
+
+  ! Bugfix
+  mproc_id = p_pe
+  !write(20+mproc_id,*) ' before global_max: mproc_id=',mproc_id,'  p_comm_work= ',p_comm_work,'  zdist=',zdist
+  xctr = global_max(-zdist, mproc_id)
+  !write(20+p_pe,*) ' after: mproc_id=',mproc_id,'  p_comm_work= ',p_comm_work,'  p_pe=',p_pe,'  mdist=',-xctr, &
+  !  &              '  idx/blk=',iidx,iblk
+
+  ! set indices of minimum cell to 1 for all other procs
+  IF (p_pe .NE. mproc_id) THEN
+    iblk = 1
+    iidx = 1
+    zdist=1000.0_wp
+  END IF
+  proc_id = mproc_id
+  !write(20+p_pe,*) ' after: mproc_id=',mproc_id,'  p_comm_work= ',p_comm_work,'  p_pe=',p_pe,'  zdist=',zdist, &
+  !  &              '  idx/blk=',iidx,iblk
+
   p_test_run = p_test_run_bac
 
   zlat    = ppatch%cells%center          (iidx,iblk)%lat * 180.0_wp / pi
@@ -277,42 +297,14 @@ CONTAINS
 
   99 FORMAT(3a,i4,a,i4,3(a,f9.2))
   98 FORMAT(2a,3(a,f9.2))
-  IF (my_process_is_stdio()) THEN
+
+  !IF (my_process_is_stdio()) THEN
+  IF (p_pe .EQ. mproc_id) THEN
     WRITE(0,98) ' ',TRIM(routine),' Found  cell nearest to         lat=', plat_in,'  lon=',plon_in
     WRITE(0,99) ' ',TRIM(routine),' Found  block=',iblk,'  index=',iidx,'  lat=',zlat,'  lon=',zlon
-    WRITE(0,'(3a,i3)')         ' ',TRIM(routine),' FOUND: proc_id for nearest cell is=',proc_id
+    WRITE(0,'(3a,i3)')         ' ',TRIM(routine),' FOUND: proc_id for nearest cell is=',mproc_id
     WRITE(0,'(3a,2i3,a,f9.2)') ' ',TRIM(routine),' FOUND: Min dist is at idx/blk=', &
       &                  MINLOC(zdst_c(:,:)),' distance in deg =',MINVAL(zdst_c(:,:))
-  END IF
-
-  IF (p_pe == proc_id) THEN
-
- !  !  loop over all cells with minimum distance
- !  DO jb = cells_in_domain%start_block, cells_in_domain%end_block
- !    CALL get_index_range(cells_in_domain, jb, i_startidx, i_endidx)
- !    DO jc = i_startidx, i_endidx
- !  
- !      zlat    = ppatch%cells%center(jc,jb)%lat * 180.0_wp / pi
- !      zlon    = ppatch%cells%center(jc,jb)%lon * 180.0_wp / pi
- !  
- !      zdist       = sqrt((zlat-plat_in)*(zlat-plat_in) + (zlon-plon_in)*(zlon-plon_in))
- !      zdst_c(jc,jb) = zdist
- !      IF (zdist < zdist_cmp) THEN
- !        iblk = jb
- !        iidx = jc
- !        zdist_cmp = zdist
- !      END IF
- !  
- !    END DO
- !  END DO
-
- !  WRITE(0,'(3a)') ' ',TRIM(routine),' Par: Found  cell now in Process proc_id'
- !  WRITE(0,99) ' ',TRIM(routine),    ' Par: Found  block=',iblk,'  index=',iidx, &
- !    &                               '  lat=',zlat,'  lon=',zlon
- !  WRITE(0,'(3a,i3)')         ' ',TRIM(routine),' Par: FOUND: proc_id for nearest cell is=',proc_id
- !  WRITE(0,'(3a,2i3,a,f9.2)') ' ',TRIM(routine),' Par: FOUND: Min dist is at idx/blk=', &
- !    &                  MINLOC(zdst_c(:,:)),' distance in deg =',MINVAL(zdst_c(:,:))
-
   END IF
 
   END SUBROUTINE find_latlonindex
@@ -344,10 +336,10 @@ CONTAINS
   INTEGER           ::  iout, icheck_str_mod, jstr, i, jk, nlev, ndimblk
   REAL(wp)          ::  ctrx, ctrn, glbmx, glbmn
   !TYPE(t_subset_range), POINTER :: cells_in_domain!, all_cells
-  INTEGER           ::  i_startidx, i_endidx, jb
-  REAL(wp)          ::  ctrxind(nproma), ctrnind(nproma)
+  !INTEGER           ::  i_startidx, i_endidx, jb
+  !REAL(wp)          ::  ctrxind(nproma), ctrnind(nproma)
 
-  IF (ltimer) CALL timer_start(timer_dbg_prnt)
+  IF (timers_level > 10) CALL timer_start(timer_dbg_prnt)
 
   !cells_in_domain => ppatch%cells%in_domain
 
@@ -399,7 +391,7 @@ CONTAINS
     END DO
    
     ! if str_mod_src not found in str_mod_tst - no output
-    IF (icheck_str_mod == 0 .and. ltimer) CALL timer_stop(timer_dbg_prnt)
+    IF (icheck_str_mod == 0 .and. timers_level > 10) CALL timer_stop(timer_dbg_prnt)
     IF (icheck_str_mod == 0 ) RETURN
    
     strout=TRIM(str_prntdes)
@@ -462,7 +454,7 @@ CONTAINS
     END DO
    
     ! if str_mod_src not found in str_mod_tst - no output
-    IF (icheck_str_mod == 0 .and. ltimer) CALL timer_stop(timer_dbg_prnt)
+    IF (icheck_str_mod == 0 .and. timers_level > 10) CALL timer_stop(timer_dbg_prnt)
     IF (icheck_str_mod == 0 ) RETURN
    
     strout=TRIM(str_prntdes)
@@ -516,7 +508,7 @@ CONTAINS
 
   END IF
 
-  IF (ltimer) CALL timer_stop(timer_dbg_prnt)
+  IF (timers_level > 10) CALL timer_stop(timer_dbg_prnt)
 
   END SUBROUTINE dbg_print_3d
 
@@ -541,7 +533,7 @@ CONTAINS
   !REAL(wp)          ::  ctrxind(nproma), ctrnind(nproma)
   !INTEGER           ::  i_startidx, i_endidx, jb
 
-  IF (ltimer) CALL timer_start(timer_dbg_prnt)
+  IF (timers_level > 10) CALL timer_start(timer_dbg_prnt)
 
   !cells_in_domain => ppatch%cells%in_domain
 
@@ -559,7 +551,7 @@ CONTAINS
   END DO
 
   ! if str_mod_src not found in str_mod_tst - no output
-  IF (icheck_str_mod == 0 .and. ltimer) CALL timer_stop(timer_dbg_prnt)
+  IF (icheck_str_mod == 0 .and. timers_level > 10) CALL timer_stop(timer_dbg_prnt)
   IF (icheck_str_mod == 0 ) RETURN
 
 #ifdef __SX__
@@ -646,7 +638,7 @@ CONTAINS
 
   END IF
 
-  IF (ltimer) CALL timer_stop(timer_dbg_prnt)
+  IF (timers_level > 10) CALL timer_stop(timer_dbg_prnt)
 
   END SUBROUTINE dbg_print_2d
 

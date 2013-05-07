@@ -59,16 +59,14 @@ MODULE mo_ext_decompose_patches
 
   USE mo_run_config,         ONLY: msg_level
   USE mo_io_units,           ONLY: find_next_free_unit, filename_max
-  USE mo_model_domain,       ONLY: t_patch, p_patch,   &
-    &                              p_patch_local_parent
+  USE mo_model_domain,       ONLY: t_patch, p_patch_local_parent
   USE mo_mpi,                ONLY: p_bcast, p_sum, proc_split
 #ifndef NOMPI
   USE mo_mpi,                ONLY: MPI_UNDEFINED, MPI_COMM_NULL
 #endif
   USE mo_mpi,                ONLY: p_comm_work, my_process_is_mpi_test, &
     & my_process_is_mpi_seq, process_mpi_all_test_id, process_mpi_all_workroot_id, &
-    & my_process_is_mpi_workroot, p_pe_work, p_n_work,                  &
-    & get_my_mpi_all_id, my_process_is_mpi_parallel
+    & p_pe_work, p_n_work,  get_my_mpi_all_id, my_process_is_mpi_parallel
 
   USE mo_parallel_config,       ONLY:  nproma, p_test_run, ldiv_phys_dom, &
     & division_method, division_file_name, n_ghost_rows, div_from_file,   &
@@ -106,10 +104,10 @@ MODULE mo_ext_decompose_patches
 
   !-------------------------------------------------------------------------
   ! Definition of local parent patches
-  ! For any given patch p_patch(jg) and jgp = p_patch(jg)%parent_id,
-  ! p_patch_local_parent(jg) has the same resolution as p_patch(jgp)
-  ! but it covers only the area of p_patch(jgp) which is covered by its child p_patch(jg)
-  ! and it is divided in the same manner as p_patch(jg).
+  ! For any given patch patch_2D(jg) and jgp = patch_2D(jg)%parent_id,
+  ! p_patch_local_parent(jg) has the same resolution as patch_2D(jgp)
+  ! but it covers only the area of patch_2D(jgp) which is covered by its child patch_2D(jg)
+  ! and it is divided in the same manner as patch_2D(jg).
   ! Please note that p_patch_local_parent(1) is undefined if n_dom_start = 1
 
   ! Please note: The definitions of the local parents are now at the same locations
@@ -128,8 +126,9 @@ CONTAINS
   !------------------------------------------------------------------
   !>
   !!  Divide patches and interpolation states for mpi parallel runs.
-  SUBROUTINE ext_decompose_patches( p_patch_global )
+  SUBROUTINE ext_decompose_patches( patch_2D, p_patch_global )
 
+    TYPE(t_patch), INTENT(INOUT), TARGET :: patch_2D(n_dom_start:)
     TYPE(t_patch), INTENT(INOUT), TARGET :: p_patch_global(n_dom_start:)
 
     CHARACTER(*), PARAMETER :: routine = TRIM("mo_subdivision:ext_decompose_patches")
@@ -215,16 +214,16 @@ CONTAINS
 
       ! ... for the root patch and patch 0 if it exists
 
-      p_patch(n_dom_start:1)%n_proc = n_procs_decomp
-      p_patch(n_dom_start:1)%proc0  = 0
+      patch_2D(n_dom_start:1)%n_proc = n_procs_decomp
+      patch_2D(n_dom_start:1)%proc0  = 0
 
       ! ... for 1st generation childs
 
       n = 0
       DO jc = 1, p_patch_global(1)%n_childdom
         jgc = p_patch_global(1)%child_id(jc)
-        p_patch(jgc)%proc0  = n
-        p_patch(jgc)%n_proc = nprocs(jc)
+        patch_2D(jgc)%proc0  = n
+        patch_2D(jgc)%n_proc = nprocs(jc)
         n = n + nprocs(jc)
       ENDDO
 
@@ -235,8 +234,8 @@ CONTAINS
         jgp = p_patch_global(jg)%parent_id
 
         IF(jgp /= 1) THEN
-          p_patch(jg)%n_proc = p_patch(jgp)%n_proc
-          p_patch(jg)%proc0  = p_patch(jgp)%proc0
+          patch_2D(jg)%n_proc = patch_2D(jgp)%n_proc
+          patch_2D(jg)%proc0  = patch_2D(jgp)%proc0
         ENDIF
 
       ENDDO
@@ -246,20 +245,20 @@ CONTAINS
       ! No splitting, proc0, n_proc are identical for all patches
 
       IF(p_pe_work==0) WRITE(0,*) 'No splitting of processor grid'
-      p_patch(:)%n_proc = n_procs_decomp
-      p_patch(:)%proc0  = 0
+      patch_2D(:)%n_proc = n_procs_decomp
+      patch_2D(:)%proc0  = 0
 
     ENDIF
 
 #ifdef NOMPI
-    p_patch(:)%comm = 0
+    patch_2D(:)%comm = 0
 #else
-    p_patch(:)%comm = MPI_COMM_NULL
+    patch_2D(:)%comm = MPI_COMM_NULL
 #endif
-    p_patch(:)%rank = -1
+    patch_2D(:)%rank = -1
 
 
-      ! p_patch is already allocated, p_patch_local_parent needs allocation
+      ! patch_2D is already allocated, p_patch_local_parent needs allocation
       ALLOCATE(p_patch_local_parent(n_dom_start+1:n_dom))
 
     ! Divide patches
@@ -284,8 +283,8 @@ CONTAINS
       ! Every cells gets assigned an owner.
 
       ALLOCATE(cell_owner(p_patch_global(jg)%n_patch_cells))
-      CALL divide_patch_cells(jg, p_patch(jg)%n_proc, p_patch(jg)%proc0, cell_owner, &
-        & p_patch(jg)%cells%radiation_owner )
+      CALL divide_patch_cells(jg, patch_2D(jg)%n_proc, patch_2D(jg)%proc0, cell_owner, &
+        & patch_2D(jg)%cells%radiation_owner )
 
       DEALLOCATE(p_patch_global(jg)%cells%phys_id)
 
@@ -302,7 +301,7 @@ CONTAINS
       ! if this is not the case, the ghost rows can be dropped again.
 
         wrk_p_patch_g => p_patch_global(jg)
-        CALL divide_patch(p_patch(jg), cell_owner, n_ghost_rows, .TRUE., p_pe_work)
+        CALL divide_patch(patch_2D(jg), cell_owner, n_ghost_rows, .TRUE., p_pe_work)
 
         IF(jg > n_dom_start) THEN
           wrk_p_patch_g => p_patch_global(jgp)
@@ -331,31 +330,31 @@ CONTAINS
 
       DO jg = n_dom_start, n_dom
         ! count grid points for this PE:
-        i_nchdom     = MAX(1,p_patch(jg)%n_childdom)
+        i_nchdom     = MAX(1,patch_2D(jg)%n_childdom)
         ! local, lateral grid points
         npts_local(jg,1)    = count_entries(  &
-          &                   p_patch(jg)%cells%start_blk(1,1),         &
-          &                   p_patch(jg)%cells%start_idx(1,1),         &
-          &                   p_patch(jg)%cells%end_blk(max_rlcell,1),  &
-          &                   p_patch(jg)%cells%end_idx(max_rlcell,1) )
+          &                   patch_2D(jg)%cells%start_blk(1,1),         &
+          &                   patch_2D(jg)%cells%start_idx(1,1),         &
+          &                   patch_2D(jg)%cells%end_blk(max_rlcell,1),  &
+          &                   patch_2D(jg)%cells%end_idx(max_rlcell,1) )
         ! local, interior grid points
         npts_local(jg,2)    = count_entries(  &
-          &                   p_patch(jg)%cells%start_blk(0,1), &
-          &                   p_patch(jg)%cells%start_idx(0,1), &
-          &                   p_patch(jg)%cells%end_blk(0,1),   &
-          &                   p_patch(jg)%cells%end_idx(0,1) )
+          &                   patch_2D(jg)%cells%start_blk(0,1), &
+          &                   patch_2D(jg)%cells%start_idx(0,1), &
+          &                   patch_2D(jg)%cells%end_blk(0,1),   &
+          &                   patch_2D(jg)%cells%end_idx(0,1) )
         ! local, nested grid points:
         npts_local(jg,3)    = count_entries(  &
-          &                   p_patch(jg)%cells%start_blk(-1,1), &
-          &                   p_patch(jg)%cells%start_idx(-1,1), &
-          &                   p_patch(jg)%cells%end_blk(min_rlcell_int,i_nchdom),        &
-          &                   p_patch(jg)%cells%end_idx(min_rlcell_int,i_nchdom) )
+          &                   patch_2D(jg)%cells%start_blk(-1,1), &
+          &                   patch_2D(jg)%cells%start_idx(-1,1), &
+          &                   patch_2D(jg)%cells%end_blk(min_rlcell_int,i_nchdom),        &
+          &                   patch_2D(jg)%cells%end_idx(min_rlcell_int,i_nchdom) )
         ! local, halo grid points:
         npts_local(jg,4)    = count_entries(  &
-          &                   p_patch(jg)%cells%start_blk(min_rlcell_int-1,1), &
-          &                   p_patch(jg)%cells%start_idx(min_rlcell_int-1,1), &
-          &                   p_patch(jg)%cells%end_blk(min_rlcell,i_nchdom),  &
-          &                   p_patch(jg)%cells%end_idx(min_rlcell,i_nchdom) )
+          &                   patch_2D(jg)%cells%start_blk(min_rlcell_int-1,1), &
+          &                   patch_2D(jg)%cells%start_idx(min_rlcell_int-1,1), &
+          &                   patch_2D(jg)%cells%end_blk(min_rlcell,i_nchdom),  &
+          &                   patch_2D(jg)%cells%end_idx(min_rlcell,i_nchdom) )
         ! sum up over all PEs (collective operation):
         npts_global(:) = p_sum(npts_local(jg,:), p_comm_work)
 

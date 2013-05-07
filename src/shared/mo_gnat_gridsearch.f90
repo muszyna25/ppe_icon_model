@@ -162,6 +162,9 @@ MODULE mo_gnat_gridsearch
   PUBLIC :: gnat_recursive_query
   PUBLIC :: gnat_query
   PUBLIC :: gnat_recursive_proximity_query
+  PUBLIC :: gnat_find_subtrees
+  PUBLIC :: gnat_flag_subtree
+  PUBLIC :: dist_p
   ! data
   PUBLIC :: gk
   PUBLIC :: gnat_k
@@ -616,6 +619,103 @@ CONTAINS
   END SUBROUTINE gnat_recursive_proximity_query
 
 
+  ! -----------------------------------------------------------------------
+  !> Mark all triangles in a subtree of the GNAT data structure
+  !
+  RECURSIVE SUBROUTINE gnat_flag_subtree(root_node, root_idx, flag_field_c)
+    INTEGER, INTENT(IN)    :: root_node, root_idx  !< root node, split point idx of current subtree
+    INTEGER, INTENT(INOUT) :: flag_field_c(:,:)    !< field (nproma,nblks_c) where flags are set
+    
+    ! local variables
+    INTEGER                     :: ip, isplit_pts, idx(2), child
+    TYPE(t_gnat_tree), POINTER  :: tree
+
+    ! set flag:
+    tree => node_storage(root_node)
+    child = tree%child(root_idx)
+
+    ! traverse subtree
+    IF (child /= UNASSOCIATED) THEN
+      idx(1:2) = tree%p(root_idx)%idx(1:2)
+      flag_field_c(idx(1), idx(2)) = 1
+      isplit_pts = node_storage(child)%isplit_pts
+      DO ip=1,isplit_pts
+        idx(1:2) = node_storage(child)%p(ip)%idx(1:2)
+        flag_field_c(idx(1), idx(2)) = 1
+        CALL gnat_flag_subtree(child, ip, flag_field_c)
+      END DO
+    END IF
+  END SUBROUTINE gnat_flag_subtree
+
+
+  ! -----------------------------------------------------------------------------------
+  !> Identify GNAT subtrees within given radius.
+  !
+  RECURSIVE SUBROUTINE gnat_find_subtrees(tree_idx, v, r, flag_field, flag_field_c, dist_cnt, &
+    &                                     opt_ilevel, opt_imax_level)
+    INTEGER,           INTENT(IN)    :: tree_idx           !< index pointer
+    REAL(gk),          INTENT(IN)    :: v(icoord_dim)      !< search point
+    REAL(gk),          INTENT(IN)    :: r                  !< search radius
+    INTEGER,           INTENT(INOUT) :: flag_field(:,:)    !< field (nnodes) where flags are set
+    INTEGER,           INTENT(INOUT) :: flag_field_c(:,:)  !< field (nnodes) where flags are set
+    INTEGER,           INTENT(INOUT) :: dist_cnt           !< no. of distance computations
+    INTEGER,           INTENT(IN), OPTIONAL  :: opt_ilevel, opt_imax_level
+    ! local variables
+    LOGICAL                          :: pflag(gnat_k)
+    INTEGER                          :: ip, isplit_pts, jc, jb, ilevel, imax_level
+    REAL(gk)                         :: dist_vp, distv(gnat_k)
+    TYPE(t_gnat_tree), POINTER       :: tree
+    
+    ilevel     = 0
+    imax_level = 1
+    IF (PRESENT(opt_imax_level)) THEN
+      ilevel     = opt_ilevel
+      imax_level = opt_imax_level
+    END IF
+
+    tree => node_storage(tree_idx)
+    isplit_pts = tree%isplit_pts
+    IF (isplit_pts == 0)  RETURN
+
+    ! include all split points in set P
+    ! note that values for indices > tree%isplit_pts are undefined!
+    pflag(1:isplit_pts) = .TRUE.
+
+    CALL dist_vect(tree%p, v, isplit_pts, distv)
+    dist_cnt = dist_cnt + isplit_pts
+    ! remove some elements from P
+    P : DO ip=1,isplit_pts
+      dist_vp = distv(ip)
+      jc = tree%p(ip)%idx(1)
+      jb = tree%p(ip)%idx(2)
+      IF (dist_vp > r) THEN
+        IF (flag_field_c(jc,jb) == -1)  flag_field_c(jc,jb) = 1
+      ELSE
+        flag_field_c(jc,jb) = 0
+      END IF
+      
+      WHERE (pflag(1:isplit_pts))
+        pflag(1:isplit_pts) = (tree%drange(1:isplit_pts,ip,1) <= (dist_vp+r)) .AND. &
+          &                   (tree%drange(1:isplit_pts,ip,2) >= (dist_vp-r))
+      END WHERE
+    END DO P
+
+    DO ip=1,isplit_pts
+      jc = tree%child(ip)
+      IF (flag_field(tree_idx,ip) == -1)  flag_field(tree_idx,ip) = 0
+      IF ((jc /= UNASSOCIATED) .AND. (pflag(ip))) THEN
+        ! increase subtree counter (flag_field)
+        flag_field(tree_idx,ip) = flag_field(tree_idx,ip) + 1
+        ! traverse subtree
+        IF (ilevel < imax_level) &
+          &   CALL gnat_find_subtrees(jc, v, r, flag_field, flag_field_c, dist_cnt, &
+          &                           ilevel+1, opt_imax_level)
+      END IF
+    END DO
+
+  END SUBROUTINE gnat_find_subtrees
+
+
   ! -----------------------------------------------------------------------------------
   !> queries a sequence of points, exploiting previous search results
   SUBROUTINE gnat_query_list(tree, v, iv_nproma, iv_nblks, iv_npromz, iv, istart, &
@@ -975,8 +1075,8 @@ CONTAINS
       iend       = MIN(iv_nblks, istart+ichunksize-1)
       IF (iend >= istart) THEN
         ichunksize = iend - istart + 1
-        CALL gnat_query_list_new(tree, v, iv_nproma, iv_nblks, iv_npromz, ichunksize, &
-          &                      istart, r, min_dist, min_node_idx)
+        CALL gnat_query_list(tree, v, iv_nproma, iv_nblks, iv_npromz, ichunksize, &
+          &                  istart, r, min_dist, min_node_idx)
       END IF
 !$OMP END PARALLEL
     ELSE

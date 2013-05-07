@@ -42,30 +42,32 @@
 !!
 MODULE mo_radiation_nml
 
-    USE mo_radiation_config, ONLY: config_ldiur      => ldiur,      & 
-                                 & config_nmonth     => nmonth,     &
-                                 & config_lyr_perp   => lyr_perp,   &
-                                 & config_yr_perp    => yr_perp,    &
-                                 & config_isolrad    => isolrad,    &
-                                 & config_irad_h2o   => irad_h2o,   &
-                                 & config_irad_co2   => irad_co2,   &
-                                 & config_irad_ch4   => irad_ch4,   &
-                                 & config_irad_n2o   => irad_n2o,   &
-                                 & config_irad_o3    => irad_o3,    &
-                                 & config_irad_o2    => irad_o2,    &
-                                 & config_irad_cfc11 => irad_cfc11, &
-                                 & config_irad_cfc12 => irad_cfc12, &
-                                 & config_irad_aero  => irad_aero,  &
-                                 & config_vmr_co2    => vmr_co2,    &
-                                 & config_vmr_ch4    => vmr_ch4,    &
-                                 & config_vmr_n2o    => vmr_n2o,    &
-                                 & config_vmr_o2     => vmr_o2,     &
-                                 & config_vmr_cfc11  => vmr_cfc11,  &
-                                 & config_vmr_cfc12  => vmr_cfc12,  &
-                                 & config_izenith    => izenith,    &
-                                 & config_mmr_co2    => mmr_co2,    &
-                                 & config_mmr_ch4    => mmr_ch4,    &
-                                 & config_mmr_n2o    => mmr_n2o,    &
+    USE mo_radiation_config, ONLY: config_ldiur      => ldiur,       & 
+                                 & config_nmonth     => nmonth,      &
+                                 & config_lyr_perp   => lyr_perp,    &
+                                 & config_yr_perp    => yr_perp,     &
+                                 & config_isolrad    => isolrad,     &
+                                 & config_albedo_type=> albedo_type, &
+                                 & config_irad_h2o   => irad_h2o,    &
+                                 & config_irad_co2   => irad_co2,    &
+                                 & config_irad_ch4   => irad_ch4,    &
+                                 & config_irad_n2o   => irad_n2o,    &
+                                 & config_irad_o3    => irad_o3,     &
+                                 & config_irad_o2    => irad_o2,     &
+                                 & config_irad_cfc11 => irad_cfc11,  &
+                                 & config_irad_cfc12 => irad_cfc12,  &
+                                 & config_irad_aero  => irad_aero,   &
+                                 & config_ighg       => ighg,        &
+                                 & config_vmr_co2    => vmr_co2,     &
+                                 & config_vmr_ch4    => vmr_ch4,     &
+                                 & config_vmr_n2o    => vmr_n2o,     &
+                                 & config_vmr_o2     => vmr_o2,      &
+                                 & config_vmr_cfc11  => vmr_cfc11,   &
+                                 & config_vmr_cfc12  => vmr_cfc12,   &
+                                 & config_izenith    => izenith,     &
+                                 & config_mmr_co2    => mmr_co2,     &
+                                 & config_mmr_ch4    => mmr_ch4,     &
+                                 & config_mmr_n2o    => mmr_n2o,     &
                                  & config_mmr_o2     => mmr_o2
 
   USE mo_kind,               ONLY: wp
@@ -104,6 +106,10 @@ MODULE mo_radiation_nml
   INTEGER :: isolrad   !< mode of solar constant calculation
   !< default is rrtm solar constant
   !
+  INTEGER :: albedo_type ! 1: albedo based on surface-type specific set of constants
+                         !    (see )
+                         ! 2: Modis albedo
+
   ! --- Switches for radiative agents
   !     irad_x=0 : radiation uses tracer x = 0
   !     irad_x=1 : radiation uses tracer x from a tracer variable
@@ -121,6 +127,11 @@ MODULE mo_radiation_nml
   INTEGER  :: irad_cfc12
   INTEGER  :: irad_aero
   !
+  ! --- Select dynamic greenhouse gases scenario (read from file)
+  !     ighg = 0 : select default gas volume mixing ratios - 1990 values (CMIP5)
+  !     ighg = 1 : transient CMIP5 scenario from file
+  !
+   INTEGER :: ighg
   ! --- Default gas volume mixing ratios - 1990 values (CMIP5)
   !
 !DR preliminary restart fix
@@ -151,6 +162,7 @@ MODULE mo_radiation_nml
   NAMELIST /radiation_nml/ ldiur, nmonth,         &
     &                      lyr_perp, yr_perp,     &
     &                      isolrad,               &
+    &                      albedo_type,           &
     &                      irad_h2o,              &
     &                      irad_co2,   vmr_co2,   &
     &                      irad_ch4,   vmr_ch4,   &
@@ -160,6 +172,7 @@ MODULE mo_radiation_nml
     &                      irad_cfc11, vmr_cfc11, &
     &                      irad_cfc12, vmr_cfc12, &
     &                      irad_aero,             &
+    &                      ighg,                  &
     &                      izenith
 
 CONTAINS
@@ -195,27 +208,30 @@ CONTAINS
     lyr_perp       = .FALSE.
     yr_perp        = -99999
 
-    isolrad    = 0
+    isolrad     = 0
+    albedo_type = 1
 
-    irad_h2o   = 1
-    irad_co2   = 2
-    irad_ch4   = 3
-    irad_n2o   = 3
-    irad_o3    = 0
-    irad_o2    = 2
-    irad_cfc11 = 2
-    irad_cfc12 = 2
-    irad_aero  = 2
+    irad_h2o    = 1
+    irad_co2    = 2
+    irad_ch4    = 3
+    irad_n2o    = 3
+    irad_o3     = 0
+    irad_o2     = 2
+    irad_cfc11  = 2
+    irad_cfc12  = 2
+    irad_aero   = 2
 
-    vmr_co2    = 348.0e-06_wp
-    vmr_ch4    = 1650.0e-09_wp
-    vmr_n2o    =  306.0e-09_wp
-    vmr_o2     =    0.20946_wp
-    vmr_cfc11  =  214.5e-12_wp
-    vmr_cfc12  =  371.1e-12_wp
+    ighg        = 0
+
+    vmr_co2     = 348.0e-06_wp
+    vmr_ch4     = 1650.0e-09_wp
+    vmr_n2o     =  306.0e-09_wp
+    vmr_o2      =    0.20946_wp
+    vmr_cfc11   =  214.5e-12_wp
+    vmr_cfc12   =  371.1e-12_wp
 
 
-    izenith = 4  ! Default: seasonal orbit and diurnal cycle
+    izenith     = 4  ! Default: seasonal orbit and diurnal cycle
 
     !------------------------------------------------------------------
     ! 2. If this is a resumed integration, overwrite the defaults above 
@@ -249,6 +265,7 @@ CONTAINS
     config_lyr_perp   = lyr_perp
     config_yr_perp    = yr_perp
     config_isolrad    = isolrad
+    config_albedo_type= albedo_type
     config_irad_h2o   = irad_h2o
     config_irad_co2   = irad_co2
     config_irad_ch4   = irad_ch4
@@ -258,6 +275,7 @@ CONTAINS
     config_irad_cfc11 = irad_cfc11
     config_irad_cfc12 = irad_cfc12
     config_irad_aero  = irad_aero
+    config_ighg       = ighg
     config_vmr_co2    = vmr_co2
     config_vmr_ch4    = vmr_ch4
     config_vmr_n2o    = vmr_n2o

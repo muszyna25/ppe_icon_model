@@ -41,3 +41,20 @@
     axis_tick_label_height  :   0.4,
     axis_tick_label_quality :   "medium"
     )
+
+ xs_vert_axis_log2_left = paxis(
+    axis_orientation    :   "vertical",
+    axis_position       :   "left",
+    axis_type           :   "logarithmic",
+    axis_title_colour   :   "black",
+    axis_title_height   :   0.5,
+    axis_title_quality  :   "high",
+    axis_title_text     :   axis_title_text,
+    axis_tip_title      :   "on",
+    axis_tip_title_colour   :   "black",
+    axis_tip_title_quality  :   "high",
+    axis_tip_title_text     :   axis_tip_title_text,
+ #  axis_tick_positioning   :   "regular",
+    axis_tick_label_height  :   0.4,
+    axis_tick_label_quality :   "medium"
+    )

@@ -177,8 +177,8 @@ end
   res@mpFillOn             = False
   centerLon = -25.0  ;  view for new Stommel basin
   centerLat =  40.0   ;  view for new Stommel basin
-; centerLon =  0.0
-; centerLat =  0.0
+  centerLon =  -40.0
+  centerLat =  0.0
   latRadius = 90.0
   lonRadius = 90.0    
   res@mpCenterLonF   = centerLon         ; choose center lon

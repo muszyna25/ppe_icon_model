@@ -60,21 +60,20 @@ MODULE mo_gmres
 !
 !-------------------------------------------------------------------------
 !
-!
-!
-!
   USE mo_kind,                ONLY: wp
-  USE mo_parallel_config, ONLY: nproma
+  USE mo_parallel_config,     ONLY: nproma
   USE mo_run_config,          ONLY: ltimer
   USE mo_model_domain,        ONLY: t_patch, t_patch_3D
-  USE mo_timer,               ONLY: timer_start, timer_stop, timer_gmres
+  USE mo_timer,               ONLY: timer_start, timer_stop, timer_gmres,   &
+    & timer_gmres_p_sum, activate_sync_timers
   USE mo_intp_data_strc,      ONLY: t_int_state
   USE mo_nonhydro_types,      ONLY: t_nh_metrics
   USE mo_sync,                ONLY: omp_global_sum_array, global_sum_array
   USE mo_sync,                ONLY: sync_e, sync_c, sync_v, sync_patch_array
   USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
-  USE mo_mpi,                 ONLY: get_my_global_mpi_id, p_barrier
+  USE mo_mpi,                 ONLY: get_my_global_mpi_id, p_barrier, p_sum, &
+    & get_my_mpi_work_communicator
 
   IMPLICIT NONE
 
@@ -906,7 +905,7 @@ CONTAINS
 !  00     L ab_expl                    48    .229443s    .230345s    .245423s    11.0566s      11.05655
 !  00     L ab_rhs4sfc                 48    .020855s    .020938s    .021379s     1.0050s       1.00502
 !  00 lhs                            1929    .000896s    .001115s    .002361s     2.1514s       2.15143
- SUBROUTINE gmres_oce( x,lhs,h_e, thickness_c, old_h, p_patch_3D, &
+SUBROUTINE gmres_oce( x,lhs,h_e, thickness_c, old_h, p_patch_3D, &
                     & coeff, p_op_coeff, b,                      &
                     & tolerance,abstol,m,maxiterex,niter,res,    &
                     & preconditioner)
@@ -957,6 +956,7 @@ INTERFACE   ! left-hand-side: A*x
     REAL(wp),    INTENT(in) :: h_e(:,:)
     REAL(wp),    INTENT(in) :: thickness_c(:,:)
     TYPE(t_operator_coeff),INTENT(IN)  :: p_op_coeff
+!     REAL(wp), POINTER :: ax( :, : ) ! same as x
     REAL(wp) :: ax( SIZE(x,1) , SIZE(x,2) ) ! same as x
   ENDFUNCTION lhs
 END INTERFACE
@@ -989,16 +989,19 @@ REAL(wp) ::    &
   r(SIZE(x,1),SIZE(x,2)),  & ! residual
   rn2(m),      &             ! two-norm of the residual
   v(SIZE(x,1),SIZE(x,2),m),& ! Krylov basis
-  w(SIZE(x,1),SIZE(x,2)),  & ! new Krylov vector
   h(m,m),      &             ! Hessemberg matrix
   hki, hk1i,   &
   c(m), s(m),  &             ! rotation matrices
   den, ci
 
+! REAL(wp), POINTER :: w(:,:)
+REAL(wp) ::  w(SIZE(x,1),SIZE(x,2)) ! new Krylov vector
+
 REAL(wp) :: rrn2, h_aux, rh
 INTEGER :: jb, jk, nlen
 
 INTEGER :: no_of_blocks, end_nproma
+INTEGER :: my_mpi_work_communicator
 
   REAL(wp) :: sum_aux(p_patch_3D%p_patch_2D(1)%cells%in_domain%end_block)
 !   REAL(wp) :: sum_x(0:7), sum_w, sum_v
@@ -1010,13 +1013,11 @@ INTEGER :: no_of_blocks, end_nproma
   TYPE(t_patch), POINTER :: patch_2D
 !$ INTEGER OMP_GET_THREAD_NUM
 !-------------------------------------------------------------------------
+!  write(0,*) "--------------- gmres --------------------------"
 
   patch_2D =>  p_patch_3D%p_patch_2D(1)
-
+  my_mpi_work_communicator = get_my_mpi_work_communicator()
    ! 0) set module variables and initialize maxiterex
-
-   !>
-   !!
    no_of_blocks    = patch_2D%cells%in_domain%end_block
    end_nproma      = patch_2D%cells%in_domain%end_index
 
@@ -1033,7 +1034,7 @@ INTEGER :: no_of_blocks, end_nproma
  IF (PRESENT(preconditioner)) CALL preconditioner(b(:,:),p_patch_3D,p_op_coeff,h_e)
 
    
-   w(:,:) = lhs(x(:,:),old_h, p_patch_3D,coeff, h_e, thickness_c, p_op_coeff)
+   w(:, :) = lhs(x(:,:),old_h, p_patch_3D,coeff, h_e, thickness_c, p_op_coeff)
        
    w(end_nproma+1:nproma, no_of_blocks) = 0.0_wp
    b(end_nproma+1:nproma, no_of_blocks) = 0.0_wp
@@ -1068,7 +1069,12 @@ INTEGER :: no_of_blocks, end_nproma
 !$OMP END DO
 
      IF (myThreadNo == 0) THEN 
-       rn2(1) = SQRT(global_sum_array(sum_aux))
+       h_aux  = SUM(sum_aux(1:no_of_blocks))
+       IF (activate_sync_timers) CALL timer_start(timer_gmres_p_sum)
+       h_aux = p_sum(h_aux, my_mpi_work_communicator)
+       IF (activate_sync_timers) CALL timer_stop(timer_gmres_p_sum)
+       rn2(1) = SQRT(h_aux)
+!       rn2(1) = SQRT(p_sum(h_aux, my_mpi_work_communicator))
 ! !$OMP FLUSH(rn2(1))
      ENDIF
 !$OMP BARRIER
@@ -1141,7 +1147,10 @@ INTEGER :: no_of_blocks, end_nproma
 !      CALL p_barrier
 
      IF (myThreadNo == 0) THEN  
-       h_aux = global_sum_array(sum_aux)
+       h_aux = SUM(sum_aux(1:no_of_blocks))
+       IF (activate_sync_timers) CALL timer_start(timer_gmres_p_sum)
+       h_aux = p_sum(h_aux, my_mpi_work_communicator)
+       IF (activate_sync_timers) CALL timer_stop(timer_gmres_p_sum)
        h(k,i) = h_aux
 !$OMP FLUSH(h_aux)
      ENDIF
@@ -1167,11 +1176,16 @@ INTEGER :: no_of_blocks, end_nproma
      ENDDO
 !$OMP END DO
      IF (myThreadNo == 0) THEN  
-       h_aux = SQRT(global_sum_array(sum_aux))
+       h_aux = SUM(sum_aux(1:no_of_blocks))
+       IF (activate_sync_timers) CALL timer_start(timer_gmres_p_sum)
+       h_aux = p_sum(h_aux, my_mpi_work_communicator)
+       IF (activate_sync_timers) CALL timer_stop(timer_gmres_p_sum)
+       h_aux = SQRT(h_aux)
        h(i+1,i) = h_aux
      ENDIF
 !$OMP FLUSH(h_aux)
 !$OMP BARRIER
+!     write(0,*) i, " gmres  tol2, h_aux", tol2, h_aux
 
      IF (h_aux < tol2) THEN
        done = .TRUE.
@@ -1212,6 +1226,7 @@ INTEGER :: no_of_blocks, end_nproma
      rn2(i  ) =  c(i)*rn2(i)
 
      ! 4.9) check whether we are done
+     ! write(0,*) i, " gmres  tolerance bound, residual: ", tol, ABS(rn2(i+1))
      IF ( done .OR. (ABS(rn2(i+1)) < tol) ) EXIT arnoldi
    ENDDO arnoldi
 
@@ -1350,6 +1365,7 @@ INTERFACE   ! left-hand-side: A*x
     REAL(wp),    INTENT(in) :: h_e(:,:)
     REAL(wp),    INTENT(in) :: thickness_c(:,:)
     TYPE(t_operator_coeff),INTENT(IN)  :: p_op_coeff
+!     REAL(wp), POINTER :: ax( :, : ) ! same as x
     REAL(wp) :: ax( SIZE(x,1) , SIZE(x,2) ) ! same as x
   ENDFUNCTION lhs
 END INTERFACE
@@ -1382,11 +1398,13 @@ REAL(wp) ::    &
   r(SIZE(x,1),SIZE(x,2)),  & ! residual
   rn2(m),      &             ! two-norm of the residual
   v(SIZE(x,1),SIZE(x,2),m),& ! Krylov basis
-  w(SIZE(x,1),SIZE(x,2)),  & ! new Krylov vector
   h(m,m),      &             ! Hessemberg matrix
   hki, hk1i,   &
   c(m), s(m),  &             ! rotation matrices
   den, ci
+
+! REAL(wp), POINTER :: w(:,:)
+REAL(wp) ::  w(SIZE(x,1),SIZE(x,2)) ! new Krylov vector
 
 REAL(wp) :: rrn2, rn2_aux, h_aux, rh
 INTEGER :: jb, jk, nlen
@@ -1513,7 +1531,7 @@ INTEGER :: no_of_blocks, end_nproma
    ! 4) Arnoldi loop
    arnoldi: DO i = 1, m-1
      ! 4.1) compute the next (i.e. i+1) Krylov vector
-     w(:,:) = lhs( v(:,:,i),old_h,p_patch_3D,coeff,h_e, thickness_c, p_op_coeff )
+     w(:, :) = lhs( v(:,:,i),old_h,p_patch_3D,coeff,h_e, thickness_c, p_op_coeff )
 
      ! 4.2) Gram-Schmidt orthogonalization
 

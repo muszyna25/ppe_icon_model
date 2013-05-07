@@ -67,6 +67,8 @@ MODULE mo_nh_testcases
   USE mo_nonhydro_state,       ONLY: duplicate_prog_state
   
   USE mo_intp_data_strc,       ONLY: t_int_state
+  USE mo_nwp_lnd_types,        ONLY: t_lnd_state
+  USE mo_lnd_nwp_config,       ONLY: isub_seaice
   USE mo_advection_config,     ONLY: advection_config
   USE mo_nh_pa_test,           ONLY: init_nh_state_prog_patest
   USE mo_nh_df_test,           ONLY: init_nh_state_prog_dftest
@@ -85,7 +87,8 @@ MODULE mo_nh_testcases
                                    & qv_max_wk, u_infty_wk,                       &
                                    & bubctr_lat, bubctr_lon, bubctr_z,            &
                                    & bub_hor_width, bub_ver_width, bub_amp
-  USE mo_nh_dcmip_gw,          ONLY: init_nh_dcmip_gw, init_nh_gw_analyt
+  USE mo_nh_dcmip_gw,          ONLY: init_nh_dcmip_gw, init_nh_gw_analyt,         &
+                                   & gw_clat, gw_u0, gw_delta_temp
   USE mo_nh_dcmip_schaer,      ONLY: init_nh_prog_dcmip_schaer,lshear_dcmip,      &
                                    & init_nh_topo_dcmip_schaer
   USE mo_nh_dcmip_rest_atm,   ONLY : init_nh_topo_dcmip_rest_atm,                 &
@@ -108,9 +111,7 @@ MODULE mo_nh_testcases
   USE mo_nh_prog_util,         ONLY: nh_prog_add_random
   USE mo_nh_init_utils,        ONLY: n_flat_level, layer_thickness
   USE mo_grid_geometry_info,   ONLY: planar_torus_geometry
-  USE mo_nh_torus_exp,         ONLY: sst_cbl, is_dry_cbl, init_nh_state_cbl, ugeo,  &
-                                     vgeo, umean, vmean, shflx_cbl, set_sst_cbl,    &
-                                     lhflx_cbl, ufric_cbl
+  USE mo_nh_torus_exp,         ONLY: init_nh_state_cbl, u_cbl, v_cbl, th_cbl
   
   IMPLICIT NONE  
   
@@ -164,9 +165,8 @@ MODULE mo_nh_testcases
                             m_height, m_width_x, m_width_y, itype_atmo_ana,  &
                             nlayers_poly, p_base_poly, h_poly, t_poly,       &
                             tgr_poly, rh_poly, rhgr_poly, lshear_dcmip,      &
-                            lcoupled_rho, sst_cbl, is_dry_cbl, ugeo, vgeo,   &
-                            umean, vmean, shflx_cbl, set_sst_cbl, lhflx_cbl, &
-                            ufric_cbl
+                            lcoupled_rho, gw_clat, gw_u0, gw_delta_temp,     & 
+                            u_cbl, v_cbl, th_cbl                  
 
   PUBLIC :: read_nh_testcase_namelist, layer_thickness, init_nh_testtopo,    &
     &       init_nh_testcase, n_flat_level, nh_test_name,                    &
@@ -321,17 +321,17 @@ MODULE mo_nh_testcases
     ! for PA test cases:
     lcoupled_rho   = .FALSE.
 
-    ! for CBL testcase
-    sst_cbl = 300._wp
-    is_dry_cbl = .TRUE.
-    ugeo(1:2)  = 0._wp  !ugeo(1) = constant, ugeo(2) = gradient
-    vgeo(1:2)  = 0._wp  !vgeo(1) = constant, vgeo(2) = gradient
-    umean(1:2) = 0._wp
-    vmean(1:2) = 0._wp
-    shflx_cbl  = 0._wp 
-    lhflx_cbl  = 0._wp 
-    set_sst_cbl = .FALSE.
-    ufric_cbl  = 0.28_wp
+    ! for dcmip_gw_3X test cases
+    gw_u0      = 0.0_wp      ! maximum amplitude of the zonal wind [m s^-1]
+    gw_clat    = 90._wp      ! center of temperature/density perturbation  [deg]
+    gw_delta_temp = 0.01_wp  ! Max amplitude of perturbation [K]
+
+
+    !For CBL testcases, Anurag Dipankar (MPIM, 2013-04)
+    u_cbl(1:2) = 0._wp 
+    v_cbl(1:2) = 0._wp 
+    th_cbl(1)  = 290._wp
+    th_cbl(2)  = 0.006_wp
 
     CALL open_nml(TRIM(filename))
     CALL position_nml ('nh_testcase_nml', status=i_status)
@@ -656,11 +656,12 @@ MODULE mo_nh_testcases
   !! @par Revision History
   !! Initial release by Almut Gassmann, MPI-M (2009-04-14)
   !! 
-  SUBROUTINE init_nh_testcase (p_patch, p_nh_state, p_int, ext_data, ntl)
+  SUBROUTINE init_nh_testcase (p_patch, p_nh_state, p_int, p_lnd_state, ext_data, ntl)
 !
 ! !INPUT VARIABLES:
   TYPE(t_patch),TARGET,  INTENT(INOUT) :: p_patch(n_dom)
   TYPE(t_int_state),     INTENT(   IN) :: p_int(n_dom)
+  TYPE(t_lnd_state),     INTENT(INOUT) :: p_lnd_state(n_dom)
   TYPE(t_external_data), INTENT(INOUT) :: ext_data(n_dom)
   INTEGER :: ntl
   TYPE(t_nh_state), TARGET, INTENT(INOUT):: p_nh_state(n_dom)
@@ -743,7 +744,8 @@ MODULE mo_nh_testcases
   ENDDO !jg
 
   CALL message(TRIM(routine),'End setup Jablonowski test')
-  
+
+
   CASE ('mrw_nh', 'mrw2_nh')
 
    CALL message(TRIM(routine),'MRW test')
@@ -783,9 +785,10 @@ MODULE mo_nh_testcases
    
     CALL duplicate_prog_state(p_nh_state(jg)%prog(nnow(jg)),p_nh_state(jg)%prog(nnew(jg)))  
  
-  ENDDO !jg
+   ENDDO !jg
 
    CALL message(TRIM(routine),'End setup MRW test')
+
 
   CASE ('mwbr_const')
 
@@ -796,7 +799,6 @@ MODULE mo_nh_testcases
 
    DO jg = 1, n_dom
 
-
      IF ( iforcing == inwp ) THEN
        CALL message(TRIM(routine),' iforcing == inwp')     
        IF ( atm_phy_nwp_config(jg)%inwp_gscp /= 0 .OR.&
@@ -804,9 +806,6 @@ MODULE mo_nh_testcases
          l_moist = .TRUE.
        END IF
      ENDIF 
-
-
-
 
      IF (.NOT. l_moist) THEN
 
@@ -830,9 +829,10 @@ MODULE mo_nh_testcases
 
     CALL duplicate_prog_state(p_nh_state(jg)%prog(nnow(jg)),p_nh_state(jg)%prog(nnew(jg))) 
  
- ENDDO !jg
+   ENDDO !jg
 
    CALL message(TRIM(routine),'End setup mwbr_const test')
+
 
   CASE ('zero','bell','schaer')
 
@@ -948,6 +948,7 @@ MODULE mo_nh_testcases
     ENDDO
   ENDDO
 
+
   CASE ('PA')  ! pure advection test case, no mountain
 
     DO jg = 1, n_dom
@@ -964,6 +965,7 @@ MODULE mo_nh_testcases
         &                       linit_tracer_fv )
 
     ENDDO !jg
+
 
   CASE ('DF1', 'DF2', 'DF3', 'DF4')  ! 2D deformational flow test case, no mountain
 
@@ -985,6 +987,7 @@ MODULE mo_nh_testcases
 
     ENDDO !jg
 
+
   CASE ('HS_nh')  ! Held-Suarez test case, no mountain, isothermal atmosphere
 
     DO jg = 1, n_dom
@@ -996,21 +999,19 @@ MODULE mo_nh_testcases
         &                            p_nh_state(jg)%diag,ext_data(jg),           &
         &                            p_nh_state(jg)%metrics)
 
-
-
       IF (lhs_nh_vn_ptb) THEN
           CALL nh_prog_add_random( p_patch(jg),           & ! input
                & p_nh_state(jg)%prog(nnow(jg))%vn(:,:,:), & ! in and out
                & "edge", hs_nh_vn_ptb_scale, 1, nlev ) ! input
-          !
+
           CALL message(TRIM(routine),'Initial state used in the &
                & Held-Suarez test: random noised added to the normal wind')
       END IF
-      !
 
       CALL duplicate_prog_state(p_nh_state(jg)%prog(nnow(jg)),p_nh_state(jg)%prog(nnew(jg)))
 
     ENDDO !jg
+
 
   CASE ('APE_nh')  ! Aqua-Planet Experiment, no mountain
 
@@ -1018,34 +1019,29 @@ MODULE mo_nh_testcases
     global_moist = ztmc_ape        ! kg/m**2 total moisture content
     jw_up = 1._wp
 
+    DO jg = 1, n_dom
+    
+      CALL   init_nh_state_prog_jabw ( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), &
+                                     & p_nh_state(jg)%diag, p_nh_state(jg)%metrics, &
+                                     & p_int(jg),                                   &
+                                     & p_sfc_jabw,jw_up )
+    
+      IF ( ltransport .AND. iforcing == inwp ) THEN   !
+    
+        CALL init_nh_inwp_tracers ( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), &
+                                  & p_nh_state(jg)%diag, p_nh_state(jg)%metrics, &
+                                  & rh_at_1000hpa, qv_max, l_rediag=.TRUE.,  &
+                                  & opt_global_moist=global_moist)
+    
+      END IF
+    
+      CALL duplicate_prog_state(p_nh_state(jg)%prog(nnow(jg)),p_nh_state(jg)%prog(nnew(jg)))
+    
+    ENDDO !jg
+
+    CALL message(TRIM(routine),'End setup APE_nh test')
 
 
-  DO jg = 1, n_dom
-
-    CALL   init_nh_state_prog_jabw ( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), &
-                                   & p_nh_state(jg)%diag, p_nh_state(jg)%metrics, &
-                                   & p_int(jg),                                   &
-                                   & p_sfc_jabw,jw_up )
-
-
-
-    IF ( ltransport .AND. iforcing == inwp ) THEN   !
-
-
-      CALL init_nh_inwp_tracers ( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), &
-                                & p_nh_state(jg)%diag, p_nh_state(jg)%metrics, &
-                                & rh_at_1000hpa, qv_max, l_rediag=.TRUE.,  &
-                                & opt_global_moist=global_moist)
- 
-
-    END IF
-
-    CALL duplicate_prog_state(p_nh_state(jg)%prog(nnow(jg)),p_nh_state(jg)%prog(nnew(jg)))
-
-  ENDDO !jg
-
-   CALL message(TRIM(routine),'End setup APE_nh test')
-  
   CASE ('wk82')
 
    CALL message(TRIM(routine),'wk82 test')
@@ -1068,7 +1064,7 @@ MODULE mo_nh_testcases
 
     CALL duplicate_prog_state(p_nh_state(jg)%prog(nnow(jg)),p_nh_state(jg)%prog(nnew(jg)))
 
-  ENDDO !jg
+   ENDDO !jg
 
    CALL message(TRIM(routine),'End setup wk82 test')
 
@@ -1105,7 +1101,7 @@ MODULE mo_nh_testcases
                                      & p_int(jg),l_hydro_adjust  )
 
     CASE default
-     WRITE(message_text,'(a)') &
+      WRITE(message_text,'(a)') &
              & 'You should define a valid option for    &
              & itype_atmo_ana for the &
              & g_lim_area test case'
@@ -1118,13 +1114,11 @@ MODULE mo_nh_testcases
                                & p_nh_state(jg)%prog(nnow(jg))%w,               &
                                & p_nh_state(jg)%metrics, p_int(jg) ) 
          
-
     CALL duplicate_prog_state(p_nh_state(jg)%prog(nnow(jg)),p_nh_state(jg)%prog(nnew(jg)))
 
-  ENDDO !jg
+   ENDDO !jg
 
    CALL message(TRIM(routine),'End setup g_lim_area test')
-
 
 
   CASE ('dcmip_gw_31')
@@ -1137,7 +1131,6 @@ MODULE mo_nh_testcases
     ENDDO
 
     CALL message(TRIM(routine),'End setup dcmip_gw_31 test')
-
 
 
   CASE ('dcmip_gw_32')
@@ -1156,15 +1149,14 @@ MODULE mo_nh_testcases
 
     CALL message(TRIM(routine),'setup dcmip_rest_200 (steady state at rest) test')
   
-   l_hydro_adjust = .TRUE.
+    l_hydro_adjust = .TRUE.
 
-   IF ( lcoriolis) THEN
+    IF ( lcoriolis) THEN
 
-     WRITE(message_text,'(a)') &
+      WRITE(message_text,'(a)') &
              & 'For dcmip_rest_200 test case  lcoriolis must be .FALSE.'
             CALL finish  (routine, TRIM(message_text))
-   END IF
-
+    END IF
 
     DO jg = 1, n_dom
       CALL init_nh_prog_dcmip_rest_atm( p_patch(jg),                              &
@@ -1180,15 +1172,14 @@ MODULE mo_nh_testcases
 
     CALL message(TRIM(routine),'setup dcmip_mw_2x (schaer-type on small planet) test')
   
-   l_hydro_adjust = .FALSE.
+    l_hydro_adjust = .FALSE.
 
-   IF ( lcoriolis) THEN
+    IF ( lcoriolis) THEN
 
-     WRITE(message_text,'(a)') &
+      WRITE(message_text,'(a)') &
              & 'For dcmip_mw_2x test case  lcoriolis must be .FALSE.'
             CALL finish  (routine, TRIM(message_text))
-   END IF
-
+    END IF
 
     DO jg = 1, n_dom
       CALL init_nh_prog_dcmip_schaer( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), &
@@ -1219,6 +1210,7 @@ MODULE mo_nh_testcases
 
     CALL message(TRIM(routine),'End setup dcmip_tc_51/52')
 
+
   CASE ('CBL')
 
     IF(p_patch(1)%geometry_info%geometry_type/=planar_torus_geometry)&
@@ -1231,7 +1223,7 @@ MODULE mo_nh_testcases
 
       CALL nh_prog_add_random( p_patch(jg), p_nh_state(jg)%prog(nnow(jg))%w(:,:,:),       &
                                "cell", 0.05_wp, nlev-3, nlev ) 
-      CALL nh_prog_add_random( p_patch(jg), p_nh_state(jg)%prog(nnow(jg))%theta_v(:,:,:),  & 
+      CALL nh_prog_add_random( p_patch(jg), p_nh_state(jg)%prog(nnow(jg))%theta_v(:,:,:), & 
                                "cell", 0.2_wp, nlev-3, nlev ) 
 
       CALL duplicate_prog_state(p_nh_state(jg)%prog(nnow(jg)),p_nh_state(jg)%prog(nnew(jg)))
@@ -1239,7 +1231,19 @@ MODULE mo_nh_testcases
 
     CALL message(TRIM(routine),'End setup CBL test')
 
+
   END SELECT
+
+
+  IF( atm_phy_nwp_config(1)%inwp_turb==3 .AND. &
+      (nh_test_name=='APE_nh' .or. nh_test_name=='CBL') )THEN
+    DO jg = 1, n_dom
+    !Snow and sea ice initialization to avoid problems in EDMF
+      p_lnd_state(jg)%prog_lnd(nnow(jg))%t_snow_t(:,:,:)        = 300._wp   !snow
+      p_lnd_state(jg)%prog_lnd(nnow(jg))%t_g_t(:,:,isub_seaice) = 300._wp   !sea ice
+      p_lnd_state(jg)%prog_wtr(nnow(jg))%t_ice(:,:)             = 300._wp   !sea ice
+    END DO !jg
+  END IF
 
  END SUBROUTINE init_nh_testcase
 

@@ -42,18 +42,24 @@ class EXP_plot(HtmlResource):
 	global selected_Date_from
 	global selected_Date_to
 	global ExpPlotError
+        global DEBUG
 	
 	self.get_info(request)
 	
         status = self.getStatus(request)	
         Archive_Button_Dict = {}
         ExpPlotError = 0
+        DEBUG = False
 # -----------------------------------------------------------
         def add_file(p,e,Dict):
 	  ret = False
 	  file_L = []
 	  p += e + "/plots/"
 	  for f in os.listdir(p):
+            if DEBUG:
+              print "== add_file =="
+              print f
+
 	    file_L.append(f)
        	    Archive_Button_Dict['file'].append(f)
 	    ret = True
@@ -71,6 +77,10 @@ class EXP_plot(HtmlResource):
 	  exp_D = {}
 	  p += b + "/"
 	  for e in os.listdir(p):
+            if DEBUG:
+              print "== add_exp =="
+              print e
+
 	    if e.find("test_") == 0:
 #	      if e == exp_plot_Info or exp_plot_Info == "all":
               if add_file(p,e,exp_D):
@@ -90,6 +100,9 @@ class EXP_plot(HtmlResource):
 	  build_D = {}
 	  p += c + "/"
 	  for b in os.listdir(p):
+            if DEBUG:
+              print "== add_build =="
+              print b
 	    if add_exp(p,b,build_D):
 	      Archive_Button_Dict['build'].append(b)
 	      ret = True
@@ -113,6 +126,9 @@ class EXP_plot(HtmlResource):
 #          print "r " + r
 	    
 	  for c in os.listdir(p):
+            if DEBUG:
+              print "== add_comp =="
+              print c
 	    if add_build(p,c,comp_D):
   	      Archive_Button_Dict['comp'].append(c)
 	      ret = True
@@ -130,14 +146,21 @@ class EXP_plot(HtmlResource):
 	  p += D + "/"
 	  
 	  for b in os.listdir(p):
+            if DEBUG:
+              print "== add_branch =="
+              print b
+
             B = b
-#            print "b " + b
-#            print "D " + D
 	    if b.find("trunk") == 0 or b.find("tags") == 0 or b.find("branch") == 0:
+              if DEBUG:
+                print "== if case =="
 	      if add_comp(p,b,rev_D):
 	        Archive_Button_Dict['branch'].append(b)
 	        ret = True
 	    else:
+              if DEBUG:
+                print "== else  case =="
+
               B = "trunk+icon-dev"
 	      if add_comp(p,"",rev_D):
 	        Archive_Button_Dict['branch'].append(B)
@@ -156,7 +179,12 @@ class EXP_plot(HtmlResource):
 	  rev_D = {}
 	  p += D + "/buildbot/"
 	  for r in os.listdir(p):
+            if DEBUG:
+              print "== add_rev =="
+              print r
             if (r >= Rev_from) and (r <= Rev_to):
+              if DEBUG:
+                print "== r OK =="
 	      if add_branch(p,r,rev_D):
 	        Archive_Button_Dict['rev'].append(r)
 	        ret = True
@@ -229,7 +257,8 @@ class EXP_plot(HtmlResource):
 	           if Br in Exp_Dict[e][d][r]:
 	             if c in Exp_Dict[e][d][r][Br]:
 	               if b in Exp_Dict[e][d][r][Br][c]:
-	                 print "build existiert " + c
+                         if DEBUG:
+	                   print "build existiert " + c
 	                 Exp_Dict[e][d][r][Br][c][b] = eD[e]
 		       else:
 	                 Exp_Dict[e][d][r][Br][c][b] = eD[e]
@@ -276,7 +305,6 @@ class EXP_plot(HtmlResource):
              if d in Comp_Dict[c]:
                if r in Comp_Dict[c][d]:
                  if Br in Comp_Dict[c][d][r]:
-#                   print "!!!! rev exists " + r
                    Comp_Dict[c][d][r][Br] = cD[c]
 	         else:
                    Comp_Dict[c][d][r][Br] = cD[c]
@@ -334,9 +362,9 @@ class EXP_plot(HtmlResource):
 #ws	    Date_from = "2012-06-20"
 	
 	else:
-          Rev_from  = str(int(RevisionNr)-50)
+          Rev_from  = str(int(RevisionNr)-100)
           Rev_to    = RevisionNr
-          now_min_10d = datetime.now() - timedelta(days=10)
+          now_min_10d = datetime.now() - timedelta(days=30)
           Date_from = now_min_10d.strftime("%Y-%m-%d")
           Date_to = time.strftime("%Y-%m-%d",time.localtime(util.now()))
           
@@ -381,10 +409,18 @@ class EXP_plot(HtmlResource):
 	date_Dict = {}
         
 	p_date = "public_html/archive/"
-#        print "==== WS ===="
 	for DATE in os.listdir(p_date):
+          if DEBUG:
+             print DATE
 	  if DATE.find("20") == 0:
+            if DEBUG:
+              print "DATE.find(\"20\") == 0:"
+              print Date_from 
+              print Date_to
+              print DATE
             if (DATE >= Date_from) and (DATE <= Date_to):
+              if DEBUG:
+                print DATE
 	      if add_rev(p_date,DATE,date_Dict):
 	        Archive_Button_Dict['date'].append(DATE)
 	
@@ -411,13 +447,23 @@ class EXP_plot(HtmlResource):
 	Archive_Button_Dict['build']  = list(sorted(set(Archive_Button_Dict['build'])))
 	Archive_Button_Dict['exp']    = list(sorted(set(Archive_Button_Dict['exp'])))
 	Archive_Button_Dict['file']   = list(sorted(set(Archive_Button_Dict['file'])))
+        if DEBUG:
+          print "==========================================="
+          print Archive_Button_Dict['date']
+          print Archive_Button_Dict['rev']
+          print Archive_Button_Dict['branch']
+          print Archive_Button_Dict['comp']
+          print Archive_Button_Dict['build']  
+          print Archive_Button_Dict['exp']
+          print Archive_Button_Dict['file']
+          print "==========================================="
+
 	
         if not Archive_Button_Dict['rev']:
 	  ExpPlotError = 1
 #err	  data = "Revision List for this timeperode ist emty"
 #err	  return data
 	  
-#	print Archive_Button_Dict['rev']
         if not l_nightly and ExpPlotError == 0:
 	  min_Revision = Archive_Button_Dict['rev'][0]
 	  max_Revision = Archive_Button_Dict['rev'][-1]
@@ -436,9 +482,11 @@ class EXP_plot(HtmlResource):
 	for Fi in Archive_Button_Dict['file']:
 	  if Fi.find(exp_plot_Info+"_") >= 0:
 	    t_file.append(Fi) 
-	    print Fi + " (" + exp_plot_Info + "_) included in the list"
+            if DEBUG:
+	      print Fi + " (" + exp_plot_Info + "_) included in the list"
 	  else:
-	    print Fi + " (" + exp_plot_Info + "_) not included in the list"
+            if DEBUG:
+	      print Fi + " (" + exp_plot_Info + "_) not included in the list"
 	    
         if len(t_file) != 0:
 	  Archive_Button_Dict['file'] = t_file
@@ -449,17 +497,14 @@ class EXP_plot(HtmlResource):
 #	  return date
 	
 	
-#        print "===== Plot_name_length ===="
-#	print Archive_Button_Dict['file']
 	
 	Plot_name_length = 290.
 	for s in Archive_Button_Dict['file']:
 	  if len(s)*6.9 > Plot_name_length:
 	    Plot_name_length = len(s)*6.9
-	  print "String: " + s + " " + str(Plot_name_length) + " " + str(len(s)*7.0)
+          if DEBUG:
+	    print "String: " + s + " " + str(Plot_name_length) + " " + str(len(s)*7.0)
 	    
-#        print str(Plot_name_length)
-#        print "===== Plot_name_length ===="
 
 #========================================================================================================
 #
@@ -662,9 +707,10 @@ class EXP_plot(HtmlResource):
 	  data += "    <select  name=\"exp\" onChange=\"document.date_form.submit()\">\n"
 	else:
 	  data += "    <select  disabled=\"disabled\" name=\"exp\" onChange=\"document.date_form.submit()\">\n"
-# old bug end
-# new  data += "    <select  name=\"exp\" onChange=\"document.date_form.submit()\">\n"
-	  
+# old ug end
+# new  begin
+#        data += "    <select  name=\"exp\" onChange=\"document.date_form.submit()\">\n"
+# new end
 #ToDo   Include the correct showing of '_' in experment name and plot-name
 
 	for Ex in Archive_Button_Dict['exp']:
@@ -958,7 +1004,6 @@ class EXP_plot(HtmlResource):
 	    
 	  data += "</div>\n "
 	  
-#          print "====== ref Plot ======"
 	
 #===================================================================================
 
@@ -1063,7 +1108,8 @@ class EXP_plot(HtmlResource):
 # If no date is found
 #------------------------------------------------------------------------------------------
       def get_Dates (rf,rt):
-        print "get_Dates " + rf + " " + rt
+        if DEBUG:
+          print "get_Dates " + rf + " " + rt
 	df    = "9999-12-31"
 	dt    = "0000-01-01"
 	left_rev  = "00000000000"
@@ -1083,15 +1129,16 @@ class EXP_plot(HtmlResource):
 	      left_rev = r        
 	    if right_rev > r and r > rt:
 	      right_rev = r
-#            print "right_rev2 " + left_rev + " " + right_rev + " " + r + " " + rf + " " + rt     
 
 
-        print "right_rev " + left_rev + " " + right_rev      
+        if DEBUG:
+          print "right_rev " + left_rev + " " + right_rev      
 	if dt == "0000-01-01" or df == "9999-12-31":
 #	  return get_Dates (left_rev,right_rev)
 	  return (df,dt,left_rev,right_rev)
 	        
-        print "df,dt " + df + " " + dt
+        if DEBUG:
+          print "df,dt " + df + " " + dt
         return (df,dt,rf,rt)        
 #------------------------------------------------------------------------------------------
       def get_Rev (df,dt):
@@ -1107,13 +1154,15 @@ class EXP_plot(HtmlResource):
 	        rf = r
 	      if rt < r:
 	        rt = r
-        print "rf,rt " + rf + " " + rt
+        if DEBUG:
+          print "rf,rt " + rf + " " + rt
         return (rf,rt)        
 #------------------------------------------------------------------------------------------
-      print "======  select ====="
-      print req
-      print req.args
-      print "======  select ====="
+      if DEBUG:
+        print "======  select ====="
+        print req
+        print req.args
+        print "======  select ====="
       m       = req.args.get("modus",[None])[0]
       e       = req.args.get("exp",[None])[0]
       f       = req.args.get("file",[None])[0]
@@ -1193,8 +1242,9 @@ class EXP_plot(HtmlResource):
         if fDate == "9999-12-31" or tDate == "0000-01-01":
           fDate,tDate,fRev,tRev = get_Dates(fRev,tRev)
           
-        print "fDate,tDate " + fDate + " " + tDate
-        print "fRev,tRev " + fRev + " " + tRev
+        if DEBUG:
+          print "fDate,tDate " + fDate + " " + tDate
+          print "fRev,tRev " + fRev + " " + tRev
         
       if "Date_button" in req.args:
 	Date_button_pushed = True

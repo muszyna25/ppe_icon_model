@@ -5,9 +5,6 @@
 #
 # run as: metview3 -b monmeans_clim.met ehwv 20000801 2001 3 3 ml 60 1 60 /scratch/rd/pao
 #
-# note for 2005: claude suggest to do monthly means first and THEN
-# interpolate for speed and efficiency. sigh.
-#
 # Martin Koehler
 # Update 28-10-2008 P Bechtold: replace getksec2 by grib_get_long
 # Update 28-10-2009 I Russel P Bechtold: mods for GRIB_API compatible
@@ -34,6 +31,10 @@ fcrange = args[11]   # fcrange
 class   = args[12]   # class
 number  = args[13]   # number of ensemble members
 tim     = args[14]   # initial time
+rwindsp = args[15]   # wind scale factor for small planet
+rgtcsp  = args[16]   # total column fields scaling for small planet with modified gravity
+ssteps  = args[17]   # steps for retrieval =1day = 24h for full earth but shorter for small superrotated planet
+dayl    = args[18]   # length of day
 
 # setup
 
@@ -51,6 +52,9 @@ end if
 
                     # slow/medium/fast
 int     = 24        # 24/48/72
+nhday   = 24        # hours per day (could be changed for different planet)
+mmln=mm_len
+mm_len=min(mm_len,39)
 if mm_len > 2 then
   int   = 72        # 24/48/72
 end if
@@ -60,6 +64,10 @@ end if
 if levtype = 'sfc' then
   int   = 24        # 24h for sfc always
 end if
+
+int=ssteps
+nhday=dayl
+#dayl=max(dayl,int)
 
 nmon=1
 
@@ -77,18 +85,18 @@ for imon=1 to nmon do
 	datever2 = yy[imon]*10000+(mm[imon]+mml[imon])*100+01
 
 # define steps
-        if fcrange=-99 then
-	  vdat1    = date(datever1)
-	  vdat2    = date(datever2-1)
+    if fcrange=-99 then
+      vdat1    = date(datever1)
+      vdat2    = date(datever2-1)
 
-          datelist=inidate
+      datelist=inidate
 
 	  indat=date(inidate)
 	  ndays1=vdat1-indat
 	  ndays2=vdat2-indat
 
-	  step1=ndays1*24
-	  step2=ndays2*24
+	  step1=ndays1*nhday
+	  step2=ndays2*nhday
 	  if step1=0 then
 		step1=step1+int
 	  end if
@@ -98,68 +106,71 @@ for imon=1 to nmon do
 		steplist=steplist&list(step1+(ns-1)*int)
 	  end for
 #          class="rd"
-        else
-	  vdat1    = date(datever1)-fcrange
-	  vdat2    = date(datever2)-fcrange-1
-print (" fc range ",fcrange, " vdat12 ",vdat1," ",vdat2)
-          numsteps=vdat2-vdat1+1
-print (" numsteps ",numsteps)
-          steplist = fcrange*24
-          steplist2 = (fcrange-1)*24 # make one day averages for acc fields
-          datelist=[vdat1,"to",vdat2]
-#          class="od"
-        end if
+   else
+      vdat1    = date(datever1)-fcrange
+      vdat2    = date(datever2)-fcrange-1
+      print (" fc range ",fcrange, " vdat12 ",vdat1," ",vdat2)
+      numsteps=vdat2-vdat1+1
+      print (" numsteps ",numsteps)
+      steplist = fcrange*nhday
+      steplist2 = (fcrange-1)*nhday # make one day averages for acc fields
+      datelist=[vdat1,"to",vdat2]
+   end if
 
 # define variables
 
-        if levtype = "sfc" then
-###          if fcrange = -99 then
-          if 1 = 1 then # operations now has all variable...
-            variables = ["TCC", "LCC", "MCC", "HCC", "CP",  "LSP", "SSHF","SLHF","BLH", "SSR", 
-                       "STR", "TSR", "TTR", "2T",  "2D",  "SD" ,"10U", "10V", "SSTK","SKT", "TCW", 
-                       "TCWV","TCLW","TCIW","TSRC","TTRC","CAPE","SUND"]
-                     #  101,   102,   103,   104,   105,   106,   107,   108,   109,   110, 
-                     #  111,   112,   113,   114,   115,   116,   117,   118,   119,   120]
-            vartype   = ["ins", "ins", "ins", "ins", "acc", "acc", "acc", "acc", "ins", "acc", 
-                       "acc", "acc", "acc", "ins", "ins", "ins", "ins", "ins", "ins", "ins", "ins",
-                       "ins", "ins", "ins", "acc", "acc", "ins", "ins"]
-                     # "ins", "ins", "ins", "ins", "ins", "ins", "ins", "acc", "acc", "acc",
-                     # "ins", "ins", "ins", "ins", "ins", "ins", "ins", "ins", "ins", "ins"]
-          else # use this for 'old' dates
-            variables = ["TCC", "LCC", "MCC", "HCC", "CP",  "LSP", "SSHF","SLHF","BLH", "SSR", 
-                       "STR", "TSR", "TTR", "2T",  "2D",  "SD", "10U", "10V", "SSTK","SKT", "TCW", 
+    if levtype = "sfc" then
+        if 1 = 1 then # operations now has all variable...
+          variables = ["TCC", "LCC", "MCC", "HCC", "CP",  "LSP", "SSHF","SLHF","BLH", "SSR", "SSRD",
+                       "STR", "TSR", "TTR", "2T",  "2D",  "SD" , "10U", "10V", "SSTK","SKT", 
+                       "TCW", "TCWV","TCLW","TCIW","TCRW","TCSW","TSRC","TTRC","CAPE","SUND"]
+          vartype   = ["ins", "ins", "ins", "ins", "acc", "acc", "acc", "acc", "ins", "acc", "acc",
+                       "acc", "acc", "acc", "ins", "ins", "ins", "ins", "ins", "ins", "ins", 
+                       "ins", "ins", "ins", "ins", "ins", "ins", "acc", "acc", "ins","ins"]
+          #variables list defined twice for small planet gravity scaling of TotCol variables
+          vartc     = ["TCW","TCWV","TCLW","TCIW","TCRW","TCSW"]
+        else # use this for 'old' dates
+          variables = ["TCC", "LCC", "MCC", "HCC", "CP",  "LSP", "SSHF","SLHF","BLH", "SSR", "SSRD",
+                       "STR", "TSR", "TTR", "2T",  "2D",  "SD",  "10U", "10V", "SSTK","SKT", "TCW",
                        "TCWV","TSRC","TTRC"]
-            vartype   = ["ins", "ins", "ins", "ins", "acc", "acc", "acc", "acc", "ins", "acc", 
+          vartype   = ["ins", "ins", "ins", "ins", "acc", "acc", "acc", "acc", "ins", "acc", "acc",
                        "acc", "acc", "acc", "ins", "ins", "ins", "ins", "ins", "ins", "ins", "ins",
                        "ins", "acc", "acc"]
-          end if
-	  levelist  = "off"
-          nlev=1
+        end if
+        varuv=nil
+        levelist  = "off"
+        nlev=1
 
-	else if levtype = "ml" then
-	  variables = ["q", "clwc", "ciwc", "75", "76", "cc", "T", "u", "v", "w"]
-                     #  80, 84, 85, 86, 87, 88, 89, 90, 91, 98, 100]
-          vartype   = "ins"
-          levelist  = [lev1,"to",lev2]
-          nlev      = lev2 - lev1 + 1
+    else if levtype = "ml" then
+      variable  = ["q", "clwc", "ciwc", "crwc", "cswc", "cc", "T", "w"]
+      varuv     = ["u", "v"]
+      variables = variable&varuv
+      vartype   = "ins"
+      levelist  = [lev1,"to",lev2]
+      nlev      = lev2 - lev1 + 1
 
 	else if levtype = "pl" then
-          vartype   = "ins"
-          if fcrange = -99 then 
-  	    variables = ["q", "R", "Z", "T", "u", "v", "w", "clwc", "ciwc", "cc"]
-	    levelist  = [1,2,3,5,7,10,20,30,50,70,100,150,200,250,300,400,500,
+        vartype   = "ins"
+        if fcrange = -99 then 
+   	      variable  = ["q", "R", "Z", "T", "w", "clwc", "ciwc", "cc"]
+   	      varuv     = ["u", "v"]
+        # varuv=nil
+          variables = variable&varuv
+	      levelist  = [1,2,3,5,7,10,20,30,50,70,100,150,200,250,300,400,500,
                        600,700,775,850,925,1000]          #23 levels (climate&ERA40)
-          else 
-  	    variables = ["q", "R", "Z", "T", "u", "v", "w"]
-	    levelist  = [1,2,3,5,7,10,20,30,50,70,100,150,200,250,300,400,500,
+        else 
+  	      variable  = ["q", "R", "Z", "T", "w"]
+  	      varuv     = ["u", "v"]
+          variables = variable&varuv
+	      levelist  = [1,2,3,5,7,10,20,30,50,70,100,150,200,250,300,400,500,
                        700,850,925,1000]          #23 levels (other runs)
-          end if
-          levelist  = levelist[lev1,lev2]
-          nlev      = lev2 - lev1 + 1
-        else
-          print("levtype ", levtype, " not supported")
-          fail
-	end if
+        end if
+        levelist  = levelist[lev1,lev2]
+        nlev      = lev2 - lev1 + 1
+    else
+        print("levtype ", levtype, " not supported")
+        fail
+    end if
 
 	nvar        = count(variables)
 	nfld        = nvar * nlev
@@ -176,10 +187,10 @@ print (" numsteps ",numsteps)
         print (" stream ",stream)
         print (" class ",class)
         print (" number ",number)
-	print (" Steps ", steplist)
-	print (" Levels ", levelist)
+        print (" Steps ", steplist)
+        print (" Levels ", levelist)
         print (" stream ",stream," number ",number)
-	print (" exp ", expv)
+        print (" exp ", expv)
         print (" date ",datelist)
         print (" time ",tim)
         print (" steps ",steplist)
@@ -188,79 +199,101 @@ print (" numsteps ",numsteps)
 
 # retrieve
 
-	if levtype = "ml" and lev1 = 1 then
-	  print ("retrieving lnsp for exp ", expv)		
-	  lnsp = retrieve(
-		class	:	class,
-		stream  :       stream,
-		system  :       0,
-                method  :       1,
-                number  :       number,
-		type	:	"fc",
-		expver	:	expv,
-		levtype	:	levtype,
-		levelist:	[1],
-		repres	:	"sh",
-		param	:	"lnsp",
-		date	:	datelist,
-		time    :       tim,
-		step	:	steplist,
-                grid    :       [2.5,2.5]
-		)
-	end if
+   if levtype = "ml" and lev1 = 1 then
+      print ("retrieving lnsp for exp ", expv)		
+      lnsp = retrieve(
+      class	:	class,
+      stream  :       stream,
+      system  :       0,
+      method  :       1,
+      number  :       number,
+      type	:	"fc",
+      expver	:	expv,
+      levtype	:	levtype,
+      levelist:	[1],
+      repres	:	"sh",
+      param	:	"lnsp",
+      date	:	datelist,
+      time    :       tim,
+      step	:	steplist,
+      grid    :       [2.5,2.5]
+      )
+   end if
 
-	vardata = retrieve(
- 		class	:	class,
-		stream  :       stream,
-		system  :       0,
-                method  :       1,
-                number  :       number,
- 		type	:	"fc",
- 		expver	:	expv,
- 		levtype	:	levtype,
- 		levelist:	levelist,
- 		param	:	variables,
- 		date	:	datelist,
-         	time    :       tim,
- 		step	:	steplist,
-                grid    :       [2.5,2.5]
- 		)
+   vardata = retrieve(
+      class	:	class,
+      stream  :       stream,
+      system  :       0,
+      method  :       1,
+      number  :       number,
+      type	:	"fc",
+      expver	:	expv,
+      levtype	:	levtype,
+      levelist:	levelist,
+      param	:	variables,
+      date	:	datelist,
+      time    :       tim,
+      step	:	steplist,
+      grid    :       [2.5,2.5]
+    )
 
 	diffvardata = nil
 
-        if fcrange > 1 and levtype = "sfc" then 
-	  vardatam1 = retrieve(
- 		class	:	class,
-		stream  :       stream,
-		system  :       0,
-                method  :       1,
-                number  :       number,
-  		type	:	"fc",
- 		expver	:	expv,
- 		levtype	:	levtype,
- 		levelist:	levelist,
- 		param	:	variables,
- 		date	:	datelist,
-         	time    :       tim,
- 		step	:	steplist2,
-                grid    :       [2.5,2.5]
- 		)
-          diffvardata=vardata-vardatam1
-        end if
-
-        # (to force FDB add: database:	"hpca FDB" or "fdb")
+    if fcrange > 1 and levtype = "sfc" then 
+      vardatam1 = retrieve(
+      class	:	class,
+      stream  :       stream,
+      system  :       0,
+      method  :       1,
+      number  :       number,
+      type	:	"fc",
+      expver	:	expv,
+      levtype	:	levtype,
+      levelist:	levelist,
+      param	:	variable,
+      date	:	datelist,
+      time    :       tim,
+      step	:	steplist2,
+      grid    :       [2.5,2.5]
+      )
+      diffvardata=vardata-vardatam1
+   end if
 
 # mean & save
 
-        if levtype = "sfc" then
-   	  meanvar = average(vardata,nfld,numsteps,int,vartype,variables,fcrange,diffvardata)
-        else
-          nlon=grib_get_long(vardata[1],"Ni")
-          nlat=grib_get_long(vardata[1],"Nj")
-          ntime=count(vardata)/(nlev*nvar)
-          meanvar=avgtime(vardata,nlon,nlat,nvar,nlev,ntime) #large files from 3mon mean
-        end if
+    if levtype = "sfc" then
+       meanvar = average(vardata,nfld,numsteps,int,vartype,variables,fcrange,diffvardata)
+       if count(vartc)>0 and rgtcsp<>1 then
+         meanv=nil
+         for n=1 to count(variables) do
+           if variables[n]='SUND' then 
+             param="10SI"
+           else
+             param=variables[n]
+           end if
+           meanf=read(data:meanvar,param:param)
+           scal=1
+           for i=1 to count(vartc) do
+             if vartc[i]=variables[n] then
+               scal=rgtcsp
+             end if
+           end for
+           meanv=meanv&(meanf*scal)
+         end for
+         meanvar=meanv
+       end if
+    else
+       nlon=grib_get_long(vardata[1],"Ni")
+       nlat=grib_get_long(vardata[1],"Nj")
+       ntime=count(vardata)/(nlev*nvar)
+       meanvar=avgtime(vardata,nlon,nlat,nvar,nlev,ntime) #large files from 3mon mean
+    end if
 
+    if count(varuv)>0 then
+     meanf1=read(data:meanvar,param:variable)
+     meanf2=read(data:meanvar,param:varuv)
+     meanvar=meanf1&(meanf2*rwindsp)
+    end if
 	if levtype = "ml" and lev1 = 1 then
 	  meanlnsp   = mean(lnsp)
 	  meanfields = meanvar&meanlnsp
@@ -269,20 +302,20 @@ print (" numsteps ",numsteps)
 	end if
 
         
-        if number=-99 then
-          if fcrange=-99 then
- 	    fname = datadir&"/mmean_"&expv&"_"&levtype&"_ini"&inidate&"_mon"&
-                string(yy[imon]*100+mm[imon])&"_n"&mml[imon]&".grb"
-          else
-	    fname = datadir&"/mmean_"&expv&"_"&class&"_day"&string(fcrange)&"_"&levtype&"_mon"&
-                string(yy[imon]*100+mm[imon])&"_n"&mml[imon]&".grb"
-          end if
-        else
-	  fname = datadir&"/mmean_"&expv&"_"&levtype&"_ini"&inidate&"_mem"&string(number)&"_mon"&
-                string(yy[imon]*100+mm[imon])&"_n"&mml[imon]&".grb"
-        end if   
-	print ("Writing Output: ", fname)
-	write(fname,meanfields)
+    if number=-99 then
+       if fcrange=-99 then
+          fname = datadir&"/mmean_"&expv&"_"&levtype&"_ini"&inidate&"_mon"&
+                  string(yy[imon]*100+mm[imon])&"_n"&mmln[imon]&".grb"
+       else
+   	      fname = datadir&"/mmean_"&expv&"_"&class&"_day"&string(fcrange)&"_"&levtype&"_mon"&
+                 string(yy[imon]*100+mm[imon])&"_n"&mmln[imon]&".grb"
+       end if
+    else
+        fname = datadir&"/mmean_"&expv&"_"&levtype&"_ini"&inidate&"_mem"&string(number)&"_mon"&
+                string(yy[imon]*100+mm[imon])&"_n"&mmln[imon]&".grb"
+    end if   
+    print ("Writing Output: ", fname)
+    write(fname,meanfields)
 
 end for
 
@@ -327,7 +360,7 @@ function average(fields,nfld,numsteps,int,vartype,variables,fcrange,diffvardata)
                onefld=diffvardata[i,i+((numsteps-1)*nfld),nfld]
                meanfld=mean(onefld)
             end if
-               meanfld=meanfld/(24*3600)
+               meanfld=meanfld/(nhday*3600)
           end if
        else
           meanfld = ( fields[i+((numsteps-1)*nfld)] - fields[i] )

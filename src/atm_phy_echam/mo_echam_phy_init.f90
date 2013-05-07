@@ -2,7 +2,7 @@
 !! @brief Contains subroutines for initializing the ECHAM physics
 !! package in ICOHAM.
 !!
-!! @author Hui Wan, MPI-M 
+!! @author Hui Wan, MPI-M
 !!
 !! @par Revision History
 !! First version by Hui Wan, 2010-07-20
@@ -42,18 +42,27 @@
 MODULE mo_echam_phy_init
 
   USE mo_kind,                 ONLY: wp
-  USE mo_exception,            ONLY: finish
+  USE mo_exception,            ONLY: finish, message, message_text
+  USE mo_datetime,             ONLY: t_datetime
 
   USE mo_sync,                 ONLY: sync_c, sync_patch_array
 
+  USE mo_netcdf_read,          ONLY: netcdf_read_oncells_2D
+
   ! model configuration
-  USE mo_dynamics_config,      ONLY: nnow 
+  USE mo_dynamics_config,      ONLY: nnow
   USE mo_parallel_config,      ONLY: nproma
   USE mo_run_config,           ONLY: nlev, iqv, iqt, ntracer
   USE mo_vertical_coord_table, ONLY: vct
   USE mo_echam_phy_config,     ONLY: phy_config => echam_phy_config, &
                                    & configure_echam_phy
   USE mo_echam_conv_config,    ONLY: configure_echam_convection
+
+  USE mo_lnd_jsbach_config,    ONLY: lnd_jsbach_config, configure_lnd_jsbach
+#ifdef __JSBACH__
+  USE mo_jsb_base,             ONLY: jsbach_init_base => init_base
+  USE mo_jsb_model_init,       ONLY: jsbach_init_model => init_model
+#endif
 
   ! test cases
   USE mo_ha_testcases,         ONLY: ape_sst_case
@@ -63,7 +72,7 @@ MODULE mo_echam_phy_init
 !   USE mo_math_utilities,      ONLY: sphere_cell_mean_char_length
 
   ! radiation
-  USE mo_radiation_config,     ONLY: ssi, tsi
+  USE mo_radiation_config,     ONLY: ssi, tsi, ighg
   USE mo_srtm_config,          ONLY: setup_srtm, ssi_amip
   USE mo_lrtm_setup,           ONLY: lrtm_setup
   USE mo_newcld_optics,        ONLY: setup_newcld_optics
@@ -101,9 +110,14 @@ MODULE mo_echam_phy_init
   USE mo_timer,                ONLY: ltimer, timers_level, timer_start, timer_stop, &
     & timer_prep_echam_phy
 
+  ! for AMIP boundary conditions
+  USE mo_amip_bc,              ONLY: read_amip_bc, amip_time_weights, amip_time_interpolation
+  USE mo_greenhouse_gases,     ONLY: read_ghg_bc, ghg_time_interpolation, ghg_file_read
 
   IMPLICIT NONE
+
   PRIVATE
+
   PUBLIC  :: init_echam_phy, initcond_echam_phy
   PUBLIC  :: additional_restart_init
 
@@ -120,16 +134,23 @@ CONTAINS
   !! name change to init_echam_phy by Levi Silvers
   !!
   SUBROUTINE init_echam_phy( p_patch, ltestcase, ctest_name, &
-                                nlev, vct_a, vct_b, ceta        )
+                                nlev, vct_a, vct_b, ceta, current_date)
 
-    TYPE(t_patch),   INTENT(IN) :: p_patch(:)
-    LOGICAL,         INTENT(IN) :: ltestcase
-    CHARACTER(LEN=*),INTENT(IN) :: ctest_name
-    INTEGER,         INTENT(IN) :: nlev
-    REAL(wp),        INTENT(IN) :: vct_a(:), vct_b(:), ceta(:)
+    TYPE(t_patch),   INTENT(in) :: p_patch(:)
+    LOGICAL,         INTENT(in) :: ltestcase
+    CHARACTER(LEN=*),INTENT(in) :: ctest_name
+    INTEGER,         INTENT(in) :: nlev
+    REAL(wp),        INTENT(in) :: vct_a(:), vct_b(:), ceta(:)
+    TYPE(t_datetime),INTENT(in) :: current_date
+
+    REAL(wp), POINTER     :: return_pointer(:,:)
 
     INTEGER :: khydromet, ktrac
     INTEGER :: jg, ndomain
+
+    CHARACTER(len=*), PARAMETER :: land_frac_fn = 'bc_land_frac.nc'
+    CHARACTER(len=*), PARAMETER :: land_phys_fn = 'bc_land_phys.nc'
+    CHARACTER(len=*), PARAMETER :: land_sso_fn  = 'bc_land_sso.nc'
 
 
     IF (timers_level > 1) CALL timer_start(timer_prep_echam_phy)
@@ -151,7 +172,7 @@ CONTAINS
       CALL setup_newcld_optics
     END IF
 
-    ! For cumulus convection: 
+    ! For cumulus convection:
     ! - assign value to echam_conv_config%nmctop;
     ! - allocate echam_conv_config%cevapcu(:) and assign values.
 
@@ -159,8 +180,8 @@ CONTAINS
       CALL configure_echam_convection(nlev, vct_a, vct_b, ceta)
     END IF
 
-    ! For surface processes: 
-    ! nsfc_type, iwtr, etc. are set in this subroutine. 
+    ! For surface processes:
+    ! nsfc_type, iwtr, etc. are set in this subroutine.
     ! See mo_icoham_sfc_indicies.f90 for further details.
 
     CALL init_sfc_indices( ltestcase, ctest_name )
@@ -171,15 +192,15 @@ CONTAINS
 
     IF (phy_config%lvdiff) THEN
       ! Currently the tracer indices are sorted such that we count
-      ! the water substances first, and then other species like 
-      ! aerosols and their precursors. "ntracer" is the total number 
+      ! the water substances first, and then other species like
+      ! aerosols and their precursors. "ntracer" is the total number
       ! of tracers (including water substances) handled in the model;
       ! "iqt" is the starting index for non-water species.
-      ! Before more sophisticated meta-data structure becomes available, 
+      ! Before more sophisticated meta-data structure becomes available,
       ! it is assumed here that all tracers are subject to turbulent mixing.
 
       khydromet = iqt - 2        ! # of hydrometeors
-      ktrac = ntracer - iqt + 1  ! # of non-water species 
+      ktrac = ntracer - iqt + 1  ! # of non-water species
 
       CALL init_vdiff_solver( khydromet, ktrac, nlev )
       CALL init_vdiff_params( nlev, nlev+1, nlev+1, vct )
@@ -207,21 +228,142 @@ CONTAINS
     !-------------------------------------------------------------------
     CALL construct_echam_phy_state( ntracer, p_patch )
 
+    ndomain = SIZE(p_patch)
 
-    ! general 
+    ! general
    !--------------------------------------------------------------
     !< characteristic gridlength needed by sso and sometimes by
     !! convection and turbulence
     !--------------------------------------------------------------
-    ndomain = SIZE(p_patch)
- 
+
     DO jg= 1,ndomain
       ! read it directly from the patch%geometry_info
       mean_charlen(jg) = p_patch(jg)%geometry_info%mean_characteristic_length
 !       CALL sphere_cell_mean_char_length (p_patch(jg)%n_patch_cells_g, &
 !         & mean_charlen(jg))
     ENDDO
-    
+
+    IF (phy_config%lamip) THEN
+!!!OMP PARALLEL DO PRIVATE(jb,jc,jcs,jce,zlat) ICON_OMP_DEFAULT_SCHEDULE
+      DO jg= 1,ndomain
+           ! by default it will create an error if it cannot open/read the file
+           return_pointer => netcdf_read_oncells_2D( &
+             & filename      =land_frac_fn,        &
+             & variable_name ='land',              &
+             & fill_array    = prm_field(jg)% lsmask(:,:),      &
+             & patch         = p_patch(jg))
+           return_pointer => netcdf_read_oncells_2D( &
+             & filename      =land_frac_fn,        &
+             & variable_name ='glac',              &
+             & fill_array    = prm_field(jg)% glac(:,:),        &
+             & patch         = p_patch(jg))
+           return_pointer => netcdf_read_oncells_2D( &
+             & filename      =land_frac_fn,        &
+             & variable_name ='lake',              &
+             & fill_array    = prm_field(jg)% alake(:,:),       &
+             & patch         = p_patch(jg))
+     ! roughness length and background albedo
+           return_pointer => netcdf_read_oncells_2D( &
+             & filename      =land_phys_fn,        &
+             & variable_name ='z0',                &
+             & fill_array    = prm_field(jg)% z0m(:,:),         &
+             & patch         = p_patch(jg))
+           return_pointer => netcdf_read_oncells_2D( &
+             & filename      =land_phys_fn,        &
+             & variable_name ='albedo',            &
+             & fill_array    = prm_field(jg)% alb(:,:),         &
+             & patch         = p_patch(jg))
+
+     ! orography
+           return_pointer => netcdf_read_oncells_2D( &
+             & filename      =land_sso_fn,         &
+             & variable_name ='oromea',            &
+             & fill_array    = prm_field(jg)% oromea(:,:),      &
+             & patch         = p_patch(jg))
+           return_pointer => netcdf_read_oncells_2D( &
+             & filename      =land_sso_fn,         &
+             & variable_name ='orostd',            &
+             & fill_array    = prm_field(jg)% orostd(:,:),      &
+             & patch         = p_patch(jg))
+           return_pointer => netcdf_read_oncells_2D( &
+             & filename      =land_sso_fn,         &
+             & variable_name ='orosig',            &
+             & fill_array    = prm_field(jg)% orosig(:,:),      &
+             & patch         = p_patch(jg))
+           return_pointer => netcdf_read_oncells_2D( &
+             & filename      =land_sso_fn,         &
+             & variable_name ='orogam',            &
+             & fill_array    = prm_field(jg)% orogam(:,:),      &
+             & patch         = p_patch(jg))
+           return_pointer => netcdf_read_oncells_2D( &
+             & filename      =land_sso_fn,         &
+             & variable_name ='orothe',            &
+             & fill_array    = prm_field(jg)% orothe(:,:),      &
+             & patch         = p_patch(jg))
+           return_pointer => netcdf_read_oncells_2D( &
+             & filename      =land_sso_fn,         &
+             & variable_name ='oropic',            &
+             & fill_array    = prm_field(jg)% oropic(:,:),      &
+             & patch         = p_patch(jg))
+           return_pointer => netcdf_read_oncells_2D( &
+             & filename      =land_sso_fn,         &
+             & variable_name ='oroval',            &
+             & fill_array    = prm_field(jg)% oroval(:,:),      &
+             & patch         = p_patch(jg))
+         ENDDO
+!!!OMP END PARALLEL DO
+
+    ! add lake mask to land sea mask to remove lakes again
+      DO jg= 1,ndomain
+        prm_field(jg)%lsmask(:,:) = prm_field(jg)%lsmask(:,:) + prm_field(jg)%alake(:,:)
+      ENDDO
+    ! read initial time varying boundary conditions
+
+      ! add interpolation of greenhouse gases here, only if radiation is going to be calculated
+      IF (ighg > 0) THEN
+        IF (.NOT. ghg_file_read) CALL read_ghg_bc(ighg)
+        CALL ghg_time_interpolation(current_date)
+      ENDIF
+      CALL read_amip_bc(current_date%year, p_patch(1))
+      CALL amip_time_weights(current_date)
+      DO jg= 1,ndomain
+        CALL amip_time_interpolation(prm_field(jg)%seaice(:,:), &
+!           &                        prm_field(jg)%tsfc_tile(:,:,:), &
+           &                         prm_field(jg)%tsurfw(:,:), &
+           &                         prm_field(jg)%siced(:,:), &
+           &                         prm_field(jg)%lsmask(:,:))
+        prm_field(jg)%tsfc_tile(:,:,iwtr) = prm_field(jg)%tsurfw(:,:)
+! TODO: ME preliminary setting for ice
+        prm_field(jg)%tsfc_tile(:,:,iice) = prm_field(jg)%tsurfw(:,:)
+        prm_field(jg)%tsfc_tile(:,:,ilnd) = prm_field(jg)%tsurfw(:,:)
+! TODO: ME preliminary setting for ice
+        prm_field(jg)% albvisdir_ice(:,:,:) = albi ! albedo in the visible range for direct radiation
+        prm_field(jg)% albnirdir_ice(:,:,:) = albi ! albedo in the NIR range for direct radiation 
+        prm_field(jg)% albvisdif_ice(:,:,:) = albi ! albedo in the visible range for diffuse radiation
+        prm_field(jg)% albnirdif_ice(:,:,:) = albi ! albedo in the NIR range for diffuse radiation
+        prm_field(jg)% albvisdir_wtr(:,:) = albedoW ! albedo in the visible range for direct radiation
+        prm_field(jg)% albnirdir_wtr(:,:) = albedoW ! albedo in the NIR range for direct radiation 
+        prm_field(jg)% albvisdif_wtr(:,:) = albedoW ! ! albedo in the visible range for diffuse radiation
+        prm_field(jg)% albnirdif_wtr(:,:) = albedoW ! albedo in the NIR range for diffuse radiation
+      ENDDO
+
+    ENDIF    ! phy_config%lamip
+
+#ifdef __JSBACH__
+    IF (phy_config%ljsbach) THEN
+      CALL configure_lnd_jsbach(ltestcase, ctest_name)
+      ! Do basic initialization of JSBACH
+      CALL jsbach_init_base()
+      ! Now continue initialization of JSBACH for the different grids
+      ! Get back the soil levels (needed to setup the zaxes in vlist and name_list_output for CDI)
+      DO jg=1,ndomain
+        CALL jsbach_init_model( jg, p_patch(jg),                            & !< in
+          & lnd_jsbach_config(jg)%nsoil,  lnd_jsbach_config(jg)%zlev_soil,  & !< out
+          & lnd_jsbach_config(jg)%ntsoil, lnd_jsbach_config(jg)%ztlev_soil)   !< out
+      END DO
+    END IF
+#endif
+
     IF (timers_level > 1) CALL timer_stop(timer_prep_echam_phy)
 
   END SUBROUTINE init_echam_phy
@@ -287,53 +429,28 @@ CONTAINS
       IF (ltestcase) THEN
         SELECT CASE (ctest_name)
         CASE('APE') !Note that there is only one surface type in this case
-                    !except ljsbach=.true. with land and ocean (two surface types)
 
-          IF (phy_config%ljsbach) THEN
 !$OMP PARALLEL DO PRIVATE(jb,jc,jcs,jce,zlat) ICON_OMP_DEFAULT_SCHEDULE
-            DO jb = jbs,nblks_c
-              CALL get_indices_c( p_patch(jg), jb,jbs,nblks_c, jcs,jce, 2)
-              DO jc = jcs,jce
-                zlat = p_patch(jg)%cells%center(jc,jb)%lat
-!                field% tsfc_tile(jc,jb,ilnd) = ext_data(jg)%atm%sst(jc,jb)   ! SST (preliminary)
-!                field% tsfc_tile(jc,jb,iwtr) = ext_data(jg)%atm%sst(jc,jb)   ! SST
-                field% tsfc_tile(jc,jb,ilnd) = ext_data(jg)%atm%sst_mon(jc,1,jb)   ! SST (preliminary)
-                field% tsfc_tile(jc,jb,iwtr) = ext_data(jg)%atm%sst_mon(jc,1,jb)   ! SST
-                IF (ext_data(jg)%atm%lsm_ctr_c(jc,jb) > 0) THEN ! this is land
-                  field% tsfc(jc,jb) = field% tsfc_tile(jc,jb,ilnd)
-                  field% lsmask(jc,jb) = 1._wp   ! a grid box is either completely land ...
-                ELSE ! this is ocean
-                  field% tsfc(jc,jb) = field% tsfc_tile(jc,jb,iwtr)
-                  field% lsmask(jc,jb) = 0._wp   ! ... or a grid box is completely ocean
-                END IF
-              END DO
-              field% glac  (jcs:jce,jb) = 0._wp   ! zero glacier fraction
-              field% seaice(jcs:jce,jb) = 0._wp   ! zero sea ice fraction
+          DO jb = jbs,nblks_c
+            CALL get_indices_c( p_patch(jg), jb,jbs,nblks_c, jcs,jce, 2)
+            DO jc = jcs,jce
+              zlat = p_patch(jg)%cells%center(jc,jb)%lat
+              !field% tsfc_tile(jc,iwtr,jb) = ape_sst(ape_sst_case,zlat)   ! SST
+              !field% tsfc     (jc,     jb) = field% tsfc_tile(jc,iwtr,jb)
+              field% tsfc_tile(jc,jb,iwtr) = ape_sst(ape_sst_case,zlat)   ! SST
+              field% tsfc     (jc,     jb) = field% tsfc_tile(jc,jb,iwtr)
             END DO
+            field% lsmask(jcs:jce,jb) = 0._wp   ! zero land fraction
+            field% glac  (jcs:jce,jb) = 0._wp   ! zero glacier fraction
+            field% seaice(jcs:jce,jb) = 0._wp   ! zeor sea ice fraction
+          END DO
 !$OMP END PARALLEL DO
-          ELSE
-!$OMP PARALLEL DO PRIVATE(jb,jc,jcs,jce,zlat) ICON_OMP_DEFAULT_SCHEDULE
-            DO jb = jbs,nblks_c
-              CALL get_indices_c( p_patch(jg), jb,jbs,nblks_c, jcs,jce, 2)
-              DO jc = jcs,jce
-                zlat = p_patch(jg)%cells%center(jc,jb)%lat
-               !field% tsfc_tile(jc,iwtr,jb) = ape_sst(ape_sst_case,zlat)   ! SST
-               !field% tsfc     (jc,     jb) = field% tsfc_tile(jc,iwtr,jb)
-                field% tsfc_tile(jc,jb,iwtr) = ape_sst(ape_sst_case,zlat)   ! SST
-                field% tsfc     (jc,     jb) = field% tsfc_tile(jc,jb,iwtr)
-              END DO
-              field% lsmask(jcs:jce,jb) = 0._wp   ! zero land fraction
-              field% glac  (jcs:jce,jb) = 0._wp   ! zero glacier fraction
-              field% seaice(jcs:jce,jb) = 0._wp   ! zeor sea ice fraction
-            END DO
-!$OMP END PARALLEL DO
-          END IF ! ljsbach
 
           IF ( is_coupled_run() ) CALL finish('ERROR: Use testcase APEc for a coupled run')
 
-        CASE('APEi') 
-          ! The same as APE, except we don't allow JSBACH and whenever SST reaches tmelt we put 1 m
-          ! thick ice with concentration of 0.9 on top
+        CASE('APEi')
+          ! The same as APE except that, whenever SST reaches tmelt, we put
+          ! 1m-thick ice with a concentration of 0.9 on top
 
 !$OMP PARALLEL DO PRIVATE(jb,jc,jcs,jce,zlat) ICON_OMP_DEFAULT_SCHEDULE
           DO jb = jbs,nblks_c
@@ -371,15 +488,15 @@ CONTAINS
           END DO
 !$OMP END PARALLEL DO
           field% albvisdir_ice(:,:,:) = albi ! albedo in the visible range for direct radiation
-          field% albnirdir_ice(:,:,:) = albi ! albedo in the NIR range for direct radiation 
+          field% albnirdir_ice(:,:,:) = albi ! albedo in the NIR range for direct radiation
           field% albvisdif_ice(:,:,:) = albi ! albedo in the visible range for diffuse radiation
           field% albnirdif_ice(:,:,:) = albi ! albedo in the NIR range for diffuse radiation
           field% albvisdir_wtr(:,:) = albedoW ! albedo in the visible range for direct radiation
-          field% albnirdir_wtr(:,:) = albedoW ! albedo in the NIR range for direct radiation 
+          field% albnirdir_wtr(:,:) = albedoW ! albedo in the NIR range for direct radiation
           field% albvisdif_wtr(:,:) = albedoW ! ! albedo in the visible range for diffuse radiation
           field% albnirdif_wtr(:,:) = albedoW ! albedo in the NIR range for diffuse radiation
 
-        CASE('APEc') 
+        CASE('APEc')
           ! The same as APEi, except we initialize with no ice and don't modify the surface
           ! temperature. This is meant for a coupled run.
 
@@ -406,11 +523,11 @@ CONTAINS
           END DO
 !$OMP END PARALLEL DO
           field% albvisdir_ice(:,:,:) = albi ! albedo in the visible range for direct radiation
-          field% albnirdir_ice(:,:,:) = albi ! albedo in the NIR range for direct radiation 
+          field% albnirdir_ice(:,:,:) = albi ! albedo in the NIR range for direct radiation
           field% albvisdif_ice(:,:,:) = albi ! albedo in the visible range for diffuse radiation
           field% albnirdif_ice(:,:,:) = albi ! albedo in the NIR range for diffuse radiation
           field% albvisdir_wtr(:,:) = albedoW ! albedo in the visible range for direct radiation
-          field% albnirdir_wtr(:,:) = albedoW ! albedo in the NIR range for direct radiation 
+          field% albnirdir_wtr(:,:) = albedoW ! albedo in the NIR range for direct radiation
           field% albvisdif_wtr(:,:) = albedoW ! ! albedo in the visible range for diffuse radiation
           field% albnirdif_wtr(:,:) = albedoW ! albedo in the NIR range for diffuse radiation
 
@@ -446,7 +563,7 @@ CONTAINS
              field_shape(2) = nbr_hor_points
              field_shape(3) = 1
              !
-             ! Send fields away 
+             ! Send fields away
              ! ----------------
              !
              ! Is there really anything to send or can the ocean live without?
@@ -594,7 +711,7 @@ CONTAINS
           END DO
 !$OMP END DO  NOWAIT
 !$OMP END PARALLEL
-          
+
         END SELECT
       ENDIF ! ltestcase
 
@@ -611,7 +728,7 @@ CONTAINS
         CALL full_level_pressure( field%presi_old(:,:,jb), nproma, jce, &! in
                                 & field%presm_old(:,:,jb)               )! out
 
-        ! Initialize the flag lfland (.TRUE. if the fraction of land in 
+        ! Initialize the flag lfland (.TRUE. if the fraction of land in
         ! a grid box is larger than zero). In ECHAM a local array
         ! is initialized in each call of the subroutine "physc"
 
@@ -625,7 +742,7 @@ CONTAINS
 
 
         ! Initialize cloud droplet number concentration (acdnc)
-        ! (In ECHAM6 this is done in subroutine "physc" using a 
+        ! (In ECHAM6 this is done in subroutine "physc" using a
         ! "IF (lstart) THEN" block.)
 
         DO jk = 1,nlev
@@ -653,10 +770,10 @@ CONTAINS
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
-      ! Assign initial values for some components of the "field" and 
+      ! Assign initial values for some components of the "field" and
       ! "tend" state vectors.
 
-!$OMP PARALLEL 
+!$OMP PARALLEL
 !$OMP WORKSHARE
       field% q(:,:,:,iqv)  = p_hydro_state(jg)%prog(nnow(jg))% tracer(:,:,:,iqv)
      !field% q(:,:,:,iqc)  = p_hydro_state(jg)%prog(nnow(jg))% tracer(:,:,:,iqc)
@@ -709,12 +826,16 @@ CONTAINS
       field% u_stress_avg(:,  :) = 0._wp
       field% v_stress_avg(:,  :) = 0._wp
 
+      field% u_stress_sso(:,:) = 0._wp
+      field% v_stress_sso(:,:) = 0._wp
+      field% dissipation_sso(:,:) = 0._wp
+
       field% rtype (:,  :) = 0._wp
       field% rintop(:,  :) = 0._wp
 
       field% albvisdir(:,  :) = 0.07_wp ! albedo in the visible range for direct radiation
                                              ! (set to the albedo of water for testing)
-      field% albnirdir(:,  :) = 0.07_wp ! albedo in the NIR range for direct radiation 
+      field% albnirdir(:,  :) = 0.07_wp ! albedo in the NIR range for direct radiation
                                              ! (set to the albedo of water for testing)
       field% albvisdif(:,  :) = 0.07_wp ! albedo in the visible range for diffuse radiation
                                              ! (set to the albedo of water for testing)
@@ -725,55 +846,17 @@ CONTAINS
 !$OMP END WORKSHARE
 
       IF (phy_config%ljsbach) THEN
-!!$ TR for JSBACH testing (energy balance)
-!$OMP WORKSHARE
-      field% surface_temperature    (:,  :) = field% tsfc_tile(:,:,iwtr) !! initialize surface temperature == sst for testinf
-      field% surface_temperature_old(:,  :) = field% tsfc_tile(:,:,iwtr) !! initialize surface temperature == sst for testing
-      field% surface_temperature_rad(:,  :) = field% tsfc_tile(:,:,iwtr) !! initialize surface temperature == sst for testing
-      field% surface_temperature_eff(:,  :) = field% tsfc_tile(:,:,iwtr) !! initialize surface temperature == sst for testing
-      field% c_soil_temperature1    (:,  :) = 0._wp
-      field% c_soil_temperature2    (:,  :) = 0._wp
-      field% c_soil_temperature3    (:,  :) = 0._wp
-      field% c_soil_temperature4    (:,  :) = 0._wp
-      field% c_soil_temperature5    (:,  :) = 0._wp
-      field% d_soil_temperature1    (:,  :) = 1._wp
-      field% d_soil_temperature2    (:,  :) = 1._wp
-      field% d_soil_temperature3    (:,  :) = 1._wp
-      field% d_soil_temperature4    (:,  :) = 1._wp
-      field% d_soil_temperature5    (:,  :) = 1._wp
-      field% soil_temperature1      (:,  :) = field% tsfc_tile(:,:,iwtr) !! initialize soil temperature == sst for testindg
-      field% soil_temperature2      (:,  :) = field% tsfc_tile(:,:,iwtr) !! initialize soil temperature == sst for testindg
-      field% soil_temperature3      (:,  :) = field% tsfc_tile(:,:,iwtr) !! initialize soil temperature == sst for testindg
-      field% soil_temperature4      (:,  :) = field% tsfc_tile(:,:,iwtr) !! initialize soil temperature == sst for testindg
-      field% soil_temperature5      (:,  :) = field% tsfc_tile(:,:,iwtr) !! initialize soil temperature == sst for testindg
-      field% heat_capacity          (:,  :) = 1._wp
-      field% ground_heat_flux       (:,  :) = 0._wp
-      field% swnet                  (:,  :) = 0._wp
-      field% time_steps_soil        (:,  :) = 0._wp
 
-!!$ TR for JSBACH testing (hydrology)
-      field% moisture1              (:,  :) = 0.0109355_wp
-      field% moisture2              (:,  :) = 0.0427327_wp
-      field% moisture3              (:,  :) = 0.153602_wp
-      field% moisture4              (:,  :) = 0.251354_wp
-      field% moisture5              (:,  :) = 0._wp
-      field% moisture_all           (:,  :) = 0.446431_wp
-      field% csat                   (:,  :) = 1.0_wp
-      field% cair                   (:,  :) = 1.0_wp
-      field% csat_transpiration     (:,  :) = 0._wp
-      field% sat_surface_specific_humidity (:,  :) = 0.01_wp
-      field% skin_reservoir         (:,  :) = 0._wp
-      field% snow_fract             (:,  :) = 0._wp
-      field% snow                   (:,  :) = 0._wp
-      field% snow_canopy            (:,  :) = 0._wp
-      field% snow_melt              (:,  :) = 0._wp
-      field% snow_acc               (:,  :) = 0._wp
-      field% snow_melt_acc          (:,  :) = 0._wp
-      field% glacier_runoff_acc     (:,  :) = 0._wp
-      field% runoff_acc             (:,  :) = 0._wp
-      field% drainage_acc           (:,  :) = 0._wp
+!$OMP WORKSHARE
+        field% surface_temperature_rad(:,  :) = field% tsfc_tile(:,:,ilnd)
+        field% surface_temperature_eff(:,  :) = field% tsfc_tile(:,:,ilnd)
+        field% zhsoil                 (:,  :) = 0._wp
+        field% csat                   (:,  :) = 1.0_wp
+        field% cair                   (:,  :) = 1.0_wp
 !$OMP END WORKSHARE
+
       END IF ! ljsbach
+
 !$OMP END PARALLEL
 
       IF (phy_config%lvdiff) THEN
@@ -782,7 +865,7 @@ CONTAINS
       DO jb = jbs,nblks_c
         CALL get_indices_c( p_patch(jg), jb,jbs,nblks_c, jcs,jce, 2)
         field% coriol(jcs:jce,jb) = p_patch(jg)%cells%f_c(jcs:jce,jb)
-      ENDDO 
+      ENDDO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
@@ -802,11 +885,15 @@ CONTAINS
        !IF (ilnd<=nsfc_type) field% z0m_tile(:,ilnd,:) = z0m_min ! or maybe a larger value?
         IF (iwtr<=nsfc_type) field% z0m_tile(:,:,iwtr) = 1e-3_wp !see init_surf in echam (or z0m_oce?)
         IF (iice<=nsfc_type) field% z0m_tile(:,:,iice) = 1e-3_wp !see init_surf in echam (or z0m_ice?)
-        IF (ilnd<=nsfc_type) field% z0m_tile(:,:,ilnd) = z0m_min ! or maybe a larger value?
+!        IF (ilnd<=nsfc_type) field% z0m_tile(:,:,ilnd) = z0m_min ! or maybe a larger value?
+        IF (ilnd<=nsfc_type) THEN
+          field% z0m_tile(:,:,ilnd) = field%z0m(:,:) ! or maybe a larger value?
+          field% z0h_lnd(:,:)       = field%z0m(:,:) ! or maybe a larger value?
+        END IF
       ENDIF
 
       ! Initialization of tendencies is necessary for doing I/O with
-      ! the NAG compiler 
+      ! the NAG compiler
 
       tend% temp_radsw(:,:,:) = 0._wp
       tend% temp_radlw(:,:,:) = 0._wp
@@ -827,6 +914,10 @@ CONTAINS
       tend% temp_gwh(:,:,:)   = 0._wp
       tend%    u_gwh(:,:,:)   = 0._wp
       tend%    v_gwh(:,:,:)   = 0._wp
+
+      tend% temp_sso(:,:,:)   = 0._wp
+      tend%    u_sso(:,:,:)   = 0._wp
+      tend%    v_sso(:,:,:)   = 0._wp
 
 !!$      field% debug_2d_1(:,  :) = 0.0_wp
 !!$      field% debug_2d_2(:,  :) = 0.0_wp
@@ -894,10 +985,10 @@ CONTAINS
 
           SELECT CASE (ctest_name)
           CASE('APE')
-          ! For an aqua-planet experiment, re-initialization is necessary if 
-          ! the restart file in use was generated during a differently configured 
-          ! experiment (e.g., an APE exp with a different SST setup, or 
-          ! a real-world simulation such as AMIP, etc). 
+          ! For an aqua-planet experiment, re-initialization is necessary if
+          ! the restart file in use was generated during a differently configured
+          ! experiment (e.g., an APE exp with a different SST setup, or
+          ! a real-world simulation such as AMIP, etc).
 
             DO jc = jcs,jce
               zlat = p_patch(jg)%cells%center(jc,jb)%lat
@@ -912,13 +1003,13 @@ CONTAINS
 
           END SELECT
 
-        ELSE 
+        ELSE
           CALL finish(TRIM(routine),'ltestcase = .FALSE. '//                     &
                      & 'Implement re-initialization of SST, sea ice and glacier.')
         END IF
 
         !--------------------------------------------------------------------
-        ! Initialize the flag lfland (.TRUE. if the fraction of land in 
+        ! Initialize the flag lfland (.TRUE. if the fraction of land in
         ! a grid box is larger than zero). In ECHAM a local array
         ! is initialized in each call of the subroutine "physc".
         ! Note that this initialization is needed for all resumed integrations
@@ -971,4 +1062,3 @@ CONTAINS
   END SUBROUTINE additional_restart_init
 
 END MODULE mo_echam_phy_init
-

@@ -54,13 +54,14 @@ MODULE mo_lnd_nwp_config
 
   PRIVATE
 
-  PUBLIC :: nlev_soil, nlev_snow, ntiles_total, ntiles_lnd, ntiles_water, nlists_water
+  PUBLIC :: nlev_soil, nlev_snow, ntiles_total, ntiles_lnd, ntiles_water
   PUBLIC :: frlnd_thrhld, frlndtile_thrhld, frlake_thrhld, frsea_thrhld
   PUBLIC :: lseaice,  llake, lmelt, lmelt_var, lmulti_snow, lsnowtile, max_toplaydepth
   PUBLIC :: itype_gscp, itype_trvg ,    itype_evsl, itype_tran 
-  PUBLIC :: itype_root, itype_heatcond, itype_hydbound, idiag_snowfrac
-  PUBLIC :: lstomata,   l2tls, lana_rho_snow, itype_subs 
-  PUBLIC :: isub_water, isub_seaice
+  PUBLIC :: itype_root, itype_heatcond, itype_interception, &
+             itype_hydbound, idiag_snowfrac
+  PUBLIC :: lstomata,   l2tls, lana_rho_snow 
+  PUBLIC :: isub_water, isub_lake, isub_seaice
   PUBLIC :: sstice_mode, sst_td_filename, ci_td_filename
 
   PUBLIC :: configure_lnd_nwp
@@ -77,8 +78,7 @@ MODULE mo_lnd_nwp_config
   INTEGER ::  nlev_snow          !< number of snow layers
   INTEGER ::  ntiles_total       !< total number of TILES
   INTEGER ::  ntiles_lnd         !< number of static land surface types
-  INTEGER ::  ntiles_water       !< number of extra tiles for ocean and lakes
-  INTEGER ::  nlists_water       !< number of extra index lists for ocean and lakes
+  INTEGER ::  ntiles_water       !< number of extra tiles for ocean, seaice and lakes
   REAL(wp)::  frlnd_thrhld       !< fraction threshold for creating a land grid point
   REAL(wp)::  frlndtile_thrhld   !< fraction threshold for retaining the respective 
                                  !< tile for a grid point
@@ -90,8 +90,8 @@ MODULE mo_lnd_nwp_config
   INTEGER ::  itype_tran         !< type of surface to atmospher transfer
   INTEGER ::  itype_root         !< type of root density distribution
   INTEGER ::  itype_heatcond     !< type of soil heat conductivity
+  INTEGER ::  itype_interception !< type of plant interception
   INTEGER ::  itype_hydbound     !< type of hydraulic lower boundary condition
-  INTEGER ::  itype_subs         !< type of subscale surface treatment =1 MOSAIC, =2 TILE 
   INTEGER ::  idiag_snowfrac     !< method for diagnosis of snow-cover fraction
 
   LOGICAL ::  lseaice     !> forecast with sea-ice model
@@ -106,12 +106,14 @@ MODULE mo_lnd_nwp_config
   LOGICAL ::  lsnowtile   !! if .TRUE., snow is considered as a separate tile
  
   INTEGER ::  sstice_mode      !< set if SST and sea ice cover are read from the analysis
-                                 !< and kept constant or read from external data files 
-                                 !< and updated regularly in run time
+                               !< and kept constant or read from external data files 
+                               !< and updated regularly in run time
   CHARACTER(LEN=filename_max) :: sst_td_filename, ci_td_filename
+
   ! derived variables
   INTEGER ::  nlev_soil   !< number of soil layers (based on zml_soil in impl_constants)
   INTEGER ::  isub_water  !< (open) water points tile number
+  INTEGER ::  isub_lake   !< lake points tile number
   INTEGER ::  isub_seaice !< seaice tile number
 
 !  END TYPE t_nwp_lnd_config
@@ -167,19 +169,37 @@ CONTAINS
     IF (ntiles_total == 1) THEN 
       ! no tile approach, thus no extra tile index for water points
       ntiles_water = 0
-      nlists_water = 0
     ELSE
       ! extra tiles for water points
-      ntiles_water = 2 ! one for lake and ocean points
+      ntiles_water = 3 ! one for open sea points
+                       ! another one for lake points
                        ! another one for seaice
-
-      nlists_water = 3 ! one for ocean points
-                       ! one for lake points
-                       ! one for sea-ice points 
     ENDIF
 
+
+    !
+    ! ASCII art for tile approach, showing the configuration for:
+    ! - ntiles_lnd = 3
+    ! - lsnowtile  = .TRUE.
+    !
+    !------------------------------------------------------------------!
+    !      |      |      ||      |      |      ||      |      |        !
+    ! land | land | land || snow | snow | snow || open | lake | seaice !
+    !      |      |      ||      |      |      || sea  |      |        !
+    !------------------------------------------------------------------!
+    !
+    !<---  ntiles_lnd --->                      <---- ntiles_water ---->
+    !
+    !<-------------- ntiles_total ------------>
+    !
+    !<---------------- ntiles_total + ntiles_water ------------------->
+    !
+
     ! (open) water points tile number
-    isub_water  = MAX(1,ntiles_total + ntiles_water - 1)
+    isub_water  = MAX(1,ntiles_total + ntiles_water - 2)
+
+    ! lake points tile number
+    isub_lake   = MAX(1,ntiles_total + ntiles_water - 1)
 
     ! sea-ice tile number
     isub_seaice = ntiles_total + ntiles_water

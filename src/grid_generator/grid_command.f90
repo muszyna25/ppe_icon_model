@@ -20,7 +20,8 @@ PROGRAM grid_command
     & decompose_file_metis, file_pair_opposite_subdomains,          &
     & shrink_file_decomposition, file_reorder_latlon_subdomains,    &
     & file_reorder_lonlat_subdomains, file_cluster_subdomains,      &
-    & decompose_file_geometric_medial, decomp_file_geom_medial_cluster
+    & decompose_file_geometric_medial, decomp_file_geom_medial_cluster, &
+    & redecompose_radiation
   USE mo_local_grid_geometry,   ONLY:  compute_sphere_geometry, file_rotate_sphere_xaxis
   
 #ifndef __ICON_GRID_GENERATOR__
@@ -56,6 +57,7 @@ PROGRAM grid_command
   CHARACTER(len=32), PARAMETER :: shift_grid_ids_c ='shift_grid_ids'
   CHARACTER(len=32), PARAMETER :: coarsen_grid_c ='coarsen_grid'
   CHARACTER(len=32), PARAMETER :: decompose_round_robin_opp_c ='decompose_round_robin_opp'
+  CHARACTER(len=32), PARAMETER :: redecompose_radiation_c ='redecompose_radiation'
   CHARACTER(len=32), PARAMETER :: decompose_metis_c ='decompose_metis'
   CHARACTER(len=32), PARAMETER :: decompose_geometric_medial_c ='decompose_geometric_medial'
   CHARACTER(len=32), PARAMETER :: decomp_geom_medial_cluster_c = &
@@ -220,6 +222,13 @@ PROGRAM grid_command
         &  in_decomposition_id=int_param_1, out_decomposition_id=int_param_2,        &
         &  subdomain_partition=int_param_3, out_ascii_file=param_2  )
     
+    CASE (redecompose_radiation_c)
+      OPEN (500, FILE = command_file,STATUS = 'OLD')
+      READ (500, *) command, param_1, int_param_1, int_param_2, int_param_3, param_2
+      CLOSE(500)
+      CALL redecompose_radiation(grid_file=param_1,                         &
+        &  in_decomposition_id=int_param_1, out_decomposition_id=int_param_2,        &
+        &  subdomain_partition=int_param_3, out_ascii_file=param_2  )
     
     CASE (inherit_decomposition_c)
       OPEN (500, FILE = command_file,STATUS = 'OLD')

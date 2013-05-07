@@ -49,9 +49,10 @@ ${ECFSPATH}/emkdir.p -p $ecfsdir
 # convert metview plots from ps to png 
 
 cd metplots
-for metfile in `ls *.ps` ; do
+for metfile in `ls map*.ps zon*.ps` ; do
   metfile2=`echo $metfile | sed 's/\.ps//'`
-  convert -rotate 90 ${metfile2}.ps ${metfile2}.png || true
+ #convert -rotate 90 ${metfile2}.ps ${metfile2}.png || true
+  rm -f ${metfile2}.ps
 done 
 cd -
 
@@ -60,7 +61,7 @@ cd -
 # ectrans plots to mkoehler@DWD
 
 /home/ms/de/dfr/Perl/ectrans.pl -r ECtoFE04 -O plots/%SUITE%_%EXPNUM%/%YMD%/meteo meteo/*png %SUITE%_%EXPNUM%_%YMD%%INIHOUR%_meteogram.nc
-/home/ms/de/dfr/Perl/ectrans.pl -r ECtoFE04 -O plots/%SUITE%_%EXPNUM%/%YMD%/metplots metplots/*png 
+/home/ms/de/dfr/Perl/ectrans.pl -r ECtoFE04 -O plots/%SUITE%_%EXPNUM%/%YMD%/metplots metplots/*png
 
 
 #-----------------------------------------------------------------------------
@@ -86,7 +87,6 @@ if [[ $ldeldata = 1 ]] ; then
   cd ..
   \rm -rf ${gatedir}
 fi
-
 
 
 # -------------------------------------------------

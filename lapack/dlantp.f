@@ -1,9 +1,133 @@
+*> \brief \b DLANTP returns the value of the 1-norm, or the Frobenius norm, or the infinity norm, or the element of largest absolute value of a triangular matrix supplied in packed form.
+*
+*  =========== DOCUMENTATION ===========
+*
+* Online html documentation available at 
+*            http://www.netlib.org/lapack/explore-html/ 
+*
+*> \htmlonly
+*> Download DLANTP + dependencies 
+*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.tgz?format=tgz&filename=/lapack/lapack_routine/dlantp.f"> 
+*> [TGZ]</a> 
+*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.zip?format=zip&filename=/lapack/lapack_routine/dlantp.f"> 
+*> [ZIP]</a> 
+*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.txt?format=txt&filename=/lapack/lapack_routine/dlantp.f"> 
+*> [TXT]</a>
+*> \endhtmlonly 
+*
+*  Definition:
+*  ===========
+*
+*       DOUBLE PRECISION FUNCTION DLANTP( NORM, UPLO, DIAG, N, AP, WORK )
+* 
+*       .. Scalar Arguments ..
+*       CHARACTER          DIAG, NORM, UPLO
+*       INTEGER            N
+*       ..
+*       .. Array Arguments ..
+*       DOUBLE PRECISION   AP( * ), WORK( * )
+*       ..
+*  
+*
+*> \par Purpose:
+*  =============
+*>
+*> \verbatim
+*>
+*> DLANTP  returns the value of the one norm,  or the Frobenius norm, or
+*> the  infinity norm,  or the  element of  largest absolute value  of a
+*> triangular matrix A, supplied in packed form.
+*> \endverbatim
+*>
+*> \return DLANTP
+*> \verbatim
+*>
+*>    DLANTP = ( max(abs(A(i,j))), NORM = 'M' or 'm'
+*>             (
+*>             ( norm1(A),         NORM = '1', 'O' or 'o'
+*>             (
+*>             ( normI(A),         NORM = 'I' or 'i'
+*>             (
+*>             ( normF(A),         NORM = 'F', 'f', 'E' or 'e'
+*>
+*> where  norm1  denotes the  one norm of a matrix (maximum column sum),
+*> normI  denotes the  infinity norm  of a matrix  (maximum row sum) and
+*> normF  denotes the  Frobenius norm of a matrix (square root of sum of
+*> squares).  Note that  max(abs(A(i,j)))  is not a consistent matrix norm.
+*> \endverbatim
+*
+*  Arguments:
+*  ==========
+*
+*> \param[in] NORM
+*> \verbatim
+*>          NORM is CHARACTER*1
+*>          Specifies the value to be returned in DLANTP as described
+*>          above.
+*> \endverbatim
+*>
+*> \param[in] UPLO
+*> \verbatim
+*>          UPLO is CHARACTER*1
+*>          Specifies whether the matrix A is upper or lower triangular.
+*>          = 'U':  Upper triangular
+*>          = 'L':  Lower triangular
+*> \endverbatim
+*>
+*> \param[in] DIAG
+*> \verbatim
+*>          DIAG is CHARACTER*1
+*>          Specifies whether or not the matrix A is unit triangular.
+*>          = 'N':  Non-unit triangular
+*>          = 'U':  Unit triangular
+*> \endverbatim
+*>
+*> \param[in] N
+*> \verbatim
+*>          N is INTEGER
+*>          The order of the matrix A.  N >= 0.  When N = 0, DLANTP is
+*>          set to zero.
+*> \endverbatim
+*>
+*> \param[in] AP
+*> \verbatim
+*>          AP is DOUBLE PRECISION array, dimension (N*(N+1)/2)
+*>          The upper or lower triangular matrix A, packed columnwise in
+*>          a linear array.  The j-th column of A is stored in the array
+*>          AP as follows:
+*>          if UPLO = 'U', AP(i + (j-1)*j/2) = A(i,j) for 1<=i<=j;
+*>          if UPLO = 'L', AP(i + (j-1)*(2n-j)/2) = A(i,j) for j<=i<=n.
+*>          Note that when DIAG = 'U', the elements of the array AP
+*>          corresponding to the diagonal elements of the matrix A are
+*>          not referenced, but are assumed to be one.
+*> \endverbatim
+*>
+*> \param[out] WORK
+*> \verbatim
+*>          WORK is DOUBLE PRECISION array, dimension (MAX(1,LWORK)),
+*>          where LWORK >= N when NORM = 'I'; otherwise, WORK is not
+*>          referenced.
+*> \endverbatim
+*
+*  Authors:
+*  ========
+*
+*> \author Univ. of Tennessee 
+*> \author Univ. of California Berkeley 
+*> \author Univ. of Colorado Denver 
+*> \author NAG Ltd. 
+*
+*> \date September 2012
+*
+*> \ingroup doubleOTHERauxiliary
+*
+*  =====================================================================
       DOUBLE PRECISION FUNCTION DLANTP( NORM, UPLO, DIAG, N, AP, WORK )
 *
-*  -- LAPACK auxiliary routine (version 3.2) --
+*  -- LAPACK auxiliary routine (version 3.4.2) --
 *  -- LAPACK is a software package provided by Univ. of Tennessee,    --
 *  -- Univ. of California Berkeley, Univ. of Colorado Denver and NAG Ltd..--
-*     November 2006
+*     September 2012
 *
 *     .. Scalar Arguments ..
       CHARACTER          DIAG, NORM, UPLO
@@ -12,66 +136,6 @@
 *     .. Array Arguments ..
       DOUBLE PRECISION   AP( * ), WORK( * )
 *     ..
-*
-*  Purpose
-*  =======
-*
-*  DLANTP  returns the value of the one norm,  or the Frobenius norm, or
-*  the  infinity norm,  or the  element of  largest absolute value  of a
-*  triangular matrix A, supplied in packed form.
-*
-*  Description
-*  ===========
-*
-*  DLANTP returns the value
-*
-*     DLANTP = ( max(abs(A(i,j))), NORM = 'M' or 'm'
-*              (
-*              ( norm1(A),         NORM = '1', 'O' or 'o'
-*              (
-*              ( normI(A),         NORM = 'I' or 'i'
-*              (
-*              ( normF(A),         NORM = 'F', 'f', 'E' or 'e'
-*
-*  where  norm1  denotes the  one norm of a matrix (maximum column sum),
-*  normI  denotes the  infinity norm  of a matrix  (maximum row sum) and
-*  normF  denotes the  Frobenius norm of a matrix (square root of sum of
-*  squares).  Note that  max(abs(A(i,j)))  is not a consistent matrix norm.
-*
-*  Arguments
-*  =========
-*
-*  NORM    (input) CHARACTER*1
-*          Specifies the value to be returned in DLANTP as described
-*          above.
-*
-*  UPLO    (input) CHARACTER*1
-*          Specifies whether the matrix A is upper or lower triangular.
-*          = 'U':  Upper triangular
-*          = 'L':  Lower triangular
-*
-*  DIAG    (input) CHARACTER*1
-*          Specifies whether or not the matrix A is unit triangular.
-*          = 'N':  Non-unit triangular
-*          = 'U':  Unit triangular
-*
-*  N       (input) INTEGER
-*          The order of the matrix A.  N >= 0.  When N = 0, DLANTP is
-*          set to zero.
-*
-*  AP      (input) DOUBLE PRECISION array, dimension (N*(N+1)/2)
-*          The upper or lower triangular matrix A, packed columnwise in
-*          a linear array.  The j-th column of A is stored in the array
-*          AP as follows:
-*          if UPLO = 'U', AP(i + (j-1)*j/2) = A(i,j) for 1<=i<=j;
-*          if UPLO = 'L', AP(i + (j-1)*(2n-j)/2) = A(i,j) for j<=i<=n.
-*          Note that when DIAG = 'U', the elements of the array AP
-*          corresponding to the diagonal elements of the matrix A are
-*          not referenced, but are assumed to be one.
-*
-*  WORK    (workspace) DOUBLE PRECISION array, dimension (MAX(1,LWORK)),
-*          where LWORK >= N when NORM = 'I'; otherwise, WORK is not
-*          referenced.
 *
 * =====================================================================
 *
@@ -88,11 +152,11 @@
       EXTERNAL           DLASSQ
 *     ..
 *     .. External Functions ..
-      LOGICAL            LSAME
-      EXTERNAL           LSAME
+      LOGICAL            LSAME, DISNAN
+      EXTERNAL           LSAME, DISNAN
 *     ..
 *     .. Intrinsic Functions ..
-      INTRINSIC          ABS, MAX, SQRT
+      INTRINSIC          ABS, SQRT
 *     ..
 *     .. Executable Statements ..
 *
@@ -108,14 +172,16 @@
             IF( LSAME( UPLO, 'U' ) ) THEN
                DO 20 J = 1, N
                   DO 10 I = K, K + J - 2
-                     VALUE = MAX( VALUE, ABS( AP( I ) ) )
+                     SUM = ABS( AP( I ) )
+                     IF( VALUE .LT. SUM .OR. DISNAN( SUM ) ) VALUE = SUM
    10             CONTINUE
                   K = K + J
    20          CONTINUE
             ELSE
                DO 40 J = 1, N
                   DO 30 I = K + 1, K + N - J
-                     VALUE = MAX( VALUE, ABS( AP( I ) ) )
+                     SUM = ABS( AP( I ) )
+                     IF( VALUE .LT. SUM .OR. DISNAN( SUM ) ) VALUE = SUM
    30             CONTINUE
                   K = K + N - J + 1
    40          CONTINUE
@@ -125,14 +191,16 @@
             IF( LSAME( UPLO, 'U' ) ) THEN
                DO 60 J = 1, N
                   DO 50 I = K, K + J - 1
-                     VALUE = MAX( VALUE, ABS( AP( I ) ) )
+                     SUM = ABS( AP( I ) )
+                     IF( VALUE .LT. SUM .OR. DISNAN( SUM ) ) VALUE = SUM
    50             CONTINUE
                   K = K + J
    60          CONTINUE
             ELSE
                DO 80 J = 1, N
                   DO 70 I = K, K + N - J
-                     VALUE = MAX( VALUE, ABS( AP( I ) ) )
+                     SUM = ABS( AP( I ) )
+                     IF( VALUE .LT. SUM .OR. DISNAN( SUM ) ) VALUE = SUM
    70             CONTINUE
                   K = K + N - J + 1
    80          CONTINUE
@@ -159,7 +227,7 @@
   100             CONTINUE
                END IF
                K = K + J
-               VALUE = MAX( VALUE, SUM )
+               IF( VALUE .LT. SUM .OR. DISNAN( SUM ) ) VALUE = SUM
   110       CONTINUE
          ELSE
             DO 140 J = 1, N
@@ -175,7 +243,7 @@
   130             CONTINUE
                END IF
                K = K + N - J + 1
-               VALUE = MAX( VALUE, SUM )
+               IF( VALUE .LT. SUM .OR. DISNAN( SUM ) ) VALUE = SUM
   140       CONTINUE
          END IF
       ELSE IF( LSAME( NORM, 'I' ) ) THEN
@@ -232,7 +300,8 @@
          END IF
          VALUE = ZERO
          DO 270 I = 1, N
-            VALUE = MAX( VALUE, WORK( I ) )
+            SUM = WORK( I )
+            IF( VALUE .LT. SUM .OR. DISNAN( SUM ) ) VALUE = SUM
   270    CONTINUE
       ELSE IF( ( LSAME( NORM, 'F' ) ) .OR. ( LSAME( NORM, 'E' ) ) ) THEN
 *

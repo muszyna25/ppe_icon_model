@@ -43,6 +43,17 @@ fi
 
 
 # -------------------------------------------------
+# test or 12th of month to do plotting like end-of-month
+# (see also eom_prepare.sms)
+
+if [ `echo %YMD% | cut -c 7-8` -eq "12" ]
+then
+    echo "12th of month - do some plots!"
+    smsevent time_eom
+fi
+
+
+## -------------------------------------------------
 # test for monthly mean runs if current month is selected
 
 YYYYMM=`echo %YMD% | cut -c 1-6`

@@ -46,6 +46,26 @@ Parameter& Type& Default& Unit& Description & Scope
 \end{longtable}
 }
 
+% ------------------------------------------------------
+% new environment for documentation of namelist changes
+% that are incompatible with former versions.
+% ------------------------------------------------------
+
+\newenvironment{changeitem}[3]
+{
+ \rule[-1em]{0.2ex}{4em}\hspace*{1em}%
+ \begin{minipage}{9.95\textwidth}
+ \begin{tabbing} 
+ \hspace*{3cm} \= ~ \kill
+ \textcolor{red}{\emph{Change:}}         \> \textbf{#1} \\
+ \textcolor{red}{\emph{Date of Change:}} \> \textbf{#2} \\
+ \textcolor{red}{\emph{Revision:}}       \> \textbf{#3} \\
+ \end{tabbing}
+ \end{minipage}
+}{\vspace*{1em}}
+
+
+
 \begin{document}
 
 \title{ICON Namelist Overview}
@@ -459,6 +479,50 @@ specified for each nested domain separately)&
 
 Defined and used in: src/grid\_generator/mo\_gridrefinement.f90
 
+
+%-----------------------------------------------------------------------------
+% gridref_metadata:
+%-----------------------------------------------------------------------------
+\subsubsection{gridref\_metadata (NAMELIST\_GRIDREF)}
+
+\begin{longtab}
+
+\hline
+number\_of\_grid\_used&
+I(n\_dom+1)&
+0&
+&
+sets the number of grid used in the netcdf header; the number of entries must be n\_dom+1
+because the first number refers to the radiation grid &
+\tabularnewline
+
+\hline
+centre&
+I&
+0&
+&
+centre running the grid generator: 78 - edzw (DWD), 252 - MPIM &
+\tabularnewline
+
+\hline
+subcentre&
+I&
+0&
+&
+subcentre to be assigned by centre, usually 0 &
+\tabularnewline
+
+\hline
+outname\_style&
+I&
+1&
+&
+Output name style\\
+1: Standard: \emph{iconR\textcolor{red}{X}B\textcolor{red}{XX}\_DOM\textcolor{red}{XX}.nc}\\
+2: DWD: \emph{icon\_grid\_\textcolor{red}{XXXX}\_R\textcolor{red}{XX}B\textcolor{red}{XX}\_\textcolor{red}{X}.nc} &
+\tabularnewline
+
+\end{longtab}
 
 \subsection{Namelist parameters defining the local grid generation}
 
@@ -1784,6 +1848,24 @@ May contain the keywords \texttt{<path>} which will be substituted by
 and \texttt{idom} defining the current patch. & init\_mode=1
 \tabularnewline
 
+\hline 
+filetype &
+I& -1 (undef.)& &
+One of CDI's FILETYPE\_XXX constants.
+Possible values: 2 (=FILETYPE\_GRB2), 4 (=FILETYPE\_NC2).
+If this parameter has not been set, we try to determine the file type by its extension "*.grb*" or ".nc".
+&
+\tabularnewline
+
+
+\hline 
+ana\_varnames\_map\_file &
+C& & &
+Dictionary file which maps internal variable names onto
+GRIB2 shortnames or NetCDF var names.
+&
+\tabularnewline
+
 \end{longtab}
 
 Defined and used in: src/namelists/mo\_initicon\_nml.f90
@@ -1837,6 +1919,14 @@ out\_type&
 I & 2 & & 
 Type of output grid: 
 1: regular grid; 2: ICON triangular grid
+&
+i\_oper\_mode=4 (prepicon\_nml)
+\tabularnewline
+
+\hline 
+out\_filetype&
+I & 4 & & 
+output file type: 2=FILETYPE\_GRB2, 4=FILETYPE\_NC2
 &
 i\_oper\_mode=4 (prepicon\_nml)
 \tabularnewline
@@ -2581,6 +2671,12 @@ Diffusion on the horizontal wind field&
 \tabularnewline
 
 \hline 
+lhdiff\_w&
+L& .TRUE. & &
+Diffusion on the vertical wind field&
+\tabularnewline
+
+\hline 
 hdiff\_order&
 I& 4 (hydro) \\ 5 (NH)& &
 Order of $\nabla$ operator for diffusion:& \tabularnewline
@@ -2641,15 +2737,21 @@ hdiff\_order = 24 or 42, and run\_nml:iequation = 1 or 2.
 
 \hline 
 hdiff\_efdt\_ratio&
-R& 1.0 & &
+R& 1.0 (hydro) \\ 15.0 (NH) & &
 ratio of e-folding time to time step (or 2{*} time step when using
 a 3 time level time stepping scheme) (only for triangles currently; 
 for triangular NH model, values between 10 and 20 are recommended when using hdiff\_order=5) &
 \tabularnewline
 
 \hline 
+hdiff\_w\_efdt\_ratio&
+R& 15.0  & &
+ratio of e-folding time to time step for diffusion on vertical wind speed & iequations=3
+\tabularnewline
+
+\hline 
 hdiff\_min\_efdt\_ratio&
-R& 1.0 (hydro) \\ 15.0 (NH) & &
+R& 1.0 & &
 minimum value of hdiff\_efdt\_ratio near model top & iequations=3 .AND. cell\_type=3 .AND. hdiff\_order=4
 \tabularnewline
 
@@ -2868,14 +2970,16 @@ iforcing=3
 \hline 
 itype\_pres\_msl&
 I& 1. & &
-Specifies method for computation of mean sea level pressure. \\
+Specifies method for computation of mean sea level pressure (and geopotential at
+pressure levels below the surface). \\
 1: GME-type extrapolation, \\
-2: stepwise analytical integration 
+2: stepwise analytical integration, \\
+3: current IFS method
 &
 \tabularnewline
 
 \hline
- varnames\_map\_file &
+ output\_nml\_dict &
 C&' '& &
  File containing the mapping of variable names to the internal ICON names. 
  May contain the keyword \texttt{<path>} which will be substituted by
@@ -2893,14 +2997,15 @@ C&' '& &
 \tabularnewline
 
 \hline
- out\_varnames\_map\_file &
+ netcdf\_dict &
 C&' '& &
  File containing the mapping from internal names to names written to NetCDF. 
  May contain the keyword \texttt{<path>} which will be substituted by
  \texttt{model\_base\_dir}.\\
  The format of this file: \\
- One mapping per line, first the internal name, then the name written to NetCDF,
- separated by an arbitrary number of blanks.
+ One mapping per line, first the name written to NetCDF,
+ then the internal name, separated by an arbitrary number of blanks
+ (\emph{inverse to the definition of \emph{output\_nml\_dict}}).
  The line may also start and end with an arbitrary number of blanks.
  Empty lines or lines starting with \# are treated as comments. \\
  Names not covered by the mapping are output as they are. \\
@@ -2935,14 +3040,6 @@ filetype &
 I&4& &
 One of CDI's FILETYPE\_XXX constants.
 Possible values: 2 (=FILETYPE\_GRB2), 4 (=FILETYPE\_NC2), 5 (=FILETYPE\_NC4)
-&
-\tabularnewline
-
-\hline
- namespace &
-C&'ECMWF'& &
- 'DWD' - DWD short names (or 'MPIMET', 'CMIP', 'ECMWF') \\
- {\color{red} Currently used for setting GRIB2 centre/subcentre information.}
 &
 \tabularnewline
 
@@ -3224,6 +3321,26 @@ filetype=2
 localNumberOfExperiment&
 I& 1 & &
 local Number of Experiment &
+filetype=2
+\tabularnewline
+
+\hline 
+generatingCenter&
+I& -1 & &
+Output generating center. If this key is not set, center information is taken from the grid file\\
+DWD: 78 \\
+MPIMET: 98 \\
+ECMWF: 98 &
+filetype=2
+\tabularnewline
+
+\hline 
+generatingSubcenter&
+I& -1 & &
+Output generating Subcenter. If this key is not set, subcenter information is taken from the grid file\\
+DWD: 255\\
+MPIMET: 232\\ 
+ECMWF: 0 &
 filetype=2
 \tabularnewline
 
@@ -3988,6 +4105,19 @@ Choice of zenith angle formula for the radiative transfer computation.\par
 4: Zenith angle and irradiance changing with season, latitude, and time of day (iforcing=inwp only)
 &
 \tabularnewline
+
+\hline
+albedo\_type&
+I&
+1&
+&
+Type of surface albedo\\
+1: based on soil type specific tabulated values (dry soil)\\
+2: MODIS albedo (to be implemented)
+&
+iforcing=inwp
+\tabularnewline
+
 \hline 
 irad\_h2o\par 
 irad\_co2\par 
@@ -4062,7 +4192,7 @@ Defined and used in: src/namelists/mo\_radiation\_nml.f90
 
 nlev\_snow &
 I&
-1&
+2&
 &
 number of snow layers\\
 for {\tt lmulti\_snow=.true.}&
@@ -4088,9 +4218,26 @@ ntiles>1
 \hline
 frlnd\_thrhld &
 R&
-0.5&
+0.05&
 &
 fraction threshold for creating a land grid point &
+ntiles>1
+\tabularnewline
+
+\hline
+frlake\_thrhld &
+R&
+0.05&
+&
+fraction threshold for creating a lake grid point &
+ntiles>1
+\tabularnewline
+\hline
+frsea\_thrhld &
+R&
+0.05&
+&
+fraction threshold for creating a sea grid point &
 ntiles>1
 \tabularnewline
 
@@ -4104,23 +4251,6 @@ ntiles>1
 \tabularnewline
 
 \hline
-frlake\_thrhld &
-R&
-0.5&
-&
-fraction threshold for creating a lake grid point &
-ntiles>1
-\tabularnewline
-\hline
-frsea\_thrhld &
-R&
-0.5&
-&
-fraction threshold for creating a sea grid point &
-ntiles>1
-\tabularnewline
-
-\hline
 nztlev &
 I&
 2&
@@ -4130,7 +4260,7 @@ used time integration scheme&
 \hline
 lmulti\_snow &
 L&
-.FALSE.&
+.TRUE.&
 &
 .TRUE. for use of multi-layer snow model&
 \tabularnewline
@@ -4145,13 +4275,13 @@ maximum depth of uppermost snow layer & lmulti\_snow=.TRUE.
 
 \hline 
 idiag\_snowfrac &
-I & 1 &  & Type of snow-fraction diagnosis: 1 = based on SWE only, 2 = more advanced experimental method &
+I & 1 &  & Type of snow-fraction diagnosis: 1 = based on SWE only, 2--4 = more advanced experimental methods &
 \tabularnewline
 
 \hline
 lseaice &
 L&
-.FALSE.&
+.TRUE.&
 &
 .TRUE. for use of sea-ice model&
 \tabularnewline
@@ -5517,6 +5647,24 @@ half width of the gaussian mountain in the north-south direction&
 nh\_test\_name=\\'g\_lim\_area' and 
 itype\_topo\_ana=2,3
 \tabularnewline
+\hline 
+gw\_u0&
+R& 0. & m/s &
+maximum amplitude of the zonal wind&
+nh\_test\_name=\\'dcmip\_gw\_3X'
+\tabularnewline
+\hline 
+gw\_clat&
+R& 90. & deg &
+Lat of perturbation center&
+nh\_test\_name=\\'dcmip\_gw\_3X'
+\tabularnewline
+\hline 
+gw\_delta\_temp&
+R& 0.01 & K &
+maximum temperature perturbation&
+nh\_test\_name=\\'dcmip\_gw\_32'
+\tabularnewline
 
 
 \end{longtab}
@@ -5639,6 +5787,55 @@ terrain following coorindates. The hybrid level specification is stored in
 <icon home>/hyb\_params/HYB\_PARAMS\_<nlev>.
 The {\bf hydrostatic} model assumes to get {\bf pressure based} coordinates, the {\bf nonhydrostatic}
 model expects {\bf height based} coordinates. For further information see <icon home>/hyb\_params/README.
+
+
+% -------------------------------------------------------------------
+\section{Changes incompatible with former versions of the model code}
+% -------------------------------------------------------------------
+\noindent
+% In this section we propose to document all namelist changes that are incompatible with former versions of the model code.
+% Such changes are
+%
+%    renaming namelist parameters or changing the data type
+%    removing existing namelist parameters
+%    changing default settings
+%    changing the scope of the namelist parameter
+%    introducing new cross-check rules.
+
+% --------------------------------------------------------------------------------------------
+%                   <namelist parameter>                               <date>        <revision>
+\begin{changeitem}{ var\_names\_map\_file, out\_varnames\_map\_file }{ 2013-04-25 }{ 12016 }
+  \begin{itemize}
+   \item Renamed \textbf{var\_names\_map\_file} $\rightarrow$ \textbf{output\_nml\_dict}.
+   \item Renamed \textbf{out\_varnames\_map\_file} $\rightarrow$ \textbf{netcdf\_dict}.
+   \item The dictionary in \emph{netcdf\_dict} is now reversed, s.t.\ the same map file 
+         as in output\_nml\_dict can be used to translate variable names to the ICON internal
+         names and back.
+  \end{itemize}
+\end{changeitem}
+
+
+\begin{changeitem}{output\_nml: namespace}{ 2013-04-26 }{ 12051 }
+  \begin{itemize}
+   \item Removed obsolete namelist variable \textbf{namespace} from \textbf{output\_nml}.
+  \end{itemize}
+\end{changeitem}
+
+\begin{changeitem}{gribout\_nml: generatingCenter, generatingSubcenter}{ 2013-04-26 }{ 12051 }
+  \begin{itemize}
+   \item Introduced new namelist variables \textbf{generatingCenter} and \textbf{generatingSubcenter}.
+   \item If not set explicitly, center and subcenter information is copied from the input grid file
+  \end{itemize}
+\end{changeitem}
+
+\begin{changeitem}{radiation\_nml: albedo\_type}{ 2013-05-03 }{ 12118 }
+  \begin{itemize}
+   \item Introduced new namelist variable \textbf{albedo\_type}
+   \item If set to $2$, the surface albedo will be based on the MODIS data set.
+  \end{itemize}
+\end{changeitem}
+
+% --------------------------------------------------------------------------------------------
 
 
 \end{document}

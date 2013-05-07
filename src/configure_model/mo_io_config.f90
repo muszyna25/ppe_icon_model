@@ -99,8 +99,8 @@ MODULE mo_io_config
   INTEGER :: itype_pres_msl             ! Specifies method for computation of mean sea level pressure
 
   CHARACTER(LEN=filename_max) :: &
-    &        varnames_map_file,   &     !< maps variable names onto the internal ICON names.
-    &        out_varnames_map_file      !< maps internal variable names onto names in output file (NetCDF only).
+    &        output_nml_dict,    &      !< maps variable names onto the internal ICON names.
+    &        netcdf_dict                !< maps internal variable names onto names in output file (NetCDF only).
 
 
   ! derived variables

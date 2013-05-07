@@ -1,10 +1,186 @@
+*> \brief \b DLAQPS computes a step of QR factorization with column pivoting of a real m-by-n matrix A by using BLAS level 3.
+*
+*  =========== DOCUMENTATION ===========
+*
+* Online html documentation available at 
+*            http://www.netlib.org/lapack/explore-html/ 
+*
+*> \htmlonly
+*> Download DLAQPS + dependencies 
+*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.tgz?format=tgz&filename=/lapack/lapack_routine/dlaqps.f"> 
+*> [TGZ]</a> 
+*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.zip?format=zip&filename=/lapack/lapack_routine/dlaqps.f"> 
+*> [ZIP]</a> 
+*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.txt?format=txt&filename=/lapack/lapack_routine/dlaqps.f"> 
+*> [TXT]</a>
+*> \endhtmlonly 
+*
+*  Definition:
+*  ===========
+*
+*       SUBROUTINE DLAQPS( M, N, OFFSET, NB, KB, A, LDA, JPVT, TAU, VN1,
+*                          VN2, AUXV, F, LDF )
+* 
+*       .. Scalar Arguments ..
+*       INTEGER            KB, LDA, LDF, M, N, NB, OFFSET
+*       ..
+*       .. Array Arguments ..
+*       INTEGER            JPVT( * )
+*       DOUBLE PRECISION   A( LDA, * ), AUXV( * ), F( LDF, * ), TAU( * ),
+*      $                   VN1( * ), VN2( * )
+*       ..
+*  
+*
+*> \par Purpose:
+*  =============
+*>
+*> \verbatim
+*>
+*> DLAQPS computes a step of QR factorization with column pivoting
+*> of a real M-by-N matrix A by using Blas-3.  It tries to factorize
+*> NB columns from A starting from the row OFFSET+1, and updates all
+*> of the matrix with Blas-3 xGEMM.
+*>
+*> In some cases, due to catastrophic cancellations, it cannot
+*> factorize NB columns.  Hence, the actual number of factorized
+*> columns is returned in KB.
+*>
+*> Block A(1:OFFSET,1:N) is accordingly pivoted, but not factorized.
+*> \endverbatim
+*
+*  Arguments:
+*  ==========
+*
+*> \param[in] M
+*> \verbatim
+*>          M is INTEGER
+*>          The number of rows of the matrix A. M >= 0.
+*> \endverbatim
+*>
+*> \param[in] N
+*> \verbatim
+*>          N is INTEGER
+*>          The number of columns of the matrix A. N >= 0
+*> \endverbatim
+*>
+*> \param[in] OFFSET
+*> \verbatim
+*>          OFFSET is INTEGER
+*>          The number of rows of A that have been factorized in
+*>          previous steps.
+*> \endverbatim
+*>
+*> \param[in] NB
+*> \verbatim
+*>          NB is INTEGER
+*>          The number of columns to factorize.
+*> \endverbatim
+*>
+*> \param[out] KB
+*> \verbatim
+*>          KB is INTEGER
+*>          The number of columns actually factorized.
+*> \endverbatim
+*>
+*> \param[in,out] A
+*> \verbatim
+*>          A is DOUBLE PRECISION array, dimension (LDA,N)
+*>          On entry, the M-by-N matrix A.
+*>          On exit, block A(OFFSET+1:M,1:KB) is the triangular
+*>          factor obtained and block A(1:OFFSET,1:N) has been
+*>          accordingly pivoted, but no factorized.
+*>          The rest of the matrix, block A(OFFSET+1:M,KB+1:N) has
+*>          been updated.
+*> \endverbatim
+*>
+*> \param[in] LDA
+*> \verbatim
+*>          LDA is INTEGER
+*>          The leading dimension of the array A. LDA >= max(1,M).
+*> \endverbatim
+*>
+*> \param[in,out] JPVT
+*> \verbatim
+*>          JPVT is INTEGER array, dimension (N)
+*>          JPVT(I) = K <==> Column K of the full matrix A has been
+*>          permuted into position I in AP.
+*> \endverbatim
+*>
+*> \param[out] TAU
+*> \verbatim
+*>          TAU is DOUBLE PRECISION array, dimension (KB)
+*>          The scalar factors of the elementary reflectors.
+*> \endverbatim
+*>
+*> \param[in,out] VN1
+*> \verbatim
+*>          VN1 is DOUBLE PRECISION array, dimension (N)
+*>          The vector with the partial column norms.
+*> \endverbatim
+*>
+*> \param[in,out] VN2
+*> \verbatim
+*>          VN2 is DOUBLE PRECISION array, dimension (N)
+*>          The vector with the exact column norms.
+*> \endverbatim
+*>
+*> \param[in,out] AUXV
+*> \verbatim
+*>          AUXV is DOUBLE PRECISION array, dimension (NB)
+*>          Auxiliar vector.
+*> \endverbatim
+*>
+*> \param[in,out] F
+*> \verbatim
+*>          F is DOUBLE PRECISION array, dimension (LDF,NB)
+*>          Matrix F**T = L*Y**T*A.
+*> \endverbatim
+*>
+*> \param[in] LDF
+*> \verbatim
+*>          LDF is INTEGER
+*>          The leading dimension of the array F. LDF >= max(1,N).
+*> \endverbatim
+*
+*  Authors:
+*  ========
+*
+*> \author Univ. of Tennessee 
+*> \author Univ. of California Berkeley 
+*> \author Univ. of Colorado Denver 
+*> \author NAG Ltd. 
+*
+*> \date September 2012
+*
+*> \ingroup doubleOTHERauxiliary
+*
+*> \par Contributors:
+*  ==================
+*>
+*>    G. Quintana-Orti, Depto. de Informatica, Universidad Jaime I, Spain
+*>    X. Sun, Computer Science Dept., Duke University, USA
+*> \n
+*>  Partial column norm updating strategy modified on April 2011
+*>    Z. Drmac and Z. Bujanovic, Dept. of Mathematics,
+*>    University of Zagreb, Croatia.
+*
+*> \par References:
+*  ================
+*>
+*> LAPACK Working Note 176
+*
+*> \htmlonly
+*> <a href="http://www.netlib.org/lapack/lawnspdf/lawn176.pdf">[PDF]</a> 
+*> \endhtmlonly 
+*
+*  =====================================================================
       SUBROUTINE DLAQPS( M, N, OFFSET, NB, KB, A, LDA, JPVT, TAU, VN1,
      $                   VN2, AUXV, F, LDF )
 *
-*  -- LAPACK auxiliary routine (version 3.2.2) --
+*  -- LAPACK auxiliary routine (version 3.4.2) --
 *  -- LAPACK is a software package provided by Univ. of Tennessee,    --
 *  -- Univ. of California Berkeley, Univ. of Colorado Denver and NAG Ltd..--
-*     June 2010
+*     September 2012
 *
 *     .. Scalar Arguments ..
       INTEGER            KB, LDA, LDF, M, N, NB, OFFSET
@@ -15,84 +191,6 @@
      $                   VN1( * ), VN2( * )
 *     ..
 *
-*  Purpose
-*  =======
-*
-*  DLAQPS computes a step of QR factorization with column pivoting
-*  of a real M-by-N matrix A by using Blas-3.  It tries to factorize
-*  NB columns from A starting from the row OFFSET+1, and updates all
-*  of the matrix with Blas-3 xGEMM.
-*
-*  In some cases, due to catastrophic cancellations, it cannot
-*  factorize NB columns.  Hence, the actual number of factorized
-*  columns is returned in KB.
-*
-*  Block A(1:OFFSET,1:N) is accordingly pivoted, but not factorized.
-*
-*  Arguments
-*  =========
-*
-*  M       (input) INTEGER
-*          The number of rows of the matrix A. M >= 0.
-*
-*  N       (input) INTEGER
-*          The number of columns of the matrix A. N >= 0
-*
-*  OFFSET  (input) INTEGER
-*          The number of rows of A that have been factorized in
-*          previous steps.
-*
-*  NB      (input) INTEGER
-*          The number of columns to factorize.
-*
-*  KB      (output) INTEGER
-*          The number of columns actually factorized.
-*
-*  A       (input/output) DOUBLE PRECISION array, dimension (LDA,N)
-*          On entry, the M-by-N matrix A.
-*          On exit, block A(OFFSET+1:M,1:KB) is the triangular
-*          factor obtained and block A(1:OFFSET,1:N) has been
-*          accordingly pivoted, but no factorized.
-*          The rest of the matrix, block A(OFFSET+1:M,KB+1:N) has
-*          been updated.
-*
-*  LDA     (input) INTEGER
-*          The leading dimension of the array A. LDA >= max(1,M).
-*
-*  JPVT    (input/output) INTEGER array, dimension (N)
-*          JPVT(I) = K <==> Column K of the full matrix A has been
-*          permuted into position I in AP.
-*
-*  TAU     (output) DOUBLE PRECISION array, dimension (KB)
-*          The scalar factors of the elementary reflectors.
-*
-*  VN1     (input/output) DOUBLE PRECISION array, dimension (N)
-*          The vector with the partial column norms.
-*
-*  VN2     (input/output) DOUBLE PRECISION array, dimension (N)
-*          The vector with the exact column norms.
-*
-*  AUXV    (input/output) DOUBLE PRECISION array, dimension (NB)
-*          Auxiliar vector.
-*
-*  F       (input/output) DOUBLE PRECISION array, dimension (LDF,NB)
-*          Matrix F' = L*Y'*A.
-*
-*  LDF     (input) INTEGER
-*          The leading dimension of the array F. LDF >= max(1,N).
-*
-*  Further Details
-*  ===============
-*
-*  Based on contributions by
-*    G. Quintana-Orti, Depto. de Informatica, Universidad Jaime I, Spain
-*    X. Sun, Computer Science Dept., Duke University, USA
-*
-*  Partial column norm updating strategy modified by
-*    Z. Drmac and Z. Bujanovic, Dept. of Mathematics,
-*    University of Zagreb, Croatia.
-*     June 2010
-*  For more details see LAPACK Working Note 176.
 *  =====================================================================
 *
 *     .. Parameters ..
@@ -142,7 +240,7 @@
          END IF
 *
 *        Apply previous Householder reflectors to column K:
-*        A(RK:M,K) := A(RK:M,K) - A(RK:M,1:K-1)*F(K,1:K-1)'.
+*        A(RK:M,K) := A(RK:M,K) - A(RK:M,1:K-1)*F(K,1:K-1)**T.
 *
          IF( K.GT.1 ) THEN
             CALL DGEMV( 'No transpose', M-RK+1, K-1, -ONE, A( RK, 1 ),
@@ -162,7 +260,7 @@
 *
 *        Compute Kth column of F:
 *
-*        Compute  F(K+1:N,K) := tau(K)*A(RK:M,K+1:N)'*A(RK:M,K).
+*        Compute  F(K+1:N,K) := tau(K)*A(RK:M,K+1:N)**T*A(RK:M,K).
 *
          IF( K.LT.N ) THEN
             CALL DGEMV( 'Transpose', M-RK+1, N-K, TAU( K ),
@@ -177,7 +275,7 @@
    20    CONTINUE
 *
 *        Incremental updating of F:
-*        F(1:N,K) := F(1:N,K) - tau(K)*F(1:N,1:K-1)*A(RK:M,1:K-1)'
+*        F(1:N,K) := F(1:N,K) - tau(K)*F(1:N,1:K-1)*A(RK:M,1:K-1)**T
 *                    *A(RK:M,K).
 *
          IF( K.GT.1 ) THEN
@@ -189,7 +287,7 @@
          END IF
 *
 *        Update the current row of A:
-*        A(RK,K+1:N) := A(RK,K+1:N) - A(RK,1:K)*F(K+1:N,1:K)'.
+*        A(RK,K+1:N) := A(RK,K+1:N) - A(RK,1:K)*F(K+1:N,1:K)**T.
 *
          IF( K.LT.N ) THEN
             CALL DGEMV( 'No transpose', N-K, K, -ONE, F( K+1, 1 ), LDF,
@@ -229,7 +327,7 @@
 *
 *     Apply the block reflector to the rest of the matrix:
 *     A(OFFSET+KB+1:M,KB+1:N) := A(OFFSET+KB+1:M,KB+1:N) -
-*                         A(OFFSET+KB+1:M,1:KB)*F(KB+1:N,1:KB)'.
+*                         A(OFFSET+KB+1:M,1:KB)*F(KB+1:N,1:KB)**T.
 *
       IF( KB.LT.MIN( N, M-OFFSET ) ) THEN
          CALL DGEMM( 'No transpose', 'Transpose', M-RK, N-KB, KB, -ONE,

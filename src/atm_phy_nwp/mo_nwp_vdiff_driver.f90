@@ -64,7 +64,7 @@ CONTAINS
   !!
   !!
   SUBROUTINE vdiff ( lsfc_mom_flux, lsfc_heat_flux,                    &! in
-                     kproma, kbdim, klev, klevm1, klevp1, ktrac,       &! in
+                     jg, kproma, kbdim, klev, klevm1, klevp1, ktrac,   &! in
                      ksfc_type, idx_wtr, idx_ice, idx_lnd,             &! in
                      pdtime, pstep_len,                                &! in
                      pcoriol,    pfrc,                                 &! in
@@ -93,6 +93,7 @@ CONTAINS
                      pcfv,       pcftke,      pcfthv                   )! out
 
   LOGICAL, INTENT(IN)  :: lsfc_mom_flux, lsfc_heat_flux
+  INTEGER, INTENT(IN)  :: jg                          !< Patch id (needed for update_surface, because JSBACH needs it)
   INTEGER, INTENT(IN)  :: kproma, kbdim, klev, klevm1, klevp1, ktrac
   INTEGER, INTENT(IN)  :: ksfc_type, idx_wtr, idx_ice, idx_lnd
   REAL(wp),INTENT(IN)  :: pdtime, pstep_len
@@ -119,7 +120,7 @@ CONTAINS
   REAL(wp),INTENT(IN)  :: ptvm1  (kbdim,klev)   !< virtual temperature
   REAL(wp),INTENT(IN)  :: paclc  (kbdim,klev)   !< cloud fraction
 #ifdef __ICON__
-  REAL(wp),INTENT(IN)  :: ptkem1(kbdim,klev)    !< TKE at time step t-dt 
+  REAL(wp),INTENT(IN)  :: ptkem1(kbdim,klev)    !< TKE at time step t-dt
 #else
   REAL(wp),INTENT(INOUT) :: ptkem1(kbdim,klev)
   REAL(wp),INTENT(INOUT) :: ptkem0(kbdim,klev)
@@ -129,7 +130,7 @@ CONTAINS
                                                 !< and dry deposition
 
   REAL(wp),INTENT(INOUT) :: ptsfc_tile(kbdim,ksfc_type) !< surface temperature
-  REAL(wp),INTENT(INOUT) :: pxvar  (kbdim,klev) !<distribution width (b-a) 
+  REAL(wp),INTENT(INOUT) :: pxvar  (kbdim,klev) !<distribution width (b-a)
                                                 !< in: step t-dt, out: modified due to vertical diffusion
   REAL(wp),INTENT(INOUT) :: pthvvar(kbdim,klev) !< variance of virtual potential temperature
                                                 !< in: step t-dt, out: modified due to vertical diffusion,
@@ -192,13 +193,13 @@ CONTAINS
 
  !REAL(wp) :: pcair_lnd(kbdim), pcsat_lnd(kbdim) !< evapotranspiration coefficients
 
-  REAL(wp) :: pu_stress_gbm_ac(kbdim) !< accumulated grid box mean wind stress 
+  REAL(wp) :: pu_stress_gbm_ac(kbdim) !< accumulated grid box mean wind stress
   REAL(wp) :: pv_stress_gbm_ac(kbdim) !< accumulated grid box mean wind stress
   REAL(wp) ::    plhflx_gbm_ac(kbdim) !< accumulated grid box mean latent heat flux
   REAL(wp) ::    pshflx_gbm_ac(kbdim) !< accumulated grid box mean sensible heat flux
   REAL(wp) ::     pevap_gbm_ac(kbdim) !< accumulated grid box mean evaporation
 
-  REAL(wp) :: pu_stress_tile(kbdim,ksfc_type) !< wind stress 
+  REAL(wp) :: pu_stress_tile(kbdim,ksfc_type) !< wind stress
   REAL(wp) :: pv_stress_tile(kbdim,ksfc_type) !< wind stress
 !  REAL(wp) ::    plhflx_tile(kbdim,ksfc_type) !< latent heat flux
 !  REAL(wp) ::    pshflx_tile(kbdim,ksfc_type) !< sensible heat flux
@@ -220,6 +221,7 @@ CONTAINS
   REAL(wp) :: zcptgz  (kbdim,klev)
   REAL(wp) :: zrdpm   (kbdim,klev)
   REAL(wp) :: zrdph   (kbdim,klevm1)
+  REAL(wp) :: ztte_corr(kbdim)     ! Correction of tte for snow melt (dummy, only used for JSBACH)
 
   ! _b denotes value at the bottom level (the klev-th full level)
 
@@ -235,12 +237,12 @@ CONTAINS
 
   ! Coefficient matrices and right-hand-side vectors.
   ! _btm refers to the lowest model level (i.e., full level "klev", not the surface)
- 
+
   REAL(wp) :: aa    (kbdim,klev,3,nmatrix)
   REAL(wp) :: aa_btm(kbdim,3,ksfc_type,imh:imqv) !< for heat and moisture
   REAL(wp) :: bb    (kbdim,klev,nvar_vdiff)  !< (nproma,nlev,nvar_vdiff)
   REAL(wp) :: bb_btm(kbdim,ksfc_type,ih:iqv) !< (nproma,ksfc_type,ih:iqv), for heat and moisture
-  
+
   !----------------------------------------------------------------------
   ! 0. Reciprocal of layer thickness. It will be used repeatedly.
   !----------------------------------------------------------------------
@@ -336,7 +338,7 @@ CONTAINS
                         & aa, aa_btm                                    )! out
 
   !-----------------------------------------------------------------------
-  ! 4. Set up right-hand side of the tri-diagonal system and perform 
+  ! 4. Set up right-hand side of the tri-diagonal system and perform
   !    Gaussian elimination. Factors that determine the r.h.s. include
   !    - time stepping scheme used for vertical diffusion
   !    - whether there is any other process (e.g., tracer emission)
@@ -354,29 +356,32 @@ CONTAINS
                 & aa, bb                             )! in, inout
 
   !-----------------------------------------------------------------------
-  ! 5. Handle fractional surfaces (tiles) and obtain solution of 
-  !    static energy and water vapor concentration in the lowest model 
-  !    layer (the klev-th full level). 
+  ! 5. Handle fractional surfaces (tiles) and obtain solution of
+  !    static energy and water vapor concentration in the lowest model
+  !    layer (the klev-th full level).
   !-----------------------------------------------------------------------
   ! TEMPORARILY INITIALIZE ACCUMULATED VARIABLES TO ZERO.  +++++++++++++++
   ! LATER THIS SHOULD BE DONE DURING MODEL INITIALIZATION!
-  ! 
-  !KF if you want to use these values in ICONAM allocate them outside 
+  !
+  !KF if you want to use these values in ICONAM allocate them outside
   ! and initialise them there. HERE they play the role of dummies!
   pu_stress_gbm_ac (1:kproma) = 0._wp
   pv_stress_gbm_ac (1:kproma) = 0._wp
       pevap_gbm_ac (1:kproma) = 0._wp
-     plhflx_gbm_ac (1:kproma) = 0._wp   
-     pshflx_gbm_ac (1:kproma) = 0._wp   
+     plhflx_gbm_ac (1:kproma) = 0._wp
+     pshflx_gbm_ac (1:kproma) = 0._wp
     dshflx_dT_tile (1:kproma,:) = 0._wp
   dshflx_dT_ac_tile(1:kproma,:) = 0._wp
   !--------------------------------------------------------+++++++++++++++
 
+  ztte_corr(1:kbdim) = 0._wp ! Dummy for vdiff_tendencies
+
   CALL update_surface( lsfc_heat_flux, lsfc_mom_flux,      &! in
                      & pdtime, pstep_len,                  &! in
+                     & jg,                                 &! in
                      & kproma, kbdim,                      &
                      & 1,                                  &! in No of sea ice thickness classes
-                     & klev, ksfc_type,                    &! in 
+                     & klev, ksfc_type,                    &! in
                      & idx_wtr, idx_ice, idx_lnd,          &! in
                      & pfrc, pcfh_tile, pcfm_tile,         &! in
                      & zprfac(:,klev), pocu, pocv,         &! in
@@ -392,7 +397,7 @@ CONTAINS
                      & pevap_tile, pqv_mflux_sfc           )! out
 
   !-----------------------------------------------------------------------
-  ! 6. Obtain solution of the tri-diagonal system by back-substitution. 
+  ! 6. Obtain solution of the tri-diagonal system by back-substitution.
   !    Then compute tendencies and diagnose moisture flux etc.
   !-----------------------------------------------------------------------
   CALL rhs_bksub( kproma, kbdim, itop, klev, aa, bb ) ! in,...,in, inout
@@ -408,7 +413,7 @@ CONTAINS
                        & ptkem1, ptkem0, ztkevn, zthvvar, zrhoh,      &! in
 #endif
                        & zqshear, ihpbl, pcfh_tile, pqsat_tile,       &! in
-                       & pcfm_tile, pfrc, bb,                         &! in
+                       & pcfm_tile, pfrc, ztte_corr, bb,              &! in
                        & pkedisp(:),                                  &! inout ("pvdis" in echam)
                        & pxvar(:,:), pz0m_tile(:,:),                  &! inout
                        & pute, pvte, ptte, pqte, pxlte, pxite, pxtte, &! inout
@@ -425,4 +430,3 @@ CONTAINS
   !-------------
 
 END MODULE mo_nwp_vdiff_driver
-

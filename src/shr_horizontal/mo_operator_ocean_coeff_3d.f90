@@ -45,22 +45,21 @@ MODULE mo_operator_ocean_coeff_3d
   !-------------------------------------------------------------------------
 
   USE mo_kind,                ONLY: wp
-  USE mo_impl_constants,      ONLY: min_rlcell, min_rledge, min_rlvert, max_dom,success,&
+  USE mo_impl_constants,      ONLY: success,&
     &                               max_char_length, beta_plane_coriolis,full_coriolis, &
-    &                               min_rledge_int,min_rlcell_int,min_rlvert_int,&
     &                               SEA_BOUNDARY, BOUNDARY, SEA, min_dolic
-  USE mo_math_constants,      ONLY: deg2rad, pi, rad2deg
+  USE mo_math_constants,      ONLY: deg2rad, pi!, rad2deg
   USE mo_physical_constants,  ONLY: earth_radius
   USE mo_math_utilities,      ONLY: gc2cc, cc2gc, t_cartesian_coordinates,      &
     &                               t_geographical_coordinates, vector_product, &
     &                               arc_length
-  USE mo_ocean_nml,           ONLY: n_zlev, dzlev_m, no_tracer, t_ref, s_ref, &
+  USE mo_ocean_nml,           ONLY: n_zlev, no_tracer, &
     &                               coriolis_type, basin_center_lat, basin_height_deg
   USE mo_exception,           ONLY: message, finish
   USE mo_model_domain,        ONLY: t_patch, t_patch_3D
   USE mo_parallel_config,     ONLY: nproma, p_test_run
-  USE mo_sync,                ONLY: sync_c, sync_e, sync_v, sync_patch_array, sync_idx, global_max
-  USE mo_loopindices,         ONLY: get_indices_c, get_indices_e, get_indices_v
+  USE mo_sync,                ONLY: sync_c, sync_e, sync_v, sync_patch_array!, sync_idx, global_max
+  !USE mo_loopindices,         ONLY: get_indices_c, get_indices_e, get_indices_v
   USE mo_oce_state,           ONLY: t_hydro_ocean_state
   USE mo_oce_physics,         ONLY: t_ho_params
   !USE mo_intp_data_strc,      ONLY: t_int_state
@@ -76,20 +75,22 @@ MODULE mo_operator_ocean_coeff_3d
 
   PUBLIC  :: t_operator_coeff
   PUBLIC  :: allocate_exp_coeff
-  PUBLIC  :: par_init_operator_coeff2
   PUBLIC  :: par_init_operator_coeff
-  PUBLIC  :: init_operator_coeffs
+  PUBLIC  :: update_diffusion_matrices
 
-  PRIVATE :: par_init_coeff_2D
-  PRIVATE :: copy_2D_to_3D_coeff
+  PRIVATE :: init_operator_coeffs
   PRIVATE :: par_apply_boundary2coeffs
   PRIVATE :: init_diff_operator_coeff_3D
-  PUBLIC  :: update_diffusion_matrices
+
+
+  !PRIVATE :: par_init_coeff_2D
+  !PRIVATE :: copy_2D_to_3D_coeff
+  !PRIVATE  :: par_init_operator_coeff2
 
 
   !these two parameters are set below in sbr "allocate_exp_coeff"
   !according to MAXVAL(patch%cells%num_edges) and MAXVAL(patch%verts%num_edges)
-  INTEGER,PUBLIC :: no_dual_edges   
+  INTEGER,PUBLIC :: no_dual_edges
   INTEGER,PUBLIC :: no_primal_edges 
 
   ! flags for computing ocean coefficients
@@ -193,7 +194,7 @@ CONTAINS
 
     TYPE(t_subset_range), POINTER :: all_edges
     TYPE(t_subset_range), POINTER :: all_cells
-    TYPE(t_subset_range), POINTER :: all_verts
+    !TYPE(t_subset_range), POINTER :: all_verts
     !-----------------------------------------------------------------------
     !
     ! determine size of arrays, i.e.
@@ -400,7 +401,7 @@ CONTAINS
 
     all_cells => p_patch%cells%all
     all_edges => p_patch%edges%all
-    all_verts => p_patch%verts%all
+    !all_verts => p_patch%verts%all
 
     DO jk = 1, nz_lev
       DO jb = all_edges%start_block, all_edges%end_block
@@ -461,80 +462,6 @@ CONTAINS
 
 
   !-------------------------------------------------------------------------
-!  
-
-  !-------------------------------------------------------------------------
-  !> Initialize expansion coefficients.
-  !!
-  !! @par Revision History
-  !! Peter Korn (2012-2)
-  !!
-  SUBROUTINE par_init_operator_coeff2( p_patch_3D, p_os, p_phys_param, ocean_coeff)
-    !
-    TYPE(t_patch_3D ),TARGET, INTENT(INOUT) :: p_patch_3D
-    TYPE(t_hydro_ocean_state),INTENT(IN)    :: p_os
-    TYPE (t_ho_params),       INTENT(IN)    :: p_phys_param
-    TYPE(t_operator_coeff),   INTENT(inout) :: ocean_coeff
-
-   !
-   !Local variables: strcutures for 2D coefficients
-   !
-    TYPE(t_cartesian_coordinates) :: edge2cell_coeff_cc(1:nproma,1:p_patch_3D%p_patch_2D(1)%nblks_c,&
-                                     &1:p_patch_3D%p_patch_2D(1)%cell_type)
-    TYPE(t_cartesian_coordinates) :: edge2cell_coeff_cc_t(1:nproma,1:p_patch_3D%p_patch_2D(1)%nblks_e,1:2)
-
-    TYPE(t_cartesian_coordinates) :: edge2vert_coeff_cc(1:nproma,1:p_patch_3D%p_patch_2D(1)%nblks_v,1:6)
-    TYPE(t_cartesian_coordinates) :: edge2vert_coeff_cc_t(1:nproma,1:p_patch_3D%p_patch_2D(1)%nblks_e,1:2)
-    TYPE(t_patch), POINTER :: patch
-
-    REAL(wp) :: dist_cell2edge(1:nproma,1:p_patch_3D%p_patch_2D(1)%nblks_e,1:2)
-    REAL(wp) :: fixed_vol_norm(1:nproma,p_patch_3D%p_patch_2D(1)%nblks_c)
-    REAL(wp) :: variable_vol_norm(1:nproma,1:p_patch_3D%p_patch_2D(1)%nblks_c,1:3)
-    REAL(wp) :: variable_dual_vol_norm(1:nproma,1:p_patch_3D%p_patch_2D(1)%nblks_e,1:6)
-    REAL(wp) :: edge2edge_viacell_coeff(1:nproma,1:p_patch_3D%p_patch_2D(1)%nblks_e,1:6)
-    REAL(wp) :: edge2edge_viavert_coeff(1:nproma,1:p_patch_3D%p_patch_2D(1)%nblks_e,1:12)
-    !-----------------------------------------------------------------------
-   patch => p_patch_3D%p_patch_2D(1)
-   ! CALL init_operator_coeffs( patch, ocean_coeff)
-
-!--Old initialization of operator coefficients
-      CALL  par_init_coeff_2D( patch,               &
-                          & edge2cell_coeff_cc,   &
-                          & edge2cell_coeff_cc_t, &
-                          & edge2vert_coeff_cc,   &
-                          & edge2vert_coeff_cc_t, &
-                          & dist_cell2edge,       &
-                          & fixed_vol_norm,       &
-                          & variable_vol_norm,    &
-                          & variable_dual_vol_norm)
-
-    CALL copy_2D_to_3D_coeff( patch,                  & 
-                            & ocean_coeff,            &
-                            & edge2edge_viacell_coeff,&
-                            & edge2edge_viavert_coeff,&
-                            & edge2cell_coeff_cc,     &
-                            & edge2cell_coeff_cc_t,   &
-                            & edge2vert_coeff_cc,     &
-                            & edge2vert_coeff_cc_t,   &
-                            & dist_cell2edge,         &
-                            & fixed_vol_norm,         &
-                            & variable_vol_norm,      &
-                            & variable_dual_vol_norm)
-
-    CALL init_diff_operator_coeff_3D ( patch, ocean_coeff )
-    
-    CALL par_apply_boundary2coeffs(p_patch_3D, ocean_coeff)
-
-
-     CALL update_diffusion_matrices(   p_patch_3D,                    &
-                                     & p_os,                          &
-                                     & p_phys_param,                  &
-                                     & ocean_coeff%matrix_vert_diff_e,&
-                                     & ocean_coeff%matrix_vert_diff_c)
-  END SUBROUTINE par_init_operator_coeff2
-  !-------------------------------------------------------------------------
-  
-  !-------------------------------------------------------------------------
   !> Initialize expansion coefficients.
   !!
   !! @par Revision History
@@ -571,6 +498,7 @@ CONTAINS
 
   END SUBROUTINE par_init_operator_coeff
   !-------------------------------------------------------------------------
+
 
   !-------------------------------------------------------------------------
   !> Initialize 3D expansion coefficients.
@@ -723,528 +651,8 @@ CONTAINS
       ENDIF
     END DO
   END DO
-
- 
    END SUBROUTINE update_diffusion_matrices
   !-------------------------------------------------------------------------
-  !>
-  !! Computes the coefficients that determine the scalar product on the primal grid. This
-  !! scalar product depends on the grid geometry only and  is used to formulate the primitive
-  !! equations in weak form. The coefficients are applied in module "mo_scalar_product".
-  !! The following components of the data type "ocean_patch" are filled:
-  !!   edge2cell_coeff  : coefficients for edge to cell mapping
-  !!   edge2cell_coeff_t: coefficients for transposed of edge to cell mappings
-  !!   edge2vert_coeff  : coefficients for edge to vertex mapping
-  !!   edge2vert_coeff_t: coefficients for transposed of edge to vertex mappings
-  !!   fixed_vol_norm   : summed volume weight of moved cell
-  !!   variable_vol_norm: volume weight at the edges of moved cell
-  !!
-  !! @par Revision History
-  !!  developed by Peter Korn, MPI-M  2010-09
-  !!  Modification by Stephan Lorenz, 2010-11
-  !!  Parallelized by Leonidas Linardakis, 2012-3
-  SUBROUTINE par_init_coeff_2D( patch,               &
-                                        & edge2cell_coeff_cc,   &
-                                        & edge2cell_coeff_cc_t, &
-                                        & edge2vert_coeff_cc,   &
-                                        & edge2vert_coeff_cc_t, &
-                                        & dist_cell2edge,       &
-                                        & fixed_vol_norm,       &
-                                        & variable_vol_norm,    &
-                                        & variable_dual_vol_norm)
-    TYPE(t_patch)    , TARGET, INTENT(INOUT)     :: patch
-    TYPE(t_cartesian_coordinates), INTENT(INOUT) :: edge2cell_coeff_cc(1:nproma,1:patch%nblks_c,1:no_primal_edges)
-    TYPE(t_cartesian_coordinates), INTENT(INOUT) :: edge2cell_coeff_cc_t(1:nproma,1:patch%nblks_e,1:2)
-    TYPE(t_cartesian_coordinates), INTENT(INOUT) :: edge2vert_coeff_cc(1:nproma,1:patch%nblks_v,1:no_dual_edges)
-    TYPE(t_cartesian_coordinates), INTENT(INOUT) :: edge2vert_coeff_cc_t(1:nproma,1:patch%nblks_e,1:2)
-    REAL(wp), INTENT(INOUT) :: dist_cell2edge(1:nproma,1:patch%nblks_e,1:2)
-    REAL(wp), INTENT(INOUT) :: fixed_vol_norm(1:nproma,patch%nblks_c)
-    REAL(wp), INTENT(INOUT) :: variable_vol_norm(1:nproma,1:patch%nblks_c,1:no_primal_edges)
-    REAL(wp), INTENT(INOUT) :: variable_dual_vol_norm(1:nproma,1:patch%nblks_e,1:no_dual_edges)
-!
-!Local variables
-!
-    REAL(wp), ALLOCATABLE :: prime_edge_length( :, : )
-    REAL(wp), ALLOCATABLE :: dual_edge_length ( :, : )
-!     REAL(wp), ALLOCATABLE :: cell_area( :, : )
-!     REAL(wp), ALLOCATABLE :: dual_cell_area ( :, : )
-
-    TYPE(t_subset_range), POINTER :: owned_edges         ! these are the owned entities
-    TYPE(t_subset_range), POINTER :: owned_cells         ! these are the owned entities
-    TYPE(t_subset_range), POINTER :: owned_verts         ! these are the owned entities
-    TYPE(t_cartesian_coordinates) :: vertex_position, cell_center, edge_center
-    TYPE(t_cartesian_coordinates) :: dist_vector
-    TYPE(t_cartesian_coordinates), POINTER :: dual_edge_middle(:,:)
-
-    TYPE(t_cartesian_coordinates) :: coriolis_cartesian_coordinates
-    TYPE(t_geographical_coordinates) :: coriolis_geo_coordinates, geo_coordinates
-    REAL(wp) :: basin_center_lat_rad, basin_height_rad
-
-    REAL(wp) :: norm, orientation, length
-    REAL(wp) :: inverse_sphere_radius
-
-    INTEGER :: edge_block, edge_index
-    INTEGER :: cell_index, cell_block
-    INTEGER :: vertex_index, vertex_block
-    INTEGER :: start_index, end_index, neigbor
-    INTEGER :: cell_1_index, cell_1_block, cell_2_index, cell_2_block
-    INTEGER :: vertex_1_index, vertex_1_block, vertex_2_index, vertex_2_block
-    !-----------------------------------------------------------------------
-!     REAL(wp) :: dist_cell2edge(nproma, patch%nblks_e,2)
-!     TYPE(t_cartesian_coordinates) :: check_v1(nproma, patch%nblks_v, 6)
-!     TYPE(t_cartesian_coordinates) :: check_v2(nproma, patch%nblks_e, 2)
-!     REAL(wp) :: max_diff, max_val
-    !-----------------------------------------------------------------------
-    inverse_sphere_radius = 1.0_wp / grid_sphere_radius
-
-    owned_edges => patch%edges%owned
-    owned_cells => patch%cells%owned
-    owned_verts => patch%verts%owned
-
-    edge2vert_coeff_cc(:,:,:)%x(1) = 0.0_wp
-    edge2vert_coeff_cc(:,:,:)%x(2) = 0.0_wp
-    edge2vert_coeff_cc(:,:,:)%x(3) = 0.0_wp
-
-    edge2vert_coeff_cc_t(:,:,:)%x(1) = 0.0_wp
-    edge2vert_coeff_cc_t(:,:,:)%x(2) = 0.0_wp
-    edge2vert_coeff_cc_t(:,:,:)%x(3) = 0.0_wp
-
-
-    !-------------------------------------------
-    ! compute some basic distances
-    ! this is required if the cartesian distance is used
-    ! instead of the spherical
-    !
-    ! computes_dist_cell2edge( patch, intp_2D_coeff)
-    !
-    ALLOCATE( prime_edge_length( nproma, patch%nblks_e))
-    ALLOCATE( dual_edge_length ( nproma, patch%nblks_e))
-!     ALLOCATE( cell_area        ( nproma, patch%nblks_c))
-!     ALLOCATE( dual_cell_area   ( nproma, patch%nblks_v))
-
-    IF ( MID_POINT_DUAL_EDGE ) THEN
-      dual_edge_middle => patch%edges%cartesian_dual_middle
-    ELSE
-      dual_edge_middle => patch%edges%cartesian_center
-    ENDIF
-
-    ! get the areas on a unit sphere
-!     cell_area(:,:)      = patch%cells%area(:,:)      * inverse_earth_radius * inverse_earth_radius
-!     dual_cell_area(:,:) = patch%verts%dual_area(:,:) * inverse_earth_radius * inverse_earth_radius
-
-    IF (LARC_LENGTH) THEN
-
-      ! we just need to get them from the grid
-      ! NOTE:  these are earth's distances, translate on a unit sphere
-      dist_cell2edge(:,:,:) = &
-        & patch%edges%edge_cell_length(:,:,:) * inverse_sphere_radius
-      prime_edge_length(:,:) = &
-        & patch%edges%primal_edge_length(:,:) * inverse_sphere_radius
-      dual_edge_length(:,:) = &
-        & patch%edges%dual_edge_length(:,:) * inverse_sphere_radius
-
-    ELSE
-
-      ! calcultate cartesian distance
-      prime_edge_length(:,:) = 0.0_wp
-      dual_edge_length(:,:) = 0.0_wp
-      dist_cell2edge(:,:,:) =  0.0_wp
-
-      DO edge_block = owned_edges%start_block, owned_edges%end_block
-        CALL get_index_range(owned_edges, edge_block, start_index, end_index)
-        DO edge_index = start_index, end_index
-
-          !----------------------------------------
-          ! calculate the cartesian edge length
-          vertex_1_index = patch%edges%vertex_idx(edge_index, edge_block, 1)
-          vertex_1_block = patch%edges%vertex_blk(edge_index, edge_block, 1)
-          vertex_2_index = patch%edges%vertex_idx(edge_index, edge_block, 2)
-          vertex_2_block = patch%edges%vertex_blk(edge_index, edge_block, 2)
-
-          dist_vector%x = &
-            & patch%verts%cartesian(vertex_1_index, vertex_1_block)%x - &
-            & patch%verts%cartesian(vertex_2_index, vertex_2_block)%x
-
-            prime_edge_length(edge_index,edge_block) = &
-              & SQRT(SUM((  dist_vector%x *  dist_vector%x)))
-          !----------------------------------------
-
-          !----------------------------------------
-          ! calculate the cartesian distance of the edge center to the cell center
-          DO neigbor = 1,2
-
-            dist_cell2edge(edge_index,edge_block,neigbor) = 0.0_wp
-
-            cell_index = patch%edges%cell_idx(edge_index,edge_block,neigbor)
-            cell_block = patch%edges%cell_blk(edge_index,edge_block,neigbor)
-
-            IF (cell_block > 0) THEN
-              dist_vector%x = &
-                & patch%edges%cartesian_center(edge_index,edge_block)%x - &
-                & patch%cells%cartesian_center(cell_index,cell_block)%x
-
-              dist_cell2edge(edge_index,edge_block,neigbor) = &
-                & SQRT(SUM((  dist_vector%x *  dist_vector%x)))
-            ENDIF
-
-          ENDDO ! neigbor = 1,2
-          !----------------------------------------
-
-          !----------------------------------------
-          ! calculate the cartesian dual edge length
-          cell_1_index = patch%edges%cell_idx(edge_index, edge_block, 1)
-          cell_1_block = patch%edges%cell_blk(edge_index, edge_block, 1)
-          cell_2_index = patch%edges%cell_idx(edge_index, edge_block, 2)
-          cell_2_block = patch%edges%cell_blk(edge_index, edge_block, 2)
-
-          IF (cell_1_block > 0 .AND. cell_2_block > 0) THEN
-            dist_vector%x = &
-              & patch%cells%cartesian_center(cell_1_index, cell_1_block)%x - &
-              & patch%cells%cartesian_center(cell_2_index, cell_2_block)%x
-
-              dual_edge_length(edge_index,edge_block) = &
-                & SQRT(SUM((  dist_vector%x *  dist_vector%x)))
-          ELSE
-              dual_edge_length(edge_index,edge_block) =              &
-                & dist_cell2edge(edge_index,edge_block,1) + &
-                & dist_cell2edge(edge_index,edge_block,2)
-           ENDIF
-          !----------------------------------------
-
-        ENDDO ! edge_index=start_index,end_index
-      ENDDO ! edge_block = owned_edges%start_block, owned_edges%end_block
-
-      ! synchronize the edge distances
-      CALL sync_patch_array(SYNC_E, patch, dist_cell2edge(:,:,1))
-      CALL sync_patch_array(SYNC_E, patch, dist_cell2edge(:,:,2))
-      CALL sync_patch_array(SYNC_E, patch, prime_edge_length(:,:))
-      CALL sync_patch_array(SYNC_E, patch, dual_edge_length(:,:))
-    ENDIF
-    ! distances have been computed
-    !-------------------------------------------
-
-    !-------------------------------------------
-    ! compute:
-    !   edge2cell_coeff_cc
-    !   fixed_vol_norm
-    !   variable_vol_norm
-    edge2cell_coeff_cc(:,:,:)%x(1) = 0.0_wp
-    edge2cell_coeff_cc(:,:,:)%x(2) = 0.0_wp
-    edge2cell_coeff_cc(:,:,:)%x(3) = 0.0_wp
-
-    edge2cell_coeff_cc_t(:,:,:)%x(1) = 0.0_wp
-    edge2cell_coeff_cc_t(:,:,:)%x(2) = 0.0_wp
-    edge2cell_coeff_cc_t(:,:,:)%x(3) = 0.0_wp
-
-    fixed_vol_norm(:,:)       = 0.0_wp
-    variable_vol_norm(:,:,:)  = 0.0_wp
-    DO cell_block = owned_cells%start_block, owned_cells%end_block
-      CALL get_index_range(owned_cells, cell_block, start_index, end_index)
-      DO cell_index = start_index, end_index
-
-        cell_center%x = patch%cells%cartesian_center(cell_index, cell_block)%x
-        fixed_vol_norm(cell_index,cell_block) = 0.0_wp
-
-        !-------------------------------
-        DO neigbor=1,patch%cells%num_edges(cell_index,cell_block)  !no_primal_edges!patch%cell_type
-
-          edge2cell_coeff_cc(cell_index,cell_block,neigbor)%x = 0.0_wp
-          variable_vol_norm(cell_index, cell_block, neigbor) =  0.0_wp
-
-          edge_index = patch%cells%edge_idx(cell_index, cell_block, neigbor)
-          edge_block = patch%cells%edge_blk(cell_index, cell_block, neigbor)
-
-          IF (edge_block > 0 ) THEN ! this if should not be necessary but for safety let it be
-            ! we have an edge
-            dist_vector%x = &
-              & patch%edges%cartesian_center(edge_index,edge_block)%x - &
-              & cell_center%x
-
-            norm  = SQRT(SUM( dist_vector%x * dist_vector%x))
-
-            ! compute edge2cell_coeff_cc
-            edge2cell_coeff_cc(cell_index,cell_block,neigbor)%x =  &
-              & dist_vector%x *                                             &
-              & prime_edge_length(edge_index,edge_block) *                  &
-              & patch%cells%edge_orientation(cell_index,cell_block,neigbor)! / &
-              ! & cell_area(cell_index, cell_block)
-              ! Note: here we do not divide by the cell area !
-
-            fixed_vol_norm(cell_index,cell_block) = &
-              & fixed_vol_norm(cell_index,cell_block) + &
-              & 0.5_wp * norm * prime_edge_length(edge_index,edge_block)
-
-            variable_vol_norm(cell_index, cell_block, neigbor) = &
-              & 0.5_wp * norm * prime_edge_length(edge_index,edge_block)
-
-          ENDIF !(edge_block > 0 )
-
-        ENDDO !neigbor=1,patch%cell_type
-        !-------------------------------
-
-      ENDDO ! cell_index = start_index, end_index
-    ENDDO !cell_block = owned_cells%start_block, owned_cells%end_block
-    !-------------------
-    ! sync the results
-    CALL sync_patch_array(SYNC_C, patch, fixed_vol_norm(:,:))
-    DO neigbor=1,patch%cell_type
-      CALL sync_patch_array(SYNC_C, patch, edge2cell_coeff_cc(:,:,neigbor)%x(1))
-      CALL sync_patch_array(SYNC_C, patch, edge2cell_coeff_cc(:,:,neigbor)%x(2))
-      CALL sync_patch_array(SYNC_C, patch, edge2cell_coeff_cc(:,:,neigbor)%x(3))
-      CALL sync_patch_array(SYNC_C, patch, variable_vol_norm(:,:,neigbor))
-    ENDDO
-    !-------------------
-
-    !-------------------------------------------
-    ! compute:
-    !   edge2cell_coeff_cc_t
-
-    DO edge_block = owned_edges%start_block, owned_edges%end_block
-      CALL get_index_range(owned_edges, edge_block, start_index, end_index)
-      DO edge_index = start_index, end_index
-
-        edge2cell_coeff_cc_t(edge_index, edge_block, 2)%x = 0.0_wp
-        edge_center%x = patch%edges%cartesian_center(edge_index, edge_block)%x
-
-        DO neigbor=1,2
-
-          edge2cell_coeff_cc_t(edge_index, edge_block, neigbor)%x = 0.0_wp
-          cell_index = patch%edges%cell_idx(edge_index, edge_block, neigbor)
-          cell_block = patch%edges%cell_blk(edge_index, edge_block, neigbor)
-
-          IF (cell_block > 0) THEN
-
-            dist_vector%x =  edge_center%x -                             &
-              patch%cells%cartesian_center(cell_index, cell_block)%x
-
-            orientation = DOT_PRODUCT(dist_vector%x, &
-              & patch%edges%primal_cart_normal(edge_index, edge_block)%x)
-            IF (orientation < 0.0_wp) dist_vector%x = - dist_vector%x
-
-            edge2cell_coeff_cc_t(edge_index, edge_block, neigbor)%x = &
-              dist_vector%x / dual_edge_length(edge_index, edge_block)
-
-          ENDIF ! (cell_block > 0)
-
-        ENDDO ! neigbor=1,2
-
-      ENDDO ! edge_index = start_index, end_index
-    ENDDO ! edge_block = owned_edges%start_block, owned_edges%end_block
-    !-------------------
-    ! sync the results
-    DO neigbor=1,2
-      CALL sync_patch_array(SYNC_E, patch, edge2cell_coeff_cc_t(:,:,neigbor)%x(1))
-      CALL sync_patch_array(SYNC_E, patch, edge2cell_coeff_cc_t(:,:,neigbor)%x(2))
-      CALL sync_patch_array(SYNC_E, patch, edge2cell_coeff_cc_t(:,:,neigbor)%x(3))
-    ENDDO ! neigbor=1,2
-    !   edge2cell_coeff_cc_t is computed
-    !-------------------------------------------
-
-    !-------------------------------------------
-    ! compute:
-    !   edge2vert_coeff_cc
-    !   variable_dual_vol_norm
-    variable_dual_vol_norm(:,:,:)  = 0.0_wp
-    DO vertex_block = owned_verts%start_block, owned_verts%end_block
-      CALL get_index_range(owned_verts, vertex_block, start_index, end_index)
-      DO vertex_index = start_index, end_index
-
-        vertex_position%x = patch%verts%cartesian(vertex_index, vertex_block)%x
-
-        DO neigbor=1, patch%verts%num_edges(vertex_index,vertex_block) !no_dual_edges ! we have to change this to accomodate the dual grid
-
-          variable_dual_vol_norm(vertex_index, vertex_block, neigbor) = 0.0_wp
-
-          edge_index = patch%verts%edge_idx(vertex_index, vertex_block, neigbor)
-          edge_block = patch%verts%edge_blk(vertex_index, vertex_block, neigbor)
-
-          IF (edge_block > 0) THEN
-            ! we got an adjacent edge
-            dist_vector%x = &
-              dual_edge_middle(edge_index, edge_block)%x - &
-              vertex_position%x
-
-
-            ! the dist_vector has cartesian length
-            ! if we use spherical distance we need to recalculate
-            ! its length
-            IF (LARC_LENGTH) THEN
-              length = arc_length(vertex_position, dual_edge_middle(edge_index, edge_block))
-              norm = SQRT(SUM( dist_vector%x * dist_vector%x ))
-              dist_vector%x = dist_vector%x * length / norm
-            ELSE
-              length = SQRT(SUM( dist_vector%x * dist_vector%x ))
-            ENDIF
-
-            dist_vector = vector_product(dist_vector, dual_edge_middle(edge_index, edge_block))
-            orientation = DOT_PRODUCT( dist_vector%x,                         &
-               & patch%edges%primal_cart_normal(edge_index, edge_block)%x)
-            IF (orientation < 0.0_wp) dist_vector%x = - dist_vector%x
-
-              edge2vert_coeff_cc(vertex_index, vertex_block, neigbor)%x = &
-              & dist_vector%x                                *                    &
-              & dual_edge_length(edge_index, edge_block) !    /                    &
-              !& dual_cell_area(vertex_index, vertex_block)
-
-              variable_dual_vol_norm(vertex_index, vertex_block, neigbor) = &
-              & 0.5_wp * dual_edge_length(edge_index, edge_block) * length
-
-          ENDIF !(edge_block > 0) THEN
-
-        ENDDO !neigbor=1,6
-
-      ENDDO ! vertex_index = start_index, end_index
-    ENDDO !vertex_block = owned_verts%start_block, owned_verts%end_block
-    !-------------------
-    ! sync the results
-    DO neigbor=1,no_dual_edges
-      CALL sync_patch_array(SYNC_V, patch, edge2vert_coeff_cc(:,:,neigbor)%x(1))
-      CALL sync_patch_array(SYNC_V, patch, edge2vert_coeff_cc(:,:,neigbor)%x(2))
-      CALL sync_patch_array(SYNC_V, patch, edge2vert_coeff_cc(:,:,neigbor)%x(3))
-      CALL sync_patch_array(SYNC_V, patch, variable_dual_vol_norm(:,:, neigbor))
-    ENDDO ! neigbor=1,6
-    ! edge2vert_coeff_cc
-    ! variable_dual_vol_norm
-    !   are computed
-    !----------------------------------------------------
-
-    !----------------------------------------------------
-    ! compute:
-    !   edge2vert_coeff_cc_t
-    DO edge_block = owned_edges%start_block, owned_edges%end_block
-      CALL get_index_range(owned_edges, edge_block, start_index, end_index)
-      DO edge_index = start_index, end_index
-
-        edge_center%x = dual_edge_middle(edge_index, edge_block)%x
-
-        DO neigbor=1,2
-
-          edge2vert_coeff_cc_t(edge_index, edge_block, neigbor)%x = 0.0_wp
-
-          vertex_index = patch%edges%vertex_idx(edge_index, edge_block, neigbor)
-          vertex_block = patch%edges%vertex_blk(edge_index, edge_block, neigbor)
-
-          edge2vert_coeff_cc_t(edge_index, edge_block, neigbor)%x =              &
-            & (edge_center%x - patch%verts%cartesian(vertex_index, vertex_block)%x) * &
-            & patch%edges%system_orientation(edge_index, edge_block)                / &
-            & prime_edge_length(edge_index, edge_block)
-
-        ENDDO !neigbor=1,2
-
-      ENDDO ! edge_index = start_index, end_index
-    ENDDO ! edge_block = owned_edges%start_block, owned_edges%end_block
-    !-------------------
-    ! sync the results
-    DO neigbor=1,2
-      CALL sync_patch_array(SYNC_E, patch, edge2vert_coeff_cc_t(:,:,neigbor)%x(1))
-      CALL sync_patch_array(SYNC_E, patch, edge2vert_coeff_cc_t(:,:,neigbor)%x(2))
-      CALL sync_patch_array(SYNC_E, patch, edge2vert_coeff_cc_t(:,:,neigbor)%x(3))
-    ENDDO ! neigbor=1,2
-    ! edge2vert_coeff_cc_t is computed
-    !----------------------------------------------------
-
-    !----------------------------------------------------
-    ! recalculate the coriolis coefficient
-    ! It is required if we use the middle of the dual_edge_length
-    IF (MID_POINT_DUAL_EDGE) THEN
-
-      IF (CORIOLIS_TYPE == full_coriolis) THEN
-
-        DO edge_block = owned_edges%start_block, owned_edges%end_block
-          CALL get_index_range(owned_edges, edge_block, start_index, end_index)
-          DO edge_index = start_index, end_index
-
-             coriolis_geo_coordinates = cc2gc(dual_edge_middle(edge_index,edge_block))
-             patch%edges%f_e(edge_index,edge_block) = &
-               & 2._wp * grid_angular_velocity * SIN(coriolis_geo_coordinates%lat)
-
-          ENDDO
-        ENDDO
-
-      ELSEIF (CORIOLIS_TYPE == BETA_PLANE_CORIOLIS) THEN
-
-        basin_center_lat_rad = basin_center_lat * deg2rad
-        basin_height_rad     = basin_height_deg * deg2rad
-        coriolis_geo_coordinates%lat = basin_center_lat_rad - 0.5_wp * basin_height_rad
-        coriolis_geo_coordinates%lon = 0.0_wp
-        coriolis_cartesian_coordinates  = gc2cc(coriolis_geo_coordinates)
-
-        DO edge_block = owned_edges%start_block, owned_edges%end_block
-          CALL get_index_range(owned_edges, edge_block, start_index, end_index)
-          DO edge_index = start_index, end_index
-
-          geo_coordinates     = cc2gc(dual_edge_middle(edge_index,edge_block))
-          geo_coordinates%lon = 0.0_wp
-          edge_center         = gc2cc(geo_coordinates)
-          length              = grid_sphere_radius * &
-            & arc_length(edge_center, coriolis_cartesian_coordinates)
-
-          patch%edges%f_e(edge_index,edge_block) =  2.0_wp * grid_angular_velocity * &
-            & ( sin(basin_center_lat_rad) + (cos(basin_center_lat_rad) / &
-            &   grid_sphere_radius) * length)
-
-          ENDDO
-        ENDDO
-
-      ENDIF !(CORIOLIS_TYPE==full_coriolis)
-    ENDIF ! (MID_POINT_DUAL_EDGE)
-    !-------------------
-    ! sync patch%edges%f_e
-    CALL sync_patch_array(SYNC_E, patch, patch%edges%f_e)
-
-
-    !----------------------------------------------------
-!    DEALLOCATE( prime_edge_length)
-
-    DEALLOCATE( dual_edge_length )
-!     DEALLOCATE( cell_area )
-!     DEALLOCATE( dual_cell_area )
-    !---------------------------------------------------------
-!     RETURN
-    !---------------------------------------------------------
-    ! checks
-!
-!      !---------------------------------------------------------
-!      check_v1 = intp_2D_coeff%edge2vert_coeff_cc
-!      check_v2 = intp_2D_coeff%edge2vert_coeff_cc_t
-!      !---------------------------------------------------------
-!
-!      CALL init_scalar_product_oce( patch, intp_2D_coeff )
-!
-!      !---------------------------------------------------------
-!      max_diff = MAXVAL(ABS(intp_2D_coeff%edge2vert_coeff_cc(:,:,:)%x(1) - &
-!        &  check_v1(:,:,:)%x(1) ))
-!      max_val  =  MAXVAL(ABS( check_v1(:,:,:)%x(1)))
-!      Write(0,*) "max diff of edge2vert_coeff_cc(:,:,:,:)%x(1)=", max_diff, max_val
-!
-!      max_diff = MAXVAL(ABS(intp_2D_coeff%edge2vert_coeff_cc(:,:,:)%x(2) - &
-!        & check_v1(:,:,:)%x(2) ))
-!      max_val  =  MAXVAL(ABS( check_v1(:,:,:)%x(2)))
-!      Write(0,*) "max diff of edge2vert_coeff_cc(:,:,:,:)%x(2)=", max_diff, max_val
-!
-!      max_diff = MAXVAL(ABS(intp_2D_coeff%edge2vert_coeff_cc(:,:,:)%x(3) - &
-!        & check_v1(:,:,:)%x(3) ))
-!      max_val  =  MAXVAL(ABS( check_v1(:,:,:)%x(3)))
-!      Write(0,*) "max diff of edge2vert_coeff_cc(:,:,:,:)%x(3)=", max_diff, max_val
-!      !---------------------------------------------------------
-!
-!      max_diff = MAXVAL(ABS(intp_2D_coeff%edge2vert_coeff_cc_t(:,:,:)%x(1) - &
-!        &  check_v2(:,:,:)%x(1) ))
-!      max_val  =  MAXVAL(ABS( check_v2(:,:,:)%x(1)))
-!      Write(0,*) "max diff of edge2vert_coeff_cc_t(:,:,:,:)%x(1)=", max_diff, max_val
-!
-!      max_diff = MAXVAL(ABS(intp_2D_coeff%edge2vert_coeff_cc_t(:,:,:)%x(2) - &
-!        & check_v2(:,:,:)%x(2) ))
-!      max_val  =  MAXVAL(ABS( check_v2(:,:,:)%x(2)))
-!      Write(0,*) "max diff of edge2vert_coeff_cc_t(:,:,:,:)%x(2)=", max_diff, max_val
-!
-!      max_diff = MAXVAL(ABS(intp_2D_coeff%edge2vert_coeff_cc_t(:,:,:)%x(3) - &
-!        & check_v2(:,:,:)%x(3) ))
-!      max_val  =  MAXVAL(ABS( check_v2(:,:,:)%x(3)))
-!      Write(0,*) "max diff of edge2vert_coeff_cc_t(:,:,:,:)%x(3)=", max_diff, max_val
-!
-
-  END SUBROUTINE par_init_coeff_2D
   !-------------------------------------------------------------------------
   !>
   !! Computes the coefficients that determine the scalar product on the primal grid. This
@@ -1270,37 +678,37 @@ CONTAINS
 !
     REAL(wp)                      :: prime_edge_length      (1:nproma,patch%nblks_e)
     REAL(wp)                      :: dual_edge_length       (1:nproma,patch%nblks_e)
-    REAL(wp)                      :: edge2edge_viacell_coeff(1:nproma,1:patch%nblks_e,1:2*no_primal_edges)
-    REAL(wp)                      :: edge2edge_viavert_coeff(1:nproma,1:patch%nblks_e,1:2*no_dual_edges )
+    !REAL(wp)                      :: edge2edge_viacell_coeff(1:nproma,1:patch%nblks_e,1:2*no_primal_edges)
+    !REAL(wp)                      :: edge2edge_viavert_coeff(1:nproma,1:patch%nblks_e,1:2*no_dual_edges )
     REAL(wp)                      :: dist_cell2edge         (1:nproma,1:patch%nblks_e,1:2)
-    REAL(wp)                      :: fixed_vol_norm         (1:nproma,patch%nblks_c)
-    REAL(wp)                      :: variable_vol_norm      (1:nproma,1:patch%nblks_c,1:no_primal_edges)
-    REAL(wp)                      :: variable_dual_vol_norm (1:nproma,1:patch%nblks_e,1:no_dual_edges)
+    !REAL(wp)                      :: fixed_vol_norm         (1:nproma,patch%nblks_c)
+    !REAL(wp)                      :: variable_vol_norm      (1:nproma,1:patch%nblks_c,1:no_primal_edges)
+    !REAL(wp)                      :: variable_dual_vol_norm (1:nproma,1:patch%nblks_e,1:no_dual_edges)
 
     REAL(wp)                      :: div_coeff              (1:nproma,1:patch%nblks_c,1:no_primal_edges)
     REAL(wp)                      :: rot_coeff              (1:nproma,1:patch%nblks_v,1:no_dual_edges)
     REAL(wp)                      :: grad_coeff             (1:nproma,1:patch%nblks_e)
 
     TYPE(t_cartesian_coordinates) :: edge2cell_coeff_cc     (1:nproma,1:patch%nblks_c,1:no_primal_edges)
-    TYPE(t_cartesian_coordinates) :: edge2cell_coeff_cc_t   (1:nproma,1:patch%nblks_e,1:2)
-    TYPE(t_cartesian_coordinates) :: edge2vert_coeff_cc     (1:nproma,1:patch%nblks_v,1:no_dual_edges)
-    TYPE(t_cartesian_coordinates) :: edge2vert_coeff_cc_t   (1:nproma,1:patch%nblks_e,1:2)
+    !TYPE(t_cartesian_coordinates) :: edge2cell_coeff_cc_t   (1:nproma,1:patch%nblks_e,1:2)
+    !TYPE(t_cartesian_coordinates) :: edge2vert_coeff_cc     (1:nproma,1:patch%nblks_v,1:no_dual_edges)
+    !TYPE(t_cartesian_coordinates) :: edge2vert_coeff_cc_t   (1:nproma,1:patch%nblks_e,1:2)
 
 
     TYPE(t_subset_range), POINTER :: owned_edges         ! these are the owned entities
     TYPE(t_subset_range), POINTER :: owned_cells         ! these are the owned entities
     TYPE(t_subset_range), POINTER :: owned_verts         ! these are the owned entities
-    TYPE(t_cartesian_coordinates) :: vertex_position, cell_center, edge_center, vertex_center
-    TYPE(t_cartesian_coordinates) :: dist_vector, dist_vector_basic
+    TYPE(t_cartesian_coordinates) ::  edge_center,vertex_position!, vertex_center
+    TYPE(t_cartesian_coordinates) :: dist_vector!, dist_vector_basic
     TYPE(t_cartesian_coordinates), POINTER :: dual_edge_middle(:,:)
     TYPE(t_cartesian_coordinates) :: coriolis_cartesian_coordinates
     TYPE(t_geographical_coordinates) :: coriolis_geo_coordinates, geo_coordinates
     REAL(wp) :: basin_center_lat_rad, basin_height_rad
-    REAL(wp) :: norm, orientation, length
+    REAL(wp) :: length
     REAL(wp) :: inverse_sphere_radius
-    REAL(wp) :: dist_edge_cell, dist_edge_cell_basic
-    INTEGER :: edge_block_cell, edge_index_cell, ictr
-    INTEGER :: cell_edge, vert_edge
+    !REAL(wp) :: dist_edge_cell, dist_edge_cell_basic
+    !INTEGER :: edge_block_cell, edge_index_cell, ictr
+    !INTEGER :: cell_edge, vert_edge
     INTEGER :: edge_block, edge_index
     INTEGER :: cell_index, cell_block
     INTEGER :: vertex_index, vertex_block
@@ -1315,16 +723,16 @@ CONTAINS
     owned_cells => patch%cells%owned
     owned_verts => patch%verts%owned
 
-    edge2vert_coeff_cc(:,:,:)%x(1) = 0.0_wp
-    edge2vert_coeff_cc(:,:,:)%x(2) = 0.0_wp
-    edge2vert_coeff_cc(:,:,:)%x(3) = 0.0_wp
+    !edge2vert_coeff_cc(:,:,:)%x(1) = 0.0_wp
+    !edge2vert_coeff_cc(:,:,:)%x(2) = 0.0_wp
+    !edge2vert_coeff_cc(:,:,:)%x(3) = 0.0_wp
 
-    edge2vert_coeff_cc_t(:,:,:)%x(1) = 0.0_wp
-    edge2vert_coeff_cc_t(:,:,:)%x(2) = 0.0_wp
-    edge2vert_coeff_cc_t(:,:,:)%x(3) = 0.0_wp
+    !edge2vert_coeff_cc_t(:,:,:)%x(1) = 0.0_wp
+    !edge2vert_coeff_cc_t(:,:,:)%x(2) = 0.0_wp
+    !edge2vert_coeff_cc_t(:,:,:)%x(3) = 0.0_wp
 
-    edge2edge_viacell_coeff(:,:,:) = 0.0_wp
-    edge2edge_viavert_coeff(:,:,:) = 0.0_wp
+    !edge2edge_viacell_coeff(:,:,:) = 0.0_wp
+    !edge2edge_viavert_coeff(:,:,:) = 0.0_wp
     rot_coeff(:,:,:)        = 0.0_wp
     div_coeff(:,:,:)        = 0.0_wp
     grad_coeff(:,:)         = 0.0_wp
@@ -1446,7 +854,6 @@ CONTAINS
         DO neigbor=1, patch%cells%num_edges(cell_index,cell_block)!no_primal_edges
 
           edge2cell_coeff_cc(cell_index,cell_block,neigbor)%x = 0.0_wp
-          variable_vol_norm(cell_index, cell_block, neigbor) =  0.0_wp
 
           edge_index = patch%cells%edge_idx(cell_index, cell_block, neigbor)
           edge_block = patch%cells%edge_blk(cell_index, cell_block, neigbor)
@@ -1594,10 +1001,10 @@ CONTAINS
 !Local variables
 !
     REAL(wp)                      :: edge2edge_viacell_coeff(1:nproma,1:patch%nblks_e,1:2*no_primal_edges)
-    REAL(wp)                      :: dist_cell2edge         (1:nproma,1:patch%nblks_e,1:2)
+    !REAL(wp)                      :: dist_cell2edge         (1:nproma,1:patch%nblks_e,1:2)
     REAL(wp)                      :: fixed_vol_norm         (1:nproma,patch%nblks_c)
     REAL(wp)                      :: variable_vol_norm      (1:nproma,1:patch%nblks_c,1:no_primal_edges)
-    REAL(wp)                      :: norm, orientation, length
+    REAL(wp)                      :: norm, orientation
     REAL(wp)                      :: dist_edge_cell, dist_edge_cell_basic
 
     TYPE(t_cartesian_coordinates) :: edge2cell_coeff_cc     (1:nproma,1:patch%nblks_c,1:no_primal_edges)
@@ -1931,7 +1338,7 @@ CONTAINS
 !
     TYPE(t_cartesian_coordinates) :: edge2vert_coeff_cc     (1:nproma,1:patch%nblks_v,1:no_dual_edges)
     TYPE(t_cartesian_coordinates) :: edge2vert_coeff_cc_t   (1:nproma,1:patch%nblks_e,1:2)
-    TYPE(t_cartesian_coordinates) :: vertex_position, cell_center, edge_center, vertex_center
+    TYPE(t_cartesian_coordinates) :: vertex_position, edge_center, vertex_center
     TYPE(t_cartesian_coordinates) :: dist_vector, dist_vector_basic
     TYPE(t_cartesian_coordinates), POINTER :: dual_edge_middle(:,:)
 
@@ -1942,7 +1349,7 @@ CONTAINS
     INTEGER :: ictr,edge_block_cell, edge_index_cell
     INTEGER :: vert_edge
     INTEGER :: edge_block, edge_index
-    INTEGER :: cell_index, cell_block
+    !INTEGER :: cell_index, cell_block
     INTEGER :: vertex_index, vertex_block
     INTEGER :: start_index, end_index, neigbor
     INTEGER :: level
@@ -1969,7 +1376,7 @@ CONTAINS
     edge2vert_coeff_cc_t(:,:,:)%x(3) = 0.0_wp
     edge2edge_viavert_coeff(:,:,:)   = 0.0_wp
    !-------------------------------------------
-    ! 6) compute:
+    ! 1) compute:
     !   edge2vert_coeff_cc
     !   variable_dual_vol_norm will be handled in boundary_coeff-sbr
     !variable_dual_vol_norm(:,:,:)  = 0.0_wp
@@ -2160,7 +1567,7 @@ CONTAINS
         ENDDO !neigbor=1,2
       ENDDO ! edge_index = start_index, end_index
     ENDDO ! edge_block = owned_edges%start_block, owned_edges%end_block
-    
+
     !-------------------
     DO ictr=1, 2*no_dual_edges
 !      write(0,*)'ictr:',ictr
@@ -2182,208 +1589,8 @@ CONTAINS
 !      CALL sync_patch_array(SYNC_E, patch, ocean_coeff%edge2edge_viavert_coeff(:,:,:,neigbor))
 !    END DO
    !-------------------------------------------
-
-!Do ictr=1,12
- ! write(*,*)'max coeff',&
-! & maxval(edge2edge_viacell_coeff(:,:,1)),&
-! & maxval(edge2edge_viacell_coeff(:,:,2)),&
-! & maxval(edge2edge_viacell_coeff(:,:,3)),&
-! & maxval(edge2edge_viacell_coeff(:,:,4)),&
-! & maxval(edge2edge_viacell_coeff(:,:,5)),&
-! & maxval(edge2edge_viacell_coeff(:,:,6))
-! 
-! write(*,*)'min coeff',&
-! & minval(edge2edge_viacell_coeff(:,:,1)),&
-! & minval(edge2edge_viacell_coeff(:,:,2)),&
-! & minval(edge2edge_viacell_coeff(:,:,3)),&
-! & minval(edge2edge_viacell_coeff(:,:,4)),&
-! & minval(edge2edge_viacell_coeff(:,:,5)),&
-! & minval(edge2edge_viacell_coeff(:,:,6))
-!  
-! write(*,*)'max coeff',&
-!  & maxval(edge2edge_viavert_coeff(:,:,ictr)),&
-!  & minval(edge2edge_viavert_coeff(:,:,ictr))
-! write(*,*)'max angle',ictr,&
-! & maxval(acos(edge2edge_viavert_coeff(:,:,ictr))*rad2deg)
-! 
-! write(*,*)'min angle',&
-! & minval(acos(edge2edge_viavert_coeff(:,:,ictr))*rad2deg)
-! END DO
-!-------------------------------------------
-
   END SUBROUTINE init_operator_coeffs_vertex
   !-------------------------------------------------------------------------
-
-  !-------------------------------------------------------------------------
-
-  !> Initialize 3D expansion coefficients.
-  !!
-  !! @par Revision History
-  !! Peter Korn (2012-2)
-  !! Parellelized by Leonidas Linardakis 2012-3
-
-
-  SUBROUTINE copy_2D_to_3D_coeff( patch,                 &
-                               & ocean_coeff,            &
-                               & edge2edge_viacell_coeff,&
-                               & edge2edge_viavert_coeff,&
-                               & edge2cell_coeff_cc,     &
-                               & edge2cell_coeff_cc_t,   &
-                               & edge2vert_coeff_cc,     &
-                               & edge2vert_coeff_cc_t,   &
-                               & dist_cell2edge,         &
-                               & fixed_vol_norm,         &
-                               & variable_vol_norm,      &
-                               & variable_dual_vol_norm)
-    TYPE(t_patch)    , TARGET, INTENT(INOUT)     :: patch
-    TYPE(t_operator_coeff), INTENT(inout) :: ocean_coeff
-    REAL(wp), INTENT(IN)                      :: edge2edge_viacell_coeff(1:nproma,1:patch%nblks_e,1:2*no_primal_edges)
-    REAL(wp), INTENT(IN)                      :: edge2edge_viavert_coeff(1:nproma,1:patch%nblks_e,1:2*no_dual_edges)
-    TYPE(t_cartesian_coordinates), INTENT(IN) :: edge2cell_coeff_cc     (1:nproma,1:patch%nblks_c,1:patch%cell_type)
-    TYPE(t_cartesian_coordinates), INTENT(IN) :: edge2cell_coeff_cc_t   (1:nproma,1:patch%nblks_e,1:2)
-    TYPE(t_cartesian_coordinates), INTENT(IN) :: edge2vert_coeff_cc     (1:nproma,1:patch%nblks_v,1:no_dual_edges)
-    TYPE(t_cartesian_coordinates), INTENT(IN) :: edge2vert_coeff_cc_t   (1:nproma,1:patch%nblks_e,1:2)
-    REAL(wp), INTENT(IN) :: dist_cell2edge        (1:nproma,1:patch%nblks_e,1:2)
-    REAL(wp), INTENT(IN) :: fixed_vol_norm        (1:nproma,patch%nblks_c)
-    REAL(wp), INTENT(IN) :: variable_vol_norm     (1:nproma,1:patch%nblks_c,1:no_primal_edges)
-    REAL(wp), INTENT(IN) :: variable_dual_vol_norm(1:nproma,1:patch%nblks_v,1:no_dual_edges)
-    !
-    !Local variables
-    !
-    TYPE(t_subset_range), POINTER :: all_edges
-    TYPE(t_subset_range), POINTER :: all_cells
-    TYPE(t_subset_range), POINTER :: all_verts
-
-    INTEGER :: edge_block, cell_block, vertex_block, level, neigbor
-    INTEGER :: je,jk, i_startidx_e, i_endidx_e
-
-    all_cells => patch%cells%all
-    all_edges => patch%edges%all
-    all_verts => patch%verts%all
-
-    !---------------------------------------------------------
-    ! the following coefficients will be copied:
-    !
-    ! ocean_coeff%edge_position_cc(:,:,:)            on edges
-    ! ocean_coeff%dist_cell2edge(:,:,:,1-2)          on edges
-    !
-    ! ocean_coeff%edge2cell_coeff_cc(:,:,:,1-3)%x    on cells
-    ! ocean_coeff%fixed_vol_norm(:,:,:)              on cells
-    ! ocean_coeff%variable_vol_norm(:,:,:,1-3)       on cells
-    !
-    ! ocean_coeff%edge2cell_coeff_cc_t(:,:,:,1-2)%x  on edges
-    ! ocean_coeff%edge2vert_coeff_cc(:,:,:,1-6)%x   on verts
-    ! ocean_coeff%edge2vert_coeff_cc_t(:,:,:,1-2)%x  on edges
-    !
-    ! p_patch%edges%f_e(:, :) is already calculated in par_init_scalar_product_oce    !
-    !---------------------------------------------------------
-
-
-    !---------------------------------------------------------
-    ! calculate ocean_coeff%edge_position_cc(:,:,:) on edges
-    ! this is the same as the 2D, just copy it
-    ! it does not change, maybe turn it to 2D?
-    DO edge_block = all_edges%start_block, all_edges%end_block
-      DO level = 1, n_zlev
-        ocean_coeff%edge_position_cc(:,level,edge_block) = &
-          patch%edges%cartesian_center(:,edge_block)
-      ENDDO
-    ENDDO
-    !---------------------------------------------------------
-
-    !---------------------------------------------------------
-    ! calculate ocean_coeff%dist_cell2edge(:,:,:,1-2) on edges
-    ! this is the same as the 2D, just copy it
-    ! it does not change, maybe turn it to 2D?
-    DO edge_block = all_edges%start_block, all_edges%end_block
-      DO level = 1, n_zlev
-        ocean_coeff%dist_cell2edge(:,level,edge_block,1) = &
-          dist_cell2edge(:,edge_block,1)
-        ocean_coeff%dist_cell2edge(:,level,edge_block,2) = &
-          dist_cell2edge(:,edge_block,2)
-      ENDDO
-    ENDDO
-    !---------------------------------------------------------
-
-    !---------------------------------------------------------
-    ! For the rest of coefficients,
-    ! copy the 2D and then apply_boundary2coeffs
-    !
-    ! on edges
-    DO edge_block = all_edges%start_block, all_edges%end_block
-      DO level = 1, n_zlev
-        CALL get_index_range(all_edges, edge_block, i_startidx_e, i_endidx_e)
-        DO je =  i_startidx_e, i_endidx_e
-
-          ocean_coeff%edge2cell_coeff_cc_t(je,level,edge_block,1)%x = &
-            edge2cell_coeff_cc_t(je,edge_block,1)%x
-          ocean_coeff%edge2cell_coeff_cc_t(je,level,edge_block,2)%x = &
-            edge2cell_coeff_cc_t(je,edge_block,2)%x
-
-          ocean_coeff%edge2vert_coeff_cc_t(je,level,edge_block,1)%x = &
-            edge2vert_coeff_cc_t(je,edge_block,1)%x
-          ocean_coeff%edge2vert_coeff_cc_t(je,level,edge_block,2)%x = &
-            edge2vert_coeff_cc_t(je,edge_block,2)%x
-
-          !ocean_coeff%edge2edge_viacell_coeff(je,level,edge_block,1:6)=&
-          !&edge2edge_viacell_coeff(je,edge_block,1:6)
-
-          !ocean_coeff%edge2edge_viavert_coeff(je,level,edge_block,1:12)=&
-          !&edge2edge_viavert_coeff(je,edge_block,1:12)
-
-        ENDDO
-      ENDDO
-    ENDDO
-
-    ! on cells
-    DO cell_block = all_cells%start_block, all_cells%end_block
-      DO level = 1, n_zlev
-
-       ocean_coeff%fixed_vol_norm(:,level,cell_block) = &
-         fixed_vol_norm(:,cell_block)
-
-       DO neigbor=1,no_primal_edges!patch%cell_type
-
-         ocean_coeff%edge2cell_coeff_cc(:,level,cell_block,neigbor)%x(1) = &
-           & edge2cell_coeff_cc(:,cell_block,neigbor)%x(1)
-         ocean_coeff%edge2cell_coeff_cc(:,level,cell_block,neigbor)%x(2) = &
-           & edge2cell_coeff_cc(:,cell_block,neigbor)%x(2)
-         ocean_coeff%edge2cell_coeff_cc(:,level,cell_block,neigbor)%x(3) = &
-           & edge2cell_coeff_cc(:,cell_block,neigbor)%x(3)
-
-         ocean_coeff%variable_vol_norm(:,level,cell_block,neigbor) = &
-           & variable_vol_norm(:,cell_block,neigbor)
-
-        ENDDO ! neigbor=1,patch%cell_type
-
-      ENDDO  !  level = 1, n_zlev
-    ENDDO ! cell_block
-
-    ! on verts
-    DO vertex_block = all_verts%start_block, all_verts%end_block
-      DO level = 1, n_zlev
-        DO neigbor=1,no_dual_edges
-
-          ocean_coeff%edge2vert_coeff_cc(:,level,vertex_block,neigbor)%x(1) &
-             &= edge2vert_coeff_cc(:,vertex_block,neigbor)%x(1)
-          ocean_coeff%edge2vert_coeff_cc(:,level,vertex_block,neigbor)%x(2) &
-            &= edge2vert_coeff_cc(:,vertex_block,neigbor)%x(2)
-          ocean_coeff%edge2vert_coeff_cc(:,level,vertex_block,neigbor)%x(3) &
-            &= edge2vert_coeff_cc(:,vertex_block,neigbor)%x(3)
-
-         ocean_coeff%variable_dual_vol_norm(:,level,vertex_block,neigbor)&
-         &=variable_dual_vol_norm(:,vertex_block,neigbor)
-        ENDDO ! neigbor=1,patch%cell_type
-      ENDDO  !  level = 1, n_zlev
-    ENDDO ! vertex_block
-
-   !DO neigbor=1,2*no_dual_edges
-   !  CALL sync_patch_array(SYNC_E, patch, ocean_coeff%edge2edge_viavert_coeff(:,:,:,neigbor))
-   !END DO
-
-  END SUBROUTINE copy_2D_to_3D_coeff
-  !-------------------------------------------------------------------------
-  
 
   !-------------------------------------------------------------------------
   !> Modify coefficients at the boundary
@@ -2397,7 +1604,8 @@ CONTAINS
     TYPE(t_operator_coeff), INTENT(INOUT)   :: ocean_coeff
 
     !Local variables
-    INTEGER :: jk, jc, jb, je, ibe, ile, jev, jv, iiv,iib
+    INTEGER :: jk, jc, jb, je, ibe, ile, jev, jv,ie
+    INTEGER :: il_e, ib_e, il_c, ib_c, ictr
     INTEGER :: i_startidx_e, i_endidx_e
     INTEGER :: i_startidx_c, i_endidx_c
     INTEGER :: i_startidx_v, i_endidx_v
@@ -2410,20 +1618,16 @@ CONTAINS
     INTEGER :: icell_idx_1, icell_blk_1
     INTEGER :: icell_idx_2, icell_blk_2
     INTEGER :: boundary_counter
-    INTEGER :: cell_index, cell_block
-    INTEGER :: edge_index_cell, edge_block_cell
-    INTEGER :: cell_edge,neigbor
-    INTEGER :: vertex_edge
+    !INTEGER :: cell_index, cell_block
+    !INTEGER :: edge_index_cell, edge_block_cell
+    INTEGER :: neigbor
+    !INTEGER :: vertex_edge
     TYPE(t_cartesian_coordinates) :: cell1_cc, cell2_cc, vertex_cc
 
     TYPE(t_subset_range), POINTER :: all_edges, owned_edges
     TYPE(t_subset_range), POINTER :: all_cells
-    TYPE(t_subset_range), POINTER :: owned_verts, in_domain_verts
+    TYPE(t_subset_range), POINTER :: owned_verts!, in_domain_verts
     TYPE(t_patch), POINTER        :: patch
-
-
- !   REAL(wp) :: comm_edges(nproma,n_zlev,patch%nblks_e)
-
     CHARACTER(LEN=max_char_length), PARAMETER :: &
       & routine = ('mo_operator_ocean_coeff_3d:apply_boundary2coeffs')
     !-----------------------------------------------------------------------
@@ -2433,7 +1637,7 @@ CONTAINS
     all_edges   => p_patch_3D%p_patch_2D(1)%edges%all
     owned_edges => p_patch_3D%p_patch_2D(1)%edges%owned
     owned_verts => p_patch_3D%p_patch_2D(1)%verts%owned
-    in_domain_verts  => p_patch_3D%p_patch_2D(1)%verts%in_domain
+    !in_domain_verts  => p_patch_3D%p_patch_2D(1)%verts%in_domain
     patch       => p_patch_3D%p_patch_2D(1)
 
     sea_edges_per_vertex(:,:,:)                       = 0
@@ -2450,7 +1654,6 @@ CONTAINS
       DO jk = 1, n_zlev
         DO je = i_startidx_e, i_endidx_e
 
-          !IF(v_base%lsm_e(je,jk,jb) /= sea) THEN
           IF ( p_patch_3D%lsm_e(je,jk,jb) /= sea ) THEN
             ocean_coeff%grad_coeff          (je,jk,jb) = 0.0_wp
             ocean_coeff%edge2cell_coeff_cc_t(je,jk,jb,1)%x(1:3) = 0.0_wp
@@ -2463,7 +1666,7 @@ CONTAINS
     END DO
     !-------------------------------------------------------------
     !All the coefficients "edge2edge_viacell_coeff" are set to zero
-    !if the edge is an land edge.
+    !if the actual edge under consideration is an land edge.
     DO jb = all_edges%start_block, all_edges%end_block
       CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
       DO jk = 1, n_zlev
@@ -2474,6 +1677,43 @@ CONTAINS
           ENDIF
         END DO
       END DO
+    END DO
+    !-------------------------------------------------------------
+    !The coefficients "edge2edge_viacell_coeff" are set to zero
+    !for which the stencil contains is an land edge.
+    DO jb = all_edges%start_block, all_edges%end_block
+      CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
+      DO jk = 1, n_zlev
+        DO je = i_startidx_e, i_endidx_e
+
+          !Handle neighbour cell 1
+          ictr  = 0
+          il_c  = patch%edges%cell_idx(je,jb,1)
+          ib_c  = patch%edges%cell_blk(je,jb,1)
+          DO ie=1, no_primal_edges
+            ictr =ictr+1 
+            il_e = patch%cells%edge_idx(il_c,ib_c,ie)
+            ib_e = patch%cells%edge_blk(il_c,ib_c,ie)
+
+            IF ( p_patch_3D%lsm_e(il_e,jk,ib_e) /= sea ) THEN
+              ocean_coeff%edge2edge_viacell_coeff(je,jk,jb,ictr)=0.0_wp
+            ENDIF
+          END DO
+          !Handle neighbour cell 2
+          ictr  = no_primal_edges
+          il_c  = patch%edges%cell_idx(je,jb,2)
+          ib_c  = patch%edges%cell_blk(je,jb,2)
+          DO ie=1, no_primal_edges
+            ictr =ictr+1 
+            il_e = patch%cells%edge_idx(il_c,ib_c,ie)
+            ib_e = patch%cells%edge_blk(il_c,ib_c,ie)
+
+            IF ( p_patch_3D%lsm_e(il_e,jk,ib_e) /= sea ) THEN
+              ocean_coeff%edge2edge_viacell_coeff(je,jk,jb,ictr)=0.0_wp
+            ENDIF
+          END DO
+        END DO
+      END DO
     END DO 
 
     !-------------------------------------------------------------
@@ -2482,7 +1722,6 @@ CONTAINS
       CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
       DO jk = 1, n_zlev
         DO je = i_startidx_e, i_endidx_e
-        
           IF ( p_patch_3D%lsm_e(je,jk,jb) == sea ) THEN
             icell_idx_1 = patch%edges%cell_idx(je,jb,1)
             icell_blk_1 = patch%edges%cell_blk(je,jb,1)
@@ -2493,12 +1732,12 @@ CONTAINS
             ocean_coeff%edge2edge_viacell_coeff(je,jk,jb,1:no_primal_edges) &
             &= ocean_coeff%edge2edge_viacell_coeff(je,jk,jb,1:no_primal_edges)&
             &/ocean_coeff%fixed_vol_norm(icell_idx_1,jk,icell_blk_1)
-            
+
             ocean_coeff%edge2edge_viacell_coeff(je,jk,jb,no_primal_edges+1:2*no_primal_edges) &
             &= ocean_coeff%edge2edge_viacell_coeff(je,jk,jb,no_primal_edges+1:2*no_primal_edges)&
             &/ocean_coeff%fixed_vol_norm(icell_idx_2,jk,icell_blk_2)            
           ENDIF
-          
+
         END DO
       END DO
     END DO 
@@ -2574,9 +1813,6 @@ CONTAINS
               ocean_coeff%edge_idx(jv,jk,jb,boundary_counter)    = jev
 
             END IF
-
-!             write(0,*) jb, jv, jk, patch%verts%num_edges(jv,jb), jev, p_patch_3D%lsm_e(ile,jk,ibe), boundary_counter
-            
           END DO ! jev = 1, patch%verts%num_edges(jv,jb)
 
           IF( MOD(boundary_counter,2) /= 0 ) THEN
@@ -2744,7 +1980,7 @@ CONTAINS
 
             ocean_coeff%rot_coeff(jv,jk,jb,:)&
             &=ocean_coeff%rot_coeff(jv,jk,jb,:)/(zarea_fraction(jv,jk,jb)*(earth_radius*earth_radius))
-
+            
             DO jev = 1, patch%verts%num_edges(jv,jb)
               ocean_coeff%edge2vert_coeff_cc(jv,jk,jb,jev)%x(1:3)&
                 & =ocean_coeff%edge2vert_coeff_cc(jv,jk,jb,jev)%x(1:3)/zarea_fraction(jv,jk,jb)
@@ -2773,7 +2009,6 @@ CONTAINS
     DO je=1,patch%cell_type
       CALL sync_patch_array(SYNC_V, patch, ocean_coeff%rot_coeff(:,:,:, je))
     ENDDO
-
 
     DO jk = 1, n_zlev
       CALL sync_patch_array(SYNC_V, patch, zarea_fraction(:,jk,:))
@@ -2825,7 +2060,6 @@ CONTAINS
     CALL message (TRIM(routine), 'end')
 
   END SUBROUTINE par_apply_boundary2coeffs
-  !--------------------------------------------------------------------------------------
 !-------------------------------------------------------------------------
   !>
   !! Precomputes the geometrical factors used in the divergence, rotation.
@@ -2852,11 +2086,11 @@ CONTAINS
     TYPE(t_operator_coeff),     INTENT(inout) :: p_coeff
     !
 
-    INTEGER :: jc, jb, je, jv, ie,jk
-    INTEGER :: rl_start, rl_end
-    INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
+    INTEGER :: ie
+    !INTEGER :: rl_start, rl_end
+    INTEGER :: i_nchdom!,i_startblk, i_endblk, i_startidx, i_endidx
 
-    INTEGER :: ile, ibe!, ilc1, ibc1, ilc2, ibc2, ifac, ic, ilnc, ibnc
+    !INTEGER :: ile, ibe!, ilc1, ibc1, ilc2, ibc2, ifac, ic, ilnc, ibnc
     !INTEGER :: ile1, ibe1,ile2,ibe2,ile3,ibe3
     !INTEGER, PARAMETER :: i_cell_type = 3
     !TYPE(cartesian_coordinates)::z_pn_k,z_pn_j
@@ -2868,12 +2102,9 @@ CONTAINS
     INTEGER :: cell_index, cell_block
     INTEGER :: vertex_index, vertex_block
     INTEGER :: start_index, end_index, neigbor, level
-
-    
-
-    REAL(wp) :: z_sync_c(nproma,n_zlev,p_patch%nblks_c)
+    !REAL(wp) :: z_sync_c(nproma,n_zlev,p_patch%nblks_c)
     !REAL(wp) :: z_sync_e(nproma,n_zlev,p_patch%nblks_e)
-    REAL(wp) :: z_sync_v(nproma,n_zlev,p_patch%nblks_v)
+    !REAL(wp) :: z_sync_v(nproma,n_zlev,p_patch%nblks_v)
 
     CHARACTER(LEN=max_char_length), PARAMETER :: &
       & routine = ('mo_operator_ocean_coeff_3d:init_diff_operator_coeff_3D')
@@ -2895,17 +2126,17 @@ CONTAINS
 
           edge_index = p_patch%cells%edge_idx(cell_index, cell_block, neigbor)
           edge_block = p_patch%cells%edge_blk(cell_index, cell_block, neigbor)
-          
+
           p_coeff%div_coeff(cell_index, 1, cell_block, neigbor)               = &
             & p_patch%edges%primal_edge_length(edge_index, edge_block)        * &
             & p_patch%cells%edge_orientation(cell_index, cell_block, neigbor) / &
             & p_patch%cells%area(cell_index, cell_block)
-    
+
           DO level=2, n_zlev
             p_coeff%div_coeff(cell_index, level, cell_block, neigbor) = &
                p_coeff%div_coeff(cell_index, 1, cell_block, neigbor)
           ENDDO !levels
-        
+
         ENDDO !neigbor
       ENDDO ! cell_index = start_index, end_index
     ENDDO !cell_block
@@ -2920,7 +2151,7 @@ CONTAINS
         DO neigbor=1, p_patch%verts%num_edges(vertex_index, vertex_block)
           edge_index = p_patch%verts%edge_idx(vertex_index, vertex_block, neigbor)
           edge_block = p_patch%verts%edge_blk(vertex_index, vertex_block, neigbor)
-          
+
           p_coeff%rot_coeff(vertex_index,1,vertex_block,neigbor)  =     &
             & p_patch%edges%dual_edge_length(edge_index,edge_block) *     &
             & p_patch%verts%edge_orientation(vertex_index,vertex_block,neigbor)
@@ -3112,8 +2343,767 @@ CONTAINS
 
   END FUNCTION triangle_area
  !-------------------------------------------------------------------------
+!   !-------------------------------------------------------------------------
+! 
+!   !> Initialize 3D expansion coefficients.
+!   !!
+!   !! @par Revision History
+!   !! Peter Korn (2012-2)
+!   !! Parellelized by Leonidas Linardakis 2012-3
+! 
+! 
+!   SUBROUTINE copy_2D_to_3D_coeff( patch,                 &
+!                                & ocean_coeff,            &
+!                                & edge2edge_viacell_coeff,&
+!                                & edge2edge_viavert_coeff,&
+!                                & edge2cell_coeff_cc,     &
+!                                & edge2cell_coeff_cc_t,   &
+!                                & edge2vert_coeff_cc,     &
+!                                & edge2vert_coeff_cc_t,   &
+!                                & dist_cell2edge,         &
+!                                & fixed_vol_norm,         &
+!                                & variable_vol_norm,      &
+!                                & variable_dual_vol_norm)
+!     TYPE(t_patch)    , TARGET, INTENT(INOUT)     :: patch
+!     TYPE(t_operator_coeff), INTENT(inout) :: ocean_coeff
+!     REAL(wp), INTENT(IN)                      :: edge2edge_viacell_coeff(1:nproma,1:patch%nblks_e,1:2*no_primal_edges)
+!     REAL(wp), INTENT(IN)                      :: edge2edge_viavert_coeff(1:nproma,1:patch%nblks_e,1:2*no_dual_edges)
+!     TYPE(t_cartesian_coordinates), INTENT(IN) :: edge2cell_coeff_cc     (1:nproma,1:patch%nblks_c,1:patch%cell_type)
+!     TYPE(t_cartesian_coordinates), INTENT(IN) :: edge2cell_coeff_cc_t   (1:nproma,1:patch%nblks_e,1:2)
+!     TYPE(t_cartesian_coordinates), INTENT(IN) :: edge2vert_coeff_cc     (1:nproma,1:patch%nblks_v,1:no_dual_edges)
+!     TYPE(t_cartesian_coordinates), INTENT(IN) :: edge2vert_coeff_cc_t   (1:nproma,1:patch%nblks_e,1:2)
+!     REAL(wp), INTENT(IN) :: dist_cell2edge        (1:nproma,1:patch%nblks_e,1:2)
+!     REAL(wp), INTENT(IN) :: fixed_vol_norm        (1:nproma,patch%nblks_c)
+!     REAL(wp), INTENT(IN) :: variable_vol_norm     (1:nproma,1:patch%nblks_c,1:no_primal_edges)
+!     REAL(wp), INTENT(IN) :: variable_dual_vol_norm(1:nproma,1:patch%nblks_v,1:no_dual_edges)
+!     !
+!     !Local variables
+!     !
+!     TYPE(t_subset_range), POINTER :: all_edges
+!     TYPE(t_subset_range), POINTER :: all_cells
+!     TYPE(t_subset_range), POINTER :: all_verts
+! 
+!     INTEGER :: edge_block, cell_block, vertex_block, level, neigbor
+!     INTEGER :: je,jk, i_startidx_e, i_endidx_e
+! 
+!     all_cells => patch%cells%all
+!     all_edges => patch%edges%all
+!     all_verts => patch%verts%all
+! 
+!     !---------------------------------------------------------
+!     ! the following coefficients will be copied:
+!     !
+!     ! ocean_coeff%edge_position_cc(:,:,:)            on edges
+!     ! ocean_coeff%dist_cell2edge(:,:,:,1-2)          on edges
+!     !
+!     ! ocean_coeff%edge2cell_coeff_cc(:,:,:,1-3)%x    on cells
+!     ! ocean_coeff%fixed_vol_norm(:,:,:)              on cells
+!     ! ocean_coeff%variable_vol_norm(:,:,:,1-3)       on cells
+!     !
+!     ! ocean_coeff%edge2cell_coeff_cc_t(:,:,:,1-2)%x  on edges
+!     ! ocean_coeff%edge2vert_coeff_cc(:,:,:,1-6)%x   on verts
+!     ! ocean_coeff%edge2vert_coeff_cc_t(:,:,:,1-2)%x  on edges
+!     !
+!     ! p_patch%edges%f_e(:, :) is already calculated in par_init_scalar_product_oce    !
+!     !---------------------------------------------------------
+! 
+! 
+!     !---------------------------------------------------------
+!     ! calculate ocean_coeff%edge_position_cc(:,:,:) on edges
+!     ! this is the same as the 2D, just copy it
+!     ! it does not change, maybe turn it to 2D?
+!     DO edge_block = all_edges%start_block, all_edges%end_block
+!       DO level = 1, n_zlev
+!         ocean_coeff%edge_position_cc(:,level,edge_block) = &
+!           patch%edges%cartesian_center(:,edge_block)
+!       ENDDO
+!     ENDDO
+!     !---------------------------------------------------------
+! 
+!     !---------------------------------------------------------
+!     ! calculate ocean_coeff%dist_cell2edge(:,:,:,1-2) on edges
+!     ! this is the same as the 2D, just copy it
+!     ! it does not change, maybe turn it to 2D?
+!     DO edge_block = all_edges%start_block, all_edges%end_block
+!       DO level = 1, n_zlev
+!         ocean_coeff%dist_cell2edge(:,level,edge_block,1) = &
+!           dist_cell2edge(:,edge_block,1)
+!         ocean_coeff%dist_cell2edge(:,level,edge_block,2) = &
+!           dist_cell2edge(:,edge_block,2)
+!       ENDDO
+!     ENDDO
+!     !---------------------------------------------------------
+! 
+!     !---------------------------------------------------------
+!     ! For the rest of coefficients,
+!     ! copy the 2D and then apply_boundary2coeffs
+!     !
+!     ! on edges
+!     DO edge_block = all_edges%start_block, all_edges%end_block
+!       DO level = 1, n_zlev
+!         CALL get_index_range(all_edges, edge_block, i_startidx_e, i_endidx_e)
+!         DO je =  i_startidx_e, i_endidx_e
+! 
+!           ocean_coeff%edge2cell_coeff_cc_t(je,level,edge_block,1)%x = &
+!             edge2cell_coeff_cc_t(je,edge_block,1)%x
+!           ocean_coeff%edge2cell_coeff_cc_t(je,level,edge_block,2)%x = &
+!             edge2cell_coeff_cc_t(je,edge_block,2)%x
+! 
+!           ocean_coeff%edge2vert_coeff_cc_t(je,level,edge_block,1)%x = &
+!             edge2vert_coeff_cc_t(je,edge_block,1)%x
+!           ocean_coeff%edge2vert_coeff_cc_t(je,level,edge_block,2)%x = &
+!             edge2vert_coeff_cc_t(je,edge_block,2)%x
+! 
+!           !ocean_coeff%edge2edge_viacell_coeff(je,level,edge_block,1:6)=&
+!           !&edge2edge_viacell_coeff(je,edge_block,1:6)
+! 
+!           !ocean_coeff%edge2edge_viavert_coeff(je,level,edge_block,1:12)=&
+!           !&edge2edge_viavert_coeff(je,edge_block,1:12)
+! 
+!         ENDDO
+!       ENDDO
+!     ENDDO
+! 
+!     ! on cells
+!     DO cell_block = all_cells%start_block, all_cells%end_block
+!       DO level = 1, n_zlev
+! 
+!        ocean_coeff%fixed_vol_norm(:,level,cell_block) = &
+!          fixed_vol_norm(:,cell_block)
+! 
+!        DO neigbor=1,no_primal_edges!patch%cell_type
+! 
+!          ocean_coeff%edge2cell_coeff_cc(:,level,cell_block,neigbor)%x(1) = &
+!            & edge2cell_coeff_cc(:,cell_block,neigbor)%x(1)
+!          ocean_coeff%edge2cell_coeff_cc(:,level,cell_block,neigbor)%x(2) = &
+!            & edge2cell_coeff_cc(:,cell_block,neigbor)%x(2)
+!          ocean_coeff%edge2cell_coeff_cc(:,level,cell_block,neigbor)%x(3) = &
+!            & edge2cell_coeff_cc(:,cell_block,neigbor)%x(3)
+! 
+!          ocean_coeff%variable_vol_norm(:,level,cell_block,neigbor) = &
+!            & variable_vol_norm(:,cell_block,neigbor)
+! 
+!         ENDDO ! neigbor=1,patch%cell_type
+! 
+!       ENDDO  !  level = 1, n_zlev
+!     ENDDO ! cell_block
+! 
+!     ! on verts
+!     DO vertex_block = all_verts%start_block, all_verts%end_block
+!       DO level = 1, n_zlev
+!         DO neigbor=1,no_dual_edges
+! 
+!           ocean_coeff%edge2vert_coeff_cc(:,level,vertex_block,neigbor)%x(1) &
+!              &= edge2vert_coeff_cc(:,vertex_block,neigbor)%x(1)
+!           ocean_coeff%edge2vert_coeff_cc(:,level,vertex_block,neigbor)%x(2) &
+!             &= edge2vert_coeff_cc(:,vertex_block,neigbor)%x(2)
+!           ocean_coeff%edge2vert_coeff_cc(:,level,vertex_block,neigbor)%x(3) &
+!             &= edge2vert_coeff_cc(:,vertex_block,neigbor)%x(3)
+! 
+!          ocean_coeff%variable_dual_vol_norm(:,level,vertex_block,neigbor)&
+!          &=variable_dual_vol_norm(:,vertex_block,neigbor)
+!         ENDDO ! neigbor=1,patch%cell_type
+!       ENDDO  !  level = 1, n_zlev
+!     ENDDO ! vertex_block
+! 
+!    !DO neigbor=1,2*no_dual_edges
+!    !  CALL sync_patch_array(SYNC_E, patch, ocean_coeff%edge2edge_viavert_coeff(:,:,:,neigbor))
+!    !END DO
+! 
+!   END SUBROUTINE copy_2D_to_3D_coeff
+!   !-------------------------------------------------------------------------
+!     !-------------------------------------------------------------------------
+!   !>
+!   !! Computes the coefficients that determine the scalar product on the primal grid. This
+!   !! scalar product depends on the grid geometry only and  is used to formulate the primitive
+!   !! equations in weak form. The coefficients are applied in module "mo_scalar_product".
+!   !! The following components of the data type "ocean_patch" are filled:
+!   !!   edge2cell_coeff  : coefficients for edge to cell mapping
+!   !!   edge2cell_coeff_t: coefficients for transposed of edge to cell mappings
+!   !!   edge2vert_coeff  : coefficients for edge to vertex mapping
+!   !!   edge2vert_coeff_t: coefficients for transposed of edge to vertex mappings
+!   !!   fixed_vol_norm   : summed volume weight of moved cell
+!   !!   variable_vol_norm: volume weight at the edges of moved cell
+!   !!
+!   !! @par Revision History
+!   !!  developed by Peter Korn, MPI-M  2010-09
+!   !!  Modification by Stephan Lorenz, 2010-11
+!   !!  Parallelized by Leonidas Linardakis, 2012-3
+!   SUBROUTINE par_init_coeff_2D( patch,               &
+!                                         & edge2cell_coeff_cc,   &
+!                                         & edge2cell_coeff_cc_t, &
+!                                         & edge2vert_coeff_cc,   &
+!                                         & edge2vert_coeff_cc_t, &
+!                                         & dist_cell2edge,       &
+!                                         & fixed_vol_norm,       &
+!                                         & variable_vol_norm,    &
+!                                         & variable_dual_vol_norm)
+!     TYPE(t_patch)    , TARGET, INTENT(INOUT)     :: patch
+!     TYPE(t_cartesian_coordinates), INTENT(INOUT) :: edge2cell_coeff_cc(1:nproma,1:patch%nblks_c,1:no_primal_edges)
+!     TYPE(t_cartesian_coordinates), INTENT(INOUT) :: edge2cell_coeff_cc_t(1:nproma,1:patch%nblks_e,1:2)
+!     TYPE(t_cartesian_coordinates), INTENT(INOUT) :: edge2vert_coeff_cc(1:nproma,1:patch%nblks_v,1:no_dual_edges)
+!     TYPE(t_cartesian_coordinates), INTENT(INOUT) :: edge2vert_coeff_cc_t(1:nproma,1:patch%nblks_e,1:2)
+!     REAL(wp), INTENT(INOUT) :: dist_cell2edge(1:nproma,1:patch%nblks_e,1:2)
+!     REAL(wp), INTENT(INOUT) :: fixed_vol_norm(1:nproma,patch%nblks_c)
+!     REAL(wp), INTENT(INOUT) :: variable_vol_norm(1:nproma,1:patch%nblks_c,1:no_primal_edges)
+!     REAL(wp), INTENT(INOUT) :: variable_dual_vol_norm(1:nproma,1:patch%nblks_e,1:no_dual_edges)
+! !
+! !Local variables
+! !
+!     REAL(wp), ALLOCATABLE :: prime_edge_length( :, : )
+!     REAL(wp), ALLOCATABLE :: dual_edge_length ( :, : )
+! !     REAL(wp), ALLOCATABLE :: cell_area( :, : )
+! !     REAL(wp), ALLOCATABLE :: dual_cell_area ( :, : )
+! 
+!     TYPE(t_subset_range), POINTER :: owned_edges         ! these are the owned entities
+!     TYPE(t_subset_range), POINTER :: owned_cells         ! these are the owned entities
+!     TYPE(t_subset_range), POINTER :: owned_verts         ! these are the owned entities
+!     TYPE(t_cartesian_coordinates) :: vertex_position, cell_center, edge_center
+!     TYPE(t_cartesian_coordinates) :: dist_vector
+!     TYPE(t_cartesian_coordinates), POINTER :: dual_edge_middle(:,:)
+! 
+!     TYPE(t_cartesian_coordinates) :: coriolis_cartesian_coordinates
+!     TYPE(t_geographical_coordinates) :: coriolis_geo_coordinates, geo_coordinates
+!     REAL(wp) :: basin_center_lat_rad, basin_height_rad
+! 
+!     REAL(wp) :: norm, orientation, length
+!     REAL(wp) :: inverse_sphere_radius
+! 
+!     INTEGER :: edge_block, edge_index
+!     INTEGER :: cell_index, cell_block
+!     INTEGER :: vertex_index, vertex_block
+!     INTEGER :: start_index, end_index, neigbor
+!     INTEGER :: cell_1_index, cell_1_block, cell_2_index, cell_2_block
+!     INTEGER :: vertex_1_index, vertex_1_block, vertex_2_index, vertex_2_block
+!     !-----------------------------------------------------------------------
+! !     REAL(wp) :: dist_cell2edge(nproma, patch%nblks_e,2)
+! !     TYPE(t_cartesian_coordinates) :: check_v1(nproma, patch%nblks_v, 6)
+! !     TYPE(t_cartesian_coordinates) :: check_v2(nproma, patch%nblks_e, 2)
+! !     REAL(wp) :: max_diff, max_val
+!     !-----------------------------------------------------------------------
+!     inverse_sphere_radius = 1.0_wp / grid_sphere_radius
+! 
+!     owned_edges => patch%edges%owned
+!     owned_cells => patch%cells%owned
+!     owned_verts => patch%verts%owned
+! 
+!     edge2vert_coeff_cc(:,:,:)%x(1) = 0.0_wp
+!     edge2vert_coeff_cc(:,:,:)%x(2) = 0.0_wp
+!     edge2vert_coeff_cc(:,:,:)%x(3) = 0.0_wp
+! 
+!     edge2vert_coeff_cc_t(:,:,:)%x(1) = 0.0_wp
+!     edge2vert_coeff_cc_t(:,:,:)%x(2) = 0.0_wp
+!     edge2vert_coeff_cc_t(:,:,:)%x(3) = 0.0_wp
+! 
+! 
+!     !-------------------------------------------
+!     ! compute some basic distances
+!     ! this is required if the cartesian distance is used
+!     ! instead of the spherical
+!     !
+!     ! computes_dist_cell2edge( patch, intp_2D_coeff)
+!     !
+!     ALLOCATE( prime_edge_length( nproma, patch%nblks_e))
+!     ALLOCATE( dual_edge_length ( nproma, patch%nblks_e))
+! !     ALLOCATE( cell_area        ( nproma, patch%nblks_c))
+! !     ALLOCATE( dual_cell_area   ( nproma, patch%nblks_v))
+! 
+!     IF ( MID_POINT_DUAL_EDGE ) THEN
+!       dual_edge_middle => patch%edges%cartesian_dual_middle
+!     ELSE
+!       dual_edge_middle => patch%edges%cartesian_center
+!     ENDIF
+! 
+!     ! get the areas on a unit sphere
+! !     cell_area(:,:)      = patch%cells%area(:,:)      * inverse_earth_radius * inverse_earth_radius
+! !     dual_cell_area(:,:) = patch%verts%dual_area(:,:) * inverse_earth_radius * inverse_earth_radius
+! 
+!     IF (LARC_LENGTH) THEN
+! 
+!       ! we just need to get them from the grid
+!       ! NOTE:  these are earth's distances, translate on a unit sphere
+!       dist_cell2edge(:,:,:) = &
+!         & patch%edges%edge_cell_length(:,:,:) * inverse_sphere_radius
+!       prime_edge_length(:,:) = &
+!         & patch%edges%primal_edge_length(:,:) * inverse_sphere_radius
+!       dual_edge_length(:,:) = &
+!         & patch%edges%dual_edge_length(:,:) * inverse_sphere_radius
+! 
+!     ELSE
+! 
+!       ! calcultate cartesian distance
+!       prime_edge_length(:,:) = 0.0_wp
+!       dual_edge_length(:,:) = 0.0_wp
+!       dist_cell2edge(:,:,:) =  0.0_wp
+! 
+!       DO edge_block = owned_edges%start_block, owned_edges%end_block
+!         CALL get_index_range(owned_edges, edge_block, start_index, end_index)
+!         DO edge_index = start_index, end_index
+! 
+!           !----------------------------------------
+!           ! calculate the cartesian edge length
+!           vertex_1_index = patch%edges%vertex_idx(edge_index, edge_block, 1)
+!           vertex_1_block = patch%edges%vertex_blk(edge_index, edge_block, 1)
+!           vertex_2_index = patch%edges%vertex_idx(edge_index, edge_block, 2)
+!           vertex_2_block = patch%edges%vertex_blk(edge_index, edge_block, 2)
+! 
+!           dist_vector%x = &
+!             & patch%verts%cartesian(vertex_1_index, vertex_1_block)%x - &
+!             & patch%verts%cartesian(vertex_2_index, vertex_2_block)%x
+! 
+!             prime_edge_length(edge_index,edge_block) = &
+!               & SQRT(SUM((  dist_vector%x *  dist_vector%x)))
+!           !----------------------------------------
+! 
+!           !----------------------------------------
+!           ! calculate the cartesian distance of the edge center to the cell center
+!           DO neigbor = 1,2
+! 
+!             dist_cell2edge(edge_index,edge_block,neigbor) = 0.0_wp
+! 
+!             cell_index = patch%edges%cell_idx(edge_index,edge_block,neigbor)
+!             cell_block = patch%edges%cell_blk(edge_index,edge_block,neigbor)
+! 
+!             IF (cell_block > 0) THEN
+!               dist_vector%x = &
+!                 & patch%edges%cartesian_center(edge_index,edge_block)%x - &
+!                 & patch%cells%cartesian_center(cell_index,cell_block)%x
+! 
+!               dist_cell2edge(edge_index,edge_block,neigbor) = &
+!                 & SQRT(SUM((  dist_vector%x *  dist_vector%x)))
+!             ENDIF
+! 
+!           ENDDO ! neigbor = 1,2
+!           !----------------------------------------
+! 
+!           !----------------------------------------
+!           ! calculate the cartesian dual edge length
+!           cell_1_index = patch%edges%cell_idx(edge_index, edge_block, 1)
+!           cell_1_block = patch%edges%cell_blk(edge_index, edge_block, 1)
+!           cell_2_index = patch%edges%cell_idx(edge_index, edge_block, 2)
+!           cell_2_block = patch%edges%cell_blk(edge_index, edge_block, 2)
+! 
+!           IF (cell_1_block > 0 .AND. cell_2_block > 0) THEN
+!             dist_vector%x = &
+!               & patch%cells%cartesian_center(cell_1_index, cell_1_block)%x - &
+!               & patch%cells%cartesian_center(cell_2_index, cell_2_block)%x
+! 
+!               dual_edge_length(edge_index,edge_block) = &
+!                 & SQRT(SUM((  dist_vector%x *  dist_vector%x)))
+!           ELSE
+!               dual_edge_length(edge_index,edge_block) =              &
+!                 & dist_cell2edge(edge_index,edge_block,1) + &
+!                 & dist_cell2edge(edge_index,edge_block,2)
+!            ENDIF
+!           !----------------------------------------
+! 
+!         ENDDO ! edge_index=start_index,end_index
+!       ENDDO ! edge_block = owned_edges%start_block, owned_edges%end_block
+! 
+!       ! synchronize the edge distances
+!       CALL sync_patch_array(SYNC_E, patch, dist_cell2edge(:,:,1))
+!       CALL sync_patch_array(SYNC_E, patch, dist_cell2edge(:,:,2))
+!       CALL sync_patch_array(SYNC_E, patch, prime_edge_length(:,:))
+!       CALL sync_patch_array(SYNC_E, patch, dual_edge_length(:,:))
+!     ENDIF
+!     ! distances have been computed
+!     !-------------------------------------------
+! 
+!     !-------------------------------------------
+!     ! compute:
+!     !   edge2cell_coeff_cc
+!     !   fixed_vol_norm
+!     !   variable_vol_norm
+!     edge2cell_coeff_cc(:,:,:)%x(1) = 0.0_wp
+!     edge2cell_coeff_cc(:,:,:)%x(2) = 0.0_wp
+!     edge2cell_coeff_cc(:,:,:)%x(3) = 0.0_wp
+! 
+!     edge2cell_coeff_cc_t(:,:,:)%x(1) = 0.0_wp
+!     edge2cell_coeff_cc_t(:,:,:)%x(2) = 0.0_wp
+!     edge2cell_coeff_cc_t(:,:,:)%x(3) = 0.0_wp
+! 
+!     fixed_vol_norm(:,:)       = 0.0_wp
+!     variable_vol_norm(:,:,:)  = 0.0_wp
+!     DO cell_block = owned_cells%start_block, owned_cells%end_block
+!       CALL get_index_range(owned_cells, cell_block, start_index, end_index)
+!       DO cell_index = start_index, end_index
+! 
+!         cell_center%x = patch%cells%cartesian_center(cell_index, cell_block)%x
+!         fixed_vol_norm(cell_index,cell_block) = 0.0_wp
+! 
+!         !-------------------------------
+!         DO neigbor=1,patch%cells%num_edges(cell_index,cell_block)  !no_primal_edges!patch%cell_type
+! 
+!           edge2cell_coeff_cc(cell_index,cell_block,neigbor)%x = 0.0_wp
+!           variable_vol_norm(cell_index, cell_block, neigbor) =  0.0_wp
+! 
+!           edge_index = patch%cells%edge_idx(cell_index, cell_block, neigbor)
+!           edge_block = patch%cells%edge_blk(cell_index, cell_block, neigbor)
+! 
+!           IF (edge_block > 0 ) THEN ! this if should not be necessary but for safety let it be
+!             ! we have an edge
+!             dist_vector%x = &
+!               & patch%edges%cartesian_center(edge_index,edge_block)%x - &
+!               & cell_center%x
+! 
+!             norm  = SQRT(SUM( dist_vector%x * dist_vector%x))
+! 
+!             ! compute edge2cell_coeff_cc
+!             edge2cell_coeff_cc(cell_index,cell_block,neigbor)%x =  &
+!               & dist_vector%x *                                             &
+!               & prime_edge_length(edge_index,edge_block) *                  &
+!               & patch%cells%edge_orientation(cell_index,cell_block,neigbor)! / &
+!               ! & cell_area(cell_index, cell_block)
+!               ! Note: here we do not divide by the cell area !
+! 
+!             fixed_vol_norm(cell_index,cell_block) = &
+!               & fixed_vol_norm(cell_index,cell_block) + &
+!               & 0.5_wp * norm * prime_edge_length(edge_index,edge_block)
+! 
+!             variable_vol_norm(cell_index, cell_block, neigbor) = &
+!               & 0.5_wp * norm * prime_edge_length(edge_index,edge_block)
+! 
+!           ENDIF !(edge_block > 0 )
+! 
+!         ENDDO !neigbor=1,patch%cell_type
+!         !-------------------------------
+! 
+!       ENDDO ! cell_index = start_index, end_index
+!     ENDDO !cell_block = owned_cells%start_block, owned_cells%end_block
+!     !-------------------
+!     ! sync the results
+!     CALL sync_patch_array(SYNC_C, patch, fixed_vol_norm(:,:))
+!     DO neigbor=1,patch%cell_type
+!       CALL sync_patch_array(SYNC_C, patch, edge2cell_coeff_cc(:,:,neigbor)%x(1))
+!       CALL sync_patch_array(SYNC_C, patch, edge2cell_coeff_cc(:,:,neigbor)%x(2))
+!       CALL sync_patch_array(SYNC_C, patch, edge2cell_coeff_cc(:,:,neigbor)%x(3))
+!       CALL sync_patch_array(SYNC_C, patch, variable_vol_norm(:,:,neigbor))
+!     ENDDO
+!     !-------------------
+! 
+!     !-------------------------------------------
+!     ! compute:
+!     !   edge2cell_coeff_cc_t
+! 
+!     DO edge_block = owned_edges%start_block, owned_edges%end_block
+!       CALL get_index_range(owned_edges, edge_block, start_index, end_index)
+!       DO edge_index = start_index, end_index
+! 
+!         edge2cell_coeff_cc_t(edge_index, edge_block, 2)%x = 0.0_wp
+!         edge_center%x = patch%edges%cartesian_center(edge_index, edge_block)%x
+! 
+!         DO neigbor=1,2
+! 
+!           edge2cell_coeff_cc_t(edge_index, edge_block, neigbor)%x = 0.0_wp
+!           cell_index = patch%edges%cell_idx(edge_index, edge_block, neigbor)
+!           cell_block = patch%edges%cell_blk(edge_index, edge_block, neigbor)
+! 
+!           IF (cell_block > 0) THEN
+! 
+!             dist_vector%x =  edge_center%x -                             &
+!               patch%cells%cartesian_center(cell_index, cell_block)%x
+! 
+!             orientation = DOT_PRODUCT(dist_vector%x, &
+!               & patch%edges%primal_cart_normal(edge_index, edge_block)%x)
+!             IF (orientation < 0.0_wp) dist_vector%x = - dist_vector%x
+! 
+!             edge2cell_coeff_cc_t(edge_index, edge_block, neigbor)%x = &
+!               dist_vector%x / dual_edge_length(edge_index, edge_block)
+! 
+!           ENDIF ! (cell_block > 0)
+! 
+!         ENDDO ! neigbor=1,2
+! 
+!       ENDDO ! edge_index = start_index, end_index
+!     ENDDO ! edge_block = owned_edges%start_block, owned_edges%end_block
+!     !-------------------
+!     ! sync the results
+!     DO neigbor=1,2
+!       CALL sync_patch_array(SYNC_E, patch, edge2cell_coeff_cc_t(:,:,neigbor)%x(1))
+!       CALL sync_patch_array(SYNC_E, patch, edge2cell_coeff_cc_t(:,:,neigbor)%x(2))
+!       CALL sync_patch_array(SYNC_E, patch, edge2cell_coeff_cc_t(:,:,neigbor)%x(3))
+!     ENDDO ! neigbor=1,2
+!     !   edge2cell_coeff_cc_t is computed
+!     !-------------------------------------------
+! 
+!     !-------------------------------------------
+!     ! compute:
+!     !   edge2vert_coeff_cc
+!     !   variable_dual_vol_norm
+!     variable_dual_vol_norm(:,:,:)  = 0.0_wp
+!     DO vertex_block = owned_verts%start_block, owned_verts%end_block
+!       CALL get_index_range(owned_verts, vertex_block, start_index, end_index)
+!       DO vertex_index = start_index, end_index
+! 
+!         vertex_position%x = patch%verts%cartesian(vertex_index, vertex_block)%x
+! 
+!         DO neigbor=1, patch%verts%num_edges(vertex_index,vertex_block) !no_dual_edges 
+!! we have to change this to accomodate the dual grid
+! 
+!           variable_dual_vol_norm(vertex_index, vertex_block, neigbor) = 0.0_wp
+! 
+!           edge_index = patch%verts%edge_idx(vertex_index, vertex_block, neigbor)
+!           edge_block = patch%verts%edge_blk(vertex_index, vertex_block, neigbor)
+! 
+!           IF (edge_block > 0) THEN
+!             ! we got an adjacent edge
+!             dist_vector%x = &
+!               dual_edge_middle(edge_index, edge_block)%x - &
+!               vertex_position%x
+! 
+! 
+!             ! the dist_vector has cartesian length
+!             ! if we use spherical distance we need to recalculate
+!             ! its length
+!             IF (LARC_LENGTH) THEN
+!               length = arc_length(vertex_position, dual_edge_middle(edge_index, edge_block))
+!               norm = SQRT(SUM( dist_vector%x * dist_vector%x ))
+!               dist_vector%x = dist_vector%x * length / norm
+!             ELSE
+!               length = SQRT(SUM( dist_vector%x * dist_vector%x ))
+!             ENDIF
+! 
+!             dist_vector = vector_product(dist_vector, dual_edge_middle(edge_index, edge_block))
+!             orientation = DOT_PRODUCT( dist_vector%x,                         &
+!                & patch%edges%primal_cart_normal(edge_index, edge_block)%x)
+!             IF (orientation < 0.0_wp) dist_vector%x = - dist_vector%x
+! 
+!               edge2vert_coeff_cc(vertex_index, vertex_block, neigbor)%x = &
+!               & dist_vector%x                                *                    &
+!               & dual_edge_length(edge_index, edge_block) !    /                    &
+!               !& dual_cell_area(vertex_index, vertex_block)
+! 
+!               variable_dual_vol_norm(vertex_index, vertex_block, neigbor) = &
+!               & 0.5_wp * dual_edge_length(edge_index, edge_block) * length
+! 
+!           ENDIF !(edge_block > 0) THEN
+! 
+!         ENDDO !neigbor=1,6
+! 
+!       ENDDO ! vertex_index = start_index, end_index
+!     ENDDO !vertex_block = owned_verts%start_block, owned_verts%end_block
+!     !-------------------
+!     ! sync the results
+!     DO neigbor=1,no_dual_edges
+!       CALL sync_patch_array(SYNC_V, patch, edge2vert_coeff_cc(:,:,neigbor)%x(1))
+!       CALL sync_patch_array(SYNC_V, patch, edge2vert_coeff_cc(:,:,neigbor)%x(2))
+!       CALL sync_patch_array(SYNC_V, patch, edge2vert_coeff_cc(:,:,neigbor)%x(3))
+!       CALL sync_patch_array(SYNC_V, patch, variable_dual_vol_norm(:,:, neigbor))
+!     ENDDO ! neigbor=1,6
+!     ! edge2vert_coeff_cc
+!     ! variable_dual_vol_norm
+!     !   are computed
+!     !----------------------------------------------------
+! 
+!     !----------------------------------------------------
+!     ! compute:
+!     !   edge2vert_coeff_cc_t
+!     DO edge_block = owned_edges%start_block, owned_edges%end_block
+!       CALL get_index_range(owned_edges, edge_block, start_index, end_index)
+!       DO edge_index = start_index, end_index
+! 
+!         edge_center%x = dual_edge_middle(edge_index, edge_block)%x
+! 
+!         DO neigbor=1,2
+! 
+!           edge2vert_coeff_cc_t(edge_index, edge_block, neigbor)%x = 0.0_wp
+! 
+!           vertex_index = patch%edges%vertex_idx(edge_index, edge_block, neigbor)
+!           vertex_block = patch%edges%vertex_blk(edge_index, edge_block, neigbor)
+! 
+!           edge2vert_coeff_cc_t(edge_index, edge_block, neigbor)%x =              &
+!             & (edge_center%x - patch%verts%cartesian(vertex_index, vertex_block)%x) * &
+!             & patch%edges%system_orientation(edge_index, edge_block)                / &
+!             & prime_edge_length(edge_index, edge_block)
+! 
+!         ENDDO !neigbor=1,2
+! 
+!       ENDDO ! edge_index = start_index, end_index
+!     ENDDO ! edge_block = owned_edges%start_block, owned_edges%end_block
+!     !-------------------
+!     ! sync the results
+!     DO neigbor=1,2
+!       CALL sync_patch_array(SYNC_E, patch, edge2vert_coeff_cc_t(:,:,neigbor)%x(1))
+!       CALL sync_patch_array(SYNC_E, patch, edge2vert_coeff_cc_t(:,:,neigbor)%x(2))
+!       CALL sync_patch_array(SYNC_E, patch, edge2vert_coeff_cc_t(:,:,neigbor)%x(3))
+!     ENDDO ! neigbor=1,2
+!     ! edge2vert_coeff_cc_t is computed
+!     !----------------------------------------------------
+! 
+!     !----------------------------------------------------
+!     ! recalculate the coriolis coefficient
+!     ! It is required if we use the middle of the dual_edge_length
+!     IF (MID_POINT_DUAL_EDGE) THEN
+! 
+!       IF (CORIOLIS_TYPE == full_coriolis) THEN
+! 
+!         DO edge_block = owned_edges%start_block, owned_edges%end_block
+!           CALL get_index_range(owned_edges, edge_block, start_index, end_index)
+!           DO edge_index = start_index, end_index
+! 
+!              coriolis_geo_coordinates = cc2gc(dual_edge_middle(edge_index,edge_block))
+!              patch%edges%f_e(edge_index,edge_block) = &
+!                & 2._wp * grid_angular_velocity * SIN(coriolis_geo_coordinates%lat)
+! 
+!           ENDDO
+!         ENDDO
+! 
+!       ELSEIF (CORIOLIS_TYPE == BETA_PLANE_CORIOLIS) THEN
+! 
+!         basin_center_lat_rad = basin_center_lat * deg2rad
+!         basin_height_rad     = basin_height_deg * deg2rad
+!         coriolis_geo_coordinates%lat = basin_center_lat_rad - 0.5_wp * basin_height_rad
+!         coriolis_geo_coordinates%lon = 0.0_wp
+!         coriolis_cartesian_coordinates  = gc2cc(coriolis_geo_coordinates)
+! 
+!         DO edge_block = owned_edges%start_block, owned_edges%end_block
+!           CALL get_index_range(owned_edges, edge_block, start_index, end_index)
+!           DO edge_index = start_index, end_index
+! 
+!           geo_coordinates     = cc2gc(dual_edge_middle(edge_index,edge_block))
+!           geo_coordinates%lon = 0.0_wp
+!           edge_center         = gc2cc(geo_coordinates)
+!           length              = grid_sphere_radius * &
+!             & arc_length(edge_center, coriolis_cartesian_coordinates)
+! 
+!           patch%edges%f_e(edge_index,edge_block) =  2.0_wp * grid_angular_velocity * &
+!             & ( sin(basin_center_lat_rad) + (cos(basin_center_lat_rad) / &
+!             &   grid_sphere_radius) * length)
+! 
+!           ENDDO
+!         ENDDO
+! 
+!       ENDIF !(CORIOLIS_TYPE==full_coriolis)
+!     ENDIF ! (MID_POINT_DUAL_EDGE)
+!     !-------------------
+!     ! sync patch%edges%f_e
+!     CALL sync_patch_array(SYNC_E, patch, patch%edges%f_e)
+! 
+! 
+!     !----------------------------------------------------
+! !    DEALLOCATE( prime_edge_length)
+! 
+!     DEALLOCATE( dual_edge_length )
+! !     DEALLOCATE( cell_area )
+! !     DEALLOCATE( dual_cell_area )
+!     !---------------------------------------------------------
+! !     RETURN
+!     !---------------------------------------------------------
+!     ! checks
+! !
+! !      !---------------------------------------------------------
+! !      check_v1 = intp_2D_coeff%edge2vert_coeff_cc
+! !      check_v2 = intp_2D_coeff%edge2vert_coeff_cc_t
+! !      !---------------------------------------------------------
+! !
+! !      CALL init_scalar_product_oce( patch, intp_2D_coeff )
+! !
+! !      !---------------------------------------------------------
+! !      max_diff = MAXVAL(ABS(intp_2D_coeff%edge2vert_coeff_cc(:,:,:)%x(1) - &
+! !        &  check_v1(:,:,:)%x(1) ))
+! !      max_val  =  MAXVAL(ABS( check_v1(:,:,:)%x(1)))
+! !      Write(0,*) "max diff of edge2vert_coeff_cc(:,:,:,:)%x(1)=", max_diff, max_val
+! !
+! !      max_diff = MAXVAL(ABS(intp_2D_coeff%edge2vert_coeff_cc(:,:,:)%x(2) - &
+! !        & check_v1(:,:,:)%x(2) ))
+! !      max_val  =  MAXVAL(ABS( check_v1(:,:,:)%x(2)))
+! !      Write(0,*) "max diff of edge2vert_coeff_cc(:,:,:,:)%x(2)=", max_diff, max_val
+! !
+! !      max_diff = MAXVAL(ABS(intp_2D_coeff%edge2vert_coeff_cc(:,:,:)%x(3) - &
+! !        & check_v1(:,:,:)%x(3) ))
+! !      max_val  =  MAXVAL(ABS( check_v1(:,:,:)%x(3)))
+! !      Write(0,*) "max diff of edge2vert_coeff_cc(:,:,:,:)%x(3)=", max_diff, max_val
+! !      !---------------------------------------------------------
+! !
+! !      max_diff = MAXVAL(ABS(intp_2D_coeff%edge2vert_coeff_cc_t(:,:,:)%x(1) - &
+! !        &  check_v2(:,:,:)%x(1) ))
+! !      max_val  =  MAXVAL(ABS( check_v2(:,:,:)%x(1)))
+! !      Write(0,*) "max diff of edge2vert_coeff_cc_t(:,:,:,:)%x(1)=", max_diff, max_val
+! !
+! !      max_diff = MAXVAL(ABS(intp_2D_coeff%edge2vert_coeff_cc_t(:,:,:)%x(2) - &
+! !        & check_v2(:,:,:)%x(2) ))
+! !      max_val  =  MAXVAL(ABS( check_v2(:,:,:)%x(2)))
+! !      Write(0,*) "max diff of edge2vert_coeff_cc_t(:,:,:,:)%x(2)=", max_diff, max_val
+! !
+! !      max_diff = MAXVAL(ABS(intp_2D_coeff%edge2vert_coeff_cc_t(:,:,:)%x(3) - &
+! !        & check_v2(:,:,:)%x(3) ))
+! !      max_val  =  MAXVAL(ABS( check_v2(:,:,:)%x(3)))
+! !      Write(0,*) "max diff of edge2vert_coeff_cc_t(:,:,:,:)%x(3)=", max_diff, max_val
+! !
+! 
+!   END SUBROUTINE par_init_coeff_2D
+! ! !-----------------------------------------------------------------------------------------
+!   !-------------------------------------------------------------------------
+!   !> Initialize expansion coefficients.
+!   !!
+!   !! @par Revision History
+!   !! Peter Korn (2012-2)
+!   !!
+!   SUBROUTINE par_init_operator_coeff2( p_patch_3D, p_os, p_phys_param, ocean_coeff)
+!     !
+!     TYPE(t_patch_3D ),TARGET, INTENT(INOUT) :: p_patch_3D
+!     TYPE(t_hydro_ocean_state),INTENT(IN)    :: p_os
+!     TYPE (t_ho_params),       INTENT(IN)    :: p_phys_param
+!     TYPE(t_operator_coeff),   INTENT(inout) :: ocean_coeff
+! 
+!    !
+!    !Local variables: strcutures for 2D coefficients
+!    !
+!     TYPE(t_cartesian_coordinates) :: edge2cell_coeff_cc(1:nproma,1:p_patch_3D%p_patch_2D(1)%nblks_c,&
+!                                      &1:p_patch_3D%p_patch_2D(1)%cell_type)
+!     TYPE(t_cartesian_coordinates) :: edge2cell_coeff_cc_t(1:nproma,1:p_patch_3D%p_patch_2D(1)%nblks_e,1:2)
+! 
+!     TYPE(t_cartesian_coordinates) :: edge2vert_coeff_cc(1:nproma,1:p_patch_3D%p_patch_2D(1)%nblks_v,1:6)
+!     TYPE(t_cartesian_coordinates) :: edge2vert_coeff_cc_t(1:nproma,1:p_patch_3D%p_patch_2D(1)%nblks_e,1:2)
+!     TYPE(t_patch), POINTER :: patch
+! 
+!     REAL(wp) :: dist_cell2edge(1:nproma,1:p_patch_3D%p_patch_2D(1)%nblks_e,1:2)
+!     REAL(wp) :: fixed_vol_norm(1:nproma,p_patch_3D%p_patch_2D(1)%nblks_c)
+!     REAL(wp) :: variable_vol_norm(1:nproma,1:p_patch_3D%p_patch_2D(1)%nblks_c,1:3)
+!     REAL(wp) :: variable_dual_vol_norm(1:nproma,1:p_patch_3D%p_patch_2D(1)%nblks_e,1:6)
+!     REAL(wp) :: edge2edge_viacell_coeff(1:nproma,1:p_patch_3D%p_patch_2D(1)%nblks_e,1:6)
+!     REAL(wp) :: edge2edge_viavert_coeff(1:nproma,1:p_patch_3D%p_patch_2D(1)%nblks_e,1:12)
+!     !-----------------------------------------------------------------------
+!    patch => p_patch_3D%p_patch_2D(1)
+!    ! CALL init_operator_coeffs( patch, ocean_coeff)
+! 
+! !--Old initialization of operator coefficients
+!       CALL  par_init_coeff_2D( patch,               &
+!                           & edge2cell_coeff_cc,   &
+!                           & edge2cell_coeff_cc_t, &
+!                           & edge2vert_coeff_cc,   &
+!                           & edge2vert_coeff_cc_t, &
+!                           & dist_cell2edge,       &
+!                           & fixed_vol_norm,       &
+!                           & variable_vol_norm,    &
+!                           & variable_dual_vol_norm)
+! 
+!     CALL copy_2D_to_3D_coeff( patch,                  & 
+!                             & ocean_coeff,            &
+!                             & edge2edge_viacell_coeff,&
+!                             & edge2edge_viavert_coeff,&
+!                             & edge2cell_coeff_cc,     &
+!                             & edge2cell_coeff_cc_t,   &
+!                             & edge2vert_coeff_cc,     &
+!                             & edge2vert_coeff_cc_t,   &
+!                             & dist_cell2edge,         &
+!                             & fixed_vol_norm,         &
+!                             & variable_vol_norm,      &
+!                             & variable_dual_vol_norm)
+! 
+!     CALL init_diff_operator_coeff_3D ( patch, ocean_coeff )
+!     
+!     CALL par_apply_boundary2coeffs(p_patch_3D, ocean_coeff)
+! 
+! 
+!      CALL update_diffusion_matrices(   p_patch_3D,                    &
+!                                      & p_os,                          &
+!                                      & p_phys_param,                  &
+!                                      & ocean_coeff%matrix_vert_diff_e,&
+!                                      & ocean_coeff%matrix_vert_diff_c)
+!   END SUBROUTINE par_init_operator_coeff2
+!   !-------------------------------------------------------------------------
 
-  
 
 END MODULE mo_operator_ocean_coeff_3d
 

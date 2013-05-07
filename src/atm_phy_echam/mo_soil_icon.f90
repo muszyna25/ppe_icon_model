@@ -1174,9 +1174,21 @@ CONTAINS
 !!$    soil%csat(kidx0:kidx1) = csat(1:nidx)
 !!$    soil%cair(kidx0:kidx1) = cair(1:nidx)
 !!$    soil%csat_transpiration(kidx0:kidx1) = csat_transpiration(1:nidx)
-    csat(1:nidx) = 1._wp
-    cair(1:nidx) = 1._wp
-    csat_transpiration(1:nidx) = 1._wp
+!!$ TR Attention: csat and cair for vegetated surface only,
+!!$ TR calculation for bare soil (qsat_fact) has still to be implemented
+    itile = 1
+    DO i = 1,nidx
+      IF (moisture1(i) > moist_wilt_fract * soil_MaxMoisture(i,1)) THEN
+        csat(i) = snow_fract(i) + (1._wp - snow_fract(i)) *                      &
+                  (wet_skin_fract(i,itile) + (1._wp - wet_skin_fract(i,itile)) / &
+                  (1._wp + p_echam_zchl(i) * canopy_resistance(i,itile) *        &
+                  MAX(1._wp,windspeed(i))))
+      ELSE
+        csat(i) = snow_fract(i) + (1._wp - snow_fract(i)) * wet_skin_fract(i,itile)
+      END IF
+      cair(i) = csat(i)
+    END DO
+    csat_transpiration(1:nidx) = csat(1:nidx)
     !------------------------------------------------------------------------------------------------------------
     ! END RECALC QSAT QAir and zhsoil
     !------------------------------------------------------------------------------------------------------------

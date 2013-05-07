@@ -51,11 +51,13 @@ for nn=1,nlines2(0) do begin
   var2(*,nn-1) = strsplit(tmp,/extract)
 end
 
-var2d  = ['TOT_PREC', 'TCC', 'TQV', 'TQC', 'TQI', 'ACCLHFL_S', 'ACCSHFL_S', $
-          'ACCSOB_S', 'ACCTHB_S', 'ACCSOB_T', 'ACCTHB_T']
+var2d  = ['TOT_PREC' , 'TCC'      , 'TQV'     , 'TQC'     , 'TQI', $
+          'ACCLHFL_S', 'ACCSHFL_S', $
+          'ACCSOB_S' , 'ACCTHB_S' , 'ACCSOB_T', 'ACCTHB_T', $
+          'PS'       , 'T_2M'     , 'T_G'     , 'U_10M'   , 'V_10M']
 nvar2d = n_elements(var2d)
 
-var3d  = ['T', 'U', 'V', 'P', 'QV', 'CC', 'CLWC', 'CIWC']   ;, 'CLWC', 'CRWC','CSWC'];'QTVAR', 'O3','P''QV', 'QC', 'QI'
+var3d  = ['T', 'U', 'V', 'P', 'QV', 'CC', 'QC', 'QI']   ;, 'Q2', 'CRWC','CSWC'];'QTVAR', 'O3','P''QV', 'QC', 'QI'
 nvar3d = n_elements(var3d)
 
 var3pl = ['T', 'U', 'V', 'FI']   ;, 'Z'
@@ -269,11 +271,11 @@ CASE levtype OF
     rms  =     rms1   / (     rms1   +     rms2   )
    ;print, var2d(nn-1), ' exp',expref, ' bias:', bias2, 'rms:', rms2 
   
-    xxx=0.1
-    yyy=0.9
-    vert=0.033
+    xxx = 0.25
+    yyy = 0.9
+    vert= 0.045
   
-    header = 'variable                    bias             new,ref            rms             new,ref'
+    header = 'variable                    bias               new,ref                     rms               new,ref'
     xyouts, xxx, yyy, header, /normal, charsize=0.8
     for nerr=1,2 do begin
       if nerr eq 1 then begin
@@ -286,7 +288,7 @@ CASE levtype OF
         err1=rms1
         err2=rms2
         err =rms
-        xoff=0.14
+        xoff=0.18
         amp =amp_sfc_rms
       endelse
       scale = (err-0.5) * (err gt 0.5)
@@ -303,8 +305,8 @@ CASE levtype OF
       if nerr eq 1 then begin
       xyouts,   xr(0)     ,   yr(0)-nn*vert, var2d(nn-1), /normal, charsize=0.7
       endif
-      xyouts,   xr(0)+0.18,   yr(0)-nn*vert+0.006, err1,  /normal, charsize=0.5
-      xyouts,   xr(0)+0.18,   yr(0)-nn*vert-0.006, err2,  /normal, charsize=0.5
+      xyouts,   xr(0)+0.18,   yr(0)-nn*vert+0.008, err1,  /normal, charsize=0.6
+      xyouts,   xr(0)+0.18,   yr(0)-nn*vert-0.008, err2,  /normal, charsize=0.6
     end
    
   end

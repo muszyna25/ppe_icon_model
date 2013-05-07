@@ -1,0 +1,227 @@
+#=============================================================================
+#
+# This section of the run script containes the specifications of the experiment.
+# The specifications are passed by namelist to the program.
+# For a complete list see Namelist_overview.pdf
+#
+# EXPNAME and NPROMA must be defined in as environment variables or must 
+# they must be substituted with appropriate values.
+#
+# DWD, 2010-08-31
+#
+#-----------------------------------------------------------------------------
+#
+# Basic specifications of the simulation
+# --------------------------------------
+#
+# These variables are set in the header section of the completed run script:
+#
+# EXPNAME = experiment name
+# NPROMA  = array blocking length / inner loop length
+#-----------------------------------------------------------------------------
+#
+#-----------------------------------------------------------------------------
+# The following information is included to present some information on the buildbot-html main page
+#
+# _bb_table_Description_  Jablonowski Williamson steady-state test
+# _bb_table_Model_        non-hydrost. atmosph.
+# _bb_table_Grid_         triangle
+#-----------------------------------------------------------------------------
+# The following values must be set here as shell variables so that they can be used
+# also in the executing section of the completed run script
+#
+#-----------------------------------------------------------------------------
+# the namelist filename
+atmo_namelist=NAMELIST_${EXPNAME}
+#
+#-----------------------------------------------------------------------------
+# global timing
+start_date="2008-09-01T00:00:00Z"
+end_date="2008-09-01T06:00:00Z"
+ndays_restart=60
+dt_restart=`expr ${ndays_restart} \* 86400`
+#
+#-----------------------------------------------------------------------------
+# model timing
+dtime=0.4
+dt_checkpoint=`expr 2 \* 3600 `  # write restart file every 2 hours
+#
+#-----------------------------------------------------------------------------
+# model parameters
+atmo_model_equations=3 # equation system
+#                     1=hydrost. atm. (T dynamics)
+#                     2=hydrost. atm. (theta dynamics)
+#                     3=non-hydrost. atm.,
+#                    -1=shallow water model
+#                    -2=hydrost. ocean
+nlev=100          # nlev = number of full levels
+iforcing=3        # 3 for inwp forcing; 0 for no forcing
+#
+#-----------------------------------------------------------------------------
+# the grid files
+grids_folder='/pool/data/ICON/grids/private/leonidas/grids.germany_hdcp2_test_4degrees-radius'
+atmo_dyn_grids='icon_germany_hdcp2_test_0240m.nc'
+#
+#-----------------------------------------------------------------------------
+
+
+#-----------------------------------------------------------------------------
+#
+# write ICON namelist parameters
+# ------------------------
+# For a complete list see Namelist_overview and Namelist_overview.pdf
+#
+cat > ${atmo_namelist} << EOF
+!
+&parallel_nml
+ nproma         = ${nproma}
+ p_test_run     = .false.
+ l_test_openmp  = .false.
+ l_log_checks   = .false.
+/
+&grid_nml
+ cell_type = 3            ! triangular cells
+ dynamics_grid_filename = "${atmo_dyn_grids}",
+ lfeedback      = .false.
+ l_limited_area = .true.
+/ 
+&run_nml
+ num_lev     = ${nlev},      ! number of full levels of vertical grid
+ dtime       = ${dtime}     ! [s] timestep in seconds
+ ltestcase   = .TRUE.       ! run testcase                 --> testcase_ctl
+ ldynamics   = .TRUE.       ! dynamics
+ ltransport  = .TRUE.       ! transport
+ iforcing    = ${iforcing}  !
+ ntracer     =  2           ! number of tracers - default 0
+ ltimer      = .true.       ! 
+ timers_level = 100         !
+ msg_level   = 15           ! detailed report during integration
+ output      = 'nml','totint'      
+/
+&dynamics_nml
+ iequations  = ${atmo_model_equations}       ! 1: hydrost. atmosphere
+ lcoriolis   = .TRUE.
+ idiv_method     = 1
+ divavg_cntrwgt  = 0.50
+/
+&nh_testcase_nml
+ nh_test_name  = 'mrw_nh'    ! test case identifier
+! nh_test_name  = 'mwbr_const'    ! test case identifier
+ u0_mrw       = 25 ! 10.
+ mount_height_mrw = 7000. ! max. 7500m with 20 m/s (3000 with gradp=1); max 6500m with u=0
+ mount_half_width = 2000.
+ mount_latctr_mrw_deg = 0.
+ bruntvais_u_mwbr_const = 0.0075 ! 0.018228
+! temp_i_mwbr_const = 297.
+ p_int_mwbr_const = 80000.
+ rh_at_1000hpa  = 0.01
+ qv_max         = 1.e-5
+/
+&diffusion_nml
+ hdiff_order      = 5
+ hdiff_efdt_ratio = 17.5
+! hdiff_min_efdt_ratio = 5.0
+ hdiff_smag_fac   = 0.05
+ lhdiff_vn        = .TRUE.
+ lhdiff_temp      = .TRUE.
+ itype_t_diffu    = 2
+ hdiff_multfac    = 1.0
+ hdiff_tv_ratio   = 1.0
+/
+&nwp_phy_nml
+inwp_gscp       = 0
+inwp_convection = 1
+inwp_radiation  = 1
+inwp_cldcover   = 1
+inwp_turb       = 1
+inwp_satad      = 1
+inwp_surface    = 0
+/
+&turbdiff_nml
+pat_len = 500.
+c_diff  = 0.2
+tkhmin  = 0.1
+tkmmin  = 0.1
+/
+&transport_nml
+  ctracer_list  = '12345'
+! ivadv_tracer  = 3,3,3,3,3
+! itype_hlimit = 3,4,4,4,4,0
+! ihadv_tracer  = 3,2,2,2,2,0
+! ihadv_tracer = 0,0,0,0,0,0,0
+! ivadv_tracer = 0,0,0,0,0,0,0
+/
+&interpol_nml
+nudge_zone_width  = 8
+rbf_vec_scale_c =  0.03
+rbf_vec_scale_v =  0.07
+rbf_vec_scale_e = 0.25
+/
+&nonhydrostatic_nml
+ iadv_rhotheta = 2
+ ivctype       = 2
+ itime_scheme   = 5
+ damp_height  = 27500.
+ rayleigh_coeff = 0.75
+ exner_expol = 0.333
+ vwind_offctr = 0.20
+ igradp_method = 5
+ l_zdiffu_t    = .true.
+ thslp_zdiffu   = 0.05
+ thhgtd_zdiffu  = 125.
+ iadv_rcf       = 4
+ lhdiff_rcf    = .true.
+ divdamp_fac   = 0.004
+/
+&sleve_nml                   ! vertical grid standard output for message level >= 15
+ min_lay_thckn   = 10.       ! lowest level thickness (between half-levels), set 0 to do equal spacing
+ top_height      = 40000.
+ decay_scale_1   = 5500.
+ decay_scale_2   = 3500.
+ decay_exp       = 1.2
+ flat_height     = 19000.
+ stretch_fac     = 1.0      ! stretching towards model top (1.0 default; smaller - bigger top level thickness)
+/
+&io_nml
+ dt_checkpoint    = ${dt_checkpoint} ! [s] trigger new restart file
+/
+!&output_nml
+! filetype           = 4                    ! output format: 2=GRIB2, 4=NETCDFv2
+! mode               = 1
+! dom                = -1                   ! output for all subdomains
+! output_time_unit   = 1                    ! 1: seconds, 2: minute, 3: hour, 4: day, 5: month, 6: year
+! output_bounds      = 0., 36000., 1800. ! start, end, increment
+! steps_per_file     = 21
+! include_last       = .TRUE.
+! output_filename    = '${EXPNAME}'   
+! ml_varlist         =  'group:atmo_zl_vars','group:nh_prog_vars','group:atmo_derived_vars','pres_sfc','topography_c','z_mc',
+!                        'z_ifc','group:precip_vars','group:additional_precip_vars','group:pbl_vars','group:cloud_diag',
+!                        'group:rad_vars','group:phys_tendencies','ddt_exner','ddt_qv_turb','ddt_qc_turb',
+!                        'ddt_qi_turb','ddt_qv_conv','ddt_qc_conv','ddt_qi_conv','ddt_tke','ddt_temp_pconv','gz0'
+! remap              = 1
+! reg_lon_def        =  89.,0.005,91.
+! reg_lat_def        = -1.,0.005, 1.
+! output_grid        = .TRUE.
+!/
+&output_nml
+ filetype           = 4                    ! output format: 2=GRIB2, 4=NETCDFv2
+ mode               = 1
+ dom                = -1                   ! output for all subdomains
+ output_time_unit   = 1                    ! 1: seconds, 2: minute, 3: hour, 4: day, 5: month, 6: year
+ output_bounds      = 0., 36000., 1800. ! start, end, increment
+ steps_per_file     = 21
+ include_last       = .TRUE.
+ output_filename    = '${EXPNAME}_tri'   
+ ml_varlist         =  'group:atmo_zl_vars','group:nh_prog_vars','group:atmo_derived_vars','pres_sfc','topography_c','z_mc',
+                        'z_ifc','group:precip_vars','group:additional_precip_vars','group:pbl_vars','group:cloud_diag',
+                        'group:rad_vars','group:phys_tendencies','ddt_exner','ddt_qv_turb','ddt_qc_turb',
+                        'ddt_qi_turb','ddt_qv_conv','ddt_qc_conv','ddt_qi_conv','ddt_tke','ddt_temp_pconv','gz0'
+ output_grid        = .TRUE.
+/
+&extpar_nml
+ itopo          = 0
+ n_iter_smooth_topo = 2
+ heightdiff_threshold = 2000.
+/
+EOF
+#-----------------------------------------------------------------------------

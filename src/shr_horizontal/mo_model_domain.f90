@@ -175,6 +175,7 @@ MODULE mo_model_domain
   
   TYPE t_grid_cells
     
+    INTEGER :: max_connectivity
     ! number of edges connected to cell
     ! index1=1,nproma, index2=1,nblks_c
     INTEGER, ALLOCATABLE :: num_edges(:,:)
@@ -546,6 +547,7 @@ MODULE mo_model_domain
   
   TYPE t_grid_vertices
     
+    INTEGER :: max_connectivity
     ! physical domain ID of verts
     ! (may differ from the "normal" domain ID in case of domain merging):
     ! index1=1,nproma, index2=1,nblks_v
@@ -719,12 +721,21 @@ MODULE mo_model_domain
     ! global id of processor with rank 0 (within the working set p_comm_work)
     INTEGER :: proc0
     
-    !
-    ! ! total number of cells, edges and vertices
-    !
+    ! total number of allocated cells, edges and vertices
     INTEGER :: n_patch_cells
     INTEGER :: n_patch_edges
     INTEGER :: n_patch_verts
+    
+    ! total number of exist cells
+!    INTEGER :: n_exist_cells
+!    INTEGER :: n_cell_blocks
+!    INTEGER :: last_cell_block_size
+    
+    ! in case of a dummy cell, we keep the blk and index of it
+!    INTEGER :: dummy_cell_blk
+!    INTEGER :: dummy_cell_idx
+    
+    
     !
     ! ! number of cells, edges and vertices in the global patch
     INTEGER :: n_patch_cells_g
@@ -912,24 +923,24 @@ MODULE mo_model_domain
     INTEGER, ALLOCATABLE :: dolic_e(:,:)    ! index1=1,nproma, index2=1,nblks_e
 
     REAL(wp), POINTER ::                &
-      &  prism_thick_c(:,:,:),          & ! individual prism thickness at cells. Unit [m]. This array
-                                          ! includes the free surface. dimension: (nproma,n_zlev, nblks_c)
-      &  prism_thick_e(:,:,:),          & ! individual prism thickness at edges. Unit [m]. This array 
-                                          ! includes the free surface. dimension: (nproma,n_zlev, nblks_e)
-      &  prism_thick_flat_sfc_c(:,:,:) ,& ! individual fluid column thickness at cells. Unit [m].This array
-                                          !  assumes a flat surface. dimension: (nproma,n_zlev, nblks_c)
-      &  prism_thick_flat_sfc_e(:,:,:) ,& ! individual fluid column thickness at edges. Unit [m].This array
-                                          !  assumes a flat surface. dimension: (nproma,n_zlev, nblks_c)
+      &  prism_thick_c(:,:,:),          & ! individual prism thickness at cells. Unit [m].
+                                          ! This array includes the free surface. dimension: (nproma, n_zlev, nblks_c)
+      &  prism_thick_e(:,:,:),          & ! individual prism thickness at edges. Unit [m].
+                                          ! This array includes the free surface. dimension: (nproma, n_zlev, nblks_e)
+      &  prism_thick_flat_sfc_c(:,:,:) ,& ! individual fluid column thickness at cells. Unit [m].
+                                          ! This array assumes a flat surface. dimension: (nproma, n_zlev, nblks_c)
+      &  prism_thick_flat_sfc_e(:,:,:) ,& ! individual fluid column thickness at edges. Unit [m].
+                                          ! This array assumes a flat surface. dimension: (nproma, n_zlev, nblks_c)
       &  prism_center_dist_c(:,:,:),    & ! distance between prism centers at cells. Unit [m].
                                           ! dimension: (nproma,n_zlev, nblks_c)
       &  inv_prism_thick_c(:,:,:) ,     & ! inverse individual fluid column thickness at cells. Unit [m].
-                                          ! This array assumes a flat surface dimension: (nproma,n_zlev, nblks_c)
+                                          ! This array assumes a flat surface dimension: (nproma, n_zlev, nblks_c)
       &  inv_prism_thick_e(:,:,:) ,     & ! inverse individual fluid column thickness at edges. Unit [m].
-                                          ! This array assumes a flat surface. dimension: (nproma,n_zlev, nblks_e)
-      &  inv_prism_center_dist_c(:,:,:),& ! inverse vertical distance between prism centers at cells. Unit [m].This  
-                                           !array assumes a flat surface  dimension: (nproma,n_zlev, nblks_c)
-      &  inv_prism_center_dist_e(:,:,:)    ! inverse vertical distance between prism centers at edges. Unit [m]. 
-                                           !This array assumes a flat surface dimension: (nproma,n_zlev, nblks_e)   
+                                          ! This array assumes a flat surface. dimension: (nproma, n_zlev, nblks_e)
+      &  inv_prism_center_dist_c(:,:,:),& ! inverse vertical distance between prism centers at cells. Unit [m].
+                                          ! This array assumes a flat surface  dimension: (nproma, n_zlev, nblks_c)
+      &  inv_prism_center_dist_e(:,:,:)   ! inverse vertical distance between prism centers at edges. Unit [m]. 
+                                          ! This array assumes a flat surface dimension: (nproma, n_zlev, nblks_e)   
 
   END TYPE t_patch_vert
 
@@ -960,13 +971,16 @@ MODULE mo_model_domain
     REAL(wp), ALLOCATABLE :: wet_c(:,:,:)  ! cell centers
     REAL(wp), ALLOCATABLE :: wet_e(:,:,:)  ! cell edges
 
-
     ! For diagnosis like stream functions and area calculations we add surface arrays
     ! index1=1,nproma, index2=1,nblks_c
     INTEGER,  ALLOCATABLE :: basin_c(:,:)  ! basin information Atlantic/Indian/Pacific
     INTEGER,  ALLOCATABLE :: regio_c(:,:)  ! area information like tropical Atlantic etc.
     REAL(wp), ALLOCATABLE :: rbasin_c(:,:) ! real for output
     REAL(wp), ALLOCATABLE :: rregio_c(:,:) ! real for output
+    REAL(wp), ALLOCATABLE :: bottom_thick_c(:,:)  ! individual bottom prism thickness at cells. Unit [m]. 
+    REAL(wp), ALLOCATABLE :: bottom_thick_e(:,:)  ! individual bottom prism thickness at edges. Unit [m]. 
+    REAL(wp), ALLOCATABLE :: column_thick_c(:,:)  ! individual column thickness at cells, no elevation. Unit [m].
+    REAL(wp), ALLOCATABLE :: column_thick_e(:,:)  ! individual column thickness at edges, no elevation. Unit [m].
     
   END TYPE t_patch_3D
   !--------------------------------------------------------------------

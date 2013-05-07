@@ -48,8 +48,7 @@ USE mo_timer,               ONLY: init_timer, timer_start, timer_stop, &
   &                               timers_level, timer_model_init
   
 USE mo_parallel_config,     ONLY: p_test_run, l_test_openmp, &
-  & num_io_procs, nproma, use_icon_comm, &
-  & division_method
+  & num_io_procs, nproma, use_icon_comm, division_method
   
 USE mo_intp_lonlat,         ONLY: init_lonlat_grid_list,      &
   &                               compute_lonlat_intp_coeffs, &
@@ -60,7 +59,7 @@ USE mo_master_control,      ONLY: is_restart_run, get_my_process_name, get_my_mo
 USE mo_io_async,            ONLY: vlist_io_main_proc, &            ! main procedure for I/O PEs
                                   use_async_vlist_io
 USE mo_name_list_output,    ONLY: name_list_io_main_proc
-USE mo_name_list_output_config, ONLY: use_async_name_list_io, name_list_output_active
+USE mo_name_list_output_config, ONLY: use_async_name_list_io
 
 
 ! Control parameters: run control, dynamics, i/o
@@ -70,17 +69,19 @@ USE mo_nonhydrostatic_config,ONLY: ivctype, kstart_moist, iadv_rcf, &
 USE mo_lnd_nwp_config,       ONLY: configure_lnd_nwp
 USE mo_dynamics_config,      ONLY: configure_dynamics, iequations
 USE mo_run_config,           ONLY: configure_run, &
-  & ltimer,               & !    :
-  & iforcing,             & !    namelist parameter
-  & ldump_states,         & ! flag if states should be dumped
-  & lrestore_states,      & ! flag if states should be restored
-  & ldump_dd, lread_dd,   &
-  & nproc_dd,             &
-  & nlev,nlevp1,nshift,   &
-  & num_lev,num_levp1,    &
-  & ntracer, msg_level,   &
-  & dtime, output_mode
+  & ltimer,                 & !    :
+  & iforcing,               & !    namelist parameter
+  & ldump_states,           & ! flag if states should be dumped
+  & lrestore_states,        & ! flag if states should be restored
+  & ldump_dd, lread_dd,     &
+  & nproc_dd, nshift,       &
+  & num_lev,num_levp1,      &
+  & ntracer, msg_level,     &
+  & dtime, output_mode,     &
+  & grid_generatingCenter,  & ! grid generating center
+  & grid_generatingSubcenter  ! grid generating subcenter
 USE mo_prepicon_config,      ONLY: i_oper_mode 
+USE mo_gribout_config,       ONLY: configure_gribout
 USE mo_impl_constants,       ONLY:&
   & ihs_atm_temp,         & !    :
   & ihs_atm_theta,        & !    :
@@ -369,29 +370,41 @@ CONTAINS
       ! Decide whether async vlist or name_list IO is to be used,
       ! only one of both may be enabled!
 
-      ! Currently, async name_list IO is used if at least one name_list was read
-      IF(name_list_output_active) THEN
+      IF (output_mode%l_nml) THEN
+        ! -----------------------------------------
+        ! asynchronous I/O
+        ! -----------------------------------------
+        !
         use_async_name_list_io = .TRUE.
-        CALL message('','asynchronous namelist I/O scheme is enabled.')
+        CALL message(routine,'asynchronous namelist I/O scheme is enabled.')
+        ! consistency check
+        IF (output_mode%l_vlist) THEN
+          output_mode%l_vlist = .FALSE.
+          CALL message(routine,'vlist I/O scheme has been disabled because combining it&
+            & with namelist I/O is not possible for asynchronous output.')
+        ENDIF
         IF (my_process_is_io() .AND. (.NOT. my_process_is_mpi_test())) THEN
           CALL name_list_io_main_proc(isample=iadv_rcf)
         END IF
-        IF (output_mode%l_vlist) THEN
-          output_mode%l_vlist = .FALSE.
-          CALL message('','vlist I/O scheme has been disabled because combining it&
-            & with namelist I/O is not possible for asynchronous output.')
-        ENDIF
-      ELSE
+      ELSE  IF (output_mode%l_vlist) THEN
         use_async_vlist_io = .TRUE.
-        CALL message('','asynchronous vlist I/O scheme is enabled.')
+        CALL message(routine,'asynchronous vlist I/O scheme is enabled.')
         IF (my_process_is_io()) CALL vlist_io_main_proc
+      ELSE IF (my_process_is_io() .AND. (.NOT. my_process_is_mpi_test())) THEN
+        ! Shut down MPI
+        CALL p_stop
+        STOP
       ENDIF
     ELSE
-      IF(name_list_output_active) THEN
-        CALL message('','synchronous namelist I/O scheme is enabled.')
+      ! -----------------------------------------
+      ! non-asynchronous I/O (performed by PE #0)
+      ! -----------------------------------------
+      !
+      IF (output_mode%l_nml) THEN
+        CALL message(routine,'synchronous namelist I/O scheme is enabled.')
       ENDIF
       IF (output_mode%l_vlist) THEN
-        CALL message('','synchronous vlist I/O scheme is enabled.')
+        CALL message(routine,'synchronous vlist I/O scheme is enabled.')
       ENDIF
     ENDIF
 
@@ -425,7 +438,7 @@ CONTAINS
         CALL restore_patches_netcdf( p_patch, .TRUE. )
         CALL set_patch_communicators(p_patch)
       ELSE
-        CALL import_basic_patches(p_patch,nlev,nlevp1,num_lev,num_levp1,nshift)
+        CALL import_basic_patches(p_patch,num_lev,num_levp1,nshift)
         CALL disable_sync_checks
         CALL complete_patches( p_patch )
         CALL enable_sync_checks
@@ -445,13 +458,13 @@ CONTAINS
           IF (division_method(1) > 100) THEN
             ! use ext decomposition library driver
             ALLOCATE(p_patch_global(n_dom_start:n_dom))
-            CALL import_basic_patches(p_patch_global,nlev,nlevp1,num_lev,num_levp1,nshift)
-            CALL ext_decompose_patches(p_patch_global)
+            CALL import_basic_patches(p_patch_global,num_lev,num_levp1,nshift)
+            CALL ext_decompose_patches(p_patch, p_patch_global)
             DEALLOCATE(p_patch_global)
           ELSE
             ! use internal decomposition 
             ALLOCATE(p_patch_global(n_dom_start:n_dom))
-            CALL import_basic_patches(p_patch_global,nlev,nlevp1,num_lev,num_levp1,nshift)
+            CALL import_basic_patches(p_patch_global,num_lev,num_levp1,nshift)
             CALL decompose_domain(p_patch_global)
             DEALLOCATE(p_patch_global)
           ENDIF
@@ -478,7 +491,7 @@ CONTAINS
         ! IF lread_dd is set, the read is in standalone mode.
 
         IF(lread_dd) CALL set_comm_input_bcast(null_comm_type)
-        CALL import_basic_patches(p_patch,nlev,nlevp1,num_lev,num_levp1,nshift)
+        CALL import_basic_patches(p_patch,num_lev,num_levp1,nshift)
         IF(lread_dd) CALL set_comm_input_bcast()
 
         IF(ldump_dd) THEN
@@ -495,14 +508,14 @@ CONTAINS
           ! If ldump_dd is set in a single processor run, a domain decomposition for
           ! nproc_dd processors is done
           ALLOCATE(p_patch_global(n_dom_start:n_dom))
-          CALL import_basic_patches(p_patch_global,nlev,nlevp1,num_lev,num_levp1,nshift)
+          CALL import_basic_patches(p_patch_global,num_lev,num_levp1,nshift)
           CALL decompose_domain(p_patch_global, nproc_dd)
           DEALLOCATE(p_patch_global)
           ! We are done, the dump is done within decompose_domain
           CALL p_stop
           STOP
         ELSE
-          CALL import_basic_patches(p_patch,nlev,nlevp1,num_lev,num_levp1,nshift)
+          CALL import_basic_patches(p_patch,num_lev,num_levp1,nshift)
         ENDIF
 
       ENDIF
@@ -688,8 +701,10 @@ CONTAINS
     !---------------------------------------------------------------------
 
     CALL configure_dynamics ( n_dom )
-    CALL configure_diffusion( n_dom, dynamics_parent_grid_id, &
-      &                       nlev, vct_a, vct_b, apzero      )
+    CALL configure_diffusion( n_dom, dynamics_parent_grid_id,       &
+      &                       p_patch(1)%nlev, vct_a, vct_b, apzero )
+
+    CALL configure_gribout(grid_generatingCenter, grid_generatingSubcenter, n_dom)
 
     IF (iequations == inh_atmosphere) THEN
       DO jg =1,n_dom

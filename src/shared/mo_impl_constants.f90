@@ -314,6 +314,7 @@ MODULE mo_impl_constants
 
   INTEGER, PARAMETER :: io3_clim     =  2
   INTEGER, PARAMETER :: io3_ape      =  4
+  INTEGER, PARAMETER :: io3_amip     =  8
   INTEGER, PARAMETER :: iaero_kinne  =  3
 
   !
@@ -378,9 +379,6 @@ MODULE mo_impl_constants
   INTEGER, PARAMETER :: impiom         = -1 !   - MPIOM physics
 
   
-  ! auxiliary parameter to access single field of the 4D array prm_diag%tot_cld
-  INTEGER, PARAMETER :: icc = 4    !! diagnostic cloud fraction in prm_diag%tot_cld
-
 
   !---------------------!
   !        LAND         !
@@ -390,6 +388,12 @@ MODULE mo_impl_constants
   REAL(wp), PARAMETER, DIMENSION(8)::                               &
     & zml_soil=(/ 0.005_wp,0.02_wp,0.06_wp,0.18_wp,0.54_wp,1.62_wp, &
     & 4.86_wp,14.58_wp /)
+
+  ! Soil layer thicknesses [m]
+  REAL(wp), PARAMETER, DIMENSION(8)::                               &
+    & dzsoil=(/ 0.01_wp,0.02_wp,0.06_wp,0.18_wp,0.54_wp,1.62_wp,    &
+    & 4.86_wp,14.58_wp/)
+
 
   !---------------------!
   !        OCEAN        !
@@ -463,7 +467,8 @@ MODULE mo_impl_constants
   ! Method for computation of mean sea level pressure:
   INTEGER, PARAMETER :: &
     PRES_MSL_METHOD_GME = 1,  &   ! GME-type extrapolation
-    PRES_MSL_METHOD_SAI = 2       ! stepwise analytical integration 
+    PRES_MSL_METHOD_SAI = 2,  &   ! stepwise analytical integration 
+    PRES_MSL_METHOD_IFS = 3       ! current IFS method
 
   ! Max number of time levels:
   INTEGER, PARAMETER :: MAX_TIME_LEVELS = 5

@@ -38,6 +38,7 @@ MODULE mo_oce_diagnostics
   USE mo_grid_subset,        ONLY: t_subset_range, get_index_range
   USE mo_mpi,                ONLY: my_process_is_stdio, p_field_sum, &
     &                              p_comm_work_test, p_comm_work, p_io, p_bcast
+  USE mo_sync,               ONLY: global_sum_array
   USE mo_math_utilities,     ONLY: t_cartesian_coordinates!, gc2cc
   USE mo_math_constants,     ONLY: rad2deg
   USE mo_impl_constants,     ONLY: sea_boundary,sea, &
@@ -50,14 +51,14 @@ MODULE mo_oce_diagnostics
   USE mo_run_config,         ONLY: dtime, nsteps
   USE mo_physical_constants, ONLY: grav, rho_ref
   USE mo_oce_state,          ONLY: t_hydro_ocean_state, t_hydro_ocean_diag,&! v_base, &
-    &                              set_lateral_boundary_values, t_ocean_diagnostics
+    &                              set_lateral_boundary_values
   USE mo_model_domain,       ONLY: t_patch, t_patch_3D,t_patch_vert
   USE mo_ext_data_types,     ONLY: t_external_data
   USE mo_exception,          ONLY: message, finish, message_text
   USE mo_loopindices,        ONLY: get_indices_c!, get_indices_e
   USE mo_oce_physics,        ONLY: t_ho_params
-  USE mo_sea_ice_types,      ONLY: t_sfc_flx
-  USE mo_datetime,           ONLY: t_datetime
+  USE mo_sea_ice_types,      ONLY: t_sfc_flx, t_sea_ice
+  USE mo_datetime,           ONLY: t_datetime, datetime_to_string, date_len
   USE mo_linked_list,        ONLY: t_var_list
   USE mo_var_list,           ONLY: add_var,                  &
     &                              new_var_list,             &
@@ -67,7 +68,9 @@ MODULE mo_oce_diagnostics
   USE mo_cf_convention
   USE mo_grib2
   USE mo_cdi_constants
-
+  USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff
+  USE mo_io_units,           ONLY: find_next_free_unit
+  USE mo_util_file,          ONLY: util_symlink, util_rename, util_islink, util_unlink
 IMPLICIT NONE
 
 !PRIVATE
@@ -75,10 +78,14 @@ IMPLICIT NONE
 ! !VERSION CONTROL:
 CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
+INTEGER :: diag_unit = -1 ! file handle for the global timeseries output
+INTEGER :: moc_unit = -1 ! file handle for the global timeseries output
+CHARACTER(len=max_char_length)  :: diag_fname, moc_fname
+
 !
 ! PUBLIC INTERFACE
 !
-!PUBLIC :: calculate_oce_diagnostics
+PUBLIC :: calculate_oce_diagnostics
 PUBLIC :: construct_oce_diagnostics
 PUBLIC :: destruct_oce_diagnostics
 PUBLIC :: t_oce_monitor
@@ -87,13 +94,28 @@ PUBLIC :: calc_moc
 PUBLIC :: calc_psi
 
 TYPE t_oce_monitor
-    REAL(wp) :: volume 
+    REAL(wp) :: volume
     REAL(wp) :: kin_energy
     REAL(wp) :: pot_energy
     REAL(wp) :: total_energy
     REAL(wp) :: vorticity
     REAL(wp) :: enstrophy
     REAL(wp) :: potential_enstrophy
+    REAL(wp) :: absolute_vertical_velocity
+    REAL(wp) :: forc_swflx   ! surface short wave heat flux                              [W/m2]
+    REAL(wp) :: forc_lwflx   ! surface long wave heat flux                               [W/m2]
+    REAL(wp) :: forc_ssflx   ! surface sensible heat flux                                [W/m2]
+    REAL(wp) :: forc_slflx   ! surface latent heat flux                                  [W/m2]
+    REAL(wp) :: forc_precip  ! total precipitation flux                                  [m/s]
+    REAL(wp) :: forc_evap    ! evaporation flux                                          [m/s]
+    REAL(wp) :: forc_runoff  ! river runoff flux                                         [m/s]
+    REAL(wp) :: forc_fwbc    ! sum of forcing surface freshwater flux from BC            [m/s]
+    REAL(wp) :: forc_fwrelax ! diagnosed surface freshwater flux due to relaxation       [m/s]
+    REAL(wp) :: forc_fwfx    ! diagnosed sum of forcing surface freshwater flux          [m/s]
+    REAL(wp) :: forc_hfrelax ! diagnosed surface heat flux due to relaxation             [m/s]
+    REAL(wp) :: forc_hflx    ! diagnosed sum of forcing surface heat flux                [W/m2]
+    REAL(wp) :: ice_volume   !                                                           [km3]
+    REAL(wp) :: ice_extent   !                                                           [km2]
     REAL(wp), ALLOCATABLE :: tracer_content(:)
 
 END TYPE t_oce_monitor
@@ -101,252 +123,241 @@ END TYPE t_oce_monitor
 TYPE t_oce_timeseries
 
     TYPE(t_oce_monitor), ALLOCATABLE :: oce_diagnostics(:)    ! time array of diagnostic values
+    CHARACTER(len=40), DIMENSION(24)  :: names = (/ &
+    & "volume                                  ", &
+    & "kin_energy                              ", &
+    & "pot_energy                              ", &
+    & "total_energy                            ", &
+    & "vorticity                               ", &
+    & "enstrophy                               ", &
+    & "potential_enstrophy                     ", &
+    & "absolute_vertical_velocity              ", &
+    & "forc_swflx                              ", &
+    & "forc_lwflx                              ", &
+    & "forc_ssflx                              ", &
+    & "forc_slflx                              ", &
+    & "forc_precip                             ", &
+    & "forc_evap                               ", &
+    & "forc_runoff                             ", &
+    & "forc_fwbc                               ", &
+    & "forc_fwrelax                            ", &
+    & "forc_fwfx                               ", &
+    & "forc_hfrelax                            ", &
+    & "forc_hflx                               ", &
+    & "ice_volume                              ", &
+    & "ice_extent                              ", &
+    & "total_temperature                       ", &
+    & "total_salinity                          "/)
 
 END TYPE t_oce_timeseries
 
-
-TYPE(t_var_list)         , PUBLIC                      :: ocean_diagnostics_list
-
-
 CONTAINS
-!-------------------------------------------------------------------------  
-!
-!  
+!-------------------------------------------------------------------------
 !>
-!! !  Solves the free surface equation.
-!! 
-!! @par Revision History
-!! Developed  by  Peter Korn, MPI-M (2010).
-!! 
-! SUBROUTINE calculate_oce_diagnostics(p_patch_3D, p_os, p_sfc_flx, p_phys_param, timestep, oce_ts)
-! !
-! TYPE(t_patch_3D ),TARGET, INTENT(INOUT)    :: p_patch_3D
-! TYPE(t_hydro_ocean_state), TARGET             :: p_os
-! TYPE(t_sfc_flx), INTENT(INOUT)                :: p_sfc_flx
-! TYPE (t_ho_params)                            :: p_phys_param
-! INTEGER                                       :: timestep
-! TYPE(t_oce_timeseries),POINTER                :: oce_ts
-! !
-! !Local variables
-! !REAL(wp) :: z_h_c(nproma,p_patch%nblks_c)
-! !REAL(wp) :: z_h_e(nproma,p_patch%nblks_e)
+! !  calculate_oce_diagnostics
 ! 
-! !CHARACTER(len=max_char_length) :: string
-! INTEGER :: rl_start_c, rl_end_c, i_startblk_c, i_endblk_c,i_startidx_c, i_endidx_c
-! !INTEGER :: rl_start_e, rl_end_e, i_startblk_e, i_endblk_e!, i_startidx_e, i_endidx_e
-! INTEGER :: jk,jc,jb!,je
-! INTEGER :: i_no_t, i !, z_dolic
+! @par Revision History
+! Developed  by  Peter Korn, MPI-M (2010).
 ! 
-! !REAL(wp) :: z_volume, z_volume_initial
-! !REAL(wp) :: z_kin_energy,z_kin_energy_initial
-! !REAL(wp) :: z_pot_energy,z_pot_energy_initial
-! !REAL(wp) :: z_total_energy,z_total_energy_initial
-! !REAL(wp) :: z_vorticity,z_vorticity_initial
-! !REAL(wp) :: z_enstrophy,z_enstrophy_initial
-! !REAL(wp) :: z_potential_enstrophy,z_potential_enstrophy_initial
-! !REAL(wp) :: z_tracer_content(1:no_tracer), z_tracer_content_initial(1:no_tracer)
-! REAL(wp) :: delta_z, prism_vol
-! REAL(wp) :: z_w
-! INTEGER  :: referenz_timestep
-! TYPE(t_oce_monitor), POINTER :: ptr_monitor
-! !LOGICAL :: l_first_timestep
-! ! CHARACTER(len=max_char_length), PARAMETER :: &
-! !        & routine = ('mo_oce_diagnostics:calculate_oce_diagnotics')
-! !-----------------------------------------------------------------------
-! TYPE(t_patch), TARGET, INTENT(in)             :: p_patch
-! TYPE(t_patch_vert), TARGET, INTENT(in)             :: p_patch_vert
-! 
-! p_patch => p_patch_3D%p_patch_2D
-! p_patch_vert => p_patch_3D%p_patch_1D
-! !-----------------------------------------------------------------------
-! rl_start_c = 1
-! rl_end_c   = min_rlcell
-! i_startblk_c = p_patch%cells%start_blk(rl_start_c,1)
-! i_endblk_c   = p_patch%cells%end_blk(rl_end_c,1)
-! 
-! !direct pointer to monitored quantitiy at actual timestep
-! ptr_monitor =>oce_ts%oce_diagnostics(timestep)
-! 
-! !cell loop to calculate cell based monitored fields volume, kinetic energy and tracer content
-! IF(iswm_oce/=1)THEN
-! 
-!   DO jb = i_startblk_c, i_endblk_c
-!     CALL get_indices_c(p_patch, jb, i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c, &
-!     &                             rl_start_c, rl_end_c)
-!     DO jc = i_startidx_c, i_endidx_c
-! 
-!       !z_dolic = v_base%dolic_c(jc,jb)
-!       !IF ( z_dolic>=MIN_DOLIC)THEN 
-!         DO jk=1,n_zlev!z_dolic
-! 
-!           IF ( p_patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
-! 
-!              delta_z = p_patch_vert(1)%del_zlev_m(jk)! 
-!              IF (jk == 1) THEN
-!                delta_z =p_patch_vert(1)%del_zlev_m(jk)&
-!                       & + p_os%p_prog(nnew(1))%h(jc,jb)
-!              ENDIF
-! !delta_z=p_os%p_diag%depth_c(jc,jk,jb)
-!             prism_vol = p_patch%cells%area(jc,jb)*delta_z
-! 
-!             !Fluid volume 
-!             ptr_monitor%volume = ptr_monitor%volume + prism_vol
-! 
-!             !kinetic energy
-!             ptr_monitor%kin_energy = ptr_monitor%kin_energy+ p_os%p_diag%kin(jc,jk,jb)*prism_vol
-! 
-!             !Potential energy
-!             IF(jk==1)THEN
-!               z_w = (p_os%p_diag%w(jc,jk,jb)*p_os%p_prog(nold(1))%h(jc,jb)&
-!                  & +p_os%p_diag%w(jc,jk+1,jb)*0.5_wp*p_patch_3D%p_patch_1D(1)%del_zlev_i(jk))&
-!                  &/(0.5_wp*p_patch_3D%p_patch_1D(1)%del_zlev_i(jk)+p_os%p_prog(nold(1))%h(jc,jb))
-!             ELSEIF(jk>1.AND.jk<n_zlev)THEN
-!               z_w = (p_os%p_diag%w(jc,jk,jb)*p_patch_3D%p_patch_1D(1)%del_zlev_i(jk)&
-!                  & +p_os%p_diag%w(jc,jk+1,jb)*p_patch_3D%p_patch_1D(1)%del_zlev_i(jk+1))&
-!                  &/(p_patch_3D%p_patch_1D(1)%del_zlev_i(jk)+p_patch_3D%p_patch_1D(1)%del_zlev_i(jk+1))
-!             ENDIF 
-! 
-!             ptr_monitor%pot_energy = ptr_monitor%pot_energy&
-!             &+ grav*z_w* p_os%p_diag%rho(jc,jk,jb)* prism_vol
-! 
-!             !Tracer content
-!             DO i_no_t=1, no_tracer
-!               ptr_monitor%tracer_content(i_no_t) = ptr_monitor%tracer_content(i_no_t)&
-!               & + prism_vol*p_os%p_prog(nold(1))%tracer(jc,jk,jb,i_no_t)
-!             END DO
-!           ENDIF
-!         END DO
-!       !ENDIF
-!     END DO
-!   END DO
-! 
-! !   !divide by volume
-! !   IF(ptr_monitor%volume/=0.0_wp)THEN
-! !     ptr_monitor%kin_energy = ptr_monitor%kin_energy/ptr_monitor%volume
-! !     ptr_monitor%pot_energy = ptr_monitor%pot_energy/ptr_monitor%volume
-! !   ELSE
-! !     ptr_monitor%kin_energy = 0.0_wp
-! !     ptr_monitor%pot_energy = 0.0_wp
-! !   ENDIF
-! !   ptr_monitor%total_energy = ptr_monitor%pot_energy + ptr_monitor%kin_energy
-! ! 
-! !   IF(ptr_monitor%volume/=0.0_wp)THEN
-! !     DO i_no_t=1, no_tracer
-! !       ptr_monitor%tracer_content(i_no_t) = ptr_monitor%tracer_content(i_no_t)/ptr_monitor%volume
-! !     END DO
-! !   ELSE
-! !     DO i_no_t=1, no_tracer
-! !       ptr_monitor%tracer_content(i_no_t) = 0.0_wp
-! !     END DO
-! !   ENDIF
-! 
-! ELSEIF(iswm_oce==1)THEN
-!   !Potential energy in SW-casep_patch%patch_oce%del_zlev_m(1)
-!   DO jb = i_startblk_c, i_endblk_c
-!     CALL get_indices_c(p_patch, jb, i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c, &
-!        &                             rl_start_c, rl_end_c)
-!     DO jc = i_startidx_c, i_endidx_c
-!       IF ( p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary ) THEN
-!         prism_vol = p_patch%cells%area(jc,jb)*p_os%p_prog(nold(1))%h(jc,jb)
-!         ptr_monitor%volume = ptr_monitor%volume + prism_vol
-! 
-!         ptr_monitor%pot_energy = ptr_monitor%pot_energy &
-!         &+ 0.5_wp*grav*p_os%p_prog(nold(1))%h(jc,jb)*p_os%p_prog(nold(1))%h(jc,jb)
-! 
-!         ptr_monitor%kin_energy = ptr_monitor%kin_energy &
-!         &+p_os%p_diag%kin(jc,1,jb)*p_os%p_prog(nold(1))%h(jc,jb)
-! 
-!         DO i_no_t=1, no_tracer
-!           ptr_monitor%tracer_content(i_no_t) = ptr_monitor%tracer_content(i_no_t)&
-!           & + prism_vol*p_os%p_prog(nold(1))%tracer(jc,1,jb,i_no_t)
-!         END DO
-!       ENDIF
-!     END DO
-!   END DO
-! !   IF(ptr_monitor%volume/=0.0_wp)THEN
-! !     DO i_no_t=1, no_tracer
-! !       ptr_monitor%tracer_content(i_no_t) = ptr_monitor%tracer_content(i_no_t)/ptr_monitor%volume
-! !     END DO
-! !   ELSE
-! !     DO i_no_t=1, no_tracer
-! !       ptr_monitor%tracer_content(i_no_t) = 0.0_wp
-! !     END DO
-! !   ENDIF
-! !   IF(ptr_monitor%volume/=0.0_wp)THEN
-! !     ptr_monitor%pot_energy = ptr_monitor%pot_energy/ptr_monitor%volume
-! !     ptr_monitor%kin_energy = ptr_monitor%kin_energy/ptr_monitor%volume
-! !   ELSE
-! !     ptr_monitor%kin_energy = 0.0_wp
-! !     ptr_monitor%pot_energy = 0.0_wp
-! !   ENDIF 
-! !   ptr_monitor%total_energy = ptr_monitor%pot_energy + ptr_monitor%kin_energy
-! ENDIF
-! 
-! DO i=timestep,timestep
-!   write(0,*)'ACTUAL VALUES OF VOLUME NORMALIZED BY INITIAL VALUE:          ', i,&
-!   &oce_ts%oce_diagnostics(i)%volume/oce_ts%oce_diagnostics(0)%volume
-! 
-!   IF(oce_ts%oce_diagnostics(1)%kin_energy/=0.0_wp)THEN
-!     write(0,*)'ACTUAL VALUES OF KINETIC ENERGY NORMALIZED BY INITIAL VALUE:  ',  i,&
-!     &oce_ts%oce_diagnostics(i)%kin_energy/ oce_ts%oce_diagnostics(1)%kin_energy
-!   ENDIF
-! 
-!   IF(oce_ts%oce_diagnostics(0)%pot_energy/=0.0_wp)THEN
-!     write(0,*)'ACTUAL VALUES OF POTENTIAL ENERGY NORMALIZED BY INITIAL VALUE:',i,&
-!     &oce_ts%oce_diagnostics(i)%pot_energy/ oce_ts%oce_diagnostics(0)%pot_energy
-!   ENDIF
-! 
-!   IF(oce_ts%oce_diagnostics(0)%total_energy/=0.0_wp)THEN
-!     write(0,*)'ACTUAL VALUES OF TOTAL ENERGY NORMALIZED BY INITIAL VALUE:    ',i,&
-!     &oce_ts%oce_diagnostics(i)%total_energy/ oce_ts%oce_diagnostics(0)%total_energy
-!   ENDIF
-!   DO i_no_t=1, no_tracer
-!     IF(oce_ts%oce_diagnostics(0)%tracer_content(i_no_t)/=0.0_wp)THEN
-!       write(0,*)'ACTUAL VALUES OF TOTAL TRACER CONTENT:                        ',i_no_t,i,&
-!       &oce_ts%oce_diagnostics(i)%tracer_content(i_no_t)&
-!       &/ oce_ts%oce_diagnostics(0)%tracer_content(i_no_t)
-! 
-!   ENDIF
-! END DO
-! END DO
-! 
-! 
-! !IF(timestep==nsteps)THEN
-!   referenz_timestep=1
-!   !DO i=referenz_timestep,timestep
-!   DO i=timestep,timestep
-!     write(1234,*)'ACTUAL VALUES OF VOLUME NORMALIZED BY INITIAL VALUE:          ', i,&
-!     &oce_ts%oce_diagnostics(i)%volume&
-!     &/oce_ts%oce_diagnostics(referenz_timestep)%volume
-! 
-! !     IF(oce_ts%oce_diagnostics(1)%kin_energy/=0.0_wp)THEN
-! !       write(1234,*)'ACTUAL VALUES OF KINETIC ENERGY NORMALIZED BY INITIAL VALUE:  ',  i,&
-! !       &oce_ts%oce_diagnostics(i)%kin_energy&
-! !       &/ oce_ts%oce_diagnostics(referenz_timestep)%kin_energy
-! !     ENDIF
-! ! 
-! !     IF(oce_ts%oce_diagnostics(0)%pot_energy/=0.0_wp)THEN
-! !       write(1234,*)'ACTUAL VALUES OF POTENTIAL ENERGY NORMALIZED BY INITIAL VALUE:',i,&
-! !       &oce_ts%oce_diagnostics(i)%pot_energy&
-! !       &/ oce_ts%oce_diagnostics(referenz_timestep)%pot_energy
-! !     ENDIF
-! ! 
-! !     IF(oce_ts%oce_diagnostics(0)%total_energy/=0.0_wp)THEN
-! !       write(1234,*)'ACTUAL VALUES OF TOTAL ENERGY NORMALIZED BY INITIAL VALUE:    ',i,&
-! !       &oce_ts%oce_diagnostics(i)%total_energy&
-! !       &/ oce_ts%oce_diagnostics(referenz_timestep)%total_energy
-! !     ENDIF
-!      DO i_no_t=1, no_tracer
-!        IF(oce_ts%oce_diagnostics(0)%tracer_content(i_no_t)/=0.0_wp)THEN
-!          write(1234,*)'ACTUAL VALUES OF TOTAL TRACER CONTENT:                        ',i_no_t,i,&
-!          &oce_ts%oce_diagnostics(i)%tracer_content(i_no_t)&
-!          &/ oce_ts%oce_diagnostics(referenz_timestep)%tracer_content(i_no_t)
-!        ENDIF
-!     END DO
-!   END DO
-! !ENDIF
-! !CALL message (TRIM(routine), 'end')
-! END SUBROUTINE calculate_oce_diagnostics
+SUBROUTINE calculate_oce_diagnostics(p_patch_3D, p_os, p_sfc_flx, p_ice, &
+    & p_phys_param, timestep, datetime, oce_ts)
+  TYPE(t_patch_3D ),TARGET, INTENT(IN)    :: p_patch_3D
+  TYPE(t_hydro_ocean_state), TARGET       :: p_os
+  TYPE(t_sfc_flx),    INTENT(IN)          :: p_sfc_flx
+  TYPE (t_sea_ice),   INTENT(IN)          :: p_ice
+  TYPE (t_ho_params)                      :: p_phys_param
+  INTEGER                                 :: timestep
+  TYPE(t_datetime), INTENT(IN)            :: datetime
+  TYPE(t_oce_timeseries),POINTER          :: oce_ts
+
+  !Local variables
+  INTEGER :: i_startidx_c, i_endidx_c!,i_startblk_c, i_endblk_c,
+  INTEGER :: jk,jc,jb!,je
+  INTEGER :: i_no_t, i
+  REAL(wp):: prism_vol, surface_height, prism_area, surface_area, z_w
+  INTEGER :: reference_timestep
+  TYPE(t_patch), POINTER     :: p_patch
+
+  TYPE(t_subset_range), POINTER :: owned_cells
+  TYPE(t_oce_monitor),  POINTER :: monitor
+  CHARACTER(len=1024)           :: line, nvars
+  CHARACTER(len=1024)           :: fmt_string, real_fmt
+  CHARACTER(len=date_len)       :: datestring
+
+  !-----------------------------------------------------------------------
+  p_patch        => p_patch_3D%p_patch_2D(1)
+  owned_cells    => p_patch%cells%owned
+  !-----------------------------------------------------------------------
+  monitor        => oce_ts%oce_diagnostics(timestep)
+  surface_area   = 0.0_wp
+  surface_height = 0.0_wp
+  prism_vol      = 0.0_wp
+  prism_area     = 0.0_wp
+  z_w            = 0.0_wp
+  CALL datetime_to_string(datestring, datetime, plain=.TRUE.)
+
+  !cell loop to calculate cell based monitored fields volume, kinetic energy and tracer content
+  SELECT CASE (iswm_oce)
+  CASE (1) ! shallow water mode
+    !Potential energy in SW-casep_patch%patch_oce%del_zlev_m(1)
+    DO jb = owned_cells%start_block,owned_cells%end_block
+      CALL get_index_range(owned_cells, jb, i_startidx_c, i_endidx_c)
+
+      DO jc =  i_startidx_c, i_endidx_c
+        IF ( p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary ) THEN
+          prism_vol = p_patch%cells%area(jc,jb)*p_patch_3D%p_patch_1D(1)%prism_thick_c(jc,1,jb)
+            !prism_vol = p_op_coeff%fixed_vol_norm(jc,1,jb)*p_patch_3D%p_patch_1D(1)%prism_thick_c(jc,1,jb)!p_os%p_prog(nold(1))%h(jc,jb)
+          monitor%volume = monitor%volume + prism_vol
+
+
+          monitor%pot_energy = monitor%pot_energy &
+            &+ 0.5_wp*grav* prism_vol*p_patch_3D%p_patch_1D(1)%prism_thick_c(jc,1,jb)
+
+          monitor%kin_energy = monitor%kin_energy &
+            &+p_os%p_diag%kin(jc,1,jb)*prism_vol!p_patch_3D%p_patch_1D(1)%prism_thick_c(jc,1,jb)
+
+          monitor%total_energy=monitor%kin_energy+monitor%pot_energy
+          DO i_no_t=1, no_tracer
+            monitor%tracer_content(i_no_t) = monitor%tracer_content(i_no_t)&
+              & + prism_vol*p_os%p_prog(nold(1))%tracer(jc,1,jb,i_no_t)
+          END DO
+        ENDIF
+      END DO
+    END DO
+
+  CASE DEFAULT !3D model
+    DO jb = owned_cells%start_block, owned_cells%end_block
+    CALL get_index_range(owned_cells, jb, i_startidx_c, i_endidx_c)
+      !We are dealing with the surface layer first
+      DO jc =  i_startidx_c, i_endidx_c
+
+        ! area
+        prism_area   = p_patch%cells%area(jc,jb)
+        surface_area = surface_area + prism_area
+        ! sum of top layer vertical velocities abolsute values
+        monitor%absolute_vertical_velocity = &
+          & monitor%absolute_vertical_velocity + abs(p_os%p_diag%w(jc,1,jb))*prism_area
+
+        monitor%forc_swflx   = monitor%forc_swflx   + p_sfc_flx%forc_swflx(jc,jb)*prism_area
+        monitor%forc_lwflx   = monitor%forc_lwflx   + p_sfc_flx%forc_lwflx(jc,jb)*prism_area
+        monitor%forc_ssflx   = monitor%forc_ssflx   + p_sfc_flx%forc_ssflx(jc,jb)*prism_area
+        monitor%forc_slflx   = monitor%forc_slflx   + p_sfc_flx%forc_slflx(jc,jb)*prism_area
+        monitor%forc_precip  = monitor%forc_precip  + p_sfc_flx%forc_precip(jc,jb)*prism_area
+        monitor%forc_evap    = monitor%forc_evap    + p_sfc_flx%forc_evap(jc,jb)*prism_area
+        monitor%forc_runoff  = monitor%forc_runoff  + p_sfc_flx%forc_runoff(jc,jb)*prism_area
+        monitor%forc_fwbc    = monitor%forc_fwbc    + p_sfc_flx%forc_fwbc(jc,jb)*prism_area
+        monitor%forc_fwrelax = monitor%forc_fwrelax + p_sfc_flx%forc_fwrelax(jc,jb)*prism_area
+        monitor%forc_fwfx    = monitor%forc_fwfx    + p_sfc_flx%forc_fwfx(jc,jb)*prism_area
+        monitor%forc_hfrelax = monitor%forc_hfrelax + p_sfc_flx%forc_hfrelax(jc,jb)*prism_area
+        monitor%forc_hflx    = monitor%forc_hflx    + p_sfc_flx%forc_hflx(jc,jb)*prism_area
+
+        monitor%ice_volume   = monitor%ice_volume   + prism_area*SUM(p_ice%vol(jc,:,jb)*p_ice%conc(jc,:,jb))
+        monitor%ice_extent   = monitor%ice_extent   + p_ice%concSum(jc,jb)*prism_area
+
+
+        DO jk = 1,p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)
+
+          !local volume
+          surface_height = merge(p_os%p_prog(nnew(1))%h(jc,jb),0.0_wp, 1 == jk)
+          prism_vol      = prism_area * (p_patch_3D%p_patch_1D(1)%prism_thick_c(jc,jk,jb) + surface_height)
+
+          !Fluid volume
+          monitor%volume = monitor%volume + prism_vol
+
+          !kinetic energy
+          monitor%kin_energy = monitor%kin_energy + p_os%p_diag%kin(jc,jk,jb)*prism_vol
+
+          !Potential energy
+          IF(jk==1)THEN
+            z_w = (p_os%p_diag%w(jc,jk,jb)*p_os%p_prog(nold(1))%h(jc,jb)&
+              & +p_os%p_diag%w(jc,jk+1,jb)*0.5_wp*p_patch_3D%p_patch_1D(1)%del_zlev_i(jk))&
+              &/(0.5_wp*p_patch_3D%p_patch_1D(1)%del_zlev_i(jk)+p_os%p_prog(nold(1))%h(jc,jb))
+          ELSEIF(jk>1.AND.jk<n_zlev)THEN
+            z_w = (p_os%p_diag%w(jc,jk,jb)*p_patch_3D%p_patch_1D(1)%del_zlev_i(jk)&
+              & +p_os%p_diag%w(jc,jk+1,jb)*p_patch_3D%p_patch_1D(1)%del_zlev_i(jk+1))&
+              &/(p_patch_3D%p_patch_1D(1)%del_zlev_i(jk)+p_patch_3D%p_patch_1D(1)%del_zlev_i(jk+1))
+          ENDIF
+          monitor%pot_energy = monitor%pot_energy + grav*z_w* p_os%p_diag%rho(jc,jk,jb)* prism_vol
+
+          !Tracer content
+          DO i_no_t=1, no_tracer
+            monitor%tracer_content(i_no_t) = &
+              & monitor%tracer_content(i_no_t) + prism_vol*p_os%p_prog(nold(1))%tracer(jc,jk,jb,i_no_t)
+          END DO
+        END DO
+      END DO
+    END DO
+
+  END SELECT
+
+  ! compute global sums {
+  monitor%volume                     = global_sum_array(monitor%volume)
+  surface_area                       = global_sum_array(surface_area)
+  monitor%kin_energy                 = global_sum_array(monitor%kin_energy)/monitor%volume
+  monitor%pot_energy                 = global_sum_array(monitor%pot_energy)/monitor%volume
+  monitor%total_energy               = global_sum_array(monitor%total_energy)/monitor%volume
+  monitor%vorticity                  = global_sum_array(monitor%vorticity)
+  monitor%enstrophy                  = global_sum_array(monitor%enstrophy)
+  monitor%potential_enstrophy        = global_sum_array(monitor%potential_enstrophy)
+  monitor%absolute_vertical_velocity = global_sum_array(monitor%absolute_vertical_velocity)/surface_area
+  monitor%forc_swflx                 = global_sum_array(monitor%forc_swflx)/surface_area
+  monitor%forc_lwflx                 = global_sum_array(monitor%forc_lwflx)/surface_area
+  monitor%forc_ssflx                 = global_sum_array(monitor%forc_ssflx)/surface_area
+  monitor%forc_slflx                 = global_sum_array(monitor%forc_slflx)/surface_area
+  monitor%forc_precip                = global_sum_array(monitor%forc_precip)/surface_area
+  monitor%forc_evap                  = global_sum_array(monitor%forc_evap)/surface_area
+  monitor%forc_runoff                = global_sum_array(monitor%forc_runoff)/surface_area
+  monitor%forc_fwbc                  = global_sum_array(monitor%forc_fwbc)/surface_area
+  monitor%forc_fwrelax               = global_sum_array(monitor%forc_fwrelax)/surface_area
+  monitor%forc_fwfx                  = global_sum_array(monitor%forc_fwfx)/surface_area
+  monitor%forc_hfrelax               = global_sum_array(monitor%forc_hfrelax)/surface_area
+  monitor%forc_hflx                  = global_sum_array(monitor%forc_hflx)/surface_area
+  monitor%ice_volume                 = global_sum_array(monitor%ice_volume)/1.0e9_wp
+  monitor%ice_extent                 = global_sum_array(monitor%ice_extent)/1.0e6_wp
+  DO i_no_t=1,no_tracer
+    monitor%tracer_content(i_no_t) = global_sum_array(monitor%tracer_content(i_no_t))
+  END DO
+  ! } dbg_print
+
+  ! write things to diagnostics output file
+  real_fmt   = 'es26.18'
+  ! * number of non-tracer diag. variables
+  write(nvars,'(i3)') SIZE(oce_ts%names)-no_tracer
+  write(fmt_string,'(a)') '(i5.5,1x,a,1x,'//TRIM(ADJUSTL(nvars))//TRIM(real_fmt)//')'
+  ! create date and time string
+  ! * non-tracer diags
+  write(line,fmt_string) &
+    & timestep, &
+    & TRIM(datestring), &
+    & monitor%volume, &
+    & monitor%kin_energy, &
+    & monitor%pot_energy, &
+    & monitor%total_energy, &
+    & monitor%vorticity, &
+    & monitor%enstrophy, &
+    & monitor%potential_enstrophy, &
+    & monitor%absolute_vertical_velocity, &
+    & monitor%forc_swflx, &
+    & monitor%forc_lwflx, &
+    & monitor%forc_ssflx, &
+    & monitor%forc_slflx, &
+    & monitor%forc_precip, &
+    & monitor%forc_evap, &
+    & monitor%forc_runoff, &
+    & monitor%forc_fwbc, &
+    & monitor%forc_fwrelax, &
+    & monitor%forc_fwfx, &
+    & monitor%forc_hfrelax, &
+    & monitor%forc_hflx, &
+    & monitor%ice_volume, &
+    & monitor%ice_extent
+  ! * tracers
+  DO i_no_t=1,no_tracer
+    write(line,'(a,'//TRIM(real_fmt)//')') TRIM(line),monitor%tracer_content(i_no_t)
+  END DO
+  write(diag_unit,'(a)') TRIM(line)
+
+END SUBROUTINE calculate_oce_diagnostics
 !-------------------------------------------------------------------------  
 !
 !
@@ -357,246 +368,82 @@ CONTAINS
 !! @par Revision History
 !! Developed  by  Peter Korn, MPI-M (2011).
 !! 
-SUBROUTINE construct_oce_diagnostics(p_patch, p_patch_3D, p_os, oce_ts)
-!
-TYPE(t_patch), TARGET, INTENT(in)             :: p_patch
-TYPE(t_patch_3D ),TARGET, INTENT(INOUT)   :: p_patch_3D
-TYPE(t_hydro_ocean_state), TARGET             :: p_os
-TYPE(t_oce_timeseries),POINTER                :: oce_ts
-!
-!local variables
-INTEGER :: i
-!CHARACTER(len=max_char_length) :: string
-INTEGER :: rl_start_c, rl_end_c, i_startblk_c, i_endblk_c,i_startidx_c, i_endidx_c
-!INTEGER :: rl_start_e, rl_end_e, i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e
-INTEGER :: jk,jc,jb!,je
-INTEGER :: i_no_t
-REAL(wp) :: delta_z, prism_vol
-REAL(wp) :: z_w
-!TYPE(t_cartesian_coordinates) :: z_u_cc(nproma,n_zlev,p_patch%nblks_c)
-TYPE(t_oce_monitor), POINTER :: ptr_monitor
-CHARACTER(len=max_char_length), PARAMETER :: &
-       & routine = ('mo_oce_diagnostics:construct_oce_diagnostics')
-!-----------------------------------------------------------------------
-CHARACTER(len=max_char_length) :: listname
-TYPE(t_subset_range), POINTER :: all_cells
-TYPE(t_ocean_diagnostics), POINTER  :: ocean_diagnostics
-INTEGER :: nblks_c,nblks_e,nblks_v
-!-----------------------------------------------------------------------
+SUBROUTINE construct_oce_diagnostics( p_patch_3D, p_os, oce_ts, datestring )
+  TYPE(t_patch_3D ),TARGET, INTENT(INOUT) :: p_patch_3D
+  TYPE(t_hydro_ocean_state), TARGET       :: p_os
+  TYPE(t_oce_timeseries),POINTER          :: oce_ts
+  CHARACTER(len=32)                       :: datestring
+
+  !local variable
+  INTEGER :: i,ist
+  CHARACTER(len=max_char_length), PARAMETER :: &
+    & routine = ('mo_oce_diagnostics:construct_oce_diagnostics')
+  !-----------------------------------------------------------------------
+  CHARACTER(len=max_char_length)      :: headerLine
+  TYPE(t_patch), POINTER              :: p_patch
+  CHARACTER(len=max_char_length)      :: listname
+  INTEGER :: nblks_c,nblks_e,nblks_v
+  !-----------------------------------------------------------------------
+  p_patch   => p_patch_3D%p_patch_2D(1)
+
   CALL message (TRIM(routine), 'start')
   ALLOCATE(oce_ts)
 
   ALLOCATE(oce_ts%oce_diagnostics(0:nsteps))
 
-   oce_ts%oce_diagnostics(0:nsteps)%volume              = 0.0_wp
-   oce_ts%oce_diagnostics(0:nsteps)%kin_energy          = 0.0_wp
-   oce_ts%oce_diagnostics(0:nsteps)%pot_energy          = 0.0_wp
-   oce_ts%oce_diagnostics(0:nsteps)%total_energy        = 0.0_wp
-   oce_ts%oce_diagnostics(0:nsteps)%vorticity           = 0.0_wp
-   oce_ts%oce_diagnostics(0:nsteps)%potential_enstrophy = 0.0_wp
+  oce_ts%oce_diagnostics(0:nsteps)%volume                     = 0.0_wp
+  oce_ts%oce_diagnostics(0:nsteps)%kin_energy                 = 0.0_wp
+  oce_ts%oce_diagnostics(0:nsteps)%pot_energy                 = 0.0_wp
+  oce_ts%oce_diagnostics(0:nsteps)%total_energy               = 0.0_wp
+  oce_ts%oce_diagnostics(0:nsteps)%vorticity                  = 0.0_wp
+  oce_ts%oce_diagnostics(0:nsteps)%enstrophy                  = 0.0_wp
+  oce_ts%oce_diagnostics(0:nsteps)%potential_enstrophy        = 0.0_wp
+  oce_ts%oce_diagnostics(0:nsteps)%absolute_vertical_velocity = 0.0_wp
 
-   DO i=0,nsteps 
-     ALLOCATE(oce_ts%oce_diagnostics(i)%tracer_content(1:no_tracer))
-     oce_ts%oce_diagnostics(i)%tracer_content(1:no_tracer) = 0.0_wp
-   END DO
+  oce_ts%oce_diagnostics(0:nsteps)%forc_swflx                 = 0.0_wp
+  oce_ts%oce_diagnostics(0:nsteps)%forc_lwflx                 = 0.0_wp
+  oce_ts%oce_diagnostics(0:nsteps)%forc_ssflx                 = 0.0_wp
+  oce_ts%oce_diagnostics(0:nsteps)%forc_slflx                 = 0.0_wp
+  oce_ts%oce_diagnostics(0:nsteps)%forc_precip                = 0.0_wp
+  oce_ts%oce_diagnostics(0:nsteps)%forc_evap                  = 0.0_wp
+  oce_ts%oce_diagnostics(0:nsteps)%forc_runoff                = 0.0_wp
+  oce_ts%oce_diagnostics(0:nsteps)%forc_fwbc                  = 0.0_wp
+  oce_ts%oce_diagnostics(0:nsteps)%forc_fwrelax               = 0.0_wp
+  oce_ts%oce_diagnostics(0:nsteps)%forc_fwfx                  = 0.0_wp
+  oce_ts%oce_diagnostics(0:nsteps)%forc_hfrelax               = 0.0_wp
+  oce_ts%oce_diagnostics(0:nsteps)%forc_hflx                  = 0.0_wp
 
+  oce_ts%oce_diagnostics(0:nsteps)%ice_volume                 = 0.0_wp
+  oce_ts%oce_diagnostics(0:nsteps)%ice_extent                 = 0.0_wp
 
-rl_start_c = 1
-rl_end_c   = min_rlcell
-i_startblk_c = p_patch%cells%start_blk(rl_start_c,1)
-i_endblk_c   = p_patch%cells%end_blk(rl_end_c,1)
-
-
-!calculate initial values
-  ptr_monitor =>oce_ts%oce_diagnostics(0)
-  IF(iswm_oce/=1)THEN
-
-    DO jb = i_startblk_c, i_endblk_c
-      CALL get_indices_c(p_patch, jb, i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c, &
-       &                             rl_start_c, rl_end_c)
-
-      DO jk=1,n_zlev
-
-        DO jc = i_startidx_c, i_endidx_c
-
-          IF ( p_patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
-
-            delta_z = p_patch_3D%p_patch_1D(1)%del_zlev_m(jk)
-            IF (jk == 1) THEN
-             delta_z = p_patch_3D%p_patch_1D(1)%del_zlev_m(jk)&
-                   & + p_os%p_prog(nold(1))%h(jc,jb)
-            ENDIF
-
-            prism_vol = p_patch%cells%area(jc,jb)*delta_z
-
-            !Fluid volume 
-            ptr_monitor%volume = ptr_monitor%volume + prism_vol
-
-            !kinetic energy
-            ptr_monitor%kin_energy = ptr_monitor%kin_energy&
-                              &+ p_os%p_diag%kin(jc,jk,jb)*prism_vol
-
-            !Potential energy
-            IF(jk==1)THEN
-              z_w = (p_os%p_diag%w(jc,jk,jb)*p_os%p_prog(nold(1))%h(jc,jb)&
-              & +p_os%p_diag%w(jc,jk+1,jb)*0.5_wp*p_patch_3D%p_patch_1D(1)%del_zlev_i(jk))&
-              &/(0.5_wp*p_patch_3D%p_patch_1D(1)%del_zlev_i(jk)+p_os%p_prog(nold(1))%h(jc,jb))
-            ELSEIF(jk<n_zlev)THEN
-              z_w = (p_os%p_diag%w(jc,jk,jb)*p_patch_3D%p_patch_1D(1)%del_zlev_i(jk)&
-              & +p_os%p_diag%w(jc,jk+1,jb)*p_patch_3D%p_patch_1D(1)%del_zlev_i(jk+1))&
-              &/(p_patch_3D%p_patch_1D(1)%del_zlev_i(jk)+p_patch_3D%p_patch_1D(1)%del_zlev_i(jk+1))
-          ENDIF 
-
-          ptr_monitor%pot_energy = ptr_monitor%pot_energy&
-          &+ grav*z_w* p_os%p_diag%rho(jc,jk,jb)* prism_vol
-
-          !Tracer content
-          DO i_no_t=1, no_tracer
-            ptr_monitor%tracer_content(i_no_t) = ptr_monitor%tracer_content(i_no_t)&
-            & + prism_vol*p_os%p_prog(nold(1))%tracer(jc,jk,jb,i_no_t)*p_patch_3D%wet_c(jc,jk,jb)
-          END DO
-        ENDIF
-      END DO
-    END DO
+  DO i=0,nsteps
+    ALLOCATE(oce_ts%oce_diagnostics(i)%tracer_content(1:no_tracer))
+    oce_ts%oce_diagnostics(i)%tracer_content(1:no_tracer) = 0.0_wp
   END DO
 
-  !divide by volume
-  !ptr_monitor%kin_energy = ptr_monitor%kin_energy/ptr_monitor%volume
-  !ptr_monitor%pot_energy = ptr_monitor%pot_energy/ptr_monitor%volume
-  !ptr_monitor%total_energy = ptr_monitor%pot_energy + ptr_monitor%kin_energy
-
-  !DO i_no_t=1, no_tracer
-  !  ptr_monitor%tracer_content(i_no_t) = ptr_monitor%tracer_content(i_no_t)!/ptr_monitor%volume
-  !END DO
-
-
-ELSEIF(iswm_oce==1)THEN
-  !Potential energy in SW-case
-  DO jb = i_startblk_c, i_endblk_c
-    CALL get_indices_c(p_patch, jb, i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c, &
-       &                             rl_start_c, rl_end_c)
-    DO jc = i_startidx_c, i_endidx_c
-
-      prism_vol = p_patch%cells%area(jc,jb)*p_os%p_prog(nold(1))%h(jc,jb)
-      ptr_monitor%volume = ptr_monitor%volume + prism_vol
-
-      ptr_monitor%pot_energy = ptr_monitor%pot_energy &
-      &+ 0.5_wp*grav*p_os%p_prog(nold(1))%h(jc,jb)*p_os%p_prog(nold(1))%h(jc,jb)
-
-      ptr_monitor%kin_energy = ptr_monitor%kin_energy &
-      &+p_os%p_diag%kin(jc,1,jb)*p_os%p_prog(nold(1))%h(jc,jb)
-
-          !Tracer content
-          DO i_no_t=1, no_tracer
-            ptr_monitor%tracer_content(i_no_t) = ptr_monitor%tracer_content(i_no_t)&
-            & + prism_vol*p_os%p_prog(nold(1))%tracer(jc,1,jb,i_no_t)*p_patch_3D%wet_c(jc,1,jb)
-          END DO
-    END DO
+  ! open textfile for global timeseries
+  diag_fname = 'oce_diagnostics-'//TRIM(datestring)//'.txt'
+  diag_unit = find_next_free_unit(10,99)
+  OPEN (unit=diag_unit,file=diag_fname,IOSTAT=ist)
+  ! header of the text file
+  headerLine = ''
+  ! * add timestep columns
+  write(headerLine,'(a)') 'step date time'
+  ! * add columne for each monitored variable
+  DO i=1,SIZE(oce_ts%names)
+    WRITE(headerLine,'(a,a,a)')TRIM(headerLine),' ',TRIM(oce_ts%names(i))
   END DO
+  write(diag_unit,'(a)')TRIM(headerLine)
 
+  ! open file for MOC - extraordinary at this time
+  moc_fname='MOC.'//TRIM(datestring)
+  moc_unit = find_next_free_unit(10,99)
+  OPEN (moc_unit,file=moc_fname,form='unformatted')
+  WRITE(message_text,'(2a)') ' MOC-file opened successfully, filename=',TRIM(moc_fname)
+  CALL message (TRIM(routine), message_text)
 
-!ptr_monitor%pot_energy = ptr_monitor%pot_energy/ptr_monitor%volume
-!ptr_monitor%kin_energy = ptr_monitor%kin_energy/ptr_monitor%volume
-!ptr_monitor%total_energy = ptr_monitor%pot_energy + ptr_monitor%kin_energy
-ENDIF
-
-write(*,*)'INITIAL VALUES OF VOLUME          :',oce_ts%oce_diagnostics(0)%volume
-write(*,*)'INIIAL VALUES OF KINETIC ENERGY   :',oce_ts%oce_diagnostics(0)%kin_energy
-write(*,*)'INITIAL VALUES OF POTENTIAL ENERGY:',oce_ts%oce_diagnostics(0)%pot_energy
-write(*,*)'INITIAL VALUES OF TOTAL ENERGY    :',oce_ts%oce_diagnostics(0)%total_energy
-
-!ram create a separate diagnostics varlist
-
-ALLOCATE(ocean_diagnostics)
-      ! construction loop: create components of state array
-      ! !TODO organize var_lists for the multiple timesteps of prog. state
-      WRITE(listname,'(a)')  'ocean_diagnostics_list'
-      CALL new_var_list(ocean_diagnostics_list, listname, patch_id=p_patch%id)
-      CALL default_var_list_settings( ocean_diagnostics_list, &
-                                    & lrestart=.FALSE.,model_type='oce',loutput=.TRUE. )
-     !CALL default_var_list_settings( ocean_diagnostics_list,            &
-     !                              & lrestart=.TRUE.,           &
-     !                              & model_type='oce' )
-    all_cells => p_patch%cells%all
-
-    ! determine size of arrays
-    nblks_c = p_patch%nblks_c
-    nblks_e = p_patch%nblks_e
-    nblks_v = p_patch%nblks_v
-
-    CALL add_var(ocean_diagnostics_list, 'volume', ocean_diagnostics%volume , GRID_UNSTRUCTURED_CELL,&
-    &            ZA_SURFACE, &
-    &            t_cf_var('volume', 'm^3', 'volume', DATATYPE_FLT32),&
-    &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
-    &            ldims=(/nproma,nblks_c/))
-    CALL add_var(ocean_diagnostics_list, 'kin_energy', ocean_diagnostics%kin_energy , &
-        & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-    &            t_cf_var('kin_energy', 'J', 'kinetic_energy', DATATYPE_FLT32),&
-    &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
-    &            ldims=(/nproma,nblks_c/))
-
-CALL message (TRIM(routine), 'end')
+  CALL message (TRIM(routine), 'end')
 END SUBROUTINE construct_oce_diagnostics
-! SUBROUTINE calc_diagnostics(ocean_diagnostics,p_os,p_patch)
-!   TYPE(t_ocean_diagnostics), POINTER :: ocean_diagnostics
-!   TYPE(t_hydro_ocean_state), TARGET             :: p_os
-!   TYPE(t_patch), TARGET, INTENT(in)  :: p_patch
-!   TYPE(t_patch_3D ),TARGET, INTENT(INOUT)   :: p_patch_3D
-! 
-!   TYPE(t_subset_range), POINTER      :: all_cells
-!   INTEGER                            :: jb,jc,jk,istart,iend,i
-!   REAL(wp) :: delta_z, prism_vol
-!   REAL(wp) :: z_w
-! 
-!   all_cells => p_patch%cells%all
-! 
-!   DO jk=1,n_zlev
-!     DO jb = all_cells%start_block, all_cells%end_block
-!       CALL get_index_range(all_cells, jb, istart, iend)
-!       DO jc = istart, iend
-! 
-!       IF ( p_patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
-! 
-!           delta_z = p_patch_3D%del_zlev_m(jk)
-!           IF (jk == 1) THEN
-!             delta_z = p_patch_3D%del_zlev_m(jk)&
-!                 & + p_os%p_prog(nold(1))%h(jc,jb)
-!           ENDIF
-! 
-!           prism_vol = p_patch%cells%area(jc,jb)*delta_z
-! 
-!           !Fluid volume 
-!           ocean_diagnostics%volume = ocean_diagnostics%volume + prism_vol
-! 
-!           !kinetic energy
-!           ocean_diagnostics%kin_energy = ocean_diagnostics%kin_energy&
-!               &+ p_os%p_diag%kin(jc,jk,jb)*prism_vol
-! 
-!           !Potential energy
-!           IF(jk==1)THEN
-!             z_w = (p_os%p_diag%w(jc,jk,jb)*p_os%p_prog(nold(1))%h(jc,jb)&
-!                 & +p_os%p_diag%w(jc,jk+1,jb)*0.5_wp*p_patch_3D%del_zlev_i(jk))&
-!                 &/(0.5_wp*p_patch_3D%del_zlev_i(jk)+p_os%p_prog(nold(1))%h(jc,jb))
-!           ELSEIF(jk<n_zlev)THEN
-!             z_w = (p_os%p_diag%w(jc,jk,jb)*p_patch_3D%del_zlev_i(jk)&
-!                 & +p_os%p_diag%w(jc,jk+1,jb)*p_patch_3D%del_zlev_i(jk+1))&
-!                 &/(p_patch_3D%del_zlev_i(jk)+p_patch_3D%del_zlev_i(jk+1))
-!           ENDIF 
-! 
-!           ocean_diagnostics%pot_energy = ocean_diagnostics%pot_energy&
-!               &+ grav*z_w* p_os%p_diag%rho(jc,jk,jb)* prism_vol
-! 
-!           !Tracer content
-!           DO i=1, no_tracer
-!             ocean_diagnostics%tracer(:,:,1) = ocean_diagnostics%tracer(:,:,1)&
-!                 & + prism_vol*p_os%p_prog(nold(1))%tracer(jc,jk,jb,i)*p_patch_3D%wet_c(jc,jk,jb)
-!           END DO
-!         ENDIF
-!       END DO
-!     END DO
-!   END DO
-! END SUBROUTINE calc_diagnostics
-
 !-------------------------------------------------------------------------  
 !
 !
@@ -612,7 +459,9 @@ SUBROUTINE destruct_oce_diagnostics(oce_ts)
 TYPE(t_oce_timeseries),POINTER         :: oce_ts
 !
 !local variables
-INTEGER :: i
+INTEGER :: i,iret
+CHARACTER(len=max_char_length)  :: linkname
+CHARACTER(len=max_char_length)  :: message_text
 
 CHARACTER(len=max_char_length), PARAMETER :: &
        & routine = ('mo_oce_diagnostics:destruct_oce_diagnostics')
@@ -622,10 +471,20 @@ CHARACTER(len=max_char_length), PARAMETER :: &
    END DO
    DEALLOCATE(oce_ts%oce_diagnostics)
    DEALLOCATE(oce_ts)
+   ! close the global diagnostics text file and the SRV MOC file
+   CLOSE(unit=diag_unit)
+   CLOSE(unit=moc_unit)
+   ! create a link to the last diagnostics file       
+   linkname = 'oce_diagnostics.txt'
+   IF (util_islink(TRIM(linkname))) THEN
+     iret = util_unlink(TRIM(linkname))
+   ENDIF
+   iret = util_symlink(TRIM(diag_fname),TRIM(linkname))
+   WRITE(message_text,'(t1,a,t50,a)') TRIM(diag_fname), TRIM(linkname)
+   CALL message('',message_text)
 
 CALL message (TRIM(routine), 'end')
 END SUBROUTINE destruct_oce_diagnostics
-
 !-------------------------------------------------------------------------  
 !
 !
@@ -641,9 +500,8 @@ END SUBROUTINE destruct_oce_diagnostics
 !
 ! TODO: implement variable output dimension (1 deg resolution) and smoothing extent
 ! TODO: calculate the 1 deg resolution meridional distance
-! TODO: calculate in parallel
 !! 
-SUBROUTINE calc_moc (p_patch,p_patch_3D, w, datetime)
+SUBROUTINE calc_moc (p_patch, p_patch_3D, w, datetime)
 
   TYPE(t_patch), TARGET, INTENT(IN)  :: p_patch
   TYPE(t_patch_3D ),TARGET, INTENT(INOUT)  :: p_patch_3D
@@ -692,6 +550,8 @@ SUBROUTINE calc_moc (p_patch,p_patch_3D, w, datetime)
     DO jb = dom_cells%start_block, dom_cells%end_block
       CALL get_index_range(dom_cells, jb, i_startidx, i_endidx)
       DO jc = i_startidx, i_endidx
+
+        !  could be replaced by vertical loop to bottom
         IF ( p_patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
    
           ! lbrei: corresponding latitude row of 1 deg extension
@@ -716,29 +576,29 @@ SUBROUTINE calc_moc (p_patch,p_patch_3D, w, datetime)
           ! distribute MOC over (2*jbrei)+1 latitude rows
           !  - no weighting with latitudes done
           !  - lbrei: index of 180 X 1 deg meridional resolution
-          !  - not yet parallelized
           DO lbr = -jbrei, jbrei
             lbrei = NINT(90.0_wp + z_lat_deg + REAL(lbr, wp) * z_lat_dim)
             lbrei = MAX(lbrei,1)
             lbrei = MIN(lbrei,180)
       
             global_moc(lbrei,jk) = global_moc(lbrei,jk) - &
-              &                    p_patch%cells%area(jc,jb) * rho_ref * w(jc,jk,jb) / &
+              !  multiply with wet (or loop to bottom)
+              &                    p_patch%cells%area(jc,jb) * rho_ref * w(jc,jk,jb) * &
+              &                    p_patch_3D%wet_c(jc,jk,jb) / &
               &                    REAL(2*jbrei + 1, wp)
 
-            IF (p_patch_3D%basin_c(jc,jb) <2) THEN
+            IF (p_patch_3D%basin_c(jc,jb) == 1) THEN         !  1: Atlantic; 0: Land
 
               atlant_moc(lbrei,jk) = atlant_moc(lbrei,jk) - &
-                &                    p_patch%cells%area(jc,jb) * rho_ref * w(jc,jk,jb) / &
+                &                    p_patch%cells%area(jc,jb) * rho_ref * w(jc,jk,jb) * &
+                &                    p_patch_3D%wet_c(jc,jk,jb) / &
                 &                    REAL(2*jbrei + 1, wp)
-            ELSE
+            ELSE IF (p_patch_3D%basin_c(jc,jb) >= 2) THEN   !  2: Indian; 4: Pacific
               pacind_moc(lbrei,jk) = pacind_moc(lbrei,jk) - &
-                &                    p_patch%cells%area(jc,jb) * rho_ref * w(jc,jk,jb) / &
+                &                    p_patch%cells%area(jc,jb) * rho_ref * w(jc,jk,jb) * &
+                &                    p_patch_3D%wet_c(jc,jk,jb) / &
                 &                    REAL(2*jbrei + 1, wp)
             END IF
-
-        !   if (jk==3) write(81,*) 'jb,jc,lbr,lbrei,zlatc,zlat,glb:', &
-        !     & jb,jc,lbr,lbrei,lbr+int(z_lat_deg),z_lat_deg,global_moc(lbrei,jk)
 
           END DO
    
@@ -747,7 +607,7 @@ SUBROUTINE calc_moc (p_patch,p_patch_3D, w, datetime)
     END DO
 
     ! test parallelization:
-    ! new function field_sum_all using mpi_allreduce and working precisions wp
+    ! function field_sum_all using mpi_allreduce and working precisions wp does not exist
   ! res_moc(:) = p_field_sum_all_wp(global_moc(:,jk))
   ! res_moc(:) = p_field_sum_all_wp(atlant_moc(:,jk))
   ! res_moc(:) = p_field_sum_all_wp(pacind_moc(:,jk))
@@ -792,14 +652,14 @@ SUBROUTINE calc_moc (p_patch,p_patch_3D, w, datetime)
       i2 = INT(777,i8)
       i3 = INT(p_patch_3D%p_patch_1D(1)%zlev_i(jk),i8)
       i4 = INT(180,i8)
-      write(77) i1,i2,i3,i4
-      write(77) (global_moc(lbr,jk),lbr=1,180)
+      write(moc_unit) i1,i2,i3,i4
+      write(moc_unit) (global_moc(lbr,jk),lbr=1,180)
       i2 = INT(778,i8)
-      write(77) i1,i2,i3,i4
-      write(77) (atlant_moc(lbr,jk),lbr=1,180)
+      write(moc_unit) i1,i2,i3,i4
+      write(moc_unit) (atlant_moc(lbr,jk),lbr=1,180)
       i2 = INT(779,i8)
-      write(77) i1,i2,i3,i4
-      write(77) (pacind_moc(lbr,jk),lbr=1,180)
+      write(moc_unit) i1,i2,i3,i4
+      write(moc_unit) (pacind_moc(lbr,jk),lbr=1,180)
 
     END DO
   END IF

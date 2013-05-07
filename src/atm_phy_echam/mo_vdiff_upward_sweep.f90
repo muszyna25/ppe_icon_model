@@ -73,6 +73,7 @@ CONTAINS
 #else
                        ptkem1, ptkem0,                                   &! in/inout
 #endif
+                       ptte_corr,                                        &! in
                        bb,                                               &! inout
                        pzthvvar,   pxvar,       pz0m_tile,   pkedisp,    &! inout
                        pute,       pvte,        ptte,        pqte,       &! inout
@@ -120,6 +121,7 @@ CONTAINS
     REAL(wp),INTENT(INOUT) :: ptkem1(kbdim,klev)
     REAL(wp),INTENT(INOUT) :: ptkem0(kbdim,klev)
 #endif
+    REAL(wp),INTENT(IN)    :: ptte_corr(kbdim)   !< tte correction for snow melt over land
 
     REAL(wp),INTENT(INOUT) :: bb    (kbdim,klev,nvar_vdiff)  !<
 
@@ -186,7 +188,7 @@ CONTAINS
                          & ptkem1, ptkem0, pztkevn, pzthvvar, prhoh,    &! in
 #endif
                          & pqshear, ihpbl, pcfh_tile, pqsat_tile,       &! in
-                         & pcfm_tile, pfrc, bb,                         &! in
+                         & pcfm_tile, pfrc, ptte_corr, bb,              &! in
                          & pkedisp(:),                                  &! inout ("pvdis" in echam)
                          & pxvar(:,:), pz0m_tile(:,:),                  &! inout
                          & pute, pvte, ptte, pqte, pxlte, pxite, pxtte, &! inout
@@ -194,7 +196,7 @@ CONTAINS
                          & pxlte_vdf, pxite_vdf, pxtte_vdf,             &! out
                          & pxvarprod,                                   &! out ("pvdiffp" in echam)
                          & pz0m, ptke, pthvvar, pthvsig, pvmixtau       )! out
-  
+
     ! Note: computation of additional diagnostics, e.g., surface sensible heat flux,
     !       wind stress, 10m wind, 2m temperature etc., has not been implemented yet.
 
@@ -202,4 +204,3 @@ CONTAINS
   !-------------
 
 END MODULE mo_vdiff_upward_sweep
-

@@ -183,7 +183,7 @@ MODULE mo_dump_restore
   USE mo_gridref_config      ! We need all from that module
   USE mo_mpi,                ONLY: my_process_is_mpi_all_parallel, p_n_work, p_pe_work, &
     &                              process_mpi_io_size, my_process_is_stdio, &
-    &                              my_process_is_mpi_workroot, p_int, p_comm_work, &
+    &                              p_int, p_comm_work,                       &
     &                              num_work_procs, p_barrier, get_my_mpi_work_id, p_max, p_pe
   USE mo_impl_constants_grf, ONLY: grf_bdyintp_start_c, grf_bdyintp_start_e
   USE mo_communication,      ONLY: t_comm_pattern, blk_no, idx_no, idx_1d

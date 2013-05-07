@@ -108,6 +108,15 @@ MODULE mo_gribout_nml
   INTEGER :: &                          ! Table: local.78.254.def
     & localNumberOfExperiment           !  
 
+
+  INTEGER :: &                          ! Output generating center
+    & generatingCenter                  !  
+
+
+  INTEGER :: &                          ! Output generating subcenter
+    & generatingSubcenter               !  
+
+
   LOGICAL :: ldate_grib_act             ! add Creation date to GRIB file
                                         ! .TRUE. : activated
                                         ! .FALSE.: deactivated (use dummy date/time) 
@@ -121,6 +130,8 @@ MODULE mo_gribout_nml
     &                    generatingProcessIdentifier,     &
     &                    localDefinitionNumber,           &
     &                    localNumberOfExperiment,         &
+    &                    generatingCenter,                &
+    &                    generatingSubcenter,             &
     &                    ldate_grib_act
 
 
@@ -164,8 +175,11 @@ CONTAINS
     backgroundProcess               = 0   ! 0: main run
     generatingProcessIdentifier(:)  = 1   ! 1: icogl
     localDefinitionNumber           = 254 ! 254: Deterministic system
-    localNumberOfExperiment         = 1 
+    localNumberOfExperiment         = 1
+    generatingCenter                = -1  ! output generating center
+    generatingSubcenter             = -1  ! output generating subcenter 
     ldate_grib_act                  = .TRUE.
+
 
 
     !------------------------------------------------------------------
@@ -219,6 +233,10 @@ CONTAINS
         &                localDefinitionNumber
       gribout_config(jg)%localNumberOfExperiment         = &
         &                localNumberOfExperiment
+      gribout_config(jg)%generatingCenter                = &
+        &                generatingCenter
+      gribout_config(jg)%generatingSubcenter             = &
+        &                generatingSubcenter
       gribout_config(jg)%ldate_grib_act                  = &
         &                ldate_grib_act
     ENDDO

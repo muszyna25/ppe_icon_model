@@ -1628,12 +1628,22 @@ FUNCTION global_max_0d(zfield, proc_id, keyval, iroot) RESULT(global_max)
   INTEGER, OPTIONAL, INTENT(in)    :: iroot
   REAL(wp) :: global_max
 
-  IF(comm_lev==0) THEN
-    global_max = p_max(zfield, proc_id=proc_id, keyval=keyval, &
-      &                comm=p_comm_work, root=iroot)
+  IF (p_test_run) THEN ! all-to-all communication required
+    IF(comm_lev==0) THEN
+      global_max = p_max(zfield, proc_id=proc_id, keyval=keyval, &
+        &                comm=p_comm_work)
+    ELSE
+      global_max = p_max(zfield, proc_id=proc_id, keyval=keyval, &
+        &                comm=glob_comm(comm_lev))
+    ENDIF
   ELSE
-    global_max = p_max(zfield, proc_id=proc_id, keyval=keyval, &
-      &                comm=glob_comm(comm_lev), root=iroot)
+    IF(comm_lev==0) THEN
+      global_max = p_max(zfield, proc_id=proc_id, keyval=keyval, &
+        &                comm=p_comm_work, root=iroot)
+    ELSE
+      global_max = p_max(zfield, proc_id=proc_id, keyval=keyval, &
+        &                comm=glob_comm(comm_lev), root=iroot)
+    ENDIF
   ENDIF
 
   IF(p_test_run .AND. do_sync_checks) CALL check_result( (/ global_max /), 'global_max' )
@@ -1660,12 +1670,22 @@ FUNCTION global_max_1d(zfield, proc_id, keyval, iroot) RESULT(global_max)
   INTEGER, OPTIONAL, INTENT(in)    :: iroot
   REAL(wp) :: global_max(SIZE(zfield))
 
-  IF(comm_lev==0) THEN
-    global_max = p_max(zfield, proc_id=proc_id, keyval=keyval, &
-      &                comm=p_comm_work, root=iroot)
+  IF (p_test_run) THEN ! all-to-all communication required
+    IF(comm_lev==0) THEN
+      global_max = p_max(zfield, proc_id=proc_id, keyval=keyval, &
+        &                comm=p_comm_work)
+    ELSE
+      global_max = p_max(zfield, proc_id=proc_id, keyval=keyval, &
+        &                comm=glob_comm(comm_lev))
+    ENDIF
   ELSE
-    global_max = p_max(zfield, proc_id=proc_id, keyval=keyval, &
-      &                comm=glob_comm(comm_lev), root=iroot)
+    IF(comm_lev==0) THEN
+      global_max = p_max(zfield, proc_id=proc_id, keyval=keyval, &
+        &                comm=p_comm_work, root=iroot)
+    ELSE
+      global_max = p_max(zfield, proc_id=proc_id, keyval=keyval, &
+        &                comm=glob_comm(comm_lev), root=iroot)
+    ENDIF
   ENDIF
 
   IF(p_test_run .AND. do_sync_checks) CALL check_result( global_max, 'global_max' )

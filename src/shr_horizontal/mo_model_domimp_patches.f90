@@ -126,15 +126,18 @@ MODULE mo_model_domimp_patches
     & dynamics_grid_filename,   dynamics_parent_grid_id,  &
     & radiation_grid_filename,  global_cell_type, lplane, &
     & grid_length_rescale_factor,                         &
-    & is_plane_torus, grid_sphere_radius
+    & is_plane_torus, grid_sphere_radius,                 &
+    & use_duplicated_connectivity! ,  use_dummy_cell_closure
   USE mo_dynamics_config,    ONLY: lcoriolis
+  USE mo_run_config,         ONLY: grid_generatingCenter, grid_generatingSubcenter, &
+    &                              number_of_grid_used
   USE mo_master_control,     ONLY: my_process_is_ocean
   USE mo_impl_constants_grf, ONLY: grf_bdyintp_start_c, grf_bdyintp_start_e
   USE mo_loopindices,        ONLY: get_indices_c, get_indices_e
-  USE mo_mpi,                ONLY: my_process_is_mpi_parallel, p_comm_work
+  USE mo_mpi,                ONLY: my_process_is_mpi_parallel, p_comm_work! , p_barrier
   USE mo_sync,               ONLY: disable_sync_checks, enable_sync_checks
   USE mo_communication,      ONLY: idx_no, blk_no
-  USE mo_util_uuid,          ONLY: uuid_string_length, uuid_parse
+  USE mo_util_uuid,          ONLY: uuid_string_length, uuid_parse, clear_uuid
   USE mo_name_list_output_config, ONLY: is_grib_output
   USE mo_master_nml,         ONLY: model_base_dir
 
@@ -145,6 +148,8 @@ MODULE mo_model_domimp_patches
   USE mo_math_constants,     ONLY: pi, pi_2
   USE mo_grid_subset,        ONLY: t_subset_range, get_index_range
   
+!  USE mo_netcdf_read,        ONLY: netcdf_read_oncells_2D
+
 #ifndef NOMPI
   ! The USE statement below lets this module use the routines from
   ! mo_read_netcdf_parallel where only 1 processor is reading
@@ -163,7 +168,7 @@ MODULE mo_model_domimp_patches
     & nf_get_var_int     => p_nf_get_var_int,        &
     & nf_get_var_double  => p_nf_get_var_double
 #endif
-  
+
   IMPLICIT NONE
   
   PRIVATE
@@ -282,9 +287,8 @@ CONTAINS
   !!  - only basic patch information for subdivision is read here
   !!    into the full (undivided, global) patch data structure
   !!
-  SUBROUTINE import_basic_patches( patch, nlev,nlevp1,num_lev,num_levp1,nshift)
+  SUBROUTINE import_basic_patches( patch,num_lev,num_levp1,nshift)
     
-    INTEGER,INTENT(in) :: nlev, nlevp1
     INTEGER,INTENT(in) :: num_lev(:), num_levp1(:), nshift(:)
     TYPE(t_patch), TARGET, INTENT(inout) :: patch(n_dom_start:)
     
@@ -829,12 +833,12 @@ CONTAINS
     
     CHARACTER(LEN=uuid_string_length) :: uuid_string
     
-    ! status variable
-    INTEGER :: ist
+    ! status variables
+    INTEGER :: ist, netcd_status
     
     INTEGER :: ncid, dimid, varid, max_cell_connectivity, max_verts_connectivity
     INTEGER :: ji
-    INTEGER :: jc, je, jcv, jce, ilc, ibc
+    INTEGER :: jc, je, ilc, ibc
     INTEGER :: icheck, ilev, igrid_level, igrid_id, iparent_id, i_max_childdom, ipar_id
     INTEGER :: block_size    
     !-----------------------------------------------------------------------
@@ -862,13 +866,66 @@ CONTAINS
     
     CALL nf(nf_open(TRIM(patch%grid_filename), nf_nowrite, ncid))
     
-    uuid_string = 'ee34e42c-5fbb-11e1-ab9c-9b115d841c30' ! To avoid null characters in the standard output
+    uuid_string = 'warning: not given ...' ! To avoid null characters in the standard output
 
-    CALL nf(nf_get_att_text(ncid, nf_global, 'uuid', uuid_string), &
-      & warnonly=.TRUE., silent=(.NOT. is_grib_output()))
-    CALL uuid_parse(uuid_string, patch%grid_uuid)
-    WRITE(message_text,'(a,a)') 'grid uuid: ', TRIM(uuid_string)
-    CALL message  (TRIM(method_name), message_text)
+    IF (nf_get_att_text(ncid, nf_global, 'uuidOfHGrid', uuid_string) /= nf_noerr) THEN
+      IF (is_grib_output()) THEN
+        CALL message(TRIM(method_name), "Warning: uuidOfHGrid not set as an attribute!")
+      END IF
+      CALL clear_uuid(patch%grid_uuid)
+    ELSE
+      CALL uuid_parse(uuid_string, patch%grid_uuid)
+      WRITE(message_text,'(a,a)') 'grid uuid: ', TRIM(uuid_string)
+      CALL message  (TRIM(method_name), message_text)
+    END IF
+
+    ! Read additional grid identifiers
+    ! grid_generatingCenter
+    ! grid_generatingSubcenter
+    ! number_of_grid_used
+    netcd_status = nf_get_att_int(ncid, nf_global, 'center', &
+      &                           grid_generatingCenter(ig)  )
+    IF (netcd_status == nf_noerr) THEN 
+      WRITE(message_text,'(a,i4,a,i4)') &
+        & 'generating center of patch ', ig, ': ',grid_generatingCenter(ig)
+      CALL message  (TRIM(method_name), TRIM(message_text))
+    ELSE
+      WRITE(message_text,'(a,i4,a,i4)') &
+        & 'WARNING: generating center of patch ', ig, ' not found'
+      CALL message  (TRIM(method_name), TRIM(message_text))
+      ! set default value
+      grid_generatingCenter(ig) = 78    ! DWD
+    ENDIF
+    
+    netcd_status = nf_get_att_int(ncid, nf_global, 'subcenter', &
+      &                           grid_generatingSubcenter(ig)  )
+    IF (netcd_status == nf_noerr) THEN 
+      WRITE(message_text,'(a,i4,a,i4)') &
+        & 'generating subcenter of patch ', ig, ': ',grid_generatingSubcenter(ig)
+      CALL message  (TRIM(method_name), TRIM(message_text))
+    ELSE
+      WRITE(message_text,'(a,i4,a,i4)') &
+        & 'WARNING: generating subcenter of patch ', ig, ' not found'
+      CALL message  (TRIM(method_name), TRIM(message_text))
+      ! set default value
+      grid_generatingSubcenter(ig) = 255
+    ENDIF
+
+    netcd_status = nf_get_att_int(ncid, nf_global, 'number_of_grid_used', &
+      &            number_of_grid_used(ig))
+    IF (netcd_status == nf_noerr) THEN 
+      WRITE(message_text,'(a,i4,a,i4)') &
+        & 'number_of_grid_used of patch ', ig, ': ',number_of_grid_used(ig)
+      CALL message  (TRIM(method_name), TRIM(message_text))
+    ELSE
+      WRITE(message_text,'(a,i4,a,i4)') &
+        & 'WARNING: number_of_grid_used of patch ', ig, ' not found'
+      CALL message  (TRIM(method_name), TRIM(message_text))
+      ! set default value
+      number_of_grid_used(ig) = 42
+    ENDIF
+
+
     
     CALL nf(nf_get_att_int(ncid, nf_global, 'grid_root', icheck))
     IF (icheck /= nroot) THEN
@@ -1365,6 +1422,9 @@ CONTAINS
     
     TYPE(t_patch), POINTER :: p_p, patch0
     
+!    REAL(wp), POINTER :: tmp_check_array(:,:)
+!    REAL(wp) :: max_diff
+
     CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_model_domimp_patches/read_remaining_patch'
     !-----------------------------------------------------------------------
     
@@ -1372,7 +1432,6 @@ CONTAINS
       & 'Read gridmap file '//TRIM(patch%grid_filename))
     
     CALL nf(nf_open(TRIM(patch%grid_filename), nf_nowrite, ncid))
-    
             
     !-------------------------------------------------
     !
@@ -1438,6 +1497,16 @@ CONTAINS
         & p_p%cells%area(:,:) )
     ENDDO
     
+!    NULLIFY(tmp_check_array)
+!    ist = netcdf_read_oncells_2D(ncid, "cell_area_p", tmp_check_array, patch)
+!    max_diff = MAXVAL(ABS(tmp_check_array(:,:) - patch%cells%area(:,:)))
+!    IF (max_diff > 0.0_wp) THEN
+!      CALL finish("check netcdf_read_oncells_2D", "Failed")
+!    ENDIF
+!    CALL p_barrier()
+!    CALL finish("check netcdf_read_oncells_2D", "Works!")
+
+
     ! p_p%edges%phys_id(:,:)
     CALL nf(nf_inq_varid(ncid, 'phys_edge_id', varid))
     CALL nf(nf_get_var_int(ncid, varid, array_e_int(:,1)))
@@ -1605,8 +1674,7 @@ CONTAINS
     ! account for dummy cells arising in case of a pentagon
     ! Fill dummy cell with existing index to simplify do loops
     ! Note, however, that related multiplication factors must be zero
-!     IF (global_cell_type == 3) &
-      CALL move_dummies_to_end(array_v_int, max_verts_connectivity, .TRUE.)
+      CALL move_dummies_to_end(array_v_int, patch%n_patch_verts, max_verts_connectivity, use_duplicated_connectivity)
     !
     DO ji = 1, max_verts_connectivity
       DO ip = 0, n_lp
@@ -1636,7 +1704,7 @@ CONTAINS
     ! Fill dummy cell with existing index to simplify do loops
     ! Note, however, that related multiplication factors must be zero   
 !     IF (global_cell_type == 3) &
-      CALL move_dummies_to_end(array_v_int, max_verts_connectivity, .TRUE.)
+      CALL move_dummies_to_end(array_v_int, patch%n_patch_verts, max_verts_connectivity, use_duplicated_connectivity)
     !
     DO ji = 1, max_verts_connectivity
       DO ip = 0, n_lp
@@ -1659,7 +1727,7 @@ CONTAINS
     CALL nf(nf_inq_varid(ncid, 'edge_orientation', varid))
     CALL nf(nf_get_var_int(ncid, varid, array_v_int(:,1:max_verts_connectivity)))
     ! move dummy edges to end and set edge orientation to zero
-    CALL move_dummies_to_end(array_v_int, max_verts_connectivity, .FALSE.)
+    CALL move_dummies_to_end(array_v_int, patch%n_patch_verts, max_verts_connectivity, .FALSE.)
     DO ji = 1, max_verts_connectivity
       DO ip = 0, n_lp
         p_p => get_patch_ptr(patch, id_lp, ip)
@@ -1748,27 +1816,62 @@ CONTAINS
     !-------------------------------------------------------------------------
     ! Checks for the pentagon case and moves dummy cells to end.
     ! The dummy entry is either set to 0 or duplicated from the last one
-    SUBROUTINE move_dummies_to_end(array, max_verts_connectivity, duplicate)
+    SUBROUTINE move_dummies_to_end(array, array_size, max_connectivity, duplicate)
       
       INTEGER, INTENT(inout) :: array(:,:)
-      INTEGER, INTENT(in) :: max_verts_connectivity
+      INTEGER, INTENT(in) :: array_size, max_connectivity
       LOGICAL, INTENT(in) :: duplicate
-      
-      INTEGER :: j, je
-      
-      DO j = 1, UBOUND(array,1)
-        DO je = 1, max_verts_connectivity
-          IF (array(j,je) == 0) THEN
-            IF ( je /= max_verts_connectivity ) array(j,je) = array(j,max_verts_connectivity)
-            IF ( duplicate ) THEN
-              array(j,max_verts_connectivity) = array(j,max_verts_connectivity-1)
-            ELSE
-              array(j,max_verts_connectivity) = 0
+
+      INTEGER :: j, je, first_zero, last_no_zero
+      CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_model_domimp_patches:move_dummies_to_end'
+
+      IF (array_size > UBOUND(array, 1) ) &
+        & CALL finish(method_name, "array_size > UBOUND(array, 1)" )
+
+      ! GZ: this routine is called before executing the domain decomposition; thus, all grid points must be processed
+      DO j = 1,  UBOUND(array, 1)  ! array_size
+        last_no_zero = 0
+        first_zero = 0
+        DO WHILE(last_no_zero >=  first_zero)
+          ! find first zero, last non-zero
+          DO je = 1, max_connectivity
+            IF (array(j,je) /= 0) THEN
+              last_no_zero = je
+            ELSEIF ( first_zero <= 0) THEN
+              first_zero = je
             ENDIF
+          ENDDO
+
+          IF (first_zero == 0) THEN
+            ! no zeros found, exit
             EXIT
-          END IF
-        END DO
-      END DO
+          ELSEIF ( last_no_zero == 0) THEN
+            CALL warning(method_name, "no connectivity found")
+            EXIT
+          ELSEIF ( first_zero <  last_no_zero) THEN
+            !swap
+            array(j,first_zero) = array(j,last_no_zero)
+            array(j,last_no_zero) = 0
+            ! check again
+            last_no_zero = 0
+            first_zero = 0
+          ENDIF
+        ENDDO ! WHILE(last_no_zero >=  first_zero)
+
+        IF (first_zero == 0)   CYCLE   ! no zeros found, get next one
+        IF (last_no_zero == 0) CYCLE ! no connectivity found"
+
+        IF ( duplicate ) THEN
+          ! fill zero connectivity with last_no_zero
+          DO je = first_zero, max_verts_connectivity
+            IF (array(j,je) /= 0) &
+              CALL finish(method_name, "Error when swapping!")
+            array(j,je) =  array(j,last_no_zero)
+          ENDDO
+        ENDIF
+
+      ENDDO ! j = 1, UBOUND(array,1)
+
       
     END SUBROUTINE move_dummies_to_end
     !-------------------------------------------------------------------------
@@ -1791,11 +1894,8 @@ CONTAINS
       & array_e_real(:,:), &
       & array_v_real(:,:)
     
-    ! status variable
-    INTEGER :: ist
-    
     INTEGER :: varid
-    INTEGER :: ip, ji, jv
+    INTEGER :: ip
 
     INTEGER :: return_status
     
@@ -1966,8 +2066,6 @@ CONTAINS
     TYPE(t_patch), INTENT(inout), TARGET ::  patch  ! patch data structure
     INTEGER,       INTENT(in)    ::  n_lp     ! Number of local parents on the same level
     INTEGER,       INTENT(in)    ::  id_lp(:) ! IDs of local parents on the same level
-    
-    INTEGER :: return_status
     
     TYPE(t_patch), POINTER :: p_p
 
@@ -2197,8 +2295,13 @@ CONTAINS
       DO jl = 1, nlen
         il  = jl + ( jb - 1 )*nproma
         idx_in = p_idx_array_in(il)
-        blk = ( ABS(idx_in) - 1 ) / nproma + 1
-        idx = SIGN( ABS(idx_in) - ( blk - 1 )*nproma, idx_in )
+        IF (idx_in /= 0) THEN
+          blk = ( ABS(idx_in) - 1 ) / nproma + 1
+          idx = SIGN( ABS(idx_in) - ( blk - 1 )*nproma, idx_in )
+        ELSE
+          blk = 0
+          idx = 0
+        ENDIF
         p_reshaped_idx_array_out(jl,jb) = idx
         p_reshaped_blk_array_out(jl,jb) = blk
       END DO

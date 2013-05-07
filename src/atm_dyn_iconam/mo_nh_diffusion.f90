@@ -72,6 +72,7 @@ MODULE mo_nh_diffusion
                                     sync_patch_array_mult, sync_patch_array_gm
   USE mo_physical_constants,  ONLY: cvd_o_rd, cpd, rd, p0ref
   USE mo_timer,               ONLY: timer_nh_hdiffusion, timer_start, timer_stop
+  USE mo_vertical_grid,       ONLY: nrdmax
 
   IMPLICIT NONE
 
@@ -104,11 +105,12 @@ MODULE mo_nh_diffusion
     LOGICAL,  INTENT(in)            :: linit      !< initial call or runtime call
 
     ! local variables
-    REAL(wp), DIMENSION(nproma,p_patch%nlev,p_patch%nblks_c)   :: z_temp
-    REAL(wp), DIMENSION(nproma,p_patch%nlev,p_patch%nblks_e)   :: z_nabla2_e
-    REAL(wp), DIMENSION(nproma,p_patch%nlev,p_patch%nblks_e)   :: z_nabla4_e
+    REAL(wp), DIMENSION(nproma,p_patch%nlev,p_patch%nblks_c) :: z_temp
+    REAL(wp), DIMENSION(nproma,p_patch%nlev,p_patch%nblks_e) :: z_nabla2_e
+    REAL(wp), DIMENSION(nproma,p_patch%nlev,p_patch%nblks_c) :: z_nabla2_c
+    REAL(wp), DIMENSION(nproma,p_patch%nlev,p_patch%nblks_e) :: z_nabla4_e
 
-    REAL(wp):: diff_multfac_vn(p_patch%nlev)
+    REAL(wp):: diff_multfac_vn(p_patch%nlev), diff_multfac_w, diff_multfac_n2w(p_patch%nlev)
     INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
     INTEGER :: rl_start, rl_end
     INTEGER :: jk, jb, jc, je, ic, ishift
@@ -217,6 +219,17 @@ MODULE mo_nh_diffusion
       smag_limit(:)      = 0.125_wp-4._wp*diff_multfac_vn(:)
       ! pure Smagorinsky diffusion does not work without divergence damping
       IF (diffusion_config(jg)%hdiff_order == 3) diffu_type = 5 
+    ENDIF
+
+    ! Multiplication factor for nabla4 diffusion on vertical wind speed
+    diff_multfac_w = MIN(1._wp/48._wp,diffusion_config(jg)%k4w*REAL(iadv_rcf,wp))
+
+    ! Factor for additional nabla2 diffusion in upper damping zone
+    diff_multfac_n2w(:) = 0._wp
+    IF (nrdmax(jg) > 1) THEN ! seems to be redundant, but the NEC issues invalid operations otherwise
+      DO jk = 2, nrdmax(jg)
+        diff_multfac_n2w(jk) = 1._wp/12._wp*((vct_a(jk)-vct_a(nrdmax(jg)+1))/(vct_a(2)-vct_a(nrdmax(jg)+1)))**4
+      ENDDO
     ENDIF
 
     IF (diffu_type == 3 .OR. diffu_type == 5) THEN
@@ -386,10 +399,10 @@ MODULE mo_nh_diffusion
         z_nabla2_e = 0._wp
       ENDIF
 
+!$OMP PARALLEL PRIVATE(i_startblk,i_endblk,rl_start,rl_end)
+
       rl_start = start_bdydiff_e
       rl_end   = min_rledge_int - 1
-
-!$OMP PARALLEL PRIVATE(i_startblk,i_endblk)
 
       i_startblk = p_patch%edges%start_blk(rl_start,1)
       i_endblk   = p_patch%edges%end_blk(rl_end,i_nchdom)
@@ -706,6 +719,79 @@ MODULE mo_nh_diffusion
 
     ENDIF ! vn boundary diffusion
 
+    IF (lhdiff_rcf .AND. diffusion_config(jg)%lhdiff_w) THEN ! add diffusion on vertical wind speed
+                     ! remark: the surface level (nlevp1) is excluded because w is diagnostic there
+
+      rl_start = grf_bdywidth_c
+      rl_end   = min_rlcell_int-1
+
+      i_startblk = p_patch%cells%start_blk(rl_start,1)
+      i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
+
+!$OMP DO PRIVATE(jk,jc,jb,i_startidx,i_endidx), ICON_OMP_RUNTIME_SCHEDULE
+      DO jb = i_startblk,i_endblk
+
+        CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+                           i_startidx, i_endidx, rl_start, rl_end)
+
+#ifdef __LOOP_EXCHANGE
+        DO jc = i_startidx, i_endidx
+          DO jk = 1, nlev
+#else
+!CDIR UNROLL=5
+        DO jk = 1, nlev
+          DO jc = i_startidx, i_endidx
+#endif
+            z_nabla2_c(jc,jk,jb) =  &
+              p_nh_prog%w(jc,jk,jb)                        *p_int%geofac_n2s(jc,1,jb) + &
+              p_nh_prog%w(icidx(jc,jb,1),jk,icblk(jc,jb,1))*p_int%geofac_n2s(jc,2,jb) + &
+              p_nh_prog%w(icidx(jc,jb,2),jk,icblk(jc,jb,2))*p_int%geofac_n2s(jc,3,jb) + &
+              p_nh_prog%w(icidx(jc,jb,3),jk,icblk(jc,jb,3))*p_int%geofac_n2s(jc,4,jb)
+          ENDDO
+        ENDDO
+      ENDDO
+!$OMP END DO
+
+      rl_start = grf_bdywidth_c+1
+      rl_end   = min_rlcell_int
+
+      i_startblk = p_patch%cells%start_blk(rl_start,1)
+      i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
+
+!$OMP DO PRIVATE(jk,jc,jb,i_startidx,i_endidx), ICON_OMP_RUNTIME_SCHEDULE
+      DO jb = i_startblk,i_endblk
+
+        CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+                           i_startidx, i_endidx, rl_start, rl_end)
+
+#ifdef __LOOP_EXCHANGE
+        DO jc = i_startidx, i_endidx
+          DO jk = 1, nlev
+#else
+!CDIR UNROLL=5
+        DO jk = 1, nlev
+          DO jc = i_startidx, i_endidx
+#endif
+            p_nh_prog%w(jc,jk,jb) = p_nh_prog%w(jc,jk,jb) - diff_multfac_w * p_patch%cells%area(jc,jb)**2 * &
+             (z_nabla2_c(jc,jk,jb)                        *p_int%geofac_n2s(jc,1,jb) +                      &
+              z_nabla2_c(icidx(jc,jb,1),jk,icblk(jc,jb,1))*p_int%geofac_n2s(jc,2,jb) +                      &
+              z_nabla2_c(icidx(jc,jb,2),jk,icblk(jc,jb,2))*p_int%geofac_n2s(jc,3,jb) +                      &
+              z_nabla2_c(icidx(jc,jb,3),jk,icblk(jc,jb,3))*p_int%geofac_n2s(jc,4,jb))
+          ENDDO
+        ENDDO
+
+        ! Add nabla2 diffusion in upper damping layer (if present)
+        DO jk = 2, nrdmax(jg)
+          DO jc = i_startidx, i_endidx
+            p_nh_prog%w(jc,jk,jb) = p_nh_prog%w(jc,jk,jb) +                         &
+              diff_multfac_n2w(jk) * p_patch%cells%area(jc,jb) * z_nabla2_c(jc,jk,jb)
+          ENDDO
+        ENDDO
+
+      ENDDO
+!$OMP END DO
+    ENDIF ! w diffusion
+
     IF (itype_comm == 2) THEN
       ! use OpenMP-parallelized communication using global memory for buffers
       CALL sync_patch_array_gm(SYNC_E,p_patch,1,bufr%send_e1,bufr%recv_e1,p_nh_prog%vn)
@@ -921,9 +1007,11 @@ MODULE mo_nh_diffusion
 !$OMP END PARALLEL
 
       ! This could be further optimized, but applications without physics are quite rare
-      IF (lhdiff_rcf .AND. (linit .OR. iforcing /= inwp) )             &
+      IF (lhdiff_rcf .AND. (linit .OR. iforcing /= inwp) ) THEN
         CALL sync_patch_array_mult(SYNC_C,p_patch,3,p_nh_prog%theta_v, &
           p_nh_prog%rhotheta_v,p_nh_prog%exner)
+        IF (diffusion_config(jg)%lhdiff_w) CALL sync_patch_array(SYNC_C,p_patch,p_nh_prog%w)
+      ENDIF
 
     ENDIF ! temperature diffusion
 

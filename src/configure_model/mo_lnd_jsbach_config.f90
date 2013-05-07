@@ -43,6 +43,7 @@
 !!
 MODULE mo_lnd_jsbach_config
 
+  USE mo_grid_config,    ONLY: n_dom
   USE mo_kind,           ONLY: wp
   USE mo_exception,      ONLY: finish
 
@@ -52,8 +53,6 @@ MODULE mo_lnd_jsbach_config
 
   PUBLIC :: t_lnd_jsbach_config, lnd_jsbach_config  !< derived type and variable for configuration
   PUBLIC :: configure_lnd_jsbach                    !< subroutine
-  PUBLIC :: get_ntiles_jsbach, get_nsoil_jsbach     !< functions
-  PUBLIC :: get_ntsoil_jsbach                       !< functions
 
   CHARACTER(len=*), PARAMETER, PRIVATE :: version = '$Id$'
 
@@ -65,10 +64,12 @@ MODULE mo_lnd_jsbach_config
     INTEGER :: ntiles           !< Number of tiles
     INTEGER :: nsoil            !< Number of soil layers
     INTEGER :: ntsoil           !< Number of soil layers for soil temperature
+    REAL(wp), POINTER :: zlev_soil (:)  !< Soil layers [m]
+    REAL(wp), POINTER :: ztlev_soil(:)  !< Soil layers for soil temperature [m]
 
   END TYPE t_lnd_jsbach_config
 
-  TYPE(t_lnd_jsbach_config) :: lnd_jsbach_config !< Configuration state variable
+  TYPE(t_lnd_jsbach_config), ALLOCATABLE :: lnd_jsbach_config(:) !< Configuration state variable
 
 CONTAINS
   !>
@@ -80,18 +81,8 @@ CONTAINS
     CHARACTER(LEN=*),PARAMETER  :: &
              & routine ='mo_lnd_jsbach_config:configure_lnd_jsbach'
 
+    ALLOCATE(lnd_jsbach_config(n_dom))
+
   END SUBROUTINE configure_lnd_jsbach
-
-  INTEGER FUNCTION get_ntiles_jsbach()
-    get_ntiles_jsbach = lnd_jsbach_config%ntiles
-  END FUNCTION get_ntiles_jsbach
-
-  INTEGER FUNCTION get_nsoil_jsbach()
-    get_nsoil_jsbach = lnd_jsbach_config%nsoil
-  END FUNCTION get_nsoil_jsbach
-
-  INTEGER FUNCTION get_ntsoil_jsbach()
-    get_ntsoil_jsbach = lnd_jsbach_config%ntsoil
-  END FUNCTION get_ntsoil_jsbach
 
 END MODULE mo_lnd_jsbach_config

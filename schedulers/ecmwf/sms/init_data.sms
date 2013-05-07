@@ -34,11 +34,6 @@ if [ %NENS% -gt 0 ]
   else TXTENS=''
 fi
 
-if [ %SIMMODE% -eq 3  -o  %YMD% -lt 20110518 ]
-  then in_file_gribedition=1
-  else in_file_gribedition=2
-fi
-
 
 # grid directory
 GRIDDIR=%SCPERM%/icon_input/grids
@@ -54,8 +49,10 @@ cd ${IFSDATADIR}
 
 # Important: ==================================
 # export the DWD GRIB short names:
+dwd_grib_api=/home/ms/de/dwd/grib_api
 # export GRIB_DEFINITION_PATH="%SCSOFT%/software/grib_api/release/share-1.9.9/definitions.edzw:/usr/local/lib/metaps/lib/grib_api/1.9.9/share/definitions"
-export GRIB_DEFINITION_PATH="%SCSOFT%/software/grib_api/release/share-1.9.9/definitions.edzw:/usr/local/lib/metaps/lib/grib_api/current/share/definitions"
+# export GRIB_DEFINITION_PATH="%SCSOFT%/software/grib_api/release/share-1.9.9/definitions.edzw:/usr/local/lib/metaps/lib/grib_api/current/share/definitions"
+export GRIB_DEFINITION_PATH="${dwd_grib_api}/definitions.edzw-1.9.16:/usr/local/lib/metaps/lib/grib_api/1.10.4/share/definitions"
 # =============================================
 
 IFS_FILENAME_GRB="ifs_oper_*_%YMD%%INIHOUR%.grb"
@@ -148,7 +145,6 @@ cat > NAMELIST_PREPICON << EOF
  out_type                     = 2
  s_maxsize                    = 500000
  l_have3dbuffer               = .false.
- in_file_gribedition          = ${in_file_gribedition}
 /
 ! DEFINITIONS FOR IFS INPUT DATA
 !
@@ -353,7 +349,7 @@ fi
 
 IFSDATADIR2=%SCTEMP%/%SUITE%/%EXPNUM2%/input/%YMD%%INIHOUR%${DIRENS}
 
-if [ -f ${IFSDATADIR2}/${IFS_FILENAME_NC} ] ; then
+if [ -f ${IFSDATADIR2}/${IFS_FILENAME_NC}  -a  %EXPNUM% -ne %EXPNUM2% ] ; then
   echo 'ifs2icon file can be copied - no prepicon!'
   ls -l ${IFSDATADIR2}/${IFS_FILENAME_NC}
   sleep 120

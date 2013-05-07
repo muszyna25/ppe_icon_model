@@ -1,0 +1,217 @@
+#!/bin/ksh
+
+%manual
+  -------------------------------------------------
+  PREPICON_SST_ICE.SMS
+  -------------------------------------------------
+
+  This script is part of the ICON CLIM SMS suite
+  Initial implementation: P. Ripodas, DWD (2013-01)
+
+  Corresponding author:
+    P Ripodas, DWD, mailto:maria-pilar.ripodas@dwd.de
+
+  Task objectives:
+  - interpolate to icon grid the retrieved SST and CI monthly means from MARS ERA interim 
+%end
+
+# include the header file for remote jobs
+%include <init_job.h> 
+
+# -------------------------------------------------
+
+echo "PREPICON_SST_ICE.SMS"
+
+SCRIPTDIR=%SCPERM%/icon-dev/scripts
+SSTICEDIR=%SCPERMIII%/icon_input/sstice/%YYYY%
+
+export SSTICEDIR
+
+# grid directory
+GRIDDIR=%SCPERM%/icon_input/grids
+# base directory for model output
+outbasedir=%SCTEMP%/%SUITE%/%EXPNUM%/output
+# base name for output and namelist files
+basename=%SUITE%_%EXPNUM%_%FDATE%%INIHOUR%
+
+mkdir -p ${SSTICEDIR}
+cd ${SSTICEDIR}
+
+# Important: ==================================
+# export the DWD GRIB short names:
+dwd_grib_api=/home/ms/de/dwd/grib_api
+# export GRIB_DEFINITION_PATH="%SCSOFT%/software/grib_api/release/share-1.9.9/definitions.edzw:/usr/local/lib/metaps/lib/grib_api/1.9.9/share/definitions"
+#export GRIB_DEFINITION_PATH="%SCSOFT%/software/grib_api/release/share-1.9.9/definitions.edzw:/usr/local/lib/metaps/lib/grib_api/current/share/definitions"
+export GRIB_DEFINITION_PATH="/usr/local/lib/metaps/lib/grib_api/1.10.4/share/definitions:${dwd_grib_api}/definitions.edzw-1.9.16"
+# =============================================
+
+ICON_GRIDFILE="icon%RES%_DOM01.nc"
+ln -sf $GRIDDIR/icon*DOM*.nc .
+#set +x
+
+# -------------------------------------------------
+
+
+export MP_WAIT_MODE=poll
+export MP_LABELIO=yes
+export MP_SHARED_MEMORY=yes
+export MP_ADAPTER_USE=shared
+export MP_INFOLEVEL=2
+export XLFRTEOPTS=err_recovery=no
+
+export ICON_THREADS=%ICONTHREADS%
+export OMP_STACKSIZE=400M
+export OMP_SCHEDULE="static"
+export OMP_DYNAMIC="false"
+export NC_BLOCKSIZE=128mb
+
+export F_PROGINF=DETAIL
+# -------------------------------------------------
+
+
+cp -p ${outbasedir}/bin/prep_icon ./prep_icon
+
+# global timing
+start_date="2008-09-01T00:00:00Z"
+ndays_restart=60
+dt_restart=`expr ${ndays_restart} \* 86400`
+
+# the namelist filename
+atmo_namelist=NAMELIST_${basename}
+
+# ---------------------------
+# create ICON master namelist
+# ---------------------------
+
+# For a complete list see Namelist_overview and Namelist_overview.pdf
+
+cat > icon_master.namelist << EOF
+&master_nml
+ lrestart                     = .FALSE.
+/
+&time_nml
+ ini_datetime_string          = "$start_date"
+ dt_restart                   = $dt_restart
+/
+&master_model_nml
+  model_type                  = 1
+  model_name                  = "ATMO"
+  model_namelist_filename     = "$atmo_namelist"
+  model_restart_info_filename = ""
+  model_min_rank              = 1
+  model_max_rank              = 65536
+  model_inc_rank              = 1
+/
+EOF
+
+
+month_list="01 02 03 04 05 06 07 08 09 10 11 12"
+for month in ${month_list}
+do
+
+# ------------------------------
+# write ICON namelist parameters
+# ------------------------------
+# SST
+# For a complete list see Namelist_overview and Namelist_overview.pdf
+
+IFS_FILENAME_GRB="${SSTICEDIR}/ifs_ei_SST_%YYYY%_${month}.grb"
+IFS_FILENAME_NC="${SSTICEDIR}/SST_%YYYY%_${month}_${ICON_GRIDFILE}"
+
+if [ ! -f ${IFS_FILENAME_NC} ]; then
+
+cat > NAMELIST_PREPICON << EOF
+&parallel_nml
+ nproma                       = 10
+/
+&prepicon_nml
+ i_oper_mode                  = 4
+/
+! interpolation regular grid-> ICON
+&remap_nml
+ in_grid_filename             = "${IFS_FILENAME_GRB}"
+ in_filename                  = "${IFS_FILENAME_GRB}"
+ in_type                      = 1
+ out_grid_filename            = "${ICON_GRIDFILE}"
+ out_filename                 = "${IFS_FILENAME_NC}"	
+ out_type                     = 2
+ s_maxsize                    = 500000
+ l_have3dbuffer               = .false.
+/
+
+&input_field_nml  ! SST
+ inputname      = "SST"         
+ outputname     = "SST"          
+ code           = 34          
+ type_of_layer  = "surface" 
+/
+EOF
+# -------------------------------------------------
+
+
+
+echo "job::start"
+date
+export USE_SIGNAL_HANDLING=yes
+./prep_icon
+echo "job::end"
+date
+
+fi
+
+
+# CI
+# For a complete list see Namelist_overview and Namelist_overview.pdf
+
+IFS_FILENAME_GRB="${SSTICEDIR}/ifs_ei_CI_%YYYY%_${month}.grb"
+IFS_FILENAME_NC="${SSTICEDIR}/CI_%YYYY%_${month}_${ICON_GRIDFILE}"
+
+if [ ! -f ${IFS_FILENAME_NC} ]; then
+
+cat > NAMELIST_PREPICON << EOF
+&parallel_nml
+ nproma                       = 10
+/
+&prepicon_nml
+ i_oper_mode                  = 4
+/
+! interpolation regular grid-> ICON
+&remap_nml
+ in_grid_filename             = "${IFS_FILENAME_GRB}"
+ in_filename                  = "${IFS_FILENAME_GRB}"
+ in_type                      = 1
+ out_grid_filename            = "${ICON_GRIDFILE}"
+ out_filename                 = "${IFS_FILENAME_NC}"	
+ out_type                     = 2
+ s_maxsize                    = 500000
+ l_have3dbuffer               = .false.
+/
+
+&input_field_nml  ! CI
+ inputname      = "CI"         
+ outputname     = "CI"          
+ code           = 31          
+ type_of_layer  = "surface" 
+/
+EOF
+# -------------------------------------------------
+
+
+
+echo "job::start"
+date
+export USE_SIGNAL_HANDLING=yes
+./prep_icon
+echo "job::end"
+date
+
+fi
+
+done
+rm  ./prep_icon
+
+ls -lrt ${SSTICEDIR}/*
+# -------------------------------------------------
+
+# include the "tail" file for remote jobs
+%include <end_job.h>

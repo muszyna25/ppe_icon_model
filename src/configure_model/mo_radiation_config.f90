@@ -79,6 +79,10 @@ MODULE mo_radiation_config
     INTEGER :: isolrad        !< mode of solar constant calculation
     !< default is rrtm solar constant
     !
+    INTEGER :: albedo_type ! 1: albedo based on surface-type specific set of constants
+                           !    (see )
+                           ! 2: Modis albedo
+
     ! --- Switches for radiative agents
     !     irad_x=0 : radiation uses tracer x = 0
     !     irad_x=1 : radiation uses tracer x from a tracer variable
@@ -95,6 +99,12 @@ MODULE mo_radiation_config
     INTEGER  :: irad_cfc11  !< CFC 11
     INTEGER  :: irad_cfc12  !< CFC 12
     INTEGER  :: irad_aero   !< aerosols
+    !
+    ! --- Select dynamic greenhouse gases scenario (read from file)
+    !     ighg = 0 : select default gas volume mixing ratios - 1990 values (CMIP5)
+    !     ighg = 1 : transient CMIP5 scenario from file
+    !
+    INTEGER :: ighg
     !
     ! --- Default gas volume mixing ratios - 1990 values (CMIP5)
     !

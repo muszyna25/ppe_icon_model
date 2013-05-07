@@ -176,11 +176,20 @@ MODULE mo_ocean_nml
   REAL(wp) :: ab_const              = 0.1_wp     ! Adams-Bashforth constant
   REAL(wp) :: ab_beta               = 0.6_wp     ! Parameter in semi-implicit timestepping
   REAL(wp) :: ab_gam                = 0.6_wp     ! Parameter in semi-implicit timestepping
-  REAL(wp) :: solver_tolerance      = 1.e-6_wp   ! Maximum value allowed for solver tolerance
+  ! parameters for gmres solver
+  REAL(wp) :: solver_tolerance                 = 1.e-6_wp   ! Maximum value allowed for solver tolerance
+  REAL(wp) :: solver_start_tolerance           = -1.0_wp
+  INTEGER  :: solver_max_restart_iterations    = 100       ! For restarting gmres
+  INTEGER  :: solver_max_iter_per_restart      = 200       ! For inner loop after restart
+  REAL(wp) :: solver_tolerance_decrease_ratio  = 0.1_wp    ! For restarting gmres, must be < 1
+  LOGICAL  :: use_absolute_solver_tolerance    = .false.   ! Maximum value allowed for solver tolerance
+  REAL(wp) :: dhdtw_abort           = 3.2e-11_wp ! abort criterion for gmres solution (~1mm/year)
                                                 
-  INTEGER :: EOS_TYPE               = 2          ! 1=linear EOS,2=(nonlinear, from MPIOM)
+  INTEGER  :: EOS_TYPE              = 2          ! 1=linear EOS,2=(nonlinear, from MPIOM)
                                                  ! 3=nonlinear Jacket-McDoudgall-formulation (not yet recommended)
-  INTEGER :: no_tracer              = 2          ! number of tracers 
+  INTEGER  :: density_computation   = 1          ! 1 = calc_density_MPIOM_func,2 = calc_density_MPIOM_elemental,
+                                                 ! 3 = calc_density_MPIOM_elemental_wrap
+  INTEGER  :: no_tracer             = 2          ! number of tracers 
                                                 
   ! more ocean parameters, not yet well placed
   INTEGER  :: expl_vertical_velocity_diff = 1    ! 0=explicit, 1 = implicit  
@@ -232,6 +241,9 @@ MODULE mo_ocean_nml
   REAL(wp) :: relax_3d_mon_T        = 1.0_wp     ! strength of 3-dim relaxation for temperature in months
   INTEGER  :: irelax_3d_S           = 0          ! 0: no 3-dim relax.,  3: use initial S read with init_oce_prog=1
   REAL(wp) :: relax_3d_mon_S        = 1.0_wp     ! strength of 3-dim relaxation for salinity in months
+  LOGICAL  :: l_forc_freshw         = .FALSE.    ! .TRUE.: apply freshwater forcing boundary condition
+  LOGICAL  :: limit_elevation       = .FALSE.    ! .TRUE.: balance sea level elevation
+  REAL(wp) :: seaice_limit          = 0.5_wp     ! limit sea ice to fraction of surface layer thickness (1.0: no limit)
                                                 
   INTEGER  :: coriolis_type         = 1          ! 0=zero Coriolis, the non-rotating case
                                                  ! 1=full varying Coriolis
@@ -254,11 +266,13 @@ MODULE mo_ocean_nml
   LOGICAL  :: l_max_bottom          = .TRUE.     ! wet cell: true=if bathy deeper than top
                                                  !           false=bathy deeper mid of cell
   LOGICAL  :: l_edge_based          = .TRUE.     ! mimetic discretization based on edges (true) or cells (false)
+  LOGICAL  :: l_partial_cells       = .FALSE.    ! partial bottom cells=true: local varying bottom depth
   LOGICAL  :: l_staggered_timestep  = .FALSE.    ! TRUE=staggering between thermodynamic and dynamic part,
                                                  !   offset of half timestep between dynamic and thermodynamic variables;
                                                  !   thermodynamic and dynamic variables are colocated in time
   INTEGER  :: i_apply_bulk          = 0          ! 0=no bulk formula; 1=apply bulk formula without sea ice
-  INTEGER  :: i_sea_ice             = 1          ! 0=no sea ice; 1=sea ice
+  INTEGER  :: i_sea_ice             = 1          ! 0 = no sea ice; 1 = Winton; 2 = Semtner
+  LOGICAL  :: l_relaxsal_ice        = .TRUE.     ! TRUE: relax salinity below sea ice
 
   NAMELIST/ocean_dynamics_nml/ n_zlev, dzlev_m, idisc_scheme,              &
     &                 iswm_oce, l_staggered_timestep,                      &
@@ -266,30 +280,40 @@ MODULE mo_ocean_nml
     &                 ab_const, ab_beta, ab_gam, solver_tolerance,         &
     &                 l_RIGID_LID, lviscous, l_inverse_flip_flop,          &
     &                 l_edge_based, i_apply_bulk, l_max_bottom,            &
+    &                 l_partial_cells,                                     &
     &                 coriolis_type, basin_center_lat, basin_center_lon,   &
     &                 basin_width_deg,basin_height_deg,                    &
     &                 expl_vertical_velocity_diff,                         &
     &                 expl_vertical_tracer_diff,                           &
     &                 veloc_diffusion_order,veloc_diffusion_form,          &
-    &                 FLUX_CALCULATION_HORZ, FLUX_CALCULATION_VERT
+    &                 FLUX_CALCULATION_HORZ, FLUX_CALCULATION_VERT,        &
+    &                 dhdtw_abort,                                         &
+    &                 use_absolute_solver_tolerance, solver_start_tolerance, &
+    &                 solver_tolerance_decrease_ratio,                     &
+    &                 solver_max_restart_iterations,                       &
+    &                 solver_max_iter_per_restart
  
 
 
-  NAMELIST/ocean_physics_nml/EOS_TYPE, no_tracer, HORZ_VELOC_DIFF_TYPE,    &
+  NAMELIST/ocean_physics_nml/EOS_TYPE, density_computation,                &
+    &                 no_tracer, HORZ_VELOC_DIFF_TYPE,                     &
     &                 k_veloc_h, k_veloc_v,  k_pot_temp_h, k_pot_temp_v,   &
     &                 k_sal_h, k_sal_v,                                    &
     &                 MAX_VERT_DIFF_VELOC, MAX_VERT_DIFF_TRAC,             &
-    &                 CWA, CWT,  bottom_drag_coeff, wstress_coeff, i_sea_ice, &
-    &                 biharmonic_diffusion_factor, l_smooth_veloc_diffusion,&
+    &                 CWA, CWT,  bottom_drag_coeff, wstress_coeff,         &
+    &                 i_sea_ice,                                           &
+    &                 biharmonic_diffusion_factor,                         &
+    &                 l_smooth_veloc_diffusion,                            &
     &                 richardson_factor_veloc, richardson_factor_tracer
 
 
   NAMELIST/ocean_forcing_and_init_nml/iforc_oce, iforc_type, iforc_len,    &
     &                 iforc_stat_oce, init_oce_prog, init_oce_relax,       &
-    &                 itestcase_oce, idiag_oce,                            &
+    &                 itestcase_oce, idiag_oce, l_relaxsal_ice,            &
     &                 temperature_relaxation, relaxation_param,            &
     &                 irelax_2d_S, relax_2d_mon_S,&!relax_2d_T, relax_2d_mon_T, &
-    &                 irelax_3d_S, relax_3d_mon_S, irelax_3d_T, relax_3d_mon_T
+    &                 irelax_3d_S, relax_3d_mon_S, irelax_3d_T, relax_3d_mon_T, &
+    &                 l_forc_freshw, limit_elevation, seaice_limit 
 
 
   ! ------------------------------------------------------------------------
@@ -418,6 +442,23 @@ MODULE mo_ocean_nml
      IF ( is_coupled_run() ) THEN
        iforc_oce = FORCING_FROM_COUPLED_FLUX
        CALL message(TRIM(routine),'WARNING, iforc_oce set to 14 for coupled experiment')
+     END IF
+
+     IF (solver_start_tolerance <= 0.0_wp) THEN
+       solver_start_tolerance = solver_tolerance
+       solver_tolerance_decrease_ratio  = 0.1_wp ! must be < 1
+     ENDIF
+
+     IF (l_forc_freshw) THEN
+       limit_elevation = .TRUE.
+       CALL message(TRIM(routine),'WARNING, limit_elevation set to .TRUE. with l_forc_freshw=.TRUE.')
+     END IF
+
+     IF ( is_coupled_run() ) THEN
+       limit_elevation = .FALSE.
+       CALL message(TRIM(routine),'WARNING, limit_elevation set to .FALSE. for coupled experiment')
+       seaice_limit = 1.0_wp
+       CALL message(TRIM(routine),'WARNING, seaice_limit set to 1.0 - no limit for coupled experiment')
      END IF
  
      ! write the contents of the namelist to an ASCII file

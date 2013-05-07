@@ -58,6 +58,7 @@ MODULE mo_timer
     & timer_icon_comm_ircv, timer_icon_comm_fillsend, timer_icon_comm_fillandsend, &
     & timer_icon_comm_barrier_2, timer_icon_comm_send
   PUBLIC :: timer_barrier
+  PUBLIC :: timer_gmres_p_sum
 
   PUBLIC :: timer_integrate_nh
   PUBLIC :: timer_solve_nh, timer_solve_nh_p1, timer_solve_nh_p2, timer_solve_nh_exch
@@ -70,13 +71,14 @@ MODULE mo_timer
   PUBLIC :: timer_lrtm_1, timer_lrtm_2
 
   PUBLIC :: timer_div, timer_grad, timer_gmres, timer_lhs
-  PUBLIC :: timer_corio, timer_intp     
+  PUBLIC :: timer_corio, timer_intp
   PUBLIC :: timer_transport
   PUBLIC :: timer_cover, timer_cloud
   PUBLIC :: timer_cucall
   PUBLIC :: timer_vdiff
   PUBLIC :: timer_gw_hines
   PUBLIC :: timer_echam_phy
+  PUBLIC :: timer_jsbach
   PUBLIC :: timer_dyn2phy, timer_phy2dyn
   PUBLIC :: timer_echam_sync_temp,timer_echam_sync_tracers
   PUBLIC :: timer_nh_hdiffusion
@@ -130,6 +132,7 @@ MODULE mo_timer
   PUBLIC :: timer_intrp_diagn
   PUBLIC :: timer_step_2tl_si
   PUBLIC :: timer_prep_echam_phy
+  PUBLIC :: timer_prep_jsbach
   PUBLIC :: timer_prep_phy
   PUBLIC :: timer_prep_tracer_leapfrog
   PUBLIC :: timer_prep_tracer
@@ -162,6 +165,8 @@ MODULE mo_timer
     & timer_icon_comm_ircv, timer_icon_comm_fillsend,timer_icon_comm_fillandsend,   &
     & timer_icon_comm_barrier_2, timer_icon_comm_send
   INTEGER :: timer_barrier
+  INTEGER :: timer_gmres_p_sum
+
   INTEGER :: timer_nh_hdiffusion
 
   INTEGER :: timer_integrate_nh
@@ -217,6 +222,7 @@ MODULE mo_timer
   INTEGER :: timer_vdiff
   INTEGER :: timer_gw_hines
   INTEGER :: timer_echam_phy
+  INTEGER :: timer_jsbach
 
   ! Timer ID's for forcings and testcases
   INTEGER :: timer_held_suarez_intr
@@ -246,6 +252,7 @@ MODULE mo_timer
   INTEGER :: timer_intrp_diagn
   INTEGER :: timer_step_2tl_si
   INTEGER :: timer_prep_echam_phy
+  INTEGER :: timer_prep_jsbach
   INTEGER :: timer_prep_phy
   INTEGER :: timer_prep_tracer_leapfrog
   INTEGER :: timer_prep_tracer
@@ -274,6 +281,8 @@ CONTAINS
     ! major timers
     timer_total        = new_timer("total")
 
+    IF (.NOT. ltimer)  return
+
     timer_barrier  = new_timer("mpi_barrier")
     timer_exch_data = new_timer("exch_data")
     timer_exch_data_rv = new_timer("exch_data_rv")
@@ -292,6 +301,7 @@ CONTAINS
     timer_icon_comm_send         = new_timer("comm_send")
     timer_icon_comm_wait         = new_timer("comm_wait")
     timer_icon_comm_barrier_2    = new_timer("comm_barrier_2")
+    timer_gmres_p_sum            = new_timer("gmres_p_sum")
 
     timer_coupling      = new_timer("coupling")
     timer_write_output  = new_timer("wrt_output")
@@ -309,7 +319,7 @@ CONTAINS
 
     timer_physics   = new_timer("physics")
     timer_echam_phy = new_timer("echam_phy")
-
+    timer_jsbach    = new_timer("jsbach")
     timer_transport = new_timer("transport")
     timer_dyn_theta = new_timer("dyn_theta")
     timer_dyn_temp  = new_timer("dyn_temp")
@@ -364,6 +374,7 @@ CONTAINS
     timer_phys_sync_ddt_u  = new_timer("phys_sync_ddt_u")
     timer_phys_sync_vn  = new_timer("phys_sync_vn")
     timer_prep_echam_phy = new_timer("prep_echam_phy")
+    timer_prep_jsbach = new_timer("prep_jsbach")
     timer_prep_phy = new_timer("prep_phy")
 
     timer_update_prog_phy = new_timer("update_prog_phy")
@@ -475,4 +486,3 @@ CONTAINS
   END FUNCTION toc
 
 END MODULE mo_timer
-

@@ -183,8 +183,8 @@ REAL(KIND=JPRB) ::   ZRG, ZSTABILITY(KLON),  ZDCTEI(KLON)
 
 REAL(KIND=JPRB) ::    ZQS(KLON,0:KLEV)  , ZALFAW  , ZFACW   , ZFACI   , ZFAC        , &
                     & ZESDP   , ZCOR    , ZDQSDTEMP(KLON)   , ZBETA   , ZDSL(KLEV)  , &
-		    & ZDQT(KLEV)        , ZEIS(KLON)        , ZT850   , ZGAMMA850
-		      
+                    & ZDQT(KLEV)        , ZEIS(KLON)        , ZT850   , ZGAMMA850
+                      
 INTEGER(KIND=JPIM) :: IS, JK, JL, JD
 
 INTEGER(KIND=JPIM) :: I700(KLON), I850(KLON)

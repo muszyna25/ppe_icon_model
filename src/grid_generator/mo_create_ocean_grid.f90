@@ -108,14 +108,24 @@ CONTAINS
     
     TYPE(t_integer_list) :: sea_cell_list
     INTEGER :: in_grid_id, out_grid_id
+    
+    TYPE(t_grid), POINTER :: grid
 
     in_grid_id = read_new_netcdf_grid(in_file_name)    
+
+    grid  => get_grid(in_grid_id)
+    write(0,*) "in grid mean_characteristic_length=", grid%geometry_info%mean_characteristic_length
+    
     sea_cell_list = get_ocean_cell_list_from_mask(in_grid_id)
     CALL grid_set_parents_from(in_grid_id, parents_from_parentpointers)
     out_grid_id = get_grid_from_cell_list(in_grid_id, sea_cell_list)
+   
+    grid  => get_grid(out_grid_id)
+    write(0,*) "grid from cell list mean_characteristic_length=", grid%geometry_info%mean_characteristic_length
+
     CALL delete_grid(in_grid_id)
     CALL create_grid_hierarchy(out_grid_id) ! define the lateral entities to avoid meaningless calculations
-    CALL close_grid_connectivity(out_grid_id)
+!     CALL close_grid_connectivity(out_grid_id)
     CALL set_grid_parent_id(out_grid_id, 0)
     CALL write_netcdf_grid(out_grid_id, out_file_name)
     CALL delete_grid(out_grid_id)

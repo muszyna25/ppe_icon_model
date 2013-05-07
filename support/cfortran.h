@@ -3,6 +3,8 @@
 /* Burkhard Burow  burow@desy.de                 1990 - 2001. */
 
 /* 02/12/2002 Uwe Schulzweida : UXP Fortran support           */
+/* 02/05/2003 Uwe Schulzweida : Linux Fortran support on i386 */
+/* 09/09/2005 Uwe Schulzweida : Linux Fortran support on ia64 */
 
 #ifndef __CFORTRAN_LOADED
 #define __CFORTRAN_LOADED
@@ -86,6 +88,15 @@ only C calling FORTRAN subroutines will work using K&R style.*/
 #if !(defined(NAGf90Fortran)||defined(f2cFortran)||defined(hpuxFortran)||defined(apolloFortran)||defined(sunFortran)||defined(IBMR2Fortran)||defined(CRAYFortran))
 #if !(defined(mipsFortran)||defined(DECFortran)||defined(vmsFortran)||defined(CONVEXFortran)||defined(PowerStationFortran)||defined(AbsoftUNIXFortran)||defined(AbsoftProFortran)||defined(SXFortran))
 /* If no Fortran compiler is given, we choose one for the machines we know.   */
+#if defined(__linux__) && defined(__i386__)
+#define f2cFortran
+#endif
+#if defined(__linux__) && defined(__ia64__)
+#define f2cFortran
+#endif
+#if defined(__linux__) && defined(__x86_64__)
+#define f2cFortran
+#endif
 #if defined(lynx) || defined(VAXUltrix)
 #define f2cFortran    /* Lynx:      Only support f2c at the moment.
                          VAXUltrix: f77 behaves like f2c.
@@ -450,6 +461,8 @@ for (i=0; i<sizeofcstr/elem_len; i++) {
 } return cstr; }
 
 /* kill the trailing char t's in string s. */
+#pragma GCC push_options
+#pragma GCC optimize ("O2")
 #ifndef __CF__KnR
 static char *kill_trailing(char *s, char t)
 #else
@@ -461,6 +474,7 @@ if (e>s) {                           /* Need this to handle NULL string.*/
   while (e>s && *--e==t);            /* Don't follow t's past beginning. */
   e[*e==t?0:1] = '\0';               /* Handle s[0]=t correctly.       */
 } return s; }
+#pragma GCC pop_options
 
 /* kill_trailingn(s,t,e) will kill the trailing t's in string s. e normally 
 points to the terminating '\0' of s, but may actually point to anywhere in s.
@@ -2366,3 +2380,12 @@ string. */
 
 
 #endif	 /* __CFORTRAN_LOADED */
+/*
+ * Local Variables:
+ * c-file-style: "Java"
+ * c-basic-offset: 2
+ * indent-tabs-mode: nil
+ * show-trailing-whitespace: t
+ * require-trailing-newline: t
+ * End:
+ */

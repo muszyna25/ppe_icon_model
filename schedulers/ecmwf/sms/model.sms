@@ -50,6 +50,8 @@ SETDIRTMP=%SCTEMP%/%SUITE%/%EXPNUM%/output/setup${DIRENS}
 ifsdir=%SCTEMP%/%SUITE%/%EXPNUM%/input/%YMD%%INIHOUR%${DIRENS}
 # base directory for external data
 basedir=%SCPERM%
+# base directory for time dependent external data SST ansd CI data
+sstice_dir=%SCPERMIII%
 # base directory for model output
 outbasedir=%SCTEMP%/%SUITE%/%EXPNUM%/output
 # base name for output and namelist files
@@ -107,10 +109,25 @@ fi
 # copy binary and execute in parallel
 cp -p ${outbasedir}/bin/control_model ./icon.exe
 
+# copy binary alternatively from individual user - option 1 - automatic - applies to all runs
+#cp -p /perm/ms/de/dei2/icon-dev/build/rs6000-ibm-aix/bin/control_model ./icon.exe
+
+# copy binary alternatively from individual user - option 2 - by hand (replace expid XXX)
+# cp /perm/ms/de/dei2/icon-dev/build/rs6000-ibm-aix/bin/control_model /scratch/ms/de/deia/icon/dei2/XXX/output/bin
+
 echo "job::start"
 date
 export USE_SIGNAL_HANDLING=yes
-./icon.exe
+
+debug=0
+if [ ${debug} = 1 ] ; then                    # optional totalview debugging (max tasks: 256! better 64)
+  export DISPLAY=ecaccess.ecmwf.int:1631.0    # open nxclient on c2a and get DISPLAY
+  totalview -searchpath='/perm/ms/de/dei2/icon-dev/src/atm_phy_edmf/,/perm/ms/de/dei2/icon-dev/src/lnd_phy_nwp/,/perm/ms/de/dei2/icon-dev/src/atm_phy_nwp/' \
+    poe -a ./icon.exe
+else
+  ./icon.exe
+fi
+
 echo "job::end"
 date
 

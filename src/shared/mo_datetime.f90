@@ -1,3 +1,6 @@
+#ifdef __xlC__
+@PROCESS STRICT
+#endif
 !>
 !! This modules contains a data structure for calendar date and timeinformation
 !!
@@ -894,40 +897,39 @@ CONTAINS
 
     WRITE(message_text,'(a,i1)') &
       &   'Calendar index : ',datetime%calendar
-    CALL message('mo_datetime/print_calendar', message_text)
+    CALL message('', message_text)
     !
     SELECT CASE (datetime%calendar)
     CASE (julian_gregorian)
       WRITE(message_text,'(a)')  &
         & 'Calendar       : Julian Gregorian'
-      CALL message('mo_datetime/print_calendar', message_text)
+      CALL message('', message_text)
       !
       WRITE(message_text,'(a)')  &
         & 'Time Base      : (-4712)-01-01, 12:00 UT'
-      CALL message('mo_datetime/print_calendar', message_text)
+      CALL message('', message_text)
       !
     CASE (proleptic_gregorian)
       WRITE(message_text,'(a)')  &
         & 'Calendar       : Proleptic Gregorian'
-      CALL message('mo_datetime/print_calendar', message_text)
+      CALL message('', message_text)
       !
       WRITE(message_text,'(a)')  &
         & 'Time Base      : (-4712)-01-01, 12:00 UT'
-      CALL message('mo_datetime/print_calendar', message_text)
+      CALL message('', message_text)
       !
     CASE (cly360)
       WRITE(message_text,'(a)')  &
         & 'Calendar       : Constant 30 dy/mo and 360 dy/yr'
-      CALL message('mo_datetime/print_calendar', message_text)
+      CALL message('', message_text)
       !
       WRITE(message_text,'(a)')  &
         & 'Time Base      : 0000-01-01, 00:00 UT'
-      CALL message('mo_datetime/print_calendar', message_text)
+      CALL message('', message_text)
       !
     END SELECT
     !
-    WRITE(message_text,'(a)') ' '
-    CALL message('mo_datetime/print_calendar', message_text)
+    CALL message('', '')
 
   END SUBROUTINE print_calendar
 
@@ -947,19 +949,12 @@ CONTAINS
     ! - year, month, day, hour, minute, second
     ! - time
     !
-      
-    WRITE(message_text,'(a,i6,a,i2.2,a,i2.2,a,i2.2,a,i2.2,a,f9.6,a)') &
+    WRITE(message_text,'(a,i6,a,i2.2,a,i2.2,a,i2.2,a,i2.2,a,f9.6,a,a,i9,a,f15.13)') &
       & 'Date/time      : ',datetime%year,'-',datetime%month,'-',datetime%day, &
-      & '/',datetime%hour,':',datetime%minute,':',datetime%second,' UT'
-    CALL message('mo_datetime/print_datetime', message_text)
-    !
-    WRITE(message_text,'(a,i9,a,f15.13)') &
+      & '/',datetime%hour,':',datetime%minute,':',datetime%second,' UT, ', &
       & 'Cal. day+dayfrc: ',datetime%calday,'+',datetime%caltime
-    CALL message('mo_datetime/print_datetime', message_text)
+    CALL message('', message_text)
     !
-    WRITE(message_text,'(a)') ' '
-    CALL message('mo_datetime/print_datetime', message_text)
-
   END SUBROUTINE print_datetime
 
   !----------------------------------------------------------------------------
@@ -1124,12 +1119,13 @@ CONTAINS
   !! Output: string in the format of "YEAR-mm-ddThh:mm:ssZ"
   !!  where YEAR can have between 1 and 6 digits and can be negative.
   !!
-  SUBROUTINE datetime_to_string ( datetime_str, datetime )
+  SUBROUTINE datetime_to_string ( datetime_str, datetime, plain )
 
     IMPLICIT NONE
 
     CHARACTER(len=date_len), INTENT(OUT) :: datetime_str
     TYPE (t_datetime), INTENT(IN)        :: datetime
+    LOGICAL, OPTIONAL                    :: plain
 
     CHARACTER(len=32) :: datetime_format
     CHARACTER(len=7)  :: year_fmt_str
@@ -1137,6 +1133,8 @@ CONTAINS
     INTEGER           :: year_format
     INTEGER           :: second
     INTEGER           :: abs_year
+
+    CHARACTER(len=1)  :: datetime_seperator, time_zone_designator
 
     ! Build the format
     ! -------------------------------------
@@ -1163,14 +1161,23 @@ CONTAINS
 
     ! Write string
     ! --------------------------------------
+    datetime_seperator   = 'T'
+    time_zone_designator = 'Z'
+    IF (PRESENT(plain)) THEN
+      IF (plain) THEN
+        datetime_seperator   = ' '
+        time_zone_designator = ' '
+      ENDIF
+    ENDIF
+
 
     WRITE(datetime_str, datetime_format ) &
          &           datetime%year,  '-', &
          &           datetime%month, '-', &
-         &           datetime%day,   'T', &
+         &           datetime%day,   datetime_seperator, &
          &           datetime%hour,  ':', &
          &           datetime%minute,':', &
-         &           second,         'Z'
+         &           second,         time_zone_designator
 
   END SUBROUTINE datetime_to_string
 

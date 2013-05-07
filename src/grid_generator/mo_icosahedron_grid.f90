@@ -103,7 +103,7 @@ CONTAINS
     start_level = 0
     output_file = 'test'
     input_file = 'NULL'
-    decomposition_ascii_ext = "_cell_domain_ids"
+    decomposition_ascii_ext = ".cell_domain_ids"
     start_optimize = 1
     end_optimize = -1
     dual_decomposition_domains = -2
@@ -150,9 +150,8 @@ CONTAINS
     CHARACTER(LEN=*), INTENT(in) :: param_file_name
 
     INTEGER :: base_grid_id, next_grid_id, level, end_level
-    INTEGER :: no_of_domains
     LOGICAL :: is_dual_decomposed
-    CHARACTER(LEN=filename_max) :: file_name
+    CHARACTER(LEN=filename_max) :: file_name, file_name_body
 
     is_dual_decomposed = .false.
     
@@ -236,21 +235,25 @@ CONTAINS
         IF ( use_clustered_decompositions) &
           CALL grid_cluster_subdomains(base_grid_id,1, 1)
        
-        no_of_domains = get_no_of_domains(base_grid_id, 1)
-!         WRITE(file_name,'(a,i2.2,a,a,i4.4,a)')  TRIM(output_file), level,  &
-!           TRIM(optimization_extension), "_hex_dd_", no_of_domains, &
-!           TRIM(decomposition_ascii_ext)
-        WRITE(message_text,'(i6,a)') get_max_subdomain_cells(base_grid_id, 1), &
+        WRITE(file_name_body,'(a,a,a,i5.5,a,i3.3)') TRIM(output_file), &
+          & TRIM(get_resolution_string(base_grid_id)),             &
+          & "_hdec",  get_no_of_domains(base_grid_id, 1),      &
+          & "_dcells", get_max_subdomain_cells(base_grid_id, 1)
+
+        WRITE(file_name,'(a,a)')  TRIM(file_name_body),  &
           TRIM(decomposition_ascii_ext)
-        message_text = ADJUSTL(message_text)
-        WRITE(file_name,'(a,i2.2,a,".",a)')  TRIM(output_file), level,  &
-          TRIM(optimization_extension), TRIM(message_text)
         CALL write_ascii_grid_decomposition(base_grid_id, 1, file_name)
+
+        WRITE(file_name,'(a,a)')  TRIM(file_name_body), ".nc"
+        CALL write_netcdf_grid(base_grid_id, file_name)
+
+      ELSE
+        WRITE(file_name,'(a,i2.2,a,a)')  TRIM(output_file), level,  &
+          TRIM(optimization_extension), ".nc"
+        CALL write_netcdf_grid(base_grid_id, file_name)
+
       ENDIF
       
-      WRITE(file_name,'(a,i2.2,a,a)')  TRIM(output_file), level,  &
-        TRIM(optimization_extension), ".nc"
-      CALL write_netcdf_grid(base_grid_id, file_name)
 
       ! if decomposition takes place write the ascci decomposition file
       !  if this level >= decompose level

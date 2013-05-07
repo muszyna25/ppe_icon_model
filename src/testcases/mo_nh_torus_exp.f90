@@ -65,28 +65,26 @@ MODULE mo_nh_torus_exp
   USE mo_nh_init_utils,       ONLY: init_w
   USE mo_run_config,          ONLY: iqv, iqc
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_e, grf_bdywidth_c
+  USE mo_satad,               ONLY: spec_humi, sat_pres_water
+  USE mo_les_config,          ONLY: les_config
 
   IMPLICIT NONE
   
   PRIVATE
   
-  PUBLIC :: init_nh_state_cbl, sst_cbl, is_dry_cbl, ugeo, set_sst_cbl, &
-            vgeo, umean, vmean, vt_geostrophic, shflx_cbl, lhflx_cbl, ufric_cbl
+  PUBLIC :: init_nh_state_cbl, u_cbl, v_cbl, th_cbl
 
-  !DEFINED PARAMETERS:
+  !Linear profiles of variables for LES testcases
+  REAL(wp) :: u_cbl(2)   !u_cbl(1) = constant, u_cbl(2) = gradient
+  REAL(wp) :: v_cbl(2)   !v_cbl(1) = constant, v_cbl(2) = gradient
+  REAL(wp) :: th_cbl(2)  !th_cbl(1) = constant,th_cbl(2) = gradient
+
+  !DEFINED PARAMETERS (Stevens 2007 JAS):
   REAL(wp), PARAMETER :: zp0     = 100000._wp !< surface pressure
-  REAL(wp), PARAMETER :: zh0     = 0._wp   !< height (m) above which temperature increases
-  REAL(wp), PARAMETER :: dtdz    = 0.003_wp   !< lapse rate
-  REAL(wp), PARAMETER :: zt0     = 300._wp
-
-  REAL(wp) :: sst_cbl, ugeo(2), vgeo(2)   !u/vgeo(1) = constant, u/vgeo(2) = gradient
-  REAL(wp) :: umean(2), vmean(2)          !u/vmean(1) = constant, u/vmean(2) = gradient
-  REAL(wp),ALLOCATABLE :: vt_geostrophic(:,:,:) !geostrophic wind along the tangent of triangle
-  REAL(wp) :: shflx_cbl, lhflx_cbl        !sensible and latent heat flux
-  REAL(wp) :: ufric_cbl                   !friction velocity at surface 
-
-  LOGICAL  :: is_dry_cbl, set_sst_cbl
-
+  REAL(wp), PARAMETER :: zh0     = 0._wp      !< height (m) above which temperature increases
+  REAL(wp), PARAMETER :: lambda  = 1500._wp   !moist height from Stevens(2007)
+  REAL(wp), PARAMETER :: dtdz_st = 0.03_wp    !< theta lapse rate in stratosphere (T>0!)
+  REAL(wp), PARAMETER :: z_tropo = 12000._wp  !height tropopause
 
 !--------------------------------------------------------------------
 
@@ -102,29 +100,29 @@ MODULE mo_nh_torus_exp
   !!
   !!
   SUBROUTINE init_nh_state_cbl( ptr_patch, ptr_nh_prog,  ptr_nh_ref, ptr_nh_diag,  &
-    &                           ptr_int, ptr_ext_data, ptr_metrics )
+    &                           ptr_int, ptr_ext_data, ptr_metrics)
 
     ! INPUT PARAMETERS:
-    TYPE(t_patch),TARGET,INTENT(IN) :: &  !< patch on which computation is performed
+    TYPE(t_patch),TARGET,  INTENT(IN)   :: &  !< patch on which computation is performed
       &  ptr_patch
-    TYPE(t_int_state),  INTENT(IN)  :: &
+    TYPE(t_int_state),     INTENT(IN)   :: &
       &  ptr_int
-    TYPE(t_nh_prog), INTENT(INOUT)  :: &  !< prognostic state vector
+    TYPE(t_nh_prog),       INTENT(INOUT):: &  !< prognostic state vector
       &  ptr_nh_prog
-    TYPE(t_nh_diag), INTENT(INOUT)  :: &  !< diagnostic state vector
+    TYPE(t_nh_diag),       INTENT(INOUT):: &  !< diagnostic state vector
       &  ptr_nh_diag
-    TYPE(t_external_data), INTENT(INOUT) :: & !< external data
+    TYPE(t_external_data), INTENT(INOUT):: &  !< external data
       &  ptr_ext_data
-    TYPE(t_nh_metrics), INTENT(IN)      :: ptr_metrics !< NH metrics state
-
-    TYPE(t_nh_ref),       INTENT(INOUT) :: &  !< reference state vector
+    TYPE(t_nh_metrics),    INTENT(IN)   :: &
+      &  ptr_metrics                          !< NH metrics state
+    TYPE(t_nh_ref),        INTENT(INOUT):: &  !< reference state vector
       &  ptr_nh_ref
 
-    REAL(wp) :: rho_sfc, z_help(1:nproma), zvn1, zvn2, zu, zv
+    REAL(wp) :: rho_sfc, z_help(1:nproma), zvn1, zvn2, zu, zv, zt00, zh00
     INTEGER  :: jc,je,jk,jb,jt,i_startblk,i_startidx,i_endidx   !< loop indices
     INTEGER  :: nblks_c,npromz_c,nblks_e,npromz_e
-    INTEGER  :: nlev, nlevp1                   !< number of full and half levels
-    INTEGER  :: nlen, i_rcstartlev, jcn, jbn, ist
+    INTEGER  :: nlev, nlevp1                  !< number of full and half levels
+    INTEGER  :: nlen, i_rcstartlev, jcn, jbn, ist, jg, ntropo
 
   !-------------------------------------------------------------------------
 
@@ -138,26 +136,25 @@ MODULE mo_nh_torus_exp
     nlev   = ptr_patch%nlev
     nlevp1 = ptr_patch%nlevp1
 
-    ALLOCATE( vt_geostrophic(nproma,nlev,nblks_e), STAT=ist )
-    IF(ist/=SUCCESS)THEN
-       CALL finish('mo_nh_torus_exp: init_nh_state_cbl:',  &
-        &      ' allocation of geostrophic wind failed!')
-    END IF   
-    vt_geostrophic = 0._wp
+    !patch id
+    jg = ptr_patch%id
 
     !
     i_rcstartlev = 2
     i_startblk   = ptr_patch%cells%start_blk(i_rcstartlev,1)
 
     !Set some reference density
-    IF(set_sst_cbl)THEN
-      rho_sfc = zp0 / (rd * sst_cbl)
+    IF(les_config(jg)%isrfc_type==1)THEN
+      rho_sfc = zp0 / (rd * les_config(jg)%sst)
     ELSE
-      rho_sfc = zp0 / (rd * zt0 )
+      rho_sfc = zp0 / (rd * th_cbl(1) )
     END IF
 
     ! init surface pressure
     ptr_nh_diag%pres_sfc(:,:) = zp0
+
+    ! Tracers: all zero by default
+    ptr_nh_prog%tracer(:,:,:,:) = 0._wp
 
     DO jb = 1, nblks_c
 
@@ -166,67 +163,66 @@ MODULE mo_nh_torus_exp
       ELSE
          nlen = npromz_c
       ENDIF
- 
+
+      !Tracers
+      IF(.NOT.les_config(jg)%is_dry_cbl)THEN
         DO jk = 1, nlev
-         ! init virtual potential temperature
-         ptr_nh_prog%theta_v(1:nlen,jk,jb) = zt0 + &
-                        max(0._wp, (ptr_metrics%z_mc(1:nlen,jk,jb)-zh0)*dtdz)
+          ptr_nh_prog%tracer(1:nlen,jk,jb,iqv) = 0.8_wp * spec_humi(sat_pres_water(th_cbl(1)),zp0) * &
+                    EXP(-ptr_metrics%z_mc(1:nlen,jk,jb)/lambda)
         END DO
+      END IF
 
-        !Get hydrostatic pressure and exner at lowest level
-        ptr_nh_diag%pres(1:nlen,nlev,jb) = zp0 - rho_sfc * ptr_metrics%geopot(1:nlen,nlev,jb)
-        ptr_nh_prog%exner(1:nlen,nlev,jb) = (ptr_nh_diag%pres(1:nlen,nlev,jb)/p0ref)**rd_o_cpd 
+      ntropo = 0
+      DO jk = nlev, 1, -1
+         ! init potential temperature
+         z_help(1:nlen) = th_cbl(1) + max(0._wp, (ptr_metrics%z_mc(1:nlen,jk,jb)-zh0)*th_cbl(2))
 
-        !Get exner at other levels
-        DO jk = nlev-1, 1, -1
-           z_help(1:nlen) = 0.5_wp * ( ptr_nh_prog%theta_v(1:nlen,jk,jb) +  &
-                                       ptr_nh_prog%theta_v(1:nlen,jk+1,jb) )
+         ! constant temperature above tropopause
+         if ((ptr_metrics%z_mc(1,jk,jb) > z_tropo) .and. (ntropo == 0)) then
+            ntropo = 1
+            zt00   = z_help(1)
+            zh00   = ptr_metrics%z_mc(1,jk,jb)
+         endif
+         if (ptr_metrics%z_mc(1,jk,jb) > z_tropo) then
+            z_help(1:nlen) = zt00 + (ptr_metrics%z_mc(1:nlen,jk,jb)-zh00) * dtdz_st
+         endif
+
+         ! virtual potential temperature
+         ptr_nh_prog%theta_v(1:nlen,jk,jb) = z_help(1:nlen) * ( 1._wp + &
+           0.61_wp*ptr_nh_prog%tracer(1:nlen,jk,jb,iqv) - ptr_nh_prog%tracer(1:nlen,jk,jb,iqc) ) 
+      END DO
+
+      !Get hydrostatic pressure and exner at lowest level
+      ptr_nh_diag%pres(1:nlen,nlev,jb)  = zp0 - rho_sfc * ptr_metrics%geopot(1:nlen,nlev,jb)
+      ptr_nh_prog%exner(1:nlen,nlev,jb) = (ptr_nh_diag%pres(1:nlen,nlev,jb)/p0ref)**rd_o_cpd 
+
+      !Get exner at other levels
+      DO jk = nlev-1, 1, -1
+         z_help(1:nlen) = 0.5_wp * ( ptr_nh_prog%theta_v(1:nlen,jk,jb) +  &
+                                     ptr_nh_prog%theta_v(1:nlen,jk+1,jb) )
    
-           ptr_nh_prog%exner(1:nlen,jk,jb) = ptr_nh_prog%exner(1:nlen,jk+1,jb) &
-              &  -grav/cpd*ptr_metrics%ddqz_z_half(1:nlen,jk+1,jb)/z_help(1:nlen)
-        END DO
+         ptr_nh_prog%exner(1:nlen,jk,jb) = ptr_nh_prog%exner(1:nlen,jk+1,jb) &
+            &  -grav/cpd*ptr_metrics%ddqz_z_half(1:nlen,jk+1,jb)/z_help(1:nlen)
+      END DO
 
-        DO jk = 1 , nlev
-           ! rhotheta has to have the same meaning as exner
-           ptr_nh_prog%rhotheta_v(1:nlen,jk,jb) = &
-                (ptr_nh_prog%exner(1:nlen,jk,jb)**cvd_o_rd)*p0ref/rd
+      IF ( jb == 1 ) THEN
+        DO jk = 1,nlev
+          write(*,*) 'CBL case setup: level, exner, theta,v and T: ', jk, &
+            & ptr_nh_prog%exner(1,jk,jb) * ptr_nh_prog%theta_v(1,jk,jb) , &
+            & ptr_nh_prog%exner(1,jk,jb),  ptr_nh_prog%theta_v(1,jk,jb)  
+        ENDDO
+      ENDIF
 
-           ptr_nh_prog%rho(1:nlen,jk,jb) = ptr_nh_prog%rhotheta_v(1:nlen,jk,jb) / &
-                                           ptr_nh_prog%theta_v(1:nlen,jk,jb)     
-        END DO !jk
+      DO jk = 1 , nlev
+         ! rhotheta has to have the same meaning as exner
+         ptr_nh_prog%rhotheta_v(1:nlen,jk,jb) = &
+              (ptr_nh_prog%exner(1:nlen,jk,jb)**cvd_o_rd)*p0ref/rd
+
+         ptr_nh_prog%rho(1:nlen,jk,jb) = ptr_nh_prog%rhotheta_v(1:nlen,jk,jb) / &
+                                         ptr_nh_prog%theta_v(1:nlen,jk,jb)     
+      END DO !jk
 
     ENDDO !jb
-
-    !Set geostrophic wind at cell center and then interpolate to edges in terms of 
-    !tangential velocity components
-    DO jb = 1 , nblks_e
-     CALL get_indices_e( ptr_patch, jb, 1, nblks_e, i_startidx, i_endidx, grf_bdywidth_e+1)
-     DO jk = 1 , nlev 
-      DO je = i_startidx, i_endidx
-
-        !Torus geometry is flat so zu is only function of height which is same for all cells
-        !But it is kept varyign with jc,jb to introduce topography lateron
-        jcn  =   ptr_patch%edges%cell_idx(je,jb,1)
-        jbn  =   ptr_patch%edges%cell_blk(je,jb,1)
-        zu   =  ugeo(1) + ugeo(2) * ptr_metrics%z_mc(jcn,jk,jbn)
-        zv   =  vgeo(1) + vgeo(2) * ptr_metrics%z_mc(jcn,jk,jbn)
-
-        zvn1 =  zu * ptr_patch%edges%dual_normal_cell(je,jb,1)%v1 + &
-                zv * ptr_patch%edges%dual_normal_cell(je,jb,1)%v2      
- 
-        jcn  =   ptr_patch%edges%cell_idx(je,jb,2)
-        jbn  =   ptr_patch%edges%cell_blk(je,jb,2)
-        zu   =  ugeo(1) + ugeo(2) * ptr_metrics%z_mc(jcn,jk,jbn)
-        zv   =  vgeo(1) + vgeo(2) * ptr_metrics%z_mc(jcn,jk,jbn)
-      
-        zvn2 =  zu * ptr_patch%edges%dual_normal_cell(je,jb,2)%v1 + &
-                zv * ptr_patch%edges%dual_normal_cell(je,jb,2)%v2      
-
-        vt_geostrophic(je,jk,jb) = ptr_int%c_lin_e(je,1,jb)*zvn1 + &
-                                   ptr_int%c_lin_e(je,2,jb)*zvn2
-      END DO
-     END DO
-    END DO     
 
 
     !Mean wind 
@@ -239,40 +235,31 @@ MODULE mo_nh_torus_exp
         !But it is kept varyign with jc,jb to introduce topography lateron
         jcn  =   ptr_patch%edges%cell_idx(je,jb,1)
         jbn  =   ptr_patch%edges%cell_blk(je,jb,1)
-        zu   =   umean(1) + umean(2) * ptr_metrics%z_mc(jcn,jk,jbn)
-        zv   =   vmean(1) + vmean(2) * ptr_metrics%z_mc(jcn,jk,jbn)
+        zu   =   u_cbl(1) + u_cbl(2) * ptr_metrics%z_mc(jcn,jk,jbn)
+        zv   =   v_cbl(1) + v_cbl(2) * ptr_metrics%z_mc(jcn,jk,jbn)
 
         zvn1 =  zu * ptr_patch%edges%primal_normal_cell(je,jb,1)%v1 + &
                 zv * ptr_patch%edges%primal_normal_cell(je,jb,1)%v2      
  
         jcn  =   ptr_patch%edges%cell_idx(je,jb,2)
         jbn  =   ptr_patch%edges%cell_blk(je,jb,2)
-        zu   =   umean(1) + umean(2) * ptr_metrics%z_mc(jcn,jk,jbn)
-        zv   =   vmean(1) + vmean(2) * ptr_metrics%z_mc(jcn,jk,jbn)
+        zu   =   u_cbl(1) + u_cbl(2) * ptr_metrics%z_mc(jcn,jk,jbn)
+        zv   =   v_cbl(1) + v_cbl(2) * ptr_metrics%z_mc(jcn,jk,jbn)
       
         zvn2 =  zu * ptr_patch%edges%primal_normal_cell(je,jb,2)%v1 + &
                 zv * ptr_patch%edges%primal_normal_cell(je,jb,2)%v2      
 
         ptr_nh_prog%vn(je,jk,jb) = ptr_int%c_lin_e(je,1,jb)*zvn1 + &
                                    ptr_int%c_lin_e(je,2,jb)*zvn2
+
+        ptr_nh_ref%vn_ref(je,jk,jb) = ptr_nh_prog%vn(je,jk,jb)
       END DO
      END DO
     END DO     
-    ptr_nh_ref%vn_ref = ptr_nh_prog%vn
     
     !W wind and reference
     ptr_nh_prog%w  = 0._wp; ptr_nh_ref%w_ref  = ptr_nh_prog%w
 
-
-    ! Tracers set to 0 for DRY case
-    !fix specific humidity as it was causing trouble in src_turdiff in calculating T_dewpoint
-    IF(is_dry_cbl)THEN 
-      ptr_nh_prog%tracer(:,:,:,iqv)  =  0.0_wp 
-      ptr_nh_prog%tracer(:,:,:,iqc:) =  0.0_wp
-    ELSE
-      CALL finish('mo_nh_torus_exp: init_nh_state_cbl:',  &
-        &      '   moist CBL not implemented yet- Stopping!')
-    END IF 
 
   END SUBROUTINE init_nh_state_cbl
 

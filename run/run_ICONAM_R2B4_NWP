@@ -46,28 +46,28 @@ fi
 #-----------------------------------------------------------------------------
 # setup
 
-EDIR="exp81"                               # working directory
+EDIR="exp05"                               # working directory
 EXPNAME="NWP"                              # experiment identifier
 
 #-----------------------------------------------------------------------------
 # initial time
 
-#inidates=2011010100
+inidates=2011010100
 #inidates=`eval_numlist -d -i 24 2011010100-2011010200`
-inidates=`eval_numlist -d -i 24 2011010100-2011011100`
+#inidates=`eval_numlist -d -i 24 2011010100-2011011100`
 
 #-----------------------------------------------------------------------------
 # to do list (1=true, 0=false)
 
-lmodel=0
+lmodel=1
 ldata=0
 lmeteogram=0
 lecfs=0
 lcpdata=0
 ldelscores=0
 lmetview=0
-lscores=1
-expnum2=81     # experiment number to be used as reference for scores
+lscores=0
+expnum2=05     # experiment number to be used as reference for scores
 
 #-----------------------------------------------------------------------------
 # model timing

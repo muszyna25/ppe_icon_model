@@ -59,6 +59,7 @@ MODULE mo_grid_decomposition
   PUBLIC :: decompose_all_cells, decompose_cluster_all_cells
   PUBLIC :: decompose_file_round_robin_opp
   PUBLIC :: decompose_file_metis, decompose_metis
+  PUBLIC :: redecompose_radiation
   PUBLIC :: inherit_file_decomposition, inherit_decomposition
   PUBLIC :: file_pair_opposite_subdomains, pair_opposite_subdomains
   PUBLIC :: print_decomposition_statistics
@@ -144,6 +145,38 @@ CONTAINS
   !-------------------------------------------------------------------------
 
 
+  !-------------------------------------------------------------------------
+  !>
+  !! Given a decomposition, it re-decomposes in a round_robin way for each subdomain
+  SUBROUTINE redecompose_radiation(grid_file,  &
+    & in_decomposition_id, out_decomposition_id, subdomain_partition, out_ascii_file)
+
+    CHARACTER(LEN=*), INTENT(in) :: grid_file, out_ascii_file
+    INTEGER, INTENT(in)  :: subdomain_partition, in_decomposition_id, out_decomposition_id
+
+    INTEGER :: grid_id
+
+    TYPE(t_decomposition_structure) :: decomposition_struct
+
+    grid_id = read_new_netcdf_grid(grid_file)
+    CALL grid_fill_decomposition_struct(grid_id, decomposition_struct)
+
+    CALL reorder_lonlat_subdomains(decomposition_struct, in_decomposition_id, &
+      & out_decomposition_id)
+
+    CALL decompose_round_robin_opp(decomposition_struct,  &
+      &  in_decomposition_id  = out_decomposition_id,         &
+      &  out_decomposition_id = out_decomposition_id,        &
+      &  subdomain_partition  = subdomain_partition)
+
+    CALL write_netcdf_grid(grid_id)
+    CALL write_ascii_grid_decomposition(grid_id, out_decomposition_id, out_ascii_file)
+
+    CALL delete_grid(grid_id)
+
+  END SUBROUTINE redecompose_radiation
+  !-------------------------------------------------------------------------
+
 
   !-------------------------------------------------------------------------
   !>
@@ -170,7 +203,6 @@ CONTAINS
     CALL write_ascii_grid_decomposition(grid_id, out_decomposition_id, out_ascii_file)
     
     CALL delete_grid(grid_id)
-    
 
   END SUBROUTINE decompose_file_round_robin_opp
   !-------------------------------------------------------------------------

@@ -53,7 +53,7 @@ MODULE mo_td_ext_data
 #ifdef NOMPI
   USE mo_mpi,                 ONLY: my_process_is_mpi_all_seq
 #endif
-  USE mo_util_netcdf,         ONLY: read_netcdf_data, nf
+  USE mo_netcdf_read,         ONLY: read_netcdf_data, nf
   USE mo_datetime,            ONLY: t_datetime, month2hour
   USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, min_rlcell, min_rlcell_int
@@ -93,7 +93,7 @@ CONTAINS
   !!  sea ice cover to the actual (day, month, year) daily mean
   !!
   !! @par Revision History
-  !! Developed  by P. R´ipodas (2012-12)
+  !! Developed  by P. Rï¿½ipodas (2012-12)
   !!
   SUBROUTINE set_actual_td_ext_data (lread, datetime,datetime_old,ext_data_mode,  &
                                   &  p_patch, ext_data, p_lnd_state)

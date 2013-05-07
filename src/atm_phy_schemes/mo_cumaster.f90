@@ -56,6 +56,7 @@
 
 !! @par Revision History
 !! Initial implementation into GME/ICON  by Kristina Froehlich, DWD (2010-05-26)
+!! Added calclation of convective gusts  by Helmut Frank, DWD (2013-03-13)
 !!
 !!
 !! @par Copyright
@@ -143,13 +144,14 @@ CONTAINS
     & ptenq,    ptenl,    pteni,                    &
     & ptens,                                        &
     & ldcum,      ktype , kcbot,    kctop,          &
-  ! &   KBOTSC,   LDSC                       &
+  ! & KBOTSC,   LDSC                                &
+    & LDSHCV,                                       &
     & pmfu,     pmfd,                               &
     & pmfude_rate,        pmfdde_rate,              &
     & ptu,      pqu,      plu,                      &
     & pmflxr,   pmflxs,   prain,                    &
-    & pcape ,    &
-    & ktrac, pcen,     ptenc) 
+    & pcape ,pvddraf,                               &
+    & ktrac, pcen, ptenc) 
 
     !
 
@@ -240,6 +242,7 @@ CONTAINS
     !    *PMFDDE_RATE*  DOWNDRAFT DETRAINMENT RATE                    KG/(M3*S)
     !    *PCAPE*        CONVECTVE AVAILABLE POTENTIAL ENERGY           J/KG
     !    *PWMEAN*       VERTICALLY AVERAGED UPDRAUGHT VELOCITY         M/S
+    !    *pvddraf*      convective gust at surface                     M/S
 
     !     EXTERNALS.
     !     ----------
@@ -379,7 +382,7 @@ CONTAINS
     INTEGER(KIND=jpim),INTENT(inout) :: kctop(klon)
     !!INTEGER(KIND=JPIM),INTENT(OUT)   :: KBOTSC(KLON)
     !LOGICAL           ,INTENT(OUT)   :: LDSC(KLON)
-    !LOGICAL           ,INTENT(IN)    :: LDSHCV(KLON)
+    LOGICAL           ,INTENT(IN)    :: LDSHCV(KLON) 
     REAL(KIND=jprb)   ,INTENT(inout) :: ptu(klon,klev)
     REAL(KIND=jprb)   ,INTENT(inout) :: pqu(klon,klev)
     REAL(KIND=jprb)   ,INTENT(inout) :: plu(klon,klev)
@@ -393,6 +396,8 @@ CONTAINS
     REAL(KIND=jprb)   ,INTENT(inout) :: pmfude_rate(klon,klev)
     REAL(KIND=jprb)   ,INTENT(inout) :: pmfdde_rate(klon,klev)
     REAL(KIND=jprb)   ,INTENT(out)   :: pcape(klon)
+
+    REAL(KIND=jprb)   ,INTENT(out)   :: pvddraf(klon)
 
     !REAL(KIND=JPRB)   ,INTENT(OUT)   :: PWMEAN(KLON)
     !*UPG change to operations
@@ -411,7 +416,8 @@ CONTAINS
       & zmful(klon,klev),       zrfl(klon),&
       & zuu(klon,klev),         zvu(klon,klev),&
       & zud(klon,klev),         zvd(klon,klev),&
-      & zkineu(klon,klev),      zkined(klon,klev)
+      & zkineu(klon,klev),      zkined(klon,klev), &
+      & zvbuo(klon)      
     REAL(KIND=jprb) :: zentr(klon),        &!    zhcbase(klon),&
       & zmfub(klon),            zmfub1(klon),&
       & zdqcv(klon)
@@ -445,6 +451,11 @@ CONTAINS
       & ZUV2(KLON,KLEV), ZSUM12(KLON), ZSUM22(KLON),&
       & zmf_shal(klon)
     
+!   parameters to calculate near-surface gusts produced by convection
+    REAL(KIND=jprb), PARAMETER :: conv_gust_buoy = 0.2_jprb
+    REAL(KIND=jprb), PARAMETER :: conv_gust_v    = 0.0_jprb
+    REAL(KIND=jprb), PARAMETER :: conv_gust_max  = 50.0_jprb ! max. speed of conv. gusts
+
     REAL(KIND=jprb) :: zhook_handle
     REAL(KIND=jprb) :: rtice2, rtmix
     
@@ -472,7 +483,7 @@ CONTAINS
     
     !     0.           Compute Saturation specific humidity
     !                  ------------------------------------
-    
+    pvddraf(:) = 0.0_jprb ! in case that it is not actually calculated !
     ldcum(:)=.FALSE.
     pqsen(:,:)=pqen(:,:)
 
@@ -828,7 +839,7 @@ CONTAINS
         & zdph,     zdgeoh,                  &
         & ztd,      zqd,      pmfu,&
         & pmfd,     zmfds,    zmfdq,    zdmfdp,&
-        & zdmfde,   pmfdde_rate,        zkined )
+        & zdmfde,   pmfdde_rate,        zkined, zvbuo )
 
    ENDIF
 
@@ -1062,6 +1073,19 @@ CONTAINS
         ktype(jl)=0
       ENDIF
     ENDDO
+
+!                  turn off shallow convection if stratocumulus PBL type
+    DO JL=KIDIA,KFDIA
+      LLO2(JL)=.FALSE.
+    !xmk IF((.NOT.LDSHCV(JL) .AND. KTYPE(JL)==2)) THEN
+    !RN added condition: maintain shallow cumulus starting above lowest level (KLEV)
+      IF((.NOT.LDSHCV(JL) .AND. KTYPE(JL)==2 .AND. IDPL(JL)==KLEV)) THEN
+    !xxx
+        LLO2(JL)=.TRUE.
+        LDCUM(JL)=.FALSE.
+      ENDIF
+    ENDDO
+
 
     IF (.NOT.lmfscv .OR. .NOT.lmfpen) THEN
       DO jl=kidia,kfdia
@@ -1405,6 +1429,9 @@ CONTAINS
               zmfdus(jl,jk)=zmfdus(jl,ikb)*zdz
               zud(jl,jk)=puen(jl,ik)+zud(jl,ikb)-puen(jl,ikb-1)
               zvd(jl,jk)=pven(jl,ik)+zvd(jl,ikb)-pven(jl,ikb-1)
+
+              ! calculate downdraft wind speed
+              pvddraf(jl) = zud(jl,jk)**2 + zvd(jl,jk)**2
             ENDIF
             ! add UV perturb to correct wind bias
             IF ( ldcum(jl).AND.jk>=kctop(jl) ) THEN
@@ -1415,6 +1442,13 @@ CONTAINS
         ENDDO
 
       ENDIF
+
+!     Maximum possible convective gust
+      DO jl = kidia, kfdia
+        pvddraf(jl) = SQRT( conv_gust_buoy*MAX( zvbuo(jl),0._jprb)   &
+          &                + conv_gust_v*pvddraf(jl) )
+        pvddraf(jl) = MIN( pvddraf(jl), conv_gust_max)
+      ENDDO
 
       !-------------------------------------------------------------------
       ! End

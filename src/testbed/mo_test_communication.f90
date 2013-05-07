@@ -42,7 +42,6 @@ MODULE mo_test_communication
   USE mo_parallel_config,     ONLY: nproma, icon_comm_method
 
   USE mo_master_control,      ONLY: get_my_process_name, get_my_model_no
-  USE mo_icon_testbed_config, ONLY: testbed_iterations, calculate_iterations
 
   USE mo_model_domain,        ONLY: p_patch
   USE mo_atmo_model,          ONLY: construct_atmo_model, destruct_atmo_model
@@ -63,7 +62,7 @@ MODULE mo_test_communication
     & init_rrtm_model_repart
 
   USE mo_icon_testbed_config, ONLY: testbed_model, test_halo_communication, &
-    & test_radiation_communication
+    & test_radiation_communication, testbed_iterations, calculate_iterations
 
 
 !-------------------------------------------------------------------------
@@ -173,13 +172,14 @@ CONTAINS
     DO i=1,testbed_iterations
       CALL timer_start(timer_radiaton_recv)
       CALL recv_rrtm_input( &
+      ktype       = rrtm_local_data%convection_type,&!< in     type of convection
       zland       = rrtm_local_data%fr_land_smt    ,&  !< in     land fraction
       zglac       = rrtm_local_data%fr_glac_smt    ,&  !< in     land glacier fraction
       cos_mu0     = rrtm_local_data%cosmu0         ,&  !< in  cos of zenith angle mu0
-      alb_vis_dir = rrtm_local_data%albedo_vis_dir ,&  !< in surface albedo for visible range, direct
-      alb_nir_dir = rrtm_local_data%albedo_nir_dir ,&  !< in surface albedo for near IR range, direct
+ !     alb_vis_dir = rrtm_local_data%albedo_vis_dir ,&  !< in surface albedo for visible range, direct
+ !     alb_nir_dir = rrtm_local_data%albedo_nir_dir ,&  !< in surface albedo for near IR range, direct
       alb_vis_dif = rrtm_local_data%albedo_vis_dif ,&  !< in surface albedo for visible range, diffuse
-      alb_nir_dif = rrtm_local_data%albedo_nir_dif ,&  !< in surface albedo for near IR range, diffuse
+ !     alb_nir_dif = rrtm_local_data%albedo_nir_dif ,&  !< in surface albedo for near IR range, diffuse
       emis_rad    = rrtm_local_data%emis_rad       ,&  !< in longwave surface emissivity
       tk_sfc      = rrtm_local_data%tsfctrad       ,&  !< in surface temperature
       pp_hl       = rrtm_local_data%pres_ifc       ,&  !< in  pres at half levels at t-dt [Pa]

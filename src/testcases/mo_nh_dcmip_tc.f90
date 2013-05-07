@@ -5,20 +5,20 @@
 !!
 !!  Given a point specified by: 
 !!
-!!  	longitude (radians) 
-!! 	latitude (radians) 
-!! 	height
+!!          longitude (radians) 
+!!         latitude (radians) 
+!!         height
 !!
 !!  the functions will return:
-!!	u	zonal wind (m s^-1)
-!!	v	meridional wind (m s^-1)
-!!	w	vertical velocity (m s^-1)
-!!	t	temperature (K)
-!!	phis	surface geopotential (m^2 s^-2)
-!!	ps	surface pressure (Pa)
-!!	rho	density (kj m^-3)
-!!	q	specific humidity (kg/kg)
-!!	qi	tracers (kg/kg)
+!!        u        zonal wind (m s^-1)
+!!        v        meridional wind (m s^-1)
+!!        w        vertical velocity (m s^-1)
+!!        t        temperature (K)
+!!        phis        surface geopotential (m^2 s^-2)
+!!        ps        surface pressure (Pa)
+!!        rho        density (kj m^-3)
+!!        q        specific humidity (kg/kg)
+!!        qi        tracers (kg/kg)
 !!      p       pressure (Pa)  
 !!
 !!  Initial data are currently identical to:

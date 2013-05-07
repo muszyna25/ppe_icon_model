@@ -54,9 +54,10 @@ MODULE mo_rrtm_data_interface
   USE mo_parallel_config,     ONLY: parallel_radiation_mode, radiation_division_file_name, &
     & nproma, division_method, ext_div_medial_redrad, ext_div_medial_redrad_cluster,       &
     & div_from_file, use_icon_comm
-  USE mo_mpi,                 ONLY: my_process_is_mpi_seq, my_process_is_mpi_workroot,         &
+  USE mo_mpi,                 ONLY: my_process_is_mpi_seq, get_my_mpi_work_communicator,       &
     & num_work_procs, get_my_mpi_work_id, get_my_mpi_work_comm_size, get_mpi_all_workroot_id,  &
-    & get_my_mpi_work_communicator, p_bcast
+    & p_bcast
+   
   USE mo_icon_comm_lib,       ONLY: new_icon_comm_pattern, inverse_of_icon_comm_pattern,   &
     & print_grid_comm_pattern, new_icon_comm_variable, is_ready, until_sync, icon_comm_sync_all, &
     & print_grid_comm_stats
@@ -104,7 +105,8 @@ MODULE mo_rrtm_data_interface
     ! INPUT
     REAL(wp)              :: p_sim_time
     
-    INTEGER, POINTER  :: convection_type(:,:)     ! always zero
+    INTEGER, POINTER  :: convection_type(:,:)    
+    REAL(wp), POINTER  :: recv_convection_type(:,:), send_convection_type(:,:) ! this is for communication
     
     REAL(wp), POINTER ::  fr_land_smt(:,:)   !< fraction land in a grid element        [ ]
                                                          !  = smoothed fr_land
@@ -355,7 +357,6 @@ CONTAINS
     
     CALL allocate_rrtm_model_data(rrtm_data)
 
-    rrtm_data%convection_type(:,:) = 0 ! this is always 0 and will not ber communicated
       
   END SUBROUTINE init_rrtm_data
   !-----------------------------------------
@@ -378,6 +379,8 @@ CONTAINS
     !------------------------------------------
     ALLOCATE( &
       & rrtm_data%convection_type(block_size,            no_of_blocks),   &
+      & rrtm_data%recv_convection_type(block_size,       no_of_blocks),   &
+      & rrtm_data%send_convection_type(block_size,       no_of_blocks),   &
       & rrtm_data%fr_land_smt    (block_size,            no_of_blocks),   &
       & rrtm_data%fr_glac_smt    (block_size,            no_of_blocks),   &
       & rrtm_data%cosmu0         (block_size,            no_of_blocks),   &
@@ -412,7 +415,9 @@ CONTAINS
       CALL finish ("allocate_rrtm_model_data",'failed')
     ENDIF
 
-    rrtm_data%convection_type = 0.0_wp
+    rrtm_data%convection_type = 0
+    rrtm_data%recv_convection_type = 0.0_wp
+    rrtm_data%send_convection_type = 0.0_wp
     rrtm_data%fr_land_smt     = 0.0_wp
     rrtm_data%fr_glac_smt     = 0.0_wp
     rrtm_data%cosmu0          = 0.0_wp
@@ -475,6 +480,8 @@ CONTAINS
     !------------------------------------------
     DEALLOCATE( &
       & rrtm_data%convection_type,   &
+      & rrtm_data%recv_convection_type, &
+      & rrtm_data%send_convection_type, &
       & rrtm_data%fr_land_smt    ,   &
       & rrtm_data%fr_glac_smt    ,   &
       & rrtm_data%cosmu0         ,   &
@@ -509,13 +516,14 @@ CONTAINS
 
   !-----------------------------------------------------------
   SUBROUTINE recv_rrtm_input( &
+    & ktype      ,&!< in     type of convection
     & zland      ,&!< in     land fraction
     & zglac      ,&!< in     land glacier fraction
     & cos_mu0    ,&!< in  cos of zenith angle mu0
-    & alb_vis_dir,&!< in surface albedo for visible range, direct
-    & alb_nir_dir,&!< in surface albedo for near IR range, direct
+!    & alb_vis_dir,&!< in surface albedo for visible range, direct
+!    & alb_nir_dir,&!< in surface albedo for near IR range, direct
     & alb_vis_dif,&!< in surface albedo for visible range, diffuse
-    & alb_nir_dif,&!< in surface albedo for near IR range, diffuse
+!    & alb_nir_dif,&!< in surface albedo for near IR range, diffuse
     & emis_rad   ,&!< in longwave surface emissivity
     & tk_sfc     ,&!< in surface temperature
     & pp_hl      ,&!< in  pres at half levels at t-dt [Pa]
@@ -535,16 +543,17 @@ CONTAINS
     & patch      ,&!< in
     & rrtm_data)   !< pointer out
     
+    INTEGER,  TARGET ::  ktype(:,:)   !< type of convection    [ ]
     REAL(wp), TARGET ::  zland(:,:)   !< fraction land in a grid element        [ ]
                                                         !  = smoothed fr_land
     REAL(wp), TARGET ::  zglac(:,:)   !< fraction land glacier in a grid element [ ]
                                                         ! = smoothed fr_glac
     REAL(wp), TARGET ::  cos_mu0(:,:)        ! cosine of solar zenith angle
 
-    REAL(wp), TARGET ::  alb_vis_dir(:,:) ! surface albedo for visible and near IR range, direct
-    REAL(wp), TARGET ::  alb_nir_dir(:,:) ! surface albedo for visible and near IR range, direct
-    REAL(wp), TARGET ::  alb_nir_dif(:,:) !< in surface albedo for visible range, diffuse
+!    REAL(wp), TARGET ::  alb_vis_dir(:,:) ! surface albedo for visible and near IR range, direct
     REAL(wp), TARGET ::  alb_vis_dif(:,:) !< in surface albedo for visible range, diffuse
+!    REAL(wp), TARGET ::  alb_nir_dir(:,:) ! surface albedo for visible and near IR range, direct
+!    REAL(wp), TARGET ::  alb_nir_dif(:,:) !< in surface albedo for visible range, diffuse
 
     REAL(wp), TARGET ::  emis_rad(:,:)      ! lw sfc emissivity
     REAL(wp), TARGET ::  tk_sfc(:,:)      ! surface temperature at trad [K]
@@ -572,6 +581,7 @@ CONTAINS
 
     INTEGER :: recv_comm_pattern
     INTEGER :: recv_fr_land_smt
+    INTEGER :: recv_convection_type
     INTEGER :: recv_tmp
     CHARACTER(*), PARAMETER :: method_name = "recv_rrtm_input"
 
@@ -581,6 +591,15 @@ CONTAINS
     rrtm_data => rrtm_model_data_array(patch%id)
     recv_comm_pattern = rrtm_data%radiation_recv_comm_pattern
    !-----------------------------------
+    rrtm_data%send_convection_type(:,:) = REAL(ktype(:,:),wp)
+    recv_convection_type = new_icon_comm_variable ( &
+      & recv_var = rrtm_data%recv_convection_type, &
+      & send_var = rrtm_data%send_convection_type, &
+      & comm_pattern_index = recv_comm_pattern, &
+      & status   = is_ready,                    &
+      & scope    = until_sync,                  &
+      & name     = "conv_type" )
+    rrtm_data%convection_type(:,:) = NINT(rrtm_data%recv_convection_type(:,:))
    
     recv_fr_land_smt = new_icon_comm_variable ( &
       & recv_var = rrtm_data%fr_land_smt, &
@@ -607,21 +626,21 @@ CONTAINS
       &  name     = "tmp" )
 ! 
     
-    recv_tmp      = new_icon_comm_variable ( &
-      &  recv_var = rrtm_data%albedo_vis_dir, &
-      &  send_var = alb_vis_dir,                    &
-      &  comm_pattern_index = recv_comm_pattern,    &
-      &  status   = is_ready,                       &
-      &  scope    = until_sync,                     &
-      &  name     = "tmp" )
+!     recv_tmp      = new_icon_comm_variable ( &
+!       &  recv_var = rrtm_data%albedo_vis_dir, &
+!       &  send_var = alb_vis_dir,                    &
+!       &  comm_pattern_index = recv_comm_pattern,    &
+!       &  status   = is_ready,                       &
+!       &  scope    = until_sync,                     &
+!       &  name     = "tmp" )
           
-    recv_tmp      = new_icon_comm_variable ( &
-      &  recv_var = rrtm_data%albedo_nir_dir, &
-      &  send_var = alb_nir_dir,                    &
-      &  comm_pattern_index = recv_comm_pattern,    &
-      &  status   = is_ready,                       &
-      &  scope    = until_sync,                     &
-      &  name     = "tmp" )
+!     recv_tmp      = new_icon_comm_variable ( &
+!       &  recv_var = rrtm_data%albedo_nir_dir, &
+!       &  send_var = alb_nir_dir,                    &
+!       &  comm_pattern_index = recv_comm_pattern,    &
+!       &  status   = is_ready,                       &
+!       &  scope    = until_sync,                     &
+!       &  name     = "tmp" )
       
          
     recv_tmp      = new_icon_comm_variable ( &
@@ -632,13 +651,13 @@ CONTAINS
       &  scope    = until_sync,                     &
       &  name     = "tmp" )
           
-    recv_tmp      = new_icon_comm_variable ( &
-      &  recv_var = rrtm_data%albedo_nir_dif, &
-      &  send_var = alb_nir_dif,                    &
-      &  comm_pattern_index = recv_comm_pattern,    &
-      &  status   = is_ready,                       &
-      &  scope    = until_sync,                     &
-      &  name     = "tmp" )
+!     recv_tmp      = new_icon_comm_variable ( &
+!       &  recv_var = rrtm_data%albedo_nir_dif, &
+!       &  send_var = alb_nir_dif,                    &
+!       &  comm_pattern_index = recv_comm_pattern,    &
+!       &  status   = is_ready,                       &
+!       &  scope    = until_sync,                     &
+!       &  name     = "tmp" )
 ! 
     recv_tmp      = new_icon_comm_variable ( &
       &  recv_var = rrtm_data%emis_rad      , &

@@ -78,6 +78,7 @@ MODULE mo_convect_tables
   ! subroutines public
 
   PUBLIC :: compute_qsat
+  PUBLIC :: compute_qsat_amip
   PUBLIC :: init_convect_tables ! initialize LUTs
   PUBLIC :: lookuperror         ! error handling routine
   PUBLIC :: prepare_ua_index_spline
@@ -86,6 +87,7 @@ MODULE mo_convect_tables
   PUBLIC :: lookup_ua_eor_uaw_spline
 
   PUBLIC :: lookup_ua_list_spline
+  PUBLIC :: lookup_ua_list_spline_2
   PUBLIC :: lookup_uaw_list_spline
 
   PUBLIC :: prepare_ua_index
@@ -992,6 +994,41 @@ CONTAINS
 
   END SUBROUTINE lookup_ua_list_spline
 
+  SUBROUTINE lookup_ua_list_spline_2(name, size, kidx, list, temp, ua, dua)
+    CHARACTER(len=*),   INTENT(in)  :: name
+    INTEGER,            INTENT(in)  :: size, kidx
+    INTEGER,            INTENT(in)  :: list(kidx)
+    REAL(wp),           INTENT(in)  :: temp(size)
+    REAL(wp), OPTIONAL, INTENT(out) :: ua(size), dua(size)
+ 
+    INTEGER :: idx(size)
+    REAL(wp) :: zalpha(size)
+
+    REAL(wp) :: ztt, ztshft, zinbounds, ztmax, ztmin
+    INTEGER :: nl, jl
+
+    zinbounds = 1.0_wp
+    ztmin = flucupmin
+    ztmax = flucupmax
+
+    ! first compute all lookup indices and check if they are all within allowed bounds
+
+!IBM* ASSERT(NODEPS)
+    DO nl = 1, kidx
+      jl = list(nl)
+      ztshft = FSEL(tmelt-temp(jl),1.0_wp,0.0_wp)
+! TODO: original code ztt = rsdeltat*temp(jl) and rsdeltat=40._wp
+      ztt = 20._wp*temp(jl)
+      zalpha(nl) = ztt - AINT(ztt)
+      idx(nl) = INT(ztt-ztshft)
+      zinbounds = FSEL(ztmin-ztt,0.0_wp,zinbounds)
+      zinbounds = FSEL(ztt-ztmax,0.0_wp,zinbounds)
+    END DO
+    ! if one index was out of bounds -> print error and exit
+    IF (zinbounds == 0.0_wp) CALL lookuperror(name)
+    CALL fetch_ua_spline(kidx, idx, zalpha, tlucu, ua, dua)
+
+  END SUBROUTINE lookup_ua_list_spline_2
 
   SUBROUTINE lookup_ua_list(name,size,kidx,list,temp,ua,dua)
 
@@ -1162,9 +1199,44 @@ CONTAINS
       pqs(jc) = zes/(1._wp-vtmpc1*zes)
     ENDDO
 
-    IF (lookupoverflow) CALL lookuperror ('aqua_surface')
+    IF (lookupoverflow) CALL lookuperror ('compute_qsat')
 
   END SUBROUTINE compute_qsat
   !-------------
+  !>
+  !! Compute saturation specific humidity
+  !! from the given temperature and pressure.
+  !!
+  SUBROUTINE compute_qsat_amip( kbdim, is, loidx, ppsfc, ptsfc, pqs )
+
+    INTEGER, INTENT(IN)  :: kbdim, is
+    INTEGER ,INTENT(IN)  :: loidx(kbdim)!<
+    REAL(wp),INTENT(IN)  :: ppsfc (kbdim)   !< surface pressure
+    REAL(wp),INTENT(IN)  :: ptsfc (kbdim)   !< SST
+    REAL(wp),INTENT(INOUT) :: pqs   (kbdim)   !< saturation specific humidity
+
+    INTEGER  :: jc, jl      !< column index
+    REAL(wp) :: zes         !< (saturation vapour pressure)*Rd/Rv/ps
+    REAL(wp) :: zpap, zcor
+    REAL(wp) :: ua(kbdim)
+
+    !-----
+    lookupoverflow = .FALSE.
+
+      CALL lookup_ua_list_spline_2('compute_qsat',kbdim,is,loidx(1), ptsfc(1), ua(1))
+!
+    DO jc = 1,is
+      jl = loidx(jc)
+      zpap    = 1._wp/ppsfc(jl)
+      zes     = ua(jc)*zpap
+      zcor    = 1._wp/(1._wp-vtmpc1*zes)
+      pqs(jl) = zes*zcor
+    ENDDO
+!
+    IF (lookupoverflow) CALL lookuperror ('compute_qsat_amip')
+
+  END SUBROUTINE compute_qsat_amip
+  !-------------
+
 
 END MODULE mo_convect_tables

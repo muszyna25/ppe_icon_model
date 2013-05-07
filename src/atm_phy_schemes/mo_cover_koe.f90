@@ -65,6 +65,7 @@ MODULE mo_cover_koe
 
   USE mo_cover_cosmo,        ONLY: cover_cosmo
 
+
   IMPLICIT NONE
 
   PRIVATE
@@ -99,6 +100,7 @@ CONTAINS
 SUBROUTINE cover_koe( &
   & kidia, kfdia, klon, kstart, klev, & ! in:    dimensions (turn off physics above kstart)
   & icldscheme                      , & ! in:    cloud cover framework
+  & inwp_turb                       , & ! in:    turbulence scheme number
   & tt                              , & ! in:    temperature (main levels)
   & pp                              , & ! in:    pressure (")
   & ps                              , & ! in:    surface pressure
@@ -110,7 +112,7 @@ SUBROUTINE cover_koe( &
   & ldcum, kcbot, kctop             , & ! in:    convection: on/off, bottom, top
   & pmfude_rate                     , & ! in:    convection: updraft detrainment rate
   & plu                             , & ! in:    convection: updraft condensate 
-  & qv, qc, qi                      , & ! inout: prognostic cloud variables
+  & qv, qc, qi, qtvar               , & ! inout: prognostic cloud variables
   & cc_tot, qv_tot, qc_tot, qi_tot )    ! out:   cloud output diagnostic
 
 
@@ -125,7 +127,8 @@ INTEGER(KIND=i4), INTENT(IN) ::  &
   & klev                 ! vertical dimension
 
 INTEGER(KIND=i4), INTENT(IN) ::  &
-  & icldscheme           ! cloud cover framework: see option above
+  & icldscheme       , & ! cloud cover framework: see option above
+  & inwp_turb            ! turbulence scheme number
 
 REAL(KIND=wp), DIMENSION(klon,klev), INTENT(IN) ::  &
   & pp               , & ! full pressure                                 (  Pa )
@@ -136,7 +139,8 @@ REAL(KIND=wp), DIMENSION(klon,klev), INTENT(IN) ::  &
   & tt               , & ! temperature                                   (  K  )
   & qv               , & ! specific water vapor content                  (kg/kg)
   & qc               , & ! specific cloud water content                  (kg/kg)
-  & qi                   ! specific cloud ice   content                  (kg/kg)
+  & qi               , & ! specific cloud ice   content                  (kg/kg)
+  & qtvar                ! total water variance (qt'2)                   (kg2/kg2)
 
 REAL(KIND=wp), DIMENSION(klon), INTENT(IN) ::  &
   & ps               , & ! surface pressure
@@ -329,13 +333,36 @@ CASE( 1 )
      !qc_conv(jl,jk) = 0.0_wp
      !qi_conv(jl,jk) = 0.0_wp
 
-! combination strat/conv cloud
-      cc_tot(jl,jk)  = max( cc_turb(jl,jk), cc_conv(jl,jk) )
-      qc_tot(jl,jk)  = max( qc_turb(jl,jk), qc_conv(jl,jk) )
-      qi_tot(jl,jk)  = max( qi_turb(jl,jk), qi_conv(jl,jk) )
 
     ENDDO
   ENDDO
+
+  IF (inwp_turb == 3) THEN
+    DO jk = kstart,klev
+      DO jl = kidia,kfdia
+        IF (sqrt(qtvar(jl,jk)) / (MAX((qv(jl,jk)+qc(jl,jk)+qi(jl,jk)),0.000001_wp)) > 0.01_wp) THEN
+! for EDMF DUALM: take values written within EDMF - only done within high qtvar grid points
+          cc_tot(jl,jk) = cc_tot(jl,jk)
+          qc_tot(jl,jk) = qc_tot(jl,jk)
+          qi_tot(jl,jk) = qi_tot(jl,jk)
+        ELSE 
+! combination strat/conv cloud
+          cc_tot(jl,jk)  = max( cc_turb(jl,jk), cc_conv(jl,jk) )
+          qc_tot(jl,jk)  = max( qc_turb(jl,jk), qc_conv(jl,jk) )
+          qi_tot(jl,jk)  = max( qi_turb(jl,jk), qi_conv(jl,jk) )
+        ENDIF
+      ENDDO
+    ENDDO
+  ELSE ! use always combination of strat/conv cloud
+    DO jk = kstart,klev
+      DO jl = kidia,kfdia
+        cc_tot(jl,jk)  = max( cc_turb(jl,jk), cc_conv(jl,jk) )
+        qc_tot(jl,jk)  = max( qc_turb(jl,jk), qc_conv(jl,jk) )
+        qi_tot(jl,jk)  = max( qi_turb(jl,jk), qi_conv(jl,jk) )
+      ENDDO
+    ENDDO
+  ENDIF
+
 
 !-----------------------------------------------------------------------
 
@@ -436,23 +463,46 @@ END SELECT
 DO jk = kstart,klev
   DO jl = kidia,kfdia
     qv_tot(jl,jk) = qv(jl,jk) + qc(jl,jk) + qi(jl,jk) - qc_tot(jl,jk) - qi_tot(jl,jk)
-    zf_ice = 1.0_wp - MIN( 1.0_wp, MAX( 0.0_wp, (tt(jl,jk)-zt_ice2) / (zt_ice1-zt_ice2) ) )
+   !zf_ice = 1.0_wp - MIN( 1.0_wp, MAX( 0.0_wp, (tt(jl,jk)-zt_ice2) / (zt_ice1-zt_ice2) ) )
+    IF ( (qc_tot(jl,jk)+qi_tot(jl,jk)) > 0.0_wp ) THEN
+      zf_ice = MIN( 1.0_wp, MAX( 0.0_wp, qi_tot(jl,jk) / (qc_tot(jl,jk)+qi_tot(jl,jk)) ) )
+    ELSE
+      zf_ice = 0.0_wp
+    ENDIF
 
-! sanity checks 1: qv_tot < 1.1 q,sat,liq (to allow for small qc_tot diagnostic)
+! sanity check 1: qv_tot < 1.1 q,sat,liq (to allow for small qc_tot diagnostic)
     IF (qv_tot(jl,jk) .GT. 1.1_wp * zqlsat(jl,jk) ) THEN
       qc_tot(jl,jk) = qc_tot(jl,jk) + ( qv_tot(jl,jk) - 1.1_wp * zqlsat (jl,jk) ) *(1.0_wp-zf_ice)
       qi_tot(jl,jk) = qi_tot(jl,jk) + ( qv_tot(jl,jk) - 1.1_wp * zqlsat (jl,jk) ) * zf_ice
       qv_tot(jl,jk) = 1.1_wp * zqlsat (jl,jk)
     ENDIF
 
-! sanity checks 2: qv_tot > 0.1 qv (take qc, qi if available)
+! sanity check 2: qv_tot > 0.1 qv (take qc, qi if available)
     IF ( qv_tot(jl,jk) .LT. 0.1_wp * qv(jl,jk)                                             .AND. &
-     &   qc_tot(jl,jk) + (qv_tot(jl,jk) - 0.1_wp*qv(jl,jk)) * (1.0_wp-zf_ice) .GT. 0.0_wp  .AND. &
-     &   qi_tot(jl,jk) + (qv_tot(jl,jk) - 0.1_wp*qv(jl,jk)) * zf_ice          .GT. 0.0_wp ) THEN
+     &   qc_tot(jl,jk) + (qv_tot(jl,jk) - 0.1_wp*qv(jl,jk)) * (1.0_wp-zf_ice) .GE. 0.0_wp  .AND. &
+     &   qi_tot(jl,jk) + (qv_tot(jl,jk) - 0.1_wp*qv(jl,jk)) * zf_ice          .GE. 0.0_wp ) THEN
       qc_tot(jl,jk) = qc_tot(jl,jk) + ( qv_tot(jl,jk) - 0.1_wp * qv(jl,jk) ) * (1.0_wp - zf_ice)
       qi_tot(jl,jk) = qi_tot(jl,jk) + ( qv_tot(jl,jk) - 0.1_wp * qv(jl,jk) ) * zf_ice
       qv_tot(jl,jk) = 0.1_wp * qv(jl,jk)
     ENDIF
+
+! sanity check 3: cc > 0 if little cloud
+    IF ( qv_tot(jl,jk) + qc_tot(jl,jk) + qi_tot(jl,jk) .LT. 0.00000001_wp ) THEN
+      qv_tot(jl,jk) = qv_tot(jl,jk) + qc_tot(jl,jk) + qi_tot(jl,jk)
+      qc_tot(jl,jk) = 0.0_wp
+      qi_tot(jl,jk) = 0.0_wp
+      cc_tot(jl,jk) = 0.0_wp
+    ENDIF
+
+!debug
+!IF ( (cc_tot(jl,jk) > 1.0) .OR. (cc_tot(jl,jk) < 0.0)  .OR. &
+!  &  (qv_tot(jl,jk) > 1.0) .OR. (qv_tot(jl,jk) < 0.0)  .OR. &
+!  &  (qc_tot(jl,jk) > 1.0) .OR. (qc_tot(jl,jk) < 0.0)  .OR. &
+!  &  (qi_tot(jl,jk) > 1.0) .OR. (qi_tot(jl,jk) < 0.0) ) THEN
+!  write(*,*) 'cover_koe1: ', jk, t_g(jl), &
+!    & qv_tot(jl,jk), qc_tot(jl,jk), qi_tot(jl,jk), cc_tot(jl,jk), qtvar(jl,jk)
+!ENDIF
+!xxxxx
 
   ENDDO
 ENDDO

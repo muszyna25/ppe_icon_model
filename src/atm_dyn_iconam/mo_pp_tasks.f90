@@ -49,7 +49,7 @@ MODULE mo_pp_tasks
     & TASK_INTP_HOR_LONLAT, TASK_INTP_VER_PLEV, TASK_INTP_SYNC,       &
     & TASK_COMPUTE_RH, TASK_INTP_VER_ZLEV, TASK_INTP_VER_ILEV,        &
     & PRES_MSL_METHOD_SAI, PRES_MSL_METHOD_GME, max_dom,              &
-    & HINTP_TYPE_LONLAT_NNB, ALL_TIMELEVELS
+    & HINTP_TYPE_LONLAT_NNB, ALL_TIMELEVELS, PRES_MSL_METHOD_IFS
   USE mo_model_domain,            ONLY: t_patch, p_patch
   USE mo_var_list_element,        ONLY: t_var_list_element, level_type_ml,  &
     &                                   level_type_pl, level_type_hl
@@ -64,7 +64,8 @@ MODULE mo_pp_tasks
     &                                   prepare_vert_interp_i,              &
     &                                   lin_intp, uv_intp, qv_intp,         &
     &                                   diagnose_pmsl, diagnose_pmsl_gme,   &
-    &                                   prepare_extrap
+    &                                   prepare_extrap, prepare_extrap_ifspp,&
+    &                                   diagnose_pmsl_ifs
   USE mo_nonhydro_types,          ONLY: t_nh_state, t_nh_prog, t_nh_diag,   &
     &                                   t_nh_metrics
   USE mo_nonhydro_state,          ONLY: p_nh_state
@@ -869,6 +870,21 @@ CONTAINS
         &                    p_metrics%z_ifc,                           &  ! in
         &                    pmsl_aux(:,1,:),                           &  ! out
         &                    nblks_c, npromz_c, p_patch%nlev )             ! in
+
+    CASE (PRES_MSL_METHOD_IFS) ! IFS extrapolation method
+
+      IF (dbg_level >= 10)  CALL message(routine, "PRES_MSL_METHOD_IFS")
+      CALL vcoeff_allocate(nblks_c, nblks_e, NZLEV, vcoeff)
+      ! compute extrapolation coefficients:
+      CALL prepare_extrap_ifspp(p_metrics%z_ifc, p_metrics%z_mc,              & !in
+        &                 nblks_c, npromz_c, nlev,                            & !in
+        &                 vcoeff%lin_cell%kpbl1, vcoeff%lin_cell%wfacpbl1)      !out
+      ! Interpolate pressure on z-level "0":
+      CALL diagnose_pmsl_ifs(p_diag%pres_sfc, p_diag%temp, p_metrics%z_ifc, &  ! in
+        &                    pmsl_aux(:,1,:),                               &  ! out
+        &                    nblks_c, npromz_c, p_patch%nlev,               &  ! in
+        &                    vcoeff%lin_cell%wfacpbl1, vcoeff%lin_cell%kpbl1 ) ! in
+      CALL vcoeff_deallocate(vcoeff)
 
     CASE DEFAULT
       CALL finish(routine, 'Internal error!')

@@ -79,8 +79,8 @@ MODULE mo_io_nml
                                  & config_lwrite_dblprec          => lwrite_dblprec         , &
                                  & config_lwrite_decomposition    => lwrite_decomposition   , &
                                  & config_itype_pres_msl          => itype_pres_msl         , &
-                                 & config_varnames_map_file       => varnames_map_file      , &
-                                 & config_out_varnames_map_file   => out_varnames_map_file
+                                 & config_output_nml_dict         => output_nml_dict        , &
+                                 & config_netcdf_dict             => netcdf_dict
 
   USE mo_exception,        ONLY: message, message_text, finish
   USE mo_parallel_config,  ONLY: nproma
@@ -130,8 +130,8 @@ MODULE mo_io_nml
   INTEGER :: itype_pres_msl             ! Specifies method for computation of mean sea level pressure
 
   CHARACTER(LEN=filename_max) :: &
-    &        varnames_map_file,   &     !< maps variable names onto the internal ICON names.
-    &        out_varnames_map_file      !< maps internal variable names onto names in output file (NetCDF only).
+    &        output_nml_dict,    &     !< maps variable names onto the internal ICON names.
+    &        netcdf_dict               !< maps internal variable names onto names in output file (NetCDF only).
 
   NAMELIST/io_nml/ out_expname, out_filetype, lkeep_in_sync,             &
     &              dt_data, dt_diag, dt_file, dt_checkpoint,             &
@@ -142,7 +142,7 @@ MODULE mo_io_nml
     &              lwrite_cloud, lwrite_tke, lwrite_surface,             &
     &              lwrite_extra, inextra_2d, inextra_3d,                 &
     &              lflux_avg, lwrite_oce_timestepping, itype_pres_msl,   &
-    &              varnames_map_file, out_varnames_map_file
+    &              output_nml_dict, netcdf_dict
   
 CONTAINS
   !>
@@ -199,8 +199,8 @@ CONTAINS
     lflux_avg               = .TRUE.
     lwrite_oce_timestepping = .FALSE.
     itype_pres_msl          = PRES_MSL_METHOD_GME
-    varnames_map_file       = ' '
-    out_varnames_map_file   = ' '
+    output_nml_dict         = ' '
+    netcdf_dict             = ' '
 
     !------------------------------------------------------------------
     ! 2. If this is a resumed integration, overwrite the defaults above
@@ -255,8 +255,8 @@ CONTAINS
     config_lwrite_decomposition    = lwrite_decomposition
     config_lwrite_oce_timestepping = lwrite_oce_timestepping
     config_itype_pres_msl          = itype_pres_msl
-    config_varnames_map_file       = varnames_map_file
-    config_out_varnames_map_file   = out_varnames_map_file
+    config_output_nml_dict         = output_nml_dict
+    config_netcdf_dict             = netcdf_dict
 
     !-----------------------------------------------------
     ! 5. Store the namelist for restart

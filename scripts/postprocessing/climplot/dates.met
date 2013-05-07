@@ -34,6 +34,7 @@ if (interactive=0) then
     flen    = args[1]
     initime = args[2]
     plot_opt= args[3]
+    dayl    = args[4] #length of day=24 but shorter for small planet
 else
 #
 # test only
@@ -42,7 +43,9 @@ else
 #   initime = '20001001/20001002/20001003/20010401/20010402/20010403'
     initime = '20001001/20001002/20001003'
     plot_opt= 101 # mon/seas/total
+    dayl=24
 end if
+#dayl=24
 
 plot_mon=0
 plot_seas=0
@@ -129,7 +132,7 @@ for iloop=1 to nloop do
     #
 
     date1=date(inidate[iloop,nens[iloop]]+100)
-    date2=date(inidate[iloop,1]-100)+flen/24
+    date2=date(inidate[iloop,1]-100)+flen/dayl
 
     iyy=year(date1)
     yy2=year(date2)

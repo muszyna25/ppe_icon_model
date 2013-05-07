@@ -94,7 +94,9 @@ SUBROUTINE VDFMAIN ( CDCONF , &
  & , tch_ex, tcm_ex, tfv_ex                                             & !inout
  & , sobs_ex, thbs_ex, pabs_ex                                          & !in
  & , runoff_s_ex, runoff_g_ex                                           & !inout
- & , t_g, qv_s                                                          ) ! -
+ & , t_g, qv_s                                                          & ! -
+ & , t_ice, h_ice, t_snow_si, h_snow_si                                 & ! -
+ & , fr_seaice                                                          ) ! -
 !***
 
 !**   *VDFMAIN* - DOES THE VERTICAL EXCHANGE OF U,V,SLG,QT BY TURBULENCE.
@@ -401,9 +403,11 @@ USE mo_edmf_param   ,ONLY : &
                 & LVDFTRAC ,&                                         !yoephy 
                 & N_SEKF_PT          ,LUSEKF_REF         ,LUSE_JATM,& !yomsekf
                 & N_VMASS  ,&                                         !yomjfh
-                & FOEALFA                                             !fcttre.f
+                & FOEALFA  ,&                                         !fcttre.f
+                & ntiles_edmf
 USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
-USE mo_lnd_nwp_config,ONLY: nlev_soil, nlev_snow, ntiles_total
+USE mo_lnd_nwp_config,ONLY: nlev_soil, nlev_snow, ntiles_total, ntiles_water, &
+                            isub_water, isub_seaice
 USE mo_ext_data_types,ONLY: t_external_data
 
 USE mo_vdfdpbl      ,ONLY : vdfdpbl
@@ -558,36 +562,42 @@ LOGICAL           ,INTENT(IN)    :: LLDIAG
 
 ! TERRA data
 
-INTEGER          ,INTENT(IN)                                                 :: &
+INTEGER          ,INTENT(IN)                                               :: &
   jb             ,jg                 
-REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,0:nlev_snow,ntiles_total)   :: &
+REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,0:nlev_snow,ntiles_total) :: &
   t_snow_mult_ex 
-REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,nlev_snow,ntiles_total)     :: &
+REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,nlev_snow,ntiles_total)   :: &
   rho_snow_mult_ex  
-REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,ntiles_total)               :: &
-  t_snow_ex      ,t_s_ex         ,t_g_ex         ,qv_s_ex          ,            & 
+REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,ntiles_total+ntiles_water):: &
+  t_g_ex         ,qv_s_ex  
+REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,ntiles_total)             :: &
+  t_snow_ex      ,t_s_ex         ,                                            & 
   w_snow_ex      ,w_snow_eff_ex  ,rho_snow_ex    ,h_snow_ex        ,w_i_ex
-REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,0:nlev_soil,ntiles_total)   :: &
+REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,0:nlev_soil,ntiles_total) :: &
   t_so_ex             
-REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,nlev_soil,ntiles_total)     :: &
+REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,nlev_soil,ntiles_total)   :: &
   w_so_ex        ,w_so_ice_ex          
-!REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON)                           :: &
-!  t_2m_ex        ,u_10m_ex       ,v_10m_ex             
-REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,ntiles_total)               :: &
-  freshsnow_ex   ,snowfrac_lc_ex ,snowfrac_ex
-REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,nlev_snow,ntiles_total)     :: &
+!REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON)                         :: &
+! u_10m_ex       ,v_10m_ex             
+REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,ntiles_total)             :: &
+  freshsnow_ex   ,snowfrac_lc_ex ,snowfrac_ex 
+REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,nlev_snow,ntiles_total)   :: &
   wliq_snow_ex   ,wtot_snow_ex   ,dzh_snow_ex          
-REAL(KIND=JPRB)  ,INTENT(IN)     ,DIMENSION(KLON)                            :: &
+REAL(KIND=JPRB)  ,INTENT(IN)     ,DIMENSION(KLON)                          :: &
   prr_con_ex     ,prs_con_ex     ,prr_gsp_ex     ,prs_gsp_ex           
-REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,ntiles_total)               :: &
+REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,ntiles_total+ntiles_water):: &
   tch_ex         ,tcm_ex         ,tfv_ex               
-REAL(KIND=JPRB)  ,INTENT(IN)     ,DIMENSION(KLON,ntiles_total)               :: &
+REAL(KIND=JPRB)  ,INTENT(IN)     ,DIMENSION(KLON,ntiles_total+ntiles_water):: &
   sobs_ex        ,thbs_ex        ,pabs_ex              
-REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,ntiles_total)               :: &
+REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,ntiles_total)             :: &
   runoff_s_ex    ,runoff_g_ex        
-REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON)                            :: &
+REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON)                          :: &
   t_g            ,qv_s
-TYPE(t_external_data), INTENT(INOUT)                                         :: &
+REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON)                          :: &
+  t_ice          ,h_ice          ,t_snow_si      ,h_snow_si
+REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON)                          :: &
+  fr_seaice
+TYPE(t_external_data), INTENT(INOUT)                                       :: &
   ext_data
 
 !*         0.2    LOCAL VARIABLES
@@ -682,8 +692,9 @@ LOGICAL ::            LMPBLEQU
 !xxx
 REAL(KIND=JPRB) ::    ZQTENH(KLON,0:KLEV) 
 
-REAL(KIND=JPRB), DIMENSION(KLON,ntiles_total) :: &
-                    & shfl_s_t, lhfl_s_t, shfl_snow_t, lhfl_snow_t   
+REAL(KIND=JPRB), DIMENSION(KLON,ntiles_total+ntiles_water) :: &
+                    & shfl_soil_t, lhfl_soil_t, shfl_snow_t, lhfl_snow_t
+REAL(KIND=JPRB)       ZTMEAN
 
 !amk testing only!!!
 REAL(KIND=JPRB) ::    ZCFNC1  
@@ -831,11 +842,42 @@ ENDDO
 !*         3.  Compute all surface related quantities
 !          ------------------------------------------
 
+! initialize skin temperature for surfexcdriver
+
+DO JL=KIDIA,KFDIA
+  ztmean = 0.0_jprb
+  DO jt=1,ntiles_total
+    ztmean = ztmean + t_g_ex(jl,jt) * ext_data%atm%frac_t(jl,jb,jt)
+  ENDDO
+  IF (SUM(ext_data%atm%frac_t(jl,jb,1:ntiles_total)) > 0.0_JPRB ) THEN
+    ztmean = ztmean / SUM(ext_data%atm%frac_t(jl,jb,1:ntiles_total))
+  ELSE
+    ztmean = t_g_ex(jl,isub_water)       ! set to SST if no land for safety
+  ENDIF  
+
+  PTSKTI(JL,1) = PSST(jl)                ! ocean tile  (use SST as input, not skin)
+  PTSKTI(JL,2) = t_g_ex(jl,isub_seaice)  ! SEAICE tile
+  PTSKTI(JL,3:ntiles_edmf) = ztmean      ! TESSEL/IFS land tiles (take mean land value)
+  IF (ext_data%atm%frac_t(jl,jb,isub_water) == 0.0_jprb) THEN
+    PTSKTI(JL,1) = t_g_ex(jl,isub_water) ! safety for vupdz0 calculations
+  ENDIF
+ENDDO
+
+! use sea ice fluxes from previous step for sea ice calculation in the surface interface
+DO JL=KIDIA,KFDIA
+  shfl_soil_t(jl,isub_seaice) = PAHFSTI(jl,2)
+  lhfl_soil_t(jl,isub_seaice) = PEVAPTI(jl,2) * RLVTT
+  shfl_snow_t(jl,isub_seaice) = PAHFSTI(jl,2)   !snow over sea ice not used currently
+  lhfl_snow_t(jl,isub_seaice) = PEVAPTI(jl,2) * RLVTT
+ENDDO
+
+!debug
 DO JL=KIDIA,KFDIA
  if ( PTSKM1M(JL) > 400.0 .or. PTSKM1M(JL) < 100.0 ) then
   write(*,*) 'vdfmain1: ', JL, JB, PTSKM1M(JL), PTM1(JL,KLEV), PTM1(JL,KLEV-1)
  endif
 ENDDO
+!xxxxx
 
 CALL SURFEXCDRIVER( &
   ! TERRA data
@@ -853,7 +895,9 @@ CALL SURFEXCDRIVER( &
    & , sobs_ex, thbs_ex, pabs_ex                                          & !in
    & , runoff_s_ex, runoff_g_ex                                           & !inout
    & , t_g, qv_s                                                          & ! -
-   & , shfl_s_t, lhfl_s_t, shfl_snow_t, lhfl_snow_t,                      & !out
+   & , t_ice, h_ice, t_snow_si, h_snow_si                                 & ! -
+   & , fr_seaice                                                          & !in
+   & , shfl_soil_t, lhfl_soil_t, shfl_snow_t, lhfl_snow_t,                & !out
   ! standard input
    & CDCONF=CDCONF, &
    & KIDIA=KIDIA, KFDIA=KFDIA, KLON=KLON, KLEVS=KLEVS, KTILES=KTILES, KSTEP=KSTEP, &
@@ -898,62 +942,71 @@ DO JL=KIDIA,KFDIA
 
   ZEXTSHF(JL) = 0.0_JPRB
   ZEXTLHF(JL) = 0.0_JPRB
-  DO JT=1,ntiles_total
+  DO JT=1,ntiles_total      ! land points only
     IF (LLTERRA) THEN
-      ZEXTSHF(JL) = ZEXTSHF(JL) + ext_data%atm%frac_t(JL,JB,JT) * &
-        ( SHFL_S_T   (JL,JT) * (1.0_JPRB - SNOWFRAC_EX(JL,JT)) +  &
+      ZEXTSHF(JL) = ZEXTSHF(JL) + ext_data%atm%frac_t(JL,JB,JT) *    &
+        ( SHFL_SOIL_T(JL,JT) * (1.0_JPRB - SNOWFRAC_EX(JL,JT)) +  &
           SHFL_SNOW_T(JL,JT) *             SNOWFRAC_EX(JL,JT)  )
-      ZEXTLHF(JL) = ZEXTLHF(JL) + ext_data%atm%frac_t(JL,JB,JT) * &
-        ( LHFL_S_T   (JL,JT) * (1.0_JPRB - SNOWFRAC_EX(JL,JT)) +  &
+      ZEXTLHF(JL) = ZEXTLHF(JL) + ext_data%atm%frac_t(JL,JB,JT) *    &
+        ( LHFL_SOIL_T(JL,JT) * (1.0_JPRB - SNOWFRAC_EX(JL,JT)) +  &
           LHFL_SNOW_T(JL,JT) *             SNOWFRAC_EX(JL,JT)  )
     END IF
   ENDDO
+
+! update skin temperature from TERRA and SEAICE
+
+  ztmean = 0.0_jprb
+  DO jt=1,ntiles_total
+    ztmean = ztmean + t_g_ex(jl,jt) * ext_data%atm%frac_t(jl,jb,jt)
+  ENDDO
+  IF (SUM(ext_data%atm%frac_t(jl,jb,1:ntiles_total)) > 0.0_JPRB ) THEN
+    ztmean = ztmean / SUM(ext_data%atm%frac_t(jl,jb,1:ntiles_total))
+  ELSE
+    ztmean = t_g_ex(jl,isub_water)       ! set to SST if no land for safety
+  ENDIF
+
+  PTSKTI(JL,1) = PSST(jl)                ! ocean tile  (use SST as input, not skin)
+  PTSKTI(JL,2) = t_g_ex(jl,isub_seaice)  ! SEAICE tile
+  PTSKTI(JL,3:ntiles_edmf) = ztmean      ! TESSEL/IFS land tiles (take mean land value)
+  IF (ext_data%atm%frac_t(jl,jb,isub_water) == 0.0_jprb) THEN
+    PTSKTI(JL,1) = t_g_ex(jl,isub_water) ! safety for vdfdifh calculations
+  ENDIF
+
+! sea ice fluxes (mean flux stored in '_soil' flux)
+!
+!  JT = isub_seaice
+!  ZEXTSHF(JL) = ZEXTSHF(JL) + ext_data%atm%frac_t(JL,JB,JT) *    &
+!    SHFL_SOIL_T(JL,JT)
+!  ZEXTLHF(JL) = ZEXTLHF(JL) + ext_data%atm%frac_t(JL,JB,JT) *    &
+!    LHFL_SOIL_T(JL,JT)
+
+! normalize to get mean over land points
+!  ZEXTSHF(JL) = ZEXTSHF(JL) / SUM(ext_data%atm%frac_t(JL,JB,1:ntiles_total))
+!  ZEXTLHF(JL) = ZEXTLHF(JL) / SUM(ext_data%atm%frac_t(JL,JB,1:ntiles_total))
 
   IF (LDLAND(JL)) THEN
     ZRHO = PAPHM1(JL,KLEV)/( RD*PTM1(JL,KLEV)*(1.0_JPRB+RETV*PQM1(JL,KLEV)) )
     ZKHFL(JL) = ZEXTSHF(JL) / ZRHO / RCPD
     ZKQFL(JL) = ZEXTLHF(JL) / ZRHO / RLVTT
-   !ZKMFL(JL) = ??? done by TESSEL???
+   !ZKMFL(JL) = calculated as mean of TESSEL tiles in surfexcdriver
   END IF
 
 ! test: fixed surface fluxes
 
    !ZEXTSHF(JL) = -15.0_JPRB
    !ZEXTLHF(JL) = -60.0_JPRB
-   !ZEXTSHF(JL) = 0.0_JPRB  ! testing???
-   !ZEXTLHF(JL) = 0.0_JPRB  ! - " -
    !ZKMFL(JL)   = 0.0_JPRB  ! - " -      (0 is bad idea!!!)
 
 ENDDO
-!xxx
 
-! DO JL=KIDIA,KFDIA
-!   IF ( .NOT. LDLAND(JL) ) THEN
-!     if ( PSST(JL) > 294.95599 .and. PSST(JL) < 294.95600 ) THEN
-!       write(*,*) 'vdfmain5: ', ZKHFL(JL)*RCPD, ZKQFL(JL)*RLVTT, ZKMFL(JL)
-!     endif
-!   ENDIF
-! ENDDO
+
+!debug
 DO JL=KIDIA,KFDIA
  if ( PTSKM1M(JL) > 400.0 .or. PTSKM1M(JL) < 100.0) then
   write(*,*) 'vdfmain2: ', PTSKM1M(JL), PTM1(JL,KLEV), PTM1(JL,KLEV-1)
  endif
 ENDDO
-
-!amk ATTENTION: needs to specify surface layer diffusion coefficients
-!   JK = KLEV
-!   DO JL=KIDIA,KFDIA
-!     ZCFNC1 = RVDIFTS * ZTMST * RG * PAPHM1(JL,JK) / RD &
-!            & /( PTM1(JL,JK) * (1.0_JPRB+RETV*PQM1(JL,JK)) )
-!     ZCFNC1 = 0.0_JPRB
-!     ZCFM(JL,KLEV) = 1.0_JPRB * ZCFNC1  ! normalization??
-!     ZCFH(JL,KLEV) = 1.0_JPRB * ZCFNC1  !   -
-!     ZCFQTI(JL,:)  = 1.0_JPRB * ZCFNC1  !   -
-!     ZCFHTI(JL,:)  = 1.0_JPRB * ZCFNC1  !   -
-!     ZBLEND(JL)    = 75.0_JPRB   !blending height for U10 diagnostic
-!   ENDDO
-!xxx
-
+!xxxxx
 
 
 !     ------------------------------------------------------------------
@@ -1010,10 +1063,7 @@ CALL VDFHGHTN (KIDIA   , KFDIA   , KLON    , KLEV    , IDRAFT   , ZTMST   , KSTE
              & PFPLVL  , PFPLVN  , ZDETR   , &
 !amk: for convective preconditioning
              & PVAR    , &
-!xxx
-!amk
              & LDLAND  , &   
-!xxx
              & PBIR    , LDNODECP, LLRUNDRY, KPBLTYPE, ZWQT2 )
 
 
@@ -1046,7 +1096,7 @@ DO JL=KIDIA,KFDIA
           ZCLDBASE(JL) = ZZPLCL(JL,3)
           ZCLDTOP(JL)  = ZZPTOP(JL,3)
           KVARTOP(JL)  = IPTOP(JL,3)
-	  
+          
       CASE(3)
           !Shallow cumulus
           PZINV(JL)    = ZZPLCL(JL,3)
@@ -1054,7 +1104,7 @@ DO JL=KIDIA,KFDIA
           ZCLDBASE(JL) = ZZPLCL(JL,3)
           ZCLDTOP(JL)  = ZZPTOP(JL,3)
           KVARTOP(JL)  = IPTOP(JL,1)
-		
+                
       CASE(4)
           !Deep cumulus - only do a dry subcloud ML
           PZINV(JL)    = ZZPTOP(JL,2)
@@ -1166,7 +1216,7 @@ CALL VDFEXCU(KIDIA  , KFDIA  , KLON   , KLEV    , IDRAFT  , ZTMST  , PZ0M   , &
   ENDDO
 
 
-  ! integrate dynamical and radiative tendencies
+  ! integrate dynamical and radiative tendencies (attention: ICON needs that input!!!)
 
   DO JK=KLEV,1,-1
     DO JL=KIDIA,KFDIA
@@ -1237,13 +1287,15 @@ ZSOC(KIDIA:KFDIA,1:KLEV)=PSOBETA(KIDIA:KFDIA,1:KLEV)*ZHU1
 !              & ZTOFDC,PSOTEU,PSOTEV,ZSOC  , &
 !              & PVOM , PVOL , ZUCURR,ZVCURR, ZUDIF  , ZVDIF , ZTAUX, ZTAUY)
 
-DO JL=KIDIA,KFDIA
-  if (zuuh(jl,klev-1,1) > 100.0  .or. zvuh(jl,klev-1,1)   > 100.0 .or. &
-      zcfm(jl,klev)     > 1000.0 .or. zmflxm(jl,klev-1,1) > 1000.0  ) THEN
+!debug
+!DO JL=KIDIA,KFDIA
+!  if (zuuh(jl,klev-1,1) > 100.0  .or. zvuh(jl,klev-1,1)   > 100.0 .or. &
+!      zcfm(jl,klev)     > 1000.0 .or. zmflxm(jl,klev-1,1) > 1000.0  ) THEN
 !    write(*,*) 'vdfmain before vdfdifm', zuuh(jl,klev-1,1), zvuh(jl,klev-1,1), &
 !      zcfm(jl,klev), zmflxm(jl,klev-1,1)
-  endif
-ENDDO
+!  endif
+!ENDDO
+!xxxxx
 
 !...fully upstream M (phi_up - phi_bar) term
 CALL VDFDIFM (KIDIA, KFDIA, KLON , KLEV  , IDRAFT , ITOP  , &
@@ -1274,9 +1326,17 @@ CALL VDFDIFH (KIDIA  , KFDIA  , KLON   , KLEV   , IDRAFT , ITOP   , KTILES, &
             & ZSLGM1 , PTM1   , PQM1   , ZQTM1  , PAPHM1 , &
             & ZCFH   , ZCFHTI , ZCFQTI , ZMFLX  , ZSLGUH , ZQTUH  , &
             & ZSLGDIF, ZQTDIF , ZCPTSTI, ZQSTI  , ZCAIRTI, ZCSATTI, &
-            & ZDQSTI , PTSKTI , PTSKRAD, PTSAM1M(1,1)    , PTSNOW , PTICE  , PSST, &
+            & ZDQSTI , PTSKTI , PTSKRAD, PTSAM1M(1,1)    , PTSNOW , t_ice , PSST, &
             & ZTSKTIP1,ZSLGE  , PTE    , ZQTE, &
             & PEVAPTI, PAHFSTI, ZAHFLTI, ZSTR   , ZG0)
+
+!DO JL=KIDIA,KFDIA
+!  IF ( (SUM(PAHFSTI(JL,:)) == 0.0) .or. (SUM(PEVAPTI(JL,:)) == 0.0) .or. &
+!       (PDIFTS(JL,KLEV)    == 0.0) .or. (PDIFTQ(JL,KLEV)    == 0.0) ) THEN
+!    write(*,*) 'vdfmain4: ', PDIFTS(JL,KLEV), PDIFTQ(JL,KLEV), PAHFSTI(JL,:), PEVAPTI(JL,:)*RLVTT, &
+!      & PFRTI(JL,:)
+!  ENDIF
+!ENDDO
 
 
 !*         5.3  INCREMENTATION OF U AND V TENDENCIES, STORAGE OF
@@ -1371,11 +1431,13 @@ CALL VDFFBLEND(KIDIA,KFDIA,KLON,KLEV, &
 !ENDDO
 !xxx
 
+!debug
 DO JL=KIDIA,KFDIA
  if ( PTSKM1M(JL) > 400.0 .or. PTSKM1M(JL) < 100.0  ) then
   write(*,*) 'vdfmain3: ', PTSKM1M(JL), PTM1(JL,KLEV), PTM1(JL,KLEV-1), PFRTI(JL,1)
  endif
 ENDDO
+!xxxxx
 
 CALL SURFPP( KIDIA=KIDIA,KFDIA=KFDIA,KLON=KLON,KTILES=KTILES, &
  & KDHVTLS=KDHVTLS,KDHFTLS=KDHFTLS, &
@@ -1400,12 +1462,30 @@ CALL SURFPP( KIDIA=KIDIA,KFDIA=KFDIA,KLON=KLON,KTILES=KTILES, &
  & PDHTLS=PDHTLS &
  & )
 
+! store skin temperature in t_g_ex for next step
+
 DO JL=KIDIA,KFDIA
-  IF ( ABS(PDIFTS(JL,KLEV))          > 1000.0_JPRB  .OR. & 
-       ABS(PDIFTQ(JL,KLEV) * RLVTT ) > 2000.0_JPRB ) THEN
-!    write(*,*) 'vdfmain: SHF, LHF ', PDIFTS(JL,KLEV), PDIFTQ(JL,KLEV) * RLVTT 
+  ztmean = 0.0_jprb
+  DO jt=3,ntiles_edmf
+    ztmean = ztmean + PTSKTI(jl,jt) * PFRTI(jl,jt)
+  ENDDO
+  IF (SUM(PFRTI(jl,3:ntiles_edmf)) > 0.0_JPRB ) THEN
+    ztmean = ztmean / SUM(PFRTI(jl,3:ntiles_edmf))
+  ELSE
+    ztmean = PTSKTI(jl,1)                  ! set to SST if no land for safety
   ENDIF
+
+  t_g_ex(jl,isub_water)     = PTSKTI(jl,1) !ocean tiles (includes cold skin ..., NOT SST) ???
+  t_g_ex(jl,isub_seaice)    = PTSKTI(jl,2) !sea ice tiles
+  t_g_ex(jl,1:ntiles_total) = ztmean       !TERRA tiles (mean)
 ENDDO
+
+!DO JL=KIDIA,KFDIA
+!  IF ( ABS(PDIFTS(JL,KLEV))          > 1000.0_JPRB  .OR. & 
+!       ABS(PDIFTQ(JL,KLEV) * RLVTT ) > 2000.0_JPRB ) THEN
+!    write(*,*) 'vdfmain: SHF, LHF ', PDIFTS(JL,KLEV), PDIFTQ(JL,KLEV) * RLVTT 
+!  ENDIF
+!ENDDO
 
 !amk  diagnostic values have to be set !!!!
 ! DO JL=KIDIA,KFDIA
@@ -1511,6 +1591,7 @@ ENDDO
 !    PVAR(JL,JK) = 0._JPRB
 !  ENDDO
 !ENDDO
+!xxx
 
 DO JL=KIDIA,KFDIA
   PVAR(JL,1)    = 0._JPRB
@@ -1518,7 +1599,7 @@ DO JL=KIDIA,KFDIA
   ZTAU(JL,1)    = 0._JPRB
   ZTAU(JL,KLEV) = 0._JPRB
 ENDDO
-!xxx
+
 
 ZDQTDZ(:,:)  = 0._JPRB
 
@@ -1753,7 +1834,7 @@ ENDDO
         ZLUPD(JL,JK) = ZQLAV(JL,JK) * ZALFAW(JL,JK) 
         ZIUPD(JL,JK) = ZQLAV(JL,JK) * ( 1.0_JPRB - ZALFAW(JL,JK))
 
-        ELSE
+      ELSE
       
         !-- outside PBL, maintain tendencies from rad+dyn ---
         ZAUPD(JL,JK) = PAM1(JL,JK) + PAE(JL,JK)*ZTMST
@@ -1793,18 +1874,25 @@ ENDDO
   ENDDO
 
 !amk: debug
-  DO JK=1,KLEV
-    DO JL=KIDIA,KFDIA
+! DO JK=1,KLEV
+!   DO JL=KIDIA,KFDIA
 !      IF ( ZTUPD(JL,JK) < 100.0_JPRB .OR. ZTUPD(JL,JK) > 400.0_JPRB ) THEN
 !        WRITE(*,*) 'vdfmain T<100 or T>400, kstep, JL,JK,T:', KSTEP, JL, JK, ZTUPD(JL,JK)
 !      ENDIF
 !      IF ( ZQUPD(JL,JK) < -0.01_JPRB .OR. ZQUPD(JL,JK) > 0.1_JPRB ) THEN
 !        WRITE(*,*) 'vdfmain q<-10g/kg or q>100g/kg, kstep, JL,JK,Q:', KSTEP, JL, JK, ZQUPD(JL,JK)
 !      ENDIF
-    ENDDO
-  ENDDO
+!   ENDDO
+! ENDDO
 !xxx
 
+! DO JL=KIDIA,KFDIA
+!   IF ( (SUM(PAHFSTI(JL,:)) == 0.0) .or. (SUM(PEVAPTI(JL,:)) == 0.0) .or. &
+!        (PDIFTS(JL,KLEV)    == 0.0) .or. (PDIFTQ(JL,KLEV)    == 0.0) ) THEN
+!     write(*,*) 'vdfmain5: ', PDIFTS(JL,KLEV), PDIFTQ(JL,KLEV), PAHFSTI(JL,:), PEVAPTI(JL,:)*RLVTT, &
+!       & PFRTI(JL,:)
+!   ENDIF
+! ENDDO
 
 !     ------------------------------------------------------------------
 

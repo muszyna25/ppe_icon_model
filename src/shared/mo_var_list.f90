@@ -1,25 +1,26 @@
 MODULE mo_var_list
 
   USE mo_kind,             ONLY: wp, i8
-  USE mo_cdi_constants,    ONLY: DATATYPE_FLT64, &
-       &                         DATATYPE_INT32, &
-       &                         DATATYPE_INT8,  &
-       &                         TIME_VARIABLE,  &
-       &                         TSTEP_INSTANT,  &
+  USE mo_cdi_constants,    ONLY: DATATYPE_FLT64,                    &
+       &                         DATATYPE_INT32,                    &
+       &                         DATATYPE_INT8,                     &
+       &                         TIME_VARIABLE,                     &
+       &                         TSTEP_INSTANT,                     &
        &                         GRID_UNSTRUCTURED_CELL
   USE mo_cf_convention,    ONLY: t_cf_var
   USE mo_grib2,            ONLY: t_grib2_var
-  USE mo_var_metadata,     ONLY: t_var_metadata, t_union_vals, &
-    &                            t_tracer_meta,                &
-    &                            t_vert_interp_meta,           &
-    &                            t_hor_interp_meta,            &
-    &                            VARNAME_LEN, VAR_GROUPS,      &
-    &                            VINTP_TYPE_LIST
+  USE mo_var_metadata,     ONLY: t_var_metadata, t_union_vals,      &
+    &                            t_tracer_meta,                     &
+    &                            t_vert_interp_meta,                &
+    &                            t_hor_interp_meta,                 &
+    &                            VARNAME_LEN, VAR_GROUPS,           &
+    &                            VINTP_TYPE_LIST,                   &
+    &                            t_post_op_meta, POST_OP_NONE
   USE mo_var_list_element, ONLY: t_var_list_element
-  USE mo_linked_list,      ONLY: t_var_list, t_list_element, &
-       &                         new_list, delete_list,      &
-       &                         append_list_element,        &
-       &                         find_list_element,          &
+  USE mo_linked_list,      ONLY: t_var_list, t_list_element,        &
+       &                         new_list, delete_list,             &
+       &                         append_list_element,               &
+       &                         find_list_element,                 &
        &                         delete_list_element 
   USE mo_exception,        ONLY: message, message_text, finish
   USE mo_util_hash,        ONLY: util_hashword
@@ -62,9 +63,11 @@ MODULE mo_var_list
 
   PUBLIC :: get_var_name              ! return plain variable name (without timelevel)
   PUBLIC :: get_var_timelevel         ! return variable timelevel (or "-1")
+  PUBLIC :: get_var_tileidx           ! return variable tile index
 
   PUBLIC :: total_number_of_variables ! returns total number of defined variables
   PUBLIC :: groups                    ! group array constructor
+  PUBLIC :: post_op
   PUBLIC :: vintp_type_id             ! mapping: string specifier of vert. interp. typer -> ID
   PUBLIC :: vintp_types               ! vertical interpolation type (array) constructor
   PUBLIC :: collect_group             ! obtain variables in a group
@@ -125,6 +128,7 @@ MODULE mo_var_list
     MODULE PROCEDURE assign_if_present_tracer_meta
     MODULE PROCEDURE assign_if_present_vert_interp
     MODULE PROCEDURE assign_if_present_hor_interp
+    MODULE PROCEDURE assign_if_present_post_op
   END INTERFACE struct_assign_if_present
   
   INTEGER,                  SAVE :: nvar_lists     =   0      ! var_lists allocated so far
@@ -397,6 +401,29 @@ CONTAINS
 
 
   !------------------------------------------------------------------------------------------------
+  !> @return tile index (extracted from tile index suffix "t_") or "-1"
+  !
+  FUNCTION get_var_tileidx(varname)
+    INTEGER :: get_var_tileidx
+    CHARACTER(LEN=*) :: varname
+    ! local variable
+    CHARACTER(LEN=*), PARAMETER :: routine = 'mo_var_list:get_var_tileidx'
+    INTEGER :: idx
+
+    idx = INDEX(varname,'_t_')
+    IF (idx == 0) THEN
+      get_var_tileidx = 0
+      RETURN
+    END IF
+
+    ! Get time level
+    get_var_tileidx = ICHAR(varname(idx+3:idx+3)) - ICHAR('0')
+    IF (get_var_tileidx<=0) &
+      CALL finish(routine, 'Illegal time level in '//TRIM(varname))
+  END FUNCTION get_var_tileidx
+
+
+  !------------------------------------------------------------------------------------------------
   !
   ! Change parameters of an already existent output var_list
   !
@@ -560,6 +587,8 @@ CONTAINS
     this_info%tracer              = create_tracer_metadata()
     this_info%vert_interp         = create_vert_interp_metadata()
     this_info%hor_interp          = create_hor_interp_metadata()
+    !
+    this_info%post_op             = post_op()
     !
     this_info%in_group(:)         = groups()
     !
@@ -787,7 +816,7 @@ CONTAINS
          &                     initval, isteptype, resetval, lmiss,            &
          &                     missval, tlev_source, tracer_info, vert_interp, &
          &                     hor_interp, in_group, verbose, cdiTimeID,       &
-         &                     l_pp_scheduler_task)
+         &                     l_pp_scheduler_task, post_op)
     !
     TYPE(t_var_metadata),    INTENT(inout)        :: info          ! memory info struct.
     CHARACTER(len=*),        INTENT(in), OPTIONAL :: name          ! variable name
@@ -813,6 +842,7 @@ CONTAINS
     LOGICAL,                 INTENT(in), OPTIONAL :: verbose
     INTEGER,                 INTENT(in), OPTIONAL :: cdiTimeID     ! CDI time mode (TIME_VARIABLE/TIME_CONSTANT)
     INTEGER,                 INTENT(in), OPTIONAL :: l_pp_scheduler_task ! .TRUE., if field is updated by pp scheduler
+    TYPE(t_post_op_meta),    INTENT(IN), OPTIONAL :: post_op       !< "post-op" (small arithmetic operations) for this variable
     !
     LOGICAL :: lverbose
     !
@@ -871,6 +901,8 @@ CONTAINS
 
     CALL assign_if_present (info%l_pp_scheduler_task, l_pp_scheduler_task)
 
+    CALL struct_assign_if_present (info%post_op, post_op)
+    
     !
     ! printout (optional)
     !
@@ -895,7 +927,7 @@ CONTAINS
        lrestart, lrestart_cont, initval_r, isteptype,          &
        resetval_r, lmiss, missval_r, tlev_source, info, p5,    &
        vert_interp, hor_interp, in_group, verbose, new_element, &
-       cdiTimeID, l_pp_scheduler_task)
+       cdiTimeID, l_pp_scheduler_task, post_op)
     !
     TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
     CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
@@ -924,6 +956,7 @@ CONTAINS
     TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
     INTEGER,              INTENT(in), OPTIONAL :: cdiTimeID           ! CDI time mode (TIME_VARIABLE/TIME_CONSTANT)
     INTEGER,              INTENT(in), OPTIONAL :: l_pp_scheduler_task ! .TRUE., if field is updated by pp scheduler
+    TYPE(t_post_op_meta), INTENT(IN), OPTIONAL :: post_op             !< "post-op" (small arithmetic operations) for this variable
     !
     TYPE(t_list_element), POINTER :: new_list_element
     TYPE(t_union_vals) :: missval, initval, resetval
@@ -966,7 +999,8 @@ CONTAINS
          isteptype=isteptype, resetval=resetval, lmiss=lmiss,                     &
          missval=missval, tlev_source=tlev_source, vert_interp=vert_interp,       &
          hor_interp=hor_interp, in_group=in_group, verbose=verbose,               &
-         cdiTimeID=cdiTimeID, l_pp_scheduler_task=l_pp_scheduler_task)
+         cdiTimeID=cdiTimeID, l_pp_scheduler_task=l_pp_scheduler_task,            &
+         post_op=post_op)
     !
     IF (.NOT. referenced) THEN
       CALL assign_if_present(new_list_element%field%info%used_dimensions(1:5), ldims(1:5))
@@ -1017,7 +1051,7 @@ CONTAINS
        lrestart, lrestart_cont, initval_r, isteptype,          &
        resetval_r, lmiss, missval_r, tlev_source, info, p5,    &
        vert_interp, hor_interp, in_group, verbose, new_element, &
-       cdiTimeID, l_pp_scheduler_task)
+       cdiTimeID, l_pp_scheduler_task, post_op)
     !
     TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
     CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
@@ -1046,6 +1080,7 @@ CONTAINS
     TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
     INTEGER,              INTENT(in), OPTIONAL :: cdiTimeID           ! CDI time mode (TIME_VARIABLE/TIME_CONSTANT)
     INTEGER,              INTENT(in), OPTIONAL :: l_pp_scheduler_task ! .TRUE., if field is updated by pp scheduler
+    TYPE(t_post_op_meta), INTENT(IN), OPTIONAL :: post_op             !< "post-op" (small arithmetic operations) for this variable
     !
     TYPE(t_list_element), POINTER :: new_list_element
     TYPE(t_union_vals) :: missval, initval, resetval
@@ -1088,7 +1123,8 @@ CONTAINS
          isteptype=isteptype, resetval=resetval, lmiss=lmiss,                     &
          missval=missval, tlev_source=tlev_source, vert_interp=vert_interp,       &
          hor_interp=hor_interp, in_group=in_group, verbose=verbose,               &
-         cdiTimeID=cdiTimeID, l_pp_scheduler_task=l_pp_scheduler_task)
+         cdiTimeID=cdiTimeID, l_pp_scheduler_task=l_pp_scheduler_task,            &
+         post_op=post_op)
     !
     IF (.NOT. referenced) THEN
       CALL assign_if_present(new_list_element%field%info%used_dimensions(1:4), ldims(1:4))
@@ -1140,7 +1176,7 @@ CONTAINS
        lrestart, lrestart_cont, initval_r, isteptype,          &
        resetval_r, lmiss, missval_r, tlev_source, info, p5,    &
        vert_interp, hor_interp, in_group, verbose, new_element, &
-       cdiTimeID, l_pp_scheduler_task)
+       cdiTimeID, l_pp_scheduler_task, post_op)
     !
     TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
     CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
@@ -1169,6 +1205,7 @@ CONTAINS
     TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
     INTEGER,              INTENT(in), OPTIONAL :: cdiTimeID           ! CDI time mode (TIME_VARIABLE/TIME_CONSTANT)
     INTEGER,              INTENT(in), OPTIONAL :: l_pp_scheduler_task ! .TRUE., if field is updated by pp scheduler
+    TYPE(t_post_op_meta), INTENT(IN), OPTIONAL :: post_op             !< "post-op" (small arithmetic operations) for this variable
     !
     TYPE(t_list_element), POINTER :: new_list_element
     TYPE(t_union_vals) :: missval, initval, resetval
@@ -1211,7 +1248,8 @@ CONTAINS
          isteptype=isteptype, resetval=resetval, lmiss=lmiss,                     &
          missval=missval, tlev_source=tlev_source, vert_interp=vert_interp,       &
          hor_interp=hor_interp, in_group=in_group, verbose=verbose,               &
-         cdiTimeID=cdiTimeID, l_pp_scheduler_task=l_pp_scheduler_task)
+         cdiTimeID=cdiTimeID, l_pp_scheduler_task=l_pp_scheduler_task,            &
+         post_op=post_op)
     !
     IF (.NOT. referenced) THEN
       CALL assign_if_present(new_list_element%field%info%used_dimensions(1:3), ldims(1:3))
@@ -1263,7 +1301,7 @@ CONTAINS
        lrestart, lrestart_cont, initval_r, isteptype,          &
        resetval_r, lmiss, missval_r, tlev_source, info, p5,    &
        vert_interp, hor_interp, in_group, verbose, new_element, &
-       cdiTimeID, l_pp_scheduler_task)
+       cdiTimeID, l_pp_scheduler_task, post_op)
     !
     TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
     CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
@@ -1292,6 +1330,7 @@ CONTAINS
     TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
     INTEGER,              INTENT(in), OPTIONAL :: cdiTimeID           ! CDI time mode (TIME_VARIABLE/TIME_CONSTANT)
     INTEGER,              INTENT(in), OPTIONAL :: l_pp_scheduler_task ! .TRUE., if field is updated by pp scheduler
+    TYPE(t_post_op_meta), INTENT(IN), OPTIONAL :: post_op             !< "post-op" (small arithmetic operations) for this variable
     !
     TYPE(t_list_element), POINTER :: new_list_element
     TYPE(t_union_vals) :: missval, initval, resetval
@@ -1334,7 +1373,8 @@ CONTAINS
          isteptype=isteptype, resetval=resetval, lmiss=lmiss,                     &
          missval=missval, tlev_source=tlev_source, vert_interp=vert_interp,       &
          hor_interp=hor_interp, in_group=in_group, verbose=verbose,               &
-         cdiTimeID=cdiTimeID, l_pp_scheduler_task=l_pp_scheduler_task)
+         cdiTimeID=cdiTimeID, l_pp_scheduler_task=l_pp_scheduler_task,            &
+         post_op=post_op)
     !
     IF (.NOT. referenced) THEN
       CALL assign_if_present(new_list_element%field%info%used_dimensions(1:2), ldims(1:2))
@@ -1386,7 +1426,7 @@ CONTAINS
        lrestart, lrestart_cont, initval_r, isteptype,          &
        resetval_r, lmiss, missval_r, tlev_source, info, p5,    &
        vert_interp, hor_interp, in_group, verbose, new_element, &
-       cdiTimeID, l_pp_scheduler_task)
+       cdiTimeID, l_pp_scheduler_task, post_op)
     !
     TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
     CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
@@ -1415,6 +1455,7 @@ CONTAINS
     TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
     INTEGER,              INTENT(in), OPTIONAL :: cdiTimeID           ! CDI time mode (TIME_VARIABLE/TIME_CONSTANT)
     INTEGER,              INTENT(in), OPTIONAL :: l_pp_scheduler_task ! .TRUE., if field is updated by pp scheduler
+    TYPE(t_post_op_meta), INTENT(IN), OPTIONAL :: post_op             !< "post-op" (small arithmetic operations) for this variable
     !
     TYPE(t_list_element), POINTER :: new_list_element
     TYPE(t_union_vals) :: missval, initval, resetval
@@ -1457,7 +1498,8 @@ CONTAINS
          isteptype=isteptype,resetval=resetval, lmiss=lmiss,                      &
          missval=missval, tlev_source=tlev_source, vert_interp=vert_interp,       &
          hor_interp=hor_interp, in_group=in_group, verbose=verbose,               &
-         cdiTimeID=cdiTimeID, l_pp_scheduler_task=l_pp_scheduler_task)
+         cdiTimeID=cdiTimeID, l_pp_scheduler_task=l_pp_scheduler_task,            &
+         post_op=post_op)
     !
     IF (.NOT. referenced) THEN
       CALL assign_if_present(new_list_element%field%info%used_dimensions(1:1), ldims(1:1))
@@ -1511,7 +1553,7 @@ CONTAINS
        lrestart, lrestart_cont, initval_i, isteptype,          &
        resetval_i, lmiss, missval_i, info, p5, hor_interp,     &
        vert_interp, in_group, verbose, new_element, cdiTimeID, &
-       l_pp_scheduler_task)
+       l_pp_scheduler_task, post_op)
     !
     TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
     CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
@@ -1538,6 +1580,7 @@ CONTAINS
     TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
     INTEGER,              INTENT(in), OPTIONAL :: cdiTimeID           ! CDI time mode (TIME_VARIABLE/TIME_CONSTANT)
     INTEGER,              INTENT(in), OPTIONAL :: l_pp_scheduler_task ! .TRUE., if field is updated by pp scheduler
+    TYPE(t_post_op_meta), INTENT(IN), OPTIONAL :: post_op             !< "post-op" (small arithmetic operations) for this variable
     !
     TYPE(t_list_element), POINTER :: new_list_element
     TYPE(t_union_vals) :: missval, initval, resetval
@@ -1580,7 +1623,8 @@ CONTAINS
          isteptype=isteptype, resetval=resetval, lmiss=lmiss,             & 
          missval=missval, vert_interp=vert_interp, hor_interp=hor_interp, &
          in_group=in_group, verbose=verbose, cdiTimeID=cdiTimeID,         &
-         l_pp_scheduler_task=l_pp_scheduler_task)
+         l_pp_scheduler_task=l_pp_scheduler_task,                         &
+         post_op=post_op)
     !
     IF (.NOT. referenced) THEN
       CALL assign_if_present(new_list_element%field%info%used_dimensions(1:5), ldims(1:5))
@@ -1632,7 +1676,7 @@ CONTAINS
        lrestart, lrestart_cont, initval_i, isteptype,          &
        resetval_i, lmiss, missval_i, info, p5, vert_interp,    &
        hor_interp, in_group, verbose, new_element, cdiTimeID,  &
-       l_pp_scheduler_task)
+       l_pp_scheduler_task, post_op)
     !
     TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
     CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
@@ -1659,6 +1703,7 @@ CONTAINS
     TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
     INTEGER,              INTENT(in), OPTIONAL :: cdiTimeID           ! CDI time mode (TIME_VARIABLE/TIME_CONSTANT)
     INTEGER,              INTENT(in), OPTIONAL :: l_pp_scheduler_task ! .TRUE., if field is updated by pp scheduler
+    TYPE(t_post_op_meta), INTENT(IN), OPTIONAL :: post_op             !< "post-op" (small arithmetic operations) for this variable
     !
     TYPE(t_list_element), POINTER :: new_list_element
     TYPE(t_union_vals) :: missval, initval, resetval
@@ -1701,7 +1746,8 @@ CONTAINS
          isteptype=isteptype, resetval=resetval, lmiss=lmiss,             &
          missval=missval, vert_interp=vert_interp, hor_interp=hor_interp, &
          in_group=in_group, verbose=verbose, cdiTimeID=cdiTimeID,         &
-         l_pp_scheduler_task=l_pp_scheduler_task)
+         l_pp_scheduler_task=l_pp_scheduler_task,                         &
+         post_op=post_op)
     !
     IF (.NOT. referenced) THEN
       CALL assign_if_present(new_list_element%field%info%used_dimensions(1:4), ldims(1:4))
@@ -1753,7 +1799,7 @@ CONTAINS
        lrestart, lrestart_cont, initval_i, isteptype,          &
        resetval_i, lmiss, missval_i, info, p5, vert_interp,    &
        hor_interp, in_group, verbose, new_element, cdiTimeID,  &
-       l_pp_scheduler_task)
+       l_pp_scheduler_task, post_op)
     !
     TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
     CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
@@ -1780,6 +1826,7 @@ CONTAINS
     TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
     INTEGER,              INTENT(in), OPTIONAL :: cdiTimeID           ! CDI time mode (TIME_VARIABLE/TIME_CONSTANT)
     INTEGER,              INTENT(in), OPTIONAL :: l_pp_scheduler_task ! .TRUE., if field is updated by pp scheduler
+    TYPE(t_post_op_meta), INTENT(IN), OPTIONAL :: post_op             !< "post-op" (small arithmetic operations) for this variable
     !
     TYPE(t_list_element), POINTER :: new_list_element
     TYPE(t_union_vals) :: missval, initval, resetval
@@ -1822,7 +1869,8 @@ CONTAINS
          isteptype=isteptype, resetval=resetval, lmiss=lmiss,             &
          missval=missval, vert_interp=vert_interp, hor_interp=hor_interp, &
          in_group=in_group, verbose=verbose, cdiTimeID=cdiTimeID,         &
-         l_pp_scheduler_task=l_pp_scheduler_task)
+         l_pp_scheduler_task=l_pp_scheduler_task,                         &
+         post_op=post_op)
     !
     IF (.NOT. referenced) THEN
       CALL assign_if_present(new_list_element%field%info%used_dimensions(1:3), ldims(1:3))
@@ -1874,7 +1922,7 @@ CONTAINS
        lrestart, lrestart_cont, initval_i, isteptype,          &
        resetval_i, lmiss, missval_i, info, p5, vert_interp,    &
        hor_interp, in_group, verbose, new_element, cdiTimeID,  &
-       l_pp_scheduler_task)
+       l_pp_scheduler_task, post_op)
     !
     TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
     CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
@@ -1901,6 +1949,7 @@ CONTAINS
     TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
     INTEGER,              INTENT(in), OPTIONAL :: cdiTimeID           ! CDI time mode (TIME_VARIABLE/TIME_CONSTANT)
     INTEGER,              INTENT(in), OPTIONAL :: l_pp_scheduler_task ! .TRUE., if field is updated by pp scheduler
+    TYPE(t_post_op_meta), INTENT(IN), OPTIONAL :: post_op             !< "post-op" (small arithmetic operations) for this variable
     !
     TYPE(t_list_element), POINTER :: new_list_element
     TYPE(t_union_vals) :: missval, initval, resetval
@@ -1942,7 +1991,9 @@ CONTAINS
          lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval, &
          isteptype=isteptype, resetval=resetval, lmiss=lmiss,             &
          missval=missval, vert_interp=vert_interp, hor_interp=hor_interp, &
-         in_group=in_group, verbose=verbose)
+         in_group=in_group, verbose=verbose,                              &
+         l_pp_scheduler_task=l_pp_scheduler_task,                         &
+         post_op=post_op)
     !
     IF (.NOT. referenced) THEN
       CALL assign_if_present(new_list_element%field%info%used_dimensions(1:2), ldims(1:2))
@@ -1994,7 +2045,7 @@ CONTAINS
        lrestart, lrestart_cont, initval_i, isteptype,          &
        resetval_i, lmiss, missval_i, info, p5, vert_interp,    &
        hor_interp, in_group, verbose, new_element, cdiTimeID,  &
-       l_pp_scheduler_task)
+       l_pp_scheduler_task, post_op)
     !
     TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
     CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
@@ -2021,6 +2072,7 @@ CONTAINS
     TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
     INTEGER,              INTENT(in), OPTIONAL :: cdiTimeID           ! CDI time mode (TIME_VARIABLE/TIME_CONSTANT)
     INTEGER,              INTENT(in), OPTIONAL :: l_pp_scheduler_task ! .TRUE., if field is updated by pp scheduler
+    TYPE(t_post_op_meta), INTENT(IN), OPTIONAL :: post_op             !< "post-op" (small arithmetic operations) for this variable
     !
     TYPE(t_list_element), POINTER :: new_list_element
     TYPE(t_union_vals) :: missval, initval, resetval
@@ -2062,7 +2114,9 @@ CONTAINS
          lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval, &
          isteptype=isteptype, resetval=resetval, lmiss=lmiss,             &
          missval=missval, vert_interp=vert_interp, hor_interp=hor_interp, &
-         in_group=in_group, verbose=verbose)
+         in_group=in_group, verbose=verbose,                              &
+         l_pp_scheduler_task=l_pp_scheduler_task,                         &
+         post_op=post_op)
     !
     IF (.NOT. referenced) THEN
       CALL assign_if_present(new_list_element%field%info%used_dimensions(1:1), ldims(1:1))
@@ -2116,7 +2170,7 @@ CONTAINS
        lrestart, lrestart_cont, initval_l, isteptype,          &
        resetval_l, lmiss, missval_l, info, p5, vert_interp,    &
        hor_interp, in_group, verbose, new_element, cdiTimeID,  &
-       l_pp_scheduler_task)
+       l_pp_scheduler_task, post_op)
     !
     TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
     CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
@@ -2143,6 +2197,7 @@ CONTAINS
     TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
     INTEGER,              INTENT(in), OPTIONAL :: cdiTimeID           ! CDI time mode (TIME_VARIABLE/TIME_CONSTANT)
     INTEGER,              INTENT(in), OPTIONAL :: l_pp_scheduler_task ! .TRUE., if field is updated by pp scheduler
+    TYPE(t_post_op_meta), INTENT(IN), OPTIONAL :: post_op             !< "post-op" (small arithmetic operations) for this variable
     !
     TYPE(t_list_element), POINTER :: new_list_element
     TYPE(t_union_vals) :: missval, initval, resetval
@@ -2184,7 +2239,9 @@ CONTAINS
          lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval, &
          isteptype=isteptype, resetval=resetval, lmiss=lmiss,             &
          missval=missval, vert_interp=vert_interp, hor_interp=hor_interp, &
-         in_group=in_group, verbose=verbose)
+         in_group=in_group, verbose=verbose,                              &
+         l_pp_scheduler_task=l_pp_scheduler_task,                         &
+         post_op=post_op)
     !
     IF (.NOT. referenced) THEN
       CALL assign_if_present(new_list_element%field%info%used_dimensions(1:4), ldims(1:4))
@@ -2236,7 +2293,7 @@ CONTAINS
        lrestart, lrestart_cont, initval_l, isteptype,          &
        resetval_l, lmiss, missval_l, info, p5, vert_interp,    &
        hor_interp, in_group, verbose, new_element, cdiTimeID,  &
-       l_pp_scheduler_task)
+       l_pp_scheduler_task, post_op)
     !
     TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
     CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
@@ -2263,6 +2320,7 @@ CONTAINS
     TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
     INTEGER,              INTENT(in), OPTIONAL :: cdiTimeID           ! CDI time mode (TIME_VARIABLE/TIME_CONSTANT)
     INTEGER,              INTENT(in), OPTIONAL :: l_pp_scheduler_task ! .TRUE., if field is updated by pp scheduler
+    TYPE(t_post_op_meta), INTENT(IN), OPTIONAL :: post_op             !< "post-op" (small arithmetic operations) for this variable
     !
     TYPE(t_list_element), POINTER :: new_list_element
     TYPE(t_union_vals) :: missval, initval, resetval
@@ -2304,7 +2362,9 @@ CONTAINS
          lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval, &
          isteptype=isteptype, resetval=resetval, lmiss=lmiss,             &
          missval=missval, vert_interp=vert_interp, hor_interp=hor_interp, &
-         in_group=in_group, verbose=verbose)
+         in_group=in_group, verbose=verbose,                              &
+         l_pp_scheduler_task=l_pp_scheduler_task,                         &
+         post_op=post_op)
     !
     IF (.NOT. referenced) THEN
       CALL assign_if_present(new_list_element%field%info%used_dimensions(1:4), ldims(1:4))
@@ -2356,7 +2416,7 @@ CONTAINS
        lrestart, lrestart_cont, initval_l, isteptype,          &
        resetval_l, lmiss, missval_l, info, p5, vert_interp,    &
        hor_interp, in_group, verbose, new_element, cdiTimeID,  &
-       l_pp_scheduler_task)
+       l_pp_scheduler_task, post_op)
     !
     TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
     CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
@@ -2383,6 +2443,7 @@ CONTAINS
     TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
     INTEGER,              INTENT(in), OPTIONAL :: cdiTimeID           ! CDI time mode (TIME_VARIABLE/TIME_CONSTANT)
     INTEGER,              INTENT(in), OPTIONAL :: l_pp_scheduler_task ! .TRUE., if field is updated by pp scheduler
+    TYPE(t_post_op_meta), INTENT(IN), OPTIONAL :: post_op             !< "post-op" (small arithmetic operations) for this variable
     !
     TYPE(t_list_element), POINTER :: new_list_element
     TYPE(t_union_vals) :: missval, initval, resetval
@@ -2424,7 +2485,9 @@ CONTAINS
          lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval, &
          isteptype=isteptype, resetval=resetval, lmiss=lmiss,             &
          missval=missval, vert_interp=vert_interp, hor_interp=hor_interp, &
-         in_group=in_group, verbose=verbose)
+         in_group=in_group, verbose=verbose,                              &
+         l_pp_scheduler_task=l_pp_scheduler_task,                         &
+         post_op=post_op)
     !
     IF (.NOT. referenced) THEN
       CALL assign_if_present(new_list_element%field%info%used_dimensions(1:3), ldims(1:3))
@@ -2476,7 +2539,7 @@ CONTAINS
        lrestart, lrestart_cont, initval_l, isteptype,          &
        resetval_l, lmiss, missval_l, info, p5, vert_interp,    &
        hor_interp, in_group, verbose, new_element, cdiTimeID,  &
-       l_pp_scheduler_task)
+       l_pp_scheduler_task, post_op)
     !
     TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
     CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
@@ -2503,6 +2566,7 @@ CONTAINS
     TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
     INTEGER,              INTENT(in), OPTIONAL :: cdiTimeID           ! CDI time mode (TIME_VARIABLE/TIME_CONSTANT)
     INTEGER,              INTENT(in), OPTIONAL :: l_pp_scheduler_task ! .TRUE., if field is updated by pp scheduler
+    TYPE(t_post_op_meta), INTENT(IN), OPTIONAL :: post_op             !< "post-op" (small arithmetic operations) for this variable
     !
     TYPE(t_list_element), POINTER :: new_list_element
     TYPE(t_union_vals) :: missval, initval, resetval
@@ -2544,7 +2608,9 @@ CONTAINS
          lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval, &
          isteptype=isteptype, resetval=resetval, lmiss=lmiss,             &
          missval=missval, vert_interp=vert_interp, hor_interp=hor_interp, &
-         in_group=in_group, verbose=verbose)
+         in_group=in_group, verbose=verbose,                              &
+         l_pp_scheduler_task=l_pp_scheduler_task,                         &
+         post_op=post_op)
     !
     IF (.NOT. referenced) THEN
       CALL assign_if_present(new_list_element%field%info%used_dimensions(1:2), ldims(1:2))
@@ -2596,7 +2662,7 @@ CONTAINS
        lrestart, lrestart_cont, initval_l, isteptype,          &
        resetval_l, lmiss, missval_l, info, p5, vert_interp,    &
        hor_interp, in_group, verbose, new_element, cdiTimeID,  &
-       l_pp_scheduler_task)
+       l_pp_scheduler_task, post_op)
     !
     TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
     CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
@@ -2623,6 +2689,7 @@ CONTAINS
     TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
     INTEGER,              INTENT(in), OPTIONAL :: cdiTimeID           ! CDI time mode (TIME_VARIABLE/TIME_CONSTANT)
     INTEGER,              INTENT(in), OPTIONAL :: l_pp_scheduler_task ! .TRUE., if field is updated by pp scheduler
+    TYPE(t_post_op_meta), INTENT(IN), OPTIONAL :: post_op             !< "post-op" (small arithmetic operations) for this variable
     !
     TYPE(t_list_element), POINTER :: new_list_element
     TYPE(t_union_vals) :: missval, initval, resetval
@@ -2665,7 +2732,8 @@ CONTAINS
          isteptype=isteptype, resetval=resetval, lmiss=lmiss,             &
          missval=missval, vert_interp=vert_interp, hor_interp=hor_interp, &
          in_group=in_group, verbose=verbose, cdiTimeID=cdiTimeID,         &
-         l_pp_scheduler_task=l_pp_scheduler_task)
+         l_pp_scheduler_task=l_pp_scheduler_task,                         &
+         post_op=post_op)
     !
     IF (.NOT. referenced) THEN
       CALL assign_if_present(new_list_element%field%info%used_dimensions(1:1), ldims(1:1))
@@ -2969,7 +3037,7 @@ CONTAINS
        &                                 lrestart, lrestart_cont, initval_r, isteptype,          &
        &                                 resetval_r, lmiss, missval_r, tlev_source, tracer_info, &
        &                                 info, vert_interp, hor_interp, in_group, verbose,       &
-       &                                 new_element, cdiTimeID, l_pp_scheduler_task)
+       &                                 new_element, cdiTimeID, l_pp_scheduler_task, post_op)
     !
     TYPE(t_var_list), INTENT(inout)            :: this_list
     CHARACTER(len=*), INTENT(in)               :: target_name
@@ -2999,6 +3067,7 @@ CONTAINS
     TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
     INTEGER,              INTENT(in), OPTIONAL :: cdiTimeID           ! CDI time mode (TIME_VARIABLE/TIME_CONSTANT)
     INTEGER,              INTENT(in), OPTIONAL :: l_pp_scheduler_task ! .TRUE., if field is updated by pp scheduler
+    TYPE(t_post_op_meta), INTENT(IN), OPTIONAL :: post_op             !< "post-op" (small arithmetic operations) for this variable
     !
     REAL(wp), POINTER :: target_ptr3d(:,:,:)
     REAL(wp), POINTER :: target_ptr4d(:,:,:,:)
@@ -3075,7 +3144,8 @@ CONTAINS
          missval=missval, tlev_source=tlev_source, tracer_info=tracer_info, &
          vert_interp=vert_interp, hor_interp=hor_interp,                    &
          in_group=in_group, verbose=verbose, cdiTimeID=cdiTimeID,           &
-         l_pp_scheduler_task=l_pp_scheduler_task)
+         l_pp_scheduler_task=l_pp_scheduler_task,                           &
+         post_op=post_op)
     !
     ref_info%ndims = 3
     ref_info%used_dimensions =  target_element%field%info%used_dimensions
@@ -3126,7 +3196,8 @@ CONTAINS
        &                                 lrestart, lrestart_cont, initval_r, isteptype,          &
        &                                 resetval_r, lmiss, missval_r, tlev_source, tracer_info, &
        &                                 info, vert_interp, hor_interp, in_group,                &
-       &                                 verbose, new_element, cdiTimeID, l_pp_scheduler_task)
+       &                                 verbose, new_element, cdiTimeID, l_pp_scheduler_task,   &
+       &                                 post_op)
 
     TYPE(t_var_list), INTENT(inout)            :: this_list
     CHARACTER(len=*), INTENT(in)               :: target_name
@@ -3156,6 +3227,7 @@ CONTAINS
     TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
     INTEGER,              INTENT(in), OPTIONAL :: cdiTimeID           ! CDI time mode (TIME_VARIABLE/TIME_CONSTANT)
     INTEGER,              INTENT(in), OPTIONAL :: l_pp_scheduler_task ! .TRUE., if field is updated by pp scheduler
+    TYPE(t_post_op_meta), INTENT(IN), OPTIONAL :: post_op             !< "post-op" (small arithmetic operations) for this variable
     !
     REAL(wp), POINTER :: target_ptr2d(:,:)
     REAL(wp), POINTER :: target_ptr3d(:,:,:)
@@ -3231,7 +3303,8 @@ CONTAINS
          missval=missval, tlev_source=tlev_source, tracer_info=tracer_info, &
          vert_interp=vert_interp, hor_interp=hor_interp,                    &
          in_group=in_group, verbose=verbose, cdiTimeID=cdiTimeID,           &
-         l_pp_scheduler_task=l_pp_scheduler_task)
+         l_pp_scheduler_task=l_pp_scheduler_task,                           &
+         post_op=post_op)
     !
     ref_info%ndims = 2
     ref_info%used_dimensions = target_element%field%info%used_dimensions
@@ -3796,6 +3869,37 @@ CONTAINS
 
   END SUBROUTINE collect_group
 
+
+  !> Utility function with *a lot* of optional string parameters g1,
+  !  g2, g3, g4, ...; mapping those onto a
+  !  LOGICAL(DIMENSION=MAX_VAR_GROUPS) according to the "group_id"
+  !  function.
+  !
+  FUNCTION post_op(ipost_op_type, new_cf, new_grib2, arg1)
+    TYPE(t_post_op_meta) :: post_op
+    INTEGER,           INTENT(IN), OPTIONAL :: ipost_op_type    !< type of post-processing operation
+    TYPE(t_cf_var),    INTENT(IN), OPTIONAL :: new_cf           !< CF information of modified field
+    TYPE(t_grib2_var), INTENT(IN), OPTIONAL :: new_grib2        !< GRIB2 information of modified field
+    REAL(wp),          INTENT(IN), OPTIONAL :: arg1             !< post-op argument (e.g. scaling factor)
+
+    post_op%ipost_op_type = POST_OP_NONE
+    post_op%lnew_cf       = .FALSE.
+    post_op%lnew_grib2    = .FALSE.
+    post_op%arg1          = 0._wp
+
+    IF (PRESENT(ipost_op_type)) post_op%ipost_op_type = ipost_op_type
+    IF (PRESENT(arg1))          post_op%arg1          = arg1
+    IF (PRESENT(new_cf)) THEN
+      post_op%lnew_cf = .TRUE.
+      post_op%new_cf  = new_cf
+    END IF
+    IF (PRESENT(new_grib2)) THEN
+      post_op%lnew_grib2 = .TRUE.
+      post_op%new_grib2  = new_grib2
+    END IF
+  END FUNCTION post_op
+
+
   !------------------------------------------------------------------------------------------------
   SUBROUTINE assign_if_present_cf (y,x)
     TYPE(t_cf_var), INTENT(inout)        :: y
@@ -3838,6 +3942,13 @@ CONTAINS
     IF (.NOT.PRESENT(x)) RETURN
     y = x
   END SUBROUTINE assign_if_present_hor_interp
+  !------------------------------------------------------------------------------------------------
+  SUBROUTINE assign_if_present_post_op (y,x)
+    TYPE(t_post_op_meta), INTENT(inout)        :: y
+    TYPE(t_post_op_meta) ,INTENT(in) ,OPTIONAL :: x
+    IF (.NOT.PRESENT(x)) RETURN
+    y = x
+  END SUBROUTINE assign_if_present_post_op
   !------------------------------------------------------------------------------------------------
   !------------------------------------------------------------------------------------------------
   !

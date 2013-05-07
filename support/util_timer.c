@@ -26,7 +26,7 @@
 
 int cf_util_cputime(double *user_time, double *system_time);
 FCALLSCFUN2(INT, cf_util_cputime, UTIL_CPUTIME, util_cputime,
-	    PDOUBLE, PDOUBLE)
+            PDOUBLE, PDOUBLE)
 
 double cf_util_walltime(void);
 FCALLSCFUN0(DOUBLE, cf_util_walltime, UTIL_WALLTIME, util_walltime)
@@ -38,15 +38,15 @@ FCALLSCSUB0(cf_util_init_real_time, UTIL_INIT_REAL_TIME, util_init_real_time)
 
 void cf_util_get_real_time_size(int *rt_size);
 FCALLSCSUB1(cf_util_get_real_time_size, UTIL_GET_REAL_TIME_SIZE,
-	    util_get_real_time_size, PINT)
+            util_get_real_time_size, PINT)
 
 void cf_util_read_real_time(void *it);
 FCALLSCSUB1(cf_util_read_real_time, UTIL_READ_REAL_TIME, util_read_real_time,
-	    PVOID)
+            PVOID)
 
 void cf_util_diff_real_time(void *it1, void *it2, double *t);
 FCALLSCSUB3(cf_util_diff_real_time, UTIL_DIFF_REAL_TIME, util_diff_real_time,
-	    PVOID, PVOID, PDOUBLE)
+            PVOID, PVOID, PDOUBLE)
 
 /****************************************************************************/
 #ifdef __XT3__

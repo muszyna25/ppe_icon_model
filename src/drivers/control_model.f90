@@ -58,7 +58,7 @@ PROGRAM control_model
   
   USE mo_master_control,      ONLY: init_master_control,  &
     & get_my_namelist_filename, get_my_process_type,      &
-    & testbed_process,  atmo_process, ocean_process, radiation_process
+    & testbed_process,  atmo_process, ocean_process!, radiation_process
   
   USE mo_time_config,        ONLY: restart_experiment
 
@@ -77,8 +77,12 @@ PROGRAM control_model
   CHARACTER(len=filename_max) :: my_namelist_filename
   CHARACTER(len=filename_max) :: master_namelist_filename="icon_master.namelist"
 
-  INTEGER :: core_dump_flag, signals(1)
+#if defined (__xlC__)
+  INTEGER :: core_dump_flag
+  INTEGER :: signals(1)
   INTEGER :: iret
+#endif
+
 
   !declaration of OpenMP Runtime Library Routines:
 ! !$  INTEGER omp_get_max_threads

@@ -135,12 +135,20 @@ cat > ${ocean_namelist} << EOF
 &run_nml
  dtime       = 1800         ! model timestep in seconds
  output = 'vlist'
+ activate_sync_timers = .TRUE.
+ write_timer_files  = .TRUE.
 /
 &ocean_dynamics_nml
 ! 10 unevenly spaced levels beginning with 50m depth
   n_zlev             =   10      ! number of vertical levels and (dzlev_m) thicknesses
   dzlev_m(1:20)      =   50.0,  100.0,  200.0,  300.0,  450.0,  600.0,  800.0, 1000.0, 1000.0, 1000.0,
                        1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0
+  solver_tolerance = 1.0E-11
+  use_absolute_solver_tolerance = .true.
+  solver_max_iter_per_restart = 10
+  solver_max_restart_iterations = 20
+  ! solver_start_tolerance = 1.0E-08
+  ! solver_tolerance_decrease_ratio = 0.1
 /
 &ocean_physics_nml
   i_sea_ice          =    0      ! 0 = no sea ice; 1 = sea ice switched on

@@ -59,7 +59,7 @@ MODULE mo_ext_data_state
   USE mo_parallel_config,    ONLY: nproma
   USE mo_impl_constants,     ONLY: inwp, iecham, ildf_echam, io3_clim, io3_ape, &
     &                              ihs_ocean, ihs_atm_temp, ihs_atm_theta, inh_atmosphere, &
-    &                              max_char_length, min_rlcell_int,                        &
+    &                              max_char_length, min_rlcell_int,  LAND,                 &
     &                              VINTP_METHOD_LIN, HINTP_TYPE_NONE, HINTP_TYPE_LONLAT_NNB
   USE mo_math_constants,     ONLY: dbl_eps
   USE mo_physical_constants, ONLY: ppmv2gg, zemiss_def
@@ -68,12 +68,12 @@ MODULE mo_ext_data_state
   USE mo_impl_constants_grf, ONLY: grf_bdywidth_c
   USE mo_lnd_nwp_config,     ONLY: ntiles_total, ntiles_lnd, ntiles_water, lsnowtile, frlnd_thrhld, &
                                    frlndtile_thrhld, frlake_thrhld, frsea_thrhld, isub_water,       &
-                                   sstice_mode, sst_td_filename, ci_td_filename
+                                   isub_lake, sstice_mode, sst_td_filename, ci_td_filename
   USE mo_extpar_config,      ONLY: itopo, l_emiss, extpar_filename, generate_filename, & 
     &                              generate_td_filename
   USE mo_time_config,        ONLY: time_config
   USE mo_dynamics_config,    ONLY: iequations
-  USE mo_radiation_config,   ONLY: irad_o3, irad_aero
+  USE mo_radiation_config,   ONLY: irad_o3, irad_aero, albedo_type
   USE mo_echam_phy_config,   ONLY: echam_phy_config
   USE mo_smooth_topo,        ONLY: smooth_topography
   USE mo_model_domain,       ONLY: t_patch
@@ -93,21 +93,24 @@ MODULE mo_ext_data_state
     &                              new_var_list,                &
     &                              delete_var_list,             &
     &                              create_vert_interp_metadata, &
-    &                              create_hor_interp_metadata
+    &                              create_hor_interp_metadata, post_op
+  USE mo_var_metadata,       ONLY: POST_OP_SCALE
   USE mo_master_nml,         ONLY: model_base_dir
   USE mo_cf_convention,      ONLY: t_cf_var
   USE mo_grib2,              ONLY: t_grib2_var
-  USE mo_util_netcdf,        ONLY: read_netcdf_data, read_netcdf_lu, nf
+  USE mo_netcdf_read,        ONLY: read_netcdf_data, read_netcdf_lu, nf
   USE mo_util_string,        ONLY: t_keyword_list,  &
     &                              associate_keyword, with_keywords
-  USE mo_phyparam_soil,      ONLY: c_lnd, c_soil
+  USE mo_phyparam_soil,      ONLY: c_lnd, c_soil, c_sea
   USE mo_datetime,           ONLY: t_datetime, month2hour
   USE mo_cdi_constants,      ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE, &
     &                              GRID_UNSTRUCTURED_VERT, GRID_REFERENCE,         &
     &                              GRID_CELL, GRID_EDGE, GRID_VERTEX, ZA_SURFACE,  &
-    &                              ZA_HYBRID, ZA_PRESSURE, DATATYPE_FLT32,         &
-    &                              DATATYPE_PACK16, FILETYPE_NC2, TSTEP_CONSTANT,  &
-    &                              TSTEP_MAX
+    &                              ZA_HYBRID, ZA_PRESSURE, ZA_HEIGHT_2M,           &
+    &                              DATATYPE_FLT32, DATATYPE_PACK16, FILETYPE_NC2,  &
+    &                              TSTEP_CONSTANT, TSTEP_MAX, TSTEP_AVG
+
+  USE mo_master_control,        ONLY: is_restart_run
 
   IMPLICIT NONE
 
@@ -144,7 +147,8 @@ MODULE mo_ext_data_state
   PUBLIC :: init_ext_data_oce
   PUBLIC :: init_index_lists
   PUBLIC :: destruct_ext_data
-  PUBLIC :: interpol_ndvi_time
+  PUBLIC :: interpol_monthly_mean
+  PUBLIC :: diagnose_ext_aggr
 
   TYPE(t_external_data),TARGET, ALLOCATABLE :: &
     &  ext_data(:)  ! n_dom
@@ -175,6 +179,7 @@ CONTAINS
 
     INTEGER :: jg
 
+    TYPE(t_datetime) :: datetime_ndvi
     CHARACTER(len=max_char_length), PARAMETER :: &
       routine = 'mo_ext_data:init_ext_data'
 
@@ -230,13 +235,7 @@ CONTAINS
 
     SELECT CASE(itopo)
 
-    CASE(0) ! do not read external data  (except land-sea mask for JSBACH and ozone)
-            ! topography from analytical functions 
-
-    !-------------------------------------------------------------------------
-    ! surface/vegetation  parameter
-    !-------------------------------------------------------------------------
-
+    CASE(0) ! do not read external data except in some cases (see below)
       !
       ! initalize external data with meaningful data, in the case that they 
       ! are not read in from file.
@@ -254,6 +253,12 @@ CONTAINS
           ext_data(jg)%atm%rsmin(:,:)       = 150._wp    ! minimal stomata resistence
           ext_data(jg)%atm%soiltyp(:,:)     = 8          ! soil type
           ext_data(jg)%atm%z0(:,:)          = 0.001_wp   ! roughness length
+          
+          !Special setup for EDMF
+          ext_data(jg)%atm%soiltyp_t(:,:,:) = 8           ! soil type
+          ext_data(jg)%atm%frac_t(:,:,:)    = 0._wp       ! set all tiles to 0
+          ext_data(jg)%atm%frac_t(:,:,isub_water) = 1._wp ! set only ocean to 1
+          ext_data(jg)%atm%lc_class_t(:,:,:) = 1          ! land cover class 
         END DO
       CASE ( iecham, ildf_echam)
         DO jg = 1, n_dom
@@ -261,13 +266,19 @@ CONTAINS
         END DO
       END SELECT
 
-      CALL message( TRIM(routine),'Running with analytical topography' )
-
-      ! call read_ext_data_atm to read land-sea mask for JSBACH and to read O3
-      IF (echam_phy_config%ljsbach .OR. irad_o3 == io3_clim .OR. irad_o3 == io3_ape &
-        & .OR. sstice_mode == 2) THEN
+      ! call read_ext_data_atm to read O3
+      ! topography is used from analytical functions, except for ljsbach=.TRUE. in which case
+      ! elevation of cell centers is read in and the topography is "grown" gradually to this elevation
+      IF ( irad_o3 == io3_clim .OR. irad_o3 == io3_ape .OR. sstice_mode == 2 .OR. &
+         & echam_phy_config%ljsbach) THEN
+        IF (echam_phy_config%ljsbach) THEN
+          CALL message( TRIM(routine),'topography is grown to elevation' )
+        ELSE
+          CALL message( TRIM(routine),'Running with analytical topography' )
+        END IF
         CALL read_ext_data_atm (p_patch, ext_data, nlev_o3)
       END IF 
+
     CASE(1) ! read external data from netcdf dataset
 
       CALL message( TRIM(routine),'Start reading external data from file' )
@@ -282,13 +293,47 @@ CONTAINS
 
       CALL message( TRIM(routine),'Finished reading external data' )
 
-      ! Get interpolated ndvi_mrat. Interpolation is done in time, based 
+      ! Get interpolated ndviratio. Interpolation is done in time, based 
       ! on ini_datetime. For NWP applications it is assumed, that 
-      ! ndvi_mrat is constant in time.
+      ! ndviratio is constant in time.
       !
       SELECT CASE ( iforcing )
       CASE ( inwp )
-        CALL interpol_ndvi_time (p_patch, ext_data, time_config%ini_datetime)
+        IF (.NOT. is_restart_run()) THEN
+
+          DO jg = 1, n_dom
+            CALL interpol_monthly_mean(p_patch(jg), time_config%ini_datetime, &! in
+              &                        ext_data(jg)%atm_td%ndvi_mrat,         &! in
+              &                        ext_data(jg)%atm%ndviratio             )! out
+          ENDDO
+
+        ELSE
+          datetime_ndvi=time_config%cur_datetime
+          datetime_ndvi%hour=0
+
+         DO jg = 1, n_dom
+           CALL interpol_monthly_mean(p_patch(jg), datetime_ndvi,            &! in
+             &                        ext_data(jg)%atm_td%ndvi_mrat,         &! in
+             &                        ext_data(jg)%atm%ndviratio             )! out
+         ENDDO
+
+        END IF  ! is_restart_run
+
+        !!!!!DR note that this part must be moved inside aboves IF-Statement, 
+        !!!!! if we decide to have a daily update of the albedo
+        !
+!!$        IF ( albedo_type == 2)  ! interpolate MODIS albedo in time
+!!$          DO jg = 1, n_dom
+!!$            CALL interpol_monthly_mean(p_patch(jg), time_config%ini_datetime, &! in
+!!$              &                        ext_data(jg)%atm_td%alb_vis_dif,       &! in
+!!$              &                        ext_data(jg)%atm%alb_vis_dif           )! out
+!!$
+!!$            CALL interpol_monthly_mean(p_patch(jg), time_config%ini_datetime, &! in
+!!$              &                        ext_data(jg)%atm_td%alb_nir_dif,       &! in
+!!$              &                        ext_data(jg)%atm%alb_nir_dif           )! out
+!!$          ENDDO
+!!$        ENDIF  ! albedo_type
+
       END SELECT
 
     CASE DEFAULT
@@ -394,7 +439,7 @@ CONTAINS
     IF (iequations/=ihs_ocean) THEN  ! atmosphere model ---------------------
 
       ! Build external data list for constant-in-time fields for the atm model
-      write(*,*) 'create new external data list for atmosphere'
+      !write(*,*) 'create new external data list for atmosphere'
       DO jg = 1, n_dom
         WRITE(listname,'(a,i2.2)') 'ext_data_atm_D',jg
         CALL new_ext_data_atm_list(p_patch(jg), ext_data(jg)%atm,       &
@@ -459,7 +504,7 @@ CONTAINS
     CHARACTER(len=*), INTENT(IN)      :: & !< list name
       &  listname
 
-    TYPE(t_cf_var)    :: cf_desc
+    TYPE(t_cf_var)    :: cf_desc, new_cf_desc
     TYPE(t_grib2_var) :: grib2_desc
 
     INTEGER :: jg
@@ -526,83 +571,22 @@ CONTAINS
       &           isteptype=TSTEP_CONSTANT )
 
     IF (echam_phy_config%ljsbach) THEN
-    ! atmosphere land-sea-mask at surface on cell centers
-    !
-    ! lsm_ctr_c  p_ext_atm%lsm_ctr_c(nproma,nblks_c)
-    cf_desc    = t_cf_var('Atmosphere model land-sea-mask at cell center', '-2/-1/1/2', &
-      &                   'Atmosphere model land-sea-mask', DATATYPE_FLT32)
-    grib2_desc = t_grib2_var( 192, 140, 219, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( p_ext_atm_list, 'lsm_ctr_c', p_ext_atm%lsm_ctr_c,        &
-      &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,             &
-                  grib2_desc, ldims=shape2d_c )
-    ! elevation p_ext_atm%elevation_c(nproma,nblks_c)
-    cf_desc    = t_cf_var('elevation at cell center', 'm', &
-      &                   'elevation', DATATYPE_FLT32)
-    grib2_desc = t_grib2_var( 192, 140, 219, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( p_ext_atm_list, 'elevation_c', p_ext_atm%elevation_c,        &
-      &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,          &
-                  grib2_desc, ldims=shape2d_c )
-    ! SST  p_ext_atm%sst(nproma,nblks_c)
-    cf_desc    = t_cf_var('SST', 'K', &
-      &                   'SST as prescribed for atmosphere simulations', DATATYPE_FLT32)
-    grib2_desc = t_grib2_var( 192, 140, 219, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( p_ext_atm_list, 'sst', p_ext_atm%sst,                    &
-      &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,             &
-                  grib2_desc, ldims=shape2d_c )
-    ! monthly SST  p_ext_atm%sst_mon(nproma,nblks_c)
-    cf_desc    = t_cf_var('SST monthly', 'K', &
-      &                   'monthly SST as prescribed for atmosphere simulations', DATATYPE_FLT32)
-    grib2_desc = t_grib2_var( 192, 140, 219, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( p_ext_atm_list, 'sst_mon', p_ext_atm%sst_mon,        &
-      &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,          &
-                  grib2_desc, ldims=shape3d_mon_c )
-    ! albedo_vis_soil  p_ext_atm%albedo_vis_soil(nproma,nblks_c)
-    cf_desc    = t_cf_var('soil surface albedo visible', '', &
-      &                   'soil surface albedo in the visible range', DATATYPE_FLT32)
-    grib2_desc = t_grib2_var( 192, 140, 219, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( p_ext_atm_list, 'albedo_vis_soil', p_ext_atm%albedo_vis_soil,        &
-      &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,             &
-                  grib2_desc, ldims=shape2d_c )
+      ! atmosphere land-sea-mask at surface on cell centers
+      ! lsm_ctr_c  p_ext_atm%lsm_ctr_c(nproma,nblks_c)
+      cf_desc    = t_cf_var('Atmosphere model land-sea-mask at cell center', '-2/-1/1/2', &
+        &                   'Atmosphere model land-sea-mask', DATATYPE_FLT32)
+      grib2_desc = t_grib2_var( 192, 140, 219, ibits, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( p_ext_atm_list, 'lsm_ctr_c', p_ext_atm%lsm_ctr_c,        &
+        &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,             &
+        grib2_desc, ldims=shape2d_c )
 
-    ! albedo_nir_soil  p_ext_atm%albedo_nir_soil(nproma,nblks_c)
-    cf_desc    = t_cf_var('soil surface albedo NIR', '', &
-      &                   'soil surface albedo in the NIR range', DATATYPE_FLT32)
-    grib2_desc = t_grib2_var( 192, 140, 219, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( p_ext_atm_list, 'albedo_nir_soil', p_ext_atm%albedo_nir_soil,        &
-      &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,             &
-                  grib2_desc, ldims=shape2d_c )
-
-    ! albedo_vis_canopy  p_ext_atm%albedo_vis_canopy(nproma,nblks_c)
-    cf_desc    = t_cf_var('canopy reflectance visible', '', &
-      &                   'canopy reflectance in the visible range', DATATYPE_FLT32)
-    grib2_desc = t_grib2_var( 192, 140, 219, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( p_ext_atm_list, 'albedo_vis_canopy', p_ext_atm%albedo_vis_canopy,    &
-      &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,             &
-                  grib2_desc, ldims=shape2d_c )
-
-    ! albedo_nir_canopy  p_ext_atm%albedo_nir_canopy(nproma,nblks_c)
-    cf_desc    = t_cf_var('canopy reflectance NIR', '', &
-      &                   'canopy reflectance in the NIR range', DATATYPE_FLT32)
-    grib2_desc = t_grib2_var( 192, 140, 219, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( p_ext_atm_list, 'albedo_nir_canopy', p_ext_atm%albedo_nir_canopy,    &
-      &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,             &
-                  grib2_desc, ldims=shape2d_c )
-
-    ! albedo_background  p_ext_atm%albedo_background(nproma,nblks_c)
-    cf_desc    = t_cf_var('background albedo', '', &
-      &                   'background albedo for echam5 albedo scheme', DATATYPE_FLT32)
-    grib2_desc = t_grib2_var( 192, 140, 219, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( p_ext_atm_list, 'albedo_background', p_ext_atm%albedo_background,    &
-      &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,             &
-                  grib2_desc, ldims=shape2d_c )
-
-    ! forest_fract  p_ext_atm%forest_fract(nproma,nblks_c)
-    cf_desc    = t_cf_var('forest fraction', '', &
-      &                   'forest fraction for echam5 albedo scheme', DATATYPE_FLT32)
-    grib2_desc = t_grib2_var( 192, 140, 219, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( p_ext_atm_list, 'forest_fract', p_ext_atm%forest_fract,   &
-      &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,              &
-                  grib2_desc, ldims=shape2d_c )
+      ! elevation p_ext_atm%elevation_c(nproma,nblks_c)
+      cf_desc    = t_cf_var('elevation at cell center', 'm', &
+      &                     'elevation', DATATYPE_FLT32)
+      grib2_desc = t_grib2_var( 192, 140, 219, ibits, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( p_ext_atm_list, 'elevation_c', p_ext_atm%elevation_c,        &
+      &             GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,          &
+                    grib2_desc, ldims=shape2d_c )
     END IF
 
     ! ozone mixing ratio
@@ -704,7 +688,7 @@ CONTAINS
       &           grib2_desc, ldims=shape2d_c, loutput=.FALSE. )
 
 
-    ! maybe the next three (ice, fr_land_smt, fr_ice_smt)
+    ! maybe the next two (ice, fr_land_smt)
     ! should be moved into corresponding if block
 
     ! sea Ice fraction
@@ -737,17 +721,6 @@ CONTAINS
     grib2_desc = t_grib2_var( 2, 0, 192, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_ext_atm_list, 'fr_glac_smt', p_ext_atm%fr_glac_smt, &
       &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,          &
-      &           grib2_desc, ldims=shape2d_c, loutput=.FALSE. )
-
-
-    ! sea Ice fraction (smoothed)
-    !
-    ! fr_ice_smt  p_ext_atm%fr_ice_smt(nproma,nblks_c)
-    cf_desc    = t_cf_var('Sea_ice_fraction (smoothed)', '-', &
-      &                   'Sea ice fraction (smoothed)', DATATYPE_FLT32)
-    grib2_desc = t_grib2_var( 10, 2, 0, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( p_ext_atm_list, 'fr_ice_smt', p_ext_atm%fr_ice_smt, &
-      &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,        &
       &           grib2_desc, ldims=shape2d_c, loutput=.FALSE. )
 
 
@@ -813,7 +786,7 @@ CONTAINS
       grib2_desc = t_grib2_var( 0, 3, 20, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'sso_stdh', p_ext_atm%sso_stdh, &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
-        &           grib2_desc, ldims=shape2d_c, loutput=.FALSE.,   &
+        &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,    &
         &           isteptype=TSTEP_CONSTANT )
 
 
@@ -823,10 +796,10 @@ CONTAINS
       ! sso_gamma    p_ext_atm%sso_gamma(nproma,nblks_c)
       cf_desc    = t_cf_var('anisotropy_factor', '-',&
         &                   'Anisotropy of sub-gridscale orography', DATATYPE_FLT32)
-      grib2_desc = t_grib2_var( 0, 3, 20, ibits, GRID_REFERENCE, GRID_CELL)
+      grib2_desc = t_grib2_var( 0, 3, 24, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'sso_gamma', p_ext_atm%sso_gamma, &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,      &
-        &           grib2_desc, ldims=shape2d_c, loutput=.FALSE.,     &
+        &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,      &
         &           isteptype=TSTEP_CONSTANT )
 
 
@@ -839,7 +812,7 @@ CONTAINS
       grib2_desc = t_grib2_var( 0, 3, 21, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'sso_theta', p_ext_atm%sso_theta, &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,      &
-        &           grib2_desc, ldims=shape2d_c, loutput=.FALSE.,     &
+        &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,      &
         &           isteptype=TSTEP_CONSTANT )
 
 
@@ -852,7 +825,7 @@ CONTAINS
       grib2_desc = t_grib2_var( 0, 3, 22, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'sso_sigma', p_ext_atm%sso_sigma, &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,      &
-        &           grib2_desc, ldims=shape2d_c, loutput=.FALSE.,     &
+        &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,      &
         &           isteptype=TSTEP_CONSTANT )
 
 
@@ -877,11 +850,16 @@ CONTAINS
       ! plcov     p_ext_atm%plcov(nproma,nblks_c)
       cf_desc    = t_cf_var('vegetation_area_fraction_vegetation_period', '-',&
         &                   'Plant covering degree in the vegetation phase', DATATYPE_FLT32)
+      new_cf_desc= t_cf_var('vegetation_area_fraction_vegetation_period', '%',&
+        &                   'Plant covering degree in the vegetation phase', DATATYPE_FLT32)
       grib2_desc = t_grib2_var( 2, 0, 4, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'plcov', p_ext_atm%plcov,       &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
         &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,    &
-        &           isteptype=TSTEP_CONSTANT )
+        &           isteptype=TSTEP_CONSTANT,                       &
+        &           post_op=post_op(POST_OP_SCALE, arg1=100._wp,    &
+        &                 new_cf=new_cf_desc) )
+
 
       ! plcov_t     p_ext_atm%plcov_t(nproma,nblks_c,ntiles_total)
       cf_desc    = t_cf_var('vegetation_area_fraction_vegetation_period', '-',&
@@ -917,7 +895,7 @@ CONTAINS
         &           grib2_desc, ldims=shape2d_c, loutput=.FALSE.,   &
         &           isteptype=TSTEP_MAX )
 
-      ! Leaf area index
+      ! Leaf area index (aggregated)
       !
       ! lai       p_ext_atm%lai(nproma,nblks_c)
       cf_desc    = t_cf_var('leaf_area_index_vegetation_period', '-',&
@@ -928,26 +906,60 @@ CONTAINS
         &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,   &
         &           isteptype=TSTEP_CONSTANT )
 
+      ! Surface area index (aggregated)
+      !
+      ! sai        p_ext_atm%sai(nproma,nblks_c)
+      cf_desc    = t_cf_var('sai', ' ','surface area index', DATATYPE_FLT32)
+      grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( p_ext_atm_list, 'sai', p_ext_atm%sai,            &
+        &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,     &
+        &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.)
+
+      ! Surface area index
+      !
       ! sai_t       p_ext_atm%sai_t(nproma,nblks_c,ntiles_total+ntiles_water)
       cf_desc    = t_cf_var('surface_area_index_vegetation_period', '-',&
         &                   'Surface Area Index', DATATYPE_FLT32)
-      grib2_desc = t_grib2_var( 2, 0, 28, ibits, GRID_REFERENCE, GRID_CELL)
+      grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'sai_t', p_ext_atm%sai_t,     &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,  &
         &           grib2_desc, ldims=shape3d_ntw, loutput=.FALSE. )
 
+      ! Transpiration area index (aggregated)
+      !
+      ! tai         p_ext_atm%tai(nproma,nblks_c)
+      cf_desc    = t_cf_var('tai', ' ','transpiration area index', DATATYPE_FLT32)
+      grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( p_ext_atm_list, 'tai', p_ext_atm%tai,         &
+        &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,  &
+        &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.)
+
+      ! Transpiration area index
+      !
       ! tai_t       p_ext_atm%tai_t(nproma,nblks_c,ntiles_total)
       cf_desc    = t_cf_var('transpiration_area_index_vegetation_period', '-',&
         &                   'Transpiration Area Index', DATATYPE_FLT32)
-      grib2_desc = t_grib2_var( 2, 0, 28, ibits, GRID_REFERENCE, GRID_CELL)
+      grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'tai_t', p_ext_atm%tai_t,     &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,  &
         &           grib2_desc, ldims=shape3d_nt, loutput=.FALSE. )
 
+
+      ! Evaporative area index (aggregated)
+      !
+      ! eai        p_ext_atm%eai(nproma,nblks_c)
+      cf_desc    = t_cf_var('eai', ' ','(evaporative) earth area index', DATATYPE_FLT32)
+      grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( p_ext_atm_list, 'eai', p_ext_atm%eai,         &
+        &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,  &
+        &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.)
+
+      ! Evaporative area index
+      !
       ! eai_t       p_ext_atm%eai_t(nproma,nblks_c,ntiles_total)
       cf_desc    = t_cf_var('evaporative_surface_area_index_vegetation_period', '-',&
         &                   'Earth Area (evaporative surface area) Index', DATATYPE_FLT32)
-      grib2_desc = t_grib2_var( 2, 0, 28, ibits, GRID_REFERENCE, GRID_CELL)
+      grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'eai_t', p_ext_atm%eai_t,     &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,  &
         &           grib2_desc, ldims=shape3d_nt, loutput=.FALSE. )
@@ -1013,7 +1025,8 @@ CONTAINS
       grib2_desc = t_grib2_var( 2, 0, 16, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'rsmin', p_ext_atm%rsmin,       &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
-        &           grib2_desc, ldims=shape2d_c )
+        &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,    &
+        &           isteptype=TSTEP_CONSTANT )
 
       ! rsmin2d_t        p_ext_atm%rsmin2d_t(nproma,nblks_c,ntiles_total)
       cf_desc    = t_cf_var('RSMIN', 's m-1', 'Minimal stomata resistence', DATATYPE_FLT32)
@@ -1034,14 +1047,14 @@ CONTAINS
 
       ! proportion of actual value/maximum NDVI (at ini_datetime)
       !
-      ! ndvi_mrat        p_ext_atm%ndvi_mrat(nproma,nblks_c)
+      ! ndviratio        p_ext_atm%ndviratio(nproma,nblks_c)
       cf_desc    = t_cf_var('normalized_difference_vegetation_index', '-',     &
         &                   '(monthly) proportion of actual value/maximum ' // &
         &                   'NDVI (at init time)', DATATYPE_FLT32)
       grib2_desc = t_grib2_var( 2, 0, 192, ibits, GRID_REFERENCE, GRID_CELL)
-      CALL add_var( p_ext_atm_list, 'ndvi_mrat', p_ext_atm%ndvi_mrat, &
+      CALL add_var( p_ext_atm_list, 'ndviratio', p_ext_atm%ndviratio, &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,      &
-        &           grib2_desc, ldims=shape2d_c, loutput=.FALSE.  )
+        &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.  )
 
       ! Control fields for tile approach
       ! idx_lst_lp          p_ext_atm%idx_lst_lp(nproma,nblks_c)
@@ -1163,6 +1176,7 @@ CONTAINS
       ! Storage for table values - not sure if these dimensions are supported by add_var
       ! The dimension (num_lcc) is currently hard-wired to 23
        ALLOCATE(p_ext_atm%z0_lcc(num_lcc),         & ! Land-cover related roughness length
+                p_ext_atm%z0_lcc_min(num_lcc),     & ! Minimum land-cover related roughness length
                 p_ext_atm%plcovmax_lcc(num_lcc),   & ! Maximum plant cover fraction for each land-cover class
                 p_ext_atm%laimax_lcc(num_lcc),     & ! Maximum leaf area index for each land-cover class
                 p_ext_atm%rootdmax_lcc(num_lcc),   & ! Maximum root depth each land-cover class
@@ -1195,24 +1209,28 @@ CONTAINS
 
 
       ! Climat. temperature
+      ! Climat. temperature 2m above ground. However, this temperature is used 
+      ! to initialize the climatological layer of the soil model (lowermost layer)
       !
       ! t_cl         p_ext_atm%t_cl(nproma,nblks_c)
       cf_desc    = t_cf_var('soil_temperature', 'K',                  &
         &                   'CRU near surface temperature climatology', DATATYPE_FLT32)
-      grib2_desc = t_grib2_var( 2, 3, 18, ibits, GRID_REFERENCE, GRID_CELL)
-      CALL add_var( p_ext_atm_list, 't_cl', p_ext_atm%t_cl,         &
-        &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
-        &           grib2_desc, ldims=shape2d_c, loutput=.FALSE.  )
+      grib2_desc = t_grib2_var( 0, 0, 0, ibits, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( p_ext_atm_list, 't_cl', p_ext_atm%t_cl,           &
+        &           GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_2M, cf_desc,    &
+        &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,      &
+        &           isteptype=TSTEP_CONSTANT )
 
 
       ! longwave surface emissivity
       !
       ! emis_rad     p_ext_atm%emis_rad(nproma,nblks_c)
       cf_desc    = t_cf_var('emis_rad', '-', 'longwave surface emissivity', DATATYPE_FLT32)
-      grib2_desc = t_grib2_var( 2, 3, 196, ibits, GRID_REFERENCE, GRID_CELL)
+      grib2_desc = t_grib2_var( 2, 3, 199, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'emis_rad', p_ext_atm%emis_rad, &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
-        &           grib2_desc, ldims=shape2d_c, loutput=.FALSE. )
+        &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,    &
+        &           isteptype=TSTEP_CONSTANT )
 
 
       ! landuse class fraction
@@ -1230,7 +1248,7 @@ CONTAINS
       !
       ! emis_rad     p_ext_atm%emis_rad(nproma,nblks_c)
       cf_desc    = t_cf_var('emis_rad', '-', 'longwave surface emissivity', DATATYPE_FLT32)
-      grib2_desc = t_grib2_var( 2, 3, 196, ibits, GRID_REFERENCE, GRID_CELL)
+      grib2_desc = t_grib2_var( 2, 3, 199, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'emis_rad', p_ext_atm%emis_rad, &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
         &           grib2_desc, ldims=shape2d_c, loutput=.FALSE. )
@@ -1245,7 +1263,7 @@ CONTAINS
       !
       ! emis_rad     p_ext_atm%emis_rad(nproma,nblks_c)
       cf_desc    = t_cf_var('emis_rad', '-', 'longwave surface emissivity', DATATYPE_FLT32)
-      grib2_desc = t_grib2_var( 2, 3, 196, ibits, GRID_REFERENCE, GRID_CELL)
+      grib2_desc = t_grib2_var( 2, 3, 199, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'emis_rad', p_ext_atm%emis_rad, &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
         &           grib2_desc, ldims=shape2d_c, loutput=.FALSE. )     
@@ -1335,7 +1353,7 @@ CONTAINS
     CALL new_var_list( p_ext_atm_td_list, TRIM(listname), patch_id=p_patch%id )
     CALL default_var_list_settings( p_ext_atm_td_list,         &
                                   & lrestart=.FALSE.,          &
-                                  & loutput=.FALSE.,           &
+                                  & loutput=.TRUE.,            &
                                   & restart_type=FILETYPE_NC2  )
 
 
@@ -1459,31 +1477,64 @@ CONTAINS
       &                   '(monthly) proportion of actual value/maximum ' // &
       &                   'normalized differential vegetation index', DATATYPE_FLT32)
     grib2_desc = t_grib2_var( 2, 0, 192, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( p_ext_atm_td_list, 'ndvi_mrat', p_ext_atm_td%ndvi_mrat, &
-      &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,&
-      &           ldims=shape3d_c, loutput=.FALSE. )
+    CALL add_var( p_ext_atm_td_list, 'ndvi_mrat', p_ext_atm_td%ndvi_mrat,  &
+      &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, &
+      &           ldims=shape3d_c, loutput=.FALSE.,                         &
+      &           isteptype=TSTEP_AVG )
+
+
+
+    !--------------------------------
+    ! If MODIS albedo is used
+    !--------------------------------
+    IF ( albedo_type == 2) THEN
+
+      ! (monthly)  UV visible albedo for diffuse radiation
+      !
+      ! alb_vis_dif    p_ext_atm%alb_vis_dif(nproma,nblks_c,ntimes)
+      cf_desc    = t_cf_var('UV_visible_albedo_diffuse', '-', &
+        &                   'UV visible albedo for diffuse radiation', DATATYPE_FLT32)
+      grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( p_ext_atm_td_list, 'alb_vis_dif', p_ext_atm_td%alb_vis_dif, &
+        &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
+        &           ldims=shape3d_c, loutput=.FALSE.,                           &
+        &           isteptype=TSTEP_AVG )
+
+      ! (monthly)  Near IR albedo for diffuse radiation
+      !
+      ! alb_nir_dif    p_ext_atm%alb_nir_dif(nproma,nblks_c,ntimes)
+      cf_desc    = t_cf_var('Near_IR_albedo_diffuse', '-', &
+        &                   'Near IR albedo for diffuse radiation', DATATYPE_FLT32)
+      grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( p_ext_atm_td_list, 'alb_nir_dif', p_ext_atm_td%alb_nir_dif, &
+        &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
+        &           ldims=shape3d_c, loutput=.FALSE.,                           &
+        &           isteptype=TSTEP_AVG )
+
+    ENDIF  ! albedo_type
+
+
     !--------------------------------
     !SST and sea ice fraction
     !--------------------------------
     IF ( sstice_mode > 1 ) THEN
-     ! sst_m     p_ext_atm_td%sst_m(nproma,nblks_c,ntimes)
-     cf_desc    = t_cf_var('sst_m', 'K', &
-       &                   '(monthly) sea surface temperature '  &
-       &                   , DATATYPE_FLT32)
-     grib2_desc = t_grib2_var(192 ,128 , 34, ibits, GRID_REFERENCE, GRID_CELL)
-     CALL add_var( p_ext_atm_td_list, 'sst_m', p_ext_atm_td%sst_m, &
-       &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,&
-       &           ldims=shape3d_sstice, loutput=.FALSE. )
+      ! sst_m     p_ext_atm_td%sst_m(nproma,nblks_c,ntimes)
+      cf_desc    = t_cf_var('sst_m', 'K', &
+        &                   '(monthly) sea surface temperature '  &
+        &                   , DATATYPE_FLT32)
+      grib2_desc = t_grib2_var(192 ,128 , 34, ibits, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( p_ext_atm_td_list, 'sst_m', p_ext_atm_td%sst_m, &
+        &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,&
+        &           ldims=shape3d_sstice, loutput=.FALSE. )
 
-     ! fr_ice_m     p_ext_atm_td%fr_ice_m(nproma,nblks_c,ntimes)
-     cf_desc    = t_cf_var('fr_ice_m', '(0-1)', &
-       &                   '(monthly) sea ice fraction '  &
-       &                   , DATATYPE_FLT32)
-     grib2_desc = t_grib2_var( 192,128 ,31 , ibits, GRID_REFERENCE, GRID_CELL)
-     CALL add_var( p_ext_atm_td_list, 'fr_ice_m', p_ext_atm_td%fr_ice_m, &
-       &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,&
-       &           ldims=shape3d_sstice, loutput=.FALSE. )
-
+      ! fr_ice_m     p_ext_atm_td%fr_ice_m(nproma,nblks_c,ntimes)
+      cf_desc    = t_cf_var('fr_ice_m', '(0-1)', &
+        &                   '(monthly) sea ice fraction '  &
+        &                   , DATATYPE_FLT32)
+      grib2_desc = t_grib2_var( 192,128 ,31 , ibits, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( p_ext_atm_td_list, 'fr_ice_m', p_ext_atm_td%fr_ice_m, &
+        &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,&
+        &           ldims=shape3d_sstice, loutput=.FALSE. )
 
     ENDIF ! sstice_mode
 
@@ -2016,6 +2067,31 @@ CONTAINS
                  &   0.01_wp,  0.0_wp,  0.0_wp, 0.0_wp, 120.0_wp,  -1.0_wp,-1._wp, & ! permanent snow and ice                        
                  &   0.00_wp,  0.0_wp,  0.0_wp, 0.0_wp, 250.0_wp,  -1.0_wp,-1._wp  / !undefined                                  
 
+! Tuned version of gcv2009 based on IFS values (Juergen Helmert und Martin Koehler)
+! DATA lu_gcv2009 /   0.07_wp,  0.9_wp,  3.3_wp, 1.0_wp, 180.0_wp,  -1.0_wp, 1._wp, & ! irrigated croplands                           
+!                 &   0.07_wp,  0.9_wp,  3.3_wp, 1.0_wp, 180.0_wp,  -1.0_wp, 1._wp, & ! rainfed croplands                             
+!                 &   0.25_wp,  0.8_wp,  3.0_wp, 1.0_wp, 120.0_wp,  -1.0_wp, 1._wp, & ! mosaic cropland (50-70%) - vegetation (20-50%)
+!                 &   0.07_wp,  0.9_wp,  3.5_wp, 1.0_wp, 100.0_wp,  -1.0_wp, 1._wp, & ! mosaic vegetation (50-70%) - cropland (20-50%)
+!                 &   1.00_wp,  0.8_wp,  5.0_wp, 1.0_wp, 240.0_wp,  0.38_wp,-1._wp, & ! closed broadleaved evergreen forest           
+!                 &   1.00_wp,  0.9_wp,  6.0_wp, 1.0_wp, 175.0_wp,  0.31_wp,-1._wp, & ! closed broadleaved deciduous forest           
+!                 &   0.15_wp,  0.8_wp,  4.0_wp, 2.0_wp, 175.0_wp,  0.31_wp,-1._wp, & ! open broadleaved deciduous forest             
+!                 &   1.00_wp,  0.8_wp,  5.0_wp, 0.6_wp, 250.0_wp,  0.27_wp,-1._wp, & ! closed needleleaved evergreen forest          
+!                 &   1.00_wp,  0.9_wp,  5.0_wp, 0.6_wp, 250.0_wp,  0.33_wp,-1._wp, & ! open needleleaved deciduous forest            
+!                 &   1.00_wp,  0.9_wp,  5.0_wp, 0.8_wp, 210.0_wp,  0.29_wp,-1._wp, & ! mixed broadleaved and needleleaved forest     
+!                 &   0.20_wp,  0.8_wp,  2.5_wp, 1.0_wp, 150.0_wp,  -1.0_wp, 1._wp, & ! mosaic shrubland (50-70%) - grassland (20-50%)
+!                 &   0.20_wp,  0.8_wp,  2.5_wp, 1.0_wp, 150.0_wp,  -1.0_wp, 1._wp, & ! mosaic grassland (50-70%) - shrubland (20-50%)
+!                 &   0.15_wp,  0.8_wp,  2.5_wp, 1.5_wp, 225.0_wp,  -1.0_wp, 1._wp, & ! closed to open shrubland                      
+!                 &   0.03_wp,  0.9_wp,  3.1_wp, 0.6_wp, 100.0_wp,  -1.0_wp, 1._wp, & ! closed to open herbaceous vegetation          
+!                 &   0.05_wp,  0.5_wp,  0.6_wp, 0.3_wp,  80.0_wp,  -1.0_wp, 1._wp, & ! sparse vegetation                             
+!                 &   1.00_wp,  0.8_wp,  5.0_wp, 1.0_wp, 150.0_wp,  -1.0_wp,-1._wp, & ! closed to open forest regulary flooded        
+!                 &   1.00_wp,  0.8_wp,  5.0_wp, 1.0_wp, 150.0_wp,  -1.0_wp,-1._wp, & ! closed forest or shrubland permanently flooded
+!                 &   0.05_wp,  0.8_wp,  2.0_wp, 1.0_wp,  80.0_wp,  -1.0_wp,-1._wp, & ! closed to open grassland regularly flooded    
+!                 &   1.00_wp,  0.2_wp,  1.6_wp, 0.6_wp, 120.0_wp,  -1.0_wp,-1._wp, & ! artificial surfaces                           
+!                 &   0.05_wp,  0.05_wp, 0.6_wp, 0.3_wp, 250.0_wp,  -1.0_wp, 1._wp, & ! bare areas                                    
+!                 &   0.0002_wp,0.0_wp,  0.0_wp, 0.0_wp, 150.0_wp,  -1.0_wp,-1._wp, & ! water bodies                                  
+!                 &   0.01_wp,  0.0_wp,  0.0_wp, 0.0_wp, 120.0_wp,  -1.0_wp,-1._wp, & ! permanent snow and ice                        
+!                 &   0.00_wp,  0.0_wp,  0.0_wp, 0.0_wp, 250.0_wp,  -1.0_wp,-1._wp  / !undefined                                  
+
 
 
 
@@ -2028,97 +2104,38 @@ CONTAINS
       mpi_comm = p_comm_work
     ENDIF
 
-    ! Read land-sea mask, sst, land surface albedo, and forest fraction if JSBACH is used
+    IF(itopo == 0 .AND. echam_phy_config%ljsbach ) THEN
+      !
+      ! Read elevation of grid cells centers from grid file; this is then used to dynamically "grow" a topography for
+      ! the hydrostatic model (in mo_ha_diag_util). This should be removed once the echam atmosphere is realistically 
+      ! initialized and uses a real topography.
+      DO jg = 1,n_dom
 
-    IF (echam_phy_config%ljsbach) THEN
-    DO jg = 1,n_dom
+        i_lev = p_patch(jg)%level
 
-      i_lev = p_patch(jg)%level
+        IF(my_process_is_stdio()) CALL nf(nf_open(TRIM(p_patch(jg)%grid_filename), NF_NOWRITE, ncid), routine)
 
-      IF(my_process_is_stdio()) &
-        CALL nf(nf_open(TRIM(p_patch(jg)%grid_filename), NF_NOWRITE, ncid), routine)
+        IF (p_patch(jg)%cell_type == 3) THEN     ! triangular grid
 
-      IF (p_patch(jg)%cell_type == 3) THEN     ! triangular grid
+          ! get elevation [m]
+          CALL read_netcdf_data (ncid, 'cell_elevation', p_patch(jg)%n_patch_cells_g, &
+            &                    p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+            &                    ext_data(jg)%atm%elevation_c)
+          ! get land-sea-mask on cells, integer marks are:
+          ! inner sea (-2), boundary sea (-1, cells and vertices), boundary (0, edges),
+          ! boundary land (1, cells and vertices), inner land (2)
+          CALL read_netcdf_data (ncid, 'cell_sea_land_mask', p_patch(jg)%n_patch_cells_g, &
+            &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+            &                     ext_data(jg)%atm%lsm_ctr_c)
+          ! Mask out ocean
+          ext_data(jg)%atm%elevation_c(:,:) = MERGE(ext_data(jg)%atm%elevation_c(:,:), 0._wp,  ext_data(jg)%atm%lsm_ctr_c(:,:) > 0)
 
-        ! get land-sea-mask on cells, integer marks are:
-        ! inner sea (-2), boundary sea (-1, cells and vertices), boundary (0, edges),
-        ! boundary land (1, cells and vertices), inner land (2)
-        CALL read_netcdf_data (ncid, 'cell_sea_land_mask', p_patch(jg)%n_patch_cells_g, &
-          &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-          &                     ext_data(jg)%atm%lsm_ctr_c)
+        ENDIF
 
-        ! get topography [m]
-        CALL read_netcdf_data (ncid, 'cell_elevation', p_patch(jg)%n_patch_cells_g, &
-          &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-          &                     ext_data(jg)%atm%elevation_c)
-        ext_data(jg)%atm%elevation_c(:,:) = MAX(0._wp, ext_data(jg)%atm%elevation_c(:,:))
-        ext_data(jg)%atm%topography_c(:,:) = 0._wp
+        IF( my_process_is_stdio()) CALL nf(nf_close(ncid), routine)
 
-      ENDIF
+      END DO
 
-      IF( my_process_is_stdio()) CALL nf(nf_close(ncid), routine)
-
-      IF(my_process_is_stdio()) CALL nf(nf_open('sst.nc', NF_NOWRITE, ncid), routine)
-
-      IF (p_patch(jg)%cell_type == 3) THEN     ! triangular grid      
-
-        CALL read_netcdf_data (ncid, 'SST', p_patch(jg)%n_patch_cells_g, &
-          &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-          &                     ext_data(jg)%atm%sst)      
-
-      END IF
-
-      IF( my_process_is_stdio()) CALL nf(nf_close(ncid), routine)
-
-      IF(my_process_is_stdio()) CALL nf(nf_open('sst_mon.nc', NF_NOWRITE, ncid), routine)
-
-      IF (p_patch(jg)%cell_type == 3) THEN     ! triangular grid      
-
-        CALL read_netcdf_data (ncid, 'SST', p_patch(jg)%n_patch_cells_g, &
-          &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-          &                     12,ext_data(jg)%atm%sst_mon)      
-
-      END IF
-
-      IF( my_process_is_stdio()) CALL nf(nf_close(ncid), routine)
-
-      IF(my_process_is_stdio()) THEN
-        !
-        ! generate file name and open file
-        extpar_file = generate_filename(extpar_filename,                  &
-          &                             model_base_dir,                   &
-          &                             TRIM(p_patch(jg)%grid_filename))
-
-        CALL nf(nf_open(TRIM(extpar_file), NF_NOWRITE, ncid), routine)
-!!$ TR      CALL nf(nf_open('/pf/m/m212070/jsbach_R2B04_v1.nc', NF_NOWRITE, ncid), routine)
-      END IF
-
-      IF (p_patch(jg)%cell_type == 3) THEN     ! triangular grid
-
-        ! get land surface albedo on cells
-        CALL read_netcdf_data (ncid, 'albedo_soil_vis', p_patch(jg)%n_patch_cells_g, &
-          &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-          &                     ext_data(jg)%atm%albedo_vis_soil)
-        CALL read_netcdf_data (ncid, 'albedo_soil_nir', p_patch(jg)%n_patch_cells_g, &
-          &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-          &                     ext_data(jg)%atm%albedo_nir_soil)
-        CALL read_netcdf_data (ncid, 'albedo_veg_vis', p_patch(jg)%n_patch_cells_g, &
-          &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-          &                     ext_data(jg)%atm%albedo_vis_canopy)
-        CALL read_netcdf_data (ncid, 'albedo_veg_nir', p_patch(jg)%n_patch_cells_g, &
-          &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-          &                     ext_data(jg)%atm%albedo_nir_canopy)
-        CALL read_netcdf_data (ncid, 'albedo', p_patch(jg)%n_patch_cells_g, &
-          &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-          &                     ext_data(jg)%atm%albedo_background)
-        CALL read_netcdf_data (ncid, 'forest_fract', p_patch(jg)%n_patch_cells_g, &
-          &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-          &                     ext_data(jg)%atm%forest_fract)
-      ENDIF
-
-      IF( my_process_is_stdio()) CALL nf(nf_close(ncid), routine)
-
-    END DO
     END IF
 
     IF(itopo == 1 ) THEN
@@ -2156,6 +2173,7 @@ CONTAINS
         IF (i_lctype(jg) == 1) THEN
           ext_data(jg)%atm%i_lc_snow_ice = 21
           ext_data(jg)%atm%i_lc_water    = 20
+          ext_data(jg)%atm%i_lc_urban    = 22
           DO i = 1, num_lcc*n_param_lcc, n_param_lcc
             ilu=ilu+1
             ext_data(jg)%atm%z0_lcc(ilu)          = lu_glc2000(i  )  ! Land-cover related roughness length
@@ -2170,6 +2188,7 @@ CONTAINS
           i_lctype(jg) = 2
           ext_data(jg)%atm%i_lc_snow_ice = 22
           ext_data(jg)%atm%i_lc_water    = 21
+          ext_data(jg)%atm%i_lc_urban    = 19
           DO i = 1, num_lcc*n_param_lcc, n_param_lcc
             ilu=ilu+1
             ext_data(jg)%atm%z0_lcc(ilu)          = lu_gcv2009(i  )  ! Land-cover related roughness length
@@ -2181,6 +2200,18 @@ CONTAINS
             ext_data(jg)%atm%snowtile_lcc(ilu)    = MERGE(.TRUE.,.FALSE.,lu_gcv2009(i+6)>0._wp) ! Existence of snow tiles for land-cover class
           ENDDO
         ENDIF
+
+        ! Derived parameter: minimum allowed land-cover related roughness length in the 
+        ! presence of low ndvi and/or snow cover
+        DO ilu = 1, num_lcc
+          IF (ilu == ext_data(jg)%atm%i_lc_urban .OR. ilu == ext_data(jg)%atm%i_lc_water) THEN
+            ext_data(jg)%atm%z0_lcc_min(ilu) = ext_data(jg)%atm%z0_lcc(ilu) ! no reduction in urban regions and over water
+          ELSE IF (ext_data(jg)%atm%z0_lcc(ilu) >= 0.1) THEN
+            ext_data(jg)%atm%z0_lcc_min(ilu) = 0.3_wp*ext_data(jg)%atm%z0_lcc(ilu) ! 30% for nominal roughness lengths > 10 cm
+          ELSE
+            ext_data(jg)%atm%z0_lcc_min(ilu) = MAX(0.005_wp, 0.1_wp*ext_data(jg)%atm%z0_lcc(ilu)) ! 10% otherwise, but at least 5 mm
+          ENDIF
+        ENDDO
 
         !-------------------------------------------------------
         !
@@ -2280,10 +2311,6 @@ CONTAINS
               &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
               &                     nclass_lu(jg), ext_data(jg)%atm%lu_class_fraction )
 
-            CALL read_netcdf_data (ncid, 'ICE', p_patch(jg)%n_patch_cells_g,                &
-              &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-              &                     ext_data(jg)%atm%fr_ice)
-
            
             IF ( l_emiss ) THEN
               CALL read_netcdf_data (ncid, 'EMIS_RAD', p_patch(jg)%n_patch_cells_g,           &
@@ -2367,6 +2394,23 @@ CONTAINS
               &                    ext_data(jg)%atm_td%ndvi_mrat)
            
 
+            !--------------------------------
+            ! If MODIS albedo is used
+            !--------------------------------
+            IF ( albedo_type == 2) THEN
+              CALL read_netcdf_data (ncid, nmonths_ext(jg), 'ALUVD',   &
+                &                    p_patch(jg)%n_patch_cells_g,      &
+                &                    p_patch(jg)%n_patch_cells,        &
+                &                    p_patch(jg)%cells%glb_index,      & 
+                &                    ext_data(jg)%atm_td%alb_vis_dif)
+
+              CALL read_netcdf_data (ncid, nmonths_ext(jg), 'ALNID',   &
+                &                    p_patch(jg)%n_patch_cells_g,      &
+                &                    p_patch(jg)%n_patch_cells,        &
+                &                    p_patch(jg)%cells%glb_index,      & 
+                &                    ext_data(jg)%atm_td%alb_nir_dif)
+            ENDIF
+
           CASE ( iecham, ildf_echam )
 
             IF ( l_emiss ) THEN
@@ -2423,7 +2467,6 @@ CONTAINS
             ! because the start index is missing in RRTM
             DO jc = 1,i_endidx
               ext_data(jg)%atm%fr_land_smt(jc,jb) = ext_data(jg)%atm%fr_land(jc,jb)
-              ext_data(jg)%atm%fr_ice_smt(jc,jb)  = ext_data(jg)%atm%fr_ice(jc,jb)
             ENDDO
 
             ! glacier fraction (still missing): QUICK FIX
@@ -2657,17 +2700,12 @@ CONTAINS
     REAL(wp):: z_flux(nproma,iforc_len,p_patch(1)%nblks_c)
     TYPE (t_keyword_list), POINTER :: keywords => NULL()
 
-!-------------------------------------------------------------------------
-
     CALL message (TRIM(routine), 'start')
 
-!-------------------------------------------------------------------------
-
+    !-------------------------------------------------------------------------
     !  READ OCEAN BATHYMETRY
-
     !-------------------------------------------------------------------------
 
-    !DO jg = 1,n_dom
     jg = 1
 
     i_lev       = p_patch(jg)%level
@@ -2734,33 +2772,33 @@ CONTAINS
     ! Read bathymetry for triangle centers and edges
     !
     !-------------------------------------------------------
+    ! These arrays are not included in standard icon-grid, but they are
+    ! created by "create_ocean_grid"
+    ! first initialise everything as land
+    ! we need to do this since dummy entities may exist in the arryas but not in the grid data
+    ext_data(jg)%oce%bathymetry_c(:,:) = 99999999.0_wp
+    ext_data(jg)%oce%bathymetry_e(:,:) = 99999999.0_wp
+    ext_data(jg)%oce%lsm_ctr_c(:,:)    = LAND
+    ext_data(jg)%oce%lsm_ctr_e(:,:)    = LAND
+     
+    CALL read_netcdf_data (ncid, 'cell_elevation', p_patch(jg)%n_patch_cells_g,     &
+      &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+      &                     ext_data(jg)%oce%bathymetry_c)
 
-    ! triangle center and edges
+    CALL read_netcdf_data (ncid, 'edge_elevation', p_patch(jg)%n_patch_edges_g,     &
+      &                     p_patch(jg)%n_patch_edges, p_patch(jg)%edges%glb_index, &
+      &                     ext_data(jg)%oce%bathymetry_e)
 
-    IF (i_cell_type == 3) THEN     ! triangular grid
+    ! get land-sea-mask on cells, integer marks are:
+    ! inner sea (-2), boundary sea (-1, cells and vertices), boundary (0, edges),
+    ! boundary land (1, cells and vertices), inner land (2)
+    CALL read_netcdf_data (ncid, 'cell_sea_land_mask', p_patch(jg)%n_patch_cells_g, &
+      &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+      &                     ext_data(jg)%oce%lsm_ctr_c)
 
-      ! These arrays are not included in standard icon-grid, but they are
-      ! created by "create_ocean_grid"
-      CALL read_netcdf_data (ncid, 'cell_elevation', p_patch(jg)%n_patch_cells_g,     &
-        &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-        &                     ext_data(jg)%oce%bathymetry_c)
-
-      CALL read_netcdf_data (ncid, 'edge_elevation', p_patch(jg)%n_patch_edges_g,     &
-        &                     p_patch(jg)%n_patch_edges, p_patch(jg)%edges%glb_index, &
-        &                     ext_data(jg)%oce%bathymetry_e)
-
-      ! get land-sea-mask on cells, integer marks are:
-      ! inner sea (-2), boundary sea (-1, cells and vertices), boundary (0, edges),
-      ! boundary land (1, cells and vertices), inner land (2)
-      CALL read_netcdf_data (ncid, 'cell_sea_land_mask', p_patch(jg)%n_patch_cells_g, &
-        &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-        &                     ext_data(jg)%oce%lsm_ctr_c)
-
-      CALL read_netcdf_data (ncid, 'edge_sea_land_mask', p_patch(jg)%n_patch_edges_g, &
+    CALL read_netcdf_data (ncid, 'edge_sea_land_mask', p_patch(jg)%n_patch_edges_g, &
         &                    p_patch(jg)%n_patch_edges, p_patch(jg)%edges%glb_index,  &
         &                    ext_data(jg)%oce%lsm_ctr_e)
-
-    ENDIF
 
     !
     ! close file
@@ -2870,12 +2908,16 @@ CONTAINS
       IF (iforc_type == 2) THEN
 
       ! Read complete OMIP data sets for focing ocean model
-      ! 4:  tafo(:,:),   &  ! 2 m air temperature                              [C]
-      ! 5:  ftdew(:,:),  &  ! 2 m dew-point temperature                        [K]
-      ! 6:  fu10(:,:) ,  &  ! 10 m wind speed                                  [m/s]
-      ! 7:  fclou(:,:),  &  ! Fractional cloud cover
-      ! 8:  pao(:,:),    &  ! Surface atmospheric pressure                     [hPa]
-      ! 9:  fswr(:,:),   &  ! Incoming surface solar radiation                 [W/m]
+      !  - names are used in type t_atmos_for_ocean in mo_se_ice_types
+      !  4:  tafo(:,:),   &  ! 2 m air temperature                              [C]
+      !  5:  ftdew(:,:),  &  ! 2 m dew-point temperature                        [K]
+      !  6:  fu10(:,:) ,  &  ! 10 m wind speed                                  [m/s]
+      !  7:  fclou(:,:),  &  ! Fractional cloud cover
+      !  8:  pao(:,:),    &  ! Surface atmospheric pressure                     [hPa]
+      !  9:  fswr(:,:),   &  ! Incoming surface solar radiation                 [W/m]
+      ! 10:  precip(:,:), &  ! precipitation rate                               [m/s]
+      ! 11:  evap  (:,:), &  ! evaporation   rate                               [m/s]
+      ! 12:  runoff(:,:)     ! river runoff  rate                               [m/s]
 
         ! 2m-temperature
         CALL read_netcdf_data (ncid, 'temp_2m', p_patch(jg)%n_patch_cells_g,           &
@@ -3025,7 +3067,8 @@ CONTAINS
     INTEGER  :: i_lc_water
 
     REAL(wp), POINTER  ::  &  !< pointer to proportion of actual value/maximum
-      &  ptr_ndvi_mrat(:,:)   !< NDVI (for starting time of model integration)
+      &  ptr_ndviratio(:,:)   !< NDVI (for starting time of model integration)
+
 
     CHARACTER(len=max_char_length), PARAMETER :: &
       routine = 'mo_ext_data:init_index_lists'
@@ -3042,7 +3085,7 @@ CONTAINS
 
        n_lu = nclass_lu(jg)
 
-       ptr_ndvi_mrat => ext_data(jg)%atm%ndvi_mrat(:,:)
+       ptr_ndviratio => ext_data(jg)%atm%ndviratio(:,:)
 
        i_nchdom  = MAX(1,p_patch(jg)%n_childdom)
 
@@ -3097,14 +3140,23 @@ CONTAINS
              IF (ntiles_lnd == 1) THEN 
 
                ! i_lu=1 contains grid-box mean values from EXTPAR!
+               !
+               ! root depth
                ext_data(jg)%atm%rootdp_t (jc,jb,1)  = ext_data(jg)%atm%rootdp(jc,jb)
-               ext_data(jg)%atm%plcov_t  (jc,jb,1)  = ptr_ndvi_mrat(jc,jb)  &
-                 &                                       * ext_data(jg)%atm%plcov_mx(jc,jb)
-               ext_data(jg)%atm%tai_t    (jc,jb,1)  = ptr_ndvi_mrat(jc,jb)**2  &
-                 & * ext_data(jg)%atm%plcov_mx(jc,jb)*ext_data(jg)%atm%lai_mx(jc,jb)
+
+               ! plant cover
+               ext_data(jg)%atm%plcov_t  (jc,jb,1)  = ptr_ndviratio(jc,jb)  &
+                 &     * MIN(ext_data(jg)%atm%ndvi_max(jc,jb),ext_data(jg)%atm%plcov_mx(jc,jb))
+               ! transpiration area index
+               ext_data(jg)%atm%tai_t    (jc,jb,1)  = ext_data(jg)%atm%plcov_t  (jc,jb,1)  &
+                 &                                  * ext_data(jg)%atm%lai_mx(jc,jb)
+               ! surface area index
                ext_data(jg)%atm%sai_t    (jc,jb,1)  = c_lnd+ext_data(jg)%atm%tai_t(jc,jb,1)
-               ext_data(jg)%atm%eai_t    (jc,jb,1)  = c_soil      
+               ! evaporative soil area index
+               ext_data(jg)%atm%eai_t    (jc,jb,1)  = c_soil
+               ! minimal stomata resistance
                ext_data(jg)%atm%rsmin2d_t(jc,jb,1)  = ext_data(jg)%atm%rsmin(jc,jb)
+               ! soil type
                ext_data(jg)%atm%soiltyp_t(jc,jb,1)  = ext_data(jg)%atm%soiltyp(jc,jb)
                ext_data(jg)%atm%lc_frac_t(jc,jb,1)  = 1._wp
                ext_data(jg)%atm%lc_class_t(jc,jb,1) = MAXLOC(tile_frac,1,tile_mask)
@@ -3164,8 +3216,8 @@ CONTAINS
                IF (ext_data(jg)%atm%fr_land(jc,jb) < 0.5_wp) THEN
                  ! fix for non-dominant land points: reset soil type to sandy loam ...
                  ext_data(jg)%atm%soiltyp(jc,jb) = 4
-                 ! ... and reset ndvi_mrat to 0.5
-                 ptr_ndvi_mrat(jc,jb) = 0.5_wp
+                 ! ... and reset ndviratio to 0.5
+                 ptr_ndviratio(jc,jb) = 0.5_wp
                ENDIF
 
                sum_frac = SUM(ext_data(jg)%atm%lc_frac_t(jc,jb,1:ntiles_lnd))
@@ -3201,20 +3253,19 @@ CONTAINS
                  ! root depth
                  ext_data(jg)%atm%rootdp_t (jc,jb,i_lu)  = ext_data(jg)%atm%rootdmax_lcc(lu_subs)
                  ! plant cover
-                 ext_data(jg)%atm%plcov_t  (jc,jb,i_lu)  =    &
-                   &         ptr_ndvi_mrat(jc,jb) * ext_data(jg)%atm%plcovmax_lcc(lu_subs)
-                 ! max leaf area index
-                 ext_data(jg)%atm%tai_t    (jc,jb,i_lu)  =    &
-                   &  ptr_ndvi_mrat(jc,jb)**2 *ext_data(jg)%atm%plcovmax_lcc(lu_subs)  &
-                   &     * ext_data(jg)%atm%laimax_lcc(lu_subs)
+                 ext_data(jg)%atm%plcov_t  (jc,jb,i_lu)  = ptr_ndviratio(jc,jb) &
+                   & * MIN(ext_data(jg)%atm%ndvi_max(jc,jb),ext_data(jg)%atm%plcovmax_lcc(lu_subs))
+                 ! transpiration area index
+                 ext_data(jg)%atm%tai_t    (jc,jb,i_lu)  = ext_data(jg)%atm%plcov_t(jc,jb,i_lu) &
+                   & * ext_data(jg)%atm%laimax_lcc(lu_subs)
 
-                 ! max leaf area index
+                 ! surface area index
                  ext_data(jg)%atm%sai_t    (jc,jb,i_lu)  = c_lnd+ ext_data(jg)%atm%tai_t (jc,jb,i_lu)
 
-                 ! max leaf area index
+                 ! evaporative soil area index
                  ext_data(jg)%atm%eai_t    (jc,jb,i_lu)  = c_soil
 
-                 ! minimal stomata resistence
+                 ! minimal stomata resistance
                  ext_data(jg)%atm%rsmin2d_t(jc,jb,i_lu)  = ext_data(jg)%atm%stomresmin_lcc(lu_subs)
     
                  ! soil type
@@ -3223,7 +3274,8 @@ CONTAINS
              END IF ! ntiles
            ENDIF
 
-           jt = ntiles_total + MIN(1,ntiles_water)
+
+
            !
            ! searching for lake-points
            !
@@ -3232,41 +3284,62 @@ CONTAINS
              ext_data(jg)%atm%idx_lst_fp(i_count_flk,jb) = jc  ! write index of lake-points
              ext_data(jg)%atm%fp_count(jb) = i_count_flk
              ! set land-cover class
-             ext_data(jg)%atm%lc_class_t(jc,jb,jt)  = ext_data(jg)%atm%i_lc_water
+             ext_data(jg)%atm%lc_class_t(jc,jb,isub_lake) = ext_data(jg)%atm%i_lc_water
              ! set also area fractions
-             ext_data(jg)%atm%lc_frac_t(jc,jb,jt)  = ext_data(jg)%atm%fr_lake(jc,jb)
-           ELSE IF (1._wp-ext_data(jg)%atm%fr_land(jc,jb) >= frsea_thrhld) THEN
-             ! 
-             ! searching for sea points 
-             !
+             ext_data(jg)%atm%lc_frac_t(jc,jb,isub_lake)  = ext_data(jg)%atm%fr_lake(jc,jb)
+
+             ! set surface area index (needed by turbtran)
+             ext_data(jg)%atm%sai_t    (jc,jb,isub_lake)  = c_sea
+           ENDIF 
+
+           ! 
+           ! searching for sea points 
+           !
+           IF (1._wp-ext_data(jg)%atm%fr_land(jc,jb)-ext_data(jg)%atm%fr_lake(jc,jb) &
+             &   >= frsea_thrhld) THEN
              i_count_sea=i_count_sea + 1
              ext_data(jg)%atm%idx_lst_sp(i_count_sea,jb) = jc  ! write index of sea-points
              ext_data(jg)%atm%sp_count(jb) = i_count_sea
              ! set land-cover class
-             ext_data(jg)%atm%lc_class_t(jc,jb,jt) = ext_data(jg)%atm%i_lc_water
+             ext_data(jg)%atm%lc_class_t(jc,jb,isub_water) = ext_data(jg)%atm%i_lc_water
              ! set also area fractions
-             ext_data(jg)%atm%lc_frac_t(jc,jb,jt)  = 1._wp-ext_data(jg)%atm%fr_land(jc,jb)
+             ext_data(jg)%atm%lc_frac_t(jc,jb,isub_water)  = 1._wp                        &
+               &         -ext_data(jg)%atm%fr_land(jc,jb) - ext_data(jg)%atm%fr_lake(jc,jb)
+
+             ! set surface area index (needed by turbtran)
+             ext_data(jg)%atm%sai_t    (jc,jb,isub_water)  = c_sea
            ENDIF
+
+           !
+           ! index list for seaice points is generated in mo_nwp_sfc_utils/init_sea_lists
+           ! 
+           ! note that in principle, sai_t for seaice should be different from sai_t for 
+           ! open water points. However, for the time being, sai_t=c_sea is also used 
+           ! for seaice points.
 
          END DO ! jc
 
 
 
-         ! Normalize land-cover fractions over the land tile indices plus the first water index to a sum of 1
+         ! Normalize land-cover fractions over the land tile indices plus the sea-water and 
+         ! lake index to a sum of 1
          IF (ntiles_lnd > 1) THEN
            DO jc = i_startidx, i_endidx
              sum_frac = SUM(ext_data(jg)%atm%lc_frac_t(jc,jb,1:ntiles_lnd)) + &
-                            ext_data(jg)%atm%lc_frac_t(jc,jb,ntiles_total+MIN(1,ntiles_water))
+                        SUM(ext_data(jg)%atm%lc_frac_t(jc,jb,isub_water:isub_lake))
 
-             DO jt = 1, ntiles_total + MIN(1,ntiles_water)
+             DO jt = 1, ntiles_total + MIN(2,ntiles_water)
                ext_data(jg)%atm%lc_frac_t(jc,jb,jt) = ext_data(jg)%atm%lc_frac_t(jc,jb,jt) / sum_frac
              ENDDO
            ENDDO
          ELSE ! overwrite fractional settings over water points if tile approach is turned off
            DO jc = i_startidx, i_endidx
-             ext_data(jg)%atm%lc_frac_t(jc,jb,1) = 1
+             ext_data(jg)%atm%lc_frac_t(jc,jb,1) = 1._wp
            ENDDO
          ENDIF
+
+
+
 
          IF (lsnowtile) THEN ! copy static external data fields to snow tile grid points
            DO jt = ntiles_lnd+1, ntiles_total
@@ -3305,7 +3378,10 @@ CONTAINS
            ENDDO
          ENDDO
          DO jc = i_startidx, i_endidx
-           ext_data(jg)%atm%frac_t(jc,jb,isub_water)  = ext_data(jg)%atm%lc_frac_t(jc,jb,isub_water)
+           ext_data(jg)%atm%frac_t(jc,jb,isub_water) = ext_data(jg)%atm%lc_frac_t(jc,jb,isub_water)
+         ENDDO
+         DO jc = i_startidx, i_endidx
+           ext_data(jg)%atm%frac_t(jc,jb,isub_lake)  = ext_data(jg)%atm%lc_frac_t(jc,jb,isub_lake)
          ENDDO
          ! frac_t(jc,jb,isub_seaice) is set in init_sea_lists
 
@@ -3340,7 +3416,7 @@ CONTAINS
 
 
     ! Diagnose aggregated external parameter fields
-    ! (mainly for output putposes)
+    ! (mainly for output purposes)
     !
     CALL diagnose_ext_aggr (p_patch, ext_data)
 
@@ -3368,6 +3444,7 @@ CONTAINS
     INTEGER  :: jg,jb,jt,ic,jc
     INTEGER  :: rl_start, rl_end
     INTEGER  :: i_startblk, i_endblk    !> blocks
+    INTEGER  :: i_startidx, i_endidx
     INTEGER  :: i_nchdom                !< domain index
     INTEGER  :: i_count
     REAL(wp) :: area_frac
@@ -3387,15 +3464,27 @@ CONTAINS
       i_startblk = p_patch(jg)%cells%start_blk(rl_start,1)
       i_endblk   = p_patch(jg)%cells%end_blk(rl_end,i_nchdom)
 
+      ! Fill nest boundary points of sai with c_sea because the initial call of turbtran
+      ! may produce invalid operations otherwise
+      ext_data(jg)%atm%sai(:,1:i_startblk) = c_sea
+
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jt,ic,i_count,jc,area_frac)
+!$OMP DO PRIVATE(jb,jt,ic,i_startidx,i_endidx,i_count,jc,area_frac)
       DO jb = i_startblk, i_endblk
 
-        IF (ext_data(jg)%atm%lp_count(jb) == 0) CYCLE ! skip loop if there is no land point
+        CALL get_indices_c(p_patch(jg), jb, i_startblk, i_endblk, &
+          & i_startidx, i_endidx, rl_start, rl_end)
+
 
         ext_data(jg)%atm%plcov (:,jb) = 0._wp
         ext_data(jg)%atm%rootdp(:,jb) = 0._wp
         ext_data(jg)%atm%lai   (:,jb) = 0._wp
+        ext_data(jg)%atm%rsmin (:,jb) = 0._wp
+        ext_data(jg)%atm%tai   (:,jb) = 0._wp
+        ext_data(jg)%atm%eai   (:,jb) = 0._wp
+        ext_data(jg)%atm%sai   (i_startidx:i_endidx,jb) = 0._wp
+
+
 
         DO jt = 1, ntiles_total
           i_count = ext_data(jg)%atm%gp_count_t(jb,jt)
@@ -3406,18 +3495,45 @@ CONTAINS
 
             area_frac = ext_data(jg)%atm%frac_t(jc,jb,jt)
 
+            ! plant cover (aggregated)
             ext_data(jg)%atm%plcov(jc,jb) = ext_data(jg)%atm%plcov(jc,jb)       &
               &              + ext_data(jg)%atm%plcov_t(jc,jb,jt) * area_frac
 
+            ! root depth (aggregated)
             ext_data(jg)%atm%rootdp(jc,jb) = ext_data(jg)%atm%rootdp(jc,jb)     &
               &             + ext_data(jg)%atm%rootdp_t(jc,jb,jt) * area_frac
 
+            ! surface area index (aggregated)
             ext_data(jg)%atm%lai(jc,jb) = ext_data(jg)%atm%lai(jc,jb)           &
               &             + ( ext_data(jg)%atm%tai_t(jc,jb,jt)                &
               &             /(ext_data(jg)%atm%plcov_t(jc,jb,jt)+dbl_eps) * area_frac )
 
-          ENDDO  !ic
+            ! evaporative soil area index (aggregated)
+            ext_data(jg)%atm%eai(jc,jb) = ext_data(jg)%atm%eai(jc,jb)           &
+              &             +  ext_data(jg)%atm%eai_t(jc,jb,jt) * area_frac 
 
+            ! transpiration area index (aggregated)
+            ext_data(jg)%atm%tai(jc,jb) = ext_data(jg)%atm%tai(jc,jb)           &
+              &             +  ext_data(jg)%atm%tai_t(jc,jb,jt) * area_frac 
+
+            ! minimal stomata resistance (aggregated)
+            ext_data(jg)%atm%rsmin(jc,jb) = ext_data(jg)%atm%rsmin(jc,jb)       &
+              &              + ext_data(jg)%atm%rsmin2d_t(jc,jb,jt) * area_frac
+
+          ENDDO  !ic
+        ENDDO  !jt
+
+
+        ! aggregate fields with water tiles
+        DO jt = 1,ntiles_total + ntiles_water
+          DO jc = i_startidx, i_endidx
+
+            area_frac = ext_data(jg)%atm%frac_t(jc,jb,jt)
+
+            ! surface area index (aggregated)
+            ext_data(jg)%atm%sai(jc,jb) = ext_data(jg)%atm%sai(jc,jb)           &
+              &             +  ext_data(jg)%atm%sai_t(jc,jb,jt) * area_frac
+          ENDDO  ! jc
         ENDDO  !jt
 
       ENDDO  !jb
@@ -3429,71 +3545,79 @@ CONTAINS
   END SUBROUTINE diagnose_ext_aggr
 
 
+
   !-------------------------------------------------------------------------
   !>
-  !! Get ndvi_mrat for starting time of model integration
+  !! Get interpolated field from monthly mean climatology
   !!
-  !! Get ndvi_mrat for starting time of model integration.
-  !! Linear interpolation in time. 
+  !! Get interpolated field from monthly mean climatology. A linear interpolation 
+  !! in time between successive months is performed, assuming that the monthly field 
+  !! applies to the 15th of the month. 
   !!
   !! @par Revision History
   !! Initial revision by Juergen Helmert, DWD (2012-04-17)
+  !! Modification by Daniel Reinert, DWD (2013-05-03)
+  !! Generalization to arbitrary monthly mean climatologies
   !!
-  SUBROUTINE interpol_ndvi_time(p_patch, ext_data, datetime)
+  SUBROUTINE interpol_monthly_mean(p_patch, datetime, monthly_means, out_field)
 
-    TYPE(t_patch),         INTENT(IN)    :: p_patch(:)
-    TYPE(t_external_data), INTENT(INOUT) :: ext_data(:)
-    TYPE(t_datetime),      INTENT(IN)    :: datetime
+    TYPE(t_patch),     INTENT(IN)  :: p_patch
+    TYPE(t_datetime),  INTENT(IN)  :: datetime              ! actual date
+    REAL(wp),          INTENT(IN)  :: monthly_means(:,:,:)  ! monthly mean climatology
+    REAL(wp),          INTENT(OUT) :: out_field(:,:)        ! interpolated output field
 
 
-    INTEGER :: jg, mo1, mo2
+    INTEGER :: jg                   !< patch ID
     INTEGER :: jc, jb               !< loop index
     INTEGER :: i_startblk, i_endblk, i_nchdom
     INTEGER :: rl_start, rl_end
     INTEGER :: i_startidx, i_endidx
+    INTEGER :: mo1, mo2             !< nearest months 
     REAL(wp):: zw1, zw2
 
     CHARACTER(len=max_char_length), PARAMETER :: &
-      routine = 'mo_ext_data: interpol_ndvi_time'
+      routine = 'mo_ext_data: interpol_monthly_mean'
 
     !---------------------------------------------------------------
 
-    ! Find the 2 nearest months m1, m2 and the weights pw1, pw2 
+    ! Find the 2 nearest months mo1, mo2 and the weights zw1, zw2 
     ! to the actual date and time
     CALL month2hour( datetime, mo1, mo2, zw2 )
 
     zw1 = 1._wp - zw2
 
-    ! Get interpolated ndvi_mrat
-    DO jg = 1, n_dom
 
-      i_nchdom  = MAX(1,p_patch(jg)%n_childdom)
+    ! get patch ID
+    jg = p_patch%id
 
-      ! exclude the boundary interpolation zone of nested domains
-      rl_start = grf_bdywidth_c+1
-      rl_end   = min_rlcell_int
 
-      i_startblk = p_patch(jg)%cells%start_blk(rl_start,1)
-      i_endblk   = p_patch(jg)%cells%end_blk(rl_end,i_nchdom)
+    ! Get interpolated field
+    i_nchdom  = MAX(1,p_patch%n_childdom)
+
+    ! exclude the boundary interpolation zone of nested domains
+    rl_start = grf_bdywidth_c+1
+    rl_end   = min_rlcell_int
+
+    i_startblk = p_patch%cells%start_blk(rl_start,1)
+    i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx)
-      DO jb=i_startblk, i_endblk
+    DO jb=i_startblk, i_endblk
 
-        CALL get_indices_c(p_patch(jg), jb, i_startblk, i_endblk, &
-           & i_startidx, i_endidx, rl_start, rl_end)
+      CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+         & i_startidx, i_endidx, rl_start, rl_end)
 
-        DO jc = i_startidx, i_endidx
-          ext_data(jg)%atm%ndvi_mrat(jc,jb) = zw1*ext_data(jg)%atm_td%ndvi_mrat(jc,jb,mo1) & 
-            &                               + zw2*ext_data(jg)%atm_td%ndvi_mrat(jc,jb,mo2)
-        ENDDO
+      DO jc = i_startidx, i_endidx
+        out_field(jc,jb) = zw1*monthly_means(jc,jb,mo1) & 
+          &              + zw2*monthly_means(jc,jb,mo2)
       ENDDO
+    ENDDO
 !$OMP END DO
 !$OMP END PARALLEL
 
-    END DO ! jg
 
-  END SUBROUTINE interpol_ndvi_time
+  END SUBROUTINE interpol_monthly_mean
 
 
 END MODULE mo_ext_data_state

@@ -104,8 +104,7 @@ MODULE mo_io_vlist
   USE mo_exception,             ONLY: finish, message, message_text
   USE mo_datetime,              ONLY: t_datetime, print_datetime
   USE mo_impl_constants,        ONLY: max_char_length, max_dom, modelname,        &
-    &                                 modelversion, icc, zml_soil,                &
-    &                                 max_ntracer,                                &
+    &                                 modelversion, zml_soil, max_ntracer,        &
     &                                 ntrac_oce, ihs_atm_temp, ihs_atm_theta,     &
     &                                 inh_atmosphere, ishallow_water,             &
     &                                 inwp, iecham,ildf_echam, ihs_ocean
@@ -117,7 +116,7 @@ MODULE mo_io_vlist
     &                                 itime_scheme_nh_atm => itime_scheme
   USE mo_ocean_nml,             ONLY: n_zlev, dzlev_m, iforc_oce, no_tracer,      &
     &                                 temperature_relaxation, i_sea_ice,          &
-    &                                 irelax_2d_S
+    &                                 irelax_2d_S, l_forc_freshw
   USE mo_sea_ice_nml,           ONLY: i_ice_therm
   USE mo_dynamics_config,       ONLY: iequations,lshallow_water,                  &
     &                                 idiv_method, divavg_cntrwgt,                &
@@ -1170,19 +1169,9 @@ CONTAINS
           &                   vlistID(k_jg),gridCellID(k_jg),zaxisID_surface(k_jg)),&
           &           k_jg)
 
-!!$ TR JSBACH output for testing
-      IF (echam_phy_config%ljsbach) THEN
 
-      CALL addVar(TimeVar('surface_temperature',&
-      &                   'temperature of land surface',&
-      &                   'K', 21, 128,&
-      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
-      &           k_jg)
-      CALL addVar(TimeVar('surface_temperature_old',&
-      &                   'temperature of land surface previous time step',&
-      &                   'K', 22, 128,&
-      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
-      &           k_jg)
+
+      IF (echam_phy_config%ljsbach) THEN
 
       CALL addVar(TimeVar('surface_temperature_rad',&
       &                   'radiative temperature',&
@@ -1196,141 +1185,6 @@ CONTAINS
       &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
       &           k_jg)
 
-      CALL addVar(TimeVar('c_soil_temperature1',&
-      &                   'soil temperature parameter c layer 1',&
-      &                   ' ', 25, 128,&
-      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
-      &           k_jg)
-      CALL addVar(TimeVar('c_soil_temperature2',&
-      &                   'soil temperature parameter c layer 2',&
-      &                   ' ', 26, 128,&
-      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
-      &           k_jg)
-      CALL addVar(TimeVar('c_soil_temperature3',&
-      &                   'soil temperature parameter c layer 3',&
-      &                   ' ', 27, 128,&
-      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
-      &           k_jg)
-      CALL addVar(TimeVar('c_soil_temperature4',&
-      &                   'soil temperature parameter c layer 4',&
-      &                   ' ', 28, 128,&
-      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
-      &           k_jg)
-      CALL addVar(TimeVar('c_soil_temperature5',&
-      &                   'soil temperature parameter c layer 5',&
-      &                   ' ', 29, 128,&
-      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
-      &           k_jg)
-      CALL addVar(TimeVar('d_soil_temperature1',&
-      &                   'soil temperature parameter d layer 1',&
-      &                   ' ', 30, 128,&
-      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
-      &           k_jg)
-      CALL addVar(TimeVar('d_soil_temperature2',&
-      &                   'soil temperature parameter d layer 2',&
-      &                   ' ', 31, 128,&
-      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
-      &           k_jg)
-      CALL addVar(TimeVar('d_soil_temperature3',&
-      &                   'soil temperature parameter d layer 3',&
-      &                   ' ', 32, 128,&
-      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
-      &           k_jg)
-      CALL addVar(TimeVar('d_soil_temperature4',&
-      &                   'soil temperature parameter d layer 4',&
-      &                   ' ', 33, 128,&
-      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
-      &           k_jg)
-      CALL addVar(TimeVar('d_soil_temperature5',&
-      &                   'soil temperature parameter d layer 5',&
-      &                   ' ', 34, 128,&
-      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
-      &           k_jg)
-      CALL addVar(TimeVar('soil_temperature1',&
-      &                   'soil temperature layer 1',&
-      &                   ' ', 35, 128,&
-      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
-      &           k_jg)
-      CALL addVar(TimeVar('soil_temperature2',&
-      &                   'soil temperature layer 2',&
-      &                   ' ', 36, 128,&
-      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
-      &           k_jg)
-      CALL addVar(TimeVar('soil_temperature3',&
-      &                   'soil temperature layer 3',&
-      &                   ' ', 37, 128,&
-      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
-      &           k_jg)
-      CALL addVar(TimeVar('soil_temperature4',&
-      &                   'soil temperature layer 4',&
-      &                   ' ', 38, 128,&
-      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
-      &           k_jg)
-      CALL addVar(TimeVar('soil_temperature5',&
-      &                   'soil temperature layer 5',&
-      &                   ' ', 39, 128,&
-      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
-      &           k_jg)
-      CALL addVar(TimeVar('heat_capacity',&
-      &                   'heat capacity of soil layer 1',&
-      &                   ' ', 40, 128,&
-      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
-      &           k_jg)
-      CALL addVar(TimeVar('ground_heat_flux',&
-      &                   'ground heat flux',&
-      &                   'Wm-2', 41, 128,&
-      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
-      &           k_jg)
-      CALL addVar(TimeVar('swnet',&
-      &                   'swnet',&
-      &                   'Wm-2', 42, 128,&
-      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
-      &           k_jg)
-      CALL addVar(TimeVar('time_steps_soil',&
-      &                   'time_steps_soil',&
-      &                   '', 43, 128,&
-      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
-      &           k_jg)
-     CALL addVar(TimeVar('moisture1',&
-      &                   'soil moisture layer 1',&
-      &                   'm', 44, 128,&
-      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
-      &           k_jg)
-     CALL addVar(TimeVar('moisture2',&
-      &                   'soil moisture layer 2',&
-      &                   'm', 45, 128,&
-      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
-      &           k_jg)
-     CALL addVar(TimeVar('moisture3',&
-      &                   'soil moisture layer 3',&
-      &                   'm', 46, 128,&
-      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
-      &           k_jg)
-     CALL addVar(TimeVar('moisture4',&
-      &                   'soil moisture layer 4',&
-      &                   'm', 47, 128,&
-      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
-      &           k_jg)
-     CALL addVar(TimeVar('moisture5',&
-      &                   'soil moisture layer 5',&
-      &                   'm', 48, 128,&
-      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
-      &           k_jg)
-     CALL addVar(TimeVar('moisture_all',&
-      &                   'sum of soil moisture in all layers',&
-      &                   'm', 49, 128,&
-      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
-      &           k_jg)
-     CALL addVar(TimeVar('skin_reservoir',&
-      &                   'skin reservoir',&
-      &                   'm', 51, 128,&
-      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
-      &           k_jg)
-     CALL addVar(TimeVar('snow',&
-      &                   'snow depth',&
-      &                   'm', 52, 128,&
-      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
-      &           k_jg)
      CALL addVar(TimeVar('albvisdir',&
       &                   'albedo visible',&
       &                   '', 53, 128,&
@@ -1345,6 +1199,87 @@ CONTAINS
 
         END SELECT !iforcing
       ENDIF !lwrite_precip
+
+        SELECT CASE (iforcing)
+        CASE (iecham)
+           IF (echam_phy_config%lamip) THEN
+               CALL addVar(TimeVar('tsurfw',&
+               &                   'surface temperature of water',&
+               &                   'K', 103, 128,&
+               &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+               &           k_jg)
+               CALL addVar(TimeVar('tsurfi',&
+               &                   'surface temperature of ice',&
+               &                   'K', 102, 128,&
+               &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+               &           k_jg)
+               CALL addVar(TimeVar('tsurfl',&
+               &                   'surface temperature of land',&
+               &                   'K', 139, 128,&
+               &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+               &           k_jg)
+               CALL addVar(TimeVar('seaice',&
+               &                   'ice cover (fraction of 1-SLM) ',&
+               &                   'K', 210, 128,&
+               &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+               &           k_jg)
+               CALL addVar(TimeVar('siced',&
+               &                   'ice depth ',&
+               &                   'm', 211, 128,&
+               &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+               &           k_jg)
+               CALL addVar(TimeVar('glac',&
+               &                   'glacier mask ',&
+               &                   'm', 232, 128,&
+               &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+               &           k_jg)
+               CALL addVar(TimeVar('alb',&
+               &                   'surface background albedo ',&
+               &                   ' ', 174, 128,&
+               &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+               &           k_jg)
+               CALL addVar(TimeVar('z0m',&
+               &                   'roughness length ',&
+               &                   'm', 173, 128,&
+               &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+               &           k_jg)
+               CALL addVar(TimeVar('alake',&
+               &                   'lake mask ',&
+               &                   'm', 127, 128,&
+               &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+               &           k_jg)
+               CALL addVar(TimeVar('orostd',&
+               &                   'Orographic standard deviation ',&
+               &                   'm', 40, 128,&
+               &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+               &           k_jg)
+               CALL addVar(TimeVar('orosig',&
+               &                   'Orographic slope ',&
+               &                   'degree', 41, 128,&
+               &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+               &           k_jg)
+               CALL addVar(TimeVar('orogam',&
+               &                   'Orographic anisotropy ',&
+               &                   'degree', 42, 128,&
+               &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+               &           k_jg)
+               CALL addVar(TimeVar('orothe',&
+               &                   'Orographic angle ',&
+               &                   'degree', 43, 128,&
+               &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+               &           k_jg)
+               CALL addVar(TimeVar('oropic',&
+               &                   'Orographic peacks elevation ',&
+               &                   'm', 44, 128,&
+               &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+               &           k_jg)
+               CALL addVar(TimeVar('oroval',&
+               &                   'Orographic valleys elevation ',&
+               &                   'm', 45, 128,&
+               &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+               &           k_jg)
+           END IF ! lamip
+         END SELECT !iforcing
 
       ! cloud
       IF(lwrite_cloud ) THEN
@@ -2177,6 +2112,34 @@ CONTAINS
       &                     gridCellID(k_jg), &
       &                     zaxisID_surface(k_jg)),&
       &           k_jg)
+      CALL addVar(ConstVar('bottom_thick_c',&
+      &                    'individual bottom thickness on cells',&
+      &                    '', 1, 128,&
+      &                     vlistID(k_jg),&
+      &                     gridCellID(k_jg), &
+      &                     zaxisID_surface(k_jg)),&
+      &           k_jg)
+      CALL addVar(ConstVar('column_thick_c',&
+      &                    'individual column thickness on cells',&
+      &                    '', 1, 128,&
+      &                     vlistID(k_jg),&
+      &                     gridCellID(k_jg), &
+      &                     zaxisID_surface(k_jg)),&
+      &           k_jg)
+      CALL addVar(ConstVar('bottom_thick_e',&
+      &                    'individual bottom thickness on edges',&
+      &                    '', 1, 128,&
+      &                     vlistID(k_jg),&
+      &                     gridEdgeID(k_jg), &
+      &                     zaxisID_surface(k_jg)),&
+      &           k_jg)
+      CALL addVar(ConstVar('column_thick_e',&
+      &                    'individual column thickness on edges',&
+      &                    '', 1, 128,&
+      &                     vlistID(k_jg),&
+      &                     gridEdgeID(k_jg), &
+      &                     zaxisID_surface(k_jg)),&
+      &           k_jg)
    !  CALL addVar(ConstVar('dolic_c',&
    !  &                    'deepest ocean layer on cells',&
    !  &                    '', 1, 128,&
@@ -2276,34 +2239,74 @@ CONTAINS
       &                   zaxisID_surface(k_jg)),&
       &           k_jg)
     END IF 
-  ! IF (irelax_2d_S >= 1 ) THEN
-  !   CALL addVar(TimeVar('forc_sdata',&
-  !   &                   'salinity relaxation data',&
-  !   &                   'psu',15,128,&
-  !   &                   vlistID(k_jg),&
-  !   &                   gridCellID(k_jg),&
-  !   &                   zaxisID_surface(k_jg)),&
-  !   &           k_jg)
-  ! END IF 
-  ! IF (irelax_2d_S /= 0 ) THEN
-  !   CALL addVar(TimeVar('forc_s',&
-  !   &                   'salinity relaxation flux at centers',&
-  !   &                   'psu*m/s',15,128,&
-  !   &                   vlistID(k_jg),&
-  !   &                   gridCellID(k_jg),&
-  !   &                   zaxisID_surface(k_jg)),&
-  !   &           k_jg)
-  ! END IF 
-    IF (irelax_2d_S /= 0 ) THEN
+    IF (no_tracer > 1) THEN
+  !   IF (irelax_2d_S >= 1 ) THEN
+  !     CALL addVar(TimeVar('forc_sdata',&
+  !     &                   'salinity relaxation data',&
+  !     &                   'psu',15,128,&
+  !     &                   vlistID(k_jg),&
+  !     &                   gridCellID(k_jg),&
+  !     &                   zaxisID_surface(k_jg)),&
+  !     &           k_jg)
+  !   END IF 
+  !   IF (irelax_2d_S /= 0 ) THEN
+  !     CALL addVar(TimeVar('forc_s',&
+  !     &                   'salinity relaxation flux at centers',&
+  !     &                   'psu*m/s',15,128,&
+  !     &                   vlistID(k_jg),&
+  !     &                   gridCellID(k_jg),&
+  !     &                   zaxisID_surface(k_jg)),&
+  !     &           k_jg)
+  !   END IF 
+      IF (irelax_2d_S /= 0 ) THEN
+        CALL addVar(TimeVar('forc_fwrelax',&
+        &                   'net freshwater flux due to relaxation',&
+        &                   'm/s',16,128,&
+!       &                   'm/month',16,128,&
+        &                   vlistID(k_jg),&
+        &                   gridCellID(k_jg),&
+        &                   zaxisID_surface(k_jg)),&
+        &           k_jg)
+      END IF 
       CALL addVar(TimeVar('forc_fwfx',&
-      &                   'diagnosed net freshwater flux',&
-!     &                   'm/s',16,128,&
-      &                   'm/month',16,128,&
-      &                   vlistID(k_jg),&
-      &                   gridCellID(k_jg),&
-      &                   zaxisID_surface(k_jg)),&
-      &           k_jg)
-    END IF 
+        &                 'sum of forcing net freshwater flux',&
+        &                 'm/s',16,128,&
+!       &                 'm/month',16,128,&
+        &                 vlistID(k_jg),&
+        &                 gridCellID(k_jg),&
+        &                 zaxisID_surface(k_jg)),&
+        &         k_jg)
+      IF (l_forc_freshw) THEN
+        CALL addVar(TimeVar('forc_precip',&
+        &                   'precipitation flux',&
+        &                   'm/s',16,128,&
+        &                   vlistID(k_jg),&
+        &                   gridCellID(k_jg),&
+        &                   zaxisID_surface(k_jg)),&
+        &           k_jg)
+        CALL addVar(TimeVar('forc_evap',&
+        &                   'evaporation flux',&
+        &                   'm/s',16,128,&
+        &                   vlistID(k_jg),&
+        &                   gridCellID(k_jg),&
+        &                   zaxisID_surface(k_jg)),&
+        &           k_jg)
+        CALL addVar(TimeVar('forc_runoff',&
+        &                   'river runoff flux',&
+        &                   'm/s',16,128,&
+        &                   vlistID(k_jg),&
+        &                   gridCellID(k_jg),&
+        &                   zaxisID_surface(k_jg)),&
+        &           k_jg)
+   !    CALL addVar(TimeVar('forc_fwbc',&
+   !    &                   'forcing net freshwater flux from boundary condition',&
+   !    &                   'm/s',16,128,&
+   !    &                   vlistID(k_jg),&
+   !    &                   gridCellID(k_jg),&
+   !    &                   zaxisID_surface(k_jg)),&
+   !    &           k_jg)
+      END IF 
+    END IF  ! tracer>1
    !  CALL addVar(TimeVar('horz_adv',&
    !  &                   'nonlin Cor ',&
    !  &                   'm/s',2,128,&
@@ -2422,6 +2425,13 @@ CONTAINS
       &                   k_jg)
       CALL addVar(TimeVar('rho',&
       &                   'density cells',&
+      &                   'kg/m**3', 6, 128,&
+      &                   vlistid(k_jg),&
+      &                   gridCellID(k_jg),&
+      &                   zaxisIDdepth_m(k_jg)),&
+      &           k_jg)
+      CALL addVar(TimeVar('rhopot',&
+      &                   'potential density cells',&
       &                   'kg/m**3', 6, 128,&
       &                   vlistid(k_jg),&
       &                   gridCellID(k_jg),&
@@ -2815,46 +2825,31 @@ CONTAINS
       CASE ('qvi');             ptr2 => prm_field(jg)%qvi (:,:);   reset = .TRUE.
       CASE ('xlvi');            ptr2 => prm_field(jg)%xlvi(:,:);   reset = .TRUE.
       CASE ('xivi');            ptr2 => prm_field(jg)%xivi(:,:);   reset = .TRUE.
-!!$ TR: JSBACH testing
-      CASE ('surface_temperature');  ptr2 => prm_field(jg)%surface_temperature
-      CASE ('surface_temperature_old');  ptr2 => prm_field(jg)%surface_temperature_old
+      CASE ('tsurfw');          ptr2 => prm_field(jg)%tsurfw(:,:)
+      CASE ('tsurfi');          ptr2 => prm_field(jg)%tsurfi(:,:)
+      CASE ('tsurfl');          ptr2 => prm_field(jg)%tsurfl(:,:)
+      CASE ('seaice');          ptr2 => prm_field(jg)%seaice(:,:)
+      CASE ('siced');           ptr2 => prm_field(jg)%siced(:,:)
+      CASE ('alake');           ptr2 => prm_field(jg)%alake(:,:)
+      CASE ('z0m');             ptr2 => prm_field(jg)%z0m(:,:)
+      CASE ('glac');            ptr2 => prm_field(jg)%glac(:,:)
+      CASE ('alb');             ptr2 => prm_field(jg)%alb(:,:)
+      CASE ('orostd');          ptr2 => prm_field(jg)%orostd(:,:)
+      CASE ('orosig');          ptr2 => prm_field(jg)%orosig(:,:)
+      CASE ('orogam');          ptr2 => prm_field(jg)%orogam(:,:)
+      CASE ('orothe');          ptr2 => prm_field(jg)%orothe(:,:)
+      CASE ('oropic');          ptr2 => prm_field(jg)%oropic(:,:)
+      CASE ('oroval');          ptr2 => prm_field(jg)%oroval(:,:)
+
+      ! JSBACH
       CASE ('surface_temperature_rad');  ptr2 => prm_field(jg)%surface_temperature_rad
       CASE ('surface_temperature_eff');  ptr2 => prm_field(jg)%surface_temperature_eff
 
-      CASE ('c_soil_temperature1');  ptr2 => prm_field(jg)%c_soil_temperature1
-      CASE ('c_soil_temperature2');  ptr2 => prm_field(jg)%c_soil_temperature2
-      CASE ('c_soil_temperature3');  ptr2 => prm_field(jg)%c_soil_temperature3
-      CASE ('c_soil_temperature4');  ptr2 => prm_field(jg)%c_soil_temperature4
-      CASE ('c_soil_temperature5');  ptr2 => prm_field(jg)%c_soil_temperature5
-
-      CASE ('d_soil_temperature1');  ptr2 => prm_field(jg)%d_soil_temperature1
-      CASE ('d_soil_temperature2');  ptr2 => prm_field(jg)%d_soil_temperature2
-      CASE ('d_soil_temperature3');  ptr2 => prm_field(jg)%d_soil_temperature3
-      CASE ('d_soil_temperature4');  ptr2 => prm_field(jg)%d_soil_temperature4
-      CASE ('d_soil_temperature5');  ptr2 => prm_field(jg)%d_soil_temperature5
-
-      CASE ('soil_temperature1');  ptr2 => prm_field(jg)%soil_temperature1
-      CASE ('soil_temperature2');  ptr2 => prm_field(jg)%soil_temperature2
-      CASE ('soil_temperature3');  ptr2 => prm_field(jg)%soil_temperature3
-      CASE ('soil_temperature4');  ptr2 => prm_field(jg)%soil_temperature4
-      CASE ('soil_temperature5');  ptr2 => prm_field(jg)%soil_temperature5
-
-      CASE ('heat_capacity');  ptr2 => prm_field(jg)%heat_capacity
-      CASE ('ground_heat_flux');  ptr2 => prm_field(jg)%ground_heat_flux
-      CASE ('swnet');  ptr2 => prm_field(jg)%swnet
-      CASE ('time_steps_soil');  ptr2 => prm_field(jg)%time_steps_soil
-      CASE ('moisture1');   ptr2 => prm_field(jg)%moisture1
-      CASE ('moisture2');   ptr2 => prm_field(jg)%moisture2
-      CASE ('moisture3');   ptr2 => prm_field(jg)%moisture3
-      CASE ('moisture4');   ptr2 => prm_field(jg)%moisture4
-      CASE ('moisture5');   ptr2 => prm_field(jg)%moisture5
-      CASE ('moisture_all');   ptr2 => prm_field(jg)%moisture_all
-      CASE ('skin_reservoir');   ptr2 => prm_field(jg)%skin_reservoir
-      CASE ('snow');   ptr2 => prm_field(jg)%snow
       CASE ('albvisdir');   ptr2 => prm_field(jg)%albvisdir
       CASE ('albnirdir');   ptr2 => prm_field(jg)%albnirdir
       CASE ('albvisdif');   ptr2 => prm_field(jg)%albvisdif
       CASE ('albnirdif');   ptr2 => prm_field(jg)%albnirdif
+
         !KF  the reset command can only be used for 'plain' fields
       CASE ('swflxsfc_avg')
                                 ptr2 => dup2(prm_field(jg)% swflxsfc_avg(:,:)/dt_data)
@@ -3080,15 +3075,15 @@ CONTAINS
       CASE ('QV');              ptr3 => prm_diag(jg)%tot_cld(:,:,:,iqv)
       CASE ('QC');              ptr3 => prm_diag(jg)%tot_cld(:,:,:,iqc)
       CASE ('QI');              ptr3 => prm_diag(jg)%tot_cld(:,:,:,iqi)
-      CASE ('CC');              ptr3 => prm_diag(jg)%tot_cld(:,:,:,icc)
+      CASE ('CC');              ptr3 => prm_diag(jg)%clc(:,:,:)
       CASE ('TQV');             ptr2 => prm_diag(jg)%tot_cld_vi(:,:,iqv)
       CASE ('TQC');             ptr2 => prm_diag(jg)%tot_cld_vi(:,:,iqc)
       CASE ('TQI');             ptr2 => prm_diag(jg)%tot_cld_vi(:,:,iqi)
-      CASE ('TCC');             ptr2 => prm_diag(jg)%tot_cld_vi(:,:,icc)
+      CASE ('TCC');             ptr2 => prm_diag(jg)%clct(:,:)
       CASE ('TQV_avg');           ptr2 => prm_diag(jg)%tot_cld_vi_avg(:,:,iqv)
       CASE ('TQC_avg');           ptr2 => prm_diag(jg)%tot_cld_vi_avg(:,:,iqc)
       CASE ('TQI_avg');           ptr2 => prm_diag(jg)%tot_cld_vi_avg(:,:,iqi)
-      CASE ('TCC_avg');           ptr2 => prm_diag(jg)%tot_cld_vi_avg(:,:,icc)
+      CASE ('TCC_avg');           ptr2 => prm_diag(jg)%clct_avg(:,:)
       CASE ('ZF3');             ptr3 => p_nh_state(jg)%metrics%z_mc
       CASE ('ZH3');             ptr3 => p_nh_state(jg)%metrics%z_ifc
       CASE ('PRR_GSP');         ptr2 => prm_diag(jg)%rain_gsp_rate(:,:)
@@ -3153,7 +3148,8 @@ CONTAINS
       !AD> 
       CASE ('Z0')
         IF (atm_phy_nwp_config(jg)%inwp_turb.EQ.1 .OR.  &
-         &  atm_phy_nwp_config(jg)%inwp_turb.EQ.2) THEN
+         &  atm_phy_nwp_config(jg)%inwp_turb.EQ.2 .OR.  &
+         &  atm_phy_nwp_config(jg)%inwp_turb.EQ.5 ) THEN
                                 ptr2 => dup2(prm_diag(jg)%gz0(:,:)/grav); delete = .TRUE.
                               ELSE
                                 ptr2 => prm_diag(jg)%z0m(:,:)
@@ -3398,10 +3394,14 @@ CONTAINS
     not_found = .FALSE.
 
     SELECT CASE(varname)
-      CASE ('wet_c');        ptr3d => p_patch_3D%wet_c
-      CASE ('wet_e');        ptr3d => p_patch_3D%wet_e
-      CASE ('rbasin_c');     ptr2d => p_patch_3D%rbasin_c(:,:)
-      CASE ('rregio_c');     ptr2d => p_patch_3D%rregio_c(:,:)
+      CASE ('wet_c');          ptr3d => p_patch_3D%wet_c
+      CASE ('wet_e');          ptr3d => p_patch_3D%wet_e
+      CASE ('rbasin_c');       ptr2d => p_patch_3D%rbasin_c(:,:)
+      CASE ('rregio_c');       ptr2d => p_patch_3D%rregio_c(:,:)
+      CASE ('bottom_thick_c'); ptr2d => p_patch_3D%bottom_thick_c(:,:)
+      CASE ('column_thick_c'); ptr2d => p_patch_3D%column_thick_c(:,:)
+      CASE ('bottom_thick_e'); ptr2d => p_patch_3D%bottom_thick_e(:,:)
+      CASE ('column_thick_e'); ptr2d => p_patch_3D%column_thick_e(:,:)
       CASE ('dolic_c')
         shp_dolic = SHAPE(p_patch_3D%p_patch_1D(1)%dolic_c)
         ALLOCATE(r_dolic_c(shp_dolic(1),shp_dolic(2)))
@@ -3425,6 +3425,11 @@ CONTAINS
       CASE ('forc_sdata');   ptr2d => forcing%forc_tracer_relax(:,:,2)
       CASE ('forc_s');       ptr2d => forcing%forc_tracer(:,:,2)
       CASE ('forc_fwfx');    ptr2d => forcing%forc_fwfx(:,:)
+      CASE ('forc_fwrelax'); ptr2d => forcing%forc_fwrelax(:,:)
+      CASE ('forc_precip');  ptr2d => forcing%forc_precip(:,:)
+      CASE ('forc_evap');    ptr2d => forcing%forc_evap(:,:)
+      CASE ('forc_runoff');  ptr2d => forcing%forc_runoff(:,:)
+      CASE ('forc_fwbc');    ptr2d => forcing%forc_fwbc(:,:)
       CASE('horz_adv');      ptr3d => p_diag%veloc_adv_horz
       CASE('Ekin_grad');     ptr3d => p_diag%grad
       CASE('Ekin');          ptr3d => p_diag%kin
@@ -3456,7 +3461,8 @@ CONTAINS
       CASE ('u_vint');       ptr2d => p_diag%u_vint
       CASE('Vert_Veloc_Adv');ptr3d => p_diag%veloc_adv_vert
       CASE('press_grad');    ptr3d => p_diag%press_grad
-      CASE ('rho');          ptr3d => p_diag%rho   
+      CASE ('rho');          ptr3d => p_diag%rho
+      CASE ('rhopot');       ptr3d => p_diag%rhopot
       CASE('Vert_Mixing_V'); ptr3d => p_params%A_veloc_v
         CASE('Vert_Mixing_T')
           IF (no_tracer > 0) ptr3d => p_params%A_tracer_v(:,:,:,1)

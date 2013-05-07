@@ -40,7 +40,8 @@
 MODULE mo_vdiff_downward_sweep
 
   USE mo_kind,               ONLY: wp
-  USE mo_turbulence_diag,    ONLY: atm_exchange_coeff, sfc_exchange_coeff
+  USE mo_turbulence_diag,    ONLY: atm_exchange_coeff, sfc_exchange_coeff,  &
+                                   sfc_exchange_coeff_amip
   USE mo_vdiff_solver,       ONLY: nvar_vdiff, nmatrix, ih, iqv, imh, imqv, &
                                  & matrix_setup_elim, rhs_setup, rhs_elim
   USE mo_echam_phy_config,   ONLY: phy_config => echam_phy_config
@@ -88,7 +89,9 @@ CONTAINS
                        & pzthvvar,   pztkevn,                           &! out
                        & pch_tile,                                      &! out
                        & pcsat,                                         &! in
-                       & pcair)                                          ! in
+                       & pcair,                                         &! in
+                       & pzhsoil,                                       &! in
+                       & paz0lh)
 
 
     LOGICAL, INTENT(IN) :: lsfc_mom_flux, lsfc_heat_flux
@@ -148,6 +151,9 @@ CONTAINS
     REAL(wp),INTENT(OUT) :: pqsat_tile(kbdim,ksfc_type) !< saturation specific 
                                                         !< humidity at sfc.
                                                         !< (step t-dt)
+!! TODO: ME
+!!    REAL(wp),INTENT(OUT) :: pcpt_sfc  (kbdim,ksfc_type) !< dry static energy
+!    REAL(wp) :: pcpt_sfc  (kbdim,ksfc_type) !< dry static energy
 
     INTEGER, INTENT(OUT) :: ihpbl (kbdim)  !< PBL height given as level index
     REAL(wp),INTENT(OUT) :: pghpbl(kbdim)  !< geopotential height of PBL top
@@ -187,7 +193,9 @@ CONTAINS
 
     REAL(wp), OPTIONAL, INTENT(IN) ::          &
       & pcsat     (kbdim)          ,&!< area fraction with wet land surface
-      & pcair     (kbdim)            !< area fraction with wet land surface
+      & pcair     (kbdim)          ,&!< area fraction with wet land surface
+      & pzhsoil   (kbdim)          ,&!< rel. humidity of land surface
+      & paz0lh    (kbdim)            !< surface roughness length over land for heat
 
     ! Local variables
 
@@ -239,12 +247,47 @@ CONTAINS
                            & zqsat_b(:),  zlh_b(:),                   &! out, for "sfc_exchange_coeff"
                            & pri(:,1:klevm1), pmixlen(:,1:klevm1)     )! out, for output
 
+    !TODO: LK check - intent out problem only 1:klevm1 is getting set
+    pmixlen(:,klev) = -999._wp
+
     !-----------------------------------------------------------------------
     ! 2. Compute exchange coefficients at the air-sea/ice/land interface.
     !    Get boundary condition for TKE and variance of theta_v.
     !-----------------------------------------------------------------------
 
-    IF (phy_config%ljsbach) THEN  
+! TODO: ME has to be checked:
+!
+    IF (phy_config%lamip) THEN  
+    CALL sfc_exchange_coeff_amip( kproma, kbdim, ksfc_type,         &! in
+                           & idx_wtr, idx_ice, idx_lnd,             &! in
+!                           & lsfc_mom_flux, lsfc_heat_flux,         &! in
+                           & pz0m_tile(:,:),  ptsfc_tile(:,:),      &! in
+                           & pfrc(:,:),       pghpbl(:),            &! in
+                           & pocu(:),         pocv(:),   ppsfc(:),  &! in
+                           & pum1(:,klev),    pvm1  (:,klev),       &! in
+                           & ptm1(:,klev),    pgeom1(:,klev),       &! in
+                           & pqm1(:,klev),    pxm1  (:,klev),       &! in
+                           & zqsat_b  (:),    zlh_b    (:),         &! in
+                           & ztheta_b (:),    zthetav_b(:),         &! in
+                           & zthetal_b(:),    paclc (:,klev),       &! in
+                           & pzthvvar(:,klevm1),                    &! in
+                           & paz0lh(:),                             &! in
+                           & pzhsoil(:),                            &! in
+                           & pcsat(:),                              &! in
+                           & pcair(:),                              &! in
+                           & pqsat_tile(:,:), pcpt_tile(:,:),       &! out
+                           & pri    (:,klev),                       &! out
+                           & pcfm   (:,klev), pcfm_tile(:,:),       &! out
+                           & pcfh   (:,klev), pcfh_tile(:,:),       &! out
+                           & pcfv   (:,klev),                       &! out
+                           & pcftke (:,klev), pcfthv  (:,klev),     &! out
+                           & zfactor(:,klev), prhoh   (:,klev),     &! out
+                           & pztkevn(:,klev), pzthvvar(:,klev),     &! out
+                           & pqshear(:,klev),                       &! out, for "vdiff_tendencies"
+                           & pustar(:),                             &! out, for "atm_exchange_coeff" at next time step
+                           & pch_tile(:,:))                          ! out
+
+    ELSE IF (phy_config%ljsbach .AND. .NOT. phy_config%lamip) THEN  
     CALL sfc_exchange_coeff( kproma, kbdim, ksfc_type,              &! in
                            & idx_wtr, idx_ice, idx_lnd,             &! in
                            & lsfc_mom_flux, lsfc_heat_flux,         &! in
@@ -273,8 +316,10 @@ CONTAINS
                            & pqshear(:,klev),                       &! out, for "vdiff_tendencies"
                            & pustar(:),                             &! out, for "atm_exchange_coeff" at next time step
                            & pch_sfc = pch_tile(:,:),               &! out
+                           & pzhsoil = pzhsoil(:),                  &! in
                            & pcsat = pcsat(:),                      &! in
-                           & pcair = pcair(:))                       ! in
+                           & pcair = pcair(:),                      &! in
+                           & paz0lh = paz0lh(:))                     ! in
     ELSE ! ljsbach
     CALL sfc_exchange_coeff( kproma, kbdim, ksfc_type,              &! in
                            & idx_wtr, idx_ice, idx_lnd,             &! in
@@ -356,4 +401,3 @@ CONTAINS
   !-------------
 
 END MODULE mo_vdiff_downward_sweep
-

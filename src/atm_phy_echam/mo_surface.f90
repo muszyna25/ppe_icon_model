@@ -38,11 +38,13 @@ MODULE mo_surface
   USE mo_exception,         ONLY: finish
   USE mo_surface_diag,      ONLY: wind_stress, surface_fluxes
   USE mo_echam_vdiff_params,ONLY: tpfac2
-  USE mo_echam_phy_config,    ONLY: phy_config => echam_phy_config
+  USE mo_echam_phy_config,  ONLY: phy_config => echam_phy_config
   USE mo_vdiff_solver,      ONLY: ih, iqv, iu, iv, imh, imqv, imuv, &
                                 & nmatrix, nvar_vdiff,              &
                                 & matrix_to_richtmyer_coeff
-  USE mo_jsbach_interface_icon,ONLY: jsbach_inter_1d
+#ifdef __JSBACH__
+  USE mo_jsb_interface,     ONLY: jsbach_interface
+#endif
   USE mo_icoham_sfc_indices,ONLY: nsfc_type
   USE mo_sea_ice,           ONLY: ice_fast
   USE mo_physical_constants,ONLY: rhos, rhoi, Tf, alf, albedoW, zemiss_def, stbo, tmelt
@@ -56,6 +58,7 @@ CONTAINS
   !!
   SUBROUTINE update_surface( lsfc_heat_flux, lsfc_mom_flux,     &! in
                            & pdtime, psteplen,                  &! in
+                           & jg,                                &! in
                            & kproma, kbdim,                     &! in
                            & kice,                              &! in
                            & klev, ksfc_type,                   &! in
@@ -89,60 +92,16 @@ CONTAINS
                            & presi_old,                         &! in
                            & pcosmu0,                           &! in
                            & pch_tile,                          &! in
-                           !! added for testing JSBACH (hydrology)
+                           !! for JSBACH
                            & pcsat,                             &! inout
                            & pcair,                             &! inout
-                           & csat_transpiration,                &! inout
-                           & moisture1,                         &! inout
-                           & moisture2,                         &! inout
-                           & moisture3,                         &! inout
-                           & moisture4,                         &! inout
-                           & moisture5,                         &! inout
-                           & moisture_all,                      &! inout
-                           & sat_surface_specific_humidity,     &! inout
-                           & skin_reservoir,                    &! inout
-                           & snow_fract,                        &! inout
-                           & snow,                              &! inout
-                           & snow_canopy,                       &! inout
-                           & snow_melt,                         &! inout
-                           & snow_acc,                          &! inout
-                           & snow_melt_acc,                     &! inout
-                           & glacier_runoff_acc,                &! inout
-                           & runoff_acc,                        &! inout
-                           & drainage_acc,                      &! inout
-                           !! added for testing JSBACH (energy balance)
-                           & albedo_vis_soil,                   &! in
-                           & albedo_nir_soil,                   &! in
-                           & albedo_vis_canopy,                 &! in
-                           & albedo_nir_canopy,                 &! in
-                           & albedo_background,                 &! in
-                           & forest_fract,                      &! in
-                           & surface_temperature,               &! inout
-                           & surface_temperature_old,           &! inout
-                           & c_soil_temperature1,               &! inout
-                           & c_soil_temperature2,               &! inout
-                           & c_soil_temperature3,               &! inout
-                           & c_soil_temperature4,               &! inout
-                           & c_soil_temperature5,               &! inout
-                           & d_soil_temperature1,               &! inout
-                           & d_soil_temperature2,               &! inout
-                           & d_soil_temperature3,               &! inout
-                           & d_soil_temperature4,               &! inout
-                           & d_soil_temperature5,               &! inout
-                           & soil_temperature1,                 &! inout
-                           & soil_temperature2,                 &! inout
-                           & soil_temperature3,                 &! inout
-                           & soil_temperature4,                 &! inout
-                           & soil_temperature5,                 &! inout
-                           & heat_capacity,                     &! inout
-                           & ground_heat_flux,                  &! inout
-                           & swnet,                             &! inout
-                           & time_steps_soil,                   &! inout
+                           & zhsoil,                            &! out
+                           & tte_corr,                          &! out
+                           & z0h_lnd, z0m_lnd,                  &! out
                            & albvisdir,                         &! inout
                            & albnirdir,                         &! inout
                            & albvisdif,                         &! inout
                            & albnirdif,                         &! inout
-                           & evapotranspiration,                &! out
                            & surface_temperature_rad,           &! out
                            & surface_temperature_eff,           &! out
                            !! Sea ice
@@ -162,6 +121,7 @@ CONTAINS
 
     LOGICAL, INTENT(IN) :: lsfc_heat_flux, lsfc_mom_flux
     REAL(wp),INTENT(IN) :: pdtime, psteplen
+    INTEGER, INTENT(IN) :: jg
     INTEGER, INTENT(IN) :: kproma, kbdim
     INTEGER, INTENT(IN) :: klev, ksfc_type
     INTEGER, INTENT(IN) :: idx_wtr, idx_ice, idx_lnd
@@ -175,7 +135,7 @@ CONTAINS
     REAL(wp),INTENT(INOUT) :: aa_btm (kbdim,3,ksfc_type,imh:imqv)
     REAL(wp),INTENT(INOUT) :: bb     (kbdim,klev,nvar_vdiff)
     REAL(wp),INTENT(INOUT) :: bb_btm (kbdim,ksfc_type,ih:iqv)
-    REAL(wp),INTENT(IN) :: pcpt_tile (kbdim,ksfc_type)
+    REAL(wp),INTENT(INOUT) :: pcpt_tile (kbdim,ksfc_type)
     REAL(wp),INTENT(INOUT) :: pqsat_tile(kbdim,ksfc_type)
     REAL(wp),INTENT(INOUT) :: ptsfc_tile (kbdim,ksfc_type)
     REAL(wp),INTENT(INOUT) :: pu_stress_gbm_ac (kbdim)
@@ -193,9 +153,9 @@ CONTAINS
     REAL(wp),INTENT(OUT)   :: pevap_tile (kbdim,ksfc_type)
     REAL(wp),INTENT(OUT)   :: pevap_gbm  (kbdim)
 
-    !! added as JSBACH input
+    !! JSBACH input
     INTEGER, OPTIONAL,INTENT(IN) :: nblock
-    INTEGER, OPTIONAL,INTENT(IN) :: lsm(kbdim)
+    REAL(wp),OPTIONAL,INTENT(IN) :: lsm(kbdim)
     REAL(wp),OPTIONAL,INTENT(IN) :: pu        (kbdim)              ! zonal wind lowest level
     REAL(wp),OPTIONAL,INTENT(IN) :: pv        (kbdim)              ! meridional wind lowest level
     REAL(wp),OPTIONAL,INTENT(IN) :: ptemp     (kbdim)              ! temperature of lowest atmospheric level
@@ -206,63 +166,19 @@ CONTAINS
     REAL(wp),OPTIONAL,INTENT(IN) :: pssfc     (kbdim)              ! snow convective
     REAL(wp),OPTIONAL,INTENT(IN) :: pemterall (kbdim)              ! net surface longwave flux [W/m2]
     REAL(wp),OPTIONAL,INTENT(IN) :: ptrsolall (kbdim)              ! net surface shortwave flux [W/m2]
-    REAL(wp),OPTIONAL,INTENT(IN) :: presi_old (kbdim)              ! surface pressure
+    REAL(wp),OPTIONAL,INTENT(IN) :: presi_old (kbdim,klev+1)       ! half level pressure
     REAL(wp),OPTIONAL,INTENT(IN) :: pcosmu0   (kbdim)              ! cos of zenith angle
     REAL(wp),OPTIONAL,INTENT(IN) :: pch_tile  (kbdim,ksfc_type)
-    !! added for testing JSBACH (hydrology)
+    !! JSBACH output
     REAL(wp),OPTIONAL,INTENT(INOUT) :: pcsat(kbdim)
     REAL(wp),OPTIONAL,INTENT(INOUT) :: pcair(kbdim)
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: csat_transpiration(kbdim)
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: moisture1(kbdim)
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: moisture2(kbdim)
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: moisture3(kbdim)
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: moisture4(kbdim)
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: moisture5(kbdim)
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: moisture_all(kbdim)
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: sat_surface_specific_humidity(kbdim)
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: skin_reservoir(kbdim)
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: snow_fract(kbdim)
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: snow(kbdim)
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: snow_canopy(kbdim)
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: snow_melt(kbdim)
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: snow_acc(kbdim)
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: snow_melt_acc(kbdim)
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: glacier_runoff_acc(kbdim)
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: runoff_acc(kbdim)
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: drainage_acc(kbdim)
-    !! added for testing JSBACH (energy balance)
-    REAL(wp),OPTIONAL,INTENT(IN)    :: albedo_vis_soil(kbdim)
-    REAL(wp),OPTIONAL,INTENT(IN)    :: albedo_nir_soil(kbdim)
-    REAL(wp),OPTIONAL,INTENT(IN)    :: albedo_vis_canopy(kbdim)
-    REAL(wp),OPTIONAL,INTENT(IN)    :: albedo_nir_canopy(kbdim)
-    REAL(wp),OPTIONAL,INTENT(IN)    :: albedo_background(kbdim)
-    REAL(wp),OPTIONAL,INTENT(IN)    :: forest_fract(kbdim)
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: surface_temperature(kbdim)
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: surface_temperature_old(kbdim)
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: c_soil_temperature1(kbdim)
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: c_soil_temperature2(kbdim)
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: c_soil_temperature3(kbdim)
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: c_soil_temperature4(kbdim)
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: c_soil_temperature5(kbdim)
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: d_soil_temperature1(kbdim)
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: d_soil_temperature2(kbdim)
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: d_soil_temperature3(kbdim)
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: d_soil_temperature4(kbdim)
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: d_soil_temperature5(kbdim)
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: soil_temperature1(kbdim)
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: soil_temperature2(kbdim)
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: soil_temperature3(kbdim)
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: soil_temperature4(kbdim)
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: soil_temperature5(kbdim)
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: heat_capacity(kbdim)
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: ground_heat_flux(kbdim)
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: swnet(kbdim)
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: time_steps_soil(kbdim)
+    REAL(wp),OPTIONAL,INTENT(INOUT) :: zhsoil(kbdim)
+    REAL(wp),OPTIONAL,INTENT(OUT)   :: tte_corr(kbdim)
+    REAL(wp),OPTIONAL,INTENT(OUT)   :: z0h_lnd(kbdim), z0m_lnd(kbdim)
     REAL(wp),OPTIONAL,INTENT(INOUT)   :: albvisdir(kbdim)
     REAL(wp),OPTIONAL,INTENT(INOUT)   :: albnirdir(kbdim)
     REAL(wp),OPTIONAL,INTENT(INOUT)   :: albvisdif(kbdim)
     REAL(wp),OPTIONAL,INTENT(INOUT)   :: albnirdif(kbdim)
-    REAL(wp),OPTIONAL,INTENT(OUT)   :: evapotranspiration(kbdim)
     REAL(wp),OPTIONAL,INTENT(OUT)   :: surface_temperature_rad(kbdim)
     REAL(wp),OPTIONAL,INTENT(OUT)   :: surface_temperature_eff(kbdim)
     !! Sea ice
@@ -285,11 +201,10 @@ CONTAINS
     REAL(wp),OPTIONAL,INTENT(INOUT) :: albnirdif_wtr(kbdim)
     REAL(wp),OPTIONAL,INTENT(OUT)   :: pswflx_wtr(kbdim)
     REAL(wp),OPTIONAL,INTENT(OUT)   :: plwflx_wtr(kbdim)
-                                               
+
 ! locals
 
-    LOGICAL  :: lfland(kbdim)
-    REAL(wp)  :: surface_temperature_last(kbdim)
+    INTEGER  :: ilsm(kbdim)
     INTEGER  :: jsfc, jk, jkm1, im, k
     REAL(wp) :: se_sum(kbdim), qv_sum(kbdim), wgt_sum(kbdim), wgt(kbdim)
     REAL(wp) :: zca(kbdim,ksfc_type), zcs(kbdim,ksfc_type)
@@ -300,7 +215,10 @@ CONTAINS
     REAL(wp) :: zen_qv(kbdim,ksfc_type)
     REAL(wp) :: zfn_qv(kbdim,ksfc_type)
 
-    REAL(wp) :: lwup(kbdim)
+    REAL(wp) :: &
+      & lwup(kbdim), evapotranspiration(kbdim),                        &
+      & surface_temperature(kbdim), surface_temperature_last(kbdim),   &
+      & sat_surface_specific_humidity(kbdim), dry_static_energy(kbdim)
 
     ! Sea ice
     REAL(wp) :: Tfw(kbdim), LWin(kbdim)
@@ -325,136 +243,112 @@ CONTAINS
     ! - perform bottom level elimination;
     ! - convert matrix entries to Richtmyer-Morton coefficients
 
-
-
+#ifdef __JSBACH__
     IF (phy_config%ljsbach) THEN
-    CALL matrix_to_richtmyer_coeff( kproma, kbdim, klev, ksfc_type, idx_lnd, &! in
-                                  & aa(:,:,:,imh:imqv), bb(:,:,ih:iqv),      &! in
-                                  & aa_btm, bb_btm,                          &! inout
-                                  & zen_h, zfn_h, zen_qv, zfn_qv,            &! out
-                                  & pcair = pcair(:),                        &! in
-                                  & pcsat = pcsat(:))                         ! in
 
-    lfland(1:kproma) = .true. !! TR for testing
-!!$ TR long wave upward radiation for water (aqua planet setup)
-    lwup(1:kproma) = 0.996_wp * 5.67e-8_wp * ptsfc_tile(1:kproma,idx_lnd)**4
-    surface_temperature_last(1:kproma) = surface_temperature(1:kproma)
+      CALL matrix_to_richtmyer_coeff( kproma, kbdim, klev, ksfc_type, idx_lnd, &! in
+                                    & aa(:,:,:,imh:imqv), bb(:,:,ih:iqv),      &! in
+                                    & aa_btm, bb_btm,                          &! inout
+                                    & zen_h, zfn_h, zen_qv, zfn_qv,            &! out
+                                    & pcair = pcair(:),                        &! in
+                                    & pcsat = pcsat(:))                         ! in
 
-    CALL jsbach_inter_1d (kdim = kproma,                                   &
-                          kblock = nblock,                                 &
-                          kland = COUNT(lfland(1:kproma)),                 &
-                          mask_land = lsm(1:kproma),                       &
-                          delta_time = pdtime,                             &
-                          time_step_len = psteplen,                        &
-                          time_steps_soil = time_steps_soil(1:kproma),     &
-                          wind = SQRT(pu(1:kproma)**2 + pv(1:kproma)**2),  &
-!!$ TR                          wind10 =     ! comment out to simplify for testing, 10 m wind speed will be implemented later
-!!$ TR                                       ! set wind10 in update soil to wind for testing
-                          temp_air = ptemp(1:kproma),                      &
-                          qair     = pq(1:kproma),                         &
-                          precip_rain = prsfl(1:kproma) + prsfc(1:kproma), &
-                          precip_snow = pssfl(1:kproma) + pssfc(1:kproma), &
-                          lwdown   = pemterall(1:kproma) + lwup(1:kproma), &
-                          swdown   = ptrsolall(1:kproma),                  & !! ATTENTION !! replaces sw_vis_net + sw_nir_net
-                          pressure = presi_old(1:kproma),                  &
-                          czenith  = pcosmu0(1:kproma),                    &
-!!$ TR                          CO2_concentration = 0.00055_wp,                  & ! comment out to simplify for testing, mass mixing ratio
-                          cdrag = pfac_sfc(1:kproma) * pcfh_tile(1:kproma,idx_lnd), &
-                          etAcoef = zen_h(1:kproma,idx_lnd),               &
-                          etBcoef = zfn_h(1:kproma,idx_lnd),               &
-                          eqAcoef = zen_qv(1:kproma,idx_lnd),              &
-                          eqBcoef = zfn_qv(1:kproma,idx_lnd),              &
-                          p_echam_zchl = pch_tile(1:kproma,idx_lnd),       & ! intent in
-                          albedo_vis_soil = albedo_vis_soil(1:kproma),     & ! intent in
-                          albedo_nir_soil = albedo_nir_soil(1:kproma),     & ! intent in
-                          albedo_vis_canopy = albedo_vis_canopy(1:kproma), & ! intent in
-                          albedo_nir_canopy = albedo_nir_canopy(1:kproma), & ! intent in
-                          albedo_background = albedo_background(1:kproma), & ! intent in
-                          forest_fract = forest_fract(1:kproma),           & ! intent in
-                           !! added for testing JSBACH (hydrology)
-                          cair = pcair(1:kproma),                          & ! intent out
-                          csat = pcsat(1:kproma),                          & ! intent out
-!!$ TR                          zhsoil = ,                                      & ! intent out
-                          csat_transpiration= csat_transpiration(1:kproma),& ! intent out
-                          albvisdir = albvisdir(1:kproma),                 & ! intent inout
-                          albnirdir = albnirdir(1:kproma),                 & ! intent inout
-                          albvisdif = albvisdif(1:kproma),                 & ! intent inout
-                          albnirdif = albnirdif(1:kproma),                 & ! intent inout
-                          moisture1 = moisture1(1:kproma),                 & ! intent out
-                          moisture2 = moisture2(1:kproma),                 & ! intent out
-                          moisture3 = moisture3(1:kproma),                 & ! intent out
-                          moisture4 = moisture4(1:kproma),                 & ! intent out
-                          moisture5 = moisture5(1:kproma),                 & ! intent out
-                          moisture_all = moisture_all(1:kproma),           & ! intent out
-                          sat_surface_specific_humidity = sat_surface_specific_humidity(1:kproma),& ! intent out
-                          skin_reservoir = skin_reservoir(1:kproma),       & ! intent out
-                          snow_fract = snow_fract(1:kproma),               & ! intent out
-                          snow = snow(1:kproma),                           & ! intent out
-                          snow_canopy = snow_canopy(1:kproma),             & ! intent out
-                          snow_melt = snow_melt(1:kproma),                 & ! intent out
-                          snow_acc = snow_acc(1:kproma),                   & ! intent out
-                          snow_melt_acc = snow_melt_acc(1:kproma),         & ! intent out
-                          glacier_runoff_acc = glacier_runoff_acc(1:kproma), & ! intent out
-                          runoff_acc = runoff_acc(1:kproma),               & ! intent out
-                          drainage_acc = drainage_acc(1:kproma),           & ! intent out
-                           !! added for testing JSBACH (energy balance)
-                          surface_temperature = surface_temperature(1:kproma), &
-                          surface_temperature_old = surface_temperature_old(1:kproma), &
-                          surface_temperature_rad = surface_temperature_rad(1:kproma), &
-                          evapotranspiration = evapotranspiration(1:kproma), &
-                          c_soil_temperature1 = c_soil_temperature1(1:kproma), &
-                          c_soil_temperature2 = c_soil_temperature2(1:kproma), &
-                          c_soil_temperature3 = c_soil_temperature3(1:kproma), &
-                          c_soil_temperature4 = c_soil_temperature4(1:kproma), &
-                          c_soil_temperature5 = c_soil_temperature5(1:kproma), &
-                          d_soil_temperature1 = d_soil_temperature1(1:kproma), &
-                          d_soil_temperature2 = d_soil_temperature2(1:kproma), &
-                          d_soil_temperature3 = d_soil_temperature3(1:kproma), &
-                          d_soil_temperature4 = d_soil_temperature4(1:kproma), &
-                          d_soil_temperature5 = d_soil_temperature5(1:kproma), &
-                          soil_temperature1 = soil_temperature1(1:kproma), &
-                          soil_temperature2 = soil_temperature2(1:kproma), &
-                          soil_temperature3 = soil_temperature3(1:kproma), &
-                          soil_temperature4 = soil_temperature4(1:kproma), &
-                          soil_temperature5 = soil_temperature5(1:kproma), &
-                          heat_capacity = heat_capacity(1:kproma), &
-                          ground_heat_flux = ground_heat_flux(1:kproma), &
-                          swnet = swnet(1:kproma) &
-                          )
+      lwup(1:kproma) = zemiss_def * stbo * ptsfc_tile(1:kproma,idx_lnd)**4
 
+      surface_temperature(:) = 0._wp
+      surface_temperature_last(:) = 0._wp
+      sat_surface_specific_humidity(:) = 0._wp
+      dry_static_energy(:) = 0._wp
+      evapotranspiration(:) = 0._wp
+      surface_temperature_last(1:kproma) = ptsfc_tile(1:kproma,idx_lnd)
 
-    ! calculate effective temperature for use in radheat
-    WHERE (lsm(1:kproma) > 0) 
-      surface_temperature_eff(1:kproma) = (surface_temperature_last(1:kproma) ** 3 *  &
-                                          (4._wp*surface_temperature_rad(1:kproma) -  &
-                                          3._wp * surface_temperature_last(1:kproma)))**0.25
-    ELSEWHERE
-      surface_temperature_eff(1:kproma) = ptsfc_tile(1:kproma,idx_wtr)
-      surface_temperature_rad(1:kproma) = ptsfc_tile(1:kproma,idx_wtr)
-    ENDWHERE
+      z0m_lnd(:) = 0._wp
+      z0h_lnd(:) = 0._wp
+      tte_corr(:) = 0._wp
 
-    ELSE ! not ljsbach
+      WHERE (lsm(:) > 0.5_wp)
+        ilsm(:) = 1
+      ELSEWHERE
+        ilsm(:) = 0
+      ENDWHERE
 
-    CALL matrix_to_richtmyer_coeff( kproma, kbdim, klev, ksfc_type, idx_lnd, &! in
-                                  & aa(:,:,:,imh:imqv), bb(:,:,ih:iqv),      &! in
-                                  & aa_btm, bb_btm,                          &! inout
-                                  & zen_h, zfn_h, zen_qv, zfn_qv             )! out
+      CALL jsbach_interface ( jg, nblock, 1, kproma, pdtime, psteplen,                  & ! in
+        & t_air            = ptemp(1:kproma),                                           & ! in
+        & q_air            = pq(1:kproma),                                              & ! in
+        & rain             = prsfl(1:kproma) + prsfc(1:kproma),                         & ! in
+        & snow             = pssfl(1:kproma) + pssfc(1:kproma),                         & ! in
+        & wind_air         = SQRT(pu(1:kproma)**2 + pv(1:kproma)**2),                   & ! in
+        & wind_10m         = SQRT(pu(1:kproma)**2 + pv(1:kproma)**2),                   & ! in, temporary
+        & lwrad_srf_down   = pemterall(1:kproma) + lwup(1:kproma),                      & ! in
+        & swrad_srf_down   = ptrsolall(1:kproma),                                       & ! in
+        & press_srf        = presi_old(1:kproma,klev+1),                                & ! in
+        & drag_srf         = pfac_sfc(1:kproma) + pcfh_tile(1:kproma,idx_lnd),          & ! in
+        & t_acoef          = zen_h(1:kproma, idx_lnd),                                  & ! in
+        & t_bcoef          = zfn_h(1:kproma, idx_lnd),                                  & ! in
+        & q_acoef          = zen_qv(1:kproma, idx_lnd),                                 & ! in
+        & q_bcoef          = zfn_qv(1:kproma, idx_lnd),                                 & ! in
+        & pch              = MERGE(pch_tile(1:kproma,idx_lnd),1._wp,ilsm(1:kproma)>0),  & ! in
+        & cos_zenith_angle = pcosmu0(1:kproma),                                         & ! in
+        & t_srf            = surface_temperature(1:kproma),                             & ! out
+        & t_rad_srf        = surface_temperature_rad(1:kproma),                         & ! out
+        & qsat_srf         = sat_surface_specific_humidity(1:kproma),                   & ! out
+        & s_srf            = dry_static_energy(1:kproma),                               & ! out
+        & fact_q_air       = pcair(1:kproma),                                           & ! out
+        & fact_qsat_srf    = pcsat(1:kproma),                                           & ! out
+        & rel_hum_srf      = zhsoil(1:kproma),                                          & ! out
+        & evapotrans       = evapotranspiration(1:kproma),                              & ! out
+        & latent_hflx      = plhflx_tile(1:kproma, idx_lnd),                            & ! out
+        & sensible_hflx    = pshflx_tile(1:kproma, idx_lnd),                            & ! out
+        & rough_h_srf      = z0h_lnd(1:kproma),                                         & ! out
+        & rough_m_srf      = z0m_lnd(1:kproma),                                         & ! out
+        & tte_corr         = tte_corr(1:kproma),                                        & ! out
+        & alb_vis_dir      = albvisdir(1:kproma),                                       & ! out
+        & alb_nir_dir      = albnirdir(1:kproma),                                       & ! out
+        & alb_vis_dif      = albvisdif(1:kproma),                                       & ! out
+        & alb_nir_dif      = albnirdif(1:kproma)                                        & ! out
+        )
 
-    END IF ! ljsbach
+      WHERE (lsm(1:kproma) > 0.5_wp)
+        ptsfc_tile(1:kproma,idx_lnd) = surface_temperature(1:kproma)
+        pcpt_tile (1:kproma,idx_lnd) = dry_static_energy(1:kproma)
+        pqsat_tile(1:kproma,idx_lnd) = sat_surface_specific_humidity(1:kproma)
+      END WHERE
+
+      tte_corr(1:kproma) = tte_corr(1:kproma) / (presi_old(1:kproma,klev+1) - presi_old(1:kproma,klev))
+
+      ! calculate effective temperature for use in radheat
+      WHERE (lsm(1:kproma) > 0.5_wp)
+        surface_temperature_eff(1:kproma) = (surface_temperature_last(1:kproma) ** 3 *  &
+                                            (4._wp*surface_temperature_rad(1:kproma) -  &
+                                            3._wp * surface_temperature_last(1:kproma)))**0.25
+      ELSEWHERE
+        surface_temperature_eff(1:kproma) = ptsfc_tile(1:kproma,idx_wtr)
+        surface_temperature_rad(1:kproma) = ptsfc_tile(1:kproma,idx_wtr)
+      ENDWHERE
+
+    ELSE
+#endif  
+      CALL matrix_to_richtmyer_coeff( kproma, kbdim, klev, ksfc_type, idx_lnd, &! in
+                                    & aa(:,:,:,imh:imqv), bb(:,:,ih:iqv),      &! in
+                                    & aa_btm, bb_btm,                          &! inout
+                                    & zen_h, zfn_h, zen_qv, zfn_qv             )! out
+
+#ifdef __JSBACH__
+    END IF
+#endif
 
     ! Set the evapotranspiration coefficients, to be used later in
     ! blending and in diagnoising surface fluxes.
-
+    !
     zca(1:kproma,:) = 1._wp
     zcs(1:kproma,:) = 1._wp
 
-    IF (idx_lnd<=ksfc_type) THEN
-      IF (.NOT. phy_config%ljsbach) CALL finish('mo_surface','land surface JSBACH not chosen')
+    IF (idx_lnd <= ksfc_type .AND. phy_config%ljsbach) THEN
       zca(1:kproma,idx_lnd) = pcair(1:kproma)
       zcs(1:kproma,idx_lnd) = pcsat(1:kproma)
     END IF
 
-    ! CALL sea_ice_thermodynamics ? 
+    ! CALL sea_ice_thermodynamics ?
 
     !===================================================================
     ! AFTER CALLING land/ocean/ice model
@@ -487,11 +381,10 @@ CONTAINS
     wgt_sum(1:kproma) = 0._wp    ! sum of weights
 
     DO jsfc = 1,ksfc_type
-           wgt(1:kproma) =  pfrc(1:kproma,jsfc)*pcfh_tile(1:kproma,jsfc)*pfac_sfc(1:kproma)
+           wgt(1:kproma) = pfrc(1:kproma,jsfc)*pcfh_tile(1:kproma,jsfc)*pfac_sfc(1:kproma)
        wgt_sum(1:kproma) = wgt_sum(1:kproma) + wgt(1:kproma)
-        se_sum(1:kproma) =  se_sum(1:kproma) + bb_btm(1:kproma,jsfc,ih)*wgt(1:kproma)
-        qv_sum(1:kproma) =  qv_sum(1:kproma) + bb_btm(1:kproma,jsfc,iqv) &
-                         &                       *wgt(1:kproma)*zca(1:kproma,jsfc)
+        se_sum(1:kproma) = se_sum(1:kproma) + bb_btm(1:kproma,jsfc,ih ) * wgt(1:kproma)
+        qv_sum(1:kproma) = qv_sum(1:kproma) + bb_btm(1:kproma,jsfc,iqv) * wgt(1:kproma)
     ENDDO
 
     IF (lsfc_heat_flux) THEN
@@ -543,11 +436,6 @@ CONTAINS
                        & -aa(1:kproma,jk,1,im)*bb(1:kproma,jkm1,iv)) &
                        & /aa(1:kproma,jk,2,im)
 
-!!$ TR couple surface temperature of water
-!!$ TR    WRITE (*,*) 'lsm',lsm(1:kproma)
-    IF (phy_config%ljsbach) THEN
-      ptsfc_tile(1:kproma,idx_lnd) = surface_temperature(1:kproma)
-    END IF ! ljsbach
    !-------------------------------------------------------------------
    ! Various diagnostics
    !-------------------------------------------------------------------
@@ -560,11 +448,13 @@ CONTAINS
                       & zca, zcs, bb(:,:,ih:iqv),             &! in
                       & plhflx_gbm_ac, pshflx_gbm_ac,         &! inout
                       & pevap_gbm_ac,  dshflx_dT_ac_tile,     &! inout
-                      & plhflx_tile, pshflx_tile,             &! inout (practically out)
+                      & plhflx_tile, pshflx_tile,             &! inout
                       & dshflx_dT_tile,                       &! out
                       & pevap_tile, pevap_gbm,                &! out
                       & evapotranspiration)                    ! in (optional)
 
+! TODO: ME preliminary switched off in AMIP-Mode
+    IF(.NOT. phy_config%lamip) THEN
 ! For explicit coupling to ice:
     IF ( idx_ice <= nsfc_type ) THEN
 ! Freezing point of sea-water
@@ -605,7 +495,7 @@ CONTAINS
         &   hi,                 &
         &   hs,                 &
         &   Qtop,               &
-        &   Qbot,               & 
+        &   Qbot,               &
         &   swflx_ice,          &
         &   nonsolar_ice,       &
         &   dnonsolardT,        &
@@ -650,8 +540,7 @@ CONTAINS
 ! Set the tile temperature
       ptsfc_tile(:,idx_ice) = Tsurf(:,1) + tmelt
     ENDIF
-
-
+    ENDIF ! TODO: ME .NOT. lamip (preliminary)
 
   END SUBROUTINE update_surface
   !-------------

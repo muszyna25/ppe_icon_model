@@ -8,14 +8,15 @@ extern cossinlon1(f1:fieldset,f2:number) "fortran90" inline
 !           output: 2 fields containing cos(2*pi*((T-12)/24+LON/360))
 !                                   and sin(2*pi*((T-12)/24+LON/360))
 !
-!          pgf90 -o cossinlon  cossinlon.f -lmars -lemos   # on linux
+!          pgf90 -o cossinlon1  cossinlon1.f90 -lmars -lemos   # on linux
 !
 !--------------------------------------------------------------------------------
 ! reads GRIB field 
 !
 !
+
       use grib_api      
-      parameter (NLONM=1024,NLATM=512)      
+      parameter (NLONM=1024,NLATM=512)
       integer NLON(NLATM)      
       integer NLON_, length      
       real    ZINC_I, ZLON_FIRST      
@@ -23,7 +24,7 @@ extern cossinlon1(f1:fieldset,f2:number) "fortran90" inline
       real    ZDLON(NLATM)      
       integer :: igrib_in, igrib_out                         ! grib_api 'handles'      
       integer :: iret                                        ! grib_api return code      
-      integer :: byte_size                                   ! size of grib message for grib_api      
+      integer (kind=kindOfSize) :: byte_size                 ! size of grib message for grib_api      
       character(len=1), dimension(:), allocatable :: message ! grib message container      
       integer :: numberOfPlValues, numberOfValues            ! size of 'pl' and 'vaues' arrays      
             
@@ -92,9 +93,9 @@ extern cossinlon1(f1:fieldset,f2:number) "fortran90" inline
         ENDDO      
             
       ELSE  ! irregular grid      
-        call grib_get_size(igrib_in, 'pl', numberOfPlValues) ! get the size of the 'pl' array      
+        call grib_get_size(igrib_in, 'pl', numberOfPlValues) ! get the size of the 'pl' array
         allocate(pl(numberOfPlValues), stat=iret)            ! allocate memory for it      
-        call grib_get_real8_array(igrib_in, 'pl', pl, iret)  ! get the 'pl' values themselves      
+        call grib_get_real8_array(igrib_in, 'pl', pl, iret)  ! get the 'pl' values themselves
             
         DO JL=1,NLAT      
           NLON(JL)=pl(JL)      
@@ -106,16 +107,16 @@ extern cossinlon1(f1:fieldset,f2:number) "fortran90" inline
             
 ! --- allocate some memory for the output 'values' arrays      
             
-      call grib_get_size(igrib_in, 'values', numberOfValues) ! get the size of the 'values' array      
-      allocate(valuesA(numberOfValues),stat=ierr)      
-       if (ierr.ne.0) stop '#E to allocate memory'      
+      call grib_get_size(igrib_in, 'values', numberOfValues) ! get the size of the 'values' array  
+      allocate(valuesA(numberOfValues),stat=ierr)
+      if (ierr.ne.0) stop '#E to allocate memory'
       allocate(valuesB(numberOfValues),stat=ierr)      
-       if (ierr.ne.0) stop '#E to allocate memory'      
+      if (ierr.ne.0) stop '#E to allocate memory'
             
             
             
 ! -- calculate sin and cos of longitude function      
-      call grib_get (igrib_in, 'longitudeOfFirstGridPointInDegrees', ZLON_FIRST)      
+      call grib_get (igrib_in, 'longitudeOfFirstGridPointInDegrees', ZLON_FIRST)
       ZPI=4.*atan(1.)      
       ZLONW=ZLON_FIRST      
 !     write(*,*) "ZLONW: ", ZLONW, "ZDLON:", ZDLON(1)      
@@ -123,9 +124,9 @@ extern cossinlon1(f1:fieldset,f2:number) "fortran90" inline
       do ii = 1, nlat       
         do jj = 1, nlon(ii)      
           inum = inum + 1      
-          valuesA(inum)=cos( 2*zpi*( (ZT-12.)/24. +ZLONW/360.&      
-           &               +float(jj-1)*zdlon(ii)/360. ) )      
-          valuesB(inum)=sin( 2*zpi*( (ZT-12.)/24. +ZLONW/360.&      
+          valuesA(inum)=cos( 2*zpi*( (ZT-12.)/24. +ZLONW/360.&
+           &               +float(jj-1)*zdlon(ii)/360. ) )  
+          valuesB(inum)=sin( 2*zpi*( (ZT-12.)/24. +ZLONW/360.&
            &               +float(jj-1)*zdlon(ii)/360. ) )      
         enddo      
       enddo      

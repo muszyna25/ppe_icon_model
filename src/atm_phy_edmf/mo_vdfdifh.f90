@@ -494,14 +494,6 @@ CALL SURFSEB   (KIDIA=KIDIA,KFDIA=KFDIA,KLON=KLON,KTILES=KTILES,&
   & PSSH=PSSH,PSLH=PSLH,PSTR=PSTR,PG0=PG0,&
   & PSL=ZSL,PQL=ZQL)
 
-! DO JL=KIDIA,KFDIA
-!   IF ( .NOT. LDLAND(JL) ) THEN
-!     if ( PSST(JL) > 294.95599 .and. PSST(JL) < 294.95600 ) THEN
-!       write(*,*) 'vdfdifh5: ', PSST(JL), PTSKTI(JL,1), PQSTI(JL,1), PQM1(JL,KLEV), &
-!         PQM1(JL,KLEV-1), ZRHOCQU(JL,1), PJQ(JL,1)*RLVTT, ZJS(JL,1)
-!     endif
-!   ENDIF
-! ENDDO
 
 !*         1.9    ADD SNOW EVAPORATION TO FLUXES
 
@@ -520,7 +512,6 @@ IF (LDSFCFLX) THEN
     DO JL=KIDIA,KFDIA
 !xmk  ZJS(JL,JT)=PEXTSHF(JL)+RCPD*PTSKTI(JL,JT)*RVTMP2*PEXTLHF(JL)/RLVTT
       ZJS(JL,JT)=PEXTSHF(JL)  !no more RVTMP2
-!xxx    
       PJQ(JL,JT)=PEXTLHF(JL)/RLVTT
         
       ZSSK(JL,JT)=ZBSL(JL)+ZJS(JL,JT)*(ZASL(JL)-1.0_JPRB/ZRHOCHU(JL,JT)) 
@@ -542,18 +533,21 @@ ENDIF
 
 IF (LDTERRA) THEN
   DO JT=3,KTILES     ! TERRA goes in tiles 3-8
- !DO JT=1,KTILES
     DO JL=KIDIA,KFDIA
       IF ( LDLAND(JL) ) THEN
 !xmk    ZJS(JL,JT)=PEXTSHF(JL)+RCPD*PTSKTI(JL,JT)*RVTMP2*PEXTLHF(JL)/RLVTT
         ZJS(JL,JT)=PEXTSHF(JL)  !no more RVTMP2
-!xxx    
         PJQ(JL,JT)=PEXTLHF(JL)/RLVTT
         
-!???    ZSSK(JL,JT)=ZBSL(JL)+ZJS(JL,JT)*(ZASL(JL)-1.0_JPRB/ZRHOCHU(JL,JT)) 
-!???    ZTSK(JL,JT)=ZSSK(JL,JT)/(RCPD*(1.+RVTMP2*PQSTI(JL,JT)))
-if ( (ZTSK(JL,JT) > 400.0) .or. (ZTSK(JL,JT) < 0.0  ) ) then
-  write(*,*) 'vdfdifh0 ', JT, ZTSK(JL,JT), ZSSK(JL,JT), PQSTI(JL,JT)
+!       ZSSK(JL,JT)=ZBSL(JL)+ZJS(JL,JT)*(ZASL(JL)-1.0_JPRB/ZRHOCHU(JL,JT)) 
+!       ZTSK(JL,JT)=ZSSK(JL,JT)/(RCPD*(1.+RVTMP2*PQSTI(JL,JT)))
+
+!----here should be the mean TERRA TSK - maybe separate for snow and soil----
+!----same for fluxes - separate for snow and soil (from vdfmain) ---
+
+if ( (ZTSK(JL,JT) > 400.0) .or. (ZTSK(JL,JT) < 100.0  ) ) then
+  write(*,*) 'vdfdifh0 ', JT, ZTSK(JL,JT), ZSSK(JL,JT), PQSTI(JL,JT), &
+    ZASL(JL), ZBSL(JL), PTSKTI(JL,JT), PQSTI(JL,JT)
 endif
         PSSH(JL,JT)=PEXTSHF(JL)
         PSLH(JL,JT)=PEXTLHF(JL)
@@ -576,11 +570,11 @@ ENDIF
 DO JT=1,KTILES
   DO JL=KIDIA,KFDIA
 if ( (ZTSK(JL,JT) > 400.0) .or. (PTSKTI(JL,JT) > 400.0) .or. &
-     (ZTSK(JL,JT) < 0.0  ) .or. (PTSKTI(JL,JT) < 0.0  ) ) then
+     (ZTSK(JL,JT) < 0.0  ) .or. (PTSKTI(JL,JT) < 100.0  ) ) then
   write(*,*) 'vdfdifh1: ', JT, ZTSK(JL,JT), PTSKTI(JL,JT), ZTPFAC2, ZTPFAC3, &
     ZBSL(JL), ZJS(JL,JT), ZASL(JL), ZRHOCHU(JL,JT), PEXTSHF(JL), PEXTLHF(JL)
 endif
-    PTSKTIP1(JL,JT)=ZTPFAC2*ZTSK(JL,JT)+ZTPFAC3*PTSKTI(JL,JT)
+    PTSKTIP1(JL,JT)=ZTPFAC2*ZTSK(JL,JT)+ZTPFAC3*PTSKTI(JL,JT)     !?????
     ZQSP1=PQSTI(JL,JT)+PDQSTI(JL,JT)*(ZTSK(JL,JT)-PTSKTI(JL,JT))
   ENDDO
 ENDDO

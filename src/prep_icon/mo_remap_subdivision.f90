@@ -35,6 +35,7 @@ MODULE mo_remap_subdivision
 
   PRIVATE
   PUBLIC :: decompose_grid
+  PUBLIC :: extract_subgrid
   PUBLIC :: create_grid_covering
   PUBLIC :: get_latitude_range
   PUBLIC :: IMIN, IMAX
@@ -206,22 +207,11 @@ CONTAINS
     CHARACTER(LEN=*), PARAMETER :: routine = TRIM(TRIM(modname)//'::decompose_grid')
     REAL(wp),         PARAMETER :: eps     = 1e-12_wp
 
-    INTEGER  :: nparts, n_patch_cells, n_patch_edges,             &
-      &         n_patch_verts, ierrstat, jc,jb, ilocal_idx,       &
-      &         start_idx, end_idx, start_blk, end_blk, nlocal_c, &
-      &         nlocal_e, nlocal_v, jc_global, jb_global,         &
-      &         ilocal_idx_e, ilocal_idx_v, iedge, ivert,         &
-      &         jc_e, jb_e, jc_v, jb_v, min1D, max1D,             &
-      &         nypoints_loc, jc_local, jb_local, i, j
+    INTEGER  :: nparts, ierrstat, jc,jb,                          &
+      &         start_idx, end_idx, start_blk, end_blk,           &
+      &         min1D, max1D, nypoints_loc, i
     REAL(wp) :: lat_min, lat_max, lat_delta, lat
-    INTEGER,  ALLOCATABLE :: g2l_cells_idx(:,:), g2l_cells_blk(:,:),  &
-      &         g2l_edges_idx(:,:), g2l_edges_blk(:,:),               &
-      &         g2l_verts_idx(:,:), g2l_verts_blk(:,:),               &
-      &         l2g_cells_idx(:,:), l2g_cells_blk(:,:),               &
-      &         l2g_edges_idx(:,:), l2g_edges_blk(:,:),               &
-      &         l2g_verts_idx(:,:), l2g_verts_blk(:,:)
-    LOGICAL,  ALLOCATABLE :: lverts(:,:), ledges(:,:), lvals_glb(:)
-    REAL(wp), ALLOCATABLE :: yvals_glb(:)
+    INTEGER,  ALLOCATABLE :: mask_c(:,:)
 
     ! distribute grid over all working PEs:
     nparts = p_n_work
@@ -290,6 +280,65 @@ CONTAINS
     END IF !  (.NOT. PRESENT(opt_lat_min)) 
 
     ! create global-to-local mappings for cells, edges, vertices
+    IF (dbg_level >= 2) WRITE (0,*) "# nblks_c = ", grid_in%p_patch%nblks_c
+    ALLOCATE(mask_c(nproma,grid_in%p_patch%nblks_c), &
+      &      STAT=ierrstat)
+    IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
+    mask_c(:,:) = 1
+
+    ! loop over global cells, mark those "owned" by this PE:
+    start_blk = 1
+    end_blk   = grid_in%p_patch%nblks_c
+    DO jb=start_blk,end_blk
+      start_idx = 1
+      end_idx   = nproma
+      if (jb == end_blk) end_idx = grid_in%p_patch%npromz_c
+      DO jc=start_idx,end_idx
+        lat = grid_in%p_patch%cells%center(jc,jb)%lat
+        IF ((lat >= lat_min) .AND. (lat < lat_max)) THEN
+          mask_c(jc,jb) = 0
+        END IF
+      END DO ! jc
+    END DO !jb
+
+    ! actually extract subgrid based on the mask created before:
+    CALL extract_subgrid(grid_in, mask_c, min1D, max1D, nypoints_loc, grid_out, opt_name)
+
+    ! clean up
+    DEALLOCATE(mask_c, STAT=ierrstat)
+    IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")
+
+  END SUBROUTINE decompose_grid
+
+
+  !> Extracts a subgrid from a given input grid, based on mask array.
+  !
+  SUBROUTINE extract_subgrid(grid_in, mask_c, min1D, max1D, nypoints_loc, grid_out, opt_name)
+    TYPE (t_grid),        INTENT(IN)    :: grid_in
+    INTEGER,              INTENT(IN)    :: mask_c(:,:)
+    INTEGER,              INTENT(IN)    :: min1D, max1D, nypoints_loc
+    TYPE (t_grid),        INTENT(INOUT) :: grid_out
+    CHARACTER(LEN=*), INTENT(IN), OPTIONAL :: opt_name !< name string (for screen messages)
+    ! local variables
+    CHARACTER(LEN=*), PARAMETER :: routine = TRIM(TRIM(modname)//'::decompose_grid')
+
+    INTEGER  :: n_patch_cells, n_patch_edges,                     &
+      &         n_patch_verts, ierrstat, jc,jb, ilocal_idx,       &
+      &         start_idx, end_idx, start_blk, end_blk, nlocal_c, &
+      &         nlocal_e, nlocal_v, jc_global, jb_global,         &
+      &         ilocal_idx_e, ilocal_idx_v, iedge, ivert,         &
+      &         jc_e, jb_e, jc_v, jb_v,                           &
+      &         jc_local, jb_local, i, j
+    INTEGER,  ALLOCATABLE :: g2l_cells_idx(:,:), g2l_cells_blk(:,:),  &
+      &         g2l_edges_idx(:,:), g2l_edges_blk(:,:),               &
+      &         g2l_verts_idx(:,:), g2l_verts_blk(:,:),               &
+      &         l2g_cells_idx(:,:), l2g_cells_blk(:,:),               &
+      &         l2g_edges_idx(:,:), l2g_edges_blk(:,:),               &
+      &         l2g_verts_idx(:,:), l2g_verts_blk(:,:)
+    LOGICAL,  ALLOCATABLE :: lverts(:,:), ledges(:,:), lvals_glb(:)
+    REAL(wp), ALLOCATABLE :: yvals_glb(:)
+
+    ! create global-to-local mappings for cells, edges, vertices
     ALLOCATE(g2l_cells_idx(nproma,grid_in%p_patch%nblks_c), g2l_cells_blk(nproma,grid_in%p_patch%nblks_c), &
       &      g2l_edges_idx(nproma,grid_in%p_patch%nblks_e), g2l_edges_blk(nproma,grid_in%p_patch%nblks_e), &
       &      g2l_verts_idx(nproma,grid_in%p_patch%nblks_v), g2l_verts_blk(nproma,grid_in%p_patch%nblks_v), &
@@ -315,8 +364,7 @@ CONTAINS
       end_idx   = nproma
       if (jb == end_blk) end_idx = grid_in%p_patch%npromz_c
       DO jc=start_idx,end_idx
-        lat = grid_in%p_patch%cells%center(jc,jb)%lat
-        IF ((lat >= lat_min) .AND. (lat < lat_max)) THEN
+        IF (mask_c(jc,jb) /= 1)  THEN
           ilocal_idx = ilocal_idx + 1
           jc_local = idx_no(ilocal_idx)
           jb_local = blk_no(ilocal_idx)
@@ -540,17 +588,19 @@ CONTAINS
       jb_local  = blk_no(ilocal_idx)
       jc_global = l2g_cells_idx(jc_local,jb_local)
       jb_global = l2g_cells_blk(jc_local,jb_local)
-      grid_out%p_patch%cells%glb_index(ilocal_idx) = idx_1d(jc_global,jb_global)
+      grid_out%p_patch%cells%glb_index(ilocal_idx) = &
+        &     grid_in%p_patch%cells%glb_index(idx_1d(jc_global,jb_global))
     END DO
     DO ilocal_idx=1,nlocal_e
       jc_local  = idx_no(ilocal_idx)
       jb_local  = blk_no(ilocal_idx)
       jc_global = l2g_edges_idx(jc_local,jb_local)
       jb_global = l2g_edges_blk(jc_local,jb_local)
-      grid_out%p_patch%edges%glb_index(ilocal_idx) = idx_1d(jc_global,jb_global)
+      grid_out%p_patch%edges%glb_index(ilocal_idx) = &
+        &     grid_in%p_patch%edges%glb_index(idx_1d(jc_global,jb_global))
     END DO
 
-    ! copy local grid sizes:
+    ! set global grid sizes (sum of local sizes):
     grid_out%p_patch%n_patch_cells_g = grid_in%p_patch%n_patch_cells_g
     grid_out%p_patch%n_patch_edges_g = grid_in%p_patch%n_patch_edges_g
     grid_out%p_patch%n_patch_verts_g = grid_in%p_patch%n_patch_verts_g
@@ -563,7 +613,7 @@ CONTAINS
       &        lverts, ledges,                                          &
       &        STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")
-  END SUBROUTINE decompose_grid
+  END SUBROUTINE extract_subgrid
 
 
   !> Decomposes grid and creates a grid covering for each MPI task.

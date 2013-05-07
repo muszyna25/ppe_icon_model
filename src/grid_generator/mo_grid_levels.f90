@@ -115,11 +115,11 @@ MODULE mo_grid_levels
   CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
 
 
-  PUBLIC ::  init_grid, destruct_grids, nf
-  PUBLIC ::  grid_on_level,number_of_grid_levels,     &
-    & l_c_grid, itype_optimize, maxlev_optim,  &
-    & tria_arc_km, beta_spring, init_gridgen,  &
-    & check_orientation, statistics, output_grid
+  PUBLIC :: init_grid, destruct_grids, nf
+  PUBLIC :: grid_on_level,number_of_grid_levels,     &
+    &       l_c_grid, itype_optimize, maxlev_optim,  &
+    &       tria_arc_km, beta_spring, init_gridgen,  &
+    &       check_orientation, statistics, output_grid
 
   LOGICAL :: lgrid_initialized = .false.
   INTEGER :: number_of_grid_levels
@@ -142,6 +142,13 @@ MODULE mo_grid_levels
   !          0.9  smaller target length: good for
   !          similar triangle shapes
   INTEGER :: grid_root
+  ! meta data descriptors
+  CHARACTER(len=*), PARAMETER :: uri_pathname = 'http://icon-downloads.mpimet.mpg.de/grids/public/'
+  INTEGER :: number_of_grid_used     ! index for reference to xml table for grib2, 0 for private use
+  INTEGER :: centre                  ! centre running the grid generator: 78 - edzw (DWD), 252 - MPIM
+  INTEGER :: subcentre               ! subcentre to be assigned by centre, usually 0
+
+  INTEGER :: annotate_level          ! which grid level to annotate
   !--------------------------------------------------------------
   TYPE(t_grid) , ALLOCATABLE, TARGET :: grid_on_level(:)
 
@@ -177,6 +184,8 @@ CONTAINS
     NAMELIST /grid_options/ x_rot_angle, y_rot_angle, z_rot_angle, &
       & itype_optimize, l_c_grid, maxlev_optim, &
       & beta_spring
+    NAMELIST /grid_metadata/ number_of_grid_used, centre, subcentre, &
+      & annotate_level
     NAMELIST /plane_options/tria_arc_km
 
     ! set default values for grid_options
@@ -192,6 +201,12 @@ CONTAINS
     nroot          = 2
     grid_levels    = 4
     lplane         = .false.
+
+    ! set default values for grid_options
+    number_of_grid_used = 0
+    centre = 65535                  ! missing value from WMO common code table C-11
+    subcentre = 0
+    annotate_level = grid_levels    ! level to annotate, to allow definition of higher level nests
 
     ! set default values for plane_options
     tria_arc_km    = 10.0_wp ! resolution in kilometers
@@ -222,6 +237,11 @@ CONTAINS
       READ (nnml,grid_options)
     ENDIF
 
+   CALL position_nml('grid_metadata', STATUS=i_status)
+    IF (i_status == positioned) THEN
+      READ (nnml,grid_metadata)
+    ENDIF
+
     IF (lplane) THEN
       CALL position_nml('plane_options', STATUS=i_status)
       IF (i_status == positioned) THEN
@@ -240,47 +260,47 @@ CONTAINS
 
     ! write control output of namelist variables
 
-    CALL message('', TRIM(message_text))
+    CALL message('', message_text)
     WRITE(message_text,'(a)')'Namelist Group: grid_ini'
-    CALL message('', TRIM(message_text))
+    CALL message('', message_text)
     WRITE(message_text,'(a)')'------------------------'
-    CALL message('', TRIM(message_text))
+    CALL message('', message_text)
     WRITE(message_text,'(t7,a,t28,a,t43,a)') 'Variable', 'Actual Value', 'Default Value'
-    CALL message('', TRIM(message_text))
+    CALL message('', message_text)
     WRITE(message_text,'(t8,a,t28,i12,t44,i12)') 'grid_levels', grid_levels, grid_levels_d
-    CALL message('', TRIM(message_text))
+    CALL message('', message_text)
     WRITE(message_text,'(t8,a,t28,i12,t44,i12)') 'nroot' , nroot, nroot_d
-    CALL message('', TRIM(message_text))
+    CALL message('', message_text)
     WRITE(message_text,'(t8,a,t28,l12,t44,l12)') 'lplane', lplane, lplane_d
-    CALL message('', TRIM(message_text))
+    CALL message('', message_text)
     CALL message ('','')
     WRITE(message_text,'(a)')'Namelist Group: grid_options'
-    CALL message('', TRIM(message_text))
+    CALL message('', message_text)
     WRITE(message_text,'(a)')'----------------------------'
-    CALL message('', TRIM(message_text))
+    CALL message('', message_text)
     WRITE(message_text,'(t7,a,t28,a,t43,a)')'Variable', 'Actual Value', 'Default Value'
-    CALL message('', TRIM(message_text))
+    CALL message('', message_text)
     WRITE(message_text,'(t8,a,t28,i12,t44,i12)')'itype_optimize', itype_optimize, itype_optimize_d
-    CALL message('', TRIM(message_text))
+    CALL message('', message_text)
     WRITE(message_text,'(t8,a,t28,i12,t44,i12)')'maxlev_optim', maxlev_optim, maxlev_optim_d
-    CALL message('', TRIM(message_text))
+    CALL message('', message_text)
     WRITE(message_text,'(t8,a,t28,l12,t44,l12)')'l_c_grid', l_c_grid, l_c_grid_d
-    CALL message('', TRIM(message_text))
+    CALL message('', message_text)
     WRITE(message_text,'(t8,a,t28,f12.4,t44,f12.4)')'beta_spring', beta_spring, beta_spring_d
-    CALL message('', TRIM(message_text))
+    CALL message('', message_text)
     WRITE(message_text,'(t8,a,t28,f12.4,t44,f12.4)')'x_rot_angle', x_rot_angle, x_rot_angle_d
-    CALL message('', TRIM(message_text))
+    CALL message('', message_text)
     WRITE(message_text,'(t8,a,t28,f12.4,t44,f12.4)')'y_rot_angle', y_rot_angle, y_rot_angle_d
-    CALL message('', TRIM(message_text))
+    CALL message('', message_text)
     WRITE(message_text,'(t8,a,t28,f12.4,t44,f12.4)')'z_rot_angle', z_rot_angle, z_rot_angle_d
-    CALL message('', TRIM(message_text))
+    CALL message('', message_text)
     CALL message ('','')
     WRITE(message_text,'(a)')'Namelist Group: plane_options'
-    CALL message('', TRIM(message_text))
+    CALL message('', message_text)
     WRITE(message_text,'(a)')'-----------------------------'
-    CALL message('', TRIM(message_text))
+    CALL message('', message_text)
     WRITE(message_text,'(t8,a,t28,f12.4,t44,f12.4)')'tria_arc_km', tria_arc_km, tria_arc_km_d
-    CALL message('', TRIM(message_text))
+    CALL message('', message_text)
     CALL message ('','')
 
     ! convert rotation angles do radians
@@ -291,6 +311,66 @@ CONTAINS
 
   END SUBROUTINE init_gridgen
   !-------------------------------------------------------------------------
+  !>
+  !!
+  !! @par Revision History
+  !! Luis Kornblueh, MPI-M, Hamburg, April 2013
+  !! dump the xml table entry for grib2 handling of horizontal grids
+  !!
+  SUBROUTINE dump_grid_table_xml_metadata(filename)
+
+    CHARACTER(len=*), INTENT(in) :: filename
+    CHARACTER(len=255) :: uriname, uri_subcentre
+
+    CALL message('','')
+    CALL message('','---------- BEGIN XML grid table descriptor ----------')
+    CALL message('','')
+
+    ! grouping element: grid
+    WRITE(message_text,'(a,i0,a,i0,a,i0,a)') &
+          &          '<grid number_of_grid_used="', number_of_grid_used, &
+          &              '" centre="', centre, &
+          &              '" subcentre="', subcentre, &
+          &              '">'
+    CALL message('',message_text)
+
+    IF (subcentre > 0) THEN
+      WRITE(uri_subcentre,'(i0,a)') subcentre, '/'
+    ELSE
+      uri_subcentre = ''
+    ENDIF
+    SELECT CASE (centre)
+    CASE(78)
+      uriname = TRIM(uri_pathname)//'edzw/'//TRIM(uri_subcentre)
+    CASE(255)
+      uriname = TRIM(uri_pathname)//'mpim/'//TRIM(uri_subcentre)
+    CASE DEFAULT
+      uriname = TRIM(uri_pathname)//'unknown/'//TRIM(uri_subcentre)
+    END SELECT
+
+    ! contained element: uri
+    WRITE(message_text,'(a)') '    <uri>'
+    CALL message('',message_text)
+    WRITE(message_text,'(a,a,a)') '        ', uri_pathname, TRIM(filename)
+    CALL message('',message_text)
+    WRITE(message_text,'(a)') '    </uri>'
+    CALL message('',message_text)
+
+    ! contained element: description
+    WRITE(message_text,'(a)') '    <description>'
+    CALL message('',message_text)
+    WRITE(message_text,'(a)') '    </description>'
+    CALL message('',message_text)
+
+    ! finishing grouping element: grid
+    WRITE(message_text,'(a)') '</grid>'
+    CALL message('',message_text)
+
+    CALL message('','')
+    CALL message('','----------- END XML grid table descriptor -----------')
+    CALL message('','')
+
+  END SUBROUTINE dump_grid_table_xml_metadata
 
   !-------------------------------------------------------------------------
   !>
@@ -333,7 +413,7 @@ CONTAINS
     DO jlev = 0, number_of_grid_levels
 
       WRITE(message_text,'(a,i0)') 'Mapping data structure on level ', jlev
-      CALL message('', TRIM(message_text))
+      CALL message('', message_text)
 
       cg => grid_on_level(jlev)
       ct => spheres_on_levels(jlev)
@@ -691,10 +771,10 @@ CONTAINS
 
       CALL message ('', '')
       WRITE(message_text,'(a,a)')  '!!! --- REMINDER --- !!!'
-      CALL message ('', TRIM(message_text))
+      CALL message ('', message_text)
       CALL message ('', '')
       WRITE(message_text,'(a)') 'Rerun gridgen to create GRIDMAP files on other levels!'
-      CALL message ('', TRIM(message_text))
+      CALL message ('', message_text)
       CALL message ('', '')
 
       i_loop_start = number_of_grid_levels
@@ -755,7 +835,7 @@ CONTAINS
       ENDIF
 
       WRITE(message_text,'(a,a)') 'Write gridmap file: ', TRIM(output)
-      CALL message ('', TRIM(message_text))
+      CALL message ('', message_text)
 
       gg => grid_on_level(jgrid)
       sphere_level => spheres_on_levels(jgrid)
@@ -791,7 +871,21 @@ CONTAINS
       CALL nf(nf_put_att_text  (ncid, nf_global, 'institution', 59, &
         & 'Max Planck Institute for Meteorology/Deutscher Wetterdienst'))
       CALL nf(nf_put_att_text  (ncid, nf_global, 'source', 10, 'icon-dev'))
-      CALL nf(nf_put_att_text  (ncid, nf_global, 'uuid' , uuid_string_length, TRIM(uuid_string)))
+      !
+      CALL nf(nf_put_att_text  (ncid, nf_global, 'uuidOfHGrid' , uuid_string_length, TRIM(uuid_string)))
+      IF (jgrid == annotate_level) THEN
+        IF (number_of_grid_used == 0) THEN
+          CALL message('','number_of_grid_used is 0 and cannot be added to the ICON master grid table')
+        ENDIF
+        CALL nf(nf_put_att_int (ncid, nf_global, 'number_of_grid_used', nf_int, 1, number_of_grid_used))
+        CALL nf(nf_put_att_text  (ncid, nf_global, 'ICON_grid_file_uri' , &
+            &                                       LEN_TRIM(uri_pathname//output), TRIM(uri_pathname//output)))
+      ELSE
+        CALL nf(nf_put_att_int (ncid, nf_global, 'number_of_grid_used', nf_int, 1, 0))
+        CALL nf(nf_put_att_text  (ncid, nf_global, 'ICON_grid_file_uri' , 7, 'private'))
+      ENDIF
+      CALL nf(nf_put_att_int   (ncid, nf_global, 'centre', nf_int, 1, centre))
+      CALL nf(nf_put_att_int   (ncid, nf_global, 'subcentre', nf_int, 1, subcentre))
       CALL nf(nf_put_att_text  (ncid, nf_global, 'grid_mapping_name' , 18, 'lat_long_on_sphere'))
       CALL nf(nf_put_att_text  (ncid, nf_global, 'crs_id' , 28, 'urn:ogc:def:cs:EPSG:6.0:6422'))
       CALL nf(nf_put_att_text  (ncid, nf_global, 'crs_name',30,'Spherical 2D Coordinate System'))
@@ -1441,31 +1535,35 @@ CONTAINS
       CALL nf(nf_put_var_int   (ncid, varid48, gg%verts%end_idx))
 
       CALL nf(nf_put_var_int   (ncid, varid403,gg%verts%parent_index))
-    CALL nf(nf_put_var_int   (ncid, varid49, gg%cells%phys_id))
-    CALL nf(nf_put_var_int   (ncid, varid50, gg%edges%phys_id))
+      CALL nf(nf_put_var_int   (ncid, varid49, gg%cells%phys_id))
+      CALL nf(nf_put_var_int   (ncid, varid50, gg%edges%phys_id))
       !------------------------------------------------------------------------
 
       CALL nf(nf_close(ncid))
-   !------------------------------------------------------------------------
-    write(*,*) '---',TRIM(output), '---'
-    str_idx=LBOUND(gg%verts%start_idx, 1)
-    end_idx=str_idx+SIZE(gg%verts%start_idx, 1)-1
-    DO i=str_idx,end_idx
-      write(*,*) 'verts%start_idx, end:', i, gg%verts%start_idx(i,1), gg%verts%end_idx(i,1)
-    ENDDO
 
-    str_idx=LBOUND(gg%edges%start_idx, 1)
-    end_idx=str_idx+SIZE(gg%edges%start_idx, 1)-1
-    DO i=str_idx,end_idx
-      write(*,*) 'edges%start_idx, end:', i, gg%edges%start_idx(i,1), gg%edges%end_idx(i,1)
-    ENDDO
-
-    str_idx=LBOUND(gg%cells%start_idx, 1)
-    end_idx=str_idx+SIZE(gg%cells%start_idx, 1)-1
-    DO i=str_idx,end_idx
-      write(*,*) 'cells%start_idx, end:', i, gg%cells%start_idx(i,1), gg%cells%end_idx(i,1)
-    ENDDO
-    write(*,*) '-------------------'
+      IF (jgrid == annotate_level) THEN
+        CALL dump_grid_table_xml_metadata(TRIM(output))
+      ENDIF
+    !------------------------------------------------------------------------
+    !write(*,*) TRIM(output)
+    !str_idx=LBOUND(gg%verts%start_idx, 1)
+    !end_idx=str_idx+SIZE(gg%verts%start_idx, 1)-1
+    !DO i=str_idx,end_idx
+    !  write(*,*) 'verts%start_idx, end:', i, gg%verts%start_idx(i,1), gg%verts%end_idx(i,1)
+    !ENDDO
+    !
+    !str_idx=LBOUND(gg%edges%start_idx, 1)
+    !end_idx=str_idx+SIZE(gg%edges%start_idx, 1)-1
+    !DO i=str_idx,end_idx
+    !  write(*,*) 'edges%start_idx, end:', i, gg%edges%start_idx(i,1), gg%edges%end_idx(i,1)
+    !ENDDO
+    !
+    !str_idx=LBOUND(gg%cells%start_idx, 1)
+    !end_idx=str_idx+SIZE(gg%cells%start_idx, 1)-1
+    !DO i=str_idx,end_idx
+    !  write(*,*) 'cells%start_idx, end:', i, gg%cells%start_idx(i,1), gg%cells%end_idx(i,1)
+    !ENDDO
+    !write(*,*) '-------------------'
 
     ENDDO
 

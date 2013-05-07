@@ -397,13 +397,29 @@ CONTAINS
     IF (ist/=SUCCESS) THEN
       CALL finish(TRIM(routine),'allocation for surface latent heat flux failed')
     END IF
-    ALLOCATE(p_sfc_flx%forc_prflx(nproma,nblks_c), STAT=ist)
+    ALLOCATE(p_sfc_flx%forc_precip(nproma,nblks_c), STAT=ist)
     IF (ist/=SUCCESS) THEN
       CALL finish(TRIM(routine),'allocation for precipitation flux failed')
     END IF
-    ALLOCATE(p_sfc_flx%forc_evflx(nproma,nblks_c), STAT=ist)
+    ALLOCATE(p_sfc_flx%forc_evap(nproma,nblks_c), STAT=ist)
     IF (ist/=SUCCESS) THEN
       CALL finish(TRIM(routine),'allocation for evaporation flux failed')
+    END IF
+    ALLOCATE(p_sfc_flx%forc_runoff(nproma,nblks_c), STAT=ist)
+    IF (ist/=SUCCESS) THEN
+      CALL finish(TRIM(routine),'allocation for river runoff flux failed')
+    END IF
+    ALLOCATE(p_sfc_flx%forc_fwbc(nproma,nblks_c), STAT=ist)
+    IF (ist/=SUCCESS) THEN
+      CALL finish(TRIM(routine),'allocation for sum of BC freshwater flux failed')
+    END IF
+    ALLOCATE(p_sfc_flx%forc_hfrelax(nproma,nblks_c), STAT=ist)
+    IF (ist/=SUCCESS) THEN
+      CALL finish(TRIM(routine),'allocation for heat flux due to relaxation failed')
+    END IF
+    ALLOCATE(p_sfc_flx%forc_fwrelax(nproma,nblks_c), STAT=ist)
+    IF (ist/=SUCCESS) THEN
+      CALL finish(TRIM(routine),'allocation for freshwater flux due to relaxation failed')
     END IF
     IF(no_tracer>=1)THEN
       ALLOCATE(p_sfc_flx%forc_tracer(nproma,nblks_c, no_tracer), STAT=ist)
@@ -437,8 +453,12 @@ CONTAINS
       p_sfc_flx%forc_lwflx       (:,:)    = 0.0_wp
       p_sfc_flx%forc_ssflx       (:,:)    = 0.0_wp
       p_sfc_flx%forc_slflx       (:,:)    = 0.0_wp
-      p_sfc_flx%forc_prflx       (:,:)    = 0.0_wp
-      p_sfc_flx%forc_evflx       (:,:)    = 0.0_wp
+      p_sfc_flx%forc_precip      (:,:)    = 0.0_wp
+      p_sfc_flx%forc_evap        (:,:)    = 0.0_wp
+      p_sfc_flx%forc_runoff      (:,:)    = 0.0_wp
+      p_sfc_flx%forc_fwbc        (:,:)    = 0.0_wp
+      p_sfc_flx%forc_hfrelax     (:,:)    = 0.0_wp
+      p_sfc_flx%forc_fwrelax     (:,:)    = 0.0_wp
       p_sfc_flx%forc_tracer      (:,:,:)  = 0.0_wp
       p_sfc_flx%forc_tracer_relax(:,:,:)  = 0.0_wp
     ENDIF
@@ -496,13 +516,29 @@ CONTAINS
     IF (ist/=SUCCESS) THEN
       CALL finish(TRIM(routine),'deallocation for heat flux failed')
     END IF
-    DEALLOCATE(p_sfc_flx%forc_prflx, STAT=ist)
+    DEALLOCATE(p_sfc_flx%forc_precip, STAT=ist)
     IF (ist/=SUCCESS) THEN
       CALL finish(TRIM(routine),'deallocation for precip flux failed')
     END IF
-    DEALLOCATE(p_sfc_flx%forc_evflx, STAT=ist)
+    DEALLOCATE(p_sfc_flx%forc_evap, STAT=ist)
     IF (ist/=SUCCESS) THEN
       CALL finish(TRIM(routine),'deallocation for evap flux failed')
+    END IF
+    DEALLOCATE(p_sfc_flx%forc_runoff, STAT=ist)
+    IF (ist/=SUCCESS) THEN
+      CALL finish(TRIM(routine),'deallocation for runoff flux failed')
+    END IF
+    DEALLOCATE(p_sfc_flx%forc_fwbc, STAT=ist)
+    IF (ist/=SUCCESS) THEN
+      CALL finish(TRIM(routine),'deallocation for sum of BC freshwater flux failed')
+    END IF
+    DEALLOCATE(p_sfc_flx%forc_hfrelax, STAT=ist)
+    IF (ist/=SUCCESS) THEN
+      CALL finish(TRIM(routine),'deallocation for heat flux due to relaxation failed')
+    END IF
+    DEALLOCATE(p_sfc_flx%forc_fwrelax, STAT=ist)
+    IF (ist/=SUCCESS) THEN
+      CALL finish(TRIM(routine),'deallocation for freshwater flux due to relaxation failed')
     END IF
     DEALLOCATE(p_sfc_flx%forc_tracer, STAT=ist)
     IF (ist/=SUCCESS) THEN
@@ -578,15 +614,33 @@ CONTAINS
       CALL finish(TRIM(routine),'allocation for v failed')
     END IF
 
+    ALLOCATE(p_as%precip(nproma,nblks_c), STAT=ist)
+    IF (ist/=SUCCESS) THEN
+      CALL finish(TRIM(routine),'allocation for precip failed')
+    END IF
 
-    p_as%tafo (:,:) = 0.0_wp
-    p_as%ftdew(:,:) = 0.0_wp
-    p_as%fclou(:,:) = 0.0_wp
-    p_as%fu10 (:,:) = 0.0_wp
-    p_as%fswr (:,:) = 0.0_wp
-    p_as%pao  (:,:) = 0.0_wp
-    p_as%u    (:,:) = 0.0_wp
-    p_as%v    (:,:) = 0.0_wp
+    ALLOCATE(p_as%evap(nproma,nblks_c), STAT=ist)
+    IF (ist/=SUCCESS) THEN
+      CALL finish(TRIM(routine),'allocation for evap failed')
+    END IF
+
+    ALLOCATE(p_as%runoff(nproma,nblks_c), STAT=ist)
+    IF (ist/=SUCCESS) THEN
+      CALL finish(TRIM(routine),'allocation for runoff failed')
+    END IF
+
+
+    p_as%tafo  (:,:) = 0.0_wp
+    p_as%ftdew (:,:) = 0.0_wp
+    p_as%fclou (:,:) = 0.0_wp
+    p_as%fu10  (:,:) = 0.0_wp
+    p_as%fswr  (:,:) = 0.0_wp
+    p_as%pao   (:,:) = 0.0_wp
+    p_as%u     (:,:) = 0.0_wp
+    p_as%v     (:,:) = 0.0_wp
+    p_as%precip(:,:) = 0.0_wp
+    p_as%evap  (:,:) = 0.0_wp
+    p_as%runoff(:,:) = 0.0_wp
 
     CALL message(TRIM(routine), 'end')
 
@@ -646,6 +700,19 @@ CONTAINS
     DEALLOCATE(p_as%v, STAT=ist)
     IF (ist/=SUCCESS) THEN
       CALL finish(TRIM(routine),'deallocation for v failed')
+    END IF
+
+    DEALLOCATE(p_as%precip, STAT=ist)
+    IF (ist/=SUCCESS) THEN
+      CALL finish(TRIM(routine),'deallocation for precip failed')
+    END IF
+    DEALLOCATE(p_as%evap, STAT=ist)
+    IF (ist/=SUCCESS) THEN
+      CALL finish(TRIM(routine),'deallocation for evap failed')
+    END IF
+    DEALLOCATE(p_as%runoff, STAT=ist)
+    IF (ist/=SUCCESS) THEN
+      CALL finish(TRIM(routine),'deallocation for runoff failed')
     END IF
 
     CALL message(TRIM(routine), 'end')
@@ -1633,6 +1700,16 @@ CONTAINS
     ENDWHERE
 
     ice% concSum(:,:)  = SUM(ice% conc(:,:,:),2)
+
+    WHERE (ice%hi(:,1,:) <= 0._wp)
+      ice%Tsurf(:,1,:) = Tfw(:,:)
+      ice%T1   (:,1,:) = Tfw(:,:)
+      ice%T2   (:,1,:) = Tfw(:,:)
+      ice%conc (:,1,:) = 0.0_wp
+      ice%hi   (:,1,:) = 0.0_wp
+      ice%E1   (:,1,:) = 0.0_wp
+      ice%E2   (:,1,:) = 0.0_wp
+    ENDWHERE
 
   END SUBROUTINE ice_conc_change
 

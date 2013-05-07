@@ -187,10 +187,14 @@ fi
   
 dnl ######################################################################
 dnl define the packages
+use_components_file=config/icon_components
+if test -f $use_components_file ; then
+  AC_GET_MH($use_components_file)
+fi
 FFLAGS="${FFLAGS} ${DEFOPT}__${package}__"
 CFLAGS="${CFLAGS} ${DEFCOPT}__${package}__"
 
-for other_package in $package_group ; do
+for other_package in $icon_components ; do
   FFLAGS="${FFLAGS} ${DEFOPT}__${other_package}__"
   CFLAGS="${CFLAGS} ${DEFCOPT}__${other_package}__"
 
@@ -874,9 +878,9 @@ fi
 # general command for running a progmam
 if test "x$mpi_startrun" = "x" ; then
   if  test "x$MPIROOT" = "x" ; then
-    mpi_startrun="mpiexec -n \\\$mpi_procs"
+    mpi_startrun="mpiexec -n \\\$mpi_total_procs"
   else
-    mpi_startrun="$MPIROOT/bin/mpiexec -n \\\$mpi_procs"
+    mpi_startrun="$MPIROOT/bin/mpiexec -n \\\$mpi_total_procs"
   fi
 fi
 
@@ -903,6 +907,7 @@ use_make_command="$make_command"
 use_submit="$submit"
 use_sync_submit="$sync_submit"
 use_shell="$use_shell"
+use_icon_components="$icon_components"
 #############################
 EOF
 

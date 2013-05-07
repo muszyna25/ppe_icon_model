@@ -428,10 +428,11 @@ CONTAINS
     INTEGER, POINTER :: cells_per_domain(:), next_new_domain(:), remain_domain_space(:)
     INTEGER, POINTER :: distributed_cells_per_domain(:)
     
-    INTEGER :: cells_group_size
+    INTEGER, POINTER :: cells_group_size(:)
     INTEGER :: cell_no, no_of_domains,in_domain_id
     INTEGER :: max_subdomain_size, next_avail_subdomain, domain_cells
     INTEGER :: check_subdomain_partition, return_status
+    REAL    :: check_subdomain_partition_real
     
     CHARACTER(*), PARAMETER :: method_name = "decompose_round_robin"
 
@@ -451,6 +452,7 @@ CONTAINS
     ALLOCATE(next_new_domain(0:no_of_domains-1), &
       &  remain_domain_space(0:no_of_domains-1), &
       &  distributed_cells_per_domain(0:no_of_domains-1), &
+      &  cells_group_size(0:no_of_domains-1), &
       &  stat=return_status)
     IF (return_status > 0) &
       & CALL finish (method_name, "ALLOCATE(next_new_domain")
@@ -461,13 +463,21 @@ CONTAINS
     IF (check_subdomain_partition > no_of_domains) &
       & check_subdomain_partition = no_of_domains
       
-    cells_group_size = max_subdomain_size / subdomain_partition
+ !   cells_group_size = max_subdomain_size / subdomain_partition
+    check_subdomain_partition_real = REAL(check_subdomain_partition)
+    DO in_domain_id=0,no_of_domains-1
+      cells_group_size(in_domain_id) = NINT(REAL(cells_per_domain(in_domain_id)) / check_subdomain_partition_real)
+!      write(*,*) "cells_group_size=", cells_group_size(in_domain_id), &
+!        & cells_per_domain(in_domain_id), REAL(cells_per_domain(in_domain_id)), &
+!        & check_subdomain_partition_real
+    ENDDO
+
+    ! gets the first round-robin domain id for each domain
     return_status = validate_round_robin(no_of_domains, next_new_domain, remain_domain_space, &
-      & cells_per_domain, cells_group_size,max_subdomain_size,  opposite_subdomain_id)
+      & check_subdomain_partition, cells_per_domain, cells_group_size, max_subdomain_size,  opposite_subdomain_id)
       
-    write(0,*) "max_subdomain_size=", max_subdomain_size, &
-      & "cells_group_size:",  cells_group_size, "no_of_domains=", no_of_domains, &
-      & " new subdomain_partition:", check_subdomain_partition
+    write(0,*) "input max_subdomain_size=", max_subdomain_size, &
+      &  "no_of_domains=", no_of_domains, " new subdomain_partition:", check_subdomain_partition
 
     
      IF (return_status > 0) THEN
@@ -520,7 +530,7 @@ CONTAINS
         ENDIF
       ENDIF
       distributed_cells_per_domain(in_domain_id) = distributed_cells_per_domain(in_domain_id) + 1
-      IF (distributed_cells_per_domain(in_domain_id) >= cells_group_size) THEN
+      IF (distributed_cells_per_domain(in_domain_id) >= cells_group_size(in_domain_id)) THEN
         next_new_domain(in_domain_id) = &
           & MOD(next_new_domain(in_domain_id) + 1, no_of_domains)
         distributed_cells_per_domain(in_domain_id) = 0
@@ -530,19 +540,24 @@ CONTAINS
     ! all cells have been re-distributed
     decomposition_struct%no_of_domains(out_decomposition_id) = no_of_domains
 
-    DEALLOCATE(cells_per_domain,next_new_domain, remain_domain_space, &
-      & distributed_cells_per_domain)
+    CALL get_no_of_cells_per_subdomain(decomposition_struct, out_decomposition_id,&
+      & cells_per_domain)
+    max_subdomain_size = MAXVAL(cells_per_domain)
+    WRITE(0,*) " round-robin max_subdomain_size=", max_subdomain_size
+
+    DEALLOCATE(cells_per_domain, next_new_domain, remain_domain_space, &
+      & cells_group_size, distributed_cells_per_domain)
     
   END SUBROUTINE decompose_round_robin
   !-------------------------------------------------------------------------
   
   !-------------------------------------------------------------------------    
   INTEGER FUNCTION validate_round_robin(no_of_domains, next_new_domain, remain_domain_space, &
-    & cells_per_domain, cells_group_size, max_subdomain_size, opposite_subdomain_id)
+    & subdomain_partition, cells_per_domain, cells_group_size, max_subdomain_size, opposite_subdomain_id)
 
-    INTEGER , INTENT(in) :: no_of_domains, cells_group_size, max_subdomain_size
+    INTEGER , INTENT(in) :: no_of_domains,  max_subdomain_size, subdomain_partition
     INTEGER, POINTER :: next_new_domain(:), remain_domain_space(:), &
-      & cells_per_domain(:)
+      & cells_per_domain(:), cells_group_size(:)
     INTEGER, POINTER, OPTIONAL :: opposite_subdomain_id(:)
 
       
@@ -559,15 +574,17 @@ CONTAINS
     DO in_domain_id = 0, no_of_domains-1
       ! if it's alread assigned a new subdomain start, skip it
       IF (next_new_domain(in_domain_id) >= 0) CYCLE
+
       ! Find the next avaliable subdomain with sufficient size
       IF (PRESENT(opposite_subdomain_id)) THEN
         IF (opposite_subdomain_id(in_domain_id) >= 0) THEN
-          group_size = cells_group_size * 2
+          group_size = cells_group_size(in_domain_id) + &
+            & cells_group_size(opposite_subdomain_id(in_domain_id))
         ELSE
-          group_size = cells_group_size
+          group_size = cells_group_size(in_domain_id)
         ENDIF
       ELSE
-        group_size = cells_group_size
+        group_size = cells_group_size(in_domain_id)
       ENDIF
       
       counter = 0
@@ -597,7 +614,8 @@ CONTAINS
 
       ! compute remaining sizes
       ! this is just for checking, should be removed eventually
-      DO WHILE(domain_cells >= (group_size / 2))
+!      DO WHILE(domain_cells >= (group_size / 2))
+      DO WHILE(domain_cells > 1)
 !         write(*,*) "in_decomposition_id=", in_domain_id, opposite_subdomain_id(in_domain_id), &
 !           &  " goes to ",next_avail_subdomain, &
 !           & " remain space=", remain_domain_space(next_avail_subdomain), " - ", &

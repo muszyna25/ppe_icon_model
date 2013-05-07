@@ -12,18 +12,21 @@ MODULE mo_remap_grid_icon
   USE mo_parallel_config,    ONLY: nproma
   USE mo_exception,          ONLY: finish
   USE mo_impl_constants,     ONLY: SUCCESS, MAX_CHAR_LENGTH
-  USE mo_communication,      ONLY: idx_no, blk_no
+  USE mo_communication,      ONLY: idx_no, blk_no, idx_1d
   USE mo_physical_constants, ONLY: inverse_earth_radius
   USE mo_math_constants,     ONLY: pi, pi_180
-  USE mo_math_utilities,     ONLY: t_cartesian_coordinates, gvec2cvec
-  USE mo_util_netcdf,        ONLY: nf
-  USE mo_model_domain,       ONLY: t_patch
+  USE mo_math_utilities,     ONLY: t_cartesian_coordinates, gvec2cvec, &
+    &                        t_geographical_coordinates
+  USE mo_model_domain,       ONLY: t_patch, t_tangent_vectors
+  USE mo_netcdf_read,        ONLY: nf
 #else
   USE mo_utilities,    ONLY: wp, nproma, SUCCESS, t_patch,    &
     &                        finish, idx_no, blk_no, pi_180,  &
     &                        pi, inverse_earth_radius, nf,    &
     &                        gvec2cvec, gc2cc,                &
-    &                        t_cartesian_coordinates
+    &                        t_cartesian_coordinates,         &
+    &                        t_geographical_coordinates,      &
+    &                        t_tangent_vectors, idx_1d
 #endif
 
   USE mo_mpi,          ONLY: p_comm_work, p_int, p_real_dp,   &
@@ -38,8 +41,19 @@ MODULE mo_remap_grid_icon
   PRIVATE
   PUBLIC :: load_icon_grid
   PUBLIC :: allocate_icon_grid
+  PUBLIC :: netcdf_append_gridinfo
 
   CHARACTER(LEN=*), PARAMETER :: modname = 'mo_remap_grid_icon'
+
+  ! generic interfaces
+  INTERFACE netcdf_defvar_if_necessary_int
+    MODULE PROCEDURE netcdf_defvar_if_necessary_int1
+    MODULE PROCEDURE netcdf_defvar_if_necessary_int2
+  END INTERFACE
+
+  INTERFACE netcdf_defvar_if_necessary_flt
+    MODULE PROCEDURE netcdf_defvar_if_necessary_flt1
+  END INTERFACE
 
 CONTAINS
 
@@ -64,6 +78,7 @@ CONTAINS
     IF (get_my_mpi_work_id() == rank0) THEN
       IF (.NOT. PRESENT(opt_file))  CALL finish(routine, "Internal error!")
       ncid = opt_file%ncfileID
+      IF (ncid == -1)   CALL finish(routine, "NetCDF file has not been opened!")
       IF (nf_inq_dimid(ncid, 'cell', dimid) /= nf_noerr) THEN
         CALL nf(nf_inq_dimid(ncid, 'ncells', dimid), routine)
       END IF
@@ -76,6 +91,7 @@ CONTAINS
         CALL nf(nf_inq_dimid(ncid, 'ncells3', dimid), routine)
       END IF
       CALL nf(nf_inq_dimlen(ncid, dimid, n_patch_verts), routine)
+
       IF (dbg_level >= 5) THEN
         WRITE (0,*) "# n_patch_cells = ", n_patch_cells
         WRITE (0,*) "# n_patch_verts = ", n_patch_verts
@@ -410,7 +426,7 @@ CONTAINS
     CHARACTER(LEN=*), PARAMETER :: routine = modname//'::allocate_icon_grid'
     INTEGER                     :: ierrstat
     integer                     :: nproma_c, nproma_e, nproma_v
-    type(t_patch),    pointer   :: p
+    TYPE(t_patch),    POINTER   :: p
 
     grid%name = TRIM(name)
     p => grid% p_patch
@@ -564,7 +580,7 @@ CONTAINS
 
   !> compute cartesian edge normals
   !
-  SUBROUTINE compute_edge_normals ( grid )
+  SUBROUTINE compute_edge_normals (grid)
     TYPE (t_grid), INTENT(INOUT) :: grid
     ! local variables
     TYPE (t_cartesian_coordinates) :: z_vec
@@ -603,5 +619,297 @@ CONTAINS
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
   END SUBROUTINE compute_edge_normals
+
+
+  !> Copy all attributes from input file to output file.
+  SUBROUTINE netcdf_copy_attributes(in_ncfileID, out_ncfileID, varname)
+    INTEGER,          INTENT(IN) :: in_ncfileID, out_ncfileID
+    CHARACTER(LEN=*), INTENT(IN) :: varname
+    ! local variables
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//'::netcdf_copy_attributes'
+    INTEGER                     :: natts, in_varID, iatt, out_varID
+    CHARACTER(LEN=32)           :: att_name
+    
+    ! get var ID in input file:
+    CALL nf(nf_inq_varid(in_ncfileID, varname, in_varID), routine)
+    ! get var ID in output file:
+    CALL nf(nf_inq_varid(out_ncfileID, varname, out_varID), routine)
+    ! get number of variable attributes:
+    CALL nf(nf_inq_varnatts(in_ncfileID, in_varID, natts), routine)
+    DO iatt=1,natts
+      ! get attribute name
+      CALL nf(nf_inq_attname(in_ncfileID, in_varID, iatt, att_name), routine)
+      ! copy attribute
+      CALL nf(nf_copy_att(in_ncfileID, in_varID, att_name, out_ncfileID, out_varID), routine)
+    END DO
+  END SUBROUTINE netcdf_copy_attributes
+
+
+  !> Define dimension for cell, edge, vertex (if not existing).
+  FUNCTION netcdf_create_dim_if_necessary(ncfileID, name, alt_name, val)  RESULT(dimID)
+    INTEGER,          INTENT(IN) :: ncfileID, val
+    CHARACTER(LEN=*), INTENT(IN) :: name, alt_name
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//'::netcdf_create_dim_if_necessary'
+    INTEGER :: dimID
+    dimID = -1
+    IF (nf_inq_dimid(ncfileID, TRIM(name), dimID) /= nf_noerr) THEN
+      IF (nf_inq_dimid(ncfileID, TRIM(alt_name), dimID) /= nf_noerr) THEN
+        CALL nf(nf_def_dim(ncfileID, TRIM(name), val, dimID), routine)    
+      END IF
+    END IF
+  END FUNCTION netcdf_create_dim_if_necessary
+
+
+  !> Define variable (if not existing), integer case with 1 dimension.
+  ! 
+  !  @return -1 if variable already exists.
+  FUNCTION netcdf_defvar_if_necessary_int1(in_ncfileID, ncfileID, name, dimids)  RESULT(varID)
+    INTEGER,          INTENT(IN) :: in_ncfileID, ncfileID, dimids
+    CHARACTER(LEN=*), INTENT(IN) :: name
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//'::netcdf_defvar_if_necessary_int1'
+    INTEGER :: varID, test_varID
+    varID = -1
+    IF (nf_inq_varid(ncfileID, TRIM(name), test_varID) /= nf_noerr) THEN
+      CALL nf(nf_def_var(ncfileID, TRIM(name), NF_INT, 1, dimids, varID), routine)    
+      CALL netcdf_copy_attributes(in_ncfileID, ncfileID, TRIM(name))
+    END IF
+  END FUNCTION netcdf_defvar_if_necessary_int1
+
+
+  !> Define variable (if not existing), integer case with 2 dimensions.
+  ! 
+  !  @return -1 if variable already exists.
+  FUNCTION netcdf_defvar_if_necessary_int2(in_ncfileID, ncfileID, name, dimids)  RESULT(varID)
+    INTEGER,          INTENT(IN) :: in_ncfileID, ncfileID, dimids(2)
+    CHARACTER(LEN=*), INTENT(IN) :: name
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//'::netcdf_defvar_if_necessary_int2'
+    INTEGER :: varID, test_varID
+    varID = -1
+    IF (nf_inq_varid(ncfileID, TRIM(name), test_varID) /= nf_noerr) THEN
+      CALL nf(nf_def_var(ncfileID, TRIM(name), NF_INT, 2, dimids, varID), routine)    
+      CALL netcdf_copy_attributes(in_ncfileID, ncfileID, TRIM(name))
+    END IF
+  END FUNCTION netcdf_defvar_if_necessary_int2
+
+
+  !> Define variable (if not existing), float case with 1 dimension.
+  ! 
+  !  @return -1 if variable already exists.
+  FUNCTION netcdf_defvar_if_necessary_flt1(in_ncfileID, ncfileID, name, dimids)  RESULT(varID)
+    INTEGER,          INTENT(IN) :: in_ncfileID, ncfileID, dimids
+    CHARACTER(LEN=*), INTENT(IN) :: name
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//'::netcdf_defvar_if_necessary_flt1'
+    INTEGER :: varID, test_varID
+    varID = -1
+    IF (nf_inq_varid(ncfileID, TRIM(name), test_varID) /= nf_noerr) THEN
+      CALL nf(nf_def_var(ncfileID, TRIM(name), NF_FLOAT, 1, dimids, varID), routine)    
+      CALL netcdf_copy_attributes(in_ncfileID, ncfileID, TRIM(name))
+    END IF
+  END FUNCTION netcdf_defvar_if_necessary_flt1
+
+
+  !> Write a real field to NetCDF file.
+  !
+  SUBROUTINE netcdf_write_real(ncfileID, varID, npts, rval)
+    INTEGER,    INTENT(IN) :: ncfileID, varID, npts
+    REAL(wp),   INTENT(IN) :: rval(:,:)
+    ! local variables
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//'::netcdf_write_real'
+    INTEGER           :: i, jc, jb, ierrstat
+    REAL, ALLOCATABLE :: rbuf(:)
+
+    IF (varID == -1) RETURN
+
+    ALLOCATE(rbuf(npts), STAT=ierrstat)
+    IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
+!$OMP PARALLEL PRIVATE(jc,jb)
+!$OMP DO
+    DO i=1,npts
+      jc = idx_no(i)
+      jb = blk_no(i)
+      rbuf(i) = rval(jc,jb)
+    END DO
+!$OMP END DO
+!$OMP END PARALLEL
+    CALL nf(nf_put_var_real(ncfileID, varID, rbuf), routine)
+    DEALLOCATE(rbuf, STAT=ierrstat)
+    IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")
+  END SUBROUTINE netcdf_write_real
+
+
+  !> Write coordinates to NetCDF file.
+  !
+  SUBROUTINE netcdf_write_coords(ncfileID, lonID, latID, npts, rcoords)
+    INTEGER,                          INTENT(IN) :: ncfileID, lonID, latID, npts
+    TYPE(t_geographical_coordinates), INTENT(IN) :: rcoords(:,:)
+    ! local variables
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//'::netcdf_write_coords'
+    INTEGER           :: i, jc, jb, ierrstat
+    REAL, ALLOCATABLE :: rlon(:), rlat(:)
+
+    IF ((lonID == -1) .OR. (latID == -1)) RETURN
+
+    ALLOCATE(rlon(npts), rlat(npts), STAT=ierrstat)
+    IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
+!$OMP PARALLEL PRIVATE(jc,jb)
+!$OMP DO
+    DO i=1,npts
+      jc = idx_no(i)
+      jb = blk_no(i)
+      rlon(i) = rcoords(jc,jb)%lon * pi_180
+      rlat(i) = rcoords(jc,jb)%lat * pi_180
+    END DO
+!$OMP END DO
+!$OMP END PARALLEL
+    CALL nf(nf_put_var_real(ncfileID, lonID, rlon), routine)
+    CALL nf(nf_put_var_real(ncfileID, latID, rlat), routine)
+    DEALLOCATE(rlon, rlat, STAT=ierrstat)
+    IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")
+  END SUBROUTINE netcdf_write_coords
+
+
+  !> Write tangent vector to NetCDF file.
+  !
+  SUBROUTINE netcdf_write_tangentv(ncfileID, lonID, latID, npts, rcoords)
+    INTEGER,                 INTENT(IN) :: ncfileID, lonID, latID, npts
+    TYPE(t_tangent_vectors), INTENT(IN) :: rcoords(:,:)
+    ! local variables
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//'::netcdf_write_tangentv'
+    INTEGER           :: i, jc, jb, ierrstat
+    REAL, ALLOCATABLE :: r1(:), r2(:)
+
+    IF ((lonID == -1) .OR. (latID == -1)) RETURN
+
+    ALLOCATE(r1(npts), r2(npts), STAT=ierrstat)
+    IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
+!$OMP PARALLEL PRIVATE(jc,jb)
+!$OMP DO
+    DO i=1,npts
+      jc = idx_no(i)
+      jb = blk_no(i)
+      r1(i) = rcoords(jc,jb)%v1
+      r2(i) = rcoords(jc,jb)%v2
+    END DO
+!$OMP END DO
+!$OMP END PARALLEL
+    CALL nf(nf_put_var_real(ncfileID, lonID, r1), routine)
+    CALL nf(nf_put_var_real(ncfileID, latID, r2), routine)
+    DEALLOCATE(r1, r2, STAT=ierrstat)
+    IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")
+  END SUBROUTINE netcdf_write_tangentv
+
+
+  !> Write integer index array to to NetCDF file.
+  !
+  SUBROUTINE netcdf_write_idx(ncfileID, idxID, npts1, npts2, iidx, iblk)
+    INTEGER,      INTENT(IN) :: ncfileID, idxID, npts1, npts2
+    INTEGER,      INTENT(IN) :: iidx(:,:,:), iblk(:,:,:)
+    ! local variables
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//'::netcdf_write_idx                     '
+    INTEGER              :: i, j, jc, jb, ierrstat
+    INTEGER, ALLOCATABLE :: indices(:,:)
+
+    ALLOCATE(indices(npts1, npts2), STAT=ierrstat)
+    IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
+!$OMP PARALLEL PRIVATE(jc,jb,j)
+!$OMP DO
+    DO i=1,npts1
+      jc = idx_no(i)
+      jb = blk_no(i)
+      DO j=1,npts2
+        indices(i,j) = idx_1D(iidx(jc,jb,j), iblk(jc,jb,j))
+      END DO
+    END DO
+!$OMP END DO
+!$OMP END PARALLEL
+    CALL nf(nf_put_var_int(ncfileID, idxID, indices), routine)
+    DEALLOCATE(indices, STAT=ierrstat)
+    IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")
+  END SUBROUTINE netcdf_write_idx
+
+
+  !> Open existing NetCDF file, append extended grid information.
+  !
+  !  Note: This has to happen via direct NetCDF calls, since the CDI
+  !        do not support the various index fields for the ICON grid
+  !        topology.
+  !
+  ! TODO: Copy all variable attributes from input grid file.
+  !
+  SUBROUTINE netcdf_append_gridinfo(in_filename, filename, p_patch)
+    CHARACTER(LEN=*), INTENT(IN) :: in_filename, filename
+    TYPE(t_patch),    INTENT(IN) :: p_patch
+    ! local variables
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//'::netcdf_append_gridinfo'
+    INTEGER :: ncfileID, cellID, edgeID, vertID, vlonID, vlatID, clonID, clatID,    &
+      &        cell_areaID, lon_edge_centreID, lat_edge_centreID, zn_primal_edgeID, &
+      &        mn_primal_edgeID, nvID, vertex_of_cellID, edge_of_cellID, ncID,      &
+      &        nb_cell_indexID, edge_verticesID, adjacent_c_of_eID, neID,           &
+      &        cells_of_vertexID, in_ncfileID
+
+    IF (dbg_level >= 4)  WRITE (0,*) routine
+
+    ! open original NetCDF file (for variable meta-data)    
+    CALL nf(nf_open(TRIM(in_filename), NF_NOWRITE, in_ncfileID), routine)
+    ! open existing NetCDF file
+    CALL nf(nf_open(TRIM(filename),    NF_WRITE, ncfileID),      routine)
+    ! put netCDF dataset into define mode
+    CALL nf(nf_redef(ncfileID), routine)
+    ! define dimensions for cell, edge, vertex (if not existing):
+    cellID = netcdf_create_dim_if_necessary(ncfileID, name="cell",   alt_name="ncells",  val=p_patch%n_patch_cells)
+    edgeID = netcdf_create_dim_if_necessary(ncfileID, name="edge",   alt_name="ncells2", val=p_patch%n_patch_edges)
+    vertID = netcdf_create_dim_if_necessary(ncfileID, name="vertex", alt_name="ncells3", val=p_patch%n_patch_verts)
+    nvID   = netcdf_create_dim_if_necessary(ncfileID, name="nv",     alt_name="nv",      val=3)
+    ncID   = netcdf_create_dim_if_necessary(ncfileID, name="nc",     alt_name="nc",      val=2)
+    neID   = netcdf_create_dim_if_necessary(ncfileID, name="ne",     alt_name="ne",      val=6)
+    ! define the variables
+    !-- 1D reals:
+    clonID = netcdf_defvar_if_necessary_flt(in_ncfileID, ncfileID, "clon", cellID)
+    clatID = netcdf_defvar_if_necessary_flt(in_ncfileID, ncfileID, "clat", cellID)
+    vlonID = netcdf_defvar_if_necessary_flt(in_ncfileID, ncfileID, "vlon", vertID)
+    vlatID = netcdf_defvar_if_necessary_flt(in_ncfileID, ncfileID, "vlat", vertID)
+    !-- 2D reals:
+    cell_areaID       = netcdf_defvar_if_necessary_flt(in_ncfileID, ncfileID, "cell_area",                     cellID)
+    lon_edge_centreID = netcdf_defvar_if_necessary_flt(in_ncfileID, ncfileID, "lon_edge_centre",               edgeID)
+    lat_edge_centreID = netcdf_defvar_if_necessary_flt(in_ncfileID, ncfileID, "lat_edge_centre",               edgeID)
+    zn_primal_edgeID  = netcdf_defvar_if_necessary_flt(in_ncfileID, ncfileID, "zonal_normal_primal_edge",      edgeID)
+    mn_primal_edgeID  = netcdf_defvar_if_necessary_flt(in_ncfileID, ncfileID, "meridional_normal_primal_edge", edgeID)
+    !-- 2D ints:
+    vertex_of_cellID  = netcdf_defvar_if_necessary_int(in_ncfileID, ncfileID, "vertex_of_cell",       (/cellID, nvID/) )
+    edge_of_cellID    = netcdf_defvar_if_necessary_int(in_ncfileID, ncfileID, "edge_of_cell",         (/cellID, nvID/) )
+    nb_cell_indexID   = netcdf_defvar_if_necessary_int(in_ncfileID, ncfileID, "neighbor_cell_index",  (/cellID, nvID/) )
+    edge_verticesID   = netcdf_defvar_if_necessary_int(in_ncfileID, ncfileID, "edge_vertices",        (/edgeID, ncID/) )
+    adjacent_c_of_eID = netcdf_defvar_if_necessary_int(in_ncfileID, ncfileID, "adjacent_cell_of_edge",(/edgeID, ncID/) )
+    cells_of_vertexID = netcdf_defvar_if_necessary_int(in_ncfileID, ncfileID, "cells_of_vertex",      (/vertID, neID/) )
+    ! leave define mode
+    CALL nf(nf_enddef(ncfileID), routine)
+    ! now write variable contents to file
+    !-- coordinate fields / tangent vectors:
+    CALL netcdf_write_coords(ncfileID, vlonID, vlatID, p_patch%n_patch_verts, p_patch%verts%vertex)
+    CALL netcdf_write_coords(ncfileID, clonID, clatID, p_patch%n_patch_cells, p_patch%cells%center)
+    CALL netcdf_write_coords(ncfileID, lon_edge_centreID, lat_edge_centreID, p_patch%n_patch_edges, p_patch%edges%center)
+    CALL netcdf_write_tangentv(ncfileID, zn_primal_edgeID, mn_primal_edgeID, p_patch%n_patch_edges, p_patch%edges%primal_normal)
+    !-- index fields
+    CALL netcdf_write_idx(ncfileID, vertex_of_cellID, p_patch%n_patch_cells, p_patch%cell_type, &
+      &                   p_patch%cells%vertex_idx, p_patch%cells%vertex_blk)
+    CALL netcdf_write_idx(ncfileID, edge_of_cellID, p_patch%n_patch_cells, p_patch%cell_type,   &
+      &                   p_patch%cells%edge_idx, p_patch%cells%edge_blk)
+    CALL netcdf_write_idx(ncfileID, nb_cell_indexID, p_patch%n_patch_cells, p_patch%cell_type,  &
+      &                   p_patch%cells%neighbor_idx, p_patch%cells%neighbor_blk)
+    CALL netcdf_write_idx(ncfileID, edge_verticesID, p_patch%n_patch_edges, 2,                  &
+      &                   p_patch%edges%vertex_idx, p_patch%edges%vertex_blk)
+    CALL netcdf_write_idx(ncfileID, adjacent_c_of_eID, p_patch%n_patch_edges, 2,                &
+      &                   p_patch%edges%cell_idx, p_patch%edges%cell_blk)
+    CALL netcdf_write_idx(ncfileID, cells_of_vertexID, p_patch%n_patch_verts, 6,                &
+      &                   p_patch%verts%cell_idx, p_patch%verts%cell_blk)
+    !-- cell area
+    CALL netcdf_write_real(ncfileID, cell_areaID, p_patch%n_patch_cells, p_patch%cells%area)
+    ! close NetCDF files
+    CALL nf(nf_close(ncfileID),    routine)
+    CALL nf(nf_close(in_ncfileID), routine)
+
+    IF (dbg_level >= 4)  WRITE (0,*) routine, " done."
+
+  END SUBROUTINE netcdf_append_gridinfo
 
 END MODULE mo_remap_grid_icon

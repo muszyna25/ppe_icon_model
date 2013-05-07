@@ -21,13 +21,15 @@ MODULE mo_remap_config
   ! vertex-neighbor cells: stencil size
   INTEGER, PARAMETER :: N_VNB_STENCIL_ICON = 13
 
-#ifdef __ICON__
   ! level of output verbosity
+#ifdef __ICON__
+  INTEGER            :: dbg_level =  1
+#else
   INTEGER            :: dbg_level =  3
 #endif
 
   ! max. name string length
-  INTEGER, PARAMETER :: MAX_NAME_LENGTH = 32
+  INTEGER, PARAMETER :: MAX_NAME_LENGTH = 128
 
   ! meta data ("config state")
   INTEGER, PARAMETER :: MAX_INPUT_FIELDS = 50 !< maximum number of INPUT fields

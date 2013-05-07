@@ -71,7 +71,9 @@ MODULE mo_nh_stepping
                                     prm_nwp_tend_list
   USE mo_lnd_nwp_config,      ONLY: nlev_soil, nlev_snow, sstice_mode, lseaice
   USE mo_nwp_lnd_state,       ONLY: p_lnd_state
-  USE mo_ext_data_state,      ONLY: ext_data, interpol_ndvi_time
+  USE mo_ext_data_state,      ONLY: ext_data, interpol_monthly_mean
+  USE mo_lnd_jsbach_config,   ONLY: lnd_jsbach_config
+  USE mo_extpar_config,       ONLY: itopo
   USE mo_model_domain,        ONLY: p_patch
   USE mo_time_config,         ONLY: time_config
   USE mo_grid_config,         ONLY: n_dom, lfeedback, ifeedback_type, l_limited_area, &
@@ -102,7 +104,7 @@ MODULE mo_nh_stepping
   USE mo_exception,           ONLY: message, message_text, finish
   USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, iphysproc,    &
     &                               iphysproc_short, itconv, itccov, itrad, &
-    &                               itradheat, itsso, itsatad, itgwd, inwp, &
+    &                               itradheat, itsso, itsatad, itgwd, inwp, iecham, &
     &                               itupdate, itturb, itgscp, itsfc, min_rlcell_int, &
                                     min_rledge_int, MODE_DWDANA
   USE mo_divergent_modes,     ONLY: divergent_modes_5band
@@ -140,7 +142,7 @@ MODULE mo_nh_stepping
   USE mo_pp_tasks,            ONLY: t_simulation_status
   USE mo_art_emission_interface,  ONLY:art_emission_interface
   USE mo_art_config,          ONLY:art_config
-  USE mo_nwp_sfc_utils,       ONLY: aggregate_landvars, update_sstice
+  USE mo_nwp_sfc_utils,       ONLY: aggregate_landvars, update_sstice, update_ndvi
   USE mo_nh_init_nest_utils,  ONLY: initialize_nest, topo_blending_and_fbk
   USE mo_nh_init_utils,       ONLY: hydro_adjust_downward
   USE mo_td_ext_data,         ONLY: set_actual_td_ext_data,  &
@@ -260,7 +262,8 @@ MODULE mo_nh_stepping
   ENDIF
 
   IF (ltestcase) THEN
-    CALL init_nh_testcase(p_patch(1:), p_nh_state, p_int_state(1:), ext_data, ntl)
+    CALL init_nh_testcase(p_patch(1:), p_nh_state, p_int_state(1:), p_lnd_state(1:), &
+      & ext_data, ntl)
   ENDIF
 
   CALL setup_time_ctrl_physics( )
@@ -317,7 +320,6 @@ MODULE mo_nh_stepping
            & p_patch(jg)                           ,&
            & p_nh_state(jg)%metrics                ,&
            & p_nh_state(jg)%prog(nnow(jg))         ,&
-           & p_nh_state(jg)%prog(nnew(jg))         ,&
            & p_nh_state(jg)%diag                   ,&
            & prm_diag(jg)                          ,&
            & prm_nwp_tend(jg)                      ,&
@@ -336,7 +338,6 @@ MODULE mo_nh_stepping
            & p_patch(jg)                           ,&
            & p_nh_state(jg)%metrics                ,&
            & p_nh_state(jg)%prog(nnow(jg))         ,&
-           & p_nh_state(jg)%prog(nnow(jg))         ,&
            & p_nh_state(jg)%diag                   ,&
            & prm_diag(jg)                          ,&
            & prm_nwp_tend(jg)                      ,&
@@ -350,7 +351,7 @@ MODULE mo_nh_stepping
     ENDDO
     ! Compute diagnostic physics fields
     CALL diag_for_output_phys
-    ! Initial call of slow physics schemes
+    ! Initial call of (slow) physics schemes, including computation of transfer coefficients
     CALL init_slowphysics (datetime, 1, dtime, dtime_adv, time_config%sim_time)
   ENDIF
 
@@ -441,8 +442,8 @@ MODULE mo_nh_stepping
 
   TYPE(t_datetime), INTENT(INOUT)      :: datetime
 
-  INTEGER                              :: jstep, jb, nlen, jg, kstep
-  INTEGER                              :: ierr, i_nchdom, jk
+  INTEGER                              :: jstep, jg, kstep
+  INTEGER                              :: ierr
   LOGICAL                              :: l_compute_diagnostic_quants,  &
     &                                     l_vlist_output, l_nml_output, &
     &                                     l_supervise_total_integrals,  &
@@ -451,12 +452,27 @@ MODULE mo_nh_stepping
 
   TYPE(t_datetime)                     :: datetime_old
 
+  INTEGER :: nsoil(n_dom), nsnow
+
 !$  INTEGER omp_get_num_threads
 !-----------------------------------------------------------------------
 
   IF (ltimer) CALL timer_start(timer_total)
 
   lwrite_checkpoint = .FALSE.
+
+  ! Prepare number of soil/snow layers for TERRA/JSBACH to be used for restart file creation below.
+  IF (iforcing == inwp) THEN
+    DO jg=1,n_dom
+      nsoil(jg) = nlev_soil
+      nsnow     = nlev_snow
+    END DO
+  ELSE IF (iforcing == iecham) THEN
+    DO jg=1,n_dom
+      nsoil(jg) = lnd_jsbach_config(jg)%nsoil
+      nsnow     = 0
+    END DO
+  END IF
 
   ! If the testbed mode is selected, reset iorder_sendrecv to 0 in order to suppress
   ! MPI communication from now on. 
@@ -478,10 +494,17 @@ MODULE mo_nh_stepping
       CALL message(TRIM(routine),message_text)
 
       !Update ndvi normalized differential vegetation index
-      IF (iforcing == inwp .AND. ALL(atm_phy_nwp_config(1:n_dom)%inwp_surface >= 1)) THEN
-        !CALL interpol_ndvi_time (p_patch(1:), ext_data, datetime)
+      IF (itopo == 1 .AND. iforcing == inwp .AND.                  &
+        & ALL(atm_phy_nwp_config(1:n_dom)%inwp_surface >= 1)) THEN
+        DO jg=1, n_dom
+          CALL interpol_monthly_mean(p_patch(jg), datetime,          &! in
+            &                        ext_data(jg)%atm_td%ndvi_mrat,  &! in
+            &                        ext_data(jg)%atm%ndviratio      )! out
+        ENDDO
+
         ! after updating ndvi_mrat, probably plcov_t and tai_t have to be updated also.
         ! So it is better not to update ndvi_mrat till this is clarified 
+        CALL update_ndvi(p_patch(1:), ext_data)
       END IF
 
       !Check if the the SST and Sea ice fraction have to be updated (sstice_mode 2,3,4)
@@ -663,8 +686,8 @@ MODULE mo_nh_stepping
                                 & opt_sim_time               = time_config%sim_time(jg),   &
                                 & opt_jstep_adv_ntsteps      = jstep_adv(jg)%ntsteps,      &
                                 & opt_jstep_adv_marchuk_order= jstep_adv(jg)%marchuk_order,&
-                                & opt_depth_lnd              = nlev_soil,                  &
-                                & opt_nlev_snow              = nlev_snow )
+                                & opt_depth_lnd              = nsoil(jg),                  &
+                                & opt_nlev_snow              = nsnow )
       END DO
 
       ! Create the master (meta) file in ASCII format which contains
@@ -1152,7 +1175,7 @@ MODULE mo_nh_stepping
 
           !> moist tracer update is now synchronized with advection and satad
 
-          CALL nwp_nh_interface(lcall_phy(jg,:),                   & !in
+          CALL nwp_nh_interface(lcall_phy(jg,:), .FALSE.,          & !in
             &                  lredgrid_phys(jg),                  & !in
             &                  dt_loc,                             & !in
             &                  dtadv_loc,                          & !in
@@ -1163,8 +1186,6 @@ MODULE mo_nh_stepping
             &                  p_int_state(jg),                    & !in
             &                  p_nh_state(jg)%metrics ,            & !in
             &                  p_patch(jgp),                       & !in
-            &                  p_int_state(jgp),                   & !in
-            &                  p_grf_state(jgp),                   & !in
             &                  ext_data(jg)           ,            & !in
             &                  p_nh_state(jg)%prog(n_new) ,        & !inout
             &                  p_nh_state(jg)%prog(n_now_rcf),     & !in for tke
@@ -1391,7 +1412,6 @@ MODULE mo_nh_stepping
               & p_patch(jgc)                            ,&
               & p_nh_state(jgc)%metrics                 ,&
               & p_nh_state(jgc)%prog(nnow(jgc))         ,&
-              & p_nh_state(jgc)%prog(nnow(jgc))         ,&
               & p_nh_state(jgc)%diag                    ,&
               & prm_diag(jgc)                           ,&
               & prm_nwp_tend(jgc)                       ,&
@@ -1420,7 +1440,10 @@ MODULE mo_nh_stepping
 
   !-------------------------------------------------------------------------
   !>
-  !! Driver routine for initial call of slow physics routines
+  !! Driver routine for initial call of physics routines.
+  !! Apart from the full set of slow physics parameterizations, also turbulent transfer is 
+  !! called, in order to have proper transfer coefficients available at the initial time step.
+  !!
   !! This had to be moved ahead of the initial output for the physics fields to be more complete
   !!
   !! @par Revision History
@@ -1443,7 +1466,7 @@ MODULE mo_nh_stepping
     ! Local variables
 
     ! Time levels
-    INTEGER :: n_now, n_new, n_now_rcf, n_new_rcf
+    INTEGER :: n_now,n_now_rcf
 
     INTEGER :: jgp, jgc, jn
 
@@ -1460,11 +1483,9 @@ MODULE mo_nh_stepping
 
     ! Set local variables for time levels
     n_now  = nnow(jg)
-    n_new  = nnew(jg)
 
     ! Set local variable for rcf-time levels
     n_now_rcf = nnow_rcf(jg)
-    n_new_rcf = nnew_rcf(jg)
 
     CALL time_ctrl_physics ( dt_phy, lstep_adv, dt_loc, jg,  &! in
       &                      .TRUE.,                         &! in
@@ -1472,11 +1493,11 @@ MODULE mo_nh_stepping
       &                      lcall_phy )                      ! out
 
     IF (msg_level >= 7) THEN
-      WRITE(message_text,'(a,i2)') 'initial call of slow physics, domain ', jg
+      WRITE(message_text,'(a,i2)') 'initial call of (slow) physics, domain ', jg
       CALL message(TRIM(routine), TRIM(message_text))
     ENDIF
 
-    CALL nwp_nh_interface(lcall_phy(jg,:),                   & !in
+    CALL nwp_nh_interface(lcall_phy(jg,:), .TRUE.,           & !in
       &                  lredgrid_phys(jg),                  & !in
       &                  dt_loc,                             & !in
       &                  dtadv_loc,                          & !in
@@ -1487,8 +1508,6 @@ MODULE mo_nh_stepping
       &                  p_int_state(jg),                    & !in
       &                  p_nh_state(jg)%metrics ,            & !in
       &                  p_patch(jgp),                       & !in
-      &                  p_int_state(jgp),                   & !in
-      &                  p_grf_state(jgp),                   & !in
       &                  ext_data(jg)           ,            & !in
       &                  p_nh_state(jg)%prog(n_now) ,        & !inout
       &                  p_nh_state(jg)%prog(n_now_rcf) ,    & !inout
@@ -1746,8 +1765,8 @@ MODULE mo_nh_stepping
     ! dynamics step
     IF (linit) THEN
 
-      ! Initialize lcall_phy with .false. Only slow physics will be set to 
-      ! .true. initially.
+      ! Initialize lcall_phy with .false. Only slow physics will be set to .true. initially;
+      ! turbulent transfer is called by specifying the initialization mode of the NWP interface
       lcall_phy(jg,:)  = .FALSE.
 
       ! slow physics

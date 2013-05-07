@@ -18,6 +18,7 @@ atmo_namelist=NAMELIST_${EXPNAME}
 #
 #-----------------------------------------------------------------------------
 # the grid files if not defined
+atmo_dyn_gridname=${atmo_dyn_gridname:="iconR2B04-grid"}
 atmo_dyn_grids=${atmo_dyn_gridname}.nc
 if [ x$atmo_rad_gridname = x ] ; then
   lredgrid_phys=".false."

@@ -33,20 +33,18 @@
 MODULE mo_ocean_model
 
   USE mo_kind,                ONLY: wp
-  USE mo_exception,           ONLY: message, message_text, finish
+  USE mo_exception,           ONLY: message, finish
   USE mo_master_control,      ONLY: is_restart_run, get_my_process_name, get_my_model_no
-  USE mo_parallel_config,     ONLY: p_test_run, l_test_openmp, num_io_procs
-  USE mo_mpi,                 ONLY: p_stop, &
-    & my_process_is_io,  my_process_is_mpi_seq, my_process_is_mpi_test, &
-    & my_process_is_mpi_parallel,                                       &
+  USE mo_parallel_config,     ONLY: p_test_run, l_test_openmp, num_io_procs, division_method
+  USE mo_mpi,                 ONLY: & !p_stop, &
+    & my_process_is_io,  my_process_is_mpi_test, my_process_is_mpi_parallel, &
     & set_mpi_work_communicators, set_comm_input_bcast, null_comm_type, &
     & p_pe_work
   USE mo_sync,                ONLY: enable_sync_checks, disable_sync_checks
   USE mo_timer,               ONLY: init_timer, timer_start, timer_stop, print_timer, &
     &                               timer_model_init
   USE mo_datetime,            ONLY: t_datetime
-  USE mo_output,              ONLY: init_output_files, write_output,write_output_oce, close_output_files
-  USE mo_name_list_output_config, ONLY: first_output_name_list, use_async_name_list_io
+  USE mo_output,              ONLY: init_output_files, write_output_oce, close_output_files
   USE mo_name_list_output,        ONLY: init_name_list_output,  &
     &                                   write_name_list_output, &
     &                                   close_name_list_output
@@ -59,41 +57,37 @@ MODULE mo_ocean_model
   USE mo_advection_config,    ONLY: configure_advection
   USE mo_dynamics_config,     ONLY: configure_dynamics  ! subroutine
   USE mo_run_config,          ONLY: configure_run, output_mode
+  USE mo_gribout_config,       ONLY: configure_gribout
 
   ! Control parameters: run control, dynamics, i/o
   !
-  USE mo_io_config,           ONLY:  dt_data,dt_file,dt_diag,lwrite_initial,&
-    &                                n_diags, n_checkpoints,n_files,n_ios
+  USE mo_io_config,           ONLY:  lwrite_initial,n_ios
   USE mo_run_config,          ONLY: &
-    & dtime,                & !    :
-    & nsteps,                & !    :
-!    & ltransport,           & !    :
-    & ltimer,               & !    :
-    & ldump_states,         & ! flag if states should be dumped
-    & lrestore_states,      &  ! flag if states should be restored
-    & iforcing,             & !  
-    & nlev, nlevp1,         & !
-    & num_lev, num_levp1,   &
-    & iqc, iqi, iqr, iqs,   &
-    & nshift, ntracer
+    & dtime,                  & !    :
+    & nsteps,                 & !    :
+!    & ltransport,             & !    :
+    & ltimer,                 & !    :
+    !& ldump_states,           & ! flag if states should be dumped
+    & lrestore_states,        & ! flag if states should be restored
+    & iforcing,               & !  
+    & num_lev, num_levp1,     &
+    & iqc, iqi, iqr, iqs,     &
+    & nshift, ntracer,        &
+    & grid_generatingCenter,  & ! grid generating center
+    & grid_generatingSubcenter  ! grid generating subcenter
   USE mo_nml_crosscheck,    ONLY: oce_crosscheck
 
-!  USE mo_advection_nml,       ONLY: transport_nml_setup,  & ! process transport
-!    & setup_transport         ! control parameters
-
+  USE mo_ext_decompose_patches, ONLY: ext_decompose_patches
   USE mo_setup_subdivision,     ONLY: decompose_domain_oce!decompose_domain
   USE mo_complete_subdivision,  ONLY:  &
-    & complete_parallel_setup,       &
-    & finalize_decomposition,        &
+  !  & complete_parallel_setup,       &
+  !  & finalize_decomposition,        &
     & copy_processor_splitting,      &
     & set_patch_communicators, complete_parallel_setup_oce, finalize_decomposition_oce
-   USE mo_dump_restore,        ONLY: restore_patches_netcdf!dump_patch_state_netcdf_oce,&!dump_patch_state_netcdf, &
-!     & restore_interpol_state_netcdf
+  USE mo_dump_restore,        ONLY: restore_patches_netcdf
 
-  USE mo_icoham_dyn_memory,   ONLY: p_hydro_state
+  !USE mo_icoham_dyn_memory,   ONLY: p_hydro_state
   USE mo_model_domain,        ONLY: t_patch,  t_patch_3D
-  !USE mo_intp_data_strc,      ONLY: t_int_state, p_int_state_local_parent,p_int_state, p_int_state_local_parent
-  !USE mo_grf_intp_data_strc,  ONLY: p_grf_state, p_grf_state_local_parent
 
   ! Horizontal grid
   !
@@ -104,22 +98,12 @@ MODULE mo_ocean_model
     & import_basic_patches, & !
     & complete_patches
 
-  ! Horizontal interpolation
-  !
-!  USE mo_interpol_nml,        ONLY: interpol_nml_setup   ! process interpol. ctl. params.
-  !USE mo_intp_state,          ONLY: construct_2d_interpol_state, &
-  !  & destruct_2d_interpol_state, transfer_interpol_state 
-  !USE mo_intp_coeffs, ONLY: complete_patchinfo
-
   USE mo_oce_state,           ONLY: t_hydro_ocean_state,complete_patchinfo_oce!, v_ocean_state
-
-!0  USE mo_mpiom_phy_state,     ONLY: construct_mpiom_phy_state, &
-!0    &                               destruct_mpiom_phy_state
 
   USE mo_impl_constants,      ONLY: success !, ihs_ocean
 
   ! External data
-  USE mo_ext_data_state,       ONLY: ext_data, init_ext_data, init_ext_data_oce,destruct_ext_data
+  USE mo_ext_data_state,       ONLY: ext_data, init_ext_data_oce, destruct_ext_data
 
   USE mo_hydro_ocean_run,      ONLY: perform_ho_stepping,&
     & prepare_ho_integration,&
@@ -127,20 +111,20 @@ MODULE mo_ocean_model
   USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff
 !   USE mo_oce_forcing,         ONLY: t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean, &
 !     &                               v_sfc_flx
-  USE mo_oce_physics,         ONLY: t_ho_params, v_params!, t_ho_physics
+  USE mo_oce_physics,         ONLY: v_params!, t_ho_params, t_ho_physics
 ! #
-  USE mo_sea_ice_types,       ONLY: t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean, &
-    &                               v_sfc_flx, v_sea_ice
+  USE mo_sea_ice_types,       ONLY: t_atmos_fluxes, t_atmos_for_ocean, &
+    &                               v_sfc_flx, v_sea_ice!, t_sfc_flx
   ! For the coupling
-  USE mo_icon_cpl_init,      ONLY: icon_cpl_init
-  USE mo_icon_cpl_init_comp, ONLY: icon_cpl_init_comp
-  USE mo_impl_constants,      ONLY: CELLS, MAX_CHAR_LENGTH
-  USE mo_coupling_config,     ONLY : is_coupled_run, config_debug_coupler_level
-  USE mo_icon_cpl_def_grid,   ONLY : ICON_cpl_def_grid, ICON_cpl_def_location
-  USE mo_icon_cpl_def_field,  ONLY : ICON_cpl_def_field
-  USE mo_icon_cpl_search,     ONLY : ICON_cpl_search
+  USE mo_icon_cpl_init,       ONLY: icon_cpl_init
+  USE mo_icon_cpl_init_comp,  ONLY: icon_cpl_init_comp
+  USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH
+  USE mo_coupling_config,     ONLY: is_coupled_run, config_debug_coupler_level
+  USE mo_icon_cpl_def_grid,   ONLY: ICON_cpl_def_grid, ICON_cpl_def_location
+  USE mo_icon_cpl_def_field,  ONLY: ICON_cpl_def_field
+  USE mo_icon_cpl_search,     ONLY: ICON_cpl_search
   USE mo_icon_cpl_finalize,   ONLY: icon_cpl_finalize
-  USE mo_alloc_patches,       ONLY : destruct_patches
+  USE mo_alloc_patches,       ONLY: destruct_patches
 
   !-------------------------------------------------------------
   USE mo_read_namelists,       ONLY: read_ocean_namelists
@@ -171,7 +155,7 @@ CONTAINS
     TYPE(t_datetime)                                :: datetime
     TYPE(t_hydro_ocean_state), ALLOCATABLE, TARGET  :: v_ocean_state(:)
 
-    INTEGER :: n_io, jg, jgp, jfile, ist
+    INTEGER :: n_io, jg, jfile, ist
 
     TYPE(t_patch)   , ALLOCATABLE :: p_patch_global(:)
     TYPE(t_patch_3D), POINTER     :: p_patch_3D
@@ -255,7 +239,7 @@ CONTAINS
     !-------------------------------------------------------------------
     ! 3.2 Initialize various timers
     !-------------------------------------------------------------------
-    IF (ltimer) CALL init_timer
+    CALL init_timer
 
     IF (ltimer) CALL timer_start(timer_model_init)
 
@@ -300,7 +284,7 @@ CONTAINS
         !CALL enable_sync_checks
 
         !The 3D-ocean version of previous calls
-        CALL import_basic_patches(p_patch_3D%p_patch_2D,nlev,nlevp1,num_lev,num_levp1,nshift)
+        CALL import_basic_patches(p_patch_3D%p_patch_2D,num_lev,num_levp1,nshift)
         CALL disable_sync_checks
         CALL complete_patches( p_patch_3D%p_patch_2D )
         CALL enable_sync_checks
@@ -314,16 +298,32 @@ CONTAINS
 
       ! Please note: ldump_dd/lread_dd not (yet?) implemented
       IF(my_process_is_mpi_parallel()) THEN
-        !The 3D-ocean version of previous calls
-        ALLOCATE(p_patch_global(n_dom_start:n_dom))
-        CALL import_basic_patches(p_patch_global,nlev,nlevp1,num_lev,num_levp1,nshift)      
-        CALL decompose_domain_oce(p_patch_3D%p_patch_2D,p_patch_global)
-        DEALLOCATE(p_patch_global)
-        CALL complete_parallel_setup_oce(p_patch_3D%p_patch_2D)
+
+        IF (division_method(1) > 100) THEN
+          ! use ext decomposition library driver
+          ALLOCATE(p_patch_global(n_dom_start:n_dom))
+          CALL import_basic_patches(p_patch_global,num_lev,num_levp1,nshift)
+          CALL ext_decompose_patches(p_patch_3D%p_patch_2D, p_patch_global)
+          DEALLOCATE(p_patch_global)
+          CALL complete_parallel_setup_oce(p_patch_3D%p_patch_2D)
+
+        ELSE
+
+          ! use internal decomposition
+          !The 3D-ocean version of previous calls
+          ALLOCATE(p_patch_global(n_dom_start:n_dom))
+          CALL import_basic_patches(p_patch_global,num_lev,num_levp1,nshift)
+          CALL decompose_domain_oce(p_patch_3D%p_patch_2D,p_patch_global)
+          DEALLOCATE(p_patch_global)
+          CALL complete_parallel_setup_oce(p_patch_3D%p_patch_2D)
+!          CALL finish(routine, "Old decomposition not available for the ocean" )
+        ENDIF
 
       ELSE
+
         !The 3D-ocean version of previous calls 
-        CALL import_basic_patches(p_patch_3D%p_patch_2D,nlev,nlevp1,num_lev,num_levp1,nshift) 
+        CALL import_basic_patches(p_patch_3D%p_patch_2D,num_lev,num_levp1,nshift) 
+
       ENDIF
 
       ! Complete information which is not yet read or calculated
@@ -333,7 +333,8 @@ CONTAINS
 
     DO jg = n_dom_start, n_dom
       !CALL complete_patchinfo_oce(p_patch(jg))
-      !The 3D-ocean version of previous calls 
+      !The 3D-ocean version of previous calls
+      ! Note: this apperas to be problematic for removing the land points
       CALL complete_patchinfo_oce(p_patch_3D%p_patch_2D(jg))
     END DO
 
@@ -366,7 +367,8 @@ CONTAINS
 
     ENDIF
 
-!!Commented out for potential later use. In this case dumping of operator coeffs has to implemented within dump_patch_state_netcdf_oce (PK, 8/2012)
+!!Commented out for potential later use.
+!!In this case dumping of operator coeffs has to implemented within dump_patch_state_netcdf_oce (PK, 8/2012)
 ! !     IF(ldump_states)THEN
 ! ! 
 ! !       ! Dump divided patches with interpolation and grf state to NetCDF file and exit
@@ -395,6 +397,8 @@ CONTAINS
 !     CALL configure_diffusion( n_dom, dynamics_parent_grid_id, &
 !                             & nlev, vct_a, vct_b, apzero      )
 
+    CALL configure_gribout(grid_generatingCenter, grid_generatingSubcenter, n_dom)
+
     DO jg =1,n_dom
       !The 3D-ocean version of previous calls 
       CALL configure_advection( jg, p_patch_3D%p_patch_2D(jg)%nlev, p_patch_3D%p_patch_2D(1)%nlev, &
@@ -414,9 +418,6 @@ CONTAINS
 
     ! allocate memory for oceanic external data and
     ! optionally read those data from netCDF file.
-    !CALL init_ext_data (p_patch(1:), p_int_state(1:), ext_data)
-    !CALL init_ext_data_oce(p_patch(1:), ext_data)
-    !The 3D-ocean version of previous calls 
     CALL init_ext_data_oce(p_patch_3D%p_patch_2D(1:), ext_data)
     !------------------------------------------------------------------
     ! Prepare the coupling
@@ -437,25 +438,14 @@ CONTAINS
       patch_no      = 1
 
       grid_shape(1) = 1
-      !  grid_shape(2) = p_patch(patch_no)%n_patch_cells
       grid_shape(2) = p_patch_3D%p_patch_2D(patch_no)%n_patch_cells
 
-      ! CALL get_patch_global_indexes ( patch_no, CELLS, no_of_entities, grid_glob_index )
-      ! should grid_glob_index become a pointer in ICON_cpl_def_grid as well?
-      !CALL ICON_cpl_def_grid ( &
-      !  & grid_shape, p_patch(patch_no)%cells%glb_index, & ! input
-      !  & grid_id, error_status )                          ! output
       CALL ICON_cpl_def_grid ( &
         & grid_shape, p_patch_3D%p_patch_2D(patch_no)%cells%glb_index, & ! input
         & grid_id, error_status )                          ! output
 
       ! Marker for internal and halo points, a list which contains the
       ! rank where the native cells are located.
-      ! p_patch(patch_no)%cells%owner_local(:) = 0 ! the ocean run sequentially
-      !CALL ICON_cpl_def_location ( &
-      !  & grid_id, grid_shape, p_patch(patch_no)%cells%owner_local, & ! input
-      !  & p_pe_work,  & ! this owner id
-      !  & error_status )                                            ! output
       CALL ICON_cpl_def_location ( &
         & grid_id, grid_shape, p_patch_3D%p_patch_2D(patch_no)%cells%owner_local, & ! input
         & p_pe_work,  & ! this owner id
@@ -491,24 +481,9 @@ CONTAINS
     ENDIF
 
     ! Prepare time integration
-    !CALL prepare_ho_integration(p_patch(1:), p_patch_3D,v_ocean_state, ext_data, v_sfc_flx, &
-    !  &                         v_params, p_as, p_atm_f, v_sea_ice,p_op_coeff,p_int_state(1:))
-    !The 3D-ocean version of previous calls 
-     CALL prepare_ho_integration(p_patch_3D, v_ocean_state, ext_data, v_sfc_flx, &
+    CALL prepare_ho_integration(p_patch_3D, v_ocean_state, ext_data, v_sfc_flx, &
       &                         v_params, p_as, p_atm_f, v_sea_ice,p_op_coeff)!,p_int_state(1:)) 
  
-    !------------------------------------------------------------------
-    ! Daniel: Suggestion for point 5 of Feature #333
-    ! (5. Subroutine to setup model components depending on this
-    ! namelist, to be called after all namelists have been read, and
-    ! a synoptic check has been done)
-    !------------------------------------------------------------------
-    ! set dependent variables/model components, depending on this (transport)
-    ! namelist and potentially others
-!    IF (ltransport) THEN
-!      CALL setup_transport( ihs_ocean )
-!    ENDIF
-!
     !------------------------------------------------------------------
     ! Set initial conditions for time integration.
     !------------------------------------------------------------------
@@ -579,7 +554,7 @@ CONTAINS
 
     IF (ltimer) CALL timer_stop(timer_model_init)
 
-    CALL perform_ho_stepping( p_patch_3D, v_ocean_state,&!p_patch(1:), v_ocean_state,                   &
+    CALL perform_ho_stepping( p_patch_3D, v_ocean_state,                    &
       &                       ext_data, datetime, n_io,                     &
       &                       jfile,                                        &
       &                       (nsteps == INT(time_config%dt_restart/dtime)),&
@@ -587,7 +562,7 @@ CONTAINS
       &                       v_params, p_as, p_atm_f,v_sea_ice,p_op_coeff,&
       &                       l_have_output)
 
-    IF (ltimer) CALL print_timer
+    CALL print_timer
 
     !------------------------------------------------------------------
     !  cleaning up process
@@ -596,8 +571,6 @@ CONTAINS
 
     CALL finalise_ho_integration(v_ocean_state, v_params, &
       &                          p_as, p_atm_f, v_sea_ice, v_sfc_flx)
-
-
 
     !---------------------------------------------------------------------
     ! 13. Integration finished. Carry out the shared clean-up processes
@@ -610,27 +583,6 @@ CONTAINS
     IF (error_status/=success) THEN
       CALL finish(TRIM(routine), 'deallocation of ext_data')
     ENDIF
-
-    ! Deallocate interpolation fields
-    ! interpolation state not used for ocean model
-    ! #slo# - temporarily switched on for comparison with rbf-reconstruction
-!     CALL destruct_2d_interpol_state( p_int_state )
-!     DEALLOCATE (p_int_state, stat=ist)
-!     IF (ist /= success) THEN
-!       CALL finish(TRIM(routine),'deallocation for p_int_state failed')
-!     ENDIF
-
-    ! Deallocate grid patches
-    !CALL destruct_patches( p_patch_3D%p_patch_2D )
-    !DEALLOCATE( p_patch_3D%p_patch_2D, stat=ist )
-    !IF (ist/=SUCCESS) THEN
-    !  CALL finish(TRIM(routine),'deallocate for patch array failed')
-    !ENDIF
-   ! CALL destruct_patches( p_patch )
-   ! DEALLOCATE( p_patch, stat=ist )
-   ! IF (ist/=SUCCESS) THEN
-   !   CALL finish(TRIM(routine),'deallocate for patch array failed')
-   ! ENDIF
 
     !The 3D-ocean version of previous calls    
     CALL destruct_patches( p_patch_3D%p_patch_2D )

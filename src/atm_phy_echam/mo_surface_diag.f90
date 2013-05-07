@@ -93,9 +93,9 @@ CONTAINS
     REAL(wp),INTENT(OUT)   ::  pevap_tile(kbdim,ksfc_type)
     REAL(wp),INTENT(OUT)   ::  pevap_gbm (kbdim)
 
-    REAL(wp),INTENT(OUT)   :: dshflx_dT_tile(1:kproma,ksfc_type)
+    REAL(wp),INTENT(OUT)   :: dshflx_dT_tile(kbdim,ksfc_type)
 
-    REAL(wp),OPTIONAL,INTENT(IN)    :: evapotranspiration(1:kproma)
+    REAL(wp),OPTIONAL,INTENT(IN)    :: evapotranspiration(kbdim) ! present for JSBACH land
 
     INTEGER  :: jsfc
     REAL(wp) :: zconst, zdqv(kbdim), zdcptv(kbdim)
@@ -108,11 +108,16 @@ CONTAINS
     ! KF set tile-fields to zero in order to avoid uninitialised values
     ! at diagnostics and output
 
-       pevap_tile(1:kproma,:) = 0._wp
-       pevap_gbm (1:kproma)   = 0._wp
-      plhflx_tile(1:kproma,:) = 0._wp
-      pshflx_tile(1:kproma,:) = 0._wp
-      dshflx_dT_tile(1:kproma,:)= 0._wp
+    pevap_tile(1:kproma,:) = 0._wp
+    pevap_gbm (1:kproma)   = 0._wp
+    DO jsfc = 1,ksfc_type
+      IF (jsfc /= idx_lnd .OR. .NOT. PRESENT(evapotranspiration)) THEN  ! for JSBACH land, the fluxes are already in these arrays
+        plhflx_tile(1:kproma,jsfc) = 0._wp
+        pshflx_tile(1:kproma,jsfc) = 0._wp
+      END IF
+    END DO
+    ! COMMENT: should span whole array, because there might be dead ends
+    dshflx_dT_tile(:,:)= 0._wp
 
     IF (.NOT.lsfc_heat_flux) THEN
       RETURN
@@ -174,13 +179,7 @@ CONTAINS
     !-------------------------------------------------------------------
     ! Instantaneous values
 
-!!$ TR testing: latent heat flux still need to be passed from JSBACH
-!!$ TR    IF (idx_lnd<=ksfc_type) THEN
-!!$ TR      CALL finish('','Computation of latent heat flux over land not implemented')
-!!$ TR    END IF
-
-    IF (idx_lnd<=ksfc_type) &
-    plhflx_tile(1:kproma,idx_lnd) = 0._wp
+    ! Note: latent heat flux from land is already in plhflx_tile(:,idx_lnd)
 
     IF (idx_ice<=ksfc_type) &
     plhflx_tile(1:kproma,idx_ice) = als*pevap_tile(1:kproma,idx_ice)
@@ -203,14 +202,10 @@ CONTAINS
 
     DO jsfc = 1,ksfc_type
 
-!!$ TR testing: sensible heat flux still need to be passed from JSBACH
-!!$ TR      IF (idx_lnd<=ksfc_type) THEN
-!!$ TR        CALL finish('','Computation of sensible heat flux over land not implemented')
-!!$ TR      END IF
-
+      ! Note: sensible heat flux from land is already in pshflx_tile(:,idx_lnd)
       IF (jsfc == idx_lnd) THEN
-        pshflx_tile(1:kproma,jsfc) = 0._wp
-        dshflx_dT_tile(1:kproma,jsfc) = 0._wp
+        ! COMMENT: already done at begin of routine
+        ! dshflx_dT_tile(1:kproma,jsfc) = 0._wp
       ELSE
 
       ! Vertical gradient of dry static energy.

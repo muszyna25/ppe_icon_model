@@ -1,3 +1,4 @@
+#!/bin/ksh
 #-----------------------------------------------------------------------------
 #
 # Leonidas Linardakis, MPI-M, 2009-11
@@ -22,15 +23,16 @@ fi
 cd $WRKDIR
 #-----------------------------------------------------------------------------
 # Define torus parameters
-#
+# Note that to match a square cell of size dx*dy
+# use triangles of edge length = 2/(3**1/4)*SQRT(dx*dy) ~ 1.5*SQRT(dx*dy)
 cat > $parameterFile << EOF
 &torus_grid_parameters
-    y_no_of_rows = 20
-    x_no_of_columns = 200
-    edge_length = 1000.0
+    y_no_of_rows = 16
+    x_no_of_columns = 16
+    edge_length = 5000.0
     x_center = 0.0
     y_center = 0.0
-    out_file_name = 'torus_grid_200x20.nc'
+    out_file_name = 'torus_grid_16x16_dx5km.nc'
     unfolded_torus_file_name = 'unfoldedTorus_grid.nc'
     ascii_filename = 'torus_grid.ascii'
 /
@@ -38,5 +40,5 @@ EOF
 
 #-----------------------------------------------------------------------------
 echo $command $parameterFile > $commandFile
-$run_commmand
+${start} $run_commmand
 #-----------------------------------------------------------------------------

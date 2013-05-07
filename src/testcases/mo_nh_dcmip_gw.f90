@@ -15,6 +15,7 @@
 !! @par Literature
 !! - Dynamical Core Model Intercomparison Project (DCMIP) 
 !!   Test Case Document (P. Ullrich et al, 2012)
+!! - Baldauf, M. et al. (2013): in preparation
 !!
 !! @par Copyright
 !! 2002-2012 by DWD and MPI-M
@@ -48,8 +49,10 @@ MODULE mo_nh_dcmip_gw
 
    USE mo_kind,                 ONLY: wp
    USE mo_physical_constants,   ONLY: rd, grav, p0ref, cpd, cvd_o_rd
-   USE mo_math_constants,       ONLY: pi
-   USE mo_impl_constants,       ONLY: min_rlcell, min_rledge, min_rlvert, MAX_CHAR_LENGTH
+   USE mo_nh_init_utils,        ONLY: hydro_adjust
+   USE mo_math_constants,       ONLY: pi, deg2rad
+   USE mo_impl_constants,       ONLY: min_rlcell, min_rledge, min_rlvert, MAX_CHAR_LENGTH, &
+     &                                SUCCESS
    USE mo_parallel_config,      ONLY: nproma
    USE mo_loopindices,          ONLY: get_indices_c, get_indices_e, get_indices_v
    USE mo_model_domain,         ONLY: t_patch
@@ -72,7 +75,17 @@ MODULE mo_nh_dcmip_gw
 
    PUBLIC :: init_nh_dcmip_gw
    PUBLIC :: init_nh_gw_analyt
+   PUBLIC :: gw_clat           ! namelist variable
+   PUBLIC :: gw_u0             ! namelist variable
+   PUBLIC :: gw_delta_temp     ! namelist variable
+   PUBLIC :: fcfugal           ! additional R.H.S for dycore
 
+   REAL(wp) :: gw_clat                    ! Lat of perturbation center [deg]
+   REAL(wp) :: gw_u0                      ! maximum amplitude
+                                          ! of the zonal wind          [m s^-1]
+   REAL(wp) :: gw_delta_temp              ! Max amplitude of perturbation [K]
+
+   REAL(wp), ALLOCATABLE :: fcfugal(:,:)  ! centrifugal force
 
 !--------------------------------------------------------------------
 
@@ -95,7 +108,7 @@ CONTAINS
   !! @par Revision History
   !! - initial revision by Daniel Reinert, DWD (2012-05-25)
   !!
-  SUBROUTINE init_nh_dcmip_gw( p_patch, p_nh_prog, p_nh_diag, p_metrics )
+  SUBROUTINE init_nh_dcmip_gw( p_patch, p_nh_prog, p_nh_diag, p_metrics)
 
     TYPE(t_patch),        INTENT(INOUT) :: &  !< patch on which computation is performed
       &  p_patch
@@ -108,7 +121,6 @@ CONTAINS
 
     TYPE(t_nh_metrics),   INTENT(IN)    :: &  !< NH metrics state
       &  p_metrics
-
 
     REAL(wp) :: z_lon, z_lat          !< geographical coordinates
 
@@ -130,7 +142,7 @@ CONTAINS
 
     REAL(wp) :: brunt2                !< Brunt-Vaisala frequency squared  [s^-1]
     REAL(wp) :: big_g                 !< auxiliary constant
-
+    REAL(wp) :: phic                  !< Lat of perturbation center       [rad]
 
     ! test case parameters
     !
@@ -138,11 +150,7 @@ CONTAINS
                                             !< at the equator             [Pa]
     REAL(wp), PARAMETER :: teq = 300._wp    !< surface temperature
                                             !< at the equator             [K]
-    REAL(wp), PARAMETER :: u0  = 20._wp     !< maximum amplitude 
-                                            !< of the zonal wind          [m s^-1]
     REAL(wp), PARAMETER :: brunt= 0.01_wp   !< Brunt-Vaisala frequency    [s^-1]
-
-    REAL(wp), PARAMETER :: phic = 0.0_wp    !< Lat of perturbation center
 
     REAL(wp), PARAMETER :: lambdac = 2.0_wp*pi/3.0_wp !< Lon of perturbation center
 
@@ -154,6 +162,10 @@ CONTAINS
      
 !--------------------------------------------------------------------
 !
+
+    ! center of temperature/density perturbation in radians
+    phic = deg2rad * gw_clat
+
 
     ! initialize some constants:
     !
@@ -205,7 +217,7 @@ CONTAINS
           ! init velocity field
           !
           ! zonal velocity
-          zu(je) = u0 * COS(z_lat)
+          zu(je) = gw_u0 * COS(z_lat)
 
           ! meridional velocity
           zv(je) = 0._wp
@@ -245,15 +257,15 @@ CONTAINS
 
         ! init surface temperature
         !
-        z_tsfc(jc,jb) = big_g + (teq-big_g) * exp( -(u0*brunt2/(4.0_wp*grav*grav)) &
-          &           *(u0+2.0_wp*grid_angular_velocity*grid_sphere_radius)  &
+        z_tsfc(jc,jb) = big_g + (teq-big_g) * exp( -(gw_u0*brunt2/(4.0_wp*grav*grav)) &
+          &           *(gw_u0+2.0_wp*grid_angular_velocity*grid_sphere_radius)  &
           &           * (COS(2.0_wp*z_lat)-1.0_wp) )
 
 
         ! init surface pressure field
         !
-        p_nh_diag%pres_sfc(jc,jb) = peq*exp( (u0/(4.0_wp*big_g*rd))                 &
-          &                       * (u0+2.0_wp*grid_angular_velocity*grid_sphere_radius)&
+        p_nh_diag%pres_sfc(jc,jb) = peq*exp( (gw_u0/(4.0_wp*big_g*rd))                 &
+          &                       * (gw_u0+2.0_wp*grid_angular_velocity*grid_sphere_radius)&
           &                       * (COS(2.0_wp*z_lat)-1.0_wp))&
           &                       * (z_tsfc(jc,jb)/teq)**(cpd/rd)
 
@@ -394,15 +406,24 @@ CONTAINS
   !! formulation presented here is based on work by Baldauf et al. (2012). 
   !! For this particular setup an analytical reference solution is available.  
   !!
+  !! Available options:
+  !! - gravity wave without coriolis force and without background (soild body) flow
+  !! - gravity wave with coriolis force (f-plane) approximation and without 
+  !!   background (solid body) flow
+  !! - gravity wave with coriolis force and with background (soild body) flow.
+  !!   This third option is somewhat special in the sense, that the sum of the 
+  !!   coriolis force and centrifugal force exactly cancel the additional 
+  !!   centrifugal force due to the background flow. I.e. in an inertial 
+  !!   frame, the atmosphere is at rest. However, in the rotating frame, 
+  !!   a wind speed of gw_u0*cos(\phi) is observed.  
+  !!
   !! @Literature
-  !! - Baldauf, M. et al. (2012): An Analytical Solution for Linear Gravity Waves 
-  !! in a Channel as a Test for Numerical Models using the Non-Hydrostatic, 
-  !! compressible Euler equations
+  !! - Baldauf, M. et al. (2013): in preparation
   !!
   !! @par Revision History
   !! - initial revision by Daniel Reinert, DWD (2012-06-26)
   !!
-  SUBROUTINE init_nh_gw_analyt( p_patch, p_nh_prog, p_nh_diag, p_metrics, p_int )
+  SUBROUTINE init_nh_gw_analyt( p_patch, p_nh_prog, p_nh_diag, p_metrics, p_int)
 
     TYPE(t_patch),        INTENT(INOUT) :: &  !< patch on which computation is performed
       &  p_patch
@@ -418,7 +439,6 @@ CONTAINS
 
     TYPE(t_int_state),    INTENT(IN)    :: &  !< interpolation state
       &  p_int
-
 
     REAL(wp) :: z_lat, z_lon          !< geographical latitude and longitude
 
@@ -439,26 +459,16 @@ CONTAINS
     INTEGER  :: i_rlstart, i_rlend, i_nchdom  
     INTEGER  :: nlev, nlevp1          !< number of full and half levels
     INTEGER  :: iorient
+    REAL(wp) :: phic                  !< Lat of perturbation center       [rad]
+    REAL(wp) :: zomega                !< earth angular velocity in the case gw_u0/=0
 
+    INTEGER  :: ist                   !< status
 
     ! test case parameters
     !
-    REAL(wp), PARAMETER :: t0   = 250._wp    !< surface temperature        [K]
+    REAL(wp), PARAMETER :: t0    = 250._wp    !< surface temperature        [K]
 
-    REAL(wp), PARAMETER :: q    = 50._wp     !< width of perturbation 
-
-    REAL(wp), PARAMETER :: delta_temp = 0.01_wp !< Max amplitude of perturbation [K]
-
-
-    ! The following settings may be changed by the user
-    !
-    REAL(wp), PARAMETER :: u0   = 0._wp      !< maximum amplitude
-                                             !< of the zonal wind          [m s^-1]
-!    REAL(wp), PARAMETER :: u0   = 20._wp     !< maximum amplitude 
-                                             !< of the zonal wind          [m s^-1]
-    REAL(wp), PARAMETER :: phic = 0.5_wp*pi  !< Lat of perturbation center [rad]
-!    REAL(wp), PARAMETER :: phic = 0.0_wp     !< Lat of perturbation center [rad]
-
+    REAL(wp), PARAMETER :: kappa = 100._wp    !< perturbation width
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
       &  routine = 'mo_nh_dcmip_gw:init_nh_gw_analyt'
@@ -467,6 +477,8 @@ CONTAINS
     ! p0ref = 100000.0_wp   !> [Pa]  (mo_physical_constants.f90)   
 !--------------------------------------------------------------------
 !
+    ! center of temperature/density perturbation in radians
+    phic = deg2rad * gw_clat
 
     ! initialize some constants:
     !
@@ -485,6 +497,15 @@ CONTAINS
 
 
 
+    ! Attention: this does only work for the global patch!
+    ALLOCATE( fcfugal(nproma,p_patch%nblks_e), STAT=ist )
+    IF(ist/=SUCCESS)THEN
+       CALL finish('mo_nh_dcmip_gw:init_nh_gw_analyt',  &
+        &      ' allocation of centrifugal force failed!')
+    END IF   
+    fcfugal(:,:) = 0._wp
+
+
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     !!!    I: Init background state     !!!
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -495,43 +516,12 @@ CONTAINS
     !
 !$OMP PARALLEL PRIVATE(i_rlstart,i_rlend,i_startblk,i_endblk)
 
-!    i_rlstart = 1
-!    i_rlend   = min_rledge
 
-!    i_startblk = p_patch%edges%start_blk(i_rlstart,1)
-!    i_endblk   = p_patch%edges%end_blk(i_rlend,i_nchdom)
+    i_rlstart = 1
+    i_rlend   = min_rlvert
 
-!!$OMP DO PRIVATE(je,jk,jb,i_startidx,i_endidx,z_lat,zu,zv)
-!    DO jb = i_startblk, i_endblk
-
-!      CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
-!                         i_startidx, i_endidx, i_rlstart, i_rlend)
-
-
-!      DO jk = 1, nlev
-!        DO je = i_startidx, i_endidx
-
-
-!          ! get geographical coordinates of edge midpoint
-!          !
-!          z_lat = p_patch%edges%center(je,jb)%lat
-
-!          ! init velocity field
-!          !
-!          ! zonal velocity
-!          zu(je) = u0 * COS(z_lat)
-
-!          ! meridional velocity
-!          zv(je) = 0._wp
-
-!          ! compute normal wind component
-!          p_nh_prog%vn(je,jk,jb) = zu(je) * p_patch%edges%primal_normal(je,jb)%v1  &
-!            &                    + zv(je) * p_patch%edges%primal_normal(je,jb)%v2
-
-!        ENDDO  ! je
-!      ENDDO  ! jk
-!    ENDDO ! jb
-!!$OMP ENDDO NOWAIT
+    i_startblk = p_patch%verts%start_blk(i_rlstart,1)
+    i_endblk   = p_patch%verts%end_blk(i_rlend,i_nchdom)
 
 
     !
@@ -542,12 +532,6 @@ CONTAINS
     ! 
     ! compute velocity stream function at vertices
     !
-    i_rlstart = 1
-    i_rlend   = min_rlvert
-
-    i_startblk = p_patch%verts%start_blk(i_rlstart,1)
-    i_endblk   = p_patch%verts%end_blk(i_rlend,i_nchdom)
-
 !$OMP DO PRIVATE(jv,jb,i_startidx,i_endidx,z_lat)
     DO jb = i_startblk, i_endblk
 
@@ -562,7 +546,7 @@ CONTAINS
           z_lat = p_patch%verts%vertex(jv,jb)%lat
 
           ! get streamfunction
-          zpsi(jv,jb) = -grid_sphere_radius * u0 * SIN(z_lat)
+          zpsi(jv,jb) = -grid_sphere_radius * gw_u0 * SIN(z_lat)
 
         ENDDO  ! jv
     ENDDO ! jb
@@ -672,6 +656,9 @@ CONTAINS
           p_nh_prog%rho(jc,jk,jb) = p_nh_prog%exner(jc,jk,jb)**cvd_o_rd*p0ref  &
             &                     /rd/p_nh_prog%theta_v(jc,jk,jb)
 
+          ! init rho*theta_v
+          !
+          p_nh_prog%rhotheta_v(jc,jk,jb) = p_nh_prog%rho(jc,jk,jb) * p_nh_prog%theta_v(jc,jk,jb)
         ENDDO !jc
       ENDDO !jk
 
@@ -688,6 +675,11 @@ CONTAINS
 
     ENDDO !jb
 !$OMP END DO
+
+
+   CALL hydro_adjust ( p_patch, p_metrics, p_nh_prog%rho,     &
+                     & p_nh_prog%exner, p_nh_prog%theta_v,    &
+                     & p_nh_prog%rhotheta_v  )
 
 
 
@@ -716,11 +708,11 @@ CONTAINS
           ! note that from now on, z_lat and z_lon are given with respect to 
           ! the rotated north pole (at (lat,lon)=(phic,0.0))
 
-          shape_func = (0.5_wp * (1._wp + SIN(z_lat)))**q  &
+          shape_func = exp(kappa*(SIN(z_lat)-1._wp))                             &
             &        * SIN(pi * p_metrics%z_mc(jc,jk,jb)/p_metrics%z_ifc(jc,1,jb))
 
 
-          temp_b   = delta_temp * shape_func
+          temp_b   = gw_delta_temp * shape_func
           temp_pert= temp_b * exp(0.5_wp * delta * p_metrics%z_mc(jc,jk,jb))
 
 
@@ -765,82 +757,188 @@ CONTAINS
     !
     IF ( lcoriolis ) THEN
 
-      ! center of f-plane
-      z_lat = 0.25_wp * pi
+      ! test case version without background flow
+      IF ( gw_u0==0._wp ) THEN 
+
+        ! center of f-plane
+        z_lat = 0.25_wp * pi
 
 
-      i_rlstart = 1
-      i_rlend   = min_rlcell
+        i_rlstart = 1
+        i_rlend   = min_rlcell
 
-      i_startblk = p_patch%cells%start_blk(i_rlstart,1)
-      i_endblk   = p_patch%cells%end_blk(i_rlend,i_nchdom)
+        i_startblk = p_patch%cells%start_blk(i_rlstart,1)
+        i_endblk   = p_patch%cells%end_blk(i_rlend,i_nchdom)
 
 !$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx)
-      DO jb = i_startblk, i_endblk
+        DO jb = i_startblk, i_endblk
 
-        CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-                           i_startidx, i_endidx, i_rlstart, i_rlend)
+          CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+                             i_startidx, i_endidx, i_rlstart, i_rlend)
 
-        DO jc = i_startidx, i_endidx
-          p_patch%cells%f_c(jc,jb) = 2._wp * grid_angular_velocity * SIN(z_lat)
-        ENDDO  ! jc
-      ENDDO  ! jb
+          DO jc = i_startidx, i_endidx
+! Note that a modified scaling factor (10 instead of 50) is used for the Coriolis parameter
+            p_patch%cells%f_c(jc,jb) = 0.2_wp * 2._wp * grid_angular_velocity * SIN(z_lat)
+          ENDDO  ! jc
+        ENDDO  ! jb
 !$OMP ENDDO NOWAIT
 
 
-      i_rlstart = 1
-      i_rlend   = min_rledge
+        i_rlstart = 1
+        i_rlend   = min_rledge
 
-      i_startblk = p_patch%edges%start_blk(i_rlstart,1)
-      i_endblk   = p_patch%edges%end_blk(i_rlend,i_nchdom)
+        i_startblk = p_patch%edges%start_blk(i_rlstart,1)
+        i_endblk   = p_patch%edges%end_blk(i_rlend,i_nchdom)
 
 !$OMP DO PRIVATE(jb,je,i_startidx,i_endidx)
-      DO jb = i_startblk, i_endblk
+        DO jb = i_startblk, i_endblk
 
-        CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
-                           i_startidx, i_endidx, i_rlstart, i_rlend)
+          CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
+                             i_startidx, i_endidx, i_rlstart, i_rlend)
 
-        DO je = i_startidx, i_endidx
-          p_patch%edges%f_e(je,jb) = 2._wp * grid_angular_velocity * SIN(z_lat)
-        ENDDO  ! je
-      ENDDO  ! jb
+          DO je = i_startidx, i_endidx
+! Note that a modified scaling factor (10 instead of 50) is used for the Coriolis parameter
+            p_patch%edges%f_e(je,jb) = 0.2_wp * 2._wp * grid_angular_velocity * SIN(z_lat)
+          ENDDO  ! je
+        ENDDO  ! jb
 !$OMP ENDDO NOWAIT
 
 
-      i_rlstart = 1
-      i_rlend   = min_rlvert
+        i_rlstart = 1
+        i_rlend   = min_rlvert
 
-      i_startblk = p_patch%verts%start_blk(i_rlstart,1)
-      i_endblk   = p_patch%verts%end_blk(i_rlend,i_nchdom)
+        i_startblk = p_patch%verts%start_blk(i_rlstart,1)
+        i_endblk   = p_patch%verts%end_blk(i_rlend,i_nchdom)
 
 !$OMP DO PRIVATE(jb,jv,i_startidx,i_endidx)
-      DO jb = i_startblk, i_endblk
+        DO jb = i_startblk, i_endblk
 
-        CALL get_indices_v(p_patch, jb, i_startblk, i_endblk, &
-                           i_startidx, i_endidx, i_rlstart, i_rlend)
+          CALL get_indices_v(p_patch, jb, i_startblk, i_endblk, &
+                             i_startidx, i_endidx, i_rlstart, i_rlend)
 
-        DO jv = i_startidx, i_endidx
-          p_patch%verts%f_v(jv,jb) = 2._wp * grid_angular_velocity * SIN(z_lat)
-        ENDDO  ! jv
-      ENDDO  ! jb
+          DO jv = i_startidx, i_endidx
+! Note that a modified scaling factor (10 instead of 50) is used for the Coriolis parameter
+            p_patch%verts%f_v(jv,jb) = 0.2_wp * 2._wp * grid_angular_velocity * SIN(z_lat)
+          ENDDO  ! jv
+        ENDDO  ! jb
 !$OMP ENDDO NOWAIT
+
+      ELSE ! gw_u0 .NE. 0._wp
+
+
+        ! earth angular velocity is chosen such, that the metric term (u**/r*tan(\phi)) 
+        ! is balanced by the sum of coriolis and centrifugal force.
+        ! \OMEGA = -gw_u0/r
+        !
+        ! no f-plane approximation !!
+        !
+        zomega = -gw_u0/grid_sphere_radius ! note that the scaled radius must be used
+
+
+        i_rlstart = 1
+        i_rlend   = min_rlcell
+
+        i_startblk = p_patch%cells%start_blk(i_rlstart,1)
+        i_endblk   = p_patch%cells%end_blk(i_rlend,i_nchdom)
+
+
+!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,z_lat)
+        DO jb = i_startblk, i_endblk
+
+          CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+                             i_startidx, i_endidx, i_rlstart, i_rlend)
+
+          DO jc = i_startidx, i_endidx
+            z_lat = p_patch%cells%center(jc,jb)%lat
+            p_patch%cells%f_c(jc,jb) = 2._wp * zomega * SIN(z_lat)
+          ENDDO  ! jc
+        ENDDO  ! jb
+!$OMP ENDDO NOWAIT
+
+
+        i_rlstart = 1
+        i_rlend   = min_rledge
+
+        i_startblk = p_patch%edges%start_blk(i_rlstart,1)
+        i_endblk   = p_patch%edges%end_blk(i_rlend,i_nchdom)
+
+!$OMP DO PRIVATE(jb,je,i_startidx,i_endidx,z_lat)
+        DO jb = i_startblk, i_endblk
+
+          CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
+                             i_startidx, i_endidx, i_rlstart, i_rlend)
+
+
+          DO je = i_startidx, i_endidx
+            z_lat = p_patch%edges%center(je,jb)%lat
+            p_patch%edges%f_e(je,jb) = 2._wp * zomega * SIN(z_lat)
+          ENDDO  ! je
+        ENDDO  ! jb
+!$OMP ENDDO NOWAIT
+
+
+        i_rlstart = 1
+        i_rlend   = min_rlvert
+
+        i_startblk = p_patch%verts%start_blk(i_rlstart,1)
+        i_endblk   = p_patch%verts%end_blk(i_rlend,i_nchdom)
+
+!$OMP DO PRIVATE(jb,jv,i_startidx,i_endidx,z_lat)
+        DO jb = i_startblk, i_endblk
+
+          CALL get_indices_v(p_patch, jb, i_startblk, i_endblk, &
+                             i_startidx, i_endidx, i_rlstart, i_rlend)
+
+          DO jv = i_startidx, i_endidx
+            z_lat = p_patch%verts%vertex(jv,jb)%lat
+            p_patch%verts%f_v(jv,jb) = 2._wp * zomega * SIN(z_lat)
+          ENDDO  ! jv
+        ENDDO  ! jb
+!$OMP ENDDO NOWAIT
+
+
+        !
+        ! compute centrifugal force at edge (normal component)
+        !
+        i_rlstart = 1
+        i_rlend   = min_rledge
+
+        i_startblk = p_patch%edges%start_blk(i_rlstart,1)
+        i_endblk   = p_patch%edges%end_blk(i_rlend,i_nchdom)
+
+!$OMP DO PRIVATE(jb,je,i_startidx,i_endidx,z_lat)
+        DO jb = i_startblk, i_endblk
+
+          CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
+                             i_startidx, i_endidx, i_rlstart, i_rlend)
+
+
+          DO je = i_startidx, i_endidx
+            z_lat = p_patch%edges%center(je,jb)%lat
+            fcfugal(je,jb) = -(zomega**2)*grid_sphere_radius*COS(z_lat)*SIN(z_lat) &
+              &            * p_patch%edges%primal_normal(je,jb)%v2
+          ENDDO
+        ENDDO
+
+      ENDIF  ! gw_u0
 
     ENDIF  ! lcoriolis
 !$OMP END PARALLEL
 
 
     ! cross check: analytic solutions are only available for the following setups_
-    ! 1) u0  = 0 and lcorio = .FALSE.
-    ! 2) u0 \= 0 and lcorio = .FALSE.
-    ! 3) u0  = 0 and lcorio = .TRUE.
+    ! 1) gw_u0  = 0 and lcorio = .FALSE.
+    ! 2) gw_u0  = 0 and lcorio = .TRUE.
+    ! 3) gw_u0 \= 0 and lcorio = .TRUE.
     !
-    IF ( (u0 /= 0._wp) .AND. lcoriolis ) THEN
-      CALL finish(TRIM(routine),'Schaer test case only for lplane=True')
+    IF ( (gw_u0 /= 0._wp) .AND. .NOT. lcoriolis ) THEN
+      CALL finish(TRIM(routine),'lcoriolis=True required, if gw_u0/=0')
     ENDIF
 
 
     ! diag for Output
     CALL div(p_nh_prog%vn, p_patch, p_int, p_nh_diag%div)
+
 
   END SUBROUTINE init_nh_gw_analyt
 

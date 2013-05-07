@@ -49,6 +49,7 @@ MODULE mo_nwp_turbdiff_interface
   USE mo_kind,                 ONLY: wp
   USE mo_exception,            ONLY: message, message_text, finish
   USE mo_model_domain,         ONLY: t_patch
+  USE mo_intp_data_strc,       ONLY: t_int_state
   USE mo_impl_constants,       ONLY: min_rlcell_int
   USE mo_impl_constants_grf,   ONLY: grf_bdywidth_c
   USE mo_loopindices,          ONLY: get_indices_c
@@ -63,7 +64,8 @@ MODULE mo_nwp_turbdiff_interface
   USE mo_nonhydrostatic_config,ONLY: kstart_moist
   USE mo_data_turbdiff,        ONLY: get_turbdiff_param
   USE src_turbdiff,            ONLY: turbdiff
-  USE mo_gme_turbdiff,         ONLY: partura, progimp_turb, nearsfc
+  USE mo_gme_turbdiff,         ONLY: partura, progimp_turb
+  USE mo_sgs_turbulence,       ONLY: drive_subgrid_diffusion
 
   IMPLICIT NONE
 
@@ -80,6 +82,7 @@ CONTAINS
 SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
                           & p_patch,                          & !>in
                           & p_metrics,                        & !>in
+                          & p_int,                            & !>in
                           & ext_data,                         & !>in
                           & p_prog,                           & !>in
                           & p_prog_now_rcf,                   & !>in
@@ -92,16 +95,17 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
 
 
   TYPE(t_patch),        TARGET,INTENT(in)   :: p_patch        !!<grid/patch info.
+  TYPE(t_int_state),    INTENT(in),TARGET   :: p_int          !< single interpolation state
   TYPE(t_external_data),       INTENT(in)   :: ext_data        !< external data
   TYPE(t_nh_metrics)          ,INTENT(in)   :: p_metrics
-  TYPE(t_nh_prog),      TARGET,INTENT(in)   :: p_prog          !<the prog vars
+  TYPE(t_nh_prog),      TARGET,INTENT(inout):: p_prog          !<the prog vars
   TYPE(t_nh_prog),      TARGET,INTENT(in)   :: p_prog_now_rcf  !<progs with red.
   TYPE(t_nh_prog),      TARGET,INTENT(inout):: p_prog_rcf      !<call freq
   TYPE(t_nh_diag),      TARGET,INTENT(inout):: p_diag          !<the diag vars
   TYPE(t_nwp_phy_diag),        INTENT(inout):: prm_diag        !< atm phys vars
   TYPE(t_nwp_phy_tend), TARGET,INTENT(inout):: prm_nwp_tend    !< atm tend vars
   TYPE(t_wtr_prog),            INTENT(in)   :: wtr_prog_now    !< prog vars for wtr
-  TYPE(t_lnd_prog),            INTENT(in)   :: lnd_prog_now    !< prog vars for sfc
+  TYPE(t_lnd_prog),            INTENT(inout):: lnd_prog_now    !< prog vars for sfc
   TYPE(t_lnd_diag),            INTENT(inout):: lnd_diag        !< diag vars for sfc
   REAL(wp),                    INTENT(in)   :: tcall_turb_jg   !< time interval for 
                                                                !< turbulence
@@ -126,10 +130,6 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
   INTEGER  :: nlev, nlevp1                          !< number of full and half levels
 
   REAL(wp) :: z_tvs(nproma,p_patch%nlevp1,1)        !< aux turbulence velocity scale [m/s]
-
-  REAL(wp) :: z_umfl_s(nproma)                      !< aux u-momentum flux at surface [N/m2]
-  REAL(wp) :: z_vmfl_s(nproma)                      !< aux u-momentum flux at surface [N/m2]
-
 
 
 
@@ -159,6 +159,27 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
   IF ( atm_phy_nwp_config(jg)%inwp_turb == 1 ) THEN
      CALL get_turbdiff_param(jg)
   ENDIF
+
+ 
+  !For 3D turbulence the whole patch needs to be passed. Therefore, this call
+  !is made outside the block loop next. However, the tendencies it calculates
+  !is then used inside the block loop (see at the end) to update u,v,t,qv,qc
+  IF ( atm_phy_nwp_config(jg)%inwp_turb == 5 )THEN
+    CALL message('mo_nwp_turbdiff:', '3D turbulence')
+    CALL drive_subgrid_diffusion(p_prog,       & !inout for w (it is updated inside)
+                                 p_prog_rcf,   & !in
+                                 p_diag,       & !in
+                                 p_metrics,    & !in
+                                 p_patch,      & !in
+                                 p_int,        & !in
+                                 lnd_prog_now, & !inout
+                                 lnd_diag,     & !inout
+                                 prm_diag,     & !inout
+                                 prm_nwp_tend, & !inout
+                                 tcall_turb_jg & !in
+                                 )
+  END IF
+
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,ierrstat,errormsg,eroutine,z_tvs)  &
@@ -204,7 +225,8 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
         &           SQRT(2._wp * p_prog_now_rcf%tke(i_startidx:i_endidx,:,jb))
 
 
-
+      ! GZ, 2013-02-22: always use concentration lower boundary condition for momentum 
+      ! (corresponding to imode_turb = 2) because the flux condition suffers from stability problems
       CALL turbdiff(iini=0, lstfnct=.TRUE.,                                             & !in
          &  dt_var=tcall_turb_jg, dt_tke=tcall_turb_jg, nprv=1, ntur=1, ntim=1,         & !in
          &  ie=nproma, ke=nlev, ke1=nlevp1,  kcm=nlevp1,                                & !in
@@ -231,7 +253,7 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
          &  tketens=prm_nwp_tend%ddt_tke(:,:,jb),                                       & !inout
          &  ut_sso=prm_nwp_tend%ddt_u_sso(:,:,jb),                                      & !in
          &  vt_sso=prm_nwp_tend%ddt_v_sso(:,:,jb) ,                                     & !in
-         &  shfl_s=prm_diag%shfl_s(:,jb), lhfl_s=prm_diag%lhfl_s(:,jb),                 & !inout
+         &  shfl_s=prm_diag%shfl_s(:,jb), qhfl_s=prm_diag%qhfl_s(:,jb),                 & !in
          &  ierrstat=ierrstat, errormsg=errormsg, eroutine=eroutine                     ) !inout
           
       IF (ierrstat.NE.0) THEN
@@ -243,23 +265,6 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
       p_prog_rcf%tke(i_startidx:i_endidx,:,jb)= 0.5_wp                            &
         &                                     * (z_tvs(i_startidx:i_endidx,:,1))**2
 
-       ! Update QV, QC and temperature with turbulence tendencies
-      DO jk = 1, nlev
-        DO jc = i_startidx, i_endidx
-          p_prog_rcf%tracer(jc,jk,jb,iqv) =MAX(0._wp, p_prog_rcf%tracer(jc,jk,jb,iqv) &
-               &           + tcall_turb_jg*prm_nwp_tend%ddt_tracer_turb(jc,jk,jb,iqv))
-          p_diag%temp(jc,jk,jb) = p_diag%temp(jc,jk,jb)  &
-           &  + tcall_turb_jg*prm_nwp_tend%ddt_temp_turb(jc,jk,jb)
-        ENDDO
-      ENDDO
-      ! QC is updated only in that part of the model domain where moisture physics is active
-      DO jk = kstart_moist(jg), nlev
-        DO jc = i_startidx, i_endidx
-          p_prog_rcf%tracer(jc,jk,jb,iqc) =MAX(0._wp, p_prog_rcf%tracer(jc,jk,jb,iqc) &
-               &           + tcall_turb_jg*prm_nwp_tend%ddt_tracer_turb(jc,jk,jb,iqc))
-        ENDDO
-      ENDDO
-      ! VN is updated in nwp_nh_interface (for efficiency reasons)
 
     ELSE IF ( atm_phy_nwp_config(jg)%inwp_turb == 2 ) THEN
 
@@ -275,6 +280,7 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
         &           ie=nproma, ke=nlev, ke1=nlevp1,                                        & !in
         &           i_startidx=i_startidx, i_endidx=i_endidx,                              & !in
         &           tkvm=prm_diag%tkvm(:,2:nlev,jb), tkvh=prm_diag%tkvh(:,2:nlev,jb)       ) !inout
+
 
       ! tendencies from turbulent diffusion
       CALL progimp_turb( t=p_diag%temp(:,:,jb), qv=p_prog_rcf%tracer(:,:,jb,iqv),      & !in
@@ -293,47 +299,50 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
         &                dv_turb=prm_nwp_tend%ddt_v_turb(:,:,jb),                      & !out
         &                dt_turb=prm_nwp_tend%ddt_temp_turb(:,:,jb),                   & !out
         &                dqv_turb=prm_nwp_tend%ddt_tracer_turb(:,:,jb,iqv),            & !out
-        &                dqc_turb=prm_nwp_tend%ddt_tracer_turb(:,:,jb,iqc),            & !out
-        &                shfl_s=prm_diag%shfl_s(:,jb), lhfl_s=prm_diag%lhfl_s(:,jb),   & !out
-        &                umfl_s=z_umfl_s(:)          , vmfl_s=z_vmfl_s(:)              ) !out
+        &                dqc_turb=prm_nwp_tend%ddt_tracer_turb(:,:,jb,iqc))              !out
+!       &                shfl_s=prm_diag%shfl_s_t(:,jb,1),                             & !out
+!       &                lhfl_s=prm_diag%lhfl_s_t(:,jb,1),                             & !out
+!       &                qhfl_s=prm_diag%qhfl_s_t(:,jb,1),                             & !out
+!       &                umfl_s=prm_diag%umfl_s(:,jb), vmfl_s=prm_diag%vmfl_s(:,jb)    ) !out
 
-       ! Update QV, QC and temperature with turbulence tendencies
-      DO jk = 1, nlev
-        DO jc = i_startidx, i_endidx
-          p_prog_rcf%tracer(jc,jk,jb,iqv) =MAX(0._wp, p_prog_rcf%tracer(jc,jk,jb,iqv) &
-               &           + tcall_turb_jg*prm_nwp_tend%ddt_tracer_turb(jc,jk,jb,iqv))
-          p_diag%temp(jc,jk,jb) = p_diag%temp(jc,jk,jb)  &
-               &           + tcall_turb_jg*prm_nwp_tend%ddt_temp_turb(jc,jk,jb)
-        ENDDO
-      ENDDO
-      ! QC is updated only in that part of the model domain where moisture physics is active
-      DO jk = kstart_moist(jg), nlev
-        DO jc = i_startidx, i_endidx
-          p_prog_rcf%tracer(jc,jk,jb,iqc) =MAX(0._wp, p_prog_rcf%tracer(jc,jk,jb,iqc) &
-               &           + tcall_turb_jg*prm_nwp_tend%ddt_tracer_turb(jc,jk,jb,iqc))
-        ENDDO
-      ENDDO
-      ! VN is updated in nwp_nh_interface (for efficiency reasons)
+!DR NOTE: computation of sensible and latent heat fluxes (over non-land points) should be 
+!DR moved either to the turbtran interface, or the surface interface!!
 
-
-      ! diagnose 2 m temperature, humidity, 10 m wind
-      CALL nearsfc( t=p_diag%temp(:,:,jb), qv=p_prog_rcf%tracer(:,:,jb,iqv),        & !in
-        &           u=p_diag%u(:,:,jb),    v=p_diag%v(:,:,jb),                      & !in
-        &           zf=p_metrics%z_mc(:,:,jb), ps=p_diag%pres_ifc(:,nlevp1,jb),     & !in
-        &           t_g=lnd_prog_now%t_g(:,jb),                                     & !in
-        &           tcm=prm_diag%tcm(:,jb), tch=prm_diag%tch(:,jb),                 & !in
-        &           gz0=prm_diag%gz0(:,jb),                                         & !in
-        &           shfl_s=prm_diag%shfl_s(:,jb), lhfl_s=prm_diag%lhfl_s(:,jb),     & !in
-        &           umfl_s=z_umfl_s(:)          , vmfl_s=z_vmfl_s(:),               & !in
-        &           zsurf=p_metrics%z_ifc(:,nlevp1,jb),                             & !in
-        &           fr_land=ext_data%atm%fr_land(:,jb), pf1=p_diag%pres(:,nlev,jb), & !in
-        &           qv_s=lnd_diag%qv_s(:,jb), ie=nproma, ke=nlev,                   & !in
-        &           i_startidx=i_startidx, i_endidx=i_endidx,                       & !in
-        &           t_2m=prm_diag%t_2m(:,jb), qv_2m=prm_diag%qv_2m(:,jb),           & !out
-        &           td_2m=prm_diag%td_2m(:,jb), rh_2m=prm_diag%rh_2m(:,jb),         & !out
-        &           u_10m=prm_diag%u_10m(:,jb), v_10m=prm_diag%v_10m(:,jb)          ) !out
+!     DO jc = i_startidx, i_endidx
+!       prm_diag%shfl_s(jc,jb) = prm_diag%shfl_s_t(jc,jb,1)
+!       prm_diag%lhfl_s(jc,jb) = prm_diag%lhfl_s_t(jc,jb,1)
+!       prm_diag%qhfl_s(jc,jb) = prm_diag%qhfl_s_t(jc,jb,1)
+!     ENDDO
 
     ENDIF !inwp_turb
+
+
+
+    ! Update wind speed, QV and temperature with turbulence tendencies
+    ! Note: the update of wind speed is done here in order to pass u and v at the correct time level
+    ! to turbtran and the convection scheme. However, the update of the prognostic variable vn
+    ! is done at the end of the NWP interface by first interpolating the u/v tendencies to the 
+    ! velocity points (in order to minimize interpolation errors) and then adding the tendencies
+    ! to vn
+    DO jk = 1, nlev
+      DO jc = i_startidx, i_endidx
+        p_prog_rcf%tracer(jc,jk,jb,iqv) =MAX(0._wp, p_prog_rcf%tracer(jc,jk,jb,iqv) &
+             &           + tcall_turb_jg*prm_nwp_tend%ddt_tracer_turb(jc,jk,jb,iqv))
+        p_diag%temp(jc,jk,jb) = p_diag%temp(jc,jk,jb)  &
+         &  + tcall_turb_jg*prm_nwp_tend%ddt_temp_turb(jc,jk,jb)
+        p_diag%u(jc,jk,jb) = p_diag%u(jc,jk,jb) + tcall_turb_jg*prm_nwp_tend%ddt_u_turb(jc,jk,jb)
+        p_diag%v(jc,jk,jb) = p_diag%v(jc,jk,jb) + tcall_turb_jg*prm_nwp_tend%ddt_v_turb(jc,jk,jb)
+      ENDDO
+    ENDDO
+    ! QC is updated only in that part of the model domain where moisture physics is active
+    DO jk = kstart_moist(jg), nlev
+      DO jc = i_startidx, i_endidx
+        p_prog_rcf%tracer(jc,jk,jb,iqc) =MAX(0._wp, p_prog_rcf%tracer(jc,jk,jb,iqc) &
+             &           + tcall_turb_jg*prm_nwp_tend%ddt_tracer_turb(jc,jk,jb,iqc))
+      ENDDO
+    ENDDO
+    ! VN is updated in nwp_nh_interface (for efficiency reasons)
+
 
   ENDDO ! jb
 !$OMP END DO NOWAIT

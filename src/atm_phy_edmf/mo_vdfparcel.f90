@@ -238,11 +238,11 @@ LOGICAL ::            LLDOIT(KLON), LLCLOUD(KLON), LLPREC
 
 REAL(KIND=JPRB) ::    ZRG   , ZDZ   , ZTVUF , ZQUF    , ZQCUF   , ZMU, ZB, &
                     & ZQLUF , ZQIUF , ZQTUF , ZTUF  , ZSLGUF  , &
-		    & ZMIX  (KLON,0:KLEV), ZMIXW (KLON,0:KLEV) !,ZBUOF(KLON,KLEV)
+                    & ZMIX  (KLON,0:KLEV), ZMIXW (KLON,0:KLEV) !,ZBUOF(KLON,KLEV)
 
 REAL(KIND=JPRB) ::    ZWUH  (KLON,0:KLEV)   , ZQUH  (KLON,0:KLEV)    , ZPH  (KLON), &
                     & ZTTEMP(KLON,KLEV)     , ZQTEMP(KLON,KLEV)      
-		    
+                    
 REAL(KIND=JPRB) ::    ZALFAW  , ZFACW   , ZFACI   , ZFAC    , ZTEMP ,&
                     & ZESDP   , ZCOR    , ZDQSDTEMP(KLON)   , ZQS(KLON,0:KLEV), &
                     & ZPGENUP , ZWUHTEMP(KLON), ZTAUEPS(KLON,0:KLEV), ZCEPSZ(KLON), &
@@ -386,7 +386,12 @@ ZVERVELCRIT = 0.3_JPRB
         PEPS(JL,JK+1,2)  = 1.0_JPRB / ( ZWUH(JL,JK+1) * ZTAUEPS(JL,JK) )  & ! eps=1/(w,up*tau)
                        & + 0.4_JPRB / ( PGEOM1(JL,JK+1)*ZRG )               !    +0.4/z   (Pier LES)  
 !xxx
-        
+
+!test: always use +0.4/z
+!        PEPS(JL,JK+1,KD) = 1.0_JPRB / ( ZWUH(JL,JK+1) * ZTAUEPS(JL,JK) )  & ! eps=1/(w,up*tau)
+!                       & + 0.4_JPRB / ( PGEOM1(JL,JK+1)*ZRG )               !    +0.4/z   (Pier LES)  
+!xxxx     
+   
         !RN numerical entrainment limiter: maximally c_e/Dz
         ZDZ           = (PGEOH(JL,JK) - PGEOH(JL,JK+1))*ZRG
         PEPS(JL,JK+1,KD) = MIN( ZEPSCFLFAC/ZDZ, PEPS(JL,JK+1,KD) )
@@ -397,8 +402,11 @@ ZVERVELCRIT = 0.3_JPRB
  
         ZMIX(JL,JK+1) = exp( - ZDZ * PEPS(JL,JK+1,KD) )
 
+!xmk
         IF (  ( KD .EQ. 1 .OR. KD .EQ. 3 ) .AND. &              ! for test or cloud parcels
           &     JK .LE. KPLCL(JL,KD)  ) THEN                    ! if above LCL
+!       IF ( .FALSE. ) THEN                                     ! turn off preconditioning
+!xxx
 
 !xmk ... qt convective preconditioning (Olaf Stiller's idea)
 
@@ -471,7 +479,7 @@ ZVERVELCRIT = 0.3_JPRB
         ZPH(JL)       = PAPHM1(JL,JK)
         ZQTEMP(JL,JK) = PQUH(JL,JK,KD)
         ZTTEMP(JL,JK) = PTUH(JL,JK,KD)
-	
+        
       ENDIF
       
       LLDOIT(JL)      = .NOT. LDDONE(JL,KD)
@@ -512,8 +520,8 @@ ZVERVELCRIT = 0.3_JPRB
       IF ( PQCUH(JL,JK,KD) > 0.0_JPRB  .AND.  .NOT. LLCLOUD(JL)  .AND.  LLDOIT(JL) ) THEN
 
         LLCLOUD(JL)   = .TRUE.
-	
-	!cloud base level is first level with ql>0
+        
+        !cloud base level is first level with ql>0
         KPLCL(JL,KD)  = JK
 
         IF ( JK < JKMAX ) THEN
@@ -608,9 +616,9 @@ ZVERVELCRIT = 0.3_JPRB
         ZSLGUF        = 0.5_JPRB * ( PSLGUH(JL,JK,KD) + PSLGUH(JL,JK+1,KD) )
         ZQTUF         = 0.5_JPRB * ( PQTUH (JL,JK,KD) + PQTUH (JL,JK+1,KD) )
         ZQCUF         = 0.5_JPRB * ( PQCUH (JL,JK,KD) + PQCUH (JL,JK+1,KD) )
-	
-	! At first full level above real cloud base, interpolate ql between 
-	! height of real cloud base and the half level of KPLCL
+        
+        ! At first full level above real cloud base, interpolate ql between 
+        ! height of real cloud base and the half level of KPLCL
         IF ( JK == KPLCL(JL,KD) ) THEN
           ZQCUF = ZQCUF * ZLCLFAC(JL)
         ENDIF
@@ -643,10 +651,10 @@ ZVERVELCRIT = 0.3_JPRB
 !*         3.8  Inversion height at w=0  (lin. interpolation in w^2)
         
         IF ( PWU2H(JL,JK,KD) < 0.0_JPRB  .AND.  PWU2H(JL,JK+1,KD) > 0.0_JPRB ) THEN 
-	
-	  !set top level to last level with positive w
+        
+          !set top level to last level with positive w
           KPTOP(JL,KD)   = JK+1  
-	  
+          
           PZPTOP(JL,KD)   = PGEOH(JL,JK+1) * ZRG &
                     & + ZDZ * PWU2H(JL,JK+1,KD) / ( PWU2H(JL,JK+1,KD) - PWU2H(JL,JK,KD) ) 
                      

@@ -59,7 +59,7 @@ MODULE mo_name_list_output_config
   PUBLIC :: is_grib_output, &
     &       is_output_nml_active,  is_any_output_nml_active, &
     &       is_output_file_active, is_any_output_file_active
-  PUBLIC :: name_list_output_active, use_async_name_list_io, l_output_phys_patch
+  PUBLIC :: use_async_name_list_io, l_output_phys_patch
   PUBLIC :: max_var_ml, max_var_pl, max_var_hl, max_bounds              
   PUBLIC :: max_levels, vname_len, t_output_name_list
   PUBLIC :: first_output_name_list, max_time_levels, t_output_file,&
@@ -68,10 +68,6 @@ MODULE mo_name_list_output_config
 
   CHARACTER(len=*),PARAMETER,PRIVATE :: &
     &  version = '$Id$'
-
-  ! Flag whether name_list output is active, i.e. at least one /output_nml/ has been read
-
-  LOGICAL :: name_list_output_active = .FALSE.
 
   ! Flag whether async name_list I/O is used, it is set in the main program:
 
@@ -100,7 +96,6 @@ MODULE mo_name_list_output_config
     ! general settings
     ! --------------------
 
-    CHARACTER(LEN=8) :: namespace                   ! 'DWD' - DWD short names (or 'MPIM', 'CMIP', 'ECMWF')
     INTEGER          :: mode                        ! 1 = forecast mode, 2 = climate mode
     INTEGER          :: dom(max_phys_dom)           ! domains for which this namelist is used, ending with -1
     INTEGER          :: output_time_unit            ! 1 = second, 2=minute, 3=hour, 4=day, 5=month, 6=year
@@ -124,8 +119,8 @@ MODULE mo_name_list_output_config
     ! variable lists
     ! --------------------
 
-    CHARACTER(LEN=vname_len)  :: ml_varlist(max_var_ml)   ! name of model level fields (translation to model by namespace)
-    CHARACTER(LEN=vname_len)  :: pl_varlist(max_var_pl)   ! name of pressure level fields (translation to model by namespace)
+    CHARACTER(LEN=vname_len)  :: ml_varlist(max_var_ml)   ! name of model level fields
+    CHARACTER(LEN=vname_len)  :: pl_varlist(max_var_pl)   ! name of pressure level fields
     CHARACTER(LEN=vname_len)  :: hl_varlist(max_var_hl)   ! name of height level fields
     CHARACTER(LEN=vname_len)  :: il_varlist(max_var_hl)   ! name of isentropic level fields
 
@@ -217,7 +212,7 @@ MODULE mo_name_list_output_config
     INTEGER                     :: cdiVertGridID
     INTEGER                     :: cdiEdgeGridID
     INTEGER                     :: cdiLonLatGridID
-    INTEGER                     :: cdiZaxisID(22) ! All types of possible Zaxis ID's
+    INTEGER                     :: cdiZaxisID(25) ! All types of possible Zaxis ID's
     INTEGER                     :: cdiTaxisID
     INTEGER                     :: cdiTimeIndex
     INTEGER                     :: cdiInstID      ! output generating institute

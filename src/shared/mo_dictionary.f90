@@ -10,7 +10,7 @@
 !!       not scale with large data bases.
 !!
 !! @note When loading key-value pairs from an external text file, the
-!!       current implementation is restricted to string that do not
+!!       current implementation is restricted to strings that do not
 !!       contain spaces.
 !!
 !!
@@ -57,7 +57,7 @@ MODULE mo_dictionary
   !--------------------------------------------------------------------------
   ! definition of constants:
 
-  CHARACTER(LEN=*), PARAMETER :: modname = TRIM('mo_remap_grid_icon')  
+  CHARACTER(LEN=*), PARAMETER :: modname = TRIM('mo_dictionary')  
 
   INTEGER, PARAMETER :: DICT_MAX_STRLEN = 100    !< maximum string length
   INTEGER, PARAMETER :: NINITIAL        = 100    !< initial dictionary size
@@ -243,16 +243,22 @@ CONTAINS
   !        are separated by one or more spaces. Comment lines
   !        (beginning with "#") are ignored.
   !
-  SUBROUTINE dict_loadfile(dict, filename)
+  SUBROUTINE dict_loadfile(dict, filename, linverse)
     TYPE(t_dictionary), INTENT(INOUT) :: dict      !< dictionary data structure
     CHARACTER(LEN=*),   INTENT(IN)    :: filename  !< text file name
+    LOGICAL, OPTIONAL,  INTENT(IN)    :: linverse  !< Flag. If .TRUE., dictionary columns are read in inverse order.
     ! local variables:
     CHARACTER(LEN=*), PARAMETER :: &
       &  routine    = TRIM(TRIM(modname)//'::dict_loadfile')
     INTEGER                        :: iunit, ist
     CHARACTER(LEN=256)             :: line
     CHARACTER(LEN=DICT_MAX_STRLEN) :: key, val
-    LOGICAL                        :: valid
+    LOGICAL                        :: valid, lread_inverse
+
+    lread_inverse = .FALSE.
+    IF (PRESENT(linverse)) THEN
+      lread_inverse = linverse
+    END IF
 
     iunit = find_next_free_unit(10,99)
     OPEN (unit=iunit,file=filename,access='SEQUENTIAL', &
@@ -264,7 +270,13 @@ CONTAINS
       IF(ist < 0) EXIT ! No more lines
       IF(ist > 0) CALL finish(routine, 'Read error in dictionary file '//TRIM(filename))
       CALL parse_line(line,key,val,valid)
-      IF(valid) CALL  dict_set(dict, TRIM(key), TRIM(val))
+      IF(valid) THEN
+        IF (.NOT. lread_inverse) THEN
+          CALL  dict_set(dict, TRIM(key), TRIM(val))
+        ELSE
+          CALL  dict_set(dict, TRIM(val), TRIM(key))
+        END IF
+      END IF
     ENDDO
     ! close file
     CLOSE(unit=iunit)

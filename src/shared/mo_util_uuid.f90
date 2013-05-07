@@ -33,11 +33,17 @@ MODULE mo_util_uuid
   PUBLIC :: uuid_parse
   PUBLIC :: uuid_unparse
 
+  PUBLIC :: uuid2char
+  PUBLIC :: char2uuid
+
   PUBLIC :: OPERATOR(==)
 
   PUBLIC :: uuid_string_length
+  PUBLIC :: uuid_data_Length
+  PUBLIC :: clear_uuid
 
   INTEGER, PARAMETER :: uuid_string_length = 36
+  INTEGER, PARAMETER :: uuid_data_length = 16
 
 #ifndef __SX__
   TYPE, BIND(C) :: t_uuid
@@ -121,4 +127,25 @@ CONTAINS
     ENDIF
   END FUNCTION uuid_compare
   
+  SUBROUTINE uuid2char(uuid, string)
+    TYPE(t_uuid), INTENT(in) :: uuid
+    CHARACTER(len=1), INTENT(out) :: string(16)
+    string = TRANSFER(uuid%data, string)
+  END SUBROUTINE uuid2char
+
+  SUBROUTINE char2uuid(string, uuid)
+    CHARACTER(len=1), INTENT(in) :: string(16)
+    TYPE(t_uuid), INTENT(out) :: uuid
+    uuid%data  = TRANSFER(string, uuid%data)
+  END SUBROUTINE char2uuid
+
+  SUBROUTINE clear_uuid(uuid)
+    TYPE(t_uuid), INTENT(inout) :: uuid
+#ifdef __SX__
+    uuid%data(:) = '0'
+#else
+    uuid%data(:) = 0
+#endif
+  END SUBROUTINE clear_uuid
+
 END MODULE mo_util_uuid

@@ -58,7 +58,7 @@ SUBROUTINE VDFOUTER   ( CDCONF, &
  & PSOTEU , PSOTEV , PSOBETA, PVERVEL, &
  ! OUTPUT
  & PZ0M   , PZ0H   , &
- & PVDIS  , PVDISG , PDISGW3D, PAHFLEV, PAHFLSB, PFWSB  , PBIR   , PVAR   , &
+ & PVDIS  , PVDISG , PDISGW3D,PAHFLEV, PAHFLSB, PFWSB  , PBIR   , PVAR   , &
  & PU10M  , PV10M  , PT2M   , PD2M   , PQ2M   , PZINV  , PBLH   , KHPBLN , KVARTOP , &
  & PSSRFLTI,PEVAPSNW,PGUST  , PWUAVG , LDNODECP,KPBLTYPE, PLDIFF,&
  & PFPLVL , PFPLVN , PFHPVL , PFHPVN , &
@@ -83,15 +83,16 @@ SUBROUTINE VDFOUTER   ( CDCONF, &
  & , t_snow_ex, t_snow_mult_ex, t_s_ex, t_g_ex, qv_s_ex                 & !inout
  & , w_snow_ex, w_snow_eff_ex                                           & ! -
  & , rho_snow_ex, rho_snow_mult_ex, h_snow_ex, w_i_ex                   & ! -
- & , t_so_ex, w_so_ex, w_so_ice_ex &   !,t_2m_ex, u_10m_ex, v_10m_ex    & ! -
+ & , t_so_ex, w_so_ex, w_so_ice_ex  &  !, t_2m_ex, u_10m_ex, v_10m_ex   & ! -
  & , freshsnow_ex, snowfrac_lc_ex, snowfrac_ex                          & ! -
  & , wliq_snow_ex, wtot_snow_ex, dzh_snow_ex                            & ! -
  & , prr_con_ex, prs_con_ex, prr_gsp_ex, prs_gsp_ex                     & !in
  & , tch_ex, tcm_ex, tfv_ex                                             & !inout
  & , sobs_ex, thbs_ex, pabs_ex                                          & !in
  & , runoff_s_ex, runoff_g_ex                                           & !inout
- & , t_g, qv_s                                                          ) ! -
-
+ & , t_g, qv_s                                                          & ! -
+ & , t_ice, h_ice, t_snow_si, h_snow_si                                 & ! -
+ & , fr_seaice                                                          ) !in
 !***
 
 !**   *VDFMAIN* - DOES THE VERTICAL EXCHANGE OF U,V,SLG,QT BY TURBULENCE.
@@ -362,7 +363,7 @@ SUBROUTINE VDFOUTER   ( CDCONF, &
 USE mo_kind         ,ONLY : JPRB=>wp ,JPIM=>i4
 USE mo_cuparameters ,ONLY : lhook    ,dr_hook
 USE mo_edmf_param   ,ONLY : LVDFTRAC                              !yoephy
-USE mo_lnd_nwp_config,ONLY: nlev_soil, nlev_snow, ntiles_total
+USE mo_lnd_nwp_config,ONLY: nlev_soil, nlev_snow, ntiles_total, ntiles_water
 USE mo_ext_data_types,ONLY: t_external_data
 
 USE mo_vdfmain      ,ONLY : vdfmain 
@@ -507,36 +508,42 @@ LOGICAL           ,INTENT(IN)    :: LLDIAG
 
 ! TERRA data
 
-INTEGER          ,INTENT(IN)                                                :: &
+INTEGER          ,INTENT(IN)                                               :: &
   jb             ,jg                 
-REAL(KIND=JPRB)  ,INTENT(INOUT) ,DIMENSION(KLON,0:nlev_snow,ntiles_total)   :: &
+REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,0:nlev_snow,ntiles_total) :: &
   t_snow_mult_ex 
-REAL(KIND=JPRB)  ,INTENT(INOUT) ,DIMENSION(KLON,nlev_snow,ntiles_total)     :: &
+REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,nlev_snow,ntiles_total)   :: &
   rho_snow_mult_ex  
-REAL(KIND=JPRB)  ,INTENT(INOUT) ,DIMENSION(KLON,ntiles_total)               :: &
-  t_snow_ex      ,t_s_ex         ,t_g_ex         ,qv_s_ex          ,           & 
+REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,ntiles_total+ntiles_water):: &
+  t_g_ex         ,qv_s_ex  
+REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,ntiles_total)             :: &
+  t_snow_ex      ,t_s_ex         ,                                            & 
   w_snow_ex      ,w_snow_eff_ex  ,rho_snow_ex    ,h_snow_ex        ,w_i_ex
-REAL(KIND=JPRB)  ,INTENT(INOUT) ,DIMENSION(KLON,0:nlev_soil,ntiles_total)   :: &
+REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,0:nlev_soil,ntiles_total) :: &
   t_so_ex             
-REAL(KIND=JPRB)  ,INTENT(INOUT) ,DIMENSION(KLON,nlev_soil,ntiles_total)     :: &
+REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,nlev_soil,ntiles_total)   :: &
   w_so_ex        ,w_so_ice_ex          
-!REAL(KIND=JPRB)  ,INTENT(INOUT) ,DIMENSION(KLON)                           :: &
-!  t_2m_ex        ,u_10m_ex       ,v_10m_ex             
-REAL(KIND=JPRB)  ,INTENT(INOUT) ,DIMENSION(KLON,ntiles_total)               :: &
-  freshsnow_ex   ,snowfrac_lc_ex ,snowfrac_ex
-REAL(KIND=JPRB)  ,INTENT(INOUT) ,DIMENSION(KLON,nlev_snow,ntiles_total)     :: &
+!REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON)                         :: &
+! u_10m_ex       ,v_10m_ex             
+REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,ntiles_total)             :: &
+  freshsnow_ex   ,snowfrac_lc_ex ,snowfrac_ex 
+REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,nlev_snow,ntiles_total)   :: &
   wliq_snow_ex   ,wtot_snow_ex   ,dzh_snow_ex          
-REAL(KIND=JPRB)  ,INTENT(IN)    ,DIMENSION(KLON)                            :: &
+REAL(KIND=JPRB)  ,INTENT(IN)     ,DIMENSION(KLON)                          :: &
   prr_con_ex     ,prs_con_ex     ,prr_gsp_ex     ,prs_gsp_ex           
-REAL(KIND=JPRB)  ,INTENT(INOUT) ,DIMENSION(KLON,ntiles_total)               :: &
+REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,ntiles_total+ntiles_water):: &
   tch_ex         ,tcm_ex         ,tfv_ex               
-REAL(KIND=JPRB)  ,INTENT(IN)    ,DIMENSION(KLON,ntiles_total)               :: &
+REAL(KIND=JPRB)  ,INTENT(IN)     ,DIMENSION(KLON,ntiles_total+ntiles_water):: &
   sobs_ex        ,thbs_ex        ,pabs_ex              
-REAL(KIND=JPRB)  ,INTENT(INOUT) ,DIMENSION(KLON,ntiles_total)               :: &
+REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,ntiles_total)             :: &
   runoff_s_ex    ,runoff_g_ex        
-REAL(KIND=JPRB)  ,INTENT(INOUT) ,DIMENSION(KLON)                            :: &
+REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON)                          :: &
   t_g            ,qv_s
-TYPE(t_external_data), INTENT(INOUT)                                        :: &
+REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON)                          :: &
+  t_ice          ,h_ice          ,t_snow_si      ,h_snow_si
+REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON)                          :: &
+  fr_seaice
+TYPE(t_external_data), INTENT(INOUT)                                       :: &
   ext_data
 
 !*         0.2    LOCAL VARIABLES
@@ -790,7 +797,9 @@ ENDDO
    & , tch_ex, tcm_ex, tfv_ex                                             & !inout
    & , sobs_ex, thbs_ex, pabs_ex                                          & !in
    & , runoff_s_ex, runoff_g_ex                                           & !inout
-   & , t_g, qv_s                                                          ) ! -
+   & , t_g, qv_s                                                          & ! -
+   & , t_ice, h_ice, t_snow_si, h_snow_si                                 & ! -
+   & , fr_seaice                                                          ) !in
 
 
 !*         3.0    UPDATE STATE VARIABLES
@@ -802,16 +811,8 @@ ENDDO
         ZUM1(JROF,JLEV)=ZUM1(JROF,JLEV)+ZVOM(JROF,JLEV,J1)*ZTSPHY
         ZVM1(JROF,JLEV)=ZVM1(JROF,JLEV)+ZVOL(JROF,JLEV,J1)*ZTSPHY
         ZTM1(JROF,JLEV)=ZTM1(JROF,JLEV)+ZTE(JROF,JLEV,J1)*ZTSPHY
-      ENDDO
-    ENDDO
-    DO JLEV=1,KLEV
-      DO JROF=KIDIA,KFDIA
         ZQM1(JROF,JLEV)=ZQM1(JROF,JLEV)+ZQE(JROF,JLEV,J1)*ZTSPHY
         ZLM1(JROF,JLEV)=ZLM1(JROF,JLEV)+ZLE(JROF,JLEV,J1)*ZTSPHY
-      ENDDO
-    ENDDO
-    DO JLEV=1,KLEV
-      DO JROF=KIDIA,KFDIA
         ZIM1(JROF,JLEV)=ZIM1(JROF,JLEV)+ZIE(JROF,JLEV,J1)*ZTSPHY
         ZAM1(JROF,JLEV)=ZAM1(JROF,JLEV)+ZAE(JROF,JLEV,J1)*ZTSPHY
       ENDDO
@@ -1081,6 +1082,15 @@ PEVAPTI(KIDIA:KFDIA,:)=PEVAPTI(KIDIA:KFDIA,:)*ZINVDF
 !                 -------------------------------
 
 PTSKE1(KIDIA:KFDIA)=PTSKE1(KIDIA:KFDIA)+ZTSKE1A(KIDIA:KFDIA)*ZINVDF
+
+
+! DO JROF=KIDIA,KFDIA
+!   IF ( (SUM(PAHFSTI(JROF,:)) == 0.0) .or. (SUM(PEVAPTI(JROF,:)) == 0.0) .or. &
+!        (PDIFTS(JROF,KLEV)    == 0.0) .or. (PDIFTQ(JROF,KLEV)    == 0.0) ) THEN
+!     write(*,*) 'vdfouter5: ', PDIFTS(JROF,KLEV), PDIFTQ(JROF,KLEV), PAHFSTI(JROF,:), PEVAPTI(JROF,:), &
+!       & PFRTI(JROF,:)
+!   ENDIF
+! ENDDO
 
 
 IF (LHOOK) CALL DR_HOOK('VDFOUTER',1,ZHOOK_HANDLE)

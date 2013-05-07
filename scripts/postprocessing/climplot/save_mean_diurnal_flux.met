@@ -11,6 +11,8 @@ exp=args[1]
 class=args[2]
 start_dates = args[3]
 start_times = args[4]
+datefiln=args[5]
+nmon=args[6]
 
 datadir = getenv("PLOTDATA") 
 if (datadir="") then
@@ -23,6 +25,9 @@ timelist=(parse(string(start_times),"/"))
 print(datelist)
 print(timelist)
 NENS=count(datelist)
+
+datec=string(datefiln)
+mm=substring(datec,5,6)
 #------------------------------------------------------
 #datelist=[2000-08-01,2000-08-02,2000-08-03,2000-08-04]
 #NENS=4
@@ -32,13 +37,26 @@ type="fc"
 grid="av"
 database=""
 
-seasons=["JJA","DJF","SON","MAM","YEAR"]      #   "SON", "DJF",  "MAM",  "JJA", "YEAR",
+if nmon=12 then
+  seasons="YEAR"
+else if nmon=3 and  mm="06" then
+  seasons="JJA"
+else if nmon=3 and  mm="12" then
+  seasons="DJF"
+else if nmon=3 and  mm="09" then
+  seasons="SON"
+else if nmon=3 and  mm="03" then
+  seasons="MAM"
+end if
+
+#seasons=["JJA","DJF","SON","MAM","YEAR"]      #   "SON", "DJF",  "MAM",  "JJA", "YEAR",
 params=[101,102,103]
 vars=['tp','sshf','slhf','ttr','ttrcf','tcliw','skt','2t','2d']
 nvar=count(vars)
 
 for ns=1 to count(seasons) do #  Loop over seasons
-   season=seasons[ns]
+  season=seasons[ns]
+  if season="YEAR" or season="DJF" or season="JJA" then
 
    if season="SON"  then ; day_beglist=[ 31, 30, 29, 28] ; day_endlist=[122,121,120,119] ; end if
    if season="DJF"  then ; day_beglist=[122,121,120,119] ; day_endlist=[212,211,210,209] ; end if
@@ -123,5 +141,5 @@ for ns=1 to count(seasons) do #  Loop over seasons
       write(datafile,v3)
 
    end for #  params
-
+  end if
 end for # seasons

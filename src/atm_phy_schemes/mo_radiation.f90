@@ -80,7 +80,7 @@ MODULE mo_radiation
     &                                irad_cfc11, vmr_cfc11,   &
     &                                irad_cfc12, vmr_cfc12,   &
     &                                irad_aero,               &
-    &                                izenith
+    &                                ighg, izenith
   USE mo_lnd_nwp_config,       ONLY: isub_seaice
 
 !!$  USE mo_greenhouse_gases,     ONLY: ghg_co2mmr, ghg_mmr_ch4, ghg_n2ommr, ghg_cfcvmr
@@ -661,8 +661,8 @@ CONTAINS
     !
     ! --- cloud cover
     !
-    cld_frc_sec(1:jce,:) = MAX(cld_frc(1:jce,:),0.0_wp)
-    !
+    cld_frc_sec(1:jce,:) = MIN(MAX(cld_frc(1:jce,:),0.0_wp),1.0_wp)
+     
     cld_cvr(1:jce) = 1.0_wp - cld_frc_sec(1:jce,1)
     DO jk = 2, klev
       cld_cvr(1:jce) = cld_cvr(1:jce)                                                &
@@ -804,7 +804,7 @@ CONTAINS
       gas_initialized = .TRUE.
     CASE (1)
       IF (PRESENT(gas_val)) THEN
-        gas_profile(1:jce,:) = MAX(gas_val(1:jce,:), 0.0_wp)
+        gas_profile(1:jce,:) = MAX(gas_val(1:jce,:), EPSILON(1.0_wp))
         gas_initialized = .TRUE.
       END IF
     CASE (2)
@@ -825,7 +825,22 @@ CONTAINS
       END IF
     CASE (4)
       IF (PRESENT(gas_scenario)) THEN
-        gas_profile(1:jce,:) = gas_scenario
+        ! TODO: (Hauke Schmidt)
+        ! If the respective parameters are present, a vertical
+        ! profile is calculated as in option (3). This allows a seamless
+        ! continuation of preindustrial control with scenarios. The treatment here is
+        ! inconsistent with having two different options for the constant
+        ! concentration cases (2 without and 3 with profile). However, instead
+        ! of adding a fifth option, it seems more advisable to clean up the
+        ! complete handling of radiation switches (including ighg), later.
+        IF (PRESENT(xp) .AND. PRESENT(pressure)) THEN
+          zx_m = (gas_scenario+xp(1)*gas_scenario)*0.5_wp
+          zx_d = (gas_scenario-xp(1)*gas_scenario)*0.5_wp
+          gas_profile(1:jce,:)=(1._wp-(zx_d/zx_m)*TANH(LOG(pressure(1:jce,:)   &
+            &                     /xp(2)) /xp(3))) * zx_m
+        ELSE
+          gas_profile(1:jce,:) = gas_scenario
+        END IF
         gas_initialized = .TRUE.
       ELSE IF (PRESENT(gas_scenario_v)) THEN
         gas_profile(1:jce,:) = gas_scenario_v(1:jce,:)
@@ -1324,6 +1339,7 @@ CONTAINS
     &                 pflxsfcsw_t   ,  &
     &                 pflxsfclw_t   ,  &
     &                 pflxtoasw     ,  &
+    &                 pflxtoalw     ,  &
     &                 dflxlw_dT     ,  &
     &                 opt_use_cv       )
 
@@ -1368,12 +1384,13 @@ CONTAINS
 
     REAL(wp), INTENT(inout), OPTIONAL :: &
       &     pflxsfcsw (kbdim), &       ! shortwave surface net flux [W/m2]
-      &     pflxsfclw (kbdim), &       ! longwave surface net flux [W/m2]
+      &     pflxsfclw (kbdim), &       ! longwave  surface net flux [W/m2]
       &     pflxsfcsw_t(kbdim,ntiles+ntiles_wtr), & ! tile-specific shortwave 
                                                     ! surface net flux [W/m2]
       &     pflxsfclw_t(kbdim,ntiles+ntiles_wtr), & ! tile-specific longwave 
                                                     ! surface net flux [W/m2]
-      &     pflxtoasw (kbdim)          ! shortwave toa net flux [W/m2]
+      &     pflxtoasw (kbdim), &       ! shortwave toa net flux [W/m2]
+      &     pflxtoalw (kbdim)          ! longwave  toa net flux [W/m2]
 
     REAL(wp), INTENT(out), OPTIONAL :: &
       &   dflxlw_dT (kbdim)            ! temperature tendency of 
@@ -1551,18 +1568,18 @@ CONTAINS
       !   Adjust for changed surface temperature (ptsfc) with respect to the
       !   surface temperature used for the longwave flux computation (ptsfctrad).
       !   --> modifies heating in lowermost layer only (is this smart?)
-      zflxlw(jcs:jce,klevp1) = pflxlw(jcs:jce,klevp1)             !!$  &
-!!$ TR        &                   + pemiss(jcs:jce)*stbo * ptsfctrad(jcs:jce)**4 &
-!!$ TR        &                   - pemiss(jcs:jce)*stbo * ptsfc    (jcs:jce)**4
+      zflxlw(jcs:jce,klevp1) = pflxlw(jcs:jce,klevp1)                      &
+        &                   + pemiss(jcs:jce)*stbo * ptsfctrad(jcs:jce)**4 &
+        &                   - pemiss(jcs:jce)*stbo * ptsfc    (jcs:jce)**4
 
 
     ENDIF
     
     !KF for sea-ice model: temperature tendency of longwave flux at surface
     IF(PRESENT (dflxlw_dT)) &
-      &    dflxlw_dT(jcs:jce)= 4._wp*pemiss(jcs:jce)*stbo               &
-      &                      * (ptemp_klev(jcs:jce)-ptsfc (jcs:jce))**3 &
-      &                      * (ptemp_klev(jcs:jce)-1._wp)
+      &    dflxlw_dT(jcs:jce)= 4._wp * pemiss(jcs:jce) * stbo             &
+      &                      * (ptemp_klev(jcs:jce) - ptsfc (jcs:jce))**3 &
+      &                      * (ptemp_klev(jcs:jce) - 1._wp)
 
     !
     !
@@ -1583,6 +1600,7 @@ CONTAINS
     !     4.4 net sw flux at toa
     !
     IF ( PRESENT(pflxtoasw) ) pflxtoasw(jcs:jce) = zflxsw(jcs:jce,1)
+    IF ( PRESENT(pflxtoalw) ) pflxtoalw(jcs:jce) = zflxlw(jcs:jce,1)
 
     
   END SUBROUTINE radheat

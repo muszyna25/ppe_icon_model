@@ -215,8 +215,8 @@ MODULE mo_nonhydro_types
 
   TYPE t_nh_ref
     REAL(wp), POINTER ::    &
-      vn_ref(:,:,:),        & !! orthogonal normal wind (nproma,nlev,nblks_e)         [m/s]
-      w_ref(:,:,:)             !> orthogonal vertical wind (nproma,nlevp1,nblks_c)    [m/s]
+      vn_ref  (:,:,:),      & !! orthogonal normal wind (nproma,nlev,nblks_e)      [m/s]
+      w_ref   (:,:,:)         !> orthogonal vertical wind (nproma,nlevp1,nblks_c)  [m/s]
   END TYPE t_nh_ref
 
 
@@ -278,6 +278,8 @@ MODULE mo_nonhydro_types
    REAL(wp), POINTER :: wgtfacq1_c(:,:,:)
    ! weighting factor for quadratic interpolation to model top (nproma,3,nblks_e)
    REAL(wp), POINTER :: wgtfacq1_e(:,:,:)
+   ! Coefficients for improved discretization of horizontal kinetic energy gradient (nproma,2,nblks_e)
+   REAL(wp), POINTER :: coeff_gradekin(:,:,:)
    ! Inverse layer thickness of full levels (nproma,nlev,nblks_c)
    REAL(wp), POINTER :: inv_ddqz_z_full(:,:,:)
    ! Inverse distance between full levels jk+1 and jk-1 (nproma,nlev,nblks_c)
@@ -372,6 +374,17 @@ MODULE mo_nonhydro_types
    ! 1/(dz(k-1)*dz(k)) (nproma,nlevp1,nblks_c)
    REAL(wp), POINTER :: mult_1_o_dz(:,:,:)
 
+   !For LES Model : Anurag Dipankar, MPIM (2013-04)
+
+   !Vertical grid related
+   REAL(wp), POINTER :: inv_ddqz_z_half_e(:,:,:) 
+   REAL(wp), POINTER :: inv_ddqz_z_full_e(:,:,:) 
+   REAL(wp), POINTER :: inv_ddqz_z_half(:,:,:) 
+   REAL(wp), POINTER :: inv_ddqz_z_half_v(:,:,:) 
+   REAL(wp), POINTER :: wgtfac_v(:,:,:) 
+   !Mixing length for Smagorinsky model
+   REAL(wp), POINTER :: mixing_length_sq(:,:,:) 
+   
   END TYPE t_nh_metrics
 
   TYPE :: t_buffer_memory

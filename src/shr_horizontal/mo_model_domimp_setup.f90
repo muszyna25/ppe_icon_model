@@ -134,6 +134,7 @@ MODULE mo_model_domimp_setup
   PUBLIC :: set_verts_phys_id
   PUBLIC :: init_butterfly_idx
   PUBLIC :: rescale_grid
+!  PUBLIC :: create_dummy_cell_closure
   
   PUBLIC :: fill_grid_subsets, fill_grid_subset_names, read_grid_subsets, write_grid_subsets
   
@@ -201,13 +202,13 @@ CONTAINS
   !>
   !! This routine calculates the edge area of the patch
   !!
-  SUBROUTINE calculate_edge_area(ptr_patch)
-    TYPE(t_patch), TARGET, INTENT(inout) :: ptr_patch
+  SUBROUTINE calculate_edge_area(patch)
+    TYPE(t_patch), TARGET, INTENT(inout) :: patch
 
     INTEGER                       :: je, jb, istart_e, iend_e
     TYPE(t_subset_range), POINTER :: all_edges
     !-------------------------------------------------------------------------
-    all_edges => ptr_patch%edges%all
+    all_edges => patch%edges%all
 
     ! a) the control volume associated to each edge is defined as the
     ! quadrilateral whose edges are the primal edge and the associated dual edge
@@ -218,9 +219,9 @@ CONTAINS
     DO jb = all_edges%start_block, all_edges%end_block
       CALL get_index_range(all_edges, jb, istart_e, iend_e)
       DO je = istart_e, iend_e
-        ptr_patch%edges%area_edge(je,jb) =  &
-            &    ptr_patch%edges%primal_edge_length(je,jb)  &
-            &  * ptr_patch%edges%dual_edge_length(je,jb)
+        patch%edges%area_edge(je,jb) =  &
+            &    patch%edges%primal_edge_length(je,jb)  &
+            &  * patch%edges%dual_edge_length(je,jb)
       END DO
     END DO
 !$OMP END PARALLEL DO
@@ -344,6 +345,65 @@ CONTAINS
   END SUBROUTINE calculate_patch_cartesian_positions
   !-------------------------------------------------------------------------
     
+  !-------------------------------------------------------------------------
+  !>
+  ! adds a dummy cell at the end of the existing cells
+  ! and creates a "dummy" connectivity for edges and cells that have no neighbor
+  ! Note that the dummy cell has to be already allocated!
+  ! This is indented for the ocean, with no land cells
+  !
+  ! The subsets must have been filled in order in order to call this routine.
+!  SUBROUTINE create_dummy_cell_closure( patch )
+!    TYPE(t_patch), INTENT(inout), TARGET ::  patch
+!
+!    INTEGER :: block, idx, start_idx, end_idx, neighbor
+!    INTEGER :: dummy_cell_blk, dummy_cell_idx
+!
+!    CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_model_domimp_setup:create_dummy_cell_closure'
+!
+!    ! the last cell is the dummy cell
+!    dummy_cell_blk = patch%nblks_c
+!    dummy_cell_idx = patch%npromz_c
+!
+!
+!     write(0,*) "------------ start  create_dummy_cell_closure ---------------"
+!
+! !$OMP PARALLEL
+! !$OMP DO PRIVATE(block, idx, start_idx, end_idx) ICON_OMP_DEFAULT_SCHEDULE
+!    DO block = patch%edges%all%start_block, patch%edges%all%end_block
+!      CALL get_index_range(patch%edges%all, block, start_idx, end_idx)
+!      DO idx = start_idx, end_idx
+!        DO neighbor=1,2
+!          IF ( patch%edges%cell_idx(idx, block, neighbor) == 0) THEN
+!            patch%edges%cell_blk(idx, block, neighbor) = dummy_cell_blk
+!            patch%edges%cell_idx(idx, block, neighbor) = dummy_cell_idx
+!          ENDIF
+!        END DO
+!      END DO
+!    END DO
+! !$OMP END DO
+!
+! !$OMP PARALLEL DO PRIVATE(block, idx, start_idx, end_idx) ICON_OMP_DEFAULT_SCHEDULE
+!    DO block = patch%cells%all%start_block, patch%cells%all%end_block
+!      CALL get_index_range(patch%cells%all, block, start_idx, end_idx)
+!      DO idx = start_idx, end_idx
+!         IF (block /= dummy_cell_blk .OR. idx /= dummy_cell_idx) THEN
+!          ! this is not the dummy cell
+!          DO neighbor=1, patch%cells%max_connectivity
+!            IF ( patch%cells%neighbor_idx(idx, block, neighbor) == 0) THEN
+!              patch%cells%neighbor_blk(idx, block, neighbor) = dummy_cell_blk
+!              patch%cells%neighbor_idx(idx, block, neighbor) = dummy_cell_idx
+!  !             write(0,*) "Replaced neighbor at ", block, idx, neighbor
+!            ENDIF
+!          END DO
+!         ENDIF
+!      END DO
+!    END DO
+! !$OMP END DO
+! !$OMP END PARALLEL
+!
+!  END SUBROUTINE create_dummy_cell_closure
+  !-----------------------------------------------------------------------
     
   !-------------------------------------------------------------------------
   !>

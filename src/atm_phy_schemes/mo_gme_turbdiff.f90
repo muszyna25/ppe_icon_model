@@ -9,10 +9,6 @@ MODULE mo_gme_turbdiff
 
   USE mo_exception,          ONLY: message
   USE mo_run_config,         ONLY: msg_level
-  USE mo_nh_torus_exp,       ONLY: shflx_cbl, lhflx_cbl, set_sst_cbl, ufric_cbl
-  USE mo_run_config,         ONLY: ltestcase
-  USE mo_nh_testcases,       ONLY: nh_test_name
-  USE mo_math_constants,     ONLY: dbl_eps
 
   IMPLICIT NONE
 
@@ -415,11 +411,11 @@ END SUBROUTINE partura
 
 !=======================================================================
 
-SUBROUTINE parturs( zsurf, z1 , u1   , v1     , t1   ,           &
-                    qv1  , t_g, qv_s , fr_land, h_ice,           &
-                    ie   , i_startidx, i_endidx,                 &
-                    tcm  , tch , gz0 )
-!                   ie   , tcm, tch, gz0, gz0s)
+SUBROUTINE parturs( zsurf, z1  , u1   , v1     , t1   , qv1  ,   &
+                    t_g  , qv_s, ps   , fr_land, h_ice,          &
+                    ie   , i_startidx , i_endidx,                 &
+                    tcm  , tch , gz0  ,                           &
+                    shfl_s, lhfl_s, qhfl_s, umfl_s, vmfl_s )
  
 !**** *parturs*  calculates turbulent transfer coefficients
 !=======================================================================
@@ -448,6 +444,7 @@ SUBROUTINE parturs( zsurf, z1 , u1   , v1     , t1   ,           &
   REAL(KIND=wp), INTENT(IN) :: qv1    (ie)  ! spec. humidity (kg/kg) at "    "    "
   REAL(KIND=wp), INTENT(IN) :: t_g    (ie)  ! surface temperature (K)
   REAL(KIND=wp), INTENT(IN) :: qv_s   (ie)  ! surface humidity (kg/kg)
+  REAL(KIND=wp), INTENT(IN) :: ps     (ie)  ! surface pressure (Pa)
   REAL(KIND=wp), INTENT(IN) :: fr_land(ie)  ! surface land fraction
   REAL(KIND=wp), INTENT(IN) :: h_ice  (ie)  ! thickness of sea ice
 
@@ -457,6 +454,12 @@ SUBROUTINE parturs( zsurf, z1 , u1   , v1     , t1   ,           &
   REAL(KIND=wp), INTENT(OUT)   :: tch (ie) ! transfer coefficient for heat/moisture 
   REAL(KIND=wp), INTENT(INOUT) :: gz0 (ie) ! roughness length * g (m2/s2)
 ! REAL(KIND=wp), INTENT(INOUT) :: gz0s(ie) ! roughness length snow * g (m2/s2)
+
+  REAL(KIND=wp), INTENT(OUT)   :: shfl_s(ie) ! sensible   heat flux at surface (W/m2)
+  REAL(KIND=wp), INTENT(OUT)   :: lhfl_s(ie) ! latent     heat flux at surface (W/m2)
+  REAL(KIND=wp), INTENT(OUT)   :: qhfl_s(ie) ! moisture   flux at surface (kg/m2/s)
+  REAL(KIND=wp), INTENT(OUT)   :: umfl_s(ie) ! u-momentum flux at the surface (N/m2)
+  REAL(KIND=wp), INTENT(OUT)   :: vmfl_s(ie) ! v-momentum flux at the surface (N/m2)
  
 !     Local arrays and variables
 
@@ -492,7 +495,7 @@ SUBROUTINE parturs( zsurf, z1 , u1   , v1     , t1   ,           &
   REAL(KIND=wp) :: zustar   !
 
 ! local utility variables
-  REAL(KIND=wp) :: ztvg, ztvs, zgz0d, zgz0dd, zxi, zxih, zy 
+  REAL(KIND=wp) :: ztvg, ztvs, zgz0d, zgz0dd, zxi, zxih, zy , rho_s
   INTEGER       :: j1          ! loop indices
 
   REAL(KIND=wp), PARAMETER :: z1d3  = 1.0_wp/3.0_wp
@@ -628,6 +631,24 @@ SUBROUTINE parturs( zsurf, z1 , u1   , v1     , t1   ,           &
         tcm  (j1) =  ztcm(j1)/zvpb(j1)
         tch  (j1) =  ztch(j1)/zvpb(j1)
         gz0  (j1) = MAX( gz0 (j1), 1.0E-10_wp )
+
+        rho_s     = ps(j1)/( rd * ztvg )
+
+        shfl_s(j1) = ztch(j1)*rho_s*( cpd*(t1(j1)-t_g(j1)) + zdfip(j1) )
+
+        lhfl_s(j1) = ztch(j1)*rho_s*( qv1(j1) - qv_s(j1) )
+        qhfl_s(j1) = lhfl_s(j1)
+        IF ( .NOT. lseaice) THEN
+          lhfl_s(j1) = alv*lhfl_s(j1)
+        ELSE IF ( h_ice(j1) > 0._wp) THEN
+          lhfl_s(j1) = als*lhfl_s(j1)
+        ELSE
+          lhfl_s(j1) = alv*lhfl_s(j1)
+        END IF
+
+        umfl_s(j1) = -tcm(j1)*rho_s * u1(j1)
+        vmfl_s(j1) = -tcm(j1)*rho_s * v1(j1)
+        
  
       END DO
  
@@ -642,8 +663,8 @@ SUBROUTINE parturs( zsurf, z1 , u1   , v1     , t1   ,           &
                             tcm    , tch    , ie     , ke      , ke1     ,  &
                             i_startidx, i_endidx,                           &
                             dt     , du_turb, dv_turb, dt_turb, dqv_turb ,  &
-                            dqc_turb,                                       &
-                            shfl_s , lhfl_s , umfl_s , vmfl_s )
+                            dqc_turb )
+!!                          shfl_s , lhfl_s , qhfl_s, umfl_s , vmfl_s )
 !
 !=======================================================================
 !
@@ -657,7 +678,7 @@ SUBROUTINE parturs( zsurf, z1 , u1   , v1     , t1   ,           &
 !     - meridional wind component           v
 !
 !  For diagnostic purposes, the turbulent fluxes of heat, moisture
-!  and momentum (--> shfl_s, lhfl_s, umfl_s, vmfl_s) are computed.
+!  and momentum (--> shfl_s, lhfl_s, qhfl_s, umfl_s, vmfl_s) are computed.
 !
 !  The code was extracted from subroutine "progexp" of GME and modified.
 !
@@ -700,10 +721,11 @@ SUBROUTINE parturs( zsurf, z1 , u1   , v1     , t1   ,           &
   REAL(KIND=wp), INTENT(OUT) :: dt_turb (ie,ke) ! tendency of T (K/s)
   REAL(KIND=wp), INTENT(OUT) :: dqv_turb(ie,ke) ! tendency of qv (1/s)
   REAL(KIND=wp), INTENT(OUT) :: dqc_turb(ie,ke) ! tendency of qc (1/s)
-  REAL(KIND=wp), INTENT(OUT) :: shfl_s  (ie)    ! sensible heat flux at the surface (W/m2)
-  REAL(KIND=wp), INTENT(OUT) :: lhfl_s  (ie)    ! latent   heat flux at the surface (W/m2)
-  REAL(KIND=wp), INTENT(OUT) :: umfl_s  (ie)    ! u-momentum    flux at the surface (N/m2)
-  REAL(KIND=wp), INTENT(OUT) :: vmfl_s  (ie)    ! v-momentum    flux at the surface (N/m2)
+! REAL(KIND=wp), INTENT(OUT) :: shfl_s  (ie)    ! sensible heat flux at the surface (W/m2)
+! REAL(KIND=wp), INTENT(OUT) :: lhfl_s  (ie)    ! latent   heat flux at the surface (W/m2)
+! REAL(KIND=wp), INTENT(OUT) :: qhfl_s  (ie)    ! moisture      flux at the surface (kg/m2/s)
+! REAL(KIND=wp), INTENT(OUT) :: umfl_s  (ie)    ! u-momentum    flux at the surface (N/m2)
+! REAL(KIND=wp), INTENT(OUT) :: vmfl_s  (ie)    ! v-momentum    flux at the surface (N/m2)
 !
 !=======================================================================
 !
@@ -844,44 +866,22 @@ SUBROUTINE parturs( zsurf, z1 , u1   , v1     , t1   ,           &
 !
 !     Lowest model layer (j3 = ke)
 !
-!     Modifications allowing for fixing surface fluxes for HDCP2 testcases       
-!     By: Anurag Dipankar, MPIM 28-01-2013
+      DO j1 = i_startidx, i_endidx
+        rdzrho      = 1._wp/( rho(j1,ke)*( zh(j1,ke1)-zh(j1,ke)) )
+        zagat       = ztmkv (j1,ke)*rdzrho
+        zagct       = ztmcm (j1)   *rdzrho
+        zaga        = - zagat*a1t(ke)
+        zagb        = rdt - zaga - zagct*a1t(ke1)
+        zag1(j1,ke) =  zagat*( u(j1,ke-1) - u(j1,ke)) &
+          &          + zagct*  u(j1,ke)
+        zag2(j1,ke) =  zagat*( v(j1,ke-1) - v(j1,ke)) &
+          &          + zagct*  v(j1,ke)
 
-      IF(ltestcase.AND.nh_test_name == 'CBL'.AND..NOT.set_sst_cbl)THEN 
-        DO j1 = i_startidx, i_endidx
-          rdzrho      = 1._wp/( rho(j1,ke)*( zh(j1,ke1)-zh(j1,ke)) )
-          zagat       = ztmkv (j1,ke)*rdzrho
-          zagct       = ufric_cbl**2 * rdzrho / ( dbl_eps + zvm(j1) )
-          zaga        = - zagat*a1t(ke)
-          zagb        = rdt - zaga - zagct*a1t(ke1)
-          zag1(j1,ke) =  zagat*( u(j1,ke-1) - u(j1,ke)) &
-            &          + zagct*  u(j1,ke)
-          zag2(j1,ke) =  zagat*( v(j1,ke-1) - v(j1,ke)) &
-            &          + zagct*  v(j1,ke)
-
-          du_turb(j1,ke) = ( zag1(j1,ke) - zaga*zag1(j1,ke-1))/  &
-            &              ( zagb        - zaga*zagc(j1,ke-1))
-          dv_turb(j1,ke) = ( zag2(j1,ke) - zaga*zag2(j1,ke-1))/  &
-            &              ( zagb        - zaga*zagc(j1,ke-1))
-        ENDDO
-      ELSE
-        DO j1 = i_startidx, i_endidx
-          rdzrho      = 1._wp/( rho(j1,ke)*( zh(j1,ke1)-zh(j1,ke)) )
-          zagat       = ztmkv (j1,ke)*rdzrho
-          zagct       = ztmcm (j1)   *rdzrho
-          zaga        = - zagat*a1t(ke)
-          zagb        = rdt - zaga - zagct*a1t(ke1)
-          zag1(j1,ke) =  zagat*( u(j1,ke-1) - u(j1,ke)) &
-            &          + zagct*  u(j1,ke)
-          zag2(j1,ke) =  zagat*( v(j1,ke-1) - v(j1,ke)) &
-            &          + zagct*  v(j1,ke)
-
-          du_turb(j1,ke) = ( zag1(j1,ke) - zaga*zag1(j1,ke-1))/  &
-            &              ( zagb        - zaga*zagc(j1,ke-1))
-          dv_turb(j1,ke) = ( zag2(j1,ke) - zaga*zag2(j1,ke-1))/  &
-            &              ( zagb        - zaga*zagc(j1,ke-1))
-        ENDDO
-      END IF
+        du_turb(j1,ke) = ( zag1(j1,ke) - zaga*zag1(j1,ke-1))/  &
+          &              ( zagb        - zaga*zagc(j1,ke-1))
+        dv_turb(j1,ke) = ( zag2(j1,ke) - zaga*zag2(j1,ke-1))/  &
+          &              ( zagb        - zaga*zagc(j1,ke-1))
+      ENDDO
 !
 !=======================================================================
 !
@@ -900,17 +900,10 @@ SUBROUTINE parturs( zsurf, z1 , u1   , v1     , t1   ,           &
 !
 ! 3.6 Turbulent momentum fluxes
 !
-      IF(ltestcase.AND.nh_test_name=='CBL'.AND..NOT.set_sst_cbl)THEN
-        DO j1 = i_startidx, i_endidx
-          umfl_s(j1) = -ufric_cbl**2 * u(j1,ke) / ( dbl_eps + zvm(j1) )
-          vmfl_s(j1) = -ufric_cbl**2 * v(j1,ke) / ( dbl_eps + zvm(j1) )
-        ENDDO
-     ELSE
-        DO j1 = i_startidx, i_endidx
-          umfl_s(j1) = -ztmcm(j1) * ( du_turb(j1,ke) + u(j1,ke) )
-          vmfl_s(j1) = -ztmcm(j1) * ( dv_turb(j1,ke) + v(j1,ke) )
-        ENDDO
-     END IF
+!     DO j1 = i_startidx, i_endidx
+!       umfl_s(j1) = -ztmcm(j1) * ( du_turb(j1,ke) + u(j1,ke) )
+!       vmfl_s(j1) = -ztmcm(j1) * ( dv_turb(j1,ke) + v(j1,ke) )
+!     ENDDO
 ! 
 !     Calculate tendencies du_turb = du/dt, dv_turb = dv/dt
       du_turb(:,:) = rdt*du_turb(:,:)
@@ -1020,56 +1013,32 @@ SUBROUTINE parturs( zsurf, z1 , u1   , v1     , t1   ,           &
 !       Lowest model layer (j3 = ke)
 !
 
-!     Modifications allowing for fixing surface fluxes for HDCP2 testcases       
-!     By: Anurag Dipankar, MPIM 26-01-2013
-
-      IF(ltestcase.AND.nh_test_name == 'CBL'.AND..NOT.set_sst_cbl)THEN 
-        DO j1 = i_startidx, i_endidx
-          rdzrho      = 1._wp/( rho(j1,ke)*( zh(j1,ke1)-zh(j1,ke)) )
-          zagat       = ztmkv(j1,ke)*rdzrho
-          zaga        = -zagat*a1t(ke)
-          zagb        = rdt - zaga 
-          zag1(j1,ke) =  zagat*( t (j1,ke-1) - t(j1,ke) + g_o_cp*( zf(j1,ke-1)-zf(j1,ke)) ) &
-            &          - rdzrho * shflx_cbl 
-          zag2(j1,ke) =  zagat*( qv(j1,ke-1) - qv(j1,ke)) &
-            &          - rdzrho * lhflx_cbl 
-          zag3(j1,ke) =  zagat*( qc(j1,ke-1) - qc(j1,ke)) 
-
-          dt_turb (j1,ke) = ( zag1(j1,ke) - zaga*zag1(j1,ke-1))/  &
-            &               ( zagb        - zaga*zagc(j1,ke-1))
-          dqv_turb(j1,ke) = ( zag2(j1,ke) - zaga*zag2(j1,ke-1))/  &
-            &               ( zagb        - zaga*zagc(j1,ke-1))
-          dqc_turb(j1,ke) = ( zag3(j1,ke) - zaga*zag3(j1,ke-1))/  &
-            &               ( zagb        - zaga*zagc(j1,ke-1))
-        ENDDO
-      ELSE !AD: It seems the following calculation misses additional RHS term due to dt_surface
-        DO j1 = i_startidx, i_endidx
+      DO j1 = i_startidx, i_endidx
 !
-          rdzrho      = 1._wp/( rho(j1,ke)*( zh(j1,ke1)-zh(j1,ke)) )
-          zagat       = ztmkv(j1,ke)*rdzrho
-          zagct       = ztmcm (j1)  *rdzrho
-          zaga        = -zagat*a1t(ke)
-          zagb        = rdt - zaga - zagct*a1t(ke1)           
-          zag1(j1,ke) =  zagat*( t (j1,ke-1) - t(j1,ke) + g_o_cp*( zf(j1,ke-1)-zf(j1,ke)) ) &
-            &          - zagct*( t_g(j1    ) - t(j1,ke) + g_o_cp*( zh(j1,ke1 )-zf(j1,ke)) )
-          zag2(j1,ke) =  zagat*( qv(j1,ke-1) - qv(j1,ke)) &
-            &          - zagct*( qv_s(j1   ) - qv(j1,ke)) 
-          zag3(j1,ke) =  zagat*( qc(j1,ke-1) - qc(j1,ke)) &
-            &          - zagct*  qc(j1,ke)
-!         zag4(j1,ke) =  zagat*( qi(j1,ke-1) - qi(j1,ke)) &
-!           &          - zagct*  qi(j1,ke)
+        rdzrho      = 1._wp/( rho(j1,ke)*( zh(j1,ke1)-zh(j1,ke)) )
+        zagat       = ztmkv(j1,ke)*rdzrho
+        zagct       = ztmcm (j1)  *rdzrho
+        zaga        = -zagat*a1t(ke)
+        zagb        = rdt - zaga - zagct*a1t(ke1)           
+        zag1(j1,ke) =  zagat*( t (j1,ke-1) - t(j1,ke) + g_o_cp*( zf(j1,ke-1)-zf(j1,ke)) ) &
+          &          - zagct*( t_g(j1    ) - t(j1,ke) + g_o_cp*( zh(j1,ke1 )-zf(j1,ke)) )
+        zag2(j1,ke) =  zagat*( qv(j1,ke-1) - qv(j1,ke)) &
+          &          - zagct*( qv_s(j1   ) - qv(j1,ke)) 
+        zag3(j1,ke) =  zagat*( qc(j1,ke-1) - qc(j1,ke)) &
+          &          + zagct*  qc(j1,ke)
+!       zag4(j1,ke) =  zagat*( qi(j1,ke-1) - qi(j1,ke)) &
+!         &          - zagct*  qi(j1,ke)
 
-          dt_turb (j1,ke) = ( zag1(j1,ke) - zaga*zag1(j1,ke-1))/  &
-            &               ( zagb        - zaga*zagc(j1,ke-1))
-          dqv_turb(j1,ke) = ( zag2(j1,ke) - zaga*zag2(j1,ke-1))/  &
-            &               ( zagb        - zaga*zagc(j1,ke-1))
-          dqc_turb(j1,ke) = ( zag3(j1,ke) - zaga*zag3(j1,ke-1))/  &
-            &               ( zagb        - zaga*zagc(j1,ke-1))
-!         dqi_turb(j1,ke) = ( zag4(j1,ke) - zaga*zag4(j1,ke-1))/  &
-!           &               ( zagb        - zaga*zagc(j1,ke-1))
+        dt_turb (j1,ke) = ( zag1(j1,ke) - zaga*zag1(j1,ke-1))/  &
+          &               ( zagb        - zaga*zagc(j1,ke-1))
+        dqv_turb(j1,ke) = ( zag2(j1,ke) - zaga*zag2(j1,ke-1))/  &
+          &               ( zagb        - zaga*zagc(j1,ke-1))
+        dqc_turb(j1,ke) = ( zag3(j1,ke) - zaga*zag3(j1,ke-1))/  &
+          &               ( zagb        - zaga*zagc(j1,ke-1))
+!       dqi_turb(j1,ke) = ( zag4(j1,ke) - zaga*zag4(j1,ke-1))/  &
+!         &               ( zagb        - zaga*zagc(j1,ke-1))
 !
-        ENDDO
-      END IF
+      ENDDO
 !
 !=======================================================================
 !
@@ -1090,36 +1059,23 @@ SUBROUTINE parturs( zsurf, z1 , u1   , v1     , t1   ,           &
 !
 ! 4.10 Sensible and latent heat fluxes
 !
-      IF(ltestcase.AND.nh_test_name=='CBL'.AND..NOT.set_sst_cbl)THEN
-        DO j1 = i_startidx, i_endidx
-          shfl_s(j1) = - shflx_cbl * cpd
-          lhfl_s(j1) = - lhflx_cbl
-          IF ( .NOT. lseaice) THEN
-            lhfl_s(j1) = alv*lhfl_s(j1)
-          ELSE IF ( h_ice(j1) > 0._wp) THEN
-            lhfl_s(j1) = als*lhfl_s(j1)
-          ELSE
-            lhfl_s(j1) = alv*lhfl_s(j1)
-          END IF
-        ENDDO
-      ELSE
-        DO j1 = i_startidx, i_endidx
+!     DO j1 = i_startidx, i_endidx
 !
-          shfl_s(j1) = - ztmcm(j1)*cpd*                          &
-            &           ( t_g(j1) - t(j1,ke) -dt_turb(j1,ke)     &
-            &            + g_o_cp*(zh(j1,ke1)-zf(j1,ke) ) )
+!       shfl_s(j1) = - ztmcm(j1)*cpd*                          &
+!         &           ( t_g(j1) - t(j1,ke) -dt_turb(j1,ke)     &
+!         &            + g_o_cp*(zh(j1,ke1)-zf(j1,ke) ) )
 !
-          lhfl_s(j1) = - ztmcm(j1)*( qv_s(j1) - qv(j1,ke) - dqv_turb(j1,ke) )
-          IF ( .NOT. lseaice) THEN
-            lhfl_s(j1) = alv*lhfl_s(j1)
-          ELSE IF ( h_ice(j1) > 0._wp) THEN
-            lhfl_s(j1) = als*lhfl_s(j1)
-          ELSE
-            lhfl_s(j1) = alv*lhfl_s(j1)
-          END IF
+!       lhfl_s(j1) = - ztmcm(j1)*( qv_s(j1) - qv(j1,ke) - dqv_turb(j1,ke) )
+!       qhfl_s(j1) = lhfl_s(j1)
+!       IF ( .NOT. lseaice) THEN
+!         lhfl_s(j1) = alv*lhfl_s(j1)
+!       ELSE IF ( h_ice(j1) > 0._wp) THEN
+!         lhfl_s(j1) = als*lhfl_s(j1)
+!       ELSE
+!         lhfl_s(j1) = alv*lhfl_s(j1)
+!       END IF
 !
-        ENDDO
-      END IF
+!     ENDDO
 !
 !     Calculate tendencies dT_turb = dT/dt, dqv_turb = dqv/dt, dqc_turb = dqc/dt
       dt_turb (:,:) = rdt*dt_turb (:,:)

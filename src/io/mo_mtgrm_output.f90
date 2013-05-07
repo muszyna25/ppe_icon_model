@@ -135,13 +135,14 @@ MODULE mo_meteogram_output
     &                                 my_process_is_mpi_workroot,         &
     &                                 my_process_is_mpi_ioroot,           &
     &                                 my_process_is_io,                   &
+    &                                 my_process_is_mpi_test,             &
     &                                 p_real_dp_byte,                     &
     &                                 MPI_ANY_SOURCE,                     &
     &                                 process_mpi_io_size,                &
     &                                 p_barrier
   USE mo_model_domain,          ONLY: t_patch
   USE mo_parallel_config,       ONLY: nproma, p_test_run
-  USE mo_impl_constants,        ONLY: inwp, max_dom, SUCCESS, zml_soil, icc, &
+  USE mo_impl_constants,        ONLY: inwp, max_dom, SUCCESS, zml_soil, &
     &                                 MAX_CHAR_LENGTH
   USE mo_communication,         ONLY: idx_1d, blk_no, idx_no
   USE mo_ext_data_types,        ONLY: t_external_data
@@ -155,7 +156,7 @@ MODULE mo_meteogram_output
     &                                 cpd, p0ref, rd
   USE mo_satad,                 ONLY: sat_pres_water
   USE mo_util_string,           ONLY: int2string
-  USE mo_util_netcdf,           ONLY: nf
+  USE mo_netcdf_read,           ONLY: nf
   ! TODO[FP] : When using an already built GNAT, not all of the
   ! following USEs will be necessary:
   USE mo_gnat_gridsearch,       ONLY: gnat_init_grid, gnat_destroy, gnat_tree,&
@@ -436,8 +437,8 @@ CONTAINS
     CALL add_atmo_var(IBSET(VAR_GROUP_ATMO_ML, FLAG_DIAG), "REL_HUM", "%", "relative humidity", &
       &               jg, prog%tracer_ptr(iqv)%p_3d(:,:,:))
 
-    CALL add_atmo_var(VAR_GROUP_ATMO_ML, "CLC", "-", "total cloud cover", jg, &
-      &               prm_diag%tot_cld(:,:,:,:), icc)
+    CALL add_atmo_var(VAR_GROUP_ATMO_ML, "CLC", "-", "cloud cover", jg, &
+      &               prm_diag%clc(:,:,:))
     CALL add_atmo_var(VAR_GROUP_ATMO_HL, "TKVM", "m**2/s",             &
       &               "turbulent diffusion coefficients for momentum", &
       &               jg, prm_diag%tkvm(:,:,:))
@@ -652,8 +653,9 @@ CONTAINS
 
     ! PE collecting variable info to send it to pure I/O PEs.
     ! (only relevant if pure I/O PEs exist)
-    l_is_varlist_sender = (process_mpi_io_size > 0) .AND.  &
-      &                   my_process_is_mpi_workroot()
+    l_is_varlist_sender = (process_mpi_io_size > 0)    .AND.  &
+      &                   my_process_is_mpi_workroot() .AND.  &
+      &             .NOT. my_process_is_mpi_test()
 
     ! Flag. True, if this PE is a pure I/O PE without own patch data:
     l_pure_io_pe        = (process_mpi_io_size > 0) .AND.  &

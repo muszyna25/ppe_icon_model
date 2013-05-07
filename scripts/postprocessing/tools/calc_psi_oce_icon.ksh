@@ -5,7 +5,7 @@
 #  Author: Stephan Lorenz, MPIfMet, 06/2012
 #
 #  Input : averaged icon-ocean standard output file including variables u_vint and wet_c 
-#  Output: interpolated input/output/plot-files named u_vint/psi.r360x180/nclpsi
+#  Output: interpolated input/output/plot-files named u_vint/psi/nclpsi
 #
 #  Method:
 #   - vertical interpolation is done in the model, variable u_vint
@@ -18,32 +18,31 @@
 
 set -e
 
-### input parameter
-
 # Resolution:
 # cdo remapnn and remapdis generate shaky isolines
 # cdo remapcon generates missing values at Poles if resolution of regular target grid is too fine
 #   R2B04-r180x90 and R2B05-r360x180 match well
 
-# direct assignment of filenames
-#avgfile=avg.5y.xom.bliz.r9368.45
-#filestr=avg45.2164ym
-#avgfile=timmean_2420-2470
-#filestr=2420-2470ym
-#resol=r${nlon}x${nlat}
-#resol='r180x90'
+### input parameter
+avgfile=${1}             #  file including wet_c and average of u_vint
+resol=${2:-r180x90}      #  default resolution: 2x2 degrees, 180x90 gridpoints
+filestr=${3:-$1}         #  pattern index for filenames
+weightfile=${4}          #  optional weights for interpolation
 
-# via parameter
-avgfile=${1}
-filestr=${2}
-resol=${3:-r180x90}
-weightfile=${4}
+# Default name of input file is avg.$filestr
+if [ "$filestr" == "$avgfile" ]; then
+  xtag=${avgfile##avg.}
+  filestr=${xtag%%.nc}
+fi
 
 echo "PSI: Input file is '$avgfile'"
 echo "PSI: Tag is '$filestr'"
 echo "PSI: Resolution is '$resol'"
 echo "PSI: Weightsfile is '$weightfile'"
 ### input parameter end
+
+#resol=r${nlon}x${nlat}
+#resol='r180x90'
 
 # file names
 inpfile=uvint.${resol}.$filestr
@@ -54,37 +53,42 @@ rlon=${resol%x*}
 nlon=${rlon#r}
 nlat=${resol#*x}
 
-echo "PSI: Resolution used is $resol"
 echo "PSI: Working on files: input: $avgfile ; output: $outfile ; plot: $plotfile"
 
 # select wet_c (lsm at surface) and u_vint (vertical integral of u)
+#  - do interpolation if neither inpfile nor outfile is available
 #  - sellevidx: select first level index at surface
-if [ ! -s $inpfile.srv ]; then
+if [ ! -s "$inpfile.nc" ] && [ ! -s "$outfile.nc" ]; then
+  echo "PSI -> no result file available, do interpolation"
   if [ -z "$weightfile" ]; then
-    echo "PSI: weightfile is not given! Use remapcon for u_vint and remapnn for wet_c ..."
+    echo "PSI -> weightfile is not given! Use remapcon for u_vint and remapnn for wet_c ..."
     #cdo -P 8 remapdis,$resol -selvar,u_vint $avgfile xsrc.${resol}_uint.nc
-    cdo -P 8 remapcon,$resol -selvar,u_vint $avgfile xsrc.${resol}_uint.nc
+    cdo -P 8 setmisstoc,0.0 -remapcon,$resol -selvar,u_vint $avgfile xsrc.${resol}_uint.nc
     cdo -P 8 remapnn,$resol  -selvar,wet_c -sellevidx,1 $avgfile xsrc.${resol}_wetc.nc
     #cdo merge xsrc.${resol}_wetc.nc xsrc.${resol}_uint.nc $inpfile.nc
-    cdo merge xsrc.${resol}_uint.nc xsrc.${resol}_wetc.nc $inpfile.nc
+    cdo merge xsrc.${resol}_uint.nc xsrc.${resol}_wetc.nc $inpfile.nc  # -O
     # Memory fault in r2b5?
     #cdo -P 8 merge -remapnn,$resol  -selvar,wet_c -sellevidx,1 $avgfile -selvar,u_vint $avgfile $inpfile.nc
     rm xsrc.${resol}_wetc.nc xsrc.${resol}_uint.nc
   else
-    echo "PSI: weightfile is given:'$weightfile'. Use remap ..."
+    echo "PSI -> weightfile is given:'$weightfile'. Use remap ..."
     cdo -P 8 remap,$resol,$weightfile -selvar,u_vint,wet_c, $avgfile $inpfile.nc
   fi
-
-  # store grid description, convert to service format
-  echo "PSI: cdo -v griddes $inpfile.nc > griddes.$resol"
-  cdo griddes $inpfile.nc > griddes.$resol
-
-  echo "PSI: cdo -v -f srv copy $inpfile.nc $inpfile.srv"
-  cdo -f srv copy $inpfile.nc $inpfile.srv
-  rm $inpfile.nc
 else
-  echo "PSI: Use input for the psi-computation:'$inpfile.srv'"
+  echo "PSI -> Use input for the psi-computation:'$inpfile.nc'"
 fi
+
+# if outfile is available do plotting only:
+if [ -s "$outfile.nc" ]; then
+  echo "PSI -> run plot program only "
+else
+
+# store grid description, convert to service format
+echo "PSI -> cdo -v griddes $inpfile.nc > griddes.$resol"
+cdo griddes $inpfile.nc > griddes.$resol
+echo "PSI -> cdo -v -f srv copy $inpfile.nc $inpfile.srv"
+cdo -f srv copy $inpfile.nc $inpfile.srv
+#rm $inpfile.nc
 
 cat > scr-psiread.f90 <<EOF
 !-------------------------------------------------------------------------  
@@ -168,7 +172,7 @@ jx = 1 + 270*nlat/360
   write(80) ((wet_c(jlon,jlat),jlon=1,nlon),jlat=1,nlat)
 
 
-  ! (3) calculate meridional integral on regular grid starting from south pole:
+  ! (3) calculate meridional integral on regular grid starting from north pole:
 
   DO jlat = nlat-1, 1, -1
     z_uint_reg(:,jlat) = z_uint_reg(:,jlat) + z_uint_reg(:,jlat+1)
@@ -186,7 +190,9 @@ jx = 1 + 270*nlat/360
 
   !psi_reg(:,:) = z_uint_reg(:,:) * z_lat_dist * rho_ref * wet_c(:,1,:) * 1.0e-9 ! e+9 [kg/s]
   !psi_reg(:,:) = z_uint_reg(:,:) * z_lat_dist * wet_c(:,1,:) * 1.0e-6           ! e+6 [m3/s]
-  psi_reg(:,:) = z_uint_reg(:,:) * z_lat_dist * wet_c(:,:) * 1.0e-6
+  !psi_reg(:,:) = z_uint_reg(:,:) * z_lat_dist * wet_c(:,:) * 1.0e-6
+  ! multiply with -1: Gulf/Kuroshio and ACC positive
+  psi_reg(:,:) = -z_uint_reg(:,:) * z_lat_dist * wet_c(:,:) * 1.0e-6
 
 
   write(80) (isrvu(jb),jb=1,8)
@@ -197,23 +203,26 @@ END PROGRAM psiread
 !-------------------------------------------------------------------------  
 EOF
 
-echo "PSI: compile and run program scr-psiread.x"
+echo "PSI -> compile and run program scr-psiread.x"
 gfortran -o scr-psiread.x scr-psiread.f90
 ./scr-psiread.x
-rm scr-psiread.*
+rm scr-psiread.* $inpfile.srv
+if [ "$resol" == "r180x90" ] ; then rm $inpfile.nc; fi
 
 # convert back to netcdf
-echo "PSI: cdo -f nc -g griddes.$resol chvar,var4,psi -chvar,var1,wet_c $outfile.srv $outfile.nc"
+echo "PSI -> cdo -f nc -g griddes.$resol chvar,var4,psi -chvar,var1,wet_c $outfile.srv $outfile.nc"
 cdo -f nc -g griddes.$resol chvar,var4,psi -chvar,var1,wet_c $outfile.srv $outfile.nc
-rm $outfile.srv
+rm $outfile.srv griddes.$resol
+
+fi  #  run fortran program
 
 # plot with nclsh:
 
-echo "PSI: plot using icon_plot.ncl:"
+echo "PSI -> plot using icon_plot.ncl:"
 nclsh /pool/data/ICON/tools/icon_plot.ncl -altLibDir=/pool/data/ICON/tools \
   -iFile=$outfile.nc -oFile=$plotfile -varName=psi -timeStep=0 -oType=eps \
   -maskName=wet_c -selMode=manual -minVar=-150 -maxVar=150 -numLevs=15 \
-  -plotLevs=-150,-100,-75,-50,-30,-20,-10,-5,0,5,10,20,30,50,75,100,150 -withLineLabels
+  -plotLevs=-150,-100,-75,-50,-30,-20,-10,-5,0,5,10,20,30,50,75,100,150 -withLineLabels > /dev/null
 
 # nclsh $ICONPLOT \
 #   -iFile=$outfile.nc -oFile=$plotfile -varName=psi -timeStep=0 -oType=ps \

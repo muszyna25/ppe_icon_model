@@ -65,6 +65,7 @@ MODULE mo_output
     &                               set_restart_depth_lnd, &  !DRset_restart_height, &
     &                               set_restart_height_snow
   USE mo_io_restart_attributes,ONLY: set_restart_attribute
+  USE mo_name_list_output,    ONLY: output_file
   USE mo_model_domain,        ONLY: t_patch,t_patch_3D, p_patch
   USE mo_intp_data_strc,      ONLY: t_lon_lat_intp
   USE mo_run_config,          ONLY: ltimer, output_mode
@@ -518,6 +519,12 @@ CONTAINS
     ELSE
       CALL set_restart_attribute( 'next_output_file', jfile   )
     END IF
+    IF (output_mode%l_nml) THEN
+      DO i=1, SIZE(output_file,1)
+        WRITE(attname,'(a,i2.2)') 'n_output_steps', i
+        CALL set_restart_attribute( TRIM(attname), output_file(i)%name_list%n_output_steps)
+      END DO
+    END IF
 
     IF (PRESENT(opt_pvct)) CALL set_restart_vct( opt_pvct )  ! Vertical coordinate (A's and B's)
     IF (PRESENT(opt_depth_lnd)) THEN            ! geometrical depth for land module
@@ -536,7 +543,7 @@ CONTAINS
     ELSE
       inlev_soil = 0
     ENDIF
-    IF (PRESENT(opt_nlev_snow)) THEN            ! number of snow levels (multi layer snow model)
+    IF (PRESENT(opt_nlev_snow) .AND. opt_nlev_snow /= 0) THEN  ! number of snow levels (multi layer snow model)
       inlev_snow = opt_nlev_snow
       ALLOCATE(zlevels_full(inlev_snow))
       ALLOCATE(zlevels_half(inlev_snow+1))
@@ -577,7 +584,7 @@ CONTAINS
                      & kedge, 4,          &! total # of cells, shape of control volume for edge 
                      & klev,              &! total # of vertical layers
                      & izlev,             &! total # of depths below sea
-                     & inlev_soil,        &! total # of depths below land (TERRA)
+                     & inlev_soil,        &! total # of depths below land (TERRA or JSBACH)
                      & inlev_snow,        &! total # of vertical snow layers (TERRA)
                      & nice_class         )! total # of ice classes (sea ice)
 

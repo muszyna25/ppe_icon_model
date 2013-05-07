@@ -65,9 +65,9 @@ yyyymm   = getenv("YYYYMM")
 # --- setup
 
 if levtype = 'sfc' then 
-  grid     = [1,1]
+  grid     = [1.0,1.0]          # default: '' or [1.5,1.5]
 else
-  grid     = [1,1]
+  grid     = [1.0,1.0]          # same
 end if
 
 precision( 4 )           # precision of numbers in plots
@@ -174,6 +174,7 @@ case varname of
  'QTVAR'   :  varfile = '192.201.39'  end
  'ttendsw' :  varfile = '192.162.100' end
  'ttendlw' :  varfile = '192.162.101' end
+ 'T_G'     :  varfile = 't'           end
  'T_2M'    :  varfile = '2t'          end
  'U_10M'   :  varfile = '10u'         end
  'V_10M'   :  varfile = '10v'         end
@@ -182,6 +183,8 @@ case varname of
  'P'       :  varfile = 'pres'        end
  'PS'      :  varfile = 'sp'          end
  'PMSL'    :  varfile = 'prmsl'       end
+ 'DZH_SNOW':  varfile = 'sd'          end
+ 'H_ICE'   :  varfile = 'icetk'       end
 end case
 
 #verify QV,QC,QI against Q1,Q2,Q3 at initial condition (IFS)
@@ -206,17 +209,22 @@ for nd=1 to ndays do
 # source_sfc_ifs='/uwork1/mkoehler/ifs.data/oper/ifs_oper_2x2_20110101-20.sfc.grb'
 
   mntxt = parse(tailfile, "_")
+  
 
   if lmonth = 0 then
     source_ini_icon = datafile&inidate&initime&'_DOM01_0001_'&varfile&'_'&levtype&'.grb'
     source_ver_icon = datafile&verdate&vertime&'_DOM01_0001_'&varfile2&'_'&levtype&'.grb'
     source_pl_ifs ='/scratch/ms/de/deia/ifs_data/ifs_oper_1x1_'&yyyymm&'.pl.grb'
     source_sfc_ifs='/scratch/ms/de/deia/ifs_data/ifs_oper_1x1_'&yyyymm&'.sfc.grb'
+    nfc = ndays
   else
     source_ini_icon = datafile&yyyymm&'_DOM01_0001_'&varfile&'_'&levtype&tailfile
     source_ver_icon = datafile&yyyymm&'_DOM01_0001_'&varfile2&'_'&levtype&tailfile 
     source_pl_ifs ='/scratch/ms/de/deia/ifs_data/ifs_oper_1x1_'&yyyymm&'.pl.' &mntxt[3]
     source_sfc_ifs='/scratch/ms/de/deia/ifs_data/ifs_oper_1x1_'&yyyymm&'.sfc.'&mntxt[3]
+    nfc = parse(mntxt[3], "-")
+    nfc = parse(nfc[2],".")
+    nfc = nfc[1]
   end if
 
 
@@ -257,6 +265,7 @@ for nd=1 to ndays do
       'ACCTHB_T':        scale= 1.0/86400.0 end
       'ACCLHFL_S':       scale= 1.0/86400.0 end
       'ACCSHFL_S':       scale= 1.0/86400.0 end
+      'TCC':             scale= 0.01        end
     end case
     temp = temp * scale
     if nd=1 then
@@ -311,7 +320,7 @@ for nd=1 to ndays do
          #'':                param = 'CP'   end
          #'':                param = 'LSP'  end
          #'':                param = 'SSTK' end
-          'H_SNOW':          param = 'SD'   end
+          'DZH_SNOW':        param = 'SD'   end
           'RHO_SNOW':        param = 'RSN'  end
           'T_G':             param = 'SKT'  end
           'ACCSOB_S':        param = 'SSR'  ; scale= 1.0/86400.0 end
@@ -412,13 +421,14 @@ for k=k1 to k2 by k3 do
     statistic = statistic&'   RMS:  '&rms
     append (plotdir&"/scores_"&expnum&".txt", 
       varname, tab, levtype,' level: ', k, tab, 'inidatetime: ', firstinidate, initime, 
-      '   step: ', step, '   ndays: ', ndays, tab, statistic, newline)
+      '   step: ', step, '   nfc: ', nfc, tab, statistic, newline)
   end if
+  statistic = statistic & '   Mem:  '&nfc
 
-  if levtype = 'pl' then
-    title1   = title&'    L'&k
+  if levtype = 'pl' or levtype = 'ml' then
+    title1 = title&'    L'&k
   else
-    title1   = title&'    L'&k  
+    title1 = title 
   end if
 
 
@@ -529,6 +539,20 @@ for k=k1 to k2 by k3 do
   else
     plot ( display_window[1], text, var_data[k], all,  legend )
   end if
+
+
+# Dummy fix to wait until plot is finished for convert command afterwards (v4.3.8)
+# (can be removed once metview is fixed)
+# CREATE a DUMMY PS FILE
+  file_dummy = ps_output( OUTPUT_NAME : plotdir&'/dummy' )
+  setoutput(file_dummy)
+# xxx
+
+
+# shell('ls -lrt '&plotfile&'.L'&k&'.p*')
+  shell('convert -rotate 90 '&plotfile&'.L'&k&'.ps '&plotfile&'.L'&k&'.png')
+  shell('ls -lrt '&plotfile&'.L'&k&'.png')
+# shell('\rm -f '            &plotfile&'.L'&k&'.ps ')
 
 end for
 

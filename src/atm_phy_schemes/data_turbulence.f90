@@ -96,7 +96,8 @@ REAL (KIND=ireals) ::          &
   z0m_dia    =  0.2_ireals,    & ! roughness length of a typical synoptic station [m]
 !
   alpha0     =  0.0123_ireals, & ! Charnock-parameter
-  alpha1     =  0.0000_ireals    ! parameter scaling the molek. roughness of water waves
+! alpha1     =  0.0000_ireals    ! parameter scaling the molek. roughness of water waves
+  alpha1     =  1.0000_ireals    ! parameter scaling the molek. roughness of water waves
 
 ! 2. Parameters that should be external parameter fields being not yet 
 !    available:

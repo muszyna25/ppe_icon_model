@@ -40,6 +40,10 @@ case %SIMMODE% in
      ldeldata=0  ;;
 esac
 
+###
+#lcpdata=1
+###
+
 
 #-----------------------------------------------------------------------------
 # directories
@@ -110,11 +114,13 @@ fi
 outfile_mtg1=${outdir}/METEOGRAM_patch001.nc
 outfile_mtg2=${outdir}/${basename}_meteogram.nc
 mv  $outfile_mtg1 $outfile_mtg2 || true
-rcp $outfile_mtg2 ecgate:${gatedir}
 if [ -f  $outfile_mtg2 ] ; then
   ecp -o $outfile_mtg2 $ecfsdir
 else
   ecp $ecfsdir/$outfile_mtg2 .
+fi
+if [[ $lcpdata = 1 ]] ; then
+  rcp $outfile_mtg2 ecgate:${gatedir}
 fi
 smsevent meteogram_data
 
@@ -136,9 +142,11 @@ done
 
 if [[ $lsplitdata = 1 ]] ; then
 
+dwd_grib_api=/home/ms/de/dwd/grib_api
 # export the DWD GRIB short names:
 # export GRIB_DEFINITION_PATH="%SCSOFT%/software/grib_api/release/share-1.9.9/definitions.edzw:/usr/local/lib/metaps/lib/grib_api/current/share/definitions"
-  export GRIB_DEFINITION_PATH="/usr/local/lib/metaps/lib/grib_api/current/share/definitions:%SCSOFT%/software/grib_api/release/share-1.9.9/definitions.edzw"
+# export GRIB_DEFINITION_PATH="/usr/local/lib/metaps/lib/grib_api/current/share/definitions:%SCSOFT%/software/grib_api/release/share-1.9.9/definitions.edzw"
+  export GRIB_DEFINITION_PATH="/usr/local/lib/metaps/lib/grib_api/1.10.4/share/definitions:${dwd_grib_api}/definitions.edzw-1.9.16"
 
   mkdir -p grb_data
   for levtype1 in PL HL ML; do

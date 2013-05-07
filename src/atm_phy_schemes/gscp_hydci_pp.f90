@@ -273,6 +273,13 @@ PRIVATE
 
 PUBLIC :: hydci_pp, hydci_pp_init
 
+LOGICAL, PARAMETER :: &
+  lnew_ni_cooper = .TRUE.  ! Number of ice crystals according to Cooper (1986)
+
+REAL(ireals), PARAMETER :: &
+  zceff_min = 0.2_ireals   ! Lower bound on sticking efficiency (artifically enhances the conversion
+                           ! of cloud ice to snow at low temperatures - unfortunately, the scores 
+                           ! get worse when relaxing this parameter)
 
 !------------------------------------------------------------------------------
 !> Parameters and variables which are global in this module
@@ -364,10 +371,15 @@ REAL    (KIND=ireals   ), PARAMETER ::  &
   zthn  = 236.15_ireals , & ! temperature for hom. freezing of cloud water
   ztrfrz= 271.15_ireals , & ! threshold temperature for heterogeneous
 !                           ! freezing of raindrops
+  ztmix = 250.00_ireals , & ! threshold temperature for mixed-phase clouds (Forbes 2012)
+!                           ! freezing of raindrops
+  znimax_Thom = 150.E+3_ireals, & !FR: maximal number of ice crystals 
   zmi0   = 1.0E-12_ireals, & ! initial crystal mass for cloud ice nucleation
   zmimax = 1.0E-9_ireals , & ! maximum mass of cloud ice crystals   
   zmsmin = 3.0E-9_ireals , & ! initial mass of snow crystals        
-  
+  zvz0i  = 1.1_ireals   , & ! Terminal fall velocity of ice (Heymsfield+Donner 1990 multiplied by 1/3)
+  zbvi   = 0.16_ireals   , & ! v = zvz0i*rhoqi^zbvi
+
   !! Constant exponents in the transfer rate equations
   x1o12  =  1.0_ireals/12.0_ireals  ,  x3o16  =  3.0_ireals/16.0_ireals, &
   x7o8   =  7.0_ireals/ 8.0_ireals  ,  x2o3   =  2.0_ireals/ 3.0_ireals, &
@@ -764,8 +776,10 @@ SUBROUTINE hydci_pp (             &
   REAL    (KIND=ireals   ) ::  &
     fpvsw, fpvsi, fqvs,& ! name of statement functions
     fxna ,             & ! statement function for ice crystal number
+    fxna_cooper ,      & ! statement function for ice crystal number, Cooper(1986)
     ztx  , zpv  , zpx ,& ! dummy arguments for statement functions
     znimax,            & ! maximum number of cloud ice crystals
+    znimix,            & ! number of ice crystals at ztmix -> threshold temp for mixed-phase clouds
     zpvsw0,            & ! sat.vap. pressure at melting temperature
     zqvsw0,            & ! sat.specific humidity at melting temperature
 !    zdt,               & ! timestep for integration (water / ice )
@@ -827,10 +841,13 @@ SUBROUTINE hydci_pp (             &
     zqvsi       (nvec),     & !> sat. specitic humidity at ice and water saturation
     zvzr        (nvec),     & !
     zvzs        (nvec),     & !
+    zvzi        (nvec),     & ! terminal fall velocity of ice
     zpkr        (nvec),     & !
     zpks        (nvec),     & !
+    zpki        (nvec),     & ! precipitation flux of ice
     zprvr       (nvec),     & !
     zprvs       (nvec),     & !
+    zprvi       (nvec),     & !
 #ifdef __COSMO__
     zdummy      (nvec,8),   & !
 #endif
@@ -844,10 +861,13 @@ SUBROUTINE hydci_pp (             &
     zn0s        (nvec),     & !
     zimr        (nvec),     & !
     zims        (nvec),     & !
+    zimi        (nvec),     & !
     zzar        (nvec),     & !
     zzas        (nvec),     & !
+    zzai        (nvec),     & !
     zqrk        (nvec),     & !
     zqsk        (nvec),     & !
+    zqik        (nvec),     & !
     zdtdh       (nvec),     & !
     z1orhog     (nvec),     & ! 1/rhog
     zrho1o2     (nvec),     & ! (rho0/rhog)**1/2
@@ -911,6 +931,7 @@ SUBROUTINE hydci_pp (             &
   
 ! Number of activate ice crystals;  ztx is temperature
   fxna(ztx)   = 1.0E2_ireals * EXP(0.2_ireals * (t0 - ztx))
+  fxna_cooper(ztx) = 5.0E+0_ireals * EXP(0.304_ireals * (t0 - ztx))         ! Cooper (1986) used by Greg Thompson(2008)
 
 !> Coeffs for moment relation based on 2nd moment (Field 2005)
   mma = (/5.065339_ireals, -0.062659_ireals, -3.032362_ireals, 0.029469_ireals, -0.000285_ireals, &
@@ -947,7 +968,15 @@ SUBROUTINE hydci_pp (             &
 
 
 ! Some constant coefficients
+! Some constant coefficients
+  IF( lnew_ni_cooper) THEN
+!    znimax = fxna_cooper(zthn) ! Maximum number of cloud ice crystals
+    znimax = znimax_Thom
+    znimix = fxna_cooper(ztmix) ! number of ice crystals at temp threshold for mixed-phase clouds
+  ELSE
     znimax = fxna(zthn) ! Maximum number of cloud ice crystals
+    znimix = fxna(ztmix) ! number of ice crystals at temp threshold for mixed-phase clouds
+  END IF
     zpvsw0 = fpvsw(t0)  ! sat. vap. pressure for t = t0
 
 ! Delete precipitation fluxes from previous timestep
@@ -956,10 +985,13 @@ SUBROUTINE hydci_pp (             &
     prs_gsp (:) = 0.0_ireals
     zpkr    (:) = 0.0_ireals
     zpks    (:) = 0.0_ireals
+    zpki    (:) = 0.0_ireals
     zprvr   (:) = 0.0_ireals
     zprvs   (:) = 0.0_ireals
+    zprvi   (:) = 0.0_ireals
     zvzr    (:) = 0.0_ireals
     zvzs    (:) = 0.0_ireals
+    zvzi    (:) = 0.0_ireals
 !CDIR END
 
 
@@ -1074,6 +1106,7 @@ SUBROUTINE hydci_pp (             &
 
     ic1 = 0
     ic2 = 0
+    ic3 = 0
 
     DO iv = iv_start, iv_end
 
@@ -1092,14 +1125,17 @@ SUBROUTINE hydci_pp (             &
 
         zqrk(iv) = qrg * rhog
         zqsk(iv) = qsg * rhog
+        zqik(iv) = qig * rhog
 
         llqr = zqrk(iv) > zqmin
         llqs = zqsk(iv) > zqmin
+        llqi = zqik(iv) > zqmin
 
         zdtdh(iv) = 0.5_ireals * zdt / dz(iv,k)
 
         zzar(iv)   = zqrk(iv)/zdtdh(iv) + zprvr(iv) + zpkr(iv)
         zzas(iv)   = zqsk(iv)/zdtdh(iv) + zprvs(iv) + zpks(iv)
+        zzai(iv)   = zqik(iv)/zdtdh(iv) + zprvi(iv) + zpki(iv)
 
         IF (llqs) THEN
           ic1 = ic1 + 1
@@ -1109,6 +1145,11 @@ SUBROUTINE hydci_pp (             &
           ic2 = ic2 + 1
           ivdx2(ic2) = iv
        ENDIF
+       IF (llqi) THEN
+         ic3 = ic3 + 1
+         ivdx3(ic3) = iv
+       ENDIF
+
     
      ENDDO
 
@@ -1161,22 +1202,31 @@ SUBROUTINE hydci_pp (             &
       zbsdep(iv) = ccsdep*SQRT(v0snow)
       zvz0s (iv) = ccsvel*EXP(ccsvxp * LOG(zn0s(iv)))
 
-      IF (zvzs(iv) == 0.0_ireals) THEN
+!      IF (zvzs(iv) == 0.0_ireals) THEN
         zvzs(iv) = zvz0s(iv) * EXP (ccswxp * LOG (0.5_ireals*zqsk(iv))) * zrho1o2(iv)
-      ENDIF
+!      ENDIF
     ENDDO loop_over_qs_prepare
 
 !CDIR NODEP,VOVERTAKE,VOB
     loop_over_qr_sedi: DO i1d = 1, ic2
       iv = ivdx2(i1d)
 
-      IF (zvzr(iv) == 0.0_ireals) THEN
+!      IF (zvzr(iv) == 0.0_ireals) THEN
 !replaced: zvzr(iv) = zvz0r * EXP (x1o8  * LOG (0.5_ireals*zqrk(iv))) * zrho1o2(iv)
         zvzr(iv) = zvz0r * EXP (zvzxp  * LOG (0.5_ireals*zqrk(iv))) * zrho1o2(iv)
 
-      ENDIF
+!      ENDIF
     ENDDO loop_over_qr_sedi
 
+!CDIR NODEP,VOVERTAKE,VOB
+    loop_over_qi_sedi: DO i1d = 1, ic3
+      iv = ivdx3(i1d)
+      
+!      IF (zvzi(iv) == 0.0_ireals .AND. lnew_ice_sedi) THEN
+        !! density correction not needed zrho1o2(iv)
+        zvzi(iv) = zvz0i * EXP (zbvi  * LOG (0.5_ireals*zqik(iv)))
+!      ENDIF
+    ENDDO loop_over_qi_sedi
 
 
   !----------------------------------------------------------------------------
@@ -1235,6 +1285,7 @@ SUBROUTINE hydci_pp (             &
 
         llqr = zqrk(iv) > zqmin
         llqs = zqsk(iv) > zqmin
+        llqi = zqik(iv) > zqmin
 
         IF (llqr) THEN
           !US reported by Thorsten Reinhardt: Multiplication with zrho1o2 was missing
@@ -1250,20 +1301,31 @@ SUBROUTINE hydci_pp (             &
           zpks(iv) = 0.0_ireals
         ENDIF
 
+        IF (llqi) THEN
+          zpki(iv) = zqik (iv) * zvz0i * EXP (zbvi * LOG (zqik(iv))) * zrho1o2(iv)
+        ELSE
+          zpki(iv) = 0.0_ireals
+        ENDIF
+
         zpkr(iv)   = MIN( zpkr(iv) , zzar(iv) )
         zpks(iv)   = MIN( zpks(iv) , zzas(iv) )
+        zpki(iv)   = MIN( zpki(iv) , zzai(iv) )
 
         zzar(iv)   = zdtdh(iv) * (zzar(iv)-zpkr(iv))
         zzas(iv)   = zdtdh(iv) * (zzas(iv)-zpks(iv))
+        zzai(iv)   = zdtdh(iv) * (zzai(iv)-zpki(iv))
 
         zimr(iv)   = 1.0_ireals / (1.0_ireals + zvzr(iv) * zdtdh(iv))
         zims(iv)   = 1.0_ireals / (1.0_ireals + zvzs(iv) * zdtdh(iv))
+        zimi(iv)   = 1.0_ireals / (1.0_ireals + zvzi(iv) * zdtdh(iv))
 
         zqrk(iv)   = zzar(iv)*zimr(iv)
         zqsk(iv)   = zzas(iv)*zims(iv)
+        zqik(iv)   = zzai(iv)*zimi(iv)
 
         llqr = zqrk(iv) > zqmin
         llqs = zqsk(iv) > zqmin
+        llqi = zqik(iv) > zqmin
         llqc =       qcg > zqmin
         llqi =       qig > zqmin
 
@@ -1378,7 +1440,11 @@ SUBROUTINE hydci_pp (             &
       rhog = rho(iv,k)
 
       IF( qvg > zqvsi(iv) ) THEN
-        znin  = MIN( fxna(tg), znimax )
+        IF( lnew_ni_cooper) THEN
+          znin  = MIN( fxna_cooper(tg), znimax )
+        ELSE
+          znin  = MIN( fxna(tg), znimax )
+        END IF
         zsnuc = zmi0 * z1orhog(iv) * znin * zdtr
         snuc(iv) = zsnuc
       ENDIF
@@ -1455,7 +1521,11 @@ SUBROUTINE hydci_pp (             &
       ! cloud ice is present and the temperature is below a nucleation
       ! threshold.
       IF( tg <= 267.15_ireals .AND. qig <= 0.0_ireals ) THEN
-        znin  = MIN( fxna(tg), znimax )
+        IF( lnew_ni_cooper) THEN
+          znin  = MIN( fxna_cooper(tg), znimax )
+        ELSE
+          znin  = MIN( fxna(tg), znimax )
+        END IF
         zsnuc = zmi0 * z1orhog(iv) * znin * zdtr
         snuc(iv) = zsnuc
       ENDIF
@@ -1486,13 +1556,16 @@ SUBROUTINE hydci_pp (             &
       llqi =  qig > zqmin
 
       IF (tg<=t0) THEN
-        znin    = MIN( fxna(tg), znimax )
+        IF( lnew_ni_cooper) THEN
+          znin    = MIN( fxna_cooper(tg), znimax )
+        ELSE
+          znin    = MIN( fxna(tg), znimax )
+        END IF
         zmi     = MIN( rhog*qig/znin, zmimax )
         zmi     = MAX( zmi0, zmi )
         zsvmax  = (qvg - zqvsi(iv)) * zdtr
         zsagg   = zcagg(iv) * EXP(ccsaxp*LOG(zcslam(iv))) * qig
-        zsagg   = MAX( zsagg, 0.0_ireals ) & !* zrho1o2(iv) &
-          * MAX(0.2_ireals,MIN(EXP(0.09_ireals*(tg-t0)),1.0_ireals))
+        zsagg   = MAX( zsagg, 0.0_ireals ) * MAX(zceff_min,MIN(EXP(0.09_ireals*(tg-t0)),1.0_ireals))
         znid      = rhog * qig/zmi
         IF (llqi) THEN
           zlnlogmi= LOG (zmi)
@@ -1510,7 +1583,7 @@ SUBROUTINE hydci_pp (             &
           zsvisub = - MAX(-zsimax, zsvmax )
         ENDIF
         zsiau = zciau * MAX( qig - qi0, 0.0_ireals ) &
-          * MAX(0.2_ireals,MIN(EXP(0.09_ireals*(tg-t0)),1.0_ireals))
+          * MAX(zceff_min,MIN(EXP(0.09_ireals*(tg-t0)),1.0_ireals))
         IF (llqi) THEN
           zlnlogmi = LOG(zmsmin/zmi)
           zztau    = 1.5_ireals*( EXP(0.66_ireals*zlnlogmi) - 1.0_ireals)
@@ -1626,7 +1699,7 @@ SUBROUTINE hydci_pp (             &
         ztt = z_heat_cap_r*( lh_v*(zqct+zqrt) + lh_s*(zqit+zqst) )
 
         ! Update variables and add qi to qrs for water loading 
-        qig = MAX ( 0.0_ireals, qig + zqit*zdt)
+        qig = MAX ( 0.0_ireals, (zzai(iv)*z1orhog(iv) + zqit*zdt)*zimi(iv))
         qrg = MAX ( 0.0_ireals, (zzar(iv)*z1orhog(iv) + zqrt*zdt)*zimr(iv))
         qsg = MAX ( 0.0_ireals, (zzas(iv)*z1orhog(iv) + zqst*zdt)*zims(iv))
 
@@ -1639,15 +1712,17 @@ SUBROUTINE hydci_pp (             &
           ! for the next level
           zprvr(iv) = qrg*rhog*zvzr(iv)
           zprvs(iv) = qsg*rhog*zvzs(iv)
+          zprvi(iv) = qig*rhog*zvzi(iv)
 
           IF (zprvr(iv) <= zqmin) zprvr(iv)=0.0_ireals
           IF (zprvs(iv) <= zqmin) zprvs(iv)=0.0_ireals
+          IF (zprvi(iv) <= zqmin) zprvi(iv)=0.0_ireals
 
 #ifdef NUDGING
           ! for the latent heat nudging
           IF ((llhn .OR. llhnverif) .AND. lhn_qrs) THEN
-            qrsflux(iv,k) = zprvr(iv)+zprvs(iv)
-            qrsflux(iv,k) = 0.5*(qrsflux(iv,k)+zpkr(iv)+zpks(iv))
+            qrsflux(iv,k) = zprvr(iv)+zprvs(iv)+zprvi(iv)
+            qrsflux(iv,k) = 0.5*(qrsflux(iv,k)+zpkr(iv)+zpks(iv)+zpki(iv))
           ENDIF
 #endif
 
@@ -1661,10 +1736,17 @@ SUBROUTINE hydci_pp (             &
           ELSE
             zvzs(iv)= zvz0s(iv) * EXP(zv1s/(zbms+1.0_ireals)*LOG((qsg+qs(iv,k+1))*0.5_ireals*rhog)) * zrho1o2(iv)
           ENDIF
+          IF (qig+qi(iv,k+1) <= zqmin ) THEN
+            zvzi(iv)= 0.0_ireals
+          ELSE
+            !! density correction not needed
+            zvzi(iv)= zvz0i * EXP(zbvi*LOG((qig+qi(iv,k+1))*0.5_ireals*rhog))
+          ENDIF
+
         ELSE
           ! Precipitation fluxes at the ground
           prr_gsp(iv) = 0.5_ireals * (qrg*rhog*zvzr(iv) + zpkr(iv))
-          prs_gsp(iv) = 0.5_ireals * (qsg*rhog*zvzs(iv) + zpks(iv))
+          prs_gsp(iv) = 0.5_ireals * (rhog*(qsg*zvzs(iv)+qig*zvzi(iv)) + zpks(iv)+zpki(iv))
 
 #ifdef NUDGING
           ! for the latent heat nudging
@@ -1758,25 +1840,6 @@ CALL satad_v_3d (                             &
                & kup      = ke            &
                )
 
-
-!  CALL satad_v_3d (                             &
-!                & maxiter  = 10_iintegers ,& !> IN
-!                & tol      = 1.e-3_ireals ,& !> IN
-!                & te       = t  (1,1,1)   ,&
-!                & qve      = qv (1,1,1)   ,&
-!                & qce      = qc (1,1,1)   ,&
-!                & rhotot   = rho(1,1,1)   ,&
-!                & idim     = nvec         ,&
-!                & jdim     = 1            ,&
-!                & kdim     = ke           ,&
-!                & ilo      = iv_start     ,&
-!                & iup      = iv_end       ,&
-!                & jlo      = 1            ,&
-!                & jup      = 1            ,&
-!                & klo      = k_start      ,&
-!                & kup      = ke            &
-             !& count, errstat,
-!                )
 #endif
 
 !------------------------------------------------------------------------------
@@ -1840,196 +1903,6 @@ CALL satad_v_3d (                             &
 !------------------------------------------------------------------------------
 
 END SUBROUTINE hydci_pp
-
-
-#ifdef __ICON__
-SUBROUTINE SATAD ( kitera, te, qve, qce, tstart, phfe,                        &
-  zdqd  , zqdwe, zh   , ztg0  , ztgn, zdqdt0, zgqd0, zphe ,  &
-  b1, b2w, b3, b4w, b234w, rdrd, emrdrd, rddrm1, lh_v, cpdr, &
-  cp_d, idim, jdim, ilo, iup, jlo, jup )
-
-!-------------------------------------------------------------------------------
-!
-! Description:
-!   This routine corrects the temperature (te), the specific humidity (qve)
-!   and the cloud water content (qce) for condensation/evaporation.
-!
-! Method:
-!   Saturation adjustment, i.e. reversible condensation/evaporation at
-!   constant pressure by assuming chemical equilibrium of water and vapor
-!
-!-------------------------------------------------------------------------------
-
-! Subroutine arguments:
-! --------------------
-  INTEGER (KIND=iintegers), INTENT (IN)    ::  &
-    kitera,              & !  Numver of iterations in the numerical scheme
-    idim, jdim,          & !  Dimension of I/O-fields
-    ilo, iup, jlo, jup     !  start- and end-indices for the computation
-
-  REAL    (KIND=ireals),    INTENT (IN)    ::  &
-    tstart  (idim,jdim), & ! Start temperature for iteration
-    phfe    (idim,jdim)  ! Pressure (input)
-
-  REAL    (KIND=ireals),    INTENT (INOUT) ::  &
-    te      (idim,jdim), & ! Temperature on input/ouput
-    qve     (idim,jdim), & ! Specific humidity on input/output
-    qce     (idim,jdim), & ! Specific cloud water content on input/output
-    zdqd    (idim,jdim), & !
-    zqdwe   (idim,jdim), & !
-    zh      (idim,jdim), & !
-    ztg0    (idim,jdim), & !
-    ztgn    (idim,jdim), & !
-    zdqdt0  (idim,jdim), & !
-    zgqd0   (idim,jdim), & !
-    zphe    (idim,jdim)    !
-
-  REAL    (KIND=ireals),    INTENT (IN)    ::  &
-    b1, b2w, b3, b4w, b234w, rdrd, emrdrd, rddrm1, lh_v, cpdr, cp_d
-
-! Local parameters: None
-! ----------------
-! Local scalars:
-! -------------
-  INTEGER (KIND=iintegers) ::  &
-    i, j,                & !  Loop indices
-    nzit,                & !  Loop for iterations
-    nsat,                & !  Number of saturated gridpoints
-    iwrk(idim*jdim),     & !  i-index of saturated gridpoints
-    jwrk(idim*jdim),     & !  j-index of saturated gridpoints
-    indx                   !  loop index
-
-  REAL    (KIND=ireals   ) ::  &
-    zgeu  ,              & !
-    zgqdu ,              & !
-    zgew  ,              & !
-    zqwmin,              & ! Minimum cloud water content for adjustment
-    fgew  ,              & ! Name of satement function
-    fgqd  ,              & ! ...
-    fdqdt ,              & ! ...
-    zt    ,              & ! Dummy argument for statement functions
-    zge   ,              & ! ...
-    zp    ,              & ! ...
-    zgqd                   ! ...
-
-  REAL    (KIND=ireals   ) ::  &
-    minzdqd
-
-!------------ End of header ----------------------------------------------------
-
-!-------------------------------------------------------------------------------
-! Begin Subroutine satad
-!-------------------------------------------------------------------------------
-
-! STATEMENT FUNCTIONS
-
-fgew(zt)       = b1*EXP( b2w*(zt-b3)/(zt-b4w) )
-fgqd(zge,zp)   = rdrd*zge/( zp - emrdrd*zge )
-fdqdt(zt,zgqd) = b234w*( 1.0_ireals + rddrm1*zgqd )*zgqd/( zt-b4w )**2
-
-  zqwmin = 1.0E-20_ireals
-
-  nsat = 0
-
-  minzdqd= 1.0_ireals
-
-  DO j = jlo , jup
-    DO i = ilo , iup
-
-      ! "save" the start values for the temperature
-      ztg0 (i,j) = tstart(i,j)
-
-      ! correction for negative values of qv and qc
-      qve (i,j) = MAX( qve(i,j), 0.0_ireals )
-      qce (i,j) = MAX( qce(i,j), 0.0_ireals )
-
-      ! assume first subsaturation
-      zqdwe(i,j)= qve(i,j) + qce(i,j)
-      te (i,j)  = te(i,j) - lh_v*qce(i,j)*cpdr
-      qve(i,j)  = zqdwe(i,j)
-      qce(i,j)  = 0.0_ireals
-      zgeu      = fgew(te(i,j))
-      zgqdu     = fgqd(zgeu,phfe(i,j))
-      zdqd(i,j) = zgqdu - zqdwe(i,j)
-      minzdqd   = MIN(minzdqd,zdqd(i,j))
-
-    ENDDO
-  ENDDO
-
-!NEC_CB if zdqd>=0, then for sure no points are found
-  IF ( minzdqd >= 0.0_ireals ) RETURN
-
-  DO j = jlo , jup
-    DO i = ilo , iup
-
-      IF (zdqd(i,j) < 0.0_ireals ) THEN
-        nsat       = nsat+1
-        iwrk(nsat) = i
-        jwrk(nsat) = j
-      ENDIF
-
-    ENDDO
-  ENDDO
-
-  IF (nsat == 0) RETURN
-
-! Do saturation adjustments for saturated gridpoints
-! --------------------------------------------------
-
-!cdir nodep
-  DO indx = 1, nsat
-     i = iwrk(indx)
-     j = jwrk(indx)
-     zh   (i,j) = cp_d*te(i,j) + lh_v*qve(i,j)
-     zphe (i,j) = phfe(i,j)
-     zgew       = fgew(ztg0(i,j))
-     zgqd0(i,j) = fgqd(zgew,zphe(i,j))
-  ENDDO
-
-  IF ( kitera > 1 ) THEN
-    DO  nzit  = 1 , kitera-1
-
-!cdir nodep
-      DO indx = 1, nsat
-        i = iwrk(indx)
-        j = jwrk(indx)
-        zdqdt0(i,j) = fdqdt(ztg0(i,j),zgqd0(i,j))
-        ztg0(i,j)   = (zh(i,j) - lh_v*(zgqd0(i,j)-zdqdt0(i,j)*ztg0(i,j)))/ &
-                      ( cp_d + lh_v*zdqdt0(i,j) )
-        zgew        = fgew(ztg0(i,j))
-        zgqd0(i,j)  = fgqd(zgew,zphe(i,j))
-      ENDDO
-    ENDDO
-  ENDIF
-
-!-------------------------------------------------------------------------------
-
-!cdir nodep
-  DO indx = 1, nsat
-      i = iwrk(indx)
-      j = jwrk(indx)
-      zdqdt0(i,j) = fdqdt(ztg0(i,j),zgqd0(i,j))
-      ztgn(i,j)   = ( zh(i,j) - lh_v*(zgqd0(i,j)-zdqdt0(i,j)*ztg0(i,j)) ) / &
-                    ( cp_d + lh_v*zdqdt0(i,j) )
-      zgqd0(i,j)  = zgqd0(i,j) + zdqdt0(i,j)*( ztgn(i,j)-ztg0(i,j) )
-  ENDDO
-
-! Distribute the result on gridpoints
-! -----------------------------------
-
-!cdir nodep
-  DO indx = 1, nsat
-      i = iwrk(indx)
-      j = jwrk(indx)
-      te (i,j) =  ztgn(i,j)
-      qve(i,j) = zgqd0(i,j)
-      qce(i,j) = MAX( zqdwe(i,j) - zgqd0(i,j), zqwmin )
-  ENDDO
-
-! End of the subroutine
-
-END SUBROUTINE satad
-#endif
 
 !==============================================================================
 

@@ -9,6 +9,7 @@
 !!
 !! @par Revision History
 !! Initial Kristina Froehlich, DWD, Offenbach (2010-01-25)
+!! Add gust   by Helmut Frank, DWD, Offenbach (2013-03-13)
 !!
 !! @par Copyright
 !! 2002-2011 by DWD and MPI-M
@@ -58,6 +59,7 @@ MODULE mo_nwp_conv_interface
   USE mo_icoham_sfc_indices,   ONLY: nsfc_type, iwtr, iice, ilnd
   USE mo_fortran_tools,        ONLY: t_ptr_tracer
   USE mo_art_config,           ONLY: art_config
+  USE mo_cuparameters,         ONLY: lmfscv
 
   IMPLICIT NONE
 
@@ -94,8 +96,6 @@ CONTAINS
                                                                  !< convection
     ! Local array bounds:
 
-    INTEGER :: nblks_c, nblks_e        !< number of blocks for cells / edges
-    INTEGER :: npromz_e, npromz_c      !< length of last block line
     INTEGER :: nlev, nlevp1            !< number of full and half levels
     INTEGER :: rl_start, rl_end
     INTEGER :: i_startblk, i_endblk    !< blocks
@@ -117,10 +117,6 @@ CONTAINS
 
 
     ! local variables related to the blocking
-    nblks_c   = p_patch%nblks_int_c
-    npromz_c  = p_patch%npromz_int_c
-    nblks_e   = p_patch%nblks_int_e
-    npromz_e  = p_patch%npromz_int_e
     i_nchdom  = MAX(1,p_patch%n_childdom)
     jg        = p_patch%id
 
@@ -134,6 +130,12 @@ CONTAINS
 
     i_startblk = p_patch%cells%start_blk(rl_start,1)
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
+
+
+   ! for EDMF DUALM: turn off Tiedtke shallow convection 
+   !IF ( atm_phy_nwp_config(jg)%inwp_turb == 3 ) THEN
+   !  lmfscv = .FALSE.       ! shallow convection off
+   !ENDIF
 
  
 
@@ -178,10 +180,10 @@ CONTAINS
           z_qhfl(i_startidx:i_endidx,nlevp1) = - 4.79846_wp*1.e-5_wp !> moisture flux kg/m2/s
           z_shfl(i_startidx:i_endidx,nlevp1) = - 17._wp              !! sens. heat fl W/m**2
 
-        CASE (1,2)
+        CASE (1,2,3)
 
-          ! In turb1 and turb2, the flux is positive downwards / negative upwards
-          prm_diag%qhfl_s(i_startidx:i_endidx,jb) = prm_diag%lhfl_s(i_startidx:i_endidx,jb) / alv
+          ! In turb1,turb2 and turb3, the flux is positive downwards / negative upwards
+
           z_qhfl(i_startidx:i_endidx,nlevp1) = prm_diag%qhfl_s(i_startidx:i_endidx,jb)
           z_shfl(i_startidx:i_endidx,nlevp1) = prm_diag%shfl_s(i_startidx:i_endidx,jb)
 
@@ -199,12 +201,6 @@ CONTAINS
           ELSE
             z_shfl( i_startidx:i_endidx,nlevp1) = - 17._wp !! sens. heat fl W/m**2 not yet implemented
           ENDIF
-
-        CASE (3)
-
-          ! In turb3, the flux is negative upwards.
-          z_qhfl(i_startidx:i_endidx,nlevp1) = prm_diag%lhfl_s(i_startidx:i_endidx,jb) / alv ! moisture flux kg/m2/s
-          z_shfl(i_startidx:i_endidx,nlevp1) = prm_diag%shfl_s(i_startidx:i_endidx,jb)       ! sens. heat fl W/m**2
 
         END SELECT
 
@@ -249,6 +245,12 @@ CONTAINS
         !> Convection
         !-------------------------------------------------------------------------
 
+        IF ( atm_phy_nwp_config(jg)%inwp_turb /= 3 ) THEN ! DUALM is allow to turn of shallow convection
+          DO jc = i_startidx,i_endidx
+            prm_diag%ldshcv(jc,jb) = .true.
+          ENDDO
+        ENDIF
+
 !#ifdef __BOUNDCHECK
 
 
@@ -279,6 +281,7 @@ IF(art_config(jg)%nconv_tracer > 0) THEN
 &            ktype  = prm_diag%ktype   (:,jb)                                 ,& !! OUT
 &            kcbot  = prm_diag%mbas_con(:,jb)                                 ,& !! OUT
 &            kctop  = prm_diag%mtop_con(:,jb)                                 ,& !! OUT
+&            LDSHCV = prm_diag%ldshcv  (:,jb)                                 ,& !! IN
 &            pmfu   =      prm_diag%con_udd(:,:,jb,1)                         ,& !! OUT
 &            pmfd   =      prm_diag%con_udd(:,:,jb,2)                         ,& !! OUT
 &            pmfude_rate = prm_diag%con_udd(:,:,jb,3)                         ,& !! OUT
@@ -290,9 +293,10 @@ IF(art_config(jg)%nconv_tracer > 0) THEN
 &            pmflxs =      prm_diag%snow_con_rate_3d(:,:,jb)                  ,& !! OUT
 &            prain  =      prm_diag%rain_upd (:,jb)                           ,& !! OUT
 &            pcape =       prm_diag%cape     (:,jb)                           ,& !! OUT
-&            ktrac = art_config(jg)%nconv_tracer                            ,& !! IN 
-&            pcen  =   p_prog_rcf%conv_tracer(jb,:)                         ,& !! IN 
-&            ptenc =   prm_nwp_tend%conv_tracer_tend(jb,:) )                   !!OUT
+&            pvddraf=      prm_diag%con_gust (:,jb)                           ,& !! OUT
+&            ktrac = art_config(jg)%nconv_tracer                              ,& !! IN 
+&            pcen  =   p_prog_rcf%conv_tracer(jb,:)                           ,& !! IN 
+&            ptenc =   prm_nwp_tend%conv_tracer_tend(jb,:) )                     !! OUT
 
 ELSE
 
@@ -322,6 +326,7 @@ ELSE
 &            ktype  = prm_diag%ktype   (:,jb)                                 ,& !! OUT
 &            kcbot  = prm_diag%mbas_con(:,jb)                                 ,& !! OUT
 &            kctop  = prm_diag%mtop_con(:,jb)                                 ,& !! OUT
+&            LDSHCV = prm_diag%ldshcv  (:,jb)                                 ,& !! IN
 &            pmfu   =      prm_diag%con_udd(:,:,jb,1)                         ,& !! OUT
 &            pmfd   =      prm_diag%con_udd(:,:,jb,2)                         ,& !! OUT
 &            pmfude_rate = prm_diag%con_udd(:,:,jb,3)                         ,& !! OUT
@@ -333,6 +338,7 @@ ELSE
 &            pmflxs =      prm_diag%snow_con_rate_3d(:,:,jb)                  ,& !! OUT
 &            prain  =      prm_diag%rain_upd (:,jb)                           ,& !! OUT
 &            pcape =       prm_diag%cape     (:,jb)                           ,& !! OUT
+&            pvddraf=      prm_diag%con_gust (:,jb)                           ,& !! OUT
 &            ktrac = 0                                                         ) !! IN 
 ENDIF
 
@@ -379,6 +385,10 @@ ENDIF
           prm_diag%snow_con_rate(i_startidx:i_endidx,jb) =                                &
             &                    prm_diag%snow_con_rate_3d(i_startidx:i_endidx,nlevp1,jb)
 
+
+!         10 m gust: Max. of convective and dynamic gust
+          prm_diag%gust10(i_startidx:i_endidx,jb) = MAX( prm_diag%gust10  (i_startidx:i_endidx,jb),  &
+            &                                            prm_diag%con_gust(i_startidx:i_endidx,jb) )
 
         ENDIF !inwp_conv
 

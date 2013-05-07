@@ -40,6 +40,7 @@ MODULE mo_remap_input
   PUBLIC :: load_metadata_input
   PUBLIC :: close_input
   PUBLIC :: input_import_data
+  PUBLIC :: input_import_data_seq
   PUBLIC :: generate_missval_mask
   ! types and variables:
   PUBLIC :: n_input_fields, input_field
@@ -174,6 +175,46 @@ MODULE mo_remap_input
 
 CONTAINS
 
+  !> Sets defaults for namelist parameters
+  !  
+  SUBROUTINE set_default_input_namelist()
+    inputname     = " "
+    outputname    = " "
+    code          =   0
+    type_of_layer = " "
+
+    lhydrostatic_correction = .FALSE.
+    var_temp      = "T"
+    code_temp     = 130
+    var_geosp     = "FI"
+    code_geosp    = 129
+    var_qv        = "QV"
+    code_qv       = 133
+    hpbl1         = 500._wp
+    hpbl2         = 1000._wp
+  END SUBROUTINE set_default_input_namelist
+
+
+  !> Copy configuration state
+  SUBROUTINE copy_config_state(ivar)
+    INTEGER, INTENT(IN) :: ivar !< variable index
+
+    input_field(ivar)%inputname                   = TRIM(inputname)
+    input_field(ivar)%outputname                  = TRIM(outputname)
+    input_field(ivar)%code                        = code
+    input_field(ivar)%type_of_layer               = TRIM(type_of_layer)
+    input_field(ivar)%fa%lhydrostatic_correction  = lhydrostatic_correction
+    input_field(ivar)%fa%var_temp                 = var_temp
+    input_field(ivar)%fa%code_temp                = code_temp
+    input_field(ivar)%fa%var_geosp                = var_geosp
+    input_field(ivar)%fa%code_geosp               = code_geosp
+    input_field(ivar)%fa%var_qv                   = var_qv
+    input_field(ivar)%fa%code_qv                  = code_qv
+    input_field(ivar)%fa%hpbl1                    = hpbl1
+    input_field(ivar)%fa%hpbl2                    = hpbl2
+  END SUBROUTINE copy_config_state
+
+
   !> Opens input namelist file and loads meta data.
   !
   SUBROUTINE read_input_namelist(input_cfg_filename, rank0, lcompute_vn, lcompute_vt)
@@ -208,44 +249,29 @@ CONTAINS
       lrewind = .FALSE.
 
       ! default settings
-      inputname     = " "
-      outputname    = " "
-      code          =   0
-      type_of_layer = " "
-
-      lhydrostatic_correction = .FALSE.
-      var_temp      = "T"
-      code_temp     = 130
-      var_geosp     = "FI"
-      code_geosp    = 129
-      var_qv        = "QV"
-      code_qv       = 133
-      hpbl1         = 500._wp
-      hpbl2         = 1000._wp
+      CALL set_default_input_namelist()
 
       ! read user's (new) specifications
       READ (nnml, input_field_nml)
       IF(istat > 0)  CALL finish(routine, "Internal error!")
 
       n_input_fields = n_input_fields + 1
-      input_field(n_input_fields)%inputname       = TRIM(inputname)
-      input_field(n_input_fields)%outputname      = TRIM(outputname)
-      input_field(n_input_fields)%code            = code
-      input_field(n_input_fields)%type_of_layer   = TRIM(type_of_layer)
-      input_field(n_input_fields)%grid_type       = CELL_GRID
+      CALL copy_config_state(ivar=n_input_fields)
+      input_field(n_input_fields)%grid_type = CELL_GRID
 
       ! default interpolation method: INTP_CONS, only "u", "v" are
       ! treated with RBF interpolation weights:
       IF ((lcompute_vt) .OR. (lcompute_vn)) THEN
-        ! NOTE: For development reasons, we do not write "vn"/"vt"
-        ! *instead* of "u", "v", but in addition to these fields.
+        ! NOTE: We write "vn"/"vt" *instead* of "u", "v". Switch the
+        ! following commented lines if you want to write "u", "v" in
+        ! addition to "vn":
         IF (TRIM(tolower(inputname)) == "u") THEN
-          ! input_field(n_input_fields)%intp_method = INTP_NONE  
-          input_field(n_input_fields)%intp_method = INTP_CONS        
+          input_field(n_input_fields)%intp_method = INTP_NONE  
+          ! input_field(n_input_fields)%intp_method = INTP_CONS        
           field_id_u = n_input_fields
         ELSE IF (TRIM(tolower(inputname)) == "v") THEN
-          ! input_field(n_input_fields)%intp_method = INTP_NONE 
-          input_field(n_input_fields)%intp_method = INTP_CONS        
+          input_field(n_input_fields)%intp_method = INTP_NONE 
+          ! input_field(n_input_fields)%intp_method = INTP_CONS        
           field_id_v = n_input_fields
         ELSE
           input_field(n_input_fields)%intp_method = INTP_CONS        
@@ -253,16 +279,6 @@ CONTAINS
       ELSE
         input_field(n_input_fields)%intp_method = INTP_CONS        
       END IF
-
-      input_field(n_input_fields)%fa%lhydrostatic_correction  = lhydrostatic_correction
-      input_field(n_input_fields)%fa%var_temp   = var_temp
-      input_field(n_input_fields)%fa%code_temp  = code_temp
-      input_field(n_input_fields)%fa%var_geosp  = var_geosp
-      input_field(n_input_fields)%fa%code_geosp = code_geosp
-      input_field(n_input_fields)%fa%var_qv     = var_qv
-      input_field(n_input_fields)%fa%code_qv    = code_qv
-      input_field(n_input_fields)%fa%hpbl1      = hpbl1
-      input_field(n_input_fields)%fa%hpbl2      = hpbl2
 
       ! not yet initialized:
       input_field(n_input_fields)%steptype      = -1
@@ -321,15 +337,17 @@ CONTAINS
   END FUNCTION get_field_varID
 
 
-  !> loads variable meta-data
+  !> Loads variable meta-data and constructs a list of input fields.
   !
-  SUBROUTINE load_metadata_input(file, rank0)
-    TYPE (t_file_metadata), INTENT(INOUT) :: file
-    INTEGER,                INTENT(IN)    :: rank0
+  SUBROUTINE load_metadata_input(file, rank0, lread_all)
+    TYPE (t_file_metadata), INTENT(INOUT) :: file       !< input file
+    INTEGER,                INTENT(IN)    :: rank0      !< MPI process which reads and broadcasts the data
+    LOGICAL,                INTENT(IN)    :: lread_all  !< Flag. If .TRUE., read all available fields
     ! local variables:
     CHARACTER(LEN=*), PARAMETER :: routine = TRIM(TRIM(modname)//':load_metadata_input')
-    INTEGER :: i, param, taxisID, ierrstat, zaxisID, vlistID, ntsteps
+    INTEGER              :: i, param, taxisID, ierrstat, zaxisID, vlistID, ntsteps, this_gridID
     INTEGER, ALLOCATABLE :: zaxisIDlist(:)
+    INTEGER              :: this_varID(MAX_INPUT_FIELDS)
 
     ! load global meta-data
     IF (get_my_mpi_work_id() == rank0) THEN
@@ -348,17 +366,69 @@ CONTAINS
       IF (ntsteps > 1) CALL finish(routine, "File contains more than one time step!")
     END IF
 
+    ! if flag "lread_all" is set, we take unconditionally all fields:
+    IF (lread_all) THEN
+      ALLOCATE(input_field(MAX_INPUT_FIELDS), STAT=ierrstat)
+      IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
+      IF (get_my_mpi_work_id() == rank0) THEN
+        n_input_fields = 0
+        DO i=1,vlistNvars(vlistID)
+          CALL vlistInqVarName(vlistID, (i-1), inputname)
+          this_gridID = vlistInqVarGrid(vlistID, (i-1))
+          IF (this_gridID == file%c_gridID) THEN
+            IF (dbg_level >= 3)  WRITE (0,*) "# read_all: cell grid variable ", TRIM(inputname)
+          ELSE IF (this_gridID == file%e_gridID) THEN
+            IF (dbg_level >= 3)  WRITE (0,*) "# read_all: edge grid variable ", TRIM(inputname)
+            CYCLE
+          ELSE
+            WRITE (0,*) "Variable '", TRIM(inputname), &
+              &         "' is not associated with cell grid; other grids not yet implemented!"
+            CYCLE
+            ! CALL finish(routine, "Variable is not associated with cell grid; other grids not yet implemented!")
+          END IF
+
+          ! Note: For the time being we explicitly exclude "RLON",
+          ! "RLAT" from the list of input fields. The current CDILIB
+          ! seems to have problems with fields of different size
+          ! (cell,edge,vertex) which have the same name.
+          IF (.NOT. ((TRIM(inputname) == "RLON") .OR. (TRIM(inputname) == "RLAT"))) THEN
+            n_input_fields = n_input_fields + 1
+            this_varID(n_input_fields) = i-1
+          END IF
+        END DO
+      END IF
+      CALL p_bcast(n_input_fields, rank0, p_comm_work)
+      CALL p_bcast(this_varID, rank0, p_comm_work)
+    END IF
+
     input_field(:)%nlev = 0
     ! Loop over all fields from input config file, read file only on PE rank0:
     DO i=1,n_input_fields
       IF (get_my_mpi_work_id() == rank0) THEN
-        input_field(i)%varID = get_field_varID(vlistID, file%gribedition, input_field(i))
+        IF (.NOT. lread_all) THEN
+          input_field(i)%varID = get_field_varID(vlistID, file%gribedition, input_field(i))
+        ELSE
+          CALL set_default_input_namelist()
+          input_field(i)%varID = this_varID(i)
+          CALL vlistInqVarName(vlistID, input_field(i)%varID, inputname)
+          outputname = TRIM(inputname)
+          CALL copy_config_state(i)
+          input_field(i)%intp_method = INTP_CONS        
+          this_gridID = vlistInqVarGrid(vlistID, input_field(i)%varID)
+          IF (this_gridID == file%c_gridID) THEN
+            input_field(i)%grid_type   = CELL_GRID
+          ELSE IF (this_gridID == file%e_gridID) THEN
+            input_field(i)%grid_type   = EDGE_GRID
+          ELSE
+            CALL finish(routine, "Internal error!")
+          END IF
+        END IF
       END IF
       ! distributed computation: broadcast to other worker PEs:
       CALL p_bcast(input_field(i)%varID, rank0, p_comm_work)
       IF (input_field(i)%varID /= -1) THEN
         IF (get_my_mpi_work_id() == rank0) THEN
-          ! get the corresponding grid ID
+          ! get the corresponding zaxisID
           input_field(i)%zaxisID = vlistInqVarZaxis(vlistID, input_field(i)%varID)
           ! get the field dimensions:
           input_field(i)%nlev     = zaxisInqSize(input_field(i)%zaxisID)
@@ -581,6 +651,92 @@ CONTAINS
     END IF
     IF (dbg_level >= 2)  CALL message(routine, "Done")
   END SUBROUTINE input_import_data
+
+
+  !> Main subroutine: Reads data fields, NON-PARALLEL (SEQUENTIAL) VERSION
+  !
+  !  Requires a pre-allocated variable list ("varlist") as output.
+  !
+  SUBROUTINE input_import_data_seq(file_metadata, ivar, dst_field, src_grid )
+
+    TYPE (t_file_metadata), INTENT(IN) :: file_metadata
+    INTEGER,           INTENT(IN)    :: ivar
+    REAL(wp),          INTENT(INOUT) :: dst_field(:,:,:)
+    TYPE (t_grid),     INTENT(IN)    :: src_grid
+    ! local variables
+    CHARACTER(LEN=*), PARAMETER :: routine = TRIM(modname)//':input_import_data_seq'
+    INTEGER :: streamID, ierrstat, nmiss, nsize,  &
+      &        shape2D_glb(2), ilev, maxblk, has_missvals
+    REAL(wp), ALLOCATABLE :: rfield1D(:), rfield2D(:,:)
+
+    IF (dbg_level >= 2)  CALL message(routine, "Start")
+
+    has_missvals = CONST_UNINITIALIZED
+    streamID     = file_metadata%streamID
+    shape2D_glb  = (/ nproma,blk_no(src_grid%p_patch%n_patch_cells_g) /)
+    ALLOCATE(rfield2D(shape2D_glb(1), shape2D_glb(2)), STAT=ierrstat)
+    IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
+
+    ! Loop over all levels, reading each variable in 2D slices.
+    IF (input_field(ivar)%varID /= -1) THEN
+      ! get the 1D input field size
+      nsize = gridInqSize(file_metadata%c_gridID)
+      IF (.NOT. ALLOCATED(rfield1D)) THEN
+        ! allocate a temporary field to hold the GRIB data
+        ALLOCATE(rfield1D(nsize), STAT=ierrstat)
+        IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
+      ELSE
+        ! paranoia, again: check if the field size has changed
+        IF (nsize /= SIZE(rfield1D)) CALL finish(routine, "Internal error!")
+      END IF
+
+      ! read field data:
+      DO ilev=1,input_field(ivar)%nlev
+        ! read record as 1D field
+        IF (dbg_level >= 4) WRITE (0,*) "# ",TRIM(input_field(ivar)%inputname),": read record ", ilev
+
+        CALL streamReadVarSlice(streamID, input_field(ivar)%varID, ilev-1, rfield1D, nmiss)
+        
+        ! reshape record into (nproma, nblks) field
+        rfield2D(:,:) = RESHAPE(rfield1D(:), shape2D_glb, (/ 0._wp /))
+        
+        ! check if missing values are present, set flag "has_missvals"
+        !
+        ! note: probably we could use a cdi internal function for this, but
+        !       which one?
+        IF (has_missvals == CONST_UNINITIALIZED) THEN
+          IF (dbg_level >= 2) &
+            &  WRITE (0,*) "# testing for missing values (missval = ", input_field(ivar)%missval, ")"
+          has_missvals = CONST_FALSE
+          ! Attention: Comparison of REALs:
+          IF (ANY(rfield2D(:,:) ==  input_field(ivar)%missval)) THEN
+            has_missvals = CONST_TRUE
+          END IF
+        END IF
+        IF (input_field(ivar)%has_missvals == CONST_UNINITIALIZED) THEN
+          input_field(ivar)%has_missvals = has_missvals
+        END IF
+
+        IF (dbg_level >= 5) THEN
+          WRITE (0,*) "# min, max = ", MINVAL(rfield2D(:,:)), MAXVAL(rfield2D(:,:))
+        END IF
+
+        ! Copy level to 3D field
+        maxblk = MIN (SIZE (dst_field, dim=3), SIZE (rfield2D, dim=2))
+        dst_field(:,ilev,1:maxblk)  = rfield2D(:,1:maxblk)
+        dst_field(:,ilev,maxblk+1:) = 0._wp
+      END DO ! ilev
+    END IF ! (varID /= -1)
+
+    ! clean up
+    DEALLOCATE(rfield2D, STAT=ierrstat)
+    IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")
+    IF (ALLOCATED(rfield1D)) THEN
+      DEALLOCATE(rfield1D, STAT=ierrstat)
+      IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")
+    END IF
+    IF (dbg_level >= 2)  CALL message(routine, "Done")
+  END SUBROUTINE input_import_data_seq
 
 
   !> Close regular grid file

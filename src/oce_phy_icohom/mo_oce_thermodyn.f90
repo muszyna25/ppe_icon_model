@@ -70,7 +70,7 @@ CHARACTER(len=*), PARAMETER :: this_mod_name = 'mo_oce_thermodyn'
 
 PUBLIC  :: calc_internal_press
 PUBLIC  :: calc_internal_press_new
-PUBLIC  :: calc_density
+PUBLIC  :: calc_density,calc_potential_density
 !each specific EOS comes as a sbr and as a function. The sbr version is private as it is
 !only used in "calc_internal_press", whilethe function version is used in mo_oce_physics
 !(sbr "update_ho_params") to calculate the local Richardson number.
@@ -79,6 +79,7 @@ PUBLIC  :: calc_density_lin_EOS_func
 PRIVATE :: calc_density_JMDWFG06_EOS
 PUBLIC  :: calc_density_JMDWFG06_EOS_func
 PUBLIC  :: calc_density_MPIOM_func
+PUBLIC  :: calc_density_MPIOM_elemental
 PRIVATE :: calc_density_MPIOM
 PRIVATE :: convert_insitu2pot_temp
 PUBLIC  :: convert_insitu2pot_temp_func
@@ -163,7 +164,7 @@ CONTAINS
   !!  - division by rho_ref included
   !!  mpi parallelized LL (no sync required)
 
-  SUBROUTINE calc_internal_press_new(p_patch_3D, trac_t, trac_s, h, calc_density, press_hyd)
+  SUBROUTINE calc_internal_press_new(p_patch_3D, trac_t, trac_s, h, calc_density_func, press_hyd)
   !
   TYPE(t_patch_3D ),TARGET, INTENT(IN):: p_patch_3D
   REAL(wp),    INTENT(IN)       :: trac_t   (:,:,:)  !temperature
@@ -171,13 +172,13 @@ CONTAINS
   REAL(wp),    INTENT(IN)       :: h        (:,:)    !< surface elevation at cells
   REAL(wp),   INTENT(INOUT)     :: press_hyd(:,:,:)  !< hydrostatic pressure
 INTERFACE !This contains the function version of the actual EOS as chosen in namelist
- FUNCTION calc_density(tpot, sal, press) RESULT(rho) 
+ FUNCTION calc_density_func(tpot, sal, press) RESULT(rho) 
     USE mo_kind, ONLY: wp
     REAL(wp), INTENT(IN) :: tpot
     REAL(wp), INTENT(IN) :: sal
     REAL(wp), INTENT(IN) :: press
     REAL(wp) :: rho
- ENDFUNCTION calc_density
+ ENDFUNCTION calc_density_func
 END INTERFACE
   ! local variables:
   !CHARACTER(len=max_char_length), PARAMETER :: &
@@ -208,7 +209,7 @@ END INTERFACE
     DO jc = i_startidx, i_endidx
 
        z_press      = (p_patch_3D%p_patch_1D(1)%zlev_i(1)+h(jc,jb))*rho_ref*SItodBar ! grav
-       z_rho_up = calc_density(&
+       z_rho_up = calc_density_func(&
             & trac_t(jc,1,jb),&
             & trac_s(jc,1,jb),&
             & z_press)
@@ -223,12 +224,12 @@ END INTERFACE
 
             z_press = p_patch_3D%p_patch_1D(1)%zlev_i(jk)*rho_ref*SItodBar!grav
             !density of upper cell w.r.t.to pressure at intermediate level
-            z_rho_up = calc_density(&
+            z_rho_up = calc_density_func(&
             & trac_t(jc,jk-1,jb),&
             & trac_s(jc,jk-1,jb),&
             & z_press)
             !density of lower cell w.r.t.to pressure at intermediate level
-            z_rho_down = calc_density(&
+            z_rho_down = calc_density_func(&
             & trac_t(jc,jk,jb),&
             & trac_s(jc,jk,jb),&
             & z_press)
@@ -349,8 +350,8 @@ END INTERFACE
   !
   !!
   TYPE(t_patch_3D ),TARGET, INTENT(IN) :: p_patch_3D
-  REAL(wp),    INTENT(IN), TARGET             :: tracer(:,:,:,:)     !< input of S and T
-  REAL(wp), INTENT(INOUT), TARGET             :: rho   (:,:,:)       !< density
+  REAL(wp),    INTENT(IN), TARGET      :: tracer(:,:,:,:)     !< input of S and T
+  REAL(wp), INTENT(OUT), TARGET      :: rho   (:,:,:)       !< density
 
   ! local variables:
   ! CHARACTER(len=max_char_length), PARAMETER :: &
@@ -376,6 +377,37 @@ END INTERFACE
    END SELECT
 
   END SUBROUTINE calc_density
+  SUBROUTINE calc_potential_density(p_patch_3D,tracer, rhopot)
+  !
+  !!
+  TYPE(t_patch_3D ),TARGET, INTENT(IN) :: p_patch_3D
+  REAL(wp),    INTENT(IN), TARGET      :: tracer(:,:,:,:)     !< input of S and T
+  REAL(wp), INTENT(OUT), TARGET        :: rhopot(:,:,:)       !< density
+
+  ! local variables:
+  ! CHARACTER(len=max_char_length), PARAMETER :: &
+  !      & routine = (this_mod_name//':calc_density')
+   TYPE(t_patch), POINTER        :: p_patch
+   !-----------------------------------------------------------------------
+   p_patch   => p_patch_3D%p_patch_2D(1)
+  !---------------------------------------------------------------------
+  ! CALL message (TRIM(routine), 'start')
+
+   !For calc_density_lin_EOS and calc_density_MPIOM the conversion to in-situ temperature is done
+   !internally.
+!  SELECT CASE (EOS_TYPE)
+!    CASE(1)
+!      CALL calc_density_lin_EOS(p_patch_3D, tracer, rhopot)
+!    CASE(2)
+       CALL calc_potential_density_MPIOM(p_patch_3D, tracer, rhopot)
+!    CASE(3)
+!      CALL calc_density_JMDWFG06_EOS(p_patch_3D, tracer, rhopot)
+!      !CALL calc_density_JM_EOS(p_patch, tracer, rho)
+!    CASE DEFAULT
+
+!  END SELECT
+
+  END SUBROUTINE calc_potential_density
   !-------------------------------------------------------------------------
   
   !-------------------------------------------------------------------------
@@ -552,7 +584,6 @@ END INTERFACE
 
   END SUBROUTINE calc_density_JMDWFG06_EOS
 !----------------------------------------------------------------
-  
   function calc_density_JMDWFG06_EOS_func(tracer_t, tracer_s, p) RESULT(rho)
 !
 ! !DESCRIPTION:
@@ -744,12 +775,12 @@ END SUBROUTINE calc_density_JM_EOS
   !!
 !
     TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: p_patch_3D
-    REAL(wp), INTENT(IN)                          :: tracer(:,:,:,:)
-    REAL(wp), INTENT(INOUT)                       :: rho(:,:,:)       !< density
+    REAL(wp), INTENT(IN)                   :: tracer(:,:,:,:)
+    REAL(wp), INTENT(INOUT)                :: rho(:,:,:)       !< density
 
 ! !LOCAL VARIABLES:
 ! loop indices
-  REAL(wp):: z_p
+  REAL(wp):: z_p(n_zlev)
   INTEGER :: jc, jk, jb
   INTEGER :: rl_start, rl_end
   INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
@@ -757,45 +788,39 @@ END SUBROUTINE calc_density_JM_EOS
   TYPE(t_patch), POINTER        :: p_patch 
    !-----------------------------------------------------------------------
    p_patch   => p_patch_3D%p_patch_2D(1)
- !-------------------------------------------------------------------------
-  all_cells => p_patch%cells%all
- !i_len      = SIZE(dz)
+  !-------------------------------------------------------------------------
+   all_cells => p_patch%cells%all
+  !i_len      = SIZE(dz)
 
- !  tracer 1: potential temperature
- !  tracer 2: salinity
- IF(no_tracer==2)THEN
-
-    DO jb = all_cells%start_block, all_cells%end_block
-      CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
-     DO jk=1, n_zlev
-       z_p = p_patch_3D%p_patch_1D(1)%zlev_m(jk)*rho_ref*SItodBar
-       DO jc = i_startidx, i_endidx
-         ! operate on wet ocean points only
-         IF(p_patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
-           rho(jc,jk,jb) = calc_density_MPIOM_func( tracer(jc,jk,jb,1), tracer(jc,jk,jb,2), z_p)
-         END IF
-       END DO
-     END DO
-   END DO
-
- ELSEIF(no_tracer==1)THEN
+  ! compute pressure first
+  DO jk=1, n_zlev
+    z_p(jk) = p_patch_3D%p_patch_1D(1)%zlev_m(jk)*rho_ref*SItodBar
+  END DO
+  !  tracer 1: potential temperature
+  !  tracer 2: salinity
+  IF(no_tracer==2)THEN
 
     DO jb = all_cells%start_block, all_cells%end_block
       CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
-     DO jk=1, n_zlev
-       z_p = p_patch_3D%p_patch_1D(1)%zlev_m(jk)*rho_ref*SItodBar
-       DO jc = i_startidx, i_endidx
-         ! operate on wet ocean points only
-         IF(p_patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
+      DO jc = i_startidx, i_endidx
+        DO jk=1, p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb) ! operate on wet ocean points only
+          rho(jc,jk,jb) = calc_density_MPIOM_func( tracer(jc,jk,jb,1), tracer(jc,jk,jb,2), z_p(jk))
+        END DO
+      END DO
+    END DO
 
-           rho(jc,jk,jb) = calc_density_MPIOM_func( tracer(jc,jk,jb,1), SAL_REF, z_p)
-!write(123,*)'rho',jc,jk,jb,rho(jc,jk,jb)
-         END IF
-       END DO
-     END DO
-   END DO
+  ELSEIF(no_tracer==1)THEN
 
- ENDIF
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
+      DO jc = i_startidx, i_endidx
+        DO jk=1, p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb) ! operate on wet ocean points only
+          rho(jc,jk,jb) = calc_density_MPIOM_func( tracer(jc,jk,jb,1), SAL_REF, z_p(jk))
+        END DO
+      END DO
+    END DO
+
+  ENDIF
   END SUBROUTINE calc_density_MPIOM
   !-------------------------------------------------------------------------
   !
@@ -812,39 +837,30 @@ END SUBROUTINE calc_density_JM_EOS
   !! Initial version by Peter Korn, MPI-M (2011)
   !!
 
-FUNCTION calc_density_MPIOM_func(tpot, sal, p) RESULT(rho)
-    !INTEGER, INTENT(in) :: n
+  FUNCTION calc_density_MPIOM_func(tpot, sal, p) RESULT(rho)
     REAL(wp), INTENT(in) :: tpot, sal, p
     REAL(wp)             :: rho
 
-    REAL(wp) :: dc, dv, dvs, fne, fst, qc, qn3, qnq, qv, qvs, &
-         s, s3h, t, tpo
+    REAL(wp) :: dvs, fne, fst, qn3, qnq, qvs, s, s3h, t, denom
     REAL(wp), PARAMETER :: z_sref = 35.0_wp
 
-
     !This is the adisit part, that transforms potential in in-situ temperature
-    qc  = p * (a_a1 + p * (a_c1 - a_e1 * p))
-    qv  = p * (a_b1 - a_d * p)
-    dc  = 1.0_wp + p * (-a_a2 + p * (a_c2 - a_e2 * p))
-    dv  = a_b2 * p
     qnq = -p * (-a_a3 + p * a_c3)
     qn3 = -p * a_a4
-    tpo = tpot
-    qvs = qv*(sal - z_sref) + qc
-    dvs = dv*(sal - z_sref) + dc
-    t   = (tpo + qvs)/dvs
-    fne = - qvs + t*(dvs + t*(qnq + t*qn3)) - tpo
+    qvs = (p * (a_b1 - a_d * p))*(sal - z_sref) + p * (a_a1 + p * (a_c1 - a_e1 * p))
+    dvs = (a_b2 * p)*(sal - z_sref) + 1.0_wp + p * (-a_a2 + p * (a_c2 - a_e2 * p))
+    t   = (tpot + qvs)/dvs
+    fne = - qvs + t*(dvs + t*(qnq + t*qn3)) - tpot
     fst = dvs + t*(2._wp*qnq + 3._wp*qn3*t)
     t   = t - fne/fst
     s   = MAX(sal, 0.0_wp)
     s3h = SQRT(s**3)
 
-    rho = &
-         (r_a0 + t * (r_a1 + t * (r_a2 + t * (r_a3 + t * (r_a4 + t * r_a5))))&
+    rho = r_a0 + t * (r_a1 + t * (r_a2 + t * (r_a3 + t * (r_a4 + t * r_a5))))&
          & + s * (r_b0 + t * (r_b1 + t * (r_b2 + t * (r_b3 + t * r_b4))))    &
          & + r_d0 * s**2                                                     &
-         & + s3h * (r_c0 + t * (r_c1 + r_c2 * t)))                           &
-         / (1._wp                                                            &
+         & + s3h * (r_c0 + t * (r_c1 + r_c2 * t))
+    denom = 1._wp                                                            &
          &  - p / (p * (r_h0 + t * (r_h1 + t * (r_h2 + t * r_h3))            &
          &              + s * (r_ai0 + t * (r_ai1 + r_ai2 * t))              &
          &              + r_aj0 * s3h                                        &
@@ -852,9 +868,123 @@ FUNCTION calc_density_MPIOM_func(tpot, sal, p) RESULT(rho)
          &              + s * (r_am0 + t * (r_am1 + t * r_am2))) * p)        &
          &         + r_e0 + t * (r_e1 + t * (r_e2 + t * (r_e3 + t * r_e4)))  &
          &         + s * (r_f0 + t * (r_f1 + t * (r_f2 + t * r_f3)))         &
-         &         + s3h * (r_g0 + t * (r_g1 + r_g2 * t))))
+         &         + s3h * (r_g0 + t * (r_g1 + r_g2 * t)))
+    rho = rho/denom
 
   END FUNCTION calc_density_MPIOM_func
+
+  SUBROUTINE calc_potential_density_MPIOM(p_patch_3D, tracer, rhopot)
+!
+! !DESCRIPTION:
+!
+  !!  Calculates density as a function of potential temperature and salinity
+  !! using the equation of state as described in Gill, Atmosphere-Ocean Dynamics, Appendix 3
+  !! The code below is copied from MPIOM
+  !! @par Revision History
+  !! Initial version by Peter Korn, MPI-M (2011)
+  !!
+!
+    TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: p_patch_3D
+    REAL(wp), INTENT(IN)                   :: tracer(:,:,:,:)
+    REAL(wp), INTENT(INOUT)                :: rhopot(:,:,:)
+
+! !LOCAL VARIABLES:
+! loop indices
+  REAL(wp):: z_p(n_zlev)
+  INTEGER :: jc, jk, jb
+  INTEGER :: rl_start, rl_end
+  INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
+  TYPE(t_subset_range), POINTER :: all_cells
+  TYPE(t_patch), POINTER        :: p_patch
+   !-----------------------------------------------------------------------
+   p_patch   => p_patch_3D%p_patch_2D(1)
+   all_cells => p_patch%cells%all
+  !-------------------------------------------------------------------------
+
+  !  tracer 1: potential temperature
+  !  tracer 2: salinity
+  IF(no_tracer==2)THEN
+    rhopot(:,:,:) = calc_potential_density_MPIOM_elemental( tracer(:,:,:,1), tracer(:,:,:,2))
+  ELSEIF(no_tracer==1)THEN
+    rhopot(:,:,:) = calc_potential_density_MPIOM_elemental( tracer(:,:,:,1), 0.0_wp*tracer(:,:,:,1)+SAL_REF)
+  ENDIF
+  END SUBROUTINE calc_potential_density_MPIOM
+  ! elemental version of the above computation
+  ELEMENTAL FUNCTION calc_density_MPIOM_elemental(tpot, sal, p) RESULT(rho)
+    REAL(wp), INTENT(in) :: tpot, sal, p
+    REAL(wp)             :: rho
+
+    REAL(wp) :: dvs, fne, fst, qn3, qnq, qvs, s, s3h, t, denom
+    REAL(wp), PARAMETER :: z_sref = 35.0_wp
+
+
+    !This is the adisit part, that transforms potential in in-situ temperature
+    qnq = -p * (-a_a3 + p * a_c3)
+    qn3 = -p * a_a4
+    qvs = (p * (a_b1 - a_d * p))*(sal - z_sref) + p * (a_a1 + p * (a_c1 - a_e1 * p))
+    dvs = (a_b2 * p)*(sal - z_sref) + 1.0_wp + p * (-a_a2 + p * (a_c2 - a_e2 * p))
+    t   = (tpot + qvs)/dvs
+    fne = - qvs + t*(dvs + t*(qnq + t*qn3)) - tpot
+    fst = dvs + t*(2._wp*qnq + 3._wp*qn3*t)
+    t   = t - fne/fst
+    s   = MAX(sal, 0.0_wp)
+    s3h = SQRT(s**3)
+
+    rho = r_a0 + t * (r_a1 + t * (r_a2 + t * (r_a3 + t * (r_a4 + t * r_a5))))&
+         & + s * (r_b0 + t * (r_b1 + t * (r_b2 + t * (r_b3 + t * r_b4))))    &
+         & + r_d0 * s**2                                                     &
+         & + s3h * (r_c0 + t * (r_c1 + r_c2 * t))
+    denom = 1._wp                                                            &
+         &  - p / (p * (r_h0 + t * (r_h1 + t * (r_h2 + t * r_h3))            &
+         &              + s * (r_ai0 + t * (r_ai1 + r_ai2 * t))              &
+         &              + r_aj0 * s3h                                        &
+         &              + (r_ak0 + t * (r_ak1 + t * r_ak2)                   &
+         &              + s * (r_am0 + t * (r_am1 + t * r_am2))) * p)        &
+         &         + r_e0 + t * (r_e1 + t * (r_e2 + t * (r_e3 + t * r_e4)))  &
+         &         + s * (r_f0 + t * (r_f1 + t * (r_f2 + t * r_f3)))         &
+         &         + s3h * (r_g0 + t * (r_g1 + r_g2 * t)))
+    rho = rho/denom
+
+  END FUNCTION calc_density_MPIOM_elemental
+
+  ! potential density wrt to surface
+  ELEMENTAL FUNCTION calc_potential_density_MPIOM_elemental(tpot, sal) RESULT(rho)
+    REAL(wp), INTENT(in) :: tpot, sal
+    REAL(wp)             :: rho
+
+    REAL(wp), PARAMETER  :: p = 0.0_wp
+
+    REAL(wp)             :: dvs, fne, fst, qn3, qnq, qvs, s, s3h, t, denom
+    REAL(wp), PARAMETER  :: z_sref = 35.0_wp
+
+    !This is the adisit part, that transforms potential in in-situ temperature
+    qnq = -p * (-a_a3 + p * a_c3)
+    qn3 = -p * a_a4
+    qvs = (p * (a_b1 - a_d * p))*(sal - z_sref) + p * (a_a1 + p * (a_c1 - a_e1 * p))
+    dvs = (a_b2 * p)*(sal - z_sref) + 1.0_wp + p * (-a_a2 + p * (a_c2 - a_e2 * p))
+    t   = (tpot + qvs)/dvs
+    fne = - qvs + t*(dvs + t*(qnq + t*qn3)) - tpot
+    fst = dvs + t*(2._wp*qnq + 3._wp*qn3*t)
+    t   = t - fne/fst
+    s   = MAX(sal, 0.0_wp)
+    s3h = SQRT(s**3)
+
+    rho = r_a0 + t * (r_a1 + t * (r_a2 + t * (r_a3 + t * (r_a4 + t * r_a5))))&
+         & + s * (r_b0 + t * (r_b1 + t * (r_b2 + t * (r_b3 + t * r_b4))))    &
+         & + r_d0 * s**2                                                     &
+         & + s3h * (r_c0 + t * (r_c1 + r_c2 * t))
+    denom = 1._wp                                                            &
+         &  - p / (p * (r_h0 + t * (r_h1 + t * (r_h2 + t * r_h3))            &
+         &              + s * (r_ai0 + t * (r_ai1 + r_ai2 * t))              &
+         &              + r_aj0 * s3h                                        &
+         &              + (r_ak0 + t * (r_ak1 + t * r_ak2)                   &
+         &              + s * (r_am0 + t * (r_am1 + t * r_am2))) * p)        &
+         &         + r_e0 + t * (r_e1 + t * (r_e2 + t * (r_e3 + t * r_e4)))  &
+         &         + s * (r_f0 + t * (r_f1 + t * (r_f2 + t * r_f3)))         &
+         &         + s3h * (r_g0 + t * (r_g1 + r_g2 * t)))
+    rho = rho/denom
+
+  END FUNCTION calc_potential_density_MPIOM_elemental
   !-------------------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------------------

@@ -44,7 +44,7 @@ MODULE mo_gribout_config
 
   USE mo_kind,               ONLY: wp
   USE mo_impl_constants,     ONLY: max_dom
-
+  USE mo_model_domain,       ONLY: t_patch
 
   IMPLICIT NONE
   PRIVATE
@@ -52,6 +52,7 @@ MODULE mo_gribout_config
 
   PUBLIC :: t_gribout_config
   PUBLIC :: gribout_config
+  PUBLIC :: configure_gribout
 
   CHARACTER(len=*),PARAMETER,PRIVATE :: version = '$Id$'
 
@@ -106,6 +107,16 @@ MODULE mo_gribout_config
     INTEGER :: &                          ! Table: local.78.254.def
       & localNumberOfExperiment           !  
 
+
+    INTEGER :: &                          ! Output generating center
+      & generatingCenter                  ! DWD  : 78
+                                          ! ECMWF: 98 
+
+
+    INTEGER :: &                          ! Output generating subcenter
+      & generatingSubcenter               ! DWD  : 255
+                                          ! ECMWF: 0 
+
     LOGICAL :: ldate_grib_act             ! add Creation date to GRIB file
                                           ! .TRUE. : activated
                                           ! .FALSE.: deactivated (use dummy date/time) 
@@ -118,5 +129,48 @@ MODULE mo_gribout_config
   !>
   !!
   TYPE(t_gribout_config), TARGET :: gribout_config(0:max_dom)
+
+
+CONTAINS
+
+
+  !>
+  !! potentailly modify generatingCenter and generatingSubcenter 
+  !!
+  !! If generatingCenter and generatingSubcenter are not set via namelist, 
+  !! they are filled with values read from the grid file. 
+  !!
+  !! @par Revision History
+  !! Initial revision by Daniel Reinert, DWD (2013-04-26)
+  !!
+  SUBROUTINE configure_gribout(grid_generatingCenter, grid_generatingSubcenter, &
+    &                          n_dom)
+  !
+    INTEGER,       INTENT(IN)  :: grid_generatingCenter(:)
+    INTEGER,       INTENT(IN)  :: grid_generatingSubcenter(:)
+    INTEGER,       INTENT(IN)  :: n_dom 
+
+    ! local fields
+    INTEGER  :: jg
+
+    !-----------------------------------------------------------------------
+
+    DO jg = 1, n_dom
+      ! check, whether generatingCenter was set in gribout_nml
+      !
+      IF ( gribout_config(jg)%generatingCenter == -1 ) THEN
+        ! If not, then fill with grid generating center
+        gribout_config(jg)%generatingCenter = grid_generatingCenter(jg)
+      ENDIF
+
+      ! check, whether generatingSubcenter was set in gribout_nml
+      !
+      IF ( gribout_config(jg)%generatingSubcenter == -1 ) THEN
+        ! If not, then fill with grid generating subcenter
+        gribout_config(jg)%generatingSubcenter = grid_generatingSubcenter(jg)
+      ENDIF
+    ENDDO
+
+  END SUBROUTINE configure_gribout
 
 END MODULE mo_gribout_config

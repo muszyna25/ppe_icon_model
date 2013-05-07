@@ -56,6 +56,9 @@ MODULE mo_run_config
   PUBLIC :: iash1_conv,iash2_conv,iash3_conv,iash4_conv,iash5_conv,iash6_conv !K.L. Running index for convection 
   PUBLIC :: iCS137,iI131,iTE132,iZR95,iXE133,iI131g,iI131o,iBA140,iRU103 !Running index for radioactive nuclides  in ICON-ART
   PUBLIC :: iCS137_conv,iI131_conv,iTE132_conv,iZR95_conv,iXE133_conv,iI131g_conv,iI131o_conv,iBA140_conv,iRU103_conv !Running index for radioactive nuclides  in ICON-ART
+  PUBLIC :: grid_generatingCenter     ! non-namelist variables
+  PUBLIC :: grid_generatingSubcenter  ! non-namelist variables
+  PUBLIC :: number_of_grid_used       ! non-namelist variables
   PUBLIC :: check_epsilon, test_mode
   PUBLIC :: configure_run, l_one_file_per_patch, ldump_dd, lread_dd, nproc_dd
   PUBLIC :: dump_filename, dd_filename, lonlat_dump_filename
@@ -95,6 +98,7 @@ MODULE mo_run_config
     INTEGER :: test_mode
 
     INTEGER :: msg_level       !< how much printout is generated during runtime
+
  
     !> output mode (string)
     !  one or multiple of "none", "vlist", "nml", "totint"
@@ -103,6 +107,15 @@ MODULE mo_run_config
 
     ! dump/restore file names, may contain keywords
     CHARACTER(LEN=filename_max) :: dump_filename, dd_filename, lonlat_dump_filename
+
+
+    ! Non-Namelist variables
+    ! These are read from the grid file in mo_model_domimp_patches/read_basic_patch
+    ! 
+    INTEGER :: grid_generatingCenter   (0:MAX_DOM)   !< patch generating center
+    INTEGER :: grid_generatingSubcenter(0:MAX_DOM)   !< patch generating subcenter
+    INTEGER :: number_of_grid_used(0:MAX_DOM)  !< Number of grid used (GRIB2 key)
+
 
     ! Derived variables
     !
@@ -171,7 +184,10 @@ CONTAINS
   !>
   !!
   !! Assign value to components of the run configuration state that have no
-  !! corresponding namelist variable. 
+  !! corresponding namelist variable.
+  !!
+  !! Exceptions: grid_generatingCenter, grid_generatingSubcenter and number_of_grid_used 
+  !!             are set in mo_model_domimp_patches/read_basic_patch 
   !!
   SUBROUTINE configure_run( opt_iadv_rcf )
 

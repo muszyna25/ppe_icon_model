@@ -51,9 +51,9 @@ while [[ $nt < ${#inidate[*]} ]]; do
               TOT_PREC        RAIN_GSP       SNOW_GSP         RAIN_CON  SNOW_CON \
               QV_S            T_2M           QV_2M                               \
               U_10M           V_10M                                              \
-              T_GT_tile_1     T_S_tile_1     W_I_tile_1                          \
-              T_SNOW_tile_1   DZH_SNOW_tile_1                 H_SNOW_tile_1      \
-              W_SNOW_tile_1   WTOT_SNOW_tile_1                WLIQ_SNOW_tile_1   \
+              T_G             T_GT_tile_1    T_S_tile_1       W_I_tile_1         \
+              T_SNOW_tile_1   DZH_SNOW       H_SNOW                              \
+              W_SNOW          WTOT_SNOW_tile_1                WLIQ_SNOW_tile_1   \
               RHO_SNOW_tile_1 RHO_SNOW_MULT_tile_1
 #             Z0  T_G 
   for var in ${vars[*]}
@@ -84,7 +84,7 @@ while [[ $nt < ${#inidate[*]} ]]; do
   
   # -------------------------------------------------------
   	
-  set -A vars T  U  V  Q1  Q2  Q3  QV  QC  QI  CC  P  QR  QS #QR QS  QTVAR  O3  P               
+  set -A vars T  U  V  Q1  Q2  Q3  QV  QC  QI  CC  P  QR  QS QTVAR #QR QS  QTVAR  O3  P               
   for var in ${vars[*]}
   do
     echo ${metview} -b ${scriptdir}zonal.error $expnum $var ml diff  ${inidate[nt]} ${initime[nt]} ${verdate[nt]} ${vertime[nt]} ${ndays} ${res} >> $met_job

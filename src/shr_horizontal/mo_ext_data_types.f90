@@ -99,30 +99,6 @@ MODULE mo_ext_data_types
     REAL(wp), POINTER  ::   &  !< elevation at cell centers               [m]
       &  elevation_c(:,:)
 
-    REAL(wp), POINTER ::   &   !< SST annual mean prescribed              [K]
-       &  sst(:,:)
- 
-    REAL(wp), POINTER ::   &   !< SST monthly prescribed                  [K]
-      &  sst_mon(:,:,:)
-
-    REAL(wp), POINTER ::   &   !< soil surface albedo visible             [ ]
-      &  albedo_vis_soil(:,:)
-
-    REAL(wp), POINTER ::   &   !< soil surface albedo NIR                 [ ]
-      &  albedo_nir_soil(:,:)
-
-    REAL(wp), POINTER ::   &   !< canopy reflectance visible              [ ]
-      &  albedo_vis_canopy(:,:)
-
-    REAL(wp), POINTER ::   &   !< canopy reflectance NIR                  [ ]
-      &  albedo_nir_canopy(:,:)
-
-    REAL(wp), POINTER ::   &   !< background albedo for echam5 scheme     [ ]
-      &  albedo_background(:,:)
-
-    REAL(wp), POINTER ::   &   !< forest fraction for the use in          [ ]
-      &  forest_fract(:,:)     !< routine update_albedo_static
-
     REAL(wp), POINTER ::   &   !< fraction land in a grid element         [ ]
       &  fr_land(:,:)          ! 0. for water, 1.0 indicates 100% land
                                ! index1=1,nproma, index2=1,nblks_c
@@ -137,9 +113,6 @@ MODULE mo_ext_data_types
    
     REAL(wp), POINTER ::   &   !< fraction land in a grid element         [ ]
       &  fr_land_smt(:,:)      !  = smoothed fr_land
-
-    REAL(wp), POINTER ::   &   !< fraction sea ice cover in a grid element [ ]
-      &  fr_ice_smt(:,:)       ! = smoothed fr_ice
 
     REAL(wp), POINTER ::   &   !< fraction land glacier in a grid element [ ]
       &  fr_glac_smt(:,:)      ! = smoothed fr_glac
@@ -191,6 +164,12 @@ MODULE mo_ext_data_types
     REAL(wp), POINTER ::   &   !< leaf area index (vegetation period)            [ ]
       &  lai(:,:)              ! index1=1,nproma, index2=1,nblks_c
     REAL(wp), POINTER ::   &   !< surface area index (vegetation period)         [ ]
+      &  sai(:,:)              ! index1=1,nproma, index2=1,nblks_c
+    REAL(wp), POINTER ::   &   !< transpiration area index (vegetation period)   [ ]
+      &  tai(:,:)              ! index1=1,nproma, index2=1,nblks_c
+    REAL(wp), POINTER ::   &   !< earth area (evaporative surface area)          [ ] 
+      &  eai(:,:)              ! index1=1,nproma, index2=1,nblks_c
+    REAL(wp), POINTER ::   &   !< surface area index (vegetation period)         [ ]
       &  sai_t(:,:,:)          ! index1=1,nproma, index2=1,nblks_c, ntiles_total
     REAL(wp), POINTER ::   &   !< transpiration area index (vegetation period)   [ ]
       &  tai_t(:,:,:)          ! index1=1,nproma, index2=1,nblks_c, ntiles_total
@@ -221,7 +200,7 @@ MODULE mo_ext_data_types
       &  ndvi_max(:,:)         ! index1=1,nproma, index2=1,nblks_c
 
     REAL(wp), POINTER ::   &   !< proportion of actual value/maximum 
-      &  ndvi_mrat(:,:)        !< normalized differential vegetation index [ ]
+      &  ndviratio(:,:)        !< normalized differential vegetation index [ ]
                                !< for starting time of model integration
                                !< (derived from atm_td%ndvi_mrat)
                                ! index1=1,nproma, index2=1,nblks_c
@@ -310,6 +289,8 @@ MODULE mo_ext_data_types
     !  have a different order of the landcover classes)
     REAL(wp), POINTER ::  &    !< Land-cover related roughness length   [m]
       & z0_lcc(:)              ! index1=1,23
+    REAL(wp), POINTER ::  &    !< Minimum land-cover related roughness length   [m]
+      & z0_lcc_min(:)          ! index1=1,23
     REAL(wp), POINTER ::  &    !< Maximum plant cover fraction for each land-cover class  [ ]
       & plcovmax_lcc(:)        ! index1=1,23
     REAL(wp), POINTER ::  &    !< Maximum leaf area index for each land-cover class  [ ]
@@ -322,9 +303,9 @@ MODULE mo_ext_data_types
       & snowalb_lcc(:)         ! index1=1,23
     LOGICAL, POINTER ::  &     !< Existence of separate snow tiles for land-cover class [ ]
       & snowtile_lcc(:)        ! index1=1,23
-    INTEGER :: i_lc_snow_ice   !< Specification of land-use class for snow and ice
-    INTEGER :: i_lc_water      !< Specification of land-use class for water
-
+    INTEGER :: i_lc_snow_ice   !< Land-cover classification index for snow and ice
+    INTEGER :: i_lc_water      !< Land-cover classification index for water
+    INTEGER :: i_lc_urban      !< Land-cover classification index for urban / artificial surface
 
     ! for output purposes.
     TYPE(t_ptr_2d3d), ALLOCATABLE :: frac_t_ptr(:)
@@ -372,13 +353,18 @@ MODULE mo_ext_data_types
     REAL(wp), POINTER ::   &   !< aerosol optical thickness of seasalt aerosol [ ]
       &  aer_ss(:,:,:)         ! index1=1,nproma, index2=1,nblks_c, index3=1,ntimes
 
+    REAL(wp), POINTER ::   &   !< UV visible albedo for diffuse radiation      [%]
+      &  alb_vis_dif(:,:,:)    ! index1=1,nproma, index2=1,nblks_c, index3=1,ntimes
+
+    REAL(wp), POINTER ::   &   !< Near IR albedo for diffuse radiation         [%]
+      &  alb_nir_dif(:,:,:)    ! index1=1,nproma, index2=1,nblks_c, index3=1,ntimes
 
 
     !
     ! *** vegetation parameters ***
     REAL(wp), POINTER ::   &   !< (monthly) proportion of actual value/maximum 
       &  ndvi_mrat(:,:,:)      !< normalized differential vegetation index   [ ]
-                               ! index1=1,nproma, index2=1,nblks_c
+                               ! index1=1,nproma, index2=1,nblks_c, index3=1,ntimes
     !
     ! ***SST and sea ice fraction
     REAL(wp), POINTER ::   &   !< (monthly) SST
