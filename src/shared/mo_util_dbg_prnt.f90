@@ -55,7 +55,8 @@ USE mo_dbg_nml,                ONLY: str_mod_tst, dim_mod_tst, dbg_lon_in, dbg_l
 USE mo_math_constants,         ONLY: pi
 USE mo_exception,              ONLY: message, message_text
 USE mo_model_domain,           ONLY: t_patch
-
+USE mo_grid_subset,            ONLY: t_subset_range
+USE mo_statistics_utils,       ONLY: global_minmax
 
 IMPLICIT NONE
 
@@ -322,22 +323,21 @@ CONTAINS
   !! Initial release by Stephan Lorenz, MPI-M (2012-06)
   !!
   !
-  SUBROUTINE dbg_print_3d( str_prntdes, p_array, str_mod_src, idetail_src )
+  SUBROUTINE dbg_print_3d( str_prntdes, p_array, str_mod_src, idetail_src, in_subset )
 
   CHARACTER(len=*),      INTENT(IN) :: str_prntdes    ! description of array
   REAL(wp),              INTENT(IN) :: p_array(:,:,:) ! 3-dim array for debugging
   CHARACTER(len=*),      INTENT(IN) :: str_mod_src    ! defined string for source of current array
   INTEGER,               INTENT(IN) :: idetail_src    ! source level from module for print output 
+  TYPE(t_subset_range),  POINTER, OPTIONAL :: in_subset
 
   ! local variables
   CHARACTER(len=27) ::  strout
   CHARACTER(len=12) ::  strmod
   INTEGER           ::  slev, elev, elev_val, elev_mxmn
   INTEGER           ::  iout, icheck_str_mod, jstr, i, jk, nlev, ndimblk
-  REAL(wp)          ::  ctrx, ctrn, glbmx, glbmn
-  !TYPE(t_subset_range), POINTER :: cells_in_domain!, all_cells
-  !INTEGER           ::  i_startidx, i_endidx, jb
-  !REAL(wp)          ::  ctrxind(nproma), ctrnind(nproma)
+!  REAL(wp)          ::  ctrx, ctrn, glbmx, glbmn
+  REAL(wp)          :: minmax(2)
 
   IF (timers_level > 10) CALL timer_start(timer_dbg_prnt)
 
@@ -474,28 +474,20 @@ CONTAINS
     ! print out maximum and minimum value
     DO jk = slev, elev_mxmn
     
-      ctrx=maxval(p_array(1:nproma,jk,1:ndimblk))
-      ctrn=minval(p_array(1:nproma,jk,1:ndimblk))
-
-      ! find max/min out of active indices only
-       !DO jb = cells_in_domain%start_block, cells_in_domain%end_block
-       !DO jb = v_subdom_cell%start_block, v_subdom_cell%end_block
-       !  CALL get_index_range(v_subdom_cell, jb, i_startidx, i_endidx)
-       !  ctrxind(jb)=maxval(p_array(i_startidx:i_endidx,jk,jb))
-       !  ctrnind(jb)=minval(p_array(i_startidx:i_endidx,jk,jb))
-       !END DO  
-       !ctrx=maxval(ctrxind(:))
-       !ctrn=minval(ctrxind(:))
-
-      ! parallelize:
-      p_test_run_bac = p_test_run
-      p_test_run = .false.
-      glbmx=global_max(ctrx)
-      glbmn=global_min(ctrn)
-      p_test_run = p_test_run_bac
+!      ctrx=maxval(p_array(1:nproma,jk,1:ndimblk))
+!      ctrn=minval(p_array(1:nproma,jk,1:ndimblk))
+!
+!      ! parallelize:
+!      p_test_run_bac = p_test_run
+!      p_test_run = .false.
+!      glbmx=global_max(ctrx)
+!      glbmn=global_min(ctrn)
+!      p_test_run = p_test_run_bac
     
+      minmax = global_minmax(values=p_array, subset=in_subset)
+
       IF (my_process_is_stdio()) &
-        & WRITE(iout,991) ' MAX/MIN ', strmod, strout, jk, glbmx, glbmn
+        & WRITE(iout,991) ' MAX/MIN ', strmod, strout, jk, minmax(2), minmax(1)
 
     
       ! location of max/min - parallelize!
@@ -517,21 +509,20 @@ CONTAINS
   !! Print out min and max or a specific cell value and neighbors of a 2-dim array.
   !!
 
-  SUBROUTINE dbg_print_2d( str_prntdes, p_array, str_mod_src, idetail_src )
+  SUBROUTINE dbg_print_2d( str_prntdes, p_array, str_mod_src, idetail_src, in_subset )
 
   CHARACTER(len=*),      INTENT(IN) :: str_prntdes    ! description of array
   REAL(wp),              INTENT(IN) :: p_array(:,:)   ! 2-dim array for debugging
   CHARACTER(len=*),      INTENT(IN) :: str_mod_src    ! defined string for source of current array
   INTEGER,               INTENT(IN) :: idetail_src    ! source level from module for print output 
+  TYPE(t_subset_range),  POINTER, OPTIONAL :: in_subset
 
   ! local variables
   CHARACTER(len=27) ::  strout
   CHARACTER(len=12) ::  strmod
   INTEGER           ::  iout, icheck_str_mod, jstr, i, jk, ndimblk
-  REAL(wp)          ::  ctrx, ctrn, glbmx, glbmn
-  !TYPE(t_subset_range), POINTER :: cells_in_domain!, all_cells
-  !REAL(wp)          ::  ctrxind(nproma), ctrnind(nproma)
-  !INTEGER           ::  i_startidx, i_endidx, jb
+ ! REAL(wp)          ::  ctrx, ctrn ! , glbmx, glbmn
+  REAL(wp)          :: minmax(2)
 
   IF (timers_level > 10) CALL timer_start(timer_dbg_prnt)
 
@@ -613,28 +604,21 @@ CONTAINS
 
   IF (idbg_mxmn >= idetail_src ) THEN
 
-    ctrx=maxval(p_array(1:nproma,1:ndimblk))
-    ctrn=minval(p_array(1:nproma,1:ndimblk))
-
-    ! find max/min out of active indices only
- !   DO jb = cells_in_domain%start_block, cells_in_domain%end_block
- !     CALL get_index_range(cells_in_domain, jb, i_startidx, i_endidx)
- !     ctrxind(jb)=maxval(p_array(1:i_startidx,1:i_endidx))
- !     ctrnind(jb)=minval(p_array(1:i_startidx,1:i_endidx))
- !   END DO  
- !   ctrx=maxval(ctrxind(:))
- !   ctrn=minval(ctrxind(:))
-
-    ! print out maximum and minimum value
-    ! parallelize:
-    p_test_run_bac = p_test_run
-    p_test_run = .false.
-    glbmx=global_max(ctrx)
-    glbmn=global_min(ctrn)
-    p_test_run = p_test_run_bac
+!    ctrx=maxval(p_array(1:nproma,1:ndimblk))
+!    ctrn=minval(p_array(1:nproma,1:ndimblk))
+!
+!    ! print out maximum and minimum value
+!    ! parallelize:
+!    p_test_run_bac = p_test_run
+!    p_test_run = .false.
+!    glbmx=global_max(ctrx)
+!    glbmn=global_min(ctrn)
+!    p_test_run = p_test_run_bac
    
+    minmax = global_minmax(values=p_array, subset=in_subset)
+
     IF (my_process_is_stdio()) &
-      & WRITE(iout,991) ' MAX/MIN ', strmod, strout, jk, glbmx, glbmn
+      & WRITE(iout,991) ' MAX/MIN ', strmod, strout, jk, minmax(2), minmax(1)
 
   END IF
 
