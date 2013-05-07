@@ -1822,14 +1822,41 @@ CONTAINS
       INTEGER, INTENT(in) :: array_size, max_connectivity
       LOGICAL, INTENT(in) :: duplicate
 
-      INTEGER :: j, je, first_zero, last_no_zero
+      INTEGER :: i, j, je, first_zero, last_no_zero, icount, listlen
+      INTEGER, ALLOCATABLE :: indlist(:)
       CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_model_domimp_patches:move_dummies_to_end'
 
       IF (array_size > UBOUND(array, 1) ) &
         & CALL finish(method_name, "array_size > UBOUND(array, 1)" )
 
       ! GZ: this routine is called before executing the domain decomposition; thus, all grid points must be processed
-      DO j = 1,  UBOUND(array, 1)  ! array_size
+      ! To save computing time, we first create an index list of grid points with dummy indices
+
+      listlen = MAX(12, UBOUND(array, 1)/25)  ! this is usually sufficient, except for small limited-area domains
+      ALLOCATE (indlist(listlen))
+      icount = 0
+      DO j = 1,  UBOUND(array, 1)
+        IF (ANY(array(j,1:max_connectivity) == 0)) THEN
+          icount = icount+1
+          IF (icount <= listlen) indlist(icount) = j
+        ENDIF
+      ENDDO
+
+      ! Recompute the list if the number of grid points with dummy indices was too large
+      IF (icount > listlen) THEN
+        DEALLOCATE (indlist)
+        ALLOCATE (indlist(icount))
+        icount = 0
+        DO j = 1,  UBOUND(array, 1)
+          IF (ANY(array(j,1:max_connectivity) == 0)) THEN
+            icount = icount+1
+            indlist(icount) = j
+          ENDIF
+        ENDDO
+      ENDIF
+
+      DO i = 1, icount
+        j = indlist(i)
         last_no_zero = 0
         first_zero = 0
         DO WHILE(last_no_zero >=  first_zero)
@@ -1872,6 +1899,7 @@ CONTAINS
 
       ENDDO ! j = 1, UBOUND(array,1)
 
+      DEALLOCATE (indlist)
       
     END SUBROUTINE move_dummies_to_end
     !-------------------------------------------------------------------------
