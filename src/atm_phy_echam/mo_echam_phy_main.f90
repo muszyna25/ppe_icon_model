@@ -166,7 +166,6 @@ CONTAINS
     INTEGER  :: ntrac !< # of tracers excluding water vapour and hydrometeors
                       !< (handled by sub-models, e.g., chemical species)
     INTEGER  :: selmon !< selected month for ozone data (temporary var!)
-    INTEGER  :: cur_month, pre_month, suc_month, cur_day !< date (temporary var!)
 
     ! Coefficient matrices and right-hand-side vectors for the turbulence solver
     ! _btm refers to the lowest model level (i.e., full level "klev", not the surface)
@@ -188,7 +187,6 @@ CONTAINS
     REAL(wp) :: ztkevn   (nbdim,nlev) !< intermediate value of tke
     REAL(wp) :: zch_tile (nbdim,nsfc_type)
     REAL(wp) :: ztte_corr(nbdim)      !< tte correction for snow melt over land (JSBACH)
-    REAL(wp) :: zz0h_lnd (nbdim)      !< roughness length for heat over land (JSBACH)
     REAL(wp) :: ztemperature_rad(nbdim)
 
     ! Temporary variables used for zenith angle
@@ -198,7 +196,7 @@ CONTAINS
     REAL(wp) :: zdeclination_sun
     REAL(wp) :: ztime_dateline
 
-    REAL(wp) :: zdoy, zra, zdec, zdis, zen1, zen2, zen3
+!!$    REAL(wp) :: zdoy, zra, zdec, zdis, zen1, zen2, zen3
 
 !!$    REAL(wp) :: zo3_timint(nbdim,nlev_o3) !< intermediate value of ozon 
 
@@ -1364,21 +1362,6 @@ CONTAINS
     ! accumulated total precipitation flux => average when output
        field% totprec_avg (jcs:jce,jb) =  field% totprec_avg (jcs:jce,jb)          &
             &                            +field% totprec     (jcs:jce,jb) * pdtime
-
-
-    ! KF accumulated net TOA and surface radiation fluxes
-
-       field% swflxsfc_avg(jcs:jce,jb) = field% swflxsfc_avg(jcs:jce,jb)  &
-         &                             + field% swflxsfc    (jcs:jce,jb)  *pdtime
-       field% lwflxsfc_avg(jcs:jce,jb) = field% lwflxsfc_avg(jcs:jce,jb)  &
-         &                             + field% lwflxsfc    (jcs:jce,jb)  *pdtime
-       field% dlwflxsfc_dT_avg(jcs:jce,jb) = field% dlwflxsfc_dT_avg(jcs:jce,jb) &
-       &                                   + field% dlwflxsfc_dT    (jcs:jce,jb)*pdtime
-
-       field% swflxtoa_avg(jcs:jce,jb) = field% swflxtoa_avg(jcs:jce,jb) &
-         &                             + field% swflxtoa    (jcs:jce,jb) *pdtime
-       field% lwflxtoa_avg(jcs:jce,jb) = field% lwflxtoa_avg(jcs:jce,jb) &
-         &                             + field% lwflxtoa    (jcs:jce,jb) *pdtime
 
     ! Done. Disassociate pointers.
     NULLIFY(field,tend)

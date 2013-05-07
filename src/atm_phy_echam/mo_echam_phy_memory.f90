@@ -613,7 +613,7 @@ CONTAINS
 
     INTEGER :: shape2d(2), shape3d(3), shapesfc(3), shapeice(3)
 !0!    INTEGER :: shape4d(4)
-    INTEGER :: ibits, iextbits, jsfc, jtrc, ist
+    INTEGER :: ibits, iextbits, jsfc, jtrc
 
     CHARACTER(LEN=1) :: csfc
 
@@ -820,75 +820,51 @@ CONTAINS
     CALL add_var( field_list, prefix//'pardffsfc', field%pardffsfc,             &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
 
-       ! &      field%swflxsfc(nproma,nblks_c)
     cf_desc    = t_cf_var('swflxsfc', 'W m-2', ' shortwave net flux at surface', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(0, 4, 9, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( field_list, prefix//'swflxsfc', field%swflxsfc,                             &
-               & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d)
+    CALL add_var( field_list, prefix//'swflxsfc', field%swflxsfc,&
+         &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE,            &
+         &        cf_desc, grib2_desc,                           &
+         &        ldims=shape2d,                                 &
+         &        lrestart = .FALSE.,                            &
+         &        isteptype=TSTEP_INSTANT )
         
-    ! &      field%swflxtoa(nproma,nblks_c)
     cf_desc    = t_cf_var('swflxtoa', 'W m-2', ' shortwave net flux at TOA', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(0, 4, 9, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( field_list, prefix//'swflxtoa', field%swflxtoa,                             &
-               & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d) 
+    CALL add_var( field_list, prefix//'swflxtoa', field%swflxtoa,&
+         &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE,            &
+         &        cf_desc, grib2_desc,                           &
+         &        ldims=shape2d,                                 &
+         &        lrestart = .FALSE.,                            &
+         &        isteptype=TSTEP_INSTANT )
         
-    ! &      field%lwflxsfc(nproma,nblks_c)
     cf_desc    = t_cf_var('lwflxsfc', 'W m-2', 'longwave net flux at surface', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(0, 5, 5, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( field_list, prefix//'lwflxsfc', field%lwflxsfc,                          &
-               & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d) 
+    CALL add_var( field_list, prefix//'lwflxsfc', field%lwflxsfc,&
+         &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE,            &
+         &        cf_desc, grib2_desc,                           &
+         &        ldims=shape2d,                                 &
+         &        lrestart = .FALSE.,                            &
+         &        isteptype=TSTEP_INSTANT )
 
-    ! &      field%dlwflxsfc_dT(nproma,nblks_c)
-    cf_desc    = t_cf_var('dlwflxsfc_dT', 'W m-2 k-1', 'longwave net flux T-tend at surface', &
+    cf_desc    = t_cf_var('dlwflxsfc_dT', 'W m-2 K-1', 'longwave net flux T-derivative at surface', &
          &                DATATYPE_FLT32)
     grib2_desc = t_grib2_var(0, 5, 5, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( field_list, prefix//'dlwflxsfc_dT', field%dlwflxsfc_dT,                    &
-               & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d) 
+    CALL add_var( field_list, prefix//'dlwflxsfc_dT', field%dlwflxsfc_dT, &
+         &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                     &
+         &        cf_desc, grib2_desc,                                    &
+         &        ldims=shape2d,                                          &
+         &        lrestart = .FALSE.,                                     &
+         &        isteptype=TSTEP_INSTANT )
 
-    ! &      field%lwflxtoa(nproma,nblks_c)
     cf_desc    = t_cf_var('lwflxtoa', 'W m-2', 'longwave net flux at TOA', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(0, 5, 5, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( field_list, prefix//'lwflxtoa', field%lwflxtoa,                          &
-              & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d) 
-
-    !averaged values
-
-       ! &      field%swflxsfc_avg(nproma,nblks_c)
-    cf_desc    = t_cf_var('swflxsfc_avg', 'W m-2',&
-      &                   'averaged over output shortwave net flux at surface', &
-      &                   DATATYPE_FLT32)
-    grib2_desc = t_grib2_var(0, 4, 9, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( field_list, prefix//'swflxsfc_avg', field%swflxsfc_avg,                    &
-               & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d) 
-        
-    ! &      field%swflxtoa_avg(nproma,nblks_c)
-    cf_desc    = t_cf_var('swflxtoa_avg', 'W m-2',&
-      &                   'averaged over output shortwave net flux at TOA', DATATYPE_FLT32)
-    grib2_desc = t_grib2_var(0, 4, 9, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( field_list, prefix//'swflxtoa_avg', field%swflxtoa_avg,                 &
-               & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d) 
-        
-    ! &      field%lwflxsfc_avg(nproma,nblks_c)
-    cf_desc    = t_cf_var('lwflxsfc_avg', 'W m-2', &
-      &                    'averaged over output longwave net flux at surface', DATATYPE_FLT32)
-    grib2_desc = t_grib2_var(0, 5, 5, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( field_list, prefix//'lwflxsfc_avg', field%lwflxsfc_avg,           &
-               & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d) 
-
-    ! &      field%dlwflxsfc_dT_avg(nproma,nblks_c)
-     cf_desc    = t_cf_var('dlwflxsfc_dT_avg', 'W m-2 k-1',&
-       &                    'averaged longwave net flux T-tend at surface', DATATYPE_FLT32)
-     grib2_desc = t_grib2_var(0, 5, 5, ibits, GRID_REFERENCE, GRID_CELL)
-     CALL add_var( field_list, prefix//'dlwflxsfc_dT_avg', field%dlwflxsfc_dT_avg,         &
-                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d) 
-
-
-    ! &      field%lwflxtoa_avg(nproma,nblks_c)
-    cf_desc    = t_cf_var('lwflxtoa_avg', 'W m-2',&
-      &                   'averaged over output longwave net flux at TOA', DATATYPE_FLT32)
-    grib2_desc = t_grib2_var(0, 5, 5, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( field_list, prefix//'lwflxtoa_avg', field%lwflxtoa_avg,                &
-              & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d) 
+    CALL add_var( field_list, prefix//'lwflxtoa', field%lwflxtoa,&
+         &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE,            &
+         &        cf_desc, grib2_desc,                           &
+         &        ldims=shape2d,                                 &
+         &        lrestart = .FALSE.,                            &
+         &        isteptype=TSTEP_INSTANT )
 
     IF (get_lamip()) THEN
     cf_desc    = t_cf_var('tsfc_wtr', 'K', 'surface temperature over water', DATATYPE_FLT32)

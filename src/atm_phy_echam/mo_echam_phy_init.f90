@@ -1037,11 +1037,6 @@ CONTAINS
       field% u_stress_avg(:,:) = 0._wp
       field% v_stress_avg(:,:) = 0._wp
 
-     field% swflxsfc_avg(:,:) = 0._wp
-     field% lwflxsfc_avg(:,:) = 0._wp
-     field% swflxtoa_avg(:,:) = 0._wp
-     field% lwflxtoa_avg(:,:) = 0._wp
-
       NULLIFY( field )
     ENDDO !jg
 
