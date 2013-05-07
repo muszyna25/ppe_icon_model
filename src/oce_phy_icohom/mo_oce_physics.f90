@@ -604,15 +604,12 @@ write(*,*)'max-min coeff',z_diff_multfac, maxval(p_phys_param%K_veloc_h(:,1,:)),
     REAL(wp) :: z_Ri_e               (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
     REAL(wp) :: z_c                  (nproma,n_zlev+1,p_patch_3D%p_patch_2D(1)%nblks_c)
 
-    !REAL(wp) :: dz_inv
-    !REAL(wp) :: z_rho_up_c1, z_rho_down_c1,z_rho_up_c2, z_rho_down_c2
-    !REAL(wp) :: z_lambda_frac 
-    !REAL(wp) :: z_A_tracer_v_old!, z_A_veloc_v_old
+    REAL(wp) :: dz_inv, z_lambda_frac
 
     !Below is a set of variables and parameters for tracer and velocity
     !REAL(wp), PARAMETER :: z_beta            = 0.6_wp
     !REAL(wp), PARAMETER :: z_one_minus_beta  = 0.4_wp
-    REAL(wp), PARAMETER :: z_lambda          = 0.05_wp
+    REAL(wp), PARAMETER :: z_lambda          = 0.03_wp   !  wind mixing stability parameter (16)
     REAL(wp), PARAMETER :: z_0               = 40.0_wp
     REAL(wp), PARAMETER :: z_c1_T            = 5.0_wp
     REAL(wp), PARAMETER :: z_c1_v            = 5.0_wp
@@ -620,13 +617,13 @@ write(*,*)'max-min coeff',z_diff_multfac, maxval(p_phys_param%K_veloc_h(:,1,:)),
     REAL(wp) :: z_grav_rho, z_inv_rho_ref, z_press, press, A_T_tmp, z_s1, z_s2
     REAL(wp) :: density_grad_e, mean_z_r
     !-------------------------------------------------------------------------
-    TYPE(t_subset_range), POINTER :: edges_in_domain,cells_in_domain,all_cells
+    TYPE(t_subset_range), POINTER :: edges_in_domain, all_cells!, cells_in_domain
     TYPE(t_patch), POINTER        :: p_patch
 
     !-------------------------------------------------------------------------
     p_patch         => p_patch_3D%p_patch_2D(1)
     edges_in_domain => p_patch%edges%in_domain
-    cells_in_domain => p_patch%cells%in_domain
+    !cells_in_domain => p_patch%cells%in_domain
     all_cells       => p_patch%cells%all
 
     !-------------------------------------------------------------------------
@@ -722,8 +719,9 @@ write(*,*)'max-min coeff',z_diff_multfac, maxval(p_phys_param%K_veloc_h(:,1,:)),
           IF ( z_dolic >= MIN_DOLIC ) THEN
             DO jk = 2, z_dolic
 
-             !dz_inv = p_patch_3D%p_patch_1D(1)%inv_prism_center_dist_c(jc,jk,jb)
-               ! p_os%p_diag%inv_prism_center_dist_c(jc,jk,jb) !1.0_wp/v_base%del_zlev_i(jk)
+              dz_inv        = p_patch_3D%p_patch_1D(1)%inv_prism_center_dist_c(jc,jk,jb)
+              z_lambda_frac = z_lambda * dz_inv
+              ! p_os%p_diag%inv_prism_center_dist_c(jc,jk,jb) !1.0_wp/v_base%del_zlev_i(jk)
 
               !calculate vertical tracer mixing based on local Richardson number
               DO itracer = 1, no_tracer
@@ -752,28 +750,29 @@ write(*,*)'max-min coeff',z_diff_multfac, maxval(p_phys_param%K_veloc_h(:,1,:)),
 
                   params_oce%A_tracer_v(jc,jk,jb, itracer) = A_T_tmp
 
-             !    IF (l_wind_mixing) THEN
+                  IF (l_wind_mixing) THEN
              
-             !      ! This is (16) in Marsland et al. and identical to treatment of velocity
-             !      ! but it allows to use different parameters
-             !      z_lambda_frac     = z_lambda_T/v_base%del_zlev_i(jk)
-             !      z_A_W_T(jc,jk,jb) = z_A_W_T (jc,jk-1,jb)                      &
-             !      &*(z_lambda_frac*exp(-v_base%del_zlev_i(jk)/z_0_T))&
-             !      &/(z_lambda_frac+z_vert_density_grad_c)
-             !      !For positive Richardson number set vertical mixing coefficient to maximal number 
-             !      IF(z_Ri_c <= 0.0_wp)THEN
-             !        params_oce%A_tracer_v(jc,jk,jb, i_no_trac)                        &
-             !        & = params_oce%A_tracer_v_back(i_no_trac)!z_one_minus_beta* z_A_tracer_v_old                            &
-             !        !& + z_beta*(params_oce%A_tracer_v_back(i_no_trac)                 &
-             !        !& + params_oce%A_tracer_v_back(i_no_trac)/(1.0_wp+z_c1_T*z_Ri_c)**3 &
-             !        !& + z_A_W_T(jc,jk,jb))
-             !        !write(123,*)'neg T-Ri number',jc,jk,jb,params_oce%A_tracer_v(jc,jk,jb, i_no_trac)
-             !      ELSEIF(z_Ri_c > 0.0_wp)THEN
-             !        !write(123,*)'pos T-Ri number',jc,jk,jb,z_max_diff_T
-             !        params_oce%A_tracer_v(jc,jk,jb, i_no_trac) = params_oce%A_tracer_v_back(i_no_trac)
-             !                                                     !z_max_diff_T!params_oce%A_tracer_v_back(i_no_trac)
-             !      END IF
-             !    ENDIF
+                    ! This is (16) in Marsland et al. and identical to treatment of velocity
+                    ! but it allows to use different parameters
+
+                    !z_A_W_T(jc,jk,jb) = z_A_W_T (jc,jk-1,jb)                      &
+                    !&*(z_lambda_frac*exp(-v_base%del_zlev_i(jk)/z_0_T))&
+                    !&/(z_lambda_frac+z_vert_density_grad_c)
+
+                    ! For positive Richardson number set vertical mixing coefficient to maximal number 
+                    IF(z_Ri_c(jc,jk,jb) <= 0.0_wp)THEN
+                      params_oce%A_tracer_v(jc,jk,jb,itracer)                        &
+                      & = params_oce%A_tracer_v_back(itracer)!z_one_minus_beta* z_A_tracer_v_old                            &
+                      !& + z_beta*(params_oce%A_tracer_v_back(itracer)                 &
+                      !& + params_oce%A_tracer_v_back(itracer)/(1.0_wp+z_c1_T*z_Ri_c)**3 &
+                      !& + z_A_W_T(jc,jk,jb))
+                      !write(123,*)'neg T-Ri number',jc,jk,jb,params_oce%A_tracer_v(jc,jk,jb, itracer)
+                    ELSEIF(z_Ri_c(jc,jk,jb) > 0.0_wp)THEN
+                      !write(123,*)'pos T-Ri number',jc,jk,jb,z_max_diff_T
+                      params_oce%A_tracer_v(jc,jk,jb, itracer) = params_oce%A_tracer_v_back(itracer)
+                                                                   !z_max_diff_T!params_oce%A_tracer_v_back(itracer)
+                    END IF
+                  ENDIF
 
                 END IF
               ENDDO
