@@ -55,9 +55,10 @@ USE mo_ocean_nml,           ONLY: n_zlev, bottom_drag_coeff, k_veloc_h, k_veloc_
   &                               k_pot_temp_h, k_pot_temp_v, k_sal_h, k_sal_v, no_tracer,&
   &                               MAX_VERT_DIFF_VELOC, MAX_VERT_DIFF_TRAC,                &
   &                               HORZ_VELOC_DIFF_TYPE, veloc_diffusion_order,            &
-  &                               biharmonic_diffusion_factor, &
-  &                               richardson_factor_tracer, richardson_factor_veloc,      &
-  &                               l_constant_mixing, l_smooth_veloc_diffusion
+  &                               biharmonic_diffusion_factor,                            &
+  &                               richardson_tracer, richardson_veloc,                    &
+  &                               l_constant_mixing, l_smooth_veloc_diffusion,            &
+  &                               l_wind_mixing
 USE mo_parallel_config,     ONLY: nproma
 USE mo_model_domain,        ONLY: t_patch, t_patch_3D
 USE mo_impl_constants,      ONLY: success, max_char_length, MIN_DOLIC, SEA
@@ -629,8 +630,8 @@ write(*,*)'max-min coeff',z_diff_multfac, maxval(p_phys_param%K_veloc_h(:,1,:)),
     all_cells       => p_patch%cells%all
 
     !-------------------------------------------------------------------------
-    z_av0 = richardson_factor_veloc
-    z_dv0 = richardson_factor_tracer
+    z_av0 = richardson_veloc
+    z_dv0 = richardson_tracer
 
     !-------------------------------------------------------------------------
     IF (l_constant_mixing) THEN
@@ -751,24 +752,28 @@ write(*,*)'max-min coeff',z_diff_multfac, maxval(p_phys_param%K_veloc_h(:,1,:)),
 
                   params_oce%A_tracer_v(jc,jk,jb, itracer) = A_T_tmp
 
-!               !This is (16) in Marsland et al. and identical to treatment of velocity
-!               !but it allows to use different parameters
-!               z_lambda_frac     = z_lambda_T/v_base%del_zlev_i(jk)
-!               z_A_W_T(jc,jk,jb) = z_A_W_T (jc,jk-1,jb)                      &
-!               &*(z_lambda_frac*exp(-v_base%del_zlev_i(jk)/z_0_T))&
-!               &/(z_lambda_frac+z_vert_density_grad_c)
-!             !For positive Richardson number set vertical mixing coefficient to maximal number 
-!               IF(z_Ri_c <= 0.0_wp)THEN
-!                 params_oce%A_tracer_v(jc,jk,jb, i_no_trac)                        &
-!                 & = params_oce%A_tracer_v_back(i_no_trac)!z_one_minus_beta* z_A_tracer_v_old                            &
-!                 !& + z_beta*(params_oce%A_tracer_v_back(i_no_trac)                 &
-!                 !& + params_oce%A_tracer_v_back(i_no_trac)/(1.0_wp+z_c1_T*z_Ri_c)**3 &
-!                 !& + z_A_W_T(jc,jk,jb))
-!              !write(123,*)'neg T-Ri number',jc,jk,jb,params_oce%A_tracer_v(jc,jk,jb, i_no_trac)
-!               ELSEIF(z_Ri_c > 0.0_wp)THEN
-! !                 write(123,*)'pos T-Ri number',jc,jk,jb,z_max_diff_T
-!                 params_oce%A_tracer_v(jc,jk,jb, i_no_trac) = params_oce%A_tracer_v_back(i_no_trac)!z_max_diff_T!params_oce%A_tracer_v_back(i_no_trac)
-!               ENDIF
+             !    IF (l_wind_mixing) THEN
+             
+             !      ! This is (16) in Marsland et al. and identical to treatment of velocity
+             !      ! but it allows to use different parameters
+             !      z_lambda_frac     = z_lambda_T/v_base%del_zlev_i(jk)
+             !      z_A_W_T(jc,jk,jb) = z_A_W_T (jc,jk-1,jb)                      &
+             !      &*(z_lambda_frac*exp(-v_base%del_zlev_i(jk)/z_0_T))&
+             !      &/(z_lambda_frac+z_vert_density_grad_c)
+             !      !For positive Richardson number set vertical mixing coefficient to maximal number 
+             !      IF(z_Ri_c <= 0.0_wp)THEN
+             !        params_oce%A_tracer_v(jc,jk,jb, i_no_trac)                        &
+             !        & = params_oce%A_tracer_v_back(i_no_trac)!z_one_minus_beta* z_A_tracer_v_old                            &
+             !        !& + z_beta*(params_oce%A_tracer_v_back(i_no_trac)                 &
+             !        !& + params_oce%A_tracer_v_back(i_no_trac)/(1.0_wp+z_c1_T*z_Ri_c)**3 &
+             !        !& + z_A_W_T(jc,jk,jb))
+             !        !write(123,*)'neg T-Ri number',jc,jk,jb,params_oce%A_tracer_v(jc,jk,jb, i_no_trac)
+             !      ELSEIF(z_Ri_c > 0.0_wp)THEN
+             !        !write(123,*)'pos T-Ri number',jc,jk,jb,z_max_diff_T
+             !        params_oce%A_tracer_v(jc,jk,jb, i_no_trac) = params_oce%A_tracer_v_back(i_no_trac)
+             !                                                     !z_max_diff_T!params_oce%A_tracer_v_back(i_no_trac)
+             !      END IF
+             !    ENDIF
 
                 END IF
               ENDDO
