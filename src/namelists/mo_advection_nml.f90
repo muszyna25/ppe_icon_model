@@ -88,8 +88,6 @@ MODULE mo_advection_nml
   INTEGER :: &                     !< selects vertical transport scheme
     &  ivadv_tracer(max_ntracer)   !< 0 : no vertical advection
                                    !< 1 : 1st order upwind
-                                   !< 2 : 2nd order muscl for CFL>1
-                                   !< 20: 2nd order muscl
                                    !< 3 : 3rd order PPM for CFL>
                                    !< 30: 3rd order PPM
 

@@ -177,9 +177,6 @@ MODULE mo_nh_stepping
     !< density times layer thickness at cell center at time step N+1
     REAL(wp), ALLOCATABLE :: rhodz_mc_new(:,:,:)
 
-    !< density at half levels (currently at N+1/2)
-    REAL(wp), ALLOCATABLE :: rho_ic(:,:,:)
-
     !< vertical tracer flux at domain top (time average; n+1/2)
     REAL(wp), ALLOCATABLE :: topflx_tra(:,:,:)
 
@@ -969,7 +966,7 @@ MODULE mo_nh_stepping
           &         prep_adv(jg)%vn_traj, prep_adv(jg)%mass_flx_me,       &! inout
           &         prep_adv(jg)%w_traj, prep_adv(jg)%mass_flx_ic,        &! inout
           &         prep_adv(jg)%rhodz_mc_now, prep_adv(jg)%rhodz_mc_new, &! inout
-          &         prep_adv(jg)%rho_ic, prep_adv(jg)%topflx_tra          )! inout,out
+          &         prep_adv(jg)%topflx_tra                               )! out
 
 
         IF (lstep_adv(jg)) THEN
@@ -980,13 +977,10 @@ MODULE mo_nh_stepping
             &        prep_adv(jg)%mass_flx_ic, prep_adv(jg)%w_traj,        & !in
             &        p_nh_state(jg)%metrics%ddqz_z_full,                   & !in
             &        prep_adv(jg)%rhodz_mc_new, prep_adv(jg)%rhodz_mc_now, & !in
-            &        p_nh_state(jg)%metrics%z_mc,                          & !in
-            &        p_nh_state(jg)%metrics%z_ifc,                         & !in
             &        p_nh_state(jg)%diag%grf_tend_tracer,                  & !inout
             &        p_nh_state(jg)%prog(n_new_rcf)%tracer,                & !inout
             &        p_nh_state(jg)%diag%hfl_tracer,                       & !out
             &        p_nh_state(jg)%diag%vfl_tracer,                       & !out
-            &        opt_rho_ic=prep_adv(jg)%rho_ic,                       & !in
             &        opt_topflx_tra=prep_adv(jg)%topflx_tra,               & !in
             &        opt_q_int=p_nh_state(jg)%diag%q_int,                  & !out
             &        opt_ddt_tracer_adv=p_nh_state(jg)%diag%ddt_tracer_adv ) !out
@@ -1125,7 +1119,7 @@ MODULE mo_nh_stepping
             &         prep_adv(jg)%vn_traj, prep_adv(jg)%mass_flx_me,       &! inout
             &         prep_adv(jg)%w_traj,  prep_adv(jg)%mass_flx_ic,       &! inout
             &         prep_adv(jg)%rhodz_mc_now, prep_adv(jg)%rhodz_mc_new, &! inout
-            &         prep_adv(jg)%rho_ic, prep_adv(jg)%topflx_tra          )! inout,out
+            &         prep_adv(jg)%topflx_tra                               )! out
 
         ENDIF
 
@@ -1133,12 +1127,13 @@ MODULE mo_nh_stepping
           IF (lstep_adv(jg)) THEN
 
               IF (art_config(jg)%lart) THEN
-                CALL art_emission_interface( p_patch(jg), &!in
-     &          dtadv_loc,                                &!in
-     &          datetime,                                 &!in   
-     &          p_nh_state(jg)%prog(n_new)%rho,           &!in 
-     &          p_nh_state(jg)%prog(n_now_rcf)%tracer)     !inout
+                CALL art_emission_interface( p_patch(jg),          &!in
+                  &      dtadv_loc,                                &!in
+                  &      datetime,                                 &!in   
+                  &      p_nh_state(jg)%prog(n_new)%rho,           &!in 
+                  &      p_nh_state(jg)%prog(n_now_rcf)%tracer)     !inout
               ENDIF   
+
 
             CALL step_advection( p_patch(jg), p_int_state(jg), dtadv_loc,      & !in
               &          jstep_adv(jg)%marchuk_order,                          & !in
@@ -1147,13 +1142,10 @@ MODULE mo_nh_stepping
               &          prep_adv(jg)%mass_flx_ic, prep_adv(jg)%w_traj,        & !in
               &          p_nh_state(jg)%metrics%ddqz_z_full,                   & !in
               &          prep_adv(jg)%rhodz_mc_new, prep_adv(jg)%rhodz_mc_now, & !in
-              &          p_nh_state(jg)%metrics%z_mc,                          & !in
-              &          p_nh_state(jg)%metrics%z_ifc,                         & !in
               &          p_nh_state(jg)%diag%grf_tend_tracer,                  & !inout
               &          p_nh_state(jg)%prog(n_new_rcf)%tracer,                & !inout
               &          p_nh_state(jg)%diag%hfl_tracer,                       & !out
               &          p_nh_state(jg)%diag%vfl_tracer,                       & !out
-              &          opt_rho_ic=prep_adv(jg)%rho_ic,                       & !in
               &          opt_topflx_tra=prep_adv(jg)%topflx_tra,               & !in
               &          opt_q_int=p_nh_state(jg)%diag%q_int,                  & !out
               &          opt_ddt_tracer_adv=p_nh_state(jg)%diag%ddt_tracer_adv ) !out
@@ -1883,12 +1875,11 @@ MODULE mo_nh_stepping
     DEALLOCATE( prep_adv(jg)%mass_flx_me, prep_adv(jg)%mass_flx_ic,    &
       &         prep_adv(jg)%vn_traj, prep_adv(jg)%w_traj,             &
       &         prep_adv(jg)%rhodz_mc_now, prep_adv(jg)%rhodz_mc_new,  &
-      &         prep_adv(jg)%rho_ic, prep_adv(jg)%topflx_tra, STAT=ist )
+      &         prep_adv(jg)%topflx_tra, STAT=ist )
     IF (ist /= SUCCESS) THEN
       CALL finish ( 'mo_nh_stepping: perform_nh_stepping',            &
         &    'deallocation for mass_flx_me, mass_flx_ic, vn_traj,' // &
-        &    'w_traj, rhodz_mc_now, rhodz_mc_new, rho_ic, '        // &
-        &    'topflx_tra failed' )
+        &    'w_traj, rhodz_mc_now, rhodz_mc_new, topflx_tra failed' )
     ENDIF
     DEALLOCATE(bufr(jg)%send_c1, &
       &      bufr(jg)%recv_c1,bufr(jg)%send_c3,bufr(jg)%recv_c3, &
@@ -2013,14 +2004,12 @@ MODULE mo_nh_stepping
       &  prep_adv(jg)%w_traj      (nproma,p_patch(jg)%nlevp1,p_patch(jg)%nblks_c), &
       &  prep_adv(jg)%rhodz_mc_now(nproma,p_patch(jg)%nlev  ,p_patch(jg)%nblks_c), &
       &  prep_adv(jg)%rhodz_mc_new(nproma,p_patch(jg)%nlev  ,p_patch(jg)%nblks_c), &
-      &  prep_adv(jg)%rho_ic      (nproma,p_patch(jg)%nlevp1,p_patch(jg)%nblks_c), &
       &  prep_adv(jg)%topflx_tra  (nproma,p_patch(jg)%nblks_c,MAX(1,ntracer)),     &
       &       STAT=ist )
     IF (ist /= SUCCESS) THEN
       CALL finish ( 'mo_nh_stepping: perform_nh_stepping',           &
       &      'allocation for mass_flx_me, mass_flx_ic, vn_traj, ' // &
-      &      'w_traj, rhodz_mc_now, rhodz_mc_new, rho_ic, '       // &
-      &      'topflx_tra failed' )
+      &      'w_traj, rhodz_mc_now, rhodz_mc_new, topflx_tra failed' )
     ENDIF
     !
     ! initialize (as long as restart output is synchroinzed with advection, 
@@ -2033,7 +2022,6 @@ MODULE mo_nh_stepping
     prep_adv(jg)%w_traj      (:,:,:) = 0._wp
     prep_adv(jg)%rhodz_mc_now(:,:,:) = 0._wp
     prep_adv(jg)%rhodz_mc_new(:,:,:) = 0._wp
-    prep_adv(jg)%rho_ic      (:,:,:) = 0._wp
     prep_adv(jg)%topflx_tra  (:,:,:) = 0._wp
 !$OMP END WORKSHARE
 !$OMP END PARALLEL

@@ -334,8 +334,6 @@ MODULE mo_impl_constants
   ! identifier for vertical transport scheme
   INTEGER, PARAMETER :: ino_vadv    = 0
   INTEGER, PARAMETER :: iup_v       = 1
-  INTEGER, PARAMETER :: imuscl_vcfl = 2
-  INTEGER, PARAMETER :: imuscl_v    = 20
   INTEGER, PARAMETER :: ippm_vcfl   = 3
   INTEGER, PARAMETER :: ippm_v      = 30
 

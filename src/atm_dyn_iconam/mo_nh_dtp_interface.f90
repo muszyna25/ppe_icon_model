@@ -83,13 +83,16 @@ CONTAINS
   !! First version by Daniel Reinert, DWD (2010-04-14)
   !! Modification by Daniel Reinert, DWD (2010-07-23)
   !! - adaption to reduced calling frequency
+  !! Modification by Daniel Reinert, DWD (2013-05-06)
+  !! - removed rho_ic which became obsolete after removing the second order 
+  !!   MUSCL scheme for vertical transport
   !!
   SUBROUTINE prepare_tracer( p_patch, p_now, p_new, p_metrics, p_int,  &!in
     &                        iadv_rcf, lstep_advphy, lclean_mflx,      &!in
     &                        p_nh_diag,                                &!inout
     &                        p_vn_traj, p_mass_flx_me,                 &!inout
     &                        p_w_traj, p_mass_flx_ic,                  &!inout
-    &                        p_rhodz_mc_now, p_rhodz_mc_new, p_rho_ic, &!inout
+    &                        p_rhodz_mc_now, p_rhodz_mc_new,           &!inout
     &                        p_topflx_tra                              )!out
 
     TYPE(t_patch), TARGET, INTENT(IN)  :: p_patch
@@ -111,7 +114,6 @@ CONTAINS
     REAL(wp),INTENT(INOUT)         :: p_mass_flx_ic(:,:,:)  ! (nproma,nlevp1,p_patch%nblks_c)
     REAL(wp),INTENT(INOUT)         :: p_rhodz_mc_now(:,:,:) ! (nproma,  nlev,p_patch%nblks_c)
     REAL(wp),INTENT(INOUT)         :: p_rhodz_mc_new(:,:,:) ! (nproma,  nlev,p_patch%nblks_c)
-    REAL(wp),INTENT(INOUT)         :: p_rho_ic(:,:,:)       ! (nproma,nlevp1,p_patch%nblks_c)
     REAL(wp),INTENT(OUT)           :: p_topflx_tra(:,:,:)   ! (nproma,p_patch%nblks_c,ntracer)
 
     ! local variables
@@ -226,13 +228,10 @@ CONTAINS
       IF (lclean_mflx) THEN
         p_mass_flx_ic(:,:,jb) = 0._wp
         p_w_traj     (:,:,jb) = 0._wp
-        p_rho_ic     (:,:,jb) = 0._wp
       ENDIF
 
       DO jk = 1, nlevp1
         DO jc = i_startidx, i_endidx
-
-          p_rho_ic(jc,jk,jb) = p_rho_ic(jc,jk,jb) + p_nh_diag%rho_ic(jc,jk,jb)
 
 ! Note(DR): This is somewhat inconsistent since for horizontal trajectories
 ! v_n at n+1/2 is used.
@@ -255,7 +254,6 @@ CONTAINS
 !$OMP WORKSHARE
         p_mass_flx_ic(:,:,i_endblk+1:p_patch%nblks_c) = 0._wp
         p_w_traj     (:,:,i_endblk+1:p_patch%nblks_c) = 0._wp
-        p_rho_ic     (:,:,i_endblk+1:p_patch%nblks_c) = 0._wp
 !$OMP END WORKSHARE
     ENDIF
 
@@ -381,7 +379,6 @@ CONTAINS
 
             p_w_traj(jc,jk,jb)      = r_iadv_rcf * p_w_traj(jc,jk,jb)
 
-            p_rho_ic(jc,jk,jb)      = r_iadv_rcf * p_rho_ic(jc,jk,jb)
           ENDDO
         ENDDO
 
