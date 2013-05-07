@@ -448,7 +448,9 @@ CONTAINS
 
 
     !For turbulence schemes NOT including the call to the surface scheme
-    IF ( lcall_phy_jg(itsfc) ) THEN
+    IF ( l_any_fastphys ) THEN ! nwp_surface must even be called in inwp_surface = 0 because the
+                               ! the lower boundary conditions for the turbulence scheme are not
+                               ! set otherwise
 
       SELECT CASE (atm_phy_nwp_config(jg)%inwp_turb)
 
