@@ -1144,20 +1144,20 @@ CONTAINS
 
     IF (phy_config%lssodrag) THEN
 
-       CALL ssodrag( jg                                        ,& ! in,  grid level/domain index
+       CALL ssodrag( nc                                        ,& ! in,  number of cells/columns in loop (jce-jcs+1)
                      nbdim                                     ,& ! in,  dimension of block of cells/columns
-                     jcs                                       ,& ! in,  start index of loops over cells/columns
-                     jce                                       ,& ! in,  end   index ...
-                     nc                                        ,& ! in,  number of cells/columns in loop (jce-jcs+1)
                      nlev                                      ,& ! in,  number of levels
+                     !
+                     p_patch(jg)%cells%center(jcs:jce,jb)%lat  ,& ! in,  Latitude in radians
+                     psteplen                                  ,& ! in,  time step length, usually 2*delta_time
+                     !
                      field% presi_old(:,:,jb)                  ,& ! in,  p at half levels
                      field% presm_old(:,:,jb)                  ,& ! in,  p at full levels
                      field% geom(:,:,jb)                       ,& ! in,  geopotential above surface (t-dt)
                      field% temp(:,:,jb)                       ,& ! in,  T
                      field%    u(:,:,jb)                       ,& ! in,  u
                      field%    v(:,:,jb)                       ,& ! in,  v
-                     p_patch(jg)%cells%center(jcs:jce,jb)%lat  ,& ! in,  Latitude in radians
-                     psteplen                                  ,& ! in,  time step length, usually 2*delta_time
+                     !
                      field% oromea(:,jb)                       ,& ! in,  Mean Orography (m)
                      field% orostd(:,jb)                       ,& ! in,  SSO standard deviation (m)
                      field% orosig(:,jb)                       ,& ! in,  SSO slope
@@ -1165,9 +1165,11 @@ CONTAINS
                      field% orothe(:,jb)                       ,& ! in,  SSO Angle
                      field% oropic(:,jb)                       ,& ! in,  SSO Peaks elevation (m)
                      field% oroval(:,jb)                       ,& ! in,  SSO Valleys elevation (m)
+                     !
                      field% u_stress_sso(:,jb)                 ,& ! out, u-gravity wave stress
                      field% v_stress_sso(:,jb)                 ,& ! out, v-gravity wave stress
                      field% dissipation_sso(:,jb)              ,& ! out, dissipation by gravity wave drag
+                     !
                      tend% temp_sso(:,:,jb)                    ,& ! out, tendency of temperature
                      tend%    u_sso(:,:,jb)                    ,& ! out, tendency of zonal wind
                      tend%    v_sso(:,:,jb)                     ) ! out, tendency of meridional wind

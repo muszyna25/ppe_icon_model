@@ -3,7 +3,14 @@
 #endif
 MODULE mo_ssortns
 
-  USE mo_kind, ONLY: wp
+  USE mo_kind,                  ONLY: wp
+  USE mo_math_constants,        ONLY: pi
+  USE mo_physical_constants,    ONLY: grav, rd, cpd, earth_angular_velocity
+  USE mo_ssodrag,               ONLY: sugwd,                                    &
+    &                                 nktopg, ntop, gstd,                       &
+    &                                 gkdrag, gklift, gkwake, gpicmea, grahilo, &
+    &                                 gfrcrit, grcrit, gsigcr,                  &
+    &                                 gssec, gtsec, gvsec
 
   IMPLICIT NONE
 
@@ -13,33 +20,42 @@ MODULE mo_ssortns
 
 CONTAINS
 
-SUBROUTINE ssodrag ( jg            ,& ! in,  grid level/domain index
-                     kbdim         ,& ! in,  dimension of block of cells/columns
-                     jcs           ,& ! in,  start index of loops over cells/columns
-                     jce           ,& ! in,  end   index ...
-                     nc            ,& ! in,  number of cells/columns in loop (jce-jcs+1)
-                     klev          ,& ! in,  number of levels
-                     paphm1        ,& ! in,  p at half levels
-                     papm1         ,& ! in,  p at full levels
-                     pgeom1        ,& ! in,  geopotential above surface (t-dt)
-                     ptm1          ,& ! in,  T
-                     pum1          ,& ! in,  u
-                     pvm1          ,& ! in,  v
-                     plat          ,& ! in,  Latitude in radians
-                     time_step_len ,& ! in,  
-                     pmea          ,& ! in,  Mean Orography (m)
-                     pstd          ,& ! in,  SSO standard deviation (m)
-                     psig          ,& ! in,  SSO slope
-                     pgam          ,& ! in,  SSO Anisotropy
-                     pthe          ,& ! in,  SSO Angle
-                     ppic          ,& ! in,  SSO Peaks elevation (m)
-                     pval          ,& ! in,  SSO Valleys elevation (m)
-                     pustrgw       ,& ! out, u-gravity wave stress
-                     pvstrgw       ,& ! out, v-gravity wave stress
-                     pvdisgw       ,& ! out, dissipation by gravity wave drag
-                     ptte          ,& ! out, tendency of temperature
-                     pvom          ,& ! out, tendency of zonal wind
-                     pvol           ) ! out, tendency of meridional wind
+SUBROUTINE ssodrag ( kproma        ,& ! in,  loop length in block of cells/columns
+  &                  kbdim         ,& ! in,  dimension of block of cells/columns
+  &                  klev          ,& ! in,  number of levels
+  !
+  &                  plat          ,& ! in,  latitude (radian)
+  &                  time_step_len ,& ! in,  length of timestep (s)
+  !
+  &                  paphm1        ,& ! in,  p at half levels
+  &                  papm1         ,& ! in,  p at full levels
+  &                  pgeom1        ,& ! in,  geopotential above surface (t-dt)
+  &                  ptm1          ,& ! in,  T
+  &                  pum1          ,& ! in,  u
+  &                  pvm1          ,& ! in,  v
+  !
+  &                  pmea          ,& ! in,  Mean Orography (m)
+  &                  pstd          ,& ! in,  SSO standard deviation (m)
+  &                  psig          ,& ! in,  SSO slope
+  &                  pgam          ,& ! in,  SSO Anisotropy
+  &                  pthe          ,& ! in,  SSO Angle
+  &                  ppic          ,& ! in,  SSO Peaks elevation (m)
+  &                  pval          ,& ! in,  SSO Valleys elevation (m)
+  !
+  &                  pustrgw       ,& ! out, u-gravity wave stress
+  &                  pvstrgw       ,& ! out, v-gravity wave stress
+  &                  pvdisgw       ,& ! out, dissipation by gravity wave drag
+  !
+#ifdef __ICON__
+  &                  pdt_sso       ,& ! out, sso tendency of temperature
+  &                  pdu_sso       ,& ! out, sso tendency of zonal wind
+  &                  pdv_sso        ) ! out, sso tendency of meridional wind
+#else
+  &                  ptte          ,& ! inout, tendency of temperature
+  &                  pvol          ,& ! inout, tendency of meridional wind
+  &                  pvom           ) ! inout, tendency of zonal wind
+#endif
+
   !
   ! Description:
   !
@@ -57,40 +73,48 @@ SUBROUTINE ssodrag ( jg            ,& ! in,  grid level/domain index
   ! for more details see file AUTHORS
   !
 
-  USE mo_ssodrag
-  USE mo_physical_constants,    ONLY: grav, cpd
-
   ! scalar arguments with intent(IN):
-  INTEGER, INTENT(in) :: jg, kbdim, jcs, jce, nc, klev
-  REAL(wp), INTENT(in):: time_step_len
+  INTEGER,  INTENT(in)    :: kproma, kbdim, klev
+  REAL(wp), INTENT(in)    :: time_step_len        ! length oftimestep (s)
 
   ! array arguments with intent(IN):
-  ! Input 1D
-  REAL(wp), INTENT(in) :: pmea(kbdim)   ! Mean Orography (m)
-  REAL(wp), INTENT(in) :: pstd(kbdim)   ! SSO standard deviation (m)
-  REAL(wp), INTENT(in) :: psig(kbdim)   ! SSO slope
-  REAL(wp), INTENT(in) :: pgam(kbdim)   ! SSO Anisotropy
-  REAL(wp), INTENT(in) :: pthe(kbdim)   ! SSO Angle
-  REAL(wp), INTENT(in) :: ppic(kbdim)   ! SSO Peacks elevation (m)
-  REAL(wp), INTENT(in) :: pval(kbdim)   ! SSO Valleys elevation (m)
-  REAL(wp), INTENT(in) :: plat(kbdim)   ! Latitude in radians
-  ! Input 2D
-  REAL(wp), INTENT(in) :: paphm1(kbdim,klev+1) ! half level pressure (t-dt)
-  REAL(wp), INTENT(in) :: papm1(kbdim,klev)    ! full level pressure (t-dt)
-  REAL(wp), INTENT(in) :: pgeom1(kbdim,klev)   ! geopotential above surface (t-dt)
-  REAL(wp), INTENT(in) :: ptm1(kbdim,klev)     ! temperature (t-dt)
-  REAL(wp), INTENT(in) :: pum1(kbdim,klev)     ! zonal wind (t-dt)
-  REAL(wp), INTENT(in) :: pvm1(kbdim,klev)     ! meridional wind (t-dt)
+  ! 1D
+  REAL(wp), INTENT(in)    :: plat(kbdim)          ! latitude (radian)
+  !
+  REAL(wp), INTENT(in)    :: pmea(kbdim)          ! Mean Orography (m)
+  REAL(wp), INTENT(in)    :: pstd(kbdim)          ! SSO standard deviation (m)
+  REAL(wp), INTENT(in)    :: psig(kbdim)          ! SSO slope
+  REAL(wp), INTENT(in)    :: pgam(kbdim)          ! SSO Anisotropy
+  REAL(wp), INTENT(in)    :: pthe(kbdim)          ! SSO Angle
+  REAL(wp), INTENT(in)    :: ppic(kbdim)          ! SSO Peacks elevation (m)
+  REAL(wp), INTENT(in)    :: pval(kbdim)          ! SSO Valleys elevation (m)
+  ! 2D
+  REAL(wp), INTENT(in)    :: paphm1(kbdim,klev+1) ! half level pressure (t-dt)
+  REAL(wp), INTENT(in)    :: papm1(kbdim,klev)    ! full level pressure (t-dt)
+  REAL(wp), INTENT(in)    :: pgeom1(kbdim,klev)   ! geopotential above surface (t-dt)
+  REAL(wp), INTENT(in)    :: ptm1(kbdim,klev)     ! temperature (t-dt)
+  REAL(wp), INTENT(in)    :: pum1(kbdim,klev)     ! zonal wind (t-dt)
+  REAL(wp), INTENT(in)    :: pvm1(kbdim,klev)     ! meridional wind (t-dt)
 
+  ! array arguments with intent(OUT):
+  ! 1D
+  REAL(wp), INTENT(out)   :: pustrgw(kbdim)       ! u-gravity wave stress
+  REAL(wp), INTENT(out)   :: pvstrgw(kbdim)       ! v-gravity wave stress
+  REAL(wp), INTENT(out)   :: pvdisgw(kbdim)       ! dissipation by gravity wave drag
+
+#ifdef __ICON__
+  ! array arguments with intent(OUT):
+  ! 2D
+  REAL(wp), INTENT(out)   :: pdt_sso(kbdim,klev)  ! sso tendency of temperature
+  REAL(wp), INTENT(out)   :: pdu_sso(kbdim,klev)  ! sso tendency of zonal wind
+  REAL(wp), INTENT(out)   :: pdv_sso(kbdim,klev)  ! sso tendency of wind
+#else
   ! array arguments with intent(INOUT):
-  ! Input 1D
-  REAL(wp), INTENT(out) :: pustrgw(kbdim)      ! u-gravity wave stress
-  REAL(wp), INTENT(out) :: pvstrgw(kbdim)      ! v-gravity wave stress
-  REAL(wp), INTENT(out) :: pvdisgw(kbdim)      ! dissipation by gravity wave drag
-  ! Input 2D
-  REAL(wp), INTENT(out) :: ptte(kbdim,klev)    ! tendency of temperature
-  REAL(wp), INTENT(out) :: pvol(kbdim,klev)    ! tendency of meridional wind
-  REAL(wp), INTENT(out) :: pvom(kbdim,klev)    ! tendency of zonal wind
+  ! 2D
+  REAL(wp), INTENT(inout) :: ptte(kbdim,klev)     ! tendency of temperature
+  REAL(wp), INTENT(inout) :: pvol(kbdim,klev)     ! tendency of meridional wind
+  REAL(wp), INTENT(inout) :: pvom(kbdim,klev)     ! tendency of zonal wind
+#endif
 
   ! Local scalars:
   INTEGER :: igwd, jk, jl, ji
@@ -133,7 +157,7 @@ SUBROUTINE ssodrag ( jg            ,& ! in,  grid level/domain index
   !  SELECTION  POINTS WHERE THE SCHEME IS ACTIVE
 
   igwd=0
-  DO jl=1,nc
+  DO jl=1,kproma
      itest(jl)=0
      IF (((ppic(jl)-pmea(jl)) > gpicmea).AND.(pstd(jl) > gstd)) THEN
         itest(jl)=1
@@ -143,7 +167,7 @@ SUBROUTINE ssodrag ( jg            ,& ! in,  grid level/domain index
   ENDDO
 
   !
-  CALL orodrag( nc,  kbdim,   klev,                               &
+  CALL orodrag( kproma,  kbdim,   klev,                           &
                 time_step_len,                                    &
                 igwd,    idx,                                     &
                 paphm1,  papm1,   pgeom1,                         &
@@ -153,7 +177,7 @@ SUBROUTINE ssodrag ( jg            ,& ! in,  grid level/domain index
   !
   !*         3.    mountain lift
   !                --------------
-  CALL orolift( nc, kbdim, klev, jg,                           &
+  CALL orolift( kproma,  kbdim,   klev,                            &
                 plat,                                              &
                 time_step_len,                                     &
                 itest,                                             &
@@ -187,22 +211,28 @@ SUBROUTINE ssodrag ( jg            ,& ! in,  grid level/domain index
 !CDIR NODEP
     do jl=1,igwd
       ji=idx(jl)
-      ptte(ji,jk) =  zdt_oro(ji,jk)+zdt_lif(ji,jk)
-      pvol(ji,jk) =  zdv_oro(ji,jk)+zdv_lif(ji,jk)
-      pvom(ji,jk) =  zdu_oro(ji,jk)+zdu_lif(ji,jk)
+#ifdef __ICON__
+      pdt_sso(ji,jk) =  zdt_oro(ji,jk)+zdt_lif(ji,jk)
+      pdu_sso(ji,jk) =  zdu_oro(ji,jk)+zdu_lif(ji,jk)
+      pdv_sso(ji,jk) =  zdv_oro(ji,jk)+zdv_lif(ji,jk)
+#else
+      ptte(ji,jk) =  ptte(ji,jk)+zdt_oro(ji,jk)+zdt_lif(ji,jk)
+      pvol(ji,jk) =  pvol(ji,jk)+zdv_oro(ji,jk)+zdv_lif(ji,jk)
+      pvom(ji,jk) =  pvom(ji,jk)+zdu_oro(ji,jk)+zdu_lif(ji,jk)
+#endif
     enddo
   enddo
 
   RETURN
 END SUBROUTINE ssodrag
 
-SUBROUTINE orodrag( nc,  kbdim,  klev,            &
-     time_step_len,                                   &
-     kgwd,   kdx,                                     &
-     paphm1, papm1,  pgeom1,                          &
-     ptm1,   pum1,   pvm1,                            &
-     pmea,   pstd,   psig,   pgam, pthe, ppic, pval,  &
-     pvom,   pvol,   pte )
+SUBROUTINE orodrag( kproma, kbdim,  klev,                            &
+                    time_step_len,                                   &
+                    kgwd,   kdx,                                     &
+                    paphm1, papm1,  pgeom1,                          &
+                    ptm1,   pum1,   pvm1,                            &
+                    pmea,   pstd,   psig,   pgam, pthe, ppic, pval,  &
+                    pvom,   pvol,   pte )
   !
   !
   !**** *orodrag* - does the SSO drag  parametrization.
@@ -223,19 +253,17 @@ SUBROUTINE orodrag( nc,  kbdim,  klev,            &
   !
   !     f.lott + m. miller    e.c.m.w.f.     22/11/94
 
-  USE mo_ssodrag
-  USE mo_physical_constants,       ONLY: grav, cpd
-
   IMPLICIT NONE
 
   ! scalar arguments with intent(IN):
-  INTEGER, INTENT(in) :: nc, kbdim, klev
-  INTEGER, INTENT(in) :: kgwd      ! Total points where oro scheme is active
-  REAL(wp), INTENT(in):: time_step_len
+  INTEGER,  INTENT(in) :: kproma, kbdim, klev
+  INTEGER,  INTENT(in) :: kgwd      ! Total points where oro scheme is active
+  REAL(wp), INTENT(in) :: time_step_len
+
 
   ! array arguments with intent(IN):
   ! Input 1D
-  INTEGER, INTENT(in) :: kdx(kbdim)   ! physical location of an active point
+  INTEGER,  INTENT(in) :: kdx(kbdim)    ! physical location of an active point
 
   REAL(wp), INTENT(in) :: pmea(kbdim)   ! Mean Orography (m)
   REAL(wp), INTENT(in) :: pstd(kbdim)   ! SSO standard deviation (m)
@@ -254,9 +282,9 @@ SUBROUTINE orodrag( nc,  kbdim,  klev,            &
 
   ! array arguments with intent(INOUT):
   ! Input 2D
-  REAL(wp), INTENT(inout) :: pte(kbdim,klev) ! tendency of temperature
-  REAL(wp), INTENT(inout) :: pvol(kbdim,klev) ! tendency of meridional wind
-  REAL(wp), INTENT(inout) :: pvom(kbdim,klev) ! tendency of zonal wind
+  REAL(wp), INTENT(out) :: pte(kbdim,klev)     ! tendency of temperature
+  REAL(wp), INTENT(out) :: pvol(kbdim,klev)    ! tendency of meridional wind
+  REAL(wp), INTENT(out) :: pvom(kbdim,klev)    ! tendency of zonal wind
 
   !  Local scalars:
   INTEGER :: jl, jk, ji
@@ -292,7 +320,7 @@ SUBROUTINE orodrag( nc,  kbdim,  klev,            &
   !*                low level wind, determine sector in which to take
   !*                the variance and set indicator for critical levels.
   !
-  CALL orosetup( nc,  kbdim,  klev,  kgwd, kdx,                    &
+  CALL orosetup( kproma,  kbdim,  klev,  kgwd, kdx,                    &
        ikcrit, ikcrith, icrit,   ikenvh, iknu,   iknu2,                &
        paphm1, papm1,   pum1,    pvm1,  ptm1,   pgeom1,                &
        zrho  , zri,     zstab,   ztau,  zvph,   zpsi,   zzdep,         &
@@ -305,7 +333,7 @@ SUBROUTINE orodrag( nc,  kbdim,  klev,            &
   !*                 supercritical forms.computes anisotropy coefficient
   !*                 as measure of orographic twodimensionality.
   !
-  CALL gwstress( nc, kbdim, klev, kgwd,                            &
+  CALL gwstress( kproma, kbdim, klev, kgwd,                            &
        kdx, ikenvh,                                                    &
        zrho,   zstab,  zvph,   pstd,  psig,    ppic, pval,             &
        ztau,   zdmod)
@@ -406,7 +434,7 @@ SUBROUTINE orodrag( nc,  kbdim,  klev,            &
 END SUBROUTINE orodrag
 
 SUBROUTINE orosetup                                           &
-     ( nc, kbdim, klev, kgwd, kdx                         &
+     ( kproma, kbdim, klev, kgwd, kdx                         &
      , kkcrit, kkcrith, kcrit                                 &
      , kkenvh, kknu  , kknu2                                  &
      , paphm1, papm1 , pum1   , pvm1 , ptm1  , pgeom1         &
@@ -484,14 +512,11 @@ SUBROUTINE orosetup                                           &
   !
   !-----------------------------------------------------------------------
   !
-  USE mo_ssodrag
-  USE mo_math_constants,    ONLY: pi
-  USE mo_physical_constants,    ONLY: grav, rd, cpd
 
   IMPLICIT NONE
 
   ! scalar arguments with intent(IN):
-  INTEGER, INTENT(in) :: nc, kbdim, klev, kgwd
+  INTEGER, INTENT(in) :: kproma, kbdim, klev, kgwd
 
   INTEGER :: kkcrit(kbdim), kkcrith(kbdim), kcrit(kbdim),    &
        kdx(kbdim), kkenvh(kbdim)
@@ -540,7 +565,7 @@ SUBROUTINE orosetup                                           &
   !*                 low level wind, determine sector in which to take
   !*                 the variance and set indicator for critical levels.
   !
-  DO jl=1,nc
+  DO jl=1,kproma
      kknu(jl)    =klev
      kknu2(jl)   =klev
      kknub(jl)   =klev
@@ -552,7 +577,7 @@ SUBROUTINE orosetup                                           &
   ! Ajouter une initialisation (L. Li, le 23fev99):
   !
   DO jk=klev,ilevh,-1
-     DO jl=1,nc
+     DO jl=1,kproma
         ll1(jl,jk)= .TRUE.
      END DO
   END DO
@@ -618,7 +643,7 @@ SUBROUTINE orosetup                                           &
   !
   !     initialize various arrays
   !
-  DO 2107 jl=1,nc
+  DO 2107 jl=1,kproma
      prho(jl,klev+1)  =0.0_wp
      pstab(jl,1)      =0.0_wp
      pstab(jl,klev+1) =0.0_wp
@@ -720,10 +745,10 @@ SUBROUTINE orosetup                                           &
         zvt2       =-pvlow(jl)*pum1(jl,jk)+pulow(jl)*pvm1(jl,jk)
         zvpf(jl,jk)=(zvt1*pd1(jl)+zvt2*pd2(jl))/(znorm(jl)*pdmod(jl))
 212  END DO
-     ptau(1:nc,jk)  =0.0_wp
-     pzdep(1:nc,jk) =0.0_wp
-     ppsi(1:nc,jk)  =0.0_wp
-     ll1(1:nc,jk)   =.FALSE.
+     ptau(1:kproma,jk)  =0.0_wp
+     pzdep(1:kproma,jk) =0.0_wp
+     ppsi(1:kproma,jk)  =0.0_wp
+     ll1(1:kproma,jk)   =.FALSE.
 213 END DO
 
 !!  DO 215 jk=2,klev-1  ! BUG FIX FOR NaN (undefined values)
@@ -862,7 +887,7 @@ SUBROUTINE orosetup                                           &
   RETURN
 END SUBROUTINE orosetup
 
-SUBROUTINE gwstress( nc, kbdim, klev, kgwd,                     &
+SUBROUTINE gwstress( kproma, kbdim, klev, kgwd,                     &
      kdx,    kkenvh,                                                &
      prho,   pstab,  pvph,   pstd,  psig,    ppic,   pval,          &
      ptau,   pdmod )
@@ -892,12 +917,10 @@ SUBROUTINE gwstress( nc, kbdim, klev, kgwd,                     &
   !     -------
   !     f. lott put the new gwd on ifs      22/11/93
 
-  USE mo_ssodrag
-
   IMPLICIT NONE
 
   ! scalar arguments with intent(IN):
-  INTEGER, INTENT(in) :: nc, kbdim, klev, kgwd
+  INTEGER, INTENT(in) :: kproma, kbdim, klev, kgwd
 
   INTEGER :: kdx(kbdim), kkenvh(kbdim)
   !
@@ -914,7 +937,7 @@ SUBROUTINE gwstress( nc, kbdim, klev, kgwd,                     &
   !*         1.1     gravity wave stress.
   !
 
-  ptau(1:nc,klev+1)=0.0_wp
+  ptau(1:kproma,klev+1)=0.0_wp
 
 !IBM* ASSERT(NODEPS)
   DO 301 ji=1,kgwd
@@ -970,8 +993,6 @@ SUBROUTINE gwprofil( kbdim, klev,                            &
   !     The stress is also uniformly distributed above the level
   !     ntop.
   !
-
-  USE mo_ssodrag
 
   IMPLICIT NONE
 
@@ -1142,14 +1163,14 @@ SUBROUTINE gwprofil( kbdim, klev,                            &
   RETURN
 END SUBROUTINE gwprofil
 
-SUBROUTINE orolift( nc, kbdim, klev, jg,           &
-     plat,                                             &
-     time_step_len,                                    &
-     ktest,                                            &
-     paphm1, pgeom1,                                   &
-     ptm1,   pum1,  pvm1,                              &
-     pmea,   pstd,  ppic,                              &
-     pvom,   pvol,  pte )
+SUBROUTINE orolift( kproma, kbdim, klev,  &
+  &                 plat,                 &
+  &                 time_step_len,        &
+  &                 ktest,                &
+  &                 paphm1, pgeom1,       &
+  &                 ptm1,   pum1,  pvm1,  &
+  &                 pmea,   pstd,  ppic,  &
+  &                 pvom,   pvol,  pte )
   !
   !**** *orolift: simulate the geostrophic lift.
   !
@@ -1165,25 +1186,21 @@ SUBROUTINE orolift( nc, kbdim, klev, jg,           &
   !     f.lott  lmd 22/11/95
   !
   !
-!  USE mo_time_control,      ONLY: delta_time
-!  USE mo_geoloc,            ONLY: twomu_2d
-  USE mo_ssodrag
-  USE mo_physical_constants,ONLY: grav, rd, earth_angular_velocity
 
   IMPLICIT NONE
 
   ! scalar arguments with intent(IN):
-  INTEGER, INTENT(in) :: nc, kbdim, klev, jg
-  REAL(wp), INTENT(in):: time_step_len
+  INTEGER,  INTENT(in) :: kproma, kbdim, klev
+  REAL(wp), INTENT(in) :: time_step_len
 
   ! array arguments with intent(IN):
   ! Input 1D
-  INTEGER, INTENT(in) :: ktest(kbdim) ! Flags to indicate active points
+  INTEGER,  INTENT(in) :: ktest(kbdim)  ! Flags to indicate active points
 
   REAL(wp), INTENT(in) :: pmea(kbdim)   ! Mean Orography (m)
   REAL(wp), INTENT(in) :: pstd(kbdim)   ! SSO standard deviation (m)
   REAL(wp), INTENT(in) :: ppic(kbdim)   ! SSO Peacks elevation (m)
-  REAL(wp), INTENT(in) :: plat(kbdim)   ! Latitude (radians)
+  REAL(wp), INTENT(in) :: plat(kbdim)          ! Latitude (radians)
   ! Input 2D
   REAL(wp), INTENT(in) :: paphm1(kbdim,klev+1) ! half level pressure (t-dt)
   REAL(wp), INTENT(in) :: pgeom1(kbdim,klev)   ! geopotential above surface (t-dt)
@@ -1192,11 +1209,11 @@ SUBROUTINE orolift( nc, kbdim, klev, jg,           &
   REAL(wp), INTENT(in) :: pvm1(kbdim,klev)     ! meridional wind (t-dt)
 
 
-  ! array arguments with intent(INOUT):
+  ! array arguments with intent(OUT):
   ! Input 2D
-  REAL(wp), INTENT(inout) :: pte(kbdim,klev) ! tendency of temperature
-  REAL(wp), INTENT(inout) :: pvol(kbdim,klev) ! tendency of meridional wind
-  REAL(wp), INTENT(inout) :: pvom(kbdim,klev) ! tendency of zonal wind
+  REAL(wp), INTENT(out) :: pte(kbdim,klev)     ! tendency of temperature
+  REAL(wp), INTENT(out) :: pvol(kbdim,klev)    ! tendency of meridional wind
+  REAL(wp), INTENT(out) :: pvom(kbdim,klev)    ! tendency of zonal wind
 
   ! Local scalars:
   INTEGER :: jl, jk
@@ -1208,7 +1225,6 @@ SUBROUTINE orolift( nc, kbdim, klev, jg,           &
   INTEGER :: iknub(kbdim),  iknul(kbdim)
   REAL(wp)    ::  zdudt(kbdim), zdvdt(kbdim)
  
-
   REAL(wp)    :: pulow(kbdim), pvlow(kbdim)
   REAL(wp)    :: ztau(kbdim,klev+1), ztav(kbdim,klev+1), zrho(kbdim,klev+1)
   REAL(wp)    :: zhcrit(kbdim,klev)
@@ -1223,13 +1239,9 @@ SUBROUTINE orolift( nc, kbdim, klev, jg,           &
 
   zcons1=1._wp/rd
   ztmst=time_step_len
-!  ztmst=2._wp*delta_time
 
-!  DO jl=1,kproma
-!    plat(jl)=ASIN(0.5_wp*twomu_2d(jl,krow))
-!  END DO
   !
-  DO 1001 jl=1,nc
+  DO 1001 jl=1,kproma
      zrho(jl,klev+1)  =0.0_wp
      pulow(jl)        =0.0_wp
      pvlow(jl)        =0.0_wp
@@ -1250,7 +1262,7 @@ SUBROUTINE orolift( nc, kbdim, klev, jg,           &
   !
 
   DO 2006 jk=klev,1,-1
-     DO 2007 jl=1,nc
+     DO 2007 jl=1,kproma
         IF(ktest(jl) == 1) THEN
            zhcrit(jl,jk)=MAX(ppic(jl)-pmea(jl),100.0_wp)
            zhgeo=pgeom1(jl,jk)/grav
@@ -1262,7 +1274,7 @@ SUBROUTINE orolift( nc, kbdim, klev, jg,           &
 2007 END DO
 2006 END DO
 
-  DO 2010 jl=1,nc
+  DO 2010 jl=1,kproma
      IF(ktest(jl) == 1) THEN
         iknub(jl)=MAX(iknub(jl),klev/2)
         iknul(jl)=MAX(iknul(jl),2*klev/3)
@@ -1273,7 +1285,7 @@ SUBROUTINE orolift( nc, kbdim, klev, jg,           &
 2010 END DO
 
   DO 223 jk=klev,2,-1
-     DO 222 jl=1,nc
+     DO 222 jl=1,kproma
         zrho(jl,jk)=2._wp*paphm1(jl,jk)*zcons1/(ptm1(jl,jk)+ptm1(jl,jk-1))
 222  END DO
 223 END DO
@@ -1284,7 +1296,7 @@ SUBROUTINE orolift( nc, kbdim, klev, jg,           &
   !*     define low level flow
   !      -------------------
   DO 2115 jk=klev,1,-1
-     DO 2116 jl=1,nc
+     DO 2116 jl=1,kproma
         IF(ktest(jl) == 1) THEN
            IF(jk >= iknub(jl).AND.jk <= iknul(jl)) THEN
               pulow(jl)=pulow(jl)+pum1(jl,jk)*(paphm1(jl,jk+1)-paphm1(jl,jk))
@@ -1296,7 +1308,7 @@ SUBROUTINE orolift( nc, kbdim, klev, jg,           &
 2116 END DO
 2115 END DO
 
-  DO 2110 jl=1,nc
+  DO 2110 jl=1,kproma
      IF(ktest(jl) == 1) THEN
         pulow(jl)=pulow(jl)/(paphm1(jl,iknul(jl)+1)-paphm1(jl,iknub(jl)))
         pvlow(jl)=pvlow(jl)/(paphm1(jl,iknul(jl)+1)-paphm1(jl,iknub(jl)))
@@ -1311,7 +1323,7 @@ SUBROUTINE orolift( nc, kbdim, klev, jg,           &
   !
   !*         3.      COMPUTE MOUNTAIN LIFT
   !
-  DO 301 jl=1,nc
+  DO 301 jl=1,kproma
      IF(ktest(jl) == 1) THEN
         ztau(jl,klev+1)= - gklift*zrho(jl,klev+1)*2._wp*earth_angular_velocity*        &
              !                (2*pstd(jl)+pmea(jl))*   &
@@ -1332,7 +1344,7 @@ SUBROUTINE orolift( nc, kbdim, klev, jg,           &
   !
 
   DO 401 jk=1,klev
-     DO 402 jl=1,nc
+     DO 402 jl=1,kproma
         IF(ktest(jl) == 1) THEN
            ztau(jl,jk)=ztau(jl,klev+1)*paphm1(jl,jk)/paphm1(jl,klev+1)
            ztav(jl,jk)=ztav(jl,klev+1)*paphm1(jl,jk)/paphm1(jl,klev+1)
@@ -1353,7 +1365,7 @@ SUBROUTINE orolift( nc, kbdim, klev, jg,           &
      !  EXPLICIT SOLUTION AT ALL LEVELS
      !
      DO 524 jk=1,klev
-        DO 523 jl=1,nc
+        DO 523 jl=1,kproma
            IF(ktest(jl) == 1) THEN
               zdelp=paphm1(jl,jk+1)-paphm1(jl,jk)
               zdudt(jl)=-grav*(ztau(jl,jk+1)-ztau(jl,jk))/zdelp
@@ -1365,7 +1377,7 @@ SUBROUTINE orolift( nc, kbdim, klev, jg,           &
      !  PROJECT PERPENDICULARLY TO U NOT TO DESTROY ENERGY
      !
      DO 530 jk=1,klev
-        DO 531 jl=1,nc
+        DO 531 jl=1,kproma
            IF(ktest(jl) == 1) THEN
               zslow=SQRT(pulow(jl)**2+pvlow(jl)**2)
               zsqua=MAX(SQRT(pum1(jl,jk)**2+pvm1(jl,jk)**2),gvsec)
@@ -1390,7 +1402,8 @@ SUBROUTINE orolift( nc, kbdim, klev, jg,           &
      !  ----------------------------------
 
   ELSE
-     DO 601 jl=1,nc
+
+     DO 601 jl=1,kproma
         IF(ktest(jl) == 1) THEN
            DO jk=klev,iknub(jl),-1
               zbet=gklift*2._wp*earth_angular_velocity*SIN(plat(jl))*ztmst*          &
