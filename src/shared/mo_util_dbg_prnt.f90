@@ -336,12 +336,10 @@ CONTAINS
   CHARACTER(len=12) ::  strmod
   INTEGER           ::  slev, elev, elev_val, elev_mxmn
   INTEGER           ::  iout, icheck_str_mod, jstr, i, jk, nlev, ndimblk
-!  REAL(wp)          ::  ctrx, ctrn, glbmx, glbmn
   REAL(wp)          :: minmax(2)
 
   IF (timers_level > 10) CALL timer_start(timer_dbg_prnt)
 
-  !cells_in_domain => ppatch%cells%in_domain
 
 #ifdef __SX__
   ! valid g-format without offset of decimal point
@@ -474,17 +472,7 @@ CONTAINS
     ! print out maximum and minimum value
     ! ctrn=minval(p_array(:, slev:elev_mxmn, :))
     DO jk = slev, elev_mxmn
-    
-!      ctrx=maxval(p_array(1:nproma,jk,1:ndimblk))
-!      ctrn=minval(p_array(1:nproma,jk,1:ndimblk))
-!
-!      ! parallelize:
-!      p_test_run_bac = p_test_run
-!      p_test_run = .false.
-!      glbmx=global_max(ctrx)
-!      glbmn=global_min(ctrn)
-!      p_test_run = p_test_run_bac
-    
+
       minmax = global_minmax(values=p_array, subset=in_subset, start_level=jk, end_level=jk)
 
       IF (my_process_is_stdio()) &
@@ -522,12 +510,9 @@ CONTAINS
   CHARACTER(len=27) ::  strout
   CHARACTER(len=12) ::  strmod
   INTEGER           ::  iout, icheck_str_mod, jstr, i, jk, ndimblk
- ! REAL(wp)          ::  ctrx, ctrn ! , glbmx, glbmn
-  REAL(wp)          :: minmax(2)
+  REAL(wp)          ::  minmax(2)
 
   IF (timers_level > 10) CALL timer_start(timer_dbg_prnt)
-
-  !cells_in_domain => ppatch%cells%in_domain
 
   ! dimensions - first dimension is nproma
   ndimblk = SIZE(p_array,2)
@@ -604,17 +589,6 @@ CONTAINS
   ! for MIN/MAX output:
 
   IF (idbg_mxmn >= idetail_src ) THEN
-
-!    ctrx=maxval(p_array(1:nproma,1:ndimblk))
-!    ctrn=minval(p_array(1:nproma,1:ndimblk))
-!
-!    ! print out maximum and minimum value
-!    ! parallelize:
-!    p_test_run_bac = p_test_run
-!    p_test_run = .false.
-!    glbmx=global_max(ctrx)
-!    glbmn=global_min(ctrn)
-!    p_test_run = p_test_run_bac
    
     minmax = global_minmax(values=p_array, subset=in_subset)
 
