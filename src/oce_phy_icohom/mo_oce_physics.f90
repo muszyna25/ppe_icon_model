@@ -611,8 +611,8 @@ write(*,*)'max-min coeff',z_diff_multfac, maxval(p_phys_param%K_veloc_h(:,1,:)),
     !REAL(wp), PARAMETER :: z_one_minus_beta  = 0.4_wp
     REAL(wp), PARAMETER :: z_lambda          = 0.03_wp   !  wind mixing stability parameter (16)
     REAL(wp), PARAMETER :: z_0               = 40.0_wp
-    REAL(wp), PARAMETER :: z_c1_T            = 5.0_wp
-    REAL(wp), PARAMETER :: z_c1_v            = 5.0_wp
+    REAL(wp), PARAMETER :: z_c1_T            = 5.0_wp    !  PP diffusivity tuning constant
+    REAL(wp), PARAMETER :: z_c1_v            = 5.0_wp    !  PP viscosity tuning constant
     REAL(wp), PARAMETER :: z_threshold       = 5.0E-8_wp
     REAL(wp) :: z_grav_rho, z_inv_rho_ref, z_press, press, A_T_tmp, z_s1, z_s2
     REAL(wp) :: density_grad_e, mean_z_r
