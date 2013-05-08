@@ -95,7 +95,7 @@ CONTAINS
 !ICON_OMP_PARALLEL_DO PRIVATE(jb, min_in_block, max_in_block) reduction(min:min_value) reduction(max:max_value)
       DO jb = 1,  SIZE(values, 2)
         min_in_block = MINVAL(values(:, jb))
-        max_in_block = MINVAL(values(:, jb))
+        max_in_block = MAXVAL(values(:, jb))
         min_value      = MIN(min_value, min_in_block)
         max_value      = MAX(max_value, max_in_block)
       ENDDO
@@ -128,7 +128,7 @@ CONTAINS
     REAL(wp) :: min_in_block, max_in_block, min_value, max_value
     INTEGER :: jb, level, startidx, endidx, start_vertical, end_vertical
     INTEGER :: communicator
-    INTEGER :: idx
+!    INTEGER :: idx
     CHARACTER(LEN=*), PARAMETER :: method_name='mo_statistics_utils:arc_length'
 
 
@@ -156,9 +156,10 @@ CONTAINS
       DO jb = subset%start_block, subset%end_block
         CALL get_index_range(subset, jb, startidx, endidx)
         DO level = start_vertical, end_vertical
-          DO idx = startidx, endidx
-            WRITE(0,*) "checking ", jb, level, idx, values(idx, level, jb)
-          ENDDO
+!          DO idx = startidx, endidx
+!            WRITE(0,*) "checking ", jb, level, idx
+!            WRITE(0,*) "                  =   ", values(idx, level, jb)
+!          ENDDO
           min_in_block = MINVAL(values(startidx:endidx, level, jb))
           max_in_block = MAXVAL(values(startidx:endidx, level, jb))
           min_value    = MIN(min_value, min_in_block)
@@ -173,7 +174,7 @@ CONTAINS
       DO jb = 1,  SIZE(values, 3)
         DO level = start_vertical, end_vertical
           min_in_block = MINVAL(values(:, level, jb))
-          max_in_block = MINVAL(values(:, level, jb))
+          max_in_block = MAXVAL(values(:, level, jb))
           min_value    = MIN(min_value, min_in_block)
           max_value    = MAX(max_value, max_in_block)
         ENDDO

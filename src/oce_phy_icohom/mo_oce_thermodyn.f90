@@ -351,7 +351,7 @@ END INTERFACE
   !!
   TYPE(t_patch_3D ),TARGET, INTENT(IN) :: p_patch_3D
   REAL(wp),    INTENT(IN), TARGET      :: tracer(:,:,:,:)     !< input of S and T
-  REAL(wp), INTENT(OUT), TARGET      :: rho   (:,:,:)       !< density
+  REAL(wp), INTENT(INOUT), TARGET      :: rho   (:,:,:)       !< density
 
   ! local variables:
   ! CHARACTER(len=max_char_length), PARAMETER :: &
@@ -377,12 +377,14 @@ END INTERFACE
    END SELECT
 
   END SUBROUTINE calc_density
+
+
   SUBROUTINE calc_potential_density(p_patch_3D,tracer, rhopot)
   !
   !!
   TYPE(t_patch_3D ),TARGET, INTENT(IN) :: p_patch_3D
   REAL(wp),    INTENT(IN), TARGET      :: tracer(:,:,:,:)     !< input of S and T
-  REAL(wp), INTENT(OUT), TARGET        :: rhopot(:,:,:)       !< density
+  REAL(wp), INTENT(INOUT), TARGET        :: rhopot(:,:,:)       !< density
 
   ! local variables:
   ! CHARACTER(len=max_char_length), PARAMETER :: &
