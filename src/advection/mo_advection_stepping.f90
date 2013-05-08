@@ -254,9 +254,6 @@ CONTAINS
     REAL(wp) ::  &                      !< flux divergence at cell center
       &  z_fluxdiv_c(nproma,p_patch%nlev,p_patch%nblks_c,ntracer) 
 
-    REAL(wp) ::  &                      !< reciprocal of p_cellhgt_mc_now
-      &  z_rcellhgt_mc_now(nproma,p_patch%nlev,p_patch%nblks_c)
-
     REAL(wp), POINTER ::  &
       &  ptr_current_tracer(:,:,:,:) => NULL()  !< pointer to tracer field
 
@@ -316,11 +313,9 @@ CONTAINS
     !
 
     !
-    ! calculate field of reciprocal cell height at time step n
-    ! (HDC:\delta p; NHDC: \delta z)
     !
     i_rlstart  = 1
-    i_rlend    = min_rlcell_int
+    i_rlend    = min_rlcell
     i_startblk = p_patch%cells%start_blk(i_rlstart,1)
     i_endblk   = p_patch%cells%end_blk(i_rlend,i_nchdom)
 !$OMP PARALLEL
@@ -330,13 +325,7 @@ CONTAINS
       CALL get_indices_c( p_patch, jb, i_startblk, i_endblk,       &
         &                 i_startidx, i_endidx, i_rlstart, i_rlend )
 
-      ! Only rdelp is updated here
       DO jk = 1, nlev
-        DO jc = i_startidx, i_endidx
-
-          z_rcellhgt_mc_now(jc,jk,jb) = 1._wp/p_cellhgt_mc_now(jc,jk,jb)
-
-        END DO
 
         DO jt=1,ntracer
           DO jc = i_startidx, i_endidx
@@ -371,8 +360,8 @@ CONTAINS
       IF ( MOD( k_step, 2 ) == 0 .OR. advection_config(jg)%lstrang ) THEN
 
 
-        i_rlstart  = grf_bdywidth_c-1
-        i_rlend    = min_rlcell_int
+        i_rlstart  = 1  !grf_bdywidth_c-1
+        i_rlend    = min_rlcell
         i_startblk = p_patch%cells%start_blk(i_rlstart,1)
         i_endblk   = p_patch%cells%end_blk(i_rlend,i_nchdom)
 
@@ -380,7 +369,7 @@ CONTAINS
           &              p_mflx_contra_v,                            &! inout
           &              p_w_contra_traj,                            &! in
           &              advection_config(jg)%cSTR*p_dtime,          &! in
-          &              p_cellhgt_mc_now, z_rcellhgt_mc_now,        &! in
+          &              p_cellhgt_mc_now,                           &! in
           &              ptr_delp_mc_now,                            &! in
           &              advection_config(jg)%ivadv_tracer,          &! in
           &              advection_config(jg)%itype_vlimit,          &! in
@@ -426,7 +415,7 @@ CONTAINS
         !
         ! compute vertical flux divergence
         !
-        i_rlend    = min_rlcell_int
+        i_rlend    = min_rlcell
         i_endblk   = p_patch%cells%end_blk(i_rlend,i_nchdom)
 
         ! Note that we need to start the calculation within the
@@ -546,11 +535,6 @@ CONTAINS
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
       END IF
-
-      ! IF vertical advection proceeds horizontal advection, synchronize the 
-      ! updated tracer array. For efficiency, the synchronization is applied for all 
-      ! tracers at once
-      CALL sync_patch_array_mult(SYNC_C, p_patch, ntracer, f4din=p_tracer_new)
 
     ELSE  ! if lvadv_tracer=.FALSE.
 
@@ -757,7 +741,7 @@ CONTAINS
         &              p_mflx_contra_v,                            &! inout
         &              p_w_contra_traj,                            &! in
         &              advection_config(jg)%cSTR*p_dtime,          &! in
-        &              p_cellhgt_mc_now, z_rcellhgt_mc_now,        &! in
+        &              p_cellhgt_mc_now,                           &! in
         &              ptr_delp_mc_now,                            &! in
         &              advection_config(jg)%ivadv_tracer,          &! in
         &              advection_config(jg)%itype_vlimit,          &! in

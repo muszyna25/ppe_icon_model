@@ -139,7 +139,7 @@ CONTAINS
   !                                                  independent versions)
   !
   SUBROUTINE vert_upwind_flux( p_patch, p_cc, p_mflx_contra_v, p_w_contra,    &
-    &                      p_dtime, p_cellhgt_mc_now, p_rcellhgt_mc_now,      &
+    &                      p_dtime, p_cellhgt_mc_now,                         &
     &                      p_cellmass_now, p_ivadv_tracer, p_itype_vlimit,    &
     &                      p_iubc_adv, p_iadv_slev, p_upflux, opt_topflx_tra, &
     &                      opt_q_int, opt_rlstart, opt_rlend )
@@ -161,9 +161,6 @@ CONTAINS
     REAL(wp), INTENT(IN) ::  &      !< cell height defined at full levels for
       &  p_cellhgt_mc_now(:,:,:)    !< time step n (either \Delta p or \Delta z)
                                     !< dim: (nproma,nlev,nblks_c)
-
-    REAL(wp), INTENT(IN) ::  &      !< reciprocal of cell height at
-      &  p_rcellhgt_mc_now(:,:,:)   !< full levels at time step n
 
     REAL(wp), TARGET, INTENT(IN)::& !< NH: density weighted cell height at full levels
       &  p_cellmass_now(:,:,:)      !< at time step n [kg/m**2]
@@ -261,7 +258,7 @@ CONTAINS
           CALL upwind_vflux_ppm( p_patch, p_cc(:,:,:,jt), p_iubc_adv,  &! in
             &                  p_mflx_contra_v, p_w_contra, p_dtime,   &! in
             &                  p_itype_vlimit(jt), p_cellhgt_mc_now,   &! in
-            &                  p_rcellhgt_mc_now, p_upflux(:,:,:,jt),  &! in,out
+            &                  p_upflux(:,:,:,jt),                     &! out
             &                  opt_topflx_tra=opt_topflx_tra(:,:,jt),  &! in
             &                  opt_slev=p_iadv_slev(jt),               &! in
             &                  opt_rlstart=opt_rlstart,                &! in
@@ -337,7 +334,7 @@ CONTAINS
           CALL upwind_vflux_ppm( p_patch, p_cc(:,:,:,jt), p_iubc_adv,  &! in
             &                  p_mflx_contra_v, p_w_contra, p_dtime,   &! in
             &                  p_itype_vlimit(jt), p_cellhgt_mc_now,   &! in
-            &                  p_rcellhgt_mc_now, p_upflux(:,:,:,jt),  &! in,out
+            &                  p_upflux(:,:,:,jt),                     &! out
             &                  opt_slev=p_iadv_slev(jt),               &! in
             &                  opt_rlstart=opt_rlstart,                &! in
             &                  opt_rlend=opt_rlend                     )! in
@@ -526,7 +523,7 @@ CONTAINS
   !
   SUBROUTINE upwind_vflux_ppm( p_patch, p_cc, p_iubc_adv, p_mflx_contra_v,  &
     &                      p_w_contra, p_dtime, p_itype_vlimit,             &
-    &                      p_cellhgt_mc_now, p_rcellhgt_mc_now, p_upflux,   &
+    &                      p_cellhgt_mc_now, p_upflux,                      &
     &                      opt_lout_edge, opt_topflx_tra, opt_slev,         &
     &                      opt_rlstart, opt_rlend )
 
@@ -553,10 +550,6 @@ CONTAINS
 
     REAL(wp), INTENT(IN) ::  &    !< layer thickness at cell center at time n
       &  p_cellhgt_mc_now(:,:,:)  !< dim: (nproma,nlev,nblks_c)
-
-
-    REAL(wp), INTENT(IN) ::  &    !< reciprocal of layer thickness at cell center
-      &  p_rcellhgt_mc_now(:,:,:) !< at time n; dim: (nproma,nlev,nblks_c)
 
     REAL(wp), INTENT(OUT) :: &    !< output field, containing the tracer mass flux
       &  p_upflux(:,:,:)          !< or the reconstructed edge value
@@ -722,9 +715,9 @@ CONTAINS
           ! z_cfl_p for weta <0 (w >0)
           z_weta_dt = ABS(p_w_contra(jc,jk,jb)) * p_dtime
 
-          z_cfl_m(jc,jk,jb) = z_weta_dt * p_rcellhgt_mc_now(jc,ikm1,jb)
+          z_cfl_m(jc,jk,jb) = z_weta_dt / p_cellhgt_mc_now(jc,ikm1,jb)
 
-          z_cfl_p(jc,jk,jb) = z_weta_dt * p_rcellhgt_mc_now(jc,jk,jb)
+          z_cfl_p(jc,jk,jb) = z_weta_dt / p_cellhgt_mc_now(jc,jk,jb)
 
         END DO ! end loop over cells
 

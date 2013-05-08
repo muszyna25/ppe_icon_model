@@ -962,7 +962,7 @@ MODULE mo_nh_initicon
 
           WRITE (message_text,'(a,a)')                            &
             &  'sea-ice thickness not available. ', &
-            &  'initialize with constant value (0.5 m), instead.'
+            &  'initialize with constant value (1.0 m), instead.'
           CALL message(TRIM(routine),TRIM(message_text))
 
           l_hice_in = .FALSE.
@@ -1518,7 +1518,7 @@ MODULE mo_nh_initicon
 
             WRITE (message_text,'(a,a)')                            &
                  &  'sea-ice thickness not available. ', &
-                 &  'initialize with constant value (0.5 m), instead.'
+                 &  'initialize with constant value (1.0 m), instead.'
             CALL message(TRIM(routine),TRIM(message_text))
 
             l_hice_in = .FALSE.
@@ -1532,7 +1532,7 @@ MODULE mo_nh_initicon
           if (get_varID(fileID, "H_ICE") == -1) then
             WRITE (message_text,'(a,a)')                            &
                  &  'sea-ice thickness not available. ', &
-                 &  'initialize with constant value (0.5 m), instead.'
+                 &  'initialize with constant value (1.0 m), instead.'
             CALL message(TRIM(routine),TRIM(message_text))
             l_hice_in = .FALSE.
           else

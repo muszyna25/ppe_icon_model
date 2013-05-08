@@ -48,6 +48,7 @@
 MODULE mo_nh_dtp_interface
 
   USE mo_kind,               ONLY: wp
+  USE mo_impl_constants,     ONLY: ippm_v
   USE mo_dynamics_config,    ONLY: idiv_method
   USE mo_parallel_config,    ONLY: nproma, p_test_run
   USE mo_run_config,         ONLY: lvert_nest, ntracer
@@ -480,7 +481,14 @@ CONTAINS
 
     ENDIF
 
-   IF (timers_level > 2) CALL timer_stop(timer_prep_tracer)
+
+    ! This synchronization is only needed, if the non-standard vertical PPM-scheme
+    ! ippm_v is used. p_w_traj is not used by p_w_traj
+    IF ( ANY(advection_config(jg)%ivadv_tracer(:) == ippm_v) ) THEN
+      CALL sync_patch_array(SYNC_C,p_patch,p_w_traj)
+    ENDIF
+
+    IF (timers_level > 2) CALL timer_stop(timer_prep_tracer)
 
   END SUBROUTINE prepare_tracer
 
