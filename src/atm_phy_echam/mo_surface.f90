@@ -69,13 +69,13 @@ CONTAINS
                            & aa, aa_btm, bb, bb_btm,            &! inout
                            & pcpt_tile, pqsat_tile,             &! inout
                            & ptsfc_tile,                        &! inout
-                           & pu_stress_gbm_ac, pv_stress_gbm_ac,&! inout
-                           & plhflx_gbm_ac, pshflx_gbm_ac,      &! inout
-                           & pevap_gbm_ac,  dshflx_dT_ac_tile,  &! inout
+                           & pu_stress_gbm, pv_stress_gbm,      &! out
+                           & plhflx_gbm, pshflx_gbm,            &! out
+                           & pevap_gbm,                         &! out
                            & pu_stress_tile,   pv_stress_tile,  &! out
                            & plhflx_tile, pshflx_tile,          &! out
                            & dshflx_dT_tile,                    &! out
-                           & pevap_tile, pevap_gbm,             &! out
+                           & pevap_tile,                        &! out
                            !! optional
                            & nblock,                            &! in
                            & lsm,                               &! in
@@ -138,20 +138,19 @@ CONTAINS
     REAL(wp),INTENT(INOUT) :: pcpt_tile (kbdim,ksfc_type)
     REAL(wp),INTENT(INOUT) :: pqsat_tile(kbdim,ksfc_type)
     REAL(wp),INTENT(INOUT) :: ptsfc_tile (kbdim,ksfc_type)
-    REAL(wp),INTENT(INOUT) :: pu_stress_gbm_ac (kbdim)
-    REAL(wp),INTENT(INOUT) :: pv_stress_gbm_ac (kbdim)
-    REAL(wp),INTENT(INOUT) :: plhflx_gbm_ac (kbdim)
-    REAL(wp),INTENT(INOUT) :: pshflx_gbm_ac (kbdim)
-    REAL(wp),INTENT(INOUT) :: pevap_gbm_ac (kbdim)
-    REAL(wp),INTENT(INOUT) :: dshflx_dT_ac_tile(kbdim,ksfc_type)
 
-    REAL(wp),INTENT(INOUT) :: pu_stress_tile (kbdim,ksfc_type) ! practically out
-    REAL(wp),INTENT(INOUT) :: pv_stress_tile (kbdim,ksfc_type) ! practically out
-    REAL(wp),INTENT(INOUT) ::    plhflx_tile (kbdim,ksfc_type) ! practically out
-    REAL(wp),INTENT(INOUT) ::    pshflx_tile (kbdim,ksfc_type) ! practically out
+    REAL(wp),INTENT(OUT)   :: pu_stress_gbm (kbdim)
+    REAL(wp),INTENT(OUT)   :: pv_stress_gbm (kbdim)
+    REAL(wp),INTENT(OUT)   ::    plhflx_gbm (kbdim)
+    REAL(wp),INTENT(OUT)   ::    pshflx_gbm (kbdim)
+    REAL(wp),INTENT(OUT)   ::     pevap_gbm (kbdim)
+
+    REAL(wp),INTENT(OUT)   :: pu_stress_tile (kbdim,ksfc_type)
+    REAL(wp),INTENT(OUT)   :: pv_stress_tile (kbdim,ksfc_type)
+    REAL(wp),INTENT(OUT)   ::    plhflx_tile (kbdim,ksfc_type)
+    REAL(wp),INTENT(OUT)   ::    pshflx_tile (kbdim,ksfc_type)
     REAL(wp),INTENT(OUT)   :: dshflx_dT_tile (kbdim,ksfc_type)
-    REAL(wp),INTENT(OUT)   :: pevap_tile (kbdim,ksfc_type)
-    REAL(wp),INTENT(OUT)   :: pevap_gbm  (kbdim)
+    REAL(wp),INTENT(OUT)   ::     pevap_tile (kbdim,ksfc_type)
 
     !! JSBACH input
     INTEGER, OPTIONAL,INTENT(IN) :: nblock
@@ -231,12 +230,12 @@ CONTAINS
     ! At this point bb(:,klev,iu) = u_klev(t)/tpfac1 (= udif in echam)
     !               bb(:,klev,iv) = v_klev(t)/tpfac1 (= vdif in echam)
 
-    CALL wind_stress( lsfc_mom_flux, pdtime, psteplen,     &! in
+    CALL wind_stress( lsfc_mom_flux, psteplen,             &! in
                     & kproma, kbdim, ksfc_type,            &! in
                     & pfrc, pcfm_tile, pfac_sfc,           &! in
                     & bb(:,klev,iu), bb(:,klev,iv),        &! in
-                    & pu_stress_gbm_ac, pv_stress_gbm_ac,  &! inout
-                    & pu_stress_tile,   pv_stress_tile     )! out
+                    & pu_stress_gbm,  pv_stress_gbm,       &! out
+                    & pu_stress_tile, pv_stress_tile       )! out
 
     ! Turbulent transport of moisture:
     ! - finish matrix set up;
@@ -440,17 +439,17 @@ CONTAINS
    ! Various diagnostics
    !-------------------------------------------------------------------
 
-   CALL surface_fluxes( lsfc_heat_flux, pdtime, psteplen,     &! in
+   CALL surface_fluxes( lsfc_heat_flux, psteplen,             &! in
                       & kproma, kbdim, klev, ksfc_type,       &! in
                       & idx_wtr, idx_ice, idx_lnd, ih, iqv,   &! in
                       & pfrc, pcfh_tile, pfac_sfc,            &! in
                       & pcpt_tile, ptsfc_tile, pqsat_tile,    &! in
                       & zca, zcs, bb(:,:,ih:iqv),             &! in
-                      & plhflx_gbm_ac, pshflx_gbm_ac,         &! inout
-                      & pevap_gbm_ac,  dshflx_dT_ac_tile,     &! inout
+                      & plhflx_gbm, pshflx_gbm,               &! out
+                      & pevap_gbm,                            &! out
                       & plhflx_tile, pshflx_tile,             &! inout
                       & dshflx_dT_tile,                       &! out
-                      & pevap_tile, pevap_gbm,                &! out
+                      & pevap_tile,                           &! out
                       & evapotranspiration)                    ! in (optional)
 
 ! TODO: ME preliminary switched off in AMIP-Mode

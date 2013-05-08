@@ -96,8 +96,10 @@ MODULE mo_echam_phy_main
 CONTAINS
   !>
   !!
-  SUBROUTINE physc( jg,jb,jcs,jce,nbdim,pdtime,psteplen,  &
-                  & ltrig_rad,ptime_radtran,ptime_radheat )
+  SUBROUTINE physc( jg,jb,jcs,jce,nbdim,pdtime,psteplen  &
+                  &,ltrig_rad,ptime_radtran              &
+!!$                  &,ptime_radheat                        &
+                  & )
 
     INTEGER, INTENT(IN) :: jg             !< grid level/domain index
     INTEGER, INTENT(IN) :: jb             !< block index
@@ -109,8 +111,8 @@ CONTAINS
     LOGICAL, INTENT(IN) :: ltrig_rad      !< perform radiative transfer computation
     REAL(wp),INTENT(IN) :: ptime_radtran  !< time instance of the radiative transfer
                                           !< computation, scaled into radians
-    REAL(wp),INTENT(IN) :: ptime_radheat  !< time instance of the radiative heating
-                                          !< computation, scaled into radians
+!!$    REAL(wp),INTENT(IN) :: ptime_radheat  !< time instance of the radiative heating
+!!$                                          !< computation, scaled into radians
     ! Local variables
 
     TYPE(t_datetime)                   :: datetime
@@ -137,7 +139,6 @@ CONTAINS
     REAL(wp) :: zfri (nbdim)              !< fraction of ice in the grid box
     REAL(wp) :: zfrc (nbdim,nsfc_type)    !< zfrl, zfrw, zfrc combined
 
-    REAL(wp) :: zqhflx (nbdim)
     INTEGER  :: ilab   (nbdim,nlev)
     REAL(wp) :: zcvcbot(nbdim)
     REAL(wp) :: zwcape (nbdim)
@@ -892,19 +893,17 @@ CONTAINS
                          & zcpt_sfc_tile(:,:),           &! inout, from "vdiff_down", for "vdiff_up"
                          & field%qs_sfc_tile(:,jb,:),    &! inout, from "vdiff_down", for "vdiff_up"
                          & field%  tsfc_tile(:,jb,:),    &! inout
-                         & field%u_stress_avg(:,  jb),   &! inout
-                         & field%v_stress_avg(:,  jb),   &! inout
-                         & field% lhflx_avg  (:,  jb),   &! inout
-                         & field% shflx_avg  (:,  jb),   &! inout
-                         & field%  evap_avg  (:,  jb),   &! inout
-                         & field%dshflx_dT_avg_tile(:,jb,:),&! inout ! OUTPUT for Sea ice
-                         & field%u_stress_tile  (:,jb,:),   &! inout
-                         & field%v_stress_tile  (:,jb,:),   &! inout
+                         & field%u_stress    (:,  jb),   &! out
+                         & field%v_stress    (:,  jb),   &! out
+                         & field% lhflx      (:,  jb),   &! out
+                         & field% shflx      (:,  jb),   &! out
+                         & field%  evap      (:,  jb),   &! out, for "cucall"
+                         & field%u_stress_tile  (:,jb,:),   &! out
+                         & field%v_stress_tile  (:,jb,:),   &! out
                          & field% lhflx_tile    (:,jb,:),   &! out
                          & field% shflx_tile    (:,jb,:),   &! out
                          & field% dshflx_dT_tile(:,jb,:),   &! out for Sea ice
                          & field%  evap_tile    (:,jb,:),   &! out
-                         & zqhflx,                          &! out, for "cucall"
                        !! optional
                        & nblock = jb,                  &! in
                        & lsm = field%lsmask(:,jb), &!< in, land-sea mask
@@ -955,19 +954,17 @@ CONTAINS
                        & zcpt_sfc_tile(:,:),           &! inout, from "vdiff_down", for "vdiff_up"
                        & field%qs_sfc_tile(:,jb,:),    &! inout, from "vdiff_down", for "vdiff_up"
                        & field%  tsfc_tile(:,jb,:),    &! inout
-                       & field%u_stress_avg(:,  jb),    &! inout ! NOTE: these values come out
-                       & field%v_stress_avg(:,  jb),    &! inout ! as accumulated ones, but
-                       & field% lhflx_avg  (:,  jb),    &! inout ! will be averaged when submitted
-                       & field% shflx_avg  (:,  jb),    &! inout ! to the
-                       & field%  evap_avg  (:,  jb),    &! inout ! OUTPUT
-                       & field%dshflx_dT_avg_tile(:,jb,:),&! inout ! OUTPUT for Sea ice
-                       & field%u_stress_tile  (:,jb,:),   &! inout
-                       & field%v_stress_tile  (:,jb,:),   &! inout
+                       & field%u_stress   (:,  jb),    &! out
+                       & field%v_stress   (:,  jb),    &! out
+                       & field% lhflx     (:,  jb),    &! out
+                       & field% shflx     (:,  jb),    &! out
+                       & field%  evap     (:,  jb),    &! out, for "cucall"
+                       & field%u_stress_tile  (:,jb,:),   &! out
+                       & field%v_stress_tile  (:,jb,:),   &! out
                        & field% lhflx_tile    (:,jb,:),   &! out
                        & field% shflx_tile    (:,jb,:),   &! out
                        & field% dshflx_dT_tile(:,jb,:),   &! out for Sea ice
                        & field%  evap_tile    (:,jb,:),   &! out
-                       & zqhflx,                         &! out, for "cucall"
                        & ptrsolall = field% swflxsfc(:,jb), &! in, net surface shortwave flux [W/m2]
                        & pemterall = field% lwflxsfc(:,jb), &! in, surface net longwave flux [W/m2]
                        & pssfl = field% ssfl(:,jb),    &! in, snow surface large scale (from cloud)
@@ -1095,7 +1092,7 @@ CONTAINS
       IF (ltimer) CALL timer_stop(timer_vdiff)
     ELSE
       zvmixtau   (jcs:jce,:) = 0._wp
-      zqhflx     (jcs:jce)   = 0._wp
+      field% evap(jcs:jce,jb)= 0._wp
       zqtvar_prod(jcs:jce,:) = 0._wp
 
       tend% u_vdf(jcs:jce,:,jb) = 0._wp
@@ -1243,7 +1240,7 @@ CONTAINS
         &           tend% q(:,:,jb,iqi),      &! in     xim1
         &          field% presm_new(:,:,jb),  &! in     app1
         &          field% presi_new(:,:,jb),  &! in     aphp1
-        &          zqhflx,                    &! in     qhfla (from "vdiff")
+        &          field% evap(:,jb),         &! in     qhfla (from "vdiff")
 !0      &          field% tke,                &! in     tkem1 (from "vdiff")
         &          field% thvsig(:,jb),       &! in           (from "vdiff")
         &          tend% temp(:,:,jb),        &! inout  tte

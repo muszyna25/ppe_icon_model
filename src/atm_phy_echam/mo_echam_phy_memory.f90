@@ -356,24 +356,22 @@ MODULE mo_echam_phy_memory
     TYPE(t_ptr2d),ALLOCATABLE :: qs_sfc_tile_ptr(:)
 
     REAL(wp),POINTER :: &
-      & lhflx_avg  (:,  :),   &!< (time ave) grid box mean latent   heat flux at surface 
-      & shflx_avg  (:,  :),   &!< (time ave) grid box mean sensible heat flux at surface 
-      &  evap_avg  (:,  :),   &!< (time ave) grid box mean evaporation at surface 
+      & lhflx     (:,  :),    &!< grid box mean latent   heat flux at surface 
+      & shflx     (:,  :),    &!< grid box mean sensible heat flux at surface 
+      & evap      (:,  :),    &!< grid box mean evaporation at surface 
       & lhflx_tile(:,:,:),    &!< (instantaneous) latent   heat flux at surface 
       & shflx_tile(:,:,:),    &!< (instantaneous) sensible heat flux at surface 
-      & evap_tile(:,:,:),    &!< (instantaneous) evaporation at surface 
-      & dshflx_dT_tile(:,:,:),&!< (instantaneous) temp tendency of SHF at surface
-      & dshflx_dT_avg_tile(:,:,:) !< (time ave)  temp tendency of SHF  at surface
+      & evap_tile(:,:,:),     &!< (instantaneous) evaporation at surface 
+      & dshflx_dT_tile(:,:,:)  !< (instantaneous) temp tendency of SHF at surface
 
     TYPE(t_ptr2d),ALLOCATABLE :: lhflx_tile_ptr(:)
     TYPE(t_ptr2d),ALLOCATABLE :: shflx_tile_ptr(:)
     TYPE(t_ptr2d),ALLOCATABLE :: evap_tile_ptr(:)
     TYPE(t_ptr2d),ALLOCATABLE :: dshflx_dT_tile_ptr(:)
-    TYPE(t_ptr2d),ALLOCATABLE :: dshflx_dT_avg_tile_ptr(:)
 
     REAL(wp),POINTER :: &
-      & u_stress_avg  (:,  :), &!< (time accum) grid box mean wind stress 
-      & v_stress_avg  (:,  :), &!< (time accum) grid box mean wind stress 
+      & u_stress     (:,  :), &!< grid box mean wind stress 
+      & v_stress     (:,  :), &!< grid box mean wind stress 
       & u_stress_tile(:,:,:), &!< (instantaneous) wind stress 
       & v_stress_tile(:,:,:)   !< (instantaneous) wind stress 
 
@@ -1237,24 +1235,33 @@ CONTAINS
     !---------------------------
     CALL add_var( field_list, prefix//'u_stress_sso', field%u_stress_sso,         &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                             &
-                & t_cf_var('u_stress_sso', '', 'u_stress_sso'//                   &
-                & 'zonal stress from orogroaphic wave drag', DATATYPE_FLT32),     &
+                & t_cf_var('u_stress_sso', 'N/m2',                                &
+                &          'zonal stress from subgrid scale orographic drag',     &
+                &          DATATYPE_FLT32),                                       &
                 & t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),   &
-                & ldims=shape2d                                                   )
+                & ldims=shape2d,                                                  &
+                & lrestart = .FALSE.,                                             &
+                & isteptype=TSTEP_INSTANT                                         )
 
     CALL add_var( field_list, prefix//'v_stress_sso', field%v_stress_sso,         &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                             &
-                & t_cf_var('v_stress_sso', '', 'v_stress_sso'//                   &
-                & 'meridional stress from orogroaphic wave drag', DATATYPE_FLT32),&
+                & t_cf_var('v_stress_sso', 'N/m2',                                &
+                &          'meridional stress from subgrid scale orographic drag',&
+                &          DATATYPE_FLT32),                                       &
                 & t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),   &
-                & ldims=shape2d                                                   )
+                & ldims=shape2d,                                                  &
+                & lrestart = .FALSE.,                                             &
+                & isteptype=TSTEP_INSTANT                                         )
 
     CALL add_var( field_list, prefix//'dissipation_sso', field%dissipation_sso,   &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                             &
-                & t_cf_var('dissipation_sso', '', 'dissipation_sso'//             &
-                & 'dissipation of orogroaphic waves', DATATYPE_FLT32),            &
+                & t_cf_var('dissipation_sso', '',                                 &
+                &          'dissipation of orographic waves',                     &
+                &          DATATYPE_FLT32),                                       &
                 & t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),   &
-                & ldims=shape2d                                                   )
+                & ldims=shape2d,                                                  &
+                & lrestart = .FALSE.,                                             &
+                & isteptype=TSTEP_INSTANT                                         )
 
     !--------------------
     ! Turbulence
@@ -1572,49 +1579,32 @@ CONTAINS
     !---------------------------
     ! Averaged gridbox mean
 
-    CALL add_var( field_list, prefix//'evap_avg', field%evap_avg,         &
+    CALL add_var( field_list, prefix//'evap', field%evap,                 &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                     &
-                & t_cf_var('evap_avg', 'kg m-2', 'evaporation'//          &
-                & ' averaged over output interval', DATATYPE_FLT32),      &
+                & t_cf_var('evap', 'kg m-2', 'evaporation',               &
+                & DATATYPE_FLT32),                                        &
                 & t_grib2_var(2,0,6,iextbits, GRID_REFERENCE, GRID_CELL), &
-                & ldims=shape2d                                           )
+                & ldims=shape2d,                                          &
+                & lrestart = .FALSE.,                                     &
+                & isteptype=TSTEP_INSTANT                                 )
 
-    CALL add_var( field_list, prefix//'lhflx_avg', field%lhflx_avg,       &
+    CALL add_var( field_list, prefix//'lhflx', field%lhflx,               &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                     &
-                & t_cf_var('lhflx_avg', 'W m-2 ', 'latent heat flux'//    &
-                & 'averaged over output interval', DATATYPE_FLT32),       &
+                & t_cf_var('lhflx', 'W m-2 ', 'latent heat flux',         &
+                & DATATYPE_FLT32),                                        &
                 & t_grib2_var(2, 0, 6, ibits, GRID_REFERENCE, GRID_CELL), &
-                & ldims=shape2d                                           )
+                & ldims=shape2d,                                          &
+                & lrestart = .FALSE.,                                     &
+                & isteptype=TSTEP_INSTANT                                 )
 
-    CALL add_var( field_list, prefix//'shflx_avg', field%shflx_avg,       &
+    CALL add_var( field_list, prefix//'shflx', field%shflx,               &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                     &
-                & t_cf_var('shflx_avg', 'W m-2 ', 'sensible heat flux'//  &
-                & 'averaged over output interval', DATATYPE_FLT32),       &
+                & t_cf_var('shflx', 'W m-2 ', 'sensible heat flux',       &
+                & DATATYPE_FLT32),                                        &
                 & t_grib2_var(2, 0, 6, ibits, GRID_REFERENCE, GRID_CELL), &
-                & ldims=shape2d                                           )
-
-   !---------------------------
-    ! Time Averaged tiles
-
-    CALL add_var( field_list, prefix//'dshflx_dT_avg_tile', field%dshflx_dT_avg_tile,&
-                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                                &
-                & t_cf_var('dshflx_dT_avg_tile', 'W m-2 K-1', ''//                   &
-                & 'averaged over output interval', DATATYPE_FLT32),                  &
-                & t_grib2_var(2, 0, 6, ibits, GRID_REFERENCE, GRID_CELL),            &
-                & ldims=shapesfc ,                                                    &
-                & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.    )
-
-   ALLOCATE(field%dshflx_dT_avg_tile_ptr(ksfc_type))
-
-    DO jsfc = 1,ksfc_type
-      WRITE(csfc,'(i1)') jsfc 
-
-      CALL add_ref( field_list, prefix//'dshflx_dT_avg_tile',                                 &
-                  & prefix//'dshflx_dT_avg_tile_'//csfc, field%dshflx_dT_avg_tile_ptr(jsfc)%p,&
-                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                                       &
-                  & t_cf_var('dshflx_dT_avg_tile_'//csfc, '', '', DATATYPE_FLT32),            &
-                  & t_grib2_var(2,0,6, ibits, GRID_REFERENCE, GRID_CELL), ldims=shape2d       )
-    ENDDO
+                & ldims=shape2d,                                          &
+                & lrestart = .FALSE.,                                     &
+                & isteptype=TSTEP_INSTANT                                 )
 
     !---------------------------------
     ! Instantaneous values over tiles
@@ -1703,19 +1693,23 @@ CONTAINS
     ! wind stress, accumulated grid box mean
     !-----------------------------------------
 
-    CALL add_var( field_list, prefix//'u_stress_avg', field%u_stress_avg,       &
+    CALL add_var( field_list, prefix//'u_stress', field%u_stress        ,       &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                           &
-                & t_cf_var('u_stress_avg', 'N m-2 s', 'surface wind stress'//   &
-                & 'averaged over output interval', DATATYPE_FLT32),             &
+                & t_cf_var('u_stress', 'N m-2', 'surface wind stress',          &
+                &          DATATYPE_FLT32),                                     &
                 & t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL), &
-                & ldims=shape2d                                                )
+                & ldims=shape2d,                                                &
+                & lrestart = .FALSE.,                                           &
+                & isteptype=TSTEP_INSTANT )
 
-    CALL add_var( field_list, prefix//'v_stress_avg', field%v_stress_avg,       &
+    CALL add_var( field_list, prefix//'v_stress', field%v_stress,               &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                           &
-                & t_cf_var('v_stress_avg', 'N m-2 s', 'surface wind stress'//   &
-                & 'averaged over output interval', DATATYPE_FLT32),             &
+                & t_cf_var('v_stress', 'N m-2', 'surface wind stress',          &
+                &          DATATYPE_FLT32),                                     &
                 & t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL), &
-                & ldims=shape2d                                                )
+                & ldims=shape2d,                                                &
+                & lrestart = .FALSE.,                                           &
+                & isteptype=TSTEP_INSTANT )
 
     ! wind stress, instantaneous tile values 
 

@@ -808,14 +808,13 @@ CONTAINS
       field% omega (:,:,:) = 0._wp
 
       field%totprec_avg(:,:) = 0._wp
-      field%  evap_avg(:,  :) = 0._wp
-      field% lhflx_avg(:,  :) = 0._wp
-      field% shflx_avg(:,  :) = 0._wp
+      field%  evap (:,  :) = 0._wp
+      field% lhflx (:,  :) = 0._wp
+      field% shflx (:,  :) = 0._wp
       field%dshflx_dT_tile    (:,:,:)= 0._wp
-      field%dshflx_dT_avg_tile(:,:,:)= 0._wp
 
-      field% u_stress_avg(:,  :) = 0._wp
-      field% v_stress_avg(:,  :) = 0._wp
+      field% u_stress(:,  :) = 0._wp
+      field% v_stress(:,  :) = 0._wp
 
       field% u_stress_sso(:,:) = 0._wp
       field% v_stress_sso(:,:) = 0._wp
@@ -1024,13 +1023,6 @@ CONTAINS
       !----------------------------------------
 
       field%totprec_avg(:,:)   = 0._wp
-
-      field%  evap_avg(:,:) = 0._wp
-      field% lhflx_avg(:,:) = 0._wp
-      field% shflx_avg(:,:) = 0._wp
-
-      field% u_stress_avg(:,:) = 0._wp
-      field% v_stress_avg(:,:) = 0._wp
 
       NULLIFY( field )
     ENDDO !jg
