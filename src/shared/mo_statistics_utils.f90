@@ -66,7 +66,7 @@ CONTAINS
   !>
   FUNCTION globalspace_2D_minmax(values, subset) result(minmax)
     REAL(wp), INTENT(in) :: values(:,:)
-    TYPE(t_subset_range), POINTER, OPTIONAL :: subset
+    TYPE(t_subset_range), TARGET, OPTIONAL :: subset
     REAL(wp) :: minmax(2)
 
     REAL(wp) :: min_in_block, max_in_block, min_value, max_value
@@ -108,6 +108,9 @@ CONTAINS
       communicator = get_my_mpi_work_communicator()
       minmax(1) = p_min( min_value,  comm=communicator ) ! only mpi_all_reduce is avaliable
       minmax(2) = p_max( max_value,  comm=communicator, root=process_mpi_stdio_id )
+    ELSE
+      minmax(1) = min_value
+      minmax(2) = max_value
     ENDIF
 
   END FUNCTION globalspace_2D_minmax
@@ -118,13 +121,14 @@ CONTAINS
   !>
   FUNCTION globalspace_3D_minmax(values, subset, start_level, end_level) result(minmax)
     REAL(wp), INTENT(in) :: values(:,:,:)
-    TYPE(t_subset_range), POINTER, OPTIONAL :: subset
+    TYPE(t_subset_range), TARGET, OPTIONAL :: subset
     INTEGER, OPTIONAL :: start_level, end_level
     REAL(wp) :: minmax(2)
 
     REAL(wp) :: min_in_block, max_in_block, min_value, max_value
-    INTEGER :: jb, jk, startidx, endidx, start_vertical, end_vertical
+    INTEGER :: jb, level, startidx, endidx, start_vertical, end_vertical
     INTEGER :: communicator
+    INTEGER :: idx
     CHARACTER(LEN=*), PARAMETER :: method_name='mo_statistics_utils:arc_length'
 
 
@@ -148,12 +152,15 @@ CONTAINS
       CALL get_index_range(subset, jb, startidx, endidx)
       min_value = values(startidx, start_vertical, jb)
       max_value = values(startidx, start_vertical, jb)
-!ICON_OMP_PARALLEL_DO PRIVATE(jb, jk, startidx, endidx, min_in_block, max_in_block) reduction(min:min_value) reduction(max:max_value)
+!ICON_OMP_PARALLEL_DO PRIVATE(jb, level, startidx, endidx, min_in_block, max_in_block) reduction(min:min_value) reduction(max:max_value)
       DO jb = subset%start_block, subset%end_block
         CALL get_index_range(subset, jb, startidx, endidx)
-        DO jk = start_vertical, end_vertical
-          min_in_block = MINVAL(values(startidx:endidx, jk, jb))
-          max_in_block = MAXVAL(values(startidx:endidx, jk, jb))
+        DO level = start_vertical, end_vertical
+          DO idx = startidx, endidx
+            WRITE(0,*) "checking ", jb, level, idx, values(idx, level, jb)
+          ENDDO
+          min_in_block = MINVAL(values(startidx:endidx, level, jb))
+          max_in_block = MAXVAL(values(startidx:endidx, level, jb))
           min_value    = MIN(min_value, min_in_block)
           max_value    = MAX(max_value, max_in_block)
         ENDDO
@@ -162,11 +169,11 @@ CONTAINS
     ELSE
       min_value      = values(1, start_vertical, 1)
       max_value      = values(1, start_vertical, 1)
-!ICON_OMP_PARALLEL_DO PRIVATE(jb, jk, min_in_block, max_in_block) reduction(min:min_value) reduction(max:max_value)
+!ICON_OMP_PARALLEL_DO PRIVATE(jb, level, min_in_block, max_in_block) reduction(min:min_value) reduction(max:max_value)
       DO jb = 1,  SIZE(values, 3)
-        DO jk = start_vertical, end_vertical
-          min_in_block = MINVAL(values(:, jk, jb))
-          max_in_block = MINVAL(values(:, jk, jb))
+        DO level = start_vertical, end_vertical
+          min_in_block = MINVAL(values(:, level, jb))
+          max_in_block = MINVAL(values(:, level, jb))
           min_value    = MIN(min_value, min_in_block)
           max_value    = MAX(max_value, max_in_block)
         ENDDO
@@ -179,6 +186,9 @@ CONTAINS
       communicator = get_my_mpi_work_communicator()
       minmax(1) = p_min( min_value,  comm=communicator ) ! only mpi_all_reduce is avaliable
       minmax(2) = p_max( max_value,  comm=communicator, root=process_mpi_stdio_id )
+    ELSE
+      minmax(1) = min_value
+      minmax(2) = max_value
     ENDIF
 
   END FUNCTION globalspace_3D_minmax

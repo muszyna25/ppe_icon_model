@@ -329,7 +329,7 @@ CONTAINS
   REAL(wp),              INTENT(IN) :: p_array(:,:,:) ! 3-dim array for debugging
   CHARACTER(len=*),      INTENT(IN) :: str_mod_src    ! defined string for source of current array
   INTEGER,               INTENT(IN) :: idetail_src    ! source level from module for print output 
-  TYPE(t_subset_range),  POINTER, OPTIONAL :: in_subset
+  TYPE(t_subset_range),  TARGET, OPTIONAL :: in_subset
 
   ! local variables
   CHARACTER(len=27) ::  strout
@@ -472,6 +472,7 @@ CONTAINS
     IF (idbg_mxmn < 4 .AND. idetail_src > 0) elev_mxmn = slev
     
     ! print out maximum and minimum value
+    ! ctrn=minval(p_array(:, slev:elev_mxmn, :))
     DO jk = slev, elev_mxmn
     
 !      ctrx=maxval(p_array(1:nproma,jk,1:ndimblk))
@@ -484,7 +485,7 @@ CONTAINS
 !      glbmn=global_min(ctrn)
 !      p_test_run = p_test_run_bac
     
-      minmax = global_minmax(values=p_array, subset=in_subset)
+      minmax = global_minmax(values=p_array, subset=in_subset, start_level=jk, end_level=jk)
 
       IF (my_process_is_stdio()) &
         & WRITE(iout,991) ' MAX/MIN ', strmod, strout, jk, minmax(2), minmax(1)
@@ -515,7 +516,7 @@ CONTAINS
   REAL(wp),              INTENT(IN) :: p_array(:,:)   ! 2-dim array for debugging
   CHARACTER(len=*),      INTENT(IN) :: str_mod_src    ! defined string for source of current array
   INTEGER,               INTENT(IN) :: idetail_src    ! source level from module for print output 
-  TYPE(t_subset_range),  POINTER, OPTIONAL :: in_subset
+  TYPE(t_subset_range),  TARGET, OPTIONAL :: in_subset
 
   ! local variables
   CHARACTER(len=27) ::  strout
