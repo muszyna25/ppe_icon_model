@@ -56,10 +56,10 @@
   prw                prm_qvi
   clivi              prm_xivi
 #
-  hfls               prm_lhflx_avg
-  hfss               prm_shflx_avg
-  tauu               prm_u_stress_avg
-  tauv               prm_v_stress_avg
+  hfls               prm_lhflx
+  hfss               prm_shflx
+  tauu               prm_u_stress
+  tauv               prm_v_stress
 #
 #
 # other names        "add_var" name
@@ -82,8 +82,6 @@
   prcr               prm_rsfc
   prls               prm_ssfl
   prcs               prm_ssfc
-#
-  apr                prm_totprec_avg
 #
   cllvi              prm_xlvi
 #
