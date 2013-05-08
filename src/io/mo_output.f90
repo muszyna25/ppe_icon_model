@@ -543,19 +543,23 @@ CONTAINS
     ELSE
       inlev_soil = 0
     ENDIF
-    IF (PRESENT(opt_nlev_snow) .AND. opt_nlev_snow /= 0) THEN  ! number of snow levels (multi layer snow model)
-      inlev_snow = opt_nlev_snow
-      ALLOCATE(zlevels_full(inlev_snow))
-      ALLOCATE(zlevels_half(inlev_snow+1))
-      DO i = 1, inlev_snow
-        zlevels_full(i) = REAL(i,wp)
-      END DO
-      DO i = 1, inlev_snow+1
-        zlevels_half(i) = REAL(i,wp)
-      END DO
-      CALL set_restart_height_snow(zlevels_half, zlevels_full)
-      DEALLOCATE(zlevels_full)
-      DEALLOCATE(zlevels_half)
+    IF (PRESENT(opt_nlev_snow)) THEN
+      IF (opt_nlev_snow /= 0) THEN  ! number of snow levels (multi layer snow model)
+        inlev_snow = opt_nlev_snow
+        ALLOCATE(zlevels_full(inlev_snow))
+        ALLOCATE(zlevels_half(inlev_snow+1))
+        DO i = 1, inlev_snow
+          zlevels_full(i) = REAL(i,wp)
+        END DO
+        DO i = 1, inlev_snow+1
+          zlevels_half(i) = REAL(i,wp)
+        END DO
+        CALL set_restart_height_snow(zlevels_half, zlevels_full)
+        DEALLOCATE(zlevels_full)
+        DEALLOCATE(zlevels_half)
+      ELSE
+        inlev_snow = 0
+      ENDIF
     ELSE
       inlev_snow = 0
     ENDIF
