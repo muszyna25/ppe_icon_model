@@ -360,7 +360,7 @@ CONTAINS
       IF ( MOD( k_step, 2 ) == 0 .OR. advection_config(jg)%lstrang ) THEN
 
 
-        i_rlstart  = 1  !grf_bdywidth_c-1
+        i_rlstart  = 2
         i_rlend    = min_rlcell
         i_startblk = p_patch%cells%start_blk(i_rlstart,1)
         i_endblk   = p_patch%cells%end_blk(i_rlend,i_nchdom)
