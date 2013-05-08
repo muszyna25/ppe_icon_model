@@ -7,8 +7,8 @@ job_name=exp.r2b4_amip_thunder.run
 # thunder batch job parameters
 #
 #SBATCH --job-name=exp.r2b4_amip_thunder.run
-#SBATCH --output=LOG.exp.r2b4_amip.run.%j.out
-#SBATCH --error=LOG.exp.r2b4_amip.run.%j.out
+#SBATCH --output=LOG.exp.r2b4_amip_thunder.run.%j.out
+#SBATCH --error=LOG.exp.r2b4_amip_thunder.run.%j.out
 #SBATCH --partition=mpi-compute
 #SBATCH --nodes=4
 #SBATCH --ntasks-per-node=16
@@ -419,8 +419,7 @@ dt_checkpoint     = ${dt_checkpoint} ! [s] trigger new restart file
                     'sic'     , 'sit'     , 'alb'     ,
                     'clt'     ,
                     'prlr'    , 'prls'    , 'prcr'    , 'prcs'    ,
-                    'pr'      , 'apr'     ,
-                    'prw'     , 'cllvi'   , 'clivi'   ,
+                    'pr'      , 'prw'     , 'cllvi'   , 'clivi'   ,
                     'hfls'    , 'hfss'    , 
                     'tauu'    , 'tauv'    ,
                     'tauu_sso', 'tauv_sso', 'diss_sso'
@@ -592,7 +591,7 @@ cat > $master_namelist << EOF
  /
 &master_model_nml
   model_name="atmo"
-  model_namelist_filename="NAMELIST_r2b4_amip_atmo"
+  model_namelist_filename="NAMELIST_$EXPNAME"
   model_restart_info_filename=""
   model_type=1
   model_min_rank=0
