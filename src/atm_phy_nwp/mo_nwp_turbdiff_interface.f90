@@ -91,6 +91,7 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
                           & prm_diag, prm_nwp_tend,           & !>inout
                           & wtr_prog_now,                     & !>in 
                           & lnd_prog_now,                     & !>in 
+                          & lnd_prog_new,                     & !>inout only for idealized LES
                           & lnd_diag                          ) !>in
 
 
@@ -105,7 +106,8 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
   TYPE(t_nwp_phy_diag),        INTENT(inout):: prm_diag        !< atm phys vars
   TYPE(t_nwp_phy_tend), TARGET,INTENT(inout):: prm_nwp_tend    !< atm tend vars
   TYPE(t_wtr_prog),            INTENT(in)   :: wtr_prog_now    !< prog vars for wtr
-  TYPE(t_lnd_prog),            INTENT(inout):: lnd_prog_now    !< prog vars for sfc
+  TYPE(t_lnd_prog),            INTENT(in)   :: lnd_prog_now    !< prog vars for sfc
+  TYPE(t_lnd_prog),            INTENT(inout):: lnd_prog_new    !< prog vars for sfc
   TYPE(t_lnd_diag),            INTENT(inout):: lnd_diag        !< diag vars for sfc
   REAL(wp),                    INTENT(in)   :: tcall_turb_jg   !< time interval for 
                                                                !< turbulence
@@ -172,7 +174,8 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
                                  p_metrics,    & !in
                                  p_patch,      & !in
                                  p_int,        & !in
-                                 lnd_prog_now, & !inout
+                                 lnd_prog_now, & !in
+                                 lnd_prog_new, & !inout only for idealized cases
                                  lnd_diag,     & !inout
                                  prm_diag,     & !inout
                                  prm_nwp_tend, & !inout

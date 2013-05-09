@@ -98,7 +98,8 @@ MODULE mo_sgs_turbulence
   !! @par Revision History
   !! Initial release by Anurag Dipankar, MPI-M (2013-03-05)
   SUBROUTINE drive_subgrid_diffusion(p_nh_prog, p_nh_prog_rcf, p_nh_diag, p_nh_metrics, p_patch, &
-                                     p_int, p_prog_lnd_now, p_diag_lnd, prm_diag, prm_nwp_tend, dt)
+                                     p_int, p_prog_lnd_now, p_prog_lnd_new, p_diag_lnd, prm_diag,&
+                                     prm_nwp_tend, dt)
 
     TYPE(t_nh_prog),   INTENT(inout)     :: p_nh_prog     !< single nh prognostic state
     TYPE(t_nh_prog),   INTENT(in)        :: p_nh_prog_rcf !< rcf nh prognostic state 
@@ -106,7 +107,8 @@ MODULE mo_sgs_turbulence
     TYPE(t_nh_metrics),INTENT(in),TARGET :: p_nh_metrics  !< single nh metric state
     TYPE(t_patch),     INTENT(in),TARGET :: p_patch       !< single patch
     TYPE(t_int_state), INTENT(in),TARGET :: p_int         !< single interpolation state
-    TYPE(t_lnd_prog),  INTENT(inout)     :: p_prog_lnd_now!<land prog state 
+    TYPE(t_lnd_prog),  INTENT(in)        :: p_prog_lnd_now!<land prog state 
+    TYPE(t_lnd_prog),  INTENT(inout)     :: p_prog_lnd_new!<land prog state 
     TYPE(t_lnd_diag),  INTENT(inout)     :: p_diag_lnd    !<land diag state 
     TYPE(t_nwp_phy_diag),   INTENT(inout):: prm_diag      !< atm phys vars
     TYPE(t_nwp_phy_tend), TARGET,INTENT(inout):: prm_nwp_tend    !< atm tend vars
@@ -148,7 +150,7 @@ MODULE mo_sgs_turbulence
     IF(p_test_run)THEN
 !ICON_OMP_WORKSHARE
       u_vert(:,:,:)      = 0._wp; v_vert(:,:,:)      = 0._wp; w_vert(:,:,:)       = 0._wp 
-      w_ie(:,:,:)        = 0._wp; visc_smag_ie(:,:,:) = 0._wp; diff_smag_ic(:,:,:) = 0._wp
+      w_ie(:,:,:)        = 0._wp; visc_smag_ie(:,:,:) = 0._wp;diff_smag_ic(:,:,:) = 0._wp
       visc_smag_v(:,:,:) = 0._wp; diff_smag_e(:,:,:) = 0._wp; visc_smag_c(:,:,:)  = 0._wp
       rho_e(:,:,:)       = 0._wp; theta(:,:,:)       = 0._wp; theta_v(:,:,:)      = 0._wp
       DIV_c(:,:,:)       = 0._wp
@@ -181,10 +183,12 @@ MODULE mo_sgs_turbulence
 
     CALL sync_patch_array(SYNC_C, p_patch, theta)
     CALL sync_patch_array(SYNC_C, p_patch, theta_v)
-         
-    CALL surface_conditions(p_nh_metrics, p_patch, p_nh_diag, p_int, &
-                            p_prog_lnd_now, p_diag_lnd, prm_diag,    &
-                            theta, p_nh_prog%tracer(:,:,:,iqv), visc_sfc_c(:,1,:))
+     
+    !Think about moving this call to mo_nh_interface_nwp where nwp_surface is called    
+    CALL surface_conditions(p_nh_metrics, p_patch, p_nh_diag, p_int,     &
+                            p_prog_lnd_now, p_prog_lnd_new, p_diag_lnd,  &
+                            prm_diag, theta, p_nh_prog%tracer(:,:,:,iqv),&
+                            visc_sfc_c(:,1,:))
 
     CALL smagorinsky_model(p_nh_prog, p_nh_diag, p_nh_metrics, p_patch, p_int, prm_diag, &
                            theta_v, visc_sfc_c)

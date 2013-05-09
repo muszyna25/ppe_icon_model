@@ -95,15 +95,16 @@ MODULE mo_surface_les
   !!------------------------------------------------------------------------
   !! @par Revision History
   !! Initial release by Anurag Dipankar, MPI-M (2013-02-06)
-  SUBROUTINE  surface_conditions(p_nh_metrics, p_patch, p_nh_diag, p_int, &
-                                 p_prog_lnd_now, p_diag_lnd, prm_diag,    &
-                                 theta, qv, sgs_visc_sfc)
+  SUBROUTINE  surface_conditions(p_nh_metrics, p_patch, p_nh_diag, p_int,    &
+                                 p_prog_lnd_now, p_prog_lnd_new, p_diag_lnd, &
+                                 prm_diag, theta, qv, sgs_visc_sfc)
 
     TYPE(t_nh_metrics),INTENT(in),TARGET :: p_nh_metrics  !< single nh metric state
     TYPE(t_patch),     INTENT(in),TARGET :: p_patch    !< single patch
     TYPE(t_nh_diag),   INTENT(in)        :: p_nh_diag  !< single nh diagnostic state
     TYPE(t_int_state), INTENT(in),TARGET :: p_int      !< single interpolation state
-    TYPE(t_lnd_prog),  INTENT(inout)     :: p_prog_lnd_now!<land prog state 
+    TYPE(t_lnd_prog),  INTENT(in)        :: p_prog_lnd_now!<land prog state 
+    TYPE(t_lnd_prog),  INTENT(inout)     :: p_prog_lnd_new!<land prog state 
     TYPE(t_lnd_diag),  INTENT(inout)     :: p_diag_lnd    !<land diag state 
     TYPE(t_nwp_phy_diag),   INTENT(inout):: prm_diag      !< atm phys vars
     REAL(wp),          INTENT(in)        :: theta(:,:,:)  !pot temp  
@@ -166,6 +167,7 @@ MODULE mo_surface_les
             zrough = prm_diag%gz0(jc,jb) * rgrav
 
             !Get reference surface pot. temperature
+            !First time step t_g takes value assigned in nwp_phy_init          
             th0_srf = p_prog_lnd_now%t_g(jc,jb) / exner
 
             !Buoyancy flux
@@ -191,7 +193,7 @@ MODULE mo_surface_les
             theta_sfc   = theta(jc,jk,jb) + les_config(jg)%shflx / ustar * &
                           businger_heat(zrough,z_mc,obukhov_length) 
 
-            p_prog_lnd_now%t_g(jc,jb) = theta_sfc * exner
+            p_prog_lnd_new%t_g(jc,jb) = theta_sfc * exner
 
             !Get surface qv
             p_diag_lnd%qv_s(jc,jb) = qv(jc,jk,jb) + les_config(jg)%lhflx / ustar * &
@@ -199,7 +201,7 @@ MODULE mo_surface_les
 
             !Get surface fluxes
             rhos   =  pres_sfc(jc,jb)/( rd * &
-                      p_prog_lnd_now%t_g(jc,jb)*(1._wp+0.61_wp*p_diag_lnd%qv_s(jc,jb)) )  
+                      p_prog_lnd_new%t_g(jc,jb)*(1._wp+0.61_wp*p_diag_lnd%qv_s(jc,jb)) )  
 
             prm_diag%shfl_s(jc,jb)  = les_config(jg)%shflx * rhos * cpd
             prm_diag%lhfl_s(jc,jb)  = les_config(jg)%lhflx * rhos * alv
@@ -240,6 +242,7 @@ MODULE mo_surface_les
             zrough = prm_diag%gz0(jc,jb) * rgrav
 
             !Get reference surface pot. temperature
+            !First time step t_g takes value assigned in nwp_phy_init          
             th0_srf = p_prog_lnd_now%t_g(jc,jb) / exner
 
             !Iterate to get surface temperature given buoyancy flux
@@ -267,14 +270,14 @@ MODULE mo_surface_les
             END IF
 
             !Surface temperature
-            p_prog_lnd_now%t_g(jc,jb) = theta_sfc * exner
+            p_prog_lnd_new%t_g(jc,jb) = theta_sfc * exner
 
             !Get surface qv 
             p_diag_lnd%qv_s(jc,jb) = spec_humi(sat_pres_water(theta_sfc),pres_sfc(jc,jb))
 
             !Get surface fluxes
             rhos   =  pres_sfc(jc,jb)/( rd * &
-                      p_prog_lnd_now%t_g(jc,jb)*(1._wp+0.61_wp*p_diag_lnd%qv_s(jc,jb)) )  
+                      p_prog_lnd_new%t_g(jc,jb)*(1._wp+0.61_wp*p_diag_lnd%qv_s(jc,jb)) )  
 
             prm_diag%shfl_s(jc,jb) = rhos*cpd*les_config(jg)%tran_coeff*(theta_sfc-theta(jc,jk,jb))
             prm_diag%lhfl_s(jc,jb) = rhos*alv*les_config(jg)%tran_coeff*(p_diag_lnd%qv_s(jc,jb)-qv(jc,jk,jb))
