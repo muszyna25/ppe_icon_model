@@ -390,13 +390,10 @@ CONTAINS
         ! direction. This is independent of the tracer and thus must be
         ! computed only once.
 
-!$OMP PARALLEL PRIVATE(i_rlend, i_endblk)
-
+!$OMP PARALLEL
         ! Note that intermediate densities are needed by the horizontal 
         ! limiter as well. That is, why we have to extend the following 
         ! computation to halo points.
-        i_rlend    = min_rlcell
-        i_endblk   = p_patch%cells%end_blk(i_rlend,i_nchdom)
 
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
         DO jb = i_startblk, i_endblk
@@ -415,8 +412,6 @@ CONTAINS
         !
         ! compute vertical flux divergence
         !
-        i_rlend    = min_rlcell
-        i_endblk   = p_patch%cells%end_blk(i_rlend,i_nchdom)
 
         ! Note that we need to start the calculation within the
         ! nest boundary, since the following horizontal flux calculation
