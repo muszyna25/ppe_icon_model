@@ -87,7 +87,7 @@ MODULE mo_advection_vflux
    &                                vflx_limiter_pd, vflx_limiter_pd_ha
   USE mo_loopindices,         ONLY: get_indices_c
   USE mo_sync,                ONLY: global_max
-  USE mo_mpi,                 ONLY: process_mpi_stdio_id
+  USE mo_mpi,                 ONLY: process_mpi_stdio_id, my_process_is_stdio
 
   IMPLICIT NONE
 
@@ -2018,9 +2018,11 @@ CONTAINS
       ELSE
         max_cfl_tot = global_max(max_cfl_tot, iroot=process_mpi_stdio_id)
       ENDIF
-
-      WRITE(message_text,'(a,e16.8)') 'maximum vertical CFL =',max_cfl_tot
-      CALL message(TRIM(routine),message_text)
+      IF (my_process_is_stdio()) THEN
+        ! else it is possible that max_cfl_tot is undefined
+        WRITE(message_text,'(a,e16.8)') 'maximum vertical CFL =',max_cfl_tot
+        CALL message(TRIM(routine),message_text)
+      ENDIF
 
       ! Add layer-wise diagnostic if the maximum CFL value is suspicuous
       IF (msg_level >= 12 .AND. max_cfl_tot > 8._wp) THEN

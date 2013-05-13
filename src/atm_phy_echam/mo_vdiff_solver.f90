@@ -415,10 +415,10 @@ CONTAINS
     ! See subroutine matrix_to_richtmyer_coeff.
 
   END SUBROUTINE matrix_setup_elim
-  !-------------
+  !--------------------------------------------------------------------------------
+
+  !--------------------------------------------------------------------------------
   !>
-  !!
-  !!
   SUBROUTINE rhs_setup( kproma, kbdim, itop, klev, klevm1,   &! in
                       & ksfc_type, ktrac, ptpfac2, pstep_len,&! in
                       & pum1, pvm1, pcptgz, pqm1,            &! in
@@ -547,7 +547,9 @@ CONTAINS
     !ENDDO
 
   END SUBROUTINE rhs_setup
-  !-------------
+  !--------------------------------------------------------------------------------
+
+  !--------------------------------------------------------------------------------
   !>
   !!
   !! Gauss elimination of the right-hand-side vector 
@@ -616,7 +618,9 @@ CONTAINS
     bb(1:kproma,klev,ithv) = bb(1:kproma,klevm1,ithv)
 
   END SUBROUTINE rhs_elim
-  !-------------
+  !--------------------------------------------------------------------------------
+
+  !--------------------------------------------------------------------------------
   !>
   !!
   !! Prepare the Richtmyer-Morton coeffcients for dry static energy and 
@@ -708,7 +712,9 @@ CONTAINS
     pfn_qv(1:kproma,1:ksfc_type) =  bb_btm(1:kproma,1:ksfc_type,iqv)*tpfac1
 
   END SUBROUTINE matrix_to_richtmyer_coeff
-  !-------------
+  !--------------------------------------------------------------------------------
+
+  !--------------------------------------------------------------------------------
   !>
   !!
   !! Do Back-substitution to get the solution of the linear system.
@@ -952,7 +958,9 @@ CONTAINS
               & /(cpd*(1._wp+vtmpc2*zqnew))
         ptte_vdf(jl,jk) = (ztnew - ptm1(jl,jk))*zrdt
         ! When coupled with JSBACH: Correction of tte for snow melt
-        IF (jk == klev) ptte_vdf(jl,jk) = ptte_vdf(jl,jk)-ptte_corr(jl)
+        IF (phy_config%ljsbach) THEN
+          IF (jk == klev) ptte_vdf(jl,jk) = ptte_vdf(jl,jk)-ptte_corr(jl)
+        ENDIF
         ptte(jl,jk) = ptte(jl,jk) + ptte_vdf(jl,jk)
 
         pxlte_vdf(jl,jk) = (bb(jl,jk,ixl) - tpfac2*pxlm1(jl,jk))*zrdt
