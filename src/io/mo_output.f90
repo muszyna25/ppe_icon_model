@@ -519,10 +519,12 @@ CONTAINS
     ELSE
       CALL set_restart_attribute( 'next_output_file', jfile   )
     END IF
-    DO i=1, SIZE(output_file,1)
-      WRITE(attname,'(a,i2.2)') 'n_output_steps', i
-      CALL set_restart_attribute( TRIM(attname), output_file(i)%name_list%n_output_steps)
-    END DO
+    IF (output_mode%l_nml) THEN
+      DO i=1, SIZE(output_file,1)
+        WRITE(attname,'(a,i2.2)') 'n_output_steps', i
+        CALL set_restart_attribute( TRIM(attname), output_file(i)%name_list%n_output_steps)
+      END DO
+    END IF
 
     IF (PRESENT(opt_pvct)) CALL set_restart_vct( opt_pvct )  ! Vertical coordinate (A's and B's)
     IF (PRESENT(opt_depth_lnd)) THEN            ! geometrical depth for land module
@@ -541,19 +543,23 @@ CONTAINS
     ELSE
       inlev_soil = 0
     ENDIF
-    IF (PRESENT(opt_nlev_snow)) THEN            ! number of snow levels (multi layer snow model)
-      inlev_snow = opt_nlev_snow
-      ALLOCATE(zlevels_full(inlev_snow))
-      ALLOCATE(zlevels_half(inlev_snow+1))
-      DO i = 1, inlev_snow
-        zlevels_full(i) = REAL(i,wp)
-      END DO
-      DO i = 1, inlev_snow+1
-        zlevels_half(i) = REAL(i,wp)
-      END DO
-      CALL set_restart_height_snow(zlevels_half, zlevels_full)
-      DEALLOCATE(zlevels_full)
-      DEALLOCATE(zlevels_half)
+    IF (PRESENT(opt_nlev_snow)) THEN
+      IF (opt_nlev_snow /= 0) THEN  ! number of snow levels (multi layer snow model)
+        inlev_snow = opt_nlev_snow
+        ALLOCATE(zlevels_full(inlev_snow))
+        ALLOCATE(zlevels_half(inlev_snow+1))
+        DO i = 1, inlev_snow
+          zlevels_full(i) = REAL(i,wp)
+        END DO
+        DO i = 1, inlev_snow+1
+          zlevels_half(i) = REAL(i,wp)
+        END DO
+        CALL set_restart_height_snow(zlevels_half, zlevels_full)
+        DEALLOCATE(zlevels_full)
+        DEALLOCATE(zlevels_half)
+      ELSE
+        inlev_snow = 0
+      ENDIF
     ELSE
       inlev_snow = 0
     ENDIF
@@ -582,7 +588,7 @@ CONTAINS
                      & kedge, 4,          &! total # of cells, shape of control volume for edge 
                      & klev,              &! total # of vertical layers
                      & izlev,             &! total # of depths below sea
-                     & inlev_soil,        &! total # of depths below land (TERRA)
+                     & inlev_soil,        &! total # of depths below land (TERRA or JSBACH)
                      & inlev_snow,        &! total # of vertical snow layers (TERRA)
                      & nice_class         )! total # of ice classes (sea ice)
 

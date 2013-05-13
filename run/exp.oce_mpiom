@@ -174,13 +174,13 @@ cat > ${ocean_namelist} << EOF
   !k_veloc_h          = 7.5E+4    ! [m2/s] constant horizontal viscosity coefficient for velocity
   HORZ_VELOC_DIFF_TYPE = 3       ! 3: calculate varying horizontal viscosity coefficient according to Munk criterion
   k_veloc_v          = 5.0E-5    ! [m/s]  vertical background viscosity coefficient for velocity
-  richardson_factor_veloc  = 2.0e-3 ! factor for vertical viscosity coefficient in PP scheme
+  richardson_veloc   = 2.0e-3    ! factor for vertical viscosity coefficient in PP scheme
   MAX_VERT_DIFF_VELOC= 1.0E-5    ! max vertical velocity viscosity for convection used in case of instability
   k_pot_temp_h       = 1.0E+3    ! [m2/s] constant horizontal diffusion coefficient for temperature
   k_pot_temp_v       = 1.0E-5    ! [m/s]  vertical background diffusion coefficient for temperature
   k_sal_h            = 1.0E+3    ! [m2/s] constant horizontal diffusion coefficient for salinity
   k_sal_v            = 1.0E-5    ! [m/s]  vertical background diffusion coefficient for salinity
-  richardson_factor_tracer = 2.0e-3 ! factor for vertical diffusion coefficient in PP scheme
+  richardson_tracer  = 2.0e-3    ! factor for vertical diffusion coefficient in PP scheme
   MAX_VERT_DIFF_TRAC = 0.1       ! max vertical tracer diffusion for convection used in case of instability
 /
 &ocean_forcing_and_init_nml

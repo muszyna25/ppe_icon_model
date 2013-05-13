@@ -46,8 +46,7 @@ MODULE mo_advection_config
   USE mo_impl_constants,     ONLY: MAX_NTRACER, MAX_CHAR_LENGTH, max_dom,      &
     &                              MIURA, MIURA3, FFSL, MCYCL, MIURA_MCYCL,    &
     &                              MIURA3_MCYCL, ippm_vcfl, ippm_v,            &
-    &                              ino_flx, izero_grad, iparent_flx, inwp,     &
-    &                              imuscl_vcfl, imuscl_v
+    &                              ino_flx, izero_grad, iparent_flx, inwp
 
   IMPLICIT NONE
   PUBLIC
@@ -60,7 +59,6 @@ MODULE mo_advection_config
   ! of tracer independent parts
   !
   TYPE t_compute                                                               
-    LOGICAL :: muscl_v  (MAX_NTRACER)                                           
     LOGICAL :: ppm_v    (MAX_NTRACER)                                           
     LOGICAL :: miura_h  (MAX_NTRACER)                                           
     LOGICAL :: miura3_h (MAX_NTRACER)
@@ -103,8 +101,6 @@ MODULE mo_advection_config
     INTEGER :: &                    !< selects vertical transport scheme         
       &  ivadv_tracer(MAX_NTRACER)  !< 0 : no vertical advection                 
                                     !< 1 : 1st order upwind                      
-                                    !< 2 : 2nd order muscl for CFL>1
-                                    !< 20: 2nd order muscl             
                                     !< 3 : 3rd order PPM for CFL>                         
                                     !< 30: 3rd order PPM               
 
@@ -172,7 +168,6 @@ MODULE mo_advection_config
 
     ! scheme specific derived variables
     !
-    TYPE(t_scheme) :: muscl_v    !< vertical muscl scheme
     TYPE(t_scheme) :: ppm_v      !< vertical PPM scheme
     TYPE(t_scheme) :: miura_h    !< horizontal miura scheme (linear reconstr.)
     TYPE(t_scheme) :: miura3_h   !< horizontal miura scheme (higher order reconstr.)
@@ -329,43 +324,6 @@ CONTAINS
     ! to save some paperwork
     ivadv_tracer(:) = advection_config(1)%ivadv_tracer(:)
     ihadv_tracer(:) = advection_config(1)%ihadv_tracer(:)
-
-    ! MUSCL_V[CFL] specific settings (vertical transport)
-    !
-    lcompute%muscl_v(:) = .FALSE.
-    lcleanup%muscl_v(:) = .FALSE.
-
-    advection_config(jg)%muscl_v%iadv_min_slev = HUGE(1)
-
-    IF ( ANY(ivadv_tracer == imuscl_v) .OR. ANY(ivadv_tracer == imuscl_vcfl)  ) THEN
-
-      ! compute minimum required slev for this group of tracers
-      DO jt=1,ntracer
-        IF ( ivadv_tracer(jt) == imuscl_v .OR. ivadv_tracer(jt) == imuscl_vcfl ) THEN
-          advection_config(jg)%muscl_v%iadv_min_slev =                          &
-            &                  MIN( advection_config(jg)%muscl_v%iadv_min_slev, &
-            &                       advection_config(jg)%iadv_slev(jt) )
-        ENDIF
-      ENDDO
-
-      ! Search for the first tracer jt for which vertical advection of
-      ! type MUSCL has been selected.
-      DO jt=1,ntracer
-        IF ( ivadv_tracer(jt) == imuscl_v .OR. ivadv_tracer(jt) == imuscl_vcfl ) THEN
-          lcompute%muscl_v(jt) = .TRUE.
-          exit
-        ENDIF
-      ENDDO
-
-      ! Search for the last tracer jt for which vertical advection of
-      ! type MUSCL has been selected.
-      DO jt=ntracer,1,-1
-        IF ( ivadv_tracer(jt) == imuscl_v .OR. ivadv_tracer(jt) == imuscl_vcfl ) THEN
-          lcleanup%muscl_v(jt) = .TRUE.
-          exit
-        ENDIF
-      ENDDO
-    END IF
 
 
     ! PPM_V[CFL] specific settings (vertical transport)

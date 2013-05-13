@@ -134,15 +134,17 @@ CONTAINS
   !! - splitting of tracer loop. -> reduced OpenMP/MPI overhead
   !! Modification by Daniel Reinert, DWD (2011-02-15)
   !! - new field providing the upper margin tracer flux (optional)
+  !! Modification by Daniel Reinert, DWD (2013-05-06)
+  !! - simplification of step_advection and vert_upwind_flux interfaces 
+  !!   after removal of the MUSCL vertical advection scheme
   !! 
   !!
   SUBROUTINE step_advection( p_patch, p_int_state, p_dtime, k_step, p_tracer_now, &
     &                        p_mflx_contra_h, p_vn_contra_traj, p_mflx_contra_v,  &
     &                        p_w_contra_traj, p_cellhgt_mc_now, p_delp_mc_new,    &
-    &                        p_delp_mc_now, p_pres_mc_now, p_pres_ic_now,         &
-    &                        p_grf_tend_tracer, p_tracer_new, p_mflx_tracer_h,    &
-    &                        p_mflx_tracer_v, opt_rho_ic, opt_topflx_tra,         &
-    &                        opt_q_int, opt_ddt_tracer_adv      )
+    &                        p_delp_mc_now, p_grf_tend_tracer, p_tracer_new,      &
+    &                        p_mflx_tracer_h, p_mflx_tracer_v, opt_topflx_tra,    &
+    &                        opt_q_int, opt_ddt_tracer_adv )
   !
     TYPE(t_patch), TARGET, INTENT(IN) ::  &  !< patch on which computation
       &  p_patch                             !< is performed
@@ -195,13 +197,6 @@ CONTAINS
                                         !< at time step n [Pa]
                                         !< dim: (nproma,nlev,nblks_c)
 
-    REAL(wp), INTENT(IN)  ::         &  !< NH: full level height [m] 
-      &  p_pres_mc_now(:,:,:)           !< HA: full level pressure at time step n [Pa] 
-                                        !< dim: (nproma,nlev,nblks_c)
-          
-    REAL(wp), INTENT(IN)  ::         &  !< NH: half level height [m] 
-      &  p_pres_ic_now(:,:,:)           !< HA: half level pressure at time step n [Pa]
-
     REAL(wp), INTENT(INOUT) ::       &  !< interpolated tracer time tendencies for
       &  p_grf_tend_tracer(:,:,:,:)     !< updating the lateral boundaries of nested domains
                                         !< [kg/kg]
@@ -221,13 +216,6 @@ CONTAINS
       &  p_mflx_tracer_v(:,:,:,:)    !< NH: [kg/m**2/s]
                                      !< HA: [Pa/s]
                                      !< dim: (nproma,nlevp1,nblks_c,ntracer)
-
-    REAL(wp), INTENT(IN), OPTIONAL :: & !< NH: half level density at n+1/2 (only necessary
-      &  opt_rho_ic(:,:,:)              !< for the NH-core, when muscl_cfl is applied 
-                                        !< in vertical direction)
-                                        !< NH: [kg/m**3]
-                                        !< HA: --
-                                        !< dim: (nproma,nlevp1,nblks_c)
 
     REAL(wp), INTENT(IN), OPTIONAL:: &  !< vertical tracer flux at upper boundary 
       &  opt_topflx_tra(:,:,:)          !< NH: [kg/m**2/s]
@@ -265,9 +253,6 @@ CONTAINS
 
     REAL(wp) ::  &                      !< flux divergence at cell center
       &  z_fluxdiv_c(nproma,p_patch%nlev,p_patch%nblks_c,ntracer) 
-
-    REAL(wp) ::  &                      !< reciprocal of p_cellhgt_mc_now
-      &  z_rcellhgt_mc_now(nproma,p_patch%nlev,p_patch%nblks_c)
 
     REAL(wp), POINTER ::  &
       &  ptr_current_tracer(:,:,:,:) => NULL()  !< pointer to tracer field
@@ -328,11 +313,9 @@ CONTAINS
     !
 
     !
-    ! calculate field of reciprocal cell height at time step n
-    ! (HDC:\delta p; NHDC: \delta z)
     !
     i_rlstart  = 1
-    i_rlend    = min_rlcell_int
+    i_rlend    = min_rlcell
     i_startblk = p_patch%cells%start_blk(i_rlstart,1)
     i_endblk   = p_patch%cells%end_blk(i_rlend,i_nchdom)
 !$OMP PARALLEL
@@ -342,13 +325,7 @@ CONTAINS
       CALL get_indices_c( p_patch, jb, i_startblk, i_endblk,       &
         &                 i_startidx, i_endidx, i_rlstart, i_rlend )
 
-      ! Only rdelp is updated here
       DO jk = 1, nlev
-        DO jc = i_startidx, i_endidx
-
-          z_rcellhgt_mc_now(jc,jk,jb) = 1._wp/p_cellhgt_mc_now(jc,jk,jb)
-
-        END DO
 
         DO jt=1,ntracer
           DO jc = i_startidx, i_endidx
@@ -383,16 +360,16 @@ CONTAINS
       IF ( MOD( k_step, 2 ) == 0 .OR. advection_config(jg)%lstrang ) THEN
 
 
-        i_rlstart  = grf_bdywidth_c-1
-        i_rlend    = min_rlcell_int
+        i_rlstart  = 2
+        i_rlend    = min_rlcell
         i_startblk = p_patch%cells%start_blk(i_rlstart,1)
         i_endblk   = p_patch%cells%end_blk(i_rlend,i_nchdom)
 
         CALL vert_upwind_flux( p_patch, ptr_current_tracer,          &! in
-          &              p_mflx_contra_v, p_w_contra_traj,           &! inout,in
+          &              p_mflx_contra_v,                            &! inout
+          &              p_w_contra_traj,                            &! in
           &              advection_config(jg)%cSTR*p_dtime,          &! in
-          &              p_pres_ic_now, p_pres_mc_now,               &! in
-          &              p_cellhgt_mc_now, z_rcellhgt_mc_now,        &! in
+          &              p_cellhgt_mc_now,                           &! in
           &              ptr_delp_mc_now,                            &! in
           &              advection_config(jg)%ivadv_tracer,          &! in
           &              advection_config(jg)%itype_vlimit,          &! in
@@ -401,7 +378,6 @@ CONTAINS
           &              p_mflx_tracer_v,                            &! out
           &              opt_topflx_tra=opt_topflx_tra,              &! in
           &              opt_q_int=opt_q_int,                        &! out
-          &              opt_rho_ic=opt_rho_ic,                      &! in
           &              opt_rlstart=i_rlstart,                      &! in
           &              opt_rlend=i_rlend                           )! in
 
@@ -414,13 +390,10 @@ CONTAINS
         ! direction. This is independent of the tracer and thus must be
         ! computed only once.
 
-!$OMP PARALLEL PRIVATE(i_rlend, i_endblk)
-
+!$OMP PARALLEL
         ! Note that intermediate densities are needed by the horizontal 
         ! limiter as well. That is, why we have to extend the following 
         ! computation to halo points.
-        i_rlend    = min_rlcell
-        i_endblk   = p_patch%cells%end_blk(i_rlend,i_nchdom)
 
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
         DO jb = i_startblk, i_endblk
@@ -439,8 +412,6 @@ CONTAINS
         !
         ! compute vertical flux divergence
         !
-        i_rlend    = min_rlcell_int
-        i_endblk   = p_patch%cells%end_blk(i_rlend,i_nchdom)
 
         ! Note that we need to start the calculation within the
         ! nest boundary, since the following horizontal flux calculation
@@ -559,11 +530,6 @@ CONTAINS
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
       END IF
-
-      ! IF vertical advection proceeds horizontal advection, synchronize the 
-      ! updated tracer array. For efficiency, the synchronization is applied for all 
-      ! tracers at once
-      CALL sync_patch_array_mult(SYNC_C, p_patch, ntracer, f4din=p_tracer_new)
 
     ELSE  ! if lvadv_tracer=.FALSE.
 
@@ -767,10 +733,10 @@ CONTAINS
       i_endblk   = p_patch%cells%end_blk(i_rlend,i_nchdom)
 
       CALL vert_upwind_flux( p_patch, ptr_current_tracer,          &! in
-        &              p_mflx_contra_v, p_w_contra_traj,           &! inout,in
+        &              p_mflx_contra_v,                            &! inout
+        &              p_w_contra_traj,                            &! in
         &              advection_config(jg)%cSTR*p_dtime,          &! in
-        &              p_pres_ic_now, p_pres_mc_now,               &! in
-        &              p_cellhgt_mc_now, z_rcellhgt_mc_now,        &! in
+        &              p_cellhgt_mc_now,                           &! in
         &              ptr_delp_mc_now,                            &! in
         &              advection_config(jg)%ivadv_tracer,          &! in
         &              advection_config(jg)%itype_vlimit,          &! in
@@ -779,7 +745,6 @@ CONTAINS
         &              p_mflx_tracer_v,                            &! out
         &              opt_topflx_tra=opt_topflx_tra,              &! in
         &              opt_q_int=opt_q_int,                        &! out
-        &              opt_rho_ic=opt_rho_ic,                      &! in
         &              opt_rlstart=i_rlstart,                      &! in
         &              opt_rlend=i_rlend                           )! in
 

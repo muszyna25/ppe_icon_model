@@ -18,71 +18,109 @@ MODULE mo_ssodrag
 
   IMPLICIT NONE
 
+  PRIVATE
+
+  PUBLIC :: sugwd  ,                          &
+    &       nktopg , ntop  ,                  &
+    &       gpicmea, gstd  , gkdrag, gkwake , &
+    &       gfrcrit, grcrit, gklift, grahilo, & 
+    &       gsigcr , gssec , gtsec , gvsec
+
   ! nombre de vrais traceurs
   INTEGER, PARAMETER :: nqmx=2
   INTEGER, PARAMETER :: nbtr=nqmx-2+1/(nqmx-1)
 
-  INTEGER :: nktopg ! Security value for blocked flow level
+  INTEGER :: nktopg     ! Security value for blocked flow level
   INTEGER :: ntop = 1   ! An estimate to qualify the upper levels of
   !                       the model where one wants to impose strees
   !                       profiles
-  INTEGER ::  nstra ! no documentation
+  INTEGER ::  nstra     ! no documentation
   !
   ! Parameters depending on model resolution
   !
   REAL(wp) :: gpicmea   ! (PEAK-mean) threshold for activation of scheme
   REAL(wp) :: gstd      ! Standard deviation threshold for activation of scheme
-  REAL(wp) :: gkdrag    ! Gravity wave drag coefficient (G in (3),      LOTT 1999)
-  REAL(wp) :: gkwake    ! Bluff-body drag coefficient for low level wake 
-  !                    (Cd in (2), LOTT 1999)
+  REAL(wp) :: gkdrag    ! Gravity wave drag coefficient                  (G  in (3), LOTT 1999)
+  REAL(wp) :: gkwake    ! Bluff-body drag coefficient for low level wake (Cd in (2), LOTT 1999)
 
   !      SET_UP THE "TUNABLE PARAMETERS" OF THE VARIOUS SSO SCHEMES
 
-  REAL(wp), PARAMETER :: gfrcrit = 0.5_wp  ! Critical Non-dimensional mountain 
-  !                                    Height (HNC in (1), LOTT 1999)
-  REAL(wp), PARAMETER :: grcrit  = 0.25_wp ! Critical Richardson Number (Ric, End of
-  !                                   first column p791 of LOTT 1999)
-  REAL(wp), PARAMETER :: gklift  = 0.00_wp ! Mountain Lift coefficient
-  !                                   (Cl in (4),     LOTT 1999)
-  REAL(wp), PARAMETER :: grahilo = 1.00_wp ! Set-up the trapped waves fraction
-  !                                  (Beta , End of first column,  LOTT 1999)
+  REAL(wp), PARAMETER :: gfrcrit = 0.5_wp      ! Critical Non-dimensional mountain Height
+  !                                              (HNC in (1), LOTT 1999)
+  REAL(wp), PARAMETER :: grcrit  = 0.25_wp     ! Critical Richardson Number 
+  !                                              (Ric, end of first column p791, LOTT 1999)
+  REAL(wp), PARAMETER :: gklift  = 0.00_wp     ! Mountain Lift coefficient
+  !                                              (Cl in (4), LOTT 1999)
+  REAL(wp), PARAMETER :: grahilo = 1.00_wp     ! Set-up the trapped waves fraction
+  !                                              (Beta , end of first column, LOTT 1999)
   REAL(wp), PARAMETER :: ghmax   = 10000.0_wp  ! Not used
-  REAL(wp), PARAMETER :: gvcrit  = 0.1_wp     ! no documentation
+  REAL(wp), PARAMETER :: gvcrit  = 0.1_wp      ! no documentation
 
   !       SET_UP  VALUES OF SECURITY PARAMETERS
 
-  REAL(wp), PARAMETER :: gsigcr = 0.80_wp    ! Security value for blocked flow depth
-  REAL(wp), PARAMETER :: gssec  = 0.0001_wp  ! Security min value for low-level B-V 
-  !                                     frequency
-  REAL(wp), PARAMETER :: gtsec  = 0.00001_wp ! Security min value for anisotropy 
-  !                                     and GW stress.
-  REAL(wp), PARAMETER :: gvsec  = 0.10_wp    ! Security min value for ulow
-
-  PUBLIC :: sugwd
-  PUBLIC :: nktopg, ntop, gstd, gkdrag,gkwake,gfrcrit,grcrit 
-  PUBLIC :: gklift, gsigcr, gssec, gtsec, gvsec, grahilo,gpicmea
+  REAL(wp), PARAMETER :: gsigcr = 0.80_wp      ! Security value for blocked flow depth
+  REAL(wp), PARAMETER :: gssec  = 0.0001_wp    ! Security min value for low-level B-V frequency
+  REAL(wp), PARAMETER :: gtsec  = 0.00001_wp   ! Security min value for anisotropy and GW stress.
+  REAL(wp), PARAMETER :: gvsec  = 0.10_wp      ! Security min value for ulow
 
 CONTAINS
   !======================================================================
   SUBROUTINE sugwd(klev)
 
+#ifdef __ICON__
   USE mo_run_config,           ONLY: nvclev
   USE mo_vertical_coord_table, ONLY: vct
+#else
+  USE mo_control, ONLY: nvclev, vct, nn
+#endif
 
   !  Scalar arguments with intent(In):
   INTEGER, INTENT (IN) :: klev
 
   ! local scalar
-  INTEGER :: jk
-  REAL(wp):: zstra, zsigt, zpm1r, zpr
+  INTEGER  :: jk
+  REAL(wp) :: zstra, zsigt, zpm1r, zpr
 
   !          SET THE VALUES OF THE PARAMETERS
   !
 
+#ifdef __ICON__
+  ! The parameters must be linked to the ICON grid resolution. Ideally this
+  ! is expressed as a function of the (horizontal) area of the column.
     gpicmea = 400.0_wp
     gstd    = 100.0_wp
     gkdrag  = 0.5_wp
     gkwake  = 0.5_wp
+#else
+  IF (nn == 31) THEN
+    gpicmea = 500.0_wp
+    gstd    = 200.0_wp
+    gkdrag  = 0.5_wp
+    gkwake  = 0.5_wp
+  ELSE IF(nn == 63) THEN
+    gpicmea = 400.0_wp
+    gstd    = 100.0_wp
+    IF(klev == 95) THEN
+      gkdrag  = 0.25_wp
+      gkwake  = 0.25_wp
+    ELSE
+      gkdrag  = 0.5_wp
+      gkwake  = 0.5_wp
+    END IF
+  ELSE IF(nn == 127) THEN
+    gpicmea = 200.0_wp
+    gstd    =  50.0_wp
+    gkdrag  = 0.25_wp
+    gkwake  = 0.25_wp
+  ELSE IF(nn == 255) THEN
+    gpicmea = 100.0_wp
+    gstd    =  25.0_wp
+    gkdrag  = 0.25_wp
+    gkwake  = 0.25_wp
+  ELSE
+    CALL finish ('mo_ssodrag', 'Truncation not supported.')
+  ENDIF
+#endif
 
   ! PRINT *,' DANS SUGWD NLEV=',klev
 

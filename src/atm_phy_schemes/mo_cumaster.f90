@@ -481,7 +481,7 @@ CONTAINS
     
     !     0.           Compute Saturation specific humidity
     !                  ------------------------------------
-    
+    pvddraf(:) = 0.0_jprb ! in case that it is not actually calculated !
     ldcum(:)=.FALSE.
     pqsen(:,:)=pqen(:,:)
 

@@ -132,7 +132,7 @@ CONTAINS
 
     REAL(wp):: cur_datetime_calsec, end_datetime_calsec, length_sec
     INTEGER :: jg
-    CHARACTER(len=*), PARAMETER :: routine =  'resize_simulation_length'
+    CHARACTER(len=*), PARAMETER :: method_name =  'mo_nml_crosscheck:resize_simulation_length'
 
     !----------------------------
     ! rescale timestep
@@ -168,10 +168,10 @@ CONTAINS
 
         !HW (2011-07-17): run_day/hour/... not implemented in the restructured version ------
         !ELSE IF (run_day/=0 .OR. run_hour/=0 .OR. run_minute/=0 .OR. run_second/=0.0_wp) THEN
-        !  IF (run_day    < 0    ) CALL finish(routine,'"run_day" must not be negative')
-        !  IF (run_hour   < 0    ) CALL finish(routine,'"run_hour" must not be negative')
-        !  IF (run_minute < 0    ) CALL finish(routine,'"run_minute" must not be negative')
-        !  IF (run_second < 0._wp) CALL finish(routine,'"run_second" must not be negative')
+        !  IF (run_day    < 0    ) CALL finish(method_name,'"run_day" must not be negative')
+        !  IF (run_hour   < 0    ) CALL finish(method_name,'"run_hour" must not be negative')
+        !  IF (run_minute < 0    ) CALL finish(method_name,'"run_minute" must not be negative')
+        !  IF (run_second < 0._wp) CALL finish(method_name,'"run_second" must not be negative')
         !  !
         !  end_datetime = cur_datetime
         !  CALL add_time(run_second,run_minute,run_hour,run_day,end_datetime)
@@ -194,7 +194,7 @@ CONTAINS
           * REAL(time_config%end_datetime%daylen,wp)
 
         IF (end_datetime_calsec < cur_datetime_calsec) &
-          & CALL finish(TRIM(routine),'The end date and time must not be '// &
+          & CALL finish(TRIM(method_name),'The end date and time must not be '// &
           &            'before the current date and time')
 
         nsteps=INT((end_datetime_calsec-cur_datetime_calsec)/dtime)
@@ -214,7 +214,7 @@ CONTAINS
           &   * REAL(iadv_rcf,wp)*dtime
         WRITE(message_text,'(a)') &
           &  'length of restart cycle dt_restart synchronized with transport event'
-        CALL message(routine, message_text)
+        CALL message(method_name, message_text)
       ENDIF
     ENDIF
 
@@ -231,22 +231,22 @@ CONTAINS
 
 
     CALL message(' ',' ')
-    CALL message(routine,'Initial date and time')
-    CALL message(routine,'---------------------')
+    CALL message(method_name,'Initial date and time')
+    CALL message(method_name,'---------------------')
     CALL print_datetime_all(time_config%ini_datetime)  ! print all date and time components
 
     CALL message(' ',' ')
-    CALL message(routine,'End date and time')
-    CALL message(routine,'-----------------')
+    CALL message(method_name,'End date and time')
+    CALL message(method_name,'-----------------')
     CALL print_datetime_all(time_config%end_datetime)  ! print all date and time components
 
     CALL message(' ',' ')
-    CALL message(routine,'Length of restart cycle')
-    CALL message(routine,'-----------------------')
+    CALL message(method_name,'Length of restart cycle')
+    CALL message(method_name,'-----------------------')
     WRITE(message_text,'(a,f10.2,a,f16.10,a)') &
          &'dt_restart :',time_config%dt_restart,' seconds =', &
          & time_config%dt_restart/86400._wp, ' days'
-    CALL message(routine,message_text)
+    CALL message(method_name,message_text)
 
 
     ! Reset the value of dt_checkpoint if it is longer than dt_restart
@@ -265,14 +265,14 @@ CONTAINS
           &           * REAL(iadv_rcf,wp)*dtime
         WRITE(message_text,'(a)') &
           &  'length of checkpoint cycle dt_checkpoint synchronized with transport event'
-        CALL message(routine, message_text)
+        CALL message(method_name, message_text)
       ENDIF
     ENDIF
 
     WRITE(message_text,'(a,f10.2,a,f16.10,a)')          &
          &'dt_checkpoint :',dt_checkpoint,' seconds =', &
          & dt_checkpoint/86400._wp, ' days'
-    CALL message(routine,message_text)
+    CALL message(method_name,message_text)
 
   END SUBROUTINE resize_simulation_length
 
@@ -291,7 +291,7 @@ CONTAINS
     INTEGER :: i_listlen
     INTEGER :: z_go_hex(3), z_go_tri(8), z_nogo_tri(2)   ! for crosscheck
     REAL(wp):: cur_datetime_calsec, end_datetime_calsec, length_sec
-    CHARACTER(len=*), PARAMETER :: routine =  'atm_crosscheck'
+    CHARACTER(len=*), PARAMETER :: method_name =  'mo_nml_crosscheck:atm_crosscheck'
 
     !--------------------------------------------------------------------
     ! Parallelization
@@ -326,7 +326,7 @@ CONTAINS
     IF (global_cell_type == 6) THEN
     ! ... check i_cori_method
       IF (i_cori_method <1 .OR. i_cori_method>4) THEN
-        CALL finish( TRIM(routine),'value of i_cori_method out of range [1,2,3,4]')
+        CALL finish( TRIM(method_name),'value of i_cori_method out of range [1,2,3,4]')
       ENDIF
     ENDIF
 
@@ -340,11 +340,11 @@ CONTAINS
       CALL init_grid_configuration()
     END IF
 
-    IF (lplane .AND. global_cell_type==3) CALL finish( TRIM(routine),&
+    IF (lplane .AND. global_cell_type==3) CALL finish( TRIM(method_name),&
       'Currently only the hexagon model can run on a plane')
 
     IF (global_cell_type==6.AND.idiv_method==2) THEN
-      CALL finish( TRIM(ROUTINE),'idiv_method =2 not valid for the hexagonal model')
+      CALL finish( TRIM(method_name),'idiv_method =2 not valid for the hexagonal model')
     ENDIF
 
     SELECT CASE (iequations)
@@ -375,37 +375,37 @@ CONTAINS
     ENDIF
 
     IF ((TRIM(ctest_name)=='GW') .AND. (nlev /= 20)) THEN
-      CALL finish(TRIM(routine),'nlev MUST be 20 for the gravity-wave test case')
+      CALL finish(TRIM(method_name),'nlev MUST be 20 for the gravity-wave test case')
     ENDIF
 
     IF ((TRIM(ctest_name)=='SV') .AND. ntracer /= 2 ) THEN
-      CALL finish(TRIM(routine), &
+      CALL finish(TRIM(method_name), &
         & 'ntracer MUST be 2 for the stationary vortex test case')
     ENDIF
 
     IF ((TRIM(ctest_name)=='DF1') .AND. ntracer == 1 ) THEN
-      CALL finish(TRIM(routine), &
+      CALL finish(TRIM(method_name), &
         & 'ntracer MUST be >=2 for the deformational flow test case 1')
     ENDIF
 
     IF ((TRIM(ctest_name)=='DF2') .AND. ntracer == 1 ) THEN
-      CALL finish(TRIM(routine), &
+      CALL finish(TRIM(method_name), &
         & 'ntracer MUST be >=2 for the deformational flow test case 2')
     ENDIF
 
     IF ((TRIM(ctest_name)=='DF3') .AND. ntracer == 1 ) THEN
-      CALL finish(TRIM(routine), &
+      CALL finish(TRIM(method_name), &
         & 'ntracer MUST be >=2 for the deformational flow test case 3')
     ENDIF
 
     IF ((TRIM(ctest_name)=='DF4') .AND. ntracer == 1 ) THEN
-      CALL finish(TRIM(routine), &
+      CALL finish(TRIM(method_name), &
         & 'ntracer MUST be >=2 for the deformational flow test case 4')
     ENDIF
 
     IF ((TRIM(ctest_name)=='APE') .AND. (TRIM(ape_sst_case)=='sst_ice')  ) THEN
       IF (.NOT. lflux_avg)&
-      CALL finish(TRIM(routine), &
+      CALL finish(TRIM(method_name), &
         & 'lflux_avg must be set true to run this setup')
     ENDIF
 
@@ -413,14 +413,14 @@ CONTAINS
     ! Testcases (nonhydrostatic)
     !--------------------------------------------------------------------
     IF (.NOT. ltestcase .AND. rayleigh_type == RAYLEIGH_CLASSIC) THEN
-      CALL finish(TRIM(routine), &
+      CALL finish(TRIM(method_name), &
         & 'rayleigh_type = RAYLEIGH_CLASSIC not applicable to real case runs.')
     ENDIF
 
     IF ( ( TRIM(nh_test_name)=='APE_nh'.OR. TRIM(nh_test_name)=='dcmip_tc_52' ) .AND.  &
       &  ( ANY(atm_phy_nwp_config(:)%inwp_surface == 1 ) ) .AND.                       &
       &  ( ANY(atm_phy_nwp_config(:)%inwp_turb    /= 3 ) ) ) THEN
-      CALL finish(TRIM(routine), &
+      CALL finish(TRIM(method_name), &
         & 'surface scheme must be switched off, when running the APE test')
     ENDIF
 
@@ -428,11 +428,11 @@ CONTAINS
     ! Shallow water
     !--------------------------------------------------------------------
     IF (iequations==ISHALLOW_WATER.AND.ha_dyn_config%lsi_3d) THEN
-      CALL message( TRIM(routine), 'lsi_3d = .TRUE. not applicable to shallow water model')
+      CALL message( TRIM(method_name), 'lsi_3d = .TRUE. not applicable to shallow water model')
     ENDIF
 
     IF ((iequations==ISHALLOW_WATER).AND.(nlev/=1)) &
-    CALL finish(TRIM(routine),'Multiple vertical level specified for shallow water model')
+    CALL finish(TRIM(method_name),'Multiple vertical level specified for shallow water model')
 
     !--------------------------------------------------------------------
     ! Hydrostatic atm
@@ -442,18 +442,18 @@ CONTAINS
     !--------------------------------------------------------------------
     ! Nonhydrostatic atm
     !--------------------------------------------------------------------
-    IF (lhdiff_rcf .AND. (itype_comm == 3)) CALL finish(TRIM(routine), &
+    IF (lhdiff_rcf .AND. (itype_comm == 3)) CALL finish(TRIM(method_name), &
       'lhdiff_rcf is available only for idiv_method=1 and itype_comm<=2')
 
     !--------------------------------------------------------------------
     ! Atmospheric physics, general
     !--------------------------------------------------------------------
     IF ((iforcing==INWP).AND.(iequations/=INH_ATMOSPHERE)) &
-    CALL finish( TRIM(routine), 'NWP physics only implemented in the '//&
+    CALL finish( TRIM(method_name), 'NWP physics only implemented in the '//&
                'nonhydrostatic atm model')
 
     IF ((iforcing==IECHAM).AND.(iequations==INH_ATMOSPHERE)) &
-    CALL finish( TRIM(routine), 'ECHAM physics not implemented in the '//&
+    CALL finish( TRIM(method_name), 'ECHAM physics not implemented in the '//&
                'nonhydrostatic atm model')
 
     !--------------------------------------------------------------------
@@ -468,7 +468,7 @@ CONTAINS
         IF( atm_phy_nwp_config(jg)%inwp_satad == 0       .AND. &
           & ((atm_phy_nwp_config(jg)%inwp_convection >0 ) .OR. &
           &  (atm_phy_nwp_config(jg)%inwp_gscp > 0      )    ) ) &
-        &  CALL finish( TRIM(routine),'satad has to be switched on')
+        &  CALL finish( TRIM(method_name),'satad has to be switched on')
 
 
         IF( (atm_phy_nwp_config(jg)%inwp_gscp==0) .AND. &
@@ -477,13 +477,13 @@ CONTAINS
           & (atm_phy_nwp_config(jg)%inwp_sso==0)  .AND. &
           & (atm_phy_nwp_config(jg)%inwp_surface == 0) .AND.&
           & (atm_phy_nwp_config(jg)%inwp_turb> 0) )   &
-        CALL message(TRIM(routine),' WARNING! NWP forcing set but '//&
+        CALL message(TRIM(method_name),' WARNING! NWP forcing set but '//&
                     'only turbulence selected!')
 
 
         IF( (atm_phy_nwp_config(jg)%inwp_turb == 1) .AND.                &
           & (turbdiff_config(jg)%lconst_z0) )               THEN
-          CALL message(TRIM(routine),' WARNING! NWP forcing set but '//  &
+          CALL message(TRIM(method_name),' WARNING! NWP forcing set but '//  &
                       'idealized (horizontally homogeneous) roughness '//&
                       'length z0 selected!')
         ENDIF
@@ -495,12 +495,12 @@ CONTAINS
           SELECT CASE (irad_o3)
           CASE (0,4,6,7) ! ok
           CASE default
-            CALL finish(TRIM(routine),'irad_o3 currently has to be 0 , 4, 6, or 7.')
+            CALL finish(TRIM(method_name),'irad_o3 currently has to be 0 , 4, 6, or 7.')
           END SELECT
 
           ! Tegen aerosol and itopo (Tegen aerosol data have to be read from external data file)
           IF ( ( irad_aero == 6 ) .AND. ( itopo /=1 ) ) THEN
-            CALL finish(TRIM(routine),'irad_aero=6 requires itopo=1')
+            CALL finish(TRIM(method_name),'irad_aero=6 requires itopo=1')
           ENDIF
 
         ELSE
@@ -508,7 +508,7 @@ CONTAINS
           SELECT CASE (irad_o3)
           CASE (4,6,7)
             irad_o3 = 0
-            CALL message(TRIM(routine),'running without radiation => irad_o3 reset to 0')
+            CALL message(TRIM(method_name),'running without radiation => irad_o3 reset to 0')
           END SELECT
 
         ENDIF !inwp_radiation
@@ -516,12 +516,12 @@ CONTAINS
         !! check microphysics scheme
         IF (  atm_phy_nwp_config(jg)%mu_rain < 0.0   .OR. &
           &   atm_phy_nwp_config(jg)%mu_rain > 5.0)  THEN
-          CALL finish(TRIM(routine),'mu_rain requires: 0 < mu_rain < 5')
+          CALL finish(TRIM(method_name),'mu_rain requires: 0 < mu_rain < 5')
         END IF
 
         IF (  atm_phy_nwp_config(jg)%mu_snow < 0.0   .OR. &
           &   atm_phy_nwp_config(jg)%mu_snow > 5.0)  THEN
-          CALL finish(TRIM(routine),'mu_snow requires: 0 < mu_snow < 5')
+          CALL finish(TRIM(method_name),'mu_snow requires: 0 < mu_snow < 5')
         END IF ! microphysics
 
       ENDDO
@@ -541,7 +541,7 @@ CONTAINS
     CASE (IECHAM,ILDF_ECHAM)
 
       IF (ntracer < 3) &
-      CALL finish(TRIM(routine),'ECHAM physics needs at least 3 tracers')
+      CALL finish(TRIM(method_name),'ECHAM physics needs at least 3 tracers')
 
       iqv    = 1     !> water vapour
       iqc    = 2     !! cloud water
@@ -561,14 +561,14 @@ CONTAINS
           ntracer = 5
           WRITE(message_text,'(a,i3)') 'Attention: for NWP physics, '//&
                                        'ntracer is set to',ntracer
-          CALL message(TRIM(routine),message_text)
+          CALL message(TRIM(method_name),message_text)
         ENDIF
         IF ( (ntracer /= 6) .AND. (atm_phy_nwp_config(jg)%inwp_turb == 3) &
         & .AND. (.NOT. art_config(jg)%lart) ) THEN
           ntracer = 6
           WRITE(message_text,'(a,i3)') 'Attention: for NWP physics, '//&
                                        'ntracer is set to',ntracer
-          CALL message(TRIM(routine),message_text)
+          CALL message(TRIM(method_name),message_text)
         ENDIF
       enddo
 
@@ -617,7 +617,7 @@ CONTAINS
           WRITE(message_text,'(a,a)') &
             & 'Attention: according to physics, ctracer_list is set to ',&
             & advection_config(jg)%ctracer_list(1:ntracer)
-          CALL message(TRIM(routine),message_text)
+          CALL message(TRIM(method_name),message_text)
         ENDIF
 
 
@@ -628,13 +628,13 @@ CONTAINS
 
         IF ( i_listlen < ntracer .AND. i_listlen /= 0 ) THEN
           ntracer = i_listlen
-          CALL message(TRIM(routine),'number of tracers is adjusted according to given list')
+          CALL message(TRIM(method_name),'number of tracers is adjusted according to given list')
         END IF
 
 
         IF ((iforcing==IECHAM).AND.(echam_phy_config%lrad)) THEN
           IF ( izenith > 4)  &
-            CALL finish(TRIM(routine), 'Coose a valid case for rad_nml: izenith.')
+            CALL finish(TRIM(method_name), 'Coose a valid case for rad_nml: izenith.')
         ENDIF
       END SELECT ! iforcing
 
@@ -650,11 +650,11 @@ CONTAINS
     ! similar check already performed in read_run_namelist.
     !
     !IF(ltransport .AND. ntracer <= 0) THEN
-    !  CALL finish( TRIM(routine),'Tracer transport switched on but ntracer <= 0')
+    !  CALL finish( TRIM(method_name),'Tracer transport switched on but ntracer <= 0')
     !ENDIF
 
     !IF (.NOT.ltransport .AND. ntracer > 0) &
-    !  CALL finish( TRIM(routine),          &
+    !  CALL finish( TRIM(method_name),          &
     !  'either set ltransport = true or ntracer to 0 ')
 
     SELECT CASE (iequations)
@@ -664,7 +664,7 @@ CONTAINS
         WRITE(message_text,'(A,i2,A)') &
           'nonhydrostatic_nml:itime_scheme set to ', tracer_only, &
           '(TRACER_ONLY), but ltransport to .FALSE.'
-        CALL finish( TRIM(routine),TRIM(message_text))
+        CALL finish( TRIM(method_name),TRIM(message_text))
       END IF
 
     CASE (IHS_ATM_TEMP,IHS_ATM_THETA,ISHALLOW_WATER)
@@ -674,7 +674,7 @@ CONTAINS
         WRITE(message_text,'(A,i2,A)') &
           'ha_dyn_nml:itime_scheme set to ', tracer_only, &
           '(TRACER_ONLY), but ltransport to .FALSE.'
-        CALL finish( TRIM(routine),TRIM(message_text))
+        CALL finish( TRIM(method_name),TRIM(message_text))
       END IF
 
     END SELECT
@@ -693,9 +693,9 @@ CONTAINS
         ! semi monotonous flux limiter
         advection_config(jg)%itype_hlimit(:) = ifluxl_sm
         WRITE(message_text,'(a,i2)') 'NOTE: For hex grid works only ihadv_tracer =',UP3
-        CALL message(TRIM(routine),message_text)
+        CALL message(TRIM(method_name),message_text)
         WRITE(message_text,'(a,i2)')' and itype_hlimit= ', ifluxl_sm
-        CALL message(TRIM(routine),message_text)
+        CALL message(TRIM(method_name),message_text)
       END SELECT
 
       !----------------------------------------------
@@ -706,7 +706,7 @@ CONTAINS
         z_go_tri(1:8)=(/NO_HADV,UP,MIURA,MIURA3,FFSL,MCYCL,MIURA_MCYCL,MIURA3_MCYCL/)
         DO jt=1,ntracer
           IF ( ALL(z_go_tri /= advection_config(jg)%ihadv_tracer(jt)) ) THEN
-            CALL finish( TRIM(routine),                                       &
+            CALL finish( TRIM(method_name),                                       &
               &  'incorrect settings for TRI-C grid ihadv_tracer. Must be '// &
               &  '0,1,2,3,4,20,22, or 32 ')
           ENDIF
@@ -716,7 +716,7 @@ CONTAINS
           z_nogo_tri(1:2)=(/MIURA_MCYCL,MIURA3_MCYCL/)
           DO jt=2,ntracer
             IF ( ANY(z_nogo_tri == advection_config(jg)%ihadv_tracer(jt)) ) THEN
-              CALL finish( TRIM(routine),                                       &
+              CALL finish( TRIM(method_name),                                       &
                 &  'TRI-C grid ihadv_tracer: MIURA(3)_MCYCL not allowed for '// &
                 &  'any other tracer than qv.')
             ENDIF
@@ -727,7 +727,7 @@ CONTAINS
         z_go_hex(1:3) = (/NO_HADV,UP,UP3/)
         DO jt=1,ntracer
           IF ( ALL(z_go_hex /= advection_config(jg)%ihadv_tracer(jt)) ) THEN
-            CALL finish( TRIM(routine),                                       &
+            CALL finish( TRIM(method_name),                                       &
                'incorrect settings for HEX-C grid ihadv_tracer. Must be 0,1, or 5 ')
           ENDIF
         ENDDO
@@ -740,7 +740,7 @@ CONTAINS
 
       IF (global_cell_type == 6) THEN
         IF ( ANY(advection_config(jg)%itype_hlimit(1:ntracer) == ifluxl_m )) THEN
-          CALL finish( TRIM(routine),                                     &
+          CALL finish( TRIM(method_name),                                     &
            'incorrect settings for itype_hlimit and hexagonal grid. Must be 0 or 4 ')
         ENDIF
       ENDIF
@@ -759,37 +759,37 @@ CONTAINS
       CASE(-1)
         WRITE(message_text,'(a,i2.2)') 'Horizontal diffusion '//&
                                        'switched off for domain ', jg
-        CALL message(TRIM(routine),TRIM(message_text))
+        CALL message(TRIM(method_name),TRIM(message_text))
 
       CASE(2,3,4)
         CONTINUE
 
       CASE(5)
-        IF (global_cell_type==6) CALL finish(TRIM(routine), &
+        IF (global_cell_type==6) CALL finish(TRIM(method_name), &
         ' hdiff_order = 5 invalid for hexagonal model.')
 
       CASE(24,42)
-        IF (.NOT.( iequations==IHS_ATM_TEMP)) CALL finish(TRIM(routine), &
+        IF (.NOT.( iequations==IHS_ATM_TEMP)) CALL finish(TRIM(method_name), &
         ' hdiff_order = 24 or 42 only implemented for the hydrostatic atm model')
 
       CASE DEFAULT
-        CALL finish(TRIM(routine),                       &
+        CALL finish(TRIM(method_name),                       &
           & 'Error: Invalid choice for  hdiff_order. '// &
           & 'Choose from -1, 2, 3, 4, 5, 24, and 42.')
       END SELECT
 
       IF ( diffusion_config(jg)%hdiff_efdt_ratio<=0._wp) THEN
-        CALL message(TRIM(routine),'No horizontal background diffusion is used')
+        CALL message(TRIM(method_name),'No horizontal background diffusion is used')
       ENDIF
 
       IF (lshallow_water)  diffusion_config(jg)%lhdiff_temp=.FALSE.
 
       IF (itype_comm == 3 .AND. diffusion_config(jg)%hdiff_order /= 5)  &
-        CALL finish(TRIM(routine), 'itype_comm=3 requires hdiff_order = 5')
+        CALL finish(TRIM(method_name), 'itype_comm=3 requires hdiff_order = 5')
 
       IF (itype_comm == 3 .AND. (diffusion_config(jg)%itype_vn_diffu > 1 .OR. &
         diffusion_config(jg)%itype_t_diffu > 1) )                             &
-        CALL finish(TRIM(routine), 'itype_comm=3 requires itype_t/vn_diffu = 1')
+        CALL finish(TRIM(method_name), 'itype_comm=3 requires itype_t/vn_diffu = 1')
 
     ENDDO
 
@@ -879,11 +879,22 @@ CONTAINS
         &         'Restart runs are disabled for the "old" asynchronous output!')
     END IF
 
+    CALL land_crosscheck()
+    
   END  SUBROUTINE atm_crosscheck
+  !---------------------------------------------------------------------------------------
 
-!  SUBROUTINE atmospheric_configuration
-!  INTEGER :: jg
-!  CHARACTER(len=*), PARAMETER :: routine =  'atm_setup'
-!  END SUBROUTINE atmospheric_configuration
+  !---------------------------------------------------------------------------------------
+  SUBROUTINE land_crosscheck
+
+    CHARACTER(len=*), PARAMETER :: method_name =  'mo_nml_crosscheck:land_crosscheck'
+#ifndef __JSBACH__
+    IF (echam_phy_config% ljsbach) THEN
+      CALL finish(method_name, "This version was compiled without jsbach. Compile with __JSBACH__, or set ljsbach=.FALSE.")
+    ENDIF
+    echam_phy_config% ljsbach   = .FALSE.     
+#endif
+  END SUBROUTINE land_crosscheck
+
 
 END MODULE mo_nml_crosscheck

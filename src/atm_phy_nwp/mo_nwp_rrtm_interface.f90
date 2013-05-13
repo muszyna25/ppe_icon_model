@@ -594,7 +594,6 @@ CONTAINS
 
     REAL(wp):: albvisdir     (nproma,pt_patch%nblks_c) !<
     REAL(wp):: albnirdir     (nproma,pt_patch%nblks_c) !<
-    REAL(wp):: albnirdif     (nproma,pt_patch%nblks_c) !<
     REAL(wp):: aclcov        (nproma,pt_patch%nblks_c) !<
 
 
@@ -669,7 +668,6 @@ CONTAINS
 
       ! no distiction between vis and nir albedo
       albnirdir(1:i_endidx,jb) = albvisdir(1:i_endidx,jb)
-      albnirdif(1:i_endidx,jb) = prm_diag%albvisdif(1:i_endidx,jb)
 
       prm_diag%tsfctrad(1:i_endidx,jb) = lnd_prog%t_g(1:i_endidx,jb)
 
@@ -695,7 +693,7 @@ CONTAINS
         & alb_vis_dir=albvisdir        (:,jb) ,&!< in surface albedo for visible range, direct
         & alb_nir_dir=albnirdir        (:,jb) ,&!< in surface albedo for near IR range, direct
         & alb_vis_dif=prm_diag%albvisdif(:,jb),&!< in surface albedo for visible range, diffuse
-        & alb_nir_dif=albnirdif        (:,jb) ,&!< in surface albedo for near IR range, diffuse
+        & alb_nir_dif=prm_diag%albnirdif(:,jb),&!< in surface albedo for near IR range, diffuse
         & emis_rad=ext_data%atm%emis_rad(:,jb),&!< in longwave surface emissivity
         & tk_sfc     =prm_diag%tsfctrad(:,jb) ,&!< in surface temperature
                               !
@@ -768,7 +766,6 @@ CONTAINS
 
     REAL(wp):: albvisdir     (nproma,pt_patch%nblks_c) !<
     REAL(wp):: albnirdir     (nproma,pt_patch%nblks_c) !<
-    REAL(wp):: albnirdif     (nproma,pt_patch%nblks_c) !<
     REAL(wp):: aclcov        (nproma,pt_patch%nblks_c) !<
     ! For radiation on reduced grid
     ! These fields need to be allocatable because they have different dimensions for
@@ -948,7 +945,6 @@ CONTAINS
 
       ! no distiction between vis and nir albedo
       albnirdir(1:i_endidx,jb) = albvisdir(1:i_endidx,jb)
-      albnirdif(1:i_endidx,jb) = prm_diag%albvisdif(1:i_endidx,jb)
 
       prm_diag%tsfctrad(1:i_endidx,jb) = lnd_prog%t_g(1:i_endidx,jb)
 
@@ -961,7 +957,7 @@ CONTAINS
         & nlev_rg, ext_data%atm%fr_land_smt, ext_data%atm%fr_glac_smt,  &
         & ext_data%atm%emis_rad,                                        &
         & prm_diag%cosmu0, albvisdir, albnirdir, prm_diag%albvisdif,    &
-        & albnirdif, prm_diag%tsfctrad, prm_diag%ktype,                 &
+        & prm_diag%albnirdif, prm_diag%tsfctrad, prm_diag%ktype,        &
         & pt_diag%pres_ifc, pt_diag%pres, pt_diag%temp,prm_diag%acdnc,  &
         & prm_diag%tot_cld, prm_diag%clc, ext_data%atm%o3(:,:,:),       &
         & zaeq1, zaeq2, zaeq3, zaeq4, zaeq5,                            &
@@ -1243,7 +1239,7 @@ CONTAINS
     TYPE(t_nwp_phy_diag),       INTENT(inout):: prm_diag
     TYPE(t_lnd_prog),           INTENT(inout):: lnd_prog
 
-    REAL(wp), POINTER:: albvisdir(:,:), albnirdir(:,:), albnirdif(:,:)
+    REAL(wp), POINTER:: albvisdir(:,:), albnirdir(:,:)
 
 
     ! Local scalars:
@@ -1316,7 +1312,6 @@ CONTAINS
       ALLOCATE( &
         & albvisdir    (nproma,         pt_patch%nblks_c),  &
         & albnirdir    (nproma,         pt_patch%nblks_c),  &
-        & albnirdif    (nproma,         pt_patch%nblks_c),  &
         & test_aclcov  (nproma,         pt_patch%nblks_c),  &
         & test_lwflxclr(nproma, nlevp1, pt_patch%nblks_c),  &
         & test_trsolclr(nproma, nlevp1, pt_patch%nblks_c),  &
@@ -1349,7 +1344,6 @@ CONTAINS
 
         ! no distiction between vis and nir albedo
         albnirdir(1:i_endidx,jb) = albvisdir(1:i_endidx,jb)
-        albnirdif(1:i_endidx,jb) = prm_diag%albvisdif(1:i_endidx,jb)
 
         prm_diag%tsfctrad(1:i_endidx,jb) = lnd_prog%t_g(1:i_endidx,jb)
 
@@ -1374,7 +1368,7 @@ CONTAINS
           & alb_vis_dir=albvisdir        (:,jb) ,&!< in surface albedo for visible range, direct
           & alb_nir_dir=albnirdir        (:,jb) ,&!< in surface albedo for near IR range, direct
           & alb_vis_dif=prm_diag%albvisdif(:,jb),&!< in surface albedo for visible range, diffuse
-          & alb_nir_dif=albnirdif        (:,jb) ,&!< in surface albedo for near IR range, diffuse
+          & alb_nir_dif=prm_diag%albnirdif(:,jb),&!< in surface albedo for near IR range, diffuse
           & emis_rad=ext_data%atm%emis_rad(:,jb),&!< in longwave surface emissivity
           & tk_sfc     =prm_diag%tsfctrad(:,jb) ,&!< in surface temperature
                                 !
@@ -1428,7 +1422,7 @@ CONTAINS
 !          & alb_vis_dir=albvisdir        (:,:) ,&!< in surface albedo for visible range, direct
 !          & alb_nir_dir=albnirdir        (:,:) ,&!< in surface albedo for near IR range, direct
           & alb_vis_dif=prm_diag%albvisdif(:,:),&!< in surface albedo for visible range, diffuse
-!          & alb_nir_dif=albnirdif        (:,:) ,&!< in surface albedo for near IR range, diffuse
+!          & alb_nir_dif=prm_diag%albnirdif(:,:) ,&!< in surface albedo for near IR range, diffuse
           & emis_rad=ext_data%atm%emis_rad(:,:),&!< in longwave surface emissivity
           & tk_sfc     =prm_diag%tsfctrad(:,:) ,&!< in surface temperature
                                 !
@@ -1589,7 +1583,7 @@ CONTAINS
        ENDDO
      ENDDO
 
-     DEALLOCATE(albvisdir, albnirdir, albnirdif,    &
+     DEALLOCATE(albvisdir, albnirdir, &  
       & test_aclcov, test_lwflxclr, test_trsolclr, test_lwflxall, test_trsolall)
 
    ENDIF ! test_parallel_radiation

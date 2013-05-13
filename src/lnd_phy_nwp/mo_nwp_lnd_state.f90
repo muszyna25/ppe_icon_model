@@ -1068,13 +1068,6 @@ MODULE mo_nwp_lnd_state
          & ldims=shape2d, lrestart=.TRUE., loutput=.TRUE.,                       &
          & in_group=groups("dwd_ana_vars") )
 
-    ! & p_diag_lnd%t_skin(nproma,nblks_c)
-    cf_desc    = t_cf_var('t_skin', 'K', 'skin temperature', DATATYPE_FLT32)
-    grib2_desc = t_grib2_var(0, 0, 17, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( diag_list, vname_prefix//'t_skin', p_diag_lnd%t_skin,          &
-         & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,              &
-         & ldims=shape2d, lrestart=.TRUE., loutput=.TRUE.,                       &
-         & in_group=groups("dwd_ana_vars") )
 
     ! & p_diag_lnd%rho_snow(nproma,nblks_c)
     cf_desc    = t_cf_var('rho_snow', 'kg/m**3', 'weighted snow density', DATATYPE_FLT32)

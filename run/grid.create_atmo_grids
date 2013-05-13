@@ -47,6 +47,7 @@ if [[ "x$target" = "xsx9" ]] ; then
   if [ ! -f $WRKDIR/iconR2B05_DOM02.nc ]; then
     check_error 1 "copy grids from buildbot.grids"
   fi
+  check_error 0 "copy grids from buildbot.grids"
   
   exit 0
 fi

@@ -22,7 +22,7 @@ config_target=sx9
 load_modules="sxf90/rev460" "sxcc/rev094" "crosskit/r181"
 load_profile="." "/etc/profile.d/modules.sh"
 make_command="make"
-mpi_startrun="mpirun" "-nn" "\\\$no_of_nodes" -nnp "\\\$mpi_procs"
+mpi_startrun="mpirun" "-nn" "\\\$no_of_nodes" -nnp "\\\$mpi_procs_pernode"
 submit="qsubw"
 # sync_submit=qsub -W block=true
 

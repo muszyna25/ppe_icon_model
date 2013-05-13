@@ -228,7 +228,7 @@ MODULE mo_nh_init_nest_utils
     ! turned out to cause occasional conflicts with directly interpolating those variables here; thus
     ! the interpolation of the multi-layer snow fields has been completely removed from this routine
     num_lndvars = 2*nlev_soil+1+ &     ! multi-layer soil variables t_so and w_so (w_so_ice is initialized in terra_multlay_init)
-                  5+5                  ! single-layer prognostic variables + t_g, freshsnow, t_skin, t_seasfc and qv_s
+                  5+4                  ! single-layer prognostic variables + t_g, freshsnow, t_seasfc and qv_s
     num_wtrvars  = 5                   ! water state fields + fr_seaice
     num_phdiagvars = 21                ! number of physics diagnostic variables (copied from interpol_phys_grf)
     
@@ -476,9 +476,8 @@ MODULE mo_nh_init_nest_utils
           lndvars_par(jc,jk1+5,jb) = p_parent_ldiag%rho_snow(jc,jb)
           lndvars_par(jc,jk1+6,jb) = p_parent_ldiag%w_i(jc,jb)
           lndvars_par(jc,jk1+7,jb) = p_parent_ldiag%freshsnow(jc,jb)
-          lndvars_par(jc,jk1+8,jb) = p_parent_ldiag%t_skin(jc,jb)
-          lndvars_par(jc,jk1+9,jb) = MAX(271._wp,p_parent_ldiag%t_seasfc(jc,jb)) ! to avoid trouble with missing values
-          lndvars_par(jc,jk1+10,jb) = p_parent_ldiag%qv_s(jc,jb)
+          lndvars_par(jc,jk1+8,jb) = MAX(271._wp,p_parent_ldiag%t_seasfc(jc,jb)) ! to avoid trouble with missing values
+          lndvars_par(jc,jk1+9,jb) = p_parent_ldiag%qv_s(jc,jb)
         ENDDO
       ENDIF
 
@@ -826,9 +825,8 @@ MODULE mo_nh_init_nest_utils
             p_child_lprog%rho_snow_t(jc,jb,jt) = lndvars_chi(jc,jk1+5,jb)
             p_child_lprog%w_i_t(jc,jb,jt) = MAX(0._wp,lndvars_chi(jc,jk1+6,jb))
             p_child_ldiag%freshsnow_t(jc,jb,jt) = MAX(0._wp,MIN(1._wp,lndvars_chi(jc,jk1+7,jb)))
-            p_child_ldiag%t_skin(jc,jb)   = lndvars_chi(jc,jk1+8,jb)
-            p_child_ldiag%t_seasfc(jc,jb) = lndvars_chi(jc,jk1+9,jb)
-            p_child_ldiag%qv_s(jc,jb)     = lndvars_chi(jc,jk1+10,jb)
+            p_child_ldiag%t_seasfc(jc,jb) = lndvars_chi(jc,jk1+8,jb)
+            p_child_ldiag%qv_s(jc,jb)     = lndvars_chi(jc,jk1+9,jb)
           ENDDO
         ENDDO
         DO jt = ntiles_total+1, ntiles_total+ntiles_water

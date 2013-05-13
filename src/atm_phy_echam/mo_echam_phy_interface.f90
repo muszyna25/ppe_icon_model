@@ -393,8 +393,10 @@ CONTAINS
       !   indices jcs and jce;
       ! - a few other (global) constants (nproma, pdtime, psteplen, etc).
 
-      CALL physc( jg,jb,jcs,jce,nproma,pdtime,psteplen,ltrig_rad, &
-                & ztime_radtran,ztime_radheat )
+      CALL physc( jg,jb,jcs,jce,nproma,pdtime,psteplen &
+                &,ltrig_rad,ztime_radtran              &
+!!$                &,ztime_radheat                        &
+                & )
 
     END DO
 !$OMP END DO NOWAIT

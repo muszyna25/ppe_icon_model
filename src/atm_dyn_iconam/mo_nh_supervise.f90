@@ -489,7 +489,7 @@ CONTAINS
         & max_w, max_w_level, max_w_process )
 
     !--- Get max over all PEs
-    IF (msg_level >= 8) THEN
+    IF (msg_level >= 7) THEN
 
       ! print a detailed information on global maxima:
       ! containing the process ID and the level where the
@@ -596,7 +596,7 @@ CONTAINS
     keyval(2) = MAXLOC(w_aux_lev(:),1)
 
     proc_id(:) = get_my_mpi_all_id()
-    vmax       = global_max(vmax, proc_id=proc_id, keyval=keyval)
+    vmax       = global_max(vmax, proc_id=proc_id, keyval=keyval, iroot=process_mpi_stdio_id)
 
     max_vn         = vmax(1)
     max_vn_level   = keyval(1)

@@ -262,10 +262,6 @@ CONTAINS
       CALL message('mo_nwp_sfc_interface: ', 'call land-surface scheme')
     ENDIF
 
-    IF (msg_level == 12) THEN
-      CALL message('mo_nwp_sfc_interface: ', 'call land-surface scheme')
-    ENDIF
-
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,isubs,i_count,ic,isubs_snow,i_count_snow,&
 !$OMP   tmp1,tmp2,tmp3,fact1,fact2,frac_sv,frac_snow_sv,icount_init,init_list,it1,it2,is1,is2) ICON_OMP_GUIDED_SCHEDULE
@@ -919,18 +915,22 @@ CONTAINS
 
        IF (ntiles_total == 1) THEN 
          DO jc = i_startidx, i_endidx
-           lnd_prog_new%t_g(jc,jb)  = lnd_prog_new%t_g_t(jc,jb,1)
-           lnd_diag%qv_s   (jc,jb)  = lnd_diag%qv_s_t   (jc,jb,1)
            prm_diag%shfl_s (jc,jb)  = prm_diag%shfl_s_t (jc,jb,1) 
            prm_diag%lhfl_s (jc,jb)  = prm_diag%lhfl_s_t (jc,jb,1)
            prm_diag%qhfl_s (jc,jb)  = prm_diag%qhfl_s_t (jc,jb,1)
            prm_diag%lhfl_bs(jc,jb)  = prm_diag%lhfl_bs_t(jc,jb,1) 
          ENDDO
-         DO jk=1,nlev_soil
+         IF (atm_phy_nwp_config(jg)%inwp_surface > 0) THEN
            DO jc = i_startidx, i_endidx
-             prm_diag%lhfl_pl(jc,jk,jb)= prm_diag%lhfl_pl_t(jc,jk,jb,1)
-           ENDDO  ! jc
-         ENDDO  ! jk
+             lnd_prog_new%t_g(jc,jb)  = lnd_prog_new%t_g_t(jc,jb,1)
+             lnd_diag%qv_s   (jc,jb)  = lnd_diag%qv_s_t   (jc,jb,1)
+           ENDDO
+           DO jk=1,nlev_soil
+             DO jc = i_startidx, i_endidx
+               prm_diag%lhfl_pl(jc,jk,jb)= prm_diag%lhfl_pl_t(jc,jk,jb,1)
+             ENDDO  ! jc
+           ENDDO  ! jk
+         ENDIF
        ELSE ! aggregate fields over tiles
          t_g_s(:)      = 0._wp
          lnd_diag%qv_s   (i_startidx:i_endidx,jb) = 0._wp

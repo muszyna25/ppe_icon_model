@@ -46,7 +46,7 @@ MODULE mo_turbulence_diag
 #ifdef __ICON__
 !  USE mo_exception,          ONLY: message, message_text, finish
   USE mo_physical_constants,ONLY: grav, rd, cpd, rd_o_cpd, rv,           &
-                                & vtmpc1,vtmpc2,tmelt,alv,als
+                                & vtmpc1, vtmpc2, tmelt, alv, als, p0ref
   USE mo_echam_vdiff_params,ONLY: clam, cgam, ckap, cb,cc, chneu, shn, smn, &
                                 & da1, custf, cwstf, cfreec,                &
                                 & epshr=>eps_shear, epcor=>eps_corio,       &
@@ -63,6 +63,11 @@ MODULE mo_turbulence_diag
   IMPLICIT NONE
   PRIVATE
   PUBLIC :: atm_exchange_coeff, sfc_exchange_coeff, sfc_exchange_coeff_amip
+
+#ifndef __ICON__
+  ! For echam, please move into mo_constants
+  REAL(wp), PARAMETER :: p0ref = 100000._wp   ! Reference pressure for Exner funtion [Pa]
+#endif
 
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
@@ -207,7 +212,7 @@ CONTAINS
         ! temperature
 
         pcptgz (jl,jk) = pgeom1(jl,jk)+ptm1(jl,jk)*cpd*(1._wp+vtmpc2*pqm1(jl,jk))
-        ztheta (jl,jk) = ptm1(jl,jk)*(100000._wp/papm1(jl,jk))**rd_o_cpd
+        ztheta (jl,jk) = ptm1(jl,jk)*(p0ref/papm1(jl,jk))**rd_o_cpd
         zthetav(jl,jk) = ztheta(jl,jk)*(1._wp+vtmpc1*pqm1(jl,jk)-pxm1(jl,jk))
 
         ! Latent heat, liquid (and ice) potential temperature
@@ -620,7 +625,7 @@ CONTAINS
         pcpt_sfc(jl,jsfc) = ptsfc(jl,jsfc)*cpd*(1._wp+vtmpc2*pqsat_sfc(jl,jsfc))
       END IF 
 
-        ztheta      = ptsfc(jl,jsfc)*(1.e5_wp/ppsfc(jl))**rd_o_cpd
+        ztheta      = ptsfc(jl,jsfc)*(p0ref/ppsfc(jl))**rd_o_cpd
         zthetav     = ztheta*(1._wp+vtmpc1*pqsat_sfc(jl,jsfc))
 
         zqtl       = pqm1_b(jl) + pqxm1_b(jl)  ! q_total at lowest model level
@@ -695,7 +700,7 @@ CONTAINS
 
         pcpt_sfc(jl,jsfc) = ptsfc(jl,jsfc)*cpd*(1._wp+vtmpc2*pqsat_sfc(jl,jsfc))
 
-        ztheta      = ptsfc(jl,jsfc)*(1.e5_wp/ppsfc(jl))**rd_o_cpd
+        ztheta      = ptsfc(jl,jsfc)*(p0ref/ppsfc(jl))**rd_o_cpd
         zthetav     = ztheta*(1._wp+vtmpc1*pqsat_sfc(jl,jsfc))
 
         zqtl       = pqm1_b(jl) + pqxm1_b(jl)  ! q_total at lowest model level
@@ -1217,7 +1222,7 @@ CONTAINS
         zqts              = pqsat_sfc(js,jsfc)                         ! q_total at surface
       END IF
 
-        ztheta      = ptsfc(js,jsfc)*(1.e5_wp/ppsfc(js))**rd_o_cpd
+        ztheta      = ptsfc(js,jsfc)*(p0ref/ppsfc(js))**rd_o_cpd
         zthetav     = ztheta*(1._wp+vtmpc1*zqts)
 
         zqtl       = pqm1_b(js) + pqxm1_b(js)                          ! q_total at lowest model level

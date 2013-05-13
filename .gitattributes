@@ -60,6 +60,7 @@ config/config.h.in -text
 config/config.sub -text
 config/createMakefiles.pl -text
 config/create_target_header -text
+config/icon_components -text
 config/install-sh -text
 config/make_target_runscript -text
 config/mh-aix -text
@@ -71,6 +72,7 @@ config/missing -text
 /configure -text
 /configure.ac -text
 contrib/grid_tools/Makefile -text
+contrib/grid_tools/copy_grid_uuid.c -text
 contrib/grid_tools/icon_grid_get.c -text
 contrib/grid_tools/test.xml -text
 contrib/grid_tools/xml_scan.h -text
@@ -1450,6 +1452,7 @@ src/shared/mo_orbit.f90 -text
 src/shared/mo_physical_constants.f90 -text
 src/shared/mo_profile.f90 -text
 src/shared/mo_real_timer.f90 -text
+src/shared/mo_statistics_utils.f90 -text
 src/shared/mo_time_base.f90 -text
 src/shared/mo_timer.f90 -text
 src/shared/mo_util_backtrace.f90 -text

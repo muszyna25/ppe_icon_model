@@ -195,7 +195,13 @@ CONTAINS
 
     CHARACTER(len=16) :: resolution_string
 
-    WRITE(resolution_string,'(i4.4,a)') NINT(SQRT(geometry_info%mean_cell_area) / 1000.0_wp), "km"
+    CALL set_grid_geometry_derived_info(geometry_info)
+    IF (geometry_info%mean_characteristic_length > 5000.0_wp) THEN
+      WRITE(resolution_string,'(i4.4,a)') NINT(geometry_info%mean_characteristic_length / 1000.0_wp), "km"
+    ELSE
+      WRITE(resolution_string,'(i4.4,a)') NINT(geometry_info%mean_characteristic_length), "m"
+    ENDIF
+
 !    write(0,*) SQRT(geometry_info%mean_cell_area) / 1000.0_wp, resolution_string
 !    stop
 

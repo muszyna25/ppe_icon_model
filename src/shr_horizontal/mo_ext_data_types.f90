@@ -114,9 +114,6 @@ MODULE mo_ext_data_types
     REAL(wp), POINTER ::   &   !< fraction land in a grid element         [ ]
       &  fr_land_smt(:,:)      !  = smoothed fr_land
 
-    REAL(wp), POINTER ::   &   !< fraction sea ice cover in a grid element [ ]
-      &  fr_ice_smt(:,:)       ! = smoothed fr_ice
-
     REAL(wp), POINTER ::   &   !< fraction land glacier in a grid element [ ]
       &  fr_glac_smt(:,:)      ! = smoothed fr_glac
 
@@ -356,6 +353,11 @@ MODULE mo_ext_data_types
     REAL(wp), POINTER ::   &   !< aerosol optical thickness of seasalt aerosol [ ]
       &  aer_ss(:,:,:)         ! index1=1,nproma, index2=1,nblks_c, index3=1,ntimes
 
+    REAL(wp), POINTER ::   &   !< UV visible albedo for diffuse radiation      [%]
+      &  alb_vis_dif(:,:,:)    ! index1=1,nproma, index2=1,nblks_c, index3=1,ntimes
+
+    REAL(wp), POINTER ::   &   !< Near IR albedo for diffuse radiation         [%]
+      &  alb_nir_dif(:,:,:)    ! index1=1,nproma, index2=1,nblks_c, index3=1,ntimes
 
 
     !

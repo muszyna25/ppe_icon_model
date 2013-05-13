@@ -683,7 +683,8 @@ SUBROUTINE calculate_explicit_term_ab( p_patch_3D, p_os, p_phys_param,&
   idt_src = 3  ! output print level (1-5, fix)
   CALL dbg_print('old height gradient'       ,z_gradh_e                 ,str_module,idt_src)
   CALL dbg_print('horizontal advection'      ,p_os%p_diag%veloc_adv_horz,str_module,idt_src)
-  CALL dbg_print('density'                   ,p_os%p_diag%rho           ,str_module,idt_src)
+  CALL dbg_print('density'                   ,p_os%p_diag%rho           ,str_module,idt_src, &
+    & in_subset=p_patch_3D%p_patch_2D(n_dom)%cells%owned)
   CALL dbg_print('internal pressure'         ,p_os%p_diag%press_hyd     ,str_module,idt_src)
   CALL dbg_print('internal press grad'       ,p_os%p_diag%press_grad    ,str_module,idt_src)
   idt_src = 4  ! output print level (1-5, fix)

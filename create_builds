@@ -29,6 +29,7 @@ link_files_blevel=[
 "config/mh-linux",
 "config/mh-nec",
 "config/mh-override",
+"config/icon_components",
 "config/missing"]
 
 

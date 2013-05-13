@@ -59,8 +59,10 @@ MODULE mo_echam_phy_init
   USE mo_echam_conv_config,    ONLY: configure_echam_convection
 
   USE mo_lnd_jsbach_config,    ONLY: lnd_jsbach_config, configure_lnd_jsbach
+#ifdef __JSBACH__
   USE mo_jsb_base,             ONLY: jsbach_init_base => init_base
   USE mo_jsb_model_init,       ONLY: jsbach_init_model => init_model
+#endif
 
   ! test cases
   USE mo_ha_testcases,         ONLY: ape_sst_case
@@ -347,6 +349,7 @@ CONTAINS
 
     ENDIF    ! phy_config%lamip
 
+#ifdef __JSBACH__
     IF (phy_config%ljsbach) THEN
       CALL configure_lnd_jsbach(ltestcase, ctest_name)
       ! Do basic initialization of JSBACH
@@ -359,6 +362,7 @@ CONTAINS
           & lnd_jsbach_config(jg)%ntsoil, lnd_jsbach_config(jg)%ztlev_soil)   !< out
       END DO
     END IF
+#endif
 
     IF (timers_level > 1) CALL timer_stop(timer_prep_echam_phy)
 
@@ -792,20 +796,11 @@ CONTAINS
       field% dlwflxsfc_dT(:,:) = 0._wp
       field% swflxtoa    (:,:) = 0._wp
       field% lwflxtoa    (:,:) = 0._wp
-      field% swflxsfc_avg(:,:) = 0._wp
-      field% lwflxsfc_avg(:,:) = 0._wp
-      field% swflxtoa_avg(:,:) = 0._wp
-      field% lwflxtoa_avg(:,:) = 0._wp
-      field% dlwflxsfc_dT_avg(:,:) = 0._wp
       field% aclc  (:,:,:) = 0._wp
-      field% aclcac(:,:,:) = 0._wp
       field% aclcov(:,  :) = 0._wp
       field% qvi   (:,  :) = 0._wp
       field% xlvi  (:,  :) = 0._wp
       field% xivi  (:,  :) = 0._wp
-      field% aprl  (:,  :) = 0._wp
-      field% aprc  (:,  :) = 0._wp
-      field% aprs  (:,  :) = 0._wp
       field% rsfl  (:,  :) = 0._wp
       field% ssfl  (:,  :) = 0._wp
       field% rsfc  (:,  :) = 0._wp
@@ -813,14 +808,13 @@ CONTAINS
       field% omega (:,:,:) = 0._wp
 
       field%totprec_avg(:,:) = 0._wp
-      field%  evap_avg(:,  :) = 0._wp
-      field% lhflx_avg(:,  :) = 0._wp
-      field% shflx_avg(:,  :) = 0._wp
+      field%  evap (:,  :) = 0._wp
+      field% lhflx (:,  :) = 0._wp
+      field% shflx (:,  :) = 0._wp
       field%dshflx_dT_tile    (:,:,:)= 0._wp
-      field%dshflx_dT_avg_tile(:,:,:)= 0._wp
 
-      field% u_stress_avg(:,  :) = 0._wp
-      field% v_stress_avg(:,  :) = 0._wp
+      field% u_stress(:,  :) = 0._wp
+      field% v_stress(:,  :) = 0._wp
 
       field% u_stress_sso(:,:) = 0._wp
       field% v_stress_sso(:,:) = 0._wp
@@ -1028,29 +1022,7 @@ CONTAINS
       ! Reset accumulated variables
       !----------------------------------------
 
-      field% aclcac     (:,:,:) = 0._wp
-      field% aclcov     (:,  :) = 0._wp
       field%totprec_avg(:,:)   = 0._wp
-
-      field% qvi   (:,  :) = 0._wp
-      field% xlvi  (:,  :) = 0._wp
-      field% xivi  (:,  :) = 0._wp
-
-      field% aprl  (:,  :) = 0._wp
-      field% aprc  (:,  :) = 0._wp
-      field% aprs  (:,  :) = 0._wp
-
-      field%  evap_avg(:,:) = 0._wp
-      field% lhflx_avg(:,:) = 0._wp
-      field% shflx_avg(:,:) = 0._wp
-
-      field% u_stress_avg(:,:) = 0._wp
-      field% v_stress_avg(:,:) = 0._wp
-
-     field% swflxsfc_avg(:,:) = 0._wp
-     field% lwflxsfc_avg(:,:) = 0._wp
-     field% swflxtoa_avg(:,:) = 0._wp
-     field% lwflxtoa_avg(:,:) = 0._wp
 
       NULLIFY( field )
     ENDDO !jg

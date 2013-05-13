@@ -158,7 +158,6 @@ CONTAINS
     ! local fields for sea ice model
     !
     REAL(wp) :: frsi     (nproma)   ! sea ice fraction
-    REAL(wp) :: t_skin   (nproma)   ! skin temperature (including sea ice surface)
     REAL(wp) :: tice_now (nproma)   ! temperature of ice upper surface at previous time
     REAL(wp) :: hice_now (nproma)   ! ice thickness at previous time level
     REAL(wp) :: tsnow_now(nproma)   ! temperature of snow upper surface at previous time 
@@ -191,7 +190,7 @@ CONTAINS
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,isubs,i_count,i_count_snow,icount_ice, &
-!$OMP            icount_water, temp,ic,isubs_snow,frsi,t_skin,tice_now,hice_now,     &
+!$OMP            icount_water, temp,ic,isubs_snow,frsi,tice_now,hice_now,            &
 !$OMP            tsnow_now,hsnow_now,tice_new,hice_new,tsnow_new,hsnow_new),         &
 !$OMP            SCHEDULE(guided)
     DO jb = i_startblk, i_endblk
@@ -216,7 +215,7 @@ CONTAINS
         ! t_s_t: special initialization for open water and sea-ice tiles
         ! proper values are needed to perform surface analysis 
         ! open water points: set it to SST
-        ! lake points      : set it to tskin
+        ! lake points      : set it to tskin (note that t_seasfc=tskin for lake points)
         ! sea-ice points   : set it to t_melt
         !
         ! Note that after aggregation, t_s is copied to t_so(1)
@@ -506,15 +505,15 @@ CONTAINS
 
         ! optional cold start
         !
-        ! Note that the use of l_hice_in is intimately related to the use of t_skin 
+        ! Note that the use of l_hice_in is intimately related to the use of tskin 
         ! to perform a "cold start" initialization of the sea-ice surface temperature. 
         ! If l_hice_in=.FALSE., the sea-ice thickness is not available. 
         ! It is then initialized with a meaningful constant value. 
+        !
         ! However, an estimate of the sea-ice surface temperature is still reqired for the cold start 
-        ! and is assumed to be available. This "cold start" sea-ice surface temperature field
-        ! is stored in array t_skin. 
-        ! The only option at the time being is to use the IFS skin tempearature for the cold 
-        ! start initialization.
+        ! and is assumed to be available. The only option at the time being is to use the 
+        ! IFS skin tempearature for the cold start initialization of t_ice. This is done in
+        ! mo_nh_initicon/copy_initicon2prog_sfc
 
         IF (.NOT. l_hice_in) THEN
           DO ic = 1, icount_ice
@@ -528,10 +527,6 @@ CONTAINS
             ! 
             !p_prog_wtr_now%h_ice(jc,jb) = 0.5_wp + p_lnd_diag%fr_seaice(jc,jb)*0.75_wp
             p_prog_wtr_new%h_ice(jc,jb) = p_prog_wtr_now%h_ice(jc,jb)
-
-            ! initialize t_ice with t_skin, which is so far provided by IFS analysis
-            p_prog_wtr_now%t_ice(jc,jb) = p_lnd_diag%t_skin(jc,jb)
-            p_prog_wtr_new%t_ice(jc,jb) = p_lnd_diag%t_skin(jc,jb)
 
           ENDDO  ! ic
         ENDIF  ! l_hice_in
@@ -547,7 +542,6 @@ CONTAINS
           jc = ext_data%atm%idx_lst_spi(ic,jb)
 
           frsi     (ic) = p_lnd_diag%fr_seaice(jc,jb)
-          t_skin   (ic) = p_lnd_diag%t_skin(jc,jb)
           tice_now (ic) = p_prog_wtr_now%t_ice(jc,jb)
           hice_now (ic) = p_prog_wtr_now%h_ice(jc,jb)
           tsnow_now(ic) = p_prog_wtr_now%t_snow_si(jc,jb)
@@ -555,7 +549,7 @@ CONTAINS
         ENDDO  ! jc
 
 
-        CALL seaice_init_nwp ( icount_ice, frsi, t_skin,                 & ! in
+        CALL seaice_init_nwp ( icount_ice, frsi,                         & ! in
           &                    tice_now, hice_now, tsnow_now, hsnow_now, & ! inout
           &                    tice_new, hice_new, tsnow_new, hsnow_new  ) ! inout
 
@@ -2127,6 +2121,7 @@ CONTAINS
              ! before it was water, set now to ice class
              ext_data(jg)%atm%lc_class_t(jc,jb,isub_seaice)= lc_snow_ice
              p_lnd_state(jg)%prog_lnd(n_now)%t_g_t(jc,jb,isub_seaice)= tf_salt
+             p_lnd_state(jg)%prog_lnd(n_now)%t_s_t(jc,jb,isub_seaice)= tf_salt
              p_lnd_state(jg)%prog_wtr(n_now)%t_ice(jc,jb) = tf_salt
              p_lnd_state(jg)%prog_wtr(n_now)%h_ice(jc,jb) = hice_ini
 
@@ -2148,6 +2143,7 @@ CONTAINS
 
             ext_data(jg)%atm%lc_class_t(jc,jb,isub_water)= lc_water
             p_lnd_state(jg)%prog_lnd(n_now)%t_g_t(jc,jb,isub_water)= p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb)
+            p_lnd_state(jg)%prog_lnd(n_now)%t_s_t(jc,jb,isub_water)= p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb)
 
             p_lnd_state(jg)%diag_lnd%qv_s_t(jc,jb,isub_water)    =                    &
              &   spec_humi( sat_pres_water(p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) ),&
@@ -2201,6 +2197,7 @@ CONTAINS
       !CALL message('', TRIM(message_text))
              ext_data(jg)%atm%lc_class_t(jc,jb,isub_seaice)= lc_snow_ice
              p_lnd_state(jg)%prog_lnd(n_now)%t_g_t(jc,jb,isub_seaice)= tf_salt
+             p_lnd_state(jg)%prog_lnd(n_now)%t_s_t(jc,jb,isub_seaice)= tf_salt
 
              p_lnd_state(jg)%diag_lnd%qv_s_t(jc,jb,isub_seaice)    =                    &
               &                                     spec_humi( sat_pres_ice(tf_salt ),  &
@@ -2240,6 +2237,7 @@ CONTAINS
  
             ext_data(jg)%atm%lc_class_t(jc,jb,isub_water)= lc_water
             p_lnd_state(jg)%prog_lnd(n_now)%t_g_t(jc,jb,isub_water)= p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb)
+            p_lnd_state(jg)%prog_lnd(n_now)%t_s_t(jc,jb,isub_water)= p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb)
             p_lnd_state(jg)%diag_lnd%qv_s_t(jc,jb,isub_water)    =                    &
              &   spec_humi( sat_pres_water(p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) ),&
              &                                  p_nh_state(jg)%diag%pres_sfc(jc,jb) ) 
@@ -2344,6 +2342,8 @@ CONTAINS
           IF (p_lnd_state(jg)%diag_lnd%fr_seaice(jc,jb) < 0.5_wp ) THEN
            p_lnd_state(jg)%prog_lnd(n_now)%t_g_t(jc,jb,isub_water)=   &
                                 p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb)
+           p_lnd_state(jg)%prog_lnd(n_now)%t_s_t(jc,jb,isub_water)=   &
+                                p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb)
 
            p_lnd_state(jg)%diag_lnd%qv_s_t(jc,jb,isub_water)    =                    &
             &   spec_humi( sat_pres_water(p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) ),&
@@ -2362,7 +2362,7 @@ CONTAINS
 
    END DO !jg
   END SUBROUTINE update_sstice
- 
+
   !-------------------------------------------------------------------------
   !! @par Revision History
   !! Initial release by Pilar Ripodas (2013-02)

@@ -500,9 +500,8 @@ END SUBROUTINE destruct_oce_diagnostics
 !
 ! TODO: implement variable output dimension (1 deg resolution) and smoothing extent
 ! TODO: calculate the 1 deg resolution meridional distance
-! TODO: calculate in parallel
 !! 
-SUBROUTINE calc_moc (p_patch,p_patch_3D, w, datetime)
+SUBROUTINE calc_moc (p_patch, p_patch_3D, w, datetime)
 
   TYPE(t_patch), TARGET, INTENT(IN)  :: p_patch
   TYPE(t_patch_3D ),TARGET, INTENT(INOUT)  :: p_patch_3D
@@ -551,6 +550,8 @@ SUBROUTINE calc_moc (p_patch,p_patch_3D, w, datetime)
     DO jb = dom_cells%start_block, dom_cells%end_block
       CALL get_index_range(dom_cells, jb, i_startidx, i_endidx)
       DO jc = i_startidx, i_endidx
+
+        !  could be replaced by vertical loop to bottom
         IF ( p_patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
    
           ! lbrei: corresponding latitude row of 1 deg extension
@@ -575,24 +576,27 @@ SUBROUTINE calc_moc (p_patch,p_patch_3D, w, datetime)
           ! distribute MOC over (2*jbrei)+1 latitude rows
           !  - no weighting with latitudes done
           !  - lbrei: index of 180 X 1 deg meridional resolution
-          !  - not yet parallelized
           DO lbr = -jbrei, jbrei
             lbrei = NINT(90.0_wp + z_lat_deg + REAL(lbr, wp) * z_lat_dim)
             lbrei = MAX(lbrei,1)
             lbrei = MIN(lbrei,180)
       
             global_moc(lbrei,jk) = global_moc(lbrei,jk) - &
-              &                    p_patch%cells%area(jc,jb) * rho_ref * w(jc,jk,jb) / &
+              !  multiply with wet (or loop to bottom)
+              &                    p_patch%cells%area(jc,jb) * rho_ref * w(jc,jk,jb) * &
+              &                    p_patch_3D%wet_c(jc,jk,jb) / &
               &                    REAL(2*jbrei + 1, wp)
 
-            IF (p_patch_3D%basin_c(jc,jb) <2) THEN
+            IF (p_patch_3D%basin_c(jc,jb) == 1) THEN         !  1: Atlantic; 0: Land
 
               atlant_moc(lbrei,jk) = atlant_moc(lbrei,jk) - &
-                &                    p_patch%cells%area(jc,jb) * rho_ref * w(jc,jk,jb) / &
+                &                    p_patch%cells%area(jc,jb) * rho_ref * w(jc,jk,jb) * &
+                &                    p_patch_3D%wet_c(jc,jk,jb) / &
                 &                    REAL(2*jbrei + 1, wp)
-            ELSE
+            ELSE IF (p_patch_3D%basin_c(jc,jb) >= 2) THEN   !  2: Indian; 4: Pacific
               pacind_moc(lbrei,jk) = pacind_moc(lbrei,jk) - &
-                &                    p_patch%cells%area(jc,jb) * rho_ref * w(jc,jk,jb) / &
+                &                    p_patch%cells%area(jc,jb) * rho_ref * w(jc,jk,jb) * &
+                &                    p_patch_3D%wet_c(jc,jk,jb) / &
                 &                    REAL(2*jbrei + 1, wp)
             END IF
 
@@ -603,7 +607,7 @@ SUBROUTINE calc_moc (p_patch,p_patch_3D, w, datetime)
     END DO
 
     ! test parallelization:
-    ! new function field_sum_all using mpi_allreduce and working precisions wp
+    ! function field_sum_all using mpi_allreduce and working precisions wp does not exist
   ! res_moc(:) = p_field_sum_all_wp(global_moc(:,jk))
   ! res_moc(:) = p_field_sum_all_wp(atlant_moc(:,jk))
   ! res_moc(:) = p_field_sum_all_wp(pacind_moc(:,jk))

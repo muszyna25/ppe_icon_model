@@ -811,10 +811,25 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
     ! 2D variables
 
         !        diag%albvisdif    (nproma,       nblks),          &
-        cf_desc     = t_cf_var('albvisdif', '',  'surface albedo', DATATYPE_FLT32)
-        new_cf_desc = t_cf_var('albvisdif', '%', 'surface albedo', DATATYPE_FLT32)
+        cf_desc     = t_cf_var('albvisdif', '', 'UV visible albedo for diffuse radiation', &
+          &                    DATATYPE_FLT32)
+        new_cf_desc = t_cf_var('albvisdif', '%','UV visible albedo for diffuse radiation', &
+          &                    DATATYPE_FLT32)
         grib2_desc  = t_grib2_var(0, 19, 1, ibits, GRID_REFERENCE, GRID_CELL)
         CALL add_var( diag_list, 'albvisdif', diag%albvisdif,                   &
+          & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,            &
+          & ldims=shape2d, in_group=groups("rad_vars"),                         &
+          & post_op=post_op(POST_OP_SCALE, arg1=100._wp,                        &
+          &                 new_cf=new_cf_desc) )
+
+
+        !        diag%albnirdif    (nproma,       nblks),          &
+        cf_desc     = t_cf_var('albnirdif', '',  'Near IR albedo for diffuse radiation',&
+          &                    DATATYPE_FLT32)
+        new_cf_desc = t_cf_var('albnirdif', '%', 'Near IR albedo for diffuse radiation',&
+          &                    DATATYPE_FLT32)
+        grib2_desc  = t_grib2_var(192, 128, 18, ibits, GRID_REFERENCE, GRID_CELL)
+        CALL add_var( diag_list, 'albnirdif', diag%albnirdif,                   &
           & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,            &
           & ldims=shape2d, in_group=groups("rad_vars"),                         &
           & post_op=post_op(POST_OP_SCALE, arg1=100._wp,                        &
@@ -1717,7 +1732,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
         grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
         CALL add_var( diag_list, 'umfl_s', diag%umfl_s,                            &
           & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d,&
-          & lrestart=.FALSE., loutput=.FALSE.)
+          & lrestart=.FALSE., loutput=.TRUE.)
 
         ! &      diag%vmfl_s(nproma,nblks_c)
         cf_desc    = t_cf_var('vmfl_s', 'N m-2', 'v-momentum flux at the surface', &
@@ -1725,7 +1740,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
         grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
         CALL add_var( diag_list, 'vmfl_s', diag%vmfl_s,                            &
           & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d,&
-          & lrestart=.FALSE., loutput=.FALSE.)
+          & lrestart=.FALSE., loutput=.TRUE.)
 
 
   !

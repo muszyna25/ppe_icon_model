@@ -512,6 +512,16 @@ I&
 subcentre to be assigned by centre, usually 0 &
 \tabularnewline
 
+\hline
+outname\_style&
+I&
+1&
+&
+Output name style\\
+1: Standard: \emph{iconR\textcolor{red}{X}B\textcolor{red}{XX}\_DOM\textcolor{red}{XX}.nc}\\
+2: DWD: \emph{icon\_grid\_\textcolor{red}{XXXX}\_R\textcolor{red}{XX}B\textcolor{red}{XX}\_\textcolor{red}{X}.nc} &
+\tabularnewline
+
 \end{longtab}
 
 \subsection{Namelist parameters defining the local grid generation}
@@ -973,13 +983,13 @@ Calendar type: \\
 \tabularnewline
 
 \hline 
-ini\_datatime\_string &
+ini\_datetime\_string &
 C & '2008-09-01T00:00:00Z' &&
 Initial date and time of the simulation&
 \tabularnewline
 
 \hline 
-end\_datatime\_string &
+end\_datetime\_string &
 C & 2008-09-01T01:40:00Z' &&
 End date and time of the simulation&
 \tabularnewline
@@ -3493,8 +3503,6 @@ I(ntracer)&
 3& & Tracer specific method to compute vertical advection:& lvadv\_tracer=TRUE \tabularnewline
 & & & & 0: no vert. transport& \tabularnewline
 & & & & 1: upwind (1st order)& \tabularnewline
-& & & & 2: muscl\_cfl (2nd order, handles $\mathrm{CFL}>1$)& \tabularnewline
-& & & & 20: muscl (2nd order)& \tabularnewline
 & & & & 3: ppm\_cfl ($3^{\mathrm{rd}}$ order, handles $\mathrm{CFL}>1$)& \tabularnewline
 & & & & 30: ppm (3rd order)& \tabularnewline
 
@@ -4095,6 +4103,19 @@ Choice of zenith angle formula for the radiative transfer computation.\par
 4: Zenith angle and irradiance changing with season, latitude, and time of day (iforcing=inwp only)
 &
 \tabularnewline
+
+\hline
+albedo\_type&
+I&
+1&
+&
+Type of surface albedo\\
+1: based on soil type specific tabulated values (dry soil)\\
+2: MODIS albedo (to be implemented)
+&
+iforcing=inwp
+\tabularnewline
+
 \hline 
 irad\_h2o\par 
 irad\_co2\par 
@@ -5800,8 +5821,15 @@ model expects {\bf height based} coordinates. For further information see <icon 
 
 \begin{changeitem}{gribout\_nml: generatingCenter, generatingSubcenter}{ 2013-04-26 }{ 12051 }
   \begin{itemize}
-   \item Introduced new namelist variables \textbf{generatingCenter} from \textbf{generatingSubcenter}.
+   \item Introduced new namelist variables \textbf{generatingCenter} and \textbf{generatingSubcenter}.
    \item If not set explicitly, center and subcenter information is copied from the input grid file
+  \end{itemize}
+\end{changeitem}
+
+\begin{changeitem}{radiation\_nml: albedo\_type}{ 2013-05-03 }{ 12118 }
+  \begin{itemize}
+   \item Introduced new namelist variable \textbf{albedo\_type}
+   \item If set to $2$, the surface albedo will be based on the MODIS data set.
   \end{itemize}
 \end{changeitem}
 

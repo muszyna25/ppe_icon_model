@@ -72,6 +72,7 @@ MODULE mo_nh_diffusion
                                     sync_patch_array_mult, sync_patch_array_gm
   USE mo_physical_constants,  ONLY: cvd_o_rd, cpd, rd, p0ref
   USE mo_timer,               ONLY: timer_nh_hdiffusion, timer_start, timer_stop
+  USE mo_vertical_grid,       ONLY: nrdmax
 
   IMPLICIT NONE
 
@@ -109,7 +110,7 @@ MODULE mo_nh_diffusion
     REAL(wp), DIMENSION(nproma,p_patch%nlev,p_patch%nblks_c) :: z_nabla2_c
     REAL(wp), DIMENSION(nproma,p_patch%nlev,p_patch%nblks_e) :: z_nabla4_e
 
-    REAL(wp):: diff_multfac_vn(p_patch%nlev), diff_multfac_w
+    REAL(wp):: diff_multfac_vn(p_patch%nlev), diff_multfac_w, diff_multfac_n2w(p_patch%nlev)
     INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
     INTEGER :: rl_start, rl_end
     INTEGER :: jk, jb, jc, je, ic, ishift
@@ -220,7 +221,16 @@ MODULE mo_nh_diffusion
       IF (diffusion_config(jg)%hdiff_order == 3) diffu_type = 5 
     ENDIF
 
+    ! Multiplication factor for nabla4 diffusion on vertical wind speed
     diff_multfac_w = MIN(1._wp/48._wp,diffusion_config(jg)%k4w*REAL(iadv_rcf,wp))
+
+    ! Factor for additional nabla2 diffusion in upper damping zone
+    diff_multfac_n2w(:) = 0._wp
+    IF (nrdmax(jg) > 1) THEN ! seems to be redundant, but the NEC issues invalid operations otherwise
+      DO jk = 2, nrdmax(jg)
+        diff_multfac_n2w(jk) = 1._wp/12._wp*((vct_a(jk)-vct_a(nrdmax(jg)+1))/(vct_a(2)-vct_a(nrdmax(jg)+1)))**4
+      ENDDO
+    ENDIF
 
     IF (diffu_type == 3 .OR. diffu_type == 5) THEN
 
@@ -769,6 +779,15 @@ MODULE mo_nh_diffusion
               z_nabla2_c(icidx(jc,jb,3),jk,icblk(jc,jb,3))*p_int%geofac_n2s(jc,4,jb))
           ENDDO
         ENDDO
+
+        ! Add nabla2 diffusion in upper damping layer (if present)
+        DO jk = 2, nrdmax(jg)
+          DO jc = i_startidx, i_endidx
+            p_nh_prog%w(jc,jk,jb) = p_nh_prog%w(jc,jk,jb) +                         &
+              diff_multfac_n2w(jk) * p_patch%cells%area(jc,jb) * z_nabla2_c(jc,jk,jb)
+          ENDDO
+        ENDDO
+
       ENDDO
 !$OMP END DO
     ENDIF ! w diffusion

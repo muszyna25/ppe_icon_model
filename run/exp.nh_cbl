@@ -117,6 +117,7 @@ cat > ${atmo_namelist} << EOF
  set_geowind       = .FALSE.
  smag_constant     = 0.23
  isrfc_type        = 2     !2=Fixed flux, 1=fixed SST
+ ufric             = 0.45
 /
 &diffusion_nml
  lhdiff_temp  = .FALSE.

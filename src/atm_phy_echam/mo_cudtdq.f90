@@ -66,7 +66,7 @@ SUBROUTINE cudtdq(ncvmicro, pdelta_time,                               &
                   pmful,    pdmfup,   pdmfdp,   plude,                 &
                   pdpmel,   prfl,     psfl,                            &
                   pcpen,    pqtec,    pqude,                           &
-                  prsfc,    pssfc,    paprc,    paprs,                 &
+                  prsfc,    pssfc,                                     &
                   pludel,pludei,pxtecl,pxteci,pmfull,pmfuli,           &!for CDNC/IC
 !0                plui,                                                &!for CDNC/IC
                   ptte_cnv, pqte_cnv, pxtte_cnv                    )
@@ -90,7 +90,6 @@ LOGICAL  llo1
 !
 REAL(dp) :: ptte(kbdim,klev),        pqte(kbdim,klev),                 &
             pten(kbdim,klev),        paphp1(kbdim,klevp1),             &
-            paprc(kbdim),            paprs(kbdim),                     &
             prsfc(kbdim),            pssfc(kbdim)
 REAL(dp) :: pmfus(kbdim,klev),       pmfds(kbdim,klev),                &
             pmfuq(kbdim,klev),       pmfdq(kbdim,klev),                &
@@ -326,8 +325,6 @@ REAL(dp) :: zdiagt, zalv, zdtdt, zdqdt
   DO 310 jl=1,kproma
      prsfc(jl)=prfl(jl)
      pssfc(jl)=psfl(jl)
-     paprc(jl)=paprc(jl)+zdiagt*(prfl(jl)+psfl(jl))
-     paprs(jl)=paprs(jl)+zdiagt*psfl(jl)
 310 END DO
 !
 ! calculate and store convective accumulated precipitation (mm)

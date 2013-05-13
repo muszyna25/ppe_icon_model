@@ -39,8 +39,7 @@ USE mo_mpi,                  ONLY: my_process_is_stdio
 USE mo_timer,                ONLY: print_timer, timers_level, timer_start, &
   &                                timer_stop, timer_model_init
 USE mo_master_control,       ONLY: is_restart_run
-USE mo_output,               ONLY: init_output_files, close_output_files,&
-  &                                write_output
+USE mo_output,               ONLY: init_output_files, close_output_files
 USE mo_var_list,             ONLY: print_var_list
 USE mo_time_config,          ONLY: time_config      ! variable
 USE mo_io_restart,           ONLY: read_restart_files
