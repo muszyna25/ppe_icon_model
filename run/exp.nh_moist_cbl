@@ -44,7 +44,7 @@ dt_restart=`expr ${ndays_restart} \* 86400`
 #-----------------------------------------------------------------------------
 # model timing
 dtime=0.15
-dt_checkpoint=`expr 10 \* 3600 `  # write restart file every 6 hours
+dt_checkpoint=`expr 10 \* 3600 `  # write restart file every 10 hours
 #
 #-----------------------------------------------------------------------------
 # model parameters
