@@ -3023,7 +3023,7 @@ CONTAINS
       CASE ('TOT_PREC_RATE_avg'); ptr2 => prm_diag(jg)%tot_prec_rate_avg(:,:)
       CASE ('CON_PREC_RATE_avg'); ptr2 => prm_diag(jg)%con_prec_rate_avg(:,:)
       CASE ('GSP_PREC_RATE_avg'); ptr2 => prm_diag(jg)%gsp_prec_rate_avg(:,:)
-      CASE ('ALB_RAD');         ptr2 => prm_diag(jg)%albvisdif(:,:)
+      CASE ('ALB_RAD');         ptr2 => prm_diag(jg)%albdif(:,:)
       CASE ('cosmu0');          ptr2 => prm_diag(jg)%cosmu0(:,:)
       CASE ('flxdwswtoa');      ptr2 => prm_diag(jg)%flxdwswtoa(:,:)
       CASE ('SOB_S');           ptr2 => prm_diag(jg)%swflxsfc(:,:)

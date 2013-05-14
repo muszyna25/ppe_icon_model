@@ -174,7 +174,7 @@ CONTAINS
             ist = ext_data%atm%soiltyp(jc,jb) ! water (ist=9) and sea ice (ist=10) included
 
             ! surface albedo including moisture correction
-            prm_diag%albvisdif_t(jc,jb,jt) = csalb(ist)&
+            prm_diag%albdif_t(jc,jb,jt) = csalb(ist)&
               &                         - rad_csalbw(ist)*lnd_prog%w_so_t(jc,1,jb,jt)
 
           ENDDO  ! ic
@@ -217,9 +217,9 @@ CONTAINS
 
               ! 3. compute final solar snow albedo
               !
-              prm_diag%albvisdif_t(jc,jb,jt) = zsnow * zsnow_alb        &  ! snow covered
+              prm_diag%albdif_t(jc,jb,jt) = zsnow * zsnow_alb           &  ! snow covered
                 &  + (1.0_wp - zsnow) * (zvege * csalb_p                &  ! snow-free with vege
-                &  + (1.0_wp - zvege) * prm_diag%albvisdif_t(jc,jb,jt))    ! snow-free bare
+                &  + (1.0_wp - zvege) * prm_diag%albdif_t(jc,jb,jt))       ! snow-free bare
 
             ENDDO  ! ic
 
@@ -254,9 +254,9 @@ CONTAINS
 
               ! 3. compute final solar snow albedo
               !
-              prm_diag%albvisdif_t(jc,jb,jt) = zsnow * zsnow_alb        &  ! snow covered
+              prm_diag%albdif_t(jc,jb,jt) = zsnow * zsnow_alb           &  ! snow covered
                 &  + (1.0_wp - zsnow) * (zvege * csalb_p                &  ! snow-free with vege
-                &  + (1.0_wp - zvege) * prm_diag%albvisdif_t(jc,jb,jt))    ! snow-free bare
+                &  + (1.0_wp - zvege) * prm_diag%albdif_t(jc,jb,jt))       ! snow-free bare
 
             ENDDO  ! ic
 
@@ -283,7 +283,7 @@ CONTAINS
 
             ist = 9  ! sea water
 
-            prm_diag%albvisdif_t(jc,jb,jt) = csalb(ist)
+            prm_diag%albdif_t(jc,jb,jt) = csalb(ist)
           ENDDO
 
 
@@ -301,7 +301,7 @@ CONTAINS
 
             ist = 9  ! sea water
 
-            prm_diag%albvisdif_t(jc,jb,jt) = csalb(ist)
+            prm_diag%albdif_t(jc,jb,jt) = csalb(ist)
           ENDDO
 
 
@@ -324,8 +324,8 @@ CONTAINS
             ! The ice albedo is the lower the warmer, and therefore wetter 
             ! the ice is. Use ice temperature at time level nnew 
             ! (2-time level scheme in sea ice model).
-            prm_diag%albvisdif_t(jc,jb,jt) = csalb(ist) * ( 1.0_wp - 0.3846_wp    &
-              &                            * EXP(-0.35_wp*(tmelt-wtr_prog%t_ice(jc,jb))))
+            prm_diag%albdif_t(jc,jb,jt) = csalb(ist) * ( 1.0_wp - 0.3846_wp    &
+              &                         * EXP(-0.35_wp*(tmelt-wtr_prog%t_ice(jc,jb))))
             ! gives alb_max = 0.70
             !       alb_min = 0.43
             ! compare with Mironov et. al (2012), Tellus
@@ -354,7 +354,7 @@ CONTAINS
               ist = ext_data%atm%soiltyp(jc,jb)
             ENDIF
 
-            prm_diag%albvisdif_t(jc,jb,jt) = csalb(ist)
+            prm_diag%albdif_t(jc,jb,jt) = csalb(ist)
           ENDDO
 
 
@@ -377,7 +377,7 @@ CONTAINS
               ist = 9 ! water
             ENDIF
 
-            prm_diag%albvisdif_t(jc,jb,jt) = csalb(ist)
+            prm_diag%albdif_t(jc,jb,jt) = csalb(ist)
           ENDDO
 
         ENDIF  ! lseaice
@@ -401,27 +401,31 @@ CONTAINS
         IF (ntiles_total == 1) THEN
  
           DO jc = i_startidx, i_endidx
-            prm_diag%albvisdif(jc,jb) = prm_diag%albvisdif_t(jc,jb,1)
-            ! no distiction between vis and nir albedo
-            prm_diag%albnirdif(jc,jb) = prm_diag%albvisdif_t(jc,jb,1)
+            prm_diag%albdif(jc,jb) = prm_diag%albdif_t(jc,jb,1)
+            ! For RRTM copy albdif to albnirdif and albvisdif 
+            ! i.e. no distiction is made between shortwave, vis and nir albedo
+            prm_diag%albvisdif(jc,jb) = prm_diag%albdif_t(jc,jb,1)
+            prm_diag%albnirdif(jc,jb) = prm_diag%albdif_t(jc,jb,1)
           ENDDO
 
         ELSE ! aggregate fields over tiles
 
-          prm_diag%albvisdif(i_startidx:i_endidx,jb) = 0._wp
+          prm_diag%albdif(i_startidx:i_endidx,jb)    = 0._wp
           prm_diag%albnirdif(i_startidx:i_endidx,jb) = 0._wp
 
           DO jt = 1, ntiles_total+ntiles_water
             DO jc = i_startidx, i_endidx
-              prm_diag%albvisdif(jc,jb) = prm_diag%albvisdif(jc,jb)      &
-                &                       + prm_diag%albvisdif_t(jc,jb,jt) &
-                &                       * ext_data%atm%frac_t(jc,jb,jt)
+              prm_diag%albdif(jc,jb) = prm_diag%albdif(jc,jb)      &
+                &                    + prm_diag%albdif_t(jc,jb,jt) &
+                &                    * ext_data%atm%frac_t(jc,jb,jt)
             ENDDO
           ENDDO
 
           DO jc = i_startidx, i_endidx
-            ! no distiction between vis and nir albedo
-            prm_diag%albnirdif(jc,jb) = prm_diag%albvisdif(jc,jb)
+            ! For RRTM copy albdif to albnirdif and albvisdif 
+            ! i.e. no distiction is made between shortwave, vis and nir albedo
+            prm_diag%albvisdif(jc,jb) = prm_diag%albdif(jc,jb)
+            prm_diag%albnirdif(jc,jb) = prm_diag%albdif(jc,jb)
           ENDDO
         ENDIF  ! ntiles_total = 1
 
@@ -437,8 +441,10 @@ CONTAINS
             ist = ext_data%atm%soiltyp(jc,jb) ! water (ist=9) and sea ice (ist=10) included
           ENDIF
 
+          prm_diag%albdif(jc,jb) = csalb(ist)
+          ! For RRTM copy albdif to albnirdif and albvisdif
+          ! i.e. no distiction is made between shortwave, vis and nir albedo
           prm_diag%albvisdif(jc,jb) = csalb(ist)
-          ! no distiction between vis and nir albedo
           prm_diag%albnirdif(jc,jb) = csalb(ist)
           
         ENDDO
@@ -459,7 +465,7 @@ CONTAINS
 !!            * csalb(10)
 !          IF (( .NOT. ext_data%atm%llsm_atm_c(jc,jb)) .AND. &
 !            & (prm_diag%h_ice(i,j,nnow) > 0.0_wp))          &
-!            prm_diag%albvisdif(jc,jb) = (1.0_wp-0.3846_wp*EXP(-0.35_wp*(tmelt-t_ice(i,j,nnow)))) &
+!            prm_diag%albdif(jc,jb) = (1.0_wp-0.3846_wp*EXP(-0.35_wp*(tmelt-t_ice(i,j,nnow)))) &
 !            * csalb(10)
 !        ENDDO
 !      ENDIF
@@ -475,9 +481,9 @@ CONTAINS
 !            !  [ice_albedo=function(ice_surface_temperature)].
 !            !  Use surface temperature at time level "nnow".
 !
-!            prm_diag%albvisdif(jc,jb) = EXP(-c_albice_MR*(tpl_T_f-t_s(i,j,nnow))/tpl_T_f)
-!            prm_diag%albvisdif(jc,jb) = albedo_whiteice_ref * (1._ireals-zalso(i,j)) +      &
-!              albedo_blueice_ref  * prm_diag%albvisdif(jc,jb)
+!            prm_diag%albdif(jc,jb) = EXP(-c_albice_MR*(tpl_T_f-t_s(i,j,nnow))/tpl_T_f)
+!            prm_diag%albdif(jc,jb) = albedo_whiteice_ref * (1._ireals-zalso(i,j)) +      &
+!              albedo_blueice_ref  * prm_diag%albdif(jc,jb)
 !          ENDIF
 !        ENDDO
 !      ENDIF

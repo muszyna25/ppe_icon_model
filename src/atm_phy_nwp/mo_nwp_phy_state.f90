@@ -810,6 +810,18 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
     !------------------
     ! 2D variables
 
+        !        diag%albdif    (nproma,       nblks),          &
+        cf_desc     = t_cf_var('albdif', '', 'Shortwave albedo for diffuse radiation', &
+          &                    DATATYPE_FLT32)
+        new_cf_desc = t_cf_var('albdif', '%','Shortwave albedo for diffuse radiation', &
+          &                    DATATYPE_FLT32)
+        grib2_desc  = t_grib2_var(0, 19, 1, ibits, GRID_REFERENCE, GRID_CELL)
+        CALL add_var( diag_list, 'albdif', diag%albdif,                         &
+          & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,            &
+          & ldims=shape2d, in_group=groups("rad_vars"),                         &
+          & post_op=post_op(POST_OP_SCALE, arg1=100._wp,                        &
+          &                 new_cf=new_cf_desc) )
+
         !        diag%albvisdif    (nproma,       nblks),          &
         cf_desc     = t_cf_var('albvisdif', '', 'UV visible albedo for diffuse radiation', &
           &                    DATATYPE_FLT32)
@@ -839,8 +851,33 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
         ! These variables only make sense if the land-surface scheme is switched on.
         IF ( atm_phy_nwp_config(k_jg)%inwp_surface == 1 ) THEN
 
-          !        diag%albvisdif_t    (nproma, nblks, ntiles_total+ntiles_water),          &
-          cf_desc    = t_cf_var('albvisdif_t', '', 'tile-based surface albedo',   &
+          !        diag%albdif_t (nproma, nblks, ntiles_total+ntiles_water)
+          cf_desc    = t_cf_var('albdif_t', '', &
+            &                   'tile-based shortwave albedo for diffusive radiation',&
+            &                   DATATYPE_FLT32)
+          grib2_desc = t_grib2_var(0, 19, 1, ibits, GRID_REFERENCE, GRID_CELL)
+          CALL add_var( diag_list, 'albdif_t', diag%albdif_t,                &
+            & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,       &
+            & ldims=shape3dsubsw, lcontainer=.TRUE., lrestart=.FALSE.,       &
+            & loutput=.FALSE.)
+
+          ! fill the seperate variables belonging to the container albdif_t
+          ALLOCATE(diag%albdif_t_ptr(ntiles_total+ntiles_water))
+          DO jsfc = 1,ntiles_total+ntiles_water
+            WRITE(csfc,'(i1)') jsfc 
+            CALL add_ref( diag_list, 'albdif_t',                               &
+               & 'albdif_t_'//TRIM(ADJUSTL(csfc)),                             &
+               & diag%albdif_t_ptr(jsfc)%p_2d,                                 &
+               & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                           &
+               & t_cf_var('albdif_t_'//TRIM(csfc), '', '', DATATYPE_FLT32),    &
+               & t_grib2_var(192, 128, 243, ibits, GRID_REFERENCE, GRID_CELL), &
+               & ldims=shape2d, lrestart=.TRUE.                                )
+          ENDDO
+
+
+          !        diag%albvisdif_t (nproma, nblks, ntiles_total+ntiles_water)
+          cf_desc    = t_cf_var('albvisdif_t', '', &
+            &                   'tile-based UV visible albedo for diffusive radiation',&
             &                   DATATYPE_FLT32)
           grib2_desc = t_grib2_var(0, 19, 1, ibits, GRID_REFERENCE, GRID_CELL)
           CALL add_var( diag_list, 'albvisdif_t', diag%albvisdif_t,               &
@@ -860,6 +897,32 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
                & t_grib2_var(192, 128, 243, ibits, GRID_REFERENCE, GRID_CELL), &
                & ldims=shape2d, lrestart=.TRUE.                                )
           ENDDO
+
+
+          !        diag%albnirdif_t (nproma, nblks, ntiles_total+ntiles_water)
+          cf_desc    = t_cf_var('albnirdif_t', '', &
+            &                   'tile-based near IR albedo for diffuse radiation',&
+            &                   DATATYPE_FLT32)
+          grib2_desc = t_grib2_var(0, 19, 1, ibits, GRID_REFERENCE, GRID_CELL)
+          CALL add_var( diag_list, 'albnirdif_t', diag%albnirdif_t,               &
+            & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,            &
+            & ldims=shape3dsubsw, lcontainer=.TRUE., lrestart=.FALSE., &
+            & loutput=.FALSE.)
+
+          ! fill the seperate variables belonging to the container albnirdif_t
+          ALLOCATE(diag%albnirdif_t_ptr(ntiles_total+ntiles_water))
+          DO jsfc = 1,ntiles_total+ntiles_water
+            WRITE(csfc,'(i1)') jsfc 
+            CALL add_ref( diag_list, 'albnirdif_t',                            &
+               & 'albnirdif_t_'//TRIM(ADJUSTL(csfc)),                          &
+               & diag%albnirdif_t_ptr(jsfc)%p_2d,                              &
+               & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                           &
+               & t_cf_var('albnirdif_t_'//TRIM(csfc), '', '', DATATYPE_FLT32), &
+               & t_grib2_var(192, 128, 243, ibits, GRID_REFERENCE, GRID_CELL), &
+               & ldims=shape2d, lrestart=.TRUE.                                )
+          ENDDO
+
+
 
           ! &      diag%swflxsfc_t(nproma,nblks_c,ntiles_total+ntiles_water)
           cf_desc    = t_cf_var('sob_s_t', 'W m-2', 'tile-based shortwave net flux at surface', &

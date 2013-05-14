@@ -779,6 +779,7 @@ CONTAINS
     REAL(wp), ALLOCATABLE, TARGET:: zrg_albnirdir(:,:)
     REAL(wp), ALLOCATABLE, TARGET:: zrg_albvisdif(:,:)
     REAL(wp), ALLOCATABLE, TARGET:: zrg_albnirdif(:,:)
+    REAL(wp), ALLOCATABLE, TARGET:: zrg_albdif   (:,:)
     REAL(wp), ALLOCATABLE, TARGET:: zrg_tsfc     (:,:)
     REAL(wp), ALLOCATABLE, TARGET:: zrg_rtype    (:,:) ! type of convection (integer)
     INTEGER,  ALLOCATABLE, TARGET:: zrg_ktype    (:,:) ! type of convection (real)
@@ -807,7 +808,7 @@ CONTAINS
 
     ! Variables for debug output
     REAL(wp) :: max_albvisdir, min_albvisdir, max_albvisdif, min_albvisdif, &
-                max_tsfc, min_tsfc, max_psfc, min_psfc
+                max_albdif, min_albdif, max_tsfc, min_tsfc, max_psfc, min_psfc
 
     REAL(wp), DIMENSION(pt_patch%nlevp1) :: max_pres_ifc, max_pres, max_temp, max_acdnc, &
         max_qv, max_qc, max_qi, max_cc, min_pres_ifc, min_pres, min_temp, min_acdnc, &
@@ -896,6 +897,7 @@ CONTAINS
         zrg_albnirdir(nproma,nblks_par_c),             &
         zrg_albvisdif(nproma,nblks_par_c),             &
         zrg_albnirdif(nproma,nblks_par_c),             &
+        zrg_albdif   (nproma,nblks_par_c),             &
         zrg_tsfc     (nproma,nblks_par_c),             &
         zrg_rtype    (nproma,nblks_par_c),             &
         zrg_ktype    (nproma,nblks_par_c),             &
@@ -957,14 +959,14 @@ CONTAINS
         & nlev_rg, ext_data%atm%fr_land_smt, ext_data%atm%fr_glac_smt,  &
         & ext_data%atm%emis_rad,                                        &
         & prm_diag%cosmu0, albvisdir, albnirdir, prm_diag%albvisdif,    &
-        & prm_diag%albnirdif, prm_diag%tsfctrad, prm_diag%ktype,        &
-        & pt_diag%pres_ifc, pt_diag%pres, pt_diag%temp,prm_diag%acdnc,  &
-        & prm_diag%tot_cld, prm_diag%clc, ext_data%atm%o3(:,:,:),       &
-        & zaeq1, zaeq2, zaeq3, zaeq4, zaeq5,                            &
+        & prm_diag%albnirdif, prm_diag%albdif, prm_diag%tsfctrad,       &
+        & prm_diag%ktype, pt_diag%pres_ifc, pt_diag%pres,               &
+        & pt_diag%temp,prm_diag%acdnc, prm_diag%tot_cld, prm_diag%clc,  &
+        & ext_data%atm%o3(:,:,:), zaeq1, zaeq2, zaeq3, zaeq4, zaeq5,    &
         & zrg_fr_land, zrg_fr_glac, zrg_emis_rad,                       &
         & zrg_cosmu0, zrg_albvisdir, zrg_albnirdir, zrg_albvisdif,      &
-        & zrg_albnirdif, zrg_tsfc, zrg_rtype, zrg_pres_ifc, zrg_pres,   &
-        & zrg_temp, zrg_acdnc, zrg_tot_cld, zrg_clc, zrg_o3,            &
+        & zrg_albnirdif, zrg_albdif, zrg_tsfc, zrg_rtype, zrg_pres_ifc, &
+        & zrg_pres, zrg_temp, zrg_acdnc, zrg_tot_cld, zrg_clc, zrg_o3,  &
         & zrg_aeq1, zrg_aeq2, zrg_aeq3, zrg_aeq4, zrg_aeq5 )
 
 
@@ -1010,6 +1012,8 @@ CONTAINS
          min_albvisdir = MIN(min_albvisdir,MINVAL(zrg_albvisdir(i_startidx:i_endidx,jb)))
          max_albvisdif = MAX(max_albvisdif,MAXVAL(zrg_albvisdif(i_startidx:i_endidx,jb)))
          min_albvisdif = MIN(min_albvisdif,MINVAL(zrg_albvisdif(i_startidx:i_endidx,jb)))
+         max_albdif    = MAX(max_albdif,   MAXVAL(zrg_albdif(i_startidx:i_endidx,jb)))
+         min_albdif    = MIN(min_albdif,   MINVAL(zrg_albdif(i_startidx:i_endidx,jb)))
          max_tsfc = MAX(max_tsfc,MAXVAL(zrg_tsfc(i_startidx:i_endidx,jb)))
          min_tsfc = MIN(min_tsfc,MINVAL(zrg_tsfc(i_startidx:i_endidx,jb)))
          max_psfc = MAX(max_psfc,MAXVAL(zrg_pres_ifc(i_startidx:i_endidx,nlev_rg+1,jb)))
@@ -1112,6 +1116,7 @@ CONTAINS
           zrg_albnirdir (1:i_startidx-1,jb) = zrg_albnirdir (i_startidx,jb)
           zrg_albvisdif (1:i_startidx-1,jb) = zrg_albvisdif (i_startidx,jb)
           zrg_albnirdif (1:i_startidx-1,jb) = zrg_albnirdif (i_startidx,jb)
+          zrg_albdif    (1:i_startidx-1,jb) = zrg_albdif    (i_startidx,jb)
           zrg_tsfc      (1:i_startidx-1,jb) = zrg_tsfc      (i_startidx,jb)
           zrg_rtype     (1:i_startidx-1,jb) = zrg_rtype     (i_startidx,jb)
           zrg_pres_ifc (1:i_startidx-1,nlev_rg+1,jb) = zrg_pres_ifc (i_startidx,nlev_rg+1,jb)
@@ -1193,14 +1198,15 @@ CONTAINS
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
+
       CALL downscale_rad_output(pt_patch%id, pt_par_patch%id,                             &
         &  nlev_rg, zrg_aclcov, zrg_lwflxclr, zrg_lwflxall, zrg_trsolclr,                 &
-        & zrg_trsolall, zrg_tsfc, zrg_albvisdif, zrg_emis_rad, zrg_cosmu0, zrg_tot_cld,   &
-        & zrg_pres_ifc, prm_diag%tsfctrad, prm_diag%albvisdif, aclcov,                    &
+        & zrg_trsolall, zrg_tsfc, zrg_albdif, zrg_emis_rad, zrg_cosmu0, zrg_tot_cld,      &
+        & zrg_pres_ifc, prm_diag%tsfctrad, prm_diag%albdif, aclcov,                       &
         & prm_diag%lwflxclr, prm_diag%lwflxall, prm_diag%trsolclr, prm_diag%trsolall )
 
       DEALLOCATE (zrg_cosmu0, zrg_albvisdir, zrg_albnirdir, zrg_albvisdif, zrg_albnirdif, &
-        zrg_tsfc, zrg_pres_ifc, zrg_pres, zrg_temp, zrg_o3, zrg_ktype,                    &
+        zrg_albdif, zrg_tsfc, zrg_pres_ifc, zrg_pres, zrg_temp, zrg_o3, zrg_ktype,        &
         zrg_aeq1,zrg_aeq2,zrg_aeq3,zrg_aeq4,zrg_aeq5, zrg_acdnc, zrg_tot_cld, zrg_clc,    &
         zrg_aclcov, zrg_lwflxclr, zrg_lwflxall, zrg_trsolclr, zrg_trsolall,               &
         zrg_fr_land,zrg_fr_glac,zrg_emis_rad)

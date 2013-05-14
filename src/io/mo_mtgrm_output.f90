@@ -525,8 +525,8 @@ CONTAINS
       &              jg, prm_diag%swflxsfc(:,:))
     CALL add_sfc_var(VAR_GROUP_SURFACE,  "THBS", "W m-2", "longwave net flux at surface", &
       &              jg, prm_diag%lwflxsfc(:,:))
-    CALL add_sfc_var(VAR_GROUP_SURFACE,  "ALB", "-", "surface albedo for visible range, diffuse", &
-      &              jg, prm_diag%albvisdif(:,:))
+    CALL add_sfc_var(VAR_GROUP_SURFACE,  "ALB", "-", "surface shortwave albedo, diffuse", &
+      &              jg, prm_diag%albdif(:,:))
     CALL add_sfc_var(VAR_GROUP_SURFACE,  "RAIN_GSP", "kg/m2", &
       &              "accumulated grid-scale surface rain",   &
       &              jg, prm_diag%rain_gsp(:,:))
