@@ -3419,7 +3419,7 @@ CONTAINS
       p_onl => output_file(i)%name_list
 
       ! Check if output is due for this file
-      IF (is_output_file_active(output_file(i), sim_time, dtime, i_sample, last_step)) THEN
+      IF (is_output_file_active(output_file(i), sim_time, dtime, i_sample, last_step, is_restart=is_restart_run())) THEN
 
         IF (output_file(i)%io_proc_id == p_pe) THEN
           IF (.NOT. output_file(i)%initialized) THEN
@@ -3453,7 +3453,7 @@ CONTAINS
     DO i = 1, SIZE(output_file)
 
       ! Check if output is due for this file
-      IF (is_output_file_active(output_file(i), sim_time, dtime, i_sample, last_step)) THEN
+      IF (is_output_file_active(output_file(i), sim_time, dtime, i_sample, last_step, is_restart=is_restart_run())) THEN
         IF (output_file(i)%io_proc_id == p_pe) THEN
           CALL taxisDefVdate(output_file(i)%cdiTaxisID, idate)
           CALL taxisDefVtime(output_file(i)%cdiTaxisID, itime)
@@ -3497,7 +3497,8 @@ CONTAINS
     DO
       IF(.NOT.ASSOCIATED(p_onl)) EXIT
 
-      IF (is_output_nml_active(p_onl, sim_time, dtime, i_sample, last_step)) THEN
+      IF (is_output_nml_active(p_onl, sim_time, dtime, i_sample, last_step, is_restart=is_restart_run())) THEN
+        write(0,*)'A'
         p_onl%n_output_steps = p_onl%n_output_steps + 1
       ENDIF
 
@@ -3506,7 +3507,8 @@ CONTAINS
       ! where an output increment less than the time step
       ! or two output_bounds triples which are too close are specified.
 
-      DO WHILE (is_output_nml_active(p_onl, sim_time, dtime, i_sample))
+      DO WHILE (is_output_nml_active(p_onl, sim_time, dtime, i_sample,is_restart=is_restart_run()))
+        write(0,*)'B'
         n = p_onl%cur_bounds_triple
         IF(p_onl%next_output_time + p_onl%output_bounds(3,n) <= p_onl%output_bounds(2,n)+eps) THEN
           ! Next output time will be within current bounds triple
@@ -3975,7 +3977,7 @@ CONTAINS
     DO
       IF(.NOT.ASSOCIATED(p_onl)) EXIT
       IF (retval) EXIT
-      retval = is_output_nml_active(p_onl, sim_time, dtime, i_sample)
+      retval = is_output_nml_active(p_onl, sim_time, dtime, i_sample,is_restart=is_restart_run())
       p_onl => p_onl%next
     ENDDO
 

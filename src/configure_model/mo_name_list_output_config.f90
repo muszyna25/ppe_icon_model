@@ -53,6 +53,7 @@ MODULE mo_name_list_output_config
   USE mo_cdi_constants,         ONLY: FILETYPE_GRB, FILETYPE_GRB2
   USE mo_var_metadata,          ONLY: t_var_metadata
   USE mo_util_string,           ONLY: toupper
+  USE mo_master_control,        ONLY: is_restart_run
 
   IMPLICIT NONE
 
@@ -245,17 +246,19 @@ CONTAINS
   !>
   !! @return .TRUE. if output is due for a given namelist
   FUNCTION is_output_nml_active(p_onl, sim_time, dtime, &
-    &                           iadv_rcf, last_step, var_name) RESULT(retval)
+    &                           iadv_rcf, last_step, is_restart, var_name) RESULT(retval)
     LOGICAL                           :: retval
 
-    TYPE(t_output_name_list), POINTER     :: p_onl      !< output name list
+    TYPE(t_output_name_list), POINTER         :: p_onl      !< output name list
     REAL(wp),            INTENT(IN), OPTIONAL :: sim_time   !< elapsed simulation time
-    REAL(wp),            INTENT(IN)       :: dtime      !< [s] length of a time step
-    INTEGER,             INTENT(IN)       :: iadv_rcf   !< calling freq. of adv., phys.
-    LOGICAL,             INTENT(IN), OPTIONAL  :: last_step
+    REAL(wp),            INTENT(IN)           :: dtime      !< [s] length of a time step
+    INTEGER,             INTENT(IN)           :: iadv_rcf   !< calling freq. of adv., phys.
+    LOGICAL,             INTENT(IN), OPTIONAL :: last_step
+    LOGICAL,             INTENT(IN), OPTIONAL :: is_restart
     CHARACTER(LEN=*),    INTENT(IN), OPTIONAL :: var_name   !< variable name
     ! local variables
     INTEGER :: ivar
+!    LOGICAL :: a
     
     IF (PRESENT(last_step)) THEN
       retval = (p_onl%include_last .AND. last_step)
@@ -267,6 +270,12 @@ CONTAINS
       retval = retval .OR.  &
         &      ( p_onl%next_output_time <= sim_time+REAL(iadv_rcf,wp)*dtime/2._wp )
     END IF
+
+    ! do nothing on the first timestep during a restart
+    IF (PRESENT(is_restart)) THEN
+      IF (is_first_timestep_during_restart(is_restart,p_onl%next_output_time)) retval = .FALSE.
+    ENDIF
+    write(0,*)'is_output_nml_active:',retval
 
     ! if a specific variable name has been provided, loop over the
     ! variables for this output file
@@ -301,7 +310,7 @@ CONTAINS
   !>
   !! @return .TRUE. if output is due for a given namelist
   FUNCTION is_any_output_nml_active(first_output_name_list, sim_time, dtime, &
-    &                               iadv_rcf, last_step, var_name) RESULT(retval)
+    &                               iadv_rcf, last_step, is_restart, var_name) RESULT(retval)
     LOGICAL                           :: retval
 
     TYPE(t_output_name_list), POINTER          :: first_output_name_list   !< head output namelist list
@@ -309,6 +318,7 @@ CONTAINS
     REAL(wp),            INTENT(IN)            :: dtime      !< [s] length of a time step
     INTEGER,             INTENT(IN)            :: iadv_rcf   !< calling freq. of adv., phys.
     LOGICAL,             INTENT(IN), OPTIONAL  :: last_step
+    LOGICAL,             INTENT(IN), OPTIONAL  :: is_restart
     CHARACTER(LEN=*),    INTENT(IN), OPTIONAL  :: var_name   !< variable name
     ! local variables
     TYPE (t_output_name_list), POINTER :: p_onl
@@ -320,7 +330,7 @@ CONTAINS
       IF(.NOT.ASSOCIATED(p_onl)) EXIT
       IF (retval) EXIT
       retval = is_output_nml_active(p_onl, sim_time, dtime, &
-        &                           iadv_rcf, last_step, var_name)
+        &                           iadv_rcf, last_step, is_restart, var_name=var_name)
       p_onl => p_onl%next
     END DO
 
@@ -332,8 +342,9 @@ CONTAINS
   !! @return .TRUE. if output is due for a given file
   !!         (and, optionally, a given logical domain ID and/or a variable name)
   !! @author  F. Prill, DWD
-  FUNCTION is_output_file_active(of, sim_time, dtime, &
-    &                            iadv_rcf, last_step, idom, var_name) RESULT(retval)
+  FUNCTION is_output_file_active(of, sim_time, dtime,             &
+    &                            iadv_rcf, last_step, is_restart, &
+    &                            idom, var_name) RESULT(retval)
     LOGICAL                           :: retval
 
     TYPE(t_output_file), INTENT(IN), TARGET   :: of         !< output file
@@ -341,6 +352,7 @@ CONTAINS
     REAL(wp),            INTENT(IN)           :: dtime      !< [s] length of a time step
     INTEGER,             INTENT(IN)           :: iadv_rcf   !< calling freq. of adv., phys.
     LOGICAL,             INTENT(IN), OPTIONAL :: last_step
+    LOGICAL,             INTENT(IN), OPTIONAL :: is_restart
     INTEGER,             INTENT(IN), OPTIONAL :: idom       !< logical domain index 
     CHARACTER(LEN=*),    INTENT(IN), OPTIONAL :: var_name   !< variable name
 
@@ -358,7 +370,7 @@ CONTAINS
     ! check if output file is active
     IF (PRESENT(sim_time)) THEN
       retval = retval .AND. &
-        &      is_output_nml_active(of%name_list, sim_time, dtime, iadv_rcf, last_step)
+        &      is_output_nml_active(of%name_list, sim_time, dtime, iadv_rcf, last_step,is_restart)
     END IF
     
     ! if a specific variable name has been provided, loop over the
@@ -376,6 +388,11 @@ CONTAINS
       IF (sim_time < of%start_time .OR. sim_time > of%end_time) retval = .FALSE.
     END IF
 
+    !skip the initial state during a restarted run
+    IF (PRESENT(is_restart)) THEN
+      IF (is_first_timestep_during_restart(is_restart,of%name_list%next_output_time)) retval = .FALSE.
+    ENDIF
+
   END FUNCTION is_output_file_active
 
 
@@ -384,7 +401,7 @@ CONTAINS
   !! @return .TRUE. if output is due for any output file
   !! @author  F. Prill, DWD
   FUNCTION is_any_output_file_active(of_list, sim_time, dtime, &
-    &                                iadv_rcf, last_step, idom, var_name) RESULT(retval)
+    &                                iadv_rcf, last_step, is_restart, idom, var_name) RESULT(retval)
     LOGICAL  :: retval
 
     TYPE(t_output_file), TARGET               :: of_list(:) !< list of output files
@@ -392,6 +409,7 @@ CONTAINS
     REAL(wp),            INTENT(IN)           :: dtime      !< [s] length of a time step
     INTEGER,             INTENT(IN)           :: iadv_rcf   !< calling freq. of adv., phys.
     LOGICAL,             INTENT(IN), OPTIONAL :: last_step
+    LOGICAL,             INTENT(IN), OPTIONAL :: is_restart
     INTEGER,             INTENT(IN), OPTIONAL :: idom       !< logical domain index 
     CHARACTER(LEN=*),    INTENT(IN), OPTIONAL :: var_name   !< variable name
 
@@ -401,7 +419,7 @@ CONTAINS
     DO i = 1, SIZE(of_list)
       IF (retval) EXIT
       retval = is_output_file_active(of_list(i), sim_time, dtime, &
-        &                            iadv_rcf, last_step, idom, var_name)
+        &                            iadv_rcf, last_step, is_restart, idom=idom, var_name=var_name)
       
     END DO ! iv
   END FUNCTION is_any_output_file_active
@@ -454,5 +472,21 @@ CONTAINS
     ! add new element to array
     p_of%var_desc(p_of%num_vars) = var_desc
   END SUBROUTINE add_var_desc
+
+  ! to get the initial setup written out to the def. output file, the first
+  ! values of output bounds is set to zero. to avoid this feature in a restart
+  ! run is the purpose of this function
+  FUNCTION is_first_timestep_during_restart(is_restart, next_output_time) RESULT(retval)
+    LOGICAL :: retval
+
+    LOGICAL,  INTENT(IN) :: is_restart
+    REAL(wp), INTENT(IN) :: next_output_time
+
+    retval = .FALSE.
+    retval = (is_restart .AND. (ABS(next_output_time) < 0.05_wp))
+write(0,*)'is_first_timestep_during_restart: is_restart:',is_restart
+write(0,*)'is_first_timestep_during_restart: ABS(next_output_time):',ABS(next_output_time)
+write(0,*)'is_first_timestep_during_restart:',retval
+  END FUNCTION is_first_timestep_during_restart
 
 END MODULE mo_name_list_output_config
