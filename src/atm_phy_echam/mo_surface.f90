@@ -139,18 +139,18 @@ CONTAINS
     REAL(wp),INTENT(INOUT) :: pqsat_tile(kbdim,ksfc_type)
     REAL(wp),INTENT(INOUT) :: ptsfc_tile (kbdim,ksfc_type)
 
-    REAL(wp),INTENT(OUT)   :: pu_stress_gbm (kbdim)
-    REAL(wp),INTENT(OUT)   :: pv_stress_gbm (kbdim)
-    REAL(wp),INTENT(OUT)   ::    plhflx_gbm (kbdim)
-    REAL(wp),INTENT(OUT)   ::    pshflx_gbm (kbdim)
-    REAL(wp),INTENT(OUT)   ::     pevap_gbm (kbdim)
+    REAL(wp),INTENT(INOUT)   :: pu_stress_gbm (kbdim)              ! OUT
+    REAL(wp),INTENT(INOUT)   :: pv_stress_gbm (kbdim)              ! OUT
+    REAL(wp),INTENT(INOUT)   ::    plhflx_gbm (kbdim)              ! OUT
+    REAL(wp),INTENT(INOUT)   ::    pshflx_gbm (kbdim)              ! OUT
+    REAL(wp),INTENT(INOUT)   ::     pevap_gbm (kbdim)              ! OUT
 
-    REAL(wp),INTENT(OUT)   :: pu_stress_tile (kbdim,ksfc_type)
-    REAL(wp),INTENT(OUT)   :: pv_stress_tile (kbdim,ksfc_type)
-    REAL(wp),INTENT(OUT)   ::    plhflx_tile (kbdim,ksfc_type)
-    REAL(wp),INTENT(OUT)   ::    pshflx_tile (kbdim,ksfc_type)
-    REAL(wp),INTENT(OUT)   :: dshflx_dT_tile (kbdim,ksfc_type)
-    REAL(wp),INTENT(OUT)   ::     pevap_tile (kbdim,ksfc_type)
+    REAL(wp),INTENT(INOUT)   :: pu_stress_tile (kbdim,ksfc_type)   ! OUT
+    REAL(wp),INTENT(INOUT)   :: pv_stress_tile (kbdim,ksfc_type)   ! OUT
+    REAL(wp),INTENT(INOUT)   ::    plhflx_tile (kbdim,ksfc_type)   ! OUT
+    REAL(wp),INTENT(INOUT)   ::    pshflx_tile (kbdim,ksfc_type)   ! OUT
+    REAL(wp),INTENT(INOUT)   :: dshflx_dT_tile (kbdim,ksfc_type)   ! OUT
+    REAL(wp),INTENT(INOUT)   ::     pevap_tile (kbdim,ksfc_type)   ! OUT
 
     !! JSBACH input
     INTEGER, OPTIONAL,INTENT(IN) :: nblock
@@ -178,8 +178,8 @@ CONTAINS
     REAL(wp),OPTIONAL,INTENT(INOUT)   :: albnirdir(kbdim)
     REAL(wp),OPTIONAL,INTENT(INOUT)   :: albvisdif(kbdim)
     REAL(wp),OPTIONAL,INTENT(INOUT)   :: albnirdif(kbdim)
-    REAL(wp),OPTIONAL,INTENT(OUT)   :: surface_temperature_rad(kbdim)
-    REAL(wp),OPTIONAL,INTENT(OUT)   :: surface_temperature_eff(kbdim)
+    REAL(wp),OPTIONAL,INTENT(OUT)   :: surface_temperature_rad(kbdim) ! OUT
+    REAL(wp),OPTIONAL,INTENT(OUT)   :: surface_temperature_eff(kbdim) ! OUT
     !! Sea ice
     INTEGER,          INTENT(IN)    :: kice ! Number of ice thickness classes
     REAL(wp),OPTIONAL,INTENT(INOUT) :: Tsurf(kbdim,kice)
@@ -187,8 +187,8 @@ CONTAINS
     REAL(wp),OPTIONAL,INTENT(INOUT) :: T2   (kbdim,kice)
     REAL(wp),OPTIONAL,INTENT(INOUT) :: hi   (kbdim,kice)
     REAL(wp),OPTIONAL,INTENT(INOUT) :: hs   (kbdim,kice)
-    REAL(wp),OPTIONAL,INTENT(OUT)   :: Qtop (kbdim,kice)
-    REAL(wp),OPTIONAL,INTENT(OUT)   :: Qbot (kbdim,kice)
+    REAL(wp),OPTIONAL,INTENT(INOUT) :: Qtop (kbdim,kice) ! OUT
+    REAL(wp),OPTIONAL,INTENT(INOUT) :: Qbot (kbdim,kice) ! OUT
     REAL(wp),OPTIONAL,INTENT(IN)    :: conc (kbdim,kice)
     REAL(wp),OPTIONAL,INTENT(INOUT) :: albvisdir_ice(kbdim,kice)
     REAL(wp),OPTIONAL,INTENT(INOUT) :: albvisdif_ice(kbdim,kice)
@@ -198,8 +198,8 @@ CONTAINS
     REAL(wp),OPTIONAL,INTENT(INOUT) :: albvisdif_wtr(kbdim)
     REAL(wp),OPTIONAL,INTENT(INOUT) :: albnirdir_wtr(kbdim)
     REAL(wp),OPTIONAL,INTENT(INOUT) :: albnirdif_wtr(kbdim)
-    REAL(wp),OPTIONAL,INTENT(OUT)   :: pswflx_wtr(kbdim)
-    REAL(wp),OPTIONAL,INTENT(OUT)   :: plwflx_wtr(kbdim)
+    REAL(wp),OPTIONAL,INTENT(INOUT) :: pswflx_wtr(kbdim) ! OUT
+    REAL(wp),OPTIONAL,INTENT(INOUT) :: plwflx_wtr(kbdim) ! OUT
 
 ! locals
 
@@ -462,30 +462,46 @@ CONTAINS
 ! Net shortwave on all bands. 0.25*ptrsolall to be replaced by field%vissfc, etc.
 ! We need to divide with the box albedo because there are no tiles yet
 ! Net longwave - we don't have tiles yet
-      LWin(:) = pemterall
+      LWin(1:kproma) = pemterall(1:kproma)
       DO jsfc=1,nsfc_type
-        LWin(:) = LWin(:) + zemiss_def*stbo*pfrc(:,jsfc)*ptsfc_tile(:,jsfc)**4
+        LWin(1:kproma) = LWin(1:kproma) + zemiss_def * stbo * &
+          & pfrc(1:kproma,jsfc) * ptsfc_tile(1:kproma,jsfc)**4
       ENDDO
 ! First all ice classes
       DO k=1,kice
-        swflx_ice(:,k) = &
-          &       0.28_wp*ptrsolall/(1._wp-albvisdir)*(1._wp-albvisdir_ice(:,k)) + &
-          &       0.24_wp*ptrsolall/(1._wp-albvisdif)*(1._wp-albvisdif_ice(:,k)) + &
-          &       0.31_wp*ptrsolall/(1._wp-albnirdir)*(1._wp-albnirdir_ice(:,k)) + &
-          &       0.17_wp*ptrsolall/(1._wp-albnirdif)*(1._wp-albnirdif_ice(:,k))
-        nonsolar_ice(:,k) = LWin-zemiss_def*stbo*(Tsurf(:,k)+tmelt)**4 &
-          &     + plhflx_tile(:,idx_ice) + pshflx_tile(:,idx_ice)
-        dnonsolardT(:,k) = -4._wp*zemiss_def*stbo*(Tsurf(:,k)+tmelt)**3
+!        swflx_ice(1:kproma,k) = &
+!          &   0.28_wp * ptrsolall(1:kproma) / (1._wp-albvisdir(1:kproma)) * (1._wp-albvisdir_ice(1:kproma,k)) + &
+!          &   0.24_wp * ptrsolall(1:kproma) / (1._wp-albvisdif(1:kproma)) * (1._wp-albvisdif_ice(1:kproma,k)) + &
+!          &   0.31_wp * ptrsolall(1:kproma) / (1._wp-albnirdir(1:kproma)) * (1._wp-albnirdir_ice(1:kproma,k)) + &
+!          &   0.17_wp * ptrsolall(1:kproma) / (1._wp-albnirdif(1:kproma)) * (1._wp-albnirdif_ice(1:kproma,k))
+        swflx_ice(1:kproma,k) = ptrsolall(1:kproma) * (                                   &
+          &   0.28_wp / (1._wp-albvisdir(1:kproma)) * (1._wp-albvisdir_ice(1:kproma,k)) + &
+          &   0.24_wp / (1._wp-albvisdif(1:kproma)) * (1._wp-albvisdif_ice(1:kproma,k)) + &
+          &   0.31_wp / (1._wp-albnirdir(1:kproma)) * (1._wp-albnirdir_ice(1:kproma,k)) + &
+          &   0.17_wp / (1._wp-albnirdif(1:kproma)) * (1._wp-albnirdif_ice(1:kproma,k)) )
+
+        nonsolar_ice(1:kproma,k) = LWin(1:kproma) - zemiss_def * stbo * (Tsurf(1:kproma,k)+tmelt)**4 &
+          &     + plhflx_tile(1:kproma,idx_ice) + pshflx_tile(1:kproma,idx_ice)
+
+        dnonsolardT(1:kproma,k) = -4._wp * zemiss_def * stbo * (Tsurf(1:kproma,k)+tmelt)**3
+
       ENDDO
 ! Then open water
       IF ( PRESENT(plwflx_wtr) ) &
-        &       plwflx_wtr(:) = LWin-zemiss_def*stbo*ptsfc_tile(1:kproma,idx_wtr)**4
+        &       plwflx_wtr(1:kproma) = LWin(1:kproma) - zemiss_def * stbo * ptsfc_tile(1:kproma,idx_wtr)**4
+
       IF ( PRESENT(pswflx_wtr) ) &
-        &       pswflx_wtr(:) = &
-        &        0.28_wp*ptrsolall/(1._wp-albvisdir)*(1._wp-albvisdir_wtr) + &
-        &        0.24_wp*ptrsolall/(1._wp-albvisdif)*(1._wp-albvisdif_wtr) + &
-        &        0.31_wp*ptrsolall/(1._wp-albnirdir)*(1._wp-albnirdir_wtr) + &
-        &        0.17_wp*ptrsolall/(1._wp-albnirdif)*(1._wp-albnirdif_wtr)
+        &       pswflx_wtr(1:kproma) = ptrsolall(1:kproma) * (                         &
+        &        0.28_wp / (1._wp-albvisdir(1:kproma)) * (1._wp-albvisdir_wtr(1:kproma)) + &
+        &        0.24_wp / (1._wp-albvisdif(1:kproma)) * (1._wp-albvisdif_wtr(1:kproma)) + &
+        &        0.31_wp / (1._wp-albnirdir(1:kproma)) * (1._wp-albnirdir_wtr(1:kproma)) + &
+        &        0.17_wp / (1._wp-albnirdif(1:kproma)) * (1._wp-albnirdif_wtr(1:kproma)) )
+
+!        &       pswflx_wtr(1:kproma) = &
+!        &        0.28_wp*ptrsolall(1:kproma)/(1._wp-albvisdir(1:kproma))*(1._wp-albvisdir_wtr(1:kproma)) + &
+!        &        0.24_wp*ptrsolall(1:kproma)/(1._wp-albvisdif(1:kproma))*(1._wp-albvisdif_wtr(1:kproma)) + &
+!        &        0.31_wp*ptrsolall(1:kproma)/(1._wp-albnirdir(1:kproma))*(1._wp-albnirdir_wtr(1:kproma)) + &
+!        &        0.17_wp*ptrsolall(1:kproma)/(1._wp-albnirdif(1:kproma))*(1._wp-albnirdif_wtr(1:kproma))
 
       CALL ice_fast(1, kproma, kbdim, kice, pdtime, &
         &   Tsurf,              &
@@ -505,10 +521,10 @@ CONTAINS
         &   albnirdif_ice )
 
 ! Albedo model for the ocean
-      albvisdir_wtr = albedoW
-      albvisdif_wtr = albedoW
-      albnirdir_wtr = albedoW
-      albnirdif_wtr = albedoW
+      albvisdir_wtr(1:kproma) = albedoW
+      albvisdif_wtr(1:kproma) = albedoW
+      albnirdir_wtr(1:kproma) = albedoW
+      albnirdif_wtr(1:kproma) = albedoW
 
 ! Let it snow and melt and grow
 !      DO k=1,kice
@@ -524,20 +540,36 @@ CONTAINS
 !      hi(:,:) = max( hi(:,:), 0._wp )
 ! Average the albedo.
       IF ( idx_lnd <= nsfc_type ) THEN
-        WHERE ( pfrc(:,idx_lnd) < 1 )
-          albvisdir = pfrc(:,idx_wtr)*albvisdir_wtr + SUM(conc(:,:)*albvisdir_ice(:,:), 2)
-          albvisdif = pfrc(:,idx_wtr)*albvisdif_wtr + SUM(conc(:,:)*albvisdif_ice(:,:), 2)
-          albnirdir = pfrc(:,idx_wtr)*albnirdir_wtr + SUM(conc(:,:)*albnirdir_ice(:,:), 2)
-          albnirdif = pfrc(:,idx_wtr)*albnirdif_wtr + SUM(conc(:,:)*albnirdif_ice(:,:), 2)
+
+        WHERE ( pfrc(1:kproma,idx_lnd) < 1 )
+          albvisdir(1:kproma) = pfrc(1:kproma,idx_wtr) * albvisdir_wtr(1:kproma) + &
+            & SUM( conc(1:kproma,:) * albvisdir_ice(1:kproma,:), 2 )
+          albvisdif(1:kproma) = pfrc(1:kproma,idx_wtr) * albvisdif_wtr(1:kproma) + &
+            & SUM( conc(1:kproma,:) * albvisdif_ice(1:kproma,:), 2 )
+          albnirdir(1:kproma) = pfrc(1:kproma,idx_wtr) * albnirdir_wtr(1:kproma) + &
+            & SUM( conc(1:kproma,:) * albnirdir_ice(1:kproma,:), 2 )
+          albnirdif(1:kproma) = pfrc(1:kproma,idx_wtr) * albnirdif_wtr(1:kproma) + &
+            & SUM( conc(1:kproma,:) * albnirdif_ice(1:kproma,:), 2 )
         ENDWHERE
+
       ELSE
-        albvisdir = pfrc(:,idx_wtr)*albvisdir_wtr + SUM(conc(:,:)*albvisdir_ice(:,:), 2)
-        albvisdif = pfrc(:,idx_wtr)*albvisdif_wtr + SUM(conc(:,:)*albvisdif_ice(:,:), 2)
-        albnirdir = pfrc(:,idx_wtr)*albnirdir_wtr + SUM(conc(:,:)*albnirdir_ice(:,:), 2)
-        albnirdif = pfrc(:,idx_wtr)*albnirdif_wtr + SUM(conc(:,:)*albnirdif_ice(:,:), 2)
+
+        albvisdir(1:kproma) = pfrc(1:kproma,idx_wtr) * albvisdir_wtr(1:kproma) + &
+          & SUM( conc(1:kproma,:) * albvisdir_ice(1:kproma,:), 2 )
+        albvisdif(1:kproma) = pfrc(1:kproma,idx_wtr) * albvisdif_wtr(1:kproma) + &
+          & SUM( conc(1:kproma,:) * albvisdif_ice(1:kproma,:), 2 )
+        albnirdir(1:kproma) = pfrc(1:kproma,idx_wtr) * albnirdir_wtr(1:kproma) + &
+          & SUM( conc(1:kproma,:) * albnirdir_ice(1:kproma,:), 2 )
+        albnirdif(1:kproma) = pfrc(1:kproma,idx_wtr) * albnirdif_wtr(1:kproma) + &
+          & SUM( conc(1:kproma,:) * albnirdif_ice(1:kproma,:), 2 )
+!        albvisdir(1:kproma) = pfrc(:,idx_wtr)*albvisdir_wtr + SUM(conc(:,:)*albvisdir_ice(:,:), 2)
+!        albvisdif(1:kproma) = pfrc(:,idx_wtr)*albvisdif_wtr + SUM(conc(:,:)*albvisdif_ice(:,:), 2)
+!        albnirdir(1:kproma) = pfrc(:,idx_wtr)*albnirdir_wtr + SUM(conc(:,:)*albnirdir_ice(:,:), 2)
+!        albnirdif(1:kproma) = pfrc(:,idx_wtr)*albnirdif_wtr + SUM(conc(:,:)*albnirdif_ice(:,:), 2)
+
       ENDIF
 ! Set the tile temperature
-      ptsfc_tile(:,idx_ice) = Tsurf(:,1) + tmelt
+      ptsfc_tile(1:kproma,idx_ice) = Tsurf(1:kproma,1) + tmelt
     ENDIF
     ENDIF ! TODO: ME .NOT. lamip (preliminary)
 

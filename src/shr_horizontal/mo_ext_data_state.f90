@@ -1295,7 +1295,7 @@ CONTAINS
       !--------------------------------
       IF ( albedo_type == 2) THEN
 
-        ! Shortwave broadband albedo for diffuse radiation (0.3 - 5.0 µm), snow-free
+        ! Shortwave broadband albedo for diffuse radiation (0.3 - 5.0 ï¿½m), snow-free
         !
         ! alb_dif    p_ext_atm%alb_dif(nproma,nblks_c,ntimes)
         cf_desc    = t_cf_var('Shortwave_albedo_diffuse', '-', &
@@ -1305,7 +1305,7 @@ CONTAINS
           &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
           &           ldims=shape3d_c, loutput=.TRUE.                            )
 
-        ! UV visible broadband albedo for diffuse radiation (0.3 - 0.7 µm)
+        ! UV visible broadband albedo for diffuse radiation (0.3 - 0.7 ï¿½m)
         !
         ! albuv_dif    p_ext_atm%albuv_dif(nproma,nblks_c,ntimes)
         cf_desc    = t_cf_var('UV_visible_albedo_diffuse', '-', &
@@ -1315,7 +1315,7 @@ CONTAINS
           &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
           &           ldims=shape3d_c, loutput=.TRUE.                             )
 
-        ! Near IR broadband albedo for diffuse radiation (0.7 - 5.0 µm)
+        ! Near IR broadband albedo for diffuse radiation (0.7 - 5.0 ï¿½m)
         !
         ! albni_dif    p_ext_atm%albni_dif(nproma,nblks_c,ntimes)
         cf_desc    = t_cf_var('Near_IR_albedo_diffuse', '-', &
@@ -1576,7 +1576,7 @@ CONTAINS
     !--------------------------------
     IF ( albedo_type == 2) THEN
 
-      ! (monthly)  Shortwave broadband albedo for diffuse radiation (0.3 - 5.0 µm), snow-free
+      ! (monthly)  Shortwave broadband albedo for diffuse radiation (0.3 - 5.0 ï¿½m), snow-free
       !
       ! alb_dif    p_ext_atm_td%alb_dif(nproma,nblks_c,ntimes)
       cf_desc    = t_cf_var('Shortwave_albedo_diffuse', '-', &
@@ -1587,7 +1587,7 @@ CONTAINS
         &           ldims=shape3d_c, loutput=.FALSE.,                           &
         &           isteptype=TSTEP_AVG )
 
-      ! (monthly)  UV visible broadband albedo for diffuse radiation (0.3 - 0.7 µm)
+      ! (monthly)  UV visible broadband albedo for diffuse radiation (0.3 - 0.7 ï¿½m)
       !
       ! albuv_dif    p_ext_atm_td%albuv_dif(nproma,nblks_c,ntimes)
       cf_desc    = t_cf_var('UV_visible_albedo_diffuse', '-', &
@@ -1598,7 +1598,7 @@ CONTAINS
         &           ldims=shape3d_c, loutput=.FALSE.,                           &
         &           isteptype=TSTEP_AVG )
 
-      ! (monthly)  Near IR broadband albedo for diffuse radiation (0.7 - 5.0 µm)
+      ! (monthly)  Near IR broadband albedo for diffuse radiation (0.7 - 5.0 ï¿½m)
       !
       ! albni_dif    p_ext_atm_td%albni_dif(nproma,nblks_c,ntimes)
       cf_desc    = t_cf_var('Near_IR_albedo_diffuse', '-', &
@@ -1696,6 +1696,7 @@ CONTAINS
 
     ! OMIP/NCEP or other flux forcing data on cell centers: 3, 5 or 12 variables, iforc_len data sets
     ! for type of forcing see mo_oce_bulk
+    idim_omip = 0
     IF (iforc_type == 1 ) idim_omip =  3    !  stress (x, y) and SST
     IF (iforc_type == 2 ) idim_omip = 13    !  OMIP type forcing
     IF (iforc_type == 3 ) idim_omip =  5    !  stress (x, y), SST, net heat and freshwater

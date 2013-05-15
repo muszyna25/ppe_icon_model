@@ -255,17 +255,17 @@ SUBROUTINE cloud (         kproma,   kbdim,    ktdia            &
   REAL(dp),INTENT(INOUT) :: pxtec(kbdim,klev)    ,pqtec(kbdim,klev)
   REAL(dp),INTENT(INOUT) :: pxvar(kbdim,klev)    ,pxskew(kbdim,klev)
 
-  REAL(dp),INTENT(OUT)   :: pxlvi(kbdim)         ,pxivi(kbdim)
+  REAL(dp),INTENT(INOUT) :: pxlvi(kbdim)         ,pxivi(kbdim)         ! OUT
   REAL(dp),INTENT(INOUT) :: paclc(kbdim,klev)
   REAL(dp),INTENT(IN)    :: pacdnc(kbdim,klev)
-  REAL(dp),INTENT(OUT)   :: prelhum(kbdim,klev)
-  REAL(dp),INTENT(OUT)   :: paclcov(kbdim)       , pqvi(kbdim)
+  REAL(dp),INTENT(INOUT) :: prelhum(kbdim,klev)                        ! OUT
+  REAL(dp),INTENT(INOUT) :: paclcov(kbdim)       , pqvi(kbdim)         ! OUT
 
   REAL(dp),INTENT(INOUT) :: ptte(kbdim,klev)     ,pqte(kbdim,klev)
   REAL(dp),INTENT(INOUT) :: pxlte(kbdim,klev)    ,pxite(kbdim,klev)
-  REAL(dp),INTENT(OUT)   :: ptte_prc(kbdim,klev) ,pqte_prc(kbdim,klev)
-  REAL(dp),INTENT(OUT)   :: pxlte_prc(kbdim,klev),pxite_prc(kbdim,klev)
-  REAL(dp),INTENT(OUT)   :: pssfl(kbdim)         ,prsfl(kbdim)
+  REAL(dp),INTENT(INOUT) :: ptte_prc(kbdim,klev) ,pqte_prc(kbdim,klev)  ! OUT
+  REAL(dp),INTENT(INOUT) :: pxlte_prc(kbdim,klev),pxite_prc(kbdim,klev) ! OUT
+  REAL(dp),INTENT(INOUT) :: pssfl(kbdim)         ,prsfl(kbdim)          ! OUT
 
 !---Included for in-cloud scavenging (Philip Stier, 28/03/01):----------
   INTEGER, INTENT(IN)    :: ktrac

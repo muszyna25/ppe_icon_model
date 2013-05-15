@@ -205,7 +205,7 @@ REAL(dp):: pten(kbdim,klev),        pqen(kbdim,klev),                  &
 REAL(dp),INTENT(OUT) :: pvom_cnv(kbdim,klev), pvol_cnv(kbdim,klev)
 REAL(dp),INTENT(OUT) :: ptte_cnv(kbdim,klev), pqte_cnv(kbdim,klev)
 REAL(dp),INTENT(OUT) :: pxtte_cnv(kbdim,klev,ktrac)
-REAL(dp),INTENT(OUT) :: prsfc(kbdim), pssfc(kbdim)
+REAL(dp),INTENT(INOUT) :: prsfc(kbdim), pssfc(kbdim)   !OUT
            
 REAL(dp):: ptu(kbdim,klev),         pqu(kbdim,klev),                   &
            plu(kbdim,klev),         plude(kbdim,klev),                 &

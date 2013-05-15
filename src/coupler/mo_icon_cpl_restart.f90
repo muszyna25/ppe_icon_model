@@ -430,6 +430,10 @@ CONTAINS
     ALLOCATE (global_field (fptr%global_size,field_shape(3)))
     ALLOCATE (local_field  (fptr%local_size, field_shape(3)))
 
+    global_field_id = -1
+    count = 0
+
+
 #ifndef CPL_WRITE_RAW_BINARY_RESTART
 
     IF ( ICON_local_rank == ICON_root ) THEN
@@ -502,20 +506,20 @@ CONTAINS
 
        CLOSE ( UNIT = rest_unit )
 
-    ENDIF
+      ! ids do not match, we have not found the correct field in the restart
+      IF ( global_field_id /= fptr%global_field_id ) THEN
+         IF ( debug_coupler_level > 0 ) THEN
+            WRITE ( cplout , '(a,2i8)' ) 'cpl_read_restart: ids do not match ', &
+                 &  global_field_id, fptr%global_field_id
+            RETURN
+         ENDIF
+      ENDIF
 
-    ! ids do not match, we have not found the correct field in the restart
-
-    IF ( global_field_id /= fptr%global_field_id ) THEN
-       IF ( debug_coupler_level > 0 ) THEN
-          WRITE ( cplout , '(a,2i8)' ) 'cpl_read_restart: ids do not match ', &
-               &  global_field_id, fptr%global_field_id 
-          RETURN
-       ENDIF
     ENDIF
 
 #endif
 
+    ! global_field_id and count is not defined without CPL_WRITE_RAW_BINARY_RESTART !
     bcast_buffer(1) = global_field_id
     bcast_buffer(2) = count
 

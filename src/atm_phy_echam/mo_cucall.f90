@@ -134,7 +134,7 @@ CONTAINS
     REAL(dp),INTENT(INOUT) :: pxtecl (kbdim,klev),  pxteci (kbdim,klev)
     REAL(dp),INTENT(INOUT) :: pxtecnl(kbdim,klev),  pxtecni(kbdim,klev)
 
-    REAL(dp),INTENT(OUT)   :: prsfc(kbdim),         pssfc(kbdim)
+    REAL(dp),INTENT(INOUT) :: prsfc(kbdim),         pssfc(kbdim)  ! OUT
     REAL(dp),INTENT(INOUT) :: ptopmax(kbdim)
     INTEGER, INTENT(INOUT) :: ktype(kbdim)
 
