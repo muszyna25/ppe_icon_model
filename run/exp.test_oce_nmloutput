@@ -85,14 +85,14 @@ iforc_len=365  # length of OMIP/NCEP dataset: 1 = annual; 12 = monthly data; 365
 #-----------------------------------------------------------------------------
 # global timing
 start_date="2001-01-01T00:00:00Z"
-  end_date="2001-02-03T00:00:00Z"
+  end_date="2001-01-01T12:00:00Z"
 #
 #-----------------------------------------------------------------------------
 # model timing
-nhours_data=240      # ocean model output interval hours [hours]
+nhours_data=6
 ndays_file=3750      # new output file generation interval [days]
-ndays_checkp=10000    # write restart file interval [days]
-ndays_restart=100
+ndays_checkp=1850    # write restart file interval [days]
+ndays_restart=1
 #
 #-----------------------------------------------------------------------------
 # calculate model timesteps using $ndays
@@ -136,14 +136,16 @@ cat > ${ocean_namelist} << EOF
  output      = 'nml'      ! We are still using the old output mechanism
  activate_sync_timers = .TRUE.
  write_timer_files  = .TRUE.
+ msg_timestamp = .TRUE.
 /
 &output_nml
   output_bounds    = ${dt_data},${dt_restart},${dt_data}   !start, end, increment
+! output_bounds    =          0,${dt_restart},${dt_data}   !start, end, increment
   steps_per_file   = ${steps_per_file}
   include_last     = .TRUE.
   output_grid      = .TRUE.
   output_filename  = "${EXPNAME}_nmlOuput"
-  ml_varlist       = 'h','rho','w','v','u','T_TL01','vt','vort','kin','div','grad','rhopot'
+  ml_varlist       = 'h'!,'rho','w','v','u','T_TL01','vt','vort','kin','div','grad','rhopot'
 /
 &dbg_index_nml
   idbg_mxmn=0                     ! initialize MIN/MAX  debug output
@@ -184,13 +186,13 @@ cat > ${ocean_namelist} << EOF
   !k_veloc_h          = 7.5E+4    ! [m2/s] constant horizontal viscosity coefficient for velocity
   HORZ_VELOC_DIFF_TYPE = 3       ! 3: calculate varying horizontal viscosity coefficient according to Munk criterion
   k_veloc_v          = 5.0E-5    ! [m/s]  vertical background viscosity coefficient for velocity
-  richardson_factor_veloc  = 2.0e-3 ! factor for vertical viscosity coefficient in PP scheme
+  richardson_veloc   = 2.0e-3    ! factor for vertical viscosity coefficient in PP scheme
   MAX_VERT_DIFF_VELOC= 1.0E-5    ! max vertical velocity viscosity for convection used in case of instability
   k_pot_temp_h       = 1.0E+3    ! [m2/s] constant horizontal diffusion coefficient for temperature
   k_pot_temp_v       = 1.0E-5    ! [m/s]  vertical background diffusion coefficient for temperature
   k_sal_h            = 1.0E+3    ! [m2/s] constant horizontal diffusion coefficient for salinity
   k_sal_v            = 1.0E-5    ! [m/s]  vertical background diffusion coefficient for salinity
-  richardson_factor_tracer = 2.0e-3 ! factor for vertical diffusion coefficient in PP scheme
+  richardson_tracer  = 2.0e-3    ! factor for vertical diffusion coefficient in PP scheme
   MAX_VERT_DIFF_TRAC = 0.1       ! max vertical tracer diffusion for convection used in case of instability
 /
 &ocean_forcing_and_init_nml
@@ -215,6 +217,7 @@ cat > ${ocean_namelist} << EOF
   dt_file       = ${dt_file}
   dt_checkpoint = ${dt_checkpoint}
   lkeep_in_sync = .TRUE.         ! sync after each timestep
+  lwrite_initial = .TRUE.
 /
 EOF
 
