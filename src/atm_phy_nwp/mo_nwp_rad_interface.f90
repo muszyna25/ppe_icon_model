@@ -44,7 +44,7 @@ MODULE mo_nwp_rad_interface
   USE mo_parallel_config,      ONLY: nproma, p_test_run, parallel_radiation_mode
 
   USE mo_run_config,           ONLY: msg_level, iqv, iqc, iqi
-  USE mo_impl_constants,       ONLY: max_char_length, min_rlcell_int, io3_ape!, min_rlcell 
+  USE mo_impl_constants,       ONLY: max_char_length, min_rlcell_int, io3_ape, MODIS 
   USE mo_impl_constants_grf,   ONLY: grf_bdywidth_c, grf_ovlparea_start_c
   USE mo_kind,                 ONLY: wp
   USE mo_loopindices,          ONLY: get_indices_c
@@ -65,7 +65,7 @@ MODULE mo_nwp_rad_interface
   USE mo_nwp_rrtm_interface,   ONLY: nwp_rrtm_radiation, &
    &  nwp_rrtm_radiation_reduced, nwp_rrtm_radiation_repartition, nwp_rrtm_ozon_aerosol
 !   USE mo_nwp_mpiomp_rrtm_interface, ONLY: nwp_omp_rrtm_interface
-  USE mo_albedo,               ONLY: sfc_albedo
+  USE mo_albedo,               ONLY: sfc_albedo, sfc_albedo_modis
 
   IMPLICIT NONE
 
@@ -124,14 +124,14 @@ MODULE mo_nwp_rad_interface
 
     ! Compute tile-based and aggregated surface-albedo
     !
-    IF ( albedo_type == 2 ) THEN
+    IF ( albedo_type == MODIS ) THEN
       ! MODIS albedo
-      CALL finish( TRIM(routine), 'Sorry, not yet implemented' )
-!      CALL sfc_albedo_modis(pt_patch, ext_data, lnd_prog, wtr_prog, lnd_diag, prm_diag)
+      CALL sfc_albedo_modis(pt_patch, ext_data, lnd_prog, wtr_prog, lnd_diag, prm_diag)
     ELSE
       ! albedo based on tabulated bare soil values
       CALL sfc_albedo(pt_patch, ext_data, lnd_prog, wtr_prog, lnd_diag, prm_diag)
     ENDIF
+
 
     IF (atm_phy_nwp_config(jg)%inwp_radiation == 1 ) THEN
        

@@ -107,7 +107,7 @@ MODULE mo_nh_stepping
     &                               iphysproc_short, itconv, itccov, itrad, &
     &                               itradheat, itsso, itsatad, itgwd, inwp, iecham, &
     &                               itupdate, itturb, itgscp, itsfc, min_rlcell_int, &
-                                    min_rledge_int, MODE_DWDANA
+                                    min_rledge_int, MODE_DWDANA, MODIS
   USE mo_divergent_modes,     ONLY: divergent_modes_5band
   USE mo_math_divrot,         ONLY: div, rot_vertex
   USE mo_solve_nonhydro,      ONLY: solve_nh
@@ -518,7 +518,7 @@ MODULE mo_nh_stepping
 
 
       ! Check if MODIS albedo needs to be updated
-      IF ( albedo_type == 2) THEN
+      IF ( albedo_type == MODIS) THEN
         ! Note that here only an update of the external parameter fields is 
         ! performed. The actual update happens in mo_albedo.
         DO jg = 1, n_dom

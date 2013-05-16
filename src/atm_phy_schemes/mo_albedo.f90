@@ -9,7 +9,7 @@
 !!
 !!
 !! @par Revision History
-!! Initial Revision by daniel Reinert, DWD (2012-03-19)
+!! Initial Revision by Daniel Reinert, DWD (2012-03-19)
 !! Moved to a central place from mo_nwp_rad_interface and 
 !! mo_nwp_rrtm_interface.
 !!
@@ -69,6 +69,7 @@ MODULE mo_albedo
   PRIVATE
 
   PUBLIC  :: sfc_albedo
+  PUBLIC  :: sfc_albedo_modis
 
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
@@ -79,8 +80,9 @@ CONTAINS
   !>
   !! Calculation of surface albedo
   !!
-  !! Calculation of surface albedo taking soil type, vegetation 
-  !! and snow/ice conditions into account
+  !! Calculation of surface albedo based on tabulated shortwave bare soil 
+  !! albedo data. In addition, soil type, vegetation and snow/ice conditions 
+  !! are taken into account
   !!
   !! @par Revision History
   !! Initial Revision by Thorsten Reinhardt, AGeoBw, Offenbach
@@ -411,7 +413,6 @@ CONTAINS
         ELSE ! aggregate fields over tiles
 
           prm_diag%albdif(i_startidx:i_endidx,jb)    = 0._wp
-          prm_diag%albnirdif(i_startidx:i_endidx,jb) = 0._wp
 
           DO jt = 1, ntiles_total+ntiles_water
             DO jc = i_startidx, i_endidx
@@ -495,6 +496,391 @@ CONTAINS
 
 
   END SUBROUTINE sfc_albedo
+
+
+
+  !>
+  !! Calculation of surface albedo based on MODIS data
+  !!
+  !! Calculation of surface albedo based on snow-free MODIS data. In addition, 
+  !! snow/ice conditions are taken into account. The snow-free MODIS albedo is updated 
+  !! on a daily basis.
+  !! We distinguish between
+  !! - shortwave broadband albedo  (diffuse, 0.3-5.0µm): albdif
+  !! - UV visible broadband albedo (diffuse, 0.3-0.7µm): albvisdif
+  !! - near IR broadband albedo    (diffuse, 0.7-5.0µm): albnirdif 
+  !!
+  !! albvisdif and albnirdif are exclusively used by the RRTM scheme
+  !!
+  !! land points (snow-free): MODIS albedo is used with separate values for visible and 
+  !!                          nera-IR spectral bands. No distinction for tiles
+  !! land points (snow covered): based on land-class specific tabulated values with
+  !!                             consideration of aging snow. No distinction between 
+  !!                             visible and near-IR spectral bands, yet
+  !! sea points: tabulated value. No distinction yet between visible and near-IR spectral 
+  !!             bands.
+  !! lake points: tabulated value. No distinction yet between visible and near-IR spectral 
+  !!              bands.
+  !! sea-ice points: based on an empirical formula taken from GME. No distinction yet 
+  !!                 between visible and near-IR spectral bands.
+  !!
+  !! Possible improvements:
+  !!=======================
+  !! snow-covered land points: separate values for visible and near-IR spectral bands.
+  !! sea-ice points: separate values for visible and near-IR spectral bands.
+  !! sea/lake points: separate values for direct and diffuse radiation (see IFS)
+  !!
+  !! Note that when using separate values for visible and near-IR spectral bands, the 
+  !! shortwave albedo albdif_t must be derived by spectral integration of the visible 
+  !! and near-IR albedo.                         
+  !! 
+  !! @par Revision History
+  !! Initial Revision by Daniel Reinert, DWD (2013-05-15)
+  !!
+  SUBROUTINE sfc_albedo_modis(pt_patch, ext_data, lnd_prog, wtr_prog, lnd_diag, prm_diag)
+
+    TYPE(t_patch),          INTENT(   in):: pt_patch  !< grid/patch info.
+
+    TYPE(t_external_data),  INTENT(   in):: ext_data  !< external data
+
+    TYPE(t_lnd_prog),       INTENT(   in):: lnd_prog  !< land prognostic state (new)
+
+    TYPE(t_wtr_prog),       INTENT(   in):: wtr_prog  !< water prognostic state (new)
+
+    TYPE(t_lnd_diag),       INTENT(   in):: lnd_diag  !< land diagnostic state
+
+    TYPE(t_nwp_phy_diag),   INTENT(inout):: prm_diag
+
+    ! Local scalars:
+    REAL(wp):: snow_frac               !< snow cover fraction
+    REAL(wp):: zsalb_snow              !< snow albedo (predictor)
+    REAL(wp):: zsnow_alb               !< snow albedo (corrector)
+
+    INTEGER :: jg                      !< patch ID
+    INTEGER :: jb, jc, ic, jt          !< loop indices
+    INTEGER :: rl_start, rl_end
+    INTEGER :: i_startblk, i_endblk    !> blocks
+    INTEGER :: i_startidx, i_endidx    !< slices
+    INTEGER :: i_nchdom                !< domain index
+    INTEGER :: ist
+    INTEGER :: ilu                     !< land cover class
+    INTEGER :: i_count_lnd             !< number of land points
+    INTEGER :: i_count_sea             !< number of sea points
+    INTEGER :: i_count_flk             !< number of lake points
+    INTEGER :: i_count_seaice          !< number of seaice points
+
+    !-----------------------------------------------------------------------
+
+    jg = pt_patch%id
+    i_nchdom  = MAX(1,pt_patch%n_childdom)
+
+    rl_start = grf_bdywidth_c+1
+    rl_end   = min_rlcell_int
+
+    i_startblk = pt_patch%cells%start_blk(rl_start,1)
+    i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
+
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,jt,jc,ic,i_startidx,i_endidx,ist,snow_frac,      &
+!$OMP            zsalb_snow,zsnow_alb,ilu,i_count_lnd,i_count_sea,   &
+!$OMP            i_count_flk,i_count_seaice) ICON_OMP_DEFAULT_SCHEDULE
+    DO jb = i_startblk, i_endblk
+
+
+      CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
+        &                 i_startidx, i_endidx, rl_start, rl_end)
+
+
+      !------------------------------------------------------------------------------
+      ! Calculation of land surface albedo based on MODIS input data
+      !------------------------------------------------------------------------------
+      
+      IF ( atm_phy_nwp_config(jg)%inwp_surface == 1 ) THEN
+
+
+        !
+        ! 1. Consider land points (may have tiles)
+        !
+        ! - loop over surface tiles
+        ! - note that different grid points may have different numbers 
+        !   of active tiles (1<=ntiles<=ntiles_total). Therefore each tile has a 
+        !   separate index list.
+        ! 
+        DO jt = 1, ntiles_total
+
+          i_count_lnd = ext_data%atm%gp_count_t(jb,jt)
+
+          IF (i_count_lnd == 0) CYCLE ! skip loop if the index list for the given tile is empty
+
+!CDIR NODEP,VOVERTAKE,VOB
+          DO ic = 1, i_count_lnd
+
+            jc = ext_data%atm%idx_lst_t(ic,jb,jt)
+
+
+            snow_frac= 0.0_wp
+
+            ! Consider effects of aging on solar snow albedo
+            !
+            zsalb_snow = csalb_snow_min + &
+              & lnd_diag%freshsnow_t(jc,jb,jt)*(csalb_snow_max-csalb_snow_min)
+
+            ! special treatment for forests and artificial surfaces
+            ! - aging of snow not considered
+            ! - instead, snow albedo is limited to land-class specific value
+
+            ! get land cover class
+            ilu = ext_data%atm%lc_class_t(jc,jb,jt) 
+            zsnow_alb = MIN(zsalb_snow, ABS(ext_data%atm%snowalb_lcc(ilu)))
+
+            ! snow cover fraction
+            IF (lnd_prog%w_snow_t(jc,jb,jt) > 0.0_wp) THEN
+              snow_frac = MIN(1.0_wp, lnd_prog%w_snow_t(jc,jb,jt) / cf_snow)
+            ENDIF
+
+            ! shortwave broadband surface albedo (white sky)
+            prm_diag%albdif_t(jc,jb,jt) = snow_frac * zsnow_alb  &
+              &                  + (1._wp - snow_frac)* ext_data%atm%alb_dif(jc,jb)
+
+            ! UV visible broadband surface albedo (white sky)
+            prm_diag%albvisdif_t(jc,jb,jt) = snow_frac * zsnow_alb  &
+              &                  + (1._wp - snow_frac)* ext_data%atm%albuv_dif(jc,jb)
+
+            ! near IR broadband surface albedo (white sky)
+            prm_diag%albnirdif_t(jc,jb,jt) = snow_frac * zsnow_alb  &
+              &                  + (1._wp - snow_frac)* ext_data%atm%albni_dif(jc,jb)
+
+          ENDDO  ! ic
+
+        ENDDO  !ntiles
+
+
+
+        ! Different treatment of water points with/without seaice model
+        !
+        IF ( (lseaice) ) THEN  ! seaice model switched on
+
+          !
+          ! 2a. Consider (open) sea points
+          !
+          ! - loop over sea points
+          !
+          i_count_sea = ext_data%atm%spw_count(jb)
+          jt = isub_water
+
+          DO ic = 1, i_count_sea
+            jc = ext_data%atm%idx_lst_spw(ic,jb)
+
+            ist = 9  ! sea water
+
+            prm_diag%albdif_t   (jc,jb,jt) = csalb(ist)
+            prm_diag%albvisdif_t(jc,jb,jt) = csalb(ist)
+            prm_diag%albnirdif_t(jc,jb,jt) = csalb(ist)
+          ENDDO
+
+
+
+          !
+          ! 3a. Consider lake points (no tiles)
+          !
+          ! - loop over lake points (same jt as water points)
+          !
+          i_count_flk = ext_data%atm%fp_count(jb)
+          jt = isub_lake
+
+          DO ic = 1, i_count_flk
+            jc = ext_data%atm%idx_lst_fp(ic,jb)
+
+            ist = 9  ! sea water
+
+            prm_diag%albdif_t   (jc,jb,jt) = csalb(ist)
+            prm_diag%albvisdif_t(jc,jb,jt) = csalb(ist)
+            prm_diag%albnirdif_t(jc,jb,jt) = csalb(ist)
+          ENDDO
+
+
+
+          !
+          ! 4. Consider sea-ice points
+          !
+          ! - loop over sea-ice points
+          !
+          i_count_seaice = ext_data%atm%spi_count(jb)
+          jt = isub_seaice
+
+          DO ic = 1, i_count_seaice
+            jc = ext_data%atm%idx_lst_spi(ic,jb)
+
+            ist = 10   ! seaice
+
+            ! In case the sea ice model is used, compute ice albedo for seaice 
+            ! points with an empirical formula taken from GME.
+            ! The ice albedo is the lower the warmer, and therefore wetter 
+            ! the ice is. Use ice temperature at time level nnew 
+            ! (2-time level scheme in sea ice model).
+            prm_diag%albdif_t(jc,jb,jt) = csalb(ist) * ( 1.0_wp - 0.3846_wp    &
+              &                         * EXP(-0.35_wp*(tmelt-wtr_prog%t_ice(jc,jb))))
+            ! gives alb_max = 0.70
+            !       alb_min = 0.43
+            ! compare with Mironov et. al (2012), Tellus
+            !       alb_max = 0.65
+            !       alb_min = 0.40
+
+            prm_diag%albvisdif_t(jc,jb,jt) = prm_diag%albdif_t(jc,jb,jt)
+            prm_diag%albnirdif_t(jc,jb,jt) = prm_diag%albdif_t(jc,jb,jt)
+          ENDDO
+
+
+        ELSE   ! no seaice model
+
+          !
+          ! 2b. Consider sea points
+          !
+          ! - loop over sea points (includes sea-ice points)
+          !
+          i_count_sea = ext_data%atm%spw_count(jb)
+          jt = isub_water
+
+          DO ic = 1, i_count_sea
+            jc = ext_data%atm%idx_lst_spw(ic,jb)
+
+            ! special handling of sea ice points
+            IF (lnd_prog%t_g_t(jc,jb,isub_water) < tf_salt) THEN 
+              ist = 10  ! sea ice
+            ELSE
+              ist = ext_data%atm%soiltyp(jc,jb)
+            ENDIF
+
+            prm_diag%albdif_t   (jc,jb,jt) = csalb(ist)
+            prm_diag%albvisdif_t(jc,jb,jt) = csalb(ist)
+            prm_diag%albnirdif_t(jc,jb,jt) = csalb(ist)
+          ENDDO
+
+
+
+          !
+          ! 3b. Consider lake points (no tiles)
+          !
+          ! - loop over lake points
+          !
+          i_count_flk = ext_data%atm%fp_count(jb)
+          jt = isub_lake
+
+          DO ic = 1, i_count_flk
+            jc = ext_data%atm%idx_lst_fp(ic,jb)
+
+            ! special handling of sea ice points
+            IF (lnd_prog%t_g_t(jc,jb,isub_lake) < tf_salt) THEN ! sea ice
+              ist = 10
+            ELSE
+              ist = 9 ! water
+            ENDIF
+
+            prm_diag%albdif_t   (jc,jb,jt) = csalb(ist)
+            prm_diag%albvisdif_t(jc,jb,jt) = csalb(ist)
+            prm_diag%albnirdif_t(jc,jb,jt) = csalb(ist)
+          ENDDO
+
+        ENDIF  ! lseaice
+
+
+
+
+
+        !*****************************!
+        !                             !
+        !  Aggregate surface albedo   !
+        !                             !
+        !*****************************!
+
+        ! Loop over ALL grid points
+
+
+        !
+        ! Aggregate surface albedo on all points
+        !
+        IF (ntiles_total == 1) THEN
+ 
+          DO jc = i_startidx, i_endidx
+            prm_diag%albdif(jc,jb) = prm_diag%albdif_t(jc,jb,1)
+            ! albvisdif, albnirdif only needed for RRTM 
+            prm_diag%albvisdif(jc,jb) = prm_diag%albvisdif_t(jc,jb,1)
+            prm_diag%albnirdif(jc,jb) = prm_diag%albnirdif_t(jc,jb,1)
+          ENDDO
+
+        ELSE ! aggregate fields over tiles
+
+          prm_diag%albdif   (i_startidx:i_endidx,jb) = 0._wp
+          prm_diag%albvisdif(i_startidx:i_endidx,jb) = 0._wp
+          prm_diag%albnirdif(i_startidx:i_endidx,jb) = 0._wp
+
+          DO jt = 1, ntiles_total+ntiles_water
+            DO jc = i_startidx, i_endidx
+              prm_diag%albdif(jc,jb) = prm_diag%albdif(jc,jb)         &
+                &                    + prm_diag%albdif_t(jc,jb,jt)    &
+                &                    * ext_data%atm%frac_t(jc,jb,jt)
+
+              ! albvisdif, albnirdif only needed for RRTM 
+              prm_diag%albvisdif(jc,jb) = prm_diag%albvisdif(jc,jb)   &
+                &                    + prm_diag%albvisdif_t(jc,jb,jt) &
+                &                    * ext_data%atm%frac_t(jc,jb,jt)
+
+              prm_diag%albnirdif(jc,jb) = prm_diag%albnirdif(jc,jb)   &
+                &                    + prm_diag%albnirdif_t(jc,jb,jt) &
+                &                    * ext_data%atm%frac_t(jc,jb,jt)
+            ENDDO
+          ENDDO
+
+        ENDIF  ! ntiles_total = 1
+
+
+      ELSE  ! surface model switched OFF
+
+
+        DO jc = i_startidx, i_endidx
+          
+          ist = 10
+
+          IF (ext_data%atm%llsm_atm_c(jc,jb) .OR. lnd_prog%t_g(jc,jb) >= tf_salt ) THEN
+            ist = ext_data%atm%soiltyp(jc,jb) ! water (ist=9) and sea ice (ist=10) included
+          ENDIF
+
+          prm_diag%albdif(jc,jb) = csalb(ist)
+          ! albvisdif, albnirdif only needed for RRTM 
+          prm_diag%albvisdif(jc,jb) = csalb(ist)
+          prm_diag%albnirdif(jc,jb) = csalb(ist)
+          
+        ENDDO
+
+      ENDIF ! inwp_surface=1
+
+
+      !lake model not yet implemented
+!      IF (atm_phy_nwp_config(jg)%llake) THEN
+!        DO jc = i_startidx,i_endidx
+!          IF((ext_data%atm%depth_lk(jc,jb)      >  0.0_wp) .AND.    &
+!            (prm_diag%h_ice(jc,jb) >= h_Ice_min_flk) ) THEN
+!            !  In case the lake model FLake is used AND lake point AND ice is present,
+!            !  compute ice albedo for lake points with an empirical formulation 
+!            !  proposed by Mironov and Ritter (2004) for use in GME 
+!            !  [ice_albedo=function(ice_surface_temperature)].
+!            !  Use surface temperature at time level "nnow".
+!
+!            prm_diag%albdif(jc,jb) = EXP(-c_albice_MR*(tpl_T_f-t_s(i,j,nnow))/tpl_T_f)
+!            prm_diag%albdif(jc,jb) = albedo_whiteice_ref * (1._ireals-zalso(i,j)) +      &
+!              albedo_blueice_ref  * prm_diag%albdif(jc,jb)
+!          ENDIF
+!        ENDDO
+!      ENDIF
+
+
+    ENDDO  ! jb
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+
+
+  END SUBROUTINE sfc_albedo_modis
 
 END MODULE mo_albedo
 
