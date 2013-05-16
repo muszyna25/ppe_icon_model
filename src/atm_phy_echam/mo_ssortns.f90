@@ -140,6 +140,12 @@ SUBROUTINE ssodrag ( kproma        ,& ! in,  loop length in block of cells/colum
   pvstrgw(:) = 0.0_wp
   pvdisgw(:) = 0.0_wp
 
+#ifdef __ICON__
+  pdt_sso(:,:) = 0.0_wp
+  pdu_sso(:,:) = 0.0_wp
+  pdv_sso(:,:) = 0.0_wp
+#endif
+
   zdu_oro(:,:) = 0.0_wp
   zdv_oro(:,:) = 0.0_wp
   zdt_oro(:,:) = 0.0_wp
