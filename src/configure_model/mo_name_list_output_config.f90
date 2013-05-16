@@ -273,7 +273,7 @@ CONTAINS
 
     ! do nothing on the first timestep during a restart
     IF (PRESENT(is_restart)) THEN
-      IF (is_first_timestep_during_restart(is_restart,p_onl%next_output_time)) retval = .FALSE.
+      retval = retval .AND. .NOT. is_first_timestep_during_restart(is_restart,p_onl%next_output_time)
     ENDIF
     write(0,*)'is_output_nml_active:',retval
 
@@ -390,7 +390,7 @@ CONTAINS
 
     !skip the initial state during a restarted run
     IF (PRESENT(is_restart)) THEN
-      IF (is_first_timestep_during_restart(is_restart,of%name_list%next_output_time)) retval = .FALSE.
+      retval = retval .AND. .NOT. is_first_timestep_during_restart(is_restart,of%name_list%next_output_time)
     ENDIF
 
   END FUNCTION is_output_file_active

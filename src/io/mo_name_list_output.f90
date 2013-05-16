@@ -3382,7 +3382,8 @@ CONTAINS
     TYPE(t_output_name_list), POINTER :: p_onl
     CHARACTER(LEN=filename_max+100)   :: text
     LOGICAL                           :: lnewly_initialized = .FALSE.
-
+    LOGICAL                           :: l
+write(0,*)'mod:',routine
     IF (ltimer) CALL timer_start(timer_write_output)
     ! If asynchronous I/O is enabled, the compute PEs have to make sure
     ! that the I/O PEs are ready with the last output step before
@@ -3413,12 +3414,17 @@ CONTAINS
 
     ! Check if files have to be (re)opened
 
+    write(0,*) SIZE(output_file)
     ! Go over all output files
     DO i = 1, SIZE(output_file)
+    write(0,*)'inloop 00'
 
       p_onl => output_file(i)%name_list
 
+    write(0,*)'inloop 01'
       ! Check if output is due for this file
+    l =is_output_file_active(output_file(i), sim_time, dtime, i_sample, last_step, is_restart=is_restart_run())
+      write (0,*) l
       IF (is_output_file_active(output_file(i), sim_time, dtime, i_sample, last_step, is_restart=is_restart_run())) THEN
 
         IF (output_file(i)%io_proc_id == p_pe) THEN

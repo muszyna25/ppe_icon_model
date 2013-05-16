@@ -108,6 +108,7 @@ USE mo_oce_diagnostics,        ONLY: calculate_oce_diagnostics,&
   &                                  calc_moc, calc_psi
 USE mo_oce_ab_timestepping_mimetic, ONLY: init_ho_lhs_fields_mimetic
 !USE mo_mpi,                    ONLY: my_process_is_mpi_all_parallel
+  USE mo_time_config,         ONLY: time_config
 
 
 IMPLICIT NONE
@@ -197,6 +198,11 @@ CONTAINS
   !------------------------------------------------------------------
   ! call the dynamical core: start the time loop
   !------------------------------------------------------------------
+  IF (output_mode%l_nml) THEN
+        !CALL write_name_list_output( datetime, sim_time(1), jstep==nsteps )
+    write(0,*)'time_config%sim_time:',time_config%sim_time(1)
+    CALL write_name_list_output( datetime, time_config%sim_time(1), jstep==nsteps )
+  ENDIF
   TIME_LOOP: DO jstep = 1, nsteps
 
     CALL datetime_to_string(datestring, datetime)
@@ -295,8 +301,8 @@ CONTAINS
     ! resolution). Set model time.
     CALL add_time(dtime,0,0,0,datetime)
     ! Not nice, but the name list output requires this
-    sim_time(1) = sim_time(1) + dtime
-    IF (is_output_time(jstep) .OR. istime4name_list_output(sim_time(1)+dtime)) THEN 
+    time_config%sim_time(1) = time_config%sim_time(1) + dtime
+    IF (is_output_time(jstep) .OR. istime4name_list_output(time_config%sim_time(1))) THEN 
 !TODO    IF ( l_outputtime .OR. istime4name_list_output(sim_time(1)) ) THEN
       IF (idiag_oce == 1 ) THEN
         CALL calculate_oce_diagnostics( p_patch_3D,    &
@@ -318,7 +324,8 @@ CONTAINS
       ENDIF
 
       IF (output_mode%l_nml) THEN
-        CALL write_name_list_output( datetime, sim_time(1), jstep==nsteps )
+        !CALL write_name_list_output( datetime, sim_time(1), jstep==nsteps )
+        CALL write_name_list_output( datetime, time_config%sim_time(1), jstep==nsteps )
       ENDIF
       IF (output_mode%l_vlist) THEN
           CALL write_output_oce( datetime, sim_time(1),p_patch_3D, p_os)
@@ -352,6 +359,7 @@ CONTAINS
     IF (MOD(jstep,n_checkpoints())==0 .OR. (jstep==nsteps .AND. lwrite_restart)) THEN
       CALL create_restart_file( p_patch, datetime,                 &
                               & jfile, l_have_output,opt_depth=n_zlev,&
+                              & opt_sim_time=time_config%sim_time(1), &
                               & opt_nice_class=1)
       ! Create the master (meta) file in ASCII format which contains
       ! info about which files should be read in for a restart run.
