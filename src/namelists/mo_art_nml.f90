@@ -76,6 +76,8 @@ MODULE mo_art_nml
     LOGICAL :: lart                !< main switch for using the ART-package
                                    !< .TRUE.: switch ON
                                    !< .FALSE.: switch OFF
+                                   
+    LOGICAL :: lart_seasalt        !< Treatment of sea salt aerosol (TRUE/FALSE)
 
     LOGICAL :: lart_volcano        !< Treatment of volcanic ash (TRUE/FALSE)
 
@@ -101,7 +103,7 @@ MODULE mo_art_nml
 
     CHARACTER (LEN=120) :: radioactfile_path
 
-    NAMELIST/art_nml/ lart, lart_volcano, lart_emiss,lart_conv, lart_wash,            &
+    NAMELIST/art_nml/ lart, lart_seasalt, lart_volcano, lart_emiss,lart_conv, lart_wash,            &
    &               lart_rad, lart_cloud, nart_emis_volcano_update,art_volclist_tot,   &
    &               lart_volclist, volcanofile_path,lart_radioact,lart_decay_radioact, &
    &               radioactfile_path
@@ -140,6 +142,7 @@ CONTAINS
     ! 1. default settings   
     !-----------------------
     lart                = .FALSE.        ! ART-package switched off
+    lart_seasalt        = .FALSE.
     lart_volcano        = .FALSE.        ! Treatment of volcanic ash
     lart_emiss   = .FALSE.        ! Emission of volcanic ash
     lart_conv   = .FALSE.        ! Convection of volcanic ash
@@ -209,6 +212,7 @@ CONTAINS
       nvolc=nvolc-1
     DO jg= 0,max_dom
       art_config(jg)%lart          = lart
+      art_config(jg)%lart_seasalt  = lart_seasalt
       art_config(jg)%lart_volcano     = lart_volcano
       art_config(jg)%lart_emiss     = lart_emiss
       art_config(jg)%lart_conv  = lart_conv

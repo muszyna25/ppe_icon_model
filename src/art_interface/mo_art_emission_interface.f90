@@ -15,7 +15,7 @@
 !! - Modification for dealing with the ART-routine emission_volc.
 !!
 !! @par Copyright
-!! 2002-2010 by DWD and MPI-M
+!! 2002-2010 by DWD, MPI-M, and KIT
 !! This software is provided for non-commercial use only.
 !! See the LICENSE and the WARRANTY conditions.
 !!
@@ -30,7 +30,7 @@
 !!    copies.
 !! <li> You accept the warranty conditions (see WARRANTY).
 !! <li> In case you intend to use the code commercially, we oblige you to sign
-!!    an according license agreement with DWD and MPI-M.
+!!    an according license agreement with DWD, MPI-M, and KIT.
 !! </ol>
 !!
 !! @par Warranty
@@ -46,13 +46,14 @@ MODULE mo_art_emission_interface
     USE mo_kind,                ONLY: wp
     USE mo_model_domain,        ONLY: t_patch
     USE mo_art_config,          ONLY: art_config
-    USE mo_exception,             ONLY: message, message_text, finish
-    USE mo_datetime,             ONLY:t_datetime
+    USE mo_exception,           ONLY: message, message_text, finish
+    USE mo_datetime,            ONLY: t_datetime
     USE mo_linked_list,         ONLY: t_var_list,t_list_element
     USE mo_var_metadata,        ONLY: t_var_metadata
 #ifdef __ICON_ART
-    USE mo_art_emission_volc,       ONLY:art_organize_emission_volc
-    USE mo_art_radioactive,            ONLY:art_emiss_radioact
+    USE mo_art_emission_volc,   ONLY: art_organize_emission_volc
+    USE mo_art_radioactive,     ONLY: art_emiss_radioact
+    USE mo_art_emission_seas,   ONLY: art_emission_seas
 #endif
 
   IMPLICIT NONE
@@ -114,6 +115,14 @@ CONTAINS
      
    IF (art_config(jg)%lart .AND. art_config(jg)%lart_emiss) THEN
 
+   ! ----------------------------------
+   ! --- sea salt emissions
+   ! ----------------------------------
+
+       IF (art_config(jg)%lart_seasalt) THEN
+         CALL art_emission_seas(p_patch,p_dtime,p_tracer_now) 
+       ENDIF
+   
    ! ----------------------------------
    ! --- volcano emissions
    ! ----------------------------------

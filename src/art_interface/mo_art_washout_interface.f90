@@ -12,7 +12,7 @@
 !! Initial revision by Kristina Lundgren, KIT (2012-06-15)
 !!
 !! @par Copyright
-!! 2002-2010 by DWD and MPI-M
+!! 2002-2010 by DWD, MPI-M, and KIT.
 !! This software is provided for non-commercial use only.
 !! See the LICENSE and the WARRANTY conditions.
 !!
@@ -27,7 +27,7 @@
 !!    copies.
 !! <li> You accept the warranty conditions (see WARRANTY).
 !! <li> In case you intend to use the code commercially, we oblige you to sign
-!!    an according license agreement with DWD and MPI-M.
+!!    an according license agreement with DWD, MPI-M, and KIT.
 !! </ol>
 !!
 !! @par Warranty

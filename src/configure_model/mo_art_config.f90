@@ -57,7 +57,7 @@ MODULE mo_art_config
   !! Basic configuration setup for ICON-ART
   !!--------------------------------------------------------------------------
    INTEGER, PARAMETER  :: max_volc_input  = 20 !Maximum number of volcanoes in input namelist art_volclist_tot
-   INTEGER, PARAMETER  :: nart_tendphy  = 9    !Maximum number of tracers that are effected by deep convective transport 
+   INTEGER             :: nart_tendphy  = 0    !Maximum number of tracers that are effected by deep convective transport 
 
   TYPE t_volc_list
     CHARACTER(len=20)                :: zname    ! < name of volcanoe or location
@@ -67,41 +67,49 @@ MODULE mo_art_config
   TYPE t_art_config
 
     ! namelist variables
-    !    
+    ! General
     LOGICAL :: lart                        !< main switch for using the ART-package
                                            !< .TRUE.: switch ON
                                            !< .FALSE.: switch OFF
+    ! Sea Salt Aerosol
+    LOGICAL :: lart_seasalt        !< Treatment of sea salt aerosol (TRUE/FALSE)
+    
+    ! Processes
+    LOGICAL :: lart_emiss          !< Emission of aerosol (TRUE/FALSE)
 
-    LOGICAL :: lart_volcano                !< Treatment of volcanic ash (TRUE/FALSE)
+    LOGICAL :: lart_conv           !< Convection of aerosol (TRUE/FALSE)
 
-    LOGICAL :: lart_emiss           !< Emission of volcanic ash (TRUE/FALSE)
+    LOGICAL :: lart_wash           !< Washout of aerosol (TRUE/FALSE)
 
-    LOGICAL :: lart_conv           !< Convection of volcanic ash (TRUE/FALSE)
+    LOGICAL :: lart_rad            !< Radiative impact of aerosol (TRUE/FALSE)
 
-    LOGICAL :: lart_wash           !< Washout of volcanic ash (TRUE/FALSE)
+    LOGICAL :: lart_cloud          !< Cloud aerosol interaction (TRUE/FALSE)
 
-    LOGICAL :: lart_rad            !< Radiative impact of volcanic ash (TRUE/FALSE)
-
-    LOGICAL :: lart_cloud          !< Cloud volcanic ash interaction (TRUE/FALSE)
+    ! Volcanic Ash Aerosol
+    LOGICAL :: lart_volcano        !< Treatment of volcanic ash (TRUE/FALSE)
 
     INTEGER :: nart_emis_volcano_update    !< Time interval for reading volcano emission file
 
     LOGICAL :: lart_volclist    !< Use list of volcanoes from namelist (TRUE/FALSE)
-
-    CHARACTER (LEN=120) :: volcanofile_path  !< Path of volcano file
-    CHARACTER (LEN=120) :: radioactfile_path !< Path of emission file for radiactive nuclides
-
-   !For specification of valcano locations.
+    
    INTEGER                     :: nvolc             !< Number ov volcanoes
+   
    TYPE(t_volc_list), POINTER  :: volclist(:,:)    !< (idx,blk)
-   INTEGER                     :: nblks,npromz              
-   INTEGER                     :: nconv_tracer     ! number of tracers in convection 
-
+   
+   CHARACTER (LEN=120) :: volcanofile_path  !< Path of volcano file
+   
    ! for radioactive tracers
 
    LOGICAL :: lart_radioact                !< Treatment of radioactive nuclides (TRUE/FALSE)
 
-   LOGICAL :: lart_decay_radioact          !< Treatment of radioactive decay (TRUE/FALSE)
+   LOGICAL :: lart_decay_radioact          !< Treatment of radioactive decay (TRUE/FALSE)   
+   
+   CHARACTER (LEN=120) :: radioactfile_path !< Path of emission file for radiactive nuclides
+
+   !For specification of locations.
+
+   INTEGER                     :: nblks,npromz              
+   INTEGER                     :: nconv_tracer     ! number of tracers in convection 
 
   END TYPE t_art_config
 

@@ -12,7 +12,7 @@
 !! Initial revision by Kristina Lundgren (2012-04-03)
 !!
 !! @par Copyright
-!! 2002-2010 by DWD and MPI-M
+!! 2002-2010 by DWD, MPI-M, and KIT.
 !! This software is provided for non-commercial use only.
 !! See the LICENSE and the WARRANTY conditions.
 !!
@@ -27,7 +27,7 @@
 !!    copies.
 !! <li> You accept the warranty conditions (see WARRANTY).
 !! <li> In case you intend to use the code commercially, we oblige you to sign
-!!    an according license agreement with DWD and MPI-M.
+!!    an according license agreement with DWD, MPI-M, and KIT.
 !! </ol>
 !!
 !! @par Warranty
@@ -47,7 +47,8 @@ MODULE mo_art_tracer_interface
     USE mo_nonhydro_types,       ONLY: t_nh_prog
     USE mo_art_config,           ONLY: art_config
 #ifdef __ICON_ART
-    USE mo_art_tracer,       ONLY:art_tracer
+    USE mo_art_tracer,           ONLY: art_tracer
+    USE mo_art_initialization,   ONLY: art_init_aerosol
 #endif
 
   IMPLICIT NONE
@@ -95,7 +96,10 @@ CONTAINS
   
       CALL art_tracer(defcase,jg,nblks_c,this_list,vname_prefix,ptr_arr,advconf,phy_tend,p_prog,timelev,ldims,&
        & tlev_source) 
-
+      
+      IF (TRIM(defcase) .EQ. 'prog' .AND. timelev .EQ. 1) THEN
+        CALL art_init_aerosol(jg,this_list)
+      END IF
 #endif
 
   END SUBROUTINE art_tracer_interface 

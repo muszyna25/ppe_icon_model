@@ -4080,7 +4080,7 @@ CONTAINS
 
     IF (art_config(jg)%lart_conv) THEN
          IF( lconv_tracer) THEN
-      art_config(jg)%nconv_tracer = art_config(jg)%nconv_tracer + 1
+          art_config(jg)%nconv_tracer = art_config(jg)%nconv_tracer + 1
          ELSE
           WRITE (message_text,*) 'WARNING. lart_conv=',&
           & art_config(jg)%lart_conv,&
