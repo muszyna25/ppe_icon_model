@@ -79,6 +79,7 @@ MODULE mo_netcdf_read
   PUBLIC :: nf
   PUBLIC :: netcdf_open_input, netcdf_close
 
+  PUBLIC :: netcdf_read_1D
   PUBLIC :: netcdf_read_oncells_2d
   PUBLIC :: netcdf_read_oncells_2D_time
   PUBLIC :: netcdf_read_oncells_3D_time
@@ -104,6 +105,11 @@ MODULE mo_netcdf_read
   INTERFACE read_netcdf_data_single
     MODULE PROCEDURE read_netcdf_3d_single
   END INTERFACE read_netcdf_data_single
+
+  INTERFACE netcdf_read_1D
+    MODULE PROCEDURE netcdf_read_REAL_1D_filename
+    MODULE PROCEDURE netcdf_read_REAL_1D_fileid
+  END INTERFACE netcdf_read_1D
 
   INTERFACE netcdf_read_oncells_2D
     MODULE PROCEDURE netcdf_read_REAL_ONCELLS_2D_filename
@@ -156,6 +162,28 @@ MODULE mo_netcdf_read
 CONTAINS
 
   !-------------------------------------------------------------------------
+  !>
+  FUNCTION netcdf_read_REAL_1D_filename(filename, variable_name, fill_array)
+    REAL(wp), POINTER :: netcdf_read_REAL_1D_filename(:)
+
+    CHARACTER(LEN=*), INTENT(IN) :: filename
+    CHARACTER(LEN=*), INTENT(IN) :: variable_name
+    define_fill_target           :: fill_array(:)
+
+    INTEGER :: file_id
+    INTEGER :: return_status
+    CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_netcdf_read:netcdf_read_REAL_ONCELLS_2D_filename'
+
+    file_id = netcdf_open_input(filename)
+    netcdf_read_REAL_1D_filename => &
+      & netcdf_read_REAL_1D_fileid( &
+      & file_id=file_id, variable_name=variable_name, fill_array=fill_array)
+    return_status = netcdf_close(file_id)
+
+  END FUNCTION netcdf_read_REAL_1D_filename
+  !-------------------------------------------------------------------------
+
+ !-------------------------------------------------------------------------
   !>
   FUNCTION netcdf_read_REAL_ONCELLS_2D_filename(filename, variable_name, fill_array, patch)
     REAL(wp), POINTER :: netcdf_read_REAL_ONCELLS_2D_filename(:,:)
@@ -236,7 +264,7 @@ CONTAINS
   !-------------------------------------------------------------------------
   !>
   FUNCTION netcdf_read_REAL_ONCELLS_3D_time_filename(filename, variable_name, fill_array, patch, &
-    & start_timestep, end_timestep )
+    & start_timestep, end_timestep, levelsdim_name )
 
     REAL(wp), POINTER :: netcdf_read_REAL_ONCELLS_3D_time_filename(:,:,:,:)
 
@@ -245,6 +273,7 @@ CONTAINS
     define_fill_target           :: fill_array(:,:,:,:)
     TYPE(t_patch), TARGET        :: patch
     INTEGER, INTENT(in), OPTIONAL:: start_timestep, end_timestep
+    CHARACTER(LEN=*), INTENT(IN), OPTIONAL :: levelsdim_name
 
     INTEGER :: file_id
     INTEGER :: return_status
@@ -252,11 +281,12 @@ CONTAINS
 
     file_id = netcdf_open_input(filename)
     netcdf_read_REAL_ONCELLS_3D_time_filename => &
-      & netcdf_read_REAL_ONCELLS_3D_time_fileid(&
-      & file_id=file_id,                        &
-      & variable_name=variable_name,            &
-      & fill_array=fill_array,                  &
-      &  patch=patch,                           &
+      & netcdf_read_REAL_ONCELLS_3D_time_fileid( &
+      & file_id=file_id,                         &
+      & variable_name=variable_name,             &
+      & fill_array=fill_array,                   &
+      & patch=patch,                             &
+      & levelsdim_name=levelsdim_name,           &
       & start_timestep=start_timestep,  end_timestep=end_timestep)
     return_status = netcdf_close(file_id)
 
@@ -266,7 +296,7 @@ CONTAINS
   !-------------------------------------------------------------------------
   !>
   FUNCTION netcdf_read_REAL_ONCELLS_3D_1extdim_filename(filename, variable_name, fill_array, patch, &
-    & start_extdim, end_extdim, extdim_name )
+    & start_extdim, end_extdim, levelsdim_name, extdim_name )
 
     REAL(wp), POINTER :: netcdf_read_REAL_ONCELLS_3D_1extdim_filename(:,:,:,:)
 
@@ -276,6 +306,7 @@ CONTAINS
     TYPE(t_patch), TARGET        :: patch
     INTEGER, INTENT(in), OPTIONAL:: start_extdim, end_extdim
     CHARACTER(LEN=*), INTENT(IN), OPTIONAL :: extdim_name
+    CHARACTER(LEN=*), INTENT(IN), OPTIONAL :: levelsdim_name
 
     INTEGER :: file_id
     INTEGER :: return_status
@@ -288,10 +319,78 @@ CONTAINS
       & fill_array=fill_array,                    &
       &  patch=patch,                             &
       & start_extdim=start_extdim,  end_extdim=end_extdim, &
+      & levelsdim_name=levelsdim_name,            &
       & extdim_name=extdim_name)
     return_status = netcdf_close(file_id)
 
   END FUNCTION netcdf_read_REAL_ONCELLS_3D_1extdim_filename
+  !-------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------
+  !>
+  FUNCTION netcdf_read_REAL_1D_fileid(file_id, variable_name, fill_array)
+
+    REAL(wp), POINTER            :: netcdf_read_REAL_1D_fileid(:)
+
+    INTEGER, INTENT(IN)          :: file_id
+    CHARACTER(LEN=*), INTENT(IN) :: variable_name
+    define_fill_target           :: fill_array(:)
+
+    INTEGER :: total_number_of_cells
+    INTEGER :: varid, var_type, var_dims
+    INTEGER :: var_size(MAX_VAR_DIMS)
+    CHARACTER(LEN=filename_max) :: var_dim_name(MAX_VAR_DIMS)
+    INTEGER :: return_status
+
+    CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_netcdf_read:netcdf_read_REAL_1D_fileid'
+
+    ! trivial return value.
+    NULLIFY(netcdf_read_REAL_1D_fileid)
+
+    IF( my_process_is_mpi_workroot()  ) THEN
+      return_status = netcdf_inq_var(file_id, variable_name, varid, var_type, var_dims, var_size, var_dim_name)
+
+      ! check if the dims look ok
+      IF (var_dims /= 1 ) THEN
+        write(0,*) "var_dims = ", var_dims, " var_size=", var_size(1)
+        CALL finish(method_name, "Dimensions mismatch")
+      ENDIF
+
+    ENDIF
+
+    ! we need to sync the var_size...
+    CALL broadcast_array(var_size(1:2))
+
+    IF (PRESENT(fill_array)) THEN
+      netcdf_read_REAL_1D_fileid => fill_array
+      IF (.NOT. ASSOCIATED(netcdf_read_REAL_1D_fileid)) THEN
+        CALL warning(method_name, "fill_array is not allocated")
+        ALLOCATE( netcdf_read_REAL_1D_fileid(var_size(1)), stat=return_status )
+        IF (return_status /= success) THEN
+          CALL finish (method_name, 'ALLOCATE( netcdf_read_REAL_1D_fileid )')
+        ENDIF
+      ENDIF
+    ELSE
+      ALLOCATE( netcdf_read_REAL_1D_fileid(var_size(1)), stat=return_status )
+      IF (return_status /= success) THEN
+        CALL finish (method_name, 'ALLOCATE( netcdf_read_REAL_1D_fileid )')
+      ENDIF
+    ENDIF
+
+    ! check if the size is correct
+    IF (SIZE(netcdf_read_REAL_1D_fileid,1) < var_size(1)) &
+      CALL finish(method_name, "allocated size < var_size")
+    IF (SIZE(netcdf_read_REAL_1D_fileid,1) > var_size(1)) &
+      CALL warning(method_name, "allocated size > var_size")
+
+    IF( my_process_is_mpi_workroot()) THEN
+      CALL nf(nf_get_var_double(file_id, varid, netcdf_read_REAL_1D_fileid(:)), variable_name)
+    ENDIF
+
+    ! broadcast...
+    CALL broadcast_array(netcdf_read_REAL_1D_fileid)
+
+  END FUNCTION netcdf_read_REAL_1D_fileid
   !-------------------------------------------------------------------------
 
 
@@ -312,17 +411,17 @@ CONTAINS
     CHARACTER(LEN=filename_max) :: var_dim_name(MAX_VAR_DIMS)
     INTEGER :: return_status
     REAL(wp), POINTER :: tmp_array(:)
-    
+
     CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_netcdf_read:netcdf_read_REAL_ONCELLS_2D_fileid'
 
     ! trivial return value.
     NULLIFY(netcdf_read_REAL_ONCELLS_2D_fileid)
 
     total_number_of_cells = patch%n_patch_cells_g
-    
+
     IF( my_process_is_mpi_workroot()  ) THEN
       return_status = netcdf_inq_var(file_id, variable_name, varid, var_type, var_dims, var_size, var_dim_name)
-      
+
       ! check if the dims look ok
       IF (var_dims /= 1 .OR. var_size(1) /= total_number_of_cells) THEN
         write(0,*) "var_dims = ", var_dims, " var_size=", var_size, &
@@ -334,12 +433,12 @@ CONTAINS
          CALL warning(method_name, "dim_name /= std_cells_dim_name")
 
     ENDIF
-    
+
     ALLOCATE( tmp_array(total_number_of_cells), stat=return_status )
     IF (return_status /= success) THEN
       CALL finish (method_name, 'ALLOCATE( tmp_array )')
     ENDIF
-    
+
     IF( my_process_is_mpi_workroot()) THEN
       CALL nf(nf_get_var_double(file_id, varid, tmp_array(:)), variable_name)
     ENDIF
@@ -359,13 +458,14 @@ CONTAINS
         CALL finish (method_name, 'ALLOCATE( netcdf_read_REAL_ONCELLS_2D_fileid )')
       ENDIF
     ENDIF
-    
+
     CALL scatter_cells_2D(tmp_array, netcdf_read_REAL_ONCELLS_2D_fileid, patch)
 
-    DEALLOCATE(tmp_array)    
-                              
+    DEALLOCATE(tmp_array)
+
   END FUNCTION netcdf_read_REAL_ONCELLS_2D_fileid
   !-------------------------------------------------------------------------
+
   
   !-------------------------------------------------------------------------
   !>
@@ -435,7 +535,7 @@ CONTAINS
         CALL finish(method_name, "Dimensions mismatch")
       ENDIF
 
-      ! check if the input has the right shape/size
+      ! check if the dimensions have reasonable names
       IF (.NOT. check_is_cell_dim_name(var_dim_name(1))) THEN
         write(0,*) var_dim_name(1)
         WRITE(message_text,*) variable_name, " ", TRIM(var_dim_name(1)), " /= std_cells_dim_name"
@@ -449,6 +549,7 @@ CONTAINS
         ENDIF
       ENDIF
 
+      ! check if the input has the right shape/size
       IF ( var_size(1) /= total_number_of_cells) THEN
         WRITE(0,*) variable_name, ": var_dims = ", var_dims, " var_size=", var_size, &
           & " total_number_of_cells=", total_number_of_cells
@@ -525,7 +626,7 @@ CONTAINS
   ! The fill_array  has the structure:
   !       fill_array(nproma, levels, blocks, time)
   FUNCTION netcdf_read_REAL_ONCELLS_3D_time_fileid(file_id, variable_name, fill_array, patch, &
-    & start_timestep, end_timestep)
+    & start_timestep, end_timestep, levelsdim_name)
 
     REAL(wp), POINTER  :: netcdf_read_REAL_ONCELLS_3D_time_fileid(:,:,:,:)
 
@@ -534,6 +635,7 @@ CONTAINS
     define_fill_target            :: fill_array(:,:,:,:)
     TYPE(t_patch), TARGET        :: patch
     INTEGER, INTENT(in), OPTIONAL:: start_timestep, end_timestep
+    CHARACTER(LEN=*), INTENT(IN), OPTIONAL :: levelsdim_name
 
     netcdf_read_REAL_ONCELLS_3D_time_fileid => netcdf_read_REAL_ONCELLS_3D_1extdim_fileid(&
       & file_id=file_id,                        &
@@ -541,6 +643,7 @@ CONTAINS
       & fill_array=fill_array,                  &
       & patch=patch,                            &
       & start_extdim=start_timestep,  end_extdim=end_timestep, &
+      & levelsdim_name=levelsdim_name,          &
       & extdim_name="time")
 
   END FUNCTION netcdf_read_REAL_ONCELLS_3D_time_fileid
@@ -553,7 +656,7 @@ CONTAINS
   ! The fill_array  has the structure:
   !       fill_array(nproma, levels, blocks, time)
   FUNCTION netcdf_read_REAL_ONCELLS_3D_1extdim_fileid(file_id, variable_name, fill_array, patch, &
-    & start_extdim, end_extdim, extdim_name )
+    & start_extdim, end_extdim, levelsdim_name, extdim_name )
 
     REAL(wp), POINTER  :: netcdf_read_REAL_ONCELLS_3D_1extdim_fileid(:,:,:,:)
 
@@ -562,7 +665,7 @@ CONTAINS
     define_fill_target           :: fill_array(:,:,:,:)
     TYPE(t_patch), TARGET        :: patch
     INTEGER, INTENT(in), OPTIONAL:: start_extdim, end_extdim
-    CHARACTER(LEN=*), INTENT(IN), OPTIONAL :: extdim_name
+    CHARACTER(LEN=*), INTENT(IN), OPTIONAL :: extdim_name, levelsdim_name
 
     INTEGER :: total_number_of_cells
     INTEGER :: varid, var_type, var_dims
@@ -592,13 +695,19 @@ CONTAINS
         CALL finish(method_name, "Dimensions mismatch")
       ENDIF
 
-      ! check if the input has the right shape/size
+      ! check if the dim have reasonable names
       IF (.NOT. check_is_cell_dim_name(var_dim_name(1))) THEN
         write(0,*) var_dim_name(1)
         WRITE(message_text,*) variable_name, " ", TRIM(var_dim_name(3)), " /= std_cells_dim_name"
         CALL finish(method_name, message_text)
       ENDIF
 
+      IF (PRESENT(levelsdim_name)) THEN
+        IF (TRIM(levelsdim_name) /= TRIM(var_dim_name(2))) THEN
+          WRITE(message_text,*) variable_name, ":", levelsdim_name, "/=",  var_dim_name(2)
+          CALL finish(method_name, message_text)
+        ENDIF
+      ENDIF
       IF (PRESENT(extdim_name)) THEN
         IF (TRIM(extdim_name) /= TRIM(var_dim_name(3))) THEN
           WRITE(message_text,*) variable_name, ":", extdim_name, "/=",  var_dim_name(3)
@@ -606,6 +715,7 @@ CONTAINS
         ENDIF
       ENDIF
 
+      ! check if the input has the right shape/size
       IF ( var_size(1) /= total_number_of_cells) THEN
         WRITE(0,*) variable_name, ": var_dims = ", var_dims, " var_size=", var_size, &
           & " total_number_of_cells=", total_number_of_cells
