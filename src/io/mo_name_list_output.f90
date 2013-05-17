@@ -3503,6 +3503,7 @@ write(0,*)'mod:',routine
     DO
       IF(.NOT.ASSOCIATED(p_onl)) EXIT
 
+        write(0,*)'VOR A'
       IF (is_output_nml_active(p_onl, sim_time, dtime, i_sample, last_step, is_restart=is_restart_run())) THEN
         write(0,*)'A'
         p_onl%n_output_steps = p_onl%n_output_steps + 1
@@ -3513,7 +3514,8 @@ write(0,*)'mod:',routine
       ! where an output increment less than the time step
       ! or two output_bounds triples which are too close are specified.
 
-      DO WHILE (is_output_nml_active(p_onl, sim_time, dtime, i_sample,is_restart=is_restart_run()))
+        write(0,*)'VOR B'
+      DO WHILE (is_output_nml_active(p_onl, sim_time, dtime, i_sample))
         write(0,*)'B'
         n = p_onl%cur_bounds_triple
         IF(p_onl%next_output_time + p_onl%output_bounds(3,n) <= p_onl%output_bounds(2,n)+eps) THEN

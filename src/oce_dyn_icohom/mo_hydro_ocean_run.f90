@@ -201,7 +201,7 @@ CONTAINS
   IF (output_mode%l_nml) THEN
         !CALL write_name_list_output( datetime, sim_time(1), jstep==nsteps )
     write(0,*)'time_config%sim_time:',time_config%sim_time(1)
-    CALL write_name_list_output( datetime, time_config%sim_time(1), jstep==nsteps )
+    CALL write_name_list_output( datetime, time_config%sim_time(1), last_step=.FALSE. )
   ENDIF
   TIME_LOOP: DO jstep = 1, nsteps
 
