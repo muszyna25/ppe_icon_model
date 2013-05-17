@@ -85,7 +85,7 @@ iforc_len=365  # length of OMIP/NCEP dataset: 1 = annual; 12 = monthly data; 365
 #-----------------------------------------------------------------------------
 # global timing
 start_date="2001-01-01T00:00:00Z"
-  end_date="2001-01-03T12:00:00Z"
+  end_date="2001-01-04T18:00:00Z"
 #
 #-----------------------------------------------------------------------------
 # model timing
@@ -139,8 +139,8 @@ cat > ${ocean_namelist} << EOF
  msg_timestamp = .TRUE.
 /
 &output_nml
-!  output_bounds    = ${dt_data},${dt_restart},${dt_data}   !start, end, increment
-  output_bounds    =          0,${dt_restart},${dt_data}   !start, end, increment
+   output_bounds    = ${dt_data},${dt_restart},${dt_data}   !start, end, increment
+!  output_bounds    =          0,${dt_restart},${dt_data}   !start, end, increment
   steps_per_file   = ${steps_per_file}
   include_last     = .TRUE.
   output_grid      = .TRUE.
