@@ -196,8 +196,7 @@ CONTAINS
     lwrite_extra            = .FALSE.
     inextra_2d              = 0     ! no extra output 2D fields
     inextra_3d              = 0     ! no extra output 3D fields
-    ! Temporary disable avrage flux output since it does not work
-    lflux_avg               = .FALSE.
+    lflux_avg               = .TRUE.
     lwrite_oce_timestepping = .FALSE.
     itype_pres_msl          = PRES_MSL_METHOD_GME
     output_nml_dict         = ' '

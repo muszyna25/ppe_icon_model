@@ -254,6 +254,7 @@ cat > $atmo_namelist << EOF
  lwrite_precip    = .TRUE.           ! add precipitation to output
  lwrite_pres      = .FALSE.          ! remove pressure from output
  lwrite_tend_phy  = .FALSE.          ! write out tendencies 
+ lflux_avg        = .FALSE.
 /
 &dynamics_nml
  iequations  = ${atmo_model_equations}    ! 1: hydrost. atmosphere
