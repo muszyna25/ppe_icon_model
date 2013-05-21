@@ -98,7 +98,7 @@ MODULE mo_ocean_model
     & import_basic_patches, & !
     & complete_patches
 
-  USE mo_oce_state,           ONLY: t_hydro_ocean_state,complete_patchinfo_oce!, v_ocean_state
+  USE mo_oce_state,           ONLY: t_hydro_ocean_state,complete_patchinfo_oce
 
   USE mo_impl_constants,      ONLY: success !, ihs_ocean
 
@@ -415,7 +415,6 @@ CONTAINS
     IF (error_status /= SUCCESS) THEN
       CALL finish(TRIM(routine),'allocation for ext_data failed')
     ENDIF
-    write(0,*)'ALLOCATED ext_data'
 
     ! allocate memory for oceanic external data and
     ! optionally read those data from netCDF file.
