@@ -265,20 +265,16 @@ CONTAINS
     ELSE
       retval = .FALSE.
     END IF
-    write(0,*)'retval 00.1:',retval
 
     IF (PRESENT(sim_time)) THEN
       retval = retval .OR.  &
         &      ( p_onl%next_output_time <= sim_time+REAL(iadv_rcf,wp)*dtime/2._wp )
     END IF
-    write(0,*)'next_output_time:',p_onl%next_output_time
-    write(0,*)'retval 00.2:',retval
 
     ! do nothing on the first timestep during a restart
     IF (PRESENT(is_restart)) THEN
       retval = retval .AND. .NOT. is_first_timestep_during_restart(is_restart,p_onl%next_output_time)
     ENDIF
-    write(0,*)'retval 00.3:',retval
 
     ! if a specific variable name has been provided, loop over the
     ! variables for this output file
@@ -369,14 +365,12 @@ CONTAINS
     ELSE
       retval = .TRUE.
     END IF
-    write(0,*)'retval 00:',retval
 
     ! check if output file is active
     IF (PRESENT(sim_time)) THEN
       retval = retval .AND. &
         &      is_output_nml_active(of%name_list, sim_time, dtime, iadv_rcf, last_step,is_restart)
     END IF
-    write(0,*)'retval 01:',retval
     
     ! if a specific variable name has been provided, loop over the
     ! variables for this output file
@@ -388,18 +382,15 @@ CONTAINS
         retval = (TRIM(info%name) == TRIM(var_name))
       END DO ! iv
     END IF
-    write(0,*)'retval 02:',retval
 
     IF (PRESENT(sim_time)) THEN
       IF (sim_time < of%start_time .OR. sim_time > of%end_time) retval = .FALSE.
     END IF
-    write(0,*)'retval 03:',retval
 
     !skip the initial state during a restarted run
     IF (PRESENT(is_restart)) THEN
       retval = retval .AND. .NOT. is_first_timestep_during_restart(is_restart,of%name_list%next_output_time)
     ENDIF
-    write(0,*)'retval 04:',retval
 
   END FUNCTION is_output_file_active
 
@@ -492,9 +483,6 @@ CONTAINS
 
     retval = .FALSE.
     retval = (is_restart .AND. (ABS(next_output_time) < 0.05_wp))
-write(0,*)'is_first_timestep_during_restart: is_restart:',is_restart
-write(0,*)'is_first_timestep_during_restart: ABS(next_output_time):',ABS(next_output_time)
-write(0,*)'is_first_timestep_during_restart:',retval
   END FUNCTION is_first_timestep_during_restart
 
 END MODULE mo_name_list_output_config

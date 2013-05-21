@@ -201,7 +201,6 @@ CONTAINS
   !------------------------------------------------------------------
   !write initial
   IF (output_mode%l_nml) THEN
-    write(0,*)'time_config%sim_time:',time_config%sim_time(1)
     CALL write_name_list_output( datetime, time_config%sim_time(1), last_step=.FALSE., initial_step=.not.is_restart_run())
   ENDIF
   TIME_LOOP: DO jstep = 1, nsteps
@@ -304,7 +303,6 @@ CONTAINS
     ! Not nice, but the name list output requires this
     time_config%sim_time(1) = time_config%sim_time(1) + dtime
     IF (is_output_time(jstep) .OR. istime4name_list_output(time_config%sim_time(1))) THEN 
-!TODO    IF ( l_outputtime .OR. istime4name_list_output(sim_time(1)) ) THEN
       IF (idiag_oce == 1 ) THEN
         CALL calculate_oce_diagnostics( p_patch_3D,    &
                                      & p_os(jg),      &
@@ -325,7 +323,6 @@ CONTAINS
       ENDIF
 
       IF (output_mode%l_nml) THEN
-        !CALL write_name_list_output( datetime, sim_time(1), jstep==nsteps )
         CALL write_name_list_output( datetime, time_config%sim_time(1), jstep==nsteps)
       ENDIF
       IF (output_mode%l_vlist) THEN

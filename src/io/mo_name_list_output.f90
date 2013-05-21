@@ -3384,7 +3384,7 @@ CONTAINS
     CHARACTER(LEN=filename_max+100)   :: text
     LOGICAL                           :: lnewly_initialized = .FALSE.
     LOGICAL                           :: l_output_file_active, l_is_initial_step
-write(0,*)'mod:',routine
+
     IF (ltimer) CALL timer_start(timer_write_output)
     ! If asynchronous I/O is enabled, the compute PEs have to make sure
     ! that the I/O PEs are ready with the last output step before
@@ -3424,23 +3424,19 @@ write(0,*)'mod:',routine
 
     ! Go over all output files
     DO i = 1, SIZE(output_file)
-    write(0,*)'inloop 00'
       l_output_file_active=(is_output_file_active(output_file(i), &
         &                                         sim_time, &
         &                                         dtime, &
         &                                         i_sample, &
         &                                         last_step) .OR. l_is_initial_step )
-    write(0,*)'l_output_file_active: ',l_output_file_active
 
       p_onl => output_file(i)%name_list
 
-    write(0,*)'inloop 01'
       ! Check if output is due for this file
       IF (l_output_file_active) THEN
 
         IF (output_file(i)%io_proc_id == p_pe) THEN
           IF (.NOT. output_file(i)%initialized) THEN
-            write(0,*)'CALL setup_output_vlist(output_file(i))'
             CALL setup_output_vlist(output_file(i))
             lnewly_initialized = .TRUE.
           ELSE
@@ -3448,16 +3444,13 @@ write(0,*)'mod:',routine
           ENDIF
         ENDIF
 
-        write(0,*)'p_onl%n_output_steps,p_onl%steps_per_file:',p_onl%n_output_steps,',',p_onl%steps_per_file
         IF (lnewly_initialized .OR. &
           & (MOD(p_onl%n_output_steps,p_onl%steps_per_file) == 0) .AND. p_onl%n_output_steps /= 0) THEN
           IF (output_file(i)%io_proc_id == p_pe) THEN
             IF(.NOT. lnewly_initialized) THEN
               CALL close_output_file(output_file(i))
-              write(0,*)'CLOSE output file <<<<<<<<<<<<<<<<<<<<<==============================='
             ENDIF
             CALL open_output_file(output_file(i),p_onl%n_output_steps/p_onl%steps_per_file+1, sim_time)
-              write(0,*)'OPEN  output file <<<<<<<<<<<<<<<<<<<<<==============================='
           ENDIF
         ENDIF
 
@@ -3518,9 +3511,7 @@ write(0,*)'mod:',routine
     DO
       IF(.NOT.ASSOCIATED(p_onl)) EXIT
 
-        write(0,*)'VOR A'
       IF (is_output_nml_active(p_onl, sim_time, dtime, i_sample, last_step, is_restart=is_restart_run())) THEN
-        write(0,*)'A'
         p_onl%n_output_steps = p_onl%n_output_steps + 1
       ENDIF
 
@@ -3529,9 +3520,7 @@ write(0,*)'mod:',routine
       ! where an output increment less than the time step
       ! or two output_bounds triples which are too close are specified.
 
-        write(0,*)'VOR B'
       DO WHILE (is_output_nml_active(p_onl, sim_time, dtime, i_sample))
-        write(0,*)'B'
         n = p_onl%cur_bounds_triple
         IF(p_onl%next_output_time + p_onl%output_bounds(3,n) <= p_onl%output_bounds(2,n)+eps) THEN
           ! Next output time will be within current bounds triple
