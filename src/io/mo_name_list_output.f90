@@ -3369,11 +3369,12 @@ CONTAINS
   !  This routine also cares about opening the output files the first time
   !  and reopening the files after a certain number of steps.
   !
-  SUBROUTINE write_name_list_output(datetime, sim_time, last_step)
+  SUBROUTINE write_name_list_output(datetime, sim_time, last_step, initial_step)
 
-    TYPE(t_datetime), INTENT(in) :: datetime
-    REAL(wp), INTENT(in)         :: sim_time
-    LOGICAL, INTENT(IN)          :: last_step
+    TYPE(t_datetime), INTENT(in)  :: datetime
+    REAL(wp), INTENT(in)          :: sim_time
+    LOGICAL, INTENT(IN)           :: last_step
+    LOGICAL, INTENT(IN),OPTIONAL  :: initial_step
     ! local variables
     CHARACTER(LEN=*), PARAMETER  :: routine = modname//"::write_name_list_output"
     REAL(wp), PARAMETER :: eps = 1.d-10 ! Tolerance for checking output bounds
@@ -3382,7 +3383,7 @@ CONTAINS
     TYPE(t_output_name_list), POINTER :: p_onl
     CHARACTER(LEN=filename_max+100)   :: text
     LOGICAL                           :: lnewly_initialized = .FALSE.
-    LOGICAL                           :: l
+    LOGICAL                           :: l_output_file_active, l_is_initial_step
 write(0,*)'mod:',routine
     IF (ltimer) CALL timer_start(timer_write_output)
     ! If asynchronous I/O is enabled, the compute PEs have to make sure
@@ -3390,6 +3391,13 @@ write(0,*)'mod:',routine
     ! writing data into the I/O memory window.
     ! This routine (write_name_list_output) is also called from the I/O PEs,
     ! but in this case the calling routine cares about the flow control.
+
+    l_is_initial_step = .FALSE.
+    IF (PRESENT(initial_step)) THEN
+      IF (initial_step) THEN
+        l_is_initial_step = .TRUE.
+      END IF
+    END IF
 
 #ifndef NOMPI
     IF(use_async_name_list_io) THEN
@@ -3414,21 +3422,25 @@ write(0,*)'mod:',routine
 
     ! Check if files have to be (re)opened
 
-    write(0,*) SIZE(output_file)
     ! Go over all output files
     DO i = 1, SIZE(output_file)
     write(0,*)'inloop 00'
+      l_output_file_active=(is_output_file_active(output_file(i), &
+        &                                         sim_time, &
+        &                                         dtime, &
+        &                                         i_sample, &
+        &                                         last_step) .OR. l_is_initial_step )
+    write(0,*)'l_output_file_active: ',l_output_file_active
 
       p_onl => output_file(i)%name_list
 
     write(0,*)'inloop 01'
       ! Check if output is due for this file
-    l =is_output_file_active(output_file(i), sim_time, dtime, i_sample, last_step, is_restart=is_restart_run())
-      write (0,*) l
-      IF (is_output_file_active(output_file(i), sim_time, dtime, i_sample, last_step, is_restart=is_restart_run())) THEN
+      IF (l_output_file_active) THEN
 
         IF (output_file(i)%io_proc_id == p_pe) THEN
           IF (.NOT. output_file(i)%initialized) THEN
+            write(0,*)'CALL setup_output_vlist(output_file(i))'
             CALL setup_output_vlist(output_file(i))
             lnewly_initialized = .TRUE.
           ELSE
@@ -3436,13 +3448,16 @@ write(0,*)'mod:',routine
           ENDIF
         ENDIF
 
+        write(0,*)'p_onl%n_output_steps,p_onl%steps_per_file:',p_onl%n_output_steps,',',p_onl%steps_per_file
         IF (lnewly_initialized .OR. &
-          & MOD(p_onl%n_output_steps,p_onl%steps_per_file) == 0) THEN
+          & (MOD(p_onl%n_output_steps,p_onl%steps_per_file) == 0) .AND. p_onl%n_output_steps /= 0) THEN
           IF (output_file(i)%io_proc_id == p_pe) THEN
             IF(.NOT. lnewly_initialized) THEN
               CALL close_output_file(output_file(i))
+              write(0,*)'CLOSE output file <<<<<<<<<<<<<<<<<<<<<==============================='
             ENDIF
             CALL open_output_file(output_file(i),p_onl%n_output_steps/p_onl%steps_per_file+1, sim_time)
+              write(0,*)'OPEN  output file <<<<<<<<<<<<<<<<<<<<<==============================='
           ENDIF
         ENDIF
 
@@ -3459,7 +3474,7 @@ write(0,*)'mod:',routine
     DO i = 1, SIZE(output_file)
 
       ! Check if output is due for this file
-      IF (is_output_file_active(output_file(i), sim_time, dtime, i_sample, last_step, is_restart=is_restart_run())) THEN
+      IF (l_output_file_active) THEN
         IF (output_file(i)%io_proc_id == p_pe) THEN
           CALL taxisDefVdate(output_file(i)%cdiTaxisID, idate)
           CALL taxisDefVtime(output_file(i)%cdiTaxisID, itime)
@@ -3525,7 +3540,9 @@ write(0,*)'mod:',routine
           ! the last bounds triple is always set to 0, so no need to check if n >= max_bounds
           IF(p_onl%output_bounds(3,n+1) > 0._wp) THEN
             ! Start to use next bounds triple
-            p_onl%next_output_time = p_onl%output_bounds(1,n+1)
+            IF (.not. l_is_initial_step) THEN
+              p_onl%next_output_time = p_onl%output_bounds(1,n+1)
+            END IF
           ELSE
             ! Output is finished for this name list
             p_onl%next_output_time = HUGE(0._wp)

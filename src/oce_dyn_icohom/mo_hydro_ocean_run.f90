@@ -109,6 +109,7 @@ USE mo_oce_diagnostics,        ONLY: calculate_oce_diagnostics,&
 USE mo_oce_ab_timestepping_mimetic, ONLY: init_ho_lhs_fields_mimetic
 !USE mo_mpi,                    ONLY: my_process_is_mpi_all_parallel
   USE mo_time_config,         ONLY: time_config
+  USE mo_master_control,        ONLY: is_restart_run
 
 
 IMPLICIT NONE
@@ -198,10 +199,10 @@ CONTAINS
   !------------------------------------------------------------------
   ! call the dynamical core: start the time loop
   !------------------------------------------------------------------
+  !write initial
   IF (output_mode%l_nml) THEN
-        !CALL write_name_list_output( datetime, sim_time(1), jstep==nsteps )
     write(0,*)'time_config%sim_time:',time_config%sim_time(1)
-    CALL write_name_list_output( datetime, time_config%sim_time(1), last_step=.FALSE. )
+    CALL write_name_list_output( datetime, time_config%sim_time(1), last_step=.FALSE., initial_step=.not.is_restart_run())
   ENDIF
   TIME_LOOP: DO jstep = 1, nsteps
 
@@ -325,7 +326,7 @@ CONTAINS
 
       IF (output_mode%l_nml) THEN
         !CALL write_name_list_output( datetime, sim_time(1), jstep==nsteps )
-        CALL write_name_list_output( datetime, time_config%sim_time(1), jstep==nsteps )
+        CALL write_name_list_output( datetime, time_config%sim_time(1), jstep==nsteps)
       ENDIF
       IF (output_mode%l_vlist) THEN
           CALL write_output_oce( datetime, sim_time(1),p_patch_3D, p_os)
