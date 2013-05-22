@@ -392,6 +392,9 @@ MODULE mo_impl_constants
     & dzsoil=(/ 0.01_wp,0.02_wp,0.06_wp,0.18_wp,0.54_wp,1.62_wp,    &
     & 4.86_wp,14.58_wp/)
 
+  ! identifier for MODIS albedo
+  INTEGER, PARAMETER :: MODIS   = 2
+
 
   !---------------------!
   !        OCEAN        !

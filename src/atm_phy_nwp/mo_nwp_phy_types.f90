@@ -99,7 +99,9 @@ MODULE mo_nwp_phy_types
     TYPE(t_ptr_2d3d),ALLOCATABLE :: cfm_ptr(:)  !< pointer array: average of cfm
     TYPE(t_ptr_2d3d),ALLOCATABLE :: cfh_ptr(:)  !< pointer array: average of cfh
     TYPE(t_ptr_2d3d),ALLOCATABLE :: z0m_ptr(:)  !< pointer array: average of z0m
-    TYPE(t_ptr_2d3d),ALLOCATABLE :: albvisdif_t_ptr(:)!< pointer array: tile-specific albedo
+    TYPE(t_ptr_2d3d),ALLOCATABLE :: albdif_t_ptr(:)   !< pointer array: tile-specific albedo (shortwave)
+    TYPE(t_ptr_2d3d),ALLOCATABLE :: albvisdif_t_ptr(:)!< pointer array: tile-specific albedo (UV/visible)
+    TYPE(t_ptr_2d3d),ALLOCATABLE :: albnirdif_t_ptr(:)!< pointer array: tile-specific albedo (NIR)
     TYPE(t_ptr_2d3d),ALLOCATABLE :: swflxsfc_t_ptr(:) !< pointer array: shortwave net flux at surface
     TYPE(t_ptr_2d3d),ALLOCATABLE :: lwflxsfc_t_ptr(:) !< pointer array: longwave net flux at surface
     TYPE(t_ptr_2d3d),ALLOCATABLE :: tcm_t_ptr(:) !< pointer array: turbulent transfer coefficients for momentum
@@ -186,9 +188,12 @@ MODULE mo_nwp_phy_types
                                  !! vertically integrated tot_cld (qv,qc,qi)
       &  clct_avg(:,:),        & !! average since model start of the total cloud cover  
       &  cosmu0(:,:),          & !! cosine of solar zenith angle
+      &  albdif(:,:),          & !! Shortwave albedo for diffuse radiation  (0.3-5.0µm)
       &  albvisdif(:,:),       & !! UV visible albedo for diffuse radiation (0.3-0.7µm)
       &  albnirdif(:,:),       & !! near IR albedo for diffuse radiation    (0.7-5.0µm)
+      &  albdif_t(:,:,:),      & !! tile-based shortwave albedo for diffuse radiation  (0.3-5.0µm)
       &  albvisdif_t(:,:,:),   & !! tile-based UV visible albedo for diffuse radiation (0.3-0.7µm)
+      &  albnirdif_t(:,:,:),   & !! tile-based near IR albedo for diffuse radiation (0.3-0.7µm)
       &  vio3(:,:),            & !! vertically integrated ozone amount (Pa O3)
       &  hmo3(:,:),            & !! height of O3 maximum (Pa)
       &  flxdwswtoa(:,:),      & !! downward shortwave flux at TOA [W/m2]

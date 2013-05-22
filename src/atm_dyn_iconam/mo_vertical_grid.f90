@@ -1999,10 +1999,10 @@ MODULE mo_vertical_grid
     TYPE(t_nh_state), INTENT(INOUT)      :: p_nh
     TYPE(t_int_state), TARGET,INTENT(IN) :: p_int
 
-    REAL(wp)  :: z_me(nproma,p_patch%nlev,p_patch%nblks_e)
+    REAL(wp)  :: z_me(nproma,p_patch%nlev,p_patch%nblks_e), les_filter
 
-    INTEGER :: jk, jb, jc, je, nblks_c, nblks_e, nlen, npromz_c, npromz_e
-    INTEGER :: nlev, nlevp1, les_filter
+    INTEGER :: jk, jb, jc, je, nblks_c, nblks_e, nlen, i_startidx, i_endidx, npromz_c, npromz_e
+    INTEGER :: nlev, nlevp1, i_startblk
 
     nlev = p_patch%nlev
     nlevp1 = nlev + 1
@@ -2020,16 +2020,16 @@ MODULE mo_vertical_grid
     CALL cells2edges_scalar(p_nh%metrics%z_mc, p_patch, p_int%c_lin_e, z_me, opt_rlend=min_rledge_int)
     CALL sync_patch_array(SYNC_E, p_patch, z_me)
 
+    i_startblk = p_patch%edges%start_blk(2,1)
+
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,je,jk,nlen,les_filter) ICON_OMP_DEFAULT_SCHEDULE
-    DO jb = 1,nblks_e
-      IF (jb /= nblks_e) THEN
-         nlen = nproma
-      ELSE
-         nlen = npromz_e
-      ENDIF     
+!$OMP DO PRIVATE(jb,je,jk,i_startidx,i_endidx,les_filter) ICON_OMP_DEFAULT_SCHEDULE
+    DO jb = i_startblk,nblks_e
+
+      CALL get_indices_e(p_patch, jb, i_startblk, nblks_e, i_startidx, i_endidx, 2)
+    
       DO jk = 1 , nlev 
-       DO je = 1 , nlen
+       DO je = i_startidx, i_endidx
          p_nh%metrics%inv_ddqz_z_full_e(je,jk,jb) =  & 
                 1._wp / p_nh%metrics%ddqz_z_full_e(je,jk,jb)
 

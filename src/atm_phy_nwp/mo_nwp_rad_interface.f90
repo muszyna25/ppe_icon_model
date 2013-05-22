@@ -44,7 +44,7 @@ MODULE mo_nwp_rad_interface
   USE mo_parallel_config,      ONLY: nproma, p_test_run, parallel_radiation_mode
 
   USE mo_run_config,           ONLY: msg_level, iqv, iqc, iqi
-  USE mo_impl_constants,       ONLY: min_rlcell_int, io3_ape!, min_rlcell 
+  USE mo_impl_constants,       ONLY: max_char_length, min_rlcell_int, io3_ape, MODIS 
   USE mo_impl_constants_grf,   ONLY: grf_bdywidth_c, grf_ovlparea_start_c
   USE mo_kind,                 ONLY: wp
   USE mo_loopindices,          ONLY: get_indices_c
@@ -56,7 +56,7 @@ MODULE mo_nwp_rad_interface
   USE mo_nwp_phy_types,        ONLY: t_nwp_phy_diag
   USE mo_o3_util,              ONLY: calc_o3_clim,calc_o3_gems
   USE mo_radiation,            ONLY: pre_radiation_nwp_steps
-  USE mo_radiation_config,     ONLY: irad_o3, irad_aero, vmr_co2
+  USE mo_radiation_config,     ONLY: albedo_type, irad_o3, irad_aero, vmr_co2
   USE mo_radiation_rg,         ONLY: fesft
   USE mo_radiation_rg_par,     ONLY: aerdis
   USE mo_satad,                ONLY: qsat_rho
@@ -65,7 +65,7 @@ MODULE mo_nwp_rad_interface
   USE mo_nwp_rrtm_interface,   ONLY: nwp_rrtm_radiation, &
    &  nwp_rrtm_radiation_reduced, nwp_rrtm_radiation_repartition, nwp_rrtm_ozon_aerosol
 !   USE mo_nwp_mpiomp_rrtm_interface, ONLY: nwp_omp_rrtm_interface
-  USE mo_albedo,               ONLY: sfc_albedo
+  USE mo_albedo,               ONLY: sfc_albedo, sfc_albedo_modis
 
   IMPLICIT NONE
 
@@ -91,8 +91,8 @@ MODULE mo_nwp_rad_interface
   SUBROUTINE nwp_radiation ( lredgrid, p_sim_time, datetime, pt_patch,pt_par_patch, &
     & ext_data, lnd_diag, pt_prog, pt_diag, prm_diag, lnd_prog, wtr_prog )
 
-!    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER::  &
-!      &  routine = 'mo_nwp_rad_interface:'
+    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER::  &
+      &  routine = 'mo_nwp_rad_interface:'
     
     LOGICAL, INTENT(in)         :: lredgrid        !< use reduced grid for radiation
 
@@ -123,7 +123,15 @@ MODULE mo_nwp_rad_interface
 
 
     ! Compute tile-based and aggregated surface-albedo
-    CALL sfc_albedo(pt_patch, ext_data, lnd_prog, wtr_prog, lnd_diag, prm_diag)
+    !
+    IF ( albedo_type == MODIS ) THEN
+      ! MODIS albedo
+      CALL sfc_albedo_modis(pt_patch, ext_data, lnd_prog, wtr_prog, lnd_diag, prm_diag)
+    ELSE
+      ! albedo based on tabulated bare soil values
+      CALL sfc_albedo(pt_patch, ext_data, lnd_prog, wtr_prog, lnd_diag, prm_diag)
+    ENDIF
+
 
     IF (atm_phy_nwp_config(jg)%inwp_radiation == 1 ) THEN
        
@@ -333,7 +341,7 @@ MODULE mo_nwp_rad_interface
         & paeq5 = zaeq5(:,:,jb),&
         & papre_in =  pt_diag%pres_sfc (:,jb), & ! Surface pressure
         & psmu0 = prm_diag%cosmu0 (:,jb) , & ! Cosine of zenith angle
-        & palso = prm_diag%albvisdif(:,jb), & ! solar surface albedo
+        & palso = prm_diag%albdif(:,jb), & ! solar surface albedo
         & palth = alb_ther(:,jb), & ! thermal surface albedo
         & psct = zsct, &! solar constant (at time of year)
         & kig1s = 1 ,&
@@ -405,7 +413,7 @@ MODULE mo_nwp_rad_interface
     ! the global grid and nested grids, and for runs with/without MPI parallelization
     ! Input fields
     REAL(wp), ALLOCATABLE, TARGET:: zrg_cosmu0   (:,:)
-    REAL(wp), ALLOCATABLE, TARGET:: zrg_albvisdif(:,:)
+    REAL(wp), ALLOCATABLE, TARGET:: zrg_albdif(:,:)
     REAL(wp), ALLOCATABLE, TARGET:: zrg_albeff(:,:)
     REAL(wp), ALLOCATABLE, TARGET:: zrg_albefffac(:,:)
     REAL(wp), ALLOCATABLE, TARGET:: zrg_tsfc     (:,:)
@@ -548,7 +556,7 @@ MODULE mo_nwp_rad_interface
 
     ALLOCATE (                                       &
       zrg_cosmu0   (nproma,          nblks_par_c),   &
-      zrg_albvisdif(nproma,          nblks_par_c),   &
+      zrg_albdif   (nproma,          nblks_par_c),   &
       zrg_albeff   (nproma,          nblks_par_c),   &
       zrg_albefffac(nproma,          nblks_par_c),   &
       zrg_alb_ther (nproma,          nblks_par_c),   &
@@ -615,10 +623,10 @@ MODULE mo_nwp_rad_interface
 !$OMP END PARALLEL
 
     CALL upscale_rad_input_rg( pt_patch%id, pt_par_patch%id,  nlev_rg, nlevp1_rg,            &
-      & prm_diag%cosmu0, prm_diag%albvisdif, alb_ther, pt_diag%temp_ifc,                     &
+      & prm_diag%cosmu0, prm_diag%albdif, alb_ther, pt_diag%temp_ifc,                        &
       & pt_diag%dpres_mc, prm_diag%tot_cld, prm_diag%clc, zsqv ,zduco2, zduo3,               &
       & zaeq1,zaeq2,zaeq3,zaeq4,zaeq5,pt_diag%pres_sfc,pt_diag%pres_ifc,                     &
-      & zrg_cosmu0, zrg_albvisdif, zrg_alb_ther, zrg_temp_ifc, zrg_dpres_mc,                 &
+      & zrg_cosmu0, zrg_albdif, zrg_alb_ther, zrg_temp_ifc, zrg_dpres_mc,                    &
       & zrg_tot_cld, zrg_clc,zrg_sqv ,zrg_duco2, zrg_o3,                                     &
       & zrg_aeq1,zrg_aeq2,zrg_aeq3,zrg_aeq4,zrg_aeq5,zrg_pres_sfc     )
 
@@ -667,7 +675,7 @@ MODULE mo_nwp_rad_interface
         & paeq5 = zrg_aeq5(:,:,jb),&
         & papre_in = zrg_pres_sfc (:,jb), & ! Surface pressure
         & psmu0 = zrg_cosmu0 (:,jb) , & ! Cosine of zenith angle
-        & palso = zrg_albvisdif(:,jb), & ! solar surface albedo
+        & palso = zrg_albdif(:,jb),   & ! solar surface albedo
         & palth = zrg_alb_ther(:,jb), & ! thermal surface albedo
         & psct = zsct, &! solar constant (at time of year)
         & kig1s = 1 ,&
@@ -708,7 +716,7 @@ MODULE mo_nwp_rad_interface
           zrg_albeff(jc,jb)    = 0.5_wp
         ELSE
           zrg_albeff(jc,jb) = zrg_flsu(jc,jb) / ( zrg_flsp(jc,jb) + zrg_flsd(jc,jb) )
-          zrg_albefffac(jc,jb) = zrg_albeff(jc,jb) / zrg_albvisdif(jc,jb)
+          zrg_albefffac(jc,jb) = zrg_albeff(jc,jb) / zrg_albdif(jc,jb)
         ENDIF
         
         zrg_tsfc(jc,jb) = zrg_temp_ifc(jc,nlevp1_rg,jb)
@@ -742,12 +750,12 @@ MODULE mo_nwp_rad_interface
       & dpres_mc_rg  = zrg_dpres_mc,       &
       & pres_sfc_rg  = zrg_pres_sfc,       &
       & tsfc         = prm_diag%tsfctrad,  &
-      & albvisdif    = prm_diag%albvisdif, &
+      & albdif       = prm_diag%albdif,    &
       & zsct         = zsct,               &
       & lwflxall     = prm_diag%lwflxall,  &
       & trsolall     = prm_diag%trsolall )
 
-    DEALLOCATE (zrg_cosmu0,zrg_tsfc,zrg_albvisdif,zrg_alb_ther,             &
+    DEALLOCATE (zrg_cosmu0,zrg_tsfc,zrg_albdif,zrg_alb_ther,                &
       & zrg_pres_sfc,zrg_temp_ifc,zrg_dpres_mc,zrg_sqv,zrg_duco2,zrg_o3,    &
       & zrg_aeq1,zrg_aeq2,zrg_aeq3,zrg_aeq4,zrg_aeq5,                       &
       & zrg_tot_cld, zrg_clc, zrg_fls, zrg_flsp, zrg_flsd, zrg_flsu,        &

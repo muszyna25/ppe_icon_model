@@ -61,6 +61,7 @@ MODULE mo_nh_stepping
   USE mo_run_config,           ONLY: ltestcase, dtime, dtime_adv, nsteps,     &
     &                                ltransport, ntracer, lforcing, iforcing, &
     &                                msg_level, test_mode, output_mode
+  USE mo_radiation_config,     ONLY: albedo_type
   USE mo_timer,               ONLY: ltimer, timers_level, timer_start, timer_stop,   &
     &                               timer_total, timer_model_init, timer_nudging,    &
     &                               timer_bdy_interp, timer_feedback, timer_nesting, &
@@ -106,7 +107,7 @@ MODULE mo_nh_stepping
     &                               iphysproc_short, itconv, itccov, itrad, &
     &                               itradheat, itsso, itsatad, itgwd, inwp, iecham, &
     &                               itupdate, itturb, itgscp, itsfc, min_rlcell_int, &
-                                    min_rledge_int, MODE_DWDANA
+                                    min_rledge_int, MODE_DWDANA, MODIS
   USE mo_divergent_modes,     ONLY: divergent_modes_5band
   USE mo_math_divrot,         ONLY: div, rot_vertex
   USE mo_solve_nonhydro,      ONLY: solve_nh
@@ -514,6 +515,26 @@ MODULE mo_nh_stepping
                         & ext_data, p_lnd_state, p_nh_state )
 
       END IF  !sstice_mode>1
+
+
+      ! Check if MODIS albedo needs to be updated
+      IF ( albedo_type == MODIS) THEN
+        ! Note that here only an update of the external parameter fields is 
+        ! performed. The actual update happens in mo_albedo.
+        DO jg = 1, n_dom
+          CALL interpol_monthly_mean(p_patch(jg), datetime,            &! in
+            &                        ext_data(jg)%atm_td%alb_dif,      &! in
+            &                        ext_data(jg)%atm%alb_dif          )! out
+
+          CALL interpol_monthly_mean(p_patch(jg), datetime,            &! in
+            &                        ext_data(jg)%atm_td%albuv_dif,    &! in
+            &                        ext_data(jg)%atm%albuv_dif        )! out
+
+          CALL interpol_monthly_mean(p_patch(jg), datetime,            &! in
+            &                        ext_data(jg)%atm_td%albni_dif,    &! in
+            &                        ext_data(jg)%atm%albni_dif        )! out
+        ENDDO
+      ENDIF
 
       datetime_old = datetime
 

@@ -358,9 +358,13 @@ CONTAINS
        ELSE
          ztemperature_rad(:) = 0._wp
          DO jsfc=1,nsfc_type
-           ztemperature_rad(:) = ztemperature_rad(:) + zfrc(:,jsfc)*field%tsfc_tile(:,jb,jsfc)**4
+!           write(0, *) " jsfc=", jsfc
+!           write(0, *) jsfc, " zfrc(jcs:jce,jsfc)):", zfrc(jcs:jce,jsfc)
+!           write(0, *) jsfc, " field%tsfc_tile(:,jb,jsfc):", field%tsfc_tile(jcs:jce,jb,jsfc)
+           ztemperature_rad(jcs:jce) = ztemperature_rad(jcs:jce) + &
+             & zfrc(jcs:jce,jsfc) * field%tsfc_tile(jcs:jce,jb,jsfc)**4
          ENDDO
-         ztemperature_rad(:) = ztemperature_rad(:)**0.25_wp
+         ztemperature_rad(jcs:jce) = ztemperature_rad(jcs:jce)**0.25_wp
         END IF
 
        ! 4.1 RADIATIVE TRANSFER
@@ -997,7 +1001,7 @@ CONTAINS
     ! Merge surface temperatures
     field%tsfc(:,jb) = 0._wp
     DO jsfc=1,nsfc_type
-      field%tsfc(:,jb) = field%tsfc(:,jb) + zfrc(:,jsfc)*field%tsfc_tile(:,jb,jsfc)
+      field%tsfc(jcs:jce,jb) = field%tsfc(jcs:jce,jb) + zfrc(jcs:jce,jsfc) * field%tsfc_tile(jcs:jce,jb,jsfc)
     ENDDO
 
     ! 5.5 Turbulent mixing, part II:

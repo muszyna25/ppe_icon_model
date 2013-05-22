@@ -60,6 +60,7 @@ MODULE mo_ha_stepping
                                   & ldynamics, ltransport, msg_level,   &
                                   & ltestcase, output_mode
   USE mo_master_control,      ONLY: is_restart_run
+  USE mo_echam_phy_config,    ONLY: phy_config => echam_phy_config
   USE mo_lnd_jsbach_config,   ONLY: lnd_jsbach_config
   USE mo_ha_testcases,        ONLY: init_testcase
   USE mo_si_correction,       ONLY: init_si_params
@@ -404,11 +405,19 @@ CONTAINS
     ! Write restart file
     !--------------------------------------------------------------------------
     IF (is_checkpoint_time(jstep,n_checkpoint,nsteps)) THEN
-      DO jg = 1, n_dom
-        CALL create_restart_file( p_patch(jg), datetime,                        &
-                                & jfile, l_have_output, vct,                    &
-                                & opt_depth_lnd = lnd_jsbach_config(jg)%nsoil )
-      END DO
+
+      IF (phy_config%ljsbach) THEN
+        DO jg = 1, n_dom
+          CALL create_restart_file( p_patch(jg), datetime,                        &
+                                  & jfile, l_have_output, vct,                    &
+                                  & opt_depth_lnd = lnd_jsbach_config(jg)%nsoil )
+        END DO
+      ELSE
+        DO jg = 1, n_dom
+          CALL create_restart_file( p_patch(jg), datetime,                        &
+                                  & jfile, l_have_output, vct )
+        END DO
+      ENDIF
 
       ! Create the master (meta) file in ASCII format which contains
       ! info about which files should be read in for a restart run.

@@ -41,13 +41,12 @@ MODULE mo_util_dbg_prnt
 !-------------------------------------------------------------------------
 !
 USE mo_kind,                   ONLY: wp
-USE mo_mpi,                    ONLY: my_process_is_stdio, p_pe, p_comm_work, &
-  &                                  get_my_mpi_work_id, p_bcast
+USE mo_mpi,                    ONLY: my_process_is_stdio, p_pe
 USE mo_io_units,               ONLY: nerr
 USE mo_parallel_config,        ONLY: nproma, p_test_run
 USE mo_impl_constants,         ONLY: max_char_length
 USE mo_timer,                  ONLY: timer_start, timer_stop, timer_dbg_prnt, timers_level
-USE mo_sync,                   ONLY: SYNC_C, sync_patch_array, global_max, global_min
+USE mo_sync,                   ONLY: SYNC_C, sync_patch_array, global_max
 USE mo_grid_subset,            ONLY: t_subset_range, get_index_range
 USE mo_dbg_nml,                ONLY: str_mod_tst, dim_mod_tst, dbg_lon_in, dbg_lat_in, &
   &                                  idbg_mxmn, idbg_val, idbg_slev, idbg_elev, &
@@ -243,7 +242,7 @@ CONTAINS
   owned_cells      => ppatch%cells%owned
 
   ! initial distance to compare
-  zdist_cmp = 100000.0_wp
+  zdist_cmp   = 100000.0_wp
   zdst_c(:,:) = 100000.0_wp
 
   !  loop over owned cells
@@ -274,38 +273,39 @@ CONTAINS
   p_test_run_bac = p_test_run
   p_test_run = .false.
 
-  ! Bugfix
+  ! comparing zdist_cmp over all domains
   mproc_id = p_pe
-  !write(20+mproc_id,*) ' before global_max: mproc_id=',mproc_id,'  p_comm_work= ',p_comm_work,'  zdist=',zdist
-  xctr = global_max(-zdist, mproc_id)
-  !write(20+p_pe,*) ' after: mproc_id=',mproc_id,'  p_comm_work= ',p_comm_work,'  p_pe=',p_pe,'  mdist=',-xctr, &
-  !  &              '  idx/blk=',iidx,iblk
+  !write(20+p_pe,*) ' 0max: mproc_id=',mproc_id,'  p_pe=',p_pe,'  zdst=',zdst_c(iidx,iblk),'  idx/blk=',iidx,iblk,' cmp=',zdist_cmp
+  xctr = global_max(-zdist_cmp, mproc_id)
+  !write(20+p_pe,*) ' 1max: mproc_id=',mproc_id,'  p_pe=',p_pe,'  zdst=',zdst_c(iidx,iblk),'  idx/blk=',iidx,iblk,' cmp=',zdist_cmp
 
   ! set indices of minimum cell to 1 for all other procs
   IF (p_pe .NE. mproc_id) THEN
     iblk = 1
     iidx = 1
-    zdist=1000.0_wp
+    zdist_cmp = 20000.0_wp
   END IF
   proc_id = mproc_id
-  !write(20+p_pe,*) ' after: mproc_id=',mproc_id,'  p_comm_work= ',p_comm_work,'  p_pe=',p_pe,'  zdist=',zdist, &
-  !  &              '  idx/blk=',iidx,iblk
+  !write(20+p_pe,*) ' 2max: mproc_id=',mproc_id,'  p_pe=',p_pe,'  zdst=',zdst_c(iidx,iblk),'  idx/blk=',iidx,iblk,' cmp=',zdist_cmp
 
   p_test_run = p_test_run_bac
 
-  zlat    = ppatch%cells%center          (iidx,iblk)%lat * 180.0_wp / pi
-  zlon    = ppatch%cells%center          (iidx,iblk)%lon * 180.0_wp / pi
+  zlat = ppatch%cells%center(iidx,iblk)%lat * 180.0_wp / pi
+  zlon = ppatch%cells%center(iidx,iblk)%lon * 180.0_wp / pi
 
-  99 FORMAT(3a,i4,a,i4,3(a,f9.2))
-  98 FORMAT(2a,3(a,f9.2))
+  99 FORMAT(3a,i4,a,i4,3(a,f9.3))
+  98 FORMAT(2a,3(a,f9.3))
 
-  !IF (my_process_is_stdio()) THEN
   IF (p_pe .EQ. mproc_id) THEN
-    WRITE(0,98) ' ',TRIM(routine),' Found  cell nearest to         lat=', plat_in,'  lon=',plon_in
-    WRITE(0,99) ' ',TRIM(routine),' Found  block=',iblk,'  index=',iidx,'  lat=',zlat,'  lon=',zlon
-    WRITE(0,'(3a,i3)')         ' ',TRIM(routine),' FOUND: proc_id for nearest cell is=',mproc_id
-    WRITE(0,'(3a,2i3,a,f9.2)') ' ',TRIM(routine),' FOUND: Min dist is at idx/blk=', &
-      &                  MINLOC(zdst_c(:,:)),' distance in deg =',MINVAL(zdst_c(:,:))
+
+    WRITE(125,98) ' ',TRIM(routine),' Found  cell nearest to         latitude=', plat_in,'  longitude=',plon_in
+    WRITE(125,99) ' ',TRIM(routine),' Found  block=',iblk,'  index=',iidx,'  latitude=',zlat,'  longitude=',zlon
+    WRITE(125,'(3a,i3,a,f9.3)') ' ',TRIM(routine),' FOUND: proc_id for nearest cell is=',mproc_id, &
+      &                  '; distance in degrees =', zdist_cmp
+  ! WRITE(125,'(3a,i3,a,i3,a,f9.3)') ' ',TRIM(routine),' FOUND: at block=',iblk,' index=',iidx, &
+  !   &                  ' distance in degrees =', zdist_cmp
+  ! WRITE(125,'(3a,2i3,a,f9.3)') ' ',TRIM(routine),' FOUND: using MINLOC: at idx/blk=', &
+  !   &                  MINLOC(zdst_c(:,:)),' distance in degrees =',MINVAL(zdst_c(:,:))
   END IF
 
   END SUBROUTINE find_latlonindex
@@ -348,20 +348,18 @@ CONTAINS
   991 FORMAT(a,a12,':',a27,'  :',i3, 2g26.18)
 #else
 
+! ! valid g-format without offset of decimal point
+! 981 FORMAT(a,a12,':',a27,' C:',i3,  g26.18,3(a,i0,a,  g20.12))
+! 982 FORMAT(a,a12,':',a27,'  :',i3,   26x,  3(a,i0,a,  g20.12))
+! 991 FORMAT(a,a12,':',a27,'  :',i3, 2g26.18)
 ! ! valid e-format with first digit gt zero
 ! 981 FORMAT(a,a12,':',a27,' C:',i3, 1pe26.18,3(a,i0,a,1pe20.12))
 ! 982 FORMAT(a,a12,':',a27,'  :',i3,    26x,  3(a,i0,a,1pe20.12))
 ! 991 FORMAT(a,a12,':',a27,'  :',i3,1p2e26.18)
-
 ! ! g-format with offset for decimal point not valid for NAG compiler
-! 981 FORMAT(a,a12,':',a27,' C:',i3, 1pg26.18,3(a,i0,a,1pg20.12))
-! 982 FORMAT(a,a12,':',a27,'  :',i3,    26x,  3(a,i0,a,1pg20.12))
-! 991 FORMAT(a,a12,':',a27,'  :',i3,1p2g26.18)
-
-  ! valid g-format without offset of decimal point
-  981 FORMAT(a,a12,':',a27,' C:',i3,  g26.18,3(a,i0,a,  g20.12))
-  982 FORMAT(a,a12,':',a27,'  :',i3,   26x,  3(a,i0,a,  g20.12))
-  991 FORMAT(a,a12,':',a27,'  :',i3, 2g26.18)
+  981 FORMAT(a,a12,':',a27,' C:',i3, 1pg26.18,3(a,i0,a,1pg20.12))
+  982 FORMAT(a,a12,':',a27,'  :',i3,    26x,  3(a,i0,a,1pg20.12))
+  991 FORMAT(a,a12,':',a27,'  :',i3, 1pg26.18, 1pg26.18)
 #endif
 
   ! check print output level idetail_src (1-5) with namelist given value (idbg_val)

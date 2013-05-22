@@ -60,7 +60,8 @@ MODULE mo_ext_data_state
   USE mo_impl_constants,     ONLY: inwp, iecham, ildf_echam, io3_clim, io3_ape, &
     &                              ihs_ocean, ihs_atm_temp, ihs_atm_theta, inh_atmosphere, &
     &                              max_char_length, min_rlcell_int,  LAND,                 &
-    &                              VINTP_METHOD_LIN, HINTP_TYPE_NONE, HINTP_TYPE_LONLAT_NNB
+    &                              VINTP_METHOD_LIN, HINTP_TYPE_NONE, HINTP_TYPE_LONLAT_NNB, &
+    &                              MODIS
   USE mo_math_constants,     ONLY: dbl_eps
   USE mo_physical_constants, ONLY: ppmv2gg, zemiss_def
   USE mo_run_config,         ONLY: iforcing
@@ -179,7 +180,7 @@ CONTAINS
 
     INTEGER :: jg
 
-    TYPE(t_datetime) :: datetime_ndvi
+    TYPE(t_datetime) :: datetime
     CHARACTER(len=max_char_length), PARAMETER :: &
       routine = 'mo_ext_data:init_ext_data'
 
@@ -299,40 +300,40 @@ CONTAINS
       !
       SELECT CASE ( iforcing )
       CASE ( inwp )
+
+        ! note, that ndviratio, alb_dif, albuv_dif and albni_dif are updated on 
+        ! a daily basis. This, when restarting, the target interpolation time 
+        ! must be set to cur_datetime noon.
+        ! 
         IF (.NOT. is_restart_run()) THEN
-
-          DO jg = 1, n_dom
-            CALL interpol_monthly_mean(p_patch(jg), time_config%ini_datetime, &! in
-              &                        ext_data(jg)%atm_td%ndvi_mrat,         &! in
-              &                        ext_data(jg)%atm%ndviratio             )! out
-          ENDDO
-
+          datetime     = time_config%ini_datetime
         ELSE
-          datetime_ndvi=time_config%cur_datetime
-          datetime_ndvi%hour=0
-
-         DO jg = 1, n_dom
-           CALL interpol_monthly_mean(p_patch(jg), datetime_ndvi,            &! in
-             &                        ext_data(jg)%atm_td%ndvi_mrat,         &! in
-             &                        ext_data(jg)%atm%ndviratio             )! out
-         ENDDO
-
+          datetime     = time_config%cur_datetime
+          datetime%hour= 0
         END IF  ! is_restart_run
 
-        !!!!!DR note that this part must be moved inside aboves IF-Statement, 
-        !!!!! if we decide to have a daily update of the albedo
-        !
-!!$        IF ( albedo_type == 2)  ! interpolate MODIS albedo in time
-!!$          DO jg = 1, n_dom
-!!$            CALL interpol_monthly_mean(p_patch(jg), time_config%ini_datetime, &! in
-!!$              &                        ext_data(jg)%atm_td%alb_vis_dif,       &! in
-!!$              &                        ext_data(jg)%atm%alb_vis_dif           )! out
-!!$
-!!$            CALL interpol_monthly_mean(p_patch(jg), time_config%ini_datetime, &! in
-!!$              &                        ext_data(jg)%atm_td%alb_nir_dif,       &! in
-!!$              &                        ext_data(jg)%atm%alb_nir_dif           )! out
-!!$          ENDDO
-!!$        ENDIF  ! albedo_type
+
+        DO jg = 1, n_dom
+          CALL interpol_monthly_mean(p_patch(jg), datetime,              &! in
+            &                        ext_data(jg)%atm_td%ndvi_mrat,      &! in
+            &                        ext_data(jg)%atm%ndviratio          )! out
+        ENDDO
+
+        IF ( albedo_type == MODIS) THEN
+          DO jg = 1, n_dom
+            CALL interpol_monthly_mean(p_patch(jg), datetime,            &! in
+              &                        ext_data(jg)%atm_td%alb_dif,      &! in
+              &                        ext_data(jg)%atm%alb_dif          )! out
+
+            CALL interpol_monthly_mean(p_patch(jg), datetime,            &! in
+              &                        ext_data(jg)%atm_td%albuv_dif,    &! in
+              &                        ext_data(jg)%atm%albuv_dif        )! out
+
+            CALL interpol_monthly_mean(p_patch(jg), datetime,            &! in
+              &                        ext_data(jg)%atm_td%albni_dif,    &! in
+              &                        ext_data(jg)%atm%albni_dif        )! out
+          ENDDO
+        ENDIF  ! albedo_type
 
       END SELECT
 
@@ -1242,6 +1243,46 @@ CONTAINS
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
         &           grib2_desc, ldims=shape3d_sfc, loutput=.FALSE. )
 
+
+      !--------------------------------
+      ! If MODIS albedo is used
+      !--------------------------------
+      IF ( albedo_type == MODIS) THEN
+
+        ! Shortwave broadband albedo for diffuse radiation (0.3 - 5.0 �m), snow-free
+        !
+        ! alb_dif    p_ext_atm%alb_dif(nproma,nblks_c,ntimes)
+        cf_desc    = t_cf_var('Shortwave_albedo_diffuse', '-', &
+          &                   'Shortwave albedo for diffuse radiation', DATATYPE_FLT32)
+        grib2_desc = t_grib2_var(0, 19, 18, ibits, GRID_REFERENCE, GRID_CELL)
+        CALL add_var( p_ext_atm_list, 'alb_dif', p_ext_atm%alb_dif,               &
+          &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
+          &           ldims=shape3d_c, loutput=.TRUE.                            )
+
+        ! UV visible broadband albedo for diffuse radiation (0.3 - 0.7 �m)
+        !
+        ! albuv_dif    p_ext_atm%albuv_dif(nproma,nblks_c,ntimes)
+        cf_desc    = t_cf_var('UV_visible_albedo_diffuse', '-', &
+          &                   'UV visible albedo for diffuse radiation', DATATYPE_FLT32)
+        grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+        CALL add_var( p_ext_atm_list, 'albuv_dif', p_ext_atm%albuv_dif,           &
+          &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
+          &           ldims=shape3d_c, loutput=.TRUE.                             )
+
+        ! Near IR broadband albedo for diffuse radiation (0.7 - 5.0 �m)
+        !
+        ! albni_dif    p_ext_atm%albni_dif(nproma,nblks_c,ntimes)
+        cf_desc    = t_cf_var('Near_IR_albedo_diffuse', '-', &
+          &                   'Near IR albedo for diffuse radiation', DATATYPE_FLT32)
+        grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+        CALL add_var( p_ext_atm_list, 'albni_dif', p_ext_atm%albni_dif,           &
+          &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
+          &           ldims=shape3d_c, loutput=.TRUE.                             )
+
+      ENDIF  ! albedo_type
+
+
+
     CASE ( iecham, ildf_echam )
 
       ! longwave surface emissivity
@@ -1408,7 +1449,7 @@ CONTAINS
 
     ! Black carbon aerosol
     !
-    ! aer_bc       p_ext_atm%aer_bc(nproma,nblks_c,ntimes)
+    ! aer_bc       p_ext_atm_td%aer_bc(nproma,nblks_c,ntimes)
     cf_desc    = t_cf_var('aerosol optical thickness of black carbon', '-',   &
       &                   'atmosphere_absorption_optical_thickness_due_to_' //&
       &                   'black_carbon_ambient_aerosol', DATATYPE_FLT32)
@@ -1420,7 +1461,7 @@ CONTAINS
 
     ! Dust aerosol
     !
-    ! aer_dust     p_ext_atm%aer_dust(nproma,nblks_c,ntimes)
+    ! aer_dust     p_ext_atm_td%aer_dust(nproma,nblks_c,ntimes)
     cf_desc    = t_cf_var('aot_dust', '-', &
       &                   'atmosphere absorption optical thickness due '//  &
       &                   'to dust ambient aerosol', DATATYPE_FLT32)
@@ -1432,7 +1473,7 @@ CONTAINS
 
     ! Organic aerosol
     !
-    ! aer_org      p_ext_atm%aer_org(nproma,nblks_c,ntimes)
+    ! aer_org      p_ext_atm_td%aer_org(nproma,nblks_c,ntimes)
     cf_desc    = t_cf_var('aot_org', '-', &
       &                   'atmosphere absorption optical thickness due '//  &
       &                   'to particulate organic matter ambient aerosol', DATATYPE_FLT32)
@@ -1444,7 +1485,7 @@ CONTAINS
 
     ! Sulfate aerosol
     !
-    ! aer_so4      p_ext_atm%aer_so4(nproma,nblks_c,ntimes)
+    ! aer_so4      p_ext_atm_td%aer_so4(nproma,nblks_c,ntimes)
     cf_desc    = t_cf_var('aot_so4', '-', &
       &                   'atmosphere absorption optical thickness due '//  &
       &                   'to sulfate_ambient_aerosol', DATATYPE_FLT32)
@@ -1456,7 +1497,7 @@ CONTAINS
 
     ! Seasalt aerosol
     !
-    ! aer_ss       p_ext_atm%aer_ss(nproma,nblks_c,ntimes)
+    ! aer_ss       p_ext_atm_td%aer_ss(nproma,nblks_c,ntimes)
     cf_desc    = t_cf_var('aot_ss', '-', &
       &                   'atmosphere absorption optical thickness due '//  &
       &                   'to seasalt_ambient_aerosol', DATATYPE_FLT32)
@@ -1472,7 +1513,7 @@ CONTAINS
 
     ! (monthly) proportion of actual value/maximum NDVI
     !
-    ! ndvi_mrat     p_ext_atm%ndvi_mrat(nproma,nblks_c,ntimes)
+    ! ndvi_mrat     p_ext_atm_td%ndvi_mrat(nproma,nblks_c,ntimes)
     cf_desc    = t_cf_var('normalized_difference_vegetation_index', '-', &
       &                   '(monthly) proportion of actual value/maximum ' // &
       &                   'normalized differential vegetation index', DATATYPE_FLT32)
@@ -1487,26 +1528,37 @@ CONTAINS
     !--------------------------------
     ! If MODIS albedo is used
     !--------------------------------
-    IF ( albedo_type == 2) THEN
+    IF ( albedo_type == MODIS) THEN
 
-      ! (monthly)  UV visible albedo for diffuse radiation
+      ! (monthly)  Shortwave broadband albedo for diffuse radiation (0.3 - 5.0 �m), snow-free
       !
-      ! alb_vis_dif    p_ext_atm%alb_vis_dif(nproma,nblks_c,ntimes)
-      cf_desc    = t_cf_var('UV_visible_albedo_diffuse', '-', &
-        &                   'UV visible albedo for diffuse radiation', DATATYPE_FLT32)
-      grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-      CALL add_var( p_ext_atm_td_list, 'alb_vis_dif', p_ext_atm_td%alb_vis_dif, &
+      ! alb_dif    p_ext_atm_td%alb_dif(nproma,nblks_c,ntimes)
+      cf_desc    = t_cf_var('Shortwave_albedo_diffuse', '-', &
+        &                   'Shortwave albedo for diffuse radiation', DATATYPE_FLT32)
+      grib2_desc = t_grib2_var(0, 19, 18, ibits, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( p_ext_atm_td_list, 'alb_dif', p_ext_atm_td%alb_dif,         &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
         &           ldims=shape3d_c, loutput=.FALSE.,                           &
         &           isteptype=TSTEP_AVG )
 
-      ! (monthly)  Near IR albedo for diffuse radiation
+      ! (monthly)  UV visible broadband albedo for diffuse radiation (0.3 - 0.7 �m)
       !
-      ! alb_nir_dif    p_ext_atm%alb_nir_dif(nproma,nblks_c,ntimes)
+      ! albuv_dif    p_ext_atm_td%albuv_dif(nproma,nblks_c,ntimes)
+      cf_desc    = t_cf_var('UV_visible_albedo_diffuse', '-', &
+        &                   'UV visible albedo for diffuse radiation', DATATYPE_FLT32)
+      grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( p_ext_atm_td_list, 'albuv_dif', p_ext_atm_td%albuv_dif,     &
+        &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
+        &           ldims=shape3d_c, loutput=.FALSE.,                           &
+        &           isteptype=TSTEP_AVG )
+
+      ! (monthly)  Near IR broadband albedo for diffuse radiation (0.7 - 5.0 �m)
+      !
+      ! albni_dif    p_ext_atm_td%albni_dif(nproma,nblks_c,ntimes)
       cf_desc    = t_cf_var('Near_IR_albedo_diffuse', '-', &
         &                   'Near IR albedo for diffuse radiation', DATATYPE_FLT32)
       grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-      CALL add_var( p_ext_atm_td_list, 'alb_nir_dif', p_ext_atm_td%alb_nir_dif, &
+      CALL add_var( p_ext_atm_td_list, 'albni_dif', p_ext_atm_td%albni_dif,     &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
         &           ldims=shape3d_c, loutput=.FALSE.,                           &
         &           isteptype=TSTEP_AVG )
@@ -1598,6 +1650,7 @@ CONTAINS
 
     ! OMIP/NCEP or other flux forcing data on cell centers: 3, 5 or 12 variables, iforc_len data sets
     ! for type of forcing see mo_oce_bulk
+    idim_omip = 0
     IF (iforc_type == 1 ) idim_omip =  3    !  stress (x, y) and SST
     IF (iforc_type == 2 ) idim_omip = 13    !  OMIP type forcing
     IF (iforc_type == 3 ) idim_omip =  5    !  stress (x, y), SST, net heat and freshwater
@@ -2163,6 +2216,15 @@ CONTAINS
             CALL finish(TRIM(ROUTINE),'Unknown landcover data source')
           ENDIF
 
+          ! Check whether external parameter file contains MODIS albedo-data
+          IF ( albedo_type == MODIS ) THEN
+            IF ( (nf_inq_varid(ncid, 'ALB',   varid) /= nf_noerr) .OR.    &
+                 (nf_inq_varid(ncid, 'ALNID', varid) /= nf_noerr) .OR.    &
+                 (nf_inq_varid(ncid, 'ALUVD', varid) /= nf_noerr) ) THEN
+              CALL finish(TRIM(ROUTINE),'MODIS albedo fields missing in '//TRIM(extpar_filename))
+            ENDIF
+          ENDIF
+
         ENDIF
 
         ! Broadcast i_lctype from IO-PE to others
@@ -2397,18 +2459,34 @@ CONTAINS
             !--------------------------------
             ! If MODIS albedo is used
             !--------------------------------
-            IF ( albedo_type == 2) THEN
+            IF ( albedo_type == MODIS) THEN
+              CALL read_netcdf_data (ncid, nmonths_ext(jg), 'ALB',     &
+                &                    p_patch(jg)%n_patch_cells_g,      &
+                &                    p_patch(jg)%n_patch_cells,        &
+                &                    p_patch(jg)%cells%glb_index,      & 
+                &                    ext_data(jg)%atm_td%alb_dif)
+
               CALL read_netcdf_data (ncid, nmonths_ext(jg), 'ALUVD',   &
                 &                    p_patch(jg)%n_patch_cells_g,      &
                 &                    p_patch(jg)%n_patch_cells,        &
                 &                    p_patch(jg)%cells%glb_index,      & 
-                &                    ext_data(jg)%atm_td%alb_vis_dif)
+                &                    ext_data(jg)%atm_td%albuv_dif)
 
               CALL read_netcdf_data (ncid, nmonths_ext(jg), 'ALNID',   &
                 &                    p_patch(jg)%n_patch_cells_g,      &
                 &                    p_patch(jg)%n_patch_cells,        &
                 &                    p_patch(jg)%cells%glb_index,      & 
-                &                    ext_data(jg)%atm_td%alb_nir_dif)
+                &                    ext_data(jg)%atm_td%albni_dif)
+
+!$OMP PARALLEL
+!$OMP WORKSHARE
+              ! Scale from [%] t0 [1]
+              ext_data(jg)%atm_td%alb_dif(:,:,:)   = ext_data(jg)%atm_td%alb_dif(:,:,:)/100._wp
+              ext_data(jg)%atm_td%albuv_dif(:,:,:) = ext_data(jg)%atm_td%albuv_dif(:,:,:)/100._wp
+              ext_data(jg)%atm_td%albni_dif(:,:,:) = ext_data(jg)%atm_td%albni_dif(:,:,:)/100._wp
+!$OMP END WORKSHARE
+!$OMP END PARALLEL
+
             ENDIF
 
           CASE ( iecham, ildf_echam )

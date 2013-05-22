@@ -266,6 +266,7 @@ cat > ${atmo_namelist} << EOF
  irad_o3                      = 7
  irad_aero                    = 6
  izenith                      = 4           ! 4: NWP default, 3: no annual cycle
+ albedo_type                  = 2           ! 2: Modis albedo
  vmr_co2                      = 390.e-06    ! trace gase values representative for 2012
  vmr_ch4                      = 1800.e-09
  vmr_n2o                      = 322.0e-09

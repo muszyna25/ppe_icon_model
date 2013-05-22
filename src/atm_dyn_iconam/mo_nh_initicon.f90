@@ -208,7 +208,6 @@ MODULE mo_nh_initicon
       CALL process_ifsana_sfc (p_patch, p_lnd_state, initicon, ext_data)
 
     CASE(MODE_COMBINED)
-      CALL finish(TRIM(routine), "Invalid operation mode!")
 
       ! process IFS atmosphere analysis data
       CALL process_ifsana_atm (p_patch, p_nh_state, p_int_state, p_grf_state, initicon)
@@ -228,6 +227,14 @@ MODULE mo_nh_initicon
     IF (ist /= success) THEN
       CALL finish(TRIM(routine),'deallocation for initicon failed')
     ENDIF
+
+
+    ! splitting of sea-points list into open water and sea-ice points could be placed 
+    ! here, instead of nwp_phy_init/init_nwp_phy
+    ! however, one needs to make sure that it is called for both restart and non-restart runs
+    ! for both restart and non-restart runs. Could not be included into 
+    ! mo_ext_data_state/init_index_lists due to its dependence on p_diag_lnd.
+!DR    CALL init_sea_lists(p_patch, ext_data, p_diag_lnd, lseaice)
 
   END SUBROUTINE init_icon
 

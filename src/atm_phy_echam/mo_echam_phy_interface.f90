@@ -480,6 +480,7 @@ CONTAINS
        !
        ! TAUX
        !
+       buffer(:,:) = 0.0_wp
        buffer(:,1) = RESHAPE ( prm_field(jg)%u_stress_tile(:,:,iwtr), (/ nbr_points /) )
        CALL ICON_cpl_put ( field_id(1), field_shape, buffer(1:nbr_hor_points,1:1), info, ierror )
        IF ( info == 2 ) write_coupler_restart = .TRUE.
@@ -492,6 +493,12 @@ CONTAINS
        !
        ! SFWFLX Note: the evap_tile should be properly updated and added
        !
+!       write(0,*)  prm_field(jg)%rsfl(:,:)
+!       write(0,*)  prm_field(jg)%rsfc(:,:)
+!       write(0,*)  prm_field(jg)%ssfl(:,:)
+!       write(0,*)  prm_field(jg)%ssfc(:,:)
+!       write(0,*)  prm_field(jg)%evap_tile(:,:,iwtr)
+
         buffer(:,1) = RESHAPE ( prm_field(jg)%rsfl(:,:), (/ nbr_points /) ) + &
              &        RESHAPE ( prm_field(jg)%rsfc(:,:), (/ nbr_points /) ) + &
              &        RESHAPE ( prm_field(jg)%ssfl(:,:), (/ nbr_points /) ) + &

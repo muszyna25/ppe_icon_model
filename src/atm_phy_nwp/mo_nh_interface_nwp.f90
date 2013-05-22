@@ -985,9 +985,9 @@ CONTAINS
           & pqc=prm_diag%tot_cld    (:,:,jb,iqc)   ,&! in     specific cloud water        [kg/kg]
           & pqi=prm_diag%tot_cld    (:,:,jb,iqi)   ,&! in     specific cloud ice          [kg/kg]
           & ppres_ifc=pt_diag%pres_ifc(:,:,jb)     ,&! in     pressure at layer boundaries [Pa]
-          & albedo=prm_diag%albvisdif(:,jb),        &! in     grid-box average albedo
-          & albedo_t=prm_diag%albvisdif_t(:,jb,:),  &! in     tile-specific albedo
-          & lp_count=ext_data%atm%lp_count(jb),     &! in     number of land points
+          & albedo=prm_diag%albdif(:,jb)           ,&! in     grid-box average shortwave albedo
+          & albedo_t=prm_diag%albdif_t(:,jb,:)     ,&! in     tile-specific shortwave albedo
+          & lp_count=ext_data%atm%lp_count(jb)     ,&! in     number of land points
           & gp_count_t=ext_data%atm%gp_count_t(jb,:),&! in   number of land points per tile
           & spi_count =ext_data%atm%spi_count(jb)  ,&! in     number of seaice points
           & idx_lst_lp=ext_data%atm%idx_lst_lp(:,jb), &! in   index list of land points

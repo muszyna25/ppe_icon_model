@@ -88,7 +88,7 @@ CONTAINS
 
     REAL(wp),INTENT(INOUT) :: plhflx_tile(kbdim,ksfc_type)
     REAL(wp),INTENT(INOUT) :: pshflx_tile(kbdim,ksfc_type)
-    REAL(wp),INTENT(OUT)   :: pevap_tile(kbdim,ksfc_type)
+    REAL(wp),INTENT(INOUT) :: pevap_tile(kbdim,ksfc_type)    ! OUT
 
     REAL(wp),INTENT(OUT)   :: dshflx_dT_tile(kbdim,ksfc_type)
 
@@ -265,10 +265,10 @@ CONTAINS
     REAL(wp),INTENT(IN)    :: pfac_sfc        (kbdim)
     REAL(wp),INTENT(IN)    :: pu_rtpfac1      (kbdim)
     REAL(wp),INTENT(IN)    :: pv_rtpfac1      (kbdim)
-    REAL(wp),INTENT(OUT)   :: pu_stress_gbm   (kbdim)
-    REAL(wp),INTENT(OUT)   :: pv_stress_gbm   (kbdim)
-    REAL(wp),INTENT(OUT)   :: pu_stress_tile  (kbdim,ksfc_type)
-    REAL(wp),INTENT(OUT)   :: pv_stress_tile  (kbdim,ksfc_type)
+    REAL(wp),INTENT(INOUT) :: pu_stress_gbm   (kbdim)           ! OUT
+    REAL(wp),INTENT(INOUT) :: pv_stress_gbm   (kbdim)           ! OUT
+    REAL(wp),INTENT(INOUT) :: pu_stress_tile  (kbdim,ksfc_type) ! OUT
+    REAL(wp),INTENT(INOUT) :: pv_stress_tile  (kbdim,ksfc_type) ! OUT
 
     INTEGER  :: jsfc
     REAL(wp) :: zconst

@@ -423,6 +423,8 @@ USE mo_vdfcloud     ,ONLY : vdfcloud
 USE mo_surfexcdriver,ONLY : surfexcdriver
 USE mo_surfpp       ,ONLY : surfpp
 
+USE mo_nh_torus_exp ,ONLY : cbl_stevens_fluxes
+
 IMPLICIT NONE
 
 
@@ -996,6 +998,11 @@ DO JL=KIDIA,KFDIA
    !ZEXTSHF(JL) = -15.0_JPRB
    !ZEXTLHF(JL) = -60.0_JPRB
    !ZKMFL(JL)   = 0.0_JPRB  ! - " -      (0 is bad idea!!!)
+
+! optional SCM case definition after Stevens(2007)
+  CALL cbl_stevens_fluxes( PTM1(JL,KLEV), PQM1(JL,KLEV), PAPM1(JL,KLEV), &
+                         & ZRHO         , T_G(JL)      , &
+                         & ZEXTSHF(JL)  , ZEXTLHF(JL)  )
 
 ENDDO
 
