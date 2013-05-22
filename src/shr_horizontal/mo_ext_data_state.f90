@@ -295,15 +295,15 @@ CONTAINS
       CALL message( TRIM(routine),'Finished reading external data' )
 
       ! Get interpolated ndviratio, alb_dif, albuv_dif and albni_dif. Interpolation 
-      ! is done in time, based on ini_datetime (noon). Fields are updated on a 
+      ! is done in time, based on ini_datetime (midnight). Fields are updated on a 
       ! daily basis.
       !
       SELECT CASE ( iforcing )
       CASE ( inwp )
 
-        ! When initializing the model we set the target hour to 0 (noon) as well. 
+        ! When initializing the model we set the target hour to 0 (midnight) as well. 
         ! When restarting, the target interpolation time must be set to cur_datetime 
-        ! noon. 
+        ! midnight. 
         ! 
         IF (.NOT. is_restart_run()) THEN
           datetime     = time_config%ini_datetime
@@ -311,7 +311,7 @@ CONTAINS
           datetime     = time_config%cur_datetime
         END IF  ! is_restart_run
         !
-        datetime%hour= 0   ! always assume noon
+        datetime%hour= 0   ! always assume midnight
 
         DO jg = 1, n_dom
           CALL interpol_monthly_mean(p_patch(jg), datetime,              &! in
