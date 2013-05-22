@@ -71,6 +71,7 @@ MODULE mo_ocean_model
     & lrestore_states,        & ! flag if states should be restored
     & iforcing,               & !  
     & num_lev, num_levp1,     &
+    & nlev, nlevp1,           &
     & iqc, iqi, iqr, iqs,     &
     & nshift, ntracer,        &
     & grid_generatingCenter,  & ! grid generating center
@@ -98,7 +99,8 @@ MODULE mo_ocean_model
     & import_basic_patches, & !
     & complete_patches
 
-  USE mo_oce_state,           ONLY: t_hydro_ocean_state,complete_patchinfo_oce
+  USE mo_oce_state,           ONLY: t_hydro_ocean_state
+  USE mo_build_decomposition, ONLY: complete_patchinfo_oce, build_decomposition
 
   USE mo_impl_constants,      ONLY: success !, ihs_ocean
 
@@ -253,119 +255,14 @@ CONTAINS
 
     IF (my_process_is_io()) CALL vlist_io_main_proc
 
-    ALLOCATE(p_patch_3D, stat=error_status)
-    IF (error_status/=success) THEN
-      CALL finish(TRIM(routine), 'allocation of patch_3D failed')
-    ENDIF
-
-    ALLOCATE(p_patch_3D%p_patch_2D(n_dom_start:n_dom), stat=error_status)
-    IF (error_status/=success) THEN
-      CALL finish(TRIM(routine), 'allocation of patch failed')
-    ENDIF
-
-
-    IF(lrestore_states) THEN
-      ! Before the restore set p_comm_input_bcast to null
-      CALL set_comm_input_bcast(null_comm_type)
-      IF( .NOT. my_process_is_mpi_test()) THEN
-        !CALL restore_patches_netcdf( p_patch, .TRUE. )
-        !CALL set_patch_communicators(p_patch)
-        !The 3D-ocean version of previous calls
-        CALL restore_patches_netcdf( p_patch_3D%p_patch_2D, .TRUE. )
-        CALL set_patch_communicators(p_patch_3D%p_patch_2D)
-
-      ELSE
-        !CALL import_basic_patches(p_patch,nlev,nlevp1,num_lev,num_levp1,nshift)
-        !CALL disable_sync_checks
-        !CALL complete_patches( p_patch )
-        !CALL enable_sync_checks
-
-        !The 3D-ocean version of previous calls
-        CALL import_basic_patches(p_patch_3D%p_patch_2D,num_lev,num_levp1,nshift)
-        CALL disable_sync_checks
-        CALL complete_patches( p_patch_3D%p_patch_2D )
-        CALL enable_sync_checks
-      ENDIF
-      ! After the restore is done set p_comm_input_bcast in the
-      ! same way as it would be set in parallel_nml_setup when
-      ! no restore is wanted:
-      CALL set_comm_input_bcast()
-
-    ELSE
-
-      ! Please note: ldump_dd/lread_dd not (yet?) implemented
-      IF(my_process_is_mpi_parallel()) THEN
-
-        IF (division_method(1) > 100) THEN
-          ! use ext decomposition library driver
-          ALLOCATE(p_patch_global(n_dom_start:n_dom))
-          CALL import_basic_patches(p_patch_global,num_lev,num_levp1,nshift)
-          CALL ext_decompose_patches(p_patch_3D%p_patch_2D, p_patch_global)
-          DEALLOCATE(p_patch_global)
-          CALL complete_parallel_setup_oce(p_patch_3D%p_patch_2D)
-
-        ELSE
-
-          ! use internal decomposition
-          !The 3D-ocean version of previous calls
-          ALLOCATE(p_patch_global(n_dom_start:n_dom))
-          CALL import_basic_patches(p_patch_global,num_lev,num_levp1,nshift)
-          CALL decompose_domain_oce(p_patch_3D%p_patch_2D,p_patch_global)
-          DEALLOCATE(p_patch_global)
-          CALL complete_parallel_setup_oce(p_patch_3D%p_patch_2D)
-!          CALL finish(routine, "Old decomposition not available for the ocean" )
-        ENDIF
-
-      ELSE
-
-        !The 3D-ocean version of previous calls 
-        CALL import_basic_patches(p_patch_3D%p_patch_2D,num_lev,num_levp1,nshift) 
-
-      ENDIF
-
-      ! Complete information which is not yet read or calculated
-      CALL complete_patches(p_patch_3D%p_patch_2D)
-
-    ENDIF
-
-    DO jg = n_dom_start, n_dom
-      !CALL complete_patchinfo_oce(p_patch(jg))
-      !The 3D-ocean version of previous calls
-      ! Note: this apperas to be problematic for removing the land points
-      CALL complete_patchinfo_oce(p_patch_3D%p_patch_2D(jg))
-    END DO
-    !--------------------------------------------        
-    ! Setup the information for the physical patches
-    p_patch => p_patch_3D%p_patch_2D
-    CALL setup_phys_patches
-
-    ! In case of a test run: Copy processor splitting to test PE
-    !IF(p_test_run) CALL copy_processor_splitting(p_patch)
-    !The 3D-ocean version of previous calls 
-    IF(p_test_run) CALL copy_processor_splitting(p_patch_3D%p_patch_2D)
-    !--------------------------------------------------------------------------------
-    ! 5. Construct interpolation state, compute interpolation coefficients.
-    !--------------------------------------------------------------------------------
-
-
+    CALL build_decomposition(nlev,nlevp1,num_lev,num_levp1,nshift,&
+      &                          .TRUE.,lrestore_states,p_patch_3D)
     !------------------------------------------------------------------
     ! step 5b: allocate state variables
     !------------------------------------------------------------------
     ALLOCATE (v_ocean_state(n_dom), stat=ist)
     IF (ist /= success) THEN
       CALL finish(TRIM(routine),'allocation for v_ocean_state failed')
-    ENDIF
-
-    !-------------------------------------------------------------------
-    ! 7. Finalize domain decomposition
-    !-------------------------------------------------------------------   
-    IF (my_process_is_mpi_parallel() .AND. .NOT.lrestore_states) THEN
-
-      !CALL finalize_decomposition()
-      !The 3D-ocean version of previous calls 
-      CALL finalize_decomposition_oce(p_patch_3D%p_patch_2D)
-      !p_patch => p_patch_3D%p_patch_2D
-
     ENDIF
 
 !!Commented out for potential later use.
