@@ -47,11 +47,10 @@ MODULE mo_ocean_model
 
   USE mo_io_async,            ONLY: vlist_io_main_proc            ! main procedure for I/O PEs
 
-!  USE mo_interpol_config,     ONLY: configure_interpolation
   USE mo_advection_config,    ONLY: configure_advection
   USE mo_dynamics_config,     ONLY: configure_dynamics  ! subroutine
   USE mo_run_config,          ONLY: configure_run, output_mode
-  USE mo_gribout_config,       ONLY: configure_gribout
+  USE mo_gribout_config,      ONLY: configure_gribout
 
   ! Control parameters: run control, dynamics, i/o
   !
@@ -59,7 +58,6 @@ MODULE mo_ocean_model
   USE mo_run_config,          ONLY: &
     & dtime,                  & !    :
     & nsteps,                 & !    :
-!    & ltransport,             & !    :
     & ltimer,                 & !    :
     !& ldump_states,           & ! flag if states should be dumped
     & lrestore_states,        & ! flag if states should be restored
@@ -71,7 +69,7 @@ MODULE mo_ocean_model
     & grid_generatingCenter,  & ! grid generating center
     & grid_generatingSubcenter  ! grid generating subcenter
 
-  USE mo_nml_crosscheck,    ONLY: oce_crosscheck
+  USE mo_nml_crosscheck,      ONLY: oce_crosscheck
 
   USE mo_model_domain,        ONLY: t_patch,  t_patch_3D
 
@@ -85,9 +83,9 @@ MODULE mo_ocean_model
   USE mo_impl_constants,      ONLY: success !, ihs_ocean
 
   ! External data
-  USE mo_ext_data_state,       ONLY: ext_data, init_ext_data_oce, destruct_ext_data
+  USE mo_ext_data_state,      ONLY: ext_data, init_ext_data_oce, destruct_ext_data
 
-  USE mo_hydro_ocean_run,      ONLY: perform_ho_stepping,&
+  USE mo_hydro_ocean_run,     ONLY: perform_ho_stepping,&
     & prepare_ho_integration,&
     & finalise_ho_integration
   USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff
@@ -107,9 +105,9 @@ MODULE mo_ocean_model
   USE mo_alloc_patches,       ONLY: destruct_patches
 
   !-------------------------------------------------------------
-  USE mo_read_namelists,       ONLY: read_ocean_namelists
-  USE mo_io_restart,           ONLY: read_restart_info_file, read_restart_files
-  USE mo_io_restart_namelist,  ONLY: read_restart_namelists
+  USE mo_read_namelists,      ONLY: read_ocean_namelists
+  USE mo_io_restart,          ONLY: read_restart_info_file, read_restart_files
+  USE mo_io_restart_namelist, ONLY: read_restart_namelists
   USE mo_io_restart_attributes,ONLY: read_restart_attributes, get_restart_attribute
 
   USE mo_time_config,         ONLY: time_config
