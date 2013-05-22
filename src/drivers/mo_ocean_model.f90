@@ -35,20 +35,14 @@ MODULE mo_ocean_model
   USE mo_kind,                ONLY: wp
   USE mo_exception,           ONLY: message, finish
   USE mo_master_control,      ONLY: is_restart_run, get_my_process_name, get_my_model_no
-  USE mo_parallel_config,     ONLY: p_test_run, l_test_openmp, num_io_procs, division_method
-  USE mo_mpi,                 ONLY: & !p_stop, &
-    & my_process_is_io,  my_process_is_mpi_test, my_process_is_mpi_parallel, &
-    & set_mpi_work_communicators, set_comm_input_bcast, null_comm_type, &
-    & p_pe_work
-  USE mo_sync,                ONLY: enable_sync_checks, disable_sync_checks
+  USE mo_parallel_config,     ONLY: p_test_run, l_test_openmp, num_io_procs 
+  USE mo_mpi,                 ONLY: my_process_is_io,set_mpi_work_communicators,p_pe_work
   USE mo_timer,               ONLY: init_timer, timer_start, timer_stop, print_timer, &
     &                               timer_model_init
   USE mo_datetime,            ONLY: t_datetime
   USE mo_output,              ONLY: init_output_files, write_output_oce, close_output_files
-  USE mo_name_list_output,        ONLY: init_name_list_output,  &
-    &                                   write_name_list_output, &
-    &                                   close_name_list_output
-  USE mo_grid_config,         ONLY: n_dom, n_dom_start
+  USE mo_name_list_output,    ONLY: init_name_list_output, close_name_list_output
+  USE mo_grid_config,         ONLY: n_dom 
   USE mo_dynamics_config,     ONLY: iequations
 
   USE mo_io_async,            ONLY: vlist_io_main_proc            ! main procedure for I/O PEs
@@ -79,28 +73,14 @@ MODULE mo_ocean_model
 
   USE mo_nml_crosscheck,    ONLY: oce_crosscheck
 
-  USE mo_ext_decompose_patches, ONLY: ext_decompose_patches
-  USE mo_setup_subdivision,     ONLY: decompose_domain_oce!decompose_domain
-  USE mo_complete_subdivision,  ONLY:  &
-    & copy_processor_splitting,      &
-    & set_patch_communicators, complete_parallel_setup_oce, finalize_decomposition_oce
-  USE mo_complete_subdivision, ONLY: &
-    & setup_phys_patches
-  USE mo_dump_restore,        ONLY: restore_patches_netcdf
-
-  USE mo_model_domain,        ONLY: t_patch,  t_patch_3D, p_patch
+  USE mo_model_domain,        ONLY: t_patch,  t_patch_3D
 
   ! Horizontal grid
   !
-  USE mo_grid_config,         ONLY: &!  grid_nml_setup,          & ! process grid control parameters
-    & n_dom,                & !    :
-    & n_dom_start
-  USE mo_model_domimp_patches,ONLY: &
-    & import_basic_patches, & !
-    & complete_patches
+  USE mo_grid_config,         ONLY: n_dom
 
   USE mo_oce_state,           ONLY: t_hydro_ocean_state
-  USE mo_build_decomposition, ONLY: complete_patchinfo_oce, build_decomposition
+  USE mo_build_decomposition, ONLY: build_decomposition
 
   USE mo_impl_constants,      ONLY: success !, ihs_ocean
 
@@ -265,35 +245,12 @@ CONTAINS
       CALL finish(TRIM(routine),'allocation for v_ocean_state failed')
     ENDIF
 
-!!Commented out for potential later use.
-!!In this case dumping of operator coeffs has to implemented within dump_patch_state_netcdf_oce (PK, 8/2012)
-! !     IF(ldump_states)THEN
-! ! 
-! !       ! Dump divided patches with interpolation and grf state to NetCDF file and exit
-! ! 
-! !       CALL message(TRIM(routine),'ldump_states is set: '//&
-! !                   'dumping patches+states and finishing')
-! ! 
-! !       IF(.NOT. my_process_is_mpi_test()) THEN
-! !         DO jg = n_dom_start, n_dom
-! !           !CALL dump_patch_state_netcdf(p_patch(jg),p_int_state(jg),p_grf_state(jg))
-! !           CALL dump_patch_state_netcdf_oce(p_patch(jg))
-! !         ENDDO
-! !       ENDIF
-! ! 
-! !       CALL p_stop
-! !       STOP
-! ! 
-! !     ENDIF
-
     !---------------------------------------------------------------------
     ! 9. Horizontal and vertical grid(s) are now defined.
     !    Assign values to derived variables in the configuration states
     !---------------------------------------------------------------------
 
     CALL configure_dynamics ( n_dom )
-!     CALL configure_diffusion( n_dom, dynamics_parent_grid_id, &
-!                             & nlev, vct_a, vct_b, apzero      )
 
     CALL configure_gribout(grid_generatingCenter, grid_generatingSubcenter, n_dom)
 
@@ -391,7 +348,7 @@ CONTAINS
       CALL read_restart_files
 #else
       jg = 1 !no nesting
-     !DO jg = n_dom_start,n_dom
+     !DO jg = ,n_dom
      CALL read_restart_files( p_patch_3D%p_patch_2D(jg) )
      !END DO
 #endif
@@ -439,7 +396,6 @@ CONTAINS
     ! output if n_io <= integration_length.
 
       CALL get_restart_attribute('next_output_file',jfile)
-      write(*,*)'JFILE:',jfile
 !      IF (n_io.le.nsteps) THEN
          CALL init_output_files(jfile, lclose=.FALSE.,p_patch_2D=p_patch_3D%p_patch_2D)
          l_have_output = .TRUE.
@@ -484,10 +440,7 @@ CONTAINS
 
     !The 3D-ocean version of previous calls    
     CALL destruct_patches( p_patch_3D%p_patch_2D )
-    NULLIFY( p_patch_3D%p_patch_2D, stat=ist )
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocate for patch array failed')
-    ENDIF
+    NULLIFY( p_patch_3D%p_patch_2D )
 
     ! Delete variable lists
 
