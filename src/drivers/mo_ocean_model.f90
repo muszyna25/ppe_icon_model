@@ -37,8 +37,7 @@ MODULE mo_ocean_model
   USE mo_master_control,      ONLY: is_restart_run, get_my_process_name, get_my_model_no
   USE mo_parallel_config,     ONLY: p_test_run, l_test_openmp, num_io_procs 
   USE mo_mpi,                 ONLY: my_process_is_io,set_mpi_work_communicators,p_pe_work
-  USE mo_timer,               ONLY: init_timer, timer_start, timer_stop, print_timer, &
-    &                               timer_model_init
+  USE mo_timer,               ONLY: init_timer, timer_start, timer_stop, print_timer, timer_model_init
   USE mo_datetime,            ONLY: t_datetime
   USE mo_output,              ONLY: init_output_files, write_output_oce, close_output_files
   USE mo_name_list_output,    ONLY: init_name_list_output, close_name_list_output
