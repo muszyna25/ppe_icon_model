@@ -294,24 +294,24 @@ CONTAINS
 
       CALL message( TRIM(routine),'Finished reading external data' )
 
-      ! Get interpolated ndviratio. Interpolation is done in time, based 
-      ! on ini_datetime. For NWP applications it is assumed, that 
-      ! ndviratio is constant in time.
+      ! Get interpolated ndviratio, alb_dif, albuv_dif and albni_dif. Interpolation 
+      ! is done in time, based on ini_datetime (noon). Fields are updated on a 
+      ! daily basis.
       !
       SELECT CASE ( iforcing )
       CASE ( inwp )
 
-        ! note, that ndviratio, alb_dif, albuv_dif and albni_dif are updated on 
-        ! a daily basis. This, when restarting, the target interpolation time 
-        ! must be set to cur_datetime noon.
+        ! When initializing the model we set the target hour to 0 (noon) as well. 
+        ! When restarting, the target interpolation time must be set to cur_datetime 
+        ! noon. 
         ! 
         IF (.NOT. is_restart_run()) THEN
           datetime     = time_config%ini_datetime
         ELSE
           datetime     = time_config%cur_datetime
-          datetime%hour= 0
         END IF  ! is_restart_run
-
+        !
+        datetime%hour= 0   ! always assume noon
 
         DO jg = 1, n_dom
           CALL interpol_monthly_mean(p_patch(jg), datetime,              &! in
@@ -2480,7 +2480,7 @@ CONTAINS
 
 !$OMP PARALLEL
 !$OMP WORKSHARE
-              ! Scale from [%] t0 [1]
+              ! Scale from [%] to [1]
               ext_data(jg)%atm_td%alb_dif(:,:,:)   = ext_data(jg)%atm_td%alb_dif(:,:,:)/100._wp
               ext_data(jg)%atm_td%albuv_dif(:,:,:) = ext_data(jg)%atm_td%albuv_dif(:,:,:)/100._wp
               ext_data(jg)%atm_td%albni_dif(:,:,:) = ext_data(jg)%atm_td%albni_dif(:,:,:)/100._wp
