@@ -517,8 +517,8 @@ CONTAINS
       ! !TODO organize var_lists for the multiple timesteps of prog. state
       WRITE(listname,'(a)')  'ocean_restart_list'
       CALL new_var_list(ocean_restart_list, listname, patch_id=p_patch(jg)%id)
-      CALL default_var_list_settings( ocean_restart_list,            &
-                                    & lrestart=.TRUE.,loutput=.TRUE.,           &
+      CALL default_var_list_settings( ocean_restart_list,             &
+                                    & lrestart=.TRUE.,loutput=.TRUE.,&
                                     & restart_type=FILETYPE_NC2, &
                                     & model_type='oce' )
       WRITE(listname,'(a)')  'ocean_default_list'
@@ -778,7 +778,7 @@ CONTAINS
       &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
       &          ldims=(/nproma,nblks_c/))
       IF (nnew(1) == timelevel) THEN
-        CALL add_var(ocean_restart_list, 'h', p_os_prog%h , &
+        CALL add_var(ocean_default_list, 'h', p_os_prog%h , &
       &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
       &          t_cf_var('h', 'm', 'surface elevation at cell center', DATATYPE_FLT32),&
       &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
@@ -792,8 +792,7 @@ CONTAINS
     &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_EDGE),&
     &            ldims=(/nproma,n_zlev,nblks_e/))
     IF (nnew(1)==timelevel) THEN
-      CALL add_ref(ocean_restart_list,'vn'//TRIM(var_suffix),'vn', &
-        &          p_os_prog%vn,GRID_UNSTRUCTURED_EDGE, ZA_DEPTH_BELOW_SEA, &
+      CALL add_var(ocean_default_list,'vn', p_os_prog%vn,GRID_UNSTRUCTURED_EDGE, ZA_DEPTH_BELOW_SEA, &
         &          t_cf_var('vn', 'm/s', 'normale velocity on edge,m', DATATYPE_FLT32),&
         &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_EDGE),&
         &          ldims=(/nproma,n_zlev,nblks_e/))
@@ -837,7 +836,7 @@ CONTAINS
             &                    oce_tracer_codes    , &
             &                    oce_tracer_units)
         CALL add_var(ocean_default_list, 'tracers', p_os_prog%tracer , &
-            &        GRID_UNSTRUCTURED_CELL, ZAXIS_DEPTH_BELOW_SEA, &
+            &        GRID_UNSTRUCTURED_CELL, ZA_DEPTH_BELOW_SEA, &
             &        t_cf_var('tracers','','1:temperature 2:salinity',DATATYPE_FLT32),&
             &        t_grib2_var(255,255,255,DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
             &        ldims=(/nproma,n_zlev,nblks_c,no_tracer/), &
@@ -846,7 +845,7 @@ CONTAINS
           CALL add_ref( ocean_default_list, 'tracers', &
             &           oce_tracer_names(jtrc),          &
             &           p_os_prog%tracer_ptr(jtrc)%p,    &
-            &           GRID_UNSTRUCTURED_CELL, ZAXIS_DEPTH_BELOW_SEA,&
+            &           GRID_UNSTRUCTURED_CELL, ZA_DEPTH_BELOW_SEA,&
             &           t_cf_var(oce_tracer_names(jtrc), &
             &                    oce_tracer_units(jtrc), &
             &                    oce_tracer_longnames(jtrc), DATATYPE_FLT32), &

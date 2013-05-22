@@ -3054,6 +3054,8 @@ CONTAINS
     NULLIFY(target_ptr3d)
     NULLIFY(target_ptr4d)
     !
+    !TODOram
+    write(0,*)'add var:',name,'<<<<<<<==================================='
     target_element => find_list_element (this_list, target_name)
     target_info => target_element%field%info
     IF (target_info%lcontainer) THEN

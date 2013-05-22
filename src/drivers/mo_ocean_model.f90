@@ -368,7 +368,7 @@ CONTAINS
     !------------------------------------------------------------------
 
     IF (output_mode%l_nml) THEN
-      CALL init_name_list_output(l_is_ocean=.TRUE.)
+      CALL init_name_list_output(lprintlist=.TRUE.,l_is_ocean=.TRUE.)
     ENDIF
 
     IF (.NOT.is_restart_run()) THEN
