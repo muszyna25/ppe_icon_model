@@ -400,7 +400,7 @@ CONTAINS
 
     INTEGER, INTENT(IN) ::        &
                         &  nsigb  !< number of grid boxes within a block 
-                                  !< where the sea ice is present 
+                                  !< where the sea ice is present (<=nproma)
 
     REAL(wp), DIMENSION(:), INTENT(IN) ::           & 
                                            &  qsen    , &  !< sensible heat flux at the surface [W/m^2]
@@ -588,16 +588,20 @@ CONTAINS
 
     ! Store time tendencies (optional)
     IF (PRESENT(opt_dticedt)) THEN
-      opt_dticedt(:) = dticedt(:)
+      opt_dticedt(1:nsigb)  = dticedt(1:nsigb)
+      opt_dticedt(nsigb+1:) = 0._wp 
     ENDIF
     IF (PRESENT(opt_dhicedt)) THEN
-      opt_dhicedt(:) = dhicedt(:)
+      opt_dhicedt(1:nsigb)  = dhicedt(1:nsigb)
+      opt_dhicedt(nsigb+1:) = 0._wp
     ENDIF
     IF (PRESENT(opt_dtsnowdt)) THEN
-      opt_dtsnowdt(:) = dtsnowdt(:)
+      opt_dtsnowdt(1:nsigb) = dtsnowdt(1:nsigb)
+      opt_dtsnowdt(nsigb+1:)= 0._wp
     ENDIF
     IF (PRESENT(opt_dhsnowdt)) THEN
-      opt_dhsnowdt(:) = dhsnowdt(:)
+      opt_dhsnowdt(1:nsigb) = dhsnowdt(1:nsigb)
+      opt_dhsnowdt(nsigb+1:)= 0._wp
     ENDIF
  
     !-----------------------------------------------------------------------------------------------
