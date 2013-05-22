@@ -348,20 +348,18 @@ CONTAINS
   991 FORMAT(a,a12,':',a27,'  :',i3, 2g26.18)
 #else
 
+! ! valid g-format without offset of decimal point
+! 981 FORMAT(a,a12,':',a27,' C:',i3,  g26.18,3(a,i0,a,  g20.12))
+! 982 FORMAT(a,a12,':',a27,'  :',i3,   26x,  3(a,i0,a,  g20.12))
+! 991 FORMAT(a,a12,':',a27,'  :',i3, 2g26.18)
 ! ! valid e-format with first digit gt zero
 ! 981 FORMAT(a,a12,':',a27,' C:',i3, 1pe26.18,3(a,i0,a,1pe20.12))
 ! 982 FORMAT(a,a12,':',a27,'  :',i3,    26x,  3(a,i0,a,1pe20.12))
 ! 991 FORMAT(a,a12,':',a27,'  :',i3,1p2e26.18)
-
 ! ! g-format with offset for decimal point not valid for NAG compiler
-! 981 FORMAT(a,a12,':',a27,' C:',i3, 1pg26.18,3(a,i0,a,1pg20.12))
-! 982 FORMAT(a,a12,':',a27,'  :',i3,    26x,  3(a,i0,a,1pg20.12))
-! 991 FORMAT(a,a12,':',a27,'  :',i3,1p2g26.18)
-
-  ! valid g-format without offset of decimal point
-  981 FORMAT(a,a12,':',a27,' C:',i3,  g26.18,3(a,i0,a,  g20.12))
-  982 FORMAT(a,a12,':',a27,'  :',i3,   26x,  3(a,i0,a,  g20.12))
-  991 FORMAT(a,a12,':',a27,'  :',i3, 2g26.18)
+  981 FORMAT(a,a12,':',a27,' C:',i3, 1pg26.18,3(a,i0,a,1pg20.12))
+  982 FORMAT(a,a12,':',a27,'  :',i3,    26x,  3(a,i0,a,1pg20.12))
+  991 FORMAT(a,a12,':',a27,'  :',i3, 1pg26.18, 1pg26.18)
 #endif
 
   ! check print output level idetail_src (1-5) with namelist given value (idbg_val)
