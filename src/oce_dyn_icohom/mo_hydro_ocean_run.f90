@@ -195,6 +195,7 @@ CONTAINS
   CALL timer_start(timer_total)
 
   sim_time(:) = 0.0_wp
+  time_config%sim_time(:) = 0.0_wp
 
   !------------------------------------------------------------------
   ! call the dynamical core: start the time loop

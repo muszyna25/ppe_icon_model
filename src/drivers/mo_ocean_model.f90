@@ -484,7 +484,7 @@ CONTAINS
 
     !The 3D-ocean version of previous calls    
     CALL destruct_patches( p_patch_3D%p_patch_2D )
-    DEALLOCATE( p_patch_3D%p_patch_2D, stat=ist )
+    NULLIFY( p_patch_3D%p_patch_2D, stat=ist )
     IF (ist/=SUCCESS) THEN
       CALL finish(TRIM(routine),'deallocate for patch array failed')
     ENDIF
