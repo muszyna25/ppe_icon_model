@@ -1310,7 +1310,6 @@ CONTAINS
   !------------------------------------------------------------------------------------------------
   !
   SUBROUTINE set_patch_info
-  !TODO: redo for the ocean
 
     INTEGER :: jp, jl, ierrstat, jg
 
@@ -2132,7 +2131,6 @@ CONTAINS
       ! mo_io_async complains about mismatch of levels.
       znlev_soil = SIZE(zml_soil)
 
-
       ! CLOUD BASE LEVEL
       !
       of%cdiZaxisID(ZA_cloud_base)     = zaxisCreate(ZAXIS_CLOUD_BASE, 1)
@@ -2391,6 +2389,9 @@ CONTAINS
         DEALLOCATE(levels)
       ENDIF
 
+      ! for having ice variable in the atmosphere (like AMIP)
+      of%cdiZaxisID(ZA_GENERIC_ICE) = zaxisCreate(ZAXIS_GENERIC, 1)
+
     ELSE ! oce
       of%cdiZaxisID(ZA_depth_below_sea)      = zaxisCreate(ZAXIS_DEPTH_BELOW_SEA, n_zlev)
       nzlevp1 = n_zlev + 1
@@ -2399,11 +2400,11 @@ CONTAINS
       ALLOCATE(levels_i(nzlevp1))
       ALLOCATE(levels_m(n_zlev))
       CALL set_zlev(levels_i, levels_m)
-      CALL zaxisDefLevels(of%cdiZaxisID(ZA_depth_below_sea), REAL(levels_m,dp))
-      CALL zaxisDefLevels(of%cdiZaxisID(ZA_depth_below_sea_half), REAL(levels_i,dp))
+      CALL zaxisDefLevels(of%cdiZaxisID(ZA_DEPTH_BELOW_SEA), REAL(levels_m,dp))
+      CALL zaxisDefLevels(of%cdiZaxisID(ZA_DEPTH_BELOW_SEA_HALF), REAL(levels_i,dp))
       DEALLOCATE(levels_i)
       DEALLOCATE(levels_m)
-      of%cdiZaxisID(ZA_generic_ice) = zaxisCreate(ZAXIS_GENERIC, 1)
+      of%cdiZaxisID(ZA_GENERIC_ICE) = zaxisCreate(ZAXIS_GENERIC, 1)
     ENDIF
 
 

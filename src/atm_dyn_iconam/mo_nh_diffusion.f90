@@ -114,6 +114,7 @@ MODULE mo_nh_diffusion
     INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
     INTEGER :: rl_start, rl_end
     INTEGER :: jk, jb, jc, je, ic, ishift
+    INTEGER :: nlev              !< number of full levels
 
     ! start index levels and diffusion coefficient for boundary diffusion
     INTEGER :: start_bdydiff_e
@@ -130,7 +131,10 @@ MODULE mo_nh_diffusion
                 nabv_tang, nabv_norm, rd_o_cvd, nudgezone_diff, bdy_diff, vn_cell1, vn_cell2
     REAL(wp), DIMENSION(p_patch%nlev) :: smag_limit, diff_multfac_smag, enh_smag_fac
     INTEGER  :: nblks_zdiffu, nproma_zdiffu, npromz_zdiffu, nlen_zdiffu
-    INTEGER  :: nlev              !< number of full levels
+
+    ! Variables for provisional fix against runaway cooling in local topography depressions
+    INTEGER  :: icount, iclist(2*nproma), iklist(2*nproma)
+    REAL(wp) :: tdlist(2*nproma), tdiff, enh_diffu, thresh_tdiff
 
     INTEGER,  DIMENSION(:,:,:), POINTER :: icidx, icblk, ieidx, ieblk, ividx, ivblk, &
                                            iecidx, iecblk
@@ -167,6 +171,10 @@ MODULE mo_nh_diffusion
     ! scaling factor for enhanced near-boundary diffusion for 
     ! two-way nesting (used with Smagorinsky diffusion only; not needed otherwise)
     bdy_diff = 0.015_wp/(nudge_max_coeff + dbl_eps)
+
+    ! threshold temperature deviation from neighboring grid points 
+    ! that activates extra diffusion against runaway cooling
+    thresh_tdiff = - 6._wp
 
     ividx => p_patch%edges%vertex_idx
     ivblk => p_patch%edges%vertex_blk
@@ -825,6 +833,57 @@ MODULE mo_nh_diffusion
       ENDIF
 
 !$OMP PARALLEL PRIVATE(rl_start,rl_end,i_startblk,i_endblk)
+
+      ! Enhance Smagorinsky diffusion coefficient in the presence of excessive grid-point cold pools
+      ! This is restricted to the two lowest model levels
+      !
+      rl_start = grf_bdywidth_c
+      rl_end   = min_rlcell_int-1
+
+      i_startblk = p_patch%cells%start_blk(rl_start,1)
+      i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
+
+!$OMP DO PRIVATE(jk,jc,jb,i_startidx,i_endidx,tdiff,icount,iclist,iklist,tdlist,enh_diffu), ICON_OMP_RUNTIME_SCHEDULE
+      DO jb = i_startblk,i_endblk
+
+        CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+                           i_startidx, i_endidx, rl_start, rl_end)
+
+        icount = 0
+
+        DO jk = nlev-1, nlev
+          DO jc = i_startidx, i_endidx
+            ! Potential temperature difference between local point and average of the three neighbors
+            tdiff = p_nh_prog%theta_v(jc,jk,jb) - &
+              (p_nh_prog%theta_v(icidx(jc,jb,1),jk,icblk(jc,jb,1)) + &
+               p_nh_prog%theta_v(icidx(jc,jb,2),jk,icblk(jc,jb,2)) + &
+               p_nh_prog%theta_v(icidx(jc,jb,3),jk,icblk(jc,jb,3)) ) / 3._wp
+
+            IF (tdiff < thresh_tdiff) THEN
+              icount = icount+1
+              iclist(icount) = jc
+              iklist(icount) = jk
+              tdlist(icount) = thresh_tdiff - tdiff
+            ENDIF
+
+          ENDDO
+        ENDDO
+
+        ! Enhance Smagorinsky coefficients at the three edges of the cells included in the list
+        ! Attention: this operation is not vectorizable
+        IF (icount > 0) THEN
+          DO ic = 1, icount
+            jc = iclist(ic)
+            jk = iklist(ic)
+            enh_diffu = tdlist(ic)*5.e-4_wp
+            kh_smag_e(ieidx(jc,jb,1),jk,ieblk(jc,jb,1)) = MAX(enh_diffu,kh_smag_e(ieidx(jc,jb,1),jk,ieblk(jc,jb,1)))
+            kh_smag_e(ieidx(jc,jb,2),jk,ieblk(jc,jb,2)) = MAX(enh_diffu,kh_smag_e(ieidx(jc,jb,2),jk,ieblk(jc,jb,2)))
+            kh_smag_e(ieidx(jc,jb,3),jk,ieblk(jc,jb,3)) = MAX(enh_diffu,kh_smag_e(ieidx(jc,jb,3),jk,ieblk(jc,jb,3)))
+          ENDDO
+        ENDIF
+
+      ENDDO
+!$OMP END DO
 
       IF (discr_t == 1) THEN  ! use discretization K*nabla(theta)
 

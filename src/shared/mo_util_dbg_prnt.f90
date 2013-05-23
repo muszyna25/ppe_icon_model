@@ -356,7 +356,7 @@ CONTAINS
 ! 981 FORMAT(a,a12,':',a27,' C:',i3, 1pe26.18,3(a,i0,a,1pe20.12))
 ! 982 FORMAT(a,a12,':',a27,'  :',i3,    26x,  3(a,i0,a,1pe20.12))
 ! 991 FORMAT(a,a12,':',a27,'  :',i3,1p2e26.18)
-! ! g-format with offset for decimal point not valid for NAG compiler
+! ! g-format with first digit > zero, not valid for SX-compiler
   981 FORMAT(a,a12,':',a27,' C:',i3, 1pg26.18,3(a,i0,a,1pg20.12))
   982 FORMAT(a,a12,':',a27,'  :',i3,    26x,  3(a,i0,a,1pg20.12))
   991 FORMAT(a,a12,':',a27,'  :',i3, 1pg26.18, 1pg26.18)

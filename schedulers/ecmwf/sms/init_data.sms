@@ -60,9 +60,9 @@ ifs_res=`ls ${IFS_FILENAME_GRB} | awk -F '_' '{print $3}'`
 IFS_FILENAME_GRB="ifs_oper_${ifs_res}_%YMD%%INIHOUR%.grb"
 
 IFS_FILENAME_NC="ifs2icon_%RES%_DOM01.nc"
-ICON_GRIDFILE="icon%RES%_DOM01.nc"
+ICON_GRIDFILE="icon_grid_%RES%_G.nc"
 
-ln -sf ${GRIDDIR}/${ICON_GRIDFILE} .
+ln -sf ${GRIDDIR}/icon_grid_*_%RES%_G.nc ${ICON_GRIDFILE}
 
 #set +x
 

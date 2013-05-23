@@ -225,6 +225,8 @@ CONTAINS
     INTEGER :: ddt_u_tot_comm, ddt_v_tot_comm, z_ddt_u_tot_comm, z_ddt_v_tot_comm, &
       & tracers_comm, tempv_comm, exner_old_comm, w_comm
 
+    INTEGER :: rlend  !different opt_rlend for inwp_turb==5
+    
     IF (ltimer) CALL timer_start(timer_physics)
 
     ! local variables related to the blocking
@@ -315,13 +317,16 @@ CONTAINS
     ENDIF ! diagnose u/v
 
     IF (l_any_fastphys .OR. linit) THEN
+        
+      rlend = min_rlcell_int
+      IF(atm_phy_nwp_config(jg)%inwp_turb==5)rlend=min_rlcell_int-2
 
       ! Diagnose temperature if any of the fast physics schemes is called
       CALL diagnose_pres_temp (p_metrics, pt_prog, pt_prog_rcf,    &
            &                              pt_diag, pt_patch,       &
            &                              opt_calc_temp=.TRUE.,    &
            &                              opt_calc_pres=.FALSE.,   &
-           &                              opt_rlend=min_rlcell_int )
+           &                              opt_rlend=rlend )
 
       IF (msg_level >= 20) THEN ! Initial diagnostic output
         CALL nwp_diag_output_1(pt_patch, pt_diag, pt_prog_rcf)
@@ -430,6 +435,9 @@ CONTAINS
 
     IF (lcall_phy_jg(itgscp) .OR. lcall_phy_jg(itturb) .OR. lcall_phy_jg(itsfc)) THEN
 
+      rlend = min_rlcell_int
+      IF(atm_phy_nwp_config(jg)%inwp_turb==5)rlend=min_rlcell_int-1
+
       IF (msg_level >= 15) &
         & CALL message('mo_nh_interface_nwp:', 'diagnose pressure for fast physics')
 
@@ -442,7 +450,7 @@ CONTAINS
         & pt_diag, pt_patch,      &
         & opt_calc_temp =.FALSE., &
         & opt_calc_pres =.TRUE.,  &
-        & opt_rlend=min_rlcell_int)
+        & opt_rlend=rlend)
 
     ENDIF
 

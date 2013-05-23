@@ -45,8 +45,9 @@ dwd_grib_api=/home/ms/de/dwd/grib_api
 export GRIB_DEFINITION_PATH="/usr/local/lib/metaps/lib/grib_api/1.10.4/share/definitions:${dwd_grib_api}/definitions.edzw-1.9.16"
 # =============================================
 
-ICON_GRIDFILE="icon%RES%_DOM01.nc"
-ln -sf $GRIDDIR/icon*DOM*.nc .
+ICON_GRIDFILE="icon_grid_%RES%_G.nc"
+ln -sf ${GRIDDIR}/icon_grid_*_%RES%_G.nc ${ICON_GRIDFILE}
+
 #set +x
 
 # -------------------------------------------------
