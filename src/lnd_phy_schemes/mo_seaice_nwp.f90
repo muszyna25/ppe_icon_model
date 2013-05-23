@@ -589,19 +589,27 @@ CONTAINS
     ! Store time tendencies (optional)
     IF (PRESENT(opt_dticedt)) THEN
       opt_dticedt(1:nsigb)  = dticedt(1:nsigb)
-      opt_dticedt(nsigb+1:) = 0._wp 
+      IF (nsigb < SIZE(opt_dticedt)) THEN
+        opt_dticedt(nsigb+1:) = 0._wp 
+      ENDIF
     ENDIF
     IF (PRESENT(opt_dhicedt)) THEN
       opt_dhicedt(1:nsigb)  = dhicedt(1:nsigb)
-      opt_dhicedt(nsigb+1:) = 0._wp
+      IF (nsigb < SIZE(opt_dhicedt)) THEN
+        opt_dhicedt(nsigb+1:) = 0._wp
+      ENDIF
     ENDIF
     IF (PRESENT(opt_dtsnowdt)) THEN
       opt_dtsnowdt(1:nsigb) = dtsnowdt(1:nsigb)
-      opt_dtsnowdt(nsigb+1:)= 0._wp
+      IF (nsigb < SIZE(opt_dtsnowdt)) THEN
+        opt_dtsnowdt(nsigb+1:)= 0._wp
+      ENDIF
     ENDIF
     IF (PRESENT(opt_dhsnowdt)) THEN
       opt_dhsnowdt(1:nsigb) = dhsnowdt(1:nsigb)
-      opt_dhsnowdt(nsigb+1:)= 0._wp
+      IF (nsigb < SIZE(opt_dhsnowdt)) THEN
+        opt_dhsnowdt(nsigb+1:)= 0._wp
+      ENDIF
     ENDIF
  
     !-----------------------------------------------------------------------------------------------
