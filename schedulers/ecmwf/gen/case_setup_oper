@@ -16,15 +16,15 @@
 # --------------------------------------------------------------------
 
 
-# absolute path to output directory
+# output directory
 EXPDIR=${outbasedir}/${INITIME}
-# absolute path to input directory
-INDIR=${basedir}/icon_input/grids
-# absolute path to external parameter directory
+# grid directory
+GRIDDIR=${basedir}/icon_input/grids
+# external parameter directory
 EXTPARDIR=${basedir}/icon_input/extpar
-# absolute path to IFS2ICON data directory
+# IFS2ICON data directory
 IFS2ICONDIR=${ifsdir}
-# absolute path to files needed for radiation
+# path to files needed for radiation
 RADDIR=${basedir}/icon_input/radiation
 
 # --------------------------------------------------------------------
@@ -38,9 +38,14 @@ if [ ! -d $EXPDIR ]; then
 fi
 cd $EXPDIR
 
-ln -sf $INDIR/icon${res}_DOM01.nc .
-ln -sf $INDIR/icon${resrad}_DOM00.nc .
-ln -sf $EXTPARDIR/extpar_icon${res}_DOM01.nc .
+# grid parameters
+atmo_dyn_grids=icon_grid_${res}_G.nc
+atmo_rad_grids=icon_grid_${resrad}_R.nc
+extpar_filename=icon_extpar_${res}_G.nc
+
+ln -sf $GRIDDIR/icon_grid_*_${res}_G.nc     ${atmo_dyn_grids}
+ln -sf $GRIDDIR/icon_grid_*_${resrad}_R.nc  ${atmo_rad_grids}
+ln -sf $EXTPARDIR/icon_extpar_*_${res}_G.nc ${extpar_filename}
 ln -sf $IFS2ICONDIR/ifs2icon_${res}_DOM01.nc .
 
 ln -sf ${RADDIR}/ECHAM6_CldOptProps.nc .
@@ -63,10 +68,6 @@ ninc_mtgrm=50          # output interval 3600s
 # model parameters
 atmo_namelist=NAMELIST_${basename}
 model_equations=3      #  3=non-hydrost. atm.,
-
-# grid parameters
-atmo_dyn_grids="icon"${res}"_DOM01.nc"
-atmo_rad_grids="icon"${resrad}"_DOM00.nc"
 
 
 # ---------------------------
@@ -112,21 +113,25 @@ for gridfile in ${atmo_rad_grids}; do
 done
 
 
-# ---
+#-----------------------------------------------------------------------------
+# output variables
 
 ml_varlist="'temp','u','v','w','pres','pres_sfc', 'pres_msl', 
-'qv','qc','qi','qr','qs','o3','tot_cc','tot_qv','tot_qc','tot_qi', 
-'tcc','tqv','tqc','tqi', 
-'tracer_vi01','tracer_vi02','tracer_vi03','tracer_vi04','tracer_vi05'
+'qv','qc','qi','qr','qs','o3','clc','tot_qv','tot_qc','tot_qi', 
+'clct','tqv','tqc','tqi', 
+'tracer_vi01','tracer_vi02','tracer_vi03','tracer_vi04','tracer_vi05',
 'tot_prec','rain_gsp','rain_con','snow_gsp','snow_con', 
 'u_10m','v_10m', 't_2m',
 'accshfl_s','acclhfl_s',  'accthb_s','accthb_t','accsob_s','accsob_t', 
 'ddt_temp_radsw', 'ddt_temp_radlw',  'ddt_temp_turb', 'ddt_temp_drag', 'ddt_temp_pconv',   
 'ddt_u_turb', 'ddt_u_sso', 'ddt_u_gwd', 'ddt_u_pconv', 'ddt_v_turb', 'ddt_v_sso', 
-'ddt_v_gwd', 'ddt_v_pconv', 'ddt_qv_turb', 'ddt_qv_conv'"
+'ddt_v_gwd', 'ddt_v_pconv', 'ddt_qv_turb', 'ddt_qv_conv',
+'t_g', 't_ice','h_ice', 't_so', 'w_so', 'fr_seaice', 't_seasfc',
+'snowfrac', 'w_snow', 'dzh_snow', 't_snow_mult', 'rho_snow_mult'"
+#'t_so_t_1', 'w_so_t_1', 'w_snow_t_1'"
 
-pl_varlist="'u','v','temp','geopot','tot_cc','tot_qv','tot_qc','tot_qi','qv','qc','qi'"      
-hl_varlist="'u','v','temp','pres',  'tot_cc','tot_qv','tot_qc','tot_qi','qv','qc','qi'"   
+pl_varlist="'u','v','temp','geopot','clc','tot_qv','tot_qc','tot_qi','qv','qc','qi'"      
+hl_varlist="'u','v','temp','pres',  'clc','tot_qv','tot_qc','tot_qi','qv','qc','qi'"   
 
 # ---
 
@@ -157,7 +162,7 @@ cat > ${atmo_namelist} << EOF
  zpbl2                        = 1000. 
 /
 &io_nml
- lflux_avg                    = .FALSE.    
+ lflux_avg                    = .FALSE.     ! false: accumulated fluxes
 /
 &run_nml
  num_lev                      = 90
@@ -232,6 +237,10 @@ cat > ${atmo_namelist} << EOF
 !                                  't_so','t_snow','t_skin','qv_s',
 !                                  'w_snow'
 !  /
+&gribout_nml
+ generatingCenter             = 98                        ! ECMWF
+ generatingSubcenter          = 0                         ! ECMWF
+/
 &meteogram_output_nml
  lmeteogram_enabled= .TRUE.
  n0_mtgrm          = 0              ! meteogram initial time step (0 is first step!)
@@ -243,7 +252,7 @@ cat > ${atmo_namelist} << EOF
                      -10.08, -61.93, 'LBA_Rondonia',
                       13.50,   2.5 , 'Niamey',
                       36.61, -97.49, 'ARM_Southern_Great_Plains',
-                     -71.32, 156.62, 'ARM_North_Slope_of_Alaska_Barrow',
+                      71.32, 156.62, 'ARM_North_Slope_of_Alaska_Barrow',
                       -2.06, 147.43, 'ARM_Tropical_W_Pacific_Manus',
                      -12.43, 130.89, 'ARM_Tropical_W_Pacific_Darwin',
                      -20.00,-120.00, 'Tropical Ocean cumumulus',
@@ -251,9 +260,12 @@ cat > ${atmo_namelist} << EOF
                       60.00,  80.00, 'Snow Test Russia',
                       46.81,   6.94, 'Payerne',
                       67.36,  26.64, 'Sodankyla',
+                      54.015,  6.588,'FINO1',
+                      55.007, 13.154,'FINO2',
+                      55.195,  7.158,'FINO3'
 /
 &nwp_phy_nml
- inwp_gscp                    = 10  ! 1: default, or 10
+ inwp_gscp                    = 1   ! 1: default, or 10
  inwp_convection              = 1
  inwp_radiation               = 1
  inwp_cldcover                = 1   ! 0: no cld, 1: new diagnostic, 3: COSMO, 5: grid scale
@@ -275,14 +287,14 @@ cat > ${atmo_namelist} << EOF
  tkmmin                       = 0.2
  pat_len                      = 100.
  c_diff                       = 0.2
- rat_sea                      = 10.0
+ rat_sea                      = 7.5
 /
 &lnd_nml
  ntiles                       = 3
- nlev_snow                    = 2
- lmulti_snow                  = .true.
+ nlev_snow                    = 2       ! 2 for multi-level snow
+ lmulti_snow                  = .TRUE.  ! true: multi-level snow, false: single-level snow
  idiag_snowfrac               = 3
- lsnowtile                    = .false.
+ lsnowtile                    = .FALSE. ! true: allow separate snow and snow-free tiles
  lseaice                      = .true.
 /
 &radiation_nml
@@ -302,7 +314,7 @@ cat > ${atmo_namelist} << EOF
  ivctype                      = 2
  itime_scheme                 = 4
  exner_expol                  = 0.333
- vwind_offctr                 = 0.2
+ vwind_offctr                 = 0.2         ! 0.2 for R2B6 and higher resolution, 0.3 for lower resolution
  damp_height                  = 50000.
  rayleigh_coeff               = 0.10
  iadv_rcf                     = ${iadv_rcf}
@@ -366,6 +378,7 @@ cat > ${atmo_namelist} << EOF
  itopo                        = 1
  n_iter_smooth_topo           = 0
  heightdiff_threshold         = 3000.
+ extpar_filename              = '${extpar_filename}'
 /
 EOF
 
