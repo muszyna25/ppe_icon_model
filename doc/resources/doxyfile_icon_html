@@ -31,7 +31,7 @@ PROJECT_NAME           = ICON
 # This could be handy for archiving the generated documentation or
 # if some version control system is used.
 
-PROJECT_NUMBER         = Revision: 9292
+PROJECT_NUMBER         = Revision: 11943
 
 # The OUTPUT_DIRECTORY tag is used to specify the (relative or absolute)
 # base path where the generated documentation will be put.
@@ -598,7 +598,7 @@ RECURSIVE              = YES
 # excluded from the INPUT source files. This way you can easily exclude a
 # subdirectory from a directory tree whose root is specified with the INPUT tag.
 
-EXCLUDE                = src/templates src/shared/mo_util_uuid.f90
+EXCLUDE                = src/templates src/shared/mo_util_uuid.f90 src/atm_phy_schemes/mo_cuparameters.f90
 
 # The EXCLUDE_SYMLINKS tag can be used select whether or not files or
 # directories that are symbolic links (a Unix filesystem feature) are excluded
@@ -620,7 +620,7 @@ EXCLUDE_PATTERNS       = */.svn*
 # wildcard * is used, a substring. Examples: ANamespace, AClass,
 # AClass::ANamespace, ANamespace::*Test
 
-EXCLUDE_SYMBOLS        =
+EXCLUDE_SYMBOLS        = mo_cuparameters::dr_hook
 
 # The EXAMPLE_PATH tag can be used to specify one or more files or
 # directories that contain example code fragments that are included (see
