@@ -54,7 +54,7 @@ USE mo_sync,                   ONLY: sync_patch_array, sync_e!, sync_c, sync_v
 USE mo_ocean_nml,              ONLY: iswm_oce, n_zlev, no_tracer, &
   &                                  itestcase_oce, idiag_oce, init_oce_prog, init_oce_relax, &
   &                                  EOS_TYPE, i_sea_ice, l_staggered_timestep
-USE mo_dynamics_config,        ONLY: nold!, nnew
+USE mo_dynamics_config,        ONLY: nold, nnew
 USE mo_io_config,              ONLY: n_files, n_checkpoints, is_output_time!, istime4newoutputfile
 USE mo_run_config,             ONLY: nsteps, dtime, ltimer, output_mode
 USE mo_exception,              ONLY: message, message_text, finish
@@ -198,12 +198,18 @@ CONTAINS
   time_config%sim_time(:) = 0.0_wp
 
   !------------------------------------------------------------------
-  ! call the dynamical core: start the time loop
+  ! write initial
   !------------------------------------------------------------------
-  !write initial
   IF (output_mode%l_nml) THEN
+    ! in general nml output is writen based on the nnew status of the
+    ! prognostics variables. Unfortunately, the initialization has to be written
+    ! to the nold state. That's why the following manual copying is nec. 
+    IF (.NOT. is_restart_run()) p_os(jg)%p_prog(nnew(1))%tracer = p_os(jg)%p_prog(nold(1))%tracer
     CALL write_name_list_output( datetime, time_config%sim_time(1), last_step=.FALSE., initial_step=.not.is_restart_run())
   ENDIF
+  !------------------------------------------------------------------
+  ! call the dynamical core: start the time loop
+  !------------------------------------------------------------------
   TIME_LOOP: DO jstep = 1, nsteps
 
     CALL datetime_to_string(datestring, datetime)

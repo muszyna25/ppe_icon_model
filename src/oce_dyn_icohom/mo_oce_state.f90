@@ -70,7 +70,7 @@ MODULE mo_oce_state
   USE mo_model_domain,        ONLY: t_patch,t_patch_3D
   USE mo_grid_config,         ONLY: n_dom, n_dom_start, grid_sphere_radius, grid_angular_velocity
   USE mo_ext_data_types,      ONLY: t_external_data
-  USE mo_dynamics_config,     ONLY: nnew
+  USE mo_dynamics_config,     ONLY: nnew,nold
   USE mo_math_utilities,      ONLY: gc2cc,t_cartesian_coordinates,cvec2gvec,      &
     &                               t_geographical_coordinates, &!vector_product, &
     &                               arc_length
