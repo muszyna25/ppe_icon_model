@@ -64,6 +64,7 @@ MODULE mo_surface_les
   USE mo_nwp_phy_types,       ONLY: t_nwp_phy_diag, t_nwp_phy_tend
   USE mo_les_config,          ONLY: les_config
   USE mo_math_constants,      ONLY: pi_2, ln2
+  USE mo_impl_constants_grf,   ONLY: grf_bdywidth_c
 
   IMPLICIT NONE
 
@@ -123,9 +124,14 @@ MODULE mo_surface_les
 
     ! number of vertical levels
     nlev = p_patch%nlev
+    jk = nlev
     i_nchdom   = MAX(1,p_patch%n_childdom)
      
-    !Pres_sfc from previous calls are not synced. Therefore, I sync it here locally
+    rl_start   = grf_bdywidth_c-1
+    rl_end     = min_rlcell_int-1
+    i_startblk = p_patch%cells%start_blk(rl_start,1)
+    i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
+
     IF (p_test_run) THEN
        pres_sfc(:,:) = 0._wp
     ENDIF
@@ -134,7 +140,6 @@ MODULE mo_surface_les
     pres_sfc(:,:) = p_nh_diag%pres_sfc(:,:)
 !$OMP END PARALLEL WORKSHARE
 
-    CALL sync_patch_array(SYNC_C, p_patch, pres_sfc)
 
     SELECT CASE(les_config(jg)%isrfc_type)
 
@@ -146,12 +151,6 @@ MODULE mo_surface_les
     !Prescribed latent/sensible heat fluxes: get ustar and surface temperature / moisture
     CASE(2)
       
-      rl_start = 2
-      rl_end   = min_rlcell_int-1
-      i_startblk = p_patch%cells%start_blk(rl_start,1)
-      i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
-
-      jk = nlev
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jc,jb,i_startidx,i_endidx,exner,zrough,th0_srf,bflux,inv_mwind,z_mc, &
 !$OMP            ustar,obukhov_length,theta_sfc,rhos),ICON_OMP_RUNTIME_SCHEDULE
@@ -221,12 +220,6 @@ MODULE mo_surface_les
     !It uses fixed transfer coefficient and assumes that q_s is saturated 
     CASE(3)
 
-      rl_start = 2
-      rl_end   = min_rlcell_int-1
-      i_startblk = p_patch%cells%start_blk(rl_start,1)
-      i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
-
-      jk = nlev
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jc,jb,i_startidx,i_endidx,exner,zrough,th0_srf,itr, &
 !$OMP  theta_sfc,inv_mwind,z_mc,ustar,rhos,obukhov_length),ICON_OMP_RUNTIME_SCHEDULE 

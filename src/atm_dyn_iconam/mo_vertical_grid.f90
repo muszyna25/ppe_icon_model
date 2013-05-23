@@ -2071,17 +2071,17 @@ MODULE mo_vertical_grid
    CALL cells2verts_scalar(p_nh%metrics%inv_ddqz_z_half, p_patch, p_int%cells_aw_verts, &
                            p_nh%metrics%inv_ddqz_z_half_v, opt_rlend=min_rlvert_int)
 
-   CALL sync_patch_array(SYNC_V, p_patch, p_nh%metrics%inv_ddqz_z_half_v)
+   CALL cells2verts_scalar(p_nh%metrics%wgtfac_c, p_patch, p_int%cells_aw_verts, &
+                           p_nh%metrics%wgtfac_v, opt_rlend=min_rlvert_int)
+
+   CALL sync_patch_array_mult(SYNC_V,p_patch,2,p_nh%metrics%wgtfac_v,       &
+                                 p_nh%metrics%inv_ddqz_z_half_v)
 
    CALL cells2edges_scalar(p_nh%metrics%inv_ddqz_z_half, p_patch, p_int%c_lin_e, &
                            p_nh%metrics%inv_ddqz_z_half_e, opt_rlend=min_rledge_int)
 
    CALL sync_patch_array(SYNC_E, p_patch, p_nh%metrics%inv_ddqz_z_half_e)
 
-   CALL cells2verts_scalar(p_nh%metrics%wgtfac_c, p_patch, p_int%cells_aw_verts, &
-                           p_nh%metrics%wgtfac_v, opt_rlend=min_rlvert_int)
-
-   CALL sync_patch_array(SYNC_V, p_patch, p_nh%metrics%wgtfac_v)
 
   END SUBROUTINE prepare_les_model
   !----------------------------------------------------------------------------
