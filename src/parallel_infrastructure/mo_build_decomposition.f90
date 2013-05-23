@@ -5,7 +5,6 @@ MODULE mo_build_decomposition
   USE mo_sync
   USE mo_mpi
   USE mo_kind
-  USE mo_math_types
   USE mo_math_utilities
   USE mo_loopindices
   USE mo_impl_constants
