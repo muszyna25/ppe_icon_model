@@ -8,7 +8,7 @@ MODULE mo_build_decomposition
   USE mo_math_utilities
   USE mo_loopindices
   USE mo_impl_constants
-  USE mo_model_domain
+  USE mo_model_domain, ONLY: p_patch,t_patch_3D
   USE mo_grid_config
   USE mo_dump_restore
   USE mo_model_domimp_patches
