@@ -26,10 +26,10 @@ include Test::Unit::Assertions
 REMOTE_USER = 'm300064'
 
 # local master source code directory
-SRCDIR = '/home/ram/src/git/icon'
-
+SRCDIR      = ENV.has_key?('SRCDIR')? ENV['SRCDIR'] : '.'
+WORKDIR     = File.expand_path('.')
 # remote runscripts
-REMOTE_RUN = 'exp.test_oce_default.run'
+REMOTE_RUN  = 'exp.test_oce_default.run'
 
 # basic host setup
 $hosts = {
@@ -289,6 +289,18 @@ task parTaskName do
     q.push(cmd)
   }
   q.run
+end
+
+desc "Check variables an user input"
+task :check do
+  {
+    'SRCDIR' => SRCDIR,
+    'REMOTE_USER' => REMOTE_USER,
+    'WORKDIR' => WORKDIR,
+    'RAKEFILE' => __FILE__,
+  }.each {|k,v|
+    puts [k.rjust(16,' '),v.ljust(20,' ')].join(': ')
+  }
 end
 
 # vim:ft=ruby
