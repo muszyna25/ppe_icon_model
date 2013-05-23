@@ -28,6 +28,7 @@ With the launch of ICON, the following former GME output fields will no longer b
  \item \textbf{W\_G1}, \textbf{W\_G2}  [mm H2O]: Soil water content in upper layer ($0$ to $10\,\mathrm{cm}$) and middle layer ($10$ to $100\,\mathrm{cm}$), respectively. 
                                                  If needed, these fields can be derived from \textbf{W\_SO}.
  \item \textbf{FIS} [$\mathrm{m^{2}\,s^{-1}}$]: Surface Geopotential. Instead, \textbf{HSURF} $[\mathrm{m}]$ should be used (see Section \ref{sec_newout}).
+ \item \textbf{O3} [$\mathrm{kg/kg}$], \textbf{TO3} [$\mathrm{Dobson}$]: Ozone mixing ratio and corresponding total ozone concentration. No longer available; no substitution
 \end{itemize}
 
 
@@ -76,6 +77,7 @@ SSO\_THETA                    &  Angle of sub-gridscale orography               
 SSO\_SIGMA                    &  Slope of sub-gridscale orography                                                       &               0                                   &                       3                     &                   22                       &                 1/--                            &                      inst                   &        $1$ \\
 PLCOV\_MX                     &  Plant covering degree in the vegetation phase                                          &               2                                   &                       0                     &                    4                       &                 1/--                            &                      max                    &        $1$ \\
 T\_2M\_CL                     &  Climatological $2\,\mathrm{m}$ temperature (used as lower bc.\ for soil model)         &               0                                   &                       0                     &                    0                       &               103/--                            &                      inst                   &        $\mathrm{K}$ \\
+NDVI\_MRAT                    &  ratio of monthly mean NDVI (normalized differential vegetation index) to annual max    &               0                                   &                       0                     &                   192                      &                 1/--                            &                      avg                    &        $\mathrm{1}$ \\
   \bottomrule
  \end{tabular}
 \end{table}
@@ -101,13 +103,12 @@ QI                         &  \textcolor{red}{Cloud ice mixing ratio}\footnotema
 QR                         &  \textcolor{red}{Rain mixing ratio}\footnotemark[2]                                        &               0                                   &                     1                       &                    24                      &                 105/105                         &                      inst                   &        $\mathrm{kg\,kg^{-1}}$ \\
 QS                         &  \textcolor{red}{Snow mixing ratio}\footnotemark[2]                                        &               0                                   &                     1                       &                    25                      &                 105/105                         &                      inst                   &        $\mathrm{kg\,kg^{-1}}$ \\
 CLC                        &  Cloud cover                                                                               &               0                                   &                     6                       &                    22                      &                 105/105                         &                      inst                   &        $\mathrm{\%}$ \\
-\textcolor{gray}{O3}       &  \textcolor{gray}{Ozone mixing ratio}\footnotemark[3]                                      &               \textcolor{gray}{0}                 &        \textcolor{gray}{14}                 &      \textcolor{gray}{1}                   &     \textcolor{gray}{105/105}                   &     \textcolor{gray}{inst}                  &        \textcolor{gray}{$\mathrm{kg\,kg^{-1}}$} \\                                             
+TKE                        &  Turbulent kinetic energy                                                                  &               0                                   &                     19                      &                    11                      &                 105/--                          &                      inst                   &        $\mathrm{m^{2}\,s^{-2}}$ \\                                             
   \bottomrule
  \end{tabular}
 \end{table}
 \footnotetext[1]{\textcolor{red}{Levekl type $105$ (Hybrid level) will be replaced by $150$ (Generalized vertical height coordinate), once the GRIB\_API is able to cope with it}}. 
 \footnotetext[2]{for the time being, erroneously encoded as mixing ratios instead of specific quantities}
-\footnotetext[3]{not clear yet, whether ozone will be provided as output field}
 
 
 
