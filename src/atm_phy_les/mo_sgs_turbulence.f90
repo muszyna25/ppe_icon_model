@@ -296,11 +296,6 @@ MODULE mo_sgs_turbulence
     !<It assumes that prog values are all synced at this stage while diag values might not>
     !--------------------------------------------------------------------------
 
-    ! Include halo vertices because they might be used later on in the loop over edge
-    ! Strange that w is synced in mo_solve_nonhydro and yet its needed here- otherwise
-    ! its fails in p_test_run mode!!!
-    !CALL sync_patch_array(SYNC_C, p_patch, p_nh_prog%w)
-
     CALL cells2verts_scalar(p_nh_prog%w, p_patch, p_int%cells_aw_verts, w_vert, &
                             opt_rlstart=3, opt_rlend=min_rlvert_int)
     CALL sync_patch_array(SYNC_V, p_patch, w_vert)
@@ -471,7 +466,8 @@ MODULE mo_sgs_turbulence
            
             DD(je,jk,jb)   = D_11**2 + D_22**2 + D_33**2  + 2._wp * ( D_12**2 + D_13**2 + D_23**2 )             
 
-            !to get the deviatoric part of stress tensor: D_11-1/3*(D_11+D_22+D_33)
+            !calculate divergence to get the deviatoric part of stress tensor in 
+            !diffusion: D_11-1/3*(D_11+D_22+D_33)
             div_of_stress(je,jk,jb)  = 0.5_wp * ( D_11 + D_22 + D_33 )
  
          ENDDO
@@ -480,9 +476,6 @@ MODULE mo_sgs_turbulence
 !ICON_OMP_END_DO
 !ICON_OMP_END_PARALLEL
 
-    !
-    !Sync patch array
-    !CALL sync_patch_array(SYNC_E, p_patch, div_of_stress)
 
     !div_of_stress from edge to cell-scalar interpolation
     rl_start = grf_bdywidth_c+1
@@ -740,7 +733,7 @@ MODULE mo_sgs_turbulence
 
     REAL(wp) :: flux_up_e, flux_dn_e, flux_up_v, flux_dn_v, flux_up_c, flux_dn_c
     REAL(wp) :: stress_uc, stress_vc, stress_c1n, stress_c2n, inv_mwind
-    REAL(wp) :: vn_vert1, vn_vert2, vn_vert3, vn_vert4
+    REAL(wp) :: vn_vert1, vn_vert2, vn_vert3, vn_vert4, dvt
     REAL(wp) :: inv_rhoe(nproma,p_patch%nlev,p_patch%nblks_e)
     REAL(wp) :: vn_new(nproma,p_patch%nlev,p_patch%nblks_e)
     REAL(wp) :: unew(nproma,p_patch%nlev,p_patch%nblks_c)
@@ -772,6 +765,7 @@ MODULE mo_sgs_turbulence
     !new vn
     vn_new(:,:,:) = p_nh_prog%vn(:,:,:)
 !ICON_OMP_END_WORKSHARE
+
 
     !Inverse of density (global rho_e in this module)
     rl_start = grf_bdywidth_e+1
@@ -823,6 +817,16 @@ MODULE mo_sgs_turbulence
                     v_vert(ividx(je,jb,4),jk,ivblk(je,jb,4)) * &
                     p_patch%edges%primal_normal_vert(je,jb,4)%v2
 
+         dvt      = u_vert(ividx(je,jb,4),jk,ivblk(je,jb,4)) * &
+                    p_patch%edges%dual_normal_vert(je,jb,4)%v1 + &
+                    v_vert(ividx(je,jb,4),jk,ivblk(je,jb,4)) * &
+                    p_patch%edges%dual_normal_vert(je,jb,4)%v2 - &
+                    (u_vert(ividx(je,jb,3),jk,ivblk(je,jb,3)) * &
+                    p_patch%edges%dual_normal_vert(je,jb,3)%v1 + &
+                    v_vert(ividx(je,jb,3),jk,ivblk(je,jb,3)) * &
+                    p_patch%edges%dual_normal_vert(je,jb,3)%v2)
+ 
+
          !tendency in normal direction:         
          !flux = visc*(D_11-2/3DIV) = visc*(2*delta_v/(vert_vert_len/2)-2/3*div_of_stress)
 
@@ -845,19 +849,23 @@ MODULE mo_sgs_turbulence
          !D_12 between edge center and the vertex: delta_v/(primal_edge_len/2) + 
          ! ((vt4+vt2)/2-(vt3+vt2)/2)/(distance_opp_edges)
          !flux = D_12*visc
-
-         !visc at somewhere between edge mid point and the vertex should be used
-         !but this is a good approximation
+          
+         !Note that the tangential velocities at vertices are used in D_12 is an 
+         !approximation for speed. Better way is to use vt reconsructed from vn at 
+         !each edges. Also, visc at somewhere between edge mid point and the vertex 
+         !should be used but this is a good approximation
 
          jvn     = ividx(je,jb,2)
          jbn     = ivblk(je,jb,2)
-         flux_up_v = visc_smag_v(jvn,jk,jbn) * p_patch%edges%system_orientation(je,jb) * & 
-             (vn_vert2-p_nh_prog%vn(je,jk,jb))*p_patch%edges%inv_primal_edge_length(je,jb)*2._wp
+         flux_up_v = visc_smag_v(jvn,jk,jbn) * ( p_patch%edges%system_orientation(je,jb) *       & 
+           (vn_vert2-p_nh_prog%vn(je,jk,jb))*p_patch%edges%inv_primal_edge_length(je,jb)*2._wp + &
+            dvt*p_patch%edges%inv_vert_vert_length(je,jb) )  
 
          jvn     = ividx(je,jb,1)
          jbn     = ivblk(je,jb,1)
-         flux_dn_v = visc_smag_v(jvn,jk,jbn) * p_patch%edges%system_orientation(je,jb)      *   & 
-             (p_nh_prog%vn(je,jk,jb)-vn_vert1)*p_patch%edges%inv_primal_edge_length(je,jb)*2._wp
+         flux_dn_v = visc_smag_v(jvn,jk,jbn) * ( p_patch%edges%system_orientation(je,jb)      *  & 
+           (p_nh_prog%vn(je,jk,jb)-vn_vert1)*p_patch%edges%inv_primal_edge_length(je,jb)*2._wp + &
+            dvt*p_patch%edges%inv_vert_vert_length(je,jb) )  
 
 
          tot_tend(je,jk,jb) = ( (flux_up_c-flux_dn_c)*p_patch%edges%inv_dual_edge_length(je,jb) + &
@@ -974,9 +982,10 @@ MODULE mo_sgs_turbulence
     END DO                         
 !ICON_OMP_END_DO
 
-   ! 4) Update vn: it is necessary to first apply diffusion on vn
-   ! and then get ddt_u/v. Interpolating tot_tend directly to 
-   ! ddt_u/v could change the meaning of diffusion on u/v altogether
+   ! 4) Update vn: it makes more sense to first apply diffusion on vn
+   ! and then get ddt_u/v than to interpolating tot_tend directly to 
+   ! ddt_u/v. Proof: during the test phase it was found that the latter slowed
+   ! down the computation by 15%, although the results look same.
 
 !ICON_OMP_DO PRIVATE(jb,jk,je,i_startidx,i_endidx)
     DO jb = i_startblk,i_endblk
