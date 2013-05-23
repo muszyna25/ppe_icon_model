@@ -111,6 +111,7 @@ MODULE mo_oce_state
   PUBLIC :: set_del_zlev, set_zlev
   PUBLIC :: is_initial_timestep
   PUBLIC :: init_oce_config
+  PUBLIC :: setup_ocean_namelists
 
   PUBLIC :: init_patch_3D
   PUBLIC :: construct_patch_3D
@@ -457,6 +458,22 @@ CONTAINS
 !-------------------------------------------------------------------------
 !
 !
+  SUBROUTINE setup_ocean_namelists(p_patch)
+    TYPE(t_patch), TARGET, INTENT(in) :: p_patch
+
+    CHARACTER(len=max_char_length) :: listname
+
+    WRITE(listname,'(a)')  'ocean_restart_list'
+    CALL new_var_list(ocean_restart_list, listname, patch_id=p_patch%id)
+    CALL default_var_list_settings( ocean_restart_list,             &
+      &                             lrestart=.TRUE.,loutput=.TRUE.,&
+      &                             restart_type=FILETYPE_NC2, &
+      &                             model_type='oce' )
+    WRITE(listname,'(a)')  'ocean_default_list'
+    CALL new_var_list(ocean_default_list, listname, patch_id=p_patch%id)
+    CALL default_var_list_settings( ocean_default_list,            &
+      &                             lrestart=.FALSE.,model_type='oce',loutput=.TRUE. )
+  END SUBROUTINE setup_ocean_namelists
 
 !>
 !! Constructor for hydrostatic ocean state + diagnostic and auxiliary  states.
@@ -513,18 +530,6 @@ CONTAINS
          CALL finish(TRIM(routine), 'allocation of progn. state array failed')
       END IF
 
-      ! construction loop: create components of state array
-      ! !TODO organize var_lists for the multiple timesteps of prog. state
-      WRITE(listname,'(a)')  'ocean_restart_list'
-      CALL new_var_list(ocean_restart_list, listname, patch_id=p_patch(jg)%id)
-      CALL default_var_list_settings( ocean_restart_list,             &
-                                    & lrestart=.TRUE.,loutput=.TRUE.,&
-                                    & restart_type=FILETYPE_NC2, &
-                                    & model_type='oce' )
-      WRITE(listname,'(a)')  'ocean_default_list'
-      CALL new_var_list(ocean_default_list, listname, patch_id=p_patch(jg)%id)
-      CALL default_var_list_settings( ocean_default_list,            &
-                                    & lrestart=.FALSE.,model_type='oce',loutput=.TRUE. )
       DO jp = 1, prlength
          CALL construct_hydro_ocean_prog(p_patch(jg), p_os(jg)%p_prog(jp),jp)
       END DO
@@ -3044,15 +3049,17 @@ CONTAINS
     ENDIF
     ! 3-dim real land-sea-mask
     ! cells
-    ALLOCATE(p_patch_3D%wet_c(nproma,n_zlev,nblks_c),STAT=ist)
-    IF (ist /= SUCCESS) THEN
-      CALL finish (routine,'allocating wet_c failed')
-    ENDIF
+    CALL add_var(ocean_default_list, 'wet_c', p_patch_3D%wet_c , GRID_UNSTRUCTURED_CELL,&
+    &            ZA_DEPTH_BELOW_SEA, &
+    &            t_cf_var('wet_c', 'kg/m^3', '3d lsm on cells', DATATYPE_FLT32),&
+    &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+    &            ldims=(/nproma,n_zlev,nblks_c/))
     ! edges
-    ALLOCATE(p_patch_3D%wet_e(nproma,n_zlev,nblks_e),STAT=ist)
-    IF (ist /= SUCCESS) THEN
-      CALL finish (routine,'allocating wet_e failed')
-    ENDIF
+    CALL add_var(ocean_default_list, 'wet_e', p_patch_3D%wet_e , GRID_UNSTRUCTURED_EDGE,&
+    &            ZA_DEPTH_BELOW_SEA, &
+    &            t_cf_var('wet_e', 'kg/m^3', '3d lsm on edges', DATATYPE_FLT32),&
+    &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_EDGE),&
+    &            ldims=(/nproma,n_zlev,nblks_e/))
 
     p_patch_3D%p_patch_1D(n_dom)%del_zlev_m = 0._wp
     p_patch_3D%p_patch_1D(n_dom)%del_zlev_i = 0._wp

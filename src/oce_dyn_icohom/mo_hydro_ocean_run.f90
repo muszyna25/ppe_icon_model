@@ -76,7 +76,8 @@ USE mo_oce_state,              ONLY: t_hydro_ocean_state, &
   &                                  construct_hydro_ocean_base, &! destruct_hydro_ocean_base, &
   &                                  construct_hydro_ocean_state, destruct_hydro_ocean_state, &
   &                                  init_coriolis_oce, init_oce_config, &
-  &                                  set_lateral_boundary_values, construct_patch_3D, init_patch_3D
+  &                                  set_lateral_boundary_values, construct_patch_3D, init_patch_3D, &
+  &                                  setup_ocean_namelists
 USE mo_oce_math_operators,     ONLY: calc_thickness! , height_related_quantities
 USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff, allocate_exp_coeff,par_init_operator_coeff,&
   &                                  update_diffusion_matrices

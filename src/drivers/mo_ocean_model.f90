@@ -76,7 +76,7 @@ MODULE mo_ocean_model
   !
   USE mo_grid_config,         ONLY: n_dom
 
-  USE mo_oce_state,           ONLY: t_hydro_ocean_state
+  USE mo_oce_state,           ONLY: t_hydro_ocean_state, setup_ocean_namelists
   USE mo_build_decomposition, ONLY: build_decomposition
 
   USE mo_impl_constants,      ONLY: success !, ihs_ocean
@@ -234,6 +234,8 @@ CONTAINS
 
     CALL build_decomposition(nlev,nlevp1,num_lev,num_levp1,nshift,&
       &                          .TRUE.,lrestore_states,p_patch_3D)
+
+    CALL setup_ocean_namelists(p_patch_3D%p_patch_2D(1))
     !------------------------------------------------------------------
     ! step 5b: allocate state variables
     !------------------------------------------------------------------
