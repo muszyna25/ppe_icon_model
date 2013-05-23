@@ -456,7 +456,7 @@ CONTAINS
       !Consistency check on output bounds
       IF(output_bounds_sec(1,1) < 0._wp .OR. &
          output_bounds_sec(2,1) < output_bounds_sec(1,1) .OR. &
-         output_bounds_sec(3,1) <= dtime * grid_rescale_factor ) THEN
+         output_bounds_sec(3,1) < dtime * grid_rescale_factor ) THEN
         CALL finish(routine,'Illegal output_bounds(:,1)')
       ENDIF
 
@@ -716,7 +716,7 @@ CONTAINS
 
   !------------------------------------------------------------------------------------------------
   !
-  SUBROUTINE init_name_list_output(lprintlist, isample)
+  SUBROUTINE init_name_list_output(lprintlist, isample, l_is_ocean)
 
 #ifndef NOMPI
 #ifdef  __SUNPRO_F95
@@ -728,6 +728,7 @@ CONTAINS
 
     LOGICAL, OPTIONAL, INTENT(in) :: lprintlist
     INTEGER, OPTIONAL, INTENT(in) :: isample
+    LOGICAL, OPTIONAL, INTENT(in) :: l_is_ocean
 
     ! local variables:
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::init_name_list_output"
@@ -750,6 +751,9 @@ CONTAINS
     ! For hexagons, we still copy grid info from file; for triangular
     ! grids we have a faster method without file access:
     l_grid_info_from_file = (global_cell_type == 6)
+    IF (PRESENT(l_is_ocean)) THEN
+      IF (l_is_ocean) l_grid_info_from_file = .FALSE.
+    ENDIF
 
     DO i = 1, nvar_lists
 
@@ -3366,11 +3370,12 @@ CONTAINS
   !  This routine also cares about opening the output files the first time
   !  and reopening the files after a certain number of steps.
   !
-  SUBROUTINE write_name_list_output(datetime, sim_time, last_step)
+  SUBROUTINE write_name_list_output(datetime, sim_time, last_step, initial_step)
 
-    TYPE(t_datetime), INTENT(in) :: datetime
-    REAL(wp), INTENT(in)         :: sim_time
-    LOGICAL, INTENT(IN)          :: last_step
+    TYPE(t_datetime), INTENT(in)  :: datetime
+    REAL(wp), INTENT(in)          :: sim_time
+    LOGICAL, INTENT(IN)           :: last_step
+    LOGICAL, INTENT(IN),OPTIONAL  :: initial_step
     ! local variables
     CHARACTER(LEN=*), PARAMETER  :: routine = modname//"::write_name_list_output"
     REAL(wp), PARAMETER :: eps = 1.d-10 ! Tolerance for checking output bounds
@@ -3379,6 +3384,7 @@ CONTAINS
     TYPE(t_output_name_list), POINTER :: p_onl
     CHARACTER(LEN=filename_max+100)   :: text
     LOGICAL                           :: lnewly_initialized = .FALSE.
+    LOGICAL                           :: l_output_file_active, l_is_initial_step
 
     IF (ltimer) CALL timer_start(timer_write_output)
     ! If asynchronous I/O is enabled, the compute PEs have to make sure
@@ -3386,6 +3392,13 @@ CONTAINS
     ! writing data into the I/O memory window.
     ! This routine (write_name_list_output) is also called from the I/O PEs,
     ! but in this case the calling routine cares about the flow control.
+
+    l_is_initial_step = .FALSE.
+    IF (PRESENT(initial_step)) THEN
+      IF (initial_step) THEN
+        l_is_initial_step = .TRUE.
+      END IF
+    END IF
 
 #ifndef NOMPI
     IF(use_async_name_list_io) THEN
@@ -3412,11 +3425,16 @@ CONTAINS
 
     ! Go over all output files
     DO i = 1, SIZE(output_file)
+      l_output_file_active=(is_output_file_active(output_file(i), &
+        &                                         sim_time, &
+        &                                         dtime, &
+        &                                         i_sample, &
+        &                                         last_step) .OR. l_is_initial_step )
 
       p_onl => output_file(i)%name_list
 
       ! Check if output is due for this file
-      IF (is_output_file_active(output_file(i), sim_time, dtime, i_sample, last_step)) THEN
+      IF (l_output_file_active) THEN
 
         IF (output_file(i)%io_proc_id == p_pe) THEN
           IF (.NOT. output_file(i)%initialized) THEN
@@ -3428,7 +3446,7 @@ CONTAINS
         ENDIF
 
         IF (lnewly_initialized .OR. &
-          & MOD(p_onl%n_output_steps,p_onl%steps_per_file) == 0) THEN
+          & (MOD(p_onl%n_output_steps,p_onl%steps_per_file) == 0) .AND. p_onl%n_output_steps /= 0) THEN
           IF (output_file(i)%io_proc_id == p_pe) THEN
             IF(.NOT. lnewly_initialized) THEN
               CALL close_output_file(output_file(i))
@@ -3450,7 +3468,7 @@ CONTAINS
     DO i = 1, SIZE(output_file)
 
       ! Check if output is due for this file
-      IF (is_output_file_active(output_file(i), sim_time, dtime, i_sample, last_step)) THEN
+      IF (l_output_file_active) THEN
         IF (output_file(i)%io_proc_id == p_pe) THEN
           CALL taxisDefVdate(output_file(i)%cdiTaxisID, idate)
           CALL taxisDefVtime(output_file(i)%cdiTaxisID, itime)
@@ -3494,7 +3512,7 @@ CONTAINS
     DO
       IF(.NOT.ASSOCIATED(p_onl)) EXIT
 
-      IF (is_output_nml_active(p_onl, sim_time, dtime, i_sample, last_step)) THEN
+      IF (is_output_nml_active(p_onl, sim_time, dtime, i_sample, last_step, is_restart=is_restart_run())) THEN
         p_onl%n_output_steps = p_onl%n_output_steps + 1
       ENDIF
 
@@ -3512,7 +3530,9 @@ CONTAINS
           ! the last bounds triple is always set to 0, so no need to check if n >= max_bounds
           IF(p_onl%output_bounds(3,n+1) > 0._wp) THEN
             ! Start to use next bounds triple
-            p_onl%next_output_time = p_onl%output_bounds(1,n+1)
+            IF (.not. l_is_initial_step) THEN
+              p_onl%next_output_time = p_onl%output_bounds(1,n+1)
+            END IF
           ELSE
             ! Output is finished for this name list
             p_onl%next_output_time = HUGE(0._wp)
@@ -3972,7 +3992,7 @@ CONTAINS
     DO
       IF(.NOT.ASSOCIATED(p_onl)) EXIT
       IF (retval) EXIT
-      retval = is_output_nml_active(p_onl, sim_time, dtime, i_sample)
+      retval = is_output_nml_active(p_onl, sim_time, dtime, i_sample,is_restart=is_restart_run())
       p_onl => p_onl%next
     ENDDO
 

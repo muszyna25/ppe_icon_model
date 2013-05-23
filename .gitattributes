@@ -687,6 +687,7 @@ run/exp.test_nat_jww_nwp_mpiomp -text
 run/exp.test_nh35_tri_jws -text
 run/exp.test_nh3_tri_tracer_solid_body -text
 run/exp.test_oce_default -text
+run/exp.test_oce_nmloutput -text
 run/exp.test_oce_numeric -text
 run/exp.test_oce_parallel -text
 run/exp.tracer_solid_body -text
@@ -1396,6 +1397,7 @@ src/oce_dyn_icohom/mo_scalar_product.f90 -text
 src/oce_phy_icohom/mo_oce_forcing.f90 -text
 src/oce_phy_icohom/mo_oce_physics.f90 -text
 src/oce_phy_icohom/mo_oce_thermodyn.f90 -text
+src/parallel_infrastructure/mo_build_decomposition.f90 -text
 src/parallel_infrastructure/mo_communication.f90 -text
 src/parallel_infrastructure/mo_complete_subdivision.f90 -text
 src/parallel_infrastructure/mo_decomposition_tools.f90 -text

@@ -52,7 +52,7 @@ MODULE mo_complete_subdivision
   USE mo_exception,          ONLY: finish, message, message_text,    &
     &                              get_filename_noext
 
-  USE mo_model_domain,       ONLY: t_patch, p_patch,      &
+  USE mo_model_domain,       ONLY: t_patch, t_patch_3D, p_patch,      &
     &                              p_patch_local_parent,  &
     &                              p_phys_patch
   USE mo_mpi,                ONLY: p_send, p_recv, p_max, p_min, proc_split
@@ -62,15 +62,16 @@ MODULE mo_complete_subdivision
   USE mo_mpi,                ONLY: p_comm_work, my_process_is_mpi_test, &
     & my_process_is_mpi_seq, process_mpi_all_test_id, process_mpi_all_workroot_id, &
     & my_process_is_mpi_workroot, p_pe_work, p_n_work,                  &
-    & get_my_mpi_all_id, my_process_is_mpi_parallel
+    & get_my_mpi_all_id, my_process_is_mpi_parallel, null_comm_type,    &
+    & set_mpi_work_communicators, set_comm_input_bcast
 
-  USE mo_parallel_config,    ONLY:  nproma, p_test_run    
+  USE mo_parallel_config,    ONLY:  nproma, p_test_run, division_method   
   USE mo_communication,      ONLY: setup_comm_pattern, blk_no, idx_no, idx_1d
   USE mo_impl_constants_grf, ONLY: grf_bdyintp_start_c, grf_bdyintp_start_e,  &
     & grf_bdyintp_end_c, grf_bdyintp_end_e, grf_fbk_start_c, grf_fbk_start_e, &
     & grf_bdywidth_c, grf_bdywidth_e, grf_nudgintp_start_c, grf_nudgintp_start_e
   USE mo_grid_config,         ONLY: n_dom, n_dom_start, n_phys_dom
-
+  USE mo_sync,                ONLY: enable_sync_checks, disable_sync_checks
   IMPLICIT NONE
 
   PRIVATE
@@ -1684,7 +1685,6 @@ CONTAINS
   !! Initial version by Rainer Johanni, Nov 2011
 
   SUBROUTINE setup_phys_patches
-
     INTEGER :: jp, jg, n, i, j, jb, jl
     INTEGER, ALLOCATABLE :: glb_phys_id_c(:), glb_phys_id_e(:), glb_phys_id_v(:)
     INTEGER, ALLOCATABLE :: owner(:), glbidx(:)
@@ -2039,8 +2039,5 @@ CONTAINS
   END SUBROUTINE finalize_decomposition_oce
 
   !-----------------------------------------------------------------------------
-
-
-
 END MODULE mo_complete_subdivision
 

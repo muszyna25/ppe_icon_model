@@ -948,8 +948,8 @@ MODULE mo_model_domain
 
   TYPE t_patch_3D
     
-    TYPE(t_patch),     ALLOCATABLE :: p_patch_2D(:)
-    TYPE(t_patch_vert),ALLOCATABLE :: p_patch_1D(:)
+    TYPE(t_patch),     POINTER :: p_patch_2D(:)
+    TYPE(t_patch_vert),POINTER :: p_patch_1D(:)
 
     ! land-sea-mask for ocean has 3 dimensions (the 2nd is the number of 
     ! vertical levels)
@@ -957,30 +957,30 @@ MODULE mo_model_domain
     !
     ! land-sea-mask for cell centers
     ! index1=1,nproma, index2=1,n_zlev, index3=1,nblks_c
-    INTEGER, ALLOCATABLE :: lsm_c(:,:,:)
+    INTEGER, POINTER :: lsm_c(:,:,:)
     ! land-sea-mask for cell edges
     ! index1=1,nproma, index2=1,n_zlev, index3=1,nblks_e
-    INTEGER, ALLOCATABLE :: lsm_e(:,:,:)
+    INTEGER, POINTER :: lsm_e(:,:,:)
     ! land-sea-mask for cell vertices
     ! index1=1,nproma, index2=1,n_zlev, index3=1,nblks_v
     ! this is to be used by the sea-ice module
-    INTEGER, ALLOCATABLE :: surface_lsm_v(:,:)
+    INTEGER, POINTER :: surface_lsm_v(:,:)
 
     ! To simply set land points to zero we store additional 3-dim wet points
     ! dimensions as in lsm_oce:
-    REAL(wp), ALLOCATABLE :: wet_c(:,:,:)  ! cell centers
-    REAL(wp), ALLOCATABLE :: wet_e(:,:,:)  ! cell edges
+    REAL(wp), POINTER :: wet_c(:,:,:)  ! cell centers
+    REAL(wp), POINTER :: wet_e(:,:,:)  ! cell edges
 
     ! For diagnosis like stream functions and area calculations we add surface arrays
     ! index1=1,nproma, index2=1,nblks_c
-    INTEGER,  ALLOCATABLE :: basin_c(:,:)  ! basin information Atlantic/Indian/Pacific
-    INTEGER,  ALLOCATABLE :: regio_c(:,:)  ! area information like tropical Atlantic etc.
-    REAL(wp), ALLOCATABLE :: rbasin_c(:,:) ! real for output
-    REAL(wp), ALLOCATABLE :: rregio_c(:,:) ! real for output
-    REAL(wp), ALLOCATABLE :: bottom_thick_c(:,:)  ! individual bottom prism thickness at cells. Unit [m]. 
-    REAL(wp), ALLOCATABLE :: bottom_thick_e(:,:)  ! individual bottom prism thickness at edges. Unit [m]. 
-    REAL(wp), ALLOCATABLE :: column_thick_c(:,:)  ! individual column thickness at cells, no elevation. Unit [m].
-    REAL(wp), ALLOCATABLE :: column_thick_e(:,:)  ! individual column thickness at edges, no elevation. Unit [m].
+    INTEGER,  POINTER :: basin_c(:,:)  ! basin information Atlantic/Indian/Pacific
+    INTEGER,  POINTER :: regio_c(:,:)  ! area information like tropical Atlantic etc.
+    REAL(wp), POINTER :: rbasin_c(:,:) ! real for output
+    REAL(wp), POINTER :: rregio_c(:,:) ! real for output
+    REAL(wp), POINTER :: bottom_thick_c(:,:)  ! individual bottom prism thickness at cells. Unit [m]. 
+    REAL(wp), POINTER :: bottom_thick_e(:,:)  ! individual bottom prism thickness at edges. Unit [m]. 
+    REAL(wp), POINTER :: column_thick_c(:,:)  ! individual column thickness at cells, no elevation. Unit [m].
+    REAL(wp), POINTER :: column_thick_e(:,:)  ! individual column thickness at edges, no elevation. Unit [m].
     
   END TYPE t_patch_3D
   !--------------------------------------------------------------------

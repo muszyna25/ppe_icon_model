@@ -54,7 +54,7 @@ USE mo_sync,                   ONLY: sync_patch_array, sync_e!, sync_c, sync_v
 USE mo_ocean_nml,              ONLY: iswm_oce, n_zlev, no_tracer, &
   &                                  itestcase_oce, idiag_oce, init_oce_prog, init_oce_relax, &
   &                                  EOS_TYPE, i_sea_ice, l_staggered_timestep
-USE mo_dynamics_config,        ONLY: nold!, nnew
+USE mo_dynamics_config,        ONLY: nold, nnew
 USE mo_io_config,              ONLY: n_files, n_checkpoints, is_output_time!, istime4newoutputfile
 USE mo_run_config,             ONLY: nsteps, dtime, ltimer, output_mode
 USE mo_exception,              ONLY: message, message_text, finish
@@ -76,7 +76,8 @@ USE mo_oce_state,              ONLY: t_hydro_ocean_state, &
   &                                  construct_hydro_ocean_base, &! destruct_hydro_ocean_base, &
   &                                  construct_hydro_ocean_state, destruct_hydro_ocean_state, &
   &                                  init_coriolis_oce, init_oce_config, &
-  &                                  set_lateral_boundary_values, construct_patch_3D, init_patch_3D
+  &                                  set_lateral_boundary_values, construct_patch_3D, init_patch_3D, &
+  &                                  setup_ocean_namelists
 USE mo_oce_math_operators,     ONLY: calc_thickness! , height_related_quantities
 USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff, allocate_exp_coeff,par_init_operator_coeff,&
   &                                  update_diffusion_matrices
@@ -108,6 +109,8 @@ USE mo_oce_diagnostics,        ONLY: calculate_oce_diagnostics,&
   &                                  calc_moc, calc_psi
 USE mo_oce_ab_timestepping_mimetic, ONLY: init_ho_lhs_fields_mimetic
 !USE mo_mpi,                    ONLY: my_process_is_mpi_all_parallel
+  USE mo_time_config,         ONLY: time_config
+  USE mo_master_control,        ONLY: is_restart_run
 
 
 IMPLICIT NONE
@@ -193,7 +196,18 @@ CONTAINS
   CALL timer_start(timer_total)
 
   sim_time(:) = 0.0_wp
+  time_config%sim_time(:) = 0.0_wp
 
+  !------------------------------------------------------------------
+  ! write initial
+  !------------------------------------------------------------------
+  IF (output_mode%l_nml) THEN
+    ! in general nml output is writen based on the nnew status of the
+    ! prognostics variables. Unfortunately, the initialization has to be written
+    ! to the nold state. That's why the following manual copying is nec. 
+    IF (.NOT. is_restart_run()) p_os(jg)%p_prog(nnew(1))%tracer = p_os(jg)%p_prog(nold(1))%tracer
+    CALL write_name_list_output( datetime, time_config%sim_time(1), last_step=.FALSE., initial_step=.not.is_restart_run())
+  ENDIF
   !------------------------------------------------------------------
   ! call the dynamical core: start the time loop
   !------------------------------------------------------------------
@@ -295,9 +309,8 @@ CONTAINS
     ! resolution). Set model time.
     CALL add_time(dtime,0,0,0,datetime)
     ! Not nice, but the name list output requires this
-    sim_time(1) = MODULO(sim_time(1) + dtime, 86400.0_wp) 
-    IF (is_output_time(jstep) .OR. istime4name_list_output(sim_time(1)+dtime)) THEN 
-!TODO    IF ( l_outputtime .OR. istime4name_list_output(sim_time(1)) ) THEN
+    time_config%sim_time(1) = time_config%sim_time(1) + dtime
+    IF (is_output_time(jstep) .OR. istime4name_list_output(time_config%sim_time(1))) THEN 
       IF (idiag_oce == 1 ) THEN
         CALL calculate_oce_diagnostics( p_patch_3D,    &
                                      & p_os(jg),      &
@@ -318,7 +331,7 @@ CONTAINS
       ENDIF
 
       IF (output_mode%l_nml) THEN
-        CALL write_name_list_output( datetime, sim_time(1), jstep==nsteps )
+        CALL write_name_list_output( datetime, time_config%sim_time(1), jstep==nsteps)
       ENDIF
       IF (output_mode%l_vlist) THEN
           CALL write_output_oce( datetime, sim_time(1),p_patch_3D, p_os)
@@ -331,7 +344,7 @@ CONTAINS
     END IF
 
     ! If it's time, close the current output file and trigger a new one
-    IF (jstep/=1.AND.(MOD(jstep,n_files())==0).AND.jstep/=nsteps) THEN
+    IF (jstep/=1.AND.(MOD(jstep,n_files())==0).AND.jstep/=nsteps  .AND. output_mode%l_vlist ) THEN
       jfile = jfile +1
       CALL init_output_files(jfile,lclose=l_have_output,p_patch_2D=p_patch_3D%p_patch_2D)
     ENDIF
@@ -352,6 +365,7 @@ CONTAINS
     IF (MOD(jstep,n_checkpoints())==0 .OR. (jstep==nsteps .AND. lwrite_restart)) THEN
       CALL create_restart_file( p_patch, datetime,                 &
                               & jfile, l_have_output,opt_depth=n_zlev,&
+                              & opt_sim_time=time_config%sim_time(1), &
                               & opt_nice_class=1)
       ! Create the master (meta) file in ASCII format which contains
       ! info about which files should be read in for a restart run.
@@ -383,15 +397,15 @@ CONTAINS
                                   & p_phys_param, p_as,&
                                   & p_atm_f, p_ice, p_op_coeff)
 
-    TYPE(t_patch_3D ),TARGET, INTENT(INOUT)  :: p_patch_3D
-    TYPE(t_hydro_ocean_state),    INTENT(INOUT)  :: p_os(n_dom)
-    TYPE(t_external_data),        INTENT(INOUT)  :: p_ext_data(n_dom)
-    TYPE(t_sfc_flx),              INTENT(INOUT)  :: p_sfc_flx
-    TYPE (t_ho_params),           INTENT(INOUT)  :: p_phys_param
-    TYPE(t_atmos_for_ocean ),     INTENT(INOUT)  :: p_as
-    TYPE(t_atmos_fluxes ),        INTENT(INOUT)  :: p_atm_f
-    TYPE (t_sea_ice),             INTENT(INOUT)  :: p_ice
-    TYPE(t_operator_coeff),       INTENT(INOUT)  :: p_op_coeff
+    TYPE(t_patch_3D ),TARGET,   INTENT(INOUT)  :: p_patch_3D
+    TYPE(t_hydro_ocean_state),  INTENT(INOUT)  :: p_os(n_dom)
+    TYPE(t_external_data),      INTENT(INOUT)  :: p_ext_data(n_dom)
+    TYPE(t_sfc_flx),            INTENT(INOUT)  :: p_sfc_flx
+    TYPE(t_ho_params),          INTENT(INOUT)  :: p_phys_param
+    TYPE(t_atmos_for_ocean ),   INTENT(INOUT)  :: p_as
+    TYPE(t_atmos_fluxes ),      INTENT(INOUT)  :: p_atm_f
+    TYPE(t_sea_ice),            INTENT(INOUT)  :: p_ice
+    TYPE(t_operator_coeff),     INTENT(INOUT)  :: p_op_coeff
 
     ! local variables
     INTEGER :: jg

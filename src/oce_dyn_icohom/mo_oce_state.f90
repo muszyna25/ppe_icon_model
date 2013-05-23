@@ -70,7 +70,7 @@ MODULE mo_oce_state
   USE mo_model_domain,        ONLY: t_patch,t_patch_3D
   USE mo_grid_config,         ONLY: n_dom, n_dom_start, grid_sphere_radius, grid_angular_velocity
   USE mo_ext_data_types,      ONLY: t_external_data
-  USE mo_dynamics_config,     ONLY: nnew
+  USE mo_dynamics_config,     ONLY: nnew,nold
   USE mo_math_utilities,      ONLY: gc2cc,t_cartesian_coordinates,cvec2gvec,      &
     &                               t_geographical_coordinates, &!vector_product, &
     &                               arc_length
@@ -111,7 +111,7 @@ MODULE mo_oce_state
   PUBLIC :: set_del_zlev, set_zlev
   PUBLIC :: is_initial_timestep
   PUBLIC :: init_oce_config
-  PUBLIC :: complete_patchinfo_oce
+  PUBLIC :: setup_ocean_namelists
 
   PUBLIC :: init_patch_3D
   PUBLIC :: construct_patch_3D
@@ -458,6 +458,22 @@ CONTAINS
 !-------------------------------------------------------------------------
 !
 !
+  SUBROUTINE setup_ocean_namelists(p_patch)
+    TYPE(t_patch), TARGET, INTENT(in) :: p_patch
+
+    CHARACTER(len=max_char_length) :: listname
+
+    WRITE(listname,'(a)')  'ocean_restart_list'
+    CALL new_var_list(ocean_restart_list, listname, patch_id=p_patch%id)
+    CALL default_var_list_settings( ocean_restart_list,             &
+      &                             lrestart=.TRUE.,loutput=.TRUE.,&
+      &                             restart_type=FILETYPE_NC2, &
+      &                             model_type='oce' )
+    WRITE(listname,'(a)')  'ocean_default_list'
+    CALL new_var_list(ocean_default_list, listname, patch_id=p_patch%id)
+    CALL default_var_list_settings( ocean_default_list,            &
+      &                             lrestart=.FALSE.,model_type='oce',loutput=.TRUE. )
+  END SUBROUTINE setup_ocean_namelists
 
 !>
 !! Constructor for hydrostatic ocean state + diagnostic and auxiliary  states.
@@ -514,18 +530,6 @@ CONTAINS
          CALL finish(TRIM(routine), 'allocation of progn. state array failed')
       END IF
 
-      ! construction loop: create components of state array
-      ! !TODO organize var_lists for the multiple timesteps of prog. state
-      WRITE(listname,'(a)')  'ocean_restart_list'
-      CALL new_var_list(ocean_restart_list, listname, patch_id=p_patch(jg)%id)
-      CALL default_var_list_settings( ocean_restart_list,            &
-                                    & lrestart=.TRUE.,loutput=.TRUE.,           &
-                                    & restart_type=FILETYPE_NC2, &
-                                    & model_type='oce' )
-      WRITE(listname,'(a)')  'ocean_default_list'
-      CALL new_var_list(ocean_default_list, listname, patch_id=p_patch(jg)%id)
-      CALL default_var_list_settings( ocean_default_list,            &
-                                    & lrestart=.FALSE.,model_type='oce',loutput=.TRUE. )
       DO jp = 1, prlength
          CALL construct_hydro_ocean_prog(p_patch(jg), p_os(jg)%p_prog(jp),jp)
       END DO
@@ -779,7 +783,7 @@ CONTAINS
       &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
       &          ldims=(/nproma,nblks_c/))
       IF (nnew(1) == timelevel) THEN
-        CALL add_var(ocean_restart_list, 'h', p_os_prog%h , &
+        CALL add_var(ocean_default_list, 'h', p_os_prog%h , &
       &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
       &          t_cf_var('h', 'm', 'surface elevation at cell center', DATATYPE_FLT32),&
       &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
@@ -793,8 +797,7 @@ CONTAINS
     &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_EDGE),&
     &            ldims=(/nproma,n_zlev,nblks_e/))
     IF (nnew(1)==timelevel) THEN
-      CALL add_ref(ocean_restart_list,'vn'//TRIM(var_suffix),'vn', &
-        &          p_os_prog%vn,GRID_UNSTRUCTURED_EDGE, ZA_DEPTH_BELOW_SEA, &
+      CALL add_var(ocean_default_list,'vn', p_os_prog%vn,GRID_UNSTRUCTURED_EDGE, ZA_DEPTH_BELOW_SEA, &
         &          t_cf_var('vn', 'm/s', 'normale velocity on edge,m', DATATYPE_FLT32),&
         &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_EDGE),&
         &          ldims=(/nproma,n_zlev,nblks_e/))
@@ -830,31 +833,31 @@ CONTAINS
                     & ldims=(/nproma,n_zlev,nblks_c/))
 
       END DO
-!      IF (nnew(1)==timelevel) THEN
-!        !Add output with readable variable names
-!        CALL set_oce_tracer_info(max_oce_tracer      , &
-!            &                    oce_tracer_names    , &
-!            &                    oce_tracer_longnames, &
-!            &                    oce_tracer_codes    , &
-!            &                    oce_tracer_units)
-!        CALL add_var(ocean_default_list, 'tracers', p_os_prog%tracer , &
-!            &        GRID_UNSTRUCTURED_CELL, ZAXIS_DEPTH_BELOW_SEA, &
-!            &        t_cf_var('tracers','','1:temperature 2:salinity',DATATYPE_FLT32),&
-!            &        t_grib2_var(255,255,255,DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
-!            &        ldims=(/nproma,n_zlev,nblks_c,no_tracer/), &
-!            &        lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
-!        DO jtrc = 1,no_tracer
-!          CALL add_ref( ocean_default_list, 'tracers', &
-!            &           oce_tracer_names(jtrc),          &
-!            &           p_os_prog%tracer_ptr(jtrc)%p,    &
-!            &           GRID_UNSTRUCTURED_CELL, ZAXIS_DEPTH_BELOW_SEA,&
-!            &           t_cf_var(oce_tracer_names(jtrc), &
-!            &                    oce_tracer_units(jtrc), &
-!            &                    oce_tracer_longnames(jtrc), DATATYPE_FLT32), &
-!            &           t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
-!            &           ldims=(/nproma,n_zlev,nblks_c/))
-!        END DO
-!      ENDIF ! single tracer output variables
+      IF (nnew(1)==timelevel) THEN
+        !Add output with readable variable names
+        CALL set_oce_tracer_info(max_oce_tracer      , &
+            &                    oce_tracer_names    , &
+            &                    oce_tracer_longnames, &
+            &                    oce_tracer_codes    , &
+            &                    oce_tracer_units)
+        CALL add_var(ocean_default_list, 'tracers', p_os_prog%tracer , &
+            &        GRID_UNSTRUCTURED_CELL, ZA_DEPTH_BELOW_SEA, &
+            &        t_cf_var('tracers','','1:temperature 2:salinity',DATATYPE_FLT32),&
+            &        t_grib2_var(255,255,255,DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+            &        ldims=(/nproma,n_zlev,nblks_c,no_tracer/), &
+            &        lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
+        DO jtrc = 1,no_tracer
+          CALL add_ref( ocean_default_list, 'tracers', &
+            &           oce_tracer_names(jtrc),          &
+            &           p_os_prog%tracer_ptr(jtrc)%p,    &
+            &           GRID_UNSTRUCTURED_CELL, ZA_DEPTH_BELOW_SEA,&
+            &           t_cf_var(oce_tracer_names(jtrc), &
+            &                    oce_tracer_units(jtrc), &
+            &                    oce_tracer_longnames(jtrc), DATATYPE_FLT32), &
+            &           t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+            &           ldims=(/nproma,n_zlev,nblks_c/))
+        END DO
+      ENDIF ! single tracer output variables
     ENDIF ! no_tracer > 0
   END SUBROUTINE construct_hydro_ocean_prog
 
@@ -2928,427 +2931,6 @@ CONTAINS
     del_zlev_m(:) = dzlev_m(1:n_zlev)
   END SUBROUTINE set_del_zlev
 
-!
-!
-!>
-!! Computes the local orientation of the edge primal normal and dual normal.
-!!
-!! Computes the local orientation of the edge primal normal and dual normal
-!! at the location of the cell centers and vertices.
-!! Moreover, the Cartesian orientation vectors of the edge primal normals
-!! are stored for use in the RBF initialization routines, and inverse
-!! primal and dual edge lengths are computed
-!!
-!! Note: Not clear if all the included calclulations are needed
-!!
-!! @par Revision History
-!!  developed by Guenther Zaengl, 2009-03-31
-!!
-SUBROUTINE complete_patchinfo_oce( ptr_patch)
-!
-
-!
-!  patch on which computation is performed
-!
-TYPE(t_patch), TARGET, INTENT(inout) :: ptr_patch
-
-!
-
-INTEGER :: jb, je!, jc
-INTEGER :: rl_start, rl_end
-INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
-
-INTEGER :: ilc1, ibc1, ilv1, ibv1, ilc2, ibc2, ilv2, ibv2, &
-           ilv3, ibv3, ilv4, ibv4!, ile1, ibe1
-
-REAL(wp) :: z_nu, z_nv, z_lon, z_lat, z_nx1(3), z_nx2(3), z_norm
-
-TYPE(t_cartesian_coordinates) :: cc_ev3, cc_ev4
-
-!-----------------------------------------------------------------------
-
-i_nchdom   = MAX(1,ptr_patch%n_childdom)
-
-! !$OMP PARALLEL  PRIVATE(rl_start,rl_end,i_startblk,i_endblk)
-rl_start = 1
-rl_end = min_rlcell
-
-! values for the blocking
-i_startblk = ptr_patch%cells%start_blk(rl_start,1)
-i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
-
-
-rl_start = 1
-rl_end = min_rledge
-
-! values for the blocking
-i_startblk = ptr_patch%edges%start_blk(rl_start,1)
-i_endblk   = ptr_patch%edges%end_blk(rl_end,i_nchdom)
-!
-! First step: compute Cartesian coordinates and Cartesian vectors on full domain
-! this is needed to vectorize RBF initialization; the existing field carrying
-! the Cartesian orientation vectors (primal_cart_normal) did not work for that
-! because it is a derived data type
-! In addition, the fields for the inverse primal and dual edge lengths are
-! initialized here.
-!
-! !$OMP DO PRIVATE(jb,i_startidx,i_endidx,je) ICON_OMP_DEFAULT_SCHEDULE
-DO jb = i_startblk, i_endblk
-
-  CALL get_indices_e(ptr_patch, jb, i_startblk, i_endblk, &
-                     i_startidx, i_endidx, rl_start, rl_end)
-
-  DO je =  i_startidx, i_endidx
-
-    IF(.NOT.ptr_patch%edges%owner_mask(je,jb)) CYCLE
-
-    ! compute Cartesian coordinates (needed for RBF initialization)
-    ptr_patch%edges%inv_primal_edge_length(je,jb) = &
-      1._wp/ptr_patch%edges%primal_edge_length(je,jb)
-
-  ENDDO
-
-END DO !block loop
-! !$OMP END DO
-
-rl_start = 2
-rl_end = min_rledge
-
-! Second step: computed projected orientation vectors and related information
-i_startblk = ptr_patch%edges%start_blk(rl_start,1)
-i_endblk   = ptr_patch%edges%end_blk(rl_end,i_nchdom)
-
-! Initialization of lateral boundary points
-IF (ptr_patch%id > 1) THEN
-! !$OMP WORKSHARE
-  ptr_patch%edges%inv_dual_edge_length(:,1:i_startblk)    = 0._wp
-  ptr_patch%edges%vertex_idx(:,1:i_startblk,3)            = 0
-  ptr_patch%edges%vertex_idx(:,1:i_startblk,4)            = 0
-  ptr_patch%edges%vertex_blk(:,1:i_startblk,3)            = 0
-  ptr_patch%edges%vertex_blk(:,1:i_startblk,4)            = 0
-  ptr_patch%edges%inv_vert_vert_length(:,1:i_startblk)    = 0._wp
-  ptr_patch%edges%primal_normal_cell(:,1:i_startblk,:)%v1 = 0._wp
-  ptr_patch%edges%dual_normal_cell  (:,1:i_startblk,:)%v1 = 0._wp
-  ptr_patch%edges%primal_normal_vert(:,1:i_startblk,:)%v1 = 0._wp
-  ptr_patch%edges%dual_normal_vert  (:,1:i_startblk,:)%v1 = 0._wp
-  ptr_patch%edges%primal_normal_cell(:,1:i_startblk,:)%v2 = 0._wp
-  ptr_patch%edges%dual_normal_cell  (:,1:i_startblk,:)%v2 = 0._wp
-  ptr_patch%edges%primal_normal_vert(:,1:i_startblk,:)%v2 = 0._wp
-  ptr_patch%edges%dual_normal_vert  (:,1:i_startblk,:)%v2 = 0._wp
-! !$OMP END WORKSHARE
-ENDIF
-!
-! loop through all patch edges
-!
-! !$OMP DO PRIVATE(jb,i_startidx,i_endidx,je,ilc1,ibc1,ilv1,ibv1,ilc2,ibc2,ilv2, &
-! !$OMP            ibv2,ilv3,ibv3,ilv4,ibv4,z_nu,z_nv,z_lon,z_lat,z_nx1,z_nx2,   &
-! !$OMP            cc_ev3,cc_ev4,z_norm) ICON_OMP_DEFAULT_SCHEDULE
-DO jb = i_startblk, i_endblk
-
-  CALL get_indices_e(ptr_patch, jb, i_startblk, i_endblk, &
-                     i_startidx, i_endidx, rl_start, rl_end)
-
-  DO je =  i_startidx, i_endidx
-
-    IF(.NOT.ptr_patch%edges%owner_mask(je,jb)) CYCLE
-
-    ! compute inverse dual edge length (undefined for refin_ctrl=1)
-
-    ptr_patch%edges%inv_dual_edge_length(je,jb) = &
-      1._wp/ptr_patch%edges%dual_edge_length(je,jb)
-
-    ! compute edge-vertex indices (and blocks) 3 and 4, which
-    ! are the outer vertices of cells 1 and 2, respectively,
-    ! and the inverse length bewtween vertices 3 and 4
-
-    ilc1 = ptr_patch%edges%cell_idx(je,jb,1)
-    ibc1 = ptr_patch%edges%cell_blk(je,jb,1)
-    ilc2 = ptr_patch%edges%cell_idx(je,jb,2)
-    ibc2 = ptr_patch%edges%cell_blk(je,jb,2)
-
-    ilv1 = ptr_patch%edges%vertex_idx(je,jb,1)
-    ibv1 = ptr_patch%edges%vertex_blk(je,jb,1)
-    ilv2 = ptr_patch%edges%vertex_idx(je,jb,2)
-    ibv2 = ptr_patch%edges%vertex_blk(je,jb,2)
-
-    IF ((ptr_patch%cells%vertex_idx(ilc1,ibc1,1) /= &
-         ptr_patch%edges%vertex_idx(je,jb,1) .OR.  &
-         ptr_patch%cells%vertex_blk(ilc1,ibc1,1) /= &
-         ptr_patch%edges%vertex_blk(je,jb,1)) .AND.  &
-        (ptr_patch%cells%vertex_idx(ilc1,ibc1,1) /= &
-         ptr_patch%edges%vertex_idx(je,jb,2) .OR.  &
-         ptr_patch%cells%vertex_blk(ilc1,ibc1,1) /= &
-         ptr_patch%edges%vertex_blk(je,jb,2)) )        THEN
-
-      ptr_patch%edges%vertex_idx(je,jb,3) = ptr_patch%cells%vertex_idx(ilc1,ibc1,1)
-      ptr_patch%edges%vertex_blk(je,jb,3) = ptr_patch%cells%vertex_blk(ilc1,ibc1,1)
-
-    ELSE IF ((ptr_patch%cells%vertex_idx(ilc1,ibc1,2) /= &
-              ptr_patch%edges%vertex_idx(je,jb,1) .OR.  &
-              ptr_patch%cells%vertex_blk(ilc1,ibc1,2) /= &
-              ptr_patch%edges%vertex_blk(je,jb,1)) .AND.  &
-             (ptr_patch%cells%vertex_idx(ilc1,ibc1,2) /= &
-              ptr_patch%edges%vertex_idx(je,jb,2) .OR.  &
-              ptr_patch%cells%vertex_blk(ilc1,ibc1,2) /= &
-              ptr_patch%edges%vertex_blk(je,jb,2)) )        THEN
-
-      ptr_patch%edges%vertex_idx(je,jb,3) = ptr_patch%cells%vertex_idx(ilc1,ibc1,2)
-      ptr_patch%edges%vertex_blk(je,jb,3) = ptr_patch%cells%vertex_blk(ilc1,ibc1,2)
-
-    ELSE IF ((ptr_patch%cells%vertex_idx(ilc1,ibc1,3) /= &
-              ptr_patch%edges%vertex_idx(je,jb,1) .OR.  &
-              ptr_patch%cells%vertex_blk(ilc1,ibc1,3) /= &
-              ptr_patch%edges%vertex_blk(je,jb,1)) .AND.  &
-             (ptr_patch%cells%vertex_idx(ilc1,ibc1,3) /= &
-              ptr_patch%edges%vertex_idx(je,jb,2) .OR.  &
-              ptr_patch%cells%vertex_blk(ilc1,ibc1,3) /= &
-              ptr_patch%edges%vertex_blk(je,jb,2)) )        THEN
-
-      ptr_patch%edges%vertex_idx(je,jb,3) = ptr_patch%cells%vertex_idx(ilc1,ibc1,3)
-      ptr_patch%edges%vertex_blk(je,jb,3) = ptr_patch%cells%vertex_blk(ilc1,ibc1,3)
-
-    ENDIF
-
-    IF ((ptr_patch%cells%vertex_idx(ilc2,ibc2,1) /= &
-         ptr_patch%edges%vertex_idx(je,jb,1) .OR.  &
-         ptr_patch%cells%vertex_blk(ilc2,ibc2,1) /= &
-         ptr_patch%edges%vertex_blk(je,jb,1)) .AND.  &
-        (ptr_patch%cells%vertex_idx(ilc2,ibc2,1) /= &
-         ptr_patch%edges%vertex_idx(je,jb,2) .OR.  &
-         ptr_patch%cells%vertex_blk(ilc2,ibc2,1) /= &
-         ptr_patch%edges%vertex_blk(je,jb,2)) )        THEN
-
-      ptr_patch%edges%vertex_idx(je,jb,4) = ptr_patch%cells%vertex_idx(ilc2,ibc2,1)
-      ptr_patch%edges%vertex_blk(je,jb,4) = ptr_patch%cells%vertex_blk(ilc2,ibc2,1)
-
-    ELSE IF ((ptr_patch%cells%vertex_idx(ilc2,ibc2,2) /= &
-              ptr_patch%edges%vertex_idx(je,jb,1) .OR.  &
-              ptr_patch%cells%vertex_blk(ilc2,ibc2,2) /= &
-              ptr_patch%edges%vertex_blk(je,jb,1)) .AND.  &
-             (ptr_patch%cells%vertex_idx(ilc2,ibc2,2) /= &
-              ptr_patch%edges%vertex_idx(je,jb,2) .OR.  &
-              ptr_patch%cells%vertex_blk(ilc2,ibc2,2) /= &
-              ptr_patch%edges%vertex_blk(je,jb,2)) )        THEN
-
-      ptr_patch%edges%vertex_idx(je,jb,4) = ptr_patch%cells%vertex_idx(ilc2,ibc2,2)
-      ptr_patch%edges%vertex_blk(je,jb,4) = ptr_patch%cells%vertex_blk(ilc2,ibc2,2)
-
-    ELSE IF ((ptr_patch%cells%vertex_idx(ilc2,ibc2,3) /= &
-              ptr_patch%edges%vertex_idx(je,jb,1) .OR.  &
-              ptr_patch%cells%vertex_blk(ilc2,ibc2,3) /= &
-              ptr_patch%edges%vertex_blk(je,jb,1)) .AND.  &
-             (ptr_patch%cells%vertex_idx(ilc2,ibc2,3) /= &
-              ptr_patch%edges%vertex_idx(je,jb,2) .OR.  &
-              ptr_patch%cells%vertex_blk(ilc2,ibc2,3) /= &
-              ptr_patch%edges%vertex_blk(je,jb,2)) )        THEN
-
-      ptr_patch%edges%vertex_idx(je,jb,4) = ptr_patch%cells%vertex_idx(ilc2,ibc2,3)
-      ptr_patch%edges%vertex_blk(je,jb,4) = ptr_patch%cells%vertex_blk(ilc2,ibc2,3)
-
-    ENDIF
-
-    ilv3 = ptr_patch%edges%vertex_idx(je,jb,3)
-    ibv3 = ptr_patch%edges%vertex_blk(je,jb,3)
-    ilv4 = ptr_patch%edges%vertex_idx(je,jb,4)
-    ibv4 = ptr_patch%edges%vertex_blk(je,jb,4)
-
-!     IF ( ilv3 > 0 .AND. ilv4 > 0) THEN
-!      write(*,*) "cells:", ilc1, ibc1, ilc2, ibc2
-!      write(*,*) "cell1 vertex idx :", ptr_patch%cells%vertex_idx(ilc1,ibc1,:)
-!      write(*,*) "cell1 vertex blk :", ptr_patch%cells%vertex_blk(ilc1,ibc1,:)
-!      write(*,*) "cell2 vertex idx :", ptr_patch%cells%vertex_idx(ilc2,ibc2,:)
-!      write(*,*) "cell2 vertex blk :", ptr_patch%cells%vertex_blk(ilc2,ibc2,:)
-!      write(*,*) "chosen vertexes:", ilv3,ibv3, ilv4,ibv4
-      cc_ev3 = gc2cc(ptr_patch%verts%vertex(ilv3,ibv3))
-      cc_ev4 = gc2cc(ptr_patch%verts%vertex(ilv4,ibv4))
-
-      ! inverse length bewtween vertices 3 and 4
-      ptr_patch%edges%inv_vert_vert_length(je,jb) = 1._wp / &
-        & (grid_sphere_radius * arc_length(cc_ev3,cc_ev4))
-!      ENDIF
-
-    ! next step: compute projected orientation vectors for cells and vertices
-    ! bordering to each edge (incl. vertices 3 and 4 intorduced above)
-
-    ! transform orientation vectors at local edge center to Cartesian space
-    z_lon = ptr_patch%edges%center(je,jb)%lon
-    z_lat = ptr_patch%edges%center(je,jb)%lat
-
-    ! transform primal normal to cartesian vector z_nx1
-    z_nx1(:)=ptr_patch%edges%primal_cart_normal(je,jb)%x(:)
-
-    ! transform dual normal to cartesian vector z_nx2
-    z_nx2(:)=ptr_patch%edges%dual_cart_normal(je,jb)%x(:)
-
-    ! get location of cell 1
-
-    z_lon = ptr_patch%cells%center(ilc1,ibc1)%lon
-    z_lat = ptr_patch%cells%center(ilc1,ibc1)%lat
-
-    ! compute local primal and dual normals at cell 1
-
-    CALL cvec2gvec(z_nx1(1),z_nx1(2),z_nx1(3),z_lon,z_lat,z_nu,z_nv)
-    z_norm = SQRT(z_nu*z_nu+z_nv*z_nv)
-
-    ptr_patch%edges%primal_normal_cell(je,jb,1)%v1 = z_nu/z_norm
-    ptr_patch%edges%primal_normal_cell(je,jb,1)%v2 = z_nv/z_norm
-
-    CALL cvec2gvec(z_nx2(1),z_nx2(2),z_nx2(3),z_lon,z_lat,z_nu,z_nv)
-    z_norm = SQRT(z_nu*z_nu+z_nv*z_nv)
-
-    ptr_patch%edges%dual_normal_cell(je,jb,1)%v1 = z_nu/z_norm
-    ptr_patch%edges%dual_normal_cell(je,jb,1)%v2 = z_nv/z_norm
-
-    ! get location of cell 2
-
-    z_lon = ptr_patch%cells%center(ilc2,ibc2)%lon
-    z_lat = ptr_patch%cells%center(ilc2,ibc2)%lat
-
-    ! compute local primal and dual normals at cell 2
-
-    CALL cvec2gvec(z_nx1(1),z_nx1(2),z_nx1(3),z_lon,z_lat,z_nu,z_nv)
-    z_norm = SQRT(z_nu*z_nu+z_nv*z_nv)
-
-    ptr_patch%edges%primal_normal_cell(je,jb,2)%v1 = z_nu/z_norm
-    ptr_patch%edges%primal_normal_cell(je,jb,2)%v2 = z_nv/z_norm
-
-    CALL cvec2gvec(z_nx2(1),z_nx2(2),z_nx2(3),z_lon,z_lat,z_nu,z_nv)
-    z_norm = SQRT(z_nu*z_nu+z_nv*z_nv)
-
-    ptr_patch%edges%dual_normal_cell(je,jb,2)%v1 = z_nu/z_norm
-    ptr_patch%edges%dual_normal_cell(je,jb,2)%v2 = z_nv/z_norm
-
-    ! get location of vertex 1
-
-    z_lon = ptr_patch%verts%vertex(ilv1,ibv1)%lon
-    z_lat = ptr_patch%verts%vertex(ilv1,ibv1)%lat
-
-    ! compute local primal and dual normals at vertex 1
-
-    CALL cvec2gvec(z_nx1(1),z_nx1(2),z_nx1(3),z_lon,z_lat,z_nu,z_nv)
-    z_norm = SQRT(z_nu*z_nu+z_nv*z_nv)
-
-    ptr_patch%edges%primal_normal_vert(je,jb,1)%v1 = z_nu/z_norm
-    ptr_patch%edges%primal_normal_vert(je,jb,1)%v2 = z_nv/z_norm
-
-    CALL cvec2gvec(z_nx2(1),z_nx2(2),z_nx2(3),z_lon,z_lat,z_nu,z_nv)
-    z_norm = SQRT(z_nu*z_nu+z_nv*z_nv)
-
-    ptr_patch%edges%dual_normal_vert(je,jb,1)%v1 = z_nu/z_norm
-    ptr_patch%edges%dual_normal_vert(je,jb,1)%v2 = z_nv/z_norm
-
-    ! get location of vertex 2
-
-    z_lon = ptr_patch%verts%vertex(ilv2,ibv2)%lon
-    z_lat = ptr_patch%verts%vertex(ilv2,ibv2)%lat
-
-    ! compute local primal and dual normals at vertex 2
-
-    CALL cvec2gvec(z_nx1(1),z_nx1(2),z_nx1(3),z_lon,z_lat,z_nu,z_nv)
-    z_norm = SQRT(z_nu*z_nu+z_nv*z_nv)
-
-    ptr_patch%edges%primal_normal_vert(je,jb,2)%v1 = z_nu/z_norm
-    ptr_patch%edges%primal_normal_vert(je,jb,2)%v2 = z_nv/z_norm
-
-    CALL cvec2gvec(z_nx2(1),z_nx2(2),z_nx2(3),z_lon,z_lat,z_nu,z_nv)
-    z_norm = SQRT(z_nu*z_nu+z_nv*z_nv)
-
-    ptr_patch%edges%dual_normal_vert(je,jb,2)%v1 = z_nu/z_norm
-    ptr_patch%edges%dual_normal_vert(je,jb,2)%v2 = z_nv/z_norm
-
-    ! get location of vertex 3
-
-    z_lon = ptr_patch%verts%vertex(ilv3,ibv3)%lon
-    z_lat = ptr_patch%verts%vertex(ilv3,ibv3)%lat
-
-    ! compute local primal and dual normals at vertex 3
-
-    CALL cvec2gvec(z_nx1(1),z_nx1(2),z_nx1(3),z_lon,z_lat,z_nu,z_nv)
-    z_norm = SQRT(z_nu*z_nu+z_nv*z_nv)
-
-    ptr_patch%edges%primal_normal_vert(je,jb,3)%v1 = z_nu/z_norm
-    ptr_patch%edges%primal_normal_vert(je,jb,3)%v2 = z_nv/z_norm
-
-    CALL cvec2gvec(z_nx2(1),z_nx2(2),z_nx2(3),z_lon,z_lat,z_nu,z_nv)
-    z_norm = SQRT(z_nu*z_nu+z_nv*z_nv)
-
-    ptr_patch%edges%dual_normal_vert(je,jb,3)%v1 = z_nu/z_norm
-    ptr_patch%edges%dual_normal_vert(je,jb,3)%v2 = z_nv/z_norm
-
-    ! get location of vertex 4
-
-    z_lon = ptr_patch%verts%vertex(ilv4,ibv4)%lon
-    z_lat = ptr_patch%verts%vertex(ilv4,ibv4)%lat
-
-    ! compute local primal and dual normals at vertex 2
-
-    CALL cvec2gvec(z_nx1(1),z_nx1(2),z_nx1(3),z_lon,z_lat,z_nu,z_nv)
-    z_norm = SQRT(z_nu*z_nu+z_nv*z_nv)
-
-    ptr_patch%edges%primal_normal_vert(je,jb,4)%v1 = z_nu/z_norm
-    ptr_patch%edges%primal_normal_vert(je,jb,4)%v2 = z_nv/z_norm
-
-    CALL cvec2gvec(z_nx2(1),z_nx2(2),z_nx2(3),z_lon,z_lat,z_nu,z_nv)
-    z_norm = SQRT(z_nu*z_nu+z_nv*z_nv)
-
-    ptr_patch%edges%dual_normal_vert(je,jb,4)%v1 = z_nu/z_norm
-    ptr_patch%edges%dual_normal_vert(je,jb,4)%v2 = z_nv/z_norm
-
-  ENDDO
-
-END DO !block loop
-! !$OMP END DO NOWAIT
-
-! !$OMP END PARALLEL
-
-  ! primal_normal_cell must be sync'd before next loop,
-  ! so do a sync for all above calculated quantities
-
-  CALL sync_patch_array(SYNC_E,ptr_patch,ptr_patch%edges%inv_primal_edge_length)
-
-  CALL sync_idx(SYNC_E,SYNC_V,ptr_patch,ptr_patch%edges%vertex_idx(:,:,3), &
-                                      & ptr_patch%edges%vertex_blk(:,:,3))
-  CALL sync_idx(SYNC_E,SYNC_V,ptr_patch,ptr_patch%edges%vertex_idx(:,:,4), &
-                                      & ptr_patch%edges%vertex_blk(:,:,4))
-
-  CALL sync_patch_array(SYNC_E,ptr_patch,ptr_patch%edges%inv_dual_edge_length)
-  CALL sync_patch_array(SYNC_E,ptr_patch,ptr_patch%edges%inv_vert_vert_length)
-
-  CALL sync_patch_array(SYNC_E,ptr_patch,ptr_patch%edges%primal_normal_cell(:,:,1)%v1)
-  CALL sync_patch_array(SYNC_E,ptr_patch,ptr_patch%edges%primal_normal_cell(:,:,2)%v1)
-  CALL sync_patch_array(SYNC_E,ptr_patch,ptr_patch%edges%primal_normal_vert(:,:,1)%v1)
-  CALL sync_patch_array(SYNC_E,ptr_patch,ptr_patch%edges%primal_normal_vert(:,:,2)%v1)
-  CALL sync_patch_array(SYNC_E,ptr_patch,ptr_patch%edges%primal_normal_vert(:,:,3)%v1)
-  CALL sync_patch_array(SYNC_E,ptr_patch,ptr_patch%edges%primal_normal_vert(:,:,4)%v1)
-
-  CALL sync_patch_array(SYNC_E,ptr_patch,ptr_patch%edges%dual_normal_cell(:,:,1)%v1)
-  CALL sync_patch_array(SYNC_E,ptr_patch,ptr_patch%edges%dual_normal_cell(:,:,2)%v1)
-  CALL sync_patch_array(SYNC_E,ptr_patch,ptr_patch%edges%dual_normal_vert(:,:,1)%v1)
-  CALL sync_patch_array(SYNC_E,ptr_patch,ptr_patch%edges%dual_normal_vert(:,:,2)%v1)
-  CALL sync_patch_array(SYNC_E,ptr_patch,ptr_patch%edges%dual_normal_vert(:,:,3)%v1)
-  CALL sync_patch_array(SYNC_E,ptr_patch,ptr_patch%edges%dual_normal_vert(:,:,4)%v1)
-
-  CALL sync_patch_array(SYNC_E,ptr_patch,ptr_patch%edges%primal_normal_cell(:,:,1)%v2)
-  CALL sync_patch_array(SYNC_E,ptr_patch,ptr_patch%edges%primal_normal_cell(:,:,2)%v2)
-  CALL sync_patch_array(SYNC_E,ptr_patch,ptr_patch%edges%primal_normal_vert(:,:,1)%v2)
-  CALL sync_patch_array(SYNC_E,ptr_patch,ptr_patch%edges%primal_normal_vert(:,:,2)%v2)
-  CALL sync_patch_array(SYNC_E,ptr_patch,ptr_patch%edges%primal_normal_vert(:,:,3)%v2)
-  CALL sync_patch_array(SYNC_E,ptr_patch,ptr_patch%edges%primal_normal_vert(:,:,4)%v2)
-
-  CALL sync_patch_array(SYNC_E,ptr_patch,ptr_patch%edges%dual_normal_cell(:,:,1)%v2)
-  CALL sync_patch_array(SYNC_E,ptr_patch,ptr_patch%edges%dual_normal_cell(:,:,2)%v2)
-  CALL sync_patch_array(SYNC_E,ptr_patch,ptr_patch%edges%dual_normal_vert(:,:,1)%v2)
-  CALL sync_patch_array(SYNC_E,ptr_patch,ptr_patch%edges%dual_normal_vert(:,:,2)%v2)
-  CALL sync_patch_array(SYNC_E,ptr_patch,ptr_patch%edges%dual_normal_vert(:,:,3)%v2)
-  CALL sync_patch_array(SYNC_E,ptr_patch,ptr_patch%edges%dual_normal_vert(:,:,4)%v2)
-
-
-!!$OMP PARALLEL  PRIVATE(rl_start,rl_end,i_startblk,i_endblk)
-
-
-!!$OMP END PARALLEL
-
-END SUBROUTINE complete_patchinfo_oce
 !-------------------------------------------------------------------------  
 !-------------------------------------------------------------------------
 !>
@@ -3467,15 +3049,17 @@ END SUBROUTINE complete_patchinfo_oce
     ENDIF
     ! 3-dim real land-sea-mask
     ! cells
-    ALLOCATE(p_patch_3D%wet_c(nproma,n_zlev,nblks_c),STAT=ist)
-    IF (ist /= SUCCESS) THEN
-      CALL finish (routine,'allocating wet_c failed')
-    ENDIF
+    CALL add_var(ocean_default_list, 'wet_c', p_patch_3D%wet_c , GRID_UNSTRUCTURED_CELL,&
+    &            ZA_DEPTH_BELOW_SEA, &
+    &            t_cf_var('wet_c', 'kg/m^3', '3d lsm on cells', DATATYPE_FLT32),&
+    &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+    &            ldims=(/nproma,n_zlev,nblks_c/))
     ! edges
-    ALLOCATE(p_patch_3D%wet_e(nproma,n_zlev,nblks_e),STAT=ist)
-    IF (ist /= SUCCESS) THEN
-      CALL finish (routine,'allocating wet_e failed')
-    ENDIF
+    CALL add_var(ocean_default_list, 'wet_e', p_patch_3D%wet_e , GRID_UNSTRUCTURED_EDGE,&
+    &            ZA_DEPTH_BELOW_SEA, &
+    &            t_cf_var('wet_e', 'kg/m^3', '3d lsm on edges', DATATYPE_FLT32),&
+    &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_EDGE),&
+    &            ldims=(/nproma,n_zlev,nblks_e/))
 
     p_patch_3D%p_patch_1D(n_dom)%del_zlev_m = 0._wp
     p_patch_3D%p_patch_1D(n_dom)%del_zlev_i = 0._wp
@@ -3929,17 +3513,17 @@ END SUBROUTINE complete_patchinfo_oce
     IF (PRESENT(suffix)) THEN
 !     write(0,*)'suffix:',suffix
     END IF
-    oce_tracer_names(1)     = 'T'
+    oce_tracer_names(1)     = 't'
     IF (PRESENT(suffix)) THEN
-      oce_tracer_names(1) = 'T'//TRIM(suffix)
+      oce_tracer_names(1) = 't'//TRIM(suffix)
     END IF
     oce_tracer_longnames(1) = 'potential temperature'
     oce_tracer_units(1)     = 'deg C'
     oce_tracer_codes(1)     = 200
 
-    oce_tracer_names(2)     = 'S'
+    oce_tracer_names(2)     = 's'
     IF (PRESENT(suffix)) THEN
-      oce_tracer_names(2) = 'S'//TRIM(suffix)
+      oce_tracer_names(2) = 's'//TRIM(suffix)
     END IF
     oce_tracer_longnames(2) = 'salinity'
     oce_tracer_units(2)     = 'psu'
