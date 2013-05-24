@@ -123,7 +123,7 @@ cat > ${ocean_namelist} << EOF
 !
 &parallel_nml
  nproma         = ${nproma}
- l_fast_sum     = .false.          ! false: results are reproducable, gmres_oce_old is used
+ l_fast_sum     = .true.          ! false: results are reproducable, gmres_oce_old is used
 /
 &grid_nml
  dynamics_grid_filename = "${ocean_grids}",
