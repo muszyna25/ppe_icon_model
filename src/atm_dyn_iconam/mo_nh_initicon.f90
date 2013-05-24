@@ -1724,7 +1724,7 @@ MODULE mo_nh_initicon
              vn_incr  (nproma,nlev,nblks_e),  &
              w_incr   (nproma,nlevp1,nblks_c),&
              nabla4_vn_incr(nproma,nlev,nblks_e), &
-             , STAT=ist)
+             STAT=ist)
     IF (ist /= SUCCESS) THEN
       CALL finish ( TRIM(routine), 'allocation of auxiliary arrays failed')
     ENDIF
