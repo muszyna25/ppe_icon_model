@@ -931,7 +931,8 @@ MODULE mo_nonhydro_state
                 & ldims=shape3d_c, lrestart=.FALSE.,                            &
                 & vert_interp=create_vert_interp_metadata(                      &
                 &   vert_intp_type=vintp_types("P","Z","I") ),                  &
-                & in_group=groups("atmo_ml_vars","atmo_pl_vars","atmo_zl_vars") )
+                & in_group=groups("atmo_ml_vars","atmo_pl_vars","atmo_zl_vars", &
+                &                 "dwd_ana_vars") )
 
     ! v           p_diag%v(nproma,nlev,nblks_c)
     !
@@ -942,7 +943,8 @@ MODULE mo_nonhydro_state
                 & ldims=shape3d_c, lrestart=.FALSE.,                            &
                 & vert_interp=create_vert_interp_metadata(                      &
                 &   vert_intp_type=vintp_types("P","Z","I") ),                  &
-                & in_group=groups("atmo_ml_vars","atmo_pl_vars","atmo_zl_vars") )
+                & in_group=groups("atmo_ml_vars","atmo_pl_vars","atmo_zl_vars", &
+                &                 "dwd_ana_vars") )
 
     ! vt           p_diag%vt(nproma,nlev,nblks_e)
     ! *** needs to be saved for restart ***
@@ -1025,7 +1027,8 @@ MODULE mo_nonhydro_state
     grib2_desc = t_grib2_var(0, 3, 0, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_diag_list, 'pres_sfc', p_diag%pres_sfc,                     &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,      &
-                & ldims=shape2d_c, lrestart=.FALSE. )
+                & ldims=shape2d_c, lrestart=.FALSE.,                            &
+                & in_group=groups("dwd_ana_vars") )
 
     ! pres_sfc_old     p_diag%pres_sfc_old(nproma,nblks_c)
     !
@@ -1065,7 +1068,8 @@ MODULE mo_nonhydro_state
     CALL add_var( p_diag_list, 'temp', p_diag%temp,                             &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,       &
                 & ldims=shape3d_c, lrestart=.FALSE.,                            &
-                & in_group=groups("atmo_ml_vars","atmo_pl_vars","atmo_zl_vars") )
+                & in_group=groups("atmo_ml_vars","atmo_pl_vars","atmo_zl_vars", &
+                &                 "dwd_ana_vars") )
 
     ! tempv        p_diag%tempv(nproma,nlev,nblks_c)
     !
@@ -1095,7 +1099,7 @@ MODULE mo_nonhydro_state
                 & vert_interp=create_vert_interp_metadata(                      &
                 &             vert_intp_type=vintp_types("Z","I"),              &
                 &             vert_intp_method=VINTP_METHOD_PRES ),             &
-                & in_group=groups("atmo_ml_vars","atmo_zl_vars") )
+                & in_group=groups("atmo_ml_vars","atmo_zl_vars","dwd_ana_vars") )
 
     ! pres_ifc     p_diag%pres_ifc(nproma,nlevp1,nblks_c)
     !
@@ -1980,6 +1984,7 @@ MODULE mo_nonhydro_state
                 & vert_interp=create_vert_interp_metadata(                      &
                 &   vert_intp_type=vintp_types("P","Z","I"),                    &
                 &   vert_intp_method=VINTP_METHOD_LIN_NLEVP1 ),                 &
+                & in_group=groups("dwd_ana_vars"),                              &
                 & isteptype=TSTEP_CONSTANT )
 
 
