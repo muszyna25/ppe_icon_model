@@ -60,6 +60,7 @@ MODULE mo_sea_ice
   USE mo_sea_ice_nml,         ONLY: i_ice_therm
   USE mo_oce_state,           ONLY: t_hydro_ocean_state, v_base, ocean_restart_list
   USE mo_var_list,            ONLY: add_var
+  USE mo_linked_list,         ONLY: t_var_list
   USE mo_master_control,      ONLY: is_restart_run
   USE mo_cf_convention
   USE mo_grib2
@@ -350,10 +351,11 @@ CONTAINS
   !! @par Revision History
   !! Initial release by Stephan Lorenz, MPI-M (2010-07)
   !
-  SUBROUTINE construct_sfcflx(p_patch, p_sfc_flx)
+  SUBROUTINE construct_sfcflx(p_patch, p_sfc_flx, var_list)
     !
     TYPE(t_patch),   INTENT(IN)    :: p_patch
     TYPE(t_sfc_flx), INTENT(INOUT) :: p_sfc_flx
+    TYPE(t_var_list),INTENT(INOUT) :: var_list
 
     ! Local variables
     INTEGER :: nblks_c, ist
@@ -365,74 +367,90 @@ CONTAINS
 
     nblks_c = p_patch%nblks_c
 
-    ALLOCATE(p_sfc_flx%forc_wind_u(nproma,nblks_c), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for forcing wind u failed')
-    END IF
-    ALLOCATE(p_sfc_flx%forc_wind_v(nproma,nblks_c), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for forcing wind v failed')
-    END IF
-    ALLOCATE(p_sfc_flx%forc_hflx(nproma,nblks_c), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for forcing heat flux failed')
-    END IF
-    ALLOCATE(p_sfc_flx%forc_fwfx(nproma,nblks_c), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for forcing freshwater flux failed')
-    END IF
-    ALLOCATE(p_sfc_flx%forc_swflx(nproma,nblks_c), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for short wave flux failed')
-    END IF
-    ALLOCATE(p_sfc_flx%forc_lwflx(nproma,nblks_c), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for long wave flux failed')
-    END IF
-    ALLOCATE(p_sfc_flx%forc_ssflx(nproma,nblks_c), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for surface sensible heat flux failed')
-    END IF
-    ALLOCATE(p_sfc_flx%forc_slflx(nproma,nblks_c), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for surface latent heat flux failed')
-    END IF
-    ALLOCATE(p_sfc_flx%forc_precip(nproma,nblks_c), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for precipitation flux failed')
-    END IF
-    ALLOCATE(p_sfc_flx%forc_evap(nproma,nblks_c), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for evaporation flux failed')
-    END IF
-    ALLOCATE(p_sfc_flx%forc_runoff(nproma,nblks_c), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for river runoff flux failed')
-    END IF
-    ALLOCATE(p_sfc_flx%forc_fwbc(nproma,nblks_c), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for sum of BC freshwater flux failed')
-    END IF
-    ALLOCATE(p_sfc_flx%forc_hfrelax(nproma,nblks_c), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for heat flux due to relaxation failed')
-    END IF
-    ALLOCATE(p_sfc_flx%forc_fwrelax(nproma,nblks_c), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for freshwater flux due to relaxation failed')
-    END IF
+    CALL add_var(var_list, 'forc_wind_u', p_sfc_flx%forc_wind_u , &
+    &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+    &          t_cf_var('forc_wind_u', 'm/s', 'forc_wind_u', DATATYPE_FLT32),&
+    &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+    &          ldims=(/nproma,nblks_c/))
+    CALL add_var(var_list, 'forc_wind_v', p_sfc_flx%forc_wind_v , &
+    &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+    &          t_cf_var('forc_wind_v', 'm/s', 'forc_wind_v', DATATYPE_FLT32),&
+    &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+    &          ldims=(/nproma,nblks_c/))
+    CALL add_var(var_list, 'forc_hflx', p_sfc_flx%forc_hflx , &
+    &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+    &          t_cf_var('forc_hflx', 'm/s', 'forc_hflx', DATATYPE_FLT32),&
+    &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+    &          ldims=(/nproma,nblks_c/))
+    CALL add_var(var_list, 'forc_fwfx', p_sfc_flx%forc_fwfx , &
+    &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+    &          t_cf_var('forc_fwfx', 'm/s', 'forc_fwfx', DATATYPE_FLT32),&
+    &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+    &          ldims=(/nproma,nblks_c/))
+    CALL add_var(var_list, 'forc_swflx', p_sfc_flx%forc_swflx , &
+    &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+    &          t_cf_var('forc_swflx', 'm/s', 'forc_swflx', DATATYPE_FLT32),&
+    &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+    &          ldims=(/nproma,nblks_c/))
+    CALL add_var(var_list, 'forc_lwflx', p_sfc_flx%forc_lwflx , &
+    &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+    &          t_cf_var('forc_lwflx', 'm/s', 'forc_lwflx', DATATYPE_FLT32),&
+    &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+    &          ldims=(/nproma,nblks_c/))
+    CALL add_var(var_list, 'forc_ssflx', p_sfc_flx%forc_ssflx , &
+    &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+    &          t_cf_var('forc_ssflx', 'm/s', 'forc_ssflx', DATATYPE_FLT32),&
+    &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+    &          ldims=(/nproma,nblks_c/))
+    CALL add_var(var_list, 'forc_slflx', p_sfc_flx%forc_slflx , &
+    &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+    &          t_cf_var('forc_slflx', 'm/s', 'forc_slflx', DATATYPE_FLT32),&
+    &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+    &          ldims=(/nproma,nblks_c/))
+    CALL add_var(var_list, 'forc_precip', p_sfc_flx%forc_precip , &
+    &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+    &          t_cf_var('forc_precip', 'm/s', 'forc_precip', DATATYPE_FLT32),&
+    &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+    &          ldims=(/nproma,nblks_c/))
+    CALL add_var(var_list, 'forc_evap', p_sfc_flx%forc_evap , &
+    &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+    &          t_cf_var('forc_evap', 'm/s', 'forc_evap', DATATYPE_FLT32),&
+    &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+    &          ldims=(/nproma,nblks_c/))
+    CALL add_var(var_list, 'forc_runoff', p_sfc_flx%forc_runoff , &
+    &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+    &          t_cf_var('forc_runoff', 'm/s', 'forc_runoff', DATATYPE_FLT32),&
+    &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+    &          ldims=(/nproma,nblks_c/))
+    CALL add_var(var_list, 'forc_fwbc', p_sfc_flx%forc_fwbc , &
+    &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+    &          t_cf_var('forc_fwbc', 'm/s', 'forc_fwbc', DATATYPE_FLT32),&
+    &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+    &          ldims=(/nproma,nblks_c/))
+    CALL add_var(var_list, 'forc_hfrelax', p_sfc_flx%forc_hfrelax , &
+    &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+    &          t_cf_var('forc_hfrelax', 'm/s', 'forc_hfrelax', DATATYPE_FLT32),&
+    &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+    &          ldims=(/nproma,nblks_c/))
+    CALL add_var(var_list, 'forc_fwrelax', p_sfc_flx%forc_fwrelax , &
+    &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+    &          t_cf_var('forc_fwrelax', 'm/s', 'forc_fwrelax', DATATYPE_FLT32),&
+    &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+    &          ldims=(/nproma,nblks_c/))
     IF(no_tracer>=1)THEN
-      ALLOCATE(p_sfc_flx%forc_tracer(nproma,nblks_c, no_tracer), STAT=ist)
-      IF (ist/=SUCCESS) THEN
-        CALL finish(TRIM(routine),'allocation for tracer forcing failed')
-      END IF
-
-      ALLOCATE(p_sfc_flx%forc_tracer_relax(nproma,nblks_c, no_tracer), STAT=ist)
-      IF (ist/=SUCCESS) THEN
-        CALL finish(TRIM(routine),'allocation for tracer relaxation forcing failed')
-      END IF
+      CALL add_var(var_list, 'forc_tracer', p_sfc_flx%forc_tracer , &
+      &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+      &          t_cf_var('forc_tracer', 'm/s', 'forc_tracer', DATATYPE_FLT32),&
+      &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+      &          ldims=(/nproma,nblks_c,no_tracer/))
+      CALL add_var(var_list, 'forc_tracer_relax', p_sfc_flx%forc_tracer_relax , &
+      &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+      &          t_cf_var('forc_tracer_relax', 'm/s', 'forc_tracer_relax', DATATYPE_FLT32),&
+      &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+      &          ldims=(/nproma,nblks_c,no_tracer/))
     ENDIF
 
+    ! cartesians
     ALLOCATE(p_sfc_flx%forc_wind_cc(nproma,nblks_c), STAT=ist)
     IF (ist/=SUCCESS) THEN
       CALL finish(TRIM(routine),'allocation for forcing wind_cc  failed')
@@ -484,70 +502,8 @@ CONTAINS
     !-------------------------------------------------------------------------
     CALL message(TRIM(routine), 'start' )
 
-    DEALLOCATE(p_sfc_flx%forc_wind_u, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for forcing wind u failed')
-    END IF
-    DEALLOCATE(p_sfc_flx%forc_wind_v, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for forcing wind v failed')
-    END IF
-    DEALLOCATE(p_sfc_flx%forc_hflx, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for forcing heat flux failed')
-    END IF
-    DEALLOCATE(p_sfc_flx%forc_fwfx, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for forcing freshwater flux failed')
-    END IF
-    DEALLOCATE(p_sfc_flx%forc_swflx, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for heat flux failed')
-    END IF
-    DEALLOCATE(p_sfc_flx%forc_lwflx, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for heat flux failed')
-    END IF
-    DEALLOCATE(p_sfc_flx%forc_ssflx, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for heat flux failed')
-    END IF
-    DEALLOCATE(p_sfc_flx%forc_slflx, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for heat flux failed')
-    END IF
-    DEALLOCATE(p_sfc_flx%forc_precip, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for precip flux failed')
-    END IF
-    DEALLOCATE(p_sfc_flx%forc_evap, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for evap flux failed')
-    END IF
-    DEALLOCATE(p_sfc_flx%forc_runoff, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for runoff flux failed')
-    END IF
-    DEALLOCATE(p_sfc_flx%forc_fwbc, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for sum of BC freshwater flux failed')
-    END IF
-    DEALLOCATE(p_sfc_flx%forc_hfrelax, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for heat flux due to relaxation failed')
-    END IF
-    DEALLOCATE(p_sfc_flx%forc_fwrelax, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for freshwater flux due to relaxation failed')
-    END IF
-    DEALLOCATE(p_sfc_flx%forc_tracer, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for tracer forcing failed')
-    END IF
-    DEALLOCATE(p_sfc_flx%forc_tracer_relax, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for tracer relaxation failed')
-    END IF
+    ! forcing fields are handled by the ocean_default_list
+
     DEALLOCATE(p_sfc_flx%forc_wind_cc, STAT=ist)
     IF (ist/=SUCCESS) THEN
       CALL finish(TRIM(routine),'deallocation for forcing wind cc failed')
@@ -2061,5 +2017,4 @@ CONTAINS
     !---------------------------------------------------------------------
 
   END SUBROUTINE calc_bulk_flux_oce
- 
 END MODULE mo_sea_ice

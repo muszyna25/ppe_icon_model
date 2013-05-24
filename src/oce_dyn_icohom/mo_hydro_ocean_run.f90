@@ -77,7 +77,7 @@ USE mo_oce_state,              ONLY: t_hydro_ocean_state, &
   &                                  construct_hydro_ocean_state, destruct_hydro_ocean_state, &
   &                                  init_coriolis_oce, init_oce_config, &
   &                                  set_lateral_boundary_values, construct_patch_3D, init_patch_3D, &
-  &                                  setup_ocean_namelists
+  &                                  setup_ocean_namelists, ocean_default_list
 USE mo_oce_math_operators,     ONLY: calc_thickness! , height_related_quantities
 USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff, allocate_exp_coeff,par_init_operator_coeff,&
   &                                  update_diffusion_matrices
@@ -460,7 +460,7 @@ CONTAINS
     ! construct ocean forcing and testcases
     !------------------------------------------------------------------
 
-    CALL construct_sfcflx(p_patch_3D%p_patch_2D(jg),p_sfc_flx)
+    CALL construct_sfcflx(p_patch_3D%p_patch_2D(jg),p_sfc_flx, ocean_default_list)
     CALL      init_sfcflx(p_patch_3D, p_sfc_flx)
 
     CALL construct_sea_ice(p_patch_3D%p_patch_2D(jg), p_ice, kice)

@@ -241,9 +241,6 @@ CONTAINS
 !            END DO
 !          END DO
 
-write(*,*)'max-min coeff',z_diff_multfac, maxval(p_phys_param%K_veloc_h(:,1,:)),&
-&minval(p_phys_param%K_veloc_h(:,1,:))
-
 
     ENDIF
     IF ( l_smooth_veloc_diffusion ) CALL smooth_lapl_diff( p_patch, p_patch_3D, p_phys_param%K_veloc_h )
