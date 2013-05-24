@@ -142,7 +142,7 @@ MODULE mo_build_decomposition
     ! set the horizontal attribute pointer of the 3D patch
     IF (PRESENT(p_patch_3D)) THEN
       ALLOCATE(p_patch_3D, stat=error_status)
-      IF (error_status/=success) THEN
+      IF (error_status/=SUCCESS) THEN
         CALL finish(TRIM(routine), 'allocation of patch_3D failed')
       ENDIF
       p_patch_3D%p_patch_2D => p_patch
