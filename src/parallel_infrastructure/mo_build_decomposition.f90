@@ -2,19 +2,20 @@ MODULE mo_build_decomposition
   USE mo_complete_subdivision
   USE mo_setup_subdivision
   USE mo_ext_decompose_patches
-  USE mo_sync
+  USE mo_sync,                ONLY: sync_patch_array, sync_idx,disable_sync_checks, &
+  &                                 enable_sync_checks, SYNC_E, SYNC_V
+  USE mo_grid_config,         ONLY: grid_sphere_radius, n_dom, n_dom_start
   USE mo_mpi
   USE mo_kind
   USE mo_math_utilities
-  USE mo_loopindices
+  USE mo_loopindices,         ONLY: get_indices_e
   USE mo_impl_constants
-  USE mo_model_domain, ONLY: p_patch,t_patch_3D
-  USE mo_grid_config
+  USE mo_model_domain,        ONLY: p_patch,t_patch_3D,t_patch
   USE mo_dump_restore
   USE mo_model_domimp_patches
   USE mo_parallel_config,     ONLY: p_test_run, l_test_openmp, num_io_procs, division_method
   USE mo_impl_constants,      ONLY: success, MAX_DOM
-  USE mo_exception,          ONLY: finish, message, message_text, get_filename_noext
+  USE mo_exception,           ONLY: finish, message, message_text, get_filename_noext
 
   PUBLIC :: build_decomposition
   PUBLIC :: complete_patchinfo_oce
