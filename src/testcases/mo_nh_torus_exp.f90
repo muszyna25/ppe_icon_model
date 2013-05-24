@@ -140,10 +140,6 @@ MODULE mo_nh_torus_exp
     !patch id
     jg = ptr_patch%id
 
-    !
-    i_rcstartlev = 2
-    i_startblk   = ptr_patch%cells%start_blk(i_rcstartlev,1)
-
     !Set some reference density
     IF(les_config(jg)%isrfc_type==1)THEN
       rho_sfc = zp0 / (rd * les_config(jg)%sst)
@@ -227,10 +223,12 @@ MODULE mo_nh_torus_exp
 
     ENDDO !jb
 
-
+!--------------------------------------------------------------------------------
     !Mean wind 
-    DO jb = 1 , nblks_e
-     CALL get_indices_e( ptr_patch, jb, 1, nblks_e, i_startidx, i_endidx, grf_bdywidth_e+1)
+!--------------------------------------------------------------------------------
+    i_startblk = ptr_patch%edges%start_blk(2,1)
+    DO jb = i_startblk , nblks_e
+     CALL get_indices_e(ptr_patch, jb, i_startblk, nblks_e, i_startidx, i_endidx, 2)
      DO jk = 1 , nlev 
       DO jc = i_startidx, i_endidx
 
