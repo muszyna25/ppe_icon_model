@@ -149,10 +149,7 @@ MODULE mo_sgs_turbulence
     !Initialize
     IF(p_test_run)THEN
 !ICON_OMP_WORKSHARE
-      u_vert(:,:,:)      = 0._wp; v_vert(:,:,:)      = 0._wp; w_vert(:,:,:)       = 0._wp 
-      w_ie(:,:,:)        = 0._wp; visc_smag_ie(:,:,:) = 0._wp;diff_smag_ic(:,:,:) = 0._wp
-      visc_smag_v(:,:,:) = 0._wp; diff_smag_e(:,:,:) = 0._wp; visc_smag_c(:,:,:)  = 0._wp
-      rho_e(:,:,:)       = 0._wp; theta(:,:,:)       = 0._wp; DIV_c(:,:,:)       = 0._wp
+      u_vert(:,:,:) = 0._wp; v_vert(:,:,:) = 0._wp; w_vert(:,:,:) = 0._wp 
 !ICON_OMP_END_WORKSHARE
     END IF
 
@@ -285,8 +282,7 @@ MODULE mo_sgs_turbulence
     !Initialize
     IF(p_test_run)THEN
 !ICON_OMP_WORKSHARE
-      DD(:,:,:)   = 0._wp; vt_ie(:,:,:)      = 0._wp; theta_e(:,:,:)  = 0._wp
-      visc_smag_e(:,:,:) = 0._wp; div_of_stress(:,:,:)  = 0._wp; vn_ie(:,:,:)   = 0._wp
+      visc_smag_e(:,:,:) = 0._wp
 !ICON_OMP_END_WORKSHARE
     END IF 
 
