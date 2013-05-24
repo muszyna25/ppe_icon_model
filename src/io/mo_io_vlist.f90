@@ -2058,20 +2058,21 @@ CONTAINS
       &                     gridEdgeID(k_jg), &
       &                     zaxisIDdepth_m(k_jg)),&
       &           k_jg)
-      CALL addVar(ConstVar('rbasin_c',&
-      &                    '2d basin ID on cells',&
-      &                    '', 1, 128,&
-      &                     vlistID(k_jg),&
-      &                     gridCellID(k_jg), &
-      &                     zaxisID_surface(k_jg)),&
-      &           k_jg)
-      CALL addVar(ConstVar('rregio_c',&
-      &                    '2d region ID on cells',&
-      &                    '', 1, 128,&
-      &                     vlistID(k_jg),&
-      &                     gridCellID(k_jg), &
-      &                     zaxisID_surface(k_jg)),&
-      &           k_jg)
+     ! removed from the patch_3D, available as interger files with nml output
+     !CALL addVar(ConstVar('rbasin_c',&
+     !&                    '2d basin ID on cells',&
+     !&                    '', 1, 128,&
+     !&                     vlistID(k_jg),&
+     !&                     gridCellID(k_jg), &
+     !&                     zaxisID_surface(k_jg)),&
+     !&           k_jg)
+     !CALL addVar(ConstVar('rregio_c',&
+     !&                    '2d region ID on cells',&
+     !&                    '', 1, 128,&
+     !&                     vlistID(k_jg),&
+     !&                     gridCellID(k_jg), &
+     !&                     zaxisID_surface(k_jg)),&
+     !&           k_jg)
       CALL addVar(ConstVar('bottom_thick_c',&
       &                    'individual bottom thickness on cells',&
       &                    '', 1, 128,&
@@ -3323,8 +3324,8 @@ CONTAINS
     SELECT CASE(varname)
       CASE ('wet_c');          ptr3d => p_patch_3D%wet_c
       CASE ('wet_e');          ptr3d => p_patch_3D%wet_e
-      CASE ('rbasin_c');       ptr2d => p_patch_3D%rbasin_c(:,:)
-      CASE ('rregio_c');       ptr2d => p_patch_3D%rregio_c(:,:)
+!      CASE ('rbasin_c');       ptr2d => p_patch_3D%rbasin_c(:,:)
+!      CASE ('rregio_c');       ptr2d => p_patch_3D%rregio_c(:,:)
       CASE ('bottom_thick_c'); ptr2d => p_patch_3D%bottom_thick_c(:,:)
       CASE ('column_thick_c'); ptr2d => p_patch_3D%column_thick_c(:,:)
       CASE ('bottom_thick_e'); ptr2d => p_patch_3D%bottom_thick_e(:,:)

@@ -919,8 +919,8 @@ MODULE mo_model_domain
     ! If the ocean bottom is flat dolic_c and dolic_e are identical and equal 
     ! to the number of z-coodinate surfaces.
     !
-    INTEGER, ALLOCATABLE :: dolic_c(:,:)    ! index1=1,nproma, index2=1,nblks_c
-    INTEGER, ALLOCATABLE :: dolic_e(:,:)    ! index1=1,nproma, index2=1,nblks_e
+    INTEGER, POINTER :: dolic_c(:,:)    ! index1=1,nproma, index2=1,nblks_c
+    INTEGER, POINTER :: dolic_e(:,:)    ! index1=1,nproma, index2=1,nblks_e
 
     REAL(wp), POINTER ::                &
       &  prism_thick_c(:,:,:),          & ! individual prism thickness at cells. Unit [m].
@@ -975,8 +975,6 @@ MODULE mo_model_domain
     ! index1=1,nproma, index2=1,nblks_c
     INTEGER,  POINTER :: basin_c(:,:)  ! basin information Atlantic/Indian/Pacific
     INTEGER,  POINTER :: regio_c(:,:)  ! area information like tropical Atlantic etc.
-    REAL(wp), POINTER :: rbasin_c(:,:) ! real for output
-    REAL(wp), POINTER :: rregio_c(:,:) ! real for output
     REAL(wp), POINTER :: bottom_thick_c(:,:)  ! individual bottom prism thickness at cells. Unit [m]. 
     REAL(wp), POINTER :: bottom_thick_e(:,:)  ! individual bottom prism thickness at edges. Unit [m]. 
     REAL(wp), POINTER :: column_thick_c(:,:)  ! individual column thickness at cells, no elevation. Unit [m].

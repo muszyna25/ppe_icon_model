@@ -147,7 +147,9 @@ cat > ${ocean_namelist} << EOF
   output_filename  = "${EXPNAME}_nmlOuput"
   ml_varlist       = 'h','s','t','rho','w','v','u','vt','vn','kin','div','grad','rhopot','w_e',
   'press_grad', 'press_hyd','veloc_adv_vert','veloc_adv_horz','laplacian_horz','laplacian_vert',
-  'temp_insitu','div_mass_flx_c','mass_flux','wet_c','wet_e','T1','T2','alb','Tsurf','hi','hs','conc','concSum'
+  'temp_insitu','div_mass_flx_c','mass_flux','wet_c','wet_e','T1','T2','alb','Tsurf','hi','hs','conc','concSum',
+  'inv_prism_center_dist_e','prism_thick_c','bottom_thick_c','column_thick_e','basin_c','regio_c','dolic_e','dolic_c',
+  'surface_lsm_v','lsm_e','lsm_c'
 /
 &dbg_index_nml
   idbg_mxmn=0                     ! initialize MIN/MAX  debug output

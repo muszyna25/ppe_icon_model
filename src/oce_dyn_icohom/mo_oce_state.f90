@@ -208,8 +208,6 @@ MODULE mo_oce_state
     ! index1=1,nproma, index2=1,nblks_c
     INTEGER,  ALLOCATABLE :: basin_c(:,:)  ! basin information Atlantic/Indian/Pacific
     INTEGER,  ALLOCATABLE :: regio_c(:,:)  ! area information like tropical Atlantic etc.
-    REAL(wp), ALLOCATABLE :: rbasin_c(:,:) ! real for output
-    REAL(wp), ALLOCATABLE :: rregio_c(:,:) ! real for output
 
     ! To simply set land points to zero we store additional 3-dim wet points
     ! dimensions as in lsm_oce:
@@ -503,8 +501,6 @@ CONTAINS
 
     INTEGER           :: i_status, jp, prlength ! local prognostic array length
     !INTEGER           :: no_temp_memory         ! no of temporary memory elements
-    CHARACTER(len=max_char_length) :: listname
-
     CHARACTER(len=max_char_length), PARAMETER :: &
       &      routine = 'mo_oce_state:construct_hydro_ocean_state'
 
@@ -677,14 +673,6 @@ CONTAINS
     IF (ist /= SUCCESS) THEN
       CALL finish (routine,'allocating regio_c failed')
     ENDIF
-    ALLOCATE(v_base%rbasin_c(nproma,nblks_c),STAT=ist)
-    IF (ist /= SUCCESS) THEN
-      CALL finish (routine,'allocating basin_c failed')
-    ENDIF
-    ALLOCATE(v_base%rregio_c(nproma,nblks_c),STAT=ist)
-    IF (ist /= SUCCESS) THEN
-      CALL finish (routine,'allocating regio_c failed')
-    ENDIF
     ! 3-dim real land-sea-mask
     ! cells
     ALLOCATE(v_base%wet_c(nproma,n_zlev,nblks_c),STAT=ist)
@@ -708,9 +696,6 @@ CONTAINS
     v_base%dolic_e = 0
     v_base%basin_c = 0
     v_base%regio_c = 0
-
-    v_base%rbasin_c = 0.0_wp
-    v_base%rregio_c = 0.0_wp
 
     v_base%wet_c = 0.0_wp
     v_base%wet_e = 0.0_wp
@@ -2710,13 +2695,6 @@ CONTAINS
 
     v_base%basin_c(:,:) = ibase(:,:)
     v_base%regio_c(:,:) = iarea(:,:)
-    v_base%rbasin_c(:,:) = REAL(ibase(:,:),wp)
-    v_base%rregio_c(:,:) = REAL(iarea(:,:),wp)
-
-  ! write(66,*) 'IBASE:'
-  ! write(66,'(100i1)') ibase(:,:)
-  ! write(66,*) 'IAREA:'
-  ! write(66,'(100i1)') iarea(:,:)
 
     !-----------------------------
     ! set wet_c and wet_e to 1 at sea points including boundaries
@@ -2747,13 +2725,6 @@ CONTAINS
     z_sync_c(:,:) =  REAL(v_base%regio_c(:,:),wp)
     CALL sync_patch_array(SYNC_C, p_patch, z_sync_c(:,:))
     v_base%regio_c(:,:) = INT(z_sync_c(:,:))
-
-    z_sync_c(:,:) =  v_base%rbasin_c(:,:)
-    CALL sync_patch_array(SYNC_C, p_patch, z_sync_c(:,:))
-    v_base%rbasin_c(:,:) = z_sync_c(:,:)
-    z_sync_c(:,:) =  v_base%rregio_c(:,:)
-    CALL sync_patch_array(SYNC_C, p_patch, z_sync_c(:,:))
-    v_base%rregio_c(:,:) = z_sync_c(:,:)
 
     DO jk = 1, n_zlev
 
@@ -2990,196 +2961,143 @@ CONTAINS
     !! 3-dim land-sea-mask at cells, edges and vertices
     !
     ! cells
-    ALLOCATE(p_patch_3D%lsm_c(nproma,n_zlev,nblks_c),STAT=ist)
-    IF (ist /= SUCCESS) THEN
-      CALL finish (routine,'allocating lsm_c failed')
-    ENDIF
+    CALL add_var(ocean_default_list, 'lsm_c', p_patch_3D%lsm_c, &
+    &            GRID_UNSTRUCTURED_CELL, &
+    &            ZA_DEPTH_BELOW_SEA, &
+    &            t_cf_var('lsm_c','','3d lsm on cells', DATATYPE_INT8),&
+    &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+    &            ldims=(/nproma,n_zlev,nblks_c/),isteptype=TSTEP_CONSTANT)
     ! edges
-    ALLOCATE(p_patch_3D%lsm_e(nproma,n_zlev,nblks_e),STAT=ist)
-    IF (ist /= SUCCESS) THEN
-      CALL finish (routine,'allocating lsm_e failed')
-    ENDIF
+    CALL add_var(ocean_default_list, 'lsm_e', p_patch_3D%lsm_e, &
+    &            GRID_UNSTRUCTURED_EDGE, &
+    &            ZA_DEPTH_BELOW_SEA, &
+    &            t_cf_var('lsm_e','','3d lsm on edges', DATATYPE_INT8),&
+    &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_EDGE),&
+    &            ldims=(/nproma,n_zlev,nblks_e/),isteptype=TSTEP_CONSTANT)
     ! surface vertices
-    ALLOCATE(p_patch_3D%surface_lsm_v(nproma,nblks_v),STAT=ist)
-    IF (ist /= SUCCESS) THEN
-      CALL finish (routine,'allocating surface_lsm_v failed')
-    ENDIF
+    CALL add_var(ocean_default_list, 'surface_lsm_v', p_patch_3D%surface_lsm_v , &
+    &          GRID_UNSTRUCTURED_VERT, ZA_SURFACE, &
+    &          t_cf_var('surface_lsm_v', '', 'surface_lsm_v', DATATYPE_INT8),&
+    &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_VERTEX),&
+    &          ldims=(/nproma,nblks_v/),isteptype=TSTEP_CONSTANT)
     ! deepest ocean layer in column
-    ALLOCATE(p_patch_3D%p_patch_1D(n_dom)%dolic_c(nproma,nblks_c),STAT=ist)
-    IF (ist /= SUCCESS) THEN
-      CALL finish (routine,'allocating dolic_c failed')
-    ENDIF
-    ALLOCATE(p_patch_3D%p_patch_1D(n_dom)%dolic_e(nproma,nblks_e),STAT=ist)
-    IF (ist /= SUCCESS) THEN
-      CALL finish (routine,'allocating dolic_e failed')
-    ENDIF
+    CALL add_var(ocean_default_list, 'dolic_c', p_patch_3D%p_patch_1D(n_dom)%dolic_c , &
+    &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+    &          t_cf_var('dolic_c', 'm', 'dolic_c', DATATYPE_INT8),&
+    &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+    &          ldims=(/nproma,nblks_c/),isteptype=TSTEP_CONSTANT)
+    CALL add_var(ocean_default_list, 'dolic_e', p_patch_3D%p_patch_1D(n_dom)%dolic_e , &
+    &          GRID_UNSTRUCTURED_EDGE, ZA_SURFACE, &
+    &          t_cf_var('dolic_e', 'm', 'dolic_e', DATATYPE_FLT32),&
+    &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_EDGE),&
+    &          ldims=(/nproma,nblks_e/),isteptype=TSTEP_CONSTANT)
     ! 2-dim basins and areas
-    ALLOCATE(p_patch_3D%basin_c(nproma,nblks_c),STAT=ist)
-    IF (ist /= SUCCESS) THEN
-      CALL finish (routine,'allocating basin_c failed')
-    ENDIF
-    ALLOCATE(p_patch_3D%regio_c(nproma,nblks_c),STAT=ist)
-    IF (ist /= SUCCESS) THEN
-      CALL finish (routine,'allocating regio_c failed')
-    ENDIF
-    ALLOCATE(p_patch_3D%rbasin_c(nproma,nblks_c),STAT=ist)
-    IF (ist /= SUCCESS) THEN
-      CALL finish (routine,'allocating basin_c failed')
-    ENDIF
-    ALLOCATE(p_patch_3D%rregio_c(nproma,nblks_c),STAT=ist)
-    IF (ist /= SUCCESS) THEN
-      CALL finish (routine,'allocating regio_c failed')
-    ENDIF
+    CALL add_var(ocean_default_list, 'basin_c', p_patch_3D%basin_c , &
+    &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+    &          t_cf_var('basin_c', '', 'basin_c', DATATYPE_INT8),&
+    &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+    &          ldims=(/nproma,nblks_c/),isteptype=TSTEP_CONSTANT)
+    CALL add_var(ocean_default_list, 'regio_c', p_patch_3D%regio_c , &
+    &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+    &          t_cf_var('regio_c', '', 'regio_c', DATATYPE_INT8),&
+    &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+    &          ldims=(/nproma,nblks_c/),isteptype=TSTEP_CONSTANT)
     ! 2-dim bottom and column thickness
-    ALLOCATE(p_patch_3D%bottom_thick_c(nproma,nblks_c),STAT=ist)
-    IF (ist /= SUCCESS) THEN
-      CALL finish (routine,'allocating bottom_thick_c failed')
-    ENDIF
-    ALLOCATE(p_patch_3D%bottom_thick_e(nproma,nblks_e),STAT=ist)
-    IF (ist /= SUCCESS) THEN
-      CALL finish (routine,'allocating bottom_thick_e failed')
-    ENDIF
-    ALLOCATE(p_patch_3D%column_thick_c(nproma,nblks_c),STAT=ist)
-    IF (ist /= SUCCESS) THEN
-      CALL finish (routine,'allocating column_thick_c failed')
-    ENDIF
-    ALLOCATE(p_patch_3D%column_thick_e(nproma,nblks_e),STAT=ist)
-    IF (ist /= SUCCESS) THEN
-      CALL finish (routine,'allocating column_thick_e failed')
-    ENDIF
+    CALL add_var(ocean_default_list, 'bottom_thick_c', p_patch_3D%bottom_thick_c , &
+    &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+    &          t_cf_var('bottom_thick_c', 'm', 'bottom_thick_c', DATATYPE_FLT32),&
+    &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+    &          ldims=(/nproma,nblks_c/),isteptype=TSTEP_CONSTANT)
+    CALL add_var(ocean_default_list, 'bottom_thick_e', p_patch_3D%bottom_thick_e , &
+    &          GRID_UNSTRUCTURED_EDGE, ZA_SURFACE, &
+    &          t_cf_var('bottom_thick_e', 'm', 'bottom_thick_e', DATATYPE_FLT32),&
+    &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_EDGE),&
+    &          ldims=(/nproma,nblks_e/),isteptype=TSTEP_CONSTANT)
+    CALL add_var(ocean_default_list, 'column_thick_c', p_patch_3D%column_thick_c , &
+    &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+    &          t_cf_var('column_thick_c', 'm', 'column_thick_c', DATATYPE_FLT32),&
+    &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+    &          ldims=(/nproma,nblks_c/),isteptype=TSTEP_CONSTANT)
+    CALL add_var(ocean_default_list, 'column_thick_e', p_patch_3D%column_thick_e , &
+    &          GRID_UNSTRUCTURED_EDGE, ZA_SURFACE, &
+    &          t_cf_var('column_thick_e', 'm', 'column_thick_e', DATATYPE_FLT32),&
+    &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_EDGE),&
+    &          ldims=(/nproma,nblks_e/),isteptype=TSTEP_CONSTANT)
     ! 3-dim real land-sea-mask
     ! cells
     CALL add_var(ocean_default_list, 'wet_c', p_patch_3D%wet_c , GRID_UNSTRUCTURED_CELL,&
     &            ZA_DEPTH_BELOW_SEA, &
     &            t_cf_var('wet_c', 'kg/m^3', '3d lsm on cells', DATATYPE_FLT32),&
     &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
-    &            ldims=(/nproma,n_zlev,nblks_c/))
+    &            ldims=(/nproma,n_zlev,nblks_c/),isteptype=TSTEP_CONSTANT)
     ! edges
     CALL add_var(ocean_default_list, 'wet_e', p_patch_3D%wet_e , GRID_UNSTRUCTURED_EDGE,&
     &            ZA_DEPTH_BELOW_SEA, &
     &            t_cf_var('wet_e', 'kg/m^3', '3d lsm on edges', DATATYPE_FLT32),&
     &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_EDGE),&
-    &            ldims=(/nproma,n_zlev,nblks_e/))
+    &            ldims=(/nproma,n_zlev,nblks_e/),isteptype=TSTEP_CONSTANT)
 
     p_patch_3D%p_patch_1D(n_dom)%del_zlev_m = 0._wp
     p_patch_3D%p_patch_1D(n_dom)%del_zlev_i = 0._wp
     p_patch_3D%p_patch_1D(n_dom)%zlev_m     = 0._wp
     p_patch_3D%p_patch_1D(n_dom)%zlev_i     = 0._wp
 
-    p_patch_3D%p_patch_1D(n_dom)%dolic_c = 0
-    p_patch_3D%p_patch_1D(n_dom)%dolic_e = 0
-
-    p_patch_3D%wet_c = 0.0_wp
-    p_patch_3D%wet_e = 0.0_wp
-
-
-    p_patch_3D%lsm_c = 0
-    p_patch_3D%lsm_e = 0
-
-    p_patch_3D%basin_c = 0
-    p_patch_3D%regio_c = 0
-
-    p_patch_3D%rbasin_c = 0.0_wp
-    p_patch_3D%rregio_c = 0.0_wp
-
-    p_patch_3D%bottom_thick_c = 0.0_wp
-    p_patch_3D%bottom_thick_e = 0.0_wp
-    p_patch_3D%column_thick_c = 0.0_wp
-    p_patch_3D%column_thick_e = 0.0_wp
-
-   ALLOCATE(p_patch_3D%p_patch_1D(1)%prism_thick_c(nproma,n_zlev,nblks_c),STAT=ist)
-    IF (ist /= SUCCESS) THEN
-      CALL finish (routine,'allocating prism_thick_c failed')
-    ENDIF
-
-   ALLOCATE(p_patch_3D%p_patch_1D(1)%prism_thick_e(nproma,n_zlev,nblks_e),STAT=ist)
-    IF (ist /= SUCCESS) THEN
-      CALL finish (routine,'allocating prism_thick_e failed')
-    ENDIF
-   ALLOCATE(p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(nproma,n_zlev,nblks_c),STAT=ist)
-    IF (ist /= SUCCESS) THEN
-      CALL finish (routine,'allocating prism_thick_flat_sfc_c failed')
-    ENDIF
-   ALLOCATE(p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_e(nproma,n_zlev,nblks_e),STAT=ist)
-    IF (ist /= SUCCESS) THEN
-      CALL finish (routine,'allocating prism_thick_flat_sfc_e failed')
-    ENDIF
-  ALLOCATE(p_patch_3D%p_patch_1D(1)%inv_prism_thick_c(nproma,n_zlev,nblks_c),STAT=ist)
-    IF (ist /= SUCCESS) THEN
-      CALL finish (routine,'allocating inv_prism_thick_c failed')
-    ENDIF
-  ALLOCATE(p_patch_3D%p_patch_1D(1)%prism_center_dist_c(nproma,n_zlev,nblks_c),STAT=ist)
-    IF (ist /= SUCCESS) THEN
-      CALL finish (routine,'allocating prism_center_dist_c failed')
-    ENDIF
-   ALLOCATE(p_patch_3D%p_patch_1D(1)%inv_prism_thick_e(nproma,n_zlev,nblks_e),STAT=ist)
-    IF (ist /= SUCCESS) THEN
-      CALL finish (routine,'allocating inv_prism_thick_e failed')
-    ENDIF
-   ALLOCATE(p_patch_3D%p_patch_1D(1)%inv_prism_center_dist_c(nproma,n_zlev,nblks_e),STAT=ist)
-    IF (ist /= SUCCESS) THEN
-      CALL finish (routine,'allocating prism_center_dist_c failed')
-    ENDIF
-   ALLOCATE(p_patch_3D%p_patch_1D(1)%inv_prism_center_dist_e(nproma,n_zlev,nblks_e),STAT=ist)
-    IF (ist /= SUCCESS) THEN
-      CALL finish (routine,'allocating inv_prism_thick_e failed')
-    ENDIF
-!   CALL add_var(ocean_restart_list, 'prism_thick_c', p_patch_3D%p_patch_1D(1)%prism_thick_c, &
-!     &            GRID_UNSTRUCTURED_CELL, &
-!     &            ZAXIS_DEPTH_BELOW_SEA, &
-!     &            t_cf_var('cons thick','','prism thickness at cells', DATATYPE_FLT32),&
-!     &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
-!     &            ldims=(/nproma,n_zlev,nblks_c/),lrestart_cont=.TRUE.)
-!     CALL add_var(ocean_restart_list, 'prism_thick_e', p_patch_3D%p_patch_1D(n_dom)%prism_thick_e, &
-!     &            GRID_UNSTRUCTURED_CELL, &
-!     &            ZAXIS_DEPTH_BELOW_SEA, &
-!     &            t_cf_var('cons thick','','prism thickness at cells', DATATYPE_FLT32),&
-!     &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
-!     &            ldims=(/nproma,n_zlev,nblks_e/),lrestart_cont=.TRUE.)
-!     CALL add_var(ocean_restart_list, 'prism_thick_flat_sfc_c', p_patch_3D%p_patch_1D(n_dom)%prism_thick_flat_sfc_c, &
-!     &            GRID_UNSTRUCTURED_CELL, &
-!     &            ZAXIS_DEPTH_BELOW_SEA, &
-!     &            t_cf_var('prism_thick_flat_sfc_c','','time independent depth at cells', DATATYPE_FLT32),&
-!     &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
-!     &            ldims=(/nproma,n_zlev,nblks_c/),lrestart_cont=.TRUE.)
-!     CALL add_var(ocean_restart_list, 'prism_thick_flat_sfc_e', p_patch_3D%p_patch_1D(n_dom)%prism_thick_flat_sfc_e, &
-!     &            GRID_UNSTRUCTURED_CELL, &
-!     &            ZAXIS_DEPTH_BELOW_SEA, &
-!     &            t_cf_var('prism_thick_flat_sfc_c','','time independent depth at edges', DATATYPE_FLT32),&
-!     &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_EDGE),&
-!     &            ldims=(/nproma,n_zlev,nblks_e/),lrestart_cont=.TRUE.)
-!     CALL add_var(ocean_restart_list, 'inverse prism_thick_c', p_patch_3D%p_patch_1D(n_dom)%inv_prism_thick_c, &
-!     &            GRID_UNSTRUCTURED_CELL, &
-!     &            ZAXIS_DEPTH_BELOW_SEA, &
-!     &            t_cf_var('inverse prism_thick_c','','time independent depth at cells', DATATYPE_FLT32),&
-!     &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
-!     &            ldims=(/nproma,n_zlev,nblks_c/),lrestart_cont=.TRUE.)
-!     CALL add_var(ocean_restart_list, 'prism_center_dist_c', p_patch_3D%p_patch_1D(n_dom)%prism_center_dist_c, &
-!     &            GRID_UNSTRUCTURED_CELL, &
-!     &            ZAXIS_DEPTH_BELOW_SEA, &
-!     &            t_cf_var('prism_center_dist_c','','dist between prism centers', DATATYPE_FLT32),&
-!     &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
-!     &            ldims=(/nproma,n_zlev,nblks_c/),lrestart_cont=.TRUE.)
-!     CALL add_var(ocean_restart_list, 'inverse prism_thick_e', p_patch_3D%p_patch_1D(n_dom)%inv_prism_thick_e, &
-!     &            GRID_UNSTRUCTURED_CELL, &
-!     &            ZAXIS_DEPTH_BELOW_SEA, &
-!     &            t_cf_var('prism_thick_flat_sfc_c','','time independent depth at edges', DATATYPE_FLT32),&
-!     &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_EDGE),&
-!     &            ldims=(/nproma,n_zlev,nblks_e/),lrestart_cont=.TRUE.)
-!     CALL add_var(ocean_restart_list, 'inverse prism center distance at cell', &
-!     &            p_patch_3D%p_patch_1D(n_dom)%inv_prism_center_dist_c, &
-!     &            GRID_UNSTRUCTURED_CELL, &
-!     &            ZAXIS_DEPTH_BELOW_SEA, &
-!     &            t_cf_var('inverse inv_prism_center_dist_c','','inverse of dist between prism centers at cells', DATATYPE_FLT32),&
-!     &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
-!     &            ldims=(/nproma,n_zlev,nblks_c/),lrestart_cont=.TRUE.)
-!     CALL add_var(ocean_restart_list, 'inverse prism center distance at edge', &
-!     &            p_patch_3D%p_patch_1D(n_dom)%inv_prism_center_dist_e, &
-!     &            GRID_UNSTRUCTURED_CELL, &
-!     &            ZAXIS_DEPTH_BELOW_SEA, &
-!     &            t_cf_var('inverse inv_prism_center_dist_e','','inverse of dist betweenprism centers at edges', DATATYPE_FLT32),&
-!     &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_EDGE),&
-!     &            ldims=(/nproma,n_zlev,nblks_e/),lrestart_cont=.TRUE.)
+    CALL add_var(ocean_default_list, 'prism_thick_c', p_patch_3D%p_patch_1D(1)%prism_thick_c, &
+    &            GRID_UNSTRUCTURED_CELL, &
+    &            ZA_DEPTH_BELOW_SEA, &
+    &            t_cf_var('cons thick','','prism thickness at cells', DATATYPE_FLT32),&
+    &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+    &            ldims=(/nproma,n_zlev,nblks_c/),isteptype=TSTEP_CONSTANT)
+    CALL add_var(ocean_default_list, 'prism_thick_e', p_patch_3D%p_patch_1D(n_dom)%prism_thick_e, &
+    &            GRID_UNSTRUCTURED_CELL, &
+    &            ZA_DEPTH_BELOW_SEA, &
+    &            t_cf_var('cons thick','','prism thickness at cells', DATATYPE_FLT32),&
+    &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+    &            ldims=(/nproma,n_zlev,nblks_e/),isteptype=TSTEP_CONSTANT)
+    CALL add_var(ocean_default_list, 'prism_thick_flat_sfc_c', p_patch_3D%p_patch_1D(n_dom)%prism_thick_flat_sfc_c, &
+    &            GRID_UNSTRUCTURED_CELL, &
+    &            ZA_DEPTH_BELOW_SEA, &
+    &            t_cf_var('prism_thick_flat_sfc_c','','time independent depth at cells', DATATYPE_FLT32),&
+    &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+    &            ldims=(/nproma,n_zlev,nblks_c/),isteptype=TSTEP_CONSTANT)
+    CALL add_var(ocean_default_list, 'prism_thick_flat_sfc_e', p_patch_3D%p_patch_1D(n_dom)%prism_thick_flat_sfc_e, &
+    &            GRID_UNSTRUCTURED_CELL, &
+    &            ZA_DEPTH_BELOW_SEA, &
+    &            t_cf_var('prism_thick_flat_sfc_c','','time independent depth at edges', DATATYPE_FLT32),&
+    &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_EDGE),&
+    &            ldims=(/nproma,n_zlev,nblks_e/),isteptype=TSTEP_CONSTANT)
+    CALL add_var(ocean_default_list, 'inverse prism_thick_c', p_patch_3D%p_patch_1D(n_dom)%inv_prism_thick_c, &
+    &            GRID_UNSTRUCTURED_CELL, &
+    &            ZA_DEPTH_BELOW_SEA, &
+    &            t_cf_var('inverse prism_thick_c','','time independent depth at cells', DATATYPE_FLT32),&
+    &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+    &            ldims=(/nproma,n_zlev,nblks_c/),isteptype=TSTEP_CONSTANT)
+    CALL add_var(ocean_default_list, 'prism_center_dist_c', p_patch_3D%p_patch_1D(n_dom)%prism_center_dist_c, &
+    &            GRID_UNSTRUCTURED_CELL, &
+    &            ZA_DEPTH_BELOW_SEA, &
+    &            t_cf_var('prism_center_dist_c','','dist between prism centers', DATATYPE_FLT32),&
+    &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+    &            ldims=(/nproma,n_zlev,nblks_c/),isteptype=TSTEP_CONSTANT)
+    CALL add_var(ocean_default_list, 'inv_prism_thick_e', p_patch_3D%p_patch_1D(n_dom)%inv_prism_thick_e, &
+    &            GRID_UNSTRUCTURED_CELL, &
+    &            ZA_DEPTH_BELOW_SEA, &
+    &            t_cf_var('prism_thick_flat_sfc_c','','time independent depth at edges', DATATYPE_FLT32),&
+    &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_EDGE),&
+    &            ldims=(/nproma,n_zlev,nblks_e/),isteptype=TSTEP_CONSTANT)
+    CALL add_var(ocean_default_list, 'inv_prism_center_dist_c', &
+    &            p_patch_3D%p_patch_1D(n_dom)%inv_prism_center_dist_c, &
+    &            GRID_UNSTRUCTURED_CELL, &
+    &            ZA_DEPTH_BELOW_SEA, &
+    &            t_cf_var('inv_prism_center_dist_c','','inverse of dist between prism centers at cells', DATATYPE_FLT32),&
+    &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+    &            ldims=(/nproma,n_zlev,nblks_c/),isteptype=TSTEP_CONSTANT)
+    CALL add_var(ocean_default_list, 'inv_prism_center_dist_e', &
+    &            p_patch_3D%p_patch_1D(n_dom)%inv_prism_center_dist_e, &
+    &            GRID_UNSTRUCTURED_CELL, &
+    &            ZA_DEPTH_BELOW_SEA, &
+    &            t_cf_var('inv_prism_center_dist_e','','inverse of dist betweenprism centers at edges', DATATYPE_FLT32),&
+    &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_EDGE),&
+    &            ldims=(/nproma,n_zlev,nblks_e/),isteptype=TSTEP_CONSTANT)
 
   END SUBROUTINE construct_patch_3D
 
@@ -3307,8 +3225,6 @@ CONTAINS
       
     p_patch_3D%basin_c  = v_base%basin_c
     p_patch_3D%regio_c  = v_base%regio_c
-    p_patch_3D%rbasin_c = v_base%rbasin_c
-    p_patch_3D%rregio_c = v_base%rregio_c
 
     p_patch_3D%p_patch_1D(1)%dolic_c = v_base%dolic_c
     p_patch_3D%p_patch_1D(1)%dolic_e = v_base%dolic_e
