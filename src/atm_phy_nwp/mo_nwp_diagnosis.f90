@@ -241,7 +241,8 @@ CONTAINS
         CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
           & i_startidx, i_endidx, rl_start, rl_end)
 
-        ! cloud cover
+        ! cloud cover calculation
+        ! note: the conversion into % is done within the internal output postprocessing
         DO jc = i_startidx, i_endidx
           clearsky(jc) = 1._wp - prm_diag%clc(jc,kstart_moist,jb)
         ENDDO
@@ -256,7 +257,7 @@ CONTAINS
 
         ! store high-level clouds
         DO jc = i_startidx, i_endidx
-          prm_diag%clch(jc,jb) = 100._wp*MAX( 0._wp, 1._wp - clearsky(jc) - eps_clc)
+          prm_diag%clch(jc,jb) = MAX( 0._wp, 1._wp - clearsky(jc) - eps_clc)
         ENDDO
 
         ! continue downward for total cloud cover
@@ -268,9 +269,9 @@ CONTAINS
           ENDDO
         ENDDO
 
-        ! store total cloud cover (in %), start for mid-level clouds
+        ! store total cloud cover, start for mid-level clouds
         DO jc = i_startidx, i_endidx
-          prm_diag%clct(jc,jb)           = 100._wp*MAX( 0._wp, 1._wp - clearsky(jc) - eps_clc)
+          prm_diag%clct(jc,jb) = MAX( 0._wp, 1._wp - clearsky(jc) - eps_clc)
           clearsky(jc) = 1._wp - prm_diag%clc(jc,ih_clch+1,jb)
         ENDDO
 
@@ -285,7 +286,7 @@ CONTAINS
 
         ! store mid-level cloud cover, start for low-level clouds
         DO jc = i_startidx, i_endidx
-          prm_diag%clcm(jc,jb) = 100._wp*MAX( 0._wp, 1._wp - clearsky(jc) - eps_clc)
+          prm_diag%clcm(jc,jb) = MAX( 0._wp, 1._wp - clearsky(jc) - eps_clc)
 
           clearsky(jc) = 1._wp - prm_diag%clc(jc,ih_clcm+1,jb)
         ENDDO
@@ -301,7 +302,7 @@ CONTAINS
 
         ! store low-level clouds
         DO jc = i_startidx, i_endidx
-          prm_diag%clcl(jc,jb) = 100._wp*MAX( 0._wp, 1._wp - clearsky(jc) - eps_clc)
+          prm_diag%clcl(jc,jb) = MAX( 0._wp, 1._wp - clearsky(jc) - eps_clc)
         ENDDO
 
       ENDDO ! nblks

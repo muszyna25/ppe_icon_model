@@ -555,13 +555,16 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
 
 
     ! &      diag%clct(nproma,nblks_c)
-    cf_desc      = t_cf_var('clct', '%', 'total cloud cover', DATATYPE_FLT32)
+    cf_desc      = t_cf_var('clct', '',  'total cloud cover', DATATYPE_FLT32)
+    new_cf_desc  = t_cf_var('clct', '%', 'total cloud cover', DATATYPE_FLT32)
     grib2_desc   = t_grib2_var(0, 6, 1, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, 'clct', diag%clct,                               &
       & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,              &
       & ldims=shape2d, lrestart=.FALSE.,                                      &
       & in_group=groups("additional_precip_vars"),                            &
-      & hor_interp=create_hor_interp_metadata(hor_intp_type=HINTP_TYPE_LONLAT_NNB ))
+      & hor_interp=create_hor_interp_metadata(hor_intp_type=HINTP_TYPE_LONLAT_NNB ), &
+      & post_op=post_op(POST_OP_SCALE, arg1=100._wp,                          &
+      &                 new_cf=new_cf_desc))
 
     ! &      diag%clch(nproma,nblks_c)
     cf_desc      = t_cf_var('clch', '', 'high_level_clouds',  DATATYPE_FLT32)
