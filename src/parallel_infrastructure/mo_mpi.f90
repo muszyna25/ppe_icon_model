@@ -1,3 +1,82 @@
+!> Basic module initializing the MPI communication and handling most
+!> of the MPI calls (wrapper functions).
+!
+!  Processors are divided into
+!    1.    worker PEs    : majority of MPI tasks, doing the actual work
+!    2.    I/O PEs       : dedicated I/O server tasks        (only for parallel_nml::num_io_procs > 0)
+!    3.    one test PE   : for verification runs             (only for parallel_nml::p_test_run == .TRUE.)
+!    4.    restart PEs   : for asynchronous restart writing  (only for parallel_nml::num_restart_procs > 0)
+!
+!  List of MPI communicators:
+!  --------------------------
+!  
+!       global_mpi_communicator
+!       
+!         description  : MPI communicator spanning all PEs running  (= MPI_COMM_WORLD).
+!         size         : global_mpi_size
+!         this PE's ID : my_global_mpi_id (= get_my_global_mpi_id())
+!       
+!       
+!       process_mpi_all_comm  (= get_my_mpi_all_communicator())
+!       
+!         description  : MPI communicator containing all PEs that are running this
+!                        model component. Different from global_mpi_communicator,
+!                        if master_nml::no_of_models > 1
+!         size         : process_mpi_all_size
+!         this PE's ID : my_process_mpi_all_id (= get_my_mpi_all_id())
+!       
+!       
+!       p_comm_work  (=get_my_mpi_work_communicator())
+!       
+!         description  : MPI communicator for work group. On I/O and test PEs this
+!                        defaults to process_mpi_all_comm.
+!         size         : num_work_procs (on worker PEs: num_work_procs==p_n_work)
+!         this PE's ID : p_pe_work (= get_my_mpi_work_id())
+!       
+!       
+!       ... less important MPI communicators ...
+!       
+!       p_comm_work_test (size = 0/1)
+!         description  : MPI communicator spanning work group and test PE
+!                        in verification mode parallel_nml::p_test_run == .TRUE.
+!       p_comm_work_io   (size: num
+!         description  : MPI communicator spanning work group and I/O PEs
+!       p_comm_work_2_io
+!         description  : Inter(!)communicator work PEs - I/O PEs
+!       p_comm_input_bcast
+!         description  : MPI communicator for broadcasts in NetCDF input
+!
+!
+!  Processor splitting
+!  -------------------
+!
+!       In order to improve the parallel load balancing, the domains
+!       of the first refinement level can be distributed to disjoint
+!       processor subsets. This distribution process is weighted by
+!       the namelist parameter grid_nml::patch_weight.  Since the
+!       processor sets are disjoint, MPI calls happen independently on
+!       each PE subset.
+!
+!       For global operations (sum, min, max in mo_sync), each patch
+!       contains additional data members which are initialized in
+!       mo_complete_subdivision::set_patch_communicators:
+!
+!       p_patch % comm
+!         description  : MPI communicator for this patch. If no processor
+!                        splitting enabled: p_patch%comm==p_comm_work.
+!         size         : p_patch%n_proc
+!         this PE's ID : p_patch%rank
+!
+!       p_patch % proc0
+!         description  : global id of processor with rank 0 (within the 
+!                        working set p_comm_work)
+!
+!       The global communicator which is currently in use is stored by
+!       a call to mo_mpi::push_glob_comm in the data structure
+!       mo_mpi::glob_comm(0:max_lev), where the level number is equal
+!       to 0 for the global grid, 1 for the first generation of child
+!       domains etc.
+!
 MODULE mo_mpi
 
   ! Comment: Please use basic WRITE to nerr for messaging in the whole
