@@ -1571,70 +1571,64 @@ MODULE mo_nh_initicon
 
       ! tile based fields
       DO jt=1, ntiles_total
-        WRITE(ct,'(i2)') jt
-        CALL read_data_2d (filetype, fileID, 'freshsnow_t_'//TRIM(ADJUSTL(ct)),    &
+        CALL read_data_2d (filetype, fileID, 'freshsnow',                          &
           &                p_patch(jg)%n_patch_cells_g,                            &
           &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-          &                p_lnd_state(jg)%diag_lnd%freshsnow_t(:,:,jt),           &
-          &                jt)
+          &                p_lnd_state(jg)%diag_lnd%freshsnow_t(:,:,jt) )
 
-        CALL read_data_2d (filetype, fileID, 'w_snow_t_'//TRIM(ADJUSTL(ct)),       &
+        CALL read_data_2d (filetype, fileID, 'w_snow',                             &
           &                p_patch(jg)%n_patch_cells_g,                            &
           &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-          &                p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_snow_t(:,:,jt),&
-          &                jt)
+          &                p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_snow_t(:,:,jt) )
 
-        CALL read_data_2d (filetype, fileID, 'w_i_t_'//TRIM(ADJUSTL(ct)),          &
+        CALL read_data_2d (filetype, fileID, 'w_i',                                &
           &                p_patch(jg)%n_patch_cells_g,                            &
           &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-          &                p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_i_t(:,:,jt),   &
-          &                jt)
+          &                p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_i_t(:,:,jt) )
 
-        IF (lmulti_snow) THEN
-          CALL read_data_3d (filetype, fileID,'t_snow_mult_t_'//TRIM(ADJUSTL(ct)),   &
+!!$        IF (lmulti_snow) THEN
+!!$          CALL read_data_3d (filetype, fileID,'t_snow_m',                            &
+!!$            &                p_patch(jg)%n_patch_cells_g,                            &
+!!$            &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+!!$            &                nlev_snow+1,                                            &
+!!$            &                p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_snow_mult_t(:,:,:,jt))
+!!$
+!!$          CALL read_data_3d (filetype, fileID, 'rho_snow_m',                         &
+!!$            &                p_patch(jg)%n_patch_cells_g,                            &
+!!$            &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+!!$            &                nlev_snow,                                              &
+!!$            &                p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%rho_snow_mult_t(:,:,:,jt))
+!!$        ELSE
+          CALL read_data_2d (filetype, fileID,'t_snow',                              &
             &                p_patch(jg)%n_patch_cells_g,                            &
             &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-            &                nlev_snow+1,                                            &
-            &                p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_snow_mult_t(:,:,:,jt), &
-            &                jt)
+            &                p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_snow_t(:,:,jt) )
 
-          CALL read_data_3d (filetype, fileID, 'rho_snow_mult_t_'//TRIM(ADJUSTL(ct)),&
+          CALL read_data_2d (filetype, fileID, 'rho_snow',                           &
             &                p_patch(jg)%n_patch_cells_g,                            &
             &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-            &                nlev_snow,                                              &
-            &                p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%rho_snow_mult_t(:,:,:,jt),&
-            &                jt)
-        ELSE
-          CALL read_data_2d (filetype, fileID,'t_snow_t_'//TRIM(ADJUSTL(ct)),        &
-            &                p_patch(jg)%n_patch_cells_g,                            &
-            &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-            &                p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_snow_t(:,:,jt), &
-            &                jt)
-
-          CALL read_data_2d (filetype, fileID, 'rho_snow_t_'//TRIM(ADJUSTL(ct)),     &
-            &                p_patch(jg)%n_patch_cells_g,                            &
-            &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-            &                p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%rho_snow_t(:,:,jt),&
-            &                jt)
-        ENDIF
+            &                p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%rho_snow_t(:,:,jt))
+!!$        ENDIF
 
 
         ! multi layer fields
 
-        CALL read_data_3d (filetype, fileID, 'w_so_t_'//TRIM(ADJUSTL(ct)),            &
+        CALL read_data_3d (filetype, fileID, 'w_so',                                  &
           &                p_patch(jg)%n_patch_cells_g,                               &
           &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,    &
-          &                nlev_soil, p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_so_t(:,:,:,jt), &
-          &                jt)
+          &                nlev_soil, p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_so_t(:,:,:,jt))
 
-        CALL read_data_3d (filetype, fileID, 't_so_t_'//TRIM(ADJUSTL(ct)),            &
+        ! so far w_so_ice is re-initialized in terra_multlay_init
+        CALL read_data_3d (filetype, fileID, 'w_so_ice',                              &
           &                p_patch(jg)%n_patch_cells_g,                               &
           &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,    &
-          &                nlev_soil+1, p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_so_t(:,:,:,jt), &
-          &                jt)
+          &                nlev_soil, p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_so_ice_t(:,:,:,jt))
 
-        ! DR: how about w_so_ice_t ??
-        ! w_so_ice is initialized in terra_multlay_init
+        CALL read_data_3d (filetype, fileID, 't_so',                                  &
+          &                p_patch(jg)%n_patch_cells_g,                               &
+          &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,    &
+          &                nlev_soil+1, p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_so_t(:,:,:,jt))
+
       ENDDO 
 
       ! close file

@@ -94,7 +94,8 @@ MODULE mo_ext_data_state
     &                              new_var_list,                &
     &                              delete_var_list,             &
     &                              create_vert_interp_metadata, &
-    &                              create_hor_interp_metadata, post_op
+    &                              create_hor_interp_metadata, post_op, &
+    &                              groups
   USE mo_var_metadata,       ONLY: POST_OP_SCALE
   USE mo_master_nml,         ONLY: model_base_dir
   USE mo_cf_convention,      ONLY: t_cf_var
@@ -676,7 +677,8 @@ CONTAINS
     CALL add_var( p_ext_atm_list, 'fr_land', p_ext_atm%fr_land,   &
       &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
       &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,    &
-      &           isteptype=TSTEP_CONSTANT )
+      &           isteptype=TSTEP_CONSTANT,                       &
+      &           in_group=groups("dwd_ana_vars") )
 
 
     ! glacier fraction
