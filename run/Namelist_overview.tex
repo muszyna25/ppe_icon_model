@@ -1800,10 +1800,11 @@ top height (AGL) of layer used for gradient computation&
 
 \hline 
 l\_sst\_in&
-L & .FALSE.& &
+L & .TRUE.& &
 Logical switch. If true, the surface temperature of the water sea points is initialized 
 with the SST provided in the ifs2icon file. If false, it is initialized with the skin 
 temperature. If the SST is not provided in the ifs2icon file,l\_sst\_in is reset to false.  &
+init\_mode=2
 \tabularnewline
 
 \hline 
@@ -1837,12 +1838,12 @@ and \texttt{idom} defining the current patch. & init\_mode=1
 \tabularnewline
 
 \hline 
-dwdinc\_filename&
+dwdana\_filename&
 C &
 &
 &
-Filename of DWD analysis increments input file, default
-''\texttt{<path>dwdinc\_R<nroot>B<jlev>\_DOM<idom>.nc}''.
+Filename of DWD analysis input file, default
+''\texttt{<path>dwdana\_R<nroot>B<jlev>\_DOM<idom>.nc}''.
 May contain the keywords \texttt{<path>} which will be substituted by
 \texttt{model\_base\_dir}, as well as \texttt{nroot}, \texttt{jlev},
 and \texttt{idom} defining the current patch. & init\_mode=1
@@ -5830,6 +5831,12 @@ model expects {\bf height based} coordinates. For further information see <icon 
   \begin{itemize}
    \item Introduced new namelist variable \textbf{albedo\_type}
    \item If set to $2$, the surface albedo will be based on the MODIS data set.
+  \end{itemize}
+\end{changeitem}
+
+\begin{changeitem}{initicon\_nml: dwdinc\_filename}{ 2013-05-24 }{ 12266 }
+  \begin{itemize}
+   \item Renamed dwdinc\_filename to dwdana\_filename
   \end{itemize}
 \end{changeitem}
 

@@ -48,7 +48,7 @@ MODULE mo_initicon_config
   PUBLIC :: l_coarse2fine_mode
   PUBLIC :: ifs2icon_filename
   PUBLIC :: dwdfg_filename
-  PUBLIC :: dwdinc_filename
+  PUBLIC :: dwdana_filename
   PUBLIC :: generate_filename
   PUBLIC :: filetype
   PUBLIC :: ana_varnames_map_file
@@ -82,9 +82,9 @@ MODULE mo_initicon_config
   ! dwdfg_filename = "<path>dwdFG_R<nroot>B<jlev>_DOM<idom>.nc"
   CHARACTER(LEN=filename_max) :: dwdfg_filename
 
-  ! DWD-inc input filename, may contain keywords, by default
-  ! dwdinc_filename = "<path>dwdinc_R<nroot>B<jlev>_DOM<idom>.nc"
-  CHARACTER(LEN=filename_max) :: dwdinc_filename
+  ! DWD-ANA input filename, may contain keywords, by default
+  ! dwdana_filename = "<path>dwdana_R<nroot>B<jlev>_DOM<idom>.nc"
+  CHARACTER(LEN=filename_max) :: dwdana_filename
 
   ! analysis file: dictionary which maps internal variable names onto
   ! GRIB2 shortnames or NetCDF var names.

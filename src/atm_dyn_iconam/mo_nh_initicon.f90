@@ -57,7 +57,7 @@ MODULE mo_nh_initicon
   USE mo_grf_intp_data_strc,  ONLY: t_gridref_state
   USE mo_nh_initicon_types,   ONLY: t_initicon_state
   USE mo_initicon_config,     ONLY: init_mode, nlev_in, nlevsoil_in, l_hice_in, l_sst_in, &
-    &                               ifs2icon_filename, dwdfg_filename, dwdinc_filename,   &
+    &                               ifs2icon_filename, dwdfg_filename, dwdana_filename,   &
     &                               generate_filename,                                    &
     &                               nml_filetype => filetype,                             &
     &                               ana_varnames_map_file
@@ -312,7 +312,7 @@ MODULE mo_nh_initicon
 
 
     ! read data assimilation increment (land/surface only)
-!    CALL read_dwdinc_sfc()
+!    CALL read_dwdana_sfc()
 
     ! add increments to first guess and convert variables to 
     ! the NH set of prognostic variables
@@ -864,7 +864,6 @@ MODULE mo_nh_initicon
       routine = 'mo_nh_initicon:read_ifs_sfc'
 
     CHARACTER(LEN=filename_max) :: ifs2icon_file(max_dom)
-    LOGICAL :: l_sst_present     !TRUE if SST is present in the IFS input file
 
 
     !-------------------------------------------------------------------------
@@ -979,18 +978,11 @@ MODULE mo_nh_initicon
 
         ! Check, if sea surface temperature field is provided as input
         ! IF SST is missing, set l_sst_in=.FALSE.
-        IF (nf_inq_varid(ncid, 'SST', varid) == nf_noerr) THEN
-          WRITE (message_text,'(a,a)')                            &
-            &  'sea surface temperature available'
-          l_sst_present = .TRUE.
-
-        ELSE
-
+        IF (nf_inq_varid(ncid, 'SST', varid) /= nf_noerr) THEN
           WRITE (message_text,'(a,a)')                            &
             &  'sea surface temperature not available. ', &
             &  'initialize with skin temperature, instead.'
           CALL message(TRIM(routine),TRIM(message_text))
-          l_sst_present = .FALSE.
           l_sst_in = .FALSE.     !it has to be set to FALSE
         ENDIF
 
@@ -1008,8 +1000,6 @@ MODULE mo_nh_initicon
 
       CALL p_bcast(l_sst_in, p_io, mpi_comm)
 
-      CALL p_bcast(l_sst_present, p_io, mpi_comm)
-
       CALL p_bcast(alb_snow_var, p_io, mpi_comm)
 
 
@@ -1022,7 +1012,7 @@ MODULE mo_nh_initicon
       CALL read_netcdf_data (ncid, 'SKT', p_patch(jg)%n_patch_cells_g,                &
         &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
         &                     initicon(jg)%sfc_in%tskin)
-      IF ( l_sst_present) THEN
+      IF ( l_sst_in) THEN
        CALL read_netcdf_data (ncid, 'SST', p_patch(jg)%n_patch_cells_g,                &
          &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
          &                     initicon(jg)%sfc_in%sst)
@@ -1136,7 +1126,7 @@ MODULE mo_nh_initicon
       routine = 'mo_nh_initicon:read_dwdana_atm'
 
     CHARACTER(LEN=filename_max) :: dwdfg_file(max_dom)  ! first guess
-    CHARACTER(LEN=filename_max) :: dwdinc_file(max_dom) ! increments
+    CHARACTER(LEN=filename_max) :: dwdana_file(max_dom) ! analysis
 
     INTEGER :: filetype !< type of input file: FILETYPE_NC2 or FILETYPE_GRB2
 
@@ -1277,10 +1267,10 @@ MODULE mo_nh_initicon
 
 
     !-----------------------!
-    ! read in DA increments !
+    ! read in analysis      !
     !-----------------------!
 
-    ! DA increments are only read for the global domain
+    ! Analysis is read for the global domain, only.
     jg = 1
 
     IF(p_pe == p_io ) THEN 
@@ -1289,17 +1279,17 @@ MODULE mo_nh_initicon
       ! generate file name
       ! ----------------------
 
-      dwdinc_file(jg) = generate_filename(dwdinc_filename, model_base_dir, &
+      dwdana_file(jg) = generate_filename(dwdana_filename, model_base_dir, &
         &                                   nroot, jlev, jg)
-      INQUIRE (FILE=dwdinc_file(jg), EXIST=l_exist)
+      INQUIRE (FILE=dwdana_file(jg), EXIST=l_exist)
       IF (.NOT.l_exist) THEN
-        CALL finish(TRIM(routine),'DWD INC file not found: '//TRIM(dwdinc_file(jg)))
+        CALL finish(TRIM(routine),'DWD ANA file not found: '//TRIM(dwdana_file(jg)))
       ELSE
-        CALL message (TRIM(routine), 'read atm_inc fields from '//TRIM(dwdinc_file(jg)))
+        CALL message (TRIM(routine), 'read atm_ANA fields from '//TRIM(dwdana_file(jg)))
       ENDIF
 
       ! determine filetype
-      filetype = get_filetype(TRIM(dwdinc_file(jg)))
+      filetype = get_filetype(TRIM(dwdana_file(jg)))
 
       ! --------------------------------
       ! open file, read basic dimensions
@@ -1307,7 +1297,7 @@ MODULE mo_nh_initicon
 
       SELECT CASE(filetype)
       CASE (FILETYPE_NC2)
-        CALL nf(nf_open(TRIM(dwdinc_file(jg)), NF_NOWRITE, fileID), routine)
+        CALL nf(nf_open(TRIM(dwdana_file(jg)), NF_NOWRITE, fileID), routine)
         ! get number of cells
         CALL nf(nf_inq_dimid(fileID, 'ncells', dimid), routine)
         CALL nf(nf_inq_dimlen(fileID, dimid, no_cells), routine)
@@ -1322,17 +1312,17 @@ MODULE mo_nh_initicon
         ! check the number of cells and vertical levels
         IF( p_patch(jg)%n_patch_cells_g /= no_cells) THEN
           CALL finish(TRIM(ROUTINE),&
-               & 'Number of patch cells and cells in DWD inc file do not match.')
+               & 'Number of patch cells and cells in DWD ANA file do not match.')
         ENDIF
         
         IF(p_patch(jg)%nlev /= no_levels) THEN
           CALL finish(TRIM(ROUTINE),&
-               & 'nlev does not match the number of levels in DWD inc file.')
+               & 'nlev does not match the number of levels in DWD ANA file.')
         ENDIF
 
       CASE (FILETYPE_GRB2)
         CALL cdiDefMissval(cdimissval) 
-        fileID  = streamOpenRead(TRIM(dwdinc_file(jg)))
+        fileID  = streamOpenRead(TRIM(dwdana_file(jg)))
       CASE DEFAULT
         CALL finish(routine, "Unknown file type")
       END SELECT
@@ -1345,7 +1335,7 @@ MODULE mo_nh_initicon
     ! start reading DA output (atmosphere only)
     ! The dynamical variables temp, pres, u and v, which need further processing,
     ! are stored in initicon(jg)%atm. The moisture variables, which can be taken
-    ! over directly from the DA, are written to the NH prognostic state
+    ! over directly from the Analysis, are written to the NH prognostic state
     !
     CALL read_data_3d (filetype, fileID, 'temp', p_patch(jg)%n_patch_cells_g,        &
       &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,     &
@@ -1367,18 +1357,22 @@ MODULE mo_nh_initicon
       &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,     &
       &                  nlev, p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqv))
 
+    ! For the time being identical to qc from FG
     CALL read_data_3d (filetype, fileID, 'qc', p_patch(jg)%n_patch_cells_g,          &
       &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,     &
       &                  nlev, p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqc))
 
+    ! For the time being identical to qi from FG
     CALL read_data_3d (filetype, fileID, 'qi', p_patch(jg)%n_patch_cells_g,          &
       &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,     &
       &                  nlev, p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqi))
 
+    ! For the time being identical to qr from FG
     CALL read_data_3d (filetype, fileID, 'qr', p_patch(jg)%n_patch_cells_g,          &
       &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,     &
       &                  nlev, p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqr))
 
+    ! For the time being identical to qs from FG
     CALL read_data_3d (filetype, fileID, 'qs', p_patch(jg)%n_patch_cells_g,          &
       &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,     &
       &                  nlev, p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqs))
@@ -1723,9 +1717,14 @@ MODULE mo_nh_initicon
 
 
     ! allocate temporary arrays for nonhydrostatic pressure, DA increments and a filtering term for vn
-    ALLOCATE(zpres_nh(nproma,nlev,nblks_c),pres_incr(nproma,nlev,nblks_c),u_incr(nproma,nlev,nblks_c),&
-             v_incr(nproma,nlev,nblks_c),vn_incr(nproma,nlev,nblks_e),                                &
-             nabla4_vn_incr(nproma,nlev,nblks_e),w_incr(nproma,nlevp1,nblks_c), STAT=ist)
+    ALLOCATE(zpres_nh (nproma,nlev,nblks_c),  &
+             pres_incr(nproma,nlev,nblks_c),  &
+             u_incr   (nproma,nlev,nblks_c),  &
+             v_incr   (nproma,nlev,nblks_c),  &
+             vn_incr  (nproma,nlev,nblks_e),  &
+             w_incr   (nproma,nlevp1,nblks_c),&
+             nabla4_vn_incr(nproma,nlev,nblks_e), &
+             , STAT=ist)
     IF (ist /= SUCCESS) THEN
       CALL finish ( TRIM(routine), 'allocation of auxiliary arrays failed')
     ENDIF

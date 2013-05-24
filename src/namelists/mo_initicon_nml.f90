@@ -56,7 +56,7 @@ MODULE mo_initicon_nml
     & config_l_sst_in           => l_sst_in,          &
     & config_ifs2icon_filename  => ifs2icon_filename, &
     & config_dwdfg_filename     => dwdfg_filename,    &
-    & config_dwdinc_filename    => dwdinc_filename,   &
+    & config_dwdana_filename    => dwdana_filename,   &
     & config_l_coarse2fine_mode => l_coarse2fine_mode,&
     & config_filetype           => filetype,          &
     & config_ana_varnames_map_file => ana_varnames_map_file
@@ -93,9 +93,9 @@ MODULE mo_initicon_nml
   ! dwdfg_filename = "<path>dwdFG_R<nroot>B<jlev>_DOM<idom>.nc"
   CHARACTER(LEN=filename_max) :: dwdfg_filename
 
-  ! DWD-inc input filename, may contain keywords, by default
-  ! dwdinc_filename = "<path>dwdinc_R<nroot>B<jlev>_DOM<idom>.nc"
-  CHARACTER(LEN=filename_max) :: dwdinc_filename
+  ! DWD-ANA input filename, may contain keywords, by default
+  ! dwdana_filename = "<path>dwdana_R<nroot>B<jlev>_DOM<idom>.nc"
+  CHARACTER(LEN=filename_max) :: dwdana_filename
 
   ! analysis file: dictionary which maps internal variable names onto
   ! GRIB2 shortnames or NetCDF var names.
@@ -104,7 +104,7 @@ MODULE mo_initicon_nml
 
   NAMELIST /initicon_nml/ init_mode, nlev_in, zpbl1, zpbl2, l_coarse2fine_mode, &
                           nlevsoil_in, l_hice_in, l_sst_in, ifs2icon_filename,  &
-                          dwdfg_filename, dwdinc_filename, filetype,            &
+                          dwdfg_filename, dwdana_filename, filetype,            &
                           ana_varnames_map_file
   
 CONTAINS
@@ -141,12 +141,12 @@ CONTAINS
   zpbl1       = 500._wp     ! AGL heights used for computing vertical 
   zpbl2       = 1000._wp    ! gradients
   l_hice_in   = .FALSE.     ! true: sea-ice thickness field provided as input
-  l_sst_in    = .FALSE.     ! true: sea surface temperature field provided as input
+  l_sst_in    = .TRUE.      ! true: sea surface temperature field provided as input
   filetype    = -1          ! "-1": undefined
   ana_varnames_map_file = " "
   ifs2icon_filename = "<path>ifs2icon_R<nroot>B<jlev>_DOM<idom>.nc"
   dwdfg_filename    = "<path>dwdFG_R<nroot>B<jlev>_DOM<idom>.nc"
-  dwdinc_filename   = "<path>dwdinc_R<nroot>B<jlev>_DOM<idom>.nc"
+  dwdana_filename   = "<path>dwdana_R<nroot>B<jlev>_DOM<idom>.nc"
   l_coarse2fine_mode(:) = .FALSE. ! true: apply corrections for coarse-to-fine-mesh interpolation
 
   !------------------------------------------------------------
@@ -175,7 +175,7 @@ CONTAINS
   config_l_sst_in          = l_sst_in
   config_ifs2icon_filename = ifs2icon_filename
   config_dwdfg_filename    = dwdfg_filename
-  config_dwdinc_filename   = dwdinc_filename
+  config_dwdana_filename   = dwdana_filename
   config_l_coarse2fine_mode= l_coarse2fine_mode
   config_filetype          = filetype
   config_ana_varnames_map_file = ana_varnames_map_file
