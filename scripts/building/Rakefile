@@ -156,7 +156,7 @@ $excludeFiles = lambda {|build|
   list = "--exclude='.git/*'"
   list << " --exclude='experiments/**/*nc*' --exclude='**/*.o'  --exclude='build/*' --exclude='**/*.run' --exclude=config/mh-config-use --exclude=config.log --exclude=Makefile --exclude=build_command"
   list << " --exclude=config/mh-override --exclude=config/mh-config-use" if isRemote?(build)
-  list << " --exclude='.svn/*'"
+  list << " --exclude='.svn/*'" << " --exclude=config/setup-up.info"
   list
 }
 
@@ -203,6 +203,7 @@ def doClean(build)
   call(connect(build,"make clean"))
 end
 def doRun(build,exp='test_oce_default')
+  call(connect(build,"cd experiments/#{exp}; rm #{exp}*.nc"))
   call(connect(build,"./make_runscripts #{exp} ; cd run;./exp.#{exp}.run;"))
 end
 def doCheckExp(build,exp='test_oce_default')
