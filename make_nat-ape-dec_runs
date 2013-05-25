@@ -1139,7 +1139,7 @@ create_blizzard_test_01_03_2013()
   create_dec_run  "$setup_grid" "$setup_name" 7682 24
   icon_comm_method=102
   create_dec_run  "$setup_grid" "$setup_name" 7682 24
-  icon_comm_method=1023
+  icon_comm_method=103
   create_dec_run  "$setup_grid" "$setup_name" 7682 24
   #---------------------------------
   
@@ -1222,7 +1222,66 @@ create_thunder_test_01_03_2013()
 
 }
 #====================================================
-  create_thunder_test_01_03_2013
+
+#==============================================================================
+create_thunder_test()
+{
+  set_default_parameters
+  cpcommand="ln -s "
+  run="true"
+  msg_level=0
+
+  mpi_procs_pernode=16
+  openmp_threads=1
+
+
+  # grids_folder=/work/mh0287/leonidas.public/grids/grids.spr
+  nlevels=96
+  top_of_atmo=80000.
+  damp_height=60000.
+  itime_scheme=4
+  # use_dycore_barrier='.true.'
+  ndays=10
+  setup_name="nat-ape_${ndays}days"
+  grids_folder=""
+  restart=".false."
+  #==============================================================================
+  # old parallelization methods
+  use_icon_comm=".false."
+  iorder_sendrecv=1
+  icon_comm_method=0
+  parallel_radiation_mode=0
+  redrad_split_factor=0
+  division_method=1
+
+  #---------------------------------
+  # now try new setups with re-distribued radiation
+  use_icon_comm=".true."
+  icon_comm_method=1
+  parallel_radiation_mode=1
+  division_method=104
+  redrad_split_factor=8
+  #---------------------------------
+  setup_grid="iconR2B04-grid"
+  dtime=200
+  vwind_implicitness=0.5
+  advection_substepping=3
+  dt_rad=3600
+#  nodes_list=(  2  2  2  2  8  8  8  8)
+#  nproma_list=(16  8  4 32 16  8  4 32)
+  nodes_list=(  2  8)
+  nproma_list=(32 32)
+  icon_comm_method=1
+  create_strong_scaling "$setup_grid" "$setup_name"
+  icon_comm_method=2
+  create_strong_scaling "$setup_grid" "$setup_name"
+  icon_comm_method=3
+  create_strong_scaling "$setup_grid" "$setup_name"
+  #---------------------------------
+}
+#====================================================
+ 
+  create_thunder_test
   # create_blizzard_test_01_03_2013
   exit
   

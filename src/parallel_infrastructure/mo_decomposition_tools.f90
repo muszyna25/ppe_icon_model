@@ -237,8 +237,6 @@ CONTAINS
   
   !-------------------------------------------------------------------------
   !>
-  !! Makes a area subdivision for a subset of wrk_p_patch.
-  !!
   !!
   !! @par Revision History
   !! Initial version by Rainer Johanni, Nov 2009
@@ -265,8 +263,8 @@ CONTAINS
     ALLOCATE(cell_desc(4,no_of_cells))
 
 
-   ! domain decomposition for triangular cells with optional splitting into physical domains
-   DO cell = 1, no_of_cells
+    ! domain decomposition for triangular cells with optional splitting into physical domains
+    DO cell = 1, no_of_cells
 
       cell_desc(1,cell) = decomposition_struct%cell_geo_center(cell)%lat
       cell_desc(2,cell) = decomposition_struct%cell_geo_center(cell)%lon

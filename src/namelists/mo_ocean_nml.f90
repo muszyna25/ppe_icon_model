@@ -55,6 +55,7 @@ MODULE mo_ocean_nml
   USE mo_namelist,           ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_coupling_config,    ONLY: is_coupled_run
   USE mo_mpi,                ONLY: my_process_is_stdio
+  USE mo_ocean_config,       ONLY: config_ignore_land_points => ignore_land_points
 
   IMPLICIT NONE
 
@@ -359,12 +360,16 @@ MODULE mo_ocean_nml
 
     CHARACTER(LEN=*), INTENT(IN) :: filename
 
-     INTEGER :: i_status
+    LOGICAL  :: ignore_land_points = .false.
 
-     CHARACTER(len=max_char_length), PARAMETER :: &
+    NAMELIST/ocean_run_nml/ ignore_land_points
+
+    INTEGER :: i_status
+
+    CHARACTER(len=max_char_length), PARAMETER :: &
             routine = 'mo_ocean_nml/setup_ocean_nml:'
 
-     CALL message(TRIM(routine),'running the hydrostatic ocean model')
+    CALL message(TRIM(routine),'running the hydrostatic ocean model')
      
      !------------------------------------------------------------
      ! 4.0 set up the default values for ocean_nml
@@ -390,6 +395,16 @@ MODULE mo_ocean_nml
      ! (done so far by all MPI processes)
 
      CALL open_nml(TRIM(filename))
+
+     ! setup for the ocean_run_nml
+     ignore_land_points = config_ignore_land_points
+     CALL position_nml ('ocean_run_nml', status=i_status)
+     SELECT CASE (i_status)
+     CASE (positioned)
+       READ (nnml, ocean_run_nml)
+     END SELECT
+     config_ignore_land_points = ignore_land_points
+
      CALL position_nml ('ocean_dynamics_nml', status=i_status)
      SELECT CASE (i_status)
      CASE (positioned)

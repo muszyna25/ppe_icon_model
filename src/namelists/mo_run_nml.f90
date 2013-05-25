@@ -73,7 +73,7 @@ MODULE mo_run_nml
   USE mo_master_control, ONLY: is_restart_run
   USE mo_util_string,    ONLY: one_of
 
-  USE mo_io_restart_namelist,   ONLY: open_tmpfile, store_and_close_namelist,   &
+  USE mo_io_restart_namelist,  ONLY: open_tmpfile, store_and_close_namelist,   &
                                     & open_and_restore_namelist, close_tmpfile
 
   IMPLICIT NONE

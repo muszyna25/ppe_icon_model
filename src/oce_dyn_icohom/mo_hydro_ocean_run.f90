@@ -77,7 +77,7 @@ USE mo_oce_state,              ONLY: t_hydro_ocean_state, &
   &                                  construct_hydro_ocean_state, destruct_hydro_ocean_state, &
   &                                  init_coriolis_oce, init_oce_config, &
   &                                  set_lateral_boundary_values, construct_patch_3D, init_patch_3D, &
-  &                                  setup_ocean_namelists, ocean_default_list
+  &                                  setup_ocean_namelists, ocean_default_list, check_ocean_subsets
 USE mo_oce_math_operators,     ONLY: calc_thickness! , height_related_quantities
 USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff, allocate_exp_coeff,par_init_operator_coeff,&
   &                                  update_diffusion_matrices
@@ -109,8 +109,8 @@ USE mo_oce_diagnostics,        ONLY: calculate_oce_diagnostics,&
   &                                  calc_moc, calc_psi
 USE mo_oce_ab_timestepping_mimetic, ONLY: init_ho_lhs_fields_mimetic
 !USE mo_mpi,                    ONLY: my_process_is_mpi_all_parallel
-  USE mo_time_config,         ONLY: time_config
-  USE mo_master_control,        ONLY: is_restart_run
+  USE mo_time_config,          ONLY: time_config
+  USE mo_master_control,       ONLY: is_restart_run
 
 
 IMPLICIT NONE
@@ -442,6 +442,7 @@ CONTAINS
     CALL init_coriolis_oce(p_patch_3D%p_patch_2D(jg) )
     CALL init_patch_3D    (p_patch_3D,                p_ext_data(jg), v_base)
     !CALL init_patch_3D(p_patch_3D, v_base)
+    CALL check_ocean_subsets(p_patch_3D)
 
     !------------------------------------------------------------------
     ! construct ocean state and physics

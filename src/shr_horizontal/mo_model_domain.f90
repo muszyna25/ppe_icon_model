@@ -958,13 +958,15 @@ MODULE mo_model_domain
     ! land-sea-mask for cell centers
     ! index1=1,nproma, index2=1,n_zlev, index3=1,nblks_c
     INTEGER, POINTER :: lsm_c(:,:,:)
-    ! land-sea-mask for cell edges
+
+    ! land-sea-mask for edges
     ! index1=1,nproma, index2=1,n_zlev, index3=1,nblks_e
     INTEGER, POINTER :: lsm_e(:,:,:)
-    ! land-sea-mask for cell vertices
-    ! index1=1,nproma, index2=1,n_zlev, index3=1,nblks_v
-    ! this is to be used by the sea-ice module
-    INTEGER, POINTER :: surface_lsm_v(:,:)
+
+    ! surface land-sea-mask for cells, edges, vertices
+    INTEGER, POINTER :: surface_cell_sea_land_mask(:,:)
+    INTEGER, POINTER :: surface_edge_sea_land_mask(:,:)
+    INTEGER, POINTER :: surface_vertex_sea_land_mask(:,:)
 
     ! To simply set land points to zero we store additional 3-dim wet points
     ! dimensions as in lsm_oce:

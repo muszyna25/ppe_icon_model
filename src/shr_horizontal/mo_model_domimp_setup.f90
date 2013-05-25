@@ -119,7 +119,6 @@ MODULE mo_model_domimp_setup
   USE mo_math_utilities,     ONLY: gvec2cvec, gc2cc
   USE mo_math_types
   
-  USE mo_master_control,     ONLY: get_my_process_type, ocean_process
   USE mo_grid_geometry_info, ONLY: planar_torus_geometry
   
   IMPLICIT NONE
@@ -1078,21 +1077,6 @@ CONTAINS
       patch%verts%halo_level(:,:) = 0
       patch%verts%halo_level(patch%npromz_v + 1 :nproma, patch%nblks_v) = -1
     ENDIF
-    !--------------------------------------------------------------------------------
-    ! exclude ghost cells, identify them if area=0
-    DO block = 1, patch%nblks_c
-      IF (block /= patch%nblks_c) THEN
-        block_size = nproma
-      ELSE
-        block_size = patch%npromz_c
-      ENDIF
-      DO idx = 1, block_size
-        IF (patch%cells%num_edges(idx, block) <= 0) THEN
-          patch%cells%halo_level(idx, block) = -1 !halo_levels_ceiling+1
-          write(*,*) "Found ghost cell at ", idx, block
-        ENDIF
-      ENDDO
-    ENDDO
 
     !--------------------------------------------------------------------------------
     CALL fill_grid_subset_names(patch)
@@ -1120,13 +1104,8 @@ CONTAINS
     CALL fill_subset(patch%cells%one_edge_in_domain, patch, patch%cells%halo_level, 0, 1)
     patch%cells%one_edge_in_domain%is_in_domain = .false.
     
-    IF (patch%cells%in_domain%no_of_holes > 0) THEN
-      IF (get_my_process_type() == ocean_process) THEN
-        CALL finish("patch%cells%in_domain", "no_of_holes > 0, gmres for the ocean requires no_of_holes=0")
-      ELSE
-        CALL warning("patch%cells%in_domain", "no_of_holes > 0")
-      ENDIF
-    ENDIF
+    IF (patch%cells%in_domain%no_of_holes > 0) &
+      CALL warning("patch%cells%in_domain", "no_of_holes > 0")
     IF (patch%cells%one_edge_in_domain%no_of_holes > 0) &
       CALL warning("patch%cells%one_edge_in_domain", "no_of_holes > 0")
     
@@ -1270,17 +1249,17 @@ CONTAINS
     TYPE(t_patch), INTENT(inout) :: patch
        
     patch%cells%all%name                = "cells_all"
-    patch%cells%owned%name              =  "cells_owned"
-    patch%cells%in_domain%name          =  "cells_in_domain"
+    patch%cells%owned%name              = "cells_owned"
+    patch%cells%in_domain%name          = "cells_in_domain"
     patch%cells%not_owned%name          = "cells_not_owned"
     patch%cells%not_in_domain%name      = "cells_not_in_domain"
-    patch%cells%one_edge_in_domain%name =  "cells_one_edge_in_domain"
+    patch%cells%one_edge_in_domain%name = "cells_one_edge_in_domain"
     
     patch%edges%all%name             = "edges_all"
-    patch%edges%owned%name           =  "edges_owned"
-    patch%edges%in_domain%name       =  "edges_in_domain"
-    patch%edges%not_owned%name       =  "edges_not_owned"
-    patch%edges%not_in_domain%name   =  "edges_not_in_domain"
+    patch%edges%owned%name           = "edges_owned"
+    patch%edges%in_domain%name       = "edges_in_domain"
+    patch%edges%not_owned%name       = "edges_not_owned"
+    patch%edges%not_in_domain%name   = "edges_not_in_domain"
     
     patch%verts%all%name             = "verts_all"
     patch%verts%owned%name           = "verts_owned"

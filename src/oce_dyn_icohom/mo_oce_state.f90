@@ -62,7 +62,7 @@ MODULE mo_oce_state
   USE mo_impl_constants,      ONLY: land, land_boundary, boundary, sea_boundary, sea,  &
     &                               success, max_char_length, min_dolic,               &
     &                               full_coriolis, beta_plane_coriolis,                &
-    &                               f_plane_coriolis, zero_coriolis,min_rlcell, min_rledge
+    &                               f_plane_coriolis, zero_coriolis, halo_levels_ceiling
   USE mo_ocean_nml,           ONLY: n_zlev, dzlev_m, no_tracer, l_max_bottom, l_partial_cells, &
     &                               CORIOLIS_TYPE, basin_center_lat, basin_height_deg
   USE mo_util_dbg_prnt,       ONLY: c_i, c_b, nc_i, nc_b
@@ -88,8 +88,8 @@ MODULE mo_oce_state
   USE mo_cf_convention
   USE mo_grib2
   USE mo_cdi_constants
-  USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
-
+  USE mo_grid_subset,         ONLY: t_subset_range, get_index_range, fill_subset
+  USE mo_ocean_config,        ONLY: ignore_land_points
 
   IMPLICIT NONE
   PRIVATE
@@ -112,6 +112,7 @@ MODULE mo_oce_state
   PUBLIC :: is_initial_timestep
   PUBLIC :: init_oce_config
   PUBLIC :: setup_ocean_namelists
+  PUBLIC :: check_ocean_subsets
 
   PUBLIC :: init_patch_3D
   PUBLIC :: construct_patch_3D
@@ -1704,10 +1705,9 @@ CONTAINS
   END DO
 
   END SUBROUTINE  set_lateral_boundary_values
+  !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
-  !
-  !
   !>
   !! Initializes 3-dimensional structures for the ocean state variable.
   !!
@@ -2165,6 +2165,14 @@ CONTAINS
           iic2 = p_patch%edges%cell_idx(je,jb,2)
           ibc2 = p_patch%edges%cell_blk(je,jb,2)
           !
+          IF (iic1 == 0) THEN
+            iic1 = iic2
+            ibc1 = ibc2
+          ENDIF
+          IF (iic2 == 0) THEN
+            iic2 = iic1
+            ibc2 = ibc1
+          ENDIF
 
           ! set land/sea for all edges
           IF ( (v_base%lsm_c(iic1,jk,ibc1) < 0)  .and.   &
@@ -2874,6 +2882,7 @@ CONTAINS
       zlev_m(jk) = 0.5_wp * ( zlev_i(jk+1) + zlev_i(jk)  )
     END DO
   END SUBROUTINE set_zlev
+
 !-------------------------------------------------------------------------  
 !
 !!Subroutine calculates vertical coordinates
@@ -2974,10 +2983,22 @@ CONTAINS
     &            t_cf_var('lsm_e','','3d lsm on edges', DATATYPE_INT8),&
     &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_EDGE),&
     &            ldims=(/nproma,n_zlev,nblks_e/),isteptype=TSTEP_CONSTANT)
-    ! surface vertices
-    CALL add_var(ocean_default_list, 'surface_lsm_v', p_patch_3D%surface_lsm_v , &
+    ! surface cells
+    CALL add_var(ocean_default_list, 'surface_cell_sea_land_mask', p_patch_3D%surface_cell_sea_land_mask , &
     &          GRID_UNSTRUCTURED_VERT, ZA_SURFACE, &
-    &          t_cf_var('surface_lsm_v', '', 'surface_lsm_v', DATATYPE_INT8),&
+    &          t_cf_var('surface_cell_sea_land_mask', '', 'surface_cell_sea_land_mask', DATATYPE_INT8),&
+    &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_VERTEX),&
+    &          ldims=(/nproma,nblks_c/),isteptype=TSTEP_CONSTANT)
+    ! surface vertices
+    CALL add_var(ocean_default_list, 'surface_edge_sea_land_mask', p_patch_3D%surface_edge_sea_land_mask , &
+    &          GRID_UNSTRUCTURED_VERT, ZA_SURFACE, &
+    &          t_cf_var('surface_edge_sea_land_mask', '', 'surface_edge_sea_land_mask', DATATYPE_INT8),&
+    &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_VERTEX),&
+    &          ldims=(/nproma,nblks_e/),isteptype=TSTEP_CONSTANT)
+    ! surface vertices
+    CALL add_var(ocean_default_list, 'surface_vertex_sea_land_mask', p_patch_3D%surface_vertex_sea_land_mask , &
+    &          GRID_UNSTRUCTURED_VERT, ZA_SURFACE, &
+    &          t_cf_var('surface_vertex_sea_land_mask', '', 'surface_vertex_sea_land_mask', DATATYPE_INT8),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_VERTEX),&
     &          ldims=(/nproma,nblks_v/),isteptype=TSTEP_CONSTANT)
     ! deepest ocean layer in column
@@ -3144,7 +3165,7 @@ CONTAINS
     all_cells   => patch_2D%cells%all
     all_edges   => patch_2D%edges%all
     owned_verts => patch_2D%verts%owned
-!-------------------------------------------------------------------------
+   !-------------------------------------------------------------------------
 
     !CALL message(TRIM(routine), 'start to construct basic hydro ocean state')
 
@@ -3165,7 +3186,10 @@ CONTAINS
     p_patch_3D%lsm_e = v_base%lsm_e
     p_patch_3D%lsm_c = v_base%lsm_c
     
-    ! calculate surface_lsm_v
+
+    p_patch_3D%surface_cell_sea_land_mask(:,:) = p_ext_data%oce%lsm_ctr_c(:,:)
+    p_patch_3D%surface_edge_sea_land_mask(:,:) = p_ext_data%oce%lsm_ctr_e(:,:)
+    ! calculate surface_vertex_sea_land_mask
     DO vertex_block = owned_verts%start_block, owned_verts%end_block
       CALL get_index_range(owned_verts, vertex_block, start_index, end_index)
       DO vertex_index = start_index, end_index
@@ -3196,15 +3220,16 @@ CONTAINS
 
         ENDDO ! neighbor
         
-        IF( MOD(boundary_edges,2) /= 0 ) THEN
-          CALL finish (method_name,'MOD(boundary_edges,2) /= 0 !!')
-        ENDIF
+!        This is not true when land points are missing
+!        IF( MOD(boundary_edges,2) /= 0 ) THEN
+!          CALL finish (method_name,'MOD(boundary_edges,2) /= 0 !!')
+!        ENDIF
 
-        p_patch_3D%surface_lsm_v(vertex_index, vertex_block)   = sea
+        p_patch_3D%surface_vertex_sea_land_mask(vertex_index, vertex_block)   = sea
         IF (boundary_edges > 0) THEN
-          p_patch_3D%surface_lsm_v(vertex_index, vertex_block) = boundary
+          p_patch_3D%surface_vertex_sea_land_mask(vertex_index, vertex_block) = boundary
         ELSEIF (land_edges > 0) THEN
-          p_patch_3D%surface_lsm_v(vertex_index, vertex_block) = land
+          p_patch_3D%surface_vertex_sea_land_mask(vertex_index, vertex_block) = land
           ! consistency check
           IF (sea_edges > 0) &
              CALL finish(routine, "Inconsistent patch_3D%lsm_e" )         
@@ -3215,11 +3240,11 @@ CONTAINS
     ! sync the results
     ALLOCATE(z_sync_v(nproma,patch_2D%nblks_v),STAT=ist)
     IF (ist /= SUCCESS) THEN
-      CALL finish (routine,'allocating surface_lsm_v failed')
+      CALL finish (routine,'allocating surface_vertex_sea_land_mask failed')
     ENDIF     
-    z_sync_v(:,:) =  REAL(p_patch_3D%surface_lsm_v(:,:),wp)
+    z_sync_v(:,:) =  REAL(p_patch_3D%surface_vertex_sea_land_mask(:,:),wp)
     CALL sync_patch_array(SYNC_V, patch_2D, z_sync_v(:,:))
-    p_patch_3D%surface_lsm_v(:,:) = INT(z_sync_v(:,:))
+    p_patch_3D%surface_vertex_sea_land_mask(:,:) = INT(z_sync_v(:,:))
     DEALLOCATE(z_sync_v)
     !---------------------------------------
       
@@ -3400,9 +3425,88 @@ CONTAINS
     END DO
 
   END SUBROUTINE init_patch_3D
+  !------------------------------------------------------------------------------------
+
+
+  !------------------------------------------------------------------------------------
+  SUBROUTINE check_ocean_subsets(patch_3D)
+    TYPE(t_patch_3D ),TARGET, INTENT(INOUT) :: patch_3D
+
+    TYPE(t_patch),     POINTER :: patch_2D
+    TYPE(t_subset_range), POINTER :: all_cells, all_edges, all_verts
+
+    INTEGER :: block, startidx, endidx, idx
+    !-----------------------------------------------------------------------------
+
+
+    patch_2D => patch_3D%p_patch_2D(1)
+    all_cells   => patch_2D%cells%all
+    all_edges   => patch_2D%edges%all
+    all_verts   => patch_2D%verts%all
+
+    !--------------------------------------------------------------------------------
+    ! exclude land from subsets, if requested
+    IF (ignore_land_points) THEN
+
+      ! cells
+      DO block = all_cells%start_block, all_cells%end_block
+        CALL get_index_range(all_cells, block, startidx, endidx)
+        DO idx = startidx, endidx
+          IF (patch_3D%surface_cell_sea_land_mask(idx, block) >= 0) THEN
+            patch_2D%cells%halo_level(idx, block) = -1 !halo_levels_ceiling+1
+            write(0,*) "Removed land cell at ", idx, block
+          ENDIF
+        ENDDO
+      ENDDO
+      ! recalculate cells subsets
+      CALL fill_subset(patch_2D%cells%all, patch_2D, patch_2D%cells%halo_level, &
+        & 0, halo_levels_ceiling)
+      CALL fill_subset(patch_2D%cells%owned, patch_2D, patch_2D%cells%halo_level, 0, 0)
+      CALL fill_subset(patch_2D%cells%in_domain, patch_2D, patch_2D%cells%halo_level, 0, 0)
+
+      ! edges
+      DO block = all_edges%start_block, all_edges%end_block
+        CALL get_index_range(all_edges, block, startidx, endidx)
+        DO idx = startidx, endidx
+          IF (patch_3D%surface_edge_sea_land_mask(idx, block) == land) THEN
+            patch_2D%edges%halo_level(idx, block) = -1 !halo_levels_ceiling+1
+            write(0,*) "Removed land edge at ", idx, block
+          ENDIF
+        ENDDO
+      ENDDO
+      ! recalculate edges subsets
+      CALL fill_subset(patch_2D%edges%all, patch_2D, patch_2D%edges%halo_level, &
+        & 0, halo_levels_ceiling)
+      CALL fill_subset(patch_2D%edges%owned, patch_2D, patch_2D%edges%halo_level, 0, 0)
+      CALL fill_subset(patch_2D%edges%in_domain, patch_2D, patch_2D%edges%halo_level, 0, 1)
+
+      ! verts
+      DO block = all_verts%start_block, all_verts%end_block
+        CALL get_index_range(all_verts, block, startidx, endidx)
+        DO idx = startidx, endidx
+          IF (patch_3D%surface_vertex_sea_land_mask(idx, block) == land) THEN
+            patch_2D%verts%halo_level(idx, block) = -1 !halo_levels_ceiling+1
+            write(0,*) "Removed land vert at ", idx, block
+          ENDIF
+        ENDDO
+      ENDDO
+      ! recalculate verts subsets
+      CALL fill_subset(patch_2D%verts%all, patch_2D, patch_2D%verts%halo_level, &
+        & 0, halo_levels_ceiling)
+      CALL fill_subset(patch_2D%verts%owned, patch_2D, patch_2D%verts%halo_level, 0, 0)
+      CALL fill_subset(patch_2D%verts%in_domain, patch_2D, patch_2D%verts%halo_level, 0, 1)
+
+    ENDIF
+
+    IF (patch_2D%cells%in_domain%no_of_holes > 0) THEN
+      CALL finish("patch%cells%in_domain", "no_of_holes > 0, gmres for the ocean requires no_of_holes=0")
+    ENDIF
+
+
+  END SUBROUTINE check_ocean_subsets
+  !------------------------------------------------------------------------------------
+
 !-------------------------------------------------------------------------
-!
-!!Subroutine 
 !>
 !!
 !!
