@@ -796,7 +796,7 @@ CONTAINS
             cell_index = patch%edges%cell_idx(edge_index,edge_block,neigbor)
             cell_block = patch%edges%cell_blk(edge_index,edge_block,neigbor)
 
-            IF (cell_block > 0) THEN
+            IF (cell_index > 0) THEN
               dist_vector%x = &
                 & patch%edges%cartesian_center(edge_index,edge_block)%x - &
                 & patch%cells%cartesian_center(cell_index,cell_block)%x
@@ -815,7 +815,7 @@ CONTAINS
           cell_2_index = patch%edges%cell_idx(edge_index, edge_block, 2)
           cell_2_block = patch%edges%cell_blk(edge_index, edge_block, 2)
 
-          IF (cell_1_block > 0 .AND. cell_2_block > 0) THEN
+          IF (cell_1_index > 0 .AND. cell_2_index > 0) THEN
             dist_vector%x = &
               & patch%cells%cartesian_center(cell_1_index, cell_1_block)%x - &
               & patch%cells%cartesian_center(cell_2_index, cell_2_block)%x
@@ -1146,7 +1146,7 @@ CONTAINS
           cell_index = patch%edges%cell_idx(edge_index, edge_block, neigbor)
           cell_block = patch%edges%cell_blk(edge_index, edge_block, neigbor)
 
-          IF (cell_block > 0) THEN
+          IF (cell_index > 0) THEN
 
             dist_vector%x =  edge_center%x -                             &
               patch%cells%cartesian_center(cell_index, cell_block)%x
@@ -1202,16 +1202,19 @@ CONTAINS
       CALL get_index_range(owned_edges, edge_block, start_index, end_index)
       DO edge_index = start_index, end_index
 
-       edge_center%x = patch%edges%cartesian_center(edge_index, edge_block)%x
+        edge_center%x = patch%edges%cartesian_center(edge_index, edge_block)%x
 
         !ictr=0
         DO neigbor=1,2
 
+          cell_index    = patch%edges%cell_idx(edge_index, edge_block, neigbor)
+          cell_block    = patch%edges%cell_blk(edge_index, edge_block, neigbor)
+
+          IF (cell_index <= 0) CYCLE
+
           IF(neigbor==1) ictr = 0
           IF(neigbor==2) ictr = no_primal_edges
 
-          cell_index    = patch%edges%cell_idx(edge_index, edge_block, neigbor)
-          cell_block    = patch%edges%cell_blk(edge_index, edge_block, neigbor)         
           cell_center%x = patch%cells%cartesian_center(cell_index, cell_block)%x
 
           !dist_vector_basic%x = edge2cell_coeff_cc_t(edge_index, edge_block, neigbor)%x
@@ -1224,41 +1227,39 @@ CONTAINS
           & patch%edges%primal_cart_normal(edge_index,edge_block)%x)
           IF (orientation < 0.0_wp) dist_vector_basic%x = - dist_vector_basic%x
 
-          IF (cell_block > 0) THEN
+          !loop over the edges of neighbor 1 and 2
+          DO cell_edge=1,patch%cells%num_edges(cell_index,cell_block)!no_primal_edges!patch%cell_type
 
-            !loop over the edges of neighbor 1 and 2
-            DO cell_edge=1,patch%cells%num_edges(cell_index,cell_block)!no_primal_edges!patch%cell_type
+            ictr=ictr+1
+            !actual edge
+            edge_index_cell = patch%cells%edge_idx(cell_index, cell_block, cell_edge)
+            edge_block_cell = patch%cells%edge_blk(cell_index, cell_block, cell_edge)
 
-              ictr=ictr+1
-              !actual edge
-              edge_index_cell = patch%cells%edge_idx(cell_index, cell_block, cell_edge)
-              edge_block_cell = patch%cells%edge_blk(cell_index, cell_block, cell_edge) 
+            !dist_vector%x = edge2cell_coeff_cc(cell_index,cell_block,cell_edge)%x
+            dist_vector%x =  patch%edges%cartesian_center(edge_index_cell, edge_block_cell)%x  &
+            & -cell_center%x
 
-              !dist_vector%x = edge2cell_coeff_cc(cell_index,cell_block,cell_edge)%x
-              dist_vector%x =  patch%edges%cartesian_center(edge_index_cell, edge_block_cell)%x  &
-              & -cell_center%x
+            dist_edge_cell  = SQRT(SUM( dist_vector%x * dist_vector%x))
+            dist_vector%x = dist_vector%x/dist_edge_cell
+            dist_vector%x = dist_vector%x*patch%cells%edge_orientation(cell_index,cell_block,cell_edge)
 
-              dist_edge_cell  = SQRT(SUM( dist_vector%x * dist_vector%x))
-              dist_vector%x = dist_vector%x/dist_edge_cell
-              dist_vector%x = dist_vector%x*patch%cells%edge_orientation(cell_index,cell_block,cell_edge)
+            !This is the cosine of the angle between vectors from cell center
+            !to cell edges
+            edge2edge_viacell_coeff(edge_index,edge_block,ictr)&
+            & =DOT_PRODUCT(dist_vector_basic%x,dist_vector%x)
 
-              !This is the cosine of the angle between vectors from cell center
-              !to cell edges 
-              edge2edge_viacell_coeff(edge_index,edge_block,ictr)&
-              & =DOT_PRODUCT(dist_vector_basic%x,dist_vector%x)
+            !IF(abs(edge2edge_viacell_coeff(edge_index,edge_block,ictr)-1.0_wp)<1.0E-6_wp)THEN
+            !  write(*,*)'ran into'
+              !edge2edge_viacell_coeff(edge_index,edge_block,ictr)=1.0_wp
+            !ENDIF
 
-              !IF(abs(edge2edge_viacell_coeff(edge_index,edge_block,ictr)-1.0_wp)<1.0E-6_wp)THEN
-              !  write(*,*)'ran into'
-                !edge2edge_viacell_coeff(edge_index,edge_block,ictr)=1.0_wp
-              !ENDIF
-
-              !multiply the cosine by length and orientation and divide by
-              !dual length
-                edge2edge_viacell_coeff(edge_index,edge_block,ictr)=        &
-                &edge2edge_viacell_coeff(edge_index,edge_block,ictr)        &
-                &*prime_edge_length(edge_index_cell,edge_block_cell)        &
-                &* dist_edge_cell *dist_edge_cell_basic                     &
-                &/dual_edge_length(edge_index, edge_block)                 
+            !multiply the cosine by length and orientation and divide by
+            !dual length
+            edge2edge_viacell_coeff(edge_index,edge_block,ictr)=        &
+              &edge2edge_viacell_coeff(edge_index,edge_block,ictr)        &
+              &*prime_edge_length(edge_index_cell,edge_block_cell)        &
+              &* dist_edge_cell *dist_edge_cell_basic                     &
+              &/dual_edge_length(edge_index, edge_block)
 
 ! IF(edge_index==1.and.edge_block==1)THEN
 ! write(123,*)'actual angle',neigbor, edge_index_cell, edge_block_cell,ictr,&
@@ -1269,8 +1270,7 @@ CONTAINS
 ! !write(123,*)'vecs',neigbor,dist_vector_basic%x,dist_vector%x
 ! !ENDIF
 ! ENDIF
-            END DO
-          ENDIF ! (cell_block > 0)
+          END DO
         ENDDO ! neigbor=1,2
       ENDDO ! edge_index = start_index, end_index
     ENDDO ! edge_block = owned_edges%start_block, owned_edges%end_block
@@ -1690,28 +1690,33 @@ CONTAINS
           ictr  = 0
           il_c  = patch%edges%cell_idx(je,jb,1)
           ib_c  = patch%edges%cell_blk(je,jb,1)
-          DO ie=1, no_primal_edges
-            ictr =ictr+1 
-            il_e = patch%cells%edge_idx(il_c,ib_c,ie)
-            ib_e = patch%cells%edge_blk(il_c,ib_c,ie)
+          IF (il_c > 0) THEN
+            DO ie=1, no_primal_edges
+              ictr =ictr+1
+              il_e = patch%cells%edge_idx(il_c,ib_c,ie)
+              ib_e = patch%cells%edge_blk(il_c,ib_c,ie)
 
-            IF ( p_patch_3D%lsm_e(il_e,jk,ib_e) /= sea ) THEN
-              ocean_coeff%edge2edge_viacell_coeff(je,jk,jb,ictr)=0.0_wp
-            ENDIF
-          END DO
+              IF ( p_patch_3D%lsm_e(il_e,jk,ib_e) /= sea ) THEN
+                ocean_coeff%edge2edge_viacell_coeff(je,jk,jb,ictr)=0.0_wp
+              ENDIF
+            END DO
+          ENDIF
+
           !Handle neighbour cell 2
           ictr  = no_primal_edges
           il_c  = patch%edges%cell_idx(je,jb,2)
           ib_c  = patch%edges%cell_blk(je,jb,2)
-          DO ie=1, no_primal_edges
-            ictr =ictr+1 
-            il_e = patch%cells%edge_idx(il_c,ib_c,ie)
-            ib_e = patch%cells%edge_blk(il_c,ib_c,ie)
+          IF (il_c > 0) THEN
+            DO ie=1, no_primal_edges
+              ictr =ictr+1
+              il_e = patch%cells%edge_idx(il_c,ib_c,ie)
+              ib_e = patch%cells%edge_blk(il_c,ib_c,ie)
 
-            IF ( p_patch_3D%lsm_e(il_e,jk,ib_e) /= sea ) THEN
-              ocean_coeff%edge2edge_viacell_coeff(je,jk,jb,ictr)=0.0_wp
-            ENDIF
-          END DO
+              IF ( p_patch_3D%lsm_e(il_e,jk,ib_e) /= sea ) THEN
+                ocean_coeff%edge2edge_viacell_coeff(je,jk,jb,ictr)=0.0_wp
+              ENDIF
+            END DO
+          ENDIF
         END DO
       END DO
     END DO 
@@ -1832,14 +1837,14 @@ CONTAINS
             icell_blk_1 = patch%edges%cell_blk(ile,ibe,1)
             icell_blk_2 = patch%edges%cell_blk(ile,ibe,2)
 
-            cell1_cc%x  = patch%cells%cartesian_center(icell_idx_1,icell_blk_1)%x
-            cell2_cc%x  = patch%cells%cartesian_center(icell_idx_2,icell_blk_2)%x
-
-            !Check, if edge is sea or boundary edge and take care of dummy edge
-            !edge with indices ile, ibe is sea edge
-            !Add up for wet dual area.
-            !IF ( v_base%lsm_e(ile,jk,ibe) <= sea_boundary ) THEN
             IF ( p_patch_3D%lsm_e(ile,jk,ibe) <= sea_boundary ) THEN
+              cell1_cc%x  = patch%cells%cartesian_center(icell_idx_1,icell_blk_1)%x
+              cell2_cc%x  = patch%cells%cartesian_center(icell_idx_2,icell_blk_2)%x
+
+              !Check, if edge is sea or boundary edge and take care of dummy edge
+              !edge with indices ile, ibe is sea edge
+              !Add up for wet dual area.
+              !IF ( v_base%lsm_e(ile,jk,ibe) <= sea_boundary ) THEN
               ocean_coeff%variable_dual_vol_norm(jv,jk,jb,jev)= triangle_area(cell1_cc, vertex_cc, cell2_cc)
               ! edge with indices ile, ibe is boundary edge
             ELSE IF ( p_patch_3D%lsm_e(ile,jk,ibe) == boundary ) THEN
@@ -1939,9 +1944,6 @@ CONTAINS
               icell_blk_1 = patch%edges%cell_blk(ile,ibe,1)
               icell_blk_2 = patch%edges%cell_blk(ile,ibe,2)
 
-              cell1_cc%x  = patch%cells%cartesian_center(icell_idx_1,icell_blk_1)%x
-              cell2_cc%x  = patch%cells%cartesian_center(icell_idx_2,icell_blk_2)%x
-
               !Check, if edge is sea or boundary edge and take care of dummy edge
               !edge with indices ile, ibe is sea edge
               !Add up for wet dual area.
@@ -1949,10 +1951,14 @@ CONTAINS
               !   sea_boundary means an open boundary
               !   boundary means that only the sea cell are should be added
               IF ( p_patch_3D%lsm_e(ile,jk,ibe) <= sea_boundary ) THEN
+                cell1_cc%x  = patch%cells%cartesian_center(icell_idx_1,icell_blk_1)%x
+                cell2_cc%x  = patch%cells%cartesian_center(icell_idx_2,icell_blk_2)%x
                 zarea_fraction(jv,jk,jb) = zarea_fraction(jv,jk,jb)  &
                   & + triangle_area(cell1_cc, vertex_cc, cell2_cc)
                 ! edge with indices ile, ibe is boundary edge                
               ELSE IF ( p_patch_3D%lsm_e(ile,jk,ibe) == boundary ) THEN
+                cell1_cc%x  = patch%cells%cartesian_center(icell_idx_1,icell_blk_1)%x
+                cell2_cc%x  = patch%cells%cartesian_center(icell_idx_2,icell_blk_2)%x
 !                 zarea_fraction(jv,jk,jb) = zarea_fraction(jv,jk,jb)  &
 !                   & + 0.5_wp*triangle_area(cell1_cc, vertex_cc, cell2_cc)
                 ! add only the sea dual area, ie the triagle area between

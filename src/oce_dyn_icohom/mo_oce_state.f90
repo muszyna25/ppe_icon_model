@@ -56,7 +56,7 @@ MODULE mo_oce_state
 !
 !
   USE mo_kind,                ONLY: wp
-! USE mo_mpi,                 ONLY: p_pe_work
+  USE mo_mpi,                 ONLY: get_my_global_mpi_id
   USE mo_parallel_config,     ONLY: nproma, p_test_run
   USE mo_master_control,      ONLY: is_restart_run
   USE mo_impl_constants,      ONLY: land, land_boundary, boundary, sea_boundary, sea,  &
@@ -3498,7 +3498,37 @@ CONTAINS
 
     ENDIF
 
+    IF (patch_2D%edges%in_domain%no_of_holes > 0) THEN
+      DO block = patch_2D%edges%in_domain%start_block, patch_2D%edges%in_domain%end_block
+        CALL get_index_range(patch_2D%edges%in_domain, block, startidx, endidx)
+        DO idx = startidx, endidx
+          IF (patch_2D%edges%halo_level(idx, block) /= 0) THEN
+            write(0,*) get_my_global_mpi_id(), ":", idx, block, " edge in hole ", patch_3D%surface_edge_sea_land_mask(idx, block), &
+              & patch_2D%edges%halo_level(idx, block)
+          ELSE
+            write(0,*) get_my_global_mpi_id(), ":", idx, block, " edge in set ", patch_3D%surface_edge_sea_land_mask(idx, block), &
+              & patch_2D%edges%halo_level(idx, block)
+          ENDIF
+        ENDDO
+      ENDDO
+
+      CALL finish("patch%edges%in_domain", "no_of_holes > 0, gmres for the ocean requires no_of_holes=0")
+    ENDIF
+
     IF (patch_2D%cells%in_domain%no_of_holes > 0) THEN
+      DO block = patch_2D%cells%in_domain%start_block, patch_2D%cells%in_domain%end_block
+        CALL get_index_range(patch_2D%cells%in_domain, block, startidx, endidx)
+        DO idx = startidx, endidx
+          IF (patch_2D%cells%halo_level(idx, block) /= 0) THEN
+            write(0,*) get_my_global_mpi_id(), ":", idx, block, " cell in hole ", patch_3D%surface_cell_sea_land_mask(idx, block), &
+              & patch_2D%cells%halo_level(idx, block)
+          ELSE
+            write(0,*) get_my_global_mpi_id(), ":", idx, block, " cell in set ", patch_3D%surface_cell_sea_land_mask(idx, block), &
+              & patch_2D%cells%halo_level(idx, block)
+          ENDIF
+        ENDDO
+      ENDDO
+
       CALL finish("patch%cells%in_domain", "no_of_holes > 0, gmres for the ocean requires no_of_holes=0")
     ENDIF
 

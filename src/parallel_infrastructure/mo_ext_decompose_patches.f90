@@ -86,7 +86,8 @@ MODULE mo_ext_decompose_patches
   USE mo_dump_restore,        ONLY: dump_all_domain_decompositions
   USE mo_decomposition_tools, ONLY: t_decomposition_structure, divide_geometric_medial, &
     & read_ascii_decomposition
-  USE mo_math_utilities,       ONLY: geographical_to_cartesian
+  USE mo_math_utilities,      ONLY: geographical_to_cartesian
+  USE mo_ocean_config,        ONLY: ignore_land_points
 
   IMPLICIT NONE
 
@@ -148,7 +149,7 @@ CONTAINS
     REAL(wp) :: weight(p_patch_global(1)%n_childdom)
     INTEGER(i8) :: npts_global(4)
     ! (Optional:) Print a detailed summary on model grid points
-    LOGICAL :: l_detailed_summary
+    LOGICAL :: l_detailed_summary, is_compute_grid
     TYPE(t_patch), ALLOCATABLE, TARGET :: p_patch_out(:), p_patch_lp_out(:)
 
     CALL message(routine, 'start of ext domain decomposition')
@@ -301,7 +302,11 @@ CONTAINS
       ! if this is not the case, the ghost rows can be dropped again.
 
         wrk_p_patch_g => p_patch_global(jg)
-        CALL divide_patch(patch_2D(jg), cell_owner, n_ghost_rows, .TRUE., p_pe_work)
+        is_compute_grid = .true.
+!        IF (ignore_land_points) &
+!          is_compute_grid = .false.
+
+        CALL divide_patch(patch_2D(jg), cell_owner, n_ghost_rows, is_compute_grid, p_pe_work)
 
         IF(jg > n_dom_start) THEN
           wrk_p_patch_g => p_patch_global(jgp)
@@ -772,6 +777,7 @@ CONTAINS
     INTEGER, ALLOCATABLE :: flag_c(:), flag_e(:), flag_v(:)
     INTEGER, ALLOCATABLE :: flag2_c(:), flag2_e(:), flag2_v(:)
     LOGICAL, ALLOCATABLE :: lcount_c(:), lcount_e(:), lcount_v(:)
+    LOGICAL :: lcount_flag
 
     !-----------------------------------------------------------------------------------------------
     ! Find inner cells/edges/verts and ghost rows for our patch:
@@ -1122,7 +1128,9 @@ CONTAINS
 
 
     n = 0
-    IF (.NOT. l_compute_grid) THEN
+!    lcount_flag = (.NOT. l_compute_grid) .OR. ignore_land_points
+    lcount_flag = (.NOT. l_compute_grid)
+    IF (lcount_flag) THEN
       DO j = 1, wrk_p_patch_g%n_patch_cells
         IF (flag2_c(j)==0) THEN
           n = n + 1
@@ -1289,7 +1297,7 @@ CONTAINS
     !---------------------------------------------------------------------------------------
 
     n = 0
-    IF (.NOT. l_compute_grid) THEN
+    IF (lcount_flag) THEN
       DO j = 1, wrk_p_patch_g%n_patch_edges
         IF (flag2_e(j)==0) THEN
           n = n + 1
@@ -1453,7 +1461,7 @@ CONTAINS
     !---------------------------------------------------------------------------------------
 
     n = 0
-    IF (.NOT. l_compute_grid) THEN
+    IF (lcount_flag) THEN
       DO j = 1, wrk_p_patch_g%n_patch_verts
         IF (flag2_v(j)==0 ) THEN
           n = n + 1
