@@ -403,11 +403,6 @@ fi
 echo "$scriptname: target          = $target (source = $source)"
 
 
-case ${target} in
-  thunder*)
-    exit  # do not run on thunder 
-  ;;
-esac
 
 #------------------------------------------------------------------------------
 # grids will be created by create_global_grids.run
