@@ -2176,6 +2176,10 @@ CONTAINS
 
       ! HYBRID
       !
+      ! Note: "ZAXIS_HYBRID_HALF" is deprecated and will soon be
+      ! removed from the CDI (in principle its use should be simply
+      ! replaced by ZAXIS_HALF, as long as lbounds and ubounds are set
+      ! correctly).
       of%cdiZaxisID(ZA_hybrid_half) = zaxisCreate(ZAXIS_HYBRID_HALF, nlevp1)
       ALLOCATE(levels(nlevp1))
       DO k = 1, nlevp1
