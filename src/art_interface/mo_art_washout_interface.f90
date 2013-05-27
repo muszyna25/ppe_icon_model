@@ -52,6 +52,9 @@ MODULE mo_art_washout_interface
 #ifdef __ICON_ART
     USE mo_art_washout_volc,       ONLY:art_washout_volc
     USE mo_art_radioactive,        ONLY:art_washout_radioact
+    USE mo_art_washout_aerosol,    ONLY:art_aerosol_washout
+    USE mo_art_aerosol,            ONLY:p_art_mode,imode_seasa,imode_seasb,imode_seasc
+    USE mo_art_aerosol_utilities,  ONLY: art_modal_parameters,art_general_modal_par
 #endif
 
   IMPLICIT NONE
@@ -119,7 +122,26 @@ jg  = p_patch%id
 
 IF(art_config(jg)%lart .AND. art_config(jg)%lart_wash) THEN 
     
-
+      ! ----------------------------------
+      ! --- First for modal aerosol
+      ! ----------------------------------
+    
+     ! First: Modal Parameters 
+       CALL art_general_modal_par(p_patch)
+     ! now sea salt
+       IF (art_config(jg)%lart_seasalt) THEN
+         CALL art_modal_parameters(p_patch,p_art_mode(imode_seasa),p_tracer_new)
+         CALL art_aerosol_washout(p_patch,dt_phy_jg,p_art_mode(imode_seasa),p_rho,p_tracer_new)
+         CALL art_modal_parameters(p_patch,p_art_mode(imode_seasb),p_tracer_new)
+         CALL art_aerosol_washout(p_patch,dt_phy_jg,p_art_mode(imode_seasb),p_rho,p_tracer_new)
+         CALL art_modal_parameters(p_patch,p_art_mode(imode_seasc),p_tracer_new)
+         CALL art_aerosol_washout(p_patch,dt_phy_jg,p_art_mode(imode_seasc),p_rho,p_tracer_new)
+       ENDIF
+    
+      ! ----------------------------------
+      ! --- second for monodisperse aerosol
+      ! ----------------------------------
+    
       current_element=>p_prog_list%p%first_list_element
 
       ! ----------------------------------
