@@ -123,7 +123,6 @@ MODULE mo_nh_stepping
 #endif
   
   USE mo_sync,                ONLY: sync_patch_array_mult, &
-                                    global_max, &
                                     SYNC_C, SYNC_E, sync_patch_array
   USE mo_nh_interface_nwp,    ONLY: nwp_nh_interface
   USE mo_phys_nest_utilities, ONLY: interpol_phys_grf, feedback_phys_diag, interpol_rrg_grf
