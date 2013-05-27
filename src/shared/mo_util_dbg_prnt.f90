@@ -41,7 +41,7 @@ MODULE mo_util_dbg_prnt
 !-------------------------------------------------------------------------
 !
 USE mo_kind,                   ONLY: wp
-USE mo_mpi,                    ONLY: my_process_is_stdio, p_pe
+USE mo_mpi,                    ONLY: my_process_is_stdio, p_pe, global_mpi_barrier !, p_comm_work, p_bcast
 USE mo_io_units,               ONLY: nerr
 USE mo_parallel_config,        ONLY: nproma, p_test_run
 USE mo_impl_constants,         ONLY: max_char_length
@@ -78,7 +78,7 @@ PUBLIC :: init_dbg_index
 PUBLIC :: dbg_print
 
 ! Public variables:
-PUBLIC :: c_i, c_b, nc_i, nc_b, near_proc_id
+PUBLIC :: c_i, c_b, nc_i, nc_b
 !PUBLIC :: v_subdom_cell !, v_suball_cell, v_subset_edge  !  part of subset to store
 
 INTERFACE dbg_print
@@ -227,7 +227,7 @@ CONTAINS
   INTEGER,               INTENT(OUT)    :: iblk          ! block of nearest cell
   INTEGER,               INTENT(OUT)    :: proc_id       ! process where nearest cell is found
 
-  INTEGER  :: jb, jc, i_startidx, i_endidx, mproc_id
+  INTEGER  :: jb, jc, i_startidx, i_endidx, mproc_id   !, mpi_comm
   REAL(wp) :: zlon, zlat, zdist, zdist_cmp, xctr
   REAL(wp) :: zdst_c(nproma,ppatch%nblks_c)
   TYPE(t_subset_range), POINTER :: owned_cells !,cells_in_domain, all_cells
@@ -267,46 +267,53 @@ CONTAINS
 
   CALL sync_patch_array(SYNC_C, ppatch, zdst_c(:,:))
 
-  ! find PE with minimum distance, MPI-broadcast block/index from that PE - not yet
+  ! find PE with minimum distance
   ! disable p_test_run since global_max will be different
 
   p_test_run_bac = p_test_run
   p_test_run = .false.
 
   ! comparing zdist_cmp over all domains
+  ! local variable mproc_id must be pre-set to p_pe in all domains
   mproc_id = p_pe
   !write(20+p_pe,*) ' 0max: mproc_id=',mproc_id,'  p_pe=',p_pe,'  zdst=',zdst_c(iidx,iblk),'  idx/blk=',iidx,iblk,' cmp=',zdist_cmp
   xctr = global_max(-zdist_cmp, mproc_id)
   !write(20+p_pe,*) ' 1max: mproc_id=',mproc_id,'  p_pe=',p_pe,'  zdst=',zdst_c(iidx,iblk),'  idx/blk=',iidx,iblk,' cmp=',zdist_cmp
 
-  ! set indices of minimum cell to 1 for all other procs
-  IF (p_pe .NE. mproc_id) THEN
-    iblk = 1
-    iidx = 1
-    zdist_cmp = 20000.0_wp
-  END IF
+  ! broadcast indices and proc_id to global, mainly for output - not the best, better write info directly
+  !mpi_comm = p_comm_work
+  !CALL p_bcast(iidx     , mproc_id, mpi_comm)
+  !CALL p_bcast(iblk     , mproc_id, mpi_comm)
+  !CALL p_bcast(zdist_cmp, mproc_id, mpi_comm)
+  !CALL p_bcast(zlat_min , mproc_id, mpi_comm)  !  must be set accordingly above
+  !CALL p_bcast(zlon_min , mproc_id, mpi_comm)  !  must be set accordingly above
+
   proc_id = mproc_id
-  !write(20+p_pe,*) ' 2max: mproc_id=',mproc_id,'  p_pe=',p_pe,'  zdst=',zdst_c(iidx,iblk),'  idx/blk=',iidx,iblk,' cmp=',zdist_cmp
-
   p_test_run = p_test_run_bac
-
-  zlat = ppatch%cells%center(iidx,iblk)%lat * 180.0_wp / pi
-  zlon = ppatch%cells%center(iidx,iblk)%lon * 180.0_wp / pi
 
   99 FORMAT(3a,i4,a,i4,3(a,f9.3))
   98 FORMAT(2a,3(a,f9.3))
 
-  IF (p_pe .EQ. mproc_id) THEN
-
-    WRITE(125,98) ' ',TRIM(routine),' Found  cell nearest to         latitude=', plat_in,'  longitude=',plon_in
-    WRITE(125,99) ' ',TRIM(routine),' Found  block=',iblk,'  index=',iidx,'  latitude=',zlat,'  longitude=',zlon
-    WRITE(125,'(3a,i3,a,f9.3)') ' ',TRIM(routine),' FOUND: proc_id for nearest cell is=',mproc_id, &
+   ! write info directly by mproc_id: needs barrier to avoid merging messages from pe_io and mproc_id
+   CALL global_mpi_barrier
+   IF (p_pe .EQ. mproc_id) THEN
+  !IF (my_process_is_stdio()) THEN
+     zlat = ppatch%cells%center(iidx,iblk)%lat * 180.0_wp / pi
+     zlon = ppatch%cells%center(iidx,iblk)%lon * 180.0_wp / pi
+     WRITE(0,98) ' ',TRIM(routine),' Found  cell nearest to         latitude=', plat_in,'  longitude=',plon_in
+     WRITE(0,99) ' ',TRIM(routine),' Found  block=',iblk,'  index=',iidx,'  latitude=',zlat,'  longitude=',zlon
+     WRITE(0,'(3a,i3,a,f9.3)') ' ',TRIM(routine),' FOUND: proc_id for nearest cell is=',mproc_id, &
       &                  '; distance in degrees =', zdist_cmp
+  !  WRITE(125,98) ' ',TRIM(routine),' Found  cell nearest to         latitude=', plat_in,'  longitude=',plon_in
+  !  WRITE(125,99) ' ',TRIM(routine),' Found  block=',iblk,'  index=',iidx,'  latitude=',zlat,'  longitude=',zlon
+  !  WRITE(125,'(3a,i3,a,f9.3)') ' ',TRIM(routine),' FOUND: proc_id for nearest cell is=',mproc_id, &
+  !    &                  '; distance in degrees =', zdist_cmp
   ! WRITE(125,'(3a,i3,a,i3,a,f9.3)') ' ',TRIM(routine),' FOUND: at block=',iblk,' index=',iidx, &
   !   &                  ' distance in degrees =', zdist_cmp
   ! WRITE(125,'(3a,2i3,a,f9.3)') ' ',TRIM(routine),' FOUND: using MINLOC: at idx/blk=', &
   !   &                  MINLOC(zdst_c(:,:)),' distance in degrees =',MINVAL(zdst_c(:,:))
   END IF
+   CALL global_mpi_barrier
 
   END SUBROUTINE find_latlonindex
 
