@@ -92,6 +92,7 @@ MODULE mo_nh_initicon
   USE mo_dictionary,          ONLY: t_dictionary, dict_init, dict_finalize, &
     &                               dict_loadfile, dict_get, DICT_MAX_STRLEN
   USE mo_cdi_constants          ! We need all
+  USE mo_nwp_sfc_interp,      ONLY: smi_to_sm_mass
 
   IMPLICIT NONE
 
@@ -1411,9 +1412,10 @@ MODULE mo_nh_initicon
     TYPE(t_lnd_state),      INTENT(INOUT) :: p_lnd_state(:)
 
     INTEGER :: jg, jt, jlev
-    LOGICAL :: l_exist
+    LOGICAL :: l_exist, l_sst_present
 
     INTEGER :: no_cells, no_cells_2,no_levels, no_levels_2
+    INTEGER :: no_depth, no_depth_2
     INTEGER :: fileID, dimid, varid, mpi_comm
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
@@ -1473,11 +1475,15 @@ MODULE mo_nh_initicon
           CALL nf(nf_inq_dimid(fileID, 'ncells_2', dimid), routine)
           CALL nf(nf_inq_dimlen(fileID, dimid, no_cells_2), routine)
           ! get number of vertical levels
-          CALL nf(nf_inq_dimid(fileID, 'lev', dimid), routine)
-          CALL nf(nf_inq_dimlen(fileID, dimid, no_levels), routine)
-          CALL nf(nf_inq_dimid(fileID, 'lev_2', dimid), routine)
-          CALL nf(nf_inq_dimlen(fileID, dimid, no_levels_2), routine)
+          !CALL nf(nf_inq_dimid(fileID, 'lev', dimid), routine)
+          !CALL nf(nf_inq_dimlen(fileID, dimid, no_levels), routine)
+          !CALL nf(nf_inq_dimid(fileID, 'lev_2', dimid), routine)
+          !CALL nf(nf_inq_dimlen(fileID, dimid, no_levels_2), routine)
 
+          CALL nf(nf_inq_dimid(fileID, 'depth', dimid), routine)
+          CALL nf(nf_inq_dimlen(fileID, dimid, no_depth), routine)
+          CALL nf(nf_inq_dimid(fileID, 'depth_2', dimid), routine)
+          CALL nf(nf_inq_dimlen(fileID, dimid, no_depth_2), routine)
           ! -------------------------
           ! simple consistency checks
           ! -------------------------
@@ -1488,9 +1494,14 @@ MODULE mo_nh_initicon
                  & 'Number of patch cells and cells in DWD FG file do not match.')
           ENDIF
 
-          IF(p_patch(jg)%nlev /= no_levels .AND. p_patch(jg)%nlev /= no_levels_2) THEN
+          !IF(p_patch(jg)%nlev /= no_levels .AND. p_patch(jg)%nlev /= no_levels_2) THEN
+          !  CALL finish(TRIM(ROUTINE),&
+          !       & 'nlev does not match the number of levels in DWD FG file.')
+          !ENDIF
+
+          IF(nlev_soil /= no_depth ) THEN
             CALL finish(TRIM(ROUTINE),&
-                 & 'nlev does not match the number of levels in DWD FG file.')
+                 & 'nlev_soil does not match the number of soil levels in DWD FG file.')
           ENDIF
 
           ! Check, if sea-ice thickness field is provided as input
@@ -1508,6 +1519,22 @@ MODULE mo_nh_initicon
 
             l_hice_in = .FALSE.
           ENDIF
+        ! Check, if sea surface temperature field is provided as input
+        ! IF SST is missing, set l_sst_in=.FALSE.
+        IF (nf_inq_varid(fileID, 't_seasfc', varid) == nf_noerr) THEN
+          WRITE (message_text,'(a,a)')                            &
+            &  'sea surface temperature available'
+          l_sst_present = .TRUE.
+
+        ELSE
+
+          WRITE (message_text,'(a,a)')                            &
+            &  'sea surface temperature not available. ', &
+            &  'should be taken from t_so, instead.'
+          CALL message(TRIM(routine),TRIM(message_text))
+          l_sst_present = .FALSE.
+        ENDIF
+
 
         CASE (FILETYPE_GRB2)
           CALL cdiDefMissval(cdimissval) 
@@ -1538,20 +1565,19 @@ MODULE mo_nh_initicon
       ENDIF
 
       CALL p_bcast(l_hice_in, p_io, mpi_comm)
+      CALL p_bcast(l_sst_present,    p_io, mpi_comm)
       CALL p_bcast(filetype,  p_io, mpi_comm)
       CALL p_bcast(fileID,    p_io, mpi_comm)
 
 
       ! start reading surface fields from First Guess
       !
-      CALL read_data_2d (filetype, fileID, 't_g', p_patch(jg)%n_patch_cells_g,                &
-        &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,              &
-        &                p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_g)
 
+      IF (l_sst_present) THEN
       CALL read_data_2d (filetype, fileID, 't_seasfc', p_patch(jg)%n_patch_cells_g,           &
         &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,              &
         &                p_lnd_state(jg)%diag_lnd%t_seasfc)
-
+      END IF
       CALL read_data_2d (filetype, fileID, 'fr_seaice', p_patch(jg)%n_patch_cells_g,          &
         &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,              &
         &                p_lnd_state(jg)%diag_lnd%fr_seaice)
@@ -1571,6 +1597,15 @@ MODULE mo_nh_initicon
 
       ! tile based fields
       DO jt=1, ntiles_total
+
+        CALL read_data_2d (filetype, fileID, 't_g', p_patch(jg)%n_patch_cells_g,               &
+         &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,              &
+         &                p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_g_t(:,:,jt))
+
+        CALL read_data_2d (filetype, fileID, 'qv_s', p_patch(jg)%n_patch_cells_g,              &
+         &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,              &
+         &                p_lnd_state(jg)%diag_lnd%qv_s_t(:,:,jt))
+
         CALL read_data_2d (filetype, fileID, 'freshsnow',                          &
           &                p_patch(jg)%n_patch_cells_g,                            &
           &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
@@ -1617,6 +1652,8 @@ MODULE mo_nh_initicon
           &                p_patch(jg)%n_patch_cells_g,                               &
           &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,    &
           &                nlev_soil, p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_so_t(:,:,:,jt))
+
+        CALL smi_to_sm_mass(p_patch(jg), p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_so_t(:,:,:,jt))
 
         ! so far w_so_ice is re-initialized in terra_multlay_init
         CALL read_data_3d (filetype, fileID, 'w_so_ice',                              &
