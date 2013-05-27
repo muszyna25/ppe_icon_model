@@ -1668,27 +1668,13 @@ CONTAINS
     INTEGER  :: ic
     REAL(wp) :: h_snow, snowdepth_fac, sso_fac, z0_fac, z0_limit, lc_fac, lc_limit
 
-    IF (idiag_snowfrac == 1) THEN
+    IF (idiag_snowfrac == 1) THEN ! old parameterization depending on SWE only
       DO ic = istart, iend
         snowfrac(ic) = MIN(1.0_wp, w_snow(ic)/cf_snow)
         t_g(ic) = t_snow(ic) + (1.0_wp - snowfrac(ic))*(t_soiltop(ic) - t_snow(ic))
       ENDDO
-    ELSE IF (idiag_snowfrac == 2) THEN
-      DO ic = istart, iend
-        IF (w_snow(ic) <= 1.e-6_wp) THEN
-          snowfrac(ic) = 0._wp
-        ELSE
-          h_snow = 1000._wp*w_snow(ic)/rho_snow(ic)  ! snow depth in m
-          sso_fac = SQRT(0.04_wp*MAX(25._wp,sso_sigma(ic)*(1._wp-freshsnow(ic))))
-          snowdepth_fac = h_snow*(20._wp*freshsnow(ic)+5._wp/sso_fac*(1._wp-freshsnow(ic)))
-          z0_fac   = MAX(1._wp,SQRT(20._wp*z0_lcc(MAX(1,lc_class(ic)))))
-          z0_limit = MIN(1._wp,SQRT(SQRT(1.5_wp/z0_fac)))
-          lc_limit = MIN(1._wp,1._wp/SQRT(MAX(0.1_wp,tai(ic))))
-          snowfrac(ic) = MIN(lc_limit,z0_limit,snowdepth_fac/z0_fac)
-        ENDIF
-        t_g(ic) = t_snow(ic) + (1.0_wp - snowfrac(ic))*(t_soiltop(ic) - t_snow(ic))
-      ENDDO
-    ELSE IF (idiag_snowfrac == 3) THEN   ! idiag_snowfrac = 3 - similar to option 2, but different tuning
+    ELSE IF (idiag_snowfrac == 2) THEN ! more advanced parameterization depending on snow depth,
+                                       ! accounts also for vegetation and SSO
       DO ic = istart, iend
         IF (w_snow(ic) <= 1.e-6_wp) THEN
           snowfrac(ic) = 0._wp
@@ -1696,26 +1682,47 @@ CONTAINS
           h_snow = 1000._wp*w_snow(ic)/rho_snow(ic)  ! snow depth in m
           sso_fac = SQRT(0.025_wp*MAX(25._wp,sso_sigma(ic)*(1._wp-freshsnow(ic))))
           snowdepth_fac = h_snow*(17.5_wp*freshsnow(ic)+5._wp+5._wp/sso_fac*(1._wp-freshsnow(ic)))
-          z0_fac   = MAX(1._wp,SQRT(12.5_wp*z0_lcc(MAX(1,lc_class(ic)))))
-          z0_limit = MIN(1._wp,SQRT(SQRT(2.5_wp/z0_fac)))
-          lc_limit = MIN(1._wp,1.75_wp/SQRT(MAX(0.1_wp,tai(ic))))
-          snowfrac(ic) = MIN(lc_limit,z0_limit,snowdepth_fac/z0_fac)
-        ENDIF
-        t_g(ic) = t_snow(ic) + (1.0_wp - snowfrac(ic))*(t_soiltop(ic) - t_snow(ic))
-      ENDDO
-    ELSE IF (idiag_snowfrac == 4) THEN   ! idiag_snowfrac = 4 - do not use z0 but only tai to cover vegetation effects
-      DO ic = istart, iend
-        IF (w_snow(ic) <= 1.e-6_wp) THEN
-          snowfrac(ic) = 0._wp
-        ELSE
-          h_snow = 1000._wp*w_snow(ic)/rho_snow(ic)  ! snow depth in m
-          sso_fac = SQRT(0.025_wp*MAX(25._wp,sso_sigma(ic)*(1._wp-freshsnow(ic))))
-          snowdepth_fac = h_snow*(17.5_wp*freshsnow(ic)+5._wp+5._wp/sso_fac*(1._wp-freshsnow(ic)))
-          lc_fac   = MAX(1._wp,SQRT(7.5_wp*tai(ic)))
+          lc_fac   = MAX(1._wp,SQRT(5.0_wp*MIN(1.5_wp,tai(ic))))
           IF (lc_class(ic) == i_lc_urban) THEN
-            lc_limit = 0.8_wp ! this accounts for the effect of human activities in snow cover
+            lc_limit = 0.85_wp ! this accounts for the effect of human activities on snow cover
           ELSE
-            lc_limit = MIN(1._wp,1._wp/MAX(0.1_wp,4.0_wp*tai(ic))**0.125_wp)
+            lc_limit = 1.0_wp ! no limitation for natural land cover
+          ENDIF
+          snowfrac(ic) = MIN(lc_limit,snowdepth_fac/lc_fac)
+        ENDIF
+        t_g(ic) = t_snow(ic) + (1.0_wp - snowfrac(ic))*(t_soiltop(ic) - t_snow(ic))
+      ENDDO
+    ELSE IF (idiag_snowfrac == 3) THEN   ! similar to option 2, but hard snow cover limit over high vegetation
+      DO ic = istart, iend
+        IF (w_snow(ic) <= 1.e-6_wp) THEN
+          snowfrac(ic) = 0._wp
+        ELSE
+          h_snow = 1000._wp*w_snow(ic)/rho_snow(ic)  ! snow depth in m
+          sso_fac = SQRT(0.025_wp*MAX(25._wp,sso_sigma(ic)*(1._wp-freshsnow(ic))))
+          snowdepth_fac = h_snow*(17.5_wp*freshsnow(ic)+5._wp+5._wp/sso_fac*(1._wp-freshsnow(ic)))
+          lc_fac   = MAX(1._wp,SQRT(5.0_wp*tai(ic)))
+          IF (lc_class(ic) == i_lc_urban) THEN
+            lc_limit = 0.8_wp ! this accounts for the effect of human activities on snow cover
+          ELSE
+            lc_limit = MAX(0.925_wp,MIN(1._wp,1._wp/MAX(0.1_wp,2.5_wp*tai(ic))**0.125_wp))
+          ENDIF
+          snowfrac(ic) = MIN(lc_limit,snowdepth_fac/lc_fac)
+        ENDIF
+        t_g(ic) = t_snow(ic) + (1.0_wp - snowfrac(ic))*(t_soiltop(ic) - t_snow(ic))
+      ENDDO
+    ELSE IF (idiag_snowfrac == 4) THEN   ! same as option 3, but even more restrictive snow cover limit over high vegetation
+      DO ic = istart, iend
+        IF (w_snow(ic) <= 1.e-6_wp) THEN
+          snowfrac(ic) = 0._wp
+        ELSE
+          h_snow = 1000._wp*w_snow(ic)/rho_snow(ic)  ! snow depth in m
+          sso_fac = SQRT(0.025_wp*MAX(25._wp,sso_sigma(ic)*(1._wp-freshsnow(ic))))
+          snowdepth_fac = h_snow*(17.5_wp*freshsnow(ic)+5._wp+5._wp/sso_fac*(1._wp-freshsnow(ic)))
+          lc_fac   = MAX(1._wp,SQRT(5.0_wp*tai(ic)))
+          IF (lc_class(ic) == i_lc_urban) THEN
+            lc_limit = 0.8_wp ! this accounts for the effect of human activities on snow cover
+          ELSE
+            lc_limit = MAX(0.85_wp,MIN(1._wp,1._wp/MAX(0.1_wp,2.5_wp*tai(ic))**0.125_wp))
           ENDIF
           snowfrac(ic) = MIN(lc_limit,snowdepth_fac/lc_fac)
         ENDIF
