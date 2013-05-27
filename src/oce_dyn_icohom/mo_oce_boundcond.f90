@@ -621,7 +621,7 @@ CONTAINS
     !---------Debug Diagnostics-------------------------------------------
     idt_src=3  ! output print level (1-5, fix)
     z_c(:,:)=top_bc_tracer(:,:,tracer_id)
-    CALL dbg_print('top bound.cond.tracer'       ,z_c                      ,str_module,idt_src)
+    CALL dbg_print('top bound.cond.tracer' ,z_c, str_module, idt_src, in_subset=p_patch%cells%owned)
     !---------------------------------------------------------------------
     
   END SUBROUTINE top_bound_cond_tracer

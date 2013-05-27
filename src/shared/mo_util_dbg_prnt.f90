@@ -55,7 +55,7 @@ USE mo_math_constants,         ONLY: pi
 USE mo_exception,              ONLY: message, message_text
 USE mo_model_domain,           ONLY: t_patch
 USE mo_grid_subset,            ONLY: t_subset_range
-USE mo_statistics_utils,       ONLY: global_minmax
+USE mo_statistics_utils,       ONLY: global_minmax, global_minmaxmean
 
 IMPLICIT NONE
 
@@ -353,6 +353,7 @@ CONTAINS
   981 FORMAT(a,a12,':',a27,' C:',i3,  g26.18,3(a,i0,a,  g12.5))
   982 FORMAT(a,a12,':',a27,'  :',i3,   26x,  3(a,i0,a,  g12.5))
   991 FORMAT(a,a12,':',a27,'  :',i3, 2g26.18)
+  992 FORMAT(a,a12,':',a27,'  :',i3, 3g26.18)
 #else
 
 ! ! valid g-format without offset of decimal point
@@ -367,6 +368,7 @@ CONTAINS
   981 FORMAT(a,a12,':',a27,' C:',i3, 1pg26.18,3(a,i0,a,1pg20.12))
   982 FORMAT(a,a12,':',a27,'  :',i3,    26x,  3(a,i0,a,1pg20.12))
   991 FORMAT(a,a12,':',a27,'  :',i3, 1pg26.18, 1pg26.18)
+  992 FORMAT(a,a12,':',a27,'  :',i3, 1pg26.18, 1pg26.18, 1pg26.18)
 #endif
 
   ! check print output level idetail_src (1-5) with namelist given value (idbg_val)
@@ -478,7 +480,7 @@ CONTAINS
     ! ctrn=minval(p_array(:, slev:elev_mxmn, :))
     DO jk = slev, elev_mxmn
 
-      minmax = global_minmax(values=p_array, subset=in_subset, start_level=jk, end_level=jk)
+      minmax(:) = global_minmax(values=p_array(:,:,:), subset=in_subset, start_level=jk, end_level=jk)
 
       IF (my_process_is_stdio()) &
         & WRITE(iout,991) ' MAX/MIN ', strmod, strout, jk, minmax(2), minmax(1)
@@ -515,7 +517,7 @@ CONTAINS
   CHARACTER(len=27) ::  strout
   CHARACTER(len=12) ::  strmod
   INTEGER           ::  iout, icheck_str_mod, jstr, i, jk, ndimblk
-  REAL(wp)          ::  minmax(2)
+  REAL(wp)          ::  minmaxmean(3)
 
   IF (timers_level > 10) CALL timer_start(timer_dbg_prnt)
 
@@ -541,6 +543,7 @@ CONTAINS
   981 FORMAT(a,a12,':',a27,' C:',i3,  g26.18,3(a,i0,a,  g12.5))
   982 FORMAT(a,a12,':',a27,'  :',i3,   26x,  3(a,i0,a,  g12.5))
   991 FORMAT(a,a12,':',a27,'  :',i3, 2g26.18)
+  992 FORMAT(a,a12,':',a27,'  :',i3, 3g26.18)
 #else
 
 ! ! valid e-format with first digit gt zero
@@ -557,6 +560,7 @@ CONTAINS
   981 FORMAT(a,a12,':',a27,' C:',i3,  g26.18,3(a,i0,a,  g20.12))
   982 FORMAT(a,a12,':',a27,'  :',i3,   26x,  3(a,i0,a,  g20.12))
   991 FORMAT(a,a12,':',a27,'  :',i3, 2g26.18)
+  992 FORMAT(a,a12,':',a27,'  :',i3, 3g26.18)
 #endif
 
   strout=TRIM(str_prntdes)
@@ -595,10 +599,12 @@ CONTAINS
 
   IF (idbg_mxmn >= idetail_src ) THEN
    
-    minmax = global_minmax(values=p_array, subset=in_subset)
+    minmaxmean(:) = global_minmaxmean(values=p_array(:,:), subset=in_subset)
 
     IF (my_process_is_stdio()) &
-      & WRITE(iout,991) ' MAX/MIN ', strmod, strout, jk, minmax(2), minmax(1)
+      & WRITE(iout,992) ' MAX/MIN/MEAN ', strmod, strout, jk, minmaxmean(2), minmaxmean(1), minmaxmean(3)
+
+    ! WRITE(0,*) ' MAX/MIN/MEAN ', minmaxmean(2), minmaxmean(1), minmaxmean(3)
 
   END IF
 

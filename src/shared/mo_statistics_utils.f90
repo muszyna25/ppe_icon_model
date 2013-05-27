@@ -1,6 +1,7 @@
 !-------------------------------------------------------------------------------------
 !>
 !! Set of methods for simple statistics
+!! NOTE: in order to get correct results make sure you provide the proper subset!
 !!
 !! @author Leonidas Linardakis, MPI-M
 !!
@@ -40,7 +41,7 @@ MODULE mo_statistics_utils
   USE mo_exception,          ONLY: message_text, message, warning, finish
   USE mo_grid_subset,        ONLY: t_subset_range, get_index_range
   USE mo_mpi,                ONLY: process_mpi_stdio_id, get_my_mpi_work_communicator, p_max, p_min, &
-    & my_process_is_mpi_parallel
+    & my_process_is_mpi_parallel, p_sum
 !   USE mo_io_units,           ONLY: nnml, filename_max
 !   USE mo_namelist,           ONLY: position_nml, open_nml, positioned
 
@@ -51,12 +52,15 @@ MODULE mo_statistics_utils
   ! !VERSION CONTROL:
   CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
 
-  PUBLIC :: global_minmax
+  PUBLIC :: global_minmax, global_minmaxmean
   !-------------------------------------------------------------------------
 
+  ! NOTE: in order to get correct results make sure you provide the proper subset!
   INTERFACE global_minmax
-    MODULE PROCEDURE globalspace_2D_minmax
     MODULE PROCEDURE globalspace_3D_minmax
+  END INTERFACE
+  INTERFACE global_minmaxmean
+    MODULE PROCEDURE globalspace_2D_minmaxmean
   END INTERFACE
   
 
@@ -64,56 +68,83 @@ CONTAINS
 
   !-----------------------------------------------------------------------
   !>
-  FUNCTION globalspace_2D_minmax(values, subset) result(minmax)
+  FUNCTION globalspace_2D_minmaxmean(values, subset) result(minmaxmean)
     REAL(wp), INTENT(in) :: values(:,:)
     TYPE(t_subset_range), TARGET, OPTIONAL :: subset
-    REAL(wp) :: minmax(2)
+    REAL(wp) :: minmaxmean(3)
 
-    REAL(wp) :: min_in_block, max_in_block, min_value, max_value
-    INTEGER :: jb, startidx, endidx
+    REAL(wp) :: min_in_block, max_in_block, min_value, max_value, sum_value, global_number_of_values
+    INTEGER :: jb, startidx, endidx, number_of_values
     INTEGER :: communicator
 
 
     IF (PRESENT(subset)) THEN
       ! init the min, max values
-      jb=subset%start_block
+      jb = subset%start_block
       CALL get_index_range(subset, jb, startidx, endidx)
       min_value = values(startidx, jb)
       max_value = values(startidx, jb)
-!ICON_OMP_PARALLEL_DO PRIVATE(jb, startidx, endidx, min_in_block, max_in_block) reduction(min:min_value) reduction(max:max_value)
+      sum_value = 0
+!ICON_OMP_PARALLEL_DO PRIVATE(jb, startidx, endidx) FIRSTPRIVATE(min_in_block, max_in_block, sum_value) &
+!ICON_OMP  reduction(min:min_value) reduction(max:max_value) reduction(sum:sum_value)
       DO jb = subset%start_block, subset%end_block
         CALL get_index_range(subset, jb, startidx, endidx)
         min_in_block = MINVAL(values(startidx:endidx, jb))
         max_in_block = MAXVAL(values(startidx:endidx, jb))
         min_value    = MIN(min_value, min_in_block)
         max_value    = MAX(max_value, max_in_block)
+        sum_value    = sum_value + SUM(values(startidx:endidx, jb))
       ENDDO
 !ICON_OMP_END_PARALLEL_DO
+      ! compute the total number of values
+      IF ((subset%end_block - subset%start_block) > 1) THEN
+        number_of_values = (subset%end_block - subset%start_block -1) * subset%block_size
+      ELSE
+        number_of_values = 0
+      ENDIF
+      number_of_values = number_of_values + subset%end_index + (subset%block_size - subset%start_index + 1)
+
     ELSE
-      min_value      = values(1,1)
-      max_value      = values(1,1)
-!ICON_OMP_PARALLEL_DO PRIVATE(jb, min_in_block, max_in_block) reduction(min:min_value) reduction(max:max_value)
+      min_value = values(1,1)
+      max_value = values(1,1)
+      sum_value = 0
+!ICON_OMP_PARALLEL_DO PRIVATE(jb, startidx, endidx) FIRSTPRIVATE(min_in_block, max_in_block, sum_value) &
+!ICON_OMP  reduction(min:min_value) reduction(max:max_value) reduction(sum:sum_value)
       DO jb = 1,  SIZE(values, 2)
         min_in_block = MINVAL(values(:, jb))
         max_in_block = MAXVAL(values(:, jb))
-        min_value      = MIN(min_value, min_in_block)
-        max_value      = MAX(max_value, max_in_block)
+        min_value    = MIN(min_value, min_in_block)
+        max_value    = MAX(max_value, max_in_block)
+        sum_value    = sum_value + SUM(values(:, jb))
       ENDDO
 !ICON_OMP_END_PARALLEL_DO
+      number_of_values = SIZE(values)
     ENDIF
     
-    ! the global min, max is avaliable only to stdio process
-    ! the global min, max is avaliable only to stdio process
+
+    ! the global min, max, mean, is avaliable only to stdio process
     IF (my_process_is_mpi_parallel()) THEN
       communicator = get_my_mpi_work_communicator()
-      minmax(1) = p_min( min_value,  comm=communicator ) ! only mpi_all_reduce is avaliable
-      minmax(2) = p_max( max_value,  comm=communicator, root=process_mpi_stdio_id )
+      minmaxmean(1) = p_min( min_value,  comm=communicator ) ! only mpi_all_reduce is avaliable
+      minmaxmean(2) = p_max( max_value,  comm=communicator, root=process_mpi_stdio_id )
+
+      ! these are avaliable to all processes
+      global_number_of_values = p_sum( REAL(number_of_values,wp),  comm=communicator)
+      minmaxmean(3) = p_sum( sum_value,  comm=communicator) / global_number_of_values
+
+ !     write(0,*) "globalspace_2D_minmaxmean parallel:",  sum_value, number_of_values
+
     ELSE
-      minmax(1) = min_value
-      minmax(2) = max_value
+
+      minmaxmean(1) = min_value
+      minmaxmean(2) = max_value
+      minmaxmean(3) = sum_value / REAL(number_of_values, wp)
+
+  !    write(0,*) "globalspace_2D_minmaxmean seq:", min_value, max_value, sum_value, number_of_values
+
     ENDIF
 
-  END FUNCTION globalspace_2D_minmax
+  END FUNCTION globalspace_2D_minmaxmean
   !-----------------------------------------------------------------------
   
 
