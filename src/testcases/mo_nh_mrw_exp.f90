@@ -304,7 +304,24 @@ MODULE mo_nh_mrw_exp
 
   CALL convert_thdvars(ptr_patch, ptr_nh_diag%pres, ptr_nh_diag%temp, &
                      & ptr_nh_prog%rho, ptr_nh_prog%exner, ptr_nh_prog%theta_v  )
-  ptr_nh_prog%rhotheta_v = ptr_nh_prog%rho * ptr_nh_prog%theta_v
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,nlen,jk,jc) 
+    DO jb = 1, nblks_c
+      IF (jb /= nblks_c) THEN
+        nlen = nproma
+      ELSE
+        nlen = npromz_c
+      ENDIF
+      DO jk = 1, nlev      
+        DO jc = 1, nlen
+          ptr_nh_prog%rhotheta_v(jc,jk,jb) = ptr_nh_prog%rho(jc,jk,jb) * &
+                                             ptr_nh_prog%theta_v(jc,jk,jb)
+        END DO
+      END DO
+    END DO
+!$OMP END DO
+!$OMP END PARALLEL
 
 ! initialized horizontal velocities
     i_startblk = ptr_patch%edges%start_blk(2,1)
@@ -369,7 +386,25 @@ MODULE mo_nh_mrw_exp
    !Calculate again the nh prognostic variables with the new tempv
    CALL convert_thdvars(ptr_patch, ptr_nh_diag%pres, ptr_nh_diag%tempv, &
                & ptr_nh_prog%rho, ptr_nh_prog%exner, ptr_nh_prog%theta_v  )
-   ptr_nh_prog%rhotheta_v = ptr_nh_prog%rho * ptr_nh_prog%theta_v 
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,nlen,jk,jc) 
+    DO jb = 1, nblks_c
+      IF (jb /= nblks_c) THEN
+        nlen = nproma
+      ELSE
+        nlen = npromz_c
+      ENDIF
+      DO jk = 1, nlev      
+        DO jc = 1, nlen
+          ptr_nh_prog%rhotheta_v(jc,jk,jb) = ptr_nh_prog%rho(jc,jk,jb) * &
+                                             ptr_nh_prog%theta_v(jc,jk,jb)
+        END DO
+      END DO
+    END DO
+!$OMP END DO
+!$OMP END PARALLEL
+
    DEALLOCATE(z_qv)
 
   END IF
