@@ -110,7 +110,7 @@ MODULE mo_nml_crosscheck
 
 !  PRIVATE
 
-  PUBLIC :: atm_crosscheck, oce_crosscheck
+  PUBLIC :: atm_crosscheck
 
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
@@ -128,11 +128,11 @@ CONTAINS
   !! @par Revision History
   !! Initial revision by Hui Wan, MPI (2011-07)
   !!
-  SUBROUTINE resize_simulation_length()
+  SUBROUTINE resize_atmo_simulation_length()
 
     REAL(wp):: cur_datetime_calsec, end_datetime_calsec, length_sec
     INTEGER :: jg
-    CHARACTER(len=*), PARAMETER :: method_name =  'mo_nml_crosscheck:resize_simulation_length'
+    CHARACTER(len=*), PARAMETER :: method_name =  'mo_nml_crosscheck:resize_atmo_simulation_length'
 
     !----------------------------
     ! rescale timestep
@@ -274,14 +274,7 @@ CONTAINS
          & dt_checkpoint/86400._wp, ' days'
     CALL message(method_name,message_text)
 
-  END SUBROUTINE resize_simulation_length
-
-
-  SUBROUTINE oce_crosscheck()
-    CALL check_parallel_configuration()
-    CALL resize_simulation_length()
-    CALL init_grid_configuration
-  END SUBROUTINE oce_crosscheck
+  END SUBROUTINE resize_atmo_simulation_length
 
 
   SUBROUTINE atm_crosscheck
@@ -298,7 +291,7 @@ CONTAINS
     !--------------------------------------------------------------------
     CALL check_parallel_configuration()
 
-    CALL resize_simulation_length()
+    CALL resize_atmo_simulation_length()
 
     ! Special treatment for the hydro atm model
 

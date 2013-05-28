@@ -1239,6 +1239,7 @@ src/configure_model/mo_nh_pzlev_config.f90 -text
 src/configure_model/mo_nml_crosscheck.f90 -text
 src/configure_model/mo_nonhydrostatic_config.f90 -text
 src/configure_model/mo_ocean_config.f90 -text
+src/configure_model/mo_ocean_nml_crosscheck.f90 -text
 src/configure_model/mo_parallel_config.f90 -text
 src/configure_model/mo_prepicon_config.f90 -text
 src/configure_model/mo_radiation_config.f90 -text

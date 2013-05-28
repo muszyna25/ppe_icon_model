@@ -68,7 +68,7 @@ MODULE mo_ocean_model
     & grid_generatingCenter,  & ! grid generating center
     & grid_generatingSubcenter  ! grid generating subcenter
 
-  USE mo_nml_crosscheck,      ONLY: oce_crosscheck
+  USE mo_ocean_nml_crosscheck,   ONLY: oce_crosscheck
 
   USE mo_model_domain,        ONLY: t_patch,  t_patch_3D
 
