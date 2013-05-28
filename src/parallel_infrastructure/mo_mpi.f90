@@ -6076,13 +6076,17 @@ CONTAINS
             &                 MPI_MAXLOC, p_comm, p_error)
         END IF
         ! decode meta info:
-        p_max = rcv_val(1,:)
-        DO j=1, SIZE(zfield)
-          ikey = INT(rcv_val(2,j)+0.5)/process_mpi_all_size
-          IF (PRESENT(keyval))  keyval(j)  = ikey
-          IF (PRESENT(proc_id)) proc_id(j) = &
-            & INT(rcv_val(2,j)+0.5) - ikey*process_mpi_all_size
-        END DO
+        IF (p_pe == root .OR. .NOT. PRESENT(root)) THEN
+          p_max = rcv_val(1,:)
+          DO j=1, SIZE(zfield)
+            ikey = INT(rcv_val(2,j)+0.5)/process_mpi_all_size
+            IF (PRESENT(keyval))  keyval(j)  = ikey
+            IF (PRESENT(proc_id)) proc_id(j) = &
+              & INT(rcv_val(2,j)+0.5) - ikey*process_mpi_all_size
+          END DO
+        ELSE
+          p_max = zfield
+        ENDIF
       ELSE
         ! compute simple (standard) maximum
         IF (PRESENT(root)) THEN
