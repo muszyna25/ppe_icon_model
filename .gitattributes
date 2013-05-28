@@ -666,13 +666,6 @@ run/exp.oce_channel -text
 run/exp.oce_mpiom -text
 run/exp.oce_mpiom_Rrefined -text
 run/exp.oce_r2b5 -text
-run/exp.oce_speed -text
-run/exp.oce_speed_1 -text
-run/exp.oce_speed_16 -text
-run/exp.oce_speed_2 -text
-run/exp.oce_speed_32 -text
-run/exp.oce_speed_4 -text
-run/exp.oce_speed_8 -text
 run/exp.oce_test_numeric -text
 run/exp.oce_test_parallel -text
 run/exp.ozon -text
