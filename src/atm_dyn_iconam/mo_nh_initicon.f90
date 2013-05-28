@@ -1472,8 +1472,8 @@ MODULE mo_nh_initicon
           ! get number of cells
           CALL nf(nf_inq_dimid(fileID, 'ncells', dimid), routine)
           CALL nf(nf_inq_dimlen(fileID, dimid, no_cells), routine)
-          CALL nf(nf_inq_dimid(fileID, 'ncells_2', dimid), routine)
-          CALL nf(nf_inq_dimlen(fileID, dimid, no_cells_2), routine)
+          !CALL nf(nf_inq_dimid(fileID, 'ncells_2', dimid), routine)
+          !CALL nf(nf_inq_dimlen(fileID, dimid, no_cells_2), routine)
           ! get number of vertical levels
           !CALL nf(nf_inq_dimid(fileID, 'lev', dimid), routine)
           !CALL nf(nf_inq_dimlen(fileID, dimid, no_levels), routine)
@@ -1499,7 +1499,7 @@ MODULE mo_nh_initicon
           !       & 'nlev does not match the number of levels in DWD FG file.')
           !ENDIF
 
-          IF(nlev_soil /= no_depth ) THEN
+          IF(nlev_soil /= no_depth_2 ) THEN
             CALL finish(TRIM(ROUTINE),&
                  & 'nlev_soil does not match the number of soil levels in DWD FG file.')
           ENDIF

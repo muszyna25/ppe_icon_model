@@ -42,7 +42,7 @@ MODULE mo_initicon_nml
   USE mo_kind,               ONLY: wp
   USE mo_exception,          ONLY: finish
   USE mo_impl_constants,     ONLY: max_char_length, max_dom, &
-    &                              MODE_IFSANA, MODE_DWDANA
+    &                              MODE_IFSANA, MODE_DWDANA,MODE_COMBINED 
   USE mo_io_units,           ONLY: nnml, nnml_output, filename_max
   USE mo_namelist,           ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_mpi,                ONLY: my_process_is_stdio 
@@ -125,7 +125,7 @@ CONTAINS
 
   !local variable
   INTEGER :: i_status
-  INTEGER :: z_go_init(2)   ! for consistency check
+  INTEGER :: z_go_init(3)   ! for consistency check
 
     CHARACTER(len=*), PARAMETER ::  &
       &  routine = 'mo_initicon_nml: read_initicon_namelist'
@@ -184,7 +184,7 @@ CONTAINS
   ! 5.0 check the consistency of the parameters
   !------------------------------------------------------------
   !
-  z_go_init = (/MODE_IFSANA,MODE_DWDANA/)
+  z_go_init = (/MODE_IFSANA,MODE_DWDANA,MODE_COMBINED/)
   IF (ALL(z_go_init /= init_mode)) THEN
     CALL finish( TRIM(routine),                         &
       &  'Invalid initialization mode. Must be init_mode=1 or 2')
