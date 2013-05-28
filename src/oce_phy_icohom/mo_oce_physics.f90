@@ -387,7 +387,8 @@ CONTAINS
 
     !---------Debug Diagnostics-------------------------------------------
     idt_src=0  ! output print level - 0: print in any case
-    CALL dbg_print('smoothed Laplac Diff.'     ,k_h                     ,str_module,idt_src)
+    CALL dbg_print('smoothed Laplac Diff.'     ,k_h                     ,str_module,idt_src, &
+      & in_subset=p_patch%edges%owned)
     !---------------------------------------------------------------------
 
   END SUBROUTINE smooth_lapl_diff
@@ -834,14 +835,18 @@ CONTAINS
 
     !---------DEBUG DIAGNOSTICS-------------------------------------------
     idt_src=4  ! output print level (1-5, fix)
-    CALL dbg_print('UpdPar: p_vn%x(1)'         ,p_os%p_diag%p_vn%x(1)    ,str_module,idt_src)
-    CALL dbg_print('UpdPar: p_vn%x(2)'         ,p_os%p_diag%p_vn%x(2)    ,str_module,idt_src)
+    CALL dbg_print('UpdPar: p_vn%x(1)'         ,p_os%p_diag%p_vn%x(1)    ,str_module,idt_src, &
+      & in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpdPar: p_vn%x(2)'         ,p_os%p_diag%p_vn%x(2)    ,str_module,idt_src, &
+      & in_subset=p_patch%cells%owned)
     idt_src=2  ! output print level (1-5, fix)
     DO itracer = 1, no_tracer
       z_c(:,:,:)=params_oce%A_tracer_v(:,:,:,itracer)
-      CALL dbg_print('UpdPar FinalTracerMixing'  ,z_c                    ,str_module,idt_src)
+      CALL dbg_print('UpdPar FinalTracerMixing'  ,z_c                    ,str_module,idt_src, &
+        & in_subset=p_patch%cells%owned)
     ENDDO
-    CALL dbg_print('UpdPar FinalVelocMixing'   ,params_oce%A_veloc_v     ,str_module,idt_src)
+    CALL dbg_print('UpdPar FinalVelocMixing'   ,params_oce%A_veloc_v     ,str_module,idt_src, &
+        & in_subset=p_patch%edges%owned)
     !---------------------------------------------------------------------
   END SUBROUTINE update_ho_params
 END MODULE mo_oce_physics

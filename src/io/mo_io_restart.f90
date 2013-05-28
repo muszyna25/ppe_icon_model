@@ -23,11 +23,15 @@ MODULE mo_io_restart
   USE mo_gather_scatter,        ONLY: gather_cells, gather_edges, gather_vertices,  &
        &                              scatter_cells, scatter_edges, scatter_vertices  
   USE mo_io_units,              ONLY: find_next_free_unit, filename_max
+  
+#ifndef  __OCEAN_ONLY__ 
 !LK comment: should not be here !!!!!! polution of namespace !!!!!!
   USE mo_dynamics_config,       ONLY: iequations, nnew, nnew_rcf
   USE mo_impl_constants,        ONLY: IHS_ATM_TEMP, IHS_ATM_THETA, ISHALLOW_WATER, &
     &                                 LEAPFROG_EXPL, LEAPFROG_SI
   USE mo_ha_dyn_config,         ONLY: ha_dyn_config 
+#endif
+
 !LK comment: should not be here !!!!!! polution of namespace !!!!!!
 #ifndef NOMPI
   USE mo_model_domain,          ONLY: t_patch
@@ -404,6 +408,9 @@ CONTAINS
     lrestart_initialised = .TRUE.
     !
   END SUBROUTINE init_restart
+  !------------------------------------------------------------------------------------------------
+
+
   !------------------------------------------------------------------------------------------------
   !
   ! Loop over all the output streams and open the associated files. Set
@@ -855,6 +862,8 @@ CONTAINS
       ENDIF
 
 
+#ifndef  __OCEAN_ONLY__ 
+! this should be removed !
       SELECT CASE (iequations)
       CASE(IHS_ATM_TEMP, IHS_ATM_THETA, ISHALLOW_WATER)
 
@@ -864,6 +873,9 @@ CONTAINS
       CASE default
         IF ( time_level == tlev_skip ) CYCLE   ! skip field
       END SELECT
+#else
+      IF ( time_level == tlev_skip ) CYCLE   ! skip field
+#endif
 
       !
       ! set grid ID
@@ -1194,6 +1206,8 @@ CONTAINS
         tlev_skip = -99
       ENDIF
 
+#ifndef  __OCEAN_ONLY__ 
+! this should be removed !
       SELECT CASE (iequations)
       CASE(IHS_ATM_TEMP, IHS_ATM_THETA, ISHALLOW_WATER)
 
@@ -1203,7 +1217,9 @@ CONTAINS
       CASE default
         IF ( time_level == tlev_skip ) CYCLE   ! skip field
       END SELECT
-
+#else
+     IF ( time_level == tlev_skip ) CYCLE   ! skip field
+#endif
 
       !
       IF (info%lcontained) THEN 

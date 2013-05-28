@@ -135,9 +135,9 @@ CONTAINS
     CHARACTER(*), PARAMETER :: routine = TRIM("mo_subdivision:ext_decompose_patches")
 
     CHARACTER(len=20), PARAMETER, DIMENSION(4) :: summary = &
-      & (/ "lateral grid points " , &
-      &    "interior grid points", &
-      &    "nested grid points  ",   &
+      & (/ "lateral grid points ",  &
+      &    "interior grid points",  &
+      &    "nested grid points  ",  &
       &    "halo grid points    " /)
 
     ! Local variables:
@@ -289,12 +289,12 @@ CONTAINS
 
       DEALLOCATE(p_patch_global(jg)%cells%phys_id)
 
-      IF(jg > n_dom_start) THEN
-        ! Assign the cell owners of the current patch to the parent cells
-        ! for the construction of the local parent:
-        ALLOCATE(cell_owner_p(p_patch_global(jgp)%n_patch_cells))
-        CALL divide_parent_cells(p_patch_global(jg),cell_owner,cell_owner_p)
-      ENDIF
+!      IF(jg > n_dom_start) THEN
+!        ! Assign the cell owners of the current patch to the parent cells
+!        ! for the construction of the local parent:
+!        ALLOCATE(cell_owner_p(p_patch_global(jgp)%n_patch_cells))
+!        CALL divide_parent_cells(p_patch_global(jg),cell_owner,cell_owner_p)
+!      ENDIF
 
       ! Please note: Previously, for jg==0 no ghost rows were set.
       ! Currently, we need ghost rows for jg==0 also for dividing the int state and grf state
@@ -308,10 +308,10 @@ CONTAINS
 
         CALL divide_patch(patch_2D(jg), cell_owner, n_ghost_rows, is_compute_grid, p_pe_work)
 
-        IF(jg > n_dom_start) THEN
-          wrk_p_patch_g => p_patch_global(jgp)
-          CALL divide_patch(p_patch_local_parent(jg), cell_owner_p, 1, .FALSE., p_pe_work)
-        ENDIF
+!        IF(jg > n_dom_start) THEN
+!          wrk_p_patch_g => p_patch_global(jgp)
+!          CALL divide_patch(p_patch_local_parent(jg), cell_owner_p, 1, .FALSE., p_pe_work)
+!        ENDIF
 
       DEALLOCATE(cell_owner)
       IF(jg > n_dom_start) DEALLOCATE(cell_owner_p)
@@ -536,93 +536,6 @@ CONTAINS
       wrk_p_patch_g%cells%radiation_owner => radiation_owner
 
     ENDIF
-
-!     ELSE    
-!       ! Built in subdivison methods
-! 
-!       IF(ASSOCIATED(wrk_p_parent_patch_g)) THEN
-! 
-!         ! Cells with the same parent must not go to different PEs.
-!         ! Thus we have to divide in reality the subset of the parent cells
-!         ! which cover the actual patch and then assign the ownership
-!         ! of the cells of the actual patch according to the parent cells
-! 
-!         ! Determine the subset of the parent patch covering the actual patch
-!         ! by flagging the according cells
-! 
-!         ALLOCATE(flag_c(wrk_p_parent_patch_g%n_patch_cells))
-!         flag_c(:) = 0
-! 
-!         DO j = 1, wrk_p_patch_g%n_patch_cells
-! 
-!           jb = blk_no(j) ! block index
-!           jl = idx_no(j) ! line index
-!           jl_p = wrk_p_patch_g%cells%parent_idx(jl,jb)
-!           jb_p = wrk_p_patch_g%cells%parent_blk(jl,jb)
-! 
-!           flag_c(idx_1d(jl_p, jb_p)) = MAX(1,wrk_p_patch_g%cells%phys_id(jl,jb))
-!         ENDDO
-! 
-!         ! Divide subset of patch
-!         ! Receives the PE  numbers for every cell
-!         ALLOCATE(tmp(wrk_p_parent_patch_g%n_patch_cells))
-! 
-!         IF(division_method(patch_no) == div_geometric) THEN
-!           wrk_divide_patch => wrk_p_parent_patch_g
-!           CALL divide_subset_geometric( flag_c, n_proc, tmp)
-! #ifdef HAVE_METIS
-!         ELSE IF(division_method==div_metis) THEN
-!           wrk_divide_patch => wrk_p_parent_patch_g
-!           CALL divide_subset_metis( flag_c, n_proc, tmp)
-! #endif
-!         ELSE
-!           CALL finish('divide_patch','Illegal division_method setting')
-!         ENDIF
-! 
-!         ! Owners of the cells of the parent patch are now in tmp.
-!         ! Set owners in current patch from this
-! 
-!         DO j = 1, wrk_p_patch_g%n_patch_cells
-! 
-!           jb = blk_no(j) ! block index
-!           jl = idx_no(j) ! line index
-!           jl_p = wrk_p_patch_g%cells%parent_idx(jl,jb)
-!           jb_p = wrk_p_patch_g%cells%parent_blk(jl,jb)
-! 
-!           cell_owner(j) = tmp(idx_1d(jl_p,jb_p))
-! 
-!         ENDDO
-! 
-!         DEALLOCATE(flag_c, tmp)
-! 
-!       ELSE
-! 
-!         ! No parent patch, simply divide current patch
-! 
-!         ! Set subset flags where the "subset" is the whole patch
-! 
-!         ALLOCATE(flag_c(wrk_p_patch_g%n_patch_cells))
-!         flag_c(:) = 1
-! 
-!         ! Divide complete patch
-! 
-!         IF(division_method(patch_no) == div_geometric) THEN
-!           wrk_divide_patch => wrk_p_patch_g
-!           CALL divide_subset_geometric(flag_c, n_proc, cell_owner)
-! #ifdef HAVE_METIS
-!         ELSE IF(division_method==div_metis) THEN
-!           wrk_divide_patch => wrk_p_patch_g
-!           CALL divide_subset_metis(flag_c, n_proc, cell_owner)
-! #endif
-!         ELSE
-!           CALL finish('divide_patch','Illegal division_method setting')
-!         ENDIF
-! 
-!         DEALLOCATE(flag_c)
-! 
-!       ENDIF
-! 
-!     ENDIF
 
     ! Set processor offset
     cell_owner(:) = cell_owner(:) + proc0

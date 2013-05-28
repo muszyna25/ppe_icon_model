@@ -90,6 +90,7 @@ MODULE mo_sea_ice_types
   !atmosphere model or from file. These fields are transformed via bulk fomulas
   !into atmospheric fluxes, the fluxes are then used to set the oceans surface 
   !boundary conditions
+  ! On cells
   TYPE t_atmos_for_ocean
 
     REAL(wp), ALLOCATABLE :: &

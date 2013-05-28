@@ -367,15 +367,17 @@ CONTAINS
         !---------DEBUG DIAGNOSTICS-------------------------------------------
         idt_src=3  ! output print level (1-5, fix)
         z_c2(:,:)=ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,4)
-        CALL dbg_print('UpdSfc: Ext data4-ta/mon1' ,z_c2                     ,str_module,idt_src)
+        CALL dbg_print('UpdSfc: Ext data4-ta/mon1' ,z_c2                     ,str_module,idt_src, in_subset=p_patch%cells%owned)
         z_c2(:,:)=ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,4)
-        CALL dbg_print('UpdSfc: Ext data4-ta/mon2' ,z_c2                     ,str_module,idt_src)
-        CALL dbg_print('UpdSfc: p_as%tafo'         ,p_as%tafo                ,str_module,idt_src)
+        CALL dbg_print('UpdSfc: Ext data4-ta/mon2' ,z_c2                     ,str_module,idt_src, in_subset=p_patch%cells%owned)
+        CALL dbg_print('UpdSfc: p_as%tafo'         ,p_as%tafo                ,str_module,idt_src, in_subset=p_patch%cells%owned)
 
         IF (l_forc_freshw) THEN
           idt_src=3  ! output print level (1-5, fix)
-          CALL dbg_print('UpdSfc: p_sfc_flx%forc_precip'   ,p_sfc_flx%forc_precip   ,str_module,idt_src)
-          CALL dbg_print('UpdSfc: p_sfc_flx%forc_runoff'   ,p_sfc_flx%forc_runoff   ,str_module,idt_src)
+          CALL dbg_print('UpdSfc: p_sfc_flx%forc_precip'   ,p_sfc_flx%forc_precip   ,str_module,idt_src, &
+            & in_subset=p_patch%cells%owned)
+          CALL dbg_print('UpdSfc: p_sfc_flx%forc_runoff'   ,p_sfc_flx%forc_runoff   ,str_module,idt_src, &
+            & in_subset=p_patch%cells%owned)
         ENDIF
         !---------------------------------------------------------------------
 
@@ -450,14 +452,14 @@ CONTAINS
 
         !---------DEBUG DIAGNOSTICS-------------------------------------------
         idt_src=2  ! output print level (1-5, fix)
-        CALL dbg_print('UpdSfc: Data SW-flux'      ,p_sfc_flx%forc_swflx     ,str_module,idt_src)
-        CALL dbg_print('UpdSfc: Data LW-flux'      ,p_sfc_flx%forc_lwflx     ,str_module,idt_src)
-        CALL dbg_print('UpdSfc: Data Sens.  HF'    ,p_sfc_flx%forc_ssflx     ,str_module,idt_src)
-        CALL dbg_print('UpdSfc: Data Latent HF'    ,p_sfc_flx%forc_slflx     ,str_module,idt_src)
-        CALL dbg_print('UpdSfc: Data Total  HF'    ,p_sfc_flx%forc_hflx      ,str_module,idt_src)
-        CALL dbg_print('UpdSfc: Data Precip.'      ,p_sfc_flx%forc_precip    ,str_module,idt_src)
-        CALL dbg_print('UpdSfc: Data Evaporation'  ,p_sfc_flx%forc_evap      ,str_module,idt_src)
-        CALL dbg_print('UpdSfc: Data Freshw. Flux' ,p_sfc_flx%forc_fwbc      ,str_module,idt_src)
+        CALL dbg_print('UpdSfc: Data SW-flux'      ,p_sfc_flx%forc_swflx     ,str_module,idt_src, in_subset=p_patch%cells%owned)
+        CALL dbg_print('UpdSfc: Data LW-flux'      ,p_sfc_flx%forc_lwflx     ,str_module,idt_src, in_subset=p_patch%cells%owned)
+        CALL dbg_print('UpdSfc: Data Sens.  HF'    ,p_sfc_flx%forc_ssflx     ,str_module,idt_src, in_subset=p_patch%cells%owned)
+        CALL dbg_print('UpdSfc: Data Latent HF'    ,p_sfc_flx%forc_slflx     ,str_module,idt_src, in_subset=p_patch%cells%owned)
+        CALL dbg_print('UpdSfc: Data Total  HF'    ,p_sfc_flx%forc_hflx      ,str_module,idt_src, in_subset=p_patch%cells%owned)
+        CALL dbg_print('UpdSfc: Data Precip.'      ,p_sfc_flx%forc_precip    ,str_module,idt_src, in_subset=p_patch%cells%owned)
+        CALL dbg_print('UpdSfc: Data Evaporation'  ,p_sfc_flx%forc_evap      ,str_module,idt_src, in_subset=p_patch%cells%owned)
+        CALL dbg_print('UpdSfc: Data Freshw. Flux' ,p_sfc_flx%forc_fwbc      ,str_module,idt_src, in_subset=p_patch%cells%owned)
         !---------------------------------------------------------------------
 
         ! call of sea ice model

@@ -53,10 +53,11 @@ MODULE mo_ocean_nml
   USE mo_impl_constants,     ONLY: max_char_length
   USE mo_io_units,           ONLY: nnml, nnml_output
   USE mo_namelist,           ONLY: position_nml, positioned, open_nml, close_nml
-  USE mo_coupling_config,    ONLY: is_coupled_run
   USE mo_mpi,                ONLY: my_process_is_stdio
   USE mo_ocean_config,       ONLY: config_ignore_land_points => ignore_land_points
-
+#ifndef __OCEAN_ONLY__
+  USE mo_coupling_config,    ONLY: is_coupled_run
+#endif
   IMPLICIT NONE
 
   CHARACTER(len=*), PARAMETER, PRIVATE :: version = '$Id$'
@@ -455,10 +456,6 @@ MODULE mo_ocean_nml
          &  'bottom boundary condition for velocity currently not supported: choose = 0 or =1')
      ENDIF
      
-     IF ( is_coupled_run() ) THEN
-       iforc_oce = FORCING_FROM_COUPLED_FLUX
-       CALL message(TRIM(routine),'WARNING, iforc_oce set to 14 for coupled experiment')
-     END IF
 
      IF (solver_start_tolerance <= 0.0_wp) THEN
        solver_start_tolerance = solver_tolerance
@@ -470,12 +467,16 @@ MODULE mo_ocean_nml
        CALL message(TRIM(routine),'WARNING, limit_elevation set to .TRUE. with l_forc_freshw=.TRUE.')
      END IF
 
+#ifndef __OCEAN_ONLY__
      IF ( is_coupled_run() ) THEN
+       iforc_oce = FORCING_FROM_COUPLED_FLUX
+       CALL message(TRIM(routine),'WARNING, iforc_oce set to 14 for coupled experiment')
        limit_elevation = .FALSE.
        CALL message(TRIM(routine),'WARNING, limit_elevation set to .FALSE. for coupled experiment')
        seaice_limit = 1.0_wp
        CALL message(TRIM(routine),'WARNING, seaice_limit set to 1.0 - no limit for coupled experiment')
      END IF
+#endif
  
      ! write the contents of the namelist to an ASCII file
      IF(my_process_is_stdio()) WRITE(nnml_output,nml=ocean_dynamics_nml)
