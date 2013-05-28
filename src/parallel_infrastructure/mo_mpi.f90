@@ -6047,13 +6047,15 @@ CONTAINS
 
 #ifndef NOMPI
     INTEGER :: p_comm
-    INTEGER  :: meta_info, ikey, j
+    INTEGER  :: meta_info, ikey, j, rank
     REAL(dp) :: in_val(2, SIZE(zfield)), rcv_val(2, SIZE(zfield))
 
     IF (PRESENT(comm)) THEN
        p_comm = comm
+       CALL MPI_COMM_RANK(p_comm, rank, p_error)
     ELSE
        p_comm = process_mpi_all_comm
+       rank   = p_pe
     ENDIF
 
     IF (my_process_is_mpi_all_parallel()) THEN
@@ -6076,7 +6078,17 @@ CONTAINS
             &                 MPI_MAXLOC, p_comm, p_error)
         END IF
         ! decode meta info:
-        IF (p_pe == root .OR. .NOT. PRESENT(root)) THEN
+        IF (PRESENT(root)) THEN
+          IF (rank == root) THEN
+            p_max = rcv_val(1,:)
+            DO j=1, SIZE(zfield)
+              ikey = INT(rcv_val(2,j)+0.5)/process_mpi_all_size
+              IF (PRESENT(keyval))  keyval(j)  = ikey
+              IF (PRESENT(proc_id)) proc_id(j) = &
+                & INT(rcv_val(2,j)+0.5) - ikey*process_mpi_all_size
+            END DO
+          END IF
+        ELSE
           p_max = rcv_val(1,:)
           DO j=1, SIZE(zfield)
             ikey = INT(rcv_val(2,j)+0.5)/process_mpi_all_size
@@ -6084,9 +6096,7 @@ CONTAINS
             IF (PRESENT(proc_id)) proc_id(j) = &
               & INT(rcv_val(2,j)+0.5) - ikey*process_mpi_all_size
           END DO
-        ELSE
-          p_max = zfield
-        ENDIF
+        END IF
       ELSE
         ! compute simple (standard) maximum
         IF (PRESENT(root)) THEN
