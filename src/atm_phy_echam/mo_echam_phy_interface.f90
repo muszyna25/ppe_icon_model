@@ -362,6 +362,9 @@ CONTAINS
            &                       prm_field(jg)%siced(:,:), &
            &                       prm_field(jg)%lsmask(:,:))
       prm_field(jg)%tsfc_tile(:,:,iwtr) = prm_field(jg)%tsurfw(:,:)
+! The ice model should be able to handle different thickness classes, but for AMIP we only use one
+      prm_field(jg)%conc(:,1,:) = prm_field(jg)%seaice(:,:)
+      prm_field(jg)%hi(:,1,:)   = prm_field(jg)%siced(:,:)
     ENDIF
 
 !    WRITE(0,*)'radiation=',ltrig_rad, dt_rad

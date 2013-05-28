@@ -76,7 +76,6 @@ CONTAINS
 
     IF (ltestcase) THEN
       SELECT CASE(TRIM(ctest_name))
-! TODO: ME might not work proper with ice, has to be checked.
       CASE('AMIP')
       ! Amip simulation
 

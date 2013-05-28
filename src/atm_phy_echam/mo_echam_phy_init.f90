@@ -349,6 +349,12 @@ CONTAINS
         prm_field(jg)% albnirdir_wtr(:,:) = albedoW ! albedo in the NIR range for direct radiation 
         prm_field(jg)% albvisdif_wtr(:,:) = albedoW ! ! albedo in the visible range for diffuse radiation
         prm_field(jg)% albnirdif_wtr(:,:) = albedoW ! albedo in the NIR range for diffuse radiation
+        prm_field(jg)% Tsurf(:,:,:) = Tf
+        prm_field(jg)% T1   (:,:,:) = Tf
+        prm_field(jg)% T2   (:,:,:) = Tf
+        prm_field(jg)% hs   (:,:,:) = 0._wp
+        prm_field(jg)% hi   (:,:,:) = 0._wp
+        prm_field(jg)% conc (:,:,:) = 0._wp
       ENDDO
 
     ENDIF    ! phy_config%lamip

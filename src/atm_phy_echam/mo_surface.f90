@@ -452,8 +452,7 @@ CONTAINS
                       & pevap_tile,                           &! out
                       & evapotranspiration)                    ! in (optional)
 
-! TODO: ME preliminary switched off in AMIP-Mode
-    IF(.NOT. phy_config%lamip) THEN
+    IF(phy_config%lice) THEN
 ! For explicit coupling to ice:
     IF ( idx_ice <= nsfc_type ) THEN
 ! Freezing point of sea-water
@@ -571,7 +570,7 @@ CONTAINS
 ! Set the tile temperature
       ptsfc_tile(1:kproma,idx_ice) = Tsurf(1:kproma,1) + tmelt
     ENDIF
-    ENDIF ! TODO: ME .NOT. lamip (preliminary)
+    ENDIF ! lice
 
   END SUBROUTINE update_surface
   !-------------

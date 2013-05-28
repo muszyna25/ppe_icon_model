@@ -189,6 +189,7 @@ CONTAINS
     REAL(wp) :: zch_tile (nbdim,nsfc_type)
     REAL(wp) :: ztte_corr(nbdim)      !< tte correction for snow melt over land (JSBACH)
     REAL(wp) :: ztemperature_rad(nbdim)
+    REAL(wp) :: ztemperature_eff(nbdim)
 
     ! Temporary variables used for zenith angle
 
@@ -224,8 +225,10 @@ CONTAINS
     ! set current date
     datetime = time_config%cur_datetime
 
-    IF (ilnd.LE.nsfc_type) field%tsurfl(:,jb) = field%tsfc_tile(:,jb,ilnd)
-!    field%tsurfi(:,jb) = field%tsfc_tile(:,jb,iice)
+    IF ( phy_config%lamip ) THEN
+      IF (ilnd.LE.nsfc_type) field%tsurfl(:,jb) = field%tsfc_tile(:,jb,ilnd)
+      IF (iice.LE.nsfc_type) field%tsurfi(:,jb) = field%tsfc_tile(:,jb,iice)
+    ENDIF
 
     !------------------------------------------------------------
     ! 3. COMPUTE SOME FIELDS NEEDED BY THE PHYSICAL ROUTINES.
@@ -349,11 +352,21 @@ CONTAINS
             + 0.000719_wp * COS(2._wp * zyearfrac) + 0.000077_wp * SIN(2._wp * zyearfrac)) * tsi
        END SELECT
 
+
+       ! Einar: This should be done in update_surface
        IF (phy_config%ljsbach) THEN
+         ! Calculate ztemperature_rad and _eff everywhere
+         ztemperature_rad(:) = 0._wp
+         ztemperature_eff(:) = field%tsfc(jcs:jce,jb)
+         DO jsfc=1,nsfc_type
+           ztemperature_rad(jcs:jce) = ztemperature_rad(jcs:jce) + &
+             & zfrc(jcs:jce,jsfc) * field%tsfc_tile(jcs:jce,jb,jsfc)**4
+         ENDDO
+         ztemperature_rad(jcs:jce) = ztemperature_rad(jcs:jce)**0.25_wp
+         ! Reset to precalculated land values
          WHERE (field%lsmask(jcs:jce,jb) > 0.5_wp)
             ztemperature_rad(jcs:jce) = field%surface_temperature_rad(jcs:jce,jb) ! radiative sfc temp. [K]
-         ELSEWHERE
-            ztemperature_rad(jcs:jce) = field% tsfc_tile(jcs:jce,jb,iwtr)
+            ztemperature_eff(jcs:jce) = field%surface_temperature_eff(jcs:jce,jb) ! effective sfc temp. [K]
          ENDWHERE
        ELSE
          ztemperature_rad(:) = 0._wp
@@ -659,7 +672,7 @@ CONTAINS
         & pqv        = field%q                (:,:,jb,iqv),&!in specific moisture         [kg/kg]
         & pi0        = zi0                      (:)   ,&! in    solar incoming flux at TOA [W/m2]
         & pemiss     = ext_data(jg)%atm%emis_rad(:,jb),&! in    lw sfc emissivity
-        & ptsfc      = field%surface_temperature_eff(:,jb),&! in  effective surface temperature [K]
+        & ptsfc      = ztemperature_eff(:)            ,&! in  effective surface temperature [K]
         & ptsfctrad  = ztemperature_rad(:)            ,&! in  radiative sfc temp. used in "radiation" [K]
         & ptemp_klev = field%temp          (:,nlev,jb),&! in    temp at lowest full level     [K]
         & ptrmsw     = field%trsolall         (:,:,jb),&! in    shortwave net tranmissivity   []
@@ -936,8 +949,25 @@ CONTAINS
                        & albvisdif = field% albvisdif(:,jb),                    &! inout
                        & albnirdif = field% albnirdif(:,jb),                    &! inout
                        & surface_temperature_rad = field%surface_temperature_rad(:,jb), &! out
-                       & surface_temperature_eff = field%surface_temperature_eff(:,jb)  &! out
-                       )
+                       & surface_temperature_eff = field%surface_temperature_eff(:,jb), &! out
+                       & Tsurf = field% Tsurf(:,:,jb),  &! inout, for sea ice
+                       & T1    = field% T1   (:,:,jb),  &! inout, for sea ice
+                       & T2    = field% T2   (:,:,jb),  &! inout, for sea ice
+                       & hi    = field% hi   (:,:,jb),  &! in, for sea ice
+                       & hs    = field% hs   (:,:,jb),  &! in, for sea ice
+                       & conc  = field% conc (:,:,jb),  &! in, for sea ice
+                       & Qtop  = field% Qtop (:,:,jb),  &! out, for sea ice
+                       & Qbot  = field% Qbot (:,:,jb),  &! out, for sea ice
+                       & albvisdir_ice = field% albvisdir_ice(:,:,jb), &! inout ice albedos
+                       & albnirdir_ice = field% albnirdir_ice(:,:,jb), &! inout
+                       & albvisdif_ice = field% albvisdif_ice(:,:,jb), &! inout
+                       & albnirdif_ice = field% albnirdif_ice(:,:,jb), &! inout
+                       & albvisdir_wtr = field% albvisdir_wtr(:  ,jb), &! inout ocean albedos
+                       & albnirdir_wtr = field% albnirdir_wtr(:  ,jb), &! inout
+                       & albvisdif_wtr = field% albvisdif_wtr(:  ,jb), &! inout
+                       & albnirdif_wtr = field% albnirdif_wtr(:  ,jb), &! inout
+                       & plwflx_wtr = field%lwflxsfc_tile(:,jb,iwtr),  &! out (for coupling)
+                       & pswflx_wtr = field%swflxsfc_tile(:,jb,iwtr))  ! out (for coupling)
 
         field%tsurfl(jcs:jce,jb) = field%tsfc_tile(jcs:jce,jb,ilnd)
 
