@@ -436,7 +436,7 @@ CONTAINS
     IF (lcall_phy_jg(itgscp) .OR. lcall_phy_jg(itturb) .OR. lcall_phy_jg(itsfc)) THEN
 
       rlend = min_rlcell_int
-      IF(atm_phy_nwp_config(jg)%inwp_turb==5)rlend=min_rlcell_int-1
+      IF(atm_phy_nwp_config(jg)%inwp_turb==5)rlend=min_rlcell_int-2
 
       IF (msg_level >= 15) &
         & CALL message('mo_nh_interface_nwp:', 'diagnose pressure for fast physics')

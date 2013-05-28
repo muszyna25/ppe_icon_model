@@ -72,6 +72,7 @@ MODULE mo_sgs_turbulence
   USE mo_nwp_phy_types,       ONLY: t_nwp_phy_diag, t_nwp_phy_tend
   USE mo_les_config,          ONLY: les_config
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c, grf_bdywidth_e
+  USE mo_mpi,                 ONLY: p_pe
 
   IMPLICIT NONE
 
@@ -292,29 +293,26 @@ MODULE mo_sgs_turbulence
     !<It assumes that prog values are all synced at this stage while diag values might not>
     !--------------------------------------------------------------------------
 
-    CALL cells2verts_scalar(p_nh_prog%w, p_patch, p_int%cells_aw_verts, w_vert, &
-                            opt_rlstart=3, opt_rlend=min_rlvert_int)
+    CALL cells2verts_scalar(p_nh_prog%w, p_patch, p_int%cells_aw_verts, w_vert, opt_rlend=min_rlvert_int)
     CALL sync_patch_array(SYNC_V, p_patch, w_vert)
 
-    CALL cells2edges_scalar(p_nh_prog%w, p_patch, p_int%c_lin_e, w_ie,  &
-                            opt_rlstart=grf_bdywidth_e-2, opt_rlend=min_rledge_int-2)
+    CALL cells2edges_scalar(p_nh_prog%w, p_patch, p_int%c_lin_e, w_ie, opt_rlend=min_rledge_int-2)
 
     ! RBF reconstruction of velocity at vertices: include halos
     CALL rbf_vec_interpol_vertex( p_nh_prog%vn, p_patch, p_int, &
-                                  u_vert, v_vert, opt_rlstart=3, opt_rlend=min_rlvert_int )
+                                  u_vert, v_vert, opt_rlend=min_rlvert_int )
     CALL sync_patch_array(SYNC_V, p_patch, u_vert)
     CALL sync_patch_array(SYNC_V, p_patch, v_vert)
 
     !Get vn at interfaces and then get vt at interfaces
     !Boundary values are extrapolated like dynamics although
     !they are not required in current implementation
-
-    rl_start = grf_bdywidth_e-2
+    rl_start = 2
     rl_end   = min_rledge_int-3
 
     i_startblk = p_patch%edges%start_blk(rl_start,1)
     i_endblk   = p_patch%edges%end_blk(rl_end,i_nchdom)
-
+    
 !ICON_OMP_PARALLEL
 !ICON_OMP_DO PRIVATE(jb,jk,je,i_startidx,i_endidx)
     DO jb = i_startblk,i_endblk
@@ -341,7 +339,7 @@ MODULE mo_sgs_turbulence
 !ICON_OMP_END_DO_NOWAIT
 !ICON_OMP_END_PARALLEL
  
-    CALL rbf_vec_interpol_edge(vn_ie, p_patch, p_int, vt_ie, opt_rlstart=grf_bdywidth_e-2, &
+    CALL rbf_vec_interpol_edge(vn_ie, p_patch, p_int, vt_ie, opt_rlstart=3, &
                                opt_rlend=min_rledge_int-2)
 
     !--------------------------------------------------------------------------
@@ -356,7 +354,7 @@ MODULE mo_sgs_turbulence
     ieidx => p_patch%cells%edge_idx
     ieblk => p_patch%cells%edge_blk
 
-    rl_start = grf_bdywidth_e-2
+    rl_start = 4
     rl_end   = min_rledge_int-2
 
     i_startblk = p_patch%edges%start_blk(rl_start,1)
@@ -487,7 +485,7 @@ MODULE mo_sgs_turbulence
                           i_startidx, i_endidx, rl_start, rl_end)
        DO jk = 1 , nlev
          DO jc = i_startidx, i_endidx
-           DIV_c(jc,jk,jb) =                                                     &
+           DIV_c(jc,jk,jb) =                                                               &
               (div_of_stress(ieidx(jc,jb,1),jk,ieblk(jc,jb,1))*p_int%e_bln_c_s(jc,1,jb)  + &
                div_of_stress(ieidx(jc,jb,2),jk,ieblk(jc,jb,2))*p_int%e_bln_c_s(jc,2,jb)  + &
                div_of_stress(ieidx(jc,jb,3),jk,ieblk(jc,jb,3))*p_int%e_bln_c_s(jc,3,jb))
@@ -506,10 +504,10 @@ MODULE mo_sgs_turbulence
     ! some additional interpolations. 
     
     CALL cells2edges_scalar(theta, p_patch, p_int%c_lin_e, theta_e,  &
-                            opt_rlstart=grf_bdywidth_e-2, opt_rlend= min_rledge_int)
+                            opt_rlstart=4, opt_rlend= min_rledge_int)
 
     CALL cells2edges_scalar(p_nh_prog%rho, p_patch, p_int%c_lin_e, rho_e, &
-                            opt_rlstart=grf_bdywidth_e-2, opt_rlend=min_rledge_int-2)
+                            opt_rlstart=4, opt_rlend=min_rledge_int-2)
 
     !3(b) Calculate stability corrected turbulent viscosity
     ! visc = mixing_length_sq * SQRT(DD/2) * SQRT(1-Ri/Pr) where Ri = (g/theta)*d_theta_dz/(DD/2), 
@@ -517,10 +515,10 @@ MODULE mo_sgs_turbulence
     ! visc = mixing_length_sq * SQRT[ DD/2 - (Brunt_vaisala_frq/Pr) ]
 
     CALL cells2edges_scalar(visc_sfc_c, p_patch, p_int%c_lin_e, visc_sfc_e, opt_slev=1, &
-                            opt_elev=1, opt_rlstart=grf_bdywidth_e-2, opt_rlend=min_rledge_int)
+                            opt_elev=1, opt_rlstart=4, opt_rlend=min_rledge_int)
 
 
-    rl_start = grf_bdywidth_e-2
+    rl_start = 4
     rl_end   = min_rledge_int
 
     i_startblk = p_patch%edges%start_blk(rl_start,1)
@@ -534,15 +532,15 @@ MODULE mo_sgs_turbulence
        DO jk = 2 , nlev-1
          DO je = i_startidx, i_endidx
 
-           d_theta_ie = p_nh_metrics%wgtfac_e(je,jk,jb) * theta_e(je,jk,jb) + &
+           d_theta_ie = p_nh_metrics%wgtfac_e(je,jk,jb) * theta_e(je,jk,jb) +        &
                      (1._wp - p_nh_metrics%wgtfac_e(je,jk,jb)) * theta_e(je,jk-1,jb) &
-                     - (p_nh_metrics%wgtfac_e(je,jk+1,jb) * theta_e(je,jk+1,jb) + &
+                     - (p_nh_metrics%wgtfac_e(je,jk+1,jb) * theta_e(je,jk+1,jb) +    &
                      (1._wp - p_nh_metrics%wgtfac_e(je,jk+1,jb)) * theta_e(je,jk,jb))
 
            brunt_vaisala_frq = grav * d_theta_ie * p_nh_metrics%inv_ddqz_z_full_e(je,jk,jb) &
                                / theta_e(je,jk,jb)
 
-           visc_smag_e(je,jk,jb) = rho_e(je,jk,jb) *                   &
+           visc_smag_e(je,jk,jb) = rho_e(je,jk,jb) *                  &
                MAX( km_min, p_nh_metrics%mixing_length_sq(je,jk,jb) * &
                SQRT(MAX(0._wp, DD(je,jk,jb)*0.5_wp-les_config(1)%rturb_prandtl*brunt_vaisala_frq)) ) 
 
@@ -567,7 +565,7 @@ MODULE mo_sgs_turbulence
 
     !4a) visc from edge to cell-scalar interpolation
     rl_start = grf_bdywidth_c
-    rl_end   = min_rlcell_int-2
+    rl_end   = min_rlcell_int-1
 
     i_startblk = p_patch%cells%start_blk(rl_start,1)
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
@@ -590,13 +588,13 @@ MODULE mo_sgs_turbulence
 !ICON_OMP_END_PARALLEL
 
     !4b) visc at vertices
-    CALL cells2verts_scalar(visc_smag_c, p_patch, p_int%cells_aw_verts, visc_smag_v, &
+    CALL edges2verts_scalar(visc_smag_e, p_patch, p_int%e_aw_v, visc_smag_v, &
                             opt_rlstart=5, opt_rlend=min_rlvert_int-1) 
 
-    !4c) Now calculate visc_smag at half levels at edge
+   ! CALL cells2verts_scalar(visc_smag_c, p_patch, p_int%cells_aw_verts, visc_smag_v, &
+   !                         opt_rlstart=5, opt_rlend=min_rlvert_int-1) 
 
-    !vertical derivative of visc_smag_ie is then calculated- therefore no need to get
-    !its values on Halos: Boundary values not required
+    !4c) Now calculate visc_smag at half levels at edge
 
 !ICON_OMP_PARALLEL PRIVATE(rl_start, rl_end, i_startblk, i_endblk)
     rl_start = grf_bdywidth_e+1

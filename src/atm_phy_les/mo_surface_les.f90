@@ -127,8 +127,8 @@ MODULE mo_surface_les
     jk = nlev
     i_nchdom   = MAX(1,p_patch%n_childdom)
      
-    rl_start   = grf_bdywidth_c-1
-    rl_end     = min_rlcell_int-1
+    rl_start   = 2
+    rl_end     = min_rlcell_int-2
     i_startblk = p_patch%cells%start_blk(rl_start,1)
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
