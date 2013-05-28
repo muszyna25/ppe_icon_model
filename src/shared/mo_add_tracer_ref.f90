@@ -1,7 +1,6 @@
 !>
 !!               This module is not used
 !!
-!!
 !! @par Revision History
 !! Initial version by Rainer Johanni, Nov 2009
 !!
