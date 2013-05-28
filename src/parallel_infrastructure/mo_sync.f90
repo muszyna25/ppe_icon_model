@@ -1640,7 +1640,7 @@ FUNCTION global_max_0d(zfield, proc_id, keyval, iroot, icomm) RESULT(global_max)
   IF (p_test_run) THEN ! all-to-all communication required
     global_max = p_max(zfield, proc_id=proc_id, keyval=keyval, comm=pcomm)
   ELSE
-    global_max = p_max(zfield, proc_id=proc_id, keyval=keyval, comm=pcomm)
+    global_max = p_max(zfield, proc_id=proc_id, keyval=keyval, comm=pcomm, root=iroot)
   ENDIF
 
   IF(p_test_run .AND. do_sync_checks) CALL check_result( (/ global_max /), 'global_max' )
