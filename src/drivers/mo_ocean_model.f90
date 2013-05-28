@@ -82,7 +82,7 @@ MODULE mo_ocean_model
   USE mo_impl_constants,      ONLY: success !, ihs_ocean
 
   ! External data
-  USE mo_ext_data_state,      ONLY: ext_data, init_ext_data_oce, destruct_ext_data
+  USE mo_ocean_ext_data,      ONLY: ext_data, construct_ocean_ext_data, destruct_ocean_ext_data
 
   USE mo_hydro_ocean_run,     ONLY: perform_ho_stepping,&
     & prepare_ho_integration,&
@@ -271,7 +271,7 @@ CONTAINS
 
     ! allocate memory for oceanic external data and
     ! optionally read those data from netCDF file.
-    CALL init_ext_data_oce(p_patch_3D%p_patch_2D(1:), ext_data)
+    CALL construct_ocean_ext_data(p_patch_3D%p_patch_2D(1:), ext_data)
     !------------------------------------------------------------------
     ! Prepare the coupling
     !
@@ -429,7 +429,7 @@ CONTAINS
     ! 13. Integration finished. Carry out the shared clean-up processes
     !---------------------------------------------------------------------
     ! Destruct external data state
-    CALL destruct_ext_data
+    CALL destruct_ocean_ext_data
 
     ! deallocate ext_data array
     DEALLOCATE(ext_data, stat=error_status)
