@@ -303,6 +303,15 @@ SUBROUTINE allocate_int_state( ptr_patch, ptr_int)
       CALL finish ('mo_interpolation:construct_int_state', &
       &            'allocation for e_flx_avg failed')
     ENDIF
+    !
+    !e_aw_v 
+    !
+    ALLOCATE (ptr_int%e_aw_v(nproma,6,nblks_v), STAT=ist )
+    IF (ist /= SUCCESS) THEN
+      CALL finish ('mo_interpolation:construct_int_state', &
+      &            'allocation for e_aw_v failed')
+    ENDIF
+
   ENDIF
   !
   ! v_1o2_e
@@ -1278,6 +1287,7 @@ SUBROUTINE allocate_int_state( ptr_patch, ptr_int)
     ptr_int%e_bln_c_v     = 0._wp
     ptr_int%c_bln_avg     = 0._wp
     ptr_int%e_flx_avg     = 0._wp
+    ptr_int%e_aw_v        = 0._wp
   ENDIF
 
   ptr_int%v_1o2_e       = 0.5_wp

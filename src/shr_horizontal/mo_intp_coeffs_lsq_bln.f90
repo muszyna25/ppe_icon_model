@@ -2234,7 +2234,6 @@ REAL(wp) :: z_sum
 
        ptr_int_state%cells_aw_verts(jv,:,jb) = 0.0_wp
 
-
        DO je = 1, ptr_patch%verts%num_edges(jv,jb)
 
           ile = ptr_patch%verts%edge_idx(jv,jb,je)
@@ -2246,11 +2245,12 @@ REAL(wp) :: z_sum
                idx_ve = 2
           ENDIF
 
-          IF (ptr_patch%cell_type == 6 ) THEN
-            ptr_int_state%e_aw_v(jv,je,jb) = 0.5_wp*&
+          ptr_int_state%e_aw_v(jv,je,jb) = 0.5_wp*&
             & ptr_patch%edges%edge_vert_length(ile,ibe,idx_ve) &
             &*ptr_patch%edges%dual_edge_length(ile,ibe) &
             &/ptr_patch%verts%dual_area(jv,jb)
+
+          IF (ptr_patch%cell_type == 6 ) THEN
             ptr_int_state%e_inn_v(jv,je,jb) = &
             & ptr_patch%edges%edge_vert_length(ile,ibe,idx_ve) &
             &*ptr_patch%edges%dual_edge_length(ile,ibe) &
