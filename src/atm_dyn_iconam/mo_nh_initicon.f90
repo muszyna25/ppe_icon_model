@@ -1519,21 +1519,23 @@ MODULE mo_nh_initicon
 
             l_hice_in = .FALSE.
           ENDIF
-        ! Check, if sea surface temperature field is provided as input
-        ! IF SST is missing, set l_sst_in=.FALSE.
-        IF (nf_inq_varid(fileID, 't_seasfc', varid) == nf_noerr) THEN
-          WRITE (message_text,'(a,a)')                            &
-            &  'sea surface temperature available'
-          l_sst_present = .TRUE.
 
-        ELSE
+          ! Check, if sea surface temperature field is provided as input
+          ! IF SST is missing, set l_sst_in=.FALSE.
+          IF (nf_inq_varid(fileID, 't_seasfc', varid) == nf_noerr) THEN
+            WRITE (message_text,'(a,a)')                            &
+              &  'sea surface temperature available'
+            l_sst_present = .TRUE.
 
-          WRITE (message_text,'(a,a)')                            &
-            &  'sea surface temperature not available. ', &
-            &  'should be taken from t_so, instead.'
-          CALL message(TRIM(routine),TRIM(message_text))
-          l_sst_present = .FALSE.
-        ENDIF
+          ELSE
+
+            WRITE (message_text,'(a,a)')                            &
+              &  'sea surface temperature not available. ', &
+              &  'should be taken from t_so, instead.'
+            CALL message(TRIM(routine),TRIM(message_text))
+            l_sst_present = .FALSE.
+          ENDIF
+
 
 
         CASE (FILETYPE_GRB2)
@@ -1541,15 +1543,27 @@ MODULE mo_nh_initicon
           CALL cdiDefAdditionalKey("localInformationNumber")
           fileID  = streamOpenRead(TRIM(dwdfg_file(jg)))
 
-          if (get_varID(fileID, "H_ICE") == -1) then
+          IF (get_varID(fileID, "H_ICE") == -1) then
             WRITE (message_text,'(a,a)')                            &
                  &  'sea-ice thickness not available. ', &
                  &  'initialize with constant value (1.0 m), instead.'
             CALL message(TRIM(routine),TRIM(message_text))
             l_hice_in = .FALSE.
-          else
+          ELSE
             l_hice_in = .TRUE.
-          end if
+          ENDIF
+
+          IF (get_varID(fileID, "T_SEA") == -1) then
+            WRITE (message_text,'(a,a)')                            &
+              &  'sea surface temperature not available. ',         &
+              &  'should be taken from t_so, instead.'
+            CALL message(TRIM(routine),TRIM(message_text))
+            l_sst_present = .FALSE.
+          ELSE
+            WRITE (message_text,'(a,a)')                            &
+              &  'sea surface temperature available'
+            l_sst_present = .TRUE.
+          ENDIF
 
         CASE DEFAULT
           CALL finish(routine, "Unknown file type")
@@ -1564,10 +1578,10 @@ MODULE mo_nh_initicon
         mpi_comm = p_comm_work
       ENDIF
 
-      CALL p_bcast(l_hice_in, p_io, mpi_comm)
-      CALL p_bcast(l_sst_present,    p_io, mpi_comm)
-      CALL p_bcast(filetype,  p_io, mpi_comm)
-      CALL p_bcast(fileID,    p_io, mpi_comm)
+      CALL p_bcast(l_hice_in,     p_io, mpi_comm)
+      CALL p_bcast(l_sst_present, p_io, mpi_comm)
+      CALL p_bcast(filetype,      p_io, mpi_comm)
+      CALL p_bcast(fileID,        p_io, mpi_comm)
 
 
       ! start reading surface fields from First Guess
@@ -1602,6 +1616,9 @@ MODULE mo_nh_initicon
          &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,              &
          &                p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_g_t(:,:,jt))
 
+        p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_g(:,:) = &
+          &    p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_g_t(:,:,1)
+
         CALL read_data_2d (filetype, fileID, 'qv_s', p_patch(jg)%n_patch_cells_g,              &
          &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,              &
          &                p_lnd_state(jg)%diag_lnd%qv_s_t(:,:,jt))
@@ -1615,6 +1632,9 @@ MODULE mo_nh_initicon
           &                p_patch(jg)%n_patch_cells_g,                            &
           &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
           &                p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_snow_t(:,:,jt) )
+        ! conversion kg/m**2 -> m H2O
+        p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_snow_t(:,:,jt) =          &
+          & p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_snow_t(:,:,jt)/1000._wp
 
         CALL read_data_2d (filetype, fileID, 'w_i',                                &
           &                p_patch(jg)%n_patch_cells_g,                            &
@@ -1652,14 +1672,21 @@ MODULE mo_nh_initicon
           &                p_patch(jg)%n_patch_cells_g,                               &
           &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,    &
           &                nlev_soil, p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_so_t(:,:,:,jt))
+        ! conversion kg/m**2 -> m H2O
+        p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_so_t(:,:,:,jt) =          &
+          & p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_so_t(:,:,:,jt)/1000._wp
 
-        CALL smi_to_sm_mass(p_patch(jg), p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_so_t(:,:,:,jt))
+!DR Only required, when starting from GME soil
+!DR        CALL smi_to_sm_mass(p_patch(jg), p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_so_t(:,:,:,jt))
 
         ! so far w_so_ice is re-initialized in terra_multlay_init
         CALL read_data_3d (filetype, fileID, 'w_so_ice',                              &
           &                p_patch(jg)%n_patch_cells_g,                               &
           &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,    &
           &                nlev_soil, p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_so_ice_t(:,:,:,jt))
+        ! conversion kg/m**2 -> m H2O
+        p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_so_ice_t(:,:,:,jt) =          &
+          & p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_so_ice_t(:,:,:,jt)/1000._wp
 
         CALL read_data_3d (filetype, fileID, 't_so',                                  &
           &                p_patch(jg)%n_patch_cells_g,                               &
@@ -1851,11 +1878,14 @@ MODULE mo_nh_initicon
         DO jc = i_startidx, i_endidx
 
           ! pressure increment - should we verify that it is in hydrostatic balance with the temperature increment?
-          pres_incr(jc,jk,jb) = initicon(jg)%atm%pres(jc,jk,jb) - p_diag%pres(jc,jk,jb)
+!DR          pres_incr(jc,jk,jb) = initicon(jg)%atm%pres(jc,jk,jb) - p_diag%pres(jc,jk,jb)
+          pres_incr(jc,jk,jb) = 0._wp
 
           ! increments for u and v - will be interpolated to edge points below
-          u_incr(jc,jk,jb) = initicon(jg)%atm%u(jc,jk,jb) - p_diag%u(jc,jk,jb)
-          v_incr(jc,jk,jb) = initicon(jg)%atm%v(jc,jk,jb) - p_diag%v(jc,jk,jb)
+!DR          u_incr(jc,jk,jb) = initicon(jg)%atm%u(jc,jk,jb) - p_diag%u(jc,jk,jb)
+!DR          v_incr(jc,jk,jb) = initicon(jg)%atm%v(jc,jk,jb) - p_diag%v(jc,jk,jb)
+          u_incr(jc,jk,jb) = 0._wp
+          v_incr(jc,jk,jb) = 0._wp
 
           ! add pressure increment to the nonhydrostatic pressure
           zpres_nh(jc,jk,jb) = zpres_nh(jc,jk,jb) + pres_incr(jc,jk,jb)
@@ -1904,6 +1934,9 @@ MODULE mo_nh_initicon
     ENDDO  ! jb
 !$OMP ENDDO
 !$OMP END PARALLEL
+
+    !DR Test
+    CALL sync_patch_array(SYNC_E,p_patch(jg),vn_incr)
 
     ! Compute diffusion term 
     CALL nabla4_vec(vn_incr, p_patch(jg), p_int_state(jg), nabla4_vn_incr, opt_rlstart=5)

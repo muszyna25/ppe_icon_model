@@ -17,6 +17,7 @@ qi                  QI
 qr                  QR
 qs                  QS
 t_g                 T_G
+qv_s                QV_S
 t_seasfc            T_SEA
 fr_seaice           FR_ICE
 t_ice               T_ICE

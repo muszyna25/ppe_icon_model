@@ -988,7 +988,7 @@ MODULE mo_nwp_lnd_state
            & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,      &
            & ldims=shape2d,                                                &
            & initval_r=0.001_wp,                                           &
-           & in_group=groups("land_vars") )      
+           & in_group=groups("land_vars","dwd_ana_vars") )      
 
     ! & p_diag_lnd%fr_seaice(nproma,nblks_c)
     cf_desc    = t_cf_var('fr_seaice', '-', 'fraction of sea ice', DATATYPE_FLT32)
