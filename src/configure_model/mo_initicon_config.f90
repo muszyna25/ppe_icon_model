@@ -102,7 +102,7 @@ CONTAINS
 
     CALL associate_keyword("<path>",   TRIM(model_base_dir),             keywords)
     CALL associate_keyword("<nroot>",  TRIM(int2string(nroot,"(i1)")),   keywords)
-    CALL associate_keyword("<nroot0>", TRIM(int2string(nroot,"(i2)")),   keywords)
+    CALL associate_keyword("<nroot0>", TRIM(int2string(nroot,"(i2.2)")), keywords)
     CALL associate_keyword("<jlev>",   TRIM(int2string(jlev, "(i2.2)")), keywords)
     CALL associate_keyword("<idom>",   TRIM(int2string(idom, "(i2.2)")), keywords)
     ! replace keywords in "input_filename", which is by default
