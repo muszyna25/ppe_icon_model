@@ -1292,7 +1292,6 @@ src/grid_generator/mo_grid.f90 -text
 src/grid_generator/mo_grid_checktools.f90 -text
 src/grid_generator/mo_grid_conditions.f90 -text
 src/grid_generator/mo_grid_decomposition.f90 -text
-src/grid_generator/mo_grid_geometry_info.f90 -text
 src/grid_generator/mo_grid_levels.f90 -text
 src/grid_generator/mo_grid_toolbox.f90 -text
 src/grid_generator/mo_gridrefinement.f90 -text
@@ -1480,6 +1479,7 @@ src/shr_horizontal/mo_grf_intp_data_strc.f90 -text
 src/shr_horizontal/mo_grf_intp_state.f90 -text
 src/shr_horizontal/mo_grf_nudgintp.f90 -text
 src/shr_horizontal/mo_grf_ubcintp.f90 -text
+src/shr_horizontal/mo_grid_geometry_info.f90 -text
 src/shr_horizontal/mo_intp.f90 -text
 src/shr_horizontal/mo_intp_coeffs.f90 -text
 src/shr_horizontal/mo_intp_coeffs_lsq_bln.f90 -text
