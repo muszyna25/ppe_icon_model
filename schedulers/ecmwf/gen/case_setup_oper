@@ -42,11 +42,12 @@ cd $EXPDIR
 atmo_dyn_grids=icon_grid_${res}_G.nc
 atmo_rad_grids=icon_grid_${resrad}_R.nc
 extpar_filename=icon_extpar_${res}_G.nc
+ifs2icon_filename=ifs2icon_${res}_DOM01.nc
 
 ln -sf $GRIDDIR/icon_grid_*_${res}_G.nc     ${atmo_dyn_grids}
 ln -sf $GRIDDIR/icon_grid_*_${resrad}_R.nc  ${atmo_rad_grids}
 ln -sf $EXTPARDIR/icon_extpar_*_${res}_G.nc ${extpar_filename}
-ln -sf $IFS2ICONDIR/ifs2icon_${res}_DOM01.nc .
+ln -sf $IFS2ICONDIR/${ifs2icon_filename}    ${ifs2icon_filename}
 
 ln -sf ${RADDIR}/ECHAM6_CldOptProps.nc .
 ln -sf ${RADDIR}/rrtmg_lw.nc .
@@ -159,7 +160,8 @@ cat > ${atmo_namelist} << EOF
  init_mode                    = 2           ! initialization mode (2 for IFS ana, 1 for DWD ana)
  nlev_in                      = 91          ! number of levels of input data
  zpbl1                        = 500. 
- zpbl2                        = 1000. 
+ zpbl2                        = 1000.
+ ifs2icon_filename            = '${ifs2icon_filename}'
 /
 &io_nml
  lflux_avg                    = .FALSE.     ! false: accumulated fluxes
@@ -204,10 +206,10 @@ cat > ${atmo_namelist} << EOF
  pl_varlist                   = ${pl_varlist}
  hl_varlist                   = ${hl_varlist}
  output_grid                  = .FALSE.
- remap                        = 1
- reg_lon_def                  = 0.,1.,359.
- reg_lat_def                  = 90.,-1., -90.
-!namespace                    = "DWD"                     ! may give problems with metview - leave default ecmwf
+ remap                        = 1                         ! 1: latlon,  0: native grid
+ reg_lon_def                  =  0., 1.0, 359.  
+ reg_lat_def                  = 90.,-1.0, -90.
+!namespace                    = "ECMWF"                   ! may give problems with metview - leave default ecmwf
 /
 !  &output_nml                                               ! initial data for COSMO EU 
 !   filetype                     = 4
