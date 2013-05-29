@@ -6087,6 +6087,9 @@ CONTAINS
               IF (PRESENT(proc_id)) proc_id(j) = &
                 & INT(rcv_val(2,j)+0.5) - ikey*process_mpi_all_size
             END DO
+          ELSE
+            ! trivial result output for the other, non-root PEs:
+            p_max = zfield
           END IF
         ELSE
           p_max = rcv_val(1,:)
