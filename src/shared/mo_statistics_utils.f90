@@ -168,7 +168,7 @@ CONTAINS
     ELSE
       end_vertical = SIZE(values, 2)
     ENDIF
-
+    ! write(0,*) "start_vertical, end_vertical:", start_vertical, end_vertical
     IF (start_vertical > end_vertical) &
       CALL finish(method_name, "start_vertical > end_vertical")
 
@@ -204,7 +204,7 @@ CONTAINS
         number_of_values = 0
       ENDIF
       number_of_values = (number_of_values + subset%end_index + (subset%block_size - subset%start_index + 1)) * &
-        & (end_vertical - start_vertical)
+        & (end_vertical - start_vertical + 1)
 
     ELSE
 

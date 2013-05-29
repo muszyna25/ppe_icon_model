@@ -387,7 +387,7 @@ CONTAINS
 
     !---------Debug Diagnostics-------------------------------------------
     idt_src=0  ! output print level - 0: print in any case
-    CALL dbg_print('smoothed Laplac Diff.'     ,k_h                     ,str_module,idt_src, &
+    CALL dbg_print('smoothed Laplac Diff.'     ,K_h                     ,str_module,idt_src, &
       & in_subset=p_patch%edges%owned)
     !---------------------------------------------------------------------
 
