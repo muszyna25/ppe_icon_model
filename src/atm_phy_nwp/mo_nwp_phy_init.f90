@@ -261,7 +261,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
         & spec_humi(sat_pres_water(p_prog_lnd_now%t_g (jc,jb)),p_diag%pres_sfc(jc,jb))
 
         END DO
-
+     ! ELSEIF
       ELSE ! For real-case simulations, initialize also qv_s and the tile-based fields
 
          ! t_g:

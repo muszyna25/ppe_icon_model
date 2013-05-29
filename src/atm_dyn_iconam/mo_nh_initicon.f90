@@ -196,7 +196,7 @@ MODULE mo_nh_initicon
       CALL process_dwdana_atm (p_patch, p_nh_state, p_int_state)
 
       ! process DWD land/surface analysis data
-      CALL process_dwdana_sfc (p_patch, p_lnd_state)
+      CALL process_dwdana_sfc (p_patch, p_lnd_state, ext_data)
 
     CASE(MODE_IFSANA)   ! read in IFS analysis
 
@@ -214,7 +214,7 @@ MODULE mo_nh_initicon
       CALL process_ifsana_atm (p_patch, p_nh_state, p_int_state, p_grf_state, initicon)
 
       ! process DWD land/surface analysis
-      CALL process_dwdana_sfc (p_patch, p_lnd_state)
+      CALL process_dwdana_sfc (p_patch, p_lnd_state, ext_data)
 
     CASE DEFAULT
       CALL finish(TRIM(routine), "Invalid operation mode!")
@@ -295,10 +295,11 @@ MODULE mo_nh_initicon
   !! Initial version by Daniel Reinert, DWD(2012-12-20)
   !!
   !!
-  SUBROUTINE process_dwdana_sfc (p_patch, p_lnd_state)
+  SUBROUTINE process_dwdana_sfc (p_patch, p_lnd_state, ext_data)
 
     TYPE(t_patch),          INTENT(IN)    :: p_patch(:)
     TYPE(t_lnd_state),      INTENT(INOUT) :: p_lnd_state(:)
+    TYPE(t_external_data),  INTENT(INOUT) :: ext_data(:)
 
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
@@ -317,7 +318,7 @@ MODULE mo_nh_initicon
 
     ! add increments to first guess and convert variables to 
     ! the NH set of prognostic variables
-!    CALL create_dwdana_sfc()
+    CALL create_dwdana_sfc(p_patch, p_lnd_state, ext_data)
 
   END SUBROUTINE process_dwdana_sfc
 
@@ -1677,8 +1678,10 @@ MODULE mo_nh_initicon
           & p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_so_t(:,:,:,jt)/1000._wp
 
 !DR Only required, when starting from GME soil
-!DR        CALL smi_to_sm_mass(p_patch(jg), p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_so_t(:,:,:,jt))
-
+        IF (init_mode == MODE_COMBINED) THEN
+         CALL smi_to_sm_mass(p_patch(jg), p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_so_t(:,:,:,jt))
+        END IF
+          
         ! so far w_so_ice is re-initialized in terra_multlay_init
         CALL read_data_3d (filetype, fileID, 'w_so_ice',                              &
           &                p_patch(jg)%n_patch_cells_g,                               &
@@ -2042,7 +2045,59 @@ MODULE mo_nh_initicon
     ENDIF
 
   END SUBROUTINE create_dwdana_atm
+  !-------------------------------------------------------------------------
+  !>
+  !! SUBROUTINE create_dwdana_sfc 
+  !!
+  !! Required input: patch, lnd_state
+  !! Output is written on fields of NH state
+  !!
+  !! @par Revision History
+  !! Initial version by P. Ripodas, DWD(2013-05)
+  !!
+  !!
+  !-------------------------------------------------------------------------
+  SUBROUTINE create_dwdana_sfc (p_patch,p_lnd_state, ext_data)
 
+    TYPE(t_patch),    TARGET, INTENT(IN)    :: p_patch(:)
+    TYPE(t_lnd_state),INTENT(INOUT)         :: p_lnd_state(:)
+    TYPE(t_external_data),  INTENT(INOUT)   :: ext_data(:)
+
+    INTEGER :: jg, ic,jc, jb             ! loop indices
+    INTEGER :: ntlr
+    INTEGER :: nblks_c   
+  !-------------------------------------------------------------------------
+
+    ! for the time being, the generation of DWD analysis fields is implemented 
+    ! for the global domain, only.
+    jg = 1
+
+    nblks_c   = p_patch(jg)%nblks_c
+    ntlr      = nnow_rcf(jg)
+!$OMP PARALLEL 
+!$OMP DO PRIVATE(jc,ic,jb) ICON_OMP_DEFAULT_SCHEDULE
+      DO jb = 1, nblks_c
+
+        !first soil level  t_so over water points is the SST
+!CDIR NODEP,VOVERTAKE,VOB
+        DO ic = 1, ext_data(jg)%atm%sp_count(jb)
+           jc = ext_data(jg)%atm%idx_lst_sp(ic,jb)
+           p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) =                  & ! nproma.nlev_soil+1,nblks,ntiles_total
+                                    & p_lnd_state(jg)%prog_lnd(ntlr)%t_so_t(jc,1,jb,1) 
+        END DO
+!CDIR NODEP,VOVERTAKE,VOB
+        DO ic = 1, ext_data(jg)%atm%fp_count(jb)
+          jc = ext_data(jg)%atm%idx_lst_fp(ic,jb)
+          p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) =                   &
+                                    & p_lnd_state(jg)%prog_lnd(ntlr)%t_so_t(jc,1,jb,1) 
+        END DO
+       END DO
+!$OMP END DO
+!$OMP END PARALLEL
+
+
+  END SUBROUTINE create_dwdana_sfc
+  !-------------------------------------------------------------------------
 
 
   !>
