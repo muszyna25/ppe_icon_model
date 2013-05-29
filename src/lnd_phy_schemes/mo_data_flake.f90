@@ -32,7 +32,14 @@
 !! into the numerical weather prediction model COSMO.
 !! Boreal Env. Res., 15, 218-230.
 !!
-!! Further information is availbale at the FLake web page http://lakemodel.net.
+!! A snow-ice module of FLake is discussed in 
+!!
+!! Mironov, D., B. Ritter, J.-P. Schulz, M. Buchhold, M. Lange, and E. Machulskaya, 2012:
+!! Parameterization of sea and lake ice in numerical weather prediction models
+!! of the German Weather Service.
+!! Tellus A, 64, 17330. doi:10.3402/tellusa.v64i0.17330
+!!
+!! Further information is available at the FLake web page http://lakemodel.net.
 !!
 !!
 !! @author Dmitrii Mironov, DWD.
@@ -50,10 +57,10 @@
 !!  Introduced a maximum value for EXP arguments
 !!
 !! Initial ICON release by Dmitrii Mironov, DWD (2013-02-08)
-!! (adaptaion of the COSMO code for ICON)
+!! (adaptation of the COSMO code for ICON)
 !!
 !! Modification by <name>, <organization> (YYYY-MM-DD)
-!! - <bfief description of modification>
+!! - <brief description of modification>
 !!
 !!
 !! @par Copyright
@@ -140,8 +147,8 @@ MODULE mo_data_flake
 
   ! Empirical parameters.
   REAL (KIND = ireals), PARAMETER :: &
-    c_albice_MR = 95.6_ireals        ! Constant in the interpolation formula for 
-                                   ! the ice albedo (Mironov and Ritter 2004)
+    c_albice_MR = 95.6_ireals        ! Constant in the interpolation formula for the ice albedo 
+                                     ! (Mironov and Ritter 2004, Mironov et al. 2012)
 
 !---------------------------------------------------------------------------------------------------
 
@@ -261,7 +268,7 @@ MODULE mo_data_flake
                                               !    for I shape factor
     C_I_MR        = 1._ireals/12._ireals  , & ! Constant in the MR2004 expression
                                               !    for I shape factor
-    H_Ice_max     = 3._ireals                 ! Maximum ice tickness in the 
+    H_Ice_max     = 3._ireals                 ! Maximum ice thickness in the 
                                               !    Mironov and Ritter ice model [m] 
 
   ! Security constants
@@ -279,6 +286,11 @@ MODULE mo_data_flake
   REAL (KIND = ireals), PARAMETER ::     &
     c_small_flk    = 1.0E-10_ireals    , & ! A small number
     c_maxearg_flk  = 1.0E+02_ireals        ! Maximum value of the EXP function argument [-]
+
+  ! Parameter(s) required to use FLake as a lake parameterization scheme in atmospheric models
+  REAL (KIND = ireals), PARAMETER ::     &
+    fr_lake_min    = 3.0E-02_ireals        ! Minimum lake fraction within a host 
+                                           ! atmospheric model grid box [-]
 
   ! Thermodynamic parameters
   REAL (KIND = ireals), PARAMETER ::        &
