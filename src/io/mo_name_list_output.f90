@@ -3398,11 +3398,7 @@ CONTAINS
     ! but in this case the calling routine cares about the flow control.
 
     l_is_initial_step = .FALSE.
-    IF (PRESENT(initial_step)) THEN
-      IF (initial_step) THEN
-        l_is_initial_step = .TRUE.
-      END IF
-    END IF
+    CALL assign_if_present(l_is_initial_step, initial_step)
 
 #ifndef NOMPI
     IF(use_async_name_list_io) THEN
@@ -3430,9 +3426,9 @@ CONTAINS
     ! Go over all output files
     DO i = 1, SIZE(output_file)
       l_output_file_active=(is_output_file_active(output_file(i), &
-        &                                         sim_time, &
-        &                                         dtime, &
-        &                                         i_sample, &
+        &                                         sim_time,       &
+        &                                         dtime,          &
+        &                                         i_sample,       &
         &                                         last_step) .OR. l_is_initial_step )
 
       p_onl => output_file(i)%name_list
@@ -3470,6 +3466,12 @@ CONTAINS
 
     ! Go over all output files
     DO i = 1, SIZE(output_file)
+
+      l_output_file_active=(is_output_file_active(output_file(i), &
+        &                                         sim_time,       &
+        &                                         dtime,          &
+        &                                         i_sample,       &
+        &                                         last_step) .OR. l_is_initial_step )
 
       ! Check if output is due for this file
       IF (l_output_file_active) THEN
