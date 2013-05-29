@@ -449,6 +449,7 @@
     print("oFile       = "+oFile)
     print("Graphics format is " +oType)
     print("plotMode    = "+plotMode)
+    print("showGrid    = "+showGrid)
 
     if (plotMode.eq."scalar" .or. plotMode.eq."section" .or. plotMode.eq."hovmoeller") then
       print("varName     = "+varName)
