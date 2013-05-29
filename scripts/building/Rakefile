@@ -71,9 +71,10 @@ $builds = {
   :localTest         => {:host => :thingol ,:subdir => 'test', :CC => 'nag'},
   :remoteDef         => {:host => :thunder4,:subdir => 'test'},
   :remoteGccHi       => {:host => :thunder5,:subdir => 'gcc',  :CC => 'gcc', :FLAGS => 'hiopt'},
-  :remoteGccHiOpenMP => {:host => :thunder5,:subdir => 'gcc-opemp',  :CC => 'gcc', :FLAGS => 'hiopt',:openmp => true},
+  :remoteGccHiOpenMP => {:host => :thunder5,:subdir => 'gcc-opemp', :CC => 'gcc', :FLAGS => 'hiopt',:openmp => true},
   :remoteNag         => {:host => :thunder4,:subdir => 'nag',  :CC => 'nag'},
-  :remoteIntel       => {:host => :thunder5,:subdir => 'intel',:CC => 'intel'},
+  :remoteIntel       => {:host => :thunder4,:subdir => 'intel',:CC => 'intel'},
+  :remotePgi         => {:host => :thunder5,:subdir => 'pgi',  :CC => 'pgi'},
   :remoteXlf         => {:host => :passat  ,:subdir => 'default'},
   :remoteXlfHi       => {:host => :passat  ,:subdir => 'hiopt',:FLAGS => 'hiopt'}
 }
