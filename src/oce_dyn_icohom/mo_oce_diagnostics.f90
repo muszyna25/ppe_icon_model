@@ -102,20 +102,22 @@ TYPE t_oce_monitor
     REAL(wp) :: enstrophy
     REAL(wp) :: potential_enstrophy
     REAL(wp) :: absolute_vertical_velocity
-    REAL(wp) :: forc_swflx   ! surface short wave heat flux                              [W/m2]
-    REAL(wp) :: forc_lwflx   ! surface long wave heat flux                               [W/m2]
-    REAL(wp) :: forc_ssflx   ! surface sensible heat flux                                [W/m2]
-    REAL(wp) :: forc_slflx   ! surface latent heat flux                                  [W/m2]
-    REAL(wp) :: forc_precip  ! total precipitation flux                                  [m/s]
-    REAL(wp) :: forc_evap    ! evaporation flux                                          [m/s]
-    REAL(wp) :: forc_runoff  ! river runoff flux                                         [m/s]
-    REAL(wp) :: forc_fwbc    ! sum of forcing surface freshwater flux from BC            [m/s]
-    REAL(wp) :: forc_fwrelax ! diagnosed surface freshwater flux due to relaxation       [m/s]
-    REAL(wp) :: forc_fwfx    ! diagnosed sum of forcing surface freshwater flux          [m/s]
-    REAL(wp) :: forc_hfrelax ! diagnosed surface heat flux due to relaxation             [m/s]
-    REAL(wp) :: forc_hflx    ! diagnosed sum of forcing surface heat flux                [W/m2]
-    REAL(wp) :: ice_volume   !                                                           [km3]
-    REAL(wp) :: ice_extent   !                                                           [km2]
+    REAL(wp) :: forc_swflx    ! surface short wave heat flux                              [W/m2]
+    REAL(wp) :: forc_lwflx    ! surface long wave heat flux                               [W/m2]
+    REAL(wp) :: forc_ssflx    ! surface sensible heat flux                                [W/m2]
+    REAL(wp) :: forc_slflx    ! surface latent heat flux                                  [W/m2]
+    REAL(wp) :: forc_precip   ! total precipitation flux                                  [m/s]
+    REAL(wp) :: forc_evap     ! evaporation flux                                          [m/s]
+    REAL(wp) :: forc_runoff   ! river runoff flux                                         [m/s]
+    REAL(wp) :: forc_fwbc     ! sum of forcing surface freshwater flux from BC            [m/s]
+    REAL(wp) :: forc_fwrelax  ! diagnosed surface freshwater flux due to relaxation       [m/s]
+    REAL(wp) :: forc_fwfx     ! diagnosed sum of forcing surface freshwater flux          [m/s]
+    REAL(wp) :: forc_hfrelax  ! diagnosed surface heat flux due to relaxation             [m/s]
+    REAL(wp) :: forc_hflx     ! diagnosed sum of forcing surface heat flux                [W/m2]
+    REAL(wp) :: ice_volume_nh !                                                           [km3]
+    REAL(wp) :: ice_volume_sh !                                                           [km3]
+    REAL(wp) :: ice_extent_nh !                                                           [km2]
+    REAL(wp) :: ice_extent_sh !                                                           [km2]
     REAL(wp), ALLOCATABLE :: tracer_content(:)
 
 END TYPE t_oce_monitor
@@ -123,7 +125,7 @@ END TYPE t_oce_monitor
 TYPE t_oce_timeseries
 
     TYPE(t_oce_monitor), ALLOCATABLE :: oce_diagnostics(:)    ! time array of diagnostic values
-    CHARACTER(len=40), DIMENSION(24)  :: names = (/ &
+    CHARACTER(len=40), DIMENSION(26)  :: names = (/ &
     & "volume                                  ", &
     & "kin_energy                              ", &
     & "pot_energy                              ", &
@@ -144,8 +146,10 @@ TYPE t_oce_timeseries
     & "forc_fwfx                               ", &
     & "forc_hfrelax                            ", &
     & "forc_hflx                               ", &
-    & "ice_volume                              ", &
-    & "ice_extent                              ", &
+    & "ice_volume_nh                           ", &
+    & "ice_volume_sh                           ", &
+    & "ice_extent_nh                           ", &
+    & "ice_extent_sh                           ", &
     & "total_temperature                       ", &
     & "total_salinity                          "/)
 
@@ -183,6 +187,7 @@ SUBROUTINE calculate_oce_diagnostics(p_patch_3D, p_os, p_sfc_flx, p_ice, &
   CHARACTER(len=1024)           :: line, nvars
   CHARACTER(len=1024)           :: fmt_string, real_fmt
   CHARACTER(len=date_len)       :: datestring
+  REAL(wp), PARAMETER           :: equator = 0.00001_wp
 
   !-----------------------------------------------------------------------
   p_patch        => p_patch_3D%p_patch_2D(1)
@@ -251,8 +256,15 @@ SUBROUTINE calculate_oce_diagnostics(p_patch_3D, p_os, p_sfc_flx, p_ice, &
         monitor%forc_hfrelax = monitor%forc_hfrelax + p_sfc_flx%forc_hfrelax(jc,jb)*prism_area
         monitor%forc_hflx    = monitor%forc_hflx    + p_sfc_flx%forc_hflx(jc,jb)*prism_area
 
-        monitor%ice_volume   = monitor%ice_volume   + prism_area*SUM(p_ice%vol(jc,:,jb)*p_ice%conc(jc,:,jb))
-        monitor%ice_extent   = monitor%ice_extent   + p_ice%concSum(jc,jb)*prism_area
+        ! northern hemisphere
+        IF (p_patch%cells%center(jc,jb)%lat > equator) THEN
+          monitor%ice_volume_nh  = monitor%ice_volume_nh + prism_area*SUM(p_ice%vol(jc,:,jb)*p_ice%conc(jc,:,jb))
+          monitor%ice_extent_nh  = monitor%ice_extent_nh + p_ice%concSum(jc,jb)*prism_area
+        ELSE
+          ! southern hemisphere
+          monitor%ice_volume_sh  = monitor%ice_volume_sh + prism_area*SUM(p_ice%vol(jc,:,jb)*p_ice%conc(jc,:,jb))
+          monitor%ice_extent_sh  = monitor%ice_extent_sh + p_ice%concSum(jc,jb)*prism_area
+        END IF
 
 
         DO jk = 1,p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)
@@ -312,8 +324,10 @@ SUBROUTINE calculate_oce_diagnostics(p_patch_3D, p_os, p_sfc_flx, p_ice, &
   monitor%forc_fwfx                  = global_sum_array(monitor%forc_fwfx)/surface_area
   monitor%forc_hfrelax               = global_sum_array(monitor%forc_hfrelax)/surface_area
   monitor%forc_hflx                  = global_sum_array(monitor%forc_hflx)/surface_area
-  monitor%ice_volume                 = global_sum_array(monitor%ice_volume)/1.0e9_wp
-  monitor%ice_extent                 = global_sum_array(monitor%ice_extent)/1.0e6_wp
+  monitor%ice_volume_nh              = global_sum_array(monitor%ice_volume_nh)/1.0e9_wp
+  monitor%ice_volume_sh              = global_sum_array(monitor%ice_volume_sh)/1.0e9_wp
+  monitor%ice_extent_nh              = global_sum_array(monitor%ice_extent_nh)/1.0e6_wp
+  monitor%ice_extent_sh              = global_sum_array(monitor%ice_extent_sh)/1.0e6_wp
   DO i_no_t=1,no_tracer
     monitor%tracer_content(i_no_t) = global_sum_array(monitor%tracer_content(i_no_t))
   END DO
@@ -349,8 +363,10 @@ SUBROUTINE calculate_oce_diagnostics(p_patch_3D, p_os, p_sfc_flx, p_ice, &
     & monitor%forc_fwfx, &
     & monitor%forc_hfrelax, &
     & monitor%forc_hflx, &
-    & monitor%ice_volume, &
-    & monitor%ice_extent
+    & monitor%ice_volume_nh, &
+    & monitor%ice_volume_sh, &
+    & monitor%ice_extent_nh, &
+    & monitor%ice_extent_sh
   ! * tracers
   DO i_no_t=1,no_tracer
     write(line,'(a,'//TRIM(real_fmt)//')') TRIM(line),monitor%tracer_content(i_no_t)
@@ -413,8 +429,10 @@ SUBROUTINE construct_oce_diagnostics( p_patch_3D, p_os, oce_ts, datestring )
   oce_ts%oce_diagnostics(0:nsteps)%forc_hfrelax               = 0.0_wp
   oce_ts%oce_diagnostics(0:nsteps)%forc_hflx                  = 0.0_wp
 
-  oce_ts%oce_diagnostics(0:nsteps)%ice_volume                 = 0.0_wp
-  oce_ts%oce_diagnostics(0:nsteps)%ice_extent                 = 0.0_wp
+  oce_ts%oce_diagnostics(0:nsteps)%ice_volume_nh              = 0.0_wp
+  oce_ts%oce_diagnostics(0:nsteps)%ice_volume_sh              = 0.0_wp
+  oce_ts%oce_diagnostics(0:nsteps)%ice_extent_nh              = 0.0_wp
+  oce_ts%oce_diagnostics(0:nsteps)%ice_extent_sh              = 0.0_wp
 
   DO i=0,nsteps
     ALLOCATE(oce_ts%oce_diagnostics(i)%tracer_content(1:no_tracer))
