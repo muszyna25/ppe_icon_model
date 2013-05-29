@@ -221,7 +221,7 @@ $builds.each_key {|build|
     doConfig(build)
   end
   desc "Build for build #{build.to_s}"
-  task "#{build.to_s}_build".to_sym => ["#{build.to_s}_sync".to_sym] do
+  task "#{build.to_s}_build".to_sym => ["#{build.to_s}_conf".to_sym] do
     doBuild(build)
   end
   desc "Clean repository for build #{build.to_s}"
