@@ -82,8 +82,8 @@ MODULE mo_gridref
        &                           t_grid_cells, t_grid_vertices, t_grid_edges
   USE mo_math_utilities,     ONLY: gvec2cvec, t_cartesian_coordinates,      &
        &                           gc2cc, arc_length
-  USE mo_grid_levels,        ONLY: nf, check_orientation
-  USE mo_math_utilities,     ONLY: rotate_latlon
+  USE mo_grid_levels,        ONLY: nf
+  USE mo_math_utilities,     ONLY: rotate_latlon, check_orientation
   USE mo_impl_constants,     ONLY: min_rlcell, max_rlcell, min_rlvert,    &
        &                           max_rlvert, min_rledge, max_rledge,    &
        &                           min_rlcell_int, min_rlvert_int,        &

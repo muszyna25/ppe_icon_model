@@ -38,7 +38,6 @@ MODULE mo_name_list_output
     &                                 grid_rescale_factor, start_time, end_time
   USE mo_master_control,        ONLY: is_restart_run
   USE mo_io_restart_attributes, ONLY: get_restart_attribute
-  USE mo_grid_levels,           ONLY: check_orientation
   USE mo_grib2,                 ONLY: t_grib2_var
   USE mo_cf_convention,         ONLY: t_cf_var
   USE mo_cdi_constants          ! We need all
@@ -101,7 +100,7 @@ MODULE mo_name_list_output
     &                                 tocompact, tolower, int2string
   USE mo_loopindices,           ONLY: get_indices_c, get_indices_e, get_indices_v
   USE mo_communication,         ONLY: exchange_data, t_comm_pattern, idx_no, blk_no
-  USE mo_math_utilities,        ONLY: t_geographical_coordinates
+  USE mo_math_utilities,        ONLY: t_geographical_coordinates, check_orientation
   USE mo_math_constants,        ONLY: pi, pi_180
   USE mo_name_list_output_config, ONLY: use_async_name_list_io,  &
   &                                     l_output_phys_patch,     &

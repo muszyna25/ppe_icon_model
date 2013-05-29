@@ -54,31 +54,12 @@ MODULE mo_ocean_ext_data
   USE mo_kind,               ONLY: wp
   USE mo_io_units,           ONLY: filename_max
   USE mo_parallel_config,    ONLY: nproma
-  USE mo_impl_constants,     ONLY: inwp, iecham, ildf_echam, io3_clim, io3_ape, &
-    &                              ihs_ocean, ihs_atm_temp, ihs_atm_theta, inh_atmosphere, &
-    &                              max_char_length, min_rlcell_int,  LAND,                 &
-    &                              VINTP_METHOD_LIN, HINTP_TYPE_NONE, HINTP_TYPE_LONLAT_NNB, &
-    &                              MODIS
+  USE mo_impl_constants,     ONLY: max_char_length, LAND
   USE mo_math_constants,     ONLY: dbl_eps
-  USE mo_physical_constants, ONLY: ppmv2gg, zemiss_def
-  USE mo_run_config,         ONLY: iforcing
   USE mo_ocean_nml,          ONLY: iforc_oce, iforc_type, iforc_len
-  USE mo_impl_constants_grf, ONLY: grf_bdywidth_c
-  USE mo_lnd_nwp_config,     ONLY: ntiles_total, ntiles_lnd, ntiles_water, lsnowtile, frlnd_thrhld, &
-                                   frlndtile_thrhld, frlake_thrhld, frsea_thrhld, isub_water,       &
-                                   isub_lake, sstice_mode, sst_td_filename, ci_td_filename
-  USE mo_extpar_config,      ONLY: itopo, l_emiss, extpar_filename, generate_filename, & 
-    &                              generate_td_filename
-  USE mo_time_config,        ONLY: time_config
-  USE mo_dynamics_config,    ONLY: iequations
-  USE mo_radiation_config,   ONLY: irad_o3, irad_aero, albedo_type
-  USE mo_echam_phy_config,   ONLY: echam_phy_config
-  USE mo_smooth_topo,        ONLY: smooth_topography
   USE mo_model_domain,       ONLY: t_patch
   USE mo_exception,          ONLY: message, message_text, finish
   USE mo_grid_config,        ONLY: n_dom, nroot, dynamics_grid_filename
-  USE mo_intp_data_strc,     ONLY: t_int_state
-  USE mo_loopindices,        ONLY: get_indices_c
   USE mo_mpi,                ONLY: my_process_is_stdio, p_io, p_bcast, &
     &                              p_comm_work_test, p_comm_work
   USE mo_sync,               ONLY: global_sum_array
@@ -93,14 +74,12 @@ MODULE mo_ocean_ext_data
     &                              create_vert_interp_metadata, &
     &                              create_hor_interp_metadata, post_op, &
     &                              groups
-  USE mo_var_metadata,       ONLY: POST_OP_SCALE
   USE mo_master_nml,         ONLY: model_base_dir
   USE mo_cf_convention,      ONLY: t_cf_var
   USE mo_grib2,              ONLY: t_grib2_var
   USE mo_netcdf_read,        ONLY: read_netcdf_data, read_netcdf_lu, nf
   USE mo_util_string,        ONLY: t_keyword_list,  &
     &                              associate_keyword, with_keywords
-  USE mo_phyparam_soil,      ONLY: c_lnd, c_soil, c_sea
   USE mo_datetime,           ONLY: t_datetime, month2hour
   USE mo_cdi_constants,      ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE, &
     &                              GRID_UNSTRUCTURED_VERT, GRID_REFERENCE,         &

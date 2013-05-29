@@ -89,7 +89,7 @@ MODULE mo_io_local_grid
     & read_geometry_info, write_geometry_info
   USE mo_impl_constants,     ONLY: min_rlcell, max_rlcell, &
     & min_rlvert, max_rlvert, min_rledge, max_rledge
-  USE mo_math_utilities,     ONLY: t_cartesian_coordinates, t_geographical_coordinates
+  USE mo_math_utilities,     ONLY: t_cartesian_coordinates, t_geographical_coordinates, check_orientation
   USE mo_util_uuid,          ONLY: t_uuid, uuid_generate, &
        &                           uuid_unparse, uuid_string_length
 
@@ -1956,46 +1956,6 @@ CONTAINS
   END SUBROUTINE write_netcdf_grid
   !-------------------------------------------------------------------------
   
-  !-------------------------------------------------------------------------
-  INTEGER FUNCTION check_orientation (lonc, lon, lat, n)
-    INTEGER, INTENT(in) :: n
-    REAL(wp), INTENT(in) :: lonc
-    REAL(wp), INTENT(in) :: lon(n), lat(n)
-
-    REAL(wp) :: lonl(n), latl(n)
-
-    REAL(wp) :: area
-
-    INTEGER :: i,j
-
-    lonl(:) = lon(:)
-    latl(:) = lat(:)
-
-    DO i = 1, n
-      lonl(i) = lonl(i) - lonc
-      IF (lonl(i) < -pi) THEN
-        lonl(i) =  pi+MOD(lonl(i), pi)
-      ENDIF
-      IF (lonl(i) >  pi) THEN
-        lonl(i) = -pi+MOD(lonl(i), pi)
-      ENDIF
-    ENDDO
-
-    area = 0.0_wp
-    DO i = 1, n
-      j = MOD(i,n)+1
-      area = area+lonl(i)*latl(j)
-      area = area-latl(i)*lonl(j)
-    ENDDO
-
-    IF (area >= 0.0_wp) THEN
-      check_orientation = +1
-    ELSE
-      check_orientation = -1
-    END IF
-
-  END FUNCTION check_orientation
-  !-------------------------------------------------------------------------
 
 END MODULE mo_io_local_grid
 

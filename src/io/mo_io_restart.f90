@@ -851,6 +851,8 @@ CONTAINS
       ! get time index of current field
       time_level = get_var_timelevel(element%field)
 
+#ifndef  __OCEAN_ONLY__
+! this should be removed !
       ! get information about timelevel to be skipped for current field
       ! for the time being this will work with the global patch only
       IF (element%field%info%tlev_source == 0) THEN
@@ -862,8 +864,6 @@ CONTAINS
       ENDIF
 
 
-#ifndef  __OCEAN_ONLY__ 
-! this should be removed !
       SELECT CASE (iequations)
       CASE(IHS_ATM_TEMP, IHS_ATM_THETA, ISHALLOW_WATER)
 
@@ -873,7 +873,8 @@ CONTAINS
       CASE default
         IF ( time_level == tlev_skip ) CYCLE   ! skip field
       END SELECT
-#else
+!  #else
+      ! this is not clear if needed
       IF ( time_level == tlev_skip ) CYCLE   ! skip field
 #endif
 
@@ -1196,6 +1197,8 @@ CONTAINS
       ! get time index of current field
       time_level = get_var_timelevel(element%field)
 
+#ifndef  __OCEAN_ONLY__
+! this should be removed !
       ! get information about timelevel to be skipped for current field
       ! for the time being this will work with the global patch only
       IF (element%field%info%tlev_source == 0) THEN
@@ -1206,8 +1209,6 @@ CONTAINS
         tlev_skip = -99
       ENDIF
 
-#ifndef  __OCEAN_ONLY__ 
-! this should be removed !
       SELECT CASE (iequations)
       CASE(IHS_ATM_TEMP, IHS_ATM_THETA, ISHALLOW_WATER)
 
@@ -1217,7 +1218,7 @@ CONTAINS
       CASE default
         IF ( time_level == tlev_skip ) CYCLE   ! skip field
       END SELECT
-#else
+! #else
      IF ( time_level == tlev_skip ) CYCLE   ! skip field
 #endif
 

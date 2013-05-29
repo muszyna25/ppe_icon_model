@@ -43,7 +43,7 @@ MODULE mo_icon_comm_interface
   USE mo_parallel_config, ONLY: nproma, icon_comm_debug
   USE mo_grid_config,     ONLY: n_dom
   USE mo_model_domain,    ONLY: p_patch
-  USE mo_icoham_dyn_memory,ONLY: p_hydro_state
+!  USE mo_icoham_dyn_memory,ONLY: p_hydro_state
   USE mo_mpi,             ONLY: my_process_is_mpi_seq, work_mpi_barrier
   USE mo_icon_comm_lib
 
