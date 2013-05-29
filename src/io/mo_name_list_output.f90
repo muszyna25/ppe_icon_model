@@ -76,14 +76,12 @@ MODULE mo_name_list_output
   USE mo_mpi,                   ONLY: process_mpi_io_size, num_work_procs, p_n_work
   ! Processor numbers
   USE mo_mpi,                   ONLY: p_pe, p_pe_work, p_work_pe0, p_io_pe0
+
   USE mo_model_domain,          ONLY: t_patch, p_patch, p_phys_patch
   USE mo_parallel_config,       ONLY: nproma, p_test_run, use_sp_output
-  USE mo_vertical_coord_table,  ONLY: vct
-  USE mo_dynamics_config,       ONLY: iequations, nnow, nnow_rcf
+
   USE mo_run_config,            ONLY: num_lev, num_levp1, dtime, ldump_states, ldump_dd, &
     &                                 msg_level, output_mode, ltestcase, number_of_grid_used
-  USE mo_nh_pzlev_config,       ONLY: nh_pzlev_config
-  USE mo_lnd_nwp_config,        ONLY: nlev_snow
   USE mo_datetime,              ONLY: t_datetime, cly360day_to_date
   USE mo_time_config,           ONLY: time_config
   USE mo_lonlat_grid,           ONLY: t_lon_lat_grid, compute_lonlat_specs,   &
@@ -92,9 +90,6 @@ MODULE mo_name_list_output
     &                                 t_lon_lat_data, get_free_lonlat_grid,   &
     &                                 lonlat_grid_list, n_lonlat_grids
   USE mo_master_nml,            ONLY: model_base_dir
-  USE mo_ocean_nml,             ONLY: n_zlev
-  USE mo_oce_state,             ONLY: set_zlev
-  USE mo_lnd_jsbach_config,     ONLY: lnd_jsbach_config
   USE mo_util_string,           ONLY: toupper, t_keyword_list, associate_keyword,  &
     &                                 with_keywords, insert_group, MAX_STRING_LEN, &
     &                                 tocompact, tolower, int2string
@@ -114,8 +109,6 @@ MODULE mo_name_list_output
   &                                     is_output_file_active,   &
   &                                     t_var_desc,              &
   &                                     add_var_desc
-  USE mo_meteogram_output,    ONLY: meteogram_init, meteogram_finalize, meteogram_flush_file
-  USE mo_meteogram_config,    ONLY: meteogram_output_config
   USE mo_timer,               ONLY: timer_start, timer_stop, timer_write_output, ltimer
   USE mo_dictionary,          ONLY: t_dictionary, dict_init, dict_finalize, &
     &                               dict_loadfile, dict_get, DICT_MAX_STRLEN
@@ -123,6 +116,23 @@ MODULE mo_name_list_output
   USE mo_io_units,            ONLY: find_next_free_unit
   ! post-ops
   USE mo_post_op,             ONLY: perform_post_op
+
+
+! model dependenceis should be cleaned !
+  USE mo_ocean_nml,             ONLY: n_zlev
+  USE mo_oce_state,             ONLY: set_zlev
+
+#ifndef __OCEAN_ONLY__
+  USE mo_lnd_jsbach_config,     ONLY: lnd_jsbach_config
+  USE mo_nh_pzlev_config,       ONLY: nh_pzlev_config
+  USE mo_lnd_nwp_config,        ONLY: nlev_snow
+  USE mo_vertical_coord_table,  ONLY: vct
+  USE mo_dynamics_config,       ONLY: iequations, nnow, nnow_rcf
+
+! tool dependencies, maybe restructure
+  USE mo_meteogram_output,    ONLY: meteogram_init, meteogram_finalize, meteogram_flush_file
+  USE mo_meteogram_config,    ONLY: meteogram_output_config
+#endif
 
   IMPLICIT NONE
 
@@ -2120,6 +2130,7 @@ CONTAINS
     DEALLOCATE(levels)
 
     ! atm (pressure) height, ocean depth
+#ifndef __OCEAN_ONLY__
     IF (iequations/=ihs_ocean) THEN ! atm
 
       nlev   = num_lev(of%log_patch_id)
@@ -2264,7 +2275,6 @@ CONTAINS
       CALL zaxisDefLevels (of%cdiZaxisID(ZA_depth_below_land), levels)  !necessary for NetCDF
       CALL zaxisDefUnits  (of%cdiZaxisID(ZA_depth_below_land), "mm")
       DEALLOCATE(lbounds, ubounds, levels)
-
       !
       of%cdiZaxisID(ZA_generic_snow_p1) = zaxisCreate(ZAXIS_GENERIC, nlev_snow+1)
       ALLOCATE(levels(nlev_snow+1))
@@ -2391,11 +2401,11 @@ CONTAINS
         CALL zaxisDefVct(of%cdiZaxisID(ZA_isentropic), nilev, levels)
         DEALLOCATE(levels)
       ENDIF
-
       ! for having ice variable in the atmosphere (like AMIP)
       of%cdiZaxisID(ZA_GENERIC_ICE) = zaxisCreate(ZAXIS_GENERIC, 1)
 
     ELSE ! oce
+#endif
       of%cdiZaxisID(ZA_depth_below_sea)      = zaxisCreate(ZAXIS_DEPTH_BELOW_SEA, n_zlev)
       nzlevp1 = n_zlev + 1
       of%cdiZaxisID(ZA_depth_below_sea_half) = zaxisCreate(ZAXIS_DEPTH_BELOW_SEA, nzlevp1)
@@ -2408,7 +2418,9 @@ CONTAINS
       DEALLOCATE(levels_i)
       DEALLOCATE(levels_m)
       of%cdiZaxisID(ZA_GENERIC_ICE) = zaxisCreate(ZAXIS_GENERIC, 1)
+#ifndef __OCEAN_ONLY__
     ENDIF
+#endif
 
 
     !
@@ -3236,13 +3248,14 @@ CONTAINS
       & .NOT. my_process_is_mpi_test()) THEN
       !-- compute PEs (senders):
 
+#ifndef __OCEAN_ONLY__
       ! write recent samples of meteogram output
       DO jg = 1, n_dom
         IF (meteogram_output_config(jg)%lenabled) THEN
           CALL meteogram_flush_file(jg)
         END IF
       END DO
-
+#endif
       CALL compute_wait_for_async_io()
       CALL compute_shutdown_async_io()
 
@@ -3403,21 +3416,25 @@ CONTAINS
     IF(use_async_name_list_io) THEN
       IF(.NOT.my_process_is_io().AND..NOT.my_process_is_mpi_test()) THEN
         ! write recent samples of meteogram output
+#ifndef __OCEAN_ONLY__
         DO jg = 1, n_dom
           IF (meteogram_output_config(jg)%lenabled) THEN
             CALL meteogram_flush_file(jg)
           END IF
         END DO
+#endif
         CALL compute_wait_for_async_io()
       END IF
     ENDIF
 #else
+#ifndef __OCEAN_ONLY__
     ! write recent samples of meteogram output
     DO jg = 1, n_dom
       IF (meteogram_output_config(jg)%lenabled) THEN
         CALL meteogram_flush_file(jg)
       END IF
     END DO
+#endif
 #endif
 
     ! Check if files have to be (re)opened
@@ -3639,6 +3656,10 @@ CONTAINS
 
       ! For time level dependent elements: set time level and check if
       ! time level is present:
+        ! set a default time level (which is not used anyway, but must
+        ! be a valid array subscript):
+      tl = 1
+#ifndef __OCEAN_ONLY__
       IF (.NOT. ASSOCIATED(of%var_desc(iv)%r_ptr)  .AND.    &
         & .NOT. ASSOCIATED(of%var_desc(iv)%i_ptr)) THEN
         SELECT CASE (info%tlev_source)
@@ -3654,11 +3675,8 @@ CONTAINS
           & .NOT. ASSOCIATED(of%var_desc(iv)%tlev_iptr(tl)%p)) THEN
           CALL finish(routine,'Actual timelevel not in '//TRIM(info%name))
         END IF
-      ELSE
-        ! set a default time level (which is not used anyway, but must
-        ! be a valid array subscript):
-        tl = 1
       ENDIF
+#endif
 
       IF (info%lcontained) THEN
         nindex = info%ncontained
@@ -4027,6 +4045,8 @@ CONTAINS
   SUBROUTINE name_list_io_main_proc(isample)
     INTEGER, INTENT(in) :: isample
     ! local variables:
+
+#ifndef __OCEAN_ONLY__
     LOGICAL             :: done, last_step
     TYPE(t_datetime)    :: datetime
     REAL(wp)            :: sim_time
@@ -4060,7 +4080,6 @@ CONTAINS
         CALL meteogram_flush_file(jg)
       END IF
     END DO
-
     ! Enter I/O loop
 
     DO
@@ -4098,14 +4117,15 @@ CONTAINS
     DO jg = 1, max_dom
       DEALLOCATE(meteogram_output_config(jg)%station_list)
     END DO
-
     ! Shut down MPI
     !
     CALL p_stop
 
     STOP
+#endif
 
   END SUBROUTINE name_list_io_main_proc
+  !------------------------------------------------------------------------------------------------
 
 
   !------------------------------------------------------------------------------------------------
