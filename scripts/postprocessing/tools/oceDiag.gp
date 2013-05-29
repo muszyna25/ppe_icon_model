@@ -1,8 +1,10 @@
 #==============================================================================
 # usage for interactve plot
-#   SHOW=1 oceDiag.gp
+#   SHOW=1 gnuplot oceDiag.gp
 # user defined intut file
-#   FILE=<ifile.txt> oceDiag.gp
+#   FILE=<ifile.txt> gnuplot oceDiag.gp
+#
+# requirements: gnuplot 4.6 or later
 #==============================================================================
 #
 # display the plot interactively, if SHOW is given on the command line
