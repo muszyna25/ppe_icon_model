@@ -62,8 +62,6 @@ MODULE mo_operator_ocean_coeff_3d
   !USE mo_loopindices,         ONLY: get_indices_c, get_indices_e, get_indices_v
   USE mo_oce_state,           ONLY: t_hydro_ocean_state
   USE mo_oce_physics,         ONLY: t_ho_params
-  !USE mo_intp_data_strc,      ONLY: t_int_state
-  !USE mo_intp_coeffs,         ONLY: par_init_scalar_product_oce
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
   USE mo_grid_config,         ONLY: grid_sphere_radius, grid_angular_velocity
   USE mo_run_config,          ONLY: dtime

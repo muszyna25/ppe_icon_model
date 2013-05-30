@@ -91,19 +91,22 @@ MODULE mo_ocean_model
   USE mo_oce_physics,         ONLY: v_params!, t_ho_params, t_ho_physics
   USE mo_sea_ice_types,       ONLY: t_atmos_fluxes, t_atmos_for_ocean, &
     &                               v_sfc_flx, v_sea_ice!, t_sfc_flx
+  USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH
 
+   !-------------------------------------------------------------
   ! For the coupling
+#ifndef __ICON_OCEAN__
   USE mo_icon_cpl_init,       ONLY: icon_cpl_init
   USE mo_icon_cpl_init_comp,  ONLY: icon_cpl_init_comp
-  USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH
   USE mo_coupling_config,     ONLY: is_coupled_run, config_debug_coupler_level
   USE mo_icon_cpl_def_grid,   ONLY: ICON_cpl_def_grid, ICON_cpl_def_location
   USE mo_icon_cpl_def_field,  ONLY: ICON_cpl_def_field
   USE mo_icon_cpl_search,     ONLY: ICON_cpl_search
   USE mo_icon_cpl_finalize,   ONLY: icon_cpl_finalize
-  USE mo_alloc_patches,       ONLY: destruct_patches
-
+#endif
   !-------------------------------------------------------------
+
+  USE mo_alloc_patches,       ONLY: destruct_patches
   USE mo_read_namelists,      ONLY: read_ocean_namelists
   USE mo_io_restart,          ONLY: read_restart_info_file, read_restart_files
   USE mo_io_restart_namelist, ONLY: read_restart_namelists
@@ -279,7 +282,7 @@ CONTAINS
     ! common to atmo and ocean. Does this make sense if the setup deviates
     ! too much in future.
     !------------------------------------------------------------------
-
+#ifndef __ICON_OCEAN__
     IF ( is_coupled_run() ) THEN
 
      !------------------------------------------------------------
@@ -332,7 +335,7 @@ CONTAINS
       CALL ICON_cpl_search
 
     ENDIF
-
+#endif
     ! Prepare time integration
     CALL prepare_ho_integration(p_patch_3D, v_ocean_state, ext_data, v_sfc_flx, &
       &                         v_params, p_as, p_atm_f, v_sea_ice,p_op_coeff)!,p_int_state(1:)) 
@@ -453,7 +456,9 @@ CONTAINS
       ENDIF
     ENDIF
 
+#ifndef __ICON_OCEAN__
     IF ( is_coupled_run() ) CALL ICON_cpl_finalize
+#endif
     
     CALL message(TRIM(routine),'clean-up finished')
 

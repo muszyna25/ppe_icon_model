@@ -83,7 +83,6 @@ MODULE mo_ext_decompose_patches
   USE mo_grid_config,         ONLY: n_dom, n_dom_start, patch_weight
   USE mo_alloc_patches,ONLY: allocate_basic_patch, allocate_remaining_patch, &
                              deallocate_basic_patch, deallocate_patch
-  USE mo_dump_restore,        ONLY: dump_all_domain_decompositions
   USE mo_decomposition_tools, ONLY: t_decomposition_structure, divide_geometric_medial, &
     & read_ascii_decomposition
   USE mo_math_utilities,      ONLY: geographical_to_cartesian

@@ -71,8 +71,10 @@ MODULE mo_output
   USE mo_run_config,          ONLY: ltimer, output_mode
   USE mo_timer,               ONLY: timer_start, timer_stop,&
     &                     timer_write_restart_file, timer_write_output
+#ifndef __ICON_OCEAN__
   USE mo_meteogram_output,    ONLY: meteogram_flush_file
   USE mo_meteogram_config,    ONLY: meteogram_output_config
+#endif
 
   USE mo_oce_state,           ONLY: set_zlev, t_hydro_ocean_state
   IMPLICIT NONE
@@ -319,12 +321,14 @@ CONTAINS
         ELSE
           CALL write_vlist(datetime, z_sim_time(1))
         ENDIF
+#ifndef __ICON_OCEAN__
         ! write recent samples of meteogram output
         DO jg = 1, n_dom
           IF (meteogram_output_config(jg)%lenabled) THEN
             CALL meteogram_flush_file(jg)
           END IF
         END DO
+#endif
       ELSE
         CALL output_async(datetime,z_sim_time(1))
       ENDIF
@@ -336,12 +340,14 @@ CONTAINS
 
           CALL write_vlist(datetime)
         ENDIF
+#ifndef __ICON_OCEAN__
         ! write recent samples of meteogram output
         DO jg = 1, n_dom
           IF (meteogram_output_config(jg)%lenabled) THEN
             CALL meteogram_flush_file(jg)
           END IF
         END DO
+#endif
       ELSE
         CALL output_async(datetime)
       ENDIF
@@ -384,26 +390,13 @@ CONTAINS
 
     IF ( PRESENT(z_sim_time) ) THEN  
       IF(.NOT.use_async_vlist_io) THEN
-
-          CALL write_vlist(datetime, z_sim_time(1), p_patch_3D,p_os)
-        ! write recent samples of meteogram output
-        DO jg = 1, n_dom
-          IF (meteogram_output_config(jg)%lenabled) THEN
-            CALL meteogram_flush_file(jg)
-          END IF
-        END DO
+        CALL write_vlist(datetime, z_sim_time(1), p_patch_3D,p_os)
       ELSE
         CALL output_async(datetime,z_sim_time(1))
       ENDIF
     ELSE
       IF(.NOT.use_async_vlist_io) THEN       
-          CALL write_vlist(datetime, z_sim_time(1), p_patch_3D,p_os )
-        ! write recent samples of meteogram output
-        DO jg = 1, n_dom
-          IF (meteogram_output_config(jg)%lenabled) THEN
-            CALL meteogram_flush_file(jg)
-          END IF
-        END DO
+        CALL write_vlist(datetime, z_sim_time(1), p_patch_3D,p_os )
       ELSE
         CALL output_async(datetime)
       ENDIF

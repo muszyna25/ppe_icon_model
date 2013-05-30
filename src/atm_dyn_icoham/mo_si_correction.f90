@@ -564,7 +564,7 @@ ENDIF
                                                 ! output: with the semi-implicit
                                                 ! correction added.
 
-#if defined (__SUNPRO_F95) || defined(__SX__) && !defined (NOMPI)
+#if (defined (__SUNPRO_F95) || defined(__SX__)) && !defined (NOMPI)
   INTEGER  :: jc
 #endif
 
@@ -751,7 +751,7 @@ ENDIF
 !-----------------------------------------------------------------------
 
 !$OMP PARALLEL
-#if defined (__SUNPRO_F95) || defined(__SX__) && !defined (NOMPI)
+#if (defined (__SUNPRO_F95) || defined(__SX__)) && !defined (NOMPI)
 !$OMP DO PRIVATE(jb, nlen, jc, jk, jm) ICON_OMP_DEFAULT_SCHEDULE
 #else
 !$OMP DO PRIVATE(jb, nlen, z_wrk_cv, z_wrk_vc) ICON_OMP_DEFAULT_SCHEDULE
@@ -765,7 +765,7 @@ ENDIF
        z_rhs_dcpl(nlen+1:nproma,:,jb) = 0.0_wp
      ENDIF
 
-#if defined (__SUNPRO_F95) || defined(__SX__) && !defined (NOMPI)
+#if (defined (__SUNPRO_F95) || defined(__SX__)) && !defined (NOMPI)
 ! sunf95 fails to OpenMP-parallelize the CALL to dgemm
 ! On the NEC, results with DGEMM are not invariant against the processor configuration
 
@@ -855,7 +855,7 @@ ENDIF
    i_startblk = pt_patch%cells%start_blk(grf_bdywidth_c+1,1)
 
 !$OMP PARALLEL
-#if defined (__SUNPRO_F95) || defined(__SX__) && !defined (NOMPI)
+#if (defined (__SUNPRO_F95) || defined(__SX__)) && !defined (NOMPI)
 !$OMP DO PRIVATE(jb, nlen, i_startidx, i_endidx, z_wrk_cv, jc, jk, jm, &
 #else
 !$OMP DO PRIVATE(jb, nlen, i_startidx, i_endidx, z_wrk_cv, z_wrk_vc, &
@@ -871,7 +871,7 @@ ENDIF
 
      z_wrk_cv(1:nlen,:) = z_dttdiv(1:nlen,:,jb)
 
-#if defined (__SUNPRO_F95) || defined(__SX__) && !defined (NOMPI)
+#if (defined (__SUNPRO_F95) || defined(__SX__)) && !defined (NOMPI)
 ! sunf95 fails to OpenMP-parallelize the CALL to dgemm
 ! On the NEC, results with DGEMM are not invariant against the processor configuration
 

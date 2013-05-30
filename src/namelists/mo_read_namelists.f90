@@ -47,14 +47,14 @@ MODULE mo_read_namelists
   USE mo_gribout_nml         ,ONLY: read_gribout_namelist
   USE mo_dbg_nml             ,ONLY: read_dbg_namelist
 
-  USE mo_nh_pzlev_nml        ,ONLY: read_nh_pzlev_namelist
 
   USE mo_grid_nml            ,ONLY: read_grid_namelist
   USE mo_gridref_nml         ,ONLY: read_gridref_namelist
+  USE mo_dynamics_nml        ,ONLY: read_dynamics_namelist
+#ifndef __ICON_OCEAN__
   USE mo_interpol_nml        ,ONLY: read_interpol_namelist
   USE mo_sleve_nml           ,ONLY: read_sleve_namelist
-
-  USE mo_dynamics_nml        ,ONLY: read_dynamics_namelist
+  USE mo_nh_pzlev_nml        ,ONLY: read_nh_pzlev_namelist
   USE mo_ha_dyn_nml          ,ONLY: read_ha_dyn_namelist
   USE mo_nonhydrostatic_nml  ,ONLY: read_nonhydrostatic_namelist
   USE mo_diffusion_nml       ,ONLY: read_diffusion_namelist
@@ -74,16 +74,16 @@ MODULE mo_read_namelists
   USE mo_initicon_nml        ,ONLY: read_initicon_namelist
   USE mo_ha_testcases        ,ONLY: read_ha_testcase_namelist
   USE mo_nh_testcases        ,ONLY: read_nh_testcase_namelist
-
-  USE mo_extpar_nml          ,ONLY: read_extpar_namelist
+  USE mo_meteogram_nml       ,ONLY: read_meteogram_namelist
 
   USE mo_coupling_nml        ,ONLY: read_coupling_namelist
+#endif
+  USE mo_extpar_nml          ,ONLY: read_extpar_namelist
 
   USE mo_ocean_nml           ,ONLY: setup_ocean_nml
 
   USE mo_sea_ice_nml         ,ONLY: read_sea_ice_namelist
 
-  USE mo_meteogram_nml       ,ONLY: read_meteogram_namelist
   USE mo_name_list_output    ,ONLY: read_name_list_output_namelists
   USE mo_les_nml             ,ONLY: read_les_namelist
 
@@ -108,6 +108,7 @@ CONTAINS
     ! actual values used in the model run will be stored.
     !-----------------------------------------------------------------
 
+#ifndef __ICON_OCEAN__
     IF(my_process_is_stdio()) CALL open_nml_output('NAMELIST_ICON_output_atm')
 
     !-----------------------------------------------------------------
@@ -184,7 +185,6 @@ CONTAINS
     ! Coupling
     !
     CALL read_coupling_namelist       (TRIM(atm_namelist_filename))
-
     !-----------------------------------------------------------------
     ! Close the file in which all the namelist variables and their
     ! actual values were stored.
@@ -192,6 +192,7 @@ CONTAINS
 
     IF (my_process_is_stdio()) CALL close_nml_output
 
+#endif
   END SUBROUTINE read_atmo_namelists
   !-------------------------------------------------------------------------
 
@@ -237,7 +238,7 @@ CONTAINS
     ! Grid
     !
     CALL read_grid_namelist           (TRIM(oce_namelist_filename))
-    CALL read_interpol_namelist       (TRIM(oce_namelist_filename))
+!    CALL read_interpol_namelist       (TRIM(oce_namelist_filename))
 
     ! Dynamics, transport and physics
     ! (still using the old setup)
@@ -254,7 +255,9 @@ CONTAINS
 
     ! Coupling
     !
+#ifndef __ICON_OCEAN__
     CALL read_coupling_namelist       (TRIM(oce_namelist_filename))
+#endif
 
     ! More namelists from the old setup
     !
@@ -287,6 +290,7 @@ CONTAINS
     ! Create a new file in which all the namelist variables and their
     ! actual values used in the model run will be stored.
     !-----------------------------------------------------------------
+#ifndef __ICON_OCEAN__
 
     IF(my_process_is_stdio()) CALL open_nml_output('NAMELIST_ICON_output_atm')
 
@@ -346,7 +350,6 @@ CONTAINS
     CALL read_initicon_namelist       (TRIM(cpl_dummy_namelist))
     CALL read_ha_testcase_namelist    (TRIM(cpl_dummy_namelist))
     CALL read_nh_testcase_namelist    (TRIM(cpl_dummy_namelist))
-
     ! Boundary conditions
     !
     CALL read_extpar_namelist         (TRIM(cpl_dummy_namelist))
@@ -362,6 +365,7 @@ CONTAINS
 
     IF (my_process_is_stdio()) CALL close_nml_output
 
+#endif
   END SUBROUTINE read_cpl_dummy_namelists
   !-------------------------------------------------------------------------
 

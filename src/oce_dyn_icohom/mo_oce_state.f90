@@ -2011,7 +2011,7 @@ CONTAINS
                   ctr = ctr+1
 
                   IF (jk<3) THEN
-                    WRITE(message_text,'(a,i2,a,i8)') &
+                    WRITE(message_text,'(a,2i8)') &
                       &   'WARNING: Found 2 land neighbors at jc, jk=',jc,jk
                     CALL message(TRIM(routine), TRIM(message_text))
                   END IF
@@ -3446,7 +3446,7 @@ CONTAINS
 
     !--------------------------------------------------------------------------------
     ! exclude land from subsets, if requested
-    IF (ignore_land_points) THEN
+    IF (ignore_land_points .and. .false.) THEN
 
       ! cells
       DO block = all_cells%start_block, all_cells%end_block
@@ -3498,24 +3498,25 @@ CONTAINS
 
     ENDIF
 
-    IF (patch_2D%edges%in_domain%no_of_holes > 0) THEN
-      DO block = patch_2D%edges%in_domain%start_block, patch_2D%edges%in_domain%end_block
-        CALL get_index_range(patch_2D%edges%in_domain, block, startidx, endidx)
-        DO idx = startidx, endidx
-          IF (patch_2D%edges%halo_level(idx, block) /= 0) THEN
-            write(0,*) get_my_global_mpi_id(), ":", idx, block, " edge in hole ", patch_3D%surface_edge_sea_land_mask(idx, block), &
-              & patch_2D%edges%halo_level(idx, block)
-          ELSE
-            write(0,*) get_my_global_mpi_id(), ":", idx, block, " edge in set ", patch_3D%surface_edge_sea_land_mask(idx, block), &
-              & patch_2D%edges%halo_level(idx, block)
-          ENDIF
-        ENDDO
-      ENDDO
+!    IF (patch_2D%edges%in_domain%no_of_holes > 0) THEN
+!      DO block = patch_2D%edges%in_domain%start_block, patch_2D%edges%in_domain%end_block
+!        CALL get_index_range(patch_2D%edges%in_domain, block, startidx, endidx)
+!        DO idx = startidx, endidx
+!          IF (patch_2D%edges%halo_level(idx, block) /= 0) THEN
+!            write(0,*) get_my_global_mpi_id(), ":", idx, block, " edge in hole ", patch_3D%surface_edge_sea_land_mask(idx, block), &
+!              & patch_2D%edges%halo_level(idx, block)
+!          ELSE
+!            write(0,*) get_my_global_mpi_id(), ":", idx, block, " edge in set ", patch_3D%surface_edge_sea_land_mask(idx, block), &
+!              & patch_2D%edges%halo_level(idx, block)
+!          ENDIF
+!        ENDDO
+!      ENDDO
+!
+!      CALL finish("patch%edges%in_domain", "no_of_holes > 0, gmres for the ocean requires no_of_holes=0")
+!    ENDIF
 
-      CALL finish("patch%edges%in_domain", "no_of_holes > 0, gmres for the ocean requires no_of_holes=0")
-    ENDIF
-
-    IF (patch_2D%cells%in_domain%no_of_holes > 0) THEN
+!    IF (patch_2D%cells%in_domain%no_of_holes > 0 .and. .false.) THEN
+    IF (patch_2D%cells%in_domain%no_of_holes > 0 ) THEN
       DO block = patch_2D%cells%in_domain%start_block, patch_2D%cells%in_domain%end_block
         CALL get_index_range(patch_2D%cells%in_domain, block, startidx, endidx)
         DO idx = startidx, endidx

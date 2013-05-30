@@ -574,6 +574,7 @@ CONTAINS
       ! If "remap=1": lon-lat interpolation requested
       IF(remap/=REMAP_NONE .AND. remap/=REMAP_REGULAR_LATLON) &
         CALL finish(routine,'Unsupported value for remap')
+#ifndef __ICON_OCEAN__
       IF (remap == REMAP_REGULAR_LATLON) THEN
         ! Register a lon-lat grid data structure in global list
         p_onl%lonlat_id = get_free_lonlat_grid()
@@ -605,6 +606,7 @@ CONTAINS
           ENDDO DOM_LOOP
         END IF
       ENDIF
+#endif
 
       p_onl%cur_bounds_triple= 1
       p_onl%next_output_time = p_onl%output_bounds(1,1)
@@ -1363,6 +1365,7 @@ CONTAINS
 
     ENDDO ! jp
 
+#ifndef __ICON_OCEAN__
     ! A similar process as above - for the lon-lat grids
     ALLOCATE(lonlat_info(n_lonlat_grids, n_dom), STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
@@ -1383,6 +1386,7 @@ CONTAINS
 #endif
       END DO ! jg
     ENDDO ! jl
+#endif
 
   END SUBROUTINE set_patch_info
 
@@ -1975,6 +1979,7 @@ CONTAINS
     ! 3. add horizontal grid descriptions
 
     IF(of%name_list%remap == REMAP_REGULAR_LATLON) THEN
+#ifndef __ICON_OCEAN__
 
       ! Lon/Lat Interpolation requested
 
@@ -2026,7 +2031,7 @@ CONTAINS
       ENDDO
       CALL gridDefYvals(of%cdiLonLatGridID, p_lonlat)
       DEALLOCATE(p_lonlat)
-
+#endif
     ELSE
 
       ! Cells
@@ -2628,6 +2633,7 @@ CONTAINS
         IF (errstat /= SUCCESS) CALL finish(routine, 'DEALLOCATE failed!')
       END DO
 
+#ifndef __ICON_OCEAN__
     CASE (REMAP_REGULAR_LATLON)
       ! allocate data buffer:
       grid => lonlat_grid_list(of%name_list%lonlat_id)%grid
@@ -2646,6 +2652,7 @@ CONTAINS
       ! clean up
       DEALLOCATE(rotated_pts, r_out_dp, stat=errstat)
       IF (errstat /= SUCCESS) CALL finish(routine, 'DEALLOCATE failed!')
+#endif
 
     CASE DEFAULT
       CALL finish(routine, "Unsupported grid type.")
@@ -3243,6 +3250,7 @@ CONTAINS
     INTEGER :: i, jg
 
 #ifndef NOMPI
+#ifndef __ICON_OCEAN__
     IF (use_async_name_list_io    .AND.  &
       & .NOT. my_process_is_io()  .AND.  &
       & .NOT. my_process_is_mpi_test()) THEN
@@ -3261,13 +3269,16 @@ CONTAINS
 
     ELSE
 #endif
+#endif
       !-- asynchronous I/O PEs (receiver):
       DO i = 1, SIZE(output_file)
         CALL close_output_file(output_file(i))
         CALL destroy_output_vlist(output_file(i))
       ENDDO
 #ifndef NOMPI
+#ifndef __ICON_OCEAN__
     ENDIF
+#endif
 #endif
 
     DEALLOCATE(output_file)
@@ -3413,6 +3424,7 @@ CONTAINS
     CALL assign_if_present(l_is_initial_step, initial_step)
 
 #ifndef NOMPI
+#ifndef __ICON_OCEAN__
     IF(use_async_name_list_io) THEN
       IF(.NOT.my_process_is_io().AND..NOT.my_process_is_mpi_test()) THEN
         ! write recent samples of meteogram output
@@ -3434,6 +3446,7 @@ CONTAINS
         CALL meteogram_flush_file(jg)
       END IF
     END DO
+#endif
 #endif
 #endif
 
@@ -3784,10 +3797,12 @@ CONTAINS
         ELSE
           p_pat => p_patch(i_dom)%comm_pat_gather_v
         ENDIF
+#ifndef __ICON_OCEAN__
       CASE (GRID_REGULAR_LONLAT)
         lonlat_id = info%hor_interp%lonlat_id
         p_ri  => lonlat_info(lonlat_id, i_log_dom)
         p_pat => lonlat_grid_list(lonlat_id)%p_pat(i_log_dom)
+#endif
       CASE default
         CALL finish(routine,'unknown grid type')
       END SELECT
@@ -4060,12 +4075,14 @@ CONTAINS
       STOP
     ENDIF
 
+#ifndef __ICON_OCEAN__
     ! setup of meteogram output
     DO jg =1,n_dom
       IF (meteogram_output_config(jg)%lenabled) THEN
         CALL meteogram_init(meteogram_output_config(jg), jg)
       END IF
     END DO
+#endif
 
     ! Initialize name list output, this is a collective call for all PEs
 
@@ -4074,12 +4091,14 @@ CONTAINS
     ! Tell the compute PEs that we are ready to work
     CALL async_io_send_handshake
 
+#ifndef __ICON_OCEAN__
     ! write recent samples of meteogram output
     DO jg = 1, n_dom
       IF (meteogram_output_config(jg)%lenabled) THEN
         CALL meteogram_flush_file(jg)
       END IF
     END DO
+#endif
     ! Enter I/O loop
 
     DO
@@ -4095,12 +4114,14 @@ CONTAINS
       ! Inform compute PEs that we are done
       CALL async_io_send_handshake
 
+#ifndef __ICON_OCEAN__
       ! write recent samples of meteogram output
       DO jg = 1, n_dom
         IF (meteogram_output_config(jg)%lenabled) THEN
           CALL meteogram_flush_file(jg)
         END IF
       END DO
+#endif
 
     ENDDO
 
@@ -4108,12 +4129,14 @@ CONTAINS
 
     CALL close_name_list_output
 
+#ifndef __ICON_OCEAN__
     ! finalize meteogram output
     DO jg = 1, n_dom
       IF (meteogram_output_config(jg)%lenabled) THEN
         CALL meteogram_finalize(jg)
       END IF
     END DO
+#endif
     DO jg = 1, max_dom
       DEALLOCATE(meteogram_output_config(jg)%station_list)
     END DO

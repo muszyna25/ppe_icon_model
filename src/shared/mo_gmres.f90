@@ -67,10 +67,12 @@ MODULE mo_gmres
   USE mo_timer,               ONLY: timer_start, timer_stop, timer_gmres,   &
     & timer_gmres_p_sum, activate_sync_timers
   USE mo_intp_data_strc,      ONLY: t_int_state
+#ifndef __ICON_OCEAN__
   USE mo_nonhydro_types,      ONLY: t_nh_metrics
+#endif
+  USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff
   USE mo_sync,                ONLY: omp_global_sum_array, global_sum_array
   USE mo_sync,                ONLY: sync_e, sync_c, sync_v, sync_patch_array
-  USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
   USE mo_mpi,                 ONLY: get_my_global_mpi_id, p_barrier, p_sum, &
     & get_my_mpi_work_communicator
@@ -94,7 +96,9 @@ MODULE mo_gmres
 INTERFACE gmres
 
   MODULE PROCEDURE gmres_hydro
+#ifndef __ICON_OCEAN__
   MODULE PROCEDURE gmres_nonhydro
+#endif
   MODULE PROCEDURE gmres_oce
   MODULE PROCEDURE gmres_oce_e2e
   MODULE PROCEDURE gmres_e2e
@@ -502,7 +506,7 @@ CONTAINS
 !-------------------------------------------------------------------------
  END SUBROUTINE gmres_hydro
 
-
+#ifndef __ICON_OCEAN__
  SUBROUTINE gmres_nonhydro(x,lhs,patch_2D,p_int,p_metrics,nblks,npromz,coeff,b,  &
       &                    tolerance,abstol,m,maxiterex,niter,res, &
       &                    preconditioner)
@@ -881,6 +885,7 @@ CONTAINS
 
 !-------------------------------------------------------------------------
  END SUBROUTINE gmres_nonhydro
+#endif
 
 !-------------------------------------------------------------------------
 !>

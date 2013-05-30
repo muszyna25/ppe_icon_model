@@ -84,7 +84,9 @@ MODULE mo_setup_subdivision
   USE mo_grid_config,         ONLY: n_dom, n_dom_start, patch_weight
   USE mo_alloc_patches,ONLY: allocate_basic_patch, allocate_remaining_patch, &
                              deallocate_basic_patch, deallocate_patch
+#ifndef __ICON_OCEAN__
   USE mo_dump_restore,        ONLY: dump_all_domain_decompositions
+#endif
   USE mo_math_utilities,      ONLY: geographical_to_cartesian
 
   IMPLICIT NONE
@@ -366,12 +368,14 @@ CONTAINS
 #endif
         ENDIF
 
+#ifndef __ICON_OCEAN__
         ! Dump domain decompositions to NetCDF
         IF(jg > n_dom_start) THEN
           CALL dump_all_domain_decompositions(p_patch_out, p_patch_lp_out)
         ELSE
           CALL dump_all_domain_decompositions(p_patch_out)
         ENDIF
+#endif
 
         ! Deallocate patch arrays
         DO n = 1, opt_n_procs
@@ -2699,12 +2703,14 @@ CONTAINS
 #endif
         ENDIF
 
+#ifndef __ICON_OCEAN__
         ! Dump domain decompositions to NetCDF
         IF(jg > n_dom_start) THEN
           CALL dump_all_domain_decompositions(p_patch_out, p_patch_lp_out)
         ELSE
           CALL dump_all_domain_decompositions(p_patch_out)
         ENDIF
+#endif
 
         ! Deallocate patch arrays
         DO n = 1, opt_n_procs
