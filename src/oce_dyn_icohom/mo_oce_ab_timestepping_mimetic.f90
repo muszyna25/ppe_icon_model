@@ -74,7 +74,7 @@ USE mo_oce_state,                 ONLY: t_hydro_ocean_state, t_hydro_ocean_diag,
 ! &                                     set_lateral_boundary_values
 USE mo_model_domain,              ONLY: t_patch, t_patch_3D
 USE mo_ext_data_types,            ONLY: t_external_data
-USE mo_gmres,                     ONLY: gmres, gmres_oce_old
+USE mo_ocean_gmres,               ONLY: ocean_gmres, gmres_oce_old
 USE mo_exception,                 ONLY: message, finish, message_text
 USE mo_util_dbg_prnt,             ONLY: dbg_print
 USE mo_oce_boundcond,             ONLY: bot_bound_cond_horz_veloc, top_bound_cond_horz_veloc
@@ -284,7 +284,7 @@ SUBROUTINE solve_free_sfc_ab_mimetic(p_patch_3D, p_os, p_ext_data, p_sfc_flx, &
     IF (ltimer) CALL timer_stop(timer_ab_rhs4sfc)
 
 
-    ! Solve surface equation with GMRES solver
+    ! Solve surface equation with ocean_gmres solver
     z_h_c =0.0_wp!p_os%p_prog(nold(1))%h! 0.0_wp !potentially better choice: p_os%p_prog(nold(1))%h
 
     !The lhs needs different thicknesses at edges for 3D and SWE (including bathymetry)
@@ -346,7 +346,7 @@ SUBROUTINE solve_free_sfc_ab_mimetic(p_patch_3D, p_os, p_ext_data, p_sfc_flx, &
       IF (l_maxiter) THEN
         CALL finish('GMRES_oce_old: solver surface equation: ','NOT YET CONVERGED !!')
       ELSE
-        ! output print level idt_src used for GMRES output with call message:
+        ! output print level idt_src used for ocean_gmres output with call message:
         IF(n_iter==0)n_iter=1
         idt_src=2
         IF (idbg_mxmn >= idt_src) THEN
@@ -374,7 +374,7 @@ SUBROUTINE solve_free_sfc_ab_mimetic(p_patch_3D, p_os, p_ext_data, p_sfc_flx, &
       ! write(0,*) tolerance, solver_tolerance, residual_norm, gmres_restart_iterations, solver_max_restart_iterations
       DO  WHILE(residual_norm >= solver_tolerance .AND. gmres_restart_iterations < solver_max_restart_iterations)
 
-        CALL gmres( z_h_c(:,:),                   &  ! arg 1 of lhs. x input is the first guess.
+        CALL ocean_gmres( z_h_c(:,:),                   &  ! arg 1 of lhs. x input is the first guess.
           &        lhs_surface_height_ab_mim,     &  ! function calculating l.h.s.
           &        p_os%p_diag%thick_e,           &  ! edge thickness for LHS
           &        p_os%p_diag%thick_c,           &  ! p_os%p_diag%thick_c, & 
@@ -398,11 +398,11 @@ SUBROUTINE solve_free_sfc_ab_mimetic(p_patch_3D, p_os, p_ext_data, p_sfc_flx, &
         ENDIF
 
         iter_sum = iter_sum + n_iter
-        ! output print level idt_src used for GMRES output with call message:
+        ! output print level idt_src used for ocean_gmres output with call message:
         idt_src=2
         IF (idbg_mxmn >= idt_src) THEN
           WRITE(string,'(a,i4,a,e28.20)') &
-            'gmres iteration =', n_iter,', residual =', residual_norm
+            'ocean_gmres iteration =', n_iter,', residual =', residual_norm
           CALL message('GMRES_oce_new: surface height',TRIM(string))
         ENDIF
 
@@ -417,7 +417,7 @@ SUBROUTINE solve_free_sfc_ab_mimetic(p_patch_3D, p_os, p_ext_data, p_sfc_flx, &
       idt_src=0
       IF (idbg_mxmn >= idt_src) THEN
         WRITE(string,'(a,i4,a,e28.20)') &
-          'SUM of gmres iteration =', iter_sum,', residual =', residual_norm
+          'SUM of ocean_gmres iteration =', iter_sum,', residual =', residual_norm
         CALL message('GMRES_oce_new: surface height',TRIM(string))
       ENDIF
  
@@ -443,7 +443,7 @@ SUBROUTINE solve_free_sfc_ab_mimetic(p_patch_3D, p_os, p_ext_data, p_sfc_flx, &
 !         & -p_os%p_aux%p_rhs_sfc_eq
 !     CALL dbg_print('SolvSfc: residual h-res'    ,z_h_c                  ,str_module,idt_src)
     idt_src=1  ! output print level (1-5, fix)
-    CALL dbg_print('SolvSfc: after GMRES: h-new',p_os%p_prog(nnew(1))%h ,str_module,idt_src)
+    CALL dbg_print('SolvSfc: after ocean_gmres: h-new',p_os%p_prog(nnew(1))%h ,str_module,idt_src)
     !---------------------------------------------------------------------
 
   ENDIF  ! l_rigid_lid
@@ -475,7 +475,7 @@ REAL(wp) :: p_diag(nproma,p_patch_3D%p_patch_2D(1)%nblks_c)
 TYPE(t_subset_range), POINTER :: all_cells  !, cells_in_domain, all_edges
 TYPE(t_patch), POINTER :: patch     ! patch on which computation is performed
 !-----------------------------------------------------------------------  
-!CALL message (TRIM(routine), 'start - iteration by GMRES')
+!CALL message (TRIM(routine), 'start - iteration by ocean_gmres')
 patch =>  p_patch_3D%p_patch_2D(1)
 !write(*,*)'inside jacobi'
 write(*,*)'residual before',maxval(p_jp),minval(p_jp)!,maxvalp_jp),minval(p_jp)
@@ -1633,7 +1633,7 @@ END SUBROUTINE calc_normal_velocity_ab_mimetic
     CALL dbg_print('CalcVertVelMimBU: div mass',p_os%p_diag%div_mass_flx_c,str_module,idt_src)
     !---------------------------------------------------------------------
 
-    ! Abort if largest mismatch in surface elevation due to solution of gmres-solver is > 1mm/year
+    ! Abort if largest mismatch in surface elevation due to solution of ocean_gmres-solver is > 1mm/year
     !   criterion is 1mm/year * dtime = 3.17e-11 m/s * dtime
     z_abort = dhdtw_abort*dtime
     IF (MAXVAL(ABS(z_c(:,:))) > z_abort) THEN
@@ -1691,13 +1691,13 @@ END SUBROUTINE calc_normal_velocity_ab_mimetic
 
       If (maxval (ABS (rhstemp (:,:))) <= tolerance) THEN
         inv_flip_flop_e(:,jk,:) = lhs_primal_flip_flop(inv_flip_flop_e(:,jk,:), p_patch, p_patch_3D, p_op_coeff,jk,zimpl_coeff, h_e)
-        print*, "Inv_flipflop GMRES solved by initial guess!",&
+        print*, "Inv_flipflop ocean_gmres solved by initial guess!",&
           & jk,MAXVAL(rhstemp(:,:)), MINVAL(rhstemp(:,:)),MAXVAL(rhs_e(:,jk,:)), MINVAL(rhs_e(:,jk,:))
       ELSE
         inv_flip_flop_e(:,jk,:)= 0.0_wp!rhs_e(:,jk,:)
         !write(*,*)'RHS', maxvaL(rhs_e(:,jk,:)),minvaL(rhs_e(:,jk,:))
 
-        CALL gmres( inv_flip_flop_e(:,jk,:), &  ! arg 1 of lhs. x input is the first guess.
+        CALL ocean_gmres( inv_flip_flop_e(:,jk,:), &  ! arg 1 of lhs. x input is the first guess.
         &        lhs_primal_flip_flop,      &  ! function calculating l.h.s.
         &        h_e,                       &  ! edge thickness for LHS
         &        jk,                        &
@@ -1725,11 +1725,11 @@ END SUBROUTINE calc_normal_velocity_ab_mimetic
           IF (idbg_mxmn >= idt_src) THEN
             IF (lmax_iter) THEN
               WRITE (0, '(1x,a, I4.2, 1x, a,E8.2,1x, a,E8.2,1x, E8.2, 1x, a)') &
-              &'Inv_flipflop GMRES #Iter', n_iter, 'Tol ',tolerance, 'Res ',&
-              &  ABS(z_residual(n_iter)),MAXVAL (ABS(rhstemp(:,:))), 'GMRES PROBLEM!!!!!!!!!!!!'
+              &'Inv_flipflop ocean_gmres #Iter', n_iter, 'Tol ',tolerance, 'Res ',&
+              &  ABS(z_residual(n_iter)),MAXVAL (ABS(rhstemp(:,:))), 'ocean_gmres PROBLEM!!!!!!!!!!!!'
             ELSE
               WRITE (0, '(1x,a, I4.2, 1x, a,E8.2,1x, a,E8.2,1x, E8.2)') &
-              &'Inv_flipflop GMRES #Iter', n_iter, 'Tol ',tolerance, 'Res ',&
+              &'Inv_flipflop ocean_gmres #Iter', n_iter, 'Tol ',tolerance, 'Res ',&
               &  ABS(z_residual(n_iter)),MAXVAL (ABS(rhstemp(:,:)))
             ENDIF
           ENDIF
