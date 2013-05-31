@@ -50,22 +50,21 @@ PROGRAM control_model
 !$ USE mo_exception,          ONLY: message_text, message     ! use only if compiled with OpenMP
 
   USE mo_mpi,                 ONLY: start_mpi , p_stop, my_process_is_stdio
-
-  USE mo_atmo_model,          ONLY: atmo_model
-  USE mo_ocean_model,         ONLY: ocean_model
-!   USE mo_radiation_model,     ONLY: radiation_model
-  USE mo_icon_testbed,        ONLY: icon_testbed
-  
   USE mo_master_control,      ONLY: init_master_control,  &
     & get_my_namelist_filename, get_my_process_type,      &
     & testbed_process,  atmo_process, ocean_process!, radiation_process
-  
   USE mo_time_config,        ONLY: restart_experiment
-
   USE mo_util_signal
 
 #ifdef __INTEL_COMPILER
   USE, INTRINSIC :: ieee_arithmetic
+#endif
+
+  USE mo_ocean_model,         ONLY: ocean_model
+#ifndef __ICON_OCEAN_ONLY__
+  USE mo_atmo_model,          ONLY: atmo_model
+  USE mo_icon_testbed,        ONLY: icon_testbed
+!   USE mo_radiation_model,     ONLY: radiation_model
 #endif
 
   IMPLICIT NONE
@@ -161,18 +160,20 @@ PROGRAM control_model
   
   SELECT CASE (my_process_component)
 
+#ifndef __ICON_OCEAN_ONLY__
   CASE (atmo_process)
     CALL atmo_model(my_namelist_filename,TRIM(master_namelist_filename))
+
+  CASE (testbed_process)
+    CALL icon_testbed(my_namelist_filename, TRIM(master_namelist_filename))
+
+!   CASE (radiation_process)
+!     CALL radiation_model(my_namelist_filename, TRIM(master_namelist_filename))
+#endif
 
   CASE (ocean_process)
     CALL ocean_model(my_namelist_filename, TRIM(master_namelist_filename))
 
-!   CASE (radiation_process)
-!     CALL radiation_model(my_namelist_filename, TRIM(master_namelist_filename))
-
-  CASE (testbed_process)
-    CALL icon_testbed(my_namelist_filename, TRIM(master_namelist_filename))
-  
   CASE default
     CALL finish("control_model","my_process_component is unkown")
     

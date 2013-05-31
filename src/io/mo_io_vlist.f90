@@ -108,12 +108,6 @@ MODULE mo_io_vlist
     &                                 ntrac_oce, ihs_atm_temp, ihs_atm_theta,     &
     &                                 inh_atmosphere, ishallow_water,             &
     &                                 inwp, iecham,ildf_echam, ihs_ocean
-  USE mo_nonhydrostatic_config, ONLY: rayleigh_coeff, damp_height, iadv_rhotheta, &
-    &                                 vwind_offctr, igradp_method, exner_expol,   &
-    &                                 ltheta_up_hori, ltheta_up_vert,             &
-    &                                 gmres_rtol_nh, iadv_rcf, ivctype,           &
-    &                                 upstr_beta, l_open_ubc, l_nest_rcf,         &
-    &                                 itime_scheme_nh_atm => itime_scheme
   USE mo_ocean_nml,             ONLY: n_zlev, dzlev_m, iforc_oce, no_tracer,      &
     &                                 temperature_relaxation, i_sea_ice,          &
     &                                 irelax_2d_S, l_forc_freshw
@@ -121,8 +115,6 @@ MODULE mo_io_vlist
   USE mo_dynamics_config,       ONLY: iequations,lshallow_water,                  &
     &                                 idiv_method, divavg_cntrwgt,                &
     &                                 nold, nnow, nnow_rcf, lcoriolis
-  USE mo_ha_dyn_config,         ONLY: ha_dyn_config
-  USE mo_diffusion_config,      ONLY: diffusion_config
   USE mo_io_config,             ONLY: lwrite_omega, lwrite_pres, lwrite_z3,       &
     &                                 lwrite_vorticity, lwrite_divergence,        &
     &                                 lwrite_tend_phy, lwrite_radiation,          &
@@ -138,7 +130,6 @@ MODULE mo_io_vlist
     &                                 t_outvar_desc, GATHER_C, GATHER_E, GATHER_V,&
     &                                 max_outvars, max_gridlevs,   &
     &                                 t_collected_var_ptr, num_output_vars
-  USE mo_nh_pzlev_config,       ONLY: nh_pzlev_config
   USE mo_parallel_config,       ONLY: nproma
   USE mo_extpar_config,         ONLY: itopo
   USE mo_run_config,            ONLY: num_lev, num_levp1, iforcing, lforcing,     &
@@ -147,29 +138,31 @@ MODULE mo_io_vlist
     &                                 lvert_nest, msg_level, iqv, iqc, iqi,       &
     &                                 nqtendphy
   USE mo_grid_config,           ONLY: global_cell_type
-  USE mo_echam_phy_config
-  USE mo_atm_phy_nwp_config,    ONLY: atm_phy_nwp_config
-  USE mo_advection_config,      ONLY: advection_config
-  USE mo_echam_conv_config,     ONLY: echam_conv_config
-  USE mo_lnd_nwp_config,        ONLY: ntiles_total, nlev_snow
-! USE mo_gw_hines_nml,          ONLY: lheatcal, emiss_lev, rmscon, kstar, m_min
   USE mo_vertical_coord_table,  ONLY: vct
   USE mo_grid_config,           ONLY: start_lev, nroot, n_dom, lfeedback, lplane, &
     &                                 n_dom_start
-  USE mo_model_domain,          ONLY: t_patch, p_patch, t_patch_3D
+  USE mo_model_domain,          ONLY: t_patch, t_patch_3D
   USE mo_physical_constants,    ONLY: grav
   USE mo_mpi,                   ONLY: my_process_is_stdio, p_recv, p_send, &
     &                                 num_work_procs, get_my_mpi_all_id
-  USE mo_icoham_dyn_types,      ONLY: t_hydro_atm_prog, t_hydro_atm_diag
-  USE mo_nonhydro_types,        ONLY: t_nh_prog, t_nh_diag
-  USE mo_opt_diagnostics,       ONLY: t_nh_diag_pz
+  USE mo_math_constants,        ONLY: pi
+  USE mo_impl_constants,        ONLY: SUCCESS
+  USE mo_intp,                  ONLY: verts2cells_scalar
+  USE mo_mpi,                   ONLY: p_pe
+  USE mo_util_string,           ONLY: string_contains_word, toupper
+  USE mo_oce_physics,           ONLY: t_ho_params, v_params
+  USE mo_linked_list,           ONLY: t_list_element
+  USE mo_var_list,              ONLY: nvar_lists, var_lists
   USE mo_oce_state,             ONLY: t_hydro_ocean_state, t_hydro_ocean_prog,       &
        &                              t_hydro_ocean_diag, &!t_hydro_ocean_base,        &
        &                              t_hydro_ocean_aux,                             &
        &                              set_zlev!, v_ocean_state!, v_base
-!  USE mo_oce_forcing,           ONLY: t_sfc_flx, v_sfc_flx
   ! #
   USE mo_sea_ice_types,                ONLY: t_sfc_flx, v_sfc_flx, t_sea_ice, v_sea_ice
+
+#ifndef __ICON_OCEAN_ONLY__
+  USE mo_nonhydro_types,        ONLY: t_nh_prog, t_nh_diag
+  USE mo_icoham_dyn_types,      ONLY: t_hydro_atm_prog, t_hydro_atm_diag
   USE mo_icoham_dyn_memory,     ONLY: p_hydro_state
   USE mo_nonhydro_state,        ONLY: p_nh_state
   USE mo_nwp_lnd_types,         ONLY: t_lnd_prog, t_lnd_diag
@@ -202,15 +195,25 @@ MODULE mo_io_vlist
     &                                 p_int_mwbr_const, temp_i_mwbr_const,        &
     &                                 bruntvais_u_mwbr_const     
     !&                                mount_half_width
-  USE mo_math_constants,        ONLY: pi
-  USE mo_impl_constants,        ONLY: SUCCESS
-  USE mo_intp,                  ONLY: verts2cells_scalar
   USE mo_intp_data_strc,        ONLY: p_int_state
-  USE mo_mpi,                   ONLY: p_pe
-  USE mo_util_string,           ONLY: string_contains_word, toupper
-  USE mo_oce_physics,           ONLY: t_ho_params, v_params
-  USE mo_linked_list,           ONLY: t_list_element
-  USE mo_var_list,              ONLY: nvar_lists, var_lists
+  USE mo_nonhydrostatic_config, ONLY: rayleigh_coeff, damp_height, iadv_rhotheta, &
+    &                                 vwind_offctr, igradp_method, exner_expol,   &
+    &                                 ltheta_up_hori, ltheta_up_vert,             &
+    &                                 gmres_rtol_nh, iadv_rcf, ivctype,           &
+    &                                 upstr_beta, l_open_ubc, l_nest_rcf,         &
+    &                                 itime_scheme_nh_atm => itime_scheme
+  USE mo_echam_phy_config
+  USE mo_atm_phy_nwp_config,    ONLY: atm_phy_nwp_config
+  USE mo_advection_config,      ONLY: advection_config
+  USE mo_echam_conv_config,     ONLY: echam_conv_config
+  USE mo_lnd_nwp_config,        ONLY: ntiles_total, nlev_snow
+  USE mo_model_domain,          ONLY: p_patch_from_model => p_patch
+  USE mo_ha_dyn_config,         ONLY: ha_dyn_config
+  USE mo_diffusion_config,      ONLY: diffusion_config
+  USE mo_nh_pzlev_config,       ONLY: nh_pzlev_config
+  USE mo_opt_diagnostics,       ONLY: t_nh_diag_pz
+! USE mo_gw_hines_nml,          ONLY: lheatcal, emiss_lev, rmscon, kstar, m_min
+#endif
   IMPLICIT NONE
 
   PRIVATE
@@ -227,11 +230,14 @@ MODULE mo_io_vlist
 
   PUBLIC :: setup_vlist, destruct_vlist,                            &
     &       open_output_vlist, close_output_vlist,                  &
-    &       write_vlist, get_outvar_ptr_ha, get_outvar_ptr_nh,      &
-    &       get_outvar_ptr_oce,                                     &
-    &       vlist_write_var, vlist_set_date_time, vlist_start_step, &
+    &       write_vlist
+#ifndef __ICON_OCEAN_ONLY__
+  PUBLIC :: get_outvar_ptr_ha, get_outvar_ptr_nh, addAtmAtts
+#endif
+  PUBLIC :: get_outvar_ptr_oce
+  PUBLIC :: vlist_write_var, vlist_set_date_time, vlist_start_step, &
     &       de_reshape1, de_reshape2,                               &
-    &       addGlobAtts, addAtmAtts, addOceAtts, translate_vars
+    &       addGlobAtts, addOceAtts, translate_vars
 
   PRIVATE :: addGlobAttInt, addGlobAttTxt, addGlobAttFlt
   ! I/O stream handler
@@ -271,6 +277,8 @@ CONTAINS
     INTEGER, INTENT(in) :: k_jg
     LOGICAL, INTENT(in) :: l_do_io
     TYPE(t_patch),OPTIONAL :: mypatch(:)
+
+    TYPE(t_patch) :: p_patch(n_dom)
 
     INTEGER :: ncid, dimid, varid
     INTEGER :: i_nc, i_ne, i_nv
@@ -363,14 +371,15 @@ CONTAINS
       CALL nf(nf_inq_dimlen(ncid, dimid, i_nv))
     ELSE
      IF (PRESENT(mypatch)) THEN
-       i_nc = mypatch(k_jg)%n_patch_cells_g
-       i_ne = mypatch(k_jg)%n_patch_edges_g
-       i_nv = mypatch(k_jg)%n_patch_verts_g
+       p_patch = mypatch
+#ifndef __ICON_OCEAN_ONLY__
      ELSE
-        i_nc = p_patch(k_jg)%n_patch_cells_g
-        i_ne = p_patch(k_jg)%n_patch_edges_g
-        i_nv = p_patch(k_jg)%n_patch_verts_g
+       p_patch = p_patch_from_model
+#endif
      ENDIF
+      i_nc = p_patch(k_jg)%n_patch_cells_g
+      i_ne = p_patch(k_jg)%n_patch_edges_g
+      i_nv = p_patch(k_jg)%n_patch_verts_g
     ENDIF
 
     !
@@ -608,6 +617,7 @@ CONTAINS
     DEALLOCATE(levels)
     ! atm (pressure) height, ocean depth
     IF (iequations/=ihs_ocean) THEN ! atm 
+#ifndef __ICON_OCEAN_ONLY__
 
       nlev   = num_lev(k_jg)
       nlevp1 = num_levp1(k_jg)
@@ -666,6 +676,7 @@ CONTAINS
       CALL zaxisDefLevels(zaxisID_generic_snow(k_jg), levels)
       DEALLOCATE(levels)
 
+#endif
     ELSE ! oce
       zaxisIDdepth_m(k_jg)  = zaxisCreate(ZAXIS_DEPTH_BELOW_SEA, n_zlev)
       nzlevp1 = n_zlev + 1
@@ -701,11 +712,15 @@ CONTAINS
     ! global attributes
     !
     CALL addGlobAtts(vlistID(k_jg),k_jg,astatus)
+#ifndef __ICON_OCEAN_ONLY__
     IF (iequations/=ihs_ocean) THEN
       CALL addAtmAtts(vlistID(k_jg),k_jg,astatus)
     ELSE
+#endif
       CALL addOceAtts(vlistID(k_jg),astatus)
+#ifndef __ICON_OCEAN_ONLY__
     END IF
+#endif
 
     !-------------------------------------------------------------------------
     ! register variables
@@ -714,6 +729,7 @@ CONTAINS
     num_varids(k_jg) = 0
     ! atm
     IF (iequations/=ihs_ocean) THEN
+#ifndef __ICON_OCEAN_ONLY__
 
       ! get ctracer_list
       ctracer_list = advection_config(k_jg)%ctracer_list
@@ -2041,6 +2057,7 @@ CONTAINS
 
       ENDIF
 
+#endif
     ELSE 
       ! ocean
       ! 3-dim lsm-masks
@@ -2723,6 +2740,7 @@ CONTAINS
   !! If delete is set after I/O, the pointer has to be deallocated
   !! (because it is not pointing to another variable but has been allocated here).
 
+#ifndef __ICON_OCEAN_ONLY__
   SUBROUTINE get_outvar_ptr_ha(varname, jg, ptr2, ptr3, reset, delete)
 
     CHARACTER(LEN=*), INTENT(IN) :: varname
@@ -3281,6 +3299,7 @@ CONTAINS
 
   END SUBROUTINE get_outvar_ptr_nh
 
+#endif
 
   !-------------------------------------------------------------------------------------------------
   SUBROUTINE get_outvar_ptr_oce(varname,jg,ptr2d,ptr3d,reset,delete,p_patch_3D, p_os)
@@ -3484,6 +3503,8 @@ CONTAINS
     REAL(wp), POINTER :: ptr3(:,:,:)
     LOGICAL :: reset, delete
 
+    TYPE(t_patch) :: p_patch(n_dom)
+
     REAL(wp), ALLOCATABLE :: streamvar1(:), streamvar2(:,:)
     ! complete 3d field (nproma,nlev,nblks)
     TYPE(t_collected_var_ptr) :: collected_var_3d
@@ -3494,6 +3515,10 @@ CONTAINS
     itime   = cdiEncodeTime(datetime%hour, datetime%minute, NINT(datetime%second))
 
     ! Make streamvar1/streamvar2 defined everywhere
+
+    IF (.NOT.PRESENT(p_patch_3D)) THEN
+      p_patch = p_patch_3D%p_patch_2D
+    ENDIF
 
     IF(.NOT. my_process_is_stdio()) ALLOCATE(streamvar1(1), streamvar2(1,1))
 
@@ -3516,11 +3541,13 @@ CONTAINS
 
         ! Get a pointer to the variable
         SELECT CASE (iequations)
+#ifndef __ICON_OCEAN_ONLY__
           CASE (ishallow_water, ihs_atm_temp, ihs_atm_theta)
             CALL get_outvar_ptr_ha(outvar_desc(ivar,jg)%name, jg, ptr2, ptr3, reset, delete)
           CASE (inh_atmosphere)
             CALL get_outvar_ptr_nh &
               & (outvar_desc(ivar,jg)%name, jg, ptr2, ptr3, reset, delete)
+#endif
           CASE (ihs_ocean)
             CALL get_outvar_ptr_oce(outvar_desc(ivar,jg)%name, jg, ptr2, ptr3,reset, delete,&
                                   & p_patch_3D, p_state_oce)
@@ -3539,6 +3566,7 @@ CONTAINS
             CASE DEFAULT
             CALL finish('write_vlist', 'Illegal type in outvar_desc')
           END SELECT
+#ifndef __ICON_OCEAN_ONLY__
         ELSEIF(.NOT.present(p_patch_3D))THEN
           SELECT CASE(outvar_desc(ivar, jg)%type)
             CASE (GATHER_C)
@@ -3550,6 +3578,7 @@ CONTAINS
             CASE DEFAULT
             CALL finish('write_vlist', 'Illegal type in outvar_desc')
           END SELECT
+#endif
         ENDIF
         klev = outvar_desc(ivar, jg)%nlev
 
@@ -3837,6 +3866,7 @@ CONTAINS
   SUBROUTINE translate_vars(k_jg)
     INTEGER, INTENT(IN)           :: k_jg
     ! local variables
+#ifndef __ICON_OCEAN_ONLY__
     TYPE(t_list_element), POINTER :: list_element
     INTEGER                       :: i, nindex, idx, ivar
     REAL(wp),             POINTER :: ptr2(:,:)
@@ -3874,7 +3904,7 @@ CONTAINS
         END DO ! while
       END DO !i
     END DO ! ivar
-
+#endif
   END SUBROUTINE translate_vars
 
 
@@ -4045,7 +4075,7 @@ CONTAINS
 
   END SUBROUTINE addGlobAtts
 
-
+#ifndef __ICON_OCEAN_ONLY__
   !-------------------------------------------------------------------------------------------------
   SUBROUTINE addAtmAtts(vlist,k_jg,astatus)
     INTEGER, INTENT(IN) :: vlist,k_jg
@@ -4415,11 +4445,13 @@ CONTAINS
      END IF
   END SUBROUTINE addAtmAtts
 
+#endif
 
   !-------------------------------------------------------------------------------------------------
   SUBROUTINE addOceAtts(vlist,istatus)
     INTEGER, INTENT(IN) :: vlist
     INTEGER             :: istatus
   END SUBROUTINE addOceAtts
+
 
 END MODULE mo_io_vlist

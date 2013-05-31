@@ -49,7 +49,6 @@ MODULE mo_ocean_read_namelists
 
 
   USE mo_grid_nml            ,ONLY: read_grid_namelist
-  USE mo_gridref_nml         ,ONLY: read_gridref_namelist
   USE mo_dynamics_nml        ,ONLY: read_dynamics_namelist
   USE mo_extpar_nml          ,ONLY: read_extpar_namelist
 
@@ -58,7 +57,6 @@ MODULE mo_ocean_read_namelists
   USE mo_sea_ice_nml         ,ONLY: read_sea_ice_namelist
 
   USE mo_name_list_output    ,ONLY: read_name_list_output_namelists
-  USE mo_les_nml             ,ONLY: read_les_namelist
 #ifndef __ICON_OCEAN_ONLY__
   USE mo_coupling_nml        ,ONLY: read_coupling_namelist
 #endif

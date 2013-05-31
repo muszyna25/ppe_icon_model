@@ -11,16 +11,22 @@ MODULE mo_build_decomposition
   USE mo_loopindices,         ONLY: get_indices_e
   USE mo_impl_constants
   USE mo_model_domain,        ONLY: p_patch,t_patch_3D,t_patch
-  USE mo_dump_restore
   USE mo_model_domimp_patches
   USE mo_parallel_config,     ONLY: p_test_run, l_test_openmp, num_io_procs, division_method
   USE mo_impl_constants,      ONLY: success, MAX_DOM
   USE mo_exception,           ONLY: finish, message, message_text, get_filename_noext
 
+#ifndef __ICON_OCEAN_ONLY__
+  USE mo_dump_restore,        ONLY: restore_patches_netcdf
+#endif
+
+  IMPLICIT NONE
+
   PUBLIC :: build_decomposition
   PUBLIC :: complete_patchinfo_oce
 
   CONTAINS
+
   SUBROUTINE build_decomposition(nlev,nlevp1,num_lev,num_levp1,nshift,&
       &                          l_is_ocean,l_restore_states, p_patch_3D)
     INTEGER, INTENT(IN) :: nlev,nlevp1,num_lev(MAX_DOM),num_levp1(MAX_DOM),nshift(MAX_DOM)
@@ -37,6 +43,7 @@ MODULE mo_build_decomposition
     ENDIF
 
 
+#ifndef __ICON_OCEAN_ONLY__
     IF(l_restore_states) THEN
       ! Before the restore set p_comm_input_bcast to null
       CALL set_comm_input_bcast(null_comm_type)
@@ -59,7 +66,7 @@ MODULE mo_build_decomposition
       CALL set_comm_input_bcast()
 
     ELSE
-
+#endif
       ! Please note: ldump_dd/lread_dd not (yet?) implemented
       IF(my_process_is_mpi_parallel()) THEN
 
@@ -105,7 +112,9 @@ MODULE mo_build_decomposition
       ! Complete information which is not yet read or calculated
       CALL complete_patches(p_patch)
 
+#ifndef __ICON_OCEAN_ONLY__
     ENDIF
+#endif
 
     DO jg = n_dom_start, n_dom
       CALL complete_patchinfo_oce(p_patch(jg))

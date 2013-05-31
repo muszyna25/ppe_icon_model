@@ -4219,13 +4219,13 @@ CONTAINS
     !-----------------------------------------------------------------------------------------------
 
     ! Replicate vertical coordinate table
-
+#ifndef __ICON_OCEAN_ONLY__
     IF(.NOT.my_process_is_io()) ivct_len = SIZE(vct)
     CALL p_bcast(ivct_len, bcast_root, p_comm_work_2_io)
 
     IF(my_process_is_io()) ALLOCATE(vct(ivct_len))
     CALL p_bcast(vct, bcast_root, p_comm_work_2_io)
-
+#endif
     !-----------------------------------------------------------------------------------------------
     ! Replicate variable lists
 
