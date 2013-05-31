@@ -1740,6 +1740,15 @@ CONTAINS
     glb_sum   = global_sum_array(glob_slev)
     glob_slev = glb_sum
     corr_slev = glob_slev/ocean_are
+    IF(my_process_is_stdio()) &
+ !  & write(0,*)' BALANCE_ELEVATION(1): ocean_are, glob_slev, corr_slev = ',ocean_are, glob_slev, corr_slev
+
+ !  ! parallelize - correct method
+ !  ocean_are = global_sum_array(p_patch%cells%area(:,:)           *p_patch_3D%wet_c(:,1,:))
+ !  glob_slev = global_sum_array(p_patch%cells%area(:,:)*h_old(:,:)*p_patch_3D%wet_c(:,1,:))
+ !  corr_slev = glob_slev/ocean_are
+ !  IF(my_process_is_stdio()) &
+ !  & write(0,*)' BALANCE_ELEVATION(2): ocean_are, glob_slev, corr_slev = ',ocean_are, glob_slev, corr_slev
 
     DO jb = all_cells%start_block, all_cells%end_block
       CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
