@@ -233,14 +233,12 @@ MODULE mo_solve_nonhydro
       IF (.NOT. l_vert_nested) THEN
         ! Top and bottom levels
         DO je = i_startidx, i_endidx
-          p_diag%vn_ie(je,1,jb) =                              &
-            p_metrics%wgtfacq1_e(je,1,jb)*p_prog%vn(je,1,jb) + &
-            p_metrics%wgtfacq1_e(je,2,jb)*p_prog%vn(je,2,jb) + &
-            p_metrics%wgtfacq1_e(je,3,jb)*p_prog%vn(je,3,jb)
-          z_vt_ie(je,1,jb) =                                   &
-            p_metrics%wgtfacq1_e(je,1,jb)*p_diag%vt(je,1,jb) + &
-            p_metrics%wgtfacq1_e(je,2,jb)*p_diag%vt(je,2,jb) + &
-            p_metrics%wgtfacq1_e(je,3,jb)*p_diag%vt(je,3,jb)
+          ! Quadratic extrapolation at the top turned out to cause numerical instability in pathological cases,
+          ! thus we use a no-gradient condition in the upper half layer
+          p_diag%vn_ie(je,1,jb) = p_prog%vn(je,1,jb)
+          ! vt_ie(jk=1) is actually unused, but we need it for convenience of implementation
+          z_vt_ie(je,1,jb) = p_diag%vt(je,1,jb)
+          !
           z_kin_hor_e(je,1,jb) = 0.5_wp*(p_prog%vn(je,1,jb)*p_prog%vn(je,1,jb) + &
             p_diag%vt(je,1,jb)*p_diag%vt(je,1,jb) )
           p_diag%vn_ie(je,nlevp1,jb) =                           &
@@ -639,7 +637,7 @@ MODULE mo_solve_nonhydro
 
 
     REAL(wp):: z_theta1, z_theta2, z_raylfac, wgt_nnow_vel, wgt_nnew_vel, scal_divdamp, &
-               dt_shift, bdy_divdamp, wgt_nnow_rth, wgt_nnew_rth
+               dt_shift, bdy_divdamp, wgt_nnow_rth, wgt_nnew_rth, cfl_w_limit, w_thresh
     INTEGER :: nproma_gradp, nblks_gradp, npromz_gradp, nlen_gradp, jk_start
     LOGICAL :: lcompute, lcleanup, lvn_only
 
@@ -760,6 +758,9 @@ MODULE mo_solve_nonhydro
     ! needed for numerical stability of vertical sound wave propagation
     wgt_nnew_rth = 0.5_wp + rhotheta_offctr ! default value for rhotheta_offctr is -0.2
     wgt_nnow_rth = 1._wp - wgt_nnew_rth
+
+    ! Limit on vertical CFL number in emergency brake
+    cfl_w_limit = 0.90_wp/dtime   ! this means 90% of the nominal CFL stability limit
 
     i_nchdom   = MAX(1,p_patch%n_childdom)
 
@@ -1880,7 +1881,7 @@ MODULE mo_solve_nonhydro
     ENDIF
 
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc,z_w_expl,z_contr_w_fl_l,z_rho_expl,z_exner_expl,   &
-!$OMP            z_a,z_b,z_c,z_g,z_q,z_alpha,z_beta,z_gamma,ic,z_raylfac) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP            z_a,z_b,z_c,z_g,z_q,z_alpha,z_beta,z_gamma,ic,z_raylfac,w_thresh) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -2084,6 +2085,18 @@ MODULE mo_solve_nonhydro
           ENDDO
         ENDDO
       ENDIF
+
+      ! Emergency brake in cases of CFL violation (becomes effective very, very rarely - the only cases encountered
+      ! so far were extremely large breaking gravity waves over the Andes
+      ! The near-surface levels have to be excluded because sound waves during the spin-up phase may lead to
+      ! instabilities otherwise
+      DO jk = MAX(2,nrdmax(p_patch%id)-2), nlev-3
+        DO jc = i_startidx, i_endidx
+          w_thresh = cfl_w_limit*p_nh%metrics%ddqz_z_half(jc,jk,jb)
+          p_nh%prog(nnew)%w(jc,jk,jb) = MAX(p_nh%prog(nnew)%w(jc,jk,jb), p_nh%diag%w_concorr_c(jc,jk,jb) - w_thresh)
+          p_nh%prog(nnew)%w(jc,jk,jb) = MIN(p_nh%prog(nnew)%w(jc,jk,jb), p_nh%diag%w_concorr_c(jc,jk,jb) + w_thresh)
+        ENDDO
+      ENDDO
 
       ! Results
       DO jk = jk_start, nlev

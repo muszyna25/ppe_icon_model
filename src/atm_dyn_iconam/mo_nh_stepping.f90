@@ -1361,8 +1361,7 @@ MODULE mo_nh_stepping
               CALL feedback(p_patch, p_nh_state, p_int_state, p_grf_state, p_lnd_state, jgc, &
                             jg, lstep_adv(jg))
             ELSE
-              CALL relax_feedback(p_patch, p_nh_state, p_int_state, p_grf_state, p_lnd_state, &
-                                  jgc, jg, lstep_adv(jg))
+              CALL relax_feedback(p_patch, p_nh_state, p_int_state, p_grf_state, jgc, jg, lstep_adv(jg))
             ENDIF
             ! Note: the last argument of "feedback" ensures that tracer feedback is
             ! only done for those time steps in which transport and microphysics are called

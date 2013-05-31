@@ -1102,8 +1102,7 @@ END SUBROUTINE feedback
 !! Change feedback for cell-based variables from area-weighted averaging
 !! to using fbk_wgt (see above routine)
 !!
-SUBROUTINE relax_feedback(p_patch, p_nh_state, p_int_state, p_grf_state, p_lnd_state, &
-                          jg, jgp, l_trac_fbk)
+SUBROUTINE relax_feedback(p_patch, p_nh_state, p_int_state, p_grf_state, jg, jgp, l_trac_fbk)
 
   CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
       &  routine = 'mo_nh_feedback:relax_feedback'
@@ -1113,7 +1112,6 @@ SUBROUTINE relax_feedback(p_patch, p_nh_state, p_int_state, p_grf_state, p_lnd_s
   TYPE(t_nh_state), TARGET, INTENT(INOUT)    ::  p_nh_state(n_dom)
   TYPE(t_int_state),   TARGET, INTENT(IN)    ::  p_int_state(n_dom_start:n_dom)
   TYPE(t_gridref_state), TARGET, INTENT(IN)  ::  p_grf_state(n_dom_start:n_dom)
-  TYPE(t_lnd_state), TARGET, INTENT(IN)      ::  p_lnd_state(n_dom)
 
   INTEGER, INTENT(IN) :: jg   ! child grid level
   INTEGER, INTENT(IN) :: jgp  ! parent grid level
@@ -1136,9 +1134,6 @@ SUBROUTINE relax_feedback(p_patch, p_nh_state, p_int_state, p_grf_state, p_lnd_s
   TYPE(t_gridref_state), POINTER  :: p_grf => NULL()
   TYPE(t_patch),      POINTER     :: p_pp => NULL()
   TYPE(t_patch),      POINTER     :: p_pc => NULL()
-  TYPE(t_lnd_prog),   POINTER     :: p_lndp => NULL()
-  TYPE(t_lnd_prog),   POINTER     :: p_lndc => NULL()
-  TYPE(t_wtr_prog),   POINTER     :: p_wtrp => NULL()
 
   ! Indices
   INTEGER :: jb, jc, jk, js, jt, je, jv, i_nchdom, i_chidx,  &
@@ -1157,12 +1152,10 @@ SUBROUTINE relax_feedback(p_patch, p_nh_state, p_int_state, p_grf_state, p_lnd_s
   ! Note: as w(nlevp1) is diagnostic, it is excluded from feedback
   REAL(wp), DIMENSION(nproma,p_patch(jgp)%nlev,p_patch(jgp)%nblks_c), TARGET :: &
     parent_rho, diff_rho, parent_thv, diff_thv, parent_w, diff_w
-  REAL(wp) :: diff_tg(nproma,p_patch(jgp)%nblks_c)
   REAL(wp),DIMENSION(nproma,p_patch(jgp)%nlev,p_patch(jgp)%nblks_c,ntracer), TARGET :: &
     parent_rhoqx
   REAL(wp), DIMENSION(nproma,p_patch(jgp)%nlev,p_patch(jgp)%nblks_e), TARGET :: &
     parent_vn, diff_vn
-  REAL(wp), TARGET :: parent_tg(nproma,1,p_patch(jgp)%nblks_c)
 
   REAL(wp) :: rot_diff_vn(nproma,p_patch(jgp)%nlev,p_patch(jgp)%verts%start_blk(-1,1):&
     p_patch(jgp)%nblks_v)
@@ -1171,8 +1164,7 @@ SUBROUTINE relax_feedback(p_patch, p_nh_state, p_int_state, p_grf_state, p_lnd_s
     p_patch(jgp)%nblks_c) ::                                                      &
     div_diff_vn, diff_mass, parent_trmass, fbk_trmass
 
-  REAL(wp) :: theta_v_pr(nproma,p_patch(jg)%nlev,p_patch(jg)%nblks_c), &
-              tg_pr(nproma,p_patch(jg)%nblks_c)
+  REAL(wp) :: theta_v_pr(nproma,p_patch(jg)%nlev,p_patch(jg)%nblks_c)
 
   REAL(wp) :: rho_corr(p_patch(jgp)%nlev), tracer_corr(p_patch(jgp)%nlev),      &
               aux_diff(2*p_patch(jgp)%nlev), z_fbk_rho(nproma,4,p_patch(jg)%nlev)
@@ -1182,7 +1174,7 @@ SUBROUTINE relax_feedback(p_patch, p_nh_state, p_int_state, p_grf_state, p_lnd_s
 
   INTEGER,  DIMENSION(:,:,:), POINTER :: iccidx, iccblk, iceidx, iceblk, iveidx, iveblk, &
                                          iecidx, iecblk, ievidx, ievblk, icnidx, icnblk
-  REAL(wp), DIMENSION(:,:,:), POINTER :: p_fbk_rho, p_fbk_thv, p_fbk_w, p_fbk_vn, p_fbk_tg
+  REAL(wp), DIMENSION(:,:,:), POINTER :: p_fbk_rho, p_fbk_thv, p_fbk_w, p_fbk_vn
   REAL(wp), DIMENSION(:,:,:,:), POINTER :: p_fbk_rhoqx
   REAL(wp), DIMENSION(:,:,:), POINTER :: p_fbkwgt, p_fbkwgt_e
   REAL(wp), DIMENSION(:,:),   POINTER :: p_fbarea
@@ -1209,9 +1201,6 @@ p_child_prog_rcf => p_nh_state(jg)%prog(nnow_rcf(jg))
 p_gcc            => p_patch(jg)%cells
 p_pc             => p_patch(jg)
 p_int            => p_int_state(jgp)
-p_lndp           => p_lnd_state(jgp)%prog_lnd(nnew_rcf(jgp))
-p_lndc           => p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))
-p_wtrp           => p_lnd_state(jgp)%prog_wtr(nnew_rcf(jgp))
 
 IF(l_parallel) THEN
   p_grf => p_grf_state_local_parent(jg)
@@ -1275,7 +1264,6 @@ i_endblk   = p_gcp%end_blk(min_rlcell_int,i_chidx)
 IF(l_parallel) i_startblk = 1
 
 ALLOCATE(feedback_thv       (nproma, nlev_p, i_startblk:i_endblk),   &
-         feedback_tg        (nproma,      1, i_startblk:i_endblk),   &
          feedback_rho       (nproma, nlev_p, i_startblk:i_endblk),   &
          feedback_w         (nproma, nlev_p, i_startblk:i_endblk))
 
@@ -1334,10 +1322,6 @@ DO jb = i_startblk, i_endblk
     ENDDO
   ENDDO
 
-  DO jc = i_startidx, i_endidx
-    tg_pr(jc,jb) = p_lndc%t_g(jc,jb) - p_nh_state(jg)%metrics%tsfc_ref(jc,jb) 
-  ENDDO
-
 ENDDO
 !$OMP END DO
 
@@ -1384,14 +1368,6 @@ DO jb = i_startblk, i_endblk
         p_child_prog%w(iccidx(jc,jb,4),jk,iccblk(jc,jb,4))*p_fbkwgt(jc,jb,4)
 
     ENDDO
-  ENDDO
-
-  DO jc = i_startidx, i_endidx
-    feedback_tg(jc,1,jb) =                                       &
-      tg_pr(iccidx(jc,jb,1),iccblk(jc,jb,1))*p_fbkwgt(jc,jb,1) + &
-      tg_pr(iccidx(jc,jb,2),iccblk(jc,jb,2))*p_fbkwgt(jc,jb,2) + &
-      tg_pr(iccidx(jc,jb,3),iccblk(jc,jb,3))*p_fbkwgt(jc,jb,3) + &
-      tg_pr(iccidx(jc,jb,4),iccblk(jc,jb,4))*p_fbkwgt(jc,jb,4)
   ENDDO
 
   IF (ltransport .AND. l_trac_fbk) THEN ! tracer mass feedback
@@ -1459,11 +1435,10 @@ ENDDO
 
 IF (l_parallel) THEN ! communication from local parent to parent
 
-  CALL exchange_data_mult(p_pp%comm_pat_loc_to_glb_c_fbk, 4, 3*nlev_c+1, &
+  CALL exchange_data_mult(p_pp%comm_pat_loc_to_glb_c_fbk, 3, 3*nlev_c+1, &
                           RECV1=parent_rho,     SEND1=feedback_rho,      &
                           RECV2=parent_thv,     SEND2=feedback_thv,      &
                           RECV3=parent_w,       SEND3=feedback_w,        &
-                          RECV4=parent_tg,      SEND4=feedback_tg,       &
                           nshift=nshift )
 
 
@@ -1479,7 +1454,6 @@ IF (l_parallel) THEN ! communication from local parent to parent
   p_fbk_thv => parent_thv
   p_fbk_w   => parent_w
   p_fbk_vn  => parent_vn
-  p_fbk_tg  => parent_tg
 
   IF (ltransport) p_fbk_rhoqx => parent_rhoqx
 ELSE
@@ -1488,7 +1462,6 @@ ELSE
   p_fbk_thv => feedback_thv
   p_fbk_w   => feedback_w
   p_fbk_vn  => feedback_vn
-  p_fbk_tg  => feedback_tg
 
   IF (ltransport) p_fbk_rhoqx => feedback_rhoqx
 ENDIF
@@ -1537,12 +1510,6 @@ ENDIF
          p_nh_state(jgp)%metrics%ddqz_z_full(jc,jk,jb)
 
       ENDDO
-    ENDDO
-
-    ! ground temperature
-    DO jc = i_startidx,i_endidx
-      diff_tg(jc,jb) = p_fbk_tg(jc,1,jb) - p_lndp%t_g(jc,jb) + &
-        p_nh_state(jgp)%metrics%tsfc_ref(jc,jb)
     ENDDO
 
     IF (ltransport .AND. l_trac_fbk) THEN
@@ -1780,32 +1747,6 @@ ENDIF
       ENDDO
     ENDDO
 
-    ! ground temperature
-    DO jc = i_startidx,i_endidx
-      p_lndp%t_g(jc,jb) = p_lndp%t_g(jc,jb) + relfac*diff_tg(jc,jb)
-    ENDDO
-
-    DO jt = 1, ntiles
-      DO jc = i_startidx,i_endidx
-        p_lndp%t_g_t(jc,jb,jt)    = p_lndp%t_g_t(jc,jb,jt)    + relfac*diff_tg(jc,jb)
-        p_lndp%t_s_t(jc,jb,jt)    = p_lndp%t_s_t(jc,jb,jt)    + relfac*diff_tg(jc,jb)
-        p_lndp%t_so_t(jc,1,jb,jt) = p_lndp%t_so_t(jc,1,jb,jt) + relfac*diff_tg(jc,jb)
-        p_lndp%t_so_t(jc,2,jb,jt) = p_lndp%t_so_t(jc,2,jb,jt) + relfac*diff_tg(jc,jb)
-      ENDDO
-    ENDDO
-    DO jt = ntiles+1, ntiles+ntiles_h2o
-      DO jc = i_startidx,i_endidx
-        p_lndp%t_g_t(jc,jb,jt)    = p_lndp%t_g_t(jc,jb,jt)    + relfac*diff_tg(jc,jb)
-        p_lndp%t_s_t(jc,jb,jt)    = p_lndp%t_s_t(jc,jb,jt)    + relfac*diff_tg(jc,jb)
-      ENDDO
-    ENDDO
-    IF (lseaice) THEN
-      DO jc = i_startidx,i_endidx
-        p_wtrp%t_ice(jc,jb)     = p_wtrp%t_ice(jc,jb)     + relfac*diff_tg(jc,jb)
-        p_wtrp%t_snow_si(jc,jb) = p_wtrp%t_snow_si(jc,jb) + relfac*diff_tg(jc,jb)
-      ENDDO
-    ENDIF
-
   ENDDO
 !$OMP END DO
 
@@ -1867,7 +1808,7 @@ IF (l_parallel) THEN ! Recompute rhotheta and exner on the halo points after syn
 ENDIF
 
 
-DEALLOCATE(feedback_thv,feedback_rho,feedback_w,feedback_vn,feedback_tg)
+DEALLOCATE(feedback_thv,feedback_rho,feedback_w,feedback_vn)
 IF (ltransport .AND. l_trac_fbk) DEALLOCATE(feedback_rhoqx)
 
 END SUBROUTINE relax_feedback

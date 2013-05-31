@@ -134,7 +134,7 @@ MODULE mo_nh_diffusion
 
     ! Variables for provisional fix against runaway cooling in local topography depressions
     INTEGER  :: icount, iclist(2*nproma), iklist(2*nproma)
-    REAL(wp) :: tdlist(2*nproma), tdiff, enh_diffu, thresh_tdiff
+    REAL(wp) :: tdlist(2*nproma), tdiff, trefdiff, enh_diffu, thresh_tdiff
 
     INTEGER,  DIMENSION(:,:,:), POINTER :: icidx, icblk, ieidx, ieblk, ividx, ivblk, &
                                            iecidx, iecblk
@@ -174,7 +174,7 @@ MODULE mo_nh_diffusion
 
     ! threshold temperature deviation from neighboring grid points 
     ! that activates extra diffusion against runaway cooling
-    thresh_tdiff = - 6._wp
+    thresh_tdiff = - 5._wp
 
     ividx => p_patch%edges%vertex_idx
     ivblk => p_patch%edges%vertex_blk
@@ -843,7 +843,7 @@ MODULE mo_nh_diffusion
       i_startblk = p_patch%cells%start_blk(rl_start,1)
       i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
-!$OMP DO PRIVATE(jk,jc,jb,i_startidx,i_endidx,tdiff,icount,iclist,iklist,tdlist,enh_diffu), ICON_OMP_RUNTIME_SCHEDULE
+!$OMP DO PRIVATE(jk,jc,jb,i_startidx,i_endidx,tdiff,trefdiff,icount,iclist,iklist,tdlist,enh_diffu), ICON_OMP_RUNTIME_SCHEDULE
       DO jb = i_startblk,i_endblk
 
         CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -853,13 +853,17 @@ MODULE mo_nh_diffusion
 
         DO jk = nlev-1, nlev
           DO jc = i_startidx, i_endidx
-            ! Potential temperature difference between local point and average of the three neighbors
-            tdiff = p_nh_prog%theta_v(jc,jk,jb) - &
-              (p_nh_prog%theta_v(icidx(jc,jb,1),jk,icblk(jc,jb,1)) + &
-               p_nh_prog%theta_v(icidx(jc,jb,2),jk,icblk(jc,jb,2)) + &
-               p_nh_prog%theta_v(icidx(jc,jb,3),jk,icblk(jc,jb,3)) ) / 3._wp
+            ! Perturbation potential temperature difference between local point and average of the three neighbors
+            tdiff = p_nh_prog%theta_v(jc,jk,jb) -                          &
+              (p_nh_prog%theta_v(icidx(jc,jb,1),jk,icblk(jc,jb,1)) +       &
+               p_nh_prog%theta_v(icidx(jc,jb,2),jk,icblk(jc,jb,2)) +       &
+               p_nh_prog%theta_v(icidx(jc,jb,3),jk,icblk(jc,jb,3)) ) / 3._wp 
+            trefdiff = p_nh_metrics%theta_ref_mc(jc,jk,jb) -                       &
+              (p_nh_metrics%theta_ref_mc(icidx(jc,jb,1),jk,icblk(jc,jb,1)) +       &
+               p_nh_metrics%theta_ref_mc(icidx(jc,jb,2),jk,icblk(jc,jb,2)) +       &
+               p_nh_metrics%theta_ref_mc(icidx(jc,jb,3),jk,icblk(jc,jb,3)) ) / 3._wp
 
-            IF (tdiff < thresh_tdiff) THEN
+            IF (tdiff-trefdiff < thresh_tdiff .AND. trefdiff < 0._wp) THEN
               icount = icount+1
               iclist(icount) = jc
               iklist(icount) = jk
