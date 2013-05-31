@@ -217,10 +217,8 @@ CONTAINS
     vwind_offctr      = 0.15_wp
     ! Off-centering for density and potential temperature at interface levels
     ! Specifying a negative value here reduces the amount of vertical wind off-centering needed for
-    ! stability of sound waves. The empirically determined optimum for the combination of coarse resolution
-    ! (R2B4) with a high model top (90 km) is -0.28, but this negatively affects the stability at higher 
-    ! resolutions. -0.2 seems to be a good compromise
-    rhotheta_offctr   = -0.2_wp
+    ! stability of sound waves. 
+    rhotheta_offctr   = -0.1_wp
     ! Use Miura scheme for advection of rho and theta
     iadv_rhotheta     = 2
     ! Use truly horizontal pressure-gradient computation to ensure numerical stability

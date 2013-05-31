@@ -87,7 +87,9 @@ MODULE mo_advection_vflux
    &                                vflx_limiter_pd, vflx_limiter_pd_ha
   USE mo_loopindices,         ONLY: get_indices_c
   USE mo_sync,                ONLY: global_max
-  USE mo_mpi,                 ONLY: process_mpi_stdio_id, my_process_is_stdio
+  USE mo_mpi,                 ONLY: process_mpi_stdio_id, my_process_is_stdio, get_my_mpi_work_id, &
+                                    get_glob_proc0, comm_lev
+
 
   IMPLICIT NONE
 
@@ -2013,19 +2015,19 @@ CONTAINS
       max_cfl_tot = MAXVAL(max_cfl_blk(i_startblk:i_endblk))
 
       ! Take maximum over all PEs
-      IF (msg_level >= 12) THEN
+      IF (msg_level >= 13) THEN
         max_cfl_tot = global_max(max_cfl_tot)
       ELSE
         max_cfl_tot = global_max(max_cfl_tot, iroot=process_mpi_stdio_id)
       ENDIF
-      IF (my_process_is_stdio()) THEN
-        ! else it is possible that max_cfl_tot is undefined
+      IF (my_process_is_stdio() .OR. comm_lev>0 .AND. get_my_mpi_work_id() == get_glob_proc0() ) THEN
+        ! otherwise it is possible that max_cfl_tot is undefined
         WRITE(message_text,'(a,e16.8)') 'maximum vertical CFL =',max_cfl_tot
         CALL message(TRIM(routine),message_text)
       ENDIF
 
       ! Add layer-wise diagnostic if the maximum CFL value is suspicuous
-      IF (msg_level >= 12 .AND. max_cfl_tot > 8._wp) THEN
+      IF (msg_level >= 13 .AND. max_cfl_tot > 8._wp) THEN
         DO jk = slevp1_ti, nlev
           max_cfl_lay_tot(jk) = MAXVAL(max_cfl_lay(jk,i_startblk:i_endblk))
         ENDDO
