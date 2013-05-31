@@ -45,7 +45,7 @@ MODULE mo_ape_params
 #else
   USE mo_constants,          ONLY: pi=>api, tmelt
 #endif
-#ifndef __ICON_OCEAN__
+#ifndef __ICON_OCEAN_ONLY__
   USE mo_nh_testcases,       ONLY: ape_sst_val
 #endif
   USE mo_impl_constants,     ONLY: max_char_length
@@ -228,7 +228,7 @@ CONTAINS
 
     REAL(wp) :: sst
 
-#ifdef __ICON_OCEAN__
+#ifdef __ICON_OCEAN_ONLY__
     sst = tmelt + 29.0_wp
 #else
     sst = tmelt + ape_sst_val

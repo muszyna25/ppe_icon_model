@@ -71,7 +71,7 @@ MODULE mo_output
   USE mo_run_config,          ONLY: ltimer, output_mode
   USE mo_timer,               ONLY: timer_start, timer_stop,&
     &                     timer_write_restart_file, timer_write_output
-#ifndef __ICON_OCEAN__
+#ifndef __ICON_OCEAN_ONLY__
   USE mo_meteogram_output,    ONLY: meteogram_flush_file
   USE mo_meteogram_config,    ONLY: meteogram_output_config
 #endif
@@ -321,7 +321,7 @@ CONTAINS
         ELSE
           CALL write_vlist(datetime, z_sim_time(1))
         ENDIF
-#ifndef __ICON_OCEAN__
+#ifndef __ICON_OCEAN_ONLY__
         ! write recent samples of meteogram output
         DO jg = 1, n_dom
           IF (meteogram_output_config(jg)%lenabled) THEN
@@ -340,7 +340,7 @@ CONTAINS
 
           CALL write_vlist(datetime)
         ENDIF
-#ifndef __ICON_OCEAN__
+#ifndef __ICON_OCEAN_ONLY__
         ! write recent samples of meteogram output
         DO jg = 1, n_dom
           IF (meteogram_output_config(jg)%lenabled) THEN

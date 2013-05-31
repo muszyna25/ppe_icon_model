@@ -79,13 +79,13 @@ MODULE mo_io_async
   USE mo_io_vlist,            ONLY: setup_vlist, destruct_vlist,                                 &
    &                                open_output_vlist, close_output_vlist,                       &
    &                                vlist_set_date_time, vlist_start_step, vlist_write_var,      &
-#ifndef __ICON_OCEAN__
+#ifndef __ICON_OCEAN_ONLY__
    &                                get_outvar_ptr_ha, get_outvar_ptr_nh, get_outvar_ptr_oce
 #else
    &                                get_outvar_ptr_oce
 #endif
   USE mo_grid_config,         ONLY: n_dom
-#ifndef __ICON_OCEAN__
+#ifndef __ICON_OCEAN_ONLY__
   ! meteogram output
   USE mo_meteogram_output,    ONLY: meteogram_init, meteogram_finalize, meteogram_flush_file
   USE mo_meteogram_config,    ONLY: meteogram_output_config
@@ -273,7 +273,7 @@ CONTAINS
       STOP
     ENDIF
  
-#ifndef __ICON_OCEAN__
+#ifndef __ICON_OCEAN_ONLY__
     ! setup of meteogram output
     DO jg =1,n_dom
       IF (meteogram_output_config(jg)%lenabled) THEN
@@ -338,7 +338,7 @@ CONTAINS
 
       iostep = iostep + 1
 
-#ifndef __ICON_OCEAN__
+#ifndef __ICON_OCEAN_ONLY__
       ! write recent samples of meteogram output
       DO jg = 1, n_dom
         IF (meteogram_output_config(jg)%lenabled) THEN
@@ -362,7 +362,7 @@ CONTAINS
       CALL destruct_vlist(jg)
     ENDDO
 
-#ifndef __ICON_OCEAN__
+#ifndef __ICON_OCEAN_ONLY__
     ! finalize meteogram output
     DO jg = 1, n_dom
       IF (meteogram_output_config(jg)%lenabled) THEN
@@ -1251,7 +1251,7 @@ CONTAINS
         ! Set ptr2/ptr3 to the variable to be output
 
         SELECT CASE (iequations)
-#ifndef __ICON_OCEAN__
+#ifndef __ICON_OCEAN_ONLY__
           CASE (ishallow_water, ihs_atm_temp, ihs_atm_theta)
             CALL get_outvar_ptr_ha(outvar_desc(n,jg)%name, jg, ptr2, ptr3, reset, delete)
           CASE (inh_atmosphere)
@@ -1330,7 +1330,7 @@ CONTAINS
 
     CALL MPI_Win_unlock(p_pe_work, mpi_win, mpierr)
 
-#ifndef __ICON_OCEAN__
+#ifndef __ICON_OCEAN_ONLY__
     ! write recent samples of meteogram output
     DO jg = 1, n_dom
       IF (meteogram_output_config(jg)%lenabled) THEN
@@ -1423,7 +1423,7 @@ CONTAINS
 
     TYPE(t_datetime),   INTENT(in) :: datetime
     REAL(wp), OPTIONAL, INTENT(in) :: z_sim_time(n_dom)
-#ifndef __ICON_OCEAN__
+#ifndef __ICON_OCEAN_ONLY__
 
     INTEGER jg, jk, n, i, n_tot, idate, itime
     INTEGER (KIND=MPI_ADDRESS_KIND) :: ioff ! If amount of data should exceed 2 GB

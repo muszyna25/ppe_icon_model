@@ -122,7 +122,7 @@ MODULE mo_name_list_output
   USE mo_ocean_nml,             ONLY: n_zlev
   USE mo_oce_state,             ONLY: set_zlev
 
-#ifndef __OCEAN_ONLY__
+#ifndef __ICON_OCEAN_ONLY__
   USE mo_lnd_jsbach_config,     ONLY: lnd_jsbach_config
   USE mo_nh_pzlev_config,       ONLY: nh_pzlev_config
   USE mo_lnd_nwp_config,        ONLY: nlev_snow
@@ -574,7 +574,7 @@ CONTAINS
       ! If "remap=1": lon-lat interpolation requested
       IF(remap/=REMAP_NONE .AND. remap/=REMAP_REGULAR_LATLON) &
         CALL finish(routine,'Unsupported value for remap')
-#ifndef __ICON_OCEAN__
+#ifndef __ICON_OCEAN_ONLY__
       IF (remap == REMAP_REGULAR_LATLON) THEN
         ! Register a lon-lat grid data structure in global list
         p_onl%lonlat_id = get_free_lonlat_grid()
@@ -1365,7 +1365,7 @@ CONTAINS
 
     ENDDO ! jp
 
-#ifndef __ICON_OCEAN__
+#ifndef __ICON_OCEAN_ONLY__
     ! A similar process as above - for the lon-lat grids
     ALLOCATE(lonlat_info(n_lonlat_grids, n_dom), STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
@@ -1979,7 +1979,7 @@ CONTAINS
     ! 3. add horizontal grid descriptions
 
     IF(of%name_list%remap == REMAP_REGULAR_LATLON) THEN
-#ifndef __ICON_OCEAN__
+#ifndef __ICON_OCEAN_ONLY__
 
       ! Lon/Lat Interpolation requested
 
@@ -2135,7 +2135,7 @@ CONTAINS
     DEALLOCATE(levels)
 
     ! atm (pressure) height, ocean depth
-#ifndef __OCEAN_ONLY__
+#ifndef __ICON_OCEAN_ONLY__
     IF (iequations/=ihs_ocean) THEN ! atm
 
       nlev   = num_lev(of%log_patch_id)
@@ -2423,7 +2423,7 @@ CONTAINS
       DEALLOCATE(levels_i)
       DEALLOCATE(levels_m)
       of%cdiZaxisID(ZA_GENERIC_ICE) = zaxisCreate(ZAXIS_GENERIC, 1)
-#ifndef __OCEAN_ONLY__
+#ifndef __ICON_OCEAN_ONLY__
     ENDIF
 #endif
 
@@ -2633,7 +2633,7 @@ CONTAINS
         IF (errstat /= SUCCESS) CALL finish(routine, 'DEALLOCATE failed!')
       END DO
 
-#ifndef __ICON_OCEAN__
+#ifndef __ICON_OCEAN_ONLY__
     CASE (REMAP_REGULAR_LATLON)
       ! allocate data buffer:
       grid => lonlat_grid_list(of%name_list%lonlat_id)%grid
@@ -3250,13 +3250,13 @@ CONTAINS
     INTEGER :: i, jg
 
 #ifndef NOMPI
-#ifndef __ICON_OCEAN__
+#ifndef __ICON_OCEAN_ONLY__
     IF (use_async_name_list_io    .AND.  &
       & .NOT. my_process_is_io()  .AND.  &
       & .NOT. my_process_is_mpi_test()) THEN
       !-- compute PEs (senders):
 
-#ifndef __OCEAN_ONLY__
+#ifndef __ICON_OCEAN_ONLY__
       ! write recent samples of meteogram output
       DO jg = 1, n_dom
         IF (meteogram_output_config(jg)%lenabled) THEN
@@ -3276,7 +3276,7 @@ CONTAINS
         CALL destroy_output_vlist(output_file(i))
       ENDDO
 #ifndef NOMPI
-#ifndef __ICON_OCEAN__
+#ifndef __ICON_OCEAN_ONLY__
     ENDIF
 #endif
 #endif
@@ -3424,11 +3424,11 @@ CONTAINS
     CALL assign_if_present(l_is_initial_step, initial_step)
 
 #ifndef NOMPI
-#ifndef __ICON_OCEAN__
+#ifndef __ICON_OCEAN_ONLY__
     IF(use_async_name_list_io) THEN
       IF(.NOT.my_process_is_io().AND..NOT.my_process_is_mpi_test()) THEN
         ! write recent samples of meteogram output
-#ifndef __OCEAN_ONLY__
+#ifndef __ICON_OCEAN_ONLY__
         DO jg = 1, n_dom
           IF (meteogram_output_config(jg)%lenabled) THEN
             CALL meteogram_flush_file(jg)
@@ -3439,7 +3439,7 @@ CONTAINS
       END IF
     ENDIF
 #else
-#ifndef __OCEAN_ONLY__
+#ifndef __ICON_OCEAN_ONLY__
     ! write recent samples of meteogram output
     DO jg = 1, n_dom
       IF (meteogram_output_config(jg)%lenabled) THEN
@@ -3672,7 +3672,7 @@ CONTAINS
         ! set a default time level (which is not used anyway, but must
         ! be a valid array subscript):
       tl = 1
-#ifndef __OCEAN_ONLY__
+#ifndef __ICON_OCEAN_ONLY__
       IF (.NOT. ASSOCIATED(of%var_desc(iv)%r_ptr)  .AND.    &
         & .NOT. ASSOCIATED(of%var_desc(iv)%i_ptr)) THEN
         SELECT CASE (info%tlev_source)
@@ -3797,7 +3797,7 @@ CONTAINS
         ELSE
           p_pat => p_patch(i_dom)%comm_pat_gather_v
         ENDIF
-#ifndef __ICON_OCEAN__
+#ifndef __ICON_OCEAN_ONLY__
       CASE (GRID_REGULAR_LONLAT)
         lonlat_id = info%hor_interp%lonlat_id
         p_ri  => lonlat_info(lonlat_id, i_log_dom)
@@ -4061,7 +4061,7 @@ CONTAINS
     INTEGER, INTENT(in) :: isample
     ! local variables:
 
-#ifndef __OCEAN_ONLY__
+#ifndef __ICON_OCEAN_ONLY__
     LOGICAL             :: done, last_step
     TYPE(t_datetime)    :: datetime
     REAL(wp)            :: sim_time
@@ -4075,7 +4075,7 @@ CONTAINS
       STOP
     ENDIF
 
-#ifndef __ICON_OCEAN__
+#ifndef __ICON_OCEAN_ONLY__
     ! setup of meteogram output
     DO jg =1,n_dom
       IF (meteogram_output_config(jg)%lenabled) THEN
@@ -4091,7 +4091,7 @@ CONTAINS
     ! Tell the compute PEs that we are ready to work
     CALL async_io_send_handshake
 
-#ifndef __ICON_OCEAN__
+#ifndef __ICON_OCEAN_ONLY__
     ! write recent samples of meteogram output
     DO jg = 1, n_dom
       IF (meteogram_output_config(jg)%lenabled) THEN
@@ -4114,7 +4114,7 @@ CONTAINS
       ! Inform compute PEs that we are done
       CALL async_io_send_handshake
 
-#ifndef __ICON_OCEAN__
+#ifndef __ICON_OCEAN_ONLY__
       ! write recent samples of meteogram output
       DO jg = 1, n_dom
         IF (meteogram_output_config(jg)%lenabled) THEN
@@ -4129,7 +4129,7 @@ CONTAINS
 
     CALL close_name_list_output
 
-#ifndef __ICON_OCEAN__
+#ifndef __ICON_OCEAN_ONLY__
     ! finalize meteogram output
     DO jg = 1, n_dom
       IF (meteogram_output_config(jg)%lenabled) THEN

@@ -59,7 +59,7 @@ MODULE mo_ocean_read_namelists
 
   USE mo_name_list_output    ,ONLY: read_name_list_output_namelists
   USE mo_les_nml             ,ONLY: read_les_namelist
-#ifndef __ICON_OCEAN__
+#ifndef __ICON_OCEAN_ONLY__
   USE mo_coupling_nml        ,ONLY: read_coupling_namelist
 #endif
 
@@ -130,7 +130,7 @@ CONTAINS
 
     ! Coupling
     !
-#ifndef __ICON_OCEAN__
+#ifndef __ICON_OCEAN_ONLY__
     CALL read_coupling_namelist       (TRIM(oce_namelist_filename))
 #endif
 

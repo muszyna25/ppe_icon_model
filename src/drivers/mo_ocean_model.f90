@@ -95,7 +95,7 @@ MODULE mo_ocean_model
 
    !-------------------------------------------------------------
   ! For the coupling
-#ifndef __ICON_OCEAN__
+#ifndef __ICON_OCEAN_ONLY__
   USE mo_icon_cpl_init,       ONLY: icon_cpl_init
   USE mo_icon_cpl_init_comp,  ONLY: icon_cpl_init_comp
   USE mo_coupling_config,     ONLY: is_coupled_run, config_debug_coupler_level
@@ -282,7 +282,7 @@ CONTAINS
     ! common to atmo and ocean. Does this make sense if the setup deviates
     ! too much in future.
     !------------------------------------------------------------------
-#ifndef __ICON_OCEAN__
+#ifndef __ICON_OCEAN_ONLY__
     IF ( is_coupled_run() ) THEN
 
      !------------------------------------------------------------
@@ -456,7 +456,7 @@ CONTAINS
       ENDIF
     ENDIF
 
-#ifndef __ICON_OCEAN__
+#ifndef __ICON_OCEAN_ONLY__
     IF ( is_coupled_run() ) CALL ICON_cpl_finalize
 #endif
     

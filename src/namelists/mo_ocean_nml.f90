@@ -55,7 +55,7 @@ MODULE mo_ocean_nml
   USE mo_namelist,           ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_mpi,                ONLY: my_process_is_stdio
   USE mo_ocean_config,       ONLY: config_ignore_land_points => ignore_land_points
-#ifndef __OCEAN_ONLY__
+#ifndef __ICON_OCEAN_ONLY__
   USE mo_coupling_config,    ONLY: is_coupled_run
 #endif
   IMPLICIT NONE
@@ -467,7 +467,7 @@ MODULE mo_ocean_nml
        CALL message(TRIM(routine),'WARNING, limit_elevation set to .TRUE. with l_forc_freshw=.TRUE.')
      END IF
 
-#ifndef __OCEAN_ONLY__
+#ifndef __ICON_OCEAN_ONLY__
      IF ( is_coupled_run() ) THEN
        iforc_oce = FORCING_FROM_COUPLED_FLUX
        CALL message(TRIM(routine),'WARNING, iforc_oce set to 14 for coupled experiment')
