@@ -1365,6 +1365,7 @@ src/namelists/mo_nh_pzlev_nml.f90 -text
 src/namelists/mo_nonhydrostatic_nml.f90 -text
 src/namelists/mo_nwp_phy_nml.f90 -text
 src/namelists/mo_ocean_nml.f90 -text
+src/namelists/mo_ocean_read_namelists.f90 -text
 src/namelists/mo_parallel_nml.f90 -text
 src/namelists/mo_prepicon_nml.f90 -text
 src/namelists/mo_radiation_nml.f90 -text

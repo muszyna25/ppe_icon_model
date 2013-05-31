@@ -107,7 +107,7 @@ MODULE mo_ocean_model
   !-------------------------------------------------------------
 
   USE mo_alloc_patches,       ONLY: destruct_patches
-  USE mo_read_namelists,      ONLY: read_ocean_namelists
+  USE mo_ocean_read_namelists, ONLY: read_ocean_namelists
   USE mo_io_restart,          ONLY: read_restart_info_file, read_restart_files
   USE mo_io_restart_namelist, ONLY: read_restart_namelists
   USE mo_io_restart_attributes,ONLY: read_restart_attributes, get_restart_attribute

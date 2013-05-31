@@ -51,7 +51,6 @@ MODULE mo_read_namelists
   USE mo_grid_nml            ,ONLY: read_grid_namelist
   USE mo_gridref_nml         ,ONLY: read_gridref_namelist
   USE mo_dynamics_nml        ,ONLY: read_dynamics_namelist
-#ifndef __ICON_OCEAN__
   USE mo_interpol_nml        ,ONLY: read_interpol_namelist
   USE mo_sleve_nml           ,ONLY: read_sleve_namelist
   USE mo_nh_pzlev_nml        ,ONLY: read_nh_pzlev_namelist
@@ -77,10 +76,7 @@ MODULE mo_read_namelists
   USE mo_meteogram_nml       ,ONLY: read_meteogram_namelist
 
   USE mo_coupling_nml        ,ONLY: read_coupling_namelist
-#endif
   USE mo_extpar_nml          ,ONLY: read_extpar_namelist
-
-  USE mo_ocean_nml           ,ONLY: setup_ocean_nml
 
   USE mo_sea_ice_nml         ,ONLY: read_sea_ice_namelist
 
@@ -90,7 +86,7 @@ MODULE mo_read_namelists
   IMPLICIT NONE
 
   PRIVATE
-  PUBLIC :: read_atmo_namelists, read_ocean_namelists, read_cpl_dummy_namelists
+  PUBLIC :: read_atmo_namelists, read_cpl_dummy_namelists
 
 CONTAINS
 
@@ -108,7 +104,6 @@ CONTAINS
     ! actual values used in the model run will be stored.
     !-----------------------------------------------------------------
 
-#ifndef __ICON_OCEAN__
     IF(my_process_is_stdio()) CALL open_nml_output('NAMELIST_ICON_output_atm')
 
     !-----------------------------------------------------------------
@@ -192,90 +187,9 @@ CONTAINS
 
     IF (my_process_is_stdio()) CALL close_nml_output
 
-#endif
   END SUBROUTINE read_atmo_namelists
   !-------------------------------------------------------------------------
 
-  !---------------------------------------------------------------------
-  !>
-  !! Read namelists for ocean models
-  !!
-  SUBROUTINE read_ocean_namelists(oce_namelist_filename,shr_namelist_filename)
-
-    CHARACTER(LEN=*), INTENT(in) :: oce_namelist_filename
-    CHARACTER(LEN=*), INTENT(in) :: shr_namelist_filename
-
-    !-----------------------------------------------------------------
-    ! Create a new file in which all the namelist variables and their
-    ! actual values used in the model run will be stored.
-    !-----------------------------------------------------------------
-
-    IF(my_process_is_stdio()) CALL open_nml_output('NAMELIST_ICON_output_oce')
-
-    !-----------------------------------------------------------------
-    ! Read namelists that are shared by all components of the model.
-    ! This means that the same namelists with the same values are
-    ! read by all components of a coupled system.
-    !-----------------------------------------------------------------
-
-    CALL read_time_namelist           (TRIM(shr_namelist_filename))
-
-    !-----------------------------------------------------------------
-    ! Read namelists that are specific to the oce model.
-    ! In case of a coupled simulation, the atmosphere model may also
-    ! read some of these namelists, but probably from a different
-    ! ASCII file containing different values.
-    !-----------------------------------------------------------------
-
-    ! General
-    !
-    CALL read_parallel_namelist       (TRIM(oce_namelist_filename))
-    CALL read_run_namelist            (TRIM(oce_namelist_filename))
-    CALL read_io_namelist             (TRIM(oce_namelist_filename))
-    CALL read_name_list_output_namelists (TRIM(oce_namelist_filename))
-    CALL read_dbg_namelist            (TRIM(oce_namelist_filename))
-
-    ! Grid
-    !
-    CALL read_grid_namelist           (TRIM(oce_namelist_filename))
-!    CALL read_interpol_namelist       (TRIM(oce_namelist_filename))
-
-    ! Dynamics, transport and physics
-    ! (still using the old setup)
-    !
-    CALL read_dynamics_namelist       (TRIM(oce_namelist_filename))
-
-    ! Boundary conditions
-    !
-    CALL read_extpar_namelist         (TRIM(oce_namelist_filename))
-
-    !
-    ! GRIB2 output
-    CALL read_gribout_namelist        (TRIM(oce_namelist_filename))
-
-    ! Coupling
-    !
-#ifndef __ICON_OCEAN__
-    CALL read_coupling_namelist       (TRIM(oce_namelist_filename))
-#endif
-
-    ! More namelists from the old setup
-    !
-    CALL setup_ocean_nml              (TRIM(oce_namelist_filename))
-
-    ! Sea ice namelist
-    !
-    CALL read_sea_ice_namelist        (TRIM(oce_namelist_filename))
-
-    !-----------------------------------------------------------------
-    ! Close the file in which all the namelist variables and their
-    ! actual values were stored.
-    !-----------------------------------------------------------------
-
-    IF (my_process_is_stdio()) CALL close_nml_output
-
-  END SUBROUTINE read_ocean_namelists
-  !-------------------------------------------------------------------------
 
   !---------------------------------------------------------------------
   !>
@@ -290,7 +204,6 @@ CONTAINS
     ! Create a new file in which all the namelist variables and their
     ! actual values used in the model run will be stored.
     !-----------------------------------------------------------------
-#ifndef __ICON_OCEAN__
 
     IF(my_process_is_stdio()) CALL open_nml_output('NAMELIST_ICON_output_atm')
 
@@ -365,7 +278,6 @@ CONTAINS
 
     IF (my_process_is_stdio()) CALL close_nml_output
 
-#endif
   END SUBROUTINE read_cpl_dummy_namelists
   !-------------------------------------------------------------------------
 
