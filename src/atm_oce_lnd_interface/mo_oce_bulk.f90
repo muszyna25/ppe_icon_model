@@ -1740,7 +1740,7 @@ CONTAINS
     glb_sum   = global_sum_array(glob_slev)
     glob_slev = glb_sum
     corr_slev = glob_slev/ocean_are
-    IF(my_process_is_stdio()) &
+ !  IF(my_process_is_stdio()) &
  !  & write(0,*)' BALANCE_ELEVATION(1): ocean_are, glob_slev, corr_slev = ',ocean_are, glob_slev, corr_slev
 
  !  ! parallelize - correct method
