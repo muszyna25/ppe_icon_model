@@ -59,8 +59,8 @@
 !! Initial ICON release by Dmitrii Mironov, DWD (2013-02-08)
 !! (adaptation of the COSMO code for ICON)
 !!
-!! Modification by <name>, <organization> (YYYY-MM-DD)
-!! - <brief description of modification>
+!! Modification by Dmitrii Mironov, DWD (2013-05-29)
+!! - minimum lake fraction fr_lake_min is added
 !!
 !!
 !! @par Copyright
@@ -106,7 +106,7 @@ MODULE mo_data_flake
 
 !===================================================================================================
 
-! The following '#idef' statements make it possible to use 
+! The following '#ifdef' statements make it possible to use 
 ! "mo_data_flake" within both ICON and COSMO.
 
 #ifdef __COSMO__
@@ -139,16 +139,16 @@ MODULE mo_data_flake
 
   ! Albedo for water, ice, and snow.
   REAL (KIND = ireals), PARAMETER ::        &
-    albedo_water_ref       = 0.07_ireals  , & ! Water
-    albedo_whiteice_ref    = 0.60_ireals  , & ! White ice
-    albedo_blueice_ref     = 0.10_ireals  , & ! Blue ice
-    albedo_drysnow_ref     = 0.60_ireals  , & ! Dry snow 
-    albedo_meltingsnow_ref = 0.10_ireals      ! Melting snow 
+    albedo_water_ref       = 0.07_ireals  , & ! Water [-]
+    albedo_whiteice_ref    = 0.60_ireals  , & ! White ice [-]
+    albedo_blueice_ref     = 0.10_ireals  , & ! Blue ice [-]
+    albedo_drysnow_ref     = 0.60_ireals  , & ! Dry snow [-]
+    albedo_meltingsnow_ref = 0.10_ireals      ! Melting snow [-]
 
   ! Empirical parameters.
   REAL (KIND = ireals), PARAMETER :: &
     c_albice_MR = 95.6_ireals        ! Constant in the interpolation formula for the ice albedo 
-                                     ! (Mironov and Ritter 2004, Mironov et al. 2012)
+                                     ! (Mironov and Ritter 2004, Mironov et al. 2012) [-]
 
 !---------------------------------------------------------------------------------------------------
 
@@ -194,11 +194,11 @@ MODULE mo_data_flake
   TYPE opticpar_medium
 
     INTEGER (KIND = iintegers)          :: & 
-      nband_optic                            ! Number of wave-length bands
+      nband_optic                            ! Number of wave-length bands [-]
 
     REAL (KIND = ireals)                :: & 
-      frac_optic       (nband_optic_max),  & ! Fractions of total radiation flux 
-      extincoef_optic  (nband_optic_max)     ! Extinction coefficients 
+      frac_optic       (nband_optic_max),  & ! Fractions of total radiation flux [-] 
+      extincoef_optic  (nband_optic_max)     ! Extinction coefficients [m^{-1}]
 
   END TYPE opticpar_medium
 
@@ -214,19 +214,19 @@ MODULE mo_data_flake
   ! the shape factor with respect to the temperature profile in the thermocline
 
   REAL (KIND = ireals), PARAMETER :: &
-    c_cbl_1    = 0.17_ireals  , & ! Constant in the CBL entrainment equation
-    c_cbl_2    = 1.0_ireals   , & ! Constant in the CBL entrainment equation
+    c_cbl_1    = 0.17_ireals  , & ! Constant in the CBL entrainment equation [-]
+    c_cbl_2    = 1.0_ireals   , & ! Constant in the CBL entrainment equation [-]
     c_sbl_ZM_n = 0.5_ireals   , & ! Constant in the ZM1996 equation for the 
-                                  !       equilibrium SBL depth
+                                  !       equilibrium SBL depth [-]
     c_sbl_ZM_s = 10.0_ireals  , & ! Constant in the ZM1996 equation for the 
-                                  !       equilibrium SBL depth
+                                  !       equilibrium SBL depth [-]
     c_sbl_ZM_i = 20.0_ireals  , & ! Constant in the ZM1996 equation for the 
-                                  !       equilibrium SBL depth
+                                  !       equilibrium SBL depth [-]
     c_relax_h  = 0.010_ireals , & ! Constant in the relaxation equation for the 
-                                  !       SBL depth
+                                  !       SBL depth [-]
     c_relax_C  = 0.0030_ireals    ! Constant in the relaxation equation for the 
                                   !       shape factor with respect to the 
-                                  !       temperature profile in the thermocline
+                                  !       temperature profile in the thermocline [-]
 
   ! Parameters of the shape functions 
   ! Indices refer to T - thermocline, S - snow, I - ice,
@@ -237,37 +237,36 @@ MODULE mo_data_flake
 
   REAL (KIND = ireals), PARAMETER ::        &
     C_T_min       = 0.5_ireals            , & ! Minimum value of the shape factor 
-                                              !    C_T (thermocline)
+                                              !    C_T (thermocline) [-]
     C_T_max       = 0.8_ireals            , & ! Maximum value of the shape factor 
-                                              !    C_T (thermocline)
+                                              !    C_T (thermocline) [-]
     Phi_T_pr0_1   = 40._ireals/3._ireals  , & ! Constant in the expression for the 
-                                              !    T shape-function derivative 
+                                              !    T shape-function derivative [-]
     Phi_T_pr0_2   = 20._ireals/3._ireals  , & ! Constant in the expression for the 
-                                              !    T shape-function derivative 
+                                              !    T shape-function derivative [-]
     C_TT_1        = 11._ireals/18._ireals , & ! Constant in the expression for 
-                                              !    C_TT (thermocline)
+                                              !    C_TT (thermocline) [-]
     C_TT_2        = 7._ireals/45._ireals  , & ! Constant in the expression for 
-                                              !    C_TT (thermocline)
+                                              !    C_TT (thermocline) [-]
     C_B1          = 2._ireals/3._ireals   , & ! Shape factor (upper layer of 
-                                              !    bottom sediments)
+                                              !    bottom sediments) [-]
     C_B2          = 3._ireals/5._ireals   , & ! Shape factor (lower layer of 
-                                              !    bottom sediments)
-    Phi_B1_pr0    = 2._ireals             , & ! B1 shape-function derivative 
-                                              !
+                                              !    bottom sediments) [-]
+    Phi_B1_pr0    = 2._ireals             , & ! B1 shape-function derivative [-] 
     C_S_lin       = 0.5_ireals            , & ! Shape factor (linear temperature 
-                                              !    profile in the snow layer)
+                                              !    profile in the snow layer) [-]
     Phi_S_pr0_lin = 1._ireals             , & ! S shape-function derivative 
-                                              !    (linear profile) 
+                                              !    (linear profile) [-] 
     C_I_lin       = 0.5_ireals            , & ! Shape factor (linear temperature 
-                                              !    profile in the ice layer)
+                                              !    profile in the ice layer) [-]
     Phi_I_pr0_lin = 1._ireals             , & ! I shape-function derivative 
-                                              !    (linear profile) 
+                                              !    (linear profile) [-] 
     Phi_I_pr1_lin = 1._ireals             , & ! I shape-function derivative 
-                                              !    (linear profile) 
+                                              !    (linear profile) [-] 
     Phi_I_ast_MR  = 2._ireals             , & ! Constant in the MR2004 expression 
-                                              !    for I shape factor
+                                              !    for I shape factor [-]
     C_I_MR        = 1._ireals/12._ireals  , & ! Constant in the MR2004 expression
-                                              !    for I shape factor
+                                              !    for I shape factor [-]
     H_Ice_max     = 3._ireals                 ! Maximum ice thickness in the 
                                               !    Mironov and Ritter ice model [m] 
 
@@ -294,39 +293,31 @@ MODULE mo_data_flake
 
   ! Thermodynamic parameters
   REAL (KIND = ireals), PARAMETER ::        &
-    tpl_grav          = 9.81_ireals       , & ! Acceleration due to gravity 
-                                              !        [m s^{-2}]
-    tpl_T_r           = 277.13_ireals     , & ! Temperature of maximum density 
-                                              !        of fresh water [K]
+    tpl_grav          = 9.81_ireals       , & ! Acceleration due to gravity [m s^{-2}]
+    tpl_T_r           = 277.13_ireals     , & ! Temperature of maximum density of fresh water [K]
     tpl_T_f           = 273.15_ireals     , & ! Fresh water freezing point [K]
-    tpl_a_T           = 1.6509E-05_ireals , & ! Constant in the fresh-water 
-                                              !        equation of state [K^{-2}]
-    tpl_rho_w_r       = 1.0E+03_ireals    , & ! Maximum density of fresh water 
-                                              !        [kg m^{-3}]
+    tpl_a_T           = 1.6509E-05_ireals , & ! Constant in the fresh-water equation of state [K^{-2}]
+    tpl_rho_w_r       = 1.0E+03_ireals    , & ! Maximum density of fresh water [kg m^{-3}]
     tpl_rho_I         = 9.1E+02_ireals    , & ! Density of ice [kg m^{-3}]
     tpl_rho_S_min     = 1.0E+02_ireals    , & ! Minimum snow density [kg m^{-3}]
     tpl_rho_S_max     = 4.0E+02_ireals    , & ! Maximum snow density [kg m^{-3}]
-    tpl_Gamma_rho_S   = 2.0E+02_ireals    , & ! Empirical parameter [kg m^{-4}] in
-                                              ! the expression for the snow density 
-    tpl_L_f           = 3.3E+05_ireals    , & ! Latent heat of fusion 
-                                              !   [J kg^{-1}]
-    tpl_c_w           = 4.2E+03_ireals    , & ! Specific heat of water 
-                                              !   [J kg^{-1} K^{-1}]
-    tpl_c_I           = 2.1E+03_ireals    , & ! Specific heat of ice 
-                                              !   [J kg^{-1} K^{-1}]
-    tpl_c_S           = 2.1E+03_ireals    , & ! Specific heat of snow 
-                                              !   [J kg^{-1} K^{-1}]
+    tpl_Gamma_rho_S   = 2.0E+02_ireals    , & ! Empirical parameter in the expression 
+                                              ! for the snow density [kg m^{-4}]
+    tpl_L_f           = 3.3E+05_ireals    , & ! Latent heat of fusion [J kg^{-1}]
+    tpl_c_w           = 4.2E+03_ireals    , & ! Specific heat of water [J kg^{-1} K^{-1}]
+    tpl_c_I           = 2.1E+03_ireals    , & ! Specific heat of ice [J kg^{-1} K^{-1}]
+    tpl_c_S           = 2.1E+03_ireals    , & ! Specific heat of snow [J kg^{-1} K^{-1}]
     tpl_kappa_w       = 5.46E-01_ireals   , & ! Molecular heat conductivity of water 
-                                              !   [J m^{-1} s^{-1} K^{-1}]
+                                              ! [J m^{-1} s^{-1} K^{-1}]
     tpl_kappa_I       = 2.29_ireals       , & ! Molecular heat conductivity of ice 
-                                              !   [J m^{-1} s^{-1} K^{-1}]
-    tpl_kappa_S_min   = 0.2_ireals        , & ! Minimum molecular heat conductivity 
-                                              !   of snow [J m^{-1} s^{-1} K^{-1}]
-    tpl_kappa_S_max   = 1.5_ireals        , & ! Maximum molecular heat conductivity 
-                                              !   of snow [J m^{-1} s^{-1} K^{-1}]
-    tpl_Gamma_kappa_S = 1.3_ireals            ! Empirical parameter in expression
-                                              !   for the snow heat conductivity 
-                                              !   [J m^{-2} s^{-1} K^{-1}] 
+                                              ! [J m^{-1} s^{-1} K^{-1}]
+    tpl_kappa_S_min   = 0.2_ireals        , & ! Minimum molecular heat conductivity of snow 
+                                              ! [J m^{-1} s^{-1} K^{-1}]
+    tpl_kappa_S_max   = 1.5_ireals        , & ! Maximum molecular heat conductivity of snow 
+                                              ! [J m^{-1} s^{-1} K^{-1}]
+    tpl_Gamma_kappa_S = 1.3_ireals            ! Empirical parameter in expression 
+                                              ! for the snow heat conductivity 
+                                              ! [J m^{-2} s^{-1} K^{-1}] 
 
 !---------------------------------------------------------------------------------------------------
 
