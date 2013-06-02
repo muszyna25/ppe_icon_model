@@ -73,7 +73,7 @@ USE mo_impl_constants,      ONLY: success, max_char_length,           &
   &                               VINTP_METHOD_LIN,VINTP_METHOD_QV,   &
   &                               TASK_COMPUTE_RH, HINTP_TYPE_LONLAT_NNB
 USE mo_parallel_config,     ONLY: nproma
-USE mo_run_config,          ONLY: nqtendphy, iqv, iqc, iqi, iqr, iqs
+USE mo_run_config,          ONLY: nqtendphy, iqv, iqc, iqi, iqr, iqs, ltestcase
 USE mo_exception,           ONLY: message, finish !,message_text
 USE mo_model_domain,        ONLY: t_patch
 USE mo_grid_config,         ONLY: n_dom
@@ -2175,7 +2175,7 @@ SUBROUTINE new_nwp_phy_tend_list( k_jg, klev,  kblks,   &
     TYPE(t_grib2_var) :: grib2_desc
 
     INTEGER :: shape3d(3), shape3dkp1(3), shape4d(4)
-    INTEGER :: ibits, ktracer
+    INTEGER :: ibits, ktracer, ist
 
     ibits = DATATYPE_PACK16 ! "entropy" of horizontal slice
 
@@ -2414,6 +2414,43 @@ SUBROUTINE new_nwp_phy_tend_list( k_jg, klev,  kblks,   &
                 GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc,&
               & ldims=shape3dkp1 )
 
+
+   !Anurag Dipankar, MPIM (2013-May-31)
+   !Large-scale tendencies for idealized testcases: add_var doesn't work
+   !for 1D variables so using ALLOCATE-DEALLOCATE
+   !Therefore, these variables can't go into restart/output
+   !Initialize them all to 0 
+    IF(ltestcase)THEN
+
+      ALLOCATE(phy_tend%ddt_u_ls(klev),STAT=ist)
+      IF (ist/=SUCCESS)THEN
+        CALL finish('mo_nwp_phy_state:construct_nwp_phy_tend', &
+                    'allocation for phy_tend%u_ls failed')
+      ENDIF
+      phy_tend%ddt_u_ls = 0._wp
+
+      ALLOCATE(phy_tend%ddt_v_ls(klev),STAT=ist)
+      IF (ist/=SUCCESS)THEN
+        CALL finish('mo_nwp_phy_state:construct_nwp_phy_tend', &
+                    'allocation for phy_tend%v_ls failed')
+      ENDIF
+      phy_tend%ddt_v_ls = 0._wp
+
+      ALLOCATE(phy_tend%ddt_temp_ls(klev),STAT=ist)
+      IF (ist/=SUCCESS)THEN
+        CALL finish('mo_nwp_phy_state:construct_nwp_phy_tend', &
+                    'allocation for phy_tend%temp_ls failed')
+      ENDIF
+      phy_tend%ddt_temp_ls = 0._wp
+
+      ALLOCATE(phy_tend%ddt_tracer_ls(klev,nqtendphy),STAT=ist)
+      IF (ist/=SUCCESS)THEN
+        CALL finish('mo_nwp_phy_state:construct_nwp_phy_tend', &
+                    'allocation for phy_tend%tracer_ls failed')
+      ENDIF
+      phy_tend%ddt_tracer_ls = 0._wp
+ 
+    END IF
 
     CALL message('mo_nwp_phy_state:construct_nwp_phy_tend', &
       'construction of NWP physical tendency fields finished')

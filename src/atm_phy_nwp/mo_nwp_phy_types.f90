@@ -334,6 +334,14 @@ MODULE mo_nwp_phy_types
       ddt_tracer_pconv(:,:,:,:),& !! Hydromet-tendency from convective prec
       ddt_tke         (:,:,:)     !! tendency for turbulent kinetic energy [m^2/s^3]
 
+    !Anurag Dipankar, MPIM (2013-May-31)
+    !Large-scale tendencies for idealized testcases (nlev)
+    REAL(wp), ALLOCATABLE ::   &
+      ddt_u_ls       (:), &     !! LS tendency for u 
+      ddt_v_ls       (:), &     !! LS tendency for v 
+      ddt_temp_ls    (:), &     !! LS tendency for temp 
+      ddt_tracer_ls  (:,:)      !! LS tendency for tracer
+
     TYPE(t_ptr_2d3d),ALLOCATABLE ::  &
       &  tracer_turb_ptr(:)    ,& !< pointer array: one pointer for each component
       &  tracer_conv_ptr(:)       !< pointer array: one pointer for each component
