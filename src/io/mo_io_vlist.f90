@@ -3503,7 +3503,7 @@ CONTAINS
     REAL(wp), POINTER :: ptr3(:,:,:)
     LOGICAL :: reset, delete
 
-    TYPE(t_patch) :: p_patch(n_dom)
+    TYPE(t_patch), POINTER :: p_patch(:)
 
     REAL(wp), ALLOCATABLE :: streamvar1(:), streamvar2(:,:)
     ! complete 3d field (nproma,nlev,nblks)
@@ -3517,7 +3517,9 @@ CONTAINS
     ! Make streamvar1/streamvar2 defined everywhere
 
     IF (.NOT.PRESENT(p_patch_3D)) THEN
-      p_patch = p_patch_3D%p_patch_2D
+      p_patch => p_patch_3D%p_patch_2D
+    ELSE
+      p_patch => p_patch_from_model
     ENDIF
 
     IF(.NOT. my_process_is_stdio()) ALLOCATE(streamvar1(1), streamvar2(1,1))
