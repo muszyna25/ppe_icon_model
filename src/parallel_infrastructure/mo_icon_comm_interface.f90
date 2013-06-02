@@ -123,7 +123,7 @@ CONTAINS
   SUBROUTINE icon_comm_barrier(for_patch)
     TYPE(t_patch), TARGET ::  for_patch
 
-    write(0,*) "icon_comm_barrier:", for_patch%parallel_test_communicator
+  !  write(0,*) "icon_comm_barrier:", for_patch%parallel_test_communicator
 #ifndef NOMPI
     IF (for_patch%compute_is_parallel .OR. for_patch%is_test_parallel_process) THEN
       CALL p_barrier(for_patch%parallel_test_communicator)

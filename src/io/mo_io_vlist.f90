@@ -3517,9 +3517,9 @@ CONTAINS
     ! Make streamvar1/streamvar2 defined everywhere
 
     IF (.NOT.PRESENT(p_patch_3D)) THEN
-      p_patch => p_patch_3D%p_patch_2D
-    ELSE
       p_patch => p_patch_from_model
+    ELSE
+      p_patch => p_patch_3D%p_patch_2D
     ENDIF
 
     IF(.NOT. my_process_is_stdio()) ALLOCATE(streamvar1(1), streamvar2(1,1))
