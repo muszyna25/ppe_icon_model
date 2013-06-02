@@ -113,7 +113,8 @@ MODULE mo_surface_les
     REAL(wp),          INTENT(out)       :: sgs_visc_sfc(:,:) !sgs visc near surface
 
     REAL(wp) :: rhos, th0_srf, obukhov_length, z_mc, ustar, inv_mwind, bflux
-    REAL(wp) :: zrough, pres_sfc(nproma,p_patch%nblks_c), exner
+    REAL(wp) :: zrough, exner
+    REAL(wp), POINTER :: pres_sfc(:,:)
     REAL(wp) :: theta_sfc
     INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
     INTEGER :: rl_start, rl_end
@@ -132,9 +133,7 @@ MODULE mo_surface_les
     i_startblk = p_patch%cells%start_blk(rl_start,1)
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
-!$OMP PARALLEL WORKSHARE
-    pres_sfc(:,:) = p_nh_diag%pres_sfc(:,:)
-!$OMP END PARALLEL WORKSHARE
+    pres_sfc => p_nh_diag%pres_sfc
 
     SELECT CASE(les_config(jg)%isrfc_type)
 
@@ -194,6 +193,7 @@ MODULE mo_surface_les
                                      businger_heat(zrough,z_mc,obukhov_length) 
 
             !Get surface fluxes
+            !rho at surface: no qc at suface
             rhos   =  pres_sfc(jc,jb)/( rd * &
                       p_prog_lnd_new%t_g(jc,jb)*(1._wp+0.61_wp*p_diag_lnd%qv_s(jc,jb)) )  
 
