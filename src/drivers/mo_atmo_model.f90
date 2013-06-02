@@ -638,6 +638,14 @@ CONTAINS
     ENDIF
     !--------------------------------------------------------------------------------
     
+    !-------------------------------------------------------------------
+    ! Initialize icon_comm_lib
+    !-------------------------------------------------------------------
+!    IF (use_icon_comm) THEN
+      CALL construct_icon_communication()
+!    ENDIF
+
+
     !--------------------------------------------        
     ! Setup the information for the physical patches
     CALL setup_phys_patches
@@ -731,13 +739,6 @@ CONTAINS
     CALL init_ext_data (p_patch(1:), p_int_state(1:), ext_data)
 
 
-    !-------------------------------------------------------------------
-    ! Initialize icon_comm_lib
-    !-------------------------------------------------------------------
-    IF (use_icon_comm) THEN
-      CALL construct_icon_communication()
-    ENDIF
-
     CALL init_rrtm_model_repart()
     
     IF (timers_level > 3) CALL timer_stop(timer_model_init)
@@ -801,9 +802,9 @@ CONTAINS
     IF (msg_level > 5) CALL message(TRIM(routine),'delete_restart_namelists is done')
     
     CALL destruct_rrtm_model_repart()
-    IF (use_icon_comm) THEN
+!    IF (use_icon_comm) THEN
       CALL destruct_icon_communication()
-    ENDIF
+!    ENDIF
     
     CALL message(TRIM(routine),'clean-up finished')
     

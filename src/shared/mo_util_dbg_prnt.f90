@@ -41,7 +41,7 @@ MODULE mo_util_dbg_prnt
 !-------------------------------------------------------------------------
 !
 USE mo_kind,                   ONLY: wp
-USE mo_mpi,                    ONLY: my_process_is_stdio, p_pe, global_mpi_barrier !, p_comm_work, p_bcast
+USE mo_mpi,                    ONLY: my_process_is_stdio, p_pe !, p_comm_work, p_bcast
 USE mo_io_units,               ONLY: nerr
 USE mo_parallel_config,        ONLY: nproma, p_test_run
 USE mo_impl_constants,         ONLY: max_char_length
@@ -56,6 +56,7 @@ USE mo_exception,              ONLY: message, message_text
 USE mo_model_domain,           ONLY: t_patch
 USE mo_grid_subset,            ONLY: t_subset_range
 USE mo_statistics_utils,       ONLY: global_minmaxmean
+USE mo_icon_comm_interface,    ONLY: icon_comm_barrier
 
 IMPLICIT NONE
 
@@ -295,7 +296,7 @@ CONTAINS
   98 FORMAT(2a,3(a,f9.3))
 
    ! write info directly by mproc_id: needs barrier to avoid merging messages from pe_io and mproc_id
-   CALL global_mpi_barrier
+   CALL icon_comm_barrier(for_patch=ppatch)
    IF (p_pe .EQ. mproc_id) THEN
   !IF (my_process_is_stdio()) THEN
      zlat = ppatch%cells%center(iidx,iblk)%lat * 180.0_wp / pi
@@ -313,7 +314,7 @@ CONTAINS
   ! WRITE(125,'(3a,2i3,a,f9.3)') ' ',TRIM(routine),' FOUND: using MINLOC: at idx/blk=', &
   !   &                  MINLOC(zdst_c(:,:)),' distance in degrees =',MINVAL(zdst_c(:,:))
   END IF
-   CALL global_mpi_barrier
+  CALL icon_comm_barrier(for_patch=ppatch)
 
   END SUBROUTINE find_latlonindex
 

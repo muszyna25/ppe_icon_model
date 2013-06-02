@@ -709,17 +709,6 @@ MODULE mo_model_domain
     ! maximum number of child domains
     INTEGER :: max_childdom
     !
-    ! MPI communicator for this patch
-    INTEGER :: comm
-    !
-    ! my index among the processors on this patch
-    INTEGER :: rank
-    !
-    ! total number of processors on this patch
-    INTEGER :: n_proc
-    !
-    ! global id of processor with rank 0 (within the working set p_comm_work)
-    INTEGER :: proc0
     
     ! total number of allocated cells, edges and vertices
     INTEGER :: n_patch_cells
@@ -841,10 +830,38 @@ MODULE mo_model_domain
     INTEGER ::  sync_edges_not_in_domain
     INTEGER ::  sync_verts_not_owned
     INTEGER ::  sync_verts_not_in_domain
-    
+
+    ! basic parallelization info for this patch
+    LOGICAL :: compute_is_parallel  ! if true more than 1 processes are used
+    LOGICAL :: is_in_parallel_test  ! if true there's one process that runs seq and compares the results to the parallel runs
+    LOGICAL :: is_test_parallel_process  ! if true this process runs seq and compares the results to the parallel runs
+
+    ! basic communicators concerning this patch
+    !> the work universe of this patch, halo exchange, global sum,
+    ! etc, takes place in this universe
+
+
+    INTEGER :: work_communicator
+    !> the work universe plus the sequential test process,
+    ! in case it exists (otherwise the same as work_communicator)
+    INTEGER :: parallel_test_communicator
+
+    ! MPI communicator for this patch
+    INTEGER :: comm
+    !
+    ! my index among the processors on this patch
+    INTEGER :: rank
+    !
+    ! total number of processors on this patch
+    INTEGER :: n_proc
+    !
+    ! global id of processor with rank 0 (within the working set p_comm_work)
+    INTEGER :: proc0
     
   END TYPE t_patch
+  !-----------------------------------------------------------------------------------
   
+  !-----------------------------------------------------------------------------------
   ! Description of physical patches
   TYPE t_phys_patch
     !

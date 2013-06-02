@@ -40,11 +40,13 @@ MODULE mo_icon_comm_interface
   USE mo_kind,            ONLY: wp
   USE mo_io_units,        ONLY: filename_max
   USE mo_exception,       ONLY: message_text, message, finish
-  USE mo_parallel_config, ONLY: nproma, icon_comm_debug
+  USE mo_parallel_config, ONLY: nproma, icon_comm_debug, p_test_run
   USE mo_grid_config,     ONLY: n_dom
-  USE mo_model_domain,    ONLY: p_patch
+  USE mo_model_domain,    ONLY: p_patch, t_patch
 !  USE mo_icoham_dyn_memory,ONLY: p_hydro_state
-  USE mo_mpi,             ONLY: my_process_is_mpi_seq, work_mpi_barrier
+  USE mo_mpi,             ONLY: my_process_is_mpi_seq, my_process_is_mpi_parallel, &
+    & work_mpi_barrier, my_process_is_mpi_test, p_barrier,        &
+    & p_comm_work_test, p_comm_work
   USE mo_icon_comm_lib
 
 #ifdef _OPENMP
@@ -59,6 +61,10 @@ MODULE mo_icon_comm_interface
   PUBLIC :: construct_icon_communication
   PUBLIC :: destruct_icon_communication
   
+  PUBLIC :: icon_comm_barrier
+
+
+
   !-------------------------------------------------------------------------
 CONTAINS
 
@@ -70,6 +76,18 @@ CONTAINS
     
     CHARACTER(*), PARAMETER :: method_name = "construct_icon_communication"
 
+    !-------------------------------------------------------------------------------------
+    ! constrcut patch communicators
+    ! this is not the right place, this should be aware of the local decomposition features
+    ! as well the coupled setup, parallel io, etc.
+    ! Will be moved in the future
+    p_patch(:)%compute_is_parallel = my_process_is_mpi_parallel()
+    p_patch(:)%is_in_parallel_test = p_test_run
+    p_patch(:)%is_test_parallel_process = my_process_is_mpi_test()
+
+    p_patch(:)%work_communicator = p_comm_work
+    p_patch(:)%parallel_test_communicator = p_comm_work_test
+    !-------------------------------------------------------------------------------------
 
     CALL construct_icon_comm_lib()
     
@@ -99,6 +117,21 @@ CONTAINS
      CALL destruct_icon_comm_lib()
      
   END SUBROUTINE destruct_icon_communication
+  !-----------------------------------------------------------------------
   
+  !-----------------------------------------------------------------------
+  SUBROUTINE icon_comm_barrier(for_patch)
+    TYPE(t_patch), TARGET ::  for_patch
+
+    write(0,*) "icon_comm_barrier:", for_patch%parallel_test_communicator
+#ifndef NOMPI
+    IF (for_patch%compute_is_parallel .OR. for_patch%is_test_parallel_process) THEN
+      CALL p_barrier(for_patch%parallel_test_communicator)
+    ENDIF
+#else
+    RETURN
+#endif
+  END SUBROUTINE icon_comm_barrier
+  !-----------------------------------------------------------------------
 
 END MODULE mo_icon_comm_interface

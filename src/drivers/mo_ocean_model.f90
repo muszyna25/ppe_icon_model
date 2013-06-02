@@ -113,7 +113,7 @@ MODULE mo_ocean_model
   USE mo_io_restart_attributes,ONLY: read_restart_attributes, get_restart_attribute
 
   USE mo_time_config,         ONLY: time_config
-
+  USE mo_icon_comm_interface, ONLY: construct_icon_communication, destruct_icon_communication
   IMPLICIT NONE
 
   PRIVATE
@@ -237,6 +237,7 @@ CONTAINS
 
     CALL build_decomposition(nlev,nlevp1,num_lev,num_levp1,nshift,&
       &                          .TRUE.,lrestore_states,p_patch_3D)
+    CALL construct_icon_communication()
 
     CALL setup_ocean_namelists(p_patch_3D%p_patch_2D(1))
     !------------------------------------------------------------------
@@ -455,6 +456,8 @@ CONTAINS
         CALL close_output_files
       ENDIF
     ENDIF
+
+    CALL destruct_icon_communication()
 
 #ifndef __ICON_OCEAN_ONLY__
     IF ( is_coupled_run() ) CALL ICON_cpl_finalize
