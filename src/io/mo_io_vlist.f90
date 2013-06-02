@@ -276,9 +276,9 @@ CONTAINS
     CHARACTER(len=*), INTENT(in) :: grid_filename
     INTEGER, INTENT(in) :: k_jg
     LOGICAL, INTENT(in) :: l_do_io
-    TYPE(t_patch),OPTIONAL :: mypatch(:)
+    TYPE(t_patch), TARGET, OPTIONAL :: mypatch(:)
 
-    TYPE(t_patch) :: p_patch(n_dom)
+    TYPE(t_patch), POINTER :: p_patch(:)
 
     INTEGER :: ncid, dimid, varid
     INTEGER :: i_nc, i_ne, i_nv
@@ -371,10 +371,10 @@ CONTAINS
       CALL nf(nf_inq_dimlen(ncid, dimid, i_nv))
     ELSE
      IF (PRESENT(mypatch)) THEN
-       p_patch = mypatch
+       p_patch => mypatch
 #ifndef __ICON_OCEAN_ONLY__
      ELSE
-       p_patch = p_patch_from_model
+       p_patch => p_patch_from_model
 #endif
      ENDIF
       i_nc = p_patch(k_jg)%n_patch_cells_g
