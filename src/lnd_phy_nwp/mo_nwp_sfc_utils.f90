@@ -85,6 +85,7 @@ INTEGER, PARAMETER :: nlsnow= 2
   PUBLIC :: update_sstice, update_ndvi
   PUBLIC :: init_snowtile_lists
   PUBLIC :: init_sea_lists
+  PUBLIC :: aggregate_t_g_q_v
 
 CONTAINS
 

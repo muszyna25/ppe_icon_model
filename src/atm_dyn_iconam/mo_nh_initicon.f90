@@ -78,7 +78,8 @@ MODULE mo_nh_initicon
   USE mo_util_phys,           ONLY: virtual_temp
   USE mo_util_string,         ONLY: tolower
   USE mo_ifs_coord,           ONLY: alloc_vct, init_vct, vct, vct_a, vct_b
-  USE mo_lnd_nwp_config,      ONLY: nlev_soil, ntiles_total, lmulti_snow, nlev_snow, lseaice
+  USE mo_lnd_nwp_config,      ONLY: nlev_soil, ntiles_total, lmulti_snow, nlev_snow, lseaice,&
+    &                               ntiles_water
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
   USE mo_master_nml,          ONLY: model_base_dir
   USE mo_phyparam_soil,       ONLY: csalb_snow_min, csalb_snow_max,crhosmin_ml,crhosmax_ml
@@ -1611,18 +1612,27 @@ MODULE mo_nh_initicon
 
 
       ! tile based fields
-      DO jt=1, ntiles_total
+      DO jt=1, ntiles_total + ntiles_water 
 
         CALL read_data_2d (filetype, fileID, 't_g', p_patch(jg)%n_patch_cells_g,               &
          &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,              &
          &                p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_g_t(:,:,jt))
 
-        p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_g(:,:) = &
-          &    p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_g_t(:,:,1)
+       ! aggregated values are not prog variables, 
+       ! aggregated values are calculated in  init_nwp_phy  (PR)
+       ! p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_g(:,:) = &
+       !   &    p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_g_t(:,:,1)
 
         CALL read_data_2d (filetype, fileID, 'qv_s', p_patch(jg)%n_patch_cells_g,              &
          &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,              &
          &                p_lnd_state(jg)%diag_lnd%qv_s_t(:,:,jt))
+
+       ! aggregated values are calculated in  init_nwp_phy  (PR)
+       ! p_lnd_state(jg)%diag_lnd%qv_s(:,:) = &
+       !  &    p_lnd_state(jg)%diag_lnd%qv_s_t(:,:,1)
+      END DO
+        !  tile based fields
+      DO jt=1, ntiles_total
 
         CALL read_data_2d (filetype, fileID, 'freshsnow',                          &
           &                p_patch(jg)%n_patch_cells_g,                            &
@@ -1642,6 +1652,8 @@ MODULE mo_nh_initicon
           &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
           &                p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_i_t(:,:,jt) )
 
+
+
 !!$        IF (lmulti_snow) THEN
 !!$          CALL read_data_3d (filetype, fileID,'t_snow_m',                            &
 !!$            &                p_patch(jg)%n_patch_cells_g,                            &
@@ -1655,20 +1667,18 @@ MODULE mo_nh_initicon
 !!$            &                nlev_snow,                                              &
 !!$            &                p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%rho_snow_mult_t(:,:,:,jt))
 !!$        ELSE
+
           CALL read_data_2d (filetype, fileID,'t_snow',                              &
             &                p_patch(jg)%n_patch_cells_g,                            &
             &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
             &                p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_snow_t(:,:,jt) )
-
           CALL read_data_2d (filetype, fileID, 'rho_snow',                           &
             &                p_patch(jg)%n_patch_cells_g,                            &
             &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
             &                p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%rho_snow_t(:,:,jt))
 !!$        ENDIF
 
-
-        ! multi layer fields
-
+     ! multi layer fields 
         CALL read_data_3d (filetype, fileID, 'w_so',                                  &
           &                p_patch(jg)%n_patch_cells_g,                               &
           &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,    &
