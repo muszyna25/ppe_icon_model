@@ -295,9 +295,9 @@ CONTAINS
   99 FORMAT(3a,i4,a,i4,3(a,f9.3))
   98 FORMAT(2a,3(a,f9.3))
 
-   ! write info directly by mproc_id: needs barrier to avoid merging messages from pe_io and mproc_id
-   CALL icon_comm_barrier(for_patch=ppatch)
-   IF (p_pe .EQ. mproc_id) THEN
+  ! write info directly by mproc_id: needs barrier to avoid merging messages from pe_io and mproc_id
+  !CALL icon_comm_barrier(for_patch=ppatch)
+  IF (p_pe .EQ. mproc_id) THEN
   !IF (my_process_is_stdio()) THEN
      zlat = ppatch%cells%center(iidx,iblk)%lat * 180.0_wp / pi
      zlon = ppatch%cells%center(iidx,iblk)%lon * 180.0_wp / pi
@@ -314,7 +314,7 @@ CONTAINS
   ! WRITE(125,'(3a,2i3,a,f9.3)') ' ',TRIM(routine),' FOUND: using MINLOC: at idx/blk=', &
   !   &                  MINLOC(zdst_c(:,:)),' distance in degrees =',MINVAL(zdst_c(:,:))
   END IF
-  CALL icon_comm_barrier(for_patch=ppatch)
+  !CALL icon_comm_barrier(for_patch=ppatch)
 
   END SUBROUTINE find_latlonindex
 
