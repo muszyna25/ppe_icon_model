@@ -78,6 +78,7 @@ CONTAINS
     subset_range%end_index   = -2
     subset_range%block_size  = levels_size(1)
     subset_range%no_of_holes = 0    
+    subset_range%size = 0
     
     DO block=1,levels_size(2)
       DO index_in_block=1,subset_range%block_size
@@ -122,7 +123,12 @@ CONTAINS
         ENDDO
       ENDDO
     ENDIF
-
+    subset_range%size = 0
+    IF (subset_range%end_block > 0) THEN
+      IF ((subset_range%end_block - subset_range%start_block) > 1) &
+        subset_range%size = (subset_range%end_block - subset_range%start_block -1) * subset_range%block_size
+      subset_range%size = subset_range%size + subset_range%end_index + (subset_range%block_size - subset_range%start_index + 1)
+    ENDIF
     subset_range%patch => patch
     IF (PRESENT(subset_name)) &
       & subset_range%name = TRIM(subset_name)

@@ -642,7 +642,7 @@ CONTAINS
     ! Initialize icon_comm_lib
     !-------------------------------------------------------------------
 !    IF (use_icon_comm) THEN
-      CALL construct_icon_communication()
+      CALL construct_icon_communication(p_patch, n_dom)
 !    ENDIF
 
 

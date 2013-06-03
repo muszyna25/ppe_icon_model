@@ -93,12 +93,7 @@ CONTAINS
       ENDDO
 !ICON_OMP_END_PARALLEL_DO
       ! compute the total number of values
-      IF ((subset%end_block - subset%start_block) > 1) THEN
-        number_of_values = (subset%end_block - subset%start_block -1) * subset%block_size
-      ELSE
-        number_of_values = 0
-      ENDIF
-      number_of_values = number_of_values + subset%end_index + (subset%block_size - subset%start_index + 1)
+      number_of_values = subset%size
 
     ELSE
       min_value = values(1,1)

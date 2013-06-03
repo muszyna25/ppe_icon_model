@@ -138,6 +138,8 @@ MODULE mo_model_domain
     INTEGER :: end_index
     INTEGER :: block_size
 
+    INTEGER :: size
+
     TYPE(t_patch), POINTER :: patch
     INTEGER :: entity_type ! 1=cells, 2=edges, 3=verts    
 

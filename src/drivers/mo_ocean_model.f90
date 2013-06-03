@@ -237,7 +237,7 @@ CONTAINS
 
     CALL build_decomposition(nlev,nlevp1,num_lev,num_levp1,nshift,&
       &                          .TRUE.,lrestore_states,p_patch_3D)
-    CALL construct_icon_communication()
+    CALL construct_icon_communication(p_patch_3D%p_patch_2D(:), n_dom=1)
 
     CALL setup_ocean_namelists(p_patch_3D%p_patch_2D(1))
     !------------------------------------------------------------------
