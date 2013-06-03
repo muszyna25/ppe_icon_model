@@ -154,6 +154,7 @@ MODULE mo_meteogram_output
   USE mo_physical_constants,    ONLY: o_m_rdv        , & !! 1 - r_d/r_v &
     &                                 rdv,             & !! r_d / r_v
     &                                 cpd, p0ref, rd
+  USE mo_math_constants,        ONLY: pi
   USE mo_satad,                 ONLY: sat_pres_water
   USE mo_util_string,           ONLY: int2string
   USE mo_netcdf_read,           ONLY: nf
@@ -169,7 +170,7 @@ MODULE mo_meteogram_output
     &                                 FTYPE_NETCDF, MAX_NAME_LENGTH, MAX_NUM_STATIONS
   USE mo_atm_phy_nwp_config,    ONLY: atm_phy_nwp_config
   USE mo_util_phys,             ONLY: rel_hum
-  USE mo_grid_config,           ONLY: grid_sphere_radius
+  USE mo_grid_config,           ONLY: grid_sphere_radius, is_plane_torus
   
   IMPLICIT NONE
   
@@ -420,12 +421,12 @@ CONTAINS
     CALL add_atmo_var(VAR_GROUP_ATMO_ML, "V", "m/s", "meridional wind", jg, diag%v(:,:,:))
     CALL add_atmo_var(VAR_GROUP_ATMO_HL, "W", "m/s", "orthogonal vertical wind", jg, prog%w(:,:,:))
 
-    ! For synthetic test cases: do not sample variables defined below
-    ! this line:
-    IF (ltestcase) RETURN
+    ! For dry test cases: do not sample variables defined below this line:
+    ! (but allow for TORUS moist runs; see call in mo_atmo_nonhydrostatic.F90)
+    IF (ltestcase .and. .not. is_plane_torus) RETURN
 
-    CALL add_atmo_var(VAR_GROUP_ATMO_ML, "QV", "kg kg-1", "specific humidity", jg, &
-      &               prog%tracer_ptr(iqv)%p_3d(:,:,:))
+    CALL add_atmo_var(VAR_GROUP_ATMO_ML, "QV", "kg kg-1", "specific humidity", &
+      &               jg, prog%tracer_ptr(iqv)%p_3d(:,:,:))
     CALL add_atmo_var(VAR_GROUP_ATMO_ML, "QC", "kg kg-1", "specific cloud water content", &
       &               jg, prog%tracer_ptr(iqc)%p_3d(:,:,:))
     CALL add_atmo_var(VAR_GROUP_ATMO_ML, "QI", "kg kg-1", "specific cloud ice content", &
@@ -437,35 +438,36 @@ CONTAINS
     CALL add_atmo_var(IBSET(VAR_GROUP_ATMO_ML, FLAG_DIAG), "REL_HUM", "%", "relative humidity", &
       &               jg, prog%tracer_ptr(iqv)%p_3d(:,:,:))
 
-    CALL add_atmo_var(VAR_GROUP_ATMO_ML, "CLC", "-", "cloud cover", jg, &
-      &               prm_diag%clc(:,:,:))
-    CALL add_atmo_var(VAR_GROUP_ATMO_HL, "TKVM", "m**2/s",             &
+    CALL add_atmo_var(VAR_GROUP_ATMO_ML, "CLC", "-", "cloud cover", &
+      &               jg, prm_diag%clc(:,:,:))
+    CALL add_atmo_var(VAR_GROUP_ATMO_HL, "TKVM", "m**2/s", &
       &               "turbulent diffusion coefficients for momentum", &
       &               jg, prm_diag%tkvm(:,:,:))
-    CALL add_atmo_var(VAR_GROUP_ATMO_HL, "TKVH", "m**2/s",             &
-      &               "turbulent diffusion coefficients for heat",     &
+    CALL add_atmo_var(VAR_GROUP_ATMO_HL, "TKVH", "m**2/s", &
+      &               "turbulent diffusion coefficients for heat", &
       &               jg, prm_diag%tkvh(:,:,:))
-    CALL add_atmo_var(VAR_GROUP_ATMO_HL, "Phalf", "Pa", "Pressure on the half levels", jg, &
-      &               diag%pres_ifc(:,:,:))
+    CALL add_atmo_var(VAR_GROUP_ATMO_HL, "Phalf", "Pa", "Pressure on the half levels", &
+      &               jg, diag%pres_ifc(:,:,:))
 
     ! -- soil related
 
     IF (  atm_phy_nwp_config(jg)%inwp_surface == 1 ) THEN
-      CALL add_atmo_var(VAR_GROUP_SOIL_MLp2, "t_so", "K", "soil temperature", jg, &
-        &               p_lnd_diag%t_so(:,:,:))
-      CALL add_atmo_var(VAR_GROUP_SOIL_ML, "w_so", "m H2O",         &
+      CALL add_atmo_var(VAR_GROUP_SOIL_MLp2, "t_so", "K", "soil temperature", &
+        &               jg, p_lnd_diag%t_so(:,:,:))
+      CALL add_atmo_var(VAR_GROUP_SOIL_ML, "w_so", "m H2O", &
         &               "total water content (ice + liquid water)", &
         &               jg, p_lnd_diag%w_so(:,:,:))
-      CALL add_atmo_var(VAR_GROUP_SOIL_ML, "w_so_ice", "m H2O",     &
-        &               "ice content", jg, p_lnd_diag%w_so_ice(:,:,:))
+      CALL add_atmo_var(VAR_GROUP_SOIL_ML, "w_so_ice", "m H2O", "ice content", &
+        &               jg, p_lnd_diag%w_so_ice(:,:,:))
 
       CALL add_sfc_var(VAR_GROUP_SURFACE,  "PL_Cov", "-", "ground fraction covered by plants", &
         &              jg, ext_data%atm%plcov(:,:))
       CALL add_sfc_var(VAR_GROUP_SURFACE,  "LA_Ind", "-", "leaf area index (vegetation period)", &
         &              jg, ext_data%atm%lai(:,:))
-      CALL add_sfc_var(VAR_GROUP_SURFACE,  "RO_Dept", "-", "root depth", jg, &
-        &              ext_data%atm%rootdp(:,:))
-      CALL add_sfc_var(VAR_GROUP_SURFACE,  "Z0", "m", "roughness length*g", jg, prm_diag%gz0(:,:))
+      CALL add_sfc_var(VAR_GROUP_SURFACE,  "RO_Dept", "-", "root depth", &
+        &              jg, ext_data%atm%rootdp(:,:))
+      CALL add_sfc_var(VAR_GROUP_SURFACE,  "Z0", "m", "roughness length*g", &
+                       jg, prm_diag%gz0(:,:))
       CALL add_sfc_var(VAR_GROUP_SURFACE,  "qv_s", "kg/kg", "specific humidity at the surface", &
         &              jg, p_lnd_diag%qv_s(:,:))
       CALL add_sfc_var(VAR_GROUP_SURFACE,  "w_i", "m H2O", "water content of interception water", &
@@ -497,50 +499,45 @@ CONTAINS
 
     ! -- single level variables
 
-    CALL add_sfc_var(VAR_GROUP_SURFACE,  "P_SFC", "Pa", "surface pressure", jg, diag%pres_sfc(:,:))
-    CALL add_sfc_var(VAR_GROUP_SURFACE,  "TCM", "-", &
-      &              "turbulent transfer coefficients for momentum", &
+    CALL add_sfc_var(VAR_GROUP_SURFACE, "P_SFC", "Pa", "surface pressure", &
+      &              jg, diag%pres_sfc(:,:))
+    CALL add_sfc_var(VAR_GROUP_SURFACE, "TCM", "-", "turbulent transfer coefficients for momentum", &
       &              jg, prm_diag%tcm(:,:))
-    CALL add_sfc_var(VAR_GROUP_SURFACE,  "TCH", "-", "turbulent transfer coefficients for heat", &
+    CALL add_sfc_var(VAR_GROUP_SURFACE, "TCH", "-", "turbulent transfer coefficients for heat", &
       &              jg, prm_diag%tch(:,:))
-    CALL add_sfc_var(VAR_GROUP_SURFACE,  "SHFL", "W/m2", "sensible heat flux (surface)", &
+    CALL add_sfc_var(VAR_GROUP_SURFACE, "SHFL", "W/m2", "sensible heat flux (surface)", &
       &              jg, prm_diag%shfl_s(:,:))
-    CALL add_sfc_var(VAR_GROUP_SURFACE,  "LHFL", "W/m2", "latent heat flux (surface)", &
+    CALL add_sfc_var(VAR_GROUP_SURFACE, "LHFL", "W/m2", "latent heat flux (surface)", &
       &              jg, prm_diag%lhfl_s(:,:))
-    CALL add_sfc_var(VAR_GROUP_SURFACE,  "VIO3", "Pa O3", "vertically integrated ozone amount", &
+    CALL add_sfc_var(VAR_GROUP_SURFACE, "VIO3", "Pa O3", "vertically integrated ozone amount", &
       &              jg, prm_diag%vio3(:,:))
-    CALL add_sfc_var(VAR_GROUP_SURFACE,  "HMO3", "Pa", "height of O3 maximum", &
+    CALL add_sfc_var(VAR_GROUP_SURFACE, "HMO3", "Pa", "height of O3 maximum", &
       &              jg, prm_diag%hmo3(:,:))
-    CALL add_sfc_var(VAR_GROUP_SURFACE,  "T2M", "K", "temperature in 2m", &
+    CALL add_sfc_var(VAR_GROUP_SURFACE, "T2M", "K", "temperature in 2m", &
       &              jg, prm_diag%t_2m(:,:))
-    CALL add_sfc_var(VAR_GROUP_SURFACE,  "TD2M", "K", "dew-point temperature in 2m", &
+    CALL add_sfc_var(VAR_GROUP_SURFACE, "TD2M", "K", "dew-point temperature in 2m", &
       &              jg, prm_diag%td_2m(:,:))
-    CALL add_sfc_var(VAR_GROUP_SURFACE,  "U10M", "m/s", "zonal wind in 10m", &
+    CALL add_sfc_var(VAR_GROUP_SURFACE, "U10M", "m/s", "zonal wind in 10m", &
       &              jg, prm_diag%u_10m(:,:))
-    CALL add_sfc_var(VAR_GROUP_SURFACE,  "V10M", "m/s", "meridional wind in 10m", &
+    CALL add_sfc_var(VAR_GROUP_SURFACE, "V10M", "m/s", "meridional wind in 10m", &
       &              jg, prm_diag%v_10m(:,:))
-    CALL add_sfc_var(VAR_GROUP_SURFACE,  "SOBT", "W m-2", "shortwave net flux at toa", &
+    CALL add_sfc_var(VAR_GROUP_SURFACE, "SOBT", "W m-2", "shortwave net flux at toa", &
       &              jg, prm_diag%swflxtoa(:,:))
-    CALL add_sfc_var(VAR_GROUP_SURFACE,  "SOBS", "W m-2", "shortwave net flux at surface", &
+    CALL add_sfc_var(VAR_GROUP_SURFACE, "SOBS", "W m-2", "shortwave net flux at surface", &
       &              jg, prm_diag%swflxsfc(:,:))
-    CALL add_sfc_var(VAR_GROUP_SURFACE,  "THBS", "W m-2", "longwave net flux at surface", &
+    CALL add_sfc_var(VAR_GROUP_SURFACE, "THBS", "W m-2", "longwave net flux at surface", &
       &              jg, prm_diag%lwflxsfc(:,:))
-    CALL add_sfc_var(VAR_GROUP_SURFACE,  "ALB", "-", "surface shortwave albedo, diffuse", &
+    CALL add_sfc_var(VAR_GROUP_SURFACE, "ALB", "-", "surface shortwave albedo, diffuse", &
       &              jg, prm_diag%albdif(:,:))
-    CALL add_sfc_var(VAR_GROUP_SURFACE,  "RAIN_GSP", "kg/m2", &
-      &              "accumulated grid-scale surface rain",   &
+    CALL add_sfc_var(VAR_GROUP_SURFACE, "RAIN_GSP", "kg/m2", "accumulated grid-scale surface rain", &
       &              jg, prm_diag%rain_gsp(:,:))
-    CALL add_sfc_var(VAR_GROUP_SURFACE,  "SNOW_GSP", "kg/m2", &
-      &              "accumulated grid-scale surface snow",   &
+    CALL add_sfc_var(VAR_GROUP_SURFACE, "SNOW_GSP", "kg/m2", "accumulated grid-scale surface snow", &
       &              jg, prm_diag%snow_gsp(:,:))
-    CALL add_sfc_var(VAR_GROUP_SURFACE,  "RAIN_CON", "kg/m2", &
-      &              "accumulated convective surface rain",   &
+    CALL add_sfc_var(VAR_GROUP_SURFACE, "RAIN_CON", "kg/m2", "accumulated convective surface rain", &
       &              jg, prm_diag%rain_con(:,:))
-    CALL add_sfc_var(VAR_GROUP_SURFACE,  "SNOW_CON", "kg/m2", &
-      &              "accumulated convective surface snow",   &
+    CALL add_sfc_var(VAR_GROUP_SURFACE, "SNOW_CON", "kg/m2", "accumulated convective surface snow", &
       &              jg, prm_diag%snow_con(:,:))
-    CALL add_sfc_var(VAR_GROUP_SURFACE,  "H_ICE", "m", &
-      &              "sea ice depth",                  &
+    CALL add_sfc_var(VAR_GROUP_SURFACE, "H_ICE", "m", "sea ice depth", &
       &              jg, p_lnd_state%prog_wtr(nnow(jg))%h_ice(:,:))
 
     IF (lwrite_extra) THEN
@@ -641,6 +638,7 @@ CONTAINS
     INTEGER      :: tri_idx(2,nproma,meteogram_output_config%nblks)
     REAL(wp)     :: pi_180
     INTEGER      :: max_var_size, max_sfcvar_size
+    REAL(wp)     :: grid_sphere_radius_mtg
     REAL(wp), ALLOCATABLE              :: hlevels(:)
     TYPE(t_meteogram_data)   , POINTER :: meteogram_data
     TYPE(t_meteogram_station), POINTER :: p_station
@@ -667,7 +665,7 @@ CONTAINS
       &                      my_process_is_mpi_workroot() .AND.          &
       &                      (p_n_work > 1) )                            &
       &               .OR.  (l_pure_io_pe .AND. my_process_is_mpi_ioroot()) )
-    
+
     IF (.NOT. meteogram_output_config%ldistributed) THEN
       IF (process_mpi_io_size == 0) THEN
         process_mpi_all_collector_id = get_mpi_all_workroot_id()
@@ -725,8 +723,15 @@ CONTAINS
       ! build GNAT data structure
       CALL gnat_init_grid(ptr_patch)
       ! perform proximity query
+
+      IF (is_plane_torus) THEN
+        grid_sphere_radius_mtg = ptr_patch%geometry_info%domain_length / (2*pi)
+      ELSE
+        grid_sphere_radius_mtg = grid_sphere_radius
+      END IF
+
       CALL gnat_query_containing_triangles(ptr_patch, gnat_tree, in_points(:,:,:),        &
-        &                                  nproma, nblks, npromz, grid_sphere_radius,     &
+        &                                  nproma, nblks, npromz, grid_sphere_radius_mtg, &
         &                                  p_test_run, tri_idx(:,:,:), min_dist(:,:))
       CALL gnat_merge_distributed_queries(ptr_patch, nstations, nproma, nblks, min_dist,  &
         &                                 tri_idx(:,:,:), in_points(:,:,:),               &
@@ -736,6 +741,7 @@ CONTAINS
       meteogram_data%nstations = ithis_nlocal_pts
       meteogram_data%nblks     = nblks
       meteogram_data%npromz    = npromz
+
       ! clean up
       CALL gnat_destroy()
     END IF

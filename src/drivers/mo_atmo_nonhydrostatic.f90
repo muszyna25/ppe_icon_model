@@ -61,7 +61,7 @@ USE mo_run_config,           ONLY: dtime, dtime_adv,     & !    namelist paramet
 USE mo_dynamics_config,      ONLY: nnow, nnow_rcf, iequations
 ! Horizontal grid
 USE mo_model_domain,         ONLY: p_patch
-USE mo_grid_config,          ONLY: n_dom, start_time
+USE mo_grid_config,          ONLY: n_dom, start_time, is_plane_torus
 ! to break circular dependency KF???
 USE mo_intp_data_strc,       ONLY: p_int_state
 USE mo_grf_intp_data_strc,   ONLY: p_grf_state
@@ -281,8 +281,10 @@ CONTAINS
     IF ((output_mode%l_nml) .OR. (output_mode%l_vlist)) THEN
       DO jg =1,n_dom
         IF (meteogram_output_config(jg)%lenabled) THEN
-          IF (ltestcase) THEN
-            CALL meteogram_init(meteogram_output_config(jg), jg, p_patch(jg), &
+          ! For dry test cases: do not sample moist variables
+          ! (but allow for TORUS moist runs; see also mo_mtgrm_output.F90)
+          IF (ltestcase .and. .not. is_plane_torus) THEN
+             CALL meteogram_init(meteogram_output_config(jg), jg, p_patch(jg), &
               &                ext_data(jg), p_nh_state(jg),                  &
               &                p_lnd_state=p_lnd_state(jg), iforcing=iforcing)
           ELSE
