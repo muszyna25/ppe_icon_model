@@ -1065,8 +1065,7 @@ MODULE mo_nwp_lnd_state
     grib2_desc = t_grib2_var(10, 3, 0, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, vname_prefix//'t_seasfc', p_diag_lnd%t_seasfc,      &
          & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,              &
-         & ldims=shape2d, lrestart=.TRUE., loutput=.TRUE.,                       &
-         & in_group=groups("dwd_ana_vars") )
+         & ldims=shape2d, lrestart=.TRUE., loutput=.TRUE. )
 
 
     ! & p_diag_lnd%rho_snow(nproma,nblks_c)

@@ -1414,7 +1414,7 @@ MODULE mo_nh_initicon
     TYPE(t_lnd_state),      INTENT(INOUT) :: p_lnd_state(:)
 
     INTEGER :: jg, jt, jlev
-    LOGICAL :: l_exist, l_sst_present
+    LOGICAL :: l_exist
 
     INTEGER :: no_cells, no_cells_2,no_levels, no_levels_2
     INTEGER :: no_depth, no_depth_2
@@ -1522,22 +1522,6 @@ MODULE mo_nh_initicon
             l_hice_in = .FALSE.
           ENDIF
 
-          ! Check, if sea surface temperature field is provided as input
-          ! IF SST is missing, set l_sst_in=.FALSE.
-          IF (nf_inq_varid(fileID, 't_seasfc', varid) == nf_noerr) THEN
-            WRITE (message_text,'(a,a)')                            &
-              &  'sea surface temperature available'
-            l_sst_present = .TRUE.
-
-          ELSE
-
-            WRITE (message_text,'(a,a)')                            &
-              &  'sea surface temperature not available. ', &
-              &  'should be taken from t_so, instead.'
-            CALL message(TRIM(routine),TRIM(message_text))
-            l_sst_present = .FALSE.
-          ENDIF
-
 
 
         CASE (FILETYPE_GRB2)
@@ -1555,17 +1539,6 @@ MODULE mo_nh_initicon
             l_hice_in = .TRUE.
           ENDIF
 
-          IF (get_varID(fileID, "T_SEA") == -1) then
-            WRITE (message_text,'(a,a)')                            &
-              &  'sea surface temperature not available. ',         &
-              &  'should be taken from t_so, instead.'
-            CALL message(TRIM(routine),TRIM(message_text))
-            l_sst_present = .FALSE.
-          ELSE
-            WRITE (message_text,'(a,a)')                            &
-              &  'sea surface temperature available'
-            l_sst_present = .TRUE.
-          ENDIF
 
         CASE DEFAULT
           CALL finish(routine, "Unknown file type")
@@ -1581,7 +1554,6 @@ MODULE mo_nh_initicon
       ENDIF
 
       CALL p_bcast(l_hice_in,     p_io, mpi_comm)
-      CALL p_bcast(l_sst_present, p_io, mpi_comm)
       CALL p_bcast(filetype,      p_io, mpi_comm)
       CALL p_bcast(fileID,        p_io, mpi_comm)
 
@@ -1589,11 +1561,6 @@ MODULE mo_nh_initicon
       ! start reading surface fields from First Guess
       !
 
-      IF (l_sst_present) THEN
-      CALL read_data_2d (filetype, fileID, 't_seasfc', p_patch(jg)%n_patch_cells_g,           &
-        &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,              &
-        &                p_lnd_state(jg)%diag_lnd%t_seasfc)
-      END IF
       CALL read_data_2d (filetype, fileID, 'fr_seaice', p_patch(jg)%n_patch_cells_g,          &
         &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,              &
         &                p_lnd_state(jg)%diag_lnd%fr_seaice)
@@ -1687,7 +1654,8 @@ MODULE mo_nh_initicon
         p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_so_t(:,:,:,jt) =          &
           & p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_so_t(:,:,:,jt)/1000._wp
 
-!DR Only required, when starting from GME soil
+
+        ! Only required, when starting from GME soil
         IF (init_mode == MODE_COMBINED) THEN
          CALL smi_to_sm_mass(p_patch(jg), p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_so_t(:,:,:,jt))
         END IF
@@ -2060,6 +2028,9 @@ MODULE mo_nh_initicon
     ENDIF
 
   END SUBROUTINE create_dwdana_atm
+
+
+
   !-------------------------------------------------------------------------
   !>
   !! SUBROUTINE create_dwdana_sfc 
@@ -2074,11 +2045,11 @@ MODULE mo_nh_initicon
   !-------------------------------------------------------------------------
   SUBROUTINE create_dwdana_sfc (p_patch,p_lnd_state, ext_data)
 
-    TYPE(t_patch),    TARGET, INTENT(IN)    :: p_patch(:)
-    TYPE(t_lnd_state),INTENT(INOUT)         :: p_lnd_state(:)
-    TYPE(t_external_data),  INTENT(INOUT)   :: ext_data(:)
+    TYPE(t_patch),    TARGET ,INTENT(IN)    :: p_patch(:)
+    TYPE(t_lnd_state)        ,INTENT(INOUT) :: p_lnd_state(:)
+    TYPE(t_external_data)    ,INTENT(INOUT) :: ext_data(:)
 
-    INTEGER :: jg, ic,jc, jb             ! loop indices
+    INTEGER :: jg, ic, jc, jb             ! loop indices
     INTEGER :: ntlr
     INTEGER :: nblks_c   
   !-------------------------------------------------------------------------
@@ -2093,7 +2064,7 @@ MODULE mo_nh_initicon
 !$OMP DO PRIVATE(jc,ic,jb) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = 1, nblks_c
 
-        !first soil level  t_so over water points is the SST
+        !get SST from first soil level t_so (for sea and lake points)
 !CDIR NODEP,VOVERTAKE,VOB
         DO ic = 1, ext_data(jg)%atm%sp_count(jb)
            jc = ext_data(jg)%atm%idx_lst_sp(ic,jb)
