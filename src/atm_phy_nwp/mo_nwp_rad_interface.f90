@@ -48,6 +48,7 @@ MODULE mo_nwp_rad_interface
   USE mo_nonhydro_types,       ONLY: t_nh_prog, t_nh_diag
   USE mo_nwp_phy_types,        ONLY: t_nwp_phy_diag
   USE mo_radiation_config,     ONLY: albedo_type
+  USE mo_radiation,            ONLY: pre_radiation_nwp_steps
   USE mo_nwp_rrtm_interface,   ONLY: nwp_rrtm_radiation,             &
     &                                nwp_rrtm_radiation_reduced,     &
     &                                nwp_rrtm_radiation_repartition, &
@@ -108,8 +109,48 @@ MODULE mo_nwp_rad_interface
     
     INTEGER :: jg
 
+    REAL(wp):: zsct        ! solar constant (at time of year)
+    REAL(wp):: cosmu0_dark ! minimum cosmu0, for smaller values no shortwave calculations
+
+
+
     ! patch ID
     jg = pt_patch%id
+
+
+
+    !-------------------------------------------------------------------------
+    !> Radiation setup
+    !-------------------------------------------------------------------------
+
+    IF (atm_phy_nwp_config(jg)%inwp_radiation == 1 ) THEN
+      ! RRTM
+      ! In radiative transfer routine RRTM skips all points with cosmu0<=0. That's why 
+      ! points to be skipped need to be marked with a value <=0
+      cosmu0_dark = -1.e-9_wp  ! minimum cosmu0, for smaller values no shortwave calculations
+    ELSE
+      ! Ritter-Geleyn
+      ! Skipping of points is performed on block- rather than cell-level. I.e. if a block 
+      ! contains at least 1 point with cosmu0>1.E-8, radiatve transfer is computed for 
+      ! the entire block. Therefore cosmu0_dark = -1.e-9_wp does not work here (crashes).
+      ! For all points cosmu0 must be <0.
+      cosmu0_dark =  1.e-9_wp   ! minimum cosmu0, for smaller values no shortwave calculations
+    ENDIF
+
+
+    ! Calculation of zenith angle optimal during dt_rad.
+    ! (For radheat, actual zenith angle is calculated separately.)
+    CALL pre_radiation_nwp_steps (                        &
+      & kbdim        = nproma,                            & !in
+      & cosmu0_dark  = cosmu0_dark,                       & !in
+      & p_inc_rad    = atm_phy_nwp_config(jg)%dt_rad,     & !in
+      & p_inc_radheat= atm_phy_nwp_config(jg)%dt_fastphy, & !in
+      & p_sim_time   = p_sim_time,                        & !in
+      & pt_patch     = pt_patch,                          & !in
+      & zsmu0        = prm_diag%cosmu0(:,:),              & !out
+      & zsct         = zsct                               ) !out, optional
+
+
 
 
     ! Compute tile-based and aggregated surface-albedo
@@ -123,6 +164,10 @@ MODULE mo_nwp_rad_interface
     ENDIF
 
 
+
+    !-------------------------------------------------------------------------
+    !> Radiation
+    !-------------------------------------------------------------------------
     ! RRTM
     !
     IF (atm_phy_nwp_config(jg)%inwp_radiation == 1 ) THEN
@@ -134,24 +179,24 @@ MODULE mo_nwp_rad_interface
 
         SELECT CASE(parallel_radiation_mode(pt_patch%id))
         CASE(1) 
-          CALL nwp_rrtm_radiation_repartition ( p_sim_time,pt_patch, &
-            & ext_data,zaeq1,zaeq2,zaeq3,zaeq4,zaeq5,                &
+          CALL nwp_rrtm_radiation_repartition ( pt_patch, ext_data, &
+            & zaeq1, zaeq2, zaeq3, zaeq4, zaeq5,                    &
             & pt_diag, prm_diag, lnd_prog   )
 !         CASE(2)
-!           CALL nwp_omp_rrtm_interface ( p_sim_time,pt_patch, &
-!             & ext_data, lnd_diag, pt_diag, prm_diag, lnd_prog )
+!           CALL nwp_omp_rrtm_interface ( pt_patch, ext_data, &
+!              &  lnd_diag, pt_diag, prm_diag, lnd_prog )
           
         CASE default
-          CALL nwp_rrtm_radiation ( p_sim_time,pt_patch, &
-            & ext_data,zaeq1,zaeq2,zaeq3,zaeq4,zaeq5,    &
+          CALL nwp_rrtm_radiation ( pt_patch, ext_data, &
+            & zaeq1, zaeq2, zaeq3, zaeq4, zaeq5,        &
             & pt_diag, prm_diag, lnd_prog   )
 
        END SELECT
        
       ELSE 
 
-        CALL nwp_rrtm_radiation_reduced ( p_sim_time,pt_patch,pt_par_patch,  &
-          & ext_data, zaeq1, zaeq2, zaeq3, zaeq4, zaeq5,                     &
+        CALL nwp_rrtm_radiation_reduced ( pt_patch,pt_par_patch, ext_data, &
+          & zaeq1, zaeq2, zaeq3, zaeq4, zaeq5,                             &
           & pt_diag, prm_diag, lnd_prog )
           
       ENDIF
@@ -165,13 +210,13 @@ MODULE mo_nwp_rad_interface
     IF ( atm_phy_nwp_config(jg)%inwp_radiation == 2 .AND. .NOT. lredgrid) THEN
     
       CALL nwp_rg_radiation ( p_sim_time, datetime, pt_patch, &
-        & ext_data,pt_prog,pt_diag,prm_diag, lnd_prog )
+        & ext_data,pt_prog,pt_diag,prm_diag, lnd_prog, zsct )
 
 
     ELSEIF ( atm_phy_nwp_config(jg)%inwp_radiation == 2 .AND. lredgrid) THEN
 
       CALL nwp_rg_radiation_reduced ( p_sim_time, datetime, pt_patch,pt_par_patch, &
-        & ext_data, pt_prog, pt_diag, prm_diag, lnd_prog )
+        & ext_data, pt_prog, pt_diag, prm_diag, lnd_prog, zsct )
 
 
     ENDIF !inwp_radiation = 2 (Ritter-Geleyn)

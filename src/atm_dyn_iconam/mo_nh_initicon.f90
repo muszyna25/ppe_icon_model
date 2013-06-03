@@ -1731,6 +1731,14 @@ MODULE mo_nh_initicon
   !! the converted dynamical variables, and then are transformed 
   !! back to the NH prognostic set of variables and are added to the first guess.
   !!
+  !! Sanity check with FG only. If the analysis is set equal to the FG, the 
+  !! increments should be exactly 0. It was verified, that the nonzero values 
+  !! in the increment fields are due to the GRIB packing and not due to a 
+  !! coding error. I.e. ibits was increased from DATATYPE_PACK16 to 
+  !! DATATYPE_PACK32 and the errors in u_incr, v_incr went down from O(10E-3) 
+  !! to O(10E-7). Similarly the error in pres_incr went down from O(1) to 
+  !! O(1E-1).
+  !! 
   !! @par Revision History
   !! Initial version by Daniel Reinert, DWD(2012-12-18)
   !!
@@ -1881,14 +1889,11 @@ MODULE mo_nh_initicon
         DO jc = i_startidx, i_endidx
 
           ! pressure increment - should we verify that it is in hydrostatic balance with the temperature increment?
-!DR          pres_incr(jc,jk,jb) = initicon(jg)%atm%pres(jc,jk,jb) - p_diag%pres(jc,jk,jb)
-          pres_incr(jc,jk,jb) = 0._wp
+          pres_incr(jc,jk,jb) = initicon(jg)%atm%pres(jc,jk,jb) - p_diag%pres(jc,jk,jb)
 
           ! increments for u and v - will be interpolated to edge points below
-!DR          u_incr(jc,jk,jb) = initicon(jg)%atm%u(jc,jk,jb) - p_diag%u(jc,jk,jb)
-!DR          v_incr(jc,jk,jb) = initicon(jg)%atm%v(jc,jk,jb) - p_diag%v(jc,jk,jb)
-          u_incr(jc,jk,jb) = 0._wp
-          v_incr(jc,jk,jb) = 0._wp
+          u_incr(jc,jk,jb) = initicon(jg)%atm%u(jc,jk,jb) - p_diag%u(jc,jk,jb)
+          v_incr(jc,jk,jb) = initicon(jg)%atm%v(jc,jk,jb) - p_diag%v(jc,jk,jb)
 
           ! add pressure increment to the nonhydrostatic pressure
           zpres_nh(jc,jk,jb) = zpres_nh(jc,jk,jb) + pres_incr(jc,jk,jb)
@@ -1938,7 +1943,7 @@ MODULE mo_nh_initicon
 !$OMP ENDDO
 !$OMP END PARALLEL
 
-    !DR Test
+    !DR required to avoid crash in nabla4_vec
     CALL sync_patch_array(SYNC_E,p_patch(jg),vn_incr)
 
     ! Compute diffusion term 

@@ -60,7 +60,7 @@ MODULE mo_nwp_rrtm_interface
   USE mo_nonhydro_types,       ONLY: t_nh_diag
   USE mo_nwp_phy_types,        ONLY: t_nwp_phy_diag
   USE mo_o3_util,              ONLY: calc_o3_clim, calc_o3_gems
-  USE mo_radiation,            ONLY: radiation, pre_radiation_nwp_steps
+  USE mo_radiation,            ONLY: radiation
   USE mo_radiation_config,     ONLY: irad_o3, irad_aero, vmr_co2
   USE mo_radiation_rg_par,     ONLY: aerdis
   USE mo_srtm_config,          ONLY: jpsw
@@ -565,16 +565,11 @@ CONTAINS
   !! @par Revision History
   !! Initial release by Thorsten Reinhardt, AGeoBw, Offenbach (2011-01-13)
   !!
-  SUBROUTINE nwp_rrtm_radiation ( p_sim_time,pt_patch, &
-    & ext_data,zaeq1,zaeq2,zaeq3,zaeq4,zaeq5,pt_diag,prm_diag,lnd_prog )
+  SUBROUTINE nwp_rrtm_radiation ( pt_patch, ext_data,                 &
+    &  zaeq1, zaeq2, zaeq3, zaeq4, zaeq5, pt_diag, prm_diag, lnd_prog )
 
 !    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER::  &
 !      &  routine = 'mo_nwp_rad_interface:'
-
-    REAL(wp), PARAMETER::  &
-      & cosmu0_dark =  -1.e-9_wp  ! minimum cosmu0, for smaller values no shortwave calculations
-    
-    REAL(wp),INTENT(in)         :: p_sim_time
 
     TYPE(t_patch),        TARGET,INTENT(in) :: pt_patch     !<grid/patch info.
     TYPE(t_external_data),INTENT(in):: ext_data
@@ -596,7 +591,6 @@ CONTAINS
 
 
     ! Local scalars:
-    REAL(wp):: zsct        ! solar constant (at time of year)
     INTEGER:: jc,jb
     INTEGER:: jg                !domain id
     INTEGER:: nlev, nlevp1      !< number of full and half levels
@@ -613,21 +607,7 @@ CONTAINS
     nlev   = pt_patch%nlev
     nlevp1 = pt_patch%nlevp1
 
-    !-------------------------------------------------------------------------
-    !> Radiation setup
-    !-------------------------------------------------------------------------
 
-    ! Calculation of zenith angle optimal during dt_rad.
-    ! (For radheat, actual zenith angle is calculated separately.)
-    CALL pre_radiation_nwp_steps (                        &
-      & kbdim        = nproma,                            &
-      & cosmu0_dark  = cosmu0_dark,                       &
-      & p_inc_rad    = atm_phy_nwp_config(jg)%dt_rad,     &
-      & p_inc_radheat= atm_phy_nwp_config(jg)%dt_fastphy, &
-      & p_sim_time   = p_sim_time,                        &
-      & pt_patch     = pt_patch,                          &
-      & zsmu0        = prm_diag%cosmu0(:,:),              &
-      & zsct         = zsct )
 
     !-------------------------------------------------------------------------
     !> Radiation
@@ -736,18 +716,14 @@ CONTAINS
   !! @par Revision History
   !! Initial release by Thorsten Reinhardt, AGeoBw, Offenbach (2011-01-13)
   !!
-  SUBROUTINE nwp_rrtm_radiation_reduced ( p_sim_time,pt_patch,pt_par_patch,       &
-    &                                     ext_data,zaeq1,zaeq2,zaeq3,zaeq4,zaeq5, &
+  SUBROUTINE nwp_rrtm_radiation_reduced ( pt_patch, pt_par_patch, ext_data, &
+    &                                     zaeq1,zaeq2,zaeq3,zaeq4,zaeq5,    &
     &                                     pt_diag,prm_diag,lnd_prog )
 
 !    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER::  &
 !      &  routine = 'mo_nwp_rad_interface:'
 
-    REAL(wp), PARAMETER::  &
-      & cosmu0_dark =  -1.e-9_wp  ! minimum cosmu0, for smaller values no shortwave calculations
     
-    REAL(wp),INTENT(in)         :: p_sim_time
-
     TYPE(t_patch),        TARGET,INTENT(in) :: pt_patch     !<grid/patch info.
     TYPE(t_patch),        TARGET,INTENT(in) :: pt_par_patch !<grid/patch info (parent grid)
     TYPE(t_external_data),INTENT(in):: ext_data
@@ -813,7 +789,6 @@ CONTAINS
         min_qv, min_qc, min_qi, min_cc
 
     ! Local scalars:
-    REAL(wp):: zsct        ! solar constant (at time of year)
     INTEGER:: jc,jk,jb
     INTEGER:: jg                     !domain id
     INTEGER:: nlev, nlevp1, nlev_rg  !< number of full and half levels
@@ -833,21 +808,7 @@ CONTAINS
     nlev   = pt_patch%nlev
     nlevp1 = pt_patch%nlevp1
 
-    !-------------------------------------------------------------------------
-    !> Radiation setup
-    !-------------------------------------------------------------------------
 
-    ! Calculation of zenith angle optimal during dt_rad.
-    ! (For radheat, actual zenith angle is calculated separately.)
-    CALL pre_radiation_nwp_steps (                        &
-      & kbdim        = nproma,                            &
-      & cosmu0_dark  = cosmu0_dark,                       &
-      & p_inc_rad    = atm_phy_nwp_config(jg)%dt_rad,     &
-      & p_inc_radheat= atm_phy_nwp_config(jg)%dt_fastphy, &
-      & p_sim_time   = p_sim_time,                        &
-      & pt_patch     = pt_patch,                          &
-      & zsmu0        = prm_diag%cosmu0(:,:),              &
-      & zsct         = zsct )
 
     !-------------------------------------------------------------------------
     !> Radiation
@@ -1218,17 +1179,13 @@ CONTAINS
   !! @par Revision History
   !! Initial release by Thorsten Reinhardt, AGeoBw, Offenbach (2011-01-13)
   !!
-  SUBROUTINE nwp_rrtm_radiation_repartition ( p_sim_time,pt_patch, &
-    & ext_data,zaeq1,zaeq2,zaeq3,zaeq4,zaeq5,pt_diag,prm_diag,lnd_prog )
+  SUBROUTINE nwp_rrtm_radiation_repartition ( pt_patch, ext_data, &
+    &  zaeq1, zaeq2, zaeq3, zaeq4, zaeq5, pt_diag, prm_diag, lnd_prog )
 
 !    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER::  &
 !      &  routine = 'mo_nwp_rad_interface:'
 
-    REAL(wp), PARAMETER::  &
-      & cosmu0_dark =  -1.e-9_wp  ! minimum cosmu0, for smaller values no shortwave calculations
     
-    REAL(wp),INTENT(in)         :: p_sim_time
-
     TYPE(t_patch),        TARGET,INTENT(in) :: pt_patch     !<grid/patch info.
     TYPE(t_external_data),INTENT(in):: ext_data
 
@@ -1247,7 +1204,6 @@ CONTAINS
 
 
     ! Local scalars:
-    REAL(wp):: zsct        ! solar constant (at time of year)
     INTEGER:: jc,jb
     INTEGER:: jg                !domain id
     INTEGER:: nlev, nlevp1      !< number of full and half levels
@@ -1282,21 +1238,7 @@ CONTAINS
     nlev   = pt_patch%nlev
     nlevp1 = pt_patch%nlevp1
 
-    !-------------------------------------------------------------------------
-    !> Radiation setup
-    !-------------------------------------------------------------------------
 
-    ! Calculation of zenith angle optimal during dt_rad.
-    ! (For radheat, actual zenith angle is calculated separately.)
-    CALL pre_radiation_nwp_steps (                        &
-      & kbdim        = nproma,                            &
-      & cosmu0_dark  = cosmu0_dark,                       &
-      & p_inc_rad    = atm_phy_nwp_config(jg)%dt_rad,     &
-      & p_inc_radheat= atm_phy_nwp_config(jg)%dt_fastphy, &
-      & p_sim_time   = p_sim_time,                        &
-      & pt_patch     = pt_patch,                          &
-      & zsmu0        = prm_diag%cosmu0(:,:),              &
-      & zsct         = zsct )
 
     !-------------------------------------------------------------------------
     !> Radiation

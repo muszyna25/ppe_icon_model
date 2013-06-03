@@ -54,7 +54,6 @@ MODULE mo_nwp_rg_interface
   USE mo_nonhydro_types,       ONLY: t_nh_prog, t_nh_diag
   USE mo_nwp_phy_types,        ONLY: t_nwp_phy_diag
   USE mo_o3_util,              ONLY: calc_o3_clim,calc_o3_gems
-  USE mo_radiation,            ONLY: pre_radiation_nwp_steps
   USE mo_radiation_config,     ONLY: irad_o3, irad_aero, vmr_co2
   USE mo_radiation_rg,         ONLY: fesft
   USE mo_radiation_rg_par,     ONLY: aerdis
@@ -81,7 +80,7 @@ MODULE mo_nwp_rg_interface
   !! Initial release by Thorsten Reinhardt, AGeoBw, Offenbach (2011-01-13)
   !!
   SUBROUTINE nwp_rg_radiation ( p_sim_time, datetime, pt_patch, &
-    & ext_data,pt_prog,pt_diag,prm_diag,lnd_prog )
+    & ext_data,pt_prog,pt_diag,prm_diag,lnd_prog,zsct )
 
 !    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER::  &
 !      &  routine = 'mo_nwp_rg_interface:'
@@ -89,9 +88,6 @@ MODULE mo_nwp_rg_interface
 !    REAL(wp), PARAMETER::  &
 !      & zqco2 = 0.5014E-03_wp*353.9_wp/330._wp ! CO2 (mixing ratio 353.9 ppm (like vmr_co2))
 
-    REAL(wp), PARAMETER::  &
-      & cosmu0_dark =  1.e-9_wp  ! minimum cosmu0, for smaller values no shortwave calculations
-    
     REAL(wp),INTENT(in)         :: p_sim_time
     
     TYPE(t_datetime),            INTENT(in) :: datetime
@@ -101,6 +97,7 @@ MODULE mo_nwp_rg_interface
     TYPE(t_nh_diag), TARGET, INTENT(inout)  :: pt_diag     !<the diagnostic variables
     TYPE(t_nwp_phy_diag),       INTENT(inout):: prm_diag
     TYPE(t_lnd_prog),           INTENT(inout):: lnd_prog
+    REAL(wp),                   INTENT(in)  :: zsct        ! solar constant (at time of year)
 
     REAL(wp):: zi0        (nproma)  !< solar incoming radiation at TOA   [W/m2]
     ! for Ritter-Geleyn radiation:
@@ -119,7 +116,6 @@ MODULE mo_nwp_rg_interface
     LOGICAL :: losol
 
     ! Local scalars:
-    REAL(wp):: zsct        ! solar constant (at time of year)
     INTEGER:: jc,jk,jb
     INTEGER:: jg                !domain id
     INTEGER:: nlev, nlevp1      !< number of full and half levels
@@ -146,18 +142,7 @@ MODULE mo_nwp_rg_interface
     CALL nwp_rg_ozon_aerosol ( p_sim_time, datetime, pt_patch, ext_data, &
       & pt_diag,prm_diag,zduo3,zaeq1,zaeq2,zaeq3,zaeq4,zaeq5 )
     
-    ! Calculation of zenith angle optimal during dt_rad.
-    ! (For radheat, actual zenith angle is calculated separately.)
-    CALL pre_radiation_nwp_steps (                        &
-      & kbdim        = nproma,                            &
-      & cosmu0_dark  = cosmu0_dark,                       &
-      & p_inc_rad    = atm_phy_nwp_config(jg)%dt_rad     ,&
-      & p_inc_radheat= atm_phy_nwp_config(jg)%dt_fastphy, &
-      & p_sim_time   = p_sim_time,                        &
-      & pt_patch     = pt_patch,                          &
-     !& zsmu0        = prm_diag%cosmu0(1,1),              &
-      & zsmu0        = prm_diag%cosmu0(:,:),              &
-      & zsct         = zsct )
+
 
     !-------------------------------------------------------------------------
     !> Radiation
@@ -274,7 +259,7 @@ MODULE mo_nwp_rg_interface
   !!
   SUBROUTINE nwp_rg_radiation_reduced ( p_sim_time, datetime, pt_patch,pt_par_patch, &
     &                                   ext_data,pt_prog,pt_diag,prm_diag, &
-    &                                   lnd_prog )
+    &                                   lnd_prog,zsct )
 
 !    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER::  &
 !      &  routine = 'mo_nwp_rg_interface:'
@@ -282,8 +267,6 @@ MODULE mo_nwp_rg_interface
 !    REAL(wp), PARAMETER::  &
 !      & zqco2 = 0.5014E-03_wp*353.9_wp/330._wp ! CO2 (mixing ratio 353.9 ppm (like vmr_co2))
 
-    REAL(wp), PARAMETER::  &
-      & cosmu0_dark =  1.e-9_wp  ! minimum cosmu0, for smaller values no shortwave calculations
     
     REAL(wp),INTENT(in)         :: p_sim_time
 
@@ -295,6 +278,7 @@ MODULE mo_nwp_rg_interface
     TYPE(t_nh_diag), TARGET, INTENT(inout)  :: pt_diag     !<the diagnostic variables
     TYPE(t_nwp_phy_diag),       INTENT(inout):: prm_diag
     TYPE(t_lnd_prog),           INTENT(inout):: lnd_prog
+    REAL(wp),                   INTENT(in)  :: zsct        ! solar constant (at time of year)
 
     ! For radiation on reduced grid
     ! These fields need to be allocatable because they have different dimensions for
@@ -349,7 +333,6 @@ MODULE mo_nwp_rg_interface
     REAL(wp), ALLOCATABLE, TARGET:: zrg_aeq5(:,:,:)
 
     ! Local scalars:
-    REAL(wp):: zsct        ! solar constant (at time of year)
     INTEGER:: jc,jk,jb
     INTEGER:: jg                                !domain id
     INTEGER:: nlev, nlevp1, nlev_rg, nlevp1_rg  !< number of full and half levels
@@ -361,6 +344,7 @@ MODULE mo_nwp_rg_interface
     INTEGER:: i_nchdom                !< domain index
     INTEGER:: i_chidx
     LOGICAL:: l_parallel
+
 
     i_nchdom  = MAX(1,pt_patch%n_childdom)
     jg        = pt_patch%id
@@ -376,20 +360,11 @@ MODULE mo_nwp_rg_interface
     ! CO2 help variable for Ritter-Geleyn scheme
     zqco2 = 0.5014E-03_wp*vmr_co2/330.e-6_wp
 
+
     CALL nwp_rg_ozon_aerosol ( p_sim_time, datetime, pt_patch, ext_data, &
       & pt_diag,prm_diag,zduo3,zaeq1,zaeq2,zaeq3,zaeq4,zaeq5 )
 
-    ! Calculation of zenith angle optimal during dt_rad.
-    ! (For radheat, actual zenith angle is calculated separately.)
-    CALL pre_radiation_nwp_steps (                        &
-      & kbdim        = nproma,                            &
-      & cosmu0_dark  = cosmu0_dark,                       &
-      & p_inc_rad    = atm_phy_nwp_config(jg)%dt_rad,     &
-      & p_inc_radheat= atm_phy_nwp_config(jg)%dt_fastphy, &
-      & p_sim_time   = p_sim_time,                        &
-      & pt_patch     = pt_patch,                          &
-      & zsmu0        = prm_diag%cosmu0(:,:),              &
-      & zsct         = zsct )
+
 
     !-------------------------------------------------------------------------
     !> Radiation
