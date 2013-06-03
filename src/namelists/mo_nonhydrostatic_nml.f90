@@ -50,6 +50,7 @@ MODULE mo_nonhydrostatic_nml
                                     & config_itime_scheme     => itime_scheme     , &
                                     & config_iadv_rcf         => iadv_rcf         , &
                                     & config_lhdiff_rcf       => lhdiff_rcf       , &
+                                    & config_lextra_diffu     => lextra_diffu     , &
                                     & config_divdamp_fac      => divdamp_fac      , &
                                     & config_divdamp_order    => divdamp_order    , &
                                     & config_ivctype          => ivctype          , &
@@ -99,6 +100,8 @@ MODULE mo_nonhydrostatic_nml
                                      ! if 2: adv. and phys. are called every 2nd time step.
                                      ! if 4: ... every 4th time step.
   LOGICAL :: lhdiff_rcf              ! if true: compute horizontal diffusion also at the large time step
+  LOGICAL :: lextra_diffu            ! if true: apply additional diffusion at grid points close 
+                                     ! to the CFL stability limit for vertical advection
   REAL(wp):: divdamp_fac             ! Scaling factor for divergence damping (if lhdiff_rcf = true)
   INTEGER :: divdamp_order           ! Order of divergence damping
   INTEGER :: ivctype                 ! Type of vertical coordinate (Gal-Chen / SLEVE)
@@ -147,7 +150,7 @@ MODULE mo_nonhydrostatic_nml
                               & l_nest_rcf, nest_substeps, l_masscorr_nest, l_zdiffu_t,   &
                               & thslp_zdiffu, thhgtd_zdiffu, gmres_rtol_nh, ltheta_up_hori, &
                               & upstr_beta, ltheta_up_vert, k2_updamp_coeff, divdamp_order, &
-                              & rhotheta_offctr
+                              & rhotheta_offctr, lextra_diffu
 
 CONTAINS
   !-------------------------------------------------------------------------
@@ -188,6 +191,10 @@ CONTAINS
 
     ! reduced calling frequency also for horizontal diffusion
     lhdiff_rcf = .TRUE.  ! new default since 2012-05-09 after successful testing
+
+    ! apply additional horizontal diffusion on vn and w at grid points close to the stability
+    ! limit for vertical advection
+    lextra_diffu = .TRUE.
 
     ! scaling factor for divergence damping (used only if lhdiff_rcf = true)
     divdamp_fac = 0.004_wp
@@ -315,8 +322,8 @@ CONTAINS
           &'Value must be even or 1 if l_nest_rcf=.FALSE.')
     ENDIF
 
-    IF ( hbot_qvsubstep <= htop_moist_proc ) THEN
-      CALL finish(TRIM(routine), 'hbot_qvsubstep <= htop_moist_proc is not allowed.')
+    IF ( hbot_qvsubstep < htop_moist_proc ) THEN
+      CALL finish(TRIM(routine), 'hbot_qvsubstep < htop_moist_proc is not allowed.')
     ENDIF
 
 
@@ -337,6 +344,7 @@ CONTAINS
        config_gmres_rtol_nh     = gmres_rtol_nh
        config_iadv_rcf          = iadv_rcf
        config_lhdiff_rcf        = lhdiff_rcf
+       config_lextra_diffu      = lextra_diffu
        config_divdamp_fac       = divdamp_fac
        config_divdamp_order     = divdamp_order
        config_itime_scheme      = itime_scheme

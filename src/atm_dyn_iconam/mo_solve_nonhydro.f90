@@ -48,7 +48,7 @@ MODULE mo_solve_nonhydro
   USE mo_kind,                 ONLY: wp
   USE mo_nonhydrostatic_config,ONLY: itime_scheme,iadv_rhotheta, igradp_method, l_open_ubc, &
                                      kstart_moist, lhdiff_rcf, divdamp_fac, divdamp_order,  &
-                                     rayleigh_type, iadv_rcf, rhotheta_offctr
+                                     rayleigh_type, iadv_rcf, rhotheta_offctr, lextra_diffu
   USE mo_dynamics_config,   ONLY: idiv_method
   USE mo_parallel_config,   ONLY: nproma, p_test_run, itype_comm, use_dycore_barrier, &
     & use_icon_comm
@@ -113,7 +113,7 @@ MODULE mo_solve_nonhydro
   !! Initial release by Guenther Zaengl (2010-02-03)
   !!
   SUBROUTINE velocity_tendencies (p_prog, p_patch, p_int, p_metrics, p_diag,&
-                                  ntnd, istep, lvn_only)
+                                  ntnd, istep, lvn_only, dtime)
 
     ! Passed variables
     TYPE(t_patch), TARGET, INTENT(IN)    :: p_patch
@@ -122,9 +122,10 @@ MODULE mo_solve_nonhydro
     TYPE(t_nh_metrics), INTENT(IN)       :: p_metrics
     TYPE(t_nh_diag), INTENT(INOUT)       :: p_diag
 
-    INTEGER, INTENT(IN)  :: ntnd  ! time level of ddt_adv fields used to store tendencies
-    INTEGER, INTENT(IN)  :: istep ! 1: predictor step, 2: corrector step
+    INTEGER, INTENT(IN)  :: ntnd     ! time level of ddt_adv fields used to store tendencies
+    INTEGER, INTENT(IN)  :: istep    ! 1: predictor step, 2: corrector step
     LOGICAL, INTENT(IN)  :: lvn_only ! true: compute only vn tendency
+    REAL(wp),INTENT(IN)  :: dtime    ! time step
 
     ! Local variables
     INTEGER :: jb, jk, jc, je
@@ -140,13 +141,18 @@ MODULE mo_solve_nonhydro
     REAL(wp):: z_v_grad_w(nproma,p_patch%nlev,p_patch%nblks_e)
     REAL(wp):: z_w_v(nproma,p_patch%nlevp1,p_patch%nblks_v)
 
-    INTEGER,  DIMENSION(:,:,:), POINTER :: icidx, icblk, ieidx, ieblk, &
+    INTEGER,  DIMENSION(:,:,:), POINTER :: icidx, icblk, ieidx, ieblk, iqidx, iqblk, &
                                            ividx, ivblk, incidx, incblk
     INTEGER  :: nlev, nlevp1          !< number of full and half levels
     ! Local control variable for vertical nesting
     LOGICAL :: l_vert_nested
-    INTEGER :: jg, jc1, jc2, jb1, jb2, zvn1, zvn2  
-      
+
+    INTEGER :: jg, jc1, jc2, jb1, jb2, zvn1, zvn2
+
+    ! Variables for optional extra diffusion close to the vertical advection stability limit
+    REAL(wp) :: cfl_w_limit, scalfac_exdiff, difcoef
+    INTEGER  :: icount, iclist(2*nproma), iklist(2*nproma), ic, ie, jbe
+
     !--------------------------------------------------------------------------
 
     IF ((lvert_nest) .AND. (p_patch%nshift > 0)) THEN  
@@ -175,7 +181,16 @@ MODULE mo_solve_nonhydro
     incidx => p_patch%cells%neighbor_idx
     incblk => p_patch%cells%neighbor_blk
 
+    iqidx => p_patch%edges%quad_idx
+    iqblk => p_patch%edges%quad_blk
+
     i_nchdom   = MAX(1,p_patch%n_childdom)
+
+    ! Limit on vertical CFL number for applying extra diffusion
+    cfl_w_limit = 0.75_wp/dtime   ! this means 75% of the nominal CFL stability limit
+
+    ! Scaling factor for extra diffusion
+    scalfac_exdiff = 0.075_wp / (1._wp - cfl_w_limit*dtime)
 
     ! Tangential wind component using RBF reconstruction
     ! Note: vt is also diagnosed in divergent_modes. Thus, computation is needed in predictor step only
@@ -543,6 +558,91 @@ MODULE mo_solve_nonhydro
 !$OMP END DO NOWAIT
     END IF
 
+    ! Apply some additional diffusion at grid points close to the stability limit for vertical advection.
+    ! This happens extremely rarely in practice, the cases encountered so far were breaking gravity waves
+    ! over the Andes at resolutions around 10 km.
+    ! The diffusion term is added to ddt_vn_adv and ddt_w_adv, respectively, so that it acts also in the
+    ! subsequent predictor step if advection is called in the corrector step only
+    !
+    IF (lextra_diffu .AND. .NOT. lvn_only) THEN
+      rl_start = grf_bdywidth_c
+      rl_end = min_rlcell_int - 1
+
+      i_startblk = p_patch%cells%start_blk(rl_start,1)
+      i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
+
+!$OMP DO PRIVATE(jb, jk, jc, i_startidx, i_endidx, icount, iclist, iklist, difcoef, ic, ie, je, jbe) ICON_OMP_DEFAULT_SCHEDULE
+      DO jb = i_startblk, i_endblk
+
+        CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, i_startidx, i_endidx, rl_start, rl_end)
+
+        icount = 0
+
+        ! Collect grid points exceeding the specified stability threshold (75% of the theoretical limit) for w_con
+        DO jk = MAX(2,nrdmax(jg)-2), nlev-2
+          DO jc = i_startidx, i_endidx
+            IF (ABS(z_w_con_c(jc,jk,jb)) > cfl_w_limit*p_metrics%ddqz_z_half(jc,jk,jb)) THEN
+              icount = icount+1
+              iclist(icount) = jc
+              iklist(icount) = jk
+            ENDIF
+          ENDDO
+        ENDDO
+
+        ! If grid points are found, apply second-order diffusion on w and vn
+        ! Note that this loop is not vectorizable
+        IF (icount > 0) THEN
+          DO ic = 1, icount
+            jc = iclist(ic)
+            jk = iklist(ic)
+            difcoef = scalfac_exdiff * MIN(1._wp - cfl_w_limit*dtime,                            &
+              ABS(z_w_con_c(jc,jk,jb))*dtime/p_metrics%ddqz_z_half(jc,jk,jb) - cfl_w_limit*dtime )
+
+            ! nabla2 diffusion on w
+            p_diag%ddt_w_adv(jc,jk,jb,ntnd) = p_diag%ddt_w_adv(jc,jk,jb,ntnd)        + &
+              difcoef * p_patch%cells%area(jc,jb) * (                                  &
+              p_prog%w(jc,jk,jb)                          *p_int%geofac_n2s(jc,1,jb) + &
+              p_prog%w(incidx(jc,jb,1),jk,incblk(jc,jb,1))*p_int%geofac_n2s(jc,2,jb) + &
+              p_prog%w(incidx(jc,jb,2),jk,incblk(jc,jb,2))*p_int%geofac_n2s(jc,3,jb) + &
+              p_prog%w(incidx(jc,jb,3),jk,incblk(jc,jb,3))*p_int%geofac_n2s(jc,4,jb)   )
+
+            ! nabla2 diffusion on vn
+            ! Note that edge points may be counted up to 4 times. This is intended as this turned out to
+            ! be the simplest way to obtain correct parallelization. The diffusion coefficient is multiplied
+            ! by 0.25 for this reason.
+            DO ie = 1, 3
+              je  = ieidx(jc,jb,ie)
+              jbe = ieblk(jc,jb,ie)
+
+              jk = iklist(ic)
+              p_diag%ddt_vn_adv(je,jk,jbe,ntnd) = p_diag%ddt_vn_adv(je,jk,jbe,ntnd)   +                               &
+              0.25_wp * difcoef * p_patch%edges%area_edge(je,jbe) * (                                                 &
+              p_int%geofac_grdiv(je,1,jbe)*p_prog%vn(je,jk,jbe)                          +                            &
+              p_int%geofac_grdiv(je,2,jbe)*p_prog%vn(iqidx(je,jbe,1),jk,iqblk(je,jbe,1)) +                            &
+              p_int%geofac_grdiv(je,3,jbe)*p_prog%vn(iqidx(je,jbe,2),jk,iqblk(je,jbe,2)) +                            &
+              p_int%geofac_grdiv(je,4,jbe)*p_prog%vn(iqidx(je,jbe,3),jk,iqblk(je,jbe,3)) +                            &
+              p_int%geofac_grdiv(je,5,jbe)*p_prog%vn(iqidx(je,jbe,4),jk,iqblk(je,jbe,4)) +                            &
+              p_patch%edges%system_orientation(je,jbe)*p_patch%edges%inv_primal_edge_length(je,jbe) * (               &
+              p_diag%omega_z(ividx(je,jbe,2),jk,ivblk(je,jbe,2))-p_diag%omega_z(ividx(je,jbe,1),jk,ivblk(je,jbe,1)) ) ) 
+
+              jk = iklist(ic) - 1
+              p_diag%ddt_vn_adv(je,jk,jbe,ntnd) = p_diag%ddt_vn_adv(je,jk,jbe,ntnd)   +                               &
+              0.25_wp * difcoef * p_patch%edges%area_edge(je,jbe) * (                                                 &
+              p_int%geofac_grdiv(je,1,jbe)*p_prog%vn(je,jk,jbe)                          +                            &
+              p_int%geofac_grdiv(je,2,jbe)*p_prog%vn(iqidx(je,jbe,1),jk,iqblk(je,jbe,1)) +                            &
+              p_int%geofac_grdiv(je,3,jbe)*p_prog%vn(iqidx(je,jbe,2),jk,iqblk(je,jbe,2)) +                            &
+              p_int%geofac_grdiv(je,4,jbe)*p_prog%vn(iqidx(je,jbe,3),jk,iqblk(je,jbe,3)) +                            &
+              p_int%geofac_grdiv(je,5,jbe)*p_prog%vn(iqidx(je,jbe,4),jk,iqblk(je,jbe,4)) +                            &
+              p_patch%edges%system_orientation(je,jbe)*p_patch%edges%inv_primal_edge_length(je,jbe) * (               &
+              p_diag%omega_z(ividx(je,jbe,2),jk,ivblk(je,jbe,2))-p_diag%omega_z(ividx(je,jbe,1),jk,ivblk(je,jbe,1)) ) ) 
+            ENDDO
+          ENDDO
+        ENDIF
+
+      ENDDO     
+!$OMP END DO NOWAIT
+    ENDIF
+
 !$OMP END PARALLEL
 
   END SUBROUTINE velocity_tendencies
@@ -637,7 +737,7 @@ MODULE mo_solve_nonhydro
 
 
     REAL(wp):: z_theta1, z_theta2, z_raylfac, wgt_nnow_vel, wgt_nnew_vel, scal_divdamp, &
-               dt_shift, bdy_divdamp, wgt_nnow_rth, wgt_nnew_rth, cfl_w_limit, w_thresh
+               dt_shift, bdy_divdamp, wgt_nnow_rth, wgt_nnew_rth
     INTEGER :: nproma_gradp, nblks_gradp, npromz_gradp, nlen_gradp, jk_start
     LOGICAL :: lcompute, lcleanup, lvn_only
 
@@ -759,9 +859,6 @@ MODULE mo_solve_nonhydro
     wgt_nnew_rth = 0.5_wp + rhotheta_offctr ! default value for rhotheta_offctr is -0.2
     wgt_nnow_rth = 1._wp - wgt_nnew_rth
 
-    ! Limit on vertical CFL number in emergency brake
-    cfl_w_limit = 0.90_wp/dtime   ! this means 90% of the nominal CFL stability limit
-
     i_nchdom   = MAX(1,p_patch%n_childdom)
 
     DO istep = 1, 2
@@ -774,13 +871,13 @@ MODULE mo_solve_nonhydro
             lvn_only = .FALSE.
           ENDIF
           CALL velocity_tendencies(p_nh%prog(nnow),p_patch,p_int,p_nh%metrics,&
-                                   p_nh%diag,ntl1,istep,lvn_only)
+                                   p_nh%diag,ntl1,istep,lvn_only,dtime)
         ENDIF
         nvar = nnow
       ELSE                 ! corrector step
         lvn_only = .FALSE.
         CALL velocity_tendencies(p_nh%prog(nnew),p_patch,p_int,p_nh%metrics,&
-                                 p_nh%diag,ntl2,istep,lvn_only)
+                                 p_nh%diag,ntl2,istep,lvn_only,dtime)
         nvar = nnew
       ENDIF
 
@@ -1881,7 +1978,7 @@ MODULE mo_solve_nonhydro
     ENDIF
 
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc,z_w_expl,z_contr_w_fl_l,z_rho_expl,z_exner_expl,   &
-!$OMP            z_a,z_b,z_c,z_g,z_q,z_alpha,z_beta,z_gamma,ic,z_raylfac,w_thresh) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP            z_a,z_b,z_c,z_g,z_q,z_alpha,z_beta,z_gamma,ic,z_raylfac) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -2085,18 +2182,6 @@ MODULE mo_solve_nonhydro
           ENDDO
         ENDDO
       ENDIF
-
-      ! Emergency brake in cases of CFL violation (becomes effective very, very rarely - the only cases encountered
-      ! so far were extremely large breaking gravity waves over the Andes
-      ! The near-surface levels have to be excluded because sound waves during the spin-up phase may lead to
-      ! instabilities otherwise
-      DO jk = MAX(2,nrdmax(p_patch%id)-2), nlev-3
-        DO jc = i_startidx, i_endidx
-          w_thresh = cfl_w_limit*p_nh%metrics%ddqz_z_half(jc,jk,jb)
-          p_nh%prog(nnew)%w(jc,jk,jb) = MAX(p_nh%prog(nnew)%w(jc,jk,jb), p_nh%diag%w_concorr_c(jc,jk,jb) - w_thresh)
-          p_nh%prog(nnew)%w(jc,jk,jb) = MIN(p_nh%prog(nnew)%w(jc,jk,jb), p_nh%diag%w_concorr_c(jc,jk,jb) + w_thresh)
-        ENDDO
-      ENDDO
 
       ! Results
       DO jk = jk_start, nlev

@@ -2478,6 +2478,14 @@ divergence damping is applied in the dynamical core)
 \tabularnewline
 
 \hline 
+lextra\_diffu&
+L& .TRUE. & &
+.TRUE.: Apply additional momentum diffusion at grid points close to the stability limit for vertical advection (becomes effective 
+extremely rarely in practice; this is mostly an emergency fix for pathological cases with very large orographic gravity waves)
+& cell\_type=3
+\tabularnewline
+
+\hline 
 divdamp\_fac&
 R& 0.004& &
 Scaling factor for divergence damping&
