@@ -69,9 +69,10 @@ MODULE mo_sea_ice_types
       &  forc_runoff      (:,:),     & ! river runoff flux                                         [m/s]
       &  forc_fwbc        (:,:),     & ! sum of forcing surface freshwater flux from BC            [m/s]
       &  forc_fwrelax     (:,:),     & ! diagnosed surface freshwater flux due to relaxation       [m/s]
-      &  forc_fwfx        (:,:),     & ! diagnosed sum of forcing surface freshwater flux          [m/s]
+      &  forc_fwsice      (:,:),     & ! surface freshwater flux due to changes in sea ice         [m/s]
+      &  forc_fwfx        (:,:),     & ! sum of forcing surface freshwater flux                    [m/s]
       &  forc_hfrelax     (:,:),     & ! diagnosed surface heat flux due to relaxation             [m/s]
-      &  forc_hflx        (:,:),     & ! diagnosed sum of forcing surface heat flux                [W/m2]
+      &  forc_hflx        (:,:),     & ! sum of forcing surface heat flux                          [W/m2]
       &  forc_tracer      (:,:,:),   & ! forcing of tracer in vertical duffusion equation          [K*m/s; psu*m/s]
       &  forc_tracer_relax(:,:,:)      ! tracer relaxation: contains data to which is relaxated. 
                                        !   3rd index refers to tracer id

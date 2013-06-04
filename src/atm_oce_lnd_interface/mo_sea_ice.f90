@@ -437,6 +437,11 @@ CONTAINS
     &          t_cf_var('forc_fwrelax', 'm/s', 'forc_fwrelax', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &          ldims=(/nproma,nblks_c/))
+    CALL add_var(var_list, 'forc_fwsice', p_sfc_flx%forc_fwsice , &
+    &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+    &          t_cf_var('forc_fwsice', 'm/s', 'forc_fwsice', DATATYPE_FLT32),&
+    &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+    &          ldims=(/nproma,nblks_c/))
     IF(no_tracer>=1)THEN
       CALL add_var(var_list, 'forc_tracer', p_sfc_flx%forc_tracer , &
       &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
@@ -477,6 +482,7 @@ CONTAINS
       p_sfc_flx%forc_fwbc        (:,:)    = 0.0_wp
       p_sfc_flx%forc_hfrelax     (:,:)    = 0.0_wp
       p_sfc_flx%forc_fwrelax     (:,:)    = 0.0_wp
+      p_sfc_flx%forc_fwsice      (:,:)    = 0.0_wp
       p_sfc_flx%forc_tracer      (:,:,:)  = 0.0_wp
       p_sfc_flx%forc_tracer_relax(:,:,:)  = 0.0_wp
     ENDIF
@@ -1508,7 +1514,9 @@ CONTAINS
     !  &                       sum(ice%conc(:,:,:), 2) +          &
     !  &                       sum(ice%evapwi(:,:,:) * ice% conc(:,:,:), 2)) /rho_ref
     !
-    ! TODO: This should probably be done via surface fluxes?
+    ! TODO: divide precw/preci from forc_fwbc calculated in mo_oce_bulk/update_sfcflx
+    ! Change in height is calculated in update_sfcflx as well - no temperature change due to precip yet
+    ! should not be done here:
     !p_os%p_prog(nold(1))%h(:,:) = p_os%p_prog(nold(1))%h(:,:) +  precw + preci - evap
 
     ! Calculate average draft and thickness of water underneath ice in upper ocean
@@ -1537,7 +1545,10 @@ CONTAINS
     p_sfc_flx%forc_ssflx(:,:) = QatmAve%sensw (:,:)*(1.0_wp-sum(ice%conc(:,:,:),2))
     p_sfc_flx%forc_slflx(:,:) = QatmAve%latw  (:,:)*(1.0_wp-sum(ice%conc(:,:,:),2))
 
-    ! Change temperature of upper ocean grid cell according to heat fluxes
+    ! #slo# 2013-06
+    ! Change of upper ocean temperature according to heat fluxes is done in vertical diffusion equation
+    !  - forc_hflx is calculated here, provided to tracer eq. via forc_tracer(1), calculated in update_sfcflx
+    !  - forc_tracer(1) is 
     !p_os%p_prog(nold(1))%tracer(:,1,:,1) = p_os%p_prog(nold(1))%tracer(:,1,:,1)&
     !  &                                    + dtime*(heatOceI + heatOceW) /               &
     !  &                                    (clw*rho_ref * ice%zUnderIce)
@@ -1560,6 +1571,13 @@ CONTAINS
     !p_os%p_prog(nold(1))%tracer(:,1,:,2) = p_os%p_prog(nold(1))%tracer(:,1,:,2)  &
     !  &                                    + (Delhice(:,:)*rhoi - snowiceave(:,:)*rhos)/rho_ref *  &
     !  &                                    MIN(Sice, sao_top(:,:)) / ice%zUnderIce(:,:)
+
+    ! #slo# 2013-06
+    ! Change in salinity is calculated according to resulting freshwater flux due to sea ice change:
+    !  - fwsice is flux in m/s >0 for Delhice<0, i.e. positive input of water = decrease of sea ice depth
+    !  - no snow and no salinity of sea ice yet
+    !p_sfc_flx%forc_fwsice(:,:) = -Delhice(:,:)*rhoi - snowiceave(:,:)*rhos)/(rho_ref*dtime)
+    p_sfc_flx%forc_fwsice(:,:) = -Delhice(:,:)*rhoi/(rho_ref*dtime)
 
     !heatabs         (:,:)   = swsum * QatmAve% SWin(:,:) * (1 - ice%concsum)
 
