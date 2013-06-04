@@ -65,13 +65,12 @@ MODULE mo_statistics_tools
       INTEGER :: id
   END TYPE t_statistic
   !-------------------------------------------------------------------------
-  
 
   !-------------------------------------------------------------------------
   ! Parameters
   INTEGER, PARAMETER :: ADD_VALUE = 1
   INTEGER, PARAMETER :: ADD_MAX_RATIO = 2
-  
+
   !--------------------------------------------------------------
   ! TYPE definitions
   !> Basic statistics type
@@ -82,17 +81,42 @@ MODULE mo_statistics_tools
     REAL(wp) :: max_of_values
     REAL(wp) :: min_of_values
     ! distribution stitistics
-    ! at the moment just a 
+    ! at the moment just a
     INTEGER  :: no_of_bars
     REAL(wp) :: min_bars_value
     REAL(wp) :: max_bars_value
     INTEGER, POINTER  :: no_of_values_in_bar(:)
-          
+
     INTEGER :: mode ! defines how we insert the values,
                           ! ADD_VALUE
                           ! ADD_MAX_RATIO, input twos values
-    
+
   END TYPE t_data_statistics
+  TYPE t_data_statistics_2D
+    LOGICAL  :: is_active
+    INTEGER  :: no_of_values
+    REAL(wp), POINTER :: sum_of_values(:,:)
+    REAL(wp), POINTER :: max_of_values(:,:)
+    REAL(wp), POINTER :: min_of_values(:,:)
+    INTEGER  :: no_of_bars
+    REAL(wp) :: min_bars_value
+    REAL(wp) :: max_bars_value
+    INTEGER, POINTER  :: no_of_values_in_bar(:)
+    INTEGER :: mode
+  END TYPE t_data_statistics_2D
+
+  TYPE t_data_statistics_3D
+    LOGICAL  :: is_active
+    INTEGER  :: no_of_values
+    REAL(wp), POINTER :: sum_of_values(:,:,:)
+    REAL(wp), POINTER :: max_of_values(:,:,:)
+    REAL(wp), POINTER :: min_of_values(:,:,:)
+    INTEGER  :: no_of_bars
+    REAL(wp) :: min_bars_value
+    REAL(wp) :: max_bars_value
+    INTEGER, POINTER  :: no_of_values_in_bar(:)
+    INTEGER :: mode
+  END TYPE t_data_statistics_3D
 
   !--------------------------------------------------------------
   !> The maximum number of statistic objects.
@@ -238,7 +262,7 @@ CONTAINS
     CASE (ADD_VALUE, ADD_MAX_RATIO)
       statistic_object(statistic_id)%mode = mode
 
-     CASE DEFAULT
+    CASE DEFAULT
       CALL finish('set_mode', 'Unkown mode')
 
     END SELECT
@@ -435,7 +459,7 @@ CONTAINS
   !>
   !! "Class construction" method.
   !! Called once to initiallize the "class".
-  SUBROUTINE construct_statistic_objects ()
+  SUBROUTINE construct_statistic_objects()
 
     INTEGER :: return_status,i
 
@@ -501,6 +525,14 @@ CONTAINS
 
   END SUBROUTINE init_statistic_object
   !-----------------------------------------------------------------------
+
+  !-----------------------------------------------------------------------
+  !>
+  !! Reset values of the statistic object.
+  SUBROUTINE reset_statistic(statistic_id)
+    INTEGER, INTENT(in) :: statistic_id
+    CALL init_statistic_object(statistic_id)
+  END SUBROUTINE reset_statistic
 
   !-----------------------------------------------------------------------
   !>
