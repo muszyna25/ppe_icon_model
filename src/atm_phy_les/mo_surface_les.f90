@@ -57,14 +57,15 @@ MODULE mo_surface_les
   USE mo_loopindices,         ONLY: get_indices_e, get_indices_c, get_indices_v
   USE mo_impl_constants    ,  ONLY: min_rledge, min_rlcell, min_rlvert, &
                                     min_rledge_int, min_rlcell_int, min_rlvert_int
-  USE mo_sync,                ONLY: SYNC_E, SYNC_C, SYNC_V, sync_patch_array, global_max
+  USE mo_sync,                ONLY: SYNC_C, sync_patch_array_mult, sync_patch_array, global_max
   USE mo_physical_constants,  ONLY: cpd, rcvd, p0ref, grav, alv, rd, rgrav, rd_o_cpd
   USE mo_nwp_lnd_types,       ONLY: t_lnd_prog, t_lnd_diag 
   USE mo_satad,               ONLY: spec_humi, sat_pres_water
   USE mo_nwp_phy_types,       ONLY: t_nwp_phy_diag, t_nwp_phy_tend
   USE mo_les_config,          ONLY: les_config
   USE mo_math_constants,      ONLY: pi_2, ln2
-  USE mo_impl_constants_grf,   ONLY: grf_bdywidth_c
+  USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c
+  USE mo_grid_config,         ONLY: l_limited_area
 
   IMPLICIT NONE
 
@@ -123,17 +124,20 @@ MODULE mo_surface_les
     
     jg = p_patch%id
 
+    !sync pressure here locally
+    pres_sfc => p_nh_diag%pres_sfc
+    CALL sync_patch_array(SYNC_C, p_patch, pres_sfc)
+
     ! number of vertical levels
     nlev = p_patch%nlev
     jk = nlev
     i_nchdom   = MAX(1,p_patch%n_childdom)
      
     rl_start   = 2
-    rl_end     = min_rlcell_int-2
+    rl_end     = min_rlcell_int-1
     i_startblk = p_patch%cells%start_blk(rl_start,1)
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
-
-    pres_sfc => p_nh_diag%pres_sfc
+     
 
     SELECT CASE(les_config(jg)%isrfc_type)
 
@@ -141,6 +145,8 @@ MODULE mo_surface_les
     CASE(1)
 
     !To be implemented
+    !Remeber that t_g that comes out of nwp_surface is ONLY calculated for min_rlcell_int 
+    !whereas the loop here ends at min_rlcell_int-1. It will be better to sync t_g here once
 
     !Prescribed latent/sensible heat fluxes: get ustar and surface temperature / moisture
     CASE(2)
@@ -284,6 +290,10 @@ MODULE mo_surface_les
 !$OMP END PARALLEL
 
    END SELECT 
+
+   !This is required for nested grid. 
+   IF(l_limited_area) &
+     CALL sync_patch_array(SYNC_C, p_patch, sgs_visc_sfc)
 
 
   END SUBROUTINE surface_conditions
