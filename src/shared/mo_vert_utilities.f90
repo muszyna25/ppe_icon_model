@@ -53,7 +53,7 @@ MODULE mo_vert_utilities
 
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
-  PUBLIC :: vert_intp_full2half_cell_3d, vert_intp_linear_1d, global_sum_vert
+  PUBLIC :: vert_intp_full2half_cell_3d, vert_intp_linear_1d
 
   CONTAINS
 
@@ -100,7 +100,7 @@ MODULE mo_vert_utilities
              p_metrics%wgtfacq1_c(jc,2,jb)*varin(jc,2,jb) + &
              p_metrics%wgtfacq1_c(jc,3,jb)*varin(jc,3,jb)
 
-           varout(jc,nlevp1,jb) =                                     &
+           varout(jc,nlevp1,jb) =                               &
              p_metrics%wgtfacq_c(jc,1,jb)*varin(jc,nlev,jb)   + &
              p_metrics%wgtfacq_c(jc,2,jb)*varin(jc,nlev-1,jb) + &
              p_metrics%wgtfacq_c(jc,3,jb)*varin(jc,nlev-2,jb)
@@ -146,24 +146,6 @@ MODULE mo_vert_utilities
     END DO
 
   END SUBROUTINE vert_intp_linear_1d
-
-  !> global_sum_vert
-  !!
-  !! global_sum_array called in vertical
-  !!------------------------------------------------------------------------
-  !! @par Revision History
-  !! Initial release by Anurag Dipankar, MPI-M (2013-June-01)
-  FUNCTION global_sum_vert(var) RESULT(varout)
-     REAL(wp), INTENT(IN)  :: var(:)
-
-     REAL(wp) :: varout(SIZE(var))
-     INTEGER  :: jk
-
-     DO jk = 1 , SIZE(var)
-        varout(jk) = global_sum_array(var(jk))
-     END DO
-
-  END FUNCTION global_sum_vert
 
 !-------------------------------------------------------------------------------
      

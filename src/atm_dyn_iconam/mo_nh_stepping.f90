@@ -148,6 +148,8 @@ MODULE mo_nh_stepping
   USE mo_td_ext_data,         ONLY: set_actual_td_ext_data,  &
                                   & read_td_ext_data_file
   USE mo_initicon_config,     ONLY: init_mode
+  USE mo_ls_forcing_nml,      ONLY: is_ls_forcing
+  USE mo_ls_forcing,          ONLY: init_ls_forcing
 
   IMPLICIT NONE
 
@@ -261,6 +263,9 @@ MODULE mo_nh_stepping
   IF (ltestcase) THEN
     CALL init_nh_testcase(p_patch(1:), p_nh_state, p_int_state(1:), p_lnd_state(1:), &
       & ext_data, ntl)
+     
+    IF(is_ls_forcing) &
+       CALL init_ls_forcing(p_nh_state(1)%metrics)
   ENDIF
 
   CALL setup_time_ctrl_physics( )

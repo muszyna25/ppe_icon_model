@@ -82,7 +82,7 @@ MODULE mo_read_namelists
 
   USE mo_name_list_output    ,ONLY: read_name_list_output_namelists
   USE mo_les_nml             ,ONLY: read_les_namelist
-
+  USE mo_ls_forcing_nml      ,ONLY: read_ls_forcing_namelist
   IMPLICIT NONE
 
   PRIVATE
@@ -162,6 +162,7 @@ CONTAINS
     CALL read_sea_ice_namelist        (TRIM(atm_namelist_filename))
     CALL read_art_namelist            (TRIM(atm_namelist_filename))
     CALL read_les_namelist            (TRIM(atm_namelist_filename))
+    CALL read_ls_forcing_namelist     (TRIM(atm_namelist_filename))
 
     ! Initial conditions
     !
