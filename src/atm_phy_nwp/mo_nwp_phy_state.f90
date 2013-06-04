@@ -101,6 +101,7 @@ USE mo_cdi_constants,       ONLY: GRID_UNSTRUCTURED_CELL, GRID_REFERENCE,       
   &                               ZA_PRESSURE_800, ZA_CLOUD_BASE, ZA_CLOUD_TOP,  &
   &                               ZA_ISOTHERM_ZERO
 USE mo_physical_constants,  ONLY: grav
+USE mo_ls_forcing_nml,      ONLY: is_ls_forcing
 
 IMPLICIT NONE
 PRIVATE
@@ -2420,7 +2421,7 @@ SUBROUTINE new_nwp_phy_tend_list( k_jg, klev,  kblks,   &
    !for 1D variables so using ALLOCATE-DEALLOCATE
    !Therefore, these variables can't go into restart/output
    !Initialize them all to 0 
-    IF(ltestcase)THEN
+    IF(is_ls_forcing)THEN
 
       ALLOCATE(phy_tend%ddt_u_ls(klev),STAT=ist)
       IF (ist/=SUCCESS)THEN

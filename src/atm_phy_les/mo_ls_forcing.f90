@@ -111,8 +111,12 @@ MODULE mo_ls_forcing
     !Read the input file till end. The order of file assumed is:
     !Z(m) - w_ls - u_geo - v_geo - ddt_temp_hadv_ls - ddt_temp_rad_ls - ddt_qv_hadv_ls    
     
-    READ(iunit,*,IOSTAT=ist)nk
+    !Read first line
+    READ(iunit,*,IOSTAT=ist)
     IF(ist/=success)CALL finish(TRIM(routine), 'problem reading first line in ls_forcing.dat')
+
+    READ(iunit,*,IOSTAT=ist)nk
+    IF(ist/=success)CALL finish(TRIM(routine), 'problem reading second line in ls_forcing.dat')
    
     ALLOCATE( zz(nk), zw(nk), zu(nk), zv(nk), z_dt_temp_adv(nk), &
               z_dt_temp_rad(nk), z_dt_qv_adv(nk) )
