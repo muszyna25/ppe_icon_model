@@ -503,31 +503,17 @@ CONTAINS
     TYPE(t_patch), TARGET, INTENT(in) :: p_patch(n_dom)
     TYPE(t_hydro_ocean_state), TARGET :: p_os(n_dom)
 
-    !INTEGER, OPTIONAL, INTENT(IN)             :: prog_length
-    !INTEGER, OPTIONAL, INTENT(IN)             :: k_no_temp_mem
-
     ! local variables
-
     INTEGER           :: jg
 
     INTEGER           :: i_status, jp, prlength ! local prognostic array length
-    !INTEGER           :: no_temp_memory         ! no of temporary memory elements
     CHARACTER(len=max_char_length), PARAMETER :: &
       &      routine = 'mo_oce_state:construct_hydro_ocean_state'
 
     CALL message(TRIM(routine), 'start to construct hydro_ocean state' )
 
-    !IF (PRESENT(prog_length)) THEN
-    !  prlength = prog_length
-    !ELSE
-    !  prlength =2
-    !END IF
-
-    !
     ! Using Adams-Bashforth semi-implicit timestepping with 3 prognostic time levels:
     prlength = 3
-
-    ! #slo# preliminary without dimensioning of prog/diag/aux
 
     !create state array for each domain
     DO jg = 1, n_dom
@@ -536,7 +522,6 @@ CONTAINS
       IF (i_status/=SUCCESS) THEN
          CALL finish(TRIM(routine), 'allocation of progn. state array failed')
       END IF
-
       DO jp = 1, prlength
          CALL construct_hydro_ocean_prog(p_patch(jg), p_os(jg)%p_prog(jp),jp)
       END DO
