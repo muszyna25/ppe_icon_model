@@ -274,7 +274,8 @@ MODULE mo_ocean_nml
                                                  !   thermodynamic and dynamic variables are colocated in time
   INTEGER  :: i_apply_bulk          = 0          ! 0=no bulk formula; 1=apply bulk formula without sea ice
   INTEGER  :: i_sea_ice             = 1          ! 0 = no sea ice; 1 = Winton; 2 = Semtner
-  LOGICAL  :: l_relaxsal_ice        = .TRUE.     ! TRUE: relax salinity below sea ice
+  LOGICAL  :: l_relaxsal_ice        = .TRUE.     ! true  = relax salinity below sea ice proportional to open water
+                                                 ! false = salinity is relaxed under sea ice completely
 
   NAMELIST/ocean_dynamics_nml/ n_zlev, dzlev_m, idisc_scheme,              &
     &                 iswm_oce, l_staggered_timestep,                      &
