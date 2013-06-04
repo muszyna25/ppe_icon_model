@@ -36,7 +36,7 @@ B=2   # number of bisections applied
 #-----------------------------------------------------------------------------
 # ocean initialization, forcing, and grid file location specifics:
   LOC='POOL'   # all ocean files needed for running are found on pool
-# LOC='othr'   # else all ocean files needed for running are found on local 'grids' directory
+ LOC='othr'   # else all ocean files needed for running are found on local 'grids' directory
 # specific path of input data is set by exec.iconrun
 # 
 #-----------------------------------------------------------------------------
@@ -155,9 +155,9 @@ cat > ${ocean_namelist} << EOF
   idbg_mxmn=0                     ! initialize MIN/MAX  debug output
   idbg_val =0                     ! initialize one cell debug output
   idbg_slev=1                     ! initialize start level for debug output
-  idbg_elev=5                     ! initialize end level for debug output
-  dbg_lat_in=   30.0              ! latitude location of one cell debug output
-  dbg_lon_in=  -30.0              ! longitude location of one cell debug output
+  idbg_idx=1
+  idbg_blk=1
+idbg_elev=5                     ! initialize end level for debug output
   str_mod_tst='all'               ! define modules to print out in debug mode
 /
 &ocean_dynamics_nml
