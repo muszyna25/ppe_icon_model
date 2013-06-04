@@ -1046,16 +1046,6 @@ CONTAINS
     &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_EDGE),&
     &            ldims=(/nproma,n_zlev,nblks_e/),lrestart_cont=.TRUE.)
 
-    ! mass flux
-    !CALL add_var(ocean_restart_list, 'flux_mass', p_os_diag%flux_mass, GRID_UNSTRUCTURED_EDGE,&
-    !&            ZA_DEPTH_BELOW_SEA, t_cf_var('flux_mass','','mass flux at edges', DATATYPE_FLT32),&
-    !&            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_EDGE),&
-    !&            ldims=(/nproma,n_zlev,nblks_e/),lrestart_cont=.TRUE.)
-    !CALL add_var(ocean_restart_list, 'flux_tracer', p_os_diag%flux_tracer, GRID_UNSTRUCTURED_EDGE,&
-    !&            ZA_DEPTH_BELOW_SEA, t_cf_var('flux_tracer','','tracers flux at edges', DATATYPE_FLT32),&
-    !&            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_EDGE),&
-    !&            ldims=(/nproma,n_zlev,nblks_e/),lrestart_cont=.TRUE.)
-
     ! horizontal velocity advection
     CALL add_var(ocean_restart_list, 'veloc_adv_horz', p_os_diag%veloc_adv_horz, &
     &            GRID_UNSTRUCTURED_EDGE,&
@@ -1096,31 +1086,6 @@ CONTAINS
     IF (ist/=SUCCESS) THEN
       CALL finish(TRIM(routine), 'allocation for p_vn at cells failed')
     END IF
-
-    ! with following two loops the complete halo is set to zero, except for the unused last block
-    !  - when checking for min/max values with nag-compiler "Floating invalid operation" occurs
-    !  - set completely to zero, see below
- !  DO jk=1,n_zlev
- !    DO jb = all_cells%start_block, all_cells%end_block
- !      CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
- !      DO jc = i_startidx, i_endidx
- !      END DO
- !    END DO
- !  END DO
-
- !  rl_start = 1
- !  rl_end = min_rlcell
- !  i_startblk = p_patch%cells%start_blk(rl_start,1)
- !  i_endblk   = p_patch%cells%end_blk(rl_end,1)
- !  DO jk=1,n_zlev
- !    DO jb = i_startblk, i_endblk
- !      CALL get_indices_c(p_patch, jb, i_startblk, i_endblk,&
- !      &                  i_startidx, i_endidx, rl_start, rl_end)
- !      DO jc = i_startidx, i_endidx
- !        p_os_diag%p_vn(jc,jk,jb)%x(:)=0.0_wp
- !      END DO
- !    END DO
- !  END DO
 
     ALLOCATE(p_os_diag%p_vn_dual(nproma,n_zlev,nblks_v), STAT=ist)
     IF (ist/=SUCCESS) THEN
@@ -1164,92 +1129,6 @@ CONTAINS
       &          t_cf_var('temp_insitu', 'K', 'in situ temperature', DATATYPE_FLT32),&
       &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
       &          ldims=(/nproma,n_zlev,nblks_c/),lrestart_cont=.TRUE.)
-!TODO review
-    !CALL message(TRIM(routine), 'construction of hydrostatic ocean diagnostic state finished')
-    !At this point the hydro-ocean-base-type containing the topography and depth data is already initialized.
-    !Therefore we init the following two arrays that describe the prism thickness (with and without free surface)
-    !Note that only wet cells are initialized, land cells have thickness zero.
-    !During model integration only the first layer of prism_thick_c and prism_thick_e are updated, all other
-    !values remains as initialized.
-! !     DO jb = all_cells%start_block, all_cells%end_block
-! !       CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
-! !       DO jc = i_startidx_c, i_endidx_c
-! !         DO jk=1,n_zlev
-! !           IF ( v_base%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
-! !             p_os_diag%prism_thick_flat_sfc_c(jc,jk,jb) = v_base%del_zlev_m(jk)
-! !             p_os_diag%prism_thick_c(jc,jk,jb)          = v_base%del_zlev_m(jk)
-! !             p_os_diag%prism_center_dist_c(jc,jk,jb)    = v_base%del_zlev_i(jk)
-! ! 
-! ! 
-! !             p_os_diag%inv_prism_thick_c(jc,jk,jb)      = 1.0_wp/v_base%del_zlev_m(jk)
-! !             p_os_diag%inv_prism_center_dist_c(jc,jk,jb)= 1.0_wp/v_base%del_zlev_i(jk)
-! !           ELSE
-! !             p_os_diag%prism_thick_flat_sfc_c(jc,jk,jb) = 0.0_wp
-! !             p_os_diag%prism_thick_c(jc,jk,jb)          = 0.0_wp
-! !             p_os_diag%prism_center_dist_c(jc,jk,jb)    = 0.0_wp
-! ! 
-! !             p_os_diag%inv_prism_thick_c(jc,jk,jb)      = 0.0_wp
-! !             p_os_diag%inv_prism_center_dist_c(jc,jk,jb)= 0.0_wp
-! !           ENDIF
-! !         END DO
-! !       END DO
-! !     END DO
-! ! 
-! !     !If column has not enough wet layers set all 4 depth-arrays to zero
-! !     DO jb = all_cells%start_block, all_cells%end_block
-! !       CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
-! !       DO jc = i_startidx_c, i_endidx_c
-! !         DO jk=1,n_zlev
-! !           IF ( v_base%dolic_c(jc,jb) < min_dolic) THEN
-! ! 
-! !             p_os_diag%prism_thick_flat_sfc_c(jc,jk,jb) = 0.0_wp
-! !             p_os_diag%prism_thick_c(jc,jk,jb)          = 0.0_wp
-! ! 
-! !             p_os_diag%inv_prism_thick_c(jc,jk,jb)      = 0.0_wp
-! !             p_os_diag%inv_prism_center_dist_c(jc,jk,jb)= 0.0_wp
-! !           ENDIF
-! !         END DO
-! !       END DO
-! !     END DO
-! ! 
-! ! 
-! !     DO jb = all_edges%start_block, all_edges%end_block
-! !       CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
-! !       DO je = i_startidx_e, i_endidx_e
-! !         DO jk=1,n_zlev
-! !           IF ( v_base%lsm_e(je,jk,jb) <= sea_boundary ) THEN
-! !             p_os_diag%prism_thick_flat_sfc_e(je,jk,jb) = v_base%del_zlev_m(jk)
-! !             p_os_diag%prism_thick_e(je,jk,jb)          = v_base%del_zlev_m(jk)
-! ! 
-! !             p_os_diag%inv_prism_thick_e(je,jk,jb)      = 1.0_wp/v_base%del_zlev_m(jk)
-! !             p_os_diag%inv_prism_center_dist_e(je,jk,jb)= 1.0_wp/v_base%del_zlev_i(jk)
-! !           ELSE
-! !             p_os_diag%prism_thick_flat_sfc_e(je,jk,jb) = 0.0_wp
-! !             p_os_diag%prism_thick_e(je,jk,jb)          = 0.0_wp
-! ! 
-! !             p_os_diag%inv_prism_thick_e(je,jk,jb)      = 0.0_wp
-! !             p_os_diag%inv_prism_center_dist_e(je,jk,jb)= 0.0_wp
-! !           ENDIF
-! !         END DO
-! !       END DO
-! !     END DO
-! !     !If column has not enough wet layers set all 4 depth-arrays to zero
-! !     DO jb = all_edges%start_block, all_edges%end_block
-! !       CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
-! !       DO je = i_startidx_e, i_endidx_e
-! !         DO jk=1,n_zlev
-! !           IF ( v_base%dolic_e(je,jb) < min_dolic) THEN
-! ! 
-! !             p_os_diag%prism_thick_flat_sfc_e(je,jk,jb) = 0.0_wp
-! !             p_os_diag%prism_thick_e(je,jk,jb)          = 0.0_wp
-! ! 
-! !             p_os_diag%inv_prism_thick_e(je,jk,jb)      = 0.0_wp
-! !             p_os_diag%inv_prism_center_dist_e(je,jk,jb)= 0.0_wp
-! !           ENDIF
-! !         END DO
-! !       END DO
-! !     END DO
-
   END SUBROUTINE construct_hydro_ocean_diag
 
 
@@ -1327,124 +1206,6 @@ CONTAINS
     &            t_grib2_var(255,255,255,DATATYPE_PACK16,GRID_REFERENCE, GRID_EDGE),&
     &            ldims=(/nproma,n_zlev,nblks_e/),loutput=.TRUE.,lrestart_cont=.TRUE.)
 
-    !-------------------------------------------------------------------------
-    ! time stepping tracers go into the restart file. 4d has to be handles as 3D-references
-! !     CALL add_var(ocean_default_list, 'g_n_c_h', p_os_aux%g_n_c_h , &
-! !     &            GRID_UNSTRUCTURED_CELL, ZAXIS_DEPTH_BELOW_SEA, &
-! !     &            t_cf_var('g_n_c_h', '', '', DATATYPE_FLT32),&
-! !     &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
-! !     &            ldims=(/nproma,n_zlev,nblks_c,no_tracer/), &
-! !     &            lcontainer=.TRUE., loutput=.FALSE.)
-! !     ALLOCATE(p_os_aux%g_n_c_h_tracer_ptr(no_tracer))
-! !     DO jtrc = 1,no_tracer
-! !       CALL add_ref(ocean_default_list,'g_n_c_h',&
-! !         &          'g_n_c_h_'//TRIM(oce_config%tracer_names(jtrc)),&
-! !         &           p_os_aux%g_n_c_h_tracer_ptr(jtrc)%p, &
-! !         &           GRID_UNSTRUCTURED_CELL,&
-! !         &           ZAXIS_DEPTH_BELOW_SEA, &
-! !         &           t_cf_var('g_n_c_h'//TRIM(oce_config%tracer_names(jtrc)),'','', &
-! !         &           DATATYPE_FLT32),&
-! !         &           t_grib2_var(255,255,255,DATATYPE_PACK16,GRID_REFERENCE, GRID_CELL),&
-! !         &           ldims=(/nproma,n_zlev,nblks_c/),loutput=.TRUE.)
-! !     END DO
-! !     !-------------------------------------------------------------------------
-! !     CALL add_var(ocean_default_list,'g_nm1_c_h',p_os_aux%g_nm1_c_h,&
-! !       &          GRID_UNSTRUCTURED_CELL, ZAXIS_DEPTH_BELOW_SEA, &
-! !       &          t_cf_var('g_nm1_c_h','','', DATATYPE_FLT32),&
-! !       &          t_grib2_var(255,255,255,DATATYPE_PACK16,GRID_REFERENCE, GRID_CELL),&
-! !       &          ldims=(/nproma,n_zlev,nblks_c,no_tracer/), &
-! !       &          lcontainer=.TRUE., loutput=.FALSE.)
-! !     ALLOCATE(p_os_aux%g_nm1_c_h_tracer_ptr(no_tracer))
-! !     DO jtrc = 1,no_tracer
-! !       CALL add_ref(ocean_default_list,'g_nm1_c_h',&
-! !         &          'g_nm1_c_h_'//TRIM(oce_config%tracer_names(jtrc)),&
-! !         &          p_os_aux%g_nm1_c_h_tracer_ptr(jtrc)%p, &
-! !         &          GRID_UNSTRUCTURED_CELL,&
-! !         &          ZAXIS_DEPTH_BELOW_SEA, &
-! !         &          t_cf_var('g_nm1_c_h'//TRIM(oce_config%tracer_names(jtrc)),'','', &
-! !         &          DATATYPE_FLT32),&
-! !         &          t_grib2_var(255,255,255,DATATYPE_PACK16,GRID_REFERENCE, GRID_CELL),&
-! !         &          ldims=(/nproma,n_zlev,nblks_c/),loutput=.TRUE.)
-! !     END DO
-! !     !-------------------------------------------------------------------------
-! !     CALL add_var(ocean_default_list,'g_nimd_c_h',p_os_aux%g_nimd_c_h, &
-! !       &          GRID_UNSTRUCTURED_CELL, ZAXIS_DEPTH_BELOW_SEA, &
-! !       &          t_cf_var('g_nimd_c_h','','', DATATYPE_FLT32),&
-! !       &          t_grib2_var(255,255,255,DATATYPE_PACK16,GRID_REFERENCE, GRID_CELL),&
-! !       &          ldims=(/nproma,n_zlev,nblks_c,no_tracer/), &
-! !       &          lcontainer=.TRUE., loutput=.FALSE.)
-! !     ALLOCATE(p_os_aux%g_nimd_c_h_tracer_ptr(no_tracer))
-! !     DO jtrc = 1,no_tracer
-! !       CALL add_ref(ocean_default_list,'g_nimd_c_h',&
-! !         &          'g_nimd_c_h_'//TRIM(oce_config%tracer_names(jtrc)),&
-! !         &          p_os_aux%g_nimd_c_h_tracer_ptr(jtrc)%p, &
-! !         &          GRID_UNSTRUCTURED_CELL,&
-! !         &          ZAXIS_DEPTH_BELOW_SEA, &
-! !         &          t_cf_var('g_nimd_c_h'//TRIM(oce_config%tracer_names(jtrc)),'','', &
-! !         &          DATATYPE_FLT32),&
-! !         &          t_grib2_var(255,255,255,DATATYPE_PACK16,GRID_REFERENCE, GRID_CELL),&
-! !         &          ldims=(/nproma,n_zlev,nblks_c/),loutput=.TRUE.)
-! !     END DO
-! !     !-------------------------------------------------------------------------
-! !     CALL add_var(ocean_default_list,'g_n_c_v',p_os_aux%g_n_c_v,&
-! !       &          GRID_UNSTRUCTURED_CELL, ZAXIS_DEPTH_BELOW_SEA, &
-! !       &          t_cf_var('g_n_c_v','','', DATATYPE_FLT32),&
-! !       &          t_grib2_var(255,255,255,DATATYPE_PACK16,GRID_REFERENCE, GRID_CELL),&
-! !       &          ldims=(/nproma,n_zlev,nblks_c,no_tracer/), &
-! !       &          lcontainer=.TRUE., loutput=.FALSE.)
-! !     ALLOCATE(p_os_aux%g_n_c_v_tracer_ptr(no_tracer))
-! !     DO jtrc = 1,no_tracer
-! !       CALL add_ref(ocean_default_list,'g_n_c_v',&
-! !         &          'g_n_c_v_'//TRIM(oce_config%tracer_names(jtrc)),&
-! !         &          p_os_aux%g_n_c_v_tracer_ptr(jtrc)%p, &
-! !         &          GRID_UNSTRUCTURED_CELL,&
-! !         &          ZAXIS_DEPTH_BELOW_SEA, &
-! !         &          t_cf_var('g_n_c_v'//TRIM(oce_config%tracer_names(jtrc)),'','', &
-! !         &          DATATYPE_FLT32),&
-! !         &          t_grib2_var(255,255,255,DATATYPE_PACK16,GRID_REFERENCE, GRID_CELL),&
-! !         &          ldims=(/nproma,n_zlev,nblks_c/),loutput=.TRUE.)
-! !     END DO
-! !     !-------------------------------------------------------------------------
-! !     CALL add_var(ocean_default_list,'g_nm1_c_v', p_os_aux%g_nm1_c_v,&
-! !       &          GRID_UNSTRUCTURED_CELL, ZAXIS_DEPTH_BELOW_SEA,&
-! !       &          t_cf_var('g_nm1_c_v','','', DATATYPE_FLT32),&
-! !       &          t_grib2_var(255,255,255,DATATYPE_PACK16,GRID_REFERENCE, GRID_CELL),&
-! !       &          ldims=(/nproma,n_zlev,nblks_c,no_tracer/), &
-! !       &          lcontainer=.TRUE., loutput=.FALSE.)
-! !     ALLOCATE(p_os_aux%g_nm1_c_v_tracer_ptr(no_tracer))
-! !     DO jtrc = 1,no_tracer
-! !       CALL add_ref(ocean_default_list,'g_nm1_c_v',&
-! !         &          'g_nm1_c_v_'//TRIM(oce_config%tracer_names(jtrc)),&
-! !         &          p_os_aux%g_nm1_c_v_tracer_ptr(jtrc)%p, &
-! !         &          GRID_UNSTRUCTURED_CELL,&
-! !         &          ZAXIS_DEPTH_BELOW_SEA, &
-! !         &          t_cf_var('g_nm1_c_h'//TRIM(oce_config%tracer_names(jtrc)),'','', &
-! !         &          DATATYPE_FLT32),&
-! !         &          t_grib2_var(255,255,255,DATATYPE_PACK16,GRID_REFERENCE, GRID_CELL),&
-! !         &          ldims=(/nproma,n_zlev,nblks_c/),loutput=.TRUE.)
-! !     END DO
-! !     !-------------------------------------------------------------------------
-! !     CALL add_var(ocean_default_list,'g_nimd_c_v',&
-! !       &          p_os_aux%g_nimd_c_v, GRID_UNSTRUCTURED_CELL,&
-! !       &          ZAXIS_DEPTH_BELOW_SEA, t_cf_var('g_nimd_c_v','','', DATATYPE_FLT32),&
-! !       &          t_grib2_var(255,255,255,DATATYPE_PACK16,GRID_REFERENCE, GRID_CELL),&
-! !       &          ldims=(/nproma,n_zlev,nblks_c,no_tracer/), &
-! !       &          lcontainer=.TRUE., loutput=.FALSE.)
-! !     ALLOCATE(p_os_aux%g_nimd_c_v_tracer_ptr(no_tracer))
-! !     DO jtrc = 1,no_tracer
-! !       CALL add_ref(ocean_default_list,'g_nimd_c_v',&
-! !         &          'g_nimd_c_v_'//TRIM(oce_config%tracer_names(jtrc)),&
-! !         &          p_os_aux%g_nimd_c_v_tracer_ptr(jtrc)%p, &
-! !         &          GRID_UNSTRUCTURED_CELL,&
-! !         &          ZAXIS_DEPTH_BELOW_SEA, &
-! !         &          t_cf_var('g_nimd_c_v'//TRIM(oce_config%tracer_names(jtrc)),'','', &
-! !         &           DATATYPE_FLT32),&
-! !         &          t_grib2_var(255,255,255,DATATYPE_PACK16,GRID_REFERENCE, GRID_CELL),&
-! !         &          ldims=(/nproma,n_zlev,nblks_c/),loutput=.TRUE.)
-! !     END DO
-! !     !-------------------------------------------------------------------------
-    !-------------------------------------------------------------------------
-
     CALL add_var(ocean_restart_list,'p_rhs_sfc_eq',p_os_aux%p_rhs_sfc_eq, GRID_UNSTRUCTURED_CELL,&
     &            ZA_SURFACE, t_cf_var('p_rhs_sfc_eq','','', DATATYPE_FLT32),&
     &            t_grib2_var(255,255,255,DATATYPE_PACK16,GRID_REFERENCE, GRID_CELL),&
@@ -1459,10 +1220,6 @@ CONTAINS
     &            ZA_SURFACE, t_cf_var('bc_top_v','','', DATATYPE_FLT32),&
     &            t_grib2_var(255,255,255,DATATYPE_PACK16,GRID_REFERENCE, GRID_CELL),&
     &            ldims=(/nproma,nblks_c/),lrestart_cont=.TRUE.)
-    !CALL add_var(ocean_restart_list,'bc_top_veloc_cc',p_os_aux%bc_top_veloc_cc, GRID_UNSTRUCTURED_CELL,&
-    !&            ZA_SURFACE, t_cf_var('bc_top_veloc_cc','','', DATATYPE_FLT32),&
-    !&            t_grib2_var(255,255,255,DATATYPE_PACK16,GRID_REFERENCE, GRID_CELL,ZA_SURFACE),&
-    !&            ldims=(/nproma,nblks_c/),lrestart_cont=.TRUE.)
     CALL add_var(ocean_restart_list,'bc_top_vn',p_os_aux%bc_top_vn, GRID_UNSTRUCTURED_EDGE,&
     &            ZA_SURFACE, t_cf_var('bc_top_vn','','', DATATYPE_FLT32),&
     &            t_grib2_var(255,255,255,DATATYPE_PACK16,GRID_REFERENCE, GRID_EDGE),&
@@ -1476,10 +1233,6 @@ CONTAINS
     &            ZA_SURFACE, t_cf_var('bc_bot_v','','', DATATYPE_FLT32),&
     &            t_grib2_var(255,255,255,DATATYPE_PACK16,GRID_REFERENCE, GRID_CELL),&
     &            ldims=(/nproma,nblks_c/),lrestart_cont=.TRUE.)
-    !CALL add_var(ocean_restart_list,'bc_bot_veloc_cc',p_os_aux%bc_bot_veloc_cc, GRID_UNSTRUCTURED_CELL,&
-    !&            ZA_SURFACE, t_cf_var('bc_bot_veloc_cc','','', DATATYPE_FLT32),&
-    !&            t_grib2_var(255,255,255,DATATYPE_PACK16,GRID_REFERENCE, GRID_CELL,ZA_SURFACE),&
-    !&            ldims=(/nproma,nblks_c/),lrestart_cont=.TRUE.)
     CALL add_var(ocean_restart_list,'bc_bot_vn',p_os_aux%bc_bot_vn, GRID_UNSTRUCTURED_EDGE,&
     &            ZA_SURFACE, t_cf_var('bc_bot_vn','','', DATATYPE_FLT32),&
     &            t_grib2_var(255,255,255,DATATYPE_PACK16,GRID_REFERENCE, GRID_EDGE),&
@@ -1501,24 +1254,6 @@ CONTAINS
     &            ZA_SURFACE, t_cf_var('bc_top_tracer','','', DATATYPE_FLT32),&
     &            t_grib2_var(255,255,255,DATATYPE_PACK16,GRID_REFERENCE, GRID_CELL),&
     &            ldims=(/nproma,nblks_c,no_tracer/))
-
-    ! allocation for divergence of fluxes
-    !CALL add_var(ocean_restart_list,'p_div_flux_horiz_act',p_os_aux%p_div_flux_horiz_act, GRID_UNSTRUCTURED_CELL,&
-    !&            ZA_DEPTH_BELOW_SEA, t_cf_vat('p_div_flux_horiz_act','',''),&
-    !&            t_grib2_var(255,255,255,DATATYPE_PACK16,GRID_REFERENCE, GRID_CELL),&
-    !&            ldims=(/nproma,n_zlev,nblks_c/))
-    !CALL add_var(ocean_restart_list,'p_div_flux_vert_act',p_os_aux%p_div_flux_vert_act, GRID_UNSTRUCTURED_CELL,&
-    !&            ZA_DEPTH_BELOW_SEA, t_cf_vat('p_div_flux_vert_act','',''),&
-    !&            t_grib2_var(255,255,255,DATATYPE_PACK16,GRID_REFERENCE, GRID_CELL),&
-    !&            ldims=(/nproma,n_zlev,nblks_c/))
-    !CALL add_var(ocean_restart_list,'p_div_flux_horiz_prev',p_os_aux%p_div_flux_horiz_prev, GRID_UNSTRUCTURED_CELL,&
-    !&            ZA_DEPTH_BELOW_SEA, t_cf_vat('p_div_flux_horiz_prev','',''),&
-    !&            t_grib2_var(255,255,255,DATATYPE_PACK16,GRID_REFERENCE, GRID_CELL),&
-    !&            ldims=(/nproma,n_zlev,nblks_c/))
-    !CALL add_var(ocean_restart_list,'p_div_flux_vert_prev',p_os_aux%p_div_flux_vert_prev, GRID_UNSTRUCTURED_CELL,&
-    !&            ZA_DEPTH_BELOW_SEA, t_cf_vat('p_div_flux_vert_prev','',''),&
-    !&            t_grib2_var(255,255,255,DATATYPE_PACK16,GRID_REFERENCE, GRID_CELL),&
-    !&            ldims=(/nproma,n_zlev,nblks_c/))
 
     ALLOCATE(p_os_aux%bc_top_veloc_cc(nproma,nblks_c), STAT=ist)
     IF (ist/=SUCCESS) THEN
