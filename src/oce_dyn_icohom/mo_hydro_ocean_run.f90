@@ -111,6 +111,9 @@ USE mo_oce_ab_timestepping_mimetic, ONLY: init_ho_lhs_fields_mimetic
 !USE mo_mpi,                    ONLY: my_process_is_mpi_all_parallel
   USE mo_time_config,          ONLY: time_config
   USE mo_master_control,       ONLY: is_restart_run
+  USE mo_statistics_tools
+
+
 
 
 IMPLICIT NONE
@@ -167,6 +170,8 @@ CONTAINS
   ! local variables
   REAL(wp)                        :: sim_time(n_dom)
   INTEGER                         :: jstep, jg
+  INTEGER                         :: nsteps_since_last_output
+  INTEGER                         :: ocean_statistics
   !LOGICAL                         :: l_outputtime
   CHARACTER(len=32)               :: datestring, plaindatestring
   TYPE(t_oce_timeseries), POINTER :: oce_ts
@@ -176,6 +181,8 @@ CONTAINS
   CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
     &      routine = 'mo_hydro_ocean_run:perform_ho_stepping'
   !------------------------------------------------------------------
+
+  nsteps_since_last_output = 0
 
   !------------------------------------------------------------------
   ! no grid refinement allowed here so far
@@ -197,6 +204,9 @@ CONTAINS
 
   sim_time(:) = 0.0_wp
   time_config%sim_time(:) = 0.0_wp
+
+  !------------------------------------------------------------------
+  ocean_statistics = new_statistic()
 
   !------------------------------------------------------------------
   ! write initial
@@ -328,6 +338,8 @@ CONTAINS
         CALL calc_potential_density( p_patch_3D,                                    &
           &                          p_os(jg)%p_prog(nold(1))%tracer,&
           &                          p_os(jg)%p_diag%rhopot )
+
+        !CALL add_statistic_to(ocean_statistics, 1.1_wp)
       ENDIF
 
       IF (output_mode%l_nml) THEN
@@ -372,12 +384,12 @@ CONTAINS
       CALL write_restart_info_file
     END IF
 
-
+    nsteps_since_last_output = nsteps_since_last_output + 1
   ENDDO TIME_LOOP
 
   IF (idiag_oce==1) CALL destruct_oce_diagnostics(oce_ts)
+  CALL delete_statistic(ocean_statistics)
 
-!  IF (ltimer) CALL timer_stop(timer_total)
   CALL timer_stop(timer_total)
 
   END SUBROUTINE perform_ho_stepping
