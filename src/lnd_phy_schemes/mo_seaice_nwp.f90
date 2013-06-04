@@ -381,7 +381,7 @@ CONTAINS
 
   SUBROUTINE seaice_timestep_nwp (                                      &
                               &  dtime,                                 &
-                              &  nproma, nsigb,                         &
+                              &  nsigb,                                 &
                               &  qsen, qlat, qlwrnet, qsolnet,          &
                               &  tice_p, hice_p, tsnow_p, hsnow_p,      &
                               &  tice_n, hice_n, tsnow_n, hsnow_n,      &
@@ -394,9 +394,6 @@ CONTAINS
 
     REAL(wp), INTENT(IN) ::        & 
                          &  dtime  !< model time step [s]
-
-    INTEGER, INTENT(IN) ::        &
-                        &  nproma !< Array (vector) dimension
 
     INTEGER, INTENT(IN) ::        &
                         &  nsigb  !< number of grid boxes within a block 
@@ -437,7 +434,7 @@ CONTAINS
                          &  ci_o_alf     = ci/alf        
 
     ! Local variables 
-    REAL(wp), DIMENSION(nproma) :: &
+    REAL(wp), DIMENSION(nsigb) :: &
                                 &  dticedt , &  !< time tendency of ice surface temperature [K/s] 
                                 &  dhicedt , &  !< time tendency of ice thickness [m/s] 
                                 &  dtsnowdt, &  !< time tendency of snow surface temperature [K/s] 
