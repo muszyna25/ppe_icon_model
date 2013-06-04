@@ -48,8 +48,9 @@ MODULE mo_hydro_ocean_run
 !
 USE mo_kind,                   ONLY: wp
 USE mo_impl_constants,         ONLY: max_char_length
-USE mo_model_domain,           ONLY: t_patch, t_patch_3D
+USE mo_model_domain,           ONLY: t_patch, t_patch_3D, t_subset_range
 USE mo_grid_config,            ONLY: n_dom
+USE mo_grid_subset,            ONLY: get_index_range
 USE mo_sync,                   ONLY: sync_patch_array, sync_e!, sync_c, sync_v
 USE mo_ocean_nml,              ONLY: iswm_oce, n_zlev, no_tracer, &
   &                                  itestcase_oce, idiag_oce, init_oce_prog, init_oce_relax, &
@@ -63,14 +64,14 @@ USE mo_ext_data_types,         ONLY: t_external_data
 USE mo_datetime,               ONLY: t_datetime, print_datetime, add_time, datetime_to_string
 USE mo_timer,                  ONLY: timer_start, timer_stop, timer_total, timer_solve_ab,  &
   &                                  timer_tracer_ab, timer_vert_veloc, timer_normal_veloc, &
-  &                                  timer_upd_phys, timer_upd_flx  !,timer_oce_init
+  &                                  timer_upd_phys, timer_upd_flx
 USE mo_oce_ab_timestepping,    ONLY: solve_free_surface_eq_ab, &
   &                                  calc_normal_velocity_ab,  &
   &                                  calc_vert_velocity,       &
   &                                  update_time_indices
 USE mo_oce_init,               ONLY: init_ho_testcases, init_ho_prog, init_ho_coupled,&
   &                                  init_ho_recon_fields, init_ho_relaxation, init_oce_index
-USE mo_util_dbg_prnt,          ONLY: init_dbg_index
+USE mo_util_dbg_prnt,          ONLY: init_dbg_index, dbg_print
 USE mo_oce_state,              ONLY: t_hydro_ocean_state, &
   &                                  init_ho_base, init_ho_basins, v_base, &
   &                                  construct_hydro_ocean_base, &! destruct_hydro_ocean_base, &
@@ -168,8 +169,7 @@ CONTAINS
   LOGICAL,                  INTENT(INOUT)          :: l_have_output
 
   ! local variables
-  REAL(wp)                        :: sim_time(n_dom)
-  INTEGER                         :: jstep, jg
+  INTEGER                         :: jstep, jg, jtrc
   INTEGER                         :: nsteps_since_last_output
   INTEGER                         :: ocean_statistics
   !LOGICAL                         :: l_outputtime
@@ -182,7 +182,7 @@ CONTAINS
     &      routine = 'mo_hydro_ocean_run:perform_ho_stepping'
   !------------------------------------------------------------------
 
-  nsteps_since_last_output = 0
+  nsteps_since_last_output = 1
 
   !------------------------------------------------------------------
   ! no grid refinement allowed here so far
@@ -202,7 +202,6 @@ CONTAINS
   ! IF (ltimer) CALL timer_start(timer_total)
   CALL timer_start(timer_total)
 
-  sim_time(:) = 0.0_wp
   time_config%sim_time(:) = 0.0_wp
 
   !------------------------------------------------------------------
@@ -318,40 +317,66 @@ CONTAINS
     ! One integration cycle finished on the lowest grid level (coarsest
     ! resolution). Set model time.
     CALL add_time(dtime,0,0,0,datetime)
+
     ! Not nice, but the name list output requires this
     time_config%sim_time(1) = time_config%sim_time(1) + dtime
+
+    ! perform accumulation for special variables
+    CALL calc_potential_density( p_patch_3D,                     &
+      &                          p_os(jg)%p_prog(nold(1))%tracer,&
+      &                          p_os(jg)%p_diag%rhopot )
+    DO jtrc=1,no_tracer
+    CALL add_cell_fields(p_os(1)%p_acc%tracer(:,:,:,jtrc), &
+      &                  p_os(1)%p_prog(nnew(1))%tracer(:,:,:,jtrc), &
+      &                  p_patch_3D%p_patch_2D(1)%cells%owned)
+    END DO
+    CALL add_cell_fields(p_os(1)%p_acc%u, p_os(1)%p_diag%u, p_patch_3D%p_patch_2D(1)%cells%owned)
+    CALL add_cell_fields(p_os(1)%p_acc%v, p_os(1)%p_diag%v, p_patch_3D%p_patch_2D(1)%cells%owned)
+    CALL add_cell_fields(p_os(1)%p_acc%rhopot,  &
+                         p_os(1)%p_diag%rhopot, &
+                         p_patch_3D%p_patch_2D(1)%cells%owned)
+
     IF (is_output_time(jstep) .OR. istime4name_list_output(time_config%sim_time(1))) THEN 
       IF (idiag_oce == 1 ) THEN
         CALL calculate_oce_diagnostics( p_patch_3D,    &
-                                     & p_os(jg),      &
-                                     & p_sfc_flx,     &
-                                     & p_ice,         &
-                                     & p_phys_param,  &
-                                     & jstep,         &
-                                     & datetime,      &
-                                     & oce_ts)
+          &                             p_os(jg),      &
+          &                             p_sfc_flx,     &
+          &                             p_ice,         &
+          &                             p_phys_param,  &
+          &                             jstep,         &
+          &                             datetime,      &
+          &                             oce_ts)
 
         CALL calc_moc (p_patch,p_patch_3D, p_os(jg)%p_diag%w(:,:,:), datetime)
         CALL calc_psi (p_patch,p_patch_3D, p_os(jg)%p_diag%u(:,:,:), &
           &                        p_os(jg)%p_prog(nold(1))%h(:,:), &
           &                        p_os(jg)%p_diag%u_vint, datetime)
-        CALL calc_potential_density( p_patch_3D,                                    &
-          &                          p_os(jg)%p_prog(nold(1))%tracer,&
-          &                          p_os(jg)%p_diag%rhopot )
 
         !CALL add_statistic_to(ocean_statistics, 1.1_wp)
       ENDIF
+      ! compute mean values for output interval
+      p_os(1)%p_acc%tracer = p_os(1)%p_acc%tracer/REAL(nsteps_since_last_output,wp)
+      p_os(1)%p_acc%u      = p_os(1)%p_acc%u/REAL(nsteps_since_last_output,wp)
+      p_os(1)%p_acc%v      = p_os(1)%p_acc%v/REAL(nsteps_since_last_output,wp)
+      p_os(1)%p_acc%rhopot = p_os(1)%p_acc%rhopot/REAL(nsteps_since_last_output,wp)
 
       IF (output_mode%l_nml) THEN
         CALL write_name_list_output( datetime, time_config%sim_time(1), jstep==nsteps)
       ENDIF
       IF (output_mode%l_vlist) THEN
-          CALL write_output_oce( datetime, sim_time(1),p_patch_3D, p_os)
+          CALL write_output_oce( datetime, time_config%sim_time(1),p_patch_3D, p_os)
       ENDIF
 
       CALL message (TRIM(routine),'Write output at:')
       CALL print_datetime(datetime)
       l_have_output = .TRUE.
+
+      ! reset accumulation vars
+      p_os(1)%p_acc%tracer     = 0.0_wp
+      p_os(1)%p_acc%u          = 0.0_wp
+      p_os(1)%p_acc%v          = 0.0_wp
+      p_os(1)%p_acc%rhopot     = 0.0_wp
+      nsteps_since_last_output = 0
 
     END IF
 
@@ -429,8 +454,6 @@ CONTAINS
     ! no grid refinement allowed here so far
     !------------------------------------------------------------------
 
- !  IF (ltimer) CALL timer_start(timer_oce_init)
-
     IF (n_dom > 1 ) THEN
       CALL finish(TRIM(routine), ' N_DOM > 1 is not allowed')
     END IF
@@ -500,9 +523,7 @@ CONTAINS
     CALL init_ho_recon_fields   ( p_patch_3D%p_patch_2D(jg),p_patch_3D, p_os(jg), p_op_coeff)
 
     CALL init_ho_lhs_fields_mimetic   ( p_patch_3D )
-    
 
-  ! IF (ltimer) CALL timer_stop(timer_oce_init)
     CALL message (TRIM(routine),'end')
 
   END SUBROUTINE prepare_ho_integration
@@ -547,24 +568,27 @@ CONTAINS
   SUBROUTINE update_intermediate_tracer_vars(p_os)
     TYPE(t_hydro_ocean_state), INTENT(INOUT) :: p_os
 
-    !INTEGER :: it
-
-    ! tracer updates
-!     DO it = 1,no_tracer
-!       !horiz
-!       p_os%p_aux%g_nm1_c_h(:,:,:,it)  = p_os%p_aux%g_n_c_h(:,:,:,it)
-!       p_os%p_aux%g_n_c_h(:,:,:,it)    = 0.0_wp
-!       p_os%p_aux%g_nimd_c_h(:,:,:,it) = 0.0_wp
-! 
-!       !vert
-!       p_os%p_aux%g_nm1_c_v(:,:,:,it)  = p_os%p_aux%g_n_c_v(:,:,:,it)
-!       p_os%p_aux%g_n_c_v(:,:,:,it)    = 0.0_wp
-!       p_os%p_aux%g_nimd_c_v(:,:,:,it) = 0.0_wp
-!     END DO
     ! velocity
     p_os%p_aux%g_nm1 = p_os%p_aux%g_n
     p_os%p_aux%g_n   = 0.0_wp
   END SUBROUTINE update_intermediate_tracer_vars
+
+  SUBROUTINE add_cell_fields(f_a,f_b,subset)
+    REAL(wp),INTENT(INOUT)          :: f_a(:,:,:)
+    REAL(wp),INTENT(IN)             :: f_b(:,:,:)
+    TYPE(t_subset_range),INTENT(IN) :: subset
+
+    INTEGER :: jb,jc,jk,i_startidx_c,i_endidx_c,i
+
+    DO jb = subset%start_block, subset%end_block
+      CALL get_index_range(subset, jb, i_startidx_c, i_endidx_c)
+      DO jk=1,n_zlev
+        DO jc = i_startidx_c, i_endidx_c
+          f_a(jc,jk,jb) = f_a(jc,jk,jb) + f_b(jc,jk,jb)
+        END DO
+      END DO
+    END DO
+  END SUBROUTINE add_cell_fields
 
 END MODULE mo_hydro_ocean_run
 
