@@ -1316,7 +1316,7 @@ CONTAINS
 !                   trust this way that much!). For now it works with LS radiative forcing. 
 !                   Interactive radiation can be included as an alternative later on.
 !-----------------------------------------------------------------------------------------     
-    IF(lcall_ls_forcing .OR. lcall_phy_jg(itradheat))THEN  
+    IF(lcall_ls_forcing)THEN  
 
       IF (p_test_run) THEN
         z_ddt_u_tot = 0._wp
@@ -1771,8 +1771,7 @@ CONTAINS
           DO jc = i_startidx, i_endidx
 
             pt_prog_rcf%tracer(jc,jk,jb,jt) =MAX(0._wp, pt_prog_rcf%tracer(jc,jk,jb,jt)    &
-              &                       + pdtime*(prm_nwp_tend%ddt_tracer_pconv(jc,jk,jb,jt) &
-              &                       +         prm_nwp_tend%ddt_tracer_ls(jk,jt)) )
+              &                       + pdtime*prm_nwp_tend%ddt_tracer_pconv(jc,jk,jb,jt))
           ENDDO
         ENDDO
       ENDDO
@@ -1809,6 +1808,24 @@ CONTAINS
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
+    IF(is_ls_forcing)THEN
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,jk,jc,jt,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
+      DO jb = i_startblk, i_endblk
+        CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
+                           i_startidx, i_endidx, rl_start, rl_end)
+        DO jt=1, nqtendphy  ! qv,qc,qi
+          DO jk = kstart_moist(jg), nlev
+            DO jc = i_startidx, i_endidx
+              pt_prog_rcf%tracer(jc,jk,jb,jt) =MAX(0._wp, pt_prog_rcf%tracer(jc,jk,jb,jt)    &
+                &                       + pdtime*prm_nwp_tend%ddt_tracer_ls(jk,jt))
+            ENDDO
+          ENDDO
+        ENDDO
+      END DO
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+    END IF
 
   END SUBROUTINE nh_update_prog_phy
 
