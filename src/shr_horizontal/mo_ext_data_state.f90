@@ -618,21 +618,11 @@ CONTAINS
     grib2_desc = t_grib2_var( 2, 0, 192, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_ext_atm_list, 'fr_glac', p_ext_atm%fr_glac,   &
       &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
-      &           grib2_desc, ldims=shape2d_c, loutput=.FALSE. )
+      &           grib2_desc, ldims=shape2d_c, loutput=.TRUE. )
 
 
-    ! maybe the next two (ice, fr_land_smt)
+    ! maybe the next one (fr_land_smt)
     ! should be moved into corresponding if block
-
-    ! sea Ice fraction
-    !
-    ! fr_ice       p_ext_atm%fr_ice(nproma,nblks_c)
-    cf_desc    = t_cf_var('Sea_ice_fraction', '-', 'Sea ice fraction', DATATYPE_FLT32)
-    grib2_desc = t_grib2_var( 10, 2, 0, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( p_ext_atm_list, 'fr_ice', p_ext_atm%fr_ice,     &
-      &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
-      &           grib2_desc, ldims=shape2d_c, loutput=.FALSE. )
-
 
     ! land fraction (smoothed)
     !
@@ -2241,7 +2231,7 @@ CONTAINS
 
           CALL read_netcdf_data (ncid, 'ICE', p_patch(jg)%n_patch_cells_g,                &
             &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-            &                     ext_data(jg)%atm%fr_ice)
+            &                     ext_data(jg)%atm%fr_glac)
 
 
           SELECT CASE ( iforcing )
@@ -2463,15 +2453,9 @@ CONTAINS
             ! because the start index is missing in RRTM
             DO jc = 1,i_endidx
               ext_data(jg)%atm%fr_land_smt(jc,jb) = ext_data(jg)%atm%fr_land(jc,jb)
-            ENDDO
-
-            ! glacier fraction (still missing): QUICK FIX
-            DO jc = 1,i_endidx
-              IF ( ext_data(jg)%atm%soiltyp(jc,jb) == 1 ) THEN   ! 1: ice
-                ext_data(jg)%atm%fr_glac(jc,jb) = 1._wp
-              ENDIF
               ext_data(jg)%atm%fr_glac_smt(jc,jb) = ext_data(jg)%atm%fr_glac(jc,jb)
             ENDDO
+
           ENDDO
 
 

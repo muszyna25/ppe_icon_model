@@ -107,10 +107,6 @@ MODULE mo_ext_data_types
       &  fr_glac(:,:)          ! 1.0 indicates 100% glacier
                                ! index1=1,nproma, index2=1,nblks_c    
 
-    REAL(wp), POINTER ::   &   !< fraction sea ice cover in a grid element [ ]
-      &  fr_ice(:,:)           ! 1.0 indicates 100% ice
-                               ! index1=1,nproma, index2=1,nblks_c 
-   
     REAL(wp), POINTER ::   &   !< fraction land in a grid element         [ ]
       &  fr_land_smt(:,:)      !  = smoothed fr_land
 
