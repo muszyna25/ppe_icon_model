@@ -423,14 +423,24 @@ MODULE mo_oce_state
 
   END TYPE t_hydro_ocean_aux
 
+  ! variables to be accumulated
+  TYPE t_hydro_ocean_acc
+    REAL(wp), POINTER :: &
+      & h(:,:)   ,&
+      & u(:,:,:) ,&
+      & v(:,:,:) ,&
+      & tracer(:,:,:,:)
+    TYPE(t_ptr3d),ALLOCATABLE :: tracer_ptr(:)  !< pointer array: one pointer for each tracer
+  END TYPE
+
 !! array of states
 !
   TYPE t_hydro_ocean_state
 
-    TYPE(t_hydro_ocean_prog), POINTER :: p_prog(:)    ! time array of prognostic states at
-                                                        ! different time levels
+    TYPE(t_hydro_ocean_prog), POINTER :: p_prog(:)    ! time array of prognostic states at different time levels
     TYPE(t_hydro_ocean_diag) :: p_diag
     TYPE(t_hydro_ocean_aux)  :: p_aux
+    TYPE(t_hydro_ocean_acc)  :: p_acc
 
   END TYPE t_hydro_ocean_state
 
@@ -532,8 +542,8 @@ CONTAINS
       END DO
 
       CALL construct_hydro_ocean_diag(p_patch(jg), p_os(jg)%p_diag)
-
-      CALL construct_hydro_ocean_aux(p_patch(jg), p_os(jg)%p_aux)
+      CALL construct_hydro_ocean_aux(p_patch(jg),  p_os(jg)%p_aux)
+      CALL construct_hydro_ocean_acc(p_patch(jg),  p_os(jg)%p_acc)
 
       CALL message(TRIM(routine),'construction of hydrostatic ocean state finished')
 
@@ -1630,6 +1640,80 @@ CONTAINS
 
   END SUBROUTINE construct_hydro_ocean_aux
 
+  SUBROUTINE construct_hydro_ocean_acc(p_patch, p_os_acc)
+
+    TYPE(t_patch),TARGET, INTENT(IN)                :: p_patch
+    TYPE(t_hydro_ocean_acc), TARGET,INTENT(INOUT)   :: p_os_acc
+
+    ! local variables
+
+    INTEGER ::  ist, jtrc
+    INTEGER ::  nblks_c, nblks_e, nblks_v
+
+    INTEGER, PARAMETER             :: max_oce_tracer = 2
+    CHARACTER(len=max_char_length) :: oce_tracer_names(max_oce_tracer),&
+    &                                 oce_tracer_units(max_oce_tracer),&
+    &                                 oce_tracer_longnames(max_oce_tracer)
+    INTEGER                        :: oce_tracer_codes(max_oce_tracer)
+    CHARACTER(len=max_char_length) :: var_suffix
+
+
+    !-------------------------------------------------------------------------
+    WRITE(var_suffix,'(a)') '_acc'
+    !-------------------------------------------------------------------------
+
+    ! determine size of arrays
+    nblks_c = p_patch%nblks_c
+    nblks_e = p_patch%nblks_e
+    nblks_v = p_patch%nblks_v
+
+    CALL add_var(ocean_default_list, 'h_acc', p_os_acc%h , &
+    &            GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+    &            t_cf_var('h_acc', 'm', 'surface elevation at cell center', DATATYPE_FLT32),&
+    &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+    &            ldims=(/nproma,nblks_c/))
+    CALL add_var(ocean_default_list, 'u_acc', p_os_acc%u, GRID_UNSTRUCTURED_CELL, &
+    &            ZA_DEPTH_BELOW_SEA, &
+    &            t_cf_var('u_acc','m/s','u velocity component', DATATYPE_FLT32),&
+    &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+    &            ldims=(/nproma,n_zlev,nblks_c/))
+    ! reconstructed v velocity component
+    CALL add_var(ocean_default_list, 'v_acc', p_os_acc%v, GRID_UNSTRUCTURED_CELL, &
+    &            ZA_DEPTH_BELOW_SEA, &
+    &            t_cf_var('v_acc','m/s','v velocity component', DATATYPE_FLT32),&
+    &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+    &            ldims=(/nproma,n_zlev,nblks_c/))
+    IF ( no_tracer > 0 ) THEN
+      CALL set_oce_tracer_info(max_oce_tracer      , &
+        &                      oce_tracer_names    , &
+        &                      oce_tracer_longnames, &
+        &                      oce_tracer_codes    , &
+        &                      oce_tracer_units,var_suffix)
+      CALL add_var(ocean_default_list, 'tracers'//TRIM(var_suffix), p_os_acc%tracer , &
+      &            GRID_UNSTRUCTURED_CELL, ZA_DEPTH_BELOW_SEA, &
+      &            t_cf_var('tracers'//TRIM(var_suffix), '', '1:temperature 2:salinity', &
+      &            DATATYPE_FLT32),&
+      &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+      &            ldims=(/nproma,n_zlev,nblks_c,no_tracer/), &
+      &            lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
+
+      ! Reference to individual tracer, for I/O
+      ALLOCATE(p_os_acc%tracer_ptr(no_tracer))
+      DO jtrc = 1,no_tracer
+        CALL add_ref( ocean_default_list, 'tracers'//TRIM(var_suffix),&
+                    & oce_tracer_names(jtrc),                 &
+                    & p_os_acc%tracer_ptr(jtrc)%p,           &
+                    & GRID_UNSTRUCTURED_CELL, ZA_DEPTH_BELOW_SEA,&
+                    & t_cf_var(oce_tracer_names(jtrc), &
+                    &          oce_tracer_units(jtrc), &
+                    &          oce_tracer_longnames(jtrc), DATATYPE_FLT32), &
+                    & t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+                    & ldims=(/nproma,n_zlev,nblks_c/))
+
+      END DO
+    ENDIF ! no_tracer > 0
+
+  END SUBROUTINE construct_hydro_ocean_acc
   !-------------------------------------------------------------------------
   !>
   !!               Deallocation of auxilliary hydrostatic ocean state.
