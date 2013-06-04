@@ -121,8 +121,9 @@ MODULE mo_oce_state
   PUBLIC :: t_hydro_ocean_base
   PUBLIC :: t_hydro_ocean_state
   PUBLIC :: t_hydro_ocean_prog
-  PUBLIC :: t_hydro_ocean_aux
   PUBLIC :: t_hydro_ocean_diag
+  PUBLIC :: t_hydro_ocean_aux
+  PUBLIC :: t_hydro_ocean_acc
   PUBLIC :: t_ptr3d
   PUBLIC :: t_oce_config
 
@@ -457,7 +458,6 @@ MODULE mo_oce_state
   ! variables
   TYPE(t_var_list)         , PUBLIC                      :: ocean_restart_list
   TYPE(t_var_list)         , PUBLIC                      :: ocean_default_list
-  !TYPE(t_hydro_ocean_state), PUBLIC, TARGET, ALLOCATABLE :: v_ocean_state(:)
   TYPE(t_hydro_ocean_base) , PUBLIC, TARGET              :: v_base
   TYPE(t_oce_config)       , PUBLIC                      :: oce_config
 

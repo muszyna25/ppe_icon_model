@@ -72,7 +72,7 @@ USE mo_oce_ab_timestepping,    ONLY: solve_free_surface_eq_ab, &
 USE mo_oce_init,               ONLY: init_ho_testcases, init_ho_prog, init_ho_coupled,&
   &                                  init_ho_recon_fields, init_ho_relaxation, init_oce_index
 USE mo_util_dbg_prnt,          ONLY: init_dbg_index, dbg_print
-USE mo_oce_state,              ONLY: t_hydro_ocean_state, &
+USE mo_oce_state,              ONLY: t_hydro_ocean_state, t_hydro_ocean_acc, &
   &                                  init_ho_base, init_ho_basins, v_base, &
   &                                  construct_hydro_ocean_base, &! destruct_hydro_ocean_base, &
   &                                  construct_hydro_ocean_state, destruct_hydro_ocean_state, &
@@ -133,6 +133,10 @@ PUBLIC :: prepare_ho_integration
 PUBLIC :: finalise_ho_integration
 PRIVATE:: update_intermediate_tracer_vars
 !
+INTERFACE add_fields
+  MODULE PROCEDURE add_fields_3d
+  MODULE PROCEDURE add_fields_2d
+END INTERFACE add_fields
 !
 !-------------------------------------------------------------------------
 
@@ -312,8 +316,6 @@ CONTAINS
 
     ENDIF  ! testcase 28
 
-   ! Actually diagnostics for 3D not implemented, PK March 2011
-
     ! One integration cycle finished on the lowest grid level (coarsest
     ! resolution). Set model time.
     CALL add_time(dtime,0,0,0,datetime)
@@ -325,16 +327,9 @@ CONTAINS
     CALL calc_potential_density( p_patch_3D,                     &
       &                          p_os(jg)%p_prog(nold(1))%tracer,&
       &                          p_os(jg)%p_diag%rhopot )
-    DO jtrc=1,no_tracer
-    CALL add_cell_fields(p_os(1)%p_acc%tracer(:,:,:,jtrc), &
-      &                  p_os(1)%p_prog(nnew(1))%tracer(:,:,:,jtrc), &
-      &                  p_patch_3D%p_patch_2D(1)%cells%owned)
-    END DO
-    CALL add_cell_fields(p_os(1)%p_acc%u, p_os(1)%p_diag%u, p_patch_3D%p_patch_2D(1)%cells%owned)
-    CALL add_cell_fields(p_os(1)%p_acc%v, p_os(1)%p_diag%v, p_patch_3D%p_patch_2D(1)%cells%owned)
-    CALL add_cell_fields(p_os(1)%p_acc%rhopot,  &
-                         p_os(1)%p_diag%rhopot, &
-                         p_patch_3D%p_patch_2D(1)%cells%owned)
+
+    ! update accumulated vars
+    CALL update_ocean_statistics(p_os(1),p_sfc_flx,p_patch_3D%p_patch_2D(1)%cells%owned)
 
     IF (is_output_time(jstep) .OR. istime4name_list_output(time_config%sim_time(1))) THEN 
       IF (idiag_oce == 1 ) THEN
@@ -355,10 +350,7 @@ CONTAINS
         !CALL add_statistic_to(ocean_statistics, 1.1_wp)
       ENDIF
       ! compute mean values for output interval
-      p_os(1)%p_acc%tracer = p_os(1)%p_acc%tracer/REAL(nsteps_since_last_output,wp)
-      p_os(1)%p_acc%u      = p_os(1)%p_acc%u/REAL(nsteps_since_last_output,wp)
-      p_os(1)%p_acc%v      = p_os(1)%p_acc%v/REAL(nsteps_since_last_output,wp)
-      p_os(1)%p_acc%rhopot = p_os(1)%p_acc%rhopot/REAL(nsteps_since_last_output,wp)
+      CALL compute_mean_ocean_statistics(p_os(1)%p_acc,p_sfc_flx,nsteps_since_last_output)
 
       IF (output_mode%l_nml) THEN
         CALL write_name_list_output( datetime, time_config%sim_time(1), jstep==nsteps)
@@ -372,11 +364,7 @@ CONTAINS
       l_have_output = .TRUE.
 
       ! reset accumulation vars
-      p_os(1)%p_acc%tracer     = 0.0_wp
-      p_os(1)%p_acc%u          = 0.0_wp
-      p_os(1)%p_acc%v          = 0.0_wp
-      p_os(1)%p_acc%rhopot     = 0.0_wp
-      nsteps_since_last_output = 0
+      CALL reset_ocean_statistics(p_os(1)%p_acc,p_sfc_flx,nsteps_since_last_output)
 
     END IF
 
@@ -573,7 +561,48 @@ CONTAINS
     p_os%p_aux%g_n   = 0.0_wp
   END SUBROUTINE update_intermediate_tracer_vars
 
-  SUBROUTINE add_cell_fields(f_a,f_b,subset)
+  SUBROUTINE update_ocean_statistics(p_os,p_sfc_flx,subset)
+    TYPE(t_hydro_ocean_state), INTENT(INOUT) :: p_os
+    TYPE(t_sfc_flx),           INTENT(INOUT) :: p_sfc_flx
+    TYPE(t_subset_range),INTENT(IN) :: subset
+
+    INTEGER :: jtrc,i
+
+
+    ! update ocean state accs
+    CALL add_fields(p_os%p_acc%u, p_os%p_diag%u, subset)
+    CALL add_fields(p_os%p_acc%v, p_os%p_diag%v, subset)
+    CALL add_fields(p_os%p_acc%rhopot,p_os%p_diag%rhopot,subset)
+    DO jtrc=1,no_tracer
+    CALL add_fields(p_os%p_acc%tracer(:,:,:,jtrc), &
+      &                  p_os%p_prog(nnew(1))%tracer(:,:,:,jtrc), &
+      &                  subset)
+    END DO
+
+    ! update forcing accs
+  END SUBROUTINE update_ocean_statistics
+  SUBROUTINE compute_mean_ocean_statistics(p_acc,p_sfc_flx,nsteps_since_last_output)
+    TYPE(t_hydro_ocean_acc), INTENT(INOUT) :: p_acc
+    TYPE(t_sfc_flx),         INTENT(INOUT) :: p_sfc_flx
+    INTEGER,INTENT(IN)                     :: nsteps_since_last_output
+
+    p_acc%tracer = p_acc%tracer/REAL(nsteps_since_last_output,wp)
+    p_acc%u      = p_acc%u/REAL(nsteps_since_last_output,wp)
+    p_acc%v      = p_acc%v/REAL(nsteps_since_last_output,wp)
+    p_acc%rhopot = p_acc%rhopot/REAL(nsteps_since_last_output,wp)
+  END SUBROUTINE compute_mean_ocean_statistics
+  SUBROUTINE reset_ocean_statistics(p_acc,p_sfc_flx,nsteps_since_last_output)
+    TYPE(t_hydro_ocean_acc), INTENT(INOUT) :: p_acc
+    TYPE(t_sfc_flx),         INTENT(INOUT) :: p_sfc_flx
+    INTEGER,                 INTENT(INOUT) :: nsteps_since_last_output
+
+    p_acc%tracer             = 0.0_wp
+    p_acc%u                  = 0.0_wp
+    p_acc%v                  = 0.0_wp
+    p_acc%rhopot             = 0.0_wp
+    nsteps_since_last_output = 0
+  END SUBROUTINE reset_ocean_statistics
+  SUBROUTINE add_fields_3d(f_a,f_b,subset)
     REAL(wp),INTENT(INOUT)          :: f_a(:,:,:)
     REAL(wp),INTENT(IN)             :: f_b(:,:,:)
     TYPE(t_subset_range),INTENT(IN) :: subset
@@ -588,7 +617,19 @@ CONTAINS
         END DO
       END DO
     END DO
-  END SUBROUTINE add_cell_fields
+  END SUBROUTINE add_fields_3d
+  SUBROUTINE add_fields_2d(f_a,f_b,subset)
+    REAL(wp),INTENT(INOUT)          :: f_a(:,:)
+    REAL(wp),INTENT(IN)             :: f_b(:,:)
+    TYPE(t_subset_range),INTENT(IN) :: subset
 
+    INTEGER :: jb,jc,jk,i_startidx_c,i_endidx_c,i
+
+    DO jb = subset%start_block, subset%end_block
+      CALL get_index_range(subset, jb, i_startidx_c, i_endidx_c)
+      DO jc = i_startidx_c, i_endidx_c
+        f_a(jc,jb) = f_a(jc,jb) + f_b(jc,jb)
+      END DO
+    END DO
+  END SUBROUTINE add_fields_2d
 END MODULE mo_hydro_ocean_run
-

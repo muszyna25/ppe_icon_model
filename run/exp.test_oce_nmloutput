@@ -85,11 +85,11 @@ iforc_len=365  # length of OMIP/NCEP dataset: 1 = annual; 12 = monthly data; 365
 #-----------------------------------------------------------------------------
 # global timing
 start_date="2001-01-01T00:00:00Z"
-  end_date="2001-01-02T00:00:00Z"
+  end_date="2001-01-01T12:00:00Z"
 #
 #-----------------------------------------------------------------------------
 # model timing
-nhours_data=24
+nhours_data=2
 ndays_file=3750      # new output file generation interval [days]
 ndays_checkp=1850    # write restart file interval [days]
 ndays_restart=10
@@ -145,7 +145,7 @@ cat > ${ocean_namelist} << EOF
   include_last     = .TRUE.
   output_grid      = .TRUE.
   output_filename  = "${EXPNAME}_nmlOuput"
-  ml_varlist       = 't','s','u','v','t_acc','s_acc','u_acc','v_acc','rhopot','rhopot_acc','wet_c'
+  ml_varlist       = 't','s','u','v','t_acc','s_acc','u_acc','v_acc','rhopot','rhopot_acc','wet_c','forc_runoff_acc'
 ! ml_varlist       = 'h','s','t','rho','w','v','u','vt','vn','kin','div','grad','rhopot','w_e',
 ! 'press_grad', 'press_hyd','veloc_adv_vert','veloc_adv_horz','laplacian_horz','laplacian_vert',
 ! 'temp_insitu','div_mass_flx_c','mass_flux','wet_c','wet_e','T1','T2','alb','Tsurf','hi','hs','conc','concSum',
