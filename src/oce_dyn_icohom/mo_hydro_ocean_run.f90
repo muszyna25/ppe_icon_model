@@ -347,7 +347,6 @@ CONTAINS
           &                        p_os(jg)%p_prog(nold(1))%h(:,:), &
           &                        p_os(jg)%p_diag%u_vint, datetime)
 
-        !CALL add_statistic_to(ocean_statistics, 1.1_wp)
       ENDIF
       ! compute mean values for output interval
       CALL compute_mean_ocean_statistics(p_os(1)%p_acc,p_sfc_flx,nsteps_since_last_output)
@@ -580,27 +579,78 @@ CONTAINS
     END DO
 
     ! update forcing accs
+    CALL add_fields(p_sfc_flx%forc_wind_u_acc  , p_sfc_flx%forc_wind_u  , subset)
+    CALL add_fields(p_sfc_flx%forc_wind_v_acc  , p_sfc_flx%forc_wind_v  , subset)
+    CALL add_fields(p_sfc_flx%forc_swflx_acc   , p_sfc_flx%forc_swflx   , subset)
+    CALL add_fields(p_sfc_flx%forc_lwflx_acc   , p_sfc_flx%forc_lwflx   , subset)
+    CALL add_fields(p_sfc_flx%forc_ssflx_acc   , p_sfc_flx%forc_ssflx   , subset)
+    CALL add_fields(p_sfc_flx%forc_slflx_acc   , p_sfc_flx%forc_slflx   , subset)
+    CALL add_fields(p_sfc_flx%forc_precip_acc  , p_sfc_flx%forc_precip  , subset)
+    CALL add_fields(p_sfc_flx%forc_evap_acc    , p_sfc_flx%forc_evap    , subset)
+    CALL add_fields(p_sfc_flx%forc_runoff_acc  , p_sfc_flx%forc_runoff  , subset)
+    CALL add_fields(p_sfc_flx%forc_fwbc_acc    , p_sfc_flx%forc_fwbc    , subset)
+    CALL add_fields(p_sfc_flx%forc_fwrelax_acc , p_sfc_flx%forc_fwrelax , subset)
+    CALL add_fields(p_sfc_flx%forc_fwfx_acc    , p_sfc_flx%forc_fwfx    , subset)
+    CALL add_fields(p_sfc_flx%forc_hfrelax_acc , p_sfc_flx%forc_hfrelax , subset)
+    CALL add_fields(p_sfc_flx%forc_hflx_acc    , p_sfc_flx%forc_hflx    , subset)
+    DO jtrc=1,no_tracer
+      CALL add_fields(p_sfc_flx%forc_tracer_acc(:,:,jtrc), p_sfc_flx%forc_tracer(:,:,jtrc), subset)
+      CALL add_fields(p_sfc_flx%forc_tracer_relax_acc(:,:,jtrc), p_sfc_flx%forc_tracer_relax(:,:,jtrc), subset)
+    END DO
   END SUBROUTINE update_ocean_statistics
   SUBROUTINE compute_mean_ocean_statistics(p_acc,p_sfc_flx,nsteps_since_last_output)
     TYPE(t_hydro_ocean_acc), INTENT(INOUT) :: p_acc
     TYPE(t_sfc_flx),         INTENT(INOUT) :: p_sfc_flx
     INTEGER,INTENT(IN)                     :: nsteps_since_last_output
 
-    p_acc%tracer = p_acc%tracer/REAL(nsteps_since_last_output,wp)
-    p_acc%u      = p_acc%u/REAL(nsteps_since_last_output,wp)
-    p_acc%v      = p_acc%v/REAL(nsteps_since_last_output,wp)
-    p_acc%rhopot = p_acc%rhopot/REAL(nsteps_since_last_output,wp)
+    p_acc%tracer                    = p_acc%tracer/REAL(nsteps_since_last_output,wp)
+    p_acc%u                         = p_acc%u/REAL(nsteps_since_last_output,wp)
+    p_acc%v                         = p_acc%v/REAL(nsteps_since_last_output,wp)
+    p_acc%rhopot                    = p_acc%rhopot/REAL(nsteps_since_last_output,wp)
+    p_sfc_flx%forc_wind_u_acc       = p_sfc_flx%forc_wind_u_acc/REAL(nsteps_since_last_output,wp)
+    p_sfc_flx%forc_wind_v_acc       = p_sfc_flx%forc_wind_v_acc/REAL(nsteps_since_last_output,wp)
+    p_sfc_flx%forc_swflx_acc        = p_sfc_flx%forc_swflx_acc/REAL(nsteps_since_last_output,wp)
+    p_sfc_flx%forc_lwflx_acc        = p_sfc_flx%forc_lwflx_acc/REAL(nsteps_since_last_output,wp)
+    p_sfc_flx%forc_ssflx_acc        = p_sfc_flx%forc_ssflx_acc/REAL(nsteps_since_last_output,wp)
+    p_sfc_flx%forc_slflx_acc        = p_sfc_flx%forc_slflx_acc/REAL(nsteps_since_last_output,wp)
+    p_sfc_flx%forc_precip_acc       = p_sfc_flx%forc_precip_acc/REAL(nsteps_since_last_output,wp)
+    p_sfc_flx%forc_evap_acc         = p_sfc_flx%forc_evap_acc/REAL(nsteps_since_last_output,wp)
+    p_sfc_flx%forc_runoff_acc       = p_sfc_flx%forc_runoff_acc/REAL(nsteps_since_last_output,wp)
+    p_sfc_flx%forc_fwbc_acc         = p_sfc_flx%forc_fwbc_acc/REAL(nsteps_since_last_output,wp)
+    p_sfc_flx%forc_fwrelax_acc      = p_sfc_flx%forc_fwrelax_acc/REAL(nsteps_since_last_output,wp)
+    p_sfc_flx%forc_fwfx_acc         = p_sfc_flx%forc_fwfx_acc/REAL(nsteps_since_last_output,wp)
+    p_sfc_flx%forc_hfrelax_acc      = p_sfc_flx%forc_hfrelax_acc/REAL(nsteps_since_last_output,wp)
+    p_sfc_flx%forc_hflx_acc         = p_sfc_flx%forc_hflx_acc/REAL(nsteps_since_last_output,wp)
+    p_sfc_flx%forc_tracer_acc       = p_sfc_flx%forc_tracer_acc/REAL(nsteps_since_last_output,wp)
+    p_sfc_flx%forc_tracer_relax_acc = p_sfc_flx%forc_tracer_relax_acc/REAL(nsteps_since_last_output,wp)
   END SUBROUTINE compute_mean_ocean_statistics
   SUBROUTINE reset_ocean_statistics(p_acc,p_sfc_flx,nsteps_since_last_output)
     TYPE(t_hydro_ocean_acc), INTENT(INOUT) :: p_acc
     TYPE(t_sfc_flx),         INTENT(INOUT) :: p_sfc_flx
     INTEGER,                 INTENT(INOUT) :: nsteps_since_last_output
 
-    p_acc%tracer             = 0.0_wp
-    p_acc%u                  = 0.0_wp
-    p_acc%v                  = 0.0_wp
-    p_acc%rhopot             = 0.0_wp
-    nsteps_since_last_output = 0
+    nsteps_since_last_output        = 0
+    p_acc%tracer                    = 0.0_wp
+    p_acc%u                         = 0.0_wp
+    p_acc%v                         = 0.0_wp
+    p_acc%rhopot                    = 0.0_wp
+    p_sfc_flx%forc_wind_u_acc       = 0.0_wp
+    p_sfc_flx%forc_wind_v_acc       = 0.0_wp
+    p_sfc_flx%forc_swflx_acc        = 0.0_wp
+    p_sfc_flx%forc_lwflx_acc        = 0.0_wp
+    p_sfc_flx%forc_ssflx_acc        = 0.0_wp
+    p_sfc_flx%forc_slflx_acc        = 0.0_wp
+    p_sfc_flx%forc_precip_acc       = 0.0_wp
+    p_sfc_flx%forc_evap_acc         = 0.0_wp
+    p_sfc_flx%forc_runoff_acc       = 0.0_wp
+    p_sfc_flx%forc_fwbc_acc         = 0.0_wp
+    p_sfc_flx%forc_fwrelax_acc      = 0.0_wp
+    p_sfc_flx%forc_fwfx_acc         = 0.0_wp
+    p_sfc_flx%forc_hfrelax_acc      = 0.0_wp
+    p_sfc_flx%forc_hflx_acc         = 0.0_wp
+    p_sfc_flx%forc_tracer_acc       = 0.0_wp
+    p_sfc_flx%forc_tracer_relax_acc = 0.0_wp
+
   END SUBROUTINE reset_ocean_statistics
   SUBROUTINE add_fields_3d(f_a,f_b,subset)
     REAL(wp),INTENT(INOUT)          :: f_a(:,:,:)

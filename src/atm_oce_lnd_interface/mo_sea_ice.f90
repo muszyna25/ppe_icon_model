@@ -538,30 +538,10 @@ CONTAINS
       CALL finish(TRIM(routine),'allocation for forcing wind_cc  failed')
     END IF
 
-    p_sfc_flx%forc_wind_u(:,:)       = 0.0_wp
-    p_sfc_flx%forc_wind_v(:,:)       = 0.0_wp
-    
     ! init of cartesian coordinates:
     p_sfc_flx%forc_wind_cc(:,:)%x(1) = 0.0_wp
     p_sfc_flx%forc_wind_cc(:,:)%x(2) = 0.0_wp
     p_sfc_flx%forc_wind_cc(:,:)%x(3) = 0.0_wp
-
-    IF(no_tracer>=1)THEN
-      p_sfc_flx%forc_hflx        (:,:)    = 0.0_wp
-      p_sfc_flx%forc_fwfx        (:,:)    = 0.0_wp
-      p_sfc_flx%forc_swflx       (:,:)    = 0.0_wp
-      p_sfc_flx%forc_lwflx       (:,:)    = 0.0_wp
-      p_sfc_flx%forc_ssflx       (:,:)    = 0.0_wp
-      p_sfc_flx%forc_slflx       (:,:)    = 0.0_wp
-      p_sfc_flx%forc_precip      (:,:)    = 0.0_wp
-      p_sfc_flx%forc_evap        (:,:)    = 0.0_wp
-      p_sfc_flx%forc_runoff      (:,:)    = 0.0_wp
-      p_sfc_flx%forc_fwbc        (:,:)    = 0.0_wp
-      p_sfc_flx%forc_hfrelax     (:,:)    = 0.0_wp
-      p_sfc_flx%forc_fwrelax     (:,:)    = 0.0_wp
-      p_sfc_flx%forc_tracer      (:,:,:)  = 0.0_wp
-      p_sfc_flx%forc_tracer_relax(:,:,:)  = 0.0_wp
-    ENDIF
 
     CALL message(TRIM(routine), 'end' )
 
