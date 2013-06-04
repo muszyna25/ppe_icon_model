@@ -170,7 +170,7 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
     CALL message('mo_nwp_turbdiff:', '3D turbulence')
     CALL drive_subgrid_diffusion(p_prog,       & !inout for w (it is updated inside)
                                  p_prog_rcf,   & !in
-                                 p_diag,       & !in
+                                 p_diag,       & !inout
                                  p_metrics,    & !in
                                  p_patch,      & !in
                                  p_int,        & !in
