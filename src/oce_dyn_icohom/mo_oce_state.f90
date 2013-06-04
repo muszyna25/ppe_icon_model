@@ -554,9 +554,7 @@ CONTAINS
     CHARACTER(len=max_char_length), PARAMETER :: &
       &      routine = 'mo_oce_state:destruct_hydro_ocean_state'
 
-
 !-------------------------------------------------------------------------
-
     CALL message(TRIM(routine), 'start to destruct hydro ocean state ')
 
     prlength = SIZE(p_os(1)%p_prog)
@@ -569,8 +567,6 @@ CONTAINS
     CALL delete_var_list(ocean_default_list)
 
     DO jg = 1, n_dom
-
-
       CALL destruct_hydro_ocean_diag(p_os(jg)%p_diag)
       CALL destruct_hydro_ocean_aux (p_os(jg)%p_aux)
 
@@ -580,7 +576,6 @@ CONTAINS
       IF (ist/=SUCCESS) THEN
          CALL finish(TRIM(routine),'deallocation of state array failed')
       END IF
-
     END DO
 
     CALL message(TRIM(routine),'destruction of hydrostatic ocean state finished')
