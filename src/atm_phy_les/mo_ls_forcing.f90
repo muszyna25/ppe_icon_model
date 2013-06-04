@@ -3,6 +3,8 @@
 !!
 !! This module initializes and applies the large-scale forcing for idealized simulations
 !! This module assumes that the model grid is FLAT
+!! 2013-JUNE-04: AT THIS STAGE LS FORCING WILL WORK IN RESTART MODE ONLY IF ITS CALLED EVERY 
+!! DYNAMIC TIMESTEP. TO MAKE IT WORK "SMOOTHLY" ADD_VAR HAS TO WORK ON 1D VARS
 !!
 !! @author Anurag Dipankar, MPI-M
 !!
