@@ -1575,7 +1575,7 @@ CONTAINS
     ! #slo# 2013-06
     ! Change in salinity is calculated according to resulting freshwater flux due to sea ice change:
     !  - fwsice is flux in m/s >0 for Delhice<0, i.e. positive input of water = decrease of sea ice depth
-    !  - no snow and no salinity of sea ice yet
+    !  - no snow and no salinity of sea ice (Sice in mo_physical_constants)  yet
     !p_sfc_flx%forc_fwsice(:,:) = -Delhice(:,:)*rhoi - snowiceave(:,:)*rhos)/(rho_ref*dtime)
     p_sfc_flx%forc_fwsice(:,:) = -Delhice(:,:)*rhoi/(rho_ref*dtime)
 
