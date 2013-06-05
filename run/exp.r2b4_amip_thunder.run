@@ -563,19 +563,22 @@ do
 done
 
 # - sst and sic
-cp -f $INDATA/r2b4_amip/oce/bc_sic_pcmdi_1870-2010.nc       ./bc_sic.nc
-cp -f $INDATA/r2b4_amip/oce/bc_sst_pcmdi_1870-2010.nc       ./bc_sst.nc
+cp -f $INDATA/r2b4_amip/oce/bc_sic_pcmdi_1870-2010.nc            ./bc_sic.nc
+cp -f $INDATA/r2b4_amip/oce/bc_sst_pcmdi_1870-2010.nc            ./bc_sst.nc
+
+# - ssi and tsi
+cp -f $INDATA/global/sun/bc_solar_irradiance_14band_1849-2399.nc ./bc_ssi.nc
 
 # - land parameters
-cp -f $INDATA/r2b4_amip/lnd/bc_land_frac.nc                 ./
-cp -f $INDATA/r2b4_amip/lnd/bc_land_phys.nc                 ./
-cp -f $INDATA/r2b4_amip/lnd/bc_land_soil.nc                 ./
-cp -f $INDATA/r2b4_amip/lnd/bc_land_sso.nc                  ./
+cp -f $INDATA/r2b4_amip/lnd/bc_land_frac.nc                      ./
+cp -f $INDATA/r2b4_amip/lnd/bc_land_phys.nc                      ./
+cp -f $INDATA/r2b4_amip/lnd/bc_land_soil.nc                      ./
+cp -f $INDATA/r2b4_amip/lnd/bc_land_sso.nc                       ./
 
 #__________________________________________________________________________________________________
 # copy dictionary file for variable names
 
-cp -f ${basedir}/run/${dict_file}                           ./
+cp -f ${basedir}/run/${dict_file}                                ./
 
 #__________________________________________________________________________________________________
 # copy restart files eventually
