@@ -35,7 +35,7 @@
 !! liability or responsibility for the use, acquisition or application of this
 !! software.
 !-------------------------------------------------------------------------------------
-MODULE mo_statistics_utils
+MODULE mo_statistics
   !-------------------------------------------------------------------------
   USE mo_kind,               ONLY: wp
   USE mo_exception,          ONLY: message_text, message, warning, finish
@@ -150,7 +150,7 @@ CONTAINS
     INTEGER :: jb, level, startidx, endidx, start_vertical, end_vertical, number_of_values
     INTEGER :: communicator
 !    INTEGER :: idx
-    CHARACTER(LEN=*), PARAMETER :: method_name='mo_statistics_utils:arc_length'
+    CHARACTER(LEN=*), PARAMETER :: method_name='mo_statistics:arc_length'
 
 
     IF (PRESENT(start_level)) THEN
@@ -246,5 +246,4 @@ CONTAINS
 
 
 
-END MODULE mo_statistics_utils
-
+END MODULE mo_statistics

@@ -55,7 +55,7 @@ USE mo_math_constants,         ONLY: pi
 USE mo_exception,              ONLY: message, message_text
 USE mo_model_domain,           ONLY: t_patch
 USE mo_grid_subset,            ONLY: t_subset_range
-USE mo_statistics_utils,       ONLY: global_minmaxmean
+USE mo_statistics,             ONLY: global_minmaxmean
 USE mo_icon_comm_interface,    ONLY: icon_comm_barrier
 
 IMPLICIT NONE
