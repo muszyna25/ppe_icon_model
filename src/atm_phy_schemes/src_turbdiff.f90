@@ -4266,8 +4266,8 @@ REAL (KIND=ireals) :: &
 
          DO k=2, kem
             DO i=istartpar,iendpar
-               tkvh(i,k)=tkvh(i,k)*tke(i,k,ntur)
-               tkvm(i,k)=tkvm(i,k)*tke(i,k,ntur)
+               tkvh(i,k)=MAX( con_h, tkhmin, tkvh(i,k)*tke(i,k,ntur) )
+               tkvm(i,k)=MAX( con_m, tkmmin, tkvm(i,k)*tke(i,k,ntur) )
             END DO
          END DO
  
