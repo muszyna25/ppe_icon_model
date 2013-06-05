@@ -46,7 +46,7 @@ MODULE mo_grid_decomposition
   USE mo_local_grid
   USE mo_grid_toolbox,       ONLY: add_to_list_if_not_exist
   USE mo_io_local_grid,      ONLY: read_new_netcdf_grid, write_netcdf_grid
-  USE mo_statistics_tools
+  USE mo_statistics
   USE mo_decomposition_tools
 
   IMPLICIT NONE

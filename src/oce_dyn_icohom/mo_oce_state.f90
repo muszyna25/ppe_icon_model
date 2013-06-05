@@ -348,44 +348,6 @@ MODULE mo_oce_state
                                  ! dimension: (nproma, n_zlev, nblks_e)
       &  g_nimd(:,:,:)           ! explicit velocity term in Adams-Bashford time marching routines,
                                  ! located at intermediate timelevel
-
-      ! Variables for each tracer currently not needed (only for AB-timestepping in tracer variables)
-! !     REAL(wp), POINTER ::       &
-! !       &  g_n_c_h(:,:,:,:)        ! explicit tracer term in Adams-Bashford time marching routines,
-! !                                  ! at timelevel n for each tracer, horizontal
-! !                                  ! dimension: (nproma, n_zlev, nblks_c, no_tracer )
-! !     TYPE(t_ptr3d),ALLOCATABLE :: g_n_c_h_tracer_ptr(:)   !< pointer array: one pointer for each tracer
-! !
-! !     REAL(wp), POINTER ::       &
-! !       &  g_nm1_c_h(:,:,:,:)      ! explicit tracer term in Adams-Bashford time marching routines,
-! !                                  ! at timelevel n-1 for each tracer, horizontal
-! !                                  ! dimension: (nproma, n_zlev, nblks_c, no_tracer)
-! !     TYPE(t_ptr3d),ALLOCATABLE :: g_nm1_c_h_tracer_ptr(:)   !< pointer array: one pointer for each tracer
-! !
-! !     REAL(wp), POINTER ::       &
-! !       &  g_nimd_c_h(:,:,:,:)     ! explicit tracer term in Adams-Bashford time marching routines,
-! !                                  ! located at intermediate timelevel for each tracer, horizontal
-! !                                  ! dimension: (nproma, n_zlev, nblks_c,no_tracer )
-! !     TYPE(t_ptr3d),ALLOCATABLE :: g_nimd_c_h_tracer_ptr(:)   !< pointer array: one pointer for each tracer
-! !
-! !     REAL(wp), POINTER ::       &
-! !       &  g_n_c_v(:,:,:,:)        ! explicit tracer term in Adams-Bashford time marching routines,
-! !                                  ! at timelevel n for each tracer, vertical
-! !                                  ! dimension: (nproma, n_zlev, nblks_c, no_tracer )
-! !     TYPE(t_ptr3d),ALLOCATABLE :: g_n_c_v_tracer_ptr(:)   !< pointer array: one pointer for each tracer
-! !
-! !     REAL(wp), POINTER ::       &
-! !       &  g_nm1_c_v(:,:,:,:)      ! explicit tracer term in Adams-Bashford time marching routines,
-! !                                  ! at timelevel n-1 for each tracer, vertical
-! !                                  ! dimension: (nproma, n_zlev, nblks_c, no_tracer)
-! !     TYPE(t_ptr3d),ALLOCATABLE :: g_nm1_c_v_tracer_ptr(:)   !< pointer array: one pointer for each tracer
-! !
-! !     REAL(wp), POINTER ::       &
-! !       &  g_nimd_c_v(:,:,:,:)     ! explicit tracer term in Adams-Bashford time marching routines,
-! !                                  ! located at intermediate timelevel for each tracer, vertical
-! !                                  ! dimension: (nproma, n_zlev, nblks_c,no_tracer )
-! !     TYPE(t_ptr3d),ALLOCATABLE :: g_nimd_c_v_tracer_ptr(:)  !< pointer array: one pointer for each tracer
-
     REAL(wp), POINTER ::       &
       &  bc_top_vn(:,:)       ,& ! normal velocity boundary condition at surface
                                  ! dimension: (nproma,nblks_e)

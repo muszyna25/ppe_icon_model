@@ -239,14 +239,12 @@ CONTAINS
       global_number_of_values = p_sum( REAL(number_of_values,wp),  comm=communicator)
       minmaxmean(3) = p_sum( sum_value,  comm=communicator) / global_number_of_values
 
- !     write(0,*) "globalspace_2D_minmaxmean parallel:",  sum_value, number_of_values
 
     ELSE
 
       minmaxmean(1) = min_value
       minmaxmean(2) = max_value
       minmaxmean(3) = sum_value / REAL(number_of_values, wp)
-  !    write(0,*) "globalspace_2D_minmaxmean seq:", min_value, max_value, sum_value, number_of_values
 
     ENDIF
 
@@ -279,7 +277,6 @@ CONTAINS
     ELSE
       end_vertical = SIZE(values, 2)
     ENDIF
-    ! write(0,*) "start_vertical, end_vertical:", start_vertical, end_vertical
     IF (start_vertical > end_vertical) &
       CALL finish(method_name, "start_vertical > end_vertical")
 
@@ -381,7 +378,6 @@ CONTAINS
   END SUBROUTINE delete_statistic_operator
   !-----------------------------------------------------------------------
 
-
   !-----------------------------------------------------------------------
   !>
   !! Creates a new statistics object and returns its id.
@@ -462,7 +458,6 @@ CONTAINS
   END SUBROUTINE set_mode
   !-----------------------------------------------------------------------
 
-
   !-----------------------------------------------------------------------
   !>
   !! Deletes the statistic object.
@@ -523,7 +518,6 @@ CONTAINS
   END SUBROUTINE add_statistic_one_value
   !-----------------------------------------------------------------------
 
-
   !-----------------------------------------------------------------------
   !>
   SUBROUTINE add_statistic_two_values(statistic_id, value1, value2)
@@ -582,7 +576,6 @@ CONTAINS
 
   END FUNCTION mean_statistic
   !-----------------------------------------------------------------------
-
 
   !-----------------------------------------------------------------------
   !>
