@@ -145,7 +145,8 @@ cat > ${ocean_namelist} << EOF
   include_last     = .TRUE.
   output_grid      = .TRUE.
   output_filename  = "${EXPNAME}_nmlOuput"
-  ml_varlist       = 't','s','u','v','t_acc','s_acc','u_acc','v_acc','rhopot','rhopot_acc','wet_c','forc_runoff_acc','forc_runoff'
+  ml_varlist       = 't','s','u','v','t_acc','s_acc','u_acc','v_acc','rhopot','rhopot_acc','wet_c','forc_runoff_acc','forc_runoff',
+                     'forc_wind_u','forc_wind_v','forc_swflx','forc_lwflx','forc_ssflx','forc_slflx','forc_precip','forc_evap','forc_wind_u_acc','forc_wind_v_acc','forc_swflx_acc','forc_lwflx_acc','forc_ssflx_acc','forc_slflx_acc','forc_precip_acc','forc_evap_acc'
 ! ml_varlist       = 'h','s','t','rho','w','v','u','vt','vn','kin','div','grad','rhopot','w_e',
 ! 'press_grad', 'press_hyd','veloc_adv_vert','veloc_adv_horz','laplacian_horz','laplacian_vert',
 ! 'temp_insitu','div_mass_flx_c','mass_flux','wet_c','wet_e','T1','T2','alb','Tsurf','hi','hs','conc','concSum',
