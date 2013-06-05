@@ -58,8 +58,8 @@ MODULE mo_sea_ice
   USE mo_ocean_nml,           ONLY: no_tracer, init_oce_prog, iforc_oce, &
     &                               FORCING_FROM_FILE_FLUX
   USE mo_sea_ice_nml,         ONLY: i_ice_therm
-  USE mo_oce_state,           ONLY: t_hydro_ocean_state, v_base, ocean_restart_list
-  USE mo_var_list,            ONLY: add_var
+  USE mo_oce_state,           ONLY: t_hydro_ocean_state, v_base, ocean_restart_list, set_oce_tracer_info
+  USE mo_var_list,            ONLY: add_var, add_ref
   USE mo_linked_list,         ONLY: t_var_list
   USE mo_master_control,      ONLY: is_restart_run
   USE mo_cf_convention
@@ -358,7 +358,11 @@ CONTAINS
     TYPE(t_var_list),INTENT(INOUT) :: var_list
 
     ! Local variables
-    INTEGER :: nblks_c, ist
+    INTEGER                        :: nblks_c, ist, jtrc, i
+    CHARACTER(len=max_char_length) :: oce_tracer_names(no_tracer),&
+    &                                 oce_tracer_units(no_tracer),&
+    &                                 oce_tracer_longnames(no_tracer)
+    INTEGER                        :: oce_tracer_codes(no_tracer)
 
     CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_sea_ice:construct_sfcflx'
 
@@ -437,17 +441,88 @@ CONTAINS
     &          t_cf_var('forc_fwrelax', 'm/s', 'forc_fwrelax', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &          ldims=(/nproma,nblks_c/))
-    IF(no_tracer>=1)THEN
+    IF(no_tracer>=1) THEN
+      ! there are four tracer related fields: tracer focing, tracer relaxation
+      ! and both accumulated
       CALL add_var(var_list, 'forc_tracer', p_sfc_flx%forc_tracer , &
-      &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-      &          t_cf_var('forc_tracer', 'm/s', 'forc_tracer', DATATYPE_FLT32),&
-      &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
-      &          ldims=(/nproma,nblks_c,no_tracer/))
+        &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+        &          t_cf_var('forc_tracer', 'm/s', 'forc_tracer', DATATYPE_FLT32),&
+        &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+        &          ldims=(/nproma,nblks_c,no_tracer/), &
+        &          lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
       CALL add_var(var_list, 'forc_tracer_relax', p_sfc_flx%forc_tracer_relax , &
-      &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-      &          t_cf_var('forc_tracer_relax', 'm/s', 'forc_tracer_relax', DATATYPE_FLT32),&
-      &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
-      &          ldims=(/nproma,nblks_c,no_tracer/))
+        &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+        &          t_cf_var('forc_tracer_relax', 'm/s', 'forc_tracer_relax', DATATYPE_FLT32),&
+        &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+        &          ldims=(/nproma,nblks_c,no_tracer/), &
+        &          lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
+      CALL add_var(var_list, 'forc_tracer_acc', p_sfc_flx%forc_tracer_acc , &
+        &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+        &          t_cf_var('forc_tracer_acc', 'm/s', 'forc_tracer_acc', DATATYPE_FLT32),&
+        &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+        &          ldims=(/nproma,nblks_c,no_tracer/), &
+        &          lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
+      CALL add_var(var_list, 'forc_tracer_relax_acc', p_sfc_flx%forc_tracer_relax_acc , &
+        &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+        &          t_cf_var('forc_tracer_relax_acc', 'm/s', 'forc_tracer_relax_acc', DATATYPE_FLT32),&
+        &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+        &          ldims=(/nproma,nblks_c,no_tracer/), &
+        &          lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
+
+      ALLOCATE(p_sfc_flx%tracer_ptr(no_tracer*4))
+
+      CALL set_oce_tracer_info(no_tracer           , &
+        &                      oce_tracer_names    , &
+        &                      oce_tracer_longnames, &
+        &                      oce_tracer_codes    , &
+        &                      oce_tracer_units)
+      DO jtrc = 1,no_tracer
+        CALL add_ref( var_list, 'forc_tracer', &
+          &           'forc_tracer_'//TRIM(oce_tracer_names(jtrc)),          &
+          &           p_sfc_flx%tracer_ptr(jtrc)%p,    &
+          &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE,&
+          &           t_cf_var('forc_tracer'//TRIM(oce_tracer_names(jtrc)), &
+          &                    oce_tracer_units(jtrc), &
+          &                    'forcing: '//TRIM(oce_tracer_longnames(jtrc)), DATATYPE_FLT32), &
+          &           t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+          &           ldims=(/nproma,nblks_c/))
+      END DO
+      DO jtrc = no_tracer+1,2*no_tracer
+        i = jtrc - no_tracer
+        CALL add_ref( var_list, 'forc_tracer_relax', &
+          &           'forc_tracer_relax_'//TRIM(oce_tracer_names(i)),          &
+          &           p_sfc_flx%tracer_ptr(jtrc)%p,    &
+          &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE,&
+          &           t_cf_var('forc_tracer_relax'//TRIM(oce_tracer_names(i)), &
+          &                    oce_tracer_units(i), &
+          &                    'forcing relaxation accumulated: '//TRIM(oce_tracer_longnames(i)), DATATYPE_FLT32), &
+          &           t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+          &           ldims=(/nproma,nblks_c/))
+      END DO
+      DO jtrc = (2*no_tracer)+1,3*no_tracer
+        i = jtrc - 2*no_tracer
+        CALL add_ref( var_list, 'forc_tracer_acc', &
+          &           'forc_tracer_acc_'//TRIM(oce_tracer_names(i)),          &
+          &           p_sfc_flx%tracer_ptr(jtrc)%p,    &
+          &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE,&
+          &           t_cf_var('forc_tracer_acc'//TRIM(oce_tracer_names(i)), &
+          &                    oce_tracer_units(i), &
+          &                    'forcing accumulated: '//TRIM(oce_tracer_longnames(i)), DATATYPE_FLT32), &
+          &           t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+          &           ldims=(/nproma,nblks_c/))
+      END DO
+      DO jtrc = (3*no_tracer)+1,4*no_tracer
+        i = jtrc - 3*no_tracer
+        CALL add_ref( var_list, 'forc_tracer_relax_acc', &
+          &           'forc_tracer_relax_acc_'//TRIM(oce_tracer_names(i)),          &
+          &           p_sfc_flx%tracer_ptr(jtrc)%p,    &
+          &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE,&
+          &           t_cf_var('forc_tracer_relax_acc'//TRIM(oce_tracer_names(i)), &
+          &                    oce_tracer_units(i), &
+          &                    'forcing relaxation accumulated: '//TRIM(oce_tracer_longnames(i)), DATATYPE_FLT32), &
+          &           t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+          &           ldims=(/nproma,nblks_c/))
+      END DO
     ENDIF
     CALL add_var(var_list, 'forc_wind_u_acc', p_sfc_flx%forc_wind_u_acc , &
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
@@ -519,18 +594,6 @@ CONTAINS
     &          t_cf_var('forc_fwrelax_acc', 'm/s', 'forc_fwrelax_acc', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &          ldims=(/nproma,nblks_c/))
-    IF(no_tracer>=1)THEN
-      CALL add_var(var_list, 'forc_tracer_acc', p_sfc_flx%forc_tracer_acc , &
-      &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-      &          t_cf_var('forc_tracer_acc', 'm/s', 'forc_tracer_acc', DATATYPE_FLT32),&
-      &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
-      &          ldims=(/nproma,nblks_c,no_tracer/))
-      CALL add_var(var_list, 'forc_tracer_relax_acc', p_sfc_flx%forc_tracer_relax_acc , &
-      &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-      &          t_cf_var('forc_tracer_relax_acc', 'm/s', 'forc_tracer_relax_acc', DATATYPE_FLT32),&
-      &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
-      &          ldims=(/nproma,nblks_c,no_tracer/))
-    ENDIF
 
     ! cartesians
     ALLOCATE(p_sfc_flx%forc_wind_cc(nproma,nblks_c), STAT=ist)

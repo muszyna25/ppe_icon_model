@@ -52,6 +52,9 @@ MODULE mo_sea_ice_types
 
 
 
+  TYPE t_ptr2d
+    REAL(wp),POINTER :: p(:,:)  ! pointer to 2D (spatial) array
+  END TYPE t_ptr2d
   !------  Definition of surface flux type---------------------
   TYPE t_sfc_flx
 
@@ -97,6 +100,7 @@ MODULE mo_sea_ice_types
     TYPE(t_cartesian_coordinates), & ! wind forcing with cartesian vector, located at cell centers
       & ALLOCATABLE :: forc_wind_cc(:,:)
 
+    TYPE(t_ptr2d),ALLOCATABLE :: tracer_ptr(:)  !< pointer array: one pointer for each tracer
   END TYPE t_sfc_flx
 
   ! global type variables

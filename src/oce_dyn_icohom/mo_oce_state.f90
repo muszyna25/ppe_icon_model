@@ -113,6 +113,7 @@ MODULE mo_oce_state
   PUBLIC :: init_oce_config
   PUBLIC :: setup_ocean_namelists
   PUBLIC :: check_ocean_subsets
+  PUBLIC :: set_oce_tracer_info
 
   PUBLIC :: init_patch_3D
   PUBLIC :: construct_patch_3D
