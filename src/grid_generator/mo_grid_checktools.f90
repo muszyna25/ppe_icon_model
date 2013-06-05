@@ -52,7 +52,7 @@ MODULE mo_grid_checktools
     & get_cell_barycenters
     !, get_triangle_circumcenters, geographical_to_cartesian
   USE mo_grid_toolbox , ONLY :  inverse_connectivity_verts! get_basic_dual_grid
-  USE mo_statistics_tools
+  USE mo_statistics
   USE mo_physical_constants, ONLY: earth_radius
   
   IMPLICIT NONE

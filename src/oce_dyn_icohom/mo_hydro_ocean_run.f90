@@ -112,7 +112,7 @@ USE mo_oce_ab_timestepping_mimetic, ONLY: init_ho_lhs_fields_mimetic
 !USE mo_mpi,                    ONLY: my_process_is_mpi_all_parallel
   USE mo_time_config,          ONLY: time_config
   USE mo_master_control,       ONLY: is_restart_run
-  USE mo_statistics_tools
+  USE mo_statistics
 
 
 
