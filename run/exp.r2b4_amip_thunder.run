@@ -1,6 +1,11 @@
 #!/bin/bash
+#
+# The script is currently set up to automatically do a restart starting on 1980-01-01 00:00 using
+# a restart file from /pool (see below) in order to start with a realistic topography.
+#
 #__________________________________________________________________________________________________
 # SLURM destructs $0!
+# +++ For automatic restarts to work, it is important to specify the actual run script here!!! ++++
 job_name=exp.r2b4_amip_thunder.run
 #
 #__________________________________________________________________________________________________
@@ -28,7 +33,10 @@ job_name=exp.r2b4_amip_thunder.run
 restart=${restart:=".false."}
 #
 #AUTOMATIC_RESTART_SETUP:
+restart=.true.
 #END AUTOMATIC_RESTART_SETUP
+restart_from_folder=/pool/data/ICON/restart/r0001/r2b4_amip/atm
+restart_atmo_from=restart.r2b4_amip_19790101T000000Z_atm.nc
 #__________________________________________________________________________________________________
 # set error checking
 set -eu
@@ -185,7 +193,7 @@ then
     submit=sbatch
 else
     greenln "Run interactively"
-    submit=""
+    submit="/bin/bash"
 fi
 
 nproma=32
@@ -216,11 +224,16 @@ case $user in
 	esac
 
 	;;
-    Monika|Marco|Thorsten|Thomas|Reiner)
+    Monika|Marco|Thorsten|Thomas)
 	mpi_root=/sw/squeeze-x64/mpi/openmpi_ib-1.6.2-static-gcc46
 	mpiexec_cmd="mpiexec" 
 	mpiexec_options="--mca btl self,sm,openib --bind-to-core --bycore"
 	;;
+    Reiner)
+        mpi_root=/sw/squeeze-x64/mpi/openmpi_ib-1.6.4-static-intel13
+        mpiexec_cmd="mpiexec"
+        mpiexec_options="--mca btl self,sm,openib --bind-to-core --bycore"
+        ;;
     Sebastian)
 	mpi_root=""
 	mpiexec_cmd=""
@@ -291,7 +304,9 @@ minute=60                                # [s] 1 minute
 hour=3600                                # [s] 1 hour
 day=86400                                # [s] 1 day
 #
-start_date="1979-01-01T00:00:00Z"        # start and end date
+# RS 2013-05-30: If using the restart file from /pool for 1979-01-01, leave the 
+# start_date at 1978-01-01.
+start_date="1978-01-01T00:00:00Z"        # start and end date
   end_date="1980-01-01T00:00:00Z"        # of the experiment
 #
 (( dt_restart      = 30 * day         )) # [s] time between restarts = length of run
@@ -565,12 +580,22 @@ cp -f ${basedir}/run/${dict_file}                           ./
 #__________________________________________________________________________________________________
 # copy restart files eventually
 
-if [[ "x${restart_atmo_from:-}" != "x" ]]
+# The restart file provided from restart_from_folder/restart_atmo_from is only used if the link
+# restart_atm.nc doesn't already exist in the current work directory (usually for a new experiment).
+if [[ "x${restart_atmo_from:-}" != "x" ]] && [[ ! -f restart_atm.nc ]]
 then
-    rm -f restart_atm.nc
-    cp ${basedir}/experiments/${restart_from_folder}/${restart_atmo_from} cp_restart_atm.nc
+    #rm -f restart_atm.nc
+    if [[ "${restart_from_folder}" =~ ^/ ]]; then
+      cp ${restart_from_folder}/${restart_atmo_from} cp_restart_atm.nc
+      #cp ${restart_from_folder}/restart.info .
+    else
+      cp ${basedir}/experiments/${restart_from_folder}/${restart_atmo_from} cp_restart_atm.nc
+      #cp ${basedir}/experiments/${restart_from_folder}/restart.info .
+    fi
     ln -s cp_restart_atm.nc restart_atm.nc
-    cp ${basedir}/experiments/${restart_from_folder}/restart.info .
+    cat > restart.info <<EOF
+gridspec: grid_D01_atm.nc ! here should be the physical filename including path
+EOF
     restart=".true."
 fi
 
