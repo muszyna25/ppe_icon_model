@@ -106,32 +106,32 @@ MODULE mo_model_domain
   USE mo_io_units,       ONLY: filename_max
   USE mo_util_uuid,      ONLY: t_uuid
   USE mo_grid_geometry_info, ONLY: t_grid_geometry_info
-  
+
   IMPLICIT NONE
-  
+
   PRIVATE
-  
+
   CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
-  
+
   ! ! the following abstract data types are taken from mo_grid,
-  
+
   PUBLIC :: t_patch
   PUBLIC :: t_grid_cells
   PUBLIC :: t_grid_edges
   PUBLIC :: t_grid_vertices
   PUBLIC :: t_phys_patch
   PUBLIC :: t_subset_range, t_subset_range_index
-  
+
   !PUBLIC :: t_patch_ocean
   PUBLIC :: t_patch_3D
   PUBLIC :: t_patch_vert
-  
+
   PUBLIC :: t_tangent_vectors
-  
+
   !----------------------------------------------------
   !> Defines a subset in a range (in terms of blocks)
   TYPE :: t_subset_range
-    
+
     INTEGER :: start_block
     INTEGER :: start_index
     INTEGER :: end_block
@@ -141,47 +141,47 @@ MODULE mo_model_domain
     INTEGER :: size
 
     TYPE(t_patch), POINTER :: patch
-    INTEGER :: entity_type ! 1=cells, 2=edges, 3=verts    
+    INTEGER :: entity_type ! 1=cells, 2=edges, 3=verts
 
     INTEGER :: no_of_holes ! the number of holes in the subset
     LOGICAL :: is_in_domain
-    
+
     CHARACTER(len=32) :: name
-    
+
   END TYPE
   !----------------------------------------------------
-  
+
 
   !----------------------------------------------------
-  !> Defines an index for a subset_range 
+  !> Defines an index for a subset_range
   TYPE :: t_subset_range_index
-  
+
     INTEGER, POINTER :: block ! the current block in the subset
     INTEGER, POINTER :: index ! the current index in the subset
-    
+
     INTEGER :: start_index ! the current start index within the current block,
     INTEGER :: end_index   ! the current end index within the current block,
 
     TYPE(t_subset_range), POINTER :: subset_range
-  
+
   END TYPE
   !----------------------------------------------------
-  
+
   ! tangent vector class
   TYPE t_tangent_vectors
     REAL(wp) :: v1
     REAL(wp) :: v2
   END TYPE t_tangent_vectors
-  
+
   ! !grid_cell class - corresponds to triangles
-  
+
   TYPE t_grid_cells
-    
+
     INTEGER :: max_connectivity
     ! number of edges connected to cell
     ! index1=1,nproma, index2=1,nblks_c
     INTEGER, ALLOCATABLE :: num_edges(:,:)
-    
+
     ! line index of parent triangle:
     ! index1=1,nproma, index2=1,nblks_c
     INTEGER, ALLOCATABLE :: parent_idx(:,:)
@@ -191,7 +191,7 @@ MODULE mo_model_domain
     ! parent child index, number of current cell in parent's child_idx/child_blk:
     ! index1=1,nproma, index2=1,nblks_c
     INTEGER, ALLOCATABLE :: pc_idx(:,:)
-    
+
     ! line indices of child triangles:
     ! index1=1,nproma, index2=1,nblks_c, index3=1,4
     INTEGER, ALLOCATABLE :: child_idx(:,:,:)
@@ -205,109 +205,109 @@ MODULE mo_model_domain
     ! (may differ from the "normal" domain ID in case of domain merging):
     ! index1=1,nproma, index2=1,nblks_c
     INTEGER, ALLOCATABLE :: phys_id(:,:)
-    
+
     ! line indices of triangles next to each cell:
     ! index1=1,nproma, index2=1,nblks_c, index3=1,3
     INTEGER, ALLOCATABLE :: neighbor_idx(:,:,:)
     ! block indices of triangles next to each cell:
     ! index1=1,nproma, index2=1,nblks_c, index3=1,3
     INTEGER, ALLOCATABLE :: neighbor_blk(:,:,:)
-    
+
     ! line indices of edges of triangle:
     ! index1=1,nproma, index2=1,nblks_c, index3=1,3
     INTEGER, ALLOCATABLE :: edge_idx(:,:,:)
     ! block indices of edges of triangle:
     ! index1=1,nproma, index2=1,nblks_c, index3=1,3
     INTEGER, ALLOCATABLE :: edge_blk(:,:,:)
-    
+
     ! line indices of verts of triangle:
     ! index1=1,nproma, index2=1,nblks_c, index3=1,3
     INTEGER, ALLOCATABLE :: vertex_idx(:,:,:)
     ! block indices of verts of triangle:
     ! index1=1,nproma, index2=1,nblks_c, index3=1,3
     INTEGER, ALLOCATABLE :: vertex_blk(:,:,:)
-    
+
     ! orientation of vectors normal to cell edges:
     ! index1=nproma, index2=1,nblks_c, index3=1,3
     REAL(wp), ALLOCATABLE :: edge_orientation(:,:,:)
-    
+
     ! cell geometry
-    
+
     ! longitude & latitude of centers of triangular cells
     ! index1=nproma, index2=1,nblks_c
     TYPE(t_geographical_coordinates), ALLOCATABLE ::  &
       & center(:,:)
-    
+
     ! area of triangle
     ! index1=nproma, index2=1,nblks_c
     REAL(wp), POINTER :: area(:,:)
-    
+
     ! Coriolis parameter at cell centers
     ! index1=1,nproma, index2=1,nblks_c
     REAL(wp), ALLOCATABLE :: f_c(:,:)
-    
+
     !----------------------------------
     ! cell geometry auxiliary variables
     ! the cartesian coordinates of the cell centers on the unit sphere
     TYPE(t_cartesian_coordinates), POINTER ::  &
       & cartesian_center(:,:)
     !----------------------------------
-    
+
     ! refinement control flag
     ! index1=1,nproma, index2=1,nblks_c
     INTEGER, ALLOCATABLE :: refin_ctrl(:,:)
-    
+
     ! list of start indices for each refin_ctrl level
     ! index1=min_rlcell,max_rlcell (defined in mo_impl_constants), index2=n_childdom
     INTEGER, ALLOCATABLE :: start_idx(:,:)
-    
+
     ! list of end indices for each refin_ctrl level
     ! index1=min_rlcell,max_rlcell, index2=n_childdom
     INTEGER, ALLOCATABLE :: end_idx(:,:)
-    
+
     ! list of start block for each refin_ctrl level
     ! index1=min_rlcell,max_rlcell, index2=n_childdom
     INTEGER, ALLOCATABLE :: start_blk(:,:)
-    
+
     ! list of end block for each refin_ctrl level
     ! index1=min_rlcell,max_rlcell, index2=n_childdom
     INTEGER, ALLOCATABLE :: end_blk(:,:)
-    
+
     ! Owner mask:
     ! For cells this is the same as decomp_domain(:,:)==0
     ! index1=nproma, index2=1,nblks_c
     LOGICAL, ALLOCATABLE :: owner_mask(:,:)
-    
+
     ! The following is only used internally for the coupler
     ! and the icon_comm_lib
     INTEGER, ALLOCATABLE :: owner_local(:)
-    
+
     ! The following is only used internally for domain decomposition
-    
+
     INTEGER, ALLOCATABLE :: glb_index(:)
     INTEGER, ALLOCATABLE :: loc_index(:)
-    
+
     ! Global array of owners
     INTEGER, ALLOCATABLE :: owner_g(:)
-    
+
     ! The owner when running the radiation
     ! only used with redistriuted radiation
     INTEGER, POINTER :: radiation_owner(:)
-    
+
     ! Please note that the following array is only needed on local parent patches
     ! for storing the corresponding variable from nh_metrics.
     ! It is not allocated/deallocated with the regular patch (de)allocation routines
     ! nor does it need to be dumped/restored or subdivided in patch subdivision.
     REAL(wp), ALLOCATABLE :: ddqz_z_full(:,:,:)
-    
+
     ! Domain decomposition flag:
     ! decomp_domain==0: inner domain, decomp_domain>0: boundary, decomp_domain<0: undefined
     ! 0=owned, 1=shared edge with owned, 2=shared vertex with ownded
     ! index1=nproma, index2=1,nblks_c
     INTEGER, POINTER :: decomp_domain(:,:)
-    
+
     INTEGER, POINTER :: halo_level(:,:)! just points to the decomp_domain as a more accurate name
-    
+
     ! define basic subsets
     TYPE(t_subset_range) :: ALL          ! these are the all valid entities, including all valid halos
     TYPE(t_subset_range) :: owned         ! these are the owned entities
@@ -315,13 +315,13 @@ MODULE mo_model_domain
     TYPE(t_subset_range) :: not_owned     ! these are all the halo entities
     TYPE(t_subset_range) :: not_in_domain ! for cells = not_owned
     TYPE(t_subset_range) :: one_edge_in_domain ! cells with exactly one edge in domain. these are always halo cells
-    
+
   END TYPE t_grid_cells
-  
+
   ! !grid_edge class
-  
+
   TYPE t_grid_edges
-    
+
     ! line index of parent edge:
     ! index1=1,nproma, index2=1,nblks_e
     INTEGER, ALLOCATABLE :: parent_idx(:,:)
@@ -331,7 +331,7 @@ MODULE mo_model_domain
     ! parent child index, number of current edge in parent's child_idx/child_blk:
     ! index1=1,nproma, index2=1,nblks_e
     INTEGER, ALLOCATABLE :: pc_idx(:,:)
-    
+
     ! line indices of child edges:
     ! index1=1,nproma, index2=1,nblks_e, index3=1,4
     INTEGER, ALLOCATABLE :: child_idx(:,:,:)
@@ -345,14 +345,14 @@ MODULE mo_model_domain
     ! (may differ from the "normal" domain ID in case of domain merging):
     ! index1=1,nproma, index2=1,nblks_e
     INTEGER, ALLOCATABLE :: phys_id(:,:)
-    
+
     ! line indices of adjacent cells:
     ! index1=1,nproma, index2=1,nblks_e, index3=1,2
     INTEGER, ALLOCATABLE :: cell_idx(:,:,:)
     ! block indices of adjacent cells:
     ! index1=1,nproma, index2=1,nblks_e, index3=1,2
     INTEGER, ALLOCATABLE :: cell_blk(:,:,:)
-    
+
     ! line indices of edge vertices:
     ! vertex indices 3 and 4 are the non-edge-aligned vertices of cells 1 and 2
     ! index1=1,nproma, index2=1,nblks_e, index3=1,4
@@ -360,181 +360,181 @@ MODULE mo_model_domain
     ! block indices of edge vertices:
     ! index1=1,nproma, index2=1,nblks_e, index3=1,4
     INTEGER, ALLOCATABLE :: vertex_blk(:,:,:)
-    
+
     ! =1 if vector product of vector from vertex1 to vertex 2 (v2-v1) by vector
     ! from cell c1 to cell c2 (c2-c1) goes outside the sphere
     ! =-1 if vector product ...       goes inside  the sphere
     ! index=1,nproma, index2=1,nblks_e
     REAL(wp), ALLOCATABLE :: system_orientation(:,:)
-    
+
     ! line indices of the  of the quadrilateral formed by two adjacent cells:
     ! index1=1,nproma, index2=1,nblks_e, index3=1,4
     INTEGER, ALLOCATABLE :: quad_idx(:,:,:)
     ! block indices of the  of the quadrilateral formed by two adjacent cells:
     ! index1=1,nproma, index2=1,nblks_e, index3=1,4
     INTEGER, ALLOCATABLE :: quad_blk(:,:,:)
-    
+
     ! orientation of vectors normal to quad cell edges:
     ! index1=nproma, index2=1,nblks_e, index3=1,4
     REAL(wp), ALLOCATABLE :: quad_orientation(:,:,:)
 
-    ! line indices of cells which share the two vertices 
+    ! line indices of cells which share the two vertices
     ! of a given edge. These cells are subdivided into two classes:
-    ! Cells which are neighbors of edge neighbor 1 and cells which are 
-    ! neighbors of edge neighbor 2. These cells are then numbered 
+    ! Cells which are neighbors of edge neighbor 1 and cells which are
+    ! neighbors of edge neighbor 2. These cells are then numbered
     ! according to the number of the edge-vertex they share.
     ! index1=nproma, index2=1,nblks_e, index3=1,2 (cell), index4=1,2 (vert)
     INTEGER, ALLOCATABLE :: butterfly_idx(:,:,:,:)
-    ! block indices of cells which share the two vertices 
+    ! block indices of cells which share the two vertices
     ! of a given edge. These cells are subdivided into two classes:
-    ! Cells which are neighbors of edge neighbor 1 and cells which are 
-    ! neighbors of edge neighbor 2. These cells are then numbered 
+    ! Cells which are neighbors of edge neighbor 1 and cells which are
+    ! neighbors of edge neighbor 2. These cells are then numbered
     ! according to the number of the edge-vertex they share.
     ! index1=nproma, index2=1,nblks_e, index3=1,2 (cell), index4=1,2 (vert)
     INTEGER, ALLOCATABLE :: butterfly_blk(:,:,:,:)
 
-    
+
     !-------------------------------------------------
     ! edges geometry
-    
+
     ! longitude & latitude of edge midpoint
     ! index=1,nproma, index2=1,nblks_e
     TYPE(t_geographical_coordinates), ALLOCATABLE ::  &
       & center(:,:)
-    
+
     ! normal to triangle edge
     ! index=1,nproma, index2=1,nblks_e
     TYPE(t_tangent_vectors), ALLOCATABLE ::  &
       & primal_normal(:,:)
-    
+
     ! Cartesian normal to triangle edge
     ! index=1,nproma, index2=1,nblks_e
     TYPE(t_cartesian_coordinates), POINTER ::  &
       & primal_cart_normal(:,:)
-    
+
     ! Cartesian dual to triangle edge
     ! index=1,nproma, index2=1,nblks_e
     TYPE(t_cartesian_coordinates), POINTER ::  &
       & dual_cart_normal(:,:)
-    
+
     ! normal to hexagon/pentagon edge
     ! index=1,nproma, index2=1,nblks_e
     TYPE(t_tangent_vectors), ALLOCATABLE ::  &
       & dual_normal(:,:)
-    
+
     ! normal to triangle edge, projected to the location of the neighbor cells
     ! index=1,nproma, index2=1,nblks_e, index3=1,2
     TYPE(t_tangent_vectors), ALLOCATABLE ::  &
       & primal_normal_cell(:,:,:)
-    
+
     ! tangent to triangle edge, projected to the location of the neighbor cells
     ! index=1,nproma, index2=1,nblks_e, index3=1,2
     TYPE(t_tangent_vectors), ALLOCATABLE ::  &
       & dual_normal_cell(:,:,:)
-    
+
     ! normal to triangle edge, projected to the location of the vertices
     ! index=1,nproma, index2=1,nblks_e, index3=1,4
     TYPE(t_tangent_vectors), ALLOCATABLE ::  &
       & primal_normal_vert(:,:,:)
-    
+
     ! tangent to triangle edge, projected to the location of the vertices
     ! index=1,nproma, index2=1,nblks_e, index3=1,4
     TYPE(t_tangent_vectors), ALLOCATABLE ::  &
       & dual_normal_vert(:,:,:)
-    
+
     ! length of triangle edge
     ! index=1,nproma, index2=1,nblks_e
     REAL(wp), POINTER :: primal_edge_length(:,:)
-    
+
     ! inverse length of triangle edge
     ! index=1,nproma, index2=1,nblks_e
     REAL(wp), ALLOCATABLE :: inv_primal_edge_length(:,:)
-    
+
     ! length of hexagon/pentagon edge
     ! index=1,nproma, index2=1,nblks_e
     REAL(wp), ALLOCATABLE :: dual_edge_length(:,:)
-    
+
     ! inverse length of hexagon/pentagon edge
     ! index=1,nproma, index2=1,nblks_e
     REAL(wp), ALLOCATABLE :: inv_dual_edge_length(:,:)
-    
+
     ! length of edge midpoint to vertex
     ! index=1,nproma, index2=1,nblks_e,2
     REAL(wp), ALLOCATABLE :: edge_vert_length(:,:,:)
-    
+
     ! length of edge midpoint to cell center
     ! index=1,nproma, index2=1,nblks_e,2
     REAL(wp), ALLOCATABLE :: edge_cell_length(:,:,:)
-    
+
     ! inverse distance between outer vertices of adjacent cells
     ! index=1,nproma, index2=1,nblks_e
     REAL(wp), ALLOCATABLE :: inv_vert_vert_length(:,:)
-    
+
     ! area of the quadrilateral given by the adjacent vertices and centers
     ! index=1,nproma, index2=1,nblks_e
     REAL(wp), ALLOCATABLE :: area_edge(:,:)
-    
+
     ! area of the quadrilateral formed by two cells adjacent to the edge
     ! index=1,nproma, index2=1,nblks_e
     REAL(wp), ALLOCATABLE :: quad_area(:,:)
-    
+
     ! edge geometry auxiliary variables
     TYPE(t_cartesian_coordinates), POINTER ::  &
       & cartesian_center(:,:)
-    
+
     TYPE(t_cartesian_coordinates), POINTER ::  &
       & cartesian_dual_middle(:,:)
-    
+
     ! Coriolis parameter at cell edges
     ! index1=1,nproma, index2=1,nblks_e
     REAL(wp), ALLOCATABLE :: f_e(:,:)
-    
+
     ! refinement control flag
     ! index1=1,nproma, index2=1,nblks_e
     INTEGER, ALLOCATABLE :: refin_ctrl(:,:)
-    
+
     ! list of start indices for each refin_ctrl level
     ! index1=min_rledge,max_rledge (defined in mo_impl_constants), index2=n_childdom
     INTEGER, ALLOCATABLE :: start_idx(:,:)
-    
+
     ! list of end indices for each refin_ctrl level
     ! index1=min_rledge,max_rledge, index2=n_childdom
     INTEGER, ALLOCATABLE :: end_idx(:,:)
-    
+
     ! list of start block for each refin_ctrl level
     ! index1=min_rledge,max_rledge, index2=n_childdom
     INTEGER, ALLOCATABLE :: start_blk(:,:)
-    
+
     ! list of end block for each refin_ctrl level
     ! index1=min_rledge,max_rledge, index2=n_childdom
     INTEGER, ALLOCATABLE :: end_blk(:,:)
-    
+
     ! Owner mask:
     ! For edges, this can not be derived from decomp_domain:
     ! edges at the border are assigned the PE with the bigger number
     ! index1=nproma, index2=1,nblks_e
     LOGICAL, ALLOCATABLE :: owner_mask(:,:)
-    
+
     ! The following is only used internally for domain decomposition
     ! and communication
     INTEGER, ALLOCATABLE :: glb_index(:)
     INTEGER, ALLOCATABLE :: loc_index(:)
-    
+
     ! Global array of owners
     INTEGER, ALLOCATABLE :: owner_g(:)
-    
+
     ! The following is only used internally for the coupler
     ! and the icon_comm_lib
     INTEGER, ALLOCATABLE :: owner_local(:)
-    
+
     ! Domain decomposition flag:
     ! decomp_domain==0: inner domain, decomp_domain>0: boundary, decomp_domain<0: undefined
     ! index1=nproma, index2=1,nblks_e
     ! 0=owned, 1=on owned cell=in domain, 2=exaclty one shared vertex with owned cells
     INTEGER, POINTER :: decomp_domain(:,:)
-    
+
     INTEGER, POINTER :: halo_level(:,:)! just points to the decomp_domain as a more accurate name
-    
+
     ! define basic subsets
     TYPE(t_subset_range) :: ALL          ! these are the all valid entities, including all valid halos
     TYPE(t_subset_range) :: owned         ! these are the owned entities
@@ -542,110 +542,110 @@ MODULE mo_model_domain
     ! this includes all edges of the domain cells
     TYPE(t_subset_range) :: not_owned     ! these are all the halo entities
     TYPE(t_subset_range) :: not_in_domain ! all - in_domain
-    
+
   END TYPE t_grid_edges
-  
+
   !  !grid_vertices class
-  
+
   TYPE t_grid_vertices
-    
+
     INTEGER :: max_connectivity
     ! physical domain ID of verts
     ! (may differ from the "normal" domain ID in case of domain merging):
     ! index1=1,nproma, index2=1,nblks_v
     INTEGER, ALLOCATABLE :: phys_id(:,:)
-    
+
     ! line indices of neighbor vertices:
     ! index1=1,nproma, index2=1,nblks_v, index3=1,6
     INTEGER, ALLOCATABLE :: neighbor_idx(:,:,:)
     ! block indices of neighbor vertices:
     ! index1=1,nproma, index2=1,nblks_v, index3=1,6
     INTEGER, ALLOCATABLE :: neighbor_blk(:,:,:)
-    
+
     ! line indices of cells around each vertex:
     ! index1=1,nproma, index2=1,nblks_v, index3=1,6
     INTEGER, ALLOCATABLE :: cell_idx(:,:,:)
     ! block indices of cells around each vertex:
     ! index1=1,nproma, index2=1,nblks_v, index3=1,6
     INTEGER, ALLOCATABLE :: cell_blk(:,:,:)
-    
+
     ! line indices of edges around a vertex:
     ! index1=1,nproma, index2=1,nblks_v, index3=1,6
     INTEGER, ALLOCATABLE :: edge_idx(:,:,:)
     ! block indices of edges around a vertex:
     ! index1=1,nproma, index2=1,nblks_v, index3=1,6
     INTEGER, ALLOCATABLE :: edge_blk(:,:,:)
-    
+
     ! (xx)
     ! index1=1,nproma, index2=1,nblks_v, index3=1,6
     REAL(wp), ALLOCATABLE :: edge_orientation(:,:,:)
-    
+
     ! number of edges connected to vertex
     ! index1=1,nproma, index2=1,nblks_v
     INTEGER, ALLOCATABLE :: num_edges(:,:)
-    
+
     ! longitude & latitude of vertex:
     ! index1=1,nproma, index2=1,nblks_v
     TYPE(t_geographical_coordinates), ALLOCATABLE :: vertex(:,:)
-    
+
     ! area of hexagon/pentagon of which vertex is center:
     ! index1=1,nproma, index2=1,nblks_v
     REAL(wp), POINTER :: dual_area(:,:)
-    
+
     ! Coriolis parameter at cell vertices
     ! index1=1,nproma, index2=1,nblks_v
     REAL(wp), ALLOCATABLE :: f_v(:,:)
-    
+
     ! vertex geometry auxiliary variables
     TYPE(t_cartesian_coordinates), POINTER ::  &
       & cartesian(:,:)
-    
+
     ! refinement control flag
     ! index1=1,nproma, index2=1,nblks_v
     INTEGER, ALLOCATABLE :: refin_ctrl(:,:)
-    
+
     ! list of start indices for each refin_ctrl level
     ! index1=min_rlvert,max_rlvert (defined in mo_impl_constants), index2=n_childdom
     INTEGER, ALLOCATABLE :: start_idx(:,:)
-    
+
     ! list of end indices for each refin_ctrl level
     ! index1=min_rlvert,max_rlvert, index2=n_childdom
     INTEGER, ALLOCATABLE :: end_idx(:,:)
-    
+
     ! list of start block for each refin_ctrl level
     ! index1=min_rlvert,max_rlvert, index2=n_childdom
     INTEGER, ALLOCATABLE :: start_blk(:,:)
-    
+
     ! list of end block for each refin_ctrl level
     ! index1=min_rlvert,max_rlvert, index2=n_childdom
     INTEGER, ALLOCATABLE :: end_blk(:,:)
-    
+
     ! Owner mask:
     ! For verts, this can not be derived from decomp_domain:
     ! verts at the border are assigned the PE with the bigger number
     ! index1=nproma, index2=1,nblks_v
     LOGICAL, ALLOCATABLE :: owner_mask(:,:)
-    
+
     ! The following is only used internally for domain decomposition
-    
+
     INTEGER, ALLOCATABLE :: glb_index(:)
     INTEGER, ALLOCATABLE :: loc_index(:)
-    
+
     ! Global array of owners
     INTEGER, ALLOCATABLE :: owner_g(:)
-    
+
     ! The following is only used internally for the coupler
     ! and the icon_comm_lib
     INTEGER, ALLOCATABLE :: owner_local(:)
-    
+
     ! Domain decomposition flag:
     ! decomp_domain==0: inner domain, decomp_domain>0: boundary, decomp_domain<0: undefined
     ! 0=owned, 1=on owned cell=in domain, 2=on level 1 cells
     ! index1=nproma, index2=1,nblks_v
     INTEGER, POINTER :: decomp_domain(:,:)
-    
+
     INTEGER, POINTER :: halo_level(:,:) ! just points to the decomp_domain as a more accurate name
-    
+
     ! define basic subsets
     TYPE(t_subset_range) :: ALL          ! these are the all valid entities, including all valid halos
     TYPE(t_subset_range) :: owned         ! these are the owned entities
@@ -653,14 +653,14 @@ MODULE mo_model_domain
     ! this includes all edges of the domain cells
     TYPE(t_subset_range) :: not_owned     ! these are all the halo entities
     TYPE(t_subset_range) :: not_in_domain ! all - in_domain
-    
+
   END TYPE t_grid_vertices
-  
-  
+
+
   ! !patch class
-  
+
   TYPE t_patch
-    
+
     !
     ! !  level in grid hierarchy on which patch lives
     !
@@ -676,13 +676,13 @@ MODULE mo_model_domain
     INTEGER :: id
     !
     ! indicator if current model domain is active
-    LOGICAL :: ldom_active 
-    
+    LOGICAL :: ldom_active
+
     !-------------------------------------
     !> The grid domain geometry parameters
     ! cell type =3 or 6
     INTEGER :: cell_type
-    
+
     INTEGER :: geometry_type
 
     TYPE(t_grid_geometry_info) :: geometry_info
@@ -711,22 +711,22 @@ MODULE mo_model_domain
     ! maximum number of child domains
     INTEGER :: max_childdom
     !
-    
+
     ! total number of allocated cells, edges and vertices
     INTEGER :: n_patch_cells
     INTEGER :: n_patch_edges
     INTEGER :: n_patch_verts
-    
+
     ! total number of exist cells
 !    INTEGER :: n_exist_cells
 !    INTEGER :: n_cell_blocks
 !    INTEGER :: last_cell_block_size
-    
+
     ! in case of a dummy cell, we keep the blk and index of it
 !    INTEGER :: dummy_cell_blk
 !    INTEGER :: dummy_cell_idx
-    
-    
+
+
     !
     ! ! number of cells, edges and vertices in the global patch
     INTEGER :: n_patch_cells_g
@@ -762,7 +762,7 @@ MODULE mo_model_domain
     !
     ! the same information seen from the parent level (duplication needed to simplify flow control)
     INTEGER :: nshift_child
-    
+
     ! internal...
     ! LL: these numbers are the same as nblks_c, etc.
     !     See mo_subdivision, line 1100
@@ -777,12 +777,12 @@ MODULE mo_model_domain
     ! ... for the vertices
     INTEGER :: nblks_int_v
     INTEGER :: npromz_int_v
-    
+
     !
     ! ! Mask and bathymetry for ocean patch
     !  TYPE(t_patch_ocean) ::  &
     !    &  patch_oce
-    
+
     !
     ! ! grid information on the patch
     !
@@ -792,7 +792,7 @@ MODULE mo_model_domain
       & edges
     TYPE(t_grid_vertices) ::  &
       & verts
-    
+
     !
     ! communication patterns for parallelization
     !
@@ -801,20 +801,20 @@ MODULE mo_model_domain
     TYPE(t_comm_pattern) :: comm_pat_c1 ! reduced communication pattern, only level-1 halo cells
     TYPE(t_comm_pattern) :: comm_pat_e
     TYPE(t_comm_pattern) :: comm_pat_v
-    
+
     ! Interpolation for grid refinement, defined only on regular patches
     TYPE(t_comm_pattern) :: comm_pat_interpolation_c
     TYPE(t_comm_pattern) :: comm_pat_interpol_vec_grf(4)
     TYPE(t_comm_pattern) :: comm_pat_interpol_scal_grf(4)
     TYPE(t_comm_pattern) :: comm_pat_interpol_vec_ubc(4)
     TYPE(t_comm_pattern) :: comm_pat_interpol_scal_ubc(4)
-    
+
     ! Gather complete patch to proc 0
     ! Useful only for regular patches (defined but unused on local parents)
     TYPE(t_comm_pattern) :: comm_pat_gather_c
     TYPE(t_comm_pattern) :: comm_pat_gather_e
     TYPE(t_comm_pattern) :: comm_pat_gather_v
-    
+
     ! Communication between local parent and its global counterpart,
     ! defined only on local parents.
     ! Please note that these communicate between
@@ -859,10 +859,10 @@ MODULE mo_model_domain
     !
     ! global id of processor with rank 0 (within the working set p_comm_work)
     INTEGER :: proc0
-    
+
   END TYPE t_patch
   !-----------------------------------------------------------------------------------
-  
+
   !-----------------------------------------------------------------------------------
   ! Description of physical patches
   TYPE t_phys_patch
@@ -874,26 +874,26 @@ MODULE mo_model_domain
     INTEGER :: n_patch_cells
     INTEGER :: n_patch_edges
     INTEGER :: n_patch_verts
-    
+
     ! Gather the physical patch to proc 0
     TYPE(t_comm_pattern) :: comm_pat_gather_c
     TYPE(t_comm_pattern) :: comm_pat_gather_e
     TYPE(t_comm_pattern) :: comm_pat_gather_v
-    
+
   END TYPE t_phys_patch
-  
+
   TYPE(t_patch), PUBLIC, TARGET, ALLOCATABLE :: p_patch(:), p_patch_local_parent(:)
-  
+
   ! Please note: There is currently no means of determining the number
   ! of physical patches until they are actually assembled
   ! since this number is missing in the input file.
   ! Therefore p_phys_patch is declared with its maximum size.
   ! This shouldn't hurt since since TYPE t_phys_patch is small.
-  
+
   TYPE(t_phys_patch), PUBLIC, TARGET :: p_phys_patch(max_phys_dom)
-  
+
   !--------------------------------------------------------------------
-  
+
   TYPE t_patch_vert
 
     !! The ocean uses z-coordinates in meters in the vertical.
@@ -904,11 +904,11 @@ MODULE mo_model_domain
     !! n_zlvm: number of z-coordinate distances (-1)
     INTEGER :: n_zlev, n_zlvp, n_zlvm
 
-    !! del_zlev_m: thickness (height) of elemental prism, defined as the 
-    !!             distance between top and bottom of elemental prism, 
-    !!             i.e. the distance between two intermediate z-coordinate 
-    !!             surfaces. These data are provided by the user, all other 
-    !!             vertical information is calculated from this array of 
+    !! del_zlev_m: thickness (height) of elemental prism, defined as the
+    !!             distance between top and bottom of elemental prism,
+    !!             i.e. the distance between two intermediate z-coordinate
+    !!             surfaces. These data are provided by the user, all other
+    !!             vertical information is calculated from this array of
     !!             thicknesses.  Dimension: n_zlev
     REAL(wp), ALLOCATABLE :: del_zlev_m(:)
 
@@ -926,16 +926,16 @@ MODULE mo_model_domain
     !!             The vertical velocities are evaluated at such surfaces.
     REAL(wp), ALLOCATABLE :: zlev_i(:)
 
-    !! del_zlev_i: distance between two z-coordinate surfaces. The first is 
+    !! del_zlev_i: distance between two z-coordinate surfaces. The first is
     !!             the distance from the ocean surface = zlev_m(1)
     !!             Dimension: n_zlev
     REAL(wp), ALLOCATABLE :: del_zlev_i(:)
 
-    ! To simplify the acess to the required information within these loops 
-    ! we store an cell and edge based version of the deepest ocean layer 
-    ! in column. dolic_e(edge1) and dolic_c(cell1) are identical if 'edge1' 
+    ! To simplify the acess to the required information within these loops
+    ! we store an cell and edge based version of the deepest ocean layer
+    ! in column. dolic_e(edge1) and dolic_c(cell1) are identical if 'edge1'
     ! is one of the edges of 'cell1'.
-    ! If the ocean bottom is flat dolic_c and dolic_e are identical and equal 
+    ! If the ocean bottom is flat dolic_c and dolic_e are identical and equal
     ! to the number of z-coodinate surfaces.
     !
     INTEGER, POINTER :: dolic_c(:,:)    ! index1=1,nproma, index2=1,nblks_c
@@ -958,19 +958,19 @@ MODULE mo_model_domain
                                           ! This array assumes a flat surface. dimension: (nproma, n_zlev, nblks_e)
       &  inv_prism_center_dist_c(:,:,:),& ! inverse vertical distance between prism centers at cells. Unit [m].
                                           ! This array assumes a flat surface  dimension: (nproma, n_zlev, nblks_c)
-      &  inv_prism_center_dist_e(:,:,:)   ! inverse vertical distance between prism centers at edges. Unit [m]. 
-                                          ! This array assumes a flat surface dimension: (nproma, n_zlev, nblks_e)   
+      &  inv_prism_center_dist_e(:,:,:)   ! inverse vertical distance between prism centers at edges. Unit [m].
+                                          ! This array assumes a flat surface dimension: (nproma, n_zlev, nblks_e)
 
   END TYPE t_patch_vert
 
 
 
   TYPE t_patch_3D
-    
+
     TYPE(t_patch),     POINTER :: p_patch_2D(:)
     TYPE(t_patch_vert),POINTER :: p_patch_1D(:)
 
-    ! land-sea-mask for ocean has 3 dimensions (the 2nd is the number of 
+    ! land-sea-mask for ocean has 3 dimensions (the 2nd is the number of
     ! vertical levels)
     ! sea=-2, sea_boundary=-1, boundary (edges only)=0, land_boundary=1, land=2
     !
@@ -996,11 +996,11 @@ MODULE mo_model_domain
     ! index1=1,nproma, index2=1,nblks_c
     INTEGER,  POINTER :: basin_c(:,:)  ! basin information Atlantic/Indian/Pacific
     INTEGER,  POINTER :: regio_c(:,:)  ! area information like tropical Atlantic etc.
-    REAL(wp), POINTER :: bottom_thick_c(:,:)  ! individual bottom prism thickness at cells. Unit [m]. 
-    REAL(wp), POINTER :: bottom_thick_e(:,:)  ! individual bottom prism thickness at edges. Unit [m]. 
+    REAL(wp), POINTER :: bottom_thick_c(:,:)  ! individual bottom prism thickness at cells. Unit [m].
+    REAL(wp), POINTER :: bottom_thick_e(:,:)  ! individual bottom prism thickness at edges. Unit [m].
     REAL(wp), POINTER :: column_thick_c(:,:)  ! individual column thickness at cells, no elevation. Unit [m].
     REAL(wp), POINTER :: column_thick_e(:,:)  ! individual column thickness at edges, no elevation. Unit [m].
-    
+
   END TYPE t_patch_3D
   !--------------------------------------------------------------------
 

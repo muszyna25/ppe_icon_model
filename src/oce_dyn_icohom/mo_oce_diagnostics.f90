@@ -1,16 +1,16 @@
 !>
 !! Contains basic diagnostics for ICON ocean model.
-!! 
-!! 
+!!
+!!
 !! @par Revision History
 !!  Developed  by Peter Korn,       MPI-M (2011/02)
 !!  Extended   by Stephan Lorenz,   MPI-M (2012)
-!! 
+!!
 !! @par Copyright
 !! 2002-2006 by DWD and MPI-M
 !! This software is provided for non-commercial use only.
 !! See the LICENSE and the WARRANTY conditions.
-!! 
+!!
 !! @par License
 !! The use of ICON is hereby granted free of charge for an unlimited time,
 !! provided the following rules are accepted and applied:
@@ -24,7 +24,7 @@
 !! <li> In case you intend to use the code commercially, we oblige you to sign
 !!    an according license agreement with DWD and MPI-M.
 !! </ol>
-!! 
+!!
 !! @par Warranty
 !! This code has been tested up to a certain level. Defects and weaknesses,
 !! which may be included in the code, do not establish any warranties by the
@@ -32,7 +32,7 @@
 !! The authors do not make any warranty, express or implied, or assume any
 !! liability or responsibility for the use, acquisition or application of this
 !! software.
-!! 
+!!
 MODULE mo_oce_diagnostics
   USE mo_kind,               ONLY: wp, dp, i8
   USE mo_grid_subset,        ONLY: t_subset_range, get_index_range
@@ -159,10 +159,10 @@ CONTAINS
 !-------------------------------------------------------------------------
 !>
 ! !  calculate_oce_diagnostics
-! 
+!
 ! @par Revision History
 ! Developed  by  Peter Korn, MPI-M (2010).
-! 
+!
 SUBROUTINE calculate_oce_diagnostics(p_patch_3D, p_os, p_sfc_flx, p_ice, &
     & p_phys_param, timestep, datetime, oce_ts)
   TYPE(t_patch_3D ),TARGET, INTENT(IN)    :: p_patch_3D
@@ -374,7 +374,7 @@ SUBROUTINE calculate_oce_diagnostics(p_patch_3D, p_os, p_sfc_flx, p_ice, &
   write(diag_unit,'(a)') TRIM(line)
 
 END SUBROUTINE calculate_oce_diagnostics
-!-------------------------------------------------------------------------  
+!-------------------------------------------------------------------------
 !
 !
 !  !The constructor of the types related to ocean diagnostics
@@ -383,7 +383,7 @@ END SUBROUTINE calculate_oce_diagnostics
 !!
 !! @par Revision History
 !! Developed  by  Peter Korn, MPI-M (2011).
-!! 
+!!
 SUBROUTINE construct_oce_diagnostics( p_patch_3D, p_os, oce_ts, datestring )
   TYPE(t_patch_3D ),TARGET, INTENT(INOUT) :: p_patch_3D
   TYPE(t_hydro_ocean_state), TARGET       :: p_os
@@ -462,7 +462,7 @@ SUBROUTINE construct_oce_diagnostics( p_patch_3D, p_os, oce_ts, datestring )
 
   CALL message (TRIM(routine), 'end')
 END SUBROUTINE construct_oce_diagnostics
-!-------------------------------------------------------------------------  
+!-------------------------------------------------------------------------
 !
 !
 !  !The destructor of the types related to ocean diagnostics
@@ -471,7 +471,7 @@ END SUBROUTINE construct_oce_diagnostics
 !!
 !! @par Revision History
 !! Developed  by  Peter Korn, MPI-M (2011).
-!! 
+!!
 SUBROUTINE destruct_oce_diagnostics(oce_ts)
 !
 TYPE(t_oce_timeseries),POINTER         :: oce_ts
@@ -484,7 +484,7 @@ CHARACTER(len=max_char_length)  :: message_text
 CHARACTER(len=max_char_length), PARAMETER :: &
        & routine = ('mo_oce_diagnostics:destruct_oce_diagnostics')
 !-----------------------------------------------------------------------
-   DO i=0,nsteps 
+   DO i=0,nsteps
      DEALLOCATE(oce_ts%oce_diagnostics(i)%tracer_content)
    END DO
    DEALLOCATE(oce_ts%oce_diagnostics)
@@ -492,7 +492,7 @@ CHARACTER(len=max_char_length), PARAMETER :: &
    ! close the global diagnostics text file and the SRV MOC file
    CLOSE(unit=diag_unit)
    CLOSE(unit=moc_unit)
-   ! create a link to the last diagnostics file       
+   ! create a link to the last diagnostics file
    linkname = 'oce_diagnostics.txt'
    IF (util_islink(TRIM(linkname))) THEN
      iret = util_unlink(TRIM(linkname))
@@ -503,7 +503,7 @@ CHARACTER(len=max_char_length), PARAMETER :: &
 
 CALL message (TRIM(routine), 'end')
 END SUBROUTINE destruct_oce_diagnostics
-!-------------------------------------------------------------------------  
+!-------------------------------------------------------------------------
 !
 !
 !!  Calculation of meridional overturning circulation (MOC)
@@ -518,7 +518,7 @@ END SUBROUTINE destruct_oce_diagnostics
 !
 ! TODO: implement variable output dimension (1 deg resolution) and smoothing extent
 ! TODO: calculate the 1 deg resolution meridional distance
-!! 
+!!
 SUBROUTINE calc_moc (p_patch, p_patch_3D, w, datetime)
 
   TYPE(t_patch), TARGET, INTENT(IN)  :: p_patch
@@ -540,7 +540,7 @@ SUBROUTINE calc_moc (p_patch, p_patch_3D, w, datetime)
   REAL(dp) :: local_moc(180), res_moc(180)
 
   TYPE(t_subset_range), POINTER :: dom_cells
-  
+
   CHARACTER(len=max_char_length), PARAMETER :: routine = ('mo_oce_diagnostics:calc_moc')
 
   !-----------------------------------------------------------------------
@@ -557,7 +557,7 @@ SUBROUTINE calc_moc (p_patch, p_patch_3D, w, datetime)
 
   ! set barrier:
   ! CALL MPI_BARRIER(0)
-    
+
   ! with all cells no sync is necessary
   !owned_cells => p_patch%cells%owned
   dom_cells   => p_patch%cells%in_domain
@@ -571,7 +571,7 @@ SUBROUTINE calc_moc (p_patch, p_patch_3D, w, datetime)
 
         !  could be replaced by vertical loop to bottom
         IF ( p_patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
-   
+
           ! lbrei: corresponding latitude row of 1 deg extension
           !       1 south pole
           !     180 north pole
@@ -584,7 +584,7 @@ SUBROUTINE calc_moc (p_patch, p_patch_3D, w, datetime)
           ! get neighbor edge for scaling
       !   il_e = p_patch%cells%edge_idx(jc,jb,1)
       !   ib_e = p_patch%cells%edge_blk(jc,jb,1)
-   
+
           ! z_lat_dim: scale to 1 deg resolution
           ! z_lat_dim: latitudinal extent of triangle divided by latitudinal smoothing extent
       !   z_lat_dim = p_patch%edges%primal_edge_length(il_e,ib_e) / &
@@ -598,7 +598,7 @@ SUBROUTINE calc_moc (p_patch, p_patch_3D, w, datetime)
             lbrei = NINT(90.0_wp + z_lat_deg + REAL(lbr, wp) * z_lat_dim)
             lbrei = MAX(lbrei,1)
             lbrei = MIN(lbrei,180)
-      
+
             global_moc(lbrei,jk) = global_moc(lbrei,jk) - &
               !  multiply with wet (or loop to bottom)
               &                    p_patch%cells%area(jc,jb) * rho_ref * w(jc,jk,jb) * &
@@ -619,7 +619,7 @@ SUBROUTINE calc_moc (p_patch, p_patch_3D, w, datetime)
             END IF
 
           END DO
-   
+
         END IF
       END DO
     END DO
@@ -683,9 +683,9 @@ SUBROUTINE calc_moc (p_patch, p_patch_3D, w, datetime)
   END IF
 
 END SUBROUTINE calc_moc
-!-------------------------------------------------------------------------  
+!-------------------------------------------------------------------------
 
-!-------------------------------------------------------------------------  
+!-------------------------------------------------------------------------
 !
 !
 !!  Calculation of horizontal stream function
@@ -697,7 +697,7 @@ END SUBROUTINE calc_moc
 !!  based on code from MPIOM
 !
 ! TODO: implement variable output dimension (1 deg resolution) and smoothing extent
-!! 
+!!
 SUBROUTINE calc_psi (p_patch,p_patch_3D, u, h, u_vint, datetime)
 
   TYPE(t_patch), TARGET, INTENT(IN)  :: p_patch
@@ -718,7 +718,7 @@ SUBROUTINE calc_psi (p_patch,p_patch_3D, u, h, u_vint, datetime)
   INTEGER, PARAMETER ::  nlon = 360                    ! zonal dimension of regular grid
 
   ! smoothing area is 2*jsmth-1 lat/lon areas of 1 deg
-  INTEGER, PARAMETER ::  jsmth = 3                  
+  INTEGER, PARAMETER ::  jsmth = 3
   INTEGER            :: jb, jc, jk, i_startidx, i_endidx
   INTEGER            :: jlat, jlon, jlt, jln, jltx, jlnx, jsmth2
   INTEGER(i8)        :: idate, iextra(4)
@@ -729,7 +729,7 @@ SUBROUTINE calc_psi (p_patch,p_patch_3D, u, h, u_vint, datetime)
   REAL(wp) :: psi_reg(nlon,nlat)                        ! horizontal stream function
 
   TYPE(t_subset_range), POINTER :: all_cells, dom_cells
-  
+
   !CHARACTER(len=max_char_length), PARAMETER :: routine = ('mo_oce_diagnostics:calc_psi')
 
   !-----------------------------------------------------------------------
@@ -739,7 +739,7 @@ SUBROUTINE calc_psi (p_patch,p_patch_3D, u, h, u_vint, datetime)
 
   jsmth2          = 2*jsmth + 1
   rsmth           = REAL(jsmth2*jsmth2, wp)
-   
+
 
   ! with all cells no sync is necessary
   all_cells => p_patch%cells%all
@@ -774,7 +774,7 @@ SUBROUTINE calc_psi (p_patch,p_patch_3D, u, h, u_vint, datetime)
 
    !  ! 0 <= lon <= 360 deg
    !  z_lon_deg = z_lon_deg + 180.0_wp
-  
+
       ! jlat/jlon: corresponding latitude/longitude coordinates of 1 deg extension
       ! jlat: 1 = south of 89.0S; 89 = 1S-Eq.; 90 = Eq-1N;  180 = north of 89N
       ! jlon: 1 = 180W-179W; 180 = 1-0 deg west; 360 = 179E-180E
@@ -850,6 +850,6 @@ SUBROUTINE calc_psi (p_patch,p_patch_3D, u, h, u_vint, datetime)
   enddo
 
 END SUBROUTINE calc_psi
-!-------------------------------------------------------------------------  
+!-------------------------------------------------------------------------
 
 END MODULE mo_oce_diagnostics

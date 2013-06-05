@@ -217,7 +217,7 @@ CONTAINS
   IF (output_mode%l_nml) THEN
     ! in general nml output is writen based on the nnew status of the
     ! prognostics variables. Unfortunately, the initialization has to be written
-    ! to the nold state. That's why the following manual copying is nec. 
+    ! to the nold state. That's why the following manual copying is nec.
     IF (.NOT. is_restart_run()) p_os(jg)%p_prog(nnew(1))%tracer = p_os(jg)%p_prog(nold(1))%tracer
     CALL write_name_list_output( datetime, time_config%sim_time(1), last_step=.FALSE., initial_step=.not.is_restart_run())
   ENDIF
@@ -331,7 +331,7 @@ CONTAINS
     ! update accumulated vars
     CALL update_ocean_statistics(p_os(1),p_sfc_flx,p_patch_3D%p_patch_2D(1)%cells%owned)
 
-    IF (is_output_time(jstep) .OR. istime4name_list_output(time_config%sim_time(1))) THEN 
+    IF (is_output_time(jstep) .OR. istime4name_list_output(time_config%sim_time(1))) THEN
       IF (idiag_oce == 1 ) THEN
         CALL calculate_oce_diagnostics( p_patch_3D,    &
           &                             p_os(jg),      &

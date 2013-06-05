@@ -58,7 +58,7 @@ MODULE mo_statistics_tools
   PUBLIC :: ADD_MAX_RATIO
 
   PUBLIC :: new, delete
-  
+
   PUBLIC :: t_statistic
   !-------------------------------------------------------------------------
   TYPE :: t_statistic
@@ -130,19 +130,19 @@ MODULE mo_statistics_tools
   !> The maximum id of the active statistics
   INTEGER :: max_active_statistics
   !> True if the statistic object is active.
-  
+
   INTERFACE new
     MODULE PROCEDURE new_statistic_operator
   END INTERFACE
   INTERFACE delete
     MODULE PROCEDURE delete_statistic_operator
   END INTERFACE
-  
+
   INTERFACE add_data_to
     MODULE PROCEDURE add_data_one_value_real
     MODULE PROCEDURE add_data_one_value_int
   END INTERFACE
-  
+
   INTERFACE min
     MODULE PROCEDURE min_statistic
   END INTERFACE
@@ -152,17 +152,17 @@ MODULE mo_statistics_tools
   INTERFACE mean
     MODULE PROCEDURE mean_statistic
   END INTERFACE
-  
+
   INTERFACE new_statistic
     MODULE PROCEDURE new_statistic_no_bars
     MODULE PROCEDURE new_statistic_with_bars
   END INTERFACE
-  
+
   INTERFACE add_statistic_to
     MODULE PROCEDURE add_statistic_one_value
     MODULE PROCEDURE add_statistic_two_values
   END INTERFACE
-  
+
 
 CONTAINS
 
@@ -173,7 +173,7 @@ CONTAINS
     TYPE(t_statistic), INTENT(inout) :: statistic
 
     statistic%id = new_statistic_no_bars()
-    
+
   END SUBROUTINE new_statistic_operator
   !-----------------------------------------------------------------------
 
@@ -184,11 +184,11 @@ CONTAINS
 
     CALL delete_statistic(statistic%id)
     statistic%id = -1
-    
+
   END SUBROUTINE delete_statistic_operator
   !-----------------------------------------------------------------------
 
-  
+
   !-----------------------------------------------------------------------
   !>
   !! Creates a new statistics object and returns its id.
@@ -204,10 +204,10 @@ CONTAINS
       new_statistic_with_bars = new_statistic(mode)
     ENDIF
     CALL construct_statistic_bars(new_statistic_with_bars, no_of_bars, min_value, max_value)
-    
+
   END FUNCTION new_statistic_with_bars
   !-----------------------------------------------------------------------
-  
+
   !-----------------------------------------------------------------------
   !>
   !! Creates a new statistics object and returns its id.
@@ -245,20 +245,20 @@ CONTAINS
     IF (PRESENT(mode)) THEN
       CALL set_mode(new_statistic_no_bars, mode)
     ENDIF
-      
+
 
   END FUNCTION new_statistic_no_bars
   !-----------------------------------------------------------------------
-  
+
   !-----------------------------------------------------------------------
   !>
   SUBROUTINE set_mode(statistic_id, mode)
     INTEGER, INTENT(in) :: statistic_id, mode
 
     CALL check_active_statistic_id(statistic_id)
-      
+
     SELECT CASE (mode)
-    
+
     CASE (ADD_VALUE, ADD_MAX_RATIO)
       statistic_object(statistic_id)%mode = mode
 
@@ -268,8 +268,8 @@ CONTAINS
     END SELECT
   END SUBROUTINE set_mode
   !-----------------------------------------------------------------------
-    
-   
+
+
   !-----------------------------------------------------------------------
   !>
   !! Deletes the statistic object.
@@ -285,7 +285,7 @@ CONTAINS
     CALL destruct_statistic_bars(statistic_id)
     statistic_object(statistic_id)%is_active = .false.
     active_statistics = active_statistics - 1
-    
+
   END SUBROUTINE delete_statistic
   !-----------------------------------------------------------------------
 
@@ -294,21 +294,21 @@ CONTAINS
   SUBROUTINE add_data_one_value_real(statistic, value)
     TYPE(t_statistic), INTENT(inout) :: statistic
     REAL(wp), INTENT(in) :: value
-    
+
     CALL add_statistic_one_value(statistic%id, value)
   END SUBROUTINE add_data_one_value_real
   !-----------------------------------------------------------------------
-  
+
   !-----------------------------------------------------------------------
   !>
   SUBROUTINE add_data_one_value_int(statistic, value)
     TYPE(t_statistic), INTENT(inout) :: statistic
     INTEGER, INTENT(in) :: value
-    
+
     CALL add_statistic_one_value(statistic%id, REAL(value,wp))
   END SUBROUTINE add_data_one_value_int
   !-----------------------------------------------------------------------
-  
+
   !-----------------------------------------------------------------------
   !>
   SUBROUTINE add_statistic_one_value(statistic_id, value)
@@ -323,20 +323,20 @@ CONTAINS
       & MAX(statistic_object(statistic_id)%max_of_values, value)
     statistic_object(statistic_id)%min_of_values  = &
       & MIN(statistic_object(statistic_id)%min_of_values, value)
-    
+
     statistic_object(statistic_id)%no_of_values   = &
       & statistic_object(statistic_id)%no_of_values + 1
-  
+
   END SUBROUTINE add_statistic_one_value
   !-----------------------------------------------------------------------
-  
+
 
   !-----------------------------------------------------------------------
   !>
   SUBROUTINE add_statistic_two_values(statistic_id, value1, value2)
     INTEGER, INTENT(in) :: statistic_id
     REAL(wp), INTENT(in) :: value1, value2
-    
+
 !     REAL(wp) :: max_value, min_value
 
 !     CALL check_active_statistic_id(statistic_id)
@@ -347,84 +347,84 @@ CONTAINS
 
       CALL add_statistic_one_value(statistic_id, &
         MAX(value1, value2) / MIN(value1, value2))
-     
+
      CASE DEFAULT
       CALL finish('set_mode', 'Unkown mode')
 
     END SELECT
-  
+
   END SUBROUTINE add_statistic_two_values
   !-----------------------------------------------------------------------
-  
+
   !-----------------------------------------------------------------------
   !>
   REAL(wp) FUNCTION min_statistic(statistic)
     TYPE(t_statistic), INTENT(in) :: statistic
-    
+
     CALL check_active_statistic_id(statistic%id)
     min_statistic = statistic_object(statistic%id)%min_of_values
 
   END FUNCTION min_statistic
   !-----------------------------------------------------------------------
-  
+
   !-----------------------------------------------------------------------
   !>
   REAL(wp) FUNCTION max_statistic(statistic)
     TYPE(t_statistic), INTENT(in) :: statistic
-    
+
     CALL check_active_statistic_id(statistic%id)
     max_statistic = statistic_object(statistic%id)%max_of_values
 
   END FUNCTION max_statistic
   !-----------------------------------------------------------------------
-  
+
   !-----------------------------------------------------------------------
   !>
   REAL(wp) FUNCTION mean_statistic(statistic)
     TYPE(t_statistic), INTENT(in) :: statistic
-    
+
     CALL check_active_statistic_id(statistic%id)
     mean_statistic = statistic_object(statistic%id)%sum_of_values / &
       & REAL(statistic_object(statistic%id)%no_of_values, wp)
 
   END FUNCTION mean_statistic
   !-----------------------------------------------------------------------
-  
-  
+
+
   !-----------------------------------------------------------------------
   !>
   REAL(wp) FUNCTION min_statistic_of(statistic_id)
     INTEGER, INTENT(in) :: statistic_id
-    
+
     CALL check_active_statistic_id(statistic_id)
     min_statistic_of = statistic_object(statistic_id)%min_of_values
 
-  END FUNCTION min_statistic_of  
+  END FUNCTION min_statistic_of
   !-----------------------------------------------------------------------
-  
+
   !-----------------------------------------------------------------------
   !>
   REAL(wp) FUNCTION mean_statistic_of(statistic_id)
     INTEGER, INTENT(in) :: statistic_id
-    
+
     CALL check_active_statistic_id(statistic_id)
     mean_statistic_of = statistic_object(statistic_id)%sum_of_values / &
       & REAL(statistic_object(statistic_id)%no_of_values, wp)
 
   END FUNCTION mean_statistic_of
   !-----------------------------------------------------------------------
-  
+
   !-----------------------------------------------------------------------
   !>
   REAL(wp) FUNCTION max_statistic_of(statistic_id)
     INTEGER, INTENT(in) :: statistic_id
-    
+
     CALL check_active_statistic_id(statistic_id)
     max_statistic_of = statistic_object(statistic_id)%max_of_values
 
   END FUNCTION max_statistic_of
   !-----------------------------------------------------------------------
-  
+
 
   !-----------------------------------------------------------------------
   !>
@@ -454,7 +454,7 @@ CONTAINS
 
   END SUBROUTINE destruct_statistic_objects
   !-----------------------------------------------------------------------
-  
+
   !-----------------------------------------------------------------------
   !>
   !! "Class construction" method.
@@ -464,7 +464,7 @@ CONTAINS
     INTEGER :: return_status,i
 
     CHARACTER(*), PARAMETER :: method_name = "construct_statistic_objects"
-    
+
     IF (no_of_allocated_statistics /= 0) THEN
       ! do some consistency checks, return if everything ok
       IF (no_of_allocated_statistics /= max_no_of_statistic_objects) THEN
@@ -494,11 +494,11 @@ CONTAINS
     IF (return_status /= 0) THEN
       CALL finish(method_name, 'failed to ALLOCATE(statistic_object)');
     ENDIF
-    
+
     DO i=1,no_of_allocated_statistics
       statistic_object(i)%is_active = .false.
     ENDDO
-       
+
   END SUBROUTINE construct_statistic_objects
   !-----------------------------------------------------------------------
 
@@ -515,12 +515,12 @@ CONTAINS
     statistic_object(statistic_id)%min_of_values  = &
       & HUGE(statistic_object(statistic_id)%min_of_values)
     statistic_object(statistic_id)%mode     = ADD_VALUE
-    
+
     statistic_object(statistic_id)%no_of_bars     = 0
     statistic_object(statistic_id)%min_bars_value = 0._wp
     statistic_object(statistic_id)%max_bars_value = 0._wp
     NULLIFY(statistic_object(statistic_id)%no_of_values_in_bar)
-    
+
     statistic_object(statistic_id)%is_active = .true.
 
   END SUBROUTINE init_statistic_object
@@ -549,19 +549,19 @@ CONTAINS
       CALL finish(method_name,'no_of_bars < 2');
     IF (min_value >= max_value) &
       CALL finish(method_name,'min_value >= max_value');
-        
+
     statistic_object(statistic_id)%no_of_bars     = no_of_bars
     statistic_object(statistic_id)%min_bars_value = min_value
     statistic_object(statistic_id)%max_bars_value = max_value
-    
+
     ALLOCATE(statistic_object(statistic_id)%no_of_values_in_bar(no_of_bars),stat=return_status)
     IF (return_status /= 0) THEN
       CALL finish(method_name, 'failed to ALLOCATE(statistic_object)');
     ENDIF
-    
+
   END SUBROUTINE construct_statistic_bars
   !-----------------------------------------------------------------------
-  
+
   !-----------------------------------------------------------------------
   !>
   !! Initializes a new statistic object
@@ -572,18 +572,17 @@ CONTAINS
 !     CHARACTER(*), PARAMETER :: method_name = "destruct_statistic_bars"
 
     CALL check_active_statistic_id(statistic_id)
-    
+
     IF (ASSOCIATED(statistic_object(statistic_id)%no_of_values_in_bar)) THEN
       DEALLOCATE(statistic_object(statistic_id)%no_of_values_in_bar)
     ENDIF
-        
+
     statistic_object(statistic_id)%no_of_bars     = 0
-    NULLIFY(statistic_object(statistic_id)%no_of_values_in_bar)    
-    
+    NULLIFY(statistic_object(statistic_id)%no_of_values_in_bar)
+
   END SUBROUTINE destruct_statistic_bars
   !-----------------------------------------------------------------------
-  
-  
+
   !-----------------------------------------------------------------------
   !>
   !! Checks if a the statistic object associated with the statistic_id is active.

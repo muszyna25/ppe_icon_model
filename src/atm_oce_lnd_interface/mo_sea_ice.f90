@@ -51,7 +51,7 @@ MODULE mo_sea_ice
   USE mo_dynamics_config,     ONLY: nold
   USE mo_model_domain,        ONLY: t_patch
   USE mo_exception,           ONLY: finish, message
-  USE mo_impl_constants,      ONLY: success, max_char_length, sea_boundary 
+  USE mo_impl_constants,      ONLY: success, max_char_length, sea_boundary
   USE mo_physical_constants,  ONLY: rhoi, rhos, rho_ref,ki,ks,Tf,albi,albim,albsm,albs, mu, &
     &                               alf, alv, albedoW, clw, cpd, zemiss_def,rd, stbo,tmelt, ci
   USE mo_math_constants,      ONLY: rad2deg
@@ -71,7 +71,7 @@ MODULE mo_sea_ice
     &                               t_atmos_for_ocean
   USE mo_sea_ice_winton,      ONLY: ice_growth_winton, set_ice_temp_winton
   USE mo_sea_ice_zerolayer,   ONLY: ice_growth_zerolayer, set_ice_temp_zerolayer
-  USE mo_grid_subset,         ONLY: t_subset_range, get_index_range 
+  USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
   USE mo_util_dbg_prnt,       ONLY: dbg_print
 
   IMPLICIT NONE
@@ -85,7 +85,7 @@ MODULE mo_sea_ice
   ! contained in mo_sea_ice_types
 
   ! public subroutines
-  PUBLIC :: construct_sea_ice 
+  PUBLIC :: construct_sea_ice
   PUBLIC :: destruct_sea_ice
   PUBLIC :: construct_sfcflx
   PUBLIC :: construct_atmos_for_ocean
@@ -118,7 +118,7 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   !
-  !> Constructor of sea-ice model, allocates all components and assigns zero. 
+  !> Constructor of sea-ice model, allocates all components and assigns zero.
   !!
   !! @par Revision History
   !! Initial release by Peter Korn, MPI-M (2010-07). Originally code written by
@@ -281,7 +281,7 @@ CONTAINS
       &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
       &          ldims=(/nproma,nblks_c/),&
       &          lrestart_cont=.TRUE.)
-      
+
     CALL add_var(ocean_restart_list, 'concSum', p_ice%concSum ,&
       &          GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE, &
       &          t_cf_var('concSum', '', 'total ice concentration', DATATYPE_FLT32),&
@@ -321,7 +321,7 @@ CONTAINS
   END SUBROUTINE construct_sea_ice
   !-------------------------------------------------------------------------
   !
-  !> Destructor of sea-ice model, deallocates all components. 
+  !> Destructor of sea-ice model, deallocates all components.
   !!
   !! @par Revision History
   !! Initial release by Peter Korn, MPI-M (2010-07). Originally code written by
@@ -341,7 +341,7 @@ CONTAINS
     END IF
 
     CALL message(TRIM(routine), 'end' )
-   
+
   END SUBROUTINE destruct_sea_ice
   !-------------------------------------------------------------------------
   !
@@ -594,7 +594,7 @@ CONTAINS
     CALL message(TRIM(routine), 'start' )
 
     nblks_c = p_patch%nblks_c
-   
+
     ALLOCATE(p_as%tafo(nproma,nblks_c), STAT=ist)
     IF (ist/=SUCCESS) THEN
       CALL finish(TRIM(routine),'allocation for tafo failed')
@@ -682,7 +682,7 @@ CONTAINS
     !-------------------------------------------------------------------------
     CALL message(TRIM(routine), 'start' )
 
-   
+
     DEALLOCATE(p_as%tafo, STAT=ist)
     IF (ist/=SUCCESS) THEN
       CALL finish(TRIM(routine),'deallocation for tafo failed')
@@ -758,7 +758,7 @@ CONTAINS
     CALL message(TRIM(routine), 'start' )
 
     nblks_c = p_patch%nblks_c
-   
+
     ALLOCATE(p_atm_f%sens(nproma,i_no_ice_thick_class,nblks_c), STAT=ist)
     IF (ist/=SUCCESS) THEN
       CALL finish(TRIM(routine),'allocation for sens failed')
@@ -936,7 +936,7 @@ CONTAINS
     !-------------------------------------------------------------------------
     CALL message(TRIM(routine), 'start' )
 
-   
+
     DEALLOCATE(p_atm_f%sens, STAT=ist)
     IF (ist/=SUCCESS) THEN
       CALL finish(TRIM(routine),'deallocation for sens failed')
@@ -1077,7 +1077,7 @@ CONTAINS
   !! Dirk Notz, following MPI-OM. Code transfered to ICON.
   !!
   SUBROUTINE ice_init( p_patch, p_os, ice) !, Qatm, QatmAve)
-    TYPE(t_patch), INTENT(in)             :: p_patch 
+    TYPE(t_patch), INTENT(in)             :: p_patch
     TYPE(t_hydro_ocean_state)             :: p_os
     TYPE (t_sea_ice),      INTENT (INOUT) :: ice
     !TYPE (t_atmos_fluxes), INTENT (INOUT) :: Qatm
@@ -1099,7 +1099,7 @@ CONTAINS
     !   CALL alloc_mem_commo_ice (ice, Qatm, QatmAve)
     !   CALL ice_zero            (ice, Qatm, QatmAve)
 
-    ! FORALL(i=1:nproma, j=1:p_patch%nblks_c, k=1:ice%kice) 
+    ! FORALL(i=1:nproma, j=1:p_patch%nblks_c, k=1:ice%kice)
     !    ice% hi    (i,j,k) = sictho (i,j)
     !    ice% hs    (i,j,k) = sicsno (i,j)
     ! END FORALL
@@ -1111,7 +1111,7 @@ CONTAINS
     ELSE
       Tfw(:,:,:) = Tf
     ENDIF
-      
+
     ice% Tsurf(:,:,:)  = Tf
     ice% T1   (:,:,:)  = Tf
     ice% T2   (:,:,:)  = Tf
@@ -1143,7 +1143,7 @@ CONTAINS
       ice% T2    (:,:,:) = Tfw(:,:,:) + 1._wp/3._wp*(Tinterface(:,:,:)-Tfw(:,:,:))
       draft      (:,:,:) = (rhos * ice%hs(:,:,:) + rhoi * ice%hi(:,:,:)) / rho_ref
     END WHERE
-    
+
     !ice%zUnderIce (:,:)   = dzw(1) + zo (:,:) &
     !  &                     - sum(draft(:,:,:) * ice%conc(:,:,:),2)
     ice%zUnderIce (:,:)   = v_base%del_zlev_m(1) +  p_os%p_prog(nold(1))%h(:,:) &
@@ -1152,9 +1152,9 @@ CONTAINS
     CALL message(TRIM(routine), 'end' )
 
   END SUBROUTINE ice_init
-  !-------------------------------------------------------------------------  
+  !-------------------------------------------------------------------------
   !
-  !  
+  !
   !>
   !! !  ice_fast: Ice routines for atmospheric time step. Sets air-ice fluxes and
   !!    calculates the development of the ice temperature field
@@ -1168,8 +1168,8 @@ CONTAINS
             &   T2,             & ! Temperature of lower layer [degC]
             &   hi,             & ! Ice thickness
             &   hs,             & ! Snow thickness
-            &   Qtop,           & ! Energy flux available for surface melting [W/m2] 
-            &   Qbot,           & ! Energy flux available for bottom melting [W/m2] 
+            &   Qtop,           & ! Energy flux available for surface melting [W/m2]
+            &   Qbot,           & ! Energy flux available for bottom melting [W/m2]
             &   SWnet,          & ! Net shortwave flux [W/m^2]
             &   nonsolar,       & ! Latent and sensible heat flux and longwave radiation [W/m^2]
             &   dnonsolardT,    & ! Derivative of non-solar fluxes w.r.t. temperature [W/m^2/K]
@@ -1200,32 +1200,32 @@ CONTAINS
 
     INTEGER, OPTIONAL,INTENT(IN)  :: doy
 
-    !------------------------------------------------------------------------- 
-    
+    !-------------------------------------------------------------------------
+
     ! #achim
     IF ( i_ice_therm == 1 .OR. i_ice_therm == 3 ) THEN
       CALL set_ice_temp_zerolayer(i_startidx_c, i_endidx_c, nbdim, kice, i_ice_therm, pdtime, &
-            &   Tsurf,          & 
-            &   hi,             & 
-            &   hs,             & 
-            &   Qtop,           & 
-            &   Qbot,           & 
-            &   SWnet,          & 
-            &   nonsolar,       & 
+            &   Tsurf,          &
+            &   hi,             &
+            &   hs,             &
+            &   Qtop,           &
+            &   Qbot,           &
+            &   SWnet,          &
+            &   nonsolar,       &
             &   dnonsolardT,    &
             &   Tfw,            &
             &   doy)
     ELSE IF ( i_ice_therm == 2 ) THEN
       CALL set_ice_temp_winton(i_startidx_c, i_endidx_c, nbdim, kice, pdtime, &
-            &   Tsurf,          & 
-            &   T1,             & 
-            &   T2,             & 
-            &   hi,             & 
-            &   hs,             & 
-            &   Qtop,           & 
-            &   Qbot,           & 
-            &   SWnet,          & 
-            &   nonsolar,       & 
+            &   Tsurf,          &
+            &   T1,             &
+            &   T2,             &
+            &   hi,             &
+            &   hs,             &
+            &   Qtop,           &
+            &   Qbot,           &
+            &   SWnet,          &
+            &   nonsolar,       &
             &   dnonsolardT,    &
             &   Tfw)
     ELSE IF ( i_ice_therm == 4 )  THEN
@@ -1253,8 +1253,8 @@ CONTAINS
   !! Initial release by Peter Korn, MPI-M (2010-07). Originally code written by
   !! Dirk Notz, following MPI-OM. Code transfered to ICON.
   !!
-  SUBROUTINE ice_slow(p_patch, p_os,ice, QatmAve, p_sfc_flx)  
-    TYPE(t_patch),            INTENT(IN)     :: p_patch 
+  SUBROUTINE ice_slow(p_patch, p_os,ice, QatmAve, p_sfc_flx)
+    TYPE(t_patch),            INTENT(IN)     :: p_patch
     TYPE(t_hydro_ocean_state),INTENT(INOUT)  :: p_os
     !TYPE(t_atmos_for_ocean),  INTENT(IN)     :: p_as
     TYPE (t_sea_ice),         INTENT (INOUT) :: ice
@@ -1264,7 +1264,7 @@ CONTAINS
 
     REAL(wp),PARAMETER :: C_iw = 5.5e-3_wp ! Drag coefficient for ice/ocean drag
     INTEGER :: k
-    
+
     !-------------------------------------------------------------------------------
 
     !CALL ave_fluxes     (ice, QatmAve)
@@ -1274,14 +1274,14 @@ CONTAINS
     !! accordingly
     ! This does not appear to work well. Keeping the ice steady produces instabilities in the
     ! ocean. For the moment we then just multiply the applied stress with 1-concentration.
-    p_sfc_flx%forc_wind_u(:,:) = p_sfc_flx%forc_wind_u(:,:)*( 1._wp - ice%concSum(:,:) ) 
+    p_sfc_flx%forc_wind_u(:,:) = p_sfc_flx%forc_wind_u(:,:)*( 1._wp - ice%concSum(:,:) )
 !      & + ice%concSum(:,:)*( rho_ref*C_iw*sqrt(p_os%p_diag%u(:,1,:)**2+p_os%p_diag%v(:,1,:)**2) ) &
 !      &         *p_os%p_diag%u(:,1,:)
-    p_sfc_flx%forc_wind_v(:,:) = p_sfc_flx%forc_wind_v(:,:)*( 1._wp - ice%concSum(:,:) ) 
+    p_sfc_flx%forc_wind_v(:,:) = p_sfc_flx%forc_wind_v(:,:)*( 1._wp - ice%concSum(:,:) )
 !      & + ice%concSum(:,:)*( rho_ref*C_iw*sqrt(p_os%p_diag%u(:,1,:)**2+p_os%p_diag%v(:,1,:)**2) ) &
 !      &         *p_os%p_diag%v(:,1,:)
 
-    
+
     ice%hiold(:,:,:) = ice%hi(:,:,:)
     ice%hsold(:,:,:) = ice%hs(:,:,:)
     ! #achim
@@ -1301,9 +1301,9 @@ CONTAINS
     !sicsno = ice%hs   (:,:,1) * ice%conc (:,:,1)
 
   END SUBROUTINE ice_slow
-  !-------------------------------------------------------------------------  
+  !-------------------------------------------------------------------------
   !
-  !  
+  !
   !>
   !! !  get_atmos_fluxes: Sets the atmospheric fluxes for the update of the ice
   ! !                 temperature
@@ -1312,18 +1312,18 @@ CONTAINS
   !! Dirk Notz, following MPI-OM. Code transfered to ICON.
   !!
   SUBROUTINE get_atmos_fluxes (p_patch, p_os,p_as,ice, Qatm)
-    TYPE(t_patch),            INTENT(IN)    :: p_patch 
+    TYPE(t_patch),            INTENT(IN)    :: p_patch
     TYPE(t_hydro_ocean_state),INTENT(IN)    :: p_os
     TYPE(t_atmos_for_ocean),  INTENT(IN)    :: p_as
     TYPE (t_sea_ice),         INTENT(INOUT) :: ice
     TYPE (t_atmos_fluxes),    INTENT(INOUT) :: Qatm
 
 !#ifdef coupled
-    !Qatm% SWin   = 
+    !Qatm% SWin   =
     !Qatm% LWin   =
-    !Qatm% sens   = 
+    !Qatm% sens   =
     !Qatm% lat    =
-    !Qatm% dsensdT = 
+    !Qatm% dsensdT =
     !Qatm% dlatdT  =
     !Qatm% dLWdT   =
 !#elif defined CORE
@@ -1333,10 +1333,10 @@ CONTAINS
     CALL calc_bulk_flux_ice(p_patch, p_as, ice , Qatm)
 !#endif
 
-  END SUBROUTINE get_atmos_fluxes 
-  !-------------------------------------------------------------------------  
+  END SUBROUTINE get_atmos_fluxes
+  !-------------------------------------------------------------------------
   !
-  !  
+  !
   !>
   !! !   sum_fluxes: adds atmospheric fluxes for ocean time stepping. Necessary for
   !!      diagnosis, not for the ice model itself.
@@ -1349,26 +1349,26 @@ CONTAINS
     TYPE (t_atmos_fluxes), INTENT (INOUT) :: QatmAve
 
     QatmAve % sens   (:,:,:) = QatmAve % sens   (:,:,:) + Qatm % sens   (:,:,:)
-    QatmAve % sensw  (:,:)   = QatmAve % sensw  (:,:)   + Qatm % sensw  (:,:)  
+    QatmAve % sensw  (:,:)   = QatmAve % sensw  (:,:)   + Qatm % sensw  (:,:)
     QatmAve % lat    (:,:,:) = QatmAve % lat    (:,:,:) + Qatm % lat    (:,:,:)
-    QatmAve % latw   (:,:)   = QatmAve % latw   (:,:)   + Qatm % latw   (:,:)  
+    QatmAve % latw   (:,:)   = QatmAve % latw   (:,:)   + Qatm % latw   (:,:)
     QatmAve % LWout  (:,:,:) = QatmAve % LWout  (:,:,:) + Qatm % LWout  (:,:,:)
-    QatmAve % LWoutw (:,:)   = QatmAve % LWoutw (:,:)   + Qatm % LWoutw (:,:)  
+    QatmAve % LWoutw (:,:)   = QatmAve % LWoutw (:,:)   + Qatm % LWoutw (:,:)
     QatmAve % LWnet  (:,:,:) = QatmAve % LWnet  (:,:,:) + Qatm % LWnet  (:,:,:)
-    QatmAve % LWnetw (:,:)   = QatmAve % LWnetw (:,:)   + Qatm % LWnetw (:,:)  
+    QatmAve % LWnetw (:,:)   = QatmAve % LWnetw (:,:)   + Qatm % LWnetw (:,:)
     QatmAve % SWnet  (:,:,:) = QatmAve % SWnet  (:,:,:) + Qatm % SWnet  (:,:,:)
-    QatmAve % SWnetw (:,:)   = QatmAve % SWnetw (:,:)   + Qatm % SWnetw (:,:)  
-    QatmAve % LWin   (:,:)   = QatmAve % LWin   (:,:)   + Qatm % LWin   (:,:)  
-    QatmAve % rprecw (:,:)   = QatmAve % rprecw (:,:)   + Qatm % rprecw (:,:)  
-    QatmAve % rpreci (:,:)   = QatmAve % rpreci (:,:)   + Qatm % rpreci (:,:)  
-    QatmAve % counter        = QatmAve % counter + 1 
+    QatmAve % SWnetw (:,:)   = QatmAve % SWnetw (:,:)   + Qatm % SWnetw (:,:)
+    QatmAve % LWin   (:,:)   = QatmAve % LWin   (:,:)   + Qatm % LWin   (:,:)
+    QatmAve % rprecw (:,:)   = QatmAve % rprecw (:,:)   + Qatm % rprecw (:,:)
+    QatmAve % rpreci (:,:)   = QatmAve % rpreci (:,:)   + Qatm % rpreci (:,:)
+    QatmAve % counter        = QatmAve % counter + 1
 
-  END SUBROUTINE sum_fluxes  
+  END SUBROUTINE sum_fluxes
   !-------------------------------------------------------------------------------
   !
-  !  
+  !
   !>
-  !! ! ave_fluxes: calculates the average of the atmospheric fluxes for ocean time  
+  !! ! ave_fluxes: calculates the average of the atmospheric fluxes for ocean time
   !!   sum_fluxes: adds atmospheric fluxes for ocean time stepping. Necessary for
   !!   diagnosis, not for the ice model itself.
   !! @par Revision History
@@ -1404,7 +1404,7 @@ CONTAINS
   END SUBROUTINE ave_fluxes
   !-------------------------------------------------------------------------------
   !
-  !  
+  !
   !>
   !! ! ice_zero: set the avereged fluxes to zero
   !! @par Revision History
@@ -1428,7 +1428,7 @@ CONTAINS
     !Qatm    % LWin        (:,:)   = 0._wp
     !Qatm    % rprecw      (:,:)   = 0._wp
     !Qatm    % rpreci      (:,:)   = 0._wp
-                          
+
 !    QatmAve % sens        (:,:,:) = 0._wp
 !    QatmAve % sensw       (:,:)   = 0._wp
 !    QatmAve % lat         (:,:,:) = 0._wp
@@ -1441,7 +1441,7 @@ CONTAINS
 !    QatmAve % LWin        (:,:)   = 0._wp
 !    QatmAve % rprecw      (:,:)   = 0._wp
 !    QatmAve % rpreci      (:,:)   = 0._wp
-!    QatmAve % counter             = 0 
+!    QatmAve % counter             = 0
 
 !    ice     % Qbot        (:,:,:) = 0._wp
 !    ice     % Qtop        (:,:,:) = 0._wp
@@ -1457,14 +1457,14 @@ CONTAINS
 
   !-------------------------------------------------------------------------------
   !
-  !  
+  !
   !>
-  !! ! ice_albedo: set ice albedo 
+  !! ! ice_albedo: set ice albedo
   !-------------------------------------------------------------------------------
   !
-  !  
+  !
   !>
-  !! ! ice_albedo: set ice albedo 
+  !! ! ice_albedo: set ice albedo
   !! @par Revision History
   !! Initial release by Peter Korn, MPI-M (2010-07). Originally code written by
   !! Dirk Notz, following MPI-OM. Code transfered to ICON.
@@ -1479,8 +1479,8 @@ CONTAINS
     REAL(wp),INTENT(OUT) :: albvisdif  (nbdim,kice)
     REAL(wp),INTENT(OUT) :: albnirdir  (nbdim,kice)
     REAL(wp),INTENT(OUT) :: albnirdif  (nbdim,kice)
-    
-    
+
+
     !Local variables
     REAL(wp), PARAMETER :: albtrans   = 0.5_wp
     REAL(wp)            :: albflag(nbdim,kice)
@@ -1492,7 +1492,7 @@ CONTAINS
       DO jc = i_startidx_c,i_endidx_c
 
         albflag (jc,k) =  1.0_wp/ ( 1.0_wp+albtrans * (Tsurf(jc,k))**2 )
-    
+
         IF ( hi(jc,k) > 0._wp ) THEN
           IF ( hs(jc,k) > 1.e-2_wp ) THEN
             albvisdir(jc,k) =  albflag(jc,k) * albsm + (1.0_wp-albflag(jc,k)) * albs
@@ -1512,12 +1512,12 @@ CONTAINS
     albnirdif = albvisdir
 
   END SUBROUTINE set_ice_albedo
-  
 
-  
+
+
   !-------------------------------------------------------------------------------
   !
-  !  
+  !
   !>
   !! ! upper_ocean_TS: Adjusts the temperature and salinity of the upper ocean grid
   !!                 cell according to atmospheric heat and fresh-water fluxes,
@@ -1530,7 +1530,7 @@ CONTAINS
   !! Dirk Notz, following MPI-OM. Code transfered to ICON.
   !!
   SUBROUTINE upper_ocean_TS(p_patch, p_os,ice, QatmAve, p_sfc_flx)
-    TYPE(t_patch),             INTENT(IN)    :: p_patch 
+    TYPE(t_patch),             INTENT(IN)    :: p_patch
     TYPE(t_hydro_ocean_state), INTENT(INOUT) :: p_os
     !TYPE(t_atmos_for_ocean),   INTENT(IN)    :: p_as
     TYPE(t_sea_ice),           INTENT(INOUT) :: ice
@@ -1538,10 +1538,10 @@ CONTAINS
     TYPE(t_sfc_flx),           INTENT(INOUT) :: p_sfc_flx
 
     !Local Variables
-    ! position of ice-ocean interface below sea level                       [m] 
+    ! position of ice-ocean interface below sea level                       [m]
     REAL(wp) :: draft(nproma,ice%kice, p_patch%nblks_c)
-    
-    REAL(wp), DIMENSION (nproma, p_patch%nblks_c) ::   & 
+
+    REAL(wp), DIMENSION (nproma, p_patch%nblks_c) ::   &
       & draftAve,      &! average draft of sea ice within a grid cell             [m]
       & zUnderIceOld,  &! water in upper ocean grid cell below ice (prev. time)   [m]
       & heatOceI,      &! heat flux into ocean through formerly ice covered areas [W/m^2]
@@ -1553,7 +1553,7 @@ CONTAINS
       & precw           ! liquid precipitation                                    [m]
 
     ! Needs work with FB_BGC_OCE etc.
-    !REAL(wp)         :: swsum 
+    !REAL(wp)         :: swsum
     !REAL(wp),POINTER :: sao_top(:,:)
     !-------------------------------------------------------------------------------
 
@@ -1578,13 +1578,13 @@ CONTAINS
     zUnderIceOld    (:,:)   = ice%zUnderIce(:,:)
     draft           (:,:,:) = (rhos * ice%hs(:,:,:) + rhoi * ice%hi(:,:,:)) / rho_ref
     draftave        (:,:)   = sum(draft(:,:,:) * ice%conc(:,:,:),2)
-    ice%zUnderIce   (:,:)   = v_base%del_zlev_m(1) + p_os%p_prog(nold(1))%h(:,:) - draftave(:,:) 
-   
-    ! Calculate average change in ice thickness and the snow-to-ice conversion 
+    ice%zUnderIce   (:,:)   = v_base%del_zlev_m(1) + p_os%p_prog(nold(1))%h(:,:) - draftave(:,:)
+
+    ! Calculate average change in ice thickness and the snow-to-ice conversion
     Delhice         (:,:)   = sum((ice% hi(:,:,:) - ice% hiold(:,:,:))*          &
       &                       ice%conc(:,:,:),2)
     snowiceave      (:,:)   = sum(ice%snow_to_ice(:,:,:) * ice% conc(:,:,:),2)
-   
+
 
     ! Calculate heat input through formerly ice covered and through open water areas
     heatOceI(:,:)   = sum(ice% heatOceI(:,:,:) * ice% conc(:,:,:),2)
@@ -1613,7 +1613,7 @@ CONTAINS
     !p_os%p_prog(nold(1))%tracer(:,1,:,1) = (p_os%p_prog(nold(1))%tracer(:,1,:,1) &
     !  &                      *zUnderIceOld                                       &
     !  &                      + precw*p_as%tafo + preci*0.0_wp + &                             !!!!!!!!!Dirk: times 0.0 ????
-    !  &                        sum(ice%surfmeltT(:,:,:) * ice%surfmelt * ice%conc(:,:,:),2)) / & 
+    !  &                        sum(ice%surfmeltT(:,:,:) * ice%surfmelt * ice%conc(:,:,:),2)) / &
     !  &                        (zUnderIceOld + sum(ice%surfmelt*ice%conc(:,:,:),2) +    &
     !  &                        precw + preci)
     !
@@ -1637,7 +1637,7 @@ CONTAINS
   END SUBROUTINE upper_ocean_TS
   !-------------------------------------------------------------------------------
   !
-  !  
+  !
   !>
   !! !! ice_conc_change: Calculates the changes in concentration as well as the grid-cell average
   !                     thickness of new ice forming in open-water areas
@@ -1651,8 +1651,8 @@ CONTAINS
 
     USE mo_sea_ice_nml,         ONLY: hnull, hmin
 
-    TYPE(t_patch),             INTENT(IN)    :: p_patch 
-    TYPE (t_sea_ice),          INTENT(INOUT) :: ice  
+    TYPE(t_patch),             INTENT(IN)    :: p_patch
+    TYPE (t_sea_ice),          INTENT(INOUT) :: ice
     TYPE(t_hydro_ocean_state), INTENT(INOUT) :: p_os
     !TYPE (t_atmos_fluxes),     INTENT(IN)    :: QatmAve
     TYPE(t_sfc_flx),           INTENT(INOUT) :: p_sfc_flx
@@ -1673,7 +1673,7 @@ CONTAINS
     DO k=1,ice%kice
       ice%vol(:,k,:) = ice%hi(:,k,:)*ice%conc(:,k,:)*p_patch%cells%area(:,:)
     ENDDO
-    
+
     ! Calculate possible super-cooling of the surface layer
     sst = p_os%p_prog(nold(1))%tracer(:,1,:,1) + &
       &      dtime*p_sfc_flx%forc_hflx(:,:)/( clw*rho_ref*ice%zUnderIce(:,:) )
@@ -1687,9 +1687,9 @@ CONTAINS
         &     *ice%zUnderIce(:,:)*clw*rho_ref/dtime
 
       old_conc (:,:)   = ice%conc(:,1,:)
-      ice%conc (:,1,:) = min( 1._wp, & 
+      ice%conc (:,1,:) = min( 1._wp, &
         &               ice%conc(:,1,:) + ice%newice(:,:)*( 1._wp - ice%conc(:,1,:) )/hnull )
-      ! New thickness: We just preserve volume, so: New_Volume = newice_volume + hi*old_conc 
+      ! New thickness: We just preserve volume, so: New_Volume = newice_volume + hi*old_conc
       !  => hi <- newice/conc + hi*old_conc/conc
       ice%vol  (:,1,:) = ice%vol(:,1,:) + ice%newice(:,:)*p_patch%cells%area(:,:)
       ice%hi   (:,1,:) = ice%vol(:,1,:)/( ice%conc(:,1,:)*p_patch%cells%area(:,:) )
@@ -1735,7 +1735,7 @@ CONTAINS
   !-------------------------------------------------------------------------
   !
   !> Forcing_from_bulk equals sbr "Budget_omip" in MPIOM.
-  !! Sets the atmospheric fluxes for the update of the ice 
+  !! Sets the atmospheric fluxes for the update of the ice
   !! temperature and ice growth rates for OMIP forcing
   !! @par Revision History
   !! Initial release by Peter Korn, MPI-M (2011-07). Originally code written by
@@ -1757,12 +1757,12 @@ CONTAINS
       & fu10lim,        &  ! wind speed at 10 m height in range 2.5...32     [m/s]
       & esta,           &  ! water vapor pressure at 2 m height              [Pa]
       & esti,           &  ! water vapor pressure at ice surface             [Pa]
-      & sphumida,       &  ! Specific humididty at 2 m height 
+      & sphumida,       &  ! Specific humididty at 2 m height
       & sphumidi,       &  ! Specific humididty at ice surface
       & ftdewC,         &  ! Dew point temperature in Celsius                [C]
       & rhoair,         &  ! air density                                     [kg/m^3]
-      & dragl0,         &  ! part of dragl                                   
-      & dragl1,         &  ! part of dragl                                   
+      & dragl0,         &  ! part of dragl
+      & dragl1,         &  ! part of dragl
       & dragl,          &  ! Drag coefficient for latent   heat flux
       & drags,          &  ! Drag coefficient for sensible heat flux (=0.95 dragl)
       & fakts,          &  ! Effect of cloudiness on LW radiation
@@ -1771,7 +1771,7 @@ CONTAINS
       & dsphumididesti, &  ! Derivative of sphumidi w.r.t. esti
       & destidT,        &  ! Derivative of esti w.r.t. T
       & dfdT               ! Derivative of f w.r.t. T
-    
+
     INTEGER :: i, jb, jc, i_startidx_c, i_endidx_c
     REAL(wp) :: aw,bw,cw,dw,ai,bi,ci,di,AAw,BBw,CCw,AAi,BBi,CCi,alpha,beta
     REAL(wp) :: fvisdir, fvisdif, fnirdir, fnirdif
@@ -1786,14 +1786,14 @@ CONTAINS
     ftdewC(:,:) = p_as%ftdew(:,:) - tmelt                    ! Change units of ftdew to C
 
     ! subset range pointer
-    all_cells => p_patch%cells%all 
+    all_cells => p_patch%cells%all
 
     !-----------------------------------------------------------------------
-    ! Compute water vapor pressure and specific humididty in 2m height (esta) 
+    ! Compute water vapor pressure and specific humididty in 2m height (esta)
     ! and at water surface (estw) according to "Buck Research Manual (1996)
-    ! (see manuals for instruments at http://www.buck-research.com/); 
-    ! updated from Buck, A. L., New equations for computing vapor pressure and 
-    ! enhancement factor, J. Appl. Meteorol., 20, 1527-1532, 1981" 
+    ! (see manuals for instruments at http://www.buck-research.com/);
+    ! updated from Buck, A. L., New equations for computing vapor pressure and
+    ! enhancement factor, J. Appl. Meteorol., 20, 1527-1532, 1981"
     !-----------------------------------------------------------------------
 
     aw=611.21_wp; bw=18.729_wp; cw=257.87_wp; dw=227.3_wp
@@ -1806,10 +1806,10 @@ CONTAINS
 
     fa   = 1.0_wp+AAw+p_as%pao*(BBw+CCw*ftdewC**2)
     esta = fa * aw*EXP((bw-ftdewC/dw)*ftdewC/(ftdewC+cw))
-   
+
     sphumida  = alpha * esta/(p_as%pao-beta*esta)
     !-----------------------------------------------------------------------
-    !  Compute longwave radiation according to 
+    !  Compute longwave radiation according to
     !         Berliand, M. E., and T. G. Berliand, 1952: Determining the net
     !         long-wave radiation of the Earth with consideration of the effect
     !         of cloudiness. Izv. Akad. Nauk SSSR, Ser. Geofiz., 1, 6478.
@@ -1830,20 +1830,20 @@ CONTAINS
     Qatm%LWout(:,:,:) = 0._wp
 
     !-----------------------------------------------------------------------
-    !  Calculate bulk equations according to 
-    !      Kara, B. A., P. A. Rochford, and H. E. Hurlburt, 2002: 
+    !  Calculate bulk equations according to
+    !      Kara, B. A., P. A. Rochford, and H. E. Hurlburt, 2002:
     !      Air-Sea Flux Estimates And The 19971998 Enso Event,  Bound.-Lay.
     !      Met., 103(3), 439-458, doi: 10.1023/A:1014945408605.
-    !-----------------------------------------------------------------------  
-    
+    !-----------------------------------------------------------------------
+
     rhoair(:,:) = 0._wp
     DO jb = 1,p_patch%nblks_c
-      CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c) 
+      CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
       DO jc = i_startidx_c,i_endidx_c
-        
+
         rhoair(jc,jb) = p_as%pao(jc,jb)                &
           &            /(rd*tafoK(jc,jb)*(1.0_wp+0.61_wp*sphumida(jc,jb)) )
-        
+
       END DO
     END DO
 
@@ -1942,18 +1942,18 @@ CONTAINS
       & fu10lim,        &  ! wind speed at 10 m height in range 2.5...32     [m/s]
       & esta,           &  ! water vapor pressure at 2 m height              [Pa]
       & estw,           &  ! water vapor pressure at water surface           [Pa]
-      & sphumida,       &  ! Specific humididty at 2 m height 
+      & sphumida,       &  ! Specific humididty at 2 m height
       & sphumidw,       &  ! Specific humididty at water surface
       & ftdewC,         &  ! Dew point temperature in Celsius                [C]
       & rhoair,         &  ! air density                                     [kg/m^3]
-      & dragl0,         &  ! part of dragl                                   
-      & dragl1,         &  ! part of dragl                                   
+      & dragl0,         &  ! part of dragl
+      & dragl1,         &  ! part of dragl
       & dragl,          &  ! Drag coefficient for latent   heat flux
       & drags,          &  ! Drag coefficient for sensible heat flux (=0.95 dragl)
       & fakts,          &  ! Effect of cloudiness on LW radiation
       & humi,           &  ! Effect of air humidity on LW radiation
       & fa, fw             ! Enhancment factor for vapor pressure
-    
+
     INTEGER :: jb, jc, i_startidx_c, i_endidx_c
     REAL(wp) :: aw,bw,cw,dw,AAw,BBw,CCw,alpha,beta
     REAL(wp) :: fvisdir, fvisdif, fnirdir, fnirdif
@@ -1969,16 +1969,16 @@ CONTAINS
     ftdewC(:,:) = p_as%ftdew(:,:) - tmelt                    ! Change units of ftdew to C
 
     ! subset range pointer
-    all_cells => p_patch%cells%all 
+    all_cells => p_patch%cells%all
 
 
 
     !-----------------------------------------------------------------------
-    ! Compute water vapor pressure and specific humididty in 2m height (esta) 
+    ! Compute water vapor pressure and specific humididty in 2m height (esta)
     ! and at water surface (estw) according to "Buck Research Manual (1996)
-    ! (see manuals for instruments at http://www.buck-research.com/); 
-    ! updated from Buck, A. L., New equations for computing vapor pressure and 
-    ! enhancement factor, J. Appl. Meteorol., 20, 1527-1532, 1981" 
+    ! (see manuals for instruments at http://www.buck-research.com/);
+    ! updated from Buck, A. L., New equations for computing vapor pressure and
+    ! enhancement factor, J. Appl. Meteorol., 20, 1527-1532, 1981"
     !-----------------------------------------------------------------------
 
     aw=611.21_wp; bw=18.729_wp; cw=257.87_wp; dw=227.3_wp
@@ -1990,12 +1990,12 @@ CONTAINS
     fw(:,:)   = 1.0_wp+AAw+p_as%pao(:,:)*(BBw+CCw*Tsurf(:,:) **2)
     estw(:,:) = fw(:,:) *aw*EXP((bw-Tsurf(:,:) /dw)*Tsurf(:,:) /(Tsurf(:,:) +cw))
     ! For a given surface salinity we should multiply estw with  1 - 0.000537*S
-   
+
     sphumida(:,:)  = alpha * esta(:,:)/(p_as%pao(:,:)-beta*esta(:,:))
     sphumidw(:,:)  = alpha * estw(:,:)/(p_as%pao(:,:)-beta*estw(:,:))
 
     !-----------------------------------------------------------------------
-    !  Compute longwave radiation according to 
+    !  Compute longwave radiation according to
     !         Berliand, M. E., and T. G. Berliand, 1952: Determining the net
     !         long-wave radiation of the Earth with consideration of the effect
     !         of cloudiness. Izv. Akad. Nauk SSSR, Ser. Geofiz., 1, 6478.
@@ -2034,20 +2034,20 @@ CONTAINS
       &                ( 1._wp-Qatm%albnirdifw(:,:) )*fnirdif*p_as%fswr(:,:)
 
     !-----------------------------------------------------------------------
-    !  Calculate bulk equations according to 
-    !      Kara, B. A., P. A. Rochford, and H. E. Hurlburt, 2002: 
+    !  Calculate bulk equations according to
+    !      Kara, B. A., P. A. Rochford, and H. E. Hurlburt, 2002:
     !      Air-Sea Flux Estimates And The 19971998 Enso Event,  Bound.-Lay.
     !      Met., 103(3), 439-458, doi: 10.1023/A:1014945408605.
-    !-----------------------------------------------------------------------  
-    
+    !-----------------------------------------------------------------------
+
     rhoair(:,:) = 0._wp
     DO jb = 1,p_patch%nblks_c
-      CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c) 
+      CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
       DO jc = i_startidx_c,i_endidx_c
-        
+
         rhoair(jc,jb) = p_as%pao(jc,jb)                &
           &            /(rd*tafoK(jc,jb)*(1.0_wp+0.61_wp*sphumida(jc,jb)) )
-        
+
       END DO
     END DO
 

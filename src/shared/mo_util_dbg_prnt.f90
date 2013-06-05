@@ -103,17 +103,17 @@ CONTAINS
   SUBROUTINE init_dbg_index (ppatch)
 
     TYPE(t_patch),             TARGET, INTENT(IN)     :: ppatch
-   
+
     INTEGER  :: i
     REAL(wp) :: zlon, zlat, zarea, zlength
-   
+
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
       &      routine = 'mo_util_dbg_prnt:init_dbg_index'
-   
+
     CALL message(TRIM(routine), 'Start' )
 
     ! test submit via eclipse workshop / 2013-02-11
-   
+
     ! fill subset for use in dbg_print without passing the patch in every call
 !    v_subdom_cell = ppatch%cells%in_domain
 
@@ -121,7 +121,7 @@ CONTAINS
     loc_nblks_c =ppatch%nblks_c
     loc_nblks_e =ppatch%nblks_e
     loc_nblks_v =ppatch%nblks_v
- 
+
  !  For a correct dicision of cells/edges/verts the number of points on domain would be better
  !    but is not available as local dimension
  !  In order to keep a difference in number of blocks please use a low number for nproma
@@ -129,7 +129,7 @@ CONTAINS
  !  loc_patch_c =ppatch%n_patch_cells
  !  loc_patch_e =ppatch%n_patch_edges
  !  loc_patch_v =ppatch%n_patch_verts
-   
+
     ! module index/block for one cell output
     IF ((idbg_idx /= 0 ) .OR. (idbg_blk /= 0 )) THEN
       c_i = idbg_idx
@@ -139,29 +139,29 @@ CONTAINS
       ! given by namelist dbg_index_nml - not yet parallelized
       CALL find_latlonindex (ppatch, dbg_lat_in, dbg_lon_in, c_i, c_b, near_proc_id)
     END IF
-   
+
     zlat = ppatch%cells%center(c_i,c_b)%lat * 180.0_wp / pi
     zlon = ppatch%cells%center(c_i,c_b)%lon * 180.0_wp / pi
-   
+
     !------------------------------------------------------------------
     ! print test cell
     !------------------------------------------------------------------
-   
+
     ! output format
     99 FORMAT(     2(a,i4),2(a,f9.2),a,f13.2)
     97 FORMAT(a,i1,2(a,i4),2(a,f9.2),a,f13.2)
-   
+
     zarea = ppatch%cells%area(c_i,c_b)*1.0e-6_wp ! in km2
     CALL message (TRIM(routine), 'Conditions at test cell (C), and edges/verts/neighbors:')
     WRITE(message_text,99) ' Cell C: block=',c_b,'  index=',c_i,               &
       &                    '  lat=',zlat,'  lon=',zlon,                        &
       &                    '  cell-area  =', zarea
     CALL message (' ', message_text)
-   
+
     !------------------------------------------------------------------
     ! find and print corresponding edges/verts/neighbors of test cell
     !------------------------------------------------------------------
-   
+
     DO i = 1, 3 ! 3 edges of cell C at (ne_i,ne_b)
       ne_b(i) = ppatch%cells%edge_blk(c_i,c_b,i)
       ne_i(i) = ppatch%cells%edge_idx(c_i,c_b,i)
@@ -174,7 +174,7 @@ CONTAINS
         &                    '  edge-length=',zlength
       CALL message (' ', message_text)
     END DO
-   
+
     DO i = 1, 3 ! 3 vertices of cell C at (nv_i,nv_b)
       nv_b(i) = ppatch%cells%vertex_blk(c_i,c_b,i)
       nv_i(i) = ppatch%cells%vertex_idx(c_i,c_b,i)
@@ -185,7 +185,7 @@ CONTAINS
         &                    '  lat=',zlat,'  lon=',zlon
       CALL message (' ', message_text)
     END DO
-   
+
     DO i = 1, 3 ! 3 neighbours of cell C at (nc_i,nc_b)
       nc_b(i)=ppatch%cells%neighbor_blk(c_i,c_b,i)
       nc_i(i)=ppatch%cells%neighbor_idx(c_i,c_b,i)
@@ -211,7 +211,7 @@ CONTAINS
   !>
   !! Search for a cell center at given longitude and latitude
   !! provided in namelist dbg_index_nml
-  !! 
+  !!
   !!
   !! @par Revision History
   !! Initial release by Stephan Lorenz, MPI-M (2010-12)
@@ -336,7 +336,7 @@ CONTAINS
   CHARACTER(len=*),      INTENT(IN) :: str_prntdes    ! description of array
   REAL(wp),              INTENT(IN) :: p_array(:,:,:) ! 3-dim array for debugging
   CHARACTER(len=*),      INTENT(IN) :: str_mod_src    ! defined string for source of current array
-  INTEGER,               INTENT(IN) :: idetail_src    ! source level from module for print output 
+  INTEGER,               INTENT(IN) :: idetail_src    ! source level from module for print output
   TYPE(t_subset_range),  TARGET, OPTIONAL :: in_subset
 
   ! local variables
@@ -383,21 +383,21 @@ CONTAINS
     !                           !  index 1:nproma
     nlev    = SIZE(p_array,2)   !  vertical dimension (levels)
     ndimblk = SIZE(p_array,3)   !  blocks 1:nblks for cells/edges/verts
-   
+
     ! output channel: stderr
     iout = nerr
-   
+
     ! compare defined source string with namelist-given output string
     icheck_str_mod = 0
     DO jstr = 1, dim_mod_tst
       IF (str_mod_src == str_mod_tst(jstr) .OR. str_mod_tst(jstr) == 'all') &
         &  icheck_str_mod = 1
     END DO
-   
+
     ! if str_mod_src not found in str_mod_tst - no output
     IF (icheck_str_mod == 0 .and. timers_level > 10) CALL timer_stop(timer_dbg_prnt)
     IF (icheck_str_mod == 0 ) RETURN
-   
+
     strout=TRIM(str_prntdes)
     strmod=TRIM(str_mod_src)
 
@@ -446,21 +446,21 @@ CONTAINS
     !                           !  index 1:nproma
     nlev    = SIZE(p_array,2)   !  vertical dimension (levels)
     ndimblk = SIZE(p_array,3)   !  blocks 1:nblks for cells/edges/verts
-   
+
     ! output channel: stderr
     iout = nerr
-   
+
     ! compare defined source string with namelist-given output string
     icheck_str_mod = 0
     DO jstr = 1, dim_mod_tst
       IF (str_mod_src == str_mod_tst(jstr) .OR. str_mod_tst(jstr) == 'all') &
         &  icheck_str_mod = 1
     END DO
-   
+
     ! if str_mod_src not found in str_mod_tst - no output
     IF (icheck_str_mod == 0 .and. timers_level > 10) CALL timer_stop(timer_dbg_prnt)
     IF (icheck_str_mod == 0 ) RETURN
-   
+
     strout=TRIM(str_prntdes)
     strmod=TRIM(str_mod_src)
 
@@ -470,11 +470,11 @@ CONTAINS
     IF (slev      > nlev) slev = nlev
     elev = nlev
     IF (idbg_elev < nlev) elev = idbg_elev
-    
+
     ! idbg_mxmn<4: one level output only (slev), independent of elev_val
     elev_mxmn = elev
     IF (idbg_mxmn < 4 .AND. idetail_src > 0) elev_mxmn = slev
-    
+
     ! print out maximum and minimum value
     ! ctrn=minval(p_array(:, slev:elev_mxmn, :))
     DO jk = slev, elev_mxmn
@@ -484,13 +484,13 @@ CONTAINS
       IF (my_process_is_stdio()) &
         & WRITE(iout,992) ' MAX/MIN/MEAN ', strmod, strout, jk, minmaxmean(2), minmaxmean(1), minmaxmean(3)
 
-    
+
       ! location of max/min - parallelize!
       ! WRITE(iout,983) ' LOC ',strout,jk, &
       !   &              MAXLOC(p_array(1:nproma,jk,1:ndimblk)),     &
       !   &              MINLOC(p_array(1:nproma,jk,1:ndimblk))
 ! 983 FORMAT(a,a12,':',a27,'  :',i3, 4i4)
-    
+
     END DO
 
   END IF
@@ -509,7 +509,7 @@ CONTAINS
   CHARACTER(len=*),      INTENT(IN) :: str_prntdes    ! description of array
   REAL(wp),              INTENT(IN) :: p_array(:,:)   ! 2-dim array for debugging
   CHARACTER(len=*),      INTENT(IN) :: str_mod_src    ! defined string for source of current array
-  INTEGER,               INTENT(IN) :: idetail_src    ! source level from module for print output 
+  INTEGER,               INTENT(IN) :: idetail_src    ! source level from module for print output
   TYPE(t_subset_range),  TARGET, OPTIONAL :: in_subset
 
   ! local variables
@@ -590,7 +590,7 @@ CONTAINS
   ! for MIN/MAX output:
 
   IF (idbg_mxmn >= idetail_src ) THEN
-   
+
     minmaxmean(:) = global_minmaxmean(values=p_array(:,:), subset=in_subset)
 
     IF (my_process_is_stdio()) &

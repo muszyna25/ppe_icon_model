@@ -54,7 +54,7 @@ MODULE mo_grid_checktools
   USE mo_grid_toolbox , ONLY :  inverse_connectivity_verts! get_basic_dual_grid
   USE mo_statistics
   USE mo_physical_constants, ONLY: earth_radius
-  
+
   IMPLICIT NONE
 
   !-------------------------------------------------------------------------
@@ -74,7 +74,7 @@ MODULE mo_grid_checktools
   PUBLIC :: check_grid_file, grid_statistics_file
   PUBLIC :: check_inverse_connect_verts
   PUBLIC :: calculate_triangle_properties
-  
+
   !----------------------------------------
   REAL(wp), PARAMETER  :: EDGE_CENTER_LIMIT = 1e-3_wp
   REAL(wp), PARAMETER  :: ANGLE_INTRIANGLE_LIMIT = 8.0e-0_wp
@@ -95,24 +95,24 @@ CONTAINS
 
 
     v%lon = lon1 * deg2rad
-    v%lat = lat1 * deg2rad    
+    v%lat = lat1 * deg2rad
     x0 = gc2cc(v)
-    
+
     v%lon = lon2 * deg2rad
-    v%lat = lat2 * deg2rad    
+    v%lat = lat2 * deg2rad
     x1 = gc2cc(v)
 
     v%lon = lon3 * deg2rad
-    v%lat = lat3 * deg2rad    
+    v%lat = lat3 * deg2rad
     x2 = gc2cc(v)
 
     area = triangle_area(x0, x1, x2)
     write(0,*) " Normed triangle area=", area
     write(0,*) " Earth triangle area (km) =", area * earth_radius * earth_radius * 1e-6_wp
-    
+
   END SUBROUTINE calculate_triangle_properties
   !-------------------------------------------------------------------------
-  
+
   !-------------------------------------------------------------------------
   SUBROUTINE check_grid_file(in_file)
     CHARACTER(LEN=filename_max), INTENT(in) :: in_file
@@ -165,11 +165,11 @@ CONTAINS
     IF (error_status /= 0) &
       & CALL finish("unable to open",TRIM(latex_file_name))
     WRITE(latex_file_c, '("\verb+",a,"+ ")', advance='no') TRIM(in_file)
-    
+
     CALL check_grid_geometry(grid_id)
-    
+
     CALL delete_grid(grid_id)
-    
+
     WRITE(latex_file_v, '("\\ ")')
     CLOSE(latex_file_v)
     WRITE(latex_file_e, '("\\ ")')
@@ -343,7 +343,7 @@ CONTAINS
     dual_area_stats       = new_statistic()
     dual_edge_ratio_stats = new_statistic()
     edge_ratio_stats      = new_statistic()
-    
+
     max_barycenter_distance = 0.0_wp
     DO vert_no=1, verts%no_of_existvertices
       x = gc2cc(verts%vertex(vert_no))
@@ -376,17 +376,17 @@ CONTAINS
           min_edge = MIN(min_edge, edges%primal_edge_length(edge))
         ENDIF
       ENDDO !i=1,max_connectivity
-      
+
       CALL add_statistic_to(dual_edge_ratio_stats, max_dual_edge/min_dual_edge)
       CALL add_statistic_to(edge_ratio_stats, max_edge/min_edge)
-      
+
     ENDDO
 
     min_dual_area       = min_statistic_of(dual_area_stats)
     max_dual_area       = max_statistic_of(dual_area_stats)
     max_dual_edge_ratio = max_statistic_of(dual_edge_ratio_stats)
     max_edge_ratio      = max_statistic_of(edge_ratio_stats)
-    
+
     WRITE(0,*) 'Min/Max Lon:', min(lon_stats)*rad2deg, max(lon_stats)*rad2deg
     WRITE(0,*) 'Min/Max Lat:', min(lat_stats)*rad2deg, max(lat_stats)*rad2deg
 
@@ -394,7 +394,7 @@ CONTAINS
     CALL delete_statistic(dual_edge_ratio_stats)
     CALL delete(lon_stats)
     CALL delete(lat_stats)
-    
+
     WRITE(0,*) 'Min/Max dual area:', min_dual_area, max_dual_area, max_dual_area/min_dual_area
     WRITE(0,*) 'Max dual cell dual edge ratio:', max_dual_edge_ratio
     WRITE(0,*) 'Max dual cell edge ratio:', max_edge_ratio
@@ -435,9 +435,9 @@ CONTAINS
     INTEGER ::  cell_edge, neigbor, edge_of_cell, cell_edge1, cell_edge2, cell_edge3
     REAL(wp):: dist_edge_cell_basic, dist_edge_cell, coeff_sum
     INTEGER :: pos_coeff_stat, neg_coeff_stat
-      
+
     CHARACTER(*), PARAMETER :: method_name = "check_grid_geometry_edges"
-   
+
     edge_cell_offcenter_stat   = new_statistic(mode=ADD_MAX_RATIO)
     edge_vert_offcenter_stat   = new_statistic(mode=ADD_MAX_RATIO)
     dual_edge_stat             = new_statistic()
@@ -556,10 +556,10 @@ CONTAINS
         CALL finish(method_name,'cell1 < 1 .AND. cell2 < 1')
       ENDIF
       IF (cell1 > 0 .AND. cell2 > 0) THEN
-        
+
         CALL add_statistic_to(edge_cell_offcenter_stat, &
           & edges%get_edge_cell_length(edge_no,1), edges%get_edge_cell_length(edge_no,2))
-      
+
         IF (cells%area(cell1) > cells%area(cell2)) THEN
           area_ratio = cells%area(cell1) / cells%area(cell2)
         ELSE
@@ -574,49 +574,49 @@ CONTAINS
         area_ratio = verts%dual_area(vert2) / verts%dual_area(vert1)
       ENDIF
       max_min_dual_area = MAX(max_min_dual_area, area_ratio)
-      
+
       !--------------------------------
       ! peter's code
       ! check angles between edges
-! 
+!
 !       write(*,*) "--------------------------------"
 !       write(*,*) "--- coeffs for edge = ", edge_no
-!       
+!
 !         edge_center%x = edges%cartesian_center(edge_no)%x
 !         coeff_sum = 0.0_wp
 !         DO neigbor=2,2
-! 
+!
 !           cell1    = edges%get_cell_index(edge_no, neigbor)
 !           cell_center%x = cells%cartesian_center(cell1)%x
-! 
+!
 !           !vector pointing from cell 1 or 2 to edge in between
 !           !This is vector 1 (point from cell center adjacent to edge "e" to edge "e")
 !           dist_vector_basic%x = edge_center%x - cell_center%x
-! 
+!
 !           !normalize vector
 !           dist_edge_cell_basic = SQRT(SUM( dist_vector_basic%x * dist_vector_basic%x))
 !           dist_vector_basic%x  = dist_vector_basic%x/dist_edge_cell_basic
-! 
-! 
+!
+!
 !           cell_edge1 = cells%get_edge_index(cell1, 1)
 !           cell_edge2 = cells%get_edge_index(cell1, 2)
 !           cell_edge3 = cells%get_edge_index(cell1, 3)
-! 
+!
 ! !           cell_center = project_point( cell_center, edges%cartesian_center(cell_edge1), &
 ! !             & edges%cartesian_center(cell_edge2), edges%cartesian_center(cell_edge3))
 !           !loop over the edges of cell 1 and 2
 !           DO cell_edge=1,3
-! 
+!
 !             !get actual edge
 !             edge_of_cell = cells%get_edge_index(cell1, cell_edge)
-! 
+!
 !             !vector between one of the edges of triangle 1 or 2 and respective cell center
 !             !This is vector 2 (point from cell center adjacent to edge "e" to all other edges of the cell).
 !             dist_vector%x =  edges%cartesian_center(edge_of_cell)%x - cell_center%x
 !             !normalize vector
 !             dist_edge_cell = SQRT(SUM( dist_vector%x * dist_vector%x))
 !             dist_vector%x  = dist_vector%x/dist_edge_cell
-! 
+!
 !             !This is the cosine of the angle between vectors from cell center to cell edges
 !             !the arcos is giving values around 90°
 !             dproduct = DOT_PRODUCT(dist_vector_basic%x,dist_vector%x)
@@ -630,7 +630,7 @@ CONTAINS
 !             ELSE
 !               CALL add_statistic_to(neg_coeff_stat, dproduct)
 !             ENDIF
-!               
+!
 !           END DO
 !         ENDDO
 !         write (*,*) " SUM=", coeff_sum
@@ -691,7 +691,7 @@ CONTAINS
       & max_statistic_of(pos_coeff_stat)
     write(*,*) " min max neg_coeff=", min_statistic_of(neg_coeff_stat), "  ", &
       & max_statistic_of(neg_coeff_stat)
-    
+
     WRITE(0,*) "Adjacent dual max area ratio:", max_min_dual_area
     WRITE(0,*) "Adjacent cell max area ratio:", max_min_cell_area
     WRITE(0,*) "global min max prime edges length:", min_prime_edge, max_prime_edge, &
@@ -702,14 +702,14 @@ CONTAINS
 
     max_edge_vert_offcenter = max_statistic_of(edge_vert_offcenter_stat)
     max_edge_cell_offcenter = max_statistic_of(edge_cell_offcenter_stat)
-    
+
     WRITE(0,*) "max_edge_vert_offcenter:",  max_edge_vert_offcenter
     WRITE(0,*) "max_edge_cell_offcenter:",  max_edge_cell_offcenter
-    
+
     CALL delete_statistic(edge_vert_offcenter_stat)
     CALL delete_statistic(edge_cell_offcenter_stat)
     CALL delete_statistic(dual_edge_stat)
-   
+
     WRITE(latex_file_e, '( " & ", f6.2, " & ", f6.3, " & ", f6.3, " & ", &
       & f6.3," & ", f6.1, " & ", f6.1, " & ",f6.3, " & ",f6.3)',&
       advance='no')  &
@@ -729,7 +729,7 @@ CONTAINS
     TYPE(t_grid_cells), POINTER :: cells
     TYPE(t_grid_edges), POINTER :: edges
     TYPE(t_grid_vertices), POINTER :: verts
-    
+
     INTEGER :: no_of_cells
     INTEGER :: cell_no, edge, prev_edge, k, max_no_of_vertices
     INTEGER :: this_vertex, prev_vertex, next_vertex
@@ -843,12 +843,12 @@ CONTAINS
 !         p2 = middle(verts%cartesian(this_vertex), verts%cartesian(next_vertex))
 !         angle = plane_angle_of_three_points(p1, cells%cartesian_center(cell_no), p2)
 !         CALL add_data_to(cell_edge_centers_angle_stats, angle)
-      
+
       ENDDO  ! k=1,max_no_of_vertices
 
       max_edge_cell_length_ratio = MAX(max_edge_cell_length_ratio, &
         & max_cell_edge_cell_length/min_cell_edge_cell_length)
-      
+
       ratio = max_prime_edge / min_prime_edge
       IF (ratio > max_edge_ratio) THEN
         max_edge_ratio = ratio
@@ -899,7 +899,7 @@ CONTAINS
       & max_centers_diff /1000.0_wp, max_centers_diff_ratio
 
    CALL delete(cell_edge_centers_angle_stats)
-   
+
    ! CALL print_cell_angles(in_grid_id, min_cell_angle_idx, 'Cell with min edge angle')
    ! CALL print_cell_angles(in_grid_id, max_cell_angle_idx, 'Cell with max edge angle')
 
@@ -939,10 +939,10 @@ CONTAINS
     !print*, 'Level 1 indexes=',cell%start_idx(1,1),cell%end_idx(1,1)
     DO cell=1,no_of_cells
       DO j=1,cells%max_no_of_vertices
-        !----------------------  
+        !----------------------
         !check neigbors
         found = .false.
-        ncell = cells%get_neighbor_index(cell,j) 
+        ncell = cells%get_neighbor_index(cell,j)
         IF (ncell /= 0) THEN
           DO k=1,cells%max_no_of_vertices
             IF (cells%get_neighbor_index(ncell,k) == cell) THEN
@@ -972,10 +972,10 @@ CONTAINS
           ENDIF
         ENDIF
 
-        
+
       ENDDO
     ENDDO
-   
+
 
 !     DO i=cell%start_idx(1,1),cell%end_idx(1,1)
 !       neib_cells = 0
@@ -983,7 +983,7 @@ CONTAINS
 !         print*, 'cell,rfn=',i,cell%refin_ctrl(i)
 !         CALL finish('','refin_ctrl(i) /= 1')
 !       ENDIF
-! 
+!
 !       DO j=1,cell%max_no_of_vertices
 !         edge_no = cell%get_edge_index(i,j)
 ! !         IF (edge_no == 0) THEN
@@ -993,14 +993,14 @@ CONTAINS
 !         IF (cell%get_neighbor_index(i,j) /= 0) &
 !            neib_cells = neib_cells + 1
 !       ENDDO
-! 
+!
 ! !       IF (neib_cells >= cell%max_no_of_vertices) THEN
 ! !         print*, 'cell, neighbors=',i, neib_cells
 ! !         CALL finish('neighbors >= max_no_of_vertice','')
 ! !       ENDIF
-! 
+!
 !     ENDDO
-! 
+!
 !     ! print*, 'Level 2 indexes=',cell%start_idx(2,1),cell%no_of_existcells
 !     DO i=cell%start_idx(2,1),cell%no_of_existcells
 !       neib_cells = 0
@@ -1008,7 +1008,7 @@ CONTAINS
 !         print*, 'cell,rfn=',i,cell%refin_ctrl(i)
 !         CALL finish('','refin_ctrl(i) == 1')
 !       ENDIF
-! 
+!
 !       DO j=1,cell%max_no_of_vertices
 !         edge_no = cell%get_edge_index(i,j)
 ! !         IF (edge_no == 0) THEN
@@ -1018,12 +1018,12 @@ CONTAINS
 !         IF (cell%get_neighbor_index(i,j) /= 0) &
 !            neib_cells = neib_cells + 1
 !       ENDDO
-! 
+!
 ! !       IF (neib_cells /= cell%max_no_of_vertices) THEN
 ! !         print*, 'cell, neighbors=',i, neib_cells
 ! !         CALL finish('neighbors >= max_no_of_vertice','')
 ! !       ENDIF
-! 
+!
 !     ENDDO
 
   END SUBROUTINE check_grid_connectivity_cells
@@ -1062,10 +1062,10 @@ CONTAINS
         IF (.not. found) THEN
           write(0,*) edge, vertex, ' edge was not found in vertex.'
           CALL finish('check_grid_connectivity_edges', 'Wrong edge connectivity')
-        ENDIF        
+        ENDIF
       ENDDO !j=1,2
     ENDDO ! edge=1,no_of_edges
-    
+
     !print*, 'Level 1 indexes=',edge%start_idx(1,1),edge%end_idx(1,1)
     DO i=edges%start_idx(1,1),edges%end_idx(1,1)
       cell1 = edges%get_cell_index(i,1)
@@ -1133,7 +1133,7 @@ CONTAINS
 
     DO vert_no=1, verts%no_of_existvertices
       DO i=1,max_connectivity
-      
+
         ! check edges
         edge = verts%get_edge_index(vert_no, i)
         IF (edge > 0) THEN
@@ -1145,7 +1145,7 @@ CONTAINS
             CALL finish("check_grid_connectivity_verts", "vertex not found in edges")
           ENDIF
         ENDIF
-        
+
         ! check cells
         cell = verts%get_cell_index(vert_no, i)
         IF (cell > 0) THEN
@@ -1159,10 +1159,9 @@ CONTAINS
           IF (.not. found) THEN
             write(0,*) vert_no, cell, ' vertex was not found in cell.'
             CALL finish('check_grid_connectivity_verts', 'Wrong vertex connectivity')
-          ENDIF        
+          ENDIF
         ENDIF
-        
-        
+
       ENDDO !i=1,max_connectivity
     ENDDO
 
