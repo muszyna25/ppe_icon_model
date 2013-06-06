@@ -41,7 +41,7 @@ MODULE mo_util_dbg_prnt
 !-------------------------------------------------------------------------
 !
 USE mo_kind,                   ONLY: wp
-USE mo_mpi,                    ONLY: my_process_is_stdio, p_pe !, p_comm_work, p_bcast
+USE mo_mpi,                    ONLY: my_process_is_stdio, p_pe, get_my_mpi_all_id !, p_comm_work, p_bcast
 USE mo_io_units,               ONLY: nerr
 USE mo_parallel_config,        ONLY: nproma, p_test_run
 USE mo_impl_constants,         ONLY: max_char_length
@@ -296,6 +296,7 @@ CONTAINS
   98 FORMAT(2a,3(a,f9.3))
 
   ! write info directly by mproc_id: needs barrier to avoid merging messages from pe_io and mproc_id
+  ! write(0,*) get_my_mpi_all_id(), "enter icon_comm_barrier:"
   CALL icon_comm_barrier(for_patch=ppatch)
   IF (p_pe .EQ. mproc_id) THEN
   !IF (my_process_is_stdio()) THEN
@@ -315,6 +316,7 @@ CONTAINS
   !   &                  MINLOC(zdst_c(:,:)),' distance in degrees =',MINVAL(zdst_c(:,:))
   END IF
   CALL icon_comm_barrier(for_patch=ppatch)
+  ! write(0,*) get_my_mpi_all_id(), "leave icon_comm_barrier:"
 
   END SUBROUTINE find_latlonindex
 
