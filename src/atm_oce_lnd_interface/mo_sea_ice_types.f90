@@ -49,6 +49,7 @@ MODULE mo_sea_ice_types
   PUBLIC  :: t_sfc_flx
   PUBLIC  :: t_atmos_fluxes
   PUBLIC  :: t_atmos_for_ocean
+  PUBLIC  :: t_ptr2d
 
 
 
