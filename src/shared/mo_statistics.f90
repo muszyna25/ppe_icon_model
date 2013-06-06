@@ -39,9 +39,12 @@ MODULE mo_statistics
   !-------------------------------------------------------------------------
   USE mo_kind,               ONLY: wp
   USE mo_exception,          ONLY: message_text, message, warning, finish
+
+#ifndef __ICON_GRID_GENERATOR__
   USE mo_grid_subset,        ONLY: t_subset_range, get_index_range
   USE mo_mpi,                ONLY: process_mpi_stdio_id, get_my_mpi_work_communicator, p_max, p_min, &
     & my_process_is_mpi_parallel, p_sum
+#endif
 !   USE mo_io_units,           ONLY: nnml, filename_max
 !   USE mo_namelist,           ONLY: position_nml, open_nml, positioned
 
@@ -52,14 +55,16 @@ MODULE mo_statistics
   ! !VERSION CONTROL:
   CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
 
-  PUBLIC :: global_minmaxmean
   !-------------------------------------------------------------------------
 
   ! NOTE: in order to get correct results make sure you provide the proper subset (ie, owned)!
+#ifndef __ICON_GRID_GENERATOR__
   INTERFACE global_minmaxmean
     MODULE PROCEDURE globalspace_2D_minmaxmean
     MODULE PROCEDURE globalspace_3D_minmaxmean
   END INTERFACE
+  PUBLIC :: global_minmaxmean
+#endif
 
   PUBLIC :: construct_statistic_objects, destruct_statistic_objects
   PUBLIC :: new_statistic, delete_statistic
@@ -179,6 +184,7 @@ MODULE mo_statistics
 
 CONTAINS
 
+#ifndef __ICON_GRID_GENERATOR__
   !-----------------------------------------------------------------------
   !>
   FUNCTION globalspace_2D_minmaxmean(values, subset) result(minmaxmean)
@@ -356,6 +362,7 @@ CONTAINS
 
   END FUNCTION globalspace_3D_minmaxmean
   !-----------------------------------------------------------------------
+#endif
 
   !-----------------------------------------------------------------------
   !>
