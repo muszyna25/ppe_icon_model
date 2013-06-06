@@ -115,6 +115,9 @@ CONTAINS
     ENDIF
     CLOSE(nnml)
 
+ !   write(0,*) "grid_ids=", grid_ids(1) 
+ !   write(0,*) "in_grid_file_names=", TRIM(in_grid_file_names(1))
+ !   write(0,*) "out_grid_file_names=", TRIM(out_grid_file_names(1))
     !-------------------------------------------------------------------------
     CALL create_patch_hierarchy(total_no_of_patches, &
       & in_grid_file_names, out_grid_file_names, &
@@ -155,8 +158,10 @@ CONTAINS
     ! fill patch info
     DO i = 1, no_of_patches
       ! grid ids should have strictly ascending order
-      IF (grid_ids(i) /= i) &
-        & CALL finish ('initTree', 'gridIDs(i) /= i')
+      IF (grid_ids(i) /= i) THEN
+        write(0,*) i,grid_ids(i) 
+        CALL finish ('initTree', 'gridIDs(i) /= i')
+      ENDIF
       IF (parent_ids(i) < 0 .or. parent_ids(i) > no_of_patches) &
         & CALL finish ('initTree', 'parentIDs out of range')
 

@@ -1962,7 +1962,7 @@ CONTAINS
     !
     ! define output generating institute
     !
-    ! inquire the Institute ID from (center/subcenter) 
+    ! inquire the Institute ID from (center/subcenter)
     !
     of%cdiInstID = institutInq(gribout_config(i_dom)%generatingCenter,          &
       &                        gribout_config(i_dom)%generatingSubcenter, '', '')
@@ -1971,7 +1971,7 @@ CONTAINS
     ! define Institute
     CALL vlistDefInstitut(of%cdiVlistID,of%cdiInstID)
 
-!DR: TODO: why doesnt this information propagate down to the fields (additional call of 
+!DR: TODO: why doesnt this information propagate down to the fields (additional call of
 !vlistDefVarIntKey(vlistID, varID, "tablesVersion", 5) seems to be necessary. Please re-check
     CALL vlistDefTable(of%cdiVlistID,5)
 
@@ -2973,7 +2973,7 @@ CONTAINS
     ! Product Generation (local), !! DWD only !!
     ! DWD :: center    = 78
     !        subcenter = 255
-    IF ((grib_conf%generatingCenter == 78) .AND. (grib_conf%generatingSubcenter == 255)) THEN 
+    IF ((grib_conf%generatingCenter == 78) .AND. (grib_conf%generatingSubcenter == 255)) THEN
       CALL vlistDefVarIntKey(vlistID, varID, "localDefinitionNumber"  ,         &
         &                    grib_conf%localDefinitionNumber)
       CALL vlistDefVarIntKey(vlistID, varID, "localNumberOfExperiment",         &

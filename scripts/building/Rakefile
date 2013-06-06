@@ -203,12 +203,15 @@ end
 def doClean(build)
   call(connect(build,"make clean"))
 end
+def doCleanSync(build)
+  call(connect(build,"rm -rf src support build"))
+end
 def doRun(build,exp='test_oce_default')
   call(connect(build,"cd experiments/#{exp}; rm #{exp}*.nc"))
   call(connect(build,"./make_runscripts #{exp} ; cd run;./exp.#{exp}.run;"))
 end
 def doCheckExp(build,exp='test_oce_default')
-  call(connect(build,"cd experiments/#{exp}; cdo sinfov #{exp}*001.nc"))
+  call(connect(build,"cd experiments/#{exp}; cdo infov #{exp}*001.nc"))
 end
 
 $builds.each_key {|build|
@@ -256,7 +259,25 @@ $builds.each_key {|build|
     doCheckExp(build,args.exp)
   end
   # }
+
+  desc "remove old source trees and sync"
+  task "#{build.to_s}_cleanSync".to_sym do
+    doCleanSync(build)
+    doSync(build)
+  end
 }
+desc "Sync source codes for all builds"
+task :allSync do
+  q = JobQueue.new
+  $builds.each_key {|build| q.push { doSync(build) } }
+  q.run
+end
+desc "Remove and Sync source codes for all builds"
+task :allCleanSync do
+  q = JobQueue.new
+  $builds.each_key {|build| q.push { doCleanSync(build) } }
+  q.run
+end
 
 # tasks for parallel run of other tasks
 parTaskName = :par

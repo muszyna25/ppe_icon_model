@@ -3516,11 +3516,15 @@ CONTAINS
 
     ! Make streamvar1/streamvar2 defined everywhere
 
+#ifndef __ICON_OCEAN_ONLY__
     IF (.NOT.PRESENT(p_patch_3D)) THEN
       p_patch => p_patch_from_model
     ELSE
+#endif
       p_patch => p_patch_3D%p_patch_2D
+#ifndef __ICON_OCEAN_ONLY__
     ENDIF
+#endif
 
     IF(.NOT. my_process_is_stdio()) ALLOCATE(streamvar1(1), streamvar2(1,1))
 

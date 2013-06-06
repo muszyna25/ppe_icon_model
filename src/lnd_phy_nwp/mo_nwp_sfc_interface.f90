@@ -1080,7 +1080,6 @@ CONTAINS
       !
       CALL seaice_timestep_nwp (                               &
                             &   dtime   = dtime,               &
-                            &   nproma  = nproma,              & !in
                             &   nsigb   = i_count,             & !in
                             &   qsen    = shfl_s(:),           & !in 
                             &   qlat    = lhfl_s(:),           & !in

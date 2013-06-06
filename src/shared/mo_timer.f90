@@ -151,6 +151,7 @@ MODULE mo_timer
 
   ! low level timing routine
   PUBLIC :: tic, toc
+  PUBLIC :: timer_ls_forcing 
 
   !-------------------
   ! Module variables
@@ -274,6 +275,7 @@ MODULE mo_timer
   ! special-purpose measurements. Please do not remove them and do not use them permanently.
   INTEGER :: timer_extra1, timer_extra2, timer_extra3, timer_extra4
 
+  INTEGER :: timer_ls_forcing
 CONTAINS
 
   SUBROUTINE init_timer
@@ -442,6 +444,8 @@ CONTAINS
     timer_extra2 = new_timer("extra2")
     timer_extra3 = new_timer("extra3")
     timer_extra4 = new_timer("extra4")
+
+    timer_ls_forcing = new_timer("ls_forcing")
 
   END SUBROUTINE init_timer
 

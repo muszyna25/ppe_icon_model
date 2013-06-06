@@ -3,6 +3,8 @@
 !!
 !! This module initializes and applies the large-scale forcing for idealized simulations
 !! This module assumes that the model grid is FLAT
+!! 2013-JUNE-04: AT THIS STAGE LS FORCING WILL WORK IN RESTART MODE ONLY IF ITS CALLED EVERY 
+!! DYNAMIC TIMESTEP. TO MAKE IT WORK "SMOOTHLY" ADD_VAR HAS TO WORK ON 1D VARS
 !!
 !! @author Anurag Dipankar, MPI-M
 !!
@@ -46,16 +48,17 @@ MODULE mo_ls_forcing
   USE mo_kind,                ONLY: wp
   USE mo_io_units,            ONLY: filename_max, find_next_free_unit
   USE mo_exception,           ONLY: message, finish, message_text
-  USE mo_impl_constants,      ONLY: success, max_char_length
+  USE mo_impl_constants,      ONLY: success, max_char_length, min_rlcell_int
   USE mo_nonhydro_types,      ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_model_domain,        ONLY: t_patch
   USE mo_intp_data_strc,      ONLY: t_int_state
   USE mo_parallel_config,     ONLY: nproma
   USE mo_loopindices,         ONLY: get_indices_e, get_indices_c, get_indices_v
-  USE mo_vert_utilities,      ONLY: vert_intp_full2half_cell_3d, vert_intp_linear_1d, &
-                                    global_sum_vert
+  USE mo_vert_utilities,      ONLY: vert_intp_full2half_cell_3d, vert_intp_linear_1d
   USE mo_ls_forcing_nml
   USE mo_physical_constants,  ONLY: rd
+  USE mo_sync,                ONLY: global_sum_array, omp_global_sum_array
+  USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c
 
   IMPLICIT NONE
 
@@ -109,8 +112,12 @@ MODULE mo_ls_forcing
     !Read the input file till end. The order of file assumed is:
     !Z(m) - w_ls - u_geo - v_geo - ddt_temp_hadv_ls - ddt_temp_rad_ls - ddt_qv_hadv_ls    
     
-    READ(iunit,*,IOSTAT=ist)nk
+    !Read first line
+    READ(iunit,*,IOSTAT=ist)
     IF(ist/=success)CALL finish(TRIM(routine), 'problem reading first line in ls_forcing.dat')
+
+    READ(iunit,*,IOSTAT=ist)nk
+    IF(ist/=success)CALL finish(TRIM(routine), 'problem reading second line in ls_forcing.dat')
    
     ALLOCATE( zz(nk), zw(nk), zu(nk), zv(nk), z_dt_temp_adv(nk), &
               z_dt_temp_rad(nk), z_dt_qv_adv(nk) )
@@ -186,31 +193,29 @@ MODULE mo_ls_forcing
     REAL(wp) :: varin(nproma,p_patch%nlev,p_patch%nblks_c)
     REAL(wp) :: varout(nproma,p_patch%nlev+1,p_patch%nblks_c)
     REAL(wp) :: rhos(nproma,p_patch%nblks_c)
-    REAL(wp) :: inv_n_gb_cells
-    REAL(wp),DIMENSION(p_patch%nlev+1) :: u_loc, v_loc, temp_loc, qv_loc, ql_loc
-    REAL(wp),DIMENSION(p_patch%nlev+1) :: u_gb, v_gb, temp_gb, qv_gb, ql_gb
-    REAL(wp), DIMENSION(p_patch%nlev)  :: rho_loc, rho_gb, exner_loc, inv_dz, exner_gb, &
-                                          uf_loc, vf_loc, uf_gb, vf_gb
+    REAL(wp) :: inv_no_gb_cells
+    REAL(wp), DIMENSION(p_patch%nlev+1) :: u_gb, v_gb, temp_gb, qv_gb, ql_gb
+    REAL(wp), DIMENSION(p_patch%nlev)   :: inv_rho_gb, rho_gb, inv_dz, exner_gb
 
     INTEGER  :: i_nchdom, i_startblk, i_endblk, jk, nlev, nlevp1
 
-    !0) Initialize all passed ddt's to 0
+    !0) Initialize all passed ddt's to 0 
 !$OMP PARALLEL WORKSHARE
     ddt_u_ls  = 0._wp; ddt_v_ls = 0._wp;  ddt_temp_ls = 0._wp
     ddt_qv_ls = 0._wp; ddt_ql_ls = 0._wp; ddt_qi_ls  = 0._wp
 !$OMP END PARALLEL WORKSHARE
-
+   
     i_nchdom  = MAX(1,p_patch%n_childdom)
     nlev      = p_patch%nlev
     nlevp1    = p_patch%nlev+1
-    inv_n_gb_cells = 1._wp / REAL(p_patch%n_patch_cells_g,wp)
+    inv_no_gb_cells = 1._wp / REAL(p_patch%n_patch_cells_g,wp)
 
     i_startblk = p_patch%cells%start_blk(rl_start,1)
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
-    !1) Horizontal mean of variables and their vertical advective tendency
+    !1a) Horizontal mean of variables and their vertical advective tendency - momentum
 
-    IF(is_subsidence)THEN
+    IF(is_subsidence_moment)THEN
 
 !$OMP PARALLEL WORKSHARE
       !Get surface density
@@ -221,13 +226,29 @@ MODULE mo_ls_forcing
       varin(:,:,i_startblk:i_endblk) = p_diag%u(:,:,i_startblk:i_endblk)*p_prog%rho(:,:,i_startblk:i_endblk)
 !$OMP END PARALLEL WORKSHARE
       CALL vert_intp_full2half_cell_3d(p_patch, p_metrics, varin, varout, rl_start, rl_end)
-      CALL horizontal_sum(p_patch, varout, u_loc, rl_start, rl_end)
+      CALL global_hor_mean(p_patch, varout, u_gb, inv_no_gb_cells, i_nchdom)
 
 !$OMP PARALLEL WORKSHARE
       varin(:,:,i_startblk:i_endblk) = p_diag%v(:,:,i_startblk:i_endblk)*p_prog%rho(:,:,i_startblk:i_endblk)
 !$OMP END PARALLEL WORKSHARE
       CALL vert_intp_full2half_cell_3d(p_patch, p_metrics, varin, varout, rl_start, rl_end)
-      CALL horizontal_sum(p_patch, varout, v_loc, rl_start, rl_end)
+      CALL global_hor_mean(p_patch, varout, v_gb, inv_no_gb_cells, i_nchdom)
+        
+      !rho_loc(nlev)
+      CALL global_hor_mean(p_patch, p_prog%rho(:,:,:), rho_gb, inv_no_gb_cells, i_nchdom)
+      inv_rho_gb  = 1._wp / rho_gb
+      
+      !Vertical advective forcing
+      inv_dz(:) = 1._wp / p_metrics%ddqz_z_full(2,:,2)
+
+      ddt_u_ls    =  ddt_u_ls - w_ls*vertical_derivative(u_gb,inv_dz)*inv_rho_gb
+      ddt_v_ls    =  ddt_v_ls - w_ls*vertical_derivative(v_gb,inv_dz)*inv_rho_gb
+
+    END IF
+
+    !1b) Horizontal mean of variables and their vertical advective tendency 
+
+    IF(is_subsidence_heat)THEN
 
 !$OMP PARALLEL WORKSHARE
       varin(:,:,i_startblk:i_endblk) = p_diag%temp(:,:,i_startblk:i_endblk)*p_prog%rho(:,:,i_startblk:i_endblk)
@@ -236,7 +257,7 @@ MODULE mo_ls_forcing
 !$OMP PARALLEL WORKSHARE
       varout(:,nlevp1,i_startblk:i_endblk) = t_sfc(:,i_startblk:i_endblk)*rhos(:,i_startblk:i_endblk)
 !$OMP END PARALLEL WORKSHARE
-      CALL horizontal_sum(p_patch, varout, temp_loc, rl_start, rl_end)
+      CALL global_hor_mean(p_patch, varout, temp_gb, inv_no_gb_cells, i_nchdom)
 
 !$OMP PARALLEL WORKSHARE
       varin(:,:,i_startblk:i_endblk) = qv(:,:,i_startblk:i_endblk)*p_prog%rho(:,:,i_startblk:i_endblk)
@@ -245,7 +266,7 @@ MODULE mo_ls_forcing
 !$OMP PARALLEL WORKSHARE
       varout(:,nlevp1,i_startblk:i_endblk) = qv_sfc(:,i_startblk:i_endblk)*rhos(:,i_startblk:i_endblk)
 !$OMP END PARALLEL WORKSHARE
-      CALL horizontal_sum(p_patch, varout, qv_loc, rl_start, rl_end)
+      CALL global_hor_mean(p_patch, varout, qv_gb, inv_no_gb_cells, i_nchdom)
 
 !$OMP PARALLEL WORKSHARE
       varin(:,:,i_startblk:i_endblk) = ql(:,:,i_startblk:i_endblk)*p_prog%rho(:,:,i_startblk:i_endblk)
@@ -254,27 +275,20 @@ MODULE mo_ls_forcing
 !$OMP PARALLEL WORKSHARE
       varout(:,nlevp1,i_startblk:i_endblk) = 0._wp
 !$OMP END PARALLEL WORKSHARE
-      CALL horizontal_sum(p_patch, varout, ql_loc, rl_start, rl_end)
+      CALL global_hor_mean(p_patch, varout, ql_gb, inv_no_gb_cells, i_nchdom)
 
-      !rho_loc(nlev)
-      CALL horizontal_sum(p_patch, p_prog%rho(:,:,:), rho_loc, rl_start, rl_end)
-    
-      !Global mean
-       u_gb    = global_sum_vert(u_loc)    * inv_n_gb_cells
-       v_gb    = global_sum_vert(v_loc)    * inv_n_gb_cells 
-       temp_gb = global_sum_vert(temp_loc) * inv_n_gb_cells 
-       qv_gb   = global_sum_vert(qv_loc)   * inv_n_gb_cells 
-       ql_gb   = global_sum_vert(ql_loc)   * inv_n_gb_cells 
-       rho_gb  = global_sum_vert(rho_loc)  * inv_n_gb_cells
+      IF(.NOT.is_subsidence_moment)THEN      
+        !rho_loc(nlev)
+        CALL global_hor_mean(p_patch, p_prog%rho(:,:,:), rho_gb, inv_no_gb_cells, i_nchdom)
+        inv_rho_gb  = 1._wp / rho_gb
 
-      !Vertical advective forcing
-      inv_dz(:) = 1._wp / p_metrics%ddqz_z_full(2,:,2)
-     
-      ddt_u_ls    =  ddt_u_ls - w_ls*vertical_derivative(u_gb,inv_dz)/rho_gb
-      ddt_v_ls    =  ddt_v_ls - w_ls*vertical_derivative(v_gb,inv_dz)/rho_gb
-      ddt_temp_ls =  ddt_temp_ls - w_ls*vertical_derivative(temp_gb,inv_dz)/rho_gb
-      ddt_qv_ls   =  ddt_qv_ls - w_ls*vertical_derivative(qv_gb,inv_dz)/rho_gb
-      ddt_ql_ls   =  ddt_ql_ls - w_ls*vertical_derivative(ql_gb,inv_dz)/rho_gb
+        !Vertical advective forcing
+        inv_dz(:) = 1._wp / p_metrics%ddqz_z_full(2,:,2)        
+      END IF
+      
+      ddt_temp_ls =  ddt_temp_ls - w_ls*vertical_derivative(temp_gb,inv_dz)*inv_rho_gb
+      ddt_qv_ls   =  ddt_qv_ls - w_ls*vertical_derivative(qv_gb,inv_dz)*inv_rho_gb
+      ddt_ql_ls   =  ddt_ql_ls - w_ls*vertical_derivative(ql_gb,inv_dz)*inv_rho_gb
 
     END IF
 
@@ -282,8 +296,7 @@ MODULE mo_ls_forcing
     !  Advective tendencies for ql is always assumed 0
     IF(is_advection)THEN
       IF(is_theta)THEN
-        CALL horizontal_sum(p_patch, p_prog%exner(:,:,:), exner_loc, rl_start, rl_end)
-        exner_gb = global_sum_vert(exner_loc) * inv_n_gb_cells
+        CALL global_hor_mean(p_patch, p_prog%exner(:,:,:), exner_gb, inv_no_gb_cells, i_nchdom)
         ddt_temp_ls = ddt_temp_ls + ddt_temp_hadv_ls * exner_gb      
       ELSE
         ddt_temp_ls = ddt_temp_ls + ddt_temp_hadv_ls 
@@ -293,14 +306,9 @@ MODULE mo_ls_forcing
 
     !3)Coriolis and geostrophic wind
     IF(is_geowind)THEN
-      CALL horizontal_sum(p_patch, p_diag%u(:,:,:), uf_loc, rl_start, rl_end)
-      CALL horizontal_sum(p_patch, p_diag%v(:,:,:), vf_loc, rl_start, rl_end)
-      uf_gb = global_sum_vert(uf_loc) * inv_n_gb_cells
-      vf_gb = global_sum_vert(vf_loc) * inv_n_gb_cells 
-
       !Remember model grid is flat   
-      ddt_u_ls = ddt_u_ls + p_patch%cells%f_c(2,2) * (vf_gb - v_geo)
-      ddt_v_ls = ddt_v_ls - p_patch%cells%f_c(2,2) * (uf_gb - u_geo)
+      ddt_u_ls = ddt_u_ls - p_patch%cells%f_c(2,2) * v_geo
+      ddt_v_ls = ddt_v_ls + p_patch%cells%f_c(2,2) * u_geo
     END IF
 
     !4)Radiative forcing
@@ -308,58 +316,62 @@ MODULE mo_ls_forcing
       IF(is_theta .AND. is_advection)THEN
         ddt_temp_ls = ddt_temp_ls + ddt_temp_rad_ls * exner_gb
       ELSEIF(is_theta .AND. .NOT.is_advection)THEN
-        CALL horizontal_sum(p_patch, p_prog%exner(:,:,:), exner_loc, rl_start, rl_end)
-        exner_gb = global_sum_vert(exner_loc) * inv_n_gb_cells
+        CALL global_hor_mean(p_patch, p_prog%exner(:,:,:), exner_gb, inv_no_gb_cells, i_nchdom)
         ddt_temp_ls = ddt_temp_ls + ddt_temp_rad_ls * exner_gb
       ELSE
         ddt_temp_ls = ddt_temp_ls + ddt_temp_rad_ls 
       END IF
     END IF
 
-
   END SUBROUTINE apply_ls_forcing
 
 
   !>
-  !! horizontal_sum
+  !! global_hor_mean: only called for interior points
   !!------------------------------------------------------------------------
   !! @par Revision History
   !! Initial release by Anurag Dipankar, MPI-M (2013-May-30)
-  SUBROUTINE horizontal_sum(p_patch, var, var_loc, rl_start, rl_end)
+  SUBROUTINE global_hor_mean(p_patch, var, varout, inv_no_cells, nchdom)
 
     TYPE(t_patch),     INTENT(in), TARGET :: p_patch
-    REAL(wp), INTENT(in)                  :: var(:,:,:)
-    INTEGER,  INTENT(in)                  :: rl_start, rl_end 
-    REAL(wp), INTENT(out)                 :: var_loc(:)                     
+    REAL(wp), INTENT(in)                  :: var(:,:,:), inv_no_cells
+    INTEGER,  INTENT(in)                  :: nchdom
+    REAL(wp), INTENT(out)                 :: varout(:)                     
 
-    INTEGER :: i_startblk, i_endblk
-    INTEGER :: i_endidx, i_startidx, i_nchdom
-    INTEGER :: jk, jc, jb
+    REAL(wp) :: var_aux(SIZE(var,1),SIZE(var,2),SIZE(var,3))
+    INTEGER  :: i_startblk, i_endblk, rl_start
+    INTEGER  :: i_endidx, i_startidx
+    INTEGER  :: jk, jc, jb, nz
 
-    i_nchdom  = MAX(1,p_patch%n_childdom)
+    !Put all fields to 0
+    var_aux(:,:,:) = 0._wp
 
-    var_loc = 0._wp
-
+    rl_start   = grf_bdywidth_c+1
     i_startblk = p_patch%cells%start_blk(rl_start,1)
-    i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
+    i_endblk   = p_patch%cells%end_blk(min_rlcell_int,nchdom)
+    nz         = SIZE(var,2)
 
+   !Now put values in interior nodes
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb, jk, jc, i_startidx, i_endidx) ICON_OMP_DEFAULT_SCHEDULE
-    DO jk = 1 , SIZE(var,2)  
-      DO jb = i_startblk, i_endblk
-        CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-                           i_startidx, i_endidx, rl_start, rl_end)
-
-        DO jc = i_startidx , i_endidx
-          var_loc(jk) = var_loc(jk) + var(jc,jk,jb)
-        END DO
-      END DO
+    DO jb = i_startblk, i_endblk
+       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+                          i_startidx, i_endidx, rl_start, min_rlcell_int)
+       DO jk = 1 , nz
+         DO jc = i_startidx , i_endidx
+             var_aux(jc,jk,jb) = var(jc,jk,jb)
+         END DO
+       END DO
     END DO 
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
+   DO jk = 1 , nz
+    varout(jk) = global_sum_array(var_aux(:,jk,:)) * inv_no_cells
+   END DO
 
-  END SUBROUTINE horizontal_sum
+
+  END SUBROUTINE global_hor_mean
 
   !>
   !! vertical_derivative

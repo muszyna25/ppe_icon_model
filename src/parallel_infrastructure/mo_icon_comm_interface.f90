@@ -46,7 +46,7 @@ MODULE mo_icon_comm_interface
 !  USE mo_icoham_dyn_memory,ONLY: p_hydro_state
   USE mo_mpi,             ONLY: my_process_is_mpi_seq, my_process_is_mpi_parallel, &
     & work_mpi_barrier, my_process_is_mpi_test, p_barrier,        &
-    & p_comm_work_test, p_comm_work
+    & p_comm_work_test, p_comm_work, get_my_mpi_all_id
   USE mo_icon_comm_lib
 
 #ifdef _OPENMP
@@ -129,16 +129,21 @@ CONTAINS
   SUBROUTINE icon_comm_barrier(for_patch)
     TYPE(t_patch), TARGET ::  for_patch
 
-    ! write(0,*) "icon_comm_barrier:", for_patch%parallel_test_communicator
+!    write(0,*) get_my_mpi_all_id(), ": enter icon_comm_barrier, for_patch%compute_is_parallel:",for_patch%compute_is_parallel, &
+!      & for_patch%work_communicator
+    ! CALL  flush(0)
 #ifndef NOMPI
     IF (for_patch%is_in_parallel_test) THEN
       CALL p_barrier(for_patch%parallel_test_communicator)
     ELSEIF (for_patch%compute_is_parallel) THEN
+!      write(0,*) get_my_mpi_all_id(), ": icon_comm_barrier:", for_patch%work_communicator
       CALL p_barrier(for_patch%work_communicator)
     ENDIF
+!    write(0,*) get_my_mpi_all_id(), "leave icon_comm_barrier:"
 #else
     RETURN
 #endif
+    ! CALL  flush(0)
   END SUBROUTINE icon_comm_barrier
   !-----------------------------------------------------------------------
 

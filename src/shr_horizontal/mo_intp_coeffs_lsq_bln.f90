@@ -2296,12 +2296,12 @@ REAL(wp) :: z_sum
   CALL sync_patch_array(SYNC_C,ptr_patch,ptr_int_state%verts_aw_cells)
   CALL sync_patch_array(SYNC_C,ptr_patch,ptr_int_state%e_inn_c)
   CALL sync_patch_array(SYNC_V,ptr_patch,ptr_int_state%cells_aw_verts)
+  CALL sync_patch_array(SYNC_V,ptr_patch,ptr_int_state%e_aw_v)
   IF (ptr_patch%cell_type == 6) THEN
     CALL sync_patch_array(SYNC_E,ptr_patch,ptr_int_state%tria_aw_rhom)
     CALL sync_patch_array(SYNC_E,ptr_patch,ptr_int_state%v_1o2_e)
     CALL sync_patch_array(SYNC_C,ptr_patch,ptr_int_state%e_aw_c)
     CALL sync_patch_array(SYNC_C,ptr_patch,ptr_int_state%r_aw_c)
-    CALL sync_patch_array(SYNC_V,ptr_patch,ptr_int_state%e_aw_v)
     CALL sync_patch_array(SYNC_V,ptr_patch,ptr_int_state%e_inn_v)
   ENDIF
 

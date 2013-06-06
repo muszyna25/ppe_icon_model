@@ -113,6 +113,7 @@ MODULE mo_oce_state
   PUBLIC :: init_oce_config
   PUBLIC :: setup_ocean_namelists
   PUBLIC :: check_ocean_subsets
+  PUBLIC :: set_oce_tracer_info
 
   PUBLIC :: init_patch_3D
   PUBLIC :: construct_patch_3D
@@ -121,8 +122,9 @@ MODULE mo_oce_state
   PUBLIC :: t_hydro_ocean_base
   PUBLIC :: t_hydro_ocean_state
   PUBLIC :: t_hydro_ocean_prog
-  PUBLIC :: t_hydro_ocean_aux
   PUBLIC :: t_hydro_ocean_diag
+  PUBLIC :: t_hydro_ocean_aux
+  PUBLIC :: t_hydro_ocean_acc
   PUBLIC :: t_ptr3d
   PUBLIC :: t_oce_config
 
@@ -134,7 +136,7 @@ MODULE mo_oce_state
   !destructors
   PRIVATE :: destruct_hydro_ocean_diag
   PRIVATE :: destruct_hydro_ocean_aux
- 
+
 !
 !! basis types for constructing 3-dim ocean state
 !
@@ -148,11 +150,11 @@ MODULE mo_oce_state
     !! n_zlvm: number of z-coordinate distances (-1)
     INTEGER :: n_zlev, n_zlvp, n_zlvm
 
-    !! del_zlev_m: thickness (height) of elemental prism, defined as the 
-    !!             distance between top and bottom of elemental prism, 
-    !!             i.e. the distance between two intermediate z-coordinate 
-    !!             surfaces. These data are provided by the user, all other 
-    !!             vertical information is calculated from this array of 
+    !! del_zlev_m: thickness (height) of elemental prism, defined as the
+    !!             distance between top and bottom of elemental prism,
+    !!             i.e. the distance between two intermediate z-coordinate
+    !!             surfaces. These data are provided by the user, all other
+    !!             vertical information is calculated from this array of
     !!             thicknesses.
     !!             Dimension: n_zlev
     REAL(wp), ALLOCATABLE :: del_zlev_m(:)
@@ -172,13 +174,13 @@ MODULE mo_oce_state
     !!             The vertical velocities are evaluated at such surfaces.
     REAL(wp), ALLOCATABLE :: zlev_i(:)
 
-    !! del_zlev_i: distance between two z-coordinate surfaces. The first is 
+    !! del_zlev_i: distance between two z-coordinate surfaces. The first is
     !!             the distance from the ocean surface = zlev_m(1)
     !!             Dimension: n_zlev
     REAL(wp), ALLOCATABLE :: del_zlev_i(:)
 
 
-    ! land-sea-mask for ocean has 3 dimensions (the 2nd is the number of 
+    ! land-sea-mask for ocean has 3 dimensions (the 2nd is the number of
     ! vertical levels)
     ! sea=-2, sea_boundary=-1, boundary (edges only)=0, land_boundary=1, land=2
     !
@@ -193,11 +195,11 @@ MODULE mo_oce_state
     ! INTEGER, ALLOCATABLE :: lsm_v(:,:,:)
 
 
-    ! To simplify the acess to the required information within these loops 
-    ! we store an cell and edge based version of the deepest ocean layer 
-    ! in column. dolic_e(edge1) and dolic_c(cell1) are identical if 'edge1' 
+    ! To simplify the acess to the required information within these loops
+    ! we store an cell and edge based version of the deepest ocean layer
+    ! in column. dolic_e(edge1) and dolic_c(cell1) are identical if 'edge1'
     ! is one of the edges of 'cell1'.
-    ! If the ocean bottom is flat dolic_c and dolic_e are identical and equal 
+    ! If the ocean bottom is flat dolic_c and dolic_e are identical and equal
     ! to the number of z-coodinate surfaces.
 
     ! index1=1,nproma, index2=1,nblks_c
@@ -214,7 +216,7 @@ MODULE mo_oce_state
     ! dimensions as in lsm_oce:
     REAL(wp), ALLOCATABLE :: wet_c(:,:,:)  ! cell centers
     REAL(wp), ALLOCATABLE :: wet_e(:,:,:)  ! cell edges
-    !REAL(wp), ALLOCATABLE :: wet_i(:,:,:)  ! vertical velocity points 
+    !REAL(wp), ALLOCATABLE :: wet_i(:,:,:)  ! vertical velocity points
     !                                       ! on intermediate levels
 
 
@@ -329,7 +331,7 @@ MODULE mo_oce_state
 
    TYPE(t_cartesian_coordinates), POINTER :: &
       &  p_mass_flux_sfc_cc(:,:)  ! mass flux at surface in cartesian coordinates
-                                  ! dimension: (nproma, nblks_c). 
+                                  ! dimension: (nproma, nblks_c).
 
   END TYPE t_hydro_ocean_diag
 
@@ -347,44 +349,6 @@ MODULE mo_oce_state
                                  ! dimension: (nproma, n_zlev, nblks_e)
       &  g_nimd(:,:,:)           ! explicit velocity term in Adams-Bashford time marching routines,
                                  ! located at intermediate timelevel
-
-      ! Variables for each tracer currently not needed (only for AB-timestepping in tracer variables)
-! !     REAL(wp), POINTER ::       &
-! !       &  g_n_c_h(:,:,:,:)        ! explicit tracer term in Adams-Bashford time marching routines,
-! !                                  ! at timelevel n for each tracer, horizontal
-! !                                  ! dimension: (nproma, n_zlev, nblks_c, no_tracer )
-! !     TYPE(t_ptr3d),ALLOCATABLE :: g_n_c_h_tracer_ptr(:)   !< pointer array: one pointer for each tracer
-! ! 
-! !     REAL(wp), POINTER ::       &
-! !       &  g_nm1_c_h(:,:,:,:)      ! explicit tracer term in Adams-Bashford time marching routines,
-! !                                  ! at timelevel n-1 for each tracer, horizontal
-! !                                  ! dimension: (nproma, n_zlev, nblks_c, no_tracer)
-! !     TYPE(t_ptr3d),ALLOCATABLE :: g_nm1_c_h_tracer_ptr(:)   !< pointer array: one pointer for each tracer
-! ! 
-! !     REAL(wp), POINTER ::       &
-! !       &  g_nimd_c_h(:,:,:,:)     ! explicit tracer term in Adams-Bashford time marching routines,
-! !                                  ! located at intermediate timelevel for each tracer, horizontal
-! !                                  ! dimension: (nproma, n_zlev, nblks_c,no_tracer )
-! !     TYPE(t_ptr3d),ALLOCATABLE :: g_nimd_c_h_tracer_ptr(:)   !< pointer array: one pointer for each tracer
-! ! 
-! !     REAL(wp), POINTER ::       &
-! !       &  g_n_c_v(:,:,:,:)        ! explicit tracer term in Adams-Bashford time marching routines,
-! !                                  ! at timelevel n for each tracer, vertical
-! !                                  ! dimension: (nproma, n_zlev, nblks_c, no_tracer )
-! !     TYPE(t_ptr3d),ALLOCATABLE :: g_n_c_v_tracer_ptr(:)   !< pointer array: one pointer for each tracer
-! ! 
-! !     REAL(wp), POINTER ::       &
-! !       &  g_nm1_c_v(:,:,:,:)      ! explicit tracer term in Adams-Bashford time marching routines,
-! !                                  ! at timelevel n-1 for each tracer, vertical
-! !                                  ! dimension: (nproma, n_zlev, nblks_c, no_tracer)
-! !     TYPE(t_ptr3d),ALLOCATABLE :: g_nm1_c_v_tracer_ptr(:)   !< pointer array: one pointer for each tracer
-! ! 
-! !     REAL(wp), POINTER ::       &
-! !       &  g_nimd_c_v(:,:,:,:)     ! explicit tracer term in Adams-Bashford time marching routines,
-! !                                  ! located at intermediate timelevel for each tracer, vertical
-! !                                  ! dimension: (nproma, n_zlev, nblks_c,no_tracer )
-! !     TYPE(t_ptr3d),ALLOCATABLE :: g_nimd_c_v_tracer_ptr(:)  !< pointer array: one pointer for each tracer
-
     REAL(wp), POINTER ::       &
       &  bc_top_vn(:,:)       ,& ! normal velocity boundary condition at surface
                                  ! dimension: (nproma,nblks_e)
@@ -423,14 +387,25 @@ MODULE mo_oce_state
 
   END TYPE t_hydro_ocean_aux
 
+  ! variables to be accumulated
+  TYPE t_hydro_ocean_acc
+    REAL(wp), POINTER :: &
+      & h(:,:)   ,&
+      & u(:,:,:) ,&
+      & v(:,:,:) ,&
+      & rhopot(:,:,:) ,&
+      & tracer(:,:,:,:)
+    TYPE(t_ptr3d),ALLOCATABLE :: tracer_ptr(:)  !< pointer array: one pointer for each tracer
+  END TYPE
+
 !! array of states
 !
   TYPE t_hydro_ocean_state
 
-    TYPE(t_hydro_ocean_prog), POINTER :: p_prog(:)    ! time array of prognostic states at
-                                                        ! different time levels
+    TYPE(t_hydro_ocean_prog), POINTER :: p_prog(:)    ! time array of prognostic states at different time levels
     TYPE(t_hydro_ocean_diag) :: p_diag
     TYPE(t_hydro_ocean_aux)  :: p_aux
+    TYPE(t_hydro_ocean_acc)  :: p_acc
 
   END TYPE t_hydro_ocean_state
 
@@ -446,7 +421,6 @@ MODULE mo_oce_state
   ! variables
   TYPE(t_var_list)         , PUBLIC                      :: ocean_restart_list
   TYPE(t_var_list)         , PUBLIC                      :: ocean_default_list
-  !TYPE(t_hydro_ocean_state), PUBLIC, TARGET, ALLOCATABLE :: v_ocean_state(:)
   TYPE(t_hydro_ocean_base) , PUBLIC, TARGET              :: v_base
   TYPE(t_oce_config)       , PUBLIC                      :: oce_config
 
@@ -493,31 +467,17 @@ CONTAINS
     TYPE(t_patch), TARGET, INTENT(in) :: p_patch(n_dom)
     TYPE(t_hydro_ocean_state), TARGET :: p_os(n_dom)
 
-    !INTEGER, OPTIONAL, INTENT(IN)             :: prog_length
-    !INTEGER, OPTIONAL, INTENT(IN)             :: k_no_temp_mem
-
     ! local variables
-
     INTEGER           :: jg
 
     INTEGER           :: i_status, jp, prlength ! local prognostic array length
-    !INTEGER           :: no_temp_memory         ! no of temporary memory elements
     CHARACTER(len=max_char_length), PARAMETER :: &
       &      routine = 'mo_oce_state:construct_hydro_ocean_state'
 
     CALL message(TRIM(routine), 'start to construct hydro_ocean state' )
 
-    !IF (PRESENT(prog_length)) THEN
-    !  prlength = prog_length
-    !ELSE
-    !  prlength =2
-    !END IF
-
-    !
     ! Using Adams-Bashforth semi-implicit timestepping with 3 prognostic time levels:
     prlength = 3
-
-    ! #slo# preliminary without dimensioning of prog/diag/aux
 
     !create state array for each domain
     DO jg = 1, n_dom
@@ -526,14 +486,13 @@ CONTAINS
       IF (i_status/=SUCCESS) THEN
          CALL finish(TRIM(routine), 'allocation of progn. state array failed')
       END IF
-
       DO jp = 1, prlength
          CALL construct_hydro_ocean_prog(p_patch(jg), p_os(jg)%p_prog(jp),jp)
       END DO
 
       CALL construct_hydro_ocean_diag(p_patch(jg), p_os(jg)%p_diag)
-
-      CALL construct_hydro_ocean_aux(p_patch(jg), p_os(jg)%p_aux)
+      CALL construct_hydro_ocean_aux(p_patch(jg),  p_os(jg)%p_aux)
+      CALL construct_hydro_ocean_acc(p_patch(jg),  p_os(jg)%p_acc)
 
       CALL message(TRIM(routine),'construction of hydrostatic ocean state finished')
 
@@ -559,9 +518,7 @@ CONTAINS
     CHARACTER(len=max_char_length), PARAMETER :: &
       &      routine = 'mo_oce_state:destruct_hydro_ocean_state'
 
-
 !-------------------------------------------------------------------------
-
     CALL message(TRIM(routine), 'start to destruct hydro ocean state ')
 
     prlength = SIZE(p_os(1)%p_prog)
@@ -574,8 +531,6 @@ CONTAINS
     CALL delete_var_list(ocean_default_list)
 
     DO jg = 1, n_dom
-
-
       CALL destruct_hydro_ocean_diag(p_os(jg)%p_diag)
       CALL destruct_hydro_ocean_aux (p_os(jg)%p_aux)
 
@@ -585,7 +540,6 @@ CONTAINS
       IF (ist/=SUCCESS) THEN
          CALL finish(TRIM(routine),'deallocation of state array failed')
       END IF
-
     END DO
 
     CALL message(TRIM(routine),'destruction of hydrostatic ocean state finished')
@@ -926,63 +880,6 @@ CONTAINS
     &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &            ldims=(/nproma,n_zlev,nblks_c/),lrestart_cont=.TRUE.)
 
-
-! !     CALL add_var(ocean_restart_list, 'prism_thick_c', p_os_diag%prism_thick_c, &
-! !     &            GRID_UNSTRUCTURED_CELL, &
-! !     &            ZAXIS_DEPTH_BELOW_SEA, &
-! !     &            t_cf_var('cons thick','','prism thickness at cells', DATATYPE_FLT32),&
-! !     &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
-! !     &            ldims=(/nproma,n_zlev,nblks_c/),lrestart_cont=.TRUE.)
-! !     CALL add_var(ocean_restart_list, 'prism_thick_e', p_os_diag%prism_thick_e, &
-! !     &            GRID_UNSTRUCTURED_CELL, &
-! !     &            ZAXIS_DEPTH_BELOW_SEA, &
-! !     &            t_cf_var('cons thick','','prism thickness at edges', DATATYPE_FLT32),&
-! !     &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_EDGE),&
-! !     &            ldims=(/nproma,n_zlev,nblks_e/),lrestart_cont=.TRUE.)
-! !     CALL add_var(ocean_restart_list, 'prism_thick_flat_sfc_c', p_os_diag%prism_thick_flat_sfc_c, &
-! !     &            GRID_UNSTRUCTURED_CELL, &
-! !     &            ZAXIS_DEPTH_BELOW_SEA, &
-! !     &            t_cf_var('prism_thick_flat_sfc_c','','time independent depth at cells', DATATYPE_FLT32),&
-! !     &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
-! !     &            ldims=(/nproma,n_zlev,nblks_c/),lrestart_cont=.TRUE.)
-! !     CALL add_var(ocean_restart_list, 'prism_thick_flat_sfc_e', p_os_diag%prism_thick_flat_sfc_e, &
-! !     &            GRID_UNSTRUCTURED_CELL, &
-! !     &            ZAXIS_DEPTH_BELOW_SEA, &
-! !     &            t_cf_var('prism_thick_flat_sfc_c','','time independent depth at edges', DATATYPE_FLT32),&
-! !     &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_EDGE),&
-! !     &            ldims=(/nproma,n_zlev,nblks_e/),lrestart_cont=.TRUE.)
-! !     CALL add_var(ocean_restart_list, 'inverse prism_thick_c', p_os_diag%inv_prism_thick_c, &
-! !     &            GRID_UNSTRUCTURED_CELL, &
-! !     &            ZAXIS_DEPTH_BELOW_SEA, &
-! !     &            t_cf_var('inverse prism_thick_c','','time independent depth at cells', DATATYPE_FLT32),&
-! !     &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
-! !     &            ldims=(/nproma,n_zlev,nblks_c/),lrestart_cont=.TRUE.)
-! !     CALL add_var(ocean_restart_list, 'prism_center_dist_c', p_os_diag%prism_center_dist_c, &
-! !     &            GRID_UNSTRUCTURED_CELL, &
-! !     &            ZAXIS_DEPTH_BELOW_SEA, &
-! !     &            t_cf_var('prism_center_dist_c','','dist between prism centers', DATATYPE_FLT32),&
-! !     &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
-! !     &            ldims=(/nproma,n_zlev,nblks_c/),lrestart_cont=.TRUE.)
-! !     CALL add_var(ocean_restart_list, 'inverse prism_thick_e', p_os_diag%inv_prism_thick_e, &
-! !     &            GRID_UNSTRUCTURED_CELL, &
-! !     &            ZAXIS_DEPTH_BELOW_SEA, &
-! !     &            t_cf_var('prism_thick_flat_sfc_c','','time independent depth at edges', DATATYPE_FLT32),&
-! !     &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_EDGE),&
-! !     &            ldims=(/nproma,n_zlev,nblks_e/),lrestart_cont=.TRUE.)
-! ! 
-! !     CALL add_var(ocean_restart_list, 'inverse prism center distance at cell', p_os_diag%inv_prism_center_dist_c, &
-! !     &            GRID_UNSTRUCTURED_CELL, &
-! !     &            ZAXIS_DEPTH_BELOW_SEA, &
-! !     &   t_cf_var('inverse inv_prism_center_dist_c','','inverse of dist between prism centers at cells', DATATYPE_FLT32),&
-! !     &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
-! !     &            ldims=(/nproma,n_zlev,nblks_c/),lrestart_cont=.TRUE.)
-! !     CALL add_var(ocean_restart_list, 'inverse prism center distance at edge', p_os_diag%inv_prism_center_dist_e, &
-! !     &            GRID_UNSTRUCTURED_CELL, &
-! !     &            ZAXIS_DEPTH_BELOW_SEA, &
-! !     &   t_cf_var('inverse inv_prism_center_dist_e','','inverse of dist betweenprism centers at edges', DATATYPE_FLT32),&
-! !     &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_EDGE),&
-! !     &            ldims=(/nproma,n_zlev,nblks_e/),lrestart_cont=.TRUE.)
-
     CALL add_var(ocean_restart_list, 'mass_flux', p_os_diag%mass_flx_e, &
     &            GRID_UNSTRUCTURED_EDGE,&
     &            ZA_DEPTH_BELOW_SEA, t_cf_var('mass flux','',' mass flux', DATATYPE_FLT32),&
@@ -1112,16 +1009,6 @@ CONTAINS
     &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_EDGE),&
     &            ldims=(/nproma,n_zlev,nblks_e/),lrestart_cont=.TRUE.)
 
-    ! mass flux
-    !CALL add_var(ocean_restart_list, 'flux_mass', p_os_diag%flux_mass, GRID_UNSTRUCTURED_EDGE,&
-    !&            ZA_DEPTH_BELOW_SEA, t_cf_var('flux_mass','','mass flux at edges', DATATYPE_FLT32),&
-    !&            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_EDGE),&
-    !&            ldims=(/nproma,n_zlev,nblks_e/),lrestart_cont=.TRUE.)
-    !CALL add_var(ocean_restart_list, 'flux_tracer', p_os_diag%flux_tracer, GRID_UNSTRUCTURED_EDGE,&
-    !&            ZA_DEPTH_BELOW_SEA, t_cf_var('flux_tracer','','tracers flux at edges', DATATYPE_FLT32),&
-    !&            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_EDGE),&
-    !&            ldims=(/nproma,n_zlev,nblks_e/),lrestart_cont=.TRUE.)
-
     ! horizontal velocity advection
     CALL add_var(ocean_restart_list, 'veloc_adv_horz', p_os_diag%veloc_adv_horz, &
     &            GRID_UNSTRUCTURED_EDGE,&
@@ -1162,31 +1049,6 @@ CONTAINS
     IF (ist/=SUCCESS) THEN
       CALL finish(TRIM(routine), 'allocation for p_vn at cells failed')
     END IF
-
-    ! with following two loops the complete halo is set to zero, except for the unused last block
-    !  - when checking for min/max values with nag-compiler "Floating invalid operation" occurs
-    !  - set completely to zero, see below
- !  DO jk=1,n_zlev
- !    DO jb = all_cells%start_block, all_cells%end_block
- !      CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
- !      DO jc = i_startidx, i_endidx
- !      END DO
- !    END DO
- !  END DO
-
- !  rl_start = 1
- !  rl_end = min_rlcell
- !  i_startblk = p_patch%cells%start_blk(rl_start,1)
- !  i_endblk   = p_patch%cells%end_blk(rl_end,1)
- !  DO jk=1,n_zlev
- !    DO jb = i_startblk, i_endblk
- !      CALL get_indices_c(p_patch, jb, i_startblk, i_endblk,&
- !      &                  i_startidx, i_endidx, rl_start, rl_end)
- !      DO jc = i_startidx, i_endidx
- !        p_os_diag%p_vn(jc,jk,jb)%x(:)=0.0_wp
- !      END DO
- !    END DO
- !  END DO
 
     ALLOCATE(p_os_diag%p_vn_dual(nproma,n_zlev,nblks_v), STAT=ist)
     IF (ist/=SUCCESS) THEN
@@ -1230,92 +1092,6 @@ CONTAINS
       &          t_cf_var('temp_insitu', 'K', 'in situ temperature', DATATYPE_FLT32),&
       &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
       &          ldims=(/nproma,n_zlev,nblks_c/),lrestart_cont=.TRUE.)
-!TODO review
-    !CALL message(TRIM(routine), 'construction of hydrostatic ocean diagnostic state finished')
-    !At this point the hydro-ocean-base-type containing the topography and depth data is already initialized.
-    !Therefore we init the following two arrays that describe the prism thickness (with and without free surface)
-    !Note that only wet cells are initialized, land cells have thickness zero.
-    !During model integration only the first layer of prism_thick_c and prism_thick_e are updated, all other
-    !values remains as initialized.
-! !     DO jb = all_cells%start_block, all_cells%end_block
-! !       CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
-! !       DO jc = i_startidx_c, i_endidx_c
-! !         DO jk=1,n_zlev
-! !           IF ( v_base%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
-! !             p_os_diag%prism_thick_flat_sfc_c(jc,jk,jb) = v_base%del_zlev_m(jk)
-! !             p_os_diag%prism_thick_c(jc,jk,jb)          = v_base%del_zlev_m(jk)
-! !             p_os_diag%prism_center_dist_c(jc,jk,jb)    = v_base%del_zlev_i(jk)
-! ! 
-! ! 
-! !             p_os_diag%inv_prism_thick_c(jc,jk,jb)      = 1.0_wp/v_base%del_zlev_m(jk)
-! !             p_os_diag%inv_prism_center_dist_c(jc,jk,jb)= 1.0_wp/v_base%del_zlev_i(jk)
-! !           ELSE
-! !             p_os_diag%prism_thick_flat_sfc_c(jc,jk,jb) = 0.0_wp
-! !             p_os_diag%prism_thick_c(jc,jk,jb)          = 0.0_wp
-! !             p_os_diag%prism_center_dist_c(jc,jk,jb)    = 0.0_wp
-! ! 
-! !             p_os_diag%inv_prism_thick_c(jc,jk,jb)      = 0.0_wp
-! !             p_os_diag%inv_prism_center_dist_c(jc,jk,jb)= 0.0_wp
-! !           ENDIF
-! !         END DO
-! !       END DO
-! !     END DO
-! ! 
-! !     !If column has not enough wet layers set all 4 depth-arrays to zero
-! !     DO jb = all_cells%start_block, all_cells%end_block
-! !       CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
-! !       DO jc = i_startidx_c, i_endidx_c
-! !         DO jk=1,n_zlev
-! !           IF ( v_base%dolic_c(jc,jb) < min_dolic) THEN
-! ! 
-! !             p_os_diag%prism_thick_flat_sfc_c(jc,jk,jb) = 0.0_wp
-! !             p_os_diag%prism_thick_c(jc,jk,jb)          = 0.0_wp
-! ! 
-! !             p_os_diag%inv_prism_thick_c(jc,jk,jb)      = 0.0_wp
-! !             p_os_diag%inv_prism_center_dist_c(jc,jk,jb)= 0.0_wp
-! !           ENDIF
-! !         END DO
-! !       END DO
-! !     END DO
-! ! 
-! ! 
-! !     DO jb = all_edges%start_block, all_edges%end_block
-! !       CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
-! !       DO je = i_startidx_e, i_endidx_e
-! !         DO jk=1,n_zlev
-! !           IF ( v_base%lsm_e(je,jk,jb) <= sea_boundary ) THEN
-! !             p_os_diag%prism_thick_flat_sfc_e(je,jk,jb) = v_base%del_zlev_m(jk)
-! !             p_os_diag%prism_thick_e(je,jk,jb)          = v_base%del_zlev_m(jk)
-! ! 
-! !             p_os_diag%inv_prism_thick_e(je,jk,jb)      = 1.0_wp/v_base%del_zlev_m(jk)
-! !             p_os_diag%inv_prism_center_dist_e(je,jk,jb)= 1.0_wp/v_base%del_zlev_i(jk)
-! !           ELSE
-! !             p_os_diag%prism_thick_flat_sfc_e(je,jk,jb) = 0.0_wp
-! !             p_os_diag%prism_thick_e(je,jk,jb)          = 0.0_wp
-! ! 
-! !             p_os_diag%inv_prism_thick_e(je,jk,jb)      = 0.0_wp
-! !             p_os_diag%inv_prism_center_dist_e(je,jk,jb)= 0.0_wp
-! !           ENDIF
-! !         END DO
-! !       END DO
-! !     END DO
-! !     !If column has not enough wet layers set all 4 depth-arrays to zero
-! !     DO jb = all_edges%start_block, all_edges%end_block
-! !       CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
-! !       DO je = i_startidx_e, i_endidx_e
-! !         DO jk=1,n_zlev
-! !           IF ( v_base%dolic_e(je,jb) < min_dolic) THEN
-! ! 
-! !             p_os_diag%prism_thick_flat_sfc_e(je,jk,jb) = 0.0_wp
-! !             p_os_diag%prism_thick_e(je,jk,jb)          = 0.0_wp
-! ! 
-! !             p_os_diag%inv_prism_thick_e(je,jk,jb)      = 0.0_wp
-! !             p_os_diag%inv_prism_center_dist_e(je,jk,jb)= 0.0_wp
-! !           ENDIF
-! !         END DO
-! !       END DO
-! !     END DO
-
   END SUBROUTINE construct_hydro_ocean_diag
 
 
@@ -1393,124 +1169,6 @@ CONTAINS
     &            t_grib2_var(255,255,255,DATATYPE_PACK16,GRID_REFERENCE, GRID_EDGE),&
     &            ldims=(/nproma,n_zlev,nblks_e/),loutput=.TRUE.,lrestart_cont=.TRUE.)
 
-    !-------------------------------------------------------------------------
-    ! time stepping tracers go into the restart file. 4d has to be handles as 3D-references
-! !     CALL add_var(ocean_default_list, 'g_n_c_h', p_os_aux%g_n_c_h , &
-! !     &            GRID_UNSTRUCTURED_CELL, ZAXIS_DEPTH_BELOW_SEA, &
-! !     &            t_cf_var('g_n_c_h', '', '', DATATYPE_FLT32),&
-! !     &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
-! !     &            ldims=(/nproma,n_zlev,nblks_c,no_tracer/), &
-! !     &            lcontainer=.TRUE., loutput=.FALSE.)
-! !     ALLOCATE(p_os_aux%g_n_c_h_tracer_ptr(no_tracer))
-! !     DO jtrc = 1,no_tracer
-! !       CALL add_ref(ocean_default_list,'g_n_c_h',&
-! !         &          'g_n_c_h_'//TRIM(oce_config%tracer_names(jtrc)),&
-! !         &           p_os_aux%g_n_c_h_tracer_ptr(jtrc)%p, &
-! !         &           GRID_UNSTRUCTURED_CELL,&
-! !         &           ZAXIS_DEPTH_BELOW_SEA, &
-! !         &           t_cf_var('g_n_c_h'//TRIM(oce_config%tracer_names(jtrc)),'','', &
-! !         &           DATATYPE_FLT32),&
-! !         &           t_grib2_var(255,255,255,DATATYPE_PACK16,GRID_REFERENCE, GRID_CELL),&
-! !         &           ldims=(/nproma,n_zlev,nblks_c/),loutput=.TRUE.)
-! !     END DO
-! !     !-------------------------------------------------------------------------
-! !     CALL add_var(ocean_default_list,'g_nm1_c_h',p_os_aux%g_nm1_c_h,&
-! !       &          GRID_UNSTRUCTURED_CELL, ZAXIS_DEPTH_BELOW_SEA, &
-! !       &          t_cf_var('g_nm1_c_h','','', DATATYPE_FLT32),&
-! !       &          t_grib2_var(255,255,255,DATATYPE_PACK16,GRID_REFERENCE, GRID_CELL),&
-! !       &          ldims=(/nproma,n_zlev,nblks_c,no_tracer/), &
-! !       &          lcontainer=.TRUE., loutput=.FALSE.)
-! !     ALLOCATE(p_os_aux%g_nm1_c_h_tracer_ptr(no_tracer))
-! !     DO jtrc = 1,no_tracer
-! !       CALL add_ref(ocean_default_list,'g_nm1_c_h',&
-! !         &          'g_nm1_c_h_'//TRIM(oce_config%tracer_names(jtrc)),&
-! !         &          p_os_aux%g_nm1_c_h_tracer_ptr(jtrc)%p, &
-! !         &          GRID_UNSTRUCTURED_CELL,&
-! !         &          ZAXIS_DEPTH_BELOW_SEA, &
-! !         &          t_cf_var('g_nm1_c_h'//TRIM(oce_config%tracer_names(jtrc)),'','', &
-! !         &          DATATYPE_FLT32),&
-! !         &          t_grib2_var(255,255,255,DATATYPE_PACK16,GRID_REFERENCE, GRID_CELL),&
-! !         &          ldims=(/nproma,n_zlev,nblks_c/),loutput=.TRUE.)
-! !     END DO
-! !     !-------------------------------------------------------------------------
-! !     CALL add_var(ocean_default_list,'g_nimd_c_h',p_os_aux%g_nimd_c_h, &
-! !       &          GRID_UNSTRUCTURED_CELL, ZAXIS_DEPTH_BELOW_SEA, &
-! !       &          t_cf_var('g_nimd_c_h','','', DATATYPE_FLT32),&
-! !       &          t_grib2_var(255,255,255,DATATYPE_PACK16,GRID_REFERENCE, GRID_CELL),&
-! !       &          ldims=(/nproma,n_zlev,nblks_c,no_tracer/), &
-! !       &          lcontainer=.TRUE., loutput=.FALSE.)
-! !     ALLOCATE(p_os_aux%g_nimd_c_h_tracer_ptr(no_tracer))
-! !     DO jtrc = 1,no_tracer
-! !       CALL add_ref(ocean_default_list,'g_nimd_c_h',&
-! !         &          'g_nimd_c_h_'//TRIM(oce_config%tracer_names(jtrc)),&
-! !         &          p_os_aux%g_nimd_c_h_tracer_ptr(jtrc)%p, &
-! !         &          GRID_UNSTRUCTURED_CELL,&
-! !         &          ZAXIS_DEPTH_BELOW_SEA, &
-! !         &          t_cf_var('g_nimd_c_h'//TRIM(oce_config%tracer_names(jtrc)),'','', &
-! !         &          DATATYPE_FLT32),&
-! !         &          t_grib2_var(255,255,255,DATATYPE_PACK16,GRID_REFERENCE, GRID_CELL),&
-! !         &          ldims=(/nproma,n_zlev,nblks_c/),loutput=.TRUE.)
-! !     END DO
-! !     !-------------------------------------------------------------------------
-! !     CALL add_var(ocean_default_list,'g_n_c_v',p_os_aux%g_n_c_v,&
-! !       &          GRID_UNSTRUCTURED_CELL, ZAXIS_DEPTH_BELOW_SEA, &
-! !       &          t_cf_var('g_n_c_v','','', DATATYPE_FLT32),&
-! !       &          t_grib2_var(255,255,255,DATATYPE_PACK16,GRID_REFERENCE, GRID_CELL),&
-! !       &          ldims=(/nproma,n_zlev,nblks_c,no_tracer/), &
-! !       &          lcontainer=.TRUE., loutput=.FALSE.)
-! !     ALLOCATE(p_os_aux%g_n_c_v_tracer_ptr(no_tracer))
-! !     DO jtrc = 1,no_tracer
-! !       CALL add_ref(ocean_default_list,'g_n_c_v',&
-! !         &          'g_n_c_v_'//TRIM(oce_config%tracer_names(jtrc)),&
-! !         &          p_os_aux%g_n_c_v_tracer_ptr(jtrc)%p, &
-! !         &          GRID_UNSTRUCTURED_CELL,&
-! !         &          ZAXIS_DEPTH_BELOW_SEA, &
-! !         &          t_cf_var('g_n_c_v'//TRIM(oce_config%tracer_names(jtrc)),'','', &
-! !         &          DATATYPE_FLT32),&
-! !         &          t_grib2_var(255,255,255,DATATYPE_PACK16,GRID_REFERENCE, GRID_CELL),&
-! !         &          ldims=(/nproma,n_zlev,nblks_c/),loutput=.TRUE.)
-! !     END DO
-! !     !-------------------------------------------------------------------------
-! !     CALL add_var(ocean_default_list,'g_nm1_c_v', p_os_aux%g_nm1_c_v,&
-! !       &          GRID_UNSTRUCTURED_CELL, ZAXIS_DEPTH_BELOW_SEA,&
-! !       &          t_cf_var('g_nm1_c_v','','', DATATYPE_FLT32),&
-! !       &          t_grib2_var(255,255,255,DATATYPE_PACK16,GRID_REFERENCE, GRID_CELL),&
-! !       &          ldims=(/nproma,n_zlev,nblks_c,no_tracer/), &
-! !       &          lcontainer=.TRUE., loutput=.FALSE.)
-! !     ALLOCATE(p_os_aux%g_nm1_c_v_tracer_ptr(no_tracer))
-! !     DO jtrc = 1,no_tracer
-! !       CALL add_ref(ocean_default_list,'g_nm1_c_v',&
-! !         &          'g_nm1_c_v_'//TRIM(oce_config%tracer_names(jtrc)),&
-! !         &          p_os_aux%g_nm1_c_v_tracer_ptr(jtrc)%p, &
-! !         &          GRID_UNSTRUCTURED_CELL,&
-! !         &          ZAXIS_DEPTH_BELOW_SEA, &
-! !         &          t_cf_var('g_nm1_c_h'//TRIM(oce_config%tracer_names(jtrc)),'','', &
-! !         &          DATATYPE_FLT32),&
-! !         &          t_grib2_var(255,255,255,DATATYPE_PACK16,GRID_REFERENCE, GRID_CELL),&
-! !         &          ldims=(/nproma,n_zlev,nblks_c/),loutput=.TRUE.)
-! !     END DO
-! !     !-------------------------------------------------------------------------
-! !     CALL add_var(ocean_default_list,'g_nimd_c_v',&
-! !       &          p_os_aux%g_nimd_c_v, GRID_UNSTRUCTURED_CELL,&
-! !       &          ZAXIS_DEPTH_BELOW_SEA, t_cf_var('g_nimd_c_v','','', DATATYPE_FLT32),&
-! !       &          t_grib2_var(255,255,255,DATATYPE_PACK16,GRID_REFERENCE, GRID_CELL),&
-! !       &          ldims=(/nproma,n_zlev,nblks_c,no_tracer/), &
-! !       &          lcontainer=.TRUE., loutput=.FALSE.)
-! !     ALLOCATE(p_os_aux%g_nimd_c_v_tracer_ptr(no_tracer))
-! !     DO jtrc = 1,no_tracer
-! !       CALL add_ref(ocean_default_list,'g_nimd_c_v',&
-! !         &          'g_nimd_c_v_'//TRIM(oce_config%tracer_names(jtrc)),&
-! !         &          p_os_aux%g_nimd_c_v_tracer_ptr(jtrc)%p, &
-! !         &          GRID_UNSTRUCTURED_CELL,&
-! !         &          ZAXIS_DEPTH_BELOW_SEA, &
-! !         &          t_cf_var('g_nimd_c_v'//TRIM(oce_config%tracer_names(jtrc)),'','', &
-! !         &           DATATYPE_FLT32),&
-! !         &          t_grib2_var(255,255,255,DATATYPE_PACK16,GRID_REFERENCE, GRID_CELL),&
-! !         &          ldims=(/nproma,n_zlev,nblks_c/),loutput=.TRUE.)
-! !     END DO
-! !     !-------------------------------------------------------------------------
-    !-------------------------------------------------------------------------
-
     CALL add_var(ocean_restart_list,'p_rhs_sfc_eq',p_os_aux%p_rhs_sfc_eq, GRID_UNSTRUCTURED_CELL,&
     &            ZA_SURFACE, t_cf_var('p_rhs_sfc_eq','','', DATATYPE_FLT32),&
     &            t_grib2_var(255,255,255,DATATYPE_PACK16,GRID_REFERENCE, GRID_CELL),&
@@ -1525,10 +1183,6 @@ CONTAINS
     &            ZA_SURFACE, t_cf_var('bc_top_v','','', DATATYPE_FLT32),&
     &            t_grib2_var(255,255,255,DATATYPE_PACK16,GRID_REFERENCE, GRID_CELL),&
     &            ldims=(/nproma,nblks_c/),lrestart_cont=.TRUE.)
-    !CALL add_var(ocean_restart_list,'bc_top_veloc_cc',p_os_aux%bc_top_veloc_cc, GRID_UNSTRUCTURED_CELL,&
-    !&            ZA_SURFACE, t_cf_var('bc_top_veloc_cc','','', DATATYPE_FLT32),&
-    !&            t_grib2_var(255,255,255,DATATYPE_PACK16,GRID_REFERENCE, GRID_CELL,ZA_SURFACE),&
-    !&            ldims=(/nproma,nblks_c/),lrestart_cont=.TRUE.)
     CALL add_var(ocean_restart_list,'bc_top_vn',p_os_aux%bc_top_vn, GRID_UNSTRUCTURED_EDGE,&
     &            ZA_SURFACE, t_cf_var('bc_top_vn','','', DATATYPE_FLT32),&
     &            t_grib2_var(255,255,255,DATATYPE_PACK16,GRID_REFERENCE, GRID_EDGE),&
@@ -1542,10 +1196,6 @@ CONTAINS
     &            ZA_SURFACE, t_cf_var('bc_bot_v','','', DATATYPE_FLT32),&
     &            t_grib2_var(255,255,255,DATATYPE_PACK16,GRID_REFERENCE, GRID_CELL),&
     &            ldims=(/nproma,nblks_c/),lrestart_cont=.TRUE.)
-    !CALL add_var(ocean_restart_list,'bc_bot_veloc_cc',p_os_aux%bc_bot_veloc_cc, GRID_UNSTRUCTURED_CELL,&
-    !&            ZA_SURFACE, t_cf_var('bc_bot_veloc_cc','','', DATATYPE_FLT32),&
-    !&            t_grib2_var(255,255,255,DATATYPE_PACK16,GRID_REFERENCE, GRID_CELL,ZA_SURFACE),&
-    !&            ldims=(/nproma,nblks_c/),lrestart_cont=.TRUE.)
     CALL add_var(ocean_restart_list,'bc_bot_vn',p_os_aux%bc_bot_vn, GRID_UNSTRUCTURED_EDGE,&
     &            ZA_SURFACE, t_cf_var('bc_bot_vn','','', DATATYPE_FLT32),&
     &            t_grib2_var(255,255,255,DATATYPE_PACK16,GRID_REFERENCE, GRID_EDGE),&
@@ -1567,24 +1217,6 @@ CONTAINS
     &            ZA_SURFACE, t_cf_var('bc_top_tracer','','', DATATYPE_FLT32),&
     &            t_grib2_var(255,255,255,DATATYPE_PACK16,GRID_REFERENCE, GRID_CELL),&
     &            ldims=(/nproma,nblks_c,no_tracer/))
-
-    ! allocation for divergence of fluxes
-    !CALL add_var(ocean_restart_list,'p_div_flux_horiz_act',p_os_aux%p_div_flux_horiz_act, GRID_UNSTRUCTURED_CELL,&
-    !&            ZA_DEPTH_BELOW_SEA, t_cf_vat('p_div_flux_horiz_act','',''),&
-    !&            t_grib2_var(255,255,255,DATATYPE_PACK16,GRID_REFERENCE, GRID_CELL),&
-    !&            ldims=(/nproma,n_zlev,nblks_c/))
-    !CALL add_var(ocean_restart_list,'p_div_flux_vert_act',p_os_aux%p_div_flux_vert_act, GRID_UNSTRUCTURED_CELL,&
-    !&            ZA_DEPTH_BELOW_SEA, t_cf_vat('p_div_flux_vert_act','',''),&
-    !&            t_grib2_var(255,255,255,DATATYPE_PACK16,GRID_REFERENCE, GRID_CELL),&
-    !&            ldims=(/nproma,n_zlev,nblks_c/))
-    !CALL add_var(ocean_restart_list,'p_div_flux_horiz_prev',p_os_aux%p_div_flux_horiz_prev, GRID_UNSTRUCTURED_CELL,&
-    !&            ZA_DEPTH_BELOW_SEA, t_cf_vat('p_div_flux_horiz_prev','',''),&
-    !&            t_grib2_var(255,255,255,DATATYPE_PACK16,GRID_REFERENCE, GRID_CELL),&
-    !&            ldims=(/nproma,n_zlev,nblks_c/))
-    !CALL add_var(ocean_restart_list,'p_div_flux_vert_prev',p_os_aux%p_div_flux_vert_prev, GRID_UNSTRUCTURED_CELL,&
-    !&            ZA_DEPTH_BELOW_SEA, t_cf_vat('p_div_flux_vert_prev','',''),&
-    !&            t_grib2_var(255,255,255,DATATYPE_PACK16,GRID_REFERENCE, GRID_CELL),&
-    !&            ldims=(/nproma,n_zlev,nblks_c/))
 
     ALLOCATE(p_os_aux%bc_top_veloc_cc(nproma,nblks_c), STAT=ist)
     IF (ist/=SUCCESS) THEN
@@ -1630,6 +1262,85 @@ CONTAINS
 
   END SUBROUTINE construct_hydro_ocean_aux
 
+  SUBROUTINE construct_hydro_ocean_acc(p_patch, p_os_acc)
+
+    TYPE(t_patch),TARGET, INTENT(IN)                :: p_patch
+    TYPE(t_hydro_ocean_acc), TARGET,INTENT(INOUT)   :: p_os_acc
+
+    ! local variables
+
+    INTEGER ::  ist, jtrc
+    INTEGER ::  nblks_c, nblks_e, nblks_v
+
+    INTEGER, PARAMETER             :: max_oce_tracer = 2
+    CHARACTER(len=max_char_length) :: oce_tracer_names(max_oce_tracer),&
+    &                                 oce_tracer_units(max_oce_tracer),&
+    &                                 oce_tracer_longnames(max_oce_tracer)
+    INTEGER                        :: oce_tracer_codes(max_oce_tracer)
+    CHARACTER(len=max_char_length) :: var_suffix
+
+
+    !-------------------------------------------------------------------------
+    WRITE(var_suffix,'(a)') '_acc'
+    !-------------------------------------------------------------------------
+
+    ! determine size of arrays
+    nblks_c = p_patch%nblks_c
+    nblks_e = p_patch%nblks_e
+    nblks_v = p_patch%nblks_v
+
+    CALL add_var(ocean_default_list, 'h_acc', p_os_acc%h , &
+    &            GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+    &            t_cf_var('h_acc', 'm', 'surface elevation at cell center', DATATYPE_FLT32),&
+    &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+    &            ldims=(/nproma,nblks_c/))
+    CALL add_var(ocean_default_list, 'u_acc', p_os_acc%u, GRID_UNSTRUCTURED_CELL, &
+    &            ZA_DEPTH_BELOW_SEA, &
+    &            t_cf_var('u_acc','m/s','u velocity component', DATATYPE_FLT32),&
+    &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+    &            ldims=(/nproma,n_zlev,nblks_c/))
+    ! reconstructed v velocity component
+    CALL add_var(ocean_default_list, 'v_acc', p_os_acc%v, GRID_UNSTRUCTURED_CELL, &
+    &            ZA_DEPTH_BELOW_SEA, &
+    &            t_cf_var('v_acc','m/s','v velocity component', DATATYPE_FLT32),&
+    &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+    &            ldims=(/nproma,n_zlev,nblks_c/))
+    CALL add_var(ocean_default_list, 'rhopot_acc', p_os_acc%rhopot, GRID_UNSTRUCTURED_CELL, &
+    &            ZA_DEPTH_BELOW_SEA, &
+    &            t_cf_var('rhopot_acc','psu','potential density', DATATYPE_FLT32),&
+    &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+    &            ldims=(/nproma,n_zlev,nblks_c/))
+    IF ( no_tracer > 0 ) THEN
+      CALL set_oce_tracer_info(max_oce_tracer      , &
+        &                      oce_tracer_names    , &
+        &                      oce_tracer_longnames, &
+        &                      oce_tracer_codes    , &
+        &                      oce_tracer_units,var_suffix)
+      CALL add_var(ocean_default_list, 'tracers'//TRIM(var_suffix), p_os_acc%tracer , &
+      &            GRID_UNSTRUCTURED_CELL, ZA_DEPTH_BELOW_SEA, &
+      &            t_cf_var('tracers'//TRIM(var_suffix), '', '1:temperature 2:salinity', &
+      &            DATATYPE_FLT32),&
+      &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+      &            ldims=(/nproma,n_zlev,nblks_c,no_tracer/), &
+      &            lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
+
+      ! Reference to individual tracer, for I/O
+      ALLOCATE(p_os_acc%tracer_ptr(no_tracer))
+      DO jtrc = 1,no_tracer
+        CALL add_ref( ocean_default_list, 'tracers'//TRIM(var_suffix),&
+                    & oce_tracer_names(jtrc),                 &
+                    & p_os_acc%tracer_ptr(jtrc)%p,           &
+                    & GRID_UNSTRUCTURED_CELL, ZA_DEPTH_BELOW_SEA,&
+                    & t_cf_var(oce_tracer_names(jtrc), &
+                    &          oce_tracer_units(jtrc), &
+                    &          oce_tracer_longnames(jtrc), DATATYPE_FLT32), &
+                    & t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+                    & ldims=(/nproma,n_zlev,nblks_c/))
+
+      END DO
+    ENDIF ! no_tracer > 0
+
+  END SUBROUTINE construct_hydro_ocean_acc
   !-------------------------------------------------------------------------
   !>
   !!               Deallocation of auxilliary hydrostatic ocean state.
@@ -1680,7 +1391,7 @@ CONTAINS
     ! local variables
     INTEGER :: jb, je, jk
     INTEGER :: i_startidx_e, i_endidx_e
-    INTEGER :: slev,elev 
+    INTEGER :: slev,elev
     TYPE(t_subset_range), POINTER :: all_edges
     TYPE(t_patch), POINTER        :: p_patch
 !!$    CHARACTER(len=max_char_length), PARAMETER :: &
@@ -1727,7 +1438,7 @@ CONTAINS
   !! Modified by Stephan Lorenz,        MPI-M (2011-06)
   !! - all 3-dim structures moved from patch_oce to type  t_hydro_ocean_base
   !!
-  !!  mpi parallelized 
+  !!  mpi parallelized
   SUBROUTINE init_ho_base( p_patch, p_ext_data, v_base )
 
     TYPE(t_patch),  TARGET,   INTENT(INOUT)    :: p_patch
@@ -1755,7 +1466,7 @@ CONTAINS
     REAL(wp):: z_sync_c(nproma,p_patch%nblks_c)
     REAL(wp):: z_sync_e(nproma,p_patch%nblks_e)
     REAL(wp):: z_lat, z_lat_deg, z_north, z_south
-    
+
     TYPE(t_subset_range), POINTER :: owned_cells, all_cells
     TYPE(t_subset_range), POINTER :: owned_edges, all_edges
     INTEGER :: all_nobnd_e, all_nosbd_c, all_nolbd_c
@@ -1767,21 +1478,21 @@ CONTAINS
 
     !-----------------------------------------------------------------------------
     CALL message (TRIM(routine), 'start')
-    
+
     owned_cells => p_patch%cells%owned
     all_cells   => p_patch%cells%all
     owned_edges => p_patch%edges%owned
     all_edges   => p_patch%edges%all
-    
+
     is_p_test_run = p_test_run
 
     z_sync_c(:,:) = 0.0_wp
     z_sync_e(:,:) = 0.0_wp
     lsm_c   (:,:) = 0
 
-    z_lat     = 0.0_wp 
-    z_lat_deg = 0.0_wp 
-    z_north   = 0.0_wp 
+    z_lat     = 0.0_wp
+    z_lat_deg = 0.0_wp
+    z_north   = 0.0_wp
     z_south   = 0.0_wp
 
     !-----------------------------
@@ -1864,7 +1575,7 @@ CONTAINS
 
     !  first and second level of dolic_c defined by gridgenerator
     WHERE (p_ext_data%oce%lsm_ctr_c(:,:) <= SEA_BOUNDARY) v_base%dolic_c(:,:) = 2
-    
+
 
     ! Coordinate surfaces - n_zlev z-levels:
     ! First vertical level loop to set wet cells below surface (and second layer) only
@@ -1885,14 +1596,14 @@ CONTAINS
         DO jb = all_cells%start_block, all_cells%end_block
           CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
           DO jc = i_startidx, i_endidx
-      
+
             IF (p_ext_data%oce%bathymetry_c(jc,jb) <= -v_base%zlev_i(jk)) THEN
               v_base%lsm_c(jc,jk,jb) = SEA
               v_base%dolic_c(jc,jb)  = jk
             ELSE
               v_base%lsm_c(jc,jk,jb) = LAND
             END IF
-      
+
           END DO
         END DO
 
@@ -1901,14 +1612,14 @@ CONTAINS
         DO jb = all_cells%start_block, all_cells%end_block
           CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
           DO jc = i_startidx, i_endidx
-       
+
             IF (p_ext_data%oce%bathymetry_c(jc,jb) <= -v_base%zlev_m(jk)) THEN
               v_base%lsm_c(jc,jk,jb) = SEA
               v_base%dolic_c(jc,jb)  = jk
             ELSE
               v_base%lsm_c(jc,jk,jb) = LAND
             END IF
-       
+
           END DO
         END DO
 
@@ -1927,15 +1638,15 @@ CONTAINS
 
       DO jk = 1, n_zlev
         z_south=-80.0_wp
-        
+
         DO jb = all_cells%start_block, all_cells%end_block
           CALL get_index_range(owned_cells, jb, i_startidx, i_endidx)
           DO jc = i_startidx, i_endidx
-    
+
               !get latitude of actual cell
               z_lat = p_patch%cells%center(jc,jb)%lat
               z_lat_deg = z_lat*rad2deg
-    
+
               !If latitude of cell is above 80 N or below 80 S set triangle to land
               IF(z_lat_deg>z_north.OR.z_lat_deg<z_south)THEN
                 v_base%lsm_c(jc,:,jb)          = LAND
@@ -1968,7 +1679,7 @@ CONTAINS
     niter=30
 
     ZLOOP_COR: DO jk=1,n_zlev
-    
+
       ctr_jk = 0
 
       ! working on 2D lsm_c inside the loop
@@ -1977,22 +1688,22 @@ CONTAINS
       ! LL: disable checks here, the changes in halos will differ from seq run
       !     as the access patterns differ
       p_test_run = .false.
-            
+
       DO jiter=1,niter
         !
         ctr = 0 ! no changes initially
-        
-        ! loop through owned patch cells    
+
+        ! loop through owned patch cells
         DO jb = owned_cells%start_block, owned_cells%end_block
           CALL get_index_range(owned_cells, jb, i_startidx, i_endidx)
-        
+
             DO jc =  i_startidx, i_endidx
-          
+
               nowet_c = 0
 
               ! LL: here we probably want to check if the above cell is land
               !     and change this into land accordingly
-              
+
               IF (lsm_c(jc,jb) <= SEA_BOUNDARY) THEN
                 DO ji = 1, 3
                   ! Get indices/blks of cells 1 to 3 adjacent to cell (jc,jb)
@@ -2006,7 +1717,7 @@ CONTAINS
 
                 ! More than 1 wet neighbor-cell then set cell to land
                 !  - edges are set in the correction loop below
-                IF ( nowet_c >= 2 ) THEN 
+                IF ( nowet_c >= 2 ) THEN
                   lsm_c(jc,jb)=LAND_BOUNDARY
                   ctr = ctr+1
 
@@ -2019,18 +1730,18 @@ CONTAINS
                 END IF ! 2 land neighbors
 
               END IF ! lsm_c(jc,jb) <= SEA_BOUNDARY
-              
+
           END DO  ! jc =  i_startidx, i_endidx
         END DO ! jb = owned_cells%start_block, owned_cells%end_block
 
         ! see what is the sum of changes of all procs
         ctr_glb = global_sum_array(ctr)
-        
+
         WRITE(message_text,'(a,i2,a,i2,a,i8)') 'Level:', jk, &
           & ' Corrected wet cells with 2 land neighbors - iter=', &
           &                              jiter,' no of cor:',ctr_glb
         CALL message(TRIM(routine), TRIM(message_text))
-        
+
         ! if no changes have been done, we are done with this level. Exit
         IF (ctr_glb == 0) EXIT
 
@@ -2050,7 +1761,7 @@ CONTAINS
       ENDIF
         z_sync_c(:,:) =  REAL(lsm_c(:,:),wp)
         CALL sync_patch_array(SYNC_C, p_patch, z_sync_c(:,:))
-        lsm_c(:,:) = INT(z_sync_c(:,:))               
+        lsm_c(:,:) = INT(z_sync_c(:,:))
 
     END DO ZLOOP_COR ! jk=1,n_zlev
 
@@ -2087,7 +1798,7 @@ CONTAINS
       nolnd_c(jk)=0
       nosea_c(jk)=0
 
-      
+
       lsm_c(:,:) =  v_base%lsm_c(:,jk,:)
 
       DO jb = owned_cells%start_block, owned_cells%end_block
@@ -2125,7 +1836,7 @@ CONTAINS
       lsm_c(:,:) = INT(z_sync_c(:,:))
       v_base%lsm_c(:,jk,:) = lsm_c(:,:)
 
-      !  percentage of land area per level and global value 
+      !  percentage of land area per level and global value
       !   - here: nosea/nolnd include boundaries
       ctr         = global_sum_array(nolnd_c(jk))
       nolnd_c(jk) = ctr
@@ -2291,7 +2002,7 @@ CONTAINS
         END DO
 
       END DO
-      
+
       all_nobnd_e = global_sum_array( nobnd_e(jk))
       all_nosbd_c = global_sum_array( nosbd_c(jk))
       all_nolbd_c = global_sum_array( nolbd_c(jk))
@@ -2299,7 +2010,7 @@ CONTAINS
       nobnd_e(jk) = all_nobnd_e
       nosbd_c(jk) = all_nosbd_c
       nolbd_c(jk) = all_nolbd_c
-      
+
       noglbnd_e = noglbnd_e + all_nobnd_e
       noglsbd_c = noglsbd_c + all_nolbd_c
       nogllbd_c = nogllbd_c + all_nolbd_c
@@ -2393,7 +2104,7 @@ CONTAINS
           ibc2 = p_patch%edges%cell_blk(je,jb,2)
           dol_c1 = v_base%dolic_c(iic1,ibc1)
           dol_c2 = v_base%dolic_c(iic2,ibc2)
-          
+
           IF (dol_c1 == dol_c2 .AND. lsm_e == 0) THEN
             WRITE(message_text,'(a,2i3,a,i3)') &
               &   'WARNING: Found equal dolic_c at edge jb, je=',jb, je, ' below dolic_e=', dol_e
@@ -2408,11 +2119,11 @@ CONTAINS
     IF(maxval(v_base%dolic_c)>n_zlev.or.minval(v_base%dolic_c)<0)THEN
       CALL message(TRIM(routine), TRIM('something wrong with dolic_c'))
       CALL finish(TRIM(routine),'something wrong with dolic_c')
-    ENDIF 
+    ENDIF
     IF(maxval(v_base%dolic_e)>n_zlev.or.minval(v_base%dolic_e)<0)THEN
       CALL message(TRIM(routine), TRIM('something wrong with dolic_e'))
       CALL finish(TRIM(routine),'something wrong with dolic_e')
-    ENDIF 
+    ENDIF
     !-----------------------------
     ! real bathymetry should not be used since individual bottom layer thickness is not implemented
     ! set values of bathymetry to new non-individual dolic values
@@ -2451,7 +2162,7 @@ CONTAINS
   !! @par Revision History
   !! Initial release by Stephan Lorenz, MPI-M (2012-02)
   !! Modified by Stephan Lorenz,        MPI-M (2012-02)
-  !! 
+  !!
   !!  no-mpi parallelized
   SUBROUTINE init_ho_basins( p_patch, v_base )
 
@@ -2498,7 +2209,7 @@ CONTAINS
     !  1: Atlantic; 2: Indian; 3: Pacific; 4: Southern Ocean (for global)
     !
     !-----------------------------
-  
+
     !-----------------------------
     !
     ! Ocean areas/regions:
@@ -2520,7 +2231,7 @@ CONTAINS
     !  two problematic regions remain that can be accessed via space filling curves
     !   - Caribbian Sea is partly divided in Pacific/Atlantic (border are land points)
     !     iterative loop is used as first guess, see below
-    !   - Indonesian Region is both in Pacific/Indian Ocean 
+    !   - Indonesian Region is both in Pacific/Indian Ocean
     !     there is no clear land border since the Indonesian Throughflow(s) exist
     !     here a slanted geographic line can be implemented
 
@@ -2544,9 +2255,9 @@ CONTAINS
 
     DO jb = all_cells%start_block, all_cells%end_block
       CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
-  
+
       DO jc = i_startidx_c, i_endidx_c
-  
+
          ! get lat/lon of actual cell
          z_lat_deg = rad2deg * p_patch%cells%center(jc,jb)%lat
          z_lon_deg = rad2deg * p_patch%cells%center(jc,jb)%lon
@@ -2601,7 +2312,7 @@ CONTAINS
 
          ! Land points
          IF (v_base%lsm_c(jc,1,jb) >= BOUNDARY) iarea(jc,jb) = 0
-  
+
       END DO
     END DO
 
@@ -2641,7 +2352,7 @@ CONTAINS
                END IF
              END DO
 
-             IF (is_area_5) THEN 
+             IF (is_area_5) THEN
                 iarea(jc,jb)=5
                 no_cor =  no_cor + 1
              ENDIF
@@ -2650,10 +2361,10 @@ CONTAINS
                no_cor =  no_cor + 1
              ENDIF
            END IF
-     
+
         END DO
       END DO
-      
+
       no_glb = global_sum_array(no_cor)
       no_cor = no_glb
       g_cor=g_cor+no_cor
@@ -2666,7 +2377,7 @@ CONTAINS
       CALL message(TRIM(routine), TRIM(message_text))
 
       ! do sync
-      
+
       z_sync_c(:,:) =  REAL(iarea(:,:),wp)
       CALL sync_patch_array(SYNC_C, p_patch, z_sync_c(:,:))
       iarea(:,:) = INT(z_sync_c(:,:))
@@ -2676,7 +2387,7 @@ CONTAINS
     WRITE(message_text,'(a,i4,a,i8)') 'Corrected Caribbean region - iterations=', &
       &                              iter,' no of cor:',g_cor
     CALL message(TRIM(routine), TRIM(message_text))
-    
+
     p_test_run = p_test_run_bac
     !chekc if iarea is the same
        z_sync_c(:,:) =  REAL(iarea(:,:),wp)
@@ -2754,8 +2465,8 @@ CONTAINS
   !
   !
   !>
-  !! Modifies the already calculated Coriolis force, if beta-, f-plane or the nonrotating case 
-  !! is selected in the namelist. The tangent plane is associated to the center of the basin that is 
+  !! Modifies the already calculated Coriolis force, if beta-, f-plane or the nonrotating case
+  !! is selected in the namelist. The tangent plane is associated to the center of the basin that is
   !! specified in the namelist. An alternative would be to associate it to the nearest edge/vertex,
   !! but this is not implemented yet, and i expect it to have a minor effect.
   !!
@@ -2778,7 +2489,7 @@ CONTAINS
     INTEGER :: jb, je, jv
     INTEGER :: i_startidx_e, i_endidx_e
     INTEGER :: i_startidx_v, i_endidx_v
-    TYPE(t_geographical_coordinates) :: gc1,gc2 
+    TYPE(t_geographical_coordinates) :: gc1,gc2
     TYPE(t_cartesian_coordinates) :: xx1, xx2
     REAL(wp) :: z_y, z_lat_basin_center
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
@@ -2807,7 +2518,7 @@ CONTAINS
             !z_y = grid_sphere_radius*(ptr_patch%verts%vertex(jv,jb)%lat - z_lat_basin_center)
             gc2%lat = ptr_patch%verts%vertex(jv,jb)%lat!*deg2rad
             gc2%lon = 0.0_wp
-            xx2=gc2cc(gc2)        
+            xx2=gc2cc(gc2)
             z_y = grid_sphere_radius * arc_length(xx2,xx1)
             ptr_patch%verts%f_v(jv,jb) = 2.0_wp * grid_angular_velocity * &
               & ( sin(z_lat_basin_center) + (cos(z_lat_basin_center)/grid_sphere_radius)*z_y)
@@ -2822,7 +2533,7 @@ CONTAINS
           ! depends on basin_center_lat only - not dependent on center_lon, basin_width or height
             gc2%lat = ptr_patch%edges%center(je,jb)%lat!*deg2rad
             gc2%lon = 0.0_wp
-            xx2=gc2cc(gc2)        
+            xx2=gc2cc(gc2)
             z_y = grid_sphere_radius*arc_length(xx2,xx1)
 
             !z_y = ptr_patch%edges%center(je,jb)%lat - z_lat_basin_center
@@ -2834,14 +2545,14 @@ CONTAINS
     CASE(F_PLANE_CORIOLIS)
 
       CALL message (TRIM(routine), 'F_PLANE_CORIOLIS: set to constant value')
-   
+
       z_lat_basin_center = basin_center_lat * deg2rad
-   
+
       ptr_patch%edges%f_e  = 2.0_wp*grid_angular_velocity*sin(z_lat_basin_center)
       ptr_patch%verts%f_v  = 2.0_wp*grid_angular_velocity*sin(z_lat_basin_center)
-   
+
     CASE(ZERO_CORIOLIS)
-   
+
       CALL message (TRIM(routine), 'ZERO_CORIOLIS: set to zero')
       ptr_patch%verts%f_v = 0.0_wp
       ptr_patch%edges%f_e = 0.0_wp
@@ -2855,9 +2566,9 @@ CONTAINS
     CALL message (TRIM(routine), 'end')
 
   END SUBROUTINE init_coriolis_oce
-!-------------------------------------------------------------------------  
+!-------------------------------------------------------------------------
 !
-!!! Helper functions for computing the vertical layer structure  
+!!! Helper functions for computing the vertical layer structure
 !>
 !!
 !!
@@ -2883,7 +2594,7 @@ CONTAINS
     END DO
   END SUBROUTINE set_zlev
 
-!-------------------------------------------------------------------------  
+!-------------------------------------------------------------------------
 !
 !!Subroutine calculates vertical coordinates
 !>
@@ -2897,7 +2608,7 @@ CONTAINS
     REAL(wp), INTENT(IN) :: dzlev_m(100)
     REAL(wp) :: del_zlev_i(n_zlev), del_zlev_m(n_zlev)
     REAL(wp) :: zlev_i(n_zlev+1)    , zlev_m(n_zlev)
-    
+
     INTEGER :: jk
 !!-------------------------------------
     CALL set_zlev(zlev_i, zlev_m)
@@ -2911,7 +2622,7 @@ CONTAINS
     del_zlev_m(:) = dzlev_m(1:n_zlev)
   END SUBROUTINE set_del_zlev
 
-!-------------------------------------------------------------------------  
+!-------------------------------------------------------------------------
 !-------------------------------------------------------------------------
 !>
 !! Allocation of basic 3-dimensional patch structure. This sbr assumes that
@@ -2925,7 +2636,7 @@ CONTAINS
   SUBROUTINE construct_patch_3D(p_patch_3D)
 
     TYPE(t_patch_3D ),TARGET, INTENT(INOUT)    :: p_patch_3D
- 
+
     ! local variables
     INTEGER :: ist
     INTEGER :: nblks_c, nblks_e, nblks_v, n_zlvp, n_zlvm!, ie
@@ -3156,7 +2867,7 @@ CONTAINS
     INTEGER :: land_edges, sea_edges, boundary_edges
     REAL(wp), ALLOCATABLE :: z_sync_v(:,:)
     REAL(wp), PARAMETER   :: z_fac_limitthick = 0.8_wp  !  limits additional thickness of bottom cell
-    
+
     CHARACTER(*), PARAMETER :: method_name = "mo_oce_state:init_patch_3D"
 
     !-----------------------------------------------------------------------------
@@ -3185,7 +2896,7 @@ CONTAINS
 
     p_patch_3D%lsm_e = v_base%lsm_e
     p_patch_3D%lsm_c = v_base%lsm_c
-    
+
 
     p_patch_3D%surface_cell_sea_land_mask(:,:) = p_ext_data%oce%lsm_ctr_c(:,:)
     p_patch_3D%surface_edge_sea_land_mask(:,:) = p_ext_data%oce%lsm_ctr_e(:,:)
@@ -3196,7 +2907,7 @@ CONTAINS
         land_edges     = 0
         sea_edges      = 0
         boundary_edges = 0
-        
+
         DO neighbor=1, patch_2D%verts%num_edges(vertex_index,vertex_block)
           edge_index = patch_2D%verts%edge_idx(vertex_index, vertex_block, neighbor)
           edge_block = patch_2D%verts%edge_blk(vertex_index, vertex_block, neighbor)
@@ -3213,13 +2924,13 @@ CONTAINS
                 land_edges = land_edges + 1
               CASE default
                 CALL finish(routine, "Uknown patch_3D%lsm_e" )
-                
+
             END SELECT
-            
+
           ENDIF
 
         ENDDO ! neighbor
-        
+
 !        This is not true when land points are missing
 !        IF( MOD(boundary_edges,2) /= 0 ) THEN
 !          CALL finish (method_name,'MOD(boundary_edges,2) /= 0 !!')
@@ -3232,22 +2943,22 @@ CONTAINS
           p_patch_3D%surface_vertex_sea_land_mask(vertex_index, vertex_block) = land
           ! consistency check
           IF (sea_edges > 0) &
-             CALL finish(routine, "Inconsistent patch_3D%lsm_e" )         
+             CALL finish(routine, "Inconsistent patch_3D%lsm_e" )
         ENDIF
-              
+
       ENDDO
     ENDDO
     ! sync the results
     ALLOCATE(z_sync_v(nproma,patch_2D%nblks_v),STAT=ist)
     IF (ist /= SUCCESS) THEN
       CALL finish (routine,'allocating surface_vertex_sea_land_mask failed')
-    ENDIF     
+    ENDIF
     z_sync_v(:,:) =  REAL(p_patch_3D%surface_vertex_sea_land_mask(:,:),wp)
     CALL sync_patch_array(SYNC_V, patch_2D, z_sync_v(:,:))
     p_patch_3D%surface_vertex_sea_land_mask(:,:) = INT(z_sync_v(:,:))
     DEALLOCATE(z_sync_v)
     !---------------------------------------
-      
+
     p_patch_3D%basin_c  = v_base%basin_c
     p_patch_3D%regio_c  = v_base%regio_c
 
@@ -3286,10 +2997,10 @@ CONTAINS
           ! Bottom and column thickness for horizontally constant prism thickness
           p_patch_3D%bottom_thick_c(jc,jb) = p_patch_3D%p_patch_1D(1)%prism_thick_c(jc,jk,jb)
           p_patch_3D%column_thick_c(jc,jb) = v_base%zlev_i(jk+1)   !  lower bound of cell is at dolic_c+1
-         
+
           ! Preliminary partial cells conform with l_max_bottom=false only
           IF (l_partial_cells) THEN
-         
+
             ! Partial cell ends at real bathymetry below upper boundary zlev_i(dolic)
             ! at most one dry cell as neighbor is allowed, therefore bathymetry can be much deeper than corrected dolic
             ! maximum thickness limited to an additional part of the thickness of the underlying cell
@@ -3310,13 +3021,13 @@ CONTAINS
               &  1.0_wp/p_patch_3D%p_patch_1D(1)%prism_thick_c(jc,jk,jb)
             p_patch_3D%p_patch_1D(1)%inv_prism_center_dist_c(jc,jk,jb)=      &
               &  1.0_wp/p_patch_3D%p_patch_1D(1)%prism_center_dist_c(jc,jk,jb)
-         
+
             ! bottom and column thickness for solver and output
             ! bottom cell thickness at jk=dolic
             p_patch_3D%bottom_thick_c(jc,jb) = p_patch_3D%p_patch_1D(1)%prism_thick_c(jc,jk,jb)
             ! column cell thickness: add upper column without elevation
             p_patch_3D%column_thick_c(jc,jb) = v_base%zlev_i(jk) + p_patch_3D%bottom_thick_c(jc,jb)
-         
+
           ENDIF ! l_partial_cells
         ENDIF ! jk>=min_dolic
       END DO
@@ -3370,7 +3081,7 @@ CONTAINS
           ! Bottom and column thickness for horizontally constant prism thickness
           p_patch_3D%bottom_thick_e(je,jb) = p_patch_3D%p_patch_1D(1)%prism_thick_e(je,jk,jb)
           p_patch_3D%column_thick_e(je,jb) = v_base%zlev_i(jk+1)   !  lower bound is below dolic_e
-         
+
           ! Preliminary partial cells conform with l_max_bottom=false only
           IF (l_partial_cells) THEN
 
@@ -3401,7 +3112,7 @@ CONTAINS
             p_patch_3D%bottom_thick_e(je,jb) = p_patch_3D%p_patch_1D(1)%prism_thick_e(je,jk,jb)
             ! column edge thickness: add upper column without elevation
             p_patch_3D%column_thick_e(je,jb) = v_base%zlev_i(jk) + p_patch_3D%bottom_thick_e(je,jb)
-         
+
           ENDIF ! l_partial_cells
         ENDIF ! jk>=min_dolic
 
@@ -3581,7 +3292,7 @@ CONTAINS
     oce_tracer_codes(2)     = 201
 
   END SUBROUTINE
-!-------------------------------------------------------------------------  
+!-------------------------------------------------------------------------
 
   SUBROUTINE init_oce_config()
     oce_config%tracer_names(1)     = 'T'

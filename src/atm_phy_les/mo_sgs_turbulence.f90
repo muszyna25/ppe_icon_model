@@ -65,7 +65,8 @@ MODULE mo_sgs_turbulence
                                     min_rledge_int, min_rlcell_int, min_rlvert_int
   USE mo_math_constants,      ONLY: dbl_eps, pi
   USE mo_math_utilities,      ONLY: tdma_solver
-  USE mo_sync,                ONLY: SYNC_E, SYNC_C, SYNC_V, sync_patch_array
+  USE mo_sync,                ONLY: SYNC_E, SYNC_C, SYNC_V, sync_patch_array, &
+                                    sync_patch_array_mult
   USE mo_physical_constants,  ONLY: cpd, rcvd, p0ref, grav, rcpd, alv
   USE mo_nwp_lnd_types,       ONLY: t_lnd_prog, t_wtr_prog, t_lnd_diag 
   USE mo_surface_les,         ONLY: min_wind, surface_conditions 
@@ -105,7 +106,7 @@ MODULE mo_sgs_turbulence
 
     TYPE(t_nh_prog),   INTENT(inout)     :: p_nh_prog     !< single nh prognostic state
     TYPE(t_nh_prog),   INTENT(in)        :: p_nh_prog_rcf !< rcf nh prognostic state 
-    TYPE(t_nh_diag),   INTENT(in)        :: p_nh_diag     !< single nh diagnostic state
+    TYPE(t_nh_diag),   INTENT(inout)     :: p_nh_diag     !< single nh diagnostic state
     TYPE(t_nh_metrics),INTENT(in),TARGET :: p_nh_metrics  !< single nh metric state
     TYPE(t_patch),     INTENT(in),TARGET :: p_patch       !< single patch
     TYPE(t_int_state), INTENT(in),TARGET :: p_int         !< single interpolation state
@@ -155,7 +156,18 @@ MODULE mo_sgs_turbulence
     END IF
 
     !Convert temperature to potential temperature: all routines within use theta
-    !Assuming all prog variables are synced
+    !Note that tracers are NOT synced till this stage, therefore satad and hence
+    !temperature, pressure are only calculated for interior nodes.
+    !Syncing things that are needed locally is better than syncing tracers (ntracers!)
+    !and it also avoids a lot of if-endif in nwp_phy_interface
+   
+    !Sync temp and relevant tracers here: tracer syncing is required for tracers
+    !calculation in horizontal diffusion
+    !-for now only qv and qc are needed and hence are synced here. Add more if needed
+    !-also sync exncer because it is changed after calling satad_v_3D
+    CALL sync_patch_array_mult(SYNC_C, p_patch, 4, p_nh_diag%temp, p_nh_prog%exner, &
+                 p_nh_prog%tracer(:,:,:,iqv), p_nh_prog%tracer(:,:,:,iqc))
+
     rl_start   = 2
     rl_end     = min_rlcell_int-2
     i_startblk = p_patch%cells%start_blk(rl_start,1)
@@ -495,7 +507,6 @@ MODULE mo_sgs_turbulence
 !ICON_OMP_END_DO
 !ICON_OMP_END_PARALLEL
 
-
     !--------------------------------------------------------------------------
     !3) Classical Smagorinsky model with stability correction due to Lilly 1962
     !--------------------------------------------------------------------------
@@ -507,7 +518,7 @@ MODULE mo_sgs_turbulence
                             opt_rlstart=4, opt_rlend= min_rledge_int)
 
     CALL cells2edges_scalar(p_nh_prog%rho, p_patch, p_int%c_lin_e, rho_e, &
-                            opt_rlstart=4, opt_rlend=min_rledge_int-2)
+                            opt_rlstart=4, opt_rlend=min_rledge_int-1)
 
     !3(b) Calculate stability corrected turbulent viscosity
     ! visc = mixing_length_sq * SQRT(DD/2) * SQRT(1-Ri/Pr) where Ri = (g/theta)*d_theta_dz/(DD/2), 
@@ -549,7 +560,7 @@ MODULE mo_sgs_turbulence
       DO je = i_startidx, i_endidx
         z1  = 1._wp / p_nh_metrics%inv_ddqz_z_half_e(je,nlev,jb)
         z2  = p_nh_metrics%ddqz_z_full_e(je,nlev,jb) * 0.5_wp
-        visc_smag_e(je,nlev,jb) = (visc_sfc_e(je,1,jb)*z1+visc_smag_e(je,nlev-1,jb)*z2)/(z1+z2)
+        visc_smag_e(je,nlev,jb) =  (visc_sfc_e(je,1,jb)*z1+visc_smag_e(je,nlev-1,jb)*z2)/(z1+z2)
         visc_smag_e(je,1,jb)    = rho_e(je,1,jb) * km_min
       END DO
     END DO
@@ -993,7 +1004,6 @@ MODULE mo_sgs_turbulence
     END DO  
 !ICON_OMP_END_DO_NOWAIT
 !ICON_OMP_END_PARALLEL
-
 
     !5) Get turbulent tendency at cell center
     CALL sync_patch_array(SYNC_E, p_patch, vn_new)

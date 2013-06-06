@@ -608,7 +608,7 @@ CONTAINS
       patch%geometry_info%mean_cell_area = &
         & (4._wp * pi * patch%geometry_info%sphere_radius &
         & * patch%geometry_info%sphere_radius)            &
-        & / REAL(20*nroot**2*4**(patch%level),wp)
+        & / patch%n_patch_cells_g
         
       patch%geometry_info%domain_length  = 2.0_wp * pi * patch%geometry_info%sphere_radius
       patch%geometry_info%domain_height  = patch%geometry_info%domain_length

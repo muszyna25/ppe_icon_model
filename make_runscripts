@@ -135,7 +135,7 @@ for filename in $exp_list
 do
   if [[ $filename != *.run && $filename != *~ &&  $filename != *.status && -r $input_folder/$filename ]] ; then
 
-    if [[ $use_openmp = "yes"  &&  ( $filename = exp.test*oce* || $filename = exp.test*hom* ) ]] ; then
+    if [[ $use_openmp = "yes"  &&  ( $filename = exp.test*oce* ) ]] ; then
       echo "${filename}: Ocean runscripts are not created for openmp"
     else
       name=${filename#*.}
@@ -145,14 +145,6 @@ do
         queue="default"
       fi
       case $name in
-      test_hom_*)
-        $make_runscript in_folder=$input_folder in_script=${filename} in_script=exec.iconrun EXPNAME=${name}\
-        memory_model="large" cpu_time="01:00:00" queue="express"
-        ;;    
-  #   hom_*)
-  #     $make_runscript in_folder=$input_folder in_script=${filename} in_script=exec.iconrun EXPNAME=${name}\
-  #     mpi_procs_pernode=1 memory_model="large" cpu_time="08:00:00"
-  #     ;;
       *_nwp_*)
         $make_runscript in_folder=$input_folder in_script=${filename} in_script=exec.iconrun EXPNAME=${name}\
         cpu_time="04:00:00" memory_model="huge"  omp_stacksize="500M" queue="$queue"
@@ -291,15 +283,14 @@ fi
 
 
 #==============================================================================
-# special treatment for exp.test_hom_lsm and exp.test_oce_default
-# this includes the restart in the exp.test_hom_lsm_restart
+# special treatment for exp.test_oce_default
 #
 
 if [ $use_openmp = "no" ] ; then
 
   queue="express"
 
-  for name in test_hom_lsm test_oce_default; do
+  for name in test_oce_default; do
 
     if [ $make_restart_exp = "true" ] ; then
 

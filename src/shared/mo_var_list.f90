@@ -1,5 +1,13 @@
 MODULE mo_var_list
 
+#if defined (__INTEL_COMPILER) || defined (__PGI) || defined (NAGFOR)
+#ifdef VARLIST_INITIZIALIZE_WITH_NAN
+  USE, INTRINSIC :: ieee_features
+  USE, INTRINSIC :: ieee_arithmetic
+  USE, INTRINSIC :: ieee_exceptions
+#endif
+#endif
+
   USE mo_kind,             ONLY: wp, i8
   USE mo_cdi_constants,    ONLY: DATATYPE_FLT64,                    &
        &                         DATATYPE_INT32,                    &
@@ -1000,7 +1008,15 @@ CONTAINS
     IF (PRESENT(lmiss)) THEN
       new_list_element%field%r_ptr = new_list_element%field%info%missval%rval
     ELSE
+#if defined (__INTEL_COMPILER) || defined (__PGI) || defined (NAGFOR)
+#ifdef VARLIST_INITIZIALIZE_WITH_NAN
+      new_list_element%field%r_ptr = ieee_value(new_list_element%field%r_ptr, ieee_signaling_nan)
+#else
       new_list_element%field%r_ptr = 0.0_wp
+#endif
+#else
+      new_list_element%field%r_ptr = 0.0_wp
+#endif
     END IF
     ! 
     IF (PRESENT(initval_r)) THEN
@@ -1124,7 +1140,15 @@ CONTAINS
     IF (PRESENT(lmiss)) THEN
       new_list_element%field%r_ptr = new_list_element%field%info%missval%rval
     ELSE
+#if defined (__INTEL_COMPILER) || defined (__PGI) || defined (NAGFOR)
+#ifdef VARLIST_INITIZIALIZE_WITH_NAN
+      new_list_element%field%r_ptr = ieee_value(new_list_element%field%r_ptr, ieee_signaling_nan)
+#else
       new_list_element%field%r_ptr = 0.0_wp
+#endif
+#else
+      new_list_element%field%r_ptr = 0.0_wp
+#endif
     END IF
     !
     IF (PRESENT(initval_r)) THEN
@@ -1249,7 +1273,15 @@ CONTAINS
     IF (PRESENT(lmiss)) THEN
       new_list_element%field%r_ptr = new_list_element%field%info%missval%rval
     ELSE
+#if defined (__INTEL_COMPILER) || defined (__PGI) || defined (NAGFOR)
+#ifdef VARLIST_INITIZIALIZE_WITH_NAN
+      new_list_element%field%r_ptr = ieee_value(new_list_element%field%r_ptr, ieee_signaling_nan)
+#else
       new_list_element%field%r_ptr = 0.0_wp
+#endif
+#else
+      new_list_element%field%r_ptr = 0.0_wp
+#endif
     END IF
     !
     IF (PRESENT(initval_r)) THEN
@@ -1374,7 +1406,15 @@ CONTAINS
     IF (PRESENT(lmiss)) THEN
       new_list_element%field%r_ptr = new_list_element%field%info%missval%rval
     ELSE
+#if defined (__INTEL_COMPILER) || defined (__PGI) || defined (NAGFOR)
+#ifdef VARLIST_INITIZIALIZE_WITH_NAN
+      new_list_element%field%r_ptr = ieee_value(new_list_element%field%r_ptr, ieee_signaling_nan)
+#else
       new_list_element%field%r_ptr = 0.0_wp
+#endif
+#else
+      new_list_element%field%r_ptr = 0.0_wp
+#endif
     END IF
     !
     IF (PRESENT(initval_r)) THEN
@@ -1499,7 +1539,15 @@ CONTAINS
     IF (PRESENT(lmiss)) THEN
       new_list_element%field%r_ptr = new_list_element%field%info%missval%rval
     ELSE
+#if defined (__INTEL_COMPILER) || defined (__PGI) || defined (NAGFOR)
+#ifdef VARLIST_INITIZIALIZE_WITH_NAN
+      new_list_element%field%r_ptr = ieee_value(new_list_element%field%r_ptr, ieee_signaling_nan)
+#else
       new_list_element%field%r_ptr = 0.0_wp
+#endif
+#else
+      new_list_element%field%r_ptr = 0.0_wp
+#endif
     END IF
     !
     IF (PRESENT(initval_r)) THEN

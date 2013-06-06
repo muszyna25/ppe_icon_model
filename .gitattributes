@@ -658,6 +658,7 @@ run/exp.nh_hdcp2_lam_r0416 -text
 run/exp.nh_hdcp2_lam_r0962 -text
 run/exp.nh_hdcp2_lam_r15000 -text
 run/exp.nh_moist_cbl -text
+run/exp.nh_rico -text
 run/exp.nh_schaer -text
 run/exp.oce_4dwd -text
 run/exp.oce_aqpl -text
@@ -1304,7 +1305,6 @@ src/grid_generator/mo_local_patch_hierarchy.f90 -text
 src/grid_generator/mo_optimize.f90 -text
 src/grid_generator/mo_small_circle_c.f90 -text
 src/grid_generator/mo_spring_dynamics.f90 -text
-src/grid_generator/mo_statistics_tools.f90 -text
 src/grid_generator/mo_topology.f90 -text
 src/grid_generator/mo_zlayers.f90 -text
 src/grid_generator/partitioner.f90 -text
@@ -1450,7 +1450,7 @@ src/shared/mo_orbit.f90 -text
 src/shared/mo_physical_constants.f90 -text
 src/shared/mo_profile.f90 -text
 src/shared/mo_real_timer.f90 -text
-src/shared/mo_statistics_utils.f90 -text
+src/shared/mo_statistics.f90 -text
 src/shared/mo_time_base.f90 -text
 src/shared/mo_timer.f90 -text
 src/shared/mo_util_backtrace.f90 -text

@@ -3,10 +3,10 @@
 !!
 !!
 !! @author
-!!     Leonidas Linardakis
+!!     Leonidas Linardakis, Luis KOrnblueh
 !!     (MPI-M)
 !!
-!! @date 2011-15-6
+!! @date 2013-06-04
 !!
 
 !>
@@ -45,20 +45,26 @@
 !!
 PROGRAM control_model
 
-  USE mo_exception,           ONLY: finish
-  USE mo_io_units,            ONLY: filename_max
-!$ USE mo_exception,          ONLY: message_text, message     ! use only if compiled with OpenMP
+#if defined (__INTEL_COMPILER) || defined (__PGI) || defined (NAGFOR)
+#ifdef VARLIST_INITIZIALIZE_WITH_NAN
+  USE, INTRINSIC :: ieee_features
+  USE, INTRINSIC :: ieee_arithmetic
+  USE, INTRINSIC :: ieee_exceptions
 
+  USE mo_kind, ONLY: wp
+#endif
+#endif
+#if defined (__INTEL_COMPILER) && ! defined (VARLIST_INITIZIALIZE_WITH_NAN)
+  USE, INTRINSIC :: ieee_arithmetic
+#endif
+  USE mo_exception,           ONLY: message_text, message, finish
+  USE mo_io_units,            ONLY: filename_max
   USE mo_mpi,                 ONLY: start_mpi , p_stop, my_process_is_stdio
   USE mo_master_control,      ONLY: init_master_control,  &
     & get_my_namelist_filename, get_my_process_type,      &
     & testbed_process,  atmo_process, ocean_process!, radiation_process
   USE mo_time_config,        ONLY: restart_experiment
   USE mo_util_signal
-
-#ifdef __INTEL_COMPILER
-  USE, INTRINSIC :: ieee_arithmetic
-#endif
 
   USE mo_ocean_model,         ONLY: ocean_model
 #ifndef __ICON_OCEAN_ONLY__
@@ -75,6 +81,14 @@ PROGRAM control_model
 
   CHARACTER(len=filename_max) :: my_namelist_filename
   CHARACTER(len=filename_max) :: master_namelist_filename="icon_master.namelist"
+
+#if defined (__INTEL_COMPILER) || defined (__PGI) || defined (NAGFOR)
+#ifdef VARLIST_INITIZIALIZE_WITH_NAN
+  TYPE(ieee_status_type) :: saved_fpscr
+  LOGICAL :: halting_mode,  current_flags(size(ieee_all))
+  REAL(wp) :: r
+#endif
+#endif
 
 #if defined (__xlC__)
   INTEGER :: core_dump_flag
@@ -108,9 +122,15 @@ PROGRAM control_model
 ! !$    & "OpenMP:  DYNAMIC = ", ldynamic_omp
 ! !$  CALL message('control_model',message_text)
 
-#ifdef __INTEL_COMPILER
+#if defined (__INTEL_COMPILER) || defined (__PGI) || defined (NAGFOR)
+#ifdef VARLIST_INITIZIALIZE_WITH_NAN
+  CALL ieee_get_status(saved_fpscr)
+  CALL ieee_set_halting_mode(ieee_all, .TRUE.)
+#endif
+#endif
+
+#if defined (__INTEL_COMPILER) && ! defined (VARLIST_INITIZIALIZE_WITH_NAN)
   ! Important on Intel: disable underflow exceptions:
-  ! CALL disable_ufl_exception
   CALL ieee_set_halting_mode(ieee_underflow, .FALSE.)
 #endif
 
@@ -138,14 +158,22 @@ PROGRAM control_model
   iret = signal_trap(core_dump_flag, signals)
 
   IF (iret == -2) THEN
-    PRINT *, 'Signal trapping disabled by environment'
+    CALL message('', 'Signal trapping disabled by environment')
   ELSE IF (iret == -1) THEN
-    PRINT *, 'Error: ', iret
+     WRITE(message_text,'(a,i0)') 'Error: ', iret
+     CALL message('', message_text)
   ELSE IF (iret == 0) THEN
-    PRINT *, 'FPE trapping is not set'
+    CALL message('', 'FPE trapping is not set')
   ELSE
-    PRINT *, 'FPE trapping mode =', iret
+    WRITE(message_text,'(a,i0)') 'FPE trapping mode =', iret
+    CALL message('', message_text)
   END IF
+#endif
+#if defined (__INTEL_COMPILER) || defined (__PGI) || defined (NAGFOR)
+#ifdef VARLIST_INITIZIALIZE_WITH_NAN
+  WRITE(message_text,'(a,l1)') ' IEEE standard supported: ', ieee_support_standard(r)
+  CALL message('', message_text)
+#endif
 #endif
 
   !-------------------------------------------------------------------
@@ -194,5 +222,10 @@ PROGRAM control_model
   !
   CALL p_stop
 
+#if defined (__INTEL_COMPILER) || defined (__PGI) || defined (NAGFOR)
+#ifdef VARLIST_INITIZIALIZE_WITH_NAN
+  CALL ieee_set_status(saved_fpscr)
+#endif
+#endif
 END PROGRAM control_model
 

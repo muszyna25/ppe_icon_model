@@ -390,6 +390,11 @@ CONTAINS
     CALL nf(nf_inq_varid(ncid, 'cell_area_p', varid))
     CALL nf(nf_get_var_double(ncid, varid, grid_obj%cells%area))
 
+    CALL nf(nf_inq_varid(ncid, 'lon_cell_barycenter', varid))
+    CALL nf(nf_get_var_double(ncid, varid, grid_obj%cells%barycenter%lon))
+    CALL nf(nf_inq_varid(ncid, 'lat_cell_barycenter', varid))
+    CALL nf(nf_get_var_double(ncid, varid, grid_obj%cells%barycenter%lat))
+
     return_status = nf_inq_varid(ncid, 'cell_elevation', varid)
     IF (return_status == nf_noerr) THEN
        CALL nf(nf_get_var_double(ncid, varid, grid_obj%cells%elevation))
@@ -475,6 +480,9 @@ CONTAINS
     IF (return_status == nf_noerr) THEN
        CALL nf(nf_get_var_double(ncid, varid, grid_obj%edges%elevation))
     ENDIF
+    CALL nf(nf_inq_varid(ncid, 'edge_sea_land_mask', varid))
+    CALL nf(nf_get_var_int   (ncid, varid, grid_obj%edges%sea_land_mask))
+
 
     ! allocate tmp arrays for reading
     ALLOCATE(tmp_real(no_of_edges,2),stat=i)
@@ -1956,7 +1964,6 @@ CONTAINS
   END SUBROUTINE write_netcdf_grid
   !-------------------------------------------------------------------------
   
-
 END MODULE mo_io_local_grid
 
 

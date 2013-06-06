@@ -47,19 +47,20 @@ MODULE mo_ls_forcing_nml
 
   IMPLICIT NONE
   PRIVATE
-  PUBLIC :: read_ls_forcing_namelist, is_ls_forcing, is_subsidence, is_advection, &
-            is_geowind, is_rad_forcing, is_theta
+  PUBLIC :: read_ls_forcing_namelist, is_ls_forcing, is_subsidence_moment, is_subsidence_heat, &
+            is_advection, is_geowind, is_rad_forcing, is_theta
 
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
   LOGICAL  :: is_ls_forcing  !true if any forcing is on
-  LOGICAL  :: is_subsidence  !true if subsidence is on
+  LOGICAL  :: is_subsidence_moment  !true if subsidence is on for u and v
+  LOGICAL  :: is_subsidence_heat    !true if subsidence is on for thermodyn. variables
   LOGICAL  :: is_advection   !true if horizontal advective forcing is on for any variable
   LOGICAL  :: is_geowind     !true if geostophic wind is set 
   LOGICAL  :: is_rad_forcing !true if radiative forcing is on
   LOGICAL  :: is_theta       !true is forcings are in terms of theta
  
-  NAMELIST/ls_forcing_nml/ is_subsidence, is_advection, is_geowind, is_rad_forcing,  &
+  NAMELIST/ls_forcing_nml/ is_subsidence_moment, is_subsidence_heat, is_advection, is_geowind, is_rad_forcing,  &
                            is_theta
 
 CONTAINS
@@ -91,7 +92,8 @@ CONTAINS
     ! 1. default settings
     !-----------------------
     is_ls_forcing = .FALSE.
-    is_subsidence = .FALSE.
+    is_subsidence_moment = .FALSE.
+    is_subsidence_heat   = .FALSE.
     is_advection  = .FALSE.
     is_geowind    = .FALSE.
     is_rad_forcing = .FALSE.
@@ -100,8 +102,10 @@ CONTAINS
     !------------------------------------------------------------------
     ! 2. If this is a resumed integration, overwrite the defaults above 
     !    by values used in the previous integration.
+    ! ltestcase is added here because it was causing trouble for AMIP runs
+    ! restarting with a file generated long ago
     !------------------------------------------------------------------
-    IF (is_restart_run()) THEN
+    IF (is_restart_run() .AND. ltestcase) THEN 
       funit = open_and_restore_namelist('ls_forcing_nml')
       READ(funit,NML=ls_forcing_nml)
       CALL close_tmpfile(funit)
@@ -120,7 +124,7 @@ CONTAINS
 
     !4. checks
     !If any of the forcing is ON turn on is_ls_forcing
-    IF(is_subsidence .OR. is_advection .OR. is_geowind .OR. is_rad_forcing) &
+    IF(is_subsidence_moment .OR. is_subsidence_heat .OR. is_advection .OR. is_geowind .OR. is_rad_forcing) &
         is_ls_forcing = .TRUE.
 
     IF(is_ls_forcing .AND. .NOT.ltestcase) &
