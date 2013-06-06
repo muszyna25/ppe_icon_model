@@ -1618,7 +1618,9 @@ MODULE mo_nh_initicon
           &                p_patch(jg)%n_patch_cells_g,                            &
           &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
           &                p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_i_t(:,:,jt) )
-
+        ! conversion kg/m**2 -> m H2O
+        p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_i_t(:,:,jt) =          &
+          & p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_i_t(:,:,jt)/1000._wp
 
 
 !!$        IF (lmulti_snow) THEN
