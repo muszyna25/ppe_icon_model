@@ -85,6 +85,12 @@ MODULE mo_surface_les
   REAL(wp), PARAMETER :: buh = 9._wp   !Businger Untable Heat
   REAL(wp), PARAMETER :: Pr  = 0.74_wp !Km/Kh factor  
 
+  !Parameters for RICO case
+  REAL(wp), PARAMETER :: c_m = 0.001229_wp  
+  REAL(wp), PARAMETER :: c_h = 0.001094_wp
+  REAL(wp), PARAMETER :: c_q = 0.001133_wp
+  REAL(wp), PARAMETER :: th0_rico = 298.5_wp
+
   CONTAINS
 
 
@@ -113,10 +119,10 @@ MODULE mo_surface_les
     REAL(wp),          INTENT(in)        :: qv(:,:,:)     !spec humidity
     REAL(wp),          INTENT(out)       :: sgs_visc_sfc(:,:) !sgs visc near surface
 
-    REAL(wp) :: rhos, th0_srf, obukhov_length, z_mc, ustar, inv_mwind, bflux
+    REAL(wp) :: rhos, th0_srf, obukhov_length, z_mc, ustar, inv_mwind, mwind, bflux
     REAL(wp) :: zrough, exner
     REAL(wp), POINTER :: pres_sfc(:,:)
-    REAL(wp) :: theta_sfc
+    REAL(wp) :: theta_sfc, shfl, lhfl, umfl, vmfl
     INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
     INTEGER :: rl_start, rl_end
     INTEGER :: jk, jb, jc
@@ -141,7 +147,7 @@ MODULE mo_surface_les
 
     SELECT CASE(les_config(jg)%isrfc_type)
 
-    !Fix SST type
+    !Fix SST case
     CASE(1)
 
     !To be implemented
@@ -289,6 +295,51 @@ MODULE mo_surface_les
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
+   !Rico case
+    CASE(4)
+
+      !RICO case - bulk aerodynamic formulation with fixed exchange coef.
+
+      DO jb = i_startblk,i_endblk
+        CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+                            i_startidx, i_endidx, rl_start, rl_end)
+        DO jc = i_startidx, i_endidx
+                              
+            !Get surface qv and temperature
+            p_diag_lnd%qv_s(jc,jb) = spec_humi(sat_pres_water(th0_rico),pres_sfc(jc,jb))
+            p_prog_lnd_new%t_g(jc,jb) = les_config(jg)%sst
+            
+            !Mean wind at nlev
+            mwind  = SQRT(p_nh_diag%u(jc,jk,jb)**2+p_nh_diag%v(jc,jk,jb)**2) 
+ 
+            shfl  =   c_h * mwind * (th0_rico-theta(jc,jk,jb))
+            lhfl  =   c_q * mwind * (p_diag_lnd%qv_s(jc,jb)-qv(jc,jk,jb))
+            umfl  =   c_m * mwind * p_nh_diag%u(jc,jk,jb)
+            vmfl  =   c_m * mwind * p_nh_diag%v(jc,jk,jb)
+                                 
+            !ustar
+            ustar = SQRT(c_m) * mwind
+                             
+            !Get turbulent viscosity near surface
+            obukhov_length = -ustar**3 * les_config(jg)%rkarman_constant * th0_rico / &
+                              grav*(shfl + 0.61_wp*th0_rico*lhfl)
+             
+            !Surface density 
+            rhos   =  pres_sfc(jc,jb)/( rd * &
+                      p_prog_lnd_new%t_g(jc,jb)*(1._wp+0.61_wp*p_diag_lnd%qv_s(jc,jb)) )  
+                      
+            sgs_visc_sfc(jc,jb) = rhos * ustar * les_config(jg)%karman_constant * &
+                                  z_ref * les_config(1)%turb_prandtl / phi_heat(z_ref,obukhov_length)             
+
+             !Get surface fluxes                       
+            prm_diag%shfl_s(jc,jb)  = shfl * rhos * cpd
+            prm_diag%lhfl_s(jc,jb)  = lhfl * rhos * alv
+            prm_diag%umfl_s(jc,jb)  = umfl * rhos
+            prm_diag%vmfl_s(jc,jb)  = vmfl * rhos
+
+        END DO  
+      END DO
+  
    END SELECT 
 
    !This is required for nested grid. 

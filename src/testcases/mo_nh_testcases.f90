@@ -111,7 +111,7 @@ MODULE mo_nh_testcases
   USE mo_nh_prog_util,         ONLY: nh_prog_add_random
   USE mo_nh_init_utils,        ONLY: n_flat_level, layer_thickness
   USE mo_grid_geometry_info,   ONLY: planar_torus_geometry
-  USE mo_nh_torus_exp,         ONLY: init_nh_state_cbl, u_cbl, v_cbl, th_cbl
+  USE mo_nh_torus_exp,         ONLY: init_nh_state_cbl, init_nh_state_rico, u_cbl, v_cbl, th_cbl
   
   IMPLICIT NONE  
   
@@ -633,6 +633,14 @@ MODULE mo_nh_testcases
 
    ! The topography has been initialized to 0 at the begining of this SUB
     CALL message(TRIM(routine),'running Convective Boundary Layer Experiment')
+
+  CASE ('RICO')
+
+    IF(p_patch(1)%geometry_info%geometry_type/=planar_torus_geometry)&
+        CALL finish(TRIM(routine),'RICO case is only for plane torus!')
+
+   ! The topography has been initialized to 0 at the begining of this SUB
+    CALL message(TRIM(routine),'running Rain in the Culumus Over the Ocean LES Experiment')
 
   CASE DEFAULT
 
@@ -1230,6 +1238,26 @@ MODULE mo_nh_testcases
     END DO !jg
 
     CALL message(TRIM(routine),'End setup CBL test')
+
+  CASE ('RICO')
+
+    IF(p_patch(1)%geometry_info%geometry_type/=planar_torus_geometry)&
+        CALL finish(TRIM(routine),'RICO case is only for plane torus!')
+
+    DO jg = 1, n_dom
+      nlev   = p_patch(1)%nlev
+      CALL init_nh_state_rico ( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), p_nh_state(jg)%ref,  &
+                      & p_nh_state(jg)%diag, p_int(jg), ext_data(jg), p_nh_state(jg)%metrics )
+
+      CALL nh_prog_add_random( p_patch(jg), p_nh_state(jg)%prog(nnow(jg))%w(:,:,:),       &
+                               "cell", 0.05_wp, nlev-3, nlev ) 
+      CALL nh_prog_add_random( p_patch(jg), p_nh_state(jg)%prog(nnow(jg))%theta_v(:,:,:), & 
+                               "cell", 0.2_wp, nlev-3, nlev ) 
+
+      CALL duplicate_prog_state(p_nh_state(jg)%prog(nnow(jg)),p_nh_state(jg)%prog(nnew(jg)))
+    END DO !jg
+
+    CALL message(TRIM(routine),'End setup RICO test')
 
 
   END SELECT

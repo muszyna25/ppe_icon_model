@@ -213,9 +213,9 @@ MODULE mo_ls_forcing
     i_startblk = p_patch%cells%start_blk(rl_start,1)
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
-    !1) Horizontal mean of variables and their vertical advective tendency
+    !1a) Horizontal mean of variables and their vertical advective tendency - momentum
 
-    IF(is_subsidence)THEN
+    IF(is_subsidence_moment)THEN
 
 !$OMP PARALLEL WORKSHARE
       !Get surface density
@@ -233,6 +233,22 @@ MODULE mo_ls_forcing
 !$OMP END PARALLEL WORKSHARE
       CALL vert_intp_full2half_cell_3d(p_patch, p_metrics, varin, varout, rl_start, rl_end)
       CALL global_hor_mean(p_patch, varout, v_gb, inv_no_gb_cells, i_nchdom)
+        
+      !rho_loc(nlev)
+      CALL global_hor_mean(p_patch, p_prog%rho(:,:,:), rho_gb, inv_no_gb_cells, i_nchdom)
+      inv_rho_gb  = 1._wp / rho_gb
+      
+      !Vertical advective forcing
+      inv_dz(:) = 1._wp / p_metrics%ddqz_z_full(2,:,2)
+
+      ddt_u_ls    =  ddt_u_ls - w_ls*vertical_derivative(u_gb,inv_dz)*inv_rho_gb
+      ddt_v_ls    =  ddt_v_ls - w_ls*vertical_derivative(v_gb,inv_dz)*inv_rho_gb
+
+    END IF
+
+    !1b) Horizontal mean of variables and their vertical advective tendency 
+
+    IF(is_subsidence_heat)THEN
 
 !$OMP PARALLEL WORKSHARE
       varin(:,:,i_startblk:i_endblk) = p_diag%temp(:,:,i_startblk:i_endblk)*p_prog%rho(:,:,i_startblk:i_endblk)
@@ -261,15 +277,15 @@ MODULE mo_ls_forcing
 !$OMP END PARALLEL WORKSHARE
       CALL global_hor_mean(p_patch, varout, ql_gb, inv_no_gb_cells, i_nchdom)
 
-      !rho_loc(nlev)
-      CALL global_hor_mean(p_patch, p_prog%rho(:,:,:), rho_gb, inv_no_gb_cells, i_nchdom)
-      inv_rho_gb  = 1._wp / rho_gb
+      IF(.NOT.is_subsidence_moment)THEN      
+        !rho_loc(nlev)
+        CALL global_hor_mean(p_patch, p_prog%rho(:,:,:), rho_gb, inv_no_gb_cells, i_nchdom)
+        inv_rho_gb  = 1._wp / rho_gb
 
-      !Vertical advective forcing
-      inv_dz(:) = 1._wp / p_metrics%ddqz_z_full(2,:,2)
-     
-      ddt_u_ls    =  ddt_u_ls - w_ls*vertical_derivative(u_gb,inv_dz)*inv_rho_gb
-      ddt_v_ls    =  ddt_v_ls - w_ls*vertical_derivative(v_gb,inv_dz)*inv_rho_gb
+        !Vertical advective forcing
+        inv_dz(:) = 1._wp / p_metrics%ddqz_z_full(2,:,2)        
+      END IF
+      
       ddt_temp_ls =  ddt_temp_ls - w_ls*vertical_derivative(temp_gb,inv_dz)*inv_rho_gb
       ddt_qv_ls   =  ddt_qv_ls - w_ls*vertical_derivative(qv_gb,inv_dz)*inv_rho_gb
       ddt_ql_ls   =  ddt_ql_ls - w_ls*vertical_derivative(ql_gb,inv_dz)*inv_rho_gb

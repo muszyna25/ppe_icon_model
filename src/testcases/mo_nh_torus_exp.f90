@@ -72,7 +72,7 @@ MODULE mo_nh_torus_exp
   
   PRIVATE
 
-  PUBLIC :: init_nh_state_cbl, cbl_stevens_fluxes, u_cbl, v_cbl, th_cbl
+  PUBLIC :: init_nh_state_cbl, cbl_stevens_fluxes, init_nh_state_rico, u_cbl, v_cbl, th_cbl
 
   !Linear profiles of variables for LES testcases
   REAL(wp) :: u_cbl(2)   !u_cbl(1) = constant, u_cbl(2) = gradient
@@ -87,6 +87,11 @@ MODULE mo_nh_torus_exp
   REAL(wp), PARAMETER :: z_tropo = 11000._wp  !height tropopause
   REAL(wp), PARAMETER :: rh_sfc  = 0.8_wp     !RH at surface [1], default 0.8
 
+  !DEFINED PARAMETERS (RICO case):
+  REAL(wp), PARAMETER :: zpsfc   = 101540._wp   !< surface pressure
+  REAL(wp), PARAMETER :: zh1     = 740._wp      !< height (m) above which temperature increases
+  REAL(wp), PARAMETER :: ztsfc   = 297.9_wp
+  REAL(wp), PARAMETER :: zh2     = 3260._wp     !< moist height for RICO
 !--------------------------------------------------------------------
 
    CONTAINS
@@ -264,8 +269,154 @@ MODULE mo_nh_torus_exp
 
 
   END SUBROUTINE init_nh_state_cbl
+  
+  !>
+  !! Initialization of prognostic state vector for the nh RICO test case 
+  !!  with moisture
+  !!
+  !! @par Revision History
+  !!
+  !!
+  SUBROUTINE init_nh_state_rico( ptr_patch, ptr_nh_prog,  ptr_nh_ref, ptr_nh_diag,  &
+    &                           ptr_int, ptr_ext_data, ptr_metrics)
+
+    ! INPUT PARAMETERS:
+    TYPE(t_patch),TARGET,  INTENT(IN)   :: &  !< patch on which computation is performed
+      &  ptr_patch
+    TYPE(t_int_state),     INTENT(IN)   :: &
+      &  ptr_int
+    TYPE(t_nh_prog),       INTENT(INOUT):: &  !< prognostic state vector
+      &  ptr_nh_prog
+    TYPE(t_nh_diag),       INTENT(INOUT):: &  !< diagnostic state vector
+      &  ptr_nh_diag
+    TYPE(t_external_data), INTENT(INOUT):: &  !< external data
+      &  ptr_ext_data
+    TYPE(t_nh_metrics),    INTENT(IN)   :: &
+      &  ptr_metrics                          !< NH metrics state
+    TYPE(t_nh_ref),        INTENT(INOUT):: &  !< reference state vector
+      &  ptr_nh_ref
+
+    REAL(wp) :: rho_sfc, z_help(1:nproma), zvn1, zvn2, zu, zv, zt00, zh00
+    INTEGER  :: jc,je,jk,jb,jt,i_startblk,i_startidx,i_endidx   !< loop indices
+    INTEGER  :: nblks_c,npromz_c,nblks_e,npromz_e
+    INTEGER  :: nlev, nlevp1                        !< number of full and half levels
+    INTEGER  :: nlen, i_rcstartlev, jcn, jbn, ist, jg, ntropo
+
+  !-------------------------------------------------------------------------
+
+    ! values for the blocking
+    nblks_c  = ptr_patch%nblks_int_c
+    npromz_c = ptr_patch%npromz_int_c
+    nblks_e  = ptr_patch%nblks_int_e
+    npromz_e = ptr_patch%npromz_int_e
+
+    ! number of vertical levels
+    nlev   = ptr_patch%nlev
+    nlevp1 = ptr_patch%nlevp1
+
+    !patch id
+    jg = ptr_patch%id
+
+    !
+    i_rcstartlev = 2
+    i_startblk   = ptr_patch%cells%start_blk(i_rcstartlev,1)
+
+    !Set some reference density    
+    rho_sfc = zpsfc / (rd * les_config(jg)%sst)
+
+    ! init surface pressure
+    ptr_nh_diag%pres_sfc(:,:) = zpsfc
+
+    ! Tracers: all zero by default
+    ptr_nh_prog%tracer(:,:,:,:) = 0._wp
+
+    DO jb = 1, nblks_c
+
+      IF (jb /= nblks_c) THEN
+         nlen = nproma
+      ELSE
+         nlen = npromz_c
+      ENDIF
+
+      !Tracers
+        DO jk = 1, nlev
+          ptr_nh_prog%tracer(1:nlen,jk,jb,iqv) = min((0.016_wp - 0.0022_wp * ptr_metrics%z_mc(1:nlen,jk,jb)/zh1), &
+                                                (0.0138_wp - 0.0114_wp * (ptr_metrics%z_mc(1:nlen,jk,jb)-zh1)/(zh2 - zh1)))
+          ptr_nh_prog%tracer(1:nlen,jk,jb,iqv) = max(ptr_nh_prog%tracer(1:nlen,jk,jb,iqv),             &
+                                                (0.0024_wp - 0.0006_wp * (ptr_metrics%z_mc(1:nlen,jk,jb) - zh2)/(4000._wp - zh2)))
+        END DO
+
+      DO jk = 1, nlev
+       ! init potential temperature
+       z_help(1:nlen) = ztsfc + max(0._wp, (ptr_metrics%z_mc(1:nlen,jk,jb)-zh1)*19.1_wp/(4000._wp-zh1))
+
+       ! virtual potential temperature
+       ptr_nh_prog%theta_v(1:nlen,jk,jb) = z_help(1:nlen) * ( 1._wp + &
+           0.61_wp*ptr_nh_prog%tracer(1:nlen,jk,jb,iqv) - ptr_nh_prog%tracer(1:nlen,jk,jb,iqc) ) 
+      END DO
+
+      !Get hydrostatic pressure and exner at lowest level
+      ptr_nh_diag%pres(1:nlen,nlev,jb) = zpsfc - rho_sfc * ptr_metrics%geopot(1:nlen,nlev,jb)
+      ptr_nh_prog%exner(1:nlen,nlev,jb) = (ptr_nh_diag%pres(1:nlen,nlev,jb)/p0ref)**rd_o_cpd 
+
+      !Get exner at other levels
+      DO jk = nlev-1, 1, -1
+         z_help(1:nlen) = 0.5_wp * ( ptr_nh_prog%theta_v(1:nlen,jk,jb) +  &
+                                     ptr_nh_prog%theta_v(1:nlen,jk+1,jb) )
+   
+         ptr_nh_prog%exner(1:nlen,jk,jb) = ptr_nh_prog%exner(1:nlen,jk+1,jb) &
+            &  -grav/cpd*ptr_metrics%ddqz_z_half(1:nlen,jk+1,jb)/z_help(1:nlen)
+      END DO
+
+      DO jk = 1 , nlev
+         ! rhotheta has to have the same meaning as exner
+         ptr_nh_prog%rhotheta_v(1:nlen,jk,jb) = &
+              (ptr_nh_prog%exner(1:nlen,jk,jb)**cvd_o_rd)*p0ref/rd
+
+         ptr_nh_prog%rho(1:nlen,jk,jb) = ptr_nh_prog%rhotheta_v(1:nlen,jk,jb) / &
+                                         ptr_nh_prog%theta_v(1:nlen,jk,jb)     
+      END DO !jk
+
+    ENDDO !jb
 
 
+    !Mean wind 
+    DO jb = 1 , nblks_e
+     CALL get_indices_e( ptr_patch, jb, 1, nblks_e, i_startidx, i_endidx, grf_bdywidth_e+1)
+     DO jk = 1 , nlev 
+      DO je = i_startidx, i_endidx
+
+        !Torus geometry is flat so zu is only function of height which is same for all cells
+        !But it is kept varyign with jc,jb to introduce topography lateron
+        jcn  =   ptr_patch%edges%cell_idx(je,jb,1)
+        jbn  =   ptr_patch%edges%cell_blk(je,jb,1)
+        zu   =   u_cbl(1) + u_cbl(2) * ptr_metrics%z_mc(jcn,jk,jbn)
+        zv   =   v_cbl(1) + v_cbl(2) * ptr_metrics%z_mc(jcn,jk,jbn)
+
+        zvn1 =  zu * ptr_patch%edges%primal_normal_cell(je,jb,1)%v1 + &
+                zv * ptr_patch%edges%primal_normal_cell(je,jb,1)%v2      
+ 
+        jcn  =   ptr_patch%edges%cell_idx(je,jb,2)
+        jbn  =   ptr_patch%edges%cell_blk(je,jb,2)
+        zu   =   u_cbl(1) + u_cbl(2) * ptr_metrics%z_mc(jcn,jk,jbn)
+        zv   =   v_cbl(1) + v_cbl(2) * ptr_metrics%z_mc(jcn,jk,jbn)
+      
+        zvn2 =  zu * ptr_patch%edges%primal_normal_cell(je,jb,2)%v1 + &
+                zv * ptr_patch%edges%primal_normal_cell(je,jb,2)%v2      
+
+        ptr_nh_prog%vn(je,jk,jb) = ptr_int%c_lin_e(je,1,jb)*zvn1 + &
+                                   ptr_int%c_lin_e(je,2,jb)*zvn2
+
+        ptr_nh_ref%vn_ref(je,jk,jb) = ptr_nh_prog%vn(je,jk,jb)
+      END DO
+     END DO
+    END DO     
+    
+    !W wind and reference
+    ptr_nh_prog%w  = 0._wp; ptr_nh_ref%w_ref  = ptr_nh_prog%w
+    
+  END SUBROUTINE init_nh_state_rico
+  
 !-------------------------------------------------------------------------
 
 
