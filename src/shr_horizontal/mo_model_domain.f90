@@ -712,7 +712,7 @@ MODULE mo_model_domain
     INTEGER :: max_childdom
     !
 
-    ! total number of allocated cells, edges and vertices
+    ! total number of locally allocated cells, edges and vertices
     INTEGER :: n_patch_cells
     INTEGER :: n_patch_edges
     INTEGER :: n_patch_verts

@@ -298,6 +298,7 @@ CONTAINS
   ! write info directly by mproc_id: needs barrier to avoid merging messages from pe_io and mproc_id
   ! write(0,*) get_my_mpi_all_id(), "enter icon_comm_barrier:"
   CALL icon_comm_barrier(for_patch=ppatch)
+  CALL icon_comm_barrier(for_patch=ppatch) ! twice since the pipelining of output is still sometimes out of order
   IF (p_pe .EQ. mproc_id) THEN
   !IF (my_process_is_stdio()) THEN
      zlat = ppatch%cells%center(iidx,iblk)%lat * 180.0_wp / pi
@@ -316,6 +317,7 @@ CONTAINS
   !   &                  MINLOC(zdst_c(:,:)),' distance in degrees =',MINVAL(zdst_c(:,:))
   END IF
   CALL icon_comm_barrier(for_patch=ppatch)
+  CALL icon_comm_barrier(for_patch=ppatch) ! twice since the pipelining of output is still sometimes out of order
   ! write(0,*) get_my_mpi_all_id(), "leave icon_comm_barrier:"
 
   END SUBROUTINE find_latlonindex
