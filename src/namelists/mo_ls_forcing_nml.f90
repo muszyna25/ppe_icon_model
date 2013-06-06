@@ -100,8 +100,10 @@ CONTAINS
     !------------------------------------------------------------------
     ! 2. If this is a resumed integration, overwrite the defaults above 
     !    by values used in the previous integration.
+    ! ltestcase is added here because it was causing trouble for AMIP runs
+    ! restarting with a file generated long ago
     !------------------------------------------------------------------
-    IF (is_restart_run()) THEN
+    IF (is_restart_run() .AND. ltestcase) THEN 
       funit = open_and_restore_namelist('ls_forcing_nml')
       READ(funit,NML=ls_forcing_nml)
       CALL close_tmpfile(funit)
