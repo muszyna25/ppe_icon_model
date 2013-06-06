@@ -165,7 +165,7 @@ MODULE mo_sgs_turbulence
     !calculation in horizontal diffusion
     !-for now only qv and qc are needed and hence are synced here. Add more if needed
     !-also sync exncer because it is changed after calling satad_v_3D
-    CALL sync_patch_array_mult(SYNC_C, p_patch, 3, p_nh_diag%temp, p_nh_prog%exner, &
+    CALL sync_patch_array_mult(SYNC_C, p_patch, 4, p_nh_diag%temp, p_nh_prog%exner, &
                  p_nh_prog%tracer(:,:,:,iqv), p_nh_prog%tracer(:,:,:,iqc))
 
     rl_start   = 2
