@@ -62,6 +62,7 @@ MODULE mo_util_string
   PUBLIC :: difference
   PUBLIC :: one_of
   PUBLIC :: insert_group
+  PUBLIC :: delete_keyword_list
 
   !
   PUBLIC :: normal, bold
@@ -628,6 +629,22 @@ CONTAINS
     END DO
 
   END SUBROUTINE insert_group
+
+  !==============================================================================
+  RECURSIVE SUBROUTINE delete_keyword_list(list_head)
+    ! Parameters
+    TYPE(t_keyword_list),    POINTER    :: list_head
+    ! Local parameters
+    TYPE (t_keyword_list),   POINTER    :: tmp
+    INTEGER                             :: errstat
+
+    IF (ASSOCIATED(list_head)) THEN
+      CALL delete_keyword_list(list_head%next)
+      DEALLOCATE(list_head)
+    ENDIF
+
+  END SUBROUTINE delete_keyword_list
+  !==============================================================================
 
   
 END MODULE mo_util_string
