@@ -120,13 +120,34 @@ MODULE mo_model_domain
   PUBLIC :: t_grid_edges
   PUBLIC :: t_grid_vertices
   PUBLIC :: t_phys_patch
-  PUBLIC :: t_subset_range, t_subset_range_index
+  PUBLIC :: t_subset_range, t_subset_range_index, t_subset_indexed
 
   !PUBLIC :: t_patch_ocean
   PUBLIC :: t_patch_3D
   PUBLIC :: t_patch_vert
 
   PUBLIC :: t_tangent_vectors
+
+  !----------------------------------------------------
+  !> Defines a subset in a range (in terms of blocks)
+  TYPE :: t_subset_indexed
+
+    INTEGER, ALLOCATABLE :: block(:)
+    INTEGER, ALLOCATABLE :: idx(:)
+
+    INTEGER :: size
+    INTEGER :: allocated_size
+    INTEGER :: recommended_stride
+
+    TYPE(t_patch), POINTER :: patch
+    INTEGER :: entity_type ! 1=cells, 2=edges, 3=verts
+
+    LOGICAL :: is_in_domain
+
+    CHARACTER(len=32) :: name
+
+  END TYPE t_subset_indexed
+  !----------------------------------------------------
 
   !----------------------------------------------------
   !> Defines a subset in a range (in terms of blocks)
@@ -148,7 +169,7 @@ MODULE mo_model_domain
 
     CHARACTER(len=32) :: name
 
-  END TYPE
+  END TYPE t_subset_range
   !----------------------------------------------------
 
 
@@ -164,7 +185,7 @@ MODULE mo_model_domain
 
     TYPE(t_subset_range), POINTER :: subset_range
 
-  END TYPE
+  END TYPE t_subset_range_index
   !----------------------------------------------------
 
   ! tangent vector class

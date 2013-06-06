@@ -35,14 +35,14 @@
 MODULE mo_grid_subset
 
   USE mo_exception,    ONLY: warning, finish
-  USE mo_model_domain, ONLY: t_patch, t_subset_range, t_subset_range_index
+  USE mo_model_domain, ONLY: t_patch, t_subset_range, t_subset_range_index, t_subset_indexed
 
   IMPLICIT NONE
   INCLUDE 'netcdf.inc'
 
   CHARACTER(len=*), PARAMETER, PRIVATE :: version = '$Id$'
 
-  PUBLIC :: t_subset_range, t_subset_range_index
+  PUBLIC :: t_subset_range, t_subset_range_index, t_subset_indexed
 
   PUBLIC :: fill_subset, get_index_range
   PUBLIC :: read_subset, write_subset
