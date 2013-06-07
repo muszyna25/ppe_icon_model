@@ -4079,14 +4079,16 @@ CONTAINS
     ! Get the number of convection tracers  
 
     IF (art_config(jg)%lart_conv) THEN
-         IF( lconv_tracer) THEN
+      IF ( PRESENT( lconv_tracer )) THEN
+        IF( lconv_tracer) THEN
           art_config(jg)%nconv_tracer = art_config(jg)%nconv_tracer + 1
-         ELSE
+        ELSE
           WRITE (message_text,*) 'WARNING. lart_conv=',&
           & art_config(jg)%lart_conv,&
           & 'lconv_tracer=',lconv_tracer
           CALL message('add_var_list_reference_tracer',message_text)
-         ENDIF
+        ENDIF
+      ENDIF
     ENDIF
 
   END SUBROUTINE add_var_list_reference_tracer
