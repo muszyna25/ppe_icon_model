@@ -85,8 +85,67 @@ class TestCodeParser < Test::Unit::TestCase
     assert_raise ArgumentError do; ds.add(2); end
   end
 
-  def create_stat_collections
+  def test_stat_collections
+    oceTemp       = [NArray[24.0]]
+    ds_oceTemp    = DataStatistics.new(source: oceTemp)
+
+    oceSal        = [NArray[35.0]]
+    ds_oceSal     = DataStatistics.new(source: oceSal)
+
+    oceDens       = [NArray[1029.0]]
+    ds_oceDens    = DataStatistics.new(source: oceDens)
+
+
+    oceIceTh      = [NArray[3.0]]
+    ds_oceIceTh   = DataStatistics.new(source: oceIceTh)
+
+    dsCollections = DataStatisticsCollection.new
+    [ds_oceIceTh,ds_oceDens,ds_oceSal,ds_oceTemp].each {|ds|
+      dsCollections.add(ds)
+    }
+
+    times = 1000
+    times.times { dsCollections.update }
+
+    assert_equal([times*oceTemp[0]],ds_oceTemp.accumulation)
+    assert_equal([times*oceSal[0]],ds_oceSal.accumulation)
+    assert_equal([times*oceDens[0]],ds_oceDens.accumulation)
+    assert_equal([times*oceIceTh[0]],ds_oceIceTh.accumulation)
   end
-  def update_stat_collection
+  def test_stat_collections_with_target
+    oceTemp       = [NArray[24.0]]
+    oceTempAcc    = []
+    ds_oceTemp    = DataStatistics.new(source: oceTemp, target: oceTempAcc)
+
+    oceSal        = [NArray[35.0]]
+    oceSalAcc    = []
+    ds_oceSal     = DataStatistics.new(source: oceSal, target: oceSalAcc)
+
+    oceDens       = [NArray[1029.0]]
+    oceDensAcc    = []
+    ds_oceDens    = DataStatistics.new(source: oceDens, target: oceDensAcc)
+
+
+    oceIceTh      = [NArray[3.0]]
+    oceIceThAcc    = []
+    ds_oceIceTh   = DataStatistics.new(source: oceIceTh, target: oceIceThAcc)
+
+    dsCollections = DataStatisticsCollection.new
+    [ds_oceIceTh,ds_oceDens,ds_oceSal,ds_oceTemp].each {|ds|
+      dsCollections.add(ds)
+    }
+
+    times = 1000
+    times.times { dsCollections.update }
+
+    assert_equal([times*oceTemp[0]],ds_oceTemp.accumulation)
+    assert_equal([times*oceSal[0]],ds_oceSal.accumulation)
+    assert_equal([times*oceDens[0]],ds_oceDens.accumulation)
+    assert_equal([times*oceIceTh[0]],ds_oceIceTh.accumulation)
+
+    assert_equal([times*oceTemp[0]] , ds_oceTemp.accumulation)
+    assert_equal([times*oceSal[0]]  , ds_oceSal.accumulation)
+    assert_equal([times*oceDens[0]] , ds_oceDens.accumulation)
+    assert_equal([times*oceIceTh[0]], ds_oceIceTh.accumulation)
   end
 end

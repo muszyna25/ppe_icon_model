@@ -35,7 +35,6 @@ class DataStatistics
     toBeAdded = values.nil? ? @source[0] : values
 
     @accumulation << toBeAdded
-    # compute the sum
     nextValue = @accumulation.inject(0,&:+)
     @accumulation.clear
     @accumulation << nextValue
@@ -47,7 +46,7 @@ class DataStatistics
   end
 end
 class DataStatisticsCollection
-  def initialze
+  def initialize
     @statistics =[]
   end
   def add(statistic)
@@ -55,7 +54,7 @@ class DataStatisticsCollection
   end
   def update
     @statistics.each {|statistic|
-      statistic.add([])
+      statistic.add
     }
   end
 end
