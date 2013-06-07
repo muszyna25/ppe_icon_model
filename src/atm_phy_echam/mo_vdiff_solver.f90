@@ -305,6 +305,7 @@ CONTAINS
     ! matrix_to_richtmyer_coeff, aa_btm(:,3,idx_land,imqv) will be 
     ! modified, and aa_btm(:,2,idx_land,imqv) re-computed.
 
+    jk = klev
     DO jsfc = 1,ksfc_type
       DO jc = 1,kproma
         aa_btm(jc,1,jsfc,im) = -zkstar(jc,jk-1)*prdpm(jc,jk)    ! -K*_{k-1/2}/dp_k
