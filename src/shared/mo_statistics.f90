@@ -539,6 +539,8 @@ CONTAINS
   INTEGER FUNCTION new_statistic_with_pointers(target,source,mode)
     REAL(wp), TARGET               :: target,source
     INTEGER,  INTENT(in), OPTIONAL :: mode
+    ! GZ: temporary fix to get the code compiled
+    new_statistic_with_pointers = 0
   END FUNCTION new_statistic_with_pointers
 
   !-----------------------------------------------------------------------
