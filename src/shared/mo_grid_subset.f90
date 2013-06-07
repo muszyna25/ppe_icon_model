@@ -158,7 +158,7 @@ CONTAINS
     TYPE(t_subset_indexed), INTENT(inout) :: subset
     TYPE(t_patch), TARGET, INTENT(in) :: patch  ! nag does not return the values in subset
     INTEGER :: global_index_array(:)   ! intent in
-    INTEGER, INTENT(in) :: located
+    INTEGER, INTENT(in) :: located     ! =on_cells, on_edges, or on_vertices
     CHARACTER(len=32), OPTIONAL :: subset_name
 
     INTEGER :: my_proc_id, i, max_allocation_size, owned_indexes, local_idx
@@ -185,7 +185,7 @@ CONTAINS
         local_index_array => patch%verts%loc_index
         owner_local       => patch%verts%owner_local
       CASE default
-        CALL finish(method_name, "Unkown subset%entity_location")
+        CALL finish(method_name, "Unknown subset%entity_location")
     END SELECT
 
     ! temporary array for keeping track of what's local
@@ -327,7 +327,6 @@ CONTAINS
       & CALL finish(method_name, "Could not read is_in_domain")
 
     subset_range%patch => patch
-
 
   END SUBROUTINE read_subset
   !-------------------------------------------------------------------------

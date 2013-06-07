@@ -377,11 +377,13 @@ CONTAINS
   !-----------------------------------------------------------------------
   !-----------------------------------------------------------------------
   !>
-  FUNCTION globalspace_3D_sum(values, indexed_subset, start_level, end_level, weights) result(total_sum)
+  FUNCTION globalspace_3D_sum(values, indexed_subset, start_level, end_level, weights, &
+    & max_level_array) result(total_sum)
     REAL(wp) :: values(:,:,:)
     TYPE(t_subset_indexed), TARGET, OPTIONAL :: indexed_subset
-    INTEGER, OPTIONAL :: start_level, end_level
-    REAL(wp), OPTIONAL :: weights(:,:,:)
+    INTEGER,  OPTIONAL  :: start_level, end_level
+    REAL(wp), OPTIONAL  :: weights(:,:,:)
+    INTEGER,  OPTIONAL  :: max_level_array(:,:)
     REAL(wp) :: total_sum
 
     REAL(wp) :: sum_value
@@ -409,7 +411,7 @@ CONTAINS
 
     ! init the min, max values
     sum_value = 0
-    IF (PRESENT(indexed_subset)) THEN
+    IF (PRESENT(weights)) THEN
 
       DO i=1, indexed_subset%size
         block = indexed_subset%block(i)
