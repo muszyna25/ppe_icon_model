@@ -55,7 +55,7 @@ MODULE mo_art_emission_interface
     USE mo_art_radioactive,       ONLY: art_emiss_radioact
     USE mo_art_emission_seas,     ONLY: art_emission_seas
     USE mo_art_aerosol,           ONLY: p_art_mode,imode_seasa,imode_seasb,imode_seasc
-    USE mo_art_aerosol_utilities, ONLY: art_modal_parameters,art_general_modal_par
+    USE mo_art_aerosol_utilities, ONLY: art_modal_parameters,art_air_parameters
 #endif
 
   IMPLICIT NONE
@@ -122,7 +122,7 @@ CONTAINS
    ! ----------------------------------
 
      ! First: Modal Parameters 
-       CALL art_general_modal_par(p_patch)
+       CALL art_air_parameters(p_patch)
 
        IF (art_config(jg)%lart_seasalt) THEN
          CALL art_modal_parameters(p_patch,p_art_mode(imode_seasa),p_tracer_now)

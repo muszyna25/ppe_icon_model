@@ -54,7 +54,7 @@ MODULE mo_art_washout_interface
     USE mo_art_radioactive,        ONLY:art_washout_radioact
     USE mo_art_washout_aerosol,    ONLY:art_aerosol_washout
     USE mo_art_aerosol,            ONLY:p_art_mode,imode_seasa,imode_seasb,imode_seasc
-    USE mo_art_aerosol_utilities,  ONLY: art_modal_parameters,art_general_modal_par
+    USE mo_art_aerosol_utilities,  ONLY: art_modal_parameters,art_air_parameters
 #endif
 
   IMPLICIT NONE
@@ -121,13 +121,13 @@ CONTAINS
 jg  = p_patch%id
 
 IF(art_config(jg)%lart .AND. art_config(jg)%lart_wash) THEN 
-    
+      
+      CALL art_air_parameters(p_patch)
+      
       ! ----------------------------------
       ! --- First for modal aerosol
       ! ----------------------------------
-    
-     ! First: Modal Parameters 
-       CALL art_general_modal_par(p_patch)
+
      ! now sea salt
        IF (art_config(jg)%lart_seasalt) THEN
          CALL art_modal_parameters(p_patch,p_art_mode(imode_seasa),p_tracer_new)
