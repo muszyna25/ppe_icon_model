@@ -115,7 +115,7 @@ MODULE mo_model_domimp_setup
   USE mo_sync,               ONLY: sync_c, sync_e, sync_patch_array, sync_idx
   USE mo_grid_subset,        ONLY: fill_subset,t_subset_range, get_index_range, read_subset, write_subset
   USE mo_mpi,                ONLY: work_mpi_barrier, get_my_mpi_work_id, my_process_is_mpi_seq
-  USE mo_impl_constants,     ONLY: halo_levels_ceiling
+  USE mo_impl_constants,     ONLY: halo_levels_ceiling, on_cells, on_edges, on_vertices
   USE mo_math_utilities,     ONLY: gvec2cvec, gc2cc
   USE mo_math_types
   
@@ -1083,25 +1083,29 @@ CONTAINS
     !--------------------------------------------------------------------------------
     ! fill cell subsets
     !    fill_subset(range subset,  halo levels, start level, end level)
-    CALL fill_subset(patch%cells%all, patch, patch%cells%halo_level, &
-      & 0, halo_levels_ceiling)
+ !   subset, patch, mask, start_mask, end_mask, subset_name
+    CALL fill_subset(subset=patch%cells%all, patch=patch, &
+      & mask=patch%cells%halo_level, start_mask=0, end_mask=halo_levels_ceiling, located=on_cells)
     patch%cells%all%is_in_domain   = .false.
     
-    CALL fill_subset(patch%cells%owned, patch, patch%cells%halo_level, 0, 0)
+    CALL fill_subset(subset=patch%cells%owned, patch=patch, &
+      & mask=patch%cells%halo_level, start_mask=0, end_mask=0, located=on_cells)
     patch%cells%owned%is_in_domain = .true.
     
-    CALL fill_subset(patch%cells%in_domain, patch, patch%cells%halo_level, 0, 0)
+    CALL fill_subset(subset=patch%cells%in_domain, patch=patch, &
+      & mask=patch%cells%halo_level, start_mask=0, end_mask=0, located=on_cells)
     patch%cells%in_domain%is_in_domain = .true.
     
-    CALL fill_subset(patch%cells%not_owned, patch, patch%cells%halo_level,&
-      & 1, halo_levels_ceiling)
+    CALL fill_subset(subset=patch%cells%not_owned, patch=patch, &
+      & mask=patch%cells%halo_level, start_mask=1, end_mask=halo_levels_ceiling, located=on_cells)
     patch%cells%not_owned%is_in_domain = .false.
     
-    CALL fill_subset(patch%cells%not_in_domain,  patch, &
-      & patch%cells%halo_level, 2, halo_levels_ceiling)
+    CALL fill_subset(subset=patch%cells%not_in_domain,  patch=patch, &
+      & mask=patch%cells%halo_level, start_mask=2, end_mask=halo_levels_ceiling, located=on_cells)
     patch%cells%not_in_domain%is_in_domain = .false.
     
-    CALL fill_subset(patch%cells%one_edge_in_domain, patch, patch%cells%halo_level, 0, 1)
+    CALL fill_subset(subset=patch%cells%one_edge_in_domain, patch=patch, &
+      & mask=patch%cells%halo_level, start_mask=0, end_mask=1, located=on_cells)
     patch%cells%one_edge_in_domain%is_in_domain = .false.
     
     IF (patch%cells%in_domain%no_of_holes > 0) &
@@ -1111,40 +1115,46 @@ CONTAINS
     
     ! fill edge subsets
     !    fill_subset(range subset,  halo levels, start level, end level)
-    CALL fill_subset(patch%edges%all, patch, patch%edges%halo_level, 0, halo_levels_ceiling)
+    CALL fill_subset(subset=patch%edges%all, patch=patch, &
+      & mask=patch%edges%halo_level, start_mask=0, end_mask=halo_levels_ceiling, located=on_edges)
     patch%edges%all%is_in_domain   = .false.
     
-    CALL fill_subset(patch%edges%owned, patch,patch%edges%halo_level, 0, 0)
+    CALL fill_subset(subset=patch%edges%owned, patch=patch, &
+      & mask=patch%edges%halo_level, start_mask=0, end_mask=0, located=on_edges)
     patch%edges%owned%is_in_domain = .true.
     
-    CALL fill_subset(patch%edges%in_domain, patch, patch%edges%halo_level, 0, 1)
+    CALL fill_subset(subset=patch%edges%in_domain, patch=patch, &
+      & mask=patch%edges%halo_level, start_mask=0, end_mask=1, located=on_edges)
     patch%edges%in_domain%is_in_domain   = .true.
     
-    CALL fill_subset(patch%edges%not_owned, patch, patch%edges%halo_level, &
-      & 1, halo_levels_ceiling)
+    CALL fill_subset(subset=patch%edges%not_owned, patch=patch, &
+      & mask=patch%edges%halo_level, start_mask=1, end_mask=halo_levels_ceiling, located=on_edges)
     patch%edges%not_owned%is_in_domain   = .false.
     
-    CALL fill_subset(patch%edges%not_in_domain, patch, &
-      & patch%edges%halo_level, 2, halo_levels_ceiling)
+    CALL fill_subset(subset=patch%edges%not_in_domain, patch=patch, &
+      & mask=patch%edges%halo_level, start_mask=2, end_mask=halo_levels_ceiling, located=on_edges)
     patch%edges%not_in_domain%is_in_domain   = .false.
     
     ! fill vertex subsets
     !    fill_subset(range subset,  halo levels, start level, end level)
-    CALL fill_subset(patch%verts%all,  patch, patch%verts%halo_level, &
-      & 0, halo_levels_ceiling)
+    CALL fill_subset(subset=patch%verts%all,  patch=patch, &
+      & mask=patch%verts%halo_level, start_mask=0, end_mask=halo_levels_ceiling, located=on_vertices)
     patch%verts%all%is_in_domain   = .false.
     
-    CALL fill_subset(patch%verts%owned, patch, patch%verts%halo_level, 0, 0)
+    CALL fill_subset(subset=patch%verts%owned, patch=patch, &
+      & mask=patch%verts%halo_level, start_mask=0, end_mask=0, located=on_vertices)
     patch%verts%owned%is_in_domain   = .true.
     
-    CALL fill_subset(patch%verts%in_domain, patch, patch%verts%halo_level, 0, 1)
+    CALL fill_subset(subset=patch%verts%in_domain, patch=patch, &
+      & mask=patch%verts%halo_level, start_mask=0, end_mask=1, located=on_vertices)
     patch%verts%in_domain%is_in_domain   = .true.
     
-    CALL fill_subset(patch%verts%not_owned, patch, patch%verts%halo_level, 1, halo_levels_ceiling)
+    CALL fill_subset(subset=patch%verts%not_owned, patch=patch, &
+      & mask=patch%verts%halo_level, start_mask=1, end_mask=halo_levels_ceiling, located=on_vertices)
     patch%verts%not_owned%is_in_domain   = .false.
     
-    CALL fill_subset(patch%verts%not_in_domain, patch, &
-      & patch%verts%halo_level, 2, halo_levels_ceiling)
+    CALL fill_subset(subset=patch%verts%not_in_domain, patch=patch, &
+      & mask=patch%verts%halo_level, start_mask=2, end_mask=halo_levels_ceiling, located=on_vertices)
     patch%verts%not_in_domain%is_in_domain   = .false.
           
     ! write some info:

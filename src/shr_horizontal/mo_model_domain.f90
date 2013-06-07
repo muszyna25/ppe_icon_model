@@ -128,6 +128,9 @@ MODULE mo_model_domain
 
   PUBLIC :: t_tangent_vectors
 
+
+  !----------------------------------------------------
+  ! TODO Abstraction of the two types of subsets
   !----------------------------------------------------
   !> Defines a subset in a range (in terms of blocks)
   TYPE :: t_subset_indexed
@@ -137,10 +140,10 @@ MODULE mo_model_domain
 
     INTEGER :: size
     INTEGER :: allocated_size
-    INTEGER :: recommended_stride
+    INTEGER :: recommended_stride  ! in case of parallelization/vectorization
 
     TYPE(t_patch), POINTER :: patch
-    INTEGER :: entity_type ! 1=cells, 2=edges, 3=verts
+    INTEGER :: entity_location ! on_cells, on_edges, on_verts
 
     LOGICAL :: is_in_domain
 
@@ -162,7 +165,7 @@ MODULE mo_model_domain
     INTEGER :: size
 
     TYPE(t_patch), POINTER :: patch
-    INTEGER :: entity_type ! 1=cells, 2=edges, 3=verts
+    INTEGER :: entity_location ! on_cells, on_edges, on_verts
 
     INTEGER :: no_of_holes ! the number of holes in the subset
     LOGICAL :: is_in_domain
