@@ -89,47 +89,4 @@ class TestCodeParser < Test::Unit::TestCase
   end
   def update_stat_collection
   end
-
-  class A
-    attr_reader :h
-    def initialize(h); @h = h ; end
-    def add(v); @h += v; end
-  end
-  class B
-    attr_reader :h
-    def initialize(h=nil); @h = h.nil? ? NArray.float(2,2) : h ;end
-    def add(v); @h += v; end
-  end
-  class C
-    attr_reader :h
-    def initialize(h: NArray.float(2,2)); @h = h ; end
-    def add(v); @h += v; end
-  end
-  def _test_ph
-    ha = NArray.float(2,2)
-    hb = NArray.float(2,2)
-    hc = NArray.float(2,2)
-
-    a = A.new(ha)
-    b = B.new(hb)
-    c = C.new(h: hc)
-
-    addMe = NArray[[1.0,1.0],[1.0,1.0]]
-
-    a.add(addMe)
-    assert_equal(addMe,a.h)
-    a.add(addMe)
-    assert_equal(2*addMe,a.h)
-
-    b.add(addMe)
-    assert_equal(addMe,b.h)
-    b.add(addMe)
-    assert_equal(2*addMe,b.h)
-    #assert_equal(hb     ,b.h)
-
-    c.add(addMe)
-    assert_equal(addMe,c.h)
-    c.add(addMe)
-    assert_equal(addMe,c.h)
-  end
 end

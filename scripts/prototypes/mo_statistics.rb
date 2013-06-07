@@ -35,6 +35,7 @@ class DataStatistics
     toBeAdded = values.nil? ? @source[0] : values
 
     @accumulation << toBeAdded
+    # compute the sum
     nextValue = @accumulation.inject(0,&:+)
     @accumulation.clear
     @accumulation << nextValue
