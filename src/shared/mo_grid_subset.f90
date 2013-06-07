@@ -48,6 +48,7 @@ MODULE mo_grid_subset
   PUBLIC :: t_subset_range, t_subset_range_index, t_subset_indexed
 
   PUBLIC :: fill_subset, get_index_range
+  PUBLIC :: fill_subset_from_global_index
   PUBLIC :: read_subset, write_subset
   PUBLIC :: block_no, index_no
 
