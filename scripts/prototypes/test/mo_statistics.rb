@@ -138,14 +138,14 @@ class TestCodeParser < Test::Unit::TestCase
     times = 1000
     times.times { dsCollections.update }
 
-    assert_equal([times*oceTemp[0]],ds_oceTemp.accumulation)
-    assert_equal([times*oceSal[0]],ds_oceSal.accumulation)
-    assert_equal([times*oceDens[0]],ds_oceDens.accumulation)
-    assert_equal([times*oceIceTh[0]],ds_oceIceTh.accumulation)
-
     assert_equal([times*oceTemp[0]] , ds_oceTemp.accumulation)
     assert_equal([times*oceSal[0]]  , ds_oceSal.accumulation)
     assert_equal([times*oceDens[0]] , ds_oceDens.accumulation)
     assert_equal([times*oceIceTh[0]], ds_oceIceTh.accumulation)
+
+    assert_equal([times*oceTemp[0]] , oceTempAcc)
+    assert_equal([times*oceSal[0]]  , oceSalAcc)
+    assert_equal([times*oceDens[0]] , oceDensAcc)
+    assert_equal([times*oceIceTh[0]], oceIceThAcc)
   end
 end
