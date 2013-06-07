@@ -84,7 +84,7 @@ MODULE mo_statistics
   PUBLIC :: t_statistic
   !-------------------------------------------------------------------------
   TYPE :: t_statistic
-      INTEGER :: id
+    INTEGER :: id
   END TYPE t_statistic
   !-------------------------------------------------------------------------
 
@@ -114,7 +114,7 @@ MODULE mo_statistics
                           ! ADD_MAX_RATIO, input twos values
 
   END TYPE t_data_statistics
-  TYPE t_data_statistics_2D
+  TYPE t_data_statistics_2d
     LOGICAL  :: is_active
     INTEGER  :: no_of_values
     REAL(wp), POINTER :: sum_of_values(:,:)
@@ -125,9 +125,9 @@ MODULE mo_statistics
     REAL(wp) :: max_bars_value
     INTEGER, POINTER  :: no_of_values_in_bar(:)
     INTEGER :: mode
-  END TYPE t_data_statistics_2D
+  END TYPE t_data_statistics_2d
 
-  TYPE t_data_statistics_3D
+  TYPE t_data_statistics_3d
     LOGICAL  :: is_active
     INTEGER  :: no_of_values
     REAL(wp), POINTER :: sum_of_values(:,:,:)
@@ -138,13 +138,21 @@ MODULE mo_statistics
     REAL(wp) :: max_bars_value
     INTEGER, POINTER  :: no_of_values_in_bar(:)
     INTEGER :: mode
-  END TYPE t_data_statistics_3D
+  END TYPE t_data_statistics_3d
+
+  TYPE t_data_statistics_collection
+    INTEGER, ALLOCATABLE :: stats_1d(:)
+    INTEGER, ALLOCATABLE :: stats_2d(:)
+    INTEGER, ALLOCATABLE :: stats_3d(:)
+  END TYPE
 
   !--------------------------------------------------------------
   !> The maximum number of statistic objects.
   INTEGER, PARAMETER ::  max_no_of_statistic_objects = 50
   !> The array of the statistic objects.
-  TYPE(t_data_statistics), ALLOCATABLE, TARGET :: statistic_object(:)
+  TYPE(t_data_statistics),    ALLOCATABLE, TARGET :: statistic_object(:)
+  TYPE(t_data_statistics_2d), ALLOCATABLE, TARGET :: statistic_object_2d(:)
+  TYPE(t_data_statistics_3d), ALLOCATABLE, TARGET :: statistic_object_3d(:)
   !> The number of allocated statistic objects.
   INTEGER :: no_of_allocated_statistics = 0        ! the size of the statistic objects array
   !> The number of actual active statistic objects.
@@ -159,12 +167,10 @@ MODULE mo_statistics
   INTERFACE delete
     MODULE PROCEDURE delete_statistic_operator
   END INTERFACE
-
   INTERFACE add_data_to
     MODULE PROCEDURE add_data_one_value_real
     MODULE PROCEDURE add_data_one_value_int
   END INTERFACE
-
   INTERFACE min
     MODULE PROCEDURE min_statistic
   END INTERFACE
@@ -174,17 +180,19 @@ MODULE mo_statistics
   INTERFACE mean
     MODULE PROCEDURE mean_statistic
   END INTERFACE
-
   INTERFACE new_statistic
     MODULE PROCEDURE new_statistic_no_bars
     MODULE PROCEDURE new_statistic_with_bars
+    MODULE PROCEDURE new_statistic_with_pointers
   END INTERFACE
-
+  INTERFACE init_statistics
+    MODULE PROCEDURE init_statistic_object
+    MODULE PROCEDURE init_statistic_object_with_pointers
+  END INTERFACE
   INTERFACE add_statistic_to
     MODULE PROCEDURE add_statistic_one_value
     MODULE PROCEDURE add_statistic_two_values
   END INTERFACE
-
 
 CONTAINS
 
@@ -367,7 +375,6 @@ CONTAINS
 
   END FUNCTION globalspace_3D_minmaxmean
   !-----------------------------------------------------------------------
-
   !-----------------------------------------------------------------------
   !>
   FUNCTION globalspace_3D_sum(values, indexed_subset, start_level, end_level, weights) result(total_sum)
@@ -522,6 +529,15 @@ CONTAINS
 
   END FUNCTION new_statistic_no_bars
   !-----------------------------------------------------------------------
+
+  !-----------------------------------------------------------------------
+  !>
+  !! Creates a new statistics object and returns its id.
+  !! The statistic arrays are not allocated.
+  INTEGER FUNCTION new_statistic_with_pointers(target,source,mode)
+    REAL(wp), TARGET               :: target,source
+    INTEGER,  INTENT(in), OPTIONAL :: mode
+  END FUNCTION new_statistic_with_pointers
 
   !-----------------------------------------------------------------------
   !>
@@ -795,6 +811,27 @@ CONTAINS
 
   END SUBROUTINE init_statistic_object
   !-----------------------------------------------------------------------
+
+  !-----------------------------------------------------------------------
+  !>
+  !! Initializes a new statistic object with source and target pointers
+  SUBROUTINE init_statistic_object_with_pointers(statistic_id,source,summation,mean,maximum,minimum)
+    INTEGER, INTENT(in)            :: statistic_id
+    REAL(wp), POINTER              :: source
+    REAL(wp), POINTER, OPTIONAL    :: summation,mean,maximum,minimum
+
+    statistic_object(statistic_id)%no_of_values = 0
+   !IF (PRESENT(summation)) THEN
+   !  statistic_object(statistic_id)%sum_of_values => summation
+   !END IF
+   !IF (PRESENT(maximum)) THEN
+   !  statistic_object(statistic_id)%max_of_values => maximum
+   !END IF
+   !IF (PRESENT(minimum)) THEN
+   !  statistic_object(statistic_id)%min_of_values => minimum
+   !END IF
+    statistic_object(statistic_id)%mode = ADD_VALUE
+  END SUBROUTINE init_statistic_object_with_pointers
 
   !-----------------------------------------------------------------------
   !>

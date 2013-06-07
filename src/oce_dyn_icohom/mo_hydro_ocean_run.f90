@@ -682,4 +682,7 @@ CONTAINS
       END DO
     END DO
   END SUBROUTINE add_fields_2d
+
+  SUBROUTINE new_ocean_statistics()
+  END SUBROUTINE new_ocean_statistics
 END MODULE mo_hydro_ocean_run
