@@ -2178,6 +2178,16 @@ MODULE mo_nonhydro_state
                 & ldims=shape2d_c )
 
 
+    ! Implicit weight in vertical wind solver - save array
+    ! vwind_impl_wgt_sv  p_metrics%vwind_impl_wgt_sv(nproma,nblks_c)
+    !
+    cf_desc    = t_cf_var('Implicit_weight_in_vertical_wind_solver - save array', '-',       &
+      &                   'Implicit weight in vertical wind solver - save array', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( p_metrics_list, 'vwind_impl_wgt_sv', p_metrics%vwind_impl_wgt_sv,   &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,      &
+                & ldims=shape2d_c )
+
 
 ! These fields are needed for triangles only once the initialization in
 ! mo_nh_testcases is properly rewritten for hexagons
