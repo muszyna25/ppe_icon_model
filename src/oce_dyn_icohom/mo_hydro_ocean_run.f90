@@ -137,6 +137,9 @@ INTERFACE add_fields
   MODULE PROCEDURE add_fields_3d
   MODULE PROCEDURE add_fields_2d
 END INTERFACE add_fields
+
+CHARACTER(len=12)  :: str_module = 'HYDRO-ocerun'  ! Output of module for 1 line debug
+INTEGER            :: idt_src                      ! Level of detail for 1 line debug
 !
 !-------------------------------------------------------------------------
 
@@ -257,6 +260,13 @@ CONTAINS
           & p_os(jg)%p_prog(nold(1))%vn,         &
           & p_os(jg)%p_diag,                     &
           & p_op_coeff)
+
+        ! activate for calc_scalar_product_veloc_3D
+        !---------DEBUG DIAGNOSTICS-------------------------------------------
+        idt_src=3  ! output print level (1-5, fix)
+        CALL dbg_print('HydOce: ScaProdVel kin'    ,p_os(jg)%p_diag%kin        ,str_module,idt_src)
+        CALL dbg_print('HydOce: ScaProdVel ptp_vn' ,p_os(jg)%p_diag%ptp_vn     ,str_module,idt_src)
+        !---------------------------------------------------------------------
 
       ENDIF
       IF (ltimer) CALL timer_stop(timer_upd_flx)

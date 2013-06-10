@@ -1479,11 +1479,12 @@ SUBROUTINE calc_normal_velocity_ab_mimetic(p_patch_3D,p_os, p_op_coeff, p_ext_da
 !                                    & p_os%p_diag,            &
 !                                    & p_op_coeff)
 
-    !---------DEBUG DIAGNOSTICS-------------------------------------------
-    idt_src=4  ! output print level (1-5, fix)
-    CALL dbg_print('NorVel: Staggered, kin'    ,p_os%p_diag%kin        ,str_module,idt_src)
-    CALL dbg_print('NorVel: Staggered, ptp_vn' ,p_os%p_diag%ptp_vn     ,str_module,idt_src)
-    !---------------------------------------------------------------------
+!   for calc_scalar_product_veloc_3D:
+!   !---------DEBUG DIAGNOSTICS-------------------------------------------
+!   idt_src=4  ! output print level (1-5, fix)
+!   CALL dbg_print('NorVel: Staggered, kin'    ,p_os%p_diag%kin        ,str_module,idt_src)
+!   CALL dbg_print('NorVel: Staggered, ptp_vn' ,p_os%p_diag%ptp_vn     ,str_module,idt_src)
+!   !---------------------------------------------------------------------
   ENDIF
   !CALL message (TRIM(routine), 'end')
 
