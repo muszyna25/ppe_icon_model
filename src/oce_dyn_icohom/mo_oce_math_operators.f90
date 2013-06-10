@@ -61,6 +61,7 @@ MODULE mo_oce_math_operators
   USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
   USE mo_sync,                ONLY: SYNC_C, SYNC_E, SYNC_V, sync_patch_array
+  USE mo_grid_config,         ONLY: n_dom
 
   IMPLICIT NONE
 
@@ -1419,12 +1420,13 @@ CONTAINS
     INTEGER            :: jc, jb, je
     INTEGER            :: il_c1, ib_c1, il_c2, ib_c2
     REAL(wp)           :: z_dist_e_c1, z_dist_e_c2
-    TYPE(t_subset_range), POINTER :: all_cells, edges_in_domain
+    TYPE(t_subset_range), POINTER :: all_cells, all_edges, edges_in_domain
     TYPE(t_patch), POINTER        :: p_patch
     !-------------------------------------------------------------------------------
     !CALL message (TRIM(routine), 'start')
     p_patch         => p_patch_3D%p_patch_2D(1)
     all_cells       => p_patch%cells%all
+    all_edges       => p_patch%edges%all
     edges_in_domain => p_patch%edges%in_domain
  
    ! sync before run
@@ -1554,13 +1556,45 @@ CONTAINS
         CALL sync_patch_array(SYNC_E, p_patch, p_os%p_diag%h_e)
     ENDIF
 
+
+  !Update prism thickness. The prism-thickness below the surface is
+  !not updated it is initialized in construct_hydro_ocean_diag
+  !with z-coordinate-thickness.
+    !1) Thickness at cells
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+      DO jc = i_startidx_c, i_endidx_c
+        IF(p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary)THEN
+          p_patch_3D%p_patch_1D(n_dom)%prism_thick_c(jc,1,jb) &
+          &= p_patch_3D%p_patch_1D(n_dom)%prism_thick_flat_sfc_c(jc,1,jb) +p_os%p_prog(nold(1))%h(jc,jb)
+        ELSE
+          !Surfacethickness over land remains zero
+          !p_os%p_diag%prism_thick_c(jc,1,jb) = 0.0_wp
+          p_patch_3D%p_patch_1D(n_dom)%prism_thick_c(jc,1,jb)= 0.0_wp
+        ENDIF
+      END DO
+    END DO
+    !2) Thickness at edges
+    DO jb = all_edges%start_block, all_edges%end_block
+      CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
+      DO je = i_startidx_e, i_endidx_e
+        IF(p_patch_3D%lsm_e(je,1,jb) <= sea_boundary)THEN
+          p_patch_3D%p_patch_1D(n_dom)%prism_thick_e(je,1,jb)&
+          & = p_patch_3D%p_patch_1D(n_dom)%prism_thick_flat_sfc_e(je,1,jb) +p_os%p_diag%h_e(je,jb)
+        ELSE
+          !Surfacethickness over land remains zero
+          p_patch_3D%p_patch_1D(n_dom)%prism_thick_e(je,1,jb)= 0.0_wp
+        ENDIF
+      END DO
+    END DO 
+
     !---------Debug Diagnostics-------------------------------------------
     idt_src=2  ! output print level (1-5, fix)
-    CALL dbg_print('heightRelQuant: h_e'            ,p_os%p_diag%h_e        ,str_module,idt_src)
+    CALL dbg_print('calc_thick: h_e'            ,p_os%p_diag%h_e        ,str_module,idt_src)
+    CALL dbg_print('calc_thick: thick_c'        ,p_os%p_diag%thick_c    ,str_module,idt_src)
+    CALL dbg_print('calc_thick: thick_e'        ,p_os%p_diag%thick_e    ,str_module,idt_src)
     idt_src=3  ! output print level (1-5, fix)
-    CALL dbg_print('heightRelQuant: h_c'            ,p_os%p_prog(nold(1))%h ,str_module,idt_src)
-    CALL dbg_print('heightRelQuant: thick_c'        ,p_os%p_diag%thick_c    ,str_module,idt_src)
-    CALL dbg_print('heightRelQuant: thick_e'        ,p_os%p_diag%thick_e    ,str_module,idt_src)
+    CALL dbg_print('calc_thick: h_old'          ,p_os%p_prog(nold(1))%h ,str_module,idt_src)
     !---------------------------------------------------------------------
   END SUBROUTINE calc_thickness
   !-------------------------------------------------------------------------

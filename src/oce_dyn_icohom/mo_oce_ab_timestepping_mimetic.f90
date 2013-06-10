@@ -166,9 +166,9 @@ SUBROUTINE solve_free_sfc_ab_mimetic(p_patch_3D, p_os, p_ext_data, p_sfc_flx, &
   REAL(wp) :: tolerance =0.0_wp               ! (relative or absolute) tolerance
   INTEGER  :: n_iter                          ! actual number of iterations 
   INTEGER  :: iter_sum                        ! sum of iterations 
-  INTEGER  :: jc,jb,je   ! ,jk,il_v1,il_v2,ib_v1,ib_v2
-  INTEGER  :: i_startidx_c, i_endidx_c
-  INTEGER  :: i_startidx_e, i_endidx_e
+  !INTEGER  :: jc,jb,je   ! ,jk,il_v1,il_v2,ib_v1,ib_v2
+  !INTEGER  :: i_startidx_c, i_endidx_c
+  !INTEGER  :: i_startidx_e, i_endidx_e
   REAL(wp) :: z_h_c(nproma,p_patch_3D%p_patch_2D(1)%nblks_c)
   REAL(wp) :: z_h_e(nproma,p_patch_3D%p_patch_2D(1)%nblks_e)
   LOGICAL  :: lprecon         = .FALSE.
@@ -178,7 +178,7 @@ SUBROUTINE solve_free_sfc_ab_mimetic(p_patch_3D, p_os, p_ext_data, p_sfc_flx, &
   LOGICAL  :: l_maxiter     ! true if reached m iterations
   INTEGER  :: gmres_restart_iterations
   CHARACTER(len=max_char_length) :: string
-  TYPE(t_subset_range), POINTER :: all_cells, all_edges
+  !TYPE(t_subset_range), POINTER :: all_cells, all_edges
   TYPE(t_patch), POINTER :: patch_horz
 
 !TYPE(t_cartesian_coordinates):: z_vn_c(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)
@@ -190,15 +190,16 @@ SUBROUTINE solve_free_sfc_ab_mimetic(p_patch_3D, p_os, p_ext_data, p_sfc_flx, &
   !       & routine = ('mo_oce_ab_timestepping_mimetic:solve_free_sfc_ab_mimetic')
   !-------------------------------------------------------------------------------
   patch_horz => p_patch_3D%p_patch_2D(1)
-  all_cells    => p_patch_3D%p_patch_2D(1)%cells%all
-  all_edges    => p_patch_3D%p_patch_2D(1)%edges%all
+  !all_cells    => p_patch_3D%p_patch_2D(1)%cells%all
+  !all_edges    => p_patch_3D%p_patch_2D(1)%edges%all
   !-------------------------------------------------------------------------------
   !CALL message (TRIM(routine), 'start')
   tolerance                         = solver_tolerance
   z_h_c(1:nproma,1:patch_horz%nblks_c) = 0.0_wp
-  z_h_e(1:nproma,1:patch_horz%nblks_e) = 0.0_wp
+  !z_h_e(1:nproma,1:patch_horz%nblks_e) = 0.0_wp
 
-  CALL sync_patch_array(sync_c, patch_horz, p_os%p_prog(nold(1))%h)
+  ! done in calc_thickness
+  !CALL sync_patch_array(sync_c, patch_horz, p_os%p_prog(nold(1))%h)
   CALL sync_patch_array(sync_e, patch_horz, p_os%p_prog(nold(1))%vn)
 
   IF (is_initial_timestep(timestep) ) THEN
@@ -212,41 +213,8 @@ SUBROUTINE solve_free_sfc_ab_mimetic(p_patch_3D, p_os, p_ext_data, p_sfc_flx, &
   ENDIF
 
 
-  !Update prism thickness. The prism-thickness below the surface is
-  !not updated it is initialized in construct_hydro_ocean_diag
-  !with z-coordinate-thickness.
-    !1) Thickness at cells
-    DO jb = all_cells%start_block, all_cells%end_block
-      CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
-      DO jc = i_startidx_c, i_endidx_c
-        IF(p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary)THEN
-          p_patch_3D%p_patch_1D(n_dom)%prism_thick_c(jc,1,jb) &
-          &= p_patch_3D%p_patch_1D(n_dom)%prism_thick_flat_sfc_c(jc,1,jb) +p_os%p_prog(nold(1))%h(jc,jb)
-        ELSE
-          !Surfacethickness over land remains zero
-          !p_os%p_diag%prism_thick_c(jc,1,jb) = 0.0_wp
-          p_patch_3D%p_patch_1D(n_dom)%prism_thick_c(jc,1,jb)= 0.0_wp
-        ENDIF
-      END DO
-    END DO
-    !2) Thickness at edges
-    DO jb = all_edges%start_block, all_edges%end_block
-      CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
-      DO je = i_startidx_e, i_endidx_e
-        IF(p_patch_3D%lsm_e(je,1,jb) <= sea_boundary)THEN
-          p_patch_3D%p_patch_1D(n_dom)%prism_thick_e(je,1,jb)&
-          & = p_patch_3D%p_patch_1D(n_dom)%prism_thick_flat_sfc_e(je,1,jb) +p_os%p_diag%h_e(je,jb)
-        ELSE
-          !Surfacethickness over land remains zero
-          p_patch_3D%p_patch_1D(n_dom)%prism_thick_e(je,1,jb)= 0.0_wp
-        ENDIF
-      END DO
-    END DO 
-
   !---------DEBUG DIAGNOSTICS-------------------------------------------
   idt_src=2  ! output print level (1-5, fix)
-  CALL dbg_print('on entry: h-old'                ,p_os%p_prog(nold(1))%h ,str_module,idt_src)
-  CALL dbg_print('on entry: h-new'                ,p_os%p_prog(nnew(1))%h ,str_module,idt_src)
   CALL dbg_print('on entry: vn-old'               ,p_os%p_prog(nold(1))%vn,str_module,idt_src)
   idt_src=1  ! output print level (1-5, fix)
   CALL dbg_print('on entry: vn-new'               ,p_os%p_prog(nnew(1))%vn,str_module,idt_src)
@@ -1155,32 +1123,15 @@ TYPE(t_patch), POINTER :: patch_horz
     END DO
   END DO
 
-  !-------------------------------------------------------------------------
-  ! Apply net surface freshwater flux to elevation - incorrect?
- !IF(l_forc_freshw)THEN
- !  DO jb = cells_in_domain%start_block, cells_in_domain%end_block
- !    CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
- !    DO jc = i_startidx_c, i_endidx_c
- !      IF(p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary)THEN
- !        p_os%p_aux%p_rhs_sfc_eq(jc,jb) = ((p_os%p_prog(nold(1))%h(jc,jb)     &
- !                                       & - dtime*(div_z_depth_int_c(jc,jb) + &
- !                                       &          p_sfc_flx%forc_fwfx(jc,jb)) )/gdt2)
- !      ENDIF
- !    ENDDO
- !  END DO
-
- !ELSEIF(.NOT.l_forc_freshw)THEN
-
-    DO jb = cells_in_domain%start_block, cells_in_domain%end_block
-      CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
-      DO jc = i_startidx_c, i_endidx_c
-        IF(p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary)THEN
-          p_os%p_aux%p_rhs_sfc_eq(jc,jb) = ((p_os%p_prog(nold(1))%h(jc,jb)&
-                                         & - dtime*div_z_depth_int_c(jc,jb))/gdt2)
-        ENDIF
-      ENDDO
-    END DO
- !ENDIF
+  DO jb = cells_in_domain%start_block, cells_in_domain%end_block
+    CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
+    DO jc = i_startidx_c, i_endidx_c
+      IF(p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary)THEN
+        p_os%p_aux%p_rhs_sfc_eq(jc,jb) = ((p_os%p_prog(nold(1))%h(jc,jb)&
+                                       & - dtime*div_z_depth_int_c(jc,jb))/gdt2)
+      ENDIF
+    ENDDO
+  END DO
 
   CALL sync_patch_array(SYNC_C, patch_horz, p_os%p_aux%p_rhs_sfc_eq )
 
