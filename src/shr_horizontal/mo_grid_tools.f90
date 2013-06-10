@@ -41,7 +41,7 @@ MODULE mo_grid_tools
   !-------------------------------------------------------------------------
   USE mo_kind,               ONLY: wp
   USE mo_exception,          ONLY: finish, warning
-  USE mo_model_domain,       ONLY: t_patch
+  USE mo_model_domain,       ONLY: t_patch, t_patch_3D
   USE mo_parallel_config,    ONLY: nproma
   USE mo_math_utilities,     ONLY: gvec2cvec, gc2cc
   USE mo_math_types
@@ -73,10 +73,12 @@ CONTAINS
   !>
   ! Fills the edges subset defined by the global_vertex_array.
   ! Also returns the relative orientation
-   SUBROUTINE get_oriented_edges_from_global_vertices(edge_subset, orientation, patch, global_vertex_array, subset_name)
+   SUBROUTINE get_oriented_edges_from_global_vertices(edge_subset, orientation, patch_2D, patch_3D, &
+     & global_vertex_array, subset_name)
     TYPE(t_subset_indexed), INTENT(inout) :: edge_subset
     REAL(wp), POINTER :: orientation(:)
-    TYPE(t_patch), TARGET, INTENT(in) :: patch  ! nag does not return the values in subset
+    TYPE(t_patch), TARGET, INTENT(in),    OPTIONAL :: patch_2D  ! nag does not return the values in subset
+    TYPE(t_patch_3D), TARGET, INTENT(in), OPTIONAL :: patch_3D  ! nag does not return the values in subset
     INTEGER :: global_vertex_array(:)   ! intent in
     CHARACTER(len=*), OPTIONAL :: subset_name
 
@@ -89,12 +91,27 @@ CONTAINS
     INTEGER, POINTER :: local_vertex_array(:), owner_edge_local(:)
 
     CHARACTER(*), PARAMETER :: method_name = "mo_grid_subset:get_oriented_edges_from_global_vertices"
+
     edge_subset%size               = 0
     edge_subset%recommended_stride = 0
     edge_subset%entity_location    = on_edges
-    edge_subset%patch              => patch
-    local_vertex_array             => patch%verts%loc_index
-    owner_edge_local               => patch%edges%owner_local
+    NULLIFY(edge_subset%patch)
+    NULLIFY(edge_subset%patch_3D)
+    ! NULLIFY(edge_subset%block)
+    ! NULLIFY(edge_subset%idx)
+    NULLIFY(orientation)
+
+    IF (PRESENT(patch_3D)) THEN
+      edge_subset%patch_3D => patch_3D
+      edge_subset%patch    => patch_3D%p_patch_2D(1)
+    ELSEIF (PRESENT(patch_2D)) THEN
+      edge_subset%patch    => patch_2D
+    ELSE
+      CALL finish(method_name, "patch is not present")
+    ENDIF
+    local_vertex_array => edge_subset%patch%verts%loc_index
+    owner_edge_local   => edge_subset%patch%edges%owner_local
+
 
     my_proc_id = get_my_mpi_work_id()
 
@@ -124,10 +141,10 @@ CONTAINS
         vertex_block(2) = block_no(local_vertex_1d_index(2))
         vertex_index(2) = index_no(local_vertex_1d_index(2))
 
-        CALL find_oriented_edge_from_vertices(patch=patch,           &   ! in
-          & vertex_blocks=vertex_block, vertex_indexes=vertex_index, &   ! in
-          & edge_block=edge_block, edge_index=edge_index,            &   ! out
-          & edge_orientation=edge_orientation)                           ! out
+        CALL find_oriented_edge_from_vertices(patch=edge_subset%patch, &   ! in
+          & vertex_blocks=vertex_block, vertex_indexes=vertex_index,   &   ! in
+          & edge_block=edge_block, edge_index=edge_index,              &   ! out
+          & edge_orientation=edge_orientation)                             ! out
 
         IF (edge_index > 0) THEN
           IF (owner_edge_local(index_1d(idx=edge_index, block=edge_block)) == my_proc_id) THEN

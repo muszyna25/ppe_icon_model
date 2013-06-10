@@ -36,7 +36,7 @@
 MODULE mo_oce_diagnostics
   USE mo_kind,               ONLY: wp, dp, i8
   USE mo_grid_subset,        ONLY: t_subset_range, get_index_range, t_subset_indexed
-  USE mo_grid_tools,         ONLY:  get_oriented_edges_from_global_vertices
+  USE mo_grid_tools,         ONLY: get_oriented_edges_from_global_vertices
   USE mo_mpi,                ONLY: my_process_is_stdio, p_field_sum, &
     &                              p_comm_work_test, p_comm_work, p_io, p_bcast
   USE mo_sync,               ONLY: global_sum_array
@@ -53,7 +53,7 @@ MODULE mo_oce_diagnostics
   USE mo_physical_constants, ONLY: grav, rho_ref
   USE mo_oce_state,          ONLY: t_hydro_ocean_state, t_hydro_ocean_diag,&
     &                              set_lateral_boundary_values
-  USE mo_model_domain,       ONLY: t_patch, t_patch_3D,t_patch_vert
+  USE mo_model_domain,       ONLY: t_patch, t_patch_3D,t_patch_vert, t_grid_edges
   USE mo_ext_data_types,     ONLY: t_external_data
   USE mo_exception,          ONLY: message, finish, message_text
   USE mo_loopindices,        ONLY: get_indices_c
@@ -72,6 +72,8 @@ MODULE mo_oce_diagnostics
   USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff
   USE mo_io_units,           ONLY: find_next_free_unit
   USE mo_util_file,          ONLY: util_symlink, util_rename, util_islink, util_unlink
+  USE mo_statistics,         ONLY: subset_sum
+
 IMPLICIT NONE
 
 !PRIVATE
@@ -254,12 +256,18 @@ SUBROUTINE construct_oce_diagnostics( p_patch_3D, p_os, oce_ts, datestring )
   ! compute subsets for given sections path allong edges
 
   CALL message (TRIM(routine), 'end')
- CALL get_oriented_edges_from_global_vertices(oce_sections(1)%subset, &
-   &                                          oce_sections(1)%orientation, &
-   &                                          p_patch, gibraltar, 'gibraltar')
- CALL get_oriented_edges_from_global_vertices(oce_sections(2)%subset, &
-   &                                          oce_sections(2)%orientation, &
-   &                                          p_patch, denmark_strait, 'denmark_strait')
+  CALL get_oriented_edges_from_global_vertices(    &
+     &  edge_subset = oce_sections(1)%subset,      &
+     &  orientation = oce_sections(1)%orientation, &
+     &  patch_3D = p_patch_3D,                     &
+     & global_vertex_array = gibraltar,            &
+     & subset_name = 'gibraltar')
+  CALL get_oriented_edges_from_global_vertices(    &
+     &  edge_subset = oce_sections(2)%subset,      &
+     &  orientation = oce_sections(2)%orientation, &
+     &  patch_3D = p_patch_3D,                     &
+     & global_vertex_array =denmark_strait,        &
+     & subset_name = 'denmark_strait')
 END SUBROUTINE construct_oce_diagnostics
 !-------------------------------------------------------------------------
 !
@@ -327,6 +335,7 @@ SUBROUTINE calculate_oce_diagnostics(p_patch_3D, p_os, p_sfc_flx, p_ice, &
   REAL(wp):: prism_vol, surface_height, prism_area, surface_area, z_w
   INTEGER :: reference_timestep
   TYPE(t_patch), POINTER     :: p_patch
+  REAL(wp) :: sflux
 
   TYPE(t_subset_range), POINTER :: owned_cells
   TYPE(t_oce_monitor),  POINTER :: monitor
@@ -517,9 +526,59 @@ SUBROUTINE calculate_oce_diagnostics(p_patch_3D, p_os, p_sfc_flx, p_ice, &
   DO i_no_t=1,no_tracer
     write(line,'(a,'//TRIM(real_fmt)//')') TRIM(line),monitor%tracer_content(i_no_t)
   END DO
+
+  ! fluxes
+  DO i_no_t=1,2
+    sflux = section_flux(oce_sections(i_no_t), p_os%p_prog(1)%vn)
+  ENDDO
+
   write(diag_unit,'(a)') TRIM(line)
 
 END SUBROUTINE calculate_oce_diagnostics
+!-------------------------------------------------------------------------
+
+
+  !-------------------------------------------------------------------------
+  REAL(wp) FUNCTION section_flux(in_oce_section, velocity_values)
+    TYPE(t_oce_section) :: in_oce_section
+    REAL(wp), POINTER :: velocity_values(:,:,:)
+
+    INTEGER :: i, k, edge_idx, edge_block
+    REAL(wp) :: oriented_length
+    REAL(wp), ALLOCATABLE :: flux_weights(:,:)
+    TYPE(t_grid_edges), POINTER ::  edges
+    TYPE(t_patch_vert),POINTER :: patch_vertical
+
+    edges          => in_oce_section%subset%patch%edges
+    patch_vertical => in_oce_section%subset%patch_3D%p_patch_1D(1)
+
+    ! calculate weights
+    ! flux_weights can also be preallocated
+    ALLOCATE(flux_weights(n_zlev, MAX(in_oce_section%subset%size, 1)))
+    flux_weights(:,:) = 0.0_wp
+    DO i=1, in_oce_section%subset%size
+
+      edge_idx   = in_oce_section%subset%idx(i)
+      edge_block = in_oce_section%subset%block(i)
+      oriented_length = edges%primal_edge_length(edge_idx, edge_block) * &
+        & in_oce_section%orientation(i) ! this can also be pre-calculated and stored in in_oce_section%orientation
+
+      DO k=1, n_zlev
+        flux_weights(k, i) = patch_vertical%prism_thick_e(edge_idx, k, edge_block) * oriented_length ! maybe also use slm
+      ENDDO
+
+    ENDDO
+
+    section_flux = subset_sum(                           &
+      & values                 = velocity_values,        &
+      & indexed_subset         = in_oce_section%subset,  &
+      & subset_indexed_weights = flux_weights)
+
+    DEALLOCATE(flux_weights)
+
+  END FUNCTION section_flux
+  !-------------------------------------------------------------------------
+
 !-------------------------------------------------------------------------
 !
 !

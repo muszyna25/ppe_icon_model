@@ -143,6 +143,7 @@ MODULE mo_model_domain
     INTEGER :: recommended_stride  ! in case of parallelization/vectorization
 
     TYPE(t_patch), POINTER :: patch
+    TYPE(t_patch_3D), POINTER :: patch_3D
     INTEGER :: entity_location ! on_cells, on_edges, on_verts
 
     LOGICAL :: is_in_domain

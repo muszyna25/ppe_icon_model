@@ -59,15 +59,16 @@ MODULE mo_statistics
 
   ! NOTE: in order to get correct results make sure you provide the proper range_subset (ie, owned)!
 #ifndef __ICON_GRID_GENERATOR__
+  PUBLIC :: global_minmaxmean, subset_sum
+
   INTERFACE global_minmaxmean
     MODULE PROCEDURE globalspace_2D_minmaxmean
     MODULE PROCEDURE globalspace_3D_minmaxmean
   END INTERFACE global_minmaxmean
-  PUBLIC :: global_minmaxmean
 
-  INTERFACE sum
+  INTERFACE subset_sum
     MODULE PROCEDURE globalspace_3D_sum
-  END INTERFACE sum
+  END INTERFACE subset_sum
 #endif
 
   PUBLIC :: construct_statistic_objects, destruct_statistic_objects
@@ -378,11 +379,13 @@ CONTAINS
   !-----------------------------------------------------------------------
   !>
   FUNCTION globalspace_3D_sum(values, indexed_subset, start_level, end_level, weights, &
-    & max_level_array) result(total_sum)
+    & subset_indexed_weights, max_level_array) result(total_sum)
     REAL(wp) :: values(:,:,:)
     TYPE(t_subset_indexed), TARGET, OPTIONAL :: indexed_subset
     INTEGER,  OPTIONAL  :: start_level, end_level
     REAL(wp), OPTIONAL  :: weights(:,:,:)
+    REAL(wp), OPTIONAL  :: subset_indexed_weights(:,:)  ! weights but indexed but the subset index
+                                                        ! dim: (vertical_levels, indexed_subset%size)
     INTEGER,  OPTIONAL  :: max_level_array(:,:)
     REAL(wp) :: total_sum
 
@@ -418,6 +421,16 @@ CONTAINS
         idx = indexed_subset%idx(i)
         DO level = start_vertical, end_vertical
           sum_value  = sum_value + values(idx, level, block) * weights(idx, level, block)
+        ENDDO
+      ENDDO
+
+    ELSEIF (PRESENT(subset_indexed_weights)) THEN
+
+      DO i=1, indexed_subset%size
+        block = indexed_subset%block(i)
+        idx = indexed_subset%idx(i)
+        DO level = start_vertical, end_vertical
+          sum_value  = sum_value + values(idx, level, block) * subset_indexed_weights(level, i)
         ENDDO
       ENDDO
 
