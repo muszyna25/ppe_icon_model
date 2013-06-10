@@ -158,7 +158,7 @@ END TYPE t_oce_timeseries
 
 TYPE t_oce_section
   TYPE(t_subset_indexed) :: subset
-  REAL(wp), ALLOCATABLE  :: orientation(:)
+  REAL(wp), POINTER  :: orientation(:)
 END TYPE t_oce_section
 
 TYPE(t_oce_section) :: oce_sections(2)

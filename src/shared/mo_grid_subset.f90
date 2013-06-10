@@ -237,7 +237,7 @@ CONTAINS
   ! The global_index_array end is define either by its size or the first non-positive integer
   SUBROUTINE get_oriented_edges_from_global_vertices(edge_subset, orientation, patch, global_vertex_array, subset_name)
     TYPE(t_subset_indexed), INTENT(inout) :: edge_subset
-    REAL(wp), ALLOCATABLE :: orientation(:)
+    REAL(wp), POINTER :: orientation(:)
     TYPE(t_patch), TARGET, INTENT(in) :: patch  ! nag does not return the values in subset
     INTEGER :: global_vertex_array(:)   ! intent in
     CHARACTER(len=*), OPTIONAL :: subset_name
@@ -287,12 +287,14 @@ CONTAINS
 
         ! CALL find_oriented_edge_from_vertices(vertex_block, vertex_index, edge_block, edge_index, edge_orientation)
 
-        IF (owner_edge_local(index_1d(idx=edge_index, block=edge_block)) == my_proc_id) THEN
-          owned_edges = owned_edges + 1
-          tmp_edge_block_array(owned_edges) = edge_block
-          tmp_edge_index_array(owned_edges) = edge_index
-          tmp_orientation(owned_edges)      = edge_orientation
-        ENDIF
+        IF (edge_index > 0) THEN
+          IF (owner_edge_local(index_1d(idx=edge_index, block=edge_block)) == my_proc_id) THEN
+            owned_edges = owned_edges + 1
+            tmp_edge_block_array(owned_edges) = edge_block
+            tmp_edge_index_array(owned_edges) = edge_index
+            tmp_orientation(owned_edges)      = edge_orientation
+         ENDIF
+       ENDIF
 
      ENDIF
 

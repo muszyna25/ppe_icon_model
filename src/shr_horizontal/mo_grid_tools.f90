@@ -53,9 +53,10 @@ MODULE mo_grid_tools
   
   PUBLIC :: calculate_patch_cartesian_positions
   PUBLIC :: rescale_grid
+  PUBLIC :: calculate_edge_area
+
 !  PUBLIC :: create_dummy_cell_closure
-  
-  
+
   CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
   
   
