@@ -240,7 +240,7 @@ CONTAINS
     REAL(wp), ALLOCATABLE :: orientation(:)
     TYPE(t_patch), TARGET, INTENT(in) :: patch  ! nag does not return the values in subset
     INTEGER :: global_vertex_array(:)   ! intent in
-    CHARACTER(len=32), OPTIONAL :: subset_name
+    CHARACTER(len=*), OPTIONAL :: subset_name
 
     INTEGER :: my_proc_id, i, max_allocation_size, owned_edges
     INTEGER :: edge_index, edge_block, edge_orientation

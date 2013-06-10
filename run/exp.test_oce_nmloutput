@@ -89,10 +89,10 @@ start_date="2001-01-01T00:00:00Z"
 #
 #-----------------------------------------------------------------------------
 # model timing
-nhours_data=12
+nhours_data=6
 ndays_file=3750      # new output file generation interval [days]
 ndays_checkp=1850    # write restart file interval [days]
-ndays_restart=1
+ndays_restart=10
 #
 #-----------------------------------------------------------------------------
 # calculate model timesteps using $ndays
@@ -165,11 +165,6 @@ cat > ${ocean_namelist} << EOF
 idbg_elev=5                     ! initialize end level for debug output
   str_mod_tst='all'               ! define modules to print out in debug mode
 /
-&ocean_diagnostics_nml
-  denmark_strait = 2436,2472      ! vertex list R2B04
-  gibraltar = 2393,515            ! vertex list R2B04
-!  drake_passage = 7,8,9
-/
 &ocean_dynamics_nml
 ! 20 unevenly spaced levels used by MPIOM/GR60, limited to 700m at bottom
   n_zlev             =   20      ! number of vertical levels and (dzlev_m) thicknesses
@@ -224,6 +219,11 @@ idbg_elev=5                     ! initialize end level for debug output
   irelax_2d_S        =    1      ! 2-dim relaxation of salinity - see "temperature_relaxation" for parameter values
   relax_2d_mon_S     =    3.0    ! strength of 2-dim relaxation for salinity (months)
   l_forc_freshw      = .TRUE.    ! apply freshwater forcing boundary condition (OMIP only)
+/
+&ocean_diagnostics_nml
+   denmark_strait(1:10) = -1 !2436,2472      ! vertex list R2B04
+   gibraltar(1:10)      = -1 !2393,515            ! vertex list R2B04
+   drake_passage(1:10)  = -1 !7,8,9
 /
 &io_nml
   out_expname   = '${EXPNAME}'

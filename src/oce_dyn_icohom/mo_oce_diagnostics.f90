@@ -160,11 +160,8 @@ TYPE t_oce_section
   TYPE(t_subset_indexed) :: subset
   REAL(wp), ALLOCATABLE  :: orientation(:)
 END TYPE t_oce_section
-TYPE t_oce_sections
-  TYPE(t_oce_section),ALLOCATABLE :: section(:)
-END TYPE t_oce_sections
 
-TYPE(t_oce_sections) :: oce_sections(2)
+TYPE(t_oce_section) :: oce_sections(2)
 PRIVATE :: oce_sections
 
 CONTAINS
@@ -257,12 +254,12 @@ SUBROUTINE construct_oce_diagnostics( p_patch_3D, p_os, oce_ts, datestring )
   ! compute subsets for given sections path allong edges
 
   CALL message (TRIM(routine), 'end')
- !CALL get_oriented_edges_from_global_vertices(oce_sections(1)%section%subset, &
- !  &                                          oce_sections(1)%section%orientation, &
- !  &                                          p_patch, gibraltar, 'gibraltar')
- !CALL get_oriented_edges_from_global_vertices(oce_sections(2)%section%subset, &
- !  &                                          oce_sections(2)%section%orientation, &
- !  &                                          p_patch, denmark_strait, 'denmark_strait')
+ CALL get_oriented_edges_from_global_vertices(oce_sections(1)%subset, &
+   &                                          oce_sections(1)%orientation, &
+   &                                          p_patch, gibraltar, 'gibraltar')
+ CALL get_oriented_edges_from_global_vertices(oce_sections(2)%subset, &
+   &                                          oce_sections(2)%orientation, &
+   &                                          p_patch, denmark_strait, 'denmark_strait')
 END SUBROUTINE construct_oce_diagnostics
 !-------------------------------------------------------------------------
 !

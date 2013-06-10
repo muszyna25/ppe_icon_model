@@ -325,7 +325,7 @@ MODULE mo_ocean_nml
     &                 irelax_3d_S, relax_3d_mon_S, irelax_3d_T, relax_3d_mon_T, &
     &                 l_forc_freshw, limit_elevation, seaice_limit 
 
-  NAMELIST/ocean_diagnostics/ denmark_strait,drake_passage,gibraltar
+  NAMELIST/ocean_diagnostics_nml/ denmark_strait,drake_passage,gibraltar
 
   ! ------------------------------------------------------------------------
   ! 3.0 Namelist variables and auxiliary parameters for octst_nml
@@ -435,7 +435,7 @@ MODULE mo_ocean_nml
      CALL position_nml ('ocean_diagnostics_nml', status=i_status)
      SELECT CASE (i_status)
      CASE (positioned)
-       READ (nnml, ocean_dynamics_nml)
+       READ (nnml, ocean_diagnostics_nml)
      END SELECT
 
      !------------------------------------------------------------
@@ -495,6 +495,7 @@ MODULE mo_ocean_nml
      IF(my_process_is_stdio()) WRITE(nnml_output,nml=ocean_dynamics_nml)
      IF(my_process_is_stdio()) WRITE(nnml_output,nml=ocean_physics_nml)
      IF(my_process_is_stdio()) WRITE(nnml_output,nml=ocean_forcing_and_init_nml)
+     IF(my_process_is_stdio()) WRITE(nnml_output,nml=ocean_diagnostics_nml)
      !------------------------------------------------------------
      ! 6.0 Read octst_nml namelist
      !------------------------------------------------------------
