@@ -35,8 +35,8 @@
 !!
 MODULE mo_oce_diagnostics
   USE mo_kind,               ONLY: wp, dp, i8
-  USE mo_grid_subset,        ONLY: t_subset_range, get_index_range, t_subset_indexed, &
-    &                              get_oriented_edges_from_global_vertices
+  USE mo_grid_subset,        ONLY: t_subset_range, get_index_range, t_subset_indexed
+  USE mo_grid_tools,         ONLY:  get_oriented_edges_from_global_vertices
   USE mo_mpi,                ONLY: my_process_is_stdio, p_field_sum, &
     &                              p_comm_work_test, p_comm_work, p_io, p_bcast
   USE mo_sync,               ONLY: global_sum_array

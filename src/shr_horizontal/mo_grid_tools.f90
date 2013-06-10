@@ -45,7 +45,10 @@ MODULE mo_grid_tools
   USE mo_parallel_config,    ONLY: nproma
   USE mo_math_utilities,     ONLY: gvec2cvec, gc2cc
   USE mo_math_types
-  USE mo_grid_subset,        ONLY: t_subset_range, get_index_range
+  USE mo_grid_subset,        ONLY: t_subset_range, get_index_range, t_subset_indexed, &
+    & block_no, index_no, index_1d
+  USE mo_impl_constants,     ONLY: on_cells, on_edges, on_vertices
+  USE mo_mpi,                ONLY: get_my_mpi_work_id
   
   IMPLICIT NONE
   
@@ -54,6 +57,8 @@ MODULE mo_grid_tools
   PUBLIC :: calculate_patch_cartesian_positions
   PUBLIC :: rescale_grid
   PUBLIC :: calculate_edge_area
+  PUBLIC :: get_oriented_edges_from_global_vertices
+  PUBLIC :: find_oriented_edge_from_vertices
 
 !  PUBLIC :: create_dummy_cell_closure
 
@@ -64,7 +69,158 @@ MODULE mo_grid_tools
   
 CONTAINS
 
+ !----------------------------------------------------
+  !>
+  ! Fills the edges subset defined by the global_vertex_array.
+  ! Also returns the relative orientation
+   SUBROUTINE get_oriented_edges_from_global_vertices(edge_subset, orientation, patch, global_vertex_array, subset_name)
+    TYPE(t_subset_indexed), INTENT(inout) :: edge_subset
+    REAL(wp), POINTER :: orientation(:)
+    TYPE(t_patch), TARGET, INTENT(in) :: patch  ! nag does not return the values in subset
+    INTEGER :: global_vertex_array(:)   ! intent in
+    CHARACTER(len=*), OPTIONAL :: subset_name
+
+    INTEGER :: my_proc_id, i, max_allocation_size, owned_edges
+    INTEGER :: edge_index, edge_block
+    INTEGER :: local_vertex_1d_index(2), vertex_index(2), vertex_block(2)
+    INTEGER, ALLOCATABLE :: tmp_edge_block_array(:), tmp_edge_index_array(:)
+    REAL(wp) :: edge_orientation
+    REAL(wp), ALLOCATABLE :: tmp_orientation(:)
+    INTEGER, POINTER :: local_vertex_array(:), owner_edge_local(:)
+
+    CHARACTER(*), PARAMETER :: method_name = "mo_grid_subset:get_oriented_edges_from_global_vertices"
+    edge_subset%size               = 0
+    edge_subset%recommended_stride = 0
+    edge_subset%entity_location    = on_edges
+    edge_subset%patch              => patch
+    local_vertex_array             => patch%verts%loc_index
+    owner_edge_local               => patch%edges%owner_local
+
+    my_proc_id = get_my_mpi_work_id()
+
+    ! temporary array for keeping track of what's local
+    max_allocation_size = SIZE(global_vertex_array)
+    DO i=1, max_allocation_size
+      IF ( global_vertex_array(i) <= 0 ) EXIT
+    ENDDO
+    IF ( global_vertex_array(i) <= 0) &
+       max_allocation_size = i - 1
+
+    ALLOCATE(tmp_edge_block_array(max_allocation_size), &
+      & tmp_edge_index_array(max_allocation_size),      &
+      & tmp_orientation(max_allocation_size))
+    owned_edges = 0
+    IF (max_allocation_size > 1) &
+      & local_vertex_1d_index(1) = local_vertex_array(global_vertex_array(1))
+    DO i=2, max_allocation_size
+
+      ! get a pair of vertices
+      local_vertex_1d_index(2) = local_vertex_array(global_vertex_array(i))
+
+      IF (local_vertex_1d_index(1) > 0 .AND. local_vertex_1d_index(2) > 0 ) THEN
+        ! find the edge and orientation of these vertices
+        vertex_block(1) = block_no(local_vertex_1d_index(1))
+        vertex_index(1) = index_no(local_vertex_1d_index(1))
+        vertex_block(2) = block_no(local_vertex_1d_index(2))
+        vertex_index(2) = index_no(local_vertex_1d_index(2))
+
+        CALL find_oriented_edge_from_vertices(patch=patch,           &   ! in
+          & vertex_blocks=vertex_block, vertex_indexes=vertex_index, &   ! in
+          & edge_block=edge_block, edge_index=edge_index,            &   ! out
+          & edge_orientation=edge_orientation)                           ! out
+
+        IF (edge_index > 0) THEN
+          IF (owner_edge_local(index_1d(idx=edge_index, block=edge_block)) == my_proc_id) THEN
+            owned_edges = owned_edges + 1
+            tmp_edge_block_array(owned_edges) = edge_block
+            tmp_edge_index_array(owned_edges) = edge_index
+            tmp_orientation(owned_edges)      = edge_orientation
+         ENDIF
+       ENDIF
+
+     ENDIF
+
+     ! get next pair
+     local_vertex_1d_index(1) = local_vertex_1d_index(2)
+
+    ENDDO
+
+    !now fill the edge_subset if not empty
+    IF (owned_edges > 0) THEN
+
+      edge_subset%size = owned_edges
+      edge_subset%recommended_stride = 1  ! needs to be calculated
+      ALLOCATE(edge_subset%block(owned_edges), &
+        &      edge_subset%idx(owned_edges),   &
+        &      orientation(owned_edges))
+
+      DO i=1, owned_edges
+        edge_subset%block(i) = tmp_edge_block_array(i)
+        edge_subset%idx(i)   = tmp_edge_index_array(i)
+        orientation(i)       = tmp_orientation(i)
+      ENDDO
+
+    ENDIF
+
+    DEALLOCATE(tmp_edge_block_array, tmp_edge_index_array, tmp_orientation)
+
+  END SUBROUTINE get_oriented_edges_from_global_vertices
+  !----------------------------------------------------
+
+  !-------------------------------------------------------------------------
+  !> Returns a grid edge -if exists- and the relative orientation defined by two vertices
+  ! Returns 0 if an edge was not found
+  SUBROUTINE find_oriented_edge_from_vertices(patch, vertex_blocks, vertex_indexes, &
+    & edge_block, edge_index, edge_orientation)
+    TYPE(t_patch), TARGET, INTENT(in) :: patch
+    INTEGER, INTENT(in)   :: vertex_indexes(2), vertex_blocks(2)
+    INTEGER, INTENT(out)  :: edge_block, edge_index
+    REAL(wp), INTENT(out) :: edge_orientation
   
+    INTEGER :: i, j, edge1_block, edge1_idx
+    LOGICAL :: found
+
+    edge_block = 0
+    edge_index = 0
+    edge_orientation = 0.0_wp
+
+    ! just brute force search
+    found = .false.
+    DO i=1, patch%verts%num_edges(vertex_indexes(1), vertex_blocks(1))
+      edge1_block = patch%verts%edge_blk(vertex_indexes(1), vertex_blocks(1), i)
+      edge1_idx   = patch%verts%edge_idx(vertex_indexes(1), vertex_blocks(1), i)
+
+      DO j=1, patch%verts%num_edges(vertex_indexes(2), vertex_blocks(2))
+
+         IF (patch%verts%edge_idx(vertex_indexes(2), vertex_blocks(2), j) == edge1_idx .AND. &
+          &  patch%verts%edge_blk(vertex_indexes(2), vertex_blocks(2), j) == edge1_block) THEN
+            found = .true.
+          EXIT
+        ENDIF
+
+      ENDDO
+
+      IF (found) EXIT
+
+    ENDDO
+
+    IF (found) THEN
+
+      edge_block = edge1_block
+      edge_index = edge1_idx
+      ! fill the orientation
+      IF (patch%edges%vertex_idx(edge_index, edge_block, 1) == vertex_indexes(1) .AND. &
+        & patch%edges%vertex_blk(edge_index, edge_block, 1) == vertex_blocks(1)) THEN
+        edge_orientation = patch%edges%system_orientation(edge_index, edge_block)
+      ELSE
+        edge_orientation = -patch%edges%system_orientation(edge_index, edge_block)
+      ENDIF
+
+    ENDIF
+
+  END SUBROUTINE find_oriented_edge_from_vertices
+
+
   !-------------------------------------------------------------------------
   !> Rescale grids
   ! Note: this does not rescale the cartesian coordinates (used in torus)
@@ -263,6 +419,7 @@ CONTAINS
     
   END SUBROUTINE calculate_patch_cartesian_positions
   !-------------------------------------------------------------------------
+
     
   !-------------------------------------------------------------------------
   !>
