@@ -290,7 +290,7 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
       ! fraction and tile 1 of the land points)
       IF (ntiles_total == 1) THEN ! tile approach not used; use tile-averaged fields from extpar
 
-        CALL turbtran(iini=0, dt_tke=tcall_turb_jg, nprv=1, ntur=1, ntim=1,            & !in
+        CALL turbtran(iini=0, ltkeinp=.FALSE., lgz0inp=.FALSE., dt_tke=tcall_turb_jg, nprv=1, ntur=1, ntim=1,  & !in
           & ie=nproma, ke=nlev, ke1=nlevp1,                                            & !in
           & istart=i_startidx, iend=i_endidx, istartpar=i_startidx, iendpar=i_endidx,  & !in
           & l_hori=phy_params(jg)%mean_charlen, hhl=p_metrics%z_ifc(:,:,jb),           & !in
@@ -408,7 +408,7 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
             rcld_t(ic,1:3,jt)  = prm_diag%rcld(jc,nlev-1:nlevp1,jb)
           ENDDO
 
-          CALL turbtran(iini=0, dt_tke=tcall_turb_jg, nprv=1, ntur=1, ntim=1,         & !in
+          CALL turbtran(iini=0, ltkeinp=.FALSE., lgz0inp=.FALSE., dt_tke=tcall_turb_jg, nprv=1, ntur=1, ntim=1,    & !in
             & ie=nproma, ke=2, ke1=3,                                                 & !in
             & istart=1, iend=i_count, istartpar=1, iendpar=i_count,                   & !in
             & l_hori=phy_params(jg)%mean_charlen, hhl=z_ifc_t(:,:,jt),                & !in

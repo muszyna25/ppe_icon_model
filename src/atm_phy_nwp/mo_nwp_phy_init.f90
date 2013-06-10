@@ -56,7 +56,7 @@ MODULE mo_nwp_phy_init
   USE mo_vertical_coord_table,ONLY: vct_a, vct
   USE mo_model_domain,        ONLY: t_patch
   USE mo_impl_constants,      ONLY: min_rlcell, min_rlcell_int, zml_soil, io3_ape, &
-    &                               MODE_COMBINED, MODE_IFSANA
+    &                               MODE_COMBINED, MODE_IFSANA, MODE_DWDANA
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c
   USE mo_loopindices,         ONLY: get_indices_c
   USE mo_parallel_config,     ONLY: nproma
@@ -169,8 +169,9 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
   REAL(wp), PARAMETER :: t00    = 288.15_wp       ! [m]    temperature at sea level
   REAL(wp) :: ttropo, ptropo, temp, zfull
 
-  LOGICAL  :: lland, lglac
-  
+  LOGICAL :: lland, lglac
+  LOGICAL :: ltkeinp_loc, lgz0inp_loc  !< turbtran switches
+
   INTEGER :: jb,ic,jc,jt,jg,ist
   INTEGER :: nlev, nlevp1            !< number of full and half levels
   INTEGER :: nshift                  !< shift with respect to global grid
@@ -758,10 +759,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
   !< setup for turbulence
   !------------------------------------------
 
-  ! nsfc_type is used for dimensioning local variables in the NWP interface;
-  ! thus, it must be set even if vdiff is not called
-  nsfc_type = 1 ! for the time being, nsfc_type must be reset to 1 because land
-                ! is not yet avaliable for vdiff
+
 
   IF (  atm_phy_nwp_config(jg)%inwp_turb == 1 .AND. .NOT. is_restart_run() ) THEN
   
@@ -833,14 +831,37 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
 
-!$OMP DO PRIVATE(jb,jk,i_startidx,i_endidx,ic,jc,jt) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,jk,i_startidx,i_endidx,ic,jc,jt, &
+!$OMP            ltkeinp_loc,lgz0inp_loc) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
         &                i_startidx, i_endidx, rl_start, rl_end)
 
 
-      CALL turbtran(iini=1, dt_tke=pdtime, nprv=1, ntur=1, ntim=1, &
+
+      IF (ANY((/MODE_DWDANA,MODE_COMBINED/) == init_mode) ) THEN
+        !
+        ! TKE and gz0 are not re-initialized, but re-used from the first guess
+        !
+        ltkeinp_loc = .TRUE.   ! do not re-initialize TKE field
+        lgz0inp_loc = .FALSE.  ! do re-initialize gz0 field (water points only)
+        ! Note that TKE in turbtran/turbdiff is defined as the turbulence velocity scale
+        ! TVS=SQRT(2*TKE)
+        !
+        DO jk =1,nlevp1
+          p_prog_now%tke(i_startidx:i_endidx,jk,jb)= SQRT(2.0_wp                        &
+            &                                * p_prog_now%tke(i_startidx:i_endidx,jk,jb))
+        ENDDO
+      ELSE
+        ltkeinp_loc = .FALSE.  ! do not re-initialize TKE field
+        lgz0inp_loc = .FALSE.  ! do re-initialize gz0 field (water points only)
+      ENDIF
+
+
+      CALL turbtran(iini=1, ltkeinp=ltkeinp_loc, lgz0inp=lgz0inp_loc, &
+!
+         &  dt_tke=pdtime, nprv=1, ntur=1, ntim=1,                    &
 !
          &  ie=nproma, ke=nlev, ke1=nlevp1,                                           &
          &  istart=i_startidx, iend=i_endidx, istartpar=i_startidx, iendpar=i_endidx, &
@@ -871,7 +892,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
 
 
 
-      CALL turbdiff(iini=1, lstfnct=.TRUE., &
+      CALL turbdiff(iini=1, ltkeinp=ltkeinp_loc, lgz0inp=lgz0inp_loc, lstfnct=.TRUE., &
 !
          &  dt_var=pdtime, dt_tke=pdtime, nprv=1, ntur=1, ntim=1, &
 !
@@ -1016,6 +1037,11 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
     ! For surface processes: 
     ! nsfc_type, iwtr, etc. are set in this subroutine. 
     ! See mo_icoham_sfc_indicies.f90 for further details.
+
+    ! nsfc_type is used for dimensioning local variables in the NWP interface;
+    ! thus, it must be set even if vdiff is not called
+    nsfc_type = 1 ! for the time being, nsfc_type must be reset to 1 because land
+                  ! is not yet avaliable for vdiff
 
       !<KF temporarly set in, has to moved to general place
     CALL init_convect_tables
