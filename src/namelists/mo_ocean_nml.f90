@@ -432,6 +432,11 @@ MODULE mo_ocean_nml
        READ (nnml, ocean_forcing_and_init_nml)
      END SELECT
 
+     CALL position_nml ('ocean_diagnostics_nml', status=i_status)
+     SELECT CASE (i_status)
+     CASE (positioned)
+       READ (nnml, ocean_dynamics_nml)
+     END SELECT
 
      !------------------------------------------------------------
      ! 6.0 check the consistency of the parameters

@@ -52,6 +52,7 @@ MODULE mo_grid_subset
   PUBLIC :: fill_subset_from_global_index
   PUBLIC :: read_subset, write_subset
   PUBLIC :: block_no, index_no
+  PUBLIC :: get_oriented_edges_from_global_vertices
 
 CONTAINS
 

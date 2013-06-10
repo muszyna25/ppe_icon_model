@@ -35,27 +35,28 @@
 !!
 MODULE mo_oce_diagnostics
   USE mo_kind,               ONLY: wp, dp, i8
-  USE mo_grid_subset,        ONLY: t_subset_range, get_index_range
+  USE mo_grid_subset,        ONLY: t_subset_range, get_index_range, t_subset_indexed, &
+    &                              get_oriented_edges_from_global_vertices
   USE mo_mpi,                ONLY: my_process_is_stdio, p_field_sum, &
     &                              p_comm_work_test, p_comm_work, p_io, p_bcast
   USE mo_sync,               ONLY: global_sum_array
-  USE mo_math_utilities,     ONLY: t_cartesian_coordinates!, gc2cc
+  USE mo_math_utilities,     ONLY: t_cartesian_coordinates
   USE mo_math_constants,     ONLY: rad2deg
   USE mo_impl_constants,     ONLY: sea_boundary,sea, &
     &                              min_rlcell, min_rledge, min_rlcell, &
     &                              max_char_length, MIN_DOLIC
-  USE mo_ocean_nml,          ONLY: n_zlev, no_tracer, &
+  USE mo_ocean_nml,          ONLY: n_zlev, no_tracer, gibraltar, denmark_strait,&
       &                            ab_const, ab_beta, ab_gam, iswm_oce, idisc_scheme
   USE mo_dynamics_config,    ONLY: nold,nnew
   USE mo_parallel_config,    ONLY: nproma, p_test_run
   USE mo_run_config,         ONLY: dtime, nsteps
   USE mo_physical_constants, ONLY: grav, rho_ref
-  USE mo_oce_state,          ONLY: t_hydro_ocean_state, t_hydro_ocean_diag,&! v_base, &
+  USE mo_oce_state,          ONLY: t_hydro_ocean_state, t_hydro_ocean_diag,&
     &                              set_lateral_boundary_values
   USE mo_model_domain,       ONLY: t_patch, t_patch_3D,t_patch_vert
   USE mo_ext_data_types,     ONLY: t_external_data
   USE mo_exception,          ONLY: message, finish, message_text
-  USE mo_loopindices,        ONLY: get_indices_c!, get_indices_e
+  USE mo_loopindices,        ONLY: get_indices_c
   USE mo_oce_physics,        ONLY: t_ho_params
   USE mo_sea_ice_types,      ONLY: t_sfc_flx, t_sea_ice
   USE mo_datetime,           ONLY: t_datetime, datetime_to_string, date_len
@@ -155,7 +156,155 @@ TYPE t_oce_timeseries
 
 END TYPE t_oce_timeseries
 
+TYPE t_oce_section
+  TYPE(t_subset_indexed) :: subset
+  REAL(wp), ALLOCATABLE  :: orientation(:)
+END TYPE t_oce_section
+TYPE t_oce_sections
+  TYPE(t_oce_section),ALLOCATABLE :: section(:)
+END TYPE t_oce_sections
+
+TYPE(t_oce_sections) :: oce_sections(2)
+PRIVATE :: oce_sections
+
 CONTAINS
+!-------------------------------------------------------------------------
+!
+!
+!  !The constructor of the types related to ocean diagnostics
+!>
+!!
+!!
+!! @par Revision History
+!! Developed  by  Peter Korn, MPI-M (2011).
+!!
+SUBROUTINE construct_oce_diagnostics( p_patch_3D, p_os, oce_ts, datestring )
+  TYPE(t_patch_3D ),TARGET, INTENT(INOUT) :: p_patch_3D
+  TYPE(t_hydro_ocean_state), TARGET       :: p_os
+  TYPE(t_oce_timeseries),POINTER          :: oce_ts
+  CHARACTER(len=32)                       :: datestring
+
+  !local variable
+  INTEGER :: i,ist
+  CHARACTER(len=max_char_length), PARAMETER :: &
+    & routine = ('mo_oce_diagnostics:construct_oce_diagnostics')
+  !-----------------------------------------------------------------------
+  CHARACTER(len=max_char_length)      :: headerLine
+  TYPE(t_patch), POINTER              :: p_patch
+  CHARACTER(len=max_char_length)      :: listname
+  INTEGER :: nblks_c,nblks_e,nblks_v
+  !-----------------------------------------------------------------------
+  p_patch   => p_patch_3D%p_patch_2D(1)
+
+  CALL message (TRIM(routine), 'start')
+  ALLOCATE(oce_ts)
+
+  ALLOCATE(oce_ts%oce_diagnostics(0:nsteps))
+
+  oce_ts%oce_diagnostics(0:nsteps)%volume                     = 0.0_wp
+  oce_ts%oce_diagnostics(0:nsteps)%kin_energy                 = 0.0_wp
+  oce_ts%oce_diagnostics(0:nsteps)%pot_energy                 = 0.0_wp
+  oce_ts%oce_diagnostics(0:nsteps)%total_energy               = 0.0_wp
+  oce_ts%oce_diagnostics(0:nsteps)%vorticity                  = 0.0_wp
+  oce_ts%oce_diagnostics(0:nsteps)%enstrophy                  = 0.0_wp
+  oce_ts%oce_diagnostics(0:nsteps)%potential_enstrophy        = 0.0_wp
+  oce_ts%oce_diagnostics(0:nsteps)%absolute_vertical_velocity = 0.0_wp
+
+  oce_ts%oce_diagnostics(0:nsteps)%forc_swflx                 = 0.0_wp
+  oce_ts%oce_diagnostics(0:nsteps)%forc_lwflx                 = 0.0_wp
+  oce_ts%oce_diagnostics(0:nsteps)%forc_ssflx                 = 0.0_wp
+  oce_ts%oce_diagnostics(0:nsteps)%forc_slflx                 = 0.0_wp
+  oce_ts%oce_diagnostics(0:nsteps)%forc_precip                = 0.0_wp
+  oce_ts%oce_diagnostics(0:nsteps)%forc_evap                  = 0.0_wp
+  oce_ts%oce_diagnostics(0:nsteps)%forc_runoff                = 0.0_wp
+  oce_ts%oce_diagnostics(0:nsteps)%forc_fwbc                  = 0.0_wp
+  oce_ts%oce_diagnostics(0:nsteps)%forc_fwrelax               = 0.0_wp
+  oce_ts%oce_diagnostics(0:nsteps)%forc_fwfx                  = 0.0_wp
+  oce_ts%oce_diagnostics(0:nsteps)%forc_hfrelax               = 0.0_wp
+  oce_ts%oce_diagnostics(0:nsteps)%forc_hflx                  = 0.0_wp
+
+  oce_ts%oce_diagnostics(0:nsteps)%ice_volume_nh              = 0.0_wp
+  oce_ts%oce_diagnostics(0:nsteps)%ice_volume_sh              = 0.0_wp
+  oce_ts%oce_diagnostics(0:nsteps)%ice_extent_nh              = 0.0_wp
+  oce_ts%oce_diagnostics(0:nsteps)%ice_extent_sh              = 0.0_wp
+
+  DO i=0,nsteps
+    ALLOCATE(oce_ts%oce_diagnostics(i)%tracer_content(1:no_tracer))
+    oce_ts%oce_diagnostics(i)%tracer_content(1:no_tracer) = 0.0_wp
+  END DO
+
+  ! open textfile for global timeseries
+  diag_fname = 'oce_diagnostics-'//TRIM(datestring)//'.txt'
+  diag_unit = find_next_free_unit(10,99)
+  OPEN (unit=diag_unit,file=diag_fname,IOSTAT=ist)
+  ! header of the text file
+  headerLine = ''
+  ! * add timestep columns
+  write(headerLine,'(a)') 'step date time'
+  ! * add columne for each monitored variable
+  DO i=1,SIZE(oce_ts%names)
+    WRITE(headerLine,'(a,a,a)')TRIM(headerLine),' ',TRIM(oce_ts%names(i))
+  END DO
+  write(diag_unit,'(a)')TRIM(headerLine)
+
+  ! open file for MOC - extraordinary at this time
+  moc_fname='MOC.'//TRIM(datestring)
+  moc_unit = find_next_free_unit(10,99)
+  OPEN (moc_unit,file=moc_fname,form='unformatted')
+  WRITE(message_text,'(2a)') ' MOC-file opened successfully, filename=',TRIM(moc_fname)
+  CALL message (TRIM(routine), message_text)
+
+  ! compute subsets for given sections path allong edges
+
+  CALL message (TRIM(routine), 'end')
+ !CALL get_oriented_edges_from_global_vertices(oce_sections(1)%section%subset, &
+ !  &                                          oce_sections(1)%section%orientation, &
+ !  &                                          p_patch, gibraltar, 'gibraltar')
+ !CALL get_oriented_edges_from_global_vertices(oce_sections(2)%section%subset, &
+ !  &                                          oce_sections(2)%section%orientation, &
+ !  &                                          p_patch, denmark_strait, 'denmark_strait')
+END SUBROUTINE construct_oce_diagnostics
+!-------------------------------------------------------------------------
+!
+!
+!  !The destructor of the types related to ocean diagnostics
+!>
+!!
+!!
+!! @par Revision History
+!! Developed  by  Peter Korn, MPI-M (2011).
+!!
+SUBROUTINE destruct_oce_diagnostics(oce_ts)
+!
+TYPE(t_oce_timeseries),POINTER         :: oce_ts
+!
+!local variables
+INTEGER :: i,iret
+CHARACTER(len=max_char_length)  :: linkname
+CHARACTER(len=max_char_length)  :: message_text
+
+CHARACTER(len=max_char_length), PARAMETER :: &
+       & routine = ('mo_oce_diagnostics:destruct_oce_diagnostics')
+!-----------------------------------------------------------------------
+   DO i=0,nsteps
+     DEALLOCATE(oce_ts%oce_diagnostics(i)%tracer_content)
+   END DO
+   DEALLOCATE(oce_ts%oce_diagnostics)
+   DEALLOCATE(oce_ts)
+   ! close the global diagnostics text file and the SRV MOC file
+   CLOSE(unit=diag_unit)
+   CLOSE(unit=moc_unit)
+   ! create a link to the last diagnostics file
+   linkname = 'oce_diagnostics.txt'
+   IF (util_islink(TRIM(linkname))) THEN
+     iret = util_unlink(TRIM(linkname))
+   ENDIF
+   iret = util_symlink(TRIM(diag_fname),TRIM(linkname))
+   WRITE(message_text,'(t1,a,t50,a)') TRIM(diag_fname), TRIM(linkname)
+   CALL message('',message_text)
+
+CALL message (TRIM(routine), 'end')
+END SUBROUTINE destruct_oce_diagnostics
 !-------------------------------------------------------------------------
 !>
 ! !  calculate_oce_diagnostics
@@ -374,135 +523,6 @@ SUBROUTINE calculate_oce_diagnostics(p_patch_3D, p_os, p_sfc_flx, p_ice, &
   write(diag_unit,'(a)') TRIM(line)
 
 END SUBROUTINE calculate_oce_diagnostics
-!-------------------------------------------------------------------------
-!
-!
-!  !The constructor of the types related to ocean diagnostics
-!>
-!!
-!!
-!! @par Revision History
-!! Developed  by  Peter Korn, MPI-M (2011).
-!!
-SUBROUTINE construct_oce_diagnostics( p_patch_3D, p_os, oce_ts, datestring )
-  TYPE(t_patch_3D ),TARGET, INTENT(INOUT) :: p_patch_3D
-  TYPE(t_hydro_ocean_state), TARGET       :: p_os
-  TYPE(t_oce_timeseries),POINTER          :: oce_ts
-  CHARACTER(len=32)                       :: datestring
-
-  !local variable
-  INTEGER :: i,ist
-  CHARACTER(len=max_char_length), PARAMETER :: &
-    & routine = ('mo_oce_diagnostics:construct_oce_diagnostics')
-  !-----------------------------------------------------------------------
-  CHARACTER(len=max_char_length)      :: headerLine
-  TYPE(t_patch), POINTER              :: p_patch
-  CHARACTER(len=max_char_length)      :: listname
-  INTEGER :: nblks_c,nblks_e,nblks_v
-  !-----------------------------------------------------------------------
-  p_patch   => p_patch_3D%p_patch_2D(1)
-
-  CALL message (TRIM(routine), 'start')
-  ALLOCATE(oce_ts)
-
-  ALLOCATE(oce_ts%oce_diagnostics(0:nsteps))
-
-  oce_ts%oce_diagnostics(0:nsteps)%volume                     = 0.0_wp
-  oce_ts%oce_diagnostics(0:nsteps)%kin_energy                 = 0.0_wp
-  oce_ts%oce_diagnostics(0:nsteps)%pot_energy                 = 0.0_wp
-  oce_ts%oce_diagnostics(0:nsteps)%total_energy               = 0.0_wp
-  oce_ts%oce_diagnostics(0:nsteps)%vorticity                  = 0.0_wp
-  oce_ts%oce_diagnostics(0:nsteps)%enstrophy                  = 0.0_wp
-  oce_ts%oce_diagnostics(0:nsteps)%potential_enstrophy        = 0.0_wp
-  oce_ts%oce_diagnostics(0:nsteps)%absolute_vertical_velocity = 0.0_wp
-
-  oce_ts%oce_diagnostics(0:nsteps)%forc_swflx                 = 0.0_wp
-  oce_ts%oce_diagnostics(0:nsteps)%forc_lwflx                 = 0.0_wp
-  oce_ts%oce_diagnostics(0:nsteps)%forc_ssflx                 = 0.0_wp
-  oce_ts%oce_diagnostics(0:nsteps)%forc_slflx                 = 0.0_wp
-  oce_ts%oce_diagnostics(0:nsteps)%forc_precip                = 0.0_wp
-  oce_ts%oce_diagnostics(0:nsteps)%forc_evap                  = 0.0_wp
-  oce_ts%oce_diagnostics(0:nsteps)%forc_runoff                = 0.0_wp
-  oce_ts%oce_diagnostics(0:nsteps)%forc_fwbc                  = 0.0_wp
-  oce_ts%oce_diagnostics(0:nsteps)%forc_fwrelax               = 0.0_wp
-  oce_ts%oce_diagnostics(0:nsteps)%forc_fwfx                  = 0.0_wp
-  oce_ts%oce_diagnostics(0:nsteps)%forc_hfrelax               = 0.0_wp
-  oce_ts%oce_diagnostics(0:nsteps)%forc_hflx                  = 0.0_wp
-
-  oce_ts%oce_diagnostics(0:nsteps)%ice_volume_nh              = 0.0_wp
-  oce_ts%oce_diagnostics(0:nsteps)%ice_volume_sh              = 0.0_wp
-  oce_ts%oce_diagnostics(0:nsteps)%ice_extent_nh              = 0.0_wp
-  oce_ts%oce_diagnostics(0:nsteps)%ice_extent_sh              = 0.0_wp
-
-  DO i=0,nsteps
-    ALLOCATE(oce_ts%oce_diagnostics(i)%tracer_content(1:no_tracer))
-    oce_ts%oce_diagnostics(i)%tracer_content(1:no_tracer) = 0.0_wp
-  END DO
-
-  ! open textfile for global timeseries
-  diag_fname = 'oce_diagnostics-'//TRIM(datestring)//'.txt'
-  diag_unit = find_next_free_unit(10,99)
-  OPEN (unit=diag_unit,file=diag_fname,IOSTAT=ist)
-  ! header of the text file
-  headerLine = ''
-  ! * add timestep columns
-  write(headerLine,'(a)') 'step date time'
-  ! * add columne for each monitored variable
-  DO i=1,SIZE(oce_ts%names)
-    WRITE(headerLine,'(a,a,a)')TRIM(headerLine),' ',TRIM(oce_ts%names(i))
-  END DO
-  write(diag_unit,'(a)')TRIM(headerLine)
-
-  ! open file for MOC - extraordinary at this time
-  moc_fname='MOC.'//TRIM(datestring)
-  moc_unit = find_next_free_unit(10,99)
-  OPEN (moc_unit,file=moc_fname,form='unformatted')
-  WRITE(message_text,'(2a)') ' MOC-file opened successfully, filename=',TRIM(moc_fname)
-  CALL message (TRIM(routine), message_text)
-
-  CALL message (TRIM(routine), 'end')
-END SUBROUTINE construct_oce_diagnostics
-!-------------------------------------------------------------------------
-!
-!
-!  !The destructor of the types related to ocean diagnostics
-!>
-!!
-!!
-!! @par Revision History
-!! Developed  by  Peter Korn, MPI-M (2011).
-!!
-SUBROUTINE destruct_oce_diagnostics(oce_ts)
-!
-TYPE(t_oce_timeseries),POINTER         :: oce_ts
-!
-!local variables
-INTEGER :: i,iret
-CHARACTER(len=max_char_length)  :: linkname
-CHARACTER(len=max_char_length)  :: message_text
-
-CHARACTER(len=max_char_length), PARAMETER :: &
-       & routine = ('mo_oce_diagnostics:destruct_oce_diagnostics')
-!-----------------------------------------------------------------------
-   DO i=0,nsteps
-     DEALLOCATE(oce_ts%oce_diagnostics(i)%tracer_content)
-   END DO
-   DEALLOCATE(oce_ts%oce_diagnostics)
-   DEALLOCATE(oce_ts)
-   ! close the global diagnostics text file and the SRV MOC file
-   CLOSE(unit=diag_unit)
-   CLOSE(unit=moc_unit)
-   ! create a link to the last diagnostics file
-   linkname = 'oce_diagnostics.txt'
-   IF (util_islink(TRIM(linkname))) THEN
-     iret = util_unlink(TRIM(linkname))
-   ENDIF
-   iret = util_symlink(TRIM(diag_fname),TRIM(linkname))
-   WRITE(message_text,'(t1,a,t50,a)') TRIM(diag_fname), TRIM(linkname)
-   CALL message('',message_text)
-
-CALL message (TRIM(routine), 'end')
-END SUBROUTINE destruct_oce_diagnostics
 !-------------------------------------------------------------------------
 !
 !
