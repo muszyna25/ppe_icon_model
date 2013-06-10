@@ -132,7 +132,7 @@ MODULE mo_model_domain
   !----------------------------------------------------
   ! TODO Abstraction of the two types of subsets
   !----------------------------------------------------
-  !> Defines a subset in a range (in terms of blocks)
+  !> Defines a subset explicitly using an array of indexes
   TYPE :: t_subset_indexed
 
     INTEGER, ALLOCATABLE :: block(:)

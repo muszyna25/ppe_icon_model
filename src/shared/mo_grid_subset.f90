@@ -34,6 +34,7 @@
 !!
 MODULE mo_grid_subset
 
+  USE mo_kind,           ONLY: wp
   USE mo_exception,      ONLY: warning, finish
   USE mo_model_domain,   ONLY: t_patch, t_subset_range, t_subset_range_index, t_subset_indexed
   USE mo_mpi,            ONLY: get_my_mpi_work_id
@@ -229,6 +230,97 @@ CONTAINS
   END SUBROUTINE fill_subset_from_global_index
   !----------------------------------------------------
 
+  !----------------------------------------------------
+  !>
+  ! Fills the subset_indexed with the indexes defined by the global_index_array
+  ! The global_index_array end is define either by its size or the first non-positive integer
+  SUBROUTINE get_oriented_edges_from_global_vertices(edge_subset, orientation, patch, global_vertex_array, subset_name)
+    TYPE(t_subset_indexed), INTENT(inout) :: edge_subset
+    REAL(wp), ALLOCATABLE :: orientation(:)
+    TYPE(t_patch), TARGET, INTENT(in) :: patch  ! nag does not return the values in subset
+    INTEGER :: global_vertex_array(:)   ! intent in
+    CHARACTER(len=32), OPTIONAL :: subset_name
+
+    INTEGER :: my_proc_id, i, max_allocation_size, owned_edges
+    INTEGER :: edge_index, edge_block, edge_orientation
+    INTEGER :: local_vertex_1d_index(2), vertex_index(2), vertex_block(2)
+    INTEGER, ALLOCATABLE :: tmp_edge_block_array(:), tmp_edge_index_array(:)
+    REAL(wp), ALLOCATABLE :: tmp_orientation(:)
+    INTEGER, POINTER :: local_vertex_array(:), owner_edge_local(:)
+
+    CHARACTER(*), PARAMETER :: method_name = "mo_grid_subset:get_oriented_edges_from_global_vertices"
+    edge_subset%size               = 0
+    edge_subset%recommended_stride = 0
+    edge_subset%entity_location    = on_edges
+    edge_subset%patch              => patch
+    local_vertex_array             => patch%verts%loc_index
+    owner_edge_local               => patch%edges%owner_local
+
+    my_proc_id = get_my_mpi_work_id()
+
+    ! temporary array for keeping track of what's local
+    max_allocation_size = SIZE(global_vertex_array)
+    DO i=1, max_allocation_size
+      IF ( global_vertex_array(i) <= 0 ) EXIT
+    ENDDO
+    IF ( global_vertex_array(i) <= 0) &
+       max_allocation_size = i - 1
+
+    ALLOCATE(tmp_edge_block_array(max_allocation_size), &
+      & tmp_edge_index_array(max_allocation_size),      &
+      & tmp_orientation(max_allocation_size))
+    owned_edges = 0
+    IF (max_allocation_size > 1) &
+      & local_vertex_1d_index(1) = local_vertex_array(global_vertex_array(1))
+    DO i=2, max_allocation_size
+
+      ! get a pair of vertices
+      local_vertex_1d_index(2) = local_vertex_array(global_vertex_array(i))
+
+      IF (local_vertex_1d_index(1) > 0 .AND. local_vertex_1d_index(2) > 0 ) THEN
+        ! find the edge and orientation of these vertices
+        vertex_block(1) = block_no(local_vertex_1d_index(1))
+        vertex_index(1) = index_no(local_vertex_1d_index(1))
+        vertex_block(2) = block_no(local_vertex_1d_index(2))
+        vertex_index(2) = index_no(local_vertex_1d_index(2))
+
+        ! CALL find_oriented_edge_from_vertices(vertex_block, vertex_index, edge_block, edge_index, edge_orientation)
+
+        IF (owner_edge_local(index_1d(idx=edge_index, block=edge_block)) == my_proc_id) THEN
+          owned_edges = owned_edges + 1
+          tmp_edge_block_array(owned_edges) = edge_block
+          tmp_edge_index_array(owned_edges) = edge_index
+          tmp_orientation(owned_edges)      = edge_orientation
+        ENDIF
+
+     ENDIF
+
+     ! get next pair
+     local_vertex_1d_index(1) = local_vertex_1d_index(2)
+
+    ENDDO
+
+    !now fill the edge_subset if not empty
+    IF (owned_edges > 0) THEN
+
+      edge_subset%size = owned_edges
+      edge_subset%recommended_stride = 1  ! needs to be calculated
+      ALLOCATE(edge_subset%block(owned_edges), &
+        &      edge_subset%idx(owned_edges),   &
+        &      orientation(owned_edges))
+
+      DO i=1, owned_edges
+        edge_subset%block(i) = tmp_edge_block_array(i)
+        edge_subset%idx(i)   = tmp_edge_index_array(i)
+        orientation(i)       = tmp_orientation(i)
+      ENDDO
+
+    ENDIF
+
+    DEALLOCATE(tmp_edge_block_array, tmp_edge_index_array, tmp_orientation)
+
+  END SUBROUTINE get_oriented_edges_from_global_vertices
+  !----------------------------------------------------
 
   !----------------------------------------------------
   SUBROUTINE get_index_range(subset_range, current_block, start_index, end_index)
@@ -271,21 +363,37 @@ CONTAINS
   !-------------------------------------------------------------------------
   ELEMENTAL INTEGER FUNCTION block_no(j)
     INTEGER, INTENT(in) :: j
-    IF (j==0) THEN
+
+    IF ( j == 0 ) THEN
       block_no = 0
     ELSE
       block_no = (ABS(j)-1)/nproma + 1
     ENDIF
+
   END FUNCTION block_no
   !-------------------------------------------------------------------------
   ELEMENTAL INTEGER FUNCTION index_no(j)
     INTEGER, INTENT(in) :: j
-    IF(j==0) THEN
+
+    IF( j == 0 ) THEN
       index_no = 0
     ELSE
       index_no = SIGN(MOD(ABS(j)-1,nproma)+1, j)
     ENDIF
+
   END FUNCTION index_no
+  !-------------------------------------------------------------------------
+  ELEMENTAL INTEGER FUNCTION index_1d(idx,block)
+    INTEGER, INTENT(in) :: idx, block
+
+    IF( block <= 0 ) THEN
+      index_1d = 0 ! This covers the special case nproma==1,jb=0,jl=1
+                 ! All other cases are invalid and get also a 0 returned
+    ELSE
+      index_1d = SIGN((block-1)*nproma + ABS(idx), idx)
+    ENDIF
+
+  END FUNCTION index_1d
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
