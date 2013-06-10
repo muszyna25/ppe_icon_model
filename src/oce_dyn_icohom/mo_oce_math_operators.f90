@@ -1404,6 +1404,7 @@ CONTAINS
   !!  mpi parallelized LL
   !!
   SUBROUTINE calc_thickness( p_patch_3D, p_os, p_ext_data)
+  !SUBROUTINE calc_thickness( p_patch_3D, p_os, p_ext_data, ice_hi)
     !
     ! Patch on which computation is performed
     TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: p_patch_3D
@@ -1413,6 +1414,7 @@ CONTAINS
     !
     ! Type containing external data
     TYPE(t_external_data), TARGET, INTENT(in) :: p_ext_data
+    !REAL(wp), INTENT(IN)                      :: ice_hi(nproma,1,p_patch_3D%p_patch_2D(1)%nblks_c)
 
     !  local variables
     INTEGER            :: i_startidx_c, i_endidx_c
@@ -1447,6 +1449,7 @@ CONTAINS
 
             p_os%p_diag%thick_c(jc,jb) = p_os%p_prog(nold(1))%h(jc,jb)&
               &  - p_ext_data%oce%bathymetry_c(jc,jb)
+     !        &  - ice_hi(jc,1,jb)
           ELSE
             p_os%p_diag%thick_c(jc,jb) = 0.0_wp
           ENDIF
@@ -1471,6 +1474,7 @@ CONTAINS
             !  prepare for correct partial cells
             p_os%p_diag%thick_c(jc,jb) = p_os%p_prog(nold(1))%h(jc,jb)&
             & + p_patch_3D%column_thick_c(jc,jb)
+     !      &  - ice_hi(jc,1,jb)
           ELSE
             p_os%p_diag%thick_c(jc,jb) = 0.0_wp
           ENDIF
@@ -1539,11 +1543,21 @@ CONTAINS
                  & +   z_dist_e_c2*p_os%p_prog(nold(1))%h(il_c2,ib_c2) )&
                  & /(z_dist_e_c1+z_dist_e_c2)
 
+            !  sea ice thickness on edges
+            !   ice_hi_e = ( z_dist_e_c1*ice_hi(il_c1,1,ib_c1)&
+            !    &       +   z_dist_e_c2*ice_hi(il_c2,1,ib_c2) )&
+            !    & /(z_dist_e_c1+z_dist_e_c2)
+
                 !p_os%p_diag%thick_e(je,jb) = p_os%p_diag%h_e(je,jb)&
                 !& + p_patch_3D%p_patch_1D(1)%zlev_i(p_patch_3D%p_patch_1D(1)%dolic_e(je,jb)+1)
 
                 p_os%p_diag%thick_e(je,jb) = p_os%p_diag%h_e(je,jb) &
                 &                          + p_patch_3D%column_thick_e(je,jb)
+
+            !  or:
+            !   p_os%p_diag%thick_e(je,jb) = ( z_dist_e_c1*p_os%p_diag%thick_c(il_c1,ib_c1)&
+            !   & +   z_dist_e_c2*p_os%p_diag%thick_c(il_c2,ib_c2) )&
+            !   & /(z_dist_e_c1+z_dist_e_c2)
 
 
             ELSE
@@ -1567,6 +1581,7 @@ CONTAINS
         IF(p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary)THEN
           p_patch_3D%p_patch_1D(n_dom)%prism_thick_c(jc,1,jb) &
           &= p_patch_3D%p_patch_1D(n_dom)%prism_thick_flat_sfc_c(jc,1,jb) +p_os%p_prog(nold(1))%h(jc,jb)
+     !    &  - ice_hi(jc,1,jb)
         ELSE
           !Surfacethickness over land remains zero
           !p_os%p_diag%prism_thick_c(jc,1,jb) = 0.0_wp
@@ -1581,6 +1596,7 @@ CONTAINS
         IF(p_patch_3D%lsm_e(je,1,jb) <= sea_boundary)THEN
           p_patch_3D%p_patch_1D(n_dom)%prism_thick_e(je,1,jb)&
           & = p_patch_3D%p_patch_1D(n_dom)%prism_thick_flat_sfc_e(je,1,jb) +p_os%p_diag%h_e(je,jb)
+     !    &  - ice_hi_e(jc,1,jb) - put in loop above
         ELSE
           !Surfacethickness over land remains zero
           p_patch_3D%p_patch_1D(n_dom)%prism_thick_e(je,1,jb)= 0.0_wp

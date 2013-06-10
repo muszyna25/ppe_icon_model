@@ -250,6 +250,7 @@ CONTAINS
       IF(.NOT.l_STAGGERED_TIMESTEP)THEN
 
         CALL calc_thickness( p_patch_3D, p_os(jg), p_ext_data(jg))
+        !CALL calc_thickness( p_patch_3D, p_os(jg), p_ext_data(jg), p_ice%hi(:,1,:))
         !CALL height_related_quantities( p_patch_3D, p_os(jg), p_ext_data(jg))
 
         CALL set_lateral_boundary_values( p_patch_3D, p_os(jg)%p_prog(nold(1))%vn)
