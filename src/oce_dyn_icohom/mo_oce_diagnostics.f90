@@ -121,6 +121,9 @@ TYPE t_oce_monitor
     REAL(wp) :: ice_volume_sh !                                                           [km3]
     REAL(wp) :: ice_extent_nh !                                                           [km2]
     REAL(wp) :: ice_extent_sh !                                                           [km2]
+    REAL(wp) :: gibraltar     ! though flow                                               [Sv]
+    REAL(wp) :: denmark_strait! though flow                                               [Sv]
+    REAL(wp) :: drake_passage ! though flow                                               [Sv]
     REAL(wp), ALLOCATABLE :: tracer_content(:)
 
 END TYPE t_oce_monitor
@@ -128,7 +131,7 @@ END TYPE t_oce_monitor
 TYPE t_oce_timeseries
 
     TYPE(t_oce_monitor), ALLOCATABLE :: oce_diagnostics(:)    ! time array of diagnostic values
-    CHARACTER(len=40), DIMENSION(26)  :: names = (/ &
+    CHARACTER(len=40), DIMENSION(29)  :: names = (/ &
     & "volume                                  ", &
     & "kin_energy                              ", &
     & "pot_energy                              ", &
@@ -153,6 +156,9 @@ TYPE t_oce_timeseries
     & "ice_volume_sh                           ", &
     & "ice_extent_nh                           ", &
     & "ice_extent_sh                           ", &
+    & "gibraltar                               ", &
+    & "denmark_strait                          ", &
+    & "drake_passage                           ", &
     & "total_temperature                       ", &
     & "total_salinity                          "/)
 
@@ -226,6 +232,11 @@ SUBROUTINE construct_oce_diagnostics( p_patch_3D, p_os, oce_ts, datestring )
   oce_ts%oce_diagnostics(0:nsteps)%ice_volume_sh              = 0.0_wp
   oce_ts%oce_diagnostics(0:nsteps)%ice_extent_nh              = 0.0_wp
   oce_ts%oce_diagnostics(0:nsteps)%ice_extent_sh              = 0.0_wp
+
+  ! through flows
+  oce_ts%oce_diagnostics(0:nsteps)%gibraltar                  = 0.0_wp
+  oce_ts%oce_diagnostics(0:nsteps)%denmark_strait             = 0.0_wp
+  oce_ts%oce_diagnostics(0:nsteps)%drake_passage              = 0.0_wp
 
   DO i=0,nsteps
     ALLOCATE(oce_ts%oce_diagnostics(i)%tracer_content(1:no_tracer))
@@ -486,7 +497,27 @@ SUBROUTINE calculate_oce_diagnostics(p_patch_3D, p_os, p_sfc_flx, p_ice, &
   DO i_no_t=1,no_tracer
     monitor%tracer_content(i_no_t) = global_sum_array(monitor%tracer_content(i_no_t))
   END DO
+  ! fluxes through given paths
+  IF (my_process_is_stdio()) &
+    & write(0,*) "---------------  fluxes --------------------------------"
+  DO i_no_t=1,2
+    sflux = section_flux(oce_sections(i_no_t), p_os%p_prog(nnew(1))%vn)
+    IF (my_process_is_stdio()) &
+      & write(0,*) oce_sections(i_no_t)%subset%name, ":", sflux
+
+    SELECT CASE (i_no_t)
+    CASE (1)
+      monitor%gibraltar              = sflux*rho_ref
+    CASE (2)
+      monitor%denmark_strait         = sflux*rho_ref
+    CASE (3)
+      monitor%drake_passage          = sflux*rho_ref
+    END SELECT
+  ENDDO
+  IF (my_process_is_stdio()) &
+    & write(0,*) "---------------  end fluxes ----------------------------"
   ! } dbg_print
+
 
   ! write things to diagnostics output file
   real_fmt   = 'es26.18'
@@ -521,22 +552,14 @@ SUBROUTINE calculate_oce_diagnostics(p_patch_3D, p_os, p_sfc_flx, p_ice, &
     & monitor%ice_volume_nh, &
     & monitor%ice_volume_sh, &
     & monitor%ice_extent_nh, &
-    & monitor%ice_extent_sh
+    & monitor%ice_extent_sh, &
+    & monitor%gibraltar, &
+    & monitor%denmark_strait, &
+    & monitor%drake_passage
   ! * tracers
   DO i_no_t=1,no_tracer
     write(line,'(a,'//TRIM(real_fmt)//')') TRIM(line),monitor%tracer_content(i_no_t)
   END DO
-
-  ! fluxes
-  IF (my_process_is_stdio()) &
-    & write(0,*) "---------------  fluxes --------------------------------"
-  DO i_no_t=1,2
-    sflux = section_flux(oce_sections(i_no_t), p_os%p_prog(nnew(1))%vn)
-    IF (my_process_is_stdio()) &
-      & write(0,*) oce_sections(i_no_t)%subset%name, ":", sflux
-  ENDDO
-  IF (my_process_is_stdio()) &
-    & write(0,*) "---------------  end fluxes ----------------------------"
 
   write(diag_unit,'(a)') TRIM(line)
 

@@ -31,7 +31,7 @@ ocean_namelist=NAMELIST_${EXPNAME}
 #-----------------------------------------------------------------------------
 # global resolution
 R=2   # nroot
-B=2   # number of bisections applied
+B=4   # number of bisections applied
 #
 #-----------------------------------------------------------------------------
 # ocean initialization, forcing, and grid file location specifics:
@@ -222,8 +222,8 @@ idbg_elev=5                     ! initialize end level for debug output
   l_forc_freshw      = .TRUE.    ! apply freshwater forcing boundary condition (OMIP only)
 /
 &ocean_diagnostics_nml
-   denmark_strait(1:10) = -1 !2436,2472      ! vertex list R2B04
-   gibraltar(1:10)      = -1 !2393,515            ! vertex list R2B04
+   denmark_strait(1:10) = 2436,2472      ! vertex list R2B04
+   gibraltar(1:10)      = 2393,515            ! vertex list R2B04
    drake_passage(1:10)  = -1 !7,8,9
 /
 &io_nml
