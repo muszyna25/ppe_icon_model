@@ -390,10 +390,32 @@ MODULE mo_oce_state
   ! variables to be accumulated
   TYPE t_hydro_ocean_acc
     REAL(wp), POINTER :: &
-      & h(:,:)   ,&
-      & u(:,:,:) ,&
-      & v(:,:,:) ,&
-      & rhopot(:,:,:) ,&
+      & h(:,:)                  ,&
+      & u(:,:,:)                ,&
+      & v(:,:,:)                ,&
+      & w(:,:,:)                ,& ! vertical velocity. Unit [m/s].
+      & vt(:,:,:)               ,& ! tangential velocity component at edges. Unit [m/s].
+      & rho(:,:,:)              ,& ! density. Unit: [kg/m^3]
+      & rhopot(:,:,:)           ,& ! potential density. Unit: [kg/m^3]
+      & mass_flx_e(:,:,:)       ,& ! individual fluid column thickness at cells. Unit [m].
+      & div_mass_flx_c(:,:,:)   ,& ! individual fluid column thickness at cells. Unit [m].
+      & u_vint(:,:)             ,& ! barotropic zonal velocity. Unit [m*m/s]
+      & ptp_vn(:,:,:)           ,& ! normal velocity after mapping P^T P
+      & vn_pred(:,:,:)          ,& ! predicted normal velocity vector at edges.
+      & vn_impl_vert_diff(:,:,:),& ! predicted normal velocity vector at edges.
+      & vn_time_weighted(:,:,:) ,&  ! predicted normal velocity vector at edges.
+      & w_time_weighted(:,:,:)  ,& ! predicted normal velocity vector at edges.
+      & vort(:,:,:)             ,& ! vorticity at triangle vertices. Unit [1/s]
+      & kin(:,:,:)              ,& ! kinetic energy. Unit [m/s].
+      & veloc_adv_horz(:,:,:)   ,& ! horizontal velocity advection
+      & veloc_adv_vert(:,:,:)   ,& ! vertical velocity advection
+      & laplacian_horz(:,:,:)   ,& ! horizontal diffusion of horizontal velocity
+      & laplacian_vert(:,:,:)   ,& ! vertical diffusion of horizontal velocity
+      & grad(:,:,:)             ,& ! gradient of kinetic energy. Unit [m/s]
+      & div(:,:,:)              ,& ! divergence. Unit [m/s]
+      & press_hyd(:,:,:)        ,& ! hydrostatic pressure. Unit [m]
+      & press_grad(:,:,:)       ,& ! hydrostatic pressure gradient term. Unit [m/s]
+      & temp_insitu(:,:,:)      ,&
       & tracer(:,:,:,:)
     TYPE(t_ptr3d),ALLOCATABLE :: tracer_ptr(:)  !< pointer array: one pointer for each tracer
   END TYPE
@@ -1310,6 +1332,53 @@ CONTAINS
     &            t_cf_var('rhopot_acc','psu','potential density', DATATYPE_FLT32),&
     &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &            ldims=(/nproma,n_zlev,nblks_c/))
+    CALL add_var(ocean_default_list, 'rho_acc', p_os_acc%rho, GRID_UNSTRUCTURED_CELL, &
+    &            ZA_DEPTH_BELOW_SEA, &
+    &            t_cf_var('rho_acc','psu','insitu density', DATATYPE_FLT32),&
+    &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+    &            ldims=(/nproma,n_zlev,nblks_c/))
+
+    CALL add_var(ocean_default_list, 'w_acc', p_os_acc%w, GRID_UNSTRUCTURED_CELL, &
+    &            ZA_DEPTH_BELOW_SEA_HALF, &
+    &            t_cf_var('w_acc','psu','vertical velocity', DATATYPE_FLT32),&
+    &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+    &            ldims=(/nproma,n_zlev+1,nblks_c/))
+    CALL add_var(ocean_default_list, 'vt_acc', p_os_acc%vt, GRID_UNSTRUCTURED_EDGE, &
+    &            ZA_DEPTH_BELOW_SEA, &
+    &            t_cf_var('vt_acc','psu','tangential velocity', DATATYPE_FLT32),&
+    &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_EDGE),&
+    &            ldims=(/nproma,n_zlev,nblks_e/))
+    CALL add_var(ocean_default_list, 'mass_flx_e_acc', p_os_acc%mass_flx_e, GRID_UNSTRUCTURED_EDGE, &
+    &            ZA_DEPTH_BELOW_SEA, &
+    &            t_cf_var('mass_flx_e_acc','psu','tangential velocity', DATATYPE_FLT32),&
+    &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_EDGE),&
+    &            ldims=(/nproma,n_zlev,nblks_e/))
+    CALL add_var(ocean_default_list, 'div_mass_flx_c_acc', p_os_acc%div_mass_flx_c, GRID_UNSTRUCTURED_CELL, &
+    &            ZA_DEPTH_BELOW_SEA, &
+    &            t_cf_var('div_mass_flx_c_acc','psu','insitu density', DATATYPE_FLT32),&
+    &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+    &            ldims=(/nproma,n_zlev,nblks_c/))
+    CALL add_var(ocean_default_list, 'u_vint_acc', p_os_acc%u_vint , &
+    &            GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+    &            t_cf_var('u_vint_acc', 'm*m/s', 'barotropic zonal velocity', DATATYPE_FLT32),&
+    &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+    &            ldims=(/nproma,nblks_c/))
+    ! & ptp_vn(:,:,:)           ,& ! normal velocity after mapping P^T P
+    ! & vn_pred(:,:,:)          ,& ! predicted normal velocity vector at edges.
+    ! & vn_impl_vert_diff(:,:,:),& ! predicted normal velocity vector at edges.
+    ! & vn_time_weighted(:,:,:) ,&  ! predicted normal velocity vector at edges.
+    ! & w_time_weighted(:,:,:)  ,& ! predicted normal velocity vector at edges.
+    ! & vort(:,:,:)             ,& ! vorticity at triangle vertices. Unit [1/s]
+    ! & kin(:,:,:)              ,& ! kinetic energy. Unit [m/s].
+    ! & veloc_adv_horz(:,:,:)   ,& ! horizontal velocity advection
+    ! & veloc_adv_vert(:,:,:)   ,& ! vertical velocity advection
+    ! & laplacian_horz(:,:,:)   ,& ! horizontal diffusion of horizontal velocity
+    ! & laplacian_vert(:,:,:)   ,& ! vertical diffusion of horizontal velocity
+    ! & grad(:,:,:)             ,& ! gradient of kinetic energy. Unit [m/s]
+    ! & div(:,:,:)              ,& ! divergence. Unit [m/s]
+    ! & press_hyd(:,:,:)        ,& ! hydrostatic pressure. Unit [m]
+    ! & press_grad(:,:,:)       ,& ! hydrostatic pressure gradient term. Unit [m/s]
+    ! & temp_insitu(:,:,:)      ,&
     IF ( no_tracer > 0 ) THEN
       CALL set_oce_tracer_info(max_oce_tracer      , &
         &                      oce_tracer_names    , &
