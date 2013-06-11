@@ -145,7 +145,7 @@ cat > ${ocean_namelist} << EOF
   include_last     = .TRUE.
   output_grid      = .TRUE.
   output_filename  = "${EXPNAME}_nmlOuput"
-  ml_varlist       = 't','w','vn','vort'
+  ml_varlist       = 't','w','vn','vort','wet_c'
 ! ml_varlist       = 't','s','u','v','t_acc','s_acc','u_acc','v_acc','rhopot','rhopot_acc','wet_c','forc_runoff_acc','forc_runoff',
 !                    'forc_wind_u','forc_wind_v','forc_swflx','forc_lwflx','forc_ssflx','forc_slflx','forc_precip','forc_evap',
 !                    'forc_wind_u_acc','forc_wind_v_acc','forc_swflx_acc','forc_lwflx_acc','forc_ssflx_acc','forc_slflx_acc',
