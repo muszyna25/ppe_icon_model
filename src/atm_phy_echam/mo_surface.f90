@@ -281,7 +281,7 @@ CONTAINS
         & lwrad_srf_down   = pemterall(1:kproma) + lwup(1:kproma),                      & ! in
         & swrad_srf_down   = ptrsolall(1:kproma),                                       & ! in
         & press_srf        = presi_old(1:kproma,klev+1),                                & ! in
-        & drag_srf         = pfac_sfc(1:kproma) + pcfh_tile(1:kproma,idx_lnd),          & ! in
+        & drag_srf         = pfac_sfc(1:kproma) * pcfh_tile(1:kproma,idx_lnd),          & ! in
         & t_acoef          = zen_h(1:kproma, idx_lnd),                                  & ! in
         & t_bcoef          = zfn_h(1:kproma, idx_lnd),                                  & ! in
         & q_acoef          = zen_qv(1:kproma, idx_lnd),                                 & ! in
