@@ -598,8 +598,9 @@ END SUBROUTINE calculate_oce_diagnostics
 
       DO k=1, n_zlev
         flux_weights(k, i) = patch_vertical%prism_thick_e(edge_idx, k, edge_block) * oriented_length ! maybe also use slm
-        write(0,*) i, k, " flux_weights:",  flux_weights(k, i), patch_vertical%prism_thick_e(edge_idx, k, edge_block)
-        write(0,*) i, k, " velocity_value:", velocity_values(edge_idx, k, edge_block)
+        write(0,*) i, k, in_oce_section%subset%name, " flux_weights:",  flux_weights(k, i), &
+          & patch_vertical%prism_thick_e(edge_idx, k, edge_block)
+        write(0,*) i, k, in_oce_section%subset%name, " velocity_value:", velocity_values(edge_idx, k, edge_block)
       ENDDO
 
     ENDDO

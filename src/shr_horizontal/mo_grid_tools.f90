@@ -235,9 +235,9 @@ CONTAINS
         edge_orientation = -patch%edges%system_orientation(edge_index, edge_block)
       ENDIF
 
-      write(0,*) get_my_mpi_work_id(), ": edge found:", edge_index, edge_block, edge_orientation
-    ELSE
-      CALL finish("find_oriented_edge_from_vertices","edge not found")
+!      write(0,*) get_my_mpi_work_id(), ": edge found:", edge_index, edge_block, edge_orientation
+!    ELSE
+!      CALL finish("find_oriented_edge_from_vertices","edge not found")
 
 
     ENDIF
