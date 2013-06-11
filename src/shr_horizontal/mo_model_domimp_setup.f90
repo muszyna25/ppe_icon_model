@@ -108,15 +108,13 @@ MODULE mo_model_domimp_setup
   USE mo_kind,               ONLY: wp
   USE mo_exception,          ONLY: finish, warning
   USE mo_model_domain,       ONLY: t_patch
-!   USE mo_physical_constants, ONLY: earth_angular_velocity
   USE mo_parallel_config,    ONLY: nproma
   USE mo_loopindices,        ONLY: get_indices_e
   USE mo_grid_config,        ONLY: corio_lat, grid_angular_velocity
   USE mo_sync,               ONLY: sync_c, sync_e, sync_patch_array, sync_idx
   USE mo_grid_subset,        ONLY: fill_subset,t_subset_range, get_index_range, read_subset, write_subset
   USE mo_mpi,                ONLY: work_mpi_barrier, get_my_mpi_work_id, my_process_is_mpi_seq
-  USE mo_impl_constants,     ONLY: halo_levels_ceiling
-  USE mo_math_utilities,     ONLY: gvec2cvec, gc2cc
+  USE mo_impl_constants,     ONLY: halo_levels_ceiling, on_cells, on_edges, on_vertices
   USE mo_math_types
   
   USE mo_grid_geometry_info, ONLY: planar_torus_geometry
@@ -125,14 +123,12 @@ MODULE mo_model_domimp_setup
   
   PRIVATE
   
-  PUBLIC :: calculate_patch_cartesian_positions
   PUBLIC :: reshape_int
   PUBLIC :: reshape_real
   PUBLIC :: init_quad_twoadjcells
   PUBLIC :: init_coriolis
   PUBLIC :: set_verts_phys_id
   PUBLIC :: init_butterfly_idx
-  PUBLIC :: rescale_grid
 !  PUBLIC :: create_dummy_cell_closure
   
   PUBLIC :: fill_grid_subsets, fill_grid_subset_names, read_grid_subsets, write_grid_subsets
@@ -143,206 +139,7 @@ MODULE mo_model_domimp_setup
   !-------------------------------------------------------------------------
   
 CONTAINS
-
-  
-  !-------------------------------------------------------------------------
-  !> Rescale grids
-  ! Note: this does not rescale the cartesian coordinates (used in torus)
-  SUBROUTINE rescale_grid( patch, grid_length_rescale_factor)
     
-    TYPE(t_patch), INTENT(inout), TARGET ::  patch  ! patch data structure
-    REAL(wp), INTENT(in) :: grid_length_rescale_factor
-    
-    REAL(wp) :: grid_area_rescale_factor
-    !-----------------------------------------------------------------------
-    grid_area_rescale_factor   = grid_length_rescale_factor * grid_length_rescale_factor
-    
-    patch%cells%area(:,:)               = &
-      & patch%cells%area(:,:)               * grid_area_rescale_factor
-    patch%verts%dual_area(:,:)          = &
-      & patch%verts%dual_area(:,:)          * grid_area_rescale_factor
-    patch%edges%primal_edge_length(:,:) = &
-      & patch%edges%primal_edge_length(:,:) * grid_length_rescale_factor
-    patch%edges%dual_edge_length(:,:)   = &
-      & patch%edges%dual_edge_length(:,:)   * grid_length_rescale_factor
-    patch%edges%edge_cell_length(:,:,:) = &
-      & patch%edges%edge_cell_length(:,:,:) * grid_length_rescale_factor
-    patch%edges%edge_vert_length(:,:,:) = &
-      & patch%edges%edge_vert_length(:,:,:) * grid_length_rescale_factor
-
-    ! rescale geometry parameters
-    patch%geometry_info%mean_edge_length = &
-      & patch%geometry_info%mean_edge_length * grid_length_rescale_factor
-    patch%geometry_info%mean_cell_area   = &
-      & patch%geometry_info%mean_cell_area   * grid_area_rescale_factor
-    patch%geometry_info%domain_length    = &
-      & patch%geometry_info%domain_length    * grid_length_rescale_factor
-    patch%geometry_info%domain_height    = &
-      & patch%geometry_info%domain_height    * grid_length_rescale_factor
-    patch%geometry_info%sphere_radius    = &
-      & patch%geometry_info%sphere_radius    * grid_length_rescale_factor
-    patch%geometry_info%mean_characteristic_length    = &
-      & patch%geometry_info%mean_characteristic_length * grid_length_rescale_factor
-
-!     write(0,*) "Rescale grid_length_rescale_factor:", &
-!       & grid_length_rescale_factor
-!     write(0,*) "Rescale mean_cell_area:", &
-!       & patch%geometry_info%mean_cell_area
-!     write(0,*) "Rescale mean_characteristic_length:", &
-!       & patch%geometry_info%mean_characteristic_length
-
-    IF (patch%geometry_info%mean_characteristic_length == 0.0_wp) &
-      & CALL finish("rescale_grid", "mean_characteristic_length=0")
-    
-  END SUBROUTINE rescale_grid
-  !-------------------------------------------------------------------------
-  
-  !-------------------------------------------------------------------------
-  !>
-  !! This routine calculates the edge area of the patch
-  !!
-  SUBROUTINE calculate_edge_area(patch)
-    TYPE(t_patch), TARGET, INTENT(inout) :: patch
-
-    INTEGER                       :: je, jb, istart_e, iend_e
-    TYPE(t_subset_range), POINTER :: all_edges
-    !-------------------------------------------------------------------------
-    all_edges => patch%edges%all
-
-    ! a) the control volume associated to each edge is defined as the
-    ! quadrilateral whose edges are the primal edge and the associated dual edge
-    !----------------------------------------------------------------------------
-    ! loop over all blocks and edges
-
-!$OMP PARALLEL DO PRIVATE(jb,je) ICON_OMP_DEFAULT_SCHEDULE
-    DO jb = all_edges%start_block, all_edges%end_block
-      CALL get_index_range(all_edges, jb, istart_e, iend_e)
-      DO je = istart_e, iend_e
-        patch%edges%area_edge(je,jb) =  &
-            &    patch%edges%primal_edge_length(je,jb)  &
-            &  * patch%edges%dual_edge_length(je,jb)
-      END DO
-    END DO
-!$OMP END PARALLEL DO
-
-  END SUBROUTINE calculate_edge_area
-  !-------------------------------------------------------------------------
-  
-  !-------------------------------------------------------------------------
-  !>
-  !! This method_name calculates the cartesian positions stored in patch.
-  !!
-  !! These values normally are read from the grid files,
-  !! this routine is used only for old grids
-  !!
-  !! Note: cartesian_dual_middle is used only from the ocean,
-  !!   which is using only new grids, therefor it is NOT calculated here
-  !!
-  !! @par Revision History
-  !! Initial release by Jochen Foerstner (2008-05-19)
-  !! Modifiaction by A. Gassmann(2010-09-05)
-  !! - added also tangential normal, and generalize to lplane
-  !!
-  SUBROUTINE calculate_patch_cartesian_positions ( patch )
-    !
-    TYPE(t_patch), TARGET, INTENT(inout) :: patch  ! patch on a specific level
-    
-    TYPE(t_cartesian_coordinates) :: z_vec
-    REAL(wp) :: z_lon, z_lat, z_u, z_v  ! location and components of normal
-    REAL(wp) :: z_norm                  ! norm of Cartesian normal
-    
-    INTEGER :: start_index, end_index
-    INTEGER :: jb, je                   ! loop indices    
-    !-----------------------------------------------------------------------
-                
-!$OMP PARALLEL    
-    ! calculate cells cartesian positions
-!$OMP DO PRIVATE(jb,je, start_index, end_index) ICON_OMP_DEFAULT_SCHEDULE
-    DO jb = patch%cells%all%start_block, patch%cells%all%end_block
-      CALL get_index_range(patch%cells%all, jb, start_index, end_index)
-      DO je = start_index, end_index            
-        ! location of cell center
-        patch%cells%cartesian_center(je,jb) = gc2cc(patch%cells%center(je,jb))
-      ENDDO
-    ENDDO
-!$OMP END DO NOWAIT
-    
-    ! calculate verts cartesian positions
-!$OMP DO PRIVATE(jb,je, start_index, end_index) ICON_OMP_DEFAULT_SCHEDULE
-    DO jb = patch%verts%all%start_block, patch%verts%all%end_block
-      CALL get_index_range(patch%verts%all, jb, start_index, end_index)
-      DO je = start_index, end_index            
-        ! location of cell center
-        patch%verts%cartesian(je,jb) = gc2cc(patch%verts%vertex(je,jb))
-      ENDDO
-    ENDDO
-!$OMP END DO NOWAIT
-
-    ! calculate edges positions
-!$OMP DO PRIVATE(jb,je,z_lon,z_lat,z_u,z_v,z_norm,z_vec, start_index, end_index) ICON_OMP_DEFAULT_SCHEDULE
-    DO jb = patch%edges%all%start_block, patch%edges%all%end_block
-      CALL get_index_range(patch%edges%all, jb, start_index, end_index)
-      DO je = start_index, end_index
-            
-        ! location of edge midpoint
-        patch%edges%cartesian_center(je,jb) = gc2cc(patch%edges%center(je,jb))
-        z_lon = patch%edges%center(je,jb)%lon
-        z_lat = patch%edges%center(je,jb)%lat
-        
-        ! zonal and meridional component of primal normal
-        z_u = patch%edges%primal_normal(je,jb)%v1
-        z_v = patch%edges%primal_normal(je,jb)%v2
-        
-        ! calculate Cartesian components of primal normal
-        CALL gvec2cvec( z_u, z_v, z_lon, z_lat, z_vec%x(1), z_vec%x(2), z_vec%x(3) )
-        
-        ! compute unit normal to edge je
-        z_norm = SQRT( DOT_PRODUCT(z_vec%x(1:3),z_vec%x(1:3)) )
-        z_vec%x(1:3) = 1._wp / z_norm * z_vec%x(1:3)
-        
-        ! save the values in the according type structure of the patch
-!         WRITE(*,*) "----------------------------------"
-!         write(*,*) "primal_cart_normal:", patch%edges%primal_cart_normal(je,jb)%x(:)
-!         write(*,*) "z_vec:", z_vec%x
-!         WRITE(*,*) "----------------------------------"
-!         IF ( MAXVAL(ABS(patch%edges%primal_cart_normal(je,jb)%x - z_vec%x)) > 0.0001_wp) &
-!           CALL finish("","primal_cart_normal(je,jb)%x /=  z_vec%x")
-               
-        patch%edges%primal_cart_normal(je,jb)%x(1) = z_vec%x(1)
-        patch%edges%primal_cart_normal(je,jb)%x(2) = z_vec%x(2)
-        patch%edges%primal_cart_normal(je,jb)%x(3) = z_vec%x(3)
-        
-        ! zonal and meridional component of dual normal
-        z_u = patch%edges%dual_normal(je,jb)%v1
-        z_v = patch%edges%dual_normal(je,jb)%v2
-        
-        ! calculate Cartesian components of dual normal
-        CALL gvec2cvec( z_u, z_v, z_lon, z_lat, z_vec%x(1), z_vec%x(2), z_vec%x(3) )
-        
-        ! compute unit normal to edge je
-        z_norm = SQRT( DOT_PRODUCT(z_vec%x(1:3),z_vec%x(1:3)) )
-        z_vec%x(1:3) = 1._wp / z_norm * z_vec%x(1:3)
-        
-!         WRITE(*,*) "----------------------------------"
-!         write(*,*) "dual_cart_normal:", patch%edges%dual_cart_normal(je,jb)%x(:)
-!         write(*,*) "z_vec:", z_vec%x
-!         WRITE(*,*) "----------------------------------"
-!         IF ( MAXVAL(ABS(patch%edges%dual_cart_normal(je,jb)%x - z_vec%x)) > 0.0001_wp) &
-!           CALL finish("","dual_cart_normal(je,jb)%x /=  z_vec%x")
-        
-        ! save the values in the according type structure of the patch
-        patch%edges%dual_cart_normal(je,jb)%x(1) = z_vec%x(1)
-        patch%edges%dual_cart_normal(je,jb)%x(2) = z_vec%x(2)
-        patch%edges%dual_cart_normal(je,jb)%x(3) = z_vec%x(3)
-        
-      END DO
-      
-    END DO
-!$OMP END DO NOWAIT
-!$OMP END PARALLEL
-    
-  END SUBROUTINE calculate_patch_cartesian_positions
-  !-------------------------------------------------------------------------
     
   !-------------------------------------------------------------------------
   !>
@@ -738,7 +535,6 @@ CONTAINS
           ib_bf1(cnt) = ibn
         ENDDO
 
-
         ! neighbor 2 (ilc2,ibc2)
         cnt = 0
         DO jen = 1,3
@@ -749,7 +545,6 @@ CONTAINS
           il_bf2(cnt) = iln
           ib_bf2(cnt) = ibn
         ENDDO
-
 
         ! Now, the global indices of the 4 cells are known, and 
         ! they are already distinguished with respect to the edge 
@@ -818,8 +613,7 @@ CONTAINS
     
     
   END SUBROUTINE init_butterfly_idx
-
-
+  !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
   !>
@@ -1083,25 +877,29 @@ CONTAINS
     !--------------------------------------------------------------------------------
     ! fill cell subsets
     !    fill_subset(range subset,  halo levels, start level, end level)
-    CALL fill_subset(patch%cells%all, patch, patch%cells%halo_level, &
-      & 0, halo_levels_ceiling)
+ !   subset, patch, mask, start_mask, end_mask, subset_name
+    CALL fill_subset(subset=patch%cells%all, patch=patch, &
+      & mask=patch%cells%halo_level, start_mask=0, end_mask=halo_levels_ceiling, located=on_cells)
     patch%cells%all%is_in_domain   = .false.
     
-    CALL fill_subset(patch%cells%owned, patch, patch%cells%halo_level, 0, 0)
+    CALL fill_subset(subset=patch%cells%owned, patch=patch, &
+      & mask=patch%cells%halo_level, start_mask=0, end_mask=0, located=on_cells)
     patch%cells%owned%is_in_domain = .true.
     
-    CALL fill_subset(patch%cells%in_domain, patch, patch%cells%halo_level, 0, 0)
+    CALL fill_subset(subset=patch%cells%in_domain, patch=patch, &
+      & mask=patch%cells%halo_level, start_mask=0, end_mask=0, located=on_cells)
     patch%cells%in_domain%is_in_domain = .true.
     
-    CALL fill_subset(patch%cells%not_owned, patch, patch%cells%halo_level,&
-      & 1, halo_levels_ceiling)
+    CALL fill_subset(subset=patch%cells%not_owned, patch=patch, &
+      & mask=patch%cells%halo_level, start_mask=1, end_mask=halo_levels_ceiling, located=on_cells)
     patch%cells%not_owned%is_in_domain = .false.
     
-    CALL fill_subset(patch%cells%not_in_domain,  patch, &
-      & patch%cells%halo_level, 2, halo_levels_ceiling)
+    CALL fill_subset(subset=patch%cells%not_in_domain,  patch=patch, &
+      & mask=patch%cells%halo_level, start_mask=2, end_mask=halo_levels_ceiling, located=on_cells)
     patch%cells%not_in_domain%is_in_domain = .false.
     
-    CALL fill_subset(patch%cells%one_edge_in_domain, patch, patch%cells%halo_level, 0, 1)
+    CALL fill_subset(subset=patch%cells%one_edge_in_domain, patch=patch, &
+      & mask=patch%cells%halo_level, start_mask=0, end_mask=1, located=on_cells)
     patch%cells%one_edge_in_domain%is_in_domain = .false.
     
     IF (patch%cells%in_domain%no_of_holes > 0) &
@@ -1111,40 +909,46 @@ CONTAINS
     
     ! fill edge subsets
     !    fill_subset(range subset,  halo levels, start level, end level)
-    CALL fill_subset(patch%edges%all, patch, patch%edges%halo_level, 0, halo_levels_ceiling)
+    CALL fill_subset(subset=patch%edges%all, patch=patch, &
+      & mask=patch%edges%halo_level, start_mask=0, end_mask=halo_levels_ceiling, located=on_edges)
     patch%edges%all%is_in_domain   = .false.
     
-    CALL fill_subset(patch%edges%owned, patch,patch%edges%halo_level, 0, 0)
+    CALL fill_subset(subset=patch%edges%owned, patch=patch, &
+      & mask=patch%edges%halo_level, start_mask=0, end_mask=0, located=on_edges)
     patch%edges%owned%is_in_domain = .true.
     
-    CALL fill_subset(patch%edges%in_domain, patch, patch%edges%halo_level, 0, 1)
+    CALL fill_subset(subset=patch%edges%in_domain, patch=patch, &
+      & mask=patch%edges%halo_level, start_mask=0, end_mask=1, located=on_edges)
     patch%edges%in_domain%is_in_domain   = .true.
     
-    CALL fill_subset(patch%edges%not_owned, patch, patch%edges%halo_level, &
-      & 1, halo_levels_ceiling)
+    CALL fill_subset(subset=patch%edges%not_owned, patch=patch, &
+      & mask=patch%edges%halo_level, start_mask=1, end_mask=halo_levels_ceiling, located=on_edges)
     patch%edges%not_owned%is_in_domain   = .false.
     
-    CALL fill_subset(patch%edges%not_in_domain, patch, &
-      & patch%edges%halo_level, 2, halo_levels_ceiling)
+    CALL fill_subset(subset=patch%edges%not_in_domain, patch=patch, &
+      & mask=patch%edges%halo_level, start_mask=2, end_mask=halo_levels_ceiling, located=on_edges)
     patch%edges%not_in_domain%is_in_domain   = .false.
     
     ! fill vertex subsets
     !    fill_subset(range subset,  halo levels, start level, end level)
-    CALL fill_subset(patch%verts%all,  patch, patch%verts%halo_level, &
-      & 0, halo_levels_ceiling)
+    CALL fill_subset(subset=patch%verts%all,  patch=patch, &
+      & mask=patch%verts%halo_level, start_mask=0, end_mask=halo_levels_ceiling, located=on_vertices)
     patch%verts%all%is_in_domain   = .false.
     
-    CALL fill_subset(patch%verts%owned, patch, patch%verts%halo_level, 0, 0)
+    CALL fill_subset(subset=patch%verts%owned, patch=patch, &
+      & mask=patch%verts%halo_level, start_mask=0, end_mask=0, located=on_vertices)
     patch%verts%owned%is_in_domain   = .true.
     
-    CALL fill_subset(patch%verts%in_domain, patch, patch%verts%halo_level, 0, 1)
+    CALL fill_subset(subset=patch%verts%in_domain, patch=patch, &
+      & mask=patch%verts%halo_level, start_mask=0, end_mask=1, located=on_vertices)
     patch%verts%in_domain%is_in_domain   = .true.
     
-    CALL fill_subset(patch%verts%not_owned, patch, patch%verts%halo_level, 1, halo_levels_ceiling)
+    CALL fill_subset(subset=patch%verts%not_owned, patch=patch, &
+      & mask=patch%verts%halo_level, start_mask=1, end_mask=halo_levels_ceiling, located=on_vertices)
     patch%verts%not_owned%is_in_domain   = .false.
     
-    CALL fill_subset(patch%verts%not_in_domain, patch, &
-      & patch%verts%halo_level, 2, halo_levels_ceiling)
+    CALL fill_subset(subset=patch%verts%not_in_domain, patch=patch, &
+      & mask=patch%verts%halo_level, start_mask=2, end_mask=halo_levels_ceiling, located=on_vertices)
     patch%verts%not_in_domain%is_in_domain   = .false.
           
     ! write some info:

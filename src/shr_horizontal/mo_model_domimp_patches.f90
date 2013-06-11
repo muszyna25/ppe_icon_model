@@ -119,8 +119,8 @@ MODULE mo_model_domimp_patches
   USE mo_parallel_config,    ONLY: nproma
   USE mo_model_domimp_setup, ONLY: reshape_int, reshape_real,  &
     & init_quad_twoadjcells, init_coriolis, set_verts_phys_id, &
-    & init_butterfly_idx, calculate_patch_cartesian_positions, &
-    & fill_grid_subsets, rescale_grid
+    & init_butterfly_idx, fill_grid_subsets
+  USE mo_grid_tools,         ONLY: calculate_patch_cartesian_positions, rescale_grid
   USE mo_grid_config,        ONLY: start_lev, nroot, n_dom, n_dom_start,    &
     & lfeedback, l_limited_area, max_childdom, &
     & dynamics_grid_filename,   dynamics_parent_grid_id,  &
@@ -608,7 +608,7 @@ CONTAINS
       patch%geometry_info%mean_cell_area = &
         & (4._wp * pi * patch%geometry_info%sphere_radius &
         & * patch%geometry_info%sphere_radius)            &
-        & / patch%n_patch_cells_g
+        & / REAL(20*nroot**2*4**(patch%level),wp)
         
       patch%geometry_info%domain_length  = 2.0_wp * pi * patch%geometry_info%sphere_radius
       patch%geometry_info%domain_height  = patch%geometry_info%domain_length

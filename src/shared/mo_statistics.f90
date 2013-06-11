@@ -1,7 +1,7 @@
 !-------------------------------------------------------------------------------------
 !>
 !! Set of methods for simple statistics
-!! NOTE: in order to get correct results make sure you provide the proper subset!
+!! NOTE: in order to get correct results make sure you provide the proper range_subset!
 !!
 !! @author Leonidas Linardakis, MPI-M
 !!
@@ -41,7 +41,7 @@ MODULE mo_statistics
   USE mo_exception,          ONLY: message_text, message, warning, finish
 
 #ifndef __ICON_GRID_GENERATOR__
-  USE mo_grid_subset,        ONLY: t_subset_range, get_index_range
+  USE mo_grid_subset,        ONLY: t_subset_range, get_index_range, t_subset_indexed
   USE mo_mpi,                ONLY: process_mpi_stdio_id, get_my_mpi_work_communicator, p_max, p_min, &
     & my_process_is_mpi_parallel, p_sum
 #endif
@@ -57,13 +57,18 @@ MODULE mo_statistics
 
   !-------------------------------------------------------------------------
 
-  ! NOTE: in order to get correct results make sure you provide the proper subset (ie, owned)!
+  ! NOTE: in order to get correct results make sure you provide the proper range_subset (ie, owned)!
 #ifndef __ICON_GRID_GENERATOR__
+  PUBLIC :: global_minmaxmean, subset_sum
+
   INTERFACE global_minmaxmean
     MODULE PROCEDURE globalspace_2D_minmaxmean
     MODULE PROCEDURE globalspace_3D_minmaxmean
-  END INTERFACE
-  PUBLIC :: global_minmaxmean
+  END INTERFACE global_minmaxmean
+
+  INTERFACE subset_sum
+    MODULE PROCEDURE globalspace_3D_sum
+  END INTERFACE subset_sum
 #endif
 
   PUBLIC :: construct_statistic_objects, destruct_statistic_objects
@@ -80,7 +85,7 @@ MODULE mo_statistics
   PUBLIC :: t_statistic
   !-------------------------------------------------------------------------
   TYPE :: t_statistic
-      INTEGER :: id
+    INTEGER :: id
   END TYPE t_statistic
   !-------------------------------------------------------------------------
 
@@ -110,7 +115,7 @@ MODULE mo_statistics
                           ! ADD_MAX_RATIO, input twos values
 
   END TYPE t_data_statistics
-  TYPE t_data_statistics_2D
+  TYPE t_data_statistics_2d
     LOGICAL  :: is_active
     INTEGER  :: no_of_values
     REAL(wp), POINTER :: sum_of_values(:,:)
@@ -121,9 +126,9 @@ MODULE mo_statistics
     REAL(wp) :: max_bars_value
     INTEGER, POINTER  :: no_of_values_in_bar(:)
     INTEGER :: mode
-  END TYPE t_data_statistics_2D
+  END TYPE t_data_statistics_2d
 
-  TYPE t_data_statistics_3D
+  TYPE t_data_statistics_3d
     LOGICAL  :: is_active
     INTEGER  :: no_of_values
     REAL(wp), POINTER :: sum_of_values(:,:,:)
@@ -134,13 +139,21 @@ MODULE mo_statistics
     REAL(wp) :: max_bars_value
     INTEGER, POINTER  :: no_of_values_in_bar(:)
     INTEGER :: mode
-  END TYPE t_data_statistics_3D
+  END TYPE t_data_statistics_3d
+
+  TYPE t_data_statistics_collection
+    INTEGER, ALLOCATABLE :: stats_1d(:)
+    INTEGER, ALLOCATABLE :: stats_2d(:)
+    INTEGER, ALLOCATABLE :: stats_3d(:)
+  END TYPE
 
   !--------------------------------------------------------------
   !> The maximum number of statistic objects.
   INTEGER, PARAMETER ::  max_no_of_statistic_objects = 50
   !> The array of the statistic objects.
-  TYPE(t_data_statistics), ALLOCATABLE, TARGET :: statistic_object(:)
+  TYPE(t_data_statistics),    ALLOCATABLE, TARGET :: statistic_object(:)
+  TYPE(t_data_statistics_2d), ALLOCATABLE, TARGET :: statistic_object_2d(:)
+  TYPE(t_data_statistics_3d), ALLOCATABLE, TARGET :: statistic_object_3d(:)
   !> The number of allocated statistic objects.
   INTEGER :: no_of_allocated_statistics = 0        ! the size of the statistic objects array
   !> The number of actual active statistic objects.
@@ -155,12 +168,10 @@ MODULE mo_statistics
   INTERFACE delete
     MODULE PROCEDURE delete_statistic_operator
   END INTERFACE
-
   INTERFACE add_data_to
     MODULE PROCEDURE add_data_one_value_real
     MODULE PROCEDURE add_data_one_value_int
   END INTERFACE
-
   INTERFACE min
     MODULE PROCEDURE min_statistic
   END INTERFACE
@@ -170,65 +181,67 @@ MODULE mo_statistics
   INTERFACE mean
     MODULE PROCEDURE mean_statistic
   END INTERFACE
-
   INTERFACE new_statistic
     MODULE PROCEDURE new_statistic_no_bars
     MODULE PROCEDURE new_statistic_with_bars
+    MODULE PROCEDURE new_statistic_with_pointers
   END INTERFACE
-
+  INTERFACE init_statistics
+    MODULE PROCEDURE init_statistic_object
+    MODULE PROCEDURE init_statistic_object_with_pointers
+  END INTERFACE
   INTERFACE add_statistic_to
     MODULE PROCEDURE add_statistic_one_value
     MODULE PROCEDURE add_statistic_two_values
   END INTERFACE
-
 
 CONTAINS
 
 #ifndef __ICON_GRID_GENERATOR__
   !-----------------------------------------------------------------------
   !>
-  FUNCTION globalspace_2D_minmaxmean(values, subset) result(minmaxmean)
+  FUNCTION globalspace_2D_minmaxmean(values, range_subset) result(minmaxmean)
     REAL(wp), INTENT(in) :: values(:,:)
-    TYPE(t_subset_range), TARGET, OPTIONAL :: subset
+    TYPE(t_subset_range), TARGET, OPTIONAL :: range_subset
     REAL(wp) :: minmaxmean(3)
 
     REAL(wp) :: min_in_block, max_in_block, min_value, max_value, sum_value, global_number_of_values
-    INTEGER :: jb, startidx, endidx, number_of_values
+    INTEGER :: block, startidx, endidx, number_of_values
     INTEGER :: communicator
 
-    IF (PRESENT(subset)) THEN
+    IF (PRESENT(range_subset)) THEN
       ! init the min, max values
-      jb = subset%start_block
-      CALL get_index_range(subset, jb, startidx, endidx)
-      min_value = values(startidx, jb)
-      max_value = values(startidx, jb)
+      block = range_subset%start_block
+      CALL get_index_range(range_subset, block, startidx, endidx)
+      min_value = values(startidx, block)
+      max_value = values(startidx, block)
       sum_value = 0
-!ICON_OMP_PARALLEL_DO PRIVATE(jb, startidx, endidx) FIRSTPRIVATE(min_in_block, max_in_block, sum_value) &
+!ICON_OMP_PARALLEL_DO PRIVATE(block, startidx, endidx) FIRSTPRIVATE(min_in_block, max_in_block, sum_value) &
 !ICON_OMP  reduction(min:min_value) reduction(max:max_value) reduction(sum:sum_value)
-      DO jb = subset%start_block, subset%end_block
-        CALL get_index_range(subset, jb, startidx, endidx)
-        min_in_block = MINVAL(values(startidx:endidx, jb))
-        max_in_block = MAXVAL(values(startidx:endidx, jb))
+      DO block = range_subset%start_block, range_subset%end_block
+        CALL get_index_range(range_subset, block, startidx, endidx)
+        min_in_block = MINVAL(values(startidx:endidx, block))
+        max_in_block = MAXVAL(values(startidx:endidx, block))
         min_value    = MIN(min_value, min_in_block)
         max_value    = MAX(max_value, max_in_block)
-        sum_value    = sum_value + SUM(values(startidx:endidx, jb))
+        sum_value    = sum_value + SUM(values(startidx:endidx, block))
       ENDDO
 !ICON_OMP_END_PARALLEL_DO
       ! compute the total number of values
-      number_of_values = subset%size
+      number_of_values = range_subset%size
 
     ELSE
       min_value = values(1,1)
       max_value = values(1,1)
       sum_value = 0
-!ICON_OMP_PARALLEL_DO PRIVATE(jb, startidx, endidx) FIRSTPRIVATE(min_in_block, max_in_block, sum_value) &
+!ICON_OMP_PARALLEL_DO PRIVATE(block, startidx, endidx) FIRSTPRIVATE(min_in_block, max_in_block, sum_value) &
 !ICON_OMP  reduction(min:min_value) reduction(max:max_value) reduction(sum:sum_value)
-      DO jb = 1,  SIZE(values, 2)
-        min_in_block = MINVAL(values(:, jb))
-        max_in_block = MAXVAL(values(:, jb))
+      DO block = 1,  SIZE(values, 2)
+        min_in_block = MINVAL(values(:, block))
+        max_in_block = MAXVAL(values(:, block))
         min_value    = MIN(min_value, min_in_block)
         max_value    = MAX(max_value, max_in_block)
-        sum_value    = sum_value + SUM(values(:, jb))
+        sum_value    = sum_value + SUM(values(:, block))
       ENDDO
 !ICON_OMP_END_PARALLEL_DO
       number_of_values = SIZE(values)
@@ -260,17 +273,17 @@ CONTAINS
 
   !-----------------------------------------------------------------------
   !>
-  FUNCTION globalspace_3D_minmaxmean(values, subset, start_level, end_level) result(minmaxmean)
+  FUNCTION globalspace_3D_minmaxmean(values, range_subset, start_level, end_level) result(minmaxmean)
     REAL(wp), INTENT(in) :: values(:,:,:)
-    TYPE(t_subset_range), TARGET, OPTIONAL :: subset
+    TYPE(t_subset_range), TARGET, OPTIONAL :: range_subset
     INTEGER, OPTIONAL :: start_level, end_level
     REAL(wp) :: minmaxmean(3)
 
     REAL(wp) :: min_in_block, max_in_block, min_value, max_value, sum_value, global_number_of_values
-    INTEGER :: jb, level, startidx, endidx, start_vertical, end_vertical, number_of_values
+    INTEGER :: block, level, startidx, endidx, start_vertical, end_vertical, number_of_values
     INTEGER :: communicator
 !    INTEGER :: idx
-    CHARACTER(LEN=*), PARAMETER :: method_name='mo_statistics:arc_length'
+    CHARACTER(LEN=*), PARAMETER :: method_name='mo_statistics:globalspace_3D_minmaxmean'
 
 
     IF (PRESENT(start_level)) THEN
@@ -286,38 +299,39 @@ CONTAINS
     IF (start_vertical > end_vertical) &
       CALL finish(method_name, "start_vertical > end_vertical")
 
-    IF (PRESENT(subset)) THEN
+    IF (PRESENT(range_subset)) THEN
       ! init the min, max values
-      jb=subset%start_block
-      CALL get_index_range(subset, jb, startidx, endidx)
-      min_value = values(startidx, start_vertical, jb)
-      max_value = values(startidx, start_vertical, jb)
+      block=range_subset%start_block
+      CALL get_index_range(range_subset, block, startidx, endidx)
+      min_value = values(startidx, start_vertical, block)
+      max_value = values(startidx, start_vertical, block)
       sum_value = 0
 
-!ICON_OMP_PARALLEL_DO PRIVATE(jb, startidx, endidx) FIRSTPRIVATE(min_in_block, max_in_block, sum_value) &
+!ICON_OMP_PARALLEL_DO PRIVATE(block, startidx, endidx) FIRSTPRIVATE(min_in_block, max_in_block, sum_value) &
 !ICON_OMP  reduction(min:min_value) reduction(max:max_value) reduction(sum:sum_value)
-      DO jb = subset%start_block, subset%end_block
-        CALL get_index_range(subset, jb, startidx, endidx)
+      DO block = range_subset%start_block, range_subset%end_block
+        CALL get_index_range(range_subset, block, startidx, endidx)
         DO level = start_vertical, end_vertical
 !          DO idx = startidx, endidx
-!            WRITE(0,*) "checking ", jb, level, idx
-!            WRITE(0,*) "                  =   ", values(idx, level, jb)
+!            WRITE(0,*) "checking ", block, level, idx
+!            WRITE(0,*) "                  =   ", values(idx, level, block)
 !          ENDDO
-          min_in_block = MINVAL(values(startidx:endidx, level, jb))
-          max_in_block = MAXVAL(values(startidx:endidx, level, jb))
+          min_in_block = MINVAL(values(startidx:endidx, level, block))
+          max_in_block = MAXVAL(values(startidx:endidx, level, block))
           min_value    = MIN(min_value, min_in_block)
           max_value    = MAX(max_value, max_in_block)
-          sum_value    = sum_value + SUM(values(startidx:endidx, level, jb))
+          sum_value    = sum_value + SUM(values(startidx:endidx, level, block))
         ENDDO
       ENDDO
 !ICON_OMP_END_PARALLEL_DO
 
-      IF ((subset%end_block - subset%start_block) > 1) THEN
-        number_of_values = (subset%end_block - subset%start_block -1) * subset%block_size
+      IF ((range_subset%end_block - range_subset%start_block) > 1) THEN
+        number_of_values = (range_subset%end_block - range_subset%start_block -1) * range_subset%block_size
       ELSE
         number_of_values = 0
       ENDIF
-      number_of_values = (number_of_values + subset%end_index + (subset%block_size - subset%start_index + 1)) * &
+      number_of_values = (number_of_values + range_subset%end_index + &
+        & (range_subset%block_size - range_subset%start_index + 1)) * &
         & (end_vertical - start_vertical + 1)
 
     ELSE
@@ -326,15 +340,15 @@ CONTAINS
       max_value      = values(1, start_vertical, 1)
       sum_value = 0
 
-!ICON_OMP_PARALLEL_DO PRIVATE(jb, startidx, endidx) FIRSTPRIVATE(min_in_block, max_in_block, sum_value) &
+!ICON_OMP_PARALLEL_DO PRIVATE(block, startidx, endidx) FIRSTPRIVATE(min_in_block, max_in_block, sum_value) &
 !ICON_OMP  reduction(min:min_value) reduction(max:max_value) reduction(sum:sum_value)
-      DO jb = 1,  SIZE(values, 3)
+      DO block = 1,  SIZE(values, 3)
         DO level = start_vertical, end_vertical
-          min_in_block = MINVAL(values(:, level, jb))
-          max_in_block = MAXVAL(values(:, level, jb))
+          min_in_block = MINVAL(values(:, level, block))
+          max_in_block = MAXVAL(values(:, level, block))
           min_value    = MIN(min_value, min_in_block)
           max_value    = MAX(max_value, max_in_block)
-          sum_value    = sum_value + SUM(values(:, level, jb))
+          sum_value    = sum_value + SUM(values(:, level, block))
         ENDDO
       ENDDO
 !ICON_OMP_END_PARALLEL_DO
@@ -361,6 +375,91 @@ CONTAINS
     ENDIF
 
   END FUNCTION globalspace_3D_minmaxmean
+  !-----------------------------------------------------------------------
+  !-----------------------------------------------------------------------
+  !>
+  FUNCTION globalspace_3D_sum(values, indexed_subset, start_level, end_level, weights, &
+    & subset_indexed_weights, max_level_array) result(total_sum)
+    REAL(wp) :: values(:,:,:)
+    TYPE(t_subset_indexed), TARGET, OPTIONAL :: indexed_subset
+    INTEGER,  OPTIONAL  :: start_level, end_level
+    REAL(wp), OPTIONAL  :: weights(:,:,:)
+    REAL(wp), OPTIONAL  :: subset_indexed_weights(:,:)  ! weights but indexed but the subset index
+                                                        ! dim: (vertical_levels, indexed_subset%size)
+    INTEGER,  OPTIONAL  :: max_level_array(:,:)
+    REAL(wp) :: total_sum
+
+    REAL(wp) :: sum_value
+    INTEGER :: i, block, idx, level,  start_vertical, end_vertical
+    INTEGER :: communicator
+!    INTEGER :: idx
+    CHARACTER(LEN=*), PARAMETER :: method_name='mo_statistics:globalspace_3D_sum'
+
+
+    IF (PRESENT(start_level)) THEN
+      start_vertical = start_level
+    ELSE
+      start_vertical = 1
+    ENDIF
+    IF (PRESENT(end_level)) THEN
+      end_vertical = start_level
+    ELSE
+      end_vertical = SIZE(values, 2)
+    ENDIF
+    IF (start_vertical > end_vertical) &
+      CALL finish(method_name, "start_vertical > end_vertical")
+
+    IF (.not. PRESENT(indexed_subset)) &
+      & CALL finish(method_name,  "Currently requires indexed_subset parameter. Abort.")
+
+    ! init the min, max values
+    sum_value = 0
+    IF (PRESENT(weights)) THEN
+
+      DO i=1, indexed_subset%size
+        block = indexed_subset%block(i)
+        idx = indexed_subset%idx(i)
+        DO level = start_vertical, end_vertical
+          sum_value  = sum_value + values(idx, level, block) * weights(idx, level, block)
+        ENDDO
+      ENDDO
+
+    ELSEIF (PRESENT(subset_indexed_weights)) THEN
+
+      DO i=1, indexed_subset%size
+        block = indexed_subset%block(i)
+        idx = indexed_subset%idx(i)
+        DO level = start_vertical, end_vertical
+          sum_value  = sum_value + values(idx, level, block) * subset_indexed_weights(level, i)
+        ENDDO
+      ENDDO
+
+    ELSE
+
+      DO i=1, indexed_subset%size
+        block = indexed_subset%block(i)
+        idx = indexed_subset%idx(i)
+        DO level = start_vertical, end_vertical
+          sum_value  = sum_value + values(idx, level, block)
+        ENDDO
+      ENDDO
+
+    ENDIF
+
+    ! the global min, max is avaliable only to stdio process
+    IF (my_process_is_mpi_parallel()) THEN
+
+      communicator = indexed_subset%patch%work_communicator
+      ! these are avaliable to all processes
+      total_sum = p_sum( sum_value,  comm=communicator)
+
+    ELSE
+
+      total_sum = sum_value
+
+    ENDIF
+
+  END FUNCTION globalspace_3D_sum
   !-----------------------------------------------------------------------
 #endif
 
@@ -445,6 +544,17 @@ CONTAINS
 
   END FUNCTION new_statistic_no_bars
   !-----------------------------------------------------------------------
+
+  !-----------------------------------------------------------------------
+  !>
+  !! Creates a new statistics object and returns its id.
+  !! The statistic arrays are not allocated.
+  INTEGER FUNCTION new_statistic_with_pointers(target,source,mode)
+    REAL(wp), TARGET               :: target,source
+    INTEGER,  INTENT(in), OPTIONAL :: mode
+    ! GZ: temporary fix to get the code compiled
+    new_statistic_with_pointers = 0
+  END FUNCTION new_statistic_with_pointers
 
   !-----------------------------------------------------------------------
   !>
@@ -718,6 +828,27 @@ CONTAINS
 
   END SUBROUTINE init_statistic_object
   !-----------------------------------------------------------------------
+
+  !-----------------------------------------------------------------------
+  !>
+  !! Initializes a new statistic object with source and target pointers
+  SUBROUTINE init_statistic_object_with_pointers(statistic_id,source,summation,mean,maximum,minimum)
+    INTEGER, INTENT(in)            :: statistic_id
+    REAL(wp), POINTER              :: source
+    REAL(wp), POINTER, OPTIONAL    :: summation,mean,maximum,minimum
+
+    statistic_object(statistic_id)%no_of_values = 0
+   !IF (PRESENT(summation)) THEN
+   !  statistic_object(statistic_id)%sum_of_values => summation
+   !END IF
+   !IF (PRESENT(maximum)) THEN
+   !  statistic_object(statistic_id)%max_of_values => maximum
+   !END IF
+   !IF (PRESENT(minimum)) THEN
+   !  statistic_object(statistic_id)%min_of_values => minimum
+   !END IF
+    statistic_object(statistic_id)%mode = ADD_VALUE
+  END SUBROUTINE init_statistic_object_with_pointers
 
   !-----------------------------------------------------------------------
   !>

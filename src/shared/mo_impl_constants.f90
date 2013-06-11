@@ -79,6 +79,9 @@ MODULE mo_impl_constants
   INTEGER, PARAMETER :: EDGES               = 345
   INTEGER, PARAMETER :: VERTS               = 678
   
+  INTEGER, PARAMETER :: ON_CELLS            = 1
+  INTEGER, PARAMETER :: ON_EDGES            = 2
+  INTEGER, PARAMETER :: ON_VERTICES         = 3
   INTEGER, PARAMETER :: HALO_LEVELS_CEILING = 256 ! should be greater than the max level
                                          ! of halo levels
 !-------------------------------------------------------------------------------

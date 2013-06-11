@@ -48,7 +48,7 @@ MODULE mo_icon_comm_lib
     & max_no_of_comm_processes, max_no_of_comm_patterns, sync_barrier_mode, &
     & max_mpi_message_size
 
-  USE mo_communication,   ONLY: blk_no, idx_no
+  USE mo_grid_subset,    ONLY: block_no, index_no
   USE mo_model_domain,    ONLY: t_patch
   USE mo_mpi,             ONLY: p_send, p_recv, p_irecv, p_wait, p_isend, &
      & p_send, p_real_dp, p_int, p_bool, my_process_is_mpi_seq,   &
@@ -622,8 +622,8 @@ CONTAINS
     ! create the filtered_receive_from_owner, it contains -1 wherever we do not need to receive
     IF(PRESENT(halo_level)) THEN
       DO point_idx = 1, total_no_of_points
-        IF (halo_level(idx_no(point_idx), blk_no(point_idx)) < level_start .OR. &
-          & halo_level(idx_no(point_idx), blk_no(point_idx)) > level_end   .OR. &
+        IF (halo_level(index_no(point_idx), block_no(point_idx)) < level_start .OR. &
+          & halo_level(index_no(point_idx), block_no(point_idx)) > level_end   .OR. &
           & receive_from_owner(point_idx) == this_mpi_work_id )  THEN
           filtered_receive_from_owner(point_idx) = -1
         ELSE
@@ -697,9 +697,9 @@ CONTAINS
       p_comm_pattern%global_index(p_comm_pattern%no_of_points) = &
         & my_global_index(point_idx)
       p_comm_pattern%block_no(p_comm_pattern%no_of_points) = &
-        & blk_no(point_idx)
+        & block_no(point_idx)
       p_comm_pattern%index_no(p_comm_pattern%no_of_points) = &
-        & idx_no(point_idx)
+        & index_no(point_idx)
       
     ENDDO
 
@@ -809,8 +809,8 @@ CONTAINS
         local_idx = owners_local_index(p_comm_pattern%global_index(point_idx))
         IF ( local_idx < 0 ) &
           & CALL finish(method_name,'Wrong local index')
-        p_comm_pattern%block_no(point_idx) = blk_no(local_idx)
-        p_comm_pattern%index_no(point_idx) = idx_no(local_idx)
+        p_comm_pattern%block_no(point_idx) = block_no(local_idx)
+        p_comm_pattern%index_no(point_idx) = index_no(local_idx)
       ENDDO
     ENDDO
 

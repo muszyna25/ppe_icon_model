@@ -25,6 +25,7 @@ cd $WRKDIR
 # Define torus parameters
 # Note that to match a square cell of size dx*dy
 # use triangles of edge length = 2/(3**1/4)*SQRT(dx*dy) ~ 1.5*SQRT(dx*dy)
+# use time step < 1.8*edge_length[km]/SQRT(3) 
 #
 # Naming convention for grid file: torus_grid_r{resolution_in_m}_s{grid_size}.nc
 cat > $parameterFile << EOF

@@ -144,7 +144,6 @@ MODULE mo_grid_nml
 !       &  radiation_grid_distribution
 
 
-
 !    INTEGER  :: funit
 !    INTEGER  :: jg, jlev
 !    CHARACTER(filename_max) :: patch_file, gridtype

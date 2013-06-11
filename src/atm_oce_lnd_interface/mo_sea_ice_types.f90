@@ -77,11 +77,11 @@ MODULE mo_sea_ice_types
       &  forc_fwfx        (:,:),     & ! sum of forcing surface freshwater flux                    [m/s]
       &  forc_hfrelax     (:,:),     & ! diagnosed surface heat flux due to relaxation             [m/s]
       &  forc_hflx        (:,:),     & ! sum of forcing surface heat flux                          [W/m2]
-      &  forc_tracer      (:,:,:),   & ! forcing of tracer in vertical duffusion equation          [K*m/s; psu*m/s]
-      &  forc_tracer_relax(:,:,:),   & ! tracer relaxation: contains data to which is relaxated
-      &                              & !   3rd index refers to tracer id
-      &                              & !
-      &                              & !  accumulations variables
+      &  forc_tracer      (:,:,:),   & ! forcing of tracer in vertical diffusion equation          [K*m/s; psu*m/s]
+      &  forc_tracer_relax(:,:,:),   & ! tracer relaxation: contains data to which a tracer
+      !                                  is relaxated, 3rd index refers to tracer id
+      !
+      !  accumulations variables
       &  forc_wind_u_acc      (:,:),     & ! forcing of zonal component of velocity equation,
       &  forc_wind_v_acc      (:,:),     & ! forcing of meridional component of velocity equation,
       &  forc_swflx_acc       (:,:),     & ! surface short wave heat flux                              [W/m2]

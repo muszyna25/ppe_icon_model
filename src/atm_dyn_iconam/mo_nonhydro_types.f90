@@ -297,6 +297,9 @@ MODULE mo_nonhydro_types
    REAL(wp), POINTER :: vwind_expl_wgt(:,:)
    ! implicit weight in vertical wind solver (nproma,nblks_c)
    REAL(wp), POINTER :: vwind_impl_wgt(:,:)
+   ! save array for the above coefficient field (nproma,nblks_c)
+   REAL(wp), POINTER :: vwind_impl_wgt_sv(:,:)
+
    ! Fields for reference atmosphere
    REAL(wp), POINTER :: theta_ref_mc(:,:,:)
    REAL(wp), POINTER :: theta_ref_me(:,:,:)

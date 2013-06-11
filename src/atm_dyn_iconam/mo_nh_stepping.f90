@@ -600,6 +600,12 @@ MODULE mo_nh_stepping
     ! activating and immediately after terminating a model domain
     ldom_active(1:n_dom) = p_patch(1:n_dom)%ldom_active
 
+    ! This serves for enhancing the sound wave damping during the initial spinup phase
+    IF (jstep <= 100+iadv_rcf .AND. MOD(jstep,iadv_rcf) == 1 .AND. .NOT. is_restart_run() &
+       .AND. .NOT. ltestcase) THEN
+      CALL update_w_offctr(jstep)
+    ENDIF
+
     !--------------------------------------------------------------------------
     !
     ! dynamics stepping
@@ -1730,6 +1736,38 @@ MODULE mo_nh_stepping
     IF (ltimer) CALL timer_stop(timer_nh_diagnostics)
 
   END SUBROUTINE diag_for_output_phys
+
+  !-------------------------------------------------------------------------
+  !>
+  !! Update of vertical wind offcentering
+  !!
+  !! This routine handles the increased sound-wave damping (by increasing the vertical
+  !! wind offcentering) during the initial spinup phase
+  !!
+  !! @par Revision History
+  !! Developed by Guenther Zaengl, DWD (2013-06-04)
+  !!
+  SUBROUTINE update_w_offctr(jstep)
+
+    INTEGER, INTENT(IN) :: jstep
+    INTEGER :: jg
+    REAL(wp) :: min_vwind_impl_wgt
+
+    IF (jstep <= 30) THEN ! apply slightly super-implicit weights
+      min_vwind_impl_wgt = 1.1_wp
+    ELSE IF (jstep <= 100) THEN ! linearly decrease minimum weights to 0.5
+      min_vwind_impl_wgt = 0.5_wp + 0.6_wp*REAL(100-jstep,wp)/70._wp
+    ELSE
+      min_vwind_impl_wgt = 0.5_wp
+    ENDIF
+
+    DO jg = 1, n_dom
+      p_nh_state(jg)%metrics%vwind_impl_wgt(:,:) = MAX(min_vwind_impl_wgt, &
+        p_nh_state(jg)%metrics%vwind_impl_wgt_sv(:,:))
+      p_nh_state(jg)%metrics%vwind_expl_wgt(:,:) = 1._wp-p_nh_state(jg)%metrics%vwind_impl_wgt(:,:)
+    ENDDO
+
+  END SUBROUTINE update_w_offctr
 
   !-------------------------------------------------------------------------
   !>

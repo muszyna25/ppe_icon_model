@@ -483,7 +483,7 @@ CONTAINS
     ! ctrn=minval(p_array(:, slev:elev_mxmn, :))
     DO jk = slev, elev_mxmn
 
-      minmaxmean(:) = global_minmaxmean(values=p_array(:,:,:), subset=in_subset, start_level=jk, end_level=jk)
+      minmaxmean(:) = global_minmaxmean(values=p_array(:,:,:), range_subset=in_subset, start_level=jk, end_level=jk)
 
       IF (my_process_is_stdio()) &
         & WRITE(iout,992) ' MAX/MIN/MEAN ', strmod, strout, jk, minmaxmean(2), minmaxmean(1), minmaxmean(3)
@@ -595,7 +595,7 @@ CONTAINS
 
   IF (idbg_mxmn >= idetail_src ) THEN
 
-    minmaxmean(:) = global_minmaxmean(values=p_array(:,:), subset=in_subset)
+    minmaxmean(:) = global_minmaxmean(values=p_array(:,:), range_subset=in_subset)
 
     IF (my_process_is_stdio()) &
       & WRITE(iout,992) ' MAX/MIN/MEAN ', strmod, strout, jk, minmaxmean(2), minmaxmean(1), minmaxmean(3)

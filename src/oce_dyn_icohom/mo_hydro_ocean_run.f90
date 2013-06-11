@@ -53,8 +53,8 @@ USE mo_grid_config,            ONLY: n_dom
 USE mo_grid_subset,            ONLY: get_index_range
 USE mo_sync,                   ONLY: sync_patch_array, sync_e!, sync_c, sync_v
 USE mo_ocean_nml,              ONLY: iswm_oce, n_zlev, no_tracer, &
-  &                                  itestcase_oce, idiag_oce, init_oce_prog, init_oce_relax, &
-  &                                  EOS_TYPE, i_sea_ice, l_staggered_timestep
+  &                                  itestcase_oce, idiag_oce, init_oce_prog, &
+  &                                  EOS_TYPE, i_sea_ice, l_staggered_timestep, gibraltar
 USE mo_dynamics_config,        ONLY: nold, nnew
 USE mo_io_config,              ONLY: n_files, n_checkpoints, is_output_time!, istime4newoutputfile
 USE mo_run_config,             ONLY: nsteps, dtime, ltimer, output_mode
@@ -176,11 +176,11 @@ CONTAINS
   LOGICAL,                  INTENT(INOUT)          :: l_have_output
 
   ! local variables
-  INTEGER                         :: jstep, jg, jtrc
+  INTEGER                         :: jstep, jg
   INTEGER                         :: nsteps_since_last_output
   INTEGER                         :: ocean_statistics
   !LOGICAL                         :: l_outputtime
-  CHARACTER(len=32)               :: datestring, plaindatestring
+  CHARACTER(len=32)               :: datestring
   TYPE(t_oce_timeseries), POINTER :: oce_ts
   TYPE(t_patch), POINTER          :: p_patch
 
@@ -512,9 +512,7 @@ CONTAINS
       CALL init_ho_prog(p_patch_3D%p_patch_2D(jg),p_patch_3D, p_os(jg), p_sfc_flx)
     END IF
 
-    IF (init_oce_relax == 1) THEN
-      CALL init_ho_relaxation(p_patch_3D%p_patch_2D(jg),p_patch_3D, p_os(jg), p_sfc_flx)
-    END IF
+    CALL init_ho_relaxation(p_patch_3D%p_patch_2D(jg),p_patch_3D, p_os(jg), p_sfc_flx)
 
     CALL init_ho_coupled(p_patch_3D%p_patch_2D(jg), p_os(jg))
     IF (i_sea_ice >= 1) &
@@ -580,7 +578,7 @@ CONTAINS
     TYPE(t_sfc_flx),           INTENT(INOUT) :: p_sfc_flx
     TYPE(t_subset_range),INTENT(IN) :: subset
 
-    INTEGER :: jtrc,i
+    INTEGER :: jtrc
 
 
     ! update ocean state accs
@@ -675,7 +673,7 @@ CONTAINS
     REAL(wp),INTENT(IN)             :: f_b(:,:,:)
     TYPE(t_subset_range),INTENT(IN) :: subset
 
-    INTEGER :: jb,jc,jk,i_startidx_c,i_endidx_c,i
+    INTEGER :: jb,jc,jk,i_startidx_c,i_endidx_c
 
     DO jb = subset%start_block, subset%end_block
       CALL get_index_range(subset, jb, i_startidx_c, i_endidx_c)
@@ -691,7 +689,7 @@ CONTAINS
     REAL(wp),INTENT(IN)             :: f_b(:,:)
     TYPE(t_subset_range),INTENT(IN) :: subset
 
-    INTEGER :: jb,jc,jk,i_startidx_c,i_endidx_c,i
+    INTEGER :: jb,jc,jk,i_startidx_c,i_endidx_c
 
     DO jb = subset%start_block, subset%end_block
       CALL get_index_range(subset, jb, i_startidx_c, i_endidx_c)
@@ -700,4 +698,7 @@ CONTAINS
       END DO
     END DO
   END SUBROUTINE add_fields_2d
+
+  SUBROUTINE new_ocean_statistics()
+  END SUBROUTINE new_ocean_statistics
 END MODULE mo_hydro_ocean_run

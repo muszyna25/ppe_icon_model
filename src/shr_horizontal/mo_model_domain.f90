@@ -120,13 +120,38 @@ MODULE mo_model_domain
   PUBLIC :: t_grid_edges
   PUBLIC :: t_grid_vertices
   PUBLIC :: t_phys_patch
-  PUBLIC :: t_subset_range, t_subset_range_index
+  PUBLIC :: t_subset_range, t_subset_range_index, t_subset_indexed
 
   !PUBLIC :: t_patch_ocean
   PUBLIC :: t_patch_3D
   PUBLIC :: t_patch_vert
 
   PUBLIC :: t_tangent_vectors
+
+
+  !----------------------------------------------------
+  ! TODO Abstraction of the two types of subsets
+  !----------------------------------------------------
+  !> Defines a subset explicitly using an array of indexes
+  TYPE :: t_subset_indexed
+
+    INTEGER, ALLOCATABLE :: block(:)
+    INTEGER, ALLOCATABLE :: idx(:)
+
+    INTEGER :: size
+    INTEGER :: allocated_size
+    INTEGER :: recommended_stride  ! in case of parallelization/vectorization
+
+    TYPE(t_patch), POINTER :: patch
+    TYPE(t_patch_3D), POINTER :: patch_3D
+    INTEGER :: entity_location ! on_cells, on_edges, on_verts
+
+    LOGICAL :: is_in_domain
+
+    CHARACTER(len=32) :: name
+
+  END TYPE t_subset_indexed
+  !----------------------------------------------------
 
   !----------------------------------------------------
   !> Defines a subset in a range (in terms of blocks)
@@ -141,14 +166,14 @@ MODULE mo_model_domain
     INTEGER :: size
 
     TYPE(t_patch), POINTER :: patch
-    INTEGER :: entity_type ! 1=cells, 2=edges, 3=verts
+    INTEGER :: entity_location ! on_cells, on_edges, on_verts
 
     INTEGER :: no_of_holes ! the number of holes in the subset
     LOGICAL :: is_in_domain
 
     CHARACTER(len=32) :: name
 
-  END TYPE
+  END TYPE t_subset_range
   !----------------------------------------------------
 
 
@@ -164,7 +189,7 @@ MODULE mo_model_domain
 
     TYPE(t_subset_range), POINTER :: subset_range
 
-  END TYPE
+  END TYPE t_subset_range_index
   !----------------------------------------------------
 
   ! tangent vector class

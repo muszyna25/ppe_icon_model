@@ -171,6 +171,14 @@ CONTAINS
     t_top =>p_os%p_prog(nold(1))%tracer(:,1,:,1)
     s_top =>p_os%p_prog(nold(1))%tracer(:,1,:,2)
 
+    !  calculate day and month
+    jmon  = datetime%month         ! integer current month
+    jdmon = datetime%day           ! integer day in month
+    yday  = datetime%yeaday        ! integer current day in year
+    ylen  = datetime%yealen        ! integer days in year (365 or 366)
+    dsec  = datetime%daysec        ! real seconds since begin of day
+    !ytim  = datetime%yeatim        ! real time since begin of year
+
     SELECT CASE (iforc_oce)
 
     CASE (NO_FORCING)                !  10
@@ -187,14 +195,6 @@ CONTAINS
       !-------------------------------------------------------------------------
       ! Applying annual forcing read from file in mo_ext_data:
       !  - stepping daily in monthly data (preliminary solution)
-
-      !  calculate day and month
-      jmon  = datetime%month         ! integer current month
-      jdmon = datetime%day           ! integer day in month
-      yday  = datetime%yeaday        ! integer current day in year
-      ylen  = datetime%yealen        ! integer days in year (365 or 366)
-      dsec  = datetime%daysec        ! real seconds since begin of day
-      !ytim  = datetime%yeatim        ! real time since begin of year
 
       !jdmon = mod(jdays+1,30)-1     ! no of days in month
 

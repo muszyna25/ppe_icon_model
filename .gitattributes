@@ -794,7 +794,6 @@ scripts/buildbot_scripts/archive_exp.ksh -text
 scripts/buildbot_scripts/bb_make -text
 scripts/buildbot_scripts/bb_make_doc -text
 scripts/buildbot_scripts/bb_run -text
-scripts/buildbot_scripts/bb_run_doc -text
 scripts/buildbot_scripts/buildbot.tac.blizzard1 -text
 scripts/buildbot_scripts/buildbot.tac.squall1 -text
 scripts/buildbot_scripts/buildbot.tac_master -text
@@ -986,6 +985,8 @@ scripts/preprocessing/testdata/atm_hyb_sp_31 -text
 scripts/preprocessing/testdata/iconR2B04-grid.nc -text svneol=unset#unset
 scripts/preprocessing/testdata/oro_R2B04.nc -text svneol=unset#unset
 scripts/preprocessing/testdata/vct -text
+scripts/prototypes/mo_statistics.rb -text
+scripts/prototypes/test/mo_statistics.rb -text
 scripts/run_scripts/experiments.rb -text
 scripts/run_scripts/make_performance_runscripts -text
 scripts/run_scripts/run.rb -text
@@ -1481,6 +1482,7 @@ src/shr_horizontal/mo_grf_intp_state.f90 -text
 src/shr_horizontal/mo_grf_nudgintp.f90 -text
 src/shr_horizontal/mo_grf_ubcintp.f90 -text
 src/shr_horizontal/mo_grid_geometry_info.f90 -text
+src/shr_horizontal/mo_grid_tools.f90 -text
 src/shr_horizontal/mo_intp.f90 -text
 src/shr_horizontal/mo_intp_coeffs.f90 -text
 src/shr_horizontal/mo_intp_coeffs_lsq_bln.f90 -text
