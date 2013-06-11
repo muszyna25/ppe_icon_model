@@ -306,7 +306,7 @@ CONTAINS
     !
     IF (l_realcase .AND. .NOT. is_restart_run()) THEN
 
-      CALL init_icon (p_patch(1:), p_nh_state(1:), p_lnd_state(1:), &
+      CALL init_icon (p_patch(1:), p_nh_state(1:), prm_diag(1:), p_lnd_state(1:), &
         &             p_int_state(1:), p_grf_state(1:), ext_data(1:))
 
     ENDIF
