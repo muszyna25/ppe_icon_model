@@ -58,7 +58,7 @@ USE mo_physical_constants, ONLY: rgrav, sal_ref, sfc_press_bar, tmelt, Tf! , SIt
 USE mo_math_constants,     ONLY: pi, pi_2, rad2deg, deg2rad
 USE mo_parallel_config,    ONLY: nproma
 USE mo_ocean_nml,          ONLY: iswm_oce, n_zlev, no_tracer, itestcase_oce, i_sea_ice,     &
-  &                              irelax_3d_S, irelax_3d_T, irelax_2d_S,                     &
+  &                              init_oce_relax, irelax_3d_S, irelax_3d_T, irelax_2d_S,     &
   &                              basin_center_lat, basin_center_lon,idisc_scheme,           &
   &                              basin_height_deg,  basin_width_deg, temperature_relaxation
 USE mo_impl_constants,     ONLY: max_char_length, sea, sea_boundary, boundary, land,        &
@@ -327,6 +327,10 @@ CONTAINS
     !-------------------------------------------------------------------------
     TYPE(t_subset_range), POINTER :: all_cells
     !-------------------------------------------------------------------------
+
+    ! Read relaxation data from file
+    IF (init_oce_relax == 1) THEN
+
     sphere_radius = grid_sphere_radius
     u0 =(2.0_wp*pi*sphere_radius)/(12.0_wp*24.0_wp*3600.0_wp)
     all_cells => p_patch%cells%all
@@ -431,6 +435,8 @@ CONTAINS
     END DO
 
     CALL message( TRIM(routine),'Ocean T/S relaxation reading finished' )
+
+    ENDIF  !  read relaxation data from file
 
     !-------------------------------------------------------
     !
