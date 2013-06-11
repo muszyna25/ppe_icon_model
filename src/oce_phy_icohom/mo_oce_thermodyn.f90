@@ -272,7 +272,7 @@ END INTERFACE
   TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: p_patch_3D
   REAL(wp), INTENT(IN)              :: rho          (1:nproma,1:n_zlev, p_patch_3D%p_patch_2D(1)%nblks_c)  !< density
   REAL(wp), INTENT(IN), TARGET      :: prism_thick_c(1:nproma,1:n_zlev, p_patch_3D%p_patch_2D(1)%nblks_c)
-  REAL(wp), INTENT(IN)              :: h            (1:nproma, p_patch_3D%p_patch_2D(1)%nblks_c)           !< surface elevation at cells
+  REAL(wp), INTENT(IN)              :: h            (1:nproma, p_patch_3D%p_patch_2D(1)%nblks_c)     !< surface elevation at cells
   REAL(wp), INTENT(INOUT)           :: press_hyd    (1:nproma,1:n_zlev, p_patch_3D%p_patch_2D(1)%nblks_c)  !< hydrostatic pressure
 
   ! local variables:

@@ -2030,7 +2030,6 @@ CONTAINS
 
 ! Tuned version of gcv2009 based on IFS values (Juergen Helmert und Martin Koehler)
 ! DATA lu_gcv2009 /   0.07_wp,  0.9_wp,  3.3_wp, 1.0_wp, 180.0_wp,  -1.0_wp, 1._wp, & ! irrigated croplands                           
-!                 &   0.07_wp,  0.9_wp,  3.3_wp, 1.0_wp, 180.0_wp,  -1.0_wp, 1._wp, & ! rainfed croplands                             
 !                 &   0.25_wp,  0.8_wp,  3.0_wp, 1.0_wp, 120.0_wp,  -1.0_wp, 1._wp, & ! mosaic cropland (50-70%) - vegetation (20-50%)
 !                 &   0.07_wp,  0.9_wp,  3.5_wp, 1.0_wp, 100.0_wp,  -1.0_wp, 1._wp, & ! mosaic vegetation (50-70%) - cropland (20-50%)
 !                 &   1.00_wp,  0.8_wp,  5.0_wp, 1.0_wp, 240.0_wp,  0.38_wp,-1._wp, & ! closed broadleaved evergreen forest           

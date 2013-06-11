@@ -1886,18 +1886,11 @@ REAL (KIND=ireals) :: &
          IF (it_durch.LT.it_end) THEN !at least one additional iteration
 
             !Profile factors using U_star**2=tkvm*SQRT(fm2):
-!!!!DR
-!DR works only, if !CDIR NOVECTOR is specified. Otherwise rat_m_2d(i) and 
-!DR rat_h_2d(i) contain NAN (at a few points, only). As a consequence the iteration 
-!DR breaks where rat_m_2d and rat_h_2d are re-used.
-!DR changing wert->wert(i) and fakt->fakt(i) does not help either. 
             DO i=i_st,i_en
                fakt=h_top_2d(i)/z0m_2d(i)       !(l_a-l_0)/l_0; l_0=akt*z0m
                wert=l_tur_z0(i)*SQRT(tkvm(i,ke1)*SQRT(fm2_2d(i))) !l_0*U_star
                rat_m_2d(i)=z1+fakt*(z1-        (wert/tkvm(i,ke1)))
                rat_h_2d(i)=z1+fakt*(z1-b_1/b_2*(wert/tkvh(i,ke1)))
-!DRwrite(0,*) "rat_m_2d(i): ", rat_m_2d(i), i_st,i_en !,i,fakt,wert
-!DRwrite(0,*) "rat_h_2d(i): ", rat_h_2d(i), i_st,i_en !,i
             END DO
 
             IF (.NOT.ltkeinp) THEN

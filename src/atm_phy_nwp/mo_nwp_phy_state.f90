@@ -1328,8 +1328,9 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
         CALL add_var( diag_list, 'gz0', diag%gz0,                             &
           & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,          &
           & ldims=shape2d,                                                    &
-          & post_op=post_op(POST_OP_SCALE, arg1=1._wp/grav, &
-          &                 new_cf=new_cf_desc) )
+          & post_op=post_op(POST_OP_SCALE, arg1=1._wp/grav,                   &
+          &                 new_cf=new_cf_desc),                              &
+          & in_group=groups("dwd_ana_vars") )
         diag%gz0(:,:)=0.01_wp
 
 

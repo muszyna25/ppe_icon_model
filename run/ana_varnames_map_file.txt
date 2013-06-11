@@ -29,3 +29,4 @@ w_i                 W_I
 w_so                W_SO
 w_so_ice            W_SO_ICE
 t_so                T_SO
+gz0                 Z0

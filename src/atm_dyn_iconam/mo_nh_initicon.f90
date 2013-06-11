@@ -50,6 +50,7 @@ MODULE mo_nh_initicon
   USE mo_dynamics_config,     ONLY: nnow, nnow_rcf, nnew, nnew_rcf
   USE mo_model_domain,        ONLY: t_patch
   USE mo_nonhydro_types,      ONLY: t_nh_state, t_nh_prog, t_nh_diag
+  USE mo_nwp_phy_types,       ONLY: t_nwp_phy_diag
   USE mo_nonhydrostatic_config, ONLY: kstart_moist
   USE mo_nwp_lnd_types,       ONLY: t_lnd_state
   USE mo_intp_data_strc,      ONLY: t_int_state
@@ -65,7 +66,7 @@ MODULE mo_nh_initicon
     &                               MODE_IFSANA, MODE_COMBINED, min_rlcell,               &
     &                               min_rledge, min_rledge_int, min_rlcell_int
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c, grf_bdywidth_e
-  USE mo_physical_constants,  ONLY: tf_salt, rd, cpd, cvd, p0ref, vtmpc1
+  USE mo_physical_constants,  ONLY: tf_salt, rd, cpd, cvd, p0ref, vtmpc1, grav
   USE mo_exception,           ONLY: message, finish, message_text
   USE mo_grid_config,         ONLY: n_dom, nroot
   USE mo_mpi,                 ONLY: p_pe, p_io, p_bcast, p_comm_work_test, p_comm_work
@@ -147,11 +148,12 @@ MODULE mo_nh_initicon
   !! Initial version by Guenther Zaengl, DWD(2011-07-14)
   !!
   !!
-  SUBROUTINE init_icon (p_patch, p_nh_state, p_lnd_state, p_int_state, p_grf_state, &
-    &                   ext_data)
+  SUBROUTINE init_icon (p_patch, p_nh_state, prm_diag, p_lnd_state, p_int_state, &
+    &                   p_grf_state, ext_data)
 
     TYPE(t_patch),          INTENT(IN)    :: p_patch(:)
     TYPE(t_nh_state),       INTENT(INOUT) :: p_nh_state(:)
+    TYPE(t_nwp_phy_diag),   INTENT(INOUT) :: prm_diag(:)
     TYPE(t_lnd_state),      INTENT(INOUT) :: p_lnd_state(:)
     TYPE(t_int_state),      INTENT(IN)    :: p_int_state(:)
     TYPE(t_gridref_state),  INTENT(IN)    :: p_grf_state(:)
@@ -197,7 +199,7 @@ MODULE mo_nh_initicon
       CALL process_dwdana_atm (p_patch, p_nh_state, p_int_state)
 
       ! process DWD land/surface analysis data
-      CALL process_dwdana_sfc (p_patch, p_lnd_state, ext_data)
+      CALL process_dwdana_sfc (p_patch, prm_diag, p_lnd_state, ext_data)
 
     CASE(MODE_IFSANA)   ! read in IFS analysis
 
@@ -215,7 +217,7 @@ MODULE mo_nh_initicon
       CALL process_ifsana_atm (p_patch, p_nh_state, p_int_state, p_grf_state, initicon)
 
       ! process DWD land/surface analysis
-      CALL process_dwdana_sfc (p_patch, p_lnd_state, ext_data)
+      CALL process_dwdana_sfc (p_patch, prm_diag, p_lnd_state, ext_data)
 
     CASE DEFAULT
       CALL finish(TRIM(routine), "Invalid operation mode!")
@@ -296,9 +298,10 @@ MODULE mo_nh_initicon
   !! Initial version by Daniel Reinert, DWD(2012-12-20)
   !!
   !!
-  SUBROUTINE process_dwdana_sfc (p_patch, p_lnd_state, ext_data)
+  SUBROUTINE process_dwdana_sfc (p_patch, prm_diag, p_lnd_state, ext_data)
 
     TYPE(t_patch),          INTENT(IN)    :: p_patch(:)
+    TYPE(t_nwp_phy_diag),   INTENT(INOUT) :: prm_diag(:)
     TYPE(t_lnd_state),      INTENT(INOUT) :: p_lnd_state(:)
     TYPE(t_external_data),  INTENT(INOUT) :: ext_data(:)
 
@@ -311,7 +314,7 @@ MODULE mo_nh_initicon
 
     ! read DWD first guess for surface/land
     ! 
-    CALL read_dwdfg_sfc(p_patch, p_lnd_state)
+    CALL read_dwdfg_sfc(p_patch, prm_diag, p_lnd_state)
 
 
     ! read data assimilation increment (land/surface only)
@@ -1408,9 +1411,10 @@ MODULE mo_nh_initicon
   !! @par Revision History
   !! Initial version by Daniel Reinert, DWD(2012-12-18)
   !!
-  SUBROUTINE read_dwdfg_sfc (p_patch, p_lnd_state)
+  SUBROUTINE read_dwdfg_sfc (p_patch, prm_diag, p_lnd_state)
 
     TYPE(t_patch),          INTENT(IN)    :: p_patch(:)
+    TYPE(t_nwp_phy_diag),   INTENT(INOUT) :: prm_diag(:)
     TYPE(t_lnd_state),      INTENT(INOUT) :: p_lnd_state(:)
 
     INTEGER :: jg, jt, jlev
@@ -1676,7 +1680,20 @@ MODULE mo_nh_initicon
           &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,    &
           &                nlev_soil+1, p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_so_t(:,:,:,jt))
 
-      ENDDO 
+      ENDDO ! jt
+
+
+      ! when starting from GME soil, we do not read z0. 
+      ! Instead z0 is re-initialized (see mo_nwp_phy_init)
+      IF (init_mode /= MODE_COMBINED) THEN
+        CALL read_data_2d (filetype, fileID, 'gz0',                                &
+          &                p_patch(jg)%n_patch_cells_g,                            &
+          &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+          &                prm_diag(jg)%gz0(:,:) )
+        ! conversion z0 -> gz0
+        prm_diag(jg)%gz0(:,:) = grav * prm_diag(jg)%gz0(:,:)
+      ENDIF
+
 
       ! close file
       IF(p_pe == p_io) THEN
@@ -1766,6 +1783,7 @@ MODULE mo_nh_initicon
 
 
     ! allocate temporary arrays for nonhydrostatic pressure, DA increments and a filtering term for vn
+    ! note that an explicit temperature increment is not required (see below)
     ALLOCATE(zpres_nh (nproma,nlev,nblks_c),  &
              pres_incr(nproma,nlev,nblks_c),  &
              u_incr   (nproma,nlev,nblks_c),  &
@@ -1868,7 +1886,8 @@ MODULE mo_nh_initicon
       DO jk = 1, nlev
         DO jc = i_startidx, i_endidx
 
-          ! pressure increment - should we verify that it is in hydrostatic balance with the temperature increment?
+          ! pressure increment - should we verify that it is in hydrostatic balance with 
+          ! the temperature increment?
           pres_incr(jc,jk,jb) = initicon(jg)%atm%pres(jc,jk,jb) - p_diag%pres(jc,jk,jb)
 
           ! increments for u and v - will be interpolated to edge points below
@@ -1877,6 +1896,11 @@ MODULE mo_nh_initicon
 
           ! add pressure increment to the nonhydrostatic pressure
           zpres_nh(jc,jk,jb) = zpres_nh(jc,jk,jb) + pres_incr(jc,jk,jb)
+
+          ! temperature increment is not needed explicitly. Note that lateron the analysed 
+          ! temperature field initicon(jg)%atm%temp, instead of the first guess 
+          ! temperature field p_diag%temp is used to compute the virtual temperature 
+          ! and lateron the virtual potential temperature.
 
         ENDDO  ! jc
       ENDDO  ! jk
@@ -2045,7 +2069,7 @@ MODULE mo_nh_initicon
   !!
   !!
   !-------------------------------------------------------------------------
-  SUBROUTINE create_dwdana_sfc (p_patch,p_lnd_state, ext_data)
+  SUBROUTINE create_dwdana_sfc (p_patch, p_lnd_state, ext_data)
 
     TYPE(t_patch),    TARGET ,INTENT(IN)    :: p_patch(:)
     TYPE(t_lnd_state)        ,INTENT(INOUT) :: p_lnd_state(:)

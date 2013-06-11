@@ -755,19 +755,88 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
   END IF
 
 
+
+
   !------------------------------------------
   !< setup for turbulence
   !------------------------------------------
 
 
+  ! initialize gz0 (roughness length * g)
+  !
+  IF ( ANY((/1,2/)==atm_phy_nwp_config(jg)%inwp_turb) .AND. .NOT. is_restart_run() ) THEN
 
-  IF (  atm_phy_nwp_config(jg)%inwp_turb == 1 .AND. .NOT. is_restart_run() ) THEN
-  
-    IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'init COSMO turbulence')
 
+    ! gz0 is initialized, if we start from IFS surface (MODE_IFSANA) or 
+    ! GME surface (MODE_COMBINED)
+    IF (ANY((/MODE_IFSANA,MODE_COMBINED/) == init_mode) ) THEN
+ 
+      IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'init roughness length')
 
-    ! initialize gz0 (roughness length * g)
-    !
+      IF (turbdiff_config(jg)%lconst_z0) THEN
+        ! constant z0 for idealized tests
+        prm_diag%gz0(:,:) = grav * turbdiff_config(jg)%const_z0
+
+      ELSE IF (atm_phy_nwp_config(jg)%itype_z0 == 1) THEN
+        ! default
+        prm_diag%gz0(:,:) = grav * ext_data%atm%z0(:,:)
+
+      ELSE IF (atm_phy_nwp_config(jg)%itype_z0 == 2) THEN
+
+        rl_start = grf_bdywidth_c + 1 ! land-cover classes are not set for nest-boundary points
+        rl_end   = min_rlcell_int
+
+        i_startblk = p_patch%cells%start_blk(rl_start,1)
+        i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,jc,ic,jt,i_startidx,i_endidx,lc_class,gz0) ICON_OMP_DEFAULT_SCHEDULE
+        DO jb = i_startblk, i_endblk
+
+          CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+            &                i_startidx, i_endidx, rl_start, rl_end)
+
+          ! specify land-cover-related roughness length over land points
+          ! note:  water points are set in turbdiff
+          gz0(:) = 0._wp
+        
+          DO jt = 1, ntiles_total
+!CDIR NODEP,VOVERTAKE,VOB
+            DO ic = 1, ext_data%atm%lp_count(jb)
+              jc = ext_data%atm%idx_lst_lp(ic,jb)
+              lc_class = MAX(1,ext_data%atm%lc_class_t(jc,jb,jt)) ! to avoid segfaults
+              gz0(jc) = gz0(jc) + ext_data%atm%frac_t(jc,jb,jt) * grav * (             &
+               (1._wp-p_diag_lnd%snowfrac_t(jc,jb,jt))*ext_data%atm%z0_lcc(lc_class)+  &
+                p_diag_lnd%snowfrac_t(jc,jb,jt)*0.5_wp*ext_data%atm%z0_lcc(i_lc_si) ) ! i_lc_si = snow/ice class
+            ENDDO
+          ENDDO
+          DO jt = ntiles_total+1, ntiles_total+ntiles_water ! required if there are mixed land-water points
+!CDIR NODEP,VOVERTAKE,VOB
+            DO ic = 1, ext_data%atm%lp_count(jb)
+              jc = ext_data%atm%idx_lst_lp(ic,jb)
+              lc_class = MAX(1,ext_data%atm%lc_class_t(jc,jb,jt)) ! to avoid segfaults
+              gz0(jc) = gz0(jc) + ext_data%atm%frac_t(jc,jb,jt) * grav*ext_data%atm%z0_lcc(lc_class)
+            ENDDO
+          ENDDO        
+!CDIR NODEP,VOVERTAKE,VOB
+          DO ic = 1, ext_data%atm%lp_count(jb)
+            jc = ext_data%atm%idx_lst_lp(ic,jb)
+            prm_diag%gz0(jc,jb) = gz0(jc)
+          ENDDO
+        ENDDO  !jb
+!$OMP END DO
+!$OMP END PARALLEL
+      ENDIF  !initialize gz0 
+
+    ENDIF  !operation mode
+
+  ! For 3D Smagorinsky turbulence model 
+  ! re-initialization of gz0 also for is_restart_run()=.TRUE.. Is that correct?
+  !
+  ELSE IF (  atm_phy_nwp_config(jg)%inwp_turb == 5 ) THEN
+
+    IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'init Smagorinsky turbulence')
+
     IF (turbdiff_config(jg)%lconst_z0) THEN
       ! for idealized tests
       prm_diag%gz0(:,:) = grav * turbdiff_config(jg)%const_z0
@@ -776,53 +845,20 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
       prm_diag%gz0(:,:) = grav * ext_data%atm%z0(:,:)
     ENDIF
 
+  ENDIF
+
+
+
+
+
+  ! Initialize turbulence models
+  !
+  IF (  atm_phy_nwp_config(jg)%inwp_turb == 1 .AND. .NOT. is_restart_run() ) THEN
+  
+    IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'init COSMO turbulence')
+
     CALL get_turbdiff_param(jg)
 
-!$OMP PARALLEL PRIVATE(rl_start,rl_end,i_startblk,i_endblk)
-
-    rl_start = grf_bdywidth_c + 1 ! land-cover classes are not set for nest-boundary points
-    rl_end   = min_rlcell_int
-
-    i_startblk = p_patch%cells%start_blk(rl_start,1)
-    i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
-
-!$OMP DO PRIVATE(jb,jc,ic,jt,i_startidx,i_endidx,lc_class,gz0) ICON_OMP_DEFAULT_SCHEDULE
-    DO jb = i_startblk, i_endblk
-
-      CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-        &                i_startidx, i_endidx, rl_start, rl_end)
-
-      IF (atm_phy_nwp_config(jg)%itype_z0 == 2) THEN
-        ! specify land-cover-related roughness length over land points
-        ! note:  water points are set in turbdiff
-        gz0(:) = 0._wp
-        
-        DO jt = 1, ntiles_total
-!CDIR NODEP,VOVERTAKE,VOB
-          DO ic = 1, ext_data%atm%lp_count(jb)
-            jc = ext_data%atm%idx_lst_lp(ic,jb)
-            lc_class = MAX(1,ext_data%atm%lc_class_t(jc,jb,jt)) ! to avoid segfaults
-            gz0(jc) = gz0(jc) + ext_data%atm%frac_t(jc,jb,jt) * grav * (             &
-             (1._wp-p_diag_lnd%snowfrac_t(jc,jb,jt))*ext_data%atm%z0_lcc(lc_class)+  &
-              p_diag_lnd%snowfrac_t(jc,jb,jt)*0.5_wp*ext_data%atm%z0_lcc(i_lc_si) ) ! i_lc_si = snow/ice class
-          ENDDO
-        ENDDO
-        DO jt = ntiles_total+1, ntiles_total+ntiles_water ! required if there are mixed land-water points
-!CDIR NODEP,VOVERTAKE,VOB
-          DO ic = 1, ext_data%atm%lp_count(jb)
-            jc = ext_data%atm%idx_lst_lp(ic,jb)
-            lc_class = MAX(1,ext_data%atm%lc_class_t(jc,jb,jt)) ! to avoid segfaults
-            gz0(jc) = gz0(jc) + ext_data%atm%frac_t(jc,jb,jt) * grav*ext_data%atm%z0_lcc(lc_class)
-          ENDDO
-        ENDDO        
-!CDIR NODEP,VOVERTAKE,VOB
-        DO ic = 1, ext_data%atm%lp_count(jb)
-          jc = ext_data%atm%idx_lst_lp(ic,jb)
-          prm_diag%gz0(jc,jb) = gz0(jc)
-        ENDDO
-      ENDIF
-    ENDDO
-!$OMP END DO
 
     rl_start = 1 ! Initialization is done also for nest boundary points
     rl_end   = min_rlcell_int
@@ -830,7 +866,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
     i_startblk = p_patch%cells%start_blk(rl_start,1)
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
-
+!$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,i_startidx,i_endidx,ic,jc,jt, &
 !$OMP            ltkeinp_loc,lgz0inp_loc) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
@@ -840,12 +876,19 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
 
 
 
-      IF (ANY((/MODE_DWDANA,MODE_COMBINED/) == init_mode) ) THEN
+      IF (ANY((/MODE_IFSANA,MODE_COMBINED/) == init_mode) ) THEN
+
+        ltkeinp_loc = .FALSE.  ! do not re-initialize TKE field
+        lgz0inp_loc = .FALSE.  ! do re-initialize gz0 field (water points only)
+
+      ELSE  ! init_mode=MODE_DWDANA
         !
         ! TKE and gz0 are not re-initialized, but re-used from the first guess
         !
-        ltkeinp_loc = .TRUE.   ! do not re-initialize TKE field
-        lgz0inp_loc = .FALSE.  ! do re-initialize gz0 field (water points only)
+        ltkeinp_loc = .TRUE.   ! do NOT re-initialize TKE field (read from FG)
+        lgz0inp_loc = .TRUE.   ! do NOT re-initialize gz0 field (read from FG)
+
+
         ! Note that TKE in turbtran/turbdiff is defined as the turbulence velocity scale
         ! TVS=SQRT(2*TKE)
         !
@@ -853,10 +896,28 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
           p_prog_now%tke(i_startidx:i_endidx,jk,jb)= SQRT(2.0_wp                        &
             &                                * p_prog_now%tke(i_startidx:i_endidx,jk,jb))
         ENDDO
-      ELSE
-        ltkeinp_loc = .FALSE.  ! do not re-initialize TKE field
-        lgz0inp_loc = .FALSE.  ! do re-initialize gz0 field (water points only)
       ENDIF
+
+
+!!$      IF (ANY((/MODE_DWDANA/) == init_mode) ) THEN
+!!$        !
+!!$        ! TKE and gz0 are not re-initialized, but re-used from the first guess
+!!$        !
+!!$        ltkeinp_loc = .TRUE.   ! do NOT re-initialize TKE field (read from FG)
+!!$        lgz0inp_loc = .TRUE.   ! do NOT re-initialize gz0 field (read from FG)
+!!$
+!!$
+!!$        ! Note that TKE in turbtran/turbdiff is defined as the turbulence velocity scale
+!!$        ! TVS=SQRT(2*TKE)
+!!$        !
+!!$        DO jk =1,nlevp1
+!!$          p_prog_now%tke(i_startidx:i_endidx,jk,jb)= SQRT(2.0_wp                        &
+!!$            &                                * p_prog_now%tke(i_startidx:i_endidx,jk,jb))
+!!$        ENDDO
+!!$      ELSE
+!!$        ltkeinp_loc = .FALSE.  ! do not re-initialize TKE field
+!!$        lgz0inp_loc = .FALSE.  ! do re-initialize gz0 field (water points only)
+!!$      ENDIF
 
 
       CALL turbtran(iini=1, ltkeinp=ltkeinp_loc, lgz0inp=lgz0inp_loc, &
@@ -945,29 +1006,17 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
         p_prog_now%tke(i_startidx:i_endidx,jk,jb)= 0.5_wp                        &
           &                                * (p_prog_now%tke(i_startidx:i_endidx,jk,jb))**2
       ENDDO 
-    ENDDO
+    ENDDO  ! jb
 !$OMP END DO
 
 !$OMP END PARALLEL
 
-    CALL message('mo_nwp_phy_init:', 'Cosmo turbulence initialized')
+    IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'Cosmo turbulence initialized')
 
 
   ELSE IF (  atm_phy_nwp_config(jg)%inwp_turb == 2) THEN
 
     IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'init GME turbulence')
-
-    ! initialize gz0 (roughness length * g)
-    !
-    IF (turbdiff_config(jg)%lconst_z0) THEN
-      ! for idealized tests
-      prm_diag%gz0(:,:) = grav * turbdiff_config(jg)%const_z0
-    ELSE 
-      ! default
-      prm_diag%gz0(:,:) = grav * ext_data%atm%z0(:,:)
-    ENDIF
-
-!$OMP PARALLEL PRIVATE(rl_start,rl_end,i_startblk,i_endblk)
 
     rl_start = grf_bdywidth_c + 1 ! land-cover classes are not set for nest-boundary points
     rl_end   = min_rlcell_int
@@ -975,44 +1024,15 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
     i_startblk = p_patch%cells%start_blk(rl_start,1)
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
-!$OMP DO PRIVATE(jb,jc,ic,jt,i_startidx,i_endidx,lc_class,gz0) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,jt,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-&                       i_startidx, i_endidx, rl_start, rl_end)
+        &                i_startidx, i_endidx, rl_start, rl_end)
 
       ! paranoia: Make sure that rcld is initialized  (needed by cloud cover scheme)
       prm_diag%rcld(:,:,jb) = 0._wp
-
-      IF (atm_phy_nwp_config(jg)%itype_z0 == 2) THEN
-        ! specify land-cover-related roughness length over land points
-        ! note:  water points are set in turbdiff
-        gz0(:) = 0._wp
-        
-        DO jt = 1, ntiles_total
-!CDIR NODEP,VOVERTAKE,VOB
-          DO ic = 1, ext_data%atm%lp_count(jb)
-            jc = ext_data%atm%idx_lst_lp(ic,jb)
-            lc_class = MAX(1,ext_data%atm%lc_class_t(jc,jb,jt)) ! to avoid segfaults
-            gz0(jc) = gz0(jc) + ext_data%atm%frac_t(jc,jb,jt) * grav * (             &
-             (1._wp-p_diag_lnd%snowfrac_t(jc,jb,jt))*ext_data%atm%z0_lcc(lc_class)+  &
-              p_diag_lnd%snowfrac_t(jc,jb,jt)*0.5_wp*ext_data%atm%z0_lcc(i_lc_si) ) ! i_lc_si = snow/ice class
-          ENDDO
-        ENDDO
-        DO jt = ntiles_total+1, ntiles_total+ntiles_water ! required if there are mixed land-water points
-!CDIR NODEP,VOVERTAKE,VOB
-          DO ic = 1, ext_data%atm%lp_count(jb)
-            jc = ext_data%atm%idx_lst_lp(ic,jb)
-            lc_class = MAX(1,ext_data%atm%lc_class_t(jc,jb,jt)) ! to avoid segfaults
-            gz0(jc) = gz0(jc) + ext_data%atm%frac_t(jc,jb,jt) * grav*ext_data%atm%z0_lcc(lc_class)
-          ENDDO
-        ENDDO        
-!CDIR NODEP,VOVERTAKE,VOB
-        DO ic = 1, ext_data%atm%lp_count(jb)
-          jc = ext_data%atm%idx_lst_lp(ic,jb)
-          prm_diag%gz0(jc,jb) = gz0(jc)
-        ENDDO
-      ENDIF
 
       DO jt = 1, ntiles_total+ntiles_water 
         prm_diag%gz0_t(i_startidx:i_endidx,jb,jt) = prm_diag%gz0(i_startidx:i_endidx,jb)
@@ -1021,6 +1041,19 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
     ENDDO
 !$OMP END DO
 !$OMP END PARALLEL
+
+
+  ELSE IF ( atm_phy_nwp_config(jg)%inwp_turb == 3 ) THEN  !EDMF DUALM
+    CALL suct0
+    CALL su0phy
+    CALL susekf
+    CALL susveg
+    CALL sussoil
+
+!$OMP PARALLEL WORKSHARE
+    ! paranoia: Make sure that rcld is initialized  (needed by cloud cover scheme)
+    prm_diag%rcld(:,:,:)    = 0._wp
+!$OMP END PARALLEL WORKSHARE
 
 
   ELSE IF (  atm_phy_nwp_config(jg)%inwp_turb == 4) THEN  !ECHAM vdiff
@@ -1079,38 +1112,15 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
 
     CALL message('mo_nwp_phy_init:', 'echam turbulence initialized')
 
-  ELSE IF ( atm_phy_nwp_config(jg)%inwp_turb == 3 ) THEN  !EDMF DUALM
-    CALL suct0
-    CALL su0phy
-    CALL susekf
-    CALL susveg
-    CALL sussoil
-
-!$OMP PARALLEL WORKSHARE
-    ! paranoia: Make sure that rcld is initialized  (needed by cloud cover scheme)
-    prm_diag%rcld(:,:,:)    = 0._wp
-!$OMP END PARALLEL WORKSHARE
-
-  !For 3D Smagorinsky turbulence model
-  ELSE IF (  atm_phy_nwp_config(jg)%inwp_turb == 5 ) THEN
-
-    IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'init Smagorinsky turbulence')
-
-    IF (turbdiff_config(jg)%lconst_z0) THEN
-      ! for idealized tests
-      prm_diag%gz0(:,:) = grav * turbdiff_config(jg)%const_z0
-    ELSE 
-      ! default
-      prm_diag%gz0(:,:) = grav * ext_data%atm%z0(:,:)
-    ENDIF
-
   ENDIF
 
 
+  ! Gravity wave drag scheme
+  !
   IF ( atm_phy_nwp_config(jg)%inwp_gwd == 1 ) THEN  ! IFS gwd scheme
 
-     CALL sugwwms(nflevg=nlev, ppref=pref, klaunch=phy_params%klaunch)
-     CALL message('mo_nwp_phy_init:', 'non-orog GWs initialized')
+    CALL sugwwms(nflevg=nlev, ppref=pref, klaunch=phy_params%klaunch)
+    CALL message('mo_nwp_phy_init:', 'non-orog GWs initialized')
 
   END IF
 

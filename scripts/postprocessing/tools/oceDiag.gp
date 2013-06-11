@@ -40,7 +40,7 @@ plot file using 2:"absolute_vertical_velocity" w l
 set y2tics in
 unset ytics
 set grid y2tics
-plot file using 2:"total_salinity" w l
+plot file using 2:"denmark_strait" w l
 set logscale y
 set ytics in
 unset y2tics
@@ -48,7 +48,7 @@ plot file using 2:"absolute_vertical_velocity" w l
 set y2tics in
 unset ytics
 set grid y2tics
-plot file using 2:"total_temperature" w l axes x1y2
+plot file using 2:"total_energy" w l axes x1y2
 set ytics in
 unset y2tics
 plot file using 2:"ice_volume_nh" w l

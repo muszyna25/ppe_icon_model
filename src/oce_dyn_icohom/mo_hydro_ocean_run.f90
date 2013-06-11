@@ -53,7 +53,7 @@ USE mo_grid_config,            ONLY: n_dom
 USE mo_grid_subset,            ONLY: get_index_range
 USE mo_sync,                   ONLY: sync_patch_array, sync_e!, sync_c, sync_v
 USE mo_ocean_nml,              ONLY: iswm_oce, n_zlev, no_tracer, &
-  &                                  itestcase_oce, idiag_oce, init_oce_prog, &
+  &                                  itestcase_oce, idiag_oce, init_oce_prog, init_oce_relax, &
   &                                  EOS_TYPE, i_sea_ice, l_staggered_timestep, gibraltar
 USE mo_dynamics_config,        ONLY: nold, nnew
 USE mo_io_config,              ONLY: n_files, n_checkpoints, is_output_time!, istime4newoutputfile
@@ -101,9 +101,8 @@ USE mo_oce_thermodyn,          ONLY: calc_density_MPIOM_func, calc_density_lin_E
   &                                  calc_density_JMDWFG06_EOS_func, calc_potential_density
 USE mo_output,                 ONLY: init_output_files, &
   &                                  create_restart_file, write_output_oce! , write_output
-!USE mo_name_list_output_config,ONLY: is_any_output_file_active, use_async_name_list_io
-USE mo_name_list_output,       ONLY: write_name_list_output, istime4name_list_output!, &
-!  &                                  output_file
+USE mo_fortran_tools,          ONLY: assign_if_present
+USE mo_name_list_output,       ONLY: write_name_list_output, istime4name_list_output
 USE mo_oce_diagnostics,        ONLY: calculate_oce_diagnostics,&
   &                                  construct_oce_diagnostics,&
   &                                  destruct_oce_diagnostics, t_oce_timeseries, &
@@ -176,11 +175,11 @@ CONTAINS
   LOGICAL,                  INTENT(INOUT)          :: l_have_output
 
   ! local variables
-  INTEGER                         :: jstep, jg
+  INTEGER                         :: jstep, jg, jtrc
   INTEGER                         :: nsteps_since_last_output
   INTEGER                         :: ocean_statistics
   !LOGICAL                         :: l_outputtime
-  CHARACTER(len=32)               :: datestring
+  CHARACTER(len=32)               :: datestring, plaindatestring
   TYPE(t_oce_timeseries), POINTER :: oce_ts
   TYPE(t_patch), POINTER          :: p_patch
 
@@ -512,7 +511,9 @@ CONTAINS
       CALL init_ho_prog(p_patch_3D%p_patch_2D(jg),p_patch_3D, p_os(jg), p_sfc_flx)
     END IF
 
-    CALL init_ho_relaxation(p_patch_3D%p_patch_2D(jg),p_patch_3D, p_os(jg), p_sfc_flx)
+    IF (init_oce_relax == 1) THEN
+      CALL init_ho_relaxation(p_patch_3D%p_patch_2D(jg),p_patch_3D, p_os(jg), p_sfc_flx)
+    END IF
 
     CALL init_ho_coupled(p_patch_3D%p_patch_2D(jg), p_os(jg))
     IF (i_sea_ice >= 1) &
@@ -578,7 +579,7 @@ CONTAINS
     TYPE(t_sfc_flx),           INTENT(INOUT) :: p_sfc_flx
     TYPE(t_subset_range),INTENT(IN) :: subset
 
-    INTEGER :: jtrc
+    INTEGER :: jtrc,i
 
 
     ! update ocean state accs
@@ -590,6 +591,9 @@ CONTAINS
       &                  p_os%p_prog(nnew(1))%tracer(:,:,:,jtrc), &
       &                  subset)
     END DO
+    CALL add_fields(p_os%p_acc%u_vint        , p_os%p_diag%u_vint        , subset)
+    CALL add_fields(p_os%p_acc%w             , p_os%p_diag%w             , subset,n_zlev+1)
+    CALL add_fields(p_os%p_acc%div_mass_flx_c, p_os%p_diag%div_mass_flx_c, subset)
 
     ! update forcing accs
     CALL add_fields(p_sfc_flx%forc_wind_u_acc  , p_sfc_flx%forc_wind_u  , subset)
@@ -621,6 +625,9 @@ CONTAINS
     p_acc%u                         = p_acc%u                        /REAL(nsteps_since_last_output,wp)
     p_acc%v                         = p_acc%v                        /REAL(nsteps_since_last_output,wp)
     p_acc%rhopot                    = p_acc%rhopot                   /REAL(nsteps_since_last_output,wp)
+    p_acc%u_vint                    = p_acc%u_vint                   /REAL(nsteps_since_last_output,wp)
+    p_acc%w                         = p_acc%w                        /REAL(nsteps_since_last_output,wp)
+    p_acc%div_mass_flx_c            = p_acc%div_mass_flx_c           /REAL(nsteps_since_last_output,wp)
     p_sfc_flx%forc_wind_u_acc       = p_sfc_flx%forc_wind_u_acc      /REAL(nsteps_since_last_output,wp)
     p_sfc_flx%forc_wind_v_acc       = p_sfc_flx%forc_wind_v_acc      /REAL(nsteps_since_last_output,wp)
     p_sfc_flx%forc_swflx_acc        = p_sfc_flx%forc_swflx_acc       /REAL(nsteps_since_last_output,wp)
@@ -649,6 +656,9 @@ CONTAINS
     p_acc%u                         = 0.0_wp
     p_acc%v                         = 0.0_wp
     p_acc%rhopot                    = 0.0_wp
+    p_acc%u_vint                    = 0.0_wp
+    p_acc%w                         = 0.0_wp
+    p_acc%div_mass_flx_c            = 0.0_wp
     p_sfc_flx%forc_wind_u_acc       = 0.0_wp
     p_sfc_flx%forc_wind_v_acc       = 0.0_wp
     p_sfc_flx%forc_swflx_acc        = 0.0_wp
@@ -668,17 +678,22 @@ CONTAINS
     p_sfc_flx%forc_tracer_relax_acc = 0.0_wp
 
   END SUBROUTINE reset_ocean_statistics
-  SUBROUTINE add_fields_3d(f_a,f_b,subset)
+  SUBROUTINE add_fields_3d(f_a,f_b,subset,levels)
     REAL(wp),INTENT(INOUT)          :: f_a(:,:,:)
     REAL(wp),INTENT(IN)             :: f_b(:,:,:)
     TYPE(t_subset_range),INTENT(IN) :: subset
+    INTEGER,INTENT(IN),OPTIONAL     :: levels
 
-    INTEGER :: jb,jc,jk,i_startidx_c,i_endidx_c
+    INTEGER :: mylevels
+    INTEGER :: jb,jc,jk,jc_start,jc_end
+
+    mylevels = n_zlev
+    CALL assign_if_present(mylevels,levels)
 
     DO jb = subset%start_block, subset%end_block
-      CALL get_index_range(subset, jb, i_startidx_c, i_endidx_c)
-      DO jk=1,n_zlev
-        DO jc = i_startidx_c, i_endidx_c
+      CALL get_index_range(subset, jb, jc_start, jc_end)
+      DO jk=1,mylevels
+        DO jc = jc_start, jc_end
           f_a(jc,jk,jb) = f_a(jc,jk,jb) + f_b(jc,jk,jb)
         END DO
       END DO
@@ -689,11 +704,11 @@ CONTAINS
     REAL(wp),INTENT(IN)             :: f_b(:,:)
     TYPE(t_subset_range),INTENT(IN) :: subset
 
-    INTEGER :: jb,jc,jk,i_startidx_c,i_endidx_c
+    INTEGER :: jb,jc,jc_start,jc_end
 
     DO jb = subset%start_block, subset%end_block
-      CALL get_index_range(subset, jb, i_startidx_c, i_endidx_c)
-      DO jc = i_startidx_c, i_endidx_c
+      CALL get_index_range(subset, jb, jc_start, jc_end)
+      DO jc = jc_start, jc_end
         f_a(jc,jb) = f_a(jc,jb) + f_b(jc,jb)
       END DO
     END DO
