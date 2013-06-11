@@ -100,6 +100,8 @@ CONTAINS
     ! NULLIFY(edge_subset%block)
     ! NULLIFY(edge_subset%idx)
     NULLIFY(orientation)
+    edge_subset%name=""
+    IF (PRESENT(subset_name)) edge_subset%name=subset_name
 
     IF (PRESENT(patch_3D)) THEN
       edge_subset%patch_3D => patch_3D
@@ -232,6 +234,11 @@ CONTAINS
       ELSE
         edge_orientation = -patch%edges%system_orientation(edge_index, edge_block)
       ENDIF
+
+      write(0,*) get_my_mpi_work_id(), ": edge found:", edge_index, edge_block, edge_orientation
+    ELSE
+      CALL finish("find_oriented_edge_from_vertices","edge not found")
+
 
     ENDIF
 

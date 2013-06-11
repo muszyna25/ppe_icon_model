@@ -4463,11 +4463,15 @@ CONTAINS
             mem_size = mem_size + INT(nlevs*patch_info(jp)%edges%n_own,i8)
           CASE (GRID_UNSTRUCTURED_VERT)
             mem_size = mem_size + INT(nlevs*patch_info(jp)%verts%n_own,i8)
+
+#ifndef __ICON_OCEAN_ONLY__
           CASE (GRID_REGULAR_LONLAT)
             lonlat_id = output_file(i)%var_desc(iv)%info%hor_interp%lonlat_id
             i_log_dom = output_file(i)%log_patch_id
             n_own     = lonlat_info(lonlat_id, i_log_dom)%n_own
             mem_size  = mem_size + INT(nlevs*n_own,i8)
+#endif
+
           CASE DEFAULT
             CALL finish(routine,'unknown grid type')
         END SELECT
@@ -4643,6 +4647,7 @@ CONTAINS
     nval = MAX(patch_info(i_dom)%cells%n_glb, &
                patch_info(i_dom)%edges%n_glb, &
                patch_info(i_dom)%verts%n_glb)
+#ifndef __ICON_OCEAN_ONLY__
     ! take also the lon-lat grids into account
     DO iv = 1, of%num_vars
       info => of%var_desc(iv)%info
@@ -4653,6 +4658,7 @@ CONTAINS
         nval = MAX(nval, p_ri%n_glb)
       END IF
     END DO
+#endif
 
     nlev_max = 1
     DO iv = 1, of%num_vars
@@ -4695,10 +4701,14 @@ CONTAINS
           p_ri => patch_info(of%phys_patch_id)%edges
         CASE (GRID_UNSTRUCTURED_VERT)
           p_ri => patch_info(of%phys_patch_id)%verts
+
+#ifndef __ICON_OCEAN_ONLY__
         CASE (GRID_REGULAR_LONLAT)
           lonlat_id = info%hor_interp%lonlat_id
           i_log_dom = of%log_patch_id
           p_ri  => lonlat_info(lonlat_id, i_log_dom)
+#endif
+
         CASE DEFAULT
           CALL finish(routine,'unknown grid type')
       END SELECT

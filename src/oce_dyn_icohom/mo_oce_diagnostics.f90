@@ -37,7 +37,7 @@ MODULE mo_oce_diagnostics
   USE mo_kind,               ONLY: wp, dp, i8
   USE mo_grid_subset,        ONLY: t_subset_range, get_index_range, t_subset_indexed
   USE mo_grid_tools,         ONLY: get_oriented_edges_from_global_vertices
-  USE mo_mpi,                ONLY: my_process_is_stdio, p_field_sum, &
+  USE mo_mpi,                ONLY: my_process_is_stdio, p_field_sum, get_my_mpi_work_id, &
     &                              p_comm_work_test, p_comm_work, p_io, p_bcast
   USE mo_sync,               ONLY: global_sum_array
   USE mo_math_utilities,     ONLY: t_cartesian_coordinates
@@ -528,9 +528,15 @@ SUBROUTINE calculate_oce_diagnostics(p_patch_3D, p_os, p_sfc_flx, p_ice, &
   END DO
 
   ! fluxes
+  IF (my_process_is_stdio()) &
+    & write(0,*) "---------------  fluxes --------------------------------"
   DO i_no_t=1,2
     sflux = section_flux(oce_sections(i_no_t), p_os%p_prog(1)%vn)
+    IF (my_process_is_stdio()) &
+      & write(0,*) oce_sections(i_no_t)%subset%name, ":", sflux
   ENDDO
+  IF (my_process_is_stdio()) &
+    & write(0,*) "---------------  end fluxes ----------------------------"
 
   write(diag_unit,'(a)') TRIM(line)
 
@@ -549,6 +555,8 @@ END SUBROUTINE calculate_oce_diagnostics
     TYPE(t_grid_edges), POINTER ::  edges
     TYPE(t_patch_vert),POINTER :: patch_vertical
 
+    CHARACTER(LEN=*), PARAMETER :: method_name='mo_oce_diagnostics:section_flux'
+
     edges          => in_oce_section%subset%patch%edges
     patch_vertical => in_oce_section%subset%patch_3D%p_patch_1D(1)
 
@@ -563,11 +571,16 @@ END SUBROUTINE calculate_oce_diagnostics
       oriented_length = edges%primal_edge_length(edge_idx, edge_block) * &
         & in_oce_section%orientation(i) ! this can also be pre-calculated and stored in in_oce_section%orientation
 
+      write(0,*) "oriented_length:",  oriented_length
+
       DO k=1, n_zlev
         flux_weights(k, i) = patch_vertical%prism_thick_e(edge_idx, k, edge_block) * oriented_length ! maybe also use slm
+        write(0,*) i, k, " flux_weights:",  flux_weights(k, i), patch_vertical%prism_thick_e(edge_idx, k, edge_block)
+        write(0,*) i, k, " velocity_value:", velocity_values(edge_idx, k, edge_block)
       ENDDO
 
     ENDDO
+
 
     section_flux = subset_sum(                           &
       & values                 = velocity_values,        &
@@ -575,6 +588,9 @@ END SUBROUTINE calculate_oce_diagnostics
       & subset_indexed_weights = flux_weights)
 
     DEALLOCATE(flux_weights)
+
+    write(0,*) get_my_mpi_work_id(), ": section_flux on subset ", in_oce_section%subset%name, ":", &
+      & section_flux, in_oce_section%subset%size
 
   END FUNCTION section_flux
   !-------------------------------------------------------------------------
