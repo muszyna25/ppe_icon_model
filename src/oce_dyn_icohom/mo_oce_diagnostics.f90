@@ -531,7 +531,7 @@ SUBROUTINE calculate_oce_diagnostics(p_patch_3D, p_os, p_sfc_flx, p_ice, &
   IF (my_process_is_stdio()) &
     & write(0,*) "---------------  fluxes --------------------------------"
   DO i_no_t=1,2
-    sflux = section_flux(oce_sections(i_no_t), p_os%p_prog(1)%vn)
+    sflux = section_flux(oce_sections(i_no_t), p_os%p_prog(nnew(1))%vn)
     IF (my_process_is_stdio()) &
       & write(0,*) oce_sections(i_no_t)%subset%name, ":", sflux
   ENDDO
