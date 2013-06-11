@@ -221,6 +221,7 @@ SUBROUTINE construct_oce_diagnostics( p_patch_3D, p_os, oce_ts, datestring )
   oce_ts%oce_diagnostics(0:nsteps)%forc_runoff                = 0.0_wp
   oce_ts%oce_diagnostics(0:nsteps)%forc_fwbc                  = 0.0_wp
   oce_ts%oce_diagnostics(0:nsteps)%forc_fwrelax               = 0.0_wp
+  oce_ts%oce_diagnostics(0:nsteps)%forc_fwsice                = 0.0_wp
   oce_ts%oce_diagnostics(0:nsteps)%forc_fwfx                  = 0.0_wp
   oce_ts%oce_diagnostics(0:nsteps)%forc_hfrelax               = 0.0_wp
   oce_ts%oce_diagnostics(0:nsteps)%forc_hflx                  = 0.0_wp
