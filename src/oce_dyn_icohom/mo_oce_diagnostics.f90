@@ -613,8 +613,8 @@ END SUBROUTINE calculate_oce_diagnostics
 
     DEALLOCATE(flux_weights)
 
-    write(0,*) get_my_mpi_work_id(), ": section_flux on subset ", in_oce_section%subset%name, ":", &
-      & section_flux, in_oce_section%subset%size
+    !write(0,*) get_my_mpi_work_id(), ": section_flux on subset ", in_oce_section%subset%name, ":", &
+    !  & section_flux, in_oce_section%subset%size
 
   END FUNCTION section_flux
   !-------------------------------------------------------------------------
