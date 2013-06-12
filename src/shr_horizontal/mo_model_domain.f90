@@ -966,6 +966,9 @@ MODULE mo_model_domain
     INTEGER, POINTER :: dolic_c(:,:)    ! index1=1,nproma, index2=1,nblks_c
     INTEGER, POINTER :: dolic_e(:,:)    ! index1=1,nproma, index2=1,nblks_e
 
+    REAL(wp), POINTER :: ocean_area   (:)  ! global ocean area for each vertical level
+    REAL(wp), POINTER :: ocean_volume (:)  ! global ocean volume for each vertical level
+
     REAL(wp), POINTER ::                &
       &  prism_thick_c(:,:,:),          & ! individual prism thickness at cells. Unit [m].
                                           ! This array includes the free surface. dimension: (nproma, n_zlev, nblks_c)

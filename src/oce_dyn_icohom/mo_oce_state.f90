@@ -2745,6 +2745,14 @@ CONTAINS
     IF (ist /= SUCCESS) THEN
       CALL finish (routine,'allocating del_zlev_i failed')
     ENDIF
+    ALLOCATE(p_patch_3D%p_patch_1D(n_dom)%ocean_area(n_zlev),STAT=ist)
+    IF (ist /= SUCCESS) THEN
+      CALL finish (routine,'allocating ocean_area failed')
+    ENDIF
+    ALLOCATE(p_patch_3D%p_patch_1D(n_dom)%ocean_volume(n_zlvp),STAT=ist)
+    IF (ist /= SUCCESS) THEN
+      CALL finish (routine,'allocating ocean_volume failed')
+    ENDIF
 
     !
     !! 3-dim land-sea-mask at cells, edges and vertices
@@ -2856,6 +2864,9 @@ CONTAINS
     p_patch_3D%p_patch_1D(n_dom)%zlev_m     = 0._wp
     p_patch_3D%p_patch_1D(n_dom)%zlev_i     = 0._wp
 
+    p_patch_3D%p_patch_1D(n_dom)%ocean_area(:)   = 0._wp
+    p_patch_3D%p_patch_1D(n_dom)%ocean_volume(:) = 0._wp
+
     CALL add_var(ocean_default_list, 'prism_thick_c', p_patch_3D%p_patch_1D(1)%prism_thick_c, &
     &            GRID_UNSTRUCTURED_CELL, &
     &            ZA_DEPTH_BELOW_SEA, &
@@ -2951,6 +2962,7 @@ CONTAINS
     INTEGER :: land_edges, sea_edges, boundary_edges
     REAL(wp), ALLOCATABLE :: z_sync_v(:,:)
     REAL(wp), PARAMETER   :: z_fac_limitthick = 0.8_wp  !  limits additional thickness of bottom cell
+    REAL(wp) :: global_ocean_volume
 
     CHARACTER(*), PARAMETER :: method_name = "mo_oce_state:init_patch_3D"
 
@@ -3248,6 +3260,21 @@ CONTAINS
          p_patch_3D%wet_halo_zero_e(je,:,jb) = p_patch_3D%wet_e(je,:,jb)
       END DO
     END DO
+
+    ! calculate ocean area and ocean volume with respect to land-sea-mask:
+    !  - global 3-dim sum of volume is in ocean_volume(n_zlev+1)
+    global_ocean_volume = 0.0_wp
+    DO jk = 1, n_zlev
+      p_patch_3D%p_patch_1D(1)%ocean_area(jk)   = global_sum_array( &
+        &                                           patch_2D%cells%area(:,:) * &
+        &                                           p_patch_3D%wet_halo_zero_c(:,jk,:) )
+      p_patch_3D%p_patch_1D(1)%ocean_volume(jk) = global_sum_array( &
+        &                                           patch_2D%cells%area(:,:) * &
+        &                                           p_patch_3D%wet_halo_zero_c(:,jk,:)         * &
+        &                                           p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(:,jk,:) )
+      global_ocean_volume = global_ocean_volume + p_patch_3D%p_patch_1D(1)%ocean_volume(jk)
+    END DO
+    p_patch_3D%p_patch_1D(1)%ocean_volume(n_zlev+1) = global_ocean_volume
 
   END SUBROUTINE init_patch_3D
   !------------------------------------------------------------------------------------
