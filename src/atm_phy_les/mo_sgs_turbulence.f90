@@ -1333,6 +1333,7 @@ MODULE mo_sgs_turbulence
 
     IF(TRIM(scalar_name)=='theta')THEN
       !multiply by exner to convert from theta tend to temp tend
+      !assuming that exner perturbation are small compared to temp
 !ICON_OMP_DO PRIVATE(jc,jb,jk,i_startidx,i_endidx)
         DO jb = i_startblk,i_endblk
           CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
