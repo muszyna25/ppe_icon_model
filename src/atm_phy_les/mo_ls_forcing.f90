@@ -131,7 +131,7 @@ MODULE mo_ls_forcing
     END DO
     
     !Check if the file is written in descending order
-    IF(zz(1) < zz(nk))CALL finish (TRIM(routine), 'Writing LS forcing data in descending order!')
+    IF(zz(1) < zz(nk))CALL finish (TRIM(routine), 'Write LS forcing data in descending order!')
 
     CLOSE(iunit)
 
@@ -215,13 +215,16 @@ MODULE mo_ls_forcing
 
     !1a) Horizontal mean of variables and their vertical advective tendency - momentum
 
-    IF(is_subsidence_moment)THEN
-
+    IF(is_subsidence_moment.OR.is_subsidence_heat)THEN
 !$OMP PARALLEL WORKSHARE
       !Get surface density
       rhos(:,i_startblk:i_endblk) = p_diag%pres_sfc(:,i_startblk:i_endblk) / (rd * &
                       t_sfc(:,i_startblk:i_endblk)*(1._wp+0.61_wp*qv_sfc(:,i_startblk:i_endblk)) )  
+!$OMP END PARALLEL WORKSHARE
+    END IF
 
+    IF(is_subsidence_moment)THEN
+!$OMP PARALLEL WORKSHARE
       !rho*u
       varin(:,:,i_startblk:i_endblk) = p_diag%u(:,:,i_startblk:i_endblk)*p_prog%rho(:,:,i_startblk:i_endblk)
 !$OMP END PARALLEL WORKSHARE
