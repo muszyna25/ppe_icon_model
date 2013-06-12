@@ -44,6 +44,7 @@ MODULE mo_ls_forcing_nml
   USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, max_dom
   USE mo_run_config,          ONLY: ltestcase
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
+  USE mo_echam_phy_config,    ONLY: echam_phy_config
 
   IMPLICIT NONE
   PRIVATE
@@ -105,7 +106,7 @@ CONTAINS
     ! ltestcase is added here because it was causing trouble for AMIP runs
     ! restarting with a file generated long ago
     !------------------------------------------------------------------
-    IF (is_restart_run() .AND. ltestcase) THEN 
+    IF (is_restart_run() .AND. .NOT.echam_phy_config%lamip) THEN 
       funit = open_and_restore_namelist('ls_forcing_nml')
       READ(funit,NML=ls_forcing_nml)
       CALL close_tmpfile(funit)

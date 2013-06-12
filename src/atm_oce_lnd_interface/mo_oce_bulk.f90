@@ -1732,44 +1732,22 @@ CONTAINS
     REAL(wp), INTENT(INOUT)                 :: h_old(1:nproma,1:p_patch_3D%p_patch_2D(1)%nblks_c)
 
     TYPE(t_patch), POINTER                  :: p_patch
-    TYPE(t_subset_range), POINTER           :: all_cells, cells_in_domain
+    TYPE(t_subset_range), POINTER           :: all_cells
 
     INTEGER  :: i_startidx_c, i_endidx_c
     INTEGER  :: jc, jb
-    REAL(wp) :: glb_sum, ocean_are, glob_slev, corr_slev
+    REAL(wp) :: ocean_are, glob_slev, corr_slev
 
     p_patch         => p_patch_3D%p_patch_2D(1)
     all_cells       => p_patch%cells%all
-    cells_in_domain => p_patch%cells%in_domain
  
-    ocean_are = 0.0_wp
-    glob_slev = 0.0_wp
-
-    DO jb = cells_in_domain%start_block, cells_in_domain%end_block
-      CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
-      DO jc =  i_startidx_c, i_endidx_c
-        IF ( p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary ) THEN
-          ocean_are = ocean_are + p_patch%cells%area(jc,jb)
-          glob_slev = glob_slev + p_patch%cells%area(jc,jb)*h_old(jc,jb)
-        END IF
-      END DO
-    END DO
-
-    ! parallelize
-    glb_sum   = global_sum_array(ocean_are)
-    ocean_are = glb_sum
-    glb_sum   = global_sum_array(glob_slev)
-    glob_slev = glb_sum
+    ! parallelize correctly
+    ocean_are = p_patch_3D%p_patch_1D(1)%ocean_area(1)
+    glob_slev = global_sum_array(p_patch%cells%area(:,:)*h_old(:,:)*p_patch_3D%wet_halo_zero_c(:,1,:))
     corr_slev = glob_slev/ocean_are
-    IF(my_process_is_stdio()) &
-    & write(0,*)' BALANCE_ELEVATION(Old): ocean_are, glob_slev, corr_slev =',ocean_are, glob_slev, corr_slev
 
-    ! parallelize - correct method but error in area
-    ocean_are = global_sum_array(p_patch%cells%area(:,:)           *p_patch_3D%wet_c(:,1,:))
-    glob_slev = global_sum_array(p_patch%cells%area(:,:)*h_old(:,:)*p_patch_3D%wet_c(:,1,:))
-    !corr_slev = glob_slev/ocean_are
     IF(my_process_is_stdio()) &
-    & write(0,*)' BALANCE_ELEVATION(New): ocean_are, glob_slev, corr_slev =',ocean_are, glob_slev, glob_slev/ocean_are
+      & write(0,*)' BALANCE_ELEVATION(Dom): ocean_are, glob_slev, corr_slev =',ocean_are, glob_slev, glob_slev/ocean_are
 
     DO jb = all_cells%start_block, all_cells%end_block
       CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
