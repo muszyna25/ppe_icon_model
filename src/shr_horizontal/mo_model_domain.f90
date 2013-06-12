@@ -1014,8 +1014,11 @@ MODULE mo_model_domain
 
     ! To simply set land points to zero we store additional 3-dim wet points
     ! dimensions as in lsm_oce:
-    REAL(wp), POINTER :: wet_c(:,:,:)  ! cell centers
-    REAL(wp), POINTER :: wet_e(:,:,:)  ! cell edges
+    REAL(wp), POINTER :: wet_c(:,:,:)  ! cells
+    REAL(wp), POINTER :: wet_e(:,:,:)  ! edges
+    ! For calculation of global sum and area including lsm the halo must be set to zero:
+    REAL(wp), POINTER :: wet_halo_zero_c(:,:,:)  !  cells
+    REAL(wp), POINTER :: wet_halo_zero_e(:,:,:)  !  edges
 
     ! For diagnosis like stream functions and area calculations we add surface arrays
     ! index1=1,nproma, index2=1,nblks_c

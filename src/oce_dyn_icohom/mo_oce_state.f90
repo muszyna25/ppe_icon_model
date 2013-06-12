@@ -2784,12 +2784,12 @@ CONTAINS
     ! deepest ocean layer in column
     CALL add_var(ocean_default_list, 'dolic_c', p_patch_3D%p_patch_1D(n_dom)%dolic_c , &
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-    &          t_cf_var('dolic_c', 'm', 'dolic_c', DATATYPE_INT8),&
+    &          t_cf_var('dolic_c', '', 'dolic_c', DATATYPE_INT8),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &          ldims=(/nproma,nblks_c/),isteptype=TSTEP_CONSTANT)
     CALL add_var(ocean_default_list, 'dolic_e', p_patch_3D%p_patch_1D(n_dom)%dolic_e , &
     &          GRID_UNSTRUCTURED_EDGE, ZA_SURFACE, &
-    &          t_cf_var('dolic_e', 'm', 'dolic_e', DATATYPE_FLT32),&
+    &          t_cf_var('dolic_e', '', 'dolic_e', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_EDGE),&
     &          ldims=(/nproma,nblks_e/),isteptype=TSTEP_CONSTANT)
     ! 2-dim basins and areas
@@ -2828,13 +2828,26 @@ CONTAINS
     ! cells
     CALL add_var(ocean_default_list, 'wet_c', p_patch_3D%wet_c , GRID_UNSTRUCTURED_CELL,&
     &            ZA_DEPTH_BELOW_SEA, &
-    &            t_cf_var('wet_c', 'kg/m^3', '3d lsm on cells', DATATYPE_FLT32),&
+    &            t_cf_var('wet_c', '', '3d lsm on cells', DATATYPE_FLT32),&
     &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &            ldims=(/nproma,n_zlev,nblks_c/),isteptype=TSTEP_CONSTANT)
     ! edges
     CALL add_var(ocean_default_list, 'wet_e', p_patch_3D%wet_e , GRID_UNSTRUCTURED_EDGE,&
     &            ZA_DEPTH_BELOW_SEA, &
-    &            t_cf_var('wet_e', 'kg/m^3', '3d lsm on edges', DATATYPE_FLT32),&
+    &            t_cf_var('wet_e', '', '3d lsm on edges', DATATYPE_FLT32),&
+    &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_EDGE),&
+    &            ldims=(/nproma,n_zlev,nblks_e/),isteptype=TSTEP_CONSTANT)
+    ! 3-dim real land-sea-mask with zero on halos
+    ! cells
+    CALL add_var(ocean_default_list, 'wet_halo_zero_c', p_patch_3D%wet_halo_zero_c , GRID_UNSTRUCTURED_CELL,&
+    &            ZA_DEPTH_BELOW_SEA, &
+    &            t_cf_var('wet_c_halo_zero', '', '3d lsm with halo zero on cells', DATATYPE_FLT32),&
+    &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+    &            ldims=(/nproma,n_zlev,nblks_c/),isteptype=TSTEP_CONSTANT)
+    ! edges
+    CALL add_var(ocean_default_list, 'wet_halo_zero_e', p_patch_3D%wet_halo_zero_e , GRID_UNSTRUCTURED_EDGE,&
+    &            ZA_DEPTH_BELOW_SEA, &
+    &            t_cf_var('wet_e_halo_zero', '', '3d lsm with halo zero on edges', DATATYPE_FLT32),&
     &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_EDGE),&
     &            ldims=(/nproma,n_zlev,nblks_e/),isteptype=TSTEP_CONSTANT)
 
@@ -2846,57 +2859,57 @@ CONTAINS
     CALL add_var(ocean_default_list, 'prism_thick_c', p_patch_3D%p_patch_1D(1)%prism_thick_c, &
     &            GRID_UNSTRUCTURED_CELL, &
     &            ZA_DEPTH_BELOW_SEA, &
-    &            t_cf_var('cons thick','','prism thickness at cells', DATATYPE_FLT32),&
+    &            t_cf_var('cons thick','m','prism thickness at cells', DATATYPE_FLT32),&
     &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &            ldims=(/nproma,n_zlev,nblks_c/),isteptype=TSTEP_CONSTANT)
     CALL add_var(ocean_default_list, 'prism_thick_e', p_patch_3D%p_patch_1D(n_dom)%prism_thick_e, &
     &            GRID_UNSTRUCTURED_CELL, &
     &            ZA_DEPTH_BELOW_SEA, &
-    &            t_cf_var('cons thick','','prism thickness at cells', DATATYPE_FLT32),&
+    &            t_cf_var('cons thick','m','prism thickness at cells', DATATYPE_FLT32),&
     &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &            ldims=(/nproma,n_zlev,nblks_e/),isteptype=TSTEP_CONSTANT)
     CALL add_var(ocean_default_list, 'prism_thick_flat_sfc_c', p_patch_3D%p_patch_1D(n_dom)%prism_thick_flat_sfc_c, &
     &            GRID_UNSTRUCTURED_CELL, &
     &            ZA_DEPTH_BELOW_SEA, &
-    &            t_cf_var('prism_thick_flat_sfc_c','','time independent depth at cells', DATATYPE_FLT32),&
+    &            t_cf_var('prism_thick_flat_sfc_c','m','time independent depth at cells', DATATYPE_FLT32),&
     &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &            ldims=(/nproma,n_zlev,nblks_c/),isteptype=TSTEP_CONSTANT)
     CALL add_var(ocean_default_list, 'prism_thick_flat_sfc_e', p_patch_3D%p_patch_1D(n_dom)%prism_thick_flat_sfc_e, &
     &            GRID_UNSTRUCTURED_CELL, &
     &            ZA_DEPTH_BELOW_SEA, &
-    &            t_cf_var('prism_thick_flat_sfc_c','','time independent depth at edges', DATATYPE_FLT32),&
+    &            t_cf_var('prism_thick_flat_sfc_c','m','time independent depth at edges', DATATYPE_FLT32),&
     &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_EDGE),&
     &            ldims=(/nproma,n_zlev,nblks_e/),isteptype=TSTEP_CONSTANT)
     CALL add_var(ocean_default_list, 'inverse prism_thick_c', p_patch_3D%p_patch_1D(n_dom)%inv_prism_thick_c, &
     &            GRID_UNSTRUCTURED_CELL, &
     &            ZA_DEPTH_BELOW_SEA, &
-    &            t_cf_var('inverse prism_thick_c','','time independent depth at cells', DATATYPE_FLT32),&
+    &            t_cf_var('inverse prism_thick_c','m','time independent depth at cells', DATATYPE_FLT32),&
     &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &            ldims=(/nproma,n_zlev,nblks_c/),isteptype=TSTEP_CONSTANT)
     CALL add_var(ocean_default_list, 'prism_center_dist_c', p_patch_3D%p_patch_1D(n_dom)%prism_center_dist_c, &
     &            GRID_UNSTRUCTURED_CELL, &
     &            ZA_DEPTH_BELOW_SEA, &
-    &            t_cf_var('prism_center_dist_c','','dist between prism centers', DATATYPE_FLT32),&
+    &            t_cf_var('prism_center_dist_c','m','dist between prism centers', DATATYPE_FLT32),&
     &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &            ldims=(/nproma,n_zlev,nblks_c/),isteptype=TSTEP_CONSTANT)
     CALL add_var(ocean_default_list, 'inv_prism_thick_e', p_patch_3D%p_patch_1D(n_dom)%inv_prism_thick_e, &
     &            GRID_UNSTRUCTURED_CELL, &
     &            ZA_DEPTH_BELOW_SEA, &
-    &            t_cf_var('prism_thick_flat_sfc_c','','time independent depth at edges', DATATYPE_FLT32),&
+    &            t_cf_var('prism_thick_flat_sfc_c','m','time independent depth at edges', DATATYPE_FLT32),&
     &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_EDGE),&
     &            ldims=(/nproma,n_zlev,nblks_e/),isteptype=TSTEP_CONSTANT)
     CALL add_var(ocean_default_list, 'inv_prism_center_dist_c', &
     &            p_patch_3D%p_patch_1D(n_dom)%inv_prism_center_dist_c, &
     &            GRID_UNSTRUCTURED_CELL, &
     &            ZA_DEPTH_BELOW_SEA, &
-    &            t_cf_var('inv_prism_center_dist_c','','inverse of dist between prism centers at cells', DATATYPE_FLT32),&
+    &            t_cf_var('inv_prism_center_dist_c','1/m','inverse of dist between prism centers at cells', DATATYPE_FLT32),&
     &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &            ldims=(/nproma,n_zlev,nblks_c/),isteptype=TSTEP_CONSTANT)
     CALL add_var(ocean_default_list, 'inv_prism_center_dist_e', &
     &            p_patch_3D%p_patch_1D(n_dom)%inv_prism_center_dist_e, &
     &            GRID_UNSTRUCTURED_CELL, &
     &            ZA_DEPTH_BELOW_SEA, &
-    &            t_cf_var('inv_prism_center_dist_e','','inverse of dist betweenprism centers at edges', DATATYPE_FLT32),&
+    &            t_cf_var('inv_prism_center_dist_e','1/m','inverse of dist betweenprism centers at edges', DATATYPE_FLT32),&
     &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_EDGE),&
     &            ldims=(/nproma,n_zlev,nblks_e/),isteptype=TSTEP_CONSTANT)
 
@@ -2929,6 +2942,8 @@ CONTAINS
     TYPE(t_patch), POINTER :: patch_2D
     TYPE(t_subset_range), POINTER :: all_cells
     TYPE(t_subset_range), POINTER :: all_edges
+    TYPE(t_subset_range), POINTER :: owned_cells
+    TYPE(t_subset_range), POINTER :: owned_edges
     TYPE(t_subset_range), POINTER :: owned_verts
 
     INTEGER :: vertex_block, vertex_index, start_index, end_index
@@ -2944,6 +2959,8 @@ CONTAINS
     patch_2D    => p_patch_3D%p_patch_2D(1)
     all_cells   => patch_2D%cells%all
     all_edges   => patch_2D%edges%all
+    owned_cells => patch_2D%cells%owned
+    owned_edges => patch_2D%edges%owned
     owned_verts => patch_2D%verts%owned
    !-------------------------------------------------------------------------
 
@@ -3201,6 +3218,34 @@ CONTAINS
             p_patch_3D%p_patch_1D(1)%inv_prism_center_dist_e(je,jk,jb)= 0.0_wp
           ENDIF
         END DO
+      END DO
+    END DO
+
+    ! set halo values to zero in specific arrays for calculating global sum with respect to lsm
+    ! cells
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+      DO jc = i_startidx_c, i_endidx_c
+         p_patch_3D%wet_halo_zero_c(jc,:,jb) = 0.0_wp
+      END DO
+    END DO
+    DO jb = owned_cells%start_block, owned_cells%end_block
+      CALL get_index_range(owned_cells, jb, i_startidx_c, i_endidx_c)
+      DO jc = i_startidx_c, i_endidx_c
+         p_patch_3D%wet_halo_zero_c(jc,:,jb) = p_patch_3D%wet_c(jc,:,jb)
+      END DO
+    END DO
+    ! edges
+    DO jb = all_edges%start_block, all_edges%end_block
+      CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
+      DO je = i_startidx_e, i_endidx_e
+         p_patch_3D%wet_halo_zero_e(je,:,jb) = 0.0_wp
+      END DO
+    END DO
+    DO jb = owned_edges%start_block, owned_edges%end_block
+      CALL get_index_range(owned_edges, jb, i_startidx_e, i_endidx_e)
+      DO je = i_startidx_e, i_endidx_e
+         p_patch_3D%wet_halo_zero_e(je,:,jb) = p_patch_3D%wet_e(je,:,jb)
       END DO
     END DO
 
