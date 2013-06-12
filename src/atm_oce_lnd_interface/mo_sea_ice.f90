@@ -1348,9 +1348,9 @@ CONTAINS
     ice%hiold(:,:,:) = ice%hi(:,:,:)
     ice%hsold(:,:,:) = ice%hs(:,:,:)
     ! #achim
-    IF      ( i_ice_therm == 1 ) THEN
+    IF      ( i_ice_therm == 2 ) THEN
       CALL ice_growth_winton    (p_patch,p_os,ice, QatmAve%rpreci)!, QatmAve%lat)
-    ELSE IF ( i_ice_therm == 2 .OR. i_ice_therm == 3 ) THEN !2=zerolayer, 3=simple fluxes from dirk's thesis
+    ELSE IF ( i_ice_therm == 1 .OR. i_ice_therm == 3 ) THEN !2=zerolayer, 3=simple fluxes from dirk's thesis
       CALL ice_growth_zerolayer (p_patch,p_os,ice, QatmAve%rpreci)
     END IF
 
