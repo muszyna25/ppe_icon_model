@@ -131,11 +131,11 @@ IF(art_config(jg)%lart .AND. art_config(jg)%lart_wash) THEN
      ! now sea salt
        IF (art_config(jg)%lart_seasalt) THEN
          CALL art_modal_parameters(p_patch,p_art_mode(imode_seasa),p_tracer_new,'WASHOUT')
-         CALL art_aerosol_washout(p_patch,dt_phy_jg,p_art_mode(imode_seasa),p_rho,p_tracer_new)
+         CALL art_aerosol_washout(p_patch,dt_phy_jg,p_art_mode(imode_seasa),p_rho,p_tracer_new,prm_diag)
          CALL art_modal_parameters(p_patch,p_art_mode(imode_seasb),p_tracer_new,'WASHOUT')
-         CALL art_aerosol_washout(p_patch,dt_phy_jg,p_art_mode(imode_seasb),p_rho,p_tracer_new)
+         CALL art_aerosol_washout(p_patch,dt_phy_jg,p_art_mode(imode_seasb),p_rho,p_tracer_new,prm_diag)
          CALL art_modal_parameters(p_patch,p_art_mode(imode_seasc),p_tracer_new,'WASHOUT')
-         CALL art_aerosol_washout(p_patch,dt_phy_jg,p_art_mode(imode_seasc),p_rho,p_tracer_new)
+         CALL art_aerosol_washout(p_patch,dt_phy_jg,p_art_mode(imode_seasc),p_rho,p_tracer_new,prm_diag)
        ENDIF
     
       ! ----------------------------------
