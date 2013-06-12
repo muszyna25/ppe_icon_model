@@ -1,5 +1,5 @@
 !>
-!! Provides interface to ART-routines dealing with sedimentation of volcanic ash particles
+!! Provides interface to ART-routines dealing with sedimentation
 !!
 !! This module provides an interface to the ART-routine sedi_volc.
 !! The interface is written in such a way, that ICON will compile and run 
@@ -170,18 +170,6 @@ jg  = p_patch%id
 
 IF(art_config(jg)%lart) THEN
 
-    ! First calculation of sedimentation and deposition velocity for the modal aerosol
-    CALL art_air_parameters(p_patch)
-    DO n=1, nmodes
-      CALL art_modal_parameters(p_patch,p_art_mode(n),p_tracer_new)
-      WRITE(*,*) 'Calculating sedimentation velocity for ', p_art_mode(n)%zname
-      CALL art_calc_v_sed_dep(p_patch,p_metrics,p_diag,p_art_mode(n),p_rho)
-    ENDDO
-    
-    p_iubc =0        ! No upper boundary condition
-    p_itype_vlimit=2 ! Monotone limiter
-
-
     nlev      = p_patch%nlev        !< Number of vertical full levels
     nlevp1    = p_patch%nlevp1      !< Number of vertical half levels
     nblks     = p_patch%nblks_c
@@ -192,6 +180,18 @@ IF(art_config(jg)%lart) THEN
     i_rlend   = min_rlcell
     i_startblk = p_patch%cells%start_blk(i_rlstart,1)
     i_endblk   = p_patch%cells%end_blk(i_rlend,i_nchdom)
+
+    ! First calculation of sedimentation and deposition velocity for the modal aerosol
+    CALL art_air_parameters(p_patch)
+    DO n=1, nmodes
+      CALL art_modal_parameters(p_patch,p_art_mode(n),p_tracer_new,'SEDIMENTATION')
+      WRITE(*,*) 'Calculating sedimentation velocity for ', p_art_mode(n)%zname
+      CALL art_calc_v_sed_dep(p_patch,p_metrics,p_diag,p_art_mode(n),p_rho,p_tracer_new)
+    ENDDO
+    
+    p_iubc =0        ! No upper boundary condition
+    p_itype_vlimit=2 ! Monotone limiter
+
 
     ALLOCATE(p_mflx_contra_vsed(nproma,nlevp1,nblks),p_upflux_sed(nproma,nlevp1,nblks),stat=istat)
 
@@ -224,7 +224,7 @@ IF(art_config(jg)%lart) THEN
  
           WRITE (message_text,*) 'Sedimentation of ',var_name,' with idx= ',jsp,info%tracer%lsed_tracer
           CALL message(TRIM(art_routine),message_text)
-
+          
         ! ----------------------------------
         ! --- calculate sedimentation velocities
         ! ----------------------------------
@@ -269,38 +269,34 @@ IF(art_config(jg)%lart) THEN
             &                  lcleanup_gt, p_itype_vlimit,                       &! in
             &                  p_cellhgt_mc_now, p_rhodz_new,                     &! in
             &                  p_upflux_sed(:,:,:))                                ! out
-
+            
         ! ----------------------------------
         ! --- update mixing ratio after sedimentation
         ! ----------------------------------
 
             DO jb = i_startblk, i_endblk
-
               CALL get_indices_c(p_patch, jb, i_startblk, i_endblk,  &
                        i_startidx, i_endidx, i_rlstart, i_rlend)
-
               DO jk =1, nlev-1
-
               ! index of top half level
                 ikp1 = jk + 1
-
                 DO jc = i_startidx, i_endidx
-
+                
                   p_tracer_new(jc,jk,jb,jsp) =                       &
                   &    p_tracer_new(jc,jk,jb,jsp)                    &
                   &  - p_dtime * (  p_upflux_sed(jc,jk,jb)           &
                   &               - p_upflux_sed(jc,ikp1  ,jb) )     &
                   &  / p_rhodz_new(jc,jk,jb)
-
-! DR: Here we need a check because of the output                  
-!                  IF(p_tracer_new(jc,jk,jb,jsp) .LT. 10.E-15_wp) THEN
-!                    p_tracer_new(jc,jk,jb,jsp)=10.E-15_wp
-!                  ENDIF
-
+                  
+                  IF (p_tracer_new(jc,jk,jb,jsp) .LT. 0.0_wp) THEN
+                    WRITE(*,*) 'After Sedi: Tracer ',var_name,' below 0: ',p_tracer_new(jc,jk,jb,jsp)
+                    p_tracer_new(jc,jk,jb,jsp) = 0.0_wp
+                    WRITE(*,*) 'p_upflux_sed_jk',p_upflux_sed(jc,jk,jb),'p_upflux_sed_ikp1',p_upflux_sed(jc,ikp1  ,jb)
+                    WRITE(*,*) 'Diameter:',p_art_mode(imode_seasc)%diameter(jc,jk,jb)
+                  ENDIF
+                    
                 END DO!jc
-
               END DO !jk
-
             END DO !jb
 
         ENDIF !lsed_tracer

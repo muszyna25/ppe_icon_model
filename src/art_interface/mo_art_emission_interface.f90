@@ -1,5 +1,5 @@
 !>
-!! Provides interface to ART-routines dealing with emissions of volcanic ash particles
+!! Provides interface to ART-routines dealing with emissions
 !!
 !! This module provides an interface to the ART-routine emission_volc.
 !! The interface is written in such a way, that ICON will compile and run 
@@ -123,13 +123,15 @@ CONTAINS
 
      ! First: Modal Parameters 
        CALL art_air_parameters(p_patch)
-
+       
        IF (art_config(jg)%lart_seasalt) THEN
-         CALL art_modal_parameters(p_patch,p_art_mode(imode_seasa),p_tracer_now)
-         CALL art_modal_parameters(p_patch,p_art_mode(imode_seasb),p_tracer_now)
-         CALL art_modal_parameters(p_patch,p_art_mode(imode_seasc),p_tracer_now)
+         CALL art_modal_parameters(p_patch,p_art_mode(imode_seasa),p_tracer_now,'EMISSION')
+         CALL art_modal_parameters(p_patch,p_art_mode(imode_seasb),p_tracer_now,'EMISSION')
+         CALL art_modal_parameters(p_patch,p_art_mode(imode_seasc),p_tracer_now,'EMISSION')
          CALL art_emission_seas(p_patch,p_dtime,p_rho,p_tracer_now) 
        ENDIF
+   
+
    
    ! ----------------------------------
    ! --- volcano emissions
@@ -185,7 +187,7 @@ CONTAINS
          ENDDO ! loop elements
 
        ENDIF
-
+       
    ENDIF
 
 #endif

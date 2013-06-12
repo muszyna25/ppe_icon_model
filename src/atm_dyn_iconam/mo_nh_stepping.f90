@@ -1161,16 +1161,16 @@ MODULE mo_nh_stepping
               &          opt_ddt_tracer_adv=p_nh_state(jg)%diag%ddt_tracer_adv ) !out
 
             IF (art_config(jg)%lart) THEN
-              CALL art_sedi_interface( p_patch(jg),             &!in
-                 &      dtadv_loc,                              &!in
-                 &      p_nh_state(jg)%prog_list(n_new_rcf),    &!in
-                 &      p_nh_state(jg)%metrics,                 &!in
-                 &      p_nh_state(jg)%prog(n_new)%rho,         &!in
-                 &      p_nh_state(jg)%diag,                    &!in
-                 &      p_nh_state(jg)%prog(n_new_rcf)%tracer,  &!inout
-                 &      p_nh_state(jg)%metrics%ddqz_z_full,     &!in
-                 &      prep_adv(jg)%rhodz_mc_new,              &!in
-                 &      opt_topflx_tra=prep_adv(jg)%topflx_tra)  !in
+!              CALL art_sedi_interface( p_patch(jg),             &!in
+!                 &      dtadv_loc,                              &!in
+!                 &      p_nh_state(jg)%prog_list(n_new_rcf),    &!in
+!                 &      p_nh_state(jg)%metrics,                 &!in
+!                 &      p_nh_state(jg)%prog(n_new)%rho,         &!in
+!                 &      p_nh_state(jg)%diag,                    &!in
+!                 &      p_nh_state(jg)%prog(n_new_rcf)%tracer,  &!inout
+!                 &      p_nh_state(jg)%metrics%ddqz_z_full,     &!in
+!                 &      prep_adv(jg)%rhodz_mc_new,              &!in
+!                 &      opt_topflx_tra=prep_adv(jg)%topflx_tra)  !in
             ENDIF
                  
 !            IF (  iforcing==inwp .AND. inwp_turb == 1) THEN
