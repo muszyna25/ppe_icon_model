@@ -213,7 +213,9 @@ MODULE mo_ls_forcing
     i_startblk = p_patch%cells%start_blk(rl_start,1)
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
-    !1a) Horizontal mean of variables and their vertical advective tendency - momentum
+    !Some precalculations   
+    IF(is_subsidence_heat .OR. is_advection .OR. is_rad_forcing) &
+      CALL global_hor_mean(p_patch, p_prog%exner(:,:,:), exner_gb, inv_no_gb_cells, i_nchdom)
 
     IF(is_subsidence_moment.OR.is_subsidence_heat)THEN
 !$OMP PARALLEL WORKSHARE
@@ -221,7 +223,16 @@ MODULE mo_ls_forcing
       rhos(:,i_startblk:i_endblk) = p_diag%pres_sfc(:,i_startblk:i_endblk) / (rd * &
                       t_sfc(:,i_startblk:i_endblk)*(1._wp+0.61_wp*qv_sfc(:,i_startblk:i_endblk)) )  
 !$OMP END PARALLEL WORKSHARE
+
+      !rho_gb(nlev)
+      CALL global_hor_mean(p_patch, p_prog%rho(:,:,:), rho_gb, inv_no_gb_cells, i_nchdom)
+      inv_rho_gb  = 1._wp / rho_gb
+
+      !Vertical advective forcing
+      inv_dz(:) = 1._wp / p_metrics%ddqz_z_full(2,:,2)        
     END IF
+
+    !1a) Horizontal mean of variables and their vertical advective tendency - momentum
 
     IF(is_subsidence_moment)THEN
 !$OMP PARALLEL WORKSHARE
@@ -237,27 +248,21 @@ MODULE mo_ls_forcing
       CALL vert_intp_full2half_cell_3d(p_patch, p_metrics, varin, varout, rl_start, rl_end)
       CALL global_hor_mean(p_patch, varout, v_gb, inv_no_gb_cells, i_nchdom)
         
-      !rho_loc(nlev)
-      CALL global_hor_mean(p_patch, p_prog%rho(:,:,:), rho_gb, inv_no_gb_cells, i_nchdom)
-      inv_rho_gb  = 1._wp / rho_gb
-      
-      !Vertical advective forcing
-      inv_dz(:) = 1._wp / p_metrics%ddqz_z_full(2,:,2)
-
       ddt_u_ls    =  ddt_u_ls - w_ls*vertical_derivative(u_gb,inv_dz)*inv_rho_gb
       ddt_v_ls    =  ddt_v_ls - w_ls*vertical_derivative(v_gb,inv_dz)*inv_rho_gb
-
     END IF
 
     !1b) Horizontal mean of variables and their vertical advective tendency 
 
     IF(is_subsidence_heat)THEN
-
+      !use theta instead of temperature for subsidence
 !$OMP PARALLEL WORKSHARE
-      varin(:,:,i_startblk:i_endblk) = p_diag%temp(:,:,i_startblk:i_endblk)*p_prog%rho(:,:,i_startblk:i_endblk)
+      varin(:,:,i_startblk:i_endblk) = p_diag%temp(:,:,i_startblk:i_endblk) * &
+                         p_prog%rho(:,:,i_startblk:i_endblk) / p_prog%exner(:,:,i_startblk:i_endblk)
 !$OMP END PARALLEL WORKSHARE
       CALL vert_intp_full2half_cell_3d(p_patch, p_metrics, varin, varout, rl_start, rl_end)
 !$OMP PARALLEL WORKSHARE
+      !assume exner at surface ==1
       varout(:,nlevp1,i_startblk:i_endblk) = t_sfc(:,i_startblk:i_endblk)*rhos(:,i_startblk:i_endblk)
 !$OMP END PARALLEL WORKSHARE
       CALL global_hor_mean(p_patch, varout, temp_gb, inv_no_gb_cells, i_nchdom)
@@ -280,26 +285,17 @@ MODULE mo_ls_forcing
 !$OMP END PARALLEL WORKSHARE
       CALL global_hor_mean(p_patch, varout, ql_gb, inv_no_gb_cells, i_nchdom)
 
-      IF(.NOT.is_subsidence_moment)THEN      
-        !rho_loc(nlev)
-        CALL global_hor_mean(p_patch, p_prog%rho(:,:,:), rho_gb, inv_no_gb_cells, i_nchdom)
-        inv_rho_gb  = 1._wp / rho_gb
+      ddt_temp_ls(1:nlev) =  ddt_temp_ls(1:nlev) - w_ls(1:nlev)*vertical_derivative(temp_gb,inv_dz) * &
+                                        inv_rho_gb(1:nlev) / exner_gb(1:nlev)
 
-        !Vertical advective forcing
-        inv_dz(:) = 1._wp / p_metrics%ddqz_z_full(2,:,2)        
-      END IF
-      
-      ddt_temp_ls =  ddt_temp_ls - w_ls*vertical_derivative(temp_gb,inv_dz)*inv_rho_gb
       ddt_qv_ls   =  ddt_qv_ls - w_ls*vertical_derivative(qv_gb,inv_dz)*inv_rho_gb
       ddt_ql_ls   =  ddt_ql_ls - w_ls*vertical_derivative(ql_gb,inv_dz)*inv_rho_gb
-
     END IF
 
     !2)Horizontal advective forcing: at present only for tracers
     !  Advective tendencies for ql is always assumed 0
     IF(is_advection)THEN
       IF(is_theta)THEN
-        CALL global_hor_mean(p_patch, p_prog%exner(:,:,:), exner_gb, inv_no_gb_cells, i_nchdom)
         ddt_temp_ls = ddt_temp_ls + ddt_temp_hadv_ls * exner_gb      
       ELSE
         ddt_temp_ls = ddt_temp_ls + ddt_temp_hadv_ls 
@@ -316,10 +312,7 @@ MODULE mo_ls_forcing
 
     !4)Radiative forcing
     IF(is_rad_forcing)THEN
-      IF(is_theta .AND. is_advection)THEN
-        ddt_temp_ls = ddt_temp_ls + ddt_temp_rad_ls * exner_gb
-      ELSEIF(is_theta .AND. .NOT.is_advection)THEN
-        CALL global_hor_mean(p_patch, p_prog%exner(:,:,:), exner_gb, inv_no_gb_cells, i_nchdom)
+      IF(is_theta)THEN
         ddt_temp_ls = ddt_temp_ls + ddt_temp_rad_ls * exner_gb
       ELSE
         ddt_temp_ls = ddt_temp_ls + ddt_temp_rad_ls 
