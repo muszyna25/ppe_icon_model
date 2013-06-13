@@ -154,12 +154,10 @@ cat > ${ocean_namelist} << EOF
    'forc_wind_u_acc' 'forc_wind_v_acc' 'forc_swflx_acc' 'forc_lwflx_acc' 'forc_ssflx_acc' 'forc_slflx_acc' 
    'forc_precip' 'forc_evap' 'forc_runoff' 'forc_fwrelax' 'forc_fwbc' 'forc_fwfx' 
    'forc_precip_acc' 'forc_evap_acc' 'forc_runoff_acc' 'forc_fwrelax_acc' 'forc_fwbc_acc' 'forc_fwfx_acc' 
-   'forc_fwsice' 'forc_fwsice_acc' 'forc_tracer_relax_s' 'forc_tracer_s' 'forc_tracer_t' 
+   'forc_tracer_relax_s' 'forc_tracer_s' 'forc_tracer_t' 
    'forc_tracer_relax_acc_t' 'forc_tracer_acc_t' 
    'forc_tracer_relax_acc_s' 'forc_tracer_acc_s' 
    'hi' 'hs' 'concSum' 
- activate_sync_timers = .TRUE.
- write_timer_files  = .TRUE.
 /
 &dbg_index_nml
   idbg_mxmn=0                     ! initialize MIN/MAX  debug output
