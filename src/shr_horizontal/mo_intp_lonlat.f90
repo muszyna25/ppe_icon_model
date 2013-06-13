@@ -1520,14 +1520,22 @@
           ! copy indices and distances:
           DO j=1,2
             tri_idx_pole = ptr_int_lonlat%tri_idx(j,ibeg_idx,ibeg_blk)
-            ptr_int_lonlat%tri_idx(j, (ibeg_idx+1):nproma,                  ibeg_blk) = tri_idx_pole
-            ptr_int_lonlat%tri_idx(j,                   :, (ibeg_blk+1):(iend_blk-1)) = tri_idx_pole
-            ptr_int_lonlat%tri_idx(j,          1:iend_idx,                  iend_blk) = tri_idx_pole
+            IF (iend_blk > ibeg_blk) THEN
+              ptr_int_lonlat%tri_idx(j, (ibeg_idx+1):nproma,                  ibeg_blk) = tri_idx_pole
+              ptr_int_lonlat%tri_idx(j,                   :, (ibeg_blk+1):(iend_blk-1)) = tri_idx_pole
+              ptr_int_lonlat%tri_idx(j,          1:iend_idx,                  iend_blk) = tri_idx_pole
+            ELSE
+              ptr_int_lonlat%tri_idx(j, (ibeg_idx+1):iend_idx, ibeg_blk) = tri_idx_pole
+            END IF
           END DO
           min_dist_pole = min_dist(ibeg_idx,ibeg_blk)
-          min_dist((ibeg_idx+1):nproma,                  ibeg_blk) = min_dist_pole
-          min_dist(                  :, (ibeg_blk+1):(iend_blk-1)) = min_dist_pole
-          min_dist(         1:iend_idx,                  iend_blk) = min_dist_pole
+          IF (iend_blk > ibeg_blk) THEN
+            min_dist((ibeg_idx+1):nproma,                  ibeg_blk) = min_dist_pole
+            min_dist(                  :, (ibeg_blk+1):(iend_blk-1)) = min_dist_pole
+            min_dist(         1:iend_idx,                  iend_blk) = min_dist_pole
+          ELSE
+            min_dist((ibeg_idx+1):iend_idx, ibeg_blk) = min_dist_pole
+          END IF
         END DO
       END IF
 
