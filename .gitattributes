@@ -726,6 +726,7 @@ schedulers/ecmwf/def/climplot.def -text
 schedulers/ecmwf/def/fc.def -text
 schedulers/ecmwf/def/icon.def -text
 schedulers/ecmwf/def/icon_clim.def -text
+schedulers/ecmwf/def/icon_clim_tsoil.def -text
 schedulers/ecmwf/def/icon_eps.def -text
 schedulers/ecmwf/def/icon_oper.def -text
 schedulers/ecmwf/def/ifs_trigger.def -text
@@ -735,6 +736,7 @@ schedulers/ecmwf/gen/cancel_check_progress -text
 schedulers/ecmwf/gen/case_setup -text
 schedulers/ecmwf/gen/case_setup.B-matrix -text
 schedulers/ecmwf/gen/case_setup_clim -text
+schedulers/ecmwf/gen/case_setup_clim_tsoil -text
 schedulers/ecmwf/gen/case_setup_default -text
 schedulers/ecmwf/gen/case_setup_default_r2b5 -text
 schedulers/ecmwf/gen/case_setup_edmf -text
@@ -772,6 +774,7 @@ schedulers/ecmwf/sms/init_cp_binary.sms -text
 schedulers/ecmwf/sms/init_data.sms -text
 schedulers/ecmwf/sms/init_svn.sms -text
 schedulers/ecmwf/sms/meteogram.sms -text
+schedulers/ecmwf/sms/meteogram_tsoil.sms -text
 schedulers/ecmwf/sms/metview.sms -text
 schedulers/ecmwf/sms/mmeans_ml.sms -text
 schedulers/ecmwf/sms/mmeans_pl.sms -text
@@ -985,6 +988,7 @@ scripts/preprocessing/testdata/atm_hyb_sp_31 -text
 scripts/preprocessing/testdata/iconR2B04-grid.nc -text svneol=unset#unset
 scripts/preprocessing/testdata/oro_R2B04.nc -text svneol=unset#unset
 scripts/preprocessing/testdata/vct -text
+scripts/prototypes/findPath.rb -text
 scripts/prototypes/mo_statistics.rb -text
 scripts/prototypes/test/mo_statistics.rb -text
 scripts/run_scripts/experiments.rb -text

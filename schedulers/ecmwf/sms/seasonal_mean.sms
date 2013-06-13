@@ -26,6 +26,7 @@ module unload grib_api
 module load grib_api/1.10.4
 
 
+
 lsplitdata=1
 lseasmean=0
 lmonthmean=0
@@ -33,19 +34,29 @@ lcpdata=0
 ldeldata=0
 lseldate=0
 lsel2D=0
+lyearmean=0
 case %SIMMODE% in
   1) lcpdata=1        # pre-operations     
      ldeldata=1  ;;
   2) lcpdata=0        # monthly mean 10day forecasts
      ldeldata=0  ;;
   3) lseasmean=1
-     lmonthmean=1
+     lmonthmean=0
+     lyearmean=1
      lseldate=1
      lcpdata=1  
      ldeldata=1
-     lsel2D=1    ;;
+     lsel2D=1    
+     dout=5    ;     # 2 days output interval
 esac
-
+    # lsplitdata=0
+    # lseasmean=0
+    # lmonthmean=0
+    # lyearmean=1
+    # lseldate=0
+    # lcpdata=1  
+     ldeldata=0
+    # lsel2D=0  
 
 #-----------------------------------------------------------------------------
 # directories
@@ -79,7 +90,8 @@ fi
 
 for levtype in ML PL HL ; do
   if [ -f   ${outdir}/${basename}_DOM01_${levtype}_0001.grb ] ; then
-    ecp -o ${outdir}/${basename}_DOM01_${levtype}_0001.grb $ecfsdir
+   ecp -o ${outdir}/${basename}_DOM01_${levtype}_0001.grb $ecfsdir
+   ls ${outdir}/${basename}_DOM01_${levtype}_0001.grb
   else
     ecp     $ecfsdir/${basename}_DOM01_${levtype}_0001.grb ${outdir}
   fi
@@ -142,7 +154,7 @@ if [[ $lsplitdata = 1 ]] ; then
   done
 
 fi
-  ls -l grb_data
+ # ls -l grb_data
 #-----------------------------------------------------------------------------
 
 if [[ $lsplitdata = 1 ]] ; then
@@ -160,8 +172,8 @@ done
  done
  for mfile in `ls grb_data/*_M_*.g2`
  do
-  YEAR=`cdo showyear ${mfile}`
-  MONTH=`cdo showmon ${mfile}`
+  #YEAR=`cdo showyear ${mfile}`
+  #MONTH=`cdo showmon ${mfile}`
   mv ${mfile} ${mfile%%.g2}.grb
  done
 fi
@@ -169,31 +181,35 @@ fi
 # Calculate seasonal means and standard deviation
 
 if [[ $lseasmean = 1 ]] ; then
-
+ rm -f grb_data/*_S_???_mean.grb
+ rm -f grb_data/*_S_???_std.grb
  for sfile in `ls grb_data/*_S_???.grb`
  do
   NAME=`cdo showname ${sfile}`
-  case $NAME in 
-  TOT_PREC|RAIN_GSP|RAIN_CON|SNOW_GSP|SNOW_CON)
+  NAME=${NAME#" "}                   #remove the leading blank 
+case $NAME in 
+  tp|param76.1.0|param77.1.0|lssrwe|csrwe)
    nsteps=`cdo ntime ${sfile}`
-   cdo sub -seltimestep,$nsteps ${sfile} -seltimestep,1 ${sfile}
-           \  ${sfile%%.grb}_mean.grb
+   nintv=`expr ${nsteps}  \- 1 `
+   numdays=`expr ${nintv}  \* ${dout}`
+   cdo sub -seltimestep,$nsteps ${sfile} -seltimestep,1 ${sfile} out.grb
+   cdo divc,${numdays} out.grb ${sfile%%.grb}_mean.grb
+   rm out.grb
   ;;
-  THBS_RAD|THBT_RAD|SOBS_RAD|SOBT_RAD)
+  ttr|nswrf|ssr|str|sshf|slhf)
    nsteps=`cdo ntime ${sfile}`
-   cdo sub -seltimestep,$nsteps ${sfile} -seltimestep,1 ${sfile}
-           \  ${sfile%%.grb}_mean.grb
-  ;;
-  tp|ttr|nswrf|ssr|str|sshf|slhf|var76|var77|lssrwe|csrwe)
-   nsteps=`cdo ntime ${sfile}`
-   cdo sub -seltimestep,$nsteps ${sfile} -seltimestep,1 ${sfile}
-           \  ${sfile%%.grb}_mean.grb
+   nintv=`expr ${nsteps}  \- 1 `
+   numdays=`expr ${nintv}  \* ${dout}`
+   numsec=`expr ${numdays}  \* 86400 `
+   cdo sub -seltimestep,$nsteps ${sfile} -seltimestep,1 ${sfile} out.grb
+   cdo divc,${numsec} out.grb ${sfile%%.grb}_mean.grb
+   rm out.grb
   ;;
   *)
    cdo seasmean ${sfile} ${sfile%%.grb}_mean.grb
    cdo seasstd ${sfile} ${sfile%%.grb}_std.grb
   ;;
-  esac
+esac
  done
 
 fi
@@ -202,25 +218,30 @@ fi
 
 if [[ $lmonthmean = 1 ]] ; then
 
+ rm -f grb_data/*_M_??_mean.grb
+ rm -f grb_data/*_M_??_std.grb
  for mfile in `ls grb_data/*_M_??.grb`
  do
 
   NAME=`cdo showname ${mfile}`
+  NAME=${NAME#" "}                   #remove the leading blank
   case $NAME in 
-  TOT_PREC|RAIN_GSP|RAIN_CON|SNOW_GSP|SNOW_CON)
+  tp|param76.1.0|param77.1.0|lssrwe|csrwe)
    nsteps=`cdo ntime ${mfile}`
-   cdo sub -seltimestep,$nsteps ${mfile} -seltimestep,1 ${mfile}
-           \  ${mfile%%.grb}_mean.grb
+   nintv=`expr ${nsteps}  \- 1 `
+   numdays=`expr ${nintv}  \* ${dout}`
+   cdo sub -seltimestep,$nsteps ${mfile} -seltimestep,1 ${mfile} out.grb
+   cdo divc,${numdays} out.grb  ${mfile%%.grb}_mean.grb
+   rm out.grb
   ;;
-  THBS_RAD|THBT_RAD|SOBS_RAD|SOBT_RAD)
+  ttr|nswrf|ssr|str|sshf|slhf)
    nsteps=`cdo ntime ${mfile}`
-   cdo sub -seltimestep,$nsteps ${mfile} -seltimestep,1 ${mfile}
-           \  ${mfile%%.grb}_mean.grb
-  ;;
-  tp|ttr|nswrf|ssr|str|sshf|slhf|var76|var77|lssrwe|csrwe)
-   nsteps=`cdo ntime ${sfile}`
-   cdo sub -seltimestep,$nsteps ${sfile} -seltimestep,1 ${sfile}
-           \  ${sfile%%.grb}_mean.grb
+   nintv=`expr ${nsteps}  \- 1 `
+   numdays=`expr ${nintv}  \* ${dout}`
+   numsec=`expr ${numdays}  \* 86400 `
+   cdo sub -seltimestep,$nsteps ${mfile} -seltimestep,1 ${mfile} out.grb
+   cdo divc,${numsec} out.grb ${mfile%%.grb}_mean.grb
+   rm out.grb
   ;;
 
   *)
@@ -230,7 +251,51 @@ if [[ $lmonthmean = 1 ]] ; then
  done
 fi
 #-----------------------------------------------------------------------------
+# Calculate monthly means and standard deviation
 
+if [[ $lyearmean = 1 ]] ; then
+
+ rm -f grb_data/*_Y_mean.grb
+ rm -f grb_data/*_Y_std.grb
+ for levt in sfc pl zl ; do
+ for yfile in `ls grb_data/*_${levt}.grb`
+ do
+
+  NAME=`cdo showname ${yfile}`
+  NAME=${NAME#" "}                   #remove the leading blank
+
+  case $NAME in 
+  tp|param76.1.0|param77.1.0|lssrwe|csrwe)
+   nsteps=`cdo ntime ${yfile}`
+   nintv=`expr ${nsteps}  \- 1 `
+   numdays=`expr ${nintv}  \* ${dout}`
+   cdo sub -seltimestep,$nsteps ${yfile} -seltimestep,1 ${yfile} out.grb
+   cdo divc,${numdays} out.grb ${yfile%%.grb}_Y_mean.grb
+   rm out.grb
+  ;;
+  ttr|nswrf|ssr|str|sshf|slhf)
+   nsteps=`cdo ntime ${yfile}`
+   nintv=`expr ${nsteps}  \- 1 `
+   numdays=`expr ${nintv}  \* ${dout}`
+   numsec=`expr ${numdays}  \* 86400 `
+   cdo sub -seltimestep,$nsteps ${yfile} -seltimestep,1 ${yfile} out.grb
+   cdo divc,${numsec} out.grb  ${yfile%%.grb}_Y_mean.grb
+   rm out.grb
+  ;;
+
+  *)
+  cdo fldmean ${yfile} ${yfile%%.grb}_Y_mean.grb
+  cdo fldstd  ${yfile} ${yfile%%.grb}_Y_std.grb
+  esac
+
+
+
+ done
+ done
+fi
+#-----------------------------------------------------------------------------
+
+# Calculate monthly means and standard deviation
 # move data to ecgate
 
 if [[ $lcpdata = 1 ]] ; then

@@ -36,7 +36,8 @@ basename=%SUITE%_%EXPNUM%_%FDATE%%INIHOUR%
 
 mkdir -p ${SSTICEDIR}
 cd ${SSTICEDIR}
-
+rm SST*nc
+rm CI*nc
 # Important: ==================================
 # export the DWD GRIB short names:
 dwd_grib_api=/home/ms/de/dwd/grib_api

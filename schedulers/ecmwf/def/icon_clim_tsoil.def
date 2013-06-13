@@ -18,23 +18,23 @@ def
 # 2012-07-02 : Introduced new SVN user "dwd-ecmwf"
 # 2012-summer: Upgrade to multi-experiment, multi-user,
 #              catch-up-mode, plotting (Martin Koehler)
-# 2012-end:    Switch co C2A (Martin Koehler and Stefan Koerner)
+# 2012-end:    Switch to C2A (Martin Koehler and Stefan Koerner)
 #
 
 # ---USER SETUP------------------------------------
 
 # global definitions:
-set EXPNUM        "004"                #---experiment number---
-set EXPNUM2       "004"                #---experiment number used for score comparison---
+set EXPNUM        "010"                #---experiment number---
+set EXPNUM2       "010"                #---experiment number used for score comparison---
 set SUITE2        "dei3"               #---suite             used for score comparison---
-set FIRST_DATE    20001020
-set LAST_DATE     20001024
-set DATE_LIST     "20001020 20001022 20001024"
-set FIRST_DATE_S    2000-12-01T00:00:00           # First date to save in the output
-set LAST_DATE_S     2001-11-30T00:00:00           # Last date to save in the output
+set FIRST_DATE    20000701
+set LAST_DATE     20000701
+set DATE_LIST     "20000701 "
+set FIRST_DATE_S    2000-07-01T00:00:00           # First date to save in the output
+set LAST_DATE_S     2001-06-30T00:00:00           # Last date to save in the output
 set FIRST_SSTICE_YEAR 2000             # First and last year for which we neeed the external SST
 set LAST_SSTICE_YEAR  2002             #  and CI external files 
-set MONTHS        200010               #---months to be run e.g. 201201_201207
+set MONTHS        200007               #---months to be run e.g. 201201_201207
 set ICON_HOME     /home/ms/de/deia 
 set ICON_ID       deia
 set RES           "R02B05"              #---ICON resolution dynamics
@@ -44,7 +44,8 @@ set RESRAD        "R02B04"              #---ICON resolution radiation (requires 
 #set NSTEPS       12000  # R2B6 10d
 #set NSTEPS       4800   # grey zone 48h: R2B7-4800, R2B8-9600
 #set NSTEPS       2880
-set NSTEPS      393600   # 410*86400s/90s
+#set NSTEPS      393600   # 410*86400s/90s
+set NSTEPS      380160   # 396*86400s/90s
 
 # simulation modes: 1:oper, 2:monthly 10day forecasts, 3:climate (1year)
 set SIMMODE      3
@@ -167,22 +168,22 @@ suite $USER
     edit INIHOUR 00
 
     # init local variables:
-    set ENABLE_INIT               0 #to avoid running again
+    set ENABLE_INIT               1 #to avoid running again
     set     ENABLE_GET_DATA       1
     set     ENABLE_INIT_DATA      1
-    set     ENABLE_BUILD          0
+    set     ENABLE_BUILD          1
     set         ENABLE_INIT_SVN   0
     set ENABLE_FORECAST           1 #to avoid running again
     set     ENABLE_DUMPSTATE      0
-    set     ENABLE_MODEL          0
+    set     ENABLE_MODEL          1
     set ENABLE_SSTICE             1 #to avoid running again
     set ENABLE_POST               1
-    set     ENABLE_METEOGRAM      0
+    set     ENABLE_METEOGRAM      1
     set     ENABLE_POST_METVIEW   0
     set     ENABLE_POST_ARCHIVE   0
     
-    set ENABLE_POST_SEAS          1
-    set     ENABLE_SEAS_MEAN      1
+    set ENABLE_POST_SEAS          0
+    set     ENABLE_SEAS_MEAN      0
     # enable this flag, if we do not perform a complete "svn export"
     # but simply an "svn update" and "gmake distclean":
     set  SVN_UPDATE           1
@@ -241,7 +242,7 @@ suite $USER
     # INITIALIZATION ----------------------------------
 
     family init
-        repeat date YMD ${FIRST_DATE} ${LAST_DATE}   2   # cycle over dates
+        repeat date YMD ${FIRST_DATE} ${LAST_DATE}   1   # cycle over dates
         trigger  (once == complete)
         complete ($ENABLE_INIT == 0)
 
@@ -430,6 +431,28 @@ suite $USER
         endloop
 
     endfamily
+
+    family post
+
+        trigger forecast==complete
+
+        loop DATE ( ${DATE_LIST}  ) do  
+         family $DATE       
+         edit YMD $DATE
+         task post_prepare   
+            on_hpc_serial
+            edit SCWALLCLOCKLIMIT 00:40:00
+            event meteogram_data
+
+         task meteogram_tsoil
+            trigger (post_prepare:meteogram_data)
+            complete ($ENABLE_METEOGRAM == 0)
+            on_ecgate_submit_old
+         endfamily
+        endloop
+
+    endfamily
+ 
 
 
 endsuite
