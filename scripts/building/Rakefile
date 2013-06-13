@@ -65,20 +65,20 @@ $hosts = {
 # * local builds start with 'local'
 # * remote builds start with 'remote'
 $builds = {
-  :localGcc          => {:host => :thingol ,:subdir => 'gcc'},
-  :localGccHi        => {:host => :thingol ,:subdir => 'gcc-hiopt', :CC => 'gcc', :FLAGS => 'hiopt'},
-  :localGprof        => {:host => :thingol ,:subdir => 'gprof'},
-  :localOpenMP       => {:host => :thingol ,:subdir => 'openmp',:FLAGS => 'hiopt',:openmp => true},
-  :localNag          => {:host => :thingol ,:subdir => 'nag',  :CC => 'nag'},
-  :localTest         => {:host => :thingol ,:subdir => 'test', :CC => 'nag'},
-  :remoteDef         => {:host => :thunder4,:subdir => 'test'},
-  :remoteGccHi       => {:host => :thunder5,:subdir => 'gcc',  :CC => 'gcc', :FLAGS => 'hiopt'},
-  :remoteGccHiOpenMP => {:host => :thunder5,:subdir => 'gcc-opemp', :CC => 'gcc', :FLAGS => 'hiopt',:openmp => true},
-  :remoteNag         => {:host => :thunder4,:subdir => 'nag',  :CC => 'nag'},
-  :remoteIntel       => {:host => :thunder4,:subdir => 'intel',:CC => 'intel'},
-  :remotePgi         => {:host => :thunder5,:subdir => 'pgi',  :CC => 'pgi'},
-  :remoteXlf         => {:host => :passat  ,:subdir => 'default'},
-  :remoteXlfHi       => {:host => :passat  ,:subdir => 'hiopt',:FLAGS => 'hiopt'}
+  :localGcc          => {:host => :thingol , :subdir => 'gcc'}     ,
+  :localGccHi        => {:host => :thingol , :subdir => 'gcc-hiopt', :CC => 'gcc'      , :FLAGS => 'hiopt'},
+  :localGprof        => {:host => :thingol , :subdir => 'gprof'}   ,
+  :localOpenMP       => {:host => :thingol , :subdir => 'openmp'   , :FLAGS => 'hiopt' , :openmp => true}  ,
+  :localNag          => {:host => :thingol , :subdir => 'nag'      , :CC => 'nag'}     ,
+  :localTest         => {:host => :thingol , :subdir => 'test'     , :CC => 'nag'}     ,
+  :remoteSerial      => {:host => :thunder4, :subdir => 'serial'   , :confOpts => '--without-mpi'}    ,
+  :remoteGccHi       => {:host => :thunder5, :subdir => 'gcc'      , :CC => 'gcc'      , :FLAGS => 'hiopt'},
+  :remoteGccHiOpenMP => {:host => :thunder5, :subdir => 'gcc-opemp', :CC => 'gcc'      , :FLAGS => 'hiopt' , :openmp => true},
+  :remoteNag         => {:host => :thunder4, :subdir => 'nag'      , :CC => 'nag'}     ,
+  :remoteIntel       => {:host => :thunder4, :subdir => 'intel'    , :CC => 'intel'}   ,
+  :remotePgi         => {:host => :thunder5, :subdir => 'pgi'      , :CC => 'pgi'}     ,
+  :remoteXlf         => {:host => :passat  , :subdir => 'default'} ,
+  :remoteXlfHi       => {:host => :passat  , :subdir => 'hiopt'    , :FLAGS => 'hiopt'}
 }
 # ============================================================================
 
@@ -150,6 +150,7 @@ $configureCall = lambda {|build|
   configureCall << " --with-fortran=#{$builds[build][:CC]}" unless $builds[build][:CC].nil?
   configureCall << " --with-flags=#{$builds[build][:FLAGS]}" unless $builds[build][:FLAGS].nil?
   configureCall << " --with-openmp" unless $builds[build][:openmp].nil?
+  configureCall << " " << $builds[build][:confOpts] if $builds[build].has_key?(:confOpts)
   configureCall << " ;"
   configureCall
 }
