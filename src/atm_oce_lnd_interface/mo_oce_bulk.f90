@@ -1187,9 +1187,8 @@ CONTAINS
         &                            - p_sfc_flx%forc_fwsice(:,:)*s_top(:,:)*p_patch_3d%wet_c(:,1,:)
 
       !---------DEBUG DIAGNOSTICS-------------------------------------------
-      idt_src=1  ! output print level (1-5, fix)
-      CALL dbg_print('UpdSfc: fwsice[m/s]'        ,p_sfc_flx%forc_fwsice   ,str_module,idt_src)
       idt_src=2  ! output print level (1-5, fix)
+      CALL dbg_print('UpdSfc: fwsice[m/s]'        ,p_sfc_flx%forc_fwsice   ,str_module,idt_src)
       z_c2(:,:) = p_sfc_flx%forc_tracer(:,:,2)
       CALL dbg_print('UpdSfc:sice:forc_trac[Km/s]',z_c2                    ,str_module,idt_src)
       !---------------------------------------------------------------------
