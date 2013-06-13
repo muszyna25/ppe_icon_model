@@ -100,6 +100,8 @@ dt_data=`expr ${nhours_data} \* 3600`
 dt_file=`expr ${ndays_file} \* 86400`
 dt_checkpoint=`expr ${ndays_checkp} \* 86400`
 dt_restart=`expr ${ndays_restart} \* 86400`
+(( simLength = dt_restart > dt_file ? dt_file : dt_restart ))
+(( steps_per_file = simLength / dt_data )) # output intervals per file interval
 #
 #-----------------------------------------------------------------------------
 # model parameters
