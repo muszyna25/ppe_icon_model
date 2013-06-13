@@ -26,6 +26,8 @@ EXTPARDIR=${basedir}/icon_input/extpar
 IFS2ICONDIR=${ifsdir}
 # path to files needed for radiation
 RADDIR=${basedir}/icon_input/radiation
+# absolute path to files needed to update SST and CI
+SSTICEDIR=${sstice_dir}/icon_input/sstice
 
 # --------------------------------------------------------------------
 
@@ -41,7 +43,7 @@ cd $EXPDIR
 # grid parameters
 atmo_dyn_grids=icon_grid_${res}_G.nc
 atmo_rad_grids=icon_grid_${resrad}_R.nc
-extpar_filename=icon_extpar_${res}_G.nc
+extpar_filename=extpar_${atmo_dyn_grids}
 
 ln -sf $GRIDDIR/icon_grid_*_${res}_G.nc     ${atmo_dyn_grids}
 ln -sf $GRIDDIR/icon_grid_*_${resrad}_R.nc  ${atmo_rad_grids}
@@ -51,8 +53,8 @@ ln -sf $IFS2ICONDIR/ifs2icon_${res}_DOM01.nc .
 ln -sf ${RADDIR}/ECHAM6_CldOptProps.nc .
 ln -sf ${RADDIR}/rrtmg_lw.nc .
 
-ln -sf ${SSTICEDIR}/*/*SST**${res}_DOM01* .
-ln -sf ${SSTICEDIR}/*/*CI**${res}_DOM01* .
+ln -sf ${SSTICEDIR}/*/*SST**${res}* .
+ln -sf ${SSTICEDIR}/*/*CI**${res}* .
 
 # global timing
 start_date="${INITIME_FMT}"
@@ -119,7 +121,8 @@ done
 #-----------------------------------------------------------------------------
 # output variables
 
-ml_varlist="'temp','u','v','w','pres','pres_sfc', 'pres_msl', 
+ml_varlist="'fr_seaice', 't_seasfc','t_ice','h_ice','temp','u','v','w','pres','pres_sfc', 'pres_msl',
+'t_g', 
 'qv','qc','qi','qr','qs','o3','clc','tot_qv','tot_qc','tot_qi', 
 'clct','tqv','tqc','tqi', 
 'tracer_vi01','tracer_vi02','tracer_vi03','tracer_vi04','tracer_vi05',
@@ -131,7 +134,9 @@ ml_varlist="'temp','u','v','w','pres','pres_sfc', 'pres_msl',
 'ddt_v_gwd', 'ddt_v_pconv', 'ddt_qv_turb', 'ddt_qv_conv',
 't_g', 't_ice','h_ice', 't_so', 'w_so', 'fr_seaice', 't_seasfc',
 'snowfrac', 'w_snow', 'dzh_snow', 't_snow_mult', 'rho_snow_mult'"
+
 #'t_so_t_1', 'w_so_t_1', 'w_snow_t_1'"
+#,'u_10m_s6avg','v_10m_s6avg', 't_2m_s6avg','pres_sfc_s6avg'
 
 pl_varlist="'u','v','temp','geopot','clc','tot_qv','tot_qc','tot_qi','qv','qc','qi'"      
 hl_varlist="'u','v','temp','pres',  'clc','tot_qv','tot_qc','tot_qi','qv','qc','qi'"   
@@ -163,6 +168,7 @@ cat > ${atmo_namelist} << EOF
  nlev_in                      = 60          ! number of levels of input data
  zpbl1                        = 500. 
  zpbl2                        = 1000. 
+ l_sst_in                     = .TRUE.
 /
 &io_nml
  lflux_avg                    = .FALSE.     ! false: accumulated fluxes

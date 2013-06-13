@@ -38,6 +38,9 @@ case %SIMMODE% in
      ldeldata=1  ;;
   2) lcpdata=0        # monthly mean 10day forecasts
      ldeldata=0  ;;
+  3) lsplitdata=0 
+     lcpdata=1       
+     ldeldata=1  ;;
 esac
 
 ###
@@ -128,6 +131,7 @@ smsevent meteogram_data
 #-----------------------------------------------------------------------------
 # GRIB: copy to ecfs
 
+if [[ %SIMMODE% != 3 ]] ; then
 for levtype in ML PL HL ; do
   if [ -f   ${outdir}/${basename}_DOM01_${levtype}_0001.grb ] ; then
     ecp -o ${outdir}/${basename}_DOM01_${levtype}_0001.grb $ecfsdir
@@ -135,7 +139,22 @@ for levtype in ML PL HL ; do
     ecp     $ecfsdir/${basename}_DOM01_${levtype}_0001.grb ${outdir}
   fi
 done
+fi
+if [[ %SIMMODE% = 3 ]] ; then
 
+for levtype in ML PL HL ; do
+  if [ -f   ${outdir}/${basename}_DOM01_${levtype}_0001.nc ] ; then
+    ecp -o ${outdir}/${basename}_DOM01_${levtype}_0001.nc $ecfsdir
+  else
+    ecp     $ecfsdir/${basename}_DOM01_${levtype}_0001.nc ${outdir}
+  fi
+done
+ for str in so1 so2 ; do
+  if [ -f   ${outdir}/${basename}_${str}_DOM01_ML_0001.nc ] ; then
+    ecp -o ${outdir}/${basename}_${str}_DOM01_ML_0001.nc $ecfsdir
+  fi
+ done
+fi
 
 #-----------------------------------------------------------------------------
 # fix and copy data to ecgate for metview processing
@@ -175,6 +194,7 @@ fi
 
 #-----------------------------------------------------------------------------
 # move data to ecgate
+if [[ $lsplitdata = 1 ]] ; then
 
 if [[ $lcpdata = 1 ]] ; then
   rsh ecgate mkdir ${gatedir}/grb_data
@@ -186,7 +206,7 @@ if [[ $lcpdata = 1 ]] ; then
   fi
 fi
 
-
+fi
 #-----------------------------------------------------------------------------
 # delete data
 
