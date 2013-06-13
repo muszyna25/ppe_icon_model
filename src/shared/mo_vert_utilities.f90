@@ -46,6 +46,8 @@ MODULE mo_vert_utilities
   USE mo_model_domain,        ONLY: t_patch
   USE mo_loopindices,         ONLY: get_indices_e, get_indices_c, get_indices_v
   USE mo_sync,                ONLY: global_sum_array
+  USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c
+  USE mo_impl_constants,      ONLY: success, max_char_length, min_rlcell_int
 
   IMPLICIT NONE
 
@@ -53,7 +55,8 @@ MODULE mo_vert_utilities
 
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
-  PUBLIC :: vert_intp_full2half_cell_3d, vert_intp_linear_1d
+  PUBLIC :: vert_intp_full2half_cell_3d, vert_intp_linear_1d, global_hor_mean
+  PUBLIC :: vertical_derivative
 
   CONTAINS
 
@@ -147,8 +150,77 @@ MODULE mo_vert_utilities
 
   END SUBROUTINE vert_intp_linear_1d
 
+  !>
+  !! global_hor_mean: only called for interior points
+  !! Calculates horizontally averaged vertically varying quantaties 
+  !!------------------------------------------------------------------------
+  !! @par Revision History
+  !! Initial release by Anurag Dipankar, MPI-M (2013-May-30)
+  SUBROUTINE global_hor_mean(p_patch, var, varout, inv_no_cells, nchdom)
+
+    TYPE(t_patch),     INTENT(in), TARGET :: p_patch
+    REAL(wp), INTENT(in)                  :: var(:,:,:), inv_no_cells
+    INTEGER,  INTENT(in)                  :: nchdom
+    REAL(wp), INTENT(out)                 :: varout(:)                     
+
+    REAL(wp) :: var_aux(SIZE(var,1),SIZE(var,2),SIZE(var,3))
+    INTEGER  :: i_startblk, i_endblk, rl_start
+    INTEGER  :: i_endidx, i_startidx
+    INTEGER  :: jk, jc, jb, nz
+
+    !Put all fields to 0
+    var_aux(:,:,:) = 0._wp
+
+    rl_start   = grf_bdywidth_c+1
+    i_startblk = p_patch%cells%start_blk(rl_start,1)
+    i_endblk   = p_patch%cells%end_blk(min_rlcell_int,nchdom)
+    nz         = SIZE(var,2)
+
+   !Now put values in interior nodes
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb, jk, jc, i_startidx, i_endidx) ICON_OMP_DEFAULT_SCHEDULE
+    DO jb = i_startblk, i_endblk
+       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+                          i_startidx, i_endidx, rl_start, min_rlcell_int)
+       DO jk = 1 , nz
+         DO jc = i_startidx , i_endidx
+             var_aux(jc,jk,jb) = var(jc,jk,jb)
+         END DO
+       END DO
+    END DO 
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+
+   DO jk = 1 , nz
+    varout(jk) = global_sum_array(var_aux(:,jk,:)) * inv_no_cells
+   END DO
+
+  END SUBROUTINE global_hor_mean
+
+  !>
+  !! vertical_derivative
+  !!------------------------------------------------------------------------
+  !! @par Revision History
+  !! Initial release by Anurag Dipankar, MPI-M (2013-May-30)
+  FUNCTION vertical_derivative (var, inv_dz) RESULT(dvardz)
+
+    REAL(wp), INTENT(in) :: var(:), inv_dz(:)
+                     
+    REAL(wp) :: dvardz(SIZE(inv_dz))                     
+    INTEGER  :: jk
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jk) ICON_OMP_DEFAULT_SCHEDULE
+    DO jk = 1 , SIZE(inv_dz)
+      dvardz(jk) = ( var(jk) - var(jk+1) ) * inv_dz(jk)
+    END DO
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+
+  END FUNCTION vertical_derivative
+
 !-------------------------------------------------------------------------------
-     
+    
 END MODULE mo_vert_utilities
 
 
