@@ -44,6 +44,56 @@ begin
     return(val/abs(val))
   end if
 end
+;---------------------------------------------------------------
+; return ncl version string
+undef("getNclVersion")
+function getNclVersion()
+begin
+  version_string = systemfunc("ncl -V")
+  version_array  = str_split(version_string, ".")
+  ; use integers instead
+  return stringtointeger(version_array)
+end
+;---------------------------------------------------------------
+; return true if ncl uses groups for netcdf4 input (release 6.1.1 with netcdf4 input)
+undef("versionWithNC4GroupNotationSupport")
+function versionWithNC4GroupNotationSupport()
+begin
+  return (/6,1,1/)
+end
+undef("versionIsGE")
+function versionIsGE(otherVersion)
+begin
+  return True
+  diff = otherVersion .gt. getNclVersion()
+  print(""+diff)
+  do i=0,dimsizes(diff)
+    if (.not. diff(i)) then
+      return False
+    end if
+  end do
+  return True
+end
+;-------------------------------------------------------------------------------
+; return a filehandle that can access variables names without leading '/' even
+; if the input it nc4 and ncl has version 6.1.1 or above
+undef("nc4Aware_addfile")
+function nc4Aware_addfile(filename,debug)
+begin
+  filehandle = addfile( filename, "r" )
+  filetype   = get_file_version(filehandle)
+  if debug then
+    print("[nc4Aware_addfile]Read in file:'" + filename +"'")
+    print("[nc4Aware_addfile]    Filetype:'" + filetype +"'")
+    print("[nc4Aware_addfile]NCL  version:'" + str_join(getNclVersion(),".") +"'")
+    print("[nc4Aware_addfile]version > 611'" + versionIsGE((/6,1,1/)) )
+  end if
+  if ((get_file_version(filehandle) .eq. "NETCDF4") .and. versionIsGE((/6,1,1/))) then
+    print("[nc4Aware_addfile]switch to root group '/'")
+    filehandle = filehandle=>/
+  end if
+  return filehandle
+end
 ;-------------------------------------------------------------------------------
 ; Is the 'time' variable a dimesions in the input dimensions array?
 undef("has_time")
