@@ -71,7 +71,7 @@ MODULE mo_ls_forcing
   !forcing to be used in periodic domain or other relveant cases.
     
   !Constant in time and horizontal space
-  REAL(wp), ALLOCATABLE ::  &
+  REAL(wp), SAVE, ALLOCATABLE ::  &
     w_ls(:),            & !subsidence          [m/s]
     u_geo  (:),         & !u-geostrophic wind  [m/s]
     v_geo  (:),         & !v-geostrophic wind  [m/s]
