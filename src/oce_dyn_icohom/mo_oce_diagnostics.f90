@@ -45,8 +45,9 @@ MODULE mo_oce_diagnostics
   USE mo_impl_constants,     ONLY: sea_boundary,sea, &
     &                              min_rlcell, min_rledge, min_rlcell, &
     &                              max_char_length, MIN_DOLIC
-  USE mo_ocean_nml,          ONLY: n_zlev, no_tracer, gibraltar, denmark_strait,&
-      &                            ab_const, ab_beta, ab_gam, iswm_oce, idisc_scheme
+  USE mo_ocean_nml,          ONLY: n_zlev, no_tracer, &
+    &                              gibraltar, denmark_strait,drake_passage,&
+    &                              ab_const, ab_beta, ab_gam, iswm_oce, idisc_scheme
   USE mo_dynamics_config,    ONLY: nold,nnew
   USE mo_parallel_config,    ONLY: nproma, p_test_run
   USE mo_run_config,         ONLY: dtime, nsteps
@@ -169,7 +170,7 @@ TYPE t_oce_section
   REAL(wp), POINTER  :: orientation(:)
 END TYPE t_oce_section
 
-TYPE(t_oce_section) :: oce_sections(2)
+TYPE(t_oce_section) :: oce_sections(3)
 PRIVATE :: oce_sections
 
 CONTAINS
@@ -279,6 +280,12 @@ SUBROUTINE construct_oce_diagnostics( p_patch_3D, p_os, oce_ts, datestring )
      &  patch_3D = p_patch_3D,                     &
      & global_vertex_array =denmark_strait,        &
      & subset_name = 'denmark_strait')
+  CALL get_oriented_edges_from_global_vertices(    &
+     &  edge_subset = oce_sections(3)%subset,      &
+     &  orientation = oce_sections(3)%orientation, &
+     &  patch_3D = p_patch_3D,                     &
+     & global_vertex_array =drake_passage,        &
+     & subset_name = 'drake_passage')
 END SUBROUTINE construct_oce_diagnostics
 !-------------------------------------------------------------------------
 !
@@ -500,7 +507,7 @@ SUBROUTINE calculate_oce_diagnostics(p_patch_3D, p_os, p_sfc_flx, p_ice, &
   ! fluxes through given paths
   IF (my_process_is_stdio()) &
     & write(0,*) "---------------  fluxes --------------------------------"
-  DO i_no_t=1,2
+  DO i_no_t=1,3
     sflux = section_flux(oce_sections(i_no_t), p_os%p_prog(nnew(1))%vn)
     IF (my_process_is_stdio()) &
       & write(0,*) oce_sections(i_no_t)%subset%name, ":", sflux

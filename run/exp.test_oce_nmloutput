@@ -225,7 +225,7 @@ idbg_elev=5                     ! initialize end level for debug output
 &ocean_diagnostics_nml
    denmark_strait(1:10) = 2436,2472      ! vertex list R2B04
    gibraltar(1:10)      = 2374,2311           ! vertex list R2B04
-   drake_passage(1:10)  = -1 !7,8,9
+   drake_passage(1:10)  = 9320,9317,9295!,9412,9414,9413
 /
 &io_nml
   out_expname   = '${EXPNAME}'
