@@ -509,8 +509,13 @@ SUBROUTINE calculate_oce_diagnostics(p_patch_3D, p_os, p_sfc_flx, p_ice, &
     & write(0,*) "---------------  fluxes --------------------------------"
   DO i_no_t=1,3
     sflux = section_flux(oce_sections(i_no_t), p_os%p_prog(nnew(1))%vn)
+#ifdef NOMPI
+    IF (my_process_is_stdio()) &
+      & write(0,*) oce_sections(i_no_t)%subset%name, ":", sflux, 'at edges:',oce_sections(i_no_t)%subset%block
+#else
     IF (my_process_is_stdio()) &
       & write(0,*) oce_sections(i_no_t)%subset%name, ":", sflux
+#endif
 
     SELECT CASE (i_no_t)
     CASE (1)
@@ -601,13 +606,13 @@ END SUBROUTINE calculate_oce_diagnostics
       oriented_length = edges%primal_edge_length(edge_idx, edge_block) * &
         & in_oce_section%orientation(i) ! this can also be pre-calculated and stored in in_oce_section%orientation
 
-      write(0,*) "oriented_length:",  oriented_length
+      !write(0,*) "oriented_length:",  oriented_length
 
       DO k=1, n_zlev
         flux_weights(k, i) = patch_vertical%prism_thick_e(edge_idx, k, edge_block) * oriented_length ! maybe also use slm
-        write(0,*) i, k, in_oce_section%subset%name, " flux_weights:",  flux_weights(k, i), &
-          & patch_vertical%prism_thick_e(edge_idx, k, edge_block)
-        write(0,*) i, k, in_oce_section%subset%name, " velocity_value:", velocity_values(edge_idx, k, edge_block)
+       !write(0,*) i, k, in_oce_section%subset%name, " flux_weights:",  flux_weights(k, i), &
+       !  & patch_vertical%prism_thick_e(edge_idx, k, edge_block)
+       !write(0,*) i, k, in_oce_section%subset%name, " velocity_value:", velocity_values(edge_idx, k, edge_block)
       ENDDO
 
     ENDDO
