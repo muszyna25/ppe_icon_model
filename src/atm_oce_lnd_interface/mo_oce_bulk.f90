@@ -689,7 +689,6 @@ CONTAINS
       CALL dbg_print('UpdSfc: Bulk LW-flux'      ,p_sfc_flx%forc_lwflx     ,str_module,idt_src, in_subset=p_patch%cells%owned)
       CALL dbg_print('UpdSfc: Bulk Sens.  HF'    ,p_sfc_flx%forc_ssflx     ,str_module,idt_src, in_subset=p_patch%cells%owned)
       CALL dbg_print('UpdSfc: Bulk Latent HF'    ,p_sfc_flx%forc_slflx     ,str_module,idt_src, in_subset=p_patch%cells%owned)
-      idt_src=1  ! output print level (1-5, fix)
       CALL dbg_print('UpdSfc: Bulk Total  HF'    ,p_sfc_flx%forc_hflx      ,str_module,idt_src, in_subset=p_patch%cells%owned)
       !---------------------------------------------------------------------
 
@@ -942,8 +941,8 @@ CONTAINS
       !---------DEBUG DIAGNOSTICS-------------------------------------------
       idt_src=1  ! output print level (1-5, fix)
       CALL dbg_print('UpdSfc: forcing u'       ,p_sfc_flx%forc_wind_u      ,str_module,idt_src, in_subset=p_patch%cells%owned)
-      CALL dbg_print('UpdSfc: forcing v'       ,p_sfc_flx%forc_wind_v      ,str_module,idt_src, in_subset=p_patch%cells%owned)
       idt_src=2  ! output print level (1-5, fix)
+      CALL dbg_print('UpdSfc: forcing v'       ,p_sfc_flx%forc_wind_v      ,str_module,idt_src, in_subset=p_patch%cells%owned)
       CALL dbg_print('UpdSfc: forcing cc%x(1)' ,p_sfc_flx%forc_wind_cc%x(1),str_module,idt_src, in_subset=p_patch%cells%owned)
       CALL dbg_print('UpdSfc: forcing cc%x(2)' ,p_sfc_flx%forc_wind_cc%x(2),str_module,idt_src, in_subset=p_patch%cells%owned)
       !---------------------------------------------------------------------
