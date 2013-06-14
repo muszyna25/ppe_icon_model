@@ -3728,7 +3728,7 @@ REAL (KIND=ireals) :: &
          IF (.NOT.ltkeinp) THEN !TKE not present as input
             DO k=2,kem
                DO i=istartpar,iendpar
-                  tke(i,k,ntur)=MAX( vel_min, SQRT(d_m*len*hlp(i,k) )) !Initialwert fuer SQRT(2TKE)
+                  tke(i,k,ntur)=MAX( vel_min, SQRT(d_m*len_scale(i,k)*hlp(i,k) )) !Initialwert fuer SQRT(2TKE)
                END DO
             END DO
          END IF    
@@ -4188,7 +4188,7 @@ REAL (KIND=ireals) :: &
               DO i=istartpar, iendpar
 
                 IF (ltkeinp) THEN
-                   gama=1/dd(i,0) !TKE-equilibrium
+                   gama=1._ireals/dd(i,0) !TKE-equilibrium
                 ELSE
                    gama=len_scale(i,k)*frc(i)/tke(i,k,ntur)**2 !entspr. 1/d_m im Gleichgewicht
                                                                !und ausserh. des Bestandes
