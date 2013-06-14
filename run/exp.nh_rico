@@ -37,14 +37,14 @@ atmo_namelist=NAMELIST_${EXPNAME}
 #-----------------------------------------------------------------------------
 # global timing
 start_date="2008-09-01T00:00:00Z"
-end_date="2008-09-01T03:00:00Z"
+end_date="2008-09-02T00:00:00Z"
 ndays_restart=60
 dt_restart=`expr ${ndays_restart} \* 86400`
 #
 #-----------------------------------------------------------------------------
 # model timing
-dtime=0.1
-dt_checkpoint=`expr 10 \* 3600 `  # write restart file every 6 hours
+dtime=0.15
+dt_checkpoint=`expr 6 \* 3600 `  # write restart file every 6 hours
 #
 #-----------------------------------------------------------------------------
 # model parameters
@@ -59,7 +59,7 @@ iforcing=3         # 3 for inwp forcing; 0 for no forcing
 #
 #-----------------------------------------------------------------------------
 # the grid files
-atmo_dyn_grids='torus_grid_r100s36.nc'
+atmo_dyn_grids='torus_grid_r100s200.nc'
 #
 #-----------------------------------------------------------------------------
 
@@ -74,7 +74,7 @@ cat > ${atmo_namelist} << EOF
 !
 &parallel_nml
  nproma         = ${nproma}
- l_fast_sum     = .TRUE. 
+ l_fast_sum     = .FALSE. 
 /
 &grid_nml
  cell_type = 3            ! triangular cells
@@ -82,17 +82,17 @@ cat > ${atmo_namelist} << EOF
  corio_lat = 18.0         !in degrees
 / 
 &run_nml
- num_lev     = ${nlev},      ! number of full levels of vertical grid
- dtime       = ${dtime}     ! [s] timestep in seconds
- ltestcase   = .TRUE.       ! run testcase                 --> testcase_ctl
- ldynamics   = .TRUE.       ! dynamics
- ltransport  = .TRUE.       ! transport
- iforcing    = ${iforcing}  !
- ntracer     =  3           ! number of tracers - default 0
- ltimer      = .true.       ! 
- timers_level = 100         !
- msg_level   = 15          ! detailed report during integration
- output      = 'nml','totint'      
+ num_lev      = ${nlev},     ! number of full levels of vertical grid
+ dtime        = ${dtime}     ! [s] timestep in seconds
+ ltestcase    = .TRUE.       ! run testcase                 --> testcase_ctl
+ ldynamics    = .TRUE.       ! dynamics
+ ltransport   = .TRUE.       ! transport
+ iforcing     = ${iforcing}  !
+ ntracer      =  3           ! number of tracers - default 0
+ ltimer       = .true.       ! 
+ timers_level = 100          !
+ msg_level    = 15           ! detailed report during integration
+ output       = 'nml','totint'      
 /
 &dynamics_nml
  iequations  = ${atmo_model_equations}       ! 1: hydrost. atmosphere
@@ -125,7 +125,7 @@ cat > ${atmo_namelist} << EOF
  lhdiff_w     = .FALSE
 /
 &nwp_phy_nml
-inwp_gscp       = 0
+inwp_gscp       = 9
 inwp_convection = 0
 inwp_radiation  = 0
 inwp_cldcover   = 0
@@ -144,9 +144,9 @@ lconst_z0 = .TRUE.
  iadv_rhotheta = 2
  igradp_method = 2  !new default
  ivctype       = 2  !1=Gal-Chen; 2=SLEVE
- rayleigh_coeff  = 0.10     ! Rayleigh coefficient for damping in upper levels
- vwind_offctr    = 0.4      ! off-centering for time differencing (like alpha in turb)
- l_open_ubc      = .false.  ! top open upper boundary condition. might help to go higher
+ rayleigh_coeff  = 0.10      ! Rayleigh coefficient for damping in upper levels
+ vwind_offctr    = 0.4       ! off-centering for time differencing (like alpha in turb)
+ l_open_ubc      = .false.   ! top open upper boundary condition. might help to go higher
  damp_height     = 3500      ! damping height, keep top 5-10 levels for damping
 /
 &sleve_nml                   ! vertical grid standard output for message level >= 15
@@ -156,18 +156,19 @@ lconst_z0 = .TRUE.
 /
 &io_nml
  dt_checkpoint    = ${dt_checkpoint} ! [s] trigger new restart file
+ lkeep_in_sync    = .TRUE.
 /
 &output_nml
  filetype         = 4
  dom              = -1
- output_time_unit = 3
- output_bounds    = 0.,3.,1.   !start, end, increment
- steps_per_file   = 1
+ output_time_unit = 2
+ output_bounds    = 0.,1440.,30.   !start, end, increment
+ steps_per_file   = 10
  include_last     = .TRUE.
  remap            = 0   ! triangular grid
  output_filename  = '${EXPNAME}_tri'
  output_grid      = .TRUE.
- ml_varlist       = 'u','v','w','temp','theta_v','pres_sfc','pres','tkvh','z_ifc','z_mc','rho', 'qv', 'qc'
+ ml_varlist       = 'u','v','w','temp','theta_v','pres_sfc','pres','tkvh','z_ifc','z_mc','rho', 'qv', 'qc', 'qr'
 /
 EOF
 #-----------------------------------------------------------------------------
