@@ -85,14 +85,14 @@ iforc_len=365  # length of OMIP/NCEP dataset: 1 = annual; 12 = monthly data; 365
 #-----------------------------------------------------------------------------
 # global timing
 start_date="2001-01-01T00:00:00Z"
-  end_date="2001-01-02T00:00:00Z"
+  end_date="2001-02-02T00:00:00Z"
 #
 #-----------------------------------------------------------------------------
 # model timing
-nhours_data=1
+nhours_data=720
 ndays_file=3750      # new output file generation interval [days]
 ndays_checkp=1850    # write restart file interval [days]
-ndays_restart=10
+ndays_restart=3660
 #
 #-----------------------------------------------------------------------------
 # calculate model timesteps using $ndays
@@ -159,7 +159,7 @@ cat > ${ocean_namelist} << EOF
 ! 'lsm_e','lsm_c','forc_lwflx','forc_runoff','K_veloc_h','A_veloc_v','t_acc','s_acc','u_acc','v_acc','h_acc','rhopot_acc'
 /
 &dbg_index_nml
-  idbg_mxmn=0                     ! initialize MIN/MAX  debug output
+  idbg_mxmn=1                     ! initialize MIN/MAX  debug output
   idbg_val =0                     ! initialize one cell debug output
   idbg_slev=1                     ! initialize start level for debug output
   idbg_idx=1
@@ -188,11 +188,10 @@ idbg_elev=5                     ! initialize end level for debug output
   solver_tolerance = 1.0E-12              !  absolute (new) or relative (gmres_oce_old)
   solver_max_iter_per_restart = 20        !  outer solver loop with syncing
   solver_max_restart_iterations = 50      !  inner solver loop without syncing
-  ! solver_start_tolerance = 1.0E-08
-  ! solver_tolerance_decrease_ratio = 0.1
+  !dhdtw_abort = 3.2e-1
 /
 &ocean_physics_nml
-  !i_sea_ice          =    1      ! 0 = no sea ice; 1 = Winton; 2 = Semtner
+  i_sea_ice          =    0      ! 0 = no sea ice; 1 = Winton; 2 = Semtner
   !no_tracer          =    2      ! tracer-transport: 0=no transport, 1=temperature, 2=temp. and salinity
   !k_veloc_h          = 7.5E+4    ! [m2/s] constant horizontal viscosity coefficient for velocity
   HORZ_VELOC_DIFF_TYPE = 3       ! 3: calculate varying horizontal viscosity coefficient according to Munk criterion
