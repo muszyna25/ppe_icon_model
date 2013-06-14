@@ -1175,8 +1175,6 @@ CONTAINS
         &                     pt_diag,           &  !>in
         &                     pt_prog_rcf%tracer(:,:,:,iqv),  & !>in
         &                     pt_prog_rcf%tracer(:,:,:,iqc),  & !>in
-        &                     lnd_diag%qv_s(:,:),             & !>in
-        &                     lnd_prog_new%t_g(:,:),          & !>in
         &                     rl_start,                       & !>in
         &                     rl_end,                         & !>in
         &                     prm_nwp_tend%ddt_u_ls,          & !>out

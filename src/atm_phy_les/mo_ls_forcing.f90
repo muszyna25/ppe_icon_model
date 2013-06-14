@@ -143,12 +143,12 @@ MODULE mo_ls_forcing
     !b) Beyond the last Z level the values are linearly extrapolated 
     !c) Assuming model grid is flat-NOT on sphere
 
-    CALL vert_intp_linear_1d(zz,zw,p_metrics%z_mc(2,:,2),w_ls)
-    CALL vert_intp_linear_1d(zz,zu,p_metrics%z_mc(2,:,2),u_geo)
-    CALL vert_intp_linear_1d(zz,zv,p_metrics%z_mc(2,:,2),v_geo)
-    CALL vert_intp_linear_1d(zz,z_dt_temp_adv,p_metrics%z_mc(2,:,2),ddt_temp_hadv_ls)
-    CALL vert_intp_linear_1d(zz,z_dt_temp_rad,p_metrics%z_mc(2,:,2),ddt_temp_rad_ls)
-    CALL vert_intp_linear_1d(zz,z_dt_qv_adv,p_metrics%z_mc(2,:,2),ddt_qv_hadv_ls)
+    CALL vert_intp_linear_1d(zz,zw,p_metrics%z_mc(1,:,1),w_ls)
+    CALL vert_intp_linear_1d(zz,zu,p_metrics%z_mc(1,:,1),u_geo)
+    CALL vert_intp_linear_1d(zz,zv,p_metrics%z_mc(1,:,1),v_geo)
+    CALL vert_intp_linear_1d(zz,z_dt_temp_adv,p_metrics%z_mc(1,:,1),ddt_temp_hadv_ls)
+    CALL vert_intp_linear_1d(zz,z_dt_temp_rad,p_metrics%z_mc(1,:,1),ddt_temp_rad_ls)
+    CALL vert_intp_linear_1d(zz,z_dt_qv_adv,p_metrics%z_mc(1,:,1),ddt_qv_hadv_ls)
 
     DEALLOCATE( zz, zw, zu, zv, z_dt_temp_adv, z_dt_temp_rad, z_dt_qv_adv )
 
@@ -167,7 +167,7 @@ MODULE mo_ls_forcing
   !! @par Revision History
   !! Initial release by Anurag Dipankar, MPI-M (2013-May-30)
   SUBROUTINE apply_ls_forcing(p_patch, p_metrics, p_prog, p_diag,      & !in
-                              qv, ql, qv_sfc, t_sfc, rl_start, rl_end, & !in
+                              qv, ql, rl_start, rl_end,                & !in
                               ddt_u_ls, ddt_v_ls, ddt_temp_ls,         & !out
                               ddt_qv_ls, ddt_ql_ls, ddt_qi_ls)           !out
 
@@ -179,8 +179,6 @@ MODULE mo_ls_forcing
     INTEGER,        INTENT(in)              :: rl_end
     REAL(wp),       INTENT(in)              :: qv(:,:,:)
     REAL(wp),       INTENT(in)              :: ql(:,:,:)
-    REAL(wp),       INTENT(in)              :: t_sfc(:,:)
-    REAL(wp),       INTENT(in)              :: qv_sfc(:,:)
     REAL(wp),       INTENT(out)             :: ddt_u_ls(:)
     REAL(wp),       INTENT(out)             :: ddt_v_ls(:)
     REAL(wp),       INTENT(out)             :: ddt_temp_ls(:)
@@ -191,10 +189,9 @@ MODULE mo_ls_forcing
     CHARACTER(len=max_char_length), PARAMETER :: routine = 'mo_ls_forcing:apply_ls_forcing'
     REAL(wp) :: varin(nproma,p_patch%nlev,p_patch%nblks_c)
     REAL(wp) :: varout(nproma,p_patch%nlev+1,p_patch%nblks_c)
-    REAL(wp) :: rhos(nproma,p_patch%nblks_c)
     REAL(wp) :: inv_no_gb_cells
     REAL(wp), DIMENSION(p_patch%nlev+1) :: u_gb, v_gb, temp_gb, qv_gb, ql_gb
-    REAL(wp), DIMENSION(p_patch%nlev)   :: inv_rho_gb, rho_gb, inv_dz, exner_gb
+    REAL(wp), DIMENSION(p_patch%nlev)   :: inv_dz, exner_gb
 
     INTEGER  :: i_nchdom, i_startblk, i_endblk, jk, nlev, nlevp1
 
@@ -216,39 +213,20 @@ MODULE mo_ls_forcing
     IF(is_subsidence_heat .OR. is_advection .OR. is_rad_forcing) &
       CALL global_hor_mean(p_patch, p_prog%exner(:,:,:), exner_gb, inv_no_gb_cells, i_nchdom)
 
-    IF(is_subsidence_moment.OR.is_subsidence_heat)THEN
-!$OMP PARALLEL WORKSHARE
-      !Get surface density
-      rhos(:,i_startblk:i_endblk) = p_diag%pres_sfc(:,i_startblk:i_endblk) / (rd * &
-                      t_sfc(:,i_startblk:i_endblk)*(1._wp+0.61_wp*qv_sfc(:,i_startblk:i_endblk)) )  
-!$OMP END PARALLEL WORKSHARE
-
-      !rho_gb(nlev)
-      CALL global_hor_mean(p_patch, p_prog%rho(:,:,:), rho_gb, inv_no_gb_cells, i_nchdom)
-      inv_rho_gb  = 1._wp / rho_gb
-
-      !Vertical advective forcing
-      inv_dz(:) = 1._wp / p_metrics%ddqz_z_full(2,:,2)        
-    END IF
+    IF(is_subsidence_moment.OR.is_subsidence_heat) &
+      inv_dz(:) = 1._wp / p_metrics%ddqz_z_full(1,:,1)        
 
     !1a) Horizontal mean of variables and their vertical advective tendency - momentum
 
     IF(is_subsidence_moment)THEN
-!$OMP PARALLEL WORKSHARE
-      !rho*u
-      varin(:,:,i_startblk:i_endblk) = p_diag%u(:,:,i_startblk:i_endblk)*p_prog%rho(:,:,i_startblk:i_endblk)
-!$OMP END PARALLEL WORKSHARE
-      CALL vert_intp_full2half_cell_3d(p_patch, p_metrics, varin, varout, rl_start, rl_end)
+      CALL vert_intp_full2half_cell_3d(p_patch, p_metrics, p_diag%u, varout, rl_start, rl_end)
       CALL global_hor_mean(p_patch, varout, u_gb, inv_no_gb_cells, i_nchdom)
 
-!$OMP PARALLEL WORKSHARE
-      varin(:,:,i_startblk:i_endblk) = p_diag%v(:,:,i_startblk:i_endblk)*p_prog%rho(:,:,i_startblk:i_endblk)
-!$OMP END PARALLEL WORKSHARE
-      CALL vert_intp_full2half_cell_3d(p_patch, p_metrics, varin, varout, rl_start, rl_end)
+      CALL vert_intp_full2half_cell_3d(p_patch, p_metrics, p_diag%v, varout, rl_start, rl_end)
       CALL global_hor_mean(p_patch, varout, v_gb, inv_no_gb_cells, i_nchdom)
         
-      ddt_u_ls    =  ddt_u_ls - w_ls*vertical_derivative(u_gb,inv_dz)*inv_rho_gb
-      ddt_v_ls    =  ddt_v_ls - w_ls*vertical_derivative(v_gb,inv_dz)*inv_rho_gb
+      ddt_u_ls =  ddt_u_ls - w_ls*vertical_derivative(u_gb,inv_dz)
+      ddt_v_ls =  ddt_v_ls - w_ls*vertical_derivative(v_gb,inv_dz)
     END IF
 
     !1b) Horizontal mean of variables and their vertical advective tendency 
@@ -256,39 +234,23 @@ MODULE mo_ls_forcing
     IF(is_subsidence_heat)THEN
       !use theta instead of temperature for subsidence
 !$OMP PARALLEL WORKSHARE
-      varin(:,:,i_startblk:i_endblk) = p_diag%temp(:,:,i_startblk:i_endblk) * &
-                         p_prog%rho(:,:,i_startblk:i_endblk) / p_prog%exner(:,:,i_startblk:i_endblk)
+      varin(:,:,i_startblk:i_endblk) = p_diag%temp(:,:,i_startblk:i_endblk) / &
+                                       p_prog%exner(:,:,i_startblk:i_endblk)
 !$OMP END PARALLEL WORKSHARE
       CALL vert_intp_full2half_cell_3d(p_patch, p_metrics, varin, varout, rl_start, rl_end)
-!$OMP PARALLEL WORKSHARE
-      !assume exner at surface ==1
-      varout(:,nlevp1,i_startblk:i_endblk) = t_sfc(:,i_startblk:i_endblk)*rhos(:,i_startblk:i_endblk)
-!$OMP END PARALLEL WORKSHARE
       CALL global_hor_mean(p_patch, varout, temp_gb, inv_no_gb_cells, i_nchdom)
 
-!$OMP PARALLEL WORKSHARE
-      varin(:,:,i_startblk:i_endblk) = qv(:,:,i_startblk:i_endblk)*p_prog%rho(:,:,i_startblk:i_endblk)
-!$OMP END PARALLEL WORKSHARE
-      CALL vert_intp_full2half_cell_3d(p_patch, p_metrics, varin, varout, rl_start, rl_end)
-!$OMP PARALLEL WORKSHARE
-      varout(:,nlevp1,i_startblk:i_endblk) = qv_sfc(:,i_startblk:i_endblk)*rhos(:,i_startblk:i_endblk)
-!$OMP END PARALLEL WORKSHARE
+      CALL vert_intp_full2half_cell_3d(p_patch, p_metrics, qv, varout, rl_start, rl_end)
       CALL global_hor_mean(p_patch, varout, qv_gb, inv_no_gb_cells, i_nchdom)
 
-!$OMP PARALLEL WORKSHARE
-      varin(:,:,i_startblk:i_endblk) = ql(:,:,i_startblk:i_endblk)*p_prog%rho(:,:,i_startblk:i_endblk)
-!$OMP END PARALLEL WORKSHARE
-      CALL vert_intp_full2half_cell_3d(p_patch, p_metrics, varin, varout, rl_start, rl_end)
-!$OMP PARALLEL WORKSHARE
-      varout(:,nlevp1,i_startblk:i_endblk) = 0._wp
-!$OMP END PARALLEL WORKSHARE
+      CALL vert_intp_full2half_cell_3d(p_patch, p_metrics, ql, varout, rl_start, rl_end)
       CALL global_hor_mean(p_patch, varout, ql_gb, inv_no_gb_cells, i_nchdom)
 
-      ddt_temp_ls(1:nlev) =  ddt_temp_ls(1:nlev) - w_ls(1:nlev)*vertical_derivative(temp_gb,inv_dz) * &
-                                        inv_rho_gb(1:nlev) / exner_gb(1:nlev)
+      ddt_temp_ls(1:nlev) = ddt_temp_ls(1:nlev) - w_ls(1:nlev)*vertical_derivative(temp_gb,inv_dz) / &
+                                                  exner_gb(1:nlev)
 
-      ddt_qv_ls   =  ddt_qv_ls - w_ls*vertical_derivative(qv_gb,inv_dz)*inv_rho_gb
-      ddt_ql_ls   =  ddt_ql_ls - w_ls*vertical_derivative(ql_gb,inv_dz)*inv_rho_gb
+      ddt_qv_ls   =  ddt_qv_ls - w_ls*vertical_derivative(qv_gb,inv_dz)
+      ddt_ql_ls   =  ddt_ql_ls - w_ls*vertical_derivative(ql_gb,inv_dz)
     END IF
 
     !2)Horizontal advective forcing: at present only for tracers
@@ -305,8 +267,8 @@ MODULE mo_ls_forcing
     !3)Coriolis and geostrophic wind
     IF(is_geowind)THEN
       !Remember model grid is flat   
-      ddt_u_ls = ddt_u_ls - p_patch%cells%f_c(2,2) * v_geo
-      ddt_v_ls = ddt_v_ls + p_patch%cells%f_c(2,2) * u_geo
+      ddt_u_ls = ddt_u_ls - p_patch%cells%f_c(1,1) * v_geo
+      ddt_v_ls = ddt_v_ls + p_patch%cells%f_c(1,1) * u_geo
     END IF
 
     !4)Radiative forcing
