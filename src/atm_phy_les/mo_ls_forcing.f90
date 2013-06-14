@@ -246,9 +246,8 @@ MODULE mo_ls_forcing
       CALL vert_intp_full2half_cell_3d(p_patch, p_metrics, ql, varout, rl_start, rl_end)
       CALL global_hor_mean(p_patch, varout, ql_gb, inv_no_gb_cells, i_nchdom)
 
-      ddt_temp_ls(1:nlev) = ddt_temp_ls(1:nlev) - w_ls(1:nlev)*vertical_derivative(temp_gb,inv_dz) / &
-                                                  exner_gb(1:nlev)
-
+      ddt_temp_ls(1:nlev) = ddt_temp_ls(1:nlev) - w_ls(1:nlev)*vertical_derivative(temp_gb,inv_dz)      
+      
       ddt_qv_ls   =  ddt_qv_ls - w_ls*vertical_derivative(qv_gb,inv_dz)
       ddt_ql_ls   =  ddt_ql_ls - w_ls*vertical_derivative(ql_gb,inv_dz)
     END IF
@@ -257,9 +256,9 @@ MODULE mo_ls_forcing
     !  Advective tendencies for ql is always assumed 0
     IF(is_advection)THEN
       IF(is_theta)THEN
-        ddt_temp_ls = ddt_temp_ls + ddt_temp_hadv_ls * exner_gb      
-      ELSE
         ddt_temp_ls = ddt_temp_ls + ddt_temp_hadv_ls 
+      ELSE
+        ddt_temp_ls = ddt_temp_ls + ddt_temp_hadv_ls / exner_gb 
       END IF
       ddt_qv_ls   = ddt_qv_ls   + ddt_qv_hadv_ls
     END IF
@@ -274,12 +273,15 @@ MODULE mo_ls_forcing
     !4)Radiative forcing
     IF(is_rad_forcing)THEN
       IF(is_theta)THEN
-        ddt_temp_ls = ddt_temp_ls + ddt_temp_rad_ls * exner_gb
-      ELSE
         ddt_temp_ls = ddt_temp_ls + ddt_temp_rad_ls 
+      ELSE
+        ddt_temp_ls = ddt_temp_ls + ddt_temp_rad_ls / exner_gb
       END IF
     END IF
 
+    !Convert theta tendency to temp at once
+    ddt_temp_ls = ddt_temp_ls * exner_gb
+    
   END SUBROUTINE apply_ls_forcing
 
 !-------------------------------------------------------------------------------
