@@ -192,6 +192,11 @@ doc/technical/notes_remap.pdf -text
 doc/technical/notes_remap.tex -text
 doc/technical/remap_intersect.pdf -text
 doc/technical/transport_arlists.tex -text
+doc/templates/README -text
+doc/templates/template_function.f90 -text
+doc/templates/template_main.f90 -text
+doc/templates/template_module.f90 -text
+doc/templates/template_subroutine.f90 -text
 include/cdi.inc -text
 lapack/dbbcsd.f -text
 lapack/dbdsdc.f -text
@@ -1506,11 +1511,6 @@ src/shr_horizontal/mo_nonlinear_adv.f90 -text
 src/shr_horizontal/mo_ocean_ext_data.f90 -text
 src/shr_horizontal/mo_operator_ocean_coeff_3d.f90 -text
 src/shr_horizontal/mo_smooth_topo.f90 -text
-src/templates/README -text
-src/templates/template_function.f90 -text
-src/templates/template_main.f90 -text
-src/templates/template_module.f90 -text
-src/templates/template_subroutine.f90 -text
 src/testbed/mo_test_communication.f90 -text
 src/testbed/mo_test_coupler.f90 -text
 src/testbed/mo_test_jitter.f90 -text
