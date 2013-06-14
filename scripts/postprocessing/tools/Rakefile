@@ -4,6 +4,7 @@ require 'pp'
 require 'cdo'
 require 'iconPlot'
 require 'jobqueue'
+require 'tempfile'
 require 'test/unit/assertions'
 include Test::Unit::Assertions
 
@@ -63,7 +64,6 @@ def del(*args)
   @plotter.del(*args)
 end
 #=============================================================================== 
-
 def grepTests(pattern)
   tests = Rake::Task.tasks.find_all {|t| t.name =~ pattern}
 end
@@ -73,6 +73,13 @@ def runTests(tests)
     puts "################################################################################"
     puts "Running test #{t.name}:"
     t.execute
+  }
+end
+def runNclTest(routine)
+  nclScript = Tempfile.new("runNCLTest")
+  nclScript.open {|f|
+    #load icon_plot_lib
+    #load icon_plot_test
   }
 end
 # Checking/installing the script files
