@@ -281,8 +281,8 @@ MODULE mo_nonhydro_types
    REAL(wp), POINTER :: coeff_gradekin(:,:,:)
    ! Inverse layer thickness of full levels (nproma,nlev,nblks_c)
    REAL(wp), POINTER :: inv_ddqz_z_full(:,:,:)
-   ! Inverse distance between full levels jk+1 and jk-1 (nproma,nlev,nblks_c)
-   REAL(wp), POINTER :: inv_ddqz_z_half2(:,:,:)
+   ! Coefficients for second-order accurate dw/dz term (nproma,nlev,nblks_c)
+   REAL(wp), POINTER :: coeff1_dwdz(:,:,:), coeff2_dwdz(:,:,:)
    ! Vertical index of neighbor points needed for Taylor-expansion-based pressure gradient
    INTEGER,  POINTER :: vertidx_gradp(:,:,:,:) ! (2,nproma,nlev,nblks_e)
    ! Height differences between local edge point and neighbor cell points used for

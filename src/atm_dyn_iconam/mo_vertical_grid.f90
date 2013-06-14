@@ -242,12 +242,16 @@ MODULE mo_vertical_grid
         & 2.0_wp*(p_nh(jg)%metrics%z_mc (1:nlen,nlev  ,jb)  &
         &       - p_nh(jg)%metrics%z_ifc(1:nlen,nlevp1,jb))
         IF (p_patch(jg)%cell_type==3) THEN
-          ! layer distance between jk+1 and jk-1
-          p_nh(jg)%metrics%inv_ddqz_z_half2(:,1,jb) = 0._wp
+          ! coefficients for second-order acurate dw/dz term
+          p_nh(jg)%metrics%coeff1_dwdz(:,1,jb) = 0._wp
+          p_nh(jg)%metrics%coeff2_dwdz(:,1,jb) = 0._wp
           DO jk = 2, nlev
-            p_nh(jg)%metrics%inv_ddqz_z_half2(1:nlen,jk,jb) = 1._wp / &
-              ( p_nh(jg)%metrics%z_ifc(1:nlen,jk-1,jb) -              &
-                p_nh(jg)%metrics%z_ifc(1:nlen,jk+1,jb) )
+            p_nh(jg)%metrics%coeff1_dwdz(1:nlen,jk,jb) = &
+              p_nh(jg)%metrics%ddqz_z_full(1:nlen,jk,jb)/p_nh(jg)%metrics%ddqz_z_full(1:nlen,jk-1,jb) / &
+              ( p_nh(jg)%metrics%z_ifc(1:nlen,jk-1,jb) - p_nh(jg)%metrics%z_ifc(1:nlen,jk+1,jb) )
+            p_nh(jg)%metrics%coeff2_dwdz(1:nlen,jk,jb) = &
+              p_nh(jg)%metrics%ddqz_z_full(1:nlen,jk-1,jb)/p_nh(jg)%metrics%ddqz_z_full(1:nlen,jk,jb) / &
+              ( p_nh(jg)%metrics%z_ifc(1:nlen,jk-1,jb) - p_nh(jg)%metrics%z_ifc(1:nlen,jk+1,jb) )
           ENDDO
         ENDIF
 

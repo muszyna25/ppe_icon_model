@@ -190,7 +190,7 @@ MODULE mo_solve_nonhydro
     cfl_w_limit = 0.75_wp/dtime   ! this means 75% of the nominal CFL stability limit
 
     ! Scaling factor for extra diffusion
-    scalfac_exdiff = 0.075_wp / (1._wp - cfl_w_limit*dtime)
+    scalfac_exdiff = 0.04_wp / (1._wp - cfl_w_limit*dtime)
 
     ! Tangential wind component using RBF reconstruction
     ! Note: vt is also diagnosed in divergent_modes. Thus, computation is needed in predictor step only
@@ -468,9 +468,10 @@ MODULE mo_solve_nonhydro
         ! Sum up remaining terms of vertical wind advection
         DO jk = 2, nlev
           DO jc = i_startidx, i_endidx
-            p_diag%ddt_w_adv(jc,jk,jb,ntnd) = p_diag%ddt_w_adv(jc,jk,jb,ntnd)   &
-              - z_w_con_c(jc,jk,jb)*(p_prog%w(jc,jk-1,jb)-p_prog%w(jc,jk+1,jb)) &
-              * p_metrics%inv_ddqz_z_half2(jc,jk,jb)
+            p_diag%ddt_w_adv(jc,jk,jb,ntnd) = p_diag%ddt_w_adv(jc,jk,jb,ntnd) - z_w_con_c(jc,jk,jb) * &
+              (p_prog%w(jc,jk-1,jb)*p_metrics%coeff1_dwdz(jc,jk,jb) -                                 &
+               p_prog%w(jc,jk+1,jb)*p_metrics%coeff2_dwdz(jc,jk,jb) +                                 &
+               p_prog%w(jc,jk,jb)*(p_metrics%coeff2_dwdz(jc,jk,jb) - p_metrics%coeff1_dwdz(jc,jk,jb)) )
           ENDDO
         ENDDO
       ENDDO
@@ -579,7 +580,7 @@ MODULE mo_solve_nonhydro
         icount = 0
 
         ! Collect grid points exceeding the specified stability threshold (75% of the theoretical limit) for w_con
-        DO jk = MAX(2,nrdmax(jg)-2), nlev-2
+        DO jk = MAX(3,nrdmax(jg)-2), nlev-2
           DO jc = i_startidx, i_endidx
             IF (ABS(z_w_con_c(jc,jk,jb)) > cfl_w_limit*p_metrics%ddqz_z_half(jc,jk,jb)) THEN
               icount = icount+1
@@ -856,7 +857,7 @@ MODULE mo_solve_nonhydro
     ! Weighting coefficients for rho and theta at interface levels in the corrector step
     ! This empirically determined weighting minimizes the vertical wind off-centering
     ! needed for numerical stability of vertical sound wave propagation
-    wgt_nnew_rth = 0.5_wp + rhotheta_offctr ! default value for rhotheta_offctr is -0.2
+    wgt_nnew_rth = 0.5_wp + rhotheta_offctr ! default value for rhotheta_offctr is -0.1
     wgt_nnow_rth = 1._wp - wgt_nnew_rth
 
     i_nchdom   = MAX(1,p_patch%n_childdom)

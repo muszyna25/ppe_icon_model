@@ -2293,16 +2293,27 @@ MODULE mo_nonhydro_state
                   & isteptype=TSTEP_CONSTANT )
 
 
-      ! Inverse distance between full levels jk+1 and jk-1
-      ! inv_ddqz_z_half2  p_metrics%inv_ddqz_z_half2(nproma,nlev,nblks_c)
+      ! Coefficients for second-order accurate dw/dz term
+      ! coeff1_dwdz  p_metrics%coeff1_dwdz(nproma,nlev,nblks_c)
       !
-      cf_desc    = t_cf_var('Inverse_distance_between_full_levels', 'm-1',      &
-      &                     'Inverse distance between full levels jk+1 and jk-1', DATATYPE_FLT32)
+      cf_desc    = t_cf_var('Coefficient', '',      &
+      &                     'Coefficient for second-order accurate dw/dz term', DATATYPE_FLT32)
       grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-      CALL add_var( p_metrics_list, 'inv_ddqz_z_half2', p_metrics%inv_ddqz_z_half2, &
+      CALL add_var( p_metrics_list, 'coeff1_dwdz', p_metrics%coeff1_dwdz,           &
                   & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,         &
                   & ldims=shape3d_c,                                                &
                   & isteptype=TSTEP_CONSTANT )
+      !
+      ! coeff2_dwdz  p_metrics%coeff2_dwdz(nproma,nlev,nblks_c)
+      !
+      cf_desc    = t_cf_var('Coefficient', '',      &
+      &                     'Coefficient for second-order accurate dw/dz term', DATATYPE_FLT32)
+      grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( p_metrics_list, 'coeff2_dwdz', p_metrics%coeff2_dwdz,           &
+                  & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,         &
+                  & ldims=shape3d_c,                                                &
+                  & isteptype=TSTEP_CONSTANT )
+
 
       ! Reference atmosphere field exner
       ! exner_ref_mc  p_metrics%exner_ref_mc(nproma,nlev,nblks_c)
