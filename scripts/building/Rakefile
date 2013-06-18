@@ -13,7 +13,7 @@ include Test::Unit::Assertions
 # * synchronization of several remote build locations
 #   rake par remoteDef_sync remoteIntel_sync remoteGccHi_sync
 # * print our the commands before executing:
-#   DEGUB=1 rake remoteGccHi_conf
+#   DEBUG=1 rake remoteGccHi_conf
 # * print the commands without executing them
 #   DRYRUN=1 rake remoteGccHi_conf
 # ============================================================================
