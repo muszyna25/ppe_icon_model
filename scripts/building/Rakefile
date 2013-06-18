@@ -68,10 +68,11 @@ $builds = {
   :localGcc          => {:host => :thingol , :subdir => 'gcc'}     ,
   :localGccHi        => {:host => :thingol , :subdir => 'gcc-hiopt', :CC => 'gcc'      , :FLAGS => 'hiopt'},
   :localGprof        => {:host => :thingol , :subdir => 'gprof'}   ,
-  :localOpenMP       => {:host => :thingol , :subdir => 'openmp'   , :FLAGS => 'hiopt' , :openmp => true}  ,
+  :localOpenMP       => {:host => :thingol , :subdir => 'openmp'   ,                     :FLAGS => 'hiopt' , :openmp => true}  ,
   :localNag          => {:host => :thingol , :subdir => 'nag'      , :CC => 'nag'}     ,
+  :localSun          => {:host => :thingol , :subdir => 'sun'      , :CC => 'sun'      ,:preConf => 'PATH=$HOME/local/solarisstudio12.3/bin:$PATH', :preBuild => 'PATH=$HOME/local/solarisstudio12.3/bin:$PATH'},
   :localTest         => {:host => :thingol , :subdir => 'test'     , :CC => 'nag'}     ,
-  :remoteSerial      => {:host => :thunder4, :subdir => 'serial'   , :confOpts => '--without-mpi'}    ,
+  :remoteSerial      => {:host => :thunder4, :subdir => 'serial'   ,                    :confOpts => '--without-mpi'}    ,
   :remoteGccHi       => {:host => :thunder5, :subdir => 'gcc'      , :CC => 'gcc'      , :FLAGS => 'hiopt'},
   :remoteGccHiOpenMP => {:host => :thunder5, :subdir => 'gcc-opemp', :CC => 'gcc'      , :FLAGS => 'hiopt' , :openmp => true},
   :remoteNag         => {:host => :thunder4, :subdir => 'nag'      , :CC => 'nag'}     ,
@@ -145,6 +146,7 @@ $remoteConnection = lambda {|build|
 # configure for a given build call wrt. to given options
 $configureCall = lambda {|build|
   configureCall = ''
+  configureCall << "#{$builds[build][:preConf]};" unless $builds[build][:preConf].nil?
   configureCall << "COMPILER=#{$builds[build][:CC]} "
   configureCall << './configure'
   configureCall << " --with-fortran=#{$builds[build][:CC]}" unless $builds[build][:CC].nil?
@@ -153,6 +155,13 @@ $configureCall = lambda {|build|
   configureCall << " " << $builds[build][:confOpts] if $builds[build].has_key?(:confOpts)
   configureCall << " ;"
   configureCall
+}
+
+# build call
+$buildCall = lambda {|build|
+  buildCall = ''
+  buildCall << $builds[build][:preBuild]  << ';' unless $builds[build][:preBuild].nil?
+  buildCall << './build_command;'
 }
 
 # exclude files for a build
@@ -201,7 +210,7 @@ def doConfig(build)
   call(connect(build,$configureCall[build]))
 end
 def doBuild(build)
-  call(connect(build,"./build_command;"))
+  call(connect(build,$buildCall[build]))
 end
 def doClean(build)
   call(connect(build,"make clean"))
