@@ -31,12 +31,12 @@ ocean_namelist=NAMELIST_${EXPNAME}
 #-----------------------------------------------------------------------------
 # global resolution
 R=2   # nroot
-B=4   # number of bisections applied
+B=2   # number of bisections applied
 #
 #-----------------------------------------------------------------------------
 # ocean initialization, forcing, and grid file location specifics:
   LOC='POOL'   # all ocean files needed for running are found on pool
-# LOC='othr'   # else all ocean files needed for running are found on local 'grids' directory
+  LOC='othr'   # else all ocean files needed for running are found on local 'grids' directory
 # specific path of input data is set by exec.iconrun
 #
 #-----------------------------------------------------------------------------
@@ -222,9 +222,9 @@ idbg_elev=5                     ! initialize end level for debug output
   l_forc_freshw      = .TRUE.    ! apply freshwater forcing boundary condition (OMIP only)
 /
 &ocean_diagnostics_nml
-   gibraltar(1:10)      = 2371,2374           ! vertex list R2B04
-   denmark_strait(1:10) = 2436,2471      ! vertex list R2B04
-   drake_passage(1:10)  = 9285,9319,9321,9412,9414,9655
+!  gibraltar(1:10)      = 2371,2374           ! vertex list R2B04
+!  denmark_strait(1:10) = 2436,2471      ! vertex list R2B04
+!  drake_passage(1:10)  = 9285,9319,9321,9412,9414,9655
 /
 &io_nml
   out_expname   = '${EXPNAME}'

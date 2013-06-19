@@ -88,11 +88,7 @@ MODULE mo_build_decomposition
           !The 3D-ocean version of previous calls
           ALLOCATE(p_patch_global(n_dom_start:n_dom))
           CALL import_basic_patches(p_patch_global,num_lev,num_levp1,nshift)
-          IF (l_is_ocean) THEN
-            CALL decompose_domain_oce(p_patch,p_patch_global)
-          ELSE
-            CALL decompose_domain(p_patch_global)
-          END IF
+          CALL decompose_domain(p_patch_global)
           DEALLOCATE(p_patch_global)
           IF (l_is_ocean) THEN
             CALL complete_parallel_setup_oce(p_patch)
