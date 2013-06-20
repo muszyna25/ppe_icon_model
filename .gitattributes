@@ -667,7 +667,6 @@ run/exp.nh_rico -text
 run/exp.nh_schaer -text
 run/exp.oce_4dwd -text
 run/exp.oce_aqpl -text
-run/exp.oce_base -text
 run/exp.oce_channel -text
 run/exp.oce_mpiom -text
 run/exp.oce_mpiom_Rrefined -text
