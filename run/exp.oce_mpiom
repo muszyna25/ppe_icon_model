@@ -133,8 +133,7 @@ cat > ${ocean_namelist} << EOF
 /
 &run_nml
  dtime       = 3600         ! model timestep in seconds
- output      = 'nml'        ! namelist controlled output scheme
- !output      = 'vlist'      ! We are still using the old output mechanism
+ output      = 'nml'      ! We are still using the old output mechanism
  activate_sync_timers = .TRUE.
  write_timer_files    = .FALSE.
  msg_timestamp        = .TRUE.
