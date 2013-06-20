@@ -1,4 +1,4 @@
-EXP="test_oce_numeric"
+EXP="test_oce_parallel"
 varNames2D="h"
 varNames3D="t s rhopot"
 varNames="${varNames2D} ${varNames3D}"
