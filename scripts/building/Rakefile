@@ -1,5 +1,6 @@
 require 'open3'
 require 'jobqueue'
+require 'facets'
 require 'rake/clean'
 require 'test/unit/assertions'
 include Test::Unit::Assertions
@@ -222,6 +223,17 @@ def doRunExp(build,exp)
   call(connect(build,"cd experiments/#{exp}; test -f #{exp}*.nc && rm #{exp}*.nc"))
   call(connect(build,"./make_runscripts #{exp} ; cd run;./exp.#{exp}.run;"))
 end
+def doSubmit(build,exp,post=false)
+  runScript = (post) ? 'post' : 'exp'
+  runScript << '.' + exp +'.run'
+  call(connect(build,"cd run;perl -pi.bak -e 's/partition=mpi-compute/partition=mpi-develop/' #{runScript} ;sbatch ./#{runScript}"))
+end
+def doSubmitExp(build,exp)
+  doSubmit(build,exp)
+end
+def doSubmitPost(build,exp)
+  doSubmit(build,exp,true)
+end
 def doRunPost(build,exp)
   call(connect(build,"./make_runscripts ; cd run;./post.#{exp}.run;"))
 end
@@ -255,6 +267,23 @@ $builds.each_key {|build|
   desc "Run for build #{build.to_s}"
   task "#{build.to_s}_run".to_sym , [:exp] => ["#{build.to_s}_build".to_sym] do |t, args|
     doRunExp(build,args.exp || DEFAULT_EXP)
+  end
+
+  #special thunder submits
+  if /thunder/.match($builds[build][:host].to_s) then
+    desc "Submit experiment on thunder for build #{build.to_s}"
+    task "#{build.to_s}_submit".to_sym , [:exp] => ["#{build.to_s}_build".to_sym] do |t, args|
+      doSubmitExp(build,args.exp || DEFAULT_EXP)
+    end
+    desc "Submit experiment on thunder for build #{build.to_s}"
+    task "#{build.to_s}_submitOnly".to_sym , :exp, :post do |t, args|
+      performPostproc = args.post.to_s.to_b || false
+      if performPostproc then
+        doSubmitPost(build,args.exp || DEFAULT_EXP)
+      else
+        doSubmitExp(build,args.exp || DEFAULT_EXP)
+      end
+    end
   end
   desc "Check output files"
   task "#{build.to_s}_check".to_sym , [:exp] => ["#{build.to_s}_run".to_sym] do |t, args|
