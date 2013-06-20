@@ -29,7 +29,7 @@ REMOTE_USER = 'm300064'
 SRCDIR      = ENV.has_key?('SRCDIR')? ENV['SRCDIR'] : '.'
 WORKDIR     = File.expand_path('.')
 # remote runscripts
-REMOTE_RUN  = 'exp.test_oce_default.run'
+DEFAULT_EXP = 'test_oce_default'
 
 # basic host setup
 $hosts = {
@@ -218,12 +218,20 @@ end
 def doCleanSync(build)
   call(connect(build,"rm -rf src support build"))
 end
-def doRun(build,exp='test_oce_default')
+def doRunExp(build,exp)
   call(connect(build,"cd experiments/#{exp}; test -f #{exp}*.nc && rm #{exp}*.nc"))
   call(connect(build,"./make_runscripts #{exp} ; cd run;./exp.#{exp}.run;"))
 end
-def doCheckExp(build,exp='test_oce_default')
+def doRunPost(build,exp)
+  call(connect(build,"./make_runscripts ; cd run;./post.#{exp}.run;"))
+end
+def doCheckExp(build,exp)
   call(connect(build,"cd experiments/#{exp}; cdo infov #{exp}*001.nc"))
+end
+def doCheckPost(build,exp,ext)
+  pattern = "*_#{exp}_*.#{ext}"
+  displayWith = 'eps' == ext ? 'evince' : 'display'
+  call(connect(build,"cd experiments/#{exp}/plots; if test -f $(ls -1 #{pattern} | head -1) ; then #{displayWith} #{pattern}; else echo 'No postprocessing avialable!';fi"))
 end
 
 $builds.each_key {|build|
@@ -246,11 +254,23 @@ $builds.each_key {|build|
   end
   desc "Run for build #{build.to_s}"
   task "#{build.to_s}_run".to_sym , [:exp] => ["#{build.to_s}_build".to_sym] do |t, args|
-    doRun(build,args.exp)
+    doRunExp(build,args.exp || DEFAULT_EXP)
   end
   desc "Check output files"
   task "#{build.to_s}_check".to_sym , [:exp] => ["#{build.to_s}_run".to_sym] do |t, args|
-    doCheckExp(build,args.exp)
+    doCheckExp(build,args.exp || DEFAULT_EXP)
+  end
+  # post processing
+  desc "Run post-processing on given exp (build:#{build.to_s})"
+  task "#{build.to_s}_post".to_sym, [:exp]  do |t, args|
+    doRunPost(build,args.exp || DEFAULT_EXP)
+  end
+  # check post processing
+  desc "Display post-processing output for given exp (build:#{build.to_s})"
+  task "#{build.to_s}_checkPost".to_sym, :exp, :ext  do |t, args|
+    doCheckPost(build,
+                args.exp || DEFAULT_EXP,
+                args.ext || 'eps')
   end
   # }
   # TASKS FOR ONLY DO ONE SINGLE THING {
@@ -264,11 +284,11 @@ $builds.each_key {|build|
   end
   desc "Run for build #{build.to_s}"
   task "#{build.to_s}_runOnly".to_sym, [:exp] do |t,args|
-    doRun(build,args.exp)
+    doRunExp(build,args.exp || DEFAULT_EXP)
   end
   desc "Check output files"
   task "#{build.to_s}_checkOnly".to_sym , [:exp] do |t, args|
-    doCheckExp(build,args.exp)
+    doCheckExp(build,args.exp || DEFAULT_EXP)
   end
   # }
 
