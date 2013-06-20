@@ -192,10 +192,10 @@ def connect(build,command)
   hostname = $hostnameOf[build]
   cmd << $remoteConnection[build] + " m300064@#{hostname} " if isRemote?(build)
   cmd << "'" if isRemote?(build)
+  cmd << "source /etc/profile; [[ -f .profile ]] && source .profile; " if isRemote?(build)
   cmd << "cd #{$targetDir[build,false]};"
 
   # add module command - needed by ICONs configure
-  cmd << "source /etc/profile; [[ -f .profile ]] && source .profile; " if isRemote?(build) 
   cmd << command
   cmd << "'" if isRemote?(build)
 
