@@ -46,6 +46,7 @@ MODULE mo_time_nml
   USE mo_io_restart_attributes, ONLY: get_restart_attribute
   USE mo_io_restart_namelist,   ONLY: open_and_restore_namelist, close_tmpfile, &
                                     & open_tmpfile, store_and_close_namelist
+  USE mo_nml_annotate,          ONLY: temp_defaults, temp_settings, log_nml_settings 
 
   IMPLICIT NONE
   PRIVATE
@@ -154,7 +155,10 @@ CONTAINS
     CALL position_nml('time_nml', STATUS=istat)
     SELECT CASE (istat)
     CASE (POSITIONED)
-      READ (nnml, time_nml)
+      WRITE(temp_defaults(), time_nml)                     ! write defaults to temporary text file
+      READ (nnml, time_nml, iostat=istat)                  ! overwrite default settings
+      WRITE(temp_settings(), time_nml)                     ! write settings to temporary text file
+      CALL log_nml_settings("nml.log")
     END SELECT
     CALL close_nml
 

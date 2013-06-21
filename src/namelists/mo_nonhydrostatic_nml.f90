@@ -44,6 +44,7 @@ MODULE mo_nonhydrostatic_nml
   USE mo_mpi,                   ONLY: my_process_is_stdio
   USE mo_io_restart_namelist,   ONLY: open_tmpfile, store_and_close_namelist,  &
                                     & open_and_restore_namelist, close_tmpfile
+  USE mo_nml_annotate,          ONLY: temp_defaults, temp_settings, log_nml_settings 
 
   USE mo_nonhydrostatic_config, ONLY: &
                                     ! from namelist
@@ -280,7 +281,10 @@ CONTAINS
     CALL position_nml ('nonhydrostatic_nml', status=istat)
     SELECT CASE (istat)
     CASE (POSITIONED)
-      READ (nnml, nonhydrostatic_nml)
+      WRITE(temp_defaults(), nonhydrostatic_nml)                     ! write defaults to temporary text file
+      READ (nnml, nonhydrostatic_nml, iostat=istat)                  ! overwrite default settings
+      WRITE(temp_settings(), nonhydrostatic_nml)                     ! write settings to temporary text file
+      CALL log_nml_settings("nml.log")
     END SELECT
     CALL close_nml
 

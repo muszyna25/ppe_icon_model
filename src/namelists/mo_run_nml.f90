@@ -72,6 +72,7 @@ MODULE mo_run_nml
   USE mo_mpi,            ONLY: my_process_is_stdio 
   USE mo_master_control, ONLY: is_restart_run
   USE mo_util_string,    ONLY: one_of
+  USE mo_nml_annotate,   ONLY: temp_defaults, temp_settings, log_nml_settings 
 
   USE mo_io_restart_namelist,  ONLY: open_tmpfile, store_and_close_namelist,   &
                                     & open_and_restore_namelist, close_tmpfile
@@ -225,7 +226,10 @@ CONTAINS
     CALL position_nml('run_nml', STATUS=istat)
     SELECT CASE (istat)
     CASE (POSITIONED)
-      READ (nnml, run_nml)
+      WRITE(temp_defaults(), run_nml)                     ! write defaults to temporary text file
+      READ (nnml, run_nml, iostat=istat)                  ! overwrite default settings
+      WRITE(temp_settings(), run_nml)                     ! write settings to temporary text file
+      CALL log_nml_settings("nml.log")
     END SELECT
     CALL close_nml
 

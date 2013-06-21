@@ -49,6 +49,7 @@ MODULE mo_art_nml
   USE mo_io_restart_namelist ,ONLY: open_tmpfile, store_and_close_namelist,     &
     &                               open_and_restore_namelist, close_tmpfile
   USE mo_art_config          ,ONLY: art_config ,t_volc_list,MAX_NUM_VOLC 
+  USE mo_nml_annotate,   ONLY: temp_defaults, temp_settings, log_nml_settings 
 
   
   IMPLICIT NONE
@@ -160,7 +161,10 @@ CONTAINS
     CALL position_nml ('art_nml', STATUS=istat)
     SELECT CASE (istat)
     CASE (POSITIONED)
-      READ (nnml, art_nml)
+      WRITE(temp_defaults(), art_nml)                     ! write defaults to temporary text file
+      READ (nnml, art_nml, iostat=istat)                  ! overwrite default settings
+      WRITE(temp_settings(), art_nml)                     ! write settings to temporary text file
+      CALL log_nml_settings("nml.log")
     END SELECT
     CALL close_nml
 

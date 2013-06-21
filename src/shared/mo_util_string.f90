@@ -430,12 +430,12 @@ CONTAINS
   !------------------------------------------------------------------------------
   FUNCTION str_replace(in_str, keyword, subst) RESULT(out_str)
     ! Parameters
-    CHARACTER(len=MAX_KEYWORD_LEN), INTENT(IN) :: keyword, subst
-    CHARACTER(len=*),               INTENT(IN) :: in_str
-    CHARACTER(len=MAX_STRING_LEN)              :: out_str
+    CHARACTER(len=*), INTENT(IN) :: keyword, subst
+    CHARACTER(len=*), INTENT(IN) :: in_str
+    CHARACTER(len=LEN(in_str)+LEN(keyword))              :: out_str
     ! Local parameters
     INTEGER :: kw_len, in_len, subs_len, pos, out_pos, upper
-    
+
     out_str = ""
     kw_len   = LEN_TRIM(keyword)
     subs_len = LEN_TRIM(subst)
@@ -448,19 +448,19 @@ CONTAINS
       IF (in_str(pos:upper) == keyword) THEN
         pos     = pos + kw_len
         ! note: we don't call "finish" to avoid circular dep
-        IF ((out_pos + subs_len) > MAX_STRING_LEN) &
+        IF ((out_pos + subs_len) > (in_len+kw_len)) &
           & WRITE (0,*) "ERROR: str_replace: string too long"
         out_str(out_pos:(out_pos+subs_len-1)) = subst(1:subs_len)
         out_pos = out_pos + subs_len
       ELSE
-        IF (out_pos > MAX_STRING_LEN) &
+        IF (out_pos > (in_len+kw_len)) &
           & WRITE (0,*) "ERROR: str_replace: string too long"
         out_str(out_pos:out_pos) = in_str(pos:pos)
         pos     = pos + 1
         out_pos = out_pos + 1
       END IF
-    END DO
-    
+    END DO  
+
   END FUNCTION str_replace
 
 

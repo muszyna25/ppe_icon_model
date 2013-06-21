@@ -50,6 +50,7 @@ MODULE mo_sea_ice_nml
                                   & open_and_restore_namelist, close_tmpfile
   USE mo_exception,           ONLY: finish, message
   USE mo_mpi,                 ONLY: my_process_is_stdio
+  USE mo_nml_annotate,        ONLY: temp_defaults, temp_settings, log_nml_settings 
 
   IMPLICIT NONE
 
@@ -110,7 +111,10 @@ CONTAINS
     CALL position_nml ('sea_ice_nml', STATUS=istat)
     SELECT CASE (istat)
     CASE (positioned)
-      READ (nnml, sea_ice_nml)
+      WRITE(temp_defaults(), sea_ice_nml)                     ! write defaults to temporary text file
+      READ (nnml, sea_ice_nml, iostat=istat)                  ! overwrite default settings
+      WRITE(temp_settings(), sea_ice_nml)                     ! write settings to temporary text file
+      CALL log_nml_settings("nml.log")
     END SELECT
     CALL close_nml
 

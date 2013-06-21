@@ -50,6 +50,7 @@ MODULE mo_gribout_nml
   USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist,     &
     &                               open_and_restore_namelist, close_tmpfile
   USE mo_gribout_config,      ONLY: gribout_config 
+  USE mo_nml_annotate,        ONLY: temp_defaults, temp_settings, log_nml_settings 
 
   
   IMPLICIT NONE
@@ -199,7 +200,10 @@ CONTAINS
     CALL position_nml ('gribout_nml', STATUS=istat)
     SELECT CASE (istat)
     CASE (POSITIONED)
-      READ (nnml, gribout_nml)
+      WRITE(temp_defaults(), gribout_nml)                     ! write defaults to temporary text file
+      READ (nnml, gribout_nml, iostat=istat)                  ! overwrite default settings
+      WRITE(temp_settings(), gribout_nml)                     ! write settings to temporary text file
+      CALL log_nml_settings("nml.log")
     END SELECT
     CALL close_nml
 

@@ -44,6 +44,7 @@ MODULE mo_les_nml
   USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist,  &
                                   & open_and_restore_namelist, close_tmpfile
   USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, max_dom
+  USE mo_nml_annotate,        ONLY: temp_defaults, temp_settings, log_nml_settings 
 
   IMPLICIT NONE
   PRIVATE
@@ -145,7 +146,10 @@ CONTAINS
     CALL position_nml ('les_nml', status=istat)
     SELECT CASE (istat)
     CASE (POSITIONED)
-      READ (nnml, les_nml)
+      WRITE(temp_defaults(), les_nml)                     ! write defaults to temporary text file
+      READ (nnml, les_nml, iostat=istat)                  ! overwrite default settings
+      WRITE(temp_settings(), les_nml)                     ! write settings to temporary text file
+      CALL log_nml_settings("nml.log")
     END SELECT
     CALL close_nml
 

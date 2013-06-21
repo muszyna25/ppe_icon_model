@@ -50,6 +50,7 @@ MODULE mo_gw_hines_nml
     &                               open_and_restore_namelist, close_tmpfile
 
   USE mo_gw_hines_config,     ONLY: gw_hines_config
+  USE mo_nml_annotate,        ONLY: temp_defaults, temp_settings, log_nml_settings 
 
   IMPLICIT NONE
 
@@ -162,7 +163,10 @@ CONTAINS
     CALL position_nml ('gw_hines_nml', status=istat)
     SELECT CASE (istat)
     CASE (positioned)
-      READ (nnml, gw_hines_nml)
+      WRITE(temp_defaults(), gw_hines_nml)                     ! write defaults to temporary text file
+      READ (nnml, gw_hines_nml, iostat=istat)                  ! overwrite default settings
+      WRITE(temp_settings(), gw_hines_nml)                     ! write settings to temporary text file
+      CALL log_nml_settings("nml.log")
     END SELECT
     CALL close_nml
 

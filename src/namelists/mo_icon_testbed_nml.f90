@@ -45,7 +45,8 @@ MODULE mo_icon_testbed_nml
     & config_testfile_3D_time          => testfile_3D_time,         &
     & config_testfile_2D_time         => testfile_2D_time,        &
     & null_model
-    
+  USE mo_nml_annotate,        ONLY: temp_defaults, temp_settings, log_nml_settings   
+  
   IMPLICIT NONE
   PRIVATE
   PUBLIC :: read_icon_testbed_namelist
@@ -93,7 +94,10 @@ MODULE mo_icon_testbed_nml
     CALL position_nml ('testbed_nml', STATUS=istat)
     SELECT CASE (istat)
     CASE (POSITIONED)
-      READ (nnml, testbed_nml)
+      WRITE(temp_defaults(), testbed_nml)                     ! write defaults to temporary text file
+      READ (nnml, testbed_nml, iostat=istat)                  ! overwrite default settings
+      WRITE(temp_settings(), testbed_nml)                     ! write settings to temporary text file
+      CALL log_nml_settings("nml.log")
     END SELECT
     CALL close_nml
     

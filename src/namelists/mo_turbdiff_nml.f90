@@ -56,6 +56,7 @@ MODULE mo_turbdiff_nml
     & ltkesso, ltkecon, lexpcor, ltmpcor, lprfcor, lnonloc, lcpfluc, limpltkediff, &
     & tur_len, pat_len, a_stab, tkhmin, tkmmin, c_diff, &
     & rlam_heat, rlam_mom, rat_sea, tkesmot
+  USE mo_nml_annotate,        ONLY: temp_defaults, temp_settings, log_nml_settings 
   
   IMPLICIT NONE
   PRIVATE
@@ -145,7 +146,10 @@ CONTAINS
     CALL position_nml ('turbdiff_nml', STATUS=istat)
     SELECT CASE (istat)
     CASE (POSITIONED)
-      READ (nnml,turbdiff_nml)
+      WRITE(temp_defaults(), turbdiff_nml)                     ! write defaults to temporary text file
+      READ (nnml, turbdiff_nml, iostat=istat)                  ! overwrite default settings
+      WRITE(temp_settings(), turbdiff_nml)                     ! write settings to temporary text file
+      CALL log_nml_settings("nml.log")
     END SELECT
     CALL close_nml
 

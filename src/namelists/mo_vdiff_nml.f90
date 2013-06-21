@@ -39,6 +39,7 @@ MODULE mo_vdiff_nml
   USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist,  &
                                   & open_and_restore_namelist, close_tmpfile
   USE mo_mpi,                 ONLY: my_process_is_stdio
+  USE mo_nml_annotate,        ONLY: temp_defaults, temp_settings, log_nml_settings 
 
   IMPLICIT NONE
   PRIVATE
@@ -62,7 +63,7 @@ CONTAINS
   SUBROUTINE read_vdiff_namelist( filename )
 
     CHARACTER(LEN=*), INTENT(IN) :: filename
-    INTEGER :: ist, funit
+    INTEGER :: ist, funit, istat
 
     !----------------------------------------------------------------
     ! Default values
@@ -87,7 +88,10 @@ CONTAINS
     CALL position_nml('vdiff_nml',STATUS=ist)
     SELECT CASE (ist)
     CASE (POSITIONED)
-      READ (nnml, vdiff_nml)
+      WRITE(temp_defaults(), vdiff_nml)                     ! write defaults to temporary text file
+      READ (nnml, vdiff_nml, iostat=istat)                  ! overwrite default settings
+      WRITE(temp_settings(), vdiff_nml)                     ! write settings to temporary text file
+      CALL log_nml_settings("nml.log")
     END SELECT
     CALL close_nml
 

@@ -42,6 +42,7 @@ MODULE mo_dbg_nml
   USE mo_io_units,           ONLY: nnml, nnml_output
   USE mo_namelist,           ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_mpi,                ONLY: my_process_is_stdio
+  USE mo_nml_annotate,       ONLY: temp_defaults, temp_settings, log_nml_settings 
 
   IMPLICIT NONE
 
@@ -98,7 +99,7 @@ CONTAINS
 
     CHARACTER(LEN=*), INTENT(IN) :: filename
    
-    INTEGER :: i_status, i
+    INTEGER :: i_status, i, istat
    
     CHARACTER(len=max_char_length), PARAMETER :: &
            routine = 'mo_dbg_nml/read_dbg_namelist:'
@@ -122,7 +123,10 @@ CONTAINS
     CALL position_nml ('dbg_index_nml', status=i_status)
     SELECT CASE (i_status)
     CASE (positioned)
-      READ (nnml, dbg_index_nml)
+      WRITE(temp_defaults(), dbg_index_nml)                     ! write defaults to temporary text file
+      READ (nnml, dbg_index_nml, iostat=istat)                  ! overwrite default settings
+      WRITE(temp_settings(), dbg_index_nml)                     ! write settings to temporary text file
+      CALL log_nml_settings("nml.log")
     END SELECT
     CALL close_nml
 

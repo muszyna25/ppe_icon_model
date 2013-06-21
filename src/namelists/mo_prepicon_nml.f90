@@ -48,6 +48,7 @@ MODULE mo_prepicon_nml
   USE mo_mpi,                ONLY: my_process_is_stdio 
   USE mo_prepicon_config,    ONLY: &
     & config_i_oper_mode        => i_oper_mode
+  USE mo_nml_annotate,       ONLY: temp_defaults, temp_settings, log_nml_settings 
 
   IMPLICIT NONE
 
@@ -85,7 +86,7 @@ CONTAINS
   CHARACTER(LEN=*), INTENT(IN) :: filename
 
   !local variable
-  INTEGER :: i_status
+  INTEGER :: i_status, istat
 
     CHARACTER(len=*), PARAMETER ::  &
       &  routine = 'mo_prepicon_nml: read_prepicon_namelist'
@@ -107,7 +108,10 @@ CONTAINS
   CALL position_nml ('prepicon_nml', status=i_status)
   SELECT CASE (i_status)
   CASE (positioned)
-     READ (nnml, prepicon_nml)
+    WRITE(temp_defaults(), prepicon_nml)                     ! write defaults to temporary text file
+    READ (nnml, prepicon_nml, iostat=istat)                  ! overwrite default settings
+    WRITE(temp_settings(), prepicon_nml)                     ! write settings to temporary text file
+    CALL log_nml_settings("nml.log")
   END SELECT
   CALL close_nml
 

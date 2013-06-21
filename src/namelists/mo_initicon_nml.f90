@@ -60,6 +60,8 @@ MODULE mo_initicon_nml
     & config_l_coarse2fine_mode => l_coarse2fine_mode,&
     & config_filetype           => filetype,          &
     & config_ana_varnames_map_file => ana_varnames_map_file
+  USE mo_nml_annotate,       ONLY: temp_defaults, temp_settings, log_nml_settings 
+
 
   IMPLICIT NONE
 
@@ -124,7 +126,7 @@ CONTAINS
   CHARACTER(LEN=*), INTENT(IN) :: filename
 
   !local variable
-  INTEGER :: i_status
+  INTEGER :: i_status, istat
   INTEGER :: z_go_init(3)   ! for consistency check
 
     CHARACTER(len=*), PARAMETER ::  &
@@ -158,7 +160,10 @@ CONTAINS
   CALL position_nml ('initicon_nml', status=i_status)
   SELECT CASE (i_status)
   CASE (positioned)
-     READ (nnml, initicon_nml)
+    WRITE(temp_defaults(), initicon_nml)                     ! write defaults to temporary text file
+    READ (nnml, initicon_nml, iostat=istat)                  ! overwrite default settings
+    WRITE(temp_settings(), initicon_nml)                     ! write settings to temporary text file
+    CALL log_nml_settings("nml.log")
   END SELECT
   CALL close_nml
 

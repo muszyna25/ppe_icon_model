@@ -47,9 +47,11 @@ MODULE mo_coupling_nml
   USE mo_exception,       ONLY: finish
   USE mo_io_units,        ONLY: nnml
   USE mo_namelist,        ONLY: open_nml, close_nml, position_nml, POSITIONED
+  USE mo_nml_annotate,    ONLY: temp_defaults, temp_settings, log_nml_settings 
 
   USE mo_coupling_config, ONLY: t_cpl_field_nml, config_cpl_fields, &
     & number_of_coupled_variables, config_debug_coupler_level
+
 
   IMPLICIT NONE
 
@@ -188,7 +190,10 @@ CONTAINS
 
        CASE (POSITIONED)
 
-          READ  (nnml, coupling_nml)
+         WRITE(temp_defaults(), coupling_nml)                     ! write defaults to temporary text file
+         READ (nnml, coupling_nml, iostat=istat)                  ! overwrite default settings
+         WRITE(temp_settings(), coupling_nml)                     ! write settings to temporary text file
+         CALL log_nml_settings("nml.log")
 
           i = i + 1
 

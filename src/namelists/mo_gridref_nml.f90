@@ -56,6 +56,8 @@ MODULE mo_gridref_nml
     &                            config_l_density_nudging  => l_density_nudging,&
     &                            config_denom_diffu_v      => denom_diffu_v,&
     &                            config_denom_diffu_t      => denom_diffu_t
+  USE mo_nml_annotate,        ONLY: temp_defaults, temp_settings, log_nml_settings 
+
 
   IMPLICIT NONE
   PRIVATE
@@ -190,7 +192,10 @@ CONTAINS
     CALL position_nml ('gridref_nml', status=istat)
     SELECT CASE (istat)
     CASE (POSITIONED)
-      READ (nnml, gridref_nml)
+      WRITE(temp_defaults(), gridref_nml)                     ! write defaults to temporary text file
+      READ (nnml, gridref_nml, iostat=istat)                  ! overwrite default settings
+      WRITE(temp_settings(), gridref_nml)                     ! write settings to temporary text file
+      CALL log_nml_settings("nml.log")
     END SELECT
     CALL close_nml
 

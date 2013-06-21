@@ -73,6 +73,7 @@ MODULE mo_grid_nml
 !    & config_use_dummy_cell_closure       => use_dummy_cell_closure,        &
 !     & config_radiation_grid_distrib       => radiation_grid_distribution,  &
     & max_rad_dom
+  USE mo_nml_annotate,       ONLY: temp_defaults, temp_settings, log_nml_settings 
 
   IMPLICIT NONE
 
@@ -103,7 +104,7 @@ MODULE mo_grid_nml
   SUBROUTINE read_grid_namelist( filename )
     
     CHARACTER(LEN=*), INTENT(IN) :: filename                                           
-    INTEGER  :: i_status, i
+    INTEGER  :: i_status, i, istat
 
     INTEGER    :: cell_type                ! cell type:
 
@@ -198,7 +199,10 @@ MODULE mo_grid_nml
     CALL open_nml(TRIM(filename))
     CALL position_nml ('grid_nml', status=i_status)
     IF (i_status == POSITIONED) THEN
-      READ (nnml, grid_nml)
+      WRITE(temp_defaults(), grid_nml)                     ! write defaults to temporary text file
+      READ (nnml, grid_nml, iostat=istat)                  ! overwrite default settings
+      WRITE(temp_settings(), grid_nml)                     ! write settings to temporary text file
+      CALL log_nml_settings("nml.log")
     ENDIF
     CALL close_nml
 

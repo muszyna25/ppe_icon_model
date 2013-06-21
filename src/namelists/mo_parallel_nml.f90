@@ -43,6 +43,7 @@ MODULE mo_parallel_nml
     & open_and_restore_namelist, close_tmpfile
   USE mo_io_units,           ONLY: filename_max
   USE mo_impl_constants,     ONLY: max_dom
+  USE mo_nml_annotate,       ONLY: temp_defaults, temp_settings, log_nml_settings 
 
   USE mo_parallel_config,     ONLY: &
     & config_n_ghost_rows        => n_ghost_rows,        &
@@ -310,7 +311,10 @@ MODULE mo_parallel_nml
     CALL position_nml ('parallel_nml', STATUS=istat)
     SELECT CASE (istat)
     CASE (POSITIONED)
-      READ (nnml, parallel_nml)
+      WRITE(temp_defaults(), parallel_nml)                     ! write defaults to temporary text file
+      READ (nnml, parallel_nml, iostat=istat)                  ! overwrite default settings
+      WRITE(temp_settings(), parallel_nml)                     ! write settings to temporary text file
+      CALL log_nml_settings("nml.log")
     END SELECT
     CALL close_nml
     

@@ -56,7 +56,7 @@ MODULE mo_advection_nml
   USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist,     &
     &                               open_and_restore_namelist, close_tmpfile
   USE mo_advection_config,    ONLY: advection_config 
-
+  USE mo_nml_annotate,        ONLY: temp_defaults, temp_settings, log_nml_settings 
   
   IMPLICIT NONE
   PRIVATE
@@ -210,7 +210,10 @@ CONTAINS
     CALL position_nml ('transport_nml', STATUS=istat)
     SELECT CASE (istat)
     CASE (POSITIONED)
-      READ (nnml, transport_nml)
+      WRITE(temp_defaults(), transport_nml)                     ! write defaults to temporary text file
+      READ (nnml, transport_nml, iostat=istat)                  ! overwrite default settings
+      WRITE(temp_settings(), transport_nml)                     ! write settings to temporary text file
+      CALL log_nml_settings("nml.log")
     END SELECT
     CALL close_nml
 
