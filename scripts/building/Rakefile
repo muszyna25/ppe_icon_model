@@ -239,6 +239,9 @@ def doRunPost(build,exp)
 end
 def doCheckExp(build,exp)
   call(connect(build,"cd experiments/#{exp}; for file in #{exp}*001.nc; do echo $file;cdo infov $file; done"))
+  diagFile    = 'oce_diagnostics.txt'
+  diagPlotter = 'scripts/postprocessing/tools/oceDiag.gp'
+  call(connect(build,"cd experiments/#{exp}; if test -f #{diagFile}; then SHOW=1 FILE=#{diagFile} gnuplot ../../#{diagPlotter}; else echo 'No diagnostics avialable!';fi"))
 end
 def doCheckPost(build,exp,ext)
   pattern = "*_#{exp}_*.#{ext}"
