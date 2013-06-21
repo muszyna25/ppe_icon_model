@@ -1508,8 +1508,8 @@ REAL (KIND=ireals) :: &
                tke(i,ke,nvor)=SQRT(d_m*l_turb*wert) 
             END IF
 
-            tkvm(i,ke)=lm*tke(i,ke,nvor)
-            tkvh(i,ke)=lh*tke(i,ke,nvor)
+            tkvm(i,ke)=MAX(tkmmin,lm*tke(i,ke,nvor))
+            tkvh(i,ke)=MAX(tkhmin,lh*tke(i,ke,nvor))
 
             wert=MAX( epsi,tkvm(i,ke)*SQRT(fm2) ) !estimate of U_star**2
 
