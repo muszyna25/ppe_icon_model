@@ -111,11 +111,8 @@ cat > ${atmo_namelist} << EOF
 /
 &les_nml
  is_dry_cbl        = .TRUE. 
- ugeo              =  0.0, 0.0  !ugeo(1) = constant, ugeo(2)=gradient
- vgeo              =  0.0, 0.0
  shflx             =  0.1  ! kinematic surface heat flux
  lhflx             =  0.0  ! knematic latent heat flux 
- set_geowind       = .FALSE.
  smag_constant     = 0.23
  isrfc_type        = 2     !2=Fixed flux, 1=fixed SST
  ufric             = 0.45

@@ -111,9 +111,6 @@ cat > ${atmo_namelist} << EOF
 /
 &les_nml
  is_dry_cbl        = .FALSE. 
- ugeo              =  0.0, 0.0  !ugeo(1) = constant, ugeo(2)=gradient
- vgeo              =  0.0, 0.0
- set_geowind       = .FALSE.
  smag_constant     = 0.23
  isrfc_type        = 3      !2=Fixed flux, 1=fixed SST, 3=fixed bflux
  bflux             = 0.0007 !Buoyancy flux
