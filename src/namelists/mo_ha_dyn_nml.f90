@@ -150,10 +150,12 @@ CONTAINS
     CALL position_nml ('ha_dyn_nml', STATUS=istat)
     SELECT CASE (istat)
     CASE (POSITIONED)
-      WRITE(temp_defaults(), ha_dyn_nml)                     ! write defaults to temporary text file
-      READ (nnml, ha_dyn_nml, iostat=istat)                  ! overwrite default settings
-      WRITE(temp_settings(), ha_dyn_nml)                     ! write settings to temporary text file
-      CALL log_nml_settings("nml.log")
+      IF (my_process_is_stdio()) WRITE(temp_defaults(), ha_dyn_nml)  ! write defaults to temporary text file
+      READ (nnml, ha_dyn_nml, iostat=istat)                          ! overwrite default settings
+      IF (my_process_is_stdio()) THEN
+        WRITE(temp_settings(), ha_dyn_nml)                           ! write settings to temporary text file
+        CALL log_nml_settings("nml.log")
+      END IF
     END SELECT
     CALL close_nml
 

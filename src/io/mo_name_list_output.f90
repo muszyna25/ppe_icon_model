@@ -434,10 +434,12 @@ CONTAINS
 
       ! Read output_nml
 
-      WRITE(temp_defaults(), output_nml)                     ! write defaults to temporary text file
-      READ (nnml, output_nml, iostat=istat)                  ! overwrite default settings
-      WRITE(temp_settings(), output_nml)                     ! write settings to temporary text file
-      CALL log_nml_settings("nml.log")
+      IF (my_process_is_stdio())  WRITE(temp_defaults(), output_nml) ! write defaults to temporary text file
+      READ (nnml, output_nml, iostat=istat)                          ! overwrite default settings
+      IF (my_process_is_stdio())  THEN
+        WRITE(temp_settings(), output_nml)                           ! write settings to temporary text file
+        CALL log_nml_settings("nml.log")
+      END IF
 
       WRITE(message_text,'(a,i0)') 'Read namelist "output_nml", status = ', istat
       CALL message('',message_text)

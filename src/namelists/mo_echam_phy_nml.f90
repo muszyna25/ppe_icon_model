@@ -130,10 +130,12 @@ CONTAINS
     CALL position_nml ('echam_phy_nml', STATUS=istat)
     SELECT CASE (istat)
     CASE (positioned)
-      WRITE(temp_defaults(), echam_phy_nml)                     ! write defaults to temporary text file
-      READ (nnml, echam_phy_nml, iostat=istat)                  ! overwrite default settings
-      WRITE(temp_settings(), echam_phy_nml)                     ! write settings to temporary text file
-      CALL log_nml_settings("nml.log")
+      IF (my_process_is_stdio()) WRITE(temp_defaults(), echam_phy_nml)      ! write defaults to temporary text file
+      READ (nnml, echam_phy_nml, iostat=istat)                              ! overwrite default settings
+      IF (my_process_is_stdio()) THEN
+        WRITE(temp_settings(), echam_phy_nml)                               ! write settings to temporary text file
+        CALL log_nml_settings("nml.log")
+      END IF
     END SELECT
     CALL close_nml
 

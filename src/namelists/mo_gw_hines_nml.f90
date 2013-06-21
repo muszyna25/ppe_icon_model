@@ -163,10 +163,12 @@ CONTAINS
     CALL position_nml ('gw_hines_nml', status=istat)
     SELECT CASE (istat)
     CASE (positioned)
-      WRITE(temp_defaults(), gw_hines_nml)                     ! write defaults to temporary text file
-      READ (nnml, gw_hines_nml, iostat=istat)                  ! overwrite default settings
-      WRITE(temp_settings(), gw_hines_nml)                     ! write settings to temporary text file
-      CALL log_nml_settings("nml.log")
+      IF (my_process_is_stdio()) WRITE(temp_defaults(), gw_hines_nml)    ! write defaults to temporary text file
+      READ (nnml, gw_hines_nml, iostat=istat)                            ! overwrite default settings
+      IF (my_process_is_stdio()) THEN
+        WRITE(temp_settings(), gw_hines_nml)                             ! write settings to temporary text file
+        CALL log_nml_settings("nml.log")
+      END IF
     END SELECT
     CALL close_nml
 

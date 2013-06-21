@@ -160,10 +160,12 @@ CONTAINS
   CALL position_nml ('initicon_nml', status=i_status)
   SELECT CASE (i_status)
   CASE (positioned)
-    WRITE(temp_defaults(), initicon_nml)                     ! write defaults to temporary text file
-    READ (nnml, initicon_nml, iostat=istat)                  ! overwrite default settings
-    WRITE(temp_settings(), initicon_nml)                     ! write settings to temporary text file
-    CALL log_nml_settings("nml.log")
+    IF (my_process_is_stdio()) WRITE(temp_defaults(), initicon_nml)  ! write defaults to temporary text file
+    READ (nnml, initicon_nml, iostat=istat)                          ! overwrite default settings
+    IF (my_process_is_stdio()) THEN
+      WRITE(temp_settings(), initicon_nml)                           ! write settings to temporary text file
+      CALL log_nml_settings("nml.log")
+    END IF
   END SELECT
   CALL close_nml
 

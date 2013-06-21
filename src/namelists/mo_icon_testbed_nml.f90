@@ -94,10 +94,12 @@ MODULE mo_icon_testbed_nml
     CALL position_nml ('testbed_nml', STATUS=istat)
     SELECT CASE (istat)
     CASE (POSITIONED)
-      WRITE(temp_defaults(), testbed_nml)                     ! write defaults to temporary text file
-      READ (nnml, testbed_nml, iostat=istat)                  ! overwrite default settings
-      WRITE(temp_settings(), testbed_nml)                     ! write settings to temporary text file
-      CALL log_nml_settings("nml.log")
+      IF (my_process_is_stdio()) WRITE(temp_defaults(), testbed_nml)  ! write defaults to temporary text file
+      READ (nnml, testbed_nml, iostat=istat)                          ! overwrite default settings
+      IF (my_process_is_stdio()) THEN
+        WRITE(temp_settings(), testbed_nml)                           ! write settings to temporary text file
+        CALL log_nml_settings("nml.log")
+      END IF
     END SELECT
     CALL close_nml
     

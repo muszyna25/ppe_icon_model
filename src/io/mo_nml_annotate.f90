@@ -48,7 +48,7 @@ MODULE mo_nml_annotate
     &                     int2string, str_replace, tolower,      &
     &                     finish, tocompact, find_next_free_unit
 #endif
-  USE mo_mpi,       ONLY: get_my_mpi_work_id
+  USE mo_mpi,       ONLY: get_my_mpi_work_id, my_process_is_stdio
 
   IMPLICIT NONE
   PRIVATE
@@ -337,7 +337,7 @@ CONTAINS
     ! local variables
     INTEGER :: dst_file
 
-    IF (get_my_mpi_work_id() /= 0) THEN
+    IF (.NOT. my_process_is_stdio()) THEN
       CLOSE (tmpnml1, status='delete')
       CLOSE (tmpnml2, status='delete')
       RETURN

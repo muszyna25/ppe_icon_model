@@ -253,10 +253,12 @@ CONTAINS
     CALL position_nml ('radiation_nml', status=istat)
     SELECT CASE (istat)
     CASE (POSITIONED)
-      WRITE(temp_defaults(), radiation_nml)                     ! write defaults to temporary text file
-      READ (nnml, radiation_nml, iostat=istat)                  ! overwrite default settings
-      WRITE(temp_settings(), radiation_nml)                     ! write settings to temporary text file
-      CALL log_nml_settings("nml.log")
+      IF (my_process_is_stdio()) WRITE(temp_defaults(), radiation_nml)  ! write defaults to temporary text file
+      READ (nnml, radiation_nml, iostat=istat)                          ! overwrite default settings
+      IF (my_process_is_stdio()) THEN
+        WRITE(temp_settings(), radiation_nml)                           ! write settings to temporary text file
+        CALL log_nml_settings("nml.log")
+      END IF
     END SELECT
     CALL close_nml
 

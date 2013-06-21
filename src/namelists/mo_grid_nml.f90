@@ -199,10 +199,12 @@ MODULE mo_grid_nml
     CALL open_nml(TRIM(filename))
     CALL position_nml ('grid_nml', status=i_status)
     IF (i_status == POSITIONED) THEN
-      WRITE(temp_defaults(), grid_nml)                     ! write defaults to temporary text file
-      READ (nnml, grid_nml, iostat=istat)                  ! overwrite default settings
-      WRITE(temp_settings(), grid_nml)                     ! write settings to temporary text file
-      CALL log_nml_settings("nml.log")
+      IF (my_process_is_stdio()) WRITE(temp_defaults(), grid_nml)  ! write defaults to temporary text file
+      READ (nnml, grid_nml, iostat=istat)                          ! overwrite default settings
+      IF (my_process_is_stdio()) THEN
+        WRITE(temp_settings(), grid_nml)                           ! write settings to temporary text file
+        CALL log_nml_settings("nml.log")
+      END IF
     ENDIF
     CALL close_nml
 
