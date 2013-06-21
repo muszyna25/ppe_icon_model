@@ -45,6 +45,7 @@ MODULE mo_ls_forcing_nml
   USE mo_run_config,          ONLY: ltestcase
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
   USE mo_echam_phy_config,    ONLY: echam_phy_config
+  USE mo_grid_config,         ONLY: is_plane_torus
   USE mo_nml_annotate,        ONLY: temp_defaults, temp_settings, log_nml_settings 
 
   IMPLICIT NONE
@@ -138,6 +139,9 @@ CONTAINS
     !Check for testcases with large-scale forcing
     IF(is_rad_forcing .AND. atm_phy_nwp_config(1)%inwp_radiation>0) &
         CALL finish(TRIM(routine),'both inwp_rad and rad_forcing are turned on!')
+
+    IF(is_geowind .AND. .NOT.is_plane_torus) & 
+         CALL finish(TRIM(routine),'is_geowind is only applicable for torus grid!')  
 
     !-----------------------------------------------------
     ! 5. Store the namelist for restart

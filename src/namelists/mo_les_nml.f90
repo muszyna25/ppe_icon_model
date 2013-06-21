@@ -57,12 +57,9 @@ MODULE mo_les_nml
   REAL(wp) :: lhflx      ! prescribed latent heat flux   (Km/s)
   INTEGER  :: isrfc_type ! 1=fixed sst, 2=fixed flux, 3=fixed buyancy flux
 
-  REAL(wp) :: ugeo(2)    ! ugeo(1)=constant, ugeo(2)=gradient
-  REAL(wp) :: vgeo(2)    ! vgeo(1)=constant, vgeo(2)=gradient
   REAL(wp) :: ufric      ! friction velocity
  
   LOGICAL  :: is_dry_cbl  !special case for CBL testcase
-  LOGICAL  :: set_geowind !TRUE is geostrophic wind is set
  
   !For isrf_type==3
   REAL(wp) :: bflux      !Buoyancy flux
@@ -75,10 +72,9 @@ MODULE mo_les_nml
   REAL(wp) :: turb_prandtl 
   REAL(wp) :: rturb_prandtl     !inverse turbulent prandtl number
  
-  NAMELIST/les_nml/ sst, shflx, lhflx, isrfc_type, ugeo, vgeo, ufric,  &
-                    is_dry_cbl, set_geowind, karman_constant, &
-                    rkarman_constant, smag_constant, turb_prandtl,          &
-                    rturb_prandtl, bflux, tran_coeff
+  NAMELIST/les_nml/ sst, shflx, lhflx, isrfc_type, ufric, is_dry_cbl, &
+                    karman_constant, rkarman_constant, smag_constant, &
+                    turb_prandtl, rturb_prandtl, bflux, tran_coeff
 
 CONTAINS
   !-------------------------------------------------------------------------
@@ -109,15 +105,12 @@ CONTAINS
     ! 1. default settings
     !-----------------------
     sst          = 300._wp
-    ugeo(1:2)    = 0._wp 
-    vgeo(1:2)    = 0._wp 
     shflx        = -999._wp 
     lhflx        = -999._wp 
     isrfc_type   = 1 
     ufric        = -999._wp 
 
     is_dry_cbl   = .FALSE.
-    set_geowind  = .FALSE.
 
     !parameters
     karman_constant  = 0.4_wp
@@ -158,14 +151,11 @@ CONTAINS
     !----------------------------------------------------
     DO jg = 1 , max_dom
       les_config(jg)% sst          =  sst
-      les_config(jg)% ugeo(:)    =  ugeo(:)
-      les_config(jg)% vgeo(:)    =  vgeo(:)
       les_config(jg)% shflx        =  shflx
       les_config(jg)% lhflx        =  lhflx
       les_config(jg)% isrfc_type   =  isrfc_type
       les_config(jg)% ufric        =  ufric
       les_config(jg)% is_dry_cbl   =  is_dry_cbl
-      les_config(jg)% set_geowind  =  set_geowind
       les_config(jg)% karman_constant   =  karman_constant
       les_config(jg)% rkarman_constant  =  rkarman_constant
       les_config(jg)% smag_constant     =  smag_constant

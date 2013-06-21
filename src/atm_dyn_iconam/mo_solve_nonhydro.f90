@@ -54,7 +54,7 @@ MODULE mo_solve_nonhydro
     & use_icon_comm
   USE mo_run_config,        ONLY: ltimer, timers_level, lvert_nest, ltestcase
   USE mo_model_domain,      ONLY: t_patch
-  USE mo_grid_config,       ONLY: l_limited_area, is_plane_torus
+  USE mo_grid_config,       ONLY: l_limited_area
   USE mo_gridref_config,    ONLY: grf_intmethod_e
   USE mo_interpol_config,   ONLY: nudge_max_coeff
   USE mo_intp_data_strc,    ONLY: t_int_state
@@ -82,7 +82,6 @@ MODULE mo_solve_nonhydro
   USE mo_icon_comm_lib,     ONLY: icon_comm_sync
   USE mo_nh_testcases,      ONLY: nh_test_name
   USE mo_nh_dcmip_gw,       ONLY: fcfugal
-  USE mo_les_config,        ONLY: les_config
 
   IMPLICIT NONE
 
@@ -147,7 +146,7 @@ MODULE mo_solve_nonhydro
     ! Local control variable for vertical nesting
     LOGICAL :: l_vert_nested
 
-    INTEGER :: jg, jc1, jc2, jb1, jb2, zvn1, zvn2
+    INTEGER :: jg
 
     ! Variables for optional extra diffusion close to the vertical advection stability limit
     REAL(wp) :: cfl_w_limit, scalfac_exdiff, difcoef
@@ -524,40 +523,6 @@ MODULE mo_solve_nonhydro
     ENDDO
 !$OMP END DO 
      
-    !Set geostrophic wind for TORUS at cell center and then interpolate to edges in terms of 
-    !tangential velocity components
-    IF(is_plane_torus .AND. les_config(jg)%set_geowind)THEN
-      rl_start = 2
-      rl_end   = min_rledge_int
-!$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx,jc1,jb1,jc2,jb2,zvn1,zvn2) ICON_OMP_DEFAULT_SCHEDULE
-      DO jb = i_startblk , i_endblk
-       CALL get_indices_e( p_patch, jb, i_startblk, i_endblk, i_startidx, i_endidx, rl_start, rl_end)
-       DO jk = 1 , nlev 
-        DO je = i_startidx, i_endidx
-
-         jc1  =   p_patch%edges%cell_idx(je,jb,1)
-         jb1  =   p_patch%edges%cell_blk(je,jb,1)
-         zvn1 =  (les_config(jg)%ugeo(1) + les_config(jg)%ugeo(2) * p_metrics%z_mc(jc1,jk,jb1)) * &
-                  p_patch%edges%dual_normal_cell(je,jb,1)%v1                           + &
-                 (les_config(jg)%ugeo(1) + les_config(jg)%ugeo(2) * p_metrics%z_mc(jc1,jk,jb1)) * &
-                  p_patch%edges%dual_normal_cell(je,jb,1)%v2      
- 
-         jc2  =   p_patch%edges%cell_idx(je,jb,2)
-         jb2  =   p_patch%edges%cell_blk(je,jb,2)
-         zvn2 =  (les_config(jg)%ugeo(1) + les_config(jg)%ugeo(2) * p_metrics%z_mc(jc2,jk,jb2)) * &
-                  p_patch%edges%dual_normal_cell(je,jb,2)%v1                           + &
-                 (les_config(jg)%ugeo(1) + les_config(jg)%ugeo(2) * p_metrics%z_mc(jc2,jk,jb2)) * &
-                  p_patch%edges%dual_normal_cell(je,jb,2)%v2      
-   
-         p_diag%ddt_vn_adv(je,jk,jb,ntnd) = p_diag%ddt_vn_adv(je,jk,jb,ntnd)    + &
-                     p_patch%edges%f_e(je,jb) * ( p_int%c_lin_e(je,1,jb)*zvn1 + &
-                     p_int%c_lin_e(je,2,jb)*zvn2 )
-
-        END DO
-       END DO
-      END DO     
-!$OMP END DO NOWAIT
-    END IF
 
     ! Apply some additional diffusion at grid points close to the stability limit for vertical advection.
     ! This happens extremely rarely in practice, the cases encountered so far were breaking gravity waves
