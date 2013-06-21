@@ -76,12 +76,15 @@ MODULE mo_io_async
   USE mo_communication,       ONLY: idx_no, blk_no
   USE mo_io_util,             ONLY: GATHER_C, GATHER_E, GATHER_V, outvar_desc,    &
     &                               num_output_vars
+#ifndef __ICON_OCEAN_ONLY__
   USE mo_io_vlist,            ONLY: setup_vlist, destruct_vlist,                                 &
    &                                open_output_vlist, close_output_vlist,                       &
    &                                vlist_set_date_time, vlist_start_step, vlist_write_var,      &
-#ifndef __ICON_OCEAN_ONLY__
    &                                get_outvar_ptr_ha, get_outvar_ptr_nh, get_outvar_ptr_oce
 #else
+  USE mo_io_vlist,            ONLY: setup_vlist, destruct_vlist,                                 &
+   &                                open_output_vlist, close_output_vlist,                       &
+   &                                vlist_set_date_time, vlist_start_step, vlist_write_var,      &
    &                                get_outvar_ptr_oce
 #endif
   USE mo_grid_config,         ONLY: n_dom
