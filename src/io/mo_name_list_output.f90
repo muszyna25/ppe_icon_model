@@ -2287,21 +2287,32 @@ CONTAINS
       CALL zaxisDefUnits  (of%cdiZaxisID(ZA_depth_below_land), "mm")
       DEALLOCATE(lbounds, ubounds, levels)
       !
-      of%cdiZaxisID(ZA_generic_snow_p1) = zaxisCreate(ZAXIS_GENERIC, nlev_snow+1)
+      ! SNOW axis (for multi-layer snow model)
+      !
+      of%cdiZaxisID(ZA_snow_half) = zaxisCreate(ZAXIS_SNOW, nlev_snow+1)
       ALLOCATE(levels(nlev_snow+1))
       DO k = 1, nlev_snow+1
         levels(k) = REAL(k,dp)
       END DO
-      CALL zaxisDefLevels(of%cdiZaxisID(ZA_generic_snow_p1), levels)
+      CALL zaxisDefLevels(of%cdiZaxisID(ZA_snow_half), levels)
       DEALLOCATE(levels)
       !
-      of%cdiZaxisID(ZA_generic_snow) = zaxisCreate(ZAXIS_GENERIC, nlev_snow)
-      ALLOCATE(levels(nlev_snow))
+      ! SNOW-layer axis (for multi-layer snow model)
+      !
+      of%cdiZaxisID(ZA_snow) = zaxisCreate(ZAXIS_SNOW, nlev_snow)
+      ALLOCATE(levels(nlev_snow), lbounds(nlev_snow), ubounds(nlev_snow))
       DO k = 1, nlev_snow
-        levels(k) = REAL(k,dp)
-      END DO
-      CALL zaxisDefLevels(of%cdiZaxisID(ZA_generic_snow), levels)
-      DEALLOCATE(levels)
+        lbounds(k) = REAL(k,dp)
+        levels(k)  = REAL(k,dp)
+      ENDDO
+      DO k = 1, nlev_snow
+        ubounds(k) = REAL(k+1,dp)
+      ENDDO
+
+      CALL zaxisDefLbounds(of%cdiZaxisID(ZA_snow), lbounds) !necessary for GRIB2
+      CALL zaxisDefUbounds(of%cdiZaxisID(ZA_snow), ubounds) !necessary for GRIB2
+      CALL zaxisDefLevels(of%cdiZaxisID(ZA_snow), levels)   !necessary for NetCDF
+      DEALLOCATE(levels, lbounds, ubounds)
       !
       ! Specified height level above ground: 2m
       !
@@ -2331,8 +2342,6 @@ CONTAINS
       !
       of%cdiZaxisID(ZA_pressure_800)  = zaxisCreate(ZAXIS_PRESSURE, 1)
       ALLOCATE(lbounds(1), ubounds(1), levels(1))
-!      lbounds(1)= 0._dp     ! hPa
-!      ubounds(1)= 800._dp   ! hPa
       lbounds(1)= 800._dp   ! hPa
       ubounds(1)= 1013._dp  ! hPa
       levels(1) = 800._dp   ! hPa
@@ -2346,8 +2355,6 @@ CONTAINS
       !
       of%cdiZaxisID(ZA_pressure_400)  = zaxisCreate(ZAXIS_PRESSURE, 1)
       ALLOCATE(lbounds(1), ubounds(1), levels(1))
-!      lbounds(1)= 800._dp   ! hPa
-!      ubounds(1)= 400._dp   ! hPa
       lbounds(1)= 400._dp   ! hPa
       ubounds(1)= 800._dp   ! hPa
       levels(1) = 400._dp   ! hPa
@@ -2361,8 +2368,6 @@ CONTAINS
       !
       of%cdiZaxisID(ZA_pressure_0)  = zaxisCreate(ZAXIS_PRESSURE, 1)
       ALLOCATE(lbounds(1), ubounds(1), levels(1))
-!      lbounds(1)= 400._dp ! hPa
-!      ubounds(1)= 0._dp   ! hPa
       lbounds(1)= 0._dp ! hPa
       ubounds(1)= 400._dp   ! hPa
       levels(1) = 0._dp   ! hPa

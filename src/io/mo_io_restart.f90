@@ -377,8 +377,8 @@ CONTAINS
     CALL set_vertical_grid(ZA_HYBRID_HALF         , nlev+1     )
     CALL set_vertical_grid(ZA_DEPTH_BELOW_LAND    , nlev_soil  )
     CALL set_vertical_grid(ZA_DEPTH_BELOW_LAND_P1 , nlev_soil+1)
-    CALL set_vertical_grid(ZA_GENERIC_SNOW        , nlev_snow  )
-    CALL set_vertical_grid(ZA_GENERIC_SNOW_P1     , nlev_snow+1)
+    CALL set_vertical_grid(ZA_SNOW                , nlev_snow  )
+    CALL set_vertical_grid(ZA_SNOW_HALF           , nlev_snow+1)
     CALL set_vertical_grid(ZA_HEIGHT_2M           , 1          )
     CALL set_vertical_grid(ZA_HEIGHT_10M          , 1          )
     CALL set_vertical_grid(ZA_TOA                 , 1          )
@@ -661,14 +661,14 @@ CONTAINS
             CALL zaxisDefLevels(var_lists(i)%p%cdiDepthHalfZaxisID, &
                  &              private_depth_lnd_half)
 
-          CASE (ZA_GENERIC_SNOW)
+          CASE (ZA_SNOW)
             IF (.NOT. lheight_snow_initialised) CYCLE
             var_lists(i)%p%cdiSnowGenericZaxisID = zaxisCreate(ZAXIS_GENERIC, &
               &                                            vgrid_def(ivg)%nlevels)
             CALL zaxisDefLevels(var_lists(i)%p%cdiSnowGenericZaxisID, &
               &              private_height_snow_full)
 
-          CASE (ZA_GENERIC_SNOW_P1)
+          CASE (ZA_SNOW_HALF)
             IF (.NOT. lheight_snow_initialised) CYCLE
             var_lists(i)%p%cdiSnowHalfGenericZaxisID = zaxisCreate(ZAXIS_GENERIC, &
               &                                            vgrid_def(ivg)%nlevels)
@@ -904,9 +904,9 @@ CONTAINS
         info%cdiZaxisID =  this_list%p%cdiDepthFullZaxisID
       CASE (ZA_DEPTH_BELOW_LAND_P1)
         info%cdiZaxisID =  this_list%p%cdiDepthHalfZaxisID
-      CASE (ZA_GENERIC_SNOW)
+      CASE (ZA_SNOW)
         info%cdiZaxisID =  this_list%p%cdiSnowGenericZaxisID
-      CASE (ZA_GENERIC_SNOW_P1)
+      CASE (ZA_SNOW_HALF)
         info%cdiZaxisID =  this_list%p%cdiSnowHalfGenericZaxisID
       CASE (ZA_TOA)
         info%cdiZaxisID =  this_list%p%cdiToaZaxisID
