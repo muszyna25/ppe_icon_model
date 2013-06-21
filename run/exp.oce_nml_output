@@ -139,19 +139,13 @@ cat > ${ocean_namelist} << EOF
  msg_timestamp = .TRUE.
 /
 &output_nml
-   output_bounds    = ${dt_data},${dt_restart},${dt_data}   !start, end, increment
-!   output_bounds    =          0,${dt_restart},${dt_data}   !start, end, increment
+  output_bounds    = ${dt_data},${dt_restart},${dt_data}   !start, end, increment
   steps_per_file   = ${steps_per_file}
   include_last     = .TRUE.
   output_grid      = .TRUE.
   output_filename  = "${EXPNAME}_R${R}B0${B}_oce"
-!  ml_varlist       = 't','w','vn','vort','wet_c'
   ml_varlist =  'A_veloc_v'              ,
                 'K_veloc_h'              ,
-                'T1'                     ,
-                'T2'                     ,
-                'Tsurf'                  ,
-                'alb'                    ,
                 'basin_c'                ,
                 'bottom_thick_c'         ,
                 'column_thick_e'         ,
@@ -188,8 +182,6 @@ cat > ${ocean_namelist} << EOF
                 'grad'                   ,
                 'h'                      ,
                 'h_acc'                  ,
-                'hi'                     ,
-                'hs'                     ,
                 'inv_prism_center_dist_e',
                 'kin'                    ,
                 'laplacian_horz'         ,
@@ -315,3 +307,4 @@ idbg_elev=5                     ! initialize end level for debug output
 /
 EOF
 
+# vim:ft=sh
