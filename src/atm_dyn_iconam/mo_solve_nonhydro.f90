@@ -659,10 +659,12 @@ MODULE mo_solve_nonhydro
     REAL(wp) :: z_theta_v_fl_e  (nproma,p_patch%nlev  ,p_patch%nblks_e), &
                 z_theta_v_e     (nproma,p_patch%nlev  ,p_patch%nblks_e), &
                 z_rho_e         (nproma,p_patch%nlev  ,p_patch%nblks_e), &
+                z_theta_v_v     (nproma,p_patch%nlev  ,p_patch%nblks_v), &
+                z_rho_v         (nproma,p_patch%nlev  ,p_patch%nblks_v), &
                 z_gradh_exner   (nproma,p_patch%nlev  ,p_patch%nblks_e), &
                 z_graddiv_vn    (nproma,p_patch%nlev  ,p_patch%nblks_e), &
                 z_graddiv2_vn   (nproma,p_patch%nlev  ,p_patch%nblks_e), &
-                z_w_concorr_me  (nproma,p_patch%nlev,p_patch%nblks_e), &
+                z_w_concorr_me  (nproma,p_patch%nlev  ,p_patch%nblks_e), &
                 z_distv_bary    (nproma,p_patch%nlev  ,p_patch%nblks_e,2)
 
     INTEGER ::  z_cell_indices  (nproma,p_patch%nlev  ,p_patch%nblks_e,2)
@@ -714,6 +716,8 @@ MODULE mo_solve_nonhydro
     INTEGER,  DIMENSION(:,:,:),   POINTER :: icidx, icblk
     ! Pointers to edge indices
     INTEGER,  DIMENSION(:,:,:),   POINTER :: ieidx, ieblk
+    ! Pointers to vertex indices
+    INTEGER,  DIMENSION(:,:,:),   POINTER :: ividx, ivblk
     ! Pointers to vertical neighbor indices for pressure gradient computation
     INTEGER,  DIMENSION(:,:,:,:),   POINTER :: ikidx
     ! Pointers to quad edge indices
@@ -763,6 +767,10 @@ MODULE mo_solve_nonhydro
     ! Set pointers to neighbor edges
     ieidx => p_patch%cells%edge_idx
     ieblk => p_patch%cells%edge_blk
+
+    ! Set pointers to vertices of an edge
+    ividx => p_patch%edges%vertex_idx
+    ivblk => p_patch%edges%vertex_blk
 
     ! Set pointer to vertical neighbor indices for pressure gradient
     ikidx => p_nh%metrics%vertidx_gradp
@@ -851,20 +859,49 @@ MODULE mo_solve_nonhydro
 
     ! Compute rho and theta at edges
     IF (istep == 1) THEN
-      IF (iadv_rhotheta == 2) THEN
+      IF (iadv_rhotheta == 1) THEN
 
-        ! Operations from upwind_hflux_miura are inlined in order to process both
-        ! fields in one step
+        ! Compute density and potential temperature at vertices
+        CALL cells2verts_scalar(p_nh%prog(nnow)%rho,p_patch, p_int%cells_aw_verts, &
+          z_rho_v, opt_rlend=min_rlvert_int-1)
+        CALL cells2verts_scalar(p_nh%prog(nnow)%theta_v,p_patch, p_int%cells_aw_verts, &
+          z_theta_v_v, opt_rlend=min_rlvert_int-1)
+
+      ELSE IF (iadv_rhotheta == 2) THEN
+
+        ! Compute backward trajectory
         CALL btraj(p_patch, p_int, p_nh%prog(nnow)%vn, p_nh%diag%vt, &
                    0.5_wp*dtime, z_cell_indices, z_distv_bary,       &
                    opt_rlstart=7, opt_rlend=min_rledge_int-1 )
 
+        ! Compute Green-Gauss gradients for rho and theta
         CALL grad_green_gauss_cell(p_nh%prog(nnow)%rho, p_patch, p_int, z_grad_rth, &
                                    opt_rlend=min_rlcell_int-1, opt_dynmode=.TRUE.,  &
                                    opt_ccin2=p_nh%prog(nnow)%theta_v,               &
                                    opt_ref1=p_nh%metrics%rho_ref_mc,                &
                                    opt_ref2=p_nh%metrics%theta_ref_mc,              &
                                    opt_ccpr=z_rth_pr                                )
+      ELSE IF (iadv_rhotheta == 3) THEN
+
+        lcompute =.TRUE.
+        lcleanup =.FALSE.
+        ! First call: compute backward trajectory with wind at time level nnow
+        CALL upwind_hflux_miura3(p_patch, p_nh%prog(nnow)%rho, p_nh%prog(nnow)%vn,    &
+                                p_nh%prog(nnow)%vn, dtime, p_int, lcompute, lcleanup, &
+                                0, z_rho_e, opt_rlstart=7, opt_lout_edge=.TRUE.,      &
+                                opt_real_vt=p_nh%diag%vt )
+
+        ! Second call: compute only reconstructed value for flux divergence
+        lcompute =.FALSE.
+        lcleanup =.TRUE.
+        CALL upwind_hflux_miura3(p_patch, p_nh%prog(nnow)%theta_v, p_nh%prog(nnow)%vn, &
+                                p_nh%prog(nnow)%vn, dtime, p_int, lcompute, lcleanup,  &
+                                0, z_theta_v_e, opt_rlstart=7, opt_lout_edge=.TRUE.,   &
+                                opt_real_vt=p_nh%diag%vt )
+
+      ENDIF
+
+      IF (iadv_rhotheta <= 2) THEN
 
         rl_start = 7
         rl_end   = min_rledge_int-1
@@ -897,59 +934,73 @@ MODULE mo_solve_nonhydro
           CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
                              i_startidx, i_endidx, rl_start, rl_end)
 
+          IF (iadv_rhotheta == 2) THEN
+            ! Operations from upwind_hflux_miura are inlined in order to process both
+            ! fields in one step
+
 !CDIR UNROLL=4
-          DO jk = 1, nlev
+            DO jk = 1, nlev
+              DO je = i_startidx, i_endidx
+
+                ilc0 = z_cell_indices(je,jk,jb,1)
+                ibc0 = z_cell_indices(je,jk,jb,2)  
+
+                ! Calculate "edge values" of rho and theta_v
+                ! Note: z_rth_pr contains the perturbation values of rho and theta_v,
+                ! and the corresponding gradients are stored in z_grad_rth.
+                z_rho_e(je,jk,jb) = p_nh%metrics%rho_ref_me(je,jk,jb)     &
+                  +                            z_rth_pr(ilc0,1,jk,ibc0)   &
+                  + z_distv_bary(je,jk,jb,1) * z_grad_rth(ilc0,1,jk,ibc0) &
+                  + z_distv_bary(je,jk,jb,2) * z_grad_rth(ilc0,2,jk,ibc0)
+
+                z_theta_v_e(je,jk,jb) = p_nh%metrics%theta_ref_me(je,jk,jb) &
+                  +                            z_rth_pr(ilc0,2,jk,ibc0)     &
+                  + z_distv_bary(je,jk,jb,1) * z_grad_rth(ilc0,3,jk,ibc0)   &
+                  + z_distv_bary(je,jk,jb,2) * z_grad_rth(ilc0,4,jk,ibc0)
+
+              ENDDO ! loop over edges
+            ENDDO   ! loop over vertical levels
+
+          ELSE ! iadv_rhotheta = 1
+
+#ifdef __LOOP_EXCHANGE
             DO je = i_startidx, i_endidx
+              DO jk = 1, nlev
+#else
+            DO jk = 1, nlev
+              DO je = i_startidx, i_endidx
+#endif
 
-              ilc0 = z_cell_indices(je,jk,jb,1)
-              ibc0 = z_cell_indices(je,jk,jb,2)  
+                ! Compute upwind-biased values for rho and theta starting from centered differences
+                ! Note: the length of the backward trajectory should be 0.5*dtime*(vn,vt) in order to arrive
+                ! at a second-order accurate FV discretization, but twice the length is needed for numerical
+                ! stability
+                z_rho_e(je,jk,jb) =                                                                          &
+                  p_int%c_lin_e(je,1,jb)*p_nh%prog(nnow)%rho(icidx(je,jb,1),jk,icblk(je,jb,1)) +             &
+                  p_int%c_lin_e(je,2,jb)*p_nh%prog(nnow)%rho(icidx(je,jb,2),jk,icblk(je,jb,2)) -             &
+                  dtime * (p_nh%prog(nnow)%vn(je,jk,jb)*p_patch%edges%inv_dual_edge_length(je,jb)*           &
+                 (p_nh%prog(nnow)%rho(icidx(je,jb,2),jk,icblk(je,jb,2)) -                                    &
+                  p_nh%prog(nnow)%rho(icidx(je,jb,1),jk,icblk(je,jb,1)) ) + p_nh%diag%vt(je,jk,jb) *         &
+                  p_patch%edges%inv_primal_edge_length(je,jb) * p_patch%edges%system_orientation(je,jb) *    &
+                 (z_rho_v(ividx(je,jb,2),jk,ivblk(je,jb,2)) - z_rho_v(ividx(je,jb,1),jk,ivblk(je,jb,1)) ) )
 
-              ! Calculate "edge values" of rho and theta_v
-              ! Note: z_rth_pr contains the perturbation values of rho and theta_v,
-              ! and the corresponding gradients are stored in z_grad_rth.
-              z_rho_e(je,jk,jb) = p_nh%metrics%rho_ref_me(je,jk,jb)     &
-                +                            z_rth_pr(ilc0,1,jk,ibc0)   &
-                + z_distv_bary(je,jk,jb,1) * z_grad_rth(ilc0,1,jk,ibc0) &
-                + z_distv_bary(je,jk,jb,2) * z_grad_rth(ilc0,2,jk,ibc0)
+                z_theta_v_e(je,jk,jb) =                                                                          &
+                  p_int%c_lin_e(je,1,jb)*p_nh%prog(nnow)%theta_v(icidx(je,jb,1),jk,icblk(je,jb,1)) +             &
+                  p_int%c_lin_e(je,2,jb)*p_nh%prog(nnow)%theta_v(icidx(je,jb,2),jk,icblk(je,jb,2)) -             &
+                  dtime * (p_nh%prog(nnow)%vn(je,jk,jb)*p_patch%edges%inv_dual_edge_length(je,jb)*               &
+                 (p_nh%prog(nnow)%theta_v(icidx(je,jb,2),jk,icblk(je,jb,2)) -                                    &
+                  p_nh%prog(nnow)%theta_v(icidx(je,jb,1),jk,icblk(je,jb,1)) ) + p_nh%diag%vt(je,jk,jb) *         &
+                  p_patch%edges%inv_primal_edge_length(je,jb) * p_patch%edges%system_orientation(je,jb) *        &
+                 (z_theta_v_v(ividx(je,jb,2),jk,ivblk(je,jb,2)) - z_theta_v_v(ividx(je,jb,1),jk,ivblk(je,jb,1)) ))
 
-              z_theta_v_e(je,jk,jb) = p_nh%metrics%theta_ref_me(je,jk,jb) &
-                +                            z_rth_pr(ilc0,2,jk,ibc0)     &
-                + z_distv_bary(je,jk,jb,1) * z_grad_rth(ilc0,3,jk,ibc0)   &
-                + z_distv_bary(je,jk,jb,2) * z_grad_rth(ilc0,4,jk,ibc0)
-
-            ENDDO ! loop over edges
-          ENDDO   ! loop over vertical levels
-
+              ENDDO ! loop over edges
+            ENDDO   ! loop over vertical levels
+          ENDIF
         ENDDO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
-      ELSE IF (iadv_rhotheta == 3) THEN
-
-        lcompute =.TRUE.
-        lcleanup =.FALSE.
-        ! First call: compute backward trajectory with wind at time level nnow
-        CALL upwind_hflux_miura3(p_patch, p_nh%prog(nnow)%rho, p_nh%prog(nnow)%vn,    &
-                                p_nh%prog(nnow)%vn, dtime, p_int, lcompute, lcleanup, &
-                                0, z_rho_e, opt_rlstart=7, opt_lout_edge=.TRUE.,      &
-                                opt_real_vt=p_nh%diag%vt )
-
-        ! Second call: compute only reconstructed value for flux divergence
-        lcompute =.FALSE.
-        lcleanup =.TRUE.
-        CALL upwind_hflux_miura3(p_patch, p_nh%prog(nnow)%theta_v, p_nh%prog(nnow)%vn, &
-                                p_nh%prog(nnow)%vn, dtime, p_int, lcompute, lcleanup,  &
-                                0, z_theta_v_e, opt_rlstart=7, opt_lout_edge=.TRUE.,   &
-                                opt_real_vt=p_nh%diag%vt )
-
-      ELSE
-
-        ! density at edges
-        CALL cells2edges_scalar(p_nh%prog(nnow)%rho,p_patch,p_int%c_lin_e,z_rho_e)
-        ! virtual potential temperature at edges
-        CALL cells2edges_scalar(p_nh%prog(nnow)%theta_v,p_patch,p_int%c_lin_e,z_theta_v_e)
-
-      ENDIF
+      ENDIF 
 
     ENDIF ! istep = 1
 
