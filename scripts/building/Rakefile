@@ -238,7 +238,7 @@ def doRunPost(build,exp)
   call(connect(build,"./make_runscripts ; cd run;./post.#{exp}.run;"))
 end
 def doCheckExp(build,exp)
-  call(connect(build,"cd experiments/#{exp}; cdo infov #{exp}*001.nc"))
+  call(connect(build,"cd experiments/#{exp}; for file in #{exp}*001.nc; do echo $file;cdo infov $file; done"))
 end
 def doCheckPost(build,exp,ext)
   pattern = "*_#{exp}_*.#{ext}"
