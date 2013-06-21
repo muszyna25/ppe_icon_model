@@ -301,11 +301,11 @@ MODULE mo_name_list_output
 
 
   ! fields for which typeOfSecondFixedSurface must be re-set
-  CHARACTER(LEN=12), PARAMETER :: sfs_name_list(5) =(/"z_ifc       ", "topography_c", &
+  CHARACTER(LEN=12), PARAMETER :: sfs_name_list(6) =(/"z_ifc       ", "topography_c", &
     &                                                 "hbas_con    ", "htop_con    ", &
-    &                                                 "hzerocl     "   /)
+    &                                                 "hzerocl     ", "clcl        "/)
   ! typeOfSecondFixedSurface to be used
-  INTEGER          , PARAMETER :: second_tos(5)    =(/101, 101, 101, 101, 101/)
+  INTEGER          , PARAMETER :: second_tos(6)    =(/101, 101, 101, 101, 101, 1/)
 
 CONTAINS
 
@@ -2329,8 +2329,10 @@ CONTAINS
       !
       of%cdiZaxisID(ZA_pressure_800)  = zaxisCreate(ZAXIS_PRESSURE, 1)
       ALLOCATE(lbounds(1), ubounds(1), levels(1))
-      lbounds(1)= 0._dp     ! hPa
-      ubounds(1)= 800._dp   ! hPa
+!      lbounds(1)= 0._dp     ! hPa
+!      ubounds(1)= 800._dp   ! hPa
+      lbounds(1)= 800._dp   ! hPa
+      ubounds(1)= 1013._dp  ! hPa
       levels(1) = 800._dp   ! hPa
       CALL zaxisDefLbounds(of%cdiZaxisID(ZA_pressure_800), lbounds) !necessary for GRIB2
       CALL zaxisDefUbounds(of%cdiZaxisID(ZA_pressure_800), ubounds) !necessary for GRIB2
@@ -2342,8 +2344,10 @@ CONTAINS
       !
       of%cdiZaxisID(ZA_pressure_400)  = zaxisCreate(ZAXIS_PRESSURE, 1)
       ALLOCATE(lbounds(1), ubounds(1), levels(1))
-      lbounds(1)= 800._dp   ! hPa
-      ubounds(1)= 400._dp   ! hPa
+!      lbounds(1)= 800._dp   ! hPa
+!      ubounds(1)= 400._dp   ! hPa
+      lbounds(1)= 400._dp   ! hPa
+      ubounds(1)= 800._dp   ! hPa
       levels(1) = 400._dp   ! hPa
       CALL zaxisDefLbounds(of%cdiZaxisID(ZA_pressure_400), lbounds) !necessary for GRIB2
       CALL zaxisDefUbounds(of%cdiZaxisID(ZA_pressure_400), ubounds) !necessary for GRIB2
@@ -2355,8 +2359,10 @@ CONTAINS
       !
       of%cdiZaxisID(ZA_pressure_0)  = zaxisCreate(ZAXIS_PRESSURE, 1)
       ALLOCATE(lbounds(1), ubounds(1), levels(1))
-      lbounds(1)= 400._dp ! hPa
-      ubounds(1)= 0._dp   ! hPa
+!      lbounds(1)= 400._dp ! hPa
+!      ubounds(1)= 0._dp   ! hPa
+      lbounds(1)= 0._dp ! hPa
+      ubounds(1)= 400._dp   ! hPa
       levels(1) = 0._dp   ! hPa
       CALL zaxisDefLbounds(of%cdiZaxisID(ZA_pressure_0), lbounds) !necessary for GRIB2
       CALL zaxisDefUbounds(of%cdiZaxisID(ZA_pressure_0), ubounds) !necessary for GRIB2

@@ -899,26 +899,6 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
       ENDIF
 
 
-!!$      IF (ANY((/MODE_DWDANA/) == init_mode) ) THEN
-!!$        !
-!!$        ! TKE and gz0 are not re-initialized, but re-used from the first guess
-!!$        !
-!!$        ltkeinp_loc = .TRUE.   ! do NOT re-initialize TKE field (read from FG)
-!!$        lgz0inp_loc = .TRUE.   ! do NOT re-initialize gz0 field (read from FG)
-!!$
-!!$
-!!$        ! Note that TKE in turbtran/turbdiff is defined as the turbulence velocity scale
-!!$        ! TVS=SQRT(2*TKE)
-!!$        !
-!!$        DO jk =1,nlevp1
-!!$          p_prog_now%tke(i_startidx:i_endidx,jk,jb)= SQRT(2.0_wp                        &
-!!$            &                                * p_prog_now%tke(i_startidx:i_endidx,jk,jb))
-!!$        ENDDO
-!!$      ELSE
-!!$        ltkeinp_loc = .FALSE.  ! do not re-initialize TKE field
-!!$        lgz0inp_loc = .FALSE.  ! do re-initialize gz0 field (water points only)
-!!$      ENDIF
-
 
       CALL turbtran(iini=1, ltkeinp=ltkeinp_loc, lgz0inp=lgz0inp_loc, &
 !
