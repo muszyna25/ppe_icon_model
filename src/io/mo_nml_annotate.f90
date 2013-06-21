@@ -192,7 +192,7 @@ CONTAINS
       ELSE
         WRITE (dst_file,'(a,a, a'//int2string(gap_width)//',a,a,a,a)') "  ", def_key(1:col_width), " ", &
           &      value(1:col_width),  &
-          &      '     (default was: ', TRIM(def_value), ')'
+          &      '     (default was: ', TRIM(def_value(1:col_width)), ')'
       END IF
     END DO
     WRITE (dst_file,*) " "
