@@ -143,20 +143,90 @@ cat > ${ocean_namelist} << EOF
   steps_per_file   = ${steps_per_file}
   include_last     = .TRUE.
   output_grid      = .TRUE.
-  output_filename  = "${EXPNAME}_nmlOuput"
-  ! Output Variable List:
-  ml_varlist       =
-   'wet_c' 'wet_e' 'basin_c' 'regio_c' 'dolic_c' 'dolic_e' 'bottom_thick_c' 'column_thick_c' 'bottom_thick_e' 'column_thick_e' 
-   't' 's' 'u' 'v' 'w' 'h' 'u_vint' 't_acc' 's_acc' 'u_acc' 'v_acc' 'rhopot' 'rhopot_acc' 
-   'vn' 'vt' 'vort' 'K_veloc_h' 'A_veloc_v' 
-   'forc_wind_u' 'forc_wind_v' 'forc_swflx' 'forc_lwflx' 'forc_ssflx' 'forc_slflx' 
-   'forc_wind_u_acc' 'forc_wind_v_acc' 'forc_swflx_acc' 'forc_lwflx_acc' 'forc_ssflx_acc' 'forc_slflx_acc' 
-   'forc_precip' 'forc_evap' 'forc_runoff' 'forc_fwrelax' 'forc_fwbc' 'forc_fwfx' 
-   'forc_precip_acc' 'forc_evap_acc' 'forc_runoff_acc' 'forc_fwrelax_acc' 'forc_fwbc_acc' 'forc_fwfx_acc' 
-   'forc_tracer_relax_s' 'forc_tracer_s' 'forc_tracer_t' 
-   'forc_tracer_relax_acc_t' 'forc_tracer_acc_t' 
-   'forc_tracer_relax_acc_s' 'forc_tracer_acc_s' 
-   'hi' 'hs' 'concSum' 
+  output_filename  = "${EXPNAME}_R${R}B0${B}_oce"
+  ml_varlist =  'A_veloc_v'              ,
+                'K_veloc_h'              ,
+                'basin_c'                ,
+                'bottom_thick_c'         ,
+                'column_thick_e'         ,
+                'conc'                   ,
+                'concSum'                ,
+                'div'                    ,
+                'div_mass_flx_c'         ,
+                'div_mass_flx_c_acc'     ,
+                'dolic_c'                ,
+                'dolic_e'                ,
+                'forc_evap'              ,
+                'forc_evap_acc'          ,
+                'forc_lwflx'             ,
+                'forc_lwflx_acc'         ,
+                'forc_precip'            ,
+                'forc_precip_acc'        ,
+                'forc_runoff'            ,
+                'forc_runoff_acc'        ,
+                'forc_slflx'             ,
+                'forc_slflx_acc'         ,
+                'forc_ssflx'             ,
+                'forc_ssflx_acc'         ,
+                'forc_swflx'             ,
+                'forc_swflx_acc'         ,
+                'forc_tracer_acc_t'      ,
+                'forc_tracer_relax_acc_t',
+                'forc_tracer_relax_s'    ,
+                'forc_tracer_s'          ,
+                'forc_tracer_t'          ,
+                'forc_wind_u'            ,
+                'forc_wind_u_acc'        ,
+                'forc_wind_v'            ,
+                'forc_wind_v_acc'        ,
+                'grad'                   ,
+                'h'                      ,
+                'h_acc'                  ,
+                'inv_prism_center_dist_e',
+                'kin'                    ,
+                'laplacian_horz'         ,
+                'laplacian_vert'         ,
+                'lsm_c'                  ,
+                'lsm_e'                  ,
+                'mass_flux'              ,
+                'mass_flx_e_acc'         ,
+                'press_grad'             ,
+                'press_hyd'              ,
+                'prism_thick_c'          ,
+                'regio_c'                ,
+                'rho'                    ,
+                'rhopot'                 ,
+                'rhopot_acc'             ,
+                's'                      ,
+                's_acc'                  ,
+                't'                      ,
+                't_acc'                  ,
+                'temp_insitu'            ,
+                'u'                      ,
+                'u_acc'                  ,
+                'u_vint_acc'             ,
+                'v'                      ,
+                'v_acc'                  ,
+                'veloc_adv_horz'         ,
+                'veloc_adv_vert'         ,
+                'vn'                     ,
+                'vt'                     ,
+                'vt_acc'                 ,
+                'w'                      ,
+                'w_acc'                  ,
+                'w_e'                    ,
+                'wet_c'                  ,
+                'wet_e'
+/
+&output_nml
+  output_bounds    = ${dt_data},${dt_restart},${dt_data}   !start, end, increment
+  steps_per_file   = ${steps_per_file}
+  include_last     = .TRUE.
+  output_grid      = .TRUE.
+  output_filename  = "${EXPNAME}_R${R}B0${B}_ice"
+  ml_varlist       = 'alb', 'Tsurf', 'T1', 'T2', 'E1', 'E2', 'vol', 'hi', 'hs', 'hiold', 'hsold', 'Qtop',
+                     'Qbot', 'heatocei', 'snow_to_ice', 'surfmelt', 'surfmeltT', 'evapwi', 'conc', 'ice_u',
+                     'ice_v', 'concSum', 'newice', 'zUnderIce'
 /
 &dbg_index_nml
   idbg_mxmn=0                     ! initialize MIN/MAX  debug output
@@ -221,6 +291,11 @@ cat > ${ocean_namelist} << EOF
   irelax_2d_S        =    1      ! 2-dim relaxation of salinity - see "temperature_relaxation" for parameter values
   relax_2d_mon_S     =    3.0    ! strength of 2-dim relaxation for salinity (months)
   l_forc_freshw      = .TRUE.    ! apply freshwater forcing boundary condition (OMIP only)
+/
+&ocean_diagnostics_nml
+   gibraltar(1:10)      = 2371,2374           ! vertex list R2B04
+   denmark_strait(1:10) = 2436,2471      ! vertex list R2B04
+   drake_passage(1:10)  = 9285,9319,9321,9412,9414,9655
 /
 &io_nml
   out_expname   = '${EXPNAME}'
