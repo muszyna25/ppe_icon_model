@@ -59,6 +59,7 @@ include_directories (${MPI_Fortran_INCLUDE_PATH})
 
 find_package (NETCDF)
 include_directories (${NETCDF_INCLUDE_DIR})
+
 add_definitions (-DHAVE_LIBNETCDF -DHAVE_CF_INTERFACE)
 #_________________________________________________________________________________________________
 #

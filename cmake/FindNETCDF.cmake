@@ -45,18 +45,26 @@ message (STATUS "netCDF version: ${_netcdf_version}")
 find_path(NETCDF_INCLUDE_DIR netcdf.h 
   HINTS ${_netcdf_root}/include)
 
-set(NETCDF_NAMES netcdff netcdf)
-find_library(NETCDF_LIBRARY NAMES ${NETCDF_NAMES}
-             HINTS ${_netcdf_root}/lib)
+find_library(
+  NETCDF_Fortran_LIBRARY 
+  NAMES netcdff
+  HINTS ${_netcdf_root}/lib
+)
+
+find_library(
+  NETCDF_C_LIBRARY 
+  NAMES netcdf
+  HINTS ${_netcdf_root}/lib
+)
 
 mark_as_advanced(NETCDF_LIBRARY NETCDF_INCLUDE_DIR)
 
 message (STATUS "netCDF include directory: ${NETCDF_INCLUDE_DIR}")
-message (STATUS "netCDF libraries        : ${NETCDF_LIBRARY}")
+message (STATUS "netCDF libraries        : ${NETCDF_Fortran_LIBRARY} ${NETCDF_C_LIBRARY}")
 
 # Per-recommendation
 set (NETCDF_INCLUDE_DIRS "${NETCDF_INCLUDE_DIR}")
-set (NETCDF_LIBRARIES    "${NETCDF_LIBRARY}")
+set (NETCDF_LIBRARIES    "${NETCDF_Fortran_LIBRARY} ${NETCDF_C_LIBRARY}")
 
 # handle the QUIETLY and REQUIRED arguments and set NETCDF_FOUND to TRUE if 
 # all listed variables are TRUE
