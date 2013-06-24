@@ -56,6 +56,7 @@ blas/xerbla.f -text
 /build_ICON_ECMWF -text
 /build_all -text
 /build_command.ecmwf -text
+/cmake.configure -text
 cmake/FindNETCDF.cmake -text
 config/config.guess -text
 config/config.h.SX -text
@@ -201,6 +202,7 @@ doc/templates/template_main.f90 -text
 doc/templates/template_module.f90 -text
 doc/templates/template_subroutine.f90 -text
 include/cdi.inc -text
+lapack/CMakeLists.txt -text
 lapack/dbbcsd.f -text
 lapack/dbdsdc.f -text
 lapack/dbdsqr.f -text

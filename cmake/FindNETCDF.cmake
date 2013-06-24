@@ -6,39 +6,48 @@
 #
 #------------------------------------------------------------------------------
 #
-# first find the netCDF configuration information program nc-config
-#
 
-set (_netcdf_root "$ENV{NETCDF_ROOT}")
-message (STATUS "NETCDF_ROOT: ${_netcdf_root}")
+set (_netcdf_root "$ENV{NETCDFROOT}")
+message (STATUS "NETCDFROOT: ${_netcdf_root}")
+
+# first find the netCDF configuration information program nc-config
 
 find_program (_netcdf_config_executable
   NAMES nc-config
-  HINTS ENV NETCDF_ROOT
+  HINTS ENV NETCDFROOT
   PATH_SUFFIXES bin
   DOC "netcdf configuration executable"
   NO_DEFAULT_PATH
 )
 mark_as_advanced (_netcdf_config_executable)
-message (STATUS "nc-config: ${_netcdf_config_executable}")
+
+# and/or ncdump to catch the version of old netcdf installations
 
 find_program (_netcdf_dump_executable
   NAMES ncdump
-  HINTS ENV NETCDF_ROOT
+  HINTS ENV NETCDFROOT
   PATH_SUFFIXES bin
   DOC "netcdf dump executable"
   NO_DEFAULT_PATH
 )
 mark_as_advanced (_netcdf_dump_executable)
-message (STATUS "ncdump   : ${_netcdf_dump_executable}")
 
-execute_process (COMMAND ${_netcdf_config_executable} --version OUTPUT_VARIABLE _netcdf_version) 
-string (REGEX MATCHALL "([.0-9]+)" _netcdf_version "${_netcdf_version}")
+if (_netcdf_config_executable MATCHES "NOTFOUND")
 
-if (NOT _netcdf_version MATCHES "^4.*")
-#  execute_process (COMMAND ${_netcdf_dump_executable OUTPUT_VARIABLE _ncdump}
-  set (_netcdf_version "3")
-  message (STATUS "netCDF version -> : ${_ncdump}")
+  # this is netcdf version 3, get full version number first
+
+  execute_process (COMMAND ${_netcdf_dump_executable} ERROR_VARIABLE _ncdump_version)
+  string (REGEX REPLACE ".*\"([.0-9]+)\".*" "\\1" _netcdf_version "${_ncdump_version}")
+
+  # check for C header and C library
+
+else()
+
+  execute_process (COMMAND ${_netcdf_config_executable} --version OUTPUT_VARIABLE _netcdf_version) 
+  string (REGEX MATCHALL "([.0-9]+)" _netcdf_version "${_netcdf_version}")
+  string (REGEX REPLACE ".*\\.([0-9]+).*" "\\1" _netcdf_minor_version "${_netcdf_version}")
+  message (STATUS "netCDF minor version: ${_netcdf_vminor_ersion}")
+
 endif()
 message (STATUS "netCDF version: ${_netcdf_version}")
 

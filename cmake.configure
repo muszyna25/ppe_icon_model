@@ -1,0 +1,17 @@
+#! /bin/bash
+#___________________________________________________________________________________________________________________________________
+#
+# Luis Kornblueh, MPI-M, 2013-06-24
+#
+# cmake . is doing in-source build - only to get Find<*>.cmake running.
+#
+# GCC
+#
+# test for FindNETCDF.cmake with netcdf-3.6.3
+# 
+#CC=gcc FC=gfortran CFLAGS=-DpgiFortran NETCDFROOT=/scratch/mpi/mh0033/m214089/sandbox/netcdf-3.6.3 cmake .
+#
+# test for FindNETCDF.cmake with netcdf-3.6.3
+# 
+CC=gcc FC=gfortran CFLAGS=-DpgiFortran NETCDFROOT=/sw/squeeze-x64/netcdf-4.2.1.1 cmake .
+#___________________________________________________________________________________________________________________________________
