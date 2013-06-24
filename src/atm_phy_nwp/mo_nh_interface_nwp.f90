@@ -230,7 +230,6 @@ CONTAINS
     INTEGER :: rlend  !different opt_rlend for inwp_turb==5
    
     !switch for ls_forcing calling frequency
-    LOGICAL :: lcall_ls_forcing    
 
     IF (ltimer) CALL timer_start(timer_physics)
 
@@ -260,18 +259,9 @@ CONTAINS
       l_any_fastphys = .FALSE.
     ENDIF
 
-    !AD: For now call large-scale forcing every advection step
-    !Later it should be changed if found that it is slow because
-    !of global communications
-    !Call forcing routine for the first time step
-    IF ( is_ls_forcing .OR. linit ) THEN
-      lcall_ls_forcing = .TRUE.
-    ELSE
-      lcall_ls_forcing = .FALSE.
-    END IF        
 
     IF (lcall_phy_jg(itrad) .OR.  lcall_phy_jg(itconv) .OR. lcall_phy_jg(itccov)  &
-       .OR. lcall_phy_jg(itsso) .OR. lcall_phy_jg(itgwd) .OR. lcall_ls_forcing ) THEN
+       .OR. lcall_phy_jg(itsso) .OR. lcall_phy_jg(itgwd) .OR. is_ls_forcing ) THEN
       l_any_slowphys = .TRUE.
     ELSE
       l_any_slowphys = .FALSE.
@@ -1156,8 +1146,10 @@ CONTAINS
     !
     ! These LS forcing act as slow process so the tendencies from them are
     ! accumulated with the slow physics tendencies next
+    !
+    ! LS forcing is called every physics step
     !-------------------------------------------------------------------------
-    IF(lcall_ls_forcing)THEN
+    IF(is_ls_forcing)THEN
 
       IF (msg_level >= 15) &
         &  CALL message('mo_nh_interface:', 'LS forcing')
@@ -1313,7 +1305,7 @@ CONTAINS
 !                   trust this way that much!). For now it works with LS radiative forcing. 
 !                   Interactive radiation can be included as an alternative later on.
 !-----------------------------------------------------------------------------------------     
-    IF(lcall_ls_forcing)THEN  
+    IF(is_ls_forcing)THEN  
 
       IF (p_test_run) THEN
         z_ddt_u_tot = 0._wp
