@@ -54,7 +54,7 @@ MODULE mo_nml_annotate
   PRIVATE
 
   INTEGER, PARAMETER :: MAX_STRBUF_LENGTH  = 32767 !< max. size of a single namelist
-  INTEGER, PARAMETER :: MAX_STRBUF_LINES   =  1024 !< max. no. of lines in a namelist
+  INTEGER, PARAMETER :: MAX_STRBUF_LINES   = 10000 !< max. no. of lines in a namelist
 
   INTEGER            :: tmpnml1            =  3    !< file handle for temporary text file with defaults
   INTEGER            :: tmpnml2            =  4    !< file handle for temporary text file with settings
