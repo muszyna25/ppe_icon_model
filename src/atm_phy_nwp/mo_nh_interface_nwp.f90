@@ -263,9 +263,8 @@ CONTAINS
     !AD: For now call large-scale forcing every advection step
     !Later it should be changed if found that it is slow because
     !of global communications
-    !Note that ls forcing follows the same path in this module
-    !as any slow process 
-    IF (lcall_phy_jg(itupdate) .AND. is_ls_forcing) THEN
+    !Call forcing routine for the first time step
+    IF ( (lcall_phy_jg(itupdate) .AND. is_ls_forcing) .OR.. linit ) THEN
       lcall_ls_forcing = .TRUE.
     ELSE
       lcall_ls_forcing = .FALSE.
