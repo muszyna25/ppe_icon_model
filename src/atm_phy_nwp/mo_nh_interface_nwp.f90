@@ -264,7 +264,7 @@ CONTAINS
     !Later it should be changed if found that it is slow because
     !of global communications
     !Call forcing routine for the first time step
-    IF ( (lcall_phy_jg(itupdate) .AND. is_ls_forcing) .OR.. linit ) THEN
+    IF ( is_ls_forcing .OR. linit ) THEN
       lcall_ls_forcing = .TRUE.
     ELSE
       lcall_ls_forcing = .FALSE.
