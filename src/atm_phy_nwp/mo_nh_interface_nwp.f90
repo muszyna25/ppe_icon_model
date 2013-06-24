@@ -261,7 +261,7 @@ CONTAINS
 
 
     IF (lcall_phy_jg(itrad) .OR.  lcall_phy_jg(itconv) .OR. lcall_phy_jg(itccov)  &
-       .OR. lcall_phy_jg(itsso) .OR. lcall_phy_jg(itgwd) .OR. is_ls_forcing ) THEN
+       .OR. lcall_phy_jg(itsso) .OR. lcall_phy_jg(itgwd)) THEN
       l_any_slowphys = .TRUE.
     ELSE
       l_any_slowphys = .FALSE.
@@ -1147,7 +1147,7 @@ CONTAINS
     ! These LS forcing act as slow process so the tendencies from them are
     ! accumulated with the slow physics tendencies next
     !
-    ! LS forcing is called every physics step
+    !(2013-25-June) LS forcing is called every physics step
     !-------------------------------------------------------------------------
     IF(is_ls_forcing)THEN
 
@@ -1303,7 +1303,9 @@ CONTAINS
 !-----------------------------------------------------------------------------------------
 !AD (2013-03-June): Add large scale forcing tendencies in similar manner as above (I don't
 !                   trust this way that much!). For now it works with LS radiative forcing. 
-!                   Interactive radiation can be included as an alternative later on.
+!  (2013-25-June): ls_forcing is made independent of slowphy call and therefore if any other
+!                  physics like radiation or sso or conv is called later on, they must be
+!                  included here in like above.                   
 !-----------------------------------------------------------------------------------------     
     IF(is_ls_forcing)THEN  
 
@@ -1437,7 +1439,7 @@ CONTAINS
           & pt_patch%sync_cells_one_edge_in_domain, status=is_ready, scope=until_sync, &
           & name="prm_nwp_tend%ddt_v_turb")
           
-        IF ( l_any_slowphys ) THEN
+        IF ( l_any_slowphys .OR. is_ls_forcing ) THEN
           z_ddt_u_tot_comm = new_icon_comm_variable(z_ddt_u_tot, &
             & pt_patch%sync_cells_one_edge_in_domain, &
             & status=is_ready, scope=until_sync, name="z_ddt_u_tot")
@@ -1452,7 +1454,7 @@ CONTAINS
 
     ELSE
           
-      IF ( l_any_slowphys .AND. lcall_phy_jg(itturb) ) THEN
+      IF ( (is_ls_forcing .OR. l_any_slowphys) .AND. lcall_phy_jg(itturb) ) THEN
           
         CALL sync_patch_array_mult(SYNC_C1, pt_patch, 4, z_ddt_u_tot, z_ddt_v_tot, &
                                  prm_nwp_tend%ddt_u_turb, prm_nwp_tend%ddt_v_turb)
@@ -1566,7 +1568,7 @@ CONTAINS
       CALL get_indices_e(pt_patch, jb, i_startblk, i_endblk, &
                          i_startidx, i_endidx, rl_start, rl_end)
 
-      IF ( l_any_slowphys .AND. lcall_phy_jg(itturb) ) THEN
+      IF ( (is_ls_forcing .OR. l_any_slowphys) .AND. lcall_phy_jg(itturb) ) THEN
 
 #ifdef __LOOP_EXCHANGE
         DO jce = i_startidx, i_endidx
