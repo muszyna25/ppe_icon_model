@@ -87,7 +87,8 @@ MODULE mo_nwp_lnd_state
     &                                GRID_CELL, ZA_SURFACE, ZA_SNOW,           &
     &                                ZA_SNOW_HALF, ZA_DEPTH_BELOW_LAND,        &
     &                                ZA_DEPTH_BELOW_LAND_P1, DATATYPE_FLT32,   &
-    &                                DATATYPE_PACK16, FILETYPE_NC2
+    &                                ZA_DEPTH_RUNOFF_S, ZA_DEPTH_RUNOFF_G,     &
+    &                                DATATYPE_PACK16, FILETYPE_NC2, TSTEP_ACCUM
 
 
 
@@ -1233,16 +1234,18 @@ MODULE mo_nwp_lnd_state
          &                'weighted surface water runoff; sum over forecast', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(2, 0, 5, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, vname_prefix//'runoff_s', p_diag_lnd%runoff_s,        &
-           & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,              &
-           & ldims=shape2d, lrestart=.FALSE., loutput=.TRUE. )
+           & GRID_UNSTRUCTURED_CELL, ZA_DEPTH_RUNOFF_S, cf_desc, grib2_desc,       &
+           & ldims=shape2d, lrestart=.FALSE., loutput=.TRUE.,                      &
+           & isteptype=TSTEP_ACCUM )
 
     ! & p_diag_lnd%runoff_g(nproma,nblks_c)
     cf_desc    = t_cf_var('runoff_g', 'kg/m2', &
          &                'weighted soil water runoff; sum over forecast', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(2, 0, 5, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, vname_prefix//'runoff_g', p_diag_lnd%runoff_g,        &
-           & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,              &
-           & ldims=shape2d, lrestart=.FALSE., loutput=.TRUE. )
+           & GRID_UNSTRUCTURED_CELL, ZA_DEPTH_RUNOFF_G, cf_desc, grib2_desc,       &
+           & ldims=shape2d, lrestart=.FALSE., loutput=.TRUE.,                      &
+           & isteptype=TSTEP_ACCUM )
 
 !tiled variables
     ! & p_diag_lnd%h_snow_t(nproma,nblks_c,ntiles_total)
@@ -1353,7 +1356,7 @@ MODULE mo_nwp_lnd_state
          &                'surface water runoff; sum over forecast', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(2, 0, 5, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, vname_prefix//'runoff_s_t', p_diag_lnd%runoff_s_t,    &
-           & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,              &
+           & GRID_UNSTRUCTURED_CELL, ZA_DEPTH_RUNOFF_S, cf_desc, grib2_desc,       &
            & ldims=shape3d_subs, lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE. )
 
     ! fill the separate variables belonging to the container runoff_s
@@ -1363,7 +1366,7 @@ MODULE mo_nwp_lnd_state
         CALL add_ref( diag_list, vname_prefix//'runoff_s_t',                       &
                  & vname_prefix//'runoff_s_t_'//ADJUSTL(TRIM(csfc)),               &
                  & p_diag_lnd%runoff_s_ptr(jsfc)%p_2d,                             &
-                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                             &
+                 & GRID_UNSTRUCTURED_CELL, ZA_DEPTH_RUNOFF_S,                      &
                  & t_cf_var('runoff_s_t_'//csfc, '', '', DATATYPE_FLT32),          &
                  & t_grib2_var(2, 0, 5, ibits, GRID_REFERENCE, GRID_CELL),         &
                  & ldims=shape2d )
@@ -1376,7 +1379,7 @@ MODULE mo_nwp_lnd_state
          &                'soil water runoff; sum over forecast', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(2, 0, 5, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, vname_prefix//'runoff_g_t', p_diag_lnd%runoff_g_t,    &
-           & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,              &
+           & GRID_UNSTRUCTURED_CELL, ZA_DEPTH_RUNOFF_G, cf_desc, grib2_desc,       &
            & ldims=shape3d_subs, lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE. )
 
     ! fill the separate variables belonging to the container runoff_g
@@ -1386,7 +1389,7 @@ MODULE mo_nwp_lnd_state
         CALL add_ref( diag_list, vname_prefix//'runoff_g_t',                       &
                  & vname_prefix//'runoff_g_t_'//ADJUSTL(TRIM(csfc)),               &
                  & p_diag_lnd%runoff_g_ptr(jsfc)%p_2d,                             &
-                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                             &
+                 & GRID_UNSTRUCTURED_CELL, ZA_DEPTH_RUNOFF_G,                      &
                  & t_cf_var('runoff_g_t_'//csfc, '', '', DATATYPE_FLT32),          &
                  & t_grib2_var(2, 0, 5, ibits, GRID_REFERENCE, GRID_CELL),         &
                  & ldims=shape2d )

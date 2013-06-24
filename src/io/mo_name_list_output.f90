@@ -2287,6 +2287,26 @@ CONTAINS
       CALL zaxisDefUnits  (of%cdiZaxisID(ZA_depth_below_land), "mm")
       DEALLOCATE(lbounds, ubounds, levels)
       !
+      ! Specific soil axis for Runoff_s
+      ! 
+      of%cdiZaxisID(ZA_depth_runoff_s) = &
+        & zaxisCreate(ZAXIS_DEPTH_BELOW_LAND, 1)
+      ALLOCATE(levels(1))
+      levels(1) = 0._dp  ! in mm
+      CALL zaxisDefLevels(of%cdiZaxisID(ZA_depth_runoff_s), levels)
+      CALL zaxisDefUnits(of%cdiZaxisID(ZA_depth_runoff_s), "mm")
+      DEALLOCATE(levels)
+      !
+      ! Specific soil axis for Runoff_g
+      ! 
+      of%cdiZaxisID(ZA_depth_runoff_g) = &
+        & zaxisCreate(ZAXIS_DEPTH_BELOW_LAND, 1)
+      ALLOCATE(levels(1))
+      levels(1) = 0.1_dp * 1000._dp  ! in mm
+      CALL zaxisDefLevels(of%cdiZaxisID(ZA_depth_runoff_g), levels)
+      CALL zaxisDefUnits(of%cdiZaxisID(ZA_depth_runoff_g), "mm")
+      DEALLOCATE(levels)
+      !
       ! SNOW axis (for multi-layer snow model)
       !
       of%cdiZaxisID(ZA_snow_half) = zaxisCreate(ZAXIS_SNOW, nlev_snow+1)
