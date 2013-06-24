@@ -69,7 +69,7 @@ MODULE mo_complete_subdivision
   USE mo_communication,      ONLY: setup_comm_pattern, blk_no, idx_no, idx_1d
   USE mo_impl_constants_grf, ONLY: grf_bdyintp_start_c, grf_bdyintp_start_e,  &
     & grf_bdyintp_end_c, grf_bdyintp_end_e, grf_fbk_start_c, grf_fbk_start_e, &
-    & grf_bdywidth_c, grf_bdywidth_e, grf_nudgintp_start_c, grf_nudgintp_start_e
+    & grf_bdywidth_c, grf_bdywidth_e
   USE mo_grid_config,         ONLY: n_dom, n_dom_start, n_phys_dom
   USE mo_sync,                ONLY: enable_sync_checks, disable_sync_checks
   IMPLICIT NONE
@@ -844,7 +844,7 @@ CONTAINS
     INTEGER, INTENT(IN) :: i_chidx
 
     INTEGER, ALLOCATABLE :: owner(:)
-    INTEGER :: j, js, je, icid, jb, jl
+    INTEGER :: j, je, icid, jb, jl
 
     ! Please note:
     ! For creating communication patterns for different amount of data to be transferred
@@ -866,14 +866,17 @@ CONTAINS
 
     ALLOCATE(owner(p_ploc%n_patch_cells))
 
-    js = idx_1d(p_ploc%cells%start_idx(grf_bdyintp_start_c,i_chidx), &
-      &         p_ploc%cells%start_blk(grf_bdyintp_start_c,i_chidx))
     je = idx_1d(p_ploc%cells%end_idx(min_rlcell_int,i_chidx), &
       &         p_ploc%cells%end_blk(min_rlcell_int,i_chidx))
 
     owner(:) = -1 ! By default don't include into comm pattern
-    DO j = js, je
-      owner(j) = p_pglb%cells%owner_g(p_ploc%cells%glb_index(j))
+    DO j = 1, je
+      jb = blk_no(j) ! Block index
+      jl = idx_no(j) ! Line  index
+      IF (p_ploc%cells%child_id(jl,jb)   == icid            .AND.      &
+          p_ploc%cells%refin_ctrl(jl,jb) <= grf_bdyintp_start_c )   THEN
+        owner(j) = p_pglb%cells%owner_g(p_ploc%cells%glb_index(j))
+      ENDIF
     ENDDO
 
     CALL setup_comm_pattern(p_ploc%n_patch_cells, owner, p_ploc%cells%glb_index,  &
@@ -885,14 +888,17 @@ CONTAINS
 
     ALLOCATE(owner(p_ploc%n_patch_edges))
 
-    js = idx_1d(p_ploc%edges%start_idx(grf_bdyintp_start_e,i_chidx), &
-      &         p_ploc%edges%start_blk(grf_bdyintp_start_e,i_chidx))
     je = idx_1d(p_ploc%edges%end_idx(min_rledge_int,i_chidx), &
       &         p_ploc%edges%end_blk(min_rledge_int,i_chidx))
 
     owner(:) = -1 ! By default don't include into comm pattern
-    DO j = js, je
-      owner(j) = p_pglb%edges%owner_g(p_ploc%edges%glb_index(j))
+    DO j = 1, je
+      jb = blk_no(j) ! Block index
+      jl = idx_no(j) ! Line  index
+      IF (p_ploc%edges%child_id(jl,jb)   == icid            .AND.      &
+          p_ploc%edges%refin_ctrl(jl,jb) <= grf_bdyintp_start_e )   THEN
+        owner(j) = p_pglb%edges%owner_g(p_ploc%edges%glb_index(j))
+      ENDIF
     ENDDO
 
     CALL setup_comm_pattern(p_ploc%n_patch_edges, owner, p_ploc%edges%glb_index,  &
@@ -911,35 +917,24 @@ CONTAINS
 
     ALLOCATE(owner(p_pglb%n_patch_cells))
 
-    js = idx_1d(p_pglb%cells%start_idx(grf_fbk_start_c,i_chidx), &
-      &         p_pglb%cells%start_blk(grf_fbk_start_c,i_chidx))
-    je = idx_1d(p_pglb%cells%end_idx(min_rlcell_int,i_chidx), &
-      &         p_pglb%cells%end_blk(min_rlcell_int,i_chidx))
+    IF (p_pglb%id > 0) THEN  ! include halo points belonging to nest overlap points
+      je = idx_1d(p_pglb%cells%end_idx(min_rlcell,p_pglb%n_childdom), &
+        &         p_pglb%cells%end_blk(min_rlcell,p_pglb%n_childdom))
+    ELSE
+      je = idx_1d(p_pglb%cells%end_idx(min_rlcell_int,p_pglb%n_childdom), &
+        &         p_pglb%cells%end_blk(min_rlcell_int,p_pglb%n_childdom))
+    ENDIF
 
     owner(:) = -1 ! By default don't include into comm pattern
-    DO j = js, je
-      owner(j) = p_ploc%cells%owner_g(p_pglb%cells%glb_index(j))
+    DO j = 1, je
+      jb = blk_no(j) ! Block index
+      jl = idx_no(j) ! Line  index
+      IF (p_pglb%cells%child_id(jl,jb)   == icid            .AND. &
+          p_pglb%cells%refin_ctrl(jl,jb) <= grf_fbk_start_c .AND. &
+          p_pglb%cells%refin_ctrl(jl,jb) >= min_rlcell_int )   THEN
+        owner(j) = p_ploc%cells%owner_g(p_pglb%cells%glb_index(j))
+      ENDIF
     ENDDO
-
-    IF (p_pglb%id > 0) THEN  ! include halo points belonging to nest overlap points
-      js = idx_1d(p_pglb%cells%start_idx(min_rlcell_int-1,1), &
-        &         p_pglb%cells%start_blk(min_rlcell_int-1,1))
-      je = idx_1d(p_pglb%cells%end_idx(min_rlcell,MAX(1,p_pglb%n_childdom)), &
-        &         p_pglb%cells%end_blk(min_rlcell,MAX(1,p_pglb%n_childdom)))
-
-      DO j = js, je
-
-        jb = blk_no(j) ! Block index
-        jl = idx_no(j) ! Line  index
-        IF (p_pglb%cells%child_id(jl,jb)   == icid            .AND. &
-            p_pglb%cells%refin_ctrl(jl,jb) <= grf_fbk_start_c .AND. &
-            p_pglb%cells%refin_ctrl(jl,jb) >= min_rlcell_int )   THEN
-
-          owner(j) = p_ploc%cells%owner_g(p_pglb%cells%glb_index(j))
-        ENDIF
-      ENDDO
-
-    ENDIF
 
     CALL setup_comm_pattern(p_pglb%n_patch_cells, owner, p_pglb%cells%glb_index, &
       & p_ploc%cells%loc_index, p_ploc%comm_pat_loc_to_glb_c_fbk)
@@ -950,35 +945,25 @@ CONTAINS
 
     ALLOCATE(owner(p_pglb%n_patch_edges))
 
-    js = idx_1d(p_pglb%edges%start_idx(grf_fbk_start_e,i_chidx), &
-      &         p_pglb%edges%start_blk(grf_fbk_start_e,i_chidx))
-    je = idx_1d(p_pglb%edges%end_idx(min_rledge_int,i_chidx), &
-      &         p_pglb%edges%end_blk(min_rledge_int,i_chidx))
+    IF (p_pglb%id > 0) THEN  ! include halo points belonging to nest overlap points
+      je = idx_1d(p_pglb%edges%end_idx(min_rledge,i_chidx), &
+        &         p_pglb%edges%end_blk(min_rledge,i_chidx))
+    ELSE
+      je = idx_1d(p_pglb%edges%end_idx(min_rledge_int,i_chidx), &
+        &         p_pglb%edges%end_blk(min_rledge_int,i_chidx))
+    ENDIF
 
     owner(:) = -1 ! By default don't include into comm pattern
-    DO j = js, je
-      owner(j) = p_ploc%edges%owner_g(p_pglb%edges%glb_index(j))
+    DO j = 1, je
+      jb = blk_no(j) ! Block index
+      jl = idx_no(j) ! Line  index
+      IF (p_pglb%edges%child_id(jl,jb)   == icid            .AND. &
+          p_pglb%edges%refin_ctrl(jl,jb) <= grf_fbk_start_e .AND. &
+          p_pglb%edges%refin_ctrl(jl,jb) >= min_rledge_int )   THEN
+        owner(j) = p_ploc%edges%owner_g(p_pglb%edges%glb_index(j))
+      ENDIF
     ENDDO
 
-    IF (p_pglb%id > 0) THEN  ! include halo points belonging to nest overlap points
-      js = idx_1d(p_pglb%edges%start_idx(min_rledge_int-1,1), &
-        &         p_pglb%edges%start_blk(min_rledge_int-1,1))
-      je = idx_1d(p_pglb%edges%end_idx(min_rledge,MAX(1,p_pglb%n_childdom)), &
-        &         p_pglb%edges%end_blk(min_rledge,MAX(1,p_pglb%n_childdom)))
-
-      DO j = js, je
-
-        jb = blk_no(j) ! Block index
-        jl = idx_no(j) ! Line  index
-        IF (p_pglb%edges%child_id(jl,jb)   == icid            .AND. &
-            p_pglb%edges%refin_ctrl(jl,jb) <= grf_fbk_start_e .AND. &
-            p_pglb%edges%refin_ctrl(jl,jb) >= min_rledge_int )   THEN
-
-          owner(j) = p_ploc%edges%owner_g(p_pglb%edges%glb_index(j))
-        ENDIF
-      ENDDO
-
-    ENDIF
 
     CALL setup_comm_pattern(p_pglb%n_patch_edges, owner, p_pglb%edges%glb_index, &
       & p_ploc%edges%loc_index, p_ploc%comm_pat_loc_to_glb_e_fbk)
@@ -1067,7 +1052,7 @@ CONTAINS
 
     TYPE(t_patch), INTENT(INOUT) :: p_patch, p_parent_patch
 
-    INTEGER :: j, n, jc, js, jl, je, jb, jp, p_index_s, p_index_e, i_chidx
+    INTEGER :: j, n, jc, je, jb, jp
     INTEGER :: num_send, num_recv, np, iss, ise, irs, ire
     INTEGER, ALLOCATABLE :: owner(:), glb_index(:)
 
@@ -1077,25 +1062,8 @@ CONTAINS
     IF(my_process_is_mpi_seq()) &
       & CALL finish('setup_comm_grf_interpolation','must not be called in a single CPU run')
 
-    i_chidx = p_patch%parent_child_index
-
     !--------------------------------------------------------------------
     ! Cells
-
-    ! Start and end index of the GLOBAL parent cells as used in the interpolation
-    p_index_s = idx_1d(p_parent_patch%cells%start_idx(grf_bdyintp_start_c,i_chidx), &
-                       p_parent_patch%cells%start_blk(grf_bdyintp_start_c,i_chidx))
-    p_index_e = idx_1d(p_parent_patch%cells%end_idx(grf_bdyintp_end_c,i_chidx), &
-                       p_parent_patch%cells%end_blk(grf_bdyintp_end_c,i_chidx))
-    IF(p_index_s <= p_index_e) THEN
-      p_index_s = p_parent_patch%cells%glb_index(p_index_s)
-      p_index_e = p_parent_patch%cells%glb_index(p_index_e)
-    ELSE
-      p_index_s =  HUGE(0)
-      p_index_e = -HUGE(0)
-    ENDIF
-    p_index_s = p_min(p_index_s, p_comm_work)
-    p_index_e = p_max(p_index_e, p_comm_work)
 
     ! For our local child patch, gather which cells receive values from which parent cell
     ! This is done once for every of the four child cells
@@ -1108,14 +1076,16 @@ CONTAINS
       glb_index(:) = -1
       owner(:)     = -1
 
+      ! Communication to nest boundary points includes halo points in order to save subsequent synchronization 
       DO j = 1,p_patch%n_patch_cells
         jc = idx_no(j)
         jb = blk_no(j)
-        jp = idx_1d(p_patch%cells%parent_idx(jc,jb),p_patch%cells%parent_blk(jc,jb))
-        IF(jp<p_index_s .OR. jp>p_index_e) CYCLE
-        IF(p_patch%cells%pc_idx(jc,jb) /= n) CYCLE
-        glb_index(j) = jp
-        owner(j) = p_parent_patch%cells%owner_g(jp)
+        IF (p_patch%cells%refin_ctrl(jc,jb) > 0 .AND. p_patch%cells%refin_ctrl(jc,jb) <= grf_bdywidth_c &
+            .AND. p_patch%cells%pc_idx(jc,jb) == n) THEN
+          jp = idx_1d(p_patch%cells%parent_idx(jc,jb),p_patch%cells%parent_blk(jc,jb))
+          glb_index(j) = jp
+          owner(j) = p_parent_patch%cells%owner_g(jp)
+        ENDIF
       ENDDO
 
       ! Set up communication pattern
@@ -1220,21 +1190,6 @@ CONTAINS
     !--------------------------------------------------------------------
     ! Edges
 
-    ! Start and end index of the GLOBAL parent edges as used in the interpolation
-    p_index_s = idx_1d(p_parent_patch%edges%start_idx(grf_bdyintp_start_e,i_chidx), &
-                       p_parent_patch%edges%start_blk(grf_bdyintp_start_e,i_chidx))
-    p_index_e = idx_1d(p_parent_patch%edges%end_idx(grf_bdyintp_end_e,i_chidx), &
-                       p_parent_patch%edges%end_blk(grf_bdyintp_end_e,i_chidx))
-    IF(p_index_s <= p_index_e) THEN
-      p_index_s = p_parent_patch%edges%glb_index(p_index_s)
-      p_index_e = p_parent_patch%edges%glb_index(p_index_e)
-    ELSE
-      p_index_s =  HUGE(0)
-      p_index_e = -HUGE(0)
-    ENDIF
-    p_index_s = p_min(p_index_s, p_comm_work)
-    p_index_e = p_max(p_index_e, p_comm_work)
-
     ! For our local child patch, gather which edges receive values from which parent edge
     ! This is done once for every of the four child edges
 
@@ -1246,33 +1201,13 @@ CONTAINS
       glb_index(:) = -1
       owner(:)     = -1
 
+      ! Communication to nest boundary points includes halo points in order to save subsequent synchronization 
       DO j = 1,p_patch%n_patch_edges
         je = idx_no(j)
         jb = blk_no(j)
-        jp = idx_1d(p_patch%edges%parent_idx(je,jb),p_patch%edges%parent_blk(je,jb))
-        IF(jp<p_index_s .OR. jp>p_index_e) CYCLE
-        IF(p_patch%edges%pc_idx(je,jb) /= n .OR. p_patch%edges%refin_ctrl(je,jb) > grf_bdywidth_e) CYCLE
-        glb_index(j) = jp
-        owner(j) = p_parent_patch%edges%owner_g(jp)
-      ENDDO
-
-
-      ! include halo edges for nest boundary points in order to avoid extra synchronization
-      js = idx_1d(p_patch%edges%start_idx(min_rledge_int-1,1), &
-        &         p_patch%edges%start_blk(min_rledge_int-1,1))
-      je = idx_1d(p_patch%edges%end_idx(min_rledge_int-2,1), &
-        &         p_patch%edges%end_blk(min_rledge_int-2,1))
-
-! GZ: this loop is not vectorized properly, probably because the nested IF clauses are merged
-!     in an incorrect way. As the runtime cost of this loop is negligible, we just turn off vectorization
-!CDIR NOVECTOR
-      DO j = js, je
-        jb = blk_no(j) ! Block index
-        jl = idx_no(j) ! Line  index
-        IF (p_patch%edges%refin_ctrl(jl,jb) > 0 .AND. p_patch%edges%refin_ctrl(jl,jb) <= grf_bdywidth_e ) THEN
-          jp = idx_1d(p_patch%edges%parent_idx(jl,jb),p_patch%edges%parent_blk(jl,jb))
-          IF(jp<p_index_s .OR. jp>p_index_e) CYCLE
-          IF(p_patch%edges%pc_idx(jl,jb) /= n) CYCLE
+        IF (p_patch%edges%refin_ctrl(je,jb) > 0 .AND. p_patch%edges%refin_ctrl(je,jb) <= grf_bdywidth_e &
+            .AND. p_patch%edges%pc_idx(je,jb) == n) THEN
+          jp = idx_1d(p_patch%edges%parent_idx(je,jb),p_patch%edges%parent_blk(je,jb))
           glb_index(j) = jp
           owner(j) = p_parent_patch%edges%owner_g(jp)
         ENDIF
@@ -1388,7 +1323,7 @@ CONTAINS
 
     TYPE(t_patch), INTENT(INOUT) :: p_patch, p_parent_patch
 
-    INTEGER :: j, n, jc, je, jb, jp, p_index_s, p_index_e, i_chidx
+    INTEGER :: j, n, jc, je, jb, jp
     INTEGER :: num_send, num_recv, np, iss, ise, irs, ire
     INTEGER, ALLOCATABLE :: owner(:), glb_index(:)
 
@@ -1398,25 +1333,8 @@ CONTAINS
     IF(my_process_is_mpi_seq()) &
       & CALL finish('setup_comm_ubc_interpolation','must not be called in a single CPU run')
 
-    i_chidx = p_patch%parent_child_index
-
     !--------------------------------------------------------------------
     ! Cells
-
-    ! Start and end index of the GLOBAL parent cells as used in the interpolation
-    p_index_s = idx_1d(p_parent_patch%cells%start_idx(grf_nudgintp_start_c,i_chidx), &
-                       p_parent_patch%cells%start_blk(grf_nudgintp_start_c,i_chidx))
-    p_index_e = idx_1d(p_parent_patch%cells%end_idx(min_rlcell_int,i_chidx), &
-                       p_parent_patch%cells%end_blk(min_rlcell_int,i_chidx))
-    IF(p_index_s <= p_index_e) THEN
-      p_index_s = p_parent_patch%cells%glb_index(p_index_s)
-      p_index_e = p_parent_patch%cells%glb_index(p_index_e)
-    ELSE
-      p_index_s =  HUGE(0)
-      p_index_e = -HUGE(0)
-    ENDIF
-    p_index_s = p_min(p_index_s, p_comm_work)
-    p_index_e = p_max(p_index_e, p_comm_work)
 
     ! For our local child patch, gather which cells receive values from which parent cell
     ! This is done once for every of the four child cells
@@ -1432,11 +1350,12 @@ CONTAINS
       DO j = 1,p_patch%n_patch_cells
         jc = idx_no(j)
         jb = blk_no(j)
-        jp = idx_1d(p_patch%cells%parent_idx(jc,jb),p_patch%cells%parent_blk(jc,jb))
-        IF(jp<p_index_s .OR. jp>p_index_e) CYCLE
-        IF(p_patch%cells%pc_idx(jc,jb) /= n) CYCLE
-        glb_index(j) = jp
-        owner(j) = p_parent_patch%cells%owner_g(jp)
+        IF ((p_patch%cells%refin_ctrl(jc,jb) >= grf_bdywidth_c+1 .OR. p_patch%cells%refin_ctrl(jc,jb) <= 0) &
+            .AND. p_patch%cells%pc_idx(jc,jb) == n) THEN
+          jp = idx_1d(p_patch%cells%parent_idx(jc,jb),p_patch%cells%parent_blk(jc,jb))
+          glb_index(j) = jp
+          owner(j) = p_parent_patch%cells%owner_g(jp)
+        ENDIF
       ENDDO
 
       ! Set up communication pattern
@@ -1541,21 +1460,6 @@ CONTAINS
     !--------------------------------------------------------------------
     ! Edges
 
-    ! Start and end index of the GLOBAL parent edges as used in the interpolation
-    p_index_s = idx_1d(p_parent_patch%edges%start_idx(grf_nudgintp_start_e,i_chidx), &
-                       p_parent_patch%edges%start_blk(grf_nudgintp_start_e,i_chidx))
-    p_index_e = idx_1d(p_parent_patch%edges%end_idx(min_rledge_int,i_chidx), &
-                       p_parent_patch%edges%end_blk(min_rledge_int,i_chidx))
-    IF(p_index_s <= p_index_e) THEN
-      p_index_s = p_parent_patch%edges%glb_index(p_index_s)
-      p_index_e = p_parent_patch%edges%glb_index(p_index_e)
-    ELSE
-      p_index_s =  HUGE(0)
-      p_index_e = -HUGE(0)
-    ENDIF
-    p_index_s = p_min(p_index_s, p_comm_work)
-    p_index_e = p_max(p_index_e, p_comm_work)
-
     ! For our local child patch, gather which edges receive values from which parent edge
     ! This is done once for every of the four child edges
 
@@ -1570,11 +1474,12 @@ CONTAINS
       DO j = 1,p_patch%n_patch_edges
         je = idx_no(j)
         jb = blk_no(j)
-        jp = idx_1d(p_patch%edges%parent_idx(je,jb),p_patch%edges%parent_blk(je,jb))
-        IF(jp<p_index_s .OR. jp>p_index_e) CYCLE
-        IF(p_patch%edges%pc_idx(je,jb) /= n) CYCLE
-        glb_index(j) = jp
-        owner(j) = p_parent_patch%edges%owner_g(jp)
+        IF ((p_patch%edges%refin_ctrl(je,jb) >= grf_bdywidth_e+1 .OR. p_patch%edges%refin_ctrl(je,jb) <= 0) &
+            .AND. p_patch%edges%pc_idx(je,jb) == n) THEN
+          jp = idx_1d(p_patch%edges%parent_idx(je,jb),p_patch%edges%parent_blk(je,jb))
+          glb_index(j) = jp
+          owner(j) = p_parent_patch%edges%owner_g(jp)
+        ENDIF
       ENDDO
 
       ! Set up communication pattern
