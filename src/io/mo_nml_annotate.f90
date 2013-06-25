@@ -36,49 +36,41 @@
 !! software.
 !!
 MODULE mo_nml_annotate
-
-#ifdef __ICON__
+  
   USE mo_namelist,    ONLY: position_nml, POSITIONED
   USE mo_util_string, ONLY: int2string, str_replace, tolower,    &
     &                       tocompact
-  USE mo_io_units,    ONLY: find_next_free_unit, nnml
+  USE mo_io_units,    ONLY: find_next_free_unit, nnml, filename_max
   USE mo_exception,   ONLY: finish
-#else
-  USE mo_utilities, ONLY: nnml, POSITIONED,                      &
-    &                     int2string, str_replace, tolower,      &
-    &                     finish, tocompact, find_next_free_unit
-#endif
-  USE mo_mpi,       ONLY: get_my_mpi_work_id, my_process_is_stdio
-
+  USE mo_util_file,   ONLY: util_filesize, util_tmpnam, util_unlink
+  USE mo_mpi,         ONLY: get_my_mpi_work_id, my_process_is_stdio
+  
   IMPLICIT NONE
   PRIVATE
-
-  INTEGER, PARAMETER :: MAX_STRBUF_LENGTH  = 32767 !< max. size of a single namelist
+  
+  INTEGER, PARAMETER :: MAX_STRBUF_LENGTH  = 65536 !< max. size of a single namelist
   INTEGER, PARAMETER :: MAX_STRBUF_LINES   = 10000 !< max. no. of lines in a namelist
-
+  
   INTEGER            :: tmpnml1            =  3    !< file handle for temporary text file with defaults
   INTEGER            :: tmpnml2            =  4    !< file handle for temporary text file with settings
-
-  CHARACTER (LEN=*), PARAMETER :: TMP_FILENAME1 = "tmpfile1.mo_nml_annotate" !< temporary file with defaults
-  CHARACTER (LEN=*), PARAMETER :: TMP_FILENAME2 = "tmpfile2.mo_nml_annotate" !< temporary file with settings
-
+  
   !> internal buffer variables
   CHARACTER (len=MAX_STRBUF_LENGTH)  :: nml_log_buffer1, nml_log_buffer2
-
+  
   !> start positions of the several namelist lines in the buffer
   INTEGER :: startpos1(MAX_STRBUF_LINES), startpos2(MAX_STRBUF_LINES)
-
+  
   LOGICAL :: linitialized = .FALSE.
-
+  
   CHARACTER(LEN=*), PARAMETER :: modname = TRIM('mo_nml_annotate')
-
+  
   PUBLIC :: temp_defaults
   PUBLIC :: temp_settings
   PUBLIC :: log_nml_settings 
-
+  
 CONTAINS
-
-
+  
+  
   !> Decode name of the namelist from buffer
   !
   SUBROUTINE parse_nml_name(buffer, ipos, name)
@@ -88,7 +80,7 @@ CONTAINS
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = modname//'::parse_nml_name'
     INTEGER :: ipos_end
-
+    
     ! starting token is an '&' character
     ipos = INDEX(buffer(ipos:), '&')
     IF (ipos == 0) THEN
@@ -102,8 +94,8 @@ CONTAINS
     CALL tocompact(name)
     ipos = ipos_end-1
   END SUBROUTINE parse_nml_name
-
-
+  
+  
   !> Decode the next pair of "key = value" from the buffer.
   !
   !  Note: Leading, trailing and internal blanks are removed from the value
@@ -119,13 +111,13 @@ CONTAINS
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = modname//'::parse_key_value_pair'
     INTEGER :: ipos_end, ipos_end2, lt
-
+    
     parse_key_value_pair = .TRUE.
     IF (ipos == 0) THEN
       parse_key_value_pair = .FALSE.
       RETURN
     END IF
-
+    
     ! determine position of next '=' character
     ipos_end = INDEX(buffer(ipos:), '=')
     IF (ipos_end == 0) THEN
@@ -134,30 +126,30 @@ CONTAINS
       RETURN
     END IF
     ipos_end = ipos_end + ipos
-
+    
     key = tolower(buffer(ipos:(ipos_end-2)))
     key = ADJUSTL(key)
     ! determine position of next ',' character
     ipos_end2 = startpos(iline+2)
     IF (ipos_end2 == 0) ipos_end2 = LEN_TRIM(buffer)+2
     value = buffer((ipos_end):(ipos_end2-2))
+    ! if "value" is a string (delimiter: "'") then trim leading, trailing
+    ! blanks:
+    CALL tocompact(value)
     ! strip "value" from trailing commas and slashes:
     lt = LEN_TRIM(value)
     IF (value(lt:lt) == "/") value(lt:lt) = " "
     lt = LEN_TRIM(value)
     IF (value(lt:lt) == ",") value(lt:lt) = " "
-    ! if "value" is a string (delimiter: "'") then trim leading, trailing
-    ! blanks:
-    CALL tocompact(value)
     value = str_replace(value, "' ", "'")
     value = str_replace(value, " '", "'")
     value = ADJUSTL(value)
-
+    
     ipos  = ipos_end2
     iline = iline + 1
   END FUNCTION parse_key_value_pair
-
-
+  
+  
   SUBROUTINE parse_namelist(buffer1, buffer2, col_width, gap_width, opt_file)
     CHARACTER(LEN=*), INTENT(IN) :: buffer1, buffer2       !< character buffers containing defaults and settings
     INTEGER,          INTENT(IN) :: col_width, gap_width   !< column width (in characters), width of gap between columns
@@ -167,10 +159,10 @@ CONTAINS
     CHARACTER (len=MAX_STRBUF_LENGTH)  :: name, key, def_key
     CHARACTER (len=MAX_STRBUF_LENGTH)  :: def_value, value
     INTEGER                            :: ipos1,ipos2,iline1,iline2, dst_file
-
+    
     dst_file = 0
     IF (PRESENT(opt_file))  dst_file = opt_file
-
+    
     ! parse namelist
     iline1 = 1
     iline2 = 1
@@ -197,30 +189,53 @@ CONTAINS
     END DO
     WRITE (dst_file,*) " "
   END SUBROUTINE parse_namelist
-
-
+  
+  
+  !> Opens a new temporary text file.
+  !
+  SUBROUTINE open_tmp_file(funit)
+    INTEGER, INTENT(out) :: funit
+    ! local variables
+    INTEGER                     :: flen
+    CHARACTER(len=filename_max) :: filename
+    
+    flen  = util_tmpnam(filename, filename_max)
+    funit = find_next_free_unit(10,100)
+    OPEN(UNIT=funit, FILE=filename(1:flen), &
+      &  ACCESS='sequential',   action='write', delim='apostrophe')
+  END SUBROUTINE open_tmp_file
+  
+  
   !> Opens a new temporary text file.
   !
   FUNCTION temp_defaults()
     INTEGER :: temp_defaults
-    tmpnml1 = find_next_free_unit(10,100)
-    OPEN (tmpnml1, file=TMP_FILENAME1//int2string(get_my_mpi_work_id()), &
-      &   status='replace', action='write', delim='apostrophe')
+    CHARACTER(len=filename_max) :: filename
+    INTEGER :: nmllen
+
+    CALL open_tmp_file(tmpnml1)
     temp_defaults = tmpnml1
+
+    INQUIRE(tmpnml1, NAME=filename)
+    nmllen = util_filesize(filename)
   END FUNCTION temp_defaults
-
-
+  
+  
   !> Opens a new temporary text file.
   !
   FUNCTION temp_settings()
     INTEGER :: temp_settings
-    tmpnml2 = find_next_free_unit(10,100)
-    OPEN (tmpnml2, file=TMP_FILENAME2//int2string(get_my_mpi_work_id()), &
-      &   status='replace', action='write', delim='apostrophe')
+    CHARACTER(len=filename_max) :: filename
+    INTEGER :: nmllen
+
+    CALL open_tmp_file(tmpnml2)
     temp_settings = tmpnml2
+
+    INQUIRE(tmpnml2, NAME=filename)
+    nmllen = util_filesize(filename)
   END FUNCTION temp_settings
-
-
+  
+  
   !> Loop over buffer, determine start indices of new namelist key/value
   !  pairs.
   !
@@ -231,7 +246,7 @@ CONTAINS
     INTEGER   :: i, ilevel, last_pos, iline, i_max, gap_start
     CHARACTER :: str_delim(10) ! if level>0 : character delimiting string (' or ")
     LOGICAL   :: lgap
-
+    
     i           = 0
     i_max       = LEN_TRIM(buffer)
     ilevel      = 0 ! ("0" means: outside string clauses)
@@ -245,7 +260,7 @@ CONTAINS
     DO
       i = i + 1
       IF (i > i_max) EXIT
-
+      
       ! check, if we open or close a string (which means, that we do not parse
       ! the current character any further
       IF ((buffer(i:i) == '"') .OR. (buffer(i:i) == "'")) THEN
@@ -257,7 +272,7 @@ CONTAINS
         END IF
       END IF
       IF (ilevel > 0) CYCLE
-
+      
       ! ignore blanks (SPACE and TAB); ignore ","
       IF ((IACHAR(buffer(i:i)) == 9) .OR. (IACHAR(buffer(i:i)) == 32)  .OR.  &
         & (buffer(i:i) == ",")) THEN
@@ -265,7 +280,7 @@ CONTAINS
         lgap = .TRUE.
         CYCLE
       END IF
-        
+      
       ! set "startpos" to the beginning of the last keyword
       IF (buffer(i:i) == "=") THEN
         startpos(iline) = last_pos
@@ -278,57 +293,49 @@ CONTAINS
       END IF
     END DO
   END SUBROUTINE compute_startpos
-
-
-  !> Read namelist back into string buffer
+  
+  
+  !> Read namelist back into string buffer.
   !
-  SUBROUTINE nml_read_defaults()
+  SUBROUTINE nml_read(tmpnml, buffer, startpos)
+    INTEGER,                           INTENT(INOUT) :: tmpnml
+    CHARACTER (len=MAX_STRBUF_LENGTH), INTENT(INOUT) :: buffer
+    INTEGER,                           INTENT(INOUT) :: startpos(MAX_STRBUF_LINES)
     ! local variables
-    INTEGER :: ipos,iline, ios
-
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//'::nml_read'
+    INTEGER                     :: nmllen, iret
+    CHARACTER(len=filename_max) :: filename
+    
     ! close previously opened temporary text file with namelist
-    CLOSE (tmpnml1)
-    tmpnml1 = find_next_free_unit(10,100)
-    OPEN (tmpnml1, file=TMP_FILENAME1//int2string(get_my_mpi_work_id()), status='old', action='read')
-    ipos  = 1
-    iline = 1
-    DO
-      READ(tmpnml1, '(A)', iostat=ios, END=888) nml_log_buffer1(ipos:)
-      IF (ios /= 0) EXIT
-      nml_log_buffer1 = TRIM(nml_log_buffer1)
-      startpos1(iline) = ipos
-      ipos  = LEN(TRIM(nml_log_buffer1)) + 1
-      iline = iline + 1
-    END DO
+    INQUIRE(tmpnml, NAME=filename)
+    CLOSE (tmpnml)
+    
+    nmllen = util_filesize(filename)
+    buffer(:) = ' '
+    
+    IF (nmllen == 0) THEN
+      CALL finish(routine, "File has zero size!")
+    ENDIF
+#ifdef __SX__
+    ! requires in runscript (ksh/bash): export F_NORCW=65535
+    ! (this SX environment variable specifies that a control record is
+    !  not added/expected, s.t. the file content can be treated like a
+    !  stream of characters)
+    tmpnml = 65535
+    OPEN(UNIT=65535, FILE=TRIM(filename), ACTION='read', FORM='unformatted')
+    READ(65535, end=888) buffer(1:nmllen)
 888 CONTINUE
-    CLOSE (tmpnml1, status='delete')
-    CALL compute_startpos(nml_log_buffer1, startpos1)
-  END SUBROUTINE nml_read_defaults
-
-
-  !> Read namelist with settings back into string buffer.
-  !
-  SUBROUTINE nml_read_settings()
-    ! local variables
-    INTEGER :: ipos,iline
-
-    ! close previously opened temporary text file with namelist
-    CLOSE (tmpnml2)
-    tmpnml2 = find_next_free_unit(10,100)
-    OPEN (tmpnml2, file=TMP_FILENAME2//int2string(get_my_mpi_work_id()), status='old', action='read')
-    ipos  = 1
-    iline = 1
-    DO
-      READ(tmpnml2, '(A)', END=888) nml_log_buffer2(ipos:)
-      nml_log_buffer2 = TRIM(nml_log_buffer2)
-      ipos  = LEN(TRIM(nml_log_buffer2)) + 1
-    END DO
-888 CONTINUE
-    CLOSE (tmpnml2, status='delete')
-    CALL compute_startpos(nml_log_buffer2, startpos2)
-  END SUBROUTINE nml_read_settings
-
-
+    CLOSE (65535)
+#else
+    OPEN(UNIT=tmpnml, FILE=TRIM(filename), ACTION='read', ACCESS='stream', FORM='unformatted')
+    READ(tmpnml) buffer(1:nmllen)
+    CLOSE (tmpnml)
+#endif
+    iret = util_unlink(TRIM(filename))
+    CALL compute_startpos(buffer, startpos)
+  END SUBROUTINE NML_READ
+  
+  
   !> Read defaults and settings into string buffer, compare them and do the
   !  print-out.
   !
@@ -336,17 +343,13 @@ CONTAINS
     CHARACTER(LEN=*), INTENT(IN), OPTIONAL :: opt_filename !< log file name (optional)
     ! local variables
     INTEGER :: dst_file
-
-    IF (.NOT. my_process_is_stdio()) THEN
-      CLOSE (tmpnml1, status='delete')
-      CLOSE (tmpnml2, status='delete')
-      RETURN
-    END IF
-
-    CALL nml_read_defaults()
-    CALL nml_read_settings()
-
+    
+    CALL nml_read(tmpnml1, nml_log_buffer1, startpos1) ! defaults
+    CALL nml_read(tmpnml2, nml_log_buffer2, startpos2) ! settings
+    
     dst_file = 0
+    ! if a filename has been provided, output of all namelist annotation are
+    ! redirected to this file.
     IF (PRESENT(opt_filename)) THEN
       dst_file = find_next_free_unit(10,100)
       IF (.NOT. linitialized) THEN
@@ -364,5 +367,5 @@ CONTAINS
       CLOSE(dst_file)
     END IF
   END SUBROUTINE log_nml_settings
-
+  
 END MODULE mo_nml_annotate
