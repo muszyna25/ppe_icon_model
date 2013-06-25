@@ -61,7 +61,7 @@ MODULE mo_nh_initicon
     &                               ifs2icon_filename, dwdfg_filename, dwdana_filename,   &
     &                               generate_filename,                                    &
     &                               nml_filetype => filetype,                             &
-    &                               ana_varnames_map_file
+    &                               ana_varnames_map_file, l_ana_sfc
   USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, max_dom, MODE_DWDANA,       &
     &                               MODE_IFSANA, MODE_COMBINED, min_rlcell,               &
     &                               min_rledge, min_rledge_int, min_rlcell_int
@@ -213,6 +213,8 @@ MODULE mo_nh_initicon
 
     CASE(MODE_COMBINED)
 
+      CALL message(TRIM(routine),'Real-data mode: IFS-atm + GME-soil')
+
       ! process IFS atmosphere analysis data
       CALL process_ifsana_atm (p_patch, p_nh_state, p_int_state, p_grf_state, initicon)
 
@@ -220,6 +222,7 @@ MODULE mo_nh_initicon
       CALL process_dwdana_sfc (p_patch, prm_diag, p_lnd_state, ext_data)
 
     CASE DEFAULT
+
       CALL finish(TRIM(routine), "Invalid operation mode!")
     END SELECT
 
@@ -312,13 +315,10 @@ MODULE mo_nh_initicon
 !-------------------------------------------------------------------------
 
 
-    ! read DWD first guess for surface/land
+    ! read DWD first guess and analysis for surface/land
     ! 
-    CALL read_dwdfg_sfc(p_patch, prm_diag, p_lnd_state)
+    CALL read_dwdana_sfc(p_patch, prm_diag, p_lnd_state)
 
-
-    ! read data assimilation increment (land/surface only)
-!    CALL read_dwdana_sfc()
 
     ! add increments to first guess and convert variables to 
     ! the NH set of prognostic variables
@@ -456,6 +456,7 @@ MODULE mo_nh_initicon
 
       CALL read_netcdf_data (fileid, varname, glb_arr_len, loc_arr_len, &
         &                    glb_index, var_out)
+
     CASE (FILETYPE_GRB2)
       IF(p_pe == p_io .AND. msg_level>10) THEN
         WRITE(message_text,'(a)') 'GRB2-Read: '//TRIM(mapped_name)
@@ -464,6 +465,7 @@ MODULE mo_nh_initicon
 
       CALL read_grib_2d(fileid, mapped_name, glb_arr_len, loc_arr_len, &
         &                    glb_index, var_out, opt_tileidx)
+
     CASE DEFAULT
       CALL finish(routine, "Unknown file type")
     END SELECT
@@ -511,6 +513,7 @@ MODULE mo_nh_initicon
 
       CALL read_grib_3d            (fileid, mapped_name, glb_arr_len, loc_arr_len, &
         &                           glb_index, nlevs, var_out, opt_tileidx)
+
     CASE DEFAULT
       CALL finish(routine, "Unknown file type")
     END SELECT
@@ -1150,9 +1153,9 @@ MODULE mo_nh_initicon
       ! is not active at initial time
       IF (.NOT. p_patch(jg)%ldom_active) CYCLE
 
-      !--------------------------!
-      ! Read in DWD first guess  !
-      !--------------------------!
+      !---------------------------------------!
+      ! Read in DWD first guess (atmosphere)  !
+      !---------------------------------------!
       fileID = 0
       IF(p_pe == p_io ) THEN 
 
@@ -1272,9 +1275,11 @@ MODULE mo_nh_initicon
     ENDDO ! loop over model domains
 
 
-    !-----------------------!
-    ! read in analysis      !
-    !-----------------------!
+
+    !----------------------------------------!
+    ! read in DWD analysis (atmosphere)      !
+    !----------------------------------------!
+
 
     ! Analysis is read for the global domain, only.
     jg = 1
@@ -1343,44 +1348,44 @@ MODULE mo_nh_initicon
     ! are stored in initicon(jg)%atm. The moisture variables, which can be taken
     ! over directly from the Analysis, are written to the NH prognostic state
     !
-    CALL read_data_3d (filetype, fileID, 'temp', p_patch(jg)%n_patch_cells_g,        &
-      &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,     &
+    CALL read_data_3d (filetype, fileID, 'temp', p_patch(jg)%n_patch_cells_g,      &
+      &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,   &
       &                  nlev, initicon(jg)%atm%temp )
 
-    CALL read_data_3d (filetype, fileID, 'pres', p_patch(jg)%n_patch_cells_g,        &
-      &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,     &
+    CALL read_data_3d (filetype, fileID, 'pres', p_patch(jg)%n_patch_cells_g,      &
+      &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,   &
       &                  nlev, initicon(jg)%atm%pres )
     
-    CALL read_data_3d (filetype, fileID, 'u', p_patch(jg)%n_patch_cells_g,           &
-      &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,     &
+    CALL read_data_3d (filetype, fileID, 'u', p_patch(jg)%n_patch_cells_g,         &
+      &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,   &
       &                  nlev, initicon(jg)%atm%u )
 
-    CALL read_data_3d (filetype, fileID, 'v', p_patch(jg)%n_patch_cells_g,           &
-      &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,     &
+    CALL read_data_3d (filetype, fileID, 'v', p_patch(jg)%n_patch_cells_g,         &
+      &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,   &
       &                  nlev, initicon(jg)%atm%v )
 
-    CALL read_data_3d (filetype, fileID, 'qv', p_patch(jg)%n_patch_cells_g,          &
-      &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,     &
+    CALL read_data_3d (filetype, fileID, 'qv', p_patch(jg)%n_patch_cells_g,        &
+      &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,   &
       &                  nlev, p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqv))
 
     ! For the time being identical to qc from FG
-    CALL read_data_3d (filetype, fileID, 'qc', p_patch(jg)%n_patch_cells_g,          &
-      &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,     &
+    CALL read_data_3d (filetype, fileID, 'qc', p_patch(jg)%n_patch_cells_g,        &
+      &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,   &
       &                  nlev, p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqc))
 
     ! For the time being identical to qi from FG
-    CALL read_data_3d (filetype, fileID, 'qi', p_patch(jg)%n_patch_cells_g,          &
-      &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,     &
+    CALL read_data_3d (filetype, fileID, 'qi', p_patch(jg)%n_patch_cells_g,        &
+      &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,   &
       &                  nlev, p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqi))
 
     ! For the time being identical to qr from FG
-    CALL read_data_3d (filetype, fileID, 'qr', p_patch(jg)%n_patch_cells_g,          &
-      &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,     &
+    CALL read_data_3d (filetype, fileID, 'qr', p_patch(jg)%n_patch_cells_g,        &
+      &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,   &
       &                  nlev, p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqr))
 
     ! For the time being identical to qs from FG
-    CALL read_data_3d (filetype, fileID, 'qs', p_patch(jg)%n_patch_cells_g,          &
-      &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,     &
+    CALL read_data_3d (filetype, fileID, 'qs', p_patch(jg)%n_patch_cells_g,        &
+      &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,   &
       &                  nlev, p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqs))
 
 
@@ -1404,14 +1409,19 @@ MODULE mo_nh_initicon
 
 
   !>
-  !! Read DWD first guess (land/surface only)
+  !! Read DWD first guess and analysis (land/surface only)
   !!
-  !! Read DWD first guess (land/surface only)
+  !! Read DWD first guess and analysis for land/surface.
+  !! First guess is read for:
+  !! fr_seaice, t_ice, h_ice, t_g, qv_s, freshsnow, w_snow, w_i, t_snow, 
+  !! rho_snow, w_so, w_so_ice, t_so, gz0
+  !!
+  !! If available, 
   !!
   !! @par Revision History
   !! Initial version by Daniel Reinert, DWD(2012-12-18)
   !!
-  SUBROUTINE read_dwdfg_sfc (p_patch, prm_diag, p_lnd_state)
+  SUBROUTINE read_dwdana_sfc (p_patch, prm_diag, p_lnd_state)
 
     TYPE(t_patch),          INTENT(IN)    :: p_patch(:)
     TYPE(t_nwp_phy_diag),   INTENT(INOUT) :: prm_diag(:)
@@ -1425,9 +1435,11 @@ MODULE mo_nh_initicon
     INTEGER :: fileID, dimid, varid, mpi_comm
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
-      routine = 'mo_nh_initicon:read_dwdfg_sfc'
+      routine = 'mo_nh_initicon:read_dwdana_sfc'
 
     CHARACTER(LEN=filename_max) :: dwdfg_file(max_dom)
+    CHARACTER(LEN=filename_max) :: dwdana_file(max_dom) ! analysis
+
     CHARACTER(LEN=2)            :: ct
 
     INTEGER :: filetype !< type of input file: FILETYPE_NC2 or FILETYPE_GRB2
@@ -1446,8 +1458,9 @@ MODULE mo_nh_initicon
 
 
 
-      ! Read in data from IFS2ICON
-      !
+      !-----------------------------------!
+      ! Read in DWD first guess (surface) !
+      !-----------------------------------!
       IF(p_pe == p_io ) THEN 
 
         ! ----------------------
@@ -1460,7 +1473,7 @@ MODULE mo_nh_initicon
         IF (.NOT.l_exist) THEN
           CALL finish(TRIM(routine),'DWD FG file not found: '//TRIM(dwdfg_file(jg)))
         ELSE
-          CALL message (TRIM(routine), 'read sfc fields from '//TRIM(dwdfg_file(jg)))
+          CALL message (TRIM(routine), 'read sfc_FG fields from '//TRIM(dwdfg_file(jg)))
         ENDIF
 
 
@@ -1480,11 +1493,6 @@ MODULE mo_nh_initicon
           CALL nf(nf_inq_dimlen(fileID, dimid, no_cells), routine)
           !CALL nf(nf_inq_dimid(fileID, 'ncells_2', dimid), routine)
           !CALL nf(nf_inq_dimlen(fileID, dimid, no_cells_2), routine)
-          ! get number of vertical levels
-          !CALL nf(nf_inq_dimid(fileID, 'lev', dimid), routine)
-          !CALL nf(nf_inq_dimlen(fileID, dimid, no_levels), routine)
-          !CALL nf(nf_inq_dimid(fileID, 'lev_2', dimid), routine)
-          !CALL nf(nf_inq_dimlen(fileID, dimid, no_levels_2), routine)
 
           CALL nf(nf_inq_dimid(fileID, 'depth', dimid), routine)
           CALL nf(nf_inq_dimlen(fileID, dimid, no_depth), routine)
@@ -1499,11 +1507,6 @@ MODULE mo_nh_initicon
             CALL finish(TRIM(ROUTINE),&
                  & 'Number of patch cells and cells in DWD FG file do not match.')
           ENDIF
-
-          !IF(p_patch(jg)%nlev /= no_levels .AND. p_patch(jg)%nlev /= no_levels_2) THEN
-          !  CALL finish(TRIM(ROUTINE),&
-          !       & 'nlev does not match the number of levels in DWD FG file.')
-          !ENDIF
 
           IF(nlev_soil /= no_depth_2 ) THEN
             CALL finish(TRIM(ROUTINE),&
@@ -1711,7 +1714,138 @@ MODULE mo_nh_initicon
 
     ENDDO ! loop over model domains
 
-  END SUBROUTINE read_dwdfg_sfc
+
+
+    !----------------------------------------!
+    ! read in DWD analysis (surface)         !
+    !----------------------------------------!
+
+    IF (l_ana_sfc) THEN
+
+      ! Analysis is read for the global domain, only.
+      jg = 1
+
+      IF(p_pe == p_io ) THEN 
+
+        ! ----------------------
+        ! generate file name
+        ! ----------------------
+
+        dwdana_file(jg) = generate_filename(dwdana_filename, model_base_dir, &
+          &                                   nroot, jlev, jg)
+        INQUIRE (FILE=dwdana_file(jg), EXIST=l_exist)
+        IF (.NOT.l_exist) THEN
+          CALL finish(TRIM(routine),'DWD ANA file not found: '//TRIM(dwdana_file(jg)))
+        ELSE
+          CALL message (TRIM(routine), 'read sfc_ANA fields from '//TRIM(dwdana_file(jg)))
+        ENDIF
+
+        ! determine filetype
+        filetype = get_filetype(TRIM(dwdana_file(jg)))
+
+        ! --------------------------------
+        ! open file, read basic dimensions
+        ! --------------------------------
+
+        SELECT CASE(filetype)
+        CASE (FILETYPE_NC2)
+          CALL nf(nf_open(TRIM(dwdana_file(jg)), NF_NOWRITE, fileID), routine)
+          ! get number of cells
+          CALL nf(nf_inq_dimid(fileID, 'ncells', dimid), routine)
+          CALL nf(nf_inq_dimlen(fileID, dimid, no_cells), routine)
+          ! get number of vertical levels
+          CALL nf(nf_inq_dimid(fileID, 'lev', dimid), routine)
+          CALL nf(nf_inq_dimlen(fileID, dimid, no_levels), routine)
+
+          ! -------------------------
+          ! simple consistency checks
+          ! -------------------------
+        
+          ! check the number of cells and vertical levels
+          IF( p_patch(jg)%n_patch_cells_g /= no_cells) THEN
+            CALL finish(TRIM(ROUTINE),&
+                 & 'Number of patch cells and cells in DWD ANA file do not match.')
+          ENDIF
+        
+          IF(p_patch(jg)%nlev /= no_levels) THEN
+            CALL finish(TRIM(ROUTINE),&
+                 & 'nlev does not match the number of levels in DWD ANA file.')
+          ENDIF
+
+
+          !------------------------------------------
+          ! Check if required variables are available
+          !------------------------------------------
+          ! To be done for netcdf
+
+
+        CASE (FILETYPE_GRB2)
+          CALL cdiDefMissval(cdimissval) 
+          fileID  = streamOpenRead(TRIM(dwdana_file(jg)))
+
+          !------------------------------------------
+          ! Check if required variables are available
+          !------------------------------------------
+          ! To be done for GRIB2
+
+
+        CASE DEFAULT
+          CALL finish(routine, "Unknown file type")
+        END SELECT
+
+      ENDIF   ! p_io
+
+      IF(p_test_run) THEN
+        mpi_comm = p_comm_work_test 
+      ELSE
+        mpi_comm = p_comm_work
+      ENDIF
+
+      CALL p_bcast(filetype, p_io, mpi_comm)
+      CALL p_bcast(fileID,   p_io, mpi_comm)
+
+
+      ! set tile-index explicitly
+      jt = 1
+
+      ! sea-ice fraction
+      CALL read_data_2d (filetype, fileID, 'fr_seaice', p_patch(jg)%n_patch_cells_g,  &
+        &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,      &
+        &                p_lnd_state(jg)%diag_lnd%fr_seaice)
+
+      ! sea-ice temperature
+      CALL read_data_2d (filetype, fileID, 't_ice', p_patch(jg)%n_patch_cells_g,      &
+        &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,      &
+        &                p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_ice)
+
+      ! sea-ice height
+      CALL read_data_2d (filetype, fileID, 'h_ice', p_patch(jg)%n_patch_cells_g,      &
+        &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,      &
+        &                p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%h_ice)
+
+      ! T_SO(0)
+      CALL read_data_2d (filetype, fileID, 't_so', p_patch(jg)%n_patch_cells_g,       &
+        &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,      &
+        &                p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_so_t(:,1,:,jt))
+
+
+      ! close file
+      IF(p_pe == p_io) THEN
+        
+        SELECT CASE(filetype)
+        CASE (FILETYPE_NC2)
+          CALL nf(nf_close(fileID), routine)
+        CASE (FILETYPE_GRB2)
+          CALL streamClose(fileID)
+        CASE DEFAULT
+          CALL finish(routine, "Unknown file type")
+        END SELECT
+        
+      END IF
+
+    ENDIF  ! l_ana_sfc
+
+  END SUBROUTINE read_dwdana_sfc
 
 
 

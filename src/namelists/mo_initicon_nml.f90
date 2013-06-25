@@ -54,6 +54,7 @@ MODULE mo_initicon_nml
     & config_zpbl2              => zpbl2,             &
     & config_l_hice_in          => l_hice_in,         &
     & config_l_sst_in           => l_sst_in,          &
+    & config_l_ana_sfc          => l_ana_sfc,         &
     & config_ifs2icon_filename  => ifs2icon_filename, &
     & config_dwdfg_filename     => dwdfg_filename,    &
     & config_dwdana_filename    => dwdana_filename,   &
@@ -83,6 +84,8 @@ MODULE mo_initicon_nml
   REAL(wp) :: zpbl1, zpbl2  ! AGL heights used for vertical gradient computation
   LOGICAL  :: l_hice_in     ! Logical switch, if sea-ice thickness field is provided as input
   LOGICAL  :: l_sst_in      ! logical switch, if sea surface temperature is provided as input
+  LOGICAL  :: l_ana_sfc     ! If true, read surface/soil analysis fields from analysis
+                            ! file dwdana_filename   
   LOGICAL  :: l_coarse2fine_mode(max_dom)  ! If true, apply special corrections for interpolation from coarse
                                            ! to fine resolutions over mountainous terrain
   INTEGER  :: filetype      ! One of CDI's FILETYPE\_XXX constants. Possible values: 2 (=FILETYPE\_GRB2), 4 (=FILETYPE\_NC2)
@@ -105,9 +108,9 @@ MODULE mo_initicon_nml
 
 
   NAMELIST /initicon_nml/ init_mode, nlev_in, zpbl1, zpbl2, l_coarse2fine_mode, &
-                          nlevsoil_in, l_hice_in, l_sst_in, ifs2icon_filename,  &
-                          dwdfg_filename, dwdana_filename, filetype,            &
-                          ana_varnames_map_file
+                          nlevsoil_in, l_hice_in, l_sst_in, l_ana_sfc,          &
+                          ifs2icon_filename, dwdfg_filename,                    &
+                          dwdana_filename, filetype, ana_varnames_map_file
   
 CONTAINS
 
@@ -144,6 +147,8 @@ CONTAINS
   zpbl2       = 1000._wp    ! gradients
   l_hice_in   = .FALSE.     ! true: sea-ice thickness field provided as input
   l_sst_in    = .TRUE.      ! true: sea surface temperature field provided as input
+  l_ana_sfc   = .TRUE.      ! true: read soil/surface analysis fields from 
+                            !       analysis file dwdana_filename 
   filetype    = -1          ! "-1": undefined
   ana_varnames_map_file = " "
   ifs2icon_filename = "<path>ifs2icon_R<nroot>B<jlev>_DOM<idom>.nc"
@@ -173,18 +178,19 @@ CONTAINS
   ! 4.0 Fill the configuration state
   !------------------------------------------------------------
 
-  config_init_mode         = init_mode
-  config_nlev_in           = nlev_in
-  config_nlevsoil_in       = nlevsoil_in
-  config_zpbl1             = zpbl1
-  config_zpbl2             = zpbl2
-  config_l_hice_in         = l_hice_in
-  config_l_sst_in          = l_sst_in
-  config_ifs2icon_filename = ifs2icon_filename
-  config_dwdfg_filename    = dwdfg_filename
-  config_dwdana_filename   = dwdana_filename
-  config_l_coarse2fine_mode= l_coarse2fine_mode
-  config_filetype          = filetype
+  config_init_mode          = init_mode
+  config_nlev_in            = nlev_in
+  config_nlevsoil_in        = nlevsoil_in
+  config_zpbl1              = zpbl1
+  config_zpbl2              = zpbl2
+  config_l_hice_in          = l_hice_in
+  config_l_sst_in           = l_sst_in
+  config_l_ana_sfc          = l_ana_sfc
+  config_ifs2icon_filename  = ifs2icon_filename
+  config_dwdfg_filename     = dwdfg_filename
+  config_dwdana_filename    = dwdana_filename
+  config_l_coarse2fine_mode = l_coarse2fine_mode
+  config_filetype           = filetype
   config_ana_varnames_map_file = ana_varnames_map_file
 
   !------------------------------------------------------------

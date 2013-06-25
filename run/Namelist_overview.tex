@@ -1785,6 +1785,7 @@ number of model levels of input data&
 nlevsoil\_in&
 I & 4 & &
 number of soil levels of input data&
+init\_mode=2
 \tabularnewline
 
 \hline 
@@ -1807,6 +1808,15 @@ with the SST provided in the ifs2icon file. If false, it is initialized with the
 temperature. If the SST is not provided in the ifs2icon file,l\_sst\_in is reset to false.  &
 init\_mode=2
 \tabularnewline
+
+\hline 
+l\_ana\_sfc&
+L & .TRUE.& &
+Logical switch. If true, soil/surface analysis fields are read from the analysis file dwdfg\_filename
+If false, soil/surface analysis is not read. First guess is used, instead. &
+init\_mode=1
+\tabularnewline
+
 
 \hline 
 l\_coarse2fine\_mode&
@@ -5846,6 +5856,14 @@ model expects {\bf height based} coordinates. For further information see <icon 
 \begin{changeitem}{initicon\_nml: dwdinc\_filename}{ 2013-05-24 }{ 12266 }
   \begin{itemize}
    \item Renamed dwdinc\_filename to dwdana\_filename
+  \end{itemize}
+\end{changeitem}
+
+\begin{changeitem}{initicon\_nml: l\_ana\_sfc}{ 2013-06-25 }{ 12582 }
+  \begin{itemize}
+   \item Introduced new namelist flag \textbf{l\_ana\_sfc}
+   \item If true, soil/surface analysis fields are read from the analysis fiel dwdfg\_filename. 
+         If false, surface analyis fields are not read. Soil and surface are initialized with the first guess instead.
   \end{itemize}
 \end{changeitem}
 
