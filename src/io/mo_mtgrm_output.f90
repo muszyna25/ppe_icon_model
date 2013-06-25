@@ -160,8 +160,8 @@ MODULE mo_meteogram_output
   USE mo_netcdf_read,           ONLY: nf
   ! TODO[FP] : When using an already built GNAT, not all of the
   ! following USEs will be necessary:
-  USE mo_gnat_gridsearch,       ONLY: gnat_init_grid, gnat_destroy, gnat_tree,&
-    &                                 gnat_query_containing_triangles,        &
+  USE mo_gnat_gridsearch,       ONLY: gnat_init_grid, gnat_destroy, t_gnat_tree, &
+    &                                 gnat_query_containing_triangles,           &
     &                                 gnat_merge_distributed_queries, gk
   USE mo_dynamics_config,       ONLY: nnow
   USE mo_io_config,             ONLY: lwrite_extra, inextra_2d, inextra_3d
@@ -643,6 +643,7 @@ CONTAINS
     TYPE(t_meteogram_data)   , POINTER :: meteogram_data
     TYPE(t_meteogram_station), POINTER :: p_station
     TYPE(t_cf_global)        , POINTER :: cf  !< meta info
+    TYPE(t_gnat_tree)                  :: gnat
 
     pi_180 = ATAN(1._wp)/45._wp
 
@@ -721,7 +722,7 @@ CONTAINS
       END DO
 
       ! build GNAT data structure
-      CALL gnat_init_grid(ptr_patch)
+      CALL gnat_init_grid(gnat, ptr_patch)
       ! perform proximity query
 
       IF (is_plane_torus) THEN
@@ -730,7 +731,7 @@ CONTAINS
         grid_sphere_radius_mtg = grid_sphere_radius
       END IF
 
-      CALL gnat_query_containing_triangles(ptr_patch, gnat_tree, in_points(:,:,:),        &
+      CALL gnat_query_containing_triangles(gnat, ptr_patch, in_points(:,:,:),             &
         &                                  nproma, nblks, npromz, grid_sphere_radius_mtg, &
         &                                  p_test_run, tri_idx(:,:,:), min_dist(:,:))
       CALL gnat_merge_distributed_queries(ptr_patch, nstations, nproma, nblks, min_dist,  &
@@ -743,7 +744,7 @@ CONTAINS
       meteogram_data%npromz    = npromz
 
       ! clean up
-      CALL gnat_destroy()
+      CALL gnat_destroy(gnat)
     END IF
 
     CALL p_barrier
