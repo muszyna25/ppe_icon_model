@@ -1,3 +1,9 @@
+#if ! (defined (__GNUC__) || defined(__SX__) || defined(__SUNPRO_F95) || defined(__INTEL_COMPILER) || defined (__PGI))
+#define HAVE_F2003
+#endif
+#if (defined (__GNUC__) || defined(__SX__) || defined(__SUNPRO_F95))
+#define HAVE_F95
+#endif
 !>
 !! Utility module: print namelist to file, annotating all changed values.
 !!
@@ -54,8 +60,16 @@ MODULE mo_nml_annotate
   INTEGER            :: tmpnml1            =  3    !< file handle for temporary text file with defaults
   INTEGER            :: tmpnml2            =  4    !< file handle for temporary text file with settings
   
+  TYPE t_buffer
+#ifdef HAVE_F2003
+     CHARACTER (len=:), ALLOCATABLE  :: buf
+#else
+     CHARACTER (len=MAX_STRBUF_LENGTH)  :: buf
+#endif
+  END TYPE t_buffer
+
   !> internal buffer variables
-  CHARACTER (len=MAX_STRBUF_LENGTH)  :: nml_log_buffer1, nml_log_buffer2
+  TYPE (t_buffer) :: nml_log_buffer1, nml_log_buffer2
   
   !> start positions of the several namelist lines in the buffer
   INTEGER :: startpos1(MAX_STRBUF_LINES), startpos2(MAX_STRBUF_LINES)
@@ -299,7 +313,7 @@ CONTAINS
   !
   SUBROUTINE nml_read(tmpnml, buffer, startpos)
     INTEGER,                           INTENT(INOUT) :: tmpnml
-    CHARACTER (len=MAX_STRBUF_LENGTH), INTENT(INOUT) :: buffer
+    TYPE (t_buffer),                   INTENT(INOUT) :: buffer
     INTEGER,                           INTENT(INOUT) :: startpos(MAX_STRBUF_LINES)
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = modname//'::nml_read'
@@ -311,7 +325,10 @@ CONTAINS
     CLOSE (tmpnml)
     
     nmllen = util_filesize(filename)
-    buffer(:) = ' '
+#ifdef HAVE_F2003
+    ALLOCATE(CHARACTER(len=nmllen) :: buffer%buf)
+#endif
+    buffer%buf(:) = ' '
     
     IF (nmllen == 0) THEN
       CALL finish(routine, "File has zero size!")
@@ -323,16 +340,16 @@ CONTAINS
     !  stream of characters)
     tmpnml = 65535
     OPEN(UNIT=65535, FILE=TRIM(filename), ACTION='read', FORM='unformatted')
-    READ(65535, end=888) buffer(1:nmllen)
+    READ(65535, end=888) buffer%buf(1:nmllen)
 888 CONTINUE
     CLOSE (65535)
 #else
     OPEN(UNIT=tmpnml, FILE=TRIM(filename), ACTION='read', ACCESS='stream', FORM='unformatted')
-    READ(tmpnml) buffer(1:nmllen)
+    READ(tmpnml) buffer%buf(1:nmllen)
     CLOSE (tmpnml)
 #endif
     iret = util_unlink(TRIM(filename))
-    CALL compute_startpos(buffer, startpos)
+    CALL compute_startpos(buffer%buf, startpos)
   END SUBROUTINE NML_READ
   
   
@@ -360,12 +377,15 @@ CONTAINS
       END IF
     END IF
     ! parse namelist
-    CALL parse_namelist(nml_log_buffer1, nml_log_buffer2, &
-      &                 col_width=64, gap_width=3,        &
+    CALL parse_namelist(nml_log_buffer1%buf, nml_log_buffer2%buf, &
+      &                 col_width=64, gap_width=3,                &
       &                 opt_file=dst_file)
     IF (PRESENT(opt_filename)) THEN
       CLOSE(dst_file)
     END IF
+#ifdef HAVE_F2003
+    DEALLOCATE(nml_log_buffer1%buf, nml_log_buffer2%buf)
+#endif
   END SUBROUTINE log_nml_settings
   
 END MODULE mo_nml_annotate
