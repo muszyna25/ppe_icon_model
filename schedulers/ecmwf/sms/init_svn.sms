@@ -26,7 +26,7 @@ echo "INIT_SVN.SMS"
 export PATH=/usr/local/apps/subversion/subversion-1.6.11/bin:$PATH
 
 
-#if [ "%SVN_UPDATE%" -eq "1" ]
+#if [[ "%SVN_UPDATE%" -eq "1" ]]
 #then
 
 # [1] SVN UPDATE =================================

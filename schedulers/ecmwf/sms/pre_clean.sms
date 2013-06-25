@@ -25,7 +25,7 @@ echo "PRE_CLEAN.SMS"
 set -x
 module load python
 
-if [ %NENS% -gt 0 ]
+if [[ %NENS% -gt 0 ]]
   then DIRENS=/%NMEM%
   else DIRENS=''
 fi
@@ -38,7 +38,7 @@ ls -lrt
 # Clear directories ---------------------------
 
 # create MODELOUTDIR, if necessary
-if [ ! -d ${MODELOUTDIR} ]; then
+if [[ ! -d ${MODELOUTDIR} ]] ; then
     mkdir -p ${MODELOUTDIR}
 fi
 rm -rf ${MODELOUTDIR}/*

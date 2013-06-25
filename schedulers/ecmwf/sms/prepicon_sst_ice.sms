@@ -120,7 +120,7 @@ do
 IFS_FILENAME_GRB="${SSTICEDIR}/ifs_ei_SST_%YYYY%_${month}.grb"
 IFS_FILENAME_NC="${SSTICEDIR}/SST_%YYYY%_${month}_${ICON_GRIDFILE}"
 
-if [ ! -f ${IFS_FILENAME_NC} ]; then
+if [[ ! -f ${IFS_FILENAME_NC} ]] ; then
 
 cat > NAMELIST_PREPICON << EOF
 &parallel_nml
@@ -168,7 +168,7 @@ fi
 IFS_FILENAME_GRB="${SSTICEDIR}/ifs_ei_CI_%YYYY%_${month}.grb"
 IFS_FILENAME_NC="${SSTICEDIR}/CI_%YYYY%_${month}_${ICON_GRIDFILE}"
 
-if [ ! -f ${IFS_FILENAME_NC} ]; then
+if [[ ! -f ${IFS_FILENAME_NC} ]] ; then
 
 cat > NAMELIST_PREPICON << EOF
 &parallel_nml

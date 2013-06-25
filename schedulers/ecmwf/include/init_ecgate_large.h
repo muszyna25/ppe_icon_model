@@ -1,13 +1,13 @@
+#!/bin/ksh                                        #@ shell = /usr/bin/ksh
 #==========================================================================
-#  Loadleveler Directives
+#  SLURM Directives
 #==========================================================================
-#@ job_name         = ICON_%TASK%
-#@ output           = %SMSJOBOUT%
-#@ error            = %SMSJOBOUT%
-#@ notification     = error
-#@ shell            = /usr/bin/ksh
-#@ class            = large
-#@ queue
+
+#SBATCH --qos       = large
+#SBATCH --job-name  = ICON_%TASK%                 #@ job_name
+#SBATCH --output    = %SMSJOBOUT%                 #@ output
+#SBATCH --error     = %SMSJOBOUT%                 #@ error
+#SBATCH --mail-type = FAIL                        #@ notification 
 
 
 #==========================================================================

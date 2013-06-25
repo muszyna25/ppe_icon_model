@@ -448,8 +448,8 @@ file_png = png_output( OUTPUT_NAME : plotfile )
 if mode = 'batch' or mode = 'execute' then  
   shell('mkdir -p '&plotdir)
  #setoutput(file_ps, file_png)  
- #setoutput(file_png)  
-  setoutput(file_ps)  
+  setoutput(file_png)  
+ #setoutput(file_ps)  
 end if  
 display_window = build_layout()
 
@@ -461,17 +461,9 @@ else
 end if
 
 
-# Dummy fix to wait until plot is finished for convert command afterwards (v4.3.8)
-# (can be removed once metview is fixed)
-# CREATE a DUMMY PS FILE
-file_dummy = ps_output( OUTPUT_NAME : plotdir&'/dummy' )
-setoutput(file_dummy)
-# xxx
-
-
-shell('convert -rotate 90 '&plotfile&'.ps '&plotfile&'.png')
-shell('ls -lrt '&plotfile&'.png')
-#shell('\rm -f '            &plotfile&'.ps ')
+#shell('convert -rotate 90 '&plotfile&'.ps '&plotfile&'.png')
+##shell('ls -lrt '&plotfile&'.png')
+#shell('\rm -f '&plotfile&'.ps ')
 
 print('output: ',plotfile,'.*')
 #shell('gv '&plotfile&'.ps&')

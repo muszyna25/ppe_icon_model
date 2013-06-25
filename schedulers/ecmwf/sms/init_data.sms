@@ -25,11 +25,11 @@
 echo "INIT_DATA.SMS"
 
 
-if [ %NENS% -gt 0 ]
+if [[ %NENS% -gt 0 ]]
   then DIRENS=/%NMEM%
   else DIRENS=''
 fi
-if [ %NENS% -gt 0 ]
+if [[ %NENS% -gt 0 ]]
   then TXTENS=_%NMEM%
   else TXTENS=''
 fi
@@ -326,7 +326,7 @@ EOF
 
 # 80-83 changed to 39-42!!!
  
-if [ %SIMMODE% -ne 3  -a  %YMD% -ge 20101109 ] ; then
+if [[ %SIMMODE% -ne 3  -a  %YMD% -ge 20101109 ]] ; then
 
 cat >> NAMELIST_PREPICON << EOF
 &input_field_nml  ! rain water content
@@ -349,7 +349,7 @@ fi
 
 IFSDATADIR2=%SCTEMP%/%SUITE%/%EXPNUM2%/input/%YMD%%INIHOUR%${DIRENS}
 
-if [ -f ${IFSDATADIR2}/${IFS_FILENAME_NC}  -a  %EXPNUM% -ne %EXPNUM2% ] ; then
+if [[ -f ${IFSDATADIR2}/${IFS_FILENAME_NC}  -a  %EXPNUM% -ne %EXPNUM2% ]] ; then
   echo 'ifs2icon file can be copied - no prepicon!'
   ls -l ${IFSDATADIR2}/${IFS_FILENAME_NC}
   sleep 120

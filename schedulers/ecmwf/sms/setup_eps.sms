@@ -25,7 +25,7 @@ echo "SETUP.SMS"
 
 # Build a new binary every MONDAY:
 WEEKDAY=`python %ECBASEDIR%/gen/date_calc.py -a weekday -d %SMSDATE%00`
-if [ "${WEEKDAY}" -eq "1" ]
+if [[ "${WEEKDAY}" -eq "1" ]]
 then
      smsevent enable_build
 fi

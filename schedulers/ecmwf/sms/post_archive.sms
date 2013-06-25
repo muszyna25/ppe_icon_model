@@ -26,7 +26,7 @@ echo "POST_ARCHIVE.SMS"
 
 
 case %SIMMODE% in
-  1) if [ %FAMILY1% = "post" ] ; then
+  1) if [[ %FAMILY1% = "post" ]] ; then
        ldeldata=0      # pre-operations (post)
      else
        ldeldata=1      # pre-operations (post_1)

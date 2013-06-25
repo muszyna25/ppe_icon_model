@@ -34,7 +34,7 @@ SVNPATH=/usr/local/apps/subversion/subversion-1.6.11/bin
 cd %SCPERMIII%
 ls -lrt
 
-#if [ "%SVN_UPDATE%" -eq "1" ]
+#if [[ "%SVN_UPDATE%" -eq "1" ]]
 #then
 
 # [1] SVN UPDATE =================================

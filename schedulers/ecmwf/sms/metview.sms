@@ -37,7 +37,6 @@ lmetview=1
 YYYYMM=`echo %YMD% | cut -c 1-6`
 EXPDIR=%ECTEMP%/%SUITE%/%EXPNUM%/%YMD%%INIHOUR%
 METDIR=%ECPERM%/icon-dev/scripts/postprocessing/tools/metview
-export ARCH="rs6000"
 cd ${EXPDIR}
 # base name for output and namelist files
 basename=%SUITE%_%EXPNUM%_%YMD%%INIHOUR%
@@ -82,16 +81,6 @@ awk 'NR%'${ndiff}'=='${nstart} met.job.all.${nstart} > met.job.${nstart}
   \rm -rf met.job.all.${nstart} met.job.${nstart}
 
 fi
-
-
-#if [[ $lmetview = 1 ]] ; then
-#    2011010100) ssh -n -f oflws144 ". /opt/grib_api/.grib_api_environment ; /fe1-daten/mkoehler/metview/ICON/many.error.s 20110101 00 20110101 00  1 ${res} ${EXPNUM} > /uwork1/mkoehler/wq/o.icon.metview.1 2>&1 &" ;;
-#    2011010200) ssh -n -f oflws144 ". /opt/grib_api/.grib_api_environment ; /fe1-daten/mkoehler/metview/ICON/many.error.s 20110101 00 20110102 00  1 ${res} ${EXPNUM} > /uwork1/mkoehler/wq/o.icon.metview.2 2>&1 &" ;;
-#    2011010300) ssh -n -f oflws144 ". /opt/grib_api/.grib_api_environment ; /fe1-daten/mkoehler/metview/ICON/many.error.s 20110101 00 20110103 00  1 ${res} ${EXPNUM} > /uwork1/mkoehler/wq/o.icon.metview.3 2>&1 &" ;;
-#    2011010600) ssh -n -f oflws144 ". /opt/grib_api/.grib_api_environment ; /fe1-daten/mkoehler/metview/ICON/many.error.s 20110101 00 20110106 00  1 ${res} ${EXPNUM} > /uwork1/mkoehler/wq/o.icon.metview.6 2>&1 &" ;;
-#  ssh oflws144 '. /opt/grib_api/.grib_api_environment ; /fe1-daten/mkoehler/metview/ICON/many.error.s 20110101 00 20110102 00 10 ${res} ${EXPNUM}'
-#  ssh oflws144 '. /opt/grib_api/.grib_api_environment ; /fe1-daten/mkoehler/metview/ICON/many.error.s 20110101 00 20110106 00  6 ${res} ${EXPNUM}'
-#fi
 
 
 # -------------------------------------------------

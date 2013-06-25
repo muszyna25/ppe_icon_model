@@ -43,7 +43,7 @@ lcatdata=1
 lcpdata=1
 ldeldata=1
 
-if [ `echo %YMD% | cut -c 7-8` -eq "12" ] ; then
+if [[ `echo %YMD% | cut -c 7-8` -eq "12" ]] ; then
   ldeldata=0           # do some test plots on the 12th of the month, but no delete
 fi                     # (see also testday.sms)
 ####
@@ -78,7 +78,7 @@ for levtype1 in PL HL ML ; do
     outdir=%SCTEMP%/%SUITE%/%EXPNUM%/output/${ymdh}/
     gatedir=%ECTEMP%/%SUITE%/%EXPNUM%/${ymdh}
     mkdir -p ${outdir}
-    rsh ecgate mkdir -p ${gatedir}
+    ssh ecgb mkdir -p ${gatedir}
     cd ${outdir}
 
     # base name for output and namelist files
@@ -184,7 +184,7 @@ if [[ $lcatdata = 1 ]] ; then
       echo "processing variable: "$var
       outdir="%SCTEMP%/%SUITE%/%EXPNUM%/output/${ymdh}/"
       cd $outdir
-      if [ ! -f  grb_data/${base}_${ymdh}_DOM01_0001_${var}.grb ] ; then
+      if [[ ! -f  grb_data/${base}_${ymdh}_DOM01_0001_${var}.grb ]] ; then
         continue 2
       fi 
       grib_copy  grb_data/${base}_${ymdh}_DOM01_0001_${var}.grb \
@@ -255,8 +255,8 @@ fi
 if [[ $lcpdata = 1 ]] ; then
   gatedir=%ECTEMP%/%SUITE%/%EXPNUM%/${YYYYMM}
   cd $mondir
-  rsh ecgate mkdir -p ${gatedir}/grb_data
-  rcp *.grb    ecgate:${gatedir}/grb_data
+  ssh ecgb mkdir -p ${gatedir}/grb_data
+  scp *.grb    ecgb:${gatedir}/grb_data
   emkdir -p ec:icon/experiments/%SUITE%/%EXPNUM%/${YYYYMM}
   ecp "*.grb" ec:icon/experiments/%SUITE%/%EXPNUM%/${YYYYMM}
   smsevent cpdata
@@ -270,6 +270,7 @@ if [[ $ldeldata = 1 ]] ; then
   cd $mondir
   \rm -rf grb_data 
 fi
+
 
 # -------------------------------------------------
 # include the "tail" file for remote jobs

@@ -24,7 +24,7 @@ echo "GET_DATA.SMS"
 
 module load python
 
-if [ %NENS% -gt 0 ]
+if [[ %NENS% -gt 0 ]]
   then DIRENS=/%NMEM%
   else DIRENS=''
 fi
@@ -49,18 +49,18 @@ export IFSDATADIR DATCONVCMD PERL5LIB TMPDIR
 
 # Retrieve data from MARS ---------------------
 
-if [ -f ${IFSDATADIR2}/${IFS_FILENAME_NC} ] ; then
+if [[ -f ${IFSDATADIR2}/${IFS_FILENAME_NC} ]] ; then
   echo 'ifs2icon file can be copied - no MARS!'
   ls -l ${IFSDATADIR2}/${IFS_FILENAME_NC}
 else
 
-  if [ %SIMMODE% -eq 3 ] ; then
+  if [[ %SIMMODE% -eq 3 ]] ; then
         ${SCRIPTDIR}/preprocessing/mars4icon_smi_ERAinterim %YMD%%INIHOUR% 0  255 1/to/60 %SCPERMIII%/icon_input/slt-data
   else
-    if [ %NENS% -gt 0 ] ; then
+    if [[ %NENS% -gt 0 ]] ; then
         ${SCRIPTDIR}/preprocessing/mars4icon_smi_32r3+_eda  %YMD%%INIHOUR% 0  399 1/to/91 %NMEM%
     else 
-      if [ %YMD% -ge 20100126  -a  %RES% = "R2B08" ] ; then
+      if [[ %YMD% -ge 20100126  -a  %RES% = "R2B08" ]] ; then
         ${SCRIPTDIR}/preprocessing/mars4icon_smi_32r3+      %YMD%%INIHOUR% 0 1279 1/to/91
       else 
         ${SCRIPTDIR}/preprocessing/mars4icon_smi_32r3+      %YMD%%INIHOUR% 0  799 1/to/91

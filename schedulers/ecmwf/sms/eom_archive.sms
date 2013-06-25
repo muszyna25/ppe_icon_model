@@ -36,8 +36,7 @@ DD=`echo %YMD% | cut -c 7-8`
 gatedir=%ECTEMP%/%SUITE%/%EXPNUM%/$YYYYMM
 cd ${gatedir}
 ecfsdir=ec:icon/experiments/%SUITE%/%EXPNUM%/$YYYYMM
-ECFSPATH=/usr/local/ecfs/new
-${ECFSPATH}/emkdir.p -p $ecfsdir
+emkdir -p $ecfsdir
 METDIR=%ECPERM%/icon-dev/scripts/postprocessing/tools/metview
 
 

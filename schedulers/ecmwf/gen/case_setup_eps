@@ -36,7 +36,7 @@ RADDIR=${basedir}/icon_input/radiation
 set -x
 
 # the directory for the experiment will be created, if not already there
-if [ ! -d $EXPDIR ]; then
+if [[ ! -d $EXPDIR ]] ; then
     mkdir -p $EXPDIR
 fi
 cd $EXPDIR

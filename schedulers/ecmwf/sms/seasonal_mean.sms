@@ -63,7 +63,7 @@ esac
 
 outdir=%SCTEMP%/%SUITE%/%EXPNUM%/output/%YMD%%INIHOUR%
 gatedir=%ECTEMP%/%SUITE%/%EXPNUM%/%YMD%%INIHOUR%
-rsh ecgate mkdir -p ${gatedir}
+ssh ecgb mkdir -p ${gatedir}
 cd ${outdir}
 ecfsdir="ec:icon/experiments/%SUITE%/%EXPNUM%/%YMD%%INIHOUR%"
 emkdir -p $ecfsdir
@@ -74,13 +74,13 @@ basename=%SUITE%_%EXPNUM%_%YMD%%INIHOUR%
 #-----------------------------------------------------------------------------
 # namelist and icon_rev.txt: copy to ecfs
 
-if [ -f   NAMELIST_${basename} ] ; then
+if [[ -f   NAMELIST_${basename} ]] ; then
  ecp -o NAMELIST_${basename} $ecfsdir
 else
  ecp  $ecfsdir/NAMELIST_${basename}  .
 fi 
 bindir=%SCTEMP%/%SUITE%/%EXPNUM%/output/bin
-if [ -f ${bindir}/icon_rev.txt ] ; then
+if [[ -f ${bindir}/icon_rev.txt ]] ; then
  ecp -o ${bindir}/icon_rev.txt $ecfsdir
 else
  ecp ${ecfsdir}/icon_rev.txt ${bindir}
@@ -89,7 +89,7 @@ fi
 # GRIB: copy to ecfs
 
 for levtype in ML PL HL ; do
-  if [ -f   ${outdir}/${basename}_DOM01_${levtype}_0001.grb ] ; then
+  if [[ -f   ${outdir}/${basename}_DOM01_${levtype}_0001.grb ]] ; then
    ecp -o ${outdir}/${basename}_DOM01_${levtype}_0001.grb $ecfsdir
    ls ${outdir}/${basename}_DOM01_${levtype}_0001.grb
   else
@@ -299,8 +299,8 @@ fi
 # move data to ecgate
 
 if [[ $lcpdata = 1 ]] ; then
-  rsh ecgate mkdir -p ${gatedir}/grb_data
-  rcp grb_data/* ecgate:${gatedir}/grb_data
+  ssh ecgb mkdir -p ${gatedir}/grb_data
+  scp grb_data/* ecgb:${gatedir}/grb_data
 fi
 
 #-----------------------------------------------------------------------------
@@ -317,4 +317,3 @@ fi
 # -------------------------------------------------
 # include the "tail" file for remote jobs
 %include <end_job.h>
- 

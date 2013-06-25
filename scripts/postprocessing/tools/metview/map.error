@@ -520,17 +520,17 @@ for k=k1 to k2 by k3 do
  #file_pdf = pdf_output( OUTPUT_NAME : plotfile&'.L'&k )
  #file_eps = eps_output( OUTPUT_NAME : plotfile&'.L'&k )
  #file_svg = svg_output( OUTPUT_NAME : plotfile&'.L'&k )
-  file_ps  = ps_output ( OUTPUT_NAME : plotfile&'.L'&k )
- #file_png = png_output( OUTPUT_NAME : plotfile&'.L'&k )
+ #file_ps  = ps_output ( OUTPUT_NAME : plotfile&'.L'&k )
+  file_png = png_output( OUTPUT_NAME : plotfile&'.L'&k )
 
   if mode = 'batch' or mode = 'execute' then  
     shell('mkdir -p '&plotdir)
    #setoutput(file_ps, file_png)  
-   #setoutput(file_png)  
+    setoutput(file_png)  
    #setoutput(file_pdf)  
    #setoutput(file_eps)  
    #setoutput(file_svg)  
-    setoutput(file_ps)
+   #setoutput(file_ps)
   end if  
   display_window = build_layout()
 
@@ -540,22 +540,14 @@ for k=k1 to k2 by k3 do
     plot ( display_window[1], text, var_data[k], all,  legend )
   end if
 
-
-# Dummy fix to wait until plot is finished for convert command afterwards (v4.3.8)
-# (can be removed once metview is fixed)
-# CREATE a DUMMY PS FILE
-  file_dummy = ps_output( OUTPUT_NAME : plotdir&'/dummy' )
-  setoutput(file_dummy)
-# xxx
-
-
 # shell('ls -lrt '&plotfile&'.L'&k&'.p*')
-  shell('convert -rotate 90 '&plotfile&'.L'&k&'.ps '&plotfile&'.L'&k&'.png')
-  shell('ls -lrt '&plotfile&'.L'&k&'.png')
+# shell('convert -rotate 90 '&plotfile&'.L'&k&'.ps '&plotfile&'.L'&k&'.png')
+##  shell('ls -lrt '&plotfile&'.L'&k&'.png')
 # shell('\rm -f '            &plotfile&'.L'&k&'.ps ')
 
 end for
 
+shell('ls -lrt '&plotfile&'.L'&k&'.png')
 print('output: ',plotfile,'*.*')
 #shell('gv '&plotfile&'*.ps&')
 

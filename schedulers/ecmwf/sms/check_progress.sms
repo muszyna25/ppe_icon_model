@@ -25,12 +25,12 @@ echo "CHECK_PROGRESS.SMS"
 
 date
 
-if [ %NENS% -gt 0 ]
+if [[ %NENS% -gt 0 ]]
   then DIRENS=/%NMEM%
   else DIRENS=''
 fi
 
-if [ %SIMMODE% -eq 3 ]
+if [[ %SIMMODE% -eq 3 ]]
   then DATETXT=/%YMD%
   else DATETXT=''
 fi
@@ -44,7 +44,7 @@ do
 
   timestep=`grep -i "time step" %SMSOUT%/%SUITE%/%EXPNUM%/forecast${DIRENS}${DATETXT}/model.1 | tail -n1 | awk '{print $6}'`
   if [[ ! -n "$timestep"  || "$timestep" = "initial" ]]
- #if [ "$timestep" = "initial" ]
+ #if [[ "$timestep" = "initial" ]]
   then
     timestep=0
   fi
@@ -55,7 +55,7 @@ do
   # wait some time before checking for output
   sleep %WAITINTVL%
 
-  if [ -f "%SMSHOME%/model_complete.flag" ]
+  if [[ -f "%SMSHOME%/model_complete.flag" ]]
   then
     flag=1
   fi
