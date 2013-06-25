@@ -1290,7 +1290,6 @@ src/drivers/mo_atmo_nonhydrostatic.f90 -text
 src/drivers/mo_icon_testbed.f90 -text
 src/drivers/mo_master_control.f90 -text
 src/drivers/mo_ocean_model.f90 -text
-src/drivers/prep_icon.f90 -text
 src/grid_generator/grid_command.f90 -text
 src/grid_generator/grid_definitions.inc -text
 src/grid_generator/mo_base_datatypes.f90 -text
@@ -1425,21 +1424,6 @@ src/parallel_infrastructure/mo_mpi.f90 -text
 src/parallel_infrastructure/mo_ompthreads.f90 -text
 src/parallel_infrastructure/mo_setup_subdivision.f90 -text
 src/parallel_infrastructure/mo_sync.f90 -text
-src/prep_icon/mo_remap.f90 -text
-src/prep_icon/mo_remap_config.f90 -text
-src/prep_icon/mo_remap_grid.f90 -text
-src/prep_icon/mo_remap_grid_icon.f90 -text
-src/prep_icon/mo_remap_grid_regular.f90 -text
-src/prep_icon/mo_remap_hydcorr.f90 -text
-src/prep_icon/mo_remap_input.f90 -text
-src/prep_icon/mo_remap_intp.f90 -text
-src/prep_icon/mo_remap_io.f90 -text
-src/prep_icon/mo_remap_output.f90 -text
-src/prep_icon/mo_remap_shared.f90 -text
-src/prep_icon/mo_remap_subdivision.f90 -text
-src/prep_icon/mo_remap_sync.f90 -text
-src/prep_icon/mo_remap_weights_cons.f90 -text
-src/prep_icon/mo_remap_weights_rbf.f90 -text
 src/shared/mo_add_tracer_ref.f90 -text
 src/shared/mo_cdi_constants.f90 -text
 src/shared/mo_datetime.f90 -text
@@ -1471,7 +1455,6 @@ src/shared/mo_statistics.f90 -text
 src/shared/mo_time_base.f90 -text
 src/shared/mo_timer.f90 -text
 src/shared/mo_util_backtrace.f90 -text
-src/shared/mo_util_binheap.f90 -text
 src/shared/mo_util_dbg_prnt.f90 -text
 src/shared/mo_util_debug.f90 -text
 src/shared/mo_util_hash.f90 -text
