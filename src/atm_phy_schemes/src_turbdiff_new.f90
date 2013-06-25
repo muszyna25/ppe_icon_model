@@ -4363,13 +4363,14 @@ SUBROUTINE turbdiff
             DO i=istartpar,iendpar
 !___________________________________________________________________________
 !test: q-Tendenz ueber Zwischenwerte von q:
-! tketens(i,k)=(SQRT(z2*upd_prof(i,k))-SQRT(z2*cur_prof(i,k)))*fr_tke
-               tketens(i,k)=(upd_prof(i,k)-cur_prof(i,k))*fr_tke/tke(i,k,ntur)
+               tketens(i,k)=(SQRT(z2*upd_prof(i,k))-SQRT(z2*cur_prof(i,k)))*fr_tke
+! JF:                tketens(i,k)=(upd_prof(i,k)-cur_prof(i,k))*fr_tke/tke(i,k,ntur)
 !modif:Einschraenkung der erweiterten Diffusionstendenzen von TKE
                wert=tke(i,k,ntur)*fr_tke
-               tketens(i,k)=MAX( -wert, MIN( wert, tketens(i,k) ) )
-! JF:                tketens(i,k)=MAX( -wert, tketens(i,k) )
+               tketens(i,k)=MAX( -wert, tketens(i,k) )
+! JF:                tketens(i,k)=MAX( -wert, MIN( wert, tketens(i,k) ) )
 !modif
+!test
 !___________________________________________________________________________
             END DO
 

@@ -92,7 +92,8 @@ MODULE mo_nwp_phy_init
   ! turbulence
   USE mo_turbdiff_config,     ONLY: turbdiff_config
   USE mo_data_turbdiff,       ONLY: get_turbdiff_param,      &
-    &                               lnew_ttrans, lnew_tdiff
+    &                               lnew_ttrans, lnew_tdiff, &
+    &                               lsflcnd
   USE src_turbdiff_new,       ONLY: organize_turbdiff
   USE src_turbdiff,           ONLY: turbtran, turbdiff
 
@@ -970,7 +971,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
 
         nlevcm = nlevp1
 
-        CALL organize_turbdiff( lstfnct=.TRUE., lsfluse=.TRUE., &
+        CALL organize_turbdiff( lstfnct=.TRUE., lsfluse=lsflcnd, &
           &  lturatm=.TRUE., ltursrf=.FALSE., iini=1, &
 ! JF:           &  ltkeinp=ltkeinp_loc, lgz0inp=lgz0inp_loc, &
           &  lmomdif=.TRUE., lscadif=.TRUE., itnd=0, &
