@@ -2205,7 +2205,7 @@ SUBROUTINE new_nwp_phy_tend_list( k_jg, klev,  kblks,   &
                 & ldims=shape3d, in_group=groups("phys_tendencies") )
 
    ! &      phy_tend%ddt_temp_radlw(nproma,nlev,nblks)
-    cf_desc    = t_cf_var('temp_tend_radlw', 'K s-1', &
+    cf_desc    = t_cf_var('ddt_temp_radlw', 'K s-1', &
          &                            'long wave radiative temperature tendency', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(192, 162, 101, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( phy_tend_list, 'ddt_temp_radlw', phy_tend%ddt_temp_radlw,      &
@@ -2213,7 +2213,7 @@ SUBROUTINE new_nwp_phy_tend_list( k_jg, klev,  kblks,   &
                 & ldims=shape3d, in_group=groups("phys_tendencies") )
 
    ! &      phy_tend%ddt_temp_turb(nproma,nlev,nblks)
-    cf_desc    = t_cf_var('temp_tend_turb', 'K s-1', &
+    cf_desc    = t_cf_var('ddt_temp_turb', 'K s-1', &
          &                            'turbulence temperature tendency', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(192, 162, 121, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( phy_tend_list, 'ddt_temp_turb', phy_tend%ddt_temp_turb,        &
@@ -2221,7 +2221,7 @@ SUBROUTINE new_nwp_phy_tend_list( k_jg, klev,  kblks,   &
                 & ldims=shape3d, lrestart=.FALSE., in_group=groups("phys_tendencies"))
 
    ! &      phy_tend%ddt_temp_drag(nproma,nlev,nblks)
-    cf_desc    = t_cf_var('temp_tend_drag', 'K s-1', &
+    cf_desc    = t_cf_var('ddt_temp_drag', 'K s-1', &
          &                'sso + gwdrag temperature tendency', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(192, 162, 125, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( phy_tend_list, 'ddt_temp_drag', phy_tend%ddt_temp_drag,        &
