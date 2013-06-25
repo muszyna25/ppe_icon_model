@@ -49,6 +49,7 @@ MODULE mo_nh_torus_exp
   USE mo_kind,                ONLY: wp
   USE mo_exception,           ONLY: message, finish, message_text
   USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, min_rledge, min_rlcell, SUCCESS
+  USE mo_io_units,            ONLY: find_next_free_unit
   USE mo_physical_constants,  ONLY: rd, rv, cpd, p0ref, cvd_o_rd, rd_o_cpd, grav, alv
   USE mo_model_domain,        ONLY: t_patch
   USE mo_ext_data_types,      ONLY: t_external_data
@@ -67,12 +68,15 @@ MODULE mo_nh_torus_exp
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_e, grf_bdywidth_c
   USE mo_satad,               ONLY: spec_humi, sat_pres_water
   USE mo_les_config,          ONLY: les_config
+  USE mo_nh_diagnose_pres_temp,ONLY: diagnose_pres_temp
+  USE mo_vert_utilities,      ONLY: vert_intp_linear_1d
 
   IMPLICIT NONE
   
   PRIVATE
 
   PUBLIC :: init_nh_state_cbl, cbl_stevens_fluxes, init_nh_state_rico, u_cbl, v_cbl, th_cbl
+  PUBLIC :: init_nh_state_gate
 
   !Linear profiles of variables for LES testcases
   REAL(wp) :: u_cbl(2)   !u_cbl(1) = constant, u_cbl(2) = gradient
@@ -83,7 +87,7 @@ MODULE mo_nh_torus_exp
   REAL(wp), PARAMETER :: zp0     = 100000._wp !< surface pressure
   REAL(wp), PARAMETER :: zh0     = 0._wp      !< height (m) above which temperature increases
   REAL(wp), PARAMETER :: lambda  = 1500._wp   !moist height from Stevens(2007)
-  REAL(wp), PARAMETER :: dtdz_st = 0.03_wp    !< theta lapse rate in stratosphere (T>0!)
+  REAL(wp), PARAMETER :: dtdz_st = 0.04_wp    !< theta lapse rate in stratosphere (T>0!)
   REAL(wp), PARAMETER :: z_tropo = 11000._wp  !height tropopause
   REAL(wp), PARAMETER :: rh_sfc  = 0.8_wp     !RH at surface [1], default 0.8
 
@@ -92,6 +96,12 @@ MODULE mo_nh_torus_exp
   REAL(wp), PARAMETER :: zh1     = 740._wp      !< height (m) above which temperature increases
   REAL(wp), PARAMETER :: ztsfc   = 297.9_wp
   REAL(wp), PARAMETER :: zh2     = 3260._wp     !< moist height for RICO
+
+  !DEFINED PARAMETERS (GATE case):
+  REAL(wp), PARAMETER :: zg_tropo = 17000._wp  !height tropopause
+  REAL(wp), PARAMETER :: zp_sfc   = 101200._wp !< surface pressure
+  REAL(wp), PARAMETER :: zt_sfc   = 299.88_wp
+
 !--------------------------------------------------------------------
 
    CONTAINS
@@ -106,7 +116,7 @@ MODULE mo_nh_torus_exp
   !!
   !!
   SUBROUTINE init_nh_state_cbl( ptr_patch, ptr_nh_prog,  ptr_nh_ref, ptr_nh_diag,  &
-    &                           ptr_int, ptr_ext_data, ptr_metrics)
+    &                           ptr_int, ptr_metrics)
 
     ! INPUT PARAMETERS:
     TYPE(t_patch),TARGET,  INTENT(IN)   :: &  !< patch on which computation is performed
@@ -117,8 +127,6 @@ MODULE mo_nh_torus_exp
       &  ptr_nh_prog
     TYPE(t_nh_diag),       INTENT(INOUT):: &  !< diagnostic state vector
       &  ptr_nh_diag
-    TYPE(t_external_data), INTENT(INOUT):: &  !< external data
-      &  ptr_ext_data
     TYPE(t_nh_metrics),    INTENT(IN)   :: &
       &  ptr_metrics                          !< NH metrics state
     TYPE(t_nh_ref),        INTENT(INOUT):: &  !< reference state vector
@@ -128,7 +136,7 @@ MODULE mo_nh_torus_exp
     INTEGER  :: jc,jk,jb,i_startblk,i_startidx,i_endidx   !< loop indices
     INTEGER  :: nblks_c,npromz_c,nblks_e,npromz_e
     INTEGER  :: nlev, nlevp1                  !< number of full and half levels
-    INTEGER  :: nlen, i_rcstartlev, jcn, jbn, jg, ntropo
+    INTEGER  :: nlen, jcn, jbn, jg, ntropo
 
   !-------------------------------------------------------------------------
 
@@ -269,16 +277,16 @@ MODULE mo_nh_torus_exp
 
 
   END SUBROUTINE init_nh_state_cbl
-  
+
   !>
-  !! Initialization of prognostic state vector for the nh RICO test case 
+  !! Initialization of prognostic state vector for the nh GATE test case 
   !!  with moisture
   !!
   !! @par Revision History
   !!
   !!
-  SUBROUTINE init_nh_state_rico( ptr_patch, ptr_nh_prog,  ptr_nh_ref, ptr_nh_diag,  &
-    &                           ptr_int, ptr_ext_data, ptr_metrics)
+  SUBROUTINE init_nh_state_gate( ptr_patch, ptr_nh_prog,  ptr_nh_ref, ptr_nh_diag,  &
+    &                           ptr_int, ptr_metrics)
 
     ! INPUT PARAMETERS:
     TYPE(t_patch),TARGET,  INTENT(IN)   :: &  !< patch on which computation is performed
@@ -289,18 +297,240 @@ MODULE mo_nh_torus_exp
       &  ptr_nh_prog
     TYPE(t_nh_diag),       INTENT(INOUT):: &  !< diagnostic state vector
       &  ptr_nh_diag
-    TYPE(t_external_data), INTENT(INOUT):: &  !< external data
-      &  ptr_ext_data
     TYPE(t_nh_metrics),    INTENT(IN)   :: &
       &  ptr_metrics                          !< NH metrics state
     TYPE(t_nh_ref),        INTENT(INOUT):: &  !< reference state vector
       &  ptr_nh_ref
 
     REAL(wp) :: rho_sfc, z_help(1:nproma), zvn1, zvn2, zu, zv, zt00, zh00
-    INTEGER  :: jc,je,jk,jb,jt,i_startblk,i_startidx,i_endidx   !< loop indices
+    INTEGER  :: je,jk,jb,i_startblk,i_startidx,i_endidx   !< loop indices
     INTEGER  :: nblks_c,npromz_c,nblks_e,npromz_e
     INTEGER  :: nlev, nlevp1                        !< number of full and half levels
-    INTEGER  :: nlen, i_rcstartlev, jcn, jbn, ist, jg, ntropo
+    INTEGER  :: nlen, i_rcstartlev, jcn, jbn, ist, jg, ntropo, iunit, nk
+
+    REAL(wp), ALLOCATABLE, DIMENSION(:) :: zz, z_tp, z_qv, z_u, z_v
+
+    !Constant in horizontal
+    REAL(wp), ALLOCATABLE ::  &
+      tp_gate(:),             & !Potential temperature [K]
+      u_gate (:),             & !Zonal wind speed      [m/s]
+      v_gate (:),             & !Meridional            [m/s]
+      qv_gate(:)                !specific humidity     [g/kg]
+    CHARACTER(len=max_char_length), PARAMETER :: routine = 'mo_nh_torus_exp:init_nh_state_gate'
+  !-------------------------------------------------------------------------
+    
+    !Open formatted file to read ls forcing data
+    iunit = find_next_free_unit(10,20)
+    OPEN (unit=iunit,file='ini_profils.dat',access='SEQUENTIAL', &
+          form='FORMATTED', action='READ', status='OLD', IOSTAT=ist)
+
+    IF(ist/=success)THEN
+      CALL finish (TRIM(routine), 'open init_profils.dat failed')
+    ENDIF  
+
+    !Read the input file till end. The order of file assumed is:
+    !Z(m) - w_ls - u_geo - v_geo - ddt_temp_hadv_ls - ddt_temp_rad_ls - ddt_qv_hadv_ls    
+    
+    !Read first line
+    READ(iunit,*,IOSTAT=ist)
+    IF(ist/=success)CALL finish(TRIM(routine), 'problem reading first line in ls_forcing.dat')
+
+    READ(iunit,*,IOSTAT=ist)nk
+    IF(ist/=success)CALL finish(TRIM(routine), 'problem reading second line in ls_forcing.dat')
+   
+    ALLOCATE( zz(nk), z_tp(nk), z_qv(nk), z_u(nk), z_v(nk))
+
+    DO jk = nk , 1, -1
+      READ(iunit,*,IOSTAT=ist)zz(jk),z_tp(jk),z_qv(jk),z_u(jk),z_v(jk)
+      IF(ist/=success)THEN
+          CALL finish (TRIM(routine), 'something wrong in ini_profils.dat')
+      END IF
+    END DO
+
+    !Check if the file is written in descending order
+    IF(zz(1) < zz(nk))CALL finish (TRIM(routine), 'Writing initial profils data in descending order!')
+
+    CLOSE(iunit)
+
+    nlev   = ptr_patch%nlev
+    ALLOCATE( tp_gate(nlev), u_gate(nlev), v_gate(nlev), qv_gate(nlev) )
+
+    !Now perform interpolation to grid levels assuming:
+    !a) linear interpolation
+    !b) Beyond the last Z level the values are linearly extrapolated 
+    !c) Assuming model grid is flat-NOT on sphere
+
+    CALL vert_intp_linear_1d(zz,z_tp,ptr_metrics%z_mc(2,:,2),tp_gate)
+    CALL vert_intp_linear_1d(zz,z_u,ptr_metrics%z_mc(2,:,2),u_gate)
+    CALL vert_intp_linear_1d(zz,z_v,ptr_metrics%z_mc(2,:,2),v_gate)
+    CALL vert_intp_linear_1d(zz,z_qv,ptr_metrics%z_mc(2,:,2),qv_gate)
+
+    DEALLOCATE( zz, z_tp, z_qv, z_u, z_v)
+
+    ! values for the blocking
+    nblks_c  = ptr_patch%nblks_int_c
+    npromz_c = ptr_patch%npromz_int_c
+    nblks_e  = ptr_patch%nblks_int_e
+    npromz_e = ptr_patch%npromz_int_e
+
+    ! number of vertical levels
+    nlevp1 = ptr_patch%nlevp1
+
+    !patch id
+    jg = ptr_patch%id
+
+    !
+    i_rcstartlev = 2
+    i_startblk   = ptr_patch%cells%start_blk(i_rcstartlev,1)
+
+    !Set some reference density    
+    rho_sfc = zp_sfc / (rd * les_config(jg)%sst)
+
+    ! init surface pressure
+    ptr_nh_diag%pres_sfc(:,:) = zp_sfc
+
+    ! Tracers: all zero by default
+    ptr_nh_prog%tracer(:,:,:,:) = 0._wp
+
+    DO jb = 1, nblks_c
+
+      IF (jb /= nblks_c) THEN
+         nlen = nproma
+      ELSE
+         nlen = npromz_c
+      ENDIF
+
+      DO jk = 1, nlev
+        ptr_nh_prog%tracer(1:nlen,jk,jb,iqv) = qv_gate(jk)/1000._wp
+      END DO
+
+      ntropo = 0
+      DO jk = nlev, 1, -1
+         z_help(1:nlen) = tp_gate(jk)
+         ! constant temperature above tropopause
+         if ((ptr_metrics%z_mc(1,jk,jb) > zg_tropo) .and. (ntropo == 0)) then
+            ntropo = 1
+            zt00   = z_help(1)
+            zh00   = ptr_metrics%z_mc(1,jk,jb)
+         endif
+         if (ptr_metrics%z_mc(1,jk,jb) > zg_tropo) then
+            z_help(1:nlen) = zt00 + (ptr_metrics%z_mc(1:nlen,jk,jb)-zh00) * dtdz_st
+         endif
+         ptr_nh_prog%theta_v(1:nlen,jk,jb) = z_help(1:nlen) * ( 1._wp + &
+           0.61_wp*ptr_nh_prog%tracer(1:nlen,jk,jb,iqv) - ptr_nh_prog%tracer(1:nlen,jk,jb,iqc) ) 
+      END DO
+
+
+      !Get hydrostatic pressure and exner at lowest level
+      ptr_nh_diag%pres(1:nlen,nlev,jb) = zp_sfc - rho_sfc * ptr_metrics%geopot(1:nlen,nlev,jb)
+      ptr_nh_prog%exner(1:nlen,nlev,jb) = (ptr_nh_diag%pres(1:nlen,nlev,jb)/p0ref)**rd_o_cpd 
+
+      !Get exner at other levels
+      DO jk = nlev-1, 1, -1
+         z_help(1:nlen) = 0.5_wp * ( ptr_nh_prog%theta_v(1:nlen,jk,jb) +  &
+                                     ptr_nh_prog%theta_v(1:nlen,jk+1,jb) )
+   
+         ptr_nh_prog%exner(1:nlen,jk,jb) = ptr_nh_prog%exner(1:nlen,jk+1,jb) &
+            &  -grav/cpd*ptr_metrics%ddqz_z_half(1:nlen,jk+1,jb)/z_help(1:nlen)
+      END DO
+
+      DO jk = 1 , nlev
+         ! rhotheta has to have the same meaning as exner
+         ptr_nh_prog%rhotheta_v(1:nlen,jk,jb) = &
+              (ptr_nh_prog%exner(1:nlen,jk,jb)**cvd_o_rd)*p0ref/rd
+
+         ptr_nh_prog%rho(1:nlen,jk,jb) = ptr_nh_prog%rhotheta_v(1:nlen,jk,jb) / &
+                                         ptr_nh_prog%theta_v(1:nlen,jk,jb)     
+      END DO !jk
+
+
+      CALL diagnose_pres_temp (ptr_metrics, ptr_nh_prog,ptr_nh_prog, ptr_nh_diag,     &
+                             ptr_patch, opt_calc_pres=.TRUE., opt_calc_temp=.TRUE.)
+    ! Print case set up
+    IF ( jb == 1 ) THEN
+      DO jk = 1,nlev
+       write(*,*) 'GATE case setup: level, p, T_diag, T, theta,v, qv: ', jk,&
+          &ptr_nh_prog%exner(1,jk,jb)**(cpd/rd) * p0ref,                   &
+          & ptr_nh_diag%temp(1,jk,jb),                                      &
+          & ptr_nh_prog%exner(1,jk,jb) * ptr_nh_prog%theta_v(1,jk,jb),      &
+          & ptr_nh_prog%theta_v(1,jk,jb),                                   &
+          & ptr_nh_prog%tracer(1,jk,jb,iqv)
+      ENDDO
+      write(*,*) 'GATE case setup surface: Ps: ',     ptr_nh_diag%pres_sfc(1,jb)
+    ENDIF
+
+
+    ENDDO !jb
+
+    !Mean wind 
+    DO jb = 1 , nblks_e
+     CALL get_indices_e( ptr_patch, jb, 1, nblks_e, i_startidx, i_endidx, grf_bdywidth_e+1)
+     DO jk = 1 , nlev 
+      DO je = i_startidx, i_endidx
+
+        !Torus geometry is flat so zu is only function of height which is same for all cells
+        !But it is kept varyign with jc,jb to introduce topography lateron
+        jcn  =   ptr_patch%edges%cell_idx(je,jb,1)
+        jbn  =   ptr_patch%edges%cell_blk(je,jb,1)
+        zu   =   u_gate(jk)
+        zv   =   v_gate(jk)
+
+        zvn1 =  zu * ptr_patch%edges%primal_normal_cell(je,jb,1)%v1 + &
+                zv * ptr_patch%edges%primal_normal_cell(je,jb,1)%v2      
+ 
+        jcn  =   ptr_patch%edges%cell_idx(je,jb,2)
+        jbn  =   ptr_patch%edges%cell_blk(je,jb,2)
+        zu   =   u_gate(jk)
+        zv   =   v_gate(jk)
+      
+        zvn2 =  zu * ptr_patch%edges%primal_normal_cell(je,jb,2)%v1 + &
+                zv * ptr_patch%edges%primal_normal_cell(je,jb,2)%v2      
+
+        ptr_nh_prog%vn(je,jk,jb) = ptr_int%c_lin_e(je,1,jb)*zvn1 + &
+                                   ptr_int%c_lin_e(je,2,jb)*zvn2
+
+        ptr_nh_ref%vn_ref(je,jk,jb) = ptr_nh_prog%vn(je,jk,jb)
+      END DO
+     END DO
+    END DO     
+    
+    !W wind and reference
+    ptr_nh_prog%w  = 0._wp; ptr_nh_ref%w_ref  = ptr_nh_prog%w
+
+    DEALLOCATE( tp_gate, u_gate, v_gate, qv_gate )
+
+  END SUBROUTINE init_nh_state_gate
+
+  
+  !>
+  !! Initialization of prognostic state vector for the nh RICO test case 
+  !!  with moisture
+  !!
+  !! @par Revision History
+  !!
+  !!
+  SUBROUTINE init_nh_state_rico( ptr_patch, ptr_nh_prog,  ptr_nh_ref, ptr_nh_diag,  &
+    &                           ptr_int, ptr_metrics)
+
+    ! INPUT PARAMETERS:
+    TYPE(t_patch),TARGET,  INTENT(IN)   :: &  !< patch on which computation is performed
+      &  ptr_patch
+    TYPE(t_int_state),     INTENT(IN)   :: &
+      &  ptr_int
+    TYPE(t_nh_prog),       INTENT(INOUT):: &  !< prognostic state vector
+      &  ptr_nh_prog
+    TYPE(t_nh_diag),       INTENT(INOUT):: &  !< diagnostic state vector
+      &  ptr_nh_diag
+    TYPE(t_nh_metrics),    INTENT(IN)   :: &
+      &  ptr_metrics                          !< NH metrics state
+    TYPE(t_nh_ref),        INTENT(INOUT):: &  !< reference state vector
+      &  ptr_nh_ref
+
+    REAL(wp) :: rho_sfc, z_help(1:nproma), zvn1, zvn2, zu, zv
+    INTEGER  :: je,jk,jb,i_startblk,i_startidx,i_endidx   !< loop indices
+    INTEGER  :: nblks_c,npromz_c,nblks_e,npromz_e
+    INTEGER  :: nlev, nlevp1                        !< number of full and half levels
+    INTEGER  :: nlen, i_rcstartlev, jcn, jbn, jg
 
   !-------------------------------------------------------------------------
 

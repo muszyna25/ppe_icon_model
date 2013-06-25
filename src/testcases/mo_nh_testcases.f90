@@ -111,7 +111,8 @@ MODULE mo_nh_testcases
   USE mo_nh_prog_util,         ONLY: nh_prog_add_random
   USE mo_nh_init_utils,        ONLY: n_flat_level, layer_thickness
   USE mo_grid_geometry_info,   ONLY: planar_torus_geometry
-  USE mo_nh_torus_exp,         ONLY: init_nh_state_cbl, init_nh_state_rico, u_cbl, v_cbl, th_cbl
+  USE mo_nh_torus_exp,         ONLY: init_nh_state_cbl, init_nh_state_rico,          &
+                                   & init_nh_state_gate, u_cbl, v_cbl, th_cbl
   
   IMPLICIT NONE  
   
@@ -641,6 +642,14 @@ MODULE mo_nh_testcases
 
    ! The topography has been initialized to 0 at the begining of this SUB
     CALL message(TRIM(routine),'running Rain in the Culumus Over the Ocean LES Experiment')
+
+  CASE ('GATE')
+
+    IF(p_patch(1)%geometry_info%geometry_type/=planar_torus_geometry)&
+        CALL finish(TRIM(routine),'GATE case is only for plane torus!')
+
+   ! The topography has been initialized to 0 at the begining of this SUB
+    CALL message(TRIM(routine),'running GATE Experiment')
 
   CASE DEFAULT
 
@@ -1227,7 +1236,7 @@ MODULE mo_nh_testcases
     DO jg = 1, n_dom
       nlev   = p_patch(1)%nlev
       CALL init_nh_state_cbl ( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), p_nh_state(jg)%ref,  &
-                      & p_nh_state(jg)%diag, p_int(jg), ext_data(jg), p_nh_state(jg)%metrics )
+                      & p_nh_state(jg)%diag, p_int(jg), p_nh_state(jg)%metrics )
 
       CALL nh_prog_add_random( p_patch(jg), p_nh_state(jg)%prog(nnow(jg))%w(:,:,:),       &
                                "cell", 0.05_wp, nlev-3, nlev ) 
@@ -1247,7 +1256,7 @@ MODULE mo_nh_testcases
     DO jg = 1, n_dom
       nlev   = p_patch(1)%nlev
       CALL init_nh_state_rico ( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), p_nh_state(jg)%ref,  &
-                      & p_nh_state(jg)%diag, p_int(jg), ext_data(jg), p_nh_state(jg)%metrics )
+                      & p_nh_state(jg)%diag, p_int(jg), p_nh_state(jg)%metrics )
 
       CALL nh_prog_add_random( p_patch(jg), p_nh_state(jg)%prog(nnow(jg))%w(:,:,:),       &
                                "cell", 0.05_wp, nlev-3, nlev ) 
@@ -1259,17 +1268,39 @@ MODULE mo_nh_testcases
 
     CALL message(TRIM(routine),'End setup RICO test')
 
+  CASE ('GATE')
+
+    IF(p_patch(1)%geometry_info%geometry_type/=planar_torus_geometry)&
+        CALL finish(TRIM(routine),'GATE case is only for plane torus!')
+
+    DO jg = 1, n_dom
+      nlev   = p_patch(1)%nlev
+      CALL init_nh_state_gate ( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), p_nh_state(jg)%ref,  &
+                      & p_nh_state(jg)%diag, p_int(jg), p_nh_state(jg)%metrics )
+
+      CALL nh_prog_add_random( p_patch(jg), p_nh_state(jg)%prog(nnow(jg))%w(:,:,:),       &
+                               "cell", 0.05_wp, nlev-3, nlev ) 
+      CALL nh_prog_add_random( p_patch(jg), p_nh_state(jg)%prog(nnow(jg))%theta_v(:,:,:), & 
+                               "cell", 0.2_wp, nlev-3, nlev ) 
+
+      CALL duplicate_prog_state(p_nh_state(jg)%prog(nnow(jg)),p_nh_state(jg)%prog(nnew(jg)))
+    END DO !jg
+
+    CALL message(TRIM(routine),'End setup GATE test')
+
 
   END SELECT
 
 
-  IF( atm_phy_nwp_config(1)%inwp_turb==3 .AND. &
-      (nh_test_name=='APE_nh' .or. nh_test_name=='CBL') )THEN
+  IF( (atm_phy_nwp_config(1)%inwp_turb==3 .OR. atm_phy_nwp_config(1)%inwp_turb==1) .AND. &
+      (nh_test_name=='APE_nh' .or. nh_test_name=='CBL' .or. nh_test_name=='GATE') )THEN
     DO jg = 1, n_dom
     !Snow and sea ice initialization to avoid problems in EDMF
       p_lnd_state(jg)%prog_lnd(nnow(jg))%t_snow_t(:,:,:)        = 300._wp   !snow
       p_lnd_state(jg)%prog_lnd(nnow(jg))%t_g_t(:,:,isub_seaice) = 300._wp   !sea ice
       p_lnd_state(jg)%prog_wtr(nnow(jg))%t_ice(:,:)             = 300._wp   !sea ice
+      p_lnd_state(jg)%prog_lnd(nnow(jg))%t_g                    = th_cbl(1)
+      p_lnd_state(jg)%prog_lnd(nnow(jg))%t_g_t                  = th_cbl(1)
     END DO !jg
   END IF
 
