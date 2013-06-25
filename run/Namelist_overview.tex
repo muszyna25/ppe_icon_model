@@ -1710,54 +1710,6 @@ n\_dom>1 .AND. lfeedback = .TRUE. \tabularnewline
 
 Defined and used in: src/namelists/mo\_gridref\_nml.f90
 
-%------------------------------------------------------------------------------
-% prepicon_nml
-%------------------------------------------------------------------------------
-\subsection{prepicon\_nml}
-
-The namelist prepicon\_nml contains switches controlling the real-data initialization functionality of ICON.
-There are currently two ways of using it: 
-\begin{itemize}
-\item
-Using the preprocessing tool prep\_icon, it is possible to
-{
-\renewcommand\theenumi{(\alph{enumi})}
-\renewcommand\labelenumi{\theenumi}
-%
-\begin{enumerate}
-\item \textbf{generate the three-dimensional coordinate fields} needed by IFS2ICON if IFS2ICON is requested to do
-the horizontal and vertical interpolation from the IFS grid to the ICON grid
-\item \textbf{convert the hydrostatic set of variables provided by IFS2ICON} to the nonhydrostatic set of equations
-needed by ICONAM,
-\item \label{item:c} \textbf{perform the vertical interpolation} to the ICON grid if IFS2ICON is requested to do only
-the horizontal interpolation step,
-\item  \label{item:d} \textbf{perform data remapping from a regular grid onto a triangular ICON grid and vice versa}.
-\end{enumerate}}
-
-\item
-If ICONAM (iequations=3) is combined with NWP physics (iforcing=3), setting ltestcase=.false. activates functionality \ref{item:c} while running
-the ICON executable.
-\end{itemize}
-
-\textbf{Remark:}
-When using prep\_icon as a stand-alone tool, namelists must be defined in a file ``NAMELIST\_PREPICON''.
-
-\begin{longtab}
-
-\hline 
-i\_oper\_mode&
-I & 1& &
-Operating mode if the prep\_icon executable is run: \\
-1: generate coordinate fields \\
-2: convert IFS2ICON output to NH prognostic variables\\
-3: do vertical interpolation \\
-4: grid remapping &
-\tabularnewline
-
-\end{longtab}
-
-Defined and used in: src/namelists/mo\_prepicon\_nml.f90
-
 
 
 %------------------------------------------------------------------------------
@@ -1881,203 +1833,6 @@ GRIB2 shortnames or NetCDF var names.
 \end{longtab}
 
 Defined and used in: src/namelists/mo\_initicon\_nml.f90
-
-
-
-%------------------------------------------------------------------------------
-% remap_nml
-%------------------------------------------------------------------------------
-\subsection{remap\_nml}
-
-The namelist remap\_nml is only processed when setting i\_oper\_mode=4 in prepicon\_nml (cf.\ option \ref{item:d}).
-
-\begin{longtab}
-
-\hline 
-in\_grid\_filename&
-C & ````& & input grid file name &
-i\_oper\_mode=4 (prepicon\_nml)
-\tabularnewline
-
-\hline 
-in\_filename&
-C & ````& & input data file name (may be identical to input grid file name) &
-i\_oper\_mode=4 (prepicon\_nml)
-\tabularnewline
-
-\hline 
-in\_type&
-I & 1 & &
-Type of input grid: 
-1: regular grid; 2: ICON triangular grid
-&
-i\_oper\_mode=4 (prepicon\_nml)
-\tabularnewline
-
-\hline 
-out\_grid\_filename&
-C & ````& & file containing output grid that is read as input for the remapping process &
-i\_oper\_mode=4 (prepicon\_nml)
-\tabularnewline
-
-\hline 
-out\_filename&
-C & ````& & output data file name &
-i\_oper\_mode=4 (prepicon\_nml)
-\tabularnewline
-
-\hline 
-out\_type&
-I & 2 & & 
-Type of output grid: 
-1: regular grid; 2: ICON triangular grid
-&
-i\_oper\_mode=4 (prepicon\_nml)
-\tabularnewline
-
-\hline 
-out\_filetype&
-I & 4 & & 
-output file type: 2=FILETYPE\_GRB2, 4=FILETYPE\_NC2
-&
-i\_oper\_mode=4 (prepicon\_nml)
-\tabularnewline
-
-\hline 
-s\_maxsize&
-I & 500\,000& & Maximum size of sequential list for very large stencils &
-i\_oper\_mode=4 (prepicon\_nml)
-\tabularnewline
-
-\hline 
-l\_have3dbuffer&
-L & .FALSE.& & Flag. True if a 3D buffer is used for output &
-i\_oper\_mode=4 (prepicon\_nml)
-\tabularnewline
-
-\hline 
-lcompute\_vn&
-L & .FALSE.& & Flag: .TRUE., if the normal wind shall be computed. 
-This requires the specification of input fields ``u'' and ``v''. &
-i\_oper\_mode=4 (prepicon\_nml)
-\tabularnewline
-
-\hline 
-lcompute\_vt&
-L & .FALSE.& & Flag: .TRUE., if the tangential wind at edge midpoints shall be computed.
-This requires the specification of input fields ``u'' and ``v''.  &
-i\_oper\_mode=4 (prepicon\_nml)
-\tabularnewline
-
-\hline 
-rbf\_vec\_scale&
-R &  0.05 & & Scaling factor for interpolation with radial basis functions.  &
-i\_oper\_mode=4 (prepicon\_nml)
-\tabularnewline
-
-\end{longtab}
-
-Defined and used in: src/prep\_icon/mo\_remap\_io.f90
-
-
-%------------------------------------------------------------------------------
-% input_field_nml
-%------------------------------------------------------------------------------
-\subsection{input\_field\_nml}
-
-The namelist input\_field\_nml is only processed when setting i\_oper\_mode=4 in prepicon\_nml (cf.\ option \ref{item:d}).
-
-\begin{longtab}
-
-\hline 
-inputname &
-C & ```` & & Name of input variable &
-i\_oper\_mode=4 (prepicon\_nml)
-\tabularnewline
-
-\hline 
-outputname &
-C & ```` & & Name of output variable &
-i\_oper\_mode=4 (prepicon\_nml)
-\tabularnewline
-
-\hline 
-code &
-I & 0 & & GRIB input code number &
-i\_oper\_mode=4 (prepicon\_nml)
-\tabularnewline
-
-\hline 
-type\_of\_layer &
-C & ```` & & GRIB input layer type &
-i\_oper\_mode=4 (prepicon\_nml)
-\tabularnewline
-
-\hline 
-lhydrostatic\_correction &
-L & F & & Flag. True, if hydrostatic correction shall be applied to this field &
-i\_oper\_mode=4 (prepicon\_nml)
-\tabularnewline
-
-\hline 
-var\_temp &
-C & ``T'' & & field name: temperature &
-i\_oper\_mode=4 (prepicon\_nml) and
-lhydrostatic\_correction=.TRUE.
-\tabularnewline
-
-\hline 
-code\_temp &
-I & 130 & & GRIB1 code: temperature &
-i\_oper\_mode=4 (prepicon\_nml) and
-lhydrostatic\_correction=.TRUE.
-\tabularnewline
-
-\hline 
-var\_geosp &
-C & ``FI'' & & field name: surface geopotential &
-i\_oper\_mode=4 (prepicon\_nml) and
-lhydrostatic\_correction=.TRUE.
-\tabularnewline
-
-\hline 
-code\_geosp &
-I & 129 & & GRIB1 code: surface geopotential &
-i\_oper\_mode=4 (prepicon\_nml) and
-lhydrostatic\_correction=.TRUE.
-\tabularnewline
-
-\hline 
-var\_qv &
-C & ``QV'' & & field name: specific humidity &
-i\_oper\_mode=4 (prepicon\_nml) and
-lhydrostatic\_correction=.TRUE.
-\tabularnewline
-
-\hline 
-code\_qv &
-I & 133 & & GRIB1 code: specific humidity &
-i\_oper\_mode=4 (prepicon\_nml) and
-lhydrostatic\_correction=.TRUE.
-\tabularnewline
-
-\hline 
-hpbl1 &
-R & 500 & & height above ground of surface inversion top &
-i\_oper\_mode=4 (prepicon\_nml) and
-lhydrostatic\_correction=.TRUE.
-\tabularnewline
-
-\hline 
-hpbl2 &
-R & 1000 & & top of layer used to estimate the vertical temperature gradient above the inversion &
-i\_oper\_mode=4 (prepicon\_nml) and
-lhydrostatic\_correction=.TRUE.
-\tabularnewline
-
-\end{longtab}
-
-Defined and used in: src/prep\_icon/mo\_remap\_input.f90
 
 
 %------------------------------------------------------------------------------
@@ -5864,6 +5619,13 @@ model expects {\bf height based} coordinates. For further information see <icon 
    \item Introduced new namelist flag \textbf{l\_ana\_sfc}
    \item If true, soil/surface analysis fields are read from the analysis fiel dwdfg\_filename. 
          If false, surface analyis fields are not read. Soil and surface are initialized with the first guess instead.
+  \end{itemize}
+\end{changeitem}
+
+\begin{changeitem}{prepicon\_nml, remap\_nml, input\_field\_nml}{ 2013-06-25 }{ 12597 }
+  \begin{itemize}
+   \item Removed the sources for the "prepicon" binary!
+   \item The "prepicon" functionality (and most of its code) has become part of the ICON tools.
   \end{itemize}
 \end{changeitem}
 
