@@ -2899,7 +2899,7 @@ C&None& &
 \hline
  filename\_format &
 C&see description.& &
- Output filename format. Includes keywords \texttt{path}, \texttt{output\_filename}, \texttt{physdom}, \texttt{levtype}, \texttt{levtype\_l}, \texttt{jfile}, \texttt{ddhhmmss}.
+ Output filename format. Includes keywords \texttt{path}, \texttt{output\_filename}, \texttt{physdom}, \texttt{levtype}, \texttt{levtype\_l}, \texttt{jfile}, \texttt{ddhhmmss}, see below.
  Default is \texttt{<output\_filename>\_DOM<physdom>\_<levtype>\_<jfile>}
 &
 \tabularnewline
@@ -3003,7 +3003,6 @@ R&0,90& &
 &
 \tabularnewline
 
-
 \hline 
 \end{longtab}
 
@@ -3026,6 +3025,19 @@ sets of common variables can be added to the output:
 \texttt{group:land\_vars}              \>                                                                           \\
 \texttt{group:multisnow\_vars}         \>     tile-averaged variables                                               
 \end{tabbing}
+
+\paragraph{Keyword substitution in output filename (\texttt{filename\_format}):} 
+\begin{tabbing}
+\hspace*{0.4\textwidth} \= \kill
+\texttt{path}              \>  substituted by \texttt{model\_base\_dir}                 \\ 
+\texttt{output\_filename}  \>  substituted by \texttt{output\_filename}                 \\
+\texttt{physdom}           \>  substituted by physical patch ID                         \\
+\texttt{levtype}           \>  substituted by level type ``ML'', ``PL'', ``HL'', ``IL'' \\
+\texttt{levtype\_l}        \>  like \texttt{levtype}, but in lower case                 \\
+\texttt{jfile}             \>  substituted by output file counter                       \\
+\texttt{ddhhmmss}          \>  substituted by day-hour-minute-second string
+\end{tabbing}
+
 
 Defined and used in: src/namelists/mo\_name\_list\_output.f90
 
