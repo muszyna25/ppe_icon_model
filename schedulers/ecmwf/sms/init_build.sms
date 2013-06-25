@@ -63,7 +63,7 @@ gmake -j%SCTOTALTASKS%
 smsevent make
 
 # Store revision number of successful compilation 
-revision=`rsh $WSHOST $SVNPATH/svn info %ECPERMIII%/icon-dev | grep Revision | awk '{print $2}'`
+revision=`ssh $WSHOST $SVNPATH/svn info %ECPERMIII%/icon-dev | grep Revision | awk '{print $2}'`
 echo $revision > %SCPERMIII%/icon-dev/build/${arch}/bin/icon_rev.txt
 
 

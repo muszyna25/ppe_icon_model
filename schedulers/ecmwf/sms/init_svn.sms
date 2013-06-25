@@ -22,9 +22,6 @@
 
 echo "INIT_SVN.SMS"
 
-#use new SVN version
-export PATH=/usr/local/apps/subversion/subversion-1.6.11/bin:$PATH
-
 
 #if [[ "%SVN_UPDATE%" -eq "1" ]]
 #then
@@ -42,7 +39,7 @@ export PATH=/usr/local/apps/subversion/subversion-1.6.11/bin:$PATH
   
   smsmeter revision $revision
 
- #rsh %SCHOST% "cd %SCPERM%/icon-dev ; gmake distclean"
+ #ssh %SCHOST% "cd %SCPERM%/icon-dev ; gmake distclean"
  #smsevent make_distclean
 
 #else
