@@ -73,6 +73,11 @@ MODULE mo_turbdiff_config
     INTEGER :: &   ! type of shear production for TKE
       &  itype_sher
 
+    LOGICAL :: &   ! (temporary?) switch to choose new turbulent transfer scheme
+      &  lnew_ttrans
+    LOGICAL :: &   ! (temporary?) switch to choose new turbulent diffusion scheme
+      &  lnew_tdiff
+
     LOGICAL :: &   ! calculation SSO-wake turbulence production for TKE
       &  ltkesso
     LOGICAL :: &   ! consider convective buoyancy production for TKE
@@ -88,6 +93,8 @@ MODULE mo_turbdiff_config
       &  lnonloc 
     LOGICAL :: &   ! consideration of fluctuations of the heat capacity of air
       &  lcpfluc
+    LOGICAL :: &   ! lower flux condition for vertical diffusion calculation
+      &  lsflcnd
     LOGICAL :: &   ! use semi-implicit TKE diffusion
       &  limpltkediff
 
@@ -114,6 +121,10 @@ MODULE mo_turbdiff_config
       &  rat_sea   ! 
     REAL(wp):: &   ! time smoothing factor for TKE
       &  tkesmot   ! 
+    REAL(wp):: &   ! implicit weight near the surface (maximal value)
+      &  impl_s    ! 
+    REAL(wp):: &   ! implicit weight near top of the atmosphere (maximal value)
+      &  impl_t    ! 
 
     REAL(wp):: &   ! horizontally homogeneous roughness length 
       &  const_z0  ! (for idealized testcases)

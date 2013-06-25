@@ -62,7 +62,9 @@ MODULE mo_nwp_turbtrans_interface
   USE mo_parallel_config,      ONLY: nproma
   USE mo_run_config,           ONLY: msg_level, iqv, iqc
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
-  USE mo_data_turbdiff,        ONLY: get_turbdiff_param
+  USE mo_data_turbdiff,        ONLY: get_turbdiff_param, &
+    &                                lnew_ttrans
+  USE src_turbdiff_new,        ONLY: organize_turbdiff
   USE src_turbdiff,            ONLY: turbtran
   USE mo_satad,                ONLY: sat_pres_water, spec_humi  
   USE mo_gme_turbdiff,         ONLY: parturs, nearsfc
@@ -89,7 +91,7 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
                           & ext_data,                          & !>in
                           & p_prog_rcf,                        & !>inout
                           & p_diag ,                           & !>inout
-                          & prm_diag,                          & !>inout
+                          & prm_diag, prm_nwp_tend,            & !>inout
                           & wtr_prog_new,                      & !>in 
                           & lnd_prog_new,                      & !>inout 
                           & lnd_diag                           ) !>inout
@@ -101,6 +103,7 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
   TYPE(t_nh_prog),      TARGET,INTENT(inout):: p_prog_rcf      !<call freq
   TYPE(t_nh_diag),      TARGET,INTENT(inout):: p_diag          !<the diag vars
   TYPE(t_nwp_phy_diag),        INTENT(inout):: prm_diag        !< atm phys vars
+  TYPE(t_nwp_phy_tend), TARGET,INTENT(inout):: prm_nwp_tend    !< atm phys tendencies
   TYPE(t_wtr_prog),            INTENT(in)   :: wtr_prog_new    !< prog vars for wtr
   TYPE(t_lnd_prog),            INTENT(inout):: lnd_prog_new    !< prog vars for sfc
   TYPE(t_lnd_diag),            INTENT(inout):: lnd_diag        !< diag vars for sfc
@@ -126,7 +129,7 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
   CHARACTER (LEN=25) :: eroutine=''
   CHARACTER (LEN=80) :: errormsg=''
 
-  INTEGER  :: nlev, nlevp1                          !< number of full and half levels
+  INTEGER  :: nlev, nlevp1, nlevcm                  !< number of full, half and canopy levels
   INTEGER  :: lc_class, i_lc_si                     !< land-cover class
 
   REAL(wp) :: z_tvs(nproma,p_patch%nlevp1,1)        !< aux turbulence velocity scale [m/s]
@@ -144,7 +147,7 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
   REAL(wp), DIMENSION(nproma,2,ntiles_total+ntiles_water) :: u_t, v_t, temp_t, pres_t, qv_t, qc_t, tkvm_t, tkvh_t
 
   ! 3D half-level fields
-  REAL(wp), DIMENSION(nproma,3,ntiles_total+ntiles_water) :: z_ifc_t, rcld_t
+  REAL(wp), DIMENSION(nproma,3,ntiles_total+ntiles_water) :: z_ifc_t, rcld_t, tketens_t
 
   ! SQRT(2*TKE)
   REAL(wp) :: tvs_t(nproma,3,1,ntiles_total+ntiles_water)
@@ -290,29 +293,68 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
       ! fraction and tile 1 of the land points)
       IF (ntiles_total == 1) THEN ! tile approach not used; use tile-averaged fields from extpar
 
-        CALL turbtran(iini=0, ltkeinp=.FALSE., lgz0inp=.FALSE., dt_tke=tcall_turb_jg, nprv=1, ntur=1, ntim=1,  & !in
-          & ie=nproma, ke=nlev, ke1=nlevp1,                                            & !in
-          & istart=i_startidx, iend=i_endidx, istartpar=i_startidx, iendpar=i_endidx,  & !in
-          & l_hori=phy_params(jg)%mean_charlen, hhl=p_metrics%z_ifc(:,:,jb),           & !in
-          & fr_land=ext_data%atm%fr_land(:,jb), depth_lk=ext_data%atm%depth_lk(:,jb),  & !in
-          & sai=ext_data%atm%sai_t(:,jb,1), h_ice=wtr_prog_new%h_ice(:,jb),            & !in
-          & ps=p_diag%pres_sfc(:,jb), t_g=lnd_prog_new%t_g(:,jb),                      & !in
-          & qv_s=lnd_diag%qv_s(:,jb),                                                  & !in
-          & u=p_diag%u(:,:,jb), v=p_diag%v(:,:,jb),                                    & !in
-          & T=p_diag%temp(:,:,jb), prs=p_diag%pres(:,:,jb),                            & !in
-          & qv=p_prog_rcf%tracer(:,:,jb,iqv), qc=p_prog_rcf%tracer(:,:,jb,iqc),        & !in
-          & gz0=prm_diag%gz0(:,jb), tcm=prm_diag%tcm_t(:,jb,1),                        & !inout
-          & tch=prm_diag%tch_t(:,jb,1), tfm=prm_diag%tfm(:,jb),                        & !inout
-          & tfh=prm_diag%tfh(:,jb), tfv=prm_diag%tfv_t(:,jb,1),                        & !inout
-          & tke=z_tvs(:,:,:), tkvm=prm_diag%tkvm(:,2:nlevp1,jb),                       & !inout
-          & tkvh=prm_diag%tkvh(:,2:nlevp1,jb), rcld=prm_diag%rcld(:,:,jb),             & !inout
-          & t_2m=prm_diag%t_2m(:,jb), qv_2m=prm_diag%qv_2m(:,jb),                      & !out
-          & td_2m=prm_diag%td_2m(:,jb), rh_2m=prm_diag%rh_2m(:,jb),                    & !out
-          & u_10m=prm_diag%u_10m_t(:,jb,1), v_10m=prm_diag%v_10m_t(:,jb,1),            & !out
-          & shfl_s=prm_diag%shfl_s_t(:,jb,1), lhfl_s=prm_diag%lhfl_s_t(:,jb,1),        & !out
-          & qhfl_s=prm_diag%qhfl_s_t(:,jb,1),                                          & !out
-          & ierrstat=ierrstat, errormsg=errormsg, eroutine=eroutine                    ) !inout
+        IF ( lnew_ttrans ) THEN
 
+          nlevcm = nlevp1
+          
+          CALL organize_turbdiff( lstfnct=.TRUE., lsfluse=.TRUE., &
+            &  lturatm=.FALSE., ltursrf=.TRUE., iini=0, &
+! JF:             &  ltkeinp=.FALSE., lgz0inp=.FALSE., &
+            &  lmomdif=.FALSE., lscadif=.FALSE., itnd=0, &
+            &  dt_var=tcall_turb_jg,  dt_tke=tcall_turb_jg, &
+            &  nprv=1, ntur=1, ntim=1, &
+            &  ie=nproma, ke=nlev, ke1=nlevp1, kcm=nlevcm, &
+            &  i_st=i_startidx, i_en=i_endidx, i_stp=i_startidx, i_enp=i_endidx, &
+            &  l_hori=phy_params(jg)%mean_charlen, hhl=p_metrics%z_ifc(:,:,jb), &
+            &  fr_land=ext_data%atm%fr_land(:,jb), depth_lk=ext_data%atm%depth_lk(:,jb), &
+            &  h_ice=wtr_prog_new%h_ice(:,jb), gz0=prm_diag%gz0(:,jb), &
+            &  sai=ext_data%atm%sai_t(:,jb,1), &
+            &  t_g=lnd_prog_new%t_g(:,jb), ps=p_diag%pres_sfc(:,jb), &
+            &  qv_s=lnd_diag%qv_s(:,jb), &
+            &  u=p_diag%u(:,:,jb), v=p_diag%v(:,:,jb), &
+            &  t=p_diag%temp(:,:,jb), prs=p_diag%pres(:,:,jb), &
+            &  qv=p_prog_rcf%tracer(:,:,jb,iqv), qc=p_prog_rcf%tracer(:,:,jb,iqc), &
+            &  tcm=prm_diag%tcm_t(:,jb,1), tch=prm_diag%tch_t(:,jb,1), &
+            &  tfm=prm_diag%tfm(:,jb), tfh=prm_diag%tfh(:,jb), tfv=prm_diag%tfv_t(:,jb,1), &
+            &  tke=z_tvs(:,:,:), &
+            &  tkvm=prm_diag%tkvm(:,2:nlevp1,jb), tkvh=prm_diag%tkvh(:,2:nlevp1,jb), &
+            &  rcld=prm_diag%rcld(:,:,jb), &
+            &  t_2m=prm_diag%t_2m(:,jb), qv_2m=prm_diag%qv_2m(:,jb), &
+            &  td_2m=prm_diag%td_2m(:,jb), rh_2m=prm_diag%rh_2m(:,jb), &
+            &  u_10m=prm_diag%u_10m_t(:,jb,1), v_10m=prm_diag%v_10m_t(:,jb,1), &
+            &  shfl_s=prm_diag%shfl_s_t(:,jb,1), lhfl_s=prm_diag%lhfl_s_t(:,jb,1), &
+            &  ierrstat=ierrstat, errormsg=errormsg, eroutine=eroutine )
+
+          prm_diag%qhfl_s_t(i_startidx:i_endidx,jb,1) = &
+            &  prm_diag%lhfl_s_t(i_startidx:i_endidx,jb,1) / lh_v
+
+        ELSE
+
+          CALL turbtran(iini=0, ltkeinp=.FALSE., lgz0inp=.FALSE.,                        & !in
+            & dt_tke=tcall_turb_jg, nprv=1, ntur=1, ntim=1,                              & !in
+            & ie=nproma, ke=nlev, ke1=nlevp1,                                            & !in
+            & istart=i_startidx, iend=i_endidx, istartpar=i_startidx, iendpar=i_endidx,  & !in
+            & l_hori=phy_params(jg)%mean_charlen, hhl=p_metrics%z_ifc(:,:,jb),           & !in
+            & fr_land=ext_data%atm%fr_land(:,jb), depth_lk=ext_data%atm%depth_lk(:,jb),  & !in
+            & sai=ext_data%atm%sai_t(:,jb,1), h_ice=wtr_prog_new%h_ice(:,jb),            & !in
+            & ps=p_diag%pres_sfc(:,jb), t_g=lnd_prog_new%t_g(:,jb),                      & !in
+            & qv_s=lnd_diag%qv_s(:,jb),                                                  & !in
+            & u=p_diag%u(:,:,jb), v=p_diag%v(:,:,jb),                                    & !in
+            & T=p_diag%temp(:,:,jb), prs=p_diag%pres(:,:,jb),                            & !in
+            & qv=p_prog_rcf%tracer(:,:,jb,iqv), qc=p_prog_rcf%tracer(:,:,jb,iqc),        & !in
+            & gz0=prm_diag%gz0(:,jb), tcm=prm_diag%tcm_t(:,jb,1),                        & !inout
+            & tch=prm_diag%tch_t(:,jb,1), tfm=prm_diag%tfm(:,jb),                        & !inout
+            & tfh=prm_diag%tfh(:,jb), tfv=prm_diag%tfv_t(:,jb,1),                        & !inout
+            & tke=z_tvs(:,:,:), tkvm=prm_diag%tkvm(:,2:nlevp1,jb),                       & !inout
+            & tkvh=prm_diag%tkvh(:,2:nlevp1,jb), rcld=prm_diag%rcld(:,:,jb),             & !inout
+            & t_2m=prm_diag%t_2m(:,jb), qv_2m=prm_diag%qv_2m(:,jb),                      & !out
+            & td_2m=prm_diag%td_2m(:,jb), rh_2m=prm_diag%rh_2m(:,jb),                    & !out
+            & u_10m=prm_diag%u_10m_t(:,jb,1), v_10m=prm_diag%v_10m_t(:,jb,1),            & !out
+            & shfl_s=prm_diag%shfl_s_t(:,jb,1), lhfl_s=prm_diag%lhfl_s_t(:,jb,1),        & !out
+            & qhfl_s=prm_diag%qhfl_s_t(:,jb,1),                                          & !out
+            & ierrstat=ierrstat, errormsg=errormsg, eroutine=eroutine                    ) !inout
+
+        END IF
 
         ! fix latent heat flux over seaice
         DO jc = i_startidx, i_endidx
@@ -381,53 +423,89 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
           !MR: Hauptflaechengroessen nur fuer level nlev
           DO ic = 1, i_count
             jc = ilist(ic)
-            gz0_t(ic,jt)       = prm_diag%gz0_t(jc,jb,jt)
-            t_g_t(ic,jt)       = lnd_prog_new%t_g_t(jc,jb,jt)
-            qv_s_t(ic,jt)      = lnd_diag%qv_s_t(jc,jb,jt)
-            sai_t(ic,jt)       = ext_data%atm%sai_t(jc,jb,jt)
-            z_ifc_t(ic,1:3,jt) = p_metrics%z_ifc(jc,nlev-1:nlevp1,jb)
-            pres_sfc_t(ic,jt)  = p_diag%pres_sfc(jc,jb)
-            u_t(ic,1:2,jt)     = p_diag%u(jc,nlev-1:nlev,jb)
-            v_t(ic,1:2,jt)     = p_diag%v(jc,nlev-1:nlev,jb)
-            temp_t(ic,1:2,jt)  = p_diag%temp(jc,nlev-1:nlev,jb)
-            pres_t(ic,1:2,jt)  = p_diag%pres(jc,nlev-1:nlev,jb)
-            qv_t(ic,1:2,jt)    = p_prog_rcf%tracer(jc,nlev-1:nlev,jb,iqv)
-            qc_t(ic,1:2,jt)    = p_prog_rcf%tracer(jc,nlev-1:nlev,jb,iqc)
-!!$            tvs_t(ic,1:3,1,jt) = z_tvs(jc,nlev-1:nlevp1,1)
-!!$            tkvm_t(ic,1:2,jt)  = prm_diag%tkvm(jc,nlev:nlevp1,jb)
-!!$            tkvh_t(ic,1:2,jt)  = prm_diag%tkvh(jc,nlev:nlevp1,jb)
-
-            tvs_t(ic,1:2,1,jt) = z_tvs(jc,nlev-1:nlev,1)
-            tvs_t(ic,3,1,jt)   = prm_diag%tvs_s_t(jc,jb,jt)      ! tile-specific for lowest level   
-            tkvm_t(ic,1,jt)    = prm_diag%tkvm(jc,nlev,jb)
-            tkvm_t(ic,2,jt)    = prm_diag%tkvm_s_t(jc,jb,jt)     ! tile-specific for lowest level       
-            tkvh_t(ic,1,jt)    = prm_diag%tkvh(jc,nlev,jb)
-            tkvh_t(ic,2,jt)    = prm_diag%tkvh_s_t(jc,jb,jt)     ! tile-specific for lowest level        
+            gz0_t(ic,jt)         = prm_diag%gz0_t(jc,jb,jt)
+            t_g_t(ic,jt)         = lnd_prog_new%t_g_t(jc,jb,jt)
+            qv_s_t(ic,jt)        = lnd_diag%qv_s_t(jc,jb,jt)
+            sai_t(ic,jt)         = ext_data%atm%sai_t(jc,jb,jt)
+            z_ifc_t(ic,1:3,jt)   = p_metrics%z_ifc(jc,nlev-1:nlevp1,jb)
+            pres_sfc_t(ic,jt)    = p_diag%pres_sfc(jc,jb)
+            u_t(ic,1:2,jt)       = p_diag%u(jc,nlev-1:nlev,jb)
+            v_t(ic,1:2,jt)       = p_diag%v(jc,nlev-1:nlev,jb)
+            temp_t(ic,1:2,jt)    = p_diag%temp(jc,nlev-1:nlev,jb)
+            pres_t(ic,1:2,jt)    = p_diag%pres(jc,nlev-1:nlev,jb)
+            qv_t(ic,1:2,jt)      = p_prog_rcf%tracer(jc,nlev-1:nlev,jb,iqv)
+            qc_t(ic,1:2,jt)      = p_prog_rcf%tracer(jc,nlev-1:nlev,jb,iqc)
+            tvs_t(ic,1:2,1,jt)   = z_tvs(jc,nlev-1:nlev,1)
+            tvs_t(ic,3,1,jt)     = prm_diag%tvs_s_t(jc,jb,jt)      ! tile-specific for lowest level   
+            tkvm_t(ic,1,jt)      = prm_diag%tkvm(jc,nlev,jb)
+            tkvm_t(ic,2,jt)      = prm_diag%tkvm_s_t(jc,jb,jt)     ! tile-specific for lowest level       
+            tkvh_t(ic,1,jt)      = prm_diag%tkvh(jc,nlev,jb)
+            tkvh_t(ic,2,jt)      = prm_diag%tkvh_s_t(jc,jb,jt)     ! tile-specific for lowest level        
 
 !MR: rcld: benoetigt nur fuer level nlev (als Nebenflaechenvariable)
-            rcld_t(ic,1:3,jt)  = prm_diag%rcld(jc,nlev-1:nlevp1,jb)
+            rcld_t(ic,1:3,jt)    = prm_diag%rcld(jc,nlev-1:nlevp1,jb)
+!JF: tketens: probably not needed for transfer scheme, i.e. always zero at surface layer
+            tketens_t(ic,1:3,jt) = prm_nwp_tend%ddt_tke(jc,nlev-1:nlevp1,jb)
           ENDDO
 
-          CALL turbtran(iini=0, ltkeinp=.FALSE., lgz0inp=.FALSE., dt_tke=tcall_turb_jg, nprv=1, ntur=1, ntim=1,    & !in
-            & ie=nproma, ke=2, ke1=3,                                                 & !in
-            & istart=1, iend=i_count, istartpar=1, iendpar=i_count,                   & !in
-            & l_hori=phy_params(jg)%mean_charlen, hhl=z_ifc_t(:,:,jt),                & !in
-            & fr_land=fr_land_t(:), depth_lk=depth_lk_t(:),                           & !in
-            & sai=sai_t(:,jt), h_ice=h_ice_t(:), ps=pres_sfc_t(:,jt),                 & !in
-            & t_g=t_g_t(:,jt), qv_s=qv_s_t(:,jt),                                     & !in
-            & u=u_t(:,:,jt), v=v_t(:,:,jt),                                           & !in
-            & T=temp_t(:,:,jt), prs=pres_t(:,:,jt), qv=qv_t(:,:,jt), qc=qc_t(:,:,jt), & !in
-            & gz0=gz0_t(:,jt), tcm=tcm_t(:,jt), tch=tch_t(:,jt),                      & !inout
-            & tfm=tfm_t(:,jt), tfh=tfh_t(:,jt), tfv=tfv_t(:,jt),                      & !inout
-            & tke=tvs_t(:,:,:,jt), tkvm=tkvm_t(:,:,jt),                               & !inout
-            & tkvh=tkvh_t(:,:,jt), rcld=rcld_t(:,:,jt),                               & !inout
-            & t_2m=t_2m_t(:,jt), qv_2m=qv_2m_t(:,jt), td_2m=td_2m_t(:,jt),            & !out
-            & rh_2m=rh_2m_t(:,jt), u_10m=u_10m_t(:,jt), v_10m=v_10m_t(:,jt),          & !out
-            & shfl_s=shfl_s_t(:,jt), lhfl_s=lhfl_s_t(:,jt), qhfl_s=qhfl_s_t(:,jt),    & !out
-            & ierrstat=ierrstat, errormsg=errormsg, eroutine=eroutine                 ) !inout
+          IF ( lnew_ttrans ) THEN
+
+            nlevcm = 3
+        
+            CALL organize_turbdiff( lstfnct=.TRUE., lsfluse=.TRUE., &
+              &  lturatm=.FALSE., ltursrf=.TRUE., iini=0, &
+! JF:               &  ltkeinp=.FALSE., lgz0inp=.FALSE., &
+              &  lmomdif=.FALSE., lscadif=.FALSE., itnd=0, &
+              &  dt_var=tcall_turb_jg,  dt_tke=tcall_turb_jg, &
+              &  nprv=1, ntur=1, ntim=1, &
+              &  ie=nproma, ke=2, ke1=3, kcm=nlevcm, &
+              &  i_st=1, i_en=i_count, i_stp=1, i_enp=i_count, &
+              &  l_hori=phy_params(jg)%mean_charlen, hhl=z_ifc_t(:,:,jt), &
+              &  fr_land=fr_land_t(:), depth_lk=depth_lk_t(:), &
+              &  h_ice=h_ice_t(:), gz0=gz0_t(:,jt), &
+              &  sai=sai_t(:,jt), &
+              &  t_g=t_g_t(:,jt), ps=pres_sfc_t(:,jt), &
+              &  qv_s=qv_s_t(:,jt), &
+              &  u=u_t(:,:,jt), v=v_t(:,:,jt), &
+              &  t=temp_t(:,:,jt), prs=pres_t(:,:,jt), &
+              &  qv=qv_t(:,:,jt), qc=qc_t(:,:,jt), &
+              &  tcm=tcm_t(:,jt), tch=tch_t(:,jt), &
+              &  tfm=tfm_t(:,jt), tfh=tfh_t(:,jt), tfv=tfv_t(:,jt), &
+              &  tke=tvs_t(:,:,:,jt), &
+              &  tkvm=tkvm_t(:,:,jt), tkvh=tkvh_t(:,:,jt), &
+              &  rcld=rcld_t(:,:,jt), &
+              &  t_2m=t_2m_t(:,jt), qv_2m=qv_2m_t(:,jt), &
+              &  td_2m=td_2m_t(:,jt), rh_2m=rh_2m_t(:,jt), &
+              &  u_10m=u_10m_t(:,jt), v_10m=v_10m_t(:,jt), &
+              &  shfl_s=shfl_s_t(:,jt), lhfl_s=lhfl_s_t(:,jt), &
+              &  ierrstat=ierrstat, errormsg=errormsg, eroutine=eroutine )
+
+            qhfl_s_t(1:i_count,jt) = lhfl_s_t(1:i_count,jt) / lh_v
+
+          ELSE
+
+            CALL turbtran(iini=0, ltkeinp=.FALSE., lgz0inp=.FALSE.,                     &
+              & dt_tke=tcall_turb_jg, nprv=1, ntur=1, ntim=1,                           & !in
+              & ie=nproma, ke=2, ke1=3,                                                 & !in
+              & istart=1, iend=i_count, istartpar=1, iendpar=i_count,                   & !in
+              & l_hori=phy_params(jg)%mean_charlen, hhl=z_ifc_t(:,:,jt),                & !in
+              & fr_land=fr_land_t(:), depth_lk=depth_lk_t(:),                           & !in
+              & sai=sai_t(:,jt), h_ice=h_ice_t(:), ps=pres_sfc_t(:,jt),                 & !in
+              & t_g=t_g_t(:,jt), qv_s=qv_s_t(:,jt),                                     & !in
+              & u=u_t(:,:,jt), v=v_t(:,:,jt),                                           & !in
+              & T=temp_t(:,:,jt), prs=pres_t(:,:,jt), qv=qv_t(:,:,jt), qc=qc_t(:,:,jt), & !in
+              & gz0=gz0_t(:,jt), tcm=tcm_t(:,jt), tch=tch_t(:,jt),                      & !inout
+              & tfm=tfm_t(:,jt), tfh=tfh_t(:,jt), tfv=tfv_t(:,jt),                      & !inout
+              & tke=tvs_t(:,:,:,jt), tkvm=tkvm_t(:,:,jt),                               & !inout
+              & tkvh=tkvh_t(:,:,jt), rcld=rcld_t(:,:,jt),                               & !inout
+              & t_2m=t_2m_t(:,jt), qv_2m=qv_2m_t(:,jt), td_2m=td_2m_t(:,jt),            & !out
+              & rh_2m=rh_2m_t(:,jt), u_10m=u_10m_t(:,jt), v_10m=v_10m_t(:,jt),          & !out
+              & shfl_s=shfl_s_t(:,jt), lhfl_s=lhfl_s_t(:,jt), qhfl_s=qhfl_s_t(:,jt),    & !out
+              & ierrstat=ierrstat, errormsg=errormsg, eroutine=eroutine                 ) !inout
+
+          END IF
 
         ENDDO
-
 
         ! fix latent heat flux over seaice
         DO ic = 1,ext_data%atm%spi_count(jb)
@@ -454,7 +532,7 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
         prm_diag%tkvm(i_startidx:i_endidx,nlevp1,jb) = 0._wp
         prm_diag%tkvh(i_startidx:i_endidx,nlevp1,jb) = 0._wp
         prm_diag%rcld(i_startidx:i_endidx,nlevp1,jb) = 0._wp
-
+        prm_nwp_tend%ddt_tke(i_startidx:i_endidx,nlevp1,jb) = 0._wp
 
 
          ! ii) loop over index lists

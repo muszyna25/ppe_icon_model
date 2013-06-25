@@ -118,6 +118,12 @@ USE data_turbulence, ONLY : rlam_mom, & ! scaling factor of the laminar boudary 
      &                      wichfakt, & ! vertical smoothing factor for 
                                         ! explicit diffusion tendencies
      &                      securi,   & ! security factor for maximal diffusion coefficients
+     &                      frcsmot,  & !
+     &                      tndsmot,  & !
+     &                      stbsmot,  & !
+     &                      frcsecu,  & !
+     &                      tkesecu,  & !
+     &                      stbsecu,  & !
      &                      it_end      ! number of initialization iterations (>=0)
 
 
@@ -146,15 +152,29 @@ INTEGER (KIND=iintegers) :: &
 ! Switches controlling turbulent diffusion:
 ! ------------------------------------------
 !
-    itype_tran   =2,       & ! type of surface-atmosphere transfer
+#ifdef NEW_TURBDIFF
+    imode_tran   =0,       & ! mode of surface-atmosphere transfer
+    imode_turb   =1,       & ! mode of turbulent diffusion parametrization
+#else
     imode_tran   =1,       & ! mode of surface-atmosphere transfer
+    imode_turb   =3,       & ! mode of turbulent diffusion parametrization
+#endif
+
+    itype_tran   =2,       & ! type of surface-atmosphere transfer
     icldm_tran   =0,       & ! mode of cloud representation in transfer parametr.
 !
-    imode_turb   =3,       & ! mode of turbulent diffusion parametrization
     icldm_turb   =2,       & ! mode of cloud representation in turbulence parametr.
     itype_sher   =1          ! type of shear production for TKE
 
 LOGICAL :: &
+!
+#ifdef NEW_TURBDIFF
+    lnew_ttrans  =.TRUE.,  & ! (temporary?) switch to choose new turbulent transfer scheme
+    lnew_tdiff   =.TRUE.,  & ! (temporary?) switch to choose new turbulent diffusion scheme
+#else
+    lnew_ttrans  =.FALSE., & ! (temporary?) switch to choose new turbulent transfer scheme
+    lnew_tdiff   =.FALSE., & ! (temporary?) switch to choose new turbulent diffusion scheme
+#endif
 !
     ltkesso      =.FALSE., & ! calculation SSO-wake turbulence production for TKE
     ltkecon      =.FALSE., & ! consider convective buoyancy production for TKE
@@ -164,6 +184,7 @@ LOGICAL :: &
                              ! the mean value of the lowest layer for surface flux calulations
     lnonloc      =.FALSE., & ! nonlocal calculation of vertical gradients used for turbul. diff.
     lcpfluc      =.FALSE., & ! consideration of fluctuations of the heat capacity of air
+    lsflcnd      =.TRUE.,  & ! lower flux condition for vertical diffusion calculation
     limpltkediff =.TRUE.     ! use semi-implicit TKE diffusion
 
 INTEGER (KIND=iintegers) :: &
@@ -199,6 +220,10 @@ LOGICAL :: &
      imode_turb   = turbdiff_config(jg)%imode_turb
      icldm_turb   = turbdiff_config(jg)%icldm_turb
      itype_sher   = turbdiff_config(jg)%itype_sher
+
+     lnew_ttrans  = turbdiff_config(jg)%lnew_ttrans
+     lnew_tdiff   = turbdiff_config(jg)%lnew_tdiff
+
      ltkesso      = turbdiff_config(jg)%ltkesso
      ltkecon      = turbdiff_config(jg)%ltkecon
      lexpcor      = turbdiff_config(jg)%lexpcor
@@ -206,6 +231,7 @@ LOGICAL :: &
      lprfcor      = turbdiff_config(jg)%lprfcor
      lnonloc      = turbdiff_config(jg)%lnonloc
      lcpfluc      = turbdiff_config(jg)%lcpfluc
+     lsflcnd      = turbdiff_config(jg)%lsflcnd
      limpltkediff = turbdiff_config(jg)%limpltkediff
      itype_wcld   = turbdiff_config(jg)%itype_wcld
      itype_synd   = turbdiff_config(jg)%itype_synd
@@ -217,9 +243,11 @@ LOGICAL :: &
      tkmmin       = turbdiff_config(jg)%tkmmin
      c_diff       = turbdiff_config(jg)%c_diff
      rlam_heat    = turbdiff_config(jg)%rlam_heat
-     rlam_mom     =turbdiff_config(jg)%rlam_mom
+     rlam_mom     = turbdiff_config(jg)%rlam_mom
      rat_sea      = turbdiff_config(jg)%rat_sea
      tkesmot      = turbdiff_config(jg)%tkesmot
+     impl_s       = turbdiff_config(jg)%impl_s
+     impl_t       = turbdiff_config(jg)%impl_t
 
  END SUBROUTINE get_turbdiff_param
 

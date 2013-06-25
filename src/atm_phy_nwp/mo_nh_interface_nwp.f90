@@ -518,8 +518,8 @@ CONTAINS
                               & ext_data,                         & !>in
                               & pt_prog,                          & !>in
                               & pt_prog_now_rcf, pt_prog_rcf,     & !>in/inout
-                              & pt_diag ,                         & !>inout
-                              & prm_diag,prm_nwp_tend,            & !>inout
+                              & pt_diag,                          & !>inout
+                              & prm_diag, prm_nwp_tend,           & !>inout
                               & wtr_prog_now,                     & !>in
                               & lnd_prog_now,                     & !>in 
                               & lnd_prog_new,                     & !>inout ONLY for idealized LES
@@ -534,7 +534,7 @@ CONTAINS
                                   & pt_prog,                          & !>inout
                                   & pt_prog_now_rcf, pt_prog_rcf,     & !>in/inout
                                   & pt_diag ,                         & !>inout
-                                  & prm_diag,prm_nwp_tend,            & !>inout 
+                                  & prm_diag, prm_nwp_tend,           & !>inout 
                                   & lnd_prog_now, lnd_prog_new,       & !>inout 
                                   & wtr_prog_now, wtr_prog_new,       & !>inout
                                   & lnd_diag                          ) !>inout
@@ -714,8 +714,8 @@ CONTAINS
                           & pt_patch, p_metrics,              & !>in
                           & ext_data,                         & !>in
                           & pt_prog_rcf,                      & !>inout
-                          & pt_diag ,                         & !>inout
-                          & prm_diag,                         & !>inout
+                          & pt_diag,                          & !>inout
+                          & prm_diag, prm_nwp_tend,           & !>inout
                           & wtr_prog_new,                     & !>in
                           & lnd_prog_new,                     & !>inout 
                           & lnd_diag                          ) !>inout
@@ -805,8 +805,8 @@ CONTAINS
                             & ext_data,                         & !>input
                             & pt_prog,                          & !>input
                             & pt_prog_rcf,                      & !>input
-                            & pt_diag ,                         & !>inout
-                            & prm_diag,prm_nwp_tend             ) !>inout 
+                            & pt_diag,                          & !>inout
+                            & prm_diag, prm_nwp_tend            ) !>inout 
       IF (timers_level > 2) CALL timer_stop(timer_nwp_convection)
 
     ENDIF! convection
@@ -1127,10 +1127,10 @@ CONTAINS
         &               lcall_phy_jg(itsso),       & !>input
         &               dt_phy_jg(itgwd),          & !>input
         &               lcall_phy_jg(itgwd),       & !>input
-        &               pt_patch,p_metrics,        & !>input
+        &               pt_patch, p_metrics,       & !>input
         &               ext_data,                  & !>input
-        &               pt_diag ,                  & !>inout
-        &               prm_diag,prm_nwp_tend      ) !>inout
+        &               pt_diag,                   & !>inout
+        &               prm_diag, prm_nwp_tend     ) !>inout
 
       IF (timers_level > 3) CALL timer_stop(timer_sso)
     ENDIF ! inwp_sso

@@ -333,6 +333,37 @@ case "$mh_setup" in
 
     ;;
 
+*sx9newtdmpi)
+
+    # Specific flags for selected configuration
+    with_mpi=yes
+    with_openmp=no
+
+    FC       = sxmpif90
+    F77      = sxmpif90
+    CC       = sxmpic++
+
+    CFLAGS   = $CFLAGS
+    FFLAGS   =    -sx9 -DNEW_TURBDIFF
+
+    ;;
+
+*sx9newtdmpidebug)
+
+    # Specific flags for selected configuration
+    with_mpi=yes
+    with_openmp=no
+
+    FC       = sxmpif90
+    F77      = sxmpif90
+    CC       = sxmpic++
+
+    CFLAGS   = $CFLAGS
+    FFLAGS   = -Cdebug -sx9 $DEBUGFLAGS $FPTRAP -DNEW_TURBDIFF
+    LDFLAGS  = $LDFLAGS $LDDEBUG
+
+    ;;
+
 esac
 
 

@@ -52,10 +52,11 @@ MODULE mo_turbdiff_nml
 
   USE mo_data_turbdiff,       ONLY: &
     & itype_tran, itype_sher, itype_wcld, itype_synd, &
-    & imode_tran, imode_turb, icldm_tran, icldm_turb, & 
-    & ltkesso, ltkecon, lexpcor, ltmpcor, lprfcor, lnonloc, lcpfluc, limpltkediff, &
+    & imode_tran, imode_turb, icldm_tran, icldm_turb, &
+    & lnew_ttrans, lnew_tdiff, &
+    & ltkesso, ltkecon, lexpcor, ltmpcor, lprfcor, lnonloc, lcpfluc, lsflcnd, limpltkediff, &
     & tur_len, pat_len, a_stab, tkhmin, tkmmin, c_diff, &
-    & rlam_heat, rlam_mom, rat_sea, tkesmot
+    & rlam_heat, rlam_mom, rat_sea, tkesmot, impl_s, impl_t
   USE mo_nml_annotate,        ONLY: temp_defaults, temp_settings, log_nml_settings 
   
   IMPLICIT NONE
@@ -78,10 +79,11 @@ MODULE mo_turbdiff_nml
 
   NAMELIST/turbdiff_nml/ &
     & itype_tran, itype_sher, itype_wcld, itype_synd, &
-    & imode_tran, imode_turb, icldm_tran, icldm_turb, & 
-    & ltkesso, ltkecon, lexpcor, ltmpcor, lprfcor, lnonloc, lcpfluc, limpltkediff, &
+    & imode_tran, imode_turb, icldm_tran, icldm_turb, &
+    & lnew_ttrans, lnew_tdiff, &
+    & ltkesso, ltkecon, lexpcor, ltmpcor, lprfcor, lnonloc, lcpfluc, lsflcnd, limpltkediff, &
     & tur_len, pat_len, a_stab, tkhmin, tkmmin, c_diff, &
-    & rlam_heat, rlam_mom, rat_sea, tkesmot,  &
+    & rlam_heat, rlam_mom, rat_sea, tkesmot, impl_s, impl_t, &
 !   additional namelist parameters:
     & lconst_z0, const_z0
 
@@ -176,6 +178,8 @@ CONTAINS
       turbdiff_config(jg)%imode_turb   = imode_turb
       turbdiff_config(jg)%icldm_turb   = icldm_turb
       turbdiff_config(jg)%itype_sher   = itype_sher
+      turbdiff_config(jg)%lnew_ttrans  = lnew_ttrans
+      turbdiff_config(jg)%lnew_tdiff   = lnew_tdiff
       turbdiff_config(jg)%ltkesso      = ltkesso
       turbdiff_config(jg)%ltkecon      = ltkecon
       turbdiff_config(jg)%lexpcor      = lexpcor
@@ -183,6 +187,7 @@ CONTAINS
       turbdiff_config(jg)%lprfcor      = lprfcor
       turbdiff_config(jg)%lnonloc      = lnonloc
       turbdiff_config(jg)%lcpfluc      = lcpfluc
+      turbdiff_config(jg)%lsflcnd      = lsflcnd
       turbdiff_config(jg)%limpltkediff = limpltkediff
       turbdiff_config(jg)%itype_wcld   = itype_wcld
       turbdiff_config(jg)%itype_synd   = itype_synd
@@ -196,6 +201,8 @@ CONTAINS
       turbdiff_config(jg)%rlam_mom     = rlam_mom
       turbdiff_config(jg)%rat_sea      = rat_sea
       turbdiff_config(jg)%tkesmot      = tkesmot
+      turbdiff_config(jg)%impl_s       = impl_s
+      turbdiff_config(jg)%impl_t       = impl_t
 
       turbdiff_config(jg)%lconst_z0    = lconst_z0
       turbdiff_config(jg)%const_z0     = const_z0
