@@ -42,12 +42,17 @@
 !! software.
 !!
 MODULE mo_nml_annotate
-  
-  USE mo_namelist,    ONLY: position_nml, POSITIONED
-  USE mo_util_string, ONLY: int2string, str_replace, tolower,    &
-    &                       tocompact
-  USE mo_io_units,    ONLY: find_next_free_unit, nnml, filename_max
+
+#ifdef __ICON__  
+  USE mo_namelist,    ONLY: POSITIONED
+  USE mo_util_string, ONLY: int2string, str_replace, tolower, tocompact
+  USE mo_io_units,    ONLY: find_next_free_unit, filename_max
   USE mo_exception,   ONLY: finish
+#else
+  USE mo_utilities,   ONLY: POSITIONED, int2string, str_replace, tolower,  &
+    &                       finish, tocompact, find_next_free_unit,        &
+    &                       filename_max
+#endif
   USE mo_util_file,   ONLY: util_filesize, util_tmpnam, util_unlink
   USE mo_mpi,         ONLY: get_my_mpi_work_id, my_process_is_stdio
   
