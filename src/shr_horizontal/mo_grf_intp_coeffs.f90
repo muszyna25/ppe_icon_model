@@ -364,11 +364,7 @@ TYPE(t_grid_cells), POINTER :: p_gcp => NULL()
 TYPE(t_patch),      POINTER :: p_pp => NULL()
 
 INTEGER :: jb, jc, je, jg, jgp, ji, i_startblk, i_endblk,         &
-           i_startidx, i_endidx, iic, ibc, i_nchdom
-
-#ifdef  __SX__
-INTEGER :: i_child_id
-#endif
+           i_startidx, i_endidx, iic, ibc, i_nchdom, icid
 
 
 REAL(wp), ALLOCATABLE :: z_area(:,:)
@@ -387,22 +383,24 @@ DO jg = n_dom_start, n_dom-1
 ! c) Compute area of feedback domains
   DO ji = 1, i_nchdom
 
+    icid = p_pp%child_id(ji)
     p_grf(jg)%fbk_dom_area(ji) = 0._wp
 
     ALLOCATE(z_area(nproma,p_pp%nblks_c))
     z_area = 0._wp
 
-    i_startblk = p_gcp%start_blk(grf_fbk_start_c,ji)
-    i_endblk   = p_gcp%end_blk(min_rlcell_int,ji)
+    i_startblk = p_gcp%start_blk(1,1)
+    i_endblk   = p_gcp%end_blk(min_rlcell_int,i_nchdom)
 
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_pp, jb, i_startblk, i_endblk, &
-                         i_startidx, i_endidx, grf_fbk_start_c, min_rlcell_int, ji)
+                         i_startidx, i_endidx, 1, min_rlcell_int)
 
       DO jc = i_startidx, i_endidx
 
-        if(p_gcp%owner_mask(jc,jb)) z_area(jc,jb) = p_gcp%area(jc,jb)
+        IF (p_gcp%refin_ctrl(jc,jb) <= grf_fbk_start_c .AND. p_gcp%child_id(jc,jb) == icid .AND. &
+           p_gcp%owner_mask(jc,jb)) z_area(jc,jb) = p_gcp%area(jc,jb)
 
       ENDDO
     ENDDO

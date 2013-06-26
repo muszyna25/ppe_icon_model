@@ -144,10 +144,10 @@ INTEGER :: grf_vec_dim_1, grf_vec_dim_2
     ! Determine dimensions needed for grid refinement fields
     IF (ptr_patch%n_childdom > 0) THEN  ! n_childdom = 0 in the innermost nest(s)
 
-      isb_e      = ptr_patch%edges%start_blk(grf_bdyintp_start_e,jcd)
-      ieb_e      = MAX(isb_e,ptr_patch%edges%end_blk(min_rledge_int,jcd))
-      isb_c      = ptr_patch%cells%start_blk(grf_bdyintp_start_c,jcd)
-      ieb_c      = MAX(isb_c,ptr_patch%cells%end_blk(min_rlcell_int,jcd))
+      isb_e      = 1
+      ieb_e      = nblks_e
+      isb_c      = 1
+      ieb_c      = nblks_c
       nproma_grf = nproma
 
     ELSE
@@ -449,7 +449,7 @@ SUBROUTINE transfer_grf_state(p_p, p_lp, p_grf, p_lgrf, jcd)
   INTEGER, INTENT(IN) :: jcd
 
   INTEGER, ALLOCATABLE :: owner(:)
-  INTEGER :: j, k, n
+  INTEGER :: j, k, n, i_nchdom, jc, je, jb, icid
   INTEGER :: isb_e, ieb_e, isb_le, ieb_le, is_e, ie_e
   INTEGER :: isb_c, ieb_c, isb_lc, ieb_lc, is_c, ie_c
 
@@ -460,26 +460,28 @@ SUBROUTINE transfer_grf_state(p_p, p_lp, p_grf, p_lgrf, jcd)
   grf_vec_dim_1 = 6
   grf_vec_dim_2 = 5
 
+  i_nchdom = MAX(1,p_p%n_childdom)
+  icid     = p_p%child_id(jcd)
 
-  isb_e      = p_p%edges%start_blk(grf_bdyintp_start_e,jcd)
-  ieb_e      = p_p%edges%end_blk(min_rledge_int,jcd)
-  isb_c      = p_p%cells%start_blk(grf_bdyintp_start_c,jcd)
-  ieb_c      = p_p%cells%end_blk(min_rlcell_int,jcd)
+  isb_e      = p_p%edges%start_blk(1,1)
+  ieb_e      = p_p%edges%end_blk(min_rledge_int,i_nchdom)
+  isb_c      = p_p%cells%start_blk(1,1)
+  ieb_c      = p_p%cells%end_blk(min_rlcell_int,i_nchdom)
 
   isb_le      = p_lp%edges%start_blk(grf_bdyintp_start_e,jcd)
   ieb_le      = p_lp%edges%end_blk(min_rledge_int,jcd)
   isb_lc      = p_lp%cells%start_blk(grf_bdyintp_start_c,jcd)
   ieb_lc      = p_lp%cells%end_blk(min_rlcell_int,jcd)
 
-  is_e = idx_1d(p_p%edges%start_idx(grf_bdyintp_start_e,jcd), &
-                p_p%edges%start_blk(grf_bdyintp_start_e,jcd))
-  ie_e = idx_1d(p_p%edges%end_idx(min_rledge_int,jcd), &
-                p_p%edges%end_blk(min_rledge_int,jcd))
+  is_e = idx_1d(p_p%edges%start_idx(1,1), &
+                p_p%edges%start_blk(1,1))
+  ie_e = idx_1d(p_p%edges%end_idx(min_rledge_int,i_nchdom), &
+                p_p%edges%end_blk(min_rledge_int,i_nchdom))
 
-  is_c = idx_1d(p_p%cells%start_idx(grf_bdyintp_start_c,jcd), &
-                p_p%cells%start_blk(grf_bdyintp_start_c,jcd))
-  ie_c = idx_1d(p_p%cells%end_idx(min_rlcell_int,jcd), &
-                p_p%cells%end_blk(min_rlcell_int,jcd))
+  is_c = idx_1d(p_p%cells%start_idx(1,1), &
+                p_p%cells%start_blk(1,1))
+  ie_c = idx_1d(p_p%cells%end_idx(min_rlcell_int,i_nchdom), &
+                p_p%cells%end_blk(min_rlcell_int,i_nchdom))
 
   ! Set up communication patterns for transferring the data to local parents.
   ! Since these communication patterns are not used elsewhere, they are
@@ -489,7 +491,11 @@ SUBROUTINE transfer_grf_state(p_p, p_lp, p_grf, p_lgrf, jcd)
   ALLOCATE(owner(p_p%n_patch_edges))
   owner = -1
   DO j = is_e, ie_e
-    owner(j) = p_lp%edges%owner_g(p_p%edges%glb_index(j))
+    jb = blk_no(j)
+    je = idx_no(j)
+    IF (p_p%edges%refin_ctrl(je,jb) <= grf_bdyintp_start_e .AND. p_p%edges%child_id(je,jb) == icid) THEN
+      owner(j) = p_lp%edges%owner_g(p_p%edges%glb_index(j))
+    ENDIF
   ENDDO
   CALL setup_comm_pattern(p_p%n_patch_edges, owner, p_p%edges%glb_index, &
     & p_lp%edges%loc_index, comm_pat_loc_to_glb_e)
@@ -498,7 +504,11 @@ SUBROUTINE transfer_grf_state(p_p, p_lp, p_grf, p_lgrf, jcd)
   ALLOCATE(owner(p_p%n_patch_cells))
   owner = -1
   DO j = is_c, ie_c
-    owner(j) = p_lp%cells%owner_g(p_p%cells%glb_index(j))
+    jb = blk_no(j)
+    jc = idx_no(j)
+    IF (p_p%cells%refin_ctrl(jc,jb) <= grf_bdyintp_start_c .AND. p_p%cells%child_id(jc,jb) == icid) THEN
+      owner(j) = p_lp%cells%owner_g(p_p%cells%glb_index(j))
+    ENDIF
   ENDDO
   CALL setup_comm_pattern(p_p%n_patch_cells, owner, p_p%cells%glb_index, &
     & p_lp%cells%loc_index, comm_pat_loc_to_glb_c)
@@ -516,10 +526,10 @@ SUBROUTINE transfer_grf_state(p_p, p_lp, p_grf, p_lgrf, jcd)
   CALL exchange_data(comm_pat_loc_to_glb_e, RECV=z_tmp_r, SEND=z_tmp_s)
 
   IF (ieb_e >= isb_e) THEN
-    p_grf%p_dom(jcd)%grf_vec_stencil_1a(:,:) = INT(z_tmp_r(:,1,isb_e:ieb_e))
-    p_grf%p_dom(jcd)%grf_vec_stencil_1b(:,:) = INT(z_tmp_r(:,2,isb_e:ieb_e))
-    p_grf%p_dom(jcd)%grf_vec_stencil_2a(:,:) = INT(z_tmp_r(:,3,isb_e:ieb_e))
-    p_grf%p_dom(jcd)%grf_vec_stencil_2b(:,:) = INT(z_tmp_r(:,4,isb_e:ieb_e))
+    p_grf%p_dom(jcd)%grf_vec_stencil_1a(:,isb_e:ieb_e) = INT(z_tmp_r(:,1,isb_e:ieb_e))
+    p_grf%p_dom(jcd)%grf_vec_stencil_1b(:,isb_e:ieb_e) = INT(z_tmp_r(:,2,isb_e:ieb_e))
+    p_grf%p_dom(jcd)%grf_vec_stencil_2a(:,isb_e:ieb_e) = INT(z_tmp_r(:,3,isb_e:ieb_e))
+    p_grf%p_dom(jcd)%grf_vec_stencil_2b(:,isb_e:ieb_e) = INT(z_tmp_r(:,4,isb_e:ieb_e))
   ENDIF
   DEALLOCATE(z_tmp_s)
   DEALLOCATE(z_tmp_r)
@@ -605,19 +615,19 @@ SUBROUTINE transfer_grf_state(p_p, p_lp, p_grf, p_lgrf, jcd)
     n = 0
     DO k = 1, grf_vec_dim_1
       n = n+1
-      p_grf%p_dom(jcd)%grf_vec_coeff_1a(k,:,:) = z_tmp_r(:,n,isb_e:ieb_e)
+      p_grf%p_dom(jcd)%grf_vec_coeff_1a(k,:,isb_e:ieb_e) = z_tmp_r(:,n,isb_e:ieb_e)
     ENDDO
     DO k = 1, grf_vec_dim_1
       n = n+1
-      p_grf%p_dom(jcd)%grf_vec_coeff_1b(k,:,:) = z_tmp_r(:,n,isb_e:ieb_e)
+      p_grf%p_dom(jcd)%grf_vec_coeff_1b(k,:,isb_e:ieb_e) = z_tmp_r(:,n,isb_e:ieb_e)
     ENDDO
     DO k = 1, grf_vec_dim_2
       n = n+1
-      p_grf%p_dom(jcd)%grf_vec_coeff_2a(k,:,:) = z_tmp_r(:,n,isb_e:ieb_e)
+      p_grf%p_dom(jcd)%grf_vec_coeff_2a(k,:,isb_e:ieb_e) = z_tmp_r(:,n,isb_e:ieb_e)
     ENDDO
     DO k = 1, grf_vec_dim_2
       n = n+1
-      p_grf%p_dom(jcd)%grf_vec_coeff_2b(k,:,:) = z_tmp_r(:,n,isb_e:ieb_e)
+      p_grf%p_dom(jcd)%grf_vec_coeff_2b(k,:,isb_e:ieb_e) = z_tmp_r(:,n,isb_e:ieb_e)
     ENDDO
   ENDIF
 
@@ -633,7 +643,7 @@ SUBROUTINE transfer_grf_state(p_p, p_lp, p_grf, p_lgrf, jcd)
 
   CALL exchange_data(comm_pat_loc_to_glb_e, RECV=z_tmp_r, SEND=z_tmp_s)
 
-  IF (ieb_e >= isb_e) p_grf%p_dom(jcd)%grf_dist_pe2ce(:,:,:) = z_tmp_r(:,:,isb_e:ieb_e)
+  IF (ieb_e >= isb_e) p_grf%p_dom(jcd)%grf_dist_pe2ce(:,:,isb_e:ieb_e) = z_tmp_r(:,:,isb_e:ieb_e)
 
   DEALLOCATE(z_tmp_s)
   DEALLOCATE(z_tmp_r)
@@ -655,14 +665,14 @@ SUBROUTINE transfer_grf_state(p_p, p_lp, p_grf, p_lgrf, jcd)
   CALL exchange_data(comm_pat_loc_to_glb_c, RECV=z_tmp_r, SEND=z_tmp_s)
 
   IF (ieb_c >= isb_c) THEN
-    p_grf%p_dom(jcd)%grf_dist_pc2cc(:,1,1,:) = z_tmp_r(:,1,isb_c:ieb_c)
-    p_grf%p_dom(jcd)%grf_dist_pc2cc(:,2,1,:) = z_tmp_r(:,2,isb_c:ieb_c)
-    p_grf%p_dom(jcd)%grf_dist_pc2cc(:,3,1,:) = z_tmp_r(:,3,isb_c:ieb_c)
-    p_grf%p_dom(jcd)%grf_dist_pc2cc(:,4,1,:) = z_tmp_r(:,4,isb_c:ieb_c)
-    p_grf%p_dom(jcd)%grf_dist_pc2cc(:,1,2,:) = z_tmp_r(:,5,isb_c:ieb_c)
-    p_grf%p_dom(jcd)%grf_dist_pc2cc(:,2,2,:) = z_tmp_r(:,6,isb_c:ieb_c)
-    p_grf%p_dom(jcd)%grf_dist_pc2cc(:,3,2,:) = z_tmp_r(:,7,isb_c:ieb_c)
-    p_grf%p_dom(jcd)%grf_dist_pc2cc(:,4,2,:) = z_tmp_r(:,8,isb_c:ieb_c)
+    p_grf%p_dom(jcd)%grf_dist_pc2cc(:,1,1,isb_c:ieb_c) = z_tmp_r(:,1,isb_c:ieb_c)
+    p_grf%p_dom(jcd)%grf_dist_pc2cc(:,2,1,isb_c:ieb_c) = z_tmp_r(:,2,isb_c:ieb_c)
+    p_grf%p_dom(jcd)%grf_dist_pc2cc(:,3,1,isb_c:ieb_c) = z_tmp_r(:,3,isb_c:ieb_c)
+    p_grf%p_dom(jcd)%grf_dist_pc2cc(:,4,1,isb_c:ieb_c) = z_tmp_r(:,4,isb_c:ieb_c)
+    p_grf%p_dom(jcd)%grf_dist_pc2cc(:,1,2,isb_c:ieb_c) = z_tmp_r(:,5,isb_c:ieb_c)
+    p_grf%p_dom(jcd)%grf_dist_pc2cc(:,2,2,isb_c:ieb_c) = z_tmp_r(:,6,isb_c:ieb_c)
+    p_grf%p_dom(jcd)%grf_dist_pc2cc(:,3,2,isb_c:ieb_c) = z_tmp_r(:,7,isb_c:ieb_c)
+    p_grf%p_dom(jcd)%grf_dist_pc2cc(:,4,2,isb_c:ieb_c) = z_tmp_r(:,8,isb_c:ieb_c)
   ENDIF
 
   DEALLOCATE(z_tmp_s)

@@ -2121,12 +2121,10 @@ CONTAINS
 
     DO jcd = 1, p%n_childdom
 
-      js_e = idx_1d(p%edges%start_idx(grf_bdyintp_start_e,jcd), &
-        &           p%edges%start_blk(grf_bdyintp_start_e,jcd))
-      je_e = idx_1d(p%edges%end_idx(min_rledge_int,jcd),p%edges%end_blk(min_rledge_int,jcd))
-      js_c = idx_1d(p%cells%start_idx(grf_bdyintp_start_c,jcd), &
-        &           p%cells%start_blk(grf_bdyintp_start_c,jcd))
-      je_c = idx_1d(p%cells%end_idx(min_rlcell_int,jcd),p%cells%end_blk(min_rlcell_int,jcd))
+      js_e = 1
+      je_e = p%n_patch_edges
+      js_c = 1
+      je_c = p%n_patch_cells
 
       WRITE(ccd,'("ch_dom.",i0)') jcd
 
@@ -2201,15 +2199,13 @@ CONTAINS
 
     DO jcd = 1, p%n_childdom
 
-      is_e = p%edges%start_idx(grf_bdyintp_start_e,jcd)
-      is_c = p%cells%start_idx(grf_bdyintp_start_c,jcd)
+      is_e = 1
+      is_c = 1
 
-      js_e = idx_1d(p%edges%start_idx(grf_bdyintp_start_e,jcd),&
-        &           p%edges%start_blk(grf_bdyintp_start_e,jcd))
-      je_e = idx_1d(p%edges%end_idx(min_rledge_int,jcd),p%edges%end_blk(min_rledge_int,jcd))
-      js_c = idx_1d(p%cells%start_idx(grf_bdyintp_start_c,jcd), &
-        &           p%cells%start_blk(grf_bdyintp_start_c,jcd))
-      je_c = idx_1d(p%cells%end_idx(min_rlcell_int,jcd),p%cells%end_blk(min_rlcell_int,jcd))
+      js_e = 1
+      je_e = idx_1d(p%edges%end_idx(min_rledge_int,p%n_childdom),p%edges%end_blk(min_rledge_int,p%n_childdom))
+      js_c = 1
+      je_c = idx_1d(p%cells%end_idx(min_rlcell_int,p%n_childdom),p%cells%end_blk(min_rlcell_int,p%n_childdom))
 
       ! Cycle if there is nothing to do.
       ! This also avoids inquiring possibly nonexisting dimensions below.
