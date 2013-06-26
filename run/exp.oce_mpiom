@@ -210,6 +210,7 @@ cat > ${ocean_namelist} << EOF
                 'veloc_adv_horz'         ,
                 'veloc_adv_vert'         ,
                 'vn'                     ,
+                'vort'                   ,
                 'vt'                     ,
                 'vt_acc'                 ,
                 'w'                      ,
