@@ -293,9 +293,11 @@ cat > ${ocean_namelist} << EOF
   l_forc_freshw      = .TRUE.    ! apply freshwater forcing boundary condition (OMIP only)
 /
 &ocean_diagnostics_nml
-   gibraltar(1:10)      = 2371,2374           ! vertex list R2B04
-   denmark_strait(1:10) = 2436,2471      ! vertex list R2B04
-   drake_passage(1:10)  = 9285,9319,9321,9412,9414,9655
+! vertex list for R2B04 only
+   gibraltar(1:10)              = 2371,2374
+   denmark_strait(1:10)         = 2436,2471
+   drake_passage(1:10)          = 9285,9319,9321,9412,9414,9655
+   indonesian_throughflow(1:10) = 3563,3564,3557,3567,6179,6180,6184
 /
 &io_nml
   out_expname   = '${EXPNAME}'

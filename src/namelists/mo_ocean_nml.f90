@@ -280,9 +280,10 @@ MODULE mo_ocean_nml
   ! special diagnostics configuration
   !
   ! vertex list of throughflows
-  INTEGER :: denmark_strait(100) = -1
-  INTEGER :: gibraltar(100)      = -1
-  INTEGER :: drake_passage(100)  = -1
+  INTEGER :: denmark_strait(100)         = -1
+  INTEGER :: gibraltar(100)              = -1
+  INTEGER :: drake_passage(100)          = -1
+  INTEGER :: indonesian_throughflow(100) = -1
 
   NAMELIST/ocean_dynamics_nml/ n_zlev, dzlev_m, idisc_scheme,              &
     &                 iswm_oce, l_staggered_timestep,                      &
@@ -326,7 +327,7 @@ MODULE mo_ocean_nml
     &                 irelax_3d_S, relax_3d_mon_S, irelax_3d_T, relax_3d_mon_T, &
     &                 l_forc_freshw, limit_elevation, seaice_limit 
 
-  NAMELIST/ocean_diagnostics_nml/ denmark_strait,drake_passage,gibraltar
+  NAMELIST/ocean_diagnostics_nml/ denmark_strait,drake_passage,gibraltar,indonesian_throughflow
 
   ! ------------------------------------------------------------------------
   ! 3.0 Namelist variables and auxiliary parameters for octst_nml
