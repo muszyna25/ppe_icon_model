@@ -59,7 +59,7 @@ MODULE mo_initicon_config
     &  version = '$Id: mo_initicon_config.f90 10934 2013-01-14 08:50:18Z dreinert $'
 
   ! ----------------------------------------------------------------------------
-  ! 1.0 Namelist variables for the prep_icon preprocessing program
+  ! 1.0 Namelist variables for the init_icon preprocessing program
   ! ----------------------------------------------------------------------------
   !
   INTEGER  :: init_mode     ! initialization mode

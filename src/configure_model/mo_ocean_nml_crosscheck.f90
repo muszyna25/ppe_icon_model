@@ -80,9 +80,9 @@ CONTAINS
     !----------------------------
     ! rescale timestep
     dtime     = dtime     * grid_rescale_factor
-    !--------------------------------------------------------------------
-    ! Check length of this integration (skip for prep_icon remapping)
-    !--------------------------------------------------------------------
+    !---------------------------------
+    ! Check length of this integration
+    !---------------------------------
     !
     IF (nsteps/=0) THEN   ! User specified a value
 

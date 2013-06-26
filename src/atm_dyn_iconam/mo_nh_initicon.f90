@@ -142,7 +142,7 @@ MODULE mo_nh_initicon
   !-------------
   !>
   !! SUBROUTINE init_icon
-  !! Initialization routine of prep_icon: Reads in either DWD or IFS analysis
+  !! Initialization routine of init_icon: Reads in either DWD or IFS analysis
   !!
   !! @par Revision History
   !! Initial version by Guenther Zaengl, DWD(2011-07-14)
@@ -173,7 +173,7 @@ MODULE mo_nh_initicon
       CALL finish(TRIM(routine),'allocation for initicon failed')
     ENDIF
     !
-    ! Allocate memory for prep_icon state
+    ! Allocate memory for init_icon state
     CALL allocate_initicon (p_patch, initicon)
 
 
@@ -2248,7 +2248,7 @@ MODULE mo_nh_initicon
 
   !>
   !! SUBROUTINE copy_initicon2prog_atm
-  !! Copies atmospheric fields interpolated by prep_icon to the
+  !! Copies atmospheric fields interpolated by init_icon to the
   !! prognostic model state variables 
   !!
   !! Required input: initicon state
@@ -2372,7 +2372,7 @@ MODULE mo_nh_initicon
   !-------------
   !>
   !! SUBROUTINE copy_initicon2prog_sfc
-  !! Copies surface fields interpolated by prep_icon to the prognostic model 
+  !! Copies surface fields interpolated by init_icon to the prognostic model 
   !! state variables. 
   !!
   !! Required input: initicon state
@@ -2610,7 +2610,7 @@ MODULE mo_nh_initicon
       nblks_e = p_patch(jg)%nblks_e
 
 
-      ! basic prep_icon data
+      ! basic init_icon data
       ALLOCATE(initicon(jg)%topography_c    (nproma,nblks_c),        &
                initicon(jg)%topography_v    (nproma,nblks_v),        &
                initicon(jg)%z_ifc           (nproma,nlevp1,nblks_c), &
@@ -2708,7 +2708,7 @@ MODULE mo_nh_initicon
     ! Loop over model domains
     DO jg = 1, n_dom
 
-      ! basic prep_icon data
+      ! basic init_icon data
       DEALLOCATE(initicon(jg)%topography_c,     &
                  initicon(jg)%topography_v,     &
                  initicon(jg)%z_ifc,            &

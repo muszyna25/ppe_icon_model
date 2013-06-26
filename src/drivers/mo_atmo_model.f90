@@ -80,7 +80,6 @@ USE mo_run_config,           ONLY: configure_run, &
   & dtime, output_mode,     &
   & grid_generatingCenter,  & ! grid generating center
   & grid_generatingSubcenter  ! grid generating subcenter
-USE mo_prepicon_config,      ONLY: i_oper_mode 
 USE mo_gribout_config,       ONLY: configure_gribout
 USE mo_impl_constants,       ONLY:&
   & ihs_atm_temp,         & !    :
@@ -331,8 +330,7 @@ CONTAINS
     !---------------------------------------------------------------------
     ! 1.2 Cross-check namelist setups
     !---------------------------------------------------------------------
-    !! DR temporary hack!!
-    i_oper_mode = 2
+
     !! DR end temporary hack !!
     CALL atm_crosscheck
 

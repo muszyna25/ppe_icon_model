@@ -1259,7 +1259,6 @@ src/configure_model/mo_nonhydrostatic_config.f90 -text
 src/configure_model/mo_ocean_config.f90 -text
 src/configure_model/mo_ocean_nml_crosscheck.f90 -text
 src/configure_model/mo_parallel_config.f90 -text
-src/configure_model/mo_prepicon_config.f90 -text
 src/configure_model/mo_radiation_config.f90 -text
 src/configure_model/mo_run_config.f90 -text
 src/configure_model/mo_sleve_config.f90 -text
@@ -1386,7 +1385,6 @@ src/namelists/mo_nwp_phy_nml.f90 -text
 src/namelists/mo_ocean_nml.f90 -text
 src/namelists/mo_ocean_read_namelists.f90 -text
 src/namelists/mo_parallel_nml.f90 -text
-src/namelists/mo_prepicon_nml.f90 -text
 src/namelists/mo_radiation_nml.f90 -text
 src/namelists/mo_read_namelists.f90 -text
 src/namelists/mo_run_nml.f90 -text

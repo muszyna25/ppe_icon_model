@@ -74,7 +74,7 @@ MODULE mo_initicon_nml
   CHARACTER(len=*), PARAMETER :: modelversion = 'dev'
 
   ! ----------------------------------------------------------------------------
-  ! 1.0 Namelist variables for the prep_icon preprocessing program
+  ! 1.0 Namelist variables for the init_icon preprocessing program
   ! ----------------------------------------------------------------------------
   !
   INTEGER  :: init_mode     ! initialization mode
