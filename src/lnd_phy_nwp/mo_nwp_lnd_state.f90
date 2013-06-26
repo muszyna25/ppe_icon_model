@@ -927,7 +927,102 @@ MODULE mo_nwp_lnd_state
 
     !
     !FLAKE
-    ! 
+    !
+
+    IF (llake) THEN   ! lake model switched on
+
+      ! p_prog_wtr%t_ice_lk(nproma,nblks_c)
+      cf_desc    = t_cf_var('t_ice_lk', 'K', 'lake ice temperature', DATATYPE_FLT32)
+      grib2_desc = t_grib2_var(1, 2, 6, ibits, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( prog_list, vname_prefix//'t_ice_lk'//suffix, p_prog_wtr%t_ice_lk,  &
+           & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,                  &
+           & ldims=shape2d,                                                            &
+           & in_group=groups("dwd_ana_vars") )   
+
+      ! p_prog_wtr%h_ice_lk(nproma,nblks_c)
+      cf_desc    = t_cf_var('h_ice_lk', 'm', 'lake ice depth', DATATYPE_FLT32)
+      grib2_desc = t_grib2_var(1, 2, 5, ibits, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( prog_list, vname_prefix//'h_ice_lk'//suffix, p_prog_wtr%h_ice_lk, &
+           & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,                 &
+           & ldims=shape2d,                                                           &
+           & in_group=groups("dwd_ana_vars") )
+
+      ! p_prog_wtr%t_snow_lk(nproma,nblks_c)
+      cf_desc    = t_cf_var('t_snow_lk', 'K', 'temperature of snow on lake ice', DATATYPE_FLT32)
+      grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( prog_list, vname_prefix//'t_snow_lk'//suffix, p_prog_wtr%t_snow_lk,  &
+           & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d)
+
+
+      ! p_prog_wtr%h_snow_lk(nproma,nblks_c)
+      cf_desc    = t_cf_var('h_snow_lk', 'm', 'depth of snow on lake ice', DATATYPE_FLT32)
+      grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( prog_list, vname_prefix//'h_snow_lk'//suffix, p_prog_wtr%h_snow_lk,  &
+           & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d)
+
+
+      ! p_prog_wtr%t_mnw_lk(nproma,nblks_c)
+      cf_desc    = t_cf_var('t_mnw_lk', 'K', 'mean temperature of the water column', DATATYPE_FLT32)
+      grib2_desc = t_grib2_var(1, 2, 1, ibits, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( prog_list, vname_prefix//'t_mnw_lk'//suffix, p_prog_wtr%t_mnw_lk,  &
+           & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d)
+
+
+      ! p_prog_wtr%t_wml_lk(nproma,nblks_c)
+      cf_desc    = t_cf_var('t_wml_lk', 'K', 'mixed-layer temperature', DATATYPE_FLT32)
+      grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( prog_list, vname_prefix//'t_wml_lk'//suffix, p_prog_wtr%t_wml_lk,  &
+           & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d)
+
+
+      ! p_prog_wtr%h_ml_lk(nproma,nblks_c)
+      cf_desc    = t_cf_var('h_ml_lk', 'm', 'mixed-layer thickness', DATATYPE_FLT32)
+      grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( prog_list, vname_prefix//'h_ml_lk'//suffix, p_prog_wtr%h_ml_lk,  &
+           & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d)
+
+
+      ! p_prog_wtr%t_bot_lk(nproma,nblks_c)
+      cf_desc    = t_cf_var('t_bot_lk', 'K', 'temperature at the water-bottom sediment interface', &
+        &          DATATYPE_FLT32)
+      grib2_desc = t_grib2_var(1, 2, 4, ibits, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( prog_list, vname_prefix//'t_bot_lk'//suffix, p_prog_wtr%t_bot_lk,  &
+           & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d)
+
+
+      ! p_prog_wtr%c_t_lk(nproma,nblks_c)
+      cf_desc    = t_cf_var('c_t_lk', '-', 'shape factor (temp. profile in lake thermocline)', &
+        &          DATATYPE_FLT32)
+      grib2_desc = t_grib2_var(1, 2, 10, ibits, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( prog_list, vname_prefix//'c_t_lk'//suffix, p_prog_wtr%c_t_lk,  &
+           & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d)
+
+
+      ! p_prog_wtr%t_b1_lk(nproma,nblks_c)
+      cf_desc    = t_cf_var('t_b1_lk', 'K',                                         &
+        &          'temperature at the bottom of the upper layer of the sediments', &
+        &          DATATYPE_FLT32)
+      grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( prog_list, vname_prefix//'t_b1_lk'//suffix, p_prog_wtr%t_b1_lk,  &
+           & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d)
+
+
+      ! p_prog_wtr%h_b1_lk(nproma,nblks_c)
+      cf_desc    = t_cf_var('h_b1_lk', 'm',                                         &
+        &          'thickness of the upper layer of the sediments', DATATYPE_FLT32)
+      grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( prog_list, vname_prefix//'h_b1_lk'//suffix, p_prog_wtr%h_b1_lk,  &
+           & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d)
+
+
+      ! probably obsolete - we may use t_g_t directly
+      ! p_prog_wtr%t_scf_lk(nproma,nblks_c)
+      cf_desc    = t_cf_var('t_scf_lk', 'K', 'lake surface temperature', DATATYPE_FLT32)
+      grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( prog_list, vname_prefix//'t_scf_lk'//suffix, p_prog_wtr%t_scf_lk,  &
+           & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d)
+
+    ENDIF  ! llake
 
   END SUBROUTINE new_nwp_wtr_prog_list
 

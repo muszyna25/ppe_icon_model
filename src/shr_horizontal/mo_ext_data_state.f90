@@ -69,7 +69,8 @@ MODULE mo_ext_data_state
   USE mo_impl_constants_grf, ONLY: grf_bdywidth_c
   USE mo_lnd_nwp_config,     ONLY: ntiles_total, ntiles_lnd, ntiles_water, lsnowtile, frlnd_thrhld, &
                                    frlndtile_thrhld, frlake_thrhld, frsea_thrhld, isub_water,       &
-                                   isub_lake, sstice_mode, sst_td_filename, ci_td_filename
+                                   isub_lake, sstice_mode, sst_td_filename, ci_td_filename,         &
+                                   llake
   USE mo_extpar_config,      ONLY: itopo, l_emiss, extpar_filename, generate_filename, & 
     &                              generate_td_filename
   USE mo_time_config,        ONLY: time_config
@@ -672,6 +673,9 @@ CONTAINS
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
         &           grib2_desc, ldims=shape2d_c, loutput=.FALSE. )
 
+      !
+      ! fr_lake and lake depth are needed, even if the lake model is switched off
+      !
 
       ! fraction lake
       !
@@ -687,13 +691,56 @@ CONTAINS
       ! lake depth
       !
       ! depth_lk     p_ext_atm%depth_lk(nproma,nblks_c)
-      cf_desc    = t_cf_var('lake_depth', '-', 'lake depth', DATATYPE_FLT32)
+      cf_desc    = t_cf_var('lake_depth', 'm', 'lake depth', DATATYPE_FLT32)
       grib2_desc = t_grib2_var( 1, 2, 0, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'depth_lk', p_ext_atm%depth_lk, &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
-        &           grib2_desc, ldims=shape2d_c, loutput=.FALSE.,   &
+        &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,    &
         &           isteptype=TSTEP_CONSTANT )
 
+      IF (llake) THEN
+
+        ! fetch_lk     p_ext_atm%fetch_lk(nproma,nblks_c)
+        cf_desc    = t_cf_var('fetch_lk', 'm', 'wind fetch over lake', DATATYPE_FLT32)
+        grib2_desc = t_grib2_var( 0, 2, 33, ibits, GRID_REFERENCE, GRID_CELL)
+        CALL add_var( p_ext_atm_list, 'fetch_lk', p_ext_atm%fetch_lk, &
+          &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
+          &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,    &
+          &           isteptype=TSTEP_CONSTANT )
+
+
+        ! dp_bs_lk     p_ext_atm%dp_bs_lk(nproma,nblks_c)
+        cf_desc    = t_cf_var('dp_bs_lk', 'm', &
+          &          'depth of thermally active layer of bot. sediments.', DATATYPE_FLT32)
+        grib2_desc = t_grib2_var( 1, 2, 3, ibits, GRID_REFERENCE, GRID_CELL)
+        CALL add_var( p_ext_atm_list, 'dp_bs_lk', p_ext_atm%dp_bs_lk, &
+          &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
+          &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,    &
+          &           isteptype=TSTEP_CONSTANT )
+
+
+        ! t_bs_lk     p_ext_atm%t_bs_lk(nproma,nblks_c)
+        cf_desc    = t_cf_var('t_bs_lk', 'm', &
+          &          'clim. temp. at bottom of thermally active layer of sediments', &
+          &          DATATYPE_FLT32)
+        grib2_desc = t_grib2_var( 1, 2, 4, ibits, GRID_REFERENCE, GRID_CELL)
+        CALL add_var( p_ext_atm_list, 't_bs_lk', p_ext_atm%t_bs_lk,   &
+          &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
+          &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,    &
+          &           isteptype=TSTEP_CONSTANT )
+
+
+        ! gamso_lk     p_ext_atm%gamso_lk(nproma,nblks_c)
+        cf_desc    = t_cf_var('gamso_lk', 'm', &
+          &          'attenuation coefficient of lake water with respect to sol. rad.', &
+          &          DATATYPE_FLT32)
+        grib2_desc = t_grib2_var( 1, 2, 11, ibits, GRID_REFERENCE, GRID_CELL)
+        CALL add_var( p_ext_atm_list, 'gamso_lk', p_ext_atm%gamso_lk, &
+          &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
+          &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,    &
+          &           isteptype=TSTEP_CONSTANT )
+
+      ENDIF
 
 
 

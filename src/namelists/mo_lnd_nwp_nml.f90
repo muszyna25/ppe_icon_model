@@ -109,7 +109,7 @@ MODULE mo_lnd_nwp_nml
 
   LOGICAL ::       &
        lseaice,    & !> forecast with sea ice model
-       llake,      & !! forecst with lake model FLake
+       llake,      & !! forecast with lake model FLake
        lmelt     , & !! soil model with melting process
        lmelt_var , & !! freezing temperature dependent on water content
        lmulti_snow,& !! run the multi-layer snow model
@@ -213,7 +213,7 @@ MODULE mo_lnd_nwp_nml
 
 
     lseaice    = .TRUE.
-    llake      = .FALSE.     ! to be implemented
+    llake      = .FALSE.     ! if .TRUE., lake model ist used
     
 
 
