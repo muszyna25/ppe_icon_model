@@ -238,10 +238,10 @@ def doRunPost(build,exp)
   call(connect(build,"./make_runscripts ; cd run;./post.#{exp}.run;"))
 end
 def doCheckExp(build,exp)
-  call(connect(build,"cd experiments/#{exp}; for file in #{exp}*001.nc; do echo $file;cdo infov $file; done"))
+  call(connect(build,"cd experiments/#{exp}; for file in #{exp}*001.nc; do echo $file;cdo sinfov $file; done"))
   diagFile    = 'oce_diagnostics.txt'
   diagPlotter = 'scripts/postprocessing/tools/oceDiag.gp'
-  call(connect(build,"cd experiments/#{exp}; if test -f #{diagFile}; then SHOW=1 FILE=#{diagFile} gnuplot ../../#{diagPlotter}; else echo 'No diagnostics avialable!';fi"))
+  call(connect(build,"cd experiments/#{exp}; if test -f #{diagFile}; then LD_LIBRARY_PATH=/usr/lib SHOW=1 FILE=#{diagFile} gnuplot ../../#{diagPlotter}; else echo 'No diagnostics avialable!';fi"))
 end
 def doCheckPost(build,exp,ext)
   pattern = "*_#{exp}_*.#{ext}"
@@ -274,7 +274,7 @@ $builds.each_key {|build|
 
   #special thunder submits
   if /thunder/.match($builds[build][:host].to_s) then
-    desc "Submit experiment on thunder for build #{build.to_s}"
+    desc "Submit experiment on thunder for build #{build.to_s} (incl. preq.)"
     task "#{build.to_s}_submit".to_sym , [:exp] => ["#{build.to_s}_build".to_sym] do |t, args|
       doSubmitExp(build,args.exp || DEFAULT_EXP)
     end
