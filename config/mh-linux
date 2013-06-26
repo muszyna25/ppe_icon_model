@@ -122,21 +122,21 @@ case "$fortran_compiler" in
         MODDIR      = -module 
         ;;
     cray)
-        config_compiler=pgi
-        CFLAGS      = -v -Df2cFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF -O3 
+        config_compiler=cray
 	CC          = cc
-	F77         = ftn -rm
-        FC          = ftn -rm
+        FC          = ftn
+        F77         = "$FC"
+        FFLAGS      = -v -D__LOOP_EXCHANGE -Df2cFortran -e Z -hflex_mp=conservative 
+        CFLAGS      = -v -Df2cFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF -O3 
+        F77FLAGS    = "$FFLAGS"
+        FCLIBS      = "-v"
         GEN_FLAGS   =
         FDEBUG      = -g -R abc
-        FFLAGS      = -v -O3 -D__LOOP_EXCHANGE -Df2cFortran -e Z -e m -e a
-        F77         = "$FC"
-        F77FLAGS    = "$FFLAGS"
         OMPFLAG     = -mp
         DEFOPT      = -D
         DEFCOPT     = -D
         MODOPT      = -I
-        MODDIR      = -J 
+        MODDIR      = 
         ;;
     intel)
         config_compiler=intel
@@ -222,59 +222,12 @@ esac
 #
 # Define site dependent library paths
 #
-
 case "$ac_sitename" in
 
 #===============================================
-    cscs.ch)
-        case "$HOST" in
-            *palu*)         #                 
-                config_target=palu
-                make_command="make" "-j" "8"
-#                use_shell="/bin/sh"
-                load_profile="." "/opt/modules/default/etc/modules.sh"
-                submit="qsub"
-                sync_submit=qsub -sync y
-               CC = cc
-                FC = ftn
-                F77= ftn
-
-                case "$fortran_compiler" in
-                    default|gcc)
-                      load_modules="PrgEnv-gnu" "netcdf" "${load_modules}"
-                      NETCDFROOT = /opt/cray/netcdf/4.1.1.0/netcdf-gnu
-                    ;;
-                esac
-		;;
-            *dole*)
-		echo "Chose target DOLE"
-                config_target=dole
-                make_command="make" "-j" "8"
-                load_profile="." "/opt/modules/default/etc/modules.sh"
-                submit="qsub"
-                sync_submit=qsub -sync y
-
-		case "$fortran_compiler" in
-                    cray)
-                      load_modules="PrgEnv-cray" "netcdf" "xt-mpt/5.2.1" "${load_modules}"
-                      NETCDFROOT = /opt/cray/netcdf/4.1.1.0/netcdf-cce
-		      MPI_LIB  = -lfmpich -lmpich -lmpichf90 -lmpich -lmpl -lpthread -lrt -lpmi -lalpslli -lalpsutil
-                      MPIROOT=/opt/cray/mpt/5.2.1/xt/seastar/mpich2-cray
-                      MPI_INCLUDE=${MPIROOT}/include
-                    ;;
-                esac
-		case "$mh_setup" in
-		    debug)
-		      FFLAGS = $FFLAGS $FDEBUG
-                    ;;
-                esac
-
-		mpi_startrun="aprun" "-n" "\\\$no_of_nodes" -N "\\\$mpi_total_procs"
-        esac
-        ;;
-#===============================================
-
-
+    cray)
+                NETCDFROOT=${NETCDF_DIR}
+    ;;
 #===============================================
     dwd.de)
         case "$(hostname)" in

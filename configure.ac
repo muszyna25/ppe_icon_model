@@ -91,12 +91,23 @@ if [[ x$ac_hostname = xplogintest1 ]] ; then
   ac_sitename=dkrz.de
 else 
 
-if [[ $(hostname) = $ac_hostname ]] ; then 
+if [ $(hostname) = $ac_hostname ] ; then
    fqdn=$(host -n $ac_hostname | awk '/has address/ {print $1}')
 else
    fqdn=$(hostname)
 fi
-ac_sitename=$(echo $fqdn | awk -F. '{i=NF-1; printf("%s.%s",$i,$NF);}')
+  echo $fqdn
+  if [ -n "$fqdn" ]; then
+    ac_sitename=$(echo $fqdn | awk -F. '{i=NF-1; printf("%s.%s",$i,$NF);}')
+  else
+    if [ -n "$PE_ENV" ] ; then
+      fqdn=$(echo ${PE_ENV} | awk '{print tolower($0)}')
+      echo "detecting Cray environment... $fqdn"
+    else
+      fqdn=${HOSTNAME}
+    fi
+    ac_sitename=${fqdn}
+  fi
 fi
 
 dnl ######################################################################
@@ -107,6 +118,7 @@ case $host in
     *-ibm-aix*)          host_frag=config/mh-aix ;;
     *-*-linux-*)         host_frag=config/mh-linux ;;
     *-*-darwin*)         host_frag=config/mh-darwin ;;
+    *-cray-*)            host_frag=config/mh-cray ;;
     *) echo This configuration is not supported.
        echo Please set a valid config/mh-* file up.
        ;;	 	
