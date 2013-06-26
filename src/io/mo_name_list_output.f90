@@ -4863,8 +4863,8 @@ CONTAINS
 #ifndef __SX__
     IF (msg_level >= 12) THEN
       WRITE (message_text,'(10(a,f10.3))') &
-           & ' Got ',mb_get,' MB, time get: ',t_get,' s [',mb_get/t_get, &
-           & ' MB/s], time write: ',t_write,' s [',mb_wr/t_write,        &
+           & ' Got ',mb_get,' MB, time get: ',t_get,' s [',mb_get/MAX(1.e-6_wp,t_get), &
+           & ' MB/s], time write: ',t_write,' s [',mb_wr/MAX(1.e-6_wp,t_write),        &
            & ' MB/s], times copy+intp: ',t_copy+t_intp,' s'
       CALL message('',message_text)
     ENDIF
