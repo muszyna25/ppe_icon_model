@@ -167,7 +167,7 @@ $buildCall = lambda {|build|
 
 # exclude files for a build
 $excludeFiles = lambda {|build|
-  list = "--exclude='.git/*'"
+  list =  " --exclude='.git/*'"
   list << " --exclude='experiments/**/*nc*' --exclude='**/*.o'  --exclude='build/*' --exclude='**/*.run' --exclude=config/mh-config-use --exclude=config.log --exclude=Makefile --exclude=build_command"
   list << " --exclude=config/mh-override --exclude=config/mh-config-use" if isRemote?(build)
   list << " --exclude='.svn/*'" << " --exclude=config/set-up.info" << " --exclude='**/*.ps'" << " --exclude='**/*.pdf'" << " --exclude='**/*.png'"
@@ -238,7 +238,7 @@ def doRunPost(build,exp)
   call(connect(build,"./make_runscripts ; cd run;./post.#{exp}.run;"))
 end
 def doCheckExp(build,exp)
-  call(connect(build,"cd experiments/#{exp}; for file in #{exp}*001.nc; do echo $file;cdo sinfov $file; done"))
+  call(connect(build,"cd experiments/#{exp}; for file in #{exp}*001.nc; do echo -n '#=====================================: '; echo $file;cdo sinfov $file; done"))
   diagFile    = 'oce_diagnostics.txt'
   diagPlotter = 'scripts/postprocessing/tools/oceDiag.gp'
   call(connect(build,"cd experiments/#{exp}; if test -f #{diagFile}; then LD_LIBRARY_PATH=/usr/lib SHOW=1 FILE=#{diagFile} gnuplot ../../#{diagPlotter}; else echo 'No diagnostics avialable!';fi"))
