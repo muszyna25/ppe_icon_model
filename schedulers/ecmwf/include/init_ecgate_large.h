@@ -1,13 +1,20 @@
 #!/bin/ksh                                        #@ shell = /usr/bin/ksh
 #==========================================================================
-#  SLURM Directives
+#  SLURM Directives:
+#    qos        quite: normal or large
+#    time       time limit h:m:s
+#    job-name   job_name
+#    output     output
+#    error      error
+#    mail-type  notification 
 #==========================================================================
 
-#SBATCH --qos       = large
-#SBATCH --job-name  = ICON_%TASK%                 #@ job_name
-#SBATCH --output    = %SMSJOBOUT%                 #@ output
-#SBATCH --error     = %SMSJOBOUT%                 #@ error
-#SBATCH --mail-type = FAIL                        #@ notification 
+#SBATCH --qos=large
+#SBATCH --time=02:00:00
+#SBATCH --job-nam=ICON_%TASK%
+#SBATCH --output=%SMSJOBOUT%
+#SBATCH --error=%SMSJOBOUT%
+#SBATCH --mail-type=FAIL
 
 
 #==========================================================================

@@ -21,7 +21,7 @@
 # 2012-07-02 : Introduced new SVN user "dwd-ecmwf"
 # 2012-summer: Upgrade to multi-experiment, multi-user,
 #              catch-up-mode, plotting (Martin Koehler)
-# 2012-end:    Switch co C2A (Martin Koehler and Stefan Koerner)
+# 2012-end:    Switch to C2A (Martin Koehler and Stefan Koerner)
 #
 
 # ---USER SETUP------------------------------------
@@ -30,14 +30,14 @@
 set EXPNUM        "001"                #---experiment number---
 set EXPNUM2       "001"                #---experiment number used for score comparison---
 set SUITE2        "deia"               #---suite             used for score comparison---
-set FIRST_DATE    20130201
-set LAST_DATE     20130630
+set FIRST_DATE    20130615
+set LAST_DATE     20131231
 set MONTHS        000000               #---months to be run (not for oper)
 set INIHOUR       00
 set ICON_HOME     /home/ms/de/deia 
 set ICON_ID       deia 
-set RES           "R2B06"              #---ICON resolution dynamics
-set RESRAD        "R2B05"              #---ICON resolution radiation (requires namelist)
+set RES           "R02B06"             #---ICON resolution dynamics
+set RESRAD        "R02B05"             #---ICON resolution radiation (requires namelist)
 
 # no. of time steps (10x86400s/72s)
 set NSTEPS       12000   # R2B6 10d
@@ -117,13 +117,6 @@ define on_ecgate_submit {
   label host "$WSHOST submit"
   edit SMSCMD       "sms_submit $ICON_ID $WSHOST %SMSJOB% %SMSJOBOUT%"
   edit SMSKILL      "sms_kill   $ICON_ID $WSHOST %SMSRID% %SMSJOB% %SMSJOBOUT%"
-  edit SMSSTATUSCMD "sms_status $ICON_ID $WSHOST %SMSRID% %SMSJOB%"
-}
-
-define on_ecgate_submit_old {
-  label host "$WSHOST submit"
-  edit SMSCMD       "sms_submit $ICON_ID $WSHOST %SMSJOB%"
-  edit SMSKILL      "sms_kill   $ICON_ID $WSHOST %SMSRID% %SMSJOB%"
   edit SMSSTATUSCMD "sms_status $ICON_ID $WSHOST %SMSRID% %SMSJOB%"
 }
 
@@ -370,7 +363,7 @@ suite $USER
         task meteogram
             trigger (post_prepare:meteogram_data)
             complete ($ENABLE_METEOGRAM == 0)
-            on_ecgate_submit_old
+            on_ecgate_submit
    
         family metview_all 
           trigger (post_prepare == complete)
