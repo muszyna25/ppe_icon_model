@@ -40,7 +40,8 @@ MODULE mo_ocean_model
   USE mo_timer,               ONLY: init_timer, timer_start, timer_stop, print_timer, timer_model_init
   USE mo_datetime,            ONLY: t_datetime
   USE mo_output,              ONLY: init_output_files, write_output_oce, close_output_files
-  USE mo_name_list_output,    ONLY: init_name_list_output, close_name_list_output
+  USE mo_name_list_output,    ONLY: init_name_list_output, close_name_list_output, &
+    &                               parse_variable_groups
   USE mo_grid_config,         ONLY: n_dom 
   USE mo_dynamics_config,     ONLY: iequations
 
@@ -374,6 +375,7 @@ CONTAINS
     !------------------------------------------------------------------
 
     IF (output_mode%l_nml) THEN
+      CALL parse_variable_groups()
       CALL init_name_list_output(lprintlist=.TRUE.,l_is_ocean=.TRUE.)
     ENDIF
 
