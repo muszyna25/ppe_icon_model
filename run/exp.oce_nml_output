@@ -144,7 +144,7 @@ cat > ${ocean_namelist} << EOF
   include_last     = .TRUE.
   output_grid      = .TRUE.
   output_filename  = "${EXPNAME}_R${R}B0${B}_oce"
-  ml_varlist =  'A_veloc_v','group:oce_prog', 'group:oce_diag'
+  ml_varlist =  'wet_c','group:oce_prog', 'group:oce_diag'
 /
 &output_nml
   output_bounds    = ${dt_data},${dt_restart},${dt_data}   !start, end, increment
@@ -152,7 +152,7 @@ cat > ${ocean_namelist} << EOF
   include_last     = .TRUE.
   output_grid      = .TRUE.
   output_filename  = "${EXPNAME}_R${R}B0${B}_oce_acc"
-  ml_varlist =  'group:oce_default'
+  ml_varlist =  'group:oce_default','group:oce_geometry'
 /
 &output_nml
    output_bounds    = ${dt_data},${dt_restart},${dt_data}   !start, end, increment
