@@ -518,10 +518,10 @@ SUBROUTINE transfer_grf_state(p_p, p_lp, p_grf, p_lgrf, jcd)
   ALLOCATE(z_tmp_r(nproma,4,p_p%nblks_e))
   z_tmp_s = 0._wp
   z_tmp_r = 0._wp
-  z_tmp_s(:,1,isb_le:ieb_le) = REAL(p_lgrf%p_dom(jcd)%grf_vec_stencil_1a(:,:),wp)
-  z_tmp_s(:,2,isb_le:ieb_le) = REAL(p_lgrf%p_dom(jcd)%grf_vec_stencil_1b(:,:),wp)
-  z_tmp_s(:,3,isb_le:ieb_le) = REAL(p_lgrf%p_dom(jcd)%grf_vec_stencil_2a(:,:),wp)
-  z_tmp_s(:,4,isb_le:ieb_le) = REAL(p_lgrf%p_dom(jcd)%grf_vec_stencil_2b(:,:),wp)
+  z_tmp_s(:,1,isb_le:ieb_le) = REAL(p_lgrf%p_dom(jcd)%grf_vec_stencil_1a(:,isb_le:ieb_le),wp)
+  z_tmp_s(:,2,isb_le:ieb_le) = REAL(p_lgrf%p_dom(jcd)%grf_vec_stencil_1b(:,isb_le:ieb_le),wp)
+  z_tmp_s(:,3,isb_le:ieb_le) = REAL(p_lgrf%p_dom(jcd)%grf_vec_stencil_2a(:,isb_le:ieb_le),wp)
+  z_tmp_s(:,4,isb_le:ieb_le) = REAL(p_lgrf%p_dom(jcd)%grf_vec_stencil_2b(:,isb_le:ieb_le),wp)
 
   CALL exchange_data(comm_pat_loc_to_glb_e, RECV=z_tmp_r, SEND=z_tmp_s)
 
@@ -594,19 +594,19 @@ SUBROUTINE transfer_grf_state(p_p, p_lp, p_grf, p_lgrf, jcd)
   n = 0
   DO k = 1, grf_vec_dim_1
     n = n+1
-    z_tmp_s(:,n,isb_le:ieb_le) = p_lgrf%p_dom(jcd)%grf_vec_coeff_1a(k,:,:)
+    z_tmp_s(:,n,isb_le:ieb_le) = p_lgrf%p_dom(jcd)%grf_vec_coeff_1a(k,:,isb_le:ieb_le)
   ENDDO
   DO k = 1, grf_vec_dim_1
     n = n+1
-    z_tmp_s(:,n,isb_le:ieb_le) = p_lgrf%p_dom(jcd)%grf_vec_coeff_1b(k,:,:)
+    z_tmp_s(:,n,isb_le:ieb_le) = p_lgrf%p_dom(jcd)%grf_vec_coeff_1b(k,:,isb_le:ieb_le)
   ENDDO
   DO k = 1, grf_vec_dim_2
     n = n+1
-    z_tmp_s(:,n,isb_le:ieb_le) = p_lgrf%p_dom(jcd)%grf_vec_coeff_2a(k,:,:)
+    z_tmp_s(:,n,isb_le:ieb_le) = p_lgrf%p_dom(jcd)%grf_vec_coeff_2a(k,:,isb_le:ieb_le)
   ENDDO
   DO k = 1, grf_vec_dim_2
     n = n+1
-    z_tmp_s(:,n,isb_le:ieb_le) = p_lgrf%p_dom(jcd)%grf_vec_coeff_2b(k,:,:)
+    z_tmp_s(:,n,isb_le:ieb_le) = p_lgrf%p_dom(jcd)%grf_vec_coeff_2b(k,:,isb_le:ieb_le)
   ENDDO
 
   CALL exchange_data(comm_pat_loc_to_glb_e, RECV=z_tmp_r, SEND=z_tmp_s)
@@ -639,7 +639,7 @@ SUBROUTINE transfer_grf_state(p_p, p_lp, p_grf, p_lgrf, jcd)
   z_tmp_s = 0._wp
   z_tmp_r = 0._wp
 
-  z_tmp_s(:,:,isb_le:ieb_le) = p_lgrf%p_dom(jcd)%grf_dist_pe2ce(:,:,:)
+  z_tmp_s(:,:,isb_le:ieb_le) = p_lgrf%p_dom(jcd)%grf_dist_pe2ce(:,:,isb_le:ieb_le)
 
   CALL exchange_data(comm_pat_loc_to_glb_e, RECV=z_tmp_r, SEND=z_tmp_s)
 
@@ -653,14 +653,14 @@ SUBROUTINE transfer_grf_state(p_p, p_lp, p_grf, p_lgrf, jcd)
   z_tmp_s = 0._wp
   z_tmp_r = 0._wp
 
-  z_tmp_s(:,1,isb_lc:ieb_lc) = p_lgrf%p_dom(jcd)%grf_dist_pc2cc(:,1,1,:)
-  z_tmp_s(:,2,isb_lc:ieb_lc) = p_lgrf%p_dom(jcd)%grf_dist_pc2cc(:,2,1,:)
-  z_tmp_s(:,3,isb_lc:ieb_lc) = p_lgrf%p_dom(jcd)%grf_dist_pc2cc(:,3,1,:)
-  z_tmp_s(:,4,isb_lc:ieb_lc) = p_lgrf%p_dom(jcd)%grf_dist_pc2cc(:,4,1,:)
-  z_tmp_s(:,5,isb_lc:ieb_lc) = p_lgrf%p_dom(jcd)%grf_dist_pc2cc(:,1,2,:)
-  z_tmp_s(:,6,isb_lc:ieb_lc) = p_lgrf%p_dom(jcd)%grf_dist_pc2cc(:,2,2,:)
-  z_tmp_s(:,7,isb_lc:ieb_lc) = p_lgrf%p_dom(jcd)%grf_dist_pc2cc(:,3,2,:)
-  z_tmp_s(:,8,isb_lc:ieb_lc) = p_lgrf%p_dom(jcd)%grf_dist_pc2cc(:,4,2,:)
+  z_tmp_s(:,1,isb_lc:ieb_lc) = p_lgrf%p_dom(jcd)%grf_dist_pc2cc(:,1,1,isb_lc:ieb_lc)
+  z_tmp_s(:,2,isb_lc:ieb_lc) = p_lgrf%p_dom(jcd)%grf_dist_pc2cc(:,2,1,isb_lc:ieb_lc)
+  z_tmp_s(:,3,isb_lc:ieb_lc) = p_lgrf%p_dom(jcd)%grf_dist_pc2cc(:,3,1,isb_lc:ieb_lc)
+  z_tmp_s(:,4,isb_lc:ieb_lc) = p_lgrf%p_dom(jcd)%grf_dist_pc2cc(:,4,1,isb_lc:ieb_lc)
+  z_tmp_s(:,5,isb_lc:ieb_lc) = p_lgrf%p_dom(jcd)%grf_dist_pc2cc(:,1,2,isb_lc:ieb_lc)
+  z_tmp_s(:,6,isb_lc:ieb_lc) = p_lgrf%p_dom(jcd)%grf_dist_pc2cc(:,2,2,isb_lc:ieb_lc)
+  z_tmp_s(:,7,isb_lc:ieb_lc) = p_lgrf%p_dom(jcd)%grf_dist_pc2cc(:,3,2,isb_lc:ieb_lc)
+  z_tmp_s(:,8,isb_lc:ieb_lc) = p_lgrf%p_dom(jcd)%grf_dist_pc2cc(:,4,2,isb_lc:ieb_lc)
 
   CALL exchange_data(comm_pat_loc_to_glb_c, RECV=z_tmp_r, SEND=z_tmp_s)
 
