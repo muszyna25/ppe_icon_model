@@ -66,15 +66,15 @@ cd -
 #-----------------------------------------------------------------------------
 # archive plots to ecfs
 
-tar cvf               metplots_%SUITE%_%EXPNUM%_%YMD%%INIHOUR%.tar metplots
-gzip -f               metplots_%SUITE%_%EXPNUM%_%YMD%%INIHOUR%.tar
-${ECFSPATH}/ecp.p  -o metplots_%SUITE%_%EXPNUM%_%YMD%%INIHOUR%.tar.gz $ecfsdir
+tar cvf metplots_%SUITE%_%EXPNUM%_%YMD%%INIHOUR%.tar     metplots
+gzip -f metplots_%SUITE%_%EXPNUM%_%YMD%%INIHOUR%.tar
+ecp -o  metplots_%SUITE%_%EXPNUM%_%YMD%%INIHOUR%.tar.gz  $ecfsdir
 \rm -rf metplots_%SUITE%_%EXPNUM%_%YMD%%INIHOUR%.tar.gz
 
-tar cvf               meteogram_%SUITE%_%EXPNUM%_%YMD%%INIHOUR%.tar meteo
-gzip -f               meteogram_%SUITE%_%EXPNUM%_%YMD%%INIHOUR%.tar
-${ECFSPATH}/ecp.p  -o meteogram_%SUITE%_%EXPNUM%_%YMD%%INIHOUR%.tar.gz $ecfsdir
-\rm -rf               meteogram_%SUITE%_%EXPNUM%_%YMD%%INIHOUR%.tar.gz
+tar cvf meteogram_%SUITE%_%EXPNUM%_%YMD%%INIHOUR%.tar    meteo
+gzip -f meteogram_%SUITE%_%EXPNUM%_%YMD%%INIHOUR%.tar
+ecp -o  meteogram_%SUITE%_%EXPNUM%_%YMD%%INIHOUR%.tar.gz $ecfsdir
+\rm -rf meteogram_%SUITE%_%EXPNUM%_%YMD%%INIHOUR%.tar.gz
 
 
 #-----------------------------------------------------------------------------
