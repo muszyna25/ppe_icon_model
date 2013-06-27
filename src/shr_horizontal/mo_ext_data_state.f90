@@ -684,7 +684,7 @@ CONTAINS
       grib2_desc = t_grib2_var( 1, 2, 2, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'fr_lake', p_ext_atm%fr_lake,   &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
-        &           grib2_desc, ldims=shape2d_c, loutput=.FALSE.,   &
+        &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,   &
         &           isteptype=TSTEP_CONSTANT )
 
 

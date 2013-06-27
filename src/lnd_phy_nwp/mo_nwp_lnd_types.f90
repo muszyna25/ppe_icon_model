@@ -131,10 +131,8 @@ MODULE mo_nwp_lnd_types
                                 ! temperature profile in lake thermocline
     &  t_b1_lk      (:,:)   , & ! temperature at the bottom of the       (  K  ) 
                                 ! upper layer of the sediments 
-    &  h_b1_lk      (:,:)   , & ! thickness of the upper layer of the    (  K  )
+    &  h_b1_lk      (:,:)       ! thickness of the upper layer of the    (  K  )
                                 ! sediments
-    &  t_scf_lk     (:,:)       ! lake surface temperature               (  K  )
-
   END TYPE t_wtr_prog
 
   !

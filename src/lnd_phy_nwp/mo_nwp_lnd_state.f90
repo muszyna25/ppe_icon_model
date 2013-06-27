@@ -936,16 +936,14 @@ MODULE mo_nwp_lnd_state
       grib2_desc = t_grib2_var(1, 2, 6, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_var( prog_list, vname_prefix//'t_ice_lk'//suffix, p_prog_wtr%t_ice_lk,  &
            & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,                  &
-           & ldims=shape2d,                                                            &
-           & in_group=groups("dwd_ana_vars") )   
+           & ldims=shape2d )   
 
       ! p_prog_wtr%h_ice_lk(nproma,nblks_c)
       cf_desc    = t_cf_var('h_ice_lk', 'm', 'lake ice depth', DATATYPE_FLT32)
       grib2_desc = t_grib2_var(1, 2, 5, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_var( prog_list, vname_prefix//'h_ice_lk'//suffix, p_prog_wtr%h_ice_lk, &
            & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,                 &
-           & ldims=shape2d,                                                           &
-           & in_group=groups("dwd_ana_vars") )
+           & ldims=shape2d )
 
       ! p_prog_wtr%t_snow_lk(nproma,nblks_c)
       cf_desc    = t_cf_var('t_snow_lk', 'K', 'temperature of snow on lake ice', DATATYPE_FLT32)
@@ -1012,14 +1010,6 @@ MODULE mo_nwp_lnd_state
         &          'thickness of the upper layer of the sediments', DATATYPE_FLT32)
       grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_var( prog_list, vname_prefix//'h_b1_lk'//suffix, p_prog_wtr%h_b1_lk,  &
-           & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d)
-
-
-      ! probably obsolete - we may use t_g_t directly
-      ! p_prog_wtr%t_scf_lk(nproma,nblks_c)
-      cf_desc    = t_cf_var('t_scf_lk', 'K', 'lake surface temperature', DATATYPE_FLT32)
-      grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-      CALL add_var( prog_list, vname_prefix//'t_scf_lk'//suffix, p_prog_wtr%t_scf_lk,  &
            & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d)
 
     ENDIF  ! llake
