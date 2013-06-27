@@ -57,8 +57,9 @@ MODULE mo_surface_les
   USE mo_loopindices,         ONLY: get_indices_e, get_indices_c, get_indices_v
   USE mo_impl_constants    ,  ONLY: min_rledge, min_rlcell, min_rlvert, &
                                     min_rledge_int, min_rlcell_int, min_rlvert_int
-  USE mo_sync,                ONLY: SYNC_C, sync_patch_array_mult, sync_patch_array, global_max
-  USE mo_physical_constants,  ONLY: cpd, rcvd, p0ref, grav, alv, rd, rgrav, rd_o_cpd
+  USE mo_sync,                ONLY: SYNC_C, sync_patch_array_mult, sync_patch_array, global_max, &
+                                    global_sum_array
+  USE mo_physical_constants,  ONLY: cpd, rcvd, p0ref, grav, alv, rd, rgrav, rd_o_cpd, vtmpc1
   USE mo_nwp_lnd_types,       ONLY: t_lnd_prog, t_lnd_diag 
   USE mo_satad,               ONLY: spec_humi, sat_pres_water
   USE mo_nwp_phy_types,       ONLY: t_nwp_phy_diag, t_nwp_phy_tend
@@ -120,9 +121,9 @@ MODULE mo_surface_les
     REAL(wp),          INTENT(out)       :: sgs_visc_sfc(:,:) !sgs visc near surface
 
     REAL(wp) :: rhos, th0_srf, obukhov_length, z_mc, ustar, inv_mwind, mwind, bflux
-    REAL(wp) :: zrough, exner
+    REAL(wp) :: zrough, exner, var(nproma,p_patch%nblks_c), theta_nlev, qv_nlev
     REAL(wp), POINTER :: pres_sfc(:,:)
-    REAL(wp) :: theta_sfc, shfl, lhfl, umfl, vmfl
+    REAL(wp) :: theta_sfc, shfl, lhfl, umfl, vmfl, bflx1, bflx2
     INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
     INTEGER :: rl_start, rl_end
     INTEGER :: jk, jb, jc
@@ -177,7 +178,7 @@ MODULE mo_surface_les
 
             !Buoyancy flux
             bflux = grav*(les_config(jg)%shflx +  &
-                   0.61_wp*th0_srf*les_config(jg)%lhflx)/th0_srf
+                   vtmpc1*th0_srf*les_config(jg)%lhflx)/th0_srf
 
             !Mean wind at nlev
             inv_mwind  = 1._wp/MAX( min_wind,SQRT(p_nh_diag%u(jc,jk,jb)**2+p_nh_diag%v(jc,jk,jb)**2) )
@@ -207,7 +208,7 @@ MODULE mo_surface_les
             !Get surface fluxes
             !rho at surface: no qc at suface
             rhos   =  pres_sfc(jc,jb)/( rd * &
-                      p_prog_lnd_new%t_g(jc,jb)*(1._wp+0.61_wp*p_diag_lnd%qv_s(jc,jb)) )  
+                      p_prog_lnd_new%t_g(jc,jb)*(1._wp+vtmpc1*p_diag_lnd%qv_s(jc,jb)) )  
 
             prm_diag%shfl_s(jc,jb)  = les_config(jg)%shflx * rhos * cpd
             prm_diag%lhfl_s(jc,jb)  = les_config(jg)%lhflx * rhos * alv
@@ -223,13 +224,27 @@ MODULE mo_surface_les
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
-    !Prescribed buoyancy flux and transfer coefficient at surface - Stevens 2007 JAS
+    !Prescribed buoyancy flux and transfer coefficient at surface to get a uniform SST (Stevens 2007 JAS)
     !It uses fixed transfer coefficient and assumes that q_s is saturated 
     CASE(3)
 
+      !Get mean theta and qv at first model level
+
+!$OMP PARALLEL WORKSHARE
+      var(:,:) = theta(:,jk,:)
+!$OMP END PARALLEL WORKSHARE
+      WHERE(.NOT.p_patch%cells%owner_mask(:,:)) var(:,:) = 0._wp
+      theta_nlev =  global_sum_array(var)/REAL(p_patch%n_patch_cells_g,wp)
+
+!$OMP PARALLEL WORKSHARE
+      var(:,:) = qv(:,jk,:)
+!$OMP END PARALLEL WORKSHARE
+      WHERE(.NOT.p_patch%cells%owner_mask(:,:)) var(:,:) = 0._wp
+      qv_nlev =  global_sum_array(var)/REAL(p_patch%n_patch_cells_g,wp)
+
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jc,jb,i_startidx,i_endidx,exner,zrough,th0_srf,itr, &
-!$OMP  theta_sfc,inv_mwind,z_mc,ustar,rhos,obukhov_length),ICON_OMP_RUNTIME_SCHEDULE 
+!$OMP DO PRIVATE(jc,jb,i_startidx,i_endidx,exner,zrough,theta_sfc,itr, &
+!$OMP  bflx1,bflx2,inv_mwind,z_mc,ustar,rhos,obukhov_length),ICON_OMP_RUNTIME_SCHEDULE 
       DO jb = i_startblk,i_endblk
          CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
                             i_startidx, i_endidx, rl_start, rl_end)
@@ -241,19 +256,24 @@ MODULE mo_surface_les
             !Roughness length
             zrough = prm_diag%gz0(jc,jb) * rgrav
 
-            !Get reference surface pot. temperature
-            !First time step t_g takes value assigned in nwp_phy_init          
-            th0_srf = p_prog_lnd_now%t_g(jc,jb) / exner
-
-            !Iterate to get surface temperature given buoyancy flux
+            !Iterate to get surface temperature given buoyancy flux:following UCLA-LES
            
-            !First guess
-            theta_sfc = th0_srf
-            DO itr = 1 , 5
-              theta_sfc =  ( theta_sfc * rgrav * les_config(jg)%bflux - &
-                  0.61_wp * theta_sfc * les_config(jg)%tran_coeff *     &
-                 (spec_humi(sat_pres_water(theta_sfc),pres_sfc(jc,jb)) -  &
-                  qv(jc,jk,jb)) ) / les_config(jg)%tran_coeff + theta(jc,jk,jb)
+            !First guess: at t=0 t_g takes value assigned in nwp_phy_init
+            !While sat_pres_water needs abs temp assumption is made to 
+            !treat theta at surface == abs temp
+            theta_sfc = p_prog_lnd_now%t_g(jc,jb) / exner
+            DO itr = 1 , 30
+              bflx1 = les_config(jg)%tran_coeff*( (theta_sfc-theta_nlev)+vtmpc1* &
+                       theta_nlev*(spec_humi(sat_pres_water(theta_sfc),pres_sfc(jc,jb))- &
+                       qv_nlev) )*grav/theta_nlev
+             
+              theta_sfc = theta_sfc + 0.1_wp 
+
+              bflx2 = les_config(jg)%tran_coeff*( (theta_sfc-theta_nlev)+vtmpc1* &
+                       theta_nlev*(spec_humi(sat_pres_water(theta_sfc),pres_sfc(jc,jb))- &
+                       qv_nlev) )*grav/theta_nlev
+
+              theta_sfc = theta_sfc + 0.1_wp*(les_config(jg)%bflux-bflx1)/(bflx2-bflx1) 
             END DO               
 
             !Mean wind at nlev
@@ -273,11 +293,11 @@ MODULE mo_surface_les
             p_prog_lnd_new%t_g(jc,jb) = theta_sfc * exner
 
             !Get surface qv 
-            p_diag_lnd%qv_s(jc,jb) = spec_humi(sat_pres_water(theta_sfc),pres_sfc(jc,jb))
+            p_diag_lnd%qv_s(jc,jb) = spec_humi(sat_pres_water(p_prog_lnd_new%t_g(jc,jb)),pres_sfc(jc,jb))
 
             !Get surface fluxes
             rhos   =  pres_sfc(jc,jb)/( rd * &
-                      p_prog_lnd_new%t_g(jc,jb)*(1._wp+0.61_wp*p_diag_lnd%qv_s(jc,jb)) )  
+                      p_prog_lnd_new%t_g(jc,jb)*(1._wp+vtmpc1*p_diag_lnd%qv_s(jc,jb)) )  
 
             prm_diag%shfl_s(jc,jb) = rhos*cpd*les_config(jg)%tran_coeff*(theta_sfc-theta(jc,jk,jb))
             prm_diag%lhfl_s(jc,jb) = rhos*alv*les_config(jg)%tran_coeff*(p_diag_lnd%qv_s(jc,jb)-qv(jc,jk,jb))
@@ -322,11 +342,11 @@ MODULE mo_surface_les
                              
             !Get turbulent viscosity near surface
             obukhov_length = -ustar**3 * les_config(jg)%rkarman_constant * th0_rico / &
-                              grav*(shfl + 0.61_wp*th0_rico*lhfl)
+                              grav*(shfl + vtmpc1*th0_rico*lhfl)
              
             !Surface density 
             rhos   =  pres_sfc(jc,jb)/( rd * &
-                      p_prog_lnd_new%t_g(jc,jb)*(1._wp+0.61_wp*p_diag_lnd%qv_s(jc,jb)) )  
+                      p_prog_lnd_new%t_g(jc,jb)*(1._wp+vtmpc1*p_diag_lnd%qv_s(jc,jb)) )  
                       
             sgs_visc_sfc(jc,jb) = rhos * ustar * les_config(jg)%karman_constant * &
                                   z_ref * les_config(1)%turb_prandtl / phi_heat(z_ref,obukhov_length)             

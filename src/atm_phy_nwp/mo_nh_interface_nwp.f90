@@ -229,7 +229,6 @@ CONTAINS
 
     INTEGER :: rlend  !different opt_rlend for inwp_turb==5
    
-    !switch for ls_forcing calling frequency
 
     IF (ltimer) CALL timer_start(timer_physics)
 
