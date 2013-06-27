@@ -729,7 +729,6 @@ SUBROUTINE organize_turbdiff (lstfnct, lsfluse, &
           i_st, i_en, i_stp, i_enp, &
 !
           l_hori, &
-!---------------------------------------------------------------------
 #ifdef __COSMO__
           eddlon, eddlat, edadlat, acrlat, &
 #endif
@@ -2230,7 +2229,6 @@ q1,q3,&
                                   imode_stke=0,                                                     &
 !
                                   fm2=RESHAPE(fm2_2d,(/ie,1/)), fh2=RESHAPE(fh2_2d,(/ie,1/)),       &
-!-------------------------------------------------------------------------------
 #ifdef SCLM
                                   it_s=it_durch, grd=RESHAPE(grad,(/ie,1,nred/)),                   &
 #endif
@@ -3927,7 +3925,6 @@ SUBROUTINE turbdiff
                                   istartpar, iendpar, 2, kem,                      &
 !
                                   imode_stke=imode_turb,                           &
-!-------------------------------------------------------------------------------
 #ifdef SCLM
                                   it_s=it_durch, grd=vari,                         &
 #endif
@@ -5048,7 +5045,6 @@ SUBROUTINE solve_turb_budgets ( ktp, &
    imode_stke,                       &
 !
    fm2, fh2,                         &
-!---------------------------------------------------------------------------------------
 #ifdef SCLM
    it_s, grd,                        &
 #endif
