@@ -38,10 +38,11 @@ cd ${outdir_mtg}
 cp ${dir_mtgrm}/mtgrm_plot.s ${dir_mtgrm}/mtgrm_plot.ncl ${dir_mtgrm}/mtgrm_plot_sfc.ncl .
 
 # ncl plotting
-PATH=$PATH:/usr/local/apps/ncl/5.2.1/LP64/bin
-export NCARG_ROOT=/usr/local/apps/ncl/5.2.1/LP64
+#PATH=$PATH:/usr/local/apps/ncl/5.2.1/LP64/bin
+#export NCARG_ROOT=/usr/local/apps/ncl/5.2.1/LP64
 #./mtgrm_plot.s %YMD%%INIHOUR% %RES% %EXPNUM% ${outdir_mtg} ${outfile_mtg}
 
+module load ncl
 
 # -------------------------------------------------
 # meteogram plots
@@ -58,8 +59,8 @@ iFile=${outfile_mtg}
 echo "dir = " $dir " iFile = " $iFile
 
 mkdir -p ${dir}"/meteo"
-#oType="png" !doesn't work on AIX (NCL 5.2.1)
-oType="eps"
+oType="png"       # does not work on AIX (NCL 5.2.1)
+#oType="eps"
 
 set -A iStation 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17
 
@@ -89,7 +90,7 @@ do
     ncl -n mtgrm_plot_sfc.ncl iFile=\"${iFile}\" oFile=\"${oFile}\" oType=\"${oType}\" \
       varName=\"${var}\" iStation=${station} expnum=\"${expnum}\"
   ##convert -trim -geometry 1000x1000 ${oFile}.pdf ${oFile}.png || true
-    convert -density 100 ${oFile}.eps ${oFile}.png || true
+  ##convert -density 100 ${oFile}.eps ${oFile}.png || true
   done	
 
   for var in ${varName3D[*]}
@@ -98,7 +99,7 @@ do
     ncl -n mtgrm_plot.ncl iFile=\"${iFile}\" oFile=\"${oFile}\" oType=\"${oType}\" \
       varName=\"${var}\" iStation=${station} expnum=\"${expnum}\"
   ##convert -trim -geometry 1000x1000 ${oFile}.pdf ${oFile}.png  || true
-    convert -density 100 ${oFile}.eps ${oFile}.png || true
+  ##convert -density 100 ${oFile}.eps ${oFile}.png || true
   done	
 done
 
