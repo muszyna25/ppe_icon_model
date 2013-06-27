@@ -151,32 +151,17 @@ PUBLIC
 ! Switches controlling turbulent diffusion:
 ! ------------------------------------------
 !
-#ifdef NEW_TURBDIFF
 INTEGER (KIND=iintegers) :: &
-    imode_tran   =0,       & ! mode of surface-atmosphere transfer
-    imode_turb   =1,       & ! mode of turbulent diffusion parametrization
-    icldm_tran   =-1,      & ! mode of cloud representation in transfer parametr.
-#else
-INTEGER (KIND=iintegers) :: &
-    imode_tran   =1,       & ! mode of surface-atmosphere transfer
-    imode_turb   =3,       & ! mode of turbulent diffusion parametrization
-    icldm_tran   =0,       & ! mode of cloud representation in transfer parametr.
-#endif
-
+!
     itype_tran   =2,       & ! type of surface-atmosphere transfer
+    imode_tran   =1,       & ! mode of surface-atmosphere transfer
+    icldm_tran   =0,       & ! mode of cloud representation in transfer parametr.
+!
+    imode_turb   =3,       & ! mode of turbulent diffusion parametrization
     icldm_turb   =2,       & ! mode of cloud representation in turbulence parametr.
     itype_sher   =1          ! type of shear production for TKE
 
-!
-#ifdef NEW_TURBDIFF
 LOGICAL :: &
-    lnew_ttrans  =.TRUE.,  & ! (temporary?) switch to choose new turbulent transfer scheme
-    lnew_tdiff   =.TRUE.,  & ! (temporary?) switch to choose new turbulent diffusion scheme
-#else
-LOGICAL :: &
-    lnew_ttrans  =.FALSE., & ! (temporary?) switch to choose new turbulent transfer scheme
-    lnew_tdiff   =.FALSE., & ! (temporary?) switch to choose new turbulent diffusion scheme
-#endif
 !
     ltkesso      =.FALSE., & ! calculation SSO-wake turbulence production for TKE
     ltkecon      =.FALSE., & ! consider convective buoyancy production for TKE
@@ -223,9 +208,6 @@ LOGICAL :: &
      icldm_turb   = turbdiff_config(jg)%icldm_turb
      itype_sher   = turbdiff_config(jg)%itype_sher
 
-     lnew_ttrans  = turbdiff_config(jg)%lnew_ttrans
-     lnew_tdiff   = turbdiff_config(jg)%lnew_tdiff
-
      ltkesso      = turbdiff_config(jg)%ltkesso
      ltkecon      = turbdiff_config(jg)%ltkecon
      lexpcor      = turbdiff_config(jg)%lexpcor
@@ -235,6 +217,7 @@ LOGICAL :: &
      lcpfluc      = turbdiff_config(jg)%lcpfluc
      lsflcnd      = turbdiff_config(jg)%lsflcnd
      limpltkediff = turbdiff_config(jg)%limpltkediff
+
      itype_wcld   = turbdiff_config(jg)%itype_wcld
      itype_synd   = turbdiff_config(jg)%itype_synd
 

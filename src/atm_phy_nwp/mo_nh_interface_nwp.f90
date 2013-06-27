@@ -461,7 +461,7 @@ CONTAINS
 
       SELECT CASE (atm_phy_nwp_config(jg)%inwp_turb)
 
-      CASE(1,2)  
+      CASE(1,2,10,11,12)  
 
          !> as pressure is needed only for an approximate adiabatic extrapolation
          !! of the temperature at the lowest model level towards ground level,
@@ -509,7 +509,7 @@ CONTAINS
       SELECT CASE (atm_phy_nwp_config(jg)%inwp_turb)
        
       !Turbulence schemes NOT including the call to the surface scheme
-      CASE(1,2,5)  
+      CASE(1,2,5,10,11,12)  
 
         ! compute turbulent diffusion (atmospheric column)
         CALL nwp_turbdiff   (  dt_phy_jg(itfastphy),              & !>in
@@ -681,7 +681,7 @@ CONTAINS
     ENDIF
 
 
-    IF (  (lcall_phy_jg(itturb) .OR. linit) .AND. atm_phy_nwp_config(jg)%inwp_turb <= 2 ) THEN
+    IF (  (lcall_phy_jg(itturb) .OR. linit) .AND.  ANY( (/1,2,10,11,12/)==atm_phy_nwp_config(jg)%inwp_turb ) ) THEN
 !
 !     Reset max. gust every 6 hours
 !
@@ -715,7 +715,7 @@ CONTAINS
                           & ext_data,                         & !>in
                           & pt_prog_rcf,                      & !>inout
                           & pt_diag,                          & !>inout
-                          & prm_diag, prm_nwp_tend,           & !>inout
+                          & prm_diag,                         & !>inout
                           & wtr_prog_new,                     & !>in
                           & lnd_prog_new,                     & !>inout 
                           & lnd_diag                          ) !>inout

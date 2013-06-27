@@ -48,12 +48,12 @@ MODULE mo_turbdiff_nml
   USE mo_mpi,                 ONLY: my_process_is_stdio
   USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist,     &
     &                               open_and_restore_namelist, close_tmpfile
+  USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
   USE mo_turbdiff_config,     ONLY: turbdiff_config 
 
   USE mo_data_turbdiff,       ONLY: &
     & itype_tran, itype_sher, itype_wcld, itype_synd, &
     & imode_tran, imode_turb, icldm_tran, icldm_turb, &
-    & lnew_ttrans, lnew_tdiff, &
     & ltkesso, ltkecon, lexpcor, ltmpcor, lprfcor, lnonloc, lcpfluc, lsflcnd, limpltkediff, &
     & tur_len, pat_len, a_stab, tkhmin, tkmmin, c_diff, &
     & rlam_heat, rlam_mom, rat_sea, tkesmot, impl_s, impl_t
@@ -80,7 +80,6 @@ MODULE mo_turbdiff_nml
   NAMELIST/turbdiff_nml/ &
     & itype_tran, itype_sher, itype_wcld, itype_synd, &
     & imode_tran, imode_turb, icldm_tran, icldm_turb, &
-    & lnew_ttrans, lnew_tdiff, &
     & ltkesso, ltkecon, lexpcor, ltmpcor, lprfcor, lnonloc, lcpfluc, lsflcnd, limpltkediff, &
     & tur_len, pat_len, a_stab, tkhmin, tkmmin, c_diff, &
     & rlam_heat, rlam_mom, rat_sea, tkesmot, impl_s, impl_t, &
@@ -131,6 +130,19 @@ CONTAINS
     const_z0     = 0.001_wp ! horizontally homogeneous roughness length
                             ! (for idealized testcases)
 
+    !-----------------------
+    ! 1.b temorarily overwrite default settings of namelist variables:
+    !-----------------------
+
+    IF ( ANY( (/10,11/)==atm_phy_nwp_config(1)%inwp_turb ) ) THEN
+      imode_tran =  0       ! mode of surface-atmosphere transfer
+      icldm_tran = -1       ! mode of cloud representation in transfer parametr.
+    END IF
+  
+    IF ( ANY( (/10,12/)==atm_phy_nwp_config(1)%inwp_turb ) ) THEN
+      imode_turb =  1       ! mode of turbulent diffusion parametrization
+    END IF
+  
     !------------------------------------------------------------------
     ! 2. If this is a resumed integration, overwrite the defaults above 
     !    by values used in the previous integration.
@@ -178,8 +190,6 @@ CONTAINS
       turbdiff_config(jg)%imode_turb   = imode_turb
       turbdiff_config(jg)%icldm_turb   = icldm_turb
       turbdiff_config(jg)%itype_sher   = itype_sher
-      turbdiff_config(jg)%lnew_ttrans  = lnew_ttrans
-      turbdiff_config(jg)%lnew_tdiff   = lnew_tdiff
       turbdiff_config(jg)%ltkesso      = ltkesso
       turbdiff_config(jg)%ltkecon      = ltkecon
       turbdiff_config(jg)%lexpcor      = lexpcor

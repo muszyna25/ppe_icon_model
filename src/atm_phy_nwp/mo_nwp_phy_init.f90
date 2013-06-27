@@ -91,8 +91,7 @@ MODULE mo_nwp_phy_init
   USE mo_edmf_param,          ONLY: suct0, su0phy, susekf, susveg, sussoil
   ! turbulence
   USE mo_turbdiff_config,     ONLY: turbdiff_config
-  USE mo_data_turbdiff,       ONLY: get_turbdiff_param,      &
-    &                               lnew_ttrans, lnew_tdiff, &
+  USE mo_data_turbdiff,       ONLY: get_turbdiff_param, &
     &                               lsflcnd
   USE src_turbdiff_new,       ONLY: organize_turbdiff
   USE src_turbdiff,           ONLY: turbtran, turbdiff
@@ -764,7 +763,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
 
   ! initialize gz0 (roughness length * g)
   !
-  IF ( ANY((/1,2/)==atm_phy_nwp_config(jg)%inwp_turb) .AND. .NOT. is_restart_run() ) THEN
+  IF ( ANY( (/1,2,10,11,12/)==atm_phy_nwp_config(jg)%inwp_turb ) .AND. .NOT. is_restart_run() ) THEN
 
 
     ! gz0 is initialized, if we start from IFS surface (MODE_IFSANA) or 
@@ -853,7 +852,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
 
   ! Initialize turbulence models
   !
-  IF (  atm_phy_nwp_config(jg)%inwp_turb == 1 .AND. .NOT. is_restart_run() ) THEN
+  IF ( ANY( (/1,10,11,12/)==atm_phy_nwp_config(jg)%inwp_turb ) .AND. .NOT. is_restart_run() ) THEN
   
     IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'init COSMO turbulence')
 
@@ -896,7 +895,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
         ENDDO
       ENDIF
 
-      IF ( lnew_ttrans ) THEN
+      IF ( ANY( (/10,11/)==atm_phy_nwp_config(jg)%inwp_turb ) ) THEN
 
         nlevcm = nlevp1
 
@@ -967,7 +966,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
 
       END IF
 
-      IF ( lnew_tdiff ) THEN
+      IF ( ANY( (/10,12/)==atm_phy_nwp_config(jg)%inwp_turb ) ) THEN
 
         nlevcm = nlevp1
 

@@ -56,14 +56,13 @@ MODULE mo_nwp_turbtrans_interface
   USE mo_physical_constants,   ONLY: rd_o_cpd, grav, lh_v=>alv, lh_s=>als
   USE mo_ext_data_types,       ONLY: t_external_data
   USE mo_nonhydro_types,       ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
-  USE mo_nwp_phy_types,        ONLY: t_nwp_phy_diag, t_nwp_phy_tend
+  USE mo_nwp_phy_types,        ONLY: t_nwp_phy_diag
   USE mo_nwp_phy_state,        ONLY: phy_params 
   USE mo_nwp_lnd_types,        ONLY: t_lnd_prog, t_wtr_prog, t_lnd_diag
   USE mo_parallel_config,      ONLY: nproma
   USE mo_run_config,           ONLY: msg_level, iqv, iqc
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
-  USE mo_data_turbdiff,        ONLY: get_turbdiff_param, &
-    &                                lnew_ttrans
+  USE mo_data_turbdiff,        ONLY: get_turbdiff_param
   USE src_turbdiff_new,        ONLY: organize_turbdiff
   USE src_turbdiff,            ONLY: turbtran
   USE mo_satad,                ONLY: sat_pres_water, spec_humi  
@@ -91,7 +90,7 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
                           & ext_data,                          & !>in
                           & p_prog_rcf,                        & !>inout
                           & p_diag ,                           & !>inout
-                          & prm_diag, prm_nwp_tend,            & !>inout
+                          & prm_diag,                          & !>inout
                           & wtr_prog_new,                      & !>in 
                           & lnd_prog_new,                      & !>inout 
                           & lnd_diag                           ) !>inout
@@ -103,7 +102,6 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
   TYPE(t_nh_prog),      TARGET,INTENT(inout):: p_prog_rcf      !<call freq
   TYPE(t_nh_diag),      TARGET,INTENT(inout):: p_diag          !<the diag vars
   TYPE(t_nwp_phy_diag),        INTENT(inout):: prm_diag        !< atm phys vars
-  TYPE(t_nwp_phy_tend), TARGET,INTENT(inout):: prm_nwp_tend    !< atm phys tendencies
   TYPE(t_wtr_prog),            INTENT(in)   :: wtr_prog_new    !< prog vars for wtr
   TYPE(t_lnd_prog),            INTENT(inout):: lnd_prog_new    !< prog vars for sfc
   TYPE(t_lnd_diag),            INTENT(inout):: lnd_diag        !< diag vars for sfc
@@ -147,7 +145,7 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
   REAL(wp), DIMENSION(nproma,2,ntiles_total+ntiles_water) :: u_t, v_t, temp_t, pres_t, qv_t, qc_t, tkvm_t, tkvh_t
 
   ! 3D half-level fields
-  REAL(wp), DIMENSION(nproma,3,ntiles_total+ntiles_water) :: z_ifc_t, rcld_t, tketens_t
+  REAL(wp), DIMENSION(nproma,3,ntiles_total+ntiles_water) :: z_ifc_t, rcld_t
 
   ! SQRT(2*TKE)
   REAL(wp) :: tvs_t(nproma,3,1,ntiles_total+ntiles_water)
@@ -177,7 +175,7 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
   i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
   
-  IF ( atm_phy_nwp_config(jg)%inwp_turb == 1 ) THEN
+  IF ( ANY( (/1,10,11,12/)==atm_phy_nwp_config(jg)%inwp_turb ) ) THEN
      CALL get_turbdiff_param(jg)
   ENDIF
 
@@ -208,8 +206,7 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
       ! check dry case
       IF( atm_phy_nwp_config(jg)%inwp_satad == 0) THEN
         lnd_diag%qv_s (:,jb) = 0._wp
-      ELSE IF ( atm_phy_nwp_config(jg)%inwp_turb == 1 .OR.   &
-        &       atm_phy_nwp_config(jg)%inwp_turb == 2) THEN
+      ELSE IF ( ANY( (/1,2,10,11,12/)==atm_phy_nwp_config(jg)%inwp_turb ) ) THEN
         IF ( ltestcase .AND. nh_test_name == 'wk82') THEN
 
 !DR Note thta this must be re-checked, once turbtran is called at the very end 
@@ -274,7 +271,7 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
       ENDDO
     ENDIF
 
-    IF ( atm_phy_nwp_config(jg)%inwp_turb == 1 ) THEN
+    IF ( ANY( (/1,10,11,12/)==atm_phy_nwp_config(jg)%inwp_turb ) ) THEN
 
 !-------------------------------------------------------------------------
 !< COSMO turbulence scheme by M. Raschendorfer  
@@ -293,7 +290,7 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
       ! fraction and tile 1 of the land points)
       IF (ntiles_total == 1) THEN ! tile approach not used; use tile-averaged fields from extpar
 
-        IF ( lnew_ttrans ) THEN
+        IF ( ANY( (/10,11/)==atm_phy_nwp_config(jg)%inwp_turb ) ) THEN
 
           nlevcm = nlevp1
           
@@ -444,11 +441,9 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
 
 !MR: rcld: benoetigt nur fuer level nlev (als Nebenflaechenvariable)
             rcld_t(ic,1:3,jt)    = prm_diag%rcld(jc,nlev-1:nlevp1,jb)
-!JF: tketens: probably not needed for transfer scheme, i.e. always zero at surface layer
-            tketens_t(ic,1:3,jt) = prm_nwp_tend%ddt_tke(jc,nlev-1:nlevp1,jb)
           ENDDO
 
-          IF ( lnew_ttrans ) THEN
+          IF ( ANY( (/10,11/)==atm_phy_nwp_config(jg)%inwp_turb ) ) THEN
 
             nlevcm = 3
         
@@ -507,6 +502,7 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
 
         ENDDO
 
+
         ! fix latent heat flux over seaice
         DO ic = 1,ext_data%atm%spi_count(jb)
           lhfl_s_t(ic,isub_seaice) = (lh_s/lh_v) * lhfl_s_t(ic,isub_seaice)
@@ -532,7 +528,6 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
         prm_diag%tkvm(i_startidx:i_endidx,nlevp1,jb) = 0._wp
         prm_diag%tkvh(i_startidx:i_endidx,nlevp1,jb) = 0._wp
         prm_diag%rcld(i_startidx:i_endidx,nlevp1,jb) = 0._wp
-        prm_nwp_tend%ddt_tke(i_startidx:i_endidx,nlevp1,jb) = 0._wp
 
 
          ! ii) loop over index lists

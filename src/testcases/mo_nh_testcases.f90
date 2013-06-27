@@ -1292,8 +1292,8 @@ MODULE mo_nh_testcases
   END SELECT
 
 
-  IF( (atm_phy_nwp_config(1)%inwp_turb==3 .OR. atm_phy_nwp_config(1)%inwp_turb==1) .AND. &
-      (nh_test_name=='APE_nh' .or. nh_test_name=='CBL' .or. nh_test_name=='GATE') )THEN
+  IF ( ANY( (/1,3,10,11,12/)==atm_phy_nwp_config(1)%inwp_turb ) .AND. &
+       (nh_test_name=='APE_nh' .OR. nh_test_name=='CBL' .OR. nh_test_name=='GATE') ) THEN
     DO jg = 1, n_dom
     !Snow and sea ice initialization to avoid problems in EDMF
       p_lnd_state(jg)%prog_lnd(nnow(jg))%t_snow_t(:,:,:)        = 300._wp   !snow

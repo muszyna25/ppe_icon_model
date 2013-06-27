@@ -468,8 +468,8 @@ CONTAINS
                     'only turbulence selected!')
 
 
-        IF( (atm_phy_nwp_config(jg)%inwp_turb == 1) .AND.                &
-          & (turbdiff_config(jg)%lconst_z0) )               THEN
+        IF ( ANY( (/1,10,11,12/)==atm_phy_nwp_config(jg)%inwp_turb ) .AND. &
+          & (turbdiff_config(jg)%lconst_z0) ) THEN
           CALL message(TRIM(method_name),' WARNING! NWP forcing set but '//  &
                       'idealized (horizontally homogeneous) roughness '//&
                       'length z0 selected!')

@@ -63,8 +63,7 @@ MODULE mo_nwp_turbdiff_interface
   USE mo_run_config,           ONLY: msg_level, iqv, iqc
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
   USE mo_nonhydrostatic_config,ONLY: kstart_moist
-  USE mo_data_turbdiff,        ONLY: get_turbdiff_param, &
-    &                                lnew_tdiff, lsflcnd
+  USE mo_data_turbdiff,        ONLY: get_turbdiff_param, lsflcnd
   USE src_turbdiff_new,        ONLY: organize_turbdiff
   USE src_turbdiff,            ONLY: turbdiff
   USE mo_gme_turbdiff,         ONLY: partura, progimp_turb
@@ -161,7 +160,7 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
   i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
   
-  IF ( atm_phy_nwp_config(jg)%inwp_turb == 1 ) THEN
+  IF ( ANY( (/1,10,11,12/)==atm_phy_nwp_config(jg)%inwp_turb ) ) THEN
      CALL get_turbdiff_param(jg)
   ENDIF
 
@@ -207,7 +206,7 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
    !!        to have them available for extended diagnostic output
 
 
-    IF ( atm_phy_nwp_config(jg)%inwp_turb == 1 ) THEN
+    IF ( ANY( (/1,10,11,12/)==atm_phy_nwp_config(jg)%inwp_turb ) ) THEN
 
 !-------------------------------------------------------------------------
 !< COSMO turbulence scheme by M. Raschendorfer  
@@ -231,7 +230,7 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
         &           SQRT(2._wp * p_prog_now_rcf%tke(i_startidx:i_endidx,:,jb))
 
 
-      IF ( lnew_tdiff ) THEN
+      IF ( ANY( (/10,12/)==atm_phy_nwp_config(jg)%inwp_turb ) ) THEN
 
         nlevcm = nlevp1
 

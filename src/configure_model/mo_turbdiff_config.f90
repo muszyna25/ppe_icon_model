@@ -73,11 +73,6 @@ MODULE mo_turbdiff_config
     INTEGER :: &   ! type of shear production for TKE
       &  itype_sher
 
-    LOGICAL :: &   ! (temporary?) switch to choose new turbulent transfer scheme
-      &  lnew_ttrans
-    LOGICAL :: &   ! (temporary?) switch to choose new turbulent diffusion scheme
-      &  lnew_tdiff
-
     LOGICAL :: &   ! calculation SSO-wake turbulence production for TKE
       &  ltkesso
     LOGICAL :: &   ! consider convective buoyancy production for TKE

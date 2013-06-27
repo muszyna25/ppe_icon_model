@@ -469,7 +469,7 @@ CONTAINS
           & i_startidx, i_endidx, rl_start, rl_end)
 
         SELECT CASE (atm_phy_nwp_config(jg)%inwp_turb)
-        CASE (1, 2, 3)
+        CASE (1, 2, 3, 10, 11, 12)
           DO jc = i_startidx, i_endidx
             prm_diag%alhfl_s(jc,jb) = ( prm_diag%alhfl_s(jc,jb)         &
                                &  * (p_sim_time - dt_phy_jg(itfastphy)) &
@@ -529,7 +529,7 @@ CONTAINS
           & i_startidx, i_endidx, rl_start, rl_end)
 
         SELECT CASE (atm_phy_nwp_config(jg)%inwp_turb)
-        CASE (1, 2, 3)
+        CASE (1, 2, 3, 10, 11, 12)
           DO jc = i_startidx, i_endidx
             prm_diag%alhfl_s(jc,jb) =  prm_diag%alhfl_s(jc,jb)       &
                                &  + prm_diag%lhfl_s(jc,jb)           &!attention to the sign, in the output all fluxes 

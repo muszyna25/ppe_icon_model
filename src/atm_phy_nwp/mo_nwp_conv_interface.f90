@@ -178,7 +178,7 @@ CONTAINS
           z_qhfl(i_startidx:i_endidx,nlevp1) = - 4.79846_wp*1.e-5_wp !> moisture flux kg/m2/s
           z_shfl(i_startidx:i_endidx,nlevp1) = - 17._wp              !! sens. heat fl W/m**2
 
-        CASE (1,2,3)
+        CASE (1,2,3,10,11,12)
 
           ! In turb1,turb2 and turb3, the flux is positive downwards / negative upwards
 
@@ -246,7 +246,7 @@ CONTAINS
 
         IF ( atm_phy_nwp_config(jg)%inwp_turb /= 3 ) THEN ! DUALM is allow to turn of shallow convection
           DO jc = i_startidx,i_endidx
-            prm_diag%ldshcv(jc,jb) = .true.
+            prm_diag%ldshcv(jc,jb) = .TRUE.
           ENDDO
         ENDIF
 
