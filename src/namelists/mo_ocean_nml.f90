@@ -186,7 +186,7 @@ MODULE mo_ocean_nml
   INTEGER  :: solver_max_iter_per_restart      = 200       ! For inner loop after restart
   REAL(wp) :: solver_tolerance_decrease_ratio  = 0.1_wp    ! For restarting gmres, must be < 1
   LOGICAL  :: use_absolute_solver_tolerance    = .false.   ! Maximum value allowed for solver tolerance
-  REAL(wp) :: dhdtw_abort           = 3.2e-11_wp ! abort criterion for gmres solution (~1mm/year)
+  REAL(wp) :: dhdtw_abort           = 3.17e-11_wp          ! abort criterion for gmres solution (~1mm/year)
 
   INTEGER  :: EOS_TYPE              = 2          ! 1=linear EOS,2=(nonlinear, from MPIOM)
                                                  ! 3=nonlinear Jacket-McDoudgall-formulation (not yet recommended)
