@@ -96,6 +96,9 @@ MODULE mo_nh_torus_exp
   REAL(wp), PARAMETER :: zh1     = 740._wp      !< height (m) above which temperature increases
   REAL(wp), PARAMETER :: ztsfc   = 297.9_wp
   REAL(wp), PARAMETER :: zh2     = 3260._wp     !< moist height for RICO
+  REAL(wp), PARAMETER :: zh3     = 17500._wp    !< height for extrapolated RICO profiles
+  REAL(wp), PARAMETER :: zh4     = 30000._wp    !< height for extrapolated RICO profiles
+  REAL(wp), PARAMETER :: zh5     = 60000._wp    !< height for extrapolated RICO profiles
 
   !DEFINED PARAMETERS (GATE case):
   REAL(wp), PARAMETER :: zg_tropo = 17000._wp  !height tropopause
@@ -574,11 +577,14 @@ MODULE mo_nh_torus_exp
                                                 (0.0138_wp - 0.0114_wp * (ptr_metrics%z_mc(1:nlen,jk,jb)-zh1)/(zh2 - zh1)))
           ptr_nh_prog%tracer(1:nlen,jk,jb,iqv) = max(ptr_nh_prog%tracer(1:nlen,jk,jb,iqv),             &
                                                 (0.0024_wp - 0.0006_wp * (ptr_metrics%z_mc(1:nlen,jk,jb) - zh2)/(4000._wp - zh2)))
+          ptr_nh_prog%tracer(1:nlen,jk,jb,iqv) = max(ptr_nh_prog%tracer(1:nlen,jk,jb,iqv), 3e-6_wp)                            
         END DO
 
       DO jk = 1, nlev
        ! init potential temperature
        z_help(1:nlen) = ztsfc + max(0._wp, (ptr_metrics%z_mc(1:nlen,jk,jb)-zh1)*19.1_wp/(4000._wp-zh1))
+       z_help(1:nlen) = max(z_help(1:nlen), ztsfc +(ptr_metrics%z_mc(1:nlen,jk,jb)-zh3)*502._wp/(zh4-zh3))
+       z_help(1:nlen) = max(z_help(1:nlen), ztsfc +(ptr_metrics%z_mc(1:nlen,jk,jb)-zh4)*2600._wp/(zh5-zh4))
 
        ! virtual potential temperature
        ptr_nh_prog%theta_v(1:nlen,jk,jb) = z_help(1:nlen) * ( 1._wp + &
@@ -621,6 +627,7 @@ MODULE mo_nh_torus_exp
         jcn  =   ptr_patch%edges%cell_idx(je,jb,1)
         jbn  =   ptr_patch%edges%cell_blk(je,jb,1)
         zu   =   u_cbl(1) + u_cbl(2) * ptr_metrics%z_mc(jcn,jk,jbn)
+        zu   =   min(zu, -2._wp)
         zv   =   v_cbl(1) + v_cbl(2) * ptr_metrics%z_mc(jcn,jk,jbn)
 
         zvn1 =  zu * ptr_patch%edges%primal_normal_cell(je,jb,1)%v1 + &
@@ -629,6 +636,7 @@ MODULE mo_nh_torus_exp
         jcn  =   ptr_patch%edges%cell_idx(je,jb,2)
         jbn  =   ptr_patch%edges%cell_blk(je,jb,2)
         zu   =   u_cbl(1) + u_cbl(2) * ptr_metrics%z_mc(jcn,jk,jbn)
+        zu   =   min(zu, -2._wp)
         zv   =   v_cbl(1) + v_cbl(2) * ptr_metrics%z_mc(jcn,jk,jbn)
       
         zvn2 =  zu * ptr_patch%edges%primal_normal_cell(je,jb,2)%v1 + &
@@ -717,5 +725,5 @@ MODULE mo_nh_torus_exp
 
 
 !-------------------------------------------------------------------------
-! 
+!
   END MODULE mo_nh_torus_exp
