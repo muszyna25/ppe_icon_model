@@ -43,6 +43,8 @@
 !!
 MODULE mo_nml_annotate
 
+#define DISABLE_NML_ANNOTATE
+
 #ifdef __ICON__  
   USE mo_namelist,    ONLY: POSITIONED
   USE mo_util_string, ONLY: int2string, str_replace, tolower, tocompact
@@ -365,7 +367,8 @@ CONTAINS
     CHARACTER(LEN=*), INTENT(IN), OPTIONAL :: opt_filename !< log file name (optional)
     ! local variables
     INTEGER :: dst_file
-    
+
+#ifndef DISABLE_NML_ANNOTATE
     CALL nml_read(tmpnml1, nml_log_buffer1, startpos1) ! defaults
     CALL nml_read(tmpnml2, nml_log_buffer2, startpos2) ! settings
     
@@ -390,6 +393,10 @@ CONTAINS
     END IF
 #ifdef HAVE_F2003
     DEALLOCATE(nml_log_buffer1%buf, nml_log_buffer2%buf)
+#endif
+#else
+    CLOSE (tmpnml1)
+    CLOSE (tmpnml2)
 #endif
   END SUBROUTINE log_nml_settings
   
