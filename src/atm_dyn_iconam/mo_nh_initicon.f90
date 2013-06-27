@@ -2543,13 +2543,16 @@ MODULE mo_nh_initicon
 !CDIR NODEP,VOVERTAKE,VOB
               DO ic = 1, ext_data(jg)%atm%sp_count(jb)
                 jc = ext_data(jg)%atm%idx_lst_sp(ic,jb)
-                IF ( p_lnd_state(jg)%diag_lnd%fr_seaice(jc,jb) >= 0.5_wp  ) THEN
+                ! P. Ripodas. The IF is commented because in the climate runs with SST and CI update
+                !  the initial values of fr_seaice are overwritten and t_ice has to be initialized
+                !  for all the new ice points
+                !IF ( p_lnd_state(jg)%diag_lnd%fr_seaice(jc,jb) >= 0.5_wp  ) THEN
                   ! initialize t_ice with t_skin, which is so far provided by IFS analysis
                   p_lnd_state(jg)%prog_wtr(ntlr)%t_ice(jc,jb)         = &
                     &                     initicon(jg)%sfc%tskin(jc,jb)
                   p_lnd_state(jg)%prog_wtr(nnew_rcf(jg))%t_ice(jc,jb) = &
                     &                     initicon(jg)%sfc%tskin(jc,jb)
-                ENDIF
+                !ENDIF
               ENDDO
 
             ELSE  ! tile approach
@@ -2557,13 +2560,16 @@ MODULE mo_nh_initicon
 !CDIR NODEP,VOVERTAKE,VOB
               DO ic = 1, ext_data(jg)%atm%sp_count(jb)
                 jc = ext_data(jg)%atm%idx_lst_sp(ic,jb)
-                IF ( p_lnd_state(jg)%diag_lnd%fr_seaice(jc,jb) > frsi_min  ) THEN
+                ! P. Ripodas. The IF is commented because in the climate runs with SST and CI update
+                !  the initial values of fr_seaice are overwritten and t_ice has to be initialized
+                !  for all the new ice points
+                !IF ( p_lnd_state(jg)%diag_lnd%fr_seaice(jc,jb) > frsi_min  ) THEN
                   ! initialize t_ice with tskin, which is so far provided by IFS analysis
                   p_lnd_state(jg)%prog_wtr(ntlr)%t_ice(jc,jb)         = &
                     &                     initicon(jg)%sfc%tskin(jc,jb)
                   p_lnd_state(jg)%prog_wtr(nnew_rcf(jg))%t_ice(jc,jb) = &
                     &                     initicon(jg)%sfc%tskin(jc,jb)
-                ENDIF
+                !ENDIF
               ENDDO
             ENDIF  ! ntiles_total
           ENDIF  ! lseaice

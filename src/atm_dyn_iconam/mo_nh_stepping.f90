@@ -109,7 +109,7 @@ MODULE mo_nh_stepping
     &                               itupdate, itturb, itgscp, itsfc, min_rlcell_int, &
                                     min_rledge_int, MODE_DWDANA, MODIS
   USE mo_divergent_modes,     ONLY: divergent_modes_5band
-  USE mo_math_divrot,         ONLY: div, rot_vertex
+  USE mo_math_divrot,         ONLY: div, div_avg, rot_vertex
   USE mo_solve_nonhydro,      ONLY: solve_nh
   USE mo_advection_stepping,  ONLY: step_advection
   USE mo_integrate_density_pa,ONLY: integrate_density_pa
@@ -1615,7 +1615,9 @@ MODULE mo_nh_stepping
         CALL rbf_vec_interpol_cell(p_vn,p_patch(jg),p_int_state(jg),&
                                    p_nh_state(jg)%diag%u,p_nh_state(jg)%diag%v)
 
-        CALL div(p_vn, p_patch(jg), p_int_state(jg), p_nh_state(jg)%diag%div)
+        !CALL div(p_vn, p_patch(jg), p_int_state(jg), p_nh_state(jg)%diag%div)
+        CALL div_avg(p_vn, p_patch(jg), p_int_state(jg),p_int_state(jg)%c_bln_avg,&
+                                                            p_nh_state(jg)%diag%div)
 
         IF (linit) THEN
           CALL rot_vertex (p_vn, p_patch(jg), p_int_state(jg), p_nh_state(jg)%diag%omega_z)

@@ -256,8 +256,8 @@ CONTAINS
 
         DO ic = 1, i_count
           jc = ext_data%atm%idx_lst_lp_t(ic,jb,isubs)
-          t_snow_now_t(ic,jb,isubs)          =  p_prog_lnd_now%t_snow_t(jc,jb,isubs) 
-          t_s_now_t(ic,jb,isubs)             =  p_prog_lnd_now%t_s_t(jc,jb,isubs)   
+          t_snow_now_t(ic,jb,isubs)          =  p_prog_lnd_now%t_snow_t(jc,jb,isubs)
+          t_s_now_t(ic,jb,isubs)             =  p_prog_lnd_now%t_s_t(jc,jb,isubs)    
           t_s_new_t(ic,jb,isubs)             =  p_prog_lnd_new%t_s_t(jc,jb,isubs)   
           w_snow_now_t(ic,jb,isubs)          =  p_prog_lnd_now%w_snow_t(jc,jb,isubs)  
           rho_snow_now_t(ic,jb,isubs)        =  p_prog_lnd_now%rho_snow_t(jc,jb,isubs)
@@ -2253,7 +2253,6 @@ CONTAINS
             fracwater_old = ext_data(jg)%atm%frac_t(jc,jb,isub_water)              &
                         & / ext_data(jg)%atm%lc_frac_t(jc,jb,isub_water) 
             IF (fracwater_old < frsi_min  ) THEN  !before was ice, no water tile
-             p_lnd_state(jg)%prog_wtr(n_now)%h_ice(jc,jb) = 0._wp  
 !!$      WRITE(0,'(a,2i,6g12.5)') 'before was only ice ',jc, jb, &
 !!$        & ext_data(jg)%atm%frac_t(jc,jb,isub_water) , &
 !!$        &   ext_data(jg)%atm%lc_frac_t(jc,jb,isub_water), fracwater_old, &
