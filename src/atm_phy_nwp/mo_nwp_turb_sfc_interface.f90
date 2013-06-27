@@ -614,8 +614,8 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
           evap_s_t(jc,jt) = prm_diag%lhfl_s_t (jc,jb,jt) / alv ! evaporation [kg/(m2 s)]  -"-
          !tskin_t (jc,jt) = lnd_prog_now%t_g_t(jc,jb,jt) ! should be tile specific, and prognostic !!!
           tskin_t (jc,jt) = 0.0_wp                       ! not needed as TSK is transferren in t_g_ex
-          ustr_s_t(jc,jt) = prm_diag%ustr_s_t (jc,jb,jt) ! prognostic surface stress U  !!!
-          vstr_s_t(jc,jt) = prm_diag%vstr_s_t (jc,jb,jt) ! prognostic surface stress V  !!!
+          ustr_s_t(jc,jt) = prm_diag%umfl_s_t (jc,jb,jt) ! prognostic surface stress U (sfc momentum flux)  !!!
+          vstr_s_t(jc,jt) = prm_diag%vmfl_s_t (jc,jb,jt) ! prognostic surface stress V (sfc momentum flux) !!!
         ENDDO
       ENDDO
 
@@ -948,8 +948,8 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
 !attention: these are all TESSEL/IFS tiles (1-8) ...  fluxes ???
           prm_diag%shfl_s_t(jc,jb,jt) = shfl_s_t(jc,jt)   
           prm_diag%lhfl_s_t(jc,jb,jt) = evap_s_t(jc,jt)*alv 
-          prm_diag%ustr_s_t(jc,jb,jt) = ustr_s_t(jc,jt) ! prognostic surface stress U
-          prm_diag%vstr_s_t(jc,jb,jt) = vstr_s_t(jc,jt) ! prognostic surface stress V
+          prm_diag%umfl_s_t(jc,jb,jt) = ustr_s_t(jc,jt) ! prognostic surface stress U (sfc momentum flux)
+          prm_diag%vmfl_s_t(jc,jb,jt) = vstr_s_t(jc,jt) ! prognostic surface stress V (sfc momentum flux)
         ENDDO           
       ENDDO
 

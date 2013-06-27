@@ -118,8 +118,6 @@ MODULE mo_nwp_phy_types
     TYPE(t_ptr_2d3d),ALLOCATABLE :: lhfl_s_t_ptr(:) !< pointer array: surface latent heat flux
     TYPE(t_ptr_2d3d),ALLOCATABLE :: umfl_s_t_ptr(:) !< pointer array: u-momentum flux at the surface
     TYPE(t_ptr_2d3d),ALLOCATABLE :: vmfl_s_t_ptr(:) !< pointer array: v-momentum flux at the surface
-    TYPE(t_ptr_2d3d),ALLOCATABLE :: ustr_s_t_ptr(:) !< pointer array: surface U stress
-    TYPE(t_ptr_2d3d),ALLOCATABLE :: vstr_s_t_ptr(:) !< pointer array: surface V stress
     TYPE(t_ptr_2d3d),ALLOCATABLE :: qhfl_s_t_ptr(:) !< pointer array: surface moisture flux
     TYPE(t_ptr_2d3d),ALLOCATABLE :: lhfl_bs_t_ptr(:)!< pointer array: lhf from bare soil
     TYPE(t_ptr_2d3d),ALLOCATABLE :: lhfl_pl_t_ptr(:)!< pointer array: lhf from plants
@@ -160,8 +158,6 @@ MODULE mo_nwp_phy_types
       &  shfl_s_t(:,:,:),      & !! sensible heat flux (surface) ( W/m2)
       &  lhfl_s(:,:),          & !! latent   heat flux (surface) ( W/m2)
       &  lhfl_s_t(:,:,:),      & !! latent   heat flux (surface) ( W/m2)
-      &  ustr_s_t(:,:,:),      & !! U stress           (surface) ( m2/s2)
-      &  vstr_s_t(:,:,:),      & !! V stress           (surface) ( m2/s2)
       &  lhfl_bs(:,:),         & !! latent heat flux from bare soil evap. (surface) ( W/m2)
       &  lhfl_bs_t(:,:,:),     & !! latent heat flux from bare soil evap. (surface) ( W/m2)
       &  lhfl_pl(:,:,:),       & !! latent heat flux from plants                    ( W/m2)
