@@ -41,7 +41,7 @@ esac
 gatedir=%ECTEMP%/%SUITE%/%EXPNUM%/%YMD%%INIHOUR%
 cd ${gatedir}
 ecfsdir=ec:icon/experiments/%SUITE%/%EXPNUM%/%YMD%%INIHOUR%
-emkdir.p -p $ecfsdir
+emkdir -p $ecfsdir
 
 
 #-----------------------------------------------------------------------------
