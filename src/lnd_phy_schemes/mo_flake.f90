@@ -449,8 +449,13 @@ CONTAINS
   !! @par Revision History
   !! Initial release by Dmitrii Mironov, DWD (2013-06-05)
   !! 
-  !! Modification by <name>, <organization> (YYYY-MM-DD)
-  !! - <brief description of modification>
+  !! Modification by Daniel Reinert, DWD (2013-06-26)
+  !! - error message splitted into two parts, since the message length exceeded 
+  !!   limit on SX9.
+  !! Modification by Daniel Reinert, DWD (2013-06-27)
+  !! - removed initialization of FLake variables at new time step. This should 
+  !!   not be part of the initilaization routine itself, since it is not 
+  !!   strictly necessary in order to run the model.
   !!
 
   SUBROUTINE flake_init (                                       &
@@ -462,14 +467,7 @@ CONTAINS
                      &  t_mnw_lk_p, t_wml_lk_p, t_bot_lk_p,     &
                      &  c_t_lk_p, h_ml_lk_p,                    & 
                      &  t_b1_lk_p, h_b1_lk_p,                   &           
-                     &  t_scf_lk_p,                             &
-                     &  t_snow_n, h_snow_n,                     & 
-                     &  t_ice_n, h_ice_n,                       & 
-                     &  t_mnw_lk_n, t_wml_lk_n, t_bot_lk_n,     &
-                     &  c_t_lk_n, h_ml_lk_n,                    & 
-                     &  t_b1_lk_n, h_b1_lk_n,                   &           
-                     &  t_scf_lk_n                              &
-                     &  )
+                     &  t_scf_lk_p                             )
 
     IMPLICIT NONE
 
@@ -520,26 +518,6 @@ CONTAINS
                                                 !< (i.e. the temperature at the air-water, air-ice 
                                                 !< or air-snow interface) 
                        
-    REAL(KIND = ireals), DIMENSION(:), INTENT(OUT) ::    &
-                        &  t_snow_n         , & !< temperature of snow upper surface at new time step [K]
-                        &  h_snow_n         , & !< snow thickness at new time step [m]
-                        &  t_ice_n          , & !< temperature of ice upper surface at new time step [K]
-                        &  h_ice_n          , & !< ice thickness at new time step [m]
-                        &  t_mnw_lk_n       , & !< mean temperature of the water column at new time step [K]
-                        &  t_wml_lk_n       , & !< mixed-layer temperature at new time step [K] 
-                        &  t_bot_lk_n       , & !< temperature at the water-bottom sediment interface 
-                                                !< at new time step [K] 
-                        &  c_t_lk_n         , & !< shape factor with respect to the temperature profile 
-                                                !< in lake thermocline at new time step [-] 
-                        &  h_ml_lk_n        , & !< thickness of the mixed-layer at new time step [m] 
-                        &  t_b1_lk_n        , & !< temperature at the bottom of the upper layer
-                                                !< of the sediments at new time step [K]  
-                        &  h_b1_lk_n        , & !< thickness of the upper layer of bottom sediments 
-                                                !< at new time step [m] 
-                        &  t_scf_lk_n           !< lake surface temperature at new time step [K]
-                                                !< (i.e. the temperature at the air-water, air-ice 
-                                                !< or air-snow interface) 
-
     ! Local variables
 
     INTEGER ::       &
@@ -567,6 +545,7 @@ CONTAINS
         ! Lake fraction less than a minimum threshold value or negative lake depth is found
         ! Set logical switch
         lcallabort = .TRUE.
+
         ! Exit DO loop to call model abort
         EXIT CheckFLakeExtPar 
       END IF
@@ -577,8 +556,9 @@ CONTAINS
       ! Send an error message
       WRITE(nameerr,*) "MODULE mo_flake, SUBROUTINE flake_init"
       WRITE(texterr,*) "Lake fraction ", fr_lake(iflk),                          &
-                    &  " is less than a minimum threshold value ", fr_lake_min,  &
-                    &  " or negative lake depth ", depth_lk(iflk),                &
+                    &  " is less than a minimum threshold value ", fr_lake_min
+      CALL message(TRIM(nameerr), TRIM(texterr))
+      WRITE(texterr,*) " or negative lake depth ", depth_lk(iflk),               &
                     &  " Call model abort."
       CALL message(TRIM(nameerr), TRIM(texterr))
       ! Call model abort
@@ -674,20 +654,6 @@ CONTAINS
         t_scf_lk_p(iflk) = t_wml_lk_p(iflk)
       END IF
 
-      ! FLake variables at new time step
-      
-      h_snow_n  (iflk) = h_snow_p  (iflk)
-      t_snow_n  (iflk) = t_snow_p  (iflk)
-      h_ice_n   (iflk) = h_ice_p   (iflk)
-      t_ice_n   (iflk) = t_ice_p   (iflk)
-      t_mnw_lk_n(iflk) = t_mnw_lk_p(iflk)
-      t_wml_lk_n(iflk) = t_wml_lk_p(iflk)
-      t_bot_lk_n(iflk) = t_bot_lk_p(iflk)
-      c_t_lk_n  (iflk) = c_t_lk_p  (iflk)
-      h_ml_lk_n (iflk) = h_ml_lk_p (iflk)
-      t_b1_lk_n (iflk) = t_b1_lk_p (iflk) 
-      h_b1_lk_n (iflk) = h_b1_lk_p (iflk) 
-      t_scf_lk_n(iflk) = t_scf_lk_p(iflk)   
 
     END DO GridBoxesWithLakes 
 
