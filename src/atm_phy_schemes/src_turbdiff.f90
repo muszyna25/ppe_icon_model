@@ -790,7 +790,7 @@ SUBROUTINE turbtran(iini,ltkeinp,lgz0inp, dt_tke, nprv, ntur, ntim, &
           tke, tkvm, tkvh, rcld, edr, &
 !    
           t_2m, qv_2m, td_2m, rh_2m, u_10m, v_10m, &
-          shfl_s, lhfl_s, qhfl_s, &
+          shfl_s, lhfl_s, qhfl_s, umfl_s, vmfl_s, &
 !
           ierrstat, errormsg, eroutine)
 
@@ -1241,7 +1241,9 @@ REAL (KIND=ireals), DIMENSION(:), OPTIONAL, INTENT(OUT) :: &
 !
      shfl_s,       & ! sensible heat flux at the surface             (W/m2) (positive downward)
      lhfl_s,       & ! latent   heat flux at the surface             (W/m2) (positive downward)
-     qhfl_s          ! moisture      flux at the surface          (kg/m2/s) (positive downward)
+     qhfl_s,       & ! moisture      flux at the surface          (kg/m2/s) (positive downward)
+     umfl_s,       & ! u-momentum flux at the surface                (N/m2) (positive downward)
+     vmfl_s          ! v-momentum flux at the surface                (N/m2) (positive downward)
 
 INTEGER (KIND=iintegers), INTENT(INOUT) :: ierrstat
 
@@ -1923,6 +1925,16 @@ REAL (KIND=ireals) :: &
       IF (PRESENT(qhfl_s)) THEN
          DO i=istartpar,iendpar
             qhfl_s(i)=rho_2d(i)*tkvh(i,ke1)*grad(i,h2o_g)
+         END DO
+      END IF
+      IF (PRESENT(umfl_s)) THEN
+         DO i=istartpar,iendpar
+            umfl_s(i)=rho_2d(i)*tkvm(i,ke1)*grad(i,u_m)
+         END DO
+      END IF
+      IF (PRESENT(vmfl_s)) THEN
+         DO i=istartpar,iendpar
+            vmfl_s(i)=rho_2d(i)*tkvm(i,ke1)*grad(i,v_m)
          END DO
       END IF
 

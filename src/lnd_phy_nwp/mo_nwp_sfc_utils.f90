@@ -53,6 +53,7 @@ MODULE mo_nwp_sfc_utils
     &                               lsnowtile, isub_water, isub_seaice, isub_lake
   USE mo_initicon_config,     ONLY: l_hice_in
   USE mo_soil_ml,             ONLY: terra_multlay_init
+  USE mo_flake,               ONLY: flake_init
   USE mo_seaice_nwp,          ONLY: seaice_init_nwp, hice_min, frsi_min, hice_ini
   USE mo_phyparam_soil,       ONLY: cf_snow     ! soil and vegetation parameters for TILES
   USE mo_satad,               ONLY: sat_pres_water, sat_pres_ice, spec_humi
@@ -156,6 +157,32 @@ CONTAINS
     REAL(wp) :: sso_sigma_t(nproma,  p_patch%nblks_c, ntiles_total)
     INTEGER  :: lc_class_t (nproma,  p_patch%nblks_c, ntiles_total)
 
+
+    ! local fields for lake model
+    !
+    REAL(wp) :: fr_lake       (nproma) ! lake fraction
+    REAL(wp) :: depth_lk      (nproma) ! lake depth
+    REAL(wp) :: fetch_lk      (nproma) ! wind fetch over lake
+    REAL(wp) :: dp_bs_lk      (nproma) ! depth of thermally active layer of bot. sediments.
+    REAL(wp) :: t_bs_lk       (nproma) ! clim. temp. at bottom of thermally active layer 
+                                       ! of sediments
+    REAL(wp) :: gamso_lk      (nproma) ! attenuation coefficient of lake water with respect 
+                                       ! to sol. rad.
+    REAL(wp) :: t_snow_lk_now (nproma) ! temperature of snow on lake ice
+    REAL(wp) :: h_snow_lk_now (nproma) ! depth of snow on lake ice
+    REAL(wp) :: t_ice_lk_now  (nproma) ! lake ice temperature
+    REAL(wp) :: h_ice_lk_now  (nproma) ! lake ice depth
+    REAL(wp) :: t_mnw_lk_now  (nproma) ! mean temperature of the water column
+    REAL(wp) :: t_wml_lk_now  (nproma) ! mixed-layer temperature
+    REAL(wp) :: t_bot_lk_now  (nproma) ! temperature at the water-bottom sediment interface
+    REAL(wp) :: c_t_lk_now    (nproma) ! shape factor (temp. profile in lake thermocline)
+    REAL(wp) :: h_ml_lk_now   (nproma) ! mixed-layer thickness
+    REAL(wp) :: t_b1_lk_now   (nproma) ! temperature at the bottom of the upper layer 
+                                       ! of the sediments
+    REAL(wp) :: h_b1_lk_now   (nproma) ! thickness of the upper layer of the sediments
+    REAL(wp) :: t_scf_lk_now  (nproma) ! lake surface temperature
+
+
     ! local fields for sea ice model
     !
     REAL(wp) :: frsi     (nproma)   ! sea ice fraction
@@ -167,6 +194,9 @@ CONTAINS
     REAL(wp) :: hice_new (nproma)   ! ice thickness at new time level
     REAL(wp) :: tsnow_new(nproma)   ! temperature of snow upper surface at new time 
     REAL(wp) :: hsnow_new(nproma)   ! snow thickness at new time level
+
+    INTEGER  :: icount_flk          ! total number of lake points per block
+    !
     INTEGER  :: icount_ice          ! total number of sea-ice points per block
     !
     INTEGER  :: icount_water        ! total number of sea-water points per block
@@ -189,11 +219,20 @@ CONTAINS
     i_startblk = p_patch%cells%start_blk(rl_start,1)
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
+!!$OMP PARALLEL
+!!$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,isubs,i_count,i_count_snow,icount_ice, &
+!!$OMP            icount_water,temp,ic,isubs_snow,frsi,tice_now,hice_now,             &
+!!$OMP            tsnow_now,hsnow_now,tice_new,hice_new,tsnow_new,hsnow_new),         &
+!!$OMP            SCHEDULE(guided)
+
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,isubs,i_count,i_count_snow,icount_ice, &
-!$OMP            icount_water, temp,ic,isubs_snow,frsi,tice_now,hice_now,            &
-!$OMP            tsnow_now,hsnow_now,tice_new,hice_new,tsnow_new,hsnow_new),         &
-!$OMP            SCHEDULE(guided)
+!$OMP            icount_water,icount_flk,temp,ic,isubs_snow,frsi,tice_now,hice_now,  &
+!$OMP            tsnow_now,hsnow_now,tice_new,hice_new,tsnow_new,hsnow_new,fr_lake,  &
+!$OMP            depth_lk,fetch_lk,dp_bs_lk,t_bs_lk,gamso_lk,t_snow_lk_now,          &
+!$OMP            h_snow_lk_now,t_ice_lk_now,h_ice_lk_now,t_mnw_lk_now,t_wml_lk_now,  &
+!$OMP            t_bot_lk_now,c_t_lk_now,h_ml_lk_now,t_b1_lk_now,h_b1_lk_now,        &
+!$OMP            t_scf_lk_now), SCHEDULE(guided)
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -492,6 +531,106 @@ CONTAINS
           ENDDO
         ENDDO
       END DO ! isubs
+
+
+      !
+      ! Warmstart initialization for fresh water lake parameterization 
+      ! Is called for both warmstart and coldstart runs.
+      !
+      IF (llake) THEN
+
+        icount_flk = ext_data%atm%fp_count(jb) ! number of lake points in block jb
+
+        ! Collect data for lake points in 1D-arrays
+        DO ic = 1, icount_flk
+
+          jc = ext_data%atm%idx_lst_fp(ic,jb)
+
+          fr_lake      (ic) = ext_data%atm%frac_t(jc,jb,isub_lake)
+          depth_lk     (ic) = ext_data%atm%depth_lk   (jc,jb)
+          fetch_lk     (ic) = ext_data%atm%fetch_lk   (jc,jb)
+          dp_bs_lk     (ic) = ext_data%atm%dp_bs_lk   (jc,jb)
+          t_bs_lk      (ic) = ext_data%atm%t_bs_lk    (jc,jb)
+          gamso_lk     (ic) = ext_data%atm%gamso_lk   (jc,jb)
+          t_snow_lk_now(ic) = p_prog_wtr_now%t_snow_lk(jc,jb)
+          h_snow_lk_now(ic) = p_prog_wtr_now%h_snow_lk(jc,jb)
+          t_ice_lk_now (ic) = p_prog_wtr_now%t_ice_lk (jc,jb)
+          h_ice_lk_now (ic) = p_prog_wtr_now%h_ice_lk (jc,jb)
+          t_mnw_lk_now (ic) = p_prog_wtr_now%t_mnw_lk (jc,jb)
+          t_wml_lk_now (ic) = p_prog_wtr_now%t_wml_lk (jc,jb)
+          t_bot_lk_now (ic) = p_prog_wtr_now%t_bot_lk (jc,jb)
+          c_t_lk_now   (ic) = p_prog_wtr_now%c_t_lk   (jc,jb)
+          h_ml_lk_now  (ic) = p_prog_wtr_now%h_ml_lk  (jc,jb)
+          t_b1_lk_now  (ic) = p_prog_wtr_now%t_b1_lk  (jc,jb)
+          h_b1_lk_now  (ic) = p_prog_wtr_now%h_b1_lk  (jc,jb)
+          t_scf_lk_now (ic) = p_prog_lnd_now%t_g_t    (jc,jb,isub_lake)
+
+        ENDDO
+
+
+        CALL flake_init (nflkgb     = icount_flk,             & !in
+          &              fr_lake    = fr_lake      (:),       & !in
+          &              depth_lk   = depth_lk     (:),       & !in
+          &              fetch_lk   = fetch_lk     (:),       & !inout
+          &              dp_bs_lk   = dp_bs_lk     (:),       & !inout
+          &              t_bs_lk    = t_bs_lk      (:),       & !inout
+          &              gamso_lk   = gamso_lk     (:),       & !inout
+          &              t_snow_p   = t_snow_lk_now(:),       & !inout
+          &              h_snow_p   = h_snow_lk_now(:),       & !inout
+          &              t_ice_p    = t_ice_lk_now (:),       & !inout
+          &              h_ice_p    = h_ice_lk_now (:),       & !inout
+          &              t_mnw_lk_p = t_mnw_lk_now (:),       & !inout
+          &              t_wml_lk_p = t_wml_lk_now (:),       & !inout
+          &              t_bot_lk_p = t_bot_lk_now (:),       & !inout
+          &              c_t_lk_p   = c_t_lk_now   (:),       & !inout
+          &              h_ml_lk_p  = h_ml_lk_now  (:),       & !inout 
+          &              t_b1_lk_p  = t_b1_lk_now  (:),       & !inout
+          &              h_b1_lk_p  = h_b1_lk_now  (:),       & !inout       
+          &              t_scf_lk_p = t_scf_lk_now (:)        )
+
+
+        !  Recover fields from index list
+        !
+        DO ic = 1, icount_flk
+
+          jc = ext_data%atm%idx_lst_fp(ic,jb)
+
+          ext_data%atm%fetch_lk(jc,jb) = fetch_lk(ic)
+          ext_data%atm%dp_bs_lk(jc,jb) = dp_bs_lk(ic)
+          ext_data%atm%t_bs_lk (jc,jb) = t_bs_lk (ic)
+          ext_data%atm%gamso_lk(jc,jb) = gamso_lk(ic)
+
+          p_prog_wtr_now%t_snow_lk(jc,jb) = t_snow_lk_now(ic)
+          p_prog_wtr_now%h_snow_lk(jc,jb) = h_snow_lk_now(ic)
+          p_prog_wtr_now%t_ice_lk (jc,jb) = t_ice_lk_now (ic)
+          p_prog_wtr_now%h_ice_lk (jc,jb) = h_ice_lk_now (ic)
+          p_prog_wtr_now%t_mnw_lk (jc,jb) = t_mnw_lk_now (ic)
+          p_prog_wtr_now%t_wml_lk (jc,jb) = t_wml_lk_now (ic)
+          p_prog_wtr_now%t_bot_lk (jc,jb) = t_bot_lk_now (ic)
+          p_prog_wtr_now%c_t_lk   (jc,jb) = c_t_lk_now   (ic)
+          p_prog_wtr_now%h_ml_lk  (jc,jb) = h_ml_lk_now  (ic)      
+          p_prog_wtr_now%t_b1_lk  (jc,jb) = t_b1_lk_now  (ic)
+          p_prog_wtr_now%h_b1_lk  (jc,jb) = h_b1_lk_now  (ic)
+
+          p_prog_lnd_now%t_g_t(jc,jb,isub_lake) = t_scf_lk_now(ic)
+
+
+          ! Prognostic Flake fields at time step new are initialized as well
+          p_prog_wtr_new%t_snow_lk(jc,jb) = t_snow_lk_now(ic)
+          p_prog_wtr_new%h_snow_lk(jc,jb) = h_snow_lk_now(ic)
+          p_prog_wtr_new%t_ice_lk (jc,jb) = t_ice_lk_now (ic)
+          p_prog_wtr_new%h_ice_lk (jc,jb) = h_ice_lk_now (ic)
+          p_prog_wtr_new%t_mnw_lk (jc,jb) = t_mnw_lk_now (ic)
+          p_prog_wtr_new%t_wml_lk (jc,jb) = t_wml_lk_now (ic)
+          p_prog_wtr_new%t_bot_lk (jc,jb) = t_bot_lk_now (ic)
+          p_prog_wtr_new%c_t_lk   (jc,jb) = c_t_lk_now   (ic)
+          p_prog_wtr_new%h_ml_lk  (jc,jb) = h_ml_lk_now  (ic)      
+          p_prog_wtr_new%t_b1_lk  (jc,jb) = t_b1_lk_now  (ic)
+          p_prog_wtr_new%h_b1_lk  (jc,jb) = h_b1_lk_now  (ic)
+    
+        ENDDO
+
+      ENDIF  ! llake
 
 
       !

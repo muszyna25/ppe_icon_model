@@ -61,6 +61,7 @@ MODULE mo_nwp_sfc_interface
   USE mo_satad,               ONLY: sat_pres_water, sat_pres_ice, spec_humi  
   USE mo_soil_ml,             ONLY: terra_multlay
   USE mo_nwp_sfc_utils,       ONLY: diag_snowfrac_tg, update_idx_lists_lnd, update_idx_lists_sea
+  USE mo_flake,               ONLY: flake_interface
   USE mo_seaice_nwp,          ONLY: seaice_timestep_nwp
   USE mo_phyparam_soil              ! soil and vegetation parameters for TILES
 !  USE mo_aggregate_surface,   ONLY: subsmean,subs_disaggregate_radflux,subsmean_albedo
@@ -889,13 +890,13 @@ CONTAINS
         &             lnd_prog_new, ext_data, lnd_diag, tcall_sfc_jg)
     ENDIF
 
-
     !
-    ! Call Flake model
+    ! Call fresh water lake model (Flake)
     !
-!    IF ( (atm_phy_nwp_config(jg)%inwp_surface == 1) .AND. (llake) ) THEN
-!    ENDIF
-
+    IF ( (atm_phy_nwp_config(jg)%inwp_surface == 1) .AND. (llake) ) THEN
+      CALL nwp_lake(p_patch, p_diag, prm_diag, p_prog_wtr_now, p_prog_wtr_new, &
+        &             lnd_prog_now, lnd_prog_new, ext_data, lnd_diag, tcall_sfc_jg)
+    ENDIF
 
 
 
@@ -919,6 +920,8 @@ CONTAINS
            prm_diag%lhfl_s (jc,jb)  = prm_diag%lhfl_s_t (jc,jb,1)
            prm_diag%qhfl_s (jc,jb)  = prm_diag%qhfl_s_t (jc,jb,1)
            prm_diag%lhfl_bs(jc,jb)  = prm_diag%lhfl_bs_t(jc,jb,1) 
+           prm_diag%umfl_s (jc,jb)  = prm_diag%umfl_s_t (jc,jb,1)
+           prm_diag%vmfl_s (jc,jb)  = prm_diag%vmfl_s_t (jc,jb,1) 
          ENDDO
          IF (atm_phy_nwp_config(jg)%inwp_surface > 0) THEN
            DO jc = i_startidx, i_endidx
@@ -934,9 +937,11 @@ CONTAINS
        ELSE ! aggregate fields over tiles
          t_g_s(:)      = 0._wp
          lnd_diag%qv_s   (i_startidx:i_endidx,jb) = 0._wp
-         prm_diag%shfl_s(i_startidx:i_endidx,jb)  = 0._wp
-         prm_diag%lhfl_s(i_startidx:i_endidx,jb)  = 0._wp
-         prm_diag%qhfl_s(i_startidx:i_endidx,jb)  = 0._wp
+         prm_diag%shfl_s (i_startidx:i_endidx,jb) = 0._wp
+         prm_diag%lhfl_s (i_startidx:i_endidx,jb) = 0._wp
+         prm_diag%qhfl_s (i_startidx:i_endidx,jb) = 0._wp
+         prm_diag%umfl_s (i_startidx:i_endidx,jb) = 0._wp
+         prm_diag%vmfl_s (i_startidx:i_endidx,jb) = 0._wp
          prm_diag%lhfl_bs(i_startidx:i_endidx,jb) = 0._wp
          prm_diag%lhfl_pl(i_startidx:i_endidx,1:nlev_soil,jb) = 0._wp
 
@@ -951,6 +956,10 @@ CONTAINS
                &                    + prm_diag%lhfl_s_t (jc,jb,isubs) * area_frac 
              prm_diag%qhfl_s(jc,jb) = prm_diag%qhfl_s(jc,jb)                    &
                &                    + prm_diag%qhfl_s_t (jc,jb,isubs) * area_frac 
+             prm_diag%umfl_s(jc,jb) = prm_diag%umfl_s(jc,jb)                    &
+               &                    + prm_diag%umfl_s_t (jc,jb,isubs) * area_frac
+             prm_diag%vmfl_s(jc,jb) = prm_diag%vmfl_s(jc,jb)                    &
+               &                    + prm_diag%vmfl_s_t (jc,jb,isubs) * area_frac 
            ENDDO
          ENDDO
 
@@ -1065,12 +1074,12 @@ CONTAINS
       DO ic = 1, i_count
         jc = ext_data%atm%idx_lst_spi(ic,jb)
 
-        shfl_s   (ic) = prm_diag%shfl_s_t(jc,jb,isub_seaice)     ! sensible heat flux at sfc    [W/m^2]
-        lhfl_s   (ic) = prm_diag%lhfl_s_t(jc,jb,isub_seaice)     ! latent heat flux at sfc      [W/m^2]
+        shfl_s   (ic) = prm_diag%shfl_s_t  (jc,jb,isub_seaice)   ! sensible heat flux at sfc    [W/m^2]
+        lhfl_s   (ic) = prm_diag%lhfl_s_t  (jc,jb,isub_seaice)   ! latent heat flux at sfc      [W/m^2]
         lwflxsfc (ic) = prm_diag%lwflxsfc_t(jc,jb,isub_seaice)   ! net lw radiation flux at sfc [W/m^2]
         swflxsfc (ic) = prm_diag%swflxsfc_t(jc,jb,isub_seaice)   ! net solar radiation flux at sfc [W/m^2]
-        tice_now (ic) = p_prog_wtr_now%t_ice(jc,jb)
-        hice_now (ic) = p_prog_wtr_now%h_ice(jc,jb)
+        tice_now (ic) = p_prog_wtr_now%t_ice    (jc,jb)
+        hice_now (ic) = p_prog_wtr_now%h_ice    (jc,jb)
         tsnow_now(ic) = p_prog_wtr_now%t_snow_si(jc,jb)
         hsnow_now(ic) = p_prog_wtr_now%h_snow_si(jc,jb)
       ENDDO  ! ic
@@ -1137,6 +1146,219 @@ CONTAINS
 
   END SUBROUTINE nwp_seaice
 
+
+
+  !>
+  !! Interface for fresh water lake (Flake) parameterization
+  !!
+  !! Interface for fresh water lake (Flake) parameterization. Calls time 
+  !! integration routine flake_interface and updates the prognostic Flake variables 
+  !! as well as t_g_t and qv_s_t.
+  !!
+  !! @par Revision History
+  !! Initial revision by Daniel Reinert, DWD (2013-06-26)
+  !!
+  SUBROUTINE nwp_lake (p_patch, p_diag, prm_diag, p_prog_wtr_now,    &
+    &                    p_prog_wtr_new, lnd_prog_now, lnd_prog_new, &
+    &                    ext_data, p_lnd_diag, dtime)
+
+    TYPE(t_patch),        TARGET,INTENT(in)   :: p_patch        !< grid/patch info
+    TYPE(t_nh_diag),      TARGET,INTENT(in)   :: p_diag         !< diag vars
+    TYPE(t_nwp_phy_diag),        INTENT(in)   :: prm_diag       !< atm phys vars
+    TYPE(t_wtr_prog),            INTENT(in)   :: p_prog_wtr_now !< prog vars for wtr
+    TYPE(t_wtr_prog),            INTENT(inout):: p_prog_wtr_new !< prog vars for wtr
+    TYPE(t_lnd_prog),            INTENT(in)   :: lnd_prog_now   !< prog vars for sfc
+    TYPE(t_lnd_prog),            INTENT(inout):: lnd_prog_new   !< prog vars for sfc
+    TYPE(t_external_data),       INTENT(in)   :: ext_data       !< external data
+    TYPE(t_lnd_diag),            INTENT(inout):: p_lnd_diag     !< diag vars for sfc
+    REAL(wp),                    INTENT(in)   :: dtime          !< time interval for 
+                                                                !< surface
+
+    ! Local arrays  (local copies)
+    !
+    REAL(wp) :: f_c(nproma)
+    REAL(wp) :: depth_lk(nproma)
+    REAL(wp) :: fetch_lk(nproma)
+    REAL(wp) :: dp_bs_lk(nproma)
+    REAL(wp) :: t_bs_lk(nproma)
+    REAL(wp) :: gamso_lk(nproma)
+    REAL(wp) :: qmom(nproma)
+    REAL(wp) :: shfl_s(nproma)
+    REAL(wp) :: lhfl_s(nproma)
+    REAL(wp) :: swflxsfc(nproma)
+    REAL(wp) :: lwflxsfc(nproma)
+    REAL(wp) :: t_snow_lk_now(nproma), t_snow_lk_new(nproma)
+    REAL(wp) :: h_snow_lk_now(nproma), h_snow_lk_new(nproma)
+    REAL(wp) :: t_ice_lk_now(nproma), t_ice_lk_new(nproma)
+    REAL(wp) :: h_ice_lk_now(nproma), h_ice_lk_new(nproma)
+    REAL(wp) :: t_mnw_lk_now(nproma), t_mnw_lk_new(nproma)
+    REAL(wp) :: t_wml_lk_now(nproma), t_wml_lk_new(nproma)
+    REAL(wp) :: t_bot_lk_now(nproma), t_bot_lk_new(nproma)
+    REAL(wp) :: c_t_lk_now(nproma), c_t_lk_new(nproma)
+    REAL(wp) :: h_ml_lk_now(nproma), h_ml_lk_new(nproma)
+    REAL(wp) :: t_b1_lk_now(nproma), t_b1_lk_new(nproma)
+    REAL(wp) :: h_b1_lk_now(nproma), h_b1_lk_new(nproma)
+    REAL(wp) :: t_scf_lk_now(nproma), t_scf_lk_new(nproma)
+
+
+    ! Local array bounds:
+    !
+    INTEGER :: rl_start, rl_end
+    INTEGER :: i_startblk, i_endblk    !> blocks
+    INTEGER :: i_nchdom                !< domain index
+
+    ! Local scalars:
+    !
+    INTEGER :: jc, jb, ic              !loop indices
+    INTEGER :: icount_flk
+
+    CHARACTER(len=*), PARAMETER :: routine = 'mo_nwp_sfc_interface:nwp_lake'
+    !-------------------------------------------------------------------------
+
+
+    ! exclude nest boundary and halo points
+    rl_start = grf_bdywidth_c+1
+    rl_end   = min_rlcell_int
+
+    i_nchdom  = MAX(1,p_patch%n_childdom)
+
+    i_startblk = p_patch%cells%start_blk(rl_start,1)
+    i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
+
+
+    IF (msg_level >= 15) THEN
+      CALL message('mo_nwp_sfc_interface: ', 'call nwp_lake scheme')
+    ENDIF
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,ic,jc,icount_flk,f_c,depth_lk,fetch_lk,dp_bs_lk,t_bs_lk,&
+!$OMP            gamso_lk,qmom,shfl_s,lhfl_s,swflxsfc,lwflxsfc,t_snow_lk_now, &
+!$OMP            h_snow_lk_now,t_ice_lk_now,h_ice_lk_now,t_mnw_lk_now,        &
+!$OMP            t_wml_lk_now,t_bot_lk_now,c_t_lk_now,h_ml_lk_now,t_b1_lk_now,&
+!$OMP            h_b1_lk_now,t_scf_lk_now,t_snow_lk_new,h_snow_lk_new,        &
+!$OMP            t_ice_lk_new,h_ice_lk_new,t_mnw_lk_new,t_wml_lk_new,         &
+!$OMP            t_bot_lk_new,c_t_lk_new,h_ml_lk_new,t_b1_lk_new,h_b1_lk_new, &
+!$OMP            t_scf_lk_new)
+    DO jb = i_startblk, i_endblk
+
+      !
+      ! Copy input fields
+      !
+      icount_flk = ext_data%atm%fp_count(jb) 
+
+      ! Collect data for lake points in 1D-arrays
+      DO ic=1,icount_flk
+
+        jc = ext_data%atm%idx_lst_fp(ic,jb)
+
+        f_c          (ic) = p_patch%cells%f_c       (jc,jb)    ! Coriolis parameter   [s^-1]
+ 
+        depth_lk     (ic) = ext_data%atm%depth_lk   (jc,jb)    ! lake depth           [m]
+        fetch_lk     (ic) = ext_data%atm%fetch_lk   (jc,jb)    ! wind fetch over lake [m]
+        dp_bs_lk     (ic) = ext_data%atm%dp_bs_lk   (jc,jb)
+        t_bs_lk      (ic) = ext_data%atm%t_bs_lk    (jc,jb)
+        gamso_lk     (ic) = ext_data%atm%gamso_lk   (jc,jb)
+
+        ! absolute value of momentum flux at sfc
+        qmom     (ic) = SQRT(prm_diag%umfl_s_t(jc,jb,isub_lake)**2  &
+          &             +    prm_diag%vmfl_s_t(jc,jb,isub_lake)**2 )
+        shfl_s   (ic) = prm_diag%shfl_s_t  (jc,jb,isub_lake)   ! sensible heat flux at sfc [W/m^2]
+        lhfl_s   (ic) = prm_diag%lhfl_s_t  (jc,jb,isub_lake)   ! latent heat flux at sfc   [W/m^2]
+        swflxsfc (ic) = prm_diag%swflxsfc_t(jc,jb,isub_lake)   ! net shortwave flux at sfc [W/m^2]
+        lwflxsfc (ic) = prm_diag%lwflxsfc_t(jc,jb,isub_lake)   ! net longwave flux at sfc  [W/m^2]
+
+        t_snow_lk_now(ic) = p_prog_wtr_now%t_snow_lk(jc,jb)
+        h_snow_lk_now(ic) = p_prog_wtr_now%h_snow_lk(jc,jb)
+        t_ice_lk_now (ic) = p_prog_wtr_now%t_ice_lk (jc,jb)
+        h_ice_lk_now (ic) = p_prog_wtr_now%h_ice_lk (jc,jb)
+        t_mnw_lk_now (ic) = p_prog_wtr_now%t_mnw_lk (jc,jb)
+        t_wml_lk_now (ic) = p_prog_wtr_now%t_wml_lk (jc,jb)
+        t_bot_lk_now (ic) = p_prog_wtr_now%t_bot_lk (jc,jb)
+        c_t_lk_now   (ic) = p_prog_wtr_now%c_t_lk   (jc,jb)
+        h_ml_lk_now  (ic) = p_prog_wtr_now%h_ml_lk  (jc,jb)
+        t_b1_lk_now  (ic) = p_prog_wtr_now%t_b1_lk  (jc,jb)
+        h_b1_lk_now  (ic) = p_prog_wtr_now%h_b1_lk  (jc,jb)
+        t_scf_lk_now (ic) = lnd_prog_now%t_g_t      (jc,jb,isub_lake)
+      ENDDO
+
+
+    CALL flake_interface (                                    & !in
+                     &  dtime       = dtime           ,       & !in
+                     &  nflkgb      = icount_flk      ,       & !in
+                     &  coriolispar = f_c          (:),       & !in
+                     &  depth_lk    = depth_lk     (:),       & !in
+                     &  fetch_lk    = fetch_lk     (:),       & !in
+                     &  dp_bs_lk    = dp_bs_lk     (:),       & !in
+                     &  t_bs_lk     = t_bs_lk      (:),       & !in
+                     &  gamso_lk    = gamso_lk     (:),       & !in
+                     &  qmom        = qmom         (:),       & !in
+                     &  qsen        = shfl_s       (:),       & !in
+                     &  qlat        = lhfl_s       (:),       & !in
+                     &  qlwrnet     = lwflxsfc     (:),       & !in
+                     &  qsolnet     = swflxsfc     (:),       & !in
+                     &  t_snow_p    = t_snow_lk_now(:),       & !in
+                     &  h_snow_p    = h_snow_lk_now(:),       & !in
+                     &  t_ice_p     = t_ice_lk_now (:),       & !in
+                     &  h_ice_p     = h_ice_lk_now (:),       & !in
+                     &  t_mnw_lk_p  = t_mnw_lk_now (:),       & !in
+                     &  t_wml_lk_p  = t_wml_lk_now (:),       & !in
+                     &  t_bot_lk_p  = t_bot_lk_now (:),       & !in
+                     &  c_t_lk_p    = c_t_lk_now   (:),       & !in
+                     &  h_ml_lk_p   = h_ml_lk_now  (:),       & !in
+                     &  t_b1_lk_p   = t_b1_lk_now  (:),       & !in
+                     &  h_b1_lk_p   = h_b1_lk_now  (:),       & !in       
+                     &  t_scf_lk_p  = t_scf_lk_now (:),       & !in
+                     &  t_snow_n    = t_snow_lk_new(:),       & !out
+                     &  h_snow_n    = h_snow_lk_new(:),       & !out
+                     &  t_ice_n     = t_ice_lk_new (:),       & !out
+                     &  h_ice_n     = h_ice_lk_new (:),       & !out
+                     &  t_mnw_lk_n  = t_mnw_lk_new (:),       & !out
+                     &  t_wml_lk_n  = t_wml_lk_new (:),       & !out
+                     &  t_bot_lk_n  = t_bot_lk_new (:),       & !out
+                     &  c_t_lk_n    = c_t_lk_new   (:),       & !out
+                     &  h_ml_lk_n   = h_ml_lk_new  (:),       & !out
+                     &  t_b1_lk_n   = t_b1_lk_new  (:),       & !out
+                     &  h_b1_lk_n   = h_b1_lk_new  (:),       & !out
+                     &  t_scf_lk_n  = t_scf_lk_new (:)        ) !out
+! optional arguments (tendencies) are neglected
+
+
+      !  Recover fields from index list
+      !
+      DO ic = 1,icount_flk
+        jc = ext_data%atm%idx_lst_fp(ic,jb)
+
+        p_prog_wtr_new%t_snow_lk(jc,jb)     = t_snow_lk_new(ic)
+        p_prog_wtr_new%h_snow_lk(jc,jb)     = h_snow_lk_new(ic)
+        p_prog_wtr_new%t_ice_lk (jc,jb)     = t_ice_lk_new (ic)
+        p_prog_wtr_new%h_ice_lk (jc,jb)     = h_ice_lk_new (ic)
+        p_prog_wtr_new%t_mnw_lk (jc,jb)     = t_mnw_lk_new (ic)
+        p_prog_wtr_new%t_wml_lk (jc,jb)     = t_wml_lk_new (ic)
+        p_prog_wtr_new%t_bot_lk (jc,jb)     = t_bot_lk_new (ic)
+        p_prog_wtr_new%c_t_lk   (jc,jb)     = c_t_lk_new   (ic)
+        p_prog_wtr_new%h_ml_lk  (jc,jb)     = h_ml_lk_new  (ic)
+        p_prog_wtr_new%t_b1_lk  (jc,jb)     = t_b1_lk_new  (ic)
+        p_prog_wtr_new%h_b1_lk  (jc,jb)     = h_b1_lk_new  (ic)
+
+        lnd_prog_new%t_g_t(jc,jb,isub_lake) = t_scf_lk_new (ic)
+
+        ! surface saturation specific humidity (uses saturation water vapor pressure 
+        ! over water)
+        IF ( h_ice_lk_new (ic) > 0._wp ) THEN
+          p_lnd_diag%qv_s_t(jc,jb,isub_lake)  = spec_humi(sat_pres_ice(t_scf_lk_new(ic)),&
+            &                                   p_diag%pres_sfc(jc,jb) )
+        ELSE
+          p_lnd_diag%qv_s_t(jc,jb,isub_lake)  = spec_humi(sat_pres_water(t_scf_lk_new(ic)),&
+            &                                   p_diag%pres_sfc(jc,jb) )
+        ENDIF
+
+      ENDDO  ! ic
+
+    ENDDO  !jb
+!$OMP END DO
+!$OMP END PRIVATE
+
+  END SUBROUTINE nwp_lake
 
 END MODULE mo_nwp_sfc_interface
 

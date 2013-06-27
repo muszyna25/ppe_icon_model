@@ -1476,8 +1476,9 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
         ENDDO
 
 
-
-
+!
+!DR Note that this is potentially the same as umfl_s_t
+!
         ! &      diag%ustr_s_t(nproma,nblks_c,ntiles_total+ntiles_water)
         cf_desc    = t_cf_var('ustr_s_t', 'm2 s-2 ', 'tile-based surface U stress',        &
              &                DATATYPE_FLT32)
@@ -1500,8 +1501,9 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
         ENDDO
 
 
-
-
+!
+!DR Note that this is potentially the same as vmfl_s
+!
         ! &      diag%vstr_s_t(nproma,nblks_c,ntiles_total+ntiles_water)
         cf_desc    = t_cf_var('vstr_s_t', 'm2 s-2 ', 'tile-based surface V stress',        &
              &                DATATYPE_FLT32)
@@ -1794,21 +1796,68 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
         ENDDO
 
 
+        ! &      diag%umfl_s_t(nproma,nblks_c,ntiles_total+ntiles_water)
+        cf_desc    = t_cf_var('umfl_s_t', 'N m-2 ', 'u-momentum flux at the surface', DATATYPE_FLT32)
+        grib2_desc = t_grib2_var(0, 2, 17, ibits, GRID_REFERENCE, GRID_CELL)
+        CALL add_var( diag_list, 'umfl_s_t', diag%umfl_s_t,                                  &
+          & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape3dsubsw,&
+          & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
+      
+        ! fill the separate variables belonging to the container umfl_s_t
+        ALLOCATE(diag%umfl_s_t_ptr(ntiles_total+ntiles_water))
+        DO jsfc = 1,ntiles_total+ntiles_water
+          WRITE(csfc,'(i1)') jsfc
+          CALL add_ref( diag_list, 'umfl_s_t',                            &
+             & 'umfl_s_t_'//TRIM(ADJUSTL(csfc)),                          &
+             & diag%umfl_s_t_ptr(jsfc)%p_2d,                              &
+             & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                        &
+             & t_cf_var('umfl_s_t_'//TRIM(csfc), '', '', DATATYPE_FLT32), &
+             & t_grib2_var(0, 2, 17, ibits, GRID_REFERENCE, GRID_CELL),   &
+             & ldims=shape2d, lrestart=.FALSE., loutput=.TRUE.,           &
+             & isteptype=TSTEP_INSTANT )
+        ENDDO
+
+
+        ! &      diag%vmfl_s_t(nproma,nblks_c,ntiles_total+ntiles_water)
+        cf_desc    = t_cf_var('vmfl_s_t', 'N m-2 ', 'v-momentum flux at the surface', DATATYPE_FLT32)
+        grib2_desc = t_grib2_var(0, 2, 18, ibits, GRID_REFERENCE, GRID_CELL)
+        CALL add_var( diag_list, 'vmfl_s_t', diag%vmfl_s_t,                                  &
+          & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape3dsubsw,&
+          & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
+      
+        ! fill the separate variables belonging to the container vmfl_s_t
+        ALLOCATE(diag%vmfl_s_t_ptr(ntiles_total+ntiles_water))
+        DO jsfc = 1,ntiles_total+ntiles_water
+          WRITE(csfc,'(i1)') jsfc
+          CALL add_ref( diag_list, 'vmfl_s_t',                            &
+             & 'umfl_s_t_'//TRIM(ADJUSTL(csfc)),                          &
+             & diag%vmfl_s_t_ptr(jsfc)%p_2d,                              &
+             & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                        &
+             & t_cf_var('vmfl_s_t_'//TRIM(csfc), '', '', DATATYPE_FLT32), &
+             & t_grib2_var(0, 2, 18, ibits, GRID_REFERENCE, GRID_CELL),   &
+             & ldims=shape2d, lrestart=.FALSE., loutput=.TRUE.,           &
+             & isteptype=TSTEP_INSTANT )
+        ENDDO
+
+
+
         ! &      diag%umfl_s(nproma,nblks_c)
         cf_desc    = t_cf_var('umfl_s', 'N m-2', 'u-momentum flux at the surface', &
              &                DATATYPE_FLT32)
-        grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+        grib2_desc = t_grib2_var(0, 2, 17, ibits, GRID_REFERENCE, GRID_CELL)
         CALL add_var( diag_list, 'umfl_s', diag%umfl_s,                            &
           & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d,&
-          & lrestart=.FALSE., loutput=.TRUE.)
+          & lrestart=.FALSE., loutput=.TRUE.,                                      &
+          & isteptype=TSTEP_INSTANT )
 
         ! &      diag%vmfl_s(nproma,nblks_c)
         cf_desc    = t_cf_var('vmfl_s', 'N m-2', 'v-momentum flux at the surface', &
              &                DATATYPE_FLT32)
-        grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+        grib2_desc = t_grib2_var(0, 2, 18, ibits, GRID_REFERENCE, GRID_CELL)
         CALL add_var( diag_list, 'vmfl_s', diag%vmfl_s,                            &
           & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d,&
-          & lrestart=.FALSE., loutput=.TRUE.)
+          & lrestart=.FALSE., loutput=.TRUE.,                                      &
+          & isteptype=TSTEP_INSTANT )
 
 
   !
