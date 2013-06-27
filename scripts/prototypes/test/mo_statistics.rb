@@ -143,6 +143,10 @@ class TestCodeParser < Test::Unit::TestCase
     assert_equal([times*oceDens[0]] , ds_oceDens.accumulation)
     assert_equal([times*oceIceTh[0]], ds_oceIceTh.accumulation)
 
+    ds_oceTemp.mean
+    ds_oceTemp.variance
+    ds_oceTemp.meanHorizontal
+
     assert_equal([times*oceTemp[0]] , oceTempAcc)
     assert_equal([times*oceSal[0]]  , oceSalAcc)
     assert_equal([times*oceDens[0]] , oceDensAcc)

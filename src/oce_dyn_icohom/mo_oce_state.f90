@@ -985,7 +985,7 @@ CONTAINS
     &            GRID_UNSTRUCTURED_EDGE, ZA_DEPTH_BELOW_SEA_HALF, &
     &            t_cf_var('w_prev','m/s','vertical velocity at edges', DATATYPE_FLT32),&
     &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_EDGE),&
-    &            ldims=(/nproma,n_zlev+1,nblks_c/),in_group=groups("oce_diag"))
+    &            ldims=(/nproma,n_zlev+1,nblks_e/),in_group=groups("oce_diag"))
 
     ! vorticity
     CALL add_var(ocean_restart_list, 'vort', p_os_diag%vort, &
