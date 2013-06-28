@@ -18,56 +18,46 @@
 # include the header file for remote jobs
 %include <init_job.h> 
 
-# -------------------------------------------------
+# ---------------------------------------------
 
 echo "INIT_BUILD.SMS"
 
-module swap fortran fortran/xlf/14.1.0.2
+module swap fortran fortran/xlf/14.1.0.3
+module load subversion
 
 arch=rs6000-ibm-aix
-
-#use new SVN version
-SVNPATH=/usr/local/apps/subversion/subversion-1.6.11/bin
+toolstag=icontools-1.3.4      # recent tag - synchronize with init_cp_binary.sms!
 
 
 # Change directory ----------------------------
 cd %SCPERMIII%
 ls -lrt
+cd icon-dev
 
-#if [[ "%SVN_UPDATE%" -eq "1" ]]
-#then
-
-# [1] SVN UPDATE =================================
-
-  cd icon-dev
-
-#else
-
-# [2] EXPORTED TARBALL FROM ECGATE ===============
-
-# Extract tar file with current trunk version -
-#  rm -rf icon-dev
-#  tar xvf icon-dev.tar.gz
-#  rm icon-dev.tar.gz
-#  smsevent uncompress
-#  cd icon-dev
-
-#fi
 
 # Run configure script ------------------------
-./configure --with-openmp # --with-flags=hiopt
+./configure --with-openmp     # --with-flags=hiopt
 smsevent configure
+
 
 # Submit ''Make'' -----------------------------
 gmake -j%SCTOTALTASKS%
 smsevent make
 
+
 # Store revision number of successful compilation 
-revision=`ssh $WSHOST $SVNPATH/svn info %ECPERMIII%/icon-dev | grep Revision | awk '{print $2}'`
+revision=`ssh $WSHOST svn info %ECPERMIII%/icon-dev | grep Revision | awk '{print $2}'`
 echo $revision > %SCPERMIII%/icon-dev/build/${arch}/bin/icon_rev.txt
 
 
-# -------------------------------------------------
+# Compile dwd_icon_tools for remap_mpi --------
+ssh $WSHOST svn update %ECPERMIII%/dwd_icon_tools
+cd %SCPERMIII%/dwd_icon_tools/tags/${toolstag}/icontools
+gmake -j%SCTOTALTASKS% ibmp7_mpi
+echo $toolstag >> %SCPERMIII%/icon-dev/build/${arch}/bin/icon_rev.txt
+
+
+# ---------------------------------------------
 
 # include the "tail" file for remote jobs
 %include <end_job.h>

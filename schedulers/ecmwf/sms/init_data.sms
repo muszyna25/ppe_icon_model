@@ -96,32 +96,6 @@ dt_restart=`expr ${ndays_restart} \* 86400`
 atmo_namelist=NAMELIST_${basename}
 
 
-# ---------------------------
-# create ICON master namelist
-# ---------------------------
-
-# For a complete list see Namelist_overview and Namelist_overview.pdf
-
-cat > icon_master.namelist << EOF
-&master_nml
- lrestart                     = .FALSE.
-/
-&time_nml
- ini_datetime_string          = "$start_date"
- dt_restart                   = $dt_restart
-/
-&master_model_nml
-  model_type                  = 1
-  model_name                  = "ATMO"
-  model_namelist_filename     = "$atmo_namelist"
-  model_restart_info_filename = ""
-  model_min_rank              = 1
-  model_max_rank              = 65536
-  model_inc_rank              = 1
-/
-EOF
-
-
 # ------------------------------
 # write ICON namelist parameters
 # ------------------------------
@@ -129,22 +103,18 @@ EOF
 # For a complete list see Namelist_overview and Namelist_overview.pdf
 
 cat > NAMELIST_PREPICON << EOF
-&parallel_nml
- nproma                       = 10
-/
-&prepicon_nml
- i_oper_mode                  = 4
-/
 ! interpolation regular grid-> ICON
 &remap_nml
- in_grid_filename             = "${IFS_FILENAME_GRB}"
- in_filename                  = "${IFS_FILENAME_GRB}"
- in_type                      = 1
- out_grid_filename            = "${ICON_GRIDFILE}"
- out_filename                 = "${IFS_FILENAME_NC}"	
- out_type                     = 2
- s_maxsize                    = 500000
- l_have3dbuffer               = .false.
+ in_grid_filename  = "${IFS_FILENAME_GRB}"
+ in_filename       = "${IFS_FILENAME_GRB}"
+ in_type           = 1
+ out_grid_filename = "${ICON_GRIDFILE}"
+ out_filename      = "${IFS_FILENAME_NC}"	
+ out_type          = 2
+ s_maxsize         = 500000
+ l_have3dbuffer    = .false.
+ out_filetype      = 4
+ rbf_vec_scale     = 0.01
 /
 ! DEFINITIONS FOR IFS INPUT DATA
 !
@@ -152,175 +122,168 @@ cat > NAMELIST_PREPICON << EOF
  inputname      = "T"         
  outputname     = "T"          
  code           = 130          
- type_of_layer  = "hybridLayer" 
+!intp_method    = 3     
 /
-&input_field_nml  ! horiz. wind comp. u
- inputname      = "U"         
- outputname     = "U"
- code           = 131          
- type_of_layer  = "hybridLayer" 
-/
-&input_field_nml  ! horiz. wind comp. v
- inputname      = "V"         
- outputname     = "V"
- code           = 132          
- type_of_layer  = "hybridLayer" 
+&input_field_nml  ! horiz. wind comp. u and v
+ inputname      = "U", "V"         
+ outputname     = "VN"          
+!intp_method    = 3     
 /
 &input_field_nml  ! vertical velocity
  inputname      = "OMEGA" 
  outputname     = "W"
  code           = 135
- type_of_layer  = "hybridLayer" 
+!intp_method    = 3     
 /
 &input_field_nml  ! surface pressure
  inputname      = "LNSP"
  outputname     = "LNPS" 
  code           = 152
- type_of_layer  = "hybridLayer" 
+!intp_method    = 3     
 /
 &input_field_nml  ! geopotential
  inputname      = "Z"
  outputname     = "GEOP_SFC"
  code           = 129
- type_of_layer  = "surface"
+!intp_method    = 3     
 /
 &input_field_nml  ! geopotential
  inputname      = "FI"
  outputname     = "GEOP_ML"
  code           = 129
- type_of_layer  = "hybridLayer"
+!intp_method    = 3     
 /
 &input_field_nml  ! specific humidity
  inputname      = "QV"
  outputname     = "QV" 
  code           = 133
- type_of_layer  = "hybridLayer" 
+!intp_method    = 3     
 /
 &input_field_nml  ! cloud liquid water content
  inputname      = "CLWC"
  outputname     = "QC" 
  code           = 246
- type_of_layer  = "hybridLayer" 
+!intp_method    = 3     
 /
 &input_field_nml  ! cloud ice content
  inputname      = "CIWC"
  outputname     = "QI" 
  code           = 247 
- type_of_layer  = "hybridLayer" 
+!intp_method    = 3     
 /
 &input_field_nml  ! ozone mixing ratio
  inputname      = "O3"
  outputname     = "O3" 
  code           = 203
- type_of_layer  = "hybridLayer" 
+!intp_method    = 3     
 /
 &input_field_nml  ! snow temperature
  inputname      = "TSN"
  outputname     = "T_SNOW" 
  code           = 238
- type_of_layer  = "surface" 
+!intp_method    = 3     
 /
 &input_field_nml  ! water content of snow
  inputname      = "SD"
  outputname     = "W_SNOW" 
  code           = 141
- type_of_layer  = "surface" 
+!intp_method    = 3     
 /
 &input_field_nml  ! density of snow
  inputname      = "RSN"
  outputname     = "RHO_SNOW" 
  code           = 33
- type_of_layer  = "surface" 
+!intp_method    = 3     
 /
 &input_field_nml  ! snow albedo
  inputname      = "ASN"
  outputname     = "ALB_SNOW" 
  code           = 32
- type_of_layer  = "surface" 
+!intp_method    = 3     
 /
 &input_field_nml  ! skin temperature
  inputname      = "SKT"
  outputname     = "SKT" 
  code           = 235
- type_of_layer  = "surface" 
+!intp_method    = 3     
 /
 &input_field_nml  ! sea surface temperature
  inputname      = "SST"
  outputname     = "SST" 
  code           = 34
- type_of_layer  = "surface" 
+!intp_method    = 3     
 /
 &input_field_nml  ! soil temperature level 1
  inputname      = "STL1"
  outputname     = "STL1" 
  code           = 139
- type_of_layer  = "surface" 
+!intp_method    = 3     
 /
 &input_field_nml  ! soil temperature level 2
  inputname      = "STL2"
  outputname     = "STL2" 
  code           = 170
- type_of_layer  = "surface" 
+!intp_method    = 3     
 /
 &input_field_nml  ! soil temperature level 3
  inputname      = "STL3"
  outputname     = "STL3" 
  code           = 183
- type_of_layer  = "surface" 
+!intp_method    = 3     
 /
 &input_field_nml  ! soil temperature level 4
  inputname      = "STL4"
  outputname     = "STL4" 
  code           = 236
- type_of_layer  = "surface" 
+!intp_method    = 3     
 /
 &input_field_nml  ! sea-ice cover
  inputname      = "CI"
  outputname     = "CI" 
  code           = 31
- type_of_layer  = "surface" 
+!intp_method    = 3     
 /
 &input_field_nml  ! water cont. of interception storage
  inputname      = "SRC"
  outputname     = "W_I" 
  code           = 198 
- type_of_layer  = "surface" 
+!intp_method    = 3     
 /
 &input_field_nml  ! surface roughness
  inputname      = "SR"
  outputname     = "Z0" 
  code           = 173
- type_of_layer  = "surface" 
+!intp_method    = 3     
 /
 &input_field_nml  ! Land/sea mask
  inputname      = "LSM"
  outputname     = "LSM" 
+!intp_method    = 3     
  code           = 172 
- type_of_layer  = "surface" 
 /
 &input_field_nml  ! soil moisture index layer 1
  inputname      = "SWVL1"
  outputname     = "SMIL1" 
  code           = 39
- type_of_layer  = "surface" 
+!intp_method    = 3     
 /
 &input_field_nml  ! soil moisture index layer 2
  inputname      = "SWVL2"
  outputname     = "SMIL2" 
  code           = 40
- type_of_layer  = "surface" 
+!intp_method    = 3     
 /
 &input_field_nml  ! soil moisture index layer 3
  inputname      = "SWVL3"
  outputname     = "SMIL3" 
  code           = 41
- type_of_layer  = "surface" 
+!intp_method    = 3     
 /
 &input_field_nml  ! soil moisture index layer 4
  inputname      = "SWVL4"
  outputname     = "SMIL4" 
  code           = 42
- type_of_layer  = "surface" 
+!intp_method    = 3     
 /
 EOF
 
@@ -333,13 +296,13 @@ cat >> NAMELIST_PREPICON << EOF
  inputname      = "CRWC"
  outputname     = "QR" 
  code           = 75 
- type_of_layer  = "hybridLayer" 
+!intp_method    = 3     
 /
 &input_field_nml  ! snow water content
  inputname      = "CSWC"
  outputname     = "QS" 
  code           = 76
- type_of_layer  = "hybridLayer" 
+!intp_method    = 3     
 /
 EOF
 
@@ -356,9 +319,9 @@ if [ -f ${IFSDATADIR2}/${IFS_FILENAME_NC}  -a  %EXPNUM% -ne %EXPNUM2% ] ; then
   ls -l ${IFSDATADIR2}/${IFS_FILENAME_NC}
   cp    ${IFSDATADIR2}/${IFS_FILENAME_NC} .     # copy old ifs2icon file
 else
-  cp -p ${outbasedir}/bin/prep_icon ./prep_icon
+  cp -p ${outbasedir}/bin/iconremap_mpi .
   export USE_SIGNAL_HANDLING=yes
-  ./prep_icon
+ ./iconremap_mpi --remap_nml=NAMELIST_PREPICON -vv
 fi
 
 ls -l ${IFS_FILENAME_NC}

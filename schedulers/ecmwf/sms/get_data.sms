@@ -53,7 +53,6 @@ if [[ -f ${IFSDATADIR2}/${IFS_FILENAME_NC} ]] ; then
   echo 'ifs2icon file can be copied - no MARS!'
   ls -l ${IFSDATADIR2}/${IFS_FILENAME_NC}
 else
-
   if [[ %SIMMODE% -eq 3 ]] ; then
         ${SCRIPTDIR}/preprocessing/mars4icon_smi_ERAinterim %YMD%%INIHOUR% 0  255 1/to/60 %SCPERMIII%/icon_input/slt-data
   else
@@ -67,7 +66,6 @@ else
       fi
     fi
   fi
-
 fi
 ls -lrt ${IFSDATADIR}
 
