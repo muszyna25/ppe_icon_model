@@ -45,13 +45,12 @@ emkdir -p $ecfsdir
 
 
 #-----------------------------------------------------------------------------
-# convert metview plots from ps to png 
+# change metview plot names from *.1.png to *.png
 
 cd metplots
-for metfile in `ls map*.ps zon*.ps` ; do
-  metfile2=`echo $metfile | sed 's/\.ps//'`
- #convert -rotate 90 ${metfile2}.ps ${metfile2}.png || true
-  rm -f ${metfile2}.ps
+for metfile in `ls map*.1.png zon*.1.png` ; do
+  metfile2=`echo $metfile | sed 's/\.1\.png/\.png/'`
+  mv ${metfile} ${metfile2}
 done 
 cd -
 
@@ -78,7 +77,7 @@ ecp -o  meteogram_%SUITE%_%EXPNUM%_%YMD%%INIHOUR%.tar.gz $ecfsdir
 
 
 #-----------------------------------------------------------------------------
-# delete complete date directory
+# delete grib data
 
 if [[ $ldeldata = 1 ]] ; then
  #\rm -rf met.job.*

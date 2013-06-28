@@ -52,7 +52,7 @@ export nstart
 
 if [[ $lmetview = 1 ]] ; then
 
-  cp ${METDIR}/many.error.s ${METDIR}/map.error ${METDIR}/zonal.error .
+  \cp -f ${METDIR}/many.error.s ${METDIR}/map.error ${METDIR}/zonal.error . || true
   export PLOTDIR='metplots'
   export DATAFILE='grb_data/%SUITE%_%EXPNUM%_'
   export TAILFILE='.grb'

@@ -59,20 +59,12 @@ $idl batch_scores -args %ECTEMP%/%SUITE%/%EXPNUM%/$YYYYMM/metplots %ECTEMP%/%SUI
 
 
 #-----------------------------------------------------------------------------
-# convert metview plots from ps to png 
+# change metview plot names from *.1.png to *.png
 
 cd metplots
-for metfile in `ls map*.ps zon*.ps` ; do
-  metfile2=`echo $metfile | sed 's/\.ps//'`
- #convert -rotate 90                           ${metfile2}.ps ${metfile2}.png || true
-  rm -f ${metfile2}.ps
-done 
-for metfile in `ls scores*.ps` ; do
-  metfile2=`echo $metfile | sed 's/\.ps//'`
-%nopp
-  convert -rotate 270 -density 250 -resize 45% ${metfile2}.ps ${metfile2}.png || true
-%end
-  rm -f ${metfile2}.ps
+for metfile in `ls map*.1.png zon*.1.png` ; do
+  metfile2=`echo $metfile | sed 's/\.1\.png/\.png/'`
+  mv ${metfile} ${metfile2}
 done 
 cd -
 
@@ -86,10 +78,10 @@ cd -
 #-----------------------------------------------------------------------------
 # archive plots to ecfs
 
-tar cvf               metplots_%SUITE%_%EXPNUM%_$YYYYMM.tar metplots
-gzip -f               metplots_%SUITE%_%EXPNUM%_$YYYYMM.tar
-${ECFSPATH}/ecp.p  -o metplots_%SUITE%_%EXPNUM%_$YYYYMM.tar.gz $ecfsdir
-\rm -rf               metplots_%SUITE%_%EXPNUM%_$YYYYMM.tar.gz
+tar cvf  metplots_%SUITE%_%EXPNUM%_$YYYYMM.tar metplots
+gzip -f  metplots_%SUITE%_%EXPNUM%_$YYYYMM.tar
+ecp -o   metplots_%SUITE%_%EXPNUM%_$YYYYMM.tar.gz $ecfsdir
+\rm -rf  metplots_%SUITE%_%EXPNUM%_$YYYYMM.tar.gz
 
 
 #-----------------------------------------------------------------------------
