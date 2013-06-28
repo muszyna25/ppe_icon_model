@@ -326,15 +326,15 @@ $builds.each_key {|build|
     doConfig(build)
   end
   desc "Build for build #{build.to_s}"
-  task "#{build.to_s}_buildOnly".to_sym do
+  task "#{build.to_s}_buildOnly".to_sym => ["#{build.to_s}_sync".to_sym] do
     doBuild(build)
   end
   desc "Run for build #{build.to_s}"
-  task "#{build.to_s}_runOnly".to_sym, [:exp] do |t,args|
+  task "#{build.to_s}_runOnly".to_sym, [:exp] => ["#{build.to_s}_sync".to_sym] do |t,args|
     doRunExp(build,args.exp || DEFAULT_EXP)
   end
   desc "Check output files"
-  task "#{build.to_s}_checkOnly".to_sym , [:exp] do |t, args|
+  task "#{build.to_s}_checkOnly".to_sym , [:exp] => ["#{build.to_s}_sync".to_sym] do |t, args|
     doCheckExp(build,args.exp || DEFAULT_EXP)
   end
   # }
