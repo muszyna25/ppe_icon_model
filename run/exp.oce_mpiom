@@ -152,8 +152,7 @@ cat > ${ocean_namelist} << EOF
   include_last     = .TRUE.
   output_grid      = .TRUE.
   output_filename  = "${EXPNAME}_R${R}B0${B}_ice"
-  ml_varlist       = 'hi', 'conc', 'hiold'
-! ml_varlist       = 'group:ice_default'
+  ml_varlist       = 'group:ice_default'
 /
 &dbg_index_nml
   idbg_mxmn=0                     ! initialize MIN/MAX  debug output
@@ -225,6 +224,7 @@ cat > ${ocean_namelist} << EOF
    denmark_strait(1:10)         = 2436,2471
    drake_passage(1:10)          = 9285,9319,9321,9412,9414,9655
    indonesian_throughflow(1:20) = 3554,3558,3557,3560,5778,5781,5900,5906,5897,5907,5786,6206,6202,6207
+   scotland_iceland(1:10)       = 7153,6476,6524,6503
 /
 &io_nml
   out_expname   = '${EXPNAME}'
