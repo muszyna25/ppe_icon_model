@@ -43,11 +43,11 @@ METDIR=%ECPERM%/icon-dev/scripts/postprocessing/tools/metview
 #-----------------------------------------------------------------------------
 # scores: plot comparison between this experiment and a reference experiment
 
-cp ${METDIR}/scores.pro ${METDIR}/batch_scores.pro   ${METDIR}/paperopenl.pro ${METDIR}/paperclose.pro .
-idl=/usr/local/share/apps/rsi/idl_6.4/idl64/bin/idl
-$idl batch_scores -args %ECTEMP%/%SUITE%/%EXPNUM%/$YYYYMM/metplots %ECTEMP%/%SUITE2%/%EXPNUM2%/$YYYYMM/metplots \
+module load idl
+cp ${METDIR}/scores.pro ${METDIR}/batch_scores.pro ${METDIR}/paperopenl.pro ${METDIR}/paperclose.pro .
+idl batch_scores -args %ECTEMP%/%SUITE%/%EXPNUM%/$YYYYMM/metplots %ECTEMP%/%SUITE2%/%EXPNUM2%/$YYYYMM/metplots \
   %SUITE%_%EXPNUM% %SUITE2%_%EXPNUM2% ${YYYYMM}01 24 ${DD}
-$idl batch_scores -args %ECTEMP%/%SUITE%/%EXPNUM%/$YYYYMM/metplots %ECTEMP%/%SUITE2%/%EXPNUM2%/$YYYYMM/metplots \
+idl batch_scores -args %ECTEMP%/%SUITE%/%EXPNUM%/$YYYYMM/metplots %ECTEMP%/%SUITE2%/%EXPNUM2%/$YYYYMM/metplots \
   %SUITE%_%EXPNUM% %SUITE2%_%EXPNUM2% ${YYYYMM}01 240 ${DD}
 
 # help: offline
@@ -55,7 +55,22 @@ $idl batch_scores -args %ECTEMP%/%SUITE%/%EXPNUM%/$YYYYMM/metplots %ECTEMP%/%SUI
 # cp scores.pro paperopenl.pro paperclose.pro batch_scores.pro ${SCRATCH}/temp/scores
 # cd ${SCRATCH}/temp/scores
 # batch_scores.pro: modify plotfile1
-# /usr/local/share/apps/rsi/idl_6.4/idl64/bin/idl batch_scores -args /scratch/ms/de/deia/icon_data/dei2/042/201201/metplots /scratch/ms/de/deia/icon_data/dei2/033/201201/metplots dei2_042 dei2_033 20120101 24 31
+# module load idl
+# idl batch_scores -args /scratch/ms/de/deia/icon/dei2/042/201201/metplots /scratch/ms/de/deia/icon/dei2/033/201201/metplots dei2_042 dei2_033 20120101 24 31
+
+
+#-----------------------------------------------------------------------------
+# convert scores plot from ps to png
+
+cd metplots
+for metfile in `ls scores*.ps` ; do
+  metfile2=`echo $metfile | sed 's/\.ps//'`
+%nopp
+  convert -rotate 270 -density 250 -resize 45% ${metfile2}.ps ${metfile2}.png || true
+%end
+  rm -f ${metfile2}.ps
+done 
+cd -
 
 
 #-----------------------------------------------------------------------------
