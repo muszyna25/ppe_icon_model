@@ -41,10 +41,11 @@ module IconPathsAlongCells
       [12142,12143]],
 
     :scotland_iceland => [
-      [4238,4256],
-      [4259,4268],
-      [4270,4271],
-      [4682,4702]],
+      [4682,4702],
+      [4238,4270],
+      [4268,4271],
+      [4256,4259],
+      ],
   }
 
   def IconPathsAlongCells.getEdgesAndVerts(ifile)
@@ -57,21 +58,22 @@ module IconPathsAlongCells
 
     puts '#==========================================================================='
     CellPairsLists.each {|location,cellPairs|
-      next unless :scotland_iceland == location
       puts '============================================================================='
       puts location
       puts ["cells: ", cellPairs.join(' ')].join
 
       verts, edges = [], []
       cellPairs.each {|cellpair|
-          verts = []
+        pair_verts, pair_edges = [], []
         cellpair.each {|cell|
-          edges << cellEdges[cell,0..-1].to_a
-          verts << cellVertices[cell,0..-1].to_a
+          pair_edges << cellEdges[cell,0..-1].to_a
+          pair_verts << cellVertices[cell,0..-1].to_a
         }
+       # pp pair_edges
+       # puts
+        pair_verts.flatten.nonuniq.each {|v| verts << v}
+        pair_edges.flatten.nonuniq.each {|e| edges << e}
       }
-      verts = verts.flatten.nonuniq
-      edges = edges.flatten.nonuniq
 
       paths[location] = {verts: verts, edges: edges}
 
