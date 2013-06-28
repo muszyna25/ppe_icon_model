@@ -634,9 +634,6 @@ CONTAINS
   RECURSIVE SUBROUTINE delete_keyword_list(list_head)
     ! Parameters
     TYPE(t_keyword_list),    POINTER    :: list_head
-    ! Local parameters
-    TYPE (t_keyword_list),   POINTER    :: tmp
-    INTEGER                             :: errstat
 
     IF (ASSOCIATED(list_head)) THEN
       CALL delete_keyword_list(list_head%next)

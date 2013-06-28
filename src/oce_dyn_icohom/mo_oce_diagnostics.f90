@@ -47,6 +47,7 @@ MODULE mo_oce_diagnostics
     &                              max_char_length, MIN_DOLIC
   USE mo_ocean_nml,          ONLY: n_zlev, no_tracer, &
     &                              gibraltar, denmark_strait,drake_passage, indonesian_throughflow,&
+    &                              scotland_iceland, &
     &                              ab_const, ab_beta, ab_gam, iswm_oce, idisc_scheme
   USE mo_dynamics_config,    ONLY: nold,nnew
   USE mo_parallel_config,    ONLY: nproma, p_test_run
@@ -126,6 +127,7 @@ TYPE t_oce_monitor
     REAL(wp) :: denmark_strait! though flow                                               [Sv]
     REAL(wp) :: drake_passage ! though flow                                               [Sv]
     REAL(wp) :: indonesian_throughflow !                                                  [Sv]
+    REAL(wp) :: scotland_iceland !                                                        [Sv]
     REAL(wp), ALLOCATABLE :: tracer_content(:)
 
 END TYPE t_oce_monitor
@@ -133,7 +135,7 @@ END TYPE t_oce_monitor
 TYPE t_oce_timeseries
 
     TYPE(t_oce_monitor), ALLOCATABLE :: oce_diagnostics(:)    ! time array of diagnostic values
-    CHARACTER(len=40), DIMENSION(30)  :: names = (/ &
+    CHARACTER(len=40), DIMENSION(31)  :: names = (/ &
       & "volume                                  ", &
       & "kin_energy                              ", &
       & "pot_energy                              ", &
@@ -162,6 +164,7 @@ TYPE t_oce_timeseries
       & "denmark_strait                          ", &
       & "drake_passage                           ", &
       & "indonesian_throughflow                  ", &
+      & "scotland_iceland                        ", &
       & "total_temperature                       ", &
       & "total_salinity                          "/)
 
@@ -172,7 +175,7 @@ TYPE t_oce_section
   REAL(wp), POINTER  :: orientation(:)
 END TYPE t_oce_section
 
-INTEGER, PARAMETER  :: oce_section_count = 4
+INTEGER, PARAMETER  :: oce_section_count = 5
 PRIVATE             :: oce_section_count
 TYPE(t_oce_section) :: oce_sections(oce_section_count)
 PRIVATE             :: oce_sections
@@ -243,6 +246,7 @@ SUBROUTINE construct_oce_diagnostics( p_patch_3D, p_os, oce_ts, datestring )
   oce_ts%oce_diagnostics(0:nsteps)%denmark_strait             = 0.0_wp
   oce_ts%oce_diagnostics(0:nsteps)%drake_passage              = 0.0_wp
   oce_ts%oce_diagnostics(0:nsteps)%indonesian_throughflow     = 0.0_wp
+  oce_ts%oce_diagnostics(0:nsteps)%scotland_iceland           = 0.0_wp
 
   DO i=0,nsteps
     ALLOCATE(oce_ts%oce_diagnostics(i)%tracer_content(1:no_tracer))
@@ -287,7 +291,7 @@ SUBROUTINE construct_oce_diagnostics( p_patch_3D, p_os, oce_ts, datestring )
      &  edge_subset = oce_sections(3)%subset,      &
      &  orientation = oce_sections(3)%orientation, &
      &  patch_3D = p_patch_3D,                     &
-     & global_vertex_array =drake_passage,        &
+     & global_vertex_array =drake_passage,         &
      & subset_name = 'drake_passage')
   CALL get_oriented_edges_from_global_vertices(    &
      &  edge_subset = oce_sections(4)%subset,      &
@@ -295,6 +299,12 @@ SUBROUTINE construct_oce_diagnostics( p_patch_3D, p_os, oce_ts, datestring )
      &  patch_3D = p_patch_3D,                     &
      & global_vertex_array =indonesian_throughflow,&
      & subset_name = 'indonesian_throughflow')
+  CALL get_oriented_edges_from_global_vertices(    &
+     &  edge_subset = oce_sections(5)%subset,      &
+     &  orientation = oce_sections(5)%orientation, &
+     &  patch_3D = p_patch_3D,                     &
+     & global_vertex_array =scotland_iceland,      &
+     & subset_name = 'scotland_iceland')
 
   CALL message (TRIM(routine), 'end')
 END SUBROUTINE construct_oce_diagnostics
@@ -537,6 +547,8 @@ SUBROUTINE calculate_oce_diagnostics(p_patch_3D, p_os, p_sfc_flx, p_ice, &
       monitor%drake_passage          = sflux*rho_ref
     CASE (4)
       monitor%indonesian_throughflow = sflux*rho_ref
+    CASE (5)
+      monitor%scotland_iceland       = sflux*rho_ref
     END SELECT
   ENDDO
   IF (my_process_is_stdio()) &
@@ -582,7 +594,8 @@ SUBROUTINE calculate_oce_diagnostics(p_patch_3D, p_os, p_sfc_flx, p_ice, &
       & monitor%gibraltar, &
       & monitor%denmark_strait, &
       & monitor%drake_passage,  &
-      & monitor%indonesian_throughflow
+      & monitor%indonesian_throughflow, &
+      & monitor%scotland_iceland
     ! * tracers
     DO i_no_t=1,no_tracer
     write(line,'(a,'//TRIM(real_fmt)//')') TRIM(line),monitor%tracer_content(i_no_t)

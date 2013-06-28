@@ -44,7 +44,7 @@ plot file using 2:"drake_passage" w l  axes x1y2
 #set logscale y
 set ytics in
 unset y2tics
-plot file using 2:"total_energy" w l
+plot file using 2:"scotland_iceland" w l
 set y2tics in
 unset ytics
 set grid y2tics
