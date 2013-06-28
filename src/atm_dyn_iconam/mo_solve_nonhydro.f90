@@ -150,7 +150,7 @@ MODULE mo_solve_nonhydro
 
     ! Variables for optional extra diffusion close to the vertical advection stability limit
     REAL(wp) :: cfl_w_limit, scalfac_exdiff, difcoef
-    INTEGER  :: icount, iclist(2*nproma), iklist(2*nproma), ic, ie, jbe
+    INTEGER  :: icount, iclist(nproma*p_patch%nlev), iklist(nproma*p_patch%nlev), ic, ie, jbe
 
     !--------------------------------------------------------------------------
 
@@ -189,7 +189,7 @@ MODULE mo_solve_nonhydro
     cfl_w_limit = 0.75_wp/dtime   ! this means 75% of the nominal CFL stability limit
 
     ! Scaling factor for extra diffusion
-    scalfac_exdiff = 0.04_wp / (1._wp - cfl_w_limit*dtime)
+    scalfac_exdiff = 0.1_wp / ( dtime*(1._wp - cfl_w_limit*dtime) )
 
     ! Tangential wind component using RBF reconstruction
     ! Note: vt is also diagnosed in divergent_modes. Thus, computation is needed in predictor step only
