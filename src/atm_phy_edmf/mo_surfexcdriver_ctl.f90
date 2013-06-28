@@ -857,7 +857,7 @@ ENDIF
 
 
 IF (msg_level >= 15) THEN
-  DO JTILE=1,KTILES
+  DO JTILE=1,ntiles_total
     DO JL=KIDIA,KFDIA
       IF ( ABS( shfl_soil_ex(jl,jtile) * (1-snowfrac_ex(jl,jtile)))  >  500.0_JPRB  .OR. & 
            ABS( shfl_snow_ex(jl,jtile) *    snowfrac_ex(jl,jtile) )  >  500.0_JPRB  .OR. & 
