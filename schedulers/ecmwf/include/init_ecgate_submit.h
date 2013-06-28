@@ -10,7 +10,7 @@
 #==========================================================================
 
 #SBATCH --qos=normal
-#SBATCH --time=02:00:00
+#SBATCH --time=06:00:00
 #SBATCH --job-nam=ICON_%TASK%
 #SBATCH --output=%SMSJOBOUT%
 #SBATCH --error=%SMSJOBOUT%
