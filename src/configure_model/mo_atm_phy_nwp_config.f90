@@ -52,6 +52,7 @@ MODULE mo_atm_phy_nwp_config
 
   USE mo_icoham_sfc_indices,  ONLY: init_sfc_indices
   USE mo_les_config,          ONLY: configure_les
+  USE mo_latbc_config,        ONLY: configure_latbc
 
   IMPLICIT NONE
 
@@ -268,6 +269,9 @@ SUBROUTINE configure_atm_phy_nwp( n_dom, pat_level, ltestcase, dtime_adv )
        CALL configure_les(jg)
      END DO
    END IF
+
+   !Configure lateral boundary condition for limited area model
+   CALL configure_latbc() 
 
 END SUBROUTINE configure_atm_phy_nwp
 

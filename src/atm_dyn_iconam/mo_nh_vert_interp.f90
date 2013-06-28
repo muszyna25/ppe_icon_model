@@ -92,6 +92,7 @@ MODULE mo_nh_vert_interp
   REAL(wp), PARAMETER :: zagl_ifsextrap = 150._wp
 
 
+  PUBLIC :: vert_interp
   PUBLIC :: vert_interp_atm
   PUBLIC :: vert_interp_sfc
   PUBLIC :: prepare_lin_intp

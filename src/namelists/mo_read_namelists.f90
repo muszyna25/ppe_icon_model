@@ -83,6 +83,7 @@ MODULE mo_read_namelists
   USE mo_name_list_output    ,ONLY: read_name_list_output_namelists
   USE mo_les_nml             ,ONLY: read_les_namelist
   USE mo_ls_forcing_nml      ,ONLY: read_ls_forcing_namelist
+  USE mo_limarea_nml         ,ONLY: read_limarea_namelist
   IMPLICIT NONE
 
   PRIVATE
@@ -173,6 +174,7 @@ CONTAINS
     ! Boundary conditions
     !
     CALL read_extpar_namelist         (TRIM(atm_namelist_filename))
+    CALL read_limarea_namelist        (TRIM(atm_namelist_filename))
 
     !
     ! GRIB output

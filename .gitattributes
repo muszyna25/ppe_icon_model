@@ -1052,6 +1052,7 @@ src/atm_dyn_iconam/mo_nh_init_nest_utils.f90 -text
 src/atm_dyn_iconam/mo_nh_init_utils.f90 -text
 src/atm_dyn_iconam/mo_nh_initicon.f90 -text
 src/atm_dyn_iconam/mo_nh_initicon_types.f90 -text
+src/atm_dyn_iconam/mo_nh_latbc.f90 -text
 src/atm_dyn_iconam/mo_nh_nest_utilities.f90 -text
 src/atm_dyn_iconam/mo_nh_prog_util.f90 -text
 src/atm_dyn_iconam/mo_nh_stepping.f90 -text
@@ -1250,6 +1251,7 @@ src/configure_model/mo_icon_testbed_config.f90 -text
 src/configure_model/mo_initicon_config.f90 -text
 src/configure_model/mo_interpol_config.f90 -text
 src/configure_model/mo_io_config.f90 -text
+src/configure_model/mo_latbc_config.f90 -text
 src/configure_model/mo_les_config.f90 -text
 src/configure_model/mo_lnd_jsbach_config.f90 -text
 src/configure_model/mo_lnd_nwp_config.f90 -text
@@ -1377,6 +1379,7 @@ src/namelists/mo_initicon_nml.f90 -text
 src/namelists/mo_interpol_nml.f90 -text
 src/namelists/mo_io_nml.f90 -text
 src/namelists/mo_les_nml.f90 -text
+src/namelists/mo_limarea_nml.f90 -text
 src/namelists/mo_lnd_nwp_nml.f90 -text
 src/namelists/mo_ls_forcing_nml.f90 -text
 src/namelists/mo_master_nml.f90 -text

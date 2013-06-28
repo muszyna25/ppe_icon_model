@@ -48,7 +48,7 @@ MODULE mo_nh_stepping
 !
 !
 
-  USE mo_kind,                ONLY: wp
+  USE mo_kind,                ONLY: wp, i8
   USE mo_nonhydro_types,      ONLY: t_nh_state, t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_nonhydro_state,      ONLY: bufr, p_nh_state
   USE mo_nonhydrostatic_config,ONLY: iadv_rcf, lhdiff_rcf, l_nest_rcf, itime_scheme, &
@@ -75,6 +75,7 @@ MODULE mo_nh_stepping
   USE mo_ext_data_state,      ONLY: ext_data, interpol_monthly_mean
   USE mo_lnd_jsbach_config,   ONLY: lnd_jsbach_config
   USE mo_extpar_config,       ONLY: itopo
+  USE mo_latbc_config,        ONLY: latbc_config
   USE mo_model_domain,        ONLY: p_patch
   USE mo_time_config,         ONLY: time_config
   USE mo_grid_config,         ONLY: n_dom, lfeedback, ifeedback_type, l_limited_area, &
@@ -98,7 +99,8 @@ MODULE mo_nh_stepping
                                     outer_boundary_nudging, nest_boundary_nudging, &
                                     prep_rho_bdy_nudging, density_boundary_nudging
   USE mo_nh_feedback,         ONLY: feedback, relax_feedback
-  USE mo_datetime,            ONLY: t_datetime, print_datetime, add_time, check_newday
+  USE mo_datetime,            ONLY: t_datetime, print_datetime, add_time, check_newday, &
+                                    rdaylen, date_to_time
   USE mo_output,              ONLY: init_output_files, write_output,  &
     &                               create_restart_file
   USE mo_io_restart,          ONLY: write_restart_info_file
@@ -150,6 +152,9 @@ MODULE mo_nh_stepping
   USE mo_initicon_config,     ONLY: init_mode
   USE mo_ls_forcing_nml,      ONLY: is_ls_forcing
   USE mo_ls_forcing,          ONLY: init_ls_forcing
+  USE mo_nh_latbc,            ONLY: read_latbc_tlev, last_latbc_tlev, allocate_latbc_data , &
+                                    read_latbc_data, deallocate_latbc_data, p_latbc_data,   &
+                                    last_latbc_datetime
 
   IMPLICIT NONE
 
@@ -454,7 +459,10 @@ MODULE mo_nh_stepping
 
   TYPE(t_datetime)                     :: datetime_old
 
-  INTEGER :: nsoil(n_dom), nsnow
+  INTEGER           :: nsoil(n_dom), nsnow
+  REAL(wp)          :: latbc_dtime
+  REAL(wp)          :: latbc_inter1, latbc_inter2, & ! time interpolation coefficients
+                       elapsed_mo_time
 
 !$  INTEGER omp_get_num_threads
 !-----------------------------------------------------------------------
@@ -486,8 +494,60 @@ MODULE mo_nh_stepping
 
     CALL add_time(dtime,0,0,0,datetime)
 
+    IF (l_limited_area .AND. (latbc_config%itype_latbc == 1) .AND. (MODULO(jstep, latbc_config%tstep_nudge) == 0)) THEN
+
+      ! Check if we need to read data analysis
+      CALL date_to_time(datetime)
+      CALL date_to_time(last_latbc_datetime)
+      latbc_inter2 = (last_latbc_datetime%calday - datetime%calday)*rdaylen + &
+        last_latbc_datetime%caltime - datetime%caltime
+
+      IF (latbc_inter2 .LE. 0._wp) THEN
+        !
+        ! new data analysis is always read in p_latbc_data(read_latbc_tlev),
+        ! whereas p_latbc_data(last_latbc_tlev) always holds the last data
+        ! analysis which has been read.
+        !
+        CALL add_time(latbc_config%dtime_latbc,0,0,0,last_latbc_datetime)
+        read_latbc_tlev = 3 - last_latbc_tlev
+        CALL read_latbc_data(p_patch, p_nh_state(1), p_int_state(1), ext_data(1), last_latbc_datetime, read_latbc_tlev)
+        last_latbc_tlev = 3 - read_latbc_tlev
+
+        ! compute the 'positive' coeffcient
+        CALL date_to_time(last_latbc_datetime)
+        latbc_inter2 = (last_latbc_datetime%calday - datetime%calday)*rdaylen + &
+          last_latbc_datetime%caltime - datetime%caltime
+      ENDIF
+
+      ! compute the coefficients for the linear interpolation
+      latbc_inter2 = latbc_inter2 / latbc_config%dtime_latbc
+      latbc_inter1 = 1._wp - latbc_inter2
+    ENDIF
+
     WRITE(message_text,'(a,i10)') 'TIME STEP n: ', jstep
     CALL message(TRIM(routine),message_text)
+
+    ! for limited area models, interpolate the two boundary data time levels
+    ! into p_latbc_data(read_latbc_tlev)%atm prognostic fields.
+    ! Storage p_latbc_data(read_latbc_tlev) will be overwritten in the next
+    ! read-in of analysis data
+    IF (l_limited_area  .AND. (latbc_config%itype_latbc == 1) .AND. (MODULO(jstep, latbc_config%tstep_nudge) == 0)) THEN
+      WRITE(message_text,'(a,i10)') 'interpolating latbc at time step: ', jstep
+      CALL message(TRIM(routine),message_text)
+
+!$OMP PARALLEL
+!$OMP WORKSHARE
+      p_latbc_data(read_latbc_tlev)%atm%vn = latbc_inter1 * p_latbc_data(read_latbc_tlev)%atm%vn &
+        + latbc_inter2 * p_latbc_data(last_latbc_tlev)%atm%vn
+      p_latbc_data(read_latbc_tlev)%atm%w = latbc_inter1 * p_latbc_data(read_latbc_tlev)%atm%w &
+        + latbc_inter2 * p_latbc_data(last_latbc_tlev)%atm%w
+      p_latbc_data(read_latbc_tlev)%atm%rho = latbc_inter1 * p_latbc_data(read_latbc_tlev)%atm%rho &
+        + latbc_inter2 * p_latbc_data(last_latbc_tlev)%atm%rho
+      p_latbc_data(read_latbc_tlev)%atm%theta_v = latbc_inter1 * p_latbc_data(read_latbc_tlev)%atm%theta_v &
+        + latbc_inter2 * p_latbc_data(last_latbc_tlev)%atm%theta_v
+!$OMP END WORKSHARE
+!$OMP END PARALLEL
+    ENDIF
 
     IF ( check_newday(datetime_old,datetime) ) THEN
 
@@ -827,13 +887,30 @@ MODULE mo_nh_stepping
       n_save = nsav2(jg)
 
       WRITE(message_text,'(a)') 'save initial fields for outer boundary nudging'
-       CALL message(TRIM(routine), TRIM(message_text))
+      CALL message(TRIM(routine), TRIM(message_text))
 
-      p_nh_state(jg)%prog(n_save)%vn      = p_nh_state(jg)%prog(n_now)%vn
-      p_nh_state(jg)%prog(n_save)%w       = p_nh_state(jg)%prog(n_now)%w
-      p_nh_state(jg)%prog(n_save)%rho     = p_nh_state(jg)%prog(n_now)%rho
-      p_nh_state(jg)%prog(n_save)%theta_v = p_nh_state(jg)%prog(n_now)%theta_v
-
+      IF ((latbc_config%itype_latbc == 1) .AND. (MODULO(nstep_global, latbc_config%tstep_nudge) == 0)) THEN
+        WRITE(message_text,'(a)') 'lateral boundary nudge'
+        CALL message(TRIM(routine), TRIM(message_text))
+!$OMP PARALLEL
+!$OMP WORKSHARE
+        p_nh_state(jg)%prog(n_save)%vn      = p_latbc_data(read_latbc_tlev)%atm%vn
+        p_nh_state(jg)%prog(n_save)%w       = p_latbc_data(read_latbc_tlev)%atm%w
+        p_nh_state(jg)%prog(n_save)%rho     = p_latbc_data(read_latbc_tlev)%atm%rho
+        p_nh_state(jg)%prog(n_save)%theta_v = p_latbc_data(read_latbc_tlev)%atm%theta_v
+!$OMP END WORKSHARE
+!$OMP END PARALLEL
+      ELSE
+!$OMP PARALLEL
+!$OMP WORKSHARE
+        p_nh_state(jg)%prog(n_save)%vn      = p_nh_state(jg)%prog(n_now)%vn
+        p_nh_state(jg)%prog(n_save)%w       = p_nh_state(jg)%prog(n_now)%w
+        p_nh_state(jg)%prog(n_save)%rho     = p_nh_state(jg)%prog(n_now)%rho
+        p_nh_state(jg)%prog(n_save)%theta_v = p_nh_state(jg)%prog(n_now)%theta_v
+!$OMP END WORKSHARE
+!$OMP END PARALLEL
+      ENDIF
+        
       ! tracer(nsav2) is currently not allocated in mo_nonhydro_state;
       ! thus, there is no tracer relaxation
       ! IF (ltransport) &
@@ -1983,6 +2060,10 @@ MODULE mo_nh_stepping
       &    't_elapsed_phy failed' )
   ENDIF
 
+  IF (l_limited_area .AND. (latbc_config%itype_latbc == 1)) THEN
+    CALL deallocate_latbc_data(p_patch(1))
+  ENDIF
+
   END SUBROUTINE deallocate_nh_stepping
   !-------------------------------------------------------------------------
 
@@ -2121,9 +2202,25 @@ MODULE mo_nh_stepping
 
   ENDDO
 
-  END SUBROUTINE allocate_nh_stepping
+
+  IF (l_limited_area .AND. (latbc_config%itype_latbc == 1)) THEN
+    CALL allocate_latbc_data(p_patch(1), p_nh_state(1), ext_data(1))
+
+    ! read the first time level...
+    last_latbc_datetime = time_config%ini_datetime
+    read_latbc_tlev = 1 ! read in the first time level
+    CALL read_latbc_data(p_patch, p_nh_state(1), p_int_state(1), ext_data(1), last_latbc_datetime, read_latbc_tlev)
+
+    ! ... and also the second
+    CALL add_time(latbc_config%dtime_latbc,0,0,0,last_latbc_datetime)
+    read_latbc_tlev = 2 ! next boundary data will be read in the 2nd data slot
+    CALL read_latbc_data(p_patch, p_nh_state(1), p_int_state(1), ext_data(1), last_latbc_datetime, read_latbc_tlev)
+    last_latbc_tlev = 2 ! boundary data was last read in the 2nd data slot
+  ENDIF
+
+END SUBROUTINE allocate_nh_stepping
   !-----------------------------------------------------------------------------
 
 
-END MODULE mo_nh_stepping
 
+END MODULE mo_nh_stepping
