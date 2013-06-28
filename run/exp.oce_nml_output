@@ -137,6 +137,7 @@ cat > ${ocean_namelist} << EOF
  activate_sync_timers = .TRUE.
  write_timer_files  = .TRUE.
  msg_timestamp = .TRUE.
+ msg_level     = 12
 /
 &output_nml
   output_bounds    = ${dt_data},${dt_restart},${dt_data}   !start, end, increment
