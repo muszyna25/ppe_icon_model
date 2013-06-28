@@ -40,12 +40,11 @@ module IconPathsAlongCells
       [12133,12134],
       [12142,12143]],
 
-    :scotland_iceland => [
+    :scotlandIceland => [
       [4682,4702],
       [4238,4270],
       [4268,4271],
-      [4256,4259],
-      ],
+      [4256,4259]],
   }
 
   def IconPathsAlongCells.getEdgesAndVerts(ifile)
@@ -58,9 +57,6 @@ module IconPathsAlongCells
 
     puts '#==========================================================================='
     CellPairsLists.each {|location,cellPairs|
-      puts '============================================================================='
-      puts location
-      puts ["cells: ", cellPairs.join(' ')].join
 
       verts, edges = [], []
       cellPairs.each {|cellpair|
@@ -75,10 +71,13 @@ module IconPathsAlongCells
         pair_edges.flatten.nonuniq.each {|e| edges << e}
       }
 
-      paths[location] = {verts: verts, edges: edges}
+      paths[location] = {verts: verts.uniq, edges: edges.uniq, cells: cellPairs.flatten}
 
-      puts ["common verts: ", verts.join(',')].join
-      puts ["common edges: ", edges.join(',')].join
+      puts '============================================================================='
+      puts location
+      puts ["cells:        ", cellPairs.join(' ')].join
+      puts ["common verts: ", paths[location][:verts].join(',')].join
+      puts ["common edges: ", paths[location][:edges].join(',')].join
     }
     puts '============================================================================='
 
