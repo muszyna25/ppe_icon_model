@@ -649,7 +649,7 @@ CONTAINS
     !
     CHARACTER(LEN=VARNAME_LEN), ALLOCATABLE :: varlist(:), grp_vars(:), new_varlist(:)
     CHARACTER(LEN=VARNAME_LEN) :: vname, grp_name
-    INTEGER :: nvars, ngrp_vars, i_typ, ierrstat, ivar, ntotal_vars, jvar
+    INTEGER :: nvars, ngrp_vars, i_typ, ierrstat, ivar, ntotal_vars, jvar, i
     CHARACTER(LEN=vname_len), POINTER :: in_varlist(:)
     TYPE (t_output_name_list), POINTER :: p_onl
 
@@ -693,6 +693,9 @@ CONTAINS
             CALL collect_group(grp_name, grp_vars, ngrp_vars, &
               &               loutputvars_only=.TRUE.,        &
               &               lremap_lonlat=(p_onl%remap == REMAP_REGULAR_LATLON))
+            DO i=1,ngrp_vars
+              grp_vars(i) = tolower(grp_vars(i))
+            END DO
             CALL insert_group(varlist, VARNAME_LEN, ntotal_vars, &
               &               TRIM(GRP_PREFIX)//TRIM(grp_name),  &
               &               grp_vars(1:ngrp_vars), new_varlist)
