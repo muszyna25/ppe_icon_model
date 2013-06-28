@@ -75,7 +75,7 @@ USE mo_var_list,            ONLY: add_var,                  &
   &                               new_var_list,             &
   &                               delete_var_list,          &
   &                               default_var_list_settings,&
-  &                               add_ref
+  &                               add_ref, groups
 USE mo_cf_convention
 USE mo_grib2
 USE mo_cdi_constants
@@ -433,13 +433,13 @@ CONTAINS
     &            ZA_DEPTH_BELOW_SEA, &
     &            t_cf_var('K_veloc_h', 'kg/kg', 'horizontal velocity diffusion', DATATYPE_FLT32),&
     &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_EDGE),&
-    &            ldims=(/nproma,n_zlev,nblks_e/))
+    &            ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("oce_physics"))
 
     CALL add_var(ocean_params_list, 'A_veloc_v', params_oce%A_veloc_v , GRID_UNSTRUCTURED_EDGE,&
     &            ZA_DEPTH_BELOW_SEA_HALF, &
     &            t_cf_var('A_veloc_v', 'kg/kg', 'vertical velocity diffusion', DATATYPE_FLT32),&
     &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_EDGE),&
-    &            ldims=(/nproma,n_zlev+1,nblks_e/))
+    &            ldims=(/nproma,n_zlev+1,nblks_e/),in_group=groups("oce_physics"))
 
 
     !! Tracers
@@ -471,7 +471,7 @@ CONTAINS
                     &          TRIM(oce_config%tracer_longnames(jtrc))//'(K_tracer_h_)', &
                     &          DATATYPE_FLT32), &
                     & t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_EDGE),&
-                    & ldims=(/nproma,n_zlev,nblks_e/))
+                    & ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("oce_physics"))
         CALL add_ref( ocean_params_list, 'A_tracer_v',&
                     & 'A_tracer_v_'//TRIM(oce_config%tracer_names(jtrc)),     &
                     & params_oce%tracer_h_ptr(jtrc)%p,                             &
@@ -481,7 +481,7 @@ CONTAINS
                     &          TRIM(oce_config%tracer_longnames(jtrc))//'(A_tracer_v)', &
                     &          DATATYPE_FLT32), &
                     & t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
-                    & ldims=(/nproma,n_zlev+1,nblks_c/))
+                    & ldims=(/nproma,n_zlev+1,nblks_c/),in_group=groups("oce_physics"))
 
       END DO
 !TODO     use the following code, if add_var support 1d arrays:
