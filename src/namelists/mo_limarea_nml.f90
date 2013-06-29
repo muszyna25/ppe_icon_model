@@ -79,11 +79,11 @@ CONTAINS
     !------------------------------------------------------------
     ! Default settings
     !------------------------------------------------------------
-    latbc_config% itype_latbc      = 0
-    latbc_config% dtime_latbc      = 43200._wp
-    latbc_config% tstep_nudge      = 10
-    latbc_config% latbc_filename   = "<path>prepicon<gridfile>_<timestamp>"
-    latbc_config% latbc_path       = "<path>"
+    itype_latbc      = 0
+    dtime_latbc      = 43200._wp
+    tstep_nudge      = 10
+    latbc_filename   = "<path>prepicon<gridfile>_<timestamp>"
+    latbc_path       = "<path>"
 
     !------------------------------------------------------------------
     ! If this is a resumed integration, overwrite the defaults above 
