@@ -180,7 +180,9 @@ CONTAINS
       LOOKAHEAD : DO
         char = string((i+offset):(i+offset))
         SELECT CASE(IACHAR(char))
-        CASE (9,32,10,13)     ! SPACE and TAB, LF and CR
+      ! To eliminate LF and CR generates error reading namelists in restart file by gfortran and NAG!
+      ! CASE (9,32,10,13)     ! SPACE and TAB, LF and CR 
+        CASE (9,32)           ! SPACE and TAB
           offset  = offset + 1
           IF ((i+offset) > i_max) EXIT LOOP
           lspaces = (i>1)
