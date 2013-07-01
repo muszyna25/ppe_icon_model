@@ -348,7 +348,7 @@ SUBROUTINE solve_free_sfc_ab_mimetic(p_patch_3D, p_os, p_ext_data, p_sfc_flx, &
       ELSE
         ! output print level idt_src used for ocean_gmres output with call message:
         IF(n_iter==0)n_iter=1
-        idt_src=2
+        idt_src=1
         IF (idbg_mxmn >= idt_src) THEN
           WRITE(string,'(a,i4,a,e28.20)') &
             'iteration =', n_iter,', residual =', ABS(zresidual(n_iter))
