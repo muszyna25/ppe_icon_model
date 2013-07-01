@@ -677,6 +677,7 @@ run/exp.oce_mpiom -text
 run/exp.oce_mpiom_Rrefined -text
 run/exp.oce_nml_output -text
 run/exp.oce_r2b5 -text
+run/exp.oce_sltst -text
 run/exp.oce_test_numeric -text
 run/exp.oce_test_parallel -text
 run/exp.ozon -text
