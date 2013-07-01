@@ -196,7 +196,7 @@ fi
 if [[ $lsplitdata = 1 ]] ; then
 
   if [[ $lcpdata = 1 ]] ; then
-    ssh ecgb mkdir ${gatedir}/grb_data
+    ssh ecgb mkdir -p ${gatedir}/grb_data
     scp grb_data/* ecgb:${gatedir}/grb_data
     if [[ %SIMMODE% = 1 ]] ; then
       VERDATEHOUR=`python %ECBASEDIR%/gen/date_calc.py -a printdate -d %YMD%%INIHOUR% -s +1`
