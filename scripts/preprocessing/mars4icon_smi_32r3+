@@ -39,7 +39,7 @@ set -x
 pdatin=${1:-g12}          # initial time (or "${1: 2010070100 2010070200}")
 step=${2:-0}              # forecast step (in hours)
 res="${3:-255}"           # resolution
-levelist=${4:-1/to/91}    # levels
+levelist=${4:-1/to/137}   # levels (L137 from 2013062512)
 
 # --- data output ---
 
