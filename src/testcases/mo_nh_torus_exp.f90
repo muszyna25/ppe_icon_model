@@ -652,7 +652,9 @@ MODULE mo_nh_torus_exp
     END DO     
     
     !W wind and reference
-    ptr_nh_prog%w  = 0._wp; ptr_nh_ref%w_ref  = ptr_nh_prog%w
+    CALL init_w(ptr_patch, ptr_int, ptr_nh_prog%vn, ptr_metrics%z_ifc, ptr_nh_prog%w)
+    CALL sync_patch_array(SYNC_C, ptr_patch, ptr_nh_prog%w)
+    ptr_nh_ref%w_ref = ptr_nh_prog%w
     
   END SUBROUTINE init_nh_state_rico
   
