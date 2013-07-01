@@ -144,6 +144,7 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
   nlev   = p_patch%nlev
   nlevp1 = p_patch%nlevp1
 
+  nlevcm = nlevp1
 
   IF (msg_level >= 15) CALL message('mo_nwp_turbdiff:', 'turbulence')
     
@@ -231,8 +232,6 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
 
 
       IF ( ANY( (/10,12/)==atm_phy_nwp_config(jg)%inwp_turb ) ) THEN
-
-        nlevcm = nlevp1
 
         CALL organize_turbdiff( lstfnct=.TRUE., lsfluse=lsflcnd, &
           &  lturatm=.TRUE., ltursrf=.FALSE., iini=0, &
