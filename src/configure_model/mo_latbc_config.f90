@@ -64,7 +64,6 @@ MODULE mo_latbc_config
     ! variables from namelist
     INTEGER                       :: itype_latbc      ! type of limited area boundary nudging
     REAL(wp)                      :: dtime_latbc      ! dt between two consequtive external latbc files
-    INTEGER                       :: tstep_nudge      ! time step to apply the latbc nudge
     CHARACTER(LEN=filename_max)   :: latbc_filename   ! prefix of latbc files
     CHARACTER(LEN=MAX_STRING_LEN) :: latbc_path       ! directory containing external latbc files
 

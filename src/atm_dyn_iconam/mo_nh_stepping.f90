@@ -494,7 +494,7 @@ MODULE mo_nh_stepping
 
     CALL add_time(dtime,0,0,0,datetime)
 
-    IF (l_limited_area .AND. (latbc_config%itype_latbc == 1) .AND. (MODULO(jstep, latbc_config%tstep_nudge) == 0)) THEN
+    IF (l_limited_area .AND. (latbc_config%itype_latbc == 1)) THEN
 
       ! Check if we need to read data analysis
       CALL date_to_time(datetime)
@@ -531,7 +531,7 @@ MODULE mo_nh_stepping
     ! into p_latbc_data(read_latbc_tlev)%atm prognostic fields.
     ! Storage p_latbc_data(read_latbc_tlev) will be overwritten in the next
     ! read-in of analysis data
-    IF (l_limited_area  .AND. (latbc_config%itype_latbc == 1) .AND. (MODULO(jstep, latbc_config%tstep_nudge) == 0)) THEN
+    IF (l_limited_area  .AND. (latbc_config%itype_latbc == 1)) THEN
       WRITE(message_text,'(a,i10)') 'interpolating latbc at time step: ', jstep
       CALL message(TRIM(routine),message_text)
 
@@ -889,7 +889,7 @@ MODULE mo_nh_stepping
       WRITE(message_text,'(a)') 'save initial fields for outer boundary nudging'
       CALL message(TRIM(routine), TRIM(message_text))
 
-      IF ((latbc_config%itype_latbc == 1) .AND. (MODULO(nstep_global, latbc_config%tstep_nudge) == 0)) THEN
+      IF (latbc_config%itype_latbc == 1) THEN
         WRITE(message_text,'(a)') 'lateral boundary nudge'
         CALL message(TRIM(routine), TRIM(message_text))
 !$OMP PARALLEL

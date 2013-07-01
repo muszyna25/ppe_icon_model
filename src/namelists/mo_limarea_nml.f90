@@ -61,11 +61,10 @@ MODULE mo_limarea_nml
   !------------------------------------------------------------------------
   INTEGER                         :: itype_latbc    ! type of limited area boundary nudging
   REAL(wp)                        :: dtime_latbc    ! dt between two consequtive external latbc files
-  INTEGER                         :: tstep_nudge    ! time step to apply the latbc nudge
   CHARACTER(LEN=filename_max)     :: latbc_filename ! prefix of latbc files
   CHARACTER(LEN=MAX_STRING_LEN)   :: latbc_path     ! directory containing external latbc files
 
-  NAMELIST /limarea_nml/ itype_latbc, dtime_latbc, tstep_nudge, latbc_filename, latbc_path
+  NAMELIST /limarea_nml/ itype_latbc, dtime_latbc, latbc_filename, latbc_path
 
 CONTAINS
   !>
@@ -81,7 +80,6 @@ CONTAINS
     !------------------------------------------------------------
     itype_latbc      = 0
     dtime_latbc      = 43200._wp
-    tstep_nudge      = 10
     latbc_filename   = "<path>prepicon<gridfile>_<timestamp>"
     latbc_path       = "<path>"
 
@@ -120,7 +118,6 @@ CONTAINS
     !----------------------------------------------------
     latbc_config% itype_latbc     = itype_latbc
     latbc_config% dtime_latbc     = dtime_latbc
-    latbc_config% tstep_nudge     = tstep_nudge
     latbc_config% latbc_filename  = latbc_filename
     latbc_config% latbc_path      = latbc_path//'//'
 
