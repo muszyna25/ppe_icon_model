@@ -49,7 +49,7 @@ export IFSDATADIR DATCONVCMD PERL5LIB TMPDIR
 
 # Retrieve data from MARS ---------------------
 
-if [ %YMD%%INIHOUR% -ge 2013062512 ] ; then
+if [[ %YMD%%INIHOUR% -ge 2013062512 ]] ; then
   nlev=137
 else
   nlev=91
