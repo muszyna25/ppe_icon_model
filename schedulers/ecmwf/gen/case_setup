@@ -33,7 +33,7 @@ RADDIR=${basedir}/icon_input/radiation
 #set -x
 
 # the directory for the experiment will be created, if not already there
-if [ ! -d $EXPDIR ]; then
+if [[ ! -d $EXPDIR ]] ; then
     mkdir -p $EXPDIR
 fi
 cd $EXPDIR
@@ -158,7 +158,7 @@ cat > ${atmo_namelist} << EOF
 /
 &initicon_nml
  init_mode                    = 2           ! initialization mode (2 for IFS ana, 1 for DWD ana)
- nlev_in                      = 91          ! number of levels of input data
+ nlev_in                      = 137         ! number of levels of input data
  zpbl1                        = 500. 
  zpbl2                        = 1000.
  ifs2icon_filename            = '${ifs2icon_filename}'
@@ -211,6 +211,34 @@ cat > ${atmo_namelist} << EOF
  reg_lat_def                  = 90.,-1.0, -90.
 !namespace                    = "ECMWF"                   ! may give problems with metview - leave default ecmwf
 /
+!  &output_nml                                               ! initial data for COSMO EU 
+!   filetype                     = 4
+!   dom                          = -1
+!   output_time_unit             = 1
+!   output_bounds                = 0., 1., 999999.
+!   steps_per_file               = 1
+!   mode                         = 1
+!   include_last                 =.FALSE.
+!   output_filename              = '${basename}_icon_${res}_ini'
+!   ml_varlist                   = 'temp','vn','w','pres',
+!                                  'qv','qc','qi','qr','qs',
+!                                  't_so','w_so','t_snow','t_skin','w_i','qv_s',
+!                                  'w_snow','freshsnow','rho_snow','h_ice','t_ice','z_ifc'
+!  /
+!  &output_nml                                               ! boundary data for COSMO EU 
+!   filetype                     = 4
+!   dom                          = -1
+!   output_time_unit             = 1
+!   output_bounds                = 3600.,280800.,3600.
+!   steps_per_file               = 1
+!   mode                         = 1
+!   include_last                 =.FALSE.
+!   output_filename              = '${basename}_icon_${res}_for'
+!   ml_varlist                   = 'temp','vn','pres',
+!                                  'qv','qc','qi','qr','qs',
+!                                  't_so','t_snow','t_skin','qv_s',
+!                                  'w_snow'
+!  /
 &gribout_nml
  generatingCenter             = 98                        ! ECMWF
  generatingSubcenter          = 0                         ! ECMWF
