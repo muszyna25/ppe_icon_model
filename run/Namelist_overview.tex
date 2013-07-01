@@ -2035,6 +2035,61 @@ Coriolis force&
 
 Defined and used in: src/namelists/mo\_dynamics\_nml.f90
 
+
+%------------------------------------------------------------------------------
+% limarea_nml:
+%------------------------------------------------------------------------------
+\subsection{limarea\_nml}
+
+\begin{longtab}
+
+\hline 
+itype\_latbc&
+I & 0& &
+Type of lateral boundary conditions\\
+0: from the previous time step \\
+1: from boundary data (only IFS analysis, so far)&
+\tabularnewline
+
+\hline 
+dtime\_latbc&
+R &
+43200.0&
+&
+time step size of boundary data
+&
+itype\_latbc = 1
+\tabularnewline
+
+\hline 
+latbc\_filename&
+C &
+&
+&
+Filename of boundary data input file, default:\\
+''\texttt{<path>prepicon\_<gridfile>}''. May contain the \\
+keyword <path> which will be substituted by \\
+\texttt{model\_base\_dir}.
+&
+itype\_latbc = 1
+\tabularnewline
+
+\hline 
+latbc\_path&
+C &
+&
+&
+Absolute path to boundary data.
+&
+itype\_latbc = 1
+\tabularnewline
+
+\end{longtab}
+
+Defined and used in: src/namelists/mo\_limarea\_nml.f90
+
+
+
 %-----------------------------------------------------------------------------
 % ha_dyn_nml: hydrostatic atm dynamics
 %-----------------------------------------------------------------------------
