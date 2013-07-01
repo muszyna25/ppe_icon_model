@@ -33647,7 +33647,7 @@ void gribapiDefLevel(int editionNumber, grib_handle *gh, int param, int zaxisID,
 
             level   *= scalefactor;
             dlevel1 *= scalefactor;
-            dlevel1 *= scalefactor;
+            dlevel2 *= scalefactor;
 
             grib2DefLevel(gh, gcinit, GRIB2_LTYPE_LANDDEPTH, lbounds, level, dlevel1, dlevel2);
 	  }
