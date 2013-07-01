@@ -143,7 +143,7 @@ CONTAINS
         CALL finish(TRIM(routine),'both inwp_rad and rad_forcing are turned on!')
 
     IF(is_geowind .AND. .NOT.is_plane_torus) & 
-         CALL finish(TRIM(routine),'is_geowind is only applicable for torus grid!')  
+         CALL finish(TRIM(routine),'is_geowind is only applicable if is_plane_torus is turned on!')  
 
     !-----------------------------------------------------
     ! 5. Store the namelist for restart
