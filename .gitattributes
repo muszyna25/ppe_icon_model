@@ -1251,8 +1251,8 @@ src/configure_model/mo_icon_testbed_config.f90 -text
 src/configure_model/mo_initicon_config.f90 -text
 src/configure_model/mo_interpol_config.f90 -text
 src/configure_model/mo_io_config.f90 -text
-src/configure_model/mo_latbc_config.f90 -text
 src/configure_model/mo_les_config.f90 -text
+src/configure_model/mo_limarea_config.f90 -text
 src/configure_model/mo_lnd_jsbach_config.f90 -text
 src/configure_model/mo_lnd_nwp_config.f90 -text
 src/configure_model/mo_mtgrm_config.f90 -text

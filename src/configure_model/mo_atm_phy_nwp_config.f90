@@ -43,6 +43,7 @@
 MODULE mo_atm_phy_nwp_config
 
   USE mo_kind,                ONLY: wp
+  USE mo_grid_config,         ONLY: l_limited_area
   USE mo_impl_constants,      ONLY: max_dom, MAX_CHAR_LENGTH, itconv, itccov,  &
     &                               itrad, itradheat, itsso, itgscp, itsatad,  &
     &                               itupdate, itturb, itsfc, itgwd, itfastphy, &
@@ -52,7 +53,7 @@ MODULE mo_atm_phy_nwp_config
 
   USE mo_icoham_sfc_indices,  ONLY: init_sfc_indices
   USE mo_les_config,          ONLY: configure_les
-  USE mo_latbc_config,        ONLY: configure_latbc
+  USE mo_limarea_config,      ONLY: configure_latbc
 
   IMPLICIT NONE
 
@@ -271,7 +272,9 @@ SUBROUTINE configure_atm_phy_nwp( n_dom, pat_level, ltestcase, dtime_adv )
    END IF
 
    !Configure lateral boundary condition for limited area model
-   CALL configure_latbc() 
+   IF(l_limited_area) THEN
+     CALL configure_latbc()
+   END IF    
 
 END SUBROUTINE configure_atm_phy_nwp
 

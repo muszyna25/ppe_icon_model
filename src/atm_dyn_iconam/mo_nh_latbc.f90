@@ -72,7 +72,7 @@ MODULE mo_nh_latbc
   USE mo_datetime,            ONLY: t_datetime
   USE mo_time_config,         ONLY: time_config
   USE mo_initicon_config,     ONLY: nlev_in
-  USE mo_latbc_config,        ONLY: latbc_config, generate_filename
+  USE mo_limarea_config,      ONLY: latbc_config, generate_filename
   USE mo_ext_data_types,      ONLY: t_external_data
   
   IMPLICIT NONE

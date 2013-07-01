@@ -75,7 +75,7 @@ MODULE mo_nh_stepping
   USE mo_ext_data_state,      ONLY: ext_data, interpol_monthly_mean
   USE mo_lnd_jsbach_config,   ONLY: lnd_jsbach_config
   USE mo_extpar_config,       ONLY: itopo
-  USE mo_latbc_config,        ONLY: latbc_config
+  USE mo_limarea_config,      ONLY: latbc_config
   USE mo_model_domain,        ONLY: p_patch
   USE mo_time_config,         ONLY: time_config
   USE mo_grid_config,         ONLY: n_dom, lfeedback, ifeedback_type, l_limited_area, &

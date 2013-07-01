@@ -35,7 +35,7 @@
 !! liability or responsibility for the use, acquisition or application of this
 !! software.
 !!
-MODULE mo_latbc_config
+MODULE mo_limarea_config
 
   USE mo_kind,               ONLY: wp
   USE mo_impl_constants,     ONLY: max_dom, MAX_CHAR_LENGTH
@@ -81,7 +81,7 @@ CONTAINS
   !  Set up parameters 
   !--------------------------------------------------------------------------------------
     CHARACTER(*), PARAMETER :: routine = &
-      "mo_latbc_config::configure_latbc"
+      "mo_limarea_config::configure_latbc"
 
     !----------------------------------------------------
     ! Sanity check and Prints
@@ -115,7 +115,7 @@ CONTAINS
     ! Local variables
     CHARACTER(MAX_STRING_LEN)                   :: snroot, sjlev, stlev, slatbc_filename
     CHARACTER(MAX_CHAR_LENGTH), PARAMETER :: &
-      &  routine = 'mo_latbc_config::generate_filename:'
+      &  routine = 'mo_limarea_config::generate_filename:'
     
     WRITE(slatbc_filename,*) TRIM(latbc_config%latbc_path)//TRIM(latbc_config%latbc_filename)
     WRITE(snroot,'(i1)') nroot
@@ -127,4 +127,4 @@ CONTAINS
   !--------------------------------------------------------------------------------------
 
 !-----------------------------------------------------------------------
-END MODULE mo_latbc_config
+END MODULE mo_limarea_config

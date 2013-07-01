@@ -2039,7 +2039,7 @@ Defined and used in: src/namelists/mo\_dynamics\_nml.f90
 %------------------------------------------------------------------------------
 % limarea_nml:
 %------------------------------------------------------------------------------
-\subsection{limarea\_nml}
+\subsection{limarea\_nml (Scope: l\_limited\_area=1 in grid\_nml)}
 
 \begin{longtab}
 
@@ -2056,7 +2056,7 @@ dtime\_latbc&
 R &
 43200.0&
 &
-time step size of boundary data
+Time step size of boundary data
 &
 itype\_latbc = 1
 \tabularnewline
@@ -2069,7 +2069,7 @@ C &
 Filename of boundary data input file, default:\\
 ''\texttt{<path>prepicon\_<gridfile>}''. May contain the \\
 keyword <path> which will be substituted by \\
-\texttt{model\_base\_dir}.
+\texttt{latbc\_path}.
 &
 itype\_latbc = 1
 \tabularnewline

@@ -47,7 +47,7 @@ MODULE mo_limarea_nml
   USE mo_impl_constants,      ONLY: max_dom
   USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist     , &
                                   & open_and_restore_namelist, close_tmpfile
-  USE mo_latbc_config,        ONLY: latbc_config
+  USE mo_limarea_config,      ONLY: latbc_config
   USE mo_util_string,         ONLY: MAX_STRING_LEN
 
   IMPLICIT NONE
