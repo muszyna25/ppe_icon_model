@@ -1730,7 +1730,7 @@ I & 1& &
 \hline 
 nlev\_in&
 I & 91 & &
-number of model levels of input data&
+\textbf{DEPRECATED!} Number of model levels of input data (no longer in use)&
 \tabularnewline
 
 \hline 
@@ -5701,6 +5701,13 @@ model expects {\bf height based} coordinates. For further information see <icon 
   \begin{itemize}
    \item Removed the sources for the "prepicon" binary!
    \item The "prepicon" functionality (and most of its code) has become part of the ICON tools.
+  \end{itemize}
+\end{changeitem}
+
+\begin{changeitem}{initicon\_nml}{ 2013-07-02 }{ 12700 }
+  \begin{itemize}
+   \item The number of vertical input levels is now read from file.
+         The namelist parameter \textbf{nlev\_in} is deprecated and will soon be removed.
   \end{itemize}
 \end{changeitem}
 
