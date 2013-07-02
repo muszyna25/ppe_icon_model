@@ -48,7 +48,6 @@ MODULE mo_initicon_nml
   USE mo_mpi,                ONLY: my_process_is_stdio 
   USE mo_initicon_config,    ONLY: &
     & config_init_mode          => init_mode,         &
-    & config_nlev_in            => nlev_in,           &
     & config_nlevsoil_in        => nlevsoil_in,       &
     & config_zpbl1              => zpbl1,             &
     & config_zpbl2              => zpbl2,             &
@@ -141,7 +140,7 @@ CONTAINS
   !
   !
   init_mode   = MODE_IFSANA ! Start from IFS analysis
-  nlev_in     = 91          ! number of levels of input data
+  nlev_in     = -1          ! number of levels of input data (DEPRECATED)
   nlevsoil_in = 4           ! number of soil levels of input data
   zpbl1       = 500._wp     ! AGL heights used for computing vertical 
   zpbl2       = 1000._wp    ! gradients
@@ -179,7 +178,6 @@ CONTAINS
   !------------------------------------------------------------
 
   config_init_mode          = init_mode
-  config_nlev_in            = nlev_in
   config_nlevsoil_in        = nlevsoil_in
   config_zpbl1              = zpbl1
   config_zpbl2              = zpbl2
@@ -202,6 +200,18 @@ CONTAINS
     CALL finish( TRIM(routine),                         &
       &  'Invalid initialization mode. Must be init_mode=1 or 2')
   ENDIF
+
+  !------------------------------------------------------------
+  ! DEPRECATED parameters
+  !------------------------------------------------------------
+  
+  IF (nlev_in /= -1) THEN
+    WRITE (0,*) "!!                               !!"
+    WRITE (0,*) "!! DEPRECATED NAMELIST PARAMETER !!"
+    WRITE (0,*) "!!                               !!"
+    WRITE (0,*) "!! <nlev_in> no longer used!     !!"
+    WRITE (0,*) "!!                               !!"
+  END IF
 
   ! write the contents of the namelist to an ASCII file
 

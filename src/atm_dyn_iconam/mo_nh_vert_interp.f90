@@ -221,6 +221,7 @@ CONTAINS
 
 
     ! LOCAL VARIABLES
+    CHARACTER(LEN=*), PARAMETER :: routine = 'vert_interp'
 
     INTEGER :: jb
     INTEGER :: nlen, nlev, nlevp1
@@ -282,6 +283,10 @@ CONTAINS
     REAL(wp), DIMENSION(nproma,p_patch%nlev,p_patch%nblks_e) :: z_me
 
 !-------------------------------------------------------------------------
+
+    IF (nlev_in == 0) THEN
+      CALL finish(routine, "Number of input levels <nlev_in> not yet initialized.")
+    END IF
 
     nlev   = p_patch%nlev
     nlevp1 = p_patch%nlevp1

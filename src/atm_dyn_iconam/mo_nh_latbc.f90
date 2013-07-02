@@ -121,6 +121,9 @@ MODULE mo_nh_latbc
       "mo_nh_latbc::allocate_latbc_data"
 
     CALL message(TRIM(routine),'start')
+    IF (nlev_in == 0) THEN
+      CALL finish(routine, "Number of input levels <nlev_in> not yet initialized.")
+    END IF
      
     IF(p_test_run) THEN
       mpi_comm = p_comm_work_test
@@ -229,6 +232,9 @@ MODULE mo_nh_latbc
     CHARACTER(LEN=filename_max)           :: latbc_full_filename
                                             
     patch => p_patch(1)                                        
+    IF (nlev_in == 0) THEN
+      CALL finish(routine, "Number of input levels <nlev_in> not yet initialized.")
+    END IF
       
     IF(p_test_run) THEN
       mpi_comm = p_comm_work_test

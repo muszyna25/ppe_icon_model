@@ -172,6 +172,10 @@ MODULE mo_nh_initicon
     IF (ist /= SUCCESS) THEN
       CALL finish(TRIM(routine),'allocation for initicon failed')
     ENDIF
+
+    initicon(:)%atm_in%linitialized = .FALSE.
+    initicon(:)%sfc_in%linitialized = .FALSE.
+
     !
     ! Allocate memory for init_icon state
     CALL allocate_initicon (p_patch, initicon)
@@ -226,10 +230,11 @@ MODULE mo_nh_initicon
       CALL finish(TRIM(routine), "Invalid operation mode!")
     END SELECT
 
-
-
     ! Deallocate initicon data type
     CALL deallocate_initicon(initicon)
+    CALL deallocate_ifs_atm(initicon)
+    CALL deallocate_ifs_sfc(initicon)
+
     DEALLOCATE (initicon, stat=ist)
     IF (ist /= success) THEN
       CALL finish(TRIM(routine),'deallocation for initicon failed')
@@ -629,17 +634,23 @@ MODULE mo_nh_initicon
         CALL nf(nf_inq_dimlen(ncid, dimid, no_levels), routine)
 
         !
-        ! check the number of cells and vertical levels
+        ! check the number of cells
         !
         IF(p_patch(jg)%n_patch_cells_g /= no_cells) THEN
           CALL finish(TRIM(ROUTINE),&
           & 'Number of patch cells and cells in IFS2ICON file do not match.')
         ENDIF
 
-        IF(nlev_in /= no_levels) THEN
-          CALL finish(TRIM(ROUTINE),&
-          & 'nlev_in does not match the number of levels in IFS2ICON file.')
-        ENDIF
+        !
+        ! DEFINE the number of vertical levels
+        !
+        IF(nlev_in /= 0)  THEN
+          IF (nlev_in /= no_levels) THEN
+            CALL finish(TRIM(ROUTINE), 'nlev_in has already been defined differently!')
+          END IF
+        ELSE
+          nlev_in = no_levels
+        END IF
 
         !
         ! Check if surface pressure (PS) or its logarithm (LNPS) is provided as input
@@ -692,16 +703,16 @@ MODULE mo_nh_initicon
 
       ENDIF ! pe_io
 
-
       IF(p_test_run) THEN
         mpi_comm = p_comm_work_test 
       ELSE
         mpi_comm = p_comm_work
       ENDIF
 
+      CALL p_bcast(nlev_in,   p_io, mpi_comm)
       CALL p_bcast(lread_qs,  p_io, mpi_comm)
       CALL p_bcast(lread_qr,  p_io, mpi_comm)
-      CALL p_bcast(lread_vn, p_io, mpi_comm)
+      CALL p_bcast(lread_vn,  p_io, mpi_comm)
 
 
       IF (msg_level >= 10) THEN
@@ -718,7 +729,8 @@ MODULE mo_nh_initicon
         ENDIF
       ENDIF
 
-
+      ! allocate data structure
+      CALL allocate_ifs_atm(jg, p_patch(jg)%nblks_c, initicon)
 
       ! start reading atmospheric fields
       !
@@ -788,8 +800,6 @@ MODULE mo_nh_initicon
         &                     initicon(jg)%atm_in%phi_sfc)
 
 
-
-
       ! Allocate and read in vertical coordinate tables
       !
       IF (jg == 1) THEN
@@ -833,7 +843,6 @@ MODULE mo_nh_initicon
         ENDIF
 
       ENDIF  ! jg=1
-
 
       ! close file
       !
@@ -926,14 +935,6 @@ MODULE mo_nh_initicon
           & 'Number of patch cells and cells in IFS2ICON file do not match.')
         ENDIF
 
-        IF(nlev_in /= no_levels) THEN
-          CALL finish(TRIM(ROUTINE),&
-          & 'nlev_in does not match the number of levels in IFS2ICON file.')
-        ENDIF
-
-
-
-
         ! Check, if the surface-level surface geopotential (GEOP_SFC) is available. 
         ! If GEOP_SFC is missing, a warning will be issued and the model-level surface 
         ! geopotential (GEOSP or GEOP_ML) will be used instead.
@@ -1010,6 +1011,9 @@ MODULE mo_nh_initicon
       CALL p_bcast(l_sst_in, p_io, mpi_comm)
 
       CALL p_bcast(alb_snow_var, p_io, mpi_comm)
+
+      ! allocate data structure
+      CALL allocate_ifs_sfc(jg, p_patch(jg)%nblks_c, initicon)
 
 
       ! start reading surface fields
@@ -2602,6 +2606,7 @@ MODULE mo_nh_initicon
     TYPE(t_initicon_state), INTENT(INOUT) :: initicon(:)
 
     ! Local variables: loop control and dimensions
+    CHARACTER(MAX_CHAR_LENGTH), PARAMETER :: routine = "mo_nh_initicon::allocate_initicon"
     INTEGER :: jg, nlev, nlevp1, nblks_c, nblks_v, nblks_e
 
 !-------------------------------------------------------------------------
@@ -2621,37 +2626,6 @@ MODULE mo_nh_initicon
                initicon(jg)%topography_v    (nproma,nblks_v),        &
                initicon(jg)%z_ifc           (nproma,nlevp1,nblks_c), &
                initicon(jg)%z_mc            (nproma,nlev  ,nblks_c) )
-
-      ! Allocate atmospheric input data
-      ALLOCATE(initicon(jg)%atm_in%psfc(nproma,         nblks_c), &
-               initicon(jg)%atm_in%phi_sfc(nproma,      nblks_c), &
-               initicon(jg)%atm_in%pres (nproma,nlev_in,nblks_c), &
-               initicon(jg)%atm_in%z3d  (nproma,nlev_in,nblks_c), &
-               initicon(jg)%atm_in%temp (nproma,nlev_in,nblks_c), &
-               initicon(jg)%atm_in%u    (nproma,nlev_in,nblks_c), &
-               initicon(jg)%atm_in%v    (nproma,nlev_in,nblks_c), &
-               initicon(jg)%atm_in%w    (nproma,nlev_in,nblks_c), &
-               initicon(jg)%atm_in%omega(nproma,nlev_in,nblks_c), &
-               initicon(jg)%atm_in%qv   (nproma,nlev_in,nblks_c), &
-               initicon(jg)%atm_in%qc   (nproma,nlev_in,nblks_c), &
-               initicon(jg)%atm_in%qi   (nproma,nlev_in,nblks_c), &
-               initicon(jg)%atm_in%qr   (nproma,nlev_in,nblks_c), &
-               initicon(jg)%atm_in%qs   (nproma,nlev_in,nblks_c)  )
-
-      ! Allocate surface input data
-      ! The extra soil temperature levels are not read in; they are only used to simplify vertical interpolation
-      ALLOCATE(initicon(jg)%sfc_in%phi      (nproma,nblks_c                ), &
-               initicon(jg)%sfc_in%tskin    (nproma,nblks_c                ), &
-               initicon(jg)%sfc_in%sst      (nproma,nblks_c                ), &
-               initicon(jg)%sfc_in%tsnow    (nproma,nblks_c                ), &
-               initicon(jg)%sfc_in%snowalb  (nproma,nblks_c                ), &
-               initicon(jg)%sfc_in%snowweq  (nproma,nblks_c                ), &
-               initicon(jg)%sfc_in%snowdens (nproma,nblks_c                ), &
-               initicon(jg)%sfc_in%skinres  (nproma,nblks_c                ), &
-               initicon(jg)%sfc_in%ls_mask  (nproma,nblks_c                ), &
-               initicon(jg)%sfc_in%seaice   (nproma,nblks_c                ), &
-               initicon(jg)%sfc_in%tsoil    (nproma,nblks_c,0:nlevsoil_in+1), &
-               initicon(jg)%sfc_in%wsoil    (nproma,nblks_c,0:nlevsoil_in+1)  )
 
       ! Allocate atmospheric output data
       ALLOCATE(initicon(jg)%atm%vn        (nproma,nlev  ,nblks_e), &
@@ -2693,6 +2667,68 @@ MODULE mo_nh_initicon
 
   END SUBROUTINE allocate_initicon
 
+
+  !-------------
+  !>
+  !! SUBROUTINE allocate_ifs_atm
+  !! Allocates fields for IFS read-in
+  !!
+  SUBROUTINE allocate_ifs_atm (jg, nblks_c, initicon)
+    INTEGER,                INTENT(IN)    :: jg, nblks_c
+    TYPE(t_initicon_state), INTENT(INOUT) :: initicon(:)
+    ! Local variables: loop control and dimensions
+    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: routine = 'mo_nh_initicon:allocate_ifs_atm'
+
+    IF (nlev_in == 0) THEN
+      CALL finish(routine, "Number of input levels <nlev_in> not yet initialized.")
+    END IF
+
+    ! Allocate atmospheric input data
+    ALLOCATE(initicon(jg)%atm_in%psfc(nproma,         nblks_c), &
+      initicon(jg)%atm_in%phi_sfc(nproma,      nblks_c), &
+      initicon(jg)%atm_in%pres (nproma,nlev_in,nblks_c), &
+      initicon(jg)%atm_in%z3d  (nproma,nlev_in,nblks_c), &
+      initicon(jg)%atm_in%temp (nproma,nlev_in,nblks_c), &
+      initicon(jg)%atm_in%u    (nproma,nlev_in,nblks_c), &
+      initicon(jg)%atm_in%v    (nproma,nlev_in,nblks_c), &
+      initicon(jg)%atm_in%w    (nproma,nlev_in,nblks_c), &
+      initicon(jg)%atm_in%omega(nproma,nlev_in,nblks_c), &
+      initicon(jg)%atm_in%qv   (nproma,nlev_in,nblks_c), &
+      initicon(jg)%atm_in%qc   (nproma,nlev_in,nblks_c), &
+      initicon(jg)%atm_in%qi   (nproma,nlev_in,nblks_c), &
+      initicon(jg)%atm_in%qr   (nproma,nlev_in,nblks_c), &
+      initicon(jg)%atm_in%qs   (nproma,nlev_in,nblks_c)  )
+    initicon(jg)%atm_in%linitialized = .TRUE.
+  END SUBROUTINE allocate_ifs_atm
+
+
+  !-------------
+  !>
+  !! SUBROUTINE allocate_ifs_sfc
+  !! Allocates fields for IFS read-in
+  !!
+  SUBROUTINE allocate_ifs_sfc (jg, nblks_c, initicon)
+    INTEGER,                INTENT(IN)    :: jg, nblks_c
+    TYPE(t_initicon_state), INTENT(INOUT) :: initicon(:)
+
+    ! Allocate surface input data
+    ! The extra soil temperature levels are not read in; they are only used to simplify vertical interpolation
+    ALLOCATE(initicon(jg)%sfc_in%phi      (nproma,nblks_c                ), &
+      initicon(jg)%sfc_in%tskin    (nproma,nblks_c                ), &
+      initicon(jg)%sfc_in%sst      (nproma,nblks_c                ), &
+      initicon(jg)%sfc_in%tsnow    (nproma,nblks_c                ), &
+      initicon(jg)%sfc_in%snowalb  (nproma,nblks_c                ), &
+      initicon(jg)%sfc_in%snowweq  (nproma,nblks_c                ), &
+      initicon(jg)%sfc_in%snowdens (nproma,nblks_c                ), &
+      initicon(jg)%sfc_in%skinres  (nproma,nblks_c                ), &
+      initicon(jg)%sfc_in%ls_mask  (nproma,nblks_c                ), &
+      initicon(jg)%sfc_in%seaice   (nproma,nblks_c                ), &
+      initicon(jg)%sfc_in%tsoil    (nproma,nblks_c,0:nlevsoil_in+1), &
+      initicon(jg)%sfc_in%wsoil    (nproma,nblks_c,0:nlevsoil_in+1)  )
+    initicon(jg)%sfc_in%linitialized = .TRUE.
+  END SUBROUTINE allocate_ifs_sfc
+
+
   !-------------
   !>
   !! SUBROUTINE deallocate_initicon
@@ -2719,41 +2755,6 @@ MODULE mo_nh_initicon
                  initicon(jg)%topography_v,     &
                  initicon(jg)%z_ifc,            &
                  initicon(jg)%z_mc              )
-
-      ! atmospheric input data
-      DEALLOCATE(initicon(jg)%atm_in%psfc,    &
-                 initicon(jg)%atm_in%phi_sfc, &
-                 initicon(jg)%atm_in%pres,    &
-                 initicon(jg)%atm_in%z3d,     &
-                 initicon(jg)%atm_in%temp,    &
-                 initicon(jg)%atm_in%u,       &
-                 initicon(jg)%atm_in%v,       &
-                 initicon(jg)%atm_in%w,       &
-                 initicon(jg)%atm_in%omega,   &
-                 initicon(jg)%atm_in%qv,      &
-                 initicon(jg)%atm_in%qc,      &
-                 initicon(jg)%atm_in%qi,      &
-                 initicon(jg)%atm_in%qr,      &
-                 initicon(jg)%atm_in%qs )
-      IF (ALLOCATED(initicon(jg)%atm_in%vn)) THEN
-        DEALLOCATE(initicon(jg)%atm_in%vn)
-      ENDIF
-
-      ! surface input data
-      DEALLOCATE(initicon(jg)%sfc_in%phi,      &
-                 initicon(jg)%sfc_in%tskin,    &
-                 initicon(jg)%sfc_in%sst,    &
-                 initicon(jg)%sfc_in%tsnow,    &
-                 initicon(jg)%sfc_in%snowalb,  &
-                 initicon(jg)%sfc_in%snowweq,  &
-                 initicon(jg)%sfc_in%snowdens, &
-                 initicon(jg)%sfc_in%skinres,  &
-                 initicon(jg)%sfc_in%ls_mask,  &
-                 initicon(jg)%sfc_in%seaice,   &
-                 initicon(jg)%sfc_in%tsoil,    &
-                 initicon(jg)%sfc_in%wsoil     )
-
-
 
       ! atmospheric output data
       DEALLOCATE(initicon(jg)%atm%vn,      &
@@ -2791,6 +2792,74 @@ MODULE mo_nh_initicon
     CALL dict_finalize(ana_varnames_dict)
 
   END SUBROUTINE deallocate_initicon
+
+
+  !-------------
+  !>
+  !! SUBROUTINE deallocate_ifs_atm
+  !! Deallocates the components of the initicon data type
+  !!
+  SUBROUTINE deallocate_ifs_atm (initicon)
+    TYPE(t_initicon_state), INTENT(INOUT) :: initicon(:)
+    ! Local variables: loop control
+    INTEGER :: jg
+
+    ! Loop over model domains
+    DO jg = 1, n_dom
+      IF (.NOT. initicon(jg)%atm_in%linitialized) CYCLE
+
+      ! atmospheric input data
+      DEALLOCATE(initicon(jg)%atm_in%psfc,    &
+                 initicon(jg)%atm_in%phi_sfc, &
+                 initicon(jg)%atm_in%pres,    &
+                 initicon(jg)%atm_in%z3d,     &
+                 initicon(jg)%atm_in%temp,    &
+                 initicon(jg)%atm_in%u,       &
+                 initicon(jg)%atm_in%v,       &
+                 initicon(jg)%atm_in%w,       &
+                 initicon(jg)%atm_in%omega,   &
+                 initicon(jg)%atm_in%qv,      &
+                 initicon(jg)%atm_in%qc,      &
+                 initicon(jg)%atm_in%qi,      &
+                 initicon(jg)%atm_in%qr,      &
+                 initicon(jg)%atm_in%qs )
+      IF (ALLOCATED(initicon(jg)%atm_in%vn)) THEN
+        DEALLOCATE(initicon(jg)%atm_in%vn)
+      ENDIF
+      initicon(jg)%atm_in%linitialized = .FALSE.
+    ENDDO ! loop over model domains
+  END SUBROUTINE deallocate_ifs_atm
+
+
+  !-------------
+  !>
+  !! SUBROUTINE deallocate_ifs_sfc
+  !! Deallocates IFS fields
+  !!
+  SUBROUTINE deallocate_ifs_sfc (initicon)
+    TYPE(t_initicon_state), INTENT(INOUT) :: initicon(:)
+    ! Local variables: loop control
+    INTEGER :: jg
+
+    ! Loop over model domains
+    DO jg = 1, n_dom
+      IF (.NOT. initicon(jg)%sfc_in%linitialized) CYCLE
+      ! surface input data
+      DEALLOCATE(initicon(jg)%sfc_in%phi,      &
+                 initicon(jg)%sfc_in%tskin,    &
+                 initicon(jg)%sfc_in%sst,    &
+                 initicon(jg)%sfc_in%tsnow,    &
+                 initicon(jg)%sfc_in%snowalb,  &
+                 initicon(jg)%sfc_in%snowweq,  &
+                 initicon(jg)%sfc_in%snowdens, &
+                 initicon(jg)%sfc_in%skinres,  &
+                 initicon(jg)%sfc_in%ls_mask,  &
+                 initicon(jg)%sfc_in%seaice,   &
+                 initicon(jg)%sfc_in%tsoil,    &
+                 initicon(jg)%sfc_in%wsoil     )
+      initicon(jg)%sfc_in%linitialized = .FALSE.
+    ENDDO ! loop over model domains
+  END SUBROUTINE deallocate_ifs_sfc
 
 END MODULE mo_nh_initicon
 

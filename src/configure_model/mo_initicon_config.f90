@@ -63,7 +63,6 @@ MODULE mo_initicon_config
   ! ----------------------------------------------------------------------------
   !
   INTEGER  :: init_mode     ! initialization mode
-  INTEGER  :: nlev_in       ! number of model levels of input data
   INTEGER  :: nlevsoil_in   ! number of soil levels of input data
 
   REAL(wp) :: zpbl1, zpbl2  ! AGL heights used for vertical gradient computation
@@ -92,6 +91,12 @@ MODULE mo_initicon_config
   ! analysis file: dictionary which maps internal variable names onto
   ! GRIB2 shortnames or NetCDF var names.
   CHARACTER(LEN=filename_max) :: ana_varnames_map_file      
+
+  ! ----------------------------------------------------------------------------
+  ! Derived variables / variables based on input file contents
+  ! ----------------------------------------------------------------------------
+
+  INTEGER  :: nlev_in   = 0  !< number of model levels of input data
 
 CONTAINS
   

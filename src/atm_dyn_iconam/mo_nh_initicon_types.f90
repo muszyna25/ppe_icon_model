@@ -68,6 +68,9 @@ MODULE mo_nh_initicon_types
   TYPE :: t_pi_atm_in ! surface geopotential is regarded as
                       ! atmospheric variable here because the atmospheric fields cannot be processed without it
 
+    ! Flag. True, if this data structure has been allocated
+    LOGICAL :: linitialized
+
     REAL(wp), ALLOCATABLE, DIMENSION(:,:)   :: psfc, phi_sfc
     REAL(wp), ALLOCATABLE, DIMENSION(:,:,:) :: temp, pres, z3d, u, v, omega, &
       &                                         w, vn, qv, qc, qi, qr, qs
@@ -77,6 +80,9 @@ MODULE mo_nh_initicon_types
 
   ! surface input variables
   TYPE :: t_pi_sfc_in
+
+    ! Flag. True, if this data structure has been allocated
+    LOGICAL :: linitialized
 
     REAL(wp), ALLOCATABLE, DIMENSION (:,:) :: tsnow, tskin, sst, snowalb,snowweq, snowdens, &
                                               skinres, ls_mask, seaice, phi
@@ -108,7 +114,7 @@ MODULE mo_nh_initicon_types
   ! complete state vector type
   !
   TYPE :: t_initicon_state
-
+    
     REAL(wp), ALLOCATABLE, DIMENSION (:,:) :: topography_c, topography_v
 
     REAL(wp), ALLOCATABLE, DIMENSION(:,:,:) :: z_ifc, z_mc
