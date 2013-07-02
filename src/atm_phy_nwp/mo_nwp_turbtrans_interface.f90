@@ -296,7 +296,7 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
           
           CALL organize_turbdiff( lstfnct=.TRUE., &
             &  lturatm=.FALSE., ltursrf=.TRUE., iini=0, &
-! JF:             &  ltkeinp=.FALSE., lgz0inp=.FALSE., &
+            &  ltkeinp=.FALSE., lgz0inp=.FALSE., &
             &  lmomdif=.FALSE., lscadif=.FALSE., itnd=0, &
             &  dt_var=tcall_turb_jg,  dt_tke=tcall_turb_jg, &
             &  nprv=1, ntur=1, ntim=1, &
@@ -320,6 +320,7 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
             &  td_2m=prm_diag%td_2m(:,jb), rh_2m=prm_diag%rh_2m(:,jb), &
             &  u_10m=prm_diag%u_10m_t(:,jb,1), v_10m=prm_diag%v_10m_t(:,jb,1), &
             &  shfl_s=prm_diag%shfl_s_t(:,jb,1), qvfl_s=prm_diag%qhfl_s_t(:,jb,1), &
+            &  umfl_s=prm_diag%umfl_s_t(:,jb,1), vmfl_s=prm_diag%vmfl_s_t(:,jb,1), &
             &  ierrstat=ierrstat, errormsg=errormsg, eroutine=eroutine )
 
           prm_diag%lhfl_s_t(i_startidx:i_endidx,jb,1) = &
@@ -450,7 +451,7 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
         
             CALL organize_turbdiff( lstfnct=.TRUE., &
               &  lturatm=.FALSE., ltursrf=.TRUE., iini=0, &
-! JF:               &  ltkeinp=.FALSE., lgz0inp=.FALSE., &
+              &  ltkeinp=.FALSE., lgz0inp=.FALSE., &
               &  lmomdif=.FALSE., lscadif=.FALSE., itnd=0, &
               &  dt_var=tcall_turb_jg,  dt_tke=tcall_turb_jg, &
               &  nprv=1, ntur=1, ntim=1, &
@@ -474,6 +475,7 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
               &  td_2m=td_2m_t(:,jt), rh_2m=rh_2m_t(:,jt), &
               &  u_10m=u_10m_t(:,jt), v_10m=v_10m_t(:,jt), &
               &  shfl_s=shfl_s_t(:,jt), qvfl_s=qhfl_s_t(:,jt), &
+              &  umfl_s=umfl_s_t(:,jt), vmfl_s=vmfl_s_t(:,jt), &
               &  ierrstat=ierrstat, errormsg=errormsg, eroutine=eroutine )
 
             lhfl_s_t(1:i_count,jt) = qhfl_s_t(1:i_count,jt) * lh_v

@@ -235,7 +235,7 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
 
         CALL organize_turbdiff( lstfnct=.TRUE., lsfluse=lsflcnd, &
           &  lturatm=.TRUE., ltursrf=.FALSE., iini=0, &
-! JF:           &  ltkeinp=.FALSE., lgz0inp=.FALSE., &
+          &  ltkeinp=.FALSE., lgz0inp=.FALSE., &
           &  lmomdif=.TRUE., lscadif=.TRUE., itnd=0, &
           &  dt_var=tcall_turb_jg, dt_tke=tcall_turb_jg, &
           &  nprv=1, ntur=1, ntim=1, &

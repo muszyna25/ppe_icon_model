@@ -439,10 +439,7 @@ REAL (KIND=ireals), PARAMETER :: &
 !
     z1d2=z1/z2     ,&
     z1d3=z1/z3     ,&  
-!   z2d3=z2/z3     ,&
     z3d2=z3/z2
-
-REAL (KIND=ireals), PARAMETER :: ustmin = 1.e-8_ireals
 
 REAL (KIND=ireals) :: xx
 
@@ -719,8 +716,9 @@ END SUBROUTINE init_canopy
 
 SUBROUTINE organize_turbdiff (lstfnct, lsfluse, &
 !
-          lturatm,ltursrf, iini, &
-          lmomdif,lscadif, itnd, &
+          lturatm, ltursrf, iini, &
+          ltkeinp, lgz0inp, &
+          lmomdif, lscadif, itnd, &
 !
           dt_var,dt_tke, nprv,ntur,ntim, &
 !
@@ -752,7 +750,7 @@ SUBROUTINE organize_turbdiff (lstfnct, lsfluse, &
           qv_conv, ut_sso, vt_sso, &
 !
           t_2m, qv_2m, td_2m, rh_2m, u_10m, v_10m, &
-          shfl_s, qvfl_s, &
+          shfl_s, qvfl_s, umfl_s, vmfl_s, &
 !
           ierrstat, errormsg, eroutine)
 
@@ -797,6 +795,11 @@ LOGICAL, INTENT(IN) :: &
 LOGICAL, OPTIONAL, INTENT(IN) :: &
 !
    lsfluse         !use explicit heat flux densities at the suface
+
+LOGICAL, INTENT(IN) :: &
+!
+    ltkeinp,     & ! TKE present as input (at level k=ke1 for current time level 'ntur')
+    lgz0inp        ! gz0 present as input
 
 REAL (KIND=ireals), INTENT(IN) :: & 
 !
@@ -1108,7 +1111,9 @@ REAL (KIND=ireals), DIMENSION(:), OPTIONAL, TARGET, INTENT(INOUT) :: &
 #endif
 !
      shfl_s,       & ! sensible heat flux at the surface             (W/m2)  (positive downward)
-     qvfl_s          ! water vapor   flux at the surface             (kg/kg) (positive downward)
+     qvfl_s,       & ! water vapor   flux at the surface             (kg/kg) (positive downward)
+     umfl_s,       & ! u-momentum flux at the surface                (N/m2)  (positive downward)
+     vmfl_s          ! v-momentum flux at the surface                (N/m2)  (positive downward)
 
 INTEGER (KIND=iintegers), INTENT(INOUT) :: ierrstat
 
@@ -1706,9 +1711,9 @@ SUBROUTINE turbtran
            dh,l_turb,lh,lm,z0d,z_surf,len1,len2, &
            dz_sg_m, dz_sg_h, dz_g0_m, dz_g0_h, &
            dz_s0_m, dz_sa_m, &
-           h_2m, h_10m, a_top, a_atm, a_2m, a_10m, &
-!test
-q1,q3,&
+           h_2m, h_10m, & !level heights (equal 2m and 10m)
+           a_2m, a_10m, & !turbulent distance of 2m- and 10m-level (with respect to diag. roughness)
+           a_atm, &       !turbulent distance of the atmosp. level (with respect to mean  roughness)
 !
 !     sonstiges:
 !
@@ -1728,13 +1733,13 @@ q1,q3,&
 !
 !US for a better vectorization (hopefully):
 !
-        h_top_2d (ie),    &
-        h_atm_2d (ie),    &
+        h_top_2d (ie),    & !boundary level height of transfer layer (top  level)
+        h_atm_2d (ie),    & !main     level heigth of transfer layer (atm. level)
 !
-        z0m_2d   (ie),    &
-        z0d_2d   (ie),    &
-        z2m_2d   (ie),    &
-        z10m_2d  (ie),    &
+        z0m_2d   (ie),    & !mean  roughness length
+        z0d_2d   (ie),    & !diag. roughness length
+        z2m_2d   (ie),    & !height of 2m  level (above the surface)
+        z10m_2d  (ie),    & !height of 10m level (above the surface)
 !
         hk_2d    (ie),    &
         hk1_2d   (ie),    &
@@ -1874,89 +1879,121 @@ q1,q3,&
 
       END DO
 
-      IF (lini) THEN
+! 3)  Berechnung einiger Laengenskalen und Initialisierung der Diffusionskoeff.:
+
+      ! Hoehe des 2m- und 10m-Niveaus:
+      h_2m  = z2
+      h_10m = z10
+
+      DO i=istartpar, iendpar
+         ! Dicke der Modell-Prandtl-Schicht
+         h_top_2d(i) = hhl(i,ke)-hhl(i,ke1)
+         h_atm_2d(i) = h_top_2d(i)*xf        
+      END DO
+
+      IF (lini) THEN !only for initialization
 
          DO i=istartpar, iendpar
 
-            IF (fr_land(i) <= z1d2) THEN
+!           Einfachste Schaetzung der Schubspannung als Impusls-
+!           flussdichte durch die Nebenflaeche ke mit Hilfe
+!           einer diagnostischen TKE ohne Beruecksichtigung von
+!           Feuchte-Effekten und mit neuchtralen Stabilitaets-
+!           funktion:
 
-!              Ueber Wasserpunkten:
+            l_turb=h_top_2d(i) !approx. turb. length scale at level ke
 
-              ! Use ice surface roughness or open-water surface roughness
-              ! according to lo_ice
-
-               IF ( lo_ice(i) ) THEN
-
-!                 Bei Eisdecke: 
-
-                  gz0(i)=grav*z0_ice
-               ELSE
-
-!                 Bei von Schubspannung abhaengiger Wellenhoehe:
-
-!                 Einfachste Schaetzung der Schubspannung als Impusls-
-!                 flussdichte durch die Nebenflaeche ke mit Hilfe
-!                 einer diagnostischen TKE ohne Beruecksichtigung von
-!                 Feuchte-Effekten und mit neuchtralen Stabilitaets-
-!                 funktion und Anwendung der Charnockflormel:
-
-                  l_turb=hhl(i,ke)-hhl(i,ke1)
 !test: different turb. length scale
-                  l_turb=akt*MAX( len_min, l_turb/(z1+l_turb/l_scal) )
+            l_turb=akt*MAX( len_min, l_turb/(z1+l_turb/l_scal) )
 !  l_turb=akt*MIN( l_scal, hhl(i,ke)-hhl(i,ke1) )
 !test
 
-                  dh=z1d2*(hhl(i,ke-1)-hhl(i,ke1))
+            dh=z1d2*(hhl(i,ke-1)-hhl(i,ke1))
 
-                  vel1=u(i,ke-1)
-                  vel2=u(i,ke  )
-                  grad(i,u_m)=(vel1-vel2)/dh
+            vel1=u(i,ke-1)
+            vel2=u(i,ke  )
+            grad(i,u_m)=(vel1-vel2)/dh
 
-                  vel1=v(i,ke-1)
-                  vel2=v(i,ke  )
-                  grad(i,v_m)=(vel1-vel2)/dh
+            vel1=v(i,ke-1)
+            vel2=v(i,ke  )
+            grad(i,v_m)=(vel1-vel2)/dh
 
-                  grad(i,tet_l)=(t(i,ke-1)-t(i,ke))/dh + tet_g
+            grad(i,tet_l)=(t(i,ke-1)-t(i,ke))/dh + tet_g
 
-                  fm2=MAX( grad(i,u_m)**2+grad(i,v_m)**2, fc_min )
-                  fh2=grav*grad(i,tet_l)/t(i,ke)
+            fm2=MAX( grad(i,u_m)**2+grad(i,v_m)**2, fc_min )
+            fh2=grav*grad(i,tet_l)/t(i,ke)
 
-                  ! Vereinfachte Loesung mit Rf=Ri:
-                  IF (fh2.GE.(z1-rim)*fm2) THEN
-                     ! Die krit. Ri-Zahl wird ueberschritten und lm, sowie lh
-                     ! werden durch lm bei der krit. Ri-Zahl angenaehert:
-                     fakt=z1/rim-z1
-                     lm=l_turb*(b_2-(a_6+a_3)*fakt)
-                     lh=lm
-                  ELSE
-                     fakt=fh2/(fm2-fh2)
-                     lm=l_turb*(b_2-(a_6+a_3)*fakt)
-                     lh=l_turb*(b_1-a_5*fakt)
-                  END IF
-
-                  val1=lm*fm2; val2=lh*fh2
-                  wert=MAX( val1-val2, rim*val1 )
-
-                  q0=SQRT(d_m*l_turb*wert)
-
-                  tke(i,ke,nvor)=q0
-
-                  wert=MAX(ustmin,lm*q0*SQRT(fm2))
-!                 gz0(i)=MAX( grav*len_min, alpha0*wert )
-                  gz0(i)=MAX( grav*len_min, &
-                                alpha0*wert+alpha1*grav*con_m/SQRT(wert) )
-               END IF
+            ! Vereinfachte Loesung mit Rf=Ri:
+            IF (fh2.GE.(z1-rim)*fm2) THEN
+               ! Die krit. Ri-Zahl wird ueberschritten und lm, sowie lh
+               ! werden durch lm bei der krit. Ri-Zahl angenaehert:
+               fakt=z1/rim-z1
+               lm=l_turb*(b_2-(a_6+a_3)*fakt)
+               lh=lm
+            ELSE
+               fakt=fh2/(fm2-fh2)
+               lm=l_turb*(b_2-(a_6+a_3)*fakt)
+               lh=l_turb*(b_1-a_5*fakt)
             END IF
 
-            tkvm(i,ke)=con_m
-            tkvh(i,ke)=con_h
-            tkvm(i,ke1)=con_m
-            tkvh(i,ke1)=con_h
+            val1=lm*fm2; val2=lh*fh2
+            wert=MAX( val1-val2, rim*val1 )
+
+            IF (ltkeinp) THEN
+               tke(i,ke,nvor)=tke(i,ke,ntur)
+            ELSE
+               tke(i,ke,nvor)=SQRT(d_m*l_turb*wert) 
+            END IF
+
+            tkvm(i,ke)=MAX(tkmmin,lm*tke(i,ke,nvor))
+            tkvh(i,ke)=MAX(tkhmin,lh*tke(i,ke,nvor))
+
+            wert=MAX( epsi, tkvm(i,ke)*SQRT(fm2) ) !estimate of U_star**2
+
+            IF (.NOT.lgz0inp .AND. fr_land(i) <= z1d2) THEN
+
+!              Roughness length for water or ice covered surface:
+
+              ! Use ice surface roughness or open-water surface roughness
+              ! according to lo_ice:
+
+               IF ( lo_ice(i) ) THEN ! ice covered surface
+                  gz0(i)=grav*z0_ice
+               ELSE !water covered surface
+!                 Schubspannung abhaengiger Wellenhoehe:
+
+                ! gz0(i)=MAX( grav*len_min, alpha0*wert )
+                  gz0(i)=MAX( grav*len_min, alpha0*wert+alpha1*grav*con_m/SQRT(wert) )
+               END IF
+            END IF 
+
+            wert=l_turb*SQRT(wert)
+            rat_m_2d(i)=wert/tkvm(i,ke)         !U_star/(q*Sm)
+            rat_h_2d(i)=wert/tkvh(i,ke)*b_1/b_2 !U_star/(q*Sh)*b_1/b_2
 
             rcld(i,ke1)=z0
 
          END DO
-      END IF
+      END IF !only for initialization
+
+      DO i=istartpar, iendpar
+         z0m_2d(i)  = gz0(i)/grav   !mean roughness length
+         l_tur_z0(i)= akt*z0m_2d(i) !turbulent length scale
+         frc_2d(i)  = z0m_2d(i)/(h_top_2d(i)+z0m_2d(i)) !length scale fraction
+      END DO   
+              
+      IF (lini) THEN
+         DO i=istartpar, iendpar
+            tkvm(i,ke1)=tkvm(i,ke)*frc_2d(i)*(frc_2d(i)+(z1-frc_2d(i))*rat_m_2d(i))
+            tkvh(i,ke1)=tkvh(i,ke)*frc_2d(i)*(frc_2d(i)+(z1-frc_2d(i))*rat_h_2d(i))
+         END DO
+      END IF   
+
+      !Profile factors by using the previous diffusion coefficients:
+      DO i=istartpar, iendpar
+         rat_m_2d(i)=frc_2d(i)*tkvm(i,ke)/tkvm(i,ke1)
+         rat_h_2d(i)=frc_2d(i)*tkvh(i,ke)/tkvh(i,ke1)
+      END DO   
 
 ! 4)  Berechnung der Transferkoeffizienten:
 
@@ -1965,28 +2002,13 @@ q1,q3,&
 
          DO i=istartpar, iendpar
 
-!           Berechnung der benoetigten Laengenskalen:
+!           Berechnung weiterer benoetigter Laengenskalen:
 
-            ! Dicke der Modell-Prandtl-Schicht
-            h_top_2d(i) = hhl(i,ke)-hhl(i,ke1)
-            h_atm_2d(i) = h_top_2d(i)*xf        
-
-            ! Hoehe des 2m- und 10m-Niveaus
-            h_2m  = z2
-            h_10m = z10
-
-            ! Rauhigkeitslaenge
-            z0m_2d(i) = gz0(i)/grav
+            ! effektive Rauhigkeitslaenge
             z_surf      = z0m_2d(i)/sai(i)
-
-            ! turbulente Laengenskala 
-            l_tur_z0(i) = akt*z0m_2d(i) 
 
             ! turbulente Distanz auf der untersten Hauptflaeche
             a_atm = h_atm_2d(i)+z0m_2d(i) 
-
-            ! turbulente Distanz auf der untersten Nebenflaeche
-            a_top = h_top_2d(i)+z0m_2d(i) 
 
 !           Laminare Korrektur der Diffusionskoeffizienten:
             tkvm(i,ke1)=MAX( con_m, tkvm(i,ke1) )
@@ -2027,20 +2049,18 @@ q1,q3,&
 
 !           der turb. Prandtl-Schicht:
 
-            rat_m=(tkvm(i,ke)*z0m_2d(i))/(tkvm(i,ke1)*a_top)
-            rat_m_2d(i)=MIN( z2, MAX( z1d2, rat_m ) )
+            fakt=z0m_2d(i)/h_top_2d(i)
             
-            fac_m=(rat_m_2d(i)-z1)*z0m_2d(i)/h_top_2d(i)
+            rat_m_2d(i)=MIN( z2, MAX( z1d2, rat_m_2d(i) ) )
+            fac_m=(rat_m_2d(i)-z1)*fakt            
             IF (fac_m.EQ.z1) THEN
                dz_0a_m(i)=z0m_2d(i)*h_atm_2d(i)/a_atm
             ELSE
                dz_0a_m(i)=z0m_2d(i)*LOG(a_atm/(z0m_2d(i)+fac_m*h_atm_2d(i)))/(z1-fac_m)
             END IF
 
-            rat_h=(tkvh(i,ke)*z0m_2d(i))/(tkvh(i,ke1)*a_top)
-            rat_h_2d(i)=MIN( z2, MAX( z1d2, rat_h ) )
-
-            fac_h_2d(i)=(rat_h_2d(i)-z1)*z0m_2d(i)/h_top_2d(i)
+            rat_h_2d(i)=MIN( z2, MAX( z1d2, rat_h_2d(i) ) )
+            fac_h_2d(i)=(rat_h_2d(i)-z1)*fakt
             IF (fac_h_2d(i).EQ.z1) THEN
                dz_0a_h(i)=z0m_2d(i)*h_atm_2d(i)/a_atm
             ELSE
@@ -2050,7 +2070,7 @@ q1,q3,&
 
 !           von den Oberflaechen bis zum Oberrand der Prandtl-Schicht
 !           (unterste Modell-Hauptflaeche):
-            dz_sa_m      = dz_s0_m      + dz_0a_m(i)
+            dz_sa_m    = dz_s0_m    + dz_0a_m(i)
             dz_sa_h(i) = dz_s0_h(i) + dz_0a_h(i)
 
 !           Reduktionsfaktoren fuer die Bestandesschicht
@@ -2140,7 +2160,7 @@ q1,q3,&
 
          CALL adjust_satur_equil ( ke1,                                    &
 !
-              istartpar,iendpar, ke1,ke1,                                  &
+              istartpar,iendpar, ke1, ke1,                                 &
 !  
               lcalrho=.TRUE., lcalepr=.NOT.lprfcor, lcaltdv=.TRUE.,        &
               lpotinp=.FALSE., ladjout=.FALSE.,                            &
@@ -2203,28 +2223,35 @@ q1,q3,&
                   tkvh(i,ke1)=l_tur_z0(i)*(b_1-a_5*fakt)
                END IF
 
-               val1=tkvm(i,ke1)*fm2_2d(i); val2=tkvh(i,ke1)*fh2_2d(i)
-               wert=MAX( val1-val2, rim*val1 )
-               tke(i,ke1,nvor)=MAX( SQRT(d_m*l_tur_z0(i)*wert), vel_min )
+               val1=tkvm(i,ke1)*fm2_2d(i)
+               val2=tkvh(i,ke1)*fh2_2d(i)
+               frc_2d(i)=MAX( val1-val2, rim*val1 )
 
             END DO
 
+            IF (.NOT.ltkeinp) THEN !TKE not present as input
+               DO i=istartpar, iendpar
+                  tke(i,ke1,nvor)=MAX( SQRT(d_m*l_tur_z0(i)*frc_2d(i)), vel_min )
+               END DO
+            END IF   
+     
          ELSE ! mit Hilfe der vorhergehenden TKE-Werte 
 
             DO i=istartpar, iendpar
                tkvm(i,ke1)=tkvm(i,ke1)/tke(i,ke1,nvor)
                tkvh(i,ke1)=tkvh(i,ke1)/tke(i,ke1,nvor)
             END DO
+
          END IF
+       
 
 ! 4f)    Bestimmung des neuen SQRT(2*TKE)-Wertes:
 
-         CALL solve_turb_budgets (ke1,                                                              &
+         CALL solve_turb_budgets( ke1,                                                              &
 !
-                                  istartpar,iendpar, ke1,ke1,                                       &
+                                  istartpar, iendpar, ke1, ke1,                                     &
 !
-! JF:                             imode_stke=imode_tran,                                            &
-                                  imode_stke=0,                                                     &
+                                  imode_stke=imode_tran,                                            &
 !
                                   fm2=RESHAPE(fm2_2d,(/ie,1/)), fh2=RESHAPE(fh2_2d,(/ie,1/)),       &
 #ifdef SCLM
@@ -2232,6 +2259,7 @@ q1,q3,&
 #endif
 !-------------------------------------------------------------------------------
                                   tls=len_scale(:,ke1:ke1), tvt=tvt(:,ke1:ke1) )
+
 
          DO i=istartpar, iendpar
 
@@ -2267,7 +2295,7 @@ q1,q3,&
                   gz0(i)=grav*z0_ice
                ELSE
                   velo=(tke(i,ke1,ntur)+tke(i,ke,nvor))*z1d2
-                  wert=MAX(ustmin,tcm(i)*vel_2d(i)*SQRT(vel_2d(i)**2+velo**2))
+                  wert=MAX( epsi, tcm(i)*vel_2d(i)*SQRT(vel_2d(i)**2+velo**2) )
 !                 gz0(i)=MAX( grav*len_min, alpha0*wert )
                   gz0(i)=MAX( grav*len_min, alpha0*wert+grav*alpha1*con_m/SQRT(wert) )
                END IF
@@ -2276,17 +2304,29 @@ q1,q3,&
             ELSE
                !Die Rauhigkeitslaenge einer SYNOP Station soll immer
                !kleiner als 10m bleiben:
-               z0d_2d(i)=MIN( z10, z0m_dia )
+               z0d_2d(i)=MIN( h_10m, z0m_dia )
             END IF
          END DO
 
-         IF (it_durch.LT.it_end) THEN
-            nvor=ntur !benutze nun aktuelle TKE-Werte als Vorgaengerwerte
+         IF (it_durch.LT.it_end) THEN !at least one additional iteration
+
+            !Profile factors using U_star**2=tkvm*SQRT(fm2):
+            DO i=istartpar,iendpar
+               fakt=h_top_2d(i)/z0m_2d(i)                         !(l_a-l_0)/l_0; l_0=akt*z0m
+               wert=l_tur_z0(i)*SQRT(tkvm(i,ke1)*SQRT(fm2_2d(i))) !l_0*U_star
+               rat_m_2d(i)=z1+fakt*(z1-        (wert/tkvm(i,ke1)))
+               rat_h_2d(i)=z1+fakt*(z1-b_1/b_2*(wert/tkvh(i,ke1)))
+            END DO
+
+            IF (.NOT.ltkeinp) THEN
+               nvor=ntur !benutze nun aktuelle TKE-Werte als Vorgaengerwerte
+            END IF
+
          END IF
 
       END DO !Iteration
 
-      
+
 ! 4j) Berechnung der Standardabweichnung des Saettigungsdefizites:
 
 !k->ke1
@@ -2295,7 +2335,7 @@ q1,q3,&
                        ABS(epr_2d(i)*qsat_dT(i)*vari(i,ke1,tet_l)-vari(i,ke1,h2o_g))
       ENDDO
 
-! 4h) Berechnung der Enthalpieflussdichten und der EDR am Unterrand:
+! 4h) Berechnung der Enthalpie- und Impulsflussdichten sowie der EDR am Unterrand:
 
       IF (PRESENT(shfl_s)) THEN
          DO i=istartpar,iendpar
@@ -2331,6 +2371,17 @@ q1,q3,&
          END IF
 #endif
 !SCLM --------------------------------------------------------------------------------
+      END IF
+
+      IF (PRESENT(umfl_s)) THEN
+         DO i=istartpar,iendpar
+            umfl_s(i)=rho_2d(i,ke1)*tkvm(i,ke1)*grad(i,u_m)
+         END DO
+      END IF
+      IF (PRESENT(vmfl_s)) THEN
+         DO i=istartpar,iendpar
+            vmfl_s(i)=rho_2d(i,ke1)*tkvm(i,ke1)*grad(i,v_m)
+         END DO
       END IF
 
       IF (PRESENT(edr)) THEN
@@ -3207,7 +3258,7 @@ SUBROUTINE turbdiff
       IF ((lsfli(tem) .AND. .NOT.PRESENT(shfl_s)) .OR. &
           (lsfli(vap) .AND. .NOT.PRESENT(qvfl_s))) THEN
          ierrstat = 1004; lerror=.TRUE.
-         errormsg='ERROR *** forcing with not present surface flux densities  ***'
+         errormsg='ERROR *** forcing with not present surface heat flux densities  ***'
          RETURN
       ENDIF
 
@@ -3408,6 +3459,7 @@ SUBROUTINE turbdiff
 
 !print *,"nach interpol"
 
+
 !     Bestimmung der Rauhigkeitslaenge 
 !     und der effektiven Dicke der Modell-Prandtlschicht:
 
@@ -3519,10 +3571,15 @@ SUBROUTINE turbdiff
                   lh=len*(b_1-a_5*fakt)
                END IF
 
-               val1=lm*fm2; val2=lh*fh2
-               wert=MAX( val1-val2, rim*val1 )
+               val1=lm*fm2
+               val2=lh*fh2
+               hlp(i,k)=MAX( val1-val2, rim*val1 )
 
-               tke(i,k,1)=MAX( vel_min, SQRT(d_m*len*wert) ) !Initialwert fuer SQRT(2TKE)
+               IF (ltkeinp) THEN
+                  tke(i,ke,1)=tke(i,ke,ntur)
+               ELSE
+                  tke(i,k,1)=MAX( vel_min, SQRT(d_m*len*hlp(i,k)) ) !Initialwert fuer SQRT(2TKE)
+               END IF
 
                tkvm(i,k)=lm*tke(i,k,1)
                tkvh(i,k)=lh*tke(i,k,1)
@@ -3531,6 +3588,7 @@ SUBROUTINE turbdiff
 !              Diffusion von q=SQRT(2*TKE) berechnet werden:
 
                tketens(i,k)=z0
+
             END DO
  
          END DO   
@@ -3549,6 +3607,7 @@ SUBROUTINE turbdiff
 
       END IF
 !print *,"nach tke-init"
+
 
 ! 2)  Berechnung der benoetigten vertikalen Gradienten und
 !     Abspeichern auf vari():
@@ -3901,24 +3960,26 @@ SUBROUTINE turbdiff
         !die gegenueber den Vorgaengerwerten um einen Zeitschritt weiter in der Zukunft liegen,
         !also wieder zur Zeitstufe der uebrigen prognostischen Variablen gehoeren.
 
-         CALL solve_turb_budgets (1,                                               &
+         CALL solve_turb_budgets (1,                              &
 !
-                                  istartpar, iendpar, 2, kem,                      &
+                                  istartpar, iendpar, 2, kem,     &
 !
-                                  imode_stke=imode_turb,                           &
+                                  imode_stke=imode_turb,          &
 #ifdef SCLM
-                                  it_s=it_durch, grd=vari,                         &
+                                  it_s=it_durch, grd=vari,        &
 #endif
-!-------------------------------------------------------------------------------
-                                  fm2=frm, fh2=frh, fcd=can, tls=len_scale, tvt=tketens )
+                                  fm2=frm, fh2=frh, fcd=can,      &
+                                  tls=len_scale, tvt=tketens )
 
-         IF (it_durch.LT.it_end) THEN
+         IF (it_durch.LT.it_end .AND. .NOT.ltkeinp) THEN
             nvor=ntur !benutze nun aktuelle TKE-Werte als Vorgaengerwerte
          END IF   
 
       END DO
 
+
 !return
+
 !     Kein TKE-Gradient am Oberrand:
 
       DO i=istartpar,iendpar
@@ -3931,8 +3992,6 @@ SUBROUTINE turbdiff
             DO i=istartpar,iendpar
                tkvh(i,k)=MAX( con_h, tkhmin, tkvh(i,k)*tke(i,k,ntur) )
                tkvm(i,k)=MAX( con_m, tkmmin, tkvm(i,k)*tke(i,k,ntur) )
-! JF:                tkvh(i,k)=tkvh(i,k)*tke(i,k,ntur)
-! JF:                tkvm(i,k)=tkvm(i,k)*tke(i,k,ntur)
             END DO
          END DO
 
@@ -5025,7 +5084,6 @@ SUBROUTINE solve_turb_budgets ( ktp, &
 #ifdef SCLM
    it_s, grd,                        &
 #endif
-!---------------------------------------------------------------------------------------
    fcd, tls, tvt )
 
 INTEGER (KIND=iintegers), INTENT(IN) :: &  !
@@ -5189,52 +5247,56 @@ LOGICAL :: corr
 
 !    Berechnung der neuen TKE-Werte:
 
-     IF (imode_stke.EQ.1) THEN !1-st (former) type of prognostic solution
-        DO i=i_st, i_en
-           q0=tke(i,k,nvor)
-           q1=l_dis(i)/dt_tke
-           q2=MAX(z0,q0+tvt(i,k)*dt_tke)+frc(i)*dt_tke
-           tvs(i)=q1*(SQRT(z1+z4*q2/q1)-z1)*z1d2
-        END DO    
-     ELSEIF (imode_stke.EQ.2) THEN !2-nd (new) type of prognostic solution
-!print *,"tens=",k,q0,tvt(im,k),q0+tvt(im,k)*dt_tke
-        DO i=i_st, i_en
-           q0=tke(i,k,nvor)
-           fakt=z1/(z1+z2*dt_tke*q0/l_dis(i))
-           q1=fakt*(tvt(i,k)+frc(i))*dt_tke
-           tvs(i)=q1+SQRT(q1**2+fakt*(q0**2+z2*dt_tke*con_m*fm2(i,k)))
-        END DO    
-     ELSEIF (imode_stke.EQ.-1) THEN !diagn. solution of station. TKE-equation
-        DO i=i_st, i_en
-           q0=tke(i,k,nvor)
-           q2=l_dis(i)*(tvt(i,k)+frc(i))
-           q3=l_dis(i)*con_m*fm2(i,k)
-           IF (q2.GE.z0) THEN
-            ! tvs(i)=SQRT(q2+q3/q0)
-              tvs(i)=(q2*q0+q3)**z1d3
-           ELSEIF (q2.LT.z0) THEN
-              tvs(i)=SQRT(q3/(q0-q2/q0))
-           ELSE
-              tvs(i)=q3**z1d3
-           END IF
-        END DO
-     ELSE !standard diagnostic solution
-        DO i=i_st, i_en
-           tvs(i)=SQRT(l_dis(i)*MAX( frc(i), z0 ))
-        END DO
-     END IF    
+     IF (.NOT.ltkeinp) THEN 
 
-     DO i=i_st, i_en
-        q2=SQRT(l_frc(i)*MAX( frc(i), z0 ))
+        IF (imode_stke.EQ.1) THEN !1-st (former) type of prognostic solution
+           DO i=i_st, i_en
+              q0=tke(i,k,nvor)
+              q1=l_dis(i)/dt_tke
+              q2=MAX(z0,q0+tvt(i,k)*dt_tke)+frc(i)*dt_tke
+              tvs(i)=q1*(SQRT(z1+z4*q2/q1)-z1)*z1d2
+           END DO    
+        ELSEIF (imode_stke.EQ.2) THEN !2-nd (new) type of prognostic solution
+!print *,"tens=",k,q0,tvt(im,k),q0+tvt(im,k)*dt_tke
+           DO i=i_st, i_en
+              q0=tke(i,k,nvor)
+              fakt=z1/(z1+z2*dt_tke*q0/l_dis(i))
+              q1=fakt*(tvt(i,k)+frc(i))*dt_tke
+              tvs(i)=q1+SQRT(q1**2+fakt*(q0**2+z2*dt_tke*con_m*fm2(i,k)))
+           END DO    
+        ELSEIF (imode_stke.EQ.-1) THEN !diagn. solution of station. TKE-equation
+           DO i=i_st, i_en
+              q0=tke(i,k,nvor)
+              q2=l_dis(i)*(tvt(i,k)+frc(i))
+              q3=l_dis(i)*con_m*fm2(i,k)
+              IF (q2.GE.z0) THEN
+               ! tvs(i)=SQRT(q2+q3/q0)
+                 tvs(i)=(q2*q0+q3)**z1d3
+              ELSEIF (q2.LT.z0) THEN
+                 tvs(i)=SQRT(q3/(q0-q2/q0))
+              ELSE
+                 tvs(i)=q3**z1d3
+              END IF
+           END DO
+        ELSE !standard diagnostic solution
+           DO i=i_st, i_en
+              tvs(i)=SQRT(l_dis(i)*MAX( frc(i), z0 ))
+           END DO
+        END IF    
+
+        DO i=i_st, i_en
+           q2=SQRT(l_frc(i)*MAX( frc(i), z0 ))
 !________________________________________________________________
 !test: ohne tkesecu*vel_min als untere Schranke
-        tke(i,k,ntur)=MAX( tkesecu*vel_min, tkesecu*q2, w1*tke(i,k,nvor)+w2*tvs(i) )
-!       tke(i,k,ntur)=MAX(                  tkesecu*q2, w1*tke(i,k,nvor)+w2*tvs(i) )
+           tke(i,k,ntur)=MAX( tkesecu*vel_min, tkesecu*q2, w1*tke(i,k,nvor)+w2*tvs(i) )
+!          tke(i,k,ntur)=MAX(                  tkesecu*q2, w1*tke(i,k,nvor)+w2*tvs(i) )
 !________________________________________________________________
-     END DO    
-     !'q2' ist ein Minimalwert fuer 'tke', mit dem die Abweichung vom TKE-Gleichgewicht
-     !den Wert besitzt, der mit dem gegebenen 'frc' bei neutraler Schichtung nicht
-     !ueberschritten werden kann.
+        END DO    
+        !'q2' ist ein Minimalwert fuer 'tke', mit dem die Abweichung vom TKE-Gleichgewicht
+        !den Wert besitzt, der mit dem gegebenen 'frc' bei neutraler Schichtung nicht
+        !ueberschritten werden kann.
+
+     END IF
 
 !    Berechnung der neuen stabilitaetsabhangigen Laengenskalen:
 
@@ -5289,8 +5351,12 @@ LOGICAL :: corr
            sh=be1*a22-be2*a12
            sm=be2*a11-be1*a21
 
-!          Obere Schranke fuer die Abweichung 'gama' vom TKE-Gleichgewicht:
-           gam0=stbsecu/d0+(z1-stbsecu)*(z1-c_g)/d4
+           IF (ltkeinp) THEN
+              gam0=z1/d0 !TKE-equilibrium
+           ELSE
+!             Obere Schranke fuer die Abweichung 'gama' vom TKE-Gleichgewicht:
+              gam0=stbsecu/d0+(z1-stbsecu)*(z1-c_g)/d4
+           END IF
 
            IF (fakt.GT.z0 .AND. sh.GT.z0 .AND. sm.GT.z0) THEN !Loesung moeglich
               fakt=z1/fakt
@@ -5319,7 +5385,9 @@ LOGICAL :: corr
 
 !_________________________________________________
 !test: gama mit vorangegangenem forcing (wie zuvor): Bewirkt Unterschiede!
- gama=frc(i)*tls(i,k)/tke(i,k,ntur)**2
+IF (.NOT.ltkeinp) THEN
+   gama=frc(i)*tls(i,k)/tke(i,k,ntur)**2
+END IF
 !_________________________________________________
               gama=MIN( gam0, gama )
 
