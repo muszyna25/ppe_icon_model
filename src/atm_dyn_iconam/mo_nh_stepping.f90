@@ -1297,7 +1297,9 @@ MODULE mo_nh_stepping
             &                  p_lnd_state(jg)%prog_lnd(n_new_rcf),& !inout
             &                  p_lnd_state(jg)%prog_wtr(n_now_rcf),& !inout
             &                  p_lnd_state(jg)%prog_wtr(n_new_rcf),& !inout
-            &                  p_nh_state(jg)%prog_list(n_new_rcf) ) !in
+            &                  p_nh_state(jg)%prog_list(n_new_rcf),& !in
+            &                  prep_adv(jg)%rhodz_mc_now,          & !in
+            &                  prep_adv(jg)%rhodz_mc_new           ) !in
 
           ! Boundary interpolation of land state variables entering into radiation computation
           ! if a reduced grid is used in the child domain(s)
@@ -1618,7 +1620,9 @@ MODULE mo_nh_stepping
       &                  p_lnd_state(jg)%prog_lnd(n_now_rcf),& !inout
       &                  p_lnd_state(jg)%prog_wtr(n_now_rcf),& !inout
       &                  p_lnd_state(jg)%prog_wtr(n_now_rcf),& !inout
-      &                  p_nh_state(jg)%prog_list(n_now_rcf) ) 
+      &                  p_nh_state(jg)%prog_list(n_now_rcf),& !in
+      &                  prep_adv(jg)%rhodz_mc_now,          & !in
+      &                  prep_adv(jg)%rhodz_mc_new           ) !in 
 
 
     ! Boundary interpolation of land state variables entering into radiation computation

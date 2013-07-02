@@ -139,7 +139,8 @@ CONTAINS
                             & prm_diag, prm_nwp_tend, lnd_diag,    &
                             & lnd_prog_now, lnd_prog_new,          & !inout
                             & wtr_prog_now, wtr_prog_new,          & !inout
-                            & p_prog_list                          ) !in  
+                            & p_prog_list,                         & ! in
+                            & rhodz_now_rcf, rhodz_new_rcf         ) !in  
 
     !>
     ! !INPUT PARAMETERS:
@@ -175,6 +176,8 @@ CONTAINS
     TYPE(t_lnd_diag),           INTENT(inout) :: lnd_diag
 
     TYPE(t_var_list), INTENT(in) :: p_prog_list !current prognostic state list
+
+    REAL(wp),INTENT(in)          :: rhodz_now_rcf(:,:,:), rhodz_new_rcf(:,:,:)
 
     ! !OUTPUT PARAMETERS:            !<variables induced by the whole physics
     ! Local array bounds:
@@ -646,16 +649,19 @@ CONTAINS
           ENDDO
         ENDDO
 
-        ! This loop needs to be split here in order to ensure that the same
-        ! compiler optimization is applied as in the next loop below, where
+        ! This loop needs to be split here in order to ensure that the same compiler
+        ! optimization is applied as in a corresponding loop later in this module, where
         ! the same calculations are made for the halo points.
         DO jk = kstart_moist(jg), nlev
           DO jc =  i_startidx, i_endidx
 
-            ! finally compute dynamical temperature tendency
-            pt_diag%ddt_temp_dyn(jc,jk,jb) = cpd_o_rd*pt_diag%temp(jc,jk,jb)  &
-              * pt_diag%exner_dyn_incr(jc,jk,jb)/dt_phy_jg(itfastphy)         &
-              / pt_prog%exner(jc,jk,jb) 
+            ! compute dynamical temperature tendency from increments of Exner function and density
+            ! the virtual increment is neglected here because this tendency is used only as
+            ! input for the convection scheme, which is rather insensitive against this quantity
+            pt_diag%ddt_temp_dyn(jc,jk,jb) = pt_diag%temp(jc,jk,jb)/dt_phy_jg(itfastphy) * &
+              ( cpd_o_rd/pt_prog%exner(jc,jk,jb)*pt_diag%exner_dyn_incr(jc,jk,jb) -        &
+              ( rhodz_new_rcf(jc,jk,jb)-rhodz_now_rcf(jc,jk,jb) ) /                        &
+              ( pt_prog%rho(jc,jk,jb)*p_metrics%ddqz_z_full(jc,jk,jb) ) )
 
             ! reset dynamical exner increment to zero
             ! (it is accumulated over one advective time step in solve_nh)
