@@ -732,7 +732,6 @@ SUBROUTINE organize_turbdiff (lstfnct, lsfluse, &
 #ifdef __COSMO__
           eddlon, eddlat, edadlat, acrlat, &
 #endif
-!---------------------------------------------------------------------
           hhl, dp0, &
 !
           fr_land, depth_lk, h_ice, gz0, sai, &
@@ -753,7 +752,7 @@ SUBROUTINE organize_turbdiff (lstfnct, lsfluse, &
           qv_conv, ut_sso, vt_sso, &
 !
           t_2m, qv_2m, td_2m, rh_2m, u_10m, v_10m, &
-          shfl_s, lhfl_s, &
+          shfl_s, qvfl_s, &
 !
           ierrstat, errormsg, eroutine)
 
@@ -789,12 +788,15 @@ IMPLICIT NONE
 LOGICAL, INTENT(IN) :: &
 !
    lstfnct,      & !calculation of stability function required
-   lsfluse,      & !use explicit heat flux densities at the suface
    lmomdif,      & !calculation of complete gradient diffusion of horizontal momenum
    lscadif,      & !calculation of complete gradient diffusion of scalar properties
    lturatm,      & !running turbulence model between atmosph. layers (updating diffusion coefficients)
    ltursrf         !running turbulence model at the surface layer (updating transfer coefficients 
                    !                                               and near surface variables) 
+
+LOGICAL, OPTIONAL, INTENT(IN) :: &
+!
+   lsfluse         !use explicit heat flux densities at the suface
 
 REAL (KIND=ireals), INTENT(IN) :: & 
 !
@@ -835,9 +837,6 @@ INTEGER (KIND=iintegers), INTENT(IN) :: &
 ! Horizontal indices:
     i_st,    i_en,    & ! start and end index of mass points 
     i_stp,   i_enp      ! start and end index of mass points including model boundary lines
-
-! Time step indices:
-! -----------------------------------------------------------------------
 
 REAL (KIND=ireals), INTENT(IN) :: &
 !
@@ -1087,9 +1086,9 @@ REAL (KIND=ireals), DIMENSION(:,:), OPTIONAL, INTENT(OUT) :: &
      tket_sso        ! TKE-tendency due to SSO wake production       (m2/s3)
 
 #ifdef __xlC__
-REAL (KIND=ireals), DIMENSION(ie), INTENT(OUT) :: &
+REAL (KIND=ireals), DIMENSION(ie), OPTIONAL, INTENT(OUT) :: &
 #else
-REAL (KIND=ireals), DIMENSION(:), INTENT(OUT) :: &
+REAL (KIND=ireals), DIMENSION(:), OPTIONAL, INTENT(OUT) :: &
 #endif
 !
 ! Diagnostic near surface variables:
@@ -1108,8 +1107,8 @@ REAL (KIND=ireals), DIMENSION(ie), OPTIONAL, TARGET, INTENT(INOUT) :: &
 REAL (KIND=ireals), DIMENSION(:), OPTIONAL, TARGET, INTENT(INOUT) :: &
 #endif
 !
-     shfl_s,       & ! sensible heat flux at the surface             (W/m2) (positive downward)
-     lhfl_s          ! latent   heat flux at the surface             (W/m2) (positive downward)
+     shfl_s,       & ! sensible heat flux at the surface             (W/m2)  (positive downward)
+     qvfl_s          ! water vapor   flux at the surface             (kg/kg) (positive downward)
 
 INTEGER (KIND=iintegers), INTENT(INOUT) :: ierrstat
 
@@ -1907,7 +1906,7 @@ q1,q3,&
 !  l_turb=akt*MIN( l_scal, hhl(i,ke)-hhl(i,ke1) )
 !test
 
-                  dh=hhl(i,ke-1)-hhl(i,ke1)
+                  dh=z1d2*(hhl(i,ke-1)-hhl(i,ke1))
 
                   vel1=u(i,ke-1)
                   vel2=u(i,ke  )
@@ -1917,8 +1916,7 @@ q1,q3,&
                   vel2=v(i,ke  )
                   grad(i,v_m)=(vel1-vel2)/dh
 
-                  grad(i,tet_l)=z2*(t(i,ke-1)-t(i,ke))/dh &
-                                 +tet_g
+                  grad(i,tet_l)=(t(i,ke-1)-t(i,ke))/dh + tet_g
 
                   fm2=MAX( grad(i,u_m)**2+grad(i,v_m)**2, fc_min )
                   fh2=grav*grad(i,tet_l)/t(i,ke)
@@ -2289,23 +2287,6 @@ q1,q3,&
       END DO !Iteration
 
       
-! JF:       IF (iini.EQ.1) THEN !only for separate initialization before the time loop
-! JF:          RETURN !finish this subroutine
-! JF:       END IF
-
-!     Berechnung der Enthalpieflussdichten:
-      
-      IF (PRESENT(shfl_s)) THEN 
-         DO i=istartpar,iendpar
-            shfl_s(i)=cp_d*rho_2d(i,ke1)*tkvh(i,ke1)*grad(i,tet_l)
-         END DO
-      END IF
-      IF (PRESENT(lhfl_s)) THEN 
-         DO i=istartpar,iendpar
-            lhfl_s(i)=lh_v*rho_2d(i,ke1)*tkvh(i,ke1)*grad(i,h2o_g)
-         END DO
-      END IF   
-
 ! 4j) Berechnung der Standardabweichnung des Saettigungsdefizites:
 
 !k->ke1
@@ -2315,12 +2296,6 @@ q1,q3,&
       ENDDO
 
 ! 4h) Berechnung der Enthalpieflussdichten und der EDR am Unterrand:
-
-      IF (PRESENT(edr)) THEN
-         DO i=i_st,i_en
-            edr(i,ke1)=tke(i,ke1,ntur)**3/(d_m*l_tur_z0(i))
-         END DO
-      END IF
 
       IF (PRESENT(shfl_s)) THEN
          DO i=istartpar,iendpar
@@ -2340,22 +2315,28 @@ q1,q3,&
 !SCLM --------------------------------------------------------------------------------
       END IF
 
-      IF (PRESENT(lhfl_s)) THEN
+      IF (PRESENT(qvfl_s)) THEN
          DO i=istartpar,iendpar
-            lhfl_s(i)=lh_v*rho_2d(i,ke1)*tkvh(i,ke1)*grad(i,h2o_g)
-            !Note: lhfl_s is positive downward!
+            qvfl_s(i)=rho_2d(i,ke1)*tkvh(i,ke1)*grad(i,h2o_g)
+            !Note: qvfl_s is positive downward!
          END DO
 !SCLM --------------------------------------------------------------------------------
 #ifdef SCLM
          IF (LHF%mod(0)%vst.GT.i_cal .AND. LHF%mod(0)%ist.EQ.i_mod) THEN 
             !measured LHF has to be used for forcing:
-            lhfl_s(im)=LHF%mod(0)%val
+            qvfl_s(im)=LHF%mod(0)%val / lh_v
          ELSEIF (lsurflu) THEN !LHF defined by explicit surface flux density
-            LHF%mod(0)%val=lhfl_s(im)
+            LHF%mod(0)%val=qvfl_s(im) * lh_v
             LHF%mod(0)%vst=MAX(i_upd, LHF%mod(0)%vst) !LHF is at least updated
          END IF
 #endif
 !SCLM --------------------------------------------------------------------------------
+      END IF
+
+      IF (PRESENT(edr)) THEN
+         DO i=i_st,i_en
+            edr(i,ke1)=tke(i,ke1,ntur)**3/(d_m*l_tur_z0(i))
+         END DO
       END IF
 
 !----------------------------------------
@@ -3215,7 +3196,7 @@ SUBROUTINE turbdiff
          !measured LHF has to be used for forcing:
          lsfli(vap)=.TRUE.
       END IF
-      !Note: the measured SHF and LHF must already have been loaded to shfl_s and lhfl_s!
+      !Note: the measured SHF and LHF must already have been loaded to shfl_s and qvfl_s!
 #endif
 !SCLM --------------------------------------------------------------------------------
          
@@ -3224,14 +3205,14 @@ SUBROUTINE turbdiff
       END IF
 
       IF ((lsfli(tem) .AND. .NOT.PRESENT(shfl_s)) .OR. &
-          (lsfli(vap) .AND. .NOT.PRESENT(lhfl_s))) THEN
+          (lsfli(vap) .AND. .NOT.PRESENT(qvfl_s))) THEN
          ierrstat = 1004; lerror=.TRUE.
-         errormsg='ERROR *** forcing with not present surface heat flux densities  ***'
+         errormsg='ERROR *** forcing with not present surface flux densities  ***'
          RETURN
       ENDIF
 
       IF (lsfli(tem)) dvar(tem)%sv => shfl_s
-      IF (lsfli(vap)) dvar(vap)%sv => lhfl_s
+      IF (lsfli(vap)) dvar(vap)%sv => qvfl_s
 
       IF (PRESENT(ptr)) THEN !passive tracers are present
          DO m=1, ntrac
@@ -4127,9 +4108,9 @@ SUBROUTINE turbdiff
          !Note:'vari(tet)' belongs to potential temperature,
          !     and 'a(1)' contains Exner factor on half levels.
       END IF
-      IF (lsfli(vap)) THEN !use explicit lhfl_s
+      IF (lsfli(vap)) THEN !use explicit qvfl_s
          DO i=istartpar,iendpar
-            vari(i,ke1,vap)=lhfl_s(i)/(lh_v*rhon(i,ke1)*tkvh(i,ke1))
+            vari(i,ke1,vap)=qvfl_s(i)/(rhon(i,ke1)*tkvh(i,ke1))
          END DO
       END IF
       !Note: "tkvh(ke1) > 0.0" is required!
@@ -4561,17 +4542,13 @@ SUBROUTINE turbdiff
                   DO i=istart,iend
                      vari(i,ke1,m)=vari(i,ke1,m)/(cp_d*zexner(ps(i)))
                   END DO
-               ELSEIF (n.eq.vap) THEN !flux density is that of latent heat
-                  DO i=istart,iend
-                     vari(i,ke1,m)=vari(i,ke1,m)/lh_v
-                  END DO
                END IF
                !Note:
                !In this case the surface concentration is not used in 'vert_grad_diff'!
                !'tkv(ke1)' needs to be >0, which is always the case, if calculated by 'turbtran'!
                !Thus "tkvh(ke1)=0.0" should not be forced, if "lsfli=.TRUE"!
                !For tracers it is "m=nmvar"!
-               !In case of "lturatm=T" 'vari(ke1)' has already been loaded using shlf_s or lhfl_s!
+               !In case of "lturatm=T" 'vari(ke1)' has already been loaded using shlf_s or qvfl_s!
             END IF      
 
 !           Belegung der Eingangsprofile und -Tendenzen:
@@ -4730,9 +4707,9 @@ SUBROUTINE turbdiff
               shfl_s(i)=zexner(ps(i))*cp_d*vari(i,ke1,tet)
            END DO
         END IF
-        IF (PRESENT(lhfl_s)) THEN
+        IF (PRESENT(qvfl_s)) THEN
            DO i=i_st,i_en
-              lhfl_s(i)=lh_v*vari(i,ke1,vap)
+              qvfl_s(i)=vari(i,ke1,vap)
            END DO
         END IF
  
@@ -4740,7 +4717,7 @@ SUBROUTINE turbdiff
 #ifdef SCLM 
         IF (lsclm .AND. latmflu) THEN
            SHF%mod(0)%val=zexner(ps(im))*cp_d*vari(im,ke1,tet); SHF%mod(0)%vst=i_cal
-           LHF%mod(0)%val=                  lh_v*vari(im,ke1,vap); LHF%mod(0)%vst=i_cal
+           LHF%mod(0)%val=               lh_v*vari(im,ke1,vap); LHF%mod(0)%vst=i_cal
 !print *,"in turbdiff: latmflu=",latmflu," shf=",SHF%mod(0)%val
 !print *,"in turbdiff: latmflu=",latmflu," lhf=",LHF%mod(0)%val
 !read *,xx
@@ -4755,7 +4732,7 @@ SUBROUTINE turbdiff
 #endif 
 !SCLM-----------------------------------------------------------------------------------
 
-        !Bem: shfl_s und lhfl_s, sowie SHF und LHF sind positiv abwaerts!
+        !Bem: shfl_s und qvfl_s, sowie SHF und LHF sind positiv abwaerts!
       END IF
 
 ! 11) Berechnung der Tendenzen infloge horizontaler turb. Diffusion

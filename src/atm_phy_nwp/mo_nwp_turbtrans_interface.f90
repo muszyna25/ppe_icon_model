@@ -294,7 +294,7 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
 
           nlevcm = nlevp1
           
-          CALL organize_turbdiff( lstfnct=.TRUE., lsfluse=.TRUE., &
+          CALL organize_turbdiff( lstfnct=.TRUE., &
             &  lturatm=.FALSE., ltursrf=.TRUE., iini=0, &
 ! JF:             &  ltkeinp=.FALSE., lgz0inp=.FALSE., &
             &  lmomdif=.FALSE., lscadif=.FALSE., itnd=0, &
@@ -319,11 +319,11 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
             &  t_2m=prm_diag%t_2m(:,jb), qv_2m=prm_diag%qv_2m(:,jb), &
             &  td_2m=prm_diag%td_2m(:,jb), rh_2m=prm_diag%rh_2m(:,jb), &
             &  u_10m=prm_diag%u_10m_t(:,jb,1), v_10m=prm_diag%v_10m_t(:,jb,1), &
-            &  shfl_s=prm_diag%shfl_s_t(:,jb,1), lhfl_s=prm_diag%lhfl_s_t(:,jb,1), &
+            &  shfl_s=prm_diag%shfl_s_t(:,jb,1), qvfl_s=prm_diag%qhfl_s_t(:,jb,1), &
             &  ierrstat=ierrstat, errormsg=errormsg, eroutine=eroutine )
 
-          prm_diag%qhfl_s_t(i_startidx:i_endidx,jb,1) = &
-            &  prm_diag%lhfl_s_t(i_startidx:i_endidx,jb,1) / lh_v
+          prm_diag%lhfl_s_t(i_startidx:i_endidx,jb,1) = &
+            &  prm_diag%qhfl_s_t(i_startidx:i_endidx,jb,1) * lh_v
 
         ELSE
 
@@ -448,7 +448,7 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
 
             nlevcm = 3
         
-            CALL organize_turbdiff( lstfnct=.TRUE., lsfluse=.TRUE., &
+            CALL organize_turbdiff( lstfnct=.TRUE., &
               &  lturatm=.FALSE., ltursrf=.TRUE., iini=0, &
 ! JF:               &  ltkeinp=.FALSE., lgz0inp=.FALSE., &
               &  lmomdif=.FALSE., lscadif=.FALSE., itnd=0, &
@@ -473,10 +473,10 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
               &  t_2m=t_2m_t(:,jt), qv_2m=qv_2m_t(:,jt), &
               &  td_2m=td_2m_t(:,jt), rh_2m=rh_2m_t(:,jt), &
               &  u_10m=u_10m_t(:,jt), v_10m=v_10m_t(:,jt), &
-              &  shfl_s=shfl_s_t(:,jt), lhfl_s=lhfl_s_t(:,jt), &
+              &  shfl_s=shfl_s_t(:,jt), qvfl_s=qhfl_s_t(:,jt), &
               &  ierrstat=ierrstat, errormsg=errormsg, eroutine=eroutine )
 
-            qhfl_s_t(1:i_count,jt) = lhfl_s_t(1:i_count,jt) / lh_v
+            lhfl_s_t(1:i_count,jt) = qhfl_s_t(1:i_count,jt) * lh_v
 
           ELSE
 
