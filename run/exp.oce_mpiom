@@ -145,16 +145,16 @@ cat > ${ocean_namelist} << EOF
   output_grid      = .TRUE.
   output_filename  = "${EXPNAME}_R${R}B0${B}_oce"
   ml_varlist       =  'group:oce_default','hi','conc'
+!/
+! no complete sea ice
+!&output_nml
+!  output_bounds    = ${dt_data},${dt_restart},${dt_data}   !start, end, increment
+!  steps_per_file   = ${steps_per_file}
+!  include_last     = .TRUE.
+!  output_grid      = .TRUE.
+!  output_filename  = "${EXPNAME}_R${R}B0${B}_ice"
+!  ml_varlist       = 'wet_c','group:ice_default'
 /
-# no complete sea ice
-#&output_nml
-#  output_bounds    = ${dt_data},${dt_restart},${dt_data}   !start, end, increment
-#  steps_per_file   = ${steps_per_file}
-#  include_last     = .TRUE.
-#  output_grid      = .TRUE.
-#  output_filename  = "${EXPNAME}_R${R}B0${B}_ice"
-#  ml_varlist       = 'wet_c','group:ice_default'
-#/
 &dbg_index_nml
   idbg_mxmn=0                     ! initialize MIN/MAX  debug output
   idbg_val =0                     ! initialize one cell debug output
