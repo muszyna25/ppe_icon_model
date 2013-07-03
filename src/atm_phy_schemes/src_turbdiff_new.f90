@@ -4652,7 +4652,10 @@ SUBROUTINE turbdiff
                   END DO
                ELSE !enforce a zero flux condition as a default
                   DO i=istart,iend
-                     cur_prof(i,ke1)=cur_prof(i,ke)
+!test:
+! JF:                      cur_prof(i,ke1)=cur_prof(i,ke)
+                     cur_prof(i,ke1)=z0
+!test
                   END DO
                END IF
                IF (itndcon.GT.0) THEN !explicit tendencies have to be considered

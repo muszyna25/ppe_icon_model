@@ -135,12 +135,12 @@ CONTAINS
     !-----------------------
 
     IF ( ANY( (/10,11/)==atm_phy_nwp_config(1)%inwp_turb ) ) THEN
-      imode_tran =  0       ! mode of surface-atmosphere transfer
-      icldm_tran = -1       ! mode of cloud representation in transfer parametr.
+      imode_tran = 0       ! mode of surface-atmosphere transfer
+      icldm_tran = 2       ! mode of cloud representation in transfer parametr.
     END IF
   
     IF ( ANY( (/10,12/)==atm_phy_nwp_config(1)%inwp_turb ) ) THEN
-      imode_turb =  1       ! mode of turbulent diffusion parametrization
+      imode_turb = 1       ! mode of turbulent diffusion parametrization
     END IF
   
     !------------------------------------------------------------------
