@@ -95,6 +95,7 @@ MODULE mo_nh_initicon
     &                               dict_loadfile, dict_get, DICT_MAX_STRLEN
   USE mo_cdi_constants          ! We need all
   USE mo_nwp_sfc_interp,      ONLY: smi_to_sm_mass
+  USE mo_util_cdi_table,      ONLY: print_cdi_summary
 
   IMPLICIT NONE
 
@@ -165,7 +166,17 @@ MODULE mo_nh_initicon
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
       routine = 'mo_nh_initicon:init_icon'
 
-!-------------------------------------------------------------------------
+
+    ! -------------------------------------------
+    ! make the CDI aware of some custom GRIB keys
+    ! -------------------------------------------
+
+    CALL cdiDefAdditionalKey("localInformationNumber")
+    CALL cdiDefAdditionalKey("localNumberOfExperiment")
+    CALL cdiDefAdditionalKey("typeOfFirstFixedSurface")
+    CALL cdiDefAdditionalKey("typeOfGeneratingProcess")
+    CALL cdiDefAdditionalKey("backgroundProcess")
+
 
     ! Allocate initicon data type
     ALLOCATE (initicon(n_dom), stat=ist)
@@ -1133,7 +1144,7 @@ MODULE mo_nh_initicon
     LOGICAL :: l_exist
 
     INTEGER :: no_cells, no_cells_2, no_levels, no_levels_2
-    INTEGER :: fileID, dimid, mpi_comm
+    INTEGER :: fileID, dimid, mpi_comm, vlistID
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
       routine = 'mo_nh_initicon:read_dwdana_atm'
@@ -1221,6 +1232,10 @@ MODULE mo_nh_initicon
           CALL cdiDefMissval(cdimissval) 
 
           fileID  = streamOpenRead(TRIM(dwdfg_file(jg)))
+          vlistID = streamInqVlist(fileID)
+          WRITE (0,"(a)") " "
+          WRITE (0,"(a)") "file inventory:"
+          CALL print_cdi_summary(vlistID)
 
           !DR          CALL consistency_checks_grb
 
@@ -1338,6 +1353,11 @@ MODULE mo_nh_initicon
       CASE (FILETYPE_GRB2)
         CALL cdiDefMissval(cdimissval) 
         fileID  = streamOpenRead(TRIM(dwdana_file(jg)))
+        vlistID = streamInqVlist(fileID)
+          WRITE (0,"(a)") " "
+        WRITE (0,"(a)") "file inventory:"
+        CALL print_cdi_summary(vlistID)
+
       CASE DEFAULT
         CALL finish(routine, "Unknown file type")
       END SELECT
@@ -1436,7 +1456,7 @@ MODULE mo_nh_initicon
 
     INTEGER :: no_cells, no_cells_2,no_levels, no_levels_2
     INTEGER :: no_depth, no_depth_2
-    INTEGER :: fileID, dimid, varid, mpi_comm
+    INTEGER :: fileID, dimid, varid, mpi_comm, vlistID
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
       routine = 'mo_nh_initicon:read_dwdana_sfc'
@@ -1537,8 +1557,12 @@ MODULE mo_nh_initicon
 
         CASE (FILETYPE_GRB2)
           CALL cdiDefMissval(cdimissval) 
-          CALL cdiDefAdditionalKey("localInformationNumber")
           fileID  = streamOpenRead(TRIM(dwdfg_file(jg)))
+
+          vlistID = streamInqVlist(fileID)
+          WRITE (0,"(a)") " "
+          WRITE (0,"(a)") "file inventory:"
+          CALL print_cdi_summary(vlistID)
 
           IF (get_varID(fileID, "H_ICE") == -1) then
             WRITE (message_text,'(a,a)')                            &
@@ -1786,6 +1810,11 @@ MODULE mo_nh_initicon
         CASE (FILETYPE_GRB2)
           CALL cdiDefMissval(cdimissval) 
           fileID  = streamOpenRead(TRIM(dwdana_file(jg)))
+
+          vlistID = streamInqVlist(fileID)
+          WRITE (0,"(a)") " "
+          WRITE (0,"(a)") "file inventory:"
+          CALL print_cdi_summary(vlistID)
 
           !------------------------------------------
           ! Check if required variables are available
