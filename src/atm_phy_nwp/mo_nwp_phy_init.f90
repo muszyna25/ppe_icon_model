@@ -1000,9 +1000,6 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
           &  v_tens=prm_nwp_tend%ddt_v_turb(:,:,jb), &
           &  tketens=prm_nwp_tend%ddt_tke(:,:,jb), &
           &  ut_sso=prm_nwp_tend%ddt_u_sso(:,:,jb), vt_sso=prm_nwp_tend%ddt_v_sso(:,:,jb), &
-          &  t_2m=prm_diag%t_2m(:,jb), qv_2m=prm_diag%qv_2m(:,jb), &
-          &  td_2m=prm_diag%td_2m(:,jb), rh_2m=prm_diag%rh_2m(:,jb), &
-          &  u_10m=prm_diag%u_10m(:,jb), v_10m=prm_diag%v_10m(:,jb), &
           &  shfl_s=prm_diag%shfl_s(:,jb), qvfl_s=prm_diag%qhfl_s(:,jb), &
           &  ierrstat=ierrstat, errormsg=errormsg, eroutine=eroutine )
 
