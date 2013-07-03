@@ -1325,6 +1325,7 @@ CONTAINS
 
       !  Recover fields from index list
       !
+!CDIR NODEP,VOVERTAKE,VOB
       DO ic = 1,icount_flk
         jc = ext_data%atm%idx_lst_fp(ic,jb)
 

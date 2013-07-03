@@ -56,11 +56,14 @@ MODULE mo_albedo
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
   USE mo_radiation_config,     ONLY: rad_csalbw
   USE mo_lnd_nwp_config,       ONLY: ntiles_total, ntiles_water, ntiles_lnd,  &
-    &                                lseaice,isub_water, isub_lake, isub_seaice
+    &                                lseaice, llake, isub_water, isub_lake,   &
+    &                                isub_seaice
   USE mo_phyparam_soil,        ONLY: csalb, csalb_snow_fe, csalb_snow_fd,     &
     &                                csalb_snow_min, csalb_snow_max, cf_snow, &
     &                                csalb_p
   USE mo_physical_constants,   ONLY: tmelt, tf_salt
+  USE mo_data_flake,           ONLY: albedo_whiteice_ref, albedo_blueice_ref, &
+    &                                c_albice_MR, tpl_T_f, h_Ice_min_flk
   USE mo_impl_constants_grf,   ONLY: grf_bdywidth_c
   USE mo_impl_constants,       ONLY: min_rlcell_int
 
@@ -89,6 +92,9 @@ CONTAINS
   !! Modification by Daniel Reinert, DWD (2012-03-19)
   !! - Moved here from mo_nwp_rad_interface and mo_nwp_rrtm_interface.
   !!   Adaption to TERRA-tile approach.
+  !! - Modification by Daniel Reinert, DWD (2013-07-03)
+  !!   Albedo for lake-ice points based on an empirical formula proposed by 
+  !!   proposed by Mironov and Ritter (2004)
   !!
   SUBROUTINE sfc_albedo(pt_patch, ext_data, lnd_prog, wtr_prog, lnd_diag, prm_diag)
 
@@ -268,53 +274,34 @@ CONTAINS
 
 
 
-        ! Different treatment of water points with/without seaice model
+
+
+        ! 2. Consider water points with/without seaice model
         !
         IF ( (lseaice) ) THEN  ! seaice model switched on
 
           !
-          ! 2a. Consider (open) sea points
+          ! Open sea points
           !
-          ! - loop over sea points
+          ! - loop over sea points (points which are at least partly ice-free) 
           !
           i_count_sea = ext_data%atm%spw_count(jb)
-          jt = isub_water
 
           DO ic = 1, i_count_sea
             jc = ext_data%atm%idx_lst_spw(ic,jb)
 
             ist = 9  ! sea water
 
-            prm_diag%albdif_t(jc,jb,jt) = csalb(ist)
+            prm_diag%albdif_t(jc,jb,isub_water) = csalb(ist)
           ENDDO
 
 
-
           !
-          ! 3a. Consider lake points (no tiles)
+          ! Sea-ice points
           !
-          ! - loop over lake points (same jt as water points)
-          !
-          i_count_flk = ext_data%atm%fp_count(jb)
-          jt = isub_lake
-
-          DO ic = 1, i_count_flk
-            jc = ext_data%atm%idx_lst_fp(ic,jb)
-
-            ist = 9  ! sea water
-
-            prm_diag%albdif_t(jc,jb,jt) = csalb(ist)
-          ENDDO
-
-
-
-          !
-          ! 4. Consider sea-ice points
-          !
-          ! - loop over sea-ice points
+          ! - loop over sea-ice points (points which are at least partly ice-covered)
           !
           i_count_seaice = ext_data%atm%spi_count(jb)
-          jt = isub_seaice
 
           DO ic = 1, i_count_seaice
             jc = ext_data%atm%idx_lst_spi(ic,jb)
@@ -326,7 +313,7 @@ CONTAINS
             ! The ice albedo is the lower the warmer, and therefore wetter 
             ! the ice is. Use ice temperature at time level nnew 
             ! (2-time level scheme in sea ice model).
-            prm_diag%albdif_t(jc,jb,jt) = csalb(ist) * ( 1.0_wp - 0.3846_wp    &
+            prm_diag%albdif_t(jc,jb,isub_seaice) = csalb(ist) * ( 1.0_wp - 0.3846_wp    &
               &                         * EXP(-0.35_wp*(tmelt-wtr_prog%t_ice(jc,jb))))
             ! gives alb_max = 0.70
             !       alb_min = 0.43
@@ -335,16 +322,14 @@ CONTAINS
             !       alb_min = 0.40
           ENDDO
 
-
         ELSE   ! no seaice model
 
           !
-          ! 2b. Consider sea points
+          ! Sea points
           !
-          ! - loop over sea points (includes sea-ice points)
+          ! - loop over sea points (including sea-ice points)
           !
           i_count_sea = ext_data%atm%spw_count(jb)
-          jt = isub_water
 
           DO ic = 1, i_count_sea
             jc = ext_data%atm%idx_lst_spw(ic,jb)
@@ -356,33 +341,70 @@ CONTAINS
               ist = ext_data%atm%soiltyp(jc,jb)
             ENDIF
 
-            prm_diag%albdif_t(jc,jb,jt) = csalb(ist)
+            prm_diag%albdif_t(jc,jb,isub_water) = csalb(ist)
           ENDDO
 
+        ENDIF  ! seaice
 
+
+
+        ! 3. Consider lake points with/without lake model
+        !
+        IF (llake) THEN  ! Lake model switched on
 
           !
-          ! 3b. Consider lake points (no tiles)
+          ! Lake points
           !
           ! - loop over lake points
           !
           i_count_flk = ext_data%atm%fp_count(jb)
-          jt = isub_lake
+
+          DO ic = 1, i_count_flk
+            jc = ext_data%atm%idx_lst_fp(ic,jb)
+
+
+            !  In case ice is present at lake points, compute ice albedo 
+            !  for lake points with an empirical formulation 
+            !  proposed by Mironov and Ritter (2004) for use in GME 
+            !  [ice_albedo=function(ice_surface_temperature)].
+            !  Use surface temperature at time level "nnew".
+
+            ! special handling for ice-covered lake points
+            IF (wtr_prog%h_ice_lk (jc,jb) > h_Ice_min_flk) THEN 
+
+              prm_diag%albdif_t(jc,jb,isub_lake) = albedo_whiteice_ref                      &
+                &              - (albedo_whiteice_ref - albedo_blueice_ref)                 &
+                &              * EXP(-c_albice_MR*(tpl_T_f-lnd_prog%t_g_t(jc,jb,isub_lake)) &
+                &              /tpl_T_f)
+            ELSE
+              ist = 9   ! water
+              prm_diag%albdif_t(jc,jb,isub_lake) = csalb(ist)
+            ENDIF
+          ENDDO
+
+        ELSE  ! Lake model switched off
+
+          !
+          ! Lake points
+          !
+          ! - loop over lake points
+          !
+          i_count_flk = ext_data%atm%fp_count(jb)
 
           DO ic = 1, i_count_flk
             jc = ext_data%atm%idx_lst_fp(ic,jb)
 
             ! special handling of sea ice points
-            IF (lnd_prog%t_g_t(jc,jb,isub_lake) < tf_salt) THEN ! sea ice
-              ist = 10
+            IF (lnd_prog%t_g_t(jc,jb,isub_lake) < tpl_T_f) THEN 
+              ist = 10  ! sea ice
             ELSE
-              ist = 9 ! water
+              ist = 9   ! water
             ENDIF
 
-            prm_diag%albdif_t(jc,jb,jt) = csalb(ist)
+            prm_diag%albdif_t(jc,jb,isub_lake) = csalb(ist)
           ENDDO
 
-        ENDIF  ! lseaice
+        ENDIF  ! llake
 
 
 
@@ -453,43 +475,6 @@ CONTAINS
       ENDIF ! inwp_surface=1
 
 
-
-
-!      IF (atm_phy_nwp_config(jg)%lseaice) THEN
-!        DO jc = i_startidx,i_endidx
-!          ! In case the sea ice model is used AND water point AND ice is present,
-!          ! compute ice albedo for water points with an empirical formula taken from GME.
-!          ! The ice albedo is the lower the warmer, and therefore wetter, the ice is.
-!          ! Use ice temperature at time level nnow (2-time level scheme in sea ice model).
-!!          IF ((.NOT. llandmask(i,j)) .AND. (h_ice(i,j,nnow) > 0.0_ireals))               &
-!!            zalso(i,j) = (1.0_wp-0.3846_wp*EXP(-0.35_wp*(tmelt-t_ice(i,j,nnow)))) &
-!!            * csalb(10)
-!          IF (( .NOT. ext_data%atm%llsm_atm_c(jc,jb)) .AND. &
-!            & (prm_diag%h_ice(i,j,nnow) > 0.0_wp))          &
-!            prm_diag%albdif(jc,jb) = (1.0_wp-0.3846_wp*EXP(-0.35_wp*(tmelt-t_ice(i,j,nnow)))) &
-!            * csalb(10)
-!        ENDDO
-!      ENDIF
-
-      !lake model not yet implemented
-!      IF (atm_phy_nwp_config(jg)%llake) THEN
-!        DO jc = i_startidx,i_endidx
-!          IF((ext_data%atm%depth_lk(jc,jb)      >  0.0_wp) .AND.    &
-!            (prm_diag%h_ice(jc,jb) >= h_Ice_min_flk) ) THEN
-!            !  In case the lake model FLake is used AND lake point AND ice is present,
-!            !  compute ice albedo for lake points with an empirical formulation 
-!            !  proposed by Mironov and Ritter (2004) for use in GME 
-!            !  [ice_albedo=function(ice_surface_temperature)].
-!            !  Use surface temperature at time level "nnow".
-!
-!            prm_diag%albdif(jc,jb) = EXP(-c_albice_MR*(tpl_T_f-t_s(i,j,nnow))/tpl_T_f)
-!            prm_diag%albdif(jc,jb) = albedo_whiteice_ref * (1._ireals-zalso(i,j)) +      &
-!              albedo_blueice_ref  * prm_diag%albdif(jc,jb)
-!          ENDIF
-!        ENDDO
-!      ENDIF
-
-
     ENDDO  ! jb
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
@@ -523,11 +508,14 @@ CONTAINS
   !!              bands.
   !! sea-ice points: based on an empirical formula taken from GME. No distinction yet 
   !!                 between visible and near-IR spectral bands.
+  !! lake-ice points: based on an empirical formula taken from GME. No distinction yet 
+  !!                 between visible and near-IR spectral bands.
   !!
   !! Possible improvements:
   !!=======================
   !! snow-covered land points: separate values for visible and near-IR spectral bands.
   !! sea-ice points: separate values for visible and near-IR spectral bands.
+  !! lake-ice points: separate values for visible and near-IR spectral bands.
   !! sea/lake points: separate values for direct and diffuse radiation (see IFS)
   !!
   !! Note that when using separate values for visible and near-IR spectral bands, the 
@@ -536,6 +524,9 @@ CONTAINS
   !! 
   !! @par Revision History
   !! Initial Revision by Daniel Reinert, DWD (2013-05-15)
+  !! - Modification by Daniel Reinert, DWD (2013-07-03)
+  !!   Albedo for lake-ice points based on an empirical formula proposed by 
+  !!   proposed by Mironov and Ritter (2004)
   !!
   SUBROUTINE sfc_albedo_modis(pt_patch, ext_data, lnd_prog, wtr_prog, lnd_diag, prm_diag)
 
@@ -657,69 +648,49 @@ CONTAINS
 
 
 
-        ! Different treatment of water points with/without seaice model
+
+
+        ! 2. Consider water points with/without seaice model
         !
         IF ( (lseaice) ) THEN  ! seaice model switched on
 
           !
-          ! 2a. Consider (open) sea points
+          ! Open sea points
           !
-          ! - loop over sea points
+          ! - loop over sea points  (points which are at least partly ice-free) 
           !
           i_count_sea = ext_data%atm%spw_count(jb)
-          jt = isub_water
 
           DO ic = 1, i_count_sea
             jc = ext_data%atm%idx_lst_spw(ic,jb)
 
             ist = 9  ! sea water
 
-            prm_diag%albdif_t   (jc,jb,jt) = csalb(ist)
-            prm_diag%albvisdif_t(jc,jb,jt) = csalb(ist)
-            prm_diag%albnirdif_t(jc,jb,jt) = csalb(ist)
+            prm_diag%albdif_t   (jc,jb,isub_water) = csalb(ist)
+            prm_diag%albvisdif_t(jc,jb,isub_water) = csalb(ist)
+            prm_diag%albnirdif_t(jc,jb,isub_water) = csalb(ist)
           ENDDO
 
 
 
           !
-          ! 3a. Consider lake points (no tiles)
+          ! Sea-ice points
           !
-          ! - loop over lake points (same jt as water points)
-          !
-          i_count_flk = ext_data%atm%fp_count(jb)
-          jt = isub_lake
-
-          DO ic = 1, i_count_flk
-            jc = ext_data%atm%idx_lst_fp(ic,jb)
-
-            ist = 9  ! sea water
-
-            prm_diag%albdif_t   (jc,jb,jt) = csalb(ist)
-            prm_diag%albvisdif_t(jc,jb,jt) = csalb(ist)
-            prm_diag%albnirdif_t(jc,jb,jt) = csalb(ist)
-          ENDDO
-
-
-
-          !
-          ! 4. Consider sea-ice points
-          !
-          ! - loop over sea-ice points
+          ! - loop over sea-ice points (points which are at least partly ice-covered)
           !
           i_count_seaice = ext_data%atm%spi_count(jb)
-          jt = isub_seaice
 
           DO ic = 1, i_count_seaice
             jc = ext_data%atm%idx_lst_spi(ic,jb)
 
-            ist = 10   ! seaice
+            ist = 10   ! sea-ice
 
             ! In case the sea ice model is used, compute ice albedo for seaice 
             ! points with an empirical formula taken from GME.
             ! The ice albedo is the lower the warmer, and therefore wetter 
             ! the ice is. Use ice temperature at time level nnew 
             ! (2-time level scheme in sea ice model).
-            prm_diag%albdif_t(jc,jb,jt) = csalb(ist) * ( 1.0_wp - 0.3846_wp    &
+            prm_diag%albdif_t(jc,jb,isub_seaice) = csalb(ist) * ( 1.0_wp - 0.3846_wp  &
               &                         * EXP(-0.35_wp*(tmelt-wtr_prog%t_ice(jc,jb))))
             ! gives alb_max = 0.70
             !       alb_min = 0.43
@@ -727,20 +698,19 @@ CONTAINS
             !       alb_max = 0.65
             !       alb_min = 0.40
 
-            prm_diag%albvisdif_t(jc,jb,jt) = prm_diag%albdif_t(jc,jb,jt)
-            prm_diag%albnirdif_t(jc,jb,jt) = prm_diag%albdif_t(jc,jb,jt)
+            prm_diag%albvisdif_t(jc,jb,isub_seaice) = prm_diag%albdif_t(jc,jb,isub_seaice)
+            prm_diag%albnirdif_t(jc,jb,isub_seaice) = prm_diag%albdif_t(jc,jb,isub_seaice)
           ENDDO
 
 
-        ELSE   ! no seaice model
+        ELSE
 
           !
-          ! 2b. Consider sea points
+          ! Consider sea points (including sea-ice points)
           !
-          ! - loop over sea points (includes sea-ice points)
+          ! - loop over sea points
           !
           i_count_sea = ext_data%atm%spw_count(jb)
-          jt = isub_water
 
           DO ic = 1, i_count_sea
             jc = ext_data%atm%idx_lst_spw(ic,jb)
@@ -752,37 +722,79 @@ CONTAINS
               ist = ext_data%atm%soiltyp(jc,jb)
             ENDIF
 
-            prm_diag%albdif_t   (jc,jb,jt) = csalb(ist)
-            prm_diag%albvisdif_t(jc,jb,jt) = csalb(ist)
-            prm_diag%albnirdif_t(jc,jb,jt) = csalb(ist)
+            prm_diag%albdif_t   (jc,jb,isub_water) = csalb(ist)
+            prm_diag%albvisdif_t(jc,jb,isub_water) = csalb(ist)
+            prm_diag%albnirdif_t(jc,jb,isub_water) = csalb(ist)
           ENDDO
 
+        ENDIF
 
+
+
+        ! 3. Consider lake points with/without lake model
+        !
+        IF (llake) THEN
 
           !
-          ! 3b. Consider lake points (no tiles)
+          ! Lake points
           !
           ! - loop over lake points
           !
           i_count_flk = ext_data%atm%fp_count(jb)
-          jt = isub_lake
+
+          DO ic = 1, i_count_flk
+            jc = ext_data%atm%idx_lst_fp(ic,jb)
+
+
+            !  In case ice is present at lake points, compute ice albedo 
+            !  for lake points with an empirical formulation 
+            !  proposed by Mironov and Ritter (2004) for use in GME 
+            !  [ice_albedo=function(ice_surface_temperature)].
+            !  Use surface temperature at time level "nnew".
+
+            ! special handling for ice-covered lake points
+            IF (wtr_prog%h_ice_lk (jc,jb) > h_Ice_min_flk) THEN 
+
+              prm_diag%albdif_t(jc,jb,isub_lake) = albedo_whiteice_ref                      &
+                &              - (albedo_whiteice_ref - albedo_blueice_ref)                 &
+                &              * EXP(-c_albice_MR*(tpl_T_f-lnd_prog%t_g_t(jc,jb,isub_lake)) &
+                &              /tpl_T_f)
+            ELSE
+              ist = 9   ! water
+              prm_diag%albdif_t(jc,jb,isub_lake) = csalb(ist)
+            ENDIF
+
+            prm_diag%albvisdif_t(jc,jb,isub_lake) = prm_diag%albdif_t(jc,jb,isub_lake)
+            prm_diag%albnirdif_t(jc,jb,isub_lake) = prm_diag%albdif_t(jc,jb,isub_lake) 
+          ENDDO
+
+
+        ELSE
+
+          !
+          ! Lake points
+          !
+          ! - loop over lake points
+          !
+          i_count_flk = ext_data%atm%fp_count(jb)
 
           DO ic = 1, i_count_flk
             jc = ext_data%atm%idx_lst_fp(ic,jb)
 
             ! special handling of sea ice points
-            IF (lnd_prog%t_g_t(jc,jb,isub_lake) < tf_salt) THEN ! sea ice
-              ist = 10
+            IF (lnd_prog%t_g_t(jc,jb,isub_lake) < tpl_T_f) THEN 
+              ist = 10 ! sea ice
             ELSE
-              ist = 9 ! water
+              ist = 9  ! water
             ENDIF
 
-            prm_diag%albdif_t   (jc,jb,jt) = csalb(ist)
-            prm_diag%albvisdif_t(jc,jb,jt) = csalb(ist)
-            prm_diag%albnirdif_t(jc,jb,jt) = csalb(ist)
+            prm_diag%albdif_t   (jc,jb,isub_lake) = csalb(ist)
+            prm_diag%albvisdif_t(jc,jb,isub_lake) = csalb(ist)
+            prm_diag%albnirdif_t(jc,jb,isub_lake) = csalb(ist)
           ENDDO
 
-        ENDIF  ! lseaice
+
+        ENDIF
 
 
 
@@ -855,6 +867,26 @@ CONTAINS
 
       ENDIF ! inwp_surface=1
 
+    ENDDO  ! jb
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+
+
+!      IF (atm_phy_nwp_config(jg)%lseaice) THEN
+!        DO jc = i_startidx,i_endidx
+!          ! In case the sea ice model is used AND water point AND ice is present,
+!          ! compute ice albedo for water points with an empirical formula taken from GME.
+!          ! The ice albedo is the lower the warmer, and therefore wetter, the ice is.
+!          ! Use ice temperature at time level nnow (2-time level scheme in sea ice model).
+!!          IF ((.NOT. llandmask(i,j)) .AND. (h_ice(i,j,nnow) > 0.0_ireals))               &
+!!            zalso(i,j) = (1.0_wp-0.3846_wp*EXP(-0.35_wp*(tmelt-t_ice(i,j,nnow)))) &
+!!            * csalb(10)
+!          IF (( .NOT. ext_data%atm%llsm_atm_c(jc,jb)) .AND. &
+!            & (prm_diag%h_ice(i,j,nnow) > 0.0_wp))          &
+!            prm_diag%albdif(jc,jb) = (1.0_wp-0.3846_wp*EXP(-0.35_wp*(tmelt-t_ice(i,j,nnow)))) &
+!            * csalb(10)
+!        ENDDO
+!      ENDIF
 
       !lake model not yet implemented
 !      IF (atm_phy_nwp_config(jg)%llake) THEN
@@ -873,12 +905,6 @@ CONTAINS
 !          ENDIF
 !        ENDDO
 !      ENDIF
-
-
-    ENDDO  ! jb
-!$OMP END DO NOWAIT
-!$OMP END PARALLEL
-
 
   END SUBROUTINE sfc_albedo_modis
 
