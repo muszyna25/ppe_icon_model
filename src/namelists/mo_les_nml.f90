@@ -67,14 +67,12 @@ MODULE mo_les_nml
 
   !Some parameters
   REAL(wp) :: karman_constant
-  REAL(wp) :: rkarman_constant  !inverse karman constant
   REAL(wp) :: smag_constant
   REAL(wp) :: turb_prandtl 
-  REAL(wp) :: rturb_prandtl     !inverse turbulent prandtl number
  
   NAMELIST/les_nml/ sst, shflx, lhflx, isrfc_type, ufric, is_dry_cbl, &
-                    karman_constant, rkarman_constant, smag_constant, &
-                    turb_prandtl, rturb_prandtl, bflux, tran_coeff
+                    karman_constant, smag_constant, &
+                    turb_prandtl, bflux, tran_coeff
 
 CONTAINS
   !-------------------------------------------------------------------------
@@ -114,10 +112,8 @@ CONTAINS
 
     !parameters
     karman_constant  = 0.4_wp
-    rkarman_constant = 2.5_wp
     smag_constant    = 0.23_wp
     turb_prandtl     = 0.33333333333_wp
-    rturb_prandtl    = 3.0_wp
 
     bflux       = -999._wp
     tran_coeff  = -999._wp
@@ -156,10 +152,10 @@ CONTAINS
       les_config(jg)% ufric        =  ufric
       les_config(jg)% is_dry_cbl   =  is_dry_cbl
       les_config(jg)% karman_constant   =  karman_constant
-      les_config(jg)% rkarman_constant  =  rkarman_constant
+      les_config(jg)% rkarman_constant  =  1._wp/karman_constant
       les_config(jg)% smag_constant     =  smag_constant
       les_config(jg)% turb_prandtl      =  turb_prandtl
-      les_config(jg)% rturb_prandtl     =  rturb_prandtl
+      les_config(jg)% rturb_prandtl     =  1._wp/turb_prandtl
       les_config(jg)% bflux             =  bflux
       les_config(jg)% tran_coeff        =  tran_coeff
      
