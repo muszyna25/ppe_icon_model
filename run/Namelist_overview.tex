@@ -1479,11 +1479,17 @@ L & .FALSE.& &
 planar option&
 \tabularnewline
 
+\hline
+is\_plane\_torus &
+L & .FALSE.& &
+f-plane approximation on triangular grid &
+\tabularnewline
+
 \hline 
 corio\_lat &
 R & 0.0& deg&
 Center of the f-plane is located at this geographical latitude &
-lplane=.TRUE.
+lplane=.TRUE. and is\_plane\_torus=.TRUE.
 \tabularnewline
 
 \hline 
@@ -3664,6 +3670,13 @@ vertical diffusion and transfer
 4: ECHAM diffusion (currently for water only)
 &
 \tabularnewline
+&
+&
+&
+&
+5: Classical Smagorinsky diffusion 
+&
+\tabularnewline
 \hline 
 inwp\_sso&
 I (max\_dom)&
@@ -4517,6 +4530,144 @@ lconst\_z0=.TRUE.
 
 Defined and used in: src/namelists/mo\_turbdiff\_nml.f90
 
+%------------------------------------------------------------------------------
+% les_nml:
+%------------------------------------------------------------------------------
+\subsection{les\_nml (parameters for LES turbulence scheme; valid for inwp\_turb=5)}
+
+\begin{longtab}
+
+\hline 
+sst & R & 300 & K &
+sea surface temperature for idealized LES simulations &
+nh\_test\_name=CBL, RICO\\
+isrfc\_type=1,4 
+\tabularnewline
+
+\hline 
+shflx & R & -999 & Km/s &
+Kinematic sensible heat flux at surface &
+isrfc\_type = 2
+\tabularnewline
+
+\hline 
+lhflx & R & -999 & m/s &
+Kinematic latent heat flux at surface &
+isrfc\_type = 2
+\tabularnewline
+
+\hline 
+isrfc\_type & I & 1 &  &
+surface type \\
+1 = fixed SST \\
+2 = fixed surface fluxes \\ 
+3 = fixed buoyancy fluxes \\
+4 = RICO test case &
+\tabularnewline
+
+\hline 
+ufric & R & -999 & m/s &
+friction velocity for idealized LES simulations &
+\tabularnewline
+
+\hline 
+is\_dry\_cbl & L & .FALSE. &  &
+switch for dry convective boundary layer simulations &
+\tabularnewline
+
+\hline 
+karman\_constant & R & 0.4 &  &
+von Karman constant &
+\tabularnewline
+
+\hline 
+smag\_constant & R & 0.23 &  &
+Smagorinsky constant &
+\tabularnewline
+
+\hline 
+turb\_prandtl & R & 0.333333 &  &
+turbulent Prandtl number &
+\tabularnewline
+
+\hline 
+bflux & R & -999 &  m$^2$/s$^3$ &
+buoyancy flux for idealized LES simulations (Stevens 2007) &
+isrfc\_type=3
+\tabularnewline
+
+\hline 
+tran\_coeff & R & -999 &  m/s &
+transfer coefficient near surface for idealized LES simulation (Stevens 2007)&
+isrfc\_type=3
+\tabularnewline
+
+\end{longtab}
+
+Defined and used in: src/namelists/mo\_les\_nml.f90
+
+%------------------------------------------------------------------------------
+% ls_forcing_nml:
+%------------------------------------------------------------------------------
+\subsection{ls\_forcing\_nml (parameters for large-scale forcing; valid for torus geometry)}
+
+\begin{longtab}
+
+\hline 
+is\_ls\_forcing& L & .FALSE. &  &
+switch for enabling large-scale (LS) forcing on torus grid &
+is\_plane\_torus=.TRUE.
+\tabularnewline
+
+\hline 
+is\_subsidence\_moment & L & .FALSE. &  &
+switch for enabling LS vertical advection due to subsidence for momentum equations&
+is\_plane\_torus=.TRUE.
+\tabularnewline
+
+\hline 
+is\_subsidence\_heat & L & .FALSE. &  &
+switch for enabling LS vertical advection due to subsidence for thermal equations &
+is\_plane\_torus=.TRUE.
+\tabularnewline
+
+
+\hline 
+is\_advection & L & .FALSE. &  &
+switch for enabling LS horizontal advection (currently only for thermal equations)&
+is\_plane\_torus=.TRUE.
+\tabularnewline
+
+\hline 
+is\_geowind & L & .FALSE. &  &
+switch for enabling geostrophic wind &
+is\_plane\_torus=.TRUE.
+\tabularnewline
+
+\hline 
+is\_rad\_forcing & L & .FALSE. &  &
+switch for enabling radiative forcing &
+is\_plane\_torus=.TRUE. \\
+inwp\_rad=.FALSE.
+\tabularnewline
+
+\hline 
+is\_geowind & L & .FALSE. &  &
+switch for enabling geostrophic wind &
+is\_plane\_torus=.TRUE.
+\tabularnewline
+
+\hline 
+is\_theta & L & .FALSE. &  &
+switch to indicate that the prescribed radiative forcing is for potential temperature &
+is\_plane\_torus=.TRUE. \\
+is\_rad\_forcing=.TRUE.
+\tabularnewline
+
+\end{longtab}
+
+Defined and used in: src/namelists/mo\_ls\_forcing\_nml.f90
+
 
 %------------------------------------------------------------------------------
 % gw_hines_nml:
@@ -5018,6 +5169,9 @@ lcoriolis = .TRUE.
 &&&&'\textbf{dcmip\_tc\_52}': tropical cyclone test case with with full physics in Aqua-planet mode&
 lcoriolis = .TRUE.
 \tabularnewline
+&&&&'\textbf{CBL}': convective boundary layer simulations for LES package on torus (doubly periodic) grid&
+is\_plane\_torus= .TRUE.
+\tabularnewline
 \hline
 jw\_up&
 R& 1.0& m/s&
@@ -5506,6 +5660,29 @@ maximum temperature perturbation&
 nh\_test\_name=\\'dcmip\_gw\_32'
 \tabularnewline
 
+\hline 
+u\_cbl(2)&
+R& 0:0 & m/s and 1/s &
+to prescribe initial zonal velocity profile for convective boundary layer simulations where u\_cbl(1)
+sets the constant and u\_cbl(2) sets the vertical gradient &
+nh\_test\_name=CBL
+\tabularnewline
+
+\hline 
+v\_cbl(2)&
+R& 0:0 & m/s and 1/s &
+to prescribe initial meridional velocity profile for convective boundary layer simulations where v\_cbl(1)
+sets the constant and v\_cbl(2) sets the vertical gradient &
+nh\_test\_name=CBL
+\tabularnewline
+
+\hline 
+th\_cbl(2)&
+R& 290:0.006 & K and K/m &
+to prescribe initial potential temperature profile for convective boundary layer simulations where th\_cbl(1)
+sets the constant and th\_cbl(2) sets the gradient &
+nh\_test\_name=CBL
+\tabularnewline
 
 \end{longtab}
 
