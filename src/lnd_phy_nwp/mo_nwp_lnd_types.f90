@@ -119,8 +119,6 @@ MODULE mo_nwp_lnd_types
     &  h_ice        (:,:)   , & ! depth of the sea ice                   (  m  )
     &  t_snow_si    (:,:)   , & ! temperature of the snow on sea ice     (  K  )
     &  h_snow_si    (:,:)   , & ! depth of the snow on sea ice           (  m  )
-    &  t_ice_lk     (:,:)   , & ! lake ice temperature                   (  K  )
-    &  h_ice_lk     (:,:)   , & ! lake ice depth                         (  m  )
     &  t_snow_lk    (:,:)   , & ! temperature of snow on lake ice        (  K  )
     &  h_snow_lk    (:,:)   , & ! depth of snow on lake ice              (  K  )
     &  t_mnw_lk     (:,:)   , & ! mean temperature of the water column   (  K  )

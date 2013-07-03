@@ -895,7 +895,7 @@ CONTAINS
     !
     IF ( (atm_phy_nwp_config(jg)%inwp_surface == 1) .AND. (llake) ) THEN
       CALL nwp_lake(p_patch, p_diag, prm_diag, p_prog_wtr_now, p_prog_wtr_new, &
-        &             lnd_prog_now, lnd_prog_new, ext_data, lnd_diag, tcall_sfc_jg)
+        &           lnd_prog_now, lnd_prog_new, ext_data, lnd_diag, tcall_sfc_jg)
     ENDIF
 
 
@@ -1189,8 +1189,8 @@ CONTAINS
     REAL(wp) :: lwflxsfc(nproma)
     REAL(wp) :: t_snow_lk_now(nproma), t_snow_lk_new(nproma)
     REAL(wp) :: h_snow_lk_now(nproma), h_snow_lk_new(nproma)
-    REAL(wp) :: t_ice_lk_now(nproma), t_ice_lk_new(nproma)
-    REAL(wp) :: h_ice_lk_now(nproma), h_ice_lk_new(nproma)
+    REAL(wp) :: t_ice_now(nproma), t_ice_new(nproma)
+    REAL(wp) :: h_ice_now(nproma), h_ice_new(nproma)
     REAL(wp) :: t_mnw_lk_now(nproma), t_mnw_lk_new(nproma)
     REAL(wp) :: t_wml_lk_now(nproma), t_wml_lk_new(nproma)
     REAL(wp) :: t_bot_lk_now(nproma), t_bot_lk_new(nproma)
@@ -1226,17 +1226,17 @@ CONTAINS
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
 
-    IF (msg_level >= 15) THEN
+!DR    IF (msg_level >= 15) THEN
       CALL message('mo_nwp_sfc_interface: ', 'call nwp_lake scheme')
-    ENDIF
+!DR    ENDIF
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,ic,jc,icount_flk,f_c,depth_lk,fetch_lk,dp_bs_lk,t_bs_lk,&
+!$OMP DO PRIVATE(jb,ic,jc,icount_flk,f_c,depth_lk,fetch_lk,dp_bs_lk,t_bs_lk,  &
 !$OMP            gamso_lk,qmom,shfl_s,lhfl_s,swflxsfc,lwflxsfc,t_snow_lk_now, &
-!$OMP            h_snow_lk_now,t_ice_lk_now,h_ice_lk_now,t_mnw_lk_now,        &
+!$OMP            h_snow_lk_now,t_ice_now,h_ice_now,t_mnw_lk_now,              &
 !$OMP            t_wml_lk_now,t_bot_lk_now,c_t_lk_now,h_ml_lk_now,t_b1_lk_now,&
 !$OMP            h_b1_lk_now,t_scf_lk_now,t_snow_lk_new,h_snow_lk_new,        &
-!$OMP            t_ice_lk_new,h_ice_lk_new,t_mnw_lk_new,t_wml_lk_new,         &
+!$OMP            t_ice_new,h_ice_new,t_mnw_lk_new,t_wml_lk_new,               &
 !$OMP            t_bot_lk_new,c_t_lk_new,h_ml_lk_new,t_b1_lk_new,h_b1_lk_new, &
 !$OMP            t_scf_lk_new)
     DO jb = i_startblk, i_endblk
@@ -1251,13 +1251,13 @@ CONTAINS
 
         jc = ext_data%atm%idx_lst_fp(ic,jb)
 
-        f_c          (ic) = p_patch%cells%f_c       (jc,jb)    ! Coriolis parameter   [s^-1]
+        f_c      (ic) = p_patch%cells%f_c     (jc,jb)    ! Coriolis parameter   [s^-1]
  
-        depth_lk     (ic) = ext_data%atm%depth_lk   (jc,jb)    ! lake depth           [m]
-        fetch_lk     (ic) = ext_data%atm%fetch_lk   (jc,jb)    ! wind fetch over lake [m]
-        dp_bs_lk     (ic) = ext_data%atm%dp_bs_lk   (jc,jb)
-        t_bs_lk      (ic) = ext_data%atm%t_bs_lk    (jc,jb)
-        gamso_lk     (ic) = ext_data%atm%gamso_lk   (jc,jb)
+        depth_lk (ic) = ext_data%atm%depth_lk (jc,jb)    ! lake depth           [m]
+        fetch_lk (ic) = ext_data%atm%fetch_lk (jc,jb)    ! wind fetch over lake [m]
+        dp_bs_lk (ic) = ext_data%atm%dp_bs_lk (jc,jb)
+        t_bs_lk  (ic) = ext_data%atm%t_bs_lk  (jc,jb)
+        gamso_lk (ic) = ext_data%atm%gamso_lk (jc,jb)
 
         ! absolute value of momentum flux at sfc
         qmom     (ic) = SQRT(prm_diag%umfl_s_t(jc,jb,isub_lake)**2  &
@@ -1269,8 +1269,8 @@ CONTAINS
 
         t_snow_lk_now(ic) = p_prog_wtr_now%t_snow_lk(jc,jb)
         h_snow_lk_now(ic) = p_prog_wtr_now%h_snow_lk(jc,jb)
-        t_ice_lk_now (ic) = p_prog_wtr_now%t_ice_lk (jc,jb)
-        h_ice_lk_now (ic) = p_prog_wtr_now%h_ice_lk (jc,jb)
+        t_ice_now    (ic) = p_prog_wtr_now%t_ice    (jc,jb)    ! ice temperature
+        h_ice_now    (ic) = p_prog_wtr_now%h_ice    (jc,jb)    ! ice depth
         t_mnw_lk_now (ic) = p_prog_wtr_now%t_mnw_lk (jc,jb)
         t_wml_lk_now (ic) = p_prog_wtr_now%t_wml_lk (jc,jb)
         t_bot_lk_now (ic) = p_prog_wtr_now%t_bot_lk (jc,jb)
@@ -1298,8 +1298,8 @@ CONTAINS
                      &  qsolnet     = swflxsfc     (:),       & !in
                      &  t_snow_p    = t_snow_lk_now(:),       & !in
                      &  h_snow_p    = h_snow_lk_now(:),       & !in
-                     &  t_ice_p     = t_ice_lk_now (:),       & !in
-                     &  h_ice_p     = h_ice_lk_now (:),       & !in
+                     &  t_ice_p     = t_ice_now    (:),       & !in
+                     &  h_ice_p     = h_ice_now    (:),       & !in
                      &  t_mnw_lk_p  = t_mnw_lk_now (:),       & !in
                      &  t_wml_lk_p  = t_wml_lk_now (:),       & !in
                      &  t_bot_lk_p  = t_bot_lk_now (:),       & !in
@@ -1310,8 +1310,8 @@ CONTAINS
                      &  t_scf_lk_p  = t_scf_lk_now (:),       & !in
                      &  t_snow_n    = t_snow_lk_new(:),       & !out
                      &  h_snow_n    = h_snow_lk_new(:),       & !out
-                     &  t_ice_n     = t_ice_lk_new (:),       & !out
-                     &  h_ice_n     = h_ice_lk_new (:),       & !out
+                     &  t_ice_n     = t_ice_new    (:),       & !out
+                     &  h_ice_n     = h_ice_new    (:),       & !out
                      &  t_mnw_lk_n  = t_mnw_lk_new (:),       & !out
                      &  t_wml_lk_n  = t_wml_lk_new (:),       & !out
                      &  t_bot_lk_n  = t_bot_lk_new (:),       & !out
@@ -1331,8 +1331,8 @@ CONTAINS
 
         p_prog_wtr_new%t_snow_lk(jc,jb)     = t_snow_lk_new(ic)
         p_prog_wtr_new%h_snow_lk(jc,jb)     = h_snow_lk_new(ic)
-        p_prog_wtr_new%t_ice_lk (jc,jb)     = t_ice_lk_new (ic)
-        p_prog_wtr_new%h_ice_lk (jc,jb)     = h_ice_lk_new (ic)
+        p_prog_wtr_new%t_ice    (jc,jb)     = t_ice_new    (ic)
+        p_prog_wtr_new%h_ice    (jc,jb)     = h_ice_new    (ic)
         p_prog_wtr_new%t_mnw_lk (jc,jb)     = t_mnw_lk_new (ic)
         p_prog_wtr_new%t_wml_lk (jc,jb)     = t_wml_lk_new (ic)
         p_prog_wtr_new%t_bot_lk (jc,jb)     = t_bot_lk_new (ic)
@@ -1345,7 +1345,7 @@ CONTAINS
 
         ! surface saturation specific humidity (uses saturation water vapor pressure 
         ! over water)
-        IF ( h_ice_lk_new (ic) > 0._wp ) THEN
+        IF ( h_ice_new (ic) > 0._wp ) THEN
           p_lnd_diag%qv_s_t(jc,jb,isub_lake)  = spec_humi(sat_pres_ice(t_scf_lk_new(ic)),&
             &                                   p_diag%pres_sfc(jc,jb) )
         ELSE

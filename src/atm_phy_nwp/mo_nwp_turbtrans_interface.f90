@@ -63,6 +63,7 @@ MODULE mo_nwp_turbtrans_interface
   USE mo_run_config,           ONLY: msg_level, iqv, iqc
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
   USE mo_data_turbdiff,        ONLY: get_turbdiff_param
+  USE mo_data_flake,           ONLY: h_Ice_min_flk, tpl_T_f
   USE src_turbdiff_new,        ONLY: organize_turbdiff
   USE src_turbdiff,            ONLY: turbtran
   USE mo_satad,                ONLY: sat_pres_water, spec_humi  
@@ -70,8 +71,8 @@ MODULE mo_nwp_turbtrans_interface
   USE mo_util_phys,            ONLY: nwp_dyn_gust, nwp_dyn_gust1
   USE mo_run_config,           ONLY: ltestcase
   USE mo_nh_testcases,         ONLY: nh_test_name
-  USE mo_lnd_nwp_config,       ONLY: ntiles_total, ntiles_water, isub_water, &
-    &                                isub_lake, isub_seaice
+  USE mo_lnd_nwp_config,       ONLY: ntiles_total, ntiles_water, llake,  &
+    &                                isub_water, isub_lake, isub_seaice
 
   IMPLICIT NONE
 
@@ -399,16 +400,25 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
           ELSE IF (jt == ntiles_total + 2) THEN ! lake points
             i_count =  ext_data%atm%fp_count(jb)
             ilist   => ext_data%atm%idx_lst_fp(:,jb)
-            fr_land_t(:)  = 0._wp
+            fr_land_t (:) = 0._wp
             depth_lk_t(:) = 1._wp
-            ! h_ice_t(:) = ...
+            IF (llake) THEN
+              DO ic= 1, i_count
+                jc = ilist(ic)
+                h_ice_t(ic) = MERGE(1._wp, 0._wp, wtr_prog_new%h_ice(jc,jb)>h_Ice_min_flk)
+              ENDDO
+            ELSE
+              DO ic= 1, i_count
+                jc = ilist(ic)
+                h_ice_t(ic) = MERGE(1._wp, 0._wp, lnd_prog_new%t_g_t(jc,jb,isub_lake)< tpl_T_f)
+              ENDDO
+            ENDIF
           ELSE IF (jt == ntiles_total + 3) THEN ! seaice points
             i_count =  ext_data%atm%spi_count(jb)
             ilist   => ext_data%atm%idx_lst_spi(:,jb)
             fr_land_t (:) = 0._wp
             depth_lk_t(:) = 0._wp
-            h_ice_t   (:) = 1._wp  ! prelim. implementation. Only needed for checking whether 
-                                   ! ice is present or not
+            h_ice_t   (:) = 1._wp  ! Only needed for checking whether ice is present or not
           ELSE
             ! Paranoia
             CALL finish( TRIM(routine),'wrong value of ntiles_total + ntiles_water')

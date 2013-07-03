@@ -370,7 +370,7 @@ CONTAINS
             !  Use surface temperature at time level "nnew".
 
             ! special handling for ice-covered lake points
-            IF (wtr_prog%h_ice_lk (jc,jb) > h_Ice_min_flk) THEN 
+            IF (wtr_prog%h_ice(jc,jb) > h_Ice_min_flk) THEN 
 
               prm_diag%albdif_t(jc,jb,isub_lake) = albedo_whiteice_ref                      &
                 &              - (albedo_whiteice_ref - albedo_blueice_ref)                 &
@@ -753,7 +753,7 @@ CONTAINS
             !  Use surface temperature at time level "nnew".
 
             ! special handling for ice-covered lake points
-            IF (wtr_prog%h_ice_lk (jc,jb) > h_Ice_min_flk) THEN 
+            IF (wtr_prog%h_ice(jc,jb) > h_Ice_min_flk) THEN 
 
               prm_diag%albdif_t(jc,jb,isub_lake) = albedo_whiteice_ref                      &
                 &              - (albedo_whiteice_ref - albedo_blueice_ref)                 &

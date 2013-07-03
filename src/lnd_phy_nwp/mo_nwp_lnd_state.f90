@@ -197,17 +197,14 @@ MODULE mo_nwp_lnd_state
           &     TRIM(varname_prefix), p_lnd_state(jg)%lnd_prog_nwp_list(jt), &
           &     p_lnd_state(jg)%prog_lnd(jt), jt)
 
-! preliminary: since h_ice-field is also needed by turbdiff irrespective of whether 
-! the seaice model is used or not.
-!        IF (lseaice .OR. llake) THEN
-          WRITE(listname,'(a,i2.2,a,i2.2)') 'wtr_prog_of_domain_',jg, &
-            &                               '_and_timelev_',jt
 
-          varname_prefix = ''
-          CALL new_nwp_wtr_prog_list(jg, nblks_c, TRIM(listname),             &
-            &     TRIM(varname_prefix), p_lnd_state(jg)%wtr_prog_nwp_list(jt), &
-            &     p_lnd_state(jg)%prog_wtr(jt), jt)
-!        ENDIF
+        WRITE(listname,'(a,i2.2,a,i2.2)') 'wtr_prog_of_domain_',jg, &
+          &                               '_and_timelev_',jt
+
+        varname_prefix = ''
+        CALL new_nwp_wtr_prog_list(jg, nblks_c, TRIM(listname),             &
+          &     TRIM(varname_prefix), p_lnd_state(jg)%wtr_prog_nwp_list(jt), &
+          &     p_lnd_state(jg)%prog_wtr(jt), jt)
 
       ENDDO
 
@@ -889,12 +886,17 @@ MODULE mo_nwp_lnd_state
 
     !------------------------------
 
+    ! h_ice-field is also needed by turbdiff irrespective of whether 
+    ! the seaice model is used or not.
 
     !
-    ! sea-ice model
+    ! sea-ice and lake-model
     !
+    ! since it is currently not envisaged to have mixed sea-lake gridpoints, t_ice 
+    ! is used for both sea- and lake-ice temperatures. This is in accordance with 
+    ! the COSMO implementation 
     ! & p_prog_wtr%t_ice(nproma,nblks_c)
-    cf_desc    = t_cf_var('t_ice', 'K', 'sea ice temperature', DATATYPE_FLT32)
+    cf_desc    = t_cf_var('t_ice', 'K', 'sea/lake-ice temperature', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(10, 2, 8, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( prog_list, vname_prefix//'t_ice'//suffix, p_prog_wtr%t_ice,  &
          & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,            &
@@ -902,14 +904,21 @@ MODULE mo_nwp_lnd_state
          & in_group=groups("dwd_ana_vars") )   
 
 
+    ! since it is currently not envisaged to have mixed sea-lake gridpoints, h_ice 
+    ! is used for both sea- and lake-ice thickness. This is in accordance with 
+    ! the COSMO implementation 
     ! & p_prog_wtr%h_ice(nproma,nblks_c)
-    cf_desc    = t_cf_var('h_ice', 'm', 'sea ice depth', DATATYPE_FLT32)
+    cf_desc    = t_cf_var('h_ice', 'm', 'sea/lake-ice depth', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(10, 2, 1, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( prog_list, vname_prefix//'h_ice'//suffix, p_prog_wtr%h_ice,  &
          & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,            &
          & ldims=shape2d,                                                      &
          & in_group=groups("dwd_ana_vars") )   
 
+
+    !
+    ! sea-ice model specific
+    !
 
     ! & p_prog_wtr%t_snow_si(nproma,nblks_c)
     cf_desc    = t_cf_var('t_snow_si', 'K', 'temperature of snow on sea ice', DATATYPE_FLT32)
@@ -930,20 +939,6 @@ MODULE mo_nwp_lnd_state
     !
 
     IF (llake) THEN   ! lake model switched on
-
-      ! p_prog_wtr%t_ice_lk(nproma,nblks_c)
-      cf_desc    = t_cf_var('t_ice_lk', 'K', 'lake ice temperature', DATATYPE_FLT32)
-      grib2_desc = t_grib2_var(1, 2, 6, ibits, GRID_REFERENCE, GRID_CELL)
-      CALL add_var( prog_list, vname_prefix//'t_ice_lk'//suffix, p_prog_wtr%t_ice_lk,  &
-           & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,                  &
-           & ldims=shape2d )   
-
-      ! p_prog_wtr%h_ice_lk(nproma,nblks_c)
-      cf_desc    = t_cf_var('h_ice_lk', 'm', 'lake ice depth', DATATYPE_FLT32)
-      grib2_desc = t_grib2_var(1, 2, 5, ibits, GRID_REFERENCE, GRID_CELL)
-      CALL add_var( prog_list, vname_prefix//'h_ice_lk'//suffix, p_prog_wtr%h_ice_lk, &
-           & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,                 &
-           & ldims=shape2d )
 
       ! p_prog_wtr%t_snow_lk(nproma,nblks_c)
       cf_desc    = t_cf_var('t_snow_lk', 'K', 'temperature of snow on lake ice', DATATYPE_FLT32)

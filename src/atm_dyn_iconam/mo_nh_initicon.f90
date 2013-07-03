@@ -2607,6 +2607,17 @@ MODULE mo_nh_initicon
             ENDIF  ! ntiles_total
           ENDIF  ! lseaice
 
+
+          ! Coldstart for fresh water lake model
+          !
+!DR          IF (llake) THEN
+          ! To be implemented ... CALL flake_coldstart()
+          ! Make use of sfc%ls_mask in order to identify potentially problematic points, 
+          ! where depth_lk>0 (lake point in ICON) but ls_mask >0.5 (land point in IFS).
+          ! At these points, tskin should not be used to initialize the water temperature.
+!DR          ENDIF
+
+
         ENDIF   ! inwp_surface > 0
 
       ENDDO

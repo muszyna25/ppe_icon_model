@@ -170,8 +170,8 @@ CONTAINS
                                        ! to sol. rad.
     REAL(wp) :: t_snow_lk_now (nproma) ! temperature of snow on lake ice
     REAL(wp) :: h_snow_lk_now (nproma) ! depth of snow on lake ice
-    REAL(wp) :: t_ice_lk_now  (nproma) ! lake ice temperature
-    REAL(wp) :: h_ice_lk_now  (nproma) ! lake ice depth
+    REAL(wp) :: t_ice_now     (nproma) ! lake ice temperature
+    REAL(wp) :: h_ice_now     (nproma) ! lake ice depth
     REAL(wp) :: t_mnw_lk_now  (nproma) ! mean temperature of the water column
     REAL(wp) :: t_wml_lk_now  (nproma) ! mixed-layer temperature
     REAL(wp) :: t_bot_lk_now  (nproma) ! temperature at the water-bottom sediment interface
@@ -230,7 +230,7 @@ CONTAINS
 !$OMP            icount_water,icount_flk,temp,ic,isubs_snow,frsi,tice_now,hice_now,  &
 !$OMP            tsnow_now,hsnow_now,tice_new,hice_new,tsnow_new,hsnow_new,fr_lake,  &
 !$OMP            depth_lk,fetch_lk,dp_bs_lk,t_bs_lk,gamso_lk,t_snow_lk_now,          &
-!$OMP            h_snow_lk_now,t_ice_lk_now,h_ice_lk_now,t_mnw_lk_now,t_wml_lk_now,  &
+!$OMP            h_snow_lk_now,t_ice_now,h_ice_now,t_mnw_lk_now,t_wml_lk_now,        &
 !$OMP            t_bot_lk_now,c_t_lk_now,h_ml_lk_now,t_b1_lk_now,h_b1_lk_now,        &
 !$OMP            t_scf_lk_now), SCHEDULE(guided)
     DO jb = i_startblk, i_endblk
@@ -554,8 +554,8 @@ CONTAINS
           gamso_lk     (ic) = ext_data%atm%gamso_lk   (jc,jb)
           t_snow_lk_now(ic) = p_prog_wtr_now%t_snow_lk(jc,jb)
           h_snow_lk_now(ic) = p_prog_wtr_now%h_snow_lk(jc,jb)
-          t_ice_lk_now (ic) = p_prog_wtr_now%t_ice_lk (jc,jb)
-          h_ice_lk_now (ic) = p_prog_wtr_now%h_ice_lk (jc,jb)
+          t_ice_now    (ic) = p_prog_wtr_now%t_ice    (jc,jb)
+          h_ice_now    (ic) = p_prog_wtr_now%h_ice    (jc,jb)
           t_mnw_lk_now (ic) = p_prog_wtr_now%t_mnw_lk (jc,jb)
           t_wml_lk_now (ic) = p_prog_wtr_now%t_wml_lk (jc,jb)
           t_bot_lk_now (ic) = p_prog_wtr_now%t_bot_lk (jc,jb)
@@ -577,8 +577,8 @@ CONTAINS
           &              gamso_lk   = gamso_lk     (:),       & !inout
           &              t_snow_p   = t_snow_lk_now(:),       & !inout
           &              h_snow_p   = h_snow_lk_now(:),       & !inout
-          &              t_ice_p    = t_ice_lk_now (:),       & !inout
-          &              h_ice_p    = h_ice_lk_now (:),       & !inout
+          &              t_ice_p    = t_ice_now    (:),       & !inout
+          &              h_ice_p    = h_ice_now    (:),       & !inout
           &              t_mnw_lk_p = t_mnw_lk_now (:),       & !inout
           &              t_wml_lk_p = t_wml_lk_now (:),       & !inout
           &              t_bot_lk_p = t_bot_lk_now (:),       & !inout
@@ -602,8 +602,8 @@ CONTAINS
 
           p_prog_wtr_now%t_snow_lk(jc,jb) = t_snow_lk_now(ic)
           p_prog_wtr_now%h_snow_lk(jc,jb) = h_snow_lk_now(ic)
-          p_prog_wtr_now%t_ice_lk (jc,jb) = t_ice_lk_now (ic)
-          p_prog_wtr_now%h_ice_lk (jc,jb) = h_ice_lk_now (ic)
+          p_prog_wtr_now%t_ice    (jc,jb) = t_ice_now    (ic)
+          p_prog_wtr_now%h_ice    (jc,jb) = h_ice_now    (ic)
           p_prog_wtr_now%t_mnw_lk (jc,jb) = t_mnw_lk_now (ic)
           p_prog_wtr_now%t_wml_lk (jc,jb) = t_wml_lk_now (ic)
           p_prog_wtr_now%t_bot_lk (jc,jb) = t_bot_lk_now (ic)
@@ -618,8 +618,8 @@ CONTAINS
           ! Prognostic Flake fields at time step new are initialized as well
           p_prog_wtr_new%t_snow_lk(jc,jb) = t_snow_lk_now(ic)
           p_prog_wtr_new%h_snow_lk(jc,jb) = h_snow_lk_now(ic)
-          p_prog_wtr_new%t_ice_lk (jc,jb) = t_ice_lk_now (ic)
-          p_prog_wtr_new%h_ice_lk (jc,jb) = h_ice_lk_now (ic)
+          p_prog_wtr_new%t_ice    (jc,jb) = t_ice_now    (ic)
+          p_prog_wtr_new%h_ice    (jc,jb) = h_ice_now    (ic)
           p_prog_wtr_new%t_mnw_lk (jc,jb) = t_mnw_lk_now (ic)
           p_prog_wtr_new%t_wml_lk (jc,jb) = t_wml_lk_now (ic)
           p_prog_wtr_new%t_bot_lk (jc,jb) = t_bot_lk_now (ic)
