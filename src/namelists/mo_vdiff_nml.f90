@@ -39,7 +39,7 @@ MODULE mo_vdiff_nml
   USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist,  &
                                   & open_and_restore_namelist, close_tmpfile
   USE mo_mpi,                 ONLY: my_process_is_stdio
-  USE mo_nml_annotate,        ONLY: temp_defaults, temp_settings, log_nml_settings 
+  USE mo_nml_annotate,        ONLY: temp_defaults, temp_settings
 
   IMPLICIT NONE
   PRIVATE
@@ -86,14 +86,11 @@ CONTAINS
     !---------------------------------------------------------------------
     CALL open_nml(TRIM(filename))
     CALL position_nml('vdiff_nml',STATUS=ist)
+    IF (my_process_is_stdio()) WRITE(temp_defaults(), vdiff_nml)  ! write defaults to temporary text file
     SELECT CASE (ist)
     CASE (POSITIONED)
-      IF (my_process_is_stdio()) WRITE(temp_defaults(), vdiff_nml)  ! write defaults to temporary text file
       READ (nnml, vdiff_nml, iostat=istat)                          ! overwrite default settings
-      IF (my_process_is_stdio()) THEN
-        WRITE(temp_settings(), vdiff_nml)                           ! write settings to temporary text file
-        CALL log_nml_settings("nml.log")
-      END IF
+      IF (my_process_is_stdio()) WRITE(temp_settings(), vdiff_nml)  ! write settings to temporary text file
     END SELECT
     CALL close_nml
 

@@ -49,7 +49,7 @@ MODULE mo_nh_pzlev_nml
   USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist,     &
     &                               open_and_restore_namelist, close_tmpfile
   USE mo_nh_pzlev_config,     ONLY: nh_pzlev_config
-  USE mo_nml_annotate,        ONLY: temp_defaults, temp_settings, log_nml_settings 
+  USE mo_nml_annotate,        ONLY: temp_defaults, temp_settings
   
   IMPLICIT NONE
   PRIVATE
@@ -167,14 +167,11 @@ CONTAINS
     !--------------------------------------------------------------------
     CALL open_nml(TRIM(filename))
     CALL position_nml ('nh_pzlev_nml', STATUS=istat)
+    IF (my_process_is_stdio()) WRITE(temp_defaults(), nh_pzlev_nml)  ! write defaults to temporary text file
     SELECT CASE (istat)
     CASE (POSITIONED)
-      IF (my_process_is_stdio()) WRITE(temp_defaults(), nh_pzlev_nml)  ! write defaults to temporary text file
       READ (nnml, nh_pzlev_nml, iostat=istat)                          ! overwrite default settings
-      IF (my_process_is_stdio()) THEN
-        WRITE(temp_settings(), nh_pzlev_nml)                           ! write settings to temporary text file
-        CALL log_nml_settings("nml.log")
-      END IF
+      IF (my_process_is_stdio()) WRITE(temp_settings(), nh_pzlev_nml)  ! write settings to temporary text file
     END SELECT
     CALL close_nml
 

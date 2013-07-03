@@ -78,7 +78,7 @@ MODULE mo_radiation_nml
   USE mo_master_control,     ONLY: is_restart_run
   USE mo_io_restart_namelist,ONLY: open_tmpfile, store_and_close_namelist, &
                                  & open_and_restore_namelist, close_tmpfile
-  USE mo_nml_annotate,       ONLY: temp_defaults, temp_settings, log_nml_settings 
+  USE mo_nml_annotate,       ONLY: temp_defaults, temp_settings
 
   IMPLICIT NONE
   PRIVATE
@@ -251,14 +251,11 @@ CONTAINS
     !--------------------------------------------------------------------
     CALL open_nml(TRIM(filename))
     CALL position_nml ('radiation_nml', status=istat)
+    IF (my_process_is_stdio()) WRITE(temp_defaults(), radiation_nml)  ! write defaults to temporary text file
     SELECT CASE (istat)
     CASE (POSITIONED)
-      IF (my_process_is_stdio()) WRITE(temp_defaults(), radiation_nml)  ! write defaults to temporary text file
       READ (nnml, radiation_nml, iostat=istat)                          ! overwrite default settings
-      IF (my_process_is_stdio()) THEN
-        WRITE(temp_settings(), radiation_nml)                           ! write settings to temporary text file
-        CALL log_nml_settings("nml.log")
-      END IF
+      IF (my_process_is_stdio()) WRITE(temp_settings(), radiation_nml)  ! write settings to temporary text file
     END SELECT
     CALL close_nml
 

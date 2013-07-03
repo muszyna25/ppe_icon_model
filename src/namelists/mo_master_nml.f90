@@ -38,7 +38,7 @@ MODULE mo_master_nml
   USE mo_io_units,       ONLY: filename_max, nnml
   USE mo_namelist,       ONLY: open_nml, position_nml, POSITIONED
   USE mo_util_string,    ONLY: t_keyword_list, associate_keyword, with_keywords
-  USE mo_nml_annotate,   ONLY: temp_defaults, temp_settings, log_nml_settings 
+  USE mo_nml_annotate,   ONLY: temp_defaults, temp_settings
   USE mo_mpi,            ONLY: my_process_is_stdio
 
   IMPLICIT NONE
@@ -164,10 +164,7 @@ CONTAINS
       
       IF (my_process_is_stdio()) WRITE(temp_defaults(), master_model_nml)  ! write defaults to temporary text file
       READ (nnml, master_model_nml, iostat=istat)                          ! overwrite default settings
-      IF (my_process_is_stdio()) THEN
-        WRITE(temp_settings(), master_model_nml)                           ! write settings to temporary text file
-        CALL log_nml_settings("nml.log")
-      END IF
+      IF (my_process_is_stdio()) WRITE(temp_settings(), master_model_nml)  ! write settings to temporary text file
 
       no_of_models=no_of_models+1
       master_nml_array(no_of_models)%model_name              = model_name

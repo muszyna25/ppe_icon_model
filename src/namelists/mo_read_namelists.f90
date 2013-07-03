@@ -38,6 +38,7 @@ MODULE mo_read_namelists
 
   USE mo_mpi                 ,ONLY: my_process_is_stdio
   USE mo_namelist            ,ONLY: open_nml_output, close_nml_output
+  USE mo_nml_annotate        ,ONLY: log_nml_settings
 
   USE mo_time_nml            ,ONLY: read_time_namelist
 
@@ -190,6 +191,9 @@ CONTAINS
 
     IF (my_process_is_stdio()) CALL close_nml_output
 
+    ! write an annotate table of all namelist settings to a text file
+    IF (my_process_is_stdio()) CALL log_nml_settings("nml.atmo.log")
+
   END SUBROUTINE read_atmo_namelists
   !-------------------------------------------------------------------------
 
@@ -280,6 +284,9 @@ CONTAINS
     !-----------------------------------------------------------------
 
     IF (my_process_is_stdio()) CALL close_nml_output
+
+    ! write an annotate table of all namelist settings to a text file
+    IF (my_process_is_stdio()) CALL log_nml_settings("nml.cpl.log")
 
   END SUBROUTINE read_cpl_dummy_namelists
   !-------------------------------------------------------------------------

@@ -55,7 +55,7 @@ MODULE mo_ocean_nml
   USE mo_namelist,           ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_mpi,                ONLY: my_process_is_stdio
   USE mo_ocean_config,       ONLY: config_ignore_land_points => ignore_land_points
-  USE mo_nml_annotate,       ONLY: temp_defaults, temp_settings, log_nml_settings 
+  USE mo_nml_annotate,       ONLY: temp_defaults, temp_settings
 #ifndef __ICON_OCEAN_ONLY__
   USE mo_coupling_config,    ONLY: is_coupled_run
 #endif
@@ -412,59 +412,44 @@ MODULE mo_ocean_nml
      ! setup for the ocean_run_nml
      ignore_land_points = config_ignore_land_points
      CALL position_nml ('ocean_run_nml', status=i_status)
+     IF (my_process_is_stdio()) WRITE(temp_defaults(), ocean_run_nml)   ! write defaults to temporary text file
      SELECT CASE (i_status)
      CASE (positioned)
-       IF (my_process_is_stdio()) WRITE(temp_defaults(), ocean_run_nml)   ! write defaults to temporary text file
        READ (nnml, ocean_run_nml, iostat=istat)                           ! overwrite default settings
-       IF (my_process_is_stdio()) THEN
-         WRITE(temp_settings(), ocean_run_nml)                            ! write settings to temporary text file
-         CALL log_nml_settings("nml.log")
-       END IF
+       IF (my_process_is_stdio()) WRITE(temp_settings(), ocean_run_nml)   ! write settings to temporary text file
      END SELECT
      config_ignore_land_points = ignore_land_points
 
      CALL position_nml ('ocean_dynamics_nml', status=i_status)
+     IF (my_process_is_stdio()) WRITE(temp_defaults(), ocean_dynamics_nml) ! write defaults to temporary text file
      SELECT CASE (i_status)
      CASE (positioned)
-       IF (my_process_is_stdio()) WRITE(temp_defaults(), ocean_dynamics_nml) ! write defaults to temporary text file
        READ (nnml, ocean_dynamics_nml, iostat=istat)                         ! overwrite default settings
-       IF (my_process_is_stdio()) THEN
-         WRITE(temp_settings(), ocean_dynamics_nml)                          ! write settings to temporary text file
-         CALL log_nml_settings("nml.log")
-       END IF
+       IF (my_process_is_stdio()) WRITE(temp_settings(), ocean_dynamics_nml) ! write settings to temporary text file
      END SELECT
 
      CALL position_nml ('ocean_physics_nml', status=i_status)
+     IF (my_process_is_stdio()) WRITE(temp_defaults(), ocean_physics_nml)    ! write defaults to temporary text file
      SELECT CASE (i_status)
      CASE (positioned)
-       IF (my_process_is_stdio()) WRITE(temp_defaults(), ocean_physics_nml)    ! write defaults to temporary text file
        READ (nnml, ocean_physics_nml, iostat=istat)                            ! overwrite default settings
-       IF (my_process_is_stdio()) THEN
-         WRITE(temp_settings(), ocean_physics_nml)                             ! write settings to temporary text file
-         CALL log_nml_settings("nml.log")
-       END IF
+       IF (my_process_is_stdio()) WRITE(temp_settings(), ocean_physics_nml)    ! write settings to temporary text file
      END SELECT
 
      CALL position_nml ('ocean_forcing_and_init_nml', status=i_status)
+     IF (my_process_is_stdio()) WRITE(temp_defaults(), ocean_forcing_and_init_nml)  ! write defaults to temporary text file
      SELECT CASE (i_status)
      CASE (positioned)
-       IF (my_process_is_stdio()) WRITE(temp_defaults(), ocean_forcing_and_init_nml)  ! write defaults to temporary text file
        READ (nnml, ocean_forcing_and_init_nml, iostat=istat)                          ! overwrite default settings
-       IF (my_process_is_stdio()) THEN
-         WRITE(temp_settings(), ocean_forcing_and_init_nml)                           ! write settings to temporary text file
-         CALL log_nml_settings("nml.log")
-       END IF
+       IF (my_process_is_stdio()) WRITE(temp_settings(), ocean_forcing_and_init_nml)  ! write settings to temporary text file
      END SELECT
 
      CALL position_nml ('ocean_diagnostics_nml', status=i_status)
+     IF (my_process_is_stdio()) WRITE(temp_defaults(), ocean_diagnostics_nml)   ! write defaults to temporary text file
      SELECT CASE (i_status)
      CASE (positioned)
-       IF (my_process_is_stdio()) WRITE(temp_defaults(), ocean_diagnostics_nml)   ! write defaults to temporary text file
        READ (nnml, ocean_diagnostics_nml, iostat=istat)                           ! overwrite default settings
-       IF (my_process_is_stdio()) THEN
-         WRITE(temp_settings(), ocean_diagnostics_nml)                            ! write settings to temporary text file
-         CALL log_nml_settings("nml.log")
-       END IF
+       IF (my_process_is_stdio()) WRITE(temp_settings(), ocean_diagnostics_nml)   ! write settings to temporary text file
      END SELECT
 
      !------------------------------------------------------------

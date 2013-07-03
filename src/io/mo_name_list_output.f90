@@ -116,7 +116,7 @@ MODULE mo_name_list_output
   USE mo_io_units,            ONLY: find_next_free_unit
   ! post-ops
   USE mo_post_op,             ONLY: perform_post_op
-  USE mo_nml_annotate,        ONLY: temp_defaults, temp_settings, log_nml_settings 
+  USE mo_nml_annotate,        ONLY: temp_defaults, temp_settings
 
 ! model dependenceis should be cleaned !
   USE mo_ocean_nml,             ONLY: n_zlev
@@ -438,7 +438,6 @@ CONTAINS
       READ (nnml, output_nml, iostat=istat)                          ! overwrite default settings
       IF (my_process_is_stdio())  THEN
         WRITE(temp_settings(), output_nml)                           ! write settings to temporary text file
-        CALL log_nml_settings("nml.log")
       END IF
 
       WRITE(message_text,'(a,i0)') 'Read namelist "output_nml", status = ', istat

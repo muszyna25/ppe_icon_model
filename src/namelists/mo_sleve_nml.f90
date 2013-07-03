@@ -50,7 +50,7 @@ MODULE mo_sleve_nml
     &                               config_flat_height   => flat_height  , &
     &                               config_stretch_fac   => stretch_fac  , &
     &                               config_lread_smt     => lread_smt 
-  USE mo_nml_annotate,        ONLY: temp_defaults, temp_settings, log_nml_settings 
+  USE mo_nml_annotate,        ONLY: temp_defaults, temp_settings
 
   IMPLICIT NONE
   PRIVATE
@@ -142,14 +142,11 @@ CONTAINS
     !--------------------------------------------------------------------
     CALL open_nml(TRIM(filename))
     CALL position_nml ('sleve_nml', status=istat)
+    IF (my_process_is_stdio()) WRITE(temp_defaults(), sleve_nml)  ! write defaults to temporary text file
     SELECT CASE (istat)
     CASE (POSITIONED)
-      IF (my_process_is_stdio()) WRITE(temp_defaults(), sleve_nml)  ! write defaults to temporary text file
       READ (nnml, sleve_nml, iostat=istat)                          ! overwrite default settings
-      IF (my_process_is_stdio()) THEN
-        WRITE(temp_settings(), sleve_nml)                           ! write settings to temporary text file
-        CALL log_nml_settings("nml.log")
-      END IF
+      IF (my_process_is_stdio()) WRITE(temp_settings(), sleve_nml)  ! write settings to temporary text file
     END SELECT
     CALL close_nml
 

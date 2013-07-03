@@ -42,7 +42,7 @@ MODULE mo_dbg_nml
   USE mo_io_units,           ONLY: nnml, nnml_output
   USE mo_namelist,           ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_mpi,                ONLY: my_process_is_stdio
-  USE mo_nml_annotate,       ONLY: temp_defaults, temp_settings, log_nml_settings 
+  USE mo_nml_annotate,       ONLY: temp_defaults, temp_settings
 
   IMPLICIT NONE
 
@@ -121,14 +121,11 @@ CONTAINS
    
     CALL open_nml(TRIM(filename))
     CALL position_nml ('dbg_index_nml', status=i_status)
+    IF (my_process_is_stdio()) WRITE(temp_defaults(), dbg_index_nml)  ! write defaults to temporary text file
     SELECT CASE (i_status)
     CASE (positioned)
-      IF (my_process_is_stdio()) WRITE(temp_defaults(), dbg_index_nml)  ! write defaults to temporary text file
       READ (nnml, dbg_index_nml, iostat=istat)                          ! overwrite default settings
-      IF (my_process_is_stdio()) THEN
-        WRITE(temp_settings(), dbg_index_nml)                           ! write settings to temporary text file
-        CALL log_nml_settings("nml.log")
-      END IF
+      IF (my_process_is_stdio()) WRITE(temp_settings(), dbg_index_nml)  ! write settings to temporary text file
     END SELECT
     CALL close_nml
 

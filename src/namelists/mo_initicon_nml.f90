@@ -60,7 +60,7 @@ MODULE mo_initicon_nml
     & config_l_coarse2fine_mode => l_coarse2fine_mode,&
     & config_filetype           => filetype,          &
     & config_ana_varnames_map_file => ana_varnames_map_file
-  USE mo_nml_annotate,       ONLY: temp_defaults, temp_settings, log_nml_settings 
+  USE mo_nml_annotate,       ONLY: temp_defaults, temp_settings
 
 
   IMPLICIT NONE
@@ -162,14 +162,11 @@ CONTAINS
   !
   CALL open_nml(TRIM(filename))
   CALL position_nml ('initicon_nml', status=i_status)
+  IF (my_process_is_stdio()) WRITE(temp_defaults(), initicon_nml)  ! write defaults to temporary text file
   SELECT CASE (i_status)
   CASE (positioned)
-    IF (my_process_is_stdio()) WRITE(temp_defaults(), initicon_nml)  ! write defaults to temporary text file
     READ (nnml, initicon_nml, iostat=istat)                          ! overwrite default settings
-    IF (my_process_is_stdio()) THEN
-      WRITE(temp_settings(), initicon_nml)                           ! write settings to temporary text file
-      CALL log_nml_settings("nml.log")
-    END IF
+    IF (my_process_is_stdio()) WRITE(temp_settings(), initicon_nml)  ! write settings to temporary text file
   END SELECT
   CALL close_nml
 

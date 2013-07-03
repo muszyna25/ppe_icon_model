@@ -61,7 +61,7 @@ MODULE mo_interpol_nml
                                   & config_l_intp_c2l        => l_intp_c2l        , &
                                   & config_rbf_dim_c2l       => rbf_dim_c2l       , &
                                   & config_l_mono_c2l        => l_mono_c2l
-  USE mo_nml_annotate,        ONLY: temp_defaults, temp_settings, log_nml_settings 
+  USE mo_nml_annotate,        ONLY: temp_defaults, temp_settings
 
   IMPLICIT NONE
   PRIVATE
@@ -220,14 +220,11 @@ CONTAINS
     !-------------------------------------------------------------------------
     CALL open_nml(TRIM(filename))
     CALL position_nml ('interpol_nml', status=istat)
+    IF (my_process_is_stdio()) WRITE(temp_defaults(), interpol_nml) ! write defaults to temporary text file
     SELECT CASE (istat)
     CASE (POSITIONED)
-      IF (my_process_is_stdio()) WRITE(temp_defaults(), interpol_nml) ! write defaults to temporary text file
       READ (nnml, interpol_nml, iostat=istat)                         ! overwrite default settings
-      IF (my_process_is_stdio()) THEN
-        WRITE(temp_settings(), interpol_nml)                          ! write settings to temporary text file
-        CALL log_nml_settings("nml.log")
-      END IF
+      IF (my_process_is_stdio()) WRITE(temp_settings(), interpol_nml) ! write settings to temporary text file
     END SELECT
     CALL close_nml
 
