@@ -1330,7 +1330,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
           & ldims=shape2d,                                                    &
           & post_op=post_op(POST_OP_SCALE, arg1=1._wp/grav,                   &
           &                 new_cf=new_cf_desc),                              &
-          & in_group=groups("dwd_ana_vars") )
+          & in_group=groups("dwd_fg_sfc_vars") )
         diag%gz0(:,:)=0.01_wp
 
 
@@ -1339,7 +1339,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
         grib2_desc = t_grib2_var(0, 0, 0, ibits, GRID_REFERENCE, GRID_CELL)
         CALL add_var( diag_list, 't_2m', diag%t_2m,                           &
           & GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_2M, cf_desc, grib2_desc,        &
-          & ldims=shape2d, lrestart=.FALSE., in_group=groups("pbl_vars","dwd_ana_vars") )
+          & ldims=shape2d, lrestart=.FALSE., in_group=groups("pbl_vars","dwd_fg_atm_vars") )
 
 
         ! &      diag%t_2m_s6avg(nproma,nblks_c)
@@ -1398,7 +1398,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
         grib2_desc = t_grib2_var(0, 0, 6, ibits, GRID_REFERENCE, GRID_CELL)
         CALL add_var( diag_list, 'td_2m', diag%td_2m,                         &
           & GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_2M, cf_desc, grib2_desc,        &
-          & ldims=shape2d, lrestart=.FALSE., in_group=groups("pbl_vars","dwd_ana_vars") )
+          & ldims=shape2d, lrestart=.FALSE., in_group=groups("pbl_vars","dwd_fg_atm_vars") )
 
 
         ! &      diag%u_10m(nproma,nblks_c)
@@ -1406,7 +1406,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
         grib2_desc = t_grib2_var(0, 2, 2, ibits, GRID_REFERENCE, GRID_CELL)
         CALL add_var( diag_list, 'u_10m', diag%u_10m,                         &
           & GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_10M, cf_desc, grib2_desc,       &
-          & ldims=shape2d, lrestart=.FALSE., in_group=groups("pbl_vars","dwd_ana_vars") )
+          & ldims=shape2d, lrestart=.FALSE., in_group=groups("pbl_vars","dwd_fg_atm_vars") )
 
         ! &      diag%u_10m_s6avg(nproma,nblks_c)
         cf_desc    = t_cf_var('u_10m_s6avg', 'm s-1 ','zonal wind in 10m', DATATYPE_FLT32)
@@ -1421,7 +1421,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
         grib2_desc = t_grib2_var(0, 2, 3, ibits, GRID_REFERENCE, GRID_CELL)
         CALL add_var( diag_list, 'v_10m', diag%v_10m,                         &
           & GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_10M, cf_desc, grib2_desc,       &
-          & ldims=shape2d, lrestart=.FALSE., in_group=groups("pbl_vars","dwd_ana_vars") )
+          & ldims=shape2d, lrestart=.FALSE., in_group=groups("pbl_vars","dwd_fg_atm_vars") )
 
 
         ! &      diag%v_10m_s6avg(nproma,nblks_c)
