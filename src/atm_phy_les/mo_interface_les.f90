@@ -82,7 +82,7 @@ MODULE mo_interface_les
   USE mo_radiation_config,   ONLY: irad_aero
   USE mo_nwp_gw_interface,   ONLY: nwp_gwdrag 
   USE mo_nwp_gscp_interface, ONLY: nwp_microphysics
-  USE mo_nwp_turbdiff_interface,  ONLY: nwp_turbdiff
+  USE mo_les_turb_interface, ONLY: les_turbulence
   USE mo_nwp_sfc_interface,  ONLY: nwp_surface
   USE mo_nwp_rad_interface,  ONLY: nwp_radiation
   USE mo_sync,               ONLY: sync_patch_array, sync_patch_array_mult, SYNC_E, &
@@ -137,23 +137,19 @@ CONTAINS
     LOGICAL, INTENT(IN)          :: lredgrid        !< use reduced grid for radiation
     REAL(wp),INTENT(in)          :: dt_loc          !< time step applicable to local grid level
     REAL(wp),INTENT(in)          :: dtadv_loc       !< same for advective time step
-    REAL(wp),INTENT(in)          :: dt_phy_jg(:)    !< time interval for all physics
-                                                    !< packages on domain jg
+    REAL(wp),INTENT(in)          :: dt_phy_jg(:)    !< time interval for all physics on jg
     REAL(wp),INTENT(in)          :: p_sim_time
 
     TYPE(t_datetime),            INTENT(in):: datetime
-    TYPE(t_patch),        TARGET,INTENT(in):: pt_patch     !<grid/patch info.
-    TYPE(t_patch),        TARGET,INTENT(in):: pt_par_patch !<grid/patch info (parent grid)
-
-    TYPE(t_int_state),    TARGET,INTENT(in):: pt_int_state      !< interpolation state
-    TYPE(t_nh_metrics)   ,       INTENT(in):: p_metrics
+    TYPE(t_patch),        TARGET,INTENT(in):: pt_patch         !<grid/patch info.
+    TYPE(t_patch),        TARGET,INTENT(in):: pt_par_patch     !<grid/patch info (parent grid)
+    TYPE(t_int_state),    TARGET,INTENT(in)   :: pt_int_state  !< interpolation state
+    TYPE(t_nh_metrics)   ,       INTENT(in)   :: p_metrics
     TYPE(t_external_data),       INTENT(inout):: ext_data
-
-    TYPE(t_nh_diag), TARGET, INTENT(inout) :: pt_diag     !<the diagnostic variables
-    TYPE(t_nh_prog), TARGET, INTENT(inout) :: pt_prog     !<the prognostic variables
-    TYPE(t_nh_prog), TARGET, INTENT(inout) :: pt_prog_now_rcf !<old state for tke
-    TYPE(t_nh_prog), TARGET, INTENT(inout) :: pt_prog_rcf !<the prognostic variables (with
-                                                          !< red. calling frequency for tracers!
+    TYPE(t_nh_diag), TARGET, INTENT(inout)    :: pt_diag       !<the diagnostic variables
+    TYPE(t_nh_prog), TARGET, INTENT(inout)    :: pt_prog       !<the prognostic variables
+    TYPE(t_nh_prog), TARGET, INTENT(inout)    :: pt_prog_now_rcf !<old state for tke
+    TYPE(t_nh_prog), TARGET, INTENT(inout)    :: pt_prog_rcf   !<the RCF prognostic variables 
     TYPE(t_nwp_phy_diag),       INTENT(inout) :: prm_diag
     TYPE(t_nwp_phy_tend),TARGET,INTENT(inout) :: prm_nwp_tend
     TYPE(t_lnd_prog),           INTENT(inout) :: lnd_prog_now, lnd_prog_new
@@ -471,15 +467,13 @@ CONTAINS
 
       IF (timers_level > 1) CALL timer_start(timer_nwp_turbulence)
 
-      CALL nwp_turbdiff   (  dt_phy_jg(itfastphy),              & !>in
+      CALL les_turbulence (  dt_phy_jg(itfastphy),              & !>in
                             & pt_patch, p_metrics,              & !>in
                             & pt_int_state,                     & !>in
-                            & ext_data,                         & !>in
                             & pt_prog,                          & !>in
-                            & pt_prog_now_rcf, pt_prog_rcf,     & !>in/inout
+                            & pt_prog_rcf,                      & !>inout
                             & pt_diag ,                         & !>inout
                             & prm_diag,prm_nwp_tend,            & !>inout
-                            & wtr_prog_now,                     & !>in
                             & lnd_prog_now,                     & !>in 
                             & lnd_prog_new,                     & !>inout ONLY for idealized LES
                             & lnd_diag                          ) !>in
@@ -1018,21 +1012,13 @@ CONTAINS
 
       IF (timers_level > 3) CALL timer_stop(timer_ls_forcing)
 
-    ELSE
-
-      !Just put them to 0 for safety
-      prm_nwp_tend%ddt_u_ls      = 0._wp  
-      prm_nwp_tend%ddt_v_ls      = 0._wp  
-      prm_nwp_tend%ddt_temp_ls   = 0._wp  
-      prm_nwp_tend%ddt_tracer_ls = 0._wp  
-
     END IF 
     
     IF (timers_level > 2) CALL timer_start(timer_phys_acc)
     !-------------------------------------------------------------------------
     !>  accumulate tendencies of slow_physics: Not called when LS focing is ON
     !-------------------------------------------------------------------------
-    IF( l_any_slowphys .OR. lcall_phy_jg(itradheat) .OR. is_ls_forcing ) THEN
+    IF( l_any_slowphys .OR. lcall_phy_jg(itradheat) .AND. .NOT.is_ls_forcing ) THEN
 
       IF (p_test_run) THEN
         z_ddt_u_tot = 0._wp
@@ -1092,17 +1078,12 @@ CONTAINS
                                                     prm_nwp_tend%ddt_v_raylfric(jc,jk,jb)) )
           ENDDO
         ENDDO
-       
-        DO jk = 1, nlev
-          DO jc = i_startidx, i_endidx        
-             z_ddt_temp(jc,jk,jb) =                                             &
-                                          prm_nwp_tend%ddt_temp_radsw(jc,jk,jb) &
-                                       +  prm_nwp_tend%ddt_temp_radlw(jc,jk,jb) &
-                                       +  prm_nwp_tend%ddt_temp_drag (jc,jk,jb) &
-                                       +  prm_nwp_tend%ddt_temp_ls(jk)
-          END DO   
-        END DO
-
+ 
+        z_ddt_temp(i_startidx:i_endidx,:,jb) =                                                   &
+   &                                       prm_nwp_tend%ddt_temp_radsw(i_startidx:i_endidx,:,jb) &
+   &                                    +  prm_nwp_tend%ddt_temp_radlw(i_startidx:i_endidx,:,jb) &
+   &                                    +  prm_nwp_tend%ddt_temp_drag (i_startidx:i_endidx,:,jb) 
+     
         ! Convert temperature tendency into Exner function tendency
         DO jk = 1, nlev
           DO jc = i_startidx, i_endidx
@@ -1112,14 +1093,10 @@ CONTAINS
               &     + pt_prog_rcf%tracer (jc,jk,jb,iqr) &
               &     + pt_prog_rcf%tracer (jc,jk,jb,iqs)
             
-            z_ddt_qsum =   prm_nwp_tend%ddt_tracer_ls(jk,iqc) &
-              &          + prm_nwp_tend%ddt_tracer_ls(jk,iqi) 
-
             pt_diag%ddt_exner_phy(jc,jk,jb) = rd_o_cpd / pt_prog%theta_v(jc,jk,jb)           &
               &                             * (z_ddt_temp(jc,jk,jb)                          &
               &                             *(1._wp + vtmpc1*pt_prog_rcf%tracer(jc,jk,jb,iqv)&
-              &                                - z_qsum) + pt_diag%temp(jc,jk,jb)            &
-              &           * (vtmpc1 * prm_nwp_tend%ddt_tracer_ls(jk,iqv)-z_ddt_qsum ))
+              &                                - z_qsum)) 
 
           ENDDO
         ENDDO
@@ -1134,14 +1111,12 @@ CONTAINS
                z_ddt_u_tot(jc,jk,jb) =                   &
                    prm_nwp_tend%ddt_u_gwd     (jc,jk,jb) &
                  + prm_nwp_tend%ddt_u_raylfric(jc,jk,jb) &
-                 + prm_nwp_tend%ddt_u_sso     (jc,jk,jb) &
-                 + prm_nwp_tend%ddt_u_ls      (jk) 
+                 + prm_nwp_tend%ddt_u_sso     (jc,jk,jb) 
 
                z_ddt_v_tot(jc,jk,jb) =                   &
                    prm_nwp_tend%ddt_v_gwd     (jc,jk,jb) &
                  + prm_nwp_tend%ddt_v_raylfric(jc,jk,jb) &
-                 + prm_nwp_tend%ddt_v_sso     (jc,jk,jb) &
-                 + prm_nwp_tend%ddt_v_ls      (jk) 
+                 + prm_nwp_tend%ddt_v_sso     (jc,jk,jb) 
             END DO
           END DO  
         ENDIF
@@ -1152,6 +1127,77 @@ CONTAINS
       IF (timers_level > 3) CALL timer_stop(timer_phys_acc_1)
 
     END IF!END OF slow physics tendency accumulation 
+
+!-----------------------------------------------------------------------------------------
+!AD (2013-03-June): Add large scale forcing tendencies in similar manner as above (I don't
+!                   trust this way that much!). For now it works with LS radiative forcing. 
+!  (2013-25-June): ls_forcing is made independent of slowphy call and therefore if any other
+!                  physics like radiation or sso or conv is called later on, they must be
+!                  included here in like above.                   
+!-----------------------------------------------------------------------------------------     
+    IF(is_ls_forcing)THEN  
+
+      IF (p_test_run) THEN
+        z_ddt_u_tot = 0._wp
+        z_ddt_v_tot = 0._wp
+      ENDIF
+
+      IF (timers_level > 3) CALL timer_start(timer_phys_acc_1)
+
+      rl_start = grf_bdywidth_c+1
+      rl_end   = min_rlcell_int
+
+      i_startblk = pt_patch%cells%start_blk(rl_start,1)
+      i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
+      
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,jk,jc,i_startidx, i_endidx,z_qsum,z_ddt_qsum) ICON_OMP_DEFAULT_SCHEDULE
+      DO jb = i_startblk, i_endblk
+
+        CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
+              &          i_startidx, i_endidx, rl_start, rl_end)
+
+          DO jk = 1, nlev
+            DO jc = i_startidx, i_endidx
+              z_ddt_temp(jc,jk,jb) = prm_nwp_tend%ddt_temp_ls(jk)
+            END DO 
+          END DO
+
+        ! Convert temperature tendency into Exner function tendency
+        DO jk = 1, nlev
+          DO jc = i_startidx, i_endidx
+
+            z_qsum=   pt_prog_rcf%tracer (jc,jk,jb,iqc) &
+              &     + pt_prog_rcf%tracer (jc,jk,jb,iqi) &
+              &     + pt_prog_rcf%tracer (jc,jk,jb,iqr) &
+              &     + pt_prog_rcf%tracer (jc,jk,jb,iqs)
+            
+            z_ddt_qsum =   prm_nwp_tend%ddt_tracer_ls   (jk,iqc)       & 
+              &          + prm_nwp_tend%ddt_tracer_ls   (jk,iqi) != 0 for now       
+
+            pt_diag%ddt_exner_phy(jc,jk,jb) = rd_o_cpd / pt_prog%theta_v(jc,jk,jb)           &
+              &                             * (z_ddt_temp(jc,jk,jb)                          &
+              &                             *(1._wp + vtmpc1*pt_prog_rcf%tracer(jc,jk,jb,iqv)&
+              &                                - z_qsum) + pt_diag%temp(jc,jk,jb)            &
+              &           * (vtmpc1 * prm_nwp_tend%ddt_tracer_ls(jk,iqv)-z_ddt_qsum ))
+
+          ENDDO
+        ENDDO
+
+        !add u/v forcing tendency here
+        DO jk = 1, nlev
+          DO jc = i_startidx, i_endidx
+            z_ddt_u_tot(jc,jk,jb) = prm_nwp_tend%ddt_u_ls(jk)
+            z_ddt_v_tot(jc,jk,jb) = prm_nwp_tend%ddt_v_ls(jk)
+          END DO 
+        END DO
+
+      ENDDO
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+      IF (timers_level > 3) CALL timer_stop(timer_phys_acc_1)
+
+    END IF!END of LS forcing tendency accumulation 
 
 
     !--------------------------------------------------------

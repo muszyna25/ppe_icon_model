@@ -312,6 +312,10 @@ MODULE mo_impl_constants
                                             ! as a combined process
 
 
+  ! identifiers for different NWP turbulent schemes
+  ! At present only flag for smagorinsky exist
+  INTEGER, PARAMETER :: ismag   =  5
+
 
   ! external parameter for radiation
 

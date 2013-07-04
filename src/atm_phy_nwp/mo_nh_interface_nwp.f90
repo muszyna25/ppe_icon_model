@@ -454,49 +454,25 @@ CONTAINS
     ENDIF
 
 
-    !For turbulence schemes NOT including the call to the surface scheme
-    IF ( l_any_fastphys ) THEN ! nwp_surface must even be called in inwp_surface = 0 because the
-                               ! the lower boundary conditions for the turbulence scheme (except LES)
-                               ! are not set otherwise
+    !For turbulence schemes NOT including the call to the surface scheme.
+    !nwp_surface must even be called in inwp_surface = 0 because the
+    !the lower boundary conditions for the turbulence scheme 
+    !are not set otherwise
 
-      SELECT CASE (atm_phy_nwp_config(jg)%inwp_turb)
+    IF ( l_any_fastphys .AND. ANY( (/1,2,10,11,12/)==atm_phy_nwp_config(jg)%inwp_turb ) ) THEN 
 
-      CASE(1,2,10,11,12)  
-
-         !> as pressure is needed only for an approximate adiabatic extrapolation
-         !! of the temperature at the lowest model level towards ground level,
-         !! a recalculation is not required
-         CALL nwp_surface    (  dt_phy_jg(itfastphy),              & !>input
-                               & pt_patch,                         & !>input
-                               & ext_data,                         & !>input
-                               & pt_prog_rcf,                      & !>in/inout rcf=reduced calling freq.
-                               & pt_diag ,                         & !>inout
-                               & prm_diag,                         & !>inout 
-                               & lnd_prog_now, lnd_prog_new,       & !>inout
-                               & wtr_prog_now, wtr_prog_new,       & !>inout
-                               & lnd_diag                          ) !>input
-
-      CASE(5)
-
-        IF(atm_phy_nwp_config(jg)%inwp_surface>0)THEN
-          CALL nwp_surface    (  dt_phy_jg(itfastphy),             & !>input
-                               & pt_patch,                         & !>input
-                               & ext_data,                         & !>input
-                               & pt_prog_rcf,                      & !>in/inout rcf=reduced calling freq.
-                               & pt_diag ,                         & !>inout
-                               & prm_diag,                         & !>inout 
-                               & lnd_prog_now, lnd_prog_new,       & !>inout
-                               & wtr_prog_now, wtr_prog_new,       & !>inout
-                               & lnd_diag                          ) !>input
-         !For idealized cases there exists routine to calculate surface
-         !conditions. Think of moving call to surface_conditions from 
-         !mo_sgs_turbulence to this place to avoid unnecessary arguements
-         !passing (eg lnd_prog_new) in nwp_turbdiff 
-       END IF
-         
-       !for inwp_turb=3or4 the surface scheme is called within the turbulence/sfc interface 
-     
-      END SELECT      
+       !> as pressure is needed only for an approximate adiabatic extrapolation
+       !! of the temperature at the lowest model level towards ground level,
+       !! a recalculation is not required
+       CALL nwp_surface    (  dt_phy_jg(itfastphy),              & !>input
+                             & pt_patch,                         & !>input
+                             & ext_data,                         & !>input
+                             & pt_prog_rcf,                      & !>in/inout rcf=reduced calling freq.
+                             & pt_diag ,                         & !>inout
+                             & prm_diag,                         & !>inout 
+                             & lnd_prog_now, lnd_prog_new,       & !>inout
+                             & wtr_prog_now, wtr_prog_new,       & !>inout
+                             & lnd_diag                          ) !>input
 
     END IF   
 
@@ -509,7 +485,7 @@ CONTAINS
       SELECT CASE (atm_phy_nwp_config(jg)%inwp_turb)
        
       !Turbulence schemes NOT including the call to the surface scheme
-      CASE(1,2,5,10,11,12)  
+      CASE(1,2,10,11,12)  
 
         ! compute turbulent diffusion (atmospheric column)
         CALL nwp_turbdiff   (  dt_phy_jg(itfastphy),              & !>in
@@ -522,7 +498,6 @@ CONTAINS
                               & prm_diag, prm_nwp_tend,           & !>inout
                               & wtr_prog_now,                     & !>in
                               & lnd_prog_now,                     & !>in 
-                              & lnd_prog_new,                     & !>inout ONLY for idealized LES
                               & lnd_diag                          ) !>in
 
       !Turbulence schemes including the call to the surface scheme

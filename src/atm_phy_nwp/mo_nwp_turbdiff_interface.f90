@@ -93,7 +93,6 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
                           & prm_diag, prm_nwp_tend,           & !>inout
                           & wtr_prog_now,                     & !>in 
                           & lnd_prog_now,                     & !>in 
-                          & lnd_prog_new,                     & !>inout only for idealized LES
                           & lnd_diag                          ) !>in
 
 
@@ -109,7 +108,6 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
   TYPE(t_nwp_phy_tend), TARGET,INTENT(inout):: prm_nwp_tend    !< atm tend vars
   TYPE(t_wtr_prog),            INTENT(in)   :: wtr_prog_now    !< prog vars for wtr
   TYPE(t_lnd_prog),            INTENT(in)   :: lnd_prog_now    !< prog vars for sfc
-  TYPE(t_lnd_prog),            INTENT(inout):: lnd_prog_new    !< prog vars for sfc
   TYPE(t_lnd_diag),            INTENT(inout):: lnd_diag        !< diag vars for sfc
   REAL(wp),                    INTENT(in)   :: tcall_turb_jg   !< time interval for 
                                                                !< turbulence
@@ -164,27 +162,6 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
   IF ( ANY( (/1,10,11,12/)==atm_phy_nwp_config(jg)%inwp_turb ) ) THEN
      CALL get_turbdiff_param(jg)
   ENDIF
-
- 
-  !For 3D turbulence the whole patch needs to be passed. Therefore, this call
-  !is made outside the block loop next. However, the tendencies it calculates
-  !is then used inside the block loop (see at the end) to update u,v,t,qv,qc
-  IF ( atm_phy_nwp_config(jg)%inwp_turb == 5 )THEN
-    CALL message('mo_nwp_turbdiff:', '3D turbulence')
-    CALL drive_subgrid_diffusion(p_prog,       & !inout for w (it is updated inside)
-                                 p_prog_rcf,   & !in
-                                 p_diag,       & !inout
-                                 p_metrics,    & !in
-                                 p_patch,      & !in
-                                 p_int,        & !in
-                                 lnd_prog_now, & !in
-                                 lnd_prog_new, & !inout only for idealized cases
-                                 lnd_diag,     & !inout
-                                 prm_diag,     & !inout
-                                 prm_nwp_tend, & !inout
-                                 tcall_turb_jg & !in
-                                 )
-  END IF
 
 
 !$OMP PARALLEL

@@ -56,7 +56,7 @@ MODULE mo_nwp_phy_init
   USE mo_vertical_coord_table,ONLY: vct_a, vct
   USE mo_model_domain,        ONLY: t_patch
   USE mo_impl_constants,      ONLY: min_rlcell, min_rlcell_int, zml_soil, io3_ape, &
-    &                               MODE_COMBINED, MODE_IFSANA, MODE_DWDANA
+    &                               MODE_COMBINED, MODE_IFSANA, MODE_DWDANA, ismag
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c
   USE mo_loopindices,         ONLY: get_indices_c
   USE mo_parallel_config,     ONLY: nproma
@@ -832,7 +832,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
   ! For 3D Smagorinsky turbulence model 
   ! re-initialization of gz0 also for is_restart_run()=.TRUE.. Is that correct?
   !
-  ELSE IF (  atm_phy_nwp_config(jg)%inwp_turb == 5 ) THEN
+  ELSE IF (  atm_phy_nwp_config(jg)%inwp_turb == ismag ) THEN
 
     IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'init Smagorinsky turbulence')
 

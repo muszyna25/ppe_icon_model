@@ -109,7 +109,7 @@ MODULE mo_nh_stepping
     &                               iphysproc_short, itconv, itccov, itrad, &
     &                               itradheat, itsso, itsatad, itgwd, inwp, iecham, &
     &                               itupdate, itturb, itgscp, itsfc, min_rlcell_int, &
-                                    min_rledge_int, MODE_DWDANA, MODIS
+                                    min_rledge_int, MODE_DWDANA, MODIS, ismag
   USE mo_divergent_modes,     ONLY: divergent_modes_5band
   USE mo_math_divrot,         ONLY: div, div_avg, rot_vertex
   USE mo_solve_nonhydro,      ONLY: solve_nh
@@ -155,6 +155,7 @@ MODULE mo_nh_stepping
   USE mo_nh_latbc,            ONLY: read_latbc_tlev, last_latbc_tlev, allocate_latbc_data , &
                                     read_latbc_data, deallocate_latbc_data, p_latbc_data,   &
                                     last_latbc_datetime
+  USE mo_interface_les,       ONLY: les_phy_interface
 
   IMPLICIT NONE
 
@@ -1271,35 +1272,66 @@ MODULE mo_nh_stepping
 
 
         IF (  iforcing==inwp .AND. lstep_adv(jg) ) THEN
+       
+          !Call interface for LES physics
+          IF(atm_phy_nwp_config(jg)%inwp_turb==ismag)THEN     
 
-          !> moist tracer update is now synchronized with advection and satad
+            CALL les_phy_interface(lcall_phy(jg,:), .FALSE.,         & !in
+              &                  lredgrid_phys(jg),                  & !in
+              &                  dt_loc,                             & !in
+              &                  dtadv_loc,                          & !in
+              &                  t_elapsed_phy(jg,:),                & !in
+              &                  time_config%sim_time(jg),           & !in
+              &                  datetime,                           & !in
+              &                  p_patch(jg)  ,                      & !in
+              &                  p_int_state(jg),                    & !in
+              &                  p_nh_state(jg)%metrics ,            & !in
+              &                  p_patch(jgp),                       & !in
+              &                  ext_data(jg)           ,            & !in
+              &                  p_nh_state(jg)%prog(n_new) ,        & !inout
+              &                  p_nh_state(jg)%prog(n_now_rcf),     & !in for tke
+              &                  p_nh_state(jg)%prog(n_new_rcf) ,    & !inout
+              &                  p_nh_state(jg)%diag ,               & !inout
+              &                  prm_diag  (jg),                     & !inout
+              &                  prm_nwp_tend(jg),                   &
+              &                  p_lnd_state(jg)%diag_lnd,           &
+              &                  p_lnd_state(jg)%prog_lnd(n_now_rcf),& !inout
+              &                  p_lnd_state(jg)%prog_lnd(n_new_rcf),& !inout
+              &                  p_lnd_state(jg)%prog_wtr(n_now_rcf),& !inout
+              &                  p_lnd_state(jg)%prog_wtr(n_new_rcf),& !inout
+              &                  p_nh_state(jg)%prog_list(n_new_rcf) ) !in
 
-          CALL nwp_nh_interface(lcall_phy(jg,:), .FALSE.,          & !in
-            &                  lredgrid_phys(jg),                  & !in
-            &                  dt_loc,                             & !in
-            &                  dtadv_loc,                          & !in
-            &                  t_elapsed_phy(jg,:),                & !in
-            &                  time_config%sim_time(jg),           & !in
-            &                  datetime,                           & !in
-            &                  p_patch(jg)  ,                      & !in
-            &                  p_int_state(jg),                    & !in
-            &                  p_nh_state(jg)%metrics ,            & !in
-            &                  p_patch(jgp),                       & !in
-            &                  ext_data(jg)           ,            & !in
-            &                  p_nh_state(jg)%prog(n_new) ,        & !inout
-            &                  p_nh_state(jg)%prog(n_now_rcf),     & !in for tke
-            &                  p_nh_state(jg)%prog(n_new_rcf) ,    & !inout
-            &                  p_nh_state(jg)%diag ,               & !inout
-            &                  prm_diag  (jg),                     & !inout
-            &                  prm_nwp_tend(jg),                   &
-            &                  p_lnd_state(jg)%diag_lnd,           &
-            &                  p_lnd_state(jg)%prog_lnd(n_now_rcf),& !inout
-            &                  p_lnd_state(jg)%prog_lnd(n_new_rcf),& !inout
-            &                  p_lnd_state(jg)%prog_wtr(n_now_rcf),& !inout
-            &                  p_lnd_state(jg)%prog_wtr(n_new_rcf),& !inout
-            &                  p_nh_state(jg)%prog_list(n_new_rcf),& !in
-            &                  prep_adv(jg)%rhodz_mc_now,          & !in
-            &                  prep_adv(jg)%rhodz_mc_new           ) !in
+          ELSE !operational nwp physics
+        
+            !> moist tracer update is now synchronized with advection and satad
+            CALL nwp_nh_interface(lcall_phy(jg,:), .FALSE.,          & !in
+              &                  lredgrid_phys(jg),                  & !in
+              &                  dt_loc,                             & !in
+              &                  dtadv_loc,                          & !in
+              &                  t_elapsed_phy(jg,:),                & !in
+              &                  time_config%sim_time(jg),           & !in
+              &                  datetime,                           & !in
+              &                  p_patch(jg)  ,                      & !in
+              &                  p_int_state(jg),                    & !in
+              &                  p_nh_state(jg)%metrics ,            & !in
+              &                  p_patch(jgp),                       & !in
+              &                  ext_data(jg)           ,            & !in
+              &                  p_nh_state(jg)%prog(n_new) ,        & !inout
+              &                  p_nh_state(jg)%prog(n_now_rcf),     & !in for tke
+              &                  p_nh_state(jg)%prog(n_new_rcf) ,    & !inout
+              &                  p_nh_state(jg)%diag ,               & !inout
+              &                  prm_diag  (jg),                     & !inout
+              &                  prm_nwp_tend(jg),                   &
+              &                  p_lnd_state(jg)%diag_lnd,           &
+              &                  p_lnd_state(jg)%prog_lnd(n_now_rcf),& !inout
+              &                  p_lnd_state(jg)%prog_lnd(n_new_rcf),& !inout
+              &                  p_lnd_state(jg)%prog_wtr(n_now_rcf),& !inout
+              &                  p_lnd_state(jg)%prog_wtr(n_new_rcf),& !inout
+              &                  p_nh_state(jg)%prog_list(n_new_rcf),& !in
+              &                  prep_adv(jg)%rhodz_mc_now,          & !in
+              &                  prep_adv(jg)%rhodz_mc_new           ) !in
+
+          END IF
 
           ! Boundary interpolation of land state variables entering into radiation computation
           ! if a reduced grid is used in the child domain(s)
@@ -1597,33 +1629,63 @@ MODULE mo_nh_stepping
       CALL message(TRIM(routine), TRIM(message_text))
     ENDIF
 
-    CALL nwp_nh_interface(lcall_phy(jg,:), .TRUE.,           & !in
-      &                  lredgrid_phys(jg),                  & !in
-      &                  dt_loc,                             & !in
-      &                  dtadv_loc,                          & !in
-      &                  dt_phy(jg,:),                       & !in
-      &                  time_config%sim_time(jg),           & !in
-      &                  datetime,                           & !in
-      &                  p_patch(jg)  ,                      & !in
-      &                  p_int_state(jg),                    & !in
-      &                  p_nh_state(jg)%metrics ,            & !in
-      &                  p_patch(jgp),                       & !in
-      &                  ext_data(jg)           ,            & !in
-      &                  p_nh_state(jg)%prog(n_now) ,        & !inout
-      &                  p_nh_state(jg)%prog(n_now_rcf) ,    & !inout
-      &                  p_nh_state(jg)%prog(n_now_rcf) ,    & !inout
-      &                  p_nh_state(jg)%diag,                & !inout
-      &                  prm_diag  (jg),                     & !inout
-      &                  prm_nwp_tend(jg)                ,   &
-      &                  p_lnd_state(jg)%diag_lnd,           &
-      &                  p_lnd_state(jg)%prog_lnd(n_now_rcf),& !inout
-      &                  p_lnd_state(jg)%prog_lnd(n_now_rcf),& !inout
-      &                  p_lnd_state(jg)%prog_wtr(n_now_rcf),& !inout
-      &                  p_lnd_state(jg)%prog_wtr(n_now_rcf),& !inout
-      &                  p_nh_state(jg)%prog_list(n_now_rcf),& !in
-      &                  prep_adv(jg)%rhodz_mc_now,          & !in
-      &                  prep_adv(jg)%rhodz_mc_new           ) !in 
+    IF(atm_phy_nwp_config(jg)%inwp_turb==ismag)THEN!LES physics
 
+      CALL les_phy_interface(lcall_phy(jg,:), .TRUE.,          & !in
+        &                  lredgrid_phys(jg),                  & !in
+        &                  dt_loc,                             & !in
+        &                  dtadv_loc,                          & !in
+        &                  dt_phy(jg,:),                       & !in
+        &                  time_config%sim_time(jg),           & !in
+        &                  datetime,                           & !in
+        &                  p_patch(jg)  ,                      & !in
+        &                  p_int_state(jg),                    & !in
+        &                  p_nh_state(jg)%metrics ,            & !in
+        &                  p_patch(jgp),                       & !in
+        &                  ext_data(jg)           ,            & !in
+        &                  p_nh_state(jg)%prog(n_now) ,        & !inout
+        &                  p_nh_state(jg)%prog(n_now_rcf) ,    & !inout
+        &                  p_nh_state(jg)%prog(n_now_rcf) ,    & !inout
+        &                  p_nh_state(jg)%diag,                & !inout
+        &                  prm_diag  (jg),                     & !inout
+        &                  prm_nwp_tend(jg)                ,   &
+        &                  p_lnd_state(jg)%diag_lnd,           &
+        &                  p_lnd_state(jg)%prog_lnd(n_now_rcf),& !inout
+        &                  p_lnd_state(jg)%prog_lnd(n_now_rcf),& !inout
+        &                  p_lnd_state(jg)%prog_wtr(n_now_rcf),& !inout
+        &                  p_lnd_state(jg)%prog_wtr(n_now_rcf),& !inout
+        &                  p_nh_state(jg)%prog_list(n_now_rcf) ) !in
+  
+    ELSE !operational nwp physics
+  
+      CALL nwp_nh_interface(lcall_phy(jg,:), .TRUE.,           & !in
+        &                  lredgrid_phys(jg),                  & !in
+        &                  dt_loc,                             & !in
+        &                  dtadv_loc,                          & !in
+        &                  dt_phy(jg,:),                       & !in
+        &                  time_config%sim_time(jg),           & !in
+        &                  datetime,                           & !in
+        &                  p_patch(jg)  ,                      & !in
+        &                  p_int_state(jg),                    & !in
+        &                  p_nh_state(jg)%metrics ,            & !in
+        &                  p_patch(jgp),                       & !in
+        &                  ext_data(jg)           ,            & !in
+        &                  p_nh_state(jg)%prog(n_now) ,        & !inout
+        &                  p_nh_state(jg)%prog(n_now_rcf) ,    & !inout
+        &                  p_nh_state(jg)%prog(n_now_rcf) ,    & !inout
+        &                  p_nh_state(jg)%diag,                & !inout
+        &                  prm_diag  (jg),                     & !inout
+        &                  prm_nwp_tend(jg)                ,   &
+        &                  p_lnd_state(jg)%diag_lnd,           &
+        &                  p_lnd_state(jg)%prog_lnd(n_now_rcf),& !inout
+        &                  p_lnd_state(jg)%prog_lnd(n_now_rcf),& !inout
+        &                  p_lnd_state(jg)%prog_wtr(n_now_rcf),& !inout
+        &                  p_lnd_state(jg)%prog_wtr(n_now_rcf),& !inout
+        &                  p_nh_state(jg)%prog_list(n_now_rcf),& !in
+        &                  prep_adv(jg)%rhodz_mc_now,          & !in
+        &                  prep_adv(jg)%rhodz_mc_new           ) !in 
+
+    END IF
 
     ! Boundary interpolation of land state variables entering into radiation computation
     ! if a reduced grid is used in the child domain(s)
