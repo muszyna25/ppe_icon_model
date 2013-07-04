@@ -113,16 +113,24 @@ CONTAINS
     CHARACTER(MAX_STRING_LEN)                   :: result_str
 
     ! Local variables
-    CHARACTER(MAX_STRING_LEN)                   :: snroot, sjlev, stlev, slatbc_filename
-    CHARACTER(MAX_CHAR_LENGTH), PARAMETER :: &
+    TYPE (t_keyword_list), POINTER              :: keywords => NULL()
+    CHARACTER(MAX_STRING_LEN)                   :: timestamp
+    CHARACTER(MAX_CHAR_LENGTH), PARAMETER       :: &
       &  routine = 'mo_limarea_config::generate_filename:'
     
-    WRITE(slatbc_filename,*) TRIM(latbc_config%latbc_path)//TRIM(latbc_config%latbc_filename)
-    WRITE(snroot,'(i1)') nroot
-    WRITE(sjlev,'(i2.2)') jlev
-    WRITE(stlev,'(i4,4i2.2)') latbc_datetime%year, latbc_datetime%month, latbc_datetime%day, latbc_datetime%hour
+    WRITE(timestamp,'(i4,3i2.2)') latbc_datetime%year, latbc_datetime%month, &
+      &                           latbc_datetime%day, latbc_datetime%hour
+      
+    CALL associate_keyword("<nroot>",     TRIM(int2string(nroot,'(i1)')),   keywords)
+    CALL associate_keyword("<nroot0>",    TRIM(int2string(nroot,'(i2.2)')), keywords)
+    CALL associate_keyword("<jlev>",      TRIM(int2string(jlev, '(i2.2)')), keywords)
+    CALL associate_keyword("<timestamp>", TRIM(timestamp),                  keywords)
+    CALL associate_keyword("<dom>",       TRIM(int2string(1,'(i2.2)')),     keywords)
+    CALL associate_keyword("<path>",      TRIM(latbc_config%latbc_path),    keywords)
 
-    result_str = TRIM(slatbc_filename)//'R'//TRIM(snroot)//'B'//TRIM(sjlev)//'_DOM01_'//TRIM(stlev)//'.nc'
+    ! replace keywords in "input_filename", which is by default
+    ! latbc_filename = "<path>prepiconR<nroot>B<jlev>_DOM<dom>_<timestamp>.nc"
+    result_str = TRIM(with_keywords(keywords, TRIM(latbc_config%latbc_filename)))
   END FUNCTION generate_filename
   !--------------------------------------------------------------------------------------
 

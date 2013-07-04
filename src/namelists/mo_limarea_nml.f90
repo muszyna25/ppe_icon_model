@@ -81,7 +81,7 @@ CONTAINS
     !------------------------------------------------------------
     itype_latbc      = 0
     dtime_latbc      = 43200._wp
-    latbc_filename   = "<path>prepicon<gridfile>_<timestamp>"
+    latbc_filename   = "<path>prepiconR<nroot>B<jlev>_DOM<dom>_<timestamp>.nc"
     latbc_path       = "<path>"
 
     !------------------------------------------------------------------
