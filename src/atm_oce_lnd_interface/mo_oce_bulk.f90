@@ -1724,7 +1724,8 @@ CONTAINS
     glob_slev = global_sum_array(p_patch%cells%area(:,:)*h_old(:,:)*p_patch_3D%wet_halo_zero_c(:,1,:))
     corr_slev = glob_slev/ocean_are
 
-    IF(my_process_is_stdio()) &
+    idt_src=2
+    IF(my_process_is_stdio()) .AND. (idbg_mxmn >= idt_src) THEN
       & write(0,*)' BALANCE_ELEVATION(Dom): ocean_are, glob_slev, corr_slev =',ocean_are, glob_slev, glob_slev/ocean_are
 
     DO jb = all_cells%start_block, all_cells%end_block
