@@ -1725,7 +1725,7 @@ CONTAINS
     corr_slev = glob_slev/ocean_are
 
     idt_src=2
-    IF(my_process_is_stdio()) .AND. (idbg_mxmn >= idt_src) THEN
+    IF ((my_process_is_stdio()) .AND. (idbg_mxmn >= idt_src)) &
       & write(0,*)' BALANCE_ELEVATION(Dom): ocean_are, glob_slev, corr_slev =',ocean_are, glob_slev, glob_slev/ocean_are
 
     DO jb = all_cells%start_block, all_cells%end_block
