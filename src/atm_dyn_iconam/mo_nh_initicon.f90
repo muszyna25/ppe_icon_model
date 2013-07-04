@@ -1658,6 +1658,11 @@ MODULE mo_nh_initicon
           & p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_i_t(:,:,jt)/1000._wp
 
 
+        CALL read_data_2d (filetype, fileID, 'h_snow',                             &
+          &                p_patch(jg)%n_patch_cells_g,                            &
+          &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+          &                p_lnd_state(jg)%diag_lnd%h_snow_t(:,:,jt))
+
 !!$        IF (lmulti_snow) THEN
 !!$          CALL read_data_3d (filetype, fileID,'t_snow_m',                            &
 !!$            &                p_patch(jg)%n_patch_cells_g,                            &
@@ -1676,11 +1681,14 @@ MODULE mo_nh_initicon
             &                p_patch(jg)%n_patch_cells_g,                            &
             &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
             &                p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_snow_t(:,:,jt) )
+
           CALL read_data_2d (filetype, fileID, 'rho_snow',                           &
             &                p_patch(jg)%n_patch_cells_g,                            &
             &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
             &                p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%rho_snow_t(:,:,jt))
+
 !!$        ENDIF
+
 
      ! multi layer fields 
         CALL read_data_3d (filetype, fileID, 'w_so',                                  &

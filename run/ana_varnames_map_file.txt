@@ -25,6 +25,7 @@ t_snow              T_SNOW
 freshsnow           FRESHSNW
 w_snow              W_SNOW
 rho_snow            RHO_SNOW
+h_snow              H_SNOW
 w_i                 W_I
 w_so                W_SO
 w_so_ice            W_SO_ICE
