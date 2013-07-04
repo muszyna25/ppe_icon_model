@@ -64,9 +64,9 @@ MODULE mo_atmo_hydrostatic
   USE mo_io_restart_attributes,ONLY: get_restart_attribute
   USE mo_output,               ONLY: init_output_files, close_output_files,&
                                      write_output
-  USE mo_name_list_output,        ONLY: init_name_list_output,  &
-       &                                write_name_list_output, &
-       &                                close_name_list_output
+  USE mo_name_list_output_init, ONLY: init_name_list_output
+  USE mo_name_list_output,     ONLY:  write_name_list_output, &
+       &                              close_name_list_output
   USE mo_parallel_config,      ONLY: use_icon_comm
 
 

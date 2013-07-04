@@ -81,7 +81,7 @@ MODULE mo_read_namelists
 
   USE mo_sea_ice_nml         ,ONLY: read_sea_ice_namelist
 
-  USE mo_name_list_output    ,ONLY: read_name_list_output_namelists
+  USE mo_name_list_output_init ,ONLY: read_name_list_output_namelists
   USE mo_les_nml             ,ONLY: read_les_namelist
   USE mo_ls_forcing_nml      ,ONLY: read_ls_forcing_namelist
   USE mo_limarea_nml         ,ONLY: read_limarea_namelist

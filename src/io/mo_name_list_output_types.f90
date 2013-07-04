@@ -6,7 +6,6 @@
 !!
 !! @par Revision History
 !! Initial implementation  by  R. Johanni  (2011)
-!! Removed interpolation on I/O PEs : F. Prill, DWD (2012-03-28)
 !! Major changes: F. Prill, DWD (2012-2013)
 !!
 !! @note: The spelling "name_list" (with underscore) is intended to make

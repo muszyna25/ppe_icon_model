@@ -88,10 +88,10 @@ USE mo_meteogram_output,    ONLY: meteogram_init, meteogram_finalize
 USE mo_meteogram_config,    ONLY: meteogram_output_config
 USE mo_name_list_output_config,   ONLY: first_output_name_list, &
   &                               is_any_output_nml_active
-USE mo_name_list_output,    ONLY: init_name_list_output,  &
-  &                               close_name_list_output, &
-  &                               parse_variable_groups,  &
-  &                               output_file
+USE mo_name_list_output_init, ONLY: init_name_list_output, &
+  &                               parse_variable_groups
+USE mo_name_list_output,    ONLY: close_name_list_output
+USE mo_name_list_output_init, ONLY: output_file
 USE mo_pp_scheduler,        ONLY: pp_scheduler_init, pp_scheduler_finalize
 USE mo_intp_lonlat,         ONLY: compute_lonlat_area_weights
 

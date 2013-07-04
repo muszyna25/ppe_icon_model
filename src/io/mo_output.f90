@@ -65,7 +65,7 @@ MODULE mo_output
     &                               set_restart_depth_lnd, &  !DRset_restart_height, &
     &                               set_restart_height_snow
   USE mo_io_restart_attributes,ONLY: set_restart_attribute
-  USE mo_name_list_output,    ONLY: output_file
+  USE mo_name_list_output_init, ONLY: output_file
   USE mo_model_domain,        ONLY: t_patch,t_patch_3D, p_patch
   USE mo_intp_data_strc,      ONLY: t_lon_lat_intp
   USE mo_run_config,          ONLY: ltimer, output_mode
