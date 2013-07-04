@@ -72,6 +72,7 @@ MODULE mo_var_list
   PUBLIC :: get_var_name              ! return plain variable name (without timelevel)
   PUBLIC :: get_var_timelevel         ! return variable timelevel (or "-1")
   PUBLIC :: get_var_tileidx           ! return variable tile index
+  PUBLIC :: get_var_list_element_info ! return a copy of the metadata for a var_list element
 
   PUBLIC :: total_number_of_variables ! returns total number of defined variables
   PUBLIC :: groups                    ! group array constructor

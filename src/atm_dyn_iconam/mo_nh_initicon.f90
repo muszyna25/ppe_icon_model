@@ -93,9 +93,13 @@ MODULE mo_nh_initicon
   USE mo_math_laplace,        ONLY: nabla4_vec
   USE mo_dictionary,          ONLY: t_dictionary, dict_init, dict_finalize, &
     &                               dict_loadfile, dict_get, DICT_MAX_STRLEN
+  USE mo_post_op,             ONLY: perform_post_op
+  USE mo_var_metadata,        ONLY: t_var_metadata
+  USE mo_var_list,            ONLY: get_var_list_element_info
   USE mo_cdi_constants          ! We need all
   USE mo_nwp_sfc_interp,      ONLY: smi_to_sm_mass
   USE mo_util_cdi_table,      ONLY: print_cdi_summary
+  USE mo_nwp_phy_state,       ONLY: prm_nwp_diag_list
 
   IMPLICIT NONE
 
@@ -1185,7 +1189,7 @@ MODULE mo_nh_initicon
         IF (.NOT.l_exist) THEN
           CALL finish(TRIM(routine),'DWD FG file not found: '//TRIM(dwdfg_file(jg)))
         ELSE
-          CALL message (TRIM(routine), 'read atm fields from '//TRIM(dwdfg_file(jg)))
+          CALL message (TRIM(routine), 'read atm_FG fields from '//TRIM(dwdfg_file(jg)))
         ENDIF
 
         ! determine filetype
@@ -1466,6 +1470,8 @@ MODULE mo_nh_initicon
 
     CHARACTER(LEN=2)            :: ct
 
+    TYPE(t_var_metadata)        :: info                 ! variable metadata
+
     INTEGER :: filetype !< type of input file: FILETYPE_NC2 or FILETYPE_GRB2
 
     !-------------------------------------------------------------------------
@@ -1646,16 +1652,23 @@ MODULE mo_nh_initicon
           &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
           &                p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_snow_t(:,:,jt) )
         ! conversion kg/m**2 -> m H2O
-        p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_snow_t(:,:,jt) =          &
-          & p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_snow_t(:,:,jt)/1000._wp
+        CALL get_var_list_element_info(p_lnd_state(jg)%lnd_diag_nwp_list, 'w_snow',info)
+        CALL perform_post_op(info%post_op,                                    &
+          &          p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_snow_t(:,:,jt), &
+          &          opt_inverse=.TRUE.)
+
+
 
         CALL read_data_2d (filetype, fileID, 'w_i',                                &
           &                p_patch(jg)%n_patch_cells_g,                            &
           &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
           &                p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_i_t(:,:,jt) )
         ! conversion kg/m**2 -> m H2O
-        p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_i_t(:,:,jt) =          &
-          & p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_i_t(:,:,jt)/1000._wp
+        CALL get_var_list_element_info(p_lnd_state(jg)%lnd_diag_nwp_list, 'w_i',info)
+        CALL perform_post_op(info%post_op,                                 &
+          &          p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_i_t(:,:,jt), &
+          &          opt_inverse=.TRUE.)
+
 
 
         CALL read_data_2d (filetype, fileID, 'h_snow',                             &
@@ -1696,8 +1709,11 @@ MODULE mo_nh_initicon
           &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,    &
           &                nlev_soil, p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_so_t(:,:,:,jt))
         ! conversion kg/m**2 -> m H2O
-        p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_so_t(:,:,:,jt) =          &
-          & p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_so_t(:,:,:,jt)/1000._wp
+        CALL get_var_list_element_info(p_lnd_state(jg)%lnd_diag_nwp_list, 'w_so', info)
+        CALL perform_post_op(info%post_op,                                            &
+          &                  p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_so_t(:,:,:,jt), &
+          &                  opt_inverse=.TRUE.)
+
 
 
         ! Only required, when starting from GME soil
@@ -1711,8 +1727,12 @@ MODULE mo_nh_initicon
           &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,    &
           &                nlev_soil, p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_so_ice_t(:,:,:,jt))
         ! conversion kg/m**2 -> m H2O
-        p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_so_ice_t(:,:,:,jt) =          &
-          & p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_so_ice_t(:,:,:,jt)/1000._wp
+        CALL get_var_list_element_info(p_lnd_state(jg)%lnd_diag_nwp_list, 'w_so_ice', info)
+        CALL perform_post_op(info%post_op,                                                &
+          &                  p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_so_ice_t(:,:,:,jt), &
+          &                  opt_inverse=.TRUE.)
+
+
 
         CALL read_data_3d (filetype, fileID, 't_so',                                  &
           &                p_patch(jg)%n_patch_cells_g,                               &
@@ -1730,7 +1750,9 @@ MODULE mo_nh_initicon
           &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
           &                prm_diag(jg)%gz0(:,:) )
         ! conversion z0 -> gz0
-        prm_diag(jg)%gz0(:,:) = grav * prm_diag(jg)%gz0(:,:)
+        CALL get_var_list_element_info(prm_nwp_diag_list(jg), 'gz0', info)
+        CALL perform_post_op(info%post_op, prm_diag(jg)%gz0(:,:), opt_inverse=.TRUE.)
+
       ENDIF
 
 
@@ -1868,6 +1890,55 @@ MODULE mo_nh_initicon
       CALL read_data_2d (filetype, fileID, 't_so', p_patch(jg)%n_patch_cells_g,       &
         &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,      &
         &                p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_so_t(:,1,:,jt))
+
+
+      ! h_snow
+      CALL read_data_2d (filetype, fileID, 'h_snow',                             &
+        &                p_patch(jg)%n_patch_cells_g,                            &
+        &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+        &                p_lnd_state(jg)%diag_lnd%h_snow_t(:,:,jt))
+
+      ! w_snow
+      CALL read_data_2d (filetype, fileID, 'w_snow',                             &
+        &                p_patch(jg)%n_patch_cells_g,                            &
+        &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+        &                p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_snow_t(:,:,jt))
+      ! conversion kg/m**2 -> m H2O
+      CALL get_var_list_element_info(p_lnd_state(jg)%lnd_diag_nwp_list, 'w_snow',info)
+      CALL perform_post_op(info%post_op,                                    &
+        &          p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_snow_t(:,:,jt), &
+        &          opt_inverse=.TRUE.)
+
+      ! w_i
+      CALL read_data_2d (filetype, fileID, 'w_i',                                &
+        &                p_patch(jg)%n_patch_cells_g,                            &
+        &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+        &                p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_i_t(:,:,jt))
+      ! conversion kg/m**2 -> m H2O
+      CALL get_var_list_element_info(p_lnd_state(jg)%lnd_diag_nwp_list, 'w_i',info)
+      CALL perform_post_op(info%post_op,                                 &
+        &          p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_i_t(:,:,jt), &
+        &          opt_inverse=.TRUE.)
+
+      ! t_snow
+      CALL read_data_2d (filetype, fileID, 't_snow',                             &
+        &                p_patch(jg)%n_patch_cells_g,                            &
+        &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+        &                p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_snow_t(:,:,jt))
+
+      ! rho_snow
+      CALL read_data_2d (filetype, fileID, 'rho_snow',                           &
+        &                p_patch(jg)%n_patch_cells_g,                            &
+        &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+        &                p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%rho_snow_t(:,:,jt))
+
+      ! freshsnow
+      CALL read_data_2d (filetype, fileID, 'freshsnow',                          &
+        &                p_patch(jg)%n_patch_cells_g,                            &
+        &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+        &                p_lnd_state(jg)%diag_lnd%freshsnow_t(:,:,jt))
+
+
 
 
       ! close file
