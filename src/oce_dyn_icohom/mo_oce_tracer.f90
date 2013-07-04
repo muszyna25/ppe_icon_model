@@ -48,6 +48,7 @@ USE mo_math_utilities,            ONLY: t_cartesian_coordinates
 USE mo_impl_constants,            ONLY: sea_boundary, sea
 USE mo_math_constants,            ONLY: pi
 USE mo_ocean_nml,                 ONLY: n_zlev, no_tracer, &
+  &                                     threshold_min_T, threshold_max_T, threshold_min_S, threshold_max_S, &
   &                                     irelax_3d_T, relax_3d_mon_T, irelax_3d_S, relax_3d_mon_S, &
   &                                     expl_vertical_tracer_diff, iswm_oce, l_edge_based,    &
   &                                     FLUX_CALCULATION_HORZ, FLUX_CALCULATION_VERT, &
@@ -226,15 +227,15 @@ SUBROUTINE advect_tracer_ab(p_patch_3D, p_os, p_param, p_sfc_flx,p_op_coeff, tim
   IF (no_tracer>=1) THEN
   DO jk = 1, n_zlev
 
-    ! Abort if tracer is below or above threshold
+    ! Abort if tracer is below or above threshold, read from namelist
 
     ! Temperature: <-1.9 deg C, may be possible, limit set to lower value
-    IF (MINVAL(p_os%p_prog(nnew(1))%tracer(1:nproma,jk,1:p_patch%nblks_c,1))<-4.0_wp) THEN
-      write(0,*) ' TEMPERATURE BELOW THRESHOLD:'
+    IF (MINVAL(p_os%p_prog(nnew(1))%tracer(1:nproma,jk,1:p_patch%nblks_c,1))<threshold_min_T) THEN
+      write(0,*) ' TEMPERATURE BELOW THRESHOLD = ', threshold_min_T
       iloc(:) = MINLOC(p_os%p_prog(nnew(1))%tracer(:,jk,:,1))
       zlat    = p_patch%cells%center(iloc(1),iloc(2))%lat * 180.0_wp / pi
       zlon    = p_patch%cells%center(iloc(1),iloc(2))%lon * 180.0_wp / pi
-      write(0,*) ' negative temperature at jk =', jk, &
+      write(0,*) ' too low temperature at jk =', jk, &
         &        MINVAL(p_os%p_prog(nnew(1))%tracer(:,jk,:,1))
       write(0,*) ' location is at    idx =',iloc(1),' blk=',iloc(2)
       write(0,*) ' lat/lon  is at    lat =',zlat   ,' lon=',zlon
@@ -243,12 +244,12 @@ SUBROUTINE advect_tracer_ab(p_patch_3D, p_os, p_param, p_sfc_flx,p_op_coeff, tim
     ENDIF
 
     ! Temperature: >100 deg C aborts
-    IF (MAXVAL(p_os%p_prog(nnew(1))%tracer(1:nproma,jk,1:p_patch%nblks_c,1))>100.0_wp) THEN
-      write(0,*) ' TEMPERATURE ABOVE THRESHOLD:'
+    IF (MAXVAL(p_os%p_prog(nnew(1))%tracer(1:nproma,jk,1:p_patch%nblks_c,1))>threshold_max_T) THEN
+      write(0,*) ' TEMPERATURE ABOVE THRESHOLD = ', threshold_max_T
       iloc(:) = MAXLOC(p_os%p_prog(nnew(1))%tracer(:,jk,:,1))
       zlat    = p_patch%cells%center(iloc(1),iloc(2))%lat * 180.0_wp / pi
       zlon    = p_patch%cells%center(iloc(1),iloc(2))%lon * 180.0_wp / pi
-      write(0,*) ' boiling temperature at jk =', jk, &
+      write(0,*) ' too high temperature at jk =', jk, &
         &        MAXVAL(p_os%p_prog(nnew(1))%tracer(:,jk,:,1))
       write(0,*) ' location is at    idx =',iloc(1),' blk=',iloc(2)
       write(0,*) ' lat/lon  is at    lat =',zlat   ,' lon=',zlon
@@ -261,12 +262,12 @@ SUBROUTINE advect_tracer_ab(p_patch_3D, p_os, p_param, p_sfc_flx,p_op_coeff, tim
     DO jk = 1, n_zlev
 
       ! Abort if salinity is negative:
-      IF (MINVAL(p_os%p_prog(nnew(1))%tracer(1:nproma,jk,1:p_patch%nblks_c,2))<0.0_wp) THEN
-        write(0,*) ' SALINITY NEGATIVE:'
+      IF (MINVAL(p_os%p_prog(nnew(1))%tracer(1:nproma,jk,1:p_patch%nblks_c,2))<threshold_min_S) THEN
+        write(0,*) ' SALINITY BELOW THRESHOLD = ', threshold_min_S
         iloc(:) = MINLOC(p_os%p_prog(nnew(1))%tracer(:,jk,:,2))
         zlat    = p_patch%cells%center(iloc(1),iloc(2))%lat * 180.0_wp / pi
         zlon    = p_patch%cells%center(iloc(1),iloc(2))%lon * 180.0_wp / pi
-        write(0,*) ' negative salinity at jk =', jk, &
+        write(0,*) ' too low salinity at jk =', jk, &
           &        MINVAL(p_os%p_prog(nnew(1))%tracer(:,jk,:,2))
         write(0,*) ' location is at    idx =',iloc(1),' blk=',iloc(2)
         write(0,*) ' lat/lon  is at    lat =',zlat   ,' lon=',zlon
@@ -275,12 +276,12 @@ SUBROUTINE advect_tracer_ab(p_patch_3D, p_os, p_param, p_sfc_flx,p_op_coeff, tim
       ENDIF
 
       ! Abort if salinity is >60 psu:
-      IF (MAXVAL(p_os%p_prog(nnew(1))%tracer(1:nproma,jk,1:p_patch%nblks_c,2))>60.0_wp) THEN
-        write(0,*) ' SALINITY >60 PSU:'
+      IF (MAXVAL(p_os%p_prog(nnew(1))%tracer(1:nproma,jk,1:p_patch%nblks_c,2))>threshold_max_S) THEN
+        write(0,*) ' SALINITY ABOVE THRESHOLD = ', threshold_max_S
         iloc(:) = MAXLOC(p_os%p_prog(nnew(1))%tracer(:,jk,:,2))
         zlat    = p_patch%cells%center(iloc(1),iloc(2))%lat * 180.0_wp / pi
         zlon    = p_patch%cells%center(iloc(1),iloc(2))%lon * 180.0_wp / pi
-        write(0,*) ' too large salinity at jk =', jk, &
+        write(0,*) ' too high salinity at jk =', jk, &
         &MAXVAL(p_os%p_prog(nnew(1))%tracer(:,jk,:,2))
         write(0,*) ' location is at    idx =',iloc(1),' blk=',iloc(2)
         write(0,*) ' lat/lon  is at    lat =',zlat   ,' lon=',zlon
