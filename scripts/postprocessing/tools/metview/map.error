@@ -1,6 +1,6 @@
 # Metview Macro: ICON errors
 # 
-# run as: metview -b map.error dei2_005 T ml diff 20110101 00 20110103 00 2 R2B04
+# run as: metview -b map.error dei2_005 T ml diff 20110101 00 20110102 00 1 R2B05
 #
 # export PLOTDIR=metplots
 # export DATAFILE=grb_data/dei2_005_
