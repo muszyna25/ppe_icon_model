@@ -26,7 +26,7 @@ MODULE mo_name_list_output
 
 #ifndef USE_CRAY_POINTER
   USE, INTRINSIC :: ISO_C_BINDING, ONLY: c_ptr, c_intptr_t, c_f_pointer
-#endif
+#endif ! USE_CRAY_POINTER
 
   USE mo_kind,                  ONLY: wp, i8, dp, sp
   USE mo_impl_constants,        ONLY: max_phys_dom, ihs_ocean, zml_soil, MAX_NVARS,   &
@@ -143,7 +143,7 @@ MODULE mo_name_list_output
 ! tool dependencies, maybe restructure
   USE mo_meteogram_output,    ONLY: meteogram_init, meteogram_finalize, meteogram_flush_file
   USE mo_meteogram_config,    ONLY: meteogram_output_config
-#endif
+#endif ! __ICON_OCEAN_ONLY__
 
   IMPLICIT NONE
 
@@ -520,7 +520,7 @@ CONTAINS
           ENDDO DOM_LOOP
         END IF
       ENDIF
-#endif
+#endif ! __ICON_OCEAN_ONLY__
 
       p_onl%cur_bounds_triple= 1
       p_onl%next_output_time = p_onl%output_bounds(1,1)
@@ -651,8 +651,8 @@ CONTAINS
   INCLUDE "mpif.h"
 #else
   USE mpi, ONLY: MPI_ROOT, MPI_PROC_NULL
-#endif
-#endif
+#endif ! __SUNPRO_F95
+#endif ! NOMPI
 
     LOGICAL, OPTIONAL, INTENT(in) :: lprintlist
     INTEGER, OPTIONAL, INTENT(in) :: isample
@@ -737,7 +737,7 @@ CONTAINS
 #else
     ! bcast_root is not used in this case
     bcast_root = 0
-#endif
+#endif ! NOMPI
 
     ! ---------------------------------------------------------------------------
 
@@ -882,7 +882,7 @@ CONTAINS
         END IF
       END IF
     END IF
-#endif
+#endif ! NOMPI
 
     ! Set the number of domains in output and the patch reorder information
     CALL set_patch_info
@@ -1055,7 +1055,7 @@ CONTAINS
 
 #ifndef NOMPI
     IF(use_async_name_list_io) CALL init_memory_window
-#endif
+#endif ! NOMPI
 
     CALL message(routine,'Done')
 
@@ -1278,7 +1278,7 @@ CONTAINS
           &          bcast_root, p_comm_work_2_io)
         CALL p_bcast(patch_info(jp)%number_of_grid_used, bcast_root, p_comm_work_2_io)
       ENDIF
-#endif
+#endif ! NOMPI
 
     ENDDO ! jp
 
@@ -1300,10 +1300,10 @@ CONTAINS
           ! Transfer reorder_info to IO PEs
           CALL transfer_reorder_info(lonlat_info(jl,jg))
         ENDIF
-#endif
+#endif ! NOMPI
       END DO ! jg
     ENDDO ! jl
-#endif
+#endif ! __ICON_OCEAN_ONLY__
 
   END SUBROUTINE set_patch_info
 
@@ -1669,7 +1669,7 @@ CONTAINS
                        p_comm_work, mpierr)
 #else
     p_ri%pe_own(0) = p_ri%n_own
-#endif
+#endif ! NOMPI
 
     ! Get offset within result array
     p_ri%pe_off(0) = 0
@@ -1691,7 +1691,7 @@ CONTAINS
                         p_comm_work, mpierr)
 #else
     glbidx_glb(:) = glbidx_own(:)
-#endif
+#endif ! NOMPI
 
     ! Get reorder_index
 
@@ -1804,7 +1804,7 @@ CONTAINS
                        p_comm_work, mpierr)
 #else
     p_ri%pe_own(0) = p_ri%n_own
-#endif
+#endif ! NOMPI
 
     ! Get offset within result array
     p_ri%pe_off(0) = 0
@@ -1948,7 +1948,7 @@ CONTAINS
       ENDDO
       CALL gridDefYvals(of%cdiLonLatGridID, p_lonlat)
       DEALLOCATE(p_lonlat)
-#endif
+#endif ! __ICON_OCEAN_ONLY__
     ELSE
 
       ! Cells
@@ -2358,7 +2358,7 @@ CONTAINS
       of%cdiZaxisID(ZA_GENERIC_ICE) = zaxisCreate(ZAXIS_GENERIC, 1)
 
     ELSE ! oce
-#endif
+#endif ! __ICON_OCEAN_ONLY__
       of%cdiZaxisID(ZA_depth_below_sea)      = zaxisCreate(ZAXIS_DEPTH_BELOW_SEA, n_zlev)
       nzlevp1 = n_zlev + 1
       of%cdiZaxisID(ZA_depth_below_sea_half) = zaxisCreate(ZAXIS_DEPTH_BELOW_SEA, nzlevp1)
@@ -2373,7 +2373,7 @@ CONTAINS
       of%cdiZaxisID(ZA_GENERIC_ICE) = zaxisCreate(ZAXIS_GENERIC, 1)
 #ifndef __ICON_OCEAN_ONLY__
     ENDIF
-#endif
+#endif ! __ICON_OCEAN_ONLY__
 
 
     !
@@ -2600,7 +2600,7 @@ CONTAINS
       ! clean up
       DEALLOCATE(rotated_pts, r_out_dp, stat=errstat)
       IF (errstat /= SUCCESS) CALL finish(routine, 'DEALLOCATE failed!')
-#endif
+#endif ! __ICON_OCEAN_ONLY__
 
     CASE DEFAULT
       CALL finish(routine, "Unsupported grid type.")
@@ -3213,13 +3213,13 @@ CONTAINS
           CALL meteogram_flush_file(jg)
         END IF
       END DO
-#endif
+#endif ! __ICON_OCEAN_ONLY__
       CALL compute_wait_for_async_io()
       CALL compute_shutdown_async_io()
 
     ELSE
-#endif
-#endif
+#endif ! __ICON_OCEAN_ONLY__
+#endif ! NOMPI
       !-- asynchronous I/O PEs (receiver):
       DO i = 1, SIZE(output_file)
         CALL close_output_file(output_file(i))
@@ -3228,8 +3228,8 @@ CONTAINS
 #ifndef NOMPI
 #ifndef __ICON_OCEAN_ONLY__
     ENDIF
-#endif
-#endif
+#endif ! __ICON_OCEAN_ONLY__
+#endif ! NOMPI
 
     DEALLOCATE(output_file)
 
@@ -3384,7 +3384,7 @@ CONTAINS
             CALL meteogram_flush_file(jg)
           END IF
         END DO
-#endif
+#endif ! __ICON_OCEAN_ONLY__
         CALL compute_wait_for_async_io()
       END IF
     ENDIF
@@ -3396,9 +3396,9 @@ CONTAINS
         CALL meteogram_flush_file(jg)
       END IF
     END DO
-#endif
-#endif
-#endif
+#endif ! __ICON_OCEAN_ONLY__
+#endif ! __ICON_OCEAN_ONLY__
+#endif ! NOMPI
 
     ! Check if files have to be (re)opened
 
@@ -3468,7 +3468,7 @@ CONTAINS
             'Output to ',TRIM(output_file(i)%filename),' at simulation time ',sim_time, &
              ' by PE ',p_pe
           CALL message(routine, text,all_print=.TRUE.)
-#endif
+#endif ! __SX__
 
         ENDIF
 
@@ -3480,7 +3480,7 @@ CONTAINS
             CALL io_proc_write_name_list(output_file(i), &
               &          (MOD(p_onl%n_output_steps,p_onl%steps_per_file) == 0) )
           ENDIF
-#endif
+#endif ! NOMPI
         ELSE
           CALL write_name_list(output_file(i), &
             &            (MOD(p_onl%n_output_steps,p_onl%steps_per_file) == 0) )
@@ -3536,7 +3536,7 @@ CONTAINS
       IF(.NOT.my_process_is_io().AND..NOT.my_process_is_mpi_test()) &
         CALL compute_start_async_io(datetime, sim_time, last_step)
     ENDIF
-#endif
+#endif ! NOMPI
 
     ! Close output file when the related model domain has stopped execution
     DO i = 1, SIZE(output_file)
@@ -3558,8 +3558,8 @@ CONTAINS
   INCLUDE "mpif.h"
 #else
     USE mpi, ONLY: MPI_LOCK_EXCLUSIVE, MPI_MODE_NOCHECK
-#endif
-#endif
+#endif ! __SUNPRO_F95
+#endif ! NOMPI
 
     TYPE (t_output_file), INTENT(INOUT), TARGET :: of
     LOGICAL,              INTENT(IN)            :: l_first_write
@@ -3597,7 +3597,7 @@ CONTAINS
     ! In case of async IO: Lock own window before writing to it
     IF(use_async_name_list_io .AND. .NOT.my_process_is_mpi_test()) &
       CALL MPI_Win_lock(MPI_LOCK_EXCLUSIVE, p_pe_work, MPI_MODE_NOCHECK, mpi_win, mpierr)
-#endif
+#endif ! NOMPI
 
     ! ----------------------------------------------------
     ! Go over all name list variables for this output file
@@ -3639,7 +3639,7 @@ CONTAINS
           CALL finish(routine,'Actual timelevel not in '//TRIM(info%name))
         END IF
       ENDIF
-#endif
+#endif ! __ICON_OCEAN_ONLY__
 
       IF (info%lcontained) THEN
         nindex = info%ncontained
@@ -3752,7 +3752,7 @@ CONTAINS
         lonlat_id = info%hor_interp%lonlat_id
         p_ri  => lonlat_info(lonlat_id, i_log_dom)
         p_pat => lonlat_grid_list(lonlat_id)%p_pat(i_log_dom)
-#endif
+#endif ! __ICON_OCEAN_ONLY__
       CASE default
         CALL finish(routine,'unknown grid type')
       END SELECT
@@ -3952,7 +3952,7 @@ CONTAINS
     ! In case of async IO: Done writing to memory window, unlock it
     IF(use_async_name_list_io .AND. .NOT.my_process_is_mpi_test()) &
       CALL MPI_Win_unlock(p_pe_work, mpi_win, mpierr)
-#endif
+#endif ! NOMPI
 
   END SUBROUTINE write_name_list
 
@@ -4032,7 +4032,7 @@ CONTAINS
         CALL meteogram_init(meteogram_output_config(jg), jg)
       END IF
     END DO
-#endif
+#endif ! __ICON_OCEAN_ONLY__
 
     ! Initialize name list output, this is a collective call for all PEs
 
@@ -4048,7 +4048,7 @@ CONTAINS
         CALL meteogram_flush_file(jg)
       END IF
     END DO
-#endif
+#endif ! __ICON_OCEAN_ONLY__
     ! Enter I/O loop
 
     DO
@@ -4071,7 +4071,7 @@ CONTAINS
           CALL meteogram_flush_file(jg)
         END IF
       END DO
-#endif
+#endif ! __ICON_OCEAN_ONLY__
 
     ENDDO
 
@@ -4086,7 +4086,7 @@ CONTAINS
         CALL meteogram_finalize(jg)
       END IF
     END DO
-#endif
+#endif ! __ICON_OCEAN_ONLY__
     DO jg = 1, max_dom
       DEALLOCATE(meteogram_output_config(jg)%station_list)
     END DO
@@ -4095,7 +4095,7 @@ CONTAINS
     CALL p_stop
 
     STOP
-#endif
+#endif ! __ICON_OCEAN_ONLY__
 
   END SUBROUTINE name_list_io_main_proc
   !------------------------------------------------------------------------------------------------
@@ -4175,7 +4175,7 @@ CONTAINS
 
     IF(my_process_is_io()) ALLOCATE(vct(ivct_len))
     CALL p_bcast(vct, bcast_root, p_comm_work_2_io)
-#endif
+#endif ! __ICON_OCEAN_ONLY__
     !-----------------------------------------------------------------------------------------------
     ! Replicate variable lists
 
@@ -4363,7 +4363,7 @@ CONTAINS
     INCLUDE "mpif.h"
 #else
     USE mpi, ONLY: MPI_ADDRESS_KIND, MPI_INFO_NULL
-#endif
+#endif ! __SUNPRO_F95
 
     INTEGER :: jp, i, iv, nlevs
     INTEGER :: nbytes_real, mpierr, rma_cache_hint
@@ -4376,7 +4376,7 @@ CONTAINS
     POINTER(tmp_ptr_dp,tmp_dp(*))
 #else
     TYPE(c_ptr) :: c_mem_ptr
-#endif
+#endif ! USE_CRAY_POINTER
 
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::init_async_name_list_output"
     INTEGER :: i_log_dom, n_own, lonlat_id
@@ -4420,7 +4420,7 @@ CONTAINS
             i_log_dom = output_file(i)%log_patch_id
             n_own     = lonlat_info(lonlat_id, i_log_dom)%n_own
             mem_size  = mem_size + INT(nlevs*n_own,i8)
-#endif
+#endif ! __ICON_OCEAN_ONLY__
 
           CASE DEFAULT
             CALL finish(routine,'unknown grid type')
@@ -4498,8 +4498,8 @@ CONTAINS
     ELSE
       CALL C_F_POINTER(c_mem_ptr, mem_ptr_dp, (/ mem_size /) )
     ENDIF
-#endif
-#endif
+#endif ! __SX__
+#endif ! USE_CRAY_POINTER
 
     rma_cache_hint = MPI_INFO_NULL
 #ifdef __xlC__
@@ -4508,7 +4508,7 @@ CONTAINS
     IF (mpierr /= 0) CALL finish(trim(routine), "MPI error!")
     CALL MPI_Info_set(rma_cache_hint, "IBM_win_cache","0", mpierr)
     IF (mpierr /= 0) CALL finish(trim(routine), "MPI error!")
-#endif
+#endif ! __xlC__
 
     ! Create memory window for communication
     IF(use_sp_output) THEN
@@ -4525,7 +4525,7 @@ CONTAINS
 #ifdef __xlC__
     CALL MPI_Info_free(rma_cache_hint, mpierr);
     IF (mpierr /= 0) CALL finish(trim(routine), "MPI error!")
-#endif
+#endif ! __xlC__
 
   END SUBROUTINE init_memory_window
 
@@ -4545,7 +4545,7 @@ CONTAINS
     REAL(dp), TARGET :: arr(len)
     mem_ptr_dp => arr
   END SUBROUTINE set_mem_ptr_dp
-#endif
+#endif ! USE_CRAY_POINTER
 
 
   !------------------------------------------------------------------------------------------------
@@ -4557,7 +4557,7 @@ CONTAINS
     INCLUDE "mpif.h"
 #else
     USE mpi, ONLY: MPI_ADDRESS_KIND, MPI_LOCK_SHARED, MPI_MODE_NOCHECK
-#endif
+#endif ! __SUNPRO_F95
 
     TYPE (t_output_file), INTENT(IN), TARGET :: of
     LOGICAL, INTENT(IN) :: l_first_write
@@ -4579,7 +4579,7 @@ CONTAINS
 ! It may be necessary that var1 is in global memory on NEC
 ! (Note: this is only allowed when we compile with MPI.)
 !CDIR GM_ARRAY(var1)
-#endif
+#endif ! __SX__
 
     t_get   = 0._wp
     t_write = 0._wp
@@ -4608,7 +4608,7 @@ CONTAINS
         nval = MAX(nval, p_ri%n_glb)
       END IF
     END DO
-#endif
+#endif ! __ICON_OCEAN_ONLY__
 
     nlev_max = 1
     DO iv = 1, of%num_vars
@@ -4657,7 +4657,7 @@ CONTAINS
           lonlat_id = info%hor_interp%lonlat_id
           i_log_dom = of%log_patch_id
           p_ri  => lonlat_info(lonlat_id, i_log_dom)
-#endif
+#endif ! __ICON_OCEAN_ONLY__
 
         CASE DEFAULT
           CALL finish(routine,'unknown grid type')
@@ -4779,7 +4779,7 @@ CONTAINS
            & ' MB/s], times copy+intp: ',t_copy+t_intp,' s'
       CALL message('',message_text)
     ENDIF
-#endif
+#endif ! __SX__
 
     ! Convert mb_get/mb_wr to MB
     IF(use_sp_output) THEN
@@ -4950,6 +4950,6 @@ CONTAINS
   END SUBROUTINE compute_shutdown_async_io
 
   !-------------------------------------------------------------------------------------------------
-#endif
+#endif ! NOMPI
 
 END MODULE mo_name_list_output
