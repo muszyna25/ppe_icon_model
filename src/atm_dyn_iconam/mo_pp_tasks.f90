@@ -49,7 +49,8 @@ MODULE mo_pp_tasks
     & TASK_INTP_HOR_LONLAT, TASK_INTP_VER_PLEV, TASK_INTP_SYNC,       &
     & TASK_COMPUTE_RH, TASK_INTP_VER_ZLEV, TASK_INTP_VER_ILEV,        &
     & PRES_MSL_METHOD_SAI, PRES_MSL_METHOD_GME, max_dom,              &
-    & HINTP_TYPE_LONLAT_NNB, ALL_TIMELEVELS, PRES_MSL_METHOD_IFS
+    & HINTP_TYPE_LONLAT_NNB, ALL_TIMELEVELS, PRES_MSL_METHOD_IFS,     &
+    & vname_len
   USE mo_model_domain,            ONLY: t_patch, p_patch
   USE mo_var_list_element,        ONLY: t_var_list_element, level_type_ml,  &
     &                                   level_type_pl, level_type_hl
@@ -76,8 +77,8 @@ MODULE mo_pp_tasks
   USE mo_nwp_phy_types,           ONLY: t_nwp_phy_diag
   USE mo_nwp_phy_state,           ONLY: prm_diag
   USE mo_nh_pzlev_config,         ONLY: t_nh_pzlev_config, nh_pzlev_config
-  USE mo_name_list_output_config, ONLY: t_output_name_list, &
-    &                                   vname_len, first_output_name_list
+  USE mo_name_list_output_config, ONLY: first_output_name_list
+  USE mo_name_list_output_types,  ONLY: t_output_name_list
   USE mo_parallel_config,         ONLY: nproma
   USE mo_dynamics_config,         ONLY: nnow
   USE mo_cdi_constants,           ONLY: GRID_CELL, GRID_REFERENCE,               &

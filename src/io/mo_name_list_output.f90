@@ -1,8 +1,3 @@
-! Define USE_CRAY_POINTER for platforms having problems with ISO_C_BINDING
-! BUT understand CRAY pointers
-
-!   #define USE_CRAY_POINTER
-
 !>
 !! Module handling synchronous and asynchronous output; supporting
 !! multiple I/O PEs and horizontal interpolation.
@@ -18,11 +13,16 @@
 !! @todo Several fields are allocated but not freed at the end of the
 !!       simulation. A pseudo-destructor should be implemented!
 !!
+!! @note: The spelling "name_list" (with underscore) is intended to make
+!!        clear that this does not pertain to a FORTRAN namelist but rather
+!!        to a list of names of output variables
+!!
+!! Define USE_CRAY_POINTER for platforms having problems with ISO_C_BINDING
+!! BUT understand CRAY pointers
+!!
+!!   #define USE_CRAY_POINTER
+!!
 MODULE mo_name_list_output
-
-  ! Please note: The spelling "name_list" (with underscore) is intended to make
-  ! clear that this does not pertain to a FORTRAN namelist but rather
-  ! to a list of names of output variables
 
 #ifndef USE_CRAY_POINTER
   USE, INTRINSIC :: ISO_C_BINDING, ONLY: c_ptr, c_intptr_t, c_f_pointer
@@ -33,7 +33,8 @@ MODULE mo_name_list_output
     &                                 vname_len, max_dom, SUCCESS,                    &
     &                                 min_rlcell_int, min_rledge_int, min_rlvert,     &
     &                                 max_var_ml, max_var_pl, max_var_hl, max_var_il, &
-    &                                 MAX_TIME_LEVELS
+    &                                 MAX_TIME_LEVELS, max_bounds, max_levels,        &
+    &                                 vname_len
   USE mo_grid_config,           ONLY: n_dom, n_phys_dom, global_cell_type, &
     &                                 grid_rescale_factor, start_time, end_time
   USE mo_master_control,        ONLY: is_restart_run
@@ -98,17 +99,27 @@ MODULE mo_name_list_output
   USE mo_math_utilities,        ONLY: t_geographical_coordinates, check_orientation
   USE mo_math_constants,        ONLY: pi, pi_180
   USE mo_name_list_output_config, ONLY: use_async_name_list_io,  &
-  &                                     l_output_phys_patch,     &
-  &                                     max_bounds,              &
-  &                                     max_levels,              &
-  &                                     vname_len,               &
-  &                                     t_output_name_list,      &
   &                                     first_output_name_list,  &
-  &                                     t_output_file,           &
   &                                     is_output_nml_active,    &
   &                                     is_output_file_active,   &
-  &                                     t_var_desc,              &
   &                                     add_var_desc
+  USE mo_name_list_output_types, ONLY:  l_output_phys_patch,     &
+  &                                     t_output_name_list,      &
+  &                                     t_output_file,           &
+  &                                     t_var_desc,              &
+  &                                     t_patch_info,            &
+  &                                     t_reorder_info,          &
+  &                                     t_grid_info,             &
+  &                                     REMAP_NONE,              &
+  &                                     REMAP_REGULAR_LATLON,    &
+  &                                     msg_io_start,            &
+  &                                     msg_io_done,             &
+  &                                     msg_io_shutdown,         &
+  &                                     IRLON, IRLAT, ILATLON,   &
+  &                                     ICELL, IEDGE, IVERT,     &
+  &                                     sfs_name_list,           &
+  &                                     second_tos,              &
+  &                                     GRP_PREFIX
   USE mo_timer,               ONLY: timer_start, timer_stop, timer_write_output, ltimer
   USE mo_dictionary,          ONLY: t_dictionary, dict_init, dict_finalize, &
     &                               dict_loadfile, dict_get, DICT_MAX_STRLEN
@@ -155,85 +166,7 @@ MODULE mo_name_list_output
 
   !------------------------------------------------------------------------------------------------
 
-  ! prefix for group identifier in output namelist
-  CHARACTER(len=6) :: GRP_PREFIX = "group:"
-
-  !------------------------------------------------------------------------------------------------
-
   TYPE(t_output_file), ALLOCATABLE, TARGET :: output_file(:)
-
-  !------------------------------------------------------------------------------------------------
-  ! TYPE t_reorder_info describes how local cells/edges/verts
-  ! have to be reordered to get the global array.
-  ! Below, "points" refers to either cells, edges or verts.
-  !
-  ! TODO[FP] Note that the "reorder_info" contains fields of *global*
-  !          size (reorder_index). On the compute PEs these fields
-  !          could be deallocated after the call to
-  !          "transfer_reorder_info" in the setup phase!
-
-  TYPE t_reorder_info
-    INTEGER :: n_glb  ! Global number of points per physical patch
-    INTEGER :: n_log  ! Global number of points in the associated logical patch
-    INTEGER :: n_own  ! Number of own points (without halo, only belonging to phyiscal patch)
-                      ! Only set on compute PEs, set to 0 on IO PEs
-    INTEGER, ALLOCATABLE :: own_idx(:), own_blk(:)
-                      ! idx and blk for own points, only set on compute PEs
-    INTEGER, ALLOCATABLE :: own_dst_idx(:), own_dst_blk(:)
-                      ! dest idx and blk for own points, only set on sequential/test PEs
-    INTEGER, ALLOCATABLE :: pe_own(:)
-                      ! n_own, gathered for all compute PEs (set on all PEs)
-    INTEGER, ALLOCATABLE :: pe_off(:)
-                      ! offset of contributions of PEs (set on all PEs)
-    INTEGER, ALLOCATABLE :: reorder_index(:)
-                      ! Index how to reorder the contributions of all compute PEs
-                      ! into the global array (set on all PEs)
-
-    ! only used when copying grid info from file (l_grid_info_from_file = .TRUE.):
-    INTEGER, ALLOCATABLE :: log_dom_index(:)
-                      ! Index where a point of the physical domains is in the logical domain
-  END TYPE t_reorder_info
-
-
-  TYPE t_grid_info
-    REAL(wp), ALLOCATABLE :: lon   (:), lat   (:)
-    REAL(wp), ALLOCATABLE :: lonv(:,:), latv(:,:)
-  END TYPE t_grid_info
-
-
-  ! TYPE t_patch_info contains the reordering info for cells, edges and verts
-  TYPE t_patch_info
-    TYPE(t_reorder_info) :: cells
-    TYPE(t_reorder_info) :: edges
-    TYPE(t_reorder_info) :: verts
-    INTEGER :: log_patch_id
-
-    ! pointer to communication pattern for GATHER operation;
-    ! corresponds to physical or logical patch, depending on
-    ! "l_output_phys_patch"
-    TYPE(t_comm_pattern),  POINTER :: p_pat_c, p_pat_v, p_pat_e
-
-    ! global number of points, corresponds to physical or logical
-    ! patch, depending on "l_output_phys_patch"
-    INTEGER :: nblks_glb_c, nblks_glb_v, nblks_glb_e
-
-    ! grid information: geographical locations of cells, edges, and
-    ! vertices which is first collected on working PE 0 - from where
-    ! it will be broadcasted to the pure I/O PEs.
-    TYPE (t_grid_info) :: grid_c, grid_e, grid_v
-
-    ! Filename of grid file, needed only if grid information is output
-    ! to NetCDF since this information is normally not read and
-    ! thus not present in the patch description
-    CHARACTER(LEN=filename_max) :: grid_filename
-
-    ! uuid of grid (provided by grid file)
-    TYPE(t_uuid) :: grid_uuid
-
-    ! Number of grid used (provided by grid file)
-    INTEGER :: number_of_grid_used
-
-  END TYPE t_patch_info
 
   TYPE(t_patch_info),   ALLOCATABLE, TARGET :: patch_info (:)
   TYPE(t_reorder_info), ALLOCATABLE, TARGET :: lonlat_info(:,:)
@@ -256,12 +189,6 @@ MODULE mo_name_list_output
   ! Broadcast root for intercommunicator broadcasts form compute PEs to IO PEs using p_comm_work_2_io
   INTEGER :: bcast_root
   !------------------------------------------------------------------------------------------------
-
-  ! Tags for communication between compute PEs and I/O PEs
-
-  INTEGER, PARAMETER :: msg_io_start    = 12345
-  INTEGER, PARAMETER :: msg_io_done     = 54321
-  INTEGER, PARAMETER :: msg_io_shutdown = 99999
 
   ! TYPE t_datetime has no default constructor for setting all members to 0 or a defined value.
   ! Thus we declare a instance here which should have zeros everywhere since it is static.
@@ -288,24 +215,6 @@ MODULE mo_name_list_output
 
   CHARACTER(LEN=*), PARAMETER :: modname = 'mo_name_list_output'
 
-  ! constants for better readability:
-  INTEGER, PARAMETER :: REMAP_NONE           = 0
-  INTEGER, PARAMETER :: REMAP_REGULAR_LATLON = 1
-
-  INTEGER, PARAMETER :: IRLON                 = 1
-  INTEGER, PARAMETER :: IRLAT                 = 2
-  INTEGER, PARAMETER :: ILATLON               = 1
-  INTEGER, PARAMETER :: ICELL                 = 1
-  INTEGER, PARAMETER :: IEDGE                 = 2
-  INTEGER, PARAMETER :: IVERT                 = 3
-
-
-  ! fields for which typeOfSecondFixedSurface must be re-set
-  CHARACTER(LEN=12), PARAMETER :: sfs_name_list(6) =(/"z_ifc       ", "topography_c", &
-    &                                                 "hbas_con    ", "htop_con    ", &
-    &                                                 "hzerocl     ", "clcl        "/)
-  ! typeOfSecondFixedSurface to be used
-  INTEGER          , PARAMETER :: second_tos(6)    =(/101, 101, 101, 101, 101, 1/)
 
 CONTAINS
 

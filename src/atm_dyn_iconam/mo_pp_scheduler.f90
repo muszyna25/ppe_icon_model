@@ -88,7 +88,8 @@ MODULE mo_pp_scheduler
     &                                   TASK_INTP_VER_PLEV, TASK_INTP_SYNC, TASK_INTP_MSL,  &
     &                                   TASK_COMPUTE_RH, TASK_INTP_VER_ZLEV,                &
     &                                   TASK_INTP_VER_ILEV, TASK_INTP_EDGE2CELL,            &
-    &                                   max_phys_dom, UNDEF_TIMELEVEL, ALL_TIMELEVELS
+    &                                   max_phys_dom, UNDEF_TIMELEVEL, ALL_TIMELEVELS,      &
+    &                                   vname_len
   USE mo_model_domain,            ONLY: t_patch, p_patch, p_phys_patch
   USE mo_var_list,                ONLY: add_var, get_all_var_names,                         &
     &                                   create_hor_interp_metadata,                         &
@@ -107,8 +108,8 @@ MODULE mo_pp_scheduler
   USE mo_nwp_phy_types,           ONLY: t_nwp_phy_diag
   USE mo_nwp_phy_state,           ONLY: prm_diag
   USE mo_nh_pzlev_config,         ONLY: t_nh_pzlev_config, nh_pzlev_config
-  USE mo_name_list_output_config, ONLY: t_output_name_list,                                 &
-    &                                   vname_len, first_output_name_list
+  USE mo_name_list_output_config, ONLY: first_output_name_list
+  USE mo_name_list_output_types,  ONLY: t_output_name_list
   USE mo_parallel_config,         ONLY: nproma
   USE mo_cf_convention,           ONLY: t_cf_var
   USE mo_grib2,                   ONLY: t_grib2_var
