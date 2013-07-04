@@ -72,6 +72,7 @@ MODULE mo_nonhydrostatic_config
     LOGICAL :: lhdiff_rcf               ! if true: compute horizontal diffusion also at the large time step
     LOGICAL :: lextra_diffu             ! if true: apply additional diffusion at grid points close 
                                         ! to the CFL stability limit for vertical advection
+    LOGICAL :: lbackward_integr         ! if true: integrate backward in time (needed for testing DFI)
     REAL(wp):: divdamp_fac              ! Scaling factor for divergence damping (if lhdiff_rcf = true)
     INTEGER :: divdamp_order            ! Order of divergence damping
     INTEGER :: ivctype                  ! Type of vertical coordinate (Gal-Chen / SLEVE)

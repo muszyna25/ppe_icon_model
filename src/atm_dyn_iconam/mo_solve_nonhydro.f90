@@ -48,7 +48,8 @@ MODULE mo_solve_nonhydro
   USE mo_kind,                 ONLY: wp
   USE mo_nonhydrostatic_config,ONLY: itime_scheme,iadv_rhotheta, igradp_method, l_open_ubc, &
                                      kstart_moist, lhdiff_rcf, divdamp_fac, divdamp_order,  &
-                                     rayleigh_type, iadv_rcf, rhotheta_offctr, lextra_diffu
+                                     rayleigh_type, iadv_rcf, rhotheta_offctr, lextra_diffu, &
+                                     lbackward_integr
   USE mo_dynamics_config,   ONLY: idiv_method
   USE mo_parallel_config,   ONLY: nproma, p_test_run, itype_comm, use_dycore_barrier, &
     & use_icon_comm
@@ -189,7 +190,7 @@ MODULE mo_solve_nonhydro
     cfl_w_limit = 0.75_wp/dtime   ! this means 75% of the nominal CFL stability limit
 
     ! Scaling factor for extra diffusion
-    scalfac_exdiff = 0.1_wp / ( dtime*(1._wp - cfl_w_limit*dtime) )
+    scalfac_exdiff = 0.075_wp / ( dtime*(1._wp - cfl_w_limit*dtime) )
 
     ! Tangential wind component using RBF reconstruction
     ! Note: vt is also diagnosed in divergent_modes. Thus, computation is needed in predictor step only
@@ -545,7 +546,7 @@ MODULE mo_solve_nonhydro
         icount = 0
 
         ! Collect grid points exceeding the specified stability threshold (75% of the theoretical limit) for w_con
-        DO jk = MAX(3,nrdmax(jg)-2), nlev-2
+        DO jk = MAX(3,nrdmax(jg)-2), nlev-4
           DO jc = i_startidx, i_endidx
             IF (ABS(z_w_con_c(jc,jk,jb)) > cfl_w_limit*p_metrics%ddqz_z_half(jc,jk,jb)) THEN
               icount = icount+1
@@ -705,7 +706,7 @@ MODULE mo_solve_nonhydro
 
 
     REAL(wp):: z_theta1, z_theta2, z_raylfac, wgt_nnow_vel, wgt_nnew_vel, scal_divdamp, &
-               dt_shift, bdy_divdamp, wgt_nnow_rth, wgt_nnew_rth
+               dt_shift, bdy_divdamp, wgt_nnow_rth, wgt_nnew_rth, dtime_r
     INTEGER :: nproma_gradp, nblks_gradp, npromz_gradp, nlen_gradp, jk_start
     LOGICAL :: lcompute, lcleanup, lvn_only
 
@@ -754,6 +755,11 @@ MODULE mo_solve_nonhydro
     ELSE
       l_child_vertnest = .FALSE.
       nshift = 0
+    ENDIF
+    IF (lbackward_integr) THEN ! integrate backward in time (affects non-dissipative processes only)
+      dtime_r = -dtime
+    ELSE
+      dtime_r =  dtime
     ENDIF
 
     ! number of vertical levels
@@ -871,7 +877,7 @@ MODULE mo_solve_nonhydro
 
         ! Compute backward trajectory
         CALL btraj(p_patch, p_int, p_nh%prog(nnow)%vn, p_nh%diag%vt, &
-                   0.5_wp*dtime, z_cell_indices, z_distv_bary,       &
+                   0.5_wp*dtime_r, z_cell_indices, z_distv_bary,     &
                    opt_rlstart=7, opt_rlend=min_rledge_int-1 )
 
         ! Compute Green-Gauss gradients for rho and theta
@@ -886,17 +892,17 @@ MODULE mo_solve_nonhydro
         lcompute =.TRUE.
         lcleanup =.FALSE.
         ! First call: compute backward trajectory with wind at time level nnow
-        CALL upwind_hflux_miura3(p_patch, p_nh%prog(nnow)%rho, p_nh%prog(nnow)%vn,    &
-                                p_nh%prog(nnow)%vn, dtime, p_int, lcompute, lcleanup, &
-                                0, z_rho_e, opt_rlstart=7, opt_lout_edge=.TRUE.,      &
+        CALL upwind_hflux_miura3(p_patch, p_nh%prog(nnow)%rho, p_nh%prog(nnow)%vn,      &
+                                p_nh%prog(nnow)%vn, dtime_r, p_int, lcompute, lcleanup, &
+                                0, z_rho_e, opt_rlstart=7, opt_lout_edge=.TRUE.,        &
                                 opt_real_vt=p_nh%diag%vt )
 
         ! Second call: compute only reconstructed value for flux divergence
         lcompute =.FALSE.
         lcleanup =.TRUE.
-        CALL upwind_hflux_miura3(p_patch, p_nh%prog(nnow)%theta_v, p_nh%prog(nnow)%vn, &
-                                p_nh%prog(nnow)%vn, dtime, p_int, lcompute, lcleanup,  &
-                                0, z_theta_v_e, opt_rlstart=7, opt_lout_edge=.TRUE.,   &
+        CALL upwind_hflux_miura3(p_patch, p_nh%prog(nnow)%theta_v, p_nh%prog(nnow)%vn,   &
+                                p_nh%prog(nnow)%vn, dtime_r, p_int, lcompute, lcleanup,  &
+                                0, z_theta_v_e, opt_rlstart=7, opt_lout_edge=.TRUE.,     &
                                 opt_real_vt=p_nh%diag%vt )
 
       ENDIF
@@ -978,7 +984,7 @@ MODULE mo_solve_nonhydro
                 z_rho_e(je,jk,jb) =                                                                          &
                   p_int%c_lin_e(je,1,jb)*p_nh%prog(nnow)%rho(icidx(je,jb,1),jk,icblk(je,jb,1)) +             &
                   p_int%c_lin_e(je,2,jb)*p_nh%prog(nnow)%rho(icidx(je,jb,2),jk,icblk(je,jb,2)) -             &
-                  dtime * (p_nh%prog(nnow)%vn(je,jk,jb)*p_patch%edges%inv_dual_edge_length(je,jb)*           &
+                  dtime_r * (p_nh%prog(nnow)%vn(je,jk,jb)*p_patch%edges%inv_dual_edge_length(je,jb)*         &
                  (p_nh%prog(nnow)%rho(icidx(je,jb,2),jk,icblk(je,jb,2)) -                                    &
                   p_nh%prog(nnow)%rho(icidx(je,jb,1),jk,icblk(je,jb,1)) ) + p_nh%diag%vt(je,jk,jb) *         &
                   p_patch%edges%inv_primal_edge_length(je,jb) * p_patch%edges%system_orientation(je,jb) *    &
@@ -987,7 +993,7 @@ MODULE mo_solve_nonhydro
                 z_theta_v_e(je,jk,jb) =                                                                          &
                   p_int%c_lin_e(je,1,jb)*p_nh%prog(nnow)%theta_v(icidx(je,jb,1),jk,icblk(je,jb,1)) +             &
                   p_int%c_lin_e(je,2,jb)*p_nh%prog(nnow)%theta_v(icidx(je,jb,2),jk,icblk(je,jb,2)) -             &
-                  dtime * (p_nh%prog(nnow)%vn(je,jk,jb)*p_patch%edges%inv_dual_edge_length(je,jb)*               &
+                  dtime_r * (p_nh%prog(nnow)%vn(je,jk,jb)*p_patch%edges%inv_dual_edge_length(je,jb)*             &
                  (p_nh%prog(nnow)%theta_v(icidx(je,jb,2),jk,icblk(je,jb,2)) -                                    &
                   p_nh%prog(nnow)%theta_v(icidx(je,jb,1),jk,icblk(je,jb,1)) ) + p_nh%diag%vt(je,jk,jb) *         &
                   p_patch%edges%inv_primal_edge_length(je,jb) * p_patch%edges%system_orientation(je,jb) *        &
@@ -1163,7 +1169,7 @@ MODULE mo_solve_nonhydro
           DO jc = i_startidx, i_endidx
             ! backward trajectory - use w(nnew) in order to be at the same time level as w_concorr
             z_w_backtraj(jc,jk) = - (p_nh%prog(nnew)%w(jc,jk,jb) - p_nh%diag%w_concorr_c(jc,jk,jb)) * &
-              dtime*0.5_wp/p_nh%metrics%ddqz_z_half(jc,jk,jb)
+              dtime_r*0.5_wp/p_nh%metrics%ddqz_z_half(jc,jk,jb)
 
             z_rho_tavg(jc,jk) = wgt_nnow_rth*p_nh%prog(nnow)%rho(jc,jk,jb) + &
               wgt_nnew_rth*p_nh%prog(nvar)%rho(jc,jk,jb)
@@ -1451,7 +1457,7 @@ MODULE mo_solve_nonhydro
 !CDIR UNROLL=5
         DO jk = 1, nlev
           DO je = i_startidx, i_endidx
-            p_nh%prog(nnew)%vn(je,jk,jb) = p_nh%prog(nnow)%vn(je,jk,jb)+ dtime                  &
+            p_nh%prog(nnew)%vn(je,jk,jb) = p_nh%prog(nnow)%vn(je,jk,jb)+ dtime_r                &
             & *(wgt_nnow_vel*p_nh%diag%ddt_vn_adv(je,jk,jb,ntl1)                                &
             & + wgt_nnew_vel*p_nh%diag%ddt_vn_adv(je,jk,jb,ntl2)+p_nh%diag%ddt_vn_phy(je,jk,jb) &
             & -cpd*z_theta_v_e(je,jk,jb)*z_gradh_exner(je,jk,jb))
@@ -1461,7 +1467,7 @@ MODULE mo_solve_nonhydro
 !CDIR UNROLL=5
         DO jk = 1, nlev
           DO je = i_startidx, i_endidx
-            p_nh%prog(nnew)%vn(je,jk,jb) = p_nh%prog(nnow)%vn(je,jk,jb)+ dtime     &
+            p_nh%prog(nnew)%vn(je,jk,jb) = p_nh%prog(nnow)%vn(je,jk,jb)+ dtime_r   &
             & *(p_nh%diag%ddt_vn_adv(je,jk,jb,ntl1)+p_nh%diag%ddt_vn_phy(je,jk,jb) &
             & -cpd*z_theta_v_e(je,jk,jb)*z_gradh_exner(je,jk,jb))
           ENDDO
@@ -2025,9 +2031,9 @@ MODULE mo_solve_nonhydro
           DO jc = i_startidx, i_endidx
 
             ! explicit part for w
-            z_w_expl(jc,jk) = p_nh%prog(nnow)%w(jc,jk,jb)  + dtime * &
-              (wgt_nnow_vel*p_nh%diag%ddt_w_adv(jc,jk,jb,ntl1) +     &
-               wgt_nnew_vel*p_nh%diag%ddt_w_adv(jc,jk,jb,ntl2)       &
+            z_w_expl(jc,jk) = p_nh%prog(nnow)%w(jc,jk,jb) + dtime_r * &
+              (wgt_nnow_vel*p_nh%diag%ddt_w_adv(jc,jk,jb,ntl1) +      &
+               wgt_nnew_vel*p_nh%diag%ddt_w_adv(jc,jk,jb,ntl2)        &
               -cpd*z_th_ddz_exner_c(jc,jk,jb) )
 
             ! contravariant vertical velocity times density for explicit part
@@ -2042,7 +2048,7 @@ MODULE mo_solve_nonhydro
           DO jc = i_startidx, i_endidx
 
             ! explicit part for w
-            z_w_expl(jc,jk) = p_nh%prog(nnow)%w(jc,jk,jb) + dtime *            &
+            z_w_expl(jc,jk) = p_nh%prog(nnow)%w(jc,jk,jb) + dtime_r *          &
               (p_nh%diag%ddt_w_adv(jc,jk,jb,ntl1)-cpd*z_th_ddz_exner_c(jc,jk,jb))
 
             ! contravariant vertical velocity times density for explicit part
@@ -2057,7 +2063,7 @@ MODULE mo_solve_nonhydro
 !CDIR UNROLL=3
       DO jk = 1, nlev
         DO jc = i_startidx, i_endidx
-          z_beta(jc,jk)=dtime*rd*p_nh%prog(nnow)%exner(jc,jk,jb)         &
+          z_beta(jc,jk)=dtime_r*rd*p_nh%prog(nnow)%exner(jc,jk,jb)       &
           &                   /(cvd*p_nh%prog(nnow)%rhotheta_v(jc,jk,jb) &
           &                   *p_nh%metrics%ddqz_z_full(jc,jk,jb))
 
@@ -2070,7 +2076,7 @@ MODULE mo_solve_nonhydro
 !CDIR UNROLL=2
       DO jk = 2, nlev
         DO jc = i_startidx, i_endidx
-          z_gamma(jc,jk) =  dtime*cpd*p_nh%metrics%vwind_impl_wgt(jc,jb)* &
+          z_gamma(jc,jk) = dtime_r*cpd*p_nh%metrics%vwind_impl_wgt(jc,jb)*  &
             p_nh%diag%theta_v_ic(jc,jk,jb)/p_nh%metrics%ddqz_z_half(jc,jk,jb)
 
           z_a(jc,jk) = -z_gamma(jc,jk)*z_beta(jc,jk-1)*z_alpha(jc,jk-1)
@@ -2120,32 +2126,32 @@ MODULE mo_solve_nonhydro
       ! Top level first
       DO jc = i_startidx, i_endidx
         z_rho_expl(jc,1)=        p_nh%prog(nnow)%rho(jc,1,jb) &
-        &        -dtime*p_nh%metrics%inv_ddqz_z_full(jc,1,jb) &
+        &      -dtime_r*p_nh%metrics%inv_ddqz_z_full(jc,1,jb) &
         &                            *(z_mass_fl_div(jc,1,jb) &
         &                            +z_contr_w_fl_l(jc,1   ) &
         &                            -z_contr_w_fl_l(jc,2   ))
 
-        z_exner_expl(jc,1)=             z_exner_pr(jc,1,jb)                    &
-        &      -z_beta (jc,1)*(z_theta_v_fl_div(jc,1,jb)                       &
+        z_exner_expl(jc,1)=             z_exner_pr(jc,1,jb)                     &
+        &      -z_beta (jc,1)*(z_theta_v_fl_div(jc,1,jb)                        &
         & +p_nh%diag%theta_v_ic(jc,1,jb)*z_contr_w_fl_l(jc,1)                   &
         & -p_nh%diag%theta_v_ic(jc,2,jb)*z_contr_w_fl_l(jc,2))                  &
-        & +dtime*(p_nh%diag%ddt_exner(jc,1,jb)+p_nh%diag%ddt_exner_phy(jc,1,jb))
+        & +dtime_r*(p_nh%diag%ddt_exner(jc,1,jb)+p_nh%diag%ddt_exner_phy(jc,1,jb))
       ENDDO
 
       ! Other levels
       DO jk = 2, nlev
         DO jc = i_startidx, i_endidx
           z_rho_expl(jc,jk)=       p_nh%prog(nnow)%rho(jc,jk  ,jb) &
-          &        -dtime*p_nh%metrics%inv_ddqz_z_full(jc,jk  ,jb) &
+          &      -dtime_r*p_nh%metrics%inv_ddqz_z_full(jc,jk  ,jb) &
           &                            *(z_mass_fl_div(jc,jk  ,jb) &
           &                            +z_contr_w_fl_l(jc,jk     ) &
           &                             -z_contr_w_fl_l(jc,jk+1   ))
 
-          z_exner_expl(jc,jk)=          z_exner_pr(jc,jk,jb) - z_beta(jc,jk)         &
-          &                             *(z_theta_v_fl_div(jc,jk,jb)                 &
+          z_exner_expl(jc,jk)=          z_exner_pr(jc,jk,jb) - z_beta(jc,jk)          &
+          &                             *(z_theta_v_fl_div(jc,jk,jb)                  &
           &   +p_nh%diag%theta_v_ic(jc,jk  ,jb)*z_contr_w_fl_l(jc,jk  )               &
           &   -p_nh%diag%theta_v_ic(jc,jk+1,jb)*z_contr_w_fl_l(jc,jk+1))              &
-          &   +dtime*(p_nh%diag%ddt_exner(jc,jk,jb)+p_nh%diag%ddt_exner_phy(jc,jk,jb))
+          &   +dtime_r*(p_nh%diag%ddt_exner(jc,jk,jb)+p_nh%diag%ddt_exner_phy(jc,jk,jb))
 
           p_nh%prog(nnew)%w(jc,jk,jb) = z_w_expl(jc,jk) - z_gamma(jc,jk)  &
           &      *(z_exner_expl(jc,jk-1)-z_exner_expl(jc,jk))
@@ -2206,7 +2212,7 @@ MODULE mo_solve_nonhydro
 
           ! density
           p_nh%prog(nnew)%rho(jc,jk,jb) = z_rho_expl(jc,jk)              &
-            - p_nh%metrics%vwind_impl_wgt(jc,jb)*dtime                   &
+            - p_nh%metrics%vwind_impl_wgt(jc,jb)*dtime_r                 &
             * p_nh%metrics%inv_ddqz_z_full(jc,jk,jb)                     &
             *(p_nh%diag%rho_ic(jc,jk  ,jb)*p_nh%prog(nnew)%w(jc,jk  ,jb) &
             - p_nh%diag%rho_ic(jc,jk+1,jb)*p_nh%prog(nnew)%w(jc,jk+1,jb))
@@ -2235,7 +2241,7 @@ MODULE mo_solve_nonhydro
 
           ! density
           p_nh%prog(nnew)%rho(jc,1,jb) = z_rho_expl(jc,1)                             &
-            - p_nh%metrics%vwind_impl_wgt(jc,jb)*dtime                                &
+            - p_nh%metrics%vwind_impl_wgt(jc,jb)*dtime_r                              &
             * p_nh%metrics%inv_ddqz_z_full(jc,1,jb)                                   &
             *(z_mflx_top(jc,jb) - p_nh%diag%rho_ic(jc,2,jb)*p_nh%prog(nnew)%w(jc,2,jb))
 
