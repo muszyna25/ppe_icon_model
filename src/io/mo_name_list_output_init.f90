@@ -18,105 +18,99 @@ MODULE mo_name_list_output_init
   USE, INTRINSIC :: ISO_C_BINDING, ONLY: c_ptr, c_intptr_t, c_f_pointer
 #endif ! USE_CRAY_POINTER
 
-  USE mo_kind,                  ONLY: wp, i8, dp, sp
-  USE mo_impl_constants,        ONLY: max_phys_dom, ihs_ocean, zml_soil,              &
-    &                                 vname_len, max_dom, SUCCESS,                    &
-    &                                 min_rlcell_int, min_rledge_int, min_rlvert,     &
-    &                                 max_var_ml, max_var_pl, max_var_hl, max_var_il, &
-    &                                 MAX_TIME_LEVELS, max_bounds, max_levels,        &
-    &                                 vname_len
-  USE mo_grid_config,           ONLY: n_dom, n_phys_dom, global_cell_type, &
-    &                                 grid_rescale_factor, start_time, end_time
-  USE mo_master_control,        ONLY: is_restart_run
-  USE mo_io_restart_attributes, ONLY: get_restart_attribute
-  USE mo_grib2,                 ONLY: t_grib2_var
-  USE mo_cf_convention,         ONLY: t_cf_var
   USE mo_cdi_constants          ! We need all
-  USE mo_io_units,              ONLY: filename_max, nnml, nnml_output
-  USE mo_io_config,             ONLY: netcdf_dict, output_nml_dict
-  USE mo_gribout_config,        ONLY: gribout_config, t_gribout_config
-  USE mo_exception,             ONLY: finish, message, message_text
-  USE mo_namelist,              ONLY: position_nml, positioned, open_nml, close_nml
-  USE mo_var_metadata,          ONLY: t_var_metadata, VARNAME_LEN
-  USE mo_linked_list,           ONLY: t_var_list, t_list_element
-  USE mo_var_list,              ONLY: nvar_lists, max_var_lists, var_lists,     &
-    &                                 new_var_list, get_all_var_names,          &
-    &                                 total_number_of_variables, collect_group, &
-    &                                 get_var_timelevel, get_var_name,          &
-    &                                 get_var_tileidx
-  USE mo_var_list_element,      ONLY: level_type_ml, level_type_pl, level_type_hl, &
-    &                                 level_type_il, lev_type_str
-  USE mo_util_uuid,             ONLY: t_uuid, uuid2char, uuid_data_length
-  ! MPI Communication routines
-  USE mo_mpi,                   ONLY: p_bcast, get_my_mpi_work_id, p_max,       &
-    &                                 get_my_mpi_work_communicator
-  ! MPI Communicators
-  USE mo_mpi,                   ONLY: p_comm_work, p_comm_work_io, p_comm_work_2_io
-  ! MPI Data types
-  USE mo_mpi,                   ONLY: p_int, p_int_i8, &
-    &                                 p_real_dp, p_real_sp
-  ! MPI Process type intrinsics
-  USE mo_mpi,                   ONLY: my_process_is_stdio, my_process_is_mpi_test,          &
-                                      my_process_is_mpi_workroot, my_process_is_mpi_seq,    &
-                                      my_process_is_io
-  ! MPI Process IDs
-  USE mo_mpi,                   ONLY: process_mpi_stdio_id
-  ! MPI Process group sizes
-  USE mo_mpi,                   ONLY: process_mpi_io_size, num_work_procs, p_n_work
-  ! Processor numbers
-  USE mo_mpi,                   ONLY: p_pe_work, p_io_pe0
-
-  USE mo_model_domain,          ONLY: t_patch, p_patch, p_phys_patch
-  USE mo_parallel_config,       ONLY: nproma, p_test_run, use_sp_output
-
-  USE mo_run_config,            ONLY: num_lev, num_levp1, dtime, &
-    &                                 msg_level, output_mode, ltestcase, number_of_grid_used
-  USE mo_datetime,              ONLY: t_datetime
-  USE mo_time_config,           ONLY: time_config
-  USE mo_lonlat_grid,           ONLY: t_lon_lat_grid
-  USE mo_intp_data_strc,        ONLY: t_lon_lat_intp,                         &
-    &                                 t_lon_lat_data, get_free_lonlat_grid,   &
-    &                                 lonlat_grid_list, n_lonlat_grids
-  USE mo_master_nml,            ONLY: model_base_dir
-  USE mo_util_string,           ONLY: toupper, t_keyword_list, associate_keyword,  &
-    &                                 with_keywords, insert_group, MAX_STRING_LEN, &
-    &                                 tolower
-  USE mo_loopindices,           ONLY: get_indices_c, get_indices_e, get_indices_v
-  USE mo_communication,         ONLY: exchange_data, t_comm_pattern, idx_no, blk_no
-  USE mo_math_constants,        ONLY: pi
-  USE mo_math_utilities,        ONLY: t_geographical_coordinates, check_orientation
-  USE mo_name_list_output_config, ONLY: use_async_name_list_io,  &
-  &                                     first_output_name_list,  &
-  &                                     add_var_desc
-  USE mo_name_list_output_types, ONLY:  l_output_phys_patch,     &
-  &                                     t_output_name_list,      &
-  &                                     t_output_file,           &
-  &                                     t_var_desc,              &
-  &                                     t_patch_info,            &
-  &                                     t_reorder_info,          &
-  &                                     t_grid_info,             &
-  &                                     REMAP_NONE,              &
-  &                                     REMAP_REGULAR_LATLON,    &
-  &                                     ILATLON, ICELL, IEDGE, IVERT, &
-  &                                     sfs_name_list,           &
-  &                                     second_tos,              &
-  &                                     GRP_PREFIX
-  USE mo_dictionary,          ONLY: t_dictionary, dict_init,  &
-    &                               dict_loadfile, dict_get, DICT_MAX_STRLEN
-  USE mo_fortran_tools,       ONLY: assign_if_present
-  ! post-ops
-  USE mo_nml_annotate,        ONLY: temp_defaults, temp_settings
-
-! model dependenceis should be cleaned !
-  USE mo_ocean_nml,             ONLY: n_zlev
-  USE mo_oce_state,             ONLY: set_zlev
-
-#ifndef __ICON_OCEAN_ONLY__
-  USE mo_lnd_jsbach_config,     ONLY: lnd_jsbach_config
-  USE mo_nh_pzlev_config,       ONLY: nh_pzlev_config
-  USE mo_lnd_nwp_config,        ONLY: nlev_snow
-  USE mo_vertical_coord_table,  ONLY: vct
-  USE mo_dynamics_config,       ONLY: iequations
+  USE mo_kind,                              ONLY: wp, i8, dp, sp
+  USE mo_impl_constants,                    ONLY: max_phys_dom, ihs_ocean, zml_soil,              &
+    &                                             vname_len, max_dom, SUCCESS,                    &
+    &                                             min_rlcell_int, min_rledge_int, min_rlvert,     &
+    &                                             max_var_ml, max_var_pl, max_var_hl, max_var_il, &
+    &                                             MAX_TIME_LEVELS, max_bounds, max_levels,        &
+    &                                             vname_len
+  USE mo_grid_config,                       ONLY: n_dom, n_phys_dom, global_cell_type,            &
+    &                                             grid_rescale_factor, start_time, end_time
+  USE mo_master_control,                    ONLY: is_restart_run
+  USE mo_io_restart_attributes,             ONLY: get_restart_attribute
+  USE mo_grib2,                             ONLY: t_grib2_var
+  USE mo_cf_convention,                     ONLY: t_cf_var
+                                            
+  USE mo_io_units,                          ONLY: filename_max, nnml, nnml_output
+  USE mo_io_config,                         ONLY: netcdf_dict, output_nml_dict
+  USE mo_gribout_config,                    ONLY: gribout_config, t_gribout_config
+  USE mo_exception,                         ONLY: finish, message, message_text
+  USE mo_namelist,                          ONLY: position_nml, positioned, open_nml, close_nml
+  USE mo_var_metadata,                      ONLY: t_var_metadata, VARNAME_LEN
+  USE mo_linked_list,                       ONLY: t_var_list, t_list_element
+  USE mo_var_list,                          ONLY: nvar_lists, max_var_lists, var_lists,           &
+    &                                             new_var_list, get_all_var_names,                &
+    &                                             total_number_of_variables, collect_group,       &
+    &                                             get_var_timelevel, get_var_name,                &
+    &                                             get_var_tileidx
+  USE mo_var_list_element,                  ONLY: level_type_ml, level_type_pl, level_type_hl,    &
+    &                                             level_type_il, lev_type_str
+  USE mo_util_uuid,                         ONLY: t_uuid, uuid2char, uuid_data_length
+  ! MPI Communication routines              
+  USE mo_mpi,                               ONLY: p_bcast, get_my_mpi_work_id, p_max,             &
+    &                                             get_my_mpi_work_communicator
+  ! MPI Communicators                       
+  USE mo_mpi,                               ONLY: p_comm_work, p_comm_work_io, p_comm_work_2_io
+  ! MPI Data types                          
+  USE mo_mpi,                               ONLY: p_int, p_int_i8, &
+    &                                             p_real_dp, p_real_sp
+  ! MPI Process type intrinsics             
+  USE mo_mpi,                               ONLY: my_process_is_stdio, my_process_is_mpi_test,    &
+    &                                             my_process_is_mpi_workroot,                     &
+    &                                             my_process_is_mpi_seq, my_process_is_io
+  ! MPI Process IDs                         
+  USE mo_mpi,                               ONLY: process_mpi_stdio_id
+  ! MPI Process group sizes                 
+  USE mo_mpi,                               ONLY: process_mpi_io_size, num_work_procs, p_n_work
+  ! Processor numbers                       
+  USE mo_mpi,                               ONLY: p_pe_work, p_io_pe0
+                                            
+  USE mo_model_domain,                      ONLY: t_patch, p_patch, p_phys_patch
+  USE mo_parallel_config,                   ONLY: nproma, p_test_run, use_sp_output
+                                            
+  USE mo_run_config,                        ONLY: num_lev, num_levp1, dtime,                      &
+    &                                             msg_level, output_mode, ltestcase,              &
+    &                                             number_of_grid_used
+  USE mo_datetime,                          ONLY: t_datetime
+  USE mo_time_config,                       ONLY: time_config
+  USE mo_lonlat_grid,                       ONLY: t_lon_lat_grid
+  USE mo_intp_data_strc,                    ONLY: t_lon_lat_intp,                                 &
+    &                                             t_lon_lat_data, get_free_lonlat_grid,           &
+    &                                             lonlat_grid_list, n_lonlat_grids
+  USE mo_master_nml,                        ONLY: model_base_dir
+  USE mo_util_string,                       ONLY: toupper, t_keyword_list, associate_keyword,     &
+    &                                             with_keywords, insert_group, MAX_STRING_LEN,    &
+    &                                             tolower
+  USE mo_loopindices,                       ONLY: get_indices_c, get_indices_e, get_indices_v
+  USE mo_communication,                     ONLY: exchange_data, t_comm_pattern, idx_no, blk_no
+  USE mo_math_constants,                    ONLY: pi
+  USE mo_math_utilities,                    ONLY: t_geographical_coordinates, check_orientation
+  USE mo_name_list_output_config,           ONLY: use_async_name_list_io,                         &
+  &                                               first_output_name_list,                         &
+  &                                               add_var_desc
+  USE mo_name_list_output_types,            ONLY: l_output_phys_patch, t_output_name_list,        &
+  &                                               t_output_file, t_var_desc,                      &
+  &                                               t_patch_info, t_reorder_info, t_grid_info,      &
+  &                                               REMAP_NONE, REMAP_REGULAR_LATLON,               &
+  &                                               ILATLON, ICELL, IEDGE, IVERT,                   &
+  &                                               sfs_name_list, second_tos, GRP_PREFIX
+  USE mo_dictionary,                        ONLY: t_dictionary, dict_init,                        &
+    &                                             dict_loadfile, dict_get, DICT_MAX_STRLEN
+  USE mo_fortran_tools,                     ONLY: assign_if_present
+  ! post-ops                                
+  USE mo_nml_annotate,                      ONLY: temp_defaults, temp_settings
+                                            
+  USE mo_ocean_nml,                         ONLY: n_zlev
+  USE mo_oce_state,                         ONLY: set_zlev
+                                            
+#ifndef __ICON_OCEAN_ONLY__                 
+  USE mo_lnd_jsbach_config,                 ONLY: lnd_jsbach_config
+  USE mo_nh_pzlev_config,                   ONLY: nh_pzlev_config
+  USE mo_lnd_nwp_config,                    ONLY: nlev_snow
+  USE mo_vertical_coord_table,              ONLY: vct
+  USE mo_dynamics_config,                   ONLY: iequations
 #endif ! __ICON_OCEAN_ONLY__
 
   IMPLICIT NONE
@@ -153,7 +147,6 @@ MODULE mo_name_list_output_init
 
   ! Number of output domains. This depends on l_output_phys_patch and is either the number
   ! of physical or the number of logical domains.
-
   INTEGER :: n_dom_out
 
   !------------------------------------------------------------------------------------------------
@@ -3423,7 +3416,6 @@ CONTAINS
 
   END SUBROUTINE init_memory_window
 
-  !-------------------------------------------------------------------------------------------------
 #endif ! NOMPI
 
 END MODULE mo_name_list_output_init
