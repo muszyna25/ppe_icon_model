@@ -1342,6 +1342,7 @@ src/io/mo_io_util.f90 -text
 src/io/mo_io_vlist.f90 -text
 src/io/mo_mtgrm_output.f90 -text
 src/io/mo_name_list_output.f90 -text
+src/io/mo_name_list_output_types.f90 -text
 src/io/mo_netcdf_read.f90 -text
 src/io/mo_nml_annotate.f90 -text
 src/io/mo_output.f90 -text
