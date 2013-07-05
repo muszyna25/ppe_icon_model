@@ -94,8 +94,10 @@ MODULE mo_nh_initicon
   USE mo_dictionary,          ONLY: t_dictionary, dict_init, dict_finalize, &
     &                               dict_loadfile, dict_get, DICT_MAX_STRLEN
   USE mo_post_op,             ONLY: perform_post_op
-  USE mo_var_metadata,        ONLY: t_var_metadata
-  USE mo_var_list,            ONLY: get_var_list_element_info
+  USE mo_var_metadata,        ONLY: t_var_metadata, POST_OP_NONE
+  USE mo_linked_list,         ONLY: t_list_element
+  USE mo_var_list,            ONLY: get_var_name, nvar_lists, var_lists
+  USE mo_var_list_element,    ONLY: level_type_ml
   USE mo_cdi_constants          ! We need all
   USE mo_nwp_sfc_interp,      ONLY: smi_to_sm_mass
   USE mo_util_cdi_table,      ONLY: print_cdi_summary
@@ -190,6 +192,13 @@ MODULE mo_nh_initicon
       &       stat=ist)
     IF (ist /= SUCCESS)  CALL finish(TRIM(routine),'allocation for initicon failed')
 
+    initicon(:)%atm_in%linitialized = .FALSE.
+    initicon(:)%sfc_in%linitialized = .FALSE.
+
+    ! Allocate memory for init_icon state
+    CALL allocate_initicon (p_patch, initicon)
+
+
     ! -----------------------------------------------
     ! make the CDI aware of some custom GRIB keys
     ! -----------------------------------------------
@@ -200,22 +209,18 @@ MODULE mo_nh_initicon
     CALL cdiDefAdditionalKey("typeOfGeneratingProcess")
     CALL cdiDefAdditionalKey("backgroundProcess")
 
+
     ! -----------------------------------------------
     ! open files containing first guess and analysis
     ! -----------------------------------------------
-
-    CALL open_init_files(p_patch, fileID_fg, fileID_ana, filetype_fg, filetype_ana, &
-      &                  dwdfg_file, dwdana_file)
-
-    initicon(:)%atm_in%linitialized = .FALSE.
-    initicon(:)%sfc_in%linitialized = .FALSE.
-
     !
-    ! Allocate memory for init_icon state
     IF ((init_mode == MODE_DWDANA) .OR.   &  ! read in DWD analysis
       & (init_mode == MODE_COMBINED)) THEN
-      CALL allocate_initicon (p_patch, initicon)
+      CALL open_init_files(p_patch, fileID_fg, fileID_ana, filetype_fg, filetype_ana, &
+        &                  dwdfg_file, dwdana_file)
     END IF
+
+
 
     ! Copy the topography fields and coordinate surfaces to initicon
     !
@@ -591,6 +596,7 @@ MODULE mo_nh_initicon
 
   !-------------------------------------------------------------------------
   !> Wrapper routine for NetCDF and GRIB2 read routines, 2D case.
+  !  If necessary an inverse post_op is performed for the input field
   !
   SUBROUTINE read_data_2d (filetype, fileid, varname, glb_arr_len, loc_arr_len, &
     &                      glb_index, var_out, opt_tileidx)
@@ -633,7 +639,13 @@ MODULE mo_nh_initicon
       CALL finish(routine, "Unknown file type")
     END SELECT
 
+
+    ! Perform inverse post_op on input field, if necessary
+    !
+    CALL initicon_inverse_post_op(varname, mapped_name, optvar_out2D=var_out)
+
   END SUBROUTINE read_data_2d
+
 
 
   !-------------------------------------------------------------------------
@@ -680,7 +692,97 @@ MODULE mo_nh_initicon
     CASE DEFAULT
       CALL finish(routine, "Unknown file type")
     END SELECT
+
+    ! Perform inverse post_op on input field, if necessary
+    !    
+    CALL initicon_inverse_post_op(varname, mapped_name, optvar_out3D=var_out)
+
   END SUBROUTINE read_data_3d
+
+
+
+  !-------------
+  !>
+  !! SUBROUTINE initicon_inverse_post_op
+  !! Perform inverse post_op on input field, if necessary 
+  !!
+  !! @par Revision History
+  !! Initial version by Daniel Reinert, DWD(2013-07-05)
+  !!
+  !!
+  SUBROUTINE initicon_inverse_post_op(varname, mapped_name, optvar_out2D, optvar_out3D)
+
+    CHARACTER(len=*), INTENT(IN)      :: varname             !< var name of field to be read
+    CHARACTER(LEN=DICT_MAX_STRLEN)    :: mapped_name         !< mapped input name
+    REAL(wp), OPTIONAL, INTENT(INOUT) :: optvar_out2D(:,:)   !< 3D output field
+    REAL(wp), OPTIONAL, INTENT(INOUT) :: optvar_out3D(:,:,:) !< 2D output field
+
+    ! local variables
+    INTEGER                         :: i              ! loop count
+    TYPE(t_var_metadata), POINTER   :: info           ! variable metadata
+    TYPE(t_list_element), POINTER   :: element
+    CHARACTER(len=*), PARAMETER     :: routine = 'mo_nh_initicon:initicon_inverse_post_op'
+
+
+    ! Check consistency of optional arguments
+    !
+    IF (PRESENT( optvar_out2D ) .AND. PRESENT( optvar_out3D )) THEN
+      CALL finish(routine, 'Only one optional argument must be present')
+    ELSE IF (.NOT.PRESENT( optvar_out2D ) .AND. .NOT.PRESENT( optvar_out3D )) THEN
+      CALL finish(routine, 'One of 2 optional arguments must be present')
+    ENDIF
+
+
+
+    ! get metadata information for field to be read
+    info => NULL()
+    DO i = 1,nvar_lists
+      ! loop only over model level variables
+      IF (var_lists(i)%p%vlevel_type /= level_type_ml) CYCLE 
+
+      element => NULL()
+      DO
+        IF(.NOT.ASSOCIATED(element)) THEN
+          element => var_lists(i)%p%first_list_element
+        ELSE
+          element => element%next_list_element
+        ENDIF
+        IF(.NOT.ASSOCIATED(element)) EXIT
+
+        ! Check for matching name (take care of suffix of
+        ! time-dependent variables):
+        IF (TRIM(varname) == TRIM(tolower(get_var_name(element%field)))) THEN
+          info => element%field%info
+          EXIT
+        ENDIF
+      END DO
+
+      ! If info handle has been found, exit list loop
+      IF (ASSOCIATED(info)) EXIT
+    ENDDO
+
+    IF (.NOT.ASSOCIATED(info)) THEN
+      WRITE (message_text,'(a,a)') TRIM(varname), 'not found'
+      CALL message('',message_text)
+      CALL finish(routine, 'Varname does not match any of the ICON variable names')
+    ENDIF
+
+    ! perform post_op
+    IF (info%post_op%ipost_op_type /= POST_OP_NONE) THEN
+      IF(p_pe == p_io .AND. msg_level>10) THEN
+        WRITE(message_text,'(a)') 'Inverse Post Op for: '//TRIM(mapped_name)
+        CALL message(TRIM(routine), TRIM(message_text))
+      ENDIF
+      IF (PRESENT(optvar_out2D)) THEN
+        CALL perform_post_op(info%post_op, optvar_out2D, opt_inverse=.TRUE.)
+      ELSE IF (PRESENT(optvar_out3D)) THEN
+        CALL perform_post_op(info%post_op, optvar_out3D, opt_inverse=.TRUE.)
+      ENDIF
+    ENDIF
+
+
+
+  END SUBROUTINE initicon_inverse_post_op
 
 
   !-------------------------------------------------------------------------
@@ -1630,11 +1732,11 @@ MODULE mo_nh_initicon
           &                p_patch(jg)%n_patch_cells_g,                            &
           &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
           &                p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_snow_t(:,:,jt) )
-        ! conversion kg/m**2 -> m H2O
-        CALL get_var_list_element_info(p_lnd_state(jg)%lnd_diag_nwp_list, 'w_snow',info)
-        CALL perform_post_op(info%post_op,                                    &
-          &          p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_snow_t(:,:,jt), &
-          &          opt_inverse=.TRUE.)
+!!$        ! conversion kg/m**2 -> m H2O
+!!$        CALL get_var_list_element_info(p_lnd_state(jg)%lnd_diag_nwp_list, 'w_snow',info)
+!!$        CALL perform_post_op(info%post_op,                                    &
+!!$          &          p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_snow_t(:,:,jt), &
+!!$          &          opt_inverse=.TRUE.)
 
 
 
@@ -1642,11 +1744,11 @@ MODULE mo_nh_initicon
           &                p_patch(jg)%n_patch_cells_g,                            &
           &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
           &                p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_i_t(:,:,jt) )
-        ! conversion kg/m**2 -> m H2O
-        CALL get_var_list_element_info(p_lnd_state(jg)%lnd_diag_nwp_list, 'w_i',info)
-        CALL perform_post_op(info%post_op,                                 &
-          &          p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_i_t(:,:,jt), &
-          &          opt_inverse=.TRUE.)
+!!$        ! conversion kg/m**2 -> m H2O
+!!$        CALL get_var_list_element_info(p_lnd_state(jg)%lnd_diag_nwp_list, 'w_i',info)
+!!$        CALL perform_post_op(info%post_op,                                 &
+!!$          &          p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_i_t(:,:,jt), &
+!!$          &          opt_inverse=.TRUE.)
 
 
 
@@ -1687,11 +1789,11 @@ MODULE mo_nh_initicon
           &                p_patch(jg)%n_patch_cells_g,                               &
           &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,    &
           &                nlev_soil, p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_so_t(:,:,:,jt))
-        ! conversion kg/m**2 -> m H2O
-        CALL get_var_list_element_info(p_lnd_state(jg)%lnd_diag_nwp_list, 'w_so', info)
-        CALL perform_post_op(info%post_op,                                            &
-          &                  p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_so_t(:,:,:,jt), &
-          &                  opt_inverse=.TRUE.)
+!!$        ! conversion kg/m**2 -> m H2O
+!!$        CALL get_var_list_element_info(p_lnd_state(jg)%lnd_diag_nwp_list, 'w_so', info)
+!!$        CALL perform_post_op(info%post_op,                                            &
+!!$          &                  p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_so_t(:,:,:,jt), &
+!!$          &                  opt_inverse=.TRUE.)
 
 
 
@@ -1705,11 +1807,11 @@ MODULE mo_nh_initicon
           &                p_patch(jg)%n_patch_cells_g,                               &
           &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,    &
           &                nlev_soil, p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_so_ice_t(:,:,:,jt))
-        ! conversion kg/m**2 -> m H2O
-        CALL get_var_list_element_info(p_lnd_state(jg)%lnd_diag_nwp_list, 'w_so_ice', info)
-        CALL perform_post_op(info%post_op,                                                &
-          &                  p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_so_ice_t(:,:,:,jt), &
-          &                  opt_inverse=.TRUE.)
+!!$        ! conversion kg/m**2 -> m H2O
+!!$        CALL get_var_list_element_info(p_lnd_state(jg)%lnd_diag_nwp_list, 'w_so_ice', info)
+!!$        CALL perform_post_op(info%post_op,                                                &
+!!$          &                  p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_so_ice_t(:,:,:,jt), &
+!!$          &                  opt_inverse=.TRUE.)
 
 
 
@@ -1728,9 +1830,9 @@ MODULE mo_nh_initicon
           &                p_patch(jg)%n_patch_cells_g,                            &
           &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
           &                prm_diag(jg)%gz0(:,:) )
-        ! conversion z0 -> gz0
-        CALL get_var_list_element_info(prm_nwp_diag_list(jg), 'gz0', info)
-        CALL perform_post_op(info%post_op, prm_diag(jg)%gz0(:,:), opt_inverse=.TRUE.)
+!!$        ! conversion z0 -> gz0
+!!$        CALL get_var_list_element_info(prm_nwp_diag_list(jg), 'gz0', info)
+!!$        CALL perform_post_op(info%post_op, prm_diag(jg)%gz0(:,:), opt_inverse=.TRUE.)
 
       ENDIF
 
@@ -1829,21 +1931,21 @@ MODULE mo_nh_initicon
         &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
         &                p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_snow_t(:,:,jt))
       ! conversion kg/m**2 -> m H2O
-      CALL get_var_list_element_info(p_lnd_state(jg)%lnd_diag_nwp_list, 'w_snow',info)
-      CALL perform_post_op(info%post_op,                                    &
-        &          p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_snow_t(:,:,jt), &
-        &          opt_inverse=.TRUE.)
+!!$      CALL get_var_list_element_info(p_lnd_state(jg)%lnd_diag_nwp_list, 'w_snow',info)
+!!$      CALL perform_post_op(info%post_op,                                    &
+!!$        &          p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_snow_t(:,:,jt), &
+!!$        &          opt_inverse=.TRUE.)
 
       ! w_i
       CALL read_data_2d (filetype_ana(jg), fileID_ana(jg), 'w_i',                                &
         &                p_patch(jg)%n_patch_cells_g,                            &
         &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
         &                p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_i_t(:,:,jt))
-      ! conversion kg/m**2 -> m H2O
-      CALL get_var_list_element_info(p_lnd_state(jg)%lnd_diag_nwp_list, 'w_i',info)
-      CALL perform_post_op(info%post_op,                                 &
-        &          p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_i_t(:,:,jt), &
-        &          opt_inverse=.TRUE.)
+!!$      ! conversion kg/m**2 -> m H2O
+!!$      CALL get_var_list_element_info(p_lnd_state(jg)%lnd_diag_nwp_list, 'w_i',info)
+!!$      CALL perform_post_op(info%post_op,                                 &
+!!$        &          p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_i_t(:,:,jt), &
+!!$        &          opt_inverse=.TRUE.)
 
       ! t_snow
       CALL read_data_2d (filetype_ana(jg), fileID_ana(jg), 't_snow',                             &
