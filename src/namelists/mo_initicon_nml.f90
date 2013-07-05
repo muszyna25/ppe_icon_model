@@ -202,7 +202,7 @@ CONTAINS
   ! DEPRECATED parameters
   !------------------------------------------------------------
   
-  IF (nlev_in /= -1) THEN
+  IF ((nlev_in /= -1) .AND. my_process_is_stdio()) THEN
     WRITE (0,*) "!!                               !!"
     WRITE (0,*) "!! DEPRECATED NAMELIST PARAMETER !!"
     WRITE (0,*) "!!                               !!"
