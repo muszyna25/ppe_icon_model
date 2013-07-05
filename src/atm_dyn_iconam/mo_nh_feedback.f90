@@ -1102,7 +1102,8 @@ END SUBROUTINE feedback
 !! Change feedback for cell-based variables from area-weighted averaging
 !! to using fbk_wgt (see above routine)
 !!
-SUBROUTINE relax_feedback(p_patch, p_nh_state, p_int_state, p_grf_state, jg, jgp, l_trac_fbk)
+! SUBROUTINE relax_feedback(p_patch, p_nh_state, p_int_state, p_grf_state, jg, jgp, l_trac_fbk)
+SUBROUTINE relax_feedback(p_patch, p_nh_state, p_int_state, p_grf_state, jg, jgp, l_trac_fbk, n_dom_start, n_dom)
 
   CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
       &  routine = 'mo_nh_feedback:relax_feedback'
@@ -1120,6 +1121,7 @@ SUBROUTINE relax_feedback(p_patch, p_nh_state, p_int_state, p_grf_state, jg, jgp
   ! (when calling transport and microphysics not every dynamics time step, tracer feedback
   !  should probably be restricted to transport time steps)
   LOGICAL, INTENT(IN) :: l_trac_fbk
+  INTEGER, INTENT(IN) :: n_dom_start, n_dom
 
   ! local variables
 
