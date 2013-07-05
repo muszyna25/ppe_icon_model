@@ -626,7 +626,7 @@ run/README -text
 run/ana_varnames_map_file.txt -text
 run/compile_for_dev.mpi.ksh -text
 run/compile_for_developers.ksh -text
-run/dict.r2b4_amip__cmor -text
+run/dict.cmor -text
 run/exec.iconrun -text
 run/exp.couple_atmo-ocean -text
 run/exp.couple_atmo-radiation -text

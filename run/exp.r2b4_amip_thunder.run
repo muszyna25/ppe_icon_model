@@ -336,7 +336,7 @@ atmo_model_equations=1                   # 1 = hydrost. atm., 2 = non-hydrost. a
 
 # define variable names
 #
-dict_file='dict.r2b4_amip__cmor'
+dict_file='dict.cmor'
 #
 #__________________________________________________________________________________________________
 # define the experiment: write ICON namelist parameters
