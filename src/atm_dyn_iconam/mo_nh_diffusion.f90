@@ -1080,7 +1080,7 @@ MODULE mo_nh_diffusion
     ENDIF ! temperature diffusion
 
     !Sync for these variables are required for LES physics
-    IF (lhdiff_rcf .AND. atm_phy_nwp_config(jg)%is_les_phy ) THEN
+    IF (lhdiff_rcf .AND. atm_phy_nwp_config(jg)%is_les_phy .AND. .NOT.linit) THEN
       CALL sync_patch_array_mult(SYNC_C,p_patch,2,p_nh_prog%theta_v,p_nh_prog%exner)
       IF (diffusion_config(jg)%lhdiff_w) CALL sync_patch_array(SYNC_C,p_patch,p_nh_prog%w)
     ENDIF
