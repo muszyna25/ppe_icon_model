@@ -1210,17 +1210,17 @@ REAL (KIND=ireals), DIMENSION(:,:), INTENT(INOUT) :: &
                      ! fractional cloud cover (in turbdiff)            --
 
 #ifdef  __xlC__
-REAL (KIND=ireals), DIMENSION(ie,ke1), OPTIONAL, INTENT(OUT) :: &
+REAL (KIND=ireals), DIMENSION(ie,ke1), OPTIONAL, INTENT(INOUT) :: &  ! OUT
 #else
-REAL (KIND=ireals), DIMENSION(:,:), OPTIONAL, INTENT(OUT) :: &
+REAL (KIND=ireals), DIMENSION(:,:), OPTIONAL, INTENT(INOUT) :: &
 #endif
 !
      edr             ! eddy dissipation rate of TKE (EDR)            (m2/s3)
 
 #ifdef  __xlC__
-REAL (KIND=ireals), DIMENSION(ie), INTENT(OUT) :: &
+REAL (KIND=ireals), DIMENSION(ie), INTENT(INOUT) :: &                ! OUT
 #else
-REAL (KIND=ireals), DIMENSION(:), INTENT(OUT) :: &
+REAL (KIND=ireals), DIMENSION(:), INTENT(INOUT) :: &                 ! OUT
 #endif
 !
 ! Diagnostic near surface variables:
@@ -1234,9 +1234,9 @@ REAL (KIND=ireals), DIMENSION(:), INTENT(OUT) :: &
      v_10m           ! meridional wind in 10m                        ( m/s )
  
 #ifdef  __xlC__
-REAL (KIND=ireals), DIMENSION(ie), OPTIONAL, INTENT(OUT) :: &
+REAL (KIND=ireals), DIMENSION(ie), OPTIONAL, INTENT(INOUT) :: &      ! OUT
 #else
-REAL (KIND=ireals), DIMENSION(:), OPTIONAL, INTENT(OUT) :: &
+REAL (KIND=ireals), DIMENSION(:), OPTIONAL, INTENT(INOUT) :: &
 #endif
 !
      shfl_s,       & ! sensible heat flux at the surface             (W/m2) (positive downward)
@@ -2176,7 +2176,7 @@ SUBROUTINE stab_funct (sm, sh, fm2, fh2, frc, tvs, tls, i_st,i_en)
 
    INTEGER (KIND=iintegers) :: i !loop indices
 
-   REAL (KIND=ireals)        , INTENT(OUT) :: &
+   REAL (KIND=ireals)        , INTENT(INOUT) :: &        ! OUT
         sm(:),  & !stablility function for momentum             [1] 
         sh(:)     !stablility function for scalars (heat)       [1] 
 
@@ -2807,9 +2807,9 @@ REAL (KIND=ireals), DIMENSION(:,:), OPTIONAL, INTENT(IN) :: &
      vt_sso          ! v-tendency due to the SSO-Scheme              ( 1/s )
 
 #ifdef  __xlC__
-REAL (KIND=ireals), DIMENSION(ie,ke1), OPTIONAL, INTENT(OUT) :: &
+REAL (KIND=ireals), DIMENSION(ie,ke1), OPTIONAL, INTENT(INOUT) :: &  ! OUT
 #else
-REAL (KIND=ireals), DIMENSION(:,:), OPTIONAL, INTENT(OUT) :: &
+REAL (KIND=ireals), DIMENSION(:,:), OPTIONAL, INTENT(INOUT) :: &
 #endif
 !
      edr             ! eddy dissipation rate of TKE (EDR)            (m2/s3)
@@ -2823,9 +2823,9 @@ REAL (KIND=ireals), DIMENSION(:,:), OPTIONAL, INTENT(IN) :: &
      tket_conv       ! TKE-tendency due to convective buoyancy       (m2/s3)
 
 #ifdef  __xlC__
-REAL (KIND=ireals), DIMENSION(ie,ke), OPTIONAL, INTENT(OUT) :: &
+REAL (KIND=ireals), DIMENSION(ie,ke), OPTIONAL, INTENT(INOUT) :: &   ! OUT
 #else
-REAL (KIND=ireals), DIMENSION(:,:), OPTIONAL, INTENT(OUT) :: &
+REAL (KIND=ireals), DIMENSION(:,:), OPTIONAL, INTENT(INOUT) :: &
 #endif
 !
      tket_sso,     & ! TKE-tendency due to SSO wake production       (m2/s3)
@@ -5326,7 +5326,7 @@ REAL (KIND=ireals), INTENT(INOUT) :: &
    impl_mom(:,:)    !in : discretis momentum (rho*dz/dt) on flux levels
                       !out: (negative) implicit part of diffusion momentum
 
-REAL (KIND=ireals), INTENT(OUT) :: &
+REAL (KIND=ireals), INTENT(INOUT) :: & ! OUT
 !
    invs_mom(:,:)    !inversion momentum
 
@@ -5404,11 +5404,11 @@ REAL (KIND=ireals), INTENT(IN) :: &
 !
    cur_prof(:,:)    !current vertical variable profile
 
-REAL (KIND=ireals), INTENT(OUT) :: &
+REAL (KIND=ireals), INTENT(INOUT) :: &   ! OUT
 !
    upd_prof(:,:)    !updated vertical variable profile
 
-REAL (KIND=ireals), INTENT(OUT), OPTIONAL :: &
+REAL (KIND=ireals), INTENT(INOUT), OPTIONAL :: &! OUT
 !
    srf_flux(:)      !effective upward vertical surface flux density
 
