@@ -330,10 +330,10 @@ MODULE mo_nh_initicon
         CASE (FILETYPE_NC2)
           CALL nf(nf_open(TRIM(dwdfg_file(jg)), NF_NOWRITE, fileID_fg(jg)), routine)
         CASE (FILETYPE_GRB2)
+          WRITE (0,"(a)") " "
+          WRITE (0,"(a,a)") "file inventory: ", TRIM(dwdfg_file(jg))
           fileID_fg(jg)  = streamOpenRead(TRIM(dwdfg_file(jg)))
           vlistID = streamInqVlist(fileID_fg(jg))
-          WRITE (0,"(a)") " "
-          WRITE (0,"(a)") "file inventory: ", TRIM(dwdfg_file(jg))
           CALL print_cdi_summary(vlistID)
         CASE default
           CALL finish(routine, "Internal error!")
@@ -353,10 +353,10 @@ MODULE mo_nh_initicon
         CASE (FILETYPE_NC2)
           CALL nf(nf_open(TRIM(dwdana_file(jg)), NF_NOWRITE, fileID_ana(jg)), routine)
         CASE (FILETYPE_GRB2)
+          WRITE (0,"(a)") " "
+          WRITE (0,"(a,a)") "file inventory: ", TRIM(dwdana_file(jg))
           fileID_ana(jg)  = streamOpenRead(TRIM(dwdana_file(jg)))
           vlistID = streamInqVlist(fileID_ana(jg))
-          WRITE (0,"(a)") " "
-          WRITE (0,"(a)") "file inventory: ", TRIM(dwdana_file(jg))
           CALL print_cdi_summary(vlistID)
         CASE default
           CALL finish(routine, "Internal error!")
