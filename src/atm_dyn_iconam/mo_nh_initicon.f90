@@ -118,6 +118,12 @@ MODULE mo_nh_initicon
   ! file type (NetCDF/GRB2) for first guess and analysis file
   INTEGER, ALLOCATABLE :: filetype_fg(:), filetype_ana(:)
 
+  ! filename: first guess
+  CHARACTER(LEN=filename_max) :: dwdfg_file(max_dom)
+
+  ! filename: analysis
+  CHARACTER(LEN=filename_max) :: dwdana_file(max_dom)
+    
 
   CHARACTER(LEN=10) :: psvar 
   CHARACTER(LEN=10) :: geop_ml_var  ! model level surface geopotential
@@ -198,7 +204,8 @@ MODULE mo_nh_initicon
     ! open files containing first guess and analysis
     ! -----------------------------------------------
 
-    CALL open_init_files(p_patch, fileID_fg, fileID_ana, filetype_fg, filetype_ana)
+    CALL open_init_files(p_patch, fileID_fg, fileID_ana, filetype_fg, filetype_ana, &
+      &                  dwdfg_file, dwdana_file)
 
     initicon(:)%atm_in%linitialized = .FALSE.
     initicon(:)%sfc_in%linitialized = .FALSE.
@@ -287,14 +294,15 @@ MODULE mo_nh_initicon
   !
   !  @author F. Prill, DWD
   !
-  SUBROUTINE open_init_files(p_patch, fileID_fg, fileID_ana, filetype_fg, filetype_ana)
-    TYPE(t_patch),    INTENT(IN)    :: p_patch(:)
-    INTEGER,          INTENT(INOUT) :: fileID_ana(:), fileID_fg(:)     ! dim (1:n_dom)
-    INTEGER,          INTENT(INOUT) :: filetype_ana(:), filetype_fg(:) ! dim (1:n_dom)
+  SUBROUTINE open_init_files(p_patch, fileID_fg, fileID_ana, filetype_fg, filetype_ana, &
+    &                        dwdfg_file, dwdana_file)
+    TYPE(t_patch),               INTENT(IN)    :: p_patch(:)
+    INTEGER,                     INTENT(INOUT) :: fileID_ana(:), fileID_fg(:)     ! dim (1:n_dom)
+    INTEGER,                     INTENT(INOUT) :: filetype_ana(:), filetype_fg(:) ! dim (1:n_dom)
+    CHARACTER(LEN=filename_max), INTENT(INOUT) :: dwdfg_file(max_dom)             ! first guess
+    CHARACTER(LEN=filename_max), INTENT(INOUT) :: dwdana_file(max_dom)            ! analysis
     ! local variables
     CHARACTER(*), PARAMETER :: routine = "mo_nh_initicon::open_init_files"
-    CHARACTER(LEN=filename_max) :: dwdfg_file(max_dom)  ! first guess
-    CHARACTER(LEN=filename_max) :: dwdana_file(max_dom) ! analysis
     INTEGER :: jg, vlistID, jlev, mpi_comm
     LOGICAL :: l_exist
 
@@ -311,8 +319,6 @@ MODULE mo_nh_initicon
         INQUIRE (FILE=dwdfg_file(jg), EXIST=l_exist)
         IF (.NOT.l_exist) THEN
           CALL finish(TRIM(routine),'DWD FG file not found: '//TRIM(dwdfg_file(jg)))
-        ELSE
-          CALL message (TRIM(routine), 'read atm_FG fields from '//TRIM(dwdfg_file(jg)))
         ENDIF
         filetype_fg(jg) = get_filetype(TRIM(dwdfg_file(jg))) ! determine filetype
         SELECT CASE(filetype_fg(jg))
@@ -322,7 +328,7 @@ MODULE mo_nh_initicon
           fileID_fg(jg)  = streamOpenRead(TRIM(dwdfg_file(jg)))
           vlistID = streamInqVlist(fileID_fg(jg))
           WRITE (0,"(a)") " "
-          WRITE (0,"(a)") "file inventory:"
+          WRITE (0,"(a)") "file inventory: ", TRIM(dwdfg_file(jg))
           CALL print_cdi_summary(vlistID)
         CASE default
           CALL finish(routine, "Internal error!")
@@ -336,8 +342,6 @@ MODULE mo_nh_initicon
         INQUIRE (FILE=dwdana_file(jg), EXIST=l_exist)
         IF (.NOT.l_exist) THEN
           CALL finish(TRIM(routine),'DWD ANA file not found: '//TRIM(dwdana_file(jg)))
-        ELSE
-          CALL message (TRIM(routine), 'read atm_ANA fields from '//TRIM(dwdana_file(jg)))
         ENDIF
         filetype_ana(jg) = get_filetype(TRIM(dwdana_file(jg))) ! determine filetype
         SELECT CASE(filetype_ana(jg))
@@ -347,7 +351,7 @@ MODULE mo_nh_initicon
           fileID_ana(jg)  = streamOpenRead(TRIM(dwdana_file(jg)))
           vlistID = streamInqVlist(fileID_ana(jg))
           WRITE (0,"(a)") " "
-          WRITE (0,"(a)") "file inventory:"
+          WRITE (0,"(a)") "file inventory: ", TRIM(dwdana_file(jg))
           CALL print_cdi_summary(vlistID)
         CASE default
           CALL finish(routine, "Internal error!")
@@ -1308,6 +1312,7 @@ MODULE mo_nh_initicon
       !---------------------------------------!
 
       IF(p_pe == p_io ) THEN 
+        CALL message (TRIM(routine), 'read atm_FG fields from '//TRIM(dwdfg_file(jg)))
 
         SELECT CASE(filetype_fg(jg))
         CASE (FILETYPE_NC2)
@@ -1376,6 +1381,7 @@ MODULE mo_nh_initicon
     jg = 1
 
     IF(p_pe == p_io ) THEN 
+      CALL message (TRIM(routine), 'read atm_ANA fields from '//TRIM(dwdana_file(jg)))
 
       SELECT CASE(filetype_ana(jg))
       CASE (FILETYPE_NC2)
@@ -1500,6 +1506,7 @@ MODULE mo_nh_initicon
       ! Read in DWD first guess (surface) !
       !-----------------------------------!
       IF(p_pe == p_io ) THEN 
+        CALL message (TRIM(routine), 'read sfc_FG fields from '//TRIM(dwdfg_file(jg)))
 
         SELECT CASE(filetype_fg(jg))
         CASE (FILETYPE_NC2)
@@ -1740,6 +1747,7 @@ MODULE mo_nh_initicon
       jg = 1
 
       IF(p_pe == p_io ) THEN 
+        CALL message (TRIM(routine), 'read sfc_ANA fields from '//TRIM(dwdana_file(jg)))
 
         SELECT CASE(filetype_ana(jg))
         CASE (FILETYPE_NC2)
