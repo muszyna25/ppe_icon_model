@@ -280,8 +280,7 @@ SUBROUTINE configure_atm_phy_nwp( n_dom, pat_level, ltestcase, dtime_adv )
      !convection should be turned off for LES
      IF(atm_phy_nwp_config(jg)%inwp_convection>0 .AND. &
         atm_phy_nwp_config(jg)%is_les_phy)THEN
-        CALL finish(TRIM(routine),'Convection can not be used &
-                                    for LES- turning it off manually!')
+       CALL finish(TRIM(routine),'Convection can not be used for LES!')
      END IF
 
    END DO
