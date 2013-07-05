@@ -832,7 +832,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
   ! For 3D Smagorinsky turbulence model 
   ! re-initialization of gz0 also for is_restart_run()=.TRUE.. Is that correct?
   !
-  ELSE IF (  atm_phy_nwp_config(jg)%inwp_turb == ismag ) THEN
+  ELSE IF (  atm_phy_nwp_config(jg)%is_les_phy ) THEN
 
     IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'init Smagorinsky turbulence')
 

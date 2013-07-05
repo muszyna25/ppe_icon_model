@@ -120,13 +120,12 @@ SUBROUTINE les_turbulence  ( tcall_turb_jg,                   & !>in
   i_nchdom  = MAX(1,p_patch%n_childdom)
   jg        = p_patch%id
 
-  IF (msg_level >= 15) CALL message('mo_nwp_turbdiff:', 'turbulence')
+  IF (msg_level >= 15) CALL message('mo_les_turb_interface:', 'turbulence')
   
   !For 3D turbulence the whole patch needs to be passed. Therefore, this call
   !is made outside the block loop next. However, the tendencies it calculates
   !is then used inside the block loop (see at the end) to update u,v,t,qv,qc
   IF ( atm_phy_nwp_config(jg)%inwp_turb==ismag )THEN
-    CALL message('mo_nwp_turbdiff:', '3D turbulence')
     CALL drive_subgrid_diffusion(p_prog,       & !inout for w (it is updated inside)
                                  p_prog_rcf,   & !in
                                  p_diag,       & !inout

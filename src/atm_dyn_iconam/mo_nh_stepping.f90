@@ -109,7 +109,7 @@ MODULE mo_nh_stepping
     &                               iphysproc_short, itconv, itccov, itrad, &
     &                               itradheat, itsso, itsatad, itgwd, inwp, iecham, &
     &                               itupdate, itturb, itgscp, itsfc, min_rlcell_int, &
-                                    min_rledge_int, MODE_DWDANA, MODIS, ismag
+                                    min_rledge_int, MODE_DWDANA, MODIS
   USE mo_divergent_modes,     ONLY: divergent_modes_5band
   USE mo_math_divrot,         ONLY: div, div_avg, rot_vertex
   USE mo_solve_nonhydro,      ONLY: solve_nh
@@ -1274,7 +1274,7 @@ MODULE mo_nh_stepping
         IF (  iforcing==inwp .AND. lstep_adv(jg) ) THEN
        
           !Call interface for LES physics
-          IF(atm_phy_nwp_config(jg)%inwp_turb==ismag)THEN     
+          IF(atm_phy_nwp_config(jg)%is_les_phy)THEN     
 
             CALL les_phy_interface(lcall_phy(jg,:), .FALSE.,         & !in
               &                  lredgrid_phys(jg),                  & !in
@@ -1630,7 +1630,7 @@ MODULE mo_nh_stepping
       CALL message(TRIM(routine), TRIM(message_text))
     ENDIF
 
-    IF(atm_phy_nwp_config(jg)%inwp_turb==ismag)THEN!LES physics
+    IF(atm_phy_nwp_config(jg)%is_les_phy)THEN!LES physics
 
       CALL les_phy_interface(lcall_phy(jg,:), .TRUE.,          & !in
         &                  lredgrid_phys(jg),                  & !in

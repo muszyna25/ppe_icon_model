@@ -73,6 +73,7 @@ MODULE mo_nh_diffusion
   USE mo_physical_constants,  ONLY: cvd_o_rd, cpd, rd, p0ref
   USE mo_timer,               ONLY: timer_nh_hdiffusion, timer_start, timer_stop
   USE mo_vertical_grid,       ONLY: nrdmax
+  USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
 
   IMPLICIT NONE
 
@@ -1077,6 +1078,12 @@ MODULE mo_nh_diffusion
       ENDIF
 
     ENDIF ! temperature diffusion
+
+    !Sync for these variables are required for LES physics
+    IF (lhdiff_rcf .AND. atm_phy_nwp_config(jg)%is_les_phy ) THEN
+      CALL sync_patch_array_mult(SYNC_C,p_patch,2,p_nh_prog%theta_v,p_nh_prog%exner)
+      IF (diffusion_config(jg)%lhdiff_w) CALL sync_patch_array(SYNC_C,p_patch,p_nh_prog%w)
+    ENDIF
 
     IF (ltimer) CALL timer_stop(timer_nh_hdiffusion)
 

@@ -125,7 +125,6 @@ MODULE mo_les_config
     IF(les_config(jg)%is_dry_cbl)THEN
        les_config(jg)%lhflx = 0._wp
     END IF
-    
 
   END SUBROUTINE configure_les
 

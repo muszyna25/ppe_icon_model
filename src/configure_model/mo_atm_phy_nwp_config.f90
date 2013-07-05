@@ -47,9 +47,9 @@ MODULE mo_atm_phy_nwp_config
   USE mo_impl_constants,      ONLY: max_dom, MAX_CHAR_LENGTH, itconv, itccov,  &
     &                               itrad, itradheat, itsso, itgscp, itsatad,  &
     &                               itupdate, itturb, itsfc, itgwd, itfastphy, &
-    &                               iphysproc, iphysproc_short
+    &                               iphysproc, iphysproc_short, ismag
   USE mo_math_constants,      ONLY: dbl_eps
-  USE mo_exception,           ONLY: message, message_text !, finish
+  USE mo_exception,           ONLY: message, message_text, finish
 
   USE mo_icoham_sfc_indices,  ONLY: init_sfc_indices
   USE mo_les_config,          ONLY: configure_les
@@ -111,6 +111,9 @@ MODULE mo_atm_phy_nwp_config
     LOGICAL :: lproc_on(iphysproc) !> contains information about status of 
                                    !! corresponding physical process
                                     !! ON: TRUE; OFF: FALSE
+    
+    LOGICAL :: is_les_phy          !>TRUE is turbulence is 3D 
+                                   !>FALSE otherwise
 
   END TYPE t_atm_phy_nwp_config
 
@@ -265,11 +268,23 @@ SUBROUTINE configure_atm_phy_nwp( n_dom, pat_level, ltestcase, dtime_adv )
  
 
    !Configure LES
-   IF(atm_phy_nwp_config(1)%inwp_turb==5)THEN
-     DO jg = 1 , n_dom
+   DO jg = 1 , n_dom
+
+     atm_phy_nwp_config(jg)%is_les_phy = .FALSE. 
+
+     IF(atm_phy_nwp_config(jg)%inwp_turb==ismag)THEN
        CALL configure_les(jg)
-     END DO
-   END IF
+       atm_phy_nwp_config(jg)%is_les_phy = .TRUE. 
+     END IF 
+
+     !convection should be turned off for LES
+     IF(atm_phy_nwp_config(jg)%inwp_convection>0 .AND. &
+        atm_phy_nwp_config(jg)%is_les_phy)THEN
+        CALL finish(TRIM(routine),'Convection can not be used &
+                                    for LES- turning it off manually!')
+     END IF
+
+   END DO
 
    !Configure lateral boundary condition for limited area model
    IF(l_limited_area) THEN

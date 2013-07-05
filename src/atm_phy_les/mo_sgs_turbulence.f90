@@ -155,21 +155,6 @@ MODULE mo_sgs_turbulence
 
     !Convert temperature/tempv to potential/thetav temperature: all routines within 
     !use theta and thetav
-    !Note that tracers are NOT synced till this stage, therefore satad and hence
-    !temperature, pressure are only calculated for interior nodes.
-    !Syncing things that are needed locally is better than syncing tracers (ntracers!)
-    !and it also avoids a lot of if-endif in nwp_phy_interface
-   
-    !Sync temp and relevant tracers here: tracer syncing is required for tracers
-    !calculation in horizontal diffusion
-    !-for now only qv and qc are needed and hence are synced here. Add more if needed
-    !-also sync exncer because it is changed after calling satad_v_3D
-    CALL sync_patch_array_mult(SYNC_C, p_patch, 5, p_nh_diag%temp, p_nh_diag%tempv, &
-                               p_nh_prog%exner, p_nh_prog%tracer(:,:,:,iqv),        &
-                               p_nh_prog%tracer(:,:,:,iqc))
-
-  
-    !Calculate theta (for diffusion) and theta_v for Ri calculation
     rl_start   = 2
     rl_end     = min_rlcell_int-2
     i_startblk = p_patch%cells%start_blk(rl_start,1)
