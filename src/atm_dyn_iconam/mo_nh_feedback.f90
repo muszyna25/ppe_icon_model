@@ -1108,6 +1108,8 @@ SUBROUTINE relax_feedback(p_patch, p_nh_state, p_int_state, p_grf_state, jg, jgp
   CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
       &  routine = 'mo_nh_feedback:relax_feedback'
 
+  ! n_dom_start and n_dom must be typed before the following TYPE statements, which depend on them.
+  INTEGER, INTENT(IN) :: n_dom_start, n_dom
 
   TYPE(t_patch),       TARGET, INTENT(IN)    ::  p_patch(n_dom_start:n_dom)
   TYPE(t_nh_state), TARGET, INTENT(INOUT)    ::  p_nh_state(n_dom)
@@ -1121,7 +1123,6 @@ SUBROUTINE relax_feedback(p_patch, p_nh_state, p_int_state, p_grf_state, jg, jgp
   ! (when calling transport and microphysics not every dynamics time step, tracer feedback
   !  should probably be restricted to transport time steps)
   LOGICAL, INTENT(IN) :: l_trac_fbk
-  INTEGER, INTENT(IN) :: n_dom_start, n_dom
 
   ! local variables
 
