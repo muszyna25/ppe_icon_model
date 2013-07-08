@@ -72,12 +72,9 @@ MODULE mo_nh_initicon
   USE mo_mpi,                 ONLY: p_pe, p_io, p_bcast, p_comm_work_test, p_comm_work
   USE mo_netcdf_read,         ONLY: read_netcdf_data, read_netcdf_data_single, nf
   USE mo_util_grib,           ONLY: read_grib_2d, read_grib_3d, get_varID
-!  USE mo_io_config,           ONLY: lkeep_in_sync
-!  USE mo_io_util,             ONLY: gather_array1, gather_array2, outvar_desc,    &
-!    &                               GATHER_C, GATHER_E, GATHER_V, num_output_vars
   USE mo_nh_init_utils,       ONLY: hydro_adjust, convert_thdvars, interp_uv_2_vn, init_w
   USE mo_util_phys,           ONLY: virtual_temp
-  USE mo_util_string,         ONLY: tolower
+  USE mo_util_string,         ONLY: tolower, difference, one_of
   USE mo_ifs_coord,           ONLY: alloc_vct, init_vct, vct, vct_a, vct_b
   USE mo_lnd_nwp_config,      ONLY: nlev_soil, ntiles_total, lmulti_snow, nlev_snow, lseaice,&
     &                               ntiles_water
@@ -94,9 +91,10 @@ MODULE mo_nh_initicon
   USE mo_dictionary,          ONLY: t_dictionary, dict_init, dict_finalize, &
     &                               dict_loadfile, dict_get, DICT_MAX_STRLEN
   USE mo_post_op,             ONLY: perform_post_op
-  USE mo_var_metadata,        ONLY: t_var_metadata, POST_OP_NONE
+  USE mo_var_metadata,        ONLY: t_var_metadata, POST_OP_NONE, VARNAME_LEN
   USE mo_linked_list,         ONLY: t_list_element
-  USE mo_var_list,            ONLY: get_var_name, nvar_lists, var_lists
+  USE mo_var_list,            ONLY: get_var_name, nvar_lists, var_lists, collect_group, &
+    &                               total_number_of_variables
   USE mo_var_list_element,    ONLY: level_type_ml
   USE mo_cdi_constants          ! We need all
   USE mo_nwp_sfc_interp,      ONLY: smi_to_sm_mass
@@ -131,6 +129,11 @@ MODULE mo_nh_initicon
   CHARACTER(LEN=10) :: geop_ml_var  ! model level surface geopotential
   CHARACTER(LEN=10) :: geop_sfc_var ! surface-level surface geopotential
   CHARACTER(LEN=10) :: alb_snow_var ! snow albedo
+
+!!$  CHARACTER(LEN=VARNAME_LEN), ALLOCATABLE :: grp_vars_fg (:) ! vars (names) to be read from fg-file
+!!$  CHARACTER(LEN=VARNAME_LEN), ALLOCATABLE :: grp_vars_ana(:) ! vars (names) to be read from ana-file
+!!$  INTEGER  :: ngrp_vars_fg      ! number of fields in grp_vars_fg
+!!$  INTEGER  :: ngrp_vars_ana     ! number of fields in grp_vars_ana
 
   ! Remark on usage of "cdiDefMissval"
   
@@ -184,6 +187,9 @@ MODULE mo_nh_initicon
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
       routine = 'mo_nh_initicon:init_icon'
 
+  INTEGER  :: ngrp_vars_fg      ! number of fields in grp_vars_fg
+  INTEGER  :: ngrp_vars_ana     ! number of fields in grp_vars_ana
+
 
     ! Allocate initicon data type
     ALLOCATE (initicon(n_dom),                         &
@@ -199,6 +205,18 @@ MODULE mo_nh_initicon
     CALL allocate_initicon (p_patch, initicon)
 
 
+    ! Copy the topography fields and coordinate surfaces to initicon
+    !
+    DO jg = 1, n_dom
+      initicon(jg)%topography_c(:,:) = ext_data(jg)%atm%topography_c(:,:)
+      initicon(jg)%topography_v(:,:) = ext_data(jg)%atm%topography_v(:,:)
+
+      initicon(jg)%z_ifc(:,:,:) = p_nh_state(jg)%metrics%z_ifc(:,:,:)
+      initicon(jg)%z_mc (:,:,:) = p_nh_state(jg)%metrics%z_mc (:,:,:)
+    ENDDO
+
+
+
     ! -----------------------------------------------
     ! make the CDI aware of some custom GRIB keys
     ! -----------------------------------------------
@@ -212,25 +230,31 @@ MODULE mo_nh_initicon
 
     ! -----------------------------------------------
     ! open files containing first guess and analysis
+    ! and generate analysis/FG input lists
     ! -----------------------------------------------
     !
     IF ((init_mode == MODE_DWDANA) .OR.   &  ! read in DWD analysis
       & (init_mode == MODE_COMBINED)) THEN
       CALL open_init_files(p_patch, fileID_fg, fileID_ana, filetype_fg, filetype_ana, &
         &                  dwdfg_file, dwdana_file)
+
+      ! Generate lists of fields that must be read from FG/ANA files
+      !
+      DO jg = 1, n_dom
+        CALL create_input_groups(initicon(jg)%sfc%grp_vars_fg,  initicon(jg)%sfc%ngrp_vars_fg, &
+          &                      initicon(jg)%sfc%grp_vars_ana, initicon(jg)%sfc%ngrp_vars_ana)
+      ENDDO
+
+    IF(p_pe == p_io) THEN
+ngrp_vars_fg  = initicon(1)%sfc%ngrp_vars_fg
+ngrp_vars_ana = initicon(1)%sfc%ngrp_vars_ana
+write(0,*) "grp_vars_fg: ",initicon(1)%sfc%grp_vars_fg(1:ngrp_vars_fg), ngrp_vars_fg
+write(0,*) "grp_vars_ana: ",initicon(1)%sfc%grp_vars_ana(1:ngrp_vars_ana), ngrp_vars_ana
+    ENDIF
+
     END IF
 
 
-
-    ! Copy the topography fields and coordinate surfaces to initicon
-    !
-    DO jg = 1, n_dom
-      initicon(jg)%topography_c(:,:) = ext_data(jg)%atm%topography_c(:,:)
-      initicon(jg)%topography_v(:,:) = ext_data(jg)%atm%topography_v(:,:)
-
-      initicon(jg)%z_ifc(:,:,:) = p_nh_state(jg)%metrics%z_ifc(:,:,:)
-      initicon(jg)%z_mc (:,:,:) = p_nh_state(jg)%metrics%z_mc (:,:,:)
-    ENDDO
 
 
     ! init ICON prognostic fields
@@ -599,7 +623,7 @@ MODULE mo_nh_initicon
   !  If necessary an inverse post_op is performed for the input field
   !
   SUBROUTINE read_data_2d (filetype, fileid, varname, glb_arr_len, loc_arr_len, &
-    &                      glb_index, var_out, opt_tileidx)
+    &                      glb_index, var_out, opt_tileidx, opt_checkgroup)
 
     INTEGER,          intent(IN)    :: filetype       !< FILETYPE_NC2 or FILETYPE_GRB2
     CHARACTER(len=*), INTENT(IN)    :: varname        !< var name of field to be read
@@ -609,40 +633,56 @@ MODULE mo_nh_initicon
     INTEGER,          INTENT(IN)    :: glb_index(:)   !< Index mapping local to global
     REAL(wp),         INTENT(INOUT) :: var_out(:,:)   !< output field
     INTEGER,          INTENT(IN), OPTIONAL :: opt_tileidx  !< tile index, encoded as "localInformationNumber"
+    CHARACTER(LEN=VARNAME_LEN), INTENT(IN), OPTIONAL :: opt_checkgroup(:) !< read only, if varname is 
+                                                                          !< contained in opt_checkgroup
     ! local variables
     CHARACTER(len=*), PARAMETER     :: routine = 'mo_nh_initicon:read_data_2d'
     CHARACTER(LEN=DICT_MAX_STRLEN)  :: mapped_name
-
-    ! Search name mapping for name in NetCDF/GRIB2 file
-    mapped_name = TRIM(dict_get(ana_varnames_dict, varname, default=varname))
-
-    SELECT CASE(filetype)
-    CASE (FILETYPE_NC2)
-      IF(p_pe == p_io .AND. msg_level>10) THEN
-        WRITE(message_text,'(a)') 'NC-Read: '//TRIM(varname)
-        CALL message(TRIM(routine), TRIM(message_text))
-      ENDIF
-
-      CALL read_netcdf_data (fileid, varname, glb_arr_len, loc_arr_len, &
-        &                    glb_index, var_out)
-
-    CASE (FILETYPE_GRB2)
-      IF(p_pe == p_io .AND. msg_level>10) THEN
-        WRITE(message_text,'(a)') 'GRB2-Read: '//TRIM(mapped_name)
-        CALL message(TRIM(routine), TRIM(message_text))
-      ENDIF
-
-      CALL read_grib_2d(fileid, mapped_name, glb_arr_len, loc_arr_len, &
-        &                    glb_index, var_out, opt_tileidx)
-
-    CASE DEFAULT
-      CALL finish(routine, "Unknown file type")
-    END SELECT
+    LOGICAL                         :: lread          !< .FALSE.: skip reading
 
 
-    ! Perform inverse post_op on input field, if necessary
-    !
-    CALL initicon_inverse_post_op(varname, mapped_name, optvar_out2D=var_out)
+    IF (PRESENT(opt_checkgroup)) THEN
+      lread = ( one_of(varname,  opt_checkgroup(:)) /= -1)
+!!$      write(0,*) "lread: varname",lread, varname 
+    ELSE
+      lread = .TRUE.
+    ENDIF
+
+
+
+    IF (lread) THEN
+      ! Search name mapping for name in NetCDF/GRIB2 file
+      mapped_name = TRIM(dict_get(ana_varnames_dict, varname, default=varname))
+
+      SELECT CASE(filetype)
+      CASE (FILETYPE_NC2)
+        IF(p_pe == p_io .AND. msg_level>10) THEN
+          WRITE(message_text,'(a)') 'NC-Read: '//TRIM(varname)
+          CALL message(TRIM(routine), TRIM(message_text))
+        ENDIF
+
+        CALL read_netcdf_data (fileid, varname, glb_arr_len, loc_arr_len, &
+          &                    glb_index, var_out)
+
+      CASE (FILETYPE_GRB2)
+        IF(p_pe == p_io .AND. msg_level>10) THEN
+          WRITE(message_text,'(a)') 'GRB2-Read: '//TRIM(mapped_name)
+          CALL message(TRIM(routine), TRIM(message_text))
+        ENDIF
+
+        CALL read_grib_2d(fileid, mapped_name, glb_arr_len, loc_arr_len, &
+          &                    glb_index, var_out, opt_tileidx)
+
+      CASE DEFAULT
+        CALL finish(routine, "Unknown file type")
+      END SELECT
+
+
+      ! Perform inverse post_op on input field, if necessary
+      !
+      CALL initicon_inverse_post_op(varname, mapped_name, optvar_out2D=var_out)
+
+    ENDIF  ! lread
 
   END SUBROUTINE read_data_2d
 
@@ -652,7 +692,7 @@ MODULE mo_nh_initicon
   !> Wrapper routine for NetCDF and GRIB2 read routines, 3D case.
   !
   SUBROUTINE read_data_3d (filetype, fileid, varname, glb_arr_len, loc_arr_len, &
-    &                      glb_index, nlevs, var_out, opt_tileidx)
+    &                      glb_index, nlevs, var_out, opt_tileidx, opt_checkgroup)
 
     INTEGER,          INTENT(IN)    :: filetype       !< FILETYPE_NC2 or FILETYPE_GRB2
     CHARACTER(len=*), INTENT(IN)    :: varname        !< var name of field to be read
@@ -663,39 +703,53 @@ MODULE mo_nh_initicon
     INTEGER,          INTENT(IN)    :: glb_index(:)   !< Index mapping local to global
     REAL(wp),         INTENT(INOUT) :: var_out(:,:,:) !< output field
     INTEGER,          INTENT(IN), OPTIONAL :: opt_tileidx  !< tile index, encoded as "localInformationNumber"
+    CHARACTER(LEN=VARNAME_LEN), INTENT(IN), OPTIONAL :: opt_checkgroup(:) !< read only, if varname is 
+                                                                          !< contained in opt_checkgroup
     ! local variables
     CHARACTER(len=*), PARAMETER     :: routine = 'mo_nh_initicon:read_data_3d'
     CHARACTER(LEN=DICT_MAX_STRLEN)  :: mapped_name
+    LOGICAL                         :: lread          !< .FALSE.: skip reading
 
-    ! Search name mapping for name in NetCDF/GRIB2 file
-    mapped_name = TRIM(dict_get(ana_varnames_dict, varname, default=varname))
 
-    SELECT CASE(filetype)
-    CASE (FILETYPE_NC2)
-      IF(p_pe == p_io .AND. msg_level>10 ) THEN
-        WRITE(message_text,'(a)') 'NC-Read: '//TRIM(varname)
-        CALL message(TRIM(routine), TRIM(message_text))
-      ENDIF
+    IF (PRESENT(opt_checkgroup)) THEN
+      lread = ( one_of(varname,  opt_checkgroup(:)) /= -1)
+!!$      write(0,*) "lread: varname",lread, varname 
+    ELSE
+      lread = .TRUE.
+    ENDIF
 
-      CALL read_netcdf_data_single (fileid, varname, glb_arr_len, loc_arr_len, &
-        &                           glb_index, nlevs, var_out)
 
-    CASE (FILETYPE_GRB2)
-      IF(p_pe == p_io .AND. msg_level>10 ) THEN
-        WRITE(message_text,'(a)') 'GRB2-Read: '//TRIM(mapped_name)
-        CALL message(TRIM(routine), TRIM(message_text))
-      ENDIF
+    IF (lread) THEN
+      ! Search name mapping for name in NetCDF/GRIB2 file
+      mapped_name = TRIM(dict_get(ana_varnames_dict, varname, default=varname))
 
-      CALL read_grib_3d            (fileid, mapped_name, glb_arr_len, loc_arr_len, &
-        &                           glb_index, nlevs, var_out, opt_tileidx)
+      SELECT CASE(filetype)
+      CASE (FILETYPE_NC2)
+        IF(p_pe == p_io .AND. msg_level>10 ) THEN
+          WRITE(message_text,'(a)') 'NC-Read: '//TRIM(varname)
+          CALL message(TRIM(routine), TRIM(message_text))
+        ENDIF
 
-    CASE DEFAULT
-      CALL finish(routine, "Unknown file type")
-    END SELECT
+        CALL read_netcdf_data_single (fileid, varname, glb_arr_len, loc_arr_len, &
+          &                           glb_index, nlevs, var_out)
 
-    ! Perform inverse post_op on input field, if necessary
-    !    
-    CALL initicon_inverse_post_op(varname, mapped_name, optvar_out3D=var_out)
+      CASE (FILETYPE_GRB2)
+        IF(p_pe == p_io .AND. msg_level>10 ) THEN
+          WRITE(message_text,'(a)') 'GRB2-Read: '//TRIM(mapped_name)
+          CALL message(TRIM(routine), TRIM(message_text))
+        ENDIF
+
+        CALL read_grib_3d            (fileid, mapped_name, glb_arr_len, loc_arr_len, &
+          &                           glb_index, nlevs, var_out, opt_tileidx)
+
+      CASE DEFAULT
+        CALL finish(routine, "Unknown file type")
+      END SELECT
+
+      ! Perform inverse post_op on input field, if necessary
+      !    
+      CALL initicon_inverse_post_op(varname, mapped_name, optvar_out3D=var_out)
+    ENDIF  ! lread
 
   END SUBROUTINE read_data_3d
 
@@ -780,9 +834,231 @@ MODULE mo_nh_initicon
       ENDIF
     ENDIF
 
-
-
   END SUBROUTINE initicon_inverse_post_op
+
+
+
+  !-------------
+  !>
+  !! SUBROUTINE create_input_groups
+  !! Generates groups 'grp_vars_fg' and 'grp_vars_ana', which contain the names of the variables to 
+  !! be read from the FG- and ANA-File, respectively.
+  !! Both groups are based in the ICON-internal output groups "dwd_fg_sfc_vars" and "dwd_ana_sfc_vars".
+  !! In a first step it is checked, whether the FG-file contains all members of the group 'grp_vars_fg'.
+  !! If this is not the case, the model aborts. In a second step it is checked, whether the ANA-File 
+  !! contains all members of the group 'grp_vars_ana'. If a member is missing, it is removed from the 
+  !! group 'grp_vars_ana' and a warning is issued, however the model does not abort.
+  !! In a third step, members that belong to both 'grp_vars_ana' AND 'grp_vars_fg' are removed from 
+  !! 'grp_vars_fg', such that double reading is avoided.  
+  !!
+  !! @par Revision History
+  !! Initial version by Daniel Reinert, DWD(2013-07-08)
+  !!
+  !!
+  SUBROUTINE create_input_groups(grp_vars_fg, ngrp_vars_fg, grp_vars_ana, ngrp_vars_ana)
+
+    CHARACTER(LEN=VARNAME_LEN), INTENT(INOUT) :: grp_vars_fg(:)   ! vars (names) to be read from fg-file
+    CHARACTER(LEN=VARNAME_LEN), INTENT(INOUT) :: grp_vars_ana(:)  ! vars (names) to be read from ana-file
+    INTEGER                   , INTENT(OUT)   :: ngrp_vars_fg     ! number of fields in dwd_fg_sfc_vars
+    INTEGER                   , INTENT(OUT)   :: ngrp_vars_ana    ! number of fields in dwd_ana_sfc_vars
+
+    ! local variables
+    CHARACTER(LEN=VARNAME_LEN) :: grp_vars_anafile(100)           ! ana-file inventory group
+    CHARACTER(LEN=VARNAME_LEN) :: grp_vars_fgfile(100)            ! fg-file inventory group
+    INTEGER :: grp_varID_anafile(100)                             ! varIDs of sfc fields in ana-file
+    INTEGER :: grp_varID_fgfile (100)                             ! varIDs of sfc fields in fg-file
+    INTEGER :: grp_varID_ana    (100)                             ! varIDs of sfc fields in ana-file (re-shuffled)
+    INTEGER :: grp_varID_fg     (100)                             ! varIDs of sfc fields in fg-file  (re-shuffled)
+    INTEGER :: nfile_totvars                                      ! total number of fields in file
+    INTEGER :: ngrp_vars_anafile                                  ! number of sfc fields in ana-file
+    INTEGER :: ngrp_vars_fgfile                                   ! number of sfc fields in fg-file
+    CHARACTER(LEN=VARNAME_LEN) :: grp_name                        ! group name
+    CHARACTER(LEN=MAX_CHAR_LENGTH) :: varname                     ! variable name
+    INTEGER :: vlistID, varID, ivar, mpi_comm
+    INTEGER :: zaxisID
+    INTEGER :: index
+    INTEGER :: nlev_ana, nlev_fg                                  ! number of vertical levels (in fg/ana file)
+
+    CHARACTER(LEN=*), PARAMETER :: routine = 'mo_nh_initicon:create_input_groups'
+
+
+    IF(p_pe == p_io) THEN
+
+      ! Collect group 'grp_vars_fg' from dwd_fg_sfc_vars
+      !
+      grp_name ='dwd_fg_sfc_vars' 
+      CALL collect_group(TRIM(grp_name), grp_vars_fg, ngrp_vars_fg,    &
+        &                loutputvars_only=.FALSE.,lremap_lonlat=.FALSE.)
+
+
+      ! Collect group 'grp_vars_ana' from dwd_ana_sfc_vars
+      !
+      grp_name ='dwd_ana_sfc_vars' 
+      CALL collect_group(TRIM(grp_name), grp_vars_ana, ngrp_vars_ana,  &
+        &                loutputvars_only=.FALSE.,lremap_lonlat=.FALSE.)
+
+      ! Lateron, grp_vars_fg and grp_vars_ana will be the groups that control the reading stuff
+
+!!$write(0,*) "grp_vars_fg:  ", grp_vars_fg (1:ngrp_vars_fg) ,ngrp_vars_fg
+!!$write(0,*) "grp_vars_ana: ", grp_vars_ana(1:ngrp_vars_ana),ngrp_vars_ana
+
+      !
+      ! Generate file inventory lists for FG- and ANA-files
+      !
+
+      ! get ANA-file inventory list (surface fields, only)
+      !
+      ! get vlistID
+      vlistID = streamInqVlist(fileID_ana(1))
+      ! get total number of fields in analysis file
+      nfile_totvars     = vlistNvars(vlistID)
+      ! counter
+      ngrp_vars_anafile = 0
+
+      DO varID= 0,(nfile_totvars-1)
+        ! skip atmospheric fields 
+        zaxisID = vlistInqVarZaxis(vlistID,varID)
+        IF (ANY((/ZAXIS_HYBRID,ZAXIS_HYBRID_HALF,ZAXIS_HEIGHT/) == zaxisInqType(zaxisID) ) ) CYCLE
+
+        ! increase counter
+        ngrp_vars_anafile = ngrp_vars_anafile + 1
+
+        ! get variable name
+        CALL vlistInqVarName(vlistID, varID, varname)
+
+        ! In case of GRIB2 translate GRIB2 varname to netcdf varname and add to group
+        IF (filetype_ana(1) == FILETYPE_GRB2) THEN
+          ! GRIB2 -> Netcdf
+          grp_vars_anafile(ngrp_vars_anafile) = TRIM(dict_get(ana_varnames_dict, varname, default=varname, linverse=.TRUE.))
+        ELSE IF (filetype_ana(1) == FILETYPE_NC2) THEN
+          grp_vars_anafile(ngrp_vars_anafile) = varname
+        ENDIF
+        ! store corresponding varID
+        grp_varID_anafile(ngrp_vars_anafile)= varID
+      ENDDO
+
+
+
+      ! get FG-file inventory list (surface fields, only)
+      !
+      ! get vlistID
+      vlistID = streamInqVlist(fileID_fg(1))
+      ! get total number of fields in FG file
+      nfile_totvars    = vlistNvars(vlistID)
+      ! counter
+      ngrp_vars_fgfile = 0
+
+      DO varID= 0,(nfile_totvars-1)
+        ! skip atmospheric fields 
+        zaxisID = vlistInqVarZaxis(vlistID,varID)
+        IF (ANY((/ZAXIS_HYBRID,ZAXIS_HYBRID_HALF,ZAXIS_HEIGHT/) == zaxisInqType(zaxisID) ) ) CYCLE
+
+        ! increase counter
+        ngrp_vars_fgfile = ngrp_vars_fgfile + 1
+
+        ! get variable name
+        CALL vlistInqVarName(vlistID, varID, varname)
+
+        ! In case of GRIB2 translate GRIB2 varname to netcdf varname and add to group
+        IF (filetype_fg(1) == FILETYPE_GRB2) THEN
+          ! GRIB2 -> Netcdf
+          grp_vars_fgfile(ngrp_vars_fgfile) = TRIM(dict_get(ana_varnames_dict, varname, default=varname, linverse=.TRUE.))
+        ELSE IF (filetype_fg(1) == FILETYPE_NC2) THEN
+          grp_vars_fgfile(ngrp_vars_fgfile) = varname
+        ENDIF
+        ! store corresponding varID
+        grp_varID_fgfile(ngrp_vars_fgfile)= varID
+      ENDDO
+
+!!$write(0,*) "grp_vars_fgfile: ", grp_vars_fgfile(1:ngrp_vars_fgfile),ngrp_vars_fgfile
+!!$write(0,*) "grp_vars_anafile: ", grp_vars_anafile(1:ngrp_vars_anafile),ngrp_vars_anafile
+
+
+      ! Check, whether the FG-file inventory group contains all fields which are needed for a 
+      ! successfull model start. If not, then stop the model and issue an error. 
+      DO ivar=1,ngrp_vars_fg
+        index = one_of(TRIM(grp_vars_fg(ivar)),grp_vars_fgfile(:))
+
+        IF ( index == -1) THEN   ! variable not found
+          WRITE(message_text,'(a)') 'Field '//TRIM(grp_vars_fg(ivar))//' missing in FG-input file.'
+          CALL finish(routine, TRIM(message_text))
+        ELSE
+          ! store varID
+          grp_varID_fg(ivar) = grp_varID_fgfile(index)
+        ENDIF
+      ENDDO  
+
+      ! Check, whether the ANA-file inventory list contains all required analysis fields.
+      ! If not, remove the corresponding file name from the group 'grp_vars_ana' and issue a warning.
+      ! The missing field will then be read from the FG-file
+      DO ivar=1,ngrp_vars_ana
+        index = one_of(TRIM(grp_vars_ana(ivar)),grp_vars_anafile(:))
+
+        IF ( index == -1) THEN  ! variable not found
+          WRITE(message_text,'(a)') 'Field '//TRIM(grp_vars_ana(ivar))//' not found in ANA-input file.'
+          CALL message(routine, TRIM(message_text))
+          WRITE(message_text,'(a)') 'Field '//TRIM(grp_vars_ana(ivar))//' will be read from FG-input, instead.'
+          CALL message(routine, TRIM(message_text))
+
+          ! remove missing field from analysis input-group
+          CALL difference(grp_vars_ana, ngrp_vars_ana, grp_vars_ana(ivar:ivar), 1)
+        ELSE
+          ! save varID
+          grp_varID_ana(ivar) = grp_varID_anafile(index)
+        ENDIF
+      ENDDO  
+
+
+
+
+      ! Remove those names from grp_vars_fg which are also included in grp_vars_ana
+      ! Thus, only those variables are read from the first guess, which are not contained 
+      ! in the analysis file. By this, we avoid double reading.
+      !
+      DO ivar=1,ngrp_vars_ana
+
+        index = one_of(TRIM(grp_vars_ana(ivar)),grp_vars_fg(:))
+
+        ! If grp_vars_ana(ivar) is also a group member of grp_vars_fg(:)
+        IF (index /= -1) THEN ! found matching name.
+          !
+          ! Check, whether the number of vertical levels matches as well
+
+          ! get number of vertical levels for variable grp_vars_ana(ivar)
+          varID    = grp_varID_ana(ivar)             ! CDI variable ID with this name in analysis 
+          vlistID  = streamInqVlist(fileID_ana(1))
+          zaxisID  = vlistInqVarZaxis(vlistID, varID)
+          nlev_ana = zaxisInqSize(zaxisID)
+
+          ! get number of vertical levels for variable grp_vars_fg(index)
+          varID    = grp_varID_fg(index)             ! CDI variable ID with this name in analysis 
+          vlistID  = streamInqVlist(fileID_fg(1))
+          zaxisID  = vlistInqVarZaxis(vlistID, varID)
+          nlev_fg  = zaxisInqSize(zaxisID)
+
+          IF (nlev_ana == nlev_fg) THEN
+            ! remove grp_vars_ana(ivar) from grp_vars_fg(:)
+            CALL difference(grp_vars_fg, ngrp_vars_fg, grp_vars_ana(ivar:ivar), 1)
+          ENDIF
+        ENDIF          
+      ENDDO
+
+
+    ENDIF  ! p_pe == p_io
+
+
+    IF(p_test_run) THEN
+      mpi_comm = p_comm_work_test 
+    ELSE
+      mpi_comm = p_comm_work
+    ENDIF
+    CALL p_bcast(grp_vars_fg,  p_io, mpi_comm)
+    CALL p_bcast(ngrp_vars_fg, p_io, mpi_comm)
+    CALL p_bcast(grp_vars_ana, p_io, mpi_comm)
+    CALL p_bcast(ngrp_vars_ana,p_io, mpi_comm)
+
+  END SUBROUTINE create_input_groups
+
 
 
   !-------------------------------------------------------------------------
@@ -1588,6 +1864,7 @@ MODULE mo_nh_initicon
     INTEGER :: no_cells, no_levels
     INTEGER :: no_depth, no_depth_2
     INTEGER :: dimid, varid, mpi_comm
+    INTEGER :: ngrp_vars_fg, ngrp_vars_ana
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
       routine = 'mo_nh_initicon:read_dwdana_sfc'
@@ -1601,6 +1878,9 @@ MODULE mo_nh_initicon
       ! is not active at initial time
       IF (.NOT. p_patch(jg)%ldom_active) CYCLE
 
+      ! save some paperwork
+      ngrp_vars_fg  = initicon(jg)%sfc%ngrp_vars_fg
+      ngrp_vars_ana = initicon(jg)%sfc%ngrp_vars_ana
 
       !-----------------------------------!
       ! Read in DWD first guess (surface) !
@@ -1678,38 +1958,43 @@ MODULE mo_nh_initicon
       ! start reading surface fields from First Guess
       !
 
-      CALL read_data_2d (filetype_fg(jg), fileID_fg(jg), 'fr_seaice', p_patch(jg)%n_patch_cells_g,          &
-        &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,              &
-        &                p_lnd_state(jg)%diag_lnd%fr_seaice)
+      CALL read_data_2d (filetype_fg(jg), fileID_fg(jg), 'fr_seaice', p_patch(jg)%n_patch_cells_g, &
+        &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,                   &
+        &                p_lnd_state(jg)%diag_lnd%fr_seaice,                                       &
+        &                opt_checkgroup=initicon(jg)%sfc%grp_vars_fg(1:ngrp_vars_fg))
 
 
       ! sea-ice related fields
-      CALL read_data_2d (filetype_fg(jg), fileID_fg(jg), 't_ice', p_patch(jg)%n_patch_cells_g,              &
-        &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,              &
-        &                p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_ice)
+      CALL read_data_2d (filetype_fg(jg), fileID_fg(jg), 't_ice', p_patch(jg)%n_patch_cells_g,     &
+        &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,                   &
+        &                p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_ice,                             &
+        &                opt_checkgroup=initicon(jg)%sfc%grp_vars_fg(1:ngrp_vars_fg))
 
       IF (l_hice_in) THEN
-        CALL read_data_2d (filetype_fg(jg), fileID_fg(jg), 'h_ice', p_patch(jg)%n_patch_cells_g,            &
-          &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,            &
-          &                p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%h_ice)
+        CALL read_data_2d (filetype_fg(jg), fileID_fg(jg), 'h_ice', p_patch(jg)%n_patch_cells_g,   &
+          &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,                 &
+          &                p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%h_ice,                           &
+          &                opt_checkgroup=initicon(jg)%sfc%grp_vars_fg(1:ngrp_vars_fg))
       ENDIF
 
 
       ! tile based fields
       DO jt=1, ntiles_total + ntiles_water 
 
-        CALL read_data_2d (filetype_fg(jg), fileID_fg(jg), 't_g', p_patch(jg)%n_patch_cells_g,               &
-         &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,              &
-         &                p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_g_t(:,:,jt))
+        CALL read_data_2d (filetype_fg(jg), fileID_fg(jg), 't_g', p_patch(jg)%n_patch_cells_g,     &
+         &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,                  &
+         &                p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_g_t(:,:,jt),                    &
+         &                opt_checkgroup=initicon(jg)%sfc%grp_vars_fg(1:ngrp_vars_fg))
 
        ! aggregated values are not prog variables, 
        ! aggregated values are calculated in  init_nwp_phy  (PR)
        ! p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_g(:,:) = &
        !   &    p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_g_t(:,:,1)
 
-        CALL read_data_2d (filetype_fg(jg), fileID_fg(jg), 'qv_s', p_patch(jg)%n_patch_cells_g,              &
+        CALL read_data_2d (filetype_fg(jg), fileID_fg(jg), 'qv_s', p_patch(jg)%n_patch_cells_g, &
          &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,              &
-         &                p_lnd_state(jg)%diag_lnd%qv_s_t(:,:,jt))
+         &                p_lnd_state(jg)%diag_lnd%qv_s_t(:,:,jt),                             &
+         &                opt_checkgroup=initicon(jg)%sfc%grp_vars_fg(1:ngrp_vars_fg))
 
        ! aggregated values are calculated in  init_nwp_phy  (PR)
        ! p_lnd_state(jg)%diag_lnd%qv_s(:,:) = &
@@ -1718,58 +2003,65 @@ MODULE mo_nh_initicon
         !  tile based fields
       DO jt=1, ntiles_total
 
-        CALL read_data_2d (filetype_fg(jg), fileID_fg(jg), 'freshsnow',                          &
-          &                p_patch(jg)%n_patch_cells_g,                            &
-          &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-          &                p_lnd_state(jg)%diag_lnd%freshsnow_t(:,:,jt) )
+        CALL read_data_2d (filetype_fg(jg), fileID_fg(jg), 'freshsnow',               &
+          &                p_patch(jg)%n_patch_cells_g,                               &
+          &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,    &
+          &                p_lnd_state(jg)%diag_lnd%freshsnow_t(:,:,jt),              &
+          &                opt_checkgroup=initicon(jg)%sfc%grp_vars_fg(1:ngrp_vars_fg) )
 
-        CALL read_data_2d (filetype_fg(jg), fileID_fg(jg), 'w_snow',                             &
-          &                p_patch(jg)%n_patch_cells_g,                            &
-          &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-          &                p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_snow_t(:,:,jt) )
+        CALL read_data_2d (filetype_fg(jg), fileID_fg(jg), 'w_snow',                  &
+          &                p_patch(jg)%n_patch_cells_g,                               &
+          &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,    & 
+          &                p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_snow_t(:,:,jt),   &
+          &                opt_checkgroup=initicon(jg)%sfc%grp_vars_fg(1:ngrp_vars_fg) )
 
-        CALL read_data_2d (filetype_fg(jg), fileID_fg(jg), 'w_i',                                &
-          &                p_patch(jg)%n_patch_cells_g,                            &
-          &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-          &                p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_i_t(:,:,jt) )
+        CALL read_data_2d (filetype_fg(jg), fileID_fg(jg), 'w_i',                     &
+          &                p_patch(jg)%n_patch_cells_g,                               &
+          &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,    &
+          &                p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_i_t(:,:,jt),      &
+          &                opt_checkgroup=initicon(jg)%sfc%grp_vars_fg(1:ngrp_vars_fg) )
 
-        CALL read_data_2d (filetype_fg(jg), fileID_fg(jg), 'h_snow',                             &
-          &                p_patch(jg)%n_patch_cells_g,                            &
-          &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-          &                p_lnd_state(jg)%diag_lnd%h_snow_t(:,:,jt))
+        CALL read_data_2d (filetype_fg(jg), fileID_fg(jg), 'h_snow',                  &
+          &                p_patch(jg)%n_patch_cells_g,                               &
+          &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,    &
+          &                p_lnd_state(jg)%diag_lnd%h_snow_t(:,:,jt),                 &
+          &                opt_checkgroup=initicon(jg)%sfc%grp_vars_fg(1:ngrp_vars_fg) )
 
 !!$        IF (lmulti_snow) THEN
-!!$          CALL read_data_3d (filetype_fg(jg), fileID_fg(jg),'t_snow_m',                            &
+!!$          CALL read_data_3d (filetype_fg(jg), fileID_fg(jg),'t_snow_m',              &
 !!$            &                p_patch(jg)%n_patch_cells_g,                            &
 !!$            &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
 !!$            &                nlev_snow+1,                                            &
 !!$            &                p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_snow_mult_t(:,:,:,jt))
 !!$
-!!$          CALL read_data_3d (filetype_fg(jg), fileID_fg(jg), 'rho_snow_m',                         &
+!!$          CALL read_data_3d (filetype_fg(jg), fileID_fg(jg), 'rho_snow_m',           &
 !!$            &                p_patch(jg)%n_patch_cells_g,                            &
 !!$            &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
 !!$            &                nlev_snow,                                              &
 !!$            &                p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%rho_snow_mult_t(:,:,:,jt))
 !!$        ELSE
 
-          CALL read_data_2d (filetype_fg(jg), fileID_fg(jg),'t_snow',                              &
-            &                p_patch(jg)%n_patch_cells_g,                            &
-            &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-            &                p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_snow_t(:,:,jt) )
+          CALL read_data_2d (filetype_fg(jg), fileID_fg(jg),'t_snow',                   &
+            &                p_patch(jg)%n_patch_cells_g,                               &
+            &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,    &
+            &                p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_snow_t(:,:,jt),   &
+            &                opt_checkgroup=initicon(jg)%sfc%grp_vars_fg(1:ngrp_vars_fg) )
 
-          CALL read_data_2d (filetype_fg(jg), fileID_fg(jg), 'rho_snow',                           &
-            &                p_patch(jg)%n_patch_cells_g,                            &
-            &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-            &                p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%rho_snow_t(:,:,jt))
+          CALL read_data_2d (filetype_fg(jg), fileID_fg(jg), 'rho_snow',                &
+            &                p_patch(jg)%n_patch_cells_g,                               &
+            &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,    &
+            &                p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%rho_snow_t(:,:,jt), &
+            &                opt_checkgroup=initicon(jg)%sfc%grp_vars_fg(1:ngrp_vars_fg) )
 
 !!$        ENDIF
 
 
      ! multi layer fields 
-        CALL read_data_3d (filetype_fg(jg), fileID_fg(jg), 'w_so',                                  &
-          &                p_patch(jg)%n_patch_cells_g,                               &
-          &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,    &
-          &                nlev_soil, p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_so_t(:,:,:,jt))
+        CALL read_data_3d (filetype_fg(jg), fileID_fg(jg), 'w_so',                             &
+          &                p_patch(jg)%n_patch_cells_g,                                        &
+          &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,             &
+          &                nlev_soil, p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_so_t(:,:,:,jt), &
+          &                opt_checkgroup=initicon(jg)%sfc%grp_vars_fg(1:ngrp_vars_fg) )
 
 
         ! Only required, when starting from GME soil
@@ -1778,15 +2070,17 @@ MODULE mo_nh_initicon
         END IF
           
         ! so far w_so_ice is re-initialized in terra_multlay_init
-        CALL read_data_3d (filetype_fg(jg), fileID_fg(jg), 'w_so_ice',                              &
-          &                p_patch(jg)%n_patch_cells_g,                               &
-          &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,    &
-          &                nlev_soil, p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_so_ice_t(:,:,:,jt))
+        CALL read_data_3d (filetype_fg(jg), fileID_fg(jg), 'w_so_ice',                    &
+          &                p_patch(jg)%n_patch_cells_g,                                   &
+          &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,        &
+          &                nlev_soil, p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_so_ice_t(:,:,:,jt), &
+          &                opt_checkgroup=initicon(jg)%sfc%grp_vars_fg(1:ngrp_vars_fg) )
 
-        CALL read_data_3d (filetype_fg(jg), fileID_fg(jg), 't_so',                                  &
-          &                p_patch(jg)%n_patch_cells_g,                               &
-          &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,    &
-          &                nlev_soil+1, p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_so_t(:,:,:,jt))
+        CALL read_data_3d (filetype_fg(jg), fileID_fg(jg), 't_so',                        &
+          &                p_patch(jg)%n_patch_cells_g,                                   &
+          &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,        &
+          &                nlev_soil+1, p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_so_t(:,:,:,jt), &
+          &                opt_checkgroup=initicon(jg)%sfc%grp_vars_fg(1:ngrp_vars_fg))
 
       ENDDO ! jt
 
@@ -1794,10 +2088,11 @@ MODULE mo_nh_initicon
       ! when starting from GME soil, we do not read z0. 
       ! Instead z0 is re-initialized (see mo_nwp_phy_init)
       IF (init_mode /= MODE_COMBINED) THEN
-        CALL read_data_2d (filetype_fg(jg), fileID_fg(jg), 'gz0',                                &
-          &                p_patch(jg)%n_patch_cells_g,                            &
-          &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-          &                prm_diag(jg)%gz0(:,:) )
+        CALL read_data_2d (filetype_fg(jg), fileID_fg(jg), 'gz0',                         &
+          &                p_patch(jg)%n_patch_cells_g,                                   &
+          &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,        &
+          &                prm_diag(jg)%gz0(:,:),                                         &
+          &                opt_checkgroup=initicon(jg)%sfc%grp_vars_fg(1:ngrp_vars_fg) )
       ENDIF
 
     ENDDO ! loop over model domains
@@ -1811,6 +2106,11 @@ MODULE mo_nh_initicon
 
       ! Analysis is read for the global domain, only.
       jg = 1
+
+      ! save some paperwork
+      ngrp_vars_fg  = initicon(jg)%sfc%ngrp_vars_fg
+      ngrp_vars_ana = initicon(jg)%sfc%ngrp_vars_ana
+
 
       IF(p_pe == p_io ) THEN 
         CALL message (TRIM(routine), 'read sfc_ANA fields from '//TRIM(dwdana_file(jg)))
@@ -1864,60 +2164,69 @@ MODULE mo_nh_initicon
 
       ! sea-ice fraction
       CALL read_data_2d (filetype_ana(jg), fileID_ana(jg), 'fr_seaice', p_patch(jg)%n_patch_cells_g,  &
-        &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,      &
-        &                p_lnd_state(jg)%diag_lnd%fr_seaice)
+        &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,                      &
+        &                p_lnd_state(jg)%diag_lnd%fr_seaice,                                          &
+        &                opt_checkgroup=initicon(jg)%sfc%grp_vars_ana(1:ngrp_vars_ana) )
 
       ! sea-ice temperature
       CALL read_data_2d (filetype_ana(jg), fileID_ana(jg), 't_ice', p_patch(jg)%n_patch_cells_g,      &
-        &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,      &
-        &                p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_ice)
+        &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,                      &
+        &                p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_ice,                                &
+        &                opt_checkgroup=initicon(jg)%sfc%grp_vars_ana(1:ngrp_vars_ana) )
 
       ! sea-ice height
       CALL read_data_2d (filetype_ana(jg), fileID_ana(jg), 'h_ice', p_patch(jg)%n_patch_cells_g,      &
-        &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,      &
-        &                p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%h_ice)
+        &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,                      &
+        &                p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%h_ice,                                &
+        &                opt_checkgroup=initicon(jg)%sfc%grp_vars_ana(1:ngrp_vars_ana) )
 
       ! T_SO(0)
       CALL read_data_2d (filetype_ana(jg), fileID_ana(jg), 't_so', p_patch(jg)%n_patch_cells_g,       &
-        &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,      &
-        &                p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_so_t(:,1,:,jt))
-
+        &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,                      &
+        &                p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_so_t(:,1,:,jt),                     &
+        &                opt_checkgroup=initicon(jg)%sfc%grp_vars_ana(1:ngrp_vars_ana) )
 
       ! h_snow
-      CALL read_data_2d (filetype_ana(jg), fileID_ana(jg), 'h_snow',                             &
-        &                p_patch(jg)%n_patch_cells_g,                            &
-        &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-        &                p_lnd_state(jg)%diag_lnd%h_snow_t(:,:,jt))
+      CALL read_data_2d (filetype_ana(jg), fileID_ana(jg), 'h_snow',                &
+        &                p_patch(jg)%n_patch_cells_g,                               &
+        &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,    &
+        &                p_lnd_state(jg)%diag_lnd%h_snow_t(:,:,jt),                 &
+        &                opt_checkgroup=initicon(jg)%sfc%grp_vars_ana(1:ngrp_vars_ana) )
 
       ! w_snow
-      CALL read_data_2d (filetype_ana(jg), fileID_ana(jg), 'w_snow',                             &
-        &                p_patch(jg)%n_patch_cells_g,                            &
-        &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-        &                p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_snow_t(:,:,jt))
+      CALL read_data_2d (filetype_ana(jg), fileID_ana(jg), 'w_snow',                &
+        &                p_patch(jg)%n_patch_cells_g,                               &
+        &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,    &
+        &                p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_snow_t(:,:,jt),   &
+        &                opt_checkgroup=initicon(jg)%sfc%grp_vars_ana(1:ngrp_vars_ana) )
 
       ! w_i
-      CALL read_data_2d (filetype_ana(jg), fileID_ana(jg), 'w_i',                                &
-        &                p_patch(jg)%n_patch_cells_g,                            &
-        &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-        &                p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_i_t(:,:,jt))
+      CALL read_data_2d (filetype_ana(jg), fileID_ana(jg), 'w_i',                   &
+        &                p_patch(jg)%n_patch_cells_g,                               &
+        &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,    &
+        &                p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_i_t(:,:,jt),      &
+        &                opt_checkgroup=initicon(jg)%sfc%grp_vars_ana(1:ngrp_vars_ana) )
 
       ! t_snow
-      CALL read_data_2d (filetype_ana(jg), fileID_ana(jg), 't_snow',                             &
-        &                p_patch(jg)%n_patch_cells_g,                            &
-        &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-        &                p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_snow_t(:,:,jt))
+      CALL read_data_2d (filetype_ana(jg), fileID_ana(jg), 't_snow',                &
+        &                p_patch(jg)%n_patch_cells_g,                               &
+        &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,    &
+        &                p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_snow_t(:,:,jt),   &
+        &                opt_checkgroup=initicon(jg)%sfc%grp_vars_ana(1:ngrp_vars_ana) )
 
       ! rho_snow
-      CALL read_data_2d (filetype_ana(jg), fileID_ana(jg), 'rho_snow',                           &
-        &                p_patch(jg)%n_patch_cells_g,                            &
-        &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-        &                p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%rho_snow_t(:,:,jt))
+      CALL read_data_2d (filetype_ana(jg), fileID_ana(jg), 'rho_snow',              &
+        &                p_patch(jg)%n_patch_cells_g,                               &
+        &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,    &
+        &                p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%rho_snow_t(:,:,jt), &
+        &                opt_checkgroup=initicon(jg)%sfc%grp_vars_ana(1:ngrp_vars_ana) )
 
       ! freshsnow
-      CALL read_data_2d (filetype_ana(jg), fileID_ana(jg), 'freshsnow',                          &
-        &                p_patch(jg)%n_patch_cells_g,                            &
-        &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-        &                p_lnd_state(jg)%diag_lnd%freshsnow_t(:,:,jt))
+      CALL read_data_2d (filetype_ana(jg), fileID_ana(jg), 'freshsnow',             &
+        &                p_patch(jg)%n_patch_cells_g,                               &
+        &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,    &
+        &                p_lnd_state(jg)%diag_lnd%freshsnow_t(:,:,jt),              &
+        &                opt_checkgroup=initicon(jg)%sfc%grp_vars_ana(1:ngrp_vars_ana) )
 
     ENDIF  ! l_ana_sfc
 
@@ -2738,6 +3047,10 @@ MODULE mo_nh_initicon
                initicon(jg)%sfc%seaice   (nproma,nblks_c             ), &
                initicon(jg)%sfc%tsoil    (nproma,nblks_c,0:nlev_soil ), &
                initicon(jg)%sfc%wsoil    (nproma,nblks_c,nlev_soil)     )
+
+      ! allocate groups for list of fields that must be read during initialization
+      ALLOCATE(initicon(jg)%sfc%grp_vars_fg (100)  , &
+               initicon(jg)%sfc%grp_vars_ana(100)    )
     ENDDO ! loop over model domains
 
     ! read the map file into dictionary data structure:
@@ -2869,6 +3182,9 @@ MODULE mo_nh_initicon
                  initicon(jg)%sfc%tsoil,    &
                  initicon(jg)%sfc%wsoil     )
 
+      ! deallocate groups for list of fields that must be read during initialization
+      DEALLOCATE(initicon(jg)%sfc%grp_vars_fg  , &
+                 initicon(jg)%sfc%grp_vars_ana   )
     ENDDO ! loop over model domains
 
     ! destroy variable name dictionaries:

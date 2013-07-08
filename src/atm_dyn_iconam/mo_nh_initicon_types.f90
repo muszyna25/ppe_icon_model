@@ -46,7 +46,7 @@
 MODULE mo_nh_initicon_types
 
   USE mo_kind,                 ONLY: wp
-
+  USE mo_var_metadata,         ONLY: VARNAME_LEN
 
   IMPLICIT NONE
   PRIVATE
@@ -106,6 +106,10 @@ MODULE mo_nh_initicon_types
     REAL(wp), ALLOCATABLE, DIMENSION (:,:) :: tsnow, tskin, sst,  snowalb, snowweq, snowdens, &
                                               skinres, ls_mask, seaice
     REAL(wp), ALLOCATABLE, DIMENSION (:,:,:) :: tsoil, wsoil
+
+    CHARACTER(LEN=VARNAME_LEN), ALLOCATABLE, DIMENSION(:)    :: grp_vars_fg, grp_vars_ana
+
+    INTEGER :: ngrp_vars_fg, ngrp_vars_ana
 
   END TYPE t_pi_sfc
 
