@@ -1,6 +1,6 @@
 EXP="test_oce_default"
-varNames2D="h"
-varNames3D="t s rhopot"
+varNames2D="h_acc"
+varNames3D="t_acc s_acc rhopot_acc"
 varNames="${varNames2D} ${varNames3D}"
 maskName="wet_c"
 oType="png"
