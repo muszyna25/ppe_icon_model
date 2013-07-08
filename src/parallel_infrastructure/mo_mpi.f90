@@ -129,6 +129,7 @@ MODULE mo_mpi
   PUBLIC :: my_process_is_mpi_seq, my_process_is_mpi_test, my_process_is_mpi_workroot
   PUBLIC :: my_process_is_mpi_ioroot
   PUBLIC :: my_process_is_mpi_all_seq, my_process_is_io
+  PUBLIC :: my_process_is_global_root
 
   ! get parameters
   PUBLIC :: get_my_mpi_all_communicator   ! the communicator for the specific component, ie the process_mpi_all_comm
@@ -659,6 +660,14 @@ CONTAINS
     my_process_is_mpi_ioroot = (my_process_mpi_all_id == process_mpi_all_ioroot_id)
   END FUNCTION my_process_is_mpi_ioroot
   !------------------------------------------------------------------------------
+
+  !------------------------------------------------------------------------------
+  !>
+  LOGICAL FUNCTION my_process_is_global_root()
+    my_process_is_global_root = (my_global_mpi_id == process_mpi_stdio_id) ! == 0
+  END FUNCTION my_process_is_global_root
+  !------------------------------------------------------------------------------
+
 
   !------------------------------------------------------------------------------
   LOGICAL FUNCTION my_process_is_mpi_test()

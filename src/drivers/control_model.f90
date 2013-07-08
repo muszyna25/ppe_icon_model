@@ -59,7 +59,7 @@ PROGRAM control_model
 #endif
   USE mo_exception,           ONLY: message_text, message, finish
   USE mo_io_units,            ONLY: filename_max
-  USE mo_mpi,                 ONLY: start_mpi , p_stop, my_process_is_stdio
+  USE mo_mpi,                 ONLY: start_mpi , p_stop, my_process_is_global_root
   USE mo_master_control,      ONLY: init_master_control,  &
     & get_my_namelist_filename, get_my_process_type,      &
     & testbed_process,  atmo_process, ocean_process!, radiation_process
@@ -208,7 +208,7 @@ PROGRAM control_model
   END SELECT
       
   ! write the control.status file
-  IF (my_process_is_stdio()) THEN
+  IF (my_process_is_global_root()) THEN
     OPEN (500, FILE="finish.status")
     IF (restart_experiment) THEN
       WRITE(500,*) "RESTART"
