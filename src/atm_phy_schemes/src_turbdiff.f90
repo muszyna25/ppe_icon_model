@@ -5691,8 +5691,8 @@ REAL (KIND=ireals) :: &
 
      DO i = istart, iend
 !mod_2011/09/28: zpres=patm -> zpres=pdry {
-        pres=(z1-qt(i))/(z1-rvd_m_o*qt(i))*prs(i,k)        ! part. pressure of dry air
-        qs(i) = zqvap( zpsat_w( tl(i) ), pres )              ! saturation mixing ratio
+        pres=(z1-qt(i))/(z1+rvd_m_o*qt(i))*prs(i,k)        ! part. pressure of dry air
+        qs(i) = zqvap( zpsat_w( tl(i) ), pres )            ! saturation mixing ratio
 !mod_2011/09/28: zpres=patm -> zpres=pdry }
        gam(i) = z1 / ( z1 + lhocp*zdqsdt( tl(i), qs(i) ) ) ! slope factor
      END DO

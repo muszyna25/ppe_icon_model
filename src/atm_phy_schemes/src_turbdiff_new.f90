@@ -376,6 +376,8 @@ USE mo_data_turbdiff, ONLY : &
     imode_turb,   & ! mode of TKE-equation in turbulence scheme
     icldm_turb,   & ! mode of cloud representation in turbulence parametr.
     itype_sher,   & ! type of shear production for TKE
+    imode_circ,   & ! mode of treating the circulation term 
+    ilow_dcond,   & ! type of the default condition at the lower boundary
 !
     ltkesso,      & ! consider SSO-wake turbulence production of TKE
     ltkecon,      & ! consider convective buoyancy production of TKE
@@ -1971,7 +1973,8 @@ SUBROUTINE turbtran
             rat_m_2d(i)=wert/tkvm(i,ke)         !U_star/(q*Sm)
             rat_h_2d(i)=wert/tkvh(i,ke)*b_1/b_2 !U_star/(q*Sh)*b_1/b_2
 
-            rcld(i,ke1)=z0
+            ! initialize complete rcld array
+            rcld(i,:)=z0
 
          END DO
       END IF !only for initialization
@@ -2160,7 +2163,7 @@ SUBROUTINE turbtran
 
          CALL adjust_satur_equil ( ke1,                                    &
 !
-              istartpar,iendpar, ke1, ke1,                                 &
+              istartpar, iendpar,  ke1, ke1,                               &
 !  
               lcalrho=.TRUE., lcalepr=.NOT.lprfcor, lcaltdv=.TRUE.,        &
               lpotinp=.FALSE., ladjout=.FALSE.,                            &
@@ -2178,10 +2181,10 @@ SUBROUTINE turbtran
                                      dens=rho_2d(:,ke1:ke1),               &
 !
               qst_t=a(:,ke1:ke1,3), g_tet=a(:,ke1:ke1,4),                  &
-                                      g_h2o=a(:,ke1:ke1,5),                &
+                                    g_h2o=a(:,ke1:ke1,5),                  &
 !
               tet_l=vari(:,ke1:ke1,tet_l), q_h2o=vari(:,ke1:ke1,h2o_g),    &
-                                             q_liq=vari(:,ke1:ke1,liq)       )
+                                           q_liq=vari(:,ke1:ke1,liq)    )
 
 !        Beachte: 'ts_2d' und 'qds_2d' zeigen auf die 'ke1'-Schicht von 'vari(tet_l)' und 'vari(h2o_g)
 !                 und sind jetzt die Erhaltungsvariablen am Unterrand der Prandtl-Schicht.
@@ -2416,7 +2419,7 @@ SUBROUTINE turbtran
 
       CALL diag_level(istartpar,iendpar, z2m_2d, k_2d, hk_2d, hk1_2d)
 
-      IF (itype_synd.EQ.3) THEN !using an exponetial rougness layer profile
+      IF (itype_synd.EQ.3) THEN !using an exponential rougness layer profile
 
          val2=z1/epsi
 
@@ -2550,7 +2553,7 @@ SUBROUTINE turbtran
 
       CALL adjust_satur_equil ( ke1,                                     &
 !
-           istartpar,iendpar, ke1,ke1,                                   &
+           istartpar, iendpar,  ke1, ke1,                                &
 !  
            lcalrho=.FALSE., lcalepr=.TRUE., lcaltdv=.FALSE.,             &
            lpotinp= .TRUE., ladjout=.TRUE.,                              &
@@ -2565,10 +2568,10 @@ SUBROUTINE turbtran
            exner=eprs(:,ke1:ke1), rcld=rclc(:,ke1:ke1),                  &
 !
            qst_t=a(:,ke1:ke1,3), g_tet=a(:,ke1:ke1,4),                   &
-                                   g_h2o=a(:,ke1:ke1,5),                 &
+                                 g_h2o=a(:,ke1:ke1,5),                   &
 !
            tet_l=vari(:,ke1:ke1,tet_l), q_h2o=vari(:,ke1:ke1,h2o_g),     &
-                                          q_liq=vari(:,ke1:ke1,liq)      )
+                                        q_liq=vari(:,ke1:ke1,liq) )
 
       DO i=istartpar, iendpar
           t_2m(i)=vari(i,ke1,tet_l)
@@ -2907,6 +2910,7 @@ SUBROUTINE turbdiff
 
       LOGICAL ldotkedif, & !berechne (teil-)implizite Vert.diff von TKE
               lcircterm, & !Zirkulationsterm muss berechnet werden
+              lcircdiff, & !Zirkulationsterm wird zusammen mit TKE-Diffusion bestimmt
               linisetup, & !initiales setup bei impliziter Vertikaldiffusion
               lnewvtype, & !neuer Variablentyp muss vorbereitet werden
               lsflucond    !untere Flussrandbedingung
@@ -3091,7 +3095,7 @@ SUBROUTINE turbdiff
 
       REAL (KIND=ireals), DIMENSION(:,:), POINTER :: &
 !
-            cur_prof, upd_prof, &
+            cur_prof, upd_prof, sav_prof, &
             expl_mom, impl_mom, invs_mom, &
             diff_dep
    
@@ -3320,8 +3324,8 @@ SUBROUTINE turbdiff
 !gesamte Thermodynamik ueberpruefen auch gegenueber satad
 
       lcircterm=(pat_len.GT.z0)
-
       ldotkedif=(c_diff .GT.z0)
+      lcircdiff=(lcircterm .AND. imode_circ.EQ.2)
 
 !     Berechnung abgeleiteter Parameter:
 
@@ -3357,22 +3361,25 @@ SUBROUTINE turbdiff
 
 !     Thermodynamische Hilfsvariablen auf Hauptflaechen:
 
-      CALL adjust_satur_equil (  1,                                                             &
+      CALL adjust_satur_equil (  1,                                               &
 !
-           istartpar,iendpar, 1,ke,                                                             &
+           istartpar, iendpar,   1, ke,                                           &
 !  
-           lcalrho=.NOT.PRESENT(rho), lcalepr=.NOT.PRESENT(epr), lcaltdv=.TRUE.,                &
-           lpotinp=.FALSE., ladjout=.FALSE.,                                                    &
+           lcalrho=.NOT.PRESENT(rho), lcalepr=.NOT.PRESENT(epr), lcaltdv=.TRUE.,  &
+           lpotinp=.FALSE., ladjout=.FALSE.,                                      &
 !
-           icldmod=icldm_turb,                                                                  &
+           icldmod=icldm_turb,                                                    &
 !
-           zrcpv=zrcpv, zrcpl=zrcpl, zlhocp=zlhocp,                                             &
+           zrcpv=zrcpv, zrcpl=zrcpl, zlhocp=zlhocp,                               &
 !
-           prs=prs, t=t, qv=qv, qc=qc,                                                          &
-           exner=exner, rcld=rcld, dens=rhoh,                                                   &
+           prs=prs, t=t, qv=qv, qc=qc,                                            &
 !
-           r_cpd=a(:,:,2), qst_t=a(:,:,3), g_tet=a(:,:,4), g_h2o=a(:,:,5),                      &
-           tet_l=vari(:,:,tet_l), q_h2o=vari(:,:,h2o_g), q_liq=vari(:,:,liq) )
+           exner=exner, rcld=rcld, dens=rhoh,                                     &
+!
+           r_cpd=a(:,:,2), qst_t=a(:,:,3), g_tet=a(:,:,4),                        &
+                                           g_h2o=a(:,:,5),                        &
+           tet_l=vari(:,:,tet_l), q_h2o=vari(:,:,h2o_g),                          &
+                                  q_liq=vari(:,:,liq)      )
 
 !     Vorbelegung mit Erhaltungsvariablen auf unterster Hauptflaeche als Referenz-Niveau:
 
@@ -3383,28 +3390,28 @@ SUBROUTINE turbdiff
 
 !     Thermodynamische Hilfsvariablen auf Unterrand der Prandtl-Schicht:
 
-      CALL adjust_satur_equil ( ke1,                                               &
+      CALL adjust_satur_equil ( ke1,                                              &
 !
-           istartpar,iendpar, ke1,ke1,                                             &
+           istartpar, iendpar,  ke1, ke1,                                         &
 !  
-           lcalrho=.TRUE. , lcalepr=.TRUE., lcaltdv=.TRUE.,                        &
-           lpotinp=.FALSE., ladjout=.FALSE.,                                       &
+           lcalrho=.TRUE. , lcalepr=.TRUE., lcaltdv=.TRUE.,                       &
+           lpotinp=.FALSE., ladjout=.FALSE.,                                      &
 !
-           icldmod=icldm_turb,                                                     &
+           icldmod=icldm_turb,                                                    &
 
-           zrcpv=zrcpv, zrcpl=zrcpl, zlhocp=zlhocp,                                &
+           zrcpv=zrcpv, zrcpl=zrcpl, zlhocp=zlhocp,                               &
 !
-           prs=RESHAPE(ps,(/ie,1/)), t=RESHAPE(t_g, (/ie,1/)),                     &
-                                    qv=RESHAPE(qv_s,(/ie,1/)),                     &
+           prs=RESHAPE(ps,(/ie,1/)), t=RESHAPE(t_g, (/ie,1/)),                    &
+                                    qv=RESHAPE(qv_s,(/ie,1/)),                    &
 !
-           fip=tfh,                                                                &
+           fip=tfh,                                                               &
 !
-           exner=a(:,ke1:ke1,1), rcld=rcld(:,ke1:ke1), dens=rhon(:,ke1:ke1),       &
+           exner=a(:,ke1:ke1,1), rcld=rcld(:,ke1:ke1), dens=rhon(:,ke1:ke1),      &
 !
-           r_cpd=a(:,ke1:ke1,2), qst_t=a(:,ke1:ke1,3), g_tet=a(:,ke1:ke1,4),       &
-                                                           g_h2o=a(:,ke1:ke1,5),   &
-           tet_l=vari(:,ke1:ke1,tet_l), q_h2o=vari(:,ke1:ke1,h2o_g),               & 
-                                          q_liq=vari(:,ke1:ke1,liq)                )
+           r_cpd=a(:,ke1:ke1,2), qst_t=a(:,ke1:ke1,3), g_tet=a(:,ke1:ke1,4),      &
+                                                       g_h2o=a(:,ke1:ke1,5),      &
+           tet_l=vari(:,ke1:ke1,tet_l), q_h2o=vari(:,ke1:ke1,h2o_g),              & 
+                                        q_liq=vari(:,ke1:ke1,liq)            )
 
 !     Berechnung der horizontalen Windgeschwindigkeiten
 !     im Massenzentrum der Gitterbox:
@@ -4246,10 +4253,10 @@ SUBROUTINE turbdiff
                fakt=frh(i,k)*lay(i)/(rhon(i,k)*grav**2)
                kohae_len=len*SIGN(z1,fakt)*MIN( ABS(fakt), z1 )
 
-!              Belegung von 'tketens' mit der TKE-Flussdichte des Zirkulationstermes
+!              Belegung von 'frh' mit der TKE-Flussdichte des Zirkulationstermes
 !              (Zirkulationsfluss oder Drucktransport):
 
-               tketens(i,k)=tkvh(i,k)*kohae_len*frh(i,k)
+               frh(i,k)=tkvh(i,k)*kohae_len*frh(i,k)
 
 !              Die Divergenz dieser Flussdichte ist gleichzeitig
 !              eine weitere Quelle fuer thermische Energie.
@@ -4257,7 +4264,7 @@ SUBROUTINE turbdiff
             END DO
 !print *,"k=",k
 !print *,"len_scale=",MINVAL(len_scale(:,k)),MAXVAL(len_scale(:,k)), &
-!         " tketens=",MINVAL(tketens(:,k)),  MAXVAL(tketens(:,k))
+!         " frh=",MINVAL(frh(:,k)),MAXVAL(frh(:,k))
 
 !           Addition des Teta-Gradienten, welcher zur Teta-Flussdichte 
 !           durch den Zirkulationsterm gehoert:
@@ -4266,7 +4273,7 @@ SUBROUTINE turbdiff
                DO i=istartpar,iendpar
 !bug_2012/01/18: Division durch "a(i,k,1)*a(i,k,2)" fehlte {
                   vari(i,k,tet)=vari(i,k,tet) &
-                                 -tketens(i,k)/(tkvh(i,k)*a(i,k,1)*a(i,k,2)*cp_d)
+                                -frh(i,k)/(tkvh(i,k)*a(i,k,1)*a(i,k,2)*cp_d)
 !bug_2012/01/18: Division durch "a(i,k,1)*a(i,k,2)" fehlte }
                END DO
             END IF
@@ -4274,7 +4281,7 @@ SUBROUTINE turbdiff
             !Die kinetische Energie der Zirkulation wird der thermischen Energie
             !entzogen!
 
-!print *,"k=",k," tketens=",tketens(im,k)
+!print *,"k=",k," frh=",frh(im,k)
          END DO
 !read *,xx
          
@@ -4282,7 +4289,7 @@ SUBROUTINE turbdiff
 
 ! 14) Berechnung der Diffusionstendenz von q=SQRT(2*TKE):
 
-      IF (ldotkedif) THEN 
+      IF (ldotkedif .OR. lcircdiff) THEN 
 
 !        Vorbereitung zur Bestimmung der vertikalen Diffusions-Tendenzen von q**2:
 
@@ -4317,37 +4324,47 @@ SUBROUTINE turbdiff
 
 !        Belegung der Eingangsprofile mit (modifizierten) TKE(=z1d2*q**2)-Werten:
 
-         IF (lcircterm) THEN
+!test:
+         IF (lcircdiff) THEN
+
+            sav_prof => frh
 
 !           Belegung mit durch den Zirkulationsterm modifizierten (effektiven) TKE-Werten:
 
             !Beachte:
-            !'tketens' ist eine TKE-Flussdichte, deren Vertikalprofil im wesentlichen durch
-            !d_z(tet_v)**2 bestimmt ist, was zumindest in der Prandtl-Schicht prop. zu 1/len_scale ist.
-            !Die Interpolation auf Hauptflaechen erfolgt daher mit 'tketens*len_scale'.
-            !Anderenfalls ist mit grossen Interpolationsfehlern zu rechnen:
+            !'frh' enthaelt bislang eine TKE-Flussdichte (bis auf den Faktor 'rhon'),
+            !deren Vertikalprofil im wesentlichen durch d_z(tet_v)**2 bestimmt ist, 
+            !was zumindest in der Prandtl-Schicht prop. zu 1/len_scale ist.
+            !Die Interpolation von 'rhon*frh' auf Hauptflaechen erfolgt daher mit 
+            !'rhon*frh*len_scale'. Anderenfalls ist mit grossen Interpolationsfehlern zu rechnen:
 
+!modif:
             DO i=istartpar,iendpar  
-               tketens(i,2)=rhon(i,2)*tketens(i,2)*len_scale(i,2)
-               lay(i)=z1d2*tke(i,2,ntur)**2
-               cur_prof(i,2)=lay(i)
+               tketens(i,2)=rhon(i,2)*frh(i,2)*len_scale(i,2)
+               frh(i,2)=z1d2*tke(i,2,ntur)**2
+               cur_prof(i,2)=frh(i,2)
             END DO
 !print *,"k=",2," tketens=",tketens(im,2)," tke=",tke(im,2,ntur)**2,cur_prof(im,2)
             DO k=3,ke1
                DO i=istartpar,iendpar  
-                  tketens(i,k)=rhon(i,k)*tketens(i,k)*len_scale(i,k)
-                  cur_prof(i,k)=cur_prof(i,k-1)-lay(i) &
+                  tketens(i,k)=rhon(i,k)*frh(i,k)*len_scale(i,k)
+                  cur_prof(i,k)=cur_prof(i,k-1)-frh(i,k-1) &
                           +(tketens(i,k)+tketens(i,k-1)) &
                            /((len_scale(i,k)+len_scale(i,k-1))*expl_mom(i,k))
-                  lay(i)=z1d2*tke(i,k,ntur)**2
-                  cur_prof(i,k)=cur_prof(i,k)+lay(i)
+                  frh(i,k)=z1d2*tke(i,k,ntur)**2
+                  cur_prof(i,k)=cur_prof(i,k)+frh(i,k)
                END DO
 !print *,"k=",k," tketens=",tketens(im,k)," tke=",tke(im,k,ntur)**2,cur_prof(im,k)
 !print *," d_cur_prof=",z1d2*(tketens(im,k)+tketens(im,k-1))*diff_dep(im,k)
             END DO
+
+            !'cur_prof' enthaelt das um den Zirkulationsterm erweiterte effektive TKE-Profil.
+!modif
 !read *,xx
 
          ELSE
+
+            sav_prof => cur_prof
 
 !           Belegung mit unveraenderten TKE-Werten:
 
@@ -4357,10 +4374,14 @@ SUBROUTINE turbdiff
                END DO
             END DO
 
-         END IF     
-         !'cur_prof' enthaelt jetzt das (modifizierte) TKE-Profil und
-         !'tketens' ist nun wieder frei.
+            !'cur_prof' enthaelt jetzt das reine TKE-Profil, das auch in 'calc_impl_vert_diff'
+            !nicht veraendert wird.
 
+         END IF     
+
+         !'tketens' ist frei und 'sav_prof' zeigt immer auf das reine TKE-Profil.
+         !'frh' enthaelt im Falle 'lcircterm .AND. imode_circ.EQ.1' weiterhin die
+         !die Zirkulationsflussdichte der TKE.
 
          !In den Diffusionroutinen wird vorausgesetzt, dass ein Flussniveau mit gleichem
          !Vertikalindex wie ein Konzentrationsniveau gerade ueber diesem liegt.
@@ -4399,15 +4420,13 @@ SUBROUTINE turbdiff
          DO k=2,ke
             DO i=istartpar,iendpar
 !___________________________________________________________________________
-!test: q-Tendenz ueber Zwischenwerte von q:
-               tketens(i,k)=(SQRT(z2*upd_prof(i,k))-SQRT(z2*cur_prof(i,k)))*fr_tke
+!test:
 ! JF:                tketens(i,k)=(upd_prof(i,k)-cur_prof(i,k))*fr_tke/tke(i,k,ntur)
-!modif:Einschraenkung der erweiterten Diffusionstendenzen von TKE
-               wert=tke(i,k,ntur)*fr_tke
-               tketens(i,k)=MAX( -wert, tketens(i,k) )
-! JF:                tketens(i,k)=MAX( -wert, MIN( wert, tketens(i,k) ) )
-!modif
+! JF:                wert=tke(i,k,ntur)*fr_tke
+! JF:                tketens(i,k)=MAX( -wert, tketens(i,k) )
 !test
+               wert=z2*MAX(sav_prof(i,k)+upd_prof(i,k)-cur_prof(i,k), z0)
+               tketens(i,k)=(SQRT(wert)-tke(i,k,ntur))*fr_tke
 !___________________________________________________________________________
             END DO
 
@@ -4418,7 +4437,7 @@ SUBROUTINE turbdiff
             tketens(i,ke1)=z0
          END DO
 
-      ELSE !.NOT.ldotkedif      
+      ELSE !no TKE-diffusion at all   
 
 !        Zuruecksetzen der q-Tendenzen:
 
@@ -4428,7 +4447,47 @@ SUBROUTINE turbdiff
             END DO
          END DO
 
-      END IF !ldotkedif
+      END IF
+
+      IF (lcircterm .AND. imode_circ.EQ.1) THEN
+         
+         !Aufaddieren der expliziten Berechnung der Zirkulationstendenz:
+
+         !Beachte: 
+         !'frh' enthaelt (bis auf die Dichte) noch die TKE-Flussdichte bzgl. des Zirkulationsterms.
+         !Zur Vermeidung systematischen Interpolationsfehler erfolgt die Interpolation der
+         !entsprechenden Flussdichte von SQRT(2*TKE) wieder nach Multiplikation mit 'len_scale'.
+
+         DO i=istartpar,iendpar
+            frm(i,1)=z0
+         END DO
+         DO k=2,ke1
+            DO i=istartpar,iendpar
+               frm(i,k)=rhon(i,k)/tke(i,k,ntur)*frh(i,k)*len_scale(i,k)         !Flussdichte auf NF
+            END DO
+         END DO
+         DO k=2,ke
+            DO i=istartpar,iendpar
+               frm(i,k)=(frm(i,k)+frm(i,k+1))/(len_scale(i,k)+len_scale(i,k+1)) !Flussdichte auf HF
+               frh(i,k)=frm(i,k-1)-frm(i,k)                                     !Flussdichte-Differenz
+            END DO
+         END DO
+         DO i=istartpar,iendpar
+            frh(i,1)=frh(i,2)
+            frh(i,ke1)=frh(i,ke)
+         END DO
+         DO k=2,ke
+            DO i=istartpar,iendpar
+               wert=z1d2*(hhl(i,k-1)-hhl(i,k+1))*rhon(i,k)
+               tketens(i,k)=tketens(i,k) &
+                           -(frh(i,k)+tkesmot*(frh(i,k-1)-z2*frh(i,k) &         !quellenfrei geglaettete
+                                              +frh(i,k+1)))/wert                !Flussdichte-Konvergenz
+               wert=tke(i,k,ntur)*fr_tke
+               tketens(i,k)=MAX( -wert, tketens(i,k) )
+            END DO
+         END DO
+
+      END IF   
 
 !---------------------------------------------------------------------- 
 ! 15) Berechnung der turb. horizontalen TKE-Flussdichtedivergenzen
@@ -4646,16 +4705,14 @@ SUBROUTINE turbdiff
                   DO i=istart,iend
                      cur_prof(i,ke1)=dvar(n)%sv(i)
                   END DO
-               ELSEIF (n.LE.nvel) THEN !a momentum variable
+               ELSEIF (n.LE.nvel .OR. ilow_dcond.EQ.1) THEN
+                  !No-slip-condition for momentum or zero-concentr.-condition as a default:
                   DO i=istart,iend
-                     cur_prof(i,ke1)=z0 !no slip condition
+                     cur_prof(i,ke1)=z0
                   END DO
                ELSE !enforce a zero flux condition as a default
                   DO i=istart,iend
-!test:
-! JF:                      cur_prof(i,ke1)=cur_prof(i,ke)
-                     cur_prof(i,ke1)=z0
-!test
+                     cur_prof(i,ke1)=cur_prof(i,ke)
                   END DO
                END IF
                IF (itndcon.GT.0) THEN !explicit tendencies have to be considered
@@ -4822,7 +4879,8 @@ SUBROUTINE adjust_satur_equil ( ktp,             &
 !
    prs, t, qv, qc, fip,                          & 
    exner, rcld, dens,                            &
-   r_cpd, qst_t, g_tet, g_h2o, tet_l, q_h2o, q_liq )
+   r_cpd, qst_t, g_tet, g_h2o, tet_l,            &
+   q_h2o, q_liq )
 
 INTEGER (KIND=iintegers), INTENT(IN) :: &
   ktp,                    & !start index of vertical dimension
@@ -4979,22 +5037,22 @@ INTEGER (KIND=iintegers) :: &
             END DO
          END DO
       ELSE   
-         CALL turb_cloud (ktp,                    &
-              i_st,i_en, k_st,k_en,               &
+         CALL turb_cloud( ktp,                    &
+              i_st, i_en, k_st, k_en,             &
               icldtyp=0,                          &
               prs=prs, ps=ps, t=tet_l, qv=q_h2o,  &
-              clcv=rcld, clwc=q_liq                 )
+              clcv=rcld, clwc=q_liq )
       END IF      
 
    ELSEIF (icldmod.EQ.2) THEN
       !Spezielle Diagnose von Wasserwolken;
       !unter Breruecksichtigung subskaliger Kondensation:
 
-       CALL turb_cloud (ktp,                   &
-            i_st,i_en, k_st,k_en,              &
-            icldtyp=itype_wcld,                &
-            prs=prs, ps=ps, t=tet_l, qv=q_h2o, &
-            clcv=rcld, clwc=q_liq                )
+       CALL turb_cloud( ktp,                    &
+            i_st, i_en, k_st, k_en,             &
+            icldtyp=itype_wcld,                 &
+            prs=prs, ps=ps, t=tet_l, qv=q_h2o,  &
+            clcv=rcld, clwc=q_liq )
    END IF
 
    !Berechnung der thermodynamischen Hilfsfelder:
@@ -5060,7 +5118,7 @@ INTEGER (KIND=iintegers) :: &
 
             g_h2o(i,k)=grav*(rvd_m_o*virt(i,k)+clcv*fakt)    !g    -factor of q_h20-gradient
             g_tet(i,k)=grav*(z1/teta-clcv*fakt*exner(i,k)*qst_t(i,k))
-                                                                 !g/tet-factor of tet_l-gradient
+                                                             !g/tet-factor of tet_l-gradient
          END DO
       END DO
    END IF   
@@ -5563,7 +5621,7 @@ SUBROUTINE turb_cloud ( ktp,                 &
 !
    prs, ps, t, qv, qc,                       &
 !
-   rcld, clcv, clwc                             )
+   rcld, clcv, clwc )
    
 
 !------------------------------------------------------------------------------
@@ -5680,12 +5738,13 @@ REAL (KIND=ireals) :: &
 !___________________________________________________________
 !test: old qsat:
 !mod_2011/09/28: zpres=patm -> zpres=pdry {
-        pres=(z1-qt(i))/(z1-rvd_m_o*qt(i))*prs(i,k)        ! part. pressure of dry air
+        pres=(z1-qt(i))/(z1+rvd_m_o*qt(i))*prs(i,k)         ! part. pressure of dry air
 ! JF:         pres=prs(i,k)
 !___________________________________________________________
-        qs(i) = zqvap( zpsat_w( tl(i) ), pres )              ! saturation mixing ratio
+        qs(i) = zqvap( zpsat_w( tl(i) ), pres )             ! saturation mixing ratio
 !mod_2011/09/28: zpres=patm -> zpres=pdry }
         gam(i) = z1 / ( z1 + lhocp*zdqsdt( tl(i), qs(i) ) ) ! slope factor
+
      END DO
 !if (k.eq.2) then
 ! print *,"qt=",qt(im)," tl=",tl(im)," pres=",prs(im,k)
@@ -5695,7 +5754,7 @@ REAL (KIND=ireals) :: &
      DO i = istart, iend
 
         pres = prs(i,k)        ! pressure
-        dq   = qt(i) - qs(i) ! saturation deficit
+        dq   = qt(i) - qs(i)   ! saturation deficit
 
         IF ( icldtyp .EQ. 1 ) THEN
 
@@ -5710,7 +5769,7 @@ REAL (KIND=ireals) :: &
 
           ! cloud cover
           clcv(i,k) = MAX( z0,  &
-                            MIN( z1, clc_diag * ((qt(i)/qs(i)-uc)/(ucl-uc))**2 ) )
+                           MIN( z1, clc_diag * ((qt(i)/qs(i)-uc)/(ucl-uc))**2 ) )
 
           ! in-cloud water content
           ql = qs(i) * zclwfak
@@ -5755,10 +5814,11 @@ REAL (KIND=ireals) :: &
             ELSEIF ( q >= zq_max ) THEN
               clwc(i,k) = gam(i) * dq
             ELSE
-              clwc(i,k) = gam(i) * sig * ( q + q_crit ) &
-                                           * ( q + zq_max ) / ( z2*( q_crit + zq_max) )
+!___________________________________________________________
 !Achtung: Korrektur:
-           !  clwc(i,k) = gam(i) * sig * zq_max *( (q + q_crit)/(zq_max + q_crit) )**2
+              clwc(i,k) = gam(i) * MIN( qt(i), sig*zq_max ) &
+                                 * ( (q + q_crit)/(zq_max + q_crit) )**2
+!___________________________________________________________
             ENDIF
           ENDIF
 
