@@ -58,8 +58,7 @@ atmo_namelist=NAMELIST_${EXPNAME}_atmo
 start_date="2000-01-01T00:00:00Z"
   end_date="2000-01-02T00:00:00Z"
 #
-ndays=1
-ndays_restart=${ndays}
+ndays_restart=1
 #
 dtime_atmo=300
 dtime_ocean=1800
@@ -72,10 +71,9 @@ dt_checkpoint=$dt_restart  # checkpointing not yet supported for coupling fields
 # model timing
 #
 dtime=$dtime_atmo
-nsteps=`expr ${ndays} \* 86400 / ${dtime}`
-dt_file=`expr ${ndays} \* 86400 ` # 1 file per job
-dt_data=`expr 6 \* 3600 `         # write output every 6 hours
-dt_rad=7200.                      # compute radiative transfer every other hour
+dt_file=`expr ${ndays_restart} \* 86400 ` # 1 file per job
+dt_data=`expr 6 \* 3600 `                 # write output every 6 hours
+dt_rad=7200.                              # compute radiative transfer every other hour
 #
 #
 #-----------------------------------------------------------------------------
@@ -225,7 +223,6 @@ cat > $atmo_namelist << EOF
 &run_nml
  output      = 'vlist'
  num_lev     = ${nlev}      ! number of full levels of vertical grid
- nsteps      = ${nsteps}    ! number of steps length of run
  dtime       = ${dtime}     ! [s] timestep in seconds
  ltestcase   = .TRUE.       ! run testcase                 --> testcase_ctl
  ldynamics   = .TRUE.       ! dynamics                     --> dynamics_ctl, diffusion_ctl
@@ -287,7 +284,7 @@ cat > $atmo_namelist << EOF
  irad_co2   = 2         ! constant co2 vmr
  irad_ch4   = 0         ! switch off ch4
  irad_n2o   = 0         ! switch off n2o
- irad_o3    = 4         ! switch off o3
+ irad_o3    = 0         ! switch off o3
  irad_o2    = 0         ! switch off o2
  irad_cfc11 = 0         ! switch off cfc11
  irad_cfc12 = 0         ! switch off cfc12
@@ -323,18 +320,16 @@ iforc_oce=14
 #
 #-----------------------------------------------------------------------------
 # global timing
-start_date="2000-01-01T00:00:00Z"
 #
 #-----------------------------------------------------------------------------
 # model timing
 #
 dtime=$dtime_ocean   # ocean model timestep [s]
 #
-# calculate model timesteps using $ndays
+# calculate model timesteps using $ndays_restart
 #
-nsteps=`expr ${ndays} \* 86400 / ${dtime}`
-dt_data=`expr 24 \* 3600 `        # write output every 24 hours
-dt_file=`expr ${ndays} \* 86400 ` # 1 file per job
+dt_data=`expr 24 \* 3600 `                # write output every 24 hours
+dt_file=`expr ${ndays_restart} \* 86400 ` # 1 file per job
 #
 #-----------------------------------------------------------------------------
 # diagnostic output (not in ocean model)
@@ -456,7 +451,6 @@ cat > ${ocean_namelist} << EOF
 /
 &run_nml
  output      = 'vlist'
- nsteps      = ${nsteps}    ! number of steps length of run
  dtime       = ${dtime}     ! [s] timestep in seconds
  ltimer      = .true. 
 /
