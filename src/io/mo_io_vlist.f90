@@ -107,7 +107,8 @@ MODULE mo_io_vlist
     &                                 modelversion, zml_soil, max_ntracer,        &
     &                                 ntrac_oce, ihs_atm_temp, ihs_atm_theta,     &
     &                                 inh_atmosphere, ishallow_water,             &
-    &                                 inwp, iecham,ildf_echam, ihs_ocean
+    &                                 inwp, iecham,ildf_echam, ihs_ocean,         &
+    &                                 icosmo, igme, ismag, ivdiff
   USE mo_ocean_nml,             ONLY: n_zlev, dzlev_m, iforc_oce, no_tracer,      &
     &                                 temperature_relaxation, i_sea_ice,          &
     &                                 irelax_2d_S, l_forc_freshw
@@ -3064,17 +3065,17 @@ CONTAINS
       CASE ('ACCSHFL_S');       ptr2 => prm_diag(jg)%ashfl_s 
       CASE ('ACCLHFL_S');       ptr2 => prm_diag(jg)%alhfl_s
       CASE ('SHFL_S')
-       IF   (atm_phy_nwp_config(jg)%inwp_turb.EQ.1) THEN  
+       IF   (atm_phy_nwp_config(jg)%inwp_turb.EQ.icosmo) THEN  
          ptr2 => dup2(-1.*prm_diag(jg)%shfl_s(:,:)); delete = .TRUE.
-       ELSEIF  (atm_phy_nwp_config(jg)%inwp_turb.EQ.4) THEN 
+       ELSEIF  (atm_phy_nwp_config(jg)%inwp_turb.EQ.ivdiff) THEN 
          ptr2 => prm_diag(jg)%shfl_s
        ELSE
          ptr2 => prm_diag(jg)%shfl_s
        ENDIF
       CASE ('LHFL_S')
-       IF   (atm_phy_nwp_config(jg)%inwp_turb.EQ.1) THEN  
+       IF   (atm_phy_nwp_config(jg)%inwp_turb.EQ.icosmo) THEN  
          ptr2 =>  dup2(-1.*prm_diag(jg)%lhfl_s(:,:)); delete = .TRUE.
-       ELSEIF  (atm_phy_nwp_config(jg)%inwp_turb.EQ.4) THEN 
+       ELSEIF  (atm_phy_nwp_config(jg)%inwp_turb.EQ.ivdiff) THEN 
          ptr2 => prm_diag(jg)%lhfl_s
        ELSE
          ptr2 => prm_diag(jg)%lhfl_s
@@ -3093,9 +3094,9 @@ CONTAINS
       CASE ('TKVH');            ptr3 => prm_diag(jg)%tkvh      
       !AD> 
       CASE ('Z0')
-        IF (atm_phy_nwp_config(jg)%inwp_turb.EQ.1 .OR.  &
-         &  atm_phy_nwp_config(jg)%inwp_turb.EQ.2 .OR.  &
-         &  atm_phy_nwp_config(jg)%inwp_turb.EQ.5 ) THEN
+        IF (atm_phy_nwp_config(jg)%inwp_turb.EQ.icosmo .OR.  &
+         &  atm_phy_nwp_config(jg)%inwp_turb.EQ.igme .OR.  &
+         &  atm_phy_nwp_config(jg)%inwp_turb.EQ.ismag ) THEN
                                 ptr2 => dup2(prm_diag(jg)%gz0(:,:)/grav); delete = .TRUE.
                               ELSE
                                 ptr2 => prm_diag(jg)%z0m(:,:)

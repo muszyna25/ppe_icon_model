@@ -50,7 +50,7 @@ MODULE mo_nwp_turbdiff_interface
   USE mo_exception,            ONLY: message, message_text, finish
   USE mo_model_domain,         ONLY: t_patch
   USE mo_intp_data_strc,       ONLY: t_int_state
-  USE mo_impl_constants,       ONLY: min_rlcell_int
+  USE mo_impl_constants,       ONLY: min_rlcell_int, igme, icosmo
   USE mo_impl_constants_grf,   ONLY: grf_bdywidth_c
   USE mo_loopindices,          ONLY: get_indices_c
   USE mo_physical_constants,   ONLY: lh_v=>alv
@@ -159,7 +159,7 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
   i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
   
-  IF ( ANY( (/1,10,11,12/)==atm_phy_nwp_config(jg)%inwp_turb ) ) THEN
+  IF ( ANY( (/icosmo,10,11,12/)==atm_phy_nwp_config(jg)%inwp_turb ) ) THEN
      CALL get_turbdiff_param(jg)
   ENDIF
 
@@ -184,7 +184,7 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
    !!        to have them available for extended diagnostic output
 
 
-    IF ( ANY( (/1,10,11,12/)==atm_phy_nwp_config(jg)%inwp_turb ) ) THEN
+    IF ( ANY( (/icosmo,10,11,12/)==atm_phy_nwp_config(jg)%inwp_turb ) ) THEN
 
 !-------------------------------------------------------------------------
 !< COSMO turbulence scheme by M. Raschendorfer  
@@ -296,7 +296,7 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
         &                                     * (z_tvs(i_startidx:i_endidx,:,1))**2
 
 
-    ELSE IF ( atm_phy_nwp_config(jg)%inwp_turb == 2 ) THEN
+    ELSE IF ( atm_phy_nwp_config(jg)%inwp_turb == igme ) THEN
 
 !-------------------------------------------------------------------------
 !> GME turbulence scheme 

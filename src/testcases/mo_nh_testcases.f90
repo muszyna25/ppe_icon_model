@@ -47,7 +47,7 @@ MODULE mo_nh_testcases
   USE mo_exception,            ONLY: message, finish, message_text
   USE mo_namelist,             ONLY: position_nml, POSITIONED, open_nml, close_nml
   USE mo_io_units,             ONLY: nnml
-  USE mo_impl_constants,       ONLY: MAX_CHAR_LENGTH, inwp
+  USE mo_impl_constants,       ONLY: MAX_CHAR_LENGTH, inwp, icosmo, iedmf
   USE mo_grid_config,          ONLY: lplane, n_dom, l_limited_area
   USE mo_model_domain,         ONLY: t_patch
   USE mo_ext_data_types,       ONLY: t_external_data
@@ -1292,7 +1292,7 @@ MODULE mo_nh_testcases
   END SELECT
 
 
-  IF ( ANY( (/1,3,10,11,12/)==atm_phy_nwp_config(1)%inwp_turb ) .AND. &
+  IF ( ANY( (/icosmo,iedmf,10,11,12/)==atm_phy_nwp_config(1)%inwp_turb ) .AND. &
        (nh_test_name=='APE_nh' .OR. nh_test_name=='CBL' .OR. nh_test_name=='GATE') ) THEN
     DO jg = 1, n_dom
     !Snow and sea ice initialization to avoid problems in EDMF

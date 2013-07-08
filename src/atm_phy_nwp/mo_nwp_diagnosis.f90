@@ -53,7 +53,8 @@ MODULE mo_nwp_diagnosis
 
   USE mo_kind,               ONLY: wp
 
-  USE mo_impl_constants,     ONLY: itccov, itfastphy, min_rlcell_int
+  USE mo_impl_constants,     ONLY: itccov, itfastphy, min_rlcell_int, &
+                                   icosmo, igme, iedmf, ivdiff, ismag
   USE mo_impl_constants_grf, ONLY: grf_bdywidth_c
   USE mo_loopindices,        ONLY: get_indices_c
   USE mo_intp_data_strc,     ONLY: t_int_state
@@ -469,7 +470,7 @@ CONTAINS
           & i_startidx, i_endidx, rl_start, rl_end)
 
         SELECT CASE (atm_phy_nwp_config(jg)%inwp_turb)
-        CASE (1, 2, 3, 10, 11, 12)
+        CASE (icosmo, igme, iedmf, ismag, 10, 11, 12)
           DO jc = i_startidx, i_endidx
             prm_diag%alhfl_s(jc,jb) = ( prm_diag%alhfl_s(jc,jb)         &
                                &  * (p_sim_time - dt_phy_jg(itfastphy)) &
@@ -496,7 +497,7 @@ CONTAINS
                                & * r_sim_time
             ENDDO  ! jc
           ENDDO  ! jk
-        CASE (4)
+        CASE (ivdiff)
           DO jc = i_startidx, i_endidx
             prm_diag%alhfl_s(jc,jb) = ( prm_diag%alhfl_s(jc,jb)         &
                                &  * (p_sim_time - dt_phy_jg(itfastphy)) &
@@ -529,7 +530,7 @@ CONTAINS
           & i_startidx, i_endidx, rl_start, rl_end)
 
         SELECT CASE (atm_phy_nwp_config(jg)%inwp_turb)
-        CASE (1, 2, 3, 10, 11, 12)
+        CASE (icosmo, igme, iedmf, ismag, 10, 11, 12)
           DO jc = i_startidx, i_endidx
             prm_diag%alhfl_s(jc,jb) =  prm_diag%alhfl_s(jc,jb)       &
                                &  + prm_diag%lhfl_s(jc,jb)           &!attention to the sign, in the output all fluxes 
@@ -548,7 +549,7 @@ CONTAINS
                                &  * dt_phy_jg(itfastphy)                 !must be positive downwards 
             ENDDO  ! jc
           ENDDO  ! jk
-        CASE (4)
+        CASE (ivdiff)
           DO jc = i_startidx, i_endidx
             prm_diag%alhfl_s(jc,jb) =  prm_diag%alhfl_s(jc,jb)       &
                                &  + prm_diag%qhfl_s(jc,jb)*lh_v      &

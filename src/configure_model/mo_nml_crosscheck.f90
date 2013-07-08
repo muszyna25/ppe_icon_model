@@ -55,7 +55,8 @@ MODULE mo_nml_crosscheck
     &                              NO_HADV, UP, MIURA, MIURA3, FFSL, UP3,     &
     &                              MCYCL, MIURA_MCYCL, MIURA3_MCYCL,          &
     &                              ifluxl_sm, ifluxl_m, ihs_ocean,            &
-    &                              RAYLEIGH_CLASSIC, MODE_REMAP
+    &                              RAYLEIGH_CLASSIC, MODE_REMAP, iedmf,       &
+    &                              icosmo
   USE mo_time_config,        ONLY: time_config, restart_experiment
   USE mo_extpar_config,      ONLY: itopo
   USE mo_io_config,          ONLY: dt_checkpoint, lflux_avg,inextra_2d,       &
@@ -406,7 +407,7 @@ CONTAINS
 
     IF ( ( TRIM(nh_test_name)=='APE_nh'.OR. TRIM(nh_test_name)=='dcmip_tc_52' ) .AND.  &
       &  ( ANY(atm_phy_nwp_config(:)%inwp_surface == 1 ) ) .AND.                       &
-      &  ( ANY(atm_phy_nwp_config(:)%inwp_turb    /= 3 ) ) ) THEN
+      &  ( ANY(atm_phy_nwp_config(:)%inwp_turb    /= iedmf ) ) ) THEN
       CALL finish(TRIM(method_name), &
         & 'surface scheme must be switched off, when running the APE test')
     ENDIF
@@ -468,7 +469,7 @@ CONTAINS
                     'only turbulence selected!')
 
 
-        IF ( ANY( (/1,10,11,12/)==atm_phy_nwp_config(jg)%inwp_turb ) .AND. &
+        IF ( ANY( (/icosmo,10,11,12/)==atm_phy_nwp_config(jg)%inwp_turb ) .AND. &
           & (turbdiff_config(jg)%lconst_z0) ) THEN
           CALL message(TRIM(method_name),' WARNING! NWP forcing set but '//  &
                       'idealized (horizontally homogeneous) roughness '//&
@@ -550,7 +551,7 @@ CONTAINS
                                        'ntracer is set to',ntracer
           CALL message(TRIM(method_name),message_text)
         ENDIF
-        IF ( (ntracer /= 6) .AND. (atm_phy_nwp_config(jg)%inwp_turb == 3) &
+        IF ( (ntracer /= 6) .AND. (atm_phy_nwp_config(jg)%inwp_turb == iedmf) &
         & .AND. (.NOT. art_config(jg)%lart) ) THEN
           ntracer = 6
           WRITE(message_text,'(a,i3)') 'Attention: for NWP physics, '//&

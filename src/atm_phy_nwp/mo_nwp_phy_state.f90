@@ -71,7 +71,8 @@ USE mo_nwp_phy_types,       ONLY: t_nwp_phy_diag, t_nwp_phy_tend
 USE mo_impl_constants,      ONLY: success, max_char_length,           &
   &                               VINTP_METHOD_UV,                    &
   &                               VINTP_METHOD_LIN,VINTP_METHOD_QV,   &
-  &                               TASK_COMPUTE_RH, HINTP_TYPE_LONLAT_NNB
+  &                               TASK_COMPUTE_RH, HINTP_TYPE_LONLAT_NNB, &
+  &                               ivdiff, iedmf 
 USE mo_parallel_config,     ONLY: nproma
 USE mo_run_config,          ONLY: nqtendphy, iqv, iqc, iqi, iqr, iqs, ltestcase
 USE mo_exception,           ONLY: message, finish !,message_text
@@ -291,7 +292,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
     shape3dsubs  = (/nproma, kblks,    ntiles_total     /)
     shape3dsubsw = (/nproma, kblks,    ntiles_total+ntiles_water /)
 
-    IF( atm_phy_nwp_config(k_jg)%inwp_turb == 4) THEN
+    IF( atm_phy_nwp_config(k_jg)%inwp_turb == ivdiff) THEN
       shapesfc   = (/nproma,          kblks, nsfc_type /)
     ENDIF
 
@@ -1865,7 +1866,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
   ! vdiff
   !
 
-    IF( atm_phy_nwp_config(k_jg)%inwp_turb == 4) THEN
+    IF( atm_phy_nwp_config(k_jg)%inwp_turb == ivdiff) THEN
 
       ! &      diag%cfm_tile(nproma,nblks_c)
       cf_desc    = t_cf_var('cfm_tile','',&
@@ -2030,14 +2031,14 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
          & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc,      &
          & ldims=shape3dkp1, lrestart=.FALSE. ) 
 
-    ENDIF  !inwp_turb == 4 (vdiff)
+    ENDIF  !inwp_turb == vdiff
 
 
   !
   ! EDMF
   !
 
-    IF( atm_phy_nwp_config(k_jg)%inwp_turb == 3) THEN
+    IF( atm_phy_nwp_config(k_jg)%inwp_turb == iedmf) THEN
 
        ! &      diag%z0m(nproma,nblks_c)
        cf_desc    = t_cf_var('z0m', '', &
@@ -2047,7 +2048,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
        CALL add_var( diag_list, 'z0m', diag%z0m,                             &
          & GRID_UNSTRUCTURED_CELL,ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
 
-    ENDIF  !inwp_turb == 3 (EDMF)
+    ENDIF  !inwp_turb == EDMF
 
 
     !------------------

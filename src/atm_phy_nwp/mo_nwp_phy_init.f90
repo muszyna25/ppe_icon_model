@@ -56,7 +56,8 @@ MODULE mo_nwp_phy_init
   USE mo_vertical_coord_table,ONLY: vct_a, vct
   USE mo_model_domain,        ONLY: t_patch
   USE mo_impl_constants,      ONLY: min_rlcell, min_rlcell_int, zml_soil, io3_ape, &
-    &                               MODE_COMBINED, MODE_IFSANA, MODE_DWDANA, ismag
+    &                               MODE_COMBINED, MODE_IFSANA, MODE_DWDANA, icosmo,&
+                                    igme, iedmf, ivdiff  
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c
   USE mo_loopindices,         ONLY: get_indices_c
   USE mo_parallel_config,     ONLY: nproma
@@ -694,7 +695,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
   IF ( atm_phy_nwp_config(jg)%inwp_convection == 1 .OR. &
     &  atm_phy_nwp_config(jg)%inwp_cldcover == 1   .OR. &
     &  atm_phy_nwp_config(jg)%inwp_surface == 1    .OR. &
-    &  atm_phy_nwp_config(jg)%inwp_turb == 3 )     THEN
+    &  atm_phy_nwp_config(jg)%inwp_turb == iedmf )     THEN
     
     !This has to be done here because not only convection, but also inwp_cldcover == 1 
     !uses mo_cufunctions's foealfa. Therefore, the parameters of the function foealfa
@@ -716,7 +717,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
   !------------------------------------------
 
   IF ( atm_phy_nwp_config(jg)%inwp_convection == 1 .OR. &
-    &  atm_phy_nwp_config(jg)%inwp_turb == 3 )     THEN
+    &  atm_phy_nwp_config(jg)%inwp_turb == iedmf )     THEN
 
     IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'init convection')
 
@@ -763,7 +764,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
 
   ! initialize gz0 (roughness length * g)
   !
-  IF ( ANY( (/1,2,10,11,12/)==atm_phy_nwp_config(jg)%inwp_turb ) .AND. .NOT. is_restart_run() ) THEN
+  IF ( ANY( (/icosmo,igme,10,11,12/)==atm_phy_nwp_config(jg)%inwp_turb ) .AND. .NOT. is_restart_run() ) THEN
 
 
     ! gz0 is initialized, if we start from IFS surface (MODE_IFSANA) or 
@@ -852,7 +853,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
 
   ! Initialize turbulence models
   !
-  IF ( ANY( (/1,10,11,12/)==atm_phy_nwp_config(jg)%inwp_turb ) .AND. .NOT. is_restart_run() ) THEN
+  IF ( ANY( (/icosmo,10,11,12/)==atm_phy_nwp_config(jg)%inwp_turb ) .AND. .NOT. is_restart_run() ) THEN
   
     IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'init COSMO turbulence')
 
@@ -1072,7 +1073,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
     IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'Cosmo turbulence initialized')
 
 
-  ELSE IF (  atm_phy_nwp_config(jg)%inwp_turb == 2) THEN
+  ELSE IF (  atm_phy_nwp_config(jg)%inwp_turb == igme) THEN
 
     IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'init GME turbulence')
 
@@ -1101,7 +1102,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
 !$OMP END PARALLEL
 
 
-  ELSE IF ( atm_phy_nwp_config(jg)%inwp_turb == 3 ) THEN  !EDMF DUALM
+  ELSE IF ( atm_phy_nwp_config(jg)%inwp_turb == iedmf ) THEN  !EDMF DUALM
     CALL suct0
     CALL su0phy
     CALL susekf
@@ -1114,7 +1115,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
 !$OMP END PARALLEL WORKSHARE
 
 
-  ELSE IF (  atm_phy_nwp_config(jg)%inwp_turb == 4) THEN  !ECHAM vdiff
+  ELSE IF (  atm_phy_nwp_config(jg)%inwp_turb == ivdiff) THEN  !ECHAM vdiff
 
     IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'init ECHAM turbulence')
       ! Currently the tracer indices are sorted such that we count

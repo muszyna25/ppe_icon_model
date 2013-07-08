@@ -45,7 +45,7 @@ MODULE mo_nwp_sfc_interface
   USE mo_kind,                ONLY: wp
   USE mo_exception,           ONLY: message, finish!, message_text
   USE mo_model_domain,        ONLY: t_patch
-  USE mo_impl_constants,      ONLY: min_rlcell_int, zml_soil
+  USE mo_impl_constants,      ONLY: min_rlcell_int, zml_soil, iedmf
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c
   USE mo_loopindices,         ONLY: get_indices_c
   USE mo_ext_data_types,      ONLY: t_external_data
@@ -301,7 +301,7 @@ CONTAINS
  
 
       IF (  atm_phy_nwp_config(jg)%inwp_surface == 1 .and. &
-          & atm_phy_nwp_config(jg)%inwp_turb    /= 3 ) THEN
+          & atm_phy_nwp_config(jg)%inwp_turb    /= iedmf ) THEN
 
        IF (ext_data%atm%lp_count(jb) == 0) CYCLE ! skip loop if there is no land point
 

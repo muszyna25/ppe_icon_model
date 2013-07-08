@@ -43,7 +43,7 @@ MODULE mo_nwp_phy_nml
 
   USE mo_kind,                ONLY: wp
   USE mo_exception,           ONLY: finish
-  USE mo_impl_constants,      ONLY: max_dom !,MAX_CHAR_LENGTH
+  USE mo_impl_constants,      ONLY: max_dom, icosmo
   USE mo_namelist,            ONLY: position_nml, POSITIONED, open_nml, close_nml
   USE mo_mpi,                 ONLY: my_process_is_stdio
   USE mo_io_units,            ONLY: nnml, nnml_output
@@ -235,7 +235,7 @@ CONTAINS
       IF (inwp_sso(1)        < 0) inwp_sso(1)        = 1  !> 1 = Lott and Miller scheme (COSMO)
       IF (inwp_gwd(1)        < 0) inwp_gwd(1)        = 1  !> 1 = Orr-Ern-Bechthold scheme (IFS)
       IF (inwp_cldcover(1)   < 0) inwp_cldcover(1)   = 3  !> 3 = clouds from COSMO SGS cloud scheme
-      IF (inwp_turb(1)       < 0) inwp_turb(1)       = 1  !> 1 = turbdiff (COSMO diffusion oand transfer)
+      IF (inwp_turb(1)       < 0) inwp_turb(1)       = icosmo  !> 1 = turbdiff (COSMO diffusion and transfer)
       IF (inwp_surface(1)    < 0) inwp_surface(1)    = 1  !> 1 = TERRA
 
       ! Time steps

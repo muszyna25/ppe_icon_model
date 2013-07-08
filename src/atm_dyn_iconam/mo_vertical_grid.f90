@@ -1689,7 +1689,7 @@ MODULE mo_vertical_grid
 
     !PREPARE LES, Anurag Dipankar MPIM (2013-04)
     DO jg = 1 , n_dom
-      IF(atm_phy_nwp_config(jg)%inwp_turb == 5)  &
+      IF(atm_phy_nwp_config(jg)%is_les_phy)  &
         CALL prepare_les_model(p_patch(jg), p_nh(jg), p_int(jg))
     END DO
 

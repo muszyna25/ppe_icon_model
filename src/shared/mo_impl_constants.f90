@@ -313,7 +313,10 @@ MODULE mo_impl_constants
 
 
   ! identifiers for different NWP turbulent schemes
-  ! At present only flag for smagorinsky exist
+  INTEGER, PARAMETER :: icosmo  =  1
+  INTEGER, PARAMETER :: igme    =  2
+  INTEGER, PARAMETER :: iedmf   =  3
+  INTEGER, PARAMETER :: ivdiff  =  4
   INTEGER, PARAMETER :: ismag   =  5
 
 

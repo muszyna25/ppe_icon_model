@@ -109,7 +109,7 @@ MODULE mo_nh_stepping
     &                               iphysproc_short, itconv, itccov, itrad, &
     &                               itradheat, itsso, itsatad, itgwd, inwp, iecham, &
     &                               itupdate, itturb, itgscp, itsfc, min_rlcell_int, &
-                                    min_rledge_int, MODE_DWDANA, MODIS
+                                    min_rledge_int, MODE_DWDANA, MODIS, icosmo
   USE mo_divergent_modes,     ONLY: divergent_modes_5band
   USE mo_math_divrot,         ONLY: div, div_avg, rot_vertex
   USE mo_solve_nonhydro,      ONLY: solve_nh
@@ -1260,7 +1260,7 @@ MODULE mo_nh_stepping
               &          opt_ddt_tracer_adv=p_nh_state(jg)%diag%ddt_tracer_adv ) !out
 
 
-!            IF (  iforcing==inwp .AND. inwp_turb == 1) THEN
+!            IF (  iforcing==inwp .AND. inwp_turb == icosmo) THEN
 !              !> KF preliminary relabeling of TKE as long as there is no advection for it
 !              p_nh_state(jg)%prog(n_new_rcf)%tke =  p_nh_state(jg)%prog(n_now)%tke
 !            ENDIF

@@ -47,7 +47,8 @@ MODULE mo_atm_phy_nwp_config
   USE mo_impl_constants,      ONLY: max_dom, MAX_CHAR_LENGTH, itconv, itccov,  &
     &                               itrad, itradheat, itsso, itgscp, itsatad,  &
     &                               itupdate, itturb, itsfc, itgwd, itfastphy, &
-    &                               iphysproc, iphysproc_short, ismag
+    &                               iphysproc, iphysproc_short, ismag, iedmf,  &
+    &                               ivdiff            
   USE mo_math_constants,      ONLY: dbl_eps
   USE mo_exception,           ONLY: message, message_text, finish
 
@@ -231,7 +232,7 @@ SUBROUTINE configure_atm_phy_nwp( n_dom, pat_level, ltestcase, dtime_adv )
       ENDIF
 
       ! For EDMF DUALM cloud cover is called every turbulence time step
-      IF ( atm_phy_nwp_config(jg)%inwp_turb == 3 ) THEN
+      IF ( atm_phy_nwp_config(jg)%inwp_turb == iedmf ) THEN
         dt_phy(jg,itccov) = atm_phy_nwp_config(jg)% dt_fastphy ! sec
       ENDIF
 
@@ -243,7 +244,7 @@ SUBROUTINE configure_atm_phy_nwp( n_dom, pat_level, ltestcase, dtime_adv )
 
 
 
-    IF( atm_phy_nwp_config(1)%inwp_turb == 4) THEN
+    IF( atm_phy_nwp_config(1)%inwp_turb == ivdiff) THEN
        CALL init_sfc_indices( ltestcase, 'APE' ) !call of a hydrostatic testcase
                                              ! to obtain the demanded parameters
     ENDIF
@@ -281,6 +282,15 @@ SUBROUTINE configure_atm_phy_nwp( n_dom, pat_level, ltestcase, dtime_adv )
      IF(atm_phy_nwp_config(jg)%inwp_convection>0 .AND. &
         atm_phy_nwp_config(jg)%is_les_phy)THEN
        CALL finish(TRIM(routine),'Convection can not be used for LES!')
+     END IF
+
+     !inwp_cldcover should be 5 = grid scale cloud cover
+     IF(atm_phy_nwp_config(jg)%inwp_cldcover>0 .AND. &
+        atm_phy_nwp_config(jg)%is_les_phy)THEN
+
+       IF(atm_phy_nwp_config(jg)%inwp_cldcover/=5) &
+         CALL finish(TRIM(routine),'Check the cloud cover scheme for LES!')
+
      END IF
 
    END DO

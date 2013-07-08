@@ -56,7 +56,7 @@ MODULE mo_nonhydro_state
     &                                VINTP_METHOD_QV, VINTP_METHOD_PRES, &
     &                                VINTP_METHOD_LIN,                   &
     &                                VINTP_METHOD_LIN_NLEVP1,            &
-    &                                TASK_INTP_MSL, HINTP_TYPE_NONE
+    &                                TASK_INTP_MSL, HINTP_TYPE_NONE, iedmf
   USE mo_exception,            ONLY: message, finish, message_text
   USE mo_model_domain,         ONLY: t_patch
   USE mo_nonhydro_types,       ONLY: t_nh_state, t_nh_prog, t_nh_diag,  &
@@ -675,7 +675,7 @@ MODULE mo_nonhydro_state
                     & in_group=groups("atmo_ml_vars","atmo_pl_vars","atmo_zl_vars",  &
                     &                 "dwd_fg_atm_vars")  )
         ! EDMF: total water variance
-        IF (atm_phy_nwp_config(p_patch%id)%inwp_turb == 3) THEN
+        IF (atm_phy_nwp_config(p_patch%id)%inwp_turb == iedmf) THEN
           CALL add_ref( p_prog_list, 'tracer',                                       &
                     & TRIM(vname_prefix)//'qtvar'//suffix, p_prog%tracer_ptr(iqtvar)%p_3d, &
                     & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                             &
@@ -2603,7 +2603,7 @@ MODULE mo_nonhydro_state
 
     !Add LES related variables : Anurag Dipankar MPIM (2013-04)
     jg = p_patch%id
-    IF(atm_phy_nwp_config(jg)%inwp_turb == 5)THEN
+    IF(atm_phy_nwp_config(jg)%is_les_phy)THEN
 
       ! inv_ddqz_z_half_e  p_metrics%inv_ddqz_z_half_e(nproma,nlevp1,nblks_e)
       !
@@ -2670,7 +2670,7 @@ MODULE mo_nonhydro_state
                   & ldims=shape3d_vhalf,                                        &
                   & isteptype=TSTEP_CONSTANT )
 
-    END IF !if inwp_turb==5 (LES) 
+    END IF !if is_les_phy 
 
 
   END SUBROUTINE new_nh_metrics_list

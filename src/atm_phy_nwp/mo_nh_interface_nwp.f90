@@ -62,8 +62,8 @@ MODULE mo_nh_interface_nwp
   USE mo_exception,          ONLY: message, message_text, finish
   USE mo_impl_constants,     ONLY: itconv, itccov, itrad, itgscp,         &
     &                              itsatad, itupdate, itturb, itsfc, itradheat, &
-    &                              itsso, itgwd, itfastphy,               &
-    &                              min_rlcell_int, min_rledge_int, min_rlcell
+    &                              itsso, itgwd, itfastphy, icosmo, igme, iedmf,&
+    &                              ivdiff, min_rlcell_int, min_rledge_int, min_rlcell
   USE mo_impl_constants_grf, ONLY: grf_bdywidth_c, grf_bdywidth_e
   USE mo_loopindices,        ONLY: get_indices_c, get_indices_e
   USE mo_intp_rbf,           ONLY: rbf_vec_interpol_cell
@@ -459,7 +459,7 @@ CONTAINS
     !the lower boundary conditions for the turbulence scheme 
     !are not set otherwise
 
-    IF ( l_any_fastphys .AND. ANY( (/1,2,10,11,12/)==atm_phy_nwp_config(jg)%inwp_turb ) ) THEN 
+    IF ( l_any_fastphys .AND. ANY( (/icosmo,igme,10,11,12/)==atm_phy_nwp_config(jg)%inwp_turb ) ) THEN 
 
        !> as pressure is needed only for an approximate adiabatic extrapolation
        !! of the temperature at the lowest model level towards ground level,
@@ -485,7 +485,7 @@ CONTAINS
       SELECT CASE (atm_phy_nwp_config(jg)%inwp_turb)
        
       !Turbulence schemes NOT including the call to the surface scheme
-      CASE(1,2,10,11,12)  
+      CASE(icosmo,igme,10,11,12)  
 
         ! compute turbulent diffusion (atmospheric column)
         CALL nwp_turbdiff   (  dt_phy_jg(itfastphy),              & !>in
@@ -501,7 +501,7 @@ CONTAINS
                               & lnd_diag                          ) !>in
 
       !Turbulence schemes including the call to the surface scheme
-      CASE(3,4)
+      CASE(iedmf,ivdiff)
 
         CALL nwp_turbulence_sfc (  dt_phy_jg(itfastphy),              & !>input
                                   & pt_patch, p_metrics,              & !>input
@@ -659,7 +659,7 @@ CONTAINS
     ENDIF
 
 
-    IF (  (lcall_phy_jg(itturb) .OR. linit) .AND.  ANY( (/1,2,10,11,12/)==atm_phy_nwp_config(jg)%inwp_turb ) ) THEN
+    IF ( (lcall_phy_jg(itturb) .OR. linit) .AND. ANY( (/icosmo,igme,10,11,12/)==atm_phy_nwp_config(jg)%inwp_turb ) ) THEN
 !
 !     Reset max. gust every 6 hours
 !
@@ -830,7 +830,7 @@ CONTAINS
         CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
 &                       i_startidx, i_endidx, rl_start, rl_end)
 
-        IF ( atm_phy_nwp_config(jg)%inwp_turb == 3 ) THEN 
+        IF ( atm_phy_nwp_config(jg)%inwp_turb == iedmf ) THEN 
           qtvar(:,:) = pt_prog_rcf%tracer(:,:,jb,iqtvar)        ! EDMF DUALM
         ELSE
           qtvar(:,:) = 0.0_wp                                   ! other turb schemes

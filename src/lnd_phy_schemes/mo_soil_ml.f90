@@ -413,6 +413,7 @@ USE mo_lnd_nwp_config,     ONLY: lmelt, lmelt_var, lmulti_snow,  &
 USE mo_exception,          ONLY: message, finish, message_text
 USE mo_run_config,         ONLY: msg_level
 USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config
+USE mo_impl_constants,     ONLY: iedmf
 #endif
 
 
@@ -442,6 +443,11 @@ PUBLIC :: terra_multlay,terra_multlay_init
 
 #ifdef COSMO
 CHARACTER(132) :: message_text = ''
+
+!AD:Setting this identifier as global in this module
+!   was the only way for now. In case iedmf is redefined
+!   in mo_impl_constants, it should be chagned in here too
+INTEGER, PARAMETER :: iedmf   =  3
 #endif
 
 
@@ -1708,7 +1714,7 @@ END SUBROUTINE message
 
         ztchv(i)    = tch(i)*zuv  ! transfer coefficient * velocity
 
-        IF ( inwp_turb /= 3 ) THEN
+        IF ( inwp_turb /= iedmf ) THEN
           LIM: IF (ztchv(i) > ztchv_max(i)) THEN
             tch(i)=ztchv_max(i)/MAX(zuv,1.E-06_ireals)
 !           IF (ntstep > 10) THEN          ! control print only after initial adaptation

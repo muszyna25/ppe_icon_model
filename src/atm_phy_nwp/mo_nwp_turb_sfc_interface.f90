@@ -52,7 +52,7 @@ MODULE mo_nwp_turb_sfc_interface
   USE mo_kind,                 ONLY: wp
   USE mo_exception,            ONLY: message, message_text, finish
   USE mo_model_domain,         ONLY: t_patch
-  USE mo_impl_constants,       ONLY: min_rlcell_int
+  USE mo_impl_constants,       ONLY: min_rlcell_int, icosmo, iedmf, ivdiff
   USE mo_impl_constants_grf,   ONLY: grf_bdywidth_c
   USE mo_loopindices,          ONLY: get_indices_c
   USE mo_physical_constants,   ONLY: alv, rd_o_cpd, grav
@@ -331,7 +331,7 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
       ! check dry case
       IF( atm_phy_nwp_config(jg)%inwp_satad == 0) THEN
         lnd_diag%qv_s (:,jb) = 0._wp
-      ELSE IF ( ANY( (/1,10,11,12/)==atm_phy_nwp_config(jg)%inwp_turb ) ) THEN
+      ELSE IF ( ANY( (/icosmo,10,11,12/)==atm_phy_nwp_config(jg)%inwp_turb ) ) THEN
         IF ( ltestcase .AND. nh_test_name == 'wk82') THEN
          DO jc = i_startidx, i_endidx
           lnd_prog_now%t_g(jc,jb) = p_diag%temp(jc,nlev,jb)*  &
@@ -355,7 +355,7 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
     ENDIF
 
 
-    IF ( atm_phy_nwp_config(jg)%inwp_turb == 4 ) THEN
+    IF ( atm_phy_nwp_config(jg)%inwp_turb == ivdiff ) THEN
 
 !-------------------------------------------------------------------------
 !> ECHAM version
@@ -509,7 +509,7 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
       ENDIF
 
 
-    ELSE IF ( atm_phy_nwp_config(jg)%inwp_turb == 3 ) THEN
+    ELSE IF ( atm_phy_nwp_config(jg)%inwp_turb == iedmf ) THEN
 
 
 !-------------------------------------------------------------------------
