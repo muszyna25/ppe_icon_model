@@ -1171,9 +1171,9 @@ CONTAINS
 
     !copy 2D to 3D structure
     DO edge_block = owned_edges%start_block, owned_edges%end_block
-      DO level = 1, n_zlev
-        CALL get_index_range(owned_edges, edge_block, start_index, end_index)
-        DO edge_index =  start_index, end_index
+      CALL get_index_range(owned_edges, edge_block, start_index, end_index)
+      DO edge_index =  start_index, end_index
+        DO level = 1, n_zlev
 
           ocean_coeff%edge2cell_coeff_cc_t(edge_index,level,edge_block,1)%x &
           &= edge2cell_coeff_cc_t(edge_index,edge_block,1)%x
