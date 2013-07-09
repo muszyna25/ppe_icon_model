@@ -92,7 +92,7 @@ iforcing=2               # ECHAM physics
 # the grid files
 #
 grid_ext="aqua_planet"
-grid_name="iconR2B04-ocean_${grid_ext}"
+grid_name="iconR2B04-ocean_${grid_ext}"   #  resolution change via grid file
 ocean_grids="${grid_name}.nc"
 #
 #-----------------------------------------------------------------------------

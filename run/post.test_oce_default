@@ -49,5 +49,7 @@ for varname in ${varNames3D}; do
   mv ${oFile}.${oType} plots/.
 done
 
+exit
+
 #
 ## vim:ft=sh
