@@ -57,13 +57,13 @@ MODULE mo_nh_initicon
   USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_grf_intp_data_strc,  ONLY: t_gridref_state
   USE mo_nh_initicon_types,   ONLY: t_initicon_state
-  USE mo_initicon_config,     ONLY: init_mode, nlev_in, nlevsoil_in, l_hice_in, l_sst_in, &
-    &                               ifs2icon_filename, dwdfg_filename, dwdana_filename,   &
-    &                               generate_filename,                                    &
-    &                               nml_filetype => filetype,                             &
+  USE mo_initicon_config,     ONLY: init_mode, nlev_in, nlevsoil_in, l_sst_in,          &
+    &                               ifs2icon_filename, dwdfg_filename, dwdana_filename, &
+    &                               generate_filename,                                  &
+    &                               nml_filetype => filetype,                           &
     &                               ana_varnames_map_file, l_ana_sfc
-  USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, max_dom, MODE_DWDANA,       &
-    &                               MODE_IFSANA, MODE_COMBINED, min_rlcell,               &
+  USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, max_dom, MODE_DWDANA,     &
+    &                               MODE_IFSANA, MODE_COMBINED, min_rlcell,             &
     &                               min_rledge, min_rledge_int, min_rlcell_int
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c, grf_bdywidth_e
   USE mo_physical_constants,  ONLY: tf_salt, rd, cpd, cvd, p0ref, vtmpc1, grav
@@ -81,7 +81,7 @@ MODULE mo_nh_initicon
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
   USE mo_master_nml,          ONLY: model_base_dir
   USE mo_phyparam_soil,       ONLY: csalb_snow_min, csalb_snow_max,crhosmin_ml,crhosmax_ml
-  USE mo_seaice_nwp,          ONLY: frsi_min
+  USE mo_seaice_nwp,          ONLY: frsi_min, seaice_coldinit_nwp
   USE mo_nh_vert_interp,      ONLY: vert_interp_atm, vert_interp_sfc
   USE mo_intp_rbf,            ONLY: rbf_vec_interpol_cell
   USE mo_nh_diagnose_pres_temp,ONLY: diagnose_pres_temp
@@ -130,10 +130,6 @@ MODULE mo_nh_initicon
   CHARACTER(LEN=10) :: geop_sfc_var ! surface-level surface geopotential
   CHARACTER(LEN=10) :: alb_snow_var ! snow albedo
 
-!!$  CHARACTER(LEN=VARNAME_LEN), ALLOCATABLE :: grp_vars_fg (:) ! vars (names) to be read from fg-file
-!!$  CHARACTER(LEN=VARNAME_LEN), ALLOCATABLE :: grp_vars_ana(:) ! vars (names) to be read from ana-file
-!!$  INTEGER  :: ngrp_vars_fg      ! number of fields in grp_vars_fg
-!!$  INTEGER  :: ngrp_vars_ana     ! number of fields in grp_vars_ana
 
   ! Remark on usage of "cdiDefMissval"
   
@@ -186,9 +182,6 @@ MODULE mo_nh_initicon
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
       routine = 'mo_nh_initicon:init_icon'
-
-  INTEGER  :: ngrp_vars_fg      ! number of fields in grp_vars_fg
-  INTEGER  :: ngrp_vars_ana     ! number of fields in grp_vars_ana
 
 
     ! Allocate initicon data type
@@ -245,13 +238,6 @@ MODULE mo_nh_initicon
           &                      initicon(jg)%sfc%grp_vars_ana, initicon(jg)%sfc%ngrp_vars_ana)
       ENDDO
 
-    IF(p_pe == p_io) THEN
-ngrp_vars_fg  = initicon(1)%sfc%ngrp_vars_fg
-ngrp_vars_ana = initicon(1)%sfc%ngrp_vars_ana
-write(0,*) "grp_vars_fg: ",initicon(1)%sfc%grp_vars_fg(1:ngrp_vars_fg), ngrp_vars_fg
-write(0,*) "grp_vars_ana: ",initicon(1)%sfc%grp_vars_ana(1:ngrp_vars_ana), ngrp_vars_ana
-    ENDIF
-
     END IF
 
 
@@ -295,12 +281,16 @@ write(0,*) "grp_vars_ana: ",initicon(1)%sfc%grp_vars_ana(1:ngrp_vars_ana), ngrp_
       CALL finish(TRIM(routine), "Invalid operation mode!")
     END SELECT
 
+
     ! Deallocate initicon data type
+    !
     CALL deallocate_initicon(initicon)
-    CALL deallocate_ifs_atm(initicon)
-    CALL deallocate_ifs_sfc(initicon)
+    CALL deallocate_ifs_atm (initicon)
+    CALL deallocate_ifs_sfc (initicon)
+
 
     ! close first guess and analysis files
+    ! 
     IF ((init_mode == MODE_DWDANA) .OR.   &
       & (init_mode == MODE_COMBINED)) THEN
       CALL close_init_files(fileID_fg, fileID_ana)
@@ -841,8 +831,8 @@ write(0,*) "grp_vars_ana: ",initicon(1)%sfc%grp_vars_ana(1:ngrp_vars_ana), ngrp_
   !-------------
   !>
   !! SUBROUTINE create_input_groups
-  !! Generates groups 'grp_vars_fg' and 'grp_vars_ana', which contain the names of the variables to 
-  !! be read from the FG- and ANA-File, respectively.
+  !! Generates groups 'grp_vars_fg' and 'grp_vars_ana', containing the names of the variables which  
+  !! must be read from the FG- and ANA-File, respectively.
   !! Both groups are based in the ICON-internal output groups "dwd_fg_sfc_vars" and "dwd_ana_sfc_vars".
   !! In a first step it is checked, whether the FG-file contains all members of the group 'grp_vars_fg'.
   !! If this is not the case, the model aborts. In a second step it is checked, whether the ANA-File 
@@ -899,8 +889,6 @@ write(0,*) "grp_vars_ana: ",initicon(1)%sfc%grp_vars_ana(1:ngrp_vars_ana), ngrp_
 
       ! Lateron, grp_vars_fg and grp_vars_ana will be the groups that control the reading stuff
 
-!!$write(0,*) "grp_vars_fg:  ", grp_vars_fg (1:ngrp_vars_fg) ,ngrp_vars_fg
-!!$write(0,*) "grp_vars_ana: ", grp_vars_ana(1:ngrp_vars_ana),ngrp_vars_ana
 
       !
       ! Generate file inventory lists for FG- and ANA-files
@@ -970,6 +958,8 @@ write(0,*) "grp_vars_ana: ",initicon(1)%sfc%grp_vars_ana(1:ngrp_vars_ana), ngrp_
         grp_varID_fgfile(ngrp_vars_fgfile)= varID
       ENDDO
 
+!!$write(0,*) "grp_vars_fg:  ", grp_vars_fg (1:ngrp_vars_fg) ,ngrp_vars_fg
+!!$write(0,*) "grp_vars_ana: ", grp_vars_ana(1:ngrp_vars_ana),ngrp_vars_ana
 !!$write(0,*) "grp_vars_fgfile: ", grp_vars_fgfile(1:ngrp_vars_fgfile),ngrp_vars_fgfile
 !!$write(0,*) "grp_vars_anafile: ", grp_vars_anafile(1:ngrp_vars_anafile),ngrp_vars_anafile
 
@@ -1506,22 +1496,6 @@ write(0,*) "grp_vars_ana: ",initicon(1)%sfc%grp_vars_ana(1:ngrp_vars_ana), ngrp_
         ENDIF
 
 
-        ! Check, if sea-ice thickness field is provided as input
-        ! IF H_ICE is missing, set l_hice_in=.FALSE.
-        IF (nf_inq_varid(ncid, 'H_ICE', varid) == nf_noerr) THEN
-          WRITE (message_text,'(a,a)')                            &
-            &  'sea-ice thickness available'
-          l_hice_in = .TRUE.
-        ELSE
-
-          WRITE (message_text,'(a,a)')                            &
-            &  'sea-ice thickness not available. ', &
-            &  'initialize with constant value (1.0 m), instead.'
-          CALL message(TRIM(routine),TRIM(message_text))
-
-          l_hice_in = .FALSE.
-        ENDIF
-
         ! Check, if sea surface temperature field is provided as input
         ! IF SST is missing, set l_sst_in=.FALSE.
         IF (nf_inq_varid(ncid, 'SST', varid) /= nf_noerr) THEN
@@ -1541,8 +1515,6 @@ write(0,*) "grp_vars_ana: ",initicon(1)%sfc%grp_vars_ana(1:ngrp_vars_ana), ngrp_
       ELSE
         mpi_comm = p_comm_work
       ENDIF
-
-      CALL p_bcast(l_hice_in, p_io, mpi_comm)
 
       CALL p_bcast(l_sst_in, p_io, mpi_comm)
 
@@ -1914,32 +1886,8 @@ write(0,*) "grp_vars_ana: ",initicon(1)%sfc%grp_vars_ana(1:ngrp_vars_ana), ngrp_
                  & 'nlev_soil does not match the number of soil levels in DWD FG file.')
           ENDIF
 
-          ! Check, if sea-ice thickness field is provided as input
-          ! IF H_ICE is missing, set l_hice_in=.FALSE.
-          IF (nf_inq_varid(fileID_fg(jg), 'h_ice', varid) == nf_noerr) THEN
-            WRITE (message_text,'(a,a)')                            &
-                 &  'sea-ice thickness available'
-            l_hice_in = .TRUE.
-          ELSE
-
-            WRITE (message_text,'(a,a)')                            &
-                 &  'sea-ice thickness not available. ', &
-                 &  'initialize with constant value (1.0 m), instead.'
-            CALL message(TRIM(routine),TRIM(message_text))
-
-            l_hice_in = .FALSE.
-          ENDIF
-          !
         CASE (FILETYPE_GRB2)
-          IF (get_varID(fileID_fg(jg), "H_ICE") == -1) then
-            WRITE (message_text,'(a,a)')                            &
-                 &  'sea-ice thickness not available. ', &
-                 &  'initialize with constant value (1.0 m), instead.'
-            CALL message(TRIM(routine),TRIM(message_text))
-            l_hice_in = .FALSE.
-          ELSE
-            l_hice_in = .TRUE.
-          ENDIF
+
           !
         CASE DEFAULT
           CALL finish(routine, "Unknown file type")
@@ -1953,7 +1901,6 @@ write(0,*) "grp_vars_ana: ",initicon(1)%sfc%grp_vars_ana(1:ngrp_vars_ana), ngrp_
         mpi_comm = p_comm_work
       ENDIF
 
-      CALL p_bcast(l_hice_in,     p_io, mpi_comm)
 
       ! start reading surface fields from First Guess
       !
@@ -1970,12 +1917,10 @@ write(0,*) "grp_vars_ana: ",initicon(1)%sfc%grp_vars_ana(1:ngrp_vars_ana), ngrp_
         &                p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_ice,                             &
         &                opt_checkgroup=initicon(jg)%sfc%grp_vars_fg(1:ngrp_vars_fg))
 
-      IF (l_hice_in) THEN
-        CALL read_data_2d (filetype_fg(jg), fileID_fg(jg), 'h_ice', p_patch(jg)%n_patch_cells_g,   &
-          &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,                 &
-          &                p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%h_ice,                           &
-          &                opt_checkgroup=initicon(jg)%sfc%grp_vars_fg(1:ngrp_vars_fg))
-      ENDIF
+      CALL read_data_2d (filetype_fg(jg), fileID_fg(jg), 'h_ice', p_patch(jg)%n_patch_cells_g,   &
+        &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,                 &
+        &                p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%h_ice,                           &
+        &                opt_checkgroup=initicon(jg)%sfc%grp_vars_fg(1:ngrp_vars_fg))
 
 
       ! tile based fields
@@ -2767,6 +2712,8 @@ write(0,*) "grp_vars_ana: ",initicon(1)%sfc%grp_vars_ana(1:ngrp_vars_ana), ngrp_
   !! Initial version by Guenther Zaengl, DWD(2011-07-28)
   !! Modification by Daniel Reinert, DWD (2012-12-19)
   !! - encapsulated surface specific part
+  !! Modification by Daniel Reinert, DWD (2013-07-09)
+  !! - moved sea-ice coldstart into separate subroutine
   !!
   !!
   SUBROUTINE copy_initicon2prog_sfc(p_patch, initicon, p_lnd_state, ext_data)
@@ -2777,10 +2724,11 @@ write(0,*) "grp_vars_ana: ",initicon(1)%sfc%grp_vars_ana(1:ngrp_vars_ana), ngrp_
     TYPE(t_lnd_state),     INTENT(INOUT) :: p_lnd_state(:)
     TYPE(t_external_data), INTENT(   IN) :: ext_data(:)
 
-    INTEGER :: jg, jb, jc, jt, js, jp, ic
-    INTEGER :: nblks_c, npromz_c, nlen, nlev, ntlr
+    INTEGER  :: jg, jb, jc, jt, js, jp, ic
+    INTEGER  :: nblks_c, npromz_c, nlen, nlev
+    REAL(wp) :: zfrice_thrhld
 
-!$OMP PARALLEL PRIVATE(jg,nblks_c,npromz_c,nlev,ntlr)
+!$OMP PARALLEL PRIVATE(jg,nblks_c,npromz_c,nlev)
     DO jg = 1, n_dom
 
       IF (.NOT. p_patch(jg)%ldom_active) CYCLE
@@ -2788,10 +2736,9 @@ write(0,*) "grp_vars_ana: ",initicon(1)%sfc%grp_vars_ana(1:ngrp_vars_ana), ngrp_
       nblks_c   = p_patch(jg)%nblks_c
       npromz_c  = p_patch(jg)%npromz_c
       nlev      = p_patch(jg)%nlev
-      ntlr      = nnow_rcf(jg)
 
 
-!$OMP DO PRIVATE(jb,jc,nlen,jt,js,jp,ic) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,jc,nlen,jt,js,jp,ic,zfrice_thrhld) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = 1, nblks_c
 
         IF (jb /= nblks_c) THEN
@@ -2803,7 +2750,7 @@ write(0,*) "grp_vars_ana: ",initicon(1)%sfc%grp_vars_ana(1:ngrp_vars_ana), ngrp_
 
         ! ground temperature
         DO jc = 1, nlen
-          p_lnd_state(jg)%prog_lnd(ntlr)%t_g(jc,jb)         = initicon(jg)%sfc%tskin(jc,jb)
+          p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_g(jc,jb) = initicon(jg)%sfc%tskin(jc,jb)
           p_lnd_state(jg)%prog_lnd(nnew_rcf(jg))%t_g(jc,jb) = initicon(jg)%sfc%tskin(jc,jb)
         ENDDO
 
@@ -2857,29 +2804,31 @@ write(0,*) "grp_vars_ana: ",initicon(1)%sfc%grp_vars_ana(1:ngrp_vars_ana), ngrp_
         IF ( atm_phy_nwp_config(jg)%inwp_surface > 0 ) THEN
           DO jt = 1, ntiles_total
             DO jc = 1, nlen
-               p_lnd_state(jg)%prog_lnd(ntlr)%t_snow_t(jc,jb,jt)           = &
+              p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_snow_t(jc,jb,jt)           = &
                 &                                                initicon(jg)%sfc%tsnow   (jc,jb)
 
                ! Initialize freshsnow
                ! for seapoints, freshsnow is set to 0
-               IF(alb_snow_var == 'ALB_SNOW') THEN
-              p_lnd_state(jg)%diag_lnd%freshsnow_t(jc,jb,jt)    =  MAX(0._wp,MIN(1._wp,   &
+              IF(alb_snow_var == 'ALB_SNOW') THEN
+                p_lnd_state(jg)%diag_lnd%freshsnow_t(jc,jb,jt)    =  MAX(0._wp,MIN(1._wp, &
             &                           (initicon(jg)%sfc%snowalb (jc,jb)-csalb_snow_min) &
             &                          /(csalb_snow_max-csalb_snow_min)))                 &
             &                          * REAL(NINT(ext_data(jg)%atm%fr_land(jc,jb)),wp) 
               ELSE
-              p_lnd_state(jg)%diag_lnd%freshsnow_t(jc,jb,jt)    =  MAX(0._wp,MIN(1._wp,   &
+                p_lnd_state(jg)%diag_lnd%freshsnow_t(jc,jb,jt)    =  MAX(0._wp,MIN(1._wp, &
             &                     1._wp - ((initicon(jg)%sfc%snowalb (jc,jb)-crhosmin_ml) &
             &                    /(crhosmax_ml-crhosmin_ml))))                            &
             &                    * REAL(NINT(ext_data(jg)%atm%fr_land(jc,jb)),wp)
-               END IF
+              END IF
 
-              p_lnd_state(jg)%prog_lnd(ntlr)%w_snow_t(jc,jb,jt)           = &
+
+              p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_snow_t(jc,jb,jt)           = &
                 &                                                initicon(jg)%sfc%snowweq (jc,jb)
-              p_lnd_state(jg)%prog_lnd(ntlr)%rho_snow_t(jc,jb,jt)         = &
+              p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%rho_snow_t(jc,jb,jt)         = &
                 &                                                initicon(jg)%sfc%snowdens(jc,jb) 
-              p_lnd_state(jg)%prog_lnd(ntlr)%w_i_t(jc,jb,jt)              = &
+              p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_i_t(jc,jb,jt)              = &
                 &                                                initicon(jg)%sfc%skinres (jc,jb)
+
               p_lnd_state(jg)%prog_lnd(nnew_rcf(jg))%t_snow_t(jc,jb,jt)   = &
                 &                                                initicon(jg)%sfc%tsnow   (jc,jb)
               p_lnd_state(jg)%prog_lnd(nnew_rcf(jg))%w_snow_t(jc,jb,jt)   = &
@@ -2897,7 +2846,7 @@ write(0,*) "grp_vars_ana: ",initicon(1)%sfc%grp_vars_ana(1:ngrp_vars_ana), ngrp_
             DO js = 0, nlev_soil
               jp = js+1 ! indexing for the ICON state field starts at 1
               DO jc = 1, nlen
-                p_lnd_state(jg)%prog_lnd(ntlr)%t_so_t(jc,jp,jb,jt)        = &
+                p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_so_t(jc,jp,jb,jt)= &
                   &                                              initicon(jg)%sfc%tsoil(jc,jb,js)
                 p_lnd_state(jg)%prog_lnd(nnew_rcf(jg))%t_so_t(jc,jp,jb,jt)= &
                   &                                              initicon(jg)%sfc%tsoil(jc,jb,js)
@@ -2907,7 +2856,7 @@ write(0,*) "grp_vars_ana: ",initicon(1)%sfc%grp_vars_ana(1:ngrp_vars_ana), ngrp_
             ! For soil water, no comparable layer shift exists
             DO js = 1, nlev_soil
               DO jc = 1, nlen
-                p_lnd_state(jg)%prog_lnd(ntlr)%w_so_t(jc,js,jb,jt) = &
+                p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_so_t(jc,js,jb,jt)= &
                   &                                              initicon(jg)%sfc%wsoil(jc,jb,js)
                 p_lnd_state(jg)%prog_lnd(nnew_rcf(jg))%w_so_t(jc,js,jb,jt)= &
                   &                                              initicon(jg)%sfc%wsoil(jc,jb,js)
@@ -2916,49 +2865,39 @@ write(0,*) "grp_vars_ana: ",initicon(1)%sfc%grp_vars_ana(1:ngrp_vars_ana), ngrp_
 
           ENDDO
 
-          ! Initialize sea-ice surface temperature with tskin (cold-start initialization)
+
+
+          ! Coldstart for sea-ice parameterization scheme
+          ! Sea-ice surface temperature is initialized with tskin from IFS.
           ! Since the seaice index list is not yet available at this stage, we loop over 
           ! all sea points and initialize points with fr_seaice>threshold. 
           ! The threshold is 0.5 without tiles and frsi_min with tiles.
           ! Note that exactly the same threshold values must be used as in init_sea_lists. 
           ! If not, you will see what you get.
+          !@Pilar: This should still work out for you, since the non-sea-ice points are 
+          !        now initialized during warmstart initialization 
+          !        in mo_nwp_sfc_utils:nwp_surface_init
           !
           IF (lseaice) THEN
             IF ( ntiles_total == 1 ) THEN  ! no tile approach
-!CDIR NODEP,VOVERTAKE,VOB
-              DO ic = 1, ext_data(jg)%atm%sp_count(jb)
-                jc = ext_data(jg)%atm%idx_lst_sp(ic,jb)
-                ! P. Ripodas. The IF is commented because in the climate runs with SST and CI update
-                !  the initial values of fr_seaice are overwritten and t_ice has to be initialized
-                !  for all the new ice points
-                !IF ( p_lnd_state(jg)%diag_lnd%fr_seaice(jc,jb) >= 0.5_wp  ) THEN
-                  ! initialize t_ice with t_skin, which is so far provided by IFS analysis
-                  p_lnd_state(jg)%prog_wtr(ntlr)%t_ice(jc,jb)         = &
-                    &                     initicon(jg)%sfc%tskin(jc,jb)
-                  p_lnd_state(jg)%prog_wtr(nnew_rcf(jg))%t_ice(jc,jb) = &
-                    &                     initicon(jg)%sfc%tskin(jc,jb)
-                !ENDIF
-              ENDDO
+              zfrice_thrhld = 0.5_wp
+            ELSE
+              zfrice_thrhld = frsi_min
+            ENDIF
 
-            ELSE  ! tile approach
+            CALL seaice_coldinit_nwp(nproma, zfrice_thrhld,                               &
+              &         frsi    = p_lnd_state(jg)%diag_lnd%fr_seaice(:,jb),               &
+              &         temp_in = initicon(jg)%sfc%tskin(:,jb),                           &
+              &         tice_p  = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_ice    (:,jb), &
+              &         hice_p  = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%h_ice    (:,jb), &
+              &         tsnow_p = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_snow_si(:,jb), &
+              &         hsnow_p = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%h_snow_si(:,jb), &
+              &         tice_n  = p_lnd_state(jg)%prog_wtr(nnew_rcf(jg))%t_ice    (:,jb), &
+              &         hice_n  = p_lnd_state(jg)%prog_wtr(nnew_rcf(jg))%h_ice    (:,jb), &
+              &         tsnow_n = p_lnd_state(jg)%prog_wtr(nnew_rcf(jg))%t_snow_si(:,jb), &
+              &         hsnow_n = p_lnd_state(jg)%prog_wtr(nnew_rcf(jg))%h_snow_si(:,jb)  )
 
-!CDIR NODEP,VOVERTAKE,VOB
-              DO ic = 1, ext_data(jg)%atm%sp_count(jb)
-                jc = ext_data(jg)%atm%idx_lst_sp(ic,jb)
-                ! P. Ripodas. The IF is commented because in the climate runs with SST and CI update
-                !  the initial values of fr_seaice are overwritten and t_ice has to be initialized
-                !  for all the new ice points
-                !IF ( p_lnd_state(jg)%diag_lnd%fr_seaice(jc,jb) > frsi_min  ) THEN
-                  ! initialize t_ice with tskin, which is so far provided by IFS analysis
-                  p_lnd_state(jg)%prog_wtr(ntlr)%t_ice(jc,jb)         = &
-                    &                     initicon(jg)%sfc%tskin(jc,jb)
-                  p_lnd_state(jg)%prog_wtr(nnew_rcf(jg))%t_ice(jc,jb) = &
-                    &                     initicon(jg)%sfc%tskin(jc,jb)
-                !ENDIF
-              ENDDO
-            ENDIF  ! ntiles_total
-          ENDIF  ! lseaice
-
+          ENDIF  ! leseaice
 
           ! Coldstart for fresh water lake model
           !

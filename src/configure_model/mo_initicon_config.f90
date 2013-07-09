@@ -44,7 +44,7 @@ MODULE mo_initicon_config
   IMPLICIT NONE
 
   PUBLIC :: init_mode, nlev_in, nlevsoil_in, zpbl1, zpbl2
-  PUBLIC :: l_hice_in, l_sst_in
+  PUBLIC :: l_sst_in
   PUBLIC :: l_ana_sfc     
   PUBLIC :: l_coarse2fine_mode
   PUBLIC :: ifs2icon_filename
@@ -66,7 +66,6 @@ MODULE mo_initicon_config
   INTEGER  :: nlevsoil_in   ! number of soil levels of input data
 
   REAL(wp) :: zpbl1, zpbl2  ! AGL heights used for vertical gradient computation
-  LOGICAL  :: l_hice_in     ! Logical switch, if sea-ice thickness field is provided as input
   LOGICAL  :: l_sst_in      ! logical switch, if sea surface temperature is provided as input
   LOGICAL  :: l_ana_sfc     ! If true, read surface/soil analysis fields from analysis
                             ! file dwdana_filename   

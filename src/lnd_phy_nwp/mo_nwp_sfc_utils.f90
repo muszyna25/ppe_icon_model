@@ -51,7 +51,6 @@ MODULE mo_nwp_sfc_utils
   USE mo_lnd_nwp_config,      ONLY: nlev_soil, nlev_snow, ntiles_total, ntiles_water, &
     &                               lseaice, llake, lmulti_snow, idiag_snowfrac, ntiles_lnd, &
     &                               lsnowtile, isub_water, isub_seaice, isub_lake
-  USE mo_initicon_config,     ONLY: l_hice_in
   USE mo_soil_ml,             ONLY: terra_multlay_init
   USE mo_flake,               ONLY: flake_init
   USE mo_seaice_nwp,          ONLY: seaice_init_nwp, hice_min, frsi_min, hice_ini
@@ -203,6 +202,7 @@ CONTAINS
 
     INTEGER  :: i_count, ic, i_count_snow, isubs_snow
     REAL(wp) :: temp
+    REAL(wp) :: zfrice_thrhld       ! fraction threshold for creating a sea-ice grid point
     REAL(wp), PARAMETER :: small = 1.E-06_wp
 
     REAL(wp), PARAMETER :: h_ice_coldstart = 1.0_wp   ! sea-ice thickness for cold start [m]
@@ -232,7 +232,7 @@ CONTAINS
 !$OMP            depth_lk,fetch_lk,dp_bs_lk,t_bs_lk,gamso_lk,t_snow_lk_now,          &
 !$OMP            h_snow_lk_now,t_ice_now,h_ice_now,t_mnw_lk_now,t_wml_lk_now,        &
 !$OMP            t_bot_lk_now,c_t_lk_now,h_ml_lk_now,t_b1_lk_now,h_b1_lk_now,        &
-!$OMP            t_scf_lk_now), SCHEDULE(guided)
+!$OMP            t_scf_lk_now,zfrice_thrhld), SCHEDULE(guided)
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -534,8 +534,8 @@ CONTAINS
 
 
       !
-      ! Warmstart initialization for fresh water lake parameterization 
-      ! Is called for both warmstart and coldstart runs.
+      ! Warmstart initialization for fresh water lake parameterization
+      ! Warmstart initialization is performed irrespectively of a coldstart initialization.
       !
       IF (llake) THEN
 
@@ -615,7 +615,7 @@ CONTAINS
           p_prog_lnd_now%t_g_t(jc,jb,isub_lake) = t_scf_lk_now(ic)
 
 
-          ! Prognostic Flake fields at time step new are initialized as well
+          ! In addition, initialize prognostic Flake fields at time step 'new'
           p_prog_wtr_new%t_snow_lk(jc,jb) = t_snow_lk_now(ic)
           p_prog_wtr_new%h_snow_lk(jc,jb) = h_snow_lk_now(ic)
           p_prog_wtr_new%t_ice    (jc,jb) = t_ice_now    (ic)
@@ -634,49 +634,15 @@ CONTAINS
 
 
       !
-      ! Init sea ice parameterization 
+      ! Warmstart for sea-ice parameterization scheme
+      ! Warmstart initialization is performed irrespectively of a coldstart initialization.
+      ! At this point it is assumed that both the ice thickness and the ice surface 
+      ! temperature are available from the previous ICON run or any other educated guess.       
       ! 
       IF ( lseaice ) THEN
 
-
         icount_ice = ext_data%atm%spi_count(jb) ! number of sea-ice points in block jb
 
-
-
-        ! optional cold start
-        !
-        ! Note that the use of l_hice_in is intimately related to the use of tskin 
-        ! to perform a "cold start" initialization of the sea-ice surface temperature. 
-        ! If l_hice_in=.FALSE., the sea-ice thickness is not available. 
-        ! It is then initialized with a meaningful constant value. 
-        !
-        ! However, an estimate of the sea-ice surface temperature is still reqired for the cold start 
-        ! and is assumed to be available. The only option at the time being is to use the 
-        ! IFS skin tempearature for the cold start initialization of t_ice. This is done in
-        ! mo_nh_initicon/copy_initicon2prog_sfc
-
-        IF (.NOT. l_hice_in) THEN
-          DO ic = 1, icount_ice
-            jc = ext_data%atm%idx_lst_spi(ic,jb)
-
-            ! initialize h_ice with a constant of 1.0m
-            !
-
-            p_prog_wtr_now%h_ice(jc,jb) = h_ice_coldstart            
-            ! for testing purposes: ice thickness parameterized as a linear function of sea-ice fraction
-            ! 
-            !p_prog_wtr_now%h_ice(jc,jb) = 0.5_wp + p_lnd_diag%fr_seaice(jc,jb)*0.75_wp
-            p_prog_wtr_new%h_ice(jc,jb) = p_prog_wtr_now%h_ice(jc,jb)
-
-          ENDDO  ! ic
-        ENDIF  ! l_hice_in
-
-
-        ! warm start
-        !
-        ! If l_hice_in=.TRUE., then it is assumed that both the ice thickness and the ice 
-        ! surface temperature are available from the previous ICON run. This actually means 
-        ! a "warm start" of the sea-ice parameterization scheme.
         DO ic = 1, icount_ice
 
           jc = ext_data%atm%idx_lst_spi(ic,jb)
@@ -716,7 +682,34 @@ CONTAINS
           &                                   p_diag%pres_sfc(jc,jb) )
         ENDDO  ! ic
 
+
+        ! Re-Initialize h_ice, t_ice, h_snow_si, t_snow_si for non sea-ice points, because 
+        ! values might be inconsistent due to GRIB-packing
+        !
+        IF ( ntiles_total == 1 ) THEN  ! no tile approach
+          zfrice_thrhld = 0.5_wp
+        ELSE
+          zfrice_thrhld = frsi_min
+        ENDIF
+        DO jc = i_startidx, i_endidx
+          IF (p_lnd_diag%fr_seaice(jc,jb) < zfrice_thrhld) THEN   ! non-seaice point
+            ! now
+            p_prog_wtr_now%h_ice    (jc,jb) = 0._wp
+            p_prog_wtr_now%t_ice    (jc,jb) = tmelt   ! fresh water freezing point
+            p_prog_wtr_now%h_snow_si(jc,jb) = 0._wp
+            p_prog_wtr_now%t_snow_si(jc,jb) = tmelt   ! snow over ice is not treated explicitly
+            !
+            ! new
+            p_prog_wtr_new%h_ice    (jc,jb) = 0._wp
+            p_prog_wtr_new%t_ice    (jc,jb) = tmelt   ! fresh water freezing point
+            p_prog_wtr_new%h_snow_si(jc,jb) = 0._wp
+            p_prog_wtr_new%t_snow_si(jc,jb) = tmelt   ! snow over ice is not treated explicitly
+          ENDIF
+        ENDDO  ! jc
+
       ENDIF  ! lseaice
+
+
 
       ! Init t_g_t for sea water points
 

@@ -51,7 +51,6 @@ MODULE mo_initicon_nml
     & config_nlevsoil_in        => nlevsoil_in,       &
     & config_zpbl1              => zpbl1,             &
     & config_zpbl2              => zpbl2,             &
-    & config_l_hice_in          => l_hice_in,         &
     & config_l_sst_in           => l_sst_in,          &
     & config_l_ana_sfc          => l_ana_sfc,         &
     & config_ifs2icon_filename  => ifs2icon_filename, &
@@ -81,7 +80,6 @@ MODULE mo_initicon_nml
   INTEGER  :: nlevsoil_in   ! number of soil levels of input data
 
   REAL(wp) :: zpbl1, zpbl2  ! AGL heights used for vertical gradient computation
-  LOGICAL  :: l_hice_in     ! Logical switch, if sea-ice thickness field is provided as input
   LOGICAL  :: l_sst_in      ! logical switch, if sea surface temperature is provided as input
   LOGICAL  :: l_ana_sfc     ! If true, read surface/soil analysis fields from analysis
                             ! file dwdana_filename   
@@ -107,7 +105,7 @@ MODULE mo_initicon_nml
 
 
   NAMELIST /initicon_nml/ init_mode, nlev_in, zpbl1, zpbl2, l_coarse2fine_mode, &
-                          nlevsoil_in, l_hice_in, l_sst_in, l_ana_sfc,          &
+                          nlevsoil_in, l_sst_in, l_ana_sfc,                     &
                           ifs2icon_filename, dwdfg_filename,                    &
                           dwdana_filename, filetype, ana_varnames_map_file
   
@@ -144,7 +142,6 @@ CONTAINS
   nlevsoil_in = 4           ! number of soil levels of input data
   zpbl1       = 500._wp     ! AGL heights used for computing vertical 
   zpbl2       = 1000._wp    ! gradients
-  l_hice_in   = .FALSE.     ! true: sea-ice thickness field provided as input
   l_sst_in    = .TRUE.      ! true: sea surface temperature field provided as input
   l_ana_sfc   = .TRUE.      ! true: read soil/surface analysis fields from 
                             !       analysis file dwdana_filename 
@@ -178,7 +175,6 @@ CONTAINS
   config_nlevsoil_in        = nlevsoil_in
   config_zpbl1              = zpbl1
   config_zpbl2              = zpbl2
-  config_l_hice_in          = l_hice_in
   config_l_sst_in           = l_sst_in
   config_l_ana_sfc          = l_ana_sfc
   config_ifs2icon_filename  = ifs2icon_filename

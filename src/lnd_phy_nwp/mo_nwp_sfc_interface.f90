@@ -1176,17 +1176,17 @@ CONTAINS
 
     ! Local arrays  (local copies)
     !
-    REAL(wp) :: f_c(nproma)
-    REAL(wp) :: depth_lk(nproma)
-    REAL(wp) :: fetch_lk(nproma)
-    REAL(wp) :: dp_bs_lk(nproma)
-    REAL(wp) :: t_bs_lk(nproma)
-    REAL(wp) :: gamso_lk(nproma)
-    REAL(wp) :: qmom(nproma)
-    REAL(wp) :: shfl_s(nproma)
-    REAL(wp) :: lhfl_s(nproma)
-    REAL(wp) :: swflxsfc(nproma)
-    REAL(wp) :: lwflxsfc(nproma)
+    REAL(wp) :: f_c      (nproma)
+    REAL(wp) :: depth_lk (nproma)
+    REAL(wp) :: fetch_lk (nproma)
+    REAL(wp) :: dp_bs_lk (nproma)
+    REAL(wp) :: t_bs_lk  (nproma)
+    REAL(wp) :: gamso_lk (nproma)
+    REAL(wp) :: qmom     (nproma)
+    REAL(wp) :: shfl_s   (nproma)
+    REAL(wp) :: lhfl_s   (nproma)
+    REAL(wp) :: swflxsfc (nproma)
+    REAL(wp) :: lwflxsfc (nproma)
     REAL(wp) :: t_snow_lk_now(nproma), t_snow_lk_new(nproma)
     REAL(wp) :: h_snow_lk_now(nproma), h_snow_lk_new(nproma)
     REAL(wp) :: t_ice_now(nproma), t_ice_new(nproma)
@@ -1320,7 +1320,7 @@ CONTAINS
                      &  t_b1_lk_n   = t_b1_lk_new  (:),       & !out
                      &  h_b1_lk_n   = h_b1_lk_new  (:),       & !out
                      &  t_scf_lk_n  = t_scf_lk_new (:)        ) !out
-! optional arguments (tendencies) are neglected
+! optional arguments (tendencies) are omitted
 
 
       !  Recover fields from index list
@@ -1343,8 +1343,8 @@ CONTAINS
 
         lnd_prog_new%t_g_t(jc,jb,isub_lake) = t_scf_lk_new (ic)
 
-        ! surface saturation specific humidity (uses saturation water vapor pressure 
-        ! over water)
+        ! surface saturation specific humidity over water/ice 
+        !
         IF ( h_ice_new (ic) > 0._wp ) THEN
           p_lnd_diag%qv_s_t(jc,jb,isub_lake)  = spec_humi(sat_pres_ice(t_scf_lk_new(ic)),&
             &                                   p_diag%pres_sfc(jc,jb) )
