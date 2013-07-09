@@ -49,7 +49,9 @@ for varname in ${varNames3D}; do
   mv ${oFile}.${oType} plots/.
 done
 
+# $nclCaller does not reveal an error code
+# check error needed for buildbot
+check_error 0 "oce_default: $nclCaller"
+
 exit
 
-#
-## vim:ft=sh

@@ -49,5 +49,7 @@ for varname in ${varNames3D}; do
   mv ${oFile}.${oType} plots/.
 done
 
-#
-## vim:ft=sh
+# $nclCaller does not reveal an error code
+# check error needed for buildbot
+check_error 0 "oce_parrallel: $nclCaller"
+
