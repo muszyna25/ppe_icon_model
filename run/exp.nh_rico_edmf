@@ -43,8 +43,8 @@ dt_restart=`expr ${ndays_restart} \* 86400`
 #
 #-----------------------------------------------------------------------------
 # model timing
-dtime=0.15
-dt_checkpoint=`expr 6 \* 3600 `  # write restart file every 6 hours
+dtime=5
+dt_checkpoint=`expr 10 \* 3600 `  # write restart file every 6 hours
 #
 #-----------------------------------------------------------------------------
 # model parameters
@@ -54,12 +54,12 @@ atmo_model_equations=3 # equation system
 #                     3=non-hydrost. atm.,
 #                    -1=shallow water model
 #                    -2=hydrost. ocean
-nlev=100           # nlev = number of full levels
+nlev=90            # nlev = number of full levels
 iforcing=3         # 3 for inwp forcing; 0 for no forcing
 #
 #-----------------------------------------------------------------------------
 # the grid files
-atmo_dyn_grids='torus_grid_r100s200.nc'
+atmo_dyn_grids='torus_grid_r5000s32.nc'
 #
 #-----------------------------------------------------------------------------
 
@@ -74,7 +74,9 @@ cat > ${atmo_namelist} << EOF
 !
 &parallel_nml
  nproma         = ${nproma}
- l_fast_sum     = .FALSE. 
+ p_test_run     = .false.
+ l_test_openmp  = .false.
+ l_log_checks   = .false.
 /
 &grid_nml
  is_plane_torus = .TRUE.
@@ -83,17 +85,17 @@ cat > ${atmo_namelist} << EOF
  corio_lat = 18.0         !in degrees
 / 
 &run_nml
- num_lev      = ${nlev},     ! number of full levels of vertical grid
- dtime        = ${dtime}     ! [s] timestep in seconds
- ltestcase    = .TRUE.       ! run testcase                 --> testcase_ctl
- ldynamics    = .TRUE.       ! dynamics
- ltransport   = .TRUE.       ! transport
- iforcing     = ${iforcing}  !
- ntracer      =  3           ! number of tracers - default 0
- ltimer       = .true.       ! 
- timers_level = 100          !
- msg_level    = 15           ! detailed report during integration
- output       = 'nml','totint'      
+ num_lev     = ${nlev},      ! number of full levels of vertical grid
+ dtime       = ${dtime}     ! [s] timestep in seconds
+ ltestcase   = .TRUE.       ! run testcase                 --> testcase_ctl
+ ldynamics   = .TRUE.       ! dynamics
+ ltransport  = .TRUE.       ! transport
+ iforcing    = ${iforcing}  !
+ ntracer     =  6           ! number of tracers - default 0; EDMF requires 6 tracers
+ ltimer      = .true.       ! 
+ timers_level = 100         !
+ msg_level   = 12          ! detailed report during integration
+ output      = 'nml','totint'      
 /
 &dynamics_nml
  iequations  = ${atmo_model_equations}       ! 1: hydrost. atmosphere
@@ -117,44 +119,95 @@ cat > ${atmo_namelist} << EOF
  is_subsidence_heat    = .TRUE.
  is_advection   = .TRUE.
  is_geowind     = .TRUE.
- is_rad_forcing = .TRUE.
+ is_rad_forcing = .FALSE.
  is_theta       = .TRUE.
 /
 &diffusion_nml
- lhdiff_temp  = .TRUE.
- lhdiff_vn    = .FALSE.
- lhdiff_w     = .FALSE
+ hdiff_order          = 5
+ itype_vn_diffu       = 1
+ itype_t_diffu        = 2
+ hdiff_efdt_ratio     = 17.5
+ hdiff_smag_fac       = 0.05
+ lhdiff_vn            = .TRUE.
+ lhdiff_temp          = .TRUE.
+ hdiff_multfac        = 1.0
+ hdiff_tv_ratio       = 1.0
 /
 &nwp_phy_nml
-inwp_gscp       = 1
-inwp_convection = 0
-inwp_radiation  = 0
-inwp_cldcover   = 0
-inwp_turb       = 5
-inwp_satad      = 1
-inwp_surface    = 0
+inwp_gscp                    = 1   ! 1: default, or 10
+inwp_convection              = 1
+inwp_radiation               = 1
+inwp_cldcover                = 1   ! 0: no cld, 1: new diagnostic, 3: COSMO, 5: grid scale
+inwp_turb                    = 3   ! 1: Raschendorfer, 2: GME, 3: EDMF-DUALM (ntracer+1,ntiles=8)
+inwp_satad                   = 1
+inwp_gwd                     = 1
+inwp_surface                 = 1
+inwp_sso                     = 0
+itype_z0                     = 2   ! 1: default, 2: turn off SSO part of z0
+dt_conv                      = 300
+dt_sso                       = 300
+dt_gwd                       = 300
+dt_rad                       = 600
+latm_above_top               = .FALSE.
+efdt_min_raylfric            = 7200.
 /
-&turbdiff_nml
+&lnd_nml
+ ntiles          = 5       ! number of tiles
+ lana_rho_snow   = .TRUE. ! true: initialization of rho_snow and depth_snow,false:set rho_snow to default value 
+ nlev_snow       = 2       ! 2 for multi-level snow
+ lmulti_snow     = .TRUE.  ! true: multi-level snow, false: single-level snow
+ idiag_snowfrac  = 3
+ lsnowtile       = .FALSE. ! true: allow separate snow and snow-free tiles
+ lseaice         = .true.
+/
+&radiation_nml
+ irad_o3    = 7             ! 4= use APE ozone 0=no ozone 6: non-hydrostatic ozone
+ izenith    = 3             ! circular orbit, no seasonal cycle but with diurnal cycle
+ irad_h2o   = 1             ! prognostic vapor, liquid and ice
+ irad_co2   = 2             ! constant co2 vmr
+ irad_ch4   = 0             ! switch off ch4
+ irad_n2o   = 0             ! switch off n2o
+ irad_o2    = 0             ! switch off o2
+ irad_cfc11 = 0             ! switch off cfc11
+ irad_cfc12 = 0             ! switch off cfc12
+ irad_aero  = 0             ! switch off aerosols
+/
+&interpol_nml
+ nudge_zone_width             = 8
+ lsq_high_ord                 = 2
+ l_intp_c2l                   = .TRUE.
+ l_mono_c2l                   = .TRUE.
+/
+&&turbdiff_nml
 lconst_z0 = .TRUE.
 /
 &transport_nml
- ihadv_tracer = 1,1,1,0,0,0,0
- ivadv_tracer = 1,1,1,0,0,0,0
+ ctracer_list  = '12345'
+ ivadv_tracer  = 3,3,3,3,3
+ itype_hlimit  = 3,4,4,4,4,0
+ ihadv_tracer  = 32,2,2,2,2,0
 /
 &nonhydrostatic_nml
+ itime_scheme  = 4
  iadv_rhotheta = 2
  igradp_method = 2  !new default
  ivctype       = 2  !1=Gal-Chen; 2=SLEVE
- rayleigh_type   = 1 
- rayleigh_coeff  = 0.10      ! Rayleigh coefficient for damping in upper levels
- vwind_offctr    = 0.4       ! off-centering for time differencing (like alpha in turb)
- l_open_ubc      = .false.   ! top open upper boundary condition. might help to go higher
- damp_height     = 3200      ! damping height, keep top 5-10 levels for damping
+ iadv_rcf      = 5  !default=4
+ rayleigh_coeff  = 0.10     ! Rayleigh coefficient for damping in upper levels
+ vwind_offctr    = 0.4      ! off-centering for time differencing (like alpha in turb)
+ l_open_ubc      = .false.  ! top open upper boundary condition. might help to go higher
+ damp_height     = 50000    ! damping height, keep top 5-10 levels for damping
+ htop_moist_proc = 22500.
+ hbot_qvsubstep  = 24000.
 /
 &sleve_nml                   ! vertical grid standard output for message level >= 15
- min_lay_thckn   = 0         ! lowest level thickness (between half-levels), set 0 to do equal spacing
- top_height      = 4000
+ min_lay_thckn   = 20.        ! lowest level thickness (between half-levels), set 0 to do equal spacing
+ top_height      = 75000
  stretch_fac     = 0.9       ! stretching towards model top (1.0 default; smaller - bigger top level thickness)
+ decay_scale_1   = 4000.
+ decay_scale_2   = 2500.
+ decay_exp       = 1.2
+ flat_height     = 16000.
 /
 &io_nml
  dt_checkpoint    = ${dt_checkpoint} ! [s] trigger new restart file
@@ -165,12 +218,18 @@ lconst_z0 = .TRUE.
  dom              = -1
  output_time_unit = 2
  output_bounds    = 0.,1440.,30.   !start, end, increment
- steps_per_file   = 10
+ steps_per_file   = 1
  include_last     = .TRUE.
  remap            = 0   ! triangular grid
  output_filename  = '${EXPNAME}_tri'
  output_grid      = .TRUE.
- ml_varlist       = 'u','v','w','temp','theta_v','pres_sfc','pres','tkvh','z_ifc','z_mc','rho', 'qv', 'qc', 'qr'
+ ml_varlist       = 'u','v','w','temp','theta_v','pres_sfc','pres','tkvh','z_ifc','z_mc','rho', 'qv', 'qc', 
+                    'qi', 'qr', 'qs', 'clc', 'tot_qv', 'tot_qc', 'tot_qi', 
+                    'ddt_temp_radsw', 'ddt_temp_radlw'  'ddt_temp_turb', 'ddt_temp_pconv', 
+                    'ddt_u_turb', 'ddt_u_pconv', 'ddt_v_turb', 'ddt_v_pconv', 'ddt_qv_turb', 'ddt_qv_conv',
+                    'clct', 'tqv', 'tqc', 'tqi', 'tot_prec', 'rain_gsp', 'rain_con', 'snow_gsp', 'snow_con', 
+                    'ashfl_s', 'alhfl_s', 'athb_s', 'athb_t', 'asob_s', 'asob_t'
+
 /
 EOF
 #-----------------------------------------------------------------------------
