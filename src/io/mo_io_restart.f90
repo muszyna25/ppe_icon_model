@@ -400,11 +400,16 @@ CONTAINS
     private_ne  = ne
     private_nev = nev
     !
-    IF (.NOT. (lvct_initialised .OR. ldepth_initialised            &
-      & .OR. ldepth_lnd_initialised )) THEN
-      CALL finish('init_restart','none of the vertical grids is initialised')
-      ! more consistency checks need to follow
-    ENDIF
+
+!AD(9July-2013): The following condition seemed unnecessary. So after 
+!  discussing with DR we decided to get rid of it for time being
+
+!    IF (.NOT. (lvct_initialised .OR. ldepth_initialised            &
+!      & .OR. ldepth_lnd_initialised )) THEN
+!      CALL finish('init_restart','none of the vertical grids is initialised')
+!      ! more consistency checks need to follow
+!    ENDIF
+
     !
     lrestart_initialised = .TRUE.
     !

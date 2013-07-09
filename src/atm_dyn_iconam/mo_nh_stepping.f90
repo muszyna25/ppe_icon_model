@@ -473,6 +473,9 @@ MODULE mo_nh_stepping
   lwrite_checkpoint = .FALSE.
 
   ! Prepare number of soil/snow layers for TERRA/JSBACH to be used for restart file creation below.
+  ! AD: Initialize with 0 to avoid errors with certain compilers
+  nsoil = 0._wp
+  nsnow = 0._wp
   IF (iforcing == inwp) THEN
     DO jg=1,n_dom
       nsoil(jg) = nlev_soil

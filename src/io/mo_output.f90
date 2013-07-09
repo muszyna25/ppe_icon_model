@@ -521,23 +521,29 @@ CONTAINS
 
     IF (PRESENT(opt_pvct)) CALL set_restart_vct( opt_pvct )  ! Vertical coordinate (A's and B's)
     IF (PRESENT(opt_depth_lnd)) THEN            ! geometrical depth for land module
-      inlev_soil = opt_depth_lnd
-      ALLOCATE(zlevels_full(inlev_soil))
-      ALLOCATE(zlevels_half(inlev_soil+1))
-      DO i = 1, inlev_soil
-        zlevels_full(i) = REAL(i,wp)
-      END DO
-      DO i = 1, inlev_soil+1
-        zlevels_half(i) = REAL(i,wp)
-      END DO
-      CALL set_restart_depth_lnd(zlevels_half, zlevels_full)
-      DEALLOCATE(zlevels_full)
-      DEALLOCATE(zlevels_half)
+      !This part is only called if opt_depth_lnd > 0
+      IF (opt_depth_lnd > 0) THEN  
+        inlev_soil = opt_depth_lnd
+        ALLOCATE(zlevels_full(inlev_soil))
+        ALLOCATE(zlevels_half(inlev_soil+1))
+        DO i = 1, inlev_soil
+          zlevels_full(i) = REAL(i,wp)
+        END DO
+        DO i = 1, inlev_soil+1
+          zlevels_half(i) = REAL(i,wp)
+        END DO
+        CALL set_restart_depth_lnd(zlevels_half, zlevels_full)
+        DEALLOCATE(zlevels_full)
+        DEALLOCATE(zlevels_half)
+      ELSE
+       inlev_soil = 0
+      END IF
     ELSE
       inlev_soil = 0
     ENDIF
-    IF (PRESENT(opt_nlev_snow)) THEN
-      IF (opt_nlev_snow /= 0) THEN  ! number of snow levels (multi layer snow model)
+    IF (PRESENT(opt_nlev_snow)) THEN  ! number of snow levels (multi layer snow model)
+      !This part is only called if opt_nlev_snow > 0
+      IF (opt_nlev_snow > 0) THEN   
         inlev_snow = opt_nlev_snow
         ALLOCATE(zlevels_full(inlev_snow))
         ALLOCATE(zlevels_half(inlev_snow+1))
@@ -558,13 +564,18 @@ CONTAINS
     ENDIF
 !DR end preliminary fix
     IF (PRESENT(opt_depth)) THEN                              ! Ocean depth
-      izlev = opt_depth
-      ALLOCATE(zlevels_full(izlev))
-      ALLOCATE(zlevels_half(izlev+1))
-      CALL set_zlev(zlevels_half, zlevels_full)
-      CALL set_restart_depth(zlevels_half, zlevels_full)
-      DEALLOCATE(zlevels_full)
-      DEALLOCATE(zlevels_half)
+      !This part is only called if opt_depth > 0
+      IF(opt_depth>0)THEN
+        izlev = opt_depth
+        ALLOCATE(zlevels_full(izlev))
+        ALLOCATE(zlevels_half(izlev+1))
+        CALL set_zlev(zlevels_half, zlevels_full)
+        CALL set_restart_depth(zlevels_half, zlevels_full)
+        DEALLOCATE(zlevels_full)
+        DEALLOCATE(zlevels_half)
+      ELSE
+        izlev = 0
+      END IF
     ELSE
       izlev = 0
     END IF
