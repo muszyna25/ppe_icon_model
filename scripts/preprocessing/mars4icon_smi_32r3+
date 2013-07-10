@@ -72,6 +72,7 @@ fi
 
 case ${res} in
     255) grd=128 ;;
+    399) grd=200 ;;
     799) grd=400 ;;
    1279) grd=640 ;;
 esac

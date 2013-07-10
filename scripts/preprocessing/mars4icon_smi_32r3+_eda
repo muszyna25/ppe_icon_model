@@ -63,14 +63,25 @@ else
   type=fc
 fi
 
+if [ ${cymd} -ge 20101109 ] ; then
+  rainsnow="/crwc/cswc"
+else
+  rainsnow=""
+fi
+
 # --- read ---
 
 case ${res} in
     255) grd=128 ;;
+    399) grd=200 ;;
     799) grd=400 ;;
    1279) grd=640 ;;
 esac
-grib_file=${datadir}/ifs_oper_T${res}_${cymdg_fc}.grb
+if [[ -z $RESULT_GRIB_FILE ]] ; then
+  grib_file=${datadir}/ifs_oper_T${res}_${cymdg_fc}.grb
+else
+  grib_file=${RESULT_GRIB_FILE}
+fi
 
 cat > ${tempdir}/MARS_IN.$$ << MARS_IFS2ICON_EOF.$$
 # MARS request for ifs2icon
@@ -87,7 +98,7 @@ retrieve,
         time     = ${hh},
         step     = ${step},
         target   = "${grib_file}",
-        param    = u/v/w/t/q/clwc/ciwc/crwc/cswc/o3,    # /crwc/cswc/ rain,snow on/off
+        param    = u/v/w/t/q/clwc/ciwc${rainsnow}/o3,   # /crwc/cswc/ rain,snow on/off
         repres   = sh,                                  # spherical harmonics,
         resol    = ${res},
         grid     = ${grd},
@@ -98,7 +109,7 @@ retrieve,
         param    = lnsp/z,
         levelist = 1
 retrieve,
-        param    = tsn/skt/stl1/stl2/stl3/stl4/sd/rsn/asn/src/slt/z,
+        param    = tsn/skt/sst/stl1/stl2/stl3/stl4/sd/rsn/asn/src/slt/z,
         repres   = gg, 
         resol    = off, 
         levtype  = surface
