@@ -77,7 +77,7 @@ MODULE mo_nh_initicon
   USE mo_util_string,         ONLY: tolower, difference, one_of
   USE mo_ifs_coord,           ONLY: alloc_vct, init_vct, vct, vct_a, vct_b
   USE mo_lnd_nwp_config,      ONLY: nlev_soil, ntiles_total, lmulti_snow, nlev_snow, lseaice,&
-    &                               ntiles_water
+    &                               llake, isub_lake, ntiles_water
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
   USE mo_master_nml,          ONLY: model_base_dir
   USE mo_phyparam_soil,       ONLY: csalb_snow_min, csalb_snow_max,crhosmin_ml,crhosmax_ml
@@ -100,6 +100,7 @@ MODULE mo_nh_initicon
   USE mo_nwp_sfc_interp,      ONLY: smi_to_sm_mass
   USE mo_util_cdi_table,      ONLY: print_cdi_summary
   USE mo_nwp_phy_state,       ONLY: prm_nwp_diag_list
+  USE mo_data_flake,          ONLY: rflk_depth_bs_ref, tpl_T_f, tpl_T_r, C_T_min
 
   IMPLICIT NONE
 
@@ -2899,15 +2900,63 @@ MODULE mo_nh_initicon
 
           ENDIF  ! leseaice
 
-          ! Coldstart for fresh water lake model
-          !
-!DR          IF (llake) THEN
-          ! To be implemented ... CALL flake_coldstart()
+          ! Cold-start initialization of the fresh-water lake model FLake.
+          ! The procedure is the same as in "int2lm".
+          ! Note that no lake ice is assumed at the cold start.
+
+!DR       ! To be implemented ... CALL flake_coldstart()
           ! Make use of sfc%ls_mask in order to identify potentially problematic points, 
           ! where depth_lk>0 (lake point in ICON) but ls_mask >0.5 (land point in IFS).
-          ! At these points, tskin should not be used to initialize the water temperature.
-!DR          ENDIF
+!DR       ! At these points, tskin should not be used to initialize the water temperature.
 
+          IF (llake) THEN
+            ! Loop over grid boxes with lakes
+            DO ic=1, ext_data(jg)%atm%fp_count(jb)
+              ! Take index from the lake index list
+              jc = ext_data(jg)%atm%idx_lst_fp(ic,jb)
+              ! Mixed-layer depth is set equal to 10 m or to the lake depth, whichever is smaller 
+              p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%h_ml_lk(jc,jb) =  & 
+                &  MIN(ext_data(jg)%atm%depth_lk(jc,jb), 10._wp)
+              ! Shape factor is set to its minimum value 
+              p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%c_t_lk(jc,jb)  = C_T_min             
+              ! Mixed-layer temperature is set to the surface temprature
+              ! that should be provided for the cold-start initialization 
+              ! (e.g. skin temperature can be taken as an estimate of t_wml_lk)
+              ! Clearly, the mixed-layer temperature cannot be less than the fresh-water freezing point 
+              p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_wml_lk(jc,jb) =   &
+                &  MAX(initicon(jg)%sfc%tskin(jc,jb), tpl_T_f)
+              ! Bottom temperature is set equal 
+              ! to the mixed-layer temperarture if the water column is mixed
+              ! or to the temperarture of maximum density of fresh water  
+              ! if the mixed-layer depth is less than the depth to the bottom
+              p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_bot_lk(jc,jb) = MERGE(  &
+                &  p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_wml_lk(jc,jb), tpl_T_r,  &
+                &  p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%h_ml_lk(jc,jb) >=          & 
+                &  ext_data(jg)%atm%depth_lk(jc,jb) ) 
+              ! Mean temperature of the water column is computed from the formula
+              ! t_mnw_lk = t_wml_lk - c_t_lk * MAX(0., 1.-h_ml_lk/depth_lk) * (t_wml_lk-t_bot_lk) 
+              p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_mnw_lk(jc,jb) =                        &
+                &  p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_wml_lk(jc,jb) -                   & 
+                &  p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%c_t_lk(jc,jb) *                     &
+                &  MAX(0._wp, ( 1._wp-p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%h_ml_lk(jc,jb)/  &  
+                &  ext_data(jg)%atm%depth_lk(jc,jb))) *                                       &
+                &  ( p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_wml_lk(jc,jb) -                 &
+                &    p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_bot_lk(jc,jb) )
+              ! No ice is assumed at cold-start initilization
+              p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_ice(jc,jb) = tpl_T_f  ! Fresh-water freezing point
+              p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%h_ice(jc,jb) = 0._wp    ! Zero ice thickness
+              ! Snow over lake ice is not considered explicitly
+              p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_snow_lk(jc,jb) =  &     ! Ice surface temperature
+                &  p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_ice(jc,jb) 
+              p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%h_snow_lk(jc,jb) = 0._wp  ! Zero snow thickness
+              ! Bottom sediment module of FLake is switched off  
+              p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_b1_lk(jc,jb) = tpl_T_r            ! Reference value
+              p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%h_b1_lk(jc,jb) = rflk_depth_bs_ref  ! Reference value
+              ! Set lake-surface temperature equal to the mixed-layer temperature
+              p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_g_t(jc,jb,isub_lake) =  &
+                &  p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_wml_lk(jc,jb)
+            END DO  ! End of loop over grid boxes with lakes
+          ENDIF  ! llake
 
         ENDIF   ! inwp_surface > 0
 
