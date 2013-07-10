@@ -328,7 +328,7 @@ MODULE mo_surface_les
         DO jc = i_startidx, i_endidx
                               
             !Get surface qv and temperature
-            p_diag_lnd%qv_s(jc,jb) = spec_humi(sat_pres_water(th0_rico),pres_sfc(jc,jb))
+            p_diag_lnd%qv_s(jc,jb) = spec_humi(sat_pres_water(les_config(jg)%sst),pres_sfc(jc,jb))
             p_prog_lnd_new%t_g(jc,jb) = les_config(jg)%sst
             
             !Mean wind at nlev

@@ -607,7 +607,7 @@ INVDF = MAX(INVDF,2)               !at lease 2 sub-steps
 
 !xxx
 
-! INVDF  = 1
+INVDF  = 1
 
 ZINVDF = 1.0_JPRB/INVDF
 

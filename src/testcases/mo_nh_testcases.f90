@@ -1237,11 +1237,13 @@ MODULE mo_nh_testcases
       nlev   = p_patch(1)%nlev
       CALL init_nh_state_cbl ( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), p_nh_state(jg)%ref,  &
                       & p_nh_state(jg)%diag, p_int(jg), p_nh_state(jg)%metrics )
-
+                      
+      IF (atm_phy_nwp_config(1)%inwp_turb==5) THEN
       CALL nh_prog_add_random( p_patch(jg), p_nh_state(jg)%prog(nnow(jg))%w(:,:,:),       &
                                "cell", 0.05_wp, nlev-3, nlev ) 
       CALL nh_prog_add_random( p_patch(jg), p_nh_state(jg)%prog(nnow(jg))%theta_v(:,:,:), & 
                                "cell", 0.2_wp, nlev-3, nlev ) 
+      END IF
 
       CALL duplicate_prog_state(p_nh_state(jg)%prog(nnow(jg)),p_nh_state(jg)%prog(nnew(jg)))
     END DO !jg
@@ -1258,10 +1260,12 @@ MODULE mo_nh_testcases
       CALL init_nh_state_rico ( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), p_nh_state(jg)%ref,  &
                       & p_nh_state(jg)%diag, p_int(jg), p_nh_state(jg)%metrics )
 
+      IF (atm_phy_nwp_config(1)%inwp_turb==5) THEN
       CALL nh_prog_add_random( p_patch(jg), p_nh_state(jg)%prog(nnow(jg))%w(:,:,:),       &
                                "cell", 0.05_wp, nlev-3, nlev ) 
       CALL nh_prog_add_random( p_patch(jg), p_nh_state(jg)%prog(nnow(jg))%theta_v(:,:,:), & 
                                "cell", 0.2_wp, nlev-3, nlev ) 
+      END IF
 
       CALL duplicate_prog_state(p_nh_state(jg)%prog(nnow(jg)),p_nh_state(jg)%prog(nnew(jg)))
     END DO !jg
@@ -1277,11 +1281,13 @@ MODULE mo_nh_testcases
       nlev   = p_patch(1)%nlev
       CALL init_nh_state_gate ( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), p_nh_state(jg)%ref,  &
                       & p_nh_state(jg)%diag, p_int(jg), p_nh_state(jg)%metrics )
-
+                      
+      IF (atm_phy_nwp_config(1)%inwp_turb==5) THEN
       CALL nh_prog_add_random( p_patch(jg), p_nh_state(jg)%prog(nnow(jg))%w(:,:,:),       &
                                "cell", 0.05_wp, nlev-3, nlev ) 
       CALL nh_prog_add_random( p_patch(jg), p_nh_state(jg)%prog(nnow(jg))%theta_v(:,:,:), & 
                                "cell", 0.2_wp, nlev-3, nlev ) 
+      END IF
 
       CALL duplicate_prog_state(p_nh_state(jg)%prog(nnow(jg)),p_nh_state(jg)%prog(nnew(jg)))
     END DO !jg
@@ -1293,7 +1299,7 @@ MODULE mo_nh_testcases
 
 
   IF ( ANY( (/icosmo,iedmf,10,11,12/)==atm_phy_nwp_config(1)%inwp_turb ) .AND. &
-       (nh_test_name=='APE_nh' .OR. nh_test_name=='CBL' .OR. nh_test_name=='GATE') ) THEN
+       (nh_test_name=='APE_nh' .OR. nh_test_name=='CBL' .OR. nh_test_name=='GATE'.OR. nh_test_name=='RICO') ) THEN
     DO jg = 1, n_dom
     !Snow and sea ice initialization to avoid problems in EDMF
       p_lnd_state(jg)%prog_lnd(nnow(jg))%t_snow_t(:,:,:)        = 300._wp   !snow
