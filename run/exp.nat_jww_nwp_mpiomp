@@ -33,14 +33,14 @@ fi
 # This test must have available at least 3 MPI processes.
 #
 # If the model runs with mpi_procs=1, then this script exits without error:
-if [[ ${mpi_procs} = 1 ]]; then
+if [[ ${mpi_total_procs} = 1 ]]; then
   echo "This test must not be started if mpi_procs=1 --> exit test without error"
   check_error 0 "exp.nat_jww_nwp_mpiomp"
   exit 0
 fi
 
 # If running in parallel, mpi_procs*no_of_nodes must be bigger than 2:
-n_procs=`expr ${mpi_procs} \* ${no_of_nodes}`
+n_procs=`expr ${mpi_procs_pernode} \* ${no_of_nodes}`
 if [[ ${n_procs} = 2 ]]; then
   echo "This test needs at least 3 MPI processes --> increase mpi_procs from 2 to 3"
   mpi_procs=3
