@@ -1,3 +1,5 @@
+#!/bin/ksh
+
 #=============================================================================
 #
 # This section of the run script containes the specifications of the ocean experiment.
@@ -6,6 +8,15 @@
 #
 # Default EXPNAME is the suffix of this script after "exp."
 #
+#-----------------------------------------------------------------------------
+
+if [[ _${target} = "_sx9" ]]; then
+  echo "This test is disabled on sx9 due to missing files --> exit test without error"
+  check_error 0 "exp.oce_mpiom"
+  exit 0
+fi
+
+
 #-----------------------------------------------------------------------------
 # Basic specifications for the ICON ocean model: comparison to MPIOM
 # --------------------------------------
@@ -85,7 +96,7 @@ iforc_len=365  # length of OMIP/NCEP dataset: 1 = annual; 12 = monthly data; 365
 #-----------------------------------------------------------------------------
 # global timing
 start_date="2001-01-01T00:00:00Z"
-  end_date="2001-01-02T00:00:00Z"
+  end_date="2001-01-01T04:00:00Z"
 #
 #-----------------------------------------------------------------------------
 # model timing
@@ -156,7 +167,7 @@ cat > ${ocean_namelist} << EOF
 !  ml_varlist       = 'wet_c','group:ice_default'
 /
 &dbg_index_nml
-  idbg_mxmn=0                     ! initialize MIN/MAX  debug output
+  idbg_mxmn=5                     ! initialize MIN/MAX  debug output
   idbg_val =0                     ! initialize one cell debug output
   idbg_slev=1                     ! initialize start level for debug output
   idbg_elev=5                     ! initialize end level for debug output
