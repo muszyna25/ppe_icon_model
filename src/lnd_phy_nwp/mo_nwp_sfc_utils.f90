@@ -42,6 +42,7 @@ MODULE mo_nwp_sfc_utils
   USE mo_physical_constants,  ONLY: tmelt, tf_salt, rdocp => rd_o_cpd  ! r_d / cp_d
   USE mo_impl_constants,      ONLY: min_rlcell_int, zml_soil
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c
+  USE mo_data_flake,          ONLY: tpl_T_r, C_T_min, rflk_depth_bs_ref
   USE mo_loopindices,         ONLY: get_indices_c
   USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_nwp_lnd_types,       ONLY: t_lnd_prog, t_wtr_prog, t_lnd_diag, t_lnd_state
@@ -50,7 +51,8 @@ MODULE mo_nwp_sfc_utils
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
   USE mo_lnd_nwp_config,      ONLY: nlev_soil, nlev_snow, ntiles_total, ntiles_water, &
     &                               lseaice, llake, lmulti_snow, idiag_snowfrac, ntiles_lnd, &
-    &                               lsnowtile, isub_water, isub_seaice, isub_lake
+    &                               lsnowtile, isub_water, isub_seaice, isub_lake,    &
+    &                               frlake_thrhld
   USE mo_soil_ml,             ONLY: terra_multlay_init
   USE mo_flake,               ONLY: flake_init
   USE mo_seaice_nwp,          ONLY: seaice_init_nwp, hice_min, frsi_min, hice_ini
@@ -92,9 +94,9 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   !>
-  !! Init surface model TERRA and seaice model
+  !! Init surface model TERRA, lake model Flake and seaice model
   !!
-  !! Init surface model TERRA and seaice model
+  !! Init surface model TERRA, lake model Flake and seaice model
   !!
   !! @par Revision History
   !! Initial revision by Ekaterina Machulskaya, DWD (2011-07-??)
@@ -533,9 +535,15 @@ CONTAINS
       END DO ! isubs
 
 
+      !===================================================!
+      !                                                   !
+      !  Warm-start initialization for sea-ice and lake   !
+      !                                                   !
+      !===================================================!
+
       !
-      ! Warmstart initialization for fresh water lake parameterization
-      ! Warmstart initialization is performed irrespectively of a coldstart initialization.
+      ! Warm-start initialization for fresh water lake parameterization
+      ! This initialization is performed irrespectively of a cold-start initialization.
       !
       IF (llake) THEN
 
@@ -628,14 +636,58 @@ CONTAINS
           p_prog_wtr_new%t_b1_lk  (jc,jb) = t_b1_lk_now  (ic)
           p_prog_wtr_new%h_b1_lk  (jc,jb) = h_b1_lk_now  (ic)
     
-        ENDDO
+        ENDDO  ! ic
+
+        ! Re-Initialize lake-specific fields
+        ! t_wml_lk
+        ! t_mnw_lk
+        ! t_bot_lk
+        ! c_t_lk
+        ! h_ml_lk
+        ! h_snow_lk
+        ! t_snow_lk
+        ! t_bl_lk
+        ! h_bl_lk
+        ! for non-lake points, because values might be inconsistent due to GRIB-packing
+        !
+        DO jc = i_startidx, i_endidx
+          IF (ext_data%atm%frac_t(jc,jb,isub_lake) < frlake_thrhld) THEN   ! non-lake point
+            ! now
+            p_prog_wtr_now%t_wml_lk (jc,jb) = tpl_T_r        ! temperature of maximum density 
+                                                             ! of fresh water
+            p_prog_wtr_now%t_mnw_lk (jc,jb) = tpl_T_r 
+            p_prog_wtr_now%t_bot_lk (jc,jb) = tpl_T_r
+            p_prog_wtr_now%c_t_lk   (jc,jb) = C_T_min        ! minimum value
+            p_prog_wtr_now%h_ml_lk  (jc,jb) = 0._wp
+            p_prog_wtr_now%h_snow_lk(jc,jb) = 0._wp
+            p_prog_wtr_now%t_snow_lk(jc,jb) = tmelt          ! fresh water freezing point
+            p_prog_wtr_now%t_b1_lk  (jc,jb) = tpl_T_r        ! reference value, bottom-sediment
+                                                             ! module is switched off
+            p_prog_wtr_now%h_b1_lk  (jc,jb) = rflk_depth_bs_ref ! reference value, bottom-sediment
+                                                                ! is switched off
+            !
+            ! new
+            p_prog_wtr_new%t_wml_lk (jc,jb) = tpl_T_r        ! temperature of maximum density 
+                                                             ! of fresh water
+            p_prog_wtr_new%t_mnw_lk (jc,jb) = tpl_T_r 
+            p_prog_wtr_new%t_bot_lk (jc,jb) = tpl_T_r
+            p_prog_wtr_new%c_t_lk   (jc,jb) = C_T_min        ! minimum value
+            p_prog_wtr_new%h_ml_lk  (jc,jb) = 0._wp
+            p_prog_wtr_new%h_snow_lk(jc,jb) = 0._wp
+            p_prog_wtr_new%t_snow_lk(jc,jb) = tmelt          ! fresh water freezing point
+            p_prog_wtr_new%t_b1_lk  (jc,jb) = tpl_T_r        ! reference value, bottom-sediment
+                                                             ! module is switched off
+            p_prog_wtr_new%h_b1_lk  (jc,jb) = rflk_depth_bs_ref ! reference value, bottom-sediment
+                                                                ! is switched off
+          ENDIF
+        ENDDO  ! jc
 
       ENDIF  ! llake
 
 
       !
-      ! Warmstart for sea-ice parameterization scheme
-      ! Warmstart initialization is performed irrespectively of a coldstart initialization.
+      ! Warm-start for sea-ice parameterization scheme
+      ! This initialization is performed irrespectively of a coldstart initialization.
       ! At this point it is assumed that both the ice thickness and the ice surface 
       ! temperature are available from the previous ICON run or any other educated guess.       
       ! 
@@ -683,8 +735,49 @@ CONTAINS
         ENDDO  ! ic
 
 
-        ! Re-Initialize h_ice, t_ice, h_snow_si, t_snow_si for non sea-ice points, because 
-        ! values might be inconsistent due to GRIB-packing
+        ! Re-initialize sea-ice specific fields h_snow_si, t_snow_si for non sea-ice points, 
+        ! because values might be inconsistent due to GRIB-packing
+        !
+        IF ( ntiles_total == 1 ) THEN  ! no tile approach
+          zfrice_thrhld = 0.5_wp
+        ELSE
+          zfrice_thrhld = frsi_min
+        ENDIF
+        DO jc = i_startidx, i_endidx
+          IF (p_lnd_diag%fr_seaice(jc,jb) < zfrice_thrhld) THEN   ! non-seaice point
+            ! now
+            p_prog_wtr_now%h_snow_si(jc,jb) = 0._wp
+            p_prog_wtr_now%t_snow_si(jc,jb) = tmelt   ! snow over ice is not treated explicitly
+            !
+            ! new
+            p_prog_wtr_new%h_snow_si(jc,jb) = 0._wp
+            p_prog_wtr_new%t_snow_si(jc,jb) = tmelt   ! snow over ice is not treated explicitly
+          ENDIF
+        ENDDO  ! jc
+
+      ENDIF  ! lseaice
+
+
+      ! Re-initialize h_ice and t_ice which are used by both the sea-ice and lake scheme.
+      ! 4 cases need to be distinguished in order to make sure, that none of the prognostic 
+      ! points is overwritten.
+      IF      (.NOT. lseaice .AND. .NOT. llake) THEN
+
+        ! Re-initialize all points
+        !
+        DO jc = i_startidx, i_endidx
+          ! now
+          p_prog_wtr_now%h_ice  (jc,jb) = 0._wp
+          p_prog_wtr_now%t_ice  (jc,jb) = tmelt   ! fresh water freezing point
+          !
+          ! new
+          p_prog_wtr_new%h_ice    (jc,jb) = 0._wp
+          p_prog_wtr_new%t_ice    (jc,jb) = tmelt   ! fresh water freezing point
+        ENDDO
+
+      ELSE IF (      lseaice .AND. .NOT. llake) THEN
+
+        ! Re-initialize all non-sea-ice points
         !
         IF ( ntiles_total == 1 ) THEN  ! no tile approach
           zfrice_thrhld = 0.5_wp
@@ -696,19 +789,52 @@ CONTAINS
             ! now
             p_prog_wtr_now%h_ice    (jc,jb) = 0._wp
             p_prog_wtr_now%t_ice    (jc,jb) = tmelt   ! fresh water freezing point
-            p_prog_wtr_now%h_snow_si(jc,jb) = 0._wp
-            p_prog_wtr_now%t_snow_si(jc,jb) = tmelt   ! snow over ice is not treated explicitly
             !
             ! new
             p_prog_wtr_new%h_ice    (jc,jb) = 0._wp
             p_prog_wtr_new%t_ice    (jc,jb) = tmelt   ! fresh water freezing point
-            p_prog_wtr_new%h_snow_si(jc,jb) = 0._wp
-            p_prog_wtr_new%t_snow_si(jc,jb) = tmelt   ! snow over ice is not treated explicitly
           ENDIF
-        ENDDO  ! jc
+        ENDDO
 
-      ENDIF  ! lseaice
+      ELSE IF (.NOT. lseaice .AND.       llake) THEN
 
+        ! Re-initialize all non-lake points
+        !
+        DO jc = i_startidx, i_endidx
+          IF (ext_data%atm%frac_t(jc,jb,isub_lake) < frlake_thrhld) THEN   ! non-lake point
+            ! now
+            p_prog_wtr_now%h_ice    (jc,jb) = 0._wp
+            p_prog_wtr_now%t_ice    (jc,jb) = tmelt   ! fresh water freezing point
+            !
+            ! new
+            p_prog_wtr_new%h_ice    (jc,jb) = 0._wp
+            p_prog_wtr_new%t_ice    (jc,jb) = tmelt   ! fresh water freezing point
+          ENDIF
+        ENDDO
+
+      ELSE IF (      lseaice .AND.       llake) THEN
+
+        ! Re-initialize all points which are neither lake nor sea-ice points
+        !
+        IF ( ntiles_total == 1 ) THEN  ! no tile approach
+          zfrice_thrhld = 0.5_wp
+        ELSE
+          zfrice_thrhld = frsi_min
+        ENDIF
+        DO jc = i_startidx, i_endidx
+          IF ((ext_data%atm%frac_t(jc,jb,isub_lake) < frlake_thrhld)   .AND.  &
+            & (p_lnd_diag%fr_seaice(jc,jb)          < zfrice_thrhld) ) THEN   
+            ! now
+            p_prog_wtr_now%h_ice    (jc,jb) = 0._wp
+            p_prog_wtr_now%t_ice    (jc,jb) = tmelt   ! fresh water freezing point
+            !
+            ! new
+            p_prog_wtr_new%h_ice    (jc,jb) = 0._wp
+            p_prog_wtr_new%t_ice    (jc,jb) = tmelt   ! fresh water freezing point
+          ENDIF
+        ENDDO
+      ENDIF
+      
 
 
       ! Init t_g_t for sea water points
@@ -1799,7 +1925,7 @@ CONTAINS
     REAL(wp), DIMENSION(:), INTENT(INOUT) :: snowfrac, t_g
 
     INTEGER  :: ic
-    REAL(wp) :: h_snow, snowdepth_fac, sso_fac, z0_fac, z0_limit, lc_fac, lc_limit
+    REAL(wp) :: h_snow, snowdepth_fac, sso_fac, lc_fac, lc_limit
 
     IF (idiag_snowfrac == 1) THEN ! old parameterization depending on SWE only
       DO ic = istart, iend

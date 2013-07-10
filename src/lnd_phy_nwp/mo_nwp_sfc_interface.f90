@@ -1226,9 +1226,9 @@ CONTAINS
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
 
-!DR    IF (msg_level >= 15) THEN
+    IF (msg_level >= 15) THEN
       CALL message('mo_nwp_sfc_interface: ', 'call nwp_lake scheme')
-!DR    ENDIF
+    ENDIF
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,ic,jc,icount_flk,f_c,depth_lk,fetch_lk,dp_bs_lk,t_bs_lk,  &

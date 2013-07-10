@@ -1903,8 +1903,9 @@ MODULE mo_nh_initicon
       ENDIF
 
 
-      ! start reading surface fields from First Guess
-      !
+      !----------------------------------------!
+      ! read in DWD First Guess (surface)      !
+      !----------------------------------------!
 
       CALL read_data_2d (filetype_fg(jg), fileID_fg(jg), 'fr_seaice', p_patch(jg)%n_patch_cells_g, &
         &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,                   &
