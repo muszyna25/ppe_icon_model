@@ -108,6 +108,8 @@ CONTAINS
                   rho_snow_mult_ex , & ! snow density                                  (kg/m**3)
                   h_snow_ex        , & ! snow height                                   (  m  )
                   w_i_ex           , & ! water content of interception water           (m H2O)
+                  w_p_ex           , & ! water content of pond interception water      (m H2O)
+                  w_s_ex           , & ! water content of interception snow            (m H2O)
                   t_so_ex          , & ! soil temperature (main level)                 (  K  )
                   w_so_ex          , & ! total water conent (ice + liquid water)       (m H20)
                   w_so_ice_ex      , & ! ice content                                   (m H20)
@@ -184,8 +186,7 @@ CONTAINS
                   w_snow_eff_ex    , & ! water content of snow                         (m H2O)
                   rho_snow_ex      , & ! snow density                                  (kg/m**3)
                   h_snow_ex        , & ! snow height  
-                  w_i_ex               ! water content of interception water           (m H2O)
-  REAL(wp), DIMENSION(nproma,ntiles_total ):: &
+                  w_i_ex           , & ! water content of interception water           (m H2O)
                   w_p_ex           , & ! water content of interception water           (m H2O)
                   w_s_ex               ! water content of interception water           (m H2O)
 

@@ -170,7 +170,7 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
   INTEGER  :: icnt
   INTEGER, PARAMETER :: itrac_vdf = 0
   INTEGER  :: KTVL(nproma)         , KTVH(nproma)         , zsoty(nproma)        , &
-    &         kpbltype(nproma), idummy_vdf_0e(nproma), idummy_vdf_0f(nproma)
+    &         khpbln(nproma)       , kvartop(nproma)      , kpbltype(nproma)
   LOGICAL  :: ldummy_vdf_a(nproma)
   REAL(wp) :: zdummy_vdf_1a(nproma), zdummy_vdf_1b(nproma), zdummy_vdf_1c(nproma), &
     &         zdummy_vdf_1d(nproma), zdummy_vdf_1e(nproma), zdummy_vdf_1f(nproma), &
@@ -286,7 +286,7 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
 ! !$OMP PARALLEL
 ! !$OMP DO PRIVATE(jb,jt,jc,jk,i_startidx,i_endidx,icnt, &
 ! !$OMP KTVL, KTVH, zsoty, &
-! !$OMP kpbltype, idummy_vdf_0e, idummy_vdf_0f, &
+! !$OMP khpbln, kvartop, kpbltype, &
 ! !$OMP ldummy_vdf_a , &
 ! !$OMP zdummy_vdf_1a, zdummy_vdf_1b, zdummy_vdf_1c, &
 ! !$OMP zdummy_vdf_1d, zdummy_vdf_1e, zdummy_vdf_1f, &
@@ -541,6 +541,8 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
           lnd_prog_new%w_snow_t  (jc,jb,jt) = lnd_prog_now%w_snow_t  (jc,jb,jt)
           lnd_prog_new%rho_snow_t(jc,jb,jt) = lnd_prog_now%rho_snow_t(jc,jb,jt)
           lnd_prog_new%w_i_t     (jc,jb,jt) = lnd_prog_now%w_i_t     (jc,jb,jt)
+          lnd_prog_new%w_p_t     (jc,jb,jt) = lnd_prog_now%w_p_t     (jc,jb,jt)
+          lnd_prog_new%w_s_t     (jc,jb,jt) = lnd_prog_now%w_s_t     (jc,jb,jt)
           lnd_prog_new%t_so_t(jc,nlev_soil+1,jb,jt) = lnd_prog_now%t_so_t(jc,nlev_soil+1,jb,jt)
           IF(lmulti_snow) THEN
             lnd_prog_new%t_snow_mult_t(jc,nlev_snow+1,jb,jt) &
@@ -782,14 +784,14 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
         & PQ2M    = prm_diag%qv_2m(:,jb)                       ,&! (OUT)  "-"
         & PZINV   = zdummy_vdf_1m                              ,&! (OUT) optional out: PBL HEIGHT (moist parcel, not for stable PBL)
         & PBLH    = zdummy_vdf_1n                              ,&! (OUT) optional out: PBL HEIGHT (dry diagnostic based on Ri#)
-        & KHPBLN  = kpbltype                                   ,&! (OUT) optional out: PBL top level 
-        & KVARTOP = idummy_vdf_0e                              ,&! (OUT) optional out: top level of predictied qt,var
+        & KHPBLN  = khpbln                                     ,&! (OUT) optional out: PBL top level 
+        & KVARTOP = kvartop                                    ,&! (OUT) optional out: top level of predictied qt,var
         & PSSRFLTI= PSSRFLTI                                   ,&! (OUT) net SW sfc flux for each tile (use tile ablbedo)
         & PEVAPSNW= zdummy_vdf_1o                              ,&! (OUT) optional out: evaporation from snow under forest
         & PGUST   = zdummy_vdf_1p                              ,&! (OUT) optional out: 10m gust
         & PWUAVG  = zdummy_vdf_1q                              ,&! (OUT) optional out: w,up averaged
         & LDNODECP= ldummy_vdf_a                               ,&! (OUT) optional out: no decoupling allowed
-        & KPBLTYPE= idummy_vdf_0f                              ,&! (OUT) optional out: PBL type
+        & KPBLTYPE= kpbltype                                   ,&! (OUT) optional out: PBL type
         & PLDIFF  = zdummy_vdf_2b                              ,&! (OUT) optional out: contrib to PBL cond. by passive clouds
         & PFPLVL  = zdummy_vdf_3a                              ,&! (OUT) optional out: PBL rain flux
         & PFPLVN  = zdummy_vdf_3b                              ,&! (OUT) optional out: PBL snow flux
@@ -845,6 +847,8 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
         & , rho_snow_mult_ex= lnd_prog_new%rho_snow_mult_t(:,:,jb,:) & ! -
         & , h_snow_ex       = lnd_diag%h_snow_t        (:,jb,:)   & ! -
         & , w_i_ex          = lnd_prog_new%w_i_t       (:,jb,:)   & ! -
+        & , w_p_ex          = lnd_prog_new%w_p_t       (:,jb,:)   & ! -
+        & , w_s_ex          = lnd_prog_new%w_s_t       (:,jb,:)   & ! -
         & , t_so_ex         = lnd_prog_new%t_so_t      (:,:,jb,:) & ! -
         & , w_so_ex         = lnd_prog_new%w_so_t      (:,:,jb,:) & ! -
         & , w_so_ice_ex     = lnd_prog_new%w_so_ice_t  (:,:,jb,:) & ! -
