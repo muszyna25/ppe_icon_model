@@ -398,8 +398,8 @@ MODULE mo_oce_state
       & vt(:,:,:)               ,& ! tangential velocity component at edges. Unit [m/s].
       & rho(:,:,:)              ,& ! density. Unit: [kg/m^3]
       & rhopot(:,:,:)           ,& ! potential density. Unit: [kg/m^3]
-      & mass_flx_e(:,:,:)       ,& ! individual fluid column thickness at cells. Unit [m].
-      & div_mass_flx_c(:,:,:)   ,& ! individual fluid column thickness at cells. Unit [m].
+      & mass_flx_e(:,:,:)       ,& ! mass flux at edges. Unit [?].
+      & div_mass_flx_c(:,:,:)   ,& ! divergence of mass flux at cells. Unit [?].
       & u_vint(:,:)             ,& ! barotropic zonal velocity. Unit [m*m/s]
       & ptp_vn(:,:,:)           ,& ! normal velocity after mapping P^T P
       & vn_pred(:,:,:)          ,& ! predicted normal velocity vector at edges.
@@ -905,7 +905,7 @@ CONTAINS
 
     CALL add_var(ocean_restart_list, 'mass_flux', p_os_diag%mass_flx_e, &
     &            GRID_UNSTRUCTURED_EDGE,&
-    &            ZA_DEPTH_BELOW_SEA, t_cf_var('mass flux','',' mass flux', DATATYPE_FLT32),&
+    &            ZA_DEPTH_BELOW_SEA, t_cf_var('mass flux','',' mass flux at edges', DATATYPE_FLT32),&
     &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_EDGE),&
     &            ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("oce_diag"))
 
@@ -1315,44 +1315,44 @@ CONTAINS
     &            ldims=(/nproma,nblks_c/),in_group=groups("oce_default"))
     CALL add_var(ocean_default_list, 'u_acc', p_os_acc%u, GRID_UNSTRUCTURED_CELL, &
     &            ZA_DEPTH_BELOW_SEA, &
-    &            t_cf_var('u_acc','m/s','u velocity component', DATATYPE_FLT32),&
+    &            t_cf_var('u_acc','m/s','meridional velocity component', DATATYPE_FLT32),&
     &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &            ldims=(/nproma,n_zlev,nblks_c/),in_group=groups("oce_default"))
     ! reconstructed v velocity component
     CALL add_var(ocean_default_list, 'v_acc', p_os_acc%v, GRID_UNSTRUCTURED_CELL, &
     &            ZA_DEPTH_BELOW_SEA, &
-    &            t_cf_var('v_acc','m/s','v velocity component', DATATYPE_FLT32),&
+    &            t_cf_var('v_acc','m/s','zonal velocity component', DATATYPE_FLT32),&
     &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &            ldims=(/nproma,n_zlev,nblks_c/),in_group=groups("oce_default"))
     CALL add_var(ocean_default_list, 'rhopot_acc', p_os_acc%rhopot, GRID_UNSTRUCTURED_CELL, &
     &            ZA_DEPTH_BELOW_SEA, &
-    &            t_cf_var('rhopot_acc','psu','potential density', DATATYPE_FLT32),&
+    &            t_cf_var('rhopot_acc','kg/m^3','potential density', DATATYPE_FLT32),&
     &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &            ldims=(/nproma,n_zlev,nblks_c/),in_group=groups("oce_default"))
     CALL add_var(ocean_default_list, 'rho_acc', p_os_acc%rho, GRID_UNSTRUCTURED_CELL, &
     &            ZA_DEPTH_BELOW_SEA, &
-    &            t_cf_var('rho_acc','psu','insitu density', DATATYPE_FLT32),&
+    &            t_cf_var('rho_acc','kg/m^3','insitu density', DATATYPE_FLT32),&
     &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &            ldims=(/nproma,n_zlev,nblks_c/),in_group=groups("oce_default"))
 
     CALL add_var(ocean_default_list, 'w_acc', p_os_acc%w, GRID_UNSTRUCTURED_CELL, &
     &            ZA_DEPTH_BELOW_SEA_HALF, &
-    &            t_cf_var('w_acc','psu','vertical velocity', DATATYPE_FLT32),&
+    &            t_cf_var('w_acc','m/s','vertical velocity', DATATYPE_FLT32),&
     &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &            ldims=(/nproma,n_zlev+1,nblks_c/),in_group=groups("oce_default"))
     CALL add_var(ocean_default_list, 'vt_acc', p_os_acc%vt, GRID_UNSTRUCTURED_EDGE, &
     &            ZA_DEPTH_BELOW_SEA, &
-    &            t_cf_var('vt_acc','psu','tangential velocity', DATATYPE_FLT32),&
+    &            t_cf_var('vt_acc','m/s','tangential velocity', DATATYPE_FLT32),&
     &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_EDGE),&
     &            ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("oce_default"))
     CALL add_var(ocean_default_list, 'mass_flx_e_acc', p_os_acc%mass_flx_e, GRID_UNSTRUCTURED_EDGE, &
     &            ZA_DEPTH_BELOW_SEA, &
-    &            t_cf_var('mass_flx_e_acc','psu','tangential velocity', DATATYPE_FLT32),&
+    &            t_cf_var('mass_flx_e_acc','','mass flux at edges', DATATYPE_FLT32),&
     &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_EDGE),&
     &            ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("oce_default"))
     CALL add_var(ocean_default_list, 'div_mass_flx_c_acc', p_os_acc%div_mass_flx_c, GRID_UNSTRUCTURED_CELL, &
     &            ZA_DEPTH_BELOW_SEA, &
-    &            t_cf_var('div_mass_flx_c_acc','psu','insitu density', DATATYPE_FLT32),&
+    &            t_cf_var('div_mass_flx_c_acc','','divergence of mass flux', DATATYPE_FLT32),&
     &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &            ldims=(/nproma,n_zlev,nblks_c/),in_group=groups("oce_default"))
     CALL add_var(ocean_default_list, 'u_vint_acc', p_os_acc%u_vint , &
