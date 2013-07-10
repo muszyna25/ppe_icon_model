@@ -23,8 +23,8 @@
 # ---USER SETUP------------------------------------
 
 # global definitions:
-set EXPNUM        "005"                #---experiment number---
-set EXPNUM2       "049"                #---experiment number used for score comparison---
+set EXPNUM        "065"                #---experiment number---
+set EXPNUM2       "063"                #---experiment number used for score comparison---
 set SUITE2        "dei2"               #---suite             used for score comparison---
 set FIRST_DATE    20120101
 set LAST_DATE     20120731
@@ -36,8 +36,8 @@ set RES           "R02B05"             #---ICON resolution dynamics
 set RESRAD        "R02B04"             #---ICON resolution radiation (requires namelist)
 
 # no. of time steps (10x86400s/72s)
-set NSTEPS        6000   # 10d forecast:  R2B5-turbdiff-9600, R2B5-edmf=6000, R2B6-12000
-#set NSTEPS       7200   # grey zone 48h: R2B7-3600, R2B8-7200
+set NSTEPS        5760   # 10d forecast:  R2B5-turbdiff-9600, R2B5-edmf=6000/5760, R2B6-12000
+#set NSTEPS       6000   # grey zone 48h: R2B7-3600, R2B8-7200
 
 # simulation modes: 1:oper, 2:monthly 10day forecasts, 3:climate (1year)
 set SIMMODE      2
@@ -328,7 +328,6 @@ suite $USER
                 edit SCWALLCLOCKLIMIT 00:20:00
                 event prepare
                 event create_dumpstate
-
         endfamily
 
         task model
@@ -342,7 +341,7 @@ suite $USER
             #action complete $SMSFILES/cancel_check_progress
 
         task check_progress
-            trigger (model == active)
+            trigger  (model == active)
             complete (model == complete) or (testday==complete) and not (testday:time_domonth)
             on_hpc_serial
             edit SCWALLCLOCKLIMIT 02:00:00

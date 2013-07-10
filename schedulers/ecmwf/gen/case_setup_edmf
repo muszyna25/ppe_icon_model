@@ -58,13 +58,13 @@ ndays_restart=60
 dt_restart=`expr ${ndays_restart} \* 86400`
 
 # model timing
-dtime=144    # dyn            R2B4:150  R2B5:144  R2B6:72   R2B7:36   R2B8:18
-dtconv=720   # conv, SSO, GWD R2B4:600  R2B5:720  R2B6:720  R2B7:360  R2B8:360
-dtrad=3600   # rad            R2B4:3600 R2B5:3600 R2B6:3600 R2B7:1800 R2B8:1800
-iadv_rcf=5   # adv, turb      R2B4:4    R2B5:5    R2B6:5    R2B7:5    R2B8:5
-ndays=10     # number of days to run
+dtime=150     # dyn            R2B4:150  R2B5:144/150/150 R2B6:72   R2B7:36   R2B8:18
+dtconv=900    # conv, SSO, GWD R2B4:600  R2B5:720/600/900 R2B6:720  R2B7:360  R2B8:360
+dtrad=3600    # rad            R2B4:3600 R2B5:3600        R2B6:3600 R2B7:1800 R2B8:1800
+iadv_rcf=3    # adv, turb      R2B4:4    R2B5:5  /4  /3   R2B6:5    R2B7:5    R2B8:5
+ninc_mtgrm=24 # output interval 3600s
+ndays=10      # number of days to run
 nsteps=`expr ${ndays} \* 86400 / ${dtime}`
-ninc_mtgrm=25          # output interval 3600s
 
 # model parameters
 atmo_namelist=NAMELIST_${basename}
@@ -159,7 +159,6 @@ cat > ${atmo_namelist} << EOF
 /
 &initicon_nml
  init_mode                    = 2           ! initialization mode (2 for IFS ana, 1 for DWD ana)
- nlev_in                      = 91          ! number of levels of input data
  zpbl1                        = 500. 
  zpbl2                        = 1000.
  ifs2icon_filename            = '${ifs2icon_filename}'
@@ -265,6 +264,7 @@ cat > ${atmo_namelist} << EOF
  idiag_snowfrac               = 3
  lsnowtile                    = .FALSE. ! true: allow separate snow and snow-free tiles
  lseaice                      = .true.
+ itype_interception           = 1       ! 1: off/default, 2: on
 /
 &radiation_nml
  irad_o3                      = 7
