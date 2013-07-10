@@ -567,7 +567,8 @@ CONTAINS
     INTEGER :: jtrc,i
 
 
-    ! update ocean state accs
+    ! update ocean state accumulated values
+    CALL add_fields(p_os%p_acc%h, p_os%p_prog(nnew(1))%h, subset)
     CALL add_fields(p_os%p_acc%u, p_os%p_diag%u, subset)
     CALL add_fields(p_os%p_acc%v, p_os%p_diag%v, subset)
     CALL add_fields(p_os%p_acc%rhopot,p_os%p_diag%rhopot,subset)
@@ -580,7 +581,7 @@ CONTAINS
     CALL add_fields(p_os%p_acc%w             , p_os%p_diag%w             , subset,n_zlev+1)
     CALL add_fields(p_os%p_acc%div_mass_flx_c, p_os%p_diag%div_mass_flx_c, subset)
 
-    ! update forcing accs
+    ! update forcing accumulated values
     CALL add_fields(p_sfc_flx%forc_wind_u_acc  , p_sfc_flx%forc_wind_u  , subset)
     CALL add_fields(p_sfc_flx%forc_wind_v_acc  , p_sfc_flx%forc_wind_v  , subset)
     CALL add_fields(p_sfc_flx%forc_swflx_acc   , p_sfc_flx%forc_swflx   , subset)
@@ -600,12 +601,14 @@ CONTAINS
       CALL add_fields(p_sfc_flx%forc_tracer_relax_acc(:,:,jtrc), p_sfc_flx%forc_tracer_relax(:,:,jtrc), subset)
     END DO
   END SUBROUTINE update_ocean_statistics
+
   SUBROUTINE compute_mean_ocean_statistics(p_acc,p_sfc_flx,nsteps_since_last_output)
     TYPE(t_hydro_ocean_acc), INTENT(INOUT) :: p_acc
     TYPE(t_sfc_flx),         INTENT(INOUT) :: p_sfc_flx
     INTEGER,INTENT(IN)                     :: nsteps_since_last_output
 
     p_acc%tracer                    = p_acc%tracer                   /REAL(nsteps_since_last_output,wp)
+    p_acc%h                         = p_acc%h                        /REAL(nsteps_since_last_output,wp)
     p_acc%u                         = p_acc%u                        /REAL(nsteps_since_last_output,wp)
     p_acc%v                         = p_acc%v                        /REAL(nsteps_since_last_output,wp)
     p_acc%rhopot                    = p_acc%rhopot                   /REAL(nsteps_since_last_output,wp)
@@ -629,6 +632,7 @@ CONTAINS
     p_sfc_flx%forc_tracer_acc       = p_sfc_flx%forc_tracer_acc      /REAL(nsteps_since_last_output,wp)
     p_sfc_flx%forc_tracer_relax_acc = p_sfc_flx%forc_tracer_relax_acc/REAL(nsteps_since_last_output,wp)
   END SUBROUTINE compute_mean_ocean_statistics
+
   SUBROUTINE reset_ocean_statistics(p_acc,p_sfc_flx,nsteps_since_last_output)
     TYPE(t_hydro_ocean_acc), INTENT(INOUT) :: p_acc
     TYPE(t_sfc_flx),         INTENT(INOUT) :: p_sfc_flx
@@ -636,6 +640,7 @@ CONTAINS
 
     nsteps_since_last_output        = 0
     p_acc%tracer                    = 0.0_wp
+    p_acc%h                         = 0.0_wp
     p_acc%u                         = 0.0_wp
     p_acc%v                         = 0.0_wp
     p_acc%rhopot                    = 0.0_wp
@@ -660,6 +665,7 @@ CONTAINS
     p_sfc_flx%forc_tracer_relax_acc = 0.0_wp
 
   END SUBROUTINE reset_ocean_statistics
+
   SUBROUTINE add_fields_3d(f_a,f_b,subset,levels)
     REAL(wp),INTENT(INOUT)          :: f_a(:,:,:)
     REAL(wp),INTENT(IN)             :: f_b(:,:,:)
@@ -681,6 +687,7 @@ CONTAINS
       END DO
     END DO
   END SUBROUTINE add_fields_3d
+
   SUBROUTINE add_fields_2d(f_a,f_b,subset)
     REAL(wp),INTENT(INOUT)          :: f_a(:,:)
     REAL(wp),INTENT(IN)             :: f_b(:,:)
@@ -698,4 +705,5 @@ CONTAINS
 
   SUBROUTINE new_ocean_statistics()
   END SUBROUTINE new_ocean_statistics
+
 END MODULE mo_hydro_ocean_run
