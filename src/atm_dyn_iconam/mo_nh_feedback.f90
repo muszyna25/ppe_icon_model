@@ -1103,9 +1103,11 @@ END SUBROUTINE feedback
 !! to using fbk_wgt (see above routine)
 !!
 ! SUBROUTINE relax_feedback(p_patch, p_nh_state, p_int_state, p_grf_state, jg, jgp, l_trac_fbk)
-SUBROUTINE relax_feedback(p_patch, p_nh_state, p_int_state, p_grf_state, jg, jgp, l_trac_fbk, &
-  & n_dom_start, n_dom) ! pgi does not read properly these variables for the grid_config module.
-                        ! thus pass them as parameters. This is a compiler bug!
+SUBROUTINE relax_feedback(n_dom_start, n_dom, p_patch, p_nh_state, p_int_state, p_grf_state, &
+  & jg, jgp, l_trac_fbk )
+
+  ! pgi does not read properly n_dom_start, n_dom from the grid_config module.
+  ! thus pass them as parameters. This is a compiler bug!
 
   CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
       &  routine = 'mo_nh_feedback:relax_feedback'
@@ -1187,6 +1189,7 @@ SUBROUTINE relax_feedback(p_patch, p_nh_state, p_int_state, p_grf_state, jg, jgp
   LOGICAL :: l_parallel
 !-----------------------------------------------------------------------
 
+ ! write(0,*) "n_dom_start,n_dom, jg, jgp=", n_dom_start, n_dom, jg, jgp
 IF (msg_level >= 10) THEN
   WRITE(message_text,'(a,i2,a,i2)') '========= Feedback:',jg,' =>',jgp
   CALL message(TRIM(routine),message_text)
