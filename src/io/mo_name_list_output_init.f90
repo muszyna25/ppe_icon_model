@@ -35,7 +35,7 @@ MODULE mo_name_list_output_init
   USE mo_cf_convention,                     ONLY: t_cf_var
                                             
   USE mo_io_units,                          ONLY: filename_max, nnml, nnml_output
-  USE mo_io_config,                         ONLY: netcdf_dict, output_nml_dict
+  USE mo_io_config,                         ONLY: netcdf_dict, output_nml_dict, lzaxis_reference
   USE mo_gribout_config,                    ONLY: gribout_config, t_gribout_config
   USE mo_exception,                         ONLY: finish, message, message_text
   USE mo_namelist,                          ONLY: position_nml, positioned, open_nml, close_nml
@@ -1832,6 +1832,7 @@ CONTAINS
     LOGICAL                         :: lwrite_pzlev
     TYPE(t_datetime)                :: ini_datetime
     CHARACTER(len=1)                :: uuid_string(16)
+    CHARACTER(len=1)                :: uuidOfVGrid_string(16)
 
     IF (of%output_type == FILETYPE_GRB2) THEN
       ! since the current CDI-version does not fully support "GRID_UNSTRUCTURED", the
@@ -2066,6 +2067,42 @@ CONTAINS
       CALL zaxisDefLevels(of%cdiZaxisID(ZA_isotherm_zero), levels)
       DEALLOCATE(levels)
 
+
+
+      ! REFERENCE_LAYER
+      !
+      of%cdiZaxisID(ZA_reference)      = zaxisCreate(ZAXIS_REFERENCE, nlev)
+      ALLOCATE(lbounds(nlev), ubounds(nlev), levels(nlev))
+      DO k = 1, nlev
+        lbounds(k) = REAL(k,dp)
+        levels(k)  = REAL(k,dp)
+      END DO
+      DO k = 2, nlevp1
+        ubounds(k-1) = REAL(k,dp)
+      END DO
+      CALL zaxisDefLbounds  (of%cdiZaxisID(ZA_reference), lbounds) !necessary for GRIB2
+      CALL zaxisDefUbounds  (of%cdiZaxisID(ZA_reference), ubounds) !necessary for GRIB2
+      CALL zaxisDefLevels   (of%cdiZaxisID(ZA_reference), levels ) !necessary for NetCDF
+      CALL zaxisDefReference(of%cdiZaxisID(ZA_reference), 1      ) !numberOfVGridUsed
+      !
+      ! UUID not yet available - write dummy UUID
+      CALL zaxisDefUUID     (of%cdiZaxisID(ZA_reference), uuidOfVGrid_string ) !uuidOfVGrid
+      DEALLOCATE(lbounds, ubounds, levels)
+
+
+      ! REFERENCE
+      !
+      of%cdiZaxisID(ZA_reference_half) = zaxisCreate(ZAXIS_REFERENCE, nlevp1)
+      ALLOCATE(levels(nlevp1))
+      DO k = 1, nlevp1
+        levels(k) = REAL(k,dp)
+      END DO
+      CALL zaxisDefLevels   (of%cdiZaxisID(ZA_reference_half), levels)
+      CALL zaxisDefReference(of%cdiZaxisID(ZA_reference_half), 1     ) !numberOfVGridUsed
+      !
+      ! UUID not yet available - write dummy UUID
+      CALL zaxisDefUUID     (of%cdiZaxisID(ZA_reference_half), uuidOfVGrid_string ) !uuidOfVGrid
+      DEALLOCATE(levels)
 
 
       ! HYBRID_LAYER
@@ -2786,7 +2823,6 @@ CONTAINS
     INTEGER :: cent, year, month, day    ! date
     INTEGER :: hour, minute              ! time
 
-
     IF (grib_conf%ldate_grib_act) THEN
       ! get date and time
       ! ydate : ccyymmdd, ytime : hhmmss.sss
@@ -2924,11 +2960,28 @@ CONTAINS
 
       gridID = info%cdiGridID
 
+
+
       !
       ! set z axis ID
       !
       zaxisID = of%cdiZaxisID(info%vgrid)
       IF (zaxisID /= CDI_UNDEFID) THEN
+
+!DR *********** FOR TESTING *************
+        ! If desired, re-set 
+        ! ZA_HYBRID       -> ZA_REFERENCE
+        ! ZA_HYBRID_HALF  -> ZA_REFERENCE_HALF
+        ! for testing purposes
+        IF (lzaxis_reference) THEN  ! switch to ZAXIS_REFERENCE
+          IF (zaxisID == of%cdiZaxisID(ZA_hybrid)) THEN
+            zaxisID = of%cdiZaxisID(ZA_reference)
+          ELSE IF (zaxisID == of%cdiZaxisID(ZA_hybrid_half)) THEN
+            zaxisID = of%cdiZaxisID(ZA_reference_half)
+          ENDIF
+        ENDIF
+!DR*********WILL BE REMOVED SOON**********
+
         info%cdiZaxisID = zaxisID
       ELSE
         WRITE (message_text,'(a,i3,a,i3)') &

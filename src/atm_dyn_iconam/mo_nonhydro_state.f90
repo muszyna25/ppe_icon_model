@@ -91,8 +91,9 @@ MODULE mo_nonhydro_state
     &                                GRID_UNSTRUCTURED_VERT, GRID_REFERENCE,         &
     &                                GRID_CELL, GRID_EDGE, GRID_VERTEX, ZA_HYBRID,   &
     &                                ZA_HYBRID_HALF, ZA_HYBRID_HALF_HHL, ZA_SURFACE, &
-    &                                ZA_MEANSEA, DATATYPE_FLT32, DATATYPE_PACK16,    &
-    &                                FILETYPE_NC2, TSTEP_CONSTANT
+    &                                ZA_MEANSEA, ZA_REFERENCE, ZA_REFERENCE_HALF,    &
+    &                                DATATYPE_FLT32, DATATYPE_PACK16, FILETYPE_NC2,  &
+    &                                TSTEP_CONSTANT
 
   IMPLICIT NONE
 

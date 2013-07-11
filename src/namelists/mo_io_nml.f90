@@ -81,7 +81,8 @@ MODULE mo_io_nml
                                  & config_lwrite_decomposition    => lwrite_decomposition   , &
                                  & config_itype_pres_msl          => itype_pres_msl         , &
                                  & config_output_nml_dict         => output_nml_dict        , &
-                                 & config_netcdf_dict             => netcdf_dict
+                                 & config_netcdf_dict             => netcdf_dict            , &
+                                 & config_lzaxis_reference        => lzaxis_reference
 
   USE mo_exception,        ONLY: message, message_text, finish
   USE mo_parallel_config,  ONLY: nproma
@@ -130,6 +131,9 @@ MODULE mo_io_nml
                                         !  TOT_PREC that would be accumulated
   INTEGER :: itype_pres_msl             ! Specifies method for computation of mean sea level pressure
 
+  LOGICAL :: lzaxis_reference           ! use ZAXIS_REFERENCE instead of ZAXIS_HYBRID for atmospheric 
+                                        ! output fields
+
   CHARACTER(LEN=filename_max) :: &
     &        output_nml_dict,    &     !< maps variable names onto the internal ICON names.
     &        netcdf_dict               !< maps internal variable names onto names in output file (NetCDF only).
@@ -143,7 +147,7 @@ MODULE mo_io_nml
     &              lwrite_cloud, lwrite_tke, lwrite_surface,             &
     &              lwrite_extra, inextra_2d, inextra_3d,                 &
     &              lflux_avg, lwrite_oce_timestepping, itype_pres_msl,   &
-    &              output_nml_dict, netcdf_dict
+    &              output_nml_dict, netcdf_dict, lzaxis_reference 
   
 CONTAINS
   !>
@@ -203,6 +207,9 @@ CONTAINS
     output_nml_dict         = ' '
     netcdf_dict             = ' '
 
+    lzaxis_reference        = .FALSE. ! use ZAXIS_HYBRID
+
+
     !------------------------------------------------------------------
     ! 2. If this is a resumed integration, overwrite the defaults above
     !    by values used in the previous integration.
@@ -260,6 +267,7 @@ CONTAINS
     config_itype_pres_msl          = itype_pres_msl
     config_output_nml_dict         = output_nml_dict
     config_netcdf_dict             = netcdf_dict
+    config_lzaxis_reference        = lzaxis_reference
 
     !-----------------------------------------------------
     ! 5. Store the namelist for restart

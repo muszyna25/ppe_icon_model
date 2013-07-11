@@ -102,6 +102,8 @@ MODULE mo_io_config
     &        output_nml_dict,    &      !< maps variable names onto the internal ICON names.
     &        netcdf_dict                !< maps internal variable names onto names in output file (NetCDF only).
 
+  LOGICAL :: lzaxis_reference           !< use ZAXIS_REFERENCE instead of ZAXIS_HYBRID for atmospheric 
+                                        !  output fields
 
   ! derived variables
 
