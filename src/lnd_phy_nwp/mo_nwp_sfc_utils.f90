@@ -53,6 +53,7 @@ MODULE mo_nwp_sfc_utils
     &                               lseaice, llake, lmulti_snow, idiag_snowfrac, ntiles_lnd, &
     &                               lsnowtile, isub_water, isub_seaice, isub_lake,    &
     &                               frlake_thrhld
+  USE mo_initicon_config,     ONLY: is_coldstart_soil
   USE mo_soil_ml,             ONLY: terra_multlay_init
   USE mo_flake,               ONLY: flake_init
   USE mo_seaice_nwp,          ONLY: seaice_init_nwp, hice_min, frsi_min, hice_ini
@@ -417,12 +418,12 @@ CONTAINS
       DO isubs = 1,ntiles_total
 
         i_count = ext_data%atm%lp_count_t(jb,isubs)
-
         CALL terra_multlay_init(                                  &
-        &  ie=nproma,                                             & ! array dimensions
-        &  istartpar=1, iendpar= i_count,                         & ! optional start/end indicies
+        &  is_coldstart      = is_coldstart_soil                , & ! coldstart initialization (TRUE/FALSE)
+        &  ie                = nproma                           , & ! array dimensions
+        &  istartpar=1, iendpar= i_count                        , & ! optional start/end indicies
         &  ke_soil=nlev_soil-1, ke_snow=nlev_snow               , & ! without lowermost (climat.) soil layer
-        &  czmls=zml_soil                                       , & ! processing soil level structure 
+        &  czmls             = zml_soil                         , & ! processing soil level structure 
         &  soiltyp_subs      = soiltyp_t(:,jb,isubs)            , & ! type of the soil (keys 0-9)  --
         &  rootdp            = rootdp_t(:,jb,isubs)             , & ! depth of the roots                ( m  )
         &  t_snow_now        = t_snow_now_t(:,jb,isubs)         , & ! temperature of the snow-surface   (  K  )

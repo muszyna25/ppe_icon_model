@@ -4930,7 +4930,8 @@ ENDIF
 END SUBROUTINE terra_multlay
 
 
-SUBROUTINE terra_multlay_init (                &   
+SUBROUTINE terra_multlay_init (                & 
+                  is_coldstart, & ! coldstart initialization (TRUE/FALSE)  
                   ie,           & ! array dimensions
                   istartpar,    & ! start index for computations in the parallel program
                   iendpar,      & ! end index for computations in the parallel program
@@ -4969,6 +4970,8 @@ SUBROUTINE terra_multlay_init (                &
   IMPLICIT NONE
 
 
+  LOGICAL                 , INTENT(IN)  ::  &
+                  is_coldstart    ! coldstart initialization (TRUE/FALSE)
   INTEGER (KIND=iintegers), INTENT(IN)  ::  &
                   ie,           & ! array dimensions
                   istartpar,    & ! start index for computations in the parallel program
@@ -5356,46 +5359,6 @@ SUBROUTINE terra_multlay_init (                &
     END DO
 
 
-!   Initialization of soil ice content
-!   ----------------------------------
-!   Generally the combination lmelt=.true., lemlt_var=.true. has to be used.
-!   lmelt_var=.false. (soil water freezing at 273.15K) should be used only
-!   for special investigations because at model start a partial frozen layer
-!   is only considered if the soil ice water content is read in from
-!   a pre run.
-!   ----------------------------------
-    IF (lmelt .AND. .NOT. lmelt_var) THEN
-      DO kso   = 1,ke_soil+1
-          DO i = istarts, iends
-!            IF (llandmask(i)) THEN             ! for land-points only
-              w_so_ice_now(i,kso) = 0.0_ireals
-              w_so_ice_new(i,kso) = 0.0_ireals
-
-              IF (t_so_now(i,kso) < t0_melt) THEN
-                w_so_ice_now(i,kso) = w_so_now(i,kso)
-                w_so_ice_new(i,kso) = w_so_now(i,kso)
-              END IF ! t_so(kso) < t0_melt
-!            END IF   ! land-points
-          END DO
-      END DO
-    END IF           ! lmelt .AND. .NOT. lmelt_var
-    IF(lmelt .AND. lmelt_var) THEN
-      DO kso   = 1,ke_soil+1
-          DO i = istarts, iends
-!            IF (llandmask(i)) THEN             ! for land-points only
-              IF (t_so_now(i,kso) < (t0_melt-zepsi)) THEN
-                zaa    = g*zpsis(i)/lh_f
-                zw_m(i)     = zporv(i)*zdzhs(kso)
-                zw_m(i)   = zw_m(i)*                                          &
-                  ((t_so_now(i,kso) - t0_melt)/(t_so_now(i,kso)*zaa))**(-zedb(i))
-                w_so_ice_now(i,kso) = MAX (0.0_ireals,w_so_now(i,kso) - zw_m(i))
-                w_so_ice_new(i,kso) = MAX (0.0_ireals,w_so_now(i,kso) - zw_m(i))
-              END IF
-!            END IF   ! land-points
-          END DO
-      END DO
-    END IF           ! lmelt .AND. lmelt_var
-
 
 !   Initialization of snow density, if necessary
 !   --------------------------------------------
@@ -5487,9 +5450,52 @@ SUBROUTINE terra_multlay_init (                &
     ENDIF
 
 
-!   Initialization of the local array of the grid in snow
-!   -----------------------------------------------------
-    IF(lmulti_snow) THEN
+    IF ( is_coldstart ) THEN
+
+!     Initialization of soil ice content
+!     ----------------------------------
+!     Generally the combination lmelt=.true., lemlt_var=.true. has to be used.
+!     lmelt_var=.false. (soil water freezing at 273.15K) should be used only
+!     for special investigations because at model start a partial frozen layer
+!     is only considered if the soil ice water content is read in from
+!     a pre run.
+!     ----------------------------------
+      IF (lmelt .AND. .NOT. lmelt_var) THEN
+        DO kso   = 1,ke_soil+1
+          DO i = istarts, iends
+!            IF (llandmask(i)) THEN             ! for land-points only
+              w_so_ice_now(i,kso) = 0.0_ireals
+              w_so_ice_new(i,kso) = 0.0_ireals
+
+              IF (t_so_now(i,kso) < t0_melt) THEN
+                w_so_ice_now(i,kso) = w_so_now(i,kso)
+                w_so_ice_new(i,kso) = w_so_now(i,kso)
+              END IF ! t_so(kso) < t0_melt
+!            END IF   ! land-points
+          END DO
+        END DO
+      END IF           ! lmelt .AND. .NOT. lmelt_var
+      IF(lmelt .AND. lmelt_var) THEN
+        DO kso   = 1,ke_soil+1
+          DO i = istarts, iends
+!            IF (llandmask(i)) THEN             ! for land-points only
+              IF (t_so_now(i,kso) < (t0_melt-zepsi)) THEN
+                zaa    = g*zpsis(i)/lh_f
+                zw_m(i)     = zporv(i)*zdzhs(kso)
+                zw_m(i)   = zw_m(i)*                                          &
+                  ((t_so_now(i,kso) - t0_melt)/(t_so_now(i,kso)*zaa))**(-zedb(i))
+                w_so_ice_now(i,kso) = MAX (0.0_ireals,w_so_now(i,kso) - zw_m(i))
+                w_so_ice_new(i,kso) = MAX (0.0_ireals,w_so_now(i,kso) - zw_m(i))
+              END IF
+!            END IF   ! land-points
+          END DO
+        END DO
+      END IF           ! lmelt .AND. lmelt_var
+
+
+!     Initialization of the local array of the grid in snow
+!     -----------------------------------------------------
+      IF(lmulti_snow) THEN
         DO i = istarts, iends
 !          IF(llandmask(i)) THEN   ! for land-points only
             h_snow(i) = 0.0_ireals
@@ -5509,11 +5515,13 @@ SUBROUTINE terra_multlay_init (                &
             END DO
 !          ENDIF    ! llandmask
         END DO
-    ELSE
-      DO i = istarts, iends
-        h_snow(i) = w_snow_now(i)/rho_snow_now(i)*rho_w
-      END DO
-    END IF
+      ELSE
+        DO i = istarts, iends
+          h_snow(i) = w_snow_now(i)/rho_snow_now(i)*rho_w
+        END DO
+      END IF
+
+    ENDIF  ! is_coldstart
 
 !!$ ENDIF             ! ntstep = 0
 

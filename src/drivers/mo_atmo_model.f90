@@ -66,6 +66,7 @@ USE mo_name_list_output_config, ONLY: use_async_name_list_io
 !
 USE mo_nonhydrostatic_config,ONLY: ivctype, kstart_moist, iadv_rcf, &
   &                                configure_nonhydrostatic
+USE mo_initicon_config,      ONLY: configure_initicon
 USE mo_lnd_nwp_config,       ONLY: configure_lnd_nwp
 USE mo_dynamics_config,      ONLY: configure_dynamics, iequations
 USE mo_run_config,           ONLY: configure_run, &
@@ -346,6 +347,10 @@ CONTAINS
     CASE DEFAULT
       CALL configure_run    
     END SELECT
+
+    ! complete initicon config-state
+    CALL configure_initicon
+
 
     !-------------------------------------------------------------------
     ! 3.1 Initialize the mpi work groups

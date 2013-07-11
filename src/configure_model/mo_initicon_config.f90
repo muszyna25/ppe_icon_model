@@ -39,9 +39,11 @@ MODULE mo_initicon_config
     &                              associate_keyword, with_keywords, &
     &                              int2string
   USE mo_io_units,           ONLY: filename_max
-  USE mo_impl_constants,     ONLY: max_dom
+  USE mo_impl_constants,     ONLY: max_dom, MODE_IFSANA
 
   IMPLICIT NONE
+
+  PUBLIC :: configure_initicon
 
   PUBLIC :: init_mode, nlev_in, nlevsoil_in, zpbl1, zpbl2
   PUBLIC :: l_sst_in
@@ -53,6 +55,7 @@ MODULE mo_initicon_config
   PUBLIC :: generate_filename
   PUBLIC :: filetype
   PUBLIC :: ana_varnames_map_file
+  PUBLIC :: is_coldstart_soil
 
 
   CHARACTER(len=*),PARAMETER,PRIVATE :: &
@@ -95,10 +98,39 @@ MODULE mo_initicon_config
   ! Derived variables / variables based on input file contents
   ! ----------------------------------------------------------------------------
 
-  INTEGER  :: nlev_in   = 0  !< number of model levels of input data
+  INTEGER :: nlev_in   = 0  !< number of model levels of input data
+
+  LOGICAL :: is_coldstart_soil        !< if .TRUE. perform cold-start of soil model
 
 CONTAINS
-  
+
+  !>
+  !! setup additional initicon control variables
+  !!
+  !! Setup of additional initicon control variables depending on the 
+  !! initicon-NAMELIST and potentially other namelists. This routine is 
+  !! called, after all namelists have been read and a synoptic consistency 
+  !! check has been done.
+  !!
+  !! @par Revision History
+  !! Initial revision by Daniel Reinert, DWD (2013-07-11)
+  !!
+  SUBROUTINE configure_initicon
+  !
+    !-----------------------------------------------------------------------
+
+
+    IF ( init_mode == MODE_IFSANA ) THEN
+      is_coldstart_soil = .TRUE.   ! full coldstart is necessary
+    ELSE
+      is_coldstart_soil = .FALSE.  ! warmstart is sufficient (typical for standard
+                                   ! assimilation cycle 
+    ENDIF
+
+  END SUBROUTINE configure_initicon
+
+
+
   FUNCTION generate_filename(input_filename, model_base_dir, &
     &                        nroot, jlev, idom)  RESULT(result_str)
     CHARACTER(len=*), INTENT(IN)   :: input_filename, &
