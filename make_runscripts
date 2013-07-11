@@ -36,7 +36,7 @@
 # For more details see the parameters in the ./config/make_target_runscript
 #==============================================================================
 echo "-----------------------------------------------------------"
-set -x
+# set -x
 
 base_folder=$(pwd)
 input_folder=run
@@ -135,7 +135,7 @@ omp_stacksize=200M
 # returns "true" in accepted_script, if the script name is accepted
 check_accept_script()
 {
-  set -x
+  # set -x
   check_accepted_filename=$1
   
   if [[ -r $input_folder/$filename ]] ; then
@@ -168,7 +168,7 @@ check_accept_script()
 
    case $use_target in
      blizzard)
-       echo this is blizzard for $check_accepted_filename
+       # echo this is blizzard for $check_accepted_filename
        # check which scripts run on blizzard
        # (p_test does not work, xlf gives inconsistent results )
        case $check_accepted_filename in
