@@ -135,6 +135,7 @@ omp_stacksize=200M
 # returns "true" in accepted_script, if the script name is accepted
 check_accept_script()
 {
+  set -x
   check_accepted_filename=$1
   
   if [[ -r $input_folder/$filename ]] ; then
@@ -165,27 +166,29 @@ check_accept_script()
      esac
    fi
 
-   # check which scripts run on blizzard
-   # (p_test does not work, xlf gives inconsistent results )
-   if [[ $use_target = "blizzard" ]] ; then  
-     case $check_accepted_filename in
-     *oce_test_parallel*)
-        accepted_script="false"  
-        ;;
-     *nat_jww_nwp_mpiomp*)
-        accepted_script="false"
-        ;;
-     esac
-   fi
-   
-   # check which scripts run on sx9 (ocean scipts requiring ext data  do not work, pool does not exist)
-   if [[ $use_target = "sx9" ]] ; then
-     case $check_accepted_filename in
-     *test_oce_default*)
-        accepted_script="false"
-        ;;
-     esac
-   fi
+   case $use_target in
+     blizzard)
+       echo this is blizzard for $check_accepted_filename
+       # check which scripts run on blizzard
+       # (p_test does not work, xlf gives inconsistent results )
+       case $check_accepted_filename in
+       *test_oce_parallel*)
+          accepted_script="false"  
+          ;;
+       *nat_jww_nwp_mpiomp*)
+          accepted_script="false"
+          ;;
+       esac
+     ;; 
+
+     sx9)
+       case $check_accepted_filename in
+       *test_oce_default*)
+          accepted_script="false"
+          ;;
+       esac
+
+   esac
    
    if [[ $accepted_script != "true" ]] ; then
      return 1
