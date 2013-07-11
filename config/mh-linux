@@ -110,7 +110,7 @@ case "$fortran_compiler" in
         CFLAGS      = "$CFLAGS" -DpgiFortran
         FC          = pgf95 #pgfortran 
        # FC          = pgfortran
-        FDEBUG      = -g -gopt -Mbounds -Mchkptr -Mchkstk  -Mdclchk -Mallocatable=03
+        FDEBUG      = -g -gopt -Mbounds -Mchkptr -Mchkstk  -Mdclchk
        # FFLAGS      = -O "$GEN_FLAGS" "$FDEBUG" -Mpreprocess -Mrecursive -Mstandard  -D__LOOP_EXCHANGE
         FFLAGS      = -O -C "$FDEBUG" -Mpreprocess -Mrecursive -Mallocatable=03 -D__LOOP_EXCHANGE
         F77         = "$FC"
@@ -261,7 +261,7 @@ case "$ac_sitename" in
         software_tree = /sw/$dist_codename-x64
         case $ac_hostname in
             thunder*)
-                config_target=thunder                
+                config_target=thunder
                 HDF5ROOT    = $software_tree/hdf5-1.8.8-static
                 SZIPROOT    = $software_tree/szip-2.1-static
                 ZLIBROOT    = /usr

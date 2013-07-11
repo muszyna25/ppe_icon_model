@@ -167,7 +167,7 @@ check_accept_script()
 
    # check which scripts run on blizzard
    # (p_test does not work, xlf gives inconsistent results )
-   if [[ $target = "blizzard" ]] ; then  
+   if [[ $use_target = "blizzard" ]] ; then  
      case $check_accepted_filename in
      *oce_test_parallel*)
         accepted_script="false"  
@@ -179,7 +179,7 @@ check_accept_script()
    fi
    
    # check which scripts run on sx9 (ocean scipts requiring ext data  do not work, pool does not exist)
-   if [[ $target = "sx9" ]] ; then
+   if [[ $use_target = "sx9" ]] ; then
      case $check_accepted_filename in
      *test_oce_default*)
         accepted_script="false"

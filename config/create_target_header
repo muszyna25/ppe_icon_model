@@ -454,10 +454,10 @@ set_run_target_thunder()
     tasks_per_node=1
  else
     job_type=parallel
+    # queue="mpi-develop"
     queue="mpi-compute"
     tasks_per_node=$use_mpi_procs_pernode
   fi
-  # ------------------------------------
   if [[ "$BB_SYSTEM" ]]; then
     # this buildbot, do not use job id
     job_log_name="LOG.$job_name"
@@ -465,6 +465,13 @@ set_run_target_thunder()
     job_log_name="LOG.$job_name.%j"
   fi
 
+  # ------------------------------------
+  s_cpu_time=""
+  if [[ "x$use_cpu_time" != "x" ]] ; then
+     s_cpu_time="SBATCH --time=$use_cpu_time"
+  fi
+  # ------------------------------------
+ 
   cat >> $output_script << EOF
 # =====================================
 # thunder batch job parameters
@@ -476,6 +483,8 @@ set_run_target_thunder()
 #SBATCH --workdir=$output_folder
 #SBATCH --nodes=$use_nodes
 #SBATCH --ntasks-per-node=$tasks_per_node
+# #$s_cpu_time
+# #SBATCH --time=30
 #========================================
 EOF
 }
