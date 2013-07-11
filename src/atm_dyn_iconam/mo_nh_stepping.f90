@@ -506,7 +506,7 @@ MODULE mo_nh_stepping
       latbc_inter2 = (last_latbc_datetime%calday - datetime%calday)*rdaylen + &
         last_latbc_datetime%caltime - datetime%caltime
 
-      IF (latbc_inter2 .LE. 0._wp) THEN
+      IF (latbc_inter2 .LT. 0._wp) THEN
         !
         ! new data analysis is always read in p_latbc_data(read_latbc_tlev),
         ! whereas p_latbc_data(last_latbc_tlev) always holds the last data
