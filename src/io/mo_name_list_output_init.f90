@@ -16,7 +16,8 @@ MODULE mo_name_list_output_init
 
 #ifndef USE_CRAY_POINTER
   USE, INTRINSIC :: ISO_C_BINDING, ONLY: c_ptr, c_intptr_t, c_f_pointer
-#endif ! USE_CRAY_POINTER
+#endif
+! USE_CRAY_POINTER
 
   USE mo_cdi_constants          ! We need all
   USE mo_kind,                              ONLY: wp, i8, dp, sp
@@ -111,7 +112,8 @@ MODULE mo_name_list_output_init
   USE mo_lnd_nwp_config,                    ONLY: nlev_snow
   USE mo_vertical_coord_table,              ONLY: vct
   USE mo_dynamics_config,                   ONLY: iequations
-#endif ! __ICON_OCEAN_ONLY__
+#endif 
+! __ICON_OCEAN_ONLY__
 
   IMPLICIT NONE
 
@@ -484,7 +486,8 @@ CONTAINS
           ENDDO DOM_LOOP
         END IF
       ENDIF
-#endif ! __ICON_OCEAN_ONLY__
+#endif 
+! __ICON_OCEAN_ONLY__
 
       p_onl%cur_bounds_triple= 1
       p_onl%next_output_time = p_onl%output_bounds(1,1)
@@ -615,8 +618,10 @@ CONTAINS
   INCLUDE "mpif.h"
 #else
   USE mpi, ONLY: MPI_ROOT, MPI_PROC_NULL
-#endif ! __SUNPRO_F95
-#endif ! NOMPI
+#endif 
+! __SUNPRO_F95
+#endif 
+! NOMPI
 
     LOGICAL, OPTIONAL, INTENT(in) :: lprintlist
     INTEGER, OPTIONAL, INTENT(in) :: isample
@@ -701,7 +706,8 @@ CONTAINS
 #else
     ! bcast_root is not used in this case
     bcast_root = 0
-#endif ! NOMPI
+#endif 
+! NOMPI
 
     ! ---------------------------------------------------------------------------
 
@@ -846,7 +852,8 @@ CONTAINS
         END IF
       END IF
     END IF
-#endif ! NOMPI
+#endif 
+! NOMPI
 
     ! Set the number of domains in output and the patch reorder information
     CALL set_patch_info
@@ -1019,7 +1026,8 @@ CONTAINS
 
 #ifndef NOMPI
     IF(use_async_name_list_io) CALL init_memory_window
-#endif ! NOMPI
+#endif 
+! NOMPI
 
     CALL message(routine,'Done')
 
@@ -1242,7 +1250,8 @@ CONTAINS
           &          bcast_root, p_comm_work_2_io)
         CALL p_bcast(patch_info(jp)%number_of_grid_used, bcast_root, p_comm_work_2_io)
       ENDIF
-#endif ! NOMPI
+#endif 
+! NOMPI
 
     ENDDO ! jp
 
@@ -1264,10 +1273,12 @@ CONTAINS
           ! Transfer reorder_info to IO PEs
           CALL transfer_reorder_info(lonlat_info(jl,jg))
         ENDIF
-#endif ! NOMPI
+#endif 
+! NOMPI
       END DO ! jg
     ENDDO ! jl
-#endif ! __ICON_OCEAN_ONLY__
+#endif 
+! __ICON_OCEAN_ONLY__
 
   END SUBROUTINE set_patch_info
 
@@ -1633,7 +1644,8 @@ CONTAINS
                        p_comm_work, mpierr)
 #else
     p_ri%pe_own(0) = p_ri%n_own
-#endif ! NOMPI
+#endif 
+! NOMPI
 
     ! Get offset within result array
     p_ri%pe_off(0) = 0
@@ -1655,7 +1667,8 @@ CONTAINS
                         p_comm_work, mpierr)
 #else
     glbidx_glb(:) = glbidx_own(:)
-#endif ! NOMPI
+#endif 
+! NOMPI
 
     ! Get reorder_index
 
@@ -1768,7 +1781,8 @@ CONTAINS
                        p_comm_work, mpierr)
 #else
     p_ri%pe_own(0) = p_ri%n_own
-#endif ! NOMPI
+#endif 
+! NOMPI
 
     ! Get offset within result array
     p_ri%pe_off(0) = 0
@@ -1912,7 +1926,8 @@ CONTAINS
       ENDDO
       CALL gridDefYvals(of%cdiLonLatGridID, p_lonlat)
       DEALLOCATE(p_lonlat)
-#endif ! __ICON_OCEAN_ONLY__
+#endif 
+! __ICON_OCEAN_ONLY__
     ELSE
 
       ! Cells
@@ -2322,7 +2337,8 @@ CONTAINS
       of%cdiZaxisID(ZA_GENERIC_ICE) = zaxisCreate(ZAXIS_GENERIC, 1)
 
     ELSE ! oce
-#endif ! __ICON_OCEAN_ONLY__
+#endif 
+! __ICON_OCEAN_ONLY__
       of%cdiZaxisID(ZA_depth_below_sea)      = zaxisCreate(ZAXIS_DEPTH_BELOW_SEA, n_zlev)
       nzlevp1 = n_zlev + 1
       of%cdiZaxisID(ZA_depth_below_sea_half) = zaxisCreate(ZAXIS_DEPTH_BELOW_SEA, nzlevp1)
@@ -2337,7 +2353,8 @@ CONTAINS
       of%cdiZaxisID(ZA_GENERIC_ICE) = zaxisCreate(ZAXIS_GENERIC, 1)
 #ifndef __ICON_OCEAN_ONLY__
     ENDIF
-#endif ! __ICON_OCEAN_ONLY__
+#endif 
+! __ICON_OCEAN_ONLY__
 
 
     !
@@ -2815,18 +2832,52 @@ CONTAINS
     IF ((grib_conf%generatingCenter == 78) .AND. (grib_conf%generatingSubcenter == 255)) THEN
       CALL vlistDefVarIntKey(vlistID, varID, "localDefinitionNumber"  ,         &
         &                    grib_conf%localDefinitionNumber)
-      CALL vlistDefVarIntKey(vlistID, varID, "localNumberOfExperiment",         &
-        &                    grib_conf%localNumberOfExperiment)
+
       CALL vlistDefVarIntKey(vlistID, varID, "localCreationDateYear"  , 100*cent+year)
       CALL vlistDefVarIntKey(vlistID, varID, "localCreationDateMonth" , month)
       CALL vlistDefVarIntKey(vlistID, varID, "localCreationDateDay"   , day)
       CALL vlistDefVarIntKey(vlistID, varID, "localCreationDateHour"  , hour)
       CALL vlistDefVarIntKey(vlistID, varID, "localCreationDateMinute", minute)
-      ! preliminary HACK for identifying tile based variables
-      CALL vlistDefVarIntKey(vlistID, varID, "localInformationNumber" , tileidx)
-      ! store GRIB_API library version
-      CALL vlistDefVarIntKey(vlistID, varID, "localVersionNumber" , gribGetAPIVersion())
       ! CALL vlistDefVarIntKey(vlistID, varID, "localValidityDateYear"  , 2013)
+
+      ! preliminary HACK for identifying tile based variables
+      CALL vlistDefVarIntKey(vlistID, varID, "localNumberOfExperiment",                 &
+        &                    grib_conf%localNumberOfExperiment)
+      
+      CALL vlistDefVarIntKey(vlistID, varID, "localInformationNumber" , tileidx)
+
+      IF (grib_conf%localDefinitionNumber == 254) THEN
+        !
+        ! -------------------------------------------
+        ! Local definition for deterministic forecast
+        ! -------------------------------------------
+
+        ! store GRIB_API library version
+        CALL vlistDefVarIntKey(vlistID, varID, "localVersionNumber" , gribGetAPIVersion())
+
+        !
+      ELSE IF (grib_conf%localDefinitionNumber == 253) THEN
+        !
+        ! --------------------------------------
+        ! Local definition for ensemble products
+        ! --------------------------------------
+
+        IF (grib_conf%productDefinitionTemplateNumber /= -1)                              &
+          &   CALL vlistDefVarIntKey(vlistID, varID, "productDefinitionTemplateNumber",   &
+          &                          grib_conf%productDefinitionTemplateNumber)
+        IF (grib_conf%typeOfEnsembleForecast /= -1)                                       &
+          &   CALL vlistDefVarIntKey(vlistID, varID, "typeOfEnsembleForecast" ,           &
+          &                          grib_conf%typeOfEnsembleForecast)
+        IF (grib_conf%localTypeOfEnsembleForecast /= -1)                                  &
+          &   CALL vlistDefVarIntKey(vlistID, varID, "localTypeOfEnsembleForecast" ,      &
+          &                          grib_conf%localTypeOfEnsembleForecast)
+        IF (grib_conf%numberOfForecastsInEnsemble /= -1)                                  &
+          &   CALL vlistDefVarIntKey(vlistID, varID, "numberOfForecastsInEnsemble" ,      &
+          &                          grib_conf%numberOfForecastsInEnsemble)
+        IF (grib_conf%perturbationNumber /= -1)                                           &
+          &   CALL vlistDefVarIntKey(vlistID, varID, "perturbationNumber" ,               &
+          &                          grib_conf%perturbationNumber)
+      END IF ! localDefinitionNumber
     END IF
 
     ! SECTION 3
@@ -3060,7 +3111,8 @@ CONTAINS
 
     IF(my_process_is_io()) ALLOCATE(vct(ivct_len))
     CALL p_bcast(vct, bcast_root, p_comm_work_2_io)
-#endif ! __ICON_OCEAN_ONLY__
+#endif 
+! __ICON_OCEAN_ONLY__
     !-----------------------------------------------------------------------------------------------
     ! Replicate variable lists
 
@@ -3250,7 +3302,8 @@ CONTAINS
     INCLUDE "mpif.h"
 #else
     USE mpi, ONLY: MPI_ADDRESS_KIND, MPI_INFO_NULL
-#endif ! __SUNPRO_F95
+#endif 
+! __SUNPRO_F95
 
     INTEGER :: jp, i, iv, nlevs
     INTEGER :: nbytes_real, mpierr, rma_cache_hint
@@ -3263,7 +3316,8 @@ CONTAINS
     POINTER(tmp_ptr_dp,tmp_dp(*))
 #else
     TYPE(c_ptr) :: c_mem_ptr
-#endif ! USE_CRAY_POINTER
+#endif 
+! USE_CRAY_POINTER
 
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::init_async_name_list_output"
     INTEGER :: i_log_dom, n_own, lonlat_id
@@ -3307,7 +3361,8 @@ CONTAINS
             i_log_dom = output_file(i)%log_patch_id
             n_own     = lonlat_info(lonlat_id, i_log_dom)%n_own
             mem_size  = mem_size + INT(nlevs*n_own,i8)
-#endif ! __ICON_OCEAN_ONLY__
+#endif 
+! __ICON_OCEAN_ONLY__
 
           CASE DEFAULT
             CALL finish(routine,'unknown grid type')
@@ -3385,8 +3440,10 @@ CONTAINS
     ELSE
       CALL C_F_POINTER(c_mem_ptr, mem_ptr_dp, (/ mem_size /) )
     ENDIF
-#endif ! __SX__
-#endif ! USE_CRAY_POINTER
+#endif 
+! __SX__
+#endif 
+! USE_CRAY_POINTER
 
     rma_cache_hint = MPI_INFO_NULL
 #ifdef __xlC__
@@ -3395,7 +3452,8 @@ CONTAINS
     IF (mpierr /= 0) CALL finish(trim(routine), "MPI error!")
     CALL MPI_Info_set(rma_cache_hint, "IBM_win_cache","0", mpierr)
     IF (mpierr /= 0) CALL finish(trim(routine), "MPI error!")
-#endif ! __xlC__
+#endif 
+! __xlC__
 
     ! Create memory window for communication
     IF(use_sp_output) THEN
@@ -3412,10 +3470,12 @@ CONTAINS
 #ifdef __xlC__
     CALL MPI_Info_free(rma_cache_hint, mpierr);
     IF (mpierr /= 0) CALL finish(trim(routine), "MPI error!")
-#endif ! __xlC__
+#endif 
+! __xlC__
 
   END SUBROUTINE init_memory_window
 
-#endif ! NOMPI
+#endif 
+! NOMPI
 
 END MODULE mo_name_list_output_init
