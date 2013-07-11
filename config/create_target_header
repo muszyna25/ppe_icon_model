@@ -197,6 +197,11 @@ EOF
 
 }
 
+#=============================================================================
+set_job_log_name()
+{
+}
+
 
 #=============================================================================
 set_run_target_blizzard()
@@ -337,6 +342,13 @@ set_run_target_blizzard()
     class="class = bench"
   fi
 
+  if [[ "$BB_SYSTEM" ]]; then
+    # this buildbot, do not use job id
+    job_log_name='LOG.$(job_name)'
+  else
+    job_log_name='LOG.$(job_name).$(jobid)'
+  fi
+
 # smt mode
 #   task_affinity="cpu($use_openmp_threads)"
 # st mode
@@ -379,8 +391,8 @@ set_run_target_blizzard()
 # @ $resources
 # @ $wall_clock_limit
 # @ job_name     = $job_name
-# @ output       = LOG.\$(job_name).\$(jobid).out
-# @ error        = LOG.\$(job_name).\$(jobid).err
+# @ output       = $job_log_name.o
+# @ error        = \$(output)
 # @ notification = error
 # @ $account
 # @ queue
@@ -451,14 +463,20 @@ set_run_target_thunder()
     tasks_per_node=$use_mpi_procs_pernode
   fi
   # ------------------------------------
+  if [[ "$BB_SYSTEM" ]]; then
+    # this buildbot, do not use job id
+    job_log_name="LOG.$job_name"
+  else
+    job_log_name="LOG.$job_name.%j"
+  fi
 
   cat >> $output_script << EOF
 # =====================================
 # thunder batch job parameters
 #-----------------------------------------------------------------------------
 #SBATCH --job-name=$job_name
-#SBATCH --output=LOG.$job_name.%j.out
-#SBATCH --error=LOG.$job_name.%j.err
+#SBATCH --output=$job_log_name.o
+#SBATCH --error=$job_log_name.o
 #SBATCH --partition=$queue
 #SBATCH --workdir=$output_folder
 #SBATCH --nodes=$use_nodes
@@ -549,64 +567,6 @@ sleep 2
 mpdid=\$($use_mpi_root/bin/mpdtrace -l | awk '{print \$1}')
 echo "mpd started as \$mpdid"
 #======================================
-EOF
-}
-
-
-#=============================================================================
-set_run_target_tornado()
-{  
-  set_default use_nproma 8
-  use_nodes=1
-   
-  if [[ $use_openmp == "yes" ]]; then
-    use_mpi="no"
-    set_default use_openmp_threads 16
-    queue="-q smp"
-    resources=" -pe smp 16"
-  elif [[ $use_mpi == "yes" ]]; then
-    set_default use_mpi_procs_pernode 8
-    if [[ "$use_mpi_procs_pernode" == "1" ]] ; then
-      queue="-q serial"
-      resources=""    
-    else
-      queue="-q cluster"
-      resources="-pe orte8 ${use_mpi_procs_pernode}"
-    fi
-  else
-    queue="-q serial"
-    resources=""      
-  fi
-
-  # create header
-  start_header
-  s_cpu_time=""
-  if [[ "x$use_cpu_time" != "x" ]] ; then
-     s_cpu_time="-l s_cpu=$use_cpu_time"
-  fi
-#-----------------------------------------------------------------------------
-# >> #$ -S /bin/bash
-# >> #$ -l s_cpu=2:00:00
-# >> #$ -l s_vmem=1024M
-# >> #$ -j y
-# >> #$ -cwd
-# >> #$ -N smp_job
-# >> #$ -M <your email>
-# >> #$ -pe smp 16
-# >> #-----------------------------------------------------------------------------
-  cat >> $output_script << EOF
-# ===========================
-# tornado.dkrz.de batch job parameters
-# ---------------------------
-#$ -S /bin/bash
-#$ -o LOG.$job_name.o
-#$ -N $job_name
-#$ $s_cpu_time
-#$ $resources
-#$ -j y
-#$ -cwd
-#$ $queue
-# ==========================
 EOF
 }
 
