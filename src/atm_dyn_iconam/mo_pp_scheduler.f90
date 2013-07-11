@@ -260,6 +260,11 @@ CONTAINS
 
     IF (dbg_level > 5)  CALL message(routine, "Enter")
     
+    ! initialize "new_element" pointer (cf. NEC compiler bugs DWD0121
+    ! and DWD0123 for hybrid parallelization)
+    new_element   => NULL()
+    new_element_2 => NULL()
+
     !- loop over model level variables
     ! Note that there are several "vn" variables with different time
     ! levels, we just add unconditionally all
@@ -404,6 +409,10 @@ CONTAINS
       &                                      uv_hrz_intp_levs(4*MAX_LONLAT_GRIDS)
 
     if (dbg_level > 5)  CALL message(routine, "Enter")
+
+    ! initialize "new_element" pointer (cf. NEC compiler bugs DWD0121
+    ! and DWD0123 for hybrid parallelization)
+    new_element   => NULL()
 
     !-------------------------------------------------------------
     !-- horizontal interpolation regular lon-lat grids
@@ -776,6 +785,11 @@ CONTAINS
     TYPE(t_post_op_meta)          :: post_op
 
     if (dbg_level > 5)  CALL message(routine, "Enter")
+
+    ! initialize "new_element" pointer (cf. NEC compiler bugs DWD0121
+    ! and DWD0123 for hybrid parallelization)
+    new_element   => NULL()
+    new_element_2 => NULL()
      
     !- find existing variables "u", "v" (for copying the meta-data):
     element_u => find_list_element (p_nh_state(jg)%diag_list, "u")
@@ -939,6 +953,9 @@ CONTAINS
     TYPE(t_cf_var)                     :: cf_desc
     TYPE(t_grib2_var)                  :: grib2_desc
 
+    ! initialize "new_element" pointer (cf. NEC compiler bugs DWD0121
+    ! and DWD0123 for hybrid parallelization)
+    new_element   => NULL()
 
     if (dbg_level > 5)  CALL message(routine, "Enter")
     ndom = SIZE(p_nh_opt_diag)
