@@ -1861,7 +1861,8 @@ CONTAINS
   IF (no_tracer >=1) THEN
     z_c(:,:,:) = p_os%p_prog(nold(1))%tracer(:,:,:,1)
     CALL dbg_print('init testcases  - T'       ,z_c                     ,str_module,idt_src)
-  ELSE IF (no_tracer == 2) THEN
+  END IF
+  IF (no_tracer >= 2) THEN
     z_c(:,:,:) = p_os%p_prog(nold(1))%tracer(:,:,:,2)
     CALL dbg_print('init testcases  - S'       ,z_c                     ,str_module,idt_src)
   END IF
