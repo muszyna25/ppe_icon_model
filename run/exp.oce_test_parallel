@@ -25,17 +25,6 @@
 # EXPNAME = experiment name
 # NPROMA  = array blocking length / inner loop length
 
-
-#-----------------------------------------------------------------------------
-# xlf gives inconsistent results and p_test returns an error 
-# while there's not a real bug in the model related to this
-# for the moment we disable the run on blizzard
-
-if [[ _${target} = "_blizzard" ]]; then
-  echo "This test is disabled on blizzard --> exit test without error"
-  check_error 0 "exp.oce_parallel"
-  exit 0
-fi
  
 # This test must have available at least 3 MPI processes.
 if [[ ${mpi_total_procs} -lt 3 ]]; then
