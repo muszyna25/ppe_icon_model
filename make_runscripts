@@ -166,6 +166,21 @@ check_accept_script()
      esac
    fi
 
+   # check which scripts run without mpi
+   if [[ $use_mpi != "yes" ]] ; then
+     case $check_accepted_filename in
+       *test_oce_parallel*)
+          accepted_script="false"  
+          ;;
+       *nat_jww_nwp_mpiomp*)
+          accepted_script="false"
+          ;;
+       *test_couple*)
+          accepted_script="false"
+          ;;
+       esac
+   fi
+
    case $use_target in
      blizzard)
        # echo this is blizzard for $check_accepted_filename
