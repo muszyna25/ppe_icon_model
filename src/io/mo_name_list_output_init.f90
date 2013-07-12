@@ -74,6 +74,7 @@ MODULE mo_name_list_output_init
   USE mo_run_config,                        ONLY: num_lev, num_levp1, dtime,                      &
     &                                             msg_level, output_mode, ltestcase,              &
     &                                             number_of_grid_used
+  USE mo_nonhydrostatic_config,             ONLY: ivctype
   USE mo_datetime,                          ONLY: t_datetime
   USE mo_time_config,                       ONLY: time_config
   USE mo_lonlat_grid,                       ONLY: t_lon_lat_grid
@@ -2083,7 +2084,9 @@ CONTAINS
       CALL zaxisDefLbounds  (of%cdiZaxisID(ZA_reference), lbounds) !necessary for GRIB2
       CALL zaxisDefUbounds  (of%cdiZaxisID(ZA_reference), ubounds) !necessary for GRIB2
       CALL zaxisDefLevels   (of%cdiZaxisID(ZA_reference), levels ) !necessary for NetCDF
-      CALL zaxisDefReference(of%cdiZaxisID(ZA_reference), 1      ) !numberOfVGridUsed
+      ! set numberOfVGridUsed
+      ! Dependent on the algorithm chosen to generate the vertical grid (ivctype)
+      CALL zaxisDefReference(of%cdiZaxisID(ZA_reference), get_numberOfVgridUsed(ivctype) )
       !
       ! UUID not yet available - write dummy UUID
       CALL zaxisDefUUID     (of%cdiZaxisID(ZA_reference), uuidOfVGrid_string ) !uuidOfVGrid
@@ -2098,7 +2101,9 @@ CONTAINS
         levels(k) = REAL(k,dp)
       END DO
       CALL zaxisDefLevels   (of%cdiZaxisID(ZA_reference_half), levels)
-      CALL zaxisDefReference(of%cdiZaxisID(ZA_reference_half), 1     ) !numberOfVGridUsed
+      ! set numberOfVGridUsed
+      ! Dependent on the algorithm chosen to generate the vertical grid (ivctype)
+      CALL zaxisDefReference(of%cdiZaxisID(ZA_reference_half), get_numberOfVgridUsed(ivctype) )
       !
       ! UUID not yet available - write dummy UUID
       CALL zaxisDefUUID     (of%cdiZaxisID(ZA_reference_half), uuidOfVGrid_string ) !uuidOfVGrid
@@ -3088,6 +3093,35 @@ CONTAINS
       END IF
     END DO LOOP_GROUPS
   END FUNCTION get_id
+
+
+
+  !------------------------------------------------------------------------------------------------
+  !> FUNCTION get_numberOfVGridUsed
+  !  Depending on the vertical axis chosen for ICON (ivctype), it gives back the value for 
+  !  the GRIB2-key 'numberOVGridUsed'. Here, we adhere to the COSMO implementation:
+  !
+  !  |       Description               |  ivctype  |  numberOfVGridUsed  |
+  !  ====================================================================
+  !  | height based hybrid Gal-Chen    |    1      |       2            |
+  !  | height based SLEVE              |    2      |       4            |
+  !
+  !
+  FUNCTION get_numberOfVgridUsed(ivctype)
+    INTEGER                 :: get_numberOfVgridUsed
+    INTEGER, INTENT(IN)     :: ivctype
+    CHARACTER(*), PARAMETER :: routine = TRIM(modname)//":get_numberOfVgridUsed"
+
+    SELECT CASE(ivctype)
+      CASE(1)
+        get_numberOfVgridUsed = 2
+      CASE(2)
+        get_numberOfVgridUsed = 4
+      CASE DEFAULT
+        CALL finish(routine, "invalid ivctype! Must be 1 or 2")
+    END SELECT
+
+  END FUNCTION get_numberOfVgridUsed
 
 
   !------------------------------------------------------------------------------------------------
