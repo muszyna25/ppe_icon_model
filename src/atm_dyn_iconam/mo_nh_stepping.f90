@@ -461,9 +461,7 @@ MODULE mo_nh_stepping
   TYPE(t_datetime)                     :: datetime_old
 
   INTEGER           :: nsoil(n_dom), nsnow
-  REAL(wp)          :: latbc_dtime
-  REAL(wp)          :: latbc_inter1, latbc_inter2, & ! time interpolation coefficients
-                       elapsed_mo_time
+  REAL(wp)          :: latbc_elapsed
 
 !$  INTEGER omp_get_num_threads
 !-----------------------------------------------------------------------
@@ -503,55 +501,25 @@ MODULE mo_nh_stepping
       ! Check if we need to read data analysis
       CALL date_to_time(datetime)
       CALL date_to_time(last_latbc_datetime)
-      latbc_inter2 = (last_latbc_datetime%calday - datetime%calday)*rdaylen + &
-        last_latbc_datetime%caltime - datetime%caltime
+      latbc_elapsed = (last_latbc_datetime%calday - datetime%calday + &
+        last_latbc_datetime%caltime - datetime%caltime)*rdaylen
 
-      IF (latbc_inter2 .LT. 0._wp) THEN
+      IF (latbc_elapsed .LT. 0._wp) THEN
         !
         ! new data analysis is always read in p_latbc_data(read_latbc_tlev),
         ! whereas p_latbc_data(last_latbc_tlev) always holds the last data
         ! analysis which has been read.
         !
         CALL add_time(latbc_config%dtime_latbc,0,0,0,last_latbc_datetime)
-        read_latbc_tlev = 3 - last_latbc_tlev
         CALL read_latbc_data(p_patch, p_nh_state(1), p_int_state(1), ext_data(1), last_latbc_datetime, read_latbc_tlev)
-        last_latbc_tlev = 3 - read_latbc_tlev
-
-        ! compute the 'positive' coeffcient
-        CALL date_to_time(last_latbc_datetime)
-        latbc_inter2 = (last_latbc_datetime%calday - datetime%calday)*rdaylen + &
-          last_latbc_datetime%caltime - datetime%caltime
+        last_latbc_tlev = read_latbc_tlev
+        read_latbc_tlev = 3 - read_latbc_tlev
       ENDIF
 
-      ! compute the coefficients for the linear interpolation
-      latbc_inter2 = latbc_inter2 / latbc_config%dtime_latbc
-      latbc_inter1 = 1._wp - latbc_inter2
     ENDIF
 
     WRITE(message_text,'(a,i10)') 'TIME STEP n: ', jstep
     CALL message(TRIM(routine),message_text)
-
-    ! for limited area models, interpolate the two boundary data time levels
-    ! into p_latbc_data(read_latbc_tlev)%atm prognostic fields.
-    ! Storage p_latbc_data(read_latbc_tlev) will be overwritten in the next
-    ! read-in of analysis data
-    IF (l_limited_area  .AND. (latbc_config%itype_latbc == 1)) THEN
-      WRITE(message_text,'(a,i10)') 'interpolating latbc at time step: ', jstep
-      CALL message(TRIM(routine),message_text)
-
-!$OMP PARALLEL
-!$OMP WORKSHARE
-      p_latbc_data(read_latbc_tlev)%atm%vn = latbc_inter1 * p_latbc_data(read_latbc_tlev)%atm%vn &
-        + latbc_inter2 * p_latbc_data(last_latbc_tlev)%atm%vn
-      p_latbc_data(read_latbc_tlev)%atm%w = latbc_inter1 * p_latbc_data(read_latbc_tlev)%atm%w &
-        + latbc_inter2 * p_latbc_data(last_latbc_tlev)%atm%w
-      p_latbc_data(read_latbc_tlev)%atm%rho = latbc_inter1 * p_latbc_data(read_latbc_tlev)%atm%rho &
-        + latbc_inter2 * p_latbc_data(last_latbc_tlev)%atm%rho
-      p_latbc_data(read_latbc_tlev)%atm%theta_v = latbc_inter1 * p_latbc_data(read_latbc_tlev)%atm%theta_v &
-        + latbc_inter2 * p_latbc_data(last_latbc_tlev)%atm%theta_v
-!$OMP END WORKSHARE
-!$OMP END PARALLEL
-    ENDIF
 
     IF ( check_newday(datetime_old,datetime) ) THEN
 
@@ -819,7 +787,7 @@ MODULE mo_nh_stepping
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
       &  routine = 'mo_nh_stepping:integrate_nh'
 
-    TYPE(t_datetime), INTENT(in)         :: datetime
+    TYPE(t_datetime), INTENT(INOUT)         :: datetime
 
     INTEGER , INTENT(IN)    :: jg           !< current grid level
     INTEGER , INTENT(IN)    :: nstep_global !< counter of global time step
@@ -857,10 +825,12 @@ MODULE mo_nh_stepping
     ! Switch to determine if nested domains are called at a given time step
     LOGICAL :: l_call_nests = .FALSE.
 
+    REAL(wp) :: latbc_inter1, latbc_inter2 ! interpolation coeffs for lateral boundaries
+    
     !--------------------------------------------------------------------------
     ! This timer must not be called in nested domain because the model crashes otherwise
     IF (jg == 1 .AND. ltimer) CALL timer_start(timer_integrate_nh)
-
+    
     !--------------------------------------------------------------------------
     ! settings for calling frequency for slow physics
     !--------------------------------------------------------------------------
@@ -869,7 +839,7 @@ MODULE mo_nh_stepping
       IF (.NOT. l_nest_rcf) nsav1(1:n_dom) = nnow(1:n_dom)
     ENDIF
     !--------------------------------------------------------------------------
-
+      
     ! Determine parent domain ID
     IF ( jg > 1) THEN
       jgp = p_patch(jg)%parent_id
@@ -886,25 +856,43 @@ MODULE mo_nh_stepping
     ! they should be written to the save time level, so that the relaxation routine
     ! automatically does the right thing
 
-    IF (jg == 1 .AND. l_limited_area .AND. linit_dyn(jg)) THEN
-      n_now = nnow(jg)
+    IF (jg == 1 .AND. l_limited_area) THEN
+
       n_save = nsav2(jg)
 
-      WRITE(message_text,'(a)') 'save initial fields for outer boundary nudging'
       CALL message(TRIM(routine), TRIM(message_text))
 
       IF (latbc_config%itype_latbc == 1) THEN
-        WRITE(message_text,'(a)') 'lateral boundary nudge'
-        CALL message(TRIM(routine), TRIM(message_text))
+        
+        ! for limited area models, interpolate the two boundary data time levels
+        ! into p_latbc_data(read_latbc_tlev)%atm prognostic fields.
+        ! Storage p_latbc_data(read_latbc_tlev) will be overwritten in the next
+        ! read-in of analysis data
+
+        ! compute the coefficients for the linear interpolation
+        CALL date_to_time(datetime)
+        CALL date_to_time(last_latbc_datetime)
+        latbc_inter2 = (last_latbc_datetime%calday - datetime%calday + &
+          last_latbc_datetime%caltime - datetime%caltime)*rdaylen
+
+        latbc_inter2 = latbc_inter2 / latbc_config%dtime_latbc
+        latbc_inter1 = 1._wp - latbc_inter2
 !$OMP PARALLEL
 !$OMP WORKSHARE
-        p_nh_state(jg)%prog(n_save)%vn      = p_latbc_data(read_latbc_tlev)%atm%vn
-        p_nh_state(jg)%prog(n_save)%w       = p_latbc_data(read_latbc_tlev)%atm%w
-        p_nh_state(jg)%prog(n_save)%rho     = p_latbc_data(read_latbc_tlev)%atm%rho
-        p_nh_state(jg)%prog(n_save)%theta_v = p_latbc_data(read_latbc_tlev)%atm%theta_v
+        p_nh_state(jg)%prog(n_save)%vn = latbc_inter2 * p_latbc_data(read_latbc_tlev)%atm%vn &
+          + latbc_inter1 * p_latbc_data(last_latbc_tlev)%atm%vn
+        p_nh_state(jg)%prog(n_save)%w = latbc_inter2 * p_latbc_data(read_latbc_tlev)%atm%w &
+          + latbc_inter1 * p_latbc_data(last_latbc_tlev)%atm%w
+        p_nh_state(jg)%prog(n_save)%rho = latbc_inter2 * p_latbc_data(read_latbc_tlev)%atm%rho &
+          + latbc_inter1 * p_latbc_data(last_latbc_tlev)%atm%rho
+        p_nh_state(jg)%prog(n_save)%theta_v = latbc_inter2 * p_latbc_data(read_latbc_tlev)%atm%theta_v &
+          + latbc_inter1 * p_latbc_data(last_latbc_tlev)%atm%theta_v
 !$OMP END WORKSHARE
 !$OMP END PARALLEL
-      ELSE
+          
+      ELSE IF (jg == 1 .AND. l_limited_area .AND. linit_dyn(jg)) THEN
+
+      n_now = nnow(jg)
 !$OMP PARALLEL
 !$OMP WORKSHARE
         p_nh_state(jg)%prog(n_save)%vn      = p_nh_state(jg)%prog(n_now)%vn
@@ -913,6 +901,7 @@ MODULE mo_nh_stepping
         p_nh_state(jg)%prog(n_save)%theta_v = p_nh_state(jg)%prog(n_now)%theta_v
 !$OMP END WORKSHARE
 !$OMP END PARALLEL
+
       ENDIF
         
       ! tracer(nsav2) is currently not allocated in mo_nonhydro_state;
@@ -2279,14 +2268,18 @@ MODULE mo_nh_stepping
 
     ! read the first time level...
     last_latbc_datetime = time_config%ini_datetime
-    read_latbc_tlev = 1 ! read in the first time level
+    read_latbc_tlev = 1 ! read in the first data slot
     CALL read_latbc_data(p_patch, p_nh_state(1), p_int_state(1), ext_data(1), last_latbc_datetime, read_latbc_tlev)
+    
+    ! prepare indices for next reading
+    read_latbc_tlev = 2 ! next boundary data will be read in the 2nd data slot
+    last_latbc_tlev = 1 ! boundary data was last read in the 1st data slot
 
     ! ... and also the second
     CALL add_time(latbc_config%dtime_latbc,0,0,0,last_latbc_datetime)
-    read_latbc_tlev = 2 ! next boundary data will be read in the 2nd data slot
     CALL read_latbc_data(p_patch, p_nh_state(1), p_int_state(1), ext_data(1), last_latbc_datetime, read_latbc_tlev)
-    last_latbc_tlev = 2 ! boundary data was last read in the 2nd data slot
+    read_latbc_tlev = last_latbc_tlev
+    last_latbc_tlev = 3 - read_latbc_tlev
   ENDIF
 
 END SUBROUTINE allocate_nh_stepping
