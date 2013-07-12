@@ -22,7 +22,8 @@
 % ]{glossaries}  %--- use the glossary package
 \geometry{a4paper,textwidth=15.8cm,textheight=23.0cm,twoside,rmargin=0.96in} %--- Variation Randbereiche
 \usepackage{epsfig}
-% \usepackage{subfigure}  %--- simplifies putting pictures side by side
+\usepackage{caption}
+\usepackage{subcaption}  %--- simplifies putting pictures side by side
 \usepackage{layout}      %--- overview about boundaries and widths
                          % usage: write \layout somewhere in the document
 \usepackage{longtable, lscape}
@@ -35,7 +36,7 @@
 \usepackage{xcolor}
 \usepackage{listings}
 \usepackage{hyperref}    % ability to create hyperlinks within the document
-
+\usepackage{vhistory}
 
 
 % define some colors
@@ -108,6 +109,8 @@
 
 
 \includeonly{./title_toc,
+             ./versionhistory,
+             ./grid_geometry,
              ./GRIB2_output_tables}
 
 
@@ -157,6 +160,9 @@
 \end{titlepage}
 % ----------------------------------------------------------------%
 
+%---- generate version history page -----------------%
+\include{./versionhistory}
+
 \tableofcontents              %--- generate table of contents
 
 % remove chapter number from header for abstracts
@@ -177,6 +183,7 @@
 
 
 % ---------- Einbinden der verschiedenen Teildokumente -----------%
+\include{./grid_geometry}
 \include{./GRIB2_output_tables}
 % ----------------------------------------------------------------%
 
