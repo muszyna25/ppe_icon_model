@@ -44,7 +44,7 @@ MODULE mo_nml_annotate
   USE mo_utilities,   ONLY: finish, find_next_free_unit,        &
     &                       filename_max
 #endif
-  USE mo_util_file,   ONLY: util_filesize, util_tmpnam
+  USE mo_util_file,   ONLY: util_filesize, util_tmpnam, util_unlink
   USE mo_util_nml,    ONLY: util_annotate_nml
   
   IMPLICIT NONE
@@ -116,7 +116,8 @@ CONTAINS
       tmpnml = -1
       ! call a C routine which reads and parses the temporary
       ! namelists with a finite state machine:
-      iret   = util_annotate_nml(TRIM(tmp_filename), TRIM(dst_filename))
+      iret = util_annotate_nml(TRIM(tmp_filename), TRIM(dst_filename))
+      iret = util_unlink(TRIM(tmp_filename))
     END IF
   END SUBROUTINE log_nml_settings
   
