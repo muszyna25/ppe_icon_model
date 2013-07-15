@@ -56,24 +56,6 @@ case ${target} in
         configureoption="--with-fortran=sun"
         ;;
 
-    # Squall
-    # ------
-    squall | squall_gcc)
-        configureoption="--with-fortran=gcc"
-        ;;
-    squall_nag)
-        configureoption="--with-fortran=nag"
-        ;;
-    squall_intel)
-        configureoption="--with-fortran=intel"
-        ;;
-    squall_pgi)
-        configureoption="--with-fortran=pgi"
-        ;;
-    squall_sun)
-       configureoption="--with-fortran=sun"
-        ;;
-
     # Thunder
     # ------
     thunder | thunder_gcc)
