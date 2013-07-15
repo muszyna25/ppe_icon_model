@@ -56,7 +56,7 @@ MODULE mo_nh_vert_interp
   USE mo_grid_config,         ONLY: n_dom
   USE mo_run_config,          ONLY: iforcing, iqv, iqc, iqr, iqi, iqs
   USE mo_io_config,           ONLY: itype_pres_msl
-  USE mo_impl_constants,      ONLY: inwp, SUCCESS
+  USE mo_impl_constants,      ONLY: inwp, SUCCESS, PRES_MSL_METHOD_GME, PRES_MSL_METHOD_IFS
   USE mo_exception,           ONLY: finish, message, message_text
   USE mo_initicon_config,     ONLY: nlev_in, zpbl1, zpbl2, &
                                     l_coarse2fine_mode
@@ -594,7 +594,7 @@ CONTAINS
       &                   vcoeff_z%lin_cell%wfac_lin,                                        & !out
       &                   vcoeff_z%lin_cell%idx0_lin,                                        & !out
       &                   vcoeff_z%lin_cell%bot_idx_lin  )                                     !out 
-    IF (itype_pres_msl == 3) THEN
+    IF (itype_pres_msl == PRES_MSL_METHOD_IFS) THEN
       CALL prepare_extrap_ifspp(p_metrics%z_ifc, p_metrics%z_mc, nblks_c, npromz_c, nlev,    & !in
         &                       vcoeff_z%lin_cell%kpbl1, vcoeff_z%lin_cell%wfacpbl1)           !out
       vcoeff_z%lin_cell%kpbl2(:,:) = 0
@@ -648,7 +648,7 @@ CONTAINS
     ENDIF
     CALL cell_avg(z_auxz, p_patch, p_int_state(jg)%c_bln_avg, pres_z_out)
 
-    IF (itype_pres_msl == 3) THEN
+    IF (itype_pres_msl == PRES_MSL_METHOD_IFS) THEN
       CALL prepare_extrap(p_metrics%z_mc, nblks_c, npromz_c, nlev,                           & !in
         &                 vcoeff_z%lin_cell%kpbl1, vcoeff_z%lin_cell%wfacpbl1,               & !out
         &                 vcoeff_z%lin_cell%kpbl2, vcoeff_z%lin_cell%wfacpbl2 )                !out
@@ -732,7 +732,7 @@ CONTAINS
     CALL vcoeff_allocate(nblks_c, nblks_e, nplev, vcoeff_p)
 
     !--- Coefficients: Interpolation to pressure-level fields
-    IF (itype_pres_msl == 3) THEN
+    IF (itype_pres_msl == PRES_MSL_METHOD_IFS) THEN
       CALL prepare_extrap_ifspp(p_metrics%z_ifc, p_metrics%z_mc, nblks_c, npromz_c, nlev, & !in
         &                       vcoeff_p%lin_cell%kpbl1, vcoeff_p%lin_cell%wfacpbl1)        !out
       vcoeff_p%lin_cell%kpbl2(:,:) = 0
@@ -792,7 +792,7 @@ CONTAINS
     ENDIF
     CALL cell_avg(z_auxp, p_patch, p_int_state(jg)%c_bln_avg, temp_p_out)
 
-    IF (itype_pres_msl == 3) THEN
+    IF (itype_pres_msl == PRES_MSL_METHOD_IFS) THEN
       CALL prepare_extrap(p_metrics%z_mc, nblks_c, npromz_c, nlev,                          & !in
         &                 vcoeff_p%lin_cell%kpbl1, vcoeff_p%lin_cell%wfacpbl1,              & !out
         &                 vcoeff_p%lin_cell%kpbl2, vcoeff_p%lin_cell%wfacpbl2 )               !out
@@ -1571,7 +1571,7 @@ CONTAINS
         pres_out(nlen+1:nproma,:,jb)  = 0.0_wp
       ENDIF
 
-      IF (itype_pres_msl == 1) THEN
+      IF (itype_pres_msl == PRES_MSL_METHOD_GME) THEN
 
         ! Preparations for extrapolation below the ground: calculate temperature
         ! profile with artificial limits like in IFS. This temperature profile
@@ -1595,7 +1595,7 @@ CONTAINS
           ENDIF
         ENDDO
 
-      ELSE IF (itype_pres_msl == 3) THEN
+      ELSE IF (itype_pres_msl == PRES_MSL_METHOD_IFS) THEN
 
         ! Similar method to option 1, but we use the temperature at 150 m AGL 
         ! for extrapolation (kpbl1 contains the required index in this case)
@@ -2017,7 +2017,7 @@ CONTAINS
       IF (ierror(jb) > 0) CALL finish("z_at_plevels:",&
         "Error in computing interpolation coefficients")
 
-      IF (itype_pres_msl == 1) THEN
+      IF (itype_pres_msl == PRES_MSL_METHOD_GME) THEN
 
         ! Preparations for extrapolation below the ground: calculate temperature
         ! profile with artificial limits like in IFS. This temperature profile
@@ -2041,7 +2041,7 @@ CONTAINS
           ENDIF
         ENDDO
 
-      ELSE IF (itype_pres_msl == 3) THEN
+      ELSE IF (itype_pres_msl == PRES_MSL_METHOD_IFS) THEN
 
         ! Similar method to option 1, but we use the temperature at 150 m AGL 
         ! for extrapolation (kpbl1 contains the required index in this case)
@@ -2562,7 +2562,7 @@ CONTAINS
         temp_out(nlen+1:nproma,:,jb)  = 0.0_wp
       ENDIF
 
-      IF (l_pz_mode .AND. itype_pres_msl /= 3) THEN
+      IF (l_pz_mode .AND. itype_pres_msl /= PRES_MSL_METHOD_IFS) THEN
 
         DO jk1 = 1, nlevs_in
           DO jc = 1, nlen
