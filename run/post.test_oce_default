@@ -3,7 +3,7 @@ varNames2D="h_acc"
 varNames3D="t_acc s_acc rhopot_acc"
 varNames="${varNames2D} ${varNames3D}"
 maskName="wet_c"
-oType="png"
+oType="eps"
 # ================================================================================
 # technical stuff
 basePath=${ICON_BASE_PATH}
