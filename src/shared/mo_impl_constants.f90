@@ -483,8 +483,9 @@ MODULE mo_impl_constants
 
   ! Method for computation of relative humidity:
   INTEGER, PARAMETER :: &
-    RH_METHOD_WMO = 1,  &   ! WMO-type: e_s=e_s_water (water only)
-    RH_METHOD_IFS = 2       ! IFS-type: (mixed phases, water and ice)
+    RH_METHOD_WMO      = 1,  &   ! WMO-type: e_s=e_s_water (water only)
+    RH_METHOD_IFS      = 2,  &   ! IFS-type: (mixed phases, water and ice)
+    RH_METHOD_IFS_CLIP = 3       ! IFS-type + clipping to rh<=100%
 
   ! Max number of time levels:
   INTEGER, PARAMETER :: MAX_TIME_LEVELS = 5

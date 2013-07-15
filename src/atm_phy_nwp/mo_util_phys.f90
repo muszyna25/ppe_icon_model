@@ -195,7 +195,7 @@ CONTAINS
 
 
 
-  !> POINTWISE computation of relative humidity as r=e/e_sat,
+  !> POINTWISE computation of relative humidity as r=100. * e/e_sat,
   !! according to WMO standard
   !!
   !! (domain independent and elemental)
@@ -222,7 +222,7 @@ CONTAINS
   END FUNCTION rel_hum
 
 
-  !> POINTWISE computation of relative humidity as r=e/e_sat, 
+  !> POINTWISE computation of relative humidity as r=100. * e/e_sat, 
   !! according to IFS documentation
   !! I.e. For the temperature range 250.16<=T<=273.16, the saturation 
   !! vapour pressure is computed as a combination of the values over 
@@ -261,6 +261,7 @@ CONTAINS
     rel_hum_ifs = 100._wp * e/e_s
 
   END FUNCTION rel_hum_ifs
+
 
 
   !> computation of relative humidity as r=e/e_sat, according to WMO standard
@@ -341,7 +342,8 @@ CONTAINS
   !! @par Revision History
   !! Initial revision  :  F. Prill, DWD (2012-07-04) 
   SUBROUTINE compute_field_rel_hum_ifs(ptr_patch, p_prog, p_diag, out_var, &
-    &                              opt_slev, opt_elev, opt_rlstart, opt_rlend)
+    &                              opt_lclip, opt_slev, opt_elev,          &
+    &                              opt_rlstart, opt_rlend)
 
     ! patch on which computation is performed:
     TYPE(t_patch), TARGET, INTENT(in) :: ptr_patch
@@ -350,6 +352,8 @@ CONTAINS
     TYPE(t_nh_diag), INTENT(IN) :: p_diag
     ! output variable, dim: (nproma,nlev,nblks_c):
     REAL(wp),INTENT(INOUT) :: out_var(:,:,:)
+    ! optional clipping to rh<=100%
+    LOGICAL, INTENT(IN), OPTIONAL     :: opt_lclip
     ! optional vertical start/end level:
     INTEGER, INTENT(in), OPTIONAL     :: opt_slev, opt_elev
     ! start and end values of refin_ctrl flag:
@@ -360,6 +364,15 @@ CONTAINS
     INTEGER  :: slev, elev, rl_start, rl_end, i_nchdom,     &
       &         i_startblk, i_endblk, i_startidx, i_endidx, &
       &         jc, jk, jb
+    LOGICAL  :: lclip       ! clip rel. hum. to values <=100% 
+
+
+    IF (PRESENT(opt_lclip)) THEN
+      lclip = opt_lclip
+    ELSE
+      lclip = .FALSE.
+    ENDIF
+
 
     ! default values
     slev     = 1
@@ -398,6 +411,9 @@ CONTAINS
           !-- compute relative humidity as r = e/e_s:
 !CDIR NEXPAND
           out_var(jc,jk,jb) = rel_hum_ifs(temp, qv, p_ex)
+
+          ! optional clipping, if lclip=.TRUE.
+          out_var(jc,jk,jb) = MERGE(MIN(100._wp,out_var(jc,jk,jb)), out_var(jc,jk,jb), lclip)
 
         END DO
       END DO

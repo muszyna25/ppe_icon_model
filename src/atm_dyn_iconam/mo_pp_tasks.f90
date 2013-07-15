@@ -50,7 +50,7 @@ MODULE mo_pp_tasks
     & TASK_COMPUTE_RH, TASK_INTP_VER_ZLEV, TASK_INTP_VER_ILEV,        &
     & PRES_MSL_METHOD_SAI, PRES_MSL_METHOD_GME, max_dom,              &
     & HINTP_TYPE_LONLAT_NNB, ALL_TIMELEVELS, PRES_MSL_METHOD_IFS,     &
-    & RH_METHOD_WMO, RH_METHOD_IFS, vname_len
+    & RH_METHOD_WMO, RH_METHOD_IFS, RH_METHOD_IFS_CLIP, vname_len
   USE mo_model_domain,            ONLY: t_patch, p_patch
   USE mo_var_list_element,        ONLY: t_var_list_element, level_type_ml,  &
     &                                   level_type_pl, level_type_hl
@@ -925,6 +925,7 @@ CONTAINS
     TYPE(t_nh_prog),           POINTER :: p_prog
     TYPE(t_nh_diag),           POINTER :: p_diag
     CHARACTER(*), PARAMETER :: routine = TRIM("mo_pp_tasks:pp_task_compute_field")
+    LOGICAL :: lclip                   ! limit rh to MAX(rh,100._wp)
     
     ! output field for this task
     out_var   => ptr_task%data_output%var
@@ -946,9 +947,15 @@ CONTAINS
       CASE (RH_METHOD_WMO)
         CALL compute_field_rel_hum_wmo(p_patch, p_prog, p_diag, &
           &                        out_var%r_ptr(:,:,:,out_var_idx,1))
-      CASE (RH_METHOD_IFS)
-        CALL compute_field_rel_hum_ifs(p_patch, p_prog, p_diag, &
-          &                        out_var%r_ptr(:,:,:,out_var_idx,1))
+      CASE (RH_METHOD_IFS, RH_METHOD_IFS_CLIP)
+        IF (itype_rh == RH_METHOD_IFS_CLIP) THEN
+          lclip = .TRUE.
+        ELSE
+          lclip = .FALSE.
+        ENDIF
+        CALL compute_field_rel_hum_ifs(p_patch, p_prog, p_diag,        &
+          &                        out_var%r_ptr(:,:,:,out_var_idx,1), &
+          &                        opt_lclip=lclip)
       CASE DEFAULT
         CALL finish(routine, 'Internal error!')
       END SELECT
