@@ -715,7 +715,6 @@ run/grid.remove_land_points -text
 run/grid.rescale_grid -text
 run/ico_grd_spr_sw_ref -text
 run/mapfile_vlist.txt -text
-run/post.hom_lsm -text
 run/post.nah_jww -text
 run/post.nh_dcmip_tc_51 -text
 run/post.nh_dcmip_tc_52 -text
