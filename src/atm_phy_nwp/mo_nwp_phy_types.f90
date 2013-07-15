@@ -258,7 +258,11 @@ MODULE mo_nwp_phy_types
       umfl_s_t(:,:,:)  ,   & !! u-momentum flux at the surface (tile based)    (N/m2)
       vmfl_s_t(:,:,:)  ,   & !! v-momentum flux at the surface (tile based)    (N/m2)
       umfl_s(:,:)      ,   & !! u-momentum flux at the surface                 (N/m2)
-      vmfl_s(:,:)            !! u-momentum flux at the surface                 (N/m2)
+      vmfl_s(:,:)      ,   & !! v-momentum flux at the surface                 (N/m2)
+      aumfl_s(:,:)     ,   & !! u-momentum flux at the surface (N/m2), accumulated or mean since model start
+      avmfl_s(:,:)           !! v-momentum flux at the surface (N/m2), accumulated or mean since model start
+                             !! a means average values if lflux_avg=.TRUE.
+                             !! and accumulated values if lflux_avg=.FALSE., default is .FALSE.
 
     ! need only for vdiff (and some for EDMF)
     REAL(wp),POINTER :: &

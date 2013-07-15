@@ -1861,6 +1861,38 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
           & lrestart=.FALSE., loutput=.TRUE.,                                      &
           & isteptype=TSTEP_INSTANT )
 
+        IF (lflux_avg ) THEN
+            prefix = "a"
+            meaning = "mean"
+            varunits= "N/m**2"
+            a_steptype= TSTEP_AVG 
+        ELSE
+            prefix = "acc"
+            meaning = "acc." 
+            varunits= "Ns/m**2"    ! or "kg/(m*s)"
+            a_steptype= TSTEP_ACCUM     
+        END IF
+        WRITE(name,'(A,A6)') TRIM(prefix),"umfl_s"
+        WRITE(long_name,'(A26,A4,A18)') "u-momentum flux flux at surface ", meaning, &
+                                      & " since model start"
+        cf_desc    = t_cf_var(TRIM(name), TRIM(varunits), &
+          &                          TRIM(long_name), DATATYPE_FLT32)
+        grib2_desc = t_grib2_var(0, 2, 17, ibits, GRID_REFERENCE, GRID_CELL)
+!       aumfl_s and avmfl_s are needed for the restart only to get the same output values
+!       They are not important to obtain bit identical model results
+        CALL add_var( diag_list, TRIM(name), diag%aumfl_s,                         &
+          & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d,&
+          & isteptype=a_steptype, lrestart=.TRUE., loutput=.TRUE. )
+ 
+        WRITE(name,'(A,A6)') TRIM(prefix),"vmfl_s"
+        WRITE(long_name,'(A26,A4,A18)') "v-momentum flux flux at surface ", meaning, &
+                                      & " since model start"
+        cf_desc    = t_cf_var(TRIM(name), TRIM(varunits), &
+          &                          TRIM(long_name), DATATYPE_FLT32)
+        grib2_desc = t_grib2_var(0, 2, 18, ibits, GRID_REFERENCE, GRID_CELL)
+        CALL add_var( diag_list, TRIM(name), diag%avmfl_s,                         &
+          & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d,&
+          & isteptype=a_steptype, lrestart=.TRUE., loutput=.TRUE. )
 
   !
   ! vdiff
