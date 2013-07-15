@@ -70,8 +70,7 @@ USE mo_grf_intp_data_strc,  ONLY: t_gridref_state
 USE mo_gridref_config,      ONLY: grf_velfbk, grf_intmethod_c, grf_intmethod_e,   &
                                   grf_intmethod_ct
 USE mo_grf_intp_data_strc , ONLY: p_grf_state_local_parent
-USE mo_grf_bdyintp,         ONLY: interpol_scal_grf, interpol_scal2d_grf, &
-                                  interpol_vec_grf, interpol2_vec_grf
+USE mo_grf_bdyintp,         ONLY: interpol_scal_grf, interpol_vec_grf, interpol2_vec_grf
 USE mo_dynamics_config,     ONLY: nnew, nnow, nsav1, nsav2, lshallow_water
 USE mo_parallel_config,  ONLY: nproma, p_test_run
 USE mo_run_config,          ONLY: msg_level, ltransport, nlev,    &
@@ -153,6 +152,8 @@ INTEGER :: i_chidx
 
 ! Pointers to index fields
 INTEGER,  DIMENSION(:,:,:),   POINTER :: iidx, iblk
+
+REAL(wp) :: z_pres_sfc(nproma,1,p_patch(jgc)%nblks_c)
 
 !-----------------------------------------------------------------------
 
@@ -237,11 +238,13 @@ IF (grf_intmethod_c == 1) THEN ! tendency copying for pressure and temperature
 ! grf_intmethod_c = 2, use gradient at cell center for interpolation
 ELSE IF (grf_intmethod_c == 2) THEN
 
-  CALL interpol_scal2d_grf (p_pp, p_pc, p_int, p_grf%p_dom(i_chidx), i_chidx,&
-                            p_parent_tend%pres_sfc, p_child_tend%pres_sfc)
+  CALL interpol_scal_grf (p_pp, p_pc, p_grf%p_dom(i_chidx), 1,&
+                          RESHAPE(p_parent_tend%pres_sfc,(/nproma,1,p_pp%nblks_c/)), z_pres_sfc)
+
+  p_child_tend%pres_sfc(:,:) = z_pres_sfc(:,1,:)
 
   IF (.NOT. lshallow_water) &
-    CALL interpol_scal_grf (p_pp, p_pc, p_int, p_grf%p_dom(i_chidx), i_chidx, 1, &
+    CALL interpol_scal_grf (p_pp, p_pc, p_grf%p_dom(i_chidx), 1, &
                             p_parent_tend%temp,  p_child_tend%temp)
 
 ENDIF
@@ -285,7 +288,7 @@ IF (p_test_run) CALL check_patch_array(0,p_pc,p_child_tend%tracer,'IT:tracer')
 
 ELSE IF (ltransport .AND. grf_intmethod_ct == 2) THEN
 
-  CALL interpol_scal_grf (p_pp, p_pc, p_int, p_grf%p_dom(i_chidx), i_chidx, ntracer, &
+  CALL interpol_scal_grf (p_pp, p_pc, p_grf%p_dom(i_chidx), ntracer,             &
                           f4din1=p_parent_tend%tracer, f4dout1=p_child_tend%tracer)
 
 IF (p_test_run) CALL check_patch_array(0,p_pc,p_child_tend%tracer,'IT:tracer')
@@ -294,12 +297,12 @@ ENDIF
 ! Interpolation of edge-based variables  (velocity components)
 IF ((grf_intmethod_e == 1) .OR. (grf_intmethod_e == 2)) THEN
 
-  CALL interpol_vec_grf (p_pp, p_pc, p_grf%p_dom(i_chidx), i_chidx, &
+  CALL interpol_vec_grf (p_pp, p_pc, p_grf%p_dom(i_chidx), &
                          p_parent_tend%vn, p_child_tend%vn)
 
 ELSE IF ((grf_intmethod_e == 3) .OR. (grf_intmethod_e == 4)) THEN
 
-  CALL interpol2_vec_grf (p_pp, p_pc, p_int, p_grf%p_dom(i_chidx), i_chidx, 1, &
+  CALL interpol2_vec_grf (p_pp, p_pc, p_grf%p_dom(i_chidx), 1, &
                           p_parent_tend%vn, p_child_tend%vn)
 
 ENDIF
@@ -356,13 +359,13 @@ CALL sync_patch_array(SYNC_C, p_pp, p_diag%u)
 CALL sync_patch_array(SYNC_C, p_pp, p_diag%v)
 CALL sync_patch_array(SYNC_C, p_pp, p_diag%wpres_mc)
 
-CALL interpol_scal_grf (p_pp, p_pc, p_int, p_grf%p_dom(i_chidx), i_chidx, 3, &
-                        p_diag%u, p_diagc%u, p_diag%v, p_diagc%v,            &
+CALL interpol_scal_grf (p_pp, p_pc, p_grf%p_dom(i_chidx), 3,      &
+                        p_diag%u, p_diagc%u, p_diag%v, p_diagc%v, &
                         p_diag%wpres_mc, p_diagc%wpres_mc)
 
 CALL sync_patch_array(SYNC_C, p_pp, p_diag%div)
 
-CALL interpol_scal_grf (p_pp, p_pc, p_int, p_grf%p_dom(i_chidx), i_chidx, 1, &
+CALL interpol_scal_grf (p_pp, p_pc, p_grf%p_dom(i_chidx), 1, &
                         p_diag%div, p_diagc%div)
 
 END SUBROUTINE interpolate_diagnostics

@@ -69,8 +69,8 @@ CHARACTER(len=*), PARAMETER :: version = '$Id$'
 !subroutines
 PUBLIC :: blk_no, idx_no, idx_1d
 PUBLIC :: setup_comm_pattern, delete_comm_pattern, exchange_data, exchange_data_reverse,   &
-          exchange_data_mult, exchange_data_grf, exchange_data_gm,    &
-          start_delayed_exchange, do_delayed_exchange,                &
+          exchange_data_mult, exchange_data_grf, exchange_data_grf_old, exchange_data_gm,  &
+          start_delayed_exchange, do_delayed_exchange,                                     &
           start_async_comm, complete_async_comm, exchange_data_4de3
 PUBLIC :: t_comm_pattern
 !
@@ -2877,7 +2877,7 @@ END SUBROUTINE complete_async_comm
 !! Optimized version by Guenther Zaengl to process up to two 4D fields or up to six 3D fields
 !! for an array-sized communication pattern (as needed for boundary interpolation) in one step
 !!
-SUBROUTINE exchange_data_grf(p_pat, nfields, ndim2tot, nsendtot, nrecvtot, recv1, send1,   &
+SUBROUTINE exchange_data_grf_old(p_pat, nfields, ndim2tot, nsendtot, nrecvtot, recv1, send1,   &
                              recv2, send2, recv3, send3, recv4, send4, recv5, send5,       &
                              recv6, send6, recv4d1, send4d1, recv4d2, send4d2, send_lbound3)
 
@@ -3255,8 +3255,358 @@ SUBROUTINE exchange_data_grf(p_pat, nfields, ndim2tot, nsendtot, nrecvtot, recv1
 
    IF (activate_sync_timers) CALL timer_stop(timer_exch_data)
 
-END SUBROUTINE exchange_data_grf
+END SUBROUTINE exchange_data_grf_old
 
+!>
+!! Does data exchange according to a communication pattern (in p_pat).
+!!
+!!
+!! @par Revision History
+!! Initial version by Rainer Johanni, Nov 2009
+!! Optimized version by Guenther Zaengl to process up to two 4D fields or up to six 3D fields
+!! for an array-sized communication pattern (as needed for boundary interpolation) in one step
+!!
+SUBROUTINE exchange_data_grf(p_pat, nfields, ndim2tot, nsendtot, nrecvtot, recv1, send1,   &
+                             recv2, send2, recv3, send3, recv4, send4, recv5, send5,       &
+                             recv6, send6, recv4d1, send4d1, recv4d2, send4d2)
+
+   TYPE(t_comm_pattern), INTENT(IN) :: p_pat(:)
+
+   REAL(wp), INTENT(INOUT), TARGET, OPTIONAL ::  &
+     recv1(:,:,:), recv2(:,:,:), recv3(:,:,:), recv4d1(:,:,:,:), &
+     recv4(:,:,:), recv5(:,:,:), recv6(:,:,:), recv4d2(:,:,:,:)
+   ! Note: the last index of the send fields corresponds to the dimension of p_pat
+   ! On the other hand, they are not blocked and have the vertical index first
+   REAL(wp), INTENT(IN   ), TARGET, OPTIONAL ::  &
+     send1(:,:,:), send2(:,:,:), send3(:,:,:), send4d1(:,:,:,:), &
+     send4(:,:,:), send5(:,:,:), send6(:,:,:), send4d2(:,:,:,:)
+
+   INTEGER, INTENT(IN)           :: nfields  ! total number of input fields
+   INTEGER, INTENT(IN)           :: ndim2tot ! sum of vertical levels of input fields
+   INTEGER, INTENT(IN)           :: nsendtot ! total number of send points
+   INTEGER, INTENT(IN)           :: nrecvtot ! total number of receive points
+
+   TYPE t_fieldptr_recv
+     REAL(wp), POINTER :: fld(:,:,:)
+   END TYPE t_fieldptr_recv
+
+   TYPE t_fieldptr_send
+     REAL(wp), POINTER :: fld(:,:)
+   END TYPE t_fieldptr_send
+
+   TYPE(t_fieldptr_recv) :: recv(nfields)
+   TYPE(t_fieldptr_send) :: send(nfields*SIZE(p_pat))
+
+   INTEGER        :: ndim2(nfields), noffset(nfields),            &
+                     ioffset_s(SIZE(p_pat)), ioffset_r(SIZE(p_pat))
+
+   REAL(wp) :: send_buf(ndim2tot,nsendtot),recv_buf(ndim2tot,nrecvtot), &
+               auxs_buf(ndim2tot,nsendtot),auxr_buf(ndim2tot,nrecvtot)
+
+   INTEGER :: i, k, ik, jb, jl, n, np, irs, ire, iss, ise, &
+              npats, isum, ioffset, isum1, n4d, pid
+
+!-----------------------------------------------------------------------
+
+   IF (itype_exch_barrier == 1 .OR. itype_exch_barrier == 3) THEN
+     IF (activate_sync_timers) CALL timer_start(timer_barrier)
+     CALL work_mpi_barrier()
+     IF (activate_sync_timers) CALL timer_stop(timer_barrier)
+   ENDIF
+
+   IF (activate_sync_timers) CALL timer_start(timer_exch_data)
+
+   npats = SIZE(p_pat)  ! Number of communication patterns provided on input
+
+   ! Set up irecv's for receive buffers
+   ! Note: the dummy mode (iorder_sendrecv=0) does not work for nest boundary communication
+   ! because there may be PEs receiving but not sending data. Therefore, iorder_sendrecv=0
+   ! is treated as iorder_sendrecv=1 in this routine.
+   IF ((iorder_sendrecv <= 1 .OR. iorder_sendrecv >= 3)) THEN
+
+     ioffset = 0
+     DO np = 1, p_pat(1)%np_recv ! loop over PEs from where to receive the data
+
+       pid = p_pat(1)%pelist_recv(np) ! ID of receiver PE
+
+       ! Sum up receive points over all communication patterns to be processed
+       isum = ioffset
+       DO n = 1, npats
+         isum = isum + p_pat(n)%recv_limits(pid+1) - p_pat(n)%recv_limits(pid)
+       ENDDO
+
+       IF(isum > ioffset) &
+         CALL p_irecv(auxr_buf(1,ioffset+1), pid, 1, p_count=(isum-ioffset)*ndim2tot, &
+                      comm=p_comm_work)
+       ioffset = isum
+
+     ENDDO
+
+   ENDIF
+
+   ! Set pointers to input fields
+   IF (PRESENT(recv4d1) .AND. .NOT. PRESENT(recv4d2)) THEN
+     DO n = 1, nfields
+       recv(n)%fld => recv4d1(:,:,:,n)
+       DO np = 1, npats
+         send(np+(n-1)*npats)%fld => send4d1(:,:,np,n)
+       ENDDO
+     ENDDO
+   ELSE IF (PRESENT(recv4d1) .AND. PRESENT(recv4d2)) THEN
+    n4d = nfields/2
+     DO n = 1, n4d
+       recv(n)%fld => recv4d1(:,:,:,n)
+       DO np = 1, npats
+         send(np+(n-1)*npats)%fld => send4d1(:,:,np,n)
+       ENDDO
+     ENDDO
+     DO n = 1, n4d
+       recv(n4d+n)%fld => recv4d2(:,:,:,n)
+       DO np = 1, npats
+         send(np+(n4d+n-1)*npats)%fld => send4d2(:,:,np,n)
+       ENDDO
+     ENDDO
+   ELSE
+     IF (PRESENT(recv1)) THEN
+       recv(1)%fld => recv1
+       DO np = 1, npats
+         send(np)%fld => send1(:,:,np)
+       ENDDO
+     ENDIF
+     IF (PRESENT(recv2)) THEN
+       recv(2)%fld => recv2
+       DO np = 1, npats
+         send(np+npats)%fld => send2(:,:,np)
+       ENDDO
+     ENDIF
+     IF (PRESENT(recv3)) THEN
+       recv(3)%fld => recv3
+       DO np = 1, npats
+         send(np+2*npats)%fld => send3(:,:,np)
+       ENDDO
+     ENDIF
+     IF (PRESENT(recv4)) THEN
+       recv(4)%fld => recv4
+       DO np = 1, npats
+         send(np+3*npats)%fld => send4(:,:,np)
+       ENDDO
+     ENDIF
+     IF (PRESENT(recv5)) THEN
+       recv(5)%fld => recv5
+       DO np = 1, npats
+         send(np+4*npats)%fld => send5(:,:,np)
+       ENDDO
+     ENDIF
+     IF (PRESENT(recv6)) THEN
+       recv(6)%fld => recv6
+       DO np = 1, npats
+         send(np+5*npats)%fld => send6(:,:,np)
+       ENDDO
+     ENDIF
+   ENDIF
+
+   noffset(1) = 0
+   ndim2(1)   = SIZE(recv(1)%fld,2)
+   DO n = 2, nfields
+     noffset(n) = noffset(n-1)+ndim2(n-1)
+     ndim2(n)   = SIZE(recv(n)%fld,2)
+   ENDDO
+
+   ioffset_r(1) = 0
+   ioffset_s(1) = 0
+   DO np = 2, npats
+     ioffset_r(np) = ioffset_r(np-1) + p_pat(np-1)%n_recv
+     ioffset_s(np) = ioffset_s(np-1) + p_pat(np-1)%n_send
+   ENDDO
+
+   ! Set up send buffer
+#ifdef __SX__
+   DO n = 1, nfields
+     DO np = 1, npats
+!CDIR UNROLL=6
+       DO k = 1, ndim2(n)
+         DO i = 1, p_pat(np)%n_send
+           send_buf(k+noffset(n),i+ioffset_s(np)) =                &
+             & send(np+(n-1)*npats)%fld(k,p_pat(np)%send_src_idx(i))
+         ENDDO
+       ENDDO
+     ENDDO
+   ENDDO
+#else
+   DO np = 1, npats
+     DO i = 1, p_pat(np)%n_send
+       jl = p_pat(np)%send_src_idx(i)
+       DO n = 1, nfields
+         DO k = 1, ndim2(n)
+           send_buf(k+noffset(n),i+ioffset_s(np)) = &
+             send(np+(n-1)*npats)%fld(k,jl)
+         ENDDO
+       ENDDO
+     ENDDO
+   ENDDO
+#endif
+
+   IF (iorder_sendrecv <= 1) THEN
+     ! Send our data
+     ioffset = 0
+     DO np = 1, p_pat(1)%np_send ! loop over PEs where to send the data
+
+       pid = p_pat(1)%pelist_send(np) ! ID of sender PE
+
+       ! Copy send points for all communication patterns into one common send buffer
+       isum = ioffset
+       DO n = 1, npats
+         iss = p_pat(n)%send_limits(pid)+1 + ioffset_s(n)
+         ise = p_pat(n)%send_limits(pid+1) + ioffset_s(n)
+         isum1 = ise - iss + 1
+         IF (isum1 > 0) THEN
+!CDIR COLLAPSE
+           auxs_buf(:,isum+1:isum+isum1) = send_buf(:,iss:ise)
+           isum = isum+isum1
+         ENDIF
+       ENDDO
+
+       IF(isum > ioffset) CALL p_send(auxs_buf(1,ioffset+1), pid, 1,             &
+                               p_count=(isum-ioffset)*ndim2tot, comm=p_comm_work)
+
+       ioffset = isum
+
+     ENDDO
+   ELSE IF (iorder_sendrecv == 2) THEN ! use isend/recv
+     ioffset = 0
+     DO np = 1, p_pat(1)%np_send ! loop over PEs where to send the data
+
+       pid = p_pat(1)%pelist_send(np) ! ID of sender PE
+
+       ! Copy send points for all communication patterns into one common send buffer
+       isum = ioffset
+       DO n = 1, npats
+         iss = p_pat(n)%send_limits(pid)+1 + ioffset_s(n)
+         ise = p_pat(n)%send_limits(pid+1) + ioffset_s(n)
+         isum1 = ise - iss + 1
+         IF (isum1 > 0) THEN
+!CDIR COLLAPSE
+           auxs_buf(:,isum+1:isum+isum1) = send_buf(:,iss:ise)
+           isum = isum+isum1
+         ENDIF
+       ENDDO
+
+       IF(isum > ioffset) CALL p_isend(auxs_buf(1,ioffset+1), pid, 1,            &
+                               p_count=(isum-ioffset)*ndim2tot, comm=p_comm_work)
+
+       ioffset = isum
+
+     ENDDO
+
+     ioffset = 0
+     DO np = 1, p_pat(1)%np_recv ! loop over PEs from where to receive the data
+
+       pid = p_pat(1)%pelist_recv(np) ! ID of receiver PE
+
+       ! Sum up receive points over all communication patterns to be processed
+       isum = ioffset
+       DO n = 1, npats
+         isum = isum + p_pat(n)%recv_limits(pid+1) - p_pat(n)%recv_limits(pid)
+       ENDDO
+
+       IF(isum > ioffset) CALL p_recv(auxr_buf(1,ioffset+1), pid, 1,             &
+                               p_count=(isum-ioffset)*ndim2tot, comm=p_comm_work)
+       ioffset = isum
+
+     ENDDO
+   ELSE IF (iorder_sendrecv >= 3) THEN ! use isend/recv
+     ioffset = 0
+     DO np = 1, p_pat(1)%np_send ! loop over PEs where to send the data
+
+       pid = p_pat(1)%pelist_send(np) ! ID of sender PE
+
+       ! Copy send points for all communication patterns into one common send buffer
+       isum = ioffset
+       DO n = 1, npats
+         iss = p_pat(n)%send_limits(pid)+1 + ioffset_s(n)
+         ise = p_pat(n)%send_limits(pid+1) + ioffset_s(n)
+         isum1 = ise - iss + 1
+         IF (isum1 > 0) THEN
+!CDIR COLLAPSE
+           auxs_buf(:,isum+1:isum+isum1) = send_buf(:,iss:ise)
+           isum = isum+isum1
+         ENDIF
+       ENDDO
+
+       IF(isum > ioffset) CALL p_isend(auxs_buf(1,ioffset+1), pid, 1,            &
+                               p_count=(isum-ioffset)*ndim2tot, comm=p_comm_work)
+
+       ioffset = isum
+
+     ENDDO
+   ENDIF
+
+   ! Wait for all outstanding requests to finish
+   IF (activate_sync_timers) CALL timer_start(timer_exch_data_wait)
+   CALL p_wait
+   IF (activate_sync_timers) CALL timer_stop(timer_exch_data_wait)
+
+
+   IF (itype_exch_barrier == 2 .OR. itype_exch_barrier == 3) THEN
+     IF (activate_sync_timers) CALL timer_start(timer_barrier)
+     CALL work_mpi_barrier()
+     IF (activate_sync_timers) CALL timer_stop(timer_barrier)
+   ENDIF
+
+   ! Copy exchanged data back to receive buffer
+   ioffset = 0
+   DO np = 1, p_pat(1)%np_recv ! loop over PEs from where to receive the data
+
+     pid = p_pat(1)%pelist_recv(np) ! ID of receiver PE
+
+     isum = ioffset
+     DO n = 1, npats
+       irs = p_pat(n)%recv_limits(pid)+1 + ioffset_r(n)
+       ire = p_pat(n)%recv_limits(pid+1) + ioffset_r(n)
+       isum1 = ire - irs + 1
+       IF (isum1 > 0) THEN
+!CDIR COLLAPSE
+         recv_buf(:,irs:ire) = auxr_buf(:,isum+1:isum+isum1)
+         isum = isum + isum1
+       ENDIF
+     ENDDO
+
+     ioffset = isum
+
+   ENDDO
+
+   ! Fill in receive buffer
+
+#ifdef __SX__
+   DO n = 1, nfields
+     DO np = 1, npats
+!CDIR UNROLL=6
+       DO k = 1, ndim2(n)
+         DO i = 1, p_pat(np)%n_pnts
+           recv(n)%fld(p_pat(np)%recv_dst_idx(i),k,p_pat(np)%recv_dst_blk(i)) =   &
+             recv_buf(k+noffset(n),p_pat(np)%recv_src(i)+ioffset_r(np))
+         ENDDO
+       ENDDO
+     ENDDO
+   ENDDO
+#else
+   DO np = 1, npats
+     DO i = 1, p_pat(np)%n_pnts
+       jb = p_pat(np)%recv_dst_blk(i)
+       jl = p_pat(np)%recv_dst_idx(i)
+       ik  = p_pat(np)%recv_src(i)+ioffset_r(np)
+       DO n = 1, nfields
+         DO k = 1, ndim2(n)
+           recv(n)%fld(jl,k,jb) = recv_buf(k+noffset(n),ik)
+         ENDDO
+       ENDDO
+     ENDDO
+   ENDDO
+#endif
+
+   IF (activate_sync_timers) CALL timer_stop(timer_exch_data)
+
+END SUBROUTINE exchange_data_grf
 
 !-------------------------------------------------------------------------
 !

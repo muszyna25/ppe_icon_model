@@ -1931,28 +1931,27 @@ SUBROUTINE interpol_phys_grf (jg,jgc,jn)
     IF (lsfc_interp .AND. lmulti_snow) THEN
 
       CALL sync_patch_array_mult(SYNC_C,ptr_pp,4,z_aux3dp_p,z_aux3dl2_p,z_aux3dso_p,z_aux3dsn_p)
-      CALL interpol_scal_grf (ptr_pp, ptr_pc, ptr_int, ptr_grf, jn, 4, z_aux3dp_p, z_aux3dp_c, &
-        z_aux3dl2_p, z_aux3dl2_c, z_aux3dso_p, z_aux3dso_c, z_aux3dsn_p, z_aux3dsn_c,          &
+      CALL interpol_scal_grf (ptr_pp, ptr_pc, ptr_grf, 4, z_aux3dp_p, z_aux3dp_c,     &
+        z_aux3dl2_p, z_aux3dl2_c, z_aux3dso_p, z_aux3dso_c, z_aux3dsn_p, z_aux3dsn_c, &
         llimit_nneg=(/.TRUE.,.TRUE.,.TRUE.,.TRUE./), lnoshift=.TRUE.)
 
     ELSE IF (lsfc_interp) THEN
 
       CALL sync_patch_array_mult(SYNC_C,ptr_pp,3,z_aux3dp_p,z_aux3dl2_p,z_aux3dso_p)
-      CALL interpol_scal_grf (ptr_pp, ptr_pc, ptr_int, ptr_grf, jn, 3, z_aux3dp_p, z_aux3dp_c, &
-        z_aux3dl2_p, z_aux3dl2_c, z_aux3dso_p, z_aux3dso_c,                                    &
+      CALL interpol_scal_grf (ptr_pp, ptr_pc, ptr_grf, 3, z_aux3dp_p, z_aux3dp_c, &
+        z_aux3dl2_p, z_aux3dl2_c, z_aux3dso_p, z_aux3dso_c,                       &
         llimit_nneg=(/.TRUE.,.TRUE.,.TRUE./), lnoshift=.TRUE.)
 
     ELSE
 
       CALL sync_patch_array(SYNC_C,ptr_pp,z_aux3dp_p)
-      CALL interpol_scal_grf (ptr_pp, ptr_pc, ptr_int, ptr_grf, jn, 1, &
-        z_aux3dp_p, z_aux3dp_c, llimit_nneg=(/.TRUE./), lnoshift=.TRUE.)
+      CALL interpol_scal_grf (ptr_pp, ptr_pc, ptr_grf, 1, z_aux3dp_p, z_aux3dp_c, llimit_nneg=(/.TRUE./), lnoshift=.TRUE.)
 
     ENDIF
 
     CALL sync_patch_array_mult(SYNC_C,ptr_pp,3,prm_diag(jg)%tkvm,prm_diag(jg)%tkvh,prm_diag(jg)%rcld)
-    CALL interpol_scal_grf (ptr_pp, ptr_pc, ptr_int, ptr_grf, jn, 3, prm_diag(jg)%tkvm, prm_diag(jgc)%tkvm, &
-      prm_diag(jg)%tkvh, prm_diag(jgc)%tkvh, prm_diag(jg)%rcld, prm_diag(jgc)%rcld,                         &
+    CALL interpol_scal_grf (ptr_pp, ptr_pc, ptr_grf, 3, prm_diag(jg)%tkvm, prm_diag(jgc)%tkvm, &
+      prm_diag(jg)%tkvh, prm_diag(jgc)%tkvh, prm_diag(jg)%rcld, prm_diag(jgc)%rcld,            &
       llimit_nneg=(/.TRUE.,.TRUE.,.TRUE./))
 
   i_startblk = ptr_pc%cells%start_blk(1,1)
@@ -2113,8 +2112,7 @@ SUBROUTINE interpol_rrg_grf (jg, jgc, jn, ntl_rcf)
     ! Halo update is needed before interpolation
     CALL sync_patch_array(SYNC_C,ptr_pp,z_aux3d_p)
 
-    CALL interpol_scal_grf (ptr_pp, ptr_pc, ptr_int, ptr_grf, jn, 1,     &
-      &                     z_aux3d_p, z_aux3d_c, llimit_nneg=(/.TRUE./),&
+    CALL interpol_scal_grf (ptr_pp, ptr_pc, ptr_grf, 1, z_aux3d_p, z_aux3d_c, llimit_nneg=(/.TRUE./),&
       &                     lnoshift=.TRUE.)
 
 

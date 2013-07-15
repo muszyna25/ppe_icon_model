@@ -52,6 +52,8 @@ PUBLIC
 !----------------------------------------------------------------------------
 TYPE t_gridref_single_state
 
+  ! Arrays needed during the computation phase of the index relationships and the coefficients
+  !
   INTEGER, ALLOCATABLE  :: grf_vec_ind_1a (:,:,:), & ! index arrays defining the stencil
                            grf_vec_ind_1b (:,:,:), & ! of surrounding edges for RBF/IDW
                            grf_vec_ind_2a (:,:,:), & ! interpolation to lateral boundaries of
@@ -74,6 +76,23 @@ TYPE t_gridref_single_state
 
   ! distances between parent cells and child cells needed for gradient-based interpolation
   REAL(wp), ALLOCATABLE :: grf_dist_pc2cc(:,:,:,:), grf_dist_pe2ce(:,:,:)
+
+
+  ! Arrays containing the index/block and coefficient lists allowing a flow control that does not
+  ! rely on sorting the nest overlap points at parent grid level
+  !
+  INTEGER :: npoints_bdyintp_c, npoints_bdyintp_e, npoints_ubcintp_c, npoints_ubcintp_e, npoints_bdyintp_v
+
+  INTEGER, ALLOCATABLE :: idxlist_bdyintp_c(:,:), idxlist_bdyintp_e(:,:),                  &
+                          idxlist_ubcintp_c(:,:), idxlist_ubcintp_e(:,:),                  &
+                          blklist_bdyintp_c(:,:), blklist_bdyintp_e(:,:),                  &
+                          blklist_ubcintp_c(:,:), blklist_ubcintp_e(:,:),                  &
+                          idxlist_rbfintp_v(:,:), blklist_rbfintp_v(:,:), edge_vert_idx(:,:)
+
+  REAL(wp), ALLOCATABLE :: coeff_bdyintp_c(:,:,:), coeff_ubcintp_c(:,:,:),                   &
+                           dist_pc2cc_bdy(:,:,:),  dist_pc2cc_ubc(:,:,:),  prim_norm(:,:,:), &
+                           coeff_bdyintp_e12(:,:), coeff_bdyintp_e34(:,:), dist_pe2ce(:,:),  &
+                           coeff_ubcintp_e12(:,:), coeff_ubcintp_e34(:,:), coeff_rbf_v(:,:,:)
 
 END TYPE t_gridref_single_state
 

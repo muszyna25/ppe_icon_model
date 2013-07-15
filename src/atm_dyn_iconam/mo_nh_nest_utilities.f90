@@ -680,13 +680,13 @@ ELSE IF (grf_intmethod_c == 2) THEN
 
   ! Interpolation of temporal tendencies, full w, perturbation density (stored in div) 
   !  and perturbationvirtual potential temperature (stored in dpres_mc)
-  CALL interpol_scal_grf (p_pp, p_pc, p_int, p_grf%p_dom(i_chidx), i_chidx, 6, &
-                          p_diagp%grf_tend_rho, p_diagc%grf_tend_rho,          &
-                          p_diagp%grf_tend_thv, p_diagc%grf_tend_thv,          &
-                          p_diagp%grf_tend_w,   p_diagc%grf_tend_w,            &
-                          p_nhp_dyn%w,          p_nhc_dyn%w,                   &
-                          p_nh_state(jg)%diag%div, rho_prc,                    &
-                          p_nh_state(jg)%diag%dpres_mc, theta_prc,             &
+  CALL interpol_scal_grf (p_pp, p_pc, p_grf%p_dom(i_chidx), 6,         &
+                          p_diagp%grf_tend_rho, p_diagc%grf_tend_rho,  &
+                          p_diagp%grf_tend_thv, p_diagc%grf_tend_thv,  &
+                          p_diagp%grf_tend_w,   p_diagc%grf_tend_w,    &
+                          p_nhp_dyn%w,          p_nhc_dyn%w,           &
+                          p_nh_state(jg)%diag%div, rho_prc,            &
+                          p_nh_state(jg)%diag%dpres_mc, theta_prc,     &
                           lpar_fields=lpar_fields )
 
   ! Start and end blocks for which interpolation is needed
@@ -779,9 +779,9 @@ ELSE IF (ltransport .AND. lstep_adv .AND. grf_intmethod_ct == 2) THEN
   l_limit(1:ntracer) = .FALSE.
   l_limit(ntracer+1:2*ntracer) = .TRUE.
 
-  CALL interpol_scal_grf ( p_pp, p_pc, p_int, p_grf%p_dom(i_chidx), i_chidx, 2*ntracer, &
-     f4din1=p_diagp%grf_tend_tracer, f4dout1=p_diagc%grf_tend_tracer,                   &
-     f4din2=p_nhp_tr%tracer, f4dout2=p_nhc_tr%tracer, lpar_fields=lpar_fields,          &
+  CALL interpol_scal_grf ( p_pp, p_pc, p_grf%p_dom(i_chidx), 2*ntracer,        &
+     f4din1=p_diagp%grf_tend_tracer, f4dout1=p_diagc%grf_tend_tracer,          &
+     f4din2=p_nhp_tr%tracer, f4dout2=p_nhc_tr%tracer, lpar_fields=lpar_fields, &
      llimit_nneg=l_limit)
 
 ENDIF
@@ -789,20 +789,16 @@ ENDIF
 ! Interpolation of edge-based variables  (velocity components)
 IF (grf_intmethod_e == 1 .OR. grf_intmethod_e == 2) THEN
 
-  CALL interpol_vec_grf (p_pp, p_pc, p_grf%p_dom(i_chidx), i_chidx, &
-    p_diagp%grf_tend_vn, p_diagc%grf_tend_vn)
+  CALL interpol_vec_grf (p_pp, p_pc, p_grf%p_dom(i_chidx), p_diagp%grf_tend_vn, p_diagc%grf_tend_vn)
 
 ELSE IF (grf_intmethod_e == 3 .OR. grf_intmethod_e == 4) THEN
 
-  CALL interpol2_vec_grf (p_pp, p_pc, p_int, p_grf%p_dom(i_chidx), i_chidx, 1,&
-    p_diagp%grf_tend_vn, p_diagc%grf_tend_vn)
+  CALL interpol2_vec_grf (p_pp, p_pc, p_grf%p_dom(i_chidx), 1, p_diagp%grf_tend_vn, p_diagc%grf_tend_vn)
 
 ELSE IF (grf_intmethod_e == 5 .OR. grf_intmethod_e == 6) THEN
 
-!  CALL sync_patch_array_mult(SYNC_E,p_pp,2,mass_flx_p,p_diagp%grf_tend_mflx)
-
-  CALL interpol2_vec_grf (p_pp, p_pc, p_int, p_grf%p_dom(i_chidx), i_chidx, 3,&
-    p_diagp%grf_tend_vn, p_diagc%grf_tend_vn, mass_flx_p, mass_flx_c,         &
+  CALL interpol2_vec_grf (p_pp, p_pc, p_grf%p_dom(i_chidx), 3,        &
+    p_diagp%grf_tend_vn, p_diagc%grf_tend_vn, mass_flx_p, mass_flx_c, &
     p_diagp%grf_tend_mflx, p_diagc%grf_tend_mflx )
 
 ENDIF
@@ -818,7 +814,7 @@ IF (l_child_vertnest) THEN
 
   CALL sync_patch_array(SYNC_E,p_pp,p_diagp%dvn_ie_int)
 
-  CALL interpol_vec_ubc (p_pp, p_pc, p_grf%p_dom(i_chidx), i_chidx, &
+  CALL interpol_vec_ubc (p_pp, p_pc, p_grf%p_dom(i_chidx), &
                          p_diagp%dvn_ie_int, p_diagc%dvn_ie_ubc)
 
   ! Start and end blocks for which interpolation is needed
@@ -851,7 +847,7 @@ IF (l_child_vertnest) THEN
 
     CALL sync_patch_array(SYNC_C,p_pp,aux3dp)
 
-    CALL interpol_scal_ubc (p_pp, p_pc, p_int, p_grf%p_dom(i_chidx), i_chidx,  &
+    CALL interpol_scal_ubc (p_pp, p_pc, p_grf%p_dom(i_chidx),  &
                             ntracer+4, aux3dp, aux3dc)
 
     DO jb = i_sbc, i_ebc
@@ -887,8 +883,7 @@ IF (l_child_vertnest) THEN
 
     CALL sync_patch_array(SYNC_C,p_pp,aux3dp)
 
-    CALL interpol_scal_ubc (p_pp, p_pc, p_int, p_grf%p_dom(i_chidx), i_chidx,  &
-                            4, aux3dp, aux3dc)
+    CALL interpol_scal_ubc(p_pp, p_pc, p_grf%p_dom(i_chidx), 4, aux3dp, aux3dc)
 
     DO jb = i_sbc, i_ebc
 

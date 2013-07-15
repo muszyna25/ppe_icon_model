@@ -501,43 +501,36 @@ MODULE mo_nh_init_nest_utils
 
     ! Step 1b: execute boundary interpolation
 
-    CALL interpol2_vec_grf (p_patch(jg), p_pc, p_int_state(jg), &
-      p_grf_state(jg)%p_dom(i_chidx), i_chidx, 1,               &
+    CALL interpol2_vec_grf (p_patch(jg), p_pc, p_grf_state(jg)%p_dom(i_chidx), 1, &
       p_parent_prog%vn, p_child_prog%vn)
 
-    CALL interpol_scal_grf (p_patch(jg), p_pc, p_int_state(jg), &
-      p_grf_state(jg)%p_dom(i_chidx), i_chidx, 3,               &
-      rho_pr_par,      p_child_prog%rho,                        &
-      thv_pr_par,      p_child_prog%theta_v,                    &
-      p_parent_prog%w, p_child_prog%w                           )
+    CALL interpol_scal_grf (p_patch(jg), p_pc, p_grf_state(jg)%p_dom(i_chidx), 3, &
+      rho_pr_par,      p_child_prog%rho,                                          &
+      thv_pr_par,      p_child_prog%theta_v,                                      &
+      p_parent_prog%w, p_child_prog%w                                             )
 
     IF (ltransport) THEN
       l_limit(:) = .TRUE. ! apply positive definite limiter on tracers
 
-      CALL interpol_scal_grf ( p_patch(jg), p_pc, p_int_state(jg),        &
-        p_grf_state(jg)%p_dom(i_chidx), i_chidx, ntracer,                 &
-        f4din1=p_parent_prog_rcf%tracer, f4dout1=p_child_prog_rcf%tracer, &
-        llimit_nneg=l_limit)
+      CALL interpol_scal_grf ( p_patch(jg), p_pc, p_grf_state(jg)%p_dom(i_chidx), ntracer,   &
+        f4din1=p_parent_prog_rcf%tracer, f4dout1=p_child_prog_rcf%tracer, llimit_nneg=l_limit)
     ENDIF
 
     IF (iforcing == 3) THEN
       CALL sync_patch_array(SYNC_C,p_patch(jg),phdiag_par)
-      CALL interpol_scal_grf (p_patch(jg), p_pc, p_int_state(jg), &
-        p_grf_state(jg)%p_dom(i_chidx), i_chidx, 1,               &
+      CALL interpol_scal_grf (p_patch(jg), p_pc, p_grf_state(jg)%p_dom(i_chidx), 1, &
         phdiag_par, phdiag_chi, lnoshift=.TRUE.                 )
     ENDIF
 
     IF (atm_phy_nwp_config(jg)%inwp_surface == 1) THEN
       CALL sync_patch_array(SYNC_C,p_patch(jg),lndvars_par)
-      CALL interpol_scal_grf (p_patch(jg), p_pc, p_int_state(jg), &
-        p_grf_state(jg)%p_dom(i_chidx), i_chidx, 1,               &
+      CALL interpol_scal_grf (p_patch(jg), p_pc, p_grf_state(jg)%p_dom(i_chidx), 1,  &
         lndvars_par, lndvars_chi, lnoshift=.TRUE.                 )
     ENDIF
 
     IF (atm_phy_nwp_config(jg)%inwp_surface == 1 .AND. lseaice) THEN
       CALL sync_patch_array(SYNC_C,p_patch(jg),wtrvars_par)
-      CALL interpol_scal_grf (p_patch(jg), p_pc, p_int_state(jg), &
-        p_grf_state(jg)%p_dom(i_chidx), i_chidx, 1,               &
+      CALL interpol_scal_grf (p_patch(jg), p_pc, p_grf_state(jg)%p_dom(i_chidx), 1, &
         wtrvars_par, wtrvars_chi, lnoshift=.TRUE.                 )
     ENDIF
 
@@ -1009,8 +1002,7 @@ MODULE mo_nh_init_nest_utils
     ! would not be needed anywhere else, and terrain blending is not runtime-critical
 
     ! Lateral boundary zone
-    CALL interpol_scal_grf (p_pp, p_pc, p_intp, p_grf, i_chidx, 1,              &
-                            f3din1=z_topo_cp, f3dout1=z_topo_cc, lnoshift=.TRUE.)
+    CALL interpol_scal_grf (p_pp, p_pc, p_grf, 1, f3din1=z_topo_cp, f3dout1=z_topo_cc, lnoshift=.TRUE.)
     ! Prognostic part of the model domain
     ! Note: in contrast to boundary interpolation, nudging expects the input on the local parent grid
     CALL interpol_scal_nudging (ptr_pp, ptr_int, ptr_grf, i_chidx, 0, 1, 1, &

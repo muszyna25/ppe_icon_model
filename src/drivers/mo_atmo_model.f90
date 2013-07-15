@@ -138,7 +138,8 @@ USE mo_intp_state,          ONLY: construct_2d_interpol_state,  &
   &                               destruct_2d_interpol_state,   &
   &                               transfer_interpol_state
 USE mo_grf_intp_state,      ONLY: construct_2d_gridref_state,   &
-  &                               destruct_2d_gridref_state, transfer_grf_state
+  &                               destruct_2d_gridref_state, transfer_grf_state, &
+  &                               create_grf_index_lists
 
 ! Vertical grid
 !
@@ -639,7 +640,6 @@ CONTAINS
       ENDIF
 
     ENDIF
-    !--------------------------------------------------------------------------------
     
     !-------------------------------------------------------------------
     ! Initialize icon_comm_lib
@@ -683,6 +683,12 @@ CONTAINS
       CALL p_stop
       STOP
 
+    ENDIF
+
+    !--------------------------------------------------------------------------------
+
+    IF (n_dom_start==0 .OR. n_dom > 1) THEN
+      CALL create_grf_index_lists(p_patch, p_grf_state, p_int_state)
     ENDIF
 
    !---------------------------------------------------------------------

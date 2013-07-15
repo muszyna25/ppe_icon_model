@@ -1803,10 +1803,9 @@ MODULE mo_nh_stepping
         jgc = p_patch(jg)%child_id(jn)
         IF (.NOT. p_patch(jgc)%ldom_active) CYCLE
 
-        CALL interpol_scal_grf (p_patch(jg), p_patch(jgc), p_int_state(jg),         &
-             p_grf_state(jg)%p_dom(jn), jn, 3, p_nh_state(jg)%diag%u,               &
-             p_nh_state(jgc)%diag%u, p_nh_state(jg)%diag%v, p_nh_state(jgc)%diag%v, &
-             p_nh_state(jg)%diag%div, p_nh_state(jgc)%diag%div                      )
+        CALL interpol_scal_grf (p_patch(jg), p_patch(jgc), p_grf_state(jg)%p_dom(jn), 3, &
+             p_nh_state(jg)%diag%u, p_nh_state(jgc)%diag%u, p_nh_state(jg)%diag%v,       &
+             p_nh_state(jgc)%diag%v, p_nh_state(jg)%diag%div, p_nh_state(jgc)%diag%div   )
 
       ENDDO
 
@@ -1864,9 +1863,8 @@ MODULE mo_nh_stepping
 
         IF (lfeedback(jgc)) CALL feedback_phys_diag(jgc, jg)
 
-        CALL interpol_scal_grf (p_patch(jg), p_patch(jgc), p_int_state(jg),        &
-           p_grf_state(jg)%p_dom(jn), jn, 1, p_nh_state(jg)%prog(nnow_rcf(jg))%tke,&
-           p_nh_state(jgc)%prog(nnow_rcf(jgc))%tke)
+        CALL interpol_scal_grf (p_patch(jg), p_patch(jgc), p_grf_state(jg)%p_dom(jn), 1, &
+           p_nh_state(jg)%prog(nnow_rcf(jg))%tke, p_nh_state(jgc)%prog(nnow_rcf(jgc))%tke)
 
       ENDDO
 

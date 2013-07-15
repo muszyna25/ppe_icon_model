@@ -59,16 +59,18 @@ MODULE mo_grf_intp_state
 !
 USE mo_kind,                ONLY: wp
 USE mo_exception,           ONLY: message, finish
-USE mo_impl_constants,      ONLY: SUCCESS, min_rlcell_int, min_rledge_int
+USE mo_impl_constants,      ONLY: SUCCESS, min_rlcell_int, min_rledge_int, min_rlvert_int
 USE mo_model_domain,        ONLY: t_patch, p_patch_local_parent
 USE mo_grid_config,         ONLY: n_dom, n_dom_start
-USE mo_impl_constants_grf,  ONLY: grf_bdyintp_start_c, grf_bdyintp_start_e
+USE mo_impl_constants_grf,  ONLY: grf_bdyintp_start_c, grf_bdyintp_start_e, grf_nudgintp_start_c, &
+                                  grf_nudgintp_start_e, grf_bdyintp_end_c, grf_bdyintp_end_e
 USE mo_parallel_config,     ONLY: nproma
 USE mo_mpi,                 ONLY: my_process_is_mpi_parallel, p_pe
 
 USE mo_communication,       ONLY: t_comm_pattern, blk_no, idx_no, idx_1d, &
   &                               setup_comm_pattern, delete_comm_pattern, exchange_data
-
+USE mo_loopindices,         ONLY: get_indices_c, get_indices_e, get_indices_v
+USE mo_intp_data_strc,      ONLY: t_int_state
 
 USE mo_grf_intp_data_strc
 USE mo_grf_intp_coeffs
@@ -80,9 +82,10 @@ IMPLICIT NONE
 
 PRIVATE
 
-PUBLIC ::construct_2d_gridref_state, destruct_2d_gridref_state
-PUBLIC ::allocate_grf_state, deallocate_grf_state
-PUBLIC ::transfer_grf_state
+PUBLIC :: construct_2d_gridref_state, destruct_2d_gridref_state
+PUBLIC :: allocate_grf_state, deallocate_grf_state
+PUBLIC :: transfer_grf_state
+PUBLIC :: create_grf_index_lists
 
 TYPE(t_comm_pattern) :: comm_pat_loc_to_glb_c, comm_pat_loc_to_glb_e
 
@@ -763,6 +766,602 @@ SUBROUTINE transfer_grf_state(p_p, p_lp, p_grf, p_lgrf, jcd)
   p_lgrf%fbk_dom_area(:) = p_grf%fbk_dom_area(:)
 
 END SUBROUTINE transfer_grf_state
+
+
+!-------------------------------------------------------------------------
+!
+!
+!>
+!! Creates index lists for lateral/upper boundary interpolation needed to
+!! get rid of the grid point reordering in the parent domain
+!!
+!! @par Revision History
+!! Initial version by Guenther Zaengl, DWD (2013-07-10)
+!!
+SUBROUTINE create_grf_index_lists( p_patch_all, p_grf_state, p_int_state )
+  !
+  TYPE(t_patch), TARGET, INTENT(INOUT)         :: p_patch_all(n_dom_start:)
+  TYPE(t_gridref_state), TARGET, INTENT(INOUT) :: p_grf_state(n_dom_start:)
+  TYPE(t_int_state), TARGET, INTENT(IN)        :: p_int_state(n_dom_start:)
+
+  TYPE(t_gridref_single_state), POINTER :: p_grf_s
+  TYPE(t_gridref_state),        POINTER :: p_grf
+  TYPE(t_patch),                POINTER :: p_patch
+  TYPE(t_comm_pattern),         POINTER :: p_pat(:)
+  TYPE(t_int_state),            POINTER :: p_int
+
+  INTEGER :: jcd, icid, i_nchdom, ist
+  INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
+  INTEGER :: jg, jb, jc, je, jv, i, ic, ib, iv, ie, ip
+  INTEGER :: npoints_lbc, npoints_ubc, icount_lbc, icount_ubc
+  LOGICAL :: lprocess, lfound(2,6)
+  INTEGER, ALLOCATABLE :: inv_ind_c(:,:), inv_ind_e_lbc(:,:), inv_ind_e_ubc(:,:), &
+                          inv_ind_v(:,:)
+
+!-----------------------------------------------------------------------
+
+  DO jg = 1, n_dom
+
+   p_patch => p_patch_all(jg)
+   p_int   => p_int_state(jg)
+   p_grf   => p_grf_state(jg)
+
+   ! number of child domains
+   i_nchdom = p_patch%n_childdom
+   IF (i_nchdom == 0) CYCLE
+
+   ! Loop over child domains
+   DO jcd = 1, i_nchdom
+
+    p_grf_s => p_grf%p_dom(jcd)
+    icid    =  p_patch%child_id(jcd)
+
+    ! Part 1: Determine the number of grid points entering into the index lists
+
+    ! 1a) cell points
+
+    npoints_lbc = 0
+    npoints_ubc = 0
+
+    i_startblk = p_patch%cells%start_blk(1,1)
+    i_endblk   = p_patch%cells%end_blk(min_rlcell_int,i_nchdom)
+
+    DO jb = i_startblk, i_endblk
+
+      CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+                         i_startidx, i_endidx, 1, min_rlcell_int)
+
+      DO jc = i_startidx, i_endidx
+
+        IF (p_patch%cells%refin_ctrl(jc,jb) <= grf_bdyintp_start_c .AND. &
+            p_patch%cells%refin_ctrl(jc,jb) >= grf_bdyintp_end_c .AND. &
+            p_patch%cells%child_id(jc,jb) == icid) THEN
+          npoints_lbc = npoints_lbc + 1
+        ENDIF
+        IF (p_patch%cells%refin_ctrl(jc,jb) <= grf_nudgintp_start_c .AND. &
+            p_patch%cells%child_id(jc,jb) == icid) THEN
+          npoints_ubc = npoints_ubc + 1
+        ENDIF
+
+      ENDDO
+    ENDDO
+
+    p_grf_s%npoints_bdyintp_c = npoints_lbc
+    p_grf_s%npoints_ubcintp_c = npoints_ubc
+
+    ! 1b) edge points
+
+    npoints_lbc = 0
+    npoints_ubc = 0
+
+    i_startblk = p_patch%edges%start_blk(1,1)
+    i_endblk   = p_patch%edges%end_blk(min_rledge_int,i_nchdom)
+
+    DO jb = i_startblk, i_endblk
+
+      CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
+                         i_startidx, i_endidx, 1, min_rledge_int)
+
+      DO je = i_startidx, i_endidx
+
+        IF (p_patch%edges%refin_ctrl(je,jb) <= grf_bdyintp_start_e .AND. &
+            p_patch%edges%refin_ctrl(je,jb) >= grf_bdyintp_end_e .AND. &
+            p_patch%edges%child_id(je,jb) == icid) THEN
+          npoints_lbc = npoints_lbc + 1
+        ENDIF
+        IF (p_patch%edges%refin_ctrl(je,jb) <= grf_nudgintp_start_e .AND. &
+            p_patch%edges%child_id(je,jb) == icid) THEN
+          npoints_ubc = npoints_ubc + 1
+        ENDIF
+
+      ENDDO
+    ENDDO
+
+    p_grf_s%npoints_bdyintp_e = npoints_lbc
+    p_grf_s%npoints_ubcintp_e = npoints_ubc
+
+    ! 1c) vertex points needed for lateral-boundary interpolation of edge-based variables
+    !     when gradient-based interpolation is chosen for child edges lying on a parent edge
+
+    npoints_lbc = 0
+
+    i_startblk = p_patch%verts%start_blk(1,1)
+    i_endblk   = p_patch%verts%end_blk(min_rlvert_int,i_nchdom)
+
+    DO jb = i_startblk, i_endblk
+
+      CALL get_indices_v(p_patch, jb, i_startblk, i_endblk, &
+                         i_startidx, i_endidx, 1, min_rlvert_int)
+
+      DO jv = i_startidx, i_endidx
+
+        ! Note: the use of grf_bdyintp_start|end_c is intended here because the respective
+        ! parameters do not exist for vertices. One row more than for cells is needed here
+        !
+        IF (p_patch%verts%refin_ctrl(jv,jb) <= grf_bdyintp_start_c .AND. &
+            p_patch%verts%refin_ctrl(jv,jb) >= grf_bdyintp_end_c-1)  THEN
+          DO i = 1, p_patch%verts%num_edges(jv,jb)
+            ic = p_patch%verts%cell_idx(jv,jb,i)
+            ib = p_patch%verts%cell_blk(jv,jb,i)
+            IF (p_patch%cells%refin_ctrl(ic,ib) ==  p_patch%verts%refin_ctrl(jv,jb) .AND. &
+                p_patch%cells%child_id(ic,ib) == icid) THEN
+              npoints_lbc = npoints_lbc + 1
+              EXIT
+            ENDIF
+          ENDDO
+        ENDIF
+
+      ENDDO
+    ENDDO
+
+    p_grf_s%npoints_bdyintp_v = npoints_lbc
+
+    ! Allocate fields containing index lists and coefficients
+    npoints_lbc = p_grf_s%npoints_bdyintp_c
+    npoints_ubc = p_grf_s%npoints_ubcintp_c
+    ALLOCATE (p_grf_s%idxlist_bdyintp_c(10,npoints_lbc),p_grf_s%idxlist_ubcintp_c(10,npoints_ubc), &
+              p_grf_s%blklist_bdyintp_c(10,npoints_lbc),p_grf_s%blklist_ubcintp_c(10,npoints_ubc), &
+              p_grf_s%coeff_bdyintp_c(10,2,npoints_lbc),p_grf_s%coeff_ubcintp_c(10,2,npoints_ubc), &
+              p_grf_s%dist_pc2cc_bdy(4,2,npoints_lbc),  p_grf_s%dist_pc2cc_ubc(4,2,npoints_ubc),   &
+              inv_ind_c(nproma,p_patch%nblks_c),        STAT=ist )
+    IF (ist /= SUCCESS) THEN
+      CALL finish ('mo_grf_intp_state:create_grf_index_lists','allocation of cell index lists failed')
+    ENDIF
+
+    npoints_lbc = p_grf_s%npoints_bdyintp_e
+    npoints_ubc = p_grf_s%npoints_ubcintp_e
+    ALLOCATE (p_grf_s%idxlist_bdyintp_e(15,npoints_lbc),p_grf_s%idxlist_ubcintp_e(15,npoints_ubc), &
+              p_grf_s%blklist_bdyintp_e(15,npoints_lbc),p_grf_s%blklist_ubcintp_e(15,npoints_ubc), &
+              p_grf_s%coeff_bdyintp_e12(12,npoints_lbc),p_grf_s%coeff_ubcintp_e12(12,npoints_ubc), &
+              p_grf_s%coeff_bdyintp_e34(10,npoints_lbc),p_grf_s%coeff_ubcintp_e34(10,npoints_ubc), &
+              p_grf_s%edge_vert_idx(2,npoints_lbc),     p_grf_s%dist_pe2ce(2,npoints_lbc),         &
+              p_grf_s%prim_norm(2,2,npoints_lbc),       inv_ind_e_lbc(nproma,p_patch%nblks_e),     &
+              inv_ind_e_ubc(nproma,p_patch%nblks_e),     STAT=ist)
+    IF (ist /= SUCCESS) THEN
+      CALL finish ('mo_grf_intp_state:create_grf_index_lists','allocation of edge index lists failed')
+    ENDIF
+
+    p_grf_s%idxlist_bdyintp_e(:,:) = 0
+    p_grf_s%idxlist_ubcintp_e(:,:) = 0
+
+    npoints_lbc = p_grf_s%npoints_bdyintp_v
+    ALLOCATE (p_grf_s%idxlist_rbfintp_v(6,npoints_lbc),p_grf_s%blklist_rbfintp_v(6,npoints_lbc), &
+              p_grf_s%coeff_rbf_v(6,2,npoints_lbc), inv_ind_v(nproma,p_patch%nblks_v), STAT=ist )
+    IF (ist /= SUCCESS) THEN
+      CALL finish ('mo_grf_intp_state:create_grf_index_lists','allocation of vertex index lists failed')
+    ENDIF
+
+    ! Part 2: Compute index and coefficient lists
+
+    ! 2a) lateral/upper boundary interpolation for cells
+    !
+    i_startblk = p_patch%cells%start_blk(1,1)
+    i_endblk   = p_patch%cells%end_blk(min_rlcell_int,i_nchdom)
+
+    icount_lbc = 0
+    icount_ubc = 0
+
+    DO jb = i_startblk, i_endblk
+
+      CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+                         i_startidx, i_endidx, 1, min_rlcell_int)
+
+      DO jc = i_startidx, i_endidx
+
+        IF (p_patch%cells%refin_ctrl(jc,jb) <= grf_bdyintp_start_c .AND. &
+            p_patch%cells%refin_ctrl(jc,jb) >= grf_bdyintp_end_c .AND. &
+            p_patch%cells%child_id(jc,jb) == icid) THEN
+          icount_lbc = icount_lbc + 1
+          p_grf_s%idxlist_bdyintp_c(1,icount_lbc) = jc
+          p_grf_s%blklist_bdyintp_c(1,icount_lbc) = jb
+          inv_ind_c(jc,jb) = icount_lbc
+          p_grf_s%idxlist_bdyintp_c(2:10,icount_lbc)   = p_int%rbf_c2grad_idx(2:10,jc,jb)
+          p_grf_s%blklist_bdyintp_c(2:10,icount_lbc)   = p_int%rbf_c2grad_blk(2:10,jc,jb)
+          p_grf_s%coeff_bdyintp_c(1:10,1:2,icount_lbc) = p_int%rbf_c2grad_coeff(1:10,1:2,jc,jb)
+          p_grf_s%dist_pc2cc_bdy(1:4,1:2,icount_lbc)   = p_grf_s%grf_dist_pc2cc(jc,1:4,1:2,jb)
+        ENDIF
+        IF (p_patch%cells%refin_ctrl(jc,jb) <= grf_nudgintp_start_c .AND. &
+            p_patch%cells%child_id(jc,jb) == icid) THEN
+          icount_ubc = icount_ubc + 1
+          p_grf_s%idxlist_ubcintp_c(1,icount_ubc) = jc
+          p_grf_s%blklist_ubcintp_c(1,icount_ubc) = jb
+          inv_ind_c(jc,jb) = icount_ubc
+          p_grf_s%idxlist_ubcintp_c(2:10,icount_ubc)   = p_int%rbf_c2grad_idx(2:10,jc,jb)
+          p_grf_s%blklist_ubcintp_c(2:10,icount_ubc)   = p_int%rbf_c2grad_blk(2:10,jc,jb)
+          p_grf_s%coeff_ubcintp_c(1:10,1:2,icount_ubc) = p_int%rbf_c2grad_coeff(1:10,1:2,jc,jb)
+          p_grf_s%dist_pc2cc_ubc(1:4,1:2,icount_ubc)   = p_grf_s%grf_dist_pc2cc(jc,1:4,1:2,jb)
+        ENDIF
+
+      ENDDO
+    ENDDO
+
+    ! 2b) lateral/upper boundary interpolation for vertices
+    !     this is done before the edges because of the remapping needed for the edge-vertex connectivity
+    !
+    i_startblk = p_patch%verts%start_blk(1,1)
+    i_endblk   = p_patch%verts%end_blk(min_rlvert_int,i_nchdom)
+
+    icount_lbc = 0
+    inv_ind_v(:,:) = -1
+
+    DO jb = i_startblk, i_endblk
+
+      CALL get_indices_v(p_patch, jb, i_startblk, i_endblk, &
+                         i_startidx, i_endidx, 1, min_rlvert_int)
+
+      DO jv = i_startidx, i_endidx
+
+        ! Note: the use of grf_bdyintp_start|end_c is intended here because the respective
+        ! parameters do not exist for vertices. One row more than for cells is needed here
+        !
+        IF (p_patch%verts%refin_ctrl(jv,jb) <= grf_bdyintp_start_c .AND. &
+            p_patch%verts%refin_ctrl(jv,jb) >= grf_bdyintp_end_c-1)  THEN
+          !
+          ! The following lines are quite awkward, but verts%child_id is not available
+          ! from the grid generator because it has never been needed before
+          !
+          lprocess = .FALSE.
+          DO i = 1, p_patch%verts%num_edges(jv,jb)
+            ic = p_patch%verts%cell_idx(jv,jb,i)
+            ib = p_patch%verts%cell_blk(jv,jb,i)
+            IF (p_patch%cells%refin_ctrl(ic,ib) ==  p_patch%verts%refin_ctrl(jv,jb) .AND. &
+                p_patch%cells%child_id(ic,ib) == icid) THEN
+              lprocess = .TRUE.
+              EXIT
+            ENDIF
+          ENDDO
+          IF (lprocess) THEN
+            icount_lbc = icount_lbc + 1
+            p_grf_s%idxlist_rbfintp_v(1:6,icount_lbc)      = p_int%rbf_vec_idx_v(1:6,jv,jb)
+            p_grf_s%blklist_rbfintp_v(1:6,icount_lbc)      = p_int%rbf_vec_blk_v(1:6,jv,jb)
+            p_grf_s%coeff_rbf_v      (1:6,1:2,icount_lbc)  = p_int%rbf_vec_coeff_v(1:6,1:2,jv,jb)
+            inv_ind_v(jv,jb) = icount_lbc
+          ENDIF
+        ENDIF
+
+      ENDDO
+    ENDDO
+
+
+    ! 2c) lateral/upper boundary interpolation for edges
+    !
+    i_startblk = p_patch%edges%start_blk(1,1)
+    i_endblk   = p_patch%edges%end_blk(min_rledge_int,i_nchdom)
+
+    icount_lbc = 0
+    icount_ubc = 0
+
+    DO jb = i_startblk, i_endblk
+
+      CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
+                         i_startidx, i_endidx, 1, min_rledge_int)
+
+      DO je = i_startidx, i_endidx
+
+        IF (p_patch%edges%refin_ctrl(je,jb) <= grf_bdyintp_start_e .AND. &
+            p_patch%edges%refin_ctrl(je,jb) >= grf_bdyintp_end_e .AND. &
+            p_patch%edges%child_id(je,jb) == icid) THEN
+          icount_lbc = icount_lbc + 1
+          lfound(:,:) = .FALSE.
+          p_grf_s%idxlist_bdyintp_e(1,icount_lbc) = je
+          p_grf_s%blklist_bdyintp_e(1,icount_lbc) = jb
+          inv_ind_e_lbc(je,jb) = icount_lbc
+          DO i = 1,p_grf_s%grf_vec_stencil_1a(je,jb)
+            IF (p_grf_s%grf_vec_ind_1a(je,i,jb) == je .AND. &
+                p_grf_s%grf_vec_blk_1a(je,i,jb) == jb) THEN
+              p_grf_s%coeff_bdyintp_e12(1,icount_lbc)  = p_grf_s%grf_vec_coeff_1a(i,je,jb)
+              lfound(1,i) = .TRUE.
+            ENDIF
+          ENDDO
+          DO i = 1,p_grf_s%grf_vec_stencil_1b(je,jb)
+            IF (p_grf_s%grf_vec_ind_1b(je,i,jb) == je .AND. &
+                p_grf_s%grf_vec_blk_1b(je,i,jb) == jb) THEN
+              p_grf_s%coeff_bdyintp_e12(7,icount_lbc)  = p_grf_s%grf_vec_coeff_1b(i,je,jb)
+              lfound(2,i) = .TRUE.
+            ENDIF
+          ENDDO
+          p_grf_s%coeff_bdyintp_e34(1,icount_lbc)  = p_grf_s%grf_vec_coeff_2a(1,je,jb)
+          p_grf_s%coeff_bdyintp_e34(6,icount_lbc)  = p_grf_s%grf_vec_coeff_2b(1,je,jb)
+          DO i = 1,p_grf_s%grf_vec_stencil_1a(je,jb)
+            IF (p_grf_s%grf_vec_ind_1a(je,i,jb) == p_grf_s%grf_vec_ind_2a(je,2,jb) .AND. &
+                p_grf_s%grf_vec_blk_1a(je,i,jb) == p_grf_s%grf_vec_blk_2a(je,2,jb)) THEN
+              p_grf_s%idxlist_bdyintp_e(2,icount_lbc) = p_grf_s%grf_vec_ind_2a(je,2,jb)
+              p_grf_s%blklist_bdyintp_e(2,icount_lbc) = p_grf_s%grf_vec_blk_2a(je,2,jb)
+              p_grf_s%coeff_bdyintp_e34(2,icount_lbc) = p_grf_s%grf_vec_coeff_2a(2,je,jb)
+              p_grf_s%coeff_bdyintp_e12(2,icount_lbc) = p_grf_s%grf_vec_coeff_1a(i,je,jb)
+              lfound(1,i) = .TRUE.
+            ELSE IF (p_grf_s%grf_vec_ind_1a(je,i,jb) == p_grf_s%grf_vec_ind_2a(je,3,jb) .AND. &
+                     p_grf_s%grf_vec_blk_1a(je,i,jb) == p_grf_s%grf_vec_blk_2a(je,3,jb)) THEN
+              p_grf_s%idxlist_bdyintp_e(2,icount_lbc) = p_grf_s%grf_vec_ind_2a(je,3,jb)
+              p_grf_s%blklist_bdyintp_e(2,icount_lbc) = p_grf_s%grf_vec_blk_2a(je,3,jb)
+              p_grf_s%coeff_bdyintp_e34(2,icount_lbc) = p_grf_s%grf_vec_coeff_2a(3,je,jb)
+              p_grf_s%coeff_bdyintp_e12(2,icount_lbc) = p_grf_s%grf_vec_coeff_1a(i,je,jb)
+              lfound(1,i) = .TRUE.
+            ENDIF
+            IF (p_grf_s%grf_vec_ind_1a(je,i,jb) == p_grf_s%grf_vec_ind_2b(je,2,jb) .AND. &
+                p_grf_s%grf_vec_blk_1a(je,i,jb) == p_grf_s%grf_vec_blk_2b(je,2,jb)) THEN
+              p_grf_s%idxlist_bdyintp_e(6,icount_lbc) = p_grf_s%grf_vec_ind_2b(je,2,jb)
+              p_grf_s%blklist_bdyintp_e(6,icount_lbc) = p_grf_s%grf_vec_blk_2b(je,2,jb)
+              p_grf_s%coeff_bdyintp_e34(7,icount_lbc) = p_grf_s%grf_vec_coeff_2b(2,je,jb)
+              p_grf_s%coeff_bdyintp_e12(3,icount_lbc) = p_grf_s%grf_vec_coeff_1a(i,je,jb)
+              lfound(1,i) = .TRUE.
+            ELSE IF (p_grf_s%grf_vec_ind_1a(je,i,jb) == p_grf_s%grf_vec_ind_2b(je,3,jb) .AND. &
+                     p_grf_s%grf_vec_blk_1a(je,i,jb) == p_grf_s%grf_vec_blk_2b(je,3,jb)) THEN
+              p_grf_s%idxlist_bdyintp_e(6,icount_lbc) = p_grf_s%grf_vec_ind_2b(je,3,jb)
+              p_grf_s%blklist_bdyintp_e(6,icount_lbc) = p_grf_s%grf_vec_blk_2b(je,3,jb)
+              p_grf_s%coeff_bdyintp_e34(7,icount_lbc) = p_grf_s%grf_vec_coeff_2b(3,je,jb)
+              p_grf_s%coeff_bdyintp_e12(3,icount_lbc) = p_grf_s%grf_vec_coeff_1a(i,je,jb)
+              lfound(1,i) = .TRUE.
+            ENDIF
+          ENDDO
+          DO i = 1,p_grf_s%grf_vec_stencil_1b(je,jb)
+            IF (p_grf_s%grf_vec_ind_1b(je,i,jb) == p_grf_s%grf_vec_ind_2a(je,2,jb) .AND. &
+                p_grf_s%grf_vec_blk_1b(je,i,jb) == p_grf_s%grf_vec_blk_2a(je,2,jb)) THEN
+              p_grf_s%idxlist_bdyintp_e(3,icount_lbc) = p_grf_s%grf_vec_ind_2a(je,2,jb)
+              p_grf_s%blklist_bdyintp_e(3,icount_lbc) = p_grf_s%grf_vec_blk_2a(je,2,jb)
+              p_grf_s%coeff_bdyintp_e34(3,icount_lbc) = p_grf_s%grf_vec_coeff_2a(2,je,jb)
+              p_grf_s%coeff_bdyintp_e12(8,icount_lbc) = p_grf_s%grf_vec_coeff_1b(i,je,jb)
+              lfound(2,i) = .TRUE.
+            ELSE IF (p_grf_s%grf_vec_ind_1b(je,i,jb) == p_grf_s%grf_vec_ind_2a(je,3,jb) .AND. &
+                     p_grf_s%grf_vec_blk_1b(je,i,jb) == p_grf_s%grf_vec_blk_2a(je,3,jb)) THEN
+              p_grf_s%idxlist_bdyintp_e(3,icount_lbc) = p_grf_s%grf_vec_ind_2a(je,3,jb)
+              p_grf_s%blklist_bdyintp_e(3,icount_lbc) = p_grf_s%grf_vec_blk_2a(je,3,jb)
+              p_grf_s%coeff_bdyintp_e34(3,icount_lbc) = p_grf_s%grf_vec_coeff_2a(3,je,jb)
+              p_grf_s%coeff_bdyintp_e12(8,icount_lbc) = p_grf_s%grf_vec_coeff_1b(i,je,jb)
+              lfound(2,i) = .TRUE.
+            ENDIF
+            IF (p_grf_s%grf_vec_ind_1b(je,i,jb) == p_grf_s%grf_vec_ind_2b(je,2,jb) .AND. &
+                p_grf_s%grf_vec_blk_1b(je,i,jb) == p_grf_s%grf_vec_blk_2b(je,2,jb)) THEN
+              p_grf_s%idxlist_bdyintp_e(7,icount_lbc) = p_grf_s%grf_vec_ind_2b(je,2,jb)
+              p_grf_s%blklist_bdyintp_e(7,icount_lbc) = p_grf_s%grf_vec_blk_2b(je,2,jb)
+              p_grf_s%coeff_bdyintp_e34(8,icount_lbc) = p_grf_s%grf_vec_coeff_2b(2,je,jb)
+              p_grf_s%coeff_bdyintp_e12(9,icount_lbc) = p_grf_s%grf_vec_coeff_1b(i,je,jb)
+              lfound(2,i) = .TRUE.
+            ELSE IF (p_grf_s%grf_vec_ind_1b(je,i,jb) == p_grf_s%grf_vec_ind_2b(je,3,jb) .AND. &
+                     p_grf_s%grf_vec_blk_1b(je,i,jb) == p_grf_s%grf_vec_blk_2b(je,3,jb)) THEN
+              p_grf_s%idxlist_bdyintp_e(7,icount_lbc) = p_grf_s%grf_vec_ind_2b(je,3,jb)
+              p_grf_s%blklist_bdyintp_e(7,icount_lbc) = p_grf_s%grf_vec_blk_2b(je,3,jb)
+              p_grf_s%coeff_bdyintp_e34(8,icount_lbc) = p_grf_s%grf_vec_coeff_2b(3,je,jb)
+              p_grf_s%coeff_bdyintp_e12(9,icount_lbc) = p_grf_s%grf_vec_coeff_1b(i,je,jb)
+              lfound(2,i) = .TRUE.
+            ENDIF
+          ENDDO
+          p_grf_s%idxlist_bdyintp_e(4:5,icount_lbc)  = p_grf_s%grf_vec_ind_2a(je,4:5,jb)
+          p_grf_s%blklist_bdyintp_e(4:5,icount_lbc)  = p_grf_s%grf_vec_blk_2a(je,4:5,jb)
+          p_grf_s%idxlist_bdyintp_e(8:9,icount_lbc)  = p_grf_s%grf_vec_ind_2b(je,4:5,jb)
+          p_grf_s%blklist_bdyintp_e(8:9,icount_lbc)  = p_grf_s%grf_vec_blk_2b(je,4:5,jb)
+          p_grf_s%coeff_bdyintp_e34(4:5,icount_lbc)  = p_grf_s%grf_vec_coeff_2a(4:5,je,jb)
+          p_grf_s%coeff_bdyintp_e34(9:10,icount_lbc) = p_grf_s%grf_vec_coeff_2b(4:5,je,jb)
+          ic = 9
+          DO i = 1,6
+            IF (.NOT. lfound(1,i)) THEN
+              IF (p_grf_s%idxlist_bdyintp_e(6,icount_lbc) == 0) THEN ! this is the case for refin_ctrl = -1
+                p_grf_s%idxlist_bdyintp_e(6,icount_lbc) = p_grf_s%grf_vec_ind_1a(je,i,jb)
+                p_grf_s%blklist_bdyintp_e(6,icount_lbc) = p_grf_s%grf_vec_blk_1a(je,i,jb)
+                p_grf_s%coeff_bdyintp_e12(3,icount_lbc) = p_grf_s%grf_vec_coeff_1a(i,je,jb)
+              ELSE
+                ic = ic+1
+                p_grf_s%idxlist_bdyintp_e(ic,icount_lbc) = p_grf_s%grf_vec_ind_1a(je,i,jb)
+                p_grf_s%blklist_bdyintp_e(ic,icount_lbc) = p_grf_s%grf_vec_blk_1a(je,i,jb)
+                p_grf_s%coeff_bdyintp_e12(ic-6,icount_lbc) = p_grf_s%grf_vec_coeff_1a(i,je,jb)
+              ENDIF
+            ENDIF
+          ENDDO
+          DO i = 1,6
+            IF (.NOT. lfound(2,i)) THEN
+              IF (p_grf_s%idxlist_bdyintp_e(7,icount_lbc) == 0) THEN ! this is the case for refin_ctrl = -1
+                p_grf_s%idxlist_bdyintp_e(7,icount_lbc) = p_grf_s%grf_vec_ind_1b(je,i,jb)
+                p_grf_s%blklist_bdyintp_e(7,icount_lbc) = p_grf_s%grf_vec_blk_1b(je,i,jb)
+                p_grf_s%coeff_bdyintp_e12(9,icount_lbc) = p_grf_s%grf_vec_coeff_1b(i,je,jb)
+              ELSE
+                ic = ic+1
+                p_grf_s%idxlist_bdyintp_e(ic,icount_lbc) = p_grf_s%grf_vec_ind_1b(je,i,jb)
+                p_grf_s%blklist_bdyintp_e(ic,icount_lbc) = p_grf_s%grf_vec_blk_1b(je,i,jb)
+                p_grf_s%coeff_bdyintp_e12(ic-3,icount_lbc) = p_grf_s%grf_vec_coeff_1b(i,je,jb)
+              ENDIF
+            ENDIF
+          ENDDO
+          p_grf_s%dist_pe2ce(1:2,icount_lbc)         = p_grf_s%grf_dist_pe2ce(je,1:2,jb)
+          p_grf_s%prim_norm(1:2,1,icount_lbc)        = p_patch%edges%primal_normal_vert(je,jb,1:2)%v1
+          p_grf_s%prim_norm(1:2,2,icount_lbc)        = p_patch%edges%primal_normal_vert(je,jb,1:2)%v2
+
+          iv = p_patch%edges%vertex_idx(je,jb,1)
+          ib = p_patch%edges%vertex_blk(je,jb,1)
+          p_grf_s%edge_vert_idx(1,icount_lbc)        = inv_ind_v(iv,ib)
+
+          iv = p_patch%edges%vertex_idx(je,jb,2)
+          ib = p_patch%edges%vertex_blk(je,jb,2)
+          p_grf_s%edge_vert_idx(2,icount_lbc)        = inv_ind_v(iv,ib)
+        ENDIF
+
+        IF (p_patch%edges%refin_ctrl(je,jb) <= grf_nudgintp_start_e .AND. &
+            p_patch%edges%child_id(je,jb) == icid) THEN
+          icount_ubc = icount_ubc + 1
+          lfound(:,:) = .FALSE.
+          p_grf_s%idxlist_ubcintp_e(1,icount_ubc) = je
+          p_grf_s%blklist_ubcintp_e(1,icount_ubc) = jb
+          inv_ind_e_ubc(je,jb) = icount_ubc
+          DO i = 1,p_grf_s%grf_vec_stencil_1a(je,jb)
+            IF (p_grf_s%grf_vec_ind_1a(je,i,jb) == je .AND. &
+                p_grf_s%grf_vec_blk_1a(je,i,jb) == jb) THEN
+              p_grf_s%coeff_ubcintp_e12(1,icount_ubc)  = p_grf_s%grf_vec_coeff_1a(i,je,jb)
+              lfound(1,i) = .TRUE.
+            ENDIF
+          ENDDO
+          DO i = 1,p_grf_s%grf_vec_stencil_1b(je,jb)
+            IF (p_grf_s%grf_vec_ind_1b(je,i,jb) == je .AND. &
+                p_grf_s%grf_vec_blk_1b(je,i,jb) == jb) THEN
+              p_grf_s%coeff_ubcintp_e12(7,icount_ubc)  = p_grf_s%grf_vec_coeff_1b(i,je,jb)
+              lfound(2,i) = .TRUE.
+            ENDIF
+          ENDDO
+          p_grf_s%coeff_ubcintp_e34(1,icount_ubc)  = p_grf_s%grf_vec_coeff_2a(1,je,jb)
+          p_grf_s%coeff_ubcintp_e34(6,icount_ubc)  = p_grf_s%grf_vec_coeff_2b(1,je,jb)
+          DO i = 1,p_grf_s%grf_vec_stencil_1a(je,jb)
+            IF (p_grf_s%grf_vec_ind_1a(je,i,jb) == p_grf_s%grf_vec_ind_2a(je,2,jb) .AND. &
+                p_grf_s%grf_vec_blk_1a(je,i,jb) == p_grf_s%grf_vec_blk_2a(je,2,jb)) THEN
+              p_grf_s%idxlist_ubcintp_e(2,icount_ubc) = p_grf_s%grf_vec_ind_2a(je,2,jb)
+              p_grf_s%blklist_ubcintp_e(2,icount_ubc) = p_grf_s%grf_vec_blk_2a(je,2,jb)
+              p_grf_s%coeff_ubcintp_e34(2,icount_ubc) = p_grf_s%grf_vec_coeff_2a(2,je,jb)
+              p_grf_s%coeff_ubcintp_e12(2,icount_ubc) = p_grf_s%grf_vec_coeff_1a(i,je,jb)
+              lfound(1,i) = .TRUE.
+            ELSE IF (p_grf_s%grf_vec_ind_1a(je,i,jb) == p_grf_s%grf_vec_ind_2a(je,3,jb) .AND. &
+                     p_grf_s%grf_vec_blk_1a(je,i,jb) == p_grf_s%grf_vec_blk_2a(je,3,jb)) THEN
+              p_grf_s%idxlist_ubcintp_e(2,icount_ubc) = p_grf_s%grf_vec_ind_2a(je,3,jb)
+              p_grf_s%blklist_ubcintp_e(2,icount_ubc) = p_grf_s%grf_vec_blk_2a(je,3,jb)
+              p_grf_s%coeff_ubcintp_e34(2,icount_ubc) = p_grf_s%grf_vec_coeff_2a(3,je,jb)
+              p_grf_s%coeff_ubcintp_e12(2,icount_ubc) = p_grf_s%grf_vec_coeff_1a(i,je,jb)
+              lfound(1,i) = .TRUE.
+            ENDIF
+            IF (p_grf_s%grf_vec_ind_1a(je,i,jb) == p_grf_s%grf_vec_ind_2b(je,2,jb) .AND. &
+                p_grf_s%grf_vec_blk_1a(je,i,jb) == p_grf_s%grf_vec_blk_2b(je,2,jb)) THEN
+              p_grf_s%idxlist_ubcintp_e(6,icount_ubc) = p_grf_s%grf_vec_ind_2b(je,2,jb)
+              p_grf_s%blklist_ubcintp_e(6,icount_ubc) = p_grf_s%grf_vec_blk_2b(je,2,jb)
+              p_grf_s%coeff_ubcintp_e34(7,icount_ubc) = p_grf_s%grf_vec_coeff_2b(2,je,jb)
+              p_grf_s%coeff_ubcintp_e12(3,icount_ubc) = p_grf_s%grf_vec_coeff_1a(i,je,jb)
+              lfound(1,i) = .TRUE.
+            ELSE IF (p_grf_s%grf_vec_ind_1a(je,i,jb) == p_grf_s%grf_vec_ind_2b(je,3,jb) .AND. &
+                     p_grf_s%grf_vec_blk_1a(je,i,jb) == p_grf_s%grf_vec_blk_2b(je,3,jb)) THEN
+              p_grf_s%idxlist_ubcintp_e(6,icount_ubc) = p_grf_s%grf_vec_ind_2b(je,3,jb)
+              p_grf_s%blklist_ubcintp_e(6,icount_ubc) = p_grf_s%grf_vec_blk_2b(je,3,jb)
+              p_grf_s%coeff_ubcintp_e34(7,icount_ubc) = p_grf_s%grf_vec_coeff_2b(3,je,jb)
+              p_grf_s%coeff_ubcintp_e12(3,icount_ubc) = p_grf_s%grf_vec_coeff_1a(i,je,jb)
+              lfound(1,i) = .TRUE.
+            ENDIF
+          ENDDO
+          DO i = 1,p_grf_s%grf_vec_stencil_1b(je,jb)
+            IF (p_grf_s%grf_vec_ind_1b(je,i,jb) == p_grf_s%grf_vec_ind_2a(je,2,jb) .AND. &
+                p_grf_s%grf_vec_blk_1b(je,i,jb) == p_grf_s%grf_vec_blk_2a(je,2,jb)) THEN
+              p_grf_s%idxlist_ubcintp_e(3,icount_ubc) = p_grf_s%grf_vec_ind_2a(je,2,jb)
+              p_grf_s%blklist_ubcintp_e(3,icount_ubc) = p_grf_s%grf_vec_blk_2a(je,2,jb)
+              p_grf_s%coeff_ubcintp_e34(3,icount_ubc) = p_grf_s%grf_vec_coeff_2a(2,je,jb)
+              p_grf_s%coeff_ubcintp_e12(8,icount_ubc) = p_grf_s%grf_vec_coeff_1b(i,je,jb)
+              lfound(2,i) = .TRUE.
+            ELSE IF (p_grf_s%grf_vec_ind_1b(je,i,jb) == p_grf_s%grf_vec_ind_2a(je,3,jb) .AND. &
+                     p_grf_s%grf_vec_blk_1b(je,i,jb) == p_grf_s%grf_vec_blk_2a(je,3,jb)) THEN
+              p_grf_s%idxlist_ubcintp_e(3,icount_ubc) = p_grf_s%grf_vec_ind_2a(je,3,jb)
+              p_grf_s%blklist_ubcintp_e(3,icount_ubc) = p_grf_s%grf_vec_blk_2a(je,3,jb)
+              p_grf_s%coeff_ubcintp_e34(3,icount_ubc) = p_grf_s%grf_vec_coeff_2a(3,je,jb)
+              p_grf_s%coeff_ubcintp_e12(8,icount_ubc) = p_grf_s%grf_vec_coeff_1b(i,je,jb)
+              lfound(2,i) = .TRUE.
+            ENDIF
+            IF (p_grf_s%grf_vec_ind_1b(je,i,jb) == p_grf_s%grf_vec_ind_2b(je,2,jb) .AND. &
+                p_grf_s%grf_vec_blk_1b(je,i,jb) == p_grf_s%grf_vec_blk_2b(je,2,jb)) THEN
+              p_grf_s%idxlist_ubcintp_e(7,icount_ubc) = p_grf_s%grf_vec_ind_2b(je,2,jb)
+              p_grf_s%blklist_ubcintp_e(7,icount_ubc) = p_grf_s%grf_vec_blk_2b(je,2,jb)
+              p_grf_s%coeff_ubcintp_e34(8,icount_ubc) = p_grf_s%grf_vec_coeff_2b(2,je,jb)
+              p_grf_s%coeff_ubcintp_e12(9,icount_ubc) = p_grf_s%grf_vec_coeff_1b(i,je,jb)
+              lfound(2,i) = .TRUE.
+            ELSE IF (p_grf_s%grf_vec_ind_1b(je,i,jb) == p_grf_s%grf_vec_ind_2b(je,3,jb) .AND. &
+                     p_grf_s%grf_vec_blk_1b(je,i,jb) == p_grf_s%grf_vec_blk_2b(je,3,jb)) THEN
+              p_grf_s%idxlist_ubcintp_e(7,icount_ubc) = p_grf_s%grf_vec_ind_2b(je,3,jb)
+              p_grf_s%blklist_ubcintp_e(7,icount_ubc) = p_grf_s%grf_vec_blk_2b(je,3,jb)
+              p_grf_s%coeff_ubcintp_e34(8,icount_ubc) = p_grf_s%grf_vec_coeff_2b(3,je,jb)
+              p_grf_s%coeff_ubcintp_e12(9,icount_ubc) = p_grf_s%grf_vec_coeff_1b(i,je,jb)
+              lfound(2,i) = .TRUE.
+            ENDIF
+          ENDDO
+          p_grf_s%idxlist_ubcintp_e(4:5,icount_ubc)  = p_grf_s%grf_vec_ind_2a(je,4:5,jb)
+          p_grf_s%blklist_ubcintp_e(4:5,icount_ubc)  = p_grf_s%grf_vec_blk_2a(je,4:5,jb)
+          p_grf_s%idxlist_ubcintp_e(8:9,icount_ubc)  = p_grf_s%grf_vec_ind_2b(je,4:5,jb)
+          p_grf_s%blklist_ubcintp_e(8:9,icount_ubc)  = p_grf_s%grf_vec_blk_2b(je,4:5,jb)
+          p_grf_s%coeff_ubcintp_e34(4:5,icount_ubc)  = p_grf_s%grf_vec_coeff_2a(4:5,je,jb)
+          p_grf_s%coeff_ubcintp_e34(9:10,icount_ubc) = p_grf_s%grf_vec_coeff_2b(4:5,je,jb)
+          ic = 9
+          DO i = 1,6
+            IF (.NOT. lfound(1,i)) THEN
+              ic = ic+1
+              p_grf_s%idxlist_ubcintp_e(ic,icount_ubc) = p_grf_s%grf_vec_ind_1a(je,i,jb)
+              p_grf_s%blklist_ubcintp_e(ic,icount_ubc) = p_grf_s%grf_vec_blk_1a(je,i,jb)
+              p_grf_s%coeff_ubcintp_e12(ic-6,icount_ubc) = p_grf_s%grf_vec_coeff_1a(i,je,jb)
+            ENDIF
+          ENDDO
+          DO i = 1,6
+            IF (.NOT. lfound(2,i)) THEN
+              ic = ic+1
+              p_grf_s%idxlist_ubcintp_e(ic,icount_ubc) = p_grf_s%grf_vec_ind_1b(je,i,jb)
+              p_grf_s%blklist_ubcintp_e(ic,icount_ubc) = p_grf_s%grf_vec_blk_1b(je,i,jb)
+              p_grf_s%coeff_ubcintp_e12(ic-3,icount_ubc) = p_grf_s%grf_vec_coeff_1b(i,je,jb)
+            ENDIF
+          ENDDO
+
+        ENDIF
+
+      ENDDO
+    ENDDO
+
+    ! Adjust the communication patterns for lateral and upper boundary interpolation
+    IF ( my_process_is_mpi_parallel() ) THEN
+      p_pat => p_patch_all(icid)%comm_pat_interpol_scal_grf
+      DO ip = 1, 4
+        DO i = 1, p_pat(ip)%n_send
+          ib = p_pat(ip)%send_src_blk(i) 
+          ic = p_pat(ip)%send_src_idx(i) 
+          p_pat(ip)%send_src_idx(i) = inv_ind_c(ic,ib)
+          p_pat(ip)%send_src_blk(i) = 1 ! not needed here
+        ENDDO
+      ENDDO
+
+      p_pat => p_patch_all(icid)%comm_pat_interpol_scal_ubc
+      DO ip = 1, 4
+        DO i = 1, p_pat(ip)%n_send
+          ib = p_pat(ip)%send_src_blk(i) 
+          ic = p_pat(ip)%send_src_idx(i) 
+          p_pat(ip)%send_src_idx(i) = inv_ind_c(ic,ib)
+          p_pat(ip)%send_src_blk(i) = 1 ! not needed here
+        ENDDO
+      ENDDO
+
+      p_pat => p_patch_all(icid)%comm_pat_interpol_vec_grf
+      DO ip = 1, 4
+        DO i = 1, p_pat(ip)%n_send
+          ib = p_pat(ip)%send_src_blk(i) 
+          ie = p_pat(ip)%send_src_idx(i) 
+          p_pat(ip)%send_src_idx(i) = inv_ind_e_lbc(ie,ib)
+          p_pat(ip)%send_src_blk(i) = 1 ! not needed here
+        ENDDO
+      ENDDO
+
+      p_pat => p_patch_all(icid)%comm_pat_interpol_vec_ubc
+      DO ip = 1, 4
+        DO i = 1, p_pat(ip)%n_send
+          ib = p_pat(ip)%send_src_blk(i) 
+          ie = p_pat(ip)%send_src_idx(i) 
+          p_pat(ip)%send_src_idx(i) = inv_ind_e_ubc(ie,ib)
+          p_pat(ip)%send_src_blk(i) = 1 ! not needed here
+        ENDDO
+      ENDDO
+    ENDIF
+
+    DEALLOCATE (inv_ind_c, inv_ind_e_lbc, inv_ind_e_ubc, inv_ind_v)
+
+   ENDDO ! child domains
+  ENDDO ! domain ID
+
+  ! When everything works, the 'old' index and coefficient lists can be deallocated here;
+  ! in the deallocation routine, they need to be replaced with the new ones in this case
+
+END SUBROUTINE create_grf_index_lists
 
 !-------------------------------------------------------------------------
 !
