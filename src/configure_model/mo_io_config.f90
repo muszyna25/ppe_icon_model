@@ -97,6 +97,7 @@ MODULE mo_io_config
   !  TOT_PREC that would be accumulated
   LOGICAL :: lwrite_oce_timestepping    ! if .true. write intermediate ocean variables
   INTEGER :: itype_pres_msl             ! Specifies method for computation of mean sea level pressure
+  INTEGER :: itype_rh                   ! Specifies method for computation of relative humidity
 
   CHARACTER(LEN=filename_max) :: &
     &        output_nml_dict,    &      !< maps variable names onto the internal ICON names.

@@ -156,6 +156,7 @@ MODULE mo_physical_constants
   REAL(wp), PARAMETER :: als   = 2.8345e6_wp      !! [J/kg]   latent heat for sublimation
   REAL(wp), PARAMETER :: alf   = als-alv          !! [J/kg]   latent heat for fusion
   REAL(wp), PARAMETER :: tmelt = 273.15_wp        !! [K]      melting temperature of ice/snow
+  REAL(wp), PARAMETER :: t3    = 273.16_wp        !! [K]      Triple point of water at 611hPa
   !
   !> Auxiliary constants
   REAL(wp), PARAMETER :: rdv   = rd/rv            !> [ ]

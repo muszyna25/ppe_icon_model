@@ -43,8 +43,8 @@ MODULE mo_util_phys
   USE mo_physical_constants,    ONLY: o_m_rdv        , & !! 1 - r_d/r_v &
     &                                 rdv,             & !! r_d / r_v
     &                                 cpd, p0ref, rd,  &
-    &                                 vtmpc1
-  USE mo_satad,                 ONLY: sat_pres_water
+    &                                 vtmpc1, t3
+  USE mo_satad,                 ONLY: sat_pres_water, sat_pres_ice
   USE mo_fortran_tools,         ONLY: assign_if_present
   USE mo_impl_constants,        ONLY: min_rlcell_int
   USE mo_model_domain,          ONLY: t_patch
@@ -60,7 +60,9 @@ MODULE mo_util_phys
   PUBLIC :: nwp_dyn_gust1
   PUBLIC :: virtual_temp
   PUBLIC :: rel_hum
-  PUBLIC :: compute_field_rel_hum
+  PUBLIC :: compute_field_rel_hum_wmo
+  PUBLIC :: compute_field_rel_hum_ifs
+
 
   CHARACTER(len=*), PARAMETER :: version = &
     &  '$Id$'
@@ -193,7 +195,8 @@ CONTAINS
 
 
 
-  !> POINTWISE computation of relative humidity as r=e/e_sat
+  !> POINTWISE computation of relative humidity as r=e/e_sat,
+  !! according to WMO standard
   !!
   !! (domain independent and elemental)
   !!
@@ -219,11 +222,52 @@ CONTAINS
   END FUNCTION rel_hum
 
 
-  !> computation of relative humidity as r=e/e_sat
+  !> POINTWISE computation of relative humidity as r=e/e_sat, 
+  !! according to IFS documentation
+  !! I.e. For the temperature range 250.16<=T<=273.16, the saturation 
+  !! vapour pressure is computed as a combination of the values over 
+  !! water e_s_water and over ice e_s_ice.
+  !!
+  !! (domain independent and elemental)
+  !!
+  !! @par Revision History
+  !! Initial revision  by Daniel Reinert, DWD (2013-07-15) 
+  ELEMENTAL FUNCTION rel_hum_ifs(temp, qv, p_ex)
+    REAL(wp) :: rel_hum_ifs
+    REAL(wp), INTENT(IN) :: temp, &  ! temperature
+      &                     qv,   &  ! spec. water vapor content
+      &                     p_ex     ! exner pressure
+    ! local variables
+    REAL(wp) :: pres, e_s, e_s_water, e_s_ice, e
+    REAL(wp), PARAMETER:: t_i = 250.16  ! threshold value for mixed-phase clouds
+
+    ! compute dynamic pressure from Exner pressure:
+    pres = p0ref * EXP((cpd/rd)*LOG(p_ex))
+    ! approx. saturation vapor pressure:
+    IF (temp > t3) THEN
+      e_s       = sat_pres_water(temp)
+    ELSE IF (temp < (t3-23._wp)) THEN
+      e_s       = sat_pres_ice(temp)
+    ELSE
+      e_s_water = sat_pres_water(temp)
+      e_s_ice   = sat_pres_ice(temp)
+
+      e_s       = e_s_ice + (e_s_water - e_s_ice) * ((temp - t_i)/(t3 - t_i))**2
+    ENDIF
+
+    ! compute vapor pressure from formula for specific humidity:
+    e   = pres*qv / (rdv + o_m_rdv*qv)
+
+    rel_hum_ifs = 100._wp * e/e_s
+
+  END FUNCTION rel_hum_ifs
+
+
+  !> computation of relative humidity as r=e/e_sat, according to WMO standard
   !!
   !! @par Revision History
   !! Initial revision  :  F. Prill, DWD (2012-07-04) 
-  SUBROUTINE compute_field_rel_hum(ptr_patch, p_prog, p_diag, out_var, &
+  SUBROUTINE compute_field_rel_hum_wmo(ptr_patch, p_prog, p_diag, out_var, &
     &                              opt_slev, opt_elev, opt_rlstart, opt_rlend)
 
     ! patch on which computation is performed:
@@ -279,6 +323,7 @@ CONTAINS
           qv   = p_prog%tracer_ptr(iqv)%p_3d(jc,jk,jb)
           p_ex = p_prog%exner(jc,jk,jb)
           !-- compute relative humidity as r = e/e_s:
+!CDIR NEXPAND
           out_var(jc,jk,jb) = rel_hum(temp, qv, p_ex)
 
         END DO
@@ -287,6 +332,79 @@ CONTAINS
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
-  END SUBROUTINE compute_field_rel_hum
+  END SUBROUTINE compute_field_rel_hum_wmo
+
+
+
+  !> computation of relative humidity as r=e/e_sat, according to IFS
+  !!
+  !! @par Revision History
+  !! Initial revision  :  F. Prill, DWD (2012-07-04) 
+  SUBROUTINE compute_field_rel_hum_ifs(ptr_patch, p_prog, p_diag, out_var, &
+    &                              opt_slev, opt_elev, opt_rlstart, opt_rlend)
+
+    ! patch on which computation is performed:
+    TYPE(t_patch), TARGET, INTENT(in) :: ptr_patch
+    ! nonhydrostatic state
+    TYPE(t_nh_prog), INTENT(IN) :: p_prog
+    TYPE(t_nh_diag), INTENT(IN) :: p_diag
+    ! output variable, dim: (nproma,nlev,nblks_c):
+    REAL(wp),INTENT(INOUT) :: out_var(:,:,:)
+    ! optional vertical start/end level:
+    INTEGER, INTENT(in), OPTIONAL     :: opt_slev, opt_elev
+    ! start and end values of refin_ctrl flag:
+    INTEGER, INTENT(in), OPTIONAL     :: opt_rlstart, opt_rlend
+   
+    ! local variables
+    REAL(wp) :: temp, qv, p_ex
+    INTEGER  :: slev, elev, rl_start, rl_end, i_nchdom,     &
+      &         i_startblk, i_endblk, i_startidx, i_endidx, &
+      &         jc, jk, jb
+
+    ! default values
+    slev     = 1
+    elev     = UBOUND(out_var,2)
+    rl_start = 2
+    rl_end   = min_rlcell_int-1
+    ! check optional arguments
+    CALL assign_if_present(slev,     opt_slev)
+    CALL assign_if_present(elev,     opt_elev)
+    CALL assign_if_present(rl_start, opt_rlstart)
+    CALL assign_if_present(rl_end,   opt_rlend)
+    ! values for the blocking
+    i_nchdom   = MAX(1,ptr_patch%n_childdom)
+    i_startblk = ptr_patch%cells%start_blk(rl_start,1)
+    i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
+
+!$OMP PARALLEL    
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc), ICON_OMP_RUNTIME_SCHEDULE
+    DO jb = i_startblk, i_endblk
+      CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
+        i_startidx, i_endidx, rl_start, rl_end)
+      
+#ifdef __LOOP_EXCHANGE
+      DO jc = i_startidx, i_endidx
+        DO jk = slev, elev
+#else
+!CDIR UNROLL=3
+      DO jk = slev, elev
+        DO jc = i_startidx, i_endidx
+#endif
+
+          ! get values for temperature, etc.:
+          temp = p_diag%temp(jc,jk,jb)
+          qv   = p_prog%tracer_ptr(iqv)%p_3d(jc,jk,jb)
+          p_ex = p_prog%exner(jc,jk,jb)
+          !-- compute relative humidity as r = e/e_s:
+!CDIR NEXPAND
+          out_var(jc,jk,jb) = rel_hum_ifs(temp, qv, p_ex)
+
+        END DO
+      END DO
+    END DO
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+
+  END SUBROUTINE compute_field_rel_hum_ifs
 
 END MODULE mo_util_phys

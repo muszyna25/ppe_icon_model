@@ -481,6 +481,11 @@ MODULE mo_impl_constants
     PRES_MSL_METHOD_SAI = 2,  &   ! stepwise analytical integration 
     PRES_MSL_METHOD_IFS = 3       ! current IFS method
 
+  ! Method for computation of relative humidity:
+  INTEGER, PARAMETER :: &
+    RH_METHOD_WMO = 1,  &   ! WMO-type: e_s=e_s_water (water only)
+    RH_METHOD_IFS = 2       ! IFS-type: (mixed phases, water and ice)
+
   ! Max number of time levels:
   INTEGER, PARAMETER :: MAX_TIME_LEVELS = 5
 

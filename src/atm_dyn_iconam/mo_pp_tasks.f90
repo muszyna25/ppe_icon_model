@@ -50,7 +50,7 @@ MODULE mo_pp_tasks
     & TASK_COMPUTE_RH, TASK_INTP_VER_ZLEV, TASK_INTP_VER_ILEV,        &
     & PRES_MSL_METHOD_SAI, PRES_MSL_METHOD_GME, max_dom,              &
     & HINTP_TYPE_LONLAT_NNB, ALL_TIMELEVELS, PRES_MSL_METHOD_IFS,     &
-    & vname_len
+    & RH_METHOD_WMO, RH_METHOD_IFS, vname_len
   USE mo_model_domain,            ONLY: t_patch, p_patch
   USE mo_var_list_element,        ONLY: t_var_list_element, level_type_ml,  &
     &                                   level_type_pl, level_type_hl
@@ -94,8 +94,9 @@ MODULE mo_pp_tasks
     &                                   SYNC_C, SYNC_E, SYNC_V,                  &
     &                                   cumulative_sync_patch_array,             &
     &                                   complete_cumulative_sync
-  USE mo_util_phys,               ONLY: compute_field_rel_hum
-  USE mo_io_config,               ONLY: itype_pres_msl
+  USE mo_util_phys,               ONLY: compute_field_rel_hum_wmo,               &
+    &                                   compute_field_rel_hum_ifs
+  USE mo_io_config,               ONLY: itype_pres_msl, itype_rh
 
   IMPLICIT NONE
 
@@ -923,6 +924,7 @@ CONTAINS
     TYPE(t_patch),             POINTER :: p_patch
     TYPE(t_nh_prog),           POINTER :: p_prog
     TYPE(t_nh_diag),           POINTER :: p_diag
+    CHARACTER(*), PARAMETER :: routine = TRIM("mo_pp_tasks:pp_task_compute_field")
     
     ! output field for this task
     out_var   => ptr_task%data_output%var
@@ -939,8 +941,17 @@ CONTAINS
 
     SELECT CASE(ptr_task%job_type)
     CASE (TASK_COMPUTE_RH)
-      CALL compute_field_rel_hum(p_patch, p_prog, p_diag, &
-        &                        out_var%r_ptr(:,:,:,out_var_idx,1))
+
+      SELECT CASE (itype_rh)
+      CASE (RH_METHOD_WMO)
+        CALL compute_field_rel_hum_wmo(p_patch, p_prog, p_diag, &
+          &                        out_var%r_ptr(:,:,:,out_var_idx,1))
+      CASE (RH_METHOD_IFS)
+        CALL compute_field_rel_hum_ifs(p_patch, p_prog, p_diag, &
+          &                        out_var%r_ptr(:,:,:,out_var_idx,1))
+      CASE DEFAULT
+        CALL finish(routine, 'Internal error!')
+      END SELECT
     END SELECT
 
   END SUBROUTINE pp_task_compute_field
