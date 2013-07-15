@@ -859,7 +859,6 @@ MODULE mo_nh_stepping
     IF (jg == 1 .AND. l_limited_area) THEN
 
       n_save = nsav2(jg)
-
       CALL message(TRIM(routine), TRIM(message_text))
 
       IF (latbc_config%itype_latbc == 1) THEN
@@ -890,9 +889,9 @@ MODULE mo_nh_stepping
 !$OMP END WORKSHARE
 !$OMP END PARALLEL
           
-      ELSE IF (jg == 1 .AND. l_limited_area .AND. linit_dyn(jg)) THEN
+      ELSE IF (linit_dyn(jg)) THEN
 
-      n_now = nnow(jg)
+        n_now = nnow(jg)
 !$OMP PARALLEL
 !$OMP WORKSHARE
         p_nh_state(jg)%prog(n_save)%vn      = p_nh_state(jg)%prog(n_now)%vn
