@@ -366,7 +366,7 @@ case "$ac_sitename" in
                       *)
                           echo
                           echo WARNING:
-                          echo No default setup for you Linux distribution , codename: $dist_codename
+                          echo No default setup for your Linux distribution , codename: $dist_codename
                           echo
                           echo
                           ;;
@@ -375,19 +375,10 @@ case "$ac_sitename" in
                   ZLIBROOT = /usr
                   load_modules = "ncl/6.0.0-gccsys" "cdo/1.5.6.1" "python/2.7-ve0" "${load_modules}"
                   load_profile = "." "/client/etc/profile.zmaw"
-                  case "$(hostname)" in
-                      squall?)
-                          config_target=squall
-                          make_command="make" "-j" "8"
-                          submit="qsub"
-                          sync_submit=qsub -sync y
-                          ;;
-                      *)
-                          config_target=mpipc
-                          make_command="make" "-j" "2"
-                          submit=""
-                          ;;
-                  esac
+                  config_target=mpipc
+                  make_command="make" "-j" "2"
+                  submit=""
+                  ;;
 
                   case "$fortran_compiler" in
                       default|gcc)
