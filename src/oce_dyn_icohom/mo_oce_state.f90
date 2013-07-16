@@ -850,6 +850,8 @@ CONTAINS
     CHARACTER(len=max_char_length), PARAMETER :: &
       &      routine = 'mo_oce_state:construct_hydro_ocean_diag'
 
+!   REAL(wp), SAVE, TARGET :: x, y   ! must be a pointer
+
 !-------------------------------------------------------------------------
 
     !CALL message(TRIM(routine), 'start to construct diagnostic hydro ocean state')
@@ -860,6 +862,14 @@ CONTAINS
     nblks_c = p_patch%nblks_c
     nblks_e = p_patch%nblks_e
     nblks_v = p_patch%nblks_v
+
+     
+!    CALL add_var(ocean_default_list, 'test', x , GRID_1x1,&
+!    &            no_z_axis, &
+!    &            t_cf_var('monitor_T', 'C', 'monitoring_temperature', DATATYPE_FLT32),&
+!    &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+!    &            ldims=(/1,1,1/),in_group=groups("oce_monitoring"))
+
 
     CALL add_var(ocean_default_list, 'rho', p_os_diag%rho , GRID_UNSTRUCTURED_CELL,&
     &            ZA_DEPTH_BELOW_SEA, &
