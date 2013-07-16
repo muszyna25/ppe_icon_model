@@ -5574,7 +5574,7 @@ fi # ! CROSS
 
 test "x$exec_prefix" = xNONE && exec_prefix=build/${build_host}
 
-my_srcdirs="support src"
+my_srcdirs="support externals src"
 
 if [ "x$LAPACKROOT" = xlocal ] ; then
     my_srcdirs="blas lapack ${my_srcdirs}"
