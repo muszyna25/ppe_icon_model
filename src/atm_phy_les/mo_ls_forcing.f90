@@ -191,7 +191,7 @@ MODULE mo_ls_forcing
     REAL(wp) :: varout(nproma,p_patch%nlev+1,p_patch%nblks_c)
     REAL(wp) :: inv_no_gb_cells
     REAL(wp), DIMENSION(p_patch%nlev+1) :: u_gb, v_gb, temp_gb, qv_gb, ql_gb
-    REAL(wp), DIMENSION(p_patch%nlev)   :: inv_dz, exner_gb, qv_gb_fl, ql_gb_fl
+    REAL(wp), DIMENSION(p_patch%nlev)   :: inv_dz, exner_gb, inv_exner_gb, qv_gb_fl, ql_gb_fl
 
     INTEGER  :: i_nchdom, i_startblk, i_endblk, jk, nlev, nlevp1
 
@@ -212,7 +212,9 @@ MODULE mo_ls_forcing
     !Some precalculations   
     IF(is_subsidence_heat .OR. is_advection .OR. is_rad_forcing) &
       CALL global_hor_mean(p_patch, p_prog%exner(:,:,:), exner_gb, inv_no_gb_cells, i_nchdom)
-
+      
+    inv_exner_gb = 1./exner_gb
+      
     IF(is_subsidence_moment.OR.is_subsidence_heat) &
       inv_dz(:) = 1._wp / p_metrics%ddqz_z_full(1,:,1)        
 
@@ -233,16 +235,10 @@ MODULE mo_ls_forcing
 
     IF(is_subsidence_heat)THEN
       !use theta_l instead of temperature for subsidence
-      IF(is_theta)THEN
 !$OMP PARALLEL WORKSHARE
         varin(:,:,i_startblk:i_endblk) = p_diag%temp(:,:,i_startblk:i_endblk) / p_prog%exner(:,:,i_startblk:i_endblk) - &
                                        (1._wp / p_prog%exner(:,:,i_startblk:i_endblk) * alv/cpd) * ql(:,:,i_startblk:i_endblk)
 !$OMP END PARALLEL WORKSHARE
-      ELSE
-!$OMP PARALLEL WORKSHARE
-        varin(:,:,i_startblk:i_endblk) = p_diag%temp(:,:,i_startblk:i_endblk)
-!$OMP END PARALLEL WORKSHARE
-      END IF
       CALL vert_intp_full2half_cell_3d(p_patch, p_metrics, varin, varout, rl_start, rl_end)
       CALL global_hor_mean(p_patch, varout, temp_gb, inv_no_gb_cells, i_nchdom)
 
@@ -271,7 +267,7 @@ MODULE mo_ls_forcing
       IF(is_theta)THEN
         ddt_temp_ls = ddt_temp_ls + ddt_temp_hadv_ls 
       ELSE
-        ddt_temp_ls = ddt_temp_ls + exner_gb*ddt_temp_hadv_ls + alv/cpd*ddt_qt_hadv_ls*(ql_gb_fl)/(qv_gb_fl+ql_gb_fl) 
+        ddt_temp_ls = ddt_temp_ls + inv_exner_gb*(ddt_temp_hadv_ls - alv/cpd*ddt_qt_hadv_ls*(ql_gb_fl)/(qv_gb_fl+ql_gb_fl)) 
       END IF
     END IF
 
@@ -287,14 +283,12 @@ MODULE mo_ls_forcing
       IF(is_theta)THEN
         ddt_temp_ls = ddt_temp_ls + ddt_temp_rad_ls
       ELSE
-        ddt_temp_ls = ddt_temp_ls + ddt_temp_rad_ls * exner_gb
+        ddt_temp_ls = ddt_temp_ls + ddt_temp_rad_ls * inv_exner_gb
       END IF
     END IF
 
     !Convert theta_l tendency to temp at once
-    IF(is_theta)THEN
       ddt_temp_ls = exner_gb*ddt_temp_ls + alv/cpd * ddt_ql_ls
-    END IF
     
   END SUBROUTINE apply_ls_forcing
 
