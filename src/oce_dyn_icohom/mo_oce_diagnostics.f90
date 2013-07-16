@@ -530,13 +530,15 @@ SUBROUTINE calculate_oce_diagnostics(p_patch_3D, p_os, p_sfc_flx, p_ice, &
     & write(0,*) "---------------  fluxes --------------------------------"
   DO i=1,oce_section_count
     sflux = section_flux(oce_sections(i), p_os%p_prog(nnew(1))%vn)
-#ifdef NOMPI
-    IF (my_process_is_stdio()) &
-      & write(0,*) oce_sections(i)%subset%name, ":", sflux, 'at edges:',oce_sections(i)%subset%block
-#else
+!
+! #slo# disabled since subset%block is not allocated (#3759, HPC_sun_debug)
+! #ifdef NOMPI
+!     IF (my_process_is_stdio()) &
+!       & write(0,*) oce_sections(i)%subset%name, ":", sflux, 'at edges:',oce_sections(i)%subset%block
+! #else
     IF (my_process_is_stdio()) &
       & write(0,*) oce_sections(i)%subset%name, ":", sflux
-#endif
+! #endif
 
     SELECT CASE (i)
     CASE (1)
