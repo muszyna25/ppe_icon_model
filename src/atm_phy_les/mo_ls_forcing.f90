@@ -56,7 +56,7 @@ MODULE mo_ls_forcing
   USE mo_loopindices,         ONLY: get_indices_e, get_indices_c, get_indices_v
   USE mo_vert_utilities
   USE mo_ls_forcing_nml
-  USE mo_physical_constants,  ONLY: rd
+  USE mo_physical_constants,  ONLY: rd, cpd, alv
   USE mo_sync,                ONLY: global_sum_array, omp_global_sum_array
 
   IMPLICIT NONE
@@ -77,7 +77,7 @@ MODULE mo_ls_forcing
     v_geo  (:),         & !v-geostrophic wind  [m/s]
     ddt_temp_hadv_ls(:),& !LS horizontal advective tendency for temp [k/s]
     ddt_temp_rad_ls(:), & !LS (not large-scale actually!) radiative tendency for temp [k/s]
-    ddt_qv_hadv_ls(:)     !LS horizontal advective tendency for qv [1/s]
+    ddt_qt_hadv_ls(:)     !LS horizontal advective tendency for qt [1/s]
 
   CONTAINS
 
@@ -109,7 +109,7 @@ MODULE mo_ls_forcing
     ENDIF  
 
     !Read the input file till end. The order of file assumed is:
-    !Z(m) - w_ls - u_geo - v_geo - ddt_temp_hadv_ls - ddt_temp_rad_ls - ddt_qv_hadv_ls    
+    !Z(m) - w_ls - u_geo - v_geo - ddt_temp_hadv_ls - ddt_temp_rad_ls - ddt_qt_hadv_ls    
     
     !Read first line
     READ(iunit,*,IOSTAT=ist)
@@ -136,7 +136,7 @@ MODULE mo_ls_forcing
 
     nlev = SIZE(p_metrics%z_mc,2)
     ALLOCATE( w_ls(nlev), u_geo(nlev), v_geo(nlev), ddt_temp_hadv_ls(nlev), &
-              ddt_temp_rad_ls(nlev), ddt_qv_hadv_ls(nlev) )
+              ddt_temp_rad_ls(nlev), ddt_qt_hadv_ls(nlev) )
 
     !Now perform interpolation to grid levels assuming:
     !a) linear interpolation
@@ -148,7 +148,7 @@ MODULE mo_ls_forcing
     CALL vert_intp_linear_1d(zz,zv,p_metrics%z_mc(1,:,1),v_geo)
     CALL vert_intp_linear_1d(zz,z_dt_temp_adv,p_metrics%z_mc(1,:,1),ddt_temp_hadv_ls)
     CALL vert_intp_linear_1d(zz,z_dt_temp_rad,p_metrics%z_mc(1,:,1),ddt_temp_rad_ls)
-    CALL vert_intp_linear_1d(zz,z_dt_qv_adv,p_metrics%z_mc(1,:,1),ddt_qv_hadv_ls)
+    CALL vert_intp_linear_1d(zz,z_dt_qv_adv,p_metrics%z_mc(1,:,1),ddt_qt_hadv_ls)
 
     DEALLOCATE( zz, zw, zu, zv, z_dt_temp_adv, z_dt_temp_rad, z_dt_qv_adv )
 
@@ -191,7 +191,7 @@ MODULE mo_ls_forcing
     REAL(wp) :: varout(nproma,p_patch%nlev+1,p_patch%nblks_c)
     REAL(wp) :: inv_no_gb_cells
     REAL(wp), DIMENSION(p_patch%nlev+1) :: u_gb, v_gb, temp_gb, qv_gb, ql_gb
-    REAL(wp), DIMENSION(p_patch%nlev)   :: inv_dz, exner_gb
+    REAL(wp), DIMENSION(p_patch%nlev)   :: inv_dz, exner_gb, qv_gb_fl, ql_gb_fl
 
     INTEGER  :: i_nchdom, i_startblk, i_endblk, jk, nlev, nlevp1
 
@@ -232,11 +232,17 @@ MODULE mo_ls_forcing
     !1b) Horizontal mean of variables and their vertical advective tendency 
 
     IF(is_subsidence_heat)THEN
-      !use theta instead of temperature for subsidence
+      !use theta_l instead of temperature for subsidence
+      IF(is_theta)THEN
 !$OMP PARALLEL WORKSHARE
-      varin(:,:,i_startblk:i_endblk) = p_diag%temp(:,:,i_startblk:i_endblk) / &
-                                       p_prog%exner(:,:,i_startblk:i_endblk)
+        varin(:,:,i_startblk:i_endblk) = p_diag%temp(:,:,i_startblk:i_endblk) / p_prog%exner(:,:,i_startblk:i_endblk) - &
+                                       (1._wp / p_prog%exner(:,:,i_startblk:i_endblk) * alv/cpd) * ql(:,:,i_startblk:i_endblk)
 !$OMP END PARALLEL WORKSHARE
+      ELSE
+!$OMP PARALLEL WORKSHARE
+        varin(:,:,i_startblk:i_endblk) = p_diag%temp(:,:,i_startblk:i_endblk)
+!$OMP END PARALLEL WORKSHARE
+      END IF
       CALL vert_intp_full2half_cell_3d(p_patch, p_metrics, varin, varout, rl_start, rl_end)
       CALL global_hor_mean(p_patch, varout, temp_gb, inv_no_gb_cells, i_nchdom)
 
@@ -253,14 +259,20 @@ MODULE mo_ls_forcing
     END IF
 
     !2)Horizontal advective forcing: at present only for tracers
-    !  Advective tendencies for ql is always assumed 0
+    !  Advective tendencies for qt are split between qv and ql
     IF(is_advection)THEN
+    !Horizontal mean of variables  - moisture
+      CALL global_hor_mean(p_patch, qv, qv_gb_fl, inv_no_gb_cells, i_nchdom)
+      CALL global_hor_mean(p_patch, ql, ql_gb_fl, inv_no_gb_cells, i_nchdom)
+
+      ddt_qv_ls   = ddt_qv_ls   + ddt_qt_hadv_ls * (qv_gb_fl)/(qv_gb_fl+ql_gb_fl)
+      ddt_ql_ls   = ddt_ql_ls   + ddt_qt_hadv_ls * (ql_gb_fl)/(qv_gb_fl+ql_gb_fl)
+
       IF(is_theta)THEN
         ddt_temp_ls = ddt_temp_ls + ddt_temp_hadv_ls 
       ELSE
-        ddt_temp_ls = ddt_temp_ls + ddt_temp_hadv_ls / exner_gb 
+        ddt_temp_ls = ddt_temp_ls + exner_gb*ddt_temp_hadv_ls + alv/cpd*ddt_qt_hadv_ls*(ql_gb_fl)/(qv_gb_fl+ql_gb_fl) 
       END IF
-      ddt_qv_ls   = ddt_qv_ls   + ddt_qv_hadv_ls
     END IF
 
     !3)Coriolis and geostrophic wind
@@ -273,14 +285,16 @@ MODULE mo_ls_forcing
     !4)Radiative forcing
     IF(is_rad_forcing)THEN
       IF(is_theta)THEN
-        ddt_temp_ls = ddt_temp_ls + ddt_temp_rad_ls 
+        ddt_temp_ls = ddt_temp_ls + ddt_temp_rad_ls
       ELSE
-        ddt_temp_ls = ddt_temp_ls + ddt_temp_rad_ls / exner_gb
+        ddt_temp_ls = ddt_temp_ls + ddt_temp_rad_ls * exner_gb
       END IF
     END IF
 
-    !Convert theta tendency to temp at once
-    ddt_temp_ls = ddt_temp_ls * exner_gb
+    !Convert theta_l tendency to temp at once
+    IF(is_theta)THEN
+      ddt_temp_ls = exner_gb*ddt_temp_ls + alv/cpd * ddt_ql_ls
+    END IF
     
   END SUBROUTINE apply_ls_forcing
 
