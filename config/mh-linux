@@ -378,7 +378,6 @@ case "$ac_sitename" in
                   config_target=mpipc
                   make_command="make" "-j" "2"
                   submit=""
-                  ;;
 
                   case "$fortran_compiler" in
                       default|gcc)
