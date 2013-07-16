@@ -584,6 +584,7 @@ CONTAINS
       qv   = station%var(i_QV(jg))%values(ilev, i_tstep)
       p_ex = station%var(i_PEXNER(jg))%values(ilev, i_tstep)
       !-- compute relative humidity as r = e/e_s:
+!CDIR NEXPAND
       station%var(i_REL_HUM(jg))%values(ilev, i_tstep) = rel_hum(temp, qv, p_ex)
     END DO
     
