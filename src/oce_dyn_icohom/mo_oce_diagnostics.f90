@@ -63,14 +63,6 @@ MODULE mo_oce_diagnostics
   USE mo_sea_ice_types,      ONLY: t_sfc_flx, t_sea_ice
   USE mo_datetime,           ONLY: t_datetime, datetime_to_string, date_len
   USE mo_linked_list,        ONLY: t_var_list
-  USE mo_var_list,           ONLY: add_var,                  &
-    &                              new_var_list,             &
-    &                              delete_var_list,          &
-    &                              default_var_list_settings,&
-    &                              add_ref
-  USE mo_cf_convention
-  USE mo_grib2
-  USE mo_cdi_constants
   USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff
   USE mo_io_units,           ONLY: find_next_free_unit
   USE mo_util_file,          ONLY: util_symlink, util_rename, util_islink, util_unlink
