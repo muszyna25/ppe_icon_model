@@ -315,6 +315,8 @@ CONTAINS
 
     IF (PRESENT(opt_key_column)) THEN
       key_column = opt_key_column
+    ELSE
+      key_column = 1
     END IF
 
     ! simply loop over all dictionary entries
