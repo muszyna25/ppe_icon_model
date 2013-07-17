@@ -12,10 +12,15 @@
 % \usepackage{pdftricks}    %--- for drawing arrows, frames, etc in Latex
 % \begin{psinputs}
 \usepackage{pstricks}      %--- for drawing arrows, frames etc in Latex
+
+\usepackage{pgfplots,pgfplotstable}
+\usepackage{colortbl}
+
+
 % \end{psinputs}
 \usepackage[nottoc]{tocbibind}     %--- adds bibliography to toc 
 % --- but without toc itself [nottoc] 
-\usepackage[numbers,round,authoryear]{natbib} %--- creates bibliography; author-year with curly brackets within the text
+\usepackage[square,sort,comma,numbers]{natbib} %--- creates bibliography; author-year with curly brackets within the text
 % \usepackage[  %--- no numbering of positions 
 % toc,           %--- let it appear in the document's table of contents
 % style=mylong3colheader %--- see glossaries Documentation for a list of available styles
@@ -37,6 +42,7 @@
 \usepackage{listings}
 \usepackage{hyperref}    % ability to create hyperlinks within the document
 \usepackage{vhistory}
+
 
 
 % define some colors
@@ -146,7 +152,7 @@
 % --- Auswahl der Formatierung des Literaturverzeichnisses (deutsche Version), erstellt mit custom-bib package
 % \bibliographystyle{plain}
 % \bibliographystyle{diss_bibstyle.bst}
-% \bibliographystyle{jas99}
+\bibliographystyle{jas99}
 
 % --- search path for figures
 \graphicspath{{./pics/}}
@@ -195,7 +201,7 @@
 % \glsaddall
 % \printglossary[type=symbolslist]  %--- Erstellung des Symbolverzeichnisses
 
-% \backmatter
+\backmatter
 % \bibliography{/home/dreinert/Documents/bibliography/litera.bib,/home/dreinert/Documents/bibliography/litera_notprinted.bib} %--- Erstellen der Liste aller Referenzen
 \bibliography{litera.bib} %--- Create list of references
 

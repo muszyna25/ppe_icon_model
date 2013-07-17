@@ -172,6 +172,7 @@ doc/technical/dwd_database/GRIB2_output_tables.tex -text
 doc/technical/dwd_database/database_main.pdf -text svneol=unset#unset
 doc/technical/dwd_database/database_main.tex -text
 doc/technical/dwd_database/grid_geometry.tex -text
+doc/technical/dwd_database/litera.bib -text
 doc/technical/dwd_database/pics/DWD_logo.png -text
 doc/technical/dwd_database/pics/bisection.png -text
 doc/technical/dwd_database/pics/icon_grid_R2B00.png -text
@@ -183,6 +184,8 @@ doc/technical/dwd_database/pics/lon-lat-grid.png -text
 doc/technical/dwd_database/pics/nsection.png -text
 doc/technical/dwd_database/title_toc.tex -text
 doc/technical/dwd_database/versionhistory.tex -text
+doc/technical/dwd_database/vertical_levels_i.txt -text
+doc/technical/dwd_database/vertical_levels_i_small.txt -text
 doc/technical/flux_diagram-crop.pdf -text
 doc/technical/flux_diagram.pdf -text
 doc/technical/flux_diagram.ps -text
