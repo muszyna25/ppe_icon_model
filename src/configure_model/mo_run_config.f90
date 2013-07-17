@@ -52,6 +52,7 @@ MODULE mo_run_config
   PUBLIC :: lvert_nest, num_lev, num_levp1, nshift, nsteps, dtime, dtime_adv
   PUBLIC :: ltimer, timers_level, activate_sync_timers, write_timer_files, msg_level
   PUBLIC :: iqv, iqc, iqi, iqs, iqr, iqtvar, nqtendphy, iqt, ico2
+  PUBLIC :: iqni, iqni_nuc, iqg !CK<
   PUBLIC :: iash1,iash2,iash3,iash4,iash5,iash6 !K.L. Running index for Volcanic Ash in ICON-ART 
   PUBLIC :: iash1_conv,iash2_conv,iash3_conv,iash4_conv,iash5_conv,iash6_conv !K.L. Running index for convection 
   PUBLIC :: grid_generatingCenter     ! non-namelist variables
@@ -121,6 +122,11 @@ MODULE mo_run_config
     INTEGER :: iqv        !< water vapor
     INTEGER :: iqc        !< cloud water
     INTEGER :: iqi        !< cloud ice
+    !CK>
+    INTEGER :: iqni       !< cloud ice number
+    INTEGER :: iqni_nuc   !< activated ice nuclei
+    INTEGER :: iqg        !< graupel
+    !CK<    
     INTEGER :: iqr        !< rain water
     INTEGER :: iqs        !< snow
     INTEGER :: iqtvar     !< total water variance

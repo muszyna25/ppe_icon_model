@@ -1189,6 +1189,7 @@ src/atm_phy_nwp/mo_rrtm_data_interface.f90 -text
 src/atm_phy_nwp/mo_util_phys.f90 -text
 src/atm_phy_schemes/data_gscp.f90 -text
 src/atm_phy_schemes/data_gwd.f90 -text
+src/atm_phy_schemes/data_hydci_pp_ice.f90 -text
 src/atm_phy_schemes/data_turbulence.f90 -text
 src/atm_phy_schemes/gscp_hydci_pp.f90 -text
 src/atm_phy_schemes/gscp_hydci_pp_ice.f90 -text

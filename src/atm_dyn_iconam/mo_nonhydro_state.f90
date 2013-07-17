@@ -68,6 +68,7 @@ MODULE mo_nonhydro_state
   USE mo_parallel_config,      ONLY: nproma
   USE mo_run_config,           ONLY: iforcing, ntracer,                    &
     &                                iqv, iqc, iqi, iqr, iqs, iqt, iqtvar, &
+    &                                iqni, iqni_nuc, iqg,                  & 
     &                                nqtendphy, ltestcase 
   USE mo_io_config,            ONLY: lwrite_extra, inextra_2d, inextra_3d
   USE mo_nh_pzlev_config,      ONLY: nh_pzlev_config
@@ -566,7 +567,7 @@ MODULE mo_nonhydro_state
       IF (  iforcing == inwp  ) THEN
         
         ! Reference to individual tracer, for I/O and setting of additional metadata
-        ! Note that for qv, qc, qi, qr, qs the corresponding indices iqv, iqc, iqi, 
+        ! Note that for qv, qc, qi, qr, qs, qni, qni_nuc the corresponding indices iqv, iqc, iqi, 
         ! iqr, iqs are hardcoded. For additional tracers, indices need to be set via 
         ! add_tracer_ref. 
         
@@ -675,6 +676,72 @@ MODULE mo_nonhydro_state
                     &             lower_limit=0._wp  ),                              & 
                     & in_group=groups("atmo_ml_vars","atmo_pl_vars","atmo_zl_vars",  &
                     &                 "dwd_fg_atm_vars")  )
+
+        !CK>
+          IF (atm_phy_nwp_config(p_patch%id)%inwp_gscp==2) THEN
+            !QG
+            CALL add_ref( p_prog_list, 'tracer',                                     &
+                    & TRIM(vname_prefix)//'qg'//suffix, p_prog%tracer_ptr(iqg)%p_3d, &
+                    & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                             &
+                    & t_cf_var(TRIM(vname_prefix)//'qg',                             &
+                    &  'kg kg-1','specific_graupel_content', DATATYPE_FLT32),        &
+                    & t_grib2_var(0, 1, 32, ibits, GRID_REFERENCE, GRID_CELL),       &
+                    & ldims=shape3d_c,                                               &
+                    & tlev_source=1,     &              ! output from nnow_rcf slice
+                    & tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
+                    &             ihadv_tracer=advconf%ihadv_tracer(iqg),            &
+                    &             ivadv_tracer=advconf%ivadv_tracer(iqg)),           &
+                    & vert_interp=create_vert_interp_metadata(                       &
+                    &             vert_intp_type=vintp_types("P","Z","I"),           &
+                    &             vert_intp_method=VINTP_METHOD_LIN,                 &
+                    &             l_loglin=.FALSE.,                                  &
+                    &             l_extrapol=.TRUE., l_pd_limit=.FALSE.,             &
+                    &             lower_limit=0._wp  ),                              & 
+                    & in_group=groups("atmo_ml_vars", "atmo_pl_vars", "atmo_zl_vars")  )
+          END IF
+        !CK> improved ice nucleation scheme
+          IF (atm_phy_nwp_config(p_patch%id)%inwp_gscp==3) THEN
+          !QNI cloud ice number # per kg, local 
+            CALL add_ref( p_prog_list, 'tracer',                                     &
+                    & TRIM(vname_prefix)//'qni'//suffix, p_prog%tracer_ptr(iqni)%p_3d, &
+                    & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                             &
+                    & t_cf_var(TRIM(vname_prefix)//'qni',                            &
+                    &  ' kg-1 ','number_concentration_cloud_ice', DATATYPE_FLT32),   &
+                    & t_grib2_var(0, 6, 29, ibits, GRID_REFERENCE, GRID_CELL),       &
+                    & ldims=shape3d_c,                                               &
+                    & tlev_source=1,     &              ! output from nnow_rcf slice
+                    & tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
+                    &             ihadv_tracer=advconf%ihadv_tracer(iqni),           &
+                    &             ivadv_tracer=advconf%ivadv_tracer(iqni)),          &
+                    & vert_interp=create_vert_interp_metadata(                       &
+                    &             vert_intp_type=vintp_types("P","Z","I"),           &
+                    &             vert_intp_method=VINTP_METHOD_LIN,                 &
+                    &             l_loglin=.FALSE.,                                  &
+                    &             l_extrapol=.TRUE., l_pd_limit=.FALSE.,             &
+                    &             lower_limit=0._wp  ),                              & 
+                    & in_group=groups("atmo_ml_vars", "atmo_pl_vars", "atmo_zl_vars")  )
+          !QNI_NUC activated ice nuclei tracking var # per kg, local
+            CALL add_ref( p_prog_list, 'tracer',                                       &
+                    & TRIM(vname_prefix)//'qni_nuc'//suffix, p_prog%tracer_ptr(iqni_nuc)%p_3d, &
+                    & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                             &
+                    & t_cf_var(TRIM(vname_prefix)//'qni_nuc',                        &
+                    & ' kg-1','number concentration of activated_IN', DATATYPE_FLT32),&
+                    & t_grib2_var(0, 1, 255, ibits, GRID_REFERENCE, GRID_CELL),      &
+                    & ldims=shape3d_c,                                               &
+                    & tlev_source=1,     &              ! output from nnow_rcf slice
+                    & tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
+                    &             ihadv_tracer=advconf%ihadv_tracer(iqni_nuc),       &
+                    &             ivadv_tracer=advconf%ivadv_tracer(iqni_nuc)),      &
+                    & vert_interp=create_vert_interp_metadata(                       &
+                    &             vert_intp_type=vintp_types("P","Z","I"),           &
+                    &             vert_intp_method=VINTP_METHOD_LIN,                 &
+                    &             l_loglin=.FALSE.,                                  &
+                    &             l_extrapol=.TRUE., l_pd_limit=.FALSE.,             &
+                    &             lower_limit=0._wp  ),                              & 
+                    & in_group=groups("atmo_ml_vars", "atmo_pl_vars", "atmo_zl_vars")  )
+        END IF ! jg
+        !CK<
+          
         ! EDMF: total water variance
         IF (atm_phy_nwp_config(p_patch%id)%inwp_turb == iedmf) THEN
           CALL add_ref( p_prog_list, 'tracer',                                       &

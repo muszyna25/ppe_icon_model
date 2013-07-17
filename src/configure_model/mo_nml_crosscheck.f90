@@ -70,6 +70,7 @@ MODULE mo_nml_crosscheck
     &                              ltransport, ntracer, nlev, ltestcase,      &
     &                              nqtendphy, iqv, iqc, iqi,                  &
     &                              iqs, iqr, iqt, iqtvar, ico2, ltimer,       &
+    &                              iqni, iqni_nuc, iqg,                       & !CK<
     &                              activate_sync_timers, timers_level,        &
     &                              output_mode, dtime_adv
   USE mo_gridref_config
@@ -540,7 +541,12 @@ CONTAINS
                      !! tendencies are stored
 
     CASE (INWP)
-
+    
+!CK>  
+      SELECT CASE (atm_phy_nwp_config(jg)%inwp_gscp)
+        
+      CASE(1,10) ! COSMO-EU scheme (2-cat ice: cloud ice, snow)
+         
       ! If iforcing=INWP is chosen, ntracer will automatically be set to 5,
       ! except for the case of ICON-ART. If ICON-ART: then ntracer is adapted from the namelist.
       !
@@ -574,6 +580,55 @@ CONTAINS
       nqtendphy = 3  !! number of water species for which convective and turbulent
                      !! tendencies are stored
 
+    CASE(2)  ! COSMO-DE (3-cat ice: snow, cloud ice, graupel)
+
+      CALL finish('mo_atm_nml_crosscheck', 'Graupel scheme not implemented.')
+      
+!      ntracer = 6
+!      iqv     = 1     !> water vapour
+!      iqc     = 2     !! cloud water
+!      iqi     = 3     !! ice
+!      iqr     = 4     !! rain water
+!      iqs     = 5     !! snow
+!      iqg     = 6     !! graupel
+!      iqtvar  = 7     !! qt variance
+!      iqt     = 7     !! start index of other tracers than hydrometeors
+!      nqtendphy = 4   !! number of water species for which convective and turbulent 
+!                      !! tendencies are stored
+! 
+    CASE(3)  ! improved ice nucleation scheme C. Koehler
+
+      ntracer  = 7
+      iqv      = 1     !> water vapour
+      iqc      = 2     !! cloud water
+      iqi      = 3     !! ice
+      iqr      = 4     !! rain water
+      iqs      = 5     !! snow
+      iqni     = 6     !! cloud ice number
+      iqni_nuc = 7    !! activated ice nuclei  
+      iqtvar   = 8     !! qt variance
+      iqt      = 8     !! start index of other tracers than hydrometeors
+      nqtendphy = 3   !! number of water species for which convective and turbulent 
+                      !! tendencies are stored
+      
+    CASE(4)  ! two-moment scheme 
+
+      CALL finish('mo_atm_nml_crosscheck', 'Two-moment scheme not implemented.')
+
+
+!    CASE(9)  ! Kessler scheme (warm rain scheme)  
+!      ntracer = 3
+!      iqv     = 1     !> water vapour
+!      iqc     = 2     !! cloud water
+!      iqr     = 3     !! rain water
+!      iqtvar  = 4     !! qt variance
+!      iqt     = 4     !! start index of other tracers than hydrometeors
+!      nqtendphy = 1   !! number of water species for which convective and turbulent 
+!                      !! tendencies are stored
+
+    END SELECT
+!CK<
+ 
     CASE default
 
       iqv    = 1     !> water vapour
@@ -584,7 +639,7 @@ CONTAINS
       nqtendphy = 0  !! number of water species for which convective and turbulent
                      !! tendencies are stored
 
-    END SELECT
+  END SELECT
 
 
     IF (ltransport) THEN
