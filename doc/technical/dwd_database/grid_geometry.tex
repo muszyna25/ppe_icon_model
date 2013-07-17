@@ -64,9 +64,21 @@ the total number of cells, edges, and vertices can be computed from
  n_{e} &=& 30\,n^{2}\,4^{k} \\
  n_{v} &=& 10\,n^{2}\,4^{k} + 2
 \end{eqnarray*}
+The average cell area $\overline{\Delta A}$ can be computed from
+\begin{align*}
+ \overline{\Delta A} = \frac{4\pi\,r_{e}^{2}}{n_{c}}\,,
+\end{align*}
+with the earth radius $r_{e}$, and $n_{c}$ the total number of cells. Based on $\overline{\Delta A}$ one can derive an estimate of the average grid resolution 
+$\overline{\Delta x}$:
+\begin{align*}
+ \overline{\Delta x} = \sqrt{\overline{\Delta A}} = \sqrt{\frac{\pi}{5}} \frac{r_{e}}{n\,2^{k}}
+\end{align*}
+Visually speaking, $\overline{\Delta x}$ is the edge length of a square which has the same area as our triangular cell.
+
+
 In Table \ref{tab_res}, some characteristics of frequently used ICON grids are given. The table contains information about the total number of triangles ($n_{c}$), the average 
-distance between triangle cell centers (also referred to as the average resolution), and the maximum/minimum cell area. The latter may be interpreted as the area for which 
-the prognosed meteorological quantities (like temperature, pressure, \dots) are representative.
+resolution $\overline{\Delta x}$, and the maximum/minimum cell area. The latter may be interpreted as the area for which the prognosed meteorological quantities (like temperature, 
+pressure, \dots) are representative.
 
 \begin{table}[H]
   \caption{Characteristics of frequently used ICON grids. $\Delta A_{max}$ and $\Delta A_{min}$ refer to the maximum and minimum area of the grid cells, respectively.}\label{tab_res}
@@ -89,6 +101,7 @@ the prognosed meteorological quantities (like temperature, pressure, \dots) are 
 \textbf{\textcolor{red}{The first operational version of ICON will most likely be based on the R3B07 grid, thus, having a horizontal resolution of about $13\,\mathrm{km}$!}}
 
 \subsection{Local grid refinement}
+
 
 
 \section{Vertical grid}
