@@ -1301,13 +1301,17 @@ MODULE mo_nh_testcases
   IF ( ANY( (/icosmo,iedmf,10,11,12/)==atm_phy_nwp_config(1)%inwp_turb ) .AND. &
        (nh_test_name=='APE_nh' .OR. nh_test_name=='CBL' .OR. nh_test_name=='GATE'.OR. nh_test_name=='RICO') ) THEN
     DO jg = 1, n_dom
-    !Snow and sea ice initialization to avoid problems in EDMF
-      p_lnd_state(jg)%prog_lnd(nnow(jg))%t_snow_t(:,:,:)        = 300._wp   !snow
-      p_lnd_state(jg)%prog_lnd(nnow(jg))%t_g_t(:,:,isub_seaice) = 300._wp   !sea ice
-      p_lnd_state(jg)%prog_wtr(nnow(jg))%t_ice(:,:)             = 300._wp   !sea ice
       p_lnd_state(jg)%prog_lnd(nnow(jg))%t_g                    = th_cbl(1)
-      p_lnd_state(jg)%prog_lnd(nnow(jg))%t_g_t                  = th_cbl(1)
     END DO !jg
+    IF (atm_phy_nwp_config(1)%inwp_surface > 0) THEN ! Fields are not allocated otherwise
+      DO jg = 1, n_dom
+        !Snow and sea ice initialization to avoid problems in EDMF
+        p_lnd_state(jg)%prog_lnd(nnow(jg))%t_g_t                  = th_cbl(1)
+        p_lnd_state(jg)%prog_lnd(nnow(jg))%t_snow_t(:,:,:)        = 300._wp   !snow
+        p_lnd_state(jg)%prog_lnd(nnow(jg))%t_g_t(:,:,isub_seaice) = 300._wp   !sea ice
+        p_lnd_state(jg)%prog_wtr(nnow(jg))%t_ice(:,:)             = 300._wp   !sea ice
+      END DO !jg
+    ENDIF
   END IF
 
  END SUBROUTINE init_nh_testcase
