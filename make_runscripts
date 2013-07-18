@@ -208,6 +208,7 @@ check_accept_script()
           accepted_script="false"
           ;;
        esac
+     ;; 
 
      hpc)
        case $check_accepted_filename in
@@ -215,6 +216,7 @@ check_accept_script()
           accepted_script="false"
           ;;
        esac
+     ;; 
 
    esac
    
