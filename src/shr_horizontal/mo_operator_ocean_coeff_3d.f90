@@ -1135,12 +1135,12 @@ CONTAINS
       CALL get_index_range(owned_edges, edge_block, start_index, end_index)
       DO edge_index = start_index, end_index
 
-        edge2cell_coeff_cc_t(edge_index, edge_block, 2)%x = 0.0_wp
+!        edge2cell_coeff_cc_t(edge_index, edge_block, 2)%x = 0.0_wp
         edge_center%x = patch%edges%cartesian_center(edge_index, edge_block)%x
 
         DO neigbor=1,2
 
-          edge2cell_coeff_cc_t(edge_index, edge_block, neigbor)%x = 0.0_wp
+ !         edge2cell_coeff_cc_t(edge_index, edge_block, neigbor)%x = 0.0_wp
           cell_index = patch%edges%cell_idx(edge_index, edge_block, neigbor)
           cell_block = patch%edges%cell_blk(edge_index, edge_block, neigbor)
 
