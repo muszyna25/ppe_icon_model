@@ -1294,14 +1294,10 @@ CONTAINS
 
     END IF!END OF slow physics tendency accumulation 
 
-!-----------------------------------------------------------------------------------------
-!AD (2013-03-June): Add large scale forcing tendencies in similar manner as above (I don't
-!                   trust this way that much!). For now it works with LS radiative forcing. 
-!  (2013-25-June): ls_forcing is made independent of slowphy call and therefore if any other
-!                  physics like radiation or sso or conv is called later on, they must be
-!                  included here in like above.                   
-!-----------------------------------------------------------------------------------------     
-    IF(is_ls_forcing)THEN  
+    !-------------------------------------------------------------------------
+    !>  accumulate tendencies of slow_physics when LS forcing is ON
+    !-------------------------------------------------------------------------
+    IF(is_ls_forcing) THEN
 
       IF (p_test_run) THEN
         z_ddt_u_tot = 0._wp
@@ -1310,6 +1306,13 @@ CONTAINS
 
       IF (timers_level > 3) CALL timer_start(timer_phys_acc_1)
 
+      ! Coefficients for extra Rayleigh friction
+      ustart    = atm_phy_nwp_config(jg)%ustart_raylfric
+      uoffset_q = ustart + 40._wp
+      ustart_q  = ustart + 50._wp
+      max_relax = -1._wp/atm_phy_nwp_config(jg)%efdt_min_raylfric
+
+      ! exclude boundary interpolation zone of nested domains
       rl_start = grf_bdywidth_c+1
       rl_end   = min_rlcell_int
 
@@ -1317,15 +1320,52 @@ CONTAINS
       i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
       
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,jc,i_startidx, i_endidx,z_qsum,z_ddt_qsum) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,jk,jc,i_startidx, i_endidx , z_qsum, z_ddt_qsum, vabs, &
+!$OMP  rfric_fac) ICON_OMP_DEFAULT_SCHEDULE
+!
       DO jb = i_startblk, i_endblk
-
+!
         CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
-              &          i_startidx, i_endidx, rl_start, rl_end)
+&                       i_startidx, i_endidx, rl_start, rl_end)
+
+
+        ! artificial Rayleigh friction: active if GWD or SSO scheme is active
+        IF (atm_phy_nwp_config(jg)%inwp_sso > 0 .OR. atm_phy_nwp_config(jg)%inwp_gwd > 0) THEN
+          DO jk = 1, nlev
+            DO jc = i_startidx, i_endidx
+              vabs = SQRT(pt_diag%u(jc,jk,jb)**2 + pt_diag%v(jc,jk,jb)**2)
+              rfric_fac = MAX(0._wp, 8.e-4_wp*(vabs-ustart))
+              IF (vabs > ustart_q) THEN
+                rfric_fac = MIN(1._wp,4.e-4_wp*(vabs-uoffset_q)**2)
+              ENDIF
+              prm_nwp_tend%ddt_u_raylfric(jc,jk,jb) = max_relax*rfric_fac*pt_diag%u(jc,jk,jb)
+              prm_nwp_tend%ddt_v_raylfric(jc,jk,jb) = max_relax*rfric_fac*pt_diag%v(jc,jk,jb)
+            ENDDO
+          ENDDO
+        ENDIF
+
+        ! heating related to momentum deposition by SSO, GWD and Rayleigh friction
+        DO jk = 1, nlev
+          DO jc = i_startidx, i_endidx
+            prm_nwp_tend%ddt_temp_drag(jc,jk,jb) = -rcvd*(pt_diag%u(jc,jk,jb)*             &
+                                                   (prm_nwp_tend%ddt_u_sso(jc,jk,jb)+      &
+                                                    prm_nwp_tend%ddt_u_gwd(jc,jk,jb)+      &
+                                                    prm_nwp_tend%ddt_u_raylfric(jc,jk,jb)) &
+                                                   +      pt_diag%v(jc,jk,jb)*             & 
+                                                   (prm_nwp_tend%ddt_v_sso(jc,jk,jb)+      &
+                                                    prm_nwp_tend%ddt_v_gwd(jc,jk,jb)+      &
+                                                    prm_nwp_tend%ddt_v_raylfric(jc,jk,jb)) )
+          ENDDO
+        ENDDO
 
           DO jk = 1, nlev
             DO jc = i_startidx, i_endidx
-              z_ddt_temp(jc,jk,jb) = prm_nwp_tend%ddt_temp_ls(jk)
+              z_ddt_temp(jc,jk,jb) =                             &
+                         &                 prm_nwp_tend%ddt_temp_radsw(jc,jk,jb) &
+                         &              +  prm_nwp_tend%ddt_temp_radlw(jc,jk,jb) &
+                         &              +  prm_nwp_tend%ddt_temp_drag (jc,jk,jb) &
+                         &              +  prm_nwp_tend%ddt_temp_pconv(jc,jk,jb) &
+                                        +  prm_nwp_tend%ddt_temp_ls(jk)
             END DO 
           END DO
 
@@ -1337,24 +1377,38 @@ CONTAINS
               &     + pt_prog_rcf%tracer (jc,jk,jb,iqi) &
               &     + pt_prog_rcf%tracer (jc,jk,jb,iqr) &
               &     + pt_prog_rcf%tracer (jc,jk,jb,iqs)
-            
-            z_ddt_qsum =   prm_nwp_tend%ddt_tracer_ls   (jk,iqc)       & 
-              &          + prm_nwp_tend%ddt_tracer_ls   (jk,iqi) != 0 for now       
+
+            z_ddt_qsum =   prm_nwp_tend%ddt_tracer_pconv(jc,jk,jb,iqc) &
+              &          + prm_nwp_tend%ddt_tracer_pconv(jc,jk,jb,iqi) &
+              &          + prm_nwp_tend%ddt_tracer_ls(jk,iqc)          &
+              &          + prm_nwp_tend%ddt_tracer_ls(jk,iqi)
 
             pt_diag%ddt_exner_phy(jc,jk,jb) = rd_o_cpd / pt_prog%theta_v(jc,jk,jb)           &
               &                             * (z_ddt_temp(jc,jk,jb)                          &
               &                             *(1._wp + vtmpc1*pt_prog_rcf%tracer(jc,jk,jb,iqv)&
               &                                - z_qsum) + pt_diag%temp(jc,jk,jb)            &
-              &           * (vtmpc1 * prm_nwp_tend%ddt_tracer_ls(jk,iqv)-z_ddt_qsum ))
+              &           * (vtmpc1 * (prm_nwp_tend%ddt_tracer_pconv(jc,jk,jb,iqv) +         &
+              &              prm_nwp_tend%ddt_tracer_ls(jk,iqv) ) - z_ddt_qsum ) )
 
           ENDDO
         ENDDO
 
-        !add u/v forcing tendency here
+        ! add u/v forcing tendency here
         DO jk = 1, nlev
           DO jc = i_startidx, i_endidx
-            z_ddt_u_tot(jc,jk,jb) = prm_nwp_tend%ddt_u_ls(jk)
-            z_ddt_v_tot(jc,jk,jb) = prm_nwp_tend%ddt_v_ls(jk)
+          z_ddt_u_tot(jc,jk,jb) =                   &
+   &          prm_nwp_tend%ddt_u_gwd     (jc,jk,jb) &
+   &        + prm_nwp_tend%ddt_u_raylfric(jc,jk,jb) &
+   &        + prm_nwp_tend%ddt_u_sso     (jc,jk,jb) &
+   &        + prm_nwp_tend%ddt_u_pconv   (jc,jk,jb) &
+   &        + prm_nwp_tend%ddt_u_ls(jk)
+
+          z_ddt_v_tot(jc,jk,jb) =                   &
+   &          prm_nwp_tend%ddt_v_gwd     (jc,jk,jb) &
+   &        + prm_nwp_tend%ddt_v_raylfric(jc,jk,jb) &
+   &        + prm_nwp_tend%ddt_v_sso     (jc,jk,jb) &
+   &        + prm_nwp_tend%ddt_v_pconv   (jc,jk,jb) &
+   &        + prm_nwp_tend%ddt_v_ls(jk)
           END DO 
         END DO
 
@@ -1363,7 +1417,7 @@ CONTAINS
 !$OMP END PARALLEL
       IF (timers_level > 3) CALL timer_stop(timer_phys_acc_1)
 
-    END IF!END of LS forcing tendency accumulation 
+    END IF ! END of LS forcing tendency accumulation
 
 
     !--------------------------------------------------------
