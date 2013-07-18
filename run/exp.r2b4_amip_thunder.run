@@ -1,7 +1,10 @@
 #!/bin/bash
 #
-# The script is currently set up to automatically do a restart starting on 1980-01-01 00:00 using
-# a restart file from /pool (see below) in order to start with a realistic topography.
+# This script starts a spin-up run for the AMIP experiment from an analytically initialized, zonally 
+# symmetric atmospheric state over a flat Earth surface. Over the first day mountains are grown to
+# their realistic size.
+#
+# The length of the spin-up run is 1 year from 1978-01-01T00:00:00Z to 1979-01-01T00:00:00Z.
 #
 #__________________________________________________________________________________________________
 # SLURM destructs $0!
@@ -34,8 +37,6 @@ restart=${restart:=".false."}
 #
 #AUTOMATIC_RESTART_SETUP:
 #END AUTOMATIC_RESTART_SETUP
-#restart_from_folder=/pool/data/ICON/restart/r0001/r2b4_amip/atm
-#restart_atmo_from=restart.r2b4_amip_19790101T000000Z_atm.nc
 #__________________________________________________________________________________________________
 # set error checking
 set -eu
@@ -303,10 +304,8 @@ minute=60                                # [s] 1 minute
 hour=3600                                # [s] 1 hour
 day=86400                                # [s] 1 day
 #
-# RS 2013-05-30: If using the restart file from /pool for 1979-01-01, leave the 
-# start_date at 1978-01-01.
 start_date="1978-01-01T00:00:00Z"        # start and end date
-  end_date="1980-01-01T00:00:00Z"        # of the experiment
+  end_date="1979-01-01T00:00:00Z"        # of the experiment
 #
 (( dt_restart      = 30 * day         )) # [s] time between restarts = length of run
 (( dt_checkpoint   =  1 * day         )) # [s] time between additional restart file writing
