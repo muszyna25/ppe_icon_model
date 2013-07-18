@@ -1349,6 +1349,7 @@ src/io/mo_grib1.f90 -text
 src/io/mo_grib2.f90 -text
 src/io/mo_io_async.f90 -text
 src/io/mo_io_restart.f90 -text
+src/io/mo_io_restart_async.f90 -text
 src/io/mo_io_restart_attributes.f90 -text
 src/io/mo_io_restart_namelist.f90 -text
 src/io/mo_io_units.f90 -text
