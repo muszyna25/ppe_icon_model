@@ -344,6 +344,12 @@ set_run_target_blizzard()
     job_log_name='LOG.$(job_name).$(jobid)'
   fi
 
+  if  [[ $use_openmp_threads -gt 1 ]] ; then
+    parallel_threads="parallel_threads = $use_openmp_threads"
+  else
+    parallel_threads=""
+  fi
+
 # smt mode
 #   task_affinity="cpu($use_openmp_threads)"
 # st mode
@@ -382,7 +388,7 @@ set_run_target_blizzard()
 # @ $node
 # @ $tasks_per_node
 # @ task_affinity    = $task_affinity
-# @ parallel_threads = $use_openmp_threads
+# @ $parallel_threads
 # @ $resources
 # @ $wall_clock_limit
 # @ job_name     = $job_name
