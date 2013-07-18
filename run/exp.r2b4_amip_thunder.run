@@ -652,7 +652,7 @@ check_error $? "$LINENO: ${MODEL} does not exist?"
 
 # start experiment
 #
-if [[ "$(os)" = "Linux" ]]
+if [[ "$(os)" = "Linux" ]] && [[ "$(hostname)" == ctc* ]]
 then
     ulimit -s unlimited
 fi
