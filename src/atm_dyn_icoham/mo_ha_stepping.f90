@@ -80,10 +80,12 @@ MODULE mo_ha_stepping
   USE mo_sync,                ONLY: global_max
   USE mo_vertical_coord_table,ONLY: vct
   USE mo_io_restart,          ONLY: write_restart_info_file
-
+  
   USE mo_icon_comm_lib,       ONLY: icon_comm_sync_all
-  USE mo_parallel_config,     ONLY: use_icon_comm
+  USE mo_parallel_config,     ONLY: use_icon_comm, use_async_restart_output
   USE mo_name_list_output,    ONLY: write_name_list_output, istime4name_list_output
+  USE mo_io_restart_async,    ONLY: prepare_async_restart, write_async_restart, &
+      &                             close_async_restart, set_data_async_restart
 
   IMPLICIT NONE
 
@@ -258,6 +260,10 @@ CONTAINS
 
   IF (ltimer) CALL timer_start(timer_total)
 
+  IF (use_async_restart_output) THEN
+    CALL prepare_async_restart(opt_pvct_size = SIZE(vct))
+  ENDIF
+
   TIME_LOOP: DO jstep = 1, nsteps
 
     !--------------------------------------------------------------------------
@@ -406,25 +412,46 @@ CONTAINS
     !--------------------------------------------------------------------------
     IF (is_checkpoint_time(jstep,n_checkpoint,nsteps)) THEN
 
-      IF (phy_config%ljsbach) THEN
-        DO jg = 1, n_dom
-          CALL create_restart_file( p_patch(jg), datetime,                        &
-                                  & jfile, l_have_output, vct,                    &
-                                  & opt_depth_lnd = lnd_jsbach_config(jg)%nsoil )
-        END DO
-      ELSE
-        DO jg = 1, n_dom
-          CALL create_restart_file( p_patch(jg), datetime,                        &
-                                  & jfile, l_have_output, vct )
-        END DO
-      ENDIF
+      IF (use_async_restart_output) THEN
+        IF (phy_config%ljsbach) THEN
+          DO jg = 1, n_dom
+            CALL set_data_async_restart(p_patch(jg)%id, p_patch(jg)%ldom_active, &
+                                      & opt_pvct = vct,                    &
+                                      & opt_depth_lnd = lnd_jsbach_config(jg)%nsoil )
+          ENDDO
+        ELSE
+          DO jg = 1, n_dom
+            CALL set_data_async_restart(p_patch(jg)%id, p_patch(jg)%ldom_active, &
+                                      & opt_pvct = vct)
+          ENDDO
+        END IF
 
-      ! Create the master (meta) file in ASCII format which contains
-      ! info about which files should be read in for a restart run.
-      CALL write_restart_info_file
+        ! call asynchronous restart
+        CALL write_async_restart (datetime, jfile, l_have_output)
+
+      ELSE
+        IF (phy_config%ljsbach) THEN
+          DO jg = 1, n_dom
+            CALL create_restart_file( p_patch(jg), datetime,                        &
+                                    & jfile, l_have_output, vct,                    &
+                                    & opt_depth_lnd = lnd_jsbach_config(jg)%nsoil )
+          END DO
+        ELSE
+          DO jg = 1, n_dom
+            CALL create_restart_file( p_patch(jg), datetime,                        &
+                                    & jfile, l_have_output, vct )
+          END DO
+        ENDIF
+
+        ! Create the master (meta) file in ASCII format which contains
+        ! info about which files should be read in for a restart run.
+        CALL write_restart_info_file
+      END IF
     END IF
 
   ENDDO TIME_LOOP
+
+  IF (use_async_restart_output) CALL close_async_restart
 
   IF (ltimer) CALL timer_stop(timer_total)
 

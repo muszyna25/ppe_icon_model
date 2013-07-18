@@ -41,14 +41,15 @@ USE mo_mpi,                 ONLY: p_stop, &
   & my_process_is_mpi_parallel,                                       &
   & set_mpi_work_communicators, set_comm_input_bcast, null_comm_type, &
   & p_pe_work, get_my_mpi_all_id, p_min, p_max, p_comm_work,          &
-  & process_mpi_io_size
+  & process_mpi_io_size, my_process_is_restart, process_mpi_restart_size
 USE mo_sync,                ONLY: enable_sync_checks, disable_sync_checks, &
                                   decomposition_statistics
 USE mo_timer,               ONLY: init_timer, timer_start, timer_stop, &
   &                               timers_level, timer_model_init
   
 USE mo_parallel_config,     ONLY: p_test_run, l_test_openmp, &
-  & num_io_procs, nproma, use_icon_comm, division_method
+  & num_io_procs, nproma, use_icon_comm, division_method, &
+  & num_restart_procs, use_async_restart_output
   
 USE mo_intp_lonlat,         ONLY: init_lonlat_grid_list,      &
   &                               compute_lonlat_intp_coeffs, &
@@ -58,6 +59,7 @@ USE mo_master_control,      ONLY: is_restart_run, get_my_process_name, get_my_mo
 
 USE mo_io_async,            ONLY: vlist_io_main_proc, &            ! main procedure for I/O PEs
                                   use_async_vlist_io
+USE mo_io_restart_async,    ONLY: restart_main_proc                ! main procedure for Restart PEs
 USE mo_name_list_output,    ONLY: name_list_io_main_proc
 USE mo_name_list_output_config, ONLY: use_async_name_list_io
 
@@ -356,7 +358,8 @@ CONTAINS
     !-------------------------------------------------------------------
     ! 3.1 Initialize the mpi work groups
     !-------------------------------------------------------------------
-    CALL set_mpi_work_communicators(p_test_run, l_test_openmp, num_io_procs)
+    CALL set_mpi_work_communicators(p_test_run, l_test_openmp, num_io_procs, &
+	 	&										num_restart_procs)
 
     !-------------------------------------------------------------------
     ! 3.2 Initialize various timers
@@ -367,6 +370,16 @@ CONTAINS
     !-------------------------------------------------------------------
     ! 3.3 I/O initialization
     !-------------------------------------------------------------------
+
+    ! If we belong to the Restart PEs just call restart_main_proc before reading patches.
+    ! This routine will never return
+    IF (process_mpi_restart_size > 0) THEN
+      use_async_restart_output = .TRUE.
+      CALL message('','asynchronous restart output is enabled.')
+      IF (my_process_is_restart()) THEN
+        CALL restart_main_proc
+      ENDIF
+    ENDIF
 
     ! If we belong to the I/O PEs just call xxx_io_main_proc before
     ! reading patches.  This routine will never return

@@ -25,6 +25,8 @@ MODULE mo_io_restart_namelist
   PUBLIC :: delete_restart_namelists
   PUBLIC :: nmls
   PUBLIC :: restart_namelist
+  PUBLIC :: set_restart_namelist
+  PUBLIC :: nmllen_max
   !
 #ifdef HAVE_F95
   PUBLIC :: t_att_namelist

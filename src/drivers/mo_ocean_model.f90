@@ -35,7 +35,7 @@ MODULE mo_ocean_model
   USE mo_kind,                ONLY: wp
   USE mo_exception,           ONLY: message, finish
   USE mo_master_control,      ONLY: is_restart_run, get_my_process_name, get_my_model_no
-  USE mo_parallel_config,     ONLY: p_test_run, l_test_openmp, num_io_procs 
+  USE mo_parallel_config,     ONLY: p_test_run, l_test_openmp, num_io_procs , num_restart_procs
   USE mo_mpi,                 ONLY: my_process_is_io,set_mpi_work_communicators,p_pe_work
   USE mo_timer,               ONLY: init_timer, timer_start, timer_stop, print_timer, timer_model_init
   USE mo_datetime,            ONLY: t_datetime
@@ -214,7 +214,8 @@ CONTAINS
     !-------------------------------------------------------------------
     ! 3.1 Initialize the mpi work groups
     !-------------------------------------------------------------------
-    CALL set_mpi_work_communicators(p_test_run, l_test_openmp, num_io_procs)
+    CALL set_mpi_work_communicators(p_test_run, l_test_openmp, num_io_procs, &
+		&										num_restart_procs)
 
     !-------------------------------------------------------------------
     ! 3.2 Initialize various timers

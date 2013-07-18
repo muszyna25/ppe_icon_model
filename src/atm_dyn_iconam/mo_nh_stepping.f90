@@ -57,7 +57,7 @@ MODULE mo_nh_stepping
   USE mo_dynamics_config,      ONLY: nnow,nnew, nnow_rcf, nnew_rcf, nsav1, nsav2
   USE mo_io_config,            ONLY: l_outputtime, l_diagtime, is_checkpoint_time,&
     &                                istime4output
-  USE mo_parallel_config,      ONLY: nproma, itype_comm, iorder_sendrecv
+  USE mo_parallel_config,      ONLY: nproma, itype_comm, iorder_sendrecv, use_async_restart_output
   USE mo_run_config,           ONLY: ltestcase, dtime, dtime_adv, nsteps,     &
     &                                ltransport, ntracer, lforcing, iforcing, &
     &                                msg_level, test_mode, output_mode
@@ -156,6 +156,9 @@ MODULE mo_nh_stepping
                                     read_latbc_data, deallocate_latbc_data, p_latbc_data,   &
                                     last_latbc_datetime
   USE mo_interface_les,       ONLY: les_phy_interface
+  USE mo_io_restart_async,    ONLY: prepare_async_restart, write_async_restart, &
+    &                               close_async_restart, set_data_async_restart
+
 
   IMPLICIT NONE
 
@@ -492,6 +495,11 @@ MODULE mo_nh_stepping
 
   datetime_old = datetime
 
+  IF (use_async_restart_output) THEN
+    CALL prepare_async_restart(opt_t_elapsed_phy_size = SIZE(t_elapsed_phy, 2), &
+      &                        opt_lcall_phy_size     = SIZE(lcall_phy, 2))
+  ENDIF
+
   TIME_LOOP: DO jstep = 1, nsteps
 
     CALL add_time(dtime,0,0,0,datetime)
@@ -736,29 +744,45 @@ MODULE mo_nh_stepping
     ! Enforce that checkpointing files are written at the end of a physics time step
     ! (no reproducibility otherwise)
     IF (lwrite_checkpoint .AND. MOD(jstep_adv(1)%ntsteps,iadv_rcf)==0) THEN
-      DO jg = 1, n_dom
-        IF (.NOT. p_patch(jg)%ldom_active) CYCLE
-        CALL create_restart_file( patch= p_patch(jg),datetime= datetime,                   & 
-                                & jfile                      = jfile,                      &
-                                & l_have_output              = l_have_output,              &
-                                & opt_t_elapsed_phy          = t_elapsed_phy,              &
-                                & opt_lcall_phy              = lcall_phy,                  &
-                                & opt_sim_time               = time_config%sim_time(jg),   &
-                                & opt_jstep_adv_ntsteps      = jstep_adv(jg)%ntsteps,      &
-                                & opt_jstep_adv_marchuk_order= jstep_adv(jg)%marchuk_order,&
-                                & opt_depth_lnd              = nsoil(jg),                  &
-                                & opt_nlev_snow              = nsnow )
-      END DO
+      IF (use_async_restart_output) THEN
+        DO jg = 1, n_dom
+          CALL set_data_async_restart(p_patch(jg)%id, p_patch(jg)%ldom_active, &
+            & opt_t_elapsed_phy          = t_elapsed_phy(jg,:),        &
+            & opt_lcall_phy              = lcall_phy(jg,:),            &
+            & opt_sim_time               = time_config%sim_time(jg),   &
+            & opt_jstep_adv_ntstep       = jstep_adv(jg)%ntsteps,      &
+            & opt_jstep_adv_marchuk_order= jstep_adv(jg)%marchuk_order,&
+            & opt_depth_lnd              = nsoil(jg),                  &
+            & opt_nlev_snow              = nsnow)
+        ENDDO
+        CALL write_async_restart(datetime, jfile, l_have_output)
+      ELSE
+        DO jg = 1, n_dom
+          IF (.NOT. p_patch(jg)%ldom_active) CYCLE
+          CALL create_restart_file( patch= p_patch(jg),datetime= datetime,                   &
+                                  & jfile                      = jfile,                      &
+                                  & l_have_output              = l_have_output,              &
+                                  & opt_t_elapsed_phy          = t_elapsed_phy,              &
+                                  & opt_lcall_phy              = lcall_phy,                  &
+                                  & opt_sim_time               = time_config%sim_time(jg),   &
+                                  & opt_jstep_adv_ntsteps      = jstep_adv(jg)%ntsteps,      &
+                                  & opt_jstep_adv_marchuk_order= jstep_adv(jg)%marchuk_order,&
+                                  & opt_depth_lnd              = nsoil(jg),                  &
+                                  & opt_nlev_snow              = nsnow )
+        END DO
 
-      ! Create the master (meta) file in ASCII format which contains
-      ! info about which files should be read in for a restart run.
-      CALL write_restart_info_file
+        ! Create the master (meta) file in ASCII format which contains
+        ! info about which files should be read in for a restart run.
+        CALL write_restart_info_file
+      END IF
 
       lwrite_checkpoint = .FALSE.
     END IF
 
 
   ENDDO TIME_LOOP
+
+  IF (use_async_restart_output) CALL close_async_restart
 
   IF (ltimer) CALL timer_stop(timer_total)
 
@@ -1474,7 +1498,7 @@ MODULE mo_nh_stepping
               CALL feedback(p_patch, p_nh_state, p_int_state, p_grf_state, p_lnd_state, jgc, &
                             jg, lstep_adv(jg))
             ELSE
-              CALL relax_feedback(  p_patch(n_dom_start:n_dom),           &
+				  CALL relax_feedback(  p_patch(n_dom_start:n_dom),           &
                 & p_nh_state(1:n_dom), p_int_state(n_dom_start:n_dom),   &
                 & p_grf_state(n_dom_start:n_dom), jgc, jg, lstep_adv(jg))
             ENDIF
