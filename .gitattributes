@@ -983,11 +983,11 @@ scripts/postprocessing/tools/plot_profile_driver.bash -text
 scripts/postprocessing/tools/plot_vcs.ncl -text
 scripts/postprocessing/tools/plot_vcs_driver.bash -text
 scripts/postprocessing/tools/rhopot.rb -text
-scripts/postprocessing/tools/rhopot.sh -text
 scripts/postprocessing/tools/scatterPlot.rb -text
 scripts/postprocessing/tools/spectra_uv.ncl -text
 scripts/postprocessing/tools/spectra_vordiv.ncl -text
 scripts/postprocessing/tools/splitHemisphere.rb -text
+scripts/postprocessing/tools/tsrhoplot.sh -text
 scripts/postprocessing/tools/xsec.py -text
 scripts/preprocessing/IFS2ICON_README.TXT -text
 scripts/preprocessing/estimate.py -text
