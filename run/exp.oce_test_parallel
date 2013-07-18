@@ -25,12 +25,6 @@
 # EXPNAME = experiment name
 # NPROMA  = array blocking length / inner loop length
 
-if [[ _${target} = "_hpc" ]]; then
-  echo "This test is disabled on hpc due to missing files --> exit test without error"
-  check_error 0 "exp.oce_test_parallel"
-  exit 0
-fi
- 
 # This test must have available at least 3 MPI processes.
 if [[ ${mpi_total_procs} -lt 3 ]]; then
   echo "This test requires mpi_procs > 2. Exit test without error"
