@@ -1102,18 +1102,10 @@ END SUBROUTINE feedback
 !! Change feedback for cell-based variables from area-weighted averaging
 !! to using fbk_wgt (see above routine)
 !!
-! SUBROUTINE relax_feedback(p_patch, p_nh_state, p_int_state, p_grf_state, jg, jgp, l_trac_fbk)
-SUBROUTINE relax_feedback(n_dom_start, n_dom, p_patch, p_nh_state, p_int_state, p_grf_state, &
-  & jg, jgp, l_trac_fbk )
-
-  ! pgi does not read properly n_dom_start, n_dom from the grid_config module.
-  ! thus pass them as parameters. This is a compiler bug!
+SUBROUTINE relax_feedback(p_patch, p_nh_state, p_int_state, p_grf_state, jg, jgp, l_trac_fbk)
 
   CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
       &  routine = 'mo_nh_feedback:relax_feedback'
-
-  ! n_dom_start and n_dom must be typed before the following TYPE statements, which depend on them.
-  INTEGER, INTENT(IN) :: n_dom_start, n_dom
 
   TYPE(t_patch),       TARGET, INTENT(IN)    ::  p_patch(n_dom_start:n_dom)
   TYPE(t_nh_state), TARGET, INTENT(INOUT)    ::  p_nh_state(n_dom)

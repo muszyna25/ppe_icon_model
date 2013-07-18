@@ -132,6 +132,7 @@ fi
 omp_stacksize=200M
 
 
+#---------------------------------------------------------------
 # returns "true" in accepted_script, if the script name is accepted
 check_accept_script()
 {
@@ -157,6 +158,7 @@ check_accept_script()
        ;;
    esac
 
+   #--------------------------
    # check which scripts run with openmp
    if [[ $use_openmp = "yes" ]] ; then
      case $check_accepted_filename in
@@ -166,6 +168,7 @@ check_accept_script()
      esac
    fi
 
+   #--------------------------
    # check which scripts run without mpi
    if [[ $use_mpi != "yes" ]] ; then
      case $check_accepted_filename in
@@ -181,7 +184,10 @@ check_accept_script()
        esac
    fi
 
+   #--------------------------
+   # machine based checks
    case $use_target in
+   
      blizzard)
        # echo this is blizzard for $check_accepted_filename
        # check which scripts run on blizzard
@@ -205,11 +211,27 @@ check_accept_script()
 
    esac
    
+   #--------------------------
+   # compiler based checks
+   case $use_compiler in
+   
+     pgi)
+       case $check_accepted_filename in
+       *test_nat_jww_nwp_mpiomp*)
+          accepted_script="false"  
+          ;;
+       esac
+     ;; 
+     
+   esac       
+
+
    if [[ $accepted_script != "true" ]] ; then
      return 1
    fi
 
 }
+#---------------------------------------------------------------
 
 
 

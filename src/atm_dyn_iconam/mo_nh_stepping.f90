@@ -1474,8 +1474,8 @@ MODULE mo_nh_stepping
               CALL feedback(p_patch, p_nh_state, p_int_state, p_grf_state, p_lnd_state, jgc, &
                             jg, lstep_adv(jg))
             ELSE
-              CALL relax_feedback(n_dom_start, n_dom, &
-                & p_patch(n_dom_start:n_dom), p_nh_state(1:n_dom), p_int_state(n_dom_start:n_dom), &
+              CALL relax_feedback(  p_patch(n_dom_start:n_dom),           &
+                & p_nh_state(1:n_dom), p_int_state(n_dom_start:n_dom),   &
                 & p_grf_state(n_dom_start:n_dom), jgc, jg, lstep_adv(jg))
             ENDIF
             ! Note: the last argument of "feedback" ensures that tracer feedback is
