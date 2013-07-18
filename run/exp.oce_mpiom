@@ -7,19 +7,6 @@
 # Default EXPNAME is the suffix of this script after "exp."
 #
 #-----------------------------------------------------------------------------
-
-if [[ _${target} = "_hpc" ]]; then
-  echo "This test is disabled on hpc due to missing files --> exit test without error"
-  check_error 0 "exp.oce_mpiom"
-  exit 0
-fi
-
-if [[ _${target} = "_sx9" ]]; then
-  echo "This test is disabled on sx9 due to missing files --> exit test without error"
-  check_error 0 "exp.oce_mpiom"
-  exit 0
-fi
-
 #-----------------------------------------------------------------------------
 # Basic specifications for the ICON ocean model: comparison to MPIOM
 # --------------------------------------

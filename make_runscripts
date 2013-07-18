@@ -209,6 +209,13 @@ check_accept_script()
           ;;
        esac
 
+     hpc)
+       case $check_accepted_filename in
+       *test_oce_default*)
+          accepted_script="false"
+          ;;
+       esac
+
    esac
    
    #--------------------------
