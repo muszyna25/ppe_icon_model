@@ -26,13 +26,13 @@ MODULE mo_io_restart_namelist
   PUBLIC :: nmls
   PUBLIC :: restart_namelist
   PUBLIC :: set_restart_namelist
-  PUBLIC :: nmllen_max
   !
 #ifdef HAVE_F95
   PUBLIC :: t_att_namelist
 #endif
   !
 #ifndef HAVE_F2003
+  PUBLIC :: nmllen_max
 !   INTEGER, PARAMETER :: nmllen_max = 4096
   INTEGER, PARAMETER :: nmllen_max = 65536
 #endif
