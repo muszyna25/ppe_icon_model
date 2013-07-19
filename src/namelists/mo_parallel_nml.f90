@@ -55,6 +55,7 @@ MODULE mo_parallel_nml
     & config_l_fast_sum          => l_fast_sum,          &
     & config_p_test_run          => p_test_run,          &
     & config_l_test_openmp       => l_test_openmp,       &
+    & config_num_restart_procs   => num_restart_procs,   &
     & config_num_io_procs        => num_io_procs,        &
     & config_pio_type            => pio_type,            &
     & config_itype_comm          => itype_comm,          &
@@ -159,6 +160,9 @@ MODULE mo_parallel_nml
     ! Type of parallel I/O
     INTEGER :: pio_type
     INTEGER :: num_io_procs
+
+    ! Number of restart PEs (0 means, worker 0 writes restart (to be backward compatible)
+    INTEGER :: num_restart_procs
     
     ! Type of (halo) communication: 
     ! 1 = synchronous communication with local memory for exchange buffers
@@ -195,6 +199,7 @@ MODULE mo_parallel_nml
     NAMELIST /parallel_nml/ n_ghost_rows,  division_method, ldiv_phys_dom, &
       & l_log_checks,      l_fast_sum,          &
       & p_test_run,        l_test_openmp,       &
+      & num_restart_procs,                      &
       & num_io_procs,      pio_type,            &
       & itype_comm,        iorder_sendrecv,     &
 !       & radiation_threads, nh_stepping_threads, &
@@ -262,6 +267,9 @@ MODULE mo_parallel_nml
     ! Type of parallel I/O
     pio_type = 1
     num_io_procs = 0
+
+    ! Number of restart output PEs; if 0, worker 0 does the work
+    num_restart_procs = 0
     
     ! Type of (halo) communication: 
     ! 1 = synchronous communication with local memory for exchange buffers
@@ -341,6 +349,7 @@ MODULE mo_parallel_nml
     config_l_fast_sum          = l_fast_sum
     config_p_test_run          = p_test_run
     config_l_test_openmp       = l_test_openmp
+    config_num_restart_procs   = num_restart_procs
     config_num_io_procs        = num_io_procs
     config_pio_type            = pio_type
     config_itype_comm          = itype_comm
