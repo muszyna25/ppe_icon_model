@@ -207,12 +207,18 @@ check_accept_script()
        *test_oce_default*)
           accepted_script="false"
           ;;
+       *test_nh_hdcp2_lam_r15000*)
+          accepted_script="false"
+          ;;
        esac
      ;; 
 
      hpc)
        case $check_accepted_filename in
        *test_oce_default*)
+          accepted_script="false"
+          ;;
+       *test_nh_hdcp2_lam_r15000*)
           accepted_script="false"
           ;;
        esac
@@ -363,6 +369,7 @@ done
 #==============================================================================
 create_restart()
 {
+  # set -x
   name=$1
   check_accept_script $name
   if [[ $accepted_script != "true" ]] ; then
@@ -402,6 +409,10 @@ create_restart test_hat_jww-moist_cld-cnv-vdf
 # this includes the restart in the test_hat_jww
 cpu_time="04:00:00"
 create_restart test_hat_jww 
+
+# special treatment for limited area tests
+cpu_time="01:00:00"
+create_restart test_nh_hdcp2_lam_r15000
 
 
 #==============================================================================
