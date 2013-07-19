@@ -69,6 +69,7 @@ MODULE mo_io_restart_async
   USE mo_util_sysinfo,            ONLY: util_user_name, util_os_system, util_node_name
   USE mo_cdi_constants
 
+#ifndef NOMPI
   USE mo_mpi,                     ONLY: p_pe, p_pe_work, p_restart_pe0, p_comm_work, &
     &                                   p_work_pe0, num_work_procs, MPI_SUCCESS, &
     &                                   p_stop, p_send, p_recv, p_barrier, p_bcast, &
@@ -76,8 +77,6 @@ MODULE mo_io_restart_async
     &                                   p_comm_work_2_restart, p_n_work, p_int, &
     &                                   process_mpi_restart_size, p_int_i8, p_real_dp, &
     &                                   p_comm_work_restart
-
-#ifndef NOMPI
 
 #ifndef USE_CRAY_POINTER
   USE, INTRINSIC :: ISO_C_BINDING, ONLY: c_ptr, c_intptr_t, c_f_pointer
@@ -3299,8 +3298,6 @@ CONTAINS
 
   END SUBROUTINE close_restart_file
 
-#endif
-
   !------------------------------------------------------------------------------------------------
   !
   ! Creates a symbolic link from the given restart file.
@@ -3360,6 +3357,8 @@ CONTAINS
     CALL message('',TRIM(info_file_name)//' written')
 
   END SUBROUTINE create_restart_info_file
+
+#endif
 
 END MODULE mo_io_restart_async
 
