@@ -208,7 +208,6 @@ MODULE mo_nh_latbc
   !! - read atmospheric IFS analysis data,
   !! - interpolate vertically from intermediate IFS2ICON grid to ICON grid
   !!   and compute the prognostic NH variable set,
-  !! - copy the results to the ICON prognostic variables.
   !!
   !! @par Revision History
   !! Initial version by S. Brdar, DWD (2013-06-13)

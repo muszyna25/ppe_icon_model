@@ -87,14 +87,14 @@ CONTAINS
     ! Sanity check and Prints
     !----------------------------------------------------
 
-    IF(latbc_config%itype_latbc == 0) THEN
+    IF (latbc_config%itype_latbc == 0) THEN
 
-       WRITE(message_text,'(a)')'Internal lateral boundary condition (Using the boundary data from the previous time step).'
+       WRITE(message_text,'(a)')'Lateral boundary nudging using the initial boundary data.'
        CALL message(TRIM(routine),message_text)
 
-    ELSE IF(latbc_config%itype_latbc == 1) THEN
+    ELSE IF (latbc_config%itype_latbc == 1) THEN
 
-       WRITE(message_text,'(a)')'External lateral boundary condition (Currently only IFS files supported).'
+       WRITE(message_text,'(a)')'Lateral boundary condition using the IFS boundary data.'
        CALL message(TRIM(routine),message_text)
 
     ELSE

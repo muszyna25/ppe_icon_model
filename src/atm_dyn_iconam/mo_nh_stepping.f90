@@ -506,7 +506,7 @@ MODULE mo_nh_stepping
 
     IF (l_limited_area .AND. (latbc_config%itype_latbc == 1)) THEN
 
-      ! Check if we need to read data analysis
+      ! Check if we need to read boundary data
       CALL date_to_time(datetime)
       CALL date_to_time(last_latbc_datetime)
       latbc_elapsed = (last_latbc_datetime%calday - datetime%calday + &
@@ -876,7 +876,7 @@ MODULE mo_nh_stepping
     ! If the limited-area mode is used, save initial state in the coarse domain
     ! The save time level is later on used for boundary relaxation in the case of
     ! fixed boundary conditions.
-    ! If time-dependent data from a driving model are provided (not yet implemented),
+    ! If time-dependent data from a driving model are provided,
     ! they should be written to the save time level, so that the relaxation routine
     ! automatically does the right thing
 
@@ -887,19 +887,14 @@ MODULE mo_nh_stepping
 
       IF (latbc_config%itype_latbc == 1) THEN
         
-        ! for limited area models, interpolate the two boundary data time levels
-        ! into p_latbc_data(read_latbc_tlev)%atm prognostic fields.
-        ! Storage p_latbc_data(read_latbc_tlev) will be overwritten in the next
-        ! read-in of analysis data
-
         ! compute the coefficients for the linear interpolation
         CALL date_to_time(datetime)
         CALL date_to_time(last_latbc_datetime)
         latbc_inter2 = (last_latbc_datetime%calday - datetime%calday + &
           last_latbc_datetime%caltime - datetime%caltime)*rdaylen
-
         latbc_inter2 = latbc_inter2 / latbc_config%dtime_latbc
         latbc_inter1 = 1._wp - latbc_inter2
+
 !$OMP PARALLEL
 !$OMP WORKSHARE
         p_nh_state(jg)%prog(n_save)%vn = latbc_inter2 * p_latbc_data(read_latbc_tlev)%atm%vn &
