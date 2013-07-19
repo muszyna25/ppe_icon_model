@@ -195,7 +195,7 @@ MODULE mo_sgs_turbulence
                         prm_nwp_tend%ddt_temp_turb, p_nh_prog%exner,     &
                         prm_diag, p_nh_prog%rho, dt, 'theta')
 
-    !For qv and qc
+    !For qv and qc: implement for qr as well
     IF(.NOT.les_config(jg)%is_dry_cbl)THEN
       CALL diffuse_scalar(p_nh_prog%tracer(:,:,:,iqv), p_nh_metrics, p_patch, p_int, &
                           p_nh_diag, prm_nwp_tend%ddt_tracer_turb(:,:,:,iqv),        &
@@ -1331,7 +1331,8 @@ MODULE mo_sgs_turbulence
                              i_startidx, i_endidx, rl_start, rl_end)
           DO jk = 1, nlev
             DO jc = i_startidx, i_endidx
-              fac(jc,jk,jb) = cpd * rcvd * exner(jc,jk,jb) / rho(jc,jk,jb)
+              !fac(jc,jk,jb) = cpd * rcvd * exner(jc,jk,jb) / rho(jc,jk,jb)
+              fac(jc,jk,jb) = exner(jc,jk,jb) / rho(jc,jk,jb)
             END DO
           END DO
           DO jc = i_startidx, i_endidx
