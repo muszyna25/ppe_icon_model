@@ -640,6 +640,7 @@ run/compile_for_dev.mpi.ksh -text
 run/compile_for_developers.ksh -text
 run/dict.cmor -text
 run/exec.iconrun -text
+run/exp.bench_nh_hdcp2_lam_r0416 -text
 run/exp.couple_atmo-ocean -text
 run/exp.couple_atmo-radiation -text
 run/exp.couple_dummy_models -text
