@@ -74,7 +74,8 @@ MODULE mo_nwp_turb_sfc_interface
   USE mo_nh_testcases,         ONLY: nh_test_name
   USE mo_nh_wk_exp,            ONLY: qv_max_wk
   USE mo_lnd_nwp_config,       ONLY: nlev_soil, nlev_snow, ntiles_total, ntiles_water, &
-                                   & lmulti_snow, isub_water, isub_lake, isub_seaice
+                                   & lmulti_snow, isub_water, isub_lake, isub_seaice,  &
+                                   & itype_interception
   USE mo_run_config,           ONLY: ntracer
   USE mo_edmf_param,           ONLY: ntiles_edmf
 
@@ -207,7 +208,9 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
     &         vstr_s_t(nproma,ntiles_total+ntiles_water)                      , &
     &         tch_ex  (nproma,ntiles_total+ntiles_water)                      , &
     &         tcm_ex  (nproma,ntiles_total+ntiles_water)                      , &
-    &         tfv_ex  (nproma,ntiles_total+ntiles_water)
+    &         tfv_ex  (nproma,ntiles_total+ntiles_water)                      , &
+    &         w_p_t_new(nproma,p_patch%nblks_c,ntiles_total)                  , &
+    &         w_s_t_new(nproma,p_patch%nblks_c,ntiles_total)
 
   INTEGER, SAVE :: nstep_turb = 0
 
@@ -541,8 +544,13 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
           lnd_prog_new%w_snow_t  (jc,jb,jt) = lnd_prog_now%w_snow_t  (jc,jb,jt)
           lnd_prog_new%rho_snow_t(jc,jb,jt) = lnd_prog_now%rho_snow_t(jc,jb,jt)
           lnd_prog_new%w_i_t     (jc,jb,jt) = lnd_prog_now%w_i_t     (jc,jb,jt)
-          lnd_prog_new%w_p_t     (jc,jb,jt) = lnd_prog_now%w_p_t     (jc,jb,jt)
-          lnd_prog_new%w_s_t     (jc,jb,jt) = lnd_prog_now%w_s_t     (jc,jb,jt)
+          IF (itype_interception == 1) THEN
+            w_p_t_new     (jc,jb,jt) = 0._wp
+            w_s_t_new     (jc,jb,jt) = 0._wp
+          ELSE IF (itype_interception == 2) THEN
+            w_p_t_new     (jc,jb,jt) = lnd_prog_now%w_p_t     (jc,jb,jt)
+            w_s_t_new     (jc,jb,jt) = lnd_prog_now%w_s_t     (jc,jb,jt)
+          END IF
           lnd_prog_new%t_so_t(jc,nlev_soil+1,jb,jt) = lnd_prog_now%t_so_t(jc,nlev_soil+1,jb,jt)
           IF(lmulti_snow) THEN
             lnd_prog_new%t_snow_mult_t(jc,nlev_snow+1,jb,jt) &
@@ -847,8 +855,8 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
         & , rho_snow_mult_ex= lnd_prog_new%rho_snow_mult_t(:,:,jb,:) & ! -
         & , h_snow_ex       = lnd_diag%h_snow_t        (:,jb,:)   & ! -
         & , w_i_ex          = lnd_prog_new%w_i_t       (:,jb,:)   & ! -
-        & , w_p_ex          = lnd_prog_new%w_p_t       (:,jb,:)   & ! -
-        & , w_s_ex          = lnd_prog_new%w_s_t       (:,jb,:)   & ! -
+        & , w_p_ex          = w_p_t_new                (:,jb,:)   & ! -
+        & , w_s_ex          = w_s_t_new                (:,jb,:)   & ! -
         & , t_so_ex         = lnd_prog_new%t_so_t      (:,:,jb,:) & ! -
         & , w_so_ex         = lnd_prog_new%w_so_t      (:,:,jb,:) & ! -
         & , w_so_ice_ex     = lnd_prog_new%w_so_ice_t  (:,:,jb,:) & ! -
@@ -945,7 +953,7 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
 !attention: these are all TERRA/ICON tiles (1 - ntiles_total+ntiles_water) ... transfer coefficients
           prm_diag%tch  (jc,jb) = prm_diag%tch(jc,jb) + tch_ex(jc,jt) * ext_data%atm%frac_t(jc,jb,jt)
           prm_diag%tcm  (jc,jb) = prm_diag%tcm(jc,jb) + tcm_ex(jc,jt) * ext_data%atm%frac_t(jc,jb,jt)
-          prm_diag%tfv  (jc,jb) = prm_diag%tfv(jc,jb) + tfv_ex(jc,jt) * ext_data%atm%frac_t(jc,jb,jt)
+          prm_diag%tfv  (jc,jb) = prm_diag%tfv(jc,jb) + tfv_ex(jc,jt) * ext_data%atm%frac_t(jc,jb,jt)           
           prm_diag%tch_t(jc,jb,jt) = tch_ex(jc,jt)
           prm_diag%tcm_t(jc,jb,jt) = tcm_ex(jc,jt)
           prm_diag%tfv_t(jc,jb,jt) = tfv_ex(jc,jt)
@@ -956,6 +964,15 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
           prm_diag%vmfl_s_t(jc,jb,jt) = vstr_s_t(jc,jt) ! prognostic surface stress V (sfc momentum flux)
         ENDDO           
       ENDDO
+
+      IF (itype_interception == 2) THEN
+       DO jt = 1, ntiles_total
+        DO jc = i_startidx, i_endidx
+            lnd_prog_new%w_p_t     (jc,jb,jt) = w_p_t_new     (jc,jb,jt)             
+            lnd_prog_new%w_s_t     (jc,jb,jt) = w_s_t_new     (jc,jb,jt)     
+          ENDDO           
+        ENDDO
+      END IF
 
     ENDIF !inwp_turb
 
