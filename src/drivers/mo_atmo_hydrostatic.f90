@@ -40,7 +40,7 @@ MODULE mo_atmo_hydrostatic
   USE mo_master_control,    ONLY: is_restart_run
   USE mo_time_config,       ONLY: time_config
   USE mo_run_config,        ONLY: dtime, nsteps, ltestcase, ltimer, iforcing, nlev, &
-    &                             msg_level, output_mode, ntracer, iqc, iqi, iqr, iqs
+    &                             msg_level, output_mode, ntracer, iqc, iqi, iqr, iqs, iqni, iqni_nuc, iqg
   USE mo_dynamics_config,   ONLY: iequations
   USE mo_advection_config,  ONLY: configure_advection
   USE mo_ha_testcases,      ONLY: ctest_name
@@ -142,9 +142,9 @@ CONTAINS
     ! as early as possible. Input variables which are usually provided by 
     ! nonhydrostatic_nml are set to default values. 
     DO jg =1,n_dom
-     CALL configure_advection( jg, p_patch(jg)%nlev, p_patch(1)%nlev,   &
-       &                      iequations, iforcing, iqc, iqi, iqr, iqs, &
-       &                      1, 0, .FALSE., .FALSE., ntracer           ) 
+     CALL configure_advection( jg, p_patch(jg)%nlev, p_patch(1)%nlev,                        &
+       &                      iequations, iforcing, iqc, iqi, iqr, iqs, iqni, iqni_nuc, iqg, &
+       &                      1, 0, .FALSE., .FALSE., ntracer                                ) 
     ENDDO
 
 

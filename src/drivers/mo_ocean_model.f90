@@ -65,6 +65,7 @@ MODULE mo_ocean_model
     & num_lev, num_levp1,     &
     & nlev, nlevp1,           &
     & iqc, iqi, iqr, iqs,     &
+    & iqni, iqni_nuc, iqg,    &
     & nshift, ntracer,        &
     & grid_generatingCenter,  & ! grid generating center
     & grid_generatingSubcenter  ! grid generating subcenter
@@ -262,7 +263,7 @@ CONTAINS
     DO jg =1,n_dom
       !The 3D-ocean version of previous calls 
       CALL configure_advection( jg, p_patch_3D%p_patch_2D(jg)%nlev, p_patch_3D%p_patch_2D(1)%nlev, &
-        &                      iequations, iforcing, iqc, iqi, iqr, iqs, &
+        &                      iequations, iforcing, iqc, iqi, iqr, iqs, iqni, iqni_nuc, iqg, &
         &                      0, 1, .false., .true., ntracer )
     ENDDO
 

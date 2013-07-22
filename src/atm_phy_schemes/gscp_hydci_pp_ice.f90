@@ -1782,7 +1782,7 @@ SUBROUTINE hydci_pp_ice (             &
           Xj      = ri_hom/ri_max                     ! ratio between initial particle size and final ri_max
           dXj     = 1.0_ireals - Xj
           
-!CDIR EXPAND=10
+!CDIR EXPAND=8
           DO jj=1,8
             dXj     = dXj * 0.5_ireals
             Xmid    = Xj + dXj
@@ -1944,14 +1944,17 @@ SUBROUTINE hydci_pp_ice (             &
         Xi_mck     = 1.0_ireals/ Xi_mck_inv
 
         IF (llqi) THEN
-          zsidep  = tau_dep_ice_inv*Xi_mck*zqvsidiff * (1.0_ireals - EXP(-zdt*Xi_mck_inv)) * zdtr
+  !        zsidep  = tau_dep_ice_inv*Xi_mck*zqvsidiff * (1.0_ireals - EXP(-zdt*Xi_mck_inv)) * zdtr
           zsiau = zciau * MAX( qig - qi0, 0.0_ireals ) &
                             * MAX(0.2_ireals,MIN(EXP(0.09_ireals*(tg-t0)),1.0_ireals))
 
           zsicri    = zcicri * qig * zeln7o8qrk(iv)
           zsrcri    = zcrcri * (qig/zmi) * zeln13o8qrk(iv) 
         ELSE
-          zsidep = 0.0_ireals
+  !        zsidep = 0.0_ireals
+          zsiau = 0.0_ireals
+          zsicri = 0.0_ireals
+          zsrcri = 0.0_ireals
         ENDIF
           
         zssdep  = tau_dep_snow_inv*Xi_mck*zqvsidiff * (1.0_ireals - EXP(-zdt*Xi_mck_inv)) * zdtr
@@ -2323,8 +2326,8 @@ CALL satad_v_3d (                             &
 
   END IF
 
-!  IF (izdebug > 15) THEN for debugging
-  IF (izdebug > 1) THEN
+  IF (izdebug > 15) THEN ! for debugging
+!  IF (izdebug > 1) THEN
     CALL message('gscp_hydci_pp_ice', 'UPDATED VARIABLES')
    WRITE(message_text,'(a,2E20.9)') 'hydci_pp_ice T= ',&
     MAXVAL( t(:,:)), MINVAL(t(:,:) )

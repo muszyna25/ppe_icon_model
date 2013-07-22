@@ -594,6 +594,10 @@ CONTAINS
        iqr    = 4     !! rain water
        iqs    = 5     !! snow
        iqtvar = 6     !! qt variance
+      ! preliminary fix - needs to be revised before implementing graupel scheme
+      iqni     = ntracer+1    !! cloud ice number
+      iqni_nuc = ntracer+1    !! activated ice nuclei  
+      iqg      = ntracer+1    !! graupel
 
        ! Note: Indices for additional tracers are assigned automatically
        ! via add_tracer_ref in mo_nonhydro_state.
@@ -633,6 +637,9 @@ CONTAINS
         nqtendphy = 3   !! number of water species for which convective and turbulent 
                         !! tendencies are stored
         
+        ! preliminary fix - needs to be revised before implementing graupel scheme
+        iqg      = ntracer+1    !! graupel
+
       CASE(4)  ! two-moment scheme 
 
         CALL finish('mo_atm_nml_crosscheck', 'Two-moment scheme not implemented.')
