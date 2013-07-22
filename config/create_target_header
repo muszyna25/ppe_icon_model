@@ -263,7 +263,9 @@ set_run_target_blizzard()
     esac
   fi
   let memory_size=${total_memory}/${use_mpi_procs_pernode}
-  use_resources="$use_resources ConsumableMemory(${memory_size}mb)"
+  if [[ "$use_mpi" == "yes"  ]] ; then
+    use_resources="$use_resources ConsumableMemory(${memory_size}mb)"
+  fi
 
   # create header
   start_header
