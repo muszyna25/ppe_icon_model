@@ -398,6 +398,14 @@ SUBROUTINE allocate_int_state( ptr_patch, ptr_int)
       &             'allocation for cells_aw_verts failed')
   ENDIF
   !
+  ! cells_plwa_verts
+  !
+  ALLOCATE (ptr_int%cells_plwa_verts(nproma,9-ptr_patch%cell_type,nblks_v), STAT=ist )
+  IF (ist /= SUCCESS) THEN
+    CALL finish ('mo_interpolation:construct_int_state',                     &
+      &             'allocation for cells_plwa_verts failed')
+  ENDIF
+  !
   IF( ptr_patch%cell_type == 6 ) THEN
      !
      ! tria_north
@@ -1290,11 +1298,12 @@ SUBROUTINE allocate_int_state( ptr_patch, ptr_int)
     ptr_int%e_aw_v        = 0._wp
   ENDIF
 
-  ptr_int%v_1o2_e       = 0.5_wp
-  ptr_int%c_lin_e       = 0._wp
-  ptr_int%e_inn_c       = 0._wp
-  ptr_int%verts_aw_cells= 0._wp
-  ptr_int%cells_aw_verts= 0._wp
+  ptr_int%v_1o2_e          = 0.5_wp
+  ptr_int%c_lin_e          = 0._wp
+  ptr_int%e_inn_c          = 0._wp
+  ptr_int%verts_aw_cells   = 0._wp
+  ptr_int%cells_aw_verts   = 0._wp
+  ptr_int%cells_plwa_verts = 0._wp
 
   IF (ptr_patch%cell_type == 6 ) THEN
     ptr_int%e_inn_v     = 0._wp
@@ -1915,6 +1924,7 @@ SUBROUTINE transfer_interpol_state(p_p, p_lp, pi, po)
 !  ENDIF
   CALL xfer_var(SYNC_C,1,3,p_p,p_lp,pi%verts_aw_cells,po%verts_aw_cells)
   CALL xfer_var(SYNC_V,1,3,p_p,p_lp,pi%cells_aw_verts,po%cells_aw_verts)
+  CALL xfer_var(SYNC_V,1,3,p_p,p_lp,pi%cells_plwa_verts,po%cells_plwa_verts)
 !  IF( p_p%cell_type == 6 ) THEN
 !  CALL xfer_var(SYNC_V,2,3,p_p,p_lp,pi%tria_north,po%tria_north)
 !  CALL xfer_var(SYNC_V,2,3,p_p,p_lp,pi%tria_east,po%tria_east)
@@ -2223,6 +2233,14 @@ INTEGER :: ist
   IF (ist /= SUCCESS) THEN
     CALL finish ('mo_interpolation:destruct_int_state',                      &
       &             'deallocation for cells_aw_verts failed')
+  ENDIF
+  !
+  ! cells_plwa_verts
+  !
+  DEALLOCATE (ptr_int%cells_plwa_verts, STAT=ist )
+  IF (ist /= SUCCESS) THEN
+    CALL finish ('mo_interpolation:destruct_int_state',                      &
+      &             'deallocation for cells_plwa_verts failed')
   ENDIF
 
   IF (global_cell_type == 3) THEN

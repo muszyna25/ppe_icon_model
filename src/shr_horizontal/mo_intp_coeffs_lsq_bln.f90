@@ -2012,6 +2012,21 @@ END SUBROUTINE lsq_compute_coeff_cell_torus
 !!  - joining aw_int_coeff and cell2edge_lin_int_coeff to this routine
 !!  - use of different edge-midpoint to cell distances
 !!  - implement area weightings
+!!  Modification by Daniel Reinert, DWD (2013-07-19)
+!!  - added coefficients for pseudo-Laplacian weighted averaging (PLWA) 
+!!    from cells to verts. This type of averaging is second order accurate 
+!!    on general grids.
+!!
+!!  Literature for PLWA:
+!!  - Holmes and Connel (1993): Solution of the 2D Navier-Stokes equations on 
+!!    unstructured adaptive grids. AIAA Paper 89-1932, AIAA 9th Computational 
+!!    Fluid Dynamics Conference
+!!  - Kim et al (2003) : A multi-dimensional linear reconstruction scheme for 
+!!    arbitrary unstructured grids. AIAA Paper 2003-3990, 16th AIAA Computational 
+!!    Fluid Dynamics Conference.
+!!  - Miura, H. (2013) : An Upwind-Biased Conservative Transport Scheme for Multi-Stage 
+!!                       Temporal Integrations on Spherical Icosahedral Grids.
+!!                       Monthly Weather Review, in press
 !!
 SUBROUTINE scalar_int_coeff( ptr_patch, ptr_int_state )
 !
@@ -2030,6 +2045,17 @@ INTEGER :: i_startidx                ! start index
 INTEGER :: i_endidx                  ! end index
 
 REAL(wp) :: z_sum
+
+REAL(wp) :: vlon, vlat                 ! vertex coordinates
+REAL(wp) :: clon, clat                 ! cell center coordinates
+REAL(wp) :: r_x, r_y, i_xx, i_yy, i_xy ! moments for PLWA
+REAL(wp) :: lambda_x, lambda_y         ! Lagrangesch multipliers for PLWA
+REAL(wp) :: delx(6), dely(6)           ! distance cell center - vertex in x and y
+REAL(wp) :: dist(6)                    ! sqrt(delx**2 + dely**2)
+REAL(wp) :: wgt_sum                    ! sum of weights
+
+!DR Will be removed after a first testing phase
+!DRREAL(wp) :: test_l_x, test_l_y
 
 
 !--------------------------------------------------------------------
@@ -2216,6 +2242,8 @@ REAL(wp) :: z_sum
   ENDDO   !loop over all blocks
 !$OMP END DO
 
+
+
   ! d) cells to verts averagings, edge to verts averagings
   !-------------------------------------------------------
   ! loop over all blocks and verts
@@ -2289,6 +2317,108 @@ REAL(wp) :: z_sum
 
   ENDDO   !loop over all blocks
 !$OMP END DO NOWAIT
+
+
+  ! e) cells to verts pseudo-Laplacian weighted averaging (PLWA)
+  !-------------------------------------------------------------
+
+  i_startblk = ptr_patch%verts%start_blk(2,1)
+!$OMP DO PRIVATE(jb,jv,jc,i_startidx,i_endidx,vlon,vlat,ilc,ibc,clon,clat, &
+!$OMP            delx,dely,dist,r_x,r_y,i_xx,i_yy,i_xy,lambda_x,lambda_y,  &
+!$OMP            wgt_sum) ICON_OMP_DEFAULT_SCHEDULE
+  DO jb = i_startblk, nblks_v
+
+    CALL get_indices_v(ptr_patch, jb, i_startblk, nblks_v, &
+                       i_startidx, i_endidx, 2)
+
+    DO jv = i_startidx, i_endidx
+
+      IF(.NOT. ptr_patch%verts%owner_mask(jv,jb)) CYCLE
+
+
+      ! initialize moments
+      r_x     = 0._wp
+      r_y     = 0._wp
+      i_xx    = 0._wp
+      i_yy    = 0._wp
+      i_xy    = 0._wp
+      wgt_sum = 0._wp
+!DR      test_l_x = 0._wp
+!DR      test_l_y = 0._wp
+
+      ptr_int_state%cells_plwa_verts(jv,:,jb) = 0.0_wp
+
+
+      ! get geographical coordinates of vertex
+      vlon = ptr_patch%verts%vertex(jv,jb)%lon
+      vlat = ptr_patch%verts%vertex(jv,jb)%lat
+
+      ! loop over all cells adjacent to this vertex
+      DO jc = 1, ptr_patch%verts%num_edges(jv,jb)
+        ilc = ptr_patch%verts%cell_idx(jv,jb,jc)
+        ibc = ptr_patch%verts%cell_blk(jv,jb,jc)
+
+        ! get geographical coordinates of cell center
+        clon = ptr_patch%cells%center(ilc,ibc)%lon
+        clat = ptr_patch%cells%center(ilc,ibc)%lat
+
+
+!DR could be replaced by rotation to equator as done at various other places
+!DR (not tested yet)
+        ! project cell center onto local 2D cartesian system 
+        ! tangent to the vertex
+        CALL gnomonic_proj( vlon, vlat, clon, clat,  &! in
+          &                 delx(jc), dely(jc))       ! out
+
+
+        ! compute distance to vertex
+        dist(jc) = SQRT(delx(jc)**2 + dely(jc)**2) 
+
+
+        ! sum up moments
+        r_x  = r_x  + delx(jc)
+        r_y  = r_y  + dely(jc)
+        i_xx = i_xx + delx(jc)*delx(jc)/dist(jc)**2
+        i_yy = i_yy + dely(jc)*dely(jc)/dist(jc)**2 
+        i_xy = i_xy + delx(jc)*dely(jc)/dist(jc)**2   
+      ENDDO  ! jc
+
+
+      ! compute Lagrangesch multipliers
+      lambda_x = (r_y*i_xy - r_x*i_yy)/(i_xx*i_yy - i_xy**2)
+      lambda_y = (r_x*i_xy - r_y*i_xx)/(i_xx*i_yy - i_xy**2)
+
+
+
+      ! compute weights
+      ! loop over all cells adjacent to this vertex
+      DO jc = 1, ptr_patch%verts%num_edges(jv,jb)
+
+        ! weights
+        ptr_int_state%cells_plwa_verts(jv,jc,jb) = 1._wp                                    &
+          &                                      + ((lambda_x*delx(jc) + lambda_y*dely(jc)) &
+          &                                      / dist(jc)**2 )
+
+        ! sum up weights for normalization
+        wgt_sum = wgt_sum + ptr_int_state%cells_plwa_verts(jv,jc,jb)
+
+!DR        test_l_x = test_l_x + ptr_int_state%cells_plwa_verts(jv,jc,jb) * delx(jc)
+!DR        test_l_y = test_l_y + ptr_int_state%cells_plwa_verts(jv,jc,jb) * dely(jc)
+      ENDDO  ! jc
+
+      ! Normalization
+      DO jc = 1, ptr_patch%verts%num_edges(jv,jb)
+        ptr_int_state%cells_plwa_verts(jv,jc,jb) = ptr_int_state%cells_plwa_verts(jv,jc,jb)  &
+          &                                      / wgt_sum
+      ENDDO
+!!$write(0,*) "test_l_x: ", test_l_x
+!!$write(0,*) "test_l_y: ", test_l_y
+    ENDDO  ! jv
+
+!!$write(0,*) "MAX(cells_plwa_verts), jb: ", MAXVAL(ptr_int_state%cells_plwa_verts(:,:,jb)), jb
+!!$write(0,*) "MIN(cells_plwa_verts), jb: ", MINVAL(ptr_int_state%cells_plwa_verts(:,:,jb)), jb
+  ENDDO  ! loop over all blocks
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
   CALL sync_patch_array(SYNC_E,ptr_patch,ptr_patch%edges%area_edge)
@@ -2296,6 +2426,7 @@ REAL(wp) :: z_sum
   CALL sync_patch_array(SYNC_C,ptr_patch,ptr_int_state%verts_aw_cells)
   CALL sync_patch_array(SYNC_C,ptr_patch,ptr_int_state%e_inn_c)
   CALL sync_patch_array(SYNC_V,ptr_patch,ptr_int_state%cells_aw_verts)
+  CALL sync_patch_array(SYNC_V,ptr_patch,ptr_int_state%cells_plwa_verts)
   CALL sync_patch_array(SYNC_V,ptr_patch,ptr_int_state%e_aw_v)
   IF (ptr_patch%cell_type == 6) THEN
     CALL sync_patch_array(SYNC_E,ptr_patch,ptr_int_state%tria_aw_rhom)
