@@ -20,7 +20,7 @@
 set_default()
 {
   if [[ "x$(eval echo \$$1)" == "x" ]]; then
-    eval $1=$2
+    eval "$1=$2"
   fi 
 }
 
@@ -35,7 +35,7 @@ fi
 
 set_default use_nodes 1
 set_default use_omp_stacksize 32M
-let mpi_total_procs=${use_nodes}*${use_mpi_procs_pernode}
+let "mpi_total_procs=${use_nodes}*${use_mpi_procs_pernode}"
 
 cat >> $output_script << EOF
 #=============================================================================
@@ -923,7 +923,6 @@ create_target_header()
 
   if [[ "$use_mpi" == "no" ]]; then
     use_nodes=1
-    use_mpi_procs_pernode=1
     use_mpi_procs_pernode=1
   fi
 
