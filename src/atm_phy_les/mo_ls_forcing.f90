@@ -56,7 +56,7 @@ MODULE mo_ls_forcing
   USE mo_loopindices,         ONLY: get_indices_e, get_indices_c, get_indices_v
   USE mo_vert_utilities
   USE mo_ls_forcing_nml
-  USE mo_physical_constants,  ONLY: rd, cpd, alv
+  USE mo_physical_constants,  ONLY: rd, cpd, alv, cvd
   USE mo_sync,                ONLY: global_sum_array, omp_global_sum_array
 
   IMPLICIT NONE
@@ -288,7 +288,7 @@ MODULE mo_ls_forcing
     END IF
 
     !Convert theta_l tendency to temp at once
-      ddt_temp_ls = exner_gb*ddt_temp_ls + alv/cpd * ddt_ql_ls
+      ddt_temp_ls = (exner_gb*ddt_temp_ls + alv/cpd * ddt_ql_ls) * cpd/cvd
     
   END SUBROUTINE apply_ls_forcing
 

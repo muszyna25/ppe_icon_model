@@ -91,6 +91,7 @@ MODULE mo_surface_les
   REAL(wp), PARAMETER :: c_h = 0.001094_wp
   REAL(wp), PARAMETER :: c_q = 0.001133_wp
   REAL(wp), PARAMETER :: th0_rico = 298.5_wp
+  REAL(wp), PARAMETER :: psfc = 101540._wp
 
   CONTAINS
 
@@ -328,7 +329,7 @@ MODULE mo_surface_les
         DO jc = i_startidx, i_endidx
                               
             !Get surface qv and temperature
-            p_diag_lnd%qv_s(jc,jb) = spec_humi(sat_pres_water(les_config(jg)%sst),pres_sfc(jc,jb))
+            p_diag_lnd%qv_s(jc,jb) = spec_humi(sat_pres_water(les_config(jg)%sst),psfc)
             p_prog_lnd_new%t_g(jc,jb) = les_config(jg)%sst
             
             !Mean wind at nlev
@@ -347,7 +348,7 @@ MODULE mo_surface_les
                               grav*(shfl + vtmpc1*th0_rico*lhfl)
              
             !Surface density 
-            rhos   =  pres_sfc(jc,jb)/( rd * &
+            rhos   =  psfc/( rd * &
                       p_prog_lnd_new%t_g(jc,jb)*(1._wp+vtmpc1*p_diag_lnd%qv_s(jc,jb)) )  
                       
             sgs_visc_sfc(jc,jb) = rhos * ustar * les_config(jg)%karman_constant * &
