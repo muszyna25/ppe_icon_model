@@ -44,7 +44,7 @@ MODULE mo_io_restart_async
   USE mo_kind,                    ONLY: wp, i8, dp
   USE mo_datetime,                ONLY: t_datetime, iso8601
   USE mo_io_config,               ONLY: out_expname
-  USE mo_run_config,              ONLY: ldump_states, ldump_dd
+  USE mo_run_config,              ONLY: ldump_states, ldump_dd, output_mode
   USE mo_io_units,                ONLY: nerr, filename_max, find_next_free_unit
   USE mo_var_list,                ONLY: nvar_lists, var_lists, new_var_list, delete_var_lists
   USE mo_linked_list,             ONLY: t_list_element, t_var_list
@@ -53,11 +53,12 @@ MODULE mo_io_restart_async
     &                                   restart_attributes_count_real, restart_attributes_count_bool
   USE mo_dynamics_config,         ONLY: nold, nnow, nnew, nnew_rcf, nnow_rcf, iequations
   USE mo_impl_constants,          ONLY: IHS_ATM_TEMP, IHS_ATM_THETA, ISHALLOW_WATER, &
-    &                                   LEAPFROG_EXPL, LEAPFROG_SI, SUCCESS
+    &                                   LEAPFROG_EXPL, LEAPFROG_SI, SUCCESS, MAX_CHAR_LENGTH
   USE mo_oce_state,               ONLY: set_zlev
   USE mo_var_metadata,            ONLY: t_var_metadata
   USE mo_io_restart_namelist,     ONLY: nmls, restart_namelist, delete_restart_namelists, &
     &                                   set_restart_namelist, get_restart_namelist
+  USE mo_name_list_output_init,   ONLY: output_file
 #ifndef HAVE_F2003
   USE mo_io_restart_namelist,     ONLY: nmllen_max
 #endif
@@ -116,15 +117,18 @@ MODULE mo_io_restart_async
   INTEGER, PARAMETER :: MAX_ATTRIB_TLENGTH        = nmllen_max
 #endif
 
+  ! maximum no. of output_nml output files
+  INTEGER, parameter :: MAX_NML_OUTPUT_FILES      = 100
+
   ! minimum number of dynamic restart arguments
-  INTEGER, PARAMETER :: MIN_DYN_RESTART_ARGS      = 14
+  INTEGER, PARAMETER :: MIN_DYN_RESTART_ARGS      = 15 + MAX_NML_OUTPUT_FILES
 
   ! minimum number of dynamic restart patch data
   ! id, l_dom_active, time levels and optional attributes
   INTEGER, PARAMETER :: MIN_DYN_RESTART_PDATA     = 21
 
   ! maximumm number of verticale axes
-  INTEGER, PARAMETER :: MAX_VERTICAL_AXES         = 13
+  INTEGER, PARAMETER :: MAX_VERTICAL_AXES         = 15
 
   ! maximum number of z axes
   INTEGER, PARAMETER :: MAX_Z_AXES                = 30
@@ -302,6 +306,8 @@ MODULE mo_io_restart_async
 #ifdef HAVE_F2003
     INTEGER           :: n_max_attrib_tlen
 #endif
+    INTEGER           :: noutput_files
+    INTEGER           :: n_output_steps(MAX_NML_OUTPUT_FILES)
   END TYPE t_restart_args
   TYPE(t_restart_args), TARGET :: restart_args
 
@@ -538,7 +544,8 @@ CONTAINS
     LOGICAL,          INTENT(IN)    :: l_have_output
 
     TYPE(t_patch_data), POINTER     :: p_pd
-    INTEGER                         :: idx
+    INTEGER                         :: idx, noutput_files, j
+    INTEGER                         :: n_output_steps(MAX_NML_OUTPUT_FILES)
 
     CHARACTER(LEN=*), PARAMETER :: subname = MODUL_NAME//'write_async_restart'
 
@@ -555,7 +562,13 @@ CONTAINS
 
     IF (my_process_is_work()) THEN
       CALL compute_wait_for_restart
-      CALL compute_start_restart (datetime, jfile, l_have_output)
+      noutput_files = SIZE(output_file,1)
+      n_output_steps(:) = 0
+      DO j=1,noutput_files
+        n_output_steps(j) = output_file(j)%name_list%n_output_steps
+      END DO
+      CALL compute_start_restart (datetime, jfile, l_have_output, &
+        &                         noutput_files, n_output_steps)
     END IF
 
     ! do the restart output
@@ -807,6 +820,11 @@ CONTAINS
         nnew(1)               = INT (p_msg(13))
         nnew_rcf(1)           = INT (p_msg(14))
 
+        p_ra%noutput_files    = INT (p_msg(15))
+        DO j=1,MAX_NML_OUTPUT_FILES
+          p_ra%n_output_steps(j)= p_msg(15+j)
+        END DO
+
         ! get patch dependent arguments
         i = MIN_DYN_RESTART_ARGS
 
@@ -930,11 +948,14 @@ CONTAINS
   !! compute_start_restart: Send a message to restart PEs that they should start restart.
   !! The counterpart on the restart side is restart_wait_for_start.
   !
-  SUBROUTINE compute_start_restart(datetime, jfile, l_have_output)
+  SUBROUTINE compute_start_restart(datetime, jfile, l_have_output, &
+    &                              noutput_files, n_output_steps)
 
     TYPE(t_datetime), INTENT(IN)  :: datetime
     INTEGER,          INTENT(IN)  :: jfile
     LOGICAL,          INTENT(IN)  :: l_have_output
+    INTEGER,          INTENT(IN)  :: noutput_files
+    INTEGER,          INTENT(IN)  :: n_output_steps(:)
 
     TYPE(t_patch_data), POINTER   :: p_pd
     REAL(wp), POINTER             :: p_msg(:)
@@ -971,6 +992,11 @@ CONTAINS
       p_msg(12) = REAL(datetime%daysec,   wp)
       p_msg(13) = REAL(nnew(1),           wp)
       p_msg(14) = REAL(nnew_rcf(1),       wp)
+
+      p_msg(15) = REAL(noutput_files,     wp)
+      DO j=1,MAX_NML_OUTPUT_FILES
+        p_msg(15+j) = n_output_steps(j)
+      END DO
 
       ! set data of all patches
       i = MIN_DYN_RESTART_ARGS
@@ -2284,6 +2310,8 @@ CONTAINS
     CHARACTER(LEN=256) :: executable, user_name, os_name, host_name, tmp_string
     CHARACTER(LEN=  8) :: date_string
     CHARACTER(LEN= 10) :: time_string
+    INTEGER            :: i
+    CHARACTER(len=MAX_CHAR_LENGTH) :: attname   ! attribute name
 
 #ifdef DEBUG
     WRITE (nerr,FORMAT_VALS3)subname,' is called for p_pe=',p_pe
@@ -2380,6 +2408,12 @@ CONTAINS
     ELSE
       CALL set_restart_attribute ('next_output_file', p_ra%jfile)
     END IF
+    IF (output_mode%l_nml) THEN
+      DO i=1,p_ra%noutput_files
+        WRITE(attname,'(a,i2.2)') 'n_output_steps', i
+        CALL set_restart_attribute( TRIM(attname), p_ra%n_output_steps(i) )
+      END DO
+    END IF
 
     ! geometrical depth for land module
     IF (p_pd%l_opt_depth_lnd) THEN
@@ -2425,6 +2459,8 @@ CONTAINS
     CALL set_vertical_grid_def(p_pd%v_grid_defs(11), ZA_DEPTH_BELOW_SEA     , nlev_ocean   )
     CALL set_vertical_grid_def(p_pd%v_grid_defs(12), ZA_DEPTH_BELOW_SEA_HALF, nlev_ocean+1 )
     CALL set_vertical_grid_def(p_pd%v_grid_defs(13), ZA_GENERIC_ICE         , nice_class   )
+    CALL set_vertical_grid_def(p_pd%v_grid_defs(14), ZA_DEPTH_RUNOFF_S      , 1            )
+    CALL set_vertical_grid_def(p_pd%v_grid_defs(15), ZA_DEPTH_RUNOFF_G      , 1            )
 
   END SUBROUTINE set_restart_attributes
 
@@ -3134,6 +3170,12 @@ CONTAINS
             CALL create_cdi_zaxis(p_rf%cdiZaxisIDs(ZA_DEPTH_BELOW_LAND_P1), ZAXIS_DEPTH_BELOW_LAND, &
             &                     p_vgd%nlevels, p_pd%opt_depth_lnd+1)
           ENDIF
+        CASE (ZA_DEPTH_RUNOFF_S)
+          CALL create_cdi_zaxis(p_rf%cdiZaxisIDs(ZA_DEPTH_RUNOFF_S), ZAXIS_DEPTH_BELOW_LAND, &
+            &                   p_vgd%nlevels)
+        CASE (ZA_DEPTH_RUNOFF_G)
+          CALL create_cdi_zaxis(p_rf%cdiZaxisIDs(ZA_DEPTH_RUNOFF_G), ZAXIS_DEPTH_BELOW_LAND, &
+            &                   p_vgd%nlevels)
         CASE (ZA_SNOW)
           IF (p_pd%l_opt_nlev_snow) THEN
             CALL create_cdi_zaxis(p_rf%cdiZaxisIDs(ZA_SNOW), ZAXIS_GENERIC, &
