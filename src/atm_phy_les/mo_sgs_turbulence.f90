@@ -1331,8 +1331,7 @@ MODULE mo_sgs_turbulence
                              i_startidx, i_endidx, rl_start, rl_end)
           DO jk = 1, nlev
             DO jc = i_startidx, i_endidx
-              !fac(jc,jk,jb) = cpd * rcvd * exner(jc,jk,jb) / rho(jc,jk,jb)
-              fac(jc,jk,jb) = exner(jc,jk,jb) / rho(jc,jk,jb)
+              fac(jc,jk,jb) = cpd * rcvd * exner(jc,jk,jb) / rho(jc,jk,jb)
             END DO
           END DO
           DO jc = i_startidx, i_endidx
