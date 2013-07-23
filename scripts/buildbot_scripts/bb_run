@@ -279,14 +279,17 @@ run_scripts_submit()
   do 
     run_command="$submit ./$EXP_FILE"
 
-    echo "---------------------------------------------------------"
-    echo " Submit new Script: ${EXP_FILE} at $(date)"
-    echo " $run_command "
-    echo "---------------------------------------------------------"
+    if [ -r $EXP_FILE ]
+    then 
+	    echo "---------------------------------------------------------"
+	    echo " Submit new Script: ${EXP_FILE} at $(date)"
+	    echo " $run_command "
+	    echo "---------------------------------------------------------"
 
-    echo $run_command > submit.$EXP_FILE
-    chmod +x submit.$EXP_FILE        
-    ./submit.$EXP_FILE &    
+        echo $run_command > submit.$EXP_FILE
+        chmod +x submit.$EXP_FILE        
+       ./submit.$EXP_FILE &    
+    fi
   
   done
 
@@ -298,25 +301,33 @@ run_scripts_submit()
   for EXP_FILE in $EXP_FILES
   do
     
-    echo "---------------------------------------------------------"
-    echo " "
-    echo " Start of ${EXP_FILE}"
-    echo " "
-    echo "---------------------------------------------------------"
-    cat LOG.$EXP_FILE.*
-    echo "---------------------------------------------------------"
-    echo " "
-    echo " End of ${EXP_FILE}"
-    echo " "
-    echo "---------------------------------------------------------"
+    if [ -r $EXP_FILE ]
+    then 
+	    echo "---------------------------------------------------------"
+	    echo " "
+	    echo " Start of ${EXP_FILE}"
+	    echo " "
+	    echo "---------------------------------------------------------"
+	    cat LOG.$EXP_FILE.*
+	    echo "---------------------------------------------------------"
+	    echo " "
+	    echo " End of ${EXP_FILE}"
+	    echo " "
+	    echo "---------------------------------------------------------"
+	
+	    STATUS_IN_FILE=255
+	    if [ -r $EXP_FILE.status ]
+	    then
+	     STATUS_IN_FILE=`cat ${EXP_FILE}.status`
+	    fi
 
-    STATUS_IN_FILE=255
-    if [ -r $EXP_FILE.status ]
-    then
-     STATUS_IN_FILE=`cat ${EXP_FILE}.status`
+        $stop_check 0 $EXP_FILE
+    else
+	    echo "---------------------------------------------------------"
+	    echo " ${EXP_FILE} does not exist"
+ 	    echo "---------------------------------------------------------"
+       echo 
     fi
-
-    $stop_check 0 $EXP_FILE
   done
   
   cd ..
