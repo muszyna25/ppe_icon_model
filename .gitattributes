@@ -815,6 +815,11 @@ schedulers/ecmwf/sms/setup.sms -text
 schedulers/ecmwf/sms/setup_eps.sms -text
 schedulers/ecmwf/sms/testday.sms -text
 scripts/.gmtcommands -text
+scripts/SuperMUC_scripts/create_target_setup -text
+scripts/SuperMUC_scripts/make_my_runscript -text
+scripts/SuperMUC_scripts/set_target_compiler -text
+scripts/SuperMUC_scripts/set_target_supermuc -text
+scripts/SuperMUC_scripts/setup_utils.sh -text
 scripts/buildbot_scripts/ICON.cfg -text
 scripts/buildbot_scripts/README -text
 scripts/buildbot_scripts/archive_exp.ksh -text
