@@ -210,7 +210,7 @@ check_accept_script()
        *test_oce_numeric*)
           accepted_script="false"
           ;;
-       *test_nh_hdcp2_lam_r15000*)
+       *test_nh_hdcp2_lam_r15000_modified*)
           accepted_script="false"
           ;;
        esac
@@ -221,7 +221,7 @@ check_accept_script()
        *test_oce_default*)
           accepted_script="false"
           ;;
-       *test_nh_hdcp2_lam_r15000*)
+       *test_nh_hdcp2_lam_r15000_modified*)
           accepted_script="false"
           ;;
        esac
@@ -412,10 +412,6 @@ create_restart test_hat_jww-moist_cld-cnv-vdf
 # this includes the restart in the test_hat_jww
 cpu_time="04:00:00"
 create_restart test_hat_jww 
-
-# special treatment for limited area tests
-cpu_time="01:00:00"
-create_restart test_nh_hdcp2_lam_r15000
 
 
 #==============================================================================
