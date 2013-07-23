@@ -37,7 +37,7 @@ atmo_namelist=NAMELIST_${EXPNAME}
 #-----------------------------------------------------------------------------
 # global timing
 start_date="2008-09-01T08:00:00Z"
-end_date="2008-09-01T08:10:00Z"
+end_date="2008-09-01T08:30:00Z"
 ndays_restart=60
 dt_restart=`expr ${ndays_restart} \* 86400`
 #
@@ -96,7 +96,7 @@ cat > ${atmo_namelist} << EOF
  ltimer      = .true.       ! 
  timers_level = 100         !
  msg_level   = 15           ! detailed report during integration
- output      = 'nml','totint'      
+ output      = 'totint'      
 /
 &dynamics_nml
  iequations  = ${atmo_model_equations}       ! 1: hydrost. atmosphere
@@ -137,7 +137,7 @@ inwp_turb       = 1
 inwp_satad      = 1
 inwp_surface    = 0
 dt_conv         = 12
-dt_rad          = 48
+dt_rad          = 60
 /
 &turbdiff_nml
 pat_len = 500.
