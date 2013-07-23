@@ -194,6 +194,24 @@ set_test_list ()
 }
 #==============================================================================
 
+#==============================================================================
+check_exist_exp_files()
+{
+  cd $1
+ 
+  scripts_list="EXP_FILES_LIST"
+  rm -f $scripts_list
+  for EXP_FILE in $EXP_FILES
+  do 
+    if [ -r $EXP_FILE ]; then
+      echo $EXP_FILE >> $scripts_list
+    fi
+  done
+  EXP_FILES=`cat $scripts_list` 
+  rm $scripts_list
+  cd ..
+}
+#==============================================================================
 
 #==============================================================================
 # runs the scrpits ./$1/$2
@@ -597,7 +615,9 @@ then
     fi
   fi
 
+  check_exist_exp_files run  
   run_scripts run
+  
   if [  -a ${LOOP_STATUS_FILE} ]
   then
  
