@@ -563,6 +563,11 @@ CONTAINS
        iqr    = 4     !! rain water
        iqs    = 5     !! snow
 
+      !AD: preliminary fix following the changes made for COSMO_EU scheme in r12908
+      iqni     = ntracer+1    !! cloud ice number
+      iqni_nuc = ntracer+1    !! activated ice nuclei  
+      iqg      = ntracer+1    !! graupel
+
        iqt    = 5     !! start index of other tracers than hydrometeors
        nqtendphy = 3  !! number of water species for which convective and turbulent
                         !! tendencies are stored
