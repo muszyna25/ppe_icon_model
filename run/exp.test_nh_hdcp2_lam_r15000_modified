@@ -44,7 +44,7 @@ dt_restart=`expr ${ndays_restart} \* 86400`
 #-----------------------------------------------------------------------------
 # model timing
 dtime=30
-dt_checkpoint=`expr 14 \* 60 `  # write restart file every 15 min
+dt_checkpoint=`expr 1 \* 3600 `  # write restart file every 1 hour
 #
 #-----------------------------------------------------------------------------
 # model parameters
@@ -129,7 +129,7 @@ cat > ${atmo_namelist} << EOF
  hdiff_tv_ratio   = 1.0
 /
 &nwp_phy_nml
-inwp_gscp       = 1
+inwp_gscp       = 0
 inwp_convection = 1
 inwp_radiation  = 1
 inwp_cldcover   = 1

@@ -705,7 +705,7 @@ run/exp.test_hat_jww-moist_cld-cnv-vdf -text
 run/exp.test_nat_jww_nwp_mpiomp -text
 run/exp.test_nh35_tri_jws -text
 run/exp.test_nh3_tri_tracer_solid_body -text
-run/exp.test_nh_hdcp2_lam_r15000 -text
+run/exp.test_nh_hdcp2_lam_r15000_modified -text
 run/exp.test_oce_default -text
 run/exp.test_oce_numeric -text
 run/exp.test_oce_parallel -text
