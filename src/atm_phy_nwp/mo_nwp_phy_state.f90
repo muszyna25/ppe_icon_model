@@ -1832,7 +1832,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
         DO jsfc = 1,ntiles_total+ntiles_water
           WRITE(csfc,'(i1)') jsfc
           CALL add_ref( diag_list, 'vmfl_s_t',                            &
-             & 'umfl_s_t_'//TRIM(ADJUSTL(csfc)),                          &
+             & 'vmfl_s_t_'//TRIM(ADJUSTL(csfc)),                          &
              & diag%vmfl_s_t_ptr(jsfc)%p_2d,                              &
              & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                        &
              & t_cf_var('vmfl_s_t_'//TRIM(csfc), '', '', DATATYPE_FLT32), &
