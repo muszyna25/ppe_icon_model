@@ -358,8 +358,7 @@ CONTAINS
     !-------------------------------------------------------------------
     ! 3.1 Initialize the mpi work groups
     !-------------------------------------------------------------------
-    CALL set_mpi_work_communicators(p_test_run, l_test_openmp, num_io_procs, &
-	 	&										num_restart_procs)
+    CALL set_mpi_work_communicators(p_test_run, l_test_openmp, num_io_procs, num_restart_procs)
 
     !-------------------------------------------------------------------
     ! 3.2 Initialize various timers
