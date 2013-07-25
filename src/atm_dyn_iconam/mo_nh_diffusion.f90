@@ -134,8 +134,8 @@ MODULE mo_nh_diffusion
     INTEGER  :: nblks_zdiffu, nproma_zdiffu, npromz_zdiffu, nlen_zdiffu
 
     ! Variables for provisional fix against runaway cooling in local topography depressions
-    INTEGER  :: icount, iclist(2*nproma), iklist(2*nproma)
-    REAL(wp) :: tdlist(2*nproma), tdiff, trefdiff, enh_diffu, thresh_tdiff
+    INTEGER  :: icount(p_patch%nblks_c), iclist(2*nproma,p_patch%nblks_c), iklist(2*nproma,p_patch%nblks_c)
+    REAL(wp) :: tdlist(2*nproma,p_patch%nblks_c), tdiff, trefdiff, enh_diffu, thresh_tdiff
 
     INTEGER,  DIMENSION(:,:,:), POINTER :: icidx, icblk, ieidx, ieblk, ividx, ivblk, &
                                            iecidx, iecblk
@@ -844,13 +844,13 @@ MODULE mo_nh_diffusion
       i_startblk = p_patch%cells%start_blk(rl_start,1)
       i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
-!$OMP DO PRIVATE(jk,jc,jb,i_startidx,i_endidx,tdiff,trefdiff,icount,iclist,iklist,tdlist,enh_diffu), ICON_OMP_RUNTIME_SCHEDULE
+!$OMP DO PRIVATE(jk,jc,jb,i_startidx,i_endidx,ic,tdiff,trefdiff), ICON_OMP_RUNTIME_SCHEDULE
       DO jb = i_startblk,i_endblk
 
         CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
                            i_startidx, i_endidx, rl_start, rl_end)
 
-        icount = 0
+        ic = 0
 
         DO jk = nlev-1, nlev
           DO jc = i_startidx, i_endidx
@@ -865,22 +865,31 @@ MODULE mo_nh_diffusion
                p_nh_metrics%theta_ref_mc(icidx(jc,jb,3),jk,icblk(jc,jb,3)) ) / 3._wp
 
             IF (tdiff-trefdiff < thresh_tdiff .AND. trefdiff < 0._wp) THEN
-              icount = icount+1
-              iclist(icount) = jc
-              iklist(icount) = jk
-              tdlist(icount) = thresh_tdiff - tdiff
+              ic = ic+1
+              iclist(ic,jb) = jc
+              iklist(ic,jb) = jk
+              tdlist(ic,jb) = thresh_tdiff - tdiff
             ENDIF
 
           ENDDO
         ENDDO
 
-        ! Enhance Smagorinsky coefficients at the three edges of the cells included in the list
-        ! Attention: this operation is not vectorizable
-        IF (icount > 0) THEN
-          DO ic = 1, icount
-            jc = iclist(ic)
-            jk = iklist(ic)
-            enh_diffu = tdlist(ic)*5.e-4_wp
+        icount(jb) = ic
+
+      ENDDO
+!$OMP END DO
+
+
+      ! Enhance Smagorinsky coefficients at the three edges of the cells included in the list
+      ! Attention: this operation is neither vectorizable nor OpenMP-parallelizable (race conditions!)
+!$OMP MASTER
+      DO jb = i_startblk,i_endblk
+
+        IF (icount(jb) > 0) THEN
+          DO ic = 1, icount(jb)
+            jc = iclist(ic,jb)
+            jk = iklist(ic,jb)
+            enh_diffu = tdlist(ic,jb)*5.e-4_wp
             kh_smag_e(ieidx(jc,jb,1),jk,ieblk(jc,jb,1)) = MAX(enh_diffu,kh_smag_e(ieidx(jc,jb,1),jk,ieblk(jc,jb,1)))
             kh_smag_e(ieidx(jc,jb,2),jk,ieblk(jc,jb,2)) = MAX(enh_diffu,kh_smag_e(ieidx(jc,jb,2),jk,ieblk(jc,jb,2)))
             kh_smag_e(ieidx(jc,jb,3),jk,ieblk(jc,jb,3)) = MAX(enh_diffu,kh_smag_e(ieidx(jc,jb,3),jk,ieblk(jc,jb,3)))
@@ -888,7 +897,7 @@ MODULE mo_nh_diffusion
         ENDIF
 
       ENDDO
-!$OMP END DO
+!$OMP END MASTER
 
       IF (discr_t == 1) THEN  ! use discretization K*nabla(theta)
 

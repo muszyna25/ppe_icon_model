@@ -151,7 +151,8 @@ MODULE mo_solve_nonhydro
 
     ! Variables for optional extra diffusion close to the vertical advection stability limit
     REAL(wp) :: cfl_w_limit, scalfac_exdiff, difcoef
-    INTEGER  :: icount, iclist(nproma*p_patch%nlev), iklist(nproma*p_patch%nlev), ic, ie, jbe
+    INTEGER  :: icount(p_patch%nblks_c), iclist(4*nproma,p_patch%nblks_c), &
+                iklist(4*nproma,p_patch%nblks_c), ic, ie, jbe
 
     !--------------------------------------------------------------------------
 
@@ -538,30 +539,38 @@ MODULE mo_solve_nonhydro
       i_startblk = p_patch%cells%start_blk(rl_start,1)
       i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
-!$OMP DO PRIVATE(jb, jk, jc, i_startidx, i_endidx, icount, iclist, iklist, difcoef, ic, ie, je, jbe) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb, jk, jc, i_startidx, i_endidx, ic, ie, je, jbe) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, i_startidx, i_endidx, rl_start, rl_end)
 
-        icount = 0
+        ic = 0
 
         ! Collect grid points exceeding the specified stability threshold (75% of the theoretical limit) for w_con
         DO jk = MAX(3,nrdmax(jg)-2), nlev-4
           DO jc = i_startidx, i_endidx
             IF (ABS(z_w_con_c(jc,jk,jb)) > cfl_w_limit*p_metrics%ddqz_z_half(jc,jk,jb)) THEN
-              icount = icount+1
-              iclist(icount) = jc
-              iklist(icount) = jk
+              ic = ic+1
+              iclist(ic,jb) = jc
+              iklist(ic,jb) = jk
             ENDIF
           ENDDO
         ENDDO
 
-        ! If grid points are found, apply second-order diffusion on w and vn
-        ! Note that this loop is not vectorizable
-        IF (icount > 0) THEN
-          DO ic = 1, icount
-            jc = iclist(ic)
-            jk = iklist(ic)
+        icount(jb) = ic
+
+      ENDDO
+!$OMP END DO 
+
+      ! If grid points are found, apply second-order diffusion on w and vn
+      ! Note that this loop is neither vectorizable nor OpenMP-parallelizable (race conditions!)
+!$OMP MASTER
+      DO jb = i_startblk, i_endblk
+
+        IF (icount(jb) > 0) THEN
+          DO ic = 1, icount(jb)
+            jc = iclist(ic,jb)
+            jk = iklist(ic,jb)
             difcoef = scalfac_exdiff * MIN(1._wp - cfl_w_limit*dtime,                            &
               ABS(z_w_con_c(jc,jk,jb))*dtime/p_metrics%ddqz_z_half(jc,jk,jb) - cfl_w_limit*dtime )
 
@@ -581,7 +590,7 @@ MODULE mo_solve_nonhydro
               je  = ieidx(jc,jb,ie)
               jbe = ieblk(jc,jb,ie)
 
-              jk = iklist(ic)
+              jk = iklist(ic,jb)
               p_diag%ddt_vn_adv(je,jk,jbe,ntnd) = p_diag%ddt_vn_adv(je,jk,jbe,ntnd)   +                               &
               0.25_wp * difcoef * p_patch%edges%area_edge(je,jbe) * (                                                 &
               p_int%geofac_grdiv(je,1,jbe)*p_prog%vn(je,jk,jbe)                          +                            &
@@ -592,7 +601,7 @@ MODULE mo_solve_nonhydro
               p_patch%edges%system_orientation(je,jbe)*p_patch%edges%inv_primal_edge_length(je,jbe) * (               &
               p_diag%omega_z(ividx(je,jbe,2),jk,ivblk(je,jbe,2))-p_diag%omega_z(ividx(je,jbe,1),jk,ivblk(je,jbe,1)) ) ) 
 
-              jk = iklist(ic) - 1
+              jk = iklist(ic,jb) - 1
               p_diag%ddt_vn_adv(je,jk,jbe,ntnd) = p_diag%ddt_vn_adv(je,jk,jbe,ntnd)   +                               &
               0.25_wp * difcoef * p_patch%edges%area_edge(je,jbe) * (                                                 &
               p_int%geofac_grdiv(je,1,jbe)*p_prog%vn(je,jk,jbe)                          +                            &
@@ -605,9 +614,8 @@ MODULE mo_solve_nonhydro
             ENDDO
           ENDDO
         ENDIF
-
-      ENDDO     
-!$OMP END DO NOWAIT
+      ENDDO
+!$OMP END MASTER
     ENDIF
 
 !$OMP END PARALLEL
