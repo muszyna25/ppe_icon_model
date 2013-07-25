@@ -74,7 +74,6 @@ CONTAINS
   SUBROUTINE resize_ocean_simulation_length()
 
     REAL(wp):: cur_datetime_calsec, end_datetime_calsec, length_sec
-    INTEGER :: jg
     CHARACTER(len=*), PARAMETER :: method_name =  'mo_ocean_nml_crosscheck:resize_ocean_simulation_length'
 
     !----------------------------
@@ -111,11 +110,11 @@ CONTAINS
       ! Compute nsteps from cur_datetime, end_datetime and dtime
       !
       cur_datetime_calsec = (REAL(time_config%cur_datetime%calday,wp)  &
-	+time_config%cur_datetime%caltime   ) &
-	* REAL(time_config%cur_datetime%daylen,wp)
+        +time_config%cur_datetime%caltime   ) &
+        * REAL(time_config%cur_datetime%daylen,wp)
       end_datetime_calsec = (REAL(time_config%end_datetime%calday,wp)  &
-	+time_config%end_datetime%caltime   ) &
-	* REAL(time_config%end_datetime%daylen,wp)
+        +time_config%end_datetime%caltime   ) &
+        * REAL(time_config%end_datetime%daylen,wp)
 
       IF (end_datetime_calsec < cur_datetime_calsec) &
 	& CALL finish(TRIM(method_name),'The end date and time must not be '// &

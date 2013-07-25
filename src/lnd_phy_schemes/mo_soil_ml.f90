@@ -4861,7 +4861,7 @@ ENDIF
 !       i=melt_list(ic) 
       DO i = istarts, iends
 
-	IF (t_snow_new(i) > 355._ireals) THEN
+        IF (t_snow_new(i) > 355._ireals) THEN
 !        IF (i == 182 .AND. soiltyp_subs(i).eq.3 .AND. plcov(i).GT.0.0499 .AND. plcov(i).LT.0.0501) THEN
 
 !        IF ((t_snow_new(i) > t0_melt .AND. w_snow_new(i) > zepsi).OR.&
