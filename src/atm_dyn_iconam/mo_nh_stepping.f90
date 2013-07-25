@@ -475,8 +475,8 @@ MODULE mo_nh_stepping
 
   ! Prepare number of soil/snow layers for TERRA/JSBACH to be used for restart file creation below.
   ! AD: Initialize with 0 to avoid errors with certain compilers
-  nsoil = 0._wp
-  nsnow = 0._wp
+  nsoil(:) = 0
+  nsnow    = 0
   IF (iforcing == inwp) THEN
     DO jg=1,n_dom
       nsoil(jg) = nlev_soil
@@ -1493,7 +1493,7 @@ MODULE mo_nh_stepping
               CALL feedback(p_patch, p_nh_state, p_int_state, p_grf_state, p_lnd_state, jgc, &
                             jg, lstep_adv(jg))
             ELSE
-				  CALL relax_feedback(  p_patch(n_dom_start:n_dom),           &
+              CALL relax_feedback(  p_patch(n_dom_start:n_dom),          &
                 & p_nh_state(1:n_dom), p_int_state(n_dom_start:n_dom),   &
                 & p_grf_state(n_dom_start:n_dom), jgc, jg, lstep_adv(jg))
             ENDIF
