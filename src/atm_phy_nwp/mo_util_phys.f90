@@ -59,6 +59,7 @@ MODULE mo_util_phys
   PUBLIC :: nwp_dyn_gust
   PUBLIC :: nwp_dyn_gust1
   PUBLIC :: virtual_temp
+  PUBLIC :: vap_pres
   PUBLIC :: rel_hum
   PUBLIC :: compute_field_rel_hum_wmo
   PUBLIC :: compute_field_rel_hum_ifs
@@ -422,5 +423,25 @@ CONTAINS
 !$OMP END PARALLEL
 
   END SUBROUTINE compute_field_rel_hum_ifs
+
+
+
+  !> computation of water vapour pressure
+  !!
+  !! water vapour pressure is computed as a function of specific humidity 
+  !! qv and atmospheric pressure pres.
+  !!
+  !! @par Revision History
+  !! Initial revision by Daniel Reinert, DWD (2013-07-25) 
+  ELEMENTAL FUNCTION vap_pres(qv,pres)
+  IMPLICIT NONE
+
+    REAL(wp), INTENT(IN)  :: qv   ! specific humidity         [kg/kg]
+    REAL(wp), INTENT(IN)  :: pres ! atmospheric pressure      [Pa]
+    REAL(wp) :: vap_pres          ! water vapour pressure     [Pa]
+
+    vap_pres = (qv * pres) / (rdv + O_m_rdv*qv)
+
+  END FUNCTION vap_pres
 
 END MODULE mo_util_phys

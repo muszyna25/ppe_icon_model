@@ -66,7 +66,7 @@ MODULE mo_nh_vert_interp
   USE mo_vertical_coord_table,ONLY: vct_a
   USE mo_nh_init_utils,       ONLY: interp_uv_2_vn, adjust_w, convert_thdvars, & 
                                     convert_omega2w
-  USE mo_util_phys,           ONLY: virtual_temp
+  USE mo_util_phys,           ONLY: virtual_temp, vap_pres
   USE mo_math_gradients,      ONLY: grad_fd_norm, grad_fd_tang
   USE mo_loopindices,         ONLY: get_indices_e, get_indices_c
   USE mo_grf_intp_data_strc,  ONLY: t_gridref_state
@@ -3238,6 +3238,7 @@ CONTAINS
 
     INTEGER  :: jb, jk, jk1, jc, nlen, jk_start, jk_start_in, jk_start_out, ik1(nproma)
     REAL(wp) :: wfac, pbldev, rhum, qtot
+    REAL(wp) :: e_vapor                     ! vapor pressure
 
 
     REAL(wp), DIMENSION(nproma) :: qv1, qv2, dqvdz_up
@@ -3261,7 +3262,7 @@ CONTAINS
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,jk1,jc,nlen,jk_start,jk_start_in,jk_start_out,ik1,wfac,pbldev,&
 !$OMP            rhum,qtot,qv1,qv2,dqvdz_up,l_found,zalml_in,zalml_out,              &
-!$OMP            qv_mod,pbl_dev,g1,g2,g3,qsat_in,qsat_out) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP            qv_mod,pbl_dev,g1,g2,g3,e_vapor,qsat_in,qsat_out) ICON_OMP_DEFAULT_SCHEDULE
 
     DO jb = 1, nblks
       IF (jb /= nblks) THEN
@@ -3275,9 +3276,12 @@ CONTAINS
       DO jk1 = 1, nlevs_in
         DO jc = 1, nlen
 
+          ! compute vapour pressure e_vapor=f(qv_in,pres_in)
+          e_vapor = vap_pres(qv_in(jc,jk1,jb),pres_in(jc,jk1,jb))
+
           ! saturation specific humidity of input data
           qsat_in(jc,jk1) = rdv*sat_pres_water(temp_in(jc,jk1,jb)) /    &
-                            (pres_in(jc,jk1,jb)-o_m_rdv*qv_in(jc,jk1,jb))
+                            (pres_in(jc,jk1,jb)-o_m_rdv*e_vapor)
 
           IF (l_satlimit) THEN
             ! limit input data to water saturation when processing interpolated IFS data:
@@ -3384,9 +3388,12 @@ CONTAINS
           ! Height above lowest model level - needed for restoring the boundary-layer deviation
           zalml_out(jc,jk) = z3d_out(jc,jk,jb) - z3d_out(jc,nlevs_out,jb)
 
+          ! compute vapour pressure e_vapor=f(qv_out,pres_out)
+          e_vapor = vap_pres(qv_out(jc,jk,jb),pres_out(jc,jk,jb))
+
           ! saturation specific humidity of output data
           qsat_out(jc,jk) = rdv*sat_pres_water(temp_out(jc,jk,jb)) /    &
-                            (pres_out(jc,jk,jb)-o_m_rdv*qv_out(jc,jk,jb))
+                            (pres_out(jc,jk,jb)-o_m_rdv*e_vapor)
 
         ENDDO
       ENDDO
