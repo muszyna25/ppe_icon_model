@@ -964,7 +964,7 @@ CONTAINS
           & ntiles=ntiles_total                    ,&! in     number of tiles of sfc flux fields
           & ntiles_wtr=ntiles_water                ,&! in     number of extra tiles for ocean and lakes
           & pmair=z_airmass                        ,&! in     layer air mass             [kg/m2]
-          & pqv=pt_prog_rcf%tracer(:,:,jb,iqv)     ,&! in     specific moisture           [kg/kg]
+          & pqv=prm_diag%tot_cld(:,:,jb,iqv)       ,&! in     specific moisture           [kg/kg]
           & pi0=prm_diag%flxdwswtoa(:,jb)          ,&! in     solar incoming flux at TOA  [W/m2]
           & pemiss=ext_data%atm%emis_rad(:,jb)     ,&! in     lw sfc emissivity
           & pqc=prm_diag%tot_cld    (:,:,jb,iqc)   ,&! in     specific cloud water        [kg/kg]
@@ -1014,7 +1014,7 @@ CONTAINS
           & ntiles=1                               ,&! in     number of tiles of sfc flux fields
           & ntiles_wtr=0                           ,&! in     number of extra tiles for ocean and lakes
           & pmair=z_airmass                        ,&! in     layer air mass             [kg/m2]
-          & pqv=pt_prog_rcf%tracer(:,:,jb,iqv)     ,&! in     specific moisture           [kg/kg]
+          & pqv=prm_diag%tot_cld(:,:,jb,iqv)       ,&! in     specific moisture           [kg/kg]
           & pi0=prm_diag%flxdwswtoa(:,jb)          ,&! in     solar incoming flux at TOA  [W/m2]
           & pemiss=ext_data%atm%emis_rad(:,jb)     ,&! in     lw sfc emissivity
           & pqc=prm_diag%tot_cld    (:,:,jb,iqc)   ,&! in     specific cloud water        [kg/kg]
