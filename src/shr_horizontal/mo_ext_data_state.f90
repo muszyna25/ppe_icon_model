@@ -1226,7 +1226,7 @@ CONTAINS
         grib2_desc = t_grib2_var(0, 19, 18, ibits, GRID_REFERENCE, GRID_CELL)
         CALL add_var( p_ext_atm_list, 'alb_dif', p_ext_atm%alb_dif,               &
           &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
-          &           ldims=shape3d_c, loutput=.TRUE.                            )
+          &           ldims=shape2d_c, loutput=.TRUE.                            )
 
         ! UV visible broadband albedo for diffuse radiation (0.3 - 0.7 �m)
         !
@@ -1236,7 +1236,7 @@ CONTAINS
         grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
         CALL add_var( p_ext_atm_list, 'albuv_dif', p_ext_atm%albuv_dif,           &
           &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
-          &           ldims=shape3d_c, loutput=.TRUE.                             )
+          &           ldims=shape2d_c, loutput=.TRUE.                             )
 
         ! Near IR broadband albedo for diffuse radiation (0.7 - 5.0 �m)
         !
@@ -1246,7 +1246,7 @@ CONTAINS
         grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
         CALL add_var( p_ext_atm_list, 'albni_dif', p_ext_atm%albni_dif,           &
           &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
-          &           ldims=shape3d_c, loutput=.TRUE.                             )
+          &           ldims=shape2d_c, loutput=.TRUE.                             )
 
       ENDIF  ! albedo_type
 
