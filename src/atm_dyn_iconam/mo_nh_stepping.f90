@@ -49,7 +49,6 @@ MODULE mo_nh_stepping
 !
 
   USE mo_kind,                ONLY: wp, i8
-  USE mo_nonhydro_types,      ONLY: t_nh_state, t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_nonhydro_state,      ONLY: bufr, p_nh_state
   USE mo_nonhydrostatic_config,ONLY: iadv_rcf, lhdiff_rcf, l_nest_rcf, itime_scheme, &
     & nest_substeps
