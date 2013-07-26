@@ -42,7 +42,7 @@
 MODULE mo_nwp_phy_nml
 
   USE mo_kind,                ONLY: wp
-  USE mo_exception,           ONLY: finish
+  USE mo_exception,           ONLY: finish, message
   USE mo_impl_constants,      ONLY: max_dom, icosmo
   USE mo_namelist,            ONLY: position_nml, POSITIONED, open_nml, close_nml
   USE mo_mpi,                 ONLY: my_process_is_stdio
@@ -285,6 +285,11 @@ CONTAINS
    
         CALL finish( TRIM(routine), 'Incorrect setting for inwp_gscp. Must be 0,1,2,3,4,9 or 10.')
       END IF
+
+      IF (inwp_surface(jg) == 0 .AND. itype_z0 > 1) THEN
+        CALL message(TRIM(routine), 'Warning: itype_z0 is reset to 1 because surface scheme is turned off')
+        itype_z0 = 1
+      ENDIF
 
     ENDDO
 

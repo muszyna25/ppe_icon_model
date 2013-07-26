@@ -91,6 +91,7 @@ MODULE mo_nml_crosscheck
 
 
   USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config, configure_atm_phy_nwp
+  USE mo_lnd_nwp_config,     ONLY: ntiles_lnd
   USE mo_echam_phy_config,   ONLY: echam_phy_config, configure_echam_phy
   USE mo_radiation_config
   USE mo_echam_conv_config,  ONLY: echam_conv_config, configure_echam_convection
@@ -512,6 +513,11 @@ CONTAINS
           &   atm_phy_nwp_config(jg)%mu_snow > 5.0)  THEN
           CALL finish(TRIM(method_name),'mu_snow requires: 0 < mu_snow < 5')
         END IF ! microphysics
+
+        IF (atm_phy_nwp_config(jg)%inwp_surface == 0 .AND. ntiles_lnd > 1) THEN
+          ntiles_lnd = 1
+          CALL message(TRIM(method_name),'Warning: ntiles reset to 1 because the surface scheme is turned off')
+        ENDIF
 
       ENDDO
     END IF
