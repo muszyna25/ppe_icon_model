@@ -541,7 +541,8 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
 
 
     ! &      diag%clc(nproma,nlev,nblks_c)
-    cf_desc      = t_cf_var('clc', '', 'cloud cover', DATATYPE_FLT32)
+    cf_desc      = t_cf_var('clc', '',  'cloud cover', DATATYPE_FLT32)
+    new_cf_desc  = t_cf_var('clc', '%', 'cloud cover', DATATYPE_FLT32)
     grib2_desc   = t_grib2_var(0, 6, 22, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, 'clc', diag%clc,                                 &
       & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,               &
@@ -552,7 +553,9 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
       &             vert_intp_method=VINTP_METHOD_LIN,                        &
       &             l_loglin=.FALSE.,                                         &
       &             l_extrapol=.TRUE., l_pd_limit=.FALSE.,                    &
-      &             lower_limit=0._wp )                                      )
+      &             lower_limit=0._wp ),                                      &
+      & post_op=post_op(POST_OP_SCALE, arg1=100._wp,                          &
+      &                 new_cf=new_cf_desc))
 
 
 
@@ -603,7 +606,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
 
 
     ! &      diag%hbas_con(nproma,nblks_c)
-    cf_desc    = t_cf_var('hbas_con', '', 'height_of_convective_cloud_base', DATATYPE_FLT32)
+    cf_desc    = t_cf_var('hbas_con', 'm', 'height_of_convective_cloud_base', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(0, 6, 26, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, 'hbas_con', diag%hbas_con,                       &
       & GRID_UNSTRUCTURED_CELL, ZA_CLOUD_BASE, cf_desc, grib2_desc,           &
@@ -611,13 +614,20 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
       & hor_interp=create_hor_interp_metadata(hor_intp_type=HINTP_TYPE_LONLAT_NNB ))
 
     ! &      diag%htop_con(nproma,nblks_c)
-    cf_desc    = t_cf_var('htop_con', '', 'height_of_convective_cloud_top', DATATYPE_FLT32)
+    cf_desc    = t_cf_var('htop_con', 'm', 'height_of_convective_cloud_top', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(0, 6, 27, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, 'htop_con', diag%htop_con,                       &
       & GRID_UNSTRUCTURED_CELL, ZA_CLOUD_TOP, cf_desc, grib2_desc,            &
       & ldims=shape2d, lrestart=.FALSE.,                                      &
       & hor_interp=create_hor_interp_metadata(hor_intp_type=HINTP_TYPE_LONLAT_NNB ))
 
+    ! &      diag%htop_dc(nproma,nblks_c)
+    cf_desc    = t_cf_var('htop_dc', 'm', 'height_of_top_of_dry_convection', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var(0, 6, 196, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( diag_list, 'htop_dc', diag%htop_dc,                         &
+      & GRID_UNSTRUCTURED_CELL, ZA_CLOUD_TOP, cf_desc, grib2_desc,            &
+      & ldims=shape2d, lrestart=.FALSE.,                                      &
+      & hor_interp=create_hor_interp_metadata(hor_intp_type=HINTP_TYPE_LONLAT_NNB ))
 
     ! &      diag%acdnc(nproma,nlev,nblks_c)
     cf_desc    = t_cf_var('acdnc', 'm-3', 'cloud droplet number concentration', DATATYPE_FLT32)

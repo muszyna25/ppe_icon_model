@@ -3041,6 +3041,7 @@ CONTAINS
         ! additional special treatment needed for
         ! HBAS_CON: typeOfSecondFixedSurface = 101
         ! HTOP_CON: typeOfSecondFixedSurface = 101
+        ! HTOP_DC : typeOfSecondFixedSurface = 101
         ! HZEROCL : typeOfSecondFixedSurface = 101
         ! CLCL    : typeOfSecondFixedSurface = 1
         IF ( get_id(TRIM(info%name)) /= -1 ) THEN

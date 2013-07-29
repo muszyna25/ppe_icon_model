@@ -67,10 +67,11 @@ MODULE mo_nwp_diagnosis
   USE mo_time_config,        ONLY: time_config
   USE mo_lnd_nwp_config,     ONLY: nlev_soil
   USE mo_physical_constants, ONLY: lh_v     => alv, &      !! latent heat of vapourization
-                                   rd, cpd, rcvd, tmelt
+                                   rd, cpd, rcvd, tmelt, grav, cpd, vtmpc1
   USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config
   USE mo_io_config,          ONLY: lflux_avg
   USE mo_sync,               ONLY: global_max, global_min
+  USE mo_satad,              ONLY: sat_pres_water, spec_humi
 
   IMPLICIT NONE
 
@@ -148,6 +149,13 @@ CONTAINS
 !h  INTEGER :: ioverlap(nproma)
 !h  REAL(wp):: cld_cov(nproma)
     REAL(wp):: clearsky(nproma)
+
+    REAL(wp):: zbuoy, zqsat, zcond
+    INTEGER :: mtop_min
+    REAL(wp):: ztp(nproma), zqp(nproma)
+    INTEGER :: mlab(nproma)
+    REAL, PARAMETER :: grav_o_cpd = grav/cpd
+
     REAL(wp), PARAMETER:: eps_clc = 1.e-7_wp
 
     REAL(wp), PARAMETER :: zundef = -999._wp   ! undefined value for 0 deg C level
@@ -328,6 +336,55 @@ CONTAINS
       ENDDO
 !$OMP END DO
 
+! height of the top of dry convection
+ 
+!$OMP DO PRIVATE(jb, i_startidx,i_endidx,jc,jk, mlab,ztp,zqp, zbuoy, zqsat,zcond) ICON_OMP_DEFAULT_SCHEDULE
+      mtop_min = (ih_clch+ih_clcm)/2     ! minimum top index for dry convection
+      DO jb = i_startblk, i_endblk
+
+        CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
+          & i_startidx, i_endidx, rl_start, rl_end)
+
+        DO jc = i_startidx, i_endidx 
+          prm_diag%htop_dc(jc,jb) = zundef
+          mlab(jc) = 1
+          ztp (jc) = pt_diag%temp(jc,nlev,jb) + 0.25_wp
+          zqp (jc) = pt_prog_rcf%tracer(jc,nlev,jb,iqv)
+        ENDDO
+
+        DO jk = nlev-1, mtop_min, -1
+          DO jc = i_startidx, i_endidx 
+            IF ( mlab(jc) == 1) THEN
+              ztp(jc) = ztp(jc)  - grav_o_cpd*( p_metrics%z_mc(jc,jk,jb)    &
+             &                                 -p_metrics%z_mc(jc,jk+1,jb) )
+              zbuoy = ztp(jc)*( 1._wp + vtmpc1*zqp(jc) ) - pt_diag%tempv(jc,jk,jb)
+              zqsat = spec_humi( sat_pres_water(ztp(jc)), pt_diag%pres(jc,jk,jb) )
+              zcond = zqp(jc) - zqsat
+
+              IF ( zcond < 0._wp .AND. zbuoy > 0._wp) THEN
+                prm_diag%htop_dc(jc,jb) = p_metrics%z_ifc(jc,jk,jb)
+              ELSE
+                mlab(jc) = 0
+              END IF
+            END IF
+          ENDDO
+        ENDDO
+
+        DO jc = i_startidx, i_endidx 
+          IF ( prm_diag%htop_dc(jc,jb) > zundef) THEN
+            prm_diag%htop_dc(jc,jb) = MIN( prm_diag%htop_dc(jc,jb),        &
+           &                p_metrics%z_ifc(jc,nlevp1,jb) + 3000._wp )
+            IF ( prm_diag%locum(jc,jb)) THEN
+              prm_diag%htop_dc(jc,jb) = MIN( prm_diag%htop_dc(jc,jb),      &
+             &                               prm_diag%hbas_con(jc,jb) )
+            END IF
+          ELSE
+            prm_diag%htop_dc(jc,jb) = MIN( 0._wp, p_metrics%z_ifc(jc,nlevp1,jb) )
+          END IF
+        ENDDO
+
+      ENDDO ! nblks   
+!$OMP END DO
 
     END IF !cloud cover
 

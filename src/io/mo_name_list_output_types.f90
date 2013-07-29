@@ -73,11 +73,12 @@ MODULE mo_name_list_output_types
   INTEGER, PARAMETER :: IVERT                 = 3
 
   ! fields for which typeOfSecondFixedSurface must be re-set
-  CHARACTER(LEN=12), PARAMETER :: sfs_name_list(6) =(/"z_ifc       ", "topography_c", &
+  CHARACTER(LEN=12), PARAMETER :: sfs_name_list(7) =(/"z_ifc       ", "topography_c", &
     &                                                 "hbas_con    ", "htop_con    ", &
-    &                                                 "hzerocl     ", "clcl        "/)
+    &                                                 "hzerocl     ", "clcl        ", &
+    &                                                 "htop_dc     "/)
   ! typeOfSecondFixedSurface to be used
-  INTEGER          , PARAMETER :: second_tos(6)    =(/101, 101, 101, 101, 101, 1/)
+  INTEGER          , PARAMETER :: second_tos(7)    =(/101, 101, 101, 101, 101, 1, 101/)
 
   ! The following parameter decides whether physical or logical patches are output
   ! and thus whether the domain number in output name lists pertains to physical
