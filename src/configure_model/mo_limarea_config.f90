@@ -97,6 +97,11 @@ CONTAINS
        WRITE(message_text,'(a)')'Lateral boundary condition using the IFS boundary data.'
        CALL message(TRIM(routine),message_text)
 
+    ELSE IF (latbc_config%itype_latbc == 2) THEN
+
+       WRITE(message_text,'(a)')'Lateral boundary condition using the ICON global boundary data.'
+       CALL message(TRIM(routine),message_text)
+
     ELSE
        WRITE(message_text,'(a,i8)') 'Wrong lateral boundary condition mode:', latbc_config%itype_latbc
        CALL finish(TRIM(routine),message_text)

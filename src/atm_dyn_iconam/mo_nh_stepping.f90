@@ -503,7 +503,7 @@ MODULE mo_nh_stepping
 
     CALL add_time(dtime,0,0,0,datetime)
 
-    IF (l_limited_area .AND. (latbc_config%itype_latbc == 1)) THEN
+    IF (l_limited_area .AND. (latbc_config%itype_latbc .GT. 0)) THEN
 
       ! Check if we need to read boundary data
       CALL date_to_time(datetime)
@@ -884,7 +884,7 @@ MODULE mo_nh_stepping
       n_save = nsav2(jg)
       CALL message(TRIM(routine), TRIM(message_text))
 
-      IF (latbc_config%itype_latbc == 1) THEN
+      IF (latbc_config%itype_latbc .GT. 0) THEN
         
         ! compute the coefficients for the linear interpolation
         CALL date_to_time(datetime)
@@ -2135,7 +2135,7 @@ MODULE mo_nh_stepping
       &    't_elapsed_phy failed' )
   ENDIF
 
-  IF (l_limited_area .AND. (latbc_config%itype_latbc == 1)) THEN
+  IF (l_limited_area .AND. (latbc_config%itype_latbc .GT. 0)) THEN
     CALL deallocate_latbc_data(p_patch(1))
   ENDIF
 
@@ -2278,7 +2278,7 @@ MODULE mo_nh_stepping
   ENDDO
 
 
-  IF (l_limited_area .AND. (latbc_config%itype_latbc == 1)) THEN
+  IF (l_limited_area .AND. (latbc_config%itype_latbc .GT. 0)) THEN
     CALL allocate_latbc_data(p_patch(1), p_nh_state(1), ext_data(1))
 
     ! read the first time level...
