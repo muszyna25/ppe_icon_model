@@ -1753,7 +1753,7 @@ SUBROUTINE turbtran
         fm2_2d   (ie),    &
         fh2_2d   (ie),    &
         frc_2d   (ie),    &
-
+!
 !
         vel_2d   (ie),    &
         prs_2d   (ie),    &
@@ -3398,7 +3398,7 @@ SUBROUTINE turbdiff
            lpotinp=.FALSE., ladjout=.FALSE.,                                      &
 !
            icldmod=icldm_turb,                                                    &
-
+!
            zrcpv=zrcpv, zrcpl=zrcpl, zlhocp=zlhocp,                               &
 !
            prs=RESHAPE(ps,(/ie,1/)), t=RESHAPE(t_g, (/ie,1/)),                    &
@@ -4735,7 +4735,7 @@ SUBROUTINE turbdiff
                  linisetup, lnewvtype, lsflucond, lsfli(n),        & 
 !
                  rho=rhoh, rho_n=rhon, hhl=hhl, r_air=rair,        &
-
+!
                  tkv=vtyp(ivtype)%tkv, dzs=vtyp(ivtype)%dzs,       &
 !
                  disc_mom=a(:,:,1), expl_mom=a(:,:,2),             &
