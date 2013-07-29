@@ -338,8 +338,8 @@ CONTAINS
 
 ! height of the top of dry convection
  
-!$OMP DO PRIVATE(jb, i_startidx,i_endidx,jc,jk, mlab,ztp,zqp, zbuoy, zqsat,zcond) ICON_OMP_DEFAULT_SCHEDULE
       mtop_min = (ih_clch+ih_clcm)/2     ! minimum top index for dry convection
+!$OMP DO PRIVATE(jb, i_startidx,i_endidx,jc,jk, mlab,ztp,zqp, zbuoy, zqsat,zcond) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
