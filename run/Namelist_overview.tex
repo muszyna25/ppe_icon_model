@@ -2052,19 +2052,20 @@ Defined and used in: src/namelists/mo\_dynamics\_nml.f90
 \hline 
 itype\_latbc&
 I & 0& &
-Type of lateral boundary conditions\\
-0: from the previous time step \\
-1: from boundary data (only IFS analysis, so far)&
+Type of lateral boundary nudging. Nudge from\\
+0: the initial date,\\
+1: IFS data analysis/forecast,\\
+2: ICON output data (with the identical 3d grid)&
 \tabularnewline
 
 \hline 
 dtime\_latbc&
 R &
-43200.0&
+43200.0& s
 &
 Time step size of boundary data
 &
-itype\_latbc = 1
+itype\_latbc $\ge$ 1
 \tabularnewline
 
 \hline 
@@ -2073,11 +2074,11 @@ C &
 &
 &
 Filename of boundary data input file, default:\\
-''\texttt{<path>prepicon\_<gridfile>}''. May contain the \\
-keyword <path> which will be substituted by \\
+''\texttt{<path>prepicon<gridfile>\_<timestamp>}''. May contain the
+keyword ''\texttt{<path>}'' which will be substituted by
 \texttt{latbc\_path}.
 &
-itype\_latbc = 1
+itype\_latbc $\ge$ 1
 \tabularnewline
 
 \hline 
@@ -2087,7 +2088,7 @@ C &
 &
 Absolute path to boundary data.
 &
-itype\_latbc = 1
+itype\_latbc $\ge$ 1
 \tabularnewline
 
 \end{longtab}
