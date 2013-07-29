@@ -108,15 +108,6 @@ CONTAINS
     CALL close_nml
 
     !----------------------------------------------------
-    ! Sanity check
-    !----------------------------------------------------
-    SELECT CASE (itype_latbc)
-    CASE (0,1) !OK
-    CASE default
-      CALL finish(TRIM(routine),'Wrong value for itype_latbc. Must be 0 or 1.')
-    END SELECT
-
-    !----------------------------------------------------
     ! Fill the configuration state
     !----------------------------------------------------
     latbc_config% itype_latbc     = itype_latbc
