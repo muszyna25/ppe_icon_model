@@ -606,13 +606,24 @@ CONTAINS
         !   ice_slow sets the fluxes in Qatm to zero for a new accumulation in ice_fast
         !   this should be done by the coupler if ice_fast is moved to the atmosphere
 
+        CALL dbg_print('UpdSfc: hi before slow'    ,p_ice%hi       ,str_module,5, in_subset=p_patch%cells%owned)
+        CALL dbg_print('UpdSfc: Conc. before slow' ,p_ice%conc     ,str_module,5, in_subset=p_patch%cells%owned)
+        CALL dbg_print('UpdSfc: ConcSum. bef slow' ,p_ice%concSum  ,str_module,5, in_subset=p_patch%cells%owned)
+        CALL dbg_print('UpdSfc: T1 before slow'    ,p_ice%t1       ,str_module,5, in_subset=p_patch%cells%owned)
+        CALL dbg_print('UpdSfc: T2 before slow'    ,p_ice%t2       ,str_module,5, in_subset=p_patch%cells%owned)
         CALL ice_slow(p_patch, p_os, p_ice, Qatm, p_sfc_flx)
+        !---------DEBUG DIAGNOSTICS-------------------------------------------
+        CALL dbg_print('UpdSfc: hi after slow'     ,p_ice%hi       ,str_module,5, in_subset=p_patch%cells%owned)
+        CALL dbg_print('UpdSfc: Conc. after slow'  ,p_ice%conc     ,str_module,5, in_subset=p_patch%cells%owned)
+        CALL dbg_print('UpdSfc: ConcSum after slow',p_ice%concSum  ,str_module,5, in_subset=p_patch%cells%owned)
+        CALL dbg_print('UpdSfc: T1 after slow'     ,p_ice%t1       ,str_module,5, in_subset=p_patch%cells%owned)
+        CALL dbg_print('UpdSfc: T2 after slow'     ,p_ice%t2       ,str_module,5, in_subset=p_patch%cells%owned)
+        !---------------------------------------------------------------------
 
         ! limit sea ice thickness to seaice_limit of surface layer depth, without elevation
         !   - no energy balance correction
         !   - number of ice classes currently kice=1 - sum of classes must be limited
         !   - only sea ice, no snow is considered
-
         IF (seaice_limit < 0.999999_wp) THEN
           z_smax = seaice_limit*p_patch_3D%p_patch_1D(1)%del_zlev_m(1)
           DO jb = all_cells%start_block, all_cells%end_block
@@ -624,13 +635,11 @@ CONTAINS
         END IF
 
         !---------DEBUG DIAGNOSTICS-------------------------------------------
-        idt_src=1  ! output print level (1-5, fix)
-        CALL dbg_print('UpdSfc: hi after slow'     ,p_ice%hi       ,str_module,idt_src, in_subset=p_patch%cells%owned)
-        idt_src=2  ! output print level (1-5, fix)
-        CALL dbg_print('UpdSfc: Conc. after slow'  ,p_ice%conc     ,str_module,idt_src, in_subset=p_patch%cells%owned)
-        idt_src=3  ! output print level (1-5, fix)
-        CALL dbg_print('UpdSfc: T1 after slow'     ,p_ice%t1       ,str_module,idt_src, in_subset=p_patch%cells%owned)
-        CALL dbg_print('UpdSfc: T2 after slow'     ,p_ice%t2       ,str_module,idt_src, in_subset=p_patch%cells%owned)
+        CALL dbg_print('UpdSfc: hi aft. limitter'     ,p_ice%hi       ,str_module,5, in_subset=p_patch%cells%owned)
+        CALL dbg_print('UpdSfc: Conc. aft. limitter'  ,p_ice%conc     ,str_module,5, in_subset=p_patch%cells%owned)
+        CALL dbg_print('UpdSfc: ConcSum aft. limitter',p_ice%concSum  ,str_module,5, in_subset=p_patch%cells%owned)
+        CALL dbg_print('UpdSfc: T1 aft. limitter'     ,p_ice%t1       ,str_module,5, in_subset=p_patch%cells%owned)
+        CALL dbg_print('UpdSfc: T2 aft. limitter'     ,p_ice%t2       ,str_module,5, in_subset=p_patch%cells%owned)
         !---------------------------------------------------------------------
 
       ELSE   !  no sea ice
