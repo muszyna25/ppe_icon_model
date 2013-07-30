@@ -1345,12 +1345,17 @@ CONTAINS
 
     ice%hiold(:,:,:) = ice%hi(:,:,:)
     ice%hsold(:,:,:) = ice%hs(:,:,:)
+    CALL dbg_print('IceSlow: hi before groth' ,ice%hi ,str_module,5, in_subset=p_patch%cells%owned)
     ! #achim
     IF      ( i_ice_therm == 2 ) THEN
-      CALL ice_growth_winton    (p_patch,p_os,ice, QatmAve%rpreci)!, QatmAve%lat)
+      CALL ice_growth_winton    (p_patch, p_os, ice, QatmAve%rpreci)!, QatmAve%lat)
     ELSE IF ( i_ice_therm == 1 .OR. i_ice_therm == 3 ) THEN !2=zerolayer, 3=simple fluxes from dirk's thesis
-      CALL ice_growth_zerolayer (p_patch,p_os,ice, QatmAve%rpreci)
+      CALL ice_growth_zerolayer (p_patch, p_os, ice, QatmAve%rpreci)
     END IF
+
+    CALL dbg_print('IceSlow: hi after growth'       ,ice%hi ,str_module,5, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceSlow: Conc. after growth'    ,ice%conc ,str_module,5, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceSlow: ConcSum. after growth' ,ice%concSum ,str_module,5, in_subset=p_patch%cells%owned)
 
     CALL upper_ocean_TS (p_patch,p_os,ice, QatmAve, p_sfc_flx)
     CALL ice_conc_change(p_patch,ice, p_os,p_sfc_flx)
@@ -1360,6 +1365,9 @@ CONTAINS
     !sictho = ice%hi   (:,:,1) * ice%conc (:,:,1)
     !sicomo = ice%conc (:,:,1)
     !sicsno = ice%hs   (:,:,1) * ice%conc (:,:,1)
+    CALL dbg_print('IceSlow: hi endOf slow'      ,ice%hi ,str_module,5, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceSlow: Conc. endOf slow'   ,ice%conc ,str_module,5, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceSlow: ConcSum. endOf slow',ice%concSum ,str_module,5, in_subset=p_patch%cells%owned)
 
   END SUBROUTINE ice_slow
   !-------------------------------------------------------------------------
@@ -1778,7 +1786,7 @@ CONTAINS
       ice%conc(:,1,:) = ice%vol(:,1,:) / ( ice%hi(:,1,:)*p_patch%cells%area(:,:) )
     ENDWHERE
 
-    ice% concSum(:,:)  = SUM(ice% conc(:,:,:),2)
+    ice%concSum(:,:)  = SUM(ice%conc(:,:,:),2)
 
     WHERE (ice%hi(:,1,:) <= 0._wp)
       ice%Tsurf(:,1,:) = Tfw(:,:)
