@@ -219,14 +219,27 @@ end
 def doCleanSync(build)
   call(connect(build,"rm -rf src support build"))
 end
-def doRunExp(build,exp)
+def doRunExp(build,exp,post=false)
+  runScript = (post) ? 'post' : 'exp'
+  runScript << '.' + exp +'.run'
   call(connect(build,"cd experiments/#{exp}; test -f #{exp}*.nc && rm #{exp}*.nc"))
-  call(connect(build,"./make_runscripts #{exp} ; cd run;./exp.#{exp}.run;"))
+  call(connect(build,<<-EOS
+    ./make_runscripts #{exp}; 
+    cd run;
+    perl -pi.bak -e 's/submit=.*/submit=""/' #{runScript} ;
+    ./exp.#{exp}.run;
+    EOS
+  ))
 end
 def doSubmit(build,exp,post=false)
   runScript = (post) ? 'post' : 'exp'
   runScript << '.' + exp +'.run'
-  call(connect(build,"cd run;perl -pi.bak -e 's/partition=mpi-compute/partition=mpi-develop/' #{runScript} ;sbatch ./#{runScript}"))
+  call(connect(build,<<-EOS
+    cd run;
+    perl -pi.bak -e 's/partition=mpi-compute/partition=mpi-develop/' #{runScript} ;
+    sbatch ./#{runScript}
+    EOS
+  ))
 end
 def doSubmitExp(build,exp)
   doSubmit(build,exp)
