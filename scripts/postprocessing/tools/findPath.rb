@@ -8,9 +8,7 @@ module IconPathsAlongCells
   # R2B04: list of cellsof which their common edge define the path
   CellPairsLists= {
     :gibraltar      => [[4543,4485]],
-
     :denmarkStrait  => [[4690,4695]],
-
     :drakePassage   => [
       [18481,18495],
       [18483,18493],
@@ -57,27 +55,27 @@ module IconPathsAlongCells
 
     puts '#==========================================================================='
     CellPairsLists.each {|location,cellPairs|
+      puts '============================================================================='
+      puts location
+      puts ["cells: ", cellPairs.join(' ')].join
 
       verts, edges = [], []
       cellPairs.each {|cellpair|
-        pair_verts, pair_edges = [], []
+        verts, edges = [], []
         cellpair.each {|cell|
-          pair_edges << cellEdges[cell,0..-1].to_a
-          pair_verts << cellVertices[cell,0..-1].to_a
+          edges << cellEdges[cell,0..-1].to_a
+          verts << cellVertices[cell,0..-1].to_a
         }
-       # pp pair_edges
-       # puts
-        pair_verts.flatten.nonuniq.each {|v| verts << v}
-        pair_edges.flatten.nonuniq.each {|e| edges << e}
+        pp verts
+        puts
       }
+      verts = verts.flatten.nonuniq
+      edges = edges.flatten.nonuniq
 
-      paths[location] = {verts: verts.uniq, edges: edges.uniq, cells: cellPairs.flatten}
+      paths[location] = {verts: verts, edges: edges}
 
-      puts '============================================================================='
-      puts location
-      puts ["cells:        ", cellPairs.join(' ')].join
-      puts ["common verts: ", paths[location][:verts].join(',')].join
-      puts ["common edges: ", paths[location][:edges].join(',')].join
+      puts ["common verts: ", verts.join(',')].join
+      puts ["common edges: ", edges.join(',')].join
     }
     puts '============================================================================='
 
