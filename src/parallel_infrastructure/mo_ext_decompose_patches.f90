@@ -100,7 +100,6 @@ MODULE mo_ext_decompose_patches
 
   ! pointers to the work patches
   TYPE(t_patch), POINTER :: wrk_p_patch_g, wrk_p_parent_patch_g
-  TYPE(t_patch), POINTER :: wrk_divide_patch
 
   !-------------------------------------------------------------------------
   ! Definition of local parent patches
@@ -1772,10 +1771,12 @@ CONTAINS
   !! @par Revision History
   !! Initial version by Rainer Johanni, Nov 2009
   !!
-  SUBROUTINE divide_subset_geometric(subset_flag, n_proc, owner)
+  SUBROUTINE divide_subset_geometric(subset_flag, n_proc, wrk_divide_patch, &
+                                     owner)
 
     INTEGER, INTENT(in)    :: subset_flag(:) ! if > 0 a cell belongs to the subset
     INTEGER, INTENT(in)    :: n_proc   ! Number of processors
+    TYPE(t_patch), POINTER :: wrk_divide_patch
     INTEGER, INTENT(out)   :: owner(:) ! receives the owner PE for every cell
     ! (-1 for cells not in subset)
 

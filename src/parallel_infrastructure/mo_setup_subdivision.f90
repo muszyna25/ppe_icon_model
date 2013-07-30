@@ -98,7 +98,6 @@ MODULE mo_setup_subdivision
 
   ! pointers to the work patches
   TYPE(t_patch), POINTER :: wrk_p_patch_g, wrk_p_parent_patch_g
-  TYPE(t_patch), POINTER :: wrk_divide_patch
 
   !-------------------------------------------------------------------------
   ! Definition of local parent patches
@@ -602,8 +601,7 @@ CONTAINS
         ALLOCATE(tmp(wrk_p_parent_patch_g%n_patch_cells))
 
         IF(division_method(patch_no) == div_geometric) THEN
-          wrk_divide_patch => wrk_p_parent_patch_g
-          CALL divide_subset_geometric( flag_c, n_proc, tmp)
+          CALL divide_subset_geometric( flag_c, n_proc, wrk_p_parent_patch_g, tmp)
 #ifdef HAVE_METIS
         ELSE IF(division_method(patch_no) == div_metis) THEN
           CALL divide_subset_metis( flag_c, n_proc, wrk_p_parent_patch_g, tmp)
@@ -640,8 +638,7 @@ CONTAINS
         ! Divide complete patch
 
         IF(division_method(patch_no) == div_geometric) THEN
-          wrk_divide_patch => wrk_p_patch_g
-          CALL divide_subset_geometric(flag_c, n_proc, cell_owner)
+          CALL divide_subset_geometric(flag_c, n_proc, wrk_p_patch_g, cell_owner)
 #ifdef HAVE_METIS
         ELSE IF(division_method(patch_no) == div_metis) THEN
           CALL divide_subset_metis(flag_c, n_proc, wrk_p_patch_g, cell_owner)
@@ -1826,10 +1823,12 @@ CONTAINS
   !! @par Revision History
   !! Initial version by Rainer Johanni, Nov 2009
   !!
-  SUBROUTINE divide_subset_geometric(subset_flag, n_proc, owner)
+  SUBROUTINE divide_subset_geometric(subset_flag, n_proc, wrk_divide_patch, &
+                                     owner)
 
     INTEGER, INTENT(in)    :: subset_flag(:) ! if > 0 a cell belongs to the subset
     INTEGER, INTENT(in)    :: n_proc   ! Number of processors
+    TYPE(t_patch), POINTER :: wrk_divide_patch
     INTEGER, INTENT(out)   :: owner(:) ! receives the owner PE for every cell
     ! (-1 for cells not in subset)
 
