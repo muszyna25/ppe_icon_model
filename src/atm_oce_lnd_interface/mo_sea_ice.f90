@@ -1317,13 +1317,11 @@ CONTAINS
   !! Dirk Notz, following MPI-OM. Code transfered to ICON.
   !!
   SUBROUTINE ice_slow(p_patch, p_os,ice, QatmAve, p_sfc_flx)
-    TYPE(t_patch),            INTENT(IN)     :: p_patch
-    TYPE(t_hydro_ocean_state),INTENT(INOUT)  :: p_os
-    !TYPE(t_atmos_for_ocean),  INTENT(IN)     :: p_as
-    TYPE (t_sea_ice),         INTENT (INOUT) :: ice
-    !TYPE (t_atmos_fluxes),    INTENT (INOUT) :: Qatm
-    TYPE (t_atmos_fluxes),    INTENT (INOUT) :: QatmAve
-    TYPE(t_sfc_flx),          INTENT (INOUT) :: p_sfc_flx
+    TYPE (t_patch)            , INTENT(IN)     :: p_patch
+    TYPE (t_hydro_ocean_state), INTENT(INOUT)  :: p_os
+    TYPE (t_sea_ice)          , INTENT (INOUT) :: ice
+    TYPE (t_atmos_fluxes)     , INTENT (INOUT) :: QatmAve
+    TYPE (t_sfc_flx)          , INTENT (INOUT) :: p_sfc_flx
 
     REAL(wp),PARAMETER :: C_iw = 5.5e-3_wp ! Drag coefficient for ice/ocean drag
     INTEGER :: k
