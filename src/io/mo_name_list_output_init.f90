@@ -2894,7 +2894,8 @@ CONTAINS
         ! -------------------------------------------
 
         ! store GRIB_API library version
-        CALL vlistDefVarIntKey(vlistID, varID, "localVersionNumber" , gribGetAPIVersion())
+        ! TODO: replace by wrapper call in cdi not available yet (2013-07-29)
+        !CALL vlistDefVarIntKey(vlistID, varID, "localVersionNumber" , gribGetAPIVersion())
 
         !
       ELSE IF (grib_conf%localDefinitionNumber == 253) THEN
@@ -3009,8 +3010,9 @@ CONTAINS
         this_cf => info%cf
       END IF
 
-      IF (this_cf%long_name /= '') CALL vlistDefVarLongname(vlistID, varID, this_cf%long_name)
-      IF (this_cf%units /= '')     CALL vlistDefVarUnits(vlistID, varID,    this_cf%units)
+      IF (this_cf%long_name /= '')     CALL vlistDefVarLongname(vlistID, varID, this_cf%long_name)
+      IF (this_cf%standard_name /= '') CALL vlistDefVarStdname(vlistID, varID, this_cf%standard_name)
+      IF (this_cf%units /= '')         CALL vlistDefVarUnits(vlistID, varID, this_cf%units)
 
       ! Currently only real valued variables are allowed, so we can always use info%missval%rval
       IF (info%lmiss) CALL vlistDefVarMissval(vlistID, varID, info%missval%rval)
