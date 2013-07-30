@@ -232,10 +232,10 @@ CONTAINS
   !!
 
   SUBROUTINE ice_growth_winton(p_patch, p_os, ice, rpreci)!, lat)
-    TYPE(t_patch),             INTENT(IN), TARGET    :: p_patch 
+    TYPE(t_patch)            , INTENT(IN), TARGET    :: p_patch
     TYPE(t_hydro_ocean_state), INTENT(IN)            :: p_os
-    TYPE (t_sea_ice),          INTENT(INOUT)         :: ice
-    REAL(wp),                  INTENT(IN)            :: rpreci(:,:) 
+    TYPE(t_sea_ice)          , INTENT(INOUT)         :: ice
+    REAL(wp)                 , INTENT(IN)            :: rpreci(:, :)
                                    ! water equiv. solid precipitation rate [m/s] DIMENSION (ie,je)
     !REAL(wp),                  INTENT(IN)    :: lat(:,:,:) 
                                    !! lat. heat flux  [W/m^2] DIMENSION (ie,je,kice)
