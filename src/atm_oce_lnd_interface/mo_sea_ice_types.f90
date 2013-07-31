@@ -158,7 +158,7 @@ MODULE mo_sea_ice_types
       & LWin   (:,:)                ! incoming LW radiation flux                  [W/m2]
 
 ! Albedos
-    REAL(wp), ALLOCATABLE::     &
+    REAL(wp), POINTER ::     &
       & albvisdir (:,:,:),      & ! VIS direct/paralell (ice)
       & albvisdif (:,:,:),      & ! VIS diffuse (ice)
       & albnirdir (:,:,:),      & ! NIR direct/paralell (ice)
