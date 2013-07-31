@@ -270,27 +270,27 @@ CONTAINS
       &          lrestart_cont=.TRUE.)
 
     CALL add_var(ocean_restart_list, 'ice_u', p_ice%u ,&
-      &          GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE, &
+      &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
       &          t_cf_var('ice_u', 'm/s', 'zonal velocity', DATATYPE_FLT32),&
       &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
       &          ldims=(/nproma,nblks_c/),in_group=groups("ice_default"),&
       &          lrestart_cont=.TRUE.)
     CALL add_var(ocean_restart_list, 'ice_v', p_ice%v ,&
-      &          GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE, &
+      &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
       &          t_cf_var('ice_v', 'm/s', 'meridional velocity', DATATYPE_FLT32),&
       &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
       &          ldims=(/nproma,nblks_c/),in_group=groups("ice_default"),&
       &          lrestart_cont=.TRUE.)
 
     CALL add_var(ocean_restart_list, 'concSum', p_ice%concSum ,&
-      &          GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE, &
+      &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
       &          t_cf_var('concSum', '', 'total ice concentration', DATATYPE_FLT32),&
       &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
       &          ldims=(/nproma,nblks_c/),in_group=groups("ice_default"),&
       &          lrestart_cont=.TRUE.)
 
     CALL add_var(ocean_restart_list, 'newice', p_ice%newice ,&
-      &          GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE, &
+      &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
       &          t_cf_var('newice', 'm', 'new ice groth in open water', DATATYPE_FLT32),&
       &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
       &          ldims=(/nproma,nblks_c/),in_group=groups("ice_default"),&
@@ -813,6 +813,7 @@ CONTAINS
     TYPE(t_atmos_fluxes ), INTENT(INOUT) :: p_atm_f
     INTEGER,               INTENT(IN)    :: i_no_ice_thick_class
     ! Local variables
+    INTEGER :: ibits = DATATYPE_PACK16
     INTEGER :: nblks_c, ist
 
     CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_sea_ice:construct_atmos_fluxes'
@@ -908,46 +909,62 @@ CONTAINS
       CALL finish(TRIM(routine),'allocation for LWin failed')
      END IF
 
+    !albedos need to go into the restart
+    CALL add_var(ocean_restart_list, 'albvisdirw', p_atm_f%albvisdirw ,&
+      &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+      &          t_cf_var('albvisdirw', '', 'albvisdirw', DATATYPE_FLT32),&
+      &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
+      &          ldims=(/nproma,nblks_c/),in_group=groups("ice_default"),&
+      &          lrestart_cont=.TRUE.)
 
-    ALLOCATE(p_atm_f%albvisdirw(nproma,nblks_c), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for albvisdirw failed')
-    END IF
+    CALL add_var(ocean_restart_list, 'albvisdifw', p_atm_f%albvisdifw ,&
+      &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+      &          t_cf_var('albvisdifw', '', 'albvisdifw', DATATYPE_FLT32),&
+      &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
+      &          ldims=(/nproma,nblks_c/),in_group=groups("ice_default"),&
+      &          lrestart_cont=.TRUE.)
 
-    ALLOCATE(p_atm_f%albvisdifw(nproma,nblks_c), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for albvisdifw failed')
-    END IF
+    CALL add_var(ocean_restart_list, 'albnirdirw', p_atm_f%albnirdirw ,&
+      &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+      &          t_cf_var('albnirdirw', '', 'albnirdirw', DATATYPE_FLT32),&
+      &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
+      &          ldims=(/nproma,nblks_c/),in_group=groups("ice_default"),&
+      &          lrestart_cont=.TRUE.)
 
-    ALLOCATE(p_atm_f%albnirdirw(nproma,nblks_c), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for albnirdirw failed')
-    END IF
+    CALL add_var(ocean_restart_list, 'albnirdifw', p_atm_f%albnirdifw ,&
+      &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+      &          t_cf_var('albnirdifw', '', 'albnirdifw', DATATYPE_FLT32),&
+      &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
+      &          ldims=(/nproma,nblks_c/),in_group=groups("ice_default"),&
+      &          lrestart_cont=.TRUE.)
 
-    ALLOCATE(p_atm_f%albnirdifw(nproma,nblks_c), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for albnirdifw failed')
-    END IF
+    CALL add_var(ocean_restart_list, 'albvisdir', p_atm_f%albvisdir ,&
+      &          GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE, &
+      &          t_cf_var('albvisdir', '', 'albvisdir', DATATYPE_FLT32),&
+      &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
+      &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/),in_group=groups("ice_default"),&
+      &          lrestart_cont=.TRUE.)
 
-    ALLOCATE(p_atm_f%albvisdir(nproma,i_no_ice_thick_class,nblks_c), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for albvisdir failed')
-    END IF
+    CALL add_var(ocean_restart_list, 'albvisdif', p_atm_f%albvisdif ,&
+      &          GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE, &
+      &          t_cf_var('albvisdif', '', 'albvisdif', DATATYPE_FLT32),&
+      &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
+      &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/),in_group=groups("ice_default"),&
+      &          lrestart_cont=.TRUE.)
 
-    ALLOCATE(p_atm_f%albvisdif(nproma,i_no_ice_thick_class,nblks_c), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for albvisdif failed')
-    END IF
+    CALL add_var(ocean_restart_list, 'albnirdir', p_atm_f%albnirdir ,&
+      &          GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE, &
+      &          t_cf_var('albnirdir', '', 'albnirdir', DATATYPE_FLT32),&
+      &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
+      &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/),in_group=groups("ice_default"),&
+      &          lrestart_cont=.TRUE.)
 
-    ALLOCATE(p_atm_f%albnirdir(nproma,i_no_ice_thick_class,nblks_c), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for albnirdir failed')
-    END IF
-
-    ALLOCATE(p_atm_f%albnirdif(nproma,i_no_ice_thick_class,nblks_c), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for albnirdif failed')
-    END IF
+    CALL add_var(ocean_restart_list, 'albnirdif', p_atm_f%albnirdif ,&
+      &          GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE, &
+      &          t_cf_var('albnirdif', '', 'albnirdif', DATATYPE_FLT32),&
+      &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
+      &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/),in_group=groups("ice_default"),&
+      &          lrestart_cont=.TRUE.)
 
 
     ! Initialise everything with zero
@@ -1084,47 +1101,6 @@ CONTAINS
     DEALLOCATE(p_atm_f%LWin, STAT=ist)
     IF (ist/=SUCCESS) THEN
       CALL finish(TRIM(routine),'deallocation for LWin failed')
-    END IF
-
-
-    DEALLOCATE(p_atm_f%albvisdirw, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for albvisdirw failed')
-    END IF
-
-    DEALLOCATE(p_atm_f%albvisdifw, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for albvisdifw failed')
-    END IF
-
-    DEALLOCATE(p_atm_f%albnirdirw, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for albnirdirw failed')
-    END IF
-
-    DEALLOCATE(p_atm_f%albnirdifw, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for albnirdifw failed')
-    END IF
-
-    DEALLOCATE(p_atm_f%albvisdir, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for albvisdir failed')
-    END IF
-
-    DEALLOCATE(p_atm_f%albvisdif, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for albvisdif failed')
-    END IF
-
-    DEALLOCATE(p_atm_f%albnirdir, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for albnirdir failed')
-    END IF
-
-    DEALLOCATE(p_atm_f%albnirdif, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for albnirdif failed')
     END IF
 
     CALL message(TRIM(routine), 'end' )

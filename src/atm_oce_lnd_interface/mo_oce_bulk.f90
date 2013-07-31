@@ -566,6 +566,7 @@ CONTAINS
         ELSE
           Tfw = Tf
         ENDIF
+        CALL dbg_print('UpdSfc: ice albedo (bef. fast)'  ,Qatm%albvisdir ,str_module,5, in_subset=p_patch%cells%owned)
 
         DO jb = all_cells%start_block, all_cells%end_block
           CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
@@ -587,6 +588,7 @@ CONTAINS
             &   Qatm%albnirdif(:,:,jb), &
             &   doy=datetime%yeaday)
         ENDDO
+        CALL dbg_print('UpdSfc: ice albedo (aft. fast)'  ,Qatm%albvisdir ,str_module,5, in_subset=p_patch%cells%owned)
 
         ! Ocean albedo model
         Qatm%albvisdirw = albedoW
@@ -611,6 +613,7 @@ CONTAINS
         CALL dbg_print('UpdSfc: ConcSum. bef slow' ,p_ice%concSum  ,str_module,5, in_subset=p_patch%cells%owned)
         CALL dbg_print('UpdSfc: T1 before slow'    ,p_ice%t1       ,str_module,5, in_subset=p_patch%cells%owned)
         CALL dbg_print('UpdSfc: T2 before slow'    ,p_ice%t2       ,str_module,5, in_subset=p_patch%cells%owned)
+        CALL dbg_print('UpdSfc: TSurf before slow'    ,p_ice%tsurf ,str_module,5, in_subset=p_patch%cells%owned)
         CALL ice_slow(p_patch, p_os, p_ice, Qatm, p_sfc_flx)
         !---------DEBUG DIAGNOSTICS-------------------------------------------
         CALL dbg_print('UpdSfc: hi after slow'     ,p_ice%hi       ,str_module,5, in_subset=p_patch%cells%owned)
@@ -618,6 +621,7 @@ CONTAINS
         CALL dbg_print('UpdSfc: ConcSum after slow',p_ice%concSum  ,str_module,5, in_subset=p_patch%cells%owned)
         CALL dbg_print('UpdSfc: T1 after slow'     ,p_ice%t1       ,str_module,5, in_subset=p_patch%cells%owned)
         CALL dbg_print('UpdSfc: T2 after slow'     ,p_ice%t2       ,str_module,5, in_subset=p_patch%cells%owned)
+        CALL dbg_print('UpdSfc: TSurf before slow' ,p_ice%tsurf ,str_module,5, in_subset=p_patch%cells%owned)
         !---------------------------------------------------------------------
 
         ! limit sea ice thickness to seaice_limit of surface layer depth, without elevation
