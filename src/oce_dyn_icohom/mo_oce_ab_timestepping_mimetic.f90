@@ -190,11 +190,11 @@ SUBROUTINE solve_free_sfc_ab_mimetic(p_patch_3D, p_os, p_ext_data, p_sfc_flx, &
   !       & routine = ('mo_oce_ab_timestepping_mimetic:solve_free_sfc_ab_mimetic')
   !-------------------------------------------------------------------------------
   patch_horz => p_patch_3D%p_patch_2D(1)
-  all_cells    => p_patch_3D%p_patch_2D(1)%cells%all
-  all_edges    => p_patch_3D%p_patch_2D(1)%edges%all
+  all_cells  => p_patch_3D%p_patch_2D(1)%cells%all
+  all_edges  => p_patch_3D%p_patch_2D(1)%edges%all
   !-------------------------------------------------------------------------------
   !CALL message (TRIM(routine), 'start')
-  tolerance                         = solver_tolerance
+  tolerance                            = solver_tolerance
   z_h_c(1:nproma,1:patch_horz%nblks_c) = 0.0_wp
   z_h_e(1:nproma,1:patch_horz%nblks_e) = 0.0_wp
 
