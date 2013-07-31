@@ -6,9 +6,21 @@
 #
 #------------------------------------------------------------------------------
 #
+function (_reduce_list _list _prefix )
+  set (_result)
+  foreach (_member ${ARGN})
+    if (_member MATCHES "(.*)${_prefix}/(.*)")
+      string (REGEX REPLACE "${_prefix}" "" _member ${_member})
+      list (APPEND _result ${_member})
+    endif()
+  endforeach()
+  set (${_list} ${_result} PARENT_SCOPE)
+endfunction(_reduce_list)
+#
+#------------------------------------------------------------------------------
+#
 
 set (_netcdf_root "$ENV{NETCDFROOT}")
-message (STATUS "NETCDFROOT: ${_netcdf_root}")
 
 # first find the netCDF configuration information program nc-config
 
@@ -36,29 +48,33 @@ if (_netcdf_config_executable MATCHES "NOTFOUND")
 
   # this is netcdf version 3, get full version number first
 
-  execute_process (COMMAND ${_netcdf_dump_executable} ERROR_VARIABLE _ncdump_version)
+  execute_process (COMMAND ${_netcdf_dump_executable} 
+    ERROR_VARIABLE _ncdump_version)
   string (REGEX REPLACE ".*\"([.0-9]+)\".*" "\\1" _netcdf_version "${_ncdump_version}")
 
   # check for C header and C library
 
 else()
 
-  execute_process (COMMAND ${_netcdf_config_executable} --version OUTPUT_VARIABLE _netcdf_version) 
+  execute_process (COMMAND ${_netcdf_config_executable} --version 
+    OUTPUT_VARIABLE _netcdf_version) 
   string (REGEX MATCHALL "([.0-9]+)" _netcdf_version "${_netcdf_version}")
-  string (REGEX REPLACE ".*\\.([0-9]+).*" "\\1" _netcdf_minor_version "${_netcdf_version}")
-  message (STATUS "netCDF minor version: ${_netcdf_vminor_ersion}")
+  string (REGEX REPLACE "[0-9]+\\.([0-9]+).*" "\\1" _netcdf_minor_version "${_netcdf_version}")
 
 endif()
-message (STATUS "netCDF version: ${_netcdf_version}")
 
-find_path(NETCDF_INCLUDE_DIR netcdf.h 
+# catch C first, all versions have the same storage pattern
+# do we have hdf5 based netcdf support build in
+
+set (_netcdf_nc4_support "no") 
+if (_netcdf_version VERSION_GREATER 3)
+  execute_process (COMMAND ${_netcdf_config_executable} --has-nc4 
+    OUTPUT_VARIABLE _netcdf_nc4_support 
+    OUTPUT_STRIP_TRAILING_WHITESPACE) 
+endif()
+
+find_path(NETCDF_C_INCLUDE_DIR netcdf.h 
   HINTS ${_netcdf_root}/include)
-
-find_library(
-  NETCDF_Fortran_LIBRARY 
-  NAMES netcdff
-  HINTS ${_netcdf_root}/lib
-)
 
 find_library(
   NETCDF_C_LIBRARY 
@@ -66,10 +82,87 @@ find_library(
   HINTS ${_netcdf_root}/lib
 )
 
-mark_as_advanced(NETCDF_LIBRARY NETCDF_INCLUDE_DIR)
+mark_as_advanced(NETCDF_C_LIBRARY NETCDF_C_INCLUDE_DIR)
 
-message (STATUS "netCDF include directory: ${NETCDF_INCLUDE_DIR}")
-message (STATUS "netCDF libraries        : ${NETCDF_Fortran_LIBRARY} ${NETCDF_C_LIBRARY}")
+message (STATUS "netCDF C include directory       : ${NETCDF_C_INCLUDE_DIR}")
+message (STATUS "netCDF C libraries               : ${NETCDF_C_LIBRARY}")
+
+if (_netcdf_nc4_support)
+
+  message (STATUS "netCDF installation supports nc4 format (hdf5 based)")
+
+  # need to find the required libraries, information can only be retrieved 
+  # from --cflags option of nc-config 
+  
+  execute_process (COMMAND ${_netcdf_config_executable} --cflags 
+    OUTPUT_VARIABLE _netcdf_cflags
+    OUTPUT_STRIP_TRAILING_WHITESPACE) 
+
+  string (REGEX MATCHALL "-I([^\ ]+\ |[^\ ]+$)" _cflags_list "${_netcdf_cflags}")  
+  _reduce_list (_all_includes_list "-I" ${_cflags_list})
+  foreach (_include ${_all_includes_list})
+    string (TOLOWER  "${_include}" _include_lc)
+    if (_include_lc MATCHES "hdf")
+      string (REGEX REPLACE "/include" "" _hdf5_root "${_include}")
+      message (STATUS "HDF5 root directory: ${_hdf5_root}") 
+    endif()
+  endforeach()
+
+endif()
+
+
+# catch Fortran with different storage patterns
+#
+# 1. netcdf 3 has only one way we know of: it is included in the 
+#    C library (interface via cfortran.h) and an include file must 
+#    be available. Need to check if include file exists. If yes
+#    C paths are sufficient for proper linking.
+#
+# 2. netcdf 4 before netcdf 4.2
+#
+# 3. netcdf 4.2 and newer
+#
+
+if (_netcdf_version VERSION_LESS 4.0)
+
+  find_path(NETCDF_Fortran_INCLUDE_DIR netcdf.inc
+    HINTS ${_netcdf_root}/include)
+
+  set (NETCDF_Fortran_MODULE_DIR "n/a")
+
+  find_library(
+    NETCDF_Fortran_LIBRARY 
+    NAMES netcdf
+    HINTS ${_netcdf_root}/lib)
+
+elseif (_netcdf_version VERSION_LESS 4.2)
+
+  message (STATUS "using netcdf 4.0 search pattern")
+
+  find_path(NETCDF_Fortran_INCLUDE_DIR netcdf.inc 
+    HINTS ${_netcdf_root}/include)
+
+  find_path(NETCDF_Fortran_MODULE_DIR netcdf.mod 
+    HINTS ${_netcdf_root}/include)
+
+  find_library(
+    NETCDF_Fortran_LIBRARY 
+    NAMES netcdff
+    HINTS ${_netcdf_root}/lib
+)
+
+else()
+
+  message (STATUS "using netcdf 4.2 search pattern")
+
+  set (_netcdf_root "$ENV{NETCDFFROOT}")
+  message (STATUS "NETCDFFROOT: ${_netcdf_root}")
+
+endif()
+
+message (STATUS "netCDF Fortran include directory : ${NETCDF_Fortran_INCLUDE_DIR}")
+message (STATUS "netCDF Fortran module directory  : ${NETCDF_Fortran_MODULE_DIR}")
+message (STATUS "netCDF Fortran libraries         : ${NETCDF_Fortran_LIBRARY}")
 
 # Per-recommendation
 set (NETCDF_INCLUDE_DIRS "${NETCDF_INCLUDE_DIR}")
