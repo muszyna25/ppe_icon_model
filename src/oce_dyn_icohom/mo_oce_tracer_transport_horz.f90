@@ -132,11 +132,11 @@ SUBROUTINE advect_diffuse_flux_horz( p_patch_3D,          &
   INTEGER  :: jc, jk, jb, je
   !REAL(wp) :: max_flux(1:n_zlev),min_flux(1:n_zlev)
   !REAL(wp) :: z_vn         (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
-  REAL(wp) :: z_adv_flux_h (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)  ! horizontal advective tracer flux
-  REAL(wp) :: z_adv_flux_h2 (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)  ! horizontal advective tracer flux
-  REAL(wp) :: z_div_adv_h  (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)   ! horizontal tracer divergence
-  REAL(wp) :: z_div_diff_h (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)  ! horizontal tracer divergence
-  REAL(wp) :: z_diff_flux_h(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e) ! horizontal diffusive tracer flux  
+  REAL(wp) :: z_adv_flux_h (nproma, n_zlev, p_patch_3D%p_patch_2D(1)%nblks_e)  ! horizontal advective tracer flux
+  REAL(wp) :: z_adv_flux_h2(nproma, n_zlev, p_patch_3D%p_patch_2D(1)%nblks_e)  ! horizontal advective tracer flux
+  REAL(wp) :: z_div_adv_h  (nproma, n_zlev, p_patch_3D%p_patch_2D(1)%nblks_c)   ! horizontal tracer divergence
+  REAL(wp) :: z_div_diff_h (nproma, n_zlev, p_patch_3D%p_patch_2D(1)%nblks_c)  ! horizontal tracer divergence
+  REAL(wp) :: z_diff_flux_h(nproma, n_zlev, p_patch_3D%p_patch_2D(1)%nblks_e) ! horizontal diffusive tracer flux
   !REAL(wp) :: z_flux_2D    (nproma,p_patch_3D%p_patch_2D(1)%nblks_e)
   !TYPE(t_cartesian_coordinates):: z_vn_c   (nproma,p_patch_3D%p_patch_2D(1)%nblks_c)
   !TYPE(t_cartesian_coordinates):: z_vn_c_3D(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)
@@ -150,12 +150,12 @@ SUBROUTINE advect_diffuse_flux_horz( p_patch_3D,          &
   cells_in_domain => p_patch%cells%in_domain
   !-------------------------------------------------------------------------------
   !z_vn         (1:nproma,1:n_zlev,1:p_patch%nblks_e)=0.0_wp
-  z_adv_flux_h (1:nproma,1:n_zlev,1:p_patch%nblks_e)=0.0_wp
-  z_adv_flux_h2 (1:nproma,1:n_zlev,1:p_patch%nblks_e)=0.0_wp
-  z_div_adv_h  (1:nproma,1:n_zlev,1:p_patch%nblks_c)=0.0_wp
-  z_div_diff_h (1:nproma,1:n_zlev,1:p_patch%nblks_c)=0.0_wp
-  z_diff_flux_h(1:nproma,1:n_zlev,1:p_patch%nblks_e)=0.0_wp
-  flux_horz    (1:nproma,1:n_zlev,1:p_patch%nblks_c)=0.0_wp
+  z_adv_flux_h  (:,:,:) = 0.0_wp
+  z_adv_flux_h2 (:,:,:) = 0.0_wp
+  z_div_adv_h   (:,:,:) = 0.0_wp
+  z_div_diff_h  (:,:,:) = 0.0_wp
+  z_diff_flux_h (:,:,:) = 0.0_wp
+  flux_horz     (:,:,:) = 0.0_wp
   !z_flux_2D    (1:nproma,1:p_patch%nblks_e)         = 0.0_wp
   !z_vn_c(1:nproma,1:p_patch%nblks_c)%x(1)  =0.0_wp
   !z_vn_c(1:nproma,1:p_patch%nblks_c)%x(2)  =0.0_wp
@@ -321,7 +321,7 @@ SUBROUTINE advect_diffuse_flux_horz( p_patch_3D,          &
 
 
   !Calculate divergence of advective and diffusive fluxes
-  CALL div_oce_3D( z_adv_flux_h, p_patch,p_op_coeff%div_coeff, z_div_adv_h,&
+  CALL div_oce_3d( z_adv_flux_h, p_patch,p_op_coeff%div_coeff, z_div_adv_h,&
      & subset_range=cells_in_domain)
 
   CALL div_oce_3D( z_diff_flux_h, p_patch,p_op_coeff%div_coeff, z_div_diff_h, &
@@ -346,10 +346,10 @@ SUBROUTINE advect_diffuse_flux_horz( p_patch_3D,          &
 
   !---------DEBUG DIAGNOSTICS-------------------------------------------
   idt_src=2  ! output print level (1-5, fix)
-  CALL dbg_print('AdvDifHorz: adv_flux_h'     ,z_adv_flux_h                ,str_module,idt_src)
-  CALL dbg_print('AdvDifHorz: div adv_flux_h' ,z_div_adv_h                 ,str_module,idt_src)
-  CALL dbg_print('AdvDifHorz: div diff_flux_h',z_div_diff_h                ,str_module,idt_src)
-  CALL dbg_print('AdvDifHorz: flux_horz'     ,flux_horz                   ,str_module,idt_src)
+  CALL dbg_print('AdvDifHorz: adv_flux_h'     ,z_adv_flux_h                ,str_module,idt_src,edges_in_domain)
+  CALL dbg_print('AdvDifHorz: div adv_flux_h' ,z_div_adv_h                 ,str_module,idt_src,cells_in_domain)
+  CALL dbg_print('AdvDifHorz: div diff_flux_h',z_div_diff_h                ,str_module,idt_src,cells_in_domain)
+  CALL dbg_print('AdvDifHorz: flux_horz'      ,flux_horz                   ,str_module,idt_src,cells_in_domain)
   !CALL dbg_print('AdvDifHorz: div_mass_flx_c',p_os%p_diag%div_mass_flx_c  ,str_module,idt_src)
   !---------------------------------------------------------------------
 
@@ -1101,8 +1101,8 @@ END SUBROUTINE advect_diffuse_flux_horz
           ! Limited flux
           p_mflx_tracer_h(je,jk,jb) = z_mflx_low(je,jk,jb)               &
             &                       + MIN(1._wp,r_frac) * z_anti(je,jk,jb)
-          ELSE
-            p_mflx_tracer_h(je,jk,jb)= 0.0_wp
+        ELSE
+          p_mflx_tracer_h(je,jk,jb)= 0.0_wp
         ENDIF
         END DO
       ENDDO
