@@ -384,38 +384,41 @@ task parTaskName do
   }
   q.run
 end
-# tasks for parallel run of other tasks in an Xtra terminal and shut them when finished
-parTaskName       = :parX
-terminalEmulators = ['gnome-terminal','xterm']
-desc "parallel run of other tasks in an Xtra terminal and shut them when finished"
-task parTaskName do
-  dbg(Rake.application.top_level_tasks)
-  Rake.application.top_level_tasks.clear
-  dbg(Rake::Task.tasks.find_all {|t| (ARGV - [parTaskName.to_s]).include?(t.name)})
-  q = SystemJobs.new
-  (Rake::Task.tasks.find_all {|t| (ARGV - [parTaskName.to_s]).include?(t.name)}).each {|t|
-    cmd = "#{terminalEmulators[1]} -T 'rake #{t.name}' -e 'rake #{t.name};'"
-    dbg(cmd)
-    q.push(cmd)
-  }
-  q.run
-end
-# tasks for parallel run of other tasks in an Xtra terminal and keep them open
-parTaskName       = :parXWait
-terminalEmulators = ['gnome-terminal','xterm']
-desc "parallel run of other tasks in an Xtra terminal and keep them open"
-task parTaskName do
-  dbg(Rake.application.top_level_tasks)
-  Rake.application.top_level_tasks.clear
-  dbg(Rake::Task.tasks.find_all {|t| (ARGV - [parTaskName.to_s]).include?(t.name)})
-  q = SystemJobs.new
-  (Rake::Task.tasks.find_all {|t| (ARGV - [parTaskName.to_s]).include?(t.name)}).each {|t|
-    cmd = "#{terminalEmulators[1]} -T 'rake #{t.name}' -e 'rake #{t.name};read'"
-    dbg(cmd)
-    q.push(cmd)
-  }
-  q.run
-end
+# tasks for parallel run of other tasks in an Xtra terminal
+[
+  :parX,     # shut the terminal when finished
+  :parXWait  # keep the terminal open when finished (shut with ENTER)
+].each {|parTaskName|
+  terminalEmulators = ['gnome-terminal','xterm']
+  help = "parallel run of other tasks in an Xtra terminal"
+  help += (parTaskName == :parX) ? " - shut at finish" : " - keep open at finish"
+  desc help
+  task parTaskName do
+    dbg(Rake.application.top_level_tasks)
+
+    # remote the task from the internal task list because they will be started in a sub-thread
+    Rake.application.top_level_tasks.clear
+
+    # create a task list from the command line
+    ARGV.shift
+    taskList = ARGV
+    dbg(taskList)
+
+    # parallel execution queue
+    q = JobQueue.new
+
+    # execute everything from the cmldline, which has a corresponding task
+    (Rake::Task.tasks.find_all {|t| ARGV.include?(t.name)}).each {|t|
+      cmd = (parTaskName == :parX) \
+        ? "#{terminalEmulators[1]} -T 'rake #{t.name}' -e 'rake #{t.name};'" \
+        : "#{terminalEmulators[1]} -T 'rake #{t.name}' -e 'rake #{t.name};read'"
+      q.push {
+        call(cmd)
+      }
+    }
+    q.run
+  end
+}
 
 desc "Check variables an user input"
 task :check do
