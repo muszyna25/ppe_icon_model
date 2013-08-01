@@ -1288,6 +1288,7 @@ MODULE mo_sgs_turbulence
     REAL(wp) :: flux_up, flux_dn, inv_dt
     REAL(wp) :: nabla2_e(nproma,p_patch%nlev,p_patch%nblks_e)
     REAL(wp) :: fac(nproma,p_patch%nlev,p_patch%nblks_c)
+    REAL(wp) :: fac_conv(nproma,p_patch%nlev,p_patch%nblks_c)
     REAL(wp) :: sflux(nproma,p_patch%nblks_c)
     REAL(wp), ALLOCATABLE, DIMENSION(:,:,:) :: a, b, c, rhs
     REAL(wp), ALLOCATABLE, DIMENSION(:)     :: var_new
@@ -1312,6 +1313,11 @@ MODULE mo_sgs_turbulence
 
     diff_smag_ic => prm_diag%tkvh
 
+!ICON_OMP_WORKSHARE
+    fac_conv(:,:,:) = 1._wp
+!ICON_OMP_END_WORKSHARE
+
+
     !Special treatment for different scalars: includes
     !boundary treatment also
 
@@ -1331,7 +1337,8 @@ MODULE mo_sgs_turbulence
                              i_startidx, i_endidx, rl_start, rl_end)
           DO jk = 1, nlev
             DO jc = i_startidx, i_endidx
-              fac(jc,jk,jb) = cpd * rcvd * exner(jc,jk,jb) / rho(jc,jk,jb)
+              fac(jc,jk,jb) = cpd * rcvd / rho(jc,jk,jb)
+              fac_conv(jc,jk,jb) = exner(jc,jk,jb)
             END DO
           END DO
           DO jc = i_startidx, i_endidx
@@ -1391,10 +1398,10 @@ MODULE mo_sgs_turbulence
           ! compute kh_smag_e * grad(var) 
           DO jk = 1, nlev
             DO je = i_startidx, i_endidx
-                nabla2_e(je,jk,jb) = diff_smag_e(je,jk,jb) *          &
-                         p_patch%edges%inv_dual_edge_length(je,jb)*   &
-                        (var(iecidx(je,jb,2),jk,iecblk(je,jb,2)) -    &
-                         var(iecidx(je,jb,1),jk,iecblk(je,jb,1)))
+                nabla2_e(je,jk,jb) = fac_conv(jc,jk,jb) * diff_smag_e(je,jk,jb) * &
+                                     p_patch%edges%inv_dual_edge_length(je,jb)*   &
+                                    (var(iecidx(je,jb,2),jk,iecblk(je,jb,2)) -    &
+                                     var(iecidx(je,jb,1),jk,iecblk(je,jb,1)))
             ENDDO
           ENDDO
         ENDDO
@@ -1449,10 +1456,10 @@ MODULE mo_sgs_turbulence
           DO jk = 2, nlev-1
             DO jc = i_startidx, i_endidx
               flux_up = diff_smag_ic(jc,jk,jb) * (var(jc,jk-1,jb) - var(jc,jk,jb)) * &
-                        p_nh_metrics%inv_ddqz_z_half(jc,jk,jb) 
+                        p_nh_metrics%inv_ddqz_z_half(jc,jk,jb) * fac_conv(jc,jk,jb)
 
               flux_dn = diff_smag_ic(jc,jk+1,jb) * (var(jc,jk,jb) - var(jc,jk+1,jb)) * &
-                        p_nh_metrics%inv_ddqz_z_half(jc,jk+1,jb) 
+                        p_nh_metrics%inv_ddqz_z_half(jc,jk+1,jb) * fac_conv(jc,jk+1,jb) 
 
               tot_tend(jc,jk,jb) = tot_tend(jc,jk,jb) + (flux_up - flux_dn) *  &
                               p_nh_metrics%inv_ddqz_z_full(jc,jk,jb) * fac(jc,jk,jb)
@@ -1476,7 +1483,7 @@ MODULE mo_sgs_turbulence
               flux_up = 0._wp
 
               flux_dn = diff_smag_ic(jc,2,jb) * (var(jc,1,jb) - var(jc,2,jb)) * &
-                        p_nh_metrics%inv_ddqz_z_half(jc,2,jb) 
+                        p_nh_metrics%inv_ddqz_z_half(jc,2,jb) * fac_conv(jc,2,jb)
 
               tot_tend(jc,1,jb) = tot_tend(jc,1,jb) + (flux_up- flux_dn) * &
                           p_nh_metrics%inv_ddqz_z_full(jc,1,jb) * fac(jc,1,jb)
@@ -1495,7 +1502,7 @@ MODULE mo_sgs_turbulence
                              i_startidx, i_endidx, rl_start, rl_end)
             DO jc = i_startidx, i_endidx
               flux_up = diff_smag_ic(jc,nlev,jb) * (var(jc,nlev-1,jb) - var(jc,nlev,jb)) * &
-                        p_nh_metrics%inv_ddqz_z_half(jc,nlev,jb) 
+                        p_nh_metrics%inv_ddqz_z_half(jc,nlev,jb) * fac_conv(jc,nlev,jb)
 
               flux_dn  = -sflux(jc,jb)
 
@@ -1523,10 +1530,10 @@ MODULE mo_sgs_turbulence
           DO jk = 2,nlev-1
             DO jc = i_startidx, i_endidx
               a(jc,jk,jb)   = - diff_smag_ic(jc,jk,jb) * p_nh_metrics%inv_ddqz_z_full(jc,jk,jb) * &
-                              p_nh_metrics%inv_ddqz_z_half(jc,jk,jb) 
+                              p_nh_metrics%inv_ddqz_z_half(jc,jk,jb) * fac_conv(jc,jk,jb) 
 
               c(jc,jk,jb)   = - diff_smag_ic(jc,jk+1,jb) * p_nh_metrics%inv_ddqz_z_full(jc,jk,jb) * &
-                              p_nh_metrics%inv_ddqz_z_half(jc,jk+1,jb)
+                              p_nh_metrics%inv_ddqz_z_half(jc,jk+1,jb) * fac_conv(jc,jk+1,jb)
            
               b(jc,jk,jb)   =  inv_dt - a(jc,jk,jb) - c(jc,jk,jb)
 
@@ -1546,7 +1553,7 @@ MODULE mo_sgs_turbulence
           DO jc = i_startidx, i_endidx
             a(jc,1,jb)   = 0._wp
             c(jc,1,jb)   = -diff_smag_ic(jc,2,jb) * p_nh_metrics%inv_ddqz_z_full(jc,1,jb) * &
-                             p_nh_metrics%inv_ddqz_z_half(jc,2,jb) 
+                             p_nh_metrics%inv_ddqz_z_half(jc,2,jb) * fac_conv(jc,2,jb) 
             b(jc,1,jb)   = inv_dt - a(jc,1,jb) - c(jc,1,jb)
             rhs(jc,1,jb) = var(jc,1,jb) * inv_dt 
           END DO
@@ -1562,7 +1569,7 @@ MODULE mo_sgs_turbulence
                              i_startidx, i_endidx, rl_start, rl_end)
           DO jc = i_startidx, i_endidx
             a(jc,nlev,jb)  = - diff_smag_ic(jc,nlev,jb) * p_nh_metrics%inv_ddqz_z_full(jc,nlev,jb) * &
-                           p_nh_metrics%inv_ddqz_z_half(jc,nlev,jb) 
+                           p_nh_metrics%inv_ddqz_z_half(jc,nlev,jb) * fac_conv(jc,nlev,jb)
             c(jc,nlev,jb)  = 0._wp
             b(jc,nlev,jb)  = inv_dt - a(jc,nlev,jb) - c(jc,nlev,jb)
             rhs(jc,nlev,jb)= var(jc,nlev,jb) * inv_dt + sflux(jc,jb) * p_nh_metrics%inv_ddqz_z_full(jc,nlev,jb) 
