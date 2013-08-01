@@ -98,9 +98,6 @@ MODULE mo_name_list_output_init
   &                                               REMAP_NONE, REMAP_REGULAR_LATLON,               &
   &                                               ILATLON, ICELL, IEDGE, IVERT,                   &
   &                                               sfs_name_list, second_tos, GRP_PREFIX
-#ifdef USE_CRAY_POINTER
-  USE mo_name_list_output,                  ONLY: set_mem_ptr_sp, set_mem_ptr_dp
-#endif
   USE mo_dictionary,                        ONLY: t_dictionary, dict_init,                        &
     &                                             dict_loadfile, dict_get, DICT_MAX_STRLEN
   USE mo_fortran_tools,                     ONLY: assign_if_present
@@ -143,6 +140,10 @@ MODULE mo_name_list_output_init
   PUBLIC :: parse_variable_groups
   PUBLIC :: init_name_list_output
   PUBLIC :: setup_output_vlist
+#ifdef USE_CRAY_POINTER
+  PUBLIC :: set_mem_ptr_sp
+  PUBLIC :: set_mem_ptr_dp
+#endif
 
 
   !------------------------------------------------------------------------------------------------
@@ -1819,6 +1820,23 @@ CONTAINS
 
   END SUBROUTINE set_reorder_info_lonlat
 
+#ifdef USE_CRAY_POINTER
+  !------------------------------------------------------------------------------------------------
+  ! Helper routines for setting mem_ptr with the correct size information
+
+  SUBROUTINE set_mem_ptr_sp(arr, len)
+    INTEGER          :: len
+    REAL(sp), TARGET :: arr(len)
+    mem_ptr_sp => arr
+  END SUBROUTINE set_mem_ptr_sp
+  !------------------------------------------------------------------------------------------------
+  SUBROUTINE set_mem_ptr_dp(arr, len)
+    INTEGER          :: len
+    REAL(dp), TARGET :: arr(len)
+    mem_ptr_dp => arr
+  END SUBROUTINE set_mem_ptr_dp
+#endif
+! USE_CRAY_POINTER
 
   !------------------------------------------------------------------------------------------------
   !> Sets up the vlist for a t_output_file structure
