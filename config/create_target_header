@@ -265,6 +265,8 @@ set_run_target_blizzard()
   let memory_size=${total_memory}/${use_mpi_procs_pernode}
   if [[ "$use_mpi" == "yes"  ]] ; then
     use_resources="$use_resources ConsumableMemory(${memory_size}mb)"
+  else
+    use_resources="$use_resources ConsumableMemory(4000mb)"
   fi
 
   # create header
