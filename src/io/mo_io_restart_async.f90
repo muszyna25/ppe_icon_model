@@ -59,6 +59,9 @@ MODULE mo_io_restart_async
   USE mo_io_restart_namelist,     ONLY: nmls, restart_namelist, delete_restart_namelists, &
     &                                   set_restart_namelist, get_restart_namelist
   USE mo_name_list_output_init,   ONLY: output_file
+#ifdef USE_CRAY_POINTER 
+  USE mo_name_list_output,        ONLY: set_mem_ptr_dp 
+#endif
 #ifndef HAVE_F2003
   USE mo_io_restart_namelist,     ONLY: nmllen_max
 #endif

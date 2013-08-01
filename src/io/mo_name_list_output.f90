@@ -119,6 +119,10 @@ MODULE mo_name_list_output
   PUBLIC :: close_name_list_output
   PUBLIC :: istime4name_list_output
   PUBLIC :: name_list_io_main_proc
+#ifdef USE_CRAY_POINTER
+  PUBLIC :: set_mem_ptr_sp
+  PUBLIC :: set_mem_ptr_dp
+#endif
 
 
   ! TYPE t_datetime has no default constructor for setting all members to 0 or a defined value.
