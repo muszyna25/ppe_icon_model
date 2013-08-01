@@ -371,27 +371,24 @@ task :allCleanSync do
   q.run
 end
 
-# tasks for parallel run of other tasks
-parTaskName = :par
-desc "tasks for parallel run of other tasks"
-task parTaskName do
-  dbg(Rake.application.top_level_tasks)
-  Rake.application.top_level_tasks.clear
-  dbg(Rake::Task.tasks.find_all {|t| (ARGV - [parTaskName.to_s]).include?(t.name)})
-  q = JobQueue.new
-  (Rake::Task.tasks.find_all {|t| (ARGV - [parTaskName.to_s]).include?(t.name)}).each {|task|
-    q.push { task.invoke }
-  }
-  q.run
-end
 # tasks for parallel run of other tasks in an Xtra terminal
 [
+  :par,      # execute everything in the calling terminal
   :parX,     # shut the terminal when finished
   :parXWait  # keep the terminal open when finished (shut with ENTER)
 ].each {|parTaskName|
   terminalEmulators = ['gnome-terminal','xterm']
-  help = "parallel run of other tasks in an Xtra terminal"
-  help += (parTaskName == :parX) ? " - shut at finish" : " - keep open at finish"
+  help = case parTaskName
+         when :par then
+           "execute all tasks in parallel"
+         when :parX then
+           "parallel run of other tasks in an Xtra terminal - shut when finished"
+         when :parXWait then
+           "parallel run of other tasks in an Xtra terminal - keep open when finished"
+         else
+           warn "Unknown task"
+           exit 1
+         end
   desc help
   task parTaskName do
     dbg(Rake.application.top_level_tasks)
@@ -408,13 +405,25 @@ end
     q = JobQueue.new
 
     # execute everything from the cmldline, which has a corresponding task
-    (Rake::Task.tasks.find_all {|t| ARGV.include?(t.name)}).each {|t|
-      cmd = (parTaskName == :parX) \
-        ? "#{terminalEmulators[1]} -T 'rake #{t.name}' -e 'rake #{t.name};'" \
-        : "#{terminalEmulators[1]} -T 'rake #{t.name}' -e 'rake #{t.name};read'"
-      q.push {
-        call(cmd)
-      }
+    taskList.each {|taskName|
+      dbg(taskName)
+
+      case parTaskName
+      when :par then
+        task = Rake::Task.tasks.find {|t| taskName == t.name }
+        if task.nil? then
+          warn "Unkown task: #{taskName}"
+          exit 2
+        else
+          q.push { task.invoke }
+        end
+
+      when :parX,:parXWait
+        cmd     = "#{terminalEmulators[1]} -T 'rake #{taskName}' -e 'rake #{taskName};'"
+        cmd[-1] = "read'" if :parXWait == parTaskName
+        q.push { call(cmd) }
+
+      end
     }
     q.run
   end
