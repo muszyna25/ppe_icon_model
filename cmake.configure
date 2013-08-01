@@ -23,11 +23,11 @@ fi
 #
 # test for FindNETCDF.cmake with netcdf-3.6.3
 # 
-CC=gcc \
-CFLAGS=-DpgiFortran \
-FC=gfortran \
-NETCDFROOT=/scratch/mpi/mh0033/m214089/sandbox/netcdf-3.6.3 \
-cmake $(pwd)
+#CC=gcc \
+#CFLAGS=-DpgiFortran \
+#FC=gfortran \
+#NETCDFROOT=/scratch/mpi/mh0033/m214089/sandbox/netcdf-3.6.3 \
+#cmake $(pwd)
 #
 # test for FindNETCDF.cmake with netcdf-4.1.3
 # 
@@ -38,8 +38,9 @@ cmake $(pwd)
 #
 # test for FindNETCDF.cmake with netcdf-4.2.1.1
 # 
-#CC=gcc CFLAGS=-DpgiFortran \
-#FC=gfortran \
-#NETCDFROOT=/sw/squeeze-x64/netcdf-4.2.1.1 \
-#cmake $(pwd)
+CC=gcc CFLAGS=-DpgiFortran \
+FC=gfortran \
+NETCDFROOT=/sw/squeeze-x64/netcdf-4.2.1.1-static \
+NETCDFFROOT=/sw/squeeze-x64/netcdf_fortran-4.2-static-gcc47 \
+cmake $(pwd)
 #________________________________________________________________________________________________

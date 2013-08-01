@@ -57,6 +57,7 @@ blas/xerbla.f -text
 /build_all -text
 /build_command.ecmwf -text
 /cmake.configure -text
+cmake/FindHDF5.cmake -text
 cmake/FindNETCDF.cmake -text
 config/config.guess -text
 config/config.h.SX -text
