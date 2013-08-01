@@ -98,6 +98,9 @@ MODULE mo_name_list_output_init
   &                                               REMAP_NONE, REMAP_REGULAR_LATLON,               &
   &                                               ILATLON, ICELL, IEDGE, IVERT,                   &
   &                                               sfs_name_list, second_tos, GRP_PREFIX
+#ifdef USE_CRAY_POINTER
+  USE mo_name_list_output,                  ONLY: set_mem_ptr_sp, set_mem_ptr_dp
+#endif
   USE mo_dictionary,                        ONLY: t_dictionary, dict_init,                        &
     &                                             dict_loadfile, dict_get, DICT_MAX_STRLEN
   USE mo_fortran_tools,                     ONLY: assign_if_present
