@@ -288,7 +288,7 @@ MODULE mo_ls_forcing
     END IF
 
     !Convert theta_l tendency to temp at once
-      ddt_temp_ls = (exner_gb*ddt_temp_ls + alv/cpd * ddt_ql_ls) * cpd/cvd
+      ddt_temp_ls = exner_gb*ddt_temp_ls + alv/cpd * ddt_ql_ls
     
   END SUBROUTINE apply_ls_forcing
 

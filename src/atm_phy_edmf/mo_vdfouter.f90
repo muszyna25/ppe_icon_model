@@ -604,11 +604,7 @@ IF (LHOOK) CALL DR_HOOK('VDFOUTER',0,ZHOOK_HANDLE)
 !xmk INVDF  = 2
 
 INVDF = CEILING(PTSPHY/500.0_JPRB) !take substep smaller than 500s
-!INVDF = MAX(INVDF,2)              !at lease 2 sub-steps
-
-!xxx
-
-INVDF  = 1
+INVDF = MAX(INVDF,2)              !at lease 2 sub-steps
 
 ZINVDF = 1.0_JPRB/INVDF
 
