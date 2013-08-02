@@ -169,6 +169,10 @@ doc/style/icon_standard.pdf -text
 doc/style/icon_standard.tex -text
 doc/technical/Diagnostics_and_Debugging.tex -text
 doc/technical/ICONAM_Coupling_to_Physics.tex -text
+doc/technical/async_restart/ICONImplementierungAsynchronerRestart-img001.png -text
+doc/technical/async_restart/ICONImplementierungAsynchronerRestart-img002.png -text
+doc/technical/async_restart/restart_module_doc.pdf -text
+doc/technical/async_restart/restart_module_doc.tex -text
 doc/technical/dwd_database/GRIB2_output_tables.tex -text
 doc/technical/dwd_database/database_main.pdf -text svneol=unset#unset
 doc/technical/dwd_database/database_main.tex -text
