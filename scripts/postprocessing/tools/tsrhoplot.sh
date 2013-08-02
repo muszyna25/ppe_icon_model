@@ -10,34 +10,39 @@
 #  updates Stephan:
 #   - use all timesteps available -> removes bias at decades/eof-file
 #   - use new variable names t_acc, s_acc, rhopot_acc of 'nml'-output
-#   - an init file must be provided since first timestep contains zero
+#   - an init file is generated using 10 days output (2001-01-11), since first timestep contains zero
 #
 # ==============================================================================
 set -ex
-#  An updated version of cdo is necessary with a working rhopot operator:
-     CDO="cdo"                   # no rhopot; rhopot available in ocean output
-ICONPLOT=/pool/data/ICON/tools/icon_plot.ncl
+#  Tools and their paths
+     CDO="cdo"                                   #  climate data operators
+ICONPLOT=/pool/data/ICON/tools/icon_plot.ncl     #  NCL-script
  ICONLIB=/pool/data/ICON/tools
 
 # ==============================================================================
 # ==============================================================================
 # we supppose, that all files belong to the same experiment
-#    fileListPath='/work/mh0287/users/stephan/Icon/icon-dev.tst/experiments/xmpiom.bliz.r10130.NAtl'
-# fileListPattern='xmpiom.bliz.r10130.NAtl_icon*_000[1-3].nc'
-#    fileListPath='/scratch/mpi/mh0287/users/m211032/Icon/icon-dev.new/experiments/xmpiom.r12690.upw.nor'
-# fileListPattern='xmpiom.r12690.upw.nor_R2B04_oce_DOM01_ML_000[1-5].nc'
-     fileListPath='/scratch/mpi/mh0287/users/m211032/Icon/icon-dev.new/experiments/xmpiom.r12690.upw.d400'
-  fileListPattern='xmpiom.r12690.upw.d400_R2B04_oce_DOM01_ML_0001.nc'
-  fileListPattern='xmpiom.r12690.upw.d400_R2B04_oce_DOM01_ML_000[1-5].nc'
-          Tempvar='t_acc'
-           Salvar='s_acc'
-           Rhovar='rhopot_acc'
-      MaskVarName='wet_c'
-      outputIdent='r12690.upw.d400'
-   outputDataFile="ano.TSrho.$outputIdent.nc"
+         expIdent='xmpiom.r12690.upw.d400'                                           # experiment identifier
+         expIdent='xmpiom.r12088.relice'                                             # experiment identifier
+         expIdent='xmpiom.r12088.norunoff'                                           # experiment identifier
+          expPath='/scratch/mpi/mh0287/users/m211032/Icon/icon-dev.new/experiments'  # experiment path
+     fileListPath="$expPath/$expIdent"                                               # output data path
+     fileListPath="$expPath/$expIdent/Output"                                        # output data path
+  fileListPattern="${expIdent}_R2B04_oce_DOM01_ML_000[1-5].nc"
+  fileListPattern="${expIdent}_iconR2B04-ocean_etopo40_planet_000[1-5].nc"
+      outputIdent='r12088.relice'                                                    # output file name appendix
+      outputIdent='r12088.norunoff'                                                  # output file name appendix
+          Tempvar='t_acc'                                                            # temperature variable name
+           Salvar='s_acc'                                                            # salinity variable name
+          Tempvar='T'                                                                # temperature variable name
+           Salvar='S'                                                                # salinity variable name
+   outputDataFile="ano.TSrho.$outputIdent.nc"                                        # output data file name
        PlotScript='ncl'               #  ncl-script, see below - not yet
        PlotScript='icon'              #  script icon_plot_ncl using ncl, see above
-
+# ==============================================================================
+# these variable names must not necessarily be changed
+           Rhovar='rhopot'                                                               # density variable name
+      MaskVarName='wet_c'
 # ==============================================================================
 #declare a fileListArray
 fileList=$(ls $fileListPath/$fileListPattern)
@@ -83,13 +88,15 @@ for file in $fileList; do
     $CDO fldmean tsrho_${pattern_num} fldmean_${pattern_num}
 
     # special treatment of first file "*0001.nc": contains zero!
-    if [[ $fnum == "0001.nc" ]]; then 
-      # no deldate available?
-      # seldate,2001-01-11,2010-12-30 for 10-days output only!
-      $CDO seldate,2001-01-11,2010-12-30 fldmean_${pattern_num} fldmean.noinit.nc
-      mv fldmean.noinit.nc fldmean_${pattern_num}
-    fi
-
+    #  - for _acc accumulated variables only
+    if [[ $Tempvar == "t_acc" ]]; then 
+      if [[ $fnum == "0001.nc" ]]; then 
+        # no deldate available?
+        # seldate,2001-01-11,2010-12-30 for 10-days output only!
+        $CDO seldate,2001-01-11,2010-12-30 fldmean_${pattern_num} fldmean.noinit.nc
+        mv fldmean.noinit.nc fldmean_${pattern_num}
+      fi  # file no=1
+    fi  # tempvar=t_acc
   fi  # create fldmean_${pattern_num}
   if [[ $fnum == "0001.nc" ]]; then 
     # now use first timestep with calculated data for hovmoeller: 2001-01-11:
