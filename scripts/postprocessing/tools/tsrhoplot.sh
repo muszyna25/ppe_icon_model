@@ -11,7 +11,10 @@
 #   - use all timesteps available -> removes bias at decades/eof-file
 #   - use new variable names t_acc, s_acc, rhopot_acc of 'nml'-output
 #   - an init file is generated using 10 days output (2001-01-11), since first timestep contains zero
+
+#  TBD:
 #
+
 # ==============================================================================
 set -ex
 #  Tools and their paths
@@ -25,17 +28,18 @@ ICONPLOT=/pool/data/ICON/tools/icon_plot.ncl     #  NCL-script
          expIdent='xmpiom.r12690.upw.d400'                                           # experiment identifier
          expIdent='xmpiom.r12088.relice'                                             # experiment identifier
          expIdent='xmpiom.r12088.norunoff'                                           # experiment identifier
+         expIdent='xmpiom.r12690.miu.d400'                                           # experiment identifier
           expPath='/scratch/mpi/mh0287/users/m211032/Icon/icon-dev.new/experiments'  # experiment path
-     fileListPath="$expPath/$expIdent"                                               # output data path
      fileListPath="$expPath/$expIdent/Output"                                        # output data path
-  fileListPattern="${expIdent}_R2B04_oce_DOM01_ML_000[1-5].nc"
-  fileListPattern="${expIdent}_iconR2B04-ocean_etopo40_planet_000[1-5].nc"
+     fileListPath="$expPath/$expIdent"                                               # output data path
+  fileListPattern="${expIdent}_iconR2B04-ocean_etopo40_planet_000[1-5].nc"           # 'nml' naming convention
+  fileListPattern="${expIdent}_R2B04_oce_DOM01_ML_000[1-5].nc"                       # 'vlist' naming convention
       outputIdent='r12088.relice'                                                    # output file name appendix
-      outputIdent='r12088.norunoff'                                                  # output file name appendix
-          Tempvar='t_acc'                                                            # temperature variable name
-           Salvar='s_acc'                                                            # salinity variable name
+      outputIdent='r12690.miu'                                                       # output file name appendix
           Tempvar='T'                                                                # temperature variable name
            Salvar='S'                                                                # salinity variable name
+          Tempvar='t_acc'                                                            # temperature variable name
+           Salvar='s_acc'                                                            # salinity variable name
    outputDataFile="ano.TSrho.$outputIdent.nc"                                        # output data file name
        PlotScript='ncl'               #  ncl-script, see below - not yet
        PlotScript='icon'              #  script icon_plot_ncl using ncl, see above
@@ -69,7 +73,7 @@ initFile=fldmean_init.$outputIdent.nc
 # ==============================================================================
 # using a mask file - contains no missing values
 maskFile='wetc.r2b4.r11xxx.nc'    # easy to generate - cdo selvar,wet_c
-
+maskFile="wetc.$expIdent.nc"      # current mask created automatically
 # ==============================================================================
 # Loop over all files in serial
 for file in $fileList; do
@@ -81,6 +85,10 @@ for file in $fileList; do
     if [[ -f tsrho_${pattern_num} ]]; then
       echo  "tsrho_${pattern_num} already exists!"
     else
+      if [[ ! -f "$maskFile" ]]; then 
+        # create maskFile
+        $CDO selvar,$MaskVarName $file $maskFile
+      fi
       # select variables, mask out land points - takes some time
       $CDO -div -selname,$Tempvar,$Salvar,$Rhovar $file $maskFile tsrho_${pattern_num}
     fi
@@ -99,7 +107,7 @@ for file in $fileList; do
     fi  # tempvar=t_acc
   fi  # create fldmean_${pattern_num}
   if [[ $fnum == "0001.nc" ]]; then 
-    # now use first timestep with calculated data for hovmoeller: 2001-01-11:
+    # now use first timestep for hovmoeller anomaly plot:
     $CDO seltimestep,1 fldmean_${pattern_num} $initFile
   fi
 done
