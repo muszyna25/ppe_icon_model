@@ -16,7 +16,7 @@ message (STATUS "Selected Fortran Compiler            : ${CMAKE_Fortran_COMPILER
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
 #_________________________________________________________________________________________________
 #
-set (C_C99_FLAG "-std=c99")
+set (C_C99_FLAG "-std=gnu99")
 set (CMAKE_C_FLAGS  "${C_C99_FLAG} $ENV{CFLAGS}")
 
 set (Fortran_PREPROCESS_FLAG "-cpp")
@@ -59,6 +59,10 @@ include_directories (${MPI_Fortran_INCLUDE_PATH})
 
 find_package (NETCDF)
 include_directories (${NETCDF_INCLUDE_DIR})
+
+if (NETCDF_REQUIRES_HDF5)
+  find_package(HDF5)
+endif()
 
 add_definitions (-DHAVE_LIBNETCDF -DHAVE_CF_INTERFACE)
 #_________________________________________________________________________________________________

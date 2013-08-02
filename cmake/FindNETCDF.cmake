@@ -90,25 +90,34 @@ if (_netcdf_nc4_support)
 
   message ("   netCDF installation supports nc4 format (hdf5 based)")
 
+  set (_netcdf_requires_hdf5)
+  set (_netcdf_required_hdf5_root)
+  
   # need to find the required libraries, information can only be retrieved 
   # from --cflags option of nc-config 
   
   execute_process (COMMAND ${_netcdf_config_executable} --cflags 
     OUTPUT_VARIABLE _netcdf_cflags
     OUTPUT_STRIP_TRAILING_WHITESPACE) 
-
+  
   string (REGEX MATCHALL "-I([^\ ]+\ |[^\ ]+$)" _cflags_list "${_netcdf_cflags}")  
   _reduce_list (_all_includes_list "-I" ${_cflags_list})
   foreach (_include ${_all_includes_list})
     string (TOLOWER  "${_include}" _include_lc)
     if (_include_lc MATCHES "hdf5")
-      string (REGEX REPLACE "/include" "" _hdf5_root "${_include}")
-      message ("   Used hdf5 library is             : ${_hdf5_root}") 
+      string (REGEX REPLACE "/include" "" _netcdf_required_hdf5_root "${_include}")
+      message ("   Used hdf5 library is             : ${_netcdf_required_hdf5_root}") 
+      set (_netcdf_requires_hdf5 "yes")
     endif()
   endforeach()
 
 endif()
 
+set (NETCDF_REQUIRES_HDF5 ${_netcdf_requires_hdf5} 
+  CACHE INTERNAL "set to yes, if nc4 support is enabled.")
+set (NETCDF_REQUIRED_HDF5_ROOT ${_netcdf_required_hdf5_root} 
+  CACHE STRING "if nc4 support is enabled gives used hdf5 installation directory.")
+mark_as_advanced (NETCDF_REQUIRES_HDF5 NETCDF_REQUIRED_HDF5_ROOT)
 
 # catch Fortran with different storage patterns
 #
