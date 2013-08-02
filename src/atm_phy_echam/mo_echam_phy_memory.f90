@@ -481,6 +481,8 @@ MODULE mo_echam_phy_memory
   TYPE(t_var_list),ALLOCATABLE :: prm_tend_list (:)  !< shape: (n_dom)
  
 CONTAINS
+
+
   !!--------------------------------------------------------------------------
   !!                SUBROUTINES FOR BUILDING AND DELETING VARIABLE LISTS 
   !!--------------------------------------------------------------------------
@@ -543,7 +545,10 @@ CONTAINS
     CALL message(TRIM(thismodule),'Construction of ECHAM physics state finished.')
 
   END SUBROUTINE construct_echam_phy_state
-  !-------------
+  !--------------------------------------------------------------------
+
+
+  !--------------------------------------------------------------------
   !>
   !! Release memory used by the state variable arrays and list arrays
   !!
@@ -581,10 +586,11 @@ CONTAINS
     CALL message(TRIM(thismodule),'Destruction of ECHAM physics state finished.')
 
   END SUBROUTINE destruct_echam_phy_state
-  !-------------
+  !--------------------------------------------------------------------
+
+
+  !--------------------------------------------------------------------
   !>
-  !!
-  !!
   SUBROUTINE new_echam_phy_field_list( k_jg, kproma, klev, kblks, ktracer,      &
                                      & ctracer_list, ksfc_type, listname, &
                                      & prefix, field_list, field          )
@@ -615,6 +621,8 @@ CONTAINS
 
     shape2d  = (/kproma,       kblks/)
     shape3d  = (/kproma, klev, kblks/)
+    shapesfc = (/kproma, kblks, ksfc_type/)
+
 
     ! Register a field list and apply default settings
 
@@ -1063,9 +1071,6 @@ CONTAINS
     !-------------------------
     ! Cloud and precipitation
     !-------------------------
-    shape2d  = (/kproma,       kblks/)
-    shape3d  = (/kproma, klev, kblks/)
-
     cf_desc    = t_cf_var('ACLC', 'm2 m-2', 'cloud area fraction, instantaneous', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(0,6,1, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( field_list, prefix//'aclc', field%aclc,                       &
@@ -1268,10 +1273,10 @@ CONTAINS
     !--------------------
     IF (get_lvdiff()) THEN
 
-      shape2d  = (/kproma,            kblks/)
-      shape3d  = (/kproma, klev,      kblks/)
+     ! shape2d  = (/kproma,            kblks/)
+     ! shape3d  = (/kproma, klev,      kblks/)
      !shapesfc = (/kproma, ksfc_type, kblks/)
-      shapesfc = (/kproma, kblks, ksfc_type/)
+     ! shapesfc = (/kproma, kblks, ksfc_type/)
 
      !ALLOCATE( field% ri     (nproma,nlev,nblks), &
       cf_desc    = t_cf_var('richardson_number', ' ', 'moist Richardson number', DATATYPE_FLT32)
