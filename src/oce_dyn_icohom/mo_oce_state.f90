@@ -731,7 +731,15 @@ CONTAINS
     INTEGER                        :: oce_tracer_codes(max_oce_tracer)
     CHARACTER(len=max_char_length) :: var_suffix
 
+    !-------------------------------------------------------------------------
 
+    !-------------------------------------------------------------------------
+    REAL(wp), POINTER ::        &
+      &  h(:,:)                ,& ! height of the free surface. Unit: [m]
+                                  ! dimension:(nproma, nblks_c)
+      &  vn(:,:,:)             ,& ! velocity component normal to cell edge. Unit [m/s]
+                                  ! dimension: (nproma, n_zlev, nblks_e)
+      &  t(:,:,:),s(:,:,:)          ! tracer concentration.
     !-------------------------------------------------------------------------
     WRITE(var_suffix,'(a,i2.2)') '_TL',timelevel
 
@@ -746,11 +754,11 @@ CONTAINS
       &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
       &          ldims=(/nproma,nblks_c/))
       IF (nnew(1) == timelevel) THEN
-        CALL add_var(ocean_default_list, 'h', p_os_prog%h , &
-      &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-      &          t_cf_var('h', 'm', 'surface elevation at cell center', DATATYPE_FLT32),&
-      &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
-      &          ldims=(/nproma,nblks_c/),in_group=groups("oce_prog"))
+        CALL add_ref(ocean_restart_list,'h'//TRIM(var_suffix), 'h', p_os_prog%h , &
+          &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+          &          t_cf_var('h', 'm', 'surface elevation at cell center', DATATYPE_FLT32),&
+          &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+          &          ldims=(/nproma,nblks_c/),in_group=groups("oce_prog"),loutput=.TRUE., lrestart=.FALSE.)
       ENDIF
 
     !! normal velocity component
@@ -760,10 +768,12 @@ CONTAINS
     &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_EDGE),&
     &            ldims=(/nproma,n_zlev,nblks_e/))
     IF (nnew(1)==timelevel) THEN
-      CALL add_var(ocean_default_list,'vn', p_os_prog%vn,GRID_UNSTRUCTURED_EDGE, ZA_DEPTH_BELOW_SEA, &
+      CALL add_ref(ocean_restart_list,'vn'//TRIM(var_suffix),'vn',p_os_prog%vn, &
+        &          GRID_UNSTRUCTURED_EDGE, ZA_DEPTH_BELOW_SEA, &
         &          t_cf_var('vn', 'm/s', 'normale velocity on edge,m', DATATYPE_FLT32),&
         &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_EDGE),&
-        &          ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("oce_prog"))
+        &          ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("oce_prog"), &
+        &          loutput=.TRUE.)
     ENDIF
 
     !! Tracers

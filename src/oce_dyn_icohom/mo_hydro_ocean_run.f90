@@ -78,7 +78,8 @@ USE mo_oce_state,              ONLY: t_hydro_ocean_state, t_hydro_ocean_acc, &
   &                                  construct_hydro_ocean_state, destruct_hydro_ocean_state, &
   &                                  init_coriolis_oce, init_oce_config, &
   &                                  set_lateral_boundary_values, construct_patch_3D, init_patch_3D, &
-  &                                  setup_ocean_namelists, ocean_default_list, check_ocean_subsets
+  &                                  setup_ocean_namelists, check_ocean_subsets, &
+  &                                  ocean_default_list, ocean_restart_list
 USE mo_oce_math_operators,     ONLY: calc_thickness! , height_related_quantities
 USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff, allocate_exp_coeff,par_init_operator_coeff,&
   &                                  update_diffusion_matrices
@@ -108,7 +109,9 @@ USE mo_oce_diagnostics,        ONLY: calculate_oce_diagnostics,&
   &                                  destruct_oce_diagnostics, t_oce_timeseries, &
   &                                  calc_moc, calc_psi
 USE mo_oce_ab_timestepping_mimetic, ONLY: init_ho_lhs_fields_mimetic
-!USE mo_mpi,                    ONLY: my_process_is_mpi_all_parallel
+USE mo_linked_list,            ONLY: t_list_element, find_list_element
+USE mo_var_list,               ONLY: print_var_list
+  USE mo_mpi,                               ONLY: my_process_is_stdio
   USE mo_time_config,          ONLY: time_config
   USE mo_master_control,       ONLY: is_restart_run
   USE mo_statistics
@@ -349,6 +352,9 @@ CONTAINS
       ENDIF
       ! compute mean values for output interval
       CALL compute_mean_ocean_statistics(p_os(1)%p_acc,p_sfc_flx,nsteps_since_last_output)
+
+      ! set the output variable pointer to the correct timelevel
+!TODO (ram)      CALL set_output_pointers
 
       IF (output_mode%l_nml) THEN
         CALL write_name_list_output( datetime, time_config%sim_time(1), jstep==nsteps)
@@ -705,5 +711,36 @@ CONTAINS
 
   SUBROUTINE new_ocean_statistics()
   END SUBROUTINE new_ocean_statistics
+
+  SUBROUTINE set_output_pointers
+
+    TYPE(t_list_element), POINTER :: output_var, prog_var
+    CHARACTER(len=max_char_length) :: timelevel
+   !-------------------------------------------------------------------------
+    WRITE(timelevel,'(a,i2.2)') '_TL',nnew(1)
+
+    !CALL print_var_list(ocean_restart_list)
+    output_var             =  find_list_element(ocean_restart_list,'h')
+    prog_var               =  find_list_element(ocean_restart_list,'h'//TRIM(timelevel))
+    IF (ASSOCIATED (output_var) .AND. ASSOCIATED(prog_var)) THEN
+      output_var%field%r_ptr => prog_var%field%r_ptr
+    ELSE
+      IF (my_process_is_stdio()) THEN
+        CALL finish('set_output_pointers', 'output_var h or h'//TRIM(timelevel)//'not ASSOCIATED')
+      ENDIF
+    ENDIF
+
+    output_var             =  find_list_element(ocean_restart_list,'vn')
+    prog_var               =  find_list_element(ocean_restart_list,'vn'//TRIM(timelevel))
+    output_var%field%r_ptr => prog_var%field%r_ptr
+
+    output_var             =  find_list_element(ocean_restart_list,'t')
+    prog_var               =  find_list_element(ocean_restart_list,'t'//TRIM(timelevel))
+    output_var%field%r_ptr => prog_var%field%r_ptr
+
+    output_var             =  find_list_element(ocean_restart_list,'s')
+    prog_var               =  find_list_element(ocean_restart_list,'s'//TRIM(timelevel))
+    output_var%field%r_ptr => prog_var%field%r_ptr
+  END SUBROUTINE set_output_pointers
 
 END MODULE mo_hydro_ocean_run
