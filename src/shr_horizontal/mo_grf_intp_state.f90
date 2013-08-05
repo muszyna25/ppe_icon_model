@@ -59,13 +59,15 @@ MODULE mo_grf_intp_state
 !
 USE mo_kind,                ONLY: wp
 USE mo_exception,           ONLY: message, finish
-USE mo_impl_constants,      ONLY: SUCCESS, min_rlcell_int, min_rledge_int, min_rlvert_int
+USE mo_impl_constants,      ONLY: SUCCESS, min_rlcell_int, min_rledge_int, min_rlvert_int, &
+                                  min_rlcell, min_rledge, min_rlvert
 USE mo_model_domain,        ONLY: t_patch, p_patch_local_parent
 USE mo_grid_config,         ONLY: n_dom, n_dom_start
 USE mo_impl_constants_grf,  ONLY: grf_bdyintp_start_c, grf_bdyintp_start_e, grf_nudgintp_start_c, &
-                                  grf_nudgintp_start_e, grf_bdyintp_end_c, grf_bdyintp_end_e
+                                  grf_nudgintp_start_e, grf_bdyintp_end_c, grf_bdyintp_end_e,     &
+                                  grf_fbk_start_c, grf_fbk_start_e
 USE mo_parallel_config,     ONLY: nproma
-USE mo_mpi,                 ONLY: my_process_is_mpi_parallel, p_pe
+USE mo_mpi,                 ONLY: p_pe
 
 USE mo_communication,       ONLY: t_comm_pattern, blk_no, idx_no, idx_1d, &
   &                               setup_comm_pattern, delete_comm_pattern, exchange_data
@@ -353,11 +355,9 @@ CALL message('mo_grf_intp_state:construct_2d_gridref_state', &
 DO jg = n_dom_start, n_dom
   CALL allocate_grf_state(ptr_patch(jg), ptr_grf_state(jg))
 ENDDO
-IF(my_process_is_mpi_parallel()) THEN
-  DO jg = n_dom_start+1, n_dom
-    CALL allocate_grf_state(p_patch_local_parent(jg), p_grf_state_local_parent(jg))
-  ENDDO
-ENDIF
+DO jg = n_dom_start+1, n_dom
+  CALL allocate_grf_state(p_patch_local_parent(jg), p_grf_state_local_parent(jg))
+ENDDO
 
 CALL message ('mo_grf_intp_state:construct_2d_gridref_state',   &
   & 'memory allocation finished')
@@ -1311,51 +1311,133 @@ SUBROUTINE create_grf_index_lists( p_patch_all, p_grf_state, p_int_state )
     ENDDO
 
     ! Adjust the communication patterns for lateral and upper boundary interpolation
-    IF ( my_process_is_mpi_parallel() ) THEN
-      p_pat => p_patch_all(icid)%comm_pat_interpol_scal_grf
-      DO ip = 1, 4
-        DO i = 1, p_pat(ip)%n_send
-          ib = p_pat(ip)%send_src_blk(i) 
-          ic = p_pat(ip)%send_src_idx(i) 
-          p_pat(ip)%send_src_idx(i) = inv_ind_c(ic,ib)
-          p_pat(ip)%send_src_blk(i) = 1 ! not needed here
-        ENDDO
-      ENDDO
 
-      p_pat => p_patch_all(icid)%comm_pat_interpol_scal_ubc
-      DO ip = 1, 4
-        DO i = 1, p_pat(ip)%n_send
-          ib = p_pat(ip)%send_src_blk(i) 
-          ic = p_pat(ip)%send_src_idx(i) 
-          p_pat(ip)%send_src_idx(i) = inv_ind_c(ic,ib)
-          p_pat(ip)%send_src_blk(i) = 1 ! not needed here
-        ENDDO
+    p_pat => p_patch_all(icid)%comm_pat_interpol_scal_grf
+    DO ip = 1, 4
+      DO i = 1, p_pat(ip)%n_send
+        ib = p_pat(ip)%send_src_blk(i) 
+        ic = p_pat(ip)%send_src_idx(i) 
+        p_pat(ip)%send_src_idx(i) = inv_ind_c(ic,ib)
+        p_pat(ip)%send_src_blk(i) = 1 ! not needed here
       ENDDO
+    ENDDO
 
-      p_pat => p_patch_all(icid)%comm_pat_interpol_vec_grf
-      DO ip = 1, 4
-        DO i = 1, p_pat(ip)%n_send
-          ib = p_pat(ip)%send_src_blk(i) 
-          ie = p_pat(ip)%send_src_idx(i) 
-          p_pat(ip)%send_src_idx(i) = inv_ind_e_lbc(ie,ib)
-          p_pat(ip)%send_src_blk(i) = 1 ! not needed here
-        ENDDO
+    p_pat => p_patch_all(icid)%comm_pat_interpol_scal_ubc
+    DO ip = 1, 4
+      DO i = 1, p_pat(ip)%n_send
+        ib = p_pat(ip)%send_src_blk(i) 
+        ic = p_pat(ip)%send_src_idx(i) 
+        p_pat(ip)%send_src_idx(i) = inv_ind_c(ic,ib)
+        p_pat(ip)%send_src_blk(i) = 1 ! not needed here
       ENDDO
+    ENDDO
 
-      p_pat => p_patch_all(icid)%comm_pat_interpol_vec_ubc
-      DO ip = 1, 4
-        DO i = 1, p_pat(ip)%n_send
-          ib = p_pat(ip)%send_src_blk(i) 
-          ie = p_pat(ip)%send_src_idx(i) 
-          p_pat(ip)%send_src_idx(i) = inv_ind_e_ubc(ie,ib)
-          p_pat(ip)%send_src_blk(i) = 1 ! not needed here
-        ENDDO
+    p_pat => p_patch_all(icid)%comm_pat_interpol_vec_grf
+    DO ip = 1, 4
+      DO i = 1, p_pat(ip)%n_send
+        ib = p_pat(ip)%send_src_blk(i) 
+        ie = p_pat(ip)%send_src_idx(i) 
+        p_pat(ip)%send_src_idx(i) = inv_ind_e_lbc(ie,ib)
+        p_pat(ip)%send_src_blk(i) = 1 ! not needed here
       ENDDO
-    ENDIF
+    ENDDO
+
+    p_pat => p_patch_all(icid)%comm_pat_interpol_vec_ubc
+    DO ip = 1, 4
+      DO i = 1, p_pat(ip)%n_send
+        ib = p_pat(ip)%send_src_blk(i) 
+        ie = p_pat(ip)%send_src_idx(i) 
+        p_pat(ip)%send_src_idx(i) = inv_ind_e_ubc(ie,ib)
+        p_pat(ip)%send_src_blk(i) = 1 ! not needed here
+      ENDDO
+    ENDDO
 
     DEALLOCATE (inv_ind_c, inv_ind_e_lbc, inv_ind_e_ubc, inv_ind_v)
 
    ENDDO ! child domains
+
+   ! Compute mask fields needed for feedback computations executed at the (normal) parent grid level
+   !
+   ALLOCATE (p_grf%mask_ovlp_c(nproma,p_patch%nblks_c,i_nchdom),p_grf%mask_ovlp_ch(nproma,p_patch%nblks_c,i_nchdom),&
+             p_grf%mask_ovlp_e(nproma,p_patch%nblks_e,i_nchdom),p_grf%mask_ovlp_v (nproma,p_patch%nblks_v,i_nchdom),&
+             STAT=ist)
+   IF (ist /= SUCCESS) THEN
+     CALL finish ('mo_grf_intp_state:create_grf_index_lists','allocation of mask fields failed')
+   ENDIF
+
+   ! Initialization of mask fields with .FALSE.
+   p_grf%mask_ovlp_c (:,:,:) = .FALSE.
+   p_grf%mask_ovlp_ch(:,:,:) = .FALSE.
+   p_grf%mask_ovlp_e (:,:,:) = .FALSE.
+   p_grf%mask_ovlp_v (:,:,:) = .FALSE.
+
+   ! Loop over child domains
+   DO jcd = 1, i_nchdom
+
+     icid    =  p_patch%child_id(jcd)
+
+     ! masks for cells; 'ch' is for intermediate calculations that need to include a halo row
+     !
+     i_startblk = p_patch%cells%start_blk(1,1)
+     i_endblk   = p_patch%cells%end_blk(min_rlcell,i_nchdom)
+
+     DO jb = i_startblk, i_endblk
+
+       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, i_startidx, i_endidx, 1, min_rlcell)
+
+       DO jc = i_startidx,i_endidx
+
+         IF (p_patch%cells%refin_ctrl(jc,jb) <= grf_fbk_start_c .AND.                   &
+             p_patch%cells%child_id(jc,jb) == icid) p_grf%mask_ovlp_c(jc,jb,jcd) = .TRUE.
+
+         IF (p_patch%cells%refin_ctrl(jc,jb) <= grf_fbk_start_c + 1 .AND.                &
+             p_patch%cells%child_id(jc,jb) == icid) p_grf%mask_ovlp_ch(jc,jb,jcd) = .TRUE.
+
+       ENDDO 
+     ENDDO
+
+     ! mask for edges
+     !
+     i_startblk = p_patch%edges%start_blk(1,1)
+     i_endblk   = p_patch%edges%end_blk(min_rledge,i_nchdom)
+
+     DO jb = i_startblk, i_endblk
+
+       CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, i_startidx, i_endidx, 1, min_rledge)
+
+       DO je = i_startidx,i_endidx
+
+         IF (p_patch%edges%refin_ctrl(je,jb) <= grf_fbk_start_e .AND.                   &
+             p_patch%edges%child_id(je,jb) == icid) p_grf%mask_ovlp_e(je,jb,jcd) = .TRUE.
+
+       ENDDO 
+     ENDDO
+
+     ! mask for vertices; note that a workaround is needed for determining the overlap with
+     ! the right child domain because the child_id field is not available for vertices
+     !
+     i_startblk = p_patch%verts%start_blk(1,1)
+     i_endblk   = p_patch%verts%end_blk(min_rlvert,i_nchdom)
+
+     DO jb = i_startblk, i_endblk
+
+       CALL get_indices_v(p_patch, jb, i_startblk, i_endblk, i_startidx, i_endidx, 1, min_rlvert)
+
+       DO jv = i_startidx,i_endidx
+
+         ! As the lateral boundary of the nest overlap region is excluded anyway, we can just
+         ! choose any adjacent cell to determine the child id
+         ic = p_patch%verts%cell_idx(jv,jb,1)
+         ib = p_patch%verts%cell_blk(jv,jb,1)
+
+         IF (p_patch%verts%refin_ctrl(jv,jb) <= grf_fbk_start_c .AND.                   &
+             p_patch%cells%child_id(ic,ib) == icid) p_grf%mask_ovlp_v(jv,jb,jcd) = .TRUE.
+
+       ENDDO 
+     ENDDO
+
+   ENDDO ! loop over child domains
+ 
   ENDDO ! domain ID
 
   ! When everything works, the 'old' index and coefficient lists can be deallocated here;

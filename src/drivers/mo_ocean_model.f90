@@ -72,7 +72,7 @@ MODULE mo_ocean_model
 
   USE mo_ocean_nml_crosscheck,   ONLY: oce_crosscheck
 
-  USE mo_model_domain,        ONLY: t_patch,  t_patch_3D
+  USE mo_model_domain,        ONLY: t_patch, t_patch_3D, p_patch_local_parent
 
   ! Horizontal grid
   !
@@ -445,6 +445,7 @@ CONTAINS
 
     !The 3D-ocean version of previous calls    
     CALL destruct_patches( p_patch_3D%p_patch_2D )
+    CALL destruct_patches( p_patch_local_parent )
     NULLIFY( p_patch_3D%p_patch_2D )
 
     ! Delete variable lists

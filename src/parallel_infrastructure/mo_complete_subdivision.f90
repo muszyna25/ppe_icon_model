@@ -88,17 +88,6 @@ MODULE mo_complete_subdivision
   PUBLIC :: complete_parallel_setup
   PUBLIC :: complete_parallel_setup_oce
   PUBLIC :: finalize_decomposition_oce
-  !-------------------------------------------------------------------------
-  ! Definition of local parent patches
-  ! For any given patch p_patch(jg) and jgp = p_patch(jg)%parent_id,
-  ! p_patch_local_parent(jg) has the same resolution as p_patch(jgp)
-  ! but it covers only the area of p_patch(jgp) which is covered by its child p_patch(jg)
-  ! and it is divided in the same manner as p_patch(jg).
-  ! Please note that p_patch_local_parent(1) is undefined if n_dom_start = 1
-
-  ! Please note: The definitions of the local parents are now at the same locations
-  ! as the definitions of the respective patch or state
-  !-------------------------------------------------------------------------
 
 
 CONTAINS
@@ -220,7 +209,8 @@ CONTAINS
   END SUBROUTINE set_patch_communicators
 
   !-----------------------------------------------------------------------------
-
+  ! sets communication patterns and parent-child relationships.
+  !
   SUBROUTINE complete_parallel_setup
 
     INTEGER :: jg, jgp
@@ -237,26 +227,32 @@ CONTAINS
 
       CALL set_owner_mask(p_patch(jg))
      
-     ! Fill the owner_local value
+      ! Fill the owner_local value
       ! this is done in the set_owner_mask
       ! CALL fill_owner_local(p_patch(jg))
 
       IF(jg == n_dom_start) THEN
-
         ! parent_idx/blk is set to 0 since it just doesn't exist,
-        ! child_idx/blk is set to 0 since it makes sense only on the local parent
         p_patch(jg)%cells%parent_idx = 0
         p_patch(jg)%cells%parent_blk = 0
-        p_patch(jg)%cells%child_idx  = 0
-        p_patch(jg)%cells%child_blk  = 0
         p_patch(jg)%edges%parent_idx = 0
         p_patch(jg)%edges%parent_blk = 0
-        p_patch(jg)%edges%child_idx  = 0
-        p_patch(jg)%edges%child_blk  = 0
+
+        ! For parallel runs, child_idx/blk is set to 0 since it makes
+        ! sense only on the local parent
+        IF (.NOT. my_process_is_mpi_parallel()) THEN
+          p_patch(jg)%cells%child_idx  = 0
+          p_patch(jg)%cells%child_blk  = 0
+          p_patch(jg)%edges%child_idx  = 0
+          p_patch(jg)%edges%child_blk  = 0
+        END IF
 
       ELSE
 
-        CALL setup_comm_cpy_interpolation(p_patch(jg), p_patch(jgp))
+        ! Note: The following call is deprecated and will be removed.
+        ! 
+        ! CALL setup_comm_cpy_interpolation(p_patch(jg), p_patch(jgp))
+
         CALL setup_comm_grf_interpolation(p_patch(jg), p_patch(jgp))
         CALL setup_comm_ubc_interpolation(p_patch(jg), p_patch(jgp))
 
@@ -493,12 +489,14 @@ CONTAINS
       jb = blk_no(j) ! Block index in distributed patch
       jl = idx_no(j) ! Line  index in distributed patch
 
-      DO i=1,2
+      IF (p_patch%edges%refin_ctrl(jl,jb) /= 1) THEN
+        DO i=1,2
 !CDIR IEXPAND
-        CALL remap_index(p_patch%cells%loc_index, &
-          & p_patch%edges%cell_idx(jl,jb,i),          &
-          & p_patch%edges%cell_blk(jl,jb,i))
-      ENDDO
+          CALL remap_index(p_patch%cells%loc_index, &
+            & p_patch%edges%cell_idx(jl,jb,i),          &
+            & p_patch%edges%cell_blk(jl,jb,i))
+        ENDDO
+      ENDIF
 
       DO i=1,4
 !CDIR IEXPAND
@@ -715,15 +713,17 @@ CONTAINS
     ! and the parent index in parent to 0 since these have no significance
     ! in the parallel code (and must not be used as they are).
 
-    p_pc%cells%child_idx  = 0
-    p_pc%cells%child_blk  = 0
-    p_pp%cells%parent_idx = 0
-    p_pp%cells%parent_blk = 0
+    IF (my_process_is_mpi_parallel()) THEN
+      p_pc%cells%child_idx  = 0
+      p_pc%cells%child_blk  = 0
+      p_pp%cells%parent_idx = 0
+      p_pp%cells%parent_blk = 0
 
-    p_pc%edges%child_idx  = 0
-    p_pc%edges%child_blk  = 0
-    p_pp%edges%parent_idx = 0
-    p_pp%edges%parent_blk = 0
+      p_pc%edges%child_idx  = 0
+      p_pc%edges%child_blk  = 0
+      p_pp%edges%parent_idx = 0
+      p_pp%edges%parent_blk = 0
+    END IF
 
   END SUBROUTINE set_parent_child_relations
 
@@ -989,10 +989,6 @@ CONTAINS
 
     !-----------------------------------------------------------------------
 
-    ! This routine must not be called in a single CPU run
-    IF(my_process_is_mpi_seq()) &
-      & CALL finish('setup_comm_cpy_interpolation','must not be called in a single CPU run')
-
     i_chidx = p_patch%parent_child_index
 
     !--------------------------------------------------------------------
@@ -1055,12 +1051,6 @@ CONTAINS
     INTEGER :: j, n, jc, je, jb, jp
     INTEGER :: num_send, num_recv, np, iss, ise, irs, ire
     INTEGER, ALLOCATABLE :: owner(:), glb_index(:)
-
-    !-----------------------------------------------------------------------
-
-    ! This routine must not be called in a single CPU run
-    IF(my_process_is_mpi_seq()) &
-      & CALL finish('setup_comm_grf_interpolation','must not be called in a single CPU run')
 
     !--------------------------------------------------------------------
     ! Cells
@@ -1326,12 +1316,6 @@ CONTAINS
     INTEGER :: j, n, jc, je, jb, jp
     INTEGER :: num_send, num_recv, np, iss, ise, irs, ire
     INTEGER, ALLOCATABLE :: owner(:), glb_index(:)
-
-    !-----------------------------------------------------------------------
-
-    ! This routine must not be called in a single CPU run
-    IF(my_process_is_mpi_seq()) &
-      & CALL finish('setup_comm_ubc_interpolation','must not be called in a single CPU run')
 
     !--------------------------------------------------------------------
     ! Cells

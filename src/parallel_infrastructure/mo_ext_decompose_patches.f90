@@ -59,7 +59,7 @@ MODULE mo_ext_decompose_patches
 
   USE mo_run_config,         ONLY: msg_level
   USE mo_io_units,           ONLY: find_next_free_unit, filename_max
-  USE mo_model_domain,       ONLY: t_patch, p_patch_local_parent
+  USE mo_model_domain,       ONLY: t_patch
   USE mo_mpi,                ONLY: p_bcast, p_sum, proc_split
 #ifndef NOMPI
   USE mo_mpi,                ONLY: MPI_UNDEFINED, MPI_COMM_NULL
@@ -101,42 +101,23 @@ MODULE mo_ext_decompose_patches
   ! pointers to the work patches
   TYPE(t_patch), POINTER :: wrk_p_patch_g, wrk_p_parent_patch_g
 
-  !-------------------------------------------------------------------------
-  ! Definition of local parent patches
-  ! For any given patch patch_2D(jg) and jgp = patch_2D(jg)%parent_id,
-  ! p_patch_local_parent(jg) has the same resolution as patch_2D(jgp)
-  ! but it covers only the area of patch_2D(jgp) which is covered by its child patch_2D(jg)
-  ! and it is divided in the same manner as patch_2D(jg).
-  ! Please note that p_patch_local_parent(1) is undefined if n_dom_start = 1
-
-  ! Please note: The definitions of the local parents are now at the same locations
-  ! as the definitions of the respective patch or state
-  !-------------------------------------------------------------------------
-
   ! Private flag if patch should be divided for radiation calculation
   LOGICAL :: divide_for_radiation = .FALSE.
-
-  ! number of grid points of different categories:
-  ! lateral points, interior points, nested points, halo points
-  INTEGER(i8), PUBLIC :: npts_local(0:max_dom, 4)
 
 CONTAINS
 
   !------------------------------------------------------------------
   !>
   !!  Divide patches and interpolation states for mpi parallel runs.
+  !!
+  !!  @note This implementation uses an ext decomposition library driver.
+  !!
   SUBROUTINE ext_decompose_patches( patch_2D, p_patch_global )
 
     TYPE(t_patch), INTENT(INOUT), TARGET :: patch_2D(n_dom_start:)
     TYPE(t_patch), INTENT(INOUT), TARGET :: p_patch_global(n_dom_start:)
 
     CHARACTER(*), PARAMETER :: routine = TRIM("mo_subdivision:ext_decompose_patches")
-
-    CHARACTER(len=20), PARAMETER, DIMENSION(4) :: summary = &
-      & (/ "lateral grid points ",  &
-      &    "interior grid points",  &
-      &    "nested grid points  ",  &
-      &    "halo grid points    " /)
 
     ! Local variables:
     INTEGER :: jg, jgp, jc, jgc, n, &
@@ -147,7 +128,7 @@ CONTAINS
     REAL(wp) :: weight(p_patch_global(1)%n_childdom)
     INTEGER(i8) :: npts_global(4)
     ! (Optional:) Print a detailed summary on model grid points
-    LOGICAL :: l_detailed_summary, is_compute_grid
+    LOGICAL :: is_compute_grid
     TYPE(t_patch), ALLOCATABLE, TARGET :: p_patch_out(:), p_patch_lp_out(:)
 
     CALL message(routine, 'start of ext domain decomposition')
@@ -256,10 +237,6 @@ CONTAINS
 #endif
     patch_2D(:)%rank = -1
 
-
-      ! patch_2D is already allocated, p_patch_local_parent needs allocation
-      ALLOCATE(p_patch_local_parent(n_dom_start+1:n_dom))
-
     ! Divide patches
 
     DO jg = n_dom_start, n_dom
@@ -321,61 +298,6 @@ CONTAINS
     DO jg = n_dom_start, n_dom
       CALL deallocate_basic_patch( p_patch_global(jg) )
     ENDDO
-
-    ! (Optional:)
-    ! Print a detailed summary on model grid points
-    l_detailed_summary = (msg_level >= 16)
-
-    IF (l_detailed_summary) THEN
-      WRITE (message_text,*) "PE ", get_my_mpi_all_id(), &
-        &                    "Detailed grid summary (cells)"
-      CALL message(routine, TRIM(message_text))
-
-      DO jg = n_dom_start, n_dom
-        ! count grid points for this PE:
-        i_nchdom     = MAX(1,patch_2D(jg)%n_childdom)
-        ! local, lateral grid points
-        npts_local(jg,1)    = count_entries(  &
-          &                   patch_2D(jg)%cells%start_blk(1,1),         &
-          &                   patch_2D(jg)%cells%start_idx(1,1),         &
-          &                   patch_2D(jg)%cells%end_blk(max_rlcell,1),  &
-          &                   patch_2D(jg)%cells%end_idx(max_rlcell,1) )
-        ! local, interior grid points
-        npts_local(jg,2)    = count_entries(  &
-          &                   patch_2D(jg)%cells%start_blk(0,1), &
-          &                   patch_2D(jg)%cells%start_idx(0,1), &
-          &                   patch_2D(jg)%cells%end_blk(0,1),   &
-          &                   patch_2D(jg)%cells%end_idx(0,1) )
-        ! local, nested grid points:
-        npts_local(jg,3)    = count_entries(  &
-          &                   patch_2D(jg)%cells%start_blk(-1,1), &
-          &                   patch_2D(jg)%cells%start_idx(-1,1), &
-          &                   patch_2D(jg)%cells%end_blk(min_rlcell_int,i_nchdom),        &
-          &                   patch_2D(jg)%cells%end_idx(min_rlcell_int,i_nchdom) )
-        ! local, halo grid points:
-        npts_local(jg,4)    = count_entries(  &
-          &                   patch_2D(jg)%cells%start_blk(min_rlcell_int-1,1), &
-          &                   patch_2D(jg)%cells%start_idx(min_rlcell_int-1,1), &
-          &                   patch_2D(jg)%cells%end_blk(min_rlcell,i_nchdom),  &
-          &                   patch_2D(jg)%cells%end_idx(min_rlcell,i_nchdom) )
-        ! sum up over all PEs (collective operation):
-        npts_global(:) = p_sum(npts_local(jg,:), p_comm_work)
-
-        WRITE (message_text,'(A8,i4)') "patch # ", jg
-        CALL message(routine, TRIM(message_text))
-        DO l1=1,4
-          WRITE (message_text, '(A25,i6)') ">   "//summary(l1)//":", npts_local(jg,l1)
-          CALL message(routine, TRIM(message_text))
-        END DO
-        WRITE (message_text,'(A20,i4)') "global values, patch # ", jg
-        CALL message(routine, TRIM(message_text))
-        DO l1=1,4
-          WRITE (message_text, '(A25,i6)') ">   "//summary(l1)//":", npts_global(l1)
-          CALL message(routine, TRIM(message_text))
-        END DO
-
-      END DO
-    END IF
 
   END SUBROUTINE ext_decompose_patches
 

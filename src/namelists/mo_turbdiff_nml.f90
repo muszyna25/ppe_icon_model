@@ -111,8 +111,6 @@ CONTAINS
     CHARACTER(LEN=*), INTENT(IN) :: filename
     INTEGER :: istat, funit
     INTEGER :: jg          !< patch loop index
-    INTEGER :: jt          !< tracer loop index
-    INTEGER :: z_nogo(2)   !< for consistency check
 
     CHARACTER(len=*), PARAMETER ::  &
       &  routine = 'mo_turbdiff_nml: read_turbdiff_nml'

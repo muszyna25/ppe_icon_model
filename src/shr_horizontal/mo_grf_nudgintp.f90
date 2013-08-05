@@ -501,7 +501,6 @@ js = nshift
 !$OMP PARALLEL PRIVATE(jn,elev)
 
 DO jn = 1, nfields
-
   elev = UBOUND(p_out(jn)%fld,2)
 
 !$OMP DO PRIVATE (jb,jk,jc,i_startidx,i_endidx,grad_x,grad_y,min_expval, &
@@ -639,7 +638,6 @@ DO jn = 1, nfields
 !$OMP END DO
 ENDDO ! fields
 
-
 ! Store results in p_out
 
 ! For MPI parallelization, the child cell indices have to be mapped to the
@@ -702,7 +700,6 @@ DO jn = 1, nfields
 ENDDO
 
 !$OMP END PARALLEL
-
 
 END SUBROUTINE interpol_scal_nudging
 

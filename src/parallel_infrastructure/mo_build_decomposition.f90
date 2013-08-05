@@ -10,7 +10,7 @@ MODULE mo_build_decomposition
   USE mo_math_utilities
   USE mo_loopindices,         ONLY: get_indices_e
   USE mo_impl_constants
-  USE mo_model_domain,        ONLY: p_patch,t_patch_3D,t_patch
+  USE mo_model_domain,        ONLY: p_patch,t_patch_3D,t_patch,p_patch_local_parent
   USE mo_model_domimp_patches
   USE mo_parallel_config,     ONLY: p_test_run, l_test_openmp, num_io_procs, division_method
   USE mo_impl_constants,      ONLY: success, MAX_DOM
@@ -37,11 +37,14 @@ MODULE mo_build_decomposition
     INTEGER :: error_status,jg
     CHARACTER(LEN=*), PARAMETER :: routine = 'build_decomposition'
 
-    ALLOCATE(p_patch(n_dom_start:n_dom), stat=error_status)
-    IF (error_status/=success) THEN
-      CALL finish(TRIM(routine), 'allocation of patch failed')
-    ENDIF
-
+    ! Allocate patch array to start patch construction.
+    ! 
+    ! At the same time, we allocate the "p_patch_local_parent" which
+    ! is the local portion of each patch's parent grid.
+    ALLOCATE(p_patch             (n_dom_start  :n_dom), &
+      &      p_patch_local_parent(n_dom_start+1:n_dom), &
+      &      stat=error_status)
+    IF (error_status/=success) CALL finish(TRIM(routine), 'allocation of patch failed')
 
 #ifndef __ICON_OCEAN_ONLY__
     IF(l_restore_states) THEN

@@ -625,7 +625,8 @@ MODULE mo_nh_stepping
     l_compute_diagnostic_quants = l_outputtime
     DO jg = 1, n_dom
       l_compute_diagnostic_quants = l_compute_diagnostic_quants .OR. &
-        &          meteogram_is_sample_step(meteogram_output_config(jg), jstep)
+        &          meteogram_is_sample_step(meteogram_output_config(jg), jstep,&
+        &          jstep_adv(1)%ntsteps, iadv_rcf)
     END DO
     l_compute_diagnostic_quants = l_compute_diagnostic_quants .AND. &
       &                           .NOT. output_mode%l_none
@@ -687,7 +688,8 @@ MODULE mo_nh_stepping
 
     ! sample meteogram output
     DO jg = 1, n_dom
-      IF (meteogram_is_sample_step(meteogram_output_config(jg), jstep)) THEN
+      IF (meteogram_is_sample_step(meteogram_output_config(jg), jstep,&
+        &                          jstep_adv(1)%ntsteps, iadv_rcf)) THEN
         CALL meteogram_sample_vars(jg, jstep, datetime, ierr)
         IF (ierr /= SUCCESS) THEN
           CALL finish (routine, 'Error in meteogram sampling! Sampling buffer too small?')

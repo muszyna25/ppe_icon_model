@@ -216,7 +216,7 @@ CONTAINS
       CALL get_index_range(range_subset, block, startidx, endidx)
       min_value = values(startidx, block)
       max_value = values(startidx, block)
-      sum_value = 0
+      sum_value = 0._wp
 !ICON_OMP_PARALLEL_DO PRIVATE(block, startidx, endidx) FIRSTPRIVATE(min_in_block, max_in_block, sum_value) &
 !ICON_OMP  reduction(min:min_value) reduction(max:max_value) reduction(sum:sum_value)
       DO block = range_subset%start_block, range_subset%end_block
@@ -234,7 +234,7 @@ CONTAINS
     ELSE
       min_value = values(1,1)
       max_value = values(1,1)
-      sum_value = 0
+      sum_value = 0._wp
 !ICON_OMP_PARALLEL_DO PRIVATE(block, startidx, endidx) FIRSTPRIVATE(min_in_block, max_in_block, sum_value) &
 !ICON_OMP  reduction(min:min_value) reduction(max:max_value) reduction(sum:sum_value)
       DO block = 1,  SIZE(values, 2)
@@ -306,7 +306,7 @@ CONTAINS
       CALL get_index_range(range_subset, block, startidx, endidx)
       min_value = values(startidx, start_vertical, block)
       max_value = values(startidx, start_vertical, block)
-      sum_value = 0
+      sum_value = 0._wp
 
 !ICON_OMP_PARALLEL_DO PRIVATE(block, startidx, endidx) FIRSTPRIVATE(min_in_block, max_in_block, sum_value) &
 !ICON_OMP  reduction(min:min_value) reduction(max:max_value) reduction(sum:sum_value)
@@ -339,7 +339,7 @@ CONTAINS
 
       min_value      = values(1, start_vertical, 1)
       max_value      = values(1, start_vertical, 1)
-      sum_value = 0
+      sum_value = 0._wp
 
 !ICON_OMP_PARALLEL_DO PRIVATE(block, startidx, endidx) FIRSTPRIVATE(min_in_block, max_in_block, sum_value) &
 !ICON_OMP  reduction(min:min_value) reduction(max:max_value) reduction(sum:sum_value)
@@ -414,7 +414,7 @@ CONTAINS
       & CALL finish(method_name,  "Currently requires indexed_subset parameter. Abort.")
 
     ! init the min, max values
-    sum_value = 0
+    sum_value = 0._wp
     IF (PRESENT(weights)) THEN
 
       DO i=1, indexed_subset%size
@@ -476,7 +476,7 @@ CONTAINS
     REAL(wp) :: total_sum
 
     REAL(wp) :: sum_value
-    INTEGER :: i, block, idx, level,  start_vertical, end_vertical
+    INTEGER :: i, block, idx, level
     INTEGER :: communicator
 !    INTEGER :: idx
     CHARACTER(LEN=*), PARAMETER :: method_name='mo_statistics:globalspace_3D_sum'
@@ -485,7 +485,7 @@ CONTAINS
       & CALL finish(method_name,  "Currently requires indexed_subset parameter. Abort.")
 
     ! init the min, max values
-    sum_value = 0
+    sum_value = 0._wp
     IF (PRESENT(weights)) THEN
 
       DO i=1, indexed_subset%size

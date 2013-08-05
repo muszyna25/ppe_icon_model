@@ -166,7 +166,7 @@ MODULE mo_dump_restore
                                    min_rlcell_int, min_rledge_int, &
                                    SUCCESS
   USE mo_exception,          ONLY: message_text, message, finish, warning
-  USE mo_parallel_config, ONLY: nproma
+  USE mo_parallel_config,    ONLY: nproma
   USE mo_run_config,         ONLY: l_one_file_per_patch, ltransport, &
      &                             num_lev, num_levp1, nshift,       &
      &                             dump_filename, dd_filename,       &
@@ -181,7 +181,7 @@ MODULE mo_dump_restore
   USE mo_grf_intp_data_strc  ! We need all from that module
   USE mo_interpol_config     ! We need all from that module
   USE mo_gridref_config      ! We need all from that module
-  USE mo_mpi,                ONLY: my_process_is_mpi_all_parallel, p_n_work, p_pe_work, &
+  USE mo_mpi,                ONLY: p_n_work, p_pe_work, &
     &                              process_mpi_io_size, my_process_is_stdio, &
     &                              p_int, p_comm_work,                       &
     &                              num_work_procs, p_barrier, get_my_mpi_work_id, p_max, p_pe
@@ -601,6 +601,8 @@ CONTAINS
         ENDIF
         ! Dimension at pos_dim2 must correspond to allocated dimension in NetCDF
         IF(var_ubound(pos_dim2) /= dimlen(2)) THEN
+          WRITE (0,*) "var_ubound(pos_dim2) = ", var_ubound(pos_dim2)
+          WRITE (0,*) "dimlen(2)            = ", dimlen(2)
           CALL finish(modname, TRIM(prefix)//var_name//': Dimension mismatch for dim2')
         ENDIF
       ELSE
@@ -619,6 +621,8 @@ CONTAINS
         ENDIF
         ! Dimension at pos_dim2/pos_dim3 must correspond to allocated dimension in NetCDF
         IF(var_ubound(pos_dim2) /= dimlen(2)) THEN
+          WRITE (0,*) "var_ubound(pos_dim2) = ", var_ubound(pos_dim2)
+          WRITE (0,*) "dimlen(2)            = ", dimlen(2)
           CALL finish(modname, TRIM(prefix)//var_name//': Dimension mismatch for dim2')
         END IF
         IF(var_ubound(pos_dim3) /= dimlen(3)) &
@@ -1858,17 +1862,17 @@ CONTAINS
     ENDIF
     ENDIF
     IF (p%cell_type == 3) THEN
-    CALL def_var('int.rbf_vec_index_c',   nf_int,    dim_ncells, dim_rbf_vec_dim_c) ! rbf_vec_dim_c,nproma,nblks_c
-    CALL def_var('int.rbf_vec_stencil_c', nf_int,    dim_ncells) ! nproma,nblks_c
-    CALL def_var('int.rbf_vec_coeff_c',   nf_double, dim_ncells, dim_rbf_vec_dim_c, dim_2) ! rbf_vec_dim_c,2,nproma,nblks_c
-    CALL def_var('int.rbf_c2grad_index',  nf_int,    dim_ncells, dim_rbf_c2grad_dim) ! rbf_c2grad_dim,nproma,nblks_c
-    CALL def_var('int.rbf_c2grad_coeff',  nf_double, dim_ncells, dim_rbf_c2grad_dim, dim_2) ! rbf_c2grad_dim,2,nproma,nblks_c
-    CALL def_var('int.rbf_vec_index_v',   nf_int,    dim_nverts, dim_rbf_vec_dim_v) ! rbf_vec_dim_v,nproma,nblks_v
-    CALL def_var('int.rbf_vec_stencil_v', nf_int,    dim_nverts) ! nproma,nblks_v
-    CALL def_var('int.rbf_vec_coeff_v',   nf_double, dim_nverts, dim_rbf_vec_dim_v, dim_2) ! rbf_vec_dim_v,2,nproma,nblks_v
-    CALL def_var('int.rbf_vec_index_e',   nf_int,    dim_nedges, dim_rbf_vec_dim_e) ! rbf_vec_dim_e,nproma,nblks_e
-    CALL def_var('int.rbf_vec_stencil_e', nf_int,    dim_nedges) ! nproma,nblks_e
-    CALL def_var('int.rbf_vec_coeff_e',   nf_double, dim_nedges, dim_rbf_vec_dim_e) ! rbf_vec_dim_e,nproma,nblks_e
+      CALL def_var('int.rbf_vec_index_c',   nf_int,    dim_ncells, dim_rbf_vec_dim_c) ! rbf_vec_dim_c,nproma,nblks_c
+      CALL def_var('int.rbf_vec_stencil_c', nf_int,    dim_ncells) ! nproma,nblks_c
+      CALL def_var('int.rbf_vec_coeff_c',   nf_double, dim_ncells, dim_rbf_vec_dim_c, dim_2) ! rbf_vec_dim_c,2,nproma,nblks_c
+      CALL def_var('int.rbf_c2grad_index',  nf_int,    dim_ncells, dim_rbf_c2grad_dim) ! rbf_c2grad_dim,nproma,nblks_c
+      CALL def_var('int.rbf_c2grad_coeff',  nf_double, dim_ncells, dim_rbf_c2grad_dim, dim_2) ! rbf_c2grad_dim,2,nproma,nblks_c
+      CALL def_var('int.rbf_vec_index_v',   nf_int,    dim_nverts, dim_rbf_vec_dim_v) ! rbf_vec_dim_v,nproma,nblks_v
+      CALL def_var('int.rbf_vec_stencil_v', nf_int,    dim_nverts) ! nproma,nblks_v
+      CALL def_var('int.rbf_vec_coeff_v',   nf_double, dim_nverts, dim_rbf_vec_dim_v, dim_2) ! rbf_vec_dim_v,2,nproma,nblks_v
+      CALL def_var('int.rbf_vec_index_e',   nf_int,    dim_nedges, dim_rbf_vec_dim_e) ! rbf_vec_dim_e,nproma,nblks_e
+      CALL def_var('int.rbf_vec_stencil_e', nf_int,    dim_nedges) ! nproma,nblks_e
+      CALL def_var('int.rbf_vec_coeff_e',   nf_double, dim_nedges, dim_rbf_vec_dim_e) ! rbf_vec_dim_e,nproma,nblks_e
     ENDIF
     IF( ltransport .OR. iequations == 3) THEN
     CALL def_var('int.pos_on_tplane_e',   nf_double, dim_nedges, dim_8, dim_2) ! nproma,nblks_e,8,2
@@ -2545,7 +2549,7 @@ CONTAINS
     CALL message ('', TRIM(message_text))
 
     ! Set pointer to local parent
-    IF(my_process_is_mpi_all_parallel() .AND. p%id>n_dom_start) THEN
+    IF (p%id>n_dom_start) THEN
       lp => p_patch_local_parent(p%id)
     ELSE
       lp => NULL()
@@ -2582,7 +2586,7 @@ CONTAINS
 
     ! Definitions for local parent
 
-    IF(my_process_is_mpi_all_parallel() .AND. p%id>n_dom_start) THEN
+    IF (p%id>n_dom_start) THEN
       prefix = 'lp.'
       CALL set_max_patch_dims(lp)
       CALL def_patch(lp, .TRUE.)
@@ -2624,7 +2628,7 @@ CONTAINS
 
       IF (n_dom_start==0 .OR. n_dom > 1) CALL grf_state_io(p, pg)
 
-      IF(my_process_is_mpi_all_parallel() .AND. p%id>n_dom_start) THEN ! Output for local parent
+      IF (p%id>n_dom_start) THEN ! Output for local parent
         prefix = 'lp.'
         CALL patch_io(lp, .TRUE.)
         CALL int_state_io(lp, p_int_state_local_parent(p%id))
@@ -3098,32 +3102,29 @@ CONTAINS
 
     p_patch(n_dom_start:n_dom)%max_childdom =  max_childdom
 
-    IF(my_process_is_mpi_all_parallel()) THEN
-
-      ALLOCATE(p_patch_local_parent(n_dom_start+1:n_dom))
-
-      DO jg = n_dom_start+1, n_dom
-        jgp = p_patch(jg)%parent_id
-        p_patch_local_parent(jg)%id           = p_patch(jgp)%id
-        p_patch_local_parent(jg)%level        = p_patch(jgp)%level
-        p_patch_local_parent(jg)%parent_id    = p_patch(jgp)%parent_id
-        p_patch_local_parent(jg)%parent_child_index = p_patch(jgp)%parent_child_index
-        p_patch_local_parent(jg)%n_childdom   = p_patch(jgp)%n_childdom
-        p_patch_local_parent(jg)%n_chd_total  = p_patch(jgp)%n_chd_total
-        p_patch_local_parent(jg)%child_id(:)  = p_patch(jgp)%child_id(:)
-        p_patch_local_parent(jg)%child_id_list(:) = p_patch(jgp)%child_id_list(:)
-        p_patch_local_parent(jg)%max_childdom = p_patch(jgp)%max_childdom
-        p_patch_local_parent(jg)%comm   = 0 ! Not needed
-        p_patch_local_parent(jg)%rank   = 0 ! Not needed
-        p_patch_local_parent(jg)%n_proc = 0 ! Not needed
-        p_patch_local_parent(jg)%proc0  = 0 ! Not needed
-        p_patch_local_parent(jg)%nlev   = p_patch(jgp)%nlev
-        p_patch_local_parent(jg)%nlevp1 = p_patch(jgp)%nlevp1
-        p_patch_local_parent(jg)%nshift = 0
-        p_patch_local_parent(jg)%nshift_child = 0
-        p_patch_local_parent(jg)%nshift_total = p_patch(jgp)%nshift_total
-      ENDDO
-    ENDIF
+ !   ALLOCATE(p_patch_local_parent(n_dom_start+1:n_dom))
+    
+    DO jg = n_dom_start+1, n_dom
+      jgp = p_patch(jg)%parent_id
+      p_patch_local_parent(jg)%id           = p_patch(jgp)%id
+      p_patch_local_parent(jg)%level        = p_patch(jgp)%level
+      p_patch_local_parent(jg)%parent_id    = p_patch(jgp)%parent_id
+      p_patch_local_parent(jg)%parent_child_index = p_patch(jgp)%parent_child_index
+      p_patch_local_parent(jg)%n_childdom   = p_patch(jgp)%n_childdom
+      p_patch_local_parent(jg)%n_chd_total  = p_patch(jgp)%n_chd_total
+      p_patch_local_parent(jg)%child_id(:)  = p_patch(jgp)%child_id(:)
+      p_patch_local_parent(jg)%child_id_list(:) = p_patch(jgp)%child_id_list(:)
+      p_patch_local_parent(jg)%max_childdom = p_patch(jgp)%max_childdom
+      p_patch_local_parent(jg)%comm   = 0 ! Not needed
+      p_patch_local_parent(jg)%rank   = 0 ! Not needed
+      p_patch_local_parent(jg)%n_proc = 0 ! Not needed
+      p_patch_local_parent(jg)%proc0  = 0 ! Not needed
+      p_patch_local_parent(jg)%nlev   = p_patch(jgp)%nlev
+      p_patch_local_parent(jg)%nlevp1 = p_patch(jgp)%nlevp1
+      p_patch_local_parent(jg)%nshift = 0
+      p_patch_local_parent(jg)%nshift_child = 0
+      p_patch_local_parent(jg)%nshift_total = p_patch(jgp)%nshift_total
+    ENDDO
 
     DO jg = n_dom_start, n_dom
 
@@ -3185,7 +3186,7 @@ CONTAINS
 
       CALL restore_patch_netcdf(p_patch(jg), lfull)
 
-      IF(my_process_is_mpi_all_parallel() .AND. jg>n_dom_start) THEN
+      IF(jg>n_dom_start) THEN
         prefix = 'lp.'
         CALL restore_patch_netcdf(p_patch_local_parent(jg), lfull)
       ENDIF
@@ -3265,7 +3266,7 @@ CONTAINS
       ! Restore interpolation state
       CALL int_state_io(p_patch(jg), p_int_state(jg))
 
-      IF(my_process_is_mpi_all_parallel() .AND. jg>n_dom_start) THEN
+      IF(jg>n_dom_start) THEN
         CALL allocate_int_state(p_patch_local_parent(jg), p_int_state_local_parent(jg))
         prefix = 'lp.'
         CALL int_state_io(p_patch_local_parent(jg), p_int_state_local_parent(jg))
@@ -3334,7 +3335,7 @@ CONTAINS
       prefix = ' '
       CALL grf_state_io(p_patch(jg), p_grf_state(jg))
 
-      IF(my_process_is_mpi_all_parallel() .AND. jg>n_dom_start) THEN
+      IF (jg>n_dom_start) THEN
         CALL allocate_grf_state(p_patch_local_parent(jg), p_grf_state_local_parent(jg))
         prefix = 'lp.'
         CALL grf_state_io(p_patch_local_parent(jg), p_grf_state_local_parent(jg))
@@ -3457,16 +3458,26 @@ CONTAINS
 
     ! rbf_vec_dim_c,2,nproma,nblks_lonlat
     CALL bvar_io(3,4,'int.lonlat.rbf_vec_coeff', intp%rbf_vec_coeff )
-    ! rbf_c2grad_dim,2,nproma,nblks_lonlat
-    CALL bvar_io(3,4,'int.lonlat.rbf_c2grad_coeff', intp%rbf_c2grad_coeff )
     ! rbf_vec_dim_c,nproma,nblks_lonlat
     CALL bidx_io(2,3,'int.lonlat.rbf_vec_index', intp%rbf_vec_idx, intp%rbf_vec_blk )
     ! nproma,nblks_lonlat
     CALL bvar_io(1,2,'int.lonlat.rbf_vec_stencil', intp%rbf_vec_stencil )
-    ! rbf_c2grad_dim,nproma,nblks_lonlat
-    CALL bidx_io(2,3,'int.lonlat.rbf_c2grad_index', intp%rbf_c2grad_idx, intp%rbf_c2grad_blk )
-    ! 2,nproma,nblks_lonlat
-    CALL bvar_io(1,4,'int.lonlat.cell_vert_dist', intp%cell_vert_dist )
+
+    ! "c2grad_..." fields are allocating only if namelist parameter "l_intp_c2l"
+    ! has been set.
+    IF (ALLOCATED(intp%rbf_c2grad_coeff)) THEN
+      ! rbf_c2grad_dim,2,nproma,nblks_lonlat
+      CALL bvar_io(3,4,'int.lonlat.rbf_c2grad_coeff', intp%rbf_c2grad_coeff )
+    END IF
+    IF (ALLOCATED(intp%rbf_c2grad_idx) .AND. ALLOCATED(intp%rbf_c2grad_blk)) THEN
+      ! rbf_c2grad_dim,nproma,nblks_lonlat
+      CALL bidx_io(2,3,'int.lonlat.rbf_c2grad_index', intp%rbf_c2grad_idx, intp%rbf_c2grad_blk )
+    END IF
+    IF (ALLOCATED(intp%cell_vert_dist)) THEN 
+      ! 2,nproma,nblks_lonlat
+      CALL bvar_io(1,4,'int.lonlat.cell_vert_dist', intp%cell_vert_dist )
+    END IF
+
     ! nproma,3,2,nblks_lonlat
     CALL bvar_io(2,3,'int.lonlat.rdist', intp%rdist )
     ! 2,nproma,nblks_lonlat
@@ -3526,8 +3537,10 @@ CONTAINS
     DO grid_id=1,n_lonlat_grids
       DOM_LOOP : DO dom_id=1,max_dom
         IF (.NOT. lonlat_grid_list(grid_id)%l_dom(dom_id)) CYCLE DOM_LOOP
-        IF (.NOT. lonlat_grid_list(grid_id)%l_initialized(dom_id)) &
+        IF (.NOT. lonlat_grid_list(grid_id)%l_initialized(dom_id)) THEN
+          WRITE (0,*) "grid_id = ", grid_id, "; dom_id = ", dom_id
           CALL finish(routine, "Uninitialized interpolation data!")
+        END IF
 
         lonlat_data => lonlat_grid_list(grid_id)
         intp        => lonlat_data%intp(dom_id)

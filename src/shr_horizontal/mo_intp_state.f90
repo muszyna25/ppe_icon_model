@@ -165,6 +165,7 @@ MODULE mo_intp_state
 USE mo_kind,                ONLY: wp
 USE mo_exception,           ONLY: message, finish
 USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, ihs_ocean
+USE mo_mpi,                 ONLY: my_process_is_mpi_parallel
 USE mo_model_domain,        ONLY: t_patch
 USE mo_grid_config,         ONLY: n_dom, n_dom_start, lplane, l_limited_area, &
   &                               global_cell_type
@@ -1586,16 +1587,68 @@ SUBROUTINE xfer_var_r2(typ, pos_nproma, pos_nblks, p_p, p_lp, arri, arro)
   TYPE(t_patch), INTENT(IN) :: p_p, p_lp
   REAL(wp), INTENT(IN)    :: arri(:,:)
   REAL(wp), INTENT(INOUT) :: arro(:,:)
+  ! local variables
+  LOGICAL, PARAMETER :: luse_comm_pattern = .TRUE.
+  INTEGER :: i, jb_glb, jc_glb, jb_loc, jc_loc
 
-  IF(typ == SYNC_C) THEN
-    CALL exchange_data(comm_pat_glb_to_loc_c, RECV=arro, SEND=arri)
-  ELSEIF(typ == SYNC_E) THEN
-    CALL exchange_data(comm_pat_glb_to_loc_e, RECV=arro, SEND=arri)
-  ELSEIF(typ == SYNC_V) THEN
-    CALL exchange_data(comm_pat_glb_to_loc_v, RECV=arro, SEND=arri)
+  IF (luse_comm_pattern) THEN
+
+    IF(typ == SYNC_C) THEN
+      CALL exchange_data(comm_pat_glb_to_loc_c, RECV=arro, SEND=arri)
+    ELSEIF(typ == SYNC_E) THEN
+      CALL exchange_data(comm_pat_glb_to_loc_e, RECV=arro, SEND=arri)
+    ELSEIF(typ == SYNC_V) THEN
+      CALL exchange_data(comm_pat_glb_to_loc_v, RECV=arro, SEND=arri)
+    ELSE
+      CALL finish ('mo_interpolation:xfer_var','Illegal type for sync')
+    ENDIF
+
   ELSE
-    CALL finish ('mo_interpolation:xfer_var','Illegal type for Ssync')
-  ENDIF
+    ! The following code does a direct copy (for sequential
+    ! runs). However, note that even for sequential runs the upper
+    ! branch is used (with trivial communication patterns)!
+
+    IF(typ == SYNC_C) THEN
+      ! do a local copy
+      DO i=1,p_lp%n_patch_cells
+        IF (p_p%cells%owner_g(p_lp%cells%glb_index(i)) >= 0) THEN
+          jb_loc = blk_no(i)
+          jc_loc = idx_no(i)
+          jb_glb = blk_no(p_p%cells%loc_index(p_lp%cells%glb_index(i)))
+          jc_glb = idx_no(p_p%cells%loc_index(p_lp%cells%glb_index(i)))
+          arro(jc_loc, jb_loc) = arri(jc_glb,jb_glb)
+        END IF
+      END DO
+      !
+    ELSEIF(typ == SYNC_E) THEN
+      ! do a local copy
+      DO i=1,p_lp%n_patch_edges
+        IF (p_p%edges%owner_g(p_lp%edges%glb_index(i)) >= 0) THEN
+          jb_loc = blk_no(i)
+          jc_loc = idx_no(i)
+          jb_glb = blk_no(p_p%edges%loc_index(p_lp%edges%glb_index(i)))
+          jc_glb = idx_no(p_p%edges%loc_index(p_lp%edges%glb_index(i)))
+          arro(jc_loc, jb_loc) = arri(jc_glb,jb_glb)
+        END IF
+      END DO
+      !
+    ELSEIF(typ == SYNC_V) THEN
+      ! do a local copy
+      DO i=1,p_lp%n_patch_verts
+        IF (p_p%verts%owner_g(p_lp%verts%glb_index(i)) >= 0) THEN
+          jb_loc = blk_no(i)
+          jc_loc = idx_no(i)
+          jb_glb = blk_no(p_p%verts%loc_index(p_lp%verts%glb_index(i)))
+          jc_glb = idx_no(p_p%verts%loc_index(p_lp%verts%glb_index(i)))
+          arro(jc_loc, jb_loc) = arri(jc_glb,jb_glb)
+        END IF
+      END DO
+      !
+    ELSE
+      CALL finish ('mo_interpolation:xfer_var','Illegal type for sync')
+    ENDIF
+
+  END IF
 
 END SUBROUTINE xfer_var_r2
 
@@ -1804,7 +1857,7 @@ END SUBROUTINE xfer_idx_3
 !-------------------------------------------------------------------------
 !!
 !>
-!!  Transfers interpolation state form parent to local parent
+!!  Transfers interpolation state from parent to local parent
 !!
 !! @par Revision History
 !! Developed  by  Rainer Johanni (2011-10-26)
@@ -1828,7 +1881,7 @@ SUBROUTINE transfer_interpol_state(p_p, p_lp, pi, po)
   ! Set up communication patterns for transferring the data to local parents.
   ! Since these communication patterns are not used elsewhere, they are
   ! stored locally and deleted at the end of the routine
-
+    
   ALLOCATE(owner(p_lp%n_patch_cells))
   DO j = 1, p_lp%n_patch_cells
     owner(j) = p_p%cells%owner_g(p_lp%cells%glb_index(j))
@@ -1836,7 +1889,7 @@ SUBROUTINE transfer_interpol_state(p_p, p_lp, pi, po)
   CALL setup_comm_pattern(p_lp%n_patch_cells, owner, p_lp%cells%glb_index,  &
     & p_p%cells%loc_index, comm_pat_glb_to_loc_c)
   DEALLOCATE(owner)
-
+  
   ALLOCATE(owner(p_lp%n_patch_edges))
   DO j = 1, p_lp%n_patch_edges
     owner(j) = p_p%edges%owner_g(p_lp%edges%glb_index(j))
@@ -2004,6 +2057,8 @@ SUBROUTINE transfer_interpol_state(p_p, p_lp, pi, po)
 !  CALL xfer_var(SYNC_E,2,3,p_p,p_lp,pi%shear_def_v1,po%shear_def_v1)
 !  CALL xfer_var(SYNC_E,2,3,p_p,p_lp,pi%shear_def_v2,po%shear_def_v2)
 !  ENDIF
+
+  ! clean up
 
 !CDIR NOIEXPAND
   CALL delete_comm_pattern(comm_pat_glb_to_loc_c)

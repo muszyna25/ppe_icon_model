@@ -1005,7 +1005,6 @@ CONTAINS
     ! Interpolation state
     TYPE(t_int_state), INTENT(inout):: interpolation_state
     
-    TYPE(t_subset_range), POINTER :: all_cells         ! these are the owned entities    
     INTEGER :: cell_block, cell_index, start_index, end_index
     REAL(wp) :: local_weight, neigbor_weight
            

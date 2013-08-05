@@ -84,7 +84,6 @@ USE mo_impl_constants_grf,  ONLY: grf_bdyintp_start_c, &
                                   grf_bdyintp_end_c, &
                                   grf_fbk_start_c, grf_fbk_start_e,        &
                                   grf_bdywidth_c, grf_bdywidth_e
-USE mo_mpi,                 ONLY: my_process_is_mpi_seq
 USE mo_communication,       ONLY: exchange_data
 USE mo_sync,                ONLY: SYNC_C, SYNC_E, sync_patch_array, check_patch_array, &
                                 & global_sum_array2
@@ -141,12 +140,7 @@ TYPE(t_grid_edges), POINTER        :: p_gep => NULL()
 TYPE(t_grid_edges), POINTER        :: p_gec => NULL()
 
 
-INTEGER :: i_startblk                ! start block
-INTEGER :: i_endblk                  ! end index
-INTEGER :: i_startidx                ! start index
-INTEGER :: i_endidx                  ! end index
-
-INTEGER :: jb, jc, jk, jt        ! loop indices
+INTEGER :: jt        ! loop indices
 
 INTEGER :: i_chidx
 
@@ -182,50 +176,6 @@ i_chidx = p_patch(jgc)%parent_child_index
 
 IF (grf_intmethod_c == 1) THEN ! tendency copying for pressure and temperature
 
-  IF (my_process_is_mpi_seq()) THEN
-
-    ! Start and end blocks for which interpolation is needed
-    i_startblk = p_gcp%start_blk(grf_bdyintp_start_c,i_chidx)
-    i_endblk   = p_gcp%end_blk(grf_bdyintp_end_c,i_chidx)
-
-    ! This loop is not OpenMP parallelized because the overhead for opening a
-    ! parallel section is too large
-    DO jb =  i_startblk, i_endblk
-
-      CALL get_indices_c(p_pp, jb, i_startblk, i_endblk, i_startidx, i_endidx, &
-                         grf_bdyintp_start_c, grf_bdyintp_end_c, i_chidx)
-!CDIR NODEP
-      DO jc = i_startidx, i_endidx
-        p_child_tend%pres_sfc(iidx(jc,jb,1),iblk(jc,jb,1)) = &
-          p_parent_tend%pres_sfc(jc,jb)
-        p_child_tend%pres_sfc(iidx(jc,jb,2),iblk(jc,jb,2)) = &
-          p_parent_tend%pres_sfc(jc,jb)
-        p_child_tend%pres_sfc(iidx(jc,jb,3),iblk(jc,jb,3)) = &
-          p_parent_tend%pres_sfc(jc,jb)
-        p_child_tend%pres_sfc(iidx(jc,jb,4),iblk(jc,jb,4)) = &
-          p_parent_tend%pres_sfc(jc,jb)
-      ENDDO
-
-      DO jk = 1, nlev
-!CDIR NODEP
-        DO jc = i_startidx, i_endidx
-
-          p_child_tend%temp(iidx(jc,jb,1),jk,iblk(jc,jb,1)) = &
-            p_parent_tend%temp(jc,jk,jb)
-          p_child_tend%temp(iidx(jc,jb,2),jk,iblk(jc,jb,2)) = &
-            p_parent_tend%temp(jc,jk,jb)
-          p_child_tend%temp(iidx(jc,jb,3),jk,iblk(jc,jb,3)) = &
-            p_parent_tend%temp(jc,jk,jb)
-          p_child_tend%temp(iidx(jc,jb,4),jk,iblk(jc,jb,4)) = &
-            p_parent_tend%temp(jc,jk,jb)
-
-        ENDDO
-      ENDDO
-
-    ENDDO
-
-  ELSE
-
     CALL exchange_data(p_pc%comm_pat_interpolation_c,      &
                        RECV=p_child_tend%pres_sfc, &
                        SEND=p_parent_tend%pres_sfc)
@@ -233,7 +183,6 @@ IF (grf_intmethod_c == 1) THEN ! tendency copying for pressure and temperature
                        RECV=p_child_tend%temp,     &
                        SEND=p_parent_tend%temp)
 
-  ENDIF
 
 ! grf_intmethod_c = 2, use gradient at cell center for interpolation
 ELSE IF (grf_intmethod_c == 2) THEN
@@ -251,39 +200,12 @@ ENDIF
 
 IF (ltransport .AND. grf_intmethod_ct == 1) THEN
 
-IF (my_process_is_mpi_seq()) THEN
-
-  DO jb =  i_startblk, i_endblk
-
-    CALL get_indices_c(p_pp, jb, i_startblk, i_endblk, i_startidx, i_endidx, &
-                       grf_bdyintp_start_c, grf_bdyintp_end_c, i_chidx)
-    DO jt = 1, ntracer
-      DO jk = 1, nlev
-!CDIR NODEP
-        DO jc = i_startidx, i_endidx
-
-          p_child_tend%tracer(iidx(jc,jb,1),jk,iblk(jc,jb,1),jt) = &
-            p_parent_tend%tracer(jc,jk,jb,jt)
-          p_child_tend%tracer(iidx(jc,jb,2),jk,iblk(jc,jb,2),jt) = &
-            p_parent_tend%tracer(jc,jk,jb,jt)
-          p_child_tend%tracer(iidx(jc,jb,3),jk,iblk(jc,jb,3),jt) = &
-            p_parent_tend%tracer(jc,jk,jb,jt)
-          p_child_tend%tracer(iidx(jc,jb,4),jk,iblk(jc,jb,4),jt) = &
-            p_parent_tend%tracer(jc,jk,jb,jt)
-
-        ENDDO
-      ENDDO
-    ENDDO
-  ENDDO
-
-ELSE
-
   DO jt = 1, ntracer
     CALL exchange_data(p_pc%comm_pat_interpolation_c, &
                        RECV=p_child_tend%tracer(:,:,:,jt), &
                        SEND=p_parent_tend%tracer(:,:,:,jt))
   ENDDO
-ENDIF
+
 IF (p_test_run) CALL check_patch_array(0,p_pc,p_child_tend%tracer,'IT:tracer')
 
 ELSE IF (ltransport .AND. grf_intmethod_ct == 2) THEN
@@ -529,7 +451,6 @@ REAL(wp) :: tendency_corr
 
 
 INTEGER, DIMENSION(:,:,:), POINTER :: iidx, iblk, iidxv, iblkv
-LOGICAL l_parallel
 REAL(wp), DIMENSION(:,:,:), POINTER :: p_fbkwgt, p_fbkwgt_tr
 REAL(wp), DIMENSION(:,:),   POINTER :: p_fbarea
 
@@ -538,12 +459,6 @@ REAL(wp), DIMENSION(:,:),   POINTER :: p_fbarea
 IF (msg_level >= 10) THEN
   WRITE(message_text,'(a,i2,a,i2)') '========= Feedback:',jg,' =>',jgp
   CALL message(TRIM(routine),message_text)
-ENDIF
-
-IF (my_process_is_mpi_seq()) THEN
-  l_parallel = .FALSE.
-ELSE
-  l_parallel = .TRUE.
 ENDIF
 
 p_parent_prog => p_hydro_state(jgp)%prog(nnew(jgp))
@@ -557,17 +472,10 @@ p_gcc         => p_patch(jg)%cells
 p_gec         => p_patch(jg)%edges
 p_pc          => p_patch(jg)
 
-IF(l_parallel) THEN
-  p_grf => p_grf_state_local_parent(jg)
-  p_gcp => p_patch_local_parent(jg)%cells
-  p_gep => p_patch_local_parent(jg)%edges
-  p_pp  => p_patch_local_parent(jg)
-ELSE
-  p_grf => p_grf_state(jgp)
-  p_gcp => p_patch(jgp)%cells
-  p_gep => p_patch(jgp)%edges
-  p_pp  => p_patch(jgp)
-ENDIF
+p_grf => p_grf_state_local_parent(jg)
+p_gcp => p_patch_local_parent(jg)%cells
+p_gep => p_patch_local_parent(jg)%edges
+p_pp  => p_patch_local_parent(jg)
 
 i_nchdom = MAX(1,p_pc%n_childdom)
 i_chidx  = p_pc%parent_child_index
@@ -589,7 +497,7 @@ i_endblk   = p_gcp%end_blk(min_rlcell_int,i_chidx)
 
 ALLOCATE(fbk_tend(nproma, i_startblk:i_endblk))
 
-IF(l_parallel) i_startblk = 1
+i_startblk = 1
 
 ALLOCATE(feedback_pres_tend(nproma, i_startblk:i_endblk))
 ALLOCATE(feedback_temp_tend(nproma, nlev, i_startblk:i_endblk))
@@ -599,7 +507,7 @@ IF(ltransport) &
 i_startblk = p_gep%start_blk(grf_fbk_start_e,i_chidx)
 i_endblk   = p_gep%end_blk(min_rledge,i_chidx)
 
-IF(l_parallel) i_startblk = 1
+i_startblk = 1
 
 ALLOCATE(feedback_vn_tend(nproma, nlev, i_startblk:i_endblk))
 
@@ -807,34 +715,6 @@ DO jt = 1, ntracer
 ENDDO
 
 ENDIF
-
-IF (.NOT. l_parallel) THEN
-
-  ! Add feedback tendencies to prognostic variables on parent grid
-
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
-  DO jb = i_startblk, i_endblk
-
-    CALL get_indices_c(p_pp, jb, i_startblk, i_endblk, &
-                       i_startidx, i_endidx, grf_fbk_start_c, min_rlcell_int, i_chidx)
-
-    p_parent_prog%pres_sfc(i_startidx:i_endidx,jb) =   &
-      p_parent_save%pres_sfc(i_startidx:i_endidx,jb) + &
-      feedback_pres_tend(i_startidx:i_endidx,jb)
-
-    p_temp_prog(i_startidx:i_endidx,1:nlev,jb) =   &
-      p_temp_save(i_startidx:i_endidx,1:nlev,jb) + &
-      feedback_temp_tend(i_startidx:i_endidx,1:nlev,jb)
-
-    IF (ltransport) THEN
-      p_parent_prog%tracer(i_startidx:i_endidx,1:nlev,jb,1:ntracer) =   &
-        p_parent_save%tracer(i_startidx:i_endidx,1:nlev,jb,1:ntracer) + &
-        feedback_tracer_tend(i_startidx:i_endidx,1:nlev,jb,1:ntracer)
-    ENDIF
-  ENDDO
-!$OMP END DO NOWAIT
-
-ENDIF
 !$OMP END PARALLEL
 
 
@@ -942,29 +822,7 @@ ELSE IF (grf_velfbk == 2) THEN ! Second-order interpolation of normal velocities
 !$OMP END DO
 
 ENDIF
-
-IF (.NOT. l_parallel) THEN
-
-  ! Add feedback tendencies to prognostic variables on parent grid
-
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
-  DO jb = i_startblk, i_endblk
-
-    CALL get_indices_e(p_pp, jb, i_startblk, i_endblk, &
-                       i_startidx, i_endidx, grf_fbk_start_e, min_rledge_int, i_chidx)
-
-    p_parent_prog%vn(i_startidx:i_endidx,1:nlev,jb) =   &
-      p_parent_save%vn(i_startidx:i_endidx,1:nlev,jb) + &
-      feedback_vn_tend(i_startidx:i_endidx,1:nlev,jb)
-
-  ENDDO
-!$OMP END DO NOWAIT
-
-ENDIF
-
 !$OMP END PARALLEL
-
-IF (l_parallel) THEN
 
   CALL exchange_data(p_pp%comm_pat_loc_to_glb_c_fbk, &
                      RECV=p_parent_prog%pres_sfc, &
@@ -988,7 +846,6 @@ DO jt = 1, ntracer
                    SEND=feedback_tracer_tend(:,:,:,jt), &
                    ADD =p_parent_save%tracer(:,:,:,jt))
 ENDDO
-ENDIF
 
 ENDIF
 

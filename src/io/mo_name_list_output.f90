@@ -374,7 +374,7 @@ CONTAINS
     TYPE (t_output_file), INTENT(IN) :: of
     ! local variables
     CHARACTER(LEN=*), PARAMETER   :: routine = modname//"::write_ready_file"
-    INTEGER                       :: iunit, idx
+    INTEGER                       :: iunit
 
     IF (msg_level >= 6) THEN
       WRITE (message_text,*) "Write ready file ", TRIM(of%rdy_filename)

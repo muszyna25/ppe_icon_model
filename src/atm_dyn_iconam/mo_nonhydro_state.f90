@@ -1920,7 +1920,6 @@ MODULE mo_nonhydro_state
  
     INTEGER :: ibits         !< "entropy" of horizontal slice
 
-    CHARACTER(len=4) suffix
     !--------------------------------------------------------------
 
     !determine size of arrays

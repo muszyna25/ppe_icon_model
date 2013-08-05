@@ -1292,9 +1292,6 @@ REAL(wp), DIMENSION(nproma,lsq_dim_unk,lsq_dim_unk) ::  &  ! R matrix of QR-fact
 
 REAL(wp) :: z_rcarea                   ! reciprocal of cell area
 
-REAL(wp) :: xloc, yloc                 ! geographical coordinates of
-                                       ! point under consideration
-
 REAL(wp) :: z_norm                     ! vector length (distance between control volume
                                        ! center and cell centers in the stencil on tangent
                                        ! plane) (also used for normalization)

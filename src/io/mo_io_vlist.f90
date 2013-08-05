@@ -2701,7 +2701,6 @@ CONTAINS
 
     ! local variables
     CHARACTER(*), PARAMETER :: routine = TRIM("mo_io_vlist:vlist_write_var")
-    INTEGER            :: n_tot
 
     CALL streamWriteVar(streamID(k_jg), varids(ivar, k_jg), var, 0)
 

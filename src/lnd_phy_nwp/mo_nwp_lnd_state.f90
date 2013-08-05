@@ -330,7 +330,7 @@ MODULE mo_nwp_lnd_state
 
     ! Local variables
     !
-    TYPE(t_cf_var)    :: cf_desc, new_cf_desc
+    TYPE(t_cf_var)    :: cf_desc
     TYPE(t_grib2_var) :: grib2_desc
 
     INTEGER :: shape2d(2), shape3d_subs(3), shape3d_subsw(3)

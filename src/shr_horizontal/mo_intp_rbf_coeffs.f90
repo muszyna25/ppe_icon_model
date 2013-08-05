@@ -167,6 +167,7 @@ MODULE mo_intp_rbf_coeffs
 !
 !
 USE mo_kind,                ONLY: wp
+USE mo_communication,       only: idx_1d
 USE mo_exception,           ONLY: message, message_text, finish
 USE mo_impl_constants,      ONLY: SUCCESS, min_rlcell_int
 USE mo_model_domain,        ONLY: t_patch, t_tangent_vectors
@@ -247,7 +248,6 @@ REAL(wp) :: z_stencil(UBOUND(ptr_int%rbf_vec_stencil_c,1),UBOUND(ptr_int%rbf_vec
 
   ! values for the blocking
   nblks_c  = ptr_patch%nblks_int_c
-
   !
   ! The stencil consists of 9 edges, the cell edges are taken
   ! and the edges of the nearest neighbours are taken
@@ -263,6 +263,7 @@ REAL(wp) :: z_stencil(UBOUND(ptr_int%rbf_vec_stencil_c,1),UBOUND(ptr_int%rbf_vec
     DO jc = i_startidx, i_endidx
 
       IF(.NOT. ptr_patch%cells%owner_mask(jc,jb)) CYCLE
+
       !
       ! get the global line and block indices of the edges of each neighbor
       ! cell and store them in the rbf_vec_idx_c and rbf_vec_blk_c components
@@ -308,12 +309,11 @@ REAL(wp) :: z_stencil(UBOUND(ptr_int%rbf_vec_stencil_c,1),UBOUND(ptr_int%rbf_vec
     END DO
 
   END DO
-
+  
   DO jb = 1, rbf_vec_dim_c
     CALL sync_idx(SYNC_C, SYNC_E, ptr_patch, ptr_int%rbf_vec_idx_c(jb,:,:), &
-                                           & ptr_int%rbf_vec_blk_c(jb,:,:))
+      &           ptr_int%rbf_vec_blk_c(jb,:,:))
   ENDDO
-
   z_stencil(:,:) = REAL(ptr_int%rbf_vec_stencil_c(:,:),wp)
   CALL sync_patch_array(SYNC_C,ptr_patch,z_stencil)
   ptr_int%rbf_vec_stencil_c(:,:) = NINT(z_stencil(:,:))
@@ -445,7 +445,7 @@ INTEGER :: rl_start, rl_end, i_nchdom, i_endblk
 
   DO jb = 1, rbf_c2grad_dim
     CALL sync_idx(SYNC_C, SYNC_C, ptr_patch, ptr_int%rbf_c2grad_idx(jb,:,:), &
-                                           & ptr_int%rbf_c2grad_blk(jb,:,:))
+      &           ptr_int%rbf_c2grad_blk(jb,:,:))
   ENDDO
 
 END SUBROUTINE rbf_c2grad_index
@@ -579,9 +579,8 @@ REAL(wp) :: z_stencil(UBOUND(ptr_int%rbf_vec_stencil_v,1),UBOUND(ptr_int%rbf_vec
 
   DO jb = 1, rbf_vec_dim_v
     CALL sync_idx(SYNC_V, SYNC_E, ptr_patch, ptr_int%rbf_vec_idx_v(jb,:,:), &
-                                           & ptr_int%rbf_vec_blk_v(jb,:,:))
+      &           ptr_int%rbf_vec_blk_v(jb,:,:))
   ENDDO
-
   z_stencil(:,:) = REAL(ptr_int%rbf_vec_stencil_v(:,:),wp)
   CALL sync_patch_array(SYNC_V,ptr_patch,z_stencil)
   ptr_int%rbf_vec_stencil_v(:,:) = NINT(z_stencil(:,:))
@@ -682,9 +681,8 @@ REAL(wp) :: z_stencil(UBOUND(ptr_int%rbf_vec_stencil_e,1),UBOUND(ptr_int%rbf_vec
 
   DO jb = 1, rbf_vec_dim_e
     CALL sync_idx(SYNC_E, SYNC_E, ptr_patch, ptr_int%rbf_vec_idx_e(jb,:,:), &
-                                           & ptr_int%rbf_vec_blk_e(jb,:,:))
+      &           ptr_int%rbf_vec_blk_e(jb,:,:))
   ENDDO
-
   ! Not really necessary, only for the case that rbf_vec_stencil_e should be changed:
   z_stencil(:,:) = REAL(ptr_int%rbf_vec_stencil_e(:,:),wp)
   CALL sync_patch_array(SYNC_E,ptr_patch,z_stencil)
@@ -1080,10 +1078,9 @@ REAL(wp) ::  checksum_u,checksum_v ! to check if sum of interpolation coefficien
 !$OMP END PARALLEL
 
   DO jb = 1, rbf_vec_dim_c
-    call sync_patch_array(SYNC_C, ptr_patch, ptr_int%rbf_vec_coeff_c(jb,1,:,:))
-    call sync_patch_array(SYNC_C, ptr_patch, ptr_int%rbf_vec_coeff_c(jb,2,:,:))
+    CALL sync_patch_array(SYNC_C, ptr_patch, ptr_int%rbf_vec_coeff_c(jb,1,:,:))
+    CALL sync_patch_array(SYNC_C, ptr_patch, ptr_int%rbf_vec_coeff_c(jb,2,:,:))
   ENDDO
-
 
 ! Optional debug output for RBF coefficients
 #ifdef DEBUG_COEFF
@@ -1210,10 +1207,9 @@ REAL(wp), DIMENSION(nproma,rbf_c2grad_dim,2) :: aux_coeff
 !$OMP END PARALLEL
 
   DO jcc = 1, rbf_c2grad_dim
-    call sync_patch_array(SYNC_C, ptr_patch, ptr_int%rbf_c2grad_coeff(jcc,1,:,:))
-    call sync_patch_array(SYNC_C, ptr_patch, ptr_int%rbf_c2grad_coeff(jcc,2,:,:))
+    CALL sync_patch_array(SYNC_C, ptr_patch, ptr_int%rbf_c2grad_coeff(jcc,1,:,:))
+    CALL sync_patch_array(SYNC_C, ptr_patch, ptr_int%rbf_c2grad_coeff(jcc,2,:,:))
   ENDDO
-
 
 END SUBROUTINE rbf_compute_coeff_c2grad
 
@@ -1616,10 +1612,9 @@ REAL(wp), DIMENSION(:,:,:,:), POINTER :: ptr_coeff  ! pointer to output coeffici
 !$OMP END PARALLEL
 
   DO jb = 1, rbf_vec_dim_v
-    call sync_patch_array(SYNC_V, ptr_patch, ptr_int%rbf_vec_coeff_v(jb,1,:,:))
-    call sync_patch_array(SYNC_V, ptr_patch, ptr_int%rbf_vec_coeff_v(jb,2,:,:))
+    CALL sync_patch_array(SYNC_V, ptr_patch, ptr_int%rbf_vec_coeff_v(jb,1,:,:))
+    CALL sync_patch_array(SYNC_V, ptr_patch, ptr_int%rbf_vec_coeff_v(jb,2,:,:))
   ENDDO
-
 
 ! Optional debug output for RBF coefficients
 #ifdef DEBUG_COEFF
@@ -2018,9 +2013,8 @@ TYPE(t_tangent_vectors), DIMENSION(:,:), POINTER :: ptr_orient_out
 !$OMP END PARALLEL
 
   DO jb = 1, rbf_vec_dim_e
-    call sync_patch_array(SYNC_E, ptr_patch, ptr_int%rbf_vec_coeff_e(jb,:,:))
+    CALL sync_patch_array(SYNC_E, ptr_patch, ptr_int%rbf_vec_coeff_e(jb,:,:))
   ENDDO
-
 
 ! Optional debug output for RBF coefficients
 #ifdef DEBUG_COEFF

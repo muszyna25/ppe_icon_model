@@ -1647,12 +1647,11 @@ CONTAINS
     TYPE(t_patch), TARGET        :: patch
 
     REAL(wp), POINTER            :: output_array(:,:)
-    INTEGER :: total_number_of_cells, array_vertical_levels, array_time_steps
-    INTEGER :: dim_number_of_cells, dim_vertical_levels, dim_array_time_steps
+    INTEGER :: total_number_of_cells, array_time_steps
+    INTEGER :: dim_number_of_cells, dim_array_time_steps
     INTEGER :: output_shape(2), dim_write_shape(2), diff_shape(2)
     INTEGER :: variable_id
 
-    INTEGER                      :: return_status
 !    INTEGER                      :: i,j,t
     CHARACTER(LEN=*), PARAMETER  :: method_name = 'mo_netcdf_read:netcdf_write_REAL_ONCELLS_3D_time_fileid'
 
@@ -1716,7 +1715,6 @@ CONTAINS
     INTEGER :: output_shape(3), dim_write_shape(3), diff_shape(3)
     INTEGER :: variable_id
 
-    INTEGER                      :: return_status
 !    INTEGER                      :: i,j,t
     CHARACTER(LEN=*), PARAMETER  :: method_name = 'mo_netcdf_read:netcdf_write_REAL_ONCELLS_3D_time_fileid'
 

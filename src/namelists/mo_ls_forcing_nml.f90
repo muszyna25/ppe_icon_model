@@ -86,7 +86,7 @@ CONTAINS
   SUBROUTINE read_ls_forcing_namelist( filename )
 
     CHARACTER(LEN=*), INTENT(IN) :: filename 
-    INTEGER :: istat, funit, jg
+    INTEGER :: istat, funit
 
     CHARACTER(len=*), PARAMETER ::  &
       &  routine = 'mo_ls_forcing_nml: read_ls_forcing_namelist'

@@ -316,7 +316,7 @@ MODULE mo_model_domain
     INTEGER, ALLOCATABLE :: owner_g(:)
 
     ! The owner when running the radiation
-    ! only used with redistriuted radiation
+    ! only used with redistributed radiation
     INTEGER, POINTER :: radiation_owner(:)
 
     ! Please note that the following array is only needed on local parent patches
@@ -327,7 +327,7 @@ MODULE mo_model_domain
 
     ! Domain decomposition flag:
     ! decomp_domain==0: inner domain, decomp_domain>0: boundary, decomp_domain<0: undefined
-    ! 0=owned, 1=shared edge with owned, 2=shared vertex with ownded
+    ! 0=owned, 1=shared edge with owned, 2=shared vertex with owned
     ! index1=nproma, index2=1,nblks_c
     INTEGER, POINTER :: decomp_domain(:,:)
 
@@ -907,7 +907,18 @@ MODULE mo_model_domain
 
   END TYPE t_phys_patch
 
-  TYPE(t_patch), PUBLIC, TARGET, ALLOCATABLE :: p_patch(:), p_patch_local_parent(:)
+  TYPE(t_patch), PUBLIC, TARGET, ALLOCATABLE :: p_patch(:)
+
+
+  ! Definition of local parent patches
+  ! For any given patch p_patch(jg) and jgp = p_patch(jg)%parent_id,
+  ! p_patch_local_parent(jg) has the same resolution as p_patch(jgp)
+  ! but it covers only the area of p_patch(jgp) which is covered by its child p_patch(jg)
+  ! and it is divided in the same manner as p_patch(jg).
+  ! Please note that p_patch_local_parent(1) is undefined if n_dom_start = 1
+
+  TYPE(t_patch), PUBLIC, TARGET, ALLOCATABLE :: p_patch_local_parent(:)
+
 
   ! Please note: There is currently no means of determining the number
   ! of physical patches until they are actually assembled

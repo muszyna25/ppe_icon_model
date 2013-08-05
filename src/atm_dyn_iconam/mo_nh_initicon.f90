@@ -1836,7 +1836,7 @@ MODULE mo_nh_initicon
 
     INTEGER :: no_cells, no_levels
     INTEGER :: no_depth, no_depth_2
-    INTEGER :: dimid, varid, mpi_comm
+    INTEGER :: dimid, mpi_comm
     INTEGER :: ngrp_vars_fg, ngrp_vars_ana
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &

@@ -3819,7 +3819,7 @@ CONTAINS
 
     ! local variables
     CHARACTER(*), PARAMETER :: routine = TRIM("mo_var_list:collect_group")
-    INTEGER :: i, ivar, grp_id
+    INTEGER :: i, grp_id
     TYPE(t_list_element), POINTER :: element
     TYPE(t_var_metadata), POINTER :: info
     CHARACTER(LEN=VARNAME_LEN)    :: name

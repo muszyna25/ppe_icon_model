@@ -141,8 +141,6 @@ CONTAINS
     TYPE(t_patch), INTENT(IN)  :: p_patch(:) 
     INTEGER      , INTENT(IN)  :: n_dom      !< number of model domains
     INTEGER      , INTENT(IN)  :: nproma
-    INTEGER                    :: jg, isubs  !< loop index 
-    INTEGER                    :: ist        !< status
 
     CHARACTER(len=*), PARAMETER::  &
       &  routine = 'mo_lnd_nwp_config: configure_lnd_nwp'

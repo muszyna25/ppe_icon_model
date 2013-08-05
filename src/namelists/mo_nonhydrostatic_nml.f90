@@ -219,7 +219,7 @@ CONTAINS
     hbot_qvsubstep  = 24000._wp
 
     ! type of Rayleigh damping
-    rayleigh_type     = 2           ! Klemp-type Rayleigh damping
+    rayleigh_type     = 2._wp           ! Klemp-type Rayleigh damping
     ! Rayleigh damping of w above 45 km
     damp_height(1)    = 45000.0_wp
     ! Corresponding damping coefficient

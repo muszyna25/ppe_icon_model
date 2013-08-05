@@ -854,7 +854,7 @@ CONTAINS
   SUBROUTINE fill_grid_subsets(patch)
     TYPE(t_patch), INTENT(inout) :: patch
 
-    INTEGER :: idx, block, block_size
+    INTEGER :: idx
     
     !--------------------------------------------------------------------------------
     ! aliasing the halo_level to decomp_domain

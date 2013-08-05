@@ -108,12 +108,15 @@ MODULE mo_model_domimp_patches
   
   USE mo_kind,               ONLY: wp
   !USE mo_io_units,           ONLY: filename_max
-  USE mo_impl_constants,     ONLY: success, &
-    & max_char_length,  &
-    & min_rlcell, max_rlcell, &
-    & min_rledge, max_rledge, &
-    & min_rlvert, max_rlvert, &
-    & max_dom
+  USE mo_impl_constants,     ONLY: success,                &
+    &                              max_char_length,        &
+    &                              min_rlcell, max_rlcell, &
+    &                              min_rledge, max_rledge, &
+    &                              min_rlvert, max_rlvert, &
+    &                              max_dom,                &
+    &                              min_rlcell_int,         &
+    &                              min_rledge_int,         &
+    &                              min_rlvert_int
   USE mo_exception,          ONLY: message_text, message, warning, finish, em_warn
   USE mo_model_domain,       ONLY: t_patch, t_grid_cells, t_grid_edges, p_patch_local_parent
   USE mo_parallel_config,    ONLY: nproma
@@ -134,9 +137,9 @@ MODULE mo_model_domimp_patches
   USE mo_master_control,     ONLY: my_process_is_ocean
   USE mo_impl_constants_grf, ONLY: grf_bdyintp_start_c, grf_bdyintp_start_e
   USE mo_loopindices,        ONLY: get_indices_c, get_indices_e
-  USE mo_mpi,                ONLY: my_process_is_mpi_parallel, p_comm_work! , p_barrier
+  USE mo_mpi,                ONLY: my_process_is_mpi_parallel, p_comm_work
   USE mo_sync,               ONLY: disable_sync_checks, enable_sync_checks
-  USE mo_communication,      ONLY: idx_no, blk_no
+  USE mo_communication,      ONLY: idx_no, blk_no, idx_1d
   USE mo_util_uuid,          ONLY: uuid_string_length, uuid_parse, clear_uuid
   USE mo_name_list_output_config, ONLY: is_grib_output
   USE mo_master_nml,         ONLY: model_base_dir
@@ -147,6 +150,8 @@ MODULE mo_model_domimp_patches
     & allocate_remaining_patch
   USE mo_math_constants,     ONLY: pi, pi_2
   USE mo_grid_subset,        ONLY: t_subset_range, get_index_range
+  USE mo_reorder_patches,    ONLY: reorder_cells, reorder_edges, &
+    &                              reorder_verts
   
 !  USE mo_netcdf_read,        ONLY: netcdf_read_oncells_2D
 
@@ -183,81 +188,14 @@ MODULE mo_model_domimp_patches
   !subroutines
   PUBLIC :: import_basic_patches
   PUBLIC :: complete_patches
-!   PUBLIC :: get_patch_global_indexes
+  PUBLIC :: reorder_patch_refin_ctrl
   
   INTEGER :: ishift_child_id
   
   !-------------------------------------------------------------------------
   
 CONTAINS
-  
-!   !-------------------------------------------------------------------------
-!   SUBROUTINE get_patch_global_indexes(patch_no, entity_type, no_of_entities, global_indexes)
-!     USE mo_model_domain, ONLY: pp_patch
-!     USE mo_impl_constants, ONLY: cells, edges, verts
-!     
-!     INTEGER, INTENT(in) :: patch_no, entity_type
-!     INTEGER, INTENT(out) :: no_of_entities
-!     INTEGER, POINTER :: global_indexes(:)  ! this is intent out, but nec does not allows it
-!     
-!     INTEGER :: idx, return_status
-!     
-!     CHARACTER(LEN=*), PARAMETER :: method_name='get_patch_global_indexes'
-!     
-!     SELECT CASE(entity_type)
-!     
-!     CASE(cells)
-!       no_of_entities = pp_patch(patch_no)%n_patch_cells
-!       ALLOCATE( global_indexes(no_of_entities), stat=return_status )
-!       IF (return_status /= success) THEN
-!         CALL finish (method_name,'allocation for global_indexes failed')
-!       ENDIF
-!       DO idx = 1, no_of_entities
-!         global_indexes(idx) = pp_patch(patch_no)%cells%glb_index(idx)
-!         ! do some checking
-!         IF (global_indexes(idx) <= 0) &
-!           & CALL finish (method_name,'glb_index(idx) <= 0')
-!         IF (global_indexes(idx) > pp_patch(patch_no)%n_patch_cells_g) &
-!           & CALL finish (method_name,'glb_index(idx) > n_patch_cells_g')
-!       ENDDO
-!       
-!     CASE(edges)
-!       no_of_entities = pp_patch(patch_no)%n_patch_edges
-!       ALLOCATE( global_indexes(no_of_entities), stat=return_status )
-!       IF (return_status /= success) THEN
-!         CALL finish (method_name,'allocation for global_indexes failed')
-!       ENDIF
-!       DO idx = 1, no_of_entities
-!         global_indexes(idx) = pp_patch(patch_no)%edges%glb_index(idx)
-!         ! do some checking
-!         IF (global_indexes(idx) <= 0) &
-!           & CALL finish (method_name,'glb_index(idx) <= 0')
-!         IF (global_indexes(idx) > pp_patch(patch_no)%n_patch_edges_g) &
-!           & CALL finish (method_name,'glb_index(idx) > n_patch_edges_g')
-!       ENDDO
-!       
-!     CASE(verts)
-!       no_of_entities = pp_patch(patch_no)%n_patch_verts
-!       ALLOCATE( global_indexes(no_of_entities), stat=return_status )
-!       IF (return_status /= success) THEN
-!         CALL finish (method_name,'allocation for global_indexes failed')
-!       ENDIF
-!       DO idx = 1, no_of_entities
-!         global_indexes(idx) = pp_patch(patch_no)%verts%glb_index(idx)
-!         ! do some checking
-!         IF (global_indexes(idx) <= 0) &
-!           & CALL finish (method_name,'glb_index(idx) <= 0')
-!         IF (global_indexes(idx) > pp_patch(patch_no)%n_patch_verts_g) &
-!           & CALL finish (method_name,'glb_index(idx) > n_patch_verts_g')
-!       ENDDO
-!       
-!     CASE default
-!       CALL finish(method_name, 'entity_type not recognized')
-!     END SELECT
-!     
-!   END SUBROUTINE get_patch_global_indexes
-  !-------------------------------------------------------------------------  
-  
+   
   !-------------------------------------------------------------------------
   !>
   !!               This subroutine provides patch information to the model.
@@ -493,41 +431,32 @@ CONTAINS
     
     INTEGER :: jg, jgp, n_lp, id_lp(max_dom)
     CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_model_domimp_patches:complete_patches'
-    
+
     DO jg = n_dom_start, n_dom
+
       ! Allocate and preset remaining arrays in patch
-      IF(my_process_is_mpi_parallel()) THEN
-        CALL allocate_remaining_patch(patch(jg),3)
-        IF (jg > n_dom_start) CALL allocate_remaining_patch(p_patch_local_parent(jg),3)
-      ELSE
-        CALL allocate_remaining_patch(patch(jg),1)
-      ENDIF
+      ! operation mode=3: allocate all but the parallelization-related arrays
+      !                   (the parallelization-related arrays are allocated in mo_setup_subdivision) 
+      CALL allocate_remaining_patch(patch(jg),3)
+      IF (jg > n_dom_start)  &
+        & CALL allocate_remaining_patch(p_patch_local_parent(jg),3)
     ENDDO
     
-    !--------------------
     ! Fill the subsets information
     DO jg = n_dom_start, n_dom
       CALL fill_grid_subsets(patch(jg))
+      IF (jg > n_dom_start)  CALL fill_grid_subsets( p_patch_local_parent(jg) )
     ENDDO
-    IF(my_process_is_mpi_parallel() ) THEN
-      DO jg = n_dom_start+1, n_dom
-        CALL fill_grid_subsets( p_patch_local_parent(jg) )
-      ENDDO
-    ENDIF
-    !--------------------
-    
-      
+
     DO jg = n_dom_start, n_dom
       n_lp = 0 ! Number of local parents on the same level
-      IF(my_process_is_mpi_parallel()) THEN
-        ! Assemble a list of local parents living on the same level as the current patch
-        DO jgp = n_dom_start+1, n_dom
-          IF(patch(jgp)%parent_id == jg) THEN
-            n_lp = n_lp+1
-            id_lp(n_lp) = jgp  ! these are children of the current patch
-          ENDIF
-        ENDDO
-      ENDIF
+      ! Assemble a list of local parents living on the same level as the current patch
+      DO jgp = n_dom_start+1, n_dom
+        IF(patch(jgp)%parent_id == jg) THEN
+          n_lp = n_lp+1
+          id_lp(n_lp) = jgp  ! these are children of the current patch
+        ENDIF
+      ENDDO
    
       ! Get all patch information not read by read_basic_patch
       CALL read_remaining_patch( jg, patch(jg), n_lp, id_lp )
@@ -536,13 +465,8 @@ CONTAINS
     ! rescale grids
     DO jg = n_dom_start, n_dom
       CALL rescale_grid( patch(jg), grid_length_rescale_factor  )
+      IF (jg > n_dom_start)  CALL rescale_grid( p_patch_local_parent(jg), grid_length_rescale_factor )
     ENDDO
-    IF(my_process_is_mpi_parallel() ) THEN
-      DO jg = n_dom_start+1, n_dom
-        CALL rescale_grid( p_patch_local_parent(jg), grid_length_rescale_factor )
-      ENDDO
-    ENDIF
-
           
     ! do other stuff  
     DO jg = n_dom_start, n_dom
@@ -571,7 +495,7 @@ CONTAINS
       ! in transfer_interpol_state where also a lot of other arrays
       ! from the patch state are transferred
       
-      IF(my_process_is_mpi_parallel() .AND. jg>n_dom_start) THEN
+      IF (jg>n_dom_start) THEN
         CALL disable_sync_checks
         CALL init_coriolis( lcoriolis, lplane, p_patch_local_parent(jg) )
         CALL set_verts_phys_id( p_patch_local_parent(jg) )
@@ -582,6 +506,106 @@ CONTAINS
     
   END SUBROUTINE complete_patches
   !-------------------------------------------------------------------------
+
+
+  !-------------------------------------------------------------------------
+  !> reorder patch data structure according to the refin_ctrl flags.
+  !
+  !  Only interior cells/edges/vertices are sorted in decreasing
+  !  order.
+  !
+  !  @author F. Prill, DWD (2013-07-31)
+  !
+  !  @todo OpenMP parallelization!
+  !
+  !
+  SUBROUTINE reorder_patch_refin_ctrl(patch, child_patch)
+    TYPE(t_patch),         INTENT(INOUT) :: patch, child_patch   ! patch data structures
+    ! local variables
+    INTEGER, ALLOCATABLE :: old2new(:)
+    INTEGER              :: n, irefin, ic, ntot, ninterior
+
+    ! -- reorder cells
+    ntot      = idx_1d( patch%cells%end_idx(min_rlcell,1), &
+      &                 patch%cells%end_blk(min_rlcell,1) ) 
+    ninterior = idx_1d( patch%cells%start_idx(min_rlcell_int-1,1), &
+      &                 patch%cells%start_blk(min_rlcell_int-1,1) ) - 1
+    ALLOCATE(old2new(ntot))
+    DO ic = 1,ntot
+      old2new(ic) = ic
+    END DO
+    n = 0
+    DO irefin = -1,min_rlcell_int,-1
+      DO ic = 1,ninterior
+        IF (patch%cells%refin_ctrl(idx_no(ic), blk_no(ic)) == irefin) THEN
+          n = n + 1
+          old2new(ic) = n
+        END IF
+      END DO
+      ! update start_idx/blk and end_idx_blk
+      patch%cells%end_idx(irefin,:)     = idx_no(n)
+      patch%cells%end_blk(irefin,:)     = blk_no(n)
+      patch%cells%start_idx(irefin-1,:) = idx_no(n+1)
+      patch%cells%start_blk(irefin-1,:) = blk_no(n+1)
+    END DO
+    CALL reorder_cells(patch, old2new, opt_child_pp=child_patch)
+    DEALLOCATE(old2new)
+
+    ! -- reorder edges
+    ntot      = idx_1d( patch%edges%end_idx(min_rledge,1), &
+      &                 patch%edges%end_blk(min_rledge,1) ) 
+    ninterior = idx_1d( patch%edges%start_idx(min_rledge_int-1,1), &
+      &                 patch%edges%start_blk(min_rledge_int-1,1) ) - 1
+    ALLOCATE(old2new(ntot))
+    DO ic = 1,ntot
+      old2new(ic) = ic
+    END DO
+    n = 0
+    DO irefin = -1,min_rledge_int,-1
+      DO ic = 1,ninterior
+        IF (patch%edges%refin_ctrl(idx_no(ic), blk_no(ic)) == irefin) THEN
+          n = n + 1
+          old2new(ic) = n
+        END IF
+      END DO
+      ! update start_idx/blk and end_idx_blk
+      patch%edges%end_idx(irefin,:)     = idx_no(n)
+      patch%edges%end_blk(irefin,:)     = blk_no(n)
+      patch%edges%start_idx(irefin-1,:) = idx_no(n+1)
+      patch%edges%start_blk(irefin-1,:) = blk_no(n+1)
+    END DO
+    CALL reorder_edges(patch, old2new, opt_child_pp=child_patch)
+    DEALLOCATE(old2new)
+
+    ! -- reorder verts
+    ntot      = idx_1d( patch%verts%end_idx(min_rlvert,1), &
+      &                 patch%verts%end_blk(min_rlvert,1) ) 
+    ninterior = idx_1d( patch%verts%start_idx(min_rlvert_int-1,1), &
+      &                 patch%verts%start_blk(min_rlvert_int-1,1) ) - 1
+    ALLOCATE(old2new(ntot))
+    DO ic = 1,ntot
+      old2new(ic) = ic
+    END DO
+    n = 0
+    DO irefin = -1,min_rlvert_int,-1
+      DO ic = 1,ninterior
+        IF (patch%verts%refin_ctrl(idx_no(ic), blk_no(ic)) == irefin) THEN
+          n = n + 1
+          old2new(ic) = n
+        END IF
+      END DO
+      ! update start_idx/blk and end_idx_blk
+      patch%verts%end_idx(irefin,:)     = idx_no(n)
+      patch%verts%end_blk(irefin,:)     = blk_no(n)
+      patch%verts%start_idx(irefin-1,:) = idx_no(n+1)
+      patch%verts%start_blk(irefin-1,:) = blk_no(n+1)
+    END DO
+    CALL reorder_verts(patch, old2new)
+    DEALLOCATE(old2new)
+    
+  END SUBROUTINE reorder_patch_refin_ctrl
+  !-------------------------------------------------------------------------
+
   
   !-------------------------------------------------------------------------
   !> 
@@ -1475,10 +1499,11 @@ CONTAINS
       CALL divide_int( array_c_int(:,1), p_p%n_patch_cells, p_p%cells%glb_index,  &
         & p_p%cells%phys_id(:,:) )
     ENDDO
-    
+
     ! p_p%cells%edge_orientation(:,:,:)
     CALL nf(nf_inq_varid(ncid, 'orientation_of_normal', varid))
     CALL nf(nf_get_var_int(ncid, varid, array_c_int(:,1:max_cell_connectivity)))
+
     DO ji = 1, max_cell_connectivity
       DO ip = 0, n_lp
         p_p => get_patch_ptr(patch, id_lp, ip)
@@ -1487,7 +1512,7 @@ CONTAINS
           & p_p%cells%edge_orientation(:,:,ji) )
       ENDDO
     END DO
-    
+
     ! p_p%cells%area(:,:)
     CALL nf(nf_inq_varid(ncid, 'cell_area_p', varid))
     CALL nf(nf_get_var_double(ncid, varid, array_c_real(:,1)))
@@ -1496,7 +1521,7 @@ CONTAINS
       CALL divide_real( array_c_real(:,1), p_p%n_patch_cells, p_p%cells%glb_index, &
         & p_p%cells%area(:,:) )
     ENDDO
-    
+
 !    NULLIFY(tmp_check_array)
 !    ist = netcdf_read_oncells_2D(ncid, "cell_area_p", tmp_check_array, patch)
 !    max_diff = MAXVAL(ABS(tmp_check_array(:,:) - patch%cells%area(:,:)))
@@ -1519,7 +1544,7 @@ CONTAINS
       CALL divide_int( array_e_int(:,1), p_p%n_patch_edges, p_p%edges%glb_index,  &
         & p_p%edges%phys_id(:,:) )
     ENDDO
-    
+
     ! p_p%edges%cell_idx(:,:,:)
     ! p_p%edges%cell_blk(:,:,:)
     CALL nf(nf_inq_varid(ncid, 'adjacent_cell_of_edge', varid))
@@ -1693,7 +1718,7 @@ CONTAINS
     !
     ! Set verts%num_edges (in array_v_real(:,1))
     DO jv = 1, p_p%n_patch_verts_g
-      array_v_real(jv,1) = 0.0
+      array_v_real(jv,1) = 0.0_wp
       DO ji=1, max_verts_connectivity
         IF (array_v_int(jv,ji) /= 0) &
           array_v_real(jv,1) = array_v_real(jv,1) + 1.0_wp
@@ -2152,11 +2177,19 @@ CONTAINS
     ! output array
     REAL(wp), INTENT(inout) :: p_divided_real_array_out(:,:)
     
+    ! local variables:
+    CHARACTER(LEN=*), PARAMETER :: routine = 'mo_model_domimp_patches:divide_real'
     INTEGER nblks, npromz, n, nlen, jb, jl
     
     nblks  = (nvals-1)/nproma + 1
     npromz = nvals - (nblks-1)*nproma
     
+    ! consistency check
+    IF ( (SIZE(p_divided_real_array_out,1) /= nproma) .OR.  &
+      &  (SIZE(p_divided_real_array_out,2) >  nblks) ) THEN
+      CALL finish(routine, "Internal error!")
+    END IF
+
     n = 0
     DO jb = 1, nblks
       
@@ -2195,10 +2228,18 @@ CONTAINS
     ! output array
     INTEGER, INTENT(inout) :: p_divided_int_array_out(:,:)
     
+    ! local variables:
+    CHARACTER(LEN=*), PARAMETER :: routine = 'mo_model_domimp_patches:divide_int'
     INTEGER nblks, npromz, n, nlen, jb, jl
     
     nblks  = (nvals-1)/nproma + 1
     npromz = nvals - (nblks-1)*nproma
+
+    ! consistency check
+    IF ( (SIZE(p_divided_int_array_out,1) /= nproma) .OR.  &
+      &  (SIZE(p_divided_int_array_out,2) >  nblks) ) THEN
+      CALL finish(routine, "Internal error!")
+    END IF
     
     n = 0
     DO jb = 1, nblks

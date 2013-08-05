@@ -240,7 +240,7 @@ CONTAINS
       &                     p_ex     ! exner pressure
     ! local variables
     REAL(wp) :: pres, e_s, e_s_water, e_s_ice, e
-    REAL(wp), PARAMETER:: t_i = 250.16  ! threshold value for mixed-phase clouds
+    REAL(wp), PARAMETER:: t_i = 250.16_wp  ! threshold value for mixed-phase clouds
 
     ! compute dynamic pressure from Exner pressure:
     pres = p0ref * EXP((cpd/rd)*LOG(p_ex))

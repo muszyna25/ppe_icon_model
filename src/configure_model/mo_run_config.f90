@@ -180,8 +180,6 @@ CONTAINS
 
     INTEGER, OPTIONAL, INTENT(IN) :: opt_iadv_rcf  !< reduced calling freq. for advection
 
-    REAL(wp) :: rescale_factor
-
     CHARACTER(LEN=*),PARAMETER :: routine = 'mo_run_config:configure_run'
     
     !----------------------------

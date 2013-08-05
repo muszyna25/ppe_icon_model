@@ -1541,18 +1541,7 @@ CONTAINS
     INTEGER                 :: i_nv
     CHARACTER(*), PARAMETER :: routine = modname//"::gnat_query_containing_triangles"
 
-    ! TODO[FP] : for the time being, we find it sufficiently accurate to
-    !            perform a simple nearest neighbor query.
-    LOGICAL,      PARAMETER :: l_check_point_inside = .FALSE.
-
-    INTEGER                 :: min_node_idx(3,iv_nproma, iv_nblks)  ! corresponding GNAT nodes
-    INTEGER                 :: jb, jc, j, k, i_nb,  &
-      &                        end_idx, i_end,      &
-      &                        tmp_idx(2),          &   ! (idx,blk)
-      &                        nb_idx(0:(5*3),2)        ! (idx,blk)
-    INTEGER                 :: tri_vertex_idx(3,2)   ! (idx,blk)
-    REAL(gk)                :: tri_v(2,3), p(2), radius
-    LOGICAL                 :: l_inside
+    REAL(gk)                :: radius
     INTEGER                 :: i_startblk, &
       &                        i_startidx, i_endidx, &
       &                        rl_start, rl_end, i_nchdom

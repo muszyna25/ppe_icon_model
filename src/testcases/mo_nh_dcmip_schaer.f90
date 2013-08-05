@@ -110,9 +110,9 @@ MODULE mo_nh_dcmip_schaer
    INTEGER     :: i_rlstart, i_rlend, i_nchdom 
 
 !  !DEFINED PARAMETERS for the Schaer-type testcase (DCMIP):
-   REAL(wp), PARAMETER :: h0 = 250  ! maximum schaer-type mountain height(m)
-   REAL(wp), PARAMETER :: d  = 5000 ! Schaer-type mountain half-width (m)
-   REAL(wp), PARAMETER :: xi = 4000 ! Schaer-type mountain wavelenght (m)
+   REAL(wp), PARAMETER :: h0 = 250._wp  ! maximum schaer-type mountain height(m)
+   REAL(wp), PARAMETER :: d  = 5000._wp ! Schaer-type mountain half-width (m)
+   REAL(wp), PARAMETER :: xi = 4000._wp ! Schaer-type mountain wavelenght (m)
    REAL(wp), PARAMETER :: lambdac = pi/4._wp ! longitude of mountain centerpoint
    REAL(wp), PARAMETER :: phic = 0._wp ! Latitude of mountain centerpoint
 

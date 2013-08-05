@@ -282,7 +282,6 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
     CHARACTER(len=10) :: varunits  ! variable units, depending on "lflux_avg"
     INTEGER :: a_steptype
     TYPE(t_list_element), POINTER    :: var_diag_rh
-    TYPE(t_list_element), POINTER  :: new_element ! pointer to new var list element
  
     ibits = DATATYPE_PACK16 ! bits "entropy" of horizontal slice
 
