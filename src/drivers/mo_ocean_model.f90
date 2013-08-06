@@ -80,6 +80,7 @@ MODULE mo_ocean_model
 
   USE mo_oce_state,           ONLY: t_hydro_ocean_state, setup_ocean_namelists
   USE mo_build_decomposition, ONLY: build_decomposition
+  USE mo_complete_subdivision,ONLY: setup_phys_patches
 
   USE mo_impl_constants,      ONLY: success !, ihs_ocean
 
@@ -236,9 +237,13 @@ CONTAINS
 
     IF (my_process_is_io()) CALL vlist_io_main_proc
 
-    CALL build_decomposition(nlev,nlevp1,num_lev,num_levp1,nshift,&
-      &                          .TRUE.,lrestore_states,p_patch_3D)
+    CALL build_decomposition(num_lev,num_levp1,nshift,&
+      &                      .TRUE.,lrestore_states,p_patch_3D)
     CALL construct_icon_communication(p_patch_3D%p_patch_2D(:), n_dom=1)
+
+    !--------------------------------------------        
+    ! Setup the information for the physical patches
+    CALL setup_phys_patches
 
     CALL setup_ocean_namelists(p_patch_3D%p_patch_2D(1))
     !------------------------------------------------------------------

@@ -3,7 +3,9 @@ MODULE mo_build_decomposition
   USE mo_setup_subdivision
   USE mo_ext_decompose_patches
   USE mo_sync,                ONLY: sync_patch_array, sync_idx,disable_sync_checks, &
-  &                                 enable_sync_checks, SYNC_E, SYNC_V
+    &                               enable_sync_checks, SYNC_E, SYNC_V,             &
+    &                               decomposition_statistics
+  USE mo_dump_restore,        ONLY: dump_domain_decomposition
   USE mo_grid_config,         ONLY: grid_sphere_radius, n_dom, n_dom_start
   USE mo_mpi
   USE mo_kind
@@ -15,6 +17,7 @@ MODULE mo_build_decomposition
   USE mo_parallel_config,     ONLY: p_test_run, l_test_openmp, num_io_procs, division_method
   USE mo_impl_constants,      ONLY: success, MAX_DOM
   USE mo_exception,           ONLY: finish, message, message_text, get_filename_noext
+  USE mo_run_config,          ONLY: ldump_dd, lread_dd, nproc_dd
 
 #ifndef __ICON_OCEAN_ONLY__
   USE mo_dump_restore,        ONLY: restore_patches_netcdf
@@ -25,17 +28,35 @@ MODULE mo_build_decomposition
   PUBLIC :: build_decomposition
   PUBLIC :: complete_patchinfo_oce
 
-  CONTAINS
+CONTAINS
 
-  SUBROUTINE build_decomposition(nlev,nlevp1,num_lev,num_levp1,nshift,&
+  !> Main routine for creating the domain decomposition (together with
+  !> communication patterns etc.)
+  !
+  !  @note This routine is called for both: The ocean model and the
+  !        atmo_model.
+  !
+  !  @author F. Prill, DWD (2013-08-06)
+  !
+  SUBROUTINE build_decomposition(num_lev,num_levp1,nshift,&
       &                          l_is_ocean,l_restore_states, p_patch_3D)
-    INTEGER, INTENT(IN) :: nlev,nlevp1,num_lev(MAX_DOM),num_levp1(MAX_DOM),nshift(MAX_DOM)
-    LOGICAL, INTENT(IN) :: l_is_ocean,l_restore_states
-    TYPE(t_patch_3D), POINTER, OPTIONAL :: p_patch_3D
 
-    TYPE(t_patch), ALLOCATABLE :: p_patch_global(:)
-    INTEGER :: error_status,jg
+    INTEGER, INTENT(IN) :: num_lev(MAX_DOM),     &
+      &                    num_levp1(MAX_DOM),nshift(MAX_DOM)
+    LOGICAL, INTENT(IN) :: l_is_ocean,           &
+      &                    l_restore_states
+    TYPE(t_patch_3D), POINTER, OPTIONAL :: p_patch_3D
+    ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = 'build_decomposition'
+    TYPE(t_patch), ALLOCATABLE :: p_patch_global(:)
+    INTEGER                    :: error_status,jg
+    LOGICAL                    :: lrestore
+
+    ! Check patch allocation status
+
+    IF ( ALLOCATED(p_patch)) THEN
+      CALL finish(TRIM(routine), 'patch already allocated')
+    END IF
 
     ! Allocate patch array to start patch construction.
     ! 
@@ -46,106 +67,147 @@ MODULE mo_build_decomposition
       &      stat=error_status)
     IF (error_status/=success) CALL finish(TRIM(routine), 'allocation of patch failed')
 
+    ! consistency checks:
+
+    ! ldump_dd makes not much sense in a test run, we simply stop
+    IF (my_process_is_mpi_test() .AND. .NOT. lread_dd .AND. ldump_dd) THEN
+      CALL finish(routine, "Flag <dump_dd> was set in test run!")
+    ENDIF
+    ! Flag <lread_dd> does not make sense in single processor run, we simply stop
+    IF (.NOT. l_restore_states .AND. lread_dd .AND. .NOT. my_process_is_mpi_parallel() &
+      & .AND. .NOT. my_process_is_mpi_test()) THEN
+      CALL finish(routine, "Flag <lread_dd> was set in single processor run!")
+    END IF
+
+    lrestore = .FALSE.
 #ifndef __ICON_OCEAN_ONLY__
-    IF(l_restore_states) THEN
+    lrestore = l_restore_states
+#endif
+
+    IF (lrestore .AND. .NOT. my_process_is_mpi_test()) THEN
+
+      ! --------------------------------------------------
+      ! CASE 1: Work PEs restore from dump state
+      ! --------------------------------------------------
+
       ! Before the restore set p_comm_input_bcast to null
       CALL set_comm_input_bcast(null_comm_type)
-      IF( .NOT. my_process_is_mpi_test()) THEN
-        !CALL restore_patches_netcdf( p_patch, .TRUE. )
-        !CALL set_patch_communicators(p_patch)
-        !The 3D-ocean version of previous calls
-        CALL restore_patches_netcdf( p_patch, .TRUE. )
-        CALL set_patch_communicators(p_patch)
-
-      ELSE
-        CALL import_basic_patches(p_patch,num_lev,num_levp1,nshift)
-        CALL disable_sync_checks
-        CALL complete_patches( p_patch )
-        CALL enable_sync_checks
-      ENDIF
+      CALL restore_patches_netcdf( p_patch, .TRUE. )
+      CALL set_patch_communicators(p_patch)
       ! After the restore is done set p_comm_input_bcast in the
       ! same way as it would be set in parallel_nml_setup when
       ! no restore is wanted:
       CALL set_comm_input_bcast()
 
     ELSE
-#endif
-      ! Please note: ldump_dd/lread_dd not (yet?) implemented
-      IF(my_process_is_mpi_parallel()) THEN
+
+      ! --------------------------------------------------
+      ! CASE 2: Work PEs subdivide patches w/out restore
+      ! --------------------------------------------------
+
+      ! Test run: If lread_dd is not set, import_basic_patches()
+      ! goes parallel with the call above, actually the Test PE
+      ! reads and broadcasts to the others.  IF lread_dd is set,
+      ! the read is in standalone mode.
+      IF (my_process_is_mpi_test() .AND. (lread_dd .OR. lrestore)) &
+        &   CALL set_comm_input_bcast(null_comm_type)
+
+      IF (lread_dd .AND. .NOT. my_process_is_mpi_test()) THEN
+
+        ! ------------------------------------------------
+        ! CASE 2a: Read domain decomposition from file
+        ! ------------------------------------------------
+
+        CALL restore_patches_netcdf( p_patch, .FALSE. )
+        
+      ELSE
+
+        ! ------------------------------------------------
+        ! CASE 2b: compute domain decomposition on-the-fly
+        ! ------------------------------------------------
+
+        ALLOCATE(p_patch_global(n_dom_start:n_dom))
+
+        CALL import_basic_patches(p_patch_global,num_lev,num_levp1,nshift)
 
         IF (division_method(1) > 100) THEN
+
           ! use ext decomposition library driver
-          ALLOCATE(p_patch_global(n_dom_start:n_dom))
-          CALL import_basic_patches(p_patch_global,num_lev,num_levp1,nshift)
           CALL ext_decompose_patches(p_patch, p_patch_global)
-          DEALLOCATE(p_patch_global)
-          IF (l_is_ocean) THEN
-            CALL complete_parallel_setup_oce(p_patch)
-          ELSE
-            CALL complete_parallel_setup
-          END IF
 
         ELSE
 
-          ! use internal decomposition
-          !The 3D-ocean version of previous calls
-          ALLOCATE(p_patch_global(n_dom_start:n_dom))
-          CALL import_basic_patches(p_patch_global,num_lev,num_levp1,nshift)
-          CALL decompose_domain(p_patch_global)
-          DEALLOCATE(p_patch_global)
-          IF (l_is_ocean) THEN
-            CALL complete_parallel_setup_oce(p_patch)
+          ! use internal domain decomposition algorithm
+
+          IF (ldump_dd .AND. .NOT. my_process_is_mpi_parallel()) THEN 
+            ! If ldump_dd is set in a single processor run, a domain
+            ! decomposition for nproc_dd processors is done
+            CALL decompose_domain(p_patch_global, nproc_dd)
           ELSE
-            CALL complete_parallel_setup
+            CALL decompose_domain(p_patch_global)
           END IF
-!          CALL finish(routine, "Old decomposition not available for the ocean" )
-        ENDIF
 
-      ELSE
+        ENDIF ! division_method
 
-        !The 3D-ocean version of previous calls 
-        CALL import_basic_patches(p_patch,num_lev,num_levp1,nshift) 
+        DEALLOCATE(p_patch_global)
 
+      ENDIF ! lread_dd
+
+      IF(ldump_dd) THEN
+        IF (my_process_is_mpi_parallel()) THEN
+          CALL dump_domain_decomposition(p_patch(n_dom_start))
+          DO jg = n_dom_start+1, n_dom
+            CALL dump_domain_decomposition(p_patch(jg),p_patch_local_parent(jg))
+          ENDDO
+        END IF
+        ! note: in single processor runs, the dump is done within
+        ! decompose_domain
+        CALL p_stop
+        STOP
       ENDIF
 
-      ! Complete information which is not yet read or calculated
-      CALL complete_patches(p_patch)
+      ! setup communication patterns (also done in sequential runs)
+      IF (l_is_ocean) THEN
+        CALL complete_parallel_setup_oce(p_patch)
+      ELSE
+        CALL complete_parallel_setup
+      END IF
 
-#ifndef __ICON_OCEAN_ONLY__
+      ! Complete information which is not yet read or calculated
+      IF (lrestore .AND. my_process_is_mpi_test()) CALL disable_sync_checks
+      CALL complete_patches( p_patch )
+      IF (lrestore .AND. my_process_is_mpi_test()) CALL enable_sync_checks
+     
+      IF (my_process_is_mpi_test() .AND. (lread_dd .OR. lrestore)) &
+        &    CALL set_comm_input_bcast()
+
     ENDIF
-#endif
 
     DO jg = n_dom_start, n_dom
       CALL complete_patchinfo_oce(p_patch(jg))
-      !The 3D-ocean version of previous calls
-      ! Note: this apperas to be problematic for removing the land points
-      !CALL complete_patchinfo(p_patch(jg))
     END DO
-    !--------------------------------------------        
-    ! Setup the information for the physical patches
-    CALL setup_phys_patches
 
     ! In case of a test run: Copy processor splitting to test PE
-    !IF(p_test_run) CALL copy_processor_splitting(p_patch)
-    !The 3D-ocean version of previous calls 
     IF(p_test_run) CALL copy_processor_splitting(p_patch)
     !--------------------------------------------------------------------------------
-    ! 5. Construct interpolation state, compute interpolation coefficients.
-    !--------------------------------------------------------------------------------
 
-    !-------------------------------------------------------------------
-    ! 7. Finalize domain decomposition
-    !-------------------------------------------------------------------   
-    IF (my_process_is_mpi_parallel() .AND. .NOT.l_restore_states) THEN
-
-      !CALL finalize_decomposition()
-      !The 3D-ocean version of previous calls 
-      IF (l_is_ocean) THEN
-        CALL finalize_decomposition_oce(p_patch)
-      ELSE
-        CALL finalize_decomposition
-      END IF
+    IF (l_is_ocean) THEN
+      CALL finalize_decomposition_oce(p_patch)
+    ELSE
+      CALL finalize_decomposition
+    END IF
+      
+    IF(.NOT.p_test_run .AND. my_process_is_mpi_parallel()) THEN ! the call below hangs in test mode
+      ! Print diagnostic information about domain decomposition
+      DO jg = 1, n_dom
+        CALL decomposition_statistics(p_patch(jg))
+      ENDDO
     ENDIF
+
+    ! reorder patch_local_parents according to their refin_ctrl flags
+    DO jg = n_dom_start+1, n_dom
+      CALL reorder_patch_refin_ctrl(p_patch_local_parent(jg), p_patch(jg))
+    ENDDO
 
     ! set the horizontal attribute pointer of the 3D patch
     IF (PRESENT(p_patch_3D)) THEN
@@ -155,6 +217,7 @@ MODULE mo_build_decomposition
       ENDIF
       p_patch_3D%p_patch_2D => p_patch
     END IF
+
   END SUBROUTINE build_decomposition
   !----------------------------------------------------------------------------
   !

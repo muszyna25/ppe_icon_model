@@ -95,14 +95,9 @@ MODULE mo_atmo_model
   ! horizontal grid, domain decomposition, memory
   USE mo_grid_config,             ONLY: n_dom, n_dom_start, global_cell_type,                 &
     &                                   dynamics_parent_grid_id
-  USE mo_model_domimp_patches,    ONLY: import_basic_patches, complete_patches,               &
-    &                                   reorder_patch_refin_ctrl
   USE mo_model_domain,            ONLY: t_patch, p_patch, p_patch_local_parent
-  USE mo_setup_subdivision,       ONLY: decompose_domain
-  USE mo_complete_subdivision,    ONLY: complete_parallel_setup, finalize_decomposition,      &
-    &                                   copy_processor_splitting, set_patch_communicators,    &
-    &                                   setup_phys_patches
-  USE mo_ext_decompose_patches,   ONLY: ext_decompose_patches
+  USE mo_build_decomposition,     ONLY: build_decomposition
+  USE mo_complete_subdivision,    ONLY: setup_phys_patches
   USE mo_icon_comm_interface,     ONLY: construct_icon_communication,                         &
     &                                   destruct_icon_communication
 #ifndef NOMPI
@@ -393,150 +388,13 @@ CONTAINS
     ! - domain decompistion
     ! - vertical coordinates
     !-------------------------------------------------------------------
-    ! 4. Import patches
+    ! 4. Import patches, perform domain decomposition
     !-------------------------------------------------------------------
 
-    ! Check patch allocation status
+    CALL build_decomposition(num_lev,num_levp1,nshift, l_is_ocean=.FALSE.,  &
+      &                      l_restore_states=lrestore_states)
 
-    IF ( ALLOCATED(p_patch)) THEN
-      CALL finish(TRIM(routine), 'patch already allocated')
-    END IF
-
-    ! Allocate patch array to start patch construction.
-    ! 
-    ! At the same time, we allocate the "p_patch_local_parent" which
-    ! is the local portion of each patch's parent grid.
-    ALLOCATE(p_patch             (n_dom_start  :n_dom), &
-      &      p_patch_local_parent(n_dom_start+1:n_dom), &
-      &      stat=error_status)
-    IF (error_status/=success) CALL finish(TRIM(routine), 'allocation of patch failed')
-
-    ! consistency checks:
-
-    ! ldump_dd makes not much sense in a test run, we simply stop
-    IF (my_process_is_mpi_test() .AND. .NOT. lread_dd .AND. ldump_dd) THEN
-      CALL finish(routine, "Flag <dump_dd> was set in test run!")
-    ENDIF
-    ! Flag <lread_dd> does not make sense in single processor run, we simply stop
-    IF (.NOT. lrestore_states .AND. lread_dd .AND. .NOT. my_process_is_mpi_parallel() &
-      & .AND. .NOT. my_process_is_mpi_test()) THEN
-      CALL finish(routine, "Flag <lread_dd> was set in single processor run!")
-    END IF
-
-    IF (lrestore_states .AND. .NOT. my_process_is_mpi_test()) THEN
-
-      ! --------------------------------------------------
-      ! CASE 1: Work PEs restore from dump state
-      ! --------------------------------------------------
-
-      ! Before the restore set p_comm_input_bcast to null
-      CALL set_comm_input_bcast(null_comm_type)
-      CALL restore_patches_netcdf( p_patch, .TRUE. )
-      CALL set_patch_communicators(p_patch)
-      ! After the restore is done set p_comm_input_bcast in the
-      ! same way as it would be set in parallel_nml_setup when
-      ! no restore is wanted:
-      CALL set_comm_input_bcast()
-
-    ELSE
-
-      ! --------------------------------------------------
-      ! CASE 2: Work PEs subdivide patches w/out restore
-      ! --------------------------------------------------
-
-      ! Test run: If lread_dd is not set, import_basic_patches()
-      ! goes parallel with the call above, actually the Test PE
-      ! reads and broadcasts to the others.  IF lread_dd is set,
-      ! the read is in standalone mode.
-      IF (my_process_is_mpi_test() .AND. (lread_dd .OR. lrestore_states)) &
-        &   CALL set_comm_input_bcast(null_comm_type)
-
-      IF (lread_dd .AND. .NOT. my_process_is_mpi_test()) THEN
-
-        ! ------------------------------------------------
-        ! CASE 2a: Read domain decomposition from file
-        ! ------------------------------------------------
-
-        CALL restore_patches_netcdf( p_patch, .FALSE. )
-        
-      ELSE
-
-        ! ------------------------------------------------
-        ! CASE 2b: compute domain decomposition on-the-fly
-        ! ------------------------------------------------
-
-        ALLOCATE(p_patch_global(n_dom_start:n_dom))
-
-        CALL import_basic_patches(p_patch_global,num_lev,num_levp1,nshift)
-
-        IF (division_method(1) > 100) THEN
-
-          ! use ext decomposition library driver
-          CALL ext_decompose_patches(p_patch, p_patch_global)
-
-        ELSE
-
-          ! use internal domain decomposition algorithm
-
-          IF (ldump_dd .AND. .NOT. my_process_is_mpi_parallel()) THEN 
-            ! If ldump_dd is set in a single processor run, a domain
-            ! decomposition for nproc_dd processors is done
-            CALL decompose_domain(p_patch_global, nproc_dd)
-          ELSE
-            CALL decompose_domain(p_patch_global)
-          END IF
-
-        ENDIF ! division_method
-
-        DEALLOCATE(p_patch_global)
-
-      ENDIF ! lread_dd
-
-      IF(ldump_dd) THEN
-        IF (my_process_is_mpi_parallel()) THEN
-          CALL dump_domain_decomposition(p_patch(n_dom_start))
-          DO jg = n_dom_start+1, n_dom
-            CALL dump_domain_decomposition(p_patch(jg),p_patch_local_parent(jg))
-          ENDDO
-        END IF
-        ! note: in single processor runs, the dump is done within
-        ! decompose_domain
-        CALL p_stop
-        STOP
-      ENDIF
-
-      ! setup communication patterns (also done in sequential runs)
-      CALL complete_parallel_setup()
-
-      ! Complete information which is not yet read or calculated
-      IF (lrestore_states .AND. my_process_is_mpi_test()) CALL disable_sync_checks
-      CALL complete_patches( p_patch )
-      IF (lrestore_states .AND. my_process_is_mpi_test()) CALL enable_sync_checks
-     
-      IF (my_process_is_mpi_test() .AND. (lread_dd .OR. lrestore_states)) &
-        &    CALL set_comm_input_bcast()
-
-    ENDIF
-
-    ! In case of a test run: Copy processor splitting to test PE
-    IF(p_test_run) CALL copy_processor_splitting(p_patch)
-    !--------------------------------------------------------------------------------
-
-    CALL finalize_decomposition()
-      
-    IF(.NOT.p_test_run .AND. my_process_is_mpi_parallel()) THEN ! the call below hangs in test mode
-      ! Print diagnostic information about domain decomposition
-      DO jg = 1, n_dom
-        CALL decomposition_statistics(p_patch(jg))
-      ENDDO
-    ENDIF
-
-    ! reorder patch_local_parents according to their refin_ctrl flags
-    DO jg = n_dom_start+1, n_dom
-      CALL reorder_patch_refin_ctrl(p_patch_local_parent(jg), p_patch(jg))
-    ENDDO
-
-    
+   
     !--------------------------------------------------------------------------------
     ! 5. Construct interpolation state, compute interpolation coefficients.
     !--------------------------------------------------------------------------------
