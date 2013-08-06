@@ -74,7 +74,6 @@ MODULE mo_name_list_output_init
   USE mo_run_config,                        ONLY: num_lev, num_levp1, dtime,                      &
     &                                             msg_level, output_mode, ltestcase,              &
     &                                             number_of_grid_used
-  USE mo_nonhydrostatic_config,             ONLY: ivctype
   USE mo_datetime,                          ONLY: t_datetime
   USE mo_time_config,                       ONLY: time_config
   USE mo_lonlat_grid,                       ONLY: t_lon_lat_grid
@@ -113,6 +112,7 @@ MODULE mo_name_list_output_init
   USE mo_lnd_nwp_config,                    ONLY: nlev_snow
   USE mo_vertical_coord_table,              ONLY: vct
   USE mo_dynamics_config,                   ONLY: iequations
+  USE mo_nonhydrostatic_config,             ONLY: ivctype
 #endif 
 ! __ICON_OCEAN_ONLY__
 

@@ -5,7 +5,6 @@ MODULE mo_build_decomposition
   USE mo_sync,                ONLY: sync_patch_array, sync_idx,disable_sync_checks, &
     &                               enable_sync_checks, SYNC_E, SYNC_V,             &
     &                               decomposition_statistics
-  USE mo_dump_restore,        ONLY: dump_domain_decomposition
   USE mo_grid_config,         ONLY: grid_sphere_radius, n_dom, n_dom_start
   USE mo_mpi
   USE mo_kind
@@ -20,7 +19,7 @@ MODULE mo_build_decomposition
   USE mo_run_config,          ONLY: ldump_dd, lread_dd, nproc_dd
 
 #ifndef __ICON_OCEAN_ONLY__
-  USE mo_dump_restore,        ONLY: restore_patches_netcdf
+  USE mo_dump_restore,        ONLY: restore_patches_netcdf, dump_domain_decomposition
 #endif
 
   IMPLICIT NONE
@@ -80,9 +79,9 @@ CONTAINS
     END IF
 
     lrestore = .FALSE.
+
 #ifndef __ICON_OCEAN_ONLY__
     lrestore = l_restore_states
-#endif
 
     IF (lrestore .AND. .NOT. my_process_is_mpi_test()) THEN
 
@@ -125,6 +124,7 @@ CONTAINS
         ! ------------------------------------------------
         ! CASE 2b: compute domain decomposition on-the-fly
         ! ------------------------------------------------
+#endif
 
         ALLOCATE(p_patch_global(n_dom_start:n_dom))
 
@@ -151,7 +151,9 @@ CONTAINS
 
         DEALLOCATE(p_patch_global)
 
+#ifndef __ICON_OCEAN_ONLY__
       ENDIF ! lread_dd
+
 
       IF(ldump_dd) THEN
         IF (my_process_is_mpi_parallel()) THEN
@@ -165,6 +167,7 @@ CONTAINS
         CALL p_stop
         STOP
       ENDIF
+#endif
 
       ! setup communication patterns (also done in sequential runs)
       IF (l_is_ocean) THEN
@@ -181,7 +184,10 @@ CONTAINS
       IF (my_process_is_mpi_test() .AND. (lread_dd .OR. lrestore)) &
         &    CALL set_comm_input_bcast()
 
+#ifndef __ICON_OCEAN_ONLY__
     ENDIF
+#endif
+
 
     DO jg = n_dom_start, n_dom
       CALL complete_patchinfo_oce(p_patch(jg))
