@@ -585,7 +585,7 @@ MODULE mo_vertical_grid
         z_maxhgtd(:,:,:) = 0._wp
 !$OMP END WORKSHARE
 
-!$OMP DO PRIVATE(jb, i_startidx, i_endidx, jk, jc, z_maxslope, z_offctr) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb, i_startidx, i_endidx, jk, jk1, jc, z_maxslope, z_offctr, z_diff) ICON_OMP_DEFAULT_SCHEDULE
         DO jb = i_startblk,nblks_c
 
           CALL get_indices_c(p_patch(jg), jb, i_startblk, nblks_c, &
@@ -1430,8 +1430,8 @@ MODULE mo_vertical_grid
         ! Recompute indices and height differences if truly horizontal pressure gradient 
         ! computation would intersect the ground
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb, i_startidx, i_endidx, jk, jk1, jk_start, je, z_aux1, &
-!$OMP z_aux2) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb, i_startidx, i_endidx, jk, jk1, jk_start, je, z_aux1, z_aux2, &
+!$OMP z0, z1, z2, z3, coef1, coef2, coef3, dn1, dn2, dn3, dn4, dn5, dn6) ICON_OMP_DEFAULT_SCHEDULE
         DO jb = i_startblk,nblks_e
 
           CALL get_indices_e(p_patch(jg), jb, i_startblk, nblks_e, &
