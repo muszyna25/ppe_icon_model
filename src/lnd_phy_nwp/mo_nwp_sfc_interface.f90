@@ -67,6 +67,8 @@ MODULE mo_nwp_sfc_interface
 !  USE mo_aggregate_surface,   ONLY: subsmean,subs_disaggregate_radflux,subsmean_albedo
 !  USE mo_icoham_sfc_indices,  ONLY: nsfc_type, igbm, iwtr, iice, ilnd
   USE mo_physical_constants,  ONLY: tmelt, lh_v=>alv
+  USE mo_data_turbdiff,       ONLY: itype_tran
+  USE mo_turbdiff_config,     ONLY: turbdiff_config
 
   
   IMPLICIT NONE 
@@ -257,6 +259,11 @@ CONTAINS
 
     i_startblk = p_patch%cells%start_blk(rl_start,1)
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
+
+
+    ! needed by TERRA (this copy avoids putting the stuff into the argument list)
+    ! necessary, since itype_tran could potentially be different for different patches
+    itype_tran = turbdiff_config(jg)%itype_tran
 
 
     IF (msg_level >= 15) THEN

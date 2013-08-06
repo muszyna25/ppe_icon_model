@@ -404,7 +404,7 @@ USE mo_phyparam_soil
 !
 USE mo_lnd_nwp_config,     ONLY: lmelt, lmelt_var, lmulti_snow,  &
   &                              itype_trvg, itype_evsl,         &
-  &                              itype_tran, itype_root, itype_heatcond, &
+  &                              itype_root, itype_heatcond, &
   &                              itype_hydbound, lstomata, l2tls,        &
   &                              lana_rho_snow, max_toplaydepth,itype_interception
 !
@@ -413,6 +413,7 @@ USE mo_exception,          ONLY: message, finish, message_text
 USE mo_run_config,         ONLY: msg_level
 USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config
 USE mo_impl_constants,     ONLY: iedmf
+USE mo_data_turbdiff,      ONLY: itype_tran
 #endif
 
 

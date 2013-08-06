@@ -65,7 +65,6 @@ MODULE mo_lnd_nwp_nml
     &                            config_idiag_snowfrac => idiag_snowfrac, &
     &                               config_itype_trvg  => itype_trvg    , &
     &                               config_itype_evsl  => itype_evsl    , &
-    &                               config_itype_tran  => itype_tran    , &
     &                              config_itype_lndtbl => itype_lndtbl  , &
     &                               config_itype_root  => itype_root    , &
     &                               config_lstomata    => lstomata      , &
@@ -96,7 +95,6 @@ MODULE mo_lnd_nwp_nml
   REAL(wp)::  max_toplaydepth   !< maximum depth of uppermost snow layer for multi-layer snow scheme
   INTEGER ::  itype_trvg        !< type of vegetation transpiration parameterization
   INTEGER ::  itype_evsl        !< type of parameterization of bare soil evaporation
-  INTEGER ::  itype_tran        !< type of surface to atmospher transfer
   INTEGER ::  itype_lndtbl      !< choice of table for associating surface parameters to land-cover classes
   INTEGER ::  itype_root        !< type of root density distribution
   INTEGER ::  itype_heatcond    !< type of soil heat conductivity
@@ -127,7 +125,7 @@ MODULE mo_lnd_nwp_nml
     &               frsea_thrhld, lmelt_var, lmulti_snow      , & 
     &               itype_trvg, idiag_snowfrac, max_toplaydepth, & 
     &               itype_evsl                                , & 
-    &               itype_tran, itype_lndtbl                  , & 
+    &               itype_lndtbl                              , & 
     &               itype_root                                , & 
     &               itype_heatcond                            , & 
     &               itype_interception                        , & 
@@ -208,7 +206,6 @@ MODULE mo_lnd_nwp_nml
     !
     itype_trvg     = 2       ! type of vegetation transpiration parameterization
     itype_evsl     = 2       ! type of parameterization of bare soil evaporation
-    itype_tran     = 2       ! type of surface to atmosphere transfer
     itype_lndtbl   = 1       ! choice of table for associating surface parameters to land-cover classes
     itype_root     = 1       ! type of root density distribution
     itype_heatcond = 1       ! type of soil heat conductivity
@@ -281,8 +278,7 @@ MODULE mo_lnd_nwp_nml
       config_idiag_snowfrac = idiag_snowfrac
       config_itype_trvg  = itype_trvg
       config_itype_evsl  = itype_evsl
-      config_itype_tran  = itype_tran
-      config_itype_lndtbl = itype_lndtbl
+      config_itype_lndtbl= itype_lndtbl
       config_itype_root  = itype_root
       config_lstomata    = lstomata
       config_l2tls       = l2tls
