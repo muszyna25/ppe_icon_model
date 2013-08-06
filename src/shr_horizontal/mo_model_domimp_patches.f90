@@ -437,9 +437,14 @@ CONTAINS
       ! Allocate and preset remaining arrays in patch
       ! operation mode=3: allocate all but the parallelization-related arrays
       !                   (the parallelization-related arrays are allocated in mo_setup_subdivision) 
+    IF (my_process_is_mpi_parallel()) THEN
       CALL allocate_remaining_patch(patch(jg),3)
-      IF (jg > n_dom_start)  &
-        & CALL allocate_remaining_patch(p_patch_local_parent(jg),3)
+      IF (jg > n_dom_start)  THEN
+        CALL allocate_remaining_patch(p_patch_local_parent(jg),3)
+      ENDIF
+    ELSE
+      CALL allocate_remaining_patch(patch(jg),1)
+    ENDIF
     ENDDO
     
     ! Fill the subsets information
