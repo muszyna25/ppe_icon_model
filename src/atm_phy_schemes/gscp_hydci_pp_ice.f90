@@ -1944,14 +1944,14 @@ SUBROUTINE hydci_pp_ice (             &
         Xi_mck     = 1.0_ireals/ Xi_mck_inv
 
         IF (llqi) THEN
-  !        zsidep  = tau_dep_ice_inv*Xi_mck*zqvsidiff * (1.0_ireals - EXP(-zdt*Xi_mck_inv)) * zdtr
+          zsidep  = tau_dep_ice_inv*Xi_mck*zqvsidiff * (1.0_ireals - EXP(-zdt*Xi_mck_inv)) * zdtr
           zsiau = zciau * MAX( qig - qi0, 0.0_ireals ) &
                             * MAX(0.2_ireals,MIN(EXP(0.09_ireals*(tg-t0)),1.0_ireals))
 
           zsicri    = zcicri * qig * zeln7o8qrk(iv)
           zsrcri    = zcrcri * (qig/zmi) * zeln13o8qrk(iv) 
         ELSE
-  !        zsidep = 0.0_ireals
+          zsidep = 0.0_ireals
           zsiau = 0.0_ireals
           zsicri = 0.0_ireals
           zsrcri = 0.0_ireals
@@ -1962,12 +1962,14 @@ SUBROUTINE hydci_pp_ice (             &
         zsvidep   = 0.0_ireals
         zsvisub   = 0.0_ireals
         zsimax    = qig*zdtr
-        
-        IF( sidep(iv) > 0.0_ireals ) THEN
-          zsvidep = sidep(iv)
-        ELSEIF (sidep(iv) < 0.0_ireals ) THEN
-          zsvisub = - sidep(iv)  
+
+        IF( zsidep > 0.0_ireals ) THEN
+          zsvidep = MIN( zsidep, zsvmax )
+        ELSEIF (zsidep < 0.0_ireals ) THEN
+  !        zsvisub = - MAX(-zsimax, zsvmax ) ! this would imply sublimating everything within one time step
+          zsvisub = - MAX(-zsidep, zsvmax )
         ENDIF
+
        
 !        zxfac     = 1.0_ireals + zbsdep(iv) * EXP(ccsdxp*LOG(zcslam(iv)))
 !        zssdep    = zcsdep(iv) * zxfac * ( qvg - zqvsi ) / (zcslam(iv)+zeps)**2
