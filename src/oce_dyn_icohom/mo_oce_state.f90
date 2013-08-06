@@ -764,13 +764,13 @@ CONTAINS
     !! normal velocity component
     CALL add_var(ocean_restart_list,'vn'//TRIM(var_suffix),p_os_prog%vn,GRID_UNSTRUCTURED_EDGE, &
     &            ZA_DEPTH_BELOW_SEA, &
-    &            t_cf_var('vn', 'm/s', 'normale velocity on edge,m', DATATYPE_FLT32),&
+    &            t_cf_var('vn', 'm/s', 'normal velocity on edge', DATATYPE_FLT32),&
     &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_EDGE),&
     &            ldims=(/nproma,n_zlev,nblks_e/))
     IF (nnew(1)==timelevel) THEN
       CALL add_ref(ocean_restart_list,'vn'//TRIM(var_suffix),'vn',p_os_prog%vn, &
         &          GRID_UNSTRUCTURED_EDGE, ZA_DEPTH_BELOW_SEA, &
-        &          t_cf_var('vn', 'm/s', 'normale velocity on edge,m', DATATYPE_FLT32),&
+        &          t_cf_var('vn', 'm/s', 'normal velocity on edge', DATATYPE_FLT32),&
         &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_EDGE),&
         &          ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("oce_prog"), &
         &          loutput=.TRUE.)
