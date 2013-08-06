@@ -461,14 +461,14 @@ CONTAINS
 !
 !---------- END Copy index list fields
 
-
         CALL terra_multlay(                                    &
         &  ie=nproma                                         , & !IN array dimensions
         &  istartpar=1,       iendpar=i_count                , & !IN optional start/end indicies
         &  nsubs0=jb,          nsubs1=isubs                  , & !UNUSED except for optional debug output
         &  ke_soil=nlev_soil-1, ke_snow=nlev_snow            , & !IN without lowermost (climat.) soil layer
         &  czmls=zml_soil,    ldiag_tg=.FALSE.               , & !IN processing soil level structure 
-        &  inwp_turb=atm_phy_nwp_config(jg)%inwp_turb        , & !IN !!! Dangerous HACK !!!
+        &  inwp_turb    = atm_phy_nwp_config(jg)%inwp_turb   , & !IN !!! Dangerous HACK !!!
+        &  nclass_gscp  = atm_phy_nwp_config(jg)%nclass_gscp , & !IN number of hydrometeor classes
         &  dt=tcall_sfc_jg                                   , & !IN 
         &  soiltyp_subs = soiltyp_t(:,jb,isubs)              , & !IN type of the soil (keys 0-9)         --    
         &  plcov        = plcov_t(:,jb,isubs)                , & !IN fraction of plant cover             --

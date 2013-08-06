@@ -63,7 +63,6 @@ MODULE mo_lnd_nwp_nml
     &                               config_lmulti_snow => lmulti_snow   , &
     &                          config_max_toplaydepth => max_toplaydepth, &
     &                            config_idiag_snowfrac => idiag_snowfrac, &
-    &                               config_itype_gscp  => itype_gscp    , &
     &                               config_itype_trvg  => itype_trvg    , &
     &                               config_itype_evsl  => itype_evsl    , &
     &                               config_itype_tran  => itype_tran    , &
@@ -95,7 +94,6 @@ MODULE mo_lnd_nwp_nml
   REAL(wp)::  frlake_thrhld     !< fraction threshold for creating a lake grid point
   REAL(wp)::  frsea_thrhld      !< fraction threshold for creating a sea grid point
   REAL(wp)::  max_toplaydepth   !< maximum depth of uppermost snow layer for multi-layer snow scheme
-  INTEGER ::  itype_gscp        !< type of grid-scale precipitation physics
   INTEGER ::  itype_trvg        !< type of vegetation transpiration parameterization
   INTEGER ::  itype_evsl        !< type of parameterization of bare soil evaporation
   INTEGER ::  itype_tran        !< type of surface to atmospher transfer
@@ -125,8 +123,8 @@ MODULE mo_lnd_nwp_nml
 
   NAMELIST/lnd_nml/ nlev_snow, ntiles                         , &
     &               frlnd_thrhld, lseaice, llake, lmelt       , &
-    &               frlndtile_thrhld, frlake_thrhld, frsea_thrhld, &
-    &               lmelt_var, lmulti_snow, itype_gscp        , & 
+    &               frlndtile_thrhld, frlake_thrhld           , &
+    &               frsea_thrhld, lmelt_var, lmulti_snow      , & 
     &               itype_trvg, idiag_snowfrac, max_toplaydepth, & 
     &               itype_evsl                                , & 
     &               itype_tran, itype_lndtbl                  , & 
@@ -208,7 +206,6 @@ MODULE mo_lnd_nwp_nml
     lsnowtile      = .FALSE. ! if .TRUE., snow is considered as a separate tile
     idiag_snowfrac = 1       ! 1: old method based on SWE, 2: more advanced experimental method
     !
-    itype_gscp     = 3       ! type of grid-scale precipitation physics
     itype_trvg     = 2       ! type of vegetation transpiration parameterization
     itype_evsl     = 2       ! type of parameterization of bare soil evaporation
     itype_tran     = 2       ! type of surface to atmosphere transfer
@@ -282,7 +279,6 @@ MODULE mo_lnd_nwp_nml
       config_lmulti_snow = lmulti_snow
       config_max_toplaydepth = max_toplaydepth
       config_idiag_snowfrac = idiag_snowfrac
-      config_itype_gscp  = itype_gscp
       config_itype_trvg  = itype_trvg
       config_itype_evsl  = itype_evsl
       config_itype_tran  = itype_tran

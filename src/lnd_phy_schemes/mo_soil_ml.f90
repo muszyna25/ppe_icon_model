@@ -331,7 +331,6 @@ USE data_runcontrol , ONLY :   &
 
 ! 3. controlling the physics
 ! --------------------------
-    itype_gscp,   & ! type of grid-scale precipitation physics
     itype_trvg,   & ! type of vegetation transpiration parameterization
     itype_evsl,   & ! type of parameterization of bare soil evaporation
     itype_tran,   & ! type of surface to atmospher transfer
@@ -404,7 +403,7 @@ USE mo_cuparameters,       ONLY: rho_w => rhoh2o ! density of liquid water (kg/m
 USE mo_phyparam_soil   
 !
 USE mo_lnd_nwp_config,     ONLY: lmelt, lmelt_var, lmulti_snow,  &
-  &                              itype_gscp, itype_trvg, itype_evsl,     &
+  &                              itype_trvg, itype_evsl,         &
   &                              itype_tran, itype_root, itype_heatcond, &
   &                              itype_hydbound, lstomata, l2tls,        &
   &                              lana_rho_snow, max_toplaydepth,itype_interception
@@ -494,6 +493,7 @@ END SUBROUTINE message
                   ke_soil, ke_snow , &
                   czmls            , & ! processing soil level structure 
                   inwp_turb        , & ! turbulence scheme number
+                  nclass_gscp      , & ! number of hydrometeor classes of grid scale microphysics
                   dt               , & ! time step
 !
                   soiltyp_subs     , & ! type of the soil (keys 0-9)                     --
@@ -618,6 +618,8 @@ END SUBROUTINE message
   LOGICAL, INTENT(IN) :: ldiag_tg      ! if .TRUE., use tgcom to diagnose t_g and snow-cover fraction
   INTEGER (KIND=iintegers), INTENT(IN)  :: &
                   inwp_turb            ! turbulence scheme number
+  INTEGER (KIND=iintegers), INTENT(IN)  :: &
+                  nclass_gscp          ! number of hydrometeor classes of grid scale microphysics
   REAL    (KIND = ireals), INTENT(IN)  ::  &
                   dt                   ! time step
 
@@ -1764,7 +1766,7 @@ END SUBROUTINE message
         ! if no snow exists, reinitialize age indicator
         freshsnow(i) = 1.0_ireals
       ELSE
-        IF ( itype_gscp == 4 ) THEN
+        IF ( nclass_gscp >= 6 ) THEN
           zsnow_rate = prs_gsp(i)+prs_con(i)+prg_gsp(i) ! [kg/m**2 s]
         ELSE
           zsnow_rate = prs_gsp(i)+prs_con(i)              ! [kg/m**2 s]
@@ -2561,7 +2563,7 @@ END IF
         ! add grid scale and convective precipitation (and graupel, if present)
         ! to dew and rime
         zrr(i) = zrr(i) + prr_con(i) + prr_gsp(i)
-        IF ( itype_gscp == 4 ) THEN
+        IF ( nclass_gscp >= 6 ) THEN
           zrs(i) = zrs(i) + prs_con(i) + prs_gsp(i) + prg_gsp(i)
         ELSE
           zrs(i) = zrs(i) + prs_con(i) + prs_gsp(i)
@@ -2672,7 +2674,7 @@ ELSE   IF (itype_interception == 2) THEN
 !       add grid scale and convective precipitation (and graupel, if present) to dew and rime
         zrr(i) = zdrr(i) + prr_con(i) + prr_gsp(i)
 
-        IF ( itype_gscp == 4 ) THEN
+        IF ( nclass_gscp >= 6 ) THEN
           zrs(i) = zrrs(i) + prs_con(i) + prs_gsp(i) + prg_gsp(i)
         ELSE
           zrs(i) = zrrs(i) + prs_con(i) + prs_gsp(i)
@@ -4662,7 +4664,7 @@ ENDIF
 !
 !     c) new snow density is weighted average of existing and new snow
 !
-         IF ( itype_gscp == 4 ) THEN
+         IF ( nclass_gscp >= 6 ) THEN
            znorm=MAX(w_snow_now(i)+(prs_gsp(i)+prs_con(i)+prg_gsp(i))      &
                      *zdtdrhw,zepsi)
            rho_snow_new(i)  = ( zrho_snowe*w_snow_now(i) + &

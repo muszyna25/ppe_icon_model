@@ -57,7 +57,7 @@ MODULE mo_lnd_nwp_config
   PUBLIC :: nlev_soil, nlev_snow, ntiles_total, ntiles_lnd, ntiles_water
   PUBLIC :: frlnd_thrhld, frlndtile_thrhld, frlake_thrhld, frsea_thrhld
   PUBLIC :: lseaice,  llake, lmelt, lmelt_var, lmulti_snow, lsnowtile, max_toplaydepth
-  PUBLIC :: itype_gscp, itype_trvg ,    itype_evsl, itype_tran, itype_lndtbl
+  PUBLIC :: itype_trvg, itype_evsl, itype_tran, itype_lndtbl
   PUBLIC :: itype_root, itype_heatcond, itype_interception, &
              itype_hydbound, idiag_snowfrac
   PUBLIC :: lstomata,   l2tls, lana_rho_snow 
@@ -84,7 +84,6 @@ MODULE mo_lnd_nwp_config
                                  !< tile for a grid point
   REAL(wp)::  frlake_thrhld      !< fraction threshold for creating a lake grid point
   REAL(wp)::  frsea_thrhld       !< fraction threshold for creating a sea grid point
-  INTEGER ::  itype_gscp         !< type of grid-scale precipitation physics
   INTEGER ::  itype_trvg         !< type of vegetation transpiration parameterization
   INTEGER ::  itype_evsl         !< type of parameterization of bare soil evaporation
   INTEGER ::  itype_tran         !< type of surface to atmospher transfer
