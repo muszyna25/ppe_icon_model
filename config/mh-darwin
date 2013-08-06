@@ -11,7 +11,7 @@
 #   -xf95-cpp-input
 #   -std=f2003
 #   -fmodule-private -fimplicit-none
-#   -ffree-line-length-132 -fmax-identifier-length=31
+#   -ffree-line-length-132 -fmax-identifier-length=63
 # 
 # . warning options:
 #   -Wall (= -Waliasing -Wampersand -Wsurprising -Wnonstd-intrinsics -Wno-tabs -Wline-truncation)
