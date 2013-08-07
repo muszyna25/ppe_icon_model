@@ -212,7 +212,7 @@ MODULE mo_sgs_turbulence
     END IF
 
    DEALLOCATE(u_vert, v_vert, w_vert, w_ie, visc_smag_v, visc_smag_ie, diff_smag_e, &
-              theta, visc_smag_c, rho_e, DIV_c)
+              theta, thetav, visc_smag_c, rho_e, DIV_c)
 
 
   END SUBROUTINE drive_subgrid_diffusion
