@@ -1281,6 +1281,7 @@ TYPE(t_patch), POINTER :: patch     ! patch on which computation is performed
            &                   p_op_coeff%grad_coeff(:,1,:),&
            &                   lhs_z_grad_h(:,:))
 
+  ! the result lhs_z_grad_h is computed on in_domain edges
   CALL sync_patch_array(SYNC_E, patch, lhs_z_grad_h(:,:) )
 
 
@@ -1301,7 +1302,12 @@ TYPE(t_patch), POINTER :: patch     ! patch on which computation is performed
     ! no need to sync since we will compute only cells in domain
     !CALL sync_patch_array(SYNC_E, patch, lhs_z_e(:,:) )
 
-  ELSEIF(.NOT.l_edge_based)THEN
+  ELSE  !IF(.NOT.l_edge_based)THEN
+
+   ! the map_edges2edges_viacell_3d_const_z should be changes to calculate only
+   ! on in_domai_edges. Still, edge valkues need to be synced
+   CALL sync_patch_array(SYNC_E, patch, lhs_z_grad_h(:,:) )
+
 
     IF( iswm_oce /= 1 ) THEN
 
@@ -1312,7 +1318,8 @@ TYPE(t_patch), POINTER :: patch     ! patch on which computation is performed
       !CALL map_edges2edges_viacell_3D( p_patch_3D, lhs_z_grad_h, p_op_coeff, lhs_z_e,thickness_c, level=top)
       CALL map_edges2edges_viacell_3d_const_z( p_patch_3D, lhs_z_grad_h(:,:), p_op_coeff, lhs_z_e(:,:))
     ENDIF!( iswm_oce == 1 )
-  ENDIF
+
+  ENDIF ! l_edge_based
 
   !Step 3) Calculate divergence
   CALL div_oce_3D( lhs_z_e, patch, p_op_coeff%div_coeff, lhs_div_z_c, &
