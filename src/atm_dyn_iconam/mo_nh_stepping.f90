@@ -153,7 +153,7 @@ MODULE mo_nh_stepping
   USE mo_ls_forcing,          ONLY: init_ls_forcing
   USE mo_nh_latbc,            ONLY: read_latbc_tlev, last_latbc_tlev, allocate_latbc_data , &
                                     read_latbc_data, deallocate_latbc_data, p_latbc_data,   &
-                                    last_latbc_datetime
+                                    last_latbc_datetime, adjust_boundary_data
   USE mo_interface_les,       ONLY: les_phy_interface
   USE mo_io_restart_async,    ONLY: prepare_async_restart, write_async_restart, &
     &                               close_async_restart, set_data_async_restart
@@ -1020,7 +1020,7 @@ MODULE mo_nh_stepping
         ! and nudging increments (or, alternatively, the full fields) should be
         ! written to the grf_tend fields
 
-!        CALL boundary_data ( p_patch(jg), p_nh_state(jg), ... )
+        CALL adjust_boundary_data ( p_patch(jg), p_nh_state(jg), latbc_inter1, latbc_inter2 )
 
         ! Apply nudging at the lateral boundaries if the limited-area-mode is used
 
