@@ -323,26 +323,6 @@ CONTAINS
 
        ! The devision by rho_ref is done in top_bound_cond_horz_veloc (z_scale)
 
-       ! After updating of zonal and merdional components cartesian coordinates are calculated
-        DO jb = all_cells%start_block, all_cells%end_block
-          CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
-          DO jc = i_startidx_c, i_endidx_c
-            IF(p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary)THEN
-              CALL gvec2cvec(  p_sfc_flx%forc_wind_u(jc,jb),&
-                             & p_sfc_flx%forc_wind_v(jc,jb),&
-                             & p_patch%cells%center(jc,jb)%lon,&
-                             & p_patch%cells%center(jc,jb)%lat,&
-                             & p_sfc_flx%forc_wind_cc(jc,jb)%x(1),&
-                             & p_sfc_flx%forc_wind_cc(jc,jb)%x(2),&
-                             & p_sfc_flx%forc_wind_cc(jc,jb)%x(3))
-            ELSE
-              p_sfc_flx%forc_wind_u(jc,jb)         = 0.0_wp
-              p_sfc_flx%forc_wind_v(jc,jb)         = 0.0_wp
-              p_sfc_flx%forc_wind_cc(jc,jb)%x      = 0.0_wp
-            ENDIF
-          END DO
-        END DO
-
       END IF
 
       IF (iforc_type == 2 .OR. iforc_type == 5) THEN
@@ -906,26 +886,6 @@ CONTAINS
         DEALLOCATE(buffer)
         DEALLOCATE(field_id)      
 
-        ! After updating of zonal and merdional components cartesian coordinates are calculated
-        DO jb = all_cells%start_block, all_cells%end_block
-          CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
-          DO jc = i_startidx_c, i_endidx_c
-            IF(p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary)THEN
-              CALL gvec2cvec(  p_sfc_flx%forc_wind_u(jc,jb),&
-                             & p_sfc_flx%forc_wind_v(jc,jb),&
-                             & p_patch%cells%center(jc,jb)%lon,&
-                             & p_patch%cells%center(jc,jb)%lat,&
-                             & p_sfc_flx%forc_wind_cc(jc,jb)%x(1),&
-                             & p_sfc_flx%forc_wind_cc(jc,jb)%x(2),&
-                             & p_sfc_flx%forc_wind_cc(jc,jb)%x(3))
-            ELSE
-              p_sfc_flx%forc_wind_u(jc,jb)         = 0.0_wp
-              p_sfc_flx%forc_wind_v(jc,jb)         = 0.0_wp
-              p_sfc_flx%forc_wind_cc(jc,jb)%x      = 0.0_wp
-            ENDIF
-          END DO
-        END DO
-
         IF (ltimer) CALL timer_stop(timer_coupling)
 
         ! call of sea ice model
@@ -972,24 +932,24 @@ CONTAINS
     ! cartesian coordinates are calculated
     !
     IF (iforc_oce > NO_FORCING) THEN
-!      DO jb = all_cells%start_block, all_cells%end_block
-!        CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
-!        DO jc = i_startidx_c, i_endidx_c
-!          IF(p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary)THEN
-!            CALL gvec2cvec(  p_sfc_flx%forc_wind_u(jc,jb),&
-!                           & p_sfc_flx%forc_wind_v(jc,jb),&
-!                           & p_patch%cells%center(jc,jb)%lon,&
-!                           & p_patch%cells%center(jc,jb)%lat,&
-!                           & p_sfc_flx%forc_wind_cc(jc,jb)%x(1),&
-!                           & p_sfc_flx%forc_wind_cc(jc,jb)%x(2),&
-!                           & p_sfc_flx%forc_wind_cc(jc,jb)%x(3))
-!          ELSE
-!            p_sfc_flx%forc_wind_u(jc,jb)         = 0.0_wp
-!            p_sfc_flx%forc_wind_v(jc,jb)         = 0.0_wp
-!            p_sfc_flx%forc_wind_cc(jc,jb)%x      = 0.0_wp
-!          ENDIF
-!        END DO
-!      END DO
+      DO jb = all_cells%start_block, all_cells%end_block
+        CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+        DO jc = i_startidx_c, i_endidx_c
+          IF(p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary)THEN
+            CALL gvec2cvec(  p_sfc_flx%forc_wind_u(jc,jb),&
+                           & p_sfc_flx%forc_wind_v(jc,jb),&
+                           & p_patch%cells%center(jc,jb)%lon,&
+                           & p_patch%cells%center(jc,jb)%lat,&
+                           & p_sfc_flx%forc_wind_cc(jc,jb)%x(1),&
+                           & p_sfc_flx%forc_wind_cc(jc,jb)%x(2),&
+                           & p_sfc_flx%forc_wind_cc(jc,jb)%x(3))
+          ELSE
+            p_sfc_flx%forc_wind_u(jc,jb)         = 0.0_wp
+            p_sfc_flx%forc_wind_v(jc,jb)         = 0.0_wp
+            p_sfc_flx%forc_wind_cc(jc,jb)%x      = 0.0_wp
+          ENDIF
+        END DO
+      END DO
 
       !---------DEBUG DIAGNOSTICS-------------------------------------------
       idt_src=1  ! output print level (1-5, fix)
