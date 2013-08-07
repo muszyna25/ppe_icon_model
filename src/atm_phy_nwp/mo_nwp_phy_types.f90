@@ -189,7 +189,9 @@ MODULE mo_nwp_phy_types
       &  cosmu0(:,:),          & !! cosine of solar zenith angle
       &  albdif(:,:),          & !! Shortwave albedo for diffuse radiation  (0.3-5.0µm)
       &  albvisdif(:,:),       & !! UV visible albedo for diffuse radiation (0.3-0.7µm)
+      &  albvisdir(:,:),       & !! UV visible albedo for direct radiation  (0.3-0.7µm)
       &  albnirdif(:,:),       & !! near IR albedo for diffuse radiation    (0.7-5.0µm)
+      &  albnirdir(:,:),       & !! near IR albedo for direct radiation     (0.7-5.0µm)
       &  albdif_t(:,:,:),      & !! tile-based shortwave albedo for diffuse radiation  (0.3-5.0µm)
       &  albvisdif_t(:,:,:),   & !! tile-based UV visible albedo for diffuse radiation (0.3-0.7µm)
       &  albnirdif_t(:,:,:),   & !! tile-based near IR albedo for diffuse radiation (0.3-0.7µm)

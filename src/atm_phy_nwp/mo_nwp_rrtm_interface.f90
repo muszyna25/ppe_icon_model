@@ -584,8 +584,6 @@ CONTAINS
     TYPE(t_nwp_phy_diag),       INTENT(inout):: prm_diag
     TYPE(t_lnd_prog),           INTENT(inout):: lnd_prog
 
-    REAL(wp):: albvisdir     (nproma,pt_patch%nblks_c) !<
-    REAL(wp):: albnirdir     (nproma,pt_patch%nblks_c) !<
     REAL(wp):: aclcov        (nproma,pt_patch%nblks_c) !<
 
 
@@ -634,18 +632,6 @@ CONTAINS
       IF (i_startidx > i_endidx) CYCLE
 
 
-      !Calculate direct albedo from diffuse albedo and solar zenith angle
-      !formula as in Ritter-Geleyn's fesft
-      DO jc = i_startidx,i_endidx
-        albvisdir(jc,jb) =  ( 1.0_wp                                                           &
-          &  + 0.5_wp * (prm_diag%cosmu0(jc,jb) * (1.0_wp/prm_diag%albvisdif(jc,jb) - 1.0_wp))) &
-          & / (1.0_wp + (prm_diag%cosmu0(jc,jb) * (1.0_wp/prm_diag%albvisdif(jc,jb) - 1.0_wp)))**2
-      ENDDO
-      IF (i_startidx > 1) albvisdir(1:i_startidx-1,jb) = albvisdir(i_startidx,jb)
-
-      ! no distiction between vis and nir albedo
-      albnirdir(1:i_endidx,jb) = albvisdir(1:i_endidx,jb)
-
       prm_diag%tsfctrad(1:i_endidx,jb) = lnd_prog%t_g(1:i_endidx,jb)
 
 
@@ -667,8 +653,8 @@ CONTAINS
         & zglac      =ext_data%atm%fr_glac_smt(:,jb)   ,&!< in     land glacier fraction
                               !
         & cos_mu0    =prm_diag%cosmu0  (:,jb) ,&!< in  cos of zenith angle mu0
-        & alb_vis_dir=albvisdir        (:,jb) ,&!< in surface albedo for visible range, direct
-        & alb_nir_dir=albnirdir        (:,jb) ,&!< in surface albedo for near IR range, direct
+        & alb_vis_dir=prm_diag%albvisdir(:,jb) ,&!< in surface albedo for visible range, direct
+        & alb_nir_dir=prm_diag%albnirdir(:,jb) ,&!< in surface albedo for near IR range, direct
         & alb_vis_dif=prm_diag%albvisdif(:,jb),&!< in surface albedo for visible range, diffuse
         & alb_nir_dif=prm_diag%albnirdif(:,jb),&!< in surface albedo for near IR range, diffuse
         & emis_rad=ext_data%atm%emis_rad(:,jb),&!< in longwave surface emissivity
@@ -737,8 +723,6 @@ CONTAINS
     TYPE(t_nwp_phy_diag),       INTENT(inout):: prm_diag
     TYPE(t_lnd_prog),           INTENT(inout):: lnd_prog
 
-    REAL(wp):: albvisdir     (nproma,pt_patch%nblks_c) !<
-    REAL(wp):: albnirdir     (nproma,pt_patch%nblks_c) !<
     REAL(wp):: aclcov        (nproma,pt_patch%nblks_c) !<
     ! For radiation on reduced grid
     ! These fields need to be allocatable because they have different dimensions for
@@ -888,17 +872,6 @@ CONTAINS
 
       ! Loop starts with 1 instead of i_startidx because the start index is missing in RRTM
 
-      !Calculate direct albedo from diffuse albedo and solar zenith angle
-      !formula as in Ritter-Geleyn's fesft
-      DO jc = 1,i_endidx
-        albvisdir(jc,jb) = ( 1.0_wp                                                             &
-          &  + 0.5_wp * (prm_diag%cosmu0(jc,jb) * (1.0_wp/prm_diag%albvisdif(jc,jb) - 1.0_wp))) &
-          & / (1.0_wp + (prm_diag%cosmu0(jc,jb) * (1.0_wp/prm_diag%albvisdif(jc,jb) - 1.0_wp)))**2
-      ENDDO
-
-      ! no distiction between vis and nir albedo
-      albnirdir(1:i_endidx,jb) = albvisdir(1:i_endidx,jb)
-
       prm_diag%tsfctrad(1:i_endidx,jb) = lnd_prog%t_g(1:i_endidx,jb)
 
       ENDDO ! blocks
@@ -908,8 +881,8 @@ CONTAINS
 
       CALL upscale_rad_input(pt_patch%id, pt_par_patch%id,              &
         & nlev_rg, ext_data%atm%fr_land_smt, ext_data%atm%fr_glac_smt,  &
-        & ext_data%atm%emis_rad,                                        &
-        & prm_diag%cosmu0, albvisdir, albnirdir, prm_diag%albvisdif,    &
+        & ext_data%atm%emis_rad, prm_diag%cosmu0,                       &
+        & prm_diag%albvisdir, prm_diag%albnirdir, prm_diag%albvisdif,   &
         & prm_diag%albnirdif, prm_diag%albdif, prm_diag%tsfctrad,       &
         & prm_diag%ktype, pt_diag%pres_ifc, pt_diag%pres,               &
         & pt_diag%temp,prm_diag%acdnc, prm_diag%tot_cld, prm_diag%clc,  &
@@ -1192,8 +1165,6 @@ CONTAINS
     TYPE(t_nwp_phy_diag),       INTENT(inout):: prm_diag
     TYPE(t_lnd_prog),           INTENT(inout):: lnd_prog
 
-    REAL(wp), POINTER:: albvisdir(:,:), albnirdir(:,:)
-
 
     ! Local scalars:
     INTEGER:: jc,jb
@@ -1248,8 +1219,6 @@ CONTAINS
       ! from the direct radiation call and the redistributed
       ! radiation call
       ALLOCATE( &
-        & albvisdir    (nproma,         pt_patch%nblks_c),  &
-        & albnirdir    (nproma,         pt_patch%nblks_c),  &
         & test_aclcov  (nproma,         pt_patch%nblks_c),  &
         & test_lwflxclr(nproma, nlevp1, pt_patch%nblks_c),  &
         & test_trsolclr(nproma, nlevp1, pt_patch%nblks_c),  &
@@ -1269,19 +1238,6 @@ CONTAINS
         ! It may happen that an MPI patch contains only nest boundary points
         ! In this case, no action is needed
         IF (i_startidx > i_endidx) CYCLE
-
-
-        !Calculate direct albedo from diffuse albedo and solar zenith angle
-        !formula as in Ritter-Geleyn's fesft
-        DO jc = i_startidx,i_endidx
-          albvisdir(jc,jb) =  ( 1.0_wp                                                           &
-            &  + 0.5_wp * (prm_diag%cosmu0(jc,jb) * (1.0_wp/prm_diag%albvisdif(jc,jb) - 1.0_wp))) &
-            & / (1.0_wp + (prm_diag%cosmu0(jc,jb) * (1.0_wp/prm_diag%albvisdif(jc,jb) - 1.0_wp)))**2
-        ENDDO
-        IF (i_startidx > 1) albvisdir(1:i_startidx-1,jb) = albvisdir(i_startidx,jb)
-
-        ! no distiction between vis and nir albedo
-        albnirdir(1:i_endidx,jb) = albvisdir(1:i_endidx,jb)
 
         prm_diag%tsfctrad(1:i_endidx,jb) = lnd_prog%t_g(1:i_endidx,jb)
 
@@ -1303,12 +1259,12 @@ CONTAINS
           & zglac      =ext_data%atm%fr_glac_smt(:,jb)   ,&!< in     land glacier fraction
                                 !
           & cos_mu0    =prm_diag%cosmu0  (:,jb) ,&!< in  cos of zenith angle mu0
-          & alb_vis_dir=albvisdir        (:,jb) ,&!< in surface albedo for visible range, direct
-          & alb_nir_dir=albnirdir        (:,jb) ,&!< in surface albedo for near IR range, direct
-          & alb_vis_dif=prm_diag%albvisdif(:,jb),&!< in surface albedo for visible range, diffuse
-          & alb_nir_dif=prm_diag%albnirdif(:,jb),&!< in surface albedo for near IR range, diffuse
-          & emis_rad=ext_data%atm%emis_rad(:,jb),&!< in longwave surface emissivity
-          & tk_sfc     =prm_diag%tsfctrad(:,jb) ,&!< in surface temperature
+          & alb_vis_dir=prm_diag%albvisdir(:,jb) ,&!< in surface albedo for visible range, direct
+          & alb_nir_dir=prm_diag%albnirdir(:,jb) ,&!< in surface albedo for near IR range, direct
+          & alb_vis_dif=prm_diag%albvisdif(:,jb) ,&!< in surface albedo for visible range, diffuse
+          & alb_nir_dif=prm_diag%albnirdif(:,jb) ,&!< in surface albedo for near IR range, diffuse
+          & emis_rad=ext_data%atm%emis_rad(:,jb) ,&!< in longwave surface emissivity
+          & tk_sfc     =prm_diag%tsfctrad(:,jb)  ,&!< in surface temperature
                                 !
                                 ! atmosphere: pressure, tracer mixing ratios and temperature
           & pp_hl      =pt_diag%pres_ifc  (:,:,jb)     ,&!< in  pres at half levels at t-dt [Pa]
@@ -1521,8 +1477,7 @@ CONTAINS
        ENDDO
      ENDDO
 
-     DEALLOCATE(albvisdir, albnirdir, &  
-      & test_aclcov, test_lwflxclr, test_trsolclr, test_lwflxall, test_trsolall)
+     DEALLOCATE(test_aclcov, test_lwflxclr, test_trsolclr, test_lwflxall, test_trsolall)
 
    ENDIF ! test_parallel_radiation
       

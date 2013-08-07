@@ -95,6 +95,8 @@ CONTAINS
   !! - Modification by Daniel Reinert, DWD (2013-07-03)
   !!   Albedo for lake-ice points based on an empirical formula proposed by 
   !!   proposed by Mironov and Ritter (2004)
+  !! - Modification by Daniel Reinert, DWD (2013-08-07)
+  !!   Added albedo for direct radiation (VIS and NIR spectral bands)
   !!
   SUBROUTINE sfc_albedo(pt_patch, ext_data, lnd_prog, wtr_prog, lnd_diag, prm_diag)
 
@@ -475,6 +477,19 @@ CONTAINS
       ENDIF ! inwp_surface=1
 
 
+      ! albvisdir, albnirdir only needed for RRTM 
+      !
+      ! compute black sky albedo from white sky albedo and solar zenith angle formula 
+      ! as in Ritter-Geleyn's fesft. So far we do not distinguish between  
+      ! visible and NIR spectral bands.
+      DO jc = i_startidx, i_endidx
+        prm_diag%albvisdir(jc,jb) = ( 1.0_wp                                                    &
+          &  + 0.5_wp * (prm_diag%cosmu0(jc,jb) * (1.0_wp/prm_diag%albvisdif(jc,jb) - 1.0_wp))) &
+          & / (1.0_wp + (prm_diag%cosmu0(jc,jb) * (1.0_wp/prm_diag%albvisdif(jc,jb) - 1.0_wp)))**2
+
+        prm_diag%albnirdir(jc,jb) = prm_diag%albvisdir(jc,jb)
+      ENDDO
+
     ENDDO  ! jb
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
@@ -527,6 +542,8 @@ CONTAINS
   !! - Modification by Daniel Reinert, DWD (2013-07-03)
   !!   Albedo for lake-ice points based on an empirical formula proposed by 
   !!   proposed by Mironov and Ritter (2004)
+  !! - Modification by Daniel Reinert, DWD (2013-08-07)
+  !!   Added albedo for direct radiation (VIS and NIR spectral bands)
   !!
   SUBROUTINE sfc_albedo_modis(pt_patch, ext_data, lnd_prog, wtr_prog, lnd_diag, prm_diag)
 
@@ -866,6 +883,21 @@ CONTAINS
         ENDDO
 
       ENDIF ! inwp_surface=1
+
+
+      ! albvisdir, albnirdir only needed for RRTM 
+      !
+      ! compute black sky albedo from white sky albedo and solar zenith angle formula 
+      ! as in Ritter-Geleyn's fesft. So far we do not distinguish between  
+      ! visible and NIR spectral bands.
+      DO jc = i_startidx, i_endidx
+        prm_diag%albvisdir(jc,jb) = ( 1.0_wp                                                    &
+          &  + 0.5_wp * (prm_diag%cosmu0(jc,jb) * (1.0_wp/prm_diag%albvisdif(jc,jb) - 1.0_wp))) &
+          & / (1.0_wp + (prm_diag%cosmu0(jc,jb) * (1.0_wp/prm_diag%albvisdif(jc,jb) - 1.0_wp)))**2
+
+        prm_diag%albnirdir(jc,jb) = prm_diag%albvisdir(jc,jb)
+      ENDDO
+
 
     ENDDO  ! jb
 !$OMP END DO NOWAIT
