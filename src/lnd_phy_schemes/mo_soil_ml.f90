@@ -2734,6 +2734,8 @@ ELSE   IF (itype_interception == 2) THEN
         zwinstr(i)  = MIN(zwinstr(i),zwimax(i))                 ! correction of interc. store due to runoff
         zdwidt(i)   = zdwidtt - zro_wi
 
+        zuv        = SQRT ( u(i)**2 + v(i)**2 )
+
 !       SNOW Interception Model (Roesch et al., 2001)
 ! Need forest_fraction 
 !        zdwisndtt=(for_e(i)+for_d(i))*zrs(i) + (for_e(i)+for_d(i))*zesn(i) - zwisn(i)* &
