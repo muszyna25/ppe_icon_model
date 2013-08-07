@@ -435,6 +435,7 @@ SUBROUTINE advect_individual_tracer_ab(p_patch_3D, trac_old,               &
   REAL(wp) :: flux_vert(nproma,n_zlev, p_patch_3D%p_patch_2D(1)%nblks_c)
   REAL(wp) :: z_temp(nproma,n_zlev,    p_patch_3D%p_patch_2D(1)%nblks_c)
   REAL(wp) :: div_diff_flx(nproma, n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)
+  REAL(wp) :: dt_inv
   INTEGER  :: jc,jk,jb
   INTEGER  :: z_dolic
   INTEGER  :: i_startidx_c, i_endidx_c
@@ -446,6 +447,7 @@ SUBROUTINE advect_individual_tracer_ab(p_patch_3D, trac_old,               &
   p_patch => p_patch_3D%p_patch_2D(1)
   cells_in_domain => p_patch%cells%in_domain
   delta_t = dtime
+  dt_inv = 1.0_wp/dtime
 
   z_temp      (1:nproma,1:n_zlev,1:p_patch%nblks_c) = 0.0_wp
   flux_horz   (1:nproma,1:n_zlev,1:p_patch%nblks_c) = 0.0_wp
@@ -527,11 +529,11 @@ SUBROUTINE advect_individual_tracer_ab(p_patch_3D, trac_old,               &
               delta_z     = p_patch_3D%p_patch_1D(1)%del_zlev_m(jk)+p_os%p_prog(nold(1))%h(jc,jb)
               delta_z_new = p_patch_3D%p_patch_1D(1)%del_zlev_m(jk)+p_os%p_prog(nnew(1))%h(jc,jb)
 
-               z_temp(jc,jk,jb)= (trac_old(jc,jk,jb)*delta_z &
+              z_temp(jc,jk,jb)= (trac_old(jc,jk,jb)*delta_z &
                & -delta_t*(flux_vert(jc,jk,jb)-flux_horz(jc,jk,jb)))/delta_z_new
  
-              z_temp(jc,jk,jb)=z_temp(jc,jk,jb)+(delta_t/delta_z_new)*bc_top_tracer(jc,jb)
-
+              z_temp(jc,jk,jb) = (z_temp(jc,jk,jb) + &
+                & (delta_t  /delta_z_new) * bc_top_tracer(jc,jb)) * dt_inv
 
             ENDIF
         END DO
@@ -544,8 +546,12 @@ SUBROUTINE advect_individual_tracer_ab(p_patch_3D, trac_old,               &
             !IF(z_dolic>=MIN_DOLIC)THEN
             DO jk = 2, z_dolic
               IF ( p_patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
+
                 delta_z = p_patch_3D%p_patch_1D(1)%del_zlev_m(jk)
-                z_temp(jc,jk,jb)= trac_old(jc,jk,jb) -(delta_t/delta_z)*(flux_vert(jc,jk,jb)-flux_horz(jc,jk,jb))
+
+                z_temp(jc,jk,jb) = &
+                  & (trac_old(jc,jk,jb) - (delta_t/delta_z) *            &
+                  &  (flux_vert(jc,jk,jb)-flux_horz(jc,jk,jb))) * dt_inv
 
               ENDIF
             ENDDO

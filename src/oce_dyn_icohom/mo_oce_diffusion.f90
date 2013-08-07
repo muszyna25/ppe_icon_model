@@ -1395,7 +1395,7 @@ SUBROUTINE tracer_diffusion_vert_impl_hom( p_patch_3D,   &
   REAL(wp) :: z_tmp
   REAL(wp) :: inv_zinv_i(1:n_zlev)
   REAL(wp) :: inv_zinv_m(1:n_zlev)
-  REAL(wp) :: dt_inv
+  ! REAL(wp) :: dt_inv
   INTEGER  :: z_dolic
   TYPE(t_subset_range), POINTER :: cells_in_domain !all_cells
   TYPE(t_patch), POINTER         :: p_patch 
@@ -1408,10 +1408,11 @@ SUBROUTINE tracer_diffusion_vert_impl_hom( p_patch_3D,   &
   !-----------------------------------------------------------------------
   slev    = 1
   !A_v    = 0.0001_wp
-  dt_inv = 1.0_wp/dtime
+  ! dt_inv = 1.0_wp/dtime
 
-  field_column(1:nproma,1:n_zlev,1:p_patch_3D%p_patch_2D(1)%nblks_c)  &
-    & = field_column(1:nproma,1:n_zlev,1:p_patch_3D%p_patch_2D(1)%nblks_c) * dt_inv
+  ! already done in the calling routine (ie advect_individual_tracer_ab)
+!  field_column(1:nproma,1:n_zlev,1:p_patch_3D%p_patch_2D(1)%nblks_c)  &
+!    & = field_column(1:nproma,1:n_zlev,1:p_patch_3D%p_patch_2D(1)%nblks_c) * dt_inv
 
   ! CALL sync_patch_array(SYNC_C, p_patch, field_column)
 
