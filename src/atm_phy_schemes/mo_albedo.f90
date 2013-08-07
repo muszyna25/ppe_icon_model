@@ -361,6 +361,7 @@ CONTAINS
           !
           i_count_flk = ext_data%atm%fp_count(jb)
 
+!CDIR NODEP,VOVERTAKE,VOB
           DO ic = 1, i_count_flk
             jc = ext_data%atm%idx_lst_fp(ic,jb)
 
@@ -759,6 +760,7 @@ CONTAINS
           !
           i_count_flk = ext_data%atm%fp_count(jb)
 
+!CDIR NODEP,VOVERTAKE,VOB
           DO ic = 1, i_count_flk
             jc = ext_data%atm%idx_lst_fp(ic,jb)
 
