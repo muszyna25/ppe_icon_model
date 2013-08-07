@@ -714,7 +714,7 @@ MODULE mo_nh_latbc
   !!
   SUBROUTINE adjust_boundary_data ( p_patch, p_nh_state, latbc_inter1, latbc_inter2 )
     TYPE(t_patch),    INTENT(IN)    :: p_patch
-    TYPE(t_nh_state), INTENT(IN)    :: p_nh_state
+    TYPE(t_nh_state), INTENT(INOUT) :: p_nh_state
     REAL(wp),         INTENT(IN)    :: latbc_inter1, latbc_inter2
 
     ! Local variables
